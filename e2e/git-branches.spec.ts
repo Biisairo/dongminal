@@ -210,7 +210,7 @@ test.describe('18단계 — Branches 탭', () => {
     await waitRefs(page, 3);
 
     await openRowMenu(page, row(page, 'origin/feat'));
-    await items(page).filter({ hasText: 'Checkout as local' }).click();
+    await items(page).filter({ hasText: '로컬로 Checkout' }).click();
 
     await expect.poll(() => git(repo, 'branch', '--show-current'), { timeout: 20000 }).toBe('feat');
     expect(git(repo, 'rev-parse', '--abbrev-ref', 'feat@{upstream}')).toBe('origin/feat');
@@ -226,7 +226,7 @@ test.describe('18단계 — Branches 탭', () => {
     await waitRefs(page, 4);
 
     await openRowMenu(page, row(page, 'origin/feat'));
-    await items(page).filter({ hasText: 'Checkout as local' }).click();
+    await items(page).filter({ hasText: '로컬로 Checkout' }).click();
 
     // 서버가 준 순서 그대로 3개다 — 목록을 프론트가 복제하지 않는다.
     await expect(choice(page)).toBeVisible({ timeout: 15000 });

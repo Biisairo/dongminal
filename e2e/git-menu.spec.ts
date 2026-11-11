@@ -317,7 +317,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     // 같은 것을 두 번 만들지 않는다 — 옛 .git-ctxmenu 는 더 이상 없다.
     await expect(menu(page)).toBeVisible();
     await expect(page.locator('.git-ctxmenu')).toHaveCount(0);
-    await expect(items(page).filter({ hasText: 'Copy Path' })).toHaveCount(1);
+    await expect(items(page).filter({ hasText: '경로 복사' })).toHaveCount(1);
   });
 
   test('N11 (V66 / FR-GIT-144·157): dirty 에서 stash 후 진행하면 변경이 stash 로 남고 detached 가 된다', async ({ page }) => {

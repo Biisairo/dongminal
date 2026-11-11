@@ -164,8 +164,14 @@ Object.assign(GitPanel.prototype, {
         // 있었고, 그 패널이 세로 공간의 42% 를 먹었다 (I-3).
         '<span class="git-diff-hunk-note"></span>'+
         '<span class="git-diff-spacer"></span>'+
+        // UI_POLISH_SRS FR-UIP-17: 동작(Blame)과 보기 상태(방식·공백·접기)를 가른다.
+        // 방식은 둘 중 하나를 고르는 묶음이라 지금 방식이 선택돼 보인다.
         '<button class="ui-btn ui-btn-sm git-diff-blame"></button>'+
-        '<button class="ui-btn ui-btn-sm git-diff-mode"></button>'+
+        '<span class="git-diff-sep" aria-hidden="true"></span>'+
+        '<span class="ui-segment git-diff-mode">'+
+          '<button class="ui-btn ui-btn-sm" data-mode="side"></button>'+
+          '<button class="ui-btn ui-btn-sm" data-mode="inline"></button>'+
+        '</span>'+
         '<label class="git-diff-ws"><input type="checkbox"></label>'+
         // FR-DOR-3: 접기 토글. 공백무시와 같은 규약·같은 자리다 — 둘 다
         // "무엇을 보여 줄 것인가"를 정하는 기기별 취향이다.
@@ -188,9 +194,12 @@ Object.assign(GitPanel.prototype, {
     const bl=el.querySelector('.git-diff-blame');
     bl.textContent=GIT_BLAME_TOGGLE; bl.title=GIT_BLAME_TOGGLE_TITLE;
     bl.addEventListener('click',()=>{this._blameOn=!this._blameOn; this._paint()});
-    const dm=el.querySelector('.git-diff-mode');
-    dm.title=GIT_DIFF_MODE_TITLE;
-    dm.addEventListener('click',()=>this._toggleSideBySide());
+    for(const b of el.querySelectorAll('.git-diff-mode>button')){
+      b.textContent=GIT_DIFF_MODE_LABEL[b.dataset.mode]; b.title=GIT_DIFF_MODE_TITLE;
+      b.addEventListener('click',()=>{
+        if((b.dataset.mode==='side')!==this._sideBySidePref()) this._toggleSideBySide();
+      });
+    }
     el.querySelector('.git-diff-ws input')
       .addEventListener('change',ev=>this._setIgnoreWs(ev.target.checked));
     el.querySelector('.git-diff-fold input')
@@ -212,8 +221,9 @@ Object.assign(GitPanel.prototype, {
       f?(f.origPath&&f.origPath!==f.path?f.origPath+' \u2192 '+f.path:f.path):'';
     el.querySelector('.git-diff-axis').textContent=
       f?(GIT_AXIS_LABEL[f.axis]||f.axis||''):'';
+    // UI_POLISH_SRS FR-UIP-24: 수만으로는 무엇의 위치인지 말하지 않는다.
     el.querySelector('.git-diff-pos').textContent=
-      cf?'':(list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0');
+      cf?'':t('git.diff_pos',{pos:list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0'});
     // 대상이 목록에서 사라졌으면(커밋·discard) 그 사실만 알린다 — 아무 파일이나
     // 임의로 보이지 않는다 (§3.3). UX_BATCH12_SRS FR-DNC-1: 목록이 비어도 같은 규칙이다 —
     // 변경을 전부 커밋하면 목록이 비고, 그때 안내가 빠졌다. 관측이 오기 전은 모르는 것이다.
@@ -226,8 +236,11 @@ Object.assign(GitPanel.prototype, {
     const rev=el.querySelector('.git-diff-rev');
     rev.textContent=cf?this._revLabel(cf):'';
     rev.classList.toggle('vis',!!cf);
-    el.querySelector('.git-diff-mode').textContent=
-      this._sideBySidePref()?GIT_DIFF_MODE_LABEL.side:GIT_DIFF_MODE_LABEL.inline;
+    const side=this._sideBySidePref();
+    for(const b of el.querySelectorAll('.git-diff-mode>button')){
+      const on=(b.dataset.mode==='side')===side;
+      b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on));
+    }
     el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
     el.querySelector('.git-diff-fold input').checked=this._foldPref();
     el.querySelector('.git-diff-blame').classList.toggle('on',!!this._blameOn);

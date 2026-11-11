@@ -129,10 +129,9 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
 
     // 메시지가 비었다 (FR-GIT-84).
     await expect(btn(page)).toBeDisabled();
-    await expect(why(page)).toBeVisible();
-    await expect(why(page)).toHaveText('커밋 메시지를 입력하세요');
-    // FR-TIP-2·3: 툴팁은 영어이고, 버튼 옆 한 줄은 한국어 그대로다 — 같은
-    // 사유가 두 자리에 다른 말로 산다. 둘 다 재서 그 대칭을 지킨다.
+    // UI_POLISH_SRS FR-UIP-14: "메시지가 비었다" 는 처음 보는 상태라 줄에 띄우지 않고
+    // 버튼의 툴팁(영어, FR-TIP-2)만 말한다.
+    await expect(why(page)).toBeHidden();
     await expect(btn(page)).toHaveAttribute('title', 'Enter a commit message');
 
     // staged 가 있고 메시지가 있으면 누를 수 있다.
@@ -335,7 +334,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
     await expect(box.locator('.gc-head')).toHaveText('이 커밋은 어느 브랜치에도 속하지 않습니다');
-    await expect(box.locator('.gc-go')).toHaveText('Run');
+    await expect(box.locator('.gc-go')).toHaveText('실행');
     await box.locator('.gc-cancel').click();
     await expect(box).toHaveCount(0);
     expect(commits(repo), '취소했는데 커밋이 만들어졌다').toBe(before);

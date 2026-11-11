@@ -280,7 +280,7 @@
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "absolute",
-  "inset": "14px 5px -4px 76.0312px",
+  "inset": "14px 5px -4px 127.422px",
   "flexDirection": "row",
   "minHeight": "0px"
  },
@@ -792,7 +792,7 @@
   "minHeight": "0px"
  },
  "terminal|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -3030,7 +3030,7 @@
   "minHeight": "0px"
  },
  "git:changes|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -5280,7 +5280,7 @@
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "30px"
  },
  "git:diff|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
@@ -5376,7 +5376,7 @@
   "minHeight": "0px"
  },
  "git:diff|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -7923,7 +7923,7 @@
   "minHeight": "0px"
  },
  "git:history|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -10446,7 +10446,7 @@
   "minHeight": "0px"
  },
  "git:branches|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -12726,7 +12726,7 @@
   "minHeight": "0px"
  },
  "git:stash|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -14955,7 +14955,7 @@
   "minHeight": "0px"
  },
  "git:console|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -17259,7 +17259,7 @@
   "minHeight": "0px"
  },
  "git:worktrees|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -19497,7 +19497,7 @@
   "minHeight": "0px"
  },
  "git:submodules|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -20907,7 +20907,7 @@
   "minHeight": "0px"
  },
  "editor|div.ui-modal-box": {
-  "display": "flex",
+  "display": "grid",
   "overflowX": "hidden",
   "overflowY": "hidden",
   "position": "static",
@@ -22993,5 +22993,638 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "terminal|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:changes|span.ed-side-act-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|button.git-commit-more.ui-btn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:changes|div.git-commit-why": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|span.git-group-count.ui-count[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:diff|span.ed-side-act-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|button.git-commit-more.ui-btn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:diff|div.git-commit-why": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|span.git-group-count.ui-count[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|span.git-diff-sep": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:diff|span.git-diff-mode.ui-segment": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:diff|button.active.ui-btn.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:diff|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:history|span.ed-side-act-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|button.git-commit-more.ui-btn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:history|div.git-commit-why": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|span.git-group-count.ui-count[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:branches|span.ed-side-act-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|button.git-commit-more.ui-btn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:branches|div.git-commit-why": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|span.git-group-count.ui-count[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:stash|span.ed-side-act-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|button.git-commit-more.ui-btn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:stash|div.git-commit-why": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|span.git-group-count.ui-count[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:console|span.ed-side-act-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|button.git-commit-more.ui-btn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:console|div.git-commit-why": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|span.git-group-count.ui-count[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:worktrees|span.ed-side-act-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|button.git-commit-more.ui-btn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:worktrees|div.git-commit-why": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|span.git-group-count.ui-count[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:submodules|span.ed-side-act-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|button.git-commit-more.ui-btn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:submodules|div.git-commit-why": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|span.git-group-count.ui-count[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "editor|div.ed-empty-keys": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "editor|kbd.ui-kbd": {
+  "display": "inline-block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|span.ag-sec-n.ui-badge[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "absolute",
+  "inset": "2px 2px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|input.modal-search.ui-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|div.modal-tabs.ui-scroll-sm": {
+  "display": "flex",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  }
 }

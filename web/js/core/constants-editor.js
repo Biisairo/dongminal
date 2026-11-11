@@ -43,6 +43,9 @@ const EDITOR_ADD_FAIL=t('editor.add_fail');
 
 // FR-EDT-55: pane 이 하나도 없는 창의 우측. 빈 pane 이 아니라 pane 이 **없는** 것이다.
 const EDITOR_EMPTY_HINT=t('editor.empty_hint');
+// UI_POLISH_SRS FR-UIP-19: 안내는 지금 사이드 탭을 따르고, 다음 손짓(빠른 열기)을 알린다.
+const EDITOR_EMPTY_HINT_CHANGES=t('editor.empty_hint_changes');
+const EDITOR_EMPTY_QUICK_OPEN=t('editor.empty_quick_open');
 
 // EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 찾기.
 const ED_FIND_API='/api/fs/find';
@@ -274,6 +277,9 @@ const LSP_OFFER_SETTINGS=t('editor.lsp_offer_settings');
 
 // FR-EDT-108 의 조회 종단. 조작(create/rename/delete)은 M5 의 것이므로 여기 없다.
 const FS_LIST_API='/api/fs/list';
+// UI_POLISH_SRS FR-UIP-21: 저장소 추가 후보의 상한 — 목록 길이와 cwd 를 물을 터미널 수.
+const PATH_SUGGEST_MAX=8;
+const PATH_SUGGEST_TERM_MAX=8;
 // NOTES_LIVE_EXPLORER_SRS FR-FSL-1 · EDITOR_LIVE_RELOAD_SRS FR-ELR-1 — "이 겹들과
 // 열어 둔 이 파일들이 바뀌었나" 를 **한 요청**으로 묻는다 (OPTIMIZE_REFACTOR_SRS
 // FR-OPT-4-2). 겹은 조회와 같은 루트 가드를 받는다. 옛 종단 둘(`/api/fs/stamp`·

@@ -280,7 +280,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
       await expect(item(page, id)).toHaveAttribute('title', /로컬 브랜치/);
     }
     await expect(item(page, 'delete'), 'delete 가 원격 ref 에서 막혔다').not.toHaveClass(/disabled/);
-    await expect(item(page, 'delete')).toContainText('Delete remote branch');
+    await expect(item(page, 'delete')).toContainText('원격 브랜치 삭제');
   });
 
   test('BR6 (V181 / FR-GIT-254): 다중 선택 일괄 삭제는 `-D` 를 제공하지 않는다', async ({ page }) => {

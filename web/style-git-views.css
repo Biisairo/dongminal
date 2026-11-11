@@ -26,6 +26,9 @@
 .git-diff-gone{display:none;color:var(--attn-text);font-size:var(--fs-sm);flex-shrink:0}
 .git-diff-gone.vis{display:inline}
 .git-diff-spacer{flex:1 1 auto}
+/* UI_POLISH_SRS FR-UIP-17: 동작과 보기 상태 사이의 구분선. */
+.git-diff-sep{width:1px;align-self:stretch;margin:4px 4px;background:var(--border);flex-shrink:0}
+.git-diff-mode{flex-shrink:0}
 .git-diff-ws,.git-diff-fold{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--text-muted);flex-shrink:0;cursor:pointer}
 .git-diff-body{flex:1 1 auto;min-height:0;position:relative}
 /* FR-LAY-3: `.off` 를 `[hidden]` 으로 옮겼다. */

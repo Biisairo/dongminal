@@ -77,7 +77,8 @@
    FR-GHM-1: 여백(.git-head-spacer)은 동작부 뒤에 있으므로 버튼은 정보부 바로
    뒤에 모인다 — 자리는 마크업(GitPanel.headHTML)이 정한다. */
 .git-head{
-  display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 10px;
+  /* UI_POLISH_SRS FR-UIP-4: Changes 사이드의 블록은 가로 여백 8px 하나를 쓴다. */
+  display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 8px;
   border-bottom:1px solid var(--border);font-size:var(--fs-md);
 }
 .git-head-repo{color:var(--text-bright);font-weight:500;white-space:nowrap;cursor:pointer}
@@ -257,7 +258,7 @@ body.mobile .git-head-remote{gap:2px}
 /* 목록과 독립된 고정 영역이다 (FR-GIT-39) — 높이는 안쪽 textarea 가 정한다 */
 .git-commit{
   display:flex;flex-direction:column;gap:4px;
-  padding:6px 10px 0;border-bottom:1px solid var(--border);
+  padding:6px 8px 0;border-bottom:1px solid var(--border); /* FR-UIP-4 */
   /* FR-GIT-213 으로 Commit 이 영역의 아래끝으로 내려왔다. `▾` 메뉴는 그 아래로
      열리므로 파일 목록 위를 덮는다.
 
@@ -316,12 +317,12 @@ body.mobile .git-head-remote{gap:2px}
 .git-commit-why.err{color:var(--danger-text)}
 /* FR-GIT-74: 경계 드래그. 높이는 기기별로 localStorage 에 남는다 */
 .git-commit-resize{
-  flex:0 0 auto;height:6px;margin:0 -10px;cursor:ns-resize;
+  flex:0 0 auto;height:6px;margin:0 -8px;cursor:ns-resize; /* FR-UIP-4: .git-commit 의 가로 여백과 짝 */
   background:transparent;
 }
 .git-commit-resize:hover{background:var(--accent-hover)}
 /* FR-GIT-88: 무엇이 왜 막혔고 어떻게 푸는지를 함께 보인다 */
-.git-preflight{display:none;margin:0 -10px;padding:6px 10px;border-top:1px solid var(--border);
+.git-preflight{display:none;margin:0 -8px;padding:6px 8px;border-top:1px solid var(--border);
   background:var(--attn-subtle);font-size:var(--fs-sm)}
 .git-preflight.vis{display:block}
 .git-preflight-head{color:var(--attn-text);margin-bottom:4px}
@@ -370,7 +371,7 @@ body.mobile .git-head-remote{gap:2px}
   flex:1 1 auto;min-width:0;min-height:0;overflow-y:auto;
 }
 .git-files-bar{
-  position:sticky;top:0;z-index:var(--z-sticky);display:flex;align-items:center;gap:4px;padding:4px 6px;
+  position:sticky;top:0;z-index:var(--z-sticky);display:flex;align-items:center;gap:4px;padding:4px 8px; /* FR-UIP-4 */
   background:var(--bg);border-bottom:1px solid var(--border);
 }
 /* 켜진 보기 모드의 외형은 `_paintMode` 가 붙이는 `ui-btn-primary` 다 (§7.5) */
@@ -394,9 +395,10 @@ body.mobile .git-head-remote{gap:2px}
    그룹 이름이 눌린다. 감추지 않고 **줄을 늘린다** — 접기는 머리 아무 데나 누르는
    것이므로, 이름이 0 으로 눌리면 접으려는 클릭이 갈 자리가 사라진다. */
 .git-group-head{
-  display:flex;flex-wrap:nowrap;align-items:center;gap:5px;padding:0 6px 0 9px;cursor:pointer;
+  /* UI_POLISH_SRS FR-UIP-4: 가로 여백 8px. 작은 글자에 자간을 벌리지 않는다. */
+  display:flex;flex-wrap:nowrap;align-items:center;gap:4px;padding:0 8px;cursor:pointer;
   min-height:calc(var(--git-btn-h) + 6px);min-width:0;
-  font-size:var(--fs-sm);letter-spacing:.06em;color:var(--text-muted)}
+  font-size:var(--fs-sm);color:var(--text-muted)}
 .git-group-head:hover{background:var(--accent-hover)}
 .git-group-caret{width:9px;flex-shrink:0}
 /* 기준 폭을 60px 로 **명시**한다 — `auto` 로 두면 wrap 이 그룹 이름의 글자 수로

@@ -150,8 +150,8 @@ test.describe('축 B — 국제화', () => {
     });
     await tp.dispatchEvent('dragover', { dataTransfer: dt });
     await expect(tp).toHaveClass(/dragover/);
-    await expect(tp.getByText('Drop files here')).toBeVisible();
-    expect(await tp.ariaSnapshot()).toContain('Drop files here');
+    await expect(tp.getByText('여기에 파일을 놓으세요')).toBeVisible();
+    expect(await tp.ariaSnapshot()).toContain('여기에 파일을 놓으세요');
   });
 
   // TC-B-4 — ③ 다른 창이 쥔 칸의 안내

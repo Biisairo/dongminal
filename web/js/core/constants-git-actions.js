@@ -416,8 +416,8 @@ const GIT_BR_DELETE_NOTE=t('git.br_delete_note');
 // 미머지 거부는 **실패가 아니라 선택지다.** 목록과 순서는 서버가 주고 라벨만 여기 있다.
 const GIT_BR_UNMERGED_TITLE=t('git.br_unmerged_title');
 const GIT_BR_UNMERGED_LABEL={
-  force_delete:'Delete anyway (-D)',
-  cancel:'Cancel',
+  force_delete:t('git.br_unmerged_opt.force_delete'),
+  cancel:t('core.cancel'),
 };
 // 다중 선택은 Cmd/Ctrl + 클릭이고, 일괄 삭제는 `-d` 로만 한다 (FR-GIT-254).
 const GIT_BR_SEL_TITLE=t('git.br_sel_title');

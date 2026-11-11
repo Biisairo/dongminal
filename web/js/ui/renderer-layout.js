@@ -329,6 +329,29 @@ Object.assign(Renderer.prototype, {
   },
 
   /**
+   * UI_POLISH_SRS FR-UIP-19: 빈 편집 영역의 안내. 말은 지금 사이드 탭을 따른다 —
+   * Changes 에 있는 사람에게 "탐색기에서 열라" 고 하면 다른 탭으로 보내는 말이 된다.
+   * 아래 줄은 빠른 열기의 키다. 키가 비어 있으면 그 줄은 없다.
+   * 매 render 에 불리므로 내용이 같으면 손대지 않는다.
+   */
+  _paintEdEmpty(el,s){
+    const app=this.app;
+    const msg=app.edSideOf(s)===REPO_SIDE_CHANGES?EDITOR_EMPTY_HINT_CHANGES:EDITOR_EMPTY_HINT;
+    const raw=(typeof shortcuts==='object'&&shortcuts.edQuickOpen)||'';
+    const key=raw?displayKey(raw.replace(/Mod/g,IS_MAC?'Meta':'Ctrl')):'';
+    const sig=msg+'\u0000'+key;
+    if(el.dataset.sig===sig) return;
+    el.dataset.sig=sig;
+    el.textContent='';
+    const m=document.createElement('div'); m.textContent=msg; el.appendChild(m);
+    if(!key) return;
+    const q=document.createElement('div'); q.className='ed-empty-keys';
+    q.appendChild(document.createTextNode(EDITOR_EMPTY_QUICK_OPEN+' '));
+    const k=document.createElement('kbd'); k.className='ui-kbd'; k.textContent=key;
+    q.appendChild(k); el.appendChild(q);
+  },
+
+  /**
    * EDITOR_TAB_SRS FR-EDT-46·47·55: Editor 창의 골격.
    *
    * 좌측은 탐색기, 우측은 편집기 영역이다. 탐색기는 분할 트리 **밖**이므로
@@ -385,8 +408,9 @@ Object.assign(Renderer.prototype, {
     if(!s||!s.layout){
       const hint=this._keep(key+'/hint',()=>{
         const x=document.createElement('div'); x.className='ui-empty ui-empty-center ed-empty';
-        x.textContent=EDITOR_EMPTY_HINT; return x;
+        return x;
       });
+      this._paintEdEmpty(hint,s);
       this._place(main,[hint]);
     }
     return {root:el,main};

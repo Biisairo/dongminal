@@ -106,7 +106,7 @@ test.describe('19단계 — Stash 탭', () => {
       if (git(repo, 'status', '--porcelain') !== '') return;
       await row(page, 1).click({ button: 'right' });
       await expect(menu(page)).toHaveAttribute('data-kind', 'stash', { timeout: 3000 });
-      await items(page).filter({ hasText: /^Apply$/ }).click({ timeout: 3000 });
+      await items(page).filter({ hasText: /^적용$/ }).click({ timeout: 3000 });
       await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 6000 }).not.toBe('');
     }).toPass({ timeout: 25000 });
 
@@ -134,7 +134,7 @@ test.describe('19단계 — Stash 탭', () => {
     await expect(async () => {
       await row(page, 0).click({ button: 'right' });
       await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
-      await items(page).filter({ hasText: 'Apply (--index)' }).click();
+      await items(page).filter({ hasText: '적용 (--index)' }).click();
       // index 가 복원됐으므로 staged 로 돌아온다 (porcelain 의 첫 칸이 M).
       await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 3000 })
         .toMatch(/^M /m);
@@ -303,7 +303,7 @@ test.describe('19단계 — Stash 탭', () => {
     await files.first().click();
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-diff/);
     // 축은 commit-parent 이고 대상은 stash@{1} 이다.
-    await expect(diff(page).locator('.git-diff-rev')).toContainText('commit ↔ parent');
+    await expect(diff(page).locator('.git-diff-rev')).toContainText('커밋 ↔ 부모');
     await expect(diff(page).locator('.git-diff-rev')).toContainText('stash@{1}');
     await expect(diff(page).locator('.git-diff-path')).toContainText('f.txt');
     await expect(diff(page).locator(`.git-diff-body ${ED_SEL.diffSurface}`))

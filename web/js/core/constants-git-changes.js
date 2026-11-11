@@ -73,9 +73,10 @@ const GIT_AXIS_READONLY_WHY={
   [GIT_AXIS.COMMIT]:t('git.axis_readonly_why.commit'),
 };
 
+// UI_POLISH_SRS FR-UIP-24: 비교 이름은 카탈로그를 거친다 — ko 는 git 내부어 대신 읽히는 말.
 const GIT_AXIS_LABEL={
-  'index-head':'index ↔ HEAD','worktree-index':'worktree ↔ index','worktree-head':'worktree ↔ HEAD',
-  'commit-parent':'commit ↔ parent',
+  'index-head':t('git.axis.index_head'),'worktree-index':t('git.axis.worktree_index'),
+  'worktree-head':t('git.axis.worktree_head'),'commit-parent':t('git.axis.commit_parent'),
 };
 // 원격 버튼은 M3 가 살렸다 — 라벨·title·다이얼로그는 아래 원격 작업 절에 있다.
 const GIT_PREVIEW_HINT=t('git.preview_hint');

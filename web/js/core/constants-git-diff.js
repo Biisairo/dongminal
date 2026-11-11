@@ -60,7 +60,8 @@ const GIT_DIFF_WS_KEY='gitDiffIgnoreWs';
 // (FR-DOR-2) — 접으면 개요 눈금의 위치가 실제 파일의 줄 위치와 어긋난다.
 const GIT_DIFF_FOLD_KEY='gitDiffHideUnchanged';
 const GIT_DIFF_FOLD_LABEL=t('git.act.diff_fold_label');
-const GIT_DIFF_MODE_LABEL={side:'side-by-side',inline:'unified'};
+// UI_POLISH_SRS FR-UIP-17: 두 칸 선택 묶음의 이름.
+const GIT_DIFF_MODE_LABEL={side:t('git.diff_mode.side'),inline:t('git.diff_mode.inline')};
 // FR-TIP-1: 라벨이 지금 **무엇인지**를 말하므로, 누르면 무엇이 되는지는 툴팁이
 // 말한다 — 라벨만으로는 그것이 상태인지 동작인지 알 수 없다.
 const GIT_DIFF_MODE_TITLE='Switch between side-by-side and unified diff';

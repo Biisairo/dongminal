@@ -53,9 +53,9 @@ const GIT_DIRTY_OPT_CANCEL='cancel';
 const GIT_DIRTY_OPT_STASH='stash';
 const GIT_DIRTY_OPT_FORCE='force';
 const GIT_DIRTY_OPTS=[
-  {id:GIT_DIRTY_OPT_CANCEL,label:'Cancel'},
-  {id:GIT_DIRTY_OPT_STASH, label:'Stash and continue'},
-  {id:GIT_DIRTY_OPT_FORCE, label:'Force (discard changes)',danger:true},
+  {id:GIT_DIRTY_OPT_CANCEL,label:t('core.cancel')},
+  {id:GIT_DIRTY_OPT_STASH, label:t('git.dirty_opt.stash')},
+  {id:GIT_DIRTY_OPT_FORCE, label:t('git.dirty_opt.force'),danger:true},
 ];
 const GIT_DIRTY_TITLE=t('git.dirty_title');
 const GIT_DIRTY_NOTE=t('git.dirty_note');
@@ -70,9 +70,9 @@ const GIT_STASH_BEFORE_MSG=t('git.stash_before_msg');
 // 서버가 선택지를 늘려도 그것을 보이지 못한다. 라벨만 여기서 붙인다.
 const GIT_BR_CONFLICT_TITLE=t('git.br_conflict_title');
 const GIT_BR_CONFLICT_LABEL={
-  checkout_existing:'Checkout existing branch',
-  create_other_name:'Create with another name',
-  cancel:'Cancel',
+  checkout_existing:t('git.br_conflict_opt.checkout_existing'),
+  create_other_name:t('git.br_conflict_opt.create_other_name'),
+  cancel:t('core.cancel'),
 };
 const GIT_BR_RENAME_SUFFIX='-2'; // 다른 이름을 권할 때의 기본 후보
 

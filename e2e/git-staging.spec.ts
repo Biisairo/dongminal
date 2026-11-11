@@ -145,7 +145,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await expect(box.locator('.gc-target')).toHaveText(['tracked.txt']);
     await expect(box.locator('.gc-count')).toContainText('1개');
     // 걸음은 하나이므로 버튼은 처음부터 실행이다 (FR-COS-4).
-    await expect(box.locator('.gc-go')).toHaveText('Run');
+    await expect(box.locator('.gc-go')).toHaveText('실행');
     // 같은 화면이 recovery hint 를 보인다 (FR-GIT-92, FR-COS-2). stash 는 안내만이다 (O8).
     await expect(box.locator('.gc-hint')).toBeVisible();
     // WORKBENCH_REVIEW_SRS FR-WBR-56: 명령은 **언제나 `-u`** 다. 이전에는 `-u` 가
@@ -186,7 +186,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await expect(box.locator('.gc-head')).toHaveText('충돌을 해결됨으로 표시합니다');
     await expect(box.locator('.gc-target')).toHaveText(['c.txt']);
     // 파괴적이 아니므로 1단계다 — 바로 실행 버튼이다.
-    await expect(box.locator('.gc-go')).toHaveText('Run');
+    await expect(box.locator('.gc-go')).toHaveText('실행');
 
     await box.locator('.gc-go').click();
     await expect(box).toHaveCount(0, { timeout: 10000 });

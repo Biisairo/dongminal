@@ -8,7 +8,8 @@
  * 절과 그 앵커: 커밋(GIT_SRS §3A.2 / FR-GIT-74~85) · 파괴적 동작 확인(§3A.3 /
  * FR-GIT-90~97·174~178) · 다이얼로그 공통 골격(§3D.3 / FR-GIT-171~178).
  */
-const GIT_COMMIT_PLACEHOLDER=t('git.commit_placeholder');
+// UI_POLISH_SRS FR-UIP-20: 커밋 키를 입력 자리에서 알린다.
+const GIT_COMMIT_PLACEHOLDER=t('git.commit_placeholder',{key:IS_MAC?'\u2318Enter':'Ctrl+Enter'});
 // FR-GIT-74: 기본 2줄에서 시작해 입력만큼 자라고, 이 줄 수를 넘으면 내부
 // 스크롤로 넘긴다. 경계 드래그 결과는 기기별이라 localStorage 에 남는다.
 const GIT_COMMIT_ROWS=2;
@@ -76,13 +77,16 @@ const GIT_ERR_UNDO_EXPIRED='undo_expired';
 
 const GIT_CONFIRM_TITLE=t('git.confirm_title');
 const GIT_CONFIRM_RUN=t('git.act.confirm_run');
-const GIT_CONFIRM_CANCEL='Cancel';
-const GIT_CONFIRM_COPY='Copy';
+// UI_POLISH_SRS FR-UIP-12: 일반 동작 라벨은 카탈로그를 거친다.
+const GIT_CONFIRM_CANCEL=t('core.cancel');
+const GIT_CONFIRM_COPY=t('git.act.confirm_copy');
 const GIT_CONFIRM_HINT_LABEL=t('git.confirm_hint_label');
 // UX_BATCH5_SRS FR-TIP-1: 확인창·다이얼로그의 버튼. 라벨(`Run`·`Cancel`·
 // `Copy`)은 한 낱말이라 **무엇이** 실행·취소·복사되는지 말하지 않는다.
 const GIT_CONFIRM_RUN_TITLE='Run the command shown above';
 const GIT_CONFIRM_CANCEL_TITLE='Close without running anything';
+// UI_POLISH_SRS FR-UIP-11: 다이얼로그의 실행 라벨이 한국어가 되어도 툴팁은 영어다 (FR-TIP-2).
+const GIT_DIALOG_RUN_TITLE='Run this action';
 const GIT_CONFIRM_COPY_TITLE='Copy this command to the clipboard';
 const GIT_CONFIRM_RUNNING=t('git.act.confirm_running');
 const GIT_CONFIRM_FAIL=t('git.confirm_fail');

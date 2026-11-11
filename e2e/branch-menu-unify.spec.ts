@@ -194,7 +194,7 @@ test.describe('묶음 D — 삭제 통합', () => {
     await openMenu(page, 'no-upstream');
     await expect(item(page, 'delete')).toHaveCount(1);
     expect(await isDisabled(page, 'delete')).toBe(false);
-    await expect(item(page, 'delete')).toContainText('Delete');
+    await expect(item(page, 'delete')).toContainText('삭제');
     await expect(item(page, 'remote-delete')).toHaveCount(0);
     await closeMenu(page);
 
@@ -202,7 +202,7 @@ test.describe('묶음 D — 삭제 통합', () => {
     await openMenu(page, 'origin/main');
     await expect(item(page, 'delete')).toHaveCount(1);
     expect(await isDisabled(page, 'delete')).toBe(false);
-    await expect(item(page, 'delete')).toContainText('Delete remote branch');
+    await expect(item(page, 'delete')).toContainText('원격 브랜치 삭제');
     await expect(item(page, 'remote-delete')).toHaveCount(0);
     await closeMenu(page);
   });

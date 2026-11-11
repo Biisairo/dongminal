@@ -152,6 +152,8 @@ Object.assign(App.prototype, {
     const b=document.createElement('span');
     b.className='ag-sec-n ui-badge';
     b.textContent=String(n);
+    // UI_POLISH_SRS FR-UIP-7: 0 은 말하지 않는다 — 레일의 귀퉁이에 0 셋이 서 있었다.
+    b.hidden=!n;
     g.appendChild(b);
     // 구역의 동작은 비어 있을 때 뜻이 없다 — 지울 것이 없으면 "모두 제거" 도 없다.
     if(sec.act&&n){

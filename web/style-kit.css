@@ -180,6 +180,15 @@
   line-height:calc(var(--ui-badge-h) - 2px);
   font-variant-numeric:tabular-nums;
 }
+/* UI_POLISH_SRS FR-UIP-6: 목록 머리의 개수는 **글자**다. 배지(바탕·테두리)는 살아
+   있는 상태만 쓴다 — 개수까지 칠하면 화면의 모든 머리가 강조된다. */
+.ui-count{flex-shrink:0;color:var(--text-muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+/* UI_POLISH_SRS FR-UIP-19: 키캡. 글자 크기를 따라가는 작은 상자다. */
+.ui-kbd{
+  display:inline-block;min-width:calc(16px * var(--fs-scale));padding:0 4px;
+  border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:4px;
+  font:inherit;font-size:var(--fs-sm);line-height:1.5;color:var(--text);text-align:center;
+}
 .ui-badge-attn{background:var(--attn-subtle);border-color:var(--attn);color:var(--attn-text)}
 .ui-tab-badge{
   min-width:15px;padding:0 4px;border-radius:8px;
@@ -204,7 +213,8 @@
   /* 겹친 테두리 위로 올라와야 고른 쪽의 테두리가 끊기지 않는다. 한 겹 위는
      `--z-raised` 다 — 층을 새로 만들지 않는다 (FR-TOK-31). */
   position:relative;z-index:var(--z-raised);
-  background:var(--accent-subtle);color:var(--accent-text);border-color:var(--accent);
+  /* UI_POLISH_SRS FR-UIP-8: 선택은 바탕 한 단계로 말한다 — accent 테두리를 두르지 않는다. */
+  background:var(--accent-subtle);color:var(--text-bright);border-color:var(--border-strong);
 }
 
 /* ── 분할 버튼 (KIT_COMPONENTS_SRS FR-CMP-70~72) ────────────────────────
@@ -386,7 +396,7 @@ body.mobile .ui-switch{
 .ui-modal-head{
   display:flex;align-items:center;gap:8px;flex:0 0 auto;
   padding:10px 12px;border-bottom:1px solid var(--border);
-  color:var(--text-bright);font-size:var(--fs-lg);font-weight:600;
+  color:var(--text-bright);font-size:var(--fs-lg);font-weight:500; /* UI_POLISH_SRS FR-UIP-15 */
 }
 .ui-modal-head .ui-modal-spacer{flex:1 1 auto}
 .ui-modal-body{flex:1 1 auto;min-height:0;overflow:auto;padding:14px}

@@ -54,13 +54,24 @@
    두고 wrap 을 켜면 좁을 때 줄이 늘 뿐 버튼이 작아지지 않는다.
    줄이 늘어도 `flex:0 0 auto` 라 목록의 스크롤에 밀리지 않는다 — FR-RTU-21 이
    요구한 것은 "고정 높이" 가 아니라 그 성질이다. */
-.ed-side-acts{display:flex;flex-wrap:wrap;flex:0 0 auto;gap:2px;padding:3px 4px;
+.ed-side-acts{display:flex;flex-wrap:wrap;flex:0 0 auto;gap:2px;padding:4px 8px; /* UI_POLISH_SRS FR-UIP-4 */
   border-bottom:1px solid var(--border)}
 /* 진입점 버튼의 외형·치수는 `.ui-btn.ui-btn-icon.ui-btn-ghost.ui-btn-lg` 다
    (DESIGN_TOKENS_SRS §7.4). 종전에는 `--git-hit`(30px)을 하한으로 들고 아이콘을
    그 값에서 따로 파생했는데, 키트의 `lg`(`--ui-btn-h-lg`=30px)가 같은 값이고
    아이콘 파생까지 함께 온다. 여기 남는 것은 **줄을 나눠 채우는 배치**뿐이다. */
 .ed-side-acts>.ui-btn{flex:1 1 var(--ui-btn-h-lg)}
+/* UI_POLISH_SRS FR-UIP-3: 히트는 `lg`(30px) 그대로, 아이콘만 다른 자리와 같은 16px. */
+.ed-side-acts>.ui-btn.ui-btn-icon>.ui-icon{width:var(--ui-icon-md);height:var(--ui-icon-md)}
+/* UI_POLISH_SRS FR-UIP-18: 여섯이 이름을 달고 **한 줄에** 설 폭이면 이름을 보인다.
+   560 은 가장 긴 이름(`Submodules`)까지 실측한 한 줄의 폭(약 540)에 여유를 둔 값이다.
+   줄을 늘려 이름을 다는 것은 "남는 폭" 이 아니므로 하지 않는다. */
+.ed-side-acts{container-type:inline-size}
+.ed-side-act-label{display:none}
+@container (min-width:560px){
+  .ed-side-acts>.ed-side-act{width:auto;padding:0 8px;gap:6px}
+  .ed-side-acts .ed-side-act-label{display:inline}
+}
 
 /* `.git-view` 가 `position:absolute;inset:0` 이므로 담는 쪽이 위치 기준이어야 한다. */
 .ed-side-body{flex:1 1 auto;position:relative;min-height:0;min-width:0;overflow:hidden}
@@ -552,3 +563,19 @@ body.mobile .ed-row{height:var(--touch-min)}
 .fe-conflict .ui-modal-body{display:flex;flex-direction:column;gap:8px}
 .fe-conflict-path{color:var(--text-bright);font-size:var(--fs-lg);word-break:break-all}
 .fe-conflict-msg{color:var(--text-muted);font-size:var(--fs-md);line-height:1.5}
+
+/* UI_POLISH_SRS FR-UIP-19: 빈 편집 영역의 둘째 줄 — 다음 손짓의 키. */
+.ed-empty-keys{margin-top:8px;color:var(--text-hint)}
+
+/* UI_POLISH_SRS FR-UIP-21: 경로 후보 목록. 다이얼로그 본문이 스크롤하므로 떠 있지
+   않고 입력 바로 아래 흐름에 선다 — 떠 있으면 본문의 overflow 에 잘린다. */
+.path-suggest{
+  max-height:160px;overflow-y:auto;margin-top:4px;padding:4px 0;
+  border:1px solid var(--border);border-radius:var(--ui-radius);background:var(--sidebar-bg);
+}
+.path-suggest-item{
+  height:28px;line-height:28px;padding:0 8px;font-family:var(--mono);font-size:var(--fs-sm);
+  color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
+}
+.path-suggest-item:hover{background:var(--accent-hover)}
+.path-suggest-item.active{background:var(--accent-subtle);color:var(--text-bright)}

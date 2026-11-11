@@ -61,12 +61,12 @@ test.describe('묶음 E — Changes 탭', () => {
     // REPO_FIX 01 §6.4: 칸마다 박스가 하나 — 어느 것도 보이지 않는다.
     await expect(changes(page).locator('.git-job.vis')).toHaveCount(0);
     // 커밋 영역은 M2 에서 살아 있다 (FR-GIT-74~85). 메시지가 비어 있으므로
-    // Commit 만 disabled 이고 그 사유가 보인다 (FR-GIT-84).
+    // Commit 만 disabled 이고 그 사유는 툴팁이 말한다 (FR-GIT-84 · UI_POLISH_SRS FR-UIP-14).
     const commit = changes(page).locator('.git-commit');
     await expect(commit.locator('.git-commit-msg')).toBeEnabled();
     await expect(commit.locator('.git-commit-amend input')).toBeEnabled();
     await expect(commit.locator('.git-commit-btn')).toBeDisabled();
-    await expect(commit.locator('.git-commit-why')).toBeVisible();
+    await expect(commit.locator('.git-commit-btn')).toHaveAttribute('title', 'Enter a commit message');
   });
 
   test('C2 (V22): detached HEAD 저장소에서 detached 배지가 나온다', async ({ page }) => {
@@ -194,8 +194,8 @@ test.describe('묶음 E — Changes 탭', () => {
     // 이 시험의 본체이고(FR-GIT-41), 그 단정은 아래에 그대로 있다 — 개수는 그
     // 사실의 대리 지표였을 뿐이다.
     await expect(menu.locator('.git-menu-item')).toHaveText([
-      'Open Changes', 'Open File', 'Open File (HEAD)', 'Copy Path',
-      'File history', 'Blame', 'Add to .gitignore',
+      '변경 열기', '파일 열기', '파일 열기 (HEAD)', '경로 복사',
+      '파일 기록', 'Blame', '.gitignore 에 추가',
     ]);
 
     // M1 에는 저장소를 바꾸는 항목이 하나도 없다 (FR-GIT-41).

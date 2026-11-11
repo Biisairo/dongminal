@@ -252,7 +252,7 @@ textarea,
 
 /* ── Sidebar ── */
 #sidebar{
-  width:var(--sb-w,150px);min-width:var(--sb-w,150px);
+  width:var(--sb-w,200px);min-width:var(--sb-w,200px); /* UI_POLISH_SRS FR-UIP-2 */
   background:var(--sidebar-bg);border-right:1px solid var(--border-strong);
   display:flex;flex-direction:column;user-select:none;
 }
@@ -293,9 +293,10 @@ textarea,
 .sbl-item:hover .sbl-x{opacity:1}
 .sbl-x:hover{color:var(--danger-text);background:var(--danger-strong)}
 /* 배지는 창 목록에 아직 없지만 자리는 공통이다 — 다음 탭이 그냥 쓴다. */
+/* UI_POLISH_SRS FR-UIP-6: 개수는 글자다 (`.ui-count` 와 같은 값). */
 .sbl-badge{
-  flex-shrink:0;min-width:16px;padding:0 4px;border-radius:8px;text-align:center;
-  font-size:var(--fs-sm);background:var(--accent-subtle);color:var(--accent-text);
+  flex-shrink:0;min-width:16px;padding:0 4px;text-align:right;
+  font-size:var(--fs-sm);color:var(--text-muted);font-variant-numeric:tabular-nums;
 }
 /* 샌드박스 창 표식. accent 는 알람·활성이 쓰는 색이므로 섞지 않는다 — 격리
    여부는 지나가는 상태가 아니라 그 창의 성질이다. */
@@ -678,7 +679,12 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
    두께는 `box-shadow` 로 준다 — `border-bottom` 을 키우면 포커스가 옮길 때마다
    탭줄이 자라 그 아래 터미널이 다시 눕는다. */
 .pn{display:flex;flex-direction:column;position:absolute;inset:0}
-.pn.focused .pn-tabs{border-bottom-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+/* UI_POLISH_SRS FR-UIP-10: 표식은 **고를 칸이 둘 이상일 때만** 선다. 칸이 하나면
+   분할 컨테이너(`.sp`)가 없다 — 그 칸은 영역의 직속 자식이다.
+     이전 동작: 칸 수와 관계없이 포커스 칸의 탭줄에 accent 2px
+     새  동작: `.sp` 안의 칸에만
+     이유:     고를 칸이 하나면 표식이 전하는 정보가 없다 */
+.sp .pn.focused .pn-tabs{border-bottom-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
 
 /* UIUX_OVERHAUL_SRS FR-CHR-2: 줄 자신은 **구르지 않는다.** 구르는 것은 안쪽
    `.pn-tabs-scroll` 이고, 고정 구(`.pn-acts`)는 그 밖에서 오른쪽 끝을 지킨다.
@@ -963,7 +969,9 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .pn-body{flex:1;position:relative;overflow:hidden}
 
 /* ── term pane ── */
-.tp{position:absolute;inset:0;display:none;padding:1px;transition:opacity var(--dur-base) ease}
+/* UI_POLISH_SRS FR-UIP-1: 글자가 칸 경계에 붙지 않는다. 열·행 수는 FitAddon 이
+   이 여백을 뺀 영역에서 계산한다. */
+.tp{position:absolute;inset:0;display:none;padding:4px 8px;transition:opacity var(--dur-base) ease}
 .tp.vis{display:block}
 .tp.vis>.xterm{height:100%}
 
@@ -979,7 +987,7 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 #sb-bottom>button{flex:1 1 0;margin:0}
 #soft-reload-btn{
   padding:6px;min-height:30px;
-  background:transparent;border:1px solid var(--border);border-radius:4px;
+  background:transparent;border:1px solid transparent; /* UI_POLISH_SRS FR-UIP-5 */border-radius:4px;
   color:var(--text-muted);font-size:var(--fs-lg);cursor:pointer;text-align:center;
   transition:background var(--dur-base),color var(--dur-base);
 }
@@ -992,7 +1000,7 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 
 #settings-btn{
   margin:0;padding:6px;min-height:30px;
-  background:transparent;border:1px solid var(--border);border-radius:4px;
+  background:transparent;border:1px solid transparent; /* UI_POLISH_SRS FR-UIP-5 */border-radius:4px;
   color:var(--text-muted);font-size:var(--fs-lg);cursor:pointer;text-align:center;
   transition:background var(--dur-base),color var(--dur-base);
 }
@@ -1043,7 +1051,8 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
   display:flex;align-items:center;justify-content:space-between;
   padding:14px 18px;border-bottom:1px solid var(--border);
 }
-.modal-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-bright)}
+/* UI_POLISH_SRS FR-UIP-15: 위계는 크기와 색으로 — 굵기는 500 까지. */
+.modal-title{font-size:var(--fs-lg);font-weight:500;color:var(--text-bright)}
 /* 닫기 버튼의 외형·치수는 `.ui-btn.ui-btn-icon.ui-btn-ghost` 다 (DESIGN_TOKENS_SRS
    §7.2). 자기 치수(24px)를 들고 있던 동안 아이콘 파생 규칙까지 따로 있어야
    했다 — 키트의 26px 로 가면 그 규칙이 필요 없다. */
@@ -1054,6 +1063,28 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .mtab{border-bottom:2px solid transparent;font-size:var(--fs-md);flex:0 0 auto}
 .mtab:hover{color:var(--text)}
 .mtab.active{color:var(--accent-text);border-bottom-color:var(--accent)}
+.modal-search{display:none}
+/* UI_POLISH_SRS FR-UIP-22·23: 데스크톱에서 탭은 **왼쪽 세로 목록**이다. 열셋이 가로
+   한 줄을 넘쳐 접혔고(FR-UIK-14 ③), 접힌 두 줄은 어느 줄이 고른 탭인지 흐렸다.
+   DOM 은 그대로다 — 머리·검색·탭·본문 네 자식을 격자 칸에 놓는다.
+     이전 동작: 머리 아래 가로 탭 줄, 좁으면 두 줄로 접힘
+     새  동작: 왼쪽 열(검색 + 세로 탭), 오른쪽 열(본문). 모바일은 이전 그대로
+     이유:     탭이 늘어도 자리가 모자라지 않고, 검색으로 항목을 찾는다 */
+/* 좁은 창(데스크톱 모드로 고정한 휴대폰 등)에서는 왼쪽 열이 본문을 눌러 넘친다 — 가로 줄로 남는다. */
+@media (min-width:720px){
+  body:not(.mobile) #modal{display:grid;grid-template-columns:176px minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
+  body:not(.mobile) #modal>.modal-header{grid-column:1 / -1}
+  body:not(.mobile) #modal>.modal-search{display:block;grid-column:1;grid-row:2;margin:12px 12px 8px;width:auto}
+  body:not(.mobile) #modal>.modal-tabs{
+    grid-column:1;grid-row:3;flex-direction:column;flex-wrap:nowrap;gap:2px;
+    padding:0 8px 12px;border-bottom:none;overflow-y:auto;
+  }
+  body:not(.mobile) #modal>.modal-body{grid-column:2;grid-row:2 / 4;border-left:1px solid var(--border)}
+  body:not(.mobile) #modal .mtab{
+    justify-content:flex-start;height:32px;padding:0 10px;border-bottom:none;border-radius:var(--ui-radius);
+  }
+  body:not(.mobile) #modal .mtab.active{background:var(--accent-subtle);color:var(--text-bright)}
+}
 
 /* FR-UIK-13: 스크롤은 **여기 하나**다. 패널마다 자기 `max-height` 를 들면 상자
    안에 스크롤이 둘 생기고, 어느 쪽이 움직일지는 마우스 자리가 정하게 된다. */
@@ -1117,13 +1148,9 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 
 /* ── Custom editor ── */
 #custom-editor{margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
-#custom-toggle{
-  width:100%;padding:8px;border:2px dashed var(--border);border-radius:6px;
-  background:transparent;color:var(--text-muted);font-size:var(--fs-md);cursor:pointer;
-  transition:border-color var(--dur-base),color var(--dur-base);
-}
-#custom-toggle:hover{border-color:var(--accent-border);color:var(--accent-text)}
-#custom-toggle.active{border-color:var(--accent);color:var(--accent-text);border-style:solid}
+/* UI_POLISH_SRS FR-UIP-16: 키트의 기본 버튼이다 — 점선 상자는 "여기에 놓으세요" 의
+   모양이라 누르는 버튼으로 읽히지 않았다. 켜진 상태는 세그먼트의 선택과 같은 말이다. */
+#custom-toggle.active{background:var(--accent-subtle);color:var(--text-bright);border-color:var(--border-strong)}
 .ce-section{margin-top:10px}
 .ce-title{font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);margin-bottom:6px}
 .ce-colors{display:flex;flex-wrap:wrap;gap:6px}

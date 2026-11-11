@@ -65,6 +65,8 @@ const APP_TESTING_NAMES = [
   '_navPlace', '_navCounts',
   'edEnsurePane', '_edGitPoll', 'edSideOf', 'edSideWidth',
   'edSetSideWidth', '_edMigrateSideWidth', 'edStore', 'edTree',
+  // UI_POLISH_SRS TC-UIP-10: 저장소 추가 후보의 첫 줄이 될 포커스 터미널의 cwd.
+  '_edTermCwd',
 
   // ── git ──
   //

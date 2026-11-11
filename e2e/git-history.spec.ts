@@ -483,7 +483,7 @@ test.describe('17단계 — 커밋 상세', () => {
     const rev = diffBar(page, '.git-diff-rev');
     await expect(rev).toBeVisible();
     await expect(rev).toHaveText(
-      new RegExp(`commit ↔ parent · ${parent.slice(0, 8)}\\.\\.${head.slice(0, 8)}`));
+      new RegExp(`커밋 ↔ 부모 · ${parent.slice(0, 8)}\\.\\.${head.slice(0, 8)}`));
     // ‹ › 와 n/m 은 워킹 트리 목록의 것이다 — 커밋 축에서는 뜻이 없다.
     await expect(diffBar(page, '.git-diff-pos')).toHaveText('');
     await expect(diff(page).locator('.git-diff-nav').first()).toBeDisabled();

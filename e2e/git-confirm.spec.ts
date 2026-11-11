@@ -178,7 +178,7 @@ test.describe('묶음 J — 파괴적 동작의 확인', () => {
     await expect(hint.locator('.gc-hint-cmd')).toHaveText('git stash push -- a.txt b.txt');
     // 무엇을 잃는지가 같은 화면에 함께 있다.
     await expect(page.locator('#git-confirm .gc-target')).toHaveCount(2);
-    await expect(go(page)).toHaveText('Run');
+    await expect(go(page)).toHaveText('실행');
   });
 
   test('J8b (V37 / TC-COS-4): hint 가 없으면 되돌릴 수 없다는 사실을 보인다', async ({ page }) => {

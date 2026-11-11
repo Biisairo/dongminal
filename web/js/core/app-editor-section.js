@@ -30,8 +30,54 @@ Object.assign(App.prototype, {
     return d.cwd||'';
   },
 
+  /**
+   * UI_POLISH_SRS FR-UIP-21: 열린 터미널들의 cwd. 포커스 터미널(`here`)이 맨 앞이다.
+   * 도구마다 한 번 묻는다 — 상한을 두어 터미널이 많아도 다이얼로그가 늦지 않게 한다.
+   */
+  async _edTermCwds(here){
+    const ids=[];
+    for(const w of this.plainWindows()) for(const p of panesOf(w.layout)) for(const tab of p.tabs||[]){
+      if(tab.type===TAB_TYPE_TERMINAL&&this.toolIds.has(tab.toolId)&&!ids.includes(tab.toolId)) ids.push(tab.toolId);
+    }
+    const got=await Promise.all(ids.slice(0,PATH_SUGGEST_TERM_MAX).map(async tool=>{
+      const r=await apiGet(CWD_API,{query:{tool}});
+      const d=r.ok&&r.data;
+      return d&&d.source===GIT_CWD_SOURCE_TOOL?d.cwd||'':'';
+    }));
+    return [...new Set([here,...got].filter(Boolean))];
+  },
+
+  /**
+   * UI_POLISH_SRS FR-UIP-21: 입력 값에 맞는 후보. ① 터미널 cwd 중 입력으로 시작하는 것
+   * ② 입력의 부모 디렉터리가 **등록된 루트 아래**일 때 그 안의 하위 디렉터리.
+   * ②는 서버가 루트 밖을 거절하므로(`fsRootOf`) 루트 밖은 묻지 않는다.
+   */
+  async _edPathCandidates(v,cwds){
+    const q=(v||'').trim();
+    const out=cwds.filter(c=>!q||c.startsWith(q));
+    const cut=Math.max(q.lastIndexOf('/'),q.lastIndexOf('\\'));
+    if(cut>=0){
+      const sep=q[cut], parent=q.slice(0,cut)||sep, pre=q.slice(cut+1);
+      const root=this.edRoots()
+        .filter(r=>parent===r||parent.startsWith(r.endsWith(sep)?r:r+sep))
+        .sort((a,b)=>b.length-a.length)[0];
+      if(root){
+        const r=await apiGet(FS_LIST_API+'?root='+encodeURIComponent(root)+'&path='+encodeURIComponent(parent));
+        const es=(r.ok&&r.data&&r.data.entries)||[];
+        for(const e of es){
+          if(!(e.dir||e.linkDir)||!e.name.startsWith(pre)) continue;
+          // 숨은 폴더는 사용자가 `.` 을 친 뒤에만 보인다.
+          if(e.name.startsWith('.')&&!pre.startsWith('.')) continue;
+          out.push((parent.endsWith(sep)?parent:parent+sep)+e.name);
+        }
+      }
+    }
+    return [...new Set(out)].slice(0,PATH_SUGGEST_MAX);
+  },
+
   async _edAdd(){
     const here=await this._edTermCwd();
+    const cwds=await this._edTermCwds(here);
     // 경로는 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS F-m) — 추가 요청도 같은 판정으로 거절된다.
     //	이전 동작: 화면이 빈 경로만 막았고, 상대 경로·파일·없는 경로는 누른 뒤에야 알았다
     const answer=new GitInputAnswer({id:EDITOR_ACTION_ADD,
@@ -40,7 +86,7 @@ Object.assign(App.prototype, {
         const r=await apiPost(EDITORS_API+'/validate',p);
         return stale()?{stale:true}:{ok:!!(r.ok&&r.data&&r.data.actions),data:r.data};
       }});
-    return GitDialog.open({
+    const shown=GitDialog.open({
       id:'editor-add-dlg',ns:'eda',action:'editor_add',
       title:EDITOR_ADD_TITLE,runLabel:EDITOR_ADD_RUN,focus:'path',
       body:here?EDITOR_ADD_HERE.replace('%s',here):EDITOR_ADD_NO_TERM,
@@ -54,6 +100,13 @@ Object.assign(App.prototype, {
         return ok?{ok:true}:{ok:false,reason:EDITOR_ADD_FAIL};
       },
     });
+    const input=document.querySelector('#editor-add-dlg input[data-key="path"]');
+    // 이미 열린 다이얼로그를 앞으로 가져온 경우(`_front`)에는 목록이 이미 붙어 있다.
+    if(input&&!input.dataset.suggest){
+      input.dataset.suggest='1';
+      new PathSuggest(input,v=>this._edPathCandidates(v,cwds));
+    }
+    return shown;
   },
 
   // FR-EDT-26: 제거는 문자열 완전 일치다 — 경로를 다시 정규화하지 않는다.

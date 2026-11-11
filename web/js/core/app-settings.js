@@ -327,6 +327,39 @@ Object.assign(App.prototype, {
     }
   },
 
+  /**
+   * UI_POLISH_SRS FR-UIP-23: 설정 검색. 탭 이름이나 그 탭 안의 글(항목 라벨·설명)에
+   * 입력이 들어 있는 탭만 목록에 남긴다. 선택지(`<option>`)의 글은 보지 않는다 —
+   * 언어·테마 이름 같은 값이 거의 모든 낱말에 걸린다.
+   * 고른 탭이 걸러지면 남은 첫 탭으로 옮긴다. 모달을 열 때마다 비운다.
+   */
+  _bindSettingsSearch(modal){
+    const input=document.getElementById('modal-search'); if(!input) return;
+    const textOf=root=>{
+      const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>
+        n.parentElement&&n.parentElement.closest('option,select,script,style')
+          ?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+      let out='';
+      for(let n=w.nextNode();n;n=w.nextNode()) out+=' '+n.nodeValue;
+      return out.toLowerCase();
+    };
+    const apply=()=>{
+      const q=input.value.trim().toLowerCase();
+      const tabs=[...modal.querySelectorAll('.mtab')];
+      for(const tab of tabs){
+        const pn=document.getElementById('panel-'+tab.dataset.tab);
+        tab.hidden=!!q&&!(tab.textContent.toLowerCase().includes(q)||(pn&&textOf(pn).includes(q)));
+      }
+      const cur=modal.querySelector('.mtab.active');
+      if(cur&&cur.hidden){
+        const first=tabs.find(x=>!x.hidden);
+        if(first) first.click();
+      }
+    };
+    input.addEventListener('input',apply);
+    document.getElementById('settings-btn').addEventListener('click',()=>{input.value='';apply()});
+  },
+
   initModal(){
     this._initThemeFollow();   // FR-STF-2
     const overlay=document.getElementById('modal-overlay');
@@ -403,6 +436,7 @@ Object.assign(App.prototype, {
     document.getElementById('modal-close').addEventListener('click',closeSettings);
     overlay.addEventListener('click',e=>{if(e.target===overlay)closeSettings()});
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open')){e.preventDefault();closeSettings()}});
+    this._bindSettingsSearch(modal);
     modal.querySelectorAll('.mtab').forEach(tab=>{
       tab.addEventListener('click',()=>{
         modal.querySelectorAll('.mtab').forEach(tabEl=>{

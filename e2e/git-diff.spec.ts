@@ -86,7 +86,7 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     await expect(tab(page, 'diff')).toHaveClass(/active/);
     await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
-    await expect(diff(page).locator('.git-diff-axis')).toHaveText('worktree ↔ index');
+    await expect(diff(page).locator('.git-diff-axis')).toHaveText('작업 트리 ↔ 스테이지');
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     // 워킹 트리 쪽에만 있는 줄이 보여야 한다 (index: "one", worktree: "one\ntwo").
     await expect(diffEditor(page)).toContainText('two');
@@ -112,18 +112,18 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     const pos = diff(page).locator('.git-diff-pos');
     const path = diff(page).locator('.git-diff-path');
-    await expect(pos).toHaveText(`${at}/${total}`);
+    await expect(pos).toHaveText(`변경 ${at}/${total}`);
     const here = await path.textContent();
 
     await diff(page).locator('.git-diff-nav[data-nav="prev"]').click();
-    await expect(pos).toHaveText(`${at - 1}/${total}`);
+    await expect(pos).toHaveText(`변경 ${at - 1}/${total}`);
     await expect(path).not.toHaveText(here || '');
     // Diff 탭에서 이동하면 Changes 탭의 선택도 따라 움직인다 (같은 상태다).
     await expect(changes(page).locator('.git-file.sel')).toHaveCount(1);
     await expect(changes(page).locator('.git-file.cur')).toHaveCount(1);
 
     await diff(page).locator('.git-diff-nav[data-nav="next"]').click();
-    await expect(pos).toHaveText(`${at}/${total}`);
+    await expect(pos).toHaveText(`변경 ${at}/${total}`);
     await expect(path).toHaveText(here || '');
   });
 
@@ -138,16 +138,18 @@ test.describe('묶음 F — Diff 뷰', () => {
     await row(page, 'working', 'tracked.txt').click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
+    // UI_POLISH_SRS FR-UIP-17: 방식은 두 칸 선택 묶음이다 — 선택된 칸이 지금 방식이다.
     const mode = diff(page).locator('.git-diff-mode');
-    await expect(mode).toHaveText('side-by-side');
+    const on = mode.locator('button[aria-pressed="true"]');
+    await expect(on).toHaveAttribute('data-mode', 'side');
     await expect(diffEditor(page)).toHaveClass(/side-by-side/);
 
-    await mode.click();
-    await expect(mode).toHaveText('unified');
+    await mode.locator('button[data-mode="inline"]').click();
+    await expect(on).toHaveAttribute('data-mode', 'inline');
     await expect(diffEditor(page)).not.toHaveClass(/side-by-side/);
 
-    await mode.click();
-    await expect(mode).toHaveText('side-by-side');
+    await mode.locator('button[data-mode="side"]').click();
+    await expect(on).toHaveAttribute('data-mode', 'side');
     await expect(diffEditor(page)).toHaveClass(/side-by-side/);
   });
 
@@ -165,7 +167,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await page.setViewportSize({ width: 820, height: 800 });
     await expect(diffEditor(page)).not.toHaveClass(/side-by-side/);
     // 모드 자체는 여전히 side-by-side 다 — 폭 때문에 접힌 것이다.
-    await expect(diff(page).locator('.git-diff-mode')).toHaveText('side-by-side');
+    await expect(diff(page).locator('.git-diff-mode button[aria-pressed="true"]')).toHaveAttribute('data-mode', 'side');
 
     await page.setViewportSize({ width: 1400, height: 800 });
     await expect(diffEditor(page)).toHaveClass(/side-by-side/);

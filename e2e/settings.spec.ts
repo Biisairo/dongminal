@@ -277,17 +277,24 @@ test.describe('설정 모달의 가로 (FR-UIK-14)', () => {
     }
   });
 
-  test('UIK14b: 탭 열이 한 줄로 서고 가로로 밀리지 않는다', async ({ page }) => {
+  // UI_POLISH_SRS FR-UIP-22 (FR-UIK-14 ① 개정): 데스크톱의 탭 열은 왼쪽 세로 목록이다 —
+  // 탭마다 한 줄이고 왼쪽 끝이 한 세로줄에 선다. 가로로 밀리지 않는 것은 그대로다.
+  test('UIK14b: 탭 열이 세로 목록으로 서고 가로로 밀리지 않는다', async ({ page }) => {
     await waitForInit(page);
     await page.click('#settings-btn');
     await expect(page.locator('#modal')).toBeVisible();
     const tabs = await page.evaluate(() => {
       const el = document.querySelector('.modal-tabs') as HTMLElement;
-      const rows = new Set([...el.children].map(c => Math.round(c.getBoundingClientRect().top)));
-      return { over: el.scrollWidth - el.clientWidth, rows: rows.size };
+      const kids = [...el.children].map(c => c.getBoundingClientRect());
+      return {
+        over: el.scrollWidth - el.clientWidth, n: kids.length,
+        rows: new Set(kids.map(r => Math.round(r.top))).size,
+        lefts: new Set(kids.map(r => Math.round(r.left))).size,
+      };
     });
     expect(tabs.over, '탭 열이 가로로 밀린다').toBe(0);
-    expect(tabs.rows, '탭 열이 한 줄이 아니다').toBe(1);
+    expect(tabs.rows, '탭마다 한 줄이 아니다').toBe(tabs.n);
+    expect(tabs.lefts, '탭의 왼쪽 끝이 한 줄에 서지 않는다').toBe(1);
   });
 
   test('UIK14c: 좁은 뷰포트에서 상자가 화면 안에 든다', async ({ page }) => {

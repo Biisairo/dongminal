@@ -56,7 +56,7 @@ class GitCommit {
           '<span class="git-commit-gpg"></span>'+
           '<div class="git-commit-go ui-split">'+
             '<button class="ui-btn ui-btn-primary git-commit-btn"></button>'+
-            '<button class="ui-btn ui-btn-primary git-commit-more"></button>'+
+            '<button class="ui-btn git-commit-more"></button>'+
             '<div class="git-commit-menu"></div>'+
           '</div>'+
           '<span class="git-commit-spacer"></span>'+
@@ -81,6 +81,13 @@ class GitCommit {
       lab.appendChild(i); lab.appendChild(s); menu.appendChild(lab);
     }
     this._msg.addEventListener('input',()=>this._input());
+    // UI_POLISH_SRS FR-UIP-20: 입력에서 손을 떼지 않고 커밋한다. 꺼져 있으면 `_commit`
+    // 이 스스로 멈춘다 — 판정을 두 벌 두지 않는다.
+    this._msg.addEventListener('keydown',ev=>{
+      if(ev.key!=='Enter'||ev.isComposing||!(ev.ctrlKey||ev.metaKey)) return;
+      ev.preventDefault(); ev.stopPropagation();
+      this._commit();
+    });
     el.querySelector('.git-commit-amend input')
       .addEventListener('change',ev=>this._amendToggle(ev.target.checked));
     el.querySelector('.git-commit-btn').addEventListener('click',()=>this._commit());
@@ -243,7 +250,11 @@ class GitCommit {
     const btn=el.querySelector('.git-commit-btn');
     btn.disabled=!st.enabled||this._busy;
     btn.title=st.enabled?'':(GIT_COMMIT_WHY_TITLE[code]||'');
-    const whyText=st.why;
+    // UI_POLISH_SRS FR-UIP-14: "메시지가 비었다" 는 처음 보는 상태라 경고 줄에 띄우지
+    // 않는다 — 버튼의 title 이 그 말을 한다. 다른 사유는 줄에 남는다.
+    // "확인 중" 도 줄에 띄우지 않는다: 그것이 섰다가 `empty_message` 로 바뀌며 걷히면
+    // 아래 목록이 한 줄 뛰어오른다 (git-repaint P2 가 잡았다).
+    const whyText=code==='empty_message'||code==='loading'?'':st.why;
     const w=el.querySelector('.git-commit-why');
     w.textContent=this._busy?GIT_COMMIT_RUNNING:(this._err||whyText||'');
     w.classList.toggle('vis',!!w.textContent);

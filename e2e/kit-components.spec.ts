@@ -317,8 +317,10 @@ test.describe('FR-CMP-81: 배지의 모양', () => {
     await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
+    // UI_POLISH_SRS FR-UIP-7: 0 은 감춘다 — 모양은 보일 때의 것이므로 감춤만 풀고 잰다.
     const got = await page.evaluate(() => {
       const b = document.querySelector('#agents-panel .ag-sec-n') as HTMLElement;
+      b.hidden = false;
       const r = b.getBoundingClientRect();
       const cs = getComputedStyle(b);
       return {

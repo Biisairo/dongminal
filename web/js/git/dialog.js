@@ -107,6 +107,7 @@ class GitDialog extends GitModalBase {
     this.choices=Array.isArray(o.choices)?o.choices:[];
     this.def=o.def||((this.choices[0]||{}).id)||'';
     this.runLabel=o.runLabel||GIT_CONFIRM_RUN;
+    this.runTitle=o.runTitle||GIT_DIALOG_RUN_TITLE;
     this.focusKey=o.focus||'';
     // 모바일 판정은 호출자가 덮을 수 있다. 기본은 app.isMobile (FR-GIT-94).
     this.mobile=o.mobile===undefined?!!(window.app&&app.isMobile):!!o.mobile;
@@ -316,7 +317,7 @@ class GitDialog extends GitModalBase {
     if(!b.querySelector('.git-dialog-go')) return;
     // 실행 라벨은 다이얼로그마다 다르므로(`Create`·`Push`…) 툴팁도 그 라벨을
     // 딛는다 — 여기서 무엇이 실행되는지는 그 라벨이 유일한 근거다.
-    this._paintActions(this.runLabel,this.runLabel,!!this.whyKind);
+    this._paintActions(this.runLabel,this.runTitle,!!this.whyKind);
   }
 
   // 텍스트 필드가 있으면 그것이 첫 입력 자리다 (FR-GIT-173 · FR-PDA-5).
