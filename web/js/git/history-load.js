@@ -67,8 +67,14 @@ Object.assign(GitHistory.prototype, {
   // 이 로드 중에 도착했으면 `_reloadStaleViews` 는 아직 모른다고 보고 지나갔다).
   // 리포가 바뀌었거나 뷰가 내려갔으면 뜻이 없다 — `_adopt` 가 새 리포를 처음부터
   // 받는다.
+  //
+  // FR-GVR-8b: 낡음 판정은 관측 하나에 한 번이다. `staleFor` 는 어느 쪽이 새로운지 모른다 —
+  // 관측이 멈춘 채(가려진 탭) 저장소가 움직이면 새 목록은 언제나 옛 관측과 달라 고리가 된다.
   _drain(){
-    if(!this._again&&!this.staleFor(this.panel._lastSig)) return;
+    const sig=this.panel._lastSig;
+    const stale=this.staleFor(sig)&&this._staleTried!==sig;
+    if(!this._again&&!stale) return;
+    if(stale) this._staleTried=sig;
     const full=this._againFull;
     this._again=false; this._againFull=false;
     if(!this._el||this.panel.repo!==this._repo) return;
