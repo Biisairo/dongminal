@@ -392,28 +392,6 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * REPO_TAB_UNIFY_SRS FR-RTU-40·43: 창의 **미리보기 탭**. 하나뿐이다.
-   */
-  _findPreviewTab(s){
-    return s?findTabWhere([s],tab=>tab.preview):null;
-  },
-
-  /**
-   * FR-RTU-42: 미리보기를 고정한다. 계기는 셋이다 — 더블클릭 · 그 탭에서 편집
-   * 시작 · 탭 이름 더블클릭. 어느 쪽이든 뜻은 같다: "이 탭은 남는다."
-   */
-  pinPreviewTab(tab){
-    if(!tab||!tab.preview) return false;
-    delete tab.preview;
-    // FR-EXR-59: 고정은 "이 파일에서 일하겠다" 다 — 탐색기가 쥔 포커스를 넘긴다
-    // (FR-EXR-58 의 예외). 표명은 아래 render 가 소비한다.
-    this.focusHandoff=true;
-    this.render();
-    this.save();
-    return true;
-  },
-
-  /**
    * REPO_TAB_UNIFY_SRS FR-RTU-31: **그 창 안에서** 같은 뷰의 탭을 찾는다.
    *
    * `_findEditorTab` 이 워크스페이스 전체를 훑는 것과 다르다 — 편집기 탭은 파일
@@ -541,11 +519,11 @@ Object.assign(App.prototype, {
 
   _addEditorTab(s, pn, opts) {
     if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
-    const existing = this._findEditorTab(opts.filePath);
-    // FR-RTU-45: 이미 **고정된** 탭이 있으면 미리보기를 만들지 않는다 —
-    // 아래 기존 분기가 그 탭으로 옮긴다 (FR-EDT-101 을 미리보기까지 넓힌 것).
+    // UX_BATCH12_SRS FR-RTB-2·4 (FR-RTU-45 개정): 미리보기는 **그 칸**의 일이다. 같은
+    // 파일이 그 칸에 있으면 그 탭으로 가고, 다른 칸에만 있으면 이 칸에 미리보기로 연다.
+    const existing = opts.preview ? this._findEditorTabIn(s, pn, opts.filePath) : this._findEditorTab(opts.filePath);
     if (!existing && opts.preview) {
-      const r = this._retargetPreview(s, opts);
+      const r = this._retargetPreview(s, pn, opts);
       if (r) return r;
     }
     if (existing) {
@@ -566,26 +544,6 @@ Object.assign(App.prototype, {
     this.render();
     this.save();
     return { uuid: id };
-  },
-
-  // FR-RTU-40: 미리보기 요청이면 기존 미리보기 탭을 **대체한다.** 새 탭을
-  // 만들지 않으므로 목록을 훑어도 탭이 쌓이지 않는다. 대체할 탭이 없으면 null.
-  _retargetPreview(s, opts) {
-    const prev = this._findPreviewTab(s);
-    if (!prev) return null;
-    prev.tab.filePath = opts.filePath;
-    prev.tab.name = clampEntityName(opts.name || pathBase(opts.filePath) || '');
-    // 편집기 인스턴스는 탭 id 로 산다 — 대상이 바뀌었으므로 버린다.
-    for (const [k, v] of [...this.fileEditors]) {
-      if (this.slotBase(k) !== prev.tab.id) continue;
-      try { v.destroy() } catch { /* 이미 파괴된 것은 오류가 아니다 */ }
-      this.fileEditors.delete(k);
-    }
-    this.paneTabSet(prev.pane, prev.tab.id);
-    this.setFocusState(prev.pane.id, s);
-    this.render();
-    this.save();
-    return { uuid: prev.tab.id };
   },
 
   async _addTerminalTab(s, pn, rid, opts) {

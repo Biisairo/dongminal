@@ -19,7 +19,10 @@ Object.assign(App.prototype, {
     if(!filePath||!this.edOn()) return null;
     // FR-EDT-101: 이미 열려 있으면 **그 탭이 있는 창**이 대상이다. 폴백 창의
     // pane 을 먼저 만들면 탭은 원래 창으로 가고 빈 pane 만 남는다 (FR-EDT-52).
-    const open=this._findEditorTab(filePath);
+    // UX_BATCH12_SRS FR-RTB-2·4: 미리보기는 열린 자리를 따라가지 않는다 — 고른 창의
+    // **지금 칸**에 선다. 같은 파일이 다른 칸에 있어도 그 칸은 건드리지 않는다.
+    const preview=!!(opts||{}).preview;
+    const open=preview?null:this._findEditorTab(filePath);
     const anchor=(opts||{}).anchor||filePath;
     const w=(open&&this.isEditorWin(open.win))?open.win
       :(this._edLinkedWindow(anchor)||this.edWindowFor(this._edHome()));
@@ -29,12 +32,12 @@ Object.assign(App.prototype, {
     // FR-EXR-59: 미리보기가 **아닌** 열기는 명시적인 손짓이다 — 편집기가 포커스를
     // 갖는다 (FR-EXR-58 의 예외). 미리보기는 훑어보는 손짓이므로 탐색기가 쥔
     // 포커스를 그대로 둔다. 표명은 render 후 재포커스가 소비한다 (renderer.js).
-    if(!(opts||{}).preview) this.focusHandoff=true;
+    if(!preview) this.focusHandoff=true;
     // addTab 의 editor 분기가 중복 방지와 refresh 를 이미 한다.
     // FR-RTU-40: `preview` 는 그대로 넘긴다 — 미리보기 탭을 만들지 대체할지는
     // addTab 한 자리가 정한다.
     await this.addTab(rid,TAB_TYPE_EDITOR,
-      {filePath,name:(opts||{}).name,windowId:w.id,preview:!!(opts||{}).preview});
+      {filePath,name:(opts||{}).name,windowId:w.id,preview});
     // FR-EDT-102: 열면 그 창으로 전환된다. 열었는데 보이지 않으면 사용자는
     // 실패로 읽는다. 사이드바 탭은 FR-EDT-8 로 따라온다.
     this.switchWindow(w.id);
@@ -45,7 +48,8 @@ Object.assign(App.prototype, {
     // 옮긴다 — 사용자가 고른 것은 파일이 아니라 그 줄이다.
     const ln=(opts||{}).line;
     if(ln){
-      const tab=this._findEditorTab(filePath);
+      const pn=w.layout&&findPane(w.layout,rid);
+      const tab=this._findEditorTabIn(w,pn,filePath)||this._findEditorTab(filePath);
       const v=tab&&this.editorAny(tab.tab.id);
       if(v&&v.revealLine) v.revealLine(ln,(opts||{}).col);
     }

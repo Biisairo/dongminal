@@ -304,20 +304,18 @@ class FileEditor {
    */
   _onUpdate(u) {
     if (!u.docChanged) return;
-    const flush = u.transactions.some((tr) => tr.annotation(EdBuffer.FLUSH));
+    // UX_BATCH12_SRS FR-RTB-6 ④: 계기는 **이 칸에서 친 것**이다. 같은 파일의 다른 칸이 보낸
+    // 변경(REMOTE)은 이 탭의 고정 계기가 아니다. dirty 의 전이로 재지 않는 이유: 문서의
+    // dirty 는 버퍼 구독이 이 갱신보다 먼저 바꿔 둔다 — 전이를 기다리면 고정이 일어나지 않는다.
+    const own = u.transactions.some((tr) => tr.docChanged && !tr.annotation(EdBuffer.FLUSH) && !tr.annotation(EdBuffer.REMOTE));
+    if (own) this._pinIfPreview();
     // REPO_FIX 03 §3A-7: dirty 는 내용 비교다 — undo 로 되돌리면 풀린다.
     const was = this._dirty;
     // 문서는 버퍼를 스스로 구독한다(`_edDocWatch`) — 여기서도 부르는 것은 이 뷰가
     // 아래 판정(was→now)을 같은 틱에 보기 위해서다. 멱등이다.
     if (this._doc) app.edDocDirtySync(this._doc);
     else this.__dirty = true;
-    if (!was && this._dirty) {
-      this._tabLabelAll();
-      // REPO_TAB_UNIFY_SRS FR-RTU-42: **편집을 시작하면 고정된다.** 고치던 파일이
-      // 다음 클릭에 사라지면 그것은 미리보기가 아니라 사고다. 디스크 판으로 갈아
-      // 끼운 것(FLUSH)은 편집이 아니다 — 그것까지 세면 파일을 열자마자 고정된다.
-      if (!flush) this._pinIfPreview();
-    }
+    if (!was && this._dirty) this._tabLabelAll();
     // FR-EFP-17: 편집하는 동안 낡은 하이라이트가 남으면 그것이 거짓말이 된다.
     if (this._findVis()) this._findRun(true);
     // FR-EDD-53: 변경 표시도 같은 계기다. 디바운스는 관리자가 갖는다 — 계산은 한
@@ -522,6 +520,8 @@ class FileEditor {
    *   새  동작: 기다렸다가 필요하면 다시 저장, 결과를 돌려준다
    */
   save() {
+    // FR-RTB-6 ⑤: 저장은 "이 파일을 남긴다" 다 — 수정이 없어도 고정한다.
+    this._pinIfPreview();
     // REPO_FIX 05 §3A-3: 문서가 있으면 저장은 문서의 것이다 — git Diff 뷰와 같은 길이다.
     if (this._doc) return app.edDocSave(this.filePath, this);
     return this._saveOnce();

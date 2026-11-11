@@ -86,7 +86,12 @@ Object.assign(App.prototype, {
    * 자리마다 판단이 생긴다 — 여기서는 계기를 받은 쪽이 한 줄로 부른다.
    */
   edPinTabFor(filePath){
-    const found=filePath&&this._findEditorTab(filePath);
+    if(!filePath) return;
+    // UX_BATCH12_SRS FR-RTB-4·6: 같은 파일이 칸마다 열릴 수 있다 — 고정 대상은 앞선
+    // 클릭이 미리보기를 세운 **지금 칸**의 탭이다.
+    const w=this._edLinkedWindow(filePath)||this.edWindowFor(this._edHome());
+    const rid=w&&w.layout&&this.edEnsurePane(w);
+    const found=(rid&&this._findEditorTabIn(w,findPane(w.layout,rid),filePath))||this._findEditorTab(filePath);
     if(found) this.pinPreviewTab(found.tab);
   },
 
