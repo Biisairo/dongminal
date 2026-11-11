@@ -36,7 +36,11 @@ jobs:
   # 애셋을 올리기 전에 **세 OS 에서** 통과해야 한다. 상시 CI 에 macOS 를 넣지
   # 않는다는 결정은 매 푸시에 대한 것이고, 릴리스는 드물면서 darwin 바이너리를
   # 실제로 배포하는 순간이다 (FR-RGT-2).
+  #
+  # FR-RGT-4: 태그가 가리키는 커밋의 메시지에 `[skip tests]` 가 있으면 건너뛴다. 그러면
+  # `e2e-gate` 도 따라 건너뛰고, 빌드·발행은 `!failure()` 로 계속 돈다.
   gate:
+    if: ${{ !contains(github.event.head_commit.message, '[skip tests]') }}
     strategy:
       fail-fast: true
       matrix:
@@ -67,6 +71,7 @@ jobs:
   # cgo 정책과 이름 규칙이 두 벌이 되고, 두 벌이면 한쪽만 고쳐진다 (FR-RWF-4).
   build-darwin:
     needs: gate
+    if: ${{ !failure() && !cancelled() }}
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
@@ -98,6 +103,7 @@ jobs:
 
   build-others:
     needs: gate
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -174,6 +180,7 @@ jobs:
   # (`G3-5`).
   publish:
     needs: [build-darwin, build-others, e2e-gate]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
