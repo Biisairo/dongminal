@@ -85,6 +85,8 @@ Object.assign(GitPanel.prototype, {
     const i=this._diffIndex(this._fileList());
     if(i>=0) this._diffPos=i;
     this._paint();
+    // UX_BATCH12 FR-FHL-4: Diff 탭이 포커스면 대상이 바뀐 것이다 — 하이라이트를 맞춘다.
+    this.app.focusHighlightSync();
   },
 
   _openDiff(group,e){

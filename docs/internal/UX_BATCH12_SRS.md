@@ -26,11 +26,13 @@
 | R9 | 에디터(Explorer)에서 여러 개를 고르고 우클릭하면 그 하나에만 적용된다 → 이름 바꾸기·새 파일·새 폴더·업로드 밖은 전부 선택 전체 | FR-EXM-3~7 | 완료 (TC-EXM-2·6 단위 `explorer-clip.test.mjs`, TC-EXM-3~5 `editor-ops.spec.ts`, TC-EXM-7 Go). 메뉴 다운로드 다중은 R13 TC-EXD-2b |
 | R10 | 서브에이전트 보기를 목록으로 고정하고 폴더 보기는 지운다 | FR-SVL-1~3 | 구현·검증 완료 |
 | R11 | Explorer 에서 드래그·Shift 클릭·Cmd 클릭으로 다중 선택 (드래그는 빈 여백 사각형) | FR-EXM-1·2 (Shift·Cmd 는 FR-EMS 로 이미 있음) | 완료 (TC-EXM-1: `explorer-keys-multi.spec.ts` 3건, 행 끌기는 TC-EXD-1c. 자동 스크롤은 자동 시험 밖) |
-| R12 | Changes·Explorer 를 통틀어 하이라이트는 하나이고 포커스된 탭을 따른다. 탭을 바꾸면 선택도 그 파일 하나로. 사이드 탭은 자동 전환하지 않는다 | FR-FHL-1~7 | 진행 전 |
+| R12 | Changes·Explorer 를 통틀어 하이라이트는 하나이고 포커스된 탭을 따른다. 탭을 바꾸면 선택도 그 파일 하나로. 사이드 탭은 자동 전환하지 않는다 | FR-FHL-1~7 | 완료 (TC-FHL-1~3: `focus-highlight.spec.ts` 3건. `core/app-focus-hl.js` 의 `focusHighlightSync` 를 `App.render` 와 Changes `_select` 가 부른다) |
 | R13 | Explorer 에서 Finder 로 한 개·여러 개 파일을 끌어 내려받는다 | FR-EXD-1~7 | 완료 (TC-EXD-3 Go, TC-EXD-1·2 `explorer-download-drag.spec.ts` 5건. 다운로드는 `file-tree-download.js` 로 옮김. 실제 Finder 놓기는 자동 시험 밖) |
 | R14 | 파일을 고른 뒤 삭제·복사·붙여넣기 등 단축키 | FR-EXK-1~6 | 완료 (TC-EXK-1~3: `explorer-keys-multi.spec.ts` 6건. `_onKey` 는 `file-tree-keys.js` 로 옮김) |
 | R17 | Activity 의 에이전트 카드 하이라이트도 파일 하이라이트처럼, 포커스된 탭에 에이전트가 있으면 그 카드 하나를, 없으면 아무것도 하이라이트하지 않는다 | FR-FHL-8 | 완료 (TC-FHL-4: `agent-card-focus.spec.ts` 2건. 칸이 하나면 이미 요구와 같았고, 같은 창을 두 칸에 띄운 경우만 고쳤다) |
 | R18 | Activity 패널의 열고 닫기를 메인 좌측 패널(사이드바)과 같게 한다 — 완전히 닫지 않고 작게 접는다. Activity 버튼은 지운다. 이 상태는 창 레이아웃 저장에 함께 들어가야 한다 | FR-ACF (작성 예정) | 진행 전 |
+| R20 | 편집기 검색의 색을 고친다 — 지금 일치(포커스), 다른 일치, 선택한 것과 같은 단어의 색. 사용자와 질의응답으로 정한 뒤 진행한다. **R19 바로 앞에 한다** | (질의응답 뒤 작성) | 진행 전 · R19 앞 |
+| R19 | Repo 창에서 탭을 새로 만들지 재사용할지의 규칙을 다시 정한다. **마지막 작업**이며, 사용자와 질의응답으로 규칙을 정한 뒤 진행한다 | (질의응답 뒤 작성) | 진행 전 · 다른 행이 끝난 뒤 |
 | R15 | (작업 방식) 전체 e2e 는 너무 오래 걸린다 — 관련 e2e 만 돌린다 | 절차 | 적용 중 |
 | R16 | (작업 방식) 요구사항을 한쪽에 정리하고 스펙을 제대로 쓰며 진행한다. 요구사항은 다 지킨다 | 이 대장 | 적용 중 |
 
@@ -171,7 +173,7 @@
 - **FR-FHL-1** Repo 창에서 하이라이트는 Changes 와 Explorer 를 통틀어 하나다.
 - **FR-FHL-2** 포커스 탭이 파일 탭으로 바뀌면 Explorer 의 선택을 그 파일 하나로 바꾼다. 접힌 폴더 안이면 조상 폴더를 펼치고 행이 보이게 스크롤한다. Changes 의 선택은 지운다.
 - **FR-FHL-3** 포커스 탭이 Diff 탭으로 바뀌면 Changes 의 선택을 그 Diff 의 대상 행 하나로 바꾼다. Explorer 의 선택은 지운다.
-- **FR-FHL-4** Diff 탭이 보는 대상이 바뀌면(‹ › 이동, 다른 행 클릭) FR-FHL-3 을 다시 적용한다.
+- **FR-FHL-4** Diff 탭이 보는 대상이 바뀌면(‹ › 이동, 다른 행 클릭) FR-FHL-3 을 다시 적용한다. 이때 Changes 의 선택은 그 이동이 정한 것(‹ › 는 대상 하나, Cmd·Shift 클릭은 사용자가 고른 것)을 그대로 두고, Explorer 의 선택만 지운다(FR-FHL-6 과 함께 지키기 위해서다).
 - **FR-FHL-5** Changes·Explorer 사이드 탭은 자동으로 바꾸지 않는다. 보이지 않는 쪽의 선택도 위 규칙대로 바뀐다.
 - **FR-FHL-6** 포커스 탭이 바뀌지 않으면 아무것도 하지 않는다. 사용자가 패널에서 고른 선택(Shift·Cmd·사각형)은 다음 탭 전환까지 그대로다.
 - **FR-FHL-7** 포커스 탭이 파일·Diff 가 아니거나, 그 파일이 이 창의 루트 밖이면 두 패널의 선택을 바꾸지 않는다.
@@ -239,7 +241,7 @@
 | TC-EXD-1 | FR-EXD-1·2·5 | e2e: 파일 행·폴더 행·링크 행의 dragstart 를 일으켜 `dataTransfer` 를 읽음, 이어서 트리 안 폴더에 놓기 | `DownloadURL` 이 각각 파일 URL·zip URL·없음. 트리 안 옮기기는 된다 |
 | TC-EXD-2 | FR-EXD-3·7 | e2e: 두 행을 고른 뒤 dragstart / 메뉴의 다운로드 | `download-many` URL 이 두 경로를 싣는다 |
 | TC-EXD-3 | FR-EXD-4 | Go: 파일 하나와 폴더 하나 / 루트 밖 경로 / 경로 없음 / 같은 이름 둘 / 상한 초과 | zip 의 맨 위 이름 둘·폴더 하위 포함 / 거절 / 400 / 400 / 거절 |
-| TC-FHL-1 | FR-FHL-2·5 | e2e: 접힌 폴더 안의 파일 탭과 다른 탭을 오가며 포커스 | Explorer 에 그 파일 행 하나만 `sel`, 조상이 펼쳐짐, 사이드 탭은 그대로 |
+| TC-FHL-1 | FR-FHL-2·5 | e2e(`focus-highlight.spec.ts`): 접힌 폴더 안의 파일 탭과 다른 탭을 오가며 포커스 | Explorer 에 그 파일 행 하나만 `sel`, 조상이 펼쳐짐, 사이드 탭은 그대로 |
 | TC-FHL-2 | FR-FHL-3·4 | e2e: Diff 탭 포커스, ‹ › 이동 | Changes 에 대상 행 하나만 `sel`, Explorer 선택 없음 |
 | TC-FHL-3 | FR-FHL-6 | e2e: Explorer 에서 셋을 고른 채 같은 탭에서 다시 그리기 | 선택 셋이 그대로다 |
 | TC-FHL-4 | FR-FHL-8 | e2e(`agent-card-focus.spec.ts`): 에이전트 활동이 있는 탭 둘과 없는 탭 하나를 오가며 포커스 / 같은 창을 두 칸에 띄워 칸마다 다른 에이전트 탭을 고르고 칸 포커스를 옮김 | 에이전트 탭이면 그 카드 하나만 `focused`, 아니면 `focused` 카드가 없다 / 포커스 칸의 카드 하나만 `focused` |
