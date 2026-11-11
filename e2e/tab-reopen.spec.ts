@@ -275,3 +275,31 @@ test.describe('TC-RTR-7 — 뒤로·앞으로 버튼 (FR-RTR-13·14)', () => {
     expect(await page.evaluate(() => (window as any).app.navCan(-1))).toBe(false);
   });
 });
+
+test.describe('TC-RTR-4 — 파일 안의 점프도 기록의 한 칸이다 (FR-RTR-8·9)', () => {
+  const lineOf = (page: Page) => page.evaluate(() => {
+    const v = (window as any).app.testing.edActiveEditor();
+    const cm = v && v._view;
+    return cm ? cm.state.doc.lineAt(cm.state.selection.main.head).number : null;
+  });
+
+  test('1행에서 검색 결과로 200행에 간 뒤 뒤로가기면 같은 탭의 1행이다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'a.txt');
+    await openFile(page, 'long.txt');
+    await expect.poll(() => lineOf(page)).toBe(1);
+    await page.evaluate((p) => (window as any).app.edOpenFile(p, { line: 200 }), j(REPO, 'long.txt'));
+    await expect.poll(() => lineOf(page)).toBe(200);
+
+    await page.evaluate(() => (window as any).app.executeAction('focusBack'));
+    await expect.poll(() => lineOf(page)).toBe(1);
+    expect((await tabs(page)).active).toBe('long.txt');
+    await page.evaluate(() => (window as any).app.executeAction('focusForward'));
+    await expect.poll(() => lineOf(page)).toBe(200);
+    // 한 번 더 뒤로가 둘이면 a.txt 다 — 탭 전환 자리는 커서를 움직이지 않는다 (FR-RTR-9).
+    await page.evaluate(() => (window as any).app.executeAction('focusBack'));
+    await expect.poll(() => lineOf(page)).toBe(1);
+    await page.evaluate(() => (window as any).app.executeAction('focusBack'));
+    await expect.poll(async () => (await tabs(page)).active).toBe('a.txt');
+  });
+});

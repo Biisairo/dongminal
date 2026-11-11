@@ -379,6 +379,20 @@ class FileEditor {
   }
 
   _wireFocus() {
+    /**
+     * UX_BATCH12_SRS FR-RTR-8: 참조 목록에서 고르기는 큰 점프다. 고르는 처리는 라이브러리의
+     * 패널(`@codemirror/lsp-client`)이 하고 부를 자리가 없으므로, 그 패널보다 **먼저**(capture)
+     * 고르기 전의 자리를 뒤로·앞으로 기록에 넣는다.
+     */
+    const pick = (e) => {
+      if (!e.target.closest || !e.target.closest('.cm-lsp-reference-panel')) return;
+      if (e.type === 'keydown' && e.key !== 'Enter') return;
+      if (e.type === 'click' && !e.target.closest('.cm-lsp-reference')) return;
+      const app = window.app;
+      if (app && app.navJump) app.navJump();
+    };
+    this.el.addEventListener('click', pick, true);
+    this.el.addEventListener('keydown', pick, true);
     // Focus handling — notify app when editor receives focus
     this.el.addEventListener('focusin', (e) => {
       // FR-EFP-5: 찾기 패널은 **자기 포커스를 갖는다.** 여기서 되돌리면 질의 칸이
@@ -470,6 +484,9 @@ class FileEditor {
     if (!this._view || !this._viewState) return;
     this._view.dispatch({ effects: this._viewState });
   }
+
+  // UX_BATCH12_SRS FR-RTR-8: 기록에 싣는 커서(문서 안 offset). 아직 뜨지 않았으면 null.
+  cursorAt() { return this._view ? this._view.state.selection.main.head : null }
 
   // UX_BATCH12_SRS FR-RTR-6: 닫는 탭의 커서·스크롤. 문서 길이를 함께 적어 다시 열 때 같은 문서인지 본다.
   viewState() {

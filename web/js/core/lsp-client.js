@@ -155,7 +155,8 @@ Object.assign(LspClient.prototype, {
   // `@codemirror/lsp-client` 의 명령을 부른다 — 정의는 첫 항목으로 가고, 참조는 그
   // 라이브러리의 패널에 보인다 (M8 결정 6, §3.16). 연결이 닫혀 있으면 먼저 다시 연다.
 
-  async _lspGotoDef(){ await this._lspRun(()=>CM.jumpToDefinition) },
+  // UX_BATCH12_SRS FR-RTR-8: 정의 이동은 큰 점프다 — 가기 전 자리를 뒤로·앞으로 기록에 넣는다.
+  async _lspGotoDef(){ this.app.navJump(); await this._lspRun(()=>CM.jumpToDefinition) },
   async _lspFindRefs(){ await this._lspRun(()=>CM.findReferences) },
 
   /**
@@ -165,6 +166,8 @@ Object.assign(LspClient.prototype, {
    */
   async lspClickDef(view,pos){
     if(!view||pos==null) return;
+    // FR-RTR-8: 커서를 클릭한 자리로 옮기기 **전**의 자리를 기록한다.
+    this.app.navJump();
     const link=await this._lspLinkAt(view,pos);
     if(link){ await this.app.edOpenFile(link.path,link.line?{line:link.line}:{}); return }
     view.dispatch({selection:{anchor:pos}});

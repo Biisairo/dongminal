@@ -21,6 +21,8 @@ Object.assign(App.prototype, {
     // pane 을 먼저 만들면 탭은 원래 창으로 가고 빈 pane 만 남는다 (FR-EDT-52).
     // UX_BATCH12_SRS FR-RTB-2·4: 미리보기는 열린 자리를 따라가지 않는다 — 고른 창의
     // **지금 칸**에 선다. 같은 파일이 다른 칸에 있어도 그 칸은 건드리지 않는다.
+    // UX_BATCH12_SRS FR-RTR-8: 검색 결과로 그 줄에 가는 것은 큰 점프다 — 가기 전 자리를 기록한다.
+    if((opts||{}).line) this.navJump();
     const preview=!!(opts||{}).preview;
     const open=preview?null:this._findEditorTab(filePath);
     const anchor=(opts||{}).anchor||filePath;

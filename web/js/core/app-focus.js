@@ -80,15 +80,52 @@ Object.assign(App.prototype, {
     if(this._navMoving) return;
     const p=this._navPlace();
     if(!p||this._navSame(p,this._navCur)) return;
-    if(this._navCur){
-      this._navBack=this._navBack||[];
-      this._navBack.push(this._navCur);
-      // 무한히 쌓으면 그 자체가 새는 자리다 (`_lspBack` 과 같은 근거).
-      while(this._navBack.length>FOCUS_NAV_MAX) this._navBack.shift();
-      // 새 자리로 간 순간 앞길은 사라진다 — 브라우저 히스토리와 같은 규약이다.
-      this._navFwd=[];
-    }
+    if(this._navCur) this._navPush(this._navHere());
     this._navCur=p;
+    this._navPaint();
+  },
+
+  _navPush(e){
+    const back=this._navBack=this._navBack||[];
+    // 점프 직전에 적은 자리와 같으면 두 번 적지 않는다 (다른 파일로 가는 정의 이동이 그렇다).
+    const top=back[back.length-1];
+    if(!(top&&this._navSame(top,e)&&top.pos===e.pos)) back.push(e);
+    // 무한히 쌓으면 그 자체가 새는 자리다 (`_lspBack` 과 같은 근거).
+    while(back.length>FOCUS_NAV_MAX) back.shift();
+    // 새 자리로 간 순간 앞길은 사라진다 — 브라우저 히스토리와 같은 규약이다.
+    this._navFwd=[];
+  },
+
+  /**
+   * 지금 자리를 기록에 넣을 모양으로. 점프로 온 자리(`jump`)면 **지금 커서**를 싣는다 —
+   * 뒤로 갔다 앞으로 오면 점프한 그 자리로 돌아와야 한다 (UX_BATCH12_SRS FR-RTR-8).
+   * 탭 전환으로 생긴 자리는 커서를 싣지 않는다 (FR-RTR-9).
+   */
+  _navHere(){
+    const c=this._navCur;
+    if(!c||!c.jump) return c;
+    const pos=this._navCursor(c.tab);
+    return pos==null?{win:c.win,pane:c.pane,tab:c.tab}:{win:c.win,pane:c.pane,tab:c.tab,pos};
+  },
+
+  // 그 탭 편집기의 커서(문서 안 offset). 편집기 탭이 아니면 null — 커서가 없는 자리다.
+  _navCursor(tabId){
+    const ed=this.editorAny(tabId);
+    return ed&&ed.cursorAt?ed.cursorAt():null;
+  },
+
+  /**
+   * UX_BATCH12_SRS FR-RTR-8: 파일 안의 큰 점프(검색 결과 줄·정의 이동·참조 고르기) **직전에** 부른다.
+   * 그 자리(탭과 커서)를 기록에 넣고, 지금 자리는 "점프로 온 자리" 로 표시한다 — 같은 탭
+   * 안의 점프는 포커스가 바뀌지 않아 `_navNote` 가 돌지 않는다.
+   */
+  navJump(){
+    if(this._navMoving) return;
+    const p=this._navPlace();
+    const pos=p&&this._navCursor(p.tab);
+    if(pos==null) return;
+    this._navPush({...p,pos});
+    this._navCur={...p,jump:true};
     this._navPaint();
   },
 
@@ -112,7 +149,10 @@ Object.assign(App.prototype, {
       if(this.ws.activeWindow!==p.win) this.switchWindow(p.win);
       if(p.tab) this.switchTab(p.pane,p.tab);
       else this.setFocusState(p.pane);
+      // FR-RTR-8·9: 커서를 실은 자리(점프)면 그 커서로 간다. 없으면 커서를 움직이지 않는다.
+      if(p.pos!=null) this._navCursorGo(p.tab,p.pos);
       this._navCur=this._navPlace()||p;
+      if(p.pos!=null) this._navCur.jump=true;
     } finally { this._navMoving=false }
   },
 
@@ -127,15 +167,23 @@ Object.assign(App.prototype, {
   _navMove(d){
     const from=d<0?(this._navBack=this._navBack||[]):(this._navFwd=this._navFwd||[]);
     const to=d<0?(this._navFwd=this._navFwd||[]):(this._navBack=this._navBack||[]);
+    const here=this._navHere();
     while(from.length){
       const p=from.pop();
       if(!this._navReachable(p)) continue;
-      if(this._navCur) to.push(this._navCur);
+      // 지금 자리와 같은 칸(같은 커서)은 갈 곳이 아니다 — 결과가 없던 점프가 남긴 자리다.
+      if(here&&this._navSame(p,here)&&(p.pos??null)===(here.pos??null)) continue;
+      if(here) to.push(here);
       this._navGo(p);
       this._navPaint();
       return true;
     }
     return false;
+  },
+
+  _navCursorGo(tabId,pos){
+    const ed=this.editorAny(tabId);
+    if(ed&&ed.viewApply) ed.viewApply({anchor:pos,head:pos,len:-1});
   },
 
   // 건너뛰지 않고 갈 수 있는 자리인가 — 열린 자리이거나 다시 열 수 있는 자리다 (FR-RTR-7·14).

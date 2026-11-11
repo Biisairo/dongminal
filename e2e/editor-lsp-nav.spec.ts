@@ -50,6 +50,10 @@ test.beforeAll(async ({ request }) => {
     'package deep\n\n// Helper 는 여기 있다.\nfunc Helper() int {\n\treturn 1\n}\n');
   fs.writeFileSync(j(ROOT, 'bad', 'bad.go'), BAD_GO);
   fs.writeFileSync(j(ROOT, 'notes.txt'), 'plain text\n');
+  // UX_BATCH12_SRS FR-RTR-8: 정의와 부름이 **같은 파일**에서 멀리 떨어져 있다 — 탭이 그대로인 점프.
+  fs.mkdirSync(j(ROOT, 'same'), { recursive: true });
+  fs.writeFileSync(j(ROOT, 'same', 'same.go'), 'package same\n\nfunc local() int {\n\treturn 1\n}\n'
+    + Array.from({ length: 40 }, (_, i) => '\n// filler ' + i).join('') + '\n\nfunc use() int {\n\treturn local()\n}\n');
   ROOT = realPath(ROOT);
 
   // §4.3: gopls 가 없으면 건너뛰지 않고 실패한다. CI 는 e2e.yml 이 판을 고정해 설치한다.
@@ -281,6 +285,76 @@ test.describe('코드 탐색 — 참조 (FR-CMR-93)', () => {
     await items.filter({ hasText: 'deep.Helper()' }).click();
     await waitEditorAt(page, P('main.go'));
     await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 6, col: 7 });
+  });
+});
+
+// UX_BATCH12_SRS FR-RTR-8 (TC-RTR-4): 정의 이동·참조 고르기는 기록의 한 칸이다 — 뒤로가기가
+// 점프 전의 탭과 커서로 돌아가고, 앞으로가 점프한 자리로 다시 간다.
+test.describe('코드 탐색 — 뒤로·앞으로 (UX_BATCH12_SRS FR-RTR-8)', () => {
+  const back = (page: Page) => page.evaluate(() => (window as any).app.executeAction('focusBack'));
+  const fwd = (page: Page) => page.evaluate(() => (window as any).app.executeAction('focusForward'));
+
+  test('정의 이동 뒤 뒤로가기는 점프 전 커서로, 앞으로는 정의로 간다', async ({ page, request }) => {
+    await atHelperCall(page, request);
+    await page.keyboard.press('F12');
+    await waitEditorAt(page, P('pkg/deep/helper.go'));
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 4, col: 6 });
+
+    await back(page);
+    await waitEditorAt(page, P('main.go'));
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 6, col: 8 });
+    await fwd(page);
+    await waitEditorAt(page, P('pkg/deep/helper.go'));
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 4, col: 6 });
+  });
+
+  // 같은 파일 — `use()` 의 `local` 은 49행 9열, 정의는 3행 6열이다.
+  test('같은 파일 안의 정의 이동도 뒤로·앞으로가 오간다', async ({ page, request }) => {
+    const tap = await lspTap(page);
+    await enter(page, request);
+    await openFile(page, 'same/same.go');
+    await ready(tap, 'same/same.go');
+    await putCursor(page, 49, 10);
+    await page.keyboard.press('F12');
+    await expect.poll(() => cursor(page), { timeout: 15000 }).toEqual({ line: 3, col: 6 });
+    await back(page);
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 49, col: 10 });
+    await fwd(page);
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 3, col: 6 });
+  });
+
+  test('같은 파일 안의 참조 고르기도 뒤로가기가 되돌린다', async ({ page, request }) => {
+    const tap = await lspTap(page);
+    await enter(page, request);
+    await openFile(page, 'same/same.go');
+    await ready(tap, 'same/same.go');
+    await putCursor(page, 3, 7);
+    await page.keyboard.press('Shift+F12');
+    const panel = page.locator(`.file-editor:visible ${ED_SEL.refPanel}`);
+    await expect(panel.locator(ED_SEL.refItem).first()).toBeVisible({ timeout: 15000 });
+    await panel.locator(ED_SEL.refItem).filter({ hasText: 'return local()' }).click();
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 49, col: 9 });
+    await back(page);
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 3, col: 7 });
+  });
+
+  test('참조를 고른 뒤 뒤로가기는 고르기 전의 탭과 커서로 간다', async ({ page, request }) => {
+    const tap = await lspTap(page);
+    await enter(page, request);
+    await openFile(page, 'main.go');
+    await ready(tap, 'main.go');
+    await openFile(page, 'pkg/deep/helper.go');
+    await ready(tap, 'pkg/deep/helper.go');
+    await putCursor(page, 4, 7);
+    await page.keyboard.press('Shift+F12');
+    const panel = page.locator(`.file-editor:visible ${ED_SEL.refPanel}`);
+    await expect(panel.locator(ED_SEL.refItem)).toHaveCount(2, { timeout: 15000 });
+    await panel.locator(ED_SEL.refItem).filter({ hasText: 'deep.Helper()' }).click();
+    await waitEditorAt(page, P('main.go'));
+
+    await back(page);
+    await waitEditorAt(page, P('pkg/deep/helper.go'));
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 4, col: 7 });
   });
 });
 

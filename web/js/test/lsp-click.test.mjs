@@ -28,7 +28,7 @@ function setup({ caps = true, links = null, fail = false } = {}) {
     expose: ['LspClient'],
     globals: { CM: fakeCM },
   });
-  const app = { edOpenFile: async (p, o) => { calls.push('open ' + p + ' ' + JSON.stringify(plain(o))) } };
+  const app = { navJump: () => {}, edOpenFile: async (p, o) => { calls.push('open ' + p + ' ' + JSON.stringify(plain(o))) } };
   const lsp = new ctx.LspClient(app);
   lsp._lspConns = new Map([['k', { client, ensure: () => Promise.resolve(), lastClose: null }]]);
   return { lsp, view, calls };
