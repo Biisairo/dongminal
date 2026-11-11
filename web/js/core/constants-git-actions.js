@@ -268,6 +268,8 @@ const GIT_WQ_DROPPED=t('git.wq_dropped');
 // 확인은 확인이 아니다.
 const GIT_HUNK_SEL_LABEL=t('git.hunk_sel_label');
 const GIT_HUNK_SEL_SEP='~';
+// UX_BATCH12_SRS FR-HKB-5: 블록 동작의 대상 글 — 그 블록의 새 줄 범위다.
+const GIT_HUNK_BLOCK_LABEL=t('git.hunk_block_label');
 const GIT_HUNK_TARGET_SEP=' · ';
 // revert 는 파괴적이다 (FR-GIT-279) — discard 와 같은 뜻이므로 그 이름을 쓴다.
 const GIT_HUNK_REVERT_TITLE=t('git.hunk_revert_title');

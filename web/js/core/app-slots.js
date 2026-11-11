@@ -653,6 +653,11 @@ Object.assign(App.prototype, {
     if(add) add.addEventListener('click',()=>this.slotAdd());
     const rm=document.getElementById('slot-remove');
     if(rm) rm.addEventListener('click',()=>this.slotRemove());
+    // UX_BATCH12_SRS FR-RTR-13a: 뒤로·앞으로 버튼은 단축키와 같은 액션이다. 같은 상단바 줄이라 여기서 붙인다.
+    for(const [id,action] of [['nav-back','focusBack'],['nav-forward','focusForward']]){
+      const b=document.getElementById(id);
+      if(b) b.addEventListener('click',()=>this.executeAction(action));
+    }
     // FR-WSL-81 / SETTINGS_CONTROLS_SRS FR-SCT-5: 값이 둘뿐이라 누를 때마다 뒤집는다.
     const el=document.getElementById('ds-slotdir');
     if(el){

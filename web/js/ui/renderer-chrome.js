@@ -144,6 +144,17 @@ Object.assign(Renderer.prototype, {
     ind.textContent=`${this.app.mPaneIdx+1}/${n}`;
   },
 
+  // UX_BATCH12_SRS FR-RTR-13·14: 뒤로·앞으로 버튼. Repo 창일 때만 서고, 갈 곳이 없으면 비활성이다.
+  _rNavButtons(){
+    const box=document.getElementById('nav-ctl');
+    if(!box) return;
+    box.hidden=this.app.isMobile||!this.app.isEditorWin(this.app.aw());
+    if(box.hidden) return;
+    const back=document.getElementById('nav-back'),fwd=document.getElementById('nav-forward');
+    if(back) back.disabled=!this.app.navCan(-1);
+    if(fwd) fwd.disabled=!this.app.navCan(1);
+  },
+
   _rTopbar(){
     const a=this.app.aw();
     // FR-STB-11·12: 칸이 하나면 토프바가 제목을 낸다. 칸이 여럿이면 머리글이 그
@@ -192,6 +203,7 @@ Object.assign(Renderer.prototype, {
       sr.hidden=this.app.isMobile;
       sr.disabled=n<=1;
     }
+    this._rNavButtons();
     // SLOT_MARKER_SRS FR-SMK-1·2: 마커는 `#window-name` 이 비는 그 자리에 선다 —
     // 조건이 위 `multi` 와 **같은 식**이다.
     this._rSlotMarker(n);

@@ -215,9 +215,11 @@ Object.assign(GitPanel.prototype, {
     el.querySelector('.git-diff-pos').textContent=
       cf?'':(list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0');
     // 대상이 목록에서 사라졌으면(커밋·discard) 그 사실만 알린다 — 아무 파일이나
-    // 임의로 보이지 않는다 (§3.3).
+    // 임의로 보이지 않는다 (§3.3). UX_BATCH12_SRS FR-DNC-1: 목록이 비어도 같은 규칙이다 —
+    // 변경을 전부 커밋하면 목록이 비고, 그때 안내가 빠졌다. 관측이 오기 전은 모르는 것이다.
     const gone=el.querySelector('.git-diff-gone');
-    const lost=!cf&&!!(f&&i<0&&list.length);
+    const known=!!(this._status&&this._status.status);
+    const lost=!cf&&known&&!!(f&&i<0);
     gone.textContent=lost?GIT_DIFF_GONE_NOTE:'';
     gone.classList.toggle('vis',lost);
     // 커밋 축은 어느 두 리비전을 비교하는지 함께 보인다 (FR-GIT-139).

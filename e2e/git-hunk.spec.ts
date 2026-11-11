@@ -445,6 +445,44 @@ test.describe('묶음 S — 편집기 선택으로 고르는 줄 범위', () => 
     expect(worktreeOf(repo)).toContain('TWELVE');
   });
 
+  // UX_BATCH12_SRS TC-HKB-1 (FR-HKB-1·2): 10행·15행 변경은 git hunk 하나로 묶인다(U3).
+  // 커서만 두고 되돌리면 **보이는 블록 하나**만 되돌아가야 한다 — 종전에는 묶인 둘 다였다.
+  test('TC-HKB-1: 커서만 두고 Revert hunk 는 그 변경 블록만 되돌린다', async ({ page }) => {
+    const repo = hunkRepo('hkb1');
+    hunkFile(repo, 'f.txt', { 10: 'TEN', 15: 'FIFTEEN' });
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openDiff(page, 'working', 'f.txt');
+    expect(await hunkCount(page), '두 변경이 git hunk 하나로 묶이는 전제가 깨졌다').toBe(1);
+
+    await cursorLine(page, 10);
+    await expect(act(page, 'revert')).toHaveText('Revert hunk');
+    await act(page, 'revert').click();
+    await expect(confirmBox(page)).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#git-confirm .gc-targets')).toContainText('변경 블록 · 줄 10');
+    await confirmGo(page).click();
+
+    await expect(page.locator('#git-confirm')).toHaveCount(0, { timeout: 10000 });
+    await expect.poll(() => worktreeOf(repo), { timeout: 10000 }).toContain('line10');
+    expect(worktreeOf(repo)).not.toContain('TEN\n');
+    expect(worktreeOf(repo), '묶인 다른 블록까지 되돌아갔다').toContain('FIFTEEN');
+  });
+
+  // TC-HKB-2 (FR-HKB-4): 두 블록 사이의 문맥 줄에서는 툴바가 뜨지 않는다.
+  test('TC-HKB-2: 문맥 줄에 커서면 툴바가 뜨지 않는다', async ({ page }) => {
+    const repo = hunkRepo('hkb2');
+    hunkFile(repo, 'f.txt', { 10: 'TEN', 15: 'FIFTEEN' });
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openDiff(page, 'working', 'f.txt');
+    await cursorLine(page, 15);
+    await page.evaluate(() => {
+      const ed = edT.diffSide(edT.diffPanel()._diffView, 'mod');
+      edT.setCursor(ed, 12, 1);
+    });
+    await expect(bar(page)).toBeHidden({ timeout: 10000 });
+  });
+
   // V-DHB-8 (옛 G7): 취소하면 아무 일도 없다. 기본 선택지는 언제나 안전한 쪽이다
   // (FR-GIT-97).
   test('V-DHB-8: revert 를 취소하면 워킹 트리가 그대로다', async ({ page }) => {

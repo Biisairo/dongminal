@@ -212,6 +212,9 @@ Object.assign(GitPanel.prototype, {
     const hunk=sel?this._hunkBarAnchor(h.list,sel):null;
     // FR-DHB-13 조건 1 · FR-DHB-14.
     if(!hunk){this._hunkBarHide();return}
+    // UX_BATCH12_SRS FR-HKB-4: 커서만 있으면 변경 블록 위에서만 뜬다 — 문맥 줄의 툴바는
+    // 어느 블록에 걸리는지 말하지 않는다.
+    if(sel.empty&&!gitHunkBlockAt(hunk,sel.s)){this._hunkBarHide();return}
     this._hunkBarHunk=hunk.index;
     // FR-DHB-12: **매 회차 커서 줄로 갱신한다.** 같은 조각 안에서 커서를 옮기면
     // 툴바도 그 줄로 내려온다 — 조각 첫 줄 고정이 "이상한 위치" 의 정체였다.
@@ -246,7 +249,7 @@ Object.assign(GitPanel.prototype, {
       const co=this._hunkBarCoords();
       // 좌표가 조각 전체면(선택이 없거나 바뀐 줄에 걸리지 않았다) 라벨도 조각의
       // 것이다 (FR-DHB-31·34).
-      const lines=!!(co&&co.from);
+      const lines=!!(co&&co.from&&!co.block);
       const blocked=this._hunkBlocked();
       const sig=[acts.join(','),lines?'l':'h',this._writing?'w':'',blocked].join('|');
       if(el.dataset.sig!==sig){
@@ -275,9 +278,14 @@ Object.assign(GitPanel.prototype, {
     if(!hunk) return null;
     const whole={hunk:hunk.index,from:0,to:0};
     const sel=this._hunkBarSel();
-    // 커서만 있으면 조각 전체다 (FR-DHB-31). 정규화는 `_hunkBarSel` 한 자리에
-    // 있다 (FR-DHB-11a) — 판정과 여기가 어긋나면 안 된다.
-    if(!sel||sel.empty) return whole;
+    if(!sel) return whole;
+    // UX_BATCH12_SRS FR-HKB-2 (FR-DHB-31 개정): 커서만 있으면 커서가 있는 **변경 블록**
+    // 하나다. git hunk 는 가까운 블록 여럿을 묶으므로 hunk 전체는 화면의 조각 하나가 아니다.
+    // 정규화는 `_hunkBarSel` 한 자리에 있다 (FR-DHB-11a) — 판정과 여기가 어긋나면 안 된다.
+    if(sel.empty){
+      const b=gitHunkBlockAt(hunk,sel.s);
+      return b?{hunk:hunk.index,from:b.from,to:b.to,block:true,s:b.s,e:b.e}:null;
+    }
     // FR-DHB-32: 선택이 여러 조각을 걸쳐도 적용되는 것은 이 조각 안의 범위뿐이다.
     // 서버 `patch` 가 hunk 번호를 하나만 받으므로 그것이 규약의 한계다 (D-3).
     const s=Math.max(sel.s,hunk.newStart);
@@ -314,7 +322,9 @@ Object.assign(GitPanel.prototype, {
   async _hunkRevert(body,f,hunk,co){
     // FR-DHB-42: 무엇을 되돌리는지 밝힌다. 줄 범위를 골랐으면 그 범위이고,
     // 아니면 조각의 머리다.
-    const label=co.from
+    const label=co.block
+      ?(GIT_HUNK_BLOCK_LABEL+co.s+(co.e>co.s?GIT_HUNK_SEL_SEP+co.e:''))
+      :co.from
       ?(GIT_HUNK_SEL_LABEL+co.from+GIT_HUNK_SEL_SEP+co.to)
       :((hunk&&hunk.header)||'');
     await GitDialog.confirm({

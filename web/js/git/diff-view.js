@@ -376,7 +376,10 @@ class GitDiffView {
       if(buf&&this._dv===dv&&this._buf===buf){
         this._setNote(note);
         if(this._origText===orig) return;
-        this._cmSetOrig(orig);
+        // FR-DNC-3: 접기의 범위는 칸을 세울 때 정해진다(`@codemirror/merge` CollapsedRanges) —
+        // 원본 쪽만 바꾸면 커밋 뒤의 접기가 옛 내용을 따른다. 접기가 켜져 있으면 다시 세운다.
+        if(this._fold){this._origText=orig;this._cmBuild(true)}
+        else this._cmSetOrig(orig);
         if(this.onChanged) this.onChanged();
         return;
       }
@@ -412,9 +415,11 @@ class GitDiffView {
    * 편집기를 (다시) 세운다. 원본은 `_origText`, 수정본은 문서 버퍼(`_buf`)가 있으면 그것, 없으면 `_modText` 다.
    * 다시 세우면 스크롤 비율을 지킨다 (FR-CMR-51). 수정본 쪽 실행 취소 기록은 끊긴다 (§3.16).
    */
-  _cmBuild(){
+  _cmBuild(keepSel){
     const prev=this._cm;
     const ratio=prev?this._cmScrollRatio(prev):0;
+    // UX_BATCH12_SRS FR-DNC-3: 접기 때문에 다시 세우면 커서는 그 자리다 — 수정본은 같은 문서다.
+    const head=(keepSel&&prev)?prev.b.state.selection.main.head:-1;
     if(prev){
       if(this.onEditor) this.onEditor(null);
       this._findPanel=null;
@@ -427,10 +432,17 @@ class GitDiffView {
     // FR-ELR-38: 칸이 붙은 버퍼를 기억한다 — 버릴 때 `_buf` 는 이미 다음 문서의 것일 수 있다.
     const c={kind,cmpA:ea.cmp,cmpB:eb.cmp,ruler:null,buf};
     const diffConfig=this._ignoreWs?{override:gitDiffIgnoreWs}:{};
-    const collapse=this._fold?GIT_DIFF_COLLAPSE:undefined;
+    const bDoc=buf?buf.doc:this._modText;
+    // FR-DNC-2: 보일 변경이 없으면 접지 않는다 — 접기가 본문 전체를 한 띠로 접어 내용이 사라진 것처럼 보인다.
+    c.folded=this._fold&&this._cmHasChanges(bDoc,diffConfig);
+    const collapse=c.folded?GIT_DIFF_COLLAPSE:undefined;
     const listen=CM.EditorView.updateListener.of((u)=>{
       if(buf&&c.b===u.view) buf.fromSink(u.view,u.transactions);
       if(c.host) c.host._update(u);
+      // FR-DNC-4: 밖에서 바뀐 내용(디스크·다른 탭)이 변경 유무를 바꿨으면 접기를 다시 세운다.
+      // 이 칸에서 치는 중에는 세우지 않는다 — 다시 세우면 입력 포커스를 잃는다.
+      if(u.docChanged&&this._fold&&!u.view.hasFocus)
+        TIMERS.frame(()=>this._cmFoldCheck(c),{owner:this,coalesce:'diff-fold',label:'diff-fold'});
       if(u.docChanged||u.geometryChanged||u.heightChanged) u.view.requestMeasure(c.ruler);
     });
     // UX_BATCH12_SRS FR-RTB-10: 디스크의 파일을 고치는 축(문서 버퍼가 있다)의 수정본은 편집기
@@ -439,7 +451,6 @@ class GitDiffView {
     const bExt=[...eb.extensions,links,listen,gitDiffHunkBar().field,
       CM.EditorView.editorAttributes.of({class:'git-diff-side-mod'})];
     const aExt=[...ea.extensions,CM.EditorView.editorAttributes.of({class:'git-diff-side-orig'})];
-    const bDoc=buf?buf.doc:this._modText;
     const wrap=document.createElement('div');
     // FR-GIT-51: 나란히 보기의 표식 (옛 엔진 때 바깥 요소의 `side-by-side` 와 같다).
     wrap.className='git-diff-cm'+(kind==='split'?' side-by-side':'');
@@ -476,6 +487,7 @@ class GitDiffView {
       c.b.dispatch({effects:c.cmpB.lang.reconfigure(lang)});
     });
     c.b.requestMeasure(c.ruler);
+    if(head>=0) c.b.dispatch({selection:{anchor:Math.min(head,c.b.state.doc.length)}});
     if(ratio) TIMERS.frame(()=>{ if(this._cm===c) c.scroller.scrollTop=ratio*(c.scroller.scrollHeight-c.scroller.clientHeight) },{owner:this,label:'diff-scroll'});
     if(this._editable!==undefined) this._bindEdit();
     if(this.onEditor) this.onEditor(c.host);
@@ -496,6 +508,18 @@ class GitDiffView {
     if(vs.len===c.b.state.doc.length) c.b.dispatch({selection:{anchor:vs.anchor,head:vs.head}});
     if(vs.ratio) TIMERS.frame(()=>{ if(this._cm===c) c.scroller.scrollTop=vs.ratio*(c.scroller.scrollHeight-c.scroller.clientHeight) },{owner:this,label:'diff-scroll'});
     return true;
+  }
+
+  // FR-DNC-2: 두 쪽 사이에 보일 변경 조각이 있는가. 칸을 세우기 전에 묻는다 — 접기는 세울 때 정해진다.
+  _cmHasChanges(bDoc,diffConfig){
+    const text=(v)=>(typeof v==='string'?CM.Text.of(v.split('\n')):v);
+    return CM.Chunk.build(text(this._origText||''),text(bDoc||''),diffConfig).length>0;
+  }
+
+  // FR-DNC-4: 변경 유무가 접기와 어긋났으면 다시 세운다.
+  _cmFoldCheck(c){
+    if(this._cm!==c||!this._fold) return;
+    if((this.chunks()||[]).length>0!==c.folded) this._cmBuild(true);
   }
 
   _cmScrollRatio(c){

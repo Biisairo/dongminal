@@ -226,3 +226,52 @@ test.describe('TC-RTR-6 — 마우스 4·5번은 브라우저의 것이다 (FR-R
     expect(await place()).toEqual(before);
   });
 });
+
+test.describe('TC-RTR-7 — 뒤로·앞으로 버튼 (FR-RTR-13·14)', () => {
+  test('Repo 창에서만 서고, 갈 곳이 없으면 비활성이다', async ({ page, request }) => {
+    const back = page.locator('#topbar #nav-back');
+    const fwd = page.locator('#topbar #nav-forward');
+    await enter(page, request);
+    await expect(back).toBeVisible();
+    await expect(fwd).toBeVisible();
+    // 슬롯 버튼의 왼쪽이다.
+    const nb = (await page.locator('#topbar #nav-ctl').boundingBox())!;
+    const sb = (await page.locator('#topbar .slot-ctl').boundingBox())!;
+    expect(nb.x + nb.width, '버튼 묶음이 슬롯 버튼의 왼쪽이 아니다').toBeLessThanOrEqual(sb.x);
+    // 첫 진입의 버튼 상태는 그 앞의 기록에 달렸다 — 앞길은 없다.
+    await expect(fwd).toBeDisabled();
+
+    await openFile(page, 'a.txt');
+    await openFile(page, 'long.txt');
+    await expect.poll(async () => (await tabs(page)).active).toBe('long.txt');
+    await expect(back).toBeEnabled();
+    await expect(fwd).toBeDisabled();
+
+    await back.click();
+    await expect.poll(async () => (await tabs(page)).active).toBe('a.txt');
+    await expect(fwd).toBeEnabled();
+    await fwd.click();
+    await expect.poll(async () => (await tabs(page)).active).toBe('long.txt');
+    await expect(fwd).toBeDisabled();
+
+    // 터미널 창으로 가면 버튼이 서지 않는다.
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      const w = a.testing.plainWindows()[0];
+      a.switchWindow(w.id);
+    });
+    await expect(back).toBeHidden();
+    await expect(fwd).toBeHidden();
+  });
+
+  test('기록에 갈 수 있는 자리가 없으면 비활성이다 (닫힌 터미널 자리만 남음)', async ({ page }) => {
+    await waitForInit(page);
+    // 터미널 창에서는 버튼이 서지 않는다 — 판정 함수만 잰다.
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(2, { timeout: 15000 });
+    expect(await page.evaluate(() => (window as any).app.navCan(-1))).toBe(true);
+    await page.evaluate(() => { const a = (window as any).app; return a.closeTab(a.focused, a.testing.aw().layout.tabs[0].id) });
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(1, { timeout: 15000 });
+    expect(await page.evaluate(() => (window as any).app.navCan(-1))).toBe(false);
+  });
+});

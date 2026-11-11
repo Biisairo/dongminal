@@ -89,6 +89,7 @@ Object.assign(App.prototype, {
       this._navFwd=[];
     }
     this._navCur=p;
+    this._navPaint();
   },
 
   /** 그 자리가 아직 있는가. 창·칸·탭 셋 다 있어야 갈 수 있다. */
@@ -131,6 +132,7 @@ Object.assign(App.prototype, {
       if(!this._navReachable(p)) continue;
       if(this._navCur) to.push(this._navCur);
       this._navGo(p);
+      this._navPaint();
       return true;
     }
     return false;
@@ -144,6 +146,15 @@ Object.assign(App.prototype, {
     if(from===to) return;
     for(const p of [...(this._navBack||[]),...(this._navFwd||[]),this._navCur]) if(p&&p.tab===from) p.tab=to;
   },
+
+  // FR-RTR-14: 그 쪽으로 갈 수 있는 자리가 기록에 하나라도 있는가. 버튼의 활성 판정이다.
+  navCan(d){
+    const list=(d<0?this._navBack:this._navFwd)||[];
+    return list.some(p=>this._navReachable(p));
+  },
+
+  // 기록이 바뀌었다 — 버튼을 다시 칠한다. 렌더를 지나지 않는 이동(포커스만)도 있다.
+  _navPaint(){ if(this.renderer&&this.renderer._rNavButtons) this.renderer._rNavButtons() },
 
   navBack(){ return this._navMove(-1) },
   navForward(){ return this._navMove(1) },

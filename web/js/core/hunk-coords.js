@@ -107,6 +107,40 @@ function gitHunkRangeForLines(hunk,sLine,eLine){
 }
 
 /**
+ * 커서 줄이 닿은 **변경 블록** 하나 — `{from,to,s,e}` 또는 null (UX_BATCH12_SRS FR-HKB-1·3).
+ *
+ * 블록은 문맥 없이 이어진 `-`·`+` 의 묶음이다. git hunk 는 문맥 3줄로 만들어 가까운
+ * 변경 여럿을 하나로 묶지만, 화면은 블록마다 따로 칠한다 — 동작은 화면의 단위를 따른다.
+ * `from`·`to` 는 서버 좌표(본문 인덱스)이고 `s`·`e` 는 그 블록의 새 줄 범위다.
+ * 삭제만 있는 블록은 새 쪽에 줄이 없으므로 바로 다음 줄(끝이면 바로 앞 줄)이 그 자리다.
+ * 문맥 줄은 블록이 아니다 (FR-HKB-4).
+ */
+function gitHunkBlockAt(hunk,line){
+  const rows=gitHunkScan(hunk);
+  let prevNew=Math.max(1,((hunk&&hunk.newStart)||1)-1);
+  let b=null,hit=null;
+  const flush=(next)=>{
+    if(!b) return;
+    if(!b.s){b.s=next||prevNew;b.e=b.s}
+    if(!hit&&line>=b.s&&line<=b.e) hit={from:b.from,to:b.to,s:b.s,e:b.e};
+    b=null;
+  };
+  for(const r of rows){
+    if(r.mark===GIT_HUNK_CTX_MARK){flush(r.newLine);prevNew=r.newLine;continue}
+    if(r.mark===GIT_HUNK_NONL_MARK){if(b) b.to=r.i;continue}
+    if(!b) b={from:r.i,to:r.i,s:0,e:0};
+    b.to=r.i;
+    if(r.mark===GIT_HUNK_ADD_MARK){
+      if(!b.s) b.s=r.newLine;
+      b.e=r.newLine;
+      prevNew=r.newLine;
+    }
+  }
+  flush(0);
+  return hit;
+}
+
+/**
  * 조각 → `{hunk,from,to,wide}`. `wide:true` 는 **경계를 좁히지 못해 덩어리 전체**를
  * 가리킨다는 뜻이고, `null` 은 겹치는 덩어리가 없다 — 관측이 낡았으므로 다시
  * 받아야 한다.

@@ -16,7 +16,7 @@ import { load, plain } from './harness.mjs';
  */
 const ctx = load(['core/hunk-coords.js']);
 const { gitHunkScan, gitHunkRangeForChange, gitHunkRangeForLines,
-  gitHunkCoordsForChange, gitHunkAt } = ctx;
+  gitHunkCoordsForChange, gitHunkAt, gitHunkBlockAt } = ctx;
 
 /** `git diff` 본문 한 벌. 문맥 1 · 삭제 1 · 추가 2 · 문맥 1. */
 const HUNK = {
@@ -126,4 +126,40 @@ test('hunkAt: newLines 0 인 덩어리는 newStart 한 줄로 본다', () => {
   const empty = { index: 1, newStart: 7, newLines: 0 };
   assert.equal(gitHunkAt([empty], 7), empty);
   assert.equal(gitHunkAt([empty], 8), null);
+});
+
+// UX_BATCH12_SRS FR-HKB-1·3 (TC-HKB-3): 커서 줄이 닿은 **변경 블록** 하나의 좌표.
+// 블록은 문맥 없이 이어진 `-`·`+` 의 묶음이다 — 화면의 변경 조각 하나에 맞는다.
+const TWO = {
+  index: 0, newStart: 7, newLines: 9, oldStart: 7, oldLines: 9,
+  lines: [' 7', ' 8', ' 9', '-10', '+TEN', ' 11', '-12', ' 13', '+N', ' 14', ' 15'],
+};
+
+test('block: 수정 블록의 새 줄에 커서 — 그 블록만 (`-` 짝 포함)', () => {
+  assert.deepEqual(plain(gitHunkBlockAt(TWO, 10)), { from: 4, to: 5, s: 10, e: 10 });
+});
+
+test('block: 삭제만 있는 블록은 바로 다음 줄이 그 자리다', () => {
+  // 새 쪽: 7 8 9 TEN(10) 11(11) 13(12) N(13) 14 15 — `-12` 다음 줄은 새 12행(13)
+  assert.deepEqual(plain(gitHunkBlockAt(TWO, 12)), { from: 7, to: 7, s: 12, e: 12 });
+});
+
+test('block: 추가만 있는 블록', () => {
+  assert.deepEqual(plain(gitHunkBlockAt(TWO, 13)), { from: 9, to: 9, s: 13, e: 13 });
+});
+
+test('block: 문맥 줄은 블록이 아니다 — null', () => {
+  for (const ln of [7, 9, 11, 14, 15]) assert.equal(gitHunkBlockAt(TWO, ln), null, String(ln));
+});
+
+test('block: 파일 끝의 삭제는 바로 앞 줄이 그 자리다', () => {
+  const END = { index: 0, newStart: 3, newLines: 2, oldStart: 3, oldLines: 3, lines: [' a', ' b', '-c'] };
+  assert.deepEqual(plain(gitHunkBlockAt(END, 4)), { from: 3, to: 3, s: 4, e: 4 });
+  assert.equal(gitHunkBlockAt(END, 3), null);
+});
+
+test('block: `\\ No newline` 표식은 블록에 딸려 간다', () => {
+  const NL = { index: 0, newStart: 1, newLines: 1, oldStart: 1, oldLines: 1,
+    lines: ['-a', '\\ No newline at end of file', '+b', '\\ No newline at end of file'] };
+  assert.deepEqual(plain(gitHunkBlockAt(NL, 1)), { from: 1, to: 4, s: 1, e: 1 });
 });

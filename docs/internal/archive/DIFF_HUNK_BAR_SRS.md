@@ -185,6 +185,7 @@ const body={repo:f.repo,axis:f.axis,path:f.path,op,hunk:idx,
 **FR-DHB-10** 툴바는 Monaco **content widget** 이다 (I-1). view zone 을 쓰지
 않는다 — 그것은 세로 공간을 밀고, 그것이 이번 요구가 없애려는 것이다.
 
+> **개정 (UX_BATCH12_SRS FR-HKB, 2026-11-11).** 커서만 있을 때의 대상은 git hunk 전체가 아니라 커서가 있는 **변경 블록**이다. 커서가 문맥 줄에 있으면 툴바가 뜨지 않는다(git hunk 안의 문맥 줄 포함).
 **FR-DHB-11 (개정 — 커서)** 트리거는 **모디파이드 에디터의 커서**다. 커서가 어느
 hunk 의 줄에 있으면 그 hunk 의 툴바가 뜨고, 다른 hunk 로 옮기면 그쪽으로 따라간다.
 계기는 `onDidChangeCursorSelection` 과 `onDidFocusEditorText` 다.
@@ -258,6 +259,7 @@ hunk 의 줄에 있으면 그 hunk 의 툴바가 뜨고, 다른 hunk 로 옮기�
 > 않는다.** 판정을 타이머 쪽으로 옮기지 않은 것이 요점이다 — 사라지지 않아야 하는
 > 조건은 "시간" 이 아니라 "어디에 있는가" 다.
 
+> **개정 (UX_BATCH12_SRS FR-HKB, 2026-11-11).** 커서만 있을 때의 대상은 git hunk 전체가 아니라 커서가 있는 **변경 블록**이다. 커서가 문맥 줄에 있으면 툴바가 뜨지 않는다(git hunk 안의 문맥 줄 포함).
 **FR-DHB-14** hunk 가 아닌 줄(문맥만 있는 자리)에 **커서가 있어도** 뜨지 않는다.
 
 **FR-DHB-15** 붙는 동작은 **축이 정한다** — `GIT_HUNK_ACTS`(constants-git.js:1301).
@@ -287,6 +289,7 @@ worktree↔index 는 `stage`·`revert`, index↔HEAD 는 `unstage` 뿐이다.
 
 **FR-DHB-30** 줄 범위는 **모디파이드 에디터의 텍스트 선택**이다 (I-2).
 
+> **개정 (UX_BATCH12_SRS FR-HKB, 2026-11-11).** 커서만 있을 때의 대상은 git hunk 전체가 아니라 커서가 있는 **변경 블록**이다. 커서가 문맥 줄에 있으면 툴바가 뜨지 않는다(git hunk 안의 문맥 줄 포함).
 **FR-DHB-31** 선택이 비어 있으면(커서만 있음) 동작의 대상은 **hunk 전체**이며
 좌표는 `{from:0,to:0}` 다.
 
