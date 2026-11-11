@@ -105,3 +105,31 @@ test('재연결·소프트 리로드: 설정도 같은 스냅샷에 든다', asy
     assert.equal(st.data.part, 'settings');
   }
 });
+
+/**
+ * ACTIVITY_RUNS_REFRESH_SRS TC-ARR-1 (FR-ARR-1·2·3) — Runs 목록은 패널이 열려 있는 동안
+ * 활동 주기마다 다시 받는다. 닫혀 있으면 돌지 않는다.
+ */
+test('run.list 주기는 패널이 열려 있을 때만 활동 주기로 목록을 다시 받는다', () => {
+  const ctx = load(['core/state-registry.js'], { expose: ['wireStateRegistry'] });
+  const jobs = [];
+  let open = false;
+  let calls = 0;
+  const app = {
+    bus: { subscribe() {} },
+    timers: { every: (spec) => jobs.push(spec) },
+    agentsPollMs: 1234,
+    _attn: new Map([['t1', { reason: 'signaled' }]]),
+    _agentsPanelOpen: () => open,
+    _runsListRestore: () => { calls++ },
+  };
+  ctx.wireStateRegistry(app);
+  const job = jobs.find((j) => j.id === 'run.list');
+  assert.ok(job, 'Runs 목록 주기가 없다');
+  assert.equal(job.every(), 1234);
+  assert.equal(job.when(), false, '알림만 있어도 돈다 — 조건은 패널 열림 하나다 (D-ARR-2)');
+  open = true;
+  assert.equal(job.when(), true);
+  job.run();
+  assert.equal(calls, 1);
+});

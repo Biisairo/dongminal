@@ -315,11 +315,13 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
       const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
       return win.layout.tabs[0].toolId;
     });
-    // 에이전트 패널은 활동이 관측된 도구만 카드로 만든다.
+    // 에이전트 패널은 활동이 관측된 도구만 카드로 만든다. 패널을 먼저 연다 — 열면 활동
+    // 목록을 다시 받고(ACTIVITY_RUNS_REFRESH_SRS FR-ARR-4), 그 조회가 떠난 뒤에 넣은 활동은
+    // 응답이 덮지 않는다 (FR-RSF-3).
     await page.evaluate(([id]) => {
       const app = (window as any).app;
-      app.testing.onToolActivity({ toolId: id, state: 'working', tool: 'Bash' });
       if (!document.getElementById('agents-panel')!.classList.contains('open')) app.testing.agentsToggle();
+      app.testing.onToolActivity({ toolId: id, state: 'working', tool: 'Bash' });
     }, [toolId]);
     await expect(page.locator('#agents-panel .ag-card')).toHaveCount(1, { timeout: 10000 });
 

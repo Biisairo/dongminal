@@ -194,10 +194,11 @@ Object.assign(App.prototype, {
     const open=panel.classList.contains('open');
     if(open&&(!key||this._actLastKey===key)){this._actLastKey=null;this.agentsToggle();return}
     this._actLastKey=key||null;
-    if(!open) this.agentsToggle();
     // 구역이 비어 있으면 그릴 것이 없으므로 먼저 받아 온다 — 열자마자 빈 구역을
-    // 보이고 한 박자 뒤에 채우면 "없다" 를 잘못 읽는다.
-    this._actRefresh();
+    // 보이고 한 박자 뒤에 채우면 "없다" 를 잘못 읽는다. 닫혀 있었으면 `agentsToggle`
+    // 이 받는다 (FR-ARR-5).
+    if(!open) this.agentsToggle();
+    else this._actRefresh();
     this.agentsRender();
     if(key) this._actScrollTo(key);
   },

@@ -78,6 +78,18 @@ const STATE_REGISTRY=[
     events:{tool_foreground:'_onToolForeground'},
   },
   {
+    /**
+     * ACTIVITY_RUNS_REFRESH_SRS FR-ARR-1~3 — 멤버 상태·생존은 서버가 물을 때 계산하므로
+     * `run_changed` 로 오지 않는다. 패널이 열린 동안 활동 주기로 다시 받는다.
+     * `run_changed` 구독은 대시보드도 다시 받으므로 `app-ws-sync.js` 에 남는다 (D-ARR-3).
+     */
+    id:'run.list',
+    restore:'_runsListRestore',
+    merge:'latest',
+    every:(app)=>app.agentsPollMs,
+    when:(app)=>app._agentsPanelOpen(),
+  },
+  {
     id:'tool.background',
     restore:'_bgRefresh',
     // **`touched` 가 아니다.** `tools_background_changed` 는 증분을 나르지 않고

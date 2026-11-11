@@ -1,7 +1,7 @@
 // Run 시각화의 진입점 — 본체는 `js/ui/runs-panel.js` 의 `RunsPanel` 이다
 // (APP_STATE_EXTRACT_SRS 묶음 A).
 //
-// 여기 남은 것은 **바깥이 부르는 이름 여섯**뿐이다. 이름을 지키는 이유는 호출부를
+// 여기 남은 것은 **바깥이 부르는 이름 일곱**뿐이다. 이름을 지키는 이유는 호출부를
 // 바꾸지 않기 위해서다 — `app.js`·`app-layout.js`·`renderer.js`·`app-ws-sync.js`·
 // `app-slots.js` 와 e2e 셋이 이 이름들을 쓴다.
 //
@@ -21,6 +21,8 @@ Object.assign(App.prototype, {
   _runDisposeView(v) { return this._runsPanel()._runDisposeView(v) },
   _onRunChanged(args) { return this._runsPanel()._onRunChanged(args) },
   _runPaint(v) { return this._runsPanel()._runPaint(v) },
+  // 상태 등록부 `run.list` 의 복원 (ACTIVITY_RUNS_REFRESH_SRS FR-ARR-3).
+  _runsListRestore() { return this._runsPanel()._runsRefresh() },
 
 });
 

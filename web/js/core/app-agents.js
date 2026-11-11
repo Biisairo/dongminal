@@ -81,7 +81,8 @@ Object.assign(App.prototype, {
     const btn=document.getElementById('agents-toggle');if(btn)btn.classList.toggle('open',open);
     PrefStore.session.setBool(STORE_KEYS.agentsPanelOpen,open);
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
-    if(open) this.agentsRender();
+    // FR-ARR-4: 핸들로 열어도 단축키로 열 때처럼 구역 목록을 다시 받는다.
+    if(open){this._actRefresh();this.agentsRender()}
   },
 
   /**
