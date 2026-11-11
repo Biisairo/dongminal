@@ -289,7 +289,10 @@ Object.assign(App.prototype, {
      */
     document.documentElement.classList.toggle(ATTN_EDGE_ON_CLASS, attnEdgeLevel>0 && n>0);
     // 사이드바 창 알람 표시 갱신 (전체 재렌더 없이)
+    // UX_BATCH12_SRS FR-RGT-2: 그룹 머리는 `data-sid` 가 없다 — 그 안 창들로 판정한다(`groupRow` 와 같은 판정).
     document.querySelectorAll('#windows .si').forEach(el=>{
+      const gid=el.dataset.groupId;
+      if(gid){el.classList.toggle('attn',this.groupHasAttn({windows:this.ws.windows.filter(w=>w.groupId===gid)}));return}
       const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
       el.classList.toggle('attn', !!(s&&this.windowHasAttn(s)));
     });

@@ -476,7 +476,9 @@ html.sb-collapsed body:not(.mobile) .sbl-name{
 /* FR-RAL-7: 배지(변경 수·샌드박스)는 숫자를 넣을 자리가 없으므로 **점의 색**으로
    축약된다. 알람은 그 위이므로(`.attn` 이 색을 이미 말한다) 비켜 준다 — 두 색이
    한 점을 다투면 급한 쪽이 가려진다. */
-html.sb-collapsed body:not(.mobile) .sbl-item.has-badge:not(.attn) .sbl-dot{
+/* UX_BATCH12_SRS FR-RGT-1: 그룹 머리는 뺀다 — 그 점은 테두리로 그린 삼각형이라 배경을 칠하면
+   파란 사각형이 된다. 그룹의 창 수는 펼친 패널의 배지가 말한다. */
+html.sb-collapsed body:not(.mobile) .sbl-item.has-badge:not(.attn):not(.si-group) .sbl-dot{
   background:var(--accent);
 }
 
@@ -783,8 +785,10 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .sbl-item.attn::before,.ag-card.attn::before{content:'';position:absolute;inset:0;pointer-events:none;
   box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-fade 2s ease-in-out infinite}
 /* 점은 사라지지 않고 평소 색으로 돌아간다 — 자리가 비면 목록이 흔들린다. */
-.sbl-item.attn .sbl-dot{background:var(--text-dim);position:relative}
-.sbl-item.attn .sbl-dot::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+/* UX_BATCH12_SRS FR-RGT-1: 그룹 머리의 점은 테두리로 그린 삼각형이다 — 칠하면 사각형이 된다.
+   그룹의 알람은 행의 왼쪽 띠(`.sbl-item.attn::before`)가 말한다. */
+.sbl-item.attn:not(.si-group) .sbl-dot{background:var(--text-dim);position:relative}
+.sbl-item.attn:not(.si-group) .sbl-dot::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:var(--attn);box-shadow:0 0 6px var(--attn-glow);animation:attn-pulse-fade 2s ease-in-out infinite}
 
 /* 에이전트 활동 모아보기 패널 (AGENT_ACTIVITY_PANEL_SRS) — 좌측 사이드바와 대칭 */

@@ -50,7 +50,7 @@
 /* FR-ATP-5: 움직임을 원하지 않는 사람에게는 개정 전의 정지 표식이 남는다 —
    끄는 쪽이 기본 상태보다 어두워서는 안 되므로 정적 선언을 그대로 둔 채 맥박만 멎힌다. */
 @media (prefers-reduced-motion:reduce){
-  .pn.attn::after,.pn-tab.attn::before,.sbl-item.attn::before,.sbl-item.attn .sbl-dot::before,
+  .pn.attn::after,.pn-tab.attn::before,.sbl-item.attn::before,.sbl-item.attn:not(.si-group) .sbl-dot::before,
   .ag-card.attn::before,#attn-badge::before,
   .sb-tab[data-panel="windows"] .sb-tab-badge::before{animation:none}
 }

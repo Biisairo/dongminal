@@ -236,3 +236,44 @@ test.describe('window 그룹 · 순서 명령 (ISSUE_AGENT_TREE_SRS)', () => {
     expect((await ws(page)).groups.length).toBe(before + 1);
   });
 });
+
+/**
+ * UX_BATCH12_SRS TC-RGT-1 (FR-RGT-1) — 접힌 사이드바(레일)에서 그룹 머리의 삼각형은 삼각형이다.
+ * 레일의 "배지 있는 항목은 점을 강조색으로" 규칙(FR-RAL-7)이 그룹 머리의 삼각형까지 칠해
+ * 파란 사각형(선택 블록처럼 보임)이 되던 결함이다.
+ */
+test('TC-RGT-1: 레일에서 그룹 머리의 삼각형은 배경을 칠하지 않는다 (펼침·접힘 둘 다)', async ({ page, request }) => {
+  await waitForInit(page);
+  const g = await newGroup(request, 'G1');
+  await newWindow(request, { group: g });
+  await page.evaluate(() => (window as any).app.testing.setSidebarCollapsed(true));
+  const head = page.locator(`#windows .si-group[data-group-id="${g}"]`);
+  await expect(head).toBeVisible();
+  const bg = () => head.locator('.sbl-dot').evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(await bg()).toBe('rgba(0, 0, 0, 0)');
+  await head.click();
+  await expect(head).toHaveClass(/folded/);
+  expect(await bg()).toBe('rgba(0, 0, 0, 0)');
+});
+
+test('TC-RGT-1: 그룹에 알람이 서면 머리가 알람을 보이고(다시 그려도 같다), 삼각형은 칠하지 않는다', async ({ page, request }) => {
+  await waitForInit(page);
+  const g = await newGroup(request, 'G1');
+  const w = await newWindow(request, { group: g });
+  const head = page.locator(`#windows .si-group[data-group-id="${g}"]`);
+  await expect(head).toBeVisible();
+  const tool = await page.evaluate((id) => {
+    const win = (window as any).app.ws.windows.find((x) => x.id === id);
+    const walk = (n) => (n.type === 'pane' ? (n.tabs || [])[0]?.toolId : (n.children || []).map(walk).find(Boolean));
+    return walk(win.layout);
+  }, w.win);
+  expect((await request.post('/api/tools/attention/set', { headers: JSON_HDR, data: { toolId: tool, reason: 'signaled' } })).ok()).toBeTruthy();
+  await expect(head).toHaveClass(/\battn\b/);
+  await page.evaluate(() => (window as any).app.render());
+  await expect(head).toHaveClass(/\battn\b/);
+  const got = await head.locator('.sbl-dot').evaluate((el) => ({
+    bg: getComputedStyle(el).backgroundColor, before: getComputedStyle(el, '::before').content,
+  }));
+  expect(got).toEqual({ bg: 'rgba(0, 0, 0, 0)', before: 'none' });
+  await request.post('/api/tools/attention/clear-all', { headers: JSON_HDR });
+});
