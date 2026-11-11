@@ -252,7 +252,11 @@ Object.assign(Renderer.prototype, {
     // 종전 주석은 "터미널은 이미 자기 대비를 갖고 있다" 였다. 대비는 있었으나
     // **자리가 틀렸다** — 그 문장이 이 결함을 여덟 달 가려 준 자리다.
     this._keepTermScroll();
-    if(app.gitPanels) for(const p of app.gitPanels.values()) for(const el of p._els.values()) take(el);
+    if(app.gitPanels) for(const p of app.gitPanels.values()){
+      for(const el of p._els.values()) take(el);
+      // UX_BATCH12_SRS FR-RTR-10: Diff 탭의 본문은 편집기다 — 편집기 탭과 같이 스냅숏을 맡긴다.
+      if(p.diffTabId) p.diffViewKeep();
+    }
     // VIEW_SCROLL_RESTORE_SRS FR-VSR-2 / D-2: **편집기 탭은 훑기로 잡히지 않는다** —
     // 편집기의 스크롤은 칸 DOM 의 `scrollTop` 이 아니라 엔진이 든 값이다. 그래서
     // 자리를 묻지 않고 위젯에게 갈무리를 맡긴다.

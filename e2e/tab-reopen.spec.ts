@@ -32,6 +32,8 @@ test.beforeAll(() => {
   git(d, 'add', '-A');
   git(d, 'commit', '-qm', 'init');
   fs.appendFileSync(j(d, 'b.txt'), 'b changed\n');
+  // TC-RTR-5: 스크롤할 만큼 긴 Diff — 앞쪽과 뒤쪽을 바꾼다.
+  fs.writeFileSync(j(d, 'long.txt'), fs.readFileSync(j(d, 'long.txt'), 'utf8').replace('line 2\n', 'LINE TWO\n').replace('line 290\n', 'LINE 290\n'));
   REPO = d;
 });
 test.afterAll(() => rmTree(REPO));
@@ -301,5 +303,50 @@ test.describe('TC-RTR-4 — 파일 안의 점프도 기록의 한 칸이다 (FR-
     await expect.poll(() => lineOf(page)).toBe(1);
     await page.evaluate(() => (window as any).app.executeAction('focusBack'));
     await expect.poll(async () => (await tabs(page)).active).toBe('a.txt');
+  });
+});
+
+test.describe('TC-RTR-5 — 창을 오가도 탭의 스크롤이 그대로다 (FR-RTR-10)', () => {
+  async function roundTrip(page: Page) {
+    const back = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a.switchWindow(a.testing.plainWindows()[0].id);
+    });
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 10000 });
+    await page.evaluate((id) => (window as any).app.switchWindow(id), back);
+  }
+  const top = (page: Page, sel: string) => page.evaluate((s) => {
+    const el = document.querySelector(s) as HTMLElement | null;
+    return el && el.offsetParent !== null ? Math.round(el.scrollTop) : null;
+  }, sel);
+  const setTop = (page: Page, sel: string, v: number) => page.evaluate(([s, n]) => {
+    (document.querySelector(s as string) as HTMLElement).scrollTop = n as number;
+  }, [sel, v] as const);
+
+  test('편집기 탭', async ({ page, request }) => {
+    const sel = '#area .ed-area .file-editor.vis .cm-scroller';
+    await enter(page, request);
+    await openFile(page, 'long.txt');
+    await expect.poll(() => top(page, sel)).not.toBeNull();
+    await setTop(page, sel, 1500);
+    await expect.poll(() => top(page, sel)).toBeGreaterThan(1000);
+    const before = (await top(page, sel))!;
+    await roundTrip(page);
+    await expect.poll(async () => Math.abs(((await top(page, sel)) ?? -999) - before), { timeout: 10000 }).toBeLessThan(40);
+  });
+
+  test('Diff 탭', async ({ page, request }) => {
+    const sel = '#area .ed-area .git-view.git-diff.vis .cm-scroller';
+    await enter(page, request);
+    await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'changes') });
+    await page.locator('#area .ed-side .git-view.git-changes .git-group[data-group="working"] .git-file[data-path="long.txt"]').dblclick();
+    await expect.poll(() => top(page, sel), { timeout: 15000 }).not.toBeNull();
+    await expect(page.locator('#area .ed-area .git-diff-side-mod .cm-changedLine').first()).toBeVisible({ timeout: 15000 });
+    await setTop(page, sel, 1500);
+    await expect.poll(() => top(page, sel)).toBeGreaterThan(1000);
+    const before = (await top(page, sel))!;
+    await roundTrip(page);
+    await expect.poll(async () => Math.abs(((await top(page, sel)) ?? -999) - before), { timeout: 10000 }).toBeLessThan(40);
   });
 });

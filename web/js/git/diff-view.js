@@ -493,6 +493,26 @@ class GitDiffView {
     if(this.onEditor) this.onEditor(c.host);
   }
 
+  /**
+   * UX_BATCH12_SRS FR-RTR-10: 떼기 전에 보던 자리를 적는다 — 편집기 탭의 `keepView` 와 같은 규약이다
+   * (VIEW_SCROLL_RESTORE_SRS FR-VSR-1·2). 인라인은 편집기가 스크롤을 들고 그 높이 계산 위에 서므로
+   * DOM `scrollTop` 훑기로는 되돌릴 수 없다 — 편집기에게 스냅숏을 받는다. 나란히 보기는 바깥 그릇이
+   * 스크롤러다. 보이지 않는 칸(높이 0)은 적지 않는다 — 그 값은 사용자가 본 자리가 아니다.
+   */
+  keepView(){
+    const c=this._cm;
+    if(!c||!c.wrap.isConnected||!c.scroller.clientHeight) return;
+    this._viewKeep=c.mv?{top:c.scroller.scrollTop}:{snap:c.b.scrollSnapshot()};
+  }
+
+  // FR-RTR-10: 적어 둔 자리를 되돌린다. **붙은 뒤에** 불린다.
+  restoreView(){
+    const c=this._cm,k=this._viewKeep;
+    if(!c||!k) return;
+    if(k.snap){c.b.dispatch({effects:k.snap});return}
+    TIMERS.frame(()=>{ if(this._cm===c) c.scroller.scrollTop=k.top },{owner:this,label:'diff-keep'});
+  }
+
   // UX_BATCH12_SRS FR-RTR-6: 닫는 Diff 탭의 커서·스크롤. 스크롤은 비율이다 (`_cmBuild` 의 재생성과 같은 식).
   viewState(){
     const c=this._cm;
@@ -531,6 +551,7 @@ class GitDiffView {
     const c=this._cm;
     if(!c) return;
     this._cm=null;
+    this._viewKeep=null;
     GitDiffView.live.delete(this);
     if(c.buf) c.buf.detach(c.b);
     c.host._dispose();

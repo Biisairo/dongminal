@@ -21,6 +21,10 @@ Object.assign(GitPanel.prototype, {
 
   // UX_BATCH12_SRS FR-RTR-6: 닫는 Diff 탭의 커서·스크롤과, 다시 연 탭에 그것을 돌려 놓는 일.
   // 다시 연 탭의 Diff 는 내용을 받아 온 뒤에 서므로, 그 전이면 담아 두었다 칸이 서면 쓴다.
+  // FR-RTR-10: 창을 오가며 떼였다 붙는 Diff 의 자리 (렌더의 머리 `_keepScrollAll` · 붙은 뒤 `_mountTabBody`).
+  diffViewKeep(){ if(this._diffView) this._diffView.keepView() },
+  diffViewRestore(){ if(this._diffView) this._diffView.restoreView() },
+
   diffTabViewState(){ return this._diffView?this._diffView.viewState():null },
 
   diffTabViewApply(vs){
