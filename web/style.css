@@ -816,8 +816,8 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ed-win.dock-drop-right::after{right:0}
 .ag-head{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .ag-title{flex:1}
-.ag-subview,.ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
-.ag-subview:hover,.ag-refresh:hover,.ag-close:hover{color:var(--accent-text);background:var(--accent-hover)}
+.ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
+.ag-refresh:hover,.ag-close:hover{color:var(--accent-text);background:var(--accent-hover)}
 /* PANEL_SURFACE_SRS FR-AGG-1·10·11·12: 창 그룹의 머리. 카드가 있는 창만 갖는다. */
 /* UIUX_OVERHAUL_SRS FR-ACT-1: **구역 머리.** 패널이 네 구역으로 갈렸고
    (주의 · 에이전트 · 백그라운드 · Run) 그 경계가 창 그룹의 경계보다 위다.
@@ -895,17 +895,11 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ag-sub-state.working{color:var(--term-green)}
 .ag-sub-state.waiting{color:var(--attn-text)}
 .ag-sub .ag-usage{margin-top:1px;padding-left:14px}
-.ag-sub .ag-usage-bar,.ag-subcard .ag-usage-bar{flex-basis:40px}
-.ag-sub.done,.ag-subcard.done{opacity:.6}
-.ag-sub.done .ag-sub-state,.ag-subcard.done .ag-sub-state{color:var(--text-dim)}
+.ag-sub .ag-usage-bar{flex-basis:40px}
+.ag-sub.done{opacity:.6}
+.ag-sub.done .ag-sub-state{color:var(--text-dim)}
 /* FR-ASV-33: 폴더형 하위 카드 — main 카드 아래에 한 단계 들여 쓴다. 왼쪽 선이 소속을 말한다. */
-.ag-subcard{margin-left:16px;padding:5px 10px;border-left:2px solid var(--border);border-bottom:1px solid var(--border-weak);cursor:pointer;min-width:0}
-.ag-subcard:hover{background:var(--accent-hover)}
-.ag-subcard .ag-detail{margin-top:1px}
 .ag-card{position:relative}
-.ag-sub-fold{position:absolute;top:6px;right:6px;display:flex;align-items:center;gap:2px;padding:1px 4px;font-size:var(--fs-sm);color:var(--text-muted)}
-.ag-sub-n{font-variant-numeric:tabular-nums}
-.ag-card:has(.ag-sub-fold) .ag-loc{padding-right:40px}
 /* ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40~42 (D-ASV-11): Usage 바닥 — 패널 맨 아래에 붙는다.
    패널은 세로 flex 이므로 margin-top:auto 가 내용이 짧을 때 바닥으로 밀고, sticky 가 길 때 아래에 남긴다.
    창 블록의 모양은 Claude Code `/usage`·CodexBar 를 따른다 — 이름과 사용률 / 둥근 막대 / 남은 시간. */

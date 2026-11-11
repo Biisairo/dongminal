@@ -17,6 +17,7 @@ function memStore() {
     m,
     get: (k) => (m.has(k) ? m.get(k) : null),
     set: (k, v) => { m.set(k, String(v)); return true },
+    remove: (k) => { m.delete(k); return true },
     json: (k, d) => (m.has(k) ? JSON.parse(m.get(k)) : d),
     setJson: (k, v) => { m.set(k, JSON.stringify(v)); return true },
   };
@@ -121,69 +122,22 @@ function stubPanelApp(ctx, subagents) {
   return app;
 }
 
-test('FR-ASV-32: 기본 보기는 폴더형이고, 전환은 브라우저 저장소에 남는다', () => {
-  const ctx = loadActivity();
-  const app = stubPanelApp(ctx, [SUB]);
-  assert.equal(app._agSubView(), 'tree');
-  app._agSubViewToggle();
-  assert.equal(app._agSubView(), 'list');
-  assert.equal(ctx._local.get('agentsSubView'), 'list');
-  app._agSubViewToggle();
-  assert.equal(app._agSubView(), 'tree');
-});
-
-test('FR-ASV-33: 폴더형은 카드 뒤에 하위 카드 항목이 서고, 접으면 없다', () => {
+test('UX_BATCH12 FR-SVL-1·2: 서브에이전트는 카드 안의 목록이고 하위 카드 항목이 없다', () => {
   const ctx = loadActivity();
   const app = stubPanelApp(ctx, [SUB, { ...SUB, id: 'a2' }]);
-  const ts = () => plain(app._agWindowItems().map((i) => i.t));
-  assert.deepEqual(ts(), ['group', 'card', 'sub', 'sub']);
-  const sub = app._agWindowItems()[2];
-  assert.equal(sub.toolId, 't1');
-  assert.equal(sub.s.id, 'a1');
-
-  app._agSubFoldToggle('t1');
-  assert.deepEqual(ts(), ['group', 'card']);
-  assert.deepEqual(plain(JSON.parse(ctx._local.get('agentsGroupFold'))), ['sub:t1']);
-  app._agSubFoldToggle('t1');
-  assert.deepEqual(ts(), ['group', 'card', 'sub', 'sub']);
-});
-
-test('FR-ASV-33·34: 목록형에서는 하위 카드 항목이 없다', () => {
-  const ctx = loadActivity();
-  const app = stubPanelApp(ctx, [SUB]);
-  app._agSubViewToggle();
   assert.deepEqual(plain(app._agWindowItems().map((i) => i.t)), ['group', 'card']);
+  assert.equal(app._agSubView, undefined, '보기 전환이 남아 있다');
+  assert.equal(app._agSubViewToggle, undefined);
+  assert.equal(app._agSubFoldToggle, undefined);
+  assert.equal(app._agSubCardEl, undefined);
 });
 
-test('FR-ASV-33: 하위 카드는 머리·내용·사용량 줄이고 누르면 그 도구로 간다', () => {
+test('UX_BATCH12 FR-SVL-3: 남아 있는 agentsSubView 값은 읽지 않고 지운다', () => {
   const ctx = loadActivity();
+  ctx._local.set('agentsSubView', 'tree');
   const app = stubPanelApp(ctx, [SUB]);
-  let jumped = null;
-  app.jumpToTool = (id) => { jumped = id };
-  let onClick = null;
-  const card = app._agSubCardEl('t1', ctx.agentSubagentView(SUB));
-  assert.equal(card.className, 'ag-subcard');
-  assert.equal(card.dataset.toolid, 't1');
-  assert.deepEqual(plain(kinds(card)), ['ag-sub-head', 'ag-detail', 'ag-usage']);
-  assert.deepEqual(plain(kinds(card.children[0])), ['ag-sub-type', 'ag-sub-state']);
-  assert.equal(card.children[1].textContent, 'parse');
-
-  // 클릭 배선은 대역에서 직접 꺼내 부른다.
-  const ctx2 = loadActivity({
-    document: {
-      createElement: () => {
-        const el = { className: '', dataset: {}, style: {}, children: [], title: '', textContent: '',
-          appendChild(c) { el.children.push(c); return c },
-          addEventListener(type, fn) { if (type === 'click') onClick = fn } };
-        return el;
-      },
-    },
-  });
-  const app2 = stubPanelApp(ctx2, [SUB]);
-  app2.jumpToTool = (id) => { jumped = id };
-  app2._agSubCardEl('t1', ctx2.agentSubagentView({ id: 'x', status: 'completed' }));
-  onClick({ stopPropagation() {} });
-  assert.equal(jumped, 't1');
+  assert.deepEqual(plain(app._agWindowItems().map((i) => i.t)), ['group', 'card']);
+  assert.equal(ctx._local.get('agentsSubView'), null);
 });
 
 // ── TC-ASV-13 ──

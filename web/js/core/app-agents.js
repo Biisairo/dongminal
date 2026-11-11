@@ -186,8 +186,6 @@ Object.assign(App.prototype, {
         // 보이는지 이 파일은 모르고, 알 필요도 없다.
         if(it.t==='row') return it.el.outerHTML;
         if(it.t==='foot') return JSON.stringify(it.view); // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40
-        if(it.t==='sub') return agentSubagentsSig([it.s]); // FR-ASV-37
-        if(it.t==='head') return this._agSubView(); // FR-ASV-32: 전환 버튼의 모양
         if(it.t!=='card') return '1';
         const i=it.info||{};
         // `_agCardEl` 이 읽는 값 전부다 (FR-RPT-2).
@@ -196,8 +194,7 @@ Object.assign(App.prototype, {
         // 창을 옮긴 카드는 **자리**가 바뀌고, 그것은 items 순서가 말한다.
         return [this._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
                 this.attnHas(it.toolId)?1:0,this._isToolFocusedActive(it.toolId)?1:0,
-                agentUsageSig(i.usage),agentSubagentsSig(i.subagents),
-                this._agSubView(),this._agFolded().has('sub:'+it.toolId)?1:0] // FR-ACU-15 · FR-SAU-24 · FR-ASV-37
+                agentUsageSig(i.usage),agentSubagentsSig(i.subagents)] // FR-ACU-15 · FR-SAU-24 · FR-ASV-37
           .join('\u0001');
       },
       build:it=>it.t==='head'?this._agHeadEl()
@@ -206,7 +203,6 @@ Object.assign(App.prototype, {
         :it.t==='secempty'?this._actSecEmptyEl(it.sec)
         :it.t==='row'?it.el
         :it.t==='foot'?this._actUsageFootEl(it.view)
-        :it.t==='sub'?this._agSubCardEl(it.toolId,agentSubagentView(it.s))
         :this._agCardEl(panel,it.toolId,it.info,it.loc),
     });
   },
@@ -239,14 +235,7 @@ Object.assign(App.prototype, {
       // FR-AGG-11: 알람 수는 접혀 있어도 보인다 — 접었다고 알람이 사라지면 안 된다.
       out.push({t:'group',win,attn:g.reduce((n,c)=>n+(this.attnHas(c.toolId)?1:0),0),folded});
       if(folded) continue;
-      const tree=this._agSubView()===AGENT_SUB_VIEWS.TREE;
-      for(const c of g){
-        out.push(c);
-        // FR-ASV-33: 폴더형은 main 카드 바로 뒤에 하위 카드가 선다. 접으면 없다.
-        const subs=c.info&&c.info.subagents;
-        if(!tree||!Array.isArray(subs)||fold.has('sub:'+c.toolId)) continue;
-        for(const s of subs) out.push({t:'sub',toolId:c.toolId,s});
-      }
+      for(const c of g) out.push(c);
     }
     return out;
   },
@@ -256,7 +245,9 @@ Object.assign(App.prototype, {
   _agFolded(){
     if(!this._agFold){
       const ids=PrefStore.local.json(STORE_KEYS.agentsGroupFold,[]);
-      this._agFold=new Set(Array.isArray(ids)?ids:[]);
+      // UX_BATCH12_SRS FR-SVL-2·3: 폴더형 보기가 없어졌다 — 그 접힘(`sub:`)과 보기 값을 걷는다.
+      this._agFold=new Set((Array.isArray(ids)?ids:[]).filter(k=>!String(k).startsWith('sub:')));
+      PrefStore.local.remove(AGENT_SUB_VIEW_KEY);
     }
     return this._agFold;
   },
@@ -330,12 +321,8 @@ Object.assign(App.prototype, {
       b.innerHTML=UIKit.iconHTML(icon);
       head.appendChild(b);
     };
-    // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-32: 서브에이전트 보기 전환. 아이콘은 바뀔 보기를 보인다.
-    const tree=this._agSubView()===AGENT_SUB_VIEWS.TREE;
-    mkBtn('ag-subview',tree?'Show subagents inside the agent card':'Show subagents as nested cards',tree?'list':'folder');
     mkBtn('ag-refresh','Refresh the activity list','refresh-cw');
     mkBtn('ag-close','Close the panel','x');
-    head.querySelector('.ag-subview').addEventListener('click',e=>{e.stopPropagation();this._agSubViewToggle()});
     head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
     head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this.agentsToggle()});
     return head;
@@ -384,21 +371,8 @@ Object.assign(App.prototype, {
     const uv=agentUsageView(info.usage); // FR-ACU-10·11
     if(uv) card.appendChild(this._agUsageEl(uv));
     const subs=Array.isArray(info.subagents)?info.subagents:[];
-    if(this._agSubView()===AGENT_SUB_VIEWS.LIST){
-      for(const s of subs) card.appendChild(this._agSubagentEl(agentSubagentView(s))); // FR-SAU-20 · FR-ASV-34
-    }else if(subs.length){
-      // FR-ASV-33: 폴더 머리의 접기 — 접어도 서브에이전트 수는 보인다.
-      const folded=this._agFolded().has('sub:'+toolId);
-      const b=document.createElement('button');
-      b.className='ui-btn ui-btn-ghost ag-sub-fold';
-      b.title=folded?'Show subagents':'Hide subagents';
-      b.setAttribute('aria-label',b.title);
-      b.innerHTML=UIKit.iconHTML(folded?'chevron-right':'chevron-down');
-      const n=document.createElement('span');n.className='ag-sub-n';n.textContent=String(subs.length);
-      b.appendChild(n);
-      b.addEventListener('click',e=>{e.stopPropagation();this._agSubFoldToggle(toolId)});
-      card.appendChild(b);
-    }
+    // UX_BATCH12_SRS FR-SVL-1: 서브에이전트는 언제나 카드 안의 목록이다 (FR-ASV-34).
+    for(const s of subs) card.appendChild(this._agSubagentEl(agentSubagentView(s))); // FR-SAU-20
     card.addEventListener('click',()=>this.jumpToTool(toolId)); // FR-ATA-6: 해제는 jumpToTool 이 한다
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
     card.draggable=true;

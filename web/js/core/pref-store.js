@@ -43,7 +43,6 @@ const STORE_KEYS=Object.freeze({
   attnDesktop:'attnDesktop',
   termGpu:'termGpu',
   agentsGroupFold:'agentsGroupFold',
-  agentsSubView:'agentsSubView',
   windowGroupFold:'windowGroupFold',
   sandboxRecent:'dm.sbx.recent',
   // local — 이사가 끝나면 지우기만 하는 옛 키

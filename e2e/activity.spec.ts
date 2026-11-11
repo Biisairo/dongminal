@@ -525,8 +525,7 @@ test.describe('Agent card subagent rows', () => {
     }, pid);
     expect(status).toBe(200);
 
-    // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-32·34: 카드 안의 줄은 목록형 보기다 — 기본은 폴더형이다.
-    await page.locator('#agents-panel .ag-subview').click();
+    // UX_BATCH12_SRS FR-SVL-1: 서브에이전트는 언제나 카드 안의 줄이다.
     const rows = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub`);
     await page.evaluate(() => (window as any).app.testing.activityRestore());
     await expect(rows).toHaveCount(2, { timeout: 10000 });
@@ -548,10 +547,10 @@ test.describe('Agent card subagent rows', () => {
   });
 });
 
-// ACTIVITY_STATE_SUBAGENT_SRS TC-ASV-15: 폴더형 하위 카드·보기 전환·Usage 바닥이 보이고,
-// 최소 폭에서 패널을 넘지 않는다 (FR-ASV-33·40, NFR-ASV-3).
+// ACTIVITY_STATE_SUBAGENT_SRS TC-ASV-15 (UX_BATCH12_SRS FR-SVL-1·2 개정): 카드 안의 서브에이전트 줄·Usage 바닥이
+// 보이고, 최소 폭에서 패널을 넘지 않는다. 폴더형 하위 카드·보기 전환·접기는 없다.
 test.describe('Activity subagent views and usage limits', () => {
-  test('TC-ASV-15: 하위 카드와 접기, 보기 전환, Usage 바닥', async ({ page }) => {
+  test('TC-ASV-15: 카드 안의 서브에이전트 줄, 전환 버튼 없음, Usage 바닥', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     await page.locator('#agents-toggle').click();
@@ -578,25 +577,14 @@ test.describe('Activity subagent views and usage limits', () => {
     expect(codes).toEqual([200, 200, 200]);
     await page.evaluate(() => (window as any).app.testing.activityRestore());
 
-    // 폴더형(기본): main 카드 바로 뒤에 하위 카드
-    const sub = page.locator(`#agents-panel .ag-subcard[data-toolid="${pid}"]`);
-    await expect(sub).toHaveCount(1, { timeout: 10000 });
-    await expect(sub.locator('.ag-sub-state')).toHaveText('● working · A-Very-Long-Tool-Name-For-Overflow-Check');
-    await expect(sub.locator('.ag-detail')).toHaveText('grep -rn parseClaudeHook internal');
-    await expect(sub.locator('.ag-usage-model')).toHaveText('haiku-5-5·low');
-    const follows = await sub.evaluate((el, id) => {
-      const prev = el.previousElementSibling as HTMLElement | null;
-      return !!prev && prev.classList.contains('ag-card') && prev.dataset.toolid === id;
-    }, pid);
-    expect(follows, '하위 카드가 main 카드 바로 뒤에 서지 않았다').toBe(true);
-
-    // 접기 — 수는 남고 하위 카드는 숨는다
-    const fold = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub-fold`);
-    await expect(fold.locator('.ag-sub-n')).toHaveText('1');
-    await fold.click();
-    await expect(sub).toHaveCount(0);
-    await page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub-fold`).click();
-    await expect(sub).toHaveCount(1);
+    // FR-SVL-1·2: 카드 안의 줄이고, 하위 카드·전환 버튼·접기 단추는 없다
+    const row = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub`);
+    await expect(row).toHaveCount(1, { timeout: 10000 });
+    await expect(row.locator('.ag-sub-state')).toHaveText('● working · A-Very-Long-Tool-Name-For-Overflow-Check');
+    await expect(row.locator('.ag-usage-model')).toHaveText('haiku-5-5·low');
+    await expect(page.locator('#agents-panel .ag-subcard')).toHaveCount(0);
+    await expect(page.locator('#agents-panel .ag-subview')).toHaveCount(0);
+    await expect(page.locator('#agents-panel .ag-sub-fold')).toHaveCount(0);
 
     // Usage 바닥 — 패널의 마지막 원소이고 패널 아랫변에 붙는다 (FR-ASV-40·41)
     const foot = page.locator('#agents-panel .act-usage-foot');
@@ -619,20 +607,15 @@ test.describe('Activity subagent views and usage limits', () => {
     await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '160px'));
     const m = await page.evaluate(() => {
       const p = document.getElementById('agents-panel') as HTMLElement;
-      const subEl = p.querySelector('.ag-subcard') as HTMLElement;
+      const subEl = p.querySelector('.ag-sub') as HTMLElement;
       const win = p.querySelector('.act-usage-foot') as HTMLElement;
       return { panelScroll: p.scrollWidth, panelClient: p.clientWidth,
         subScroll: subEl.scrollWidth, subClient: subEl.clientWidth,
         winScroll: win.scrollWidth, winClient: win.clientWidth };
     });
     expect(m.panelScroll, '패널이 가로로 밀렸다').toBeLessThanOrEqual(m.panelClient);
-    expect(m.subScroll, '하위 카드가 넘쳤다').toBeLessThanOrEqual(m.subClient);
+    expect(m.subScroll, '서브에이전트 줄이 넘쳤다').toBeLessThanOrEqual(m.subClient);
     expect(m.winScroll, 'Usage 바닥이 넘쳤다').toBeLessThanOrEqual(m.winClient);
 
-    // 목록형으로 바꾸면 하위 카드가 사라지고 카드 안의 줄이 선다
-    await page.locator('#agents-panel .ag-subview').click();
-    await expect(sub).toHaveCount(0);
-    await expect(page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub`)).toHaveCount(1);
-    expect(await page.evaluate(() => localStorage.getItem('agentsSubView'))).toBe('list');
   });
 });
