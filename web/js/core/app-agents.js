@@ -193,7 +193,7 @@ Object.assign(App.prototype, {
         // FR-AGG-13: 창 이름은 더 이상 카드가 읽지 않으므로 근거에서도 빠진다 —
         // 창을 옮긴 카드는 **자리**가 바뀌고, 그것은 items 순서가 말한다.
         return [this._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
-                this.attnHas(it.toolId)?1:0,this._isToolFocusedActive(it.toolId)?1:0,
+                this.attnHas(it.toolId)?1:0,it.toolId===this._agFocusedTool()?1:0,
                 agentUsageSig(i.usage),agentSubagentsSig(i.subagents)] // FR-ACU-15 · FR-SAU-24 · FR-ASV-37
           .join('\u0001');
       },
@@ -354,7 +354,7 @@ Object.assign(App.prototype, {
   _agCardEl(panel,toolId,info,loc){
     info=info||{};
     const card=document.createElement('div');
-    card.className='ag-card'+(this.attnHas(toolId)?' attn':'')+(this._isToolFocusedActive(toolId)?' focused':'');
+    card.className='ag-card'+(this.attnHas(toolId)?' attn':'')+(toolId===this._agFocusedTool()?' focused':'');
     card.dataset.toolid=toolId;
     // FR-NAM-1·6: 도구 이름은 한 자리에서 온다 — 에이전트 패널이 화면의 탭과
     // 다른 이름을 부르면 어느 도구인지 짚을 수 없다.

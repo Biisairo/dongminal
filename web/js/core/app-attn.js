@@ -7,6 +7,18 @@
 Object.assign(App.prototype, {
   attnHas(toolId){return this._attn.has(toolId)},
 
+  /**
+   * UX_BATCH12 FR-FHL-8: 에이전트 카드가 하이라이트할 도구 — 포커스 칸이 보는 창의 포커스
+   * pane 의 활성 탭 하나다. 아래 `_isToolFocusedActive` 는 알람용("어느 칸에서든 보이는가",
+   * FR-SVS-13)이라 같은 창을 두 칸에 띄우면 둘이 참이 된다 — 하이라이트는 하나여야 한다.
+   */
+  _agFocusedTool(){
+    const s=this.aw(); if(!s||!s.layout) return '';
+    const pn=findPane(s.layout,this.focused); if(!pn) return '';
+    const at=(pn.tabs||[]).find(tab=>tab.id===this.paneTab(pn));
+    return (at&&at.toolId)||'';
+  },
+
   // 활성 창의 포커스 pane 에서 그 도구의 탭이 보이는지 (FR-PAN-9).
   //
   // FR-SVS-13: 칸이 여럿이면 **어느 칸에서든 보이면 보이는 것**이다. 두 칸 중
