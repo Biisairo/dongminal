@@ -43,3 +43,43 @@ test('FR-MTS-2·5 배율은 1, 속도 창은 100 ms 다', () => {
   assert.equal(c.MTI_TOUCH_GAIN, 1);
   assert.equal(c.MTI_VELOCITY_WINDOW_MS, 100);
 });
+
+// 화면 줄 목록. `rows(off, n)` 은 off 부터 n 줄, `foot` 은 고정 꼬리 줄이다.
+const rows = (off, n, foot = []) => [...Array.from({ length: n }, (_, i) => `row-${off + i}`), ...foot];
+
+test('TC-MTS-9 보고 전후 화면을 비교해 움직인 줄 수를 잰다', () => {
+  const c = ctx();
+  const sh = (b, a, d) => c.termScreenShift(b, a, d);
+  // 아래로(내용이 위로 올라감) 3줄, 위로 2줄.
+  assert.equal(sh(rows(10, 20), rows(13, 20), 1), 3);
+  assert.equal(sh(rows(10, 20), rows(8, 20), -1), 2);
+  // 고정 꼬리 줄(입력창·상태줄)이 있어도 이동을 찾는다.
+  const foot = ['> ', '──────', 'status'];
+  assert.equal(sh(rows(10, 17, foot), rows(13, 17, foot), 1), 3);
+  // 반복 줄(빈 줄·구분선)은 짝이 되지 않는다 — 그것만 맞으면 재지 못한다.
+  assert.equal(sh(['a', '──', '──', '──', '──', 'b'], ['──', '──', '──', '──', 'x', 'y'], 1), null);
+  // 짝 부족·방향 반대·이동 없음·내용이 통째로 바뀜.
+  assert.equal(sh(rows(10, 20), rows(28, 20), 1), null);
+  assert.equal(sh(rows(10, 20), rows(13, 20), -1), null);
+  assert.equal(sh(rows(10, 20), rows(10, 20), 1), null);
+  assert.equal(sh(rows(10, 20), rows(500, 20), 1), null);
+  assert.equal(sh([], [], 1), null);
+});
+
+test('TC-MTS-11 같은 방향으로 다시 튕기면 남은 속도를 더한다', () => {
+  const c = ctx();
+  const f = (v, carry, max = 10) => c.termFlingStart(v, carry, max);
+  assert.equal(f(3, 2), 5);
+  assert.equal(f(-3, -2), -5);
+  assert.equal(f(8, 5), 10);
+  assert.equal(f(-8, -5), -10);
+  assert.equal(f(3, -2), 3);
+  assert.equal(f(3, 0), 3);
+  assert.equal(f(0, 4), 0);
+  assert.equal(f(12, 0), 10, '혼자서도 상한에서 자른다');
+});
+
+test('FR-MTS-10 관성 감쇠는 프레임당 0.97 이다', () => {
+  const c = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js'], { expose: ['MTI_FLING_DECAY'] });
+  assert.equal(c.MTI_FLING_DECAY, 0.97);
+});

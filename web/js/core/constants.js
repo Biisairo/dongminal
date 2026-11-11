@@ -196,12 +196,20 @@ const MKB_FULL_NAMES=Object.freeze({
 //   하나로 합치며 마우스 리포팅 TUI 의 행을 버리던 손실(FR-MTS-1 이 고쳤다)을 메우던 값이다.
 // TOUCH_SLOP: 이 거리를 넘기 전에는 탭으로 보고 xterm 에 그대로 넘긴다.
 // FLING_*: 손을 뗀 뒤의 관성 (FR-MTS-5). 속도는 px/ms, DECAY 는 FRAME_MS 당 곱하는 값이고
-//   MIN_V 밑에서 멈춘다. VELOCITY_WINDOW: 처음 속도를 재는 최근 표본의 창.
+//   MIN_V 밑에서 멈춘다. VELOCITY_WINDOW: 처음 속도를 재는 최근 표본의 창. DECAY 0.97 (FR-MTS-10).
+// LPR_*: 마우스 리포팅 TUI 가 보고 하나에 움직이는 줄 수를 화면 비교로 잴 때 (FR-MTS-9) — 짝의 최소 수,
+//   믿는 줄 수의 상한, 기다리는 시간.
+// INFLIGHT_*: 화면에 아직 반영되지 않은 보고의 최대 수와, 출력이 없을 때 반영으로 보는 시간 (FR-MTS-11).
 // KB_EPS: 키보드 높이 잡음. 이 미만의 변화로는 재적용하지 않는다.
 // KB_UP: 이 높이를 넘으면 소프트 키보드가 떠 있다고 본다.
 const MTI_TOUCH_GAIN=1;
 const MTI_TOUCH_SLOP_PX=8;
-const MTI_FLING_DECAY=0.93;
+const MTI_FLING_DECAY=0.97;
+const MTI_LPR_MIN_MATCH=3;
+const MTI_LPR_MAX=10;
+const MTI_LPR_TIMEOUT_MS=400;
+const MTI_INFLIGHT_MAX=2;
+const MTI_INFLIGHT_TIMEOUT_MS=300;
 const MTI_FRAME_MS=1000/60;
 const MTI_FLING_MIN_V=0.4/MTI_FRAME_MS;
 const MTI_FLING_MAX_V=120/MTI_FRAME_MS;

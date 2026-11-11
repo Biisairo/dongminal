@@ -30,6 +30,38 @@ function termTouchVelocity(samples,now,win){
   return (first.y-last.y)/(last.t-first.t);
 }
 
+/**
+ * FR-MTS-9: 보고 하나 전후의 보이는 줄 `before`·`after` 로 잰, `dir`(+1 아래 / -1 위) 방향으로 움직인 줄 수.
+ * 이전 화면에서 한 번만 나오는 비어 있지 않은 줄끼리만 짝짓는다 — 고정 줄은 0 이동에만 맞고 반복 줄은
+ * 빠진다. 짝이 모자라거나 1 등이 둘이거나 상한을 넘으면 재지 못한 것(null)이다.
+ */
+function termScreenShift(before,after,dir,max=MTI_LPR_MAX){
+  const seen=new Map();
+  for(const l of before) if(l.trim()) seen.set(l,(seen.get(l)||0)+1);
+  const at=new Map();
+  before.forEach((l,i)=>{ if(seen.get(l)===1) at.set(l,i) });
+  const votes=new Map();
+  after.forEach((l,i)=>{
+    const j=at.get(l);
+    if(j===undefined) return;
+    const s=(j-i)*dir;
+    if(s>0) votes.set(s,(votes.get(s)||0)+1);
+  });
+  let best=null,top=0,tie=false;
+  for(const [s,v] of votes){
+    if(v>top){best=s;top=v;tie=false}
+    else if(v===top) tie=true;
+  }
+  if(top<MTI_LPR_MIN_MATCH||tie||best>max) return null;
+  return best;
+}
+
+/** FR-MTS-10: 관성이 움직이는 중에 같은 방향으로 다시 튕기면 남은 속도 `carry` 를 더한다. 상한 `max`. */
+function termFlingStart(v,carry,max){
+  const out=v&&carry&&(v>0)===(carry>0)?v+carry:v;
+  return Math.max(-max,Math.min(max,out));
+}
+
 const TS_FOLLOW_TYPES=['touchmove','touchend','touchcancel'];
 
 Object.assign(TerminalTool.prototype, {
@@ -62,8 +94,11 @@ Object.assign(TerminalTool.prototype, {
   },
 
   _tsStart(e){
+    // FR-MTS-10: 관성이 움직이는 중이면 그 속도를 이 손짓의 튕기기에 넘긴다.
+    this._tsCarry=this._flingId?this._flingV:0;
     this._flingStop();
     this._tsY0=null;
+    this._tsLprTried=false;
     if(!this._tsTouch()) return;
     if(!e.touches || e.touches.length!==1) return;
     const p=e.touches[0];
@@ -138,9 +173,10 @@ Object.assign(TerminalTool.prototype, {
     this._tsSuppressUntil=Date.now()+MTI_SYNTH_MOUSE_MS;   // FR-MTI-29
     // UX_BATCH11_SRS FR-MTS-5: 최근 창의 속도(px/ms)에서 시작해, 프레임 사이의 실제 시간만큼
     // 가고 그 시간만큼 감쇠한다. 멈췄다 뗐으면 속도가 0 이다.
-    let v=termTouchVelocity(this._tsSamples,e.timeStamp,MTI_VELOCITY_WINDOW_MS)*MTI_TOUCH_GAIN;
-    if(Math.abs(v)>MTI_FLING_MAX_V) v=v<0?-MTI_FLING_MAX_V:MTI_FLING_MAX_V;
+    const v0=termTouchVelocity(this._tsSamples,e.timeStamp,MTI_VELOCITY_WINDOW_MS)*MTI_TOUCH_GAIN;
+    let v=termFlingStart(v0,this._tsCarry,MTI_FLING_MAX_V);
     if(Math.abs(v)<MTI_FLING_MIN_V) return;
+    this._flingV=v;
     let last=performance.now();
     const step=()=>{
       this._flingId=null;
@@ -148,6 +184,7 @@ Object.assign(TerminalTool.prototype, {
       last=now;
       this._touchScrollBy(v*dt);
       v*=Math.pow(MTI_FLING_DECAY,dt/MTI_FRAME_MS);
+      this._flingV=v;
       if(Math.abs(v)<MTI_FLING_MIN_V) return;
       this._flingId=TIMERS.frame(step,{owner:this,label:'fling'});
     };
@@ -176,14 +213,103 @@ Object.assign(TerminalTool.prototype, {
   _touchScrollBy(px){
     if(!px) return;
     this._wheelPend=(this._wheelPend||0)+px;
+    this._wheelKick();
+  },
+
+  _wheelKick(){
     this._wheelRaf=TIMERS.frame(()=>{
       this._wheelRaf=null;
-      const d=this._wheelPend; this._wheelPend=0;
+      const d=this._wheelPend||0; this._wheelPend=0;
+      // FR-MTS-9: 재는 동안은 내지 않고 모은다 — 끝나면 `_wheelKick` 이 다시 부른다.
+      if(this._tsLprCal){ this._wheelRest=(this._wheelRest||0)+d; return }
       const rh=this._rowHeight();
-      const {n,rest}=termWheelSteps(this._wheelRest,d,rh);
+      const mouse=this._tsMouseMode();
+      if(!mouse) this._tsLpr=null;
+      const lpr=mouse&&this._tsLpr||1;
+      const {n,rest}=termWheelSteps(this._wheelRest,d,rh*lpr);
+      if(mouse&&!this._tsLpr&&!this._tsLprTried&&n){
+        const dir=n<0?-1:1;
+        this._wheelRest=rest+(n-dir)*rh;
+        this._tsLprMeasure(dir,rh);
+        return;
+      }
       this._wheelRest=rest;
-      for(let i=0;i<Math.abs(n);i++) this._dispatchWheel(n<0?-rh:rh);
+      if(!n) return;
+      const sent=mouse?this._tsInflightRoom(Math.abs(n),Math.sign(n),lpr):Math.abs(n);
+      // FR-MTS-11: 지금 낼 수 없는 몫은 모아 둔다 — 반영되면 `_tsAck` 가 다시 낸다.
+      this._wheelRest+=(n-Math.sign(n)*sent)*rh*lpr;
+      for(let i=0;i<sent;i++) this._dispatchWheel(n<0?-rh:rh);
     },{owner:this,coalesce:'wheel'});
+  },
+
+  // FR-MTS-11: 반영 전 보고의 남은 자리만큼 `want` 에서 내준다. 방향 `dir`, 보고 하나의 줄 수 `lpr`.
+  _tsInflightRoom(want,dir,lpr){
+    if(!this._tsAckSub) this._tsAckSub=this.term.onWriteParsed(()=>this._tsOnWrite());
+    const used=this._tsInflight||0;
+    const k=Math.min(want,Math.max(0,MTI_INFLIGHT_MAX-used));
+    if(!k) return 0;
+    if(!used||this._tsInflightDir!==dir) this._tsAckLines=this._tsLines();
+    this._tsInflight=used+k;
+    this._tsInflightDir=dir;
+    this._tsInflightLpr=lpr;
+    TIMERS.cancel(this._tsAckTimer);
+    this._tsAckTimer=TIMERS.after(MTI_INFLIGHT_TIMEOUT_MS,()=>this._tsAck(this._tsInflight),{owner:this,label:'ts-inflight'});
+    return k;
+  },
+
+  // 화면이 실제로 밀린 줄 수만큼만 반영으로 센다 — 출력 한 번이 보고 하나일 수도, 여럿일 수도 있다.
+  _tsOnWrite(){
+    if(!this._tsInflight) return;
+    const cur=this._tsLines();
+    const s=termScreenShift(this._tsAckLines,cur,this._tsInflightDir,this.term.rows);
+    if(!s) return;
+    this._tsAckLines=cur;
+    this._tsAck(Math.max(1,Math.round(s/this._tsInflightLpr)));
+  },
+
+  _tsAck(k){
+    if(!this._tsInflight) return;
+    this._tsInflight=Math.max(0,this._tsInflight-k);
+    if(!this._tsInflight){ TIMERS.cancel(this._tsAckTimer); this._tsAckTimer=null }
+    this._wheelKick();
+  },
+
+  _tsMouseMode(){
+    const m=this.term&&this.term.modes;
+    return !!m&&m.mouseTrackingMode!=='none';
+  },
+
+  /** 보이는 줄의 글자. */
+  _tsLines(){
+    const b=this.term.buffer.active, out=[];
+    for(let i=0;i<this.term.rows;i++){
+      const l=b.getLine(b.viewportY+i);
+      out.push(l?l.translateToString(true):'');
+    }
+    return out;
+  },
+
+  // FR-MTS-9: 보고 하나만 내고, 화면이 바뀔 때마다 이동을 재 본다. 재면 기억하고, 못 재고
+  // 시간이 지나면 이 손짓은 N=1 로 간다. 어느 쪽이든 모아 둔 이동을 곧바로 낸다.
+  _tsLprMeasure(dir,rh){
+    this._tsLprTried=true;
+    const before=this._tsLines();
+    const cal={sub:null,timer:null};
+    const done=n=>{
+      if(this._tsLprCal!==cal) return;
+      this._tsLprCal=null;
+      if(cal.sub) cal.sub.dispose();
+      TIMERS.cancel(cal.timer);
+      if(n) this._tsLpr=n;
+      this._wheelKick();
+    };
+    this._tsLprCal=cal;
+    cal.sub=this.term.onWriteParsed(()=>{
+      const n=termScreenShift(before,this._tsLines(),dir);
+      if(n) done(n);
+    });
+    cal.timer=TIMERS.after(MTI_LPR_TIMEOUT_MS,()=>done(null),{owner:this,label:'ts-lpr'});
+    this._dispatchWheel(dir*rh);
   },
 
   /** 한 행의 CSS 높이. xterm 이 wheel 을 행으로 바꿀 때 쓰는 값과 같아야 한 wheel 이 정확히 한 행이다. */

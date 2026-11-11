@@ -114,6 +114,100 @@ test('TC-MTS-8 TUI 가 다시 그려 손가락 밑 span 이 바뀌어도 손짓�
   expect(await page.evaluate(() => (window as any).app.testing.focusedTerminal()._tsY0)).toBeNull();
 });
 
+test('TC-MTS-10 보고 하나에 여러 줄 움직이는 TUI 에서도 화면이 손가락만큼 움직인다', async ({ page }) => {
+  await goto(page);
+  // TUI 흉내: 보고 하나에 3줄, 아래 3줄은 고정(입력창·상태줄). 출력은 서버 왕복처럼 다음 틱에 온다.
+  await page.evaluate(() => {
+    const p = (window as any).app.testing.focusedTerminal();
+    const w = window as any;
+    w.__off = 0;
+    const draw = () => {
+      const body = p.term.rows - 3;
+      let s = '\x1b[H';
+      for (let r = 0; r < body; r++) s += `\x1b[3${(w.__off + r) % 6 + 1}mrow-${w.__off + r}\x1b[0m\x1b[K\r\n`;
+      s += '> \x1b[K\r\n──────\x1b[K\r\nstatus\x1b[K';
+      p.term.write(s);
+    };
+    const orig = p._send.bind(p);
+    p._send = (m: Uint8Array) => {
+      if (m[0] === 0) {
+        const t = new TextDecoder().decode(m.subarray(1));
+        const dn = (t.match(/\x1b\[<65;\d+;\d+M/g) || []).length, up = (t.match(/\x1b\[<64;\d+;\d+M/g) || []).length;
+        if (dn || up) { setTimeout(() => { w.__off = Math.max(0, w.__off + 3 * (dn - up)); draw() }, 5); return }
+      }
+      return orig(m);
+    };
+    p.term.write('\x1b[?1049h\x1b[?1000h\x1b[?1006h');
+    w.__off = 100;
+    draw();
+  });
+  await expect.poll(() => page.evaluate(() =>
+    (window as any).app.testing.focusedTerminal().term.buffer.active.getLine(0)?.translateToString().includes('row-100')), { timeout: 10000 }).toBe(true);
+  const g = await geo(page);
+  const cdp = await page.context().newCDPSession(page);
+  // 관성을 빼려고 멈췄다 뗀다.
+  await drag(page, cdp, { x: g.x, y: g.y + 150 }, -300, 10, 250);
+  const want = Math.floor(300 / g.rh);
+  await expect.poll(() => page.evaluate(() => (window as any).__off - 100), { timeout: 10000 }).toBeGreaterThanOrEqual(want - 2);
+  // **예외 (`TEST-16`)**: 재려는 것이 "더 움직이지 않음" 이다.
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => (window as any).__off - 100)).toBeLessThanOrEqual(want + 2);
+});
+
+test('TC-MTS-12 움직이는 중에 탭하면 곧 멈추고, 반대로 끌면 그 방향으로 간다', async ({ page }) => {
+  await goto(page);
+  // 느린 TUI 흉내: 보고를 하나씩 40 ms 걸려 처리하고, 처리할 때마다 다시 그린다.
+  await page.evaluate(() => {
+    const p = (window as any).app.testing.focusedTerminal();
+    const w = window as any;
+    w.__off = 100; w.__q = [];
+    const draw = () => {
+      let s = '\x1b[H';
+      for (let r = 0; r < p.term.rows; r++) s += `\x1b[3${(w.__off + r) % 6 + 1}mrow-${w.__off + r}\x1b[0m\x1b[K` + (r < p.term.rows - 1 ? '\r\n' : '');
+      p.term.write(s);
+    };
+    const pump = () => {
+      if (w.__busy || !w.__q.length) return;
+      w.__busy = true;
+      setTimeout(() => { w.__off += w.__q.shift(); draw(); w.__busy = false; pump() }, 40);
+    };
+    const orig = p._send.bind(p);
+    p._send = (m: Uint8Array) => {
+      if (m[0] === 0) {
+        const t = new TextDecoder().decode(m.subarray(1));
+        const ev = t.match(/\x1b\[<6[45];\d+;\d+M/g) || [];
+        if (ev.length) { for (const e of ev) w.__q.push(e.startsWith('\x1b[<65') ? 1 : -1); pump(); return }
+      }
+      return orig(m);
+    };
+    p.term.write('\x1b[?1049h\x1b[?1000h\x1b[?1006h');
+    draw();
+  });
+  await expect.poll(() => page.evaluate(() =>
+    (window as any).app.testing.focusedTerminal().term.buffer.active.getLine(0)?.translateToString().includes('row-100')), { timeout: 10000 }).toBe(true);
+  const g = await geo(page);
+  const cdp = await page.context().newCDPSession(page);
+  const idle = () => expect.poll(() => page.evaluate(() => { const w = window as any; return !w.__busy && w.__q.length === 0 }), { timeout: 15000 }).toBe(true);
+  // 처음 손짓은 FR-MTS-9 의 잼이다 — 그것을 먼저 끝내 둔다.
+  await drag(page, cdp, { x: g.x, y: g.y + 100 }, -60, 4, 250);
+  await idle();
+  // 빠르게 튕긴다(멈추지 않고 뗀다).
+  await drag(page, cdp, { x: g.x, y: g.y + 150 }, -300, 3, 0);
+  // **예외 (`TEST-16`)**: 관성이 움직이는 중이라는 시점 자체가 입력이다.
+  await page.waitForTimeout(200);
+  const atTap = await page.evaluate(() => (window as any).__off);
+  await touch(cdp, 'touchStart', { x: g.x, y: g.y });
+  await touch(cdp, 'touchEnd');
+  await idle();
+  // **예외 (`TEST-16`)**: 재려는 것이 "더 움직이지 않음" 이다.
+  await page.waitForTimeout(500);
+  const after = await page.evaluate(() => (window as any).__off);
+  expect(after - atTap).toBeLessThanOrEqual(3);
+  // 반대로 끌면 그 방향으로 간다.
+  await drag(page, cdp, { x: g.x, y: g.y - 50 }, 120, 4, 250);
+  await expect.poll(() => page.evaluate(() => (window as any).__off), { timeout: 5000 }).toBeLessThan(after - 3);
+});
+
 test('TC-MTS-4 보통 버퍼에서 끈 만큼(1:1) 스크롤한다', async ({ page }) => {
   await goto(page);
   await fill(page);
