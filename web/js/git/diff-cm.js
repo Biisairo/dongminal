@@ -93,6 +93,19 @@ function gitDiffCursorHost(view) {
       if (r.to === b.from && e > a.number) e--;
       return { s: a.number, e, empty: false };
     },
+    // UI_POLISH_SRS FR-UIP-25: 이 줄을 화면이 칠한 덩어리 — 새 줄 범위 `{s,e}` 또는 null.
+    // 삭제만 있는 덩어리는 새 쪽에 줄이 없으므로 그 자리의 줄이다(FR-HKB-3 과 같은 규칙).
+    paintedSpan(line) {
+      const r = CM.getChunks(view.state);
+      if (!r) return null;
+      const doc = view.state.doc;
+      for (const c of r.chunks) {
+        const s = doc.lineAt(Math.min(c.fromB, doc.length)).number;
+        const e = c.toB > c.fromB ? doc.lineAt(Math.max(c.fromB, Math.min(c.toB, doc.length) - 1)).number : s;
+        if (line >= s && line <= e) return { s, e };
+      }
+      return null;
+    },
     hasFocus: () => view.hasFocus,
     on(fn) { subs.add(fn); return () => subs.delete(fn) },
     place(line, node) {

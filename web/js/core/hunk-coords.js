@@ -116,16 +116,21 @@ function gitHunkRangeForLines(hunk,sLine,eLine){
  * 문맥 줄은 블록이 아니다 (FR-HKB-4).
  */
 function gitHunkBlockAt(hunk,line){
-  const rows=gitHunkScan(hunk);
+  return gitHunkBlocks(hunk).find(b=>line>=b.s&&line<=b.e)||null;
+}
+
+/** 조각의 변경 블록 전부 — `[{from,to,s,e}]`. 규칙은 `gitHunkBlockAt` 의 주석 그대로다. */
+function gitHunkBlocks(hunk){
+  const out=[];
   let prevNew=Math.max(1,((hunk&&hunk.newStart)||1)-1);
-  let b=null,hit=null;
+  let b=null;
   const flush=(next)=>{
     if(!b) return;
     if(!b.s){b.s=next||prevNew;b.e=b.s}
-    if(!hit&&line>=b.s&&line<=b.e) hit={from:b.from,to:b.to,s:b.s,e:b.e};
+    out.push(b);
     b=null;
   };
-  for(const r of rows){
+  for(const r of gitHunkScan(hunk)){
     if(r.mark===GIT_HUNK_CTX_MARK){flush(r.newLine);prevNew=r.newLine;continue}
     if(r.mark===GIT_HUNK_NONL_MARK){if(b) b.to=r.i;continue}
     if(!b) b={from:r.i,to:r.i,s:0,e:0};
@@ -137,7 +142,20 @@ function gitHunkBlockAt(hunk,line){
     }
   }
   flush(0);
-  return hit;
+  return out;
+}
+
+/**
+ * UI_POLISH_SRS FR-UIP-25: 새 줄 범위 `[s,e]`(화면이 한 덩어리로 칠한 범위)에 닿은 블록 **전부**를
+ * 한 범위로 — `{from,to,s,e}` 또는 null. 화면의 diff 는 가까운 삭제·추가를 한 덩어리로 칠하지만
+ * git 은 사이의 문맥을 경계로 블록을 나눈다. 사용자가 보는 덩어리가 동작의 단위다.
+ * 사이에 낀 문맥 줄은 범위 안에 들어도 문맥으로 남는다(서버 `patch` 규약).
+ */
+function gitHunkSpanAt(hunk,s,e){
+  const hit=gitHunkBlocks(hunk).filter(b=>b.e>=s&&b.s<=e);
+  if(!hit.length) return null;
+  return {from:hit[0].from,to:hit[hit.length-1].to,
+    s:Math.min(...hit.map(b=>b.s)),e:Math.max(...hit.map(b=>b.e))};
 }
 
 /**

@@ -42,6 +42,10 @@ test('TC-UIP-3: Git 진입점은 아이콘 16px·히트 30px 이고, 폭이 남�
   const acts = changes(page).locator('xpath=ancestor::*[contains(@class,"ed-side")]').first().locator('.ed-side-acts');
   const icon = await acts.locator('.ed-side-act .ui-icon').first().evaluate((e) => Math.round(e.getBoundingClientRect().width));
   expect(icon).toBe(16);
+  // Changes 패널의 아이콘 버튼(원격·보기 전환·그룹·행 동작)도 같은 16px 이다.
+  const sizes = await changes(page).locator('.ui-btn-lg.ui-btn-icon > .ui-icon')
+    .evaluateAll((els) => [...new Set(els.map((e) => Math.round(e.getBoundingClientRect().width)).filter((w) => w > 0))]);
+  expect(sizes).toEqual([16]);
   const h = await acts.locator('.ed-side-act').first().evaluate((e) => e.getBoundingClientRect().height);
   expect(h).toBeGreaterThanOrEqual(30);
   const side = page.locator('#area .ed-side').first();

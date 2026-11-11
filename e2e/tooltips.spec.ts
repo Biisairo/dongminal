@@ -350,7 +350,14 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     // 과 같은 근거).
     await page.evaluate(() => {
       const p = edT.diffPanel();
-      const ln = Math.max(1, p._hunks.list[0].newStart);
+      // 첫 조각의 **바뀐 줄**이다. 조각의 첫 줄은 대개 문맥이고, 문맥 줄에는 툴바가
+      // 뜨지 않는다 (UX_BATCH12_SRS FR-HKB-4). 새 쪽 번호는 `-` 줄을 세지 않는다.
+      const h = p._hunks.list[0];
+      let ln = h.newStart;
+      for (const l of h.lines) {
+        if (l[0] === '+') break;
+        if (l[0] !== '-') ln++;
+      }
       const ed = edT.diffSide(p._diffView, 'mod');
       edT.revealLine(ed, ln);
       edT.focus(ed);

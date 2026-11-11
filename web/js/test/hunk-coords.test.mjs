@@ -16,7 +16,7 @@ import { load, plain } from './harness.mjs';
  */
 const ctx = load(['core/hunk-coords.js']);
 const { gitHunkScan, gitHunkRangeForChange, gitHunkRangeForLines,
-  gitHunkCoordsForChange, gitHunkAt, gitHunkBlockAt } = ctx;
+  gitHunkCoordsForChange, gitHunkAt, gitHunkBlockAt, gitHunkSpanAt } = ctx;
 
 /** `git diff` 본문 한 벌. 문맥 1 · 삭제 1 · 추가 2 · 문맥 1. */
 const HUNK = {
@@ -162,4 +162,21 @@ test('block: `\\ No newline` 표식은 블록에 딸려 간다', () => {
   const NL = { index: 0, newStart: 1, newLines: 1, oldStart: 1, oldLines: 1,
     lines: ['-a', '\\ No newline at end of file', '+b', '\\ No newline at end of file'] };
   assert.deepEqual(plain(gitHunkBlockAt(NL, 1)), { from: 1, to: 4, s: 1, e: 1 });
+});
+
+/**
+ * UI_POLISH_SRS FR-UIP-25 · TC-UIP-13: 화면이 한 덩어리로 칠한 줄 범위 → 그 범위에 닿은 git 블록 전부.
+ * 화면(CodeMirror)의 diff 는 가까운 삭제·추가를 한 덩어리로 칠하는데, git 은 사이에 문맥을 두고
+ * 블록 둘로 나눈다. 동작은 사용자가 보는 덩어리를 따른다.
+ */
+test('span: 칠해진 덩어리가 git 블록 둘(삭제만 · 추가)에 걸치면 둘을 함께 잡는다', () => {
+  assert.deepEqual(plain(gitHunkSpanAt(TWO, 12, 13)), { from: 7, to: 9, s: 12, e: 13 });
+});
+
+test('span: 덩어리가 블록 하나면 그 블록과 같다', () => {
+  assert.deepEqual(plain(gitHunkSpanAt(TWO, 10, 10)), { from: 4, to: 5, s: 10, e: 10 });
+});
+
+test('span: 블록에 닿지 않는 범위(문맥뿐)는 null 이다', () => {
+  assert.equal(gitHunkSpanAt(TWO, 11, 11), null);
 });

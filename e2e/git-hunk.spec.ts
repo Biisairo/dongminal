@@ -612,3 +612,34 @@ test.describe('묶음 S — 좌표 사상 (단위)', () => {
     expect(r[1]).toBeNull();
   });
 });
+
+// UI_POLISH_SRS TC-UIP-14 (FR-UIP-25): 화면은 가까운 삭제(7행)와 추가(9행 뒤)를 한 덩어리로 칠하지만
+// git 은 사이의 문맥(8·9행)을 경계로 블록 둘로 나눈다. 칠해진 줄이면 어디서든 툴바가 뜨고,
+// 동작은 그 덩어리 전체(두 블록)에 걸린다.
+test('TC-UIP-14: 칠해진 덩어리 안의 줄이면 툴바가 뜨고 덩어리 전체를 되돌린다', async ({ page }) => {
+  // 실측으로 화면이 한 덩어리로 칠한 내용이다 — 줄끼리 글자가 닮아 CodeMirror 의 diff 가
+  // `-7` 과 `+9b` 를 7~9행 하나로 묶는다. 닮지 않은 내용이면 git 처럼 둘로 칠한다.
+  const repo = copyFx('basic', 'uip14');
+  const base: string[] = [];
+  for (let i = 1; i <= 20; i++) base.push('line ' + i);
+  writeFileSync(join(repo, 'f.txt'), base.join('\n') + '\n');
+  git(repo, 'add', 'f.txt');
+  git(repo, 'commit', '-m', 'f');
+  const now = base.filter((l) => l !== 'line 7').flatMap((l) => (l === 'line 9' ? [l, 'line 9b ADDED'] : [l]));
+  writeFileSync(join(repo, 'f.txt'), now.join('\n') + '\n');
+  await waitForInit(page);
+  await openGit(page, repo);
+  await openDiff(page, 'working', 'f.txt');
+  const painted = await page.evaluate(() => {
+    const p = edT.diffPanel();
+    return p._hunkBarEd.paintedSpan(8);
+  });
+  expect(painted, '화면이 7~9행을 한 덩어리로 칠한다는 전제가 깨졌다').toEqual({ s: 7, e: 9 });
+  // 새 8행(`line 9`)은 git 으로는 문맥 줄이지만 화면에서는 칠해진 덩어리 안이다.
+  await cursorLine(page, 8);
+  await act(page, 'revert').click();
+  await expect(confirmBox(page)).toBeVisible({ timeout: 10000 });
+  await confirmGo(page).click();
+  await expect(page.locator('#git-confirm')).toHaveCount(0, { timeout: 10000 });
+  await expect.poll(() => readFileSync(join(repo, 'f.txt'), 'utf8'), { timeout: 10000 }).toBe(base.join('\n') + '\n');
+});

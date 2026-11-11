@@ -169,6 +169,21 @@ Object.assign(GitPanel.prototype, {
    * 드래그한 선택에서 툴바가 사라진다 — 그때 커서(선택의 끝)는 조각 밖의 줄에
    * 있고 적용 범위는 조각 안이다. 그래서 이 한 자리가 둘에 답한다.
    */
+  /**
+   * UI_POLISH_SRS FR-UIP-25: 커서가 있는 **화면의 덩어리**가 닿은 git 블록 전부.
+   *
+   *   이전 동작: git 블록(문맥을 경계로 나뉜 `-`·`+` 묶음)만 봤다. 화면(CodeMirror)은
+   *             가까운 삭제·추가를 한 덩어리로 칠하므로, 칠해진 줄 위에서도 툴바가
+   *             뜨지 않는 자리가 생겼다 (실측: `-7` · `+9b` 사이의 8·9행)
+   *   새  동작: 칠해진 덩어리가 단위다. 판정과 적용이 이 한 자리를 지난다
+   *   이유:     사용자가 보는 조각과 동작의 대상이 같아야 한다 (FR-HKB 의 취지)
+   */
+  _hunkCursorBlock(hunk,line){
+    const ed=this._hunkBarEd;
+    const span=ed&&ed.paintedSpan?ed.paintedSpan(line):null;
+    return (span&&gitHunkSpanAt(hunk,span.s,span.e))||gitHunkBlockAt(hunk,line);
+  },
+
   _hunkBarSel(){
     // 줄 끝에서 시작해 다음 줄 1열에서 끝나는 선택은 그 다음 줄을 **포함하지 않는다** — 그 정규화는
     // 관측(`gitDiffCursorHost.sel`) 한 자리에 있다.
@@ -214,7 +229,7 @@ Object.assign(GitPanel.prototype, {
     if(!hunk){this._hunkBarHide();return}
     // UX_BATCH12_SRS FR-HKB-4: 커서만 있으면 변경 블록 위에서만 뜬다 — 문맥 줄의 툴바는
     // 어느 블록에 걸리는지 말하지 않는다.
-    if(sel.empty&&!gitHunkBlockAt(hunk,sel.s)){this._hunkBarHide();return}
+    if(sel.empty&&!this._hunkCursorBlock(hunk,sel.s)){this._hunkBarHide();return}
     this._hunkBarHunk=hunk.index;
     // FR-DHB-12: **매 회차 커서 줄로 갱신한다.** 같은 조각 안에서 커서를 옮기면
     // 툴바도 그 줄로 내려온다 — 조각 첫 줄 고정이 "이상한 위치" 의 정체였다.
@@ -283,7 +298,7 @@ Object.assign(GitPanel.prototype, {
     // 하나다. git hunk 는 가까운 블록 여럿을 묶으므로 hunk 전체는 화면의 조각 하나가 아니다.
     // 정규화는 `_hunkBarSel` 한 자리에 있다 (FR-DHB-11a) — 판정과 여기가 어긋나면 안 된다.
     if(sel.empty){
-      const b=gitHunkBlockAt(hunk,sel.s);
+      const b=this._hunkCursorBlock(hunk,sel.s);
       return b?{hunk:hunk.index,from:b.from,to:b.to,block:true,s:b.s,e:b.e}:null;
     }
     // FR-DHB-32: 선택이 여러 조각을 걸쳐도 적용되는 것은 이 조각 안의 범위뿐이다.
