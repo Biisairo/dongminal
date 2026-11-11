@@ -324,7 +324,7 @@ B13 은 같은 되풀이의 L2 판이다. §2.2 가 B2 로 지적한 고리("TUI
 
 | ID | 요구사항 |
 |---|---|
-| **FR-ATA-1** | 포커스를 얻는 것만으로는 알람이 해제되지 않는다. `setFocus`·`window.focus`·`_attnRestore` 의 `_attnClearFocused` 호출을 없앤다 (B6) |
+| **FR-ATA-1** | 포커스를 얻는 것만으로는 알람이 해제되지 않는다. `setFocus`·`window.focus`·`_attnRestore` 의 `_attnClearFocused` 호출을 없앤다 (B6)  **개정(2026-11-11, UX_BATCH12_SRS FR-AFC-1·2)**: 포커스 탭의 도구가 다른 도구에서 알람 도구로 *바뀌면* 해제한다. 포커스를 얻는 것만으로는 여전히 해제하지 않는다 |
 | **FR-ATA-2** | 알람이 뜨는 순간의 억제도 없앤다 — `_onToolAttention` 은 포커스 상태와 무관하게 알람을 세운다 |
 | **FR-ATA-3** | 해제의 판정은 **한 자리**에 둔다: 분할 칸 안에서 일어난 사용자 제스처(`pointerdown` 또는 `keydown`)를 문서 단계에서 가로채, 그 칸의 활성 탭 도구의 알람을 해제한다. 판정이 여러 자리에 흩어지면 한쪽이 낡는다 |
 | **FR-ATA-4** | FR-ATA-3 의 리스너는 capture 단계로 듣는다 — xterm 이 pointer/key 이벤트를 먼저 소비해도 누락되지 않아야 한다 (`initAttn` 의 권한 요청과 같은 이유) |

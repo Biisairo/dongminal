@@ -6,6 +6,16 @@
  * 부르는 자리는 `App.render`(탭 전환이 지나는 길)와 Changes 의 `_select`(Diff 대상 이동)다.
  */
 Object.assign(App.prototype, {
+  /**
+   * UX_BATCH12_SRS FR-AFC-1·2: 포커스 탭의 도구가 **다른 도구에서** 알람 도구로 바뀌면 본 것으로 끈다.
+   * 바뀌지 않으면 아무것도 하지 않는다 — 첫 판정·브라우저 복귀·포커스 탭에 새로 선 알람 (FR-ATA-1).
+   */
+  attnFocusSync(){
+    const cur=this._agFocusedTool(),first=this._afcAt===undefined,changed=this._afcAt!==cur;
+    this._afcAt=cur;
+    if(!first&&changed&&cur&&this._attn.has(cur)) this._attnClear(cur,false);
+  },
+
   focusHighlightSync(){
     const s=this.aw(); if(!s||!s.layout) return;
     const root=this.edRootOf(s); if(!root) return;
