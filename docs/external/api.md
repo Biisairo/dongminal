@@ -57,7 +57,7 @@
 | POST | `/api/tools/attention/clear-all` | 전체 해제 |
 | POST | `/api/tools/attention/claim` | `{seq, kinds:["banner"\|"sound"]}` → `{granted:[…]}` — 알람 하나의 배너·소리를 이 창이 맡는다. 같은 컴퓨터(출발지 주소)에서는 처음 온 청구만 승낙된다 |
 | GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건). 사용량 요약(`usage`)과 서브에이전트 목록(`subagents`)이 있으면 함께 싣는다. `subagents` 는 15초 안에 받은 statusLine 목록과 훅으로 받은 서브에이전트 활동을 합친 것이며, 원소마다 `state`·`tool`·`detail`·`description` 이 있다. 최상위 `limits` 는 에이전트별 마지막 계정 한도다 — 창마다 `name`·`usedPct`·`resetsAt`(유닉스 초)·`resetsInSec`(서버가 셈한 남은 초)·`level`(`warn`·`critical`·빈 값). 관측이 없으면 빈 배열이다 |
-| POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용). `agentId` 가 있으면 서브에이전트 활동으로 저장하고 main 상태는 바꾸지 않는다 — 이때 `state` 는 `working`·`waiting`·`done` 만 받는다 |
+| POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용). `agentId` 가 있으면 서브에이전트 활동으로 저장하고 main 상태는 바꾸지 않는다 — 이때 `state` 는 `working`·`waiting`·`done` 만 받는다. 데몬 모드에서 `dmctl` 의 훅 보고(`activity`·`notify`·`statusline`·`subagent-statusline`)는 데몬 소켓 옆의 보고 소켓(`report.sock`)에 먼저 간다. 소켓이 없거나 실패하면 이 종단들로 HTTP 를 보낸다 |
 
 ### 백그라운드 도구
 
@@ -196,11 +196,11 @@
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태. statusLine 관측이 있으면 `context`(사용률·창·토큰·출처)와 `usage`(모델·판·비용·맥락 상세·한도 등)를 싣는다. 15초 안에 받은 서브에이전트 목록이 있으면 `subagents`(종류·상태·모델·effort·토큰·창 크기·시작 시각·작업 설명)를 싣는다. 계정 한도가 있으면 `limits`(형식은 `/api/tools/activity` 와 같다)를 싣는다 |
-| GET | `/api/tools/migration-advice` | 맥락 훅이 묻는 migration 제안 판정 |
+| GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태. statusLine 관측이 있으면 `context`(사용률·창·토큰·출처)와 `usage`(모델·판·비용·맥락 상세·한도 등)를 싣는다. 15초 안에 받은 서브에이전트 목록이 있으면 `subagents`(종류·상태·모델·effort·토큰·창 크기·시작 시각·작업 설명)를 싣는다. 계정 한도가 있으면 `limits`(형식은 `/api/tools/activity` 와 같다)를 싣는다. `live` 는 도구가 살아 있는가다. 데몬 모드에서 데몬이 잠시 답하지 못하면 생존을 모르므로 `live:false` 와 함께 `liveUnknown:true` 를 싣는다. 이때 도구가 죽었다고 보지 마세요 |
+| GET | `/api/tools/migration-advice` | 맥락 훅이 묻는 migration 제안 판정 `?id=<toolId>` → `{verdict, ctxPct, judgePct, capPct, usedPct?}`. `ctxPct` 는 기준(`migrationHookCtxPct`), `judgePct` 는 판단을 시작하는 값(기준의 80%), `capPct` 는 판단 없이 넘기는 값(85)이다. `verdict` 는 `skip`(꺼짐이거나 issue-tree 노드)·`unknown`(사용률 모름, 도구마다 한 번)·`ok`·`advise`(`judgePct` 이상)·`must`(`capPct` 이상)다 |
 | POST | `/api/tools/usage` | `dmctl statusline` 이 보내는 도구별 사용량 `{toolId, usage}`. 허용 목록 밖의 필드는 저장하지 않는다(경로·본문 없음) |
 | POST | `/api/tools/subagents` | `dmctl subagent-statusline` 이 보내는 도구별 서브에이전트 목록 `{toolId, tasks}`. 보고마다 목록을 통째로 바꾼다. 허용 목록 밖의 필드(`label`·경로)는 저장하지 않는다. 작업 설명(`description`)은 저장한다. 15초 동안 보고가 없으면 목록이 없는 것으로 본다 |
-| GET | `/api/tools/activity/wait` | 그 상태가 바뀔 때까지 **기다린다** (long-poll). 폴링 루프를 짜지 마세요 |
+| GET | `/api/tools/activity/wait` | 그 상태가 바뀔 때까지 **기다린다** (long-poll). 폴링 루프를 짜지 마세요. 도구가 사라졌다고 확인되면 `gone` 으로 끝난다. 생존을 모르는 동안(`liveUnknown`)은 `gone` 으로 끝내지 않고 계속 기다린다 |
 | POST | `/api/tools/kill` | 도구의 전경 프로세스를 정지시킨다 |
 
 ### 언어 서버 (LSP)
@@ -245,8 +245,10 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/runs` | Run 목록·상세 (`?id=`) |
-| GET | `/api/runs/graph` | Run 하나의 팀 구조 — 누가 누구를 조정하는가 |
+| GET | `/api/runs` | Run 목록·상세 (`?id=`). 열린 Run 에는 `liveness` 가 실린다. 값은 `open`(살아 있다)·`gone`(데몬이 답했는데 도구가 없다)·`unknown`(데몬이 답하지 못해 모른다)이다. 열림은 저장하지 않고 조회할 때마다 계산한다. 닫힌 Run 에는 싣지 않는다 |
+| POST | `/api/runs` | Run 을 연다 (`dmctl run start`) |
+| DELETE | `/api/runs/<id>` | Run 기록을 지운다. close 와 달리 미보고 검사를 하지 않는다. 다른 쓰기 요청처럼 `Content-Type: application/json` 이 있어야 한다. 응답은 `{id, short, state, worktrees, residue}` 이고 `residue` 는 지우지 못한 worktree 수다 |
+| GET | `/api/runs/<id>/graph` | Run 하나의 팀 구조 — 누가 누구를 조정하는가 |
 | GET | `/api/runs/tree` | `?ref=<owner/repo#N>` 이슈 트리의 열린 Run 과 노드(역할 · 상태 · 부모 · 잎) |
 | POST | `/api/runs/members` | Run 에 팀원을 등록한다 |
 | GET | `/api/runs/preamble` | 그 팀원의 기동 프리앰블 |
@@ -258,7 +260,9 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/runs/coordinate` | 부르는 도구가 조율하는 열린 Run 을 다른 도구로 넘긴다(조율 migration). 트리 Run 이면 루트 노드에 알린다 |
 | POST | `/api/runs/report` | 팀원이 자기 몫의 결과를 보고한다 |
 | POST | `/api/runs/succeed` | Run 을 성공으로 닫는다 |
-| POST | `/api/runs/close` | Run 을 닫는다. 응답의 `closedTabs[].closed` 는 **방송 결과**다 — 구독 중인 브라우저가 없으면 `false`(`delivered:0`)이고 그 탭의 Run 표식은 지워진다 |
+| POST | `/api/runs/close` | Run 을 닫는다. 응답의 `closedTabs[].closed` 는 **방송 결과**다 — 구독 중인 브라우저가 없으면 `false`(`delivered:0`)이고 그 탭의 Run 표식은 지워진다. 탭 닫기와 worktree 정리는 요청 연결과 무관하게 끝까지 한다. 호출자가 먼저 연결을 끊어도 정리는 계속되므로, 결과는 `GET /api/runs?id=` 로 본다. worktree 의 경로와 브랜치가 모두 없으면 정리된 것으로 본다 |
+
+Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭제) SSE `run_changed` 를 방송한다. `args.runId` 가 그 Run 이고, 트리 Run 이면 `args.tree` 에 트리 표지가 실린다.
 
 ### Git — 저장소·상태
 
@@ -427,6 +431,8 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_attention_clear` | 주의 상태 해제 |
 | `tool_activity` | 도구의 활동 상태 갱신 |
 | `tool_subagent_activity` | 서브에이전트의 활동 갱신 `{toolId, agentId, agentType, state, tool, detail}` |
+| `run_changed` | Run 기록이 바뀌었다. `args.runId`, 트리 Run 이면 `args.tree`. 대시보드는 이 신호로 다시 받는다 |
+| `peers_changed` | 노드 설정·초대·짝·승인 대기가 바뀌었다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름이 실린다 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
 | `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
 | `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |

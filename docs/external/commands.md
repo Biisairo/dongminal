@@ -51,8 +51,8 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl read-output [--at <uuid>] [--bytes N]` | 같은 자리를 **raw 바이트**로 읽습니다 — ANSI 를 포함합니다 (기본 8192바이트). 색·커서 이동까지 봐야 할 때만 쓰세요 |
 | `dmctl send-input --at <uuid> [--execute] <텍스트>` | 그 도구의 **셸에 입력**을 넣습니다. `--execute` 면 Enter 까지 칩니다. 텍스트 자리에 `-` 를 주거나 생략하면 stdin 을 읽습니다 |
 | `dmctl msg --to <uuid> [--from <uuid>] <메시지>` | 그 도구의 **에이전트에게** 신뢰 엔벨로프로 메시지를 보냅니다. `send-input` 과 다릅니다 — 이쪽은 상대가 에이전트임을 전제하고 봉투를 씌웁니다. `--to <노드>/<uuid>` 는 짝맞춘 다른 노드의 에이전트이며 원격 엔벨로프로 들어갑니다 |
-| `dmctl status [--at <uuid> \| --member <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`). `--member` 는 헤드리스 멤버를 지목한다 (`wait` 와 같다). 계정 한도가 관측됐으면 창마다 `claude 5h 34% (resets in 2h 0m)` 꼴의 줄이 더해진다 |
-| `dmctl wait [--at <uuid>] --for ready\|done [--timeout-ms N]` | 그 상태가 될 때까지 기다립니다. 서버가 long-poll 로 잡아 주므로 폴링 루프를 짜지 마세요 |
+| `dmctl status [--at <uuid> \| --member <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`). `--member` 는 헤드리스 멤버를 지목한다 (`wait` 와 같다). 계정 한도가 관측됐으면 창마다 `claude 5h 34% (resets in 2h 0m)` 꼴의 줄이 더해진다. 데몬이 잠시 답하지 못해 도구의 생존을 모르면 `live=unknown` 으로 쓴다(`--json` 은 `live:false`, `liveUnknown:true`). 죽었다는 뜻이 아니다 |
+| `dmctl wait [--at <uuid> \| --member <uuid>] --for ready\|done [--timeout-ms N]` | 그 상태가 될 때까지 기다립니다. 서버가 long-poll 로 잡아 주므로 폴링 루프를 짜지 마세요. 도구가 사라졌다고 확인되면 `gone` 으로 1 을 내고 끝납니다. 생존을 모르는 동안에는 `gone` 으로 끝내지 않고 계속 기다립니다 |
 
 #### 노드 간 통신 — 짝맞춘 다른 dongminal
 
@@ -63,7 +63,9 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 
 #### 에이전트 훅에서 부르는 것
 
-이 셋은 사람이 직접 치는 명령이 아닙니다. 에이전트의 훅이 부릅니다.
+이 넷은 사람이 직접 치는 명령이 아닙니다. 에이전트의 훅이 부릅니다.
+
+데몬 모드에서 `notify`·`activity`(그리고 `statusline`·`subagent-statusline`)는 보고를 데몬의 보고 소켓(`report.sock`)에 먼저 보냅니다. 서버가 꺼져 있어도 데몬이 기록해 두었다가, 서버가 다시 붙으면 그 상태를 보입니다. 보고 소켓이 없거나(직접 모드·샌드박스 창·옛 데몬) 실패하면 이전처럼 서버에 HTTP 로 보냅니다. 두 시도를 합쳐도 이전 시한을 넘지 않습니다. 보고 소켓은 데몬을 다시 띄워야 생깁니다(`dongminal start --restart-daemon`).
 
 | 명령 | 설명 |
 |------|------|
@@ -87,8 +89,10 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl run member --run <uuid> --role <이름> --agent <id> --at <탭 uuid> [--brief -]` | 그 Run 에 팀원을 등록한다 |
 | `dmctl run launch --member <uuid> [--model <m>]` | 그 팀원의 **기동줄**(프리앰블 포함)을 낸다 |
 | `dmctl run report --outcome succeeded\|failed --summary <3문장>` | 자기 몫의 결과를 보고한다 |
-| `dmctl run status [--run <uuid>]` · `dmctl run list` · `dmctl run close --run <uuid>` | 조회와 종료 |
+| `dmctl run status [--run <uuid>] [--json]` · `dmctl run list` | 조회. `--json` 이면 열린 Run 에 생존(`liveness`)이 실린다 — `open`(살아 있다)·`gone`(데몬이 답했는데 도구가 없다)·`unknown`(데몬이 답하지 못해 모른다) |
+| `dmctl run close --run <uuid> [--force] [--keep-worktrees] [--keep-tools]` | Run 을 닫고 탭과 worktree 를 정리한다. 서버는 dmctl 의 연결과 무관하게 정리를 끝까지 한다. dmctl 은 5분 20초까지 기다리고, 넘기면 `dmctl run status --run <id>` 로 결과를 보라고 알린다. worktree 의 경로와 브랜치가 모두 없으면 정리된 것으로 본다 |
 | `dmctl run delete --run <uuid>` | 레코드를 지운다 — close 와 달리 미보고 검사 없이 (웹 UI 의 삭제와 같다). 잔여물은 보고한다 |
+| `dmctl run coordinate --to <toolId>` | 이 세션이 조율하는 열린 Run 을 그 도구로 넘긴다(조율 migration). 넘긴 Run 이 없으면 `(조율하는 열린 Run 없음)` 을 낸다 |
 | `dmctl run graph --run <uuid> [--json]` | 멤버·메시지 간선·타임라인 — 대시보드가 그리는 그것 |
 | `dmctl run tree --ref <owner/repo#N> [--json]` | 이슈 트리의 열린 노드를 사슬 순서로 — 대시보드의 「이슈 트리」 가 그리는 그것. `run start --tree <ref> [--branch]` 로 연 Run 이 대상이다 |
 

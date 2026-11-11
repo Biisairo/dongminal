@@ -136,7 +136,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 
 ### Git
 
-왼쪽 `Git` 탭에 저장소를 추가하면 그 저장소 전용 창이 섭니다.
+사이드바의 `저장소`(Repo) 탭에 저장소를 추가하면 그 저장소 전용 창이 섭니다.
 
 ![Git 창](docs/images/git.png)
 
@@ -147,7 +147,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 
 ### 편집기
 
-`Editor` 탭에 경로를 추가하면 왼쪽 탐색기 · 오른쪽 편집기(CodeMirror 6)로 열립니다.
+`저장소` 탭에 일반 폴더를 추가해도 같은 창이 섭니다. 창은 `Changes`/`Explorer` 사이드와 편집기(CodeMirror 6)로 나뉩니다.
 터미널에서 `edit <파일>` 을 쳐도 그리로 갑니다. 파일 찾기(`Cmd+P`)와 전체
 검색(`Cmd+Shift+F`)이 있고, 탐색기는 git 상태를 색으로, `.gitignore` 대상을
 흐리게 보여 줍니다.
@@ -158,7 +158,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 
 ### 메모장
 
-`Editor` 탭 맨 아래 **메모장** 행이 `~` 위에 고정으로 있습니다. 누르면 메모 전용
+`저장소` 탭 맨 아래 **메모장** 행이 `~` 위에 고정으로 있습니다. 누르면 메모 전용
 창이 서고, 그 안에서는 여느 편집기와 똑같이 씁니다 — 탐색기의 `새 파일` 로 메모를
 늘리고, 분할해서 둘을 나란히 놓고, `Cmd+S` 로 저장합니다.
 
@@ -173,14 +173,27 @@ Claude Code·Codex 같은 에이전트를 터미널에서 돌릴 때, **보고 �
 🔔 배지에 모여 클릭하면 그 자리로 이동합니다. 브라우저 탭 제목에도 개수가 붙고,
 권한을 허용하면 OS 알림도 옵니다.
 
-여러 에이전트를 동시에 돌린다면 오른쪽 `Agents` 패널이 **지금 각자 무엇을 하는지**
+여러 에이전트를 동시에 돌린다면 오른쪽 `Activity` 패널이 **지금 각자 무엇을 하는지**
 카드로 모아 보여 줍니다. 설정이 필요 없습니다 — 터미널 출력을 보고 판단하므로
 어떤 CLI 든 동작합니다.
 
+**서버만 다시 띄워도 이 기록이 남습니다.** 활동 카드·알람·사용량을 데몬도 함께 들고
+있다가, 서버가 다시 붙으면 그대로 보입니다. 서버가 꺼져 있는 동안 들어온 에이전트
+보고도 데몬이 받아 둡니다. 1.2.5 로 올린 뒤 한 번은 `dongminal start --restart-daemon`
+으로 데몬을 다시 띄워야 적용됩니다.
+
+`dmctl run` 이나 `/dongminal:issue-tree` 로 여러 에이전트를 묶어 돌리면 Activity 의 Run
+구역(`Ctrl+Shift+O`)에서 이슈 트리를 봅니다. `Cmd+휠`(Windows·Linux 는 `Ctrl+휠`)로
+줌하고 끌어서 옮깁니다.
+
+**다른 PC 의 dongminal 과 짝을 맺을 수 있습니다.** 짝맞춘 PC 의 에이전트에게 메시지를
+보내거나 그 PC 에 에이전트를 띄웁니다. 노드 포트는 기본으로 꺼져 있습니다. 설정 →
+Peers 탭이나 `dmctl peer` 로 다룹니다 — 자세히는 [노드 간 통신](docs/external/peers.md).
+
 ### 백그라운드 도구
 
-탭을 닫아도 하던 작업을 계속 돌리고 싶으면 터미널에서 `detach` 를 칩니다. 상단
-`Background` 버튼(`Ctrl+Shift+B`)에 모이고, 눌러서 아무 자리로나 되돌립니다.
+탭을 닫아도 하던 작업을 계속 돌리고 싶으면 터미널에서 `detach` 를 칩니다. Activity
+패널의 `Background` 구역(`Ctrl+Shift+B`)에 모이고, 눌러서 아무 자리로나 되돌립니다.
 tmux 의 detach 와 같은 생각입니다.
 
 ### 파일 주고받기
@@ -203,6 +216,10 @@ tmux 의 detach 와 같은 생각입니다.
 적용되며 칸 수를 다시 계산해 셸에 알립니다. *Terminal ▸ Claude Code 스크롤 속도*
 (1~20줄, 기본 3줄)로 휠 한 번에 넘어갈 줄 수도 정합니다 — 이것은 **새로 여는
 터미널부터** 적용됩니다.
+
+**패널 배치는 브라우저 탭마다 따로입니다.** 사이드바·Activity·Repo 창의
+`Changes`/`Explorer` 는 끌어서 왼쪽이나 오른쪽에 둡니다. 폭·위치·열림은 탭마다 남고,
+*Display ▸ 패널 레이아웃*에서 **저장**하면 새로 여는 탭이 그 배치로 시작합니다.
 
 **설정 → Backup** 으로 이 창에서 설정할 수 있는 값 전부를 JSON 파일 하나로 내보내고
 그 파일로 되돌립니다. 새 기계를 세울 때 테마·단축키·상태바·프리셋을 손으로 다시
@@ -244,9 +261,9 @@ UI 는 **한국어(`ko`)와 영어(`en`)** 로 나오고 기본은 한국어입�
 | 탭 이동 | `Ctrl+Tab` · `Ctrl+Shift+Tab` |
 | 분할 칸 이동 | `Ctrl+Shift+←↑↓→` |
 | 터미널 검색 | `Ctrl+F` (맥은 `Cmd+F`) |
-| 백그라운드 도구 · 에이전트 패널 | `Ctrl+Shift+B` · `Ctrl+Shift+A` |
+| Activity 의 Background · Activity · Run | `Ctrl+Shift+B` · `Ctrl+Shift+A` · `Ctrl+Shift+O` |
 | 창 슬롯 더하기 · 빼기 | `Ctrl+Shift+S` · `Ctrl+Shift+X` |
-| 사이드바 탭 (Windows · Git · Editor) | `Ctrl+Shift+1` · `2` · `3` |
+| 사이드바 탭 (창 · 저장소) | `Ctrl+Shift+1` · `2` |
 | 내부 새로고침 | `Ctrl+Shift+K` |
 
 전부 **설정 → Shortcuts** 에서 바꿀 수 있습니다. 자세히는
@@ -290,6 +307,7 @@ UI 는 **한국어(`ko`)와 영어(`en`)** 로 나오고 기본은 한국어입�
 - [터미널 안 명령](docs/external/commands.md) — `dmctl` · `edit` · `download` · `detach`
 - [단축키](docs/external/shortcuts.md)
 - [에이전트 오케스트레이션](docs/external/agent-orchestration.md)
+- [노드 간 통신](docs/external/peers.md) — 다른 PC 의 dongminal 과 짝맞춤
 - [HTTP·WebSocket API](docs/external/api.md)
 - [변경 이력](CHANGELOG.md)
 
