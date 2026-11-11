@@ -73,6 +73,47 @@ test('TC-MTS-3 마우스 리포팅 TUI 에서 빠른 끌기의 행이 리포트�
   expect(await page.evaluate(() => (window as any).__reports)).toBeLessThanOrEqual(want + 1);
 });
 
+test('TC-MTS-8 TUI 가 다시 그려 손가락 밑 span 이 바뀌어도 손짓이 이어진다', async ({ page }) => {
+  await goto(page);
+  // TUI 흉내: alt 화면 + 마우스 리포팅, 리포트마다 화면 전체를 색 글자로 다시 그린다.
+  await page.evaluate(() => {
+    const p = (window as any).app.testing.focusedTerminal();
+    let off = 0;
+    const draw = () => {
+      let s = '\x1b[H';
+      for (let r = 0; r < p.term.rows; r++) s += `\x1b[3${(off + r) % 6 + 1}mrow-${off + r} ${'#'.repeat(30)}\x1b[0m\x1b[K` + (r < p.term.rows - 1 ? '\r\n' : '');
+      p.term.write(s);
+    };
+    (window as any).__reports = 0;
+    const orig = p._send.bind(p);
+    p._send = (m: Uint8Array) => {
+      if (m[0] === 0) {
+        const n = (new TextDecoder().decode(m.subarray(1)).match(/\x1b\[<6[45];\d+;\d+M/g) || []).length;
+        if (n) { (window as any).__reports += n; off += n; draw(); return }
+      }
+      return orig(m);
+    };
+    p.term.write('\x1b[?1049h\x1b[?1000h\x1b[?1006h');
+    draw();
+  });
+  await expect.poll(() => page.evaluate(() =>
+    !!document.querySelector('#area .pn.focused .xterm-rows span')), { timeout: 10000 }).toBe(true);
+  const g = await geo(page);
+  const cdp = await page.context().newCDPSession(page);
+  // 줄 글자(span) 위에서 시작한다. 관성을 빼려고 멈췄다 뗀다.
+  const span = await page.evaluate(() => {
+    const r = document.querySelector('#area .pn.focused .xterm-rows > div:nth-child(12) span')!.getBoundingClientRect();
+    return { x: r.left + 5, y: r.top + r.height / 2 };
+  });
+  expect(await page.evaluate((pt) => (document.elementFromPoint(pt.x, pt.y) as HTMLElement).tagName, span)).toBe('SPAN');
+  await drag(page, cdp, span, -300, 10, 250);
+  const want = Math.floor(300 / g.rh);
+  await expect.poll(() => page.evaluate(() => (window as any).__reports), { timeout: 10000 }).toBeGreaterThanOrEqual(want - 1);
+  expect(await page.evaluate(() => (window as any).__reports)).toBeLessThanOrEqual(want + 1);
+  // touchend 가 처리되어 손짓이 닫혔다.
+  expect(await page.evaluate(() => (window as any).app.testing.focusedTerminal()._tsY0)).toBeNull();
+});
+
 test('TC-MTS-4 보통 버퍼에서 끈 만큼(1:1) 스크롤한다', async ({ page }) => {
   await goto(page);
   await fill(page);

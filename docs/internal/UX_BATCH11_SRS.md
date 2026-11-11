@@ -188,6 +188,7 @@
 | FR-MTS-5 | 관성의 처음 속도는 최근 `MTI_VELOCITY_WINDOW_MS`(100 ms) 안의 터치 표본으로 잰 **px/ms** 다(첫 표본과 마지막 표본의 거리 ÷ 시간). 마지막 표본이 손을 뗀 때보다 그 창 이상 오래됐으면(멈췄다 뗐으면) 관성이 없다. 관성은 프레임 사이 실제 경과 시간으로 진행하고 감쇠도 경과 시간에 맞춘다(`MTI_FLING_DECAY` 는 16.67 ms 당). 상한·하한은 `MTI_FLING_MAX_V`·`MTI_FLING_MIN_V` 를 px/ms 로 고쳐 쓴다. | 필수 |
 | FR-MTS-6 | 터치 스크롤(과 FR-TCP-7)은 모바일 레이아웃이거나 **주 포인터가 coarse**(`(pointer: coarse)`)일 때 선다. 그 둘에서 터미널 칸은 `touch-action:none` 이다. | 필수 |
 | FR-MTS-7 | 탭(slop 미만)·포커스·소프트 키보드의 종전 동작(FR-MTI-9·22·29)은 그대로다. | 필수 |
+| FR-MTS-8 | (개정 5) 한 손짓의 `touchmove`·`touchend`·`touchcancel` 은 **손가락이 처음 닿은 요소가 문서에서 떨어진 뒤에도** 스크롤로 처리한다. 터치 이벤트는 처음 닿은 요소로만 가고, 그 요소가 떨어지면 조상으로 전파되지 않는다 — TUI 가 다시 그리며 DOM 렌더러가 줄의 `span` 을 바꾸면 손짓의 나머지가 사라진다. 한 이벤트를 두 번 처리하지 않는다. | 필수 |
 
 ### 3.5 이전 동작 / 새 동작 / 이유
 
@@ -226,6 +227,7 @@
 | TC-MTS-5 | e2e(터치): 합성 wheel 의 `clientX/Y` 가 손가락 위치다 (FR-MTS-3) | e2e |
 | TC-MTS-6 | e2e(터치): 빠르게 튕기면 손을 뗀 뒤 더 간다. 끌고 멈춘 뒤(>100 ms) 떼면 더 가지 않는다 (FR-MTS-5) | e2e |
 | TC-MTS-7 | e2e: 데스크톱 레이아웃 + coarse 포인터(터치 기기)에서 터미널 칸이 `touch-action:none` 이고 끌면 스크롤한다 (FR-MTS-6) | e2e |
+| TC-MTS-8 | e2e(터치): 마우스 리포팅을 켜고, 리포트마다 화면 전체를 색 글자로 다시 그리는(TUI 흉내) 터미널에서 줄의 `span` 을 잡고 300 px 끌면 휠 리포트가 `300/행 높이` 에 ±1 로 가고 손짓이 끝난다(`touchend` 처리). 종전에는 리포트 1개였다 (FR-MTS-8) | e2e |
 | TC-FPL-1 | `filePathCandidates`: `src/a.go:12:5` → path `src/a.go`, line 12, col 5. `./b.ts:3` · `/abs/c.rs` · `C:\x\y.go:7` · `C:/x/y.go` · `a.py:9` 는 후보이고, `main.go` · `https://a.com/b` · `v1.2:3x` · `a:0` 은 후보가 아니다. 끝의 `:`·`,`·`.` 를 떼고, 괄호·따옴표로 끊는다 | 단위 |
 | TC-FPL-2 | 확인: 상대 후보 + cwd → 한 요청의 절대 경로들. 답에 있는 것만 링크. cwd 가 비면 상대 후보는 묻지 않는다. 요청 실패면 링크 없음. 5초 기억 | 단위 |
 | TC-FPL-3 | e2e: cwd 에 `src/a.go` 가 있을 때 `echo src/a.go:2 nope/x.go:1 main.go` → `src/a.go:2` 만 링크이고, 누르면 편집기에 `a.go` 가 열리고 2행으로 간다 | e2e |
@@ -296,3 +298,4 @@
 | 2026-10-28 | **개정 3** — 증상: Claude Code 입력 줄에 `aN;NaNm` 이 남는다. 격리 e2e 로 재현: 마우스 리포팅 앱 화면의 파일 링크를 누르면 `ESC[<0;NaN;NaNm` 이 나가고 터미널 요소의 `isConnected` 가 `false` 다. 원인은 링크 활성화(mouseup 처리 중)가 `edOpenFile` → render → `_hideOthers` 로 터미널을 동기로 떼어, 같은 mouseup 의 `document` 리스너가 떨어진 요소의 `getComputedStyle` 패딩(`""` → `NaN`)으로 좌표를 잰 것이다. FR-FPL-7 · TC-FPL-5 신설 |
 | 2026-10-28 | 개정 3 구현 — `ui/file-link.js` 의 `activate` 가 `app.edOpenFile` 을 `TIMERS.defer` 로 미룬다(`queueMicrotask` 는 리스너 사이에 돌아 `document` 리스너보다 앞설 수 있다). TC-FPL-3 은 여는 호출을 동기로 잡던 것을 poll 로 바꾼다. 검증: TC-FPL-5 는 구현 전 실패(`NaN` 보고) · 구현 후 통과, `file-path-link.spec.ts` 5회 반복 15/15 · `bare-link.spec.ts` 통과 · 단위 553 통과 · `make gates` · typecheck 통과 |
 | 2026-11-11 | **개정 4** — 증상: 모바일 Chrome 에서 새로고침·창 전환 뒤 입력하지 않았는데도 보류 배너가 서고, 미리보기에 `^[[<0;NaN;NaNm` 류가 보이며, 보내면 입력 줄에 `aN;NaNm` 이 남는다. 원인: SGR 마우스 보고가 `TERM_REPORT_RE` 에 없어 사용자 입력 경로로 들어가 끊긴 동안 보류됐다(터치 스크롤의 합성 wheel 이 주 경로). 터미널 요소가 떨어지거나 크기가 0 인 순간에 잰 좌표는 `NaN` 이다(FR-FPL-7 은 링크 경로만 막았다). FR-HIN-9 · TC-HIN-5 신설. 이전 동작: 마우스 보고가 보류됐다. 새 동작: 보류하지 않고, 끊긴 동안엔 버리며, `NaN` 좌표는 늘 버린다. 배너(FR-HIN-1~8)는 키 입력의 안전장치로 그대로 둔다 |
+| 2026-11-11 | **개정 5** — 증상: 모바일에서 Claude Code 같은 TUI 위의 터치 스크롤이 빠릿하지 않다(일반 셸은 정상). 격리 e2e 측정: 마우스 리포팅 TUI(리포트마다 다시 그림) 위에서 300 px(15.7행)를 끌면 touchmove 18번 중 2번만 페이지에 닿고 리포트는 1개, 관성 없음. 일반 셸 스크롤백은 19번 모두 닿고 wheel 21개. 원인: 첫 이벤트의 대상이 줄의 `span` 이고, TUI 가 다시 그리면 DOM 렌더러(터치 기기는 D-TGR-6 으로 DOM)가 그 `span` 을 바꿔 대상이 문서에서 떨어진다 — 이후 이벤트는 떨어진 요소에만 간다. FR-MTS-8 · TC-MTS-8 신설. 이전 동작: 대상이 바뀌면 손짓이 거기서 끊겼다(touchend 도 놓쳤다). 새 동작: 손짓 끝까지 스크롤·관성이 이어진다 |

@@ -30,6 +30,8 @@ function termTouchVelocity(samples,now,win){
   return (first.y-last.y)/(last.t-first.t);
 }
 
+const TS_FOLLOW_TYPES=['touchmove','touchend','touchcancel'];
+
 Object.assign(TerminalTool.prototype, {
   // FR-MTI-8: capture 단계에서 가로채 xterm 의 1:1 터치 경로와 선택 경로에
   // 도달하지 않게 한다. xterm 쪽은 관성이 없다.
@@ -71,6 +73,29 @@ Object.assign(TerminalTool.prototype, {
     // 앞 손짓의 한 행 미만 나머지는 이 손짓에 넘기지 않는다.
     this._wheelRest=0;
     this._tsSamples=[{t:e.timeStamp,y:p.clientY}];
+    this._tsFollow(e.target);
+  },
+
+  // UX_BATCH11_SRS FR-MTS-8: 손짓의 나머지 이벤트는 처음 닿은 요소로만 간다. TUI 가 다시 그려
+  // 그 요소(줄의 span)가 떨어지면 조상의 리스너에 닿지 않으므로 요소 자체에서도 받는다.
+  // 붙어 있는 동안은 위의 capture 가 이미 처리했다 — 떨어진 때만 처리한다.
+  _tsFollow(el){
+    this._tsUnfollow();
+    if(!el||el===this.el||!el.addEventListener) return;
+    const h=e=>{
+      if(this.el.contains(e.target)) return;
+      if(e.type==='touchmove') this._tsMove(e);
+      else this._tsEnd(e);
+    };
+    for(const type of TS_FOLLOW_TYPES) el.addEventListener(type,h,{passive:false});
+    this._tsHeld={el,h};
+  },
+
+  _tsUnfollow(){
+    const f=this._tsHeld;
+    if(!f) return;
+    this._tsHeld=null;
+    for(const type of TS_FOLLOW_TYPES) f.el.removeEventListener(type,f.h);
   },
 
   _tsMove(e){
@@ -105,6 +130,7 @@ Object.assign(TerminalTool.prototype, {
   },
 
   _tsEnd(e){
+    this._tsUnfollow();
     const wasActive=this._tsActive;
     this._tsY0=null;this._tsActive=false;
     if(!wasActive) return;
