@@ -425,6 +425,8 @@ const FS_DOWNLOAD_API='/api/fs/download';
 const FS_UPLOAD_API='/api/fs/upload';
 // EXPLORER_TRANSFER_IGNORE_SRS FR-ETR-9 — 폴더는 zip 으로 온다 (D-4).
 const FS_DOWNLOAD_DIR_API='/api/fs/download-dir';
+// UX_BATCH12 FR-EXD-3·7 — 여러 경로를 zip 하나로 받는다.
+const FS_DOWNLOAD_MANY_API='/api/fs/download-many';
 // FR-ETR-1 — 한 겹에서 무시된 이름을 가른다. status 폴링과 별개다 (D-1).
 const FS_IGNORED_API='/api/fs/ignored';
 // 기본 단축키는 `SHORTCUT_DEFAULTS.softReload` 에 있다 — 설정에서 바꿀 수 있는
@@ -499,6 +501,7 @@ const EDITOR_MENU_COPY_REL_PATH=t('editor.menu_copy_rel_path');
 // 성공만 말한다 — 실패는 `TermClipboard` 의 수동 복사창이 그 자리에서 말한다.
 const EDITOR_PATH_COPIED=t('editor.path_copied');
 const EDITOR_DOWNLOAD_LINK_NO=t('editor.download_link_no');
+const EDITOR_RENAME_MANY_NO=t('editor.rename_many_no');
 const EDITOR_UPLOAD_FAIL=t('editor.upload_fail');
 
 // FR-ETR-22: 폴더 드롭의 재귀 수집 상한. 홈 폴더를 잘못 놓았을 때 브라우저가

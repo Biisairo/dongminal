@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 )
@@ -85,15 +86,87 @@ func (s *Server) apiFSDownloadDir(w http.ResponseWriter, r *http.Request) {
 	writeZipTree(w, target)
 }
 
+// apiFSDownloadMany 는 GET /api/fs/download-many — 여러 경로를 zip 하나로 준다
+// (UX_BATCH12_SRS FR-EXD-3·4·7). 탐색기에서 여러 항목을 Finder 로 끌거나 메뉴로 내려받을 때다.
+//
+// 각 경로는 zip 의 맨 위에 **제 이름으로** 담긴다. 판정(루트 안·존재·이름 겹침·상한)은
+// `apiFSDownloadDir` 과 같이 헤더를 쓰기 전에 끝낸다 (D-6).
+func (s *Server) apiFSDownloadMany(w http.ResponseWriter, r *http.Request) {
+	if zipInFlight.Add(1) > zipMaxConcurrent {
+		zipInFlight.Add(-1)
+		fsFail(w, fsErrBusy, "동시 다운로드가 상한에 닿았다 — 잠시 뒤 다시 시도하세요")
+		return
+	}
+	defer zipInFlight.Add(-1)
+
+	root, ok := s.fsRoot(w, r.URL.Query().Get("root"))
+	if !ok {
+		return
+	}
+	paths := r.URL.Query()["path"]
+	if len(paths) == 0 {
+		fsFail(w, fsErrBadRequest, "내려받을 경로가 없다")
+		return
+	}
+	targets := make([]string, 0, len(paths))
+	names := map[string]bool{}
+	for _, p := range paths {
+		target, err := fsResolveExisting(root, p)
+		if err != nil {
+			fsFailErr(w, err)
+			return
+		}
+		// 맨 위 이름이 겹치면 푸는 쪽에서 한쪽이 다른 쪽을 덮는다 — 담기 전에 거절한다.
+		name := filepath.Base(target)
+		if names[name] {
+			fsFail(w, fsErrBadRequest, "같은 이름이 둘이다: "+name)
+			return
+		}
+		names[name] = true
+		targets = append(targets, target)
+	}
+	if err := zipWithinLimits(targets...); err != nil {
+		fsFailErr(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", attachmentDisposition(zipManyName(root, len(targets))))
+	writeZipTree(w, targets...)
+}
+
+// zipManyName 은 여러 항목 zip 의 이름이다 — `<루트 이름>-<n>-items.zip`.
+func zipManyName(root string, n int) string {
+	return strings.TrimSuffix(zipDownloadName(root), zipSuffix) + "-" + strconv.Itoa(n) + "-items" + zipSuffix
+}
+
 // zipWithinLimits 는 항목 수와 총 바이트를 함께 센다. 상한을 넘는 것이 확정된
 // 순간 멈춘다 — 남은 트리를 계속 걸을 이유가 없다 (fsCountEntries 와 같은 관례).
 //
 // 링크는 세지 않는다. zip 에 담기지 않으므로(FR-ETR-14) 세면 상한이 담기지도
 // 않을 것에 소모된다.
-func zipWithinLimits(root string) error {
+//
+// UX_BATCH12_SRS FR-EXD-4: 뿌리가 여럿이면 상한은 **합**이다 — 한 zip 에 담기기 때문이다.
+func zipWithinLimits(roots ...string) error {
 	entries := 0
 	var total int64
-	err := filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
+	var err error
+	for _, root := range roots {
+		if err = zipCountInto(root, &entries, &total); err != nil {
+			break
+		}
+	}
+	if errors.Is(err, errFSCountOver) {
+		return fsError{fsErrBadRequest, "폴더가 상한을 넘었다 — 더 작은 폴더를 받으세요"}
+	}
+	if err != nil {
+		return fsFromOS(err)
+	}
+	return nil
+}
+
+// zipCountInto 는 뿌리 하나를 걸으며 항목 수와 바이트를 이어 센다.
+func zipCountInto(root string, entries *int, total *int64) error {
+	return filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
 			// 읽을 수 없는 자리는 **세기에서 건너뛴다.** 쓰기 단계도 같은
 			// 자리를 건너뛰므로(FR-ETR-15) 판정과 결과가 어긋나지 않는다.
@@ -105,8 +178,8 @@ func zipWithinLimits(root string) error {
 		if d.Type()&os.ModeSymlink != 0 {
 			return nil
 		}
-		entries++
-		if entries > zipMaxEntries {
+		*entries++
+		if *entries > zipMaxEntries {
 			return errFSCountOver
 		}
 		if d.IsDir() {
@@ -116,19 +189,12 @@ func zipWithinLimits(root string) error {
 		if err != nil {
 			return nil
 		}
-		total += info.Size()
-		if total > zipMaxBytes {
+		*total += info.Size()
+		if *total > zipMaxBytes {
 			return errFSCountOver
 		}
 		return nil
 	})
-	if errors.Is(err, errFSCountOver) {
-		return fsError{fsErrBadRequest, "폴더가 상한을 넘었다 — 더 작은 폴더를 받으세요"}
-	}
-	if err != nil {
-		return fsFromOS(err)
-	}
-	return nil
 }
 
 // writeZipTree 는 트리를 zip 으로 쓴다. **이 함수가 시작된 뒤의 실패는 응답으로
@@ -137,10 +203,16 @@ func zipWithinLimits(root string) error {
 //
 // 엔트리 이름은 **대상 폴더 이름을 뿌리로** 하는 상대경로다. 풀었을 때 폴더
 // 하나가 나와야 사용자가 "복사" 로 읽는다.
-func writeZipTree(w io.Writer, root string) {
+func writeZipTree(w io.Writer, roots ...string) {
 	zw := zip.NewWriter(w)
 	defer zw.Close()
+	for _, root := range roots {
+		zipAddTree(zw, root)
+	}
+}
 
+// zipAddTree 는 뿌리 하나를 그 이름 아래에 담는다. 파일이면 그 파일 하나다 (FR-EXD-4).
+func zipAddTree(zw *zip.Writer, root string) {
 	base := filepath.Base(root)
 	filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {

@@ -149,6 +149,22 @@ func TestFSActions_RootAndMissing(t *testing.T) {
 	}
 }
 
+// UX_BATCH12 TC-EXM-7 (FR-EXM-5): 옮기기·복사는 선택 전부를 본다. 이름 바꾸기는 첫 경로다.
+func TestFSActions_MoveCopyJudgeAllPaths(t *testing.T) {
+	s, _, root := fsActionsTree(t)
+	file := filepath.Join(root, "file.txt")
+
+	_, out := postFSActions(t, s, root, file, filepath.Join(root, "gone"))
+	wantFSAnswer(t, out, action.FSMove, apierr.CodeNotFound)
+	wantFSAnswer(t, out, action.FSCopy, apierr.CodeNotFound)
+	wantFSAnswer(t, out, action.FSRename, "")
+
+	_, out = postFSActions(t, s, root, file, root)
+	wantFSAnswer(t, out, action.FSMove, apierr.CodeEditorRootProtected)
+	wantFSAnswer(t, out, action.FSCopy, "")
+	wantFSAnswer(t, out, action.FSRename, "")
+}
+
 func TestFSActions_BadRequests(t *testing.T) {
 	s, _, root := fsActionsTree(t)
 	if code, out := postFSActions(t, s, root); code != http.StatusBadRequest || out["code"] != apierr.CodeBadRequest {

@@ -256,6 +256,15 @@ Object.assign(FileTree.prototype, {
     this._selSet.add(this._sel);
   },
 
+  // UX_BATCH12 FR-EXK-5: 보이는 행 전부(루트 제외). 앵커가 그 밖이면 첫 행이 앵커다.
+  _selAll(){
+    const rows=this._items().filter(it=>it.t==='row'&&it.path!==this.root).map(it=>it.path);
+    if(!rows.length) return false;
+    this._selSet=new Set(rows);
+    if(!this._selSet.has(this._sel)) this._sel=rows[0];
+    return true;
+  },
+
   // 이 행이 지금 선택에 들어 있는가. 그리기와 드래그가 함께 읽는다.
   _selHas(p){ return !!p&&this._selSet.has(p) },
 
@@ -264,6 +273,13 @@ Object.assign(FileTree.prototype, {
   _selTargets(fallback){
     const all=this._selSet.size?[...this._selSet]:(fallback?[fallback]:[]);
     return all.filter(p=>!all.some(q=>q!==p&&p.startsWith(q+'/')||q!==p&&p.startsWith(q+'\\')));
+  },
+
+  // UX_BATCH12 FR-EXM-3: `_selTargets` 를 화면 순서로. 경로 복사가 이 순서를 쓴다.
+  _selOrdered(fallback){
+    const at=new Map(this._items().filter(it=>it.t==='row').map((it,i)=>[it.path,i]));
+    const ix=p=>at.has(p)?at.get(p):Infinity;
+    return this._selTargets(fallback).sort((a,b)=>ix(a)-ix(b));
   },
 
   /**
@@ -351,67 +367,6 @@ Object.assign(FileTree.prototype, {
     // 선택이 화면 밖으로 나가면 옮겨 보인다 — `revealPath` 와 같은 손짓이다.
     const row=this.list.querySelector('.ed-row.sel');
     if(row&&row.scrollIntoView) row.scrollIntoView({block:'nearest'});
-  },
-
-  /**
-   * FR-EXR-51~57: 탐색기의 키보드 길. **조작을 만들지 않는다** — 이미 있는
-   * `doDelete`·`edClipSet`·`doPasteInto`·`startRename` 에 길만 낸다.
-   *
-   * 전역 `keydown`(`input-binding.js`, capture)은 이 키들을 삼키지 않는다
-   * (EXPLORER_ROOT_KEYS_SRS §2.5 실측) — 그래서 그 규약(FR-EKB-1·4)을 뒤집지
-   * 않는다. 대신 **처리한 키만** 삼킨다 (FR-EXR-56).
-   */
-  _onKey(e){
-    // FR-EXR-55: 인라인 입력의 키는 그 입력의 것이다. `Delete` 가 글자가 아니라
-    // 파일을 지우면 그것이 놀람이다.
-    if(e.target.closest('.ed-edit')) return;
-    // FR-EXR-57: 머리 버튼에 포커스가 있는 동안의 키도 그 버튼의 것이다.
-    if(e.target.closest('button')) return;
-    const p=this._sel;
-    // FR-EXR-54: 루트는 지울 수도 이름을 고칠 수도 복사할 수도 없다. 붙여넣기만
-    // 된다 — 그 자리가 루트라는 뜻이다 (FR-EXR-5).
-    const pick=p&&p!==this.root?p:'';
-    const take=()=>{e.preventDefault();e.stopPropagation()};
-    if(e.metaKey||e.ctrlKey){
-      if(e.altKey||e.shiftKey) return;
-      if(e.code==='KeyC'){
-        if(!pick) return;
-        take(); this.app.edClipSet(this.root,pick); return;
-      }
-      if(e.code==='KeyV'){
-        take(); this.doPasteInto(this._targetDir()); return;
-      }
-      return;
-    }
-    if(e.altKey||e.shiftKey) return;
-    const kind=pick?this._kindOf(pick):'';
-    switch(e.code){
-      // FR-EXR-53: 확인은 `doDelete` 가 든다 (FR-EDT-83·84). 키보드라는 이유로
-      // 확인을 빼는 갈래를 만들지 않는다 — `U-10` 이 그 부류의 결함이었다.
-      // `Backspace` 를 함께 받는 것은 macOS 의 삭제 관용이 그것이기 때문이다.
-      case 'Delete': case 'Backspace':
-        if(!pick) return;
-        take(); this.doDelete(pick); return;
-      case 'F2':
-        if(!pick) return;
-        take(); this.startRename(pick); return;
-      case 'ArrowDown': take(); this._moveSel(1); return;
-      case 'ArrowUp': take(); this._moveSel(-1); return;
-      case 'ArrowRight':
-        if(kind!=='dir'||this._open.has(pick)) return;
-        take(); this.toggle(pick); return;
-      case 'ArrowLeft':
-        if(kind!=='dir'||!this._open.has(pick)) return;
-        take(); this.toggle(pick); return;
-      case 'Enter':
-        if(!pick) return;
-        take();
-        // 더블클릭과 뜻이 같다 (FR-RTU-42) — 다만 키보드로는 미리보기를 지나지
-        // 않았을 수 있으므로 `edPinTabFor` 가 아니라 여는 자리를 부른다.
-        if(kind==='dir') this.toggle(pick);
-        else if(kind==='file') this.app.edOpenFile(pick,{preview:false});
-        return;
-    }
   },
 
   _onDbl(e){

@@ -21,8 +21,8 @@ type fsActionsReq struct {
 	Paths []string `json:"paths"`
 }
 
-// POST /api/fs/actions — `paths[0]` 은 메뉴를 연 행이다. 이름 바꾸기·옮기기·복사는 그
-// 행 하나를, 삭제는 `paths` 전부를 판정한다 (F-a). `count` 는 대상 폴더들 안의 항목 수다
+// POST /api/fs/actions — `paths[0]` 은 메뉴를 연 행이다. 이름 바꾸기는 그 행 하나를,
+// 옮기기·복사·삭제는 `paths` 전부를 판정한다 (F-a · UX_BATCH12 FR-EXM-5). `count` 는 대상 폴더들 안의 항목 수다
 // (F-b) — 참인 답은 `args` 를 싣지 않으므로(FR-SDA-1) 답 밖에 싣는다.
 func (s *Server) apiFSActions(w http.ResponseWriter, r *http.Request) {
 	var req fsActionsReq
@@ -46,12 +46,18 @@ func (s *Server) apiFSActions(w http.ResponseWriter, r *http.Request) {
 		targets = append(targets, target)
 	}
 	del, count := s.fsDeleteAnswer(root, targets, s.limits.fsDelete)
-	move := s.fsMoveAnswer(root, targets[0])
+	// UX_BATCH12 FR-EXM-5: 옮기기·복사는 선택 전부에 적용되므로 전부를 본다.
+	moves := make([]action.Answer, 0, len(targets))
+	copies := make([]action.Answer, 0, len(targets))
+	for _, t := range targets {
+		moves = append(moves, s.fsMoveAnswer(root, t))
+		copies = append(copies, fsCopyAnswer(t))
+	}
 	fsJSON(w, http.StatusOK, map[string]any{
 		"actions": map[string]action.Answer{
-			action.FSRename: move,
-			action.FSMove:   move,
-			action.FSCopy:   fsCopyAnswer(targets[0]),
+			action.FSRename: moves[0],
+			action.FSMove:   action.First(moves...),
+			action.FSCopy:   action.First(copies...),
 			action.FSDelete: del,
 		},
 		"count": count,

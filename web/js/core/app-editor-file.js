@@ -95,8 +95,13 @@ Object.assign(App.prototype, {
    * 종류를 클립보드가 든다 — 붙여넣는 쪽이 그때 판단할 근거가 없기 때문이다.
    * 복사와 잘라내기는 **붙여넣는 순간에** 갈리고, 그 전까지는 같은 자리에 같은
    * 대상이 놓인다.
+   *
+   * UX_BATCH12 FR-EXM-7: 대상은 **경로 목록**(`paths`)이다. 경로 하나(문자열)도 받는다.
    */
-  edClipSet(root,path,move){this._edClip=(root&&path)?{root,path,move:!!move}:null},
+  edClipSet(root,paths,move){
+    const list=(Array.isArray(paths)?paths:[paths]).filter(Boolean);
+    this._edClip=root&&list.length?{root,paths:list,move:!!move}:null;
+  },
 
   edClipGet(){return this._edClip||null},
 

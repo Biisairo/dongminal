@@ -240,6 +240,7 @@ I18N.register('en', {
   'editor.del_permanent': 'This is permanent. It does not go to the trash and cannot be undone.',
   'editor.del_recover_hint': 'You can restore it with git checkout -- %s',
   'editor.download_link_no': 'Links cannot be downloaded',
+  'editor.rename_many_no': 'You can rename only one item at a time',
   'editor.empty_hint': 'Open a file from the explorer and it appears here',
   'editor.find_bad_re': 'Invalid regular expression',
   'editor.find_close_title': 'Close (Escape)',

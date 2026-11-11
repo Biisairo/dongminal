@@ -205,6 +205,8 @@ var apiRoutes = []apiRoute{
 	// EXPLORER_TRANSFER_IGNORE_SRS 묶음 B — 폴더를 zip 으로. 파일 종단과 나눈
 	// 이유는 FR-ETR-11 이다 — 두 종단이 서로의 일을 대신하지 않는다.
 	httproute.Get("/api/fs/download-dir", (*Server).apiFSDownloadDir),
+	// UX_BATCH12_SRS FR-EXD-3·4: 여러 경로를 zip 하나로 — 탐색기의 다중 끌어 내려받기·메뉴 다운로드.
+	httproute.Get("/api/fs/download-many", (*Server).apiFSDownloadMany),
 	httproute.Post("/api/fs/upload", (*Server).apiFSUpload),
 	// EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 설치. 둘 다 POST 인 것은 본문이
 	// 필요하기 때문이다 (FR-LSP-4b: 절대경로 표가 요청에 실린다) — `/api/fs/stamp`

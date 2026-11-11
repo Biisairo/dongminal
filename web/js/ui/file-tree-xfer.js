@@ -1,8 +1,8 @@
 /**
  * FileTree — 파일을 주고받는 일 (FILE_TRANSFER_SRS / SPLIT_REFACTOR_SRS 묶음 C).
  *
- * 내려받기(`download`) · 올리기(`doUpload`·`_uploadOne`·`pickUpload`) · 우클릭
- * 메뉴(`_onCtx`) · 드래그드롭(`_initDnd`·`_dropUpload`·`_spring*`)이 여기 산다.
+ * 올리기(`doUpload`·`_uploadOne`·`pickUpload`) · 우클릭 메뉴(`_onCtx`) ·
+ * 드래그드롭(`_initDnd`·`_dropUpload`·`_spring*`)이 여기 산다. 내려받기는 file-tree-download.js 다.
  *
  * 이것들의 공통점은 **트리 밖과 닿는다**는 것이다 — 사용자의 파일 시스템, 브라우저의
  * DataTransfer, 서버의 업로드 종단. 트리 안에서 끝나는 일과 섞이지 않게 갈랐다.
@@ -10,27 +10,6 @@
  * `static` 넷은 prototype 이 아니라 클래스 자체에 붙는다 — 인스턴스 없이 불린다.
  */
 Object.assign(FileTree.prototype, {
-  /**
-   * FR-FTR-14 / FR-ETR-16: 앵커로 일으킨다. `fetch` 로 blob 을 받으면 파일 전체가
-   * 메모리에 올라가고 스트리밍을 잃는다 (D-1).
-   *
-   * 폴더면 zip 종단으로 간다 (FR-ETR-9). 브라우저는 폴더를 폴더 그대로 받지
-   * 못한다 — 그 길(File System Access API)은 secure context 를 요구하는데 서버는
-   * 평문 HTTP 다 (D-4).
-   */
-  download(p){
-    if(!p) return;
-    const kind=p===this.root?'dir':this._kindOf(p);
-    // 링크는 자신을 내려받는다는 뜻이 정해져 있지 않다 (FR-ETR-16).
-    if(kind!=='file'&&kind!=='dir') return;
-    const dir=kind==='dir';
-    const a=document.createElement('a');
-    a.href=(dir?FS_DOWNLOAD_DIR_API:FS_DOWNLOAD_API)+
-      '?root='+encodeURIComponent(this.root)+'&path='+encodeURIComponent(p);
-    a.download=this._base(p)+(dir?'.zip':'');
-    document.body.appendChild(a); a.click(); a.remove();
-  },
-
   /**
    * FR-FTR-19 / FR-ETR-26~30: 항목을 **순차**로 올린다.
    *
@@ -209,6 +188,8 @@ Object.assign(FileTree.prototype, {
     // SERVER_DRIVEN_ACTIONS_SRS F-f: 이름 바꾸기·옮기기·복사·삭제를 할 수 있는지는 서버가
     // 답한다. 메뉴를 연 행이 먼저이고, 삭제는 선택 전부를 본다.
     const paths=[p,...this._selTargets(p).filter(x=>x&&x!==p)];
+    // UX_BATCH12 FR-EXM-3·4: 이름 바꾸기·새로 만들기·업로드 밖은 선택 전체가 대상이다.
+    const many=this._selOrdered(p).filter(x=>x&&x!==this.root),multi=many.length>1;
     GitMenu.openAsked([
       {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.startCreate(false,dir)},
       // FR-M9-23: 메모장에서도 보인다 — FR-EXR-32 의 가림은 폐기됐다.
@@ -220,34 +201,35 @@ Object.assign(FileTree.prototype, {
       {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,run:()=>this.pickUpload(dir,true)},
       // FR-FTR-13 / FR-ETR-16: 파일과 폴더에서 활성이고, 폴더는 zip 으로 온다.
       // 링크만 비활성이다 — 링크 자신을 내려받는다는 뜻이 정해져 있지 않다.
+      // 여러 항목은 zip 하나다 (FR-EXD-7) — 링크는 서버가 건너뛴다 (FR-ETR-16).
       {id:'download',label:EDITOR_MENU_DOWNLOAD,
-        disabled:()=>kind==='link'?EDITOR_DOWNLOAD_LINK_NO:'',
-        run:()=>this.download(p)},
+        disabled:()=>!multi&&kind==='link'?EDITOR_DOWNLOAD_LINK_NO:'',
+        run:()=>this.downloadMany(multi?many:[p])},
       {sep:true},
       /**
        * M9_SRS FR-M9-19 (사용자 요구 2026-09-14): **경로 복사 둘.**
        *
-       * 대상은 **우클릭한 행 하나**다 — 위 `download`·아래 `copy` 와 같은 규약이며,
-       * 여럿 고른 채 열어도 그 행이다.
+       * 대상은 선택 전체다 (UX_BATCH12 FR-EXM-3 이 "우클릭한 행 하나" 를 개정).
        *
        * 자기 구획인 이유는 D-M9-10 이다: 아래 `copy` 는 **파일 클립보드**이고 이것은
        * **텍스트 클립보드**다. 나란히 두면 사용자가 둘을 같은 것으로 읽는다.
        */
-      {id:'copyAbsPath',label:EDITOR_MENU_COPY_ABS_PATH,run:()=>this.copyPath(p,false)},
-      {id:'copyRelPath',label:EDITOR_MENU_COPY_REL_PATH,run:()=>this.copyPath(p,true)},
+      {id:'copyAbsPath',label:EDITOR_MENU_COPY_ABS_PATH,run:()=>this.copyPath(multi?many:p,false)},
+      {id:'copyRelPath',label:EDITOR_MENU_COPY_REL_PATH,run:()=>this.copyPath(multi?many:p,true)},
       {sep:true},
       // FR-WBR-70: 복사·붙여넣기·복제. 붙여넣는 자리는 만들기와 같은 규칙이
       // 정한다 — 폴더면 그 안, 아니면 그 형제 (`dir` 이 그것이다).
-      {id:'copy',label:EDITOR_MENU_COPY,act:FS_ACTION_COPY,run:()=>this.app.edClipSet(this.root,p)},
+      {id:'copy',label:EDITOR_MENU_COPY,act:FS_ACTION_COPY,run:()=>this.app.edClipSet(this.root,multi?many:p)},
       // FUI-11: 같은 클립보드에 **동사만** 다르게 놓는다. 붙여넣는 쪽이
       // `c.move` 로 갈린다 — 자리와 대상은 복사와 한 글자도 다르지 않다.
-      {id:'cut',label:EDITOR_MENU_CUT,act:FS_ACTION_MOVE,run:()=>this.app.edClipSet(this.root,p,true)},
+      {id:'cut',label:EDITOR_MENU_CUT,act:FS_ACTION_MOVE,run:()=>this.app.edClipSet(this.root,multi?many:p,true)},
       {id:'paste',label:EDITOR_MENU_PASTE,
         disabled:()=>this.app.edClipGet()?'':EDITOR_PASTE_NONE,
         run:()=>this.doPasteInto(dir)},
-      {id:'duplicate',label:EDITOR_MENU_DUPLICATE,act:FS_ACTION_COPY,run:()=>this.doDuplicate(p)},
+      {id:'duplicate',label:EDITOR_MENU_DUPLICATE,act:FS_ACTION_COPY,run:()=>this.doDuplicate(multi?many:p)},
       {sep:true},
-      {id:'rename',label:EDITOR_MENU_RENAME,act:FS_ACTION_RENAME,run:()=>this.startRename(p)},
+      {id:'rename',label:EDITOR_MENU_RENAME,act:FS_ACTION_RENAME,
+        disabled:()=>multi?EDITOR_RENAME_MANY_NO:'',run:()=>this.startRename(p)},
       // 확인은 `doDelete` 가 한다 — 재귀 여부·항목 수·dirty 탭을 밝혀야 하므로
       // 메뉴의 일반 확인(GitDialog)으로는 FR-EDT-83·84 를 만족하지 못한다.
       {id:'delete',label:EDITOR_MENU_DELETE,act:FS_ACTION_DELETE,run:()=>this.doDelete(p)},
@@ -270,8 +252,8 @@ Object.assign(FileTree.prototype, {
    * **수동 복사창이 이미 떠 있는** 때뿐이므로(`_watchedHere` 는 `toolId` 없이 언제나
    * 참이다) 거기에 오류를 겹치면 같은 일을 두 번 말하는 것이 된다.
    */
-  async copyPath(p,rel){
-    const text=rel?pathRelative(this.root,p):p;
+  async copyPath(ps,rel){ // UX_BATCH12 FR-EXM-3: 여러 경로면 받은 순서대로 줄바꿈으로 잇는다.
+    const text=[].concat(ps).map(p=>rel?pathRelative(this.root,p):p).join('\n');
     if(await TermClipboard.write(text)) Toast.show(EDITOR_PATH_COPIED);
   },
 
@@ -308,6 +290,10 @@ Object.assign(FileTree.prototype, {
       // §3A-5 (T-7.4): 트리 드래그의 표식 — 트리 밖(편집기 탭 등)의 드롭은 이 타입이
       // 있을 때만 트리 드래그로 읽는다.
       e.dataTransfer.setData(FILE_TREE_DRAG_TYPE,this._drag);
+      // UX_BATCH12 FR-EXD-1~5: 바깥(Finder)에 놓으면 내려받는다. 트리 안의 놓기는
+      // `dragover` 가 `move` 로 정하므로 옮기기 그대로다 (R-6).
+      const dl=this._dragDownloadURL(this._selOrdered(this._drag).filter(x=>x!==this.root));
+      if(dl){e.dataTransfer.effectAllowed='copyMove';e.dataTransfer.setData('DownloadURL',dl)}
     });
     this.el.addEventListener('dragover',e=>{
       const ext=FileTree._isFileDrag(e);

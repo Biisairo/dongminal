@@ -1048,3 +1048,67 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
     expect(files).toEqual([j(R, 'src', 'a.txt'), j(R, 'src', 'b.txt')]);
   });
 });
+
+/**
+ * UX_BATCH12_SRS FR-EXM-3~5 (R9): 여러 항목을 고른 채 우클릭하면 이름 바꾸기·새로 만들기·
+ * 업로드 밖의 동작은 선택 전체에 적용된다.
+ */
+test.describe('UX_BATCH12 — 여러 항목 우클릭 (FR-EXM-3~5)', () => {
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+  const clipOf = (page: Page) => page.evaluate(() => {
+    const c = (window as any).app.edClipGet();
+    return c ? { paths: [...c.paths].sort(), move: c.move } : null;
+  });
+  async function pickAB(page: Page, R: string) {
+    await row(page, j(R, 'src')).click();
+    await row(page, j(R, 'src', 'a.txt')).click();
+    await row(page, j(R, 'src', 'b.txt')).click({ modifiers: [mod] });
+    await expect(page.locator('.ed-tree .ed-row.sel')).toHaveCount(2);
+  }
+
+  test('TC-EXM-3a: 복사 → 다른 폴더에 붙여넣기로 둘 다 생긴다', async ({ page, request }) => {
+    const R = mkRoot('exm3a');
+    await enterExplorer(page, request, R);
+    await pickAB(page, R);
+    await ctx(page, j(R, 'src', 'b.txt'), 'copy');
+    expect(await clipOf(page)).toEqual({ paths: [j(R, 'src', 'a.txt'), j(R, 'src', 'b.txt')], move: false });
+    await ctx(page, j(R, 'docs'), 'paste');
+    await onDisk(() => fs.existsSync(j(R, 'docs', 'a.txt')) && fs.existsSync(j(R, 'docs', 'b.txt'))).toBe(true);
+  });
+
+  test('TC-EXM-3b: 잘라내기 → 붙여넣기로 둘 다 옮겨지고 클립보드가 빈다', async ({ page, request }) => {
+    const R = mkRoot('exm3b');
+    await enterExplorer(page, request, R);
+    await pickAB(page, R);
+    await ctx(page, j(R, 'src', 'a.txt'), 'cut');
+    expect(await clipOf(page)).toEqual({ paths: [j(R, 'src', 'a.txt'), j(R, 'src', 'b.txt')], move: true });
+    await ctx(page, j(R, 'docs'), 'paste');
+    await onDisk(() => fs.existsSync(j(R, 'docs', 'a.txt')) && fs.existsSync(j(R, 'docs', 'b.txt'))).toBe(true);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'a.txt')) || fs.existsSync(j(R, 'src', 'b.txt'))).toBe(false);
+    await expect.poll(() => clipOf(page)).toBe(null);
+  });
+
+  test('TC-EXM-4: 복제는 항목마다 제 자리의 형제로 사본을 만든다', async ({ page, request }) => {
+    const R = mkRoot('exm4');
+    await enterExplorer(page, request, R);
+    await row(page, j(R, 'src')).click();
+    await row(page, j(R, 'src', 'a.txt')).click();
+    await row(page, j(R, 'top.txt')).click({ modifiers: [mod] });
+    await ctx(page, j(R, 'top.txt'), 'duplicate');
+    const count = (d: string, pre: string) => fs.readdirSync(d).filter((n) => n.startsWith(pre)).length;
+    await expect.poll(() => count(j(R, 'src'), 'a'), { timeout: 10000 }).toBe(2);
+    await expect.poll(() => count(R, 'top'), { timeout: 10000 }).toBe(2);
+  });
+
+  test('TC-EXM-5: 두 항목을 고르고 우클릭하면 이름 바꾸기가 비활성이다', async ({ page, request }) => {
+    const R = mkRoot('exm5');
+    await enterExplorer(page, request, R);
+    await pickAB(page, R);
+    await row(page, j(R, 'src', 'b.txt')).click({ button: 'right' });
+    const item = (id: string) => page.locator(`.git-menu .git-menu-item[data-id="${id}"]`);
+    await expect(item('rename')).toHaveClass(/disabled/);
+    await expect(item('copy')).not.toHaveClass(/disabled/);
+    await expect(item('newFile')).not.toHaveClass(/disabled/);
+    await page.keyboard.press('Escape');
+  });
+});

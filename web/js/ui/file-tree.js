@@ -21,8 +21,10 @@
  * **호출해 그 반환값을 복사**하기 때문이다 — 옮기면 store 로 가는 통로가 값으로 굳는다.
  *
  *   file-tree-paint.js  조회 · git 색 · 무시 · 항목 계산 · 그리기
+ *   file-tree-keys.js   키보드 길
  *   file-tree-edit.js   생성 · 이름 변경 · 삭제 · 낙관적 갱신
- *   file-tree-xfer.js   다운로드 · 업로드 · 우클릭 · 드래그드롭
+ *   file-tree-xfer.js   업로드 · 우클릭 · 드래그드롭
+ *   file-tree-download.js 다운로드 · 끌어 내려받기
  *
  * 루트마다 하나인 관측(`FileTreeStore`)은 file-tree-store.js 다.
  */

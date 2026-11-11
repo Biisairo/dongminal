@@ -101,9 +101,10 @@
 | POST | `/api/fs/validate-name` | 만들기·이름 바꾸기의 이름 하나. 바디 `{name}` → `{actions:{"fs.name": {ok, why?}}}`. 사유는 `empty_name`·`name_has_separator`(`/`, Windows 의 `\`)·`name_reserved`(`.`·`..`). 앞뒤 공백을 지운 뒤 본다 |
 | POST | `/api/fs/rename` | 바디 `{root, from, to}` 또는 제자리 이름 바꾸기 `{root, from, name}`(이름은 validate-name 과 같은 판정). 이동도 이 종단. 폴더를 자기 자신이나 하위로 옮기면 400 `into_self`(복사도 같다). Editor 루트·홈·파일시스템 루트는 옮길 수 없다(400 `editor_root_protected`·`home_protected`·`filesystem_root_protected`) |
 | POST | `/api/fs/delete` | 바디 `{root, path}`. **영구 삭제**. 루트 보호는 rename 과 같고, 항목이 상한(10000)을 넘으면 400 `too_many_entries`(`args.max`). 이 거절들은 `message` 없이 `{code, args}` 다 |
-| POST | `/api/fs/actions` | 탐색기 메뉴의 답. 바디 `{root, paths:[<abs>…]}` → `{actions:{"fs.rename"·"fs.move"·"fs.copy"·"fs.delete": {ok, why?, args?}}, count}`. `paths[0]` 은 메뉴를 연 행이며 rename·move·copy 는 그 하나를, delete 는 전부를 판정한다. `count` 는 대상 폴더들 **안의** 항목 수 합이다. 답이 거짓이면 같은 요청을 실행 종단에 보내도 같은 코드로 거절된다 |
+| POST | `/api/fs/actions` | 탐색기 메뉴의 답. 바디 `{root, paths:[<abs>…]}` → `{actions:{"fs.rename"·"fs.move"·"fs.copy"·"fs.delete": {ok, why?, args?}}, count}`. `paths[0]` 은 메뉴를 연 행이며 rename 은 그 하나를, move·copy·delete 는 전부를 판정한다(첫 거절이 답). `count` 는 대상 폴더들 **안의** 항목 수 합이다. 답이 거짓이면 같은 요청을 실행 종단에 보내도 같은 코드로 거절된다 |
 | GET | `/api/fs/download?root=<abs>&path=<abs>` | 탐색기 다운로드. `/api/download` 와 같은 헤더를 쓰되 루트 아래로 제한. **파일만** — 디렉터리는 400 |
 | GET | `/api/fs/download-dir?root=<abs>&path=<abs>` | 폴더를 zip 으로 스트리밍. 이름은 `<폴더>.zip`. 항목 5만·2GiB 를 넘으면 **본문을 하나도 쓰기 전에** 400. 심볼릭 링크는 담기지 않는다 |
+| GET | `/api/fs/download-many?root=<abs>&path=<abs>&path=<abs>…` | 여러 경로를 zip 하나로 스트리밍. 각 경로가 zip 의 맨 위에 제 이름으로 담긴다. 이름은 `<루트>-<n>-items.zip`. 상한은 경로 전체의 합이고, 경로가 없거나 맨 위 이름이 겹치면 400 이다 |
 | POST | `/api/fs/upload?root=<abs>&dir=<abs>` | 탐색기 업로드 (`file` 필드, 선택 `relPath`). `relPath` 가 있으면 `dir` **아래로** 구조를 세운다(중간 디렉터리는 만들되 `dir` 자신은 만들지 않는다). **같은 이름이 있으면 409** — 덮어쓰지도 개명하지도 않는다 |
 | POST | `/api/fs/ignored` | 한 겹에서 무시된 이름. 본문 `{root, dir, names:[…]}` → `{ignored:[…]}`. 저장소가 아니면 404 `not_repo`. 추적 중인 파일은 패턴에 맞아도 무시로 보고하지 않는다 |
 | GET | `/api/editors` | `{home, notes, list}` — root 행의 경로, 메모 루트, 일반 행 목록. `home`·`notes` 는 `list` 에 들어 있지 않다. 메모 루트를 쓸 수 없으면 `notes` 키가 **빠진다** (그때는 메모장 행만 없고 나머지는 그대로 선다) |

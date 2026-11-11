@@ -358,11 +358,12 @@ Object.assign(FileTree.prototype, {
    * 루트가 갈려도 된다 (FR-WBR-61) — 복사한 트리의 루트와 붙여넣는 트리의 루트를
    * 둘 다 보낸다. 둘 다 Editor 목록에 있는지는 서버가 본다.
    */
-  async doPasteInto(dir){
+  async doPasteInto(dir,keepErr){
     const c=this.app.edClipGet();
     if(!c||!dir) return;
-    // FR-WBR-1: 지난 실패의 사유는 다음 조작이 시작될 때 사라진다.
-    this._clearErr();
+    // FR-WBR-1: 지난 실패의 사유는 다음 조작이 시작될 때 사라진다. 여러 폴더에 걸친
+    // 복제는 한 조작이므로 `keepErr` 로 앞 폴더의 사유를 지키게 한다 (FR-EXM-6).
+    if(!keepErr) this._clearErr();
     /**
      * `FUI-11`: 잘라내기면 **옮긴다.**
      *
@@ -374,58 +375,70 @@ Object.assign(FileTree.prototype, {
      * 충돌하면 서버가 거절하고 그 사유가 그 자리에 붙는다 — 옮기려던 자리에
      * 다른 것이 있다는 사실은 사용자가 알아야 한다.
      */
-    const r=c.move
-      ? await this.app.edFs(FS_RENAME_API,{
-        srcRoot:c.root,from:c.path,
-        dstRoot:this.root,to:pathJoin(dir,pathBase(c.path)),
-      })
-      : await this.app.edFs(FS_COPY_API,
-        {srcRoot:c.root,src:c.path,dstRoot:this.root,dstDir:dir});
-    // FR-WBR-73: 원본이 사라졌으면 그 자리에 사유가 붙는다 (FR-EDT-92 의 규약).
-    if(!r.ok){this._fail(dir===this.root?'':dir,r.msg);return}
-    if(c.move){
-      const to=pathJoin(dir,pathBase(c.path));
-      // 옮긴 것의 열린 탭이 새 자리를 가리킨다 (FR-EDT-90 · `doRename` 과 같은 자리).
-      this._retargetOrFail(c.path,to);
-      // 클립보드를 비운다 — **잘라낸 것은 한 번만 붙는다.** 남겨 두면 다음
-      // 붙여넣기가 이미 없는 원본을 찾아 "사라졌다" 로 실패한다.
-      this.app.edClipSet(null,null);
-      // FR-FTR-20b 와 같은 이유로 도착 폴더를 펼친다 — 접힌 폴더에 놓으면 놓은
-      // 것이 화면에서 사라지고 사용자는 실패로 읽는다.
-      if(dir!==this.root&&!this._open.has(dir)) this._open.add(dir);
-      this._selOnly(to);
-      /**
-       * FR-EDT-88: 이동이면 **출발·도착 둘 다** 다시 읽는다 (`doRename` 과 같은
-       * 규약). 루트를 건넜으면 출발 트리는 **남의 인스턴스**이므로 자기
-       * `_after` 로는 닿지 않는다.
-       */
-      const srcDir=this._parent(c.path);
-      if(c.root===this.root){
-        await this._after(srcDir===dir?[dir]:[srcDir,dir]);
-      }else{
-        this.app.edRefreshTreesFor(c.root,srcDir);
-        await this._after([dir]);
+    // UX_BATCH12 FR-EXM-7: 경로마다 **차례대로** 보낸다 — 복사는 서버가 이름을
+    // 정하므로(FR-WBR-62) 동시에 보내면 결과 이름이 매번 달라진다.
+    const made=[],moved=[],failed=[];
+    for(const src of c.paths){
+      const to=pathJoin(dir,pathBase(src));
+      const r=c.move
+        ? await this.app.edFs(FS_RENAME_API,{srcRoot:c.root,from:src,dstRoot:this.root,to})
+        : await this.app.edFs(FS_COPY_API,{srcRoot:c.root,src,dstRoot:this.root,dstDir:dir});
+      if(!r.ok){failed.push({src,msg:r.msg});continue}
+      if(c.move){
+        // 옮긴 것의 열린 탭이 새 자리를 가리킨다 (FR-EDT-90 · `doRename` 과 같은 자리).
+        this._retargetOrFail(src,to);
+        moved.push(src); made.push(to);
+      }else if(r.data&&r.data.path){
+        made.push(r.data.path);
       }
-      return;
     }
-    // FR-FTR-20b 와 같은 이유로 도착 폴더를 펼친다 — 접힌 폴더에 만들면 만든
+    // FR-WBR-73 / FR-EXM-6: 실패마다 그 자리에 사유가 붙는다 (FR-EDT-92 의 규약).
+    for(const f of failed) this._fail(dir===this.root?'':dir,f.msg);
+    // **잘라낸 것은 한 번만 붙는다.** 옮겨진 원본을 남겨 두면 다음 붙여넣기가
+    // "사라졌다" 로 실패한다 — 실패한 것만 남긴다 (FR-EXM-6).
+    if(c.move) this.app.edClipSet(c.root,failed.map(f=>f.src),true);
+    if(!made.length) return;
+    // FR-FTR-20b 와 같은 이유로 도착 폴더를 펼친다 — 접힌 폴더에 놓으면 놓은
     // 것이 화면에서 사라지고 사용자는 실패로 읽는다.
     if(dir!==this.root&&!this._open.has(dir)) this._open.add(dir);
-    const made=(r.data&&r.data.path)||'';
-    if(made) this._selOnly(made);
-    // FR-WBR-74: 영향받은 것은 **대상 폴더 하나**다 (FR-EDT-88).
-    await this._after([dir]);
+    this._selOnly(made[0]);
+    for(const m of made.slice(1)) this._selToggle(m);
+    if(!moved.length){
+      // FR-WBR-74: 영향받은 것은 **대상 폴더 하나**다 (FR-EDT-88).
+      await this._after([dir]);
+      return;
+    }
+    /**
+     * FR-EDT-88: 이동이면 **출발·도착 둘 다** 다시 읽는다 (`doRename` 과 같은
+     * 규약). 루트를 건넜으면 출발 트리는 **남의 인스턴스**이므로 자기
+     * `_after` 로는 닿지 않는다.
+     */
+    const srcDirs=[];
+    for(const src of moved){const d=this._parent(src);if(!srcDirs.includes(d))srcDirs.push(d)}
+    if(c.root===this.root){
+      await this._after([...srcDirs.filter(d=>d!==dir),dir]);
+    }else{
+      for(const d of srcDirs) this.app.edRefreshTreesFor(c.root,d);
+      await this._after([dir]);
+    }
   },
 
   // 복제는 원본의 형제 자리에 붙여넣는 것이다 — 클립보드를 거치지 않는다.
-  async doDuplicate(p){
-    if(!p||p===this.root) return;
+  // UX_BATCH12 FR-EXM-3: 여러 항목이면 부모 폴더마다 한 번씩 붙인다.
+  async doDuplicate(ps){
+    const list=[].concat(ps).filter(p=>p&&p!==this.root);
+    if(!list.length) return;
+    const byDir=new Map();
+    for(const p of list){const d=this._parent(p);byDir.set(d,[...(byDir.get(d)||[]),p])}
     const keep=this.app.edClipGet();
-    this.app.edClipSet(this.root,p);
-    await this.doPasteInto(this._parent(p));
+    this._clearErr();
+    for(const [dir,group] of byDir){
+      this.app.edClipSet(this.root,group);
+      await this.doPasteInto(dir,true);
+    }
     // 복제가 사용자의 클립보드를 덮지 않는다 — 그것은 다른 조작이다.
     // REPO_FIX 04 §3A-5 (T-7.1): 잘라내기/복사의 구분까지 되돌린다.
-    this.app.edClipSet(keep&&keep.root,keep&&keep.path,keep&&keep.move);
+    this.app.edClipSet(keep&&keep.root,keep&&keep.paths,keep&&keep.move);
   },
 
   /**
