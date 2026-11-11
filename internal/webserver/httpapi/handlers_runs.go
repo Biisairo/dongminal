@@ -280,6 +280,7 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 	}
 	dmlog.Infof(nil, "[run] start id=%s short=%s projection=%s isolation=%s coordinator=%s",
 		rec.ID, rec.Short, rec.Projection, rec.Isolation, rec.CoordinatorToolID)
+	s.broadcastRunChanged(rec) // RUN_VIEW_LIVE_SRS FR-RLV-1
 	writeJSON(w, s.viewOf(rec))
 }
 
@@ -367,7 +368,11 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	dmlog.Infof(nil, "[run] member run=%s member=%s role=%s agent=%s tool=%s tab=%s",
 		body.RunID, m.ID, m.Role, m.Agent, m.ToolID, m.TabID)
-	writeJSON(w, s.memberAddedView(body.RunID, m))
+	view := s.memberAddedView(body.RunID, m)
+	if rec, ok := s.Runs.Get(body.RunID); ok {
+		s.broadcastRunChanged(rec) // FR-RLV-2
+	}
+	writeJSON(w, view)
 }
 
 // rollbackMemberAdd 는 등록에 실패한 멤버의 보상 삭제다 — 도구를 만들고 멤버 등록에

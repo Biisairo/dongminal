@@ -90,6 +90,17 @@ const STATE_REGISTRY=[
     when:(app)=>app._agentsPanelOpen(),
   },
   {
+    /**
+     * RUN_VIEW_LIVE_SRS FR-RLV-7 (D-RLV-1 이 FR-RVZ-16 의 "폴링하지 않는다" 를 거뒀다) — 열린
+     * Run 탭의 안전망. 신호가 없는 변화(사용률 숫자, 조용한 죽음)를 활동 주기 안에 고친다.
+     */
+    id:'run.views',
+    restore:'_runViewsRestore',
+    merge:'latest',
+    every:(app)=>app.agentsPollMs,
+    when:(app)=>app._runViewsOpen(),
+  },
+  {
     id:'tool.background',
     restore:'_bgRefresh',
     // **`touched` 가 아니다.** `tools_background_changed` 는 증분을 나르지 않고

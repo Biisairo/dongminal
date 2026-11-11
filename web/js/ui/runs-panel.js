@@ -422,22 +422,45 @@ Object.assign(RunsPanel.prototype, {
     // FR-ACT-3: 상태바의 `⚡ n` 이 Run 을 세므로 목록이 최신이어야 한다 — 종전에는
     // 모달을 열 때만 받았고, 열지 않으면 수가 틀린 채로 있었다.
     this._runsRefreshSoon();
+    // FR-SRV-5: 같은 runId 를 보는 **모든 칸**의 뷰를 갱신한다.
+    // FR-ITD-1·7: 트리 뷰는 같은 트리의 **다른** Run 이 바뀌어도 다시 받는다 — 가지 Run 이
+    // 따로다. 다른 트리·트리 아닌 Run 의 변경은 payload 의 `tree` 로 가려 건너뛴다.
+    this._runViewsRefresh(v => v.runId === runId || (!!(v.data && v.data.tree) && args.tree === v.data.tree));
+  },
+
+  /**
+   * 살아 있는 뷰 가운데 `pick` 이 고른 것을 다시 받는다. 고르지 않으면 전부다 — 상태
+   * 등록부 `run.views` 의 주기가 그 길이다 (RUN_VIEW_LIVE_SRS FR-RLV-7·8).
+   */
+  _runViewsRefresh(pick) {
     const m = this._runViewMap();
     if (!m.size) return;
     const live = this._runLiveTabIds();
     // FR-SRV-4.2: 키는 복합키다 — 살아 있는 탭 판정은 `slotBase` 로 한다.
     // 편집기가 이 자리에서 정확히 같은 실수를 냈다 (FR-SVS-60): `@1` 만 잘라
     // 내던 동안 칸 2·3 의 뷰는 살아 있는 탭인데도 매번 파괴됐다.
-    // FR-SRV-5: 같은 runId 를 보는 **모든 칸**의 뷰를 갱신한다.
     for (const [key, v] of Array.from(m)) {
       if (!live.has(this.app.slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
-      // FR-ITD-1·7: 트리 뷰는 같은 트리의 **다른** Run 이 바뀌어도 다시 받는다 — 가지 Run 이
-      // 따로다. 다른 트리·트리 아닌 Run 의 변경은 payload 의 `tree` 로 가려 건너뛴다.
-      const sameTree = !!(v.data && v.data.tree) && args.tree === v.data.tree;
-      if (v.runId !== runId && !sameTree) continue;
+      if (pick && !pick(v)) continue;
       v.err = null;
       this._runFetch(v);
     }
+  },
+
+  /**
+   * FR-RLV-5·6: SSE `tool_activity`. 멤버의 상태는 서버가 물을 때 계산하므로 서버는 그
+   * 변화를 `run_changed` 로 알리지 못한다 (D-RLV-2) — 같은 사실을 여기서 받는다.
+   * 상태가 그대로면(도구 이름·detail 만 바뀜) 화면의 노드는 같으므로 받지 않는다.
+   */
+  _onMemberActivity(args) {
+    const toolId = args && args.toolId;
+    if (!toolId) return;
+    if (!this._memberStates) this._memberStates = new Map();
+    if (this._memberStates.get(toolId) === args.state) return;
+    this._memberStates.set(toolId, args.state);
+    const has = members => (members || []).some(mb => mb.toolId === toolId);
+    if ((this._runsList || []).some(rv => has(rv.members))) this._runsRefreshSoon();
+    this._runViewsRefresh(v => !!v.data && has(v.data.members));
   },
 
   // 탭이 사라진 뷰의 뒷정리. 관측자와 예약된 다시 그리기를 함께 끊는다 —

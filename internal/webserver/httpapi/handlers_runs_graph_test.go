@@ -268,6 +268,8 @@ func TestApiToolMessage_IgnoresTrafficOutsideAnyRun(t *testing.T) {
 	fb := &fakeCommandBroker{}
 	s.Commands = fb
 	runID := startRun(t, s) // 멤버가 하나도 없는 Run
+	// Run 시작 자체가 run_changed 를 한 번 보낸다 (RUN_VIEW_LIVE_SRS FR-RLV-1). 보는 것은 그 뒤다.
+	before := len(publishedActions(fb, "run_changed"))
 
 	if code, out := postRun(t, s, "/api/tools/message",
 		`{"to":"tool-b","from":"tool-a","message":"안녕"}`); code != http.StatusOK {
@@ -277,7 +279,7 @@ func TestApiToolMessage_IgnoresTrafficOutsideAnyRun(t *testing.T) {
 	if len(rec.Messages) != 0 {
 		t.Fatalf("팀 밖 통신이 기록됐다: %+v", rec.Messages)
 	}
-	if n := len(publishedActions(fb, "run_changed")); n != 0 {
+	if n := len(publishedActions(fb, "run_changed")) - before; n != 0 {
 		t.Fatalf("기록도 없는데 대시보드를 깨웠다: %d건", n)
 	}
 }

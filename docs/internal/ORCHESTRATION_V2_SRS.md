@@ -894,6 +894,8 @@ type MsgEvent struct {
 **FR-RVZ-16** 갱신은 **SSE** 로 한다 — 새 이벤트 타입 `run_changed`(payload: runId).
 받으면 열려 있는 Run 탭이 `/graph` 를 다시 부른다. 폴링하지 않는다. 열린 Run 탭이
 없으면 아무 요청도 나가지 않는다.
+(2026-11-11 `RUN_VIEW_LIVE_SRS` D-RLV-1 이 "폴링하지 않는다" 를 거뒀다 — 열린 Run 탭은 활동 주기로도
+`/graph` 를 다시 부른다. 열린 Run 탭이 없으면 요청이 없다는 것은 그대로다)
 
 #### 3.5.5 비기능 (묶음 V)
 

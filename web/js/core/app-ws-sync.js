@@ -106,6 +106,8 @@ Object.assign(App.prototype, {
     // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
     // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
     bus.subscribe('run_changed',a=>this._onRunChanged(a),{owner:'app'});
+    // RUN_VIEW_LIVE_SRS FR-RLV-5: 멤버의 상태 변화는 서버가 `run_changed` 로 알리지 못한다.
+    bus.subscribe('tool_activity',a=>this._onRunMemberActivity(a),{owner:'app'});
 
     /**
      * ── 다섯 상태는 **등록부에서 파생된다** (FR-HUB-3) ──

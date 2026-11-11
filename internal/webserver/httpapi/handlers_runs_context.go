@@ -175,10 +175,18 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sender := s.callerToolID(r, body.ToolID)
+	prev, wasMember := s.Runs.MemberByTool(sender)
 	m, entered, found := s.Runs.ObserveContext(sender, obs, s.contextPolicy())
 	if !found {
 		writeJSON(w, map[string]any{"observed": false})
 		return
+	}
+	// RUN_VIEW_LIVE_SRS FR-RLV-4 · D-RLV-3: 관측은 훅마다 온다 — 등급이 바뀔 때만 알린다.
+	// 사용률 숫자는 열린 대시보드의 주기 조회가 고친다. 조정자 자리의 관측은 멤버가 아니다.
+	if wasMember && m.ID != "" && m.ContextLevel != prev.ContextLevel {
+		if rec, ok := s.Runs.Get(m.RunID); ok {
+			s.broadcastRunChanged(rec)
+		}
 	}
 	// 기록은 이미 갱신됐다. 통지가 실패해도 그 사실은 남는다 (FR-CBG-8).
 	//
@@ -386,6 +394,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 	if cur, ok := s.Runs.Get(rec.ID); ok {
 		s.markWorkspaceRun(cur, next.TabID, cur.ID)
 		view.Preamble = s.memberPreamble(cur, next)
+		s.broadcastRunChanged(cur) // FR-RLV-3
 	}
 	s.notifyTreeSuccession(rec, next)
 	dmlog.Infof(nil, "[run] succeed run=%s prev=%s next=%s role=%s tool=%s tab=%s summary=%v worktree=%v",
