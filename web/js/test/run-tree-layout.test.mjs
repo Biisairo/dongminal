@@ -81,7 +81,8 @@ test('짧은 제목은 그대로, 긴 제목은 줄여 끝에 … 를 붙인다'
  */
 const ix = load(['ui/runs-panel.js', 'ui/run-tree.js'], {
   globals: { t: (k) => k, panesOf: () => [] },
-  expose: ['runNodeKind', 'runCardsShown', 'runTreeLayout', 'runTreeEdgePath', 'RUN_TREE_NODE_H', 'RUN_TREE_NODE_H_ENDED'],
+  expose: ['runNodeKind', 'runCardsShown', 'runTreeLayout', 'runTreeEdgePath', 'RUN_TREE_NODE_H', 'RUN_TREE_NODE_H_ENDED',
+    'RUN_TREE_NODE_W', 'RUN_TREE_NODE_W_ENDED'],
 });
 
 test('TC-RIN-1·2: 상태마다 노드의 종류가 갈린다', () => {
@@ -102,6 +103,41 @@ test('TC-RIN-1·4: 끝난 노드는 작은 상자이고, 선은 상자의 실제
   assert.equal(l.pos[1].h, ix.RUN_TREE_NODE_H);
   const d = ix.runTreeEdgePath(l.pos[0], l.pos[1]);
   assert.ok(d.startsWith(`M${l.pos[0].x},${l.pos[0].y + ix.RUN_TREE_NODE_H_ENDED} `), d);
+});
+
+/** 같은 줄 상자들의 [왼쪽, 오른쪽] 구간이 서로 겹치지 않는지 본다. */
+function assertNoOverlap(l) {
+  const rows = new Map();
+  l.pos.forEach((p) => rows.set(p.depth, [...(rows.get(p.depth) || []), [p.x - p.w / 2, p.x + p.w / 2]]));
+  for (const spans of rows.values()) {
+    spans.sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < spans.length; i++) assert.ok(spans[i][0] >= spans[i - 1][1], JSON.stringify(spans));
+  }
+  for (const p of l.pos) assert.ok(p.x - p.w / 2 >= 0 && p.x + p.w / 2 <= l.w, JSON.stringify(p));
+}
+
+test('TC-RIN-5: 끝난 노드는 폭도 좁고, 가로 칸을 그 폭만큼만 받는다', () => {
+  const W = ix.RUN_TREE_NODE_W, WE = ix.RUN_TREE_NODE_W_ENDED;
+  assert.ok(WE < W);
+  const s = (role, parent, state) => ({ id: role, role, parent, state });
+  const nodes = [s('r', '', 'working'), s('r›a', 'r', 'done'), s('r›b', 'r', 'done'), s('r›c', 'r', 'working')];
+  const l = ix.runTreeLayout(nodes);
+  assert.deepEqual([...l.pos.map((p) => p.w)], [W, WE, WE, W]);
+  assertNoOverlap(l);
+  const all = ix.runTreeLayout(nodes.map((n) => ({ ...n, state: 'working' })));
+  assert.ok(l.w < all.w, `${l.w} < ${all.w}`);
+});
+
+test('TC-RIN-5: 부모가 자식들보다 넓으면 가지를 밀어 같은 줄이 겹치지 않는다', () => {
+  const s = (role, parent, state) => ({ id: role, role, parent, state });
+  // 보통 폭 부모 아래 끝난 자식 하나, 그 옆에 보통 폭 형제 — 부모 상자가 형제와 겹치기 쉽다.
+  const l = ix.runTreeLayout([
+    s('r', '', 'working'), s('r›a', 'r', 'working'), s('r›a›x', 'r›a', 'done'),
+    s('r›b', 'r', 'working'), s('r›b›y', 'r›b', 'working'),
+  ]);
+  assertNoOverlap(l);
+  // 부모는 자식 하나의 가운데에 그대로 선다.
+  assert.equal(l.pos[1].x, l.pos[2].x);
 });
 
 test('TC-RIN-3: 카드 목록은 끝난 멤버를 빼고 잃은 멤버는 남긴다', () => {

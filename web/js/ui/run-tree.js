@@ -99,7 +99,7 @@ Object.assign(RunsPanel.prototype, {
       const kind = runNodeKind(n.state);
       mini.appendChild(runSvg('rect', {
         class: 'run-tree-mini-node state-' + (n.state || 'starting') + (kind === 'active' ? '' : ' ' + kind),
-        x: lay.pos[i].x - RUN_TREE_NODE_W / 2, y: lay.pos[i].y, width: RUN_TREE_NODE_W, height: lay.pos[i].h,
+        x: lay.pos[i].x - lay.pos[i].w / 2, y: lay.pos[i].y, width: lay.pos[i].w, height: lay.pos[i].h,
       }));
     });
     mini.appendChild(runSvg('rect', { class: 'run-tree-mini-view' }));
@@ -198,19 +198,20 @@ Object.assign(RunsPanel.prototype, {
     const g = runSvg('g', active ? { class: cls, role: 'button', tabindex: '0' } : { class: cls });
     g.dataset.member = n.id;
     g.dataset.depth = String(p.depth);
-    const x = p.x - RUN_TREE_NODE_W / 2;
+    const x = p.x - p.w / 2;
     const tip = runSvg('title');
     tip.textContent = [runTreeIssueNumber(n.issue), n.title, n.role, n.state, active ? t('runs.tree_jump') : '']
       .filter(Boolean).join(' · ');
     g.appendChild(tip);
-    g.appendChild(runSvg('rect', { class: 'run-tree-box', x, y: p.y, width: RUN_TREE_NODE_W, height: p.h, rx: 5 }));
+    g.appendChild(runSvg('rect', { class: 'run-tree-box', x, y: p.y, width: p.w, height: p.h, rx: 5 }));
 
     const tx = x + RUN_TREE_PAD_IN;
     const head = runSvg('text', { x: tx, y: p.y + (kind === 'ended' ? 19 : 20) });
     const num = runTreeIssueNumber(n.issue);
     if (num) head.appendChild(runTreeSpan('run-tree-issue', num));
     if (n.title) {
-      const s = runTreeSpan('run-tree-title', runTreeClip(n.title, RUN_TREE_TEXT_UNITS - (num ? num.length + 1 : 0)));
+      const units = kind === 'ended' ? RUN_TREE_TEXT_UNITS_ENDED : RUN_TREE_TEXT_UNITS;
+      const s = runTreeSpan('run-tree-title', runTreeClip(n.title, units - (num ? num.length + 1 : 0)));
       if (num) s.setAttribute('dx', '6');
       head.appendChild(s);
     }
@@ -263,6 +264,9 @@ const RUN_TREE_NODE_W = 184;
 const RUN_TREE_NODE_H = 64;
 // FR-RIN-1: 끝난 노드의 상자 높이 — 머리 한 줄이 든다.
 const RUN_TREE_NODE_H_ENDED = 30;
+// FR-RIN-5: 끝난 노드의 상자 폭과, 그 머리 한 줄에 드는 폭(반각 칸).
+const RUN_TREE_NODE_W_ENDED = 112;
+const RUN_TREE_TEXT_UNITS_ENDED = 14;
 const RUN_TREE_GAP_X = 24;
 const RUN_TREE_GAP_Y = 44;
 const RUN_TREE_PAD = 12;
@@ -279,7 +283,8 @@ const RUN_TREE_DRAG_PX = 4;
 /**
  * FR-ITC-10: 노드 목록(깊이 우선)만으로 배치를 정한다. 잎은 가로 칸을 하나씩 받고,
  * 부모는 첫 자식과 끝 자식의 가운데에 선다. 부모가 목록에 없는 노드는 루트다.
- * `pos[i]` 는 i 번째 노드의 {x(가운데), y(위), depth}, `edges` 는 [부모, 자식] 자리 쌍이다.
+ * RUN_INACTIVE_NODE_SRS FR-RIN-5: 칸 폭은 상자 폭이다. 부모가 자식들보다 넓으면 가지를 민다.
+ * `pos[i]` 는 i 번째 노드의 {x(가운데), y(위), depth, w, h}, `edges` 는 [부모, 자식] 자리 쌍이다.
  */
 function runTreeLayout(nodes) {
   if (!nodes.length) return { w: 0, h: 0, pos: [], edges: [] };
@@ -293,23 +298,29 @@ function runTreeLayout(nodes) {
   });
   const pos = new Array(nodes.length);
   const edges = [];
-  const step = RUN_TREE_NODE_W + RUN_TREE_GAP_X;
-  let slot = 0, maxDepth = 0;
+  // 다음 칸이 시작하는 x. 노드 하나를 놓을 때마다 그 가지의 오른쪽 끝 + 간격으로 옮긴다.
+  let next = RUN_TREE_PAD, maxDepth = 0;
+  const shift = (i, dx) => { pos[i].x += dx; for (const [p, c] of edges) if (p === i) shift(c, dx) };
   const place = (i, depth) => {
-    pos[i] = { x: 0, y: RUN_TREE_PAD + depth * (RUN_TREE_NODE_H + RUN_TREE_GAP_Y), depth,
-      h: runNodeKind(nodes[i].state) === 'ended' ? RUN_TREE_NODE_H_ENDED : RUN_TREE_NODE_H };
+    const ended = runNodeKind(nodes[i].state) === 'ended';
+    const w = ended ? RUN_TREE_NODE_W_ENDED : RUN_TREE_NODE_W;
+    pos[i] = { x: 0, y: RUN_TREE_PAD + depth * (RUN_TREE_NODE_H + RUN_TREE_GAP_Y), depth, w,
+      h: ended ? RUN_TREE_NODE_H_ENDED : RUN_TREE_NODE_H };
     maxDepth = Math.max(maxDepth, depth);
+    const start = next;
     const ks = kids[i].filter(k => !pos[k]);
     for (const k of ks) { edges.push([i, k]); place(k, depth + 1) }
-    pos[i].x = ks.length
-      ? (pos[ks[0]].x + pos[ks[ks.length - 1]].x) / 2
-      : RUN_TREE_PAD + RUN_TREE_NODE_W / 2 + (slot++) * step;
+    if (!ks.length) { pos[i].x = start + w / 2; next = start + w + RUN_TREE_GAP_X; return }
+    pos[i].x = (pos[ks[0]].x + pos[ks[ks.length - 1]].x) / 2;
+    const over = start - (pos[i].x - w / 2);
+    if (over > 0) shift(i, over);
+    next = Math.max(next, pos[i].x + w / 2 + RUN_TREE_GAP_X);
   };
   for (const r of roots) place(r, 0);
   // 부모 고리로 루트에 닿지 못한 노드도 버리지 않는다 — 루트로 세운다.
   nodes.forEach((_, i) => { if (!pos[i]) place(i, 0) });
   return {
-    w: RUN_TREE_PAD * 2 + slot * step - RUN_TREE_GAP_X,
+    w: next - RUN_TREE_GAP_X + RUN_TREE_PAD,
     h: RUN_TREE_PAD * 2 + (maxDepth + 1) * (RUN_TREE_NODE_H + RUN_TREE_GAP_Y) - RUN_TREE_GAP_Y,
     pos, edges,
   };
