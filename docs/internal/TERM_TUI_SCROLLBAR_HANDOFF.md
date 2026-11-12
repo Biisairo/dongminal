@@ -10,6 +10,10 @@
 
 ## 다음 일
 
+> **끝남 (2026-11-12, `ef9001db`).** 원인은 아래 후보가 아니었다. 전량 재생이 대체 화면을
+> 되세우지 않아, 앱이 켠 `?1049h` 가 보유 창(1 MiB) 밖으로 밀린 TUI 가 주 화면에 그려졌다.
+> 수정과 근거는 `TERMINAL_RESUME_SRS` FR-TRS-10a 에 있다.
+
 **증상 (사용자 신고, 2026-11-12):** TUI(alt 화면, 예: Claude Code)를 띄운 터미널에서 브라우저 창을 줄인다. TUI 는 줄인 크기에 맞게 다시 그려진다. 그런데 TUI 옆에 **터미널(xterm) 스크롤바가 생긴다.** 다시 그리기만 돼야 하고 스크롤바가 생기면 안 된다.
 
 아직 아무것도 조사하지 않았다. 아래는 확인할 후보다. 추측이므로 실측으로 가린다.
@@ -20,7 +24,7 @@
 - alt 화면인데 일반 화면의 스크롤백 길이가 viewport 에 반영되는 경우
 - 재현: 격리 e2e 서버에서 alt 화면 프로그램(예: `printf '\e[?1049h'` 뒤 화면 채우기, 또는 `less`·`vim`)을 띄우고 `page.setViewportSize` 로 줄인 뒤 `.xterm-viewport` 의 `scrollHeight > clientHeight` 를 잰다. GPU 를 켠 경우(`localStorage.termGpu='1'`)와 끈 경우(e2e 기본)를 둘 다 본다
 
-먼저 읽을 것: `web/js/ui/term-pane.js`(`doFit`·`destroy`), `web/js/core/renderer-layout.js`(`_afterLayout`), `web/js/ui/term-gpu.js`, `docs/internal/TERMINAL_GPU_RENDER_SRS.md` §4.2~4.3.
+먼저 읽을 것: `web/js/ui/term-pane.js`(`doFit`·`destroy`), `web/js/ui/renderer-layout.js`(`_afterLayout`), `web/js/ui/term-gpu.js`, `docs/internal/TERMINAL_GPU_RENDER_SRS.md` §4.2~4.3.
 
 ## 어디까지 왔나 (지난 세션, main)
 
@@ -28,6 +32,7 @@
 |---|---|
 | `2f9d9a5b` | Run 카드: 멤버 수는 `활성/전체`(헤드리스도 활성만 셈), 경과는 마지막 활동 시각. `ORCHESTRATION_V2_SRS` FR-RVZ-3 개정 |
 | `56435a84` | 터미널 흰 칸: WebGL 컨텍스트를 잃으면 3초 기다리지 않고 곧바로 DOM 렌더러로 돌린다. 뗄 때(숨김·끔·손실·칸 파괴) 컨텍스트를 `WEBGL_lose_context` 로 반납한다. `TERMINAL_GPU_RENDER_SRS` FR-TGR-10 개정·10a, TC-TGR-16·17·17b, e2e V-TGR-4 |
+| `ef9001db` | 전량 재생 본문이 대체 화면 안에서 시작하면 하드 클리어 뒤에 `?1049h` 를 넣는다. `TERMINAL_RESUME_SRS` FR-TRS-10a·V-TRS-7a·7b, `TERMINAL_MODE_RESTORE_SRS` §1.4·§5 개정 |
 
 두 커밋 모두 사용자의 서버에는 아직 반영되지 않았다(재빌드·재시작은 사용자가 한다).
 
