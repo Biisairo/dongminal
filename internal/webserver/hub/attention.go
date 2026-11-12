@@ -36,7 +36,12 @@ func attnBroadcastsOf(hub CommandBroker) attnBroadcasts {
 				o.observeAttention(id, reason)
 			}
 		},
-		attentionClear: func(id string) { hub.Broadcast(toolAttentionClearPayload(id)) },
+		attentionClear: func(id string) {
+			hub.Broadcast(toolAttentionClearPayload(id))
+			if o, ok := hub.(*CommandHub); ok {
+				o.observeAttentionClear(id)
+			}
+		},
 		activity: func(id, state, tool, detail string) {
 			hub.Broadcast(toolActivityPayload(id, state, tool, detail))
 		},
@@ -56,6 +61,22 @@ func (h *CommandHub) SetAttentionObserver(f func(id, reason string)) {
 func (h *CommandHub) observeAttention(id, reason string) {
 	if f := h.attnObs.Load(); f != nil {
 		(*f)(id, reason)
+	}
+}
+
+// SetAttentionClearObserver 는 알람 해제 방송을 함께 받을 함수를 단다. nil 이면 걷는다
+// (TELEGRAM_BRIDGE_SRS FR-TGB-58b).
+func (h *CommandHub) SetAttentionClearObserver(f func(id string)) {
+	if f == nil {
+		h.attnClearObs.Store(nil)
+		return
+	}
+	h.attnClearObs.Store(&f)
+}
+
+func (h *CommandHub) observeAttentionClear(id string) {
+	if f := h.attnClearObs.Load(); f != nil {
+		(*f)(id)
 	}
 }
 

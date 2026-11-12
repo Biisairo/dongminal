@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -37,21 +37,27 @@ func (r *tgRec) OnAttention(toolID, reason string) {
 	r.attn = append(r.attn, toolID+":"+reason)
 }
 
+func (r *tgRec) OnAttentionClear(toolID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.attn = append(r.attn, toolID+":clear")
+}
+
 func (r *tgRec) events() []telegram.Event {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]telegram.Event(nil), r.evs...)
 }
 
-// tgServer 는 도구 p1(탭 이름 "작업탭")과 브리지 기록기를 가진 서버다.
-func tgServer(t *testing.T, enabled bool) (*Server, *fakeToolIO, *tgRec) {
+// tgServer 는 도구 p1(윈도우 "작업창", 탭 "작업탭")과 브리지 기록기를 가진 서버다.
+func tgServer(t *testing.T, enabled bool) (*Server, *tgRec) {
 	t.Helper()
 	m := toolhub.NewToolManager("", nil)
 	t.Cleanup(m.StopSaving)
 	m.AdoptDetached("p1")
 	io := newFakeToolIO()
 	io.setHas("p1", true)
-	wi := &fakeWorkIndex{entries: []toolaccess.WorkspaceEntry{{ToolID: "p1", TabName: "작업탭"}}}
+	wi := &fakeWorkIndex{entries: []toolaccess.WorkspaceEntry{{ToolID: "p1", WindowName: "작업창", TabName: "작업탭"}}}
 	st := telegram.OpenStore(filepath.Join(t.TempDir(), "telegram.json"))
 	if err := st.SetEnabled(enabled); err != nil {
 		t.Fatal(err)
@@ -59,27 +65,22 @@ func tgServer(t *testing.T, enabled bool) (*Server, *fakeToolIO, *tgRec) {
 	rec := &tgRec{}
 	s := &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}, limits: defaultLimits()}
 	s.tg = newTelegramWire(st, rec)
-	return s, io, rec
+	return s, rec
 }
 
 // FR-TGB-80·81: main 보고는 브리지 사건으로 옮겨진다. 서브에이전트 보고는 넘기지 않는다.
 func TestTelegramWire_ForwardsMainReports(t *testing.T) {
-	s, _, rec := tgServer(t, true)
+	s, rec := tgServer(t, true)
 	in := json.RawMessage(`{"command":"ls"}`)
 	if code := s.applyActivityReport(agentrec.ActivityReport{
 		ToolID: "p1", State: "waiting", Tool: "Bash", Detail: "ls", SessionID: "S1",
-		Hook: "PermissionRequest", ToolUseID: "u1", Source: "startup", Input: in, InputOver: false,
-		Transcript: "/t/x.jsonl",
+		Hook: "PermissionRequest", Input: in, InputOver: true, Transcript: "/t/x.jsonl",
 	}); code != "" {
 		t.Fatalf("code=%s", code)
 	}
 	evs := rec.events()
-	want := telegram.Event{ToolID: "p1", SessionID: "S1", State: "waiting", Hook: "PermissionRequest",
-		ToolUseID: "u1", Source: "startup", Tool: "Bash", Detail: "ls", Input: in, Transcript: "/t/x.jsonl"}
-	if len(evs) != 1 || evs[0].ToolID != want.ToolID || evs[0].SessionID != want.SessionID ||
-		evs[0].State != want.State || evs[0].Hook != want.Hook || evs[0].ToolUseID != want.ToolUseID ||
-		evs[0].Source != want.Source || evs[0].Tool != want.Tool || evs[0].Detail != want.Detail ||
-		string(evs[0].Input) != string(want.Input) || evs[0].Transcript != want.Transcript {
+	if len(evs) != 1 || evs[0].ToolID != "p1" || evs[0].Hook != "PermissionRequest" || evs[0].Tool != "Bash" ||
+		evs[0].Detail != "ls" || string(evs[0].Input) != string(in) || !evs[0].InputOver || evs[0].Transcript != "/t/x.jsonl" {
 		t.Fatalf("evs=%+v", evs)
 	}
 	if code := s.applyActivityReport(agentrec.ActivityReport{ToolID: "p1", State: "working", AgentID: "a1", SessionID: "S1"}); code != "" {
@@ -90,58 +91,42 @@ func TestTelegramWire_ForwardsMainReports(t *testing.T) {
 	}
 }
 
-// FR-TGB-82 · NFR-TGB-1: 꺼져 있으면 넘기지도, session_id 를 기억하지도 않는다.
-func TestTelegramWire_OffForwardsAndStoresNothing(t *testing.T) {
-	s, _, rec := tgServer(t, false)
+// FR-TGB-82 · NFR-TGB-1: 꺼져 있으면 넘기지 않는다.
+func TestTelegramWire_OffForwardsNothing(t *testing.T) {
+	s, rec := tgServer(t, false)
 	s.applyActivityReport(agentrec.ActivityReport{ToolID: "p1", State: "working", SessionID: "S1"})
 	if got := rec.events(); len(got) != 0 {
 		t.Fatalf("꺼짐인데 넘겼다: %+v", got)
 	}
-	for _, a := range (telegramHost{s}).Agents() {
-		if a.SessionID != "" {
-			t.Fatalf("꺼짐인데 session_id 를 기억했다: %+v", a)
-		}
-	}
 }
 
-// FR-TGB-30·31·32·23: Host 는 서버의 기존 문을 지난다.
+// FR-TGB-56 · D-TGB-17 · TC-TGB-44·46: 위치는 페이지 제목 › 윈도우 › 탭 이다.
 func TestTelegramHost(t *testing.T) {
-	s, io, _ := tgServer(t, true)
+	s, _ := tgServer(t, true)
 	h := telegramHost{s}
-	if err := h.Paste("p1", "안녕"); err != nil {
-		t.Fatal(err)
+	host, _ := os.Hostname()
+	if got := h.Location("p1"); got != (telegram.Location{Device: host, Window: "작업창", Tab: "작업탭"}) {
+		t.Fatalf("설정 없음 Location=%+v", got)
 	}
-	if len(io.pastes) != 1 || io.pastes[0] != (fakePaste{ToolID: "p1", Text: "안녕", Submit: true}) {
-		t.Fatalf("pastes=%+v", io.pastes)
+	s.Settings = &fakeSettingsStore{blob: []byte(`{"pageTitle":"  office  "}`)}
+	if got := h.Location("p1"); got.Device != "office" {
+		t.Fatalf("페이지 제목을 쓰지 않았다: %+v", got)
 	}
-	if err := h.Keys("p1", []byte{0x1b}); err != nil {
-		t.Fatal(err)
+	s.Settings = &fakeSettingsStore{blob: []byte(`{"pageTitle":"  "}`)}
+	if got := h.Location("p1"); got.Device != host {
+		t.Fatalf("빈 페이지 제목인데 호스트 이름이 아니다: %+v", got)
 	}
-	if len(io.writes) != 1 || io.writes[0] != "p1:\x1b" {
-		t.Fatalf("writes=%q", io.writes)
+	if got := h.Location("zz"); got != (telegram.Location{Device: host, Tab: "zz"}) {
+		t.Fatalf("모르는 도구 Location=%+v", got)
 	}
-	if got := h.ToolName("p1"); got != "작업탭" {
-		t.Fatalf("ToolName=%q", got)
+	// FR-TGB-58a: 읽음은 포커스와 같은 해제다.
+	s.attention().SignalAttention("p1", "bell")
+	if !s.Tools.Get("p1").Attention() {
+		t.Fatal("알람이 서지 않았다")
 	}
-	if got := h.ToolName("zz"); got != "zz" {
-		t.Fatalf("모르는 도구 ToolName=%q", got)
-	}
-	io.snap["p1"] = []byte("\x1b[31mred\x1b[0m\r\n")
-	if got := h.Screen("p1"); got != "red\n" {
-		t.Fatalf("Screen=%q", got)
-	}
-	io.snap["p1"] = []byte(strings.Repeat("a", 3*telegramScreenTail))
-	if got := h.Screen("p1"); len(got) != telegramScreenTail {
-		t.Fatalf("Screen 길이=%d", len(got))
-	}
-	if got := h.Screen("zz"); got != "" {
-		t.Fatalf("없는 도구 Screen=%q", got)
-	}
-
-	s.applyActivityReport(agentrec.ActivityReport{ToolID: "p1", State: "waiting", SessionID: "S1"})
-	ag := h.Agents()
-	if len(ag) != 1 || ag[0] != (telegram.AgentInfo{SessionID: "S1", ToolID: "p1", Name: "작업탭", State: "waiting"}) {
-		t.Fatalf("Agents=%+v", ag)
+	h.Attend("p1", false)
+	if s.Tools.Get("p1").Attention() {
+		t.Fatal("읽음으로 알람이 꺼지지 않았다")
 	}
 	before := time.Now()
 	s.browserIn.mark("p1")
@@ -164,9 +149,10 @@ func TestTelegramWire_AttentionObserver(t *testing.T) {
 	s.tg = newTelegramWire(st, rec)
 	s.wireTelegramAttention()
 	s.attention().SignalAttention("p1", "bell")
+	s.attention().Attend("p1", false)
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
-	if len(rec.attn) != 1 || rec.attn[0] != "p1:bell" {
+	if len(rec.attn) != 2 || rec.attn[0] != "p1:bell" || rec.attn[1] != "p1:clear" {
 		t.Fatalf("attn=%v", rec.attn)
 	}
 }

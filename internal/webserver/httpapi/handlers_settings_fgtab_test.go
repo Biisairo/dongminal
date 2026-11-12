@@ -19,3 +19,17 @@ func TestParseFgTabNamesDefaults(t *testing.T) {
 		}
 	}
 }
+
+// parsePageTitle 은 앞뒤 공백을 걷는다 (TELEGRAM_BRIDGE_SRS D-TGB-17).
+func TestParsePageTitle(t *testing.T) {
+	for _, tc := range []struct{ blob, want string }{
+		{`{"pageTitle":" macmini-office "}`, "macmini-office"},
+		{`{}`, ""},
+		{``, ""},
+		{`{"pageTitle":7}`, ""},
+	} {
+		if got := parsePageTitle([]byte(tc.blob)); got != tc.want {
+			t.Errorf("%q: got %q want %q", tc.blob, got, tc.want)
+		}
+	}
+}

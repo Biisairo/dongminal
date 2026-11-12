@@ -15,17 +15,17 @@ func TestActivityReportCarriesBridgeFields(t *testing.T) {
 		t.Fatalf("exit=%d", code)
 	}
 	body := strings.Join(cap.activitySnapshot(), "\n")
-	for _, want := range []string{`"hook":"PreToolUse"`, `"toolUseId":"toolu_9"`, `"transcript":"/t/s1.jsonl"`, `"input":{"questions":[{"question":"색?"`} {
+	for _, want := range []string{`"hook":"PreToolUse"`, `"transcript":"/t/s1.jsonl"`, `"input":{"questions":[{"question":"색?"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("활동 보고에 %s 가 없다:\n%s", want, body)
 		}
 	}
 }
 
-// 값이 없는 훅은 그 필드를 싣지 않는다. 빈 값을 실으면 서버가 "있는데 비었다" 로 읽는다.
+// 값이 없는 훅은 그 필드를 싣지 않는다. tool_use_id·source 는 브리지가 쓰지 않으므로 싣지 않는다.
 func TestActivityReportOmitsEmptyBridgeFields(t *testing.T) {
 	cap := startCapture(t, "7")
-	if code := runDmctlActivity([]string{"claude"}, strings.NewReader(`{"hook_event_name":"Stop"}`), discard{}, discard{}); code != 0 {
+	if code := runDmctlActivity([]string{"claude"}, strings.NewReader(`{"hook_event_name":"Stop","tool_use_id":"toolu_1","source":"startup"}`), discard{}, discard{}); code != 0 {
 		t.Fatalf("exit=%d", code)
 	}
 	body := strings.Join(cap.activitySnapshot(), "\n")

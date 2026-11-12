@@ -6,7 +6,7 @@ import (
 )
 
 // browserInputs 는 PC 브라우저가 도구마다 마지막으로 입력한 시각이다
-// (TELEGRAM_BRIDGE_SRS FR-TGB-53). 터미널 질의 답(DA·CPR·포커스 보고)도 OpInput 으로
+// (TELEGRAM_BRIDGE_SRS FR-TGB-57). 터미널 질의 답(DA·CPR·포커스 보고)도 OpInput 으로
 // 오지만 사람이 그 창 앞에 있다는 뜻이므로 함께 센다. 메모리에만 둔다.
 type browserInputs struct {
 	mu sync.Mutex

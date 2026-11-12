@@ -3,196 +3,252 @@ package telegram
 import (
 	"encoding/json"
 	"html"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 )
 
-// 메시지 모양 (FR-TGB-24·32·40·41·51). Telegram HTML 로 보낸다.
+// 알림 모양 (FR-TGB-51·52·52a·54·58). Telegram HTML 로 보낸다.
 
 const (
-	topicNameMax = 128
-	screenMax    = 3500
-	summaryMax   = 600
+	// contentMax 는 내용 원문의 글자 수 상한이다 (FR-TGB-54).
+	contentMax = 3500
+	cutMark    = "…(PC 에서 보기)"
+	// callbackMax 는 버튼 데이터의 상한(바이트)이다 (Telegram).
+	callbackMax = 64
+	readPrefix  = "r:"
+	cellSep     = " · "
+	// divider 는 접힌 문단에서 위치와 내용을 나누는 줄이다 (FR-TGB-52).
+	divider = "──────────"
 )
-
-func stateEmoji(state string, ended bool) string {
-	if ended {
-		return "⏹"
-	}
-	switch state {
-	case "working":
-		return "🔧"
-	case "waiting":
-		return "⏳"
-	default:
-		return "✅"
-	}
-}
 
 func esc(s string) string { return html.EscapeString(s) }
 
-// cut 은 글자 경계에서 n 바이트 안으로 자른다.
-func cut(s string, n int) string {
-	if len(s) <= n {
+// locationLines 는 기기·윈도우·탭을 한 줄씩 쓴다. 라벨은 고정폭이라 `:` 가 같은 자리에
+// 온다. 윈도우를 모르면 그 줄을 뺀다 (FR-TGB-52·56).
+func locationLines(l Location) string {
+	line := func(label, name string) string { return "<code>" + label + " :</code> <b>" + esc(name) + "</b>" }
+	lines := []string{line("Server", l.Device)}
+	if l.Window != "" {
+		lines = append(lines, line("Window", l.Window))
+	}
+	return strings.Join(append(lines, line("Tab   ", l.Tab)), "\n")
+}
+
+// cutRunes 는 contentMax 글자를 넘으면 앞부분만 남기고 cutMark 를 붙인다.
+func cutRunes(s string) string {
+	if utf8.RuneCountInString(s) <= contentMax {
 		return s
 	}
-	s = s[:n]
-	for !utf8.ValidString(s) {
-		s = s[:len(s)-1]
+	return string([]rune(s)[:contentMax]) + cutMark
+}
+
+// alarmText 는 알림 전체다. bodyHTML 은 이미 옮긴 내용이다. 위치는 접힌 문단의 머리이고,
+// 내용이 있으면 구분선 아래에 둔다 (FR-TGB-51·52).
+func alarmText(k alarmKind, loc Location, bodyHTML string) string {
+	head := k.emoji + " <b>" + k.label + "</b>"
+	if k.tool != "" {
+		head += " · " + esc(k.tool)
 	}
-	return s + "…"
-}
-
-// tail 은 끝 n 바이트를 글자 경계에서 남긴다.
-func tail(s string, n int) string {
-	if len(s) <= n {
-		return s
+	quote := locationLines(loc)
+	if bodyHTML != "" {
+		quote += "\n\n" + divider + "\n\n" + bodyHTML
 	}
-	s = s[len(s)-n:]
-	for !utf8.ValidString(s) {
-		s = s[1:]
+	return head + "\n<blockquote expandable>" + quote + "</blockquote>"
+}
+
+// readKeyboard 는 `[✓ 읽음]` 버튼이다. 데이터가 상한을 넘으면 nil 이다 (FR-TGB-58).
+func readKeyboard(toolID string) map[string]any {
+	data := readPrefix + toolID
+	if len(data) > callbackMax {
+		return nil
 	}
-	return s
+	return map[string]any{"inline_keyboard": [][]map[string]string{{{"text": "읽음", "callback_data": data}}}}
 }
 
-func topicName(emoji, tab string) string {
-	return cut(emoji+" "+tab, topicNameMax)
+// plainHTML 은 평문 내용이다. 비면 빈 글이다.
+func plainHTML(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	return esc(cutRunes(s))
 }
 
-type button struct {
-	Text string `json:"text"`
-	Data string `json:"callback_data"`
+// codeHTML 은 권한 요청의 요약이다.
+func codeHTML(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	return codeLines(strings.Split(cutRunes(s), "\n"))
 }
 
-func keyboard(rows ...[]button) map[string]any {
-	out := make([][]button, 0, len(rows))
-	for _, r := range rows {
-		if len(r) > 0 {
-			out = append(out, r)
+// codeLines 는 여러 줄 코드를 줄마다 `<code>` 로 감싼다. 접힌 문단 안의 `<pre>` 는 상자를
+// 끊으므로 쓰지 않는다 (FR-TGB-52b). 빈 줄은 그대로 둔다.
+func codeLines(lines []string) string {
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		if strings.TrimSpace(l) != "" {
+			out[i] = "<code>" + esc(l) + "</code>"
 		}
 	}
-	return map[string]any{"inline_keyboard": out}
+	return strings.Join(out, "\n")
 }
 
-func statusText(emoji, state, tab string) string {
-	return emoji + " <b>" + esc(tab) + "</b> · " + esc(state)
-}
-
-func statusKeyboard() map[string]any {
-	return keyboard([]button{{"⎋ Esc", "e"}, {"🖥 화면", "s"}})
-}
-
-func readButton(kind string) button { return button{"✓ 읽음", "r:" + kind} }
-
-// permSummary 는 권한 요청의 도구 입력 요약이다 (FR-TGB-40). 원문이 없으면 Detail 이고,
-// 그때는 전부를 보았다고 할 수 없으므로 whole 이 거짓이다.
-func permSummary(tool string, input json.RawMessage, detail string) (s string, whole bool) {
+// permSummary 는 권한 요청의 도구 입력 요약이다. 원문이 없으면 Detail 이다.
+func permSummary(input json.RawMessage, detail string) string {
 	var m map[string]any
 	if len(input) == 0 || json.Unmarshal(input, &m) != nil {
-		return detail, false
+		return detail
 	}
 	for _, k := range []string{"command", "file_path", "notebook_path", "path", "url", "pattern"} {
 		if v, ok := m[k].(string); ok && v != "" {
-			return v, true
+			return v
 		}
 	}
-	return string(input), true
-}
-
-// permissionText 는 요청 메시지다. 길면 앞과 뒤, 전체 길이를 보인다 (FR-TGB-40a).
-// 둘째 값은 사용자가 요청을 다 볼 수 있는가다.
-func permissionText(tool, summary string, whole bool) (string, bool) {
-	body := summary
-	if len(summary) > summaryMax {
-		body = cut(summary, summaryMax/2) + "\n…(" + strconv.Itoa(len(summary)) + "바이트 중 일부)…\n" + tail(summary, summaryMax/3)
-		whole = false
-	}
-	text := "🔐 <b>권한 요청</b> · " + esc(tool) + "\n<pre>" + esc(body) + "</pre>"
-	if !whole {
-		text += "\n<i>전체를 볼 수 없어 허용 버튼을 두지 않습니다. [화면] 으로 확인하고 PC 에서 허용하세요.</i>"
-	}
-	return text, whole
-}
-
-// permissionKeyboard 는 요청의 버튼이다. 다 볼 수 없으면 허용을 두지 않는다 (FR-TGB-40a).
-func permissionKeyboard(rid string, whole bool) map[string]any {
-	if !whole {
-		return keyboard([]button{{"거절", "c:" + rid + ":esc"}, {"🖥 화면", "s"}}, []button{readButton("q")})
-	}
-	return keyboard(
-		[]button{{"1 허용", "c:" + rid + ":1"}, {"2 항상 허용", "c:" + rid + ":2"}, {"거절", "c:" + rid + ":esc"}},
-		[]button{readButton("q")})
+	return string(input)
 }
 
 type question struct {
-	Question    string `json:"question"`
-	Header      string `json:"header"`
-	MultiSelect bool   `json:"multiSelect"`
-	Options     []struct {
+	Question string `json:"question"`
+	Header   string `json:"header"`
+	Options  []struct {
 		Label       string `json:"label"`
 		Description string `json:"description"`
 	} `json:"options"`
 }
 
-// questionMessage 는 AskUserQuestion 의 메시지와 버튼이다 (FR-TGB-41). 버튼은 질문
-// 하나의 단일 선택에만 단다 — 그 밖은 글로 답하거나 [화면] 으로 본다.
-func questionMessage(rid string, input json.RawMessage) (string, map[string]any) {
+// questionHTML 은 AskUserQuestion 의 질문과 선택지다. 읽지 못하면 빈 글이다 (FR-TGB-52).
+func questionHTML(input []byte) string {
 	var in struct {
 		Questions []question `json:"questions"`
 	}
-	if json.Unmarshal(input, &in) != nil || len(in.Questions) == 0 {
-		return "❓ <b>질문</b>\n토픽에 글로 답하거나 [화면] 을 보세요.", keyboard([]button{readButton("q")})
+	if json.Unmarshal(input, &in) != nil {
+		return ""
 	}
-	var sb strings.Builder
-	for i, q := range in.Questions {
-		if i > 0 {
-			sb.WriteString("\n\n")
+	blocks := make([]string, 0, len(in.Questions))
+	for _, q := range in.Questions {
+		title := q.Question
+		if q.Header != "" {
+			title = "[" + q.Header + "] " + title
 		}
-		sb.WriteString("❓ <b>" + esc(q.Header) + "</b>\n" + esc(q.Question))
+		lines := []string{"<b>" + esc(title) + "</b>"}
 		for j, o := range q.Options {
-			sb.WriteString("\n" + strconv.Itoa(j+1) + ". " + esc(o.Label))
+			line := strconv.Itoa(j+1) + ". " + o.Label
 			if o.Description != "" {
-				sb.WriteString(" — " + esc(o.Description))
+				line += " — " + o.Description
 			}
+			lines = append(lines, esc(line))
+		}
+		blocks = append(blocks, strings.Join(lines, "\n"))
+	}
+	return strings.Join(blocks, "\n\n")
+}
+
+var (
+	reHeading = regexp.MustCompile(`^#{1,6}\s+(.*)$`)
+	reBullet  = regexp.MustCompile(`^(\s*)[-*+]\s+(.*)$`)
+	reRule    = regexp.MustCompile(`^\s*(-{3,}|\*{3,}|_{3,})\s*$`)
+	reTableSp = regexp.MustCompile(`^\s*\|?[\s:|-]+\|?\s*$`)
+	reBold    = regexp.MustCompile(`\*\*([^*\n]+)\*\*`)
+)
+
+// mdToHTML 은 Markdown 을 Telegram HTML 로 옮긴다 (FR-TGB-52a).
+func mdToHTML(md string) string {
+	var out []string
+	var fence []string
+	inFence, inTable := false, false
+	for _, line := range strings.Split(md, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			if inFence {
+				out = append(out, codeLines(fence))
+				fence = nil
+			}
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			fence = append(fence, line)
+			continue
+		}
+		trimmed := strings.TrimSpace(line)
+		isRow := strings.HasPrefix(trimmed, "|")
+		switch {
+		case isRow && reTableSp.MatchString(trimmed):
+		case isRow:
+			cells := tableCells(trimmed)
+			if inTable {
+				out = append(out, "• "+strings.Join(cells, cellSep))
+			} else {
+				out = append(out, "<b>"+strings.Join(cells, cellSep)+"</b>")
+			}
+		case reRule.MatchString(line):
+		default:
+			out = append(out, mdLine(line))
+		}
+		inTable = isRow
+	}
+	if inFence {
+		out = append(out, codeLines(fence))
+	}
+	return squeezeBlank(out)
+}
+
+func tableCells(row string) []string {
+	parts := strings.Split(strings.Trim(row, "|"), "|")
+	cells := make([]string, len(parts))
+	for i, p := range parts {
+		cells[i] = mdInline(strings.TrimSpace(p))
+	}
+	return cells
+}
+
+func mdLine(line string) string {
+	if m := reHeading.FindStringSubmatch(line); m != nil {
+		return "<b>" + mdInline(m[1]) + "</b>"
+	}
+	if m := reBullet.FindStringSubmatch(line); m != nil {
+		return m[1] + "• " + mdInline(m[2])
+	}
+	if rest, ok := strings.CutPrefix(strings.TrimLeft(line, " "), ">"); ok {
+		return mdInline(strings.TrimPrefix(rest, " "))
+	}
+	return mdInline(line)
+}
+
+// mdInline 은 한 줄 안의 코드와 굵게다. 코드 안은 바꾸지 않는다.
+func mdInline(s string) string {
+	parts := strings.Split(s, "`")
+	var sb strings.Builder
+	for i, p := range parts {
+		switch {
+		case i%2 == 1 && i < len(parts)-1:
+			sb.WriteString("<code>" + esc(p) + "</code>")
+		case i%2 == 1:
+			sb.WriteString(esc("`" + p))
+		default:
+			sb.WriteString(reBold.ReplaceAllString(esc(p), "<b>$1</b>"))
 		}
 	}
-	q := in.Questions[0]
-	if len(in.Questions) > 1 || q.MultiSelect {
-		sb.WriteString("\n\n<i>여러 질문·복수 선택은 버튼을 지원하지 않습니다. 글로 답하거나 [화면] 을 보세요.</i>")
-		return sb.String(), keyboard([]button{{"거절", "c:" + rid + ":esc"}, readButton("q")})
-	}
-	var row []button
-	for j, o := range q.Options {
-		row = append(row, button{cut(o.Label, 40), "c:" + rid + ":" + strconv.Itoa(j+1)})
-	}
-	sb.WriteString("\n\n<i>직접 입력은 토픽에 글로 쓰세요.</i>")
-	return sb.String(), keyboard(row, []button{{"거절", "c:" + rid + ":esc"}, readButton("q")})
+	return sb.String()
 }
 
-func alarmText(reason, tab string) string {
-	switch reason {
-	case "done":
-		return "✅ <b>작업 끝남</b> · " + esc(tab)
-	case "waiting":
-		return "⏳ <b>입력 대기</b> · " + esc(tab)
-	default:
-		return "🔔 <b>알림</b> · " + esc(tab)
+// squeezeBlank 는 이어진 빈 줄을 하나로 줄이고 앞뒤 빈 줄을 걷는다.
+func squeezeBlank(lines []string) string {
+	var out []string
+	for _, l := range lines {
+		if strings.TrimSpace(l) == "" && (len(out) == 0 || out[len(out)-1] == "") {
+			continue
+		}
+		if strings.TrimSpace(l) == "" {
+			l = ""
+		}
+		out = append(out, l)
 	}
-}
-
-func screenText(s string) string {
-	s = strings.TrimRight(s, " \n")
-	if s == "" {
-		return "<i>(화면이 비어 있습니다)</i>"
+	for len(out) > 0 && out[len(out)-1] == "" {
+		out = out[:len(out)-1]
 	}
-	return "<pre>" + esc(tail(s, screenMax)) + "</pre>"
-}
-
-// choiceKeys 는 선택의 원시 키다 (FR-TGB-42). 키 순서는 TC-TGB-31 실측으로 고친다.
-func choiceKeys(arg string) []byte {
-	if arg == "esc" {
-		return []byte{0x1b}
-	}
-	return []byte(arg)
+	return strings.Join(out, "\n")
 }

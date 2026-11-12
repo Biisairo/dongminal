@@ -237,31 +237,3 @@ func TestToolAdapter_SendPasteIfForegroundEmptyWant(t *testing.T) {
 		t.Fatalf("빈 전경인데 허브에 넘겼다 want=%q pasted=%v", got, pasted)
 	}
 }
-
-// writeHub 는 원시 쓰기를 기록하는 허브다.
-type writeHub struct {
-	fakeHub
-	wrote *[]string
-}
-
-func (w writeHub) Write(id string, data []byte) error {
-	*w.wrote = append(*w.wrote, id+":"+string(data))
-	return nil
-}
-
-// TELEGRAM_BRIDGE_SRS FR-TGB-31: 원시 키는 감싸지 않고 그대로 넘긴다. 직접 모드에서
-// 없는 도구는 ErrToolNotFound 다.
-func TestToolAdapter_WriteRaw(t *testing.T) {
-	var wrote []string
-	if err := (Tool{Hub: writeHub{wrote: &wrote}}).Write("a", []byte("\x1b")); err != nil || len(wrote) != 1 || wrote[0] != "a:\x1b" {
-		t.Fatalf("데몬 모드: err=%v wrote=%q", err, wrote)
-	}
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
-	t.Cleanup(pm.StopSaving)
-	if err := (Tool{PM: pm}).Write("nope", []byte("1")); !errors.Is(err, toolhub.ErrToolNotFound) {
-		t.Fatalf("직접 모드 없는 도구: err=%v", err)
-	}
-	if err := (Tool{}).Write("a", []byte("1")); err == nil {
-		t.Fatalf("허브 없음: err=nil")
-	}
-}

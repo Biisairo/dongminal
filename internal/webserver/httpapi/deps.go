@@ -85,6 +85,7 @@ type SettingsStore interface {
 	RenderEnv() []string
 	ContextPolicy() run.ContextPolicy
 	FgTabNames() bool
+	PageTitle() string
 	// Migration 은 맥락 기준 migration 설정 넷이다 (ISSUE_TREE_OPS_SRS FR-ITM-1).
 	Migration() migrationConf
 }

@@ -62,6 +62,8 @@ type CommandHub struct {
 
 	// attnObs 는 알람 방송의 관찰자다 (SetAttentionObserver).
 	attnObs atomic.Pointer[func(id, reason string)]
+	// attnClearObs 는 알람 해제 방송의 관찰자다 (SetAttentionClearObserver).
+	attnClearObs atomic.Pointer[func(id string)]
 }
 
 func NewCommandHub() *CommandHub {

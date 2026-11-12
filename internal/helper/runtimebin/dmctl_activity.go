@@ -108,7 +108,7 @@ func reportMainActivity(adapter agentadapter.Adapter, rep agentadapter.Report, t
 // addBridgeFields 는 브리지의 곁들이 값을 싣는다 (TELEGRAM_BRIDGE_SRS FR-TGB-80·81).
 // 빈 값은 싣지 않는다.
 func addBridgeFields(body map[string]any, rep agentadapter.Report) {
-	for k, v := range map[string]string{"hook": rep.Hook, "toolUseId": rep.ToolUseID, "source": rep.Source, "transcript": rep.Transcript} {
+	for k, v := range map[string]string{"hook": rep.Hook, "transcript": rep.Transcript} {
 		if v != "" {
 			body[k] = v
 		}

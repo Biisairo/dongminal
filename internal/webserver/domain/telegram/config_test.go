@@ -58,24 +58,21 @@ func TestViewHidesToken(t *testing.T) {
 	}
 }
 
-// token 을 바꾸면 허용 계정과 토픽 대응표를 지운다 (FR-TGB-5).
-func TestSetTokenResetsPairingAndTopics(t *testing.T) {
+// token 을 바꾸면 허용 계정을 지운다 (FR-TGB-5).
+func TestSetTokenResetsPairing(t *testing.T) {
 	s, _ := openTemp(t)
 	_ = s.SetToken(testToken, "a")
 	_ = s.SetUser(42)
-	_ = s.PutTopic("sess-1", Topic{ThreadID: 7, Name: "x"})
 	if err := s.SetToken("999:other", "b"); err != nil {
 		t.Fatal(err)
 	}
-	c := s.Config()
-	if c.UserID != 0 || len(c.Topics) != 0 {
+	if c := s.Config(); c.UserID != 0 {
 		t.Fatalf("token 교체 뒤 초기화되지 않았다: %+v", c)
 	}
 	// 같은 token 을 다시 저장하면 지우지 않는다.
 	_ = s.SetUser(43)
-	_ = s.PutTopic("sess-2", Topic{ThreadID: 8})
 	_ = s.SetToken("999:other", "b")
-	if c := s.Config(); c.UserID != 43 || len(c.Topics) != 1 {
+	if c := s.Config(); c.UserID != 43 {
 		t.Fatalf("같은 token 인데 초기화했다: %+v", c)
 	}
 }
@@ -93,15 +90,21 @@ func TestSilenceBounds(t *testing.T) {
 	}
 }
 
-func TestTopicPutDelete(t *testing.T) {
-	s, p := openTemp(t)
-	_ = s.PutTopic("sess-1", Topic{ThreadID: 7, Name: "n", ToolID: "t1"})
-	if tp, ok := OpenStore(p).Topic("sess-1"); !ok || tp.ThreadID != 7 || tp.ToolID != "t1" {
-		t.Fatalf("토픽이 저장되지 않았다: %+v %v", tp, ok)
+// 개정 1 의 파일(토픽 대응표가 있음)도 그대로 읽는다. 대응표는 다음 저장 때 사라진다.
+func TestStoreReadsRevision1File(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "telegram.json")
+	old := `{"enabled":true,"token":"` + testToken + `","userId":42,"silenceMin":3,"topics":{"s":{"threadId":7}}}`
+	if err := os.WriteFile(p, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	_ = s.DeleteTopic("sess-1")
-	if _, ok := s.Topic("sess-1"); ok {
-		t.Fatal("지운 토픽이 남았다")
+	s := OpenStore(p)
+	if c := s.Config(); !c.Enabled || c.UserID != 42 || c.SilenceMin != 3 {
+		t.Fatalf("개정 1 파일을 읽지 못했다: %+v", c)
+	}
+	_ = s.SetSilence(4)
+	raw, _ := os.ReadFile(p)
+	if strings.Contains(string(raw), "topics") {
+		t.Fatalf("토픽 대응표가 남았다: %s", raw)
 	}
 }
 

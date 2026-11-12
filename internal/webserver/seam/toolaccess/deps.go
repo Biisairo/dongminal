@@ -26,9 +26,6 @@ type ToolReader interface {
 	// SendPasteIfForeground 는 쓰기·제출 직전에 전경을 새로 조회해 want 일 때만 넣는다.
 	// 아니면 toolhub.ErrForegroundChanged 다 (PEER_NETWORK_SRS I-47).
 	SendPasteIfForeground(toolID string, text []byte, submit bool, want string) error
-	// Write 는 붙여넣기로 감싸지 않고 PTY 에 그대로 쓴다 — 키 입력용
-	// (TELEGRAM_BRIDGE_SRS FR-TGB-31).
-	Write(toolID string, data []byte) error
 	Size(toolID string) string
 }
 

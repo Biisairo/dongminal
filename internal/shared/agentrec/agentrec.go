@@ -85,11 +85,9 @@ type ActivityReport struct {
 
 	// TELEGRAM_BRIDGE_SRS FR-TGB-80·81: 브리지의 곁들이 값이다. 상태 판정에는 쓰지 않는다.
 	Hook      string          `json:"hook,omitempty"`
-	ToolUseID string          `json:"toolUseId,omitempty"`
-	Source    string          `json:"source,omitempty"`
 	Input     json.RawMessage `json:"input,omitempty"`
 	InputOver bool            `json:"inputOver,omitempty"`
-	// Transcript 는 대화 기록 파일의 경로다. 내용은 실리지 않는다 (FR-TGB-60).
+	// Transcript 는 대화 기록 파일의 경로다. 내용은 실리지 않는다 (FR-TGB-80).
 	Transcript string `json:"transcript,omitempty"`
 }
 

@@ -61,10 +61,8 @@ type Report struct {
 	Sub *SubReport
 
 	// TELEGRAM_BRIDGE_SRS FR-TGB-80·81: 브리지가 쓰는 곁들이 값이다. 상태 해석에는
-	// 쓰지 않는다. Hook 은 훅 이름, Source 는 SessionStart 의 출처다.
-	Hook      string
-	ToolUseID string
-	Source    string
+	// 쓰지 않는다. Hook 은 훅 이름이다.
+	Hook string
 	// Input 은 사람의 답을 기다리는 훅(권한 요청·질문)의 도구 입력 원문이다.
 	// BridgeInputMax 를 넘으면 싣지 않고 InputOver 만 선다 — 잘린 JSON 은 깨진다.
 	Input     json.RawMessage

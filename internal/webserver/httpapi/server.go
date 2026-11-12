@@ -141,9 +141,9 @@ type Server struct {
 	attnClaims     *attnClaims
 	attnClaimsOnce sync.Once
 
-	// browserIn 은 브라우저 입력 시각이다 (TELEGRAM_BRIDGE_SRS FR-TGB-53).
+	// browserIn 은 브라우저 입력 시각이다 (TELEGRAM_BRIDGE_SRS FR-TGB-57).
 	browserIn browserInputs
-	// tg 는 Telegram 브리지 이음매다. DataDir 이 없으면 nil 이다.
+	// tg 는 Telegram 알림 이음매다. DataDir 이 없으면 nil 이다.
 	tg *telegramWire
 
 	started time.Time

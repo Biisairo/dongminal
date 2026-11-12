@@ -93,8 +93,10 @@ func TestTelegramAPI_Token(t *testing.T) {
 	if strings.Contains(rec.Body.String(), tgBadToken) {
 		t.Fatal("오류 응답에 token 이 실렸다")
 	}
-	rec, _ = tgDo(t, s, http.MethodPut, "/api/telegram/token", `{"token":"`+tgNoTopicsToken+`"}`)
-	tgWantErr(t, rec, http.StatusBadRequest, apierr.CodeTelegramTopicsDisabled)
+	// 개정 2: 토픽을 쓰지 않으므로 Threaded Mode 가 꺼진 봇도 받는다 (FR-TGB-4).
+	if rec, v := tgDo(t, s, http.MethodPut, "/api/telegram/token", `{"token":"`+tgNoTopicsToken+`"}`); rec.Code != http.StatusOK || v["botName"] != "plain_bot" {
+		t.Fatalf("Threaded Mode 가 꺼진 봇을 거절했다: %d %v", rec.Code, v)
+	}
 
 	rec, v := tgDo(t, s, http.MethodPut, "/api/telegram/token", `{"token":"`+tgGoodToken+`"}`)
 	if rec.Code != http.StatusOK || v["tokenSet"] != true || v["botName"] != "good_bot" {

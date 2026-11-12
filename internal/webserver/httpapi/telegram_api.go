@@ -95,9 +95,6 @@ func (s *Server) apiTelegramToken(w http.ResponseWriter, r *http.Request) {
 		dmlog.Infof(nil, "telegram: token 확인 실패: %v", err)
 		peerFail(w, http.StatusBadGateway, apierr.CodeTelegramUnreachable, "telegram unreachable")
 		return
-	case !me.HasTopicsEnabled:
-		peerFail(w, http.StatusBadRequest, apierr.CodeTelegramTopicsDisabled, "threaded mode is off for this bot")
-		return
 	}
 	// 바꾸기 전에 만든 등록 코드는 그 봇을 위한 것이다. 허용 계정과 함께 버린다.
 	s.tg.bridge.Pairing().Cancel()

@@ -10,31 +10,27 @@ import (
 // payload 는 2026-11-12 실측(§2.2)의 모양 그대로다.
 func TestClaudeHook_BridgeFields(t *testing.T) {
 	cases := []struct {
-		name, payload           string
-		hook, toolUseID, source string
-		input                   string
+		name, payload string
+		hook, input   string
 	}{
 		{"PreToolUse Bash 는 원문을 싣지 않는다",
 			`{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"date > out.txt"},"tool_use_id":"toolu_1"}`,
-			"PreToolUse", "toolu_1", "", ""},
+			"PreToolUse", ""},
 		{"PreToolUse AskUserQuestion 은 원문을 싣는다",
 			`{"hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"색?","options":[{"label":"red"}]}]},"tool_use_id":"toolu_2"}`,
-			"PreToolUse", "toolu_2", "", `{"questions":[{"question":"색?","options":[{"label":"red"}]}]}`},
-		{"PermissionRequest 는 원문을 싣고 tool_use_id 는 없다",
+			"PreToolUse", `{"questions":[{"question":"색?","options":[{"label":"red"}]}]}`},
+		{"PermissionRequest 는 원문을 싣는다",
 			`{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm x"},"permission_suggestions":[]}`,
-			"PermissionRequest", "", "", `{"command":"rm x"}`},
-		{"PostToolUse 는 tool_use_id",
+			"PermissionRequest", `{"command":"rm x"}`},
+		{"PostToolUse 는 원문을 싣지 않는다",
 			`{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"ls"},"tool_use_id":"toolu_3","tool_response":{"stdout":"secret"}}`,
-			"PostToolUse", "toolu_3", "", ""},
-		{"PostToolUseFailure 는 tool_use_id",
-			`{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"make"},"tool_use_id":"toolu_4","error":"exit 2"}`,
-			"PostToolUseFailure", "toolu_4", "", ""},
-		{"SessionStart resume",
-			`{"hook_event_name":"SessionStart","source":"resume","session_id":"s1"}`,
-			"SessionStart", "", "resume", ""},
+			"PostToolUse", ""},
+		{"StopFailure",
+			`{"hook_event_name":"StopFailure","error":"rate_limit"}`,
+			"StopFailure", ""},
 		{"Stop",
 			`{"hook_event_name":"Stop"}`,
-			"Stop", "", "", ""},
+			"Stop", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -42,8 +38,8 @@ func TestClaudeHook_BridgeFields(t *testing.T) {
 			if !ok {
 				t.Fatalf("파싱하지 못했다")
 			}
-			if r.Hook != tc.hook || r.ToolUseID != tc.toolUseID || r.Source != tc.source {
-				t.Fatalf("hook/toolUseID/source = %q/%q/%q, 기대 %q/%q/%q", r.Hook, r.ToolUseID, r.Source, tc.hook, tc.toolUseID, tc.source)
+			if r.Hook != tc.hook {
+				t.Fatalf("hook = %q, 기대 %q", r.Hook, tc.hook)
 			}
 			if string(r.Input) != tc.input {
 				t.Fatalf("input = %s, 기대 %s", r.Input, tc.input)

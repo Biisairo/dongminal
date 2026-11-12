@@ -43,7 +43,7 @@ func TestClientGetMe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if me.Username != "office_bot" || !me.HasTopicsEnabled {
+	if me.Username != "office_bot" || !me.IsBot {
 		t.Fatalf("getMe 값이 틀렸다: %+v", me)
 	}
 }
@@ -100,11 +100,11 @@ func TestClientGetUpdatesParses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ups) != 2 || ups[0].Message.Text != "hi" || ups[0].Message.From.ID != 42 || ups[0].Message.ThreadID != 263 {
+	if len(ups) != 2 || ups[0].Message.Text != "hi" || ups[0].Message.From.ID != 42 || ups[0].Message.Chat.ID != 42 {
 		t.Fatalf("message 해석이 틀렸다: %+v", ups)
 	}
 	cb := ups[1].CallbackQuery
-	if cb == nil || cb.Data != "k:1" || cb.Message.ThreadID != 263 || cb.From.ID != 42 {
+	if cb == nil || cb.Data != "k:1" || cb.ID != "cb1" || cb.From.ID != 42 {
 		t.Fatalf("callback 해석이 틀렸다: %+v", cb)
 	}
 }

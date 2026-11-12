@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 
@@ -13,80 +12,45 @@ import (
 
 // Event 는 hook 보고 하나다 (FR-TGB-80·81). 서버가 활동 보고에서 옮겨 넣는다.
 type Event struct {
-	ToolID, SessionID, State string
-	Hook, ToolUseID, Source  string
-	Tool, Detail             string
-	Input                    json.RawMessage
-	InputOver                bool
+	ToolID, Hook string
+	Tool, Detail string
+	Input        json.RawMessage
+	InputOver    bool
 	// Transcript 는 대화 기록 파일의 경로다. 내용은 실리지 않는다.
 	Transcript string
 }
 
-// AgentInfo 는 `/agents` 목록의 한 줄이다 (FR-TGB-23). hook 이 없는 에이전트는
-// SessionID 가 비고, 브리지는 "tool:"+ToolID 를 대화로 본다.
-type AgentInfo struct {
-	SessionID, ToolID, Name, State string
+// Location 은 알림의 위치다 (FR-TGB-56). Window 가 비면 알림에서 뺀다.
+type Location struct {
+	Device, Window, Tab string
 }
 
 // Host 는 브리지가 dongminal 에 닿는 자리다. 서버가 채운다.
 type Host interface {
-	// Paste 는 글을 붙여넣기 + 제출로 넣는다 (FR-TGB-30).
-	Paste(toolID, text string) error
-	// Keys 는 원시 키를 넣는다 (FR-TGB-31).
-	Keys(toolID string, b []byte) error
-	// Attend 는 PC 알람을 끈다 (FR-TGB-70·71).
-	Attend(toolID string, typed bool)
-	// LastBrowserInput 은 PC 브라우저에서 그 탭에 마지막으로 입력한 시각이다 (FR-TGB-53).
+	// LastBrowserInput 은 PC 브라우저에서 그 탭에 마지막으로 입력한 시각이다 (FR-TGB-57).
 	LastBrowserInput(toolID string) time.Time
-	ToolName(toolID string) string
-	// Screen 은 화면 끝부분(ANSI 를 걷은 글)이다 (FR-TGB-32).
-	Screen(toolID string) string
-	Agents() []AgentInfo
+	Location(toolID string) Location
+	// Attend 는 PC 알람을 끈다. typed 가 거짓이면 포커스를 준 것과 같다 (FR-TGB-58a).
+	Attend(toolID string, typed bool)
 }
 
 const (
 	queueSize    = 256
-	renameEvery  = 10 * time.Second
 	callTimeout  = 15 * time.Second
 	pollTimeout  = 50
 	backoffFirst = time.Second
 	backoffMax   = time.Minute
-	toolSIDPfx   = "tool:"
-	// draftEvery 는 "작업 중" 표시를 다시 보내는 간격이다. draft 는 30초 미리보기다 (FR-TGB-65).
-	draftEvery = 20 * time.Second
-	// stopSettle 은 Stop 뒤 transcript 의 마지막 줄을 한 번 더 읽는 틈이다.
-	stopSettle = 1500 * time.Millisecond
 )
 
 // item 은 작업자 큐의 한 칸이다.
 type item struct {
 	ev                   *Event
 	attnTool, attnReason string
-	flush                bool
-	pumpSID              string
+	clearTool            string
 }
 
-// conv 는 살아 있는 대화 하나다.
-type conv struct {
-	toolID      string
-	state       string
-	ended       bool
-	lastToolUse string
-	transcript  string
-	tail        *Tail
-	lastDraft   time.Time
-}
-
-// request 는 답을 기다리는 권한 요청·질문 하나다 (FR-TGB-40·41·43).
-type request struct {
-	sid, toolUseID string
-	msgID          int64
-	at             time.Time
-	closed         bool
-}
-
-// Bridge 는 Telegram 브리지다. 사건은 큐로 받고(NFR-TGB-2), 작업자 하나와 polling
-// 하나가 mu 아래에서 차례로 처리한다. 쓰는 사람이 하나라 직렬이면 충분하다.
+// Bridge 는 Telegram 알림이다. 사건은 큐로 받고(NFR-TGB-2), 작업자 하나와 polling
+// 하나가 mu 아래에서 차례로 처리한다.
 type Bridge struct {
 	st   *Store
 	host Host
@@ -95,20 +59,16 @@ type Bridge struct {
 	pair *Pairing
 	q    chan item
 
-	mu         sync.Mutex
-	live       map[string]*conv
-	byTool     map[string]string
-	reqs       map[string]*request
-	lastRename map[string]time.Time
-	dirty      map[string]bool
-	seq        uint64
+	mu   sync.Mutex
+	tabs map[string]*tabState
+	// buttons 는 탭마다 `[읽음]` 이 남은 알림의 메시지 id 다 (FR-TGB-58b).
+	buttons map[string][]int64
 }
 
 // NewBridge 는 브리지를 만든다. base 가 비면 Bot API 주소다.
 func NewBridge(st *Store, host Host, base string, now func() time.Time) *Bridge {
 	return &Bridge{st: st, host: host, base: base, now: now, pair: NewPairing(now),
-		q: make(chan item, queueSize), live: map[string]*conv{}, byTool: map[string]string{},
-		reqs: map[string]*request{}, lastRename: map[string]time.Time{}, dirty: map[string]bool{}}
+		q: make(chan item, queueSize), tabs: map[string]*tabState{}, buttons: map[string][]int64{}}
 }
 
 func (b *Bridge) Pairing() *Pairing { return b.pair }
@@ -116,10 +76,13 @@ func (b *Bridge) Pairing() *Pairing { return b.pair }
 // OnActivity 는 hook 보고를 큐에 넣는다. 막지 않고, 차면 버린다 (NFR-TGB-2).
 func (b *Bridge) OnActivity(ev Event) { b.enqueue(item{ev: &ev}) }
 
-// OnAttention 은 PC 알람과 같은 판정의 알림 신호다 (FR-TGB-50).
+// OnAttention 은 PC 알람이다 (FR-TGB-50).
 func (b *Bridge) OnAttention(toolID, reason string) {
 	b.enqueue(item{attnTool: toolID, attnReason: reason})
 }
+
+// OnAttentionClear 는 PC 알람이 꺼진 것이다 (FR-TGB-58b).
+func (b *Bridge) OnAttentionClear(toolID string) { b.enqueue(item{clearTool: toolID}) }
 
 func (b *Bridge) enqueue(it item) {
 	if !b.st.Config().Enabled {
@@ -143,6 +106,33 @@ func (b *Bridge) Run(ctx context.Context) {
 			b.process(it)
 		}
 	}
+}
+
+// process 는 큐의 한 칸을 처리한다. 작업자만 부른다(시험은 직접 부른다).
+func (b *Bridge) process(it item) {
+	c, ok := b.active()
+	if !ok {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	switch {
+	case it.ev != nil:
+		b.tab(it.ev.ToolID).observe(*it.ev)
+	case it.clearTool != "":
+		b.clearButtons(c, it.clearTool)
+	default:
+		b.alarm(c, it.attnTool, it.attnReason)
+	}
+}
+
+func (b *Bridge) tab(toolID string) *tabState {
+	ts, ok := b.tabs[toolID]
+	if !ok {
+		ts = &tabState{}
+		b.tabs[toolID] = ts
+	}
+	return ts
 }
 
 func (b *Bridge) active() (Config, bool) {
@@ -203,34 +193,4 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 	case <-t.C:
 		return true
 	}
-}
-
-// nextID 는 버튼 데이터에 싣는 짧은 id 다.
-func (b *Bridge) nextID() string {
-	b.seq++
-	return strings.ToLower(strings.TrimLeft(itob36(b.seq), "0"))
-}
-
-func itob36(n uint64) string {
-	const digits = "0123456789abcdefghijklmnopqrstuvwxyz"
-	if n == 0 {
-		return "0"
-	}
-	var out []byte
-	for n > 0 {
-		out = append([]byte{digits[n%36]}, out...)
-		n /= 36
-	}
-	return string(out)
-}
-
-// threadNotFound 는 토픽이 지워졌다는 오류인가다 (FR-TGB-28).
-func threadNotFound(err error) bool {
-	var ae *APIError
-	if !errors.As(err, &ae) {
-		return false
-	}
-	d := strings.ToLower(ae.Description)
-	return strings.Contains(d, "thread not found") || strings.Contains(d, "topic_deleted") ||
-		strings.Contains(d, "topic_id_invalid") || strings.Contains(d, "invalid forum topic")
 }

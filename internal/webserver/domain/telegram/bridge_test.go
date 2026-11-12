@@ -7,13 +7,17 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
-// TELEGRAM_BRIDGE_SRS TC-TGB-10·20·22·30·32·40·60·80 — 브리지 본체.
+// TELEGRAM_BRIDGE_SRS TC-TGB-10·11·40~45·80 — 브리지 본체.
 //
 // Telegram 은 가짜 서버, dongminal 은 가짜 Host 다. 사건은 process 로 하나씩 동기
 // 처리한다 — 실제 배선의 큐는 TestBridgeEnqueueNeverBlocks 가 본다.
@@ -21,8 +25,6 @@ import (
 const (
 	me   = int64(42)
 	tabA = "tool-A"
-	tabB = "tool-B"
-	sess = "sess-1"
 )
 
 type apiCall struct {
@@ -31,43 +33,38 @@ type apiCall struct {
 }
 
 type fakeTG struct {
-	mu      sync.Mutex
-	calls   []apiCall
-	nextID  int64
-	failFor map[string]string // method → description (한 번)
+	mu    sync.Mutex
+	calls []apiCall
 }
 
 func (f *fakeTG) handler(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.Path, "/")
-	m := parts[len(parts)-1]
 	raw, _ := io.ReadAll(r.Body)
 	var body map[string]any
 	_ = json.Unmarshal(raw, &body)
 	f.mu.Lock()
-	f.calls = append(f.calls, apiCall{m, body})
-	f.nextID++
-	id := f.nextID
-	desc, fail := f.failFor[m]
-	if fail {
-		delete(f.failFor, m)
-	}
+	f.calls = append(f.calls, apiCall{parts[len(parts)-1], body})
+	id := len(f.calls)
 	f.mu.Unlock()
-	if fail {
-		w.WriteHeader(400)
-		_, _ = io.WriteString(w, `{"ok":false,"error_code":400,"description":"`+desc+`"}`)
+	if parts[len(parts)-1] == "sendMessage" {
+		_, _ = io.WriteString(w, `{"ok":true,"result":{"message_id":`+strconv.Itoa(id)+`}}`)
 		return
 	}
-	switch m {
-	case "createForumTopic":
-		_, _ = io.WriteString(w, `{"ok":true,"result":{"message_thread_id":`+itoa(1000+id)+`,"name":"x"}}`)
-	case "sendMessage":
-		_, _ = io.WriteString(w, `{"ok":true,"result":{"message_id":`+itoa(id)+`,"chat":{"id":42}}}`)
-	default:
-		_, _ = io.WriteString(w, `{"ok":true,"result":true}`)
-	}
+	_, _ = io.WriteString(w, `{"ok":true,"result":true}`)
 }
 
-func itoa(n int64) string { b, _ := json.Marshal(n); return string(b) }
+// edited 는 버튼을 걷은 메시지 id 들이다.
+func (f *fakeTG) edited() []float64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []float64
+	for _, c := range f.calls {
+		if c.Method == "editMessageReplyMarkup" {
+			out = append(out, c.Body["message_id"].(float64))
+		}
+	}
+	return out
+}
 
 func (f *fakeTG) methods() []string {
 	f.mu.Lock()
@@ -90,49 +87,27 @@ func (f *fakeTG) last(method string) (map[string]any, bool) {
 	return nil, false
 }
 
-func (f *fakeTG) reset() { f.mu.Lock(); f.calls = nil; f.mu.Unlock() }
-
 type fakeHost struct {
-	mu      sync.Mutex
-	pastes  []string // "tool|text"
-	keys    []string // "tool|bytes"
-	attends []string // "tool|typed"
 	lastIn  map[string]time.Time
-	names   map[string]string
-	screen  string
-	agents  []AgentInfo
+	locs    map[string]Location
+	attends []string // "tool|typed" 또는 "tool|seen"
 }
 
-func (h *fakeHost) Paste(tool, text string) error {
-	h.mu.Lock()
-	h.pastes = append(h.pastes, tool+"|"+text)
-	h.mu.Unlock()
-	return nil
-}
-func (h *fakeHost) Keys(tool string, b []byte) error {
-	h.mu.Lock()
-	h.keys = append(h.keys, tool+"|"+string(b))
-	h.mu.Unlock()
-	return nil
-}
 func (h *fakeHost) Attend(tool string, typed bool) {
-	h.mu.Lock()
 	if typed {
 		h.attends = append(h.attends, tool+"|typed")
-	} else {
-		h.attends = append(h.attends, tool+"|seen")
+		return
 	}
-	h.mu.Unlock()
+	h.attends = append(h.attends, tool+"|seen")
 }
+
 func (h *fakeHost) LastBrowserInput(tool string) time.Time { return h.lastIn[tool] }
-func (h *fakeHost) ToolName(tool string) string {
-	if n, ok := h.names[tool]; ok {
-		return n
+func (h *fakeHost) Location(tool string) Location {
+	if l, ok := h.locs[tool]; ok {
+		return l
 	}
-	return tool
+	return Location{Device: "mac", Tab: tool}
 }
-func (h *fakeHost) Screen(string) string { return h.screen }
-func (h *fakeHost) Agents() []AgentInfo  { return h.agents }
 
 type rig struct {
 	b    *Bridge
@@ -144,14 +119,15 @@ type rig struct {
 
 func newRig(t *testing.T) *rig {
 	t.Helper()
-	tg := &fakeTG{failFor: map[string]string{}}
+	tg := &fakeTG{}
 	srv := httptest.NewServer(http.HandlerFunc(tg.handler))
 	t.Cleanup(srv.Close)
 	st := OpenStore(filepath.Join(t.TempDir(), "telegram.json"))
 	_ = st.SetToken(testToken, "office_bot")
 	_ = st.SetUser(me)
 	_ = st.SetEnabled(true)
-	host := &fakeHost{lastIn: map[string]time.Time{}, names: map[string]string{tabA: "API 리팩터", tabB: "새 탭"}}
+	host := &fakeHost{lastIn: map[string]time.Time{},
+		locs: map[string]Location{tabA: {Device: "macmini", Window: "dongminal", Tab: "API 리팩터"}}}
 	r := &rig{tg: tg, host: host, st: st, now: time.Unix(10_000, 0)}
 	r.b = NewBridge(st, host, srv.URL, func() time.Time { return r.now })
 	return r
@@ -161,367 +137,75 @@ func (r *rig) act(ev Event) { r.b.process(item{ev: &ev}) }
 
 func (r *rig) attn(tool, reason string) { r.b.process(item{attnTool: tool, attnReason: reason}) }
 
-func (r *rig) msg(from int64, thread int64, text string) {
-	r.b.handleUpdate(Update{Message: &Message{From: &User{ID: from}, Chat: Chat{ID: from, Type: "private"}, ThreadID: thread, Text: text}})
+func (r *rig) clear(tool string) { r.b.process(item{clearTool: tool}) }
+
+// locA 는 tabA 의 접힌 문단 머리다.
+const locA = "<code>Server :</code> <b>macmini</b>\n<code>Window :</code> <b>dongminal</b>\n<code>Tab    :</code> <b>API 리팩터</b>"
+
+func (r *rig) msg(from int64, text string) {
+	r.b.handleUpdate(Update{Message: &Message{From: &User{ID: from}, Chat: Chat{ID: from, Type: "private"}, Text: text}})
 }
 
-func (r *rig) press(from int64, thread int64, data string) {
+func (r *rig) press(from int64, data string) { r.pressOn(from, data, 5) }
+
+func (r *rig) pressOn(from int64, data string, msgID int64) {
 	r.b.handleUpdate(Update{CallbackQuery: &CallbackQuery{ID: "cb", From: User{ID: from}, Data: data,
-		Message: &Message{MessageID: 1, Chat: Chat{ID: from}, ThreadID: thread}}})
+		Message: &Message{MessageID: msgID, Chat: Chat{ID: from}}}})
 }
 
-func (r *rig) start(tool string) {
-	r.act(Event{ToolID: tool, SessionID: sess, State: "idle", Hook: "SessionStart", Source: "startup"})
-}
-
-func (r *rig) thread(t *testing.T) int64 {
+// readData 는 마지막 알림의 `[✓ 읽음]` 버튼 데이터다. 없으면 빈 글이다.
+func (r *rig) readData(t *testing.T) string {
 	t.Helper()
-	tp, ok := r.st.Topic(sess)
-	if !ok {
-		t.Fatal("토픽이 없다")
-	}
-	return tp.ThreadID
-}
-
-// 버튼 데이터를 마지막 sendMessage 의 reply_markup 에서 글자로 찾는다.
-func (r *rig) button(t *testing.T, label string) string {
-	t.Helper()
-	r.tg.mu.Lock()
-	defer r.tg.mu.Unlock()
-	for i := len(r.tg.calls) - 1; i >= 0; i-- {
-		raw, _ := json.Marshal(r.tg.calls[i].Body["reply_markup"])
-		var mk struct {
-			Rows [][]struct {
-				Text string `json:"text"`
-				Data string `json:"callback_data"`
-			} `json:"inline_keyboard"`
-		}
-		_ = json.Unmarshal(raw, &mk)
-		for _, row := range mk.Rows {
-			for _, b := range row {
-				if strings.Contains(b.Text, label) {
-					return b.Data
-				}
-			}
-		}
-	}
-	t.Fatalf("버튼 %q 가 없다", label)
-	return ""
-}
-
-// ── 허용 계정 (TC-TGB-10) ──
-
-func TestBridgeIgnoresStranger(t *testing.T) {
-	r := newRig(t)
-	r.msg(7, 0, "/agents")
-	r.msg(7, 0, "hello")
-	if m := r.tg.methods(); len(m) != 0 {
-		t.Fatalf("모르는 사람에게 답했다: %v", m)
-	}
-}
-
-func TestBridgePairCommand(t *testing.T) {
-	r := newRig(t)
-	_ = r.st.SetUser(0)
-	code, _ := r.b.Pairing().Issue()
-	r.msg(77, 0, "/pair 000000")
-	if r.st.Config().UserID != 0 {
-		t.Fatal("틀린 코드로 등록됐다")
-	}
-	r.msg(77, 0, "/pair "+code)
-	if r.st.Config().UserID != 77 {
-		t.Fatal("맞는 코드로 등록되지 않았다")
-	}
-}
-
-// ── 대화와 토픽 (TC-TGB-20·22) ──
-
-func TestBridgeStartDoesNotOpenTopic(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	if _, ok := r.st.Topic(sess); ok {
-		t.Fatal("시작만 했는데 토픽이 생겼다 (FR-TGB-22)")
-	}
-}
-
-func TestBridgeDoneAlarmOpensTopic(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "done", Hook: "Stop"})
-	r.attn(tabA, "done")
-	th := r.thread(t)
-	body, ok := r.tg.last("sendMessage")
-	if !ok || body["message_thread_id"].(float64) != float64(th) {
-		t.Fatalf("알림이 토픽으로 가지 않았다: %v", body)
-	}
-	_ = r.button(t, "읽음")
-	cr, _ := r.tg.last("createForumTopic")
-	if !strings.Contains(cr["name"].(string), "API 리팩터") {
-		t.Fatalf("토픽 이름에 탭 이름이 없다: %v", cr["name"])
-	}
-}
-
-func TestBridgeResumeReusesTopicAndFollowsTab(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	th := r.thread(t)
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "ended", Hook: "SessionEnd"})
-	r.act(Event{ToolID: tabB, SessionID: sess, State: "idle", Hook: "SessionStart", Source: "resume"})
-	if got := r.thread(t); got != th {
-		t.Fatalf("이어 하기인데 토픽이 바뀌었다: %d → %d", th, got)
-	}
-	r.msg(me, th, "계속해")
-	if len(r.host.pastes) != 1 || r.host.pastes[0] != tabB+"|계속해" {
-		t.Fatalf("현재 탭(B)으로 가지 않았다: %v", r.host.pastes)
-	}
-}
-
-func TestBridgeEndedTopicRefusesInput(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	th := r.thread(t)
-	r.tg.reset()
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "ended", Hook: "SessionEnd"})
-	r.b.flushNames()
-	if body, ok := r.tg.last("editForumTopic"); !ok || !strings.HasPrefix(body["name"].(string), "⏹") {
-		t.Fatalf("끝난 대화가 ⏹ 가 되지 않았다: %v", body)
-	}
-	r.msg(me, th, "hello")
-	if len(r.host.pastes) != 0 {
-		t.Fatal("실행 중이 아닌 대화에 넣었다 (FR-TGB-26)")
-	}
-}
-
-func TestBridgeCloseDeletesTopicOnly(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	th := r.thread(t)
-	r.msg(me, th, "/close")
-	if _, ok := r.tg.last("deleteForumTopic"); !ok {
-		t.Fatal("토픽을 지우지 않았다")
-	}
-	if _, ok := r.st.Topic(sess); ok {
-		t.Fatal("대응표에 남았다")
-	}
-	if len(r.host.keys)+len(r.host.pastes) != 0 {
-		t.Fatal("토픽을 지우면서 에이전트를 건드렸다")
-	}
-}
-
-func TestBridgeCleanupDeletesEndedOnly(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	r.act(Event{ToolID: tabB, SessionID: "sess-2", State: "idle", Hook: "SessionStart", Source: "startup"})
-	r.attn(tabB, "done")
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "ended", Hook: "SessionEnd"})
-	r.msg(me, 0, "/cleanup")
-	if _, ok := r.st.Topic(sess); ok {
-		t.Fatal("끝난 토픽이 남았다")
-	}
-	if _, ok := r.st.Topic("sess-2"); !ok {
-		t.Fatal("살아 있는 토픽을 지웠다")
-	}
-}
-
-// 지워진 토픽에 보내다 실패하면 다시 만든다 (FR-TGB-28).
-func TestBridgeRecreatesDeletedTopic(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	old := r.thread(t)
-	r.tg.mu.Lock()
-	r.tg.failFor["sendMessage"] = "Bad Request: message thread not found"
-	r.tg.mu.Unlock()
-	r.attn(tabA, "done")
-	if got := r.thread(t); got == old {
-		t.Fatal("토픽을 다시 만들지 않았다")
-	}
-}
-
-func TestBridgeAgentsPickOpensTopic(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.host.agents = []AgentInfo{{SessionID: sess, ToolID: tabA, Name: "API 리팩터", State: "working"}}
-	r.msg(me, 0, "/agents")
-	data := r.button(t, "API 리팩터")
-	r.press(me, 0, data)
-	if _, ok := r.st.Topic(sess); !ok {
-		t.Fatal("목록에서 골랐는데 토픽이 없다")
-	}
-}
-
-// ── 입력·버튼 (TC-TGB-30·32·60) ──
-
-func TestBridgeTextPastesAndAttends(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	r.msg(me, r.thread(t), "테스트 돌려")
-	if len(r.host.pastes) != 1 || r.host.pastes[0] != tabA+"|테스트 돌려" {
-		t.Fatalf("붙여넣기: %v", r.host.pastes)
-	}
-	if len(r.host.attends) != 1 || r.host.attends[0] != tabA+"|typed" {
-		t.Fatalf("알람 해제: %v", r.host.attends)
-	}
-}
-
-func TestBridgePermissionButtonsSendRawKeys(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "working", Hook: "PreToolUse", Tool: "Bash", ToolUseID: "tu1"})
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "waiting", Hook: "PermissionRequest", Tool: "Bash",
-		Input: json.RawMessage(`{"command":"rm -rf build"}`)})
 	body, _ := r.tg.last("sendMessage")
-	if !strings.Contains(body["text"].(string), "rm -rf build") {
-		t.Fatalf("요청 메시지에 명령이 없다: %v", body["text"])
-	}
-	r.press(me, r.thread(t), r.button(t, "허용"))
-	if len(r.host.keys) != 1 || r.host.keys[0] != tabA+"|1" {
-		t.Fatalf("원시 키: %v", r.host.keys)
-	}
-	if _, ok := r.tg.last("answerCallbackQuery"); !ok {
-		t.Fatal("answerCallbackQuery 가 없다 (FR-TGB-34)")
-	}
-	if len(r.host.attends) == 0 || r.host.attends[len(r.host.attends)-1] != tabA+"|typed" {
-		t.Fatalf("알람 해제: %v", r.host.attends)
-	}
-}
-
-// PC 에서 먼저 답하면 휴대폰 버튼은 키를 넣지 않는다 (FR-TGB-43).
-func TestBridgeStaleButtonDoesNothing(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "working", Hook: "PreToolUse", Tool: "Bash", ToolUseID: "tu1"})
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "waiting", Hook: "PermissionRequest", Tool: "Bash",
-		Input: json.RawMessage(`{"command":"ls"}`)})
-	data := r.button(t, "허용")
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "working", Hook: "PostToolUse", Tool: "Bash", ToolUseID: "tu1"})
-	r.press(me, r.thread(t), data)
-	if len(r.host.keys) != 0 {
-		t.Fatalf("끝난 요청에 키를 넣었다: %v", r.host.keys)
-	}
-}
-
-func TestBridgeQuestionButtons(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	in := `{"questions":[{"question":"어떤 색?","header":"색","multiSelect":false,"options":[{"label":"red","description":"빨강"},{"label":"blue","description":"파랑"}]}]}`
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "working", Hook: "PreToolUse", Tool: "AskUserQuestion", ToolUseID: "tu2", Input: json.RawMessage(in)})
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "waiting", Hook: "PermissionRequest", Tool: "AskUserQuestion", Input: json.RawMessage(in)})
-	n := 0
-	for _, m := range r.tg.methods() {
-		if m == "sendMessage" {
-			n++
-		}
-	}
-	r.press(me, r.thread(t), r.button(t, "blue"))
-	if len(r.host.keys) != 1 || r.host.keys[0] != tabA+"|2" {
-		t.Fatalf("원시 키: %v", r.host.keys)
-	}
-	// 질문 하나에 메시지는 하나다. 상태 메시지 + 질문 = 2.
-	if n != 2 {
-		t.Fatalf("sendMessage %d번, 기대 2 (질문이 겹쳐 갔다)", n)
-	}
-}
-
-func TestBridgeReadButtonAttendsSeen(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	r.press(me, r.thread(t), r.button(t, "읽음"))
-	if len(r.host.attends) != 1 || r.host.attends[0] != tabA+"|seen" {
-		t.Fatalf("읽음 해제: %v", r.host.attends)
-	}
-}
-
-func TestBridgeEscButton(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	r.press(me, r.thread(t), r.button(t, "Esc"))
-	if len(r.host.keys) != 1 || r.host.keys[0] != tabA+"|\x1b" {
-		t.Fatalf("Esc: %q", r.host.keys)
-	}
-}
-
-// ── 알림 (TC-TGB-40) ──
-
-func TestBridgeSilenceAfterPCInput(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	r.host.lastIn[tabA] = r.now.Add(-2 * time.Minute)
-	r.attn(tabA, "done")
-	body, _ := r.tg.last("sendMessage")
-	if body["disable_notification"] != true {
-		t.Fatalf("PC 입력 2분 뒤인데 소리가 난다: %v", body)
-	}
-	r.host.lastIn[tabA] = r.now.Add(-6 * time.Minute)
-	r.attn(tabA, "done")
-	body, _ = r.tg.last("sendMessage")
-	if body["disable_notification"] == true {
-		t.Fatal("PC 입력 6분 뒤인데 소리가 나지 않는다")
-	}
-}
-
-// ── 꺼짐 (TC-TGB-80) ──
-
-func TestBridgeDisabledIsSilent(t *testing.T) {
-	r := newRig(t)
-	_ = r.st.SetEnabled(false)
-	r.start(tabA)
-	r.attn(tabA, "done")
-	r.msg(me, 0, "/agents")
-	if m := r.tg.methods(); len(m) != 0 {
-		t.Fatalf("꺼져 있는데 Telegram 을 불렀다: %v", m)
-	}
-}
-
-// 사건 넣기는 막지 않는다 (NFR-TGB-2). 큐가 차면 버린다.
-func TestBridgeEnqueueNeverBlocks(t *testing.T) {
-	r := newRig(t)
-	done := make(chan struct{})
-	go func() {
-		for i := 0; i < queueSize*3; i++ {
-			r.b.OnActivity(Event{ToolID: tabA, SessionID: sess, State: "working"})
-		}
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("OnActivity 가 막혔다")
-	}
-}
-
-// 잘린 권한 요청에는 허용 버튼을 두지 않는다. 다 보지 못한 명령을 허용하게 하지 않는다.
-func TestBridgeTruncatedPermissionHasNoAllow(t *testing.T) {
-	r := newRig(t)
-	r.start(tabA)
-	long := strings.Repeat("a", summaryMax+100) + " && rm -rf /"
-	in, _ := json.Marshal(map[string]string{"command": long})
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "waiting", Hook: "PermissionRequest", Tool: "Bash", Input: in})
-	body, _ := r.tg.last("sendMessage")
-	text := body["text"].(string)
-	if !strings.Contains(text, "rm -rf /") {
-		t.Fatalf("잘린 명령의 뒷부분이 없다: %s", text)
-	}
 	raw, _ := json.Marshal(body["reply_markup"])
-	if strings.Contains(string(raw), "허용") {
-		t.Fatalf("잘린 요청에 허용 버튼이 있다: %s", raw)
+	var mk struct {
+		Rows [][]struct {
+			Text string `json:"text"`
+			Data string `json:"callback_data"`
+		} `json:"inline_keyboard"`
 	}
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "waiting", Hook: "PermissionRequest", Tool: "Write", InputOver: true, Detail: "/x"})
-	body, _ = r.tg.last("sendMessage")
-	raw, _ = json.Marshal(body["reply_markup"])
-	if strings.Contains(string(raw), "허용") {
-		t.Fatalf("원문이 없는 요청에 허용 버튼이 있다: %s", raw)
+	_ = json.Unmarshal(raw, &mk)
+	if len(mk.Rows) != 1 || len(mk.Rows[0]) != 1 || mk.Rows[0][0].Text != "읽음" {
+		return ""
+	}
+	return mk.Rows[0][0].Data
+}
+
+var reTag = regexp.MustCompile(`<[^>]*>`)
+
+// checkTags 는 FR-TGB-52b 의 허용 목록이다. 블록 태그는 접힌 문단을 여러 상자로 끊으므로
+// 어떤 알림에도 <b>·<code>·바깥 <blockquote expandable> 한 번 말고는 없어야 한다.
+func checkTags(t *testing.T, text string) {
+	t.Helper()
+	allowed := map[string]bool{"<b>": true, "</b>": true, "<code>": true, "</code>": true,
+		"<blockquote expandable>": true, "</blockquote>": true}
+	for _, tag := range reTag.FindAllString(text, -1) {
+		if !allowed[tag] {
+			t.Fatalf("허용 목록 밖의 태그 %s: %s", tag, text)
+		}
+	}
+	if n := strings.Count(text, "<blockquote"); n != 1 || strings.Count(text, "</blockquote>") != 1 || !strings.HasSuffix(text, "</blockquote>") {
+		t.Fatalf("접힌 문단이 바깥에 정확히 한 번이 아니다(%d): %s", n, text)
 	}
 }
 
-// ── 출력 (TC-TGB-50) ──
+// sent 는 마지막 알림이다. 알림은 허용 계정의 1:1 대화방으로 간다 (FR-TGB-50).
+func (r *rig) sent(t *testing.T) string {
+	t.Helper()
+	body, ok := r.tg.last("sendMessage")
+	if !ok {
+		t.Fatal("알림을 보내지 않았다")
+	}
+	if body["chat_id"] != float64(me) || body["parse_mode"] != "HTML" {
+		t.Fatalf("보낸 곳·형식이 틀렸다: %v", body)
+	}
+	if _, has := body["message_thread_id"]; has {
+		t.Fatalf("토픽으로 보냈다: %v", body)
+	}
+	text := body["text"].(string)
+	checkTags(t, text)
+	return text
+}
 
 func writeLines(t *testing.T, p string, lines ...string) {
 	t.Helper()
@@ -535,50 +219,324 @@ func writeLines(t *testing.T, p string, lines ...string) {
 	}
 }
 
-func (r *rig) sentTexts() string {
-	r.tg.mu.Lock()
-	defer r.tg.mu.Unlock()
-	var sb strings.Builder
-	for _, c := range r.tg.calls {
-		if c.Method == "sendMessage" {
-			s, _ := c.Body["text"].(string)
-			sb.WriteString(s + "\n")
+func replyLine(text string) string {
+	b, _ := json.Marshal(text)
+	return `{"type":"assistant","isSidechain":false,"message":{"content":[{"type":"text","text":` + string(b) + `}]}}`
+}
+
+func wantHas(t *testing.T, text string, parts ...string) {
+	t.Helper()
+	for _, p := range parts {
+		if !strings.Contains(text, p) {
+			t.Fatalf("%q 가 없다:\n%s", p, text)
 		}
 	}
-	return sb.String()
 }
 
-func TestBridgeStreamsTranscriptOnlyWhileOpen(t *testing.T) {
+// folded 는 접힌 문단에서 구분선 아래의 내용이다. 없으면 빈 글이다.
+func folded(text string) string {
+	_, rest, ok := strings.Cut(text, "\n\n"+divider+"\n\n")
+	if !ok {
+		return ""
+	}
+	in, _, _ := strings.Cut(rest, "</blockquote>")
+	return in
+}
+
+// ── 허용 계정 (TC-TGB-10·11) ──
+
+func TestBridgeIgnoresStranger(t *testing.T) {
 	r := newRig(t)
-	tp := filepath.Join(t.TempDir(), "s.jsonl")
-	writeLines(t, tp, sampleLines[4])
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "working", Hook: "PreToolUse", Transcript: tp})
-	if strings.Contains(r.sentTexts(), "읽겠습니다") {
-		t.Fatal("토픽이 없는데 출력을 보냈다 (NFR-TGB-5)")
-	}
-	r.attn(tabA, "waiting")
-	writeLines(t, tp, sampleLines[5], sampleLines[6], `{"type":"assistant","isSidechain":false,"message":{"content":[{"type":"text","text":"테스트가 **통과**했습니다."}]}}`)
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "working", Hook: "PostToolUse", Transcript: tp})
-	out := r.sentTexts()
-	if !strings.Contains(out, "🔧 Bash: npm test") || !strings.Contains(out, "<b>통과</b>") {
-		t.Fatalf("열린 토픽에 출력이 가지 않았다:\n%s", out)
-	}
-	if strings.Contains(out, "SECRET") {
-		t.Fatalf("도구 결과가 나갔다:\n%s", out)
-	}
-	if strings.Contains(out, "읽겠습니다") {
-		t.Fatalf("토픽을 열기 전 기록을 보냈다:\n%s", out)
+	r.msg(7, "/agents")
+	r.msg(7, "hello")
+	r.press(7, "r:"+tabA)
+	if m := r.tg.methods(); len(m) != 0 {
+		t.Fatalf("모르는 사람에게 답했다: %v", m)
 	}
 }
 
-// 알림이 토픽을 새로 열면 마지막 응답을 함께 싣는다 (FR-TGB-52).
-func TestBridgeDoneAlarmCarriesLastReply(t *testing.T) {
+func TestBridgePairCommand(t *testing.T) {
+	r := newRig(t)
+	_ = r.st.SetUser(0)
+	code, _ := r.b.Pairing().Issue()
+	r.msg(77, "/pair 000000")
+	if r.st.Config().UserID != 0 {
+		t.Fatal("틀린 코드로 등록됐다")
+	}
+	r.msg(77, "/pair "+code)
+	if r.st.Config().UserID != 77 {
+		t.Fatal("맞는 코드로 등록되지 않았다")
+	}
+}
+
+// FR-TGB-14: 허용 계정의 다른 글에는 안내만 하고, 남은 버튼은 로딩으로 두지 않는다.
+func TestBridgeOwnerGetsNoticeOnly(t *testing.T) {
+	r := newRig(t)
+	r.msg(me, "/agents")
+	body, ok := r.tg.last("sendMessage")
+	if !ok || !strings.Contains(body["text"].(string), "알림만") {
+		t.Fatalf("안내가 없다: %v", body)
+	}
+	r.press(me, "c:1:2")
+	ans, ok := r.tg.last("answerCallbackQuery")
+	if !ok || ans["callback_query_id"] != "cb" || !strings.Contains(ans["text"].(string), "지원하지 않는") {
+		t.Fatalf("버튼에 답하지 않았다: %v", ans)
+	}
+}
+
+// ── 알림 (TC-TGB-40~45) ──
+
+func TestBridgeDoneCarriesLastReplyFolded(t *testing.T) {
 	r := newRig(t)
 	tp := filepath.Join(t.TempDir(), "s.jsonl")
-	writeLines(t, tp, `{"type":"assistant","isSidechain":false,"message":{"content":[{"type":"text","text":"모두 고쳤습니다."}]}}`)
-	r.act(Event{ToolID: tabA, SessionID: sess, State: "done", Hook: "Stop", Transcript: tp})
+	writeLines(t, tp, replyLine("앞 응답"), replyLine("```\nx\n```"), replyLine("모두 고쳤습니다. <b>태그</b> & 끝"))
+	r.act(Event{ToolID: tabA, Hook: "UserPromptSubmit", Transcript: tp})
+	r.act(Event{ToolID: tabA, Hook: "Stop", Transcript: tp})
 	r.attn(tabA, "done")
-	if !strings.Contains(r.sentTexts(), "모두 고쳤습니다.") {
-		t.Fatalf("마지막 응답이 없다:\n%s", r.sentTexts())
+	text := r.sent(t)
+	head, _, _ := strings.Cut(text, divider)
+	if head != "✅ <b>완료</b>\n<blockquote expandable>"+locA+"\n\n" {
+		t.Fatalf("머리가 틀렸다: %q", head)
+	}
+	if got := folded(text); got != "모두 고쳤습니다. &lt;b&gt;태그&lt;/b&gt; &amp; 끝" {
+		t.Fatalf("접힌 내용이 틀렸다: %q", got)
+	}
+}
+
+func TestBridgeStopFailureIsError(t *testing.T) {
+	r := newRig(t)
+	r.act(Event{ToolID: tabA, Hook: "StopFailure", Detail: "rate_limit"})
+	r.attn(tabA, "done")
+	text := r.sent(t)
+	wantHas(t, text, "❌", "<b>오류</b>")
+	if folded(text) != "rate_limit" {
+		t.Fatalf("오류 내용이 틀렸다: %s", text)
+	}
+	// 다음 턴이 정상으로 끝나면 다시 완료다.
+	r.act(Event{ToolID: tabA, Hook: "UserPromptSubmit"})
+	r.act(Event{ToolID: tabA, Hook: "Stop"})
+	r.attn(tabA, "done")
+	wantHas(t, r.sent(t), "✅")
+}
+
+func TestBridgeQuestionAlarm(t *testing.T) {
+	r := newRig(t)
+	in := json.RawMessage(`{"questions":[{"header":"색","question":"어느 색?","options":[{"label":"빨강","description":"따뜻함"},{"label":"파랑"}]}]}`)
+	r.act(Event{ToolID: tabA, Hook: "PreToolUse", Tool: "AskUserQuestion", Input: in})
+	r.act(Event{ToolID: tabA, Hook: "PermissionRequest", Tool: "AskUserQuestion"})
+	r.attn(tabA, "waiting")
+	text := r.sent(t)
+	wantHas(t, text, "❓ <b>질문</b>\n<blockquote expandable>"+locA+"\n\n"+divider+"\n\n")
+	if got := folded(text); got != "<b>[색] 어느 색?</b>\n1. 빨강 — 따뜻함\n2. 파랑" {
+		t.Fatalf("질문 모양이 틀렸다: %q", got)
+	}
+}
+
+func TestBridgePermissionAlarm(t *testing.T) {
+	r := newRig(t)
+	in := json.RawMessage(`{"command":"rm -rf build && make"}`)
+	r.act(Event{ToolID: tabA, Hook: "PreToolUse", Tool: "Bash"})
+	r.act(Event{ToolID: tabA, Hook: "PermissionRequest", Tool: "Bash", Input: in})
+	r.attn(tabA, "waiting")
+	text := r.sent(t)
+	wantHas(t, text, "🔐 <b>권한 요청</b> · Bash\n")
+	if folded(text) != "<code>rm -rf build &amp;&amp; make</code>" {
+		t.Fatalf("권한 내용이 틀렸다: %s", text)
+	}
+	// 원문이 상한을 넘으면 Detail 로 보인다 (FR-TGB-81).
+	r.act(Event{ToolID: tabA, Hook: "PermissionRequest", Tool: "Write", InputOver: true, Detail: "/src/big.go"})
+	r.attn(tabA, "waiting")
+	if folded(r.sent(t)) != "<code>/src/big.go</code>" {
+		t.Fatal("상한을 넘은 요청의 요약이 없다")
+	}
+	// 여러 줄 명령은 줄마다 감싼다 (FR-TGB-52b).
+	r.act(Event{ToolID: tabA, Hook: "PermissionRequest", Tool: "Bash", Input: json.RawMessage(`{"command":"cd x\n\nmake"}`)})
+	r.attn(tabA, "waiting")
+	if got := folded(r.sent(t)); got != "<code>cd x</code>\n\n<code>make</code>" {
+		t.Fatalf("여러 줄 명령의 모양이 틀렸다: %q", got)
+	}
+}
+
+// TC-TGB-43: 처리된 요청은 다음 기다림의 종류가 되지 않는다.
+func TestBridgeClosedRequestIsPlainWaiting(t *testing.T) {
+	r := newRig(t)
+	r.act(Event{ToolID: tabA, Hook: "PermissionRequest", Tool: "Bash", Input: json.RawMessage(`{"command":"ls"}`)})
+	r.act(Event{ToolID: tabA, Hook: "PostToolUse", Tool: "Bash"})
+	r.act(Event{ToolID: tabA, Hook: "Notification", Detail: "Claude needs your input"})
+	r.attn(tabA, "waiting")
+	text := r.sent(t)
+	wantHas(t, text, "⏳", "<b>입력 대기</b>")
+	if strings.Contains(text, "🔐") || folded(text) != "Claude needs your input" {
+		t.Fatalf("닫힌 권한 요청이 남았다: %s", text)
+	}
+}
+
+// FR-TGB-59: hook 이 없는 에이전트는 내용 없이 간다. 모르는 사유는 🔔 다.
+func TestBridgeNoHookAgent(t *testing.T) {
+	r := newRig(t)
+	r.attn("codex-tab", "done")
+	text := r.sent(t)
+	if text != "✅ <b>완료</b>\n<blockquote expandable><code>Server :</code> <b>mac</b>\n<code>Tab    :</code> <b>codex-tab</b></blockquote>" {
+		t.Fatalf("모르는 윈도우 줄이 있거나 내용이 있다: %q", text)
+	}
+	r.attn("codex-tab", "waiting")
+	wantHas(t, r.sent(t), "⏳")
+	r.attn("codex-tab", "bell")
+	wantHas(t, r.sent(t), "🔔")
+}
+
+// TC-TGB-42: 3500자를 넘으면 앞부분만 남긴다.
+func TestBridgeLongContentCut(t *testing.T) {
+	r := newRig(t)
+	tp := filepath.Join(t.TempDir(), "s.jsonl")
+	writeLines(t, tp, replyLine(strings.Repeat("가", 5000)))
+	r.act(Event{ToolID: tabA, Hook: "Stop", Transcript: tp})
+	r.attn(tabA, "done")
+	text := r.sent(t)
+	got := folded(text)
+	if !strings.HasSuffix(got, "…(PC 에서 보기)") || utf8.RuneCountInString(strings.TrimSuffix(got, "…(PC 에서 보기)")) != contentMax {
+		t.Fatalf("자르지 않았다: %d글자", utf8.RuneCountInString(got))
+	}
+	if utf8.RuneCountInString(text) > 4096 {
+		t.Fatalf("메시지 한도를 넘었다: %d글자", utf8.RuneCountInString(text))
+	}
+}
+
+// TC-TGB-44: 위치는 굵게 한 줄씩이고, 윈도우를 모르면 그 줄을 뺀다.
+func TestLocationLines(t *testing.T) {
+	if got := locationLines(Location{Device: "d", Window: "w", Tab: "t"}); got != "<code>Server :</code> <b>d</b>\n<code>Window :</code> <b>w</b>\n<code>Tab    :</code> <b>t</b>" {
+		t.Fatalf("%q", got)
+	}
+	if got := locationLines(Location{Device: "<d>", Tab: "t&"}); got != "<code>Server :</code> <b>&lt;d&gt;</b>\n<code>Tab    :</code> <b>t&amp;</b>" {
+		t.Fatalf("%q", got)
+	}
+}
+
+// TC-TGB-48: 읽음 버튼은 PC 의 포커스와 같은 해제다.
+func TestBridgeReadButton(t *testing.T) {
+	r := newRig(t)
+	r.attn(tabA, "done")
+	data := r.readData(t)
+	if data != "r:"+tabA {
+		t.Fatalf("읽음 버튼 데이터=%q", data)
+	}
+	r.press(7, data)
+	if len(r.host.attends) != 0 {
+		t.Fatalf("남이 누른 버튼으로 알람을 껐다: %v", r.host.attends)
+	}
+	r.press(me, data)
+	if len(r.host.attends) != 1 || r.host.attends[0] != tabA+"|seen" {
+		t.Fatalf("attends=%v", r.host.attends)
+	}
+	ans, _ := r.tg.last("answerCallbackQuery")
+	if ans["text"] != "읽음" {
+		t.Fatalf("답=%v", ans)
+	}
+	ed, ok := r.tg.last("editMessageReplyMarkup")
+	if !ok || ed["message_id"] != float64(5) || ed["chat_id"] != float64(me) {
+		t.Fatalf("버튼을 걷지 않았다: %v", ed)
+	}
+	long := strings.Repeat("x", 63)
+	r.attn(long, "done")
+	if r.readData(t) != "" {
+		t.Fatal("64바이트를 넘는 데이터로 버튼을 달았다")
+	}
+}
+
+// TC-TGB-49: PC 에서 알람이 꺼지면 그 탭의 남은 버튼을 걷는다 (FR-TGB-58b).
+func TestBridgeClearRemovesButtons(t *testing.T) {
+	r := newRig(t)
+	r.attn(tabA, "done")
+	r.attn(tabA, "waiting")
+	r.attn("tool-B", "done")
+	r.clear(tabA)
+	got := r.tg.edited()
+	if len(got) != 2 || !slices.Contains(got, 1) || !slices.Contains(got, 2) {
+		t.Fatalf("tabA 의 두 알림 버튼을 걷지 않았다: %v", got)
+	}
+	r.clear(tabA)
+	if len(r.tg.edited()) != 2 {
+		t.Fatalf("이미 걷은 버튼을 다시 걷었다: %v", r.tg.edited())
+	}
+	// 읽음으로 걷은 메시지는 해제 때 다시 걷지 않는다. tool-B 의 첫 알림은 3번이다.
+	r.pressOn(me, "r:tool-B", 3)
+	r.clear("tool-B")
+	if got := r.tg.edited(); len(got) != 3 || got[2] != 3 {
+		t.Fatalf("읽음으로 걷은 버튼을 해제 때 다시 걷었다: %v", got)
+	}
+}
+
+// TC-TGB-47: Markdown 옮기기 (FR-TGB-52a).
+func TestMarkdownToHTML(t *testing.T) {
+	cases := []struct{ name, in, want string }{
+		{"제목", "## 바뀐 <것>", "<b>바뀐 &lt;것&gt;</b>"},
+		{"목록", "- 하나\n  * 둘", "• 하나\n  • 둘"},
+		{"굵게·코드", "**굵게** 와 `a**b**` & c", "<b>굵게</b> 와 <code>a**b**</code> &amp; c"},
+		{"울타리", "앞\n```go\nx := 1 < 2\n\n  y()\n```\n뒤", "앞\n<code>x := 1 &lt; 2</code>\n\n<code>  y()</code>\n뒤"},
+		{"닫히지 않은 울타리", "```\nfoo", "<code>foo</code>"},
+		{"표", "| 이름 | 값 |\n|---|:--:|\n| a | **b** |", "<b>이름 · 값</b>\n• a · <b>b</b>"},
+		{"인용", "> 주의", "주의"},
+		{"가로줄·빈 줄", "a\n---\n\n\n\nb", "a\n\nb"},
+	}
+	for _, tc := range cases {
+		got := mdToHTML(tc.in)
+		if got != tc.want {
+			t.Errorf("%s: %q, 기대 %q", tc.name, got, tc.want)
+		}
+		checkTags(t, alarmText(kindDone, Location{Device: "d", Tab: "t"}, got))
+	}
+}
+
+// TC-TGB-45
+func TestBridgeSilenceAfterPCInput(t *testing.T) {
+	r := newRig(t)
+	r.host.lastIn[tabA] = r.now.Add(-2 * time.Minute)
+	r.attn(tabA, "done")
+	body, _ := r.tg.last("sendMessage")
+	if body["disable_notification"] != true {
+		t.Fatalf("PC 입력 2분 뒤인데 소리가 난다: %v", body)
+	}
+	r.host.lastIn[tabA] = r.now.Add(-6 * time.Minute)
+	r.attn(tabA, "done")
+	body, _ = r.tg.last("sendMessage")
+	if body["disable_notification"] == true {
+		t.Fatal("PC 입력 6분 뒤인데 소리가 나지 않는다")
+	}
+	_ = r.st.SetSilence(0)
+	r.host.lastIn[tabA] = r.now
+	r.attn(tabA, "done")
+	body, _ = r.tg.last("sendMessage")
+	if body["disable_notification"] == true {
+		t.Fatal("무음 시간 0 인데 소리가 나지 않는다")
+	}
+}
+
+// ── 꺼짐 (TC-TGB-80) ──
+
+func TestBridgeDisabledIsSilent(t *testing.T) {
+	r := newRig(t)
+	_ = r.st.SetEnabled(false)
+	r.act(Event{ToolID: tabA, Hook: "Stop"})
+	r.attn(tabA, "done")
+	r.msg(me, "hello")
+	if m := r.tg.methods(); len(m) != 0 {
+		t.Fatalf("꺼져 있는데 Telegram 을 불렀다: %v", m)
+	}
+}
+
+// 사건 넣기는 막지 않는다 (NFR-TGB-2). 큐가 차면 버린다.
+func TestBridgeEnqueueNeverBlocks(t *testing.T) {
+	r := newRig(t)
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < queueSize*3; i++ {
+			r.b.OnActivity(Event{ToolID: tabA, Hook: "PreToolUse"})
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("OnActivity 가 막혔다")
 	}
 }

@@ -105,10 +105,9 @@ func (c *Client) Call(ctx context.Context, method string, params map[string]any,
 
 // User 는 Bot API 의 User 중 쓰는 것이다.
 type User struct {
-	ID               int64  `json:"id"`
-	IsBot            bool   `json:"is_bot"`
-	Username         string `json:"username"`
-	HasTopicsEnabled bool   `json:"has_topics_enabled"`
+	ID       int64  `json:"id"`
+	IsBot    bool   `json:"is_bot"`
+	Username string `json:"username"`
 }
 
 type Chat struct {
@@ -121,7 +120,6 @@ type Message struct {
 	MessageID int64  `json:"message_id"`
 	From      *User  `json:"from"`
 	Chat      Chat   `json:"chat"`
-	ThreadID  int64  `json:"message_thread_id"`
 	Text      string `json:"text"`
 }
 

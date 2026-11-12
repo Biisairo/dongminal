@@ -87,7 +87,6 @@ func parseClaudeHook(data []byte) (Report, bool) {
 		AgentType        string `json:"agent_type"`
 		SessionID        string `json:"session_id"`
 		Transcript       string `json:"transcript_path"`
-		ToolUseID        string `json:"tool_use_id"`
 	}
 	if err := json.Unmarshal(data, &ev); err != nil {
 		return Report{}, false
@@ -103,7 +102,7 @@ func parseClaudeHook(data []byte) (Report, bool) {
 			rep.Sub.AgentID, rep.Sub.AgentType = ev.AgentID, ev.AgentType
 		}
 		rep.SessionID, rep.Transcript = ev.SessionID, ev.Transcript
-		setClaudeBridgeFields(&rep, ev.Event, ev.ToolName, ev.ToolUseID, ev.Source, ev.ToolInput)
+		setClaudeBridgeFields(&rep, ev.Event, ev.ToolName, ev.ToolInput)
 		return rep, true
 	}
 	var rep Report
@@ -158,14 +157,14 @@ func parseClaudeHook(data []byte) (Report, bool) {
 	}
 	rep.SessionID = ev.SessionID
 	rep.Transcript = ev.Transcript
-	setClaudeBridgeFields(&rep, ev.Event, ev.ToolName, ev.ToolUseID, ev.Source, ev.ToolInput)
+	setClaudeBridgeFields(&rep, ev.Event, ev.ToolName, ev.ToolInput)
 	return rep, true
 }
 
 // setClaudeBridgeFields 는 브리지의 곁들이 값을 싣는다 (TELEGRAM_BRIDGE_SRS FR-TGB-80·81).
 // 원문은 사람의 답을 기다리는 훅에만 싣는다 — 권한 요청과 AskUserQuestion 의 PreToolUse.
-func setClaudeBridgeFields(rep *Report, event, toolName, toolUseID, source string, input json.RawMessage) {
-	rep.Hook, rep.ToolUseID, rep.Source = event, toolUseID, source
+func setClaudeBridgeFields(rep *Report, event, toolName string, input json.RawMessage) {
+	rep.Hook = event
 	if event != "PermissionRequest" && !(event == "PreToolUse" && toolName == claudeAskTool) {
 		return
 	}

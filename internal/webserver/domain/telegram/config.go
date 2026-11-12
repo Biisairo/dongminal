@@ -28,25 +28,14 @@ var (
 	ErrSaveFailed     = errors.New("Telegram 설정을 저장하지 못했습니다")
 )
 
-// Topic 은 대화(`session_id`) 하나의 토픽이다 (FR-TGB-21).
-type Topic struct {
-	ThreadID int64  `json:"threadId"`
-	Name     string `json:"name"`
-	// ToolID 는 현재 탭이다. 그 대화의 hook 보고가 마지막으로 온 도구다.
-	ToolID string `json:"toolId"`
-	// StatusMsgID 는 위에 고정한 상태 메시지다 (FR-TGB-32). 0 이면 아직 없다.
-	StatusMsgID int64 `json:"statusMsgId,omitempty"`
-}
-
 // Config 는 telegram.json 의 내용이다.
 type Config struct {
 	Enabled bool   `json:"enabled"`
 	Token   string `json:"token"`
 	BotName string `json:"botName"`
 	// UserID 는 허용 계정이다 (FR-TGB-11). 1:1 대화방의 chat_id 와 같다.
-	UserID     int64            `json:"userId"`
-	SilenceMin int              `json:"silenceMin"`
-	Topics     map[string]Topic `json:"topics"`
+	UserID     int64 `json:"userId"`
+	SilenceMin int   `json:"silenceMin"`
 }
 
 // View 는 화면으로 가는 값이다. token 을 싣지 않는다 (FR-TGB-3).
@@ -58,17 +47,8 @@ type View struct {
 	SilenceMin int    `json:"silenceMin"`
 }
 
-func (c Config) clone() Config {
-	out := c
-	out.Topics = make(map[string]Topic, len(c.Topics))
-	for k, v := range c.Topics {
-		out.Topics[k] = v
-	}
-	return out
-}
-
 func defaultConfig() Config {
-	return Config{SilenceMin: DefaultSilenceMin, Topics: map[string]Topic{}}
+	return Config{SilenceMin: DefaultSilenceMin}
 }
 
 // Store 는 telegram.json 이다. 틀린 값은 저장하지 않고, 쓰기에 실패하면 메모리도
@@ -94,9 +74,6 @@ func OpenStore(path string) *Store {
 		dmlog.Infof(nil, "telegram: 설정이 깨졌다: %v — 끈 채로 시작한다", err)
 		return s
 	}
-	if c.Topics == nil {
-		c.Topics = map[string]Topic{}
-	}
 	s.cfg = c
 	return s
 }
@@ -105,7 +82,7 @@ func OpenStore(path string) *Store {
 func (s *Store) Config() Config {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.cfg.clone()
+	return s.cfg
 }
 
 // View 는 화면용 값이다.
@@ -119,7 +96,7 @@ func (s *Store) View() View {
 func (s *Store) update(fn func(*Config) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	c := s.cfg.clone()
+	c := s.cfg
 	if err := fn(&c); err != nil {
 		return err
 	}
@@ -135,12 +112,11 @@ func (s *Store) update(fn func(*Config) error) error {
 	return nil
 }
 
-// SetToken 은 token 과 봇 이름을 바꾼다. token 이 바뀌면 허용 계정과 토픽을 지운다 (FR-TGB-5).
+// SetToken 은 token 과 봇 이름을 바꾼다. token 이 바뀌면 허용 계정을 지운다 (FR-TGB-5).
 func (s *Store) SetToken(token, botName string) error {
 	return s.update(func(c *Config) error {
 		if c.Token != token {
 			c.UserID = 0
-			c.Topics = map[string]Topic{}
 		}
 		c.Token, c.BotName = token, botName
 		return nil
@@ -161,19 +137,4 @@ func (s *Store) SetSilence(min int) error {
 // SetUser 는 허용 계정을 바꾼다. 0 이면 해제다.
 func (s *Store) SetUser(id int64) error {
 	return s.update(func(c *Config) error { c.UserID = id; return nil })
-}
-
-func (s *Store) Topic(sessionID string) (Topic, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.cfg.Topics[sessionID]
-	return t, ok
-}
-
-func (s *Store) PutTopic(sessionID string, t Topic) error {
-	return s.update(func(c *Config) error { c.Topics[sessionID] = t; return nil })
-}
-
-func (s *Store) DeleteTopic(sessionID string) error {
-	return s.update(func(c *Config) error { delete(c.Topics, sessionID); return nil })
 }
