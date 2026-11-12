@@ -162,7 +162,7 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 	defer s.Seats.Leave(tool.ID, conn)
 
 	data, full := directReplay(tool.Stream(), since, regOff)
-	if payload := buildReplay(data, full); len(payload) > 0 {
+	if payload := buildReplay(data, full, tool.TermModes().AltScreen); len(payload) > 0 {
 		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
 			dmlog.Errorf(nil, "[tool %s] replay send error addr=%s: %v", tool.ID, remoteAddr, err)
 			return
@@ -237,7 +237,7 @@ func (s *Server) handleWSDaemon(r *http.Request, conn *toolhub.SafeConn, pc tool
 	s.Seats.Join(toolID, conn)
 	defer s.Seats.Leave(toolID, conn)
 
-	if payload := buildReplay(snap.Data, full); len(payload) > 0 {
+	if payload := buildReplay(snap.Data, full, snap.Modes.AltScreen); len(payload) > 0 {
 		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
 			dmlog.Errorf(nil, "[tool %s] replay send error: %v", toolID, err)
 			return

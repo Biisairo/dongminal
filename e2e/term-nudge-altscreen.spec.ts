@@ -85,3 +85,38 @@ test('V-TRS-17b: alt screen 앱은 전량 재생 뒤 넛지를 받는다', async
 
   expect(await resizesAfterReplay(page)).toBeGreaterThanOrEqual(3);
 });
+
+/**
+ * 커서 이동만으로 1.2 MiB 를 그리는 alt screen 앱 — `CLAUDE_CODE_NO_FLICKER=1` 인 claude 가
+ * 이 방식이다. `?1049h` 는 맨 앞에 한 번뿐이라 보유 창(1 MiB) 밖으로 밀린다.
+ */
+const ALT_FRAMES_APP = 'node -e "const o=process.stdout;o.write(\'\\x1b[?1049h\');' +
+  'let s=\'\';for(let i=0;s.length<1200000;i++){for(let r=1;r<=20;r++)s+=\'\\x1b[\'+r+\';1HFRAME \'+i+\' row \'+r}' +
+  'o.write(s+\'\\x1b[21;1Hframes-done\');setInterval(()=>{},1000)"';
+
+const viewportState = (page: any) => paneEval(page, `p => {
+  const vp = p.el.querySelector('.xterm-viewport');
+  return { buf: p.term.buffer.active.type, sh: vp.scrollHeight, ch: vp.clientHeight };
+}`);
+
+test('V-TRS-7b: ?1049h 가 보유 창 밖이어도 새로고침 뒤 alt screen 이고, 줄여도 스크롤이 없다', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto('/');
+  await ready(page);
+  await runIn(page, ALT_FRAMES_APP);
+  await expect.poll(() => paneEval(page, `p => {
+    const b = p.term.buffer.active;
+    for (let i = 0; i < b.length; i++) if ((b.getLine(i)?.translateToString(true) || '').includes('frames-done')) return true;
+    return false;
+  }`), { timeout: 30000 }).toBe(true);
+
+  await page.reload();
+  await ready(page);
+  await expect.poll(() => viewportState(page).then((s: any) => s.buf), { timeout: 20000 }).toBe('alternate');
+
+  await page.setViewportSize({ width: 1000, height: 500 });
+  await expect.poll(() => viewportState(page).then((s: any) => s.ch), { timeout: 10000 }).toBeLessThan(450);
+  const s = await viewportState(page);
+  expect(s.buf).toBe('alternate');
+  expect(s.sh).toBeLessThanOrEqual(s.ch);
+});

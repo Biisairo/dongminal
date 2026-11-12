@@ -63,7 +63,7 @@ func TestAlignHead_Empty(t *testing.T) {
 
 // V-TRS-7: 전량 재생은 termReset → 하드 클리어 → 스냅샷 순서다.
 func TestBuildReplay_FullOrder(t *testing.T) {
-	got := buildReplay([]byte("\nBODY"), true)
+	got := buildReplay([]byte("\nBODY"), true, false)
 	iReset := bytes.Index(got, termReset)
 	iClear := bytes.Index(got, termHardClear)
 	iBody := bytes.Index(got, []byte("BODY"))
@@ -77,7 +77,7 @@ func TestBuildReplay_FullOrder(t *testing.T) {
 
 // V-TRS-7: 화면과 스크롤백을 모두 지운다. ED 2 만으로는 위로 밀린 것이 남는다.
 func TestBuildReplay_FullClearsScreenAndScrollback(t *testing.T) {
-	got := buildReplay([]byte("\nx"), true)
+	got := buildReplay([]byte("\nx"), true, false)
 	for _, want := range []string{"\x1b[2J", "\x1b[3J", "\x1b[?1049l", "\x1b[H"} {
 		if !bytes.Contains(got, []byte(want)) {
 			t.Errorf("전량 재생에 %q 가 없다", want)
@@ -85,9 +85,42 @@ func TestBuildReplay_FullClearsScreenAndScrollback(t *testing.T) {
 	}
 }
 
+// V-TRS-7a: 본문 앞머리가 대체 화면 안이면 하드 클리어와 본문 사이에 `?1049h` 를
+// 넣는다 (FR-TRS-10a). 앞머리 상태는 첫 전환이 정하고, 전환이 없으면 지금 상태다.
+func TestBuildReplay_RestoresAltAtHead(t *testing.T) {
+	altOn := []byte("\x1b[?1049h")
+	cases := []struct {
+		name string
+		body string
+		alt  bool
+		want bool
+	}{
+		{"전환 없음·지금 대체 화면", "\nFRAME", true, true},
+		{"전환 없음·지금 주 화면", "\nFRAME", false, false},
+		{"첫 전환이 끄기", "\nFRAME\x1b[?1049l$ \x1b[?1049hVIM", true, true},
+		{"첫 전환이 켜기", "\n$ vim\x1b[?1049hVIM", true, false},
+		{"옛 형태 47 끄기", "\nFRAME\x1b[?47l$ ", false, true},
+	}
+	for _, c := range cases {
+		got := buildReplay([]byte(c.body), true, c.alt)
+		iClear := bytes.Index(got, termHardClear)
+		has := bytes.HasPrefix(got[iClear+len(termHardClear):], altOn)
+		if has != c.want {
+			t.Errorf("%s: 하드 클리어 바로 뒤 ?1049h=%v want %v (%q)", c.name, has, c.want, got)
+		}
+	}
+}
+
+// V-TRS-7a: 델타에는 넣지 않는다 — 받는 xterm 은 이미 그 상태다.
+func TestBuildReplay_DeltaNoAltRestore(t *testing.T) {
+	if got := buildReplay([]byte("FRAME"), false, true); string(got) != "FRAME" {
+		t.Errorf("got=%q want %q", got, "FRAME")
+	}
+}
+
 // V-TRS-8: 델타 재개는 **지우지 않는다.** 지우면 사용자가 보던 것이 사라진다.
 func TestBuildReplay_DeltaHasNoClear(t *testing.T) {
-	got := buildReplay([]byte("delta"), false)
+	got := buildReplay([]byte("delta"), false, false)
 	if bytes.Contains(got, termHardClear) || bytes.Contains(got, termReset) {
 		t.Errorf("델타에 클리어가 섞였다: %q", got)
 	}
@@ -98,7 +131,7 @@ func TestBuildReplay_DeltaHasNoClear(t *testing.T) {
 
 // V-TRS-12: 델타에는 앞머리 정렬이 걸리지 않는다 — 밀면 바이트를 잃는다.
 func TestBuildReplay_DeltaNotAligned(t *testing.T) {
-	got := buildReplay([]byte("앞\n뒤"), false)
+	got := buildReplay([]byte("앞\n뒤"), false, false)
 	if string(got) != "앞\n뒤" {
 		t.Errorf("got=%q want %q (정렬하면 안 된다)", got, "앞\n뒤")
 	}
@@ -106,7 +139,7 @@ func TestBuildReplay_DeltaNotAligned(t *testing.T) {
 
 // V-TRS-9: 델타도 **기록**이다. OSC777·질의 필터가 걸려야 한다.
 func TestBuildReplay_DeltaIsFiltered(t *testing.T) {
-	got := buildReplay([]byte("a\x1b]777;Cwd;/tmp\x07b\x1b[?6nc"), false)
+	got := buildReplay([]byte("a\x1b]777;Cwd;/tmp\x07b\x1b[?6nc"), false, false)
 	if string(got) != "abc" {
 		t.Errorf("got=%q want %q", got, "abc")
 	}
@@ -120,7 +153,7 @@ func TestBuildReplay_StripsStartupProbes(t *testing.T) {
 		"\x1b[?2026$p" + "\x1b[?2048$p" + "\x1b[?2031$p" +
 		"\x1b[?1010$p" + "\x1b[?1011$p" +
 		"\x1bP$q q\x1b\\"
-	got := buildReplay([]byte("$ claude"+probes+"\nready"), false)
+	got := buildReplay([]byte("$ claude"+probes+"\nready"), false, false)
 	if string(got) != "$ claude\nready" {
 		t.Fatalf("질의가 남았다: %q", got)
 	}
@@ -128,7 +161,7 @@ func TestBuildReplay_StripsStartupProbes(t *testing.T) {
 
 // V-TRS-9: 전량 재생도 같은 필터를 지난다.
 func TestBuildReplay_FullIsFiltered(t *testing.T) {
-	got := buildReplay([]byte("\na\x1b]777;Cwd;/tmp\x07b"), true)
+	got := buildReplay([]byte("\na\x1b]777;Cwd;/tmp\x07b"), true, false)
 	if bytes.Contains(got, []byte("777")) {
 		t.Errorf("OSC777 이 남았다: %q", got)
 	}
@@ -136,7 +169,7 @@ func TestBuildReplay_FullIsFiltered(t *testing.T) {
 
 // 보낼 것이 없는 델타는 빈 바이트다 — 호출자는 프레임 자체를 보내지 않는다.
 func TestBuildReplay_EmptyDelta(t *testing.T) {
-	if got := buildReplay(nil, false); len(got) != 0 {
+	if got := buildReplay(nil, false, false); len(got) != 0 {
 		t.Errorf("got=%q want empty", got)
 	}
 }

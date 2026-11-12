@@ -184,6 +184,32 @@ func scanModes(scan []byte, cur TermModes) (TermModes, []byte) {
 	return cur, nil
 }
 
+// AltScreenAtHead 는 출력 b 의 **앞머리**가 대체 화면 안이었는지다
+// (TERMINAL_RESUME_SRS FR-TRS-10a). b 안의 첫 전환이 끄기면 그 앞은 대체 화면이고,
+// 켜기면 아니다. 전환이 없으면 b 의 끝 상태인 altNow 와 같다.
+func AltScreenAtHead(b []byte, altNow bool) bool {
+	var pbuf [8]int
+	for i := 0; i < len(b); {
+		j := bytes.IndexByte(b[i:], 0x1b)
+		if j < 0 {
+			break
+		}
+		start := i + j
+		params, final, end, ok := parsePrivateMode(b[start:], pbuf[:0])
+		if !ok {
+			i = start + 1
+			continue
+		}
+		for _, n := range params {
+			if contains(altScreenModes, n) {
+				return final == 'l'
+			}
+		}
+		i = start + end
+	}
+	return altNow
+}
+
 // parsePrivateMode 는 `ESC[?<n>[;<n>…]<h|l>` 하나를 읽는다. 파라미터는 params 에
 // 이어 붙인다 — 호출자가 재사용 버퍼를 준다.
 //

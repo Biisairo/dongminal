@@ -36,6 +36,9 @@ var termReset = []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b
 //	3J     — **스크롤백.** 이것이 없으면 위로 밀린 이전 내용이 그대로 남는다
 var termHardClear = []byte("\x1b[?1049l\x1b[H\x1b[2J\x1b[3J")
 
+// termAltOn 은 재생 본문 앞머리가 대체 화면 안일 때 하드 클리어 뒤에 붙인다 (FR-TRS-10a).
+var termAltOn = []byte("\x1b[?1049h")
+
 // trsAlignScan 은 앞머리 정렬이 개행을 찾는 상한이다 (FR-TRS-13).
 const trsAlignScan = 4 << 10
 
@@ -67,7 +70,7 @@ func alignHead(b []byte) []byte {
 // **direct 모드와 daemon 모드가 이 함수 하나를 함께 쓴다** (FR-TRS-12). 두 벌로
 // 두었던 것이 "한쪽만 고쳐지는" 자리였다 — 종전에 daemon 은 termReset 을 스냅샷
 // 앞에, direct 는 뒤에, 그것도 `Restored` 일 때만 보냈다 (SRS §2.4).
-func buildReplay(data []byte, full bool) []byte {
+func buildReplay(data []byte, full, alt bool) []byte {
 	// 델타도 **기록**이지 라이브가 아니다. 그 구간의 질의에 지금 답하면
 	// architecture.md 가 적은 `56;9R` 폭주가 그대로 돌아온다 (FR-TRS-5).
 	body := stripSnapshotQueries(stripOSC777(data))
@@ -77,9 +80,13 @@ func buildReplay(data []byte, full bool) []byte {
 		return body
 	}
 	body = alignHead(body)
-	out := make([]byte, 0, len(termReset)+len(termHardClear)+len(body))
+	out := make([]byte, 0, len(termReset)+len(termHardClear)+len(termAltOn)+len(body))
 	out = append(out, termReset...)
 	out = append(out, termHardClear...)
+	// FR-TRS-10a: 앱이 켠 `?1049h` 가 보유 창 밖으로 밀렸어도 본문은 대체 화면에 그린다.
+	if toolhub.AltScreenAtHead(body, alt) {
+		out = append(out, termAltOn...)
+	}
 	return append(out, body...)
 }
 
