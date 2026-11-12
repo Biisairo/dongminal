@@ -174,6 +174,14 @@ var CodeDoc = map[string]Doc{
 	CodeNotADirectory:           {"디렉터리가 아닙니다.", "Editor 루트로는 폴더를 고르세요."},
 	CodeNameReserved:            {"`.`·`..` 는 이름으로 쓸 수 없습니다.", "다른 이름을 쓰세요."},
 
+	// ── Telegram 브리지 (TELEGRAM_BRIDGE_SRS) ──
+	CodeTelegramUnavailable:    {"이 서버에는 Telegram 브리지가 서지 않았습니다 — 데이터 폴더 없이 떴습니다.", "dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요."},
+	CodeTelegramTokenInvalid:   {"봇 token 의 모양이 틀렸거나 Telegram 이 그 token 을 받지 않았습니다.", "BotFather 가 준 token 전체(`숫자:글자`)를 다시 넣으세요. 폐기한 token 은 쓸 수 없습니다."},
+	CodeTelegramTopicsDisabled: {"이 봇은 Threaded Mode 가 꺼져 있어 대화마다 토픽을 만들 수 없습니다.", "BotFather Mini App ▸ My bots ▸ 봇 ▸ Bot Settings ▸ Threads Settings 에서 Threaded Mode 를 켜고 다시 저장하세요. `/mybots` 글 메뉴에는 없습니다."},
+	CodeTelegramUnreachable:    {"Telegram 에 닿지 못해 token 을 확인하지 못했습니다.", "인터넷 연결을 확인하고 다시 시도하세요. 저장은 되지 않았습니다."},
+	CodeTelegramConfigInvalid:  {"Telegram 설정 값이 규칙에 맞지 않습니다.", "무음 시간은 0~1440분입니다."},
+	CodeTelegramNoToken:        {"봇 token 이 없어 등록 코드를 만들 수 없습니다.", "먼저 봇 token 을 저장하세요."},
+
 	// ── 노드 간 통신 (PEER_NETWORK_SRS) ──
 	CodePeerUnavailable:    {"이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다.", "server.log 의 peer identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(짝은 다시 맺어야 합니다)."},
 	CodePeerConfigInvalid:  {"노드 설정 값이 규칙에 맞지 않습니다.", "이름은 영문·숫자·`.`·`_`·`-` 1~32자, 포트는 1~65535, 듣는 주소는 IP 입니다. 허용 폴더는 절대 경로, 알릴 주소는 IP 주소나 호스트명입니다. 등록 요청이 이 오류로 거절되면 상대가 쓸 수 없는 주소(zone 이 붙은 link-local 등)에서 왔습니다. 요청하는 노드에 알릴 주소를 정하세요."},

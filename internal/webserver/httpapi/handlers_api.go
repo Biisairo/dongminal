@@ -248,6 +248,12 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/peers/remove", (*Server).apiPeersRemove),
 	httproute.Put("/api/peers/address", (*Server).apiPeersAddress),
 	httproute.Post("/api/peers/call", (*Server).apiPeersCall),
+	httproute.Get("/api/telegram", (*Server).apiTelegramGet),
+	httproute.Put("/api/telegram/token", (*Server).apiTelegramToken),
+	httproute.Put("/api/telegram/enabled", (*Server).apiTelegramEnabled),
+	httproute.Put("/api/telegram/silence", (*Server).apiTelegramSilence),
+	httproute.Post("/api/telegram/pair", (*Server).apiTelegramPair),
+	httproute.Delete("/api/telegram/pair", (*Server).apiTelegramUnpair),
 }
 
 func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {

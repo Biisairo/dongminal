@@ -73,3 +73,35 @@ func TestPairKillsCodeAfterFailures(t *testing.T) {
 		t.Fatal("실패가 쌓였는데 코드가 살아 있다")
 	}
 }
+
+// 설정 화면이 남은 시간을 보이려면 살아 있는 코드의 만료가 필요하다. 코드 자체는 내주지 않는다.
+func TestPairPending(t *testing.T) {
+	now := time.Unix(1000, 0)
+	p := NewPairing(func() time.Time { return now })
+	if _, ok := p.Pending(); ok {
+		t.Fatal("코드가 없는데 진행 중이다")
+	}
+	code, exp := p.Issue()
+	if got, ok := p.Pending(); !ok || !got.Equal(exp) {
+		t.Fatalf("Pending=%v,%v want %v", got, ok, exp)
+	}
+	p.Redeem(code)
+	if _, ok := p.Pending(); ok {
+		t.Fatal("쓴 코드가 진행 중이다")
+	}
+	p.Issue()
+	now = now.Add(PairTTL)
+	if _, ok := p.Pending(); ok {
+		t.Fatal("만료된 코드가 진행 중이다")
+	}
+}
+
+// 해제는 살아 있는 코드도 죽인다.
+func TestPairCancel(t *testing.T) {
+	p := NewPairing(time.Now)
+	code, _ := p.Issue()
+	p.Cancel()
+	if _, ok := p.Pending(); ok || p.Redeem(code) {
+		t.Fatal("취소한 코드가 살아 있다")
+	}
+}

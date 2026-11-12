@@ -58,3 +58,20 @@ func (p *Pairing) Redeem(code string) bool {
 	p.code = ""
 	return true
 }
+
+// Pending 은 살아 있는 코드의 만료다. 코드는 내주지 않는다.
+func (p *Pairing) Pending() (time.Time, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.code == "" || !p.now().Before(p.exp) {
+		return time.Time{}, false
+	}
+	return p.exp, true
+}
+
+// Cancel 은 살아 있는 코드를 죽인다.
+func (p *Pairing) Cancel() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.code = ""
+}
