@@ -5,38 +5,43 @@ import "testing"
 // ATTENTION_FIRING_SRS 묶음 N 의 판정 단위. 여기서 재는 것은 **무엇을 새 사건으로
 // 볼 것인가** 이며, 두 모드가 이 한 벌을 공유한다 (FR-ATN-14).
 
-// V-ATN-4: 진행 표시를 세우는 것은 활동 상태 `working` 이고, 사용자 턴 표시를
-// 세우는 것은 `UserPromptSubmit` 뿐이다. 둘은 다른 물음이다 — `PreToolUse` 도
-// `working` 을 보고하지만 턴의 출처를 말하지 않는다 (FR-ATN-3).
-func TestAgentTurn_UserPromptIsTheOnlySourceMark(t *testing.T) {
+// V-ATN-4 (개정, D-12): `working` 보고가 진행 표시와 턴 시작 표시를 함께 세운다.
+// 어느 훅이 보고했는지(사용자 프롬프트·배경 알림·도구 사용)는 묻지 않는다 (FR-ATN-3).
+func TestAgentTurn_WorkingMarksTurnStart(t *testing.T) {
 	var turn AgentTurn
 
-	turn.NoteActivity("working") // PreToolUse
+	turn.NoteActivity("working")
 	if !turn.InProgress() {
 		t.Fatalf("working 이 진행 표시를 세우지 않았다")
 	}
-	if turn.AllowSignal("done") {
-		t.Fatalf("사용자 프롬프트 없이 done 이 알람이 되었다")
-	}
-
-	turn.NoteUserPrompt()
-	if !turn.AllowSignal("done") {
-		t.Fatalf("사용자 프롬프트 뒤의 done 이 알람이 되지 않았다")
+	if !turn.State().TurnRan {
+		t.Fatalf("working 이 턴 시작 표시를 세우지 않았다")
 	}
 }
 
-// V-ATN-3: 사용자 턴 표시는 **소비된다.** 한 번의 프롬프트가 낳는 done 알람은
-// 한 번뿐이고, 이어지는 배경 턴들의 done 은 조용하다 (FR-ATN-1·4).
-func TestAgentTurn_UserTurnMarkIsConsumedOnce(t *testing.T) {
+// V-ATN-2·3 (D-12): done 은 턴이 시작된 뒤면 사용자 턴이든 배경 턴이든 알람이다.
+// 한 턴의 종료는 한 번만 운다 — 같은 종료가 두 경로로 와도 그렇다 (FR-AEV-13).
+func TestAgentTurn_DoneFiresOncePerTurn(t *testing.T) {
 	var turn AgentTurn
-	turn.NoteUserPrompt()
-
-	if !turn.AllowSignal("done") {
-		t.Fatalf("첫 done 이 알람이 되지 않았다")
+	if turn.AllowSignal("done") {
+		t.Fatalf("일한 적 없는 도구의 done 이 알람이 되었다")
 	}
+
+	turn.NoteActivity("working")
+	if !turn.AllowSignal("done") {
+		t.Fatalf("사용자 턴의 done 이 알람이 되지 않았다")
+	}
+	if turn.State().TurnRan {
+		t.Fatalf("done 이 턴 시작 표시를 소비하지 않았다")
+	}
+	if turn.AllowSignal("done") {
+		t.Fatalf("같은 턴의 done 이 두 번 울었다")
+	}
+
 	for i := range 3 {
-		if turn.AllowSignal("done") {
-			t.Fatalf("배경 턴 %d 의 done 이 알람이 되었다", i)
+		turn.NoteActivity("working") // 배경 알림으로 깨어난 턴
+		if !turn.AllowSignal("done") {
+			t.Fatalf("배경 턴 %d 의 done 이 알람이 되지 않았다", i)
 		}
 	}
 }
@@ -103,7 +108,6 @@ func TestAgentTurn_OtherLabelsBypassTheGate(t *testing.T) {
 // 남은 표시가 다음 세션의 판정을 흔들면 안 된다 (FR-ATN-5).
 func TestAgentTurn_EndedDropsBothMarks(t *testing.T) {
 	var turn AgentTurn
-	turn.NoteUserPrompt()
 	turn.NoteActivity("working")
 
 	turn.NoteActivity("ended")
@@ -112,7 +116,7 @@ func TestAgentTurn_EndedDropsBothMarks(t *testing.T) {
 		t.Fatalf("ended 뒤에도 진행 표시가 남았다")
 	}
 	if turn.AllowSignal("done") {
-		t.Fatalf("ended 뒤에도 사용자 턴 표시가 남았다")
+		t.Fatalf("ended 뒤에도 턴 시작 표시가 남았다")
 	}
 }
 

@@ -79,18 +79,17 @@ func TestParseOmpHook_MapsEvents(t *testing.T) {
 		payload string
 		state   string
 		tool    string
-		prompt  bool
 		compact bool
 	}{
-		{`{"event":"session_start"}`, "idle", "", false, false},
-		{`{"event":"agent_start"}`, "working", "", true, false},
-		{`{"event":"turn_start"}`, "working", "", false, false},
-		{`{"event":"turn_end"}`, "working", "", false, false},
-		{`{"event":"tool_call","tool":"bash","detail":"ls -al"}`, "working", "bash", false, false},
-		{`{"event":"tool_result","tool":"read"}`, "working", "read", false, false},
-		{`{"event":"compaction"}`, "working", "", false, true},
-		{`{"event":"agent_end"}`, "done", "", false, false},
-		{`{"event":"session_shutdown"}`, "ended", "", false, false},
+		{`{"event":"session_start"}`, "idle", "", false},
+		{`{"event":"agent_start"}`, "working", "", false},
+		{`{"event":"turn_start"}`, "working", "", false},
+		{`{"event":"turn_end"}`, "working", "", false},
+		{`{"event":"tool_call","tool":"bash","detail":"ls -al"}`, "working", "bash", false},
+		{`{"event":"tool_result","tool":"read"}`, "working", "read", false},
+		{`{"event":"compaction"}`, "working", "", true},
+		{`{"event":"agent_end"}`, "done", "", false},
+		{`{"event":"session_shutdown"}`, "ended", "", false},
 	}
 	for _, tc := range cases {
 		rep, ok := omp.HookParse([]byte(tc.payload))
@@ -102,9 +101,6 @@ func TestParseOmpHook_MapsEvents(t *testing.T) {
 		}
 		if rep.Tool != tc.tool {
 			t.Fatalf("%s → tool %q, want %q", tc.payload, rep.Tool, tc.tool)
-		}
-		if rep.UserPrompt != tc.prompt {
-			t.Fatalf("%s → userPrompt %v, want %v", tc.payload, rep.UserPrompt, tc.prompt)
 		}
 		if rep.Compacted != tc.compact {
 			t.Fatalf("%s → compacted %v, want %v", tc.payload, rep.Compacted, tc.compact)

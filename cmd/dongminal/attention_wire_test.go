@@ -152,7 +152,7 @@ func TestAttentionWire_DaemonJudgesServerBroadcasts(t *testing.T) {
 	}
 
 	// 보고 소켓의 사용자 턴 done — 직접 모드처럼 사유 done 으로 운다.
-	r.report(t, agentrec.MethodActivity, `{"toolId":"t1","agent":"claude","state":"working","tool":"Bash","userPrompt":true}`)
+	r.report(t, agentrec.MethodActivity, `{"toolId":"t1","agent":"claude","state":"working","tool":"Bash"}`)
 	r.sse.await(t, `"tool_activity"`, `"state":"working"`)
 	r.report(t, agentrec.MethodActivity, `{"toolId":"t1","agent":"claude","state":"done"}`)
 	r.sse.await(t, `"action":"tool_attention"`, `"reason":"done"`)
@@ -170,7 +170,7 @@ func TestAttentionWire_DaemonIdle(t *testing.T) {
 	defer toolhub.SetAttnBusyProbe(func(*toolhub.Tool) bool { return true })()
 	r := newAttnRig(t)
 	p := r.pm.Get("t1")
-	p.ReportActivity(activity.Working, "Bash", "", true, true)
+	p.ReportActivity(activity.Working, "Bash", "", true)
 	p.SetActivity(activity.Idle, "", "")
 	p.ObserveOutput([]byte("x"))
 

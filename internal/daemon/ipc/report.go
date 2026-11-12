@@ -187,7 +187,7 @@ func applyActivityReport(p *toolhub.Tool, r agentrec.ActivityReport, now time.Ti
 		return nil
 	}
 	p.ReportActivity(r.State, agentrec.Sanitize(r.Tool, agentrec.ToolMax), agentrec.Sanitize(r.Detail, agentrec.DetailMax),
-		r.UserPrompt, agentrec.AgentReportsUserTurn(r.Agent))
+		agentrec.AgentReportsTurnStart(r.Agent))
 	if r.State == activity.Ended {
 		p.SetRecord(toolipc.RecordSubagentActs, nil)
 	}

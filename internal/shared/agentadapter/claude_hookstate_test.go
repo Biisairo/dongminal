@@ -97,9 +97,6 @@ func TestClaudeHook_SubagentTable(t *testing.T) {
 			if r.State != tc.mainState || (tc.mainState != "" && r.Detail != tc.mainDetail) {
 				t.Fatalf("main state=%q detail=%q, want %q %q", r.State, r.Detail, tc.mainState, tc.mainDetail)
 			}
-			if r.UserPrompt {
-				t.Fatal("서브에이전트 훅이 사용자 턴 표시를 세웠다")
-			}
 		})
 	}
 	// 그 밖의 훅은 서브에이전트 활동도 main 도 건드리지 않는다.
@@ -109,14 +106,11 @@ func TestClaudeHook_SubagentTable(t *testing.T) {
 	}
 }
 
-// TC-ASV-4: 백그라운드 서브에이전트의 보고는 사용자 턴이 아니다 (FR-ASV-6, C-8).
-func TestClaudeHook_AgentMessagePromptIsBackground(t *testing.T) {
+// TC-ASV-4 (개정, D-12): 백그라운드 서브에이전트의 보고로 깨어난 턴도 턴의 시작(`working`)이다.
+func TestClaudeHook_AgentMessagePromptStartsATurn(t *testing.T) {
 	r, ok := parseClaudeHook([]byte(`{"hook_event_name":"UserPromptSubmit","prompt":"<agent-message from=\"a922\">\n[Subagent hand-back] ..."}`))
 	if !ok || r.State != "working" {
 		t.Fatalf("got %+v ok=%v", r, ok)
-	}
-	if r.UserPrompt {
-		t.Fatal("서브에이전트 보고가 사용자 턴으로 읽혔다")
 	}
 }
 

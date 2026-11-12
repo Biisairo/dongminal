@@ -22,7 +22,7 @@
 지금 dongminal 은 에이전트를 PTY 바이트스트림으로만 안다. 그래서 "지금 무엇을
 하는가" 를 알려면 에이전트가 **자기 훅으로 밖에 알려 주기로 한 것**에 의존해야
 했고, 그 표면이 좁아서 구멍이 났다 (§2.2). 구멍을 메우려고 쌓은 것이 추정
-장치들이다 — L2 idle 무장·재무장, `waiting` 판정, 사용자 턴 휴리스틱.
+장치들이다 — L2 idle 무장·재무장, `waiting` 판정, 사용자 턴 휴리스틱(2026-11-12: 훅 표면에서도 걷었다 — `ATTENTION_FIRING_SRS` D-13).
 
 세 에이전트 모두 **다른 UI 를 붙이라고 만든 전용 인터페이스**를 이미 갖고 있다
 (§2.3). 그쪽으로 옮기면 추정 장치가 통째로 필요 없어진다.
@@ -104,7 +104,6 @@
 | **`waiting`** | ✅ `Notification` | **❌ 승인 게이트가 훅에 통지되지 않는다** | ❌ |
 | `done` | ✅ `Stop` | ✅ `agent_end` | ✅ `agent-turn-complete` |
 | `ended` | ✅ `SessionEnd` | ✅ `session_shutdown` | ❌ |
-| 사용자 턴 | ✅ `UserPromptSubmit` | ✅ `agent_start` | ❌ |
 | 압축 | ✅ `PreCompact` | ✅ | ❌ |
 | tool/detail | ✅ | ✅ | ❌ |
 | 세션 신원 | ✅ | ✅ | ❌ |
@@ -114,9 +113,9 @@
 
 그리고 훅 표면이 낼 수 없는 것을 메우려고 두 개의 자백이 코드에 적혀 있다:
 
-- `FR-ATN-3a` — *"**휴리스틱임을 인정한다** — 훅 payload 에 출처 필드가 없어
+- ~~`FR-ATN-3a` — *"**휴리스틱임을 인정한다** — 훅 payload 에 출처 필드가 없어
   본문이 유일한 근거다"*. 프롬프트가 `<task-notification>`·`<system-reminder>`
-  로 시작하는지로 사람 턴과 배경 턴을 가른다
+  로 시작하는지로 사람 턴과 배경 턴을 가른다~~ (2026-11-12: 훅 표면에서도 걷었다 — `ATTENTION_FIRING_SRS` D-13)
 - `Readiness.ScreenPatterns` — 선언은 있으나 **비워 둔 것이 의도다**.
   *"화면 패턴은 사용자가 하단 스테이터스라인 하나만 붙여도 깨진다"*
 
@@ -199,7 +198,7 @@ codex 는 세 에이전트 중 **가장 크게 올라간다** — `thread/starte
 | `shared/runtime/install.go`·`install_omp.go` | 훅 설치 분기 |
 | `toolhub/agentturn.go` · `Tool.turn` | 턴 상태 추적 (`FR-ATN-1·7`) |
 | `Tool.agentSeen` | "에이전트가 돌고 있다" — 활동 보고가 세운다 |
-| `AttnTracker.SignalAgentEvent` · `NoteUserPrompt` · `SetActivity` | 활동 보고의 수신단 |
+| `AttnTracker.SignalAgentEvent` · `SetActivity` | 활동 보고의 수신단 |
 
 **`dmctl notify` 는 이 목록에 없다.** 그것은 에이전트 아닌 것들의 몫이며
 `FR-ATF-4`(*"명시적 신호는 누가 보냈든 알람이다"*)가 이미 그렇게 선을 그었다.
@@ -296,7 +295,7 @@ codex 는 세 에이전트 중 **가장 크게 올라간다** — `thread/starte
 
 **FR-AAL-10** **사용자 턴 판정을 삭제한다.** 프로토콜 표면에서는 입력을 넣은
 주체가 우리이므로, 사람이 친 것인지 배경이 깨운 것인지 **판정할 필요가 없다.**
-`FR-ATN-3a` 의 본문 접두사 휴리스틱과 그 자백이 함께 사라진다.
+`FR-ATN-3a` 의 본문 접두사 휴리스틱과 그 자백이 함께 사라진다. (2026-11-12: 훅 표면에서도 걷었다 — `ATTENTION_FIRING_SRS` D-13)
 
 **FR-AAL-11** **`waiting` 추론을 삭제한다.** `FR-ATN-6`(턴이 진행 중일 때만
 `waiting` 이 알람) · `FR-ATN-7`(진행 표시) · `FR-ATN-8`(순환 방지)이 풀려는

@@ -93,9 +93,8 @@ func TestApiToolsActivity_Endpoint(t *testing.T) {
 
 // FR-AAP-5: tool_activity SSE payload shape (server-published; lowerCamelCase).
 
-// V-ATN-1 (ATTENTION_FIRING_SRS 묶음 N): `userPrompt` 가 서버 상태에 도달한다.
-// 그것이 서지 않으면 `Stop` 훅의 done 은 알람이 되지 않는다 (FR-ATN-2·4).
-func TestApiToolActivitySet_UserPromptReachesTheTurnMark(t *testing.T) {
+// V-ATN-1 (개정, D-12): `working` 활동 보고가 턴 시작 표시에 닿고, 그 턴의 done 은 알람이다.
+func TestApiToolActivitySet_WorkingReachesTheTurnMark(t *testing.T) {
 	m := toolhub.NewToolManager("", nil)
 	t.Cleanup(m.StopSaving)
 	var mu sync.Mutex
@@ -104,7 +103,6 @@ func TestApiToolActivitySet_UserPromptReachesTheTurnMark(t *testing.T) {
 	m.Adopt(p)
 	s := &Server{Deps: Deps{Tools: m}}
 
-	// 배경 턴: 도구를 쓰고 끝났다 — 사용자 프롬프트가 없다.
 	post := func(body string) {
 		rec := httptest.NewRecorder()
 		s.apiToolActivitySet(rec, apiTestRequest(http.MethodPost, "/api/tools/activity/set",
@@ -114,15 +112,11 @@ func TestApiToolActivitySet_UserPromptReachesTheTurnMark(t *testing.T) {
 		}
 	}
 	post(`{"toolId":"9","state":"working","tool":"Bash"}`)
-	p.SignalAttention("done")
-	if p.Attention() {
-		t.Fatalf("배경 턴의 done 이 알람이 되었다")
+	if !p.AgentState().Turn.TurnRan {
+		t.Fatalf("working 이 턴 시작 표시에 닿지 않았다")
 	}
-
-	// 사용자 턴: 프롬프트가 앞선다.
-	post(`{"toolId":"9","state":"working","detail":"고쳐줘","userPrompt":true}`)
 	p.SignalAttention("done")
 	if !p.Attention() {
-		t.Fatalf("사용자 턴의 done 이 알람이 되지 않았다")
+		t.Fatalf("그 턴의 done 이 알람이 되지 않았다")
 	}
 }

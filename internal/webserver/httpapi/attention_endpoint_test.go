@@ -97,10 +97,8 @@ func TestApiToolAttentionSet(t *testing.T) {
 	m.Adopt(p)
 	s := &Server{Deps: Deps{Tools: m}}
 
-	// FR-ATN-4·6 의 전제: 사용자 프롬프트로 시작된 턴이 진행 중이다. 이 테스트가
-	// 재는 것은 **종단의 배선과 재알림**이지 판정이 아니다 (판정은 묶음 N 의 단위
-	// 테스트가 잰다).
-	p.NoteUserPrompt()
+	// FR-ATN-4·6 의 전제: 턴이 진행 중이다. 이 테스트가 재는 것은 **종단의 배선과
+	// 재알림**이지 판정이 아니다 (판정은 묶음 N 의 단위 테스트가 잰다).
 	p.SetActivity("working", "Bash", "")
 
 	rec := httptest.NewRecorder()

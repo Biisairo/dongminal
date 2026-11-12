@@ -166,7 +166,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 
   `SubagentHandback` 행은 일반 도구 행보다 앞선다 (C-10, D-ASV-13).
 
-- **FR-ASV-6** 배경 프롬프트 표식(`backgroundPromptMarks`)에 `<agent-message` 를 더한다. (C-8)
+- **FR-ASV-6** ~~배경 프롬프트 표식(`backgroundPromptMarks`)에 `<agent-message` 를 더한다. (C-8)~~ → **폐기 (2026-11-12, `ATTENTION_FIRING_SRS` D-12·13).** 배경 턴의 종료도 알람이 되므로 표식 목록 자체를 걷었다. `<agent-message` 로 깨어난 턴도 턴의 시작(`working`)이다
 - **FR-ASV-7** `dmctl activity` 는 무엇을 하든 0 으로 끝나고 stdout 에 아무것도 쓰지 않는다 (종전 NFR-AAP-5). `PermissionRequest` 훅이 출력하지 않으면 권한 흐름은 바뀌지 않는다 (Claude Code 문서).
 
 ### 3.2 묶음 S — 서브에이전트 활동 (서버)
@@ -284,7 +284,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 | TC-ASV-1 | FR-ASV-1 | Go: claude 설치 설정 | 다섯 훅이 활동 훅으로 걸리고, 맥락 훅 배선은 그대로다 |
 | TC-ASV-2 | FR-ASV-2·3·4 | Go: §2.2 실측 입력을 본뜬 main 훅 표 전부 | 표대로 상태·tool·detail 이 나온다. "무시" 는 보고가 없다. 내부 에이전트 `SubagentStop` 은 보고가 없다 |
 | TC-ASV-3 | FR-ASV-5 | Go: 서브에이전트 훅 표 전부 | 서브에이전트 보고가 `AgentID`·`AgentType` 과 함께 나온다. `PermissionRequest`·waiting 알림은 main 보고도 나온다 |
-| TC-ASV-4 | FR-ASV-6 | Go: `<agent-message from=…>` 프롬프트 | `UserPrompt` 가 거짓이다 |
+| TC-ASV-4 | FR-ASV-6 (개정) | Go: `<agent-message from=…>` 프롬프트 | `working` 을 보고한다 |
 | TC-ASV-5 | FR-ASV-2·7, NFR-ASV-1 | Go: 시험 서버로 `dmctl activity` 실행 | 본문에 `agentId`·`agentType` 이 실린다. 두 번 보내는 경우만 요청이 둘이다. stdout 이 비고 종료 코드가 0 이다 |
 | TC-ASV-6 | §2.2 순서 재연 | Go: §2.2 표의 훅 순서를 서버에 차례로 보고 | main 상태의 마지막 값이 done 이다(C-1·C-2·C-3 재발 없음). 서브에이전트 활동이 working→done 이 된다 |
 | TC-ASV-7 | FR-ASV-10·11·12 | Go: 서브에이전트 보고 / 33개 / done 후 시각 경과 / main ended / 수거 | main 활동이 그대로다 / 32개다 / 지워진다 / 지워진다 / 지워진다 |

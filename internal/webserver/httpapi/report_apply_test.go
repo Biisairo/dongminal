@@ -38,7 +38,7 @@ func applyReport(t *testing.T, s *Server, method string, body any) {
 func TestApplyReport_ActivityDoneRaisesAlarm(t *testing.T) {
 	s, tr, fb := reportServer(t, "t1")
 	before := fb.count()
-	applyReport(t, s, agentrec.MethodActivity, map[string]any{"toolId": "t1", "agent": "claude", "state": activity.Working, "tool": "Bash", "userPrompt": true})
+	applyReport(t, s, agentrec.MethodActivity, map[string]any{"toolId": "t1", "agent": "claude", "state": activity.Working, "tool": "Bash"})
 	applyReport(t, s, agentrec.MethodActivity, map[string]any{"toolId": "t1", "agent": "claude", "state": activity.Done})
 	if a := tr.Activity("t1"); a == nil || a.State != activity.Done {
 		t.Fatalf("활동 = %+v", a)

@@ -52,7 +52,7 @@ dongminal 이 아는 에이전트는 지금 둘이다 — `claude`(검증 대상
   것은 `SKILL_INJECTION_SRS` `FR-INJ-4`·`5` 와 `install_posix_test.go` 의 대조다.
 - `docs/internal/ORCHESTRATION_V2_SRS.md` (`FR-CBG-1`·`5`) — 컨텍스트 관측의
   곁들이 값과 "모른다 ≠ 괜찮다".
-- `docs/internal/ATTENTION_FIRING_SRS.md` (`FR-ATN-2`·`3`) — `UserPrompt` 의 뜻.
+- `docs/internal/ATTENTION_FIRING_SRS.md` (`FR-ATN-1`·`3`·`4`) — 턴 시작 표시와 `done` 판정.
 
 ## 2. 현재 상태 (조사로 확정한 사실 — 전부 실측)
 
@@ -97,7 +97,7 @@ import 되지만 그 guard 가 감싸는 것은 `process.exit`·`process.stdin` 
 | omp 이벤트 | 우리 어휘 |
 |---|---|
 | `session_start` | `idle` |
-| `agent_start` | `working` + `UserPrompt=true` (그 턴이 사용자 프롬프트에서 시작한 자리) |
+| `agent_start` | `working` (턴의 시작. 2026-11-12 전에는 `UserPrompt=true` 도 실었다 — `ATTENTION_FIRING_SRS` D-13) |
 | `turn_start` · `turn_end` | `working` |
 | `tool_call` · `tool_result` | `working` + `tool` + `detail` |
 | `auto_compaction_start` · `session_compact` | `working` + `Compacted=true` |
@@ -179,7 +179,7 @@ claude 의 `Notification` 에 대응하는 이벤트가 없다. 승인 게이트
 |----|---------|---------|
 | FR-OMP-10 | 설치가 훅 shim 을 `<binDir>/agent-hooks/omp-activity.mjs` 로 쓴다. claude 의 `claude.json` 과 **같은 자리·같은 수명**이다 | 필수 |
 | FR-OMP-11 | shim 은 `dmctl` 을 **절대 경로**로 부른다. PATH 앞의 낡은 `dmctl` 은 `activity` 를 모른다 (claude 훅이 같은 이유로 절대 경로를 쓴다) | 필수 |
-| FR-OMP-12 | shim 이 보내는 JSON 은 한 줄이며 필드는 이렇다: `event`(필수) · `tool` · `detail` · `sessionId` · `transcript` · `userPrompt`. **이 형식의 임자는 우리이고, `parseOmpHook` 과 같은 문서(이 절)를 근거로 한다** | 필수 |
+| FR-OMP-12 | shim 이 보내는 JSON 은 한 줄이며 필드는 이렇다: `event`(필수) · `tool` · `detail` · `sessionId` · `transcript`. **이 형식의 임자는 우리이고, `parseOmpHook` 과 같은 문서(이 절)를 근거로 한다** | 필수 |
 | FR-OMP-13 | shim 은 **에이전트를 막지 않는다.** `dmctl` 호출은 실패해도 조용히 지나가고(비0 종료·부재 포함) 예외를 훅 바깥으로 던지지 않는다. 관측이 도구 사용을 막으면 그것은 관측이 아니다 (`NFR-AAP-5` 의 정신) | 필수 |
 | FR-OMP-14 | `omp()` 셸 래퍼가 `--hook <shim>` 과 `--plugin-dir <agent-plugin>` 을 **파일·디렉터리가 있을 때만** 붙인다. 두 셸(POSIX·PowerShell) 모두에 둔다 — claude 래퍼와 같은 형태다 | 필수 |
 | FR-OMP-15 | 래퍼는 사용자의 인자를 **그대로 뒤에 붙인다.** `command omp` (POSIX) · `__dongminalApp 'omp'` (PowerShell)로 자기 자신을 다시 부르지 않는다 | 필수 |

@@ -54,7 +54,7 @@ func TestRecordSet_ThenRecordsSnapshot(t *testing.T) {
 
 	agent := toolhub.AgentState{
 		Activity:  &toolhub.ActivityState{State: activity.Working, Tool: "Bash", UpdatedAt: 5},
-		AgentSeen: true, Attention: true, Turn: toolhub.TurnState{UserTurn: true, InProgress: true},
+		AgentSeen: true, Attention: true, Turn: toolhub.TurnState{TurnRan: true, InProgress: true},
 	}
 	agentRaw, _ := json.Marshal(agent)
 	for _, p := range []toolipc.RecordSetParams{
@@ -84,7 +84,7 @@ func TestRecordSet_ThenRecordsSnapshot(t *testing.T) {
 		t.Fatalf("살아 있는 도구 둘을 모두 실어야 한다: %+v", res.Tools)
 	}
 	t1 := byTool["t1"]
-	if t1.Agent.Activity == nil || t1.Agent.Activity.Tool != "Bash" || !t1.Agent.Turn.UserTurn || !t1.Agent.Attention {
+	if t1.Agent.Activity == nil || t1.Agent.Activity.Tool != "Bash" || !t1.Agent.Turn.TurnRan || !t1.Agent.Attention {
 		t.Fatalf("t1 agent=%+v", t1.Agent)
 	}
 	if len(t1.Records) != 1 || string(t1.Records[toolipc.RecordUsage]) != `{"effort":"high"}` {

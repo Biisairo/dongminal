@@ -12,7 +12,7 @@ import (
 func TestTool_AgentStateRoundTrip(t *testing.T) {
 	src := NewDetachedTool("a", nil)
 	src.SetActivity(activity.Working, "Bash", "ls")
-	src.NoteUserPrompt()
+	startTurn(src)
 	src.SignalAttention(activity.Waiting)
 	src.Attend()
 	src.LastOutputAt.Store(42)
@@ -21,7 +21,7 @@ func TestTool_AgentStateRoundTrip(t *testing.T) {
 	if st.Activity == nil || st.Activity.State != activity.Working || st.Activity.Tool != "Bash" {
 		t.Fatalf("activity=%+v", st.Activity)
 	}
-	if !st.AgentSeen || !st.Turn.UserTurn || !st.Turn.InProgress || !st.Turn.WaitingSignaled {
+	if !st.AgentSeen || !st.Turn.TurnRan || !st.Turn.InProgress || !st.Turn.WaitingSignaled {
 		t.Fatalf("state=%+v", st)
 	}
 	if st.Attention || st.Armed || !st.RearmLocked || st.LastOutputAt != 42 {
@@ -38,7 +38,7 @@ func TestTool_AgentStateRoundTrip(t *testing.T) {
 	if a, b := mustJSON(t, got), mustJSON(t, want); a != b {
 		t.Fatalf("복원\n got=%s\nwant=%s", a, b)
 	}
-	// 복원한 턴 표시가 판정에 쓰인다: 사용자 턴은 한 번 소비된다.
+	// 복원한 턴 표시가 판정에 쓰인다: 턴 시작 표시는 한 번 소비된다.
 	if !dst.turn.AllowSignal(activity.Done) || dst.turn.AllowSignal(activity.Done) {
 		t.Fatal("복원한 userTurn 이 판정에 쓰이지 않는다")
 	}

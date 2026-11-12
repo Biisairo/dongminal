@@ -46,7 +46,7 @@ var claudeAdapter = Adapter{
 	// 에이전트이며, 다른 선언은 이것과의 차이로 읽힌다.
 	Signals: Signals{
 		Idle: true, Working: true, Waiting: true, Done: true, Ended: true,
-		UserTurn: true, Compaction: true, ToolDetail: true, Session: true,
+		Compaction: true, ToolDetail: true, Session: true,
 	},
 	Readiness: Readiness{Hooks: true},
 	// /exit 은 대화를 저장하고 정상 종료한다. SIGKILL 로 끊으면 이력이 남지 않는다.
@@ -127,16 +127,8 @@ func parseClaudeHook(data []byte) (Report, bool) {
 		// 유실됐으므로 소비자는 이 신호를 크기보다 우선한다 (FR-CBG-1).
 		rep = Report{State: activity.Working, Compacted: true}
 	case "UserPromptSubmit":
-		// FR-ATN-3: 턴의 출처를 말하는 훅은 이것 하나뿐이다. 다른 훅도
-		// `working` 을 보고하지만 **왜** 시작되었는지는 말하지 않는다.
-		//
-		// **다만 이 훅은 사람이 친 것과 배경 알림을 구별하지 않는다**
-		// (FR-ATN-3a, 2026-09-11 관측). 백그라운드 작업이 끝나 턴이 깨어날 때도
-		// 같은 훅이 오고, 그때 `prompt` 에는 그 알림의 본문이 실린다 — 그것을
-		// 사용자 턴으로 읽으면 **알림 하나가 `done` 알람 하나를 낳는다.**
-		// §2.7 이 "배경 이벤트로 깨어난 턴의 종료는 사건이 아니다" 로 막으려던
-		// 바로 그 자리다.
-		rep = Report{State: activity.Working, Detail: ev.Prompt, UserPrompt: !isBackgroundPrompt(ev.Prompt)}
+		// 배경 알림으로 깨어난 턴도 이 훅으로 온다. 둘 다 턴의 시작이다 (D-12).
+		rep = Report{State: activity.Working, Detail: ev.Prompt}
 	case "Notification":
 		// C-2: idle_prompt 는 "응답이 끝난 지 60초" 다. 기다림이 아니다 (D-ASV-7).
 		if claudeWaitingNotification(ev.NotificationType) {
@@ -219,32 +211,9 @@ func parseClaudeSubagentHook(event, toolName string, toolInput json.RawMessage, 
 // claudeHandbackTool 은 서브에이전트가 보고를 넘기고 끝나는 도구다 (ACTIVITY_STATE_SUBAGENT_SRS §2.4 ⑤).
 const claudeHandbackTool = "SubagentHandback"
 
-// backgroundPromptMarks 는 **사람이 치지 않은 프롬프트**의 표식이다 (FR-ATN-3a).
-//
-// 배경 알림은 이 꼴로 온다 — 백그라운드 작업의 완료 통지와 시스템 알림이다.
-// 사람이 친 프롬프트가 이 표식으로 시작하는 일은 없다.
-// `<agent-message` 는 백그라운드 서브에이전트의 보고다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-6).
-var backgroundPromptMarks = []string{claudeTaskNotificationMark, "<system-reminder>", "<agent-message"}
-
-// claudeTaskNotificationMark 는 배경 작업 완료 통지의 여는 표식이다. 배경 턴 판정과
-// 하네스 항목 판정이 함께 쓴다 — 표식이 바뀌면 이 한 줄만 고친다 (SHR-34).
+// claudeTaskNotificationMark 는 배경 작업 완료 통지의 여는 표식이다. 하네스 항목
+// 판정이 쓴다 — 표식이 바뀌면 이 한 줄만 고친다 (SHR-34).
 const claudeTaskNotificationMark = "<task-notification>"
-
-// isBackgroundPrompt 는 프롬프트의 **모양**으로 배경 턴을 가른다.
-//
-// **휴리스틱이다.** 훅 payload 에는 출처를 말하는 필드가 없어서 우리가 볼 수 있는
-// 것이 본문뿐이다. 표식이 바뀌면 이 판정은 조용히 무력해지므로, 틀리는 쪽을
-// **울리는 쪽**으로 두었다 — 못 가르면 종전처럼 사용자 턴으로 읽는다. 알람이 한 번
-// 더 우는 것이 울려야 할 때 울지 않는 것보다 낫다 (§1.7 의 판단과 같다).
-func isBackgroundPrompt(prompt string) bool {
-	p := strings.TrimSpace(prompt)
-	for _, mark := range backgroundPromptMarks {
-		if strings.HasPrefix(p, mark) {
-			return true
-		}
-	}
-	return false
-}
 
 // claudeToolDetail pulls the most informative argument out of a tool_input for
 // display (FR-AAP-7). Unknown tools yield an empty detail.

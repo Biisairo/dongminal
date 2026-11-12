@@ -98,7 +98,6 @@ func TestRecords_NewServerSeesOldServerState(t *testing.T) {
 	tr1 := hub.NewAttnTracker(&countingBroker{}, 0)
 	w1 := newRecordWriter(c1, tr1)
 	tr1.SetActivity("t1", activity.Working, "Bash", "ls")
-	tr1.NoteUserPrompt("t1")
 	tr1.SignalAttention("t1", activity.Waiting)
 	w1.Flush()
 	c1.Close()

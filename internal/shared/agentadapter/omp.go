@@ -62,11 +62,9 @@ var ompAdapter = Adapter{
 	// 않으므로(OMP_AGENT_SUPPORT_SRS §2.4) 승인 대기를 관측할 길이 없다. 그것을
 	// 여기 적는 이유는 FR-OMP-8 과 같다 — 관측되지 않는 것을 지어내지 않되,
 	// **없다는 사실은 남긴다.** omp 에 그 이벤트가 생기면 이 한 줄이 참이 된다.
-	//
-	// `UserTurn` 이 참인 것이 알람을 살린다 — `agent_start` 가 그 자리다.
 	Signals: Signals{
 		Idle: true, Working: true, Waiting: false, Done: true, Ended: true,
-		UserTurn: true, Compaction: true, ToolDetail: true, Session: true,
+		Compaction: true, ToolDetail: true, Session: true,
 	},
 	Readiness: Readiness{Hooks: true},
 	// `/exit` 은 "Exit the application" 이며 `/quit` 과 같은 종료 경로다 (실측).
@@ -101,9 +99,7 @@ func parseOmpHook(data []byte) (Report, bool) {
 	case "session_start":
 		rep = Report{State: activity.Idle, Detail: ev.Detail}
 	case "agent_start":
-		// FR-ATN-2·3: 이 턴이 **사용자 프롬프트에서 시작했다**고 말하는 이벤트는
-		// 이것 하나다. turn_start 는 루프의 한 바퀴이며 출처를 말하지 않는다.
-		rep = Report{State: activity.Working, Detail: ev.Detail, UserPrompt: true}
+		rep = Report{State: activity.Working, Detail: ev.Detail}
 	case "turn_start", "turn_end":
 		rep = Report{State: activity.Working}
 	case "tool_call", "tool_result":

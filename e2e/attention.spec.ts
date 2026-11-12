@@ -6,10 +6,9 @@ import { chain, dmctl, echoCmd, sleepCmd } from './osenv';
 // TC-PAN-18 (title/badge count), TC-PAN-21 (notification center list),
 // TC-PAN-22 (center item click → jump + clear).
 
-// ATTENTION_FIRING_SRS FR-ATN-1·3·4: `done` 알람은 **사용자 프롬프트로 시작된
-// 턴**이 끝났을 때만 선다. 그 표시를 세우는 자리는 `UserPromptSubmit` 훅의 활동
-// 보고 하나뿐이므로, 셸에서도 실제 배선과 같은 순서로 부른다 — 표시 없이
-// `notify done` 만 부르면 그것은 배경 턴의 종료이고 조용한 것이 맞다 (V-ATN-2).
+// ATTENTION_FIRING_SRS FR-ATN-1·4: `done` 알람은 **턴이 시작된 뒤**에만 선다. 턴의
+// 시작은 `working` 활동 보고이므로, 셸에서도 실제 배선과 같은 순서로 부른다 —
+// 턴 없이 `notify done` 만 부르면 일한 적 없는 도구의 신호이고 조용한 것이 맞다.
 //
 // 기다림은 알람이 **탭을 옮긴 뒤에** 도착하게 하려는 것이다. 셸의 말투는 OS 가
 // 정하므로 조각을 `osenv` 에서 받는다 (CI_E2E_MATRIX_SRS FR-CEM-9).

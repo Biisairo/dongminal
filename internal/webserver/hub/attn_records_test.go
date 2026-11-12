@@ -40,13 +40,12 @@ func TestAttnTracker_OnChangeCarriesJudgedState(t *testing.T) {
 	if st := log.last(t, "t1"); st.Activity == nil || st.Activity.Tool != "Bash" || !st.AgentSeen || !st.Turn.InProgress {
 		t.Fatalf("SetActivity 뒤=%+v", st)
 	}
-	tr.NoteUserPrompt("t1")
-	if !log.last(t, "t1").Turn.UserTurn {
-		t.Fatal("NoteUserPrompt 가 알리지 않았다")
+	if !log.last(t, "t1").Turn.TurnRan {
+		t.Fatal("working 이 턴 시작 표시를 알리지 않았다")
 	}
 	tr.SignalAttention("t1", activity.Done)
-	// 판정이 사용자 턴 표시를 소비한 뒤의 상태를 알린다.
-	if st := log.last(t, "t1"); !st.Attention || st.Turn.UserTurn {
+	// 판정이 턴 시작 표시를 소비한 뒤의 상태를 알린다.
+	if st := log.last(t, "t1"); !st.Attention || st.Turn.TurnRan {
 		t.Fatalf("done 판정 뒤=%+v", st)
 	}
 	tr.Attend("t1")
@@ -105,7 +104,7 @@ func TestAttnTracker_RestoreAllSilent(t *testing.T) {
 
 	tr.RestoreAll(map[string]toolhub.AgentState{
 		"t1": {Activity: &toolhub.ActivityState{State: activity.Working, Tool: "Bash", UpdatedAt: 9}, AgentSeen: true,
-			Attention: true, LastOutputAt: 77, Turn: toolhub.TurnState{UserTurn: true, InProgress: true}},
+			Attention: true, LastOutputAt: 77, Turn: toolhub.TurnState{InProgress: true}},
 		"same": {Activity: &toolhub.ActivityState{State: activity.Waiting}, AgentSeen: true},
 	})
 
@@ -131,9 +130,9 @@ func TestAttnTracker_RestoreAllSilent(t *testing.T) {
 	if len(log.st) != 2 || len(log.st["t1"]) != 0 {
 		t.Fatalf("반영이 데몬 쓰기를 일으켰다: %+v", log.st)
 	}
-	// 복원한 턴 표시로 판정한다: 사용자 턴의 done 은 한 번 운다.
+	// 복원한 턴 표시로 판정한다: turnRan 이 없는 옛 스냅샷이라도 진행 중이던 턴의 done 은 한 번 운다.
 	tr.SignalAttention("t1", activity.Done)
-	if !log.last(t, "t1").Attention || log.last(t, "t1").Turn.UserTurn {
+	if !log.last(t, "t1").Attention || log.last(t, "t1").Turn.TurnRan {
 		t.Fatalf("복원한 턴 표시가 판정에 쓰이지 않았다: %+v", log.last(t, "t1"))
 	}
 }

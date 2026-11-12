@@ -149,7 +149,7 @@ func (s *Server) applyActivityReport(req agentrec.ActivityReport) string {
 		s.reportSubagentActivity(req)
 		return ""
 	}
-	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentrec.AgentReportsUserTurn(req.Agent))
+	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, agentrec.AgentReportsTurnStart(req.Agent))
 	s.telegramActivity(req)
 	return ""
 }
@@ -165,10 +165,10 @@ func (s *Server) applyActivityReport(req agentrec.ActivityReport) string {
 // 파생의 자리가 서버인 이유는 D-1 이다: `dmctl` 이 한 번 더 POST 하면 왕복이
 // 늘고 **두 요청의 순서가 다시 문제가 된다.** 한 요청 안에서는 순서가 확정되고,
 // 직접·데몬 두 모드가 같은 자리를 지난다 (FR-AEV-14).
-func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, turnKnown bool) {
+func (s *Server) reportActivity(toolID, state, tool, detail string, turnKnown bool) {
 	tool = agentrec.Sanitize(tool, agentrec.ToolMax)
 	detail = agentrec.Sanitize(detail, agentrec.DetailMax)
-	s.attention().ReportActivity(toolID, state, tool, detail, userPrompt, turnKnown)
+	s.attention().ReportActivity(toolID, state, tool, detail, turnKnown)
 	if state == activity.Ended {
 		s.subActs.dropTool(toolID) // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-12
 		s.putRecord(toolipc.RecordSubagentActs, toolID, nil)

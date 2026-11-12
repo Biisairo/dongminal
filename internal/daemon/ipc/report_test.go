@@ -71,7 +71,7 @@ func TestReport_NoServer_RecordsIntoSnapshot(t *testing.T) {
 	}
 	pct := 30.0
 	reqs := []agentrec.Request{
-		reportReq(t, agentrec.MethodActivity, map[string]any{"toolId": "t1", "state": activity.Working, "tool": "Bash\x07", "userPrompt": true}),
+		reportReq(t, agentrec.MethodActivity, map[string]any{"toolId": "t1", "state": activity.Working, "tool": "Bash\x07"}),
 		reportReq(t, agentrec.MethodActivity, map[string]any{"toolId": "t1", "state": activity.Done}),
 		reportReq(t, agentrec.MethodActivity, map[string]any{"toolId": "t1", "state": activity.Working, "agentId": "a1", "agentType": "Explore"}),
 		reportReq(t, agentrec.MethodUsage, map[string]any{"toolId": "t1", "usage": map[string]any{"effort": "high",

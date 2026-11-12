@@ -73,8 +73,6 @@ type ActivityReport struct {
 	State  string `json:"state"`
 	Tool   string `json:"tool"`
 	Detail string `json:"detail"`
-	// UserPrompt 는 이 턴이 사용자 프롬프트에서 시작되었다는 곁들이 값이다 (FR-ATN-2).
-	UserPrompt bool `json:"userPrompt"`
 	// Agent 는 보고한 에이전트의 id 다 (FR-AEV-10). 비면 종전 판정 그대로 간다.
 	Agent string `json:"agent"`
 	// SessionID 는 훅이 실어 보내지만 쓰지 않는다 (AGENT_GUI_REMOVAL_SRS FR-AGR-9).
@@ -227,12 +225,12 @@ func Sanitize(s string, max int) string {
 	return s
 }
 
-// AgentReportsUserTurn 은 그 에이전트가 턴의 출처를 말할 수 있는지다 (FR-AEV-12). 선언을
-// 읽을 뿐 추측하지 않는다.
+// AgentReportsTurnStart 는 그 에이전트가 턴의 시작(`working`)을 알릴 수 있는지다
+// (FR-AEV-12). 선언을 읽을 뿐 추측하지 않는다.
 //
 // 모르는 id 에는 참을 준다 — 종전 판정 그대로 간다는 뜻이다. 거짓을 주면 알 수 없는
 // 보고자의 모든 `done` 이 무조건 알람이 된다.
-func AgentReportsUserTurn(id string) bool {
+func AgentReportsTurnStart(id string) bool {
 	if id == "" {
 		return true
 	}
@@ -240,5 +238,5 @@ func AgentReportsUserTurn(id string) bool {
 	if err != nil {
 		return true
 	}
-	return a.Signals.UserTurn
+	return a.Signals.Working
 }

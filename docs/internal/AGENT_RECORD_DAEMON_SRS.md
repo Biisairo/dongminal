@@ -180,7 +180,7 @@
 | 기록 값의 모양: `Usage`·`SubagentList`·`SubagentActivity`·`LimitRecord` | `toolUsage`·`subagentRecord`·`subagentActivity`·`limitRecord` |
 | 서브에이전트 활동 넣기(상한 32, 가장 오래된 것부터 버림)·done 유지 30초·상태 검사 | `subagentActivityStore.put`·`subagentDoneKeep`·`validSubagentState` |
 | 문자열 정리와 상한(64·512) | `hub.SanitizeActivityField`·`ActivityToolMax`·`ActivityDetailMax` |
-| 턴 출처를 말하는 에이전트인가 | `agentReportsUserTurn` |
+| 턴의 시작을 알리는 에이전트인가 | `agentReportsUserTurn` (현재 `agentrec.AgentReportsTurnStart`, `ATTENTION_FIRING_SRS` D-13) |
 | 보고 소켓의 이름·메서드·요청·응답 모양 | 새것 |
 
 **main 활동 반영을 `toolhub.Tool.ReportActivity` 하나로 둔다.** 사용자 프롬프트 표시 → 활동 → done·waiting 이면 알람 파생의 순서다. 직접 모드(`directAttention`)와 데몬이 이 함수를 함께 쓴다 (D-ARD-8).

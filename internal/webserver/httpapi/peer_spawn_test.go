@@ -260,7 +260,7 @@ func TestPeerAgentClose(t *testing.T) {
 }
 
 func (n *spawnNode) reportActivity(toolID, state string) {
-	n.srv.attention().ReportActivity(toolID, state, "", "", false, true)
+	n.srv.attention().ReportActivity(toolID, state, "", "", true)
 	n.srv.activityChanged.Notify()
 }
 

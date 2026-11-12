@@ -35,7 +35,7 @@ func replayHook(t *testing.T, s *Server, toolID, payload string) {
 	}
 	if rep.State != "" {
 		if code := postActivitySet(t, s, map[string]any{"toolId": toolID, "agent": "claude", "state": rep.State,
-			"tool": rep.Tool, "detail": rep.Detail, "userPrompt": rep.UserPrompt}); code != http.StatusOK {
+			"tool": rep.Tool, "detail": rep.Detail}); code != http.StatusOK {
 			t.Fatalf("main 보고 code=%d (%s)", code, payload)
 		}
 	}

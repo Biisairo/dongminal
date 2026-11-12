@@ -6,10 +6,7 @@ import { test, expect, waitForInit } from './fixtures';
 // alarm composited onto the card), TC-AAP-19 (new agent appends at bottom,
 // status update keeps position), TC-AAP-20 (drag reorder persisted).
 
-// userPrompt 는 이 턴이 사용자 프롬프트에서 시작되었다는 곁들이 값이다
-// (ATTENTION_FIRING_SRS FR-ATN-2). 기본값이 거짓인 것은 활동 패널을 보는
-// 테스트 대부분이 턴의 출처와 무관하기 때문이다.
-async function setActivity(page, toolId, state, tool, detail, userPrompt = false) {
+async function setActivity(page, toolId, state, tool, detail) {
   return page.evaluate(
     async (a) => {
       const r = await fetch('/api/tools/activity/set', {
@@ -19,7 +16,7 @@ async function setActivity(page, toolId, state, tool, detail, userPrompt = false
       });
       return r.status;
     },
-    { toolId, state, tool, detail, userPrompt },
+    { toolId, state, tool, detail },
   );
 }
 
@@ -179,12 +176,12 @@ test.describe('Agent activity panel', () => {
     expect(pid).toBeTruthy();
     // done (not pruned by the busy check) so the card stays put through polling.
     //
-    // **여기서는 사용자 턴을 말하지 않는다** (AGENT_EVENT_ABSTRACTION_SRS
-    // FR-AEV-10). 알람이 활동 보고에서 파생되면서, `userPrompt` 를 실은 `done`
-    // 은 **그 자리에서** 알람이 된다 — 그런데 이 시점의 칸은 아직 포커스돼
-    // 있어서 그 알람은 바로 걷힌다. 이 단계의 목적은 카드를 만드는 것뿐이므로
-    // 배경 턴의 종료로 보고하고, 알람은 칸이 배경으로 간 뒤에 세운다.
-    expect(await setActivity(page, pid, 'done', '', 'finished', false)).toBe(200);
+    // **여기서는 턴을 시작하지 않는다** (AGENT_EVENT_ABSTRACTION_SRS FR-AEV-10).
+    // 알람이 활동 보고에서 파생되므로, `working` 뒤의 `done` 은 **그 자리에서**
+    // 알람이 된다 — 그런데 이 시점의 칸은 아직 포커스돼 있어서 그 알람은 바로
+    // 걷힌다. 이 단계의 목적은 카드를 만드는 것뿐이므로 턴 없이 `done` 만 보고하고,
+    // 알람은 칸이 배경으로 간 뒤에 세운다.
+    expect(await setActivity(page, pid, 'done', '', 'finished')).toBe(200);
 
     await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
@@ -198,10 +195,8 @@ test.describe('Agent activity panel', () => {
     const before = await page.locator('#area .pn.focused .pn-tab').count();
     await page.locator('#area .pn.focused .pn-tab-add').click();
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
-    // 사용자 턴을 하나 연다 — `done` 이 알람이 되는 전제다 (FR-ATN-4). 종전에는
-    // 이 자리가 필요 없었다: 알람이 `dmctl notify` 라는 **별도 명령**에서 왔고
-    // 활동 보고와 무관했기 때문이다. 이제 둘이 한 경로이므로 턴이 서야 한다.
-    expect(await setActivity(page, pid, 'working', '', '', true)).toBe(200);
+    // 턴을 하나 연다 — `done` 이 알람이 되는 전제다 (FR-ATN-4).
+    expect(await setActivity(page, pid, 'working', '', '')).toBe(200);
     await page.evaluate(async (p) => {
       await fetch('/api/tools/attention/set', {
         method: 'POST',
@@ -385,9 +380,9 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
     expect(await panelOrder(page)).toEqual(['G:' + win1, 'G:' + win2, 'C:' + pidC]);
     expect(await page.evaluate(() => localStorage.getItem('agentsGroupFold'))).toContain(win1);
 
-    // FR-AGG-11: 접힌 채로도 알람 수가 보인다. 알람이 서려면 그 턴이 사용자
-    // 프롬프트에서 시작되었다고 먼저 말해야 한다 (FR-ATN-2·4).
-    expect(await setActivity(page, pidA, 'done', '', 'a', true)).toBe(200);
+    // FR-AGG-11: 접힌 채로도 알람 수가 보인다. 알람이 서려면 턴이 먼저 시작되어야
+    // 한다 (FR-ATN-4).
+    expect(await setActivity(page, pidA, 'working', '', 'a')).toBe(200);
     await page.evaluate(async (p) => {
       await fetch('/api/tools/attention/set', {
         method: 'POST',

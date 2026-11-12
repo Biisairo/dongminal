@@ -8,10 +8,10 @@ import (
 // ATTENTION_FIRING_SRS 묶음 N 의 직접 모드 검증. 여기서 재는 것은 **무엇이 알람이
 // 되는가** 다 — 묶음 F 가 "누가 언제 우는가" 를 잰 자리 바로 옆이다.
 
-// V-ATN-1·2: `Stop` 훅의 done 신호는 사용자 프롬프트로 시작된 턴이 끝났을 때만
-// 알람이다. 배경 이벤트로 깨어난 턴의 종료는 사용자를 부를 사건이 아니다
-// (FR-ATN-4, §1.8 의 관측).
-func TestTool_SignalDone_RequiresUserTurn(t *testing.T) {
+// V-ATN-1·2 (D-12): `Stop` 훅의 done 신호는 사용자 턴이든 배경 턴이든 알람이다.
+// 서브에이전트·백그라운드 작업이 이어 간 일의 완료도 사용자가 알아야 할 사건이다
+// (FR-ATN-4 개정, §1.15 의 관측).
+func TestTool_SignalDone_BackgroundTurnAlsoRaises(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("agent", &mu, &attn, &clear)
@@ -19,30 +19,29 @@ func TestTool_SignalDone_RequiresUserTurn(t *testing.T) {
 	// 배경 턴: 사용자 프롬프트 없이 도구를 쓰고 끝났다.
 	p.SetActivity("working", "Bash", "make")
 	p.SignalAttention("done")
-	if len(attn) != 0 {
-		t.Fatalf("배경 턴의 done 이 알람이 되었다: %v", attn)
+	if len(attn) != 1 || attn[0] != "agent:done" {
+		t.Fatalf("배경 턴의 done 이 알람이 되지 않았다: %v", attn)
 	}
-	if p.Attention() {
-		t.Fatalf("배경 턴의 done 이 주의 상태를 세웠다")
+	if !p.Attention() {
+		t.Fatalf("배경 턴의 done 이 주의 상태를 세우지 않았다")
 	}
 
 	// 사용자 턴: 프롬프트가 앞선다.
-	p.NoteUserPrompt()
+	startTurn(p)
 	p.SetActivity("working", "Bash", "make")
 	p.SignalAttention("done")
-	if len(attn) != 1 || attn[0] != "agent:done" {
+	if len(attn) != 2 {
 		t.Fatalf("사용자 턴의 done 이 알람이 되지 않았다: %v", attn)
 	}
 }
 
-// V-ATN-3: §1.8 이 관측한 그대로다 — 한 번의 프롬프트 뒤에 배경 턴이 몇 번을
-// 깨어나든 알람은 한 번뿐이다 (FR-ATN-1).
-func TestTool_SignalDone_BackgroundTurnsAfterUserTurnStaySilent(t *testing.T) {
+// V-ATN-3 (D-12): 한 번의 프롬프트 뒤에 배경 턴이 N 번 끝나면 알람은 1+N 번이다.
+func TestTool_SignalDone_BackgroundTurnsAfterUserTurnEachRaise(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("agent", &mu, &attn, &clear)
 
-	p.NoteUserPrompt()
+	startTurn(p)
 	p.SignalAttention("done")
 	p.clearAttention() // 사용자가 알람을 보고 지웠다
 
@@ -51,8 +50,8 @@ func TestTool_SignalDone_BackgroundTurnsAfterUserTurnStaySilent(t *testing.T) {
 		p.SetActivity("working", "Bash", "")
 		p.SignalAttention("done")
 	}
-	if len(attn) != 1 {
-		t.Fatalf("배경 턴들이 알람을 되풀이했다: %v", attn)
+	if len(attn) != 5 {
+		t.Fatalf("배경 턴의 done 이 모두 알람이 되지 않았다: %v", attn)
 	}
 }
 
@@ -173,7 +172,7 @@ func TestTool_Ended_DropsTurnMarks(t *testing.T) {
 	var attn, clear []string
 	p := newAttnPane("agent", &mu, &attn, &clear)
 
-	p.NoteUserPrompt()
+	startTurn(p)
 	p.SetActivity("working", "Bash", "")
 	p.SetActivity("ended", "", "")
 

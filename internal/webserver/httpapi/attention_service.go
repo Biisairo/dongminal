@@ -23,8 +23,8 @@ type attentionService interface {
 	Attend(toolID string, typed bool)
 	ClearAllAttention() int
 	ActivitySnapshot() []toolhub.ActivitySnap
-	// ReportActivity 는 활동 보고 하나다 — 턴 표시·활동·파생 알람 (FR-ATN-1 · FR-AEV-10).
-	ReportActivity(toolID, state, tool, detail string, userPrompt, turnKnown bool)
+	// ReportActivity 는 활동 보고 하나다 — 활동·파생 알람 (FR-AEV-10).
+	ReportActivity(toolID, state, tool, detail string, turnKnown bool)
 	Activity(toolID string) *toolhub.ActivityState
 	// LastOutputAt 은 마지막 출력 시각(unix ns)이다. 없으면 0.
 	LastOutputAt(toolID string) int64
@@ -91,15 +91,9 @@ func (a trackerAttention) ClearAllAttention() int {
 
 func (a trackerAttention) ActivitySnapshot() []toolhub.ActivitySnap { return a.t.ActivitySnapshot() }
 
-func (a trackerAttention) ReportActivity(toolID, state, tool, detail string, userPrompt, turnKnown bool) {
+func (a trackerAttention) ReportActivity(toolID, state, tool, detail string, turnKnown bool) {
 	if a.tools == nil || a.judges() {
 		return
-	}
-	// FR-ATN-1: 표시를 먼저 세운다. 활동 보고와 별도 경로인 것은 둘이
-	// 다른 것을 말하기 때문이다 — 활동은 "지금 무엇을 하는가", 이것은
-	// "이 턴이 왜 시작되었는가" 다.
-	if userPrompt {
-		a.t.NoteUserPrompt(toolID)
 	}
 	a.t.SetActivity(toolID, state, tool, detail)
 	if activity.Alarms(state) {
@@ -168,12 +162,12 @@ func (a directAttention) ActivitySnapshot() []toolhub.ActivitySnap {
 	return []toolhub.ActivitySnap{}
 }
 
-func (a directAttention) ReportActivity(toolID, state, tool, detail string, userPrompt, turnKnown bool) {
+func (a directAttention) ReportActivity(toolID, state, tool, detail string, turnKnown bool) {
 	t := a.tool(toolID)
 	if t == nil {
 		return
 	}
-	t.ReportActivity(state, tool, detail, userPrompt, turnKnown)
+	t.ReportActivity(state, tool, detail, turnKnown)
 }
 
 func (a directAttention) Activity(toolID string) *toolhub.ActivityState {

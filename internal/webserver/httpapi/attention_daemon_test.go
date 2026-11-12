@@ -104,7 +104,7 @@ func TestAttnDaemon_ReportPushNotJudged(t *testing.T) {
 	s, tr, fb := reportServer(t, "t1")
 	s.AttnDaemon = &fakeAttnDaemon{judges: true}
 	before := fb.count()
-	applyReport(t, s, agentrec.MethodActivity, map[string]any{"toolId": "t1", "agent": "claude", "state": activity.Working, "userPrompt": true})
+	applyReport(t, s, agentrec.MethodActivity, map[string]any{"toolId": "t1", "agent": "claude", "state": activity.Working})
 	applyReport(t, s, agentrec.MethodActivity, map[string]any{"toolId": "t1", "agent": "claude", "state": activity.Done})
 	applyReport(t, s, agentrec.MethodNotify, map[string]any{"toolId": "t1"})
 	if tr.Activity("t1") != nil || tr.Attention("t1") {

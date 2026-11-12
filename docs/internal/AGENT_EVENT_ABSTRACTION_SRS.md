@@ -38,7 +38,7 @@
 | 말 | 뜻 |
 |---|---|
 | **이벤트** | 에이전트가 자기 훅으로 알려 오는 사건 |
-| **공통 어휘** | 이 저장소가 쓰는 활동 상태 — `idle`·`working`·`waiting`·`done`·`ended` 와 곁들이 값(`UserPrompt`·`Compacted`·`Tool`/`Detail`·`SessionID`/`Transcript`) |
+| **공통 어휘** | 이 저장소가 쓰는 활동 상태 — `idle`·`working`·`waiting`·`done`·`ended` 와 곁들이 값(`Compacted`·`Tool`/`Detail`·`SessionID`/`Transcript`) |
 | **선언** | `Adapter` 의 값. 그 에이전트가 **실제로 낼 수 있는 것**을 밝힌다 |
 | **활동** | 에이전트가 지금 무엇을 하는가. 활동 패널이 그린다 |
 | **알람** | 도구가 사용자를 부르는 것. `Tool.attention` / `AttnTracker.attention` |
@@ -82,7 +82,7 @@
 
 claude 의 `HookParse` 는 이미 알람에 필요한 것을 전부 낸다 (`claude.go:70-84`):
 
-- `UserPromptSubmit` → `working` + `UserPrompt=true`
+- `UserPromptSubmit` → `working`
 - `Notification` → `waiting`
 - `Stop` → `done`
 
@@ -91,8 +91,8 @@ claude 의 `HookParse` 는 이미 알람에 필요한 것을 전부 낸다 (`cla
 
 ### 2.4 알람 규칙은 **턴 출처 이벤트가 없는 에이전트를 침묵시킨다**
 
-`FR-ATN-4`: `done` 은 사용자 턴 표시가 서 있을 때만 알람이다. 그 표시를 세우는
-것은 `UserPrompt` 곁들이 값뿐이다 (`FR-ATN-3`).
+`FR-ATN-4`: `done` 은 턴 시작 표시가 서 있을 때만 알람이다. 그 표시를 세우는
+것은 `working` 보고다 (`FR-ATN-3`, 2026-11-12 개정 — 처음에는 `UserPrompt` 곁들이 값이었다).
 
 codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-turn-complete`
 하나뿐이다 (`codex.go`). 그래서 codex 가 `done` 을 활동으로 보고하면 **영원히
@@ -100,8 +100,8 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 라벨이 `done` 이 아니라 `codex` 라서 `FR-ATN-12`(그 밖의 라벨은 무조건 알람)에
 걸린다.
 
-> **이것이 이 문서가 "모든 이벤트를 미리 선언" 해야 하는 이유다.** "턴 출처를
-> 모른다" 와 "사용자 턴이 아니었다" 는 다르다 (`FR-CBG-5`). 선언이 없으면 둘이
+> **이것이 이 문서가 "모든 이벤트를 미리 선언" 해야 하는 이유다.** "턴의 시작을
+> 알 수 없다" 와 "턴이 시작되지 않았다" 는 다르다 (`FR-CBG-5`). 선언이 없으면 둘이
 > 구별되지 않고, 규칙은 **모르는 것을 아니라고 읽는다.**
 
 ### 2.5 이벤트 능력의 실측
@@ -113,7 +113,6 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 | `waiting` | ✅ `Notification` | ❌ **승인 게이트가 훅에 통지되지 않는다** (OMP SRS §2.4) | ❌ |
 | `done` | ✅ `Stop` | ✅ `agent_end` | ✅ `agent-turn-complete` |
 | `ended` | ✅ `SessionEnd` | ✅ `session_shutdown` | ❌ |
-| 사용자 턴 | ✅ `UserPromptSubmit` | ✅ `agent_start` | ❌ |
 | 압축 | ✅ `PreCompact` | ✅ `auto_compaction_start`·`session_compact` | ❌ |
 | tool/detail | ✅ | ✅ | ❌ |
 | **알람의 내용** (`done`·`waiting` 의 `Detail`) | ❌ → ✅ `Notification.message` | ❌ → ✅ shim 의 `detail` | ❌ → ✅ `last-assistant-message` |
@@ -132,8 +131,9 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 **FR-AEV-2** `Adapter` 에 `Signals` 를 더한다. 그 에이전트가 **실제로 낼 수 있는
 신호 전부**를 선언한다. 낼 수 없는 것은 `false` 이며, 그것이 곧 "빈 구현" 이다.
 
-**FR-AEV-3** 선언 항목은 §2.5 의 아홉이다: `Idle`·`Working`·`Waiting`·`Done`·
-`Ended`·`UserTurn`·`Compaction`·`ToolDetail`·`Session`.
+**FR-AEV-3** 선언 항목은 §2.5 의 여덟이다: `Idle`·`Working`·`Waiting`·`Done`·
+`Ended`·`Compaction`·`ToolDetail`·`Session`. (2026-11-12 개정 — `UserTurn` 을 걷었다.
+`ATTENTION_FIRING_SRS` D-13)
 
 > **모든 이벤트를 미리 선언하는 이유** (사용자 결정): 알람에 쓰이는 셋만 적으면
 > 다음에 다른 층이 이벤트를 소비할 때 같은 일을 또 겪는다. 선언은 **그 에이전트가
@@ -154,12 +154,13 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 에이전트는 **누구나** 알람을 얻는다.
 
 **FR-AEV-11** 판정은 `AgentTurn.AllowSignal` 그대로다. `FR-ATN-4`·`6`·`15` 의
-규칙과 소비 의미론(`CompareAndSwap`)은 **한 글자도 바뀌지 않는다.** 이 문서가
+규칙과 소비 의미론(`CompareAndSwap`)을 그대로 쓴다. 이 문서가
 바꾸는 것은 그 판정을 **부르는 자리**뿐이다.
 
-**FR-AEV-12** `Signals.UserTurn` 이 **거짓**인 에이전트의 `done` 은 **무조건**
-알람이다. 턴 출처를 **모르는 것**과 "사용자 턴이 아니었다" 는 다르다
+**FR-AEV-12** `Signals.Working` 이 **거짓**인 에이전트의 `done` 은 **무조건**
+알람이다. 턴의 시작을 **알 수 없는 것**과 "턴이 시작되지 않았다" 는 다르다
 (`FR-CBG-5`) — 모르는 것을 아니라고 읽으면 그 에이전트는 영원히 침묵한다(§2.4).
+(2026-11-12 개정 — 처음에는 `Signals.UserTurn` 이었다. `ATTENTION_FIRING_SRS` D-13)
 
 **FR-AEV-13** 같은 사건이 두 경로로 와도 **알람은 한 번**이다. claude 가
 `notify` 와 `activity` 를 모두 보내는 동안에도 그렇다 — `AllowSignal` 의 표시는
@@ -211,7 +212,7 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 
 > 초안은 여기서 틀렸다 — *"`FR-AEV-12` 로 알람이 되지만 `FR-AEV-13` 이 흡수하므로
 > 두 번 울지 않는다"* 고 적었는데, **소비 의미론은 `FR-AEV-12` 의 갈래에 적용되지
-> 않는다.** `UserTurn=false` 의 `done` 은 판정 없이 무조건 울리므로 소비할 표시가
+> 않는다.** `Working=false` 의 `done` 은 판정 없이 무조건 울리므로 소비할 표시가
 > 없고, `notify codex` 의 알람과 겹쳐 **같은 턴이 두 번 운다.**
 >
 > 그래서 id 를 싣지 않는다. 빈 `agent` 는 종전 판정으로 가고(`FR-AEV-12` 의
@@ -279,9 +280,9 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 | ID | 확인 | 층 |
 |---|---|---|
 | V-AEV-1 | omp 가 `agent_start`→`agent_end` 를 보고하면 **알람이 선다** | Go |
-| V-AEV-2 | claude 가 `UserPromptSubmit`→`Stop` 을 보고하면 알람이 선다 (`notify` 없이) | Go |
-| V-AEV-3 | 사용자 턴 없이 온 `done`(배경 턴)은 알람이 **아니다** — `FR-ATN-4` 무변경 | Go |
-| V-AEV-4 | `Signals.UserTurn=false` 인 에이전트의 `done` 은 **무조건** 알람이다 (`FR-AEV-12`) | Go |
+| V-AEV-2 | claude 가 `UserPromptSubmit`(`working`)→`Stop` 을 보고하면 알람이 선다 (`notify` 없이) | Go |
+| V-AEV-3 | ~~사용자 턴 없이 온 `done`(배경 턴)은 알람이 아니다~~ → **개정 (`ATTENTION_FIRING_SRS` D-12, 2026-11-12):** 배경 알림이 깨운 턴의 `done` 도 알람이다 | Go |
+| V-AEV-4 | `Signals.Working=false` 인 에이전트의 `done` 은 **무조건** 알람이다 (`FR-AEV-12`) | Go |
 | V-AEV-4a | codex 의 활동 보고에는 `agent` 가 실리지 않는다 — 실으면 `notify` 와 겹쳐 두 번 운다 (`FR-AEV-21`) | Go |
 | V-AEV-5 | `waiting` 은 턴이 진행 중일 때만 알람이고, 되풀이는 한 번만 운다 (`FR-ATN-6`·`15` 무변경) | Go |
 | V-AEV-6 | 같은 사건이 `notify` 와 `activity` 로 둘 다 와도 알람은 **한 번**이다 (`FR-AEV-13`) | Go |

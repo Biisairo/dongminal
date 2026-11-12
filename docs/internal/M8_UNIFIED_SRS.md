@@ -174,7 +174,6 @@
 | **`waiting`** | ✅ `Notification` | **❌ 승인 게이트가 훅에 통지되지 않는다** | ❌ |
 | `done` | ✅ `Stop` | ✅ `agent_end` | ✅ `agent-turn-complete` |
 | `ended` | ✅ `SessionEnd` | ✅ `session_shutdown` | ❌ |
-| 사용자 턴 | ✅ `UserPromptSubmit` | ✅ `agent_start` | ❌ |
 | 압축 | ✅ `PreCompact` | ✅ | ❌ |
 | tool/detail | ✅ | ✅ | ❌ |
 | 세션 신원 | ✅ | ✅ | ❌ |
@@ -184,9 +183,9 @@
 
 그리고 훅 표면이 낼 수 없는 것을 메우려고 두 개의 자백이 코드에 적혀 있다:
 
-- `FR-ATN-3a` — *"**휴리스틱임을 인정한다** — 훅 payload 에 출처 필드가 없어
+- ~~`FR-ATN-3a` — *"**휴리스틱임을 인정한다** — 훅 payload 에 출처 필드가 없어
   본문이 유일한 근거다"*. 프롬프트가 `<task-notification>`·`<system-reminder>`
-  로 시작하는지로 사람 턴과 배경 턴을 가른다
+  로 시작하는지로 사람 턴과 배경 턴을 가른다~~ (2026-11-12: 훅 표면에서도 걷었다 — `ATTENTION_FIRING_SRS` D-13)
 - `Readiness.ScreenPatterns` — 선언은 있으나 **비워 둔 것이 의도다**.
   *"화면 패턴은 사용자가 하단 스테이터스라인 하나만 붙여도 깨진다"*
 
@@ -309,7 +308,7 @@ terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_r
 | `shared/runtime/install.go`·`install_omp.go` | 훅 설치 분기 |
 | `toolhub/agentturn.go` · `Tool.turn` | 턴 상태 추적 (`FR-ATN-1·7`) |
 | `Tool.agentSeen` | "에이전트가 돌고 있다" — 활동 보고가 세운다 |
-| `AttnTracker.SignalAgentEvent` · `NoteUserPrompt` · `SetActivity` | 활동 보고의 수신단 |
+| `AttnTracker.SignalAgentEvent` · `SetActivity` | 활동 보고의 수신단 |
 
 **`dmctl notify` 는 이 목록에 없다.** 그것은 에이전트 아닌 것들의 몫이며
 `FR-ATF-4`(*"명시적 신호는 누가 보냈든 알람이다"*)가 이미 그렇게 선을 그었다.
@@ -627,7 +626,7 @@ UI 로 노출한다.** 어댑터의 `Proto.Control`(§9.3 ③) 이 지원하는 
 
 **FR-AAL-2** 프로토콜 표면의 `done` 은 추정을 거치지 않고 알람 판정에 들어간다.
 `FR-ATN-4`(표시가 서 있을 때만)의 판정은 남되, 그 표시를 세우는 것은 훅의
-`UserPromptSubmit` 이 아니라 **우리가 보낸 입력**이다 — 에이전트 도구에서는 입력을
+`working` 보고가 아니라 **우리가 보낸 입력**이다 — 에이전트 도구에서는 입력을
 넣은 주체가 우리이므로 사람 턴과 배경 턴을 판정할 필요가 없다.
 
 **FR-AAL-3** **승인 요청이 열리면 알람이 선다.** 에이전트 도구에서 `waiting` 은

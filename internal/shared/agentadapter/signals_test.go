@@ -4,8 +4,8 @@ import "testing"
 
 // AGENT_EVENT_ABSTRACTION_SRS 묶음 E — 선언과 구현의 대조 (V-AEV-7·8).
 //
-// **선언이 거짓말하면 알람이 조용히 사라진다.** codex 가 그 자리였다 — 턴 출처
-// 이벤트가 없는데 규칙은 "사용자 턴이 아니었다" 로 읽어 영원히 침묵한다(§2.4).
+// **선언이 거짓말하면 알람이 조용히 사라진다.** codex 가 그 자리였다 — 턴 시작
+// 이벤트가 없는데 규칙은 "턴이 시작되지 않았다" 로 읽어 영원히 침묵한다(§2.4).
 // 그래서 `Signals` 는 주석이 아니라 **대조되는 값**이어야 한다 (FR-AEV-4).
 
 // nativeEvents 는 그 에이전트의 **알려진 네이티브 이벤트 전부**다. 여기 없는
@@ -74,9 +74,6 @@ func observed(t *testing.T, id string) Signals {
 		default:
 			t.Fatalf("%s: 어휘 밖의 상태 %q — %s", id, rep.State, ev)
 		}
-		if rep.UserPrompt {
-			got.UserTurn = true
-		}
 		if rep.Compacted {
 			got.Compaction = true
 		}
@@ -114,7 +111,6 @@ func TestSignalsMatchHookParse(t *testing.T) {
 			check("Waiting", w.Waiting, got.Waiting)
 			check("Done", w.Done, got.Done)
 			check("Ended", w.Ended, got.Ended)
-			check("UserTurn", w.UserTurn, got.UserTurn)
 			check("Compaction", w.Compaction, got.Compaction)
 			check("ToolDetail", w.ToolDetail, got.ToolDetail)
 		})

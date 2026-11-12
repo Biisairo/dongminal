@@ -42,7 +42,7 @@ func alarmTool(t *testing.T) (*Server, *toolhub.Tool) {
 // 지금 코드에서는 서지 않는다 — omp shim 은 `dmctl notify` 를 보내지 않는다.
 func TestActivityAlarm_OmpDoneRaises(t *testing.T) {
 	s, p := alarmTool(t)
-	activityPost(t, s, `{"toolId":"1","agent":"omp","state":"working","userPrompt":true}`)
+	activityPost(t, s, `{"toolId":"1","agent":"omp","state":"working"}`)
 	if p.Attention() {
 		t.Fatal("일을 시작했을 뿐인데 알람이 섰다")
 	}
@@ -55,22 +55,20 @@ func TestActivityAlarm_OmpDoneRaises(t *testing.T) {
 // V-AEV-2: claude 도 `notify` 없이 활동 보고만으로 같게 동작한다 (FR-AEV-20).
 func TestActivityAlarm_ClaudeDoneRaisesWithoutNotify(t *testing.T) {
 	s, p := alarmTool(t)
-	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"working","userPrompt":true}`)
+	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"working"}`)
 	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"done"}`)
 	if !p.Attention() {
 		t.Fatal("claude 의 done 이 알람이 되지 않았다")
 	}
 }
 
-// V-AEV-3: **FR-ATN-4 는 무변경이다.** 사용자 턴이 아니었던 턴의 종료는 사건이
-// 아니다 — 배경 알림이 깨운 턴이 그 자리이며, 그것을 알람으로 읽던 것이
-// `FR-ATN-3a` 가 고친 결함이다.
-func TestActivityAlarm_DoneWithoutUserTurnIsSilent(t *testing.T) {
+// V-AEV-3 (D-12): 사용자 턴이 아니었던 턴(배경 알림이 깨운 턴)의 종료도 알람이다.
+func TestActivityAlarm_DoneWithoutUserTurnRaises(t *testing.T) {
 	s, p := alarmTool(t)
-	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"working"}`) // userPrompt 없음
+	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"working"}`) // 배경 알림이 깨운 턴
 	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"done"}`)
-	if p.Attention() {
-		t.Fatal("사용자 턴이 아니었는데 알람이 섰다 — FR-ATN-4 가 깨졌다")
+	if !p.Attention() {
+		t.Fatal("배경 턴의 done 이 알람이 되지 않았다 (FR-ATN-4 개정)")
 	}
 }
 
@@ -93,7 +91,7 @@ func TestActivityAlarm_WaitingRulesUnchanged(t *testing.T) {
 	if p.Attention() {
 		t.Fatal("턴이 진행 중이 아닌데 waiting 이 알람이 됐다 (FR-ATN-6)")
 	}
-	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"working","userPrompt":true}`)
+	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"working"}`)
 	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"waiting"}`)
 	if !p.Attention() {
 		t.Fatal("권한 요청이 알람이 되지 않았다")
@@ -111,7 +109,7 @@ func TestActivityAlarm_WaitingRulesUnchanged(t *testing.T) {
 // 그것을 흡수해야 한다.
 func TestActivityAlarm_NotifyAndActivityRaiseOnce(t *testing.T) {
 	s, p := alarmTool(t)
-	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"working","userPrompt":true}`)
+	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"working"}`)
 	activityPost(t, s, `{"toolId":"1","agent":"claude","state":"done"}`)
 	if !p.Attention() {
 		t.Fatal("첫 알람이 서지 않았다")

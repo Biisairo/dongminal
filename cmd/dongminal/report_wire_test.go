@@ -71,7 +71,7 @@ func TestReport_NoServerThenSnapshot(t *testing.T) {
 	go func() { _ = ps.Accept() }()
 
 	for _, body := range []string{
-		`{"toolId":"t1","agent":"claude","state":"working","tool":"Bash","userPrompt":true}`,
+		`{"toolId":"t1","agent":"claude","state":"working","tool":"Bash"}`,
 		`{"toolId":"t1","agent":"claude","state":"done"}`,
 	} {
 		c, err := platform.Current().IPC.Dial(filepath.Join(d, agentrec.SocketFile), time.Second)

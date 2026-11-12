@@ -18,7 +18,7 @@ func TestTool_AgentOSC_DoesNotFire(t *testing.T) {
 	var attn, clear []string
 	p := newAttnPane("agent", &mu, &attn, &clear)
 
-	p.NoteUserPrompt()
+	startTurn(p)
 	p.SetActivity("working", "", "")
 	p.SetActivity("done", "", "")
 	p.observeOutputAt([]byte(claudeIdleOSC), 1)

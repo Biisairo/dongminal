@@ -25,7 +25,7 @@ func TestActivityReportCarriesAgentID(t *testing.T) {
 }
 
 // codex 는 **싣지 않는다** (FR-AEV-21). codex 의 알람은 `dmctl notify codex` 가
-// 이미 내므로, 여기서 id 를 실으면 `Signals.UserTurn=false` 의 무조건 갈래가
+// 이미 내므로, 여기서 id 를 실으면 `Signals.Working=false` 의 무조건 갈래가
 // 알람을 한 번 더 만들어 **같은 턴이 두 번 운다.**
 //
 // 이 검사가 있는 이유는 그 중복이 조용하기 때문이다 — 두 번 우는 것은 로그에

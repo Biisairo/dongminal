@@ -21,7 +21,7 @@ async function setActivity(page: Page, toolId: string, state: string, tool: stri
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(a),
     });
     return r.status;
-  }, { toolId, state, tool, detail, userPrompt: false });
+  }, { toolId, state, tool, detail });
 }
 
 test.describe('FR-ACF Activity 레일', () => {

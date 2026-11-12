@@ -68,7 +68,7 @@ func TestRunAttentionSweeper_ThresholdGivenLater(t *testing.T) {
 	var now atomic.Int64
 	defer stubAttnNow(now.Load)()
 	p := m.AdoptDetached("t1")
-	p.ReportActivity(activity.Working, "Bash", "", true, true)
+	p.ReportActivity(activity.Working, "Bash", "", true)
 	p.SetActivity(activity.Idle, "", "")
 	p.ObserveOutput([]byte("x"))
 

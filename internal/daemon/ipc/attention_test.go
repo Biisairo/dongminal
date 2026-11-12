@@ -111,7 +111,7 @@ func TestAttnPush_OnlyToAttentionServer(t *testing.T) {
 	p = ps.pm.Get("t2")
 	p.ObserveOutput(oscSignal)
 	p.Attend()
-	p.ReportActivity(activity.Working, "Bash", "ls", true, true)
+	p.ReportActivity(activity.Working, "Bash", "ls", true)
 	evs := attnEvents(t, buf)
 	if len(evs) != 3 {
 		t.Fatalf("push=%+v", evs)

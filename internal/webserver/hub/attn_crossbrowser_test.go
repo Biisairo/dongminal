@@ -29,7 +29,7 @@ func clearedFor(fb *fakeBroker, toolID string) int {
 func TestAttnClear_BroadcastsOnAttend(t *testing.T) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
-	tr.NoteUserPrompt("t1")
+	startTurn(tr, "t1")
 	tr.SignalAttention("t1", "done")
 
 	tr.Attend("t1")
@@ -43,7 +43,7 @@ func TestAttnClear_BroadcastsOnAttend(t *testing.T) {
 func TestAttnClear_BroadcastsOnAttendTyped(t *testing.T) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
-	tr.NoteUserPrompt("t1")
+	startTurn(tr, "t1")
 	tr.SignalAttention("t1", "done")
 
 	tr.AttendTyped("t1")
@@ -58,7 +58,7 @@ func TestAttnClearAll_BroadcastsEach(t *testing.T) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
 	for _, id := range []string{"t1", "t2"} {
-		tr.NoteUserPrompt(id)
+		startTurn(tr, id)
 		tr.SignalAttention(id, "done")
 	}
 
@@ -77,9 +77,9 @@ func TestAttnClearAll_BroadcastsEach(t *testing.T) {
 func TestAttnClear_BroadcastsAfterRepeatedSignals(t *testing.T) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
-	tr.NoteUserPrompt("t1")
+	startTurn(tr, "t1")
 	tr.SignalAttention("t1", "done")
-	tr.NoteUserPrompt("t1")
+	startTurn(tr, "t1")
 	tr.SignalAttention("t1", "done")
 
 	tr.Attend("t1")
@@ -95,7 +95,7 @@ func TestAttnClear_BroadcastsAfterRepeatedSignals(t *testing.T) {
 func TestAttnClear_SecondAttendIsSilent(t *testing.T) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
-	tr.NoteUserPrompt("t1")
+	startTurn(tr, "t1")
 	tr.SignalAttention("t1", "done")
 
 	tr.Attend("t1")

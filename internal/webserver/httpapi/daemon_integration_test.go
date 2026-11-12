@@ -482,7 +482,7 @@ func TestDaemonAttnTrackerMultipleTools(t *testing.T) {
 	// Signal attention for tool A (FeedOutput first to register)
 	// FR-ATN-4·6 의 전제 — 재는 것은 도구별 독립성이다.
 	tracker.FeedOutput("A", []byte("prompt"))
-	tracker.NoteUserPrompt("A")
+	tracker.SetActivity("A", "working", "", "")
 	tracker.SignalAttention("A", "done")
 	if !tracker.Attention("A") {
 		t.Fatal("tool A should have attention")

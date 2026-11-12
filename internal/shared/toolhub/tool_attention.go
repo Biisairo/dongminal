@@ -122,8 +122,8 @@ func (p *Tool) setAttention(reason string) bool {
 //
 // **다만 무엇이 사건인지는 먼저 묻는다** (묶음 N). edge 게이팅이 없는 것은
 // 의도였고 그대로 남지만, 그 전제 — 훅이 오는 모든 순간이 새 사건이다 — 는
-// 사실이 아니었다 (§2.7). 배경 턴의 종료와 입력 유휴 알림은 되풀이지 사건이
-// 아니므로, 여기서 걸러 낸다. 걸러진 신호는 방송도 하지 않는다 (FR-ATN-4).
+// 사실이 아니었다 (§2.7). 입력 유휴 알림은 되풀이지 사건이 아니므로 여기서
+// 걸러 낸다. 걸러진 신호는 방송도 하지 않는다 (FR-ATN-6·15).
 func (p *Tool) SignalAttention(reason string) {
 	if !p.turn.AllowSignal(reason) {
 		return
@@ -137,7 +137,7 @@ func (p *Tool) SignalAttention(reason string) {
 // SignalAgentEvent 는 **활동 이벤트에서 파생한** 알람이다 (FR-AEV-10).
 //
 // `SignalAttention` 과 나뉘어 있는 것은 판정의 재료가 하나 더 있기 때문이다 —
-// 그 에이전트가 턴의 출처를 말할 수 있는가(`Signals.UserTurn`). 그 밖의 모든
+// 그 에이전트가 턴의 시작을 알릴 수 있는가(`Signals.Working`). 그 밖의 모든
 // 것은 같은 자리, 같은 판정이다 (FR-AEV-11).
 //
 // 이것이 있어서 **활동을 보고할 수 있는 에이전트는 누구나 알람을 얻는다.**
@@ -305,11 +305,6 @@ type ActivitySnap struct {
 	UpdatedAt int64  `json:"updatedAt"`
 }
 
-// NoteUserPrompt 는 사용자 프롬프트로 턴이 시작되었음을 기록한다 (FR-ATN-1).
-// 활동 보고와 **별도 경로**인 이유는 둘이 다른 것을 말하기 때문이다 — 활동은
-// "지금 무엇을 하는가" 이고, 이것은 "이 턴이 왜 시작되었는가" 다.
-func (p *Tool) NoteUserPrompt() { p.turn.NoteUserPrompt() }
-
 func (p *Tool) SetActivity(state, tool, detail string) {
 	// FR-ATF-2: 보고했다는 사실이 에이전트 표시를 세우고, `ended` 가 내린다.
 	// 상태의 종류는 묻지 않는다 — 에이전트만이 활동을 보고하기 때문이다.
@@ -325,13 +320,9 @@ func (p *Tool) SetActivity(state, tool, detail string) {
 	}
 }
 
-// ReportActivity 는 main 활동 보고 하나의 반영이다 — 사용자 프롬프트 표시, 활동,
-// done·waiting 이면 알람 파생의 순서다 (FR-ATN-1 · FR-AEV-10). 직접 모드와 데몬이 함께
-// 쓴다 (AGENT_RECORD_DAEMON_SRS D-ARD-8).
-func (p *Tool) ReportActivity(state, tool, detail string, userPrompt, turnKnown bool) {
-	if userPrompt {
-		p.NoteUserPrompt()
-	}
+// ReportActivity 는 main 활동 보고 하나의 반영이다 — 활동, done·waiting 이면 알람
+// 파생의 순서다 (FR-AEV-10). 직접 모드와 데몬이 함께 쓴다 (AGENT_RECORD_DAEMON_SRS D-ARD-8).
+func (p *Tool) ReportActivity(state, tool, detail string, turnKnown bool) {
 	p.SetActivity(state, tool, detail)
 	if activity.Alarms(state) {
 		p.SignalAgentEvent(state, turnKnown)

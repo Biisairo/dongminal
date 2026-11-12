@@ -58,7 +58,7 @@ func TestApiToolStatusWait_ActivityReportWakesWait(t *testing.T) {
 
 	go func() {
 		time.Sleep(150 * time.Millisecond)
-		s.reportActivity("p1", "idle", "", "", false, false)
+		s.reportActivity("p1", "idle", "", "", false)
 	}()
 	start := time.Now()
 	code, out := getWait(t, s, "id=p1&for=ready&timeoutMs=5000")

@@ -33,7 +33,7 @@ func TestAttentionService_DirectWithoutTools(t *testing.T) {
 	}
 	a.SignalAttention("x", "r")
 	a.Attend("x", true)
-	a.ReportActivity("x", "done", "", "", true, true)
+	a.ReportActivity("x", "done", "", "", true)
 	a.Forget("x")
 	if a.ClearAllAttention() != 0 || a.Activity("x") != nil || a.LastOutputAt("x") != 0 {
 		t.Fatal("도구 허브 없이 상태가 생겼다")

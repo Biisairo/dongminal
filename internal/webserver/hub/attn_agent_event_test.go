@@ -17,7 +17,7 @@ func agentEventTracker() (*AttnTracker, *fakeBroker) {
 // V-AEV-1 의 데몬 판: 사용자 턴에서 시작한 일이 끝나면 알람이 선다.
 func TestTrackerAgentEvent_DoneRaisesAfterUserTurn(t *testing.T) {
 	tr, _ := agentEventTracker()
-	tr.NoteUserPrompt("1")
+	startTurn(tr, "1")
 	tr.SetActivity("1", "working", "", "")
 	tr.SignalAgentEvent("1", "done", true)
 	if !tr.Attention("1") {
@@ -25,13 +25,13 @@ func TestTrackerAgentEvent_DoneRaisesAfterUserTurn(t *testing.T) {
 	}
 }
 
-// V-AEV-3 의 데몬 판: 사용자 턴이 아니었으면 조용하다 (FR-ATN-4 무변경).
-func TestTrackerAgentEvent_DoneWithoutUserTurnIsSilent(t *testing.T) {
+// V-AEV-3 의 데몬 판 (D-12): 사용자 턴이 아니었어도(배경 턴) done 은 알람이다.
+func TestTrackerAgentEvent_DoneWithoutUserTurnRaises(t *testing.T) {
 	tr, _ := agentEventTracker()
 	tr.SetActivity("1", "working", "", "")
 	tr.SignalAgentEvent("1", "done", true)
-	if tr.Attention("1") {
-		t.Fatal("사용자 턴이 아니었는데 알람이 섰다")
+	if !tr.Attention("1") {
+		t.Fatal("배경 턴의 done 이 알람이 되지 않았다 (FR-ATN-4 개정)")
 	}
 }
 

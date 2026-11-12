@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/toolhub"
 )
 
@@ -24,32 +25,32 @@ func firedReason(fb *fakeBroker, toolID, reason string) int {
 	return n
 }
 
-// V-ATN-1·2: done 은 사용자 프롬프트로 시작된 턴이 끝났을 때만 알람이다.
-func TestAttnTracker_SignalDone_RequiresUserTurn(t *testing.T) {
+// V-ATN-1·2 (D-12): done 은 사용자 턴이든 배경 턴이든 알람이다.
+func TestAttnTracker_SignalDone_BackgroundTurnAlsoRaises(t *testing.T) {
 	tr, fb := firingTracker(1000)
 
 	tr.SetActivity("agent", "working", "Bash", "make")
 	tr.SignalAttention("agent", "done")
-	if got := firedReason(fb, "agent", "done"); got != 0 {
-		t.Fatalf("배경 턴의 done 이 알람이 되었다: %d", got)
+	if got := firedReason(fb, "agent", "done"); got != 1 {
+		t.Fatalf("배경 턴의 done 이 알람이 되지 않았다: %d", got)
 	}
-	if tr.Attention("agent") {
-		t.Fatalf("배경 턴의 done 이 주의 상태를 세웠다")
+	if !tr.Attention("agent") {
+		t.Fatalf("배경 턴의 done 이 주의 상태를 세우지 않았다")
 	}
 
-	tr.NoteUserPrompt("agent")
+	startTurn(tr, "agent")
 	tr.SetActivity("agent", "working", "Bash", "make")
 	tr.SignalAttention("agent", "done")
-	if got := firedReason(fb, "agent", "done"); got != 1 {
+	if got := firedReason(fb, "agent", "done"); got != 2 {
 		t.Fatalf("사용자 턴의 done 이 알람이 되지 않았다: %d", got)
 	}
 }
 
-// V-ATN-3: 한 번의 프롬프트 뒤 배경 턴이 몇 번을 깨어나든 알람은 한 번뿐이다.
-func TestAttnTracker_SignalDone_BackgroundTurnsStaySilent(t *testing.T) {
+// V-ATN-3 (D-12): 한 번의 프롬프트 뒤 배경 턴이 N 번 끝나면 알람은 1+N 번이다.
+func TestAttnTracker_SignalDone_BackgroundTurnsEachRaise(t *testing.T) {
 	tr, fb := firingTracker(1000)
 
-	tr.NoteUserPrompt("agent")
+	startTurn(tr, "agent")
 	tr.SignalAttention("agent", "done")
 	tr.Attend("agent")
 
@@ -57,8 +58,8 @@ func TestAttnTracker_SignalDone_BackgroundTurnsStaySilent(t *testing.T) {
 		tr.SetActivity("agent", "working", "Bash", "")
 		tr.SignalAttention("agent", "done")
 	}
-	if got := firedReason(fb, "agent", "done"); got != 1 {
-		t.Fatalf("배경 턴들이 알람을 되풀이했다: %d", got)
+	if got := firedReason(fb, "agent", "done"); got != 5 {
+		t.Fatalf("배경 턴의 done 이 모두 알람이 되지 않았다: %d", got)
 	}
 }
 
@@ -129,7 +130,7 @@ func TestAttnTracker_Idle_NeverStartedDoesNotFire(t *testing.T) {
 func TestAttnTracker_Ended_DropsTurnMarks(t *testing.T) {
 	tr, fb := firingTracker(1000)
 
-	tr.NoteUserPrompt("agent")
+	startTurn(tr, "agent")
 	tr.SetActivity("agent", "working", "Bash", "")
 	tr.SetActivity("agent", "ended", "", "")
 
@@ -178,4 +179,12 @@ func TestAttnTracker_SignalWaiting_FiresOncePerWait(t *testing.T) {
 	if got := firedReason(fb, "agent", "waiting"); got != 2 {
 		t.Fatalf("일이 다시 시작된 뒤의 waiting 이 알람이 되지 않았다: %d", got)
 	}
+}
+
+// startTurn 은 턴이 시작되었다는 보고(`working`)만 판정에 반영하고 변화를 알린다.
+// 활동 카드는 건드리지 않는다.
+func startTurn(tr *AttnTracker, toolID string) {
+	ps := tr.state(toolID)
+	ps.turn.NoteActivity(activity.Working)
+	tr.changed(ps)
 }

@@ -127,7 +127,7 @@ func TestTool_Rearm_LockDoesNotSilenceL1(t *testing.T) {
 	}
 
 	p.clearAttention()
-	p.NoteUserPrompt() // FR-ATN-4: done 은 사용자 턴이 있어야 알람이다
+	startTurn(p) // FR-ATN-4: done 은 턴이 시작되어야 알람이다
 	p.SignalAttention("done")
 	if len(attn) != 2 || attn[1] != "agent:done" {
 		t.Fatalf("잠금이 훅 신호를 삼켰다: %v", attn)

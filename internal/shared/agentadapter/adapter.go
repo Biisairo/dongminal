@@ -48,14 +48,6 @@ type Report struct {
 	// Compacted 는 컨텍스트 압축이 일어났다는 **확정 신호**다. 추정이 아니다.
 	Compacted bool
 
-	// UserPrompt 는 이 턴이 **사용자 프롬프트에서 시작되었다**는 뜻이다
-	// (ATTENTION_FIRING_SRS FR-ATN-2). 배경 이벤트로 깨어난 턴에는 서지 않으며,
-	// 그 차이가 알람의 발화를 가른다 (FR-ATN-4).
-	//
-	// 상태 어휘를 건드리지 않는 **곁들이 값**이다 — Compacted 와 같은 자리에
-	// 같은 이유로 있다 (FR-CBG-1 의 선례).
-	UserPrompt bool
-
 	// Sub 는 서브에이전트 활동이다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-2·5). 서브에이전트
 	// 훅에서만 선다. State 가 비어 있으면 main 상태는 보고하지 않는다 (FR-ASV-4).
 	Sub *SubReport
@@ -126,7 +118,8 @@ type Signals struct {
 	// (FR-AEV-5) — 시작 이벤트가 있으면 준비완료를 훅으로 안다.
 	Idle bool
 	// Working 은 일하는 중임을 알릴 수 있는가. 이것이 없으면 `waiting` 판정의
-	// 전제(`inProgress`)가 서지 않는다 (FR-ATN-7).
+	// 전제(`inProgress`)가 서지 않는다 (FR-ATN-7). 턴의 시작도 이것으로 알므로,
+	// 거짓이면 `done` 은 판정 없이 운다 (FR-AEV-12).
 	Working bool
 	// Waiting 은 **사용자의 응답을 기다린다**(승인 요청)를 알릴 수 있는가.
 	Waiting bool
@@ -134,10 +127,6 @@ type Signals struct {
 	Done bool
 	// Ended 는 세션의 종료를 알릴 수 있는가.
 	Ended bool
-	// UserTurn 은 그 턴이 **사용자 프롬프트에서 시작되었다**를 말할 수 있는가
-	// (FR-ATN-2 의 곁들이 값). 이것이 거짓이면 `done` 알람의 판정이 달라진다
-	// (FR-AEV-12) — 모르는 것을 "아니다" 로 읽지 않는다.
-	UserTurn bool
 	// Compaction 은 컨텍스트 압축을 알릴 수 있는가 (FR-CBG-1).
 	Compaction bool
 	// ToolDetail 은 어떤 도구를 무슨 인자로 쓰는지 실어 오는가. 활동 패널의

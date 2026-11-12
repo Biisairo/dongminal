@@ -12,7 +12,7 @@ const claudeIdleOSC = "\x1b]777;notify;Claude Code;Claude is waiting for your in
 func TestAttnTracker_AgentOSC_DoesNotFire(t *testing.T) {
 	tr, fb := firingTracker(0)
 
-	tr.NoteUserPrompt("agent")
+	startTurn(tr, "agent")
 	tr.SetActivity("agent", "working", "", "")
 	tr.SetActivity("agent", "done", "", "")
 	tr.FeedOutput("agent", []byte(claudeIdleOSC))
