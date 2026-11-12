@@ -88,6 +88,7 @@ internal/
       lsp/               #     언어 서버 세션 (정의·참조·호버) — 세션 상한·유휴 회수
       ext/               #     언어 서버 플러그인 매니페스트 — 서버 목록은 여기 없다
       peer/              #     노드 간 통신 — 노드 신원(인증서)·peers.json·노드 전용 리스너
+      telegram/          #     Telegram 브리지 — telegram.json·Bot API 클라이언트·대화별 토픽·transcript 출력 (실험)
   ctl/                   # ④ 제어 CLI 프로세스
     cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
     migrate/             #   v1 → v2 엔티티 스키마 1회성 변환

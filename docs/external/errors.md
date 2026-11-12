@@ -24,7 +24,7 @@
 | 방언 | 본문 | 쓰는 곳 |
 |---|---|---|
 | git | `{"error": <코드>, "message": <tail>}` | `/api/git/*` |
-| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` · `/api/peers/*` |
+| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` · `/api/peers/*` · `/api/telegram/*` |
 | runs | `{"error": <코드>, "detail": <err>}` | `/api/runs/*` |
 | 단문 | `{"error": <문구>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
 | 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` |
@@ -154,6 +154,12 @@
 | `tag_kind_invalid` | 제공하지 않는 태그 종류입니다. | `GET /api/git/policy` 의 tagKinds 가운데 하나를 보내세요. |
 | `tag_message_required` | annotated·signed 태그에는 메시지가 있어야 합니다. | 메시지를 적거나 lightweight 태그를 고르세요. |
 | `target_is_head` | 대상이 지금 HEAD(또는 현재 브랜치)라 이 동작이 뜻을 갖지 않습니다. | 다른 커밋이나 브랜치를 고르세요. |
+| `telegram_config_invalid` | Telegram 설정 값이 규칙에 맞지 않습니다. | 무음 시간은 0~1440분입니다. |
+| `telegram_no_token` | 봇 token 이 없어 등록 코드를 만들 수 없습니다. | 먼저 봇 token 을 저장하세요. |
+| `telegram_token_invalid` | 봇 token 의 모양이 틀렸거나 Telegram 이 그 token 을 받지 않았습니다. | BotFather 가 준 token 전체(`숫자:글자`)를 다시 넣으세요. 폐기한 token 은 쓸 수 없습니다. |
+| `telegram_topics_disabled` | 이 봇은 Threaded Mode 가 꺼져 있어 대화마다 토픽을 만들 수 없습니다. | BotFather Mini App ▸ My bots ▸ 봇 ▸ Bot Settings ▸ Threads Settings 에서 Threaded Mode 를 켜고 다시 저장하세요. `/mybots` 글 메뉴에는 없습니다. |
+| `telegram_unavailable` | 이 서버에는 Telegram 브리지가 서지 않았습니다 — 데이터 폴더 없이 떴습니다. | dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요. |
+| `telegram_unreachable` | Telegram 에 닿지 못해 token 을 확인하지 못했습니다. | 인터넷 연결을 확인하고 다시 시도하세요. 저장은 되지 않았습니다. |
 | `too_large` | 상한을 넘었습니다. | 같은 요청을 다시 보내도 같은 답이 옵니다. 나누거나 다른 표면을 쓰세요. 상한은 features.md 의 용량 표에 있습니다. |
 | `too_many_entries` | 항목 수가 서버 상한을 넘었습니다. | args.max 가 상한입니다. 더 작은 폴더로 나눠 다루거나 터미널을 쓰세요. |
 | `tool_cwd_missing` | 지목한 작업 디렉터리가 없거나 디렉터리가 아닙니다. | 존재하는 디렉터리의 절대경로를 주세요 — 홈으로 조용히 떨어지지 않습니다. |
@@ -169,4 +175,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **135개**.
+총 **141개**.

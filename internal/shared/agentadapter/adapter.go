@@ -15,6 +15,7 @@
 package agentadapter
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -58,7 +59,20 @@ type Report struct {
 	// Sub 는 서브에이전트 활동이다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-2·5). 서브에이전트
 	// 훅에서만 선다. State 가 비어 있으면 main 상태는 보고하지 않는다 (FR-ASV-4).
 	Sub *SubReport
+
+	// TELEGRAM_BRIDGE_SRS FR-TGB-80·81: 브리지가 쓰는 곁들이 값이다. 상태 해석에는
+	// 쓰지 않는다. Hook 은 훅 이름, Source 는 SessionStart 의 출처다.
+	Hook      string
+	ToolUseID string
+	Source    string
+	// Input 은 사람의 답을 기다리는 훅(권한 요청·질문)의 도구 입력 원문이다.
+	// BridgeInputMax 를 넘으면 싣지 않고 InputOver 만 선다 — 잘린 JSON 은 깨진다.
+	Input     json.RawMessage
+	InputOver bool
 }
+
+// BridgeInputMax 는 Report.Input 의 상한이다 (FR-TGB-81).
+const BridgeInputMax = 16 << 10
 
 // SubReport 는 서브에이전트 하나의 활동 보고다 (FR-ASV-5).
 type SubReport struct {

@@ -150,6 +150,7 @@ func (s *Server) applyActivityReport(req agentrec.ActivityReport) string {
 		return ""
 	}
 	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentrec.AgentReportsUserTurn(req.Agent))
+	s.telegramActivity(req)
 	return ""
 }
 

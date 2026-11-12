@@ -12,6 +12,7 @@
  *   app-settings-sandbox.js   샌드박스 패널
  *   app-settings-access.js    접속 허용 목록(ACL) 패널
  *   app-settings-peers.js     짝(Peers) 패널
+ *   app-settings-telegram.js  Telegram 브리지 패널
  */
 /**
  * 설정 하나를 **읽고 얹는 방법** (CONFIG_MANAGEMENT_SRS FR-CFG-5).
@@ -456,6 +457,7 @@ Object.assign(App.prototype, {
         // 수 없다 — 열 때마다 서버에 묻는다.
         if(tab.dataset.tab==='access')this._loadAccessPanel();
         if(tab.dataset.tab==='peers')this._loadPeersPanel();
+        if(tab.dataset.tab==='telegram')this._loadTelegramPanel();
         // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
         // 같은 근거로 열 때마다 다시 읽는다.
         if(tab.dataset.tab==='code'){
@@ -490,5 +492,6 @@ Object.assign(App.prototype, {
     this._initSandboxPanel();
     this._initAccessPanel();
     this._initPeersPanel();
+    this._initTelegramPanel();
   },
 });

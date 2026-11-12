@@ -26,6 +26,9 @@ const (
 	NodeKeyFile  = "node-key.pem"
 	// PeerSpawnsFile 은 다른 노드가 띄운 도구와 그 짝의 지문이다 (FR-PNW-62).
 	PeerSpawnsFile = "peer-spawns.json"
+	// TelegramFile 은 Telegram 브리지 설정이다 — token 이 들어 있어 권한 600 이다
+	// (TELEGRAM_BRIDGE_SRS FR-TGB-2).
+	TelegramFile = "telegram.json"
 
 	BinDir          = "bin"
 	NotesDir        = "notes"

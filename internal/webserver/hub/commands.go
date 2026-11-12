@@ -6,6 +6,7 @@ import (
 	"dongminal/internal/shared/toolhub"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"dongminal/internal/shared/uuid"
@@ -58,6 +59,9 @@ type CommandHub struct {
 	// browser's echo (REMOTE_COMMAND_RESULT_SRS FR-RCR-2/3). Guarded by pmu.
 	pmu     sync.Mutex
 	pending map[string]chan CmdResult
+
+	// attnObs 는 알람 방송의 관찰자다 (SetAttentionObserver).
+	attnObs atomic.Pointer[func(id, reason string)]
 }
 
 func NewCommandHub() *CommandHub {

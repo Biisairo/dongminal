@@ -119,10 +119,11 @@ var gitCodes = []string{
 // AllCodes 는 이 서버가 낼 수 있는 코드 전부다. 카탈로그 생성과 전수성 검사가
 // 함께 읽는 **단일 목록**이다.
 func AllCodes() []string {
-	out := make([]string, 0, len(gitCodes)+len(coreCodes)+len(peerCodes))
+	out := make([]string, 0, len(gitCodes)+len(coreCodes)+len(peerCodes)+len(telegramCodes))
 	out = append(out, gitCodes...)
 	out = append(out, coreCodes...)
 	out = append(out, peerCodes...)
+	out = append(out, telegramCodes...)
 	return out
 }
 

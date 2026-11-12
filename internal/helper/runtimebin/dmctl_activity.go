@@ -101,7 +101,24 @@ func reportMainActivity(adapter agentadapter.Adapter, rep agentadapter.Report, t
 	if rep.SessionID != "" {
 		body["sessionId"] = rep.SessionID
 	}
+	addBridgeFields(body, rep)
 	postReport(agentrec.MethodActivity, activitySetPath, body, hookBudget)
+}
+
+// addBridgeFields 는 브리지의 곁들이 값을 싣는다 (TELEGRAM_BRIDGE_SRS FR-TGB-80·81).
+// 빈 값은 싣지 않는다.
+func addBridgeFields(body map[string]any, rep agentadapter.Report) {
+	for k, v := range map[string]string{"hook": rep.Hook, "toolUseId": rep.ToolUseID, "source": rep.Source, "transcript": rep.Transcript} {
+		if v != "" {
+			body[k] = v
+		}
+	}
+	if len(rep.Input) > 0 {
+		body["input"] = rep.Input
+	}
+	if rep.InputOver {
+		body["inputOver"] = true
+	}
 }
 
 // activitySetPath 는 활동 보고의 HTTP 종단이다. 보고 소켓이 없을 때 간다 (FR-ARD-23).

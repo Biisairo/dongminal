@@ -51,6 +51,9 @@ type Config struct {
 	// 비어 있으면 헬스의 `version` 이 빈 값이고, 그때 데몬과의 비교는 **불일치가
 	// 아니다** (FR-VHL-11 — 모르는 것을 다르다고 읽지 않는다).
 	Version string
+	// TelegramAPI 는 Bot API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다
+	// (TELEGRAM_BRIDGE_SRS §5).
+	TelegramAPI string
 }
 
 // Server owns the HTTP server lifecycle.
@@ -137,6 +140,11 @@ type Server struct {
 	// FR-ATD-4). 테스트가 Server 를 직접 짓기도 하므로 처음 쓸 때 만든다.
 	attnClaims     *attnClaims
 	attnClaimsOnce sync.Once
+
+	// browserIn 은 브라우저 입력 시각이다 (TELEGRAM_BRIDGE_SRS FR-TGB-53).
+	browserIn browserInputs
+	// tg 는 Telegram 브리지 이음매다. DataDir 이 없으면 nil 이다.
+	tg *telegramWire
 
 	started time.Time
 
@@ -279,6 +287,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.
 	srv.hosts = newHostAllow(access, cfg.AllowedHosts)
 	srv.initPeer()
+	srv.initTelegram()
 	runWorktreeRoot := ""
 	if deps.Worktrees != nil {
 		runWorktreeRoot = deps.Worktrees.Root()
