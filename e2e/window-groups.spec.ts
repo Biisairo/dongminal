@@ -198,6 +198,23 @@ test.describe('window 그룹 · 순서 명령 (ISSUE_AGENT_TREE_SRS)', () => {
     await expect.poll(() => page.evaluate((i) => (window as any).app.ws.windows.find((w) => w.id === i)?.name, id)).toBe('Named');
   });
 
+  // 사용자 보고(2026-11-13): 편집 중에 행의 값(알람)이 바뀌면 이름 바꾸기가 사라졌다.
+  test('window 이름 편집 중 행의 값이 바뀌어도 편집칸이 남고 확정된다', async ({ page }) => {
+    const row = page.locator('#windows .si.active');
+    const id = await row.getAttribute('data-sid');
+    await row.locator('.si-name').dblclick();
+    const input = page.locator('#windows .rename-input');
+    await expect(input).toBeVisible();
+    await page.keyboard.type('Mid');
+    await page.evaluate(() => { const a = (window as any).app; a.windowHasAttn = () => true; a.render() });
+    await expect(input).toBeFocused();
+    await page.keyboard.type('Done');
+    await page.keyboard.press('Enter');
+    await expect(input).toHaveCount(0);
+    await expect.poll(() => page.evaluate((i) => (window as any).app.ws.windows.find((w) => w.id === i)?.name, id)).toBe('MidDone');
+    await expect(page.locator(`#windows .si[data-sid="${id}"]`)).toHaveClass(/attn/);
+  });
+
   // 사용자 보고(2026-11-10): 이름을 고친 뒤 다른 window 를 누르기 전까지 편집칸이 남았다.
   for (const kind of ['window', 'group'] as const) {
     for (const how of ['Enter-새이름', 'Enter-같은이름', 'Escape', '바깥클릭'] as const) {
