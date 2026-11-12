@@ -138,6 +138,9 @@ type Server struct {
 	attnClaims     *attnClaims
 	attnClaimsOnce sync.Once
 
+	// browserIn 은 브라우저 입력 시각이다 (TELEGRAM_BRIDGE_SRS FR-TGB-53).
+	browserIn browserInputs
+
 	started time.Time
 
 	// misses 는 "없는 도구를 향한 WebSocket 요청"의 되풀이를 센다

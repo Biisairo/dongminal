@@ -182,7 +182,7 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 	conn.StartSender()
 
 	go pingLoop(conn, tool.Wait())
-	readWS(conn, tool)
+	readWS(conn, tool, func() { s.browserIn.mark(tool.ID) })
 	dmlog.Infof(nil, "ws disconnected addr=%s tool=%s", remoteAddr, tool.ID)
 }
 
@@ -269,7 +269,7 @@ func (s *Server) handleWSDaemon(r *http.Request, conn *toolhub.SafeConn, pc tool
 	// 있고, 재연결이 그 소유자를 되찾는다. 그래서 결과를 기다리지 않는 알림으로
 	// 보낸다 (FR-OPT-2-2). 키 하나가 응답을 기다리지 않는다.
 	wsReadLoop(conn, toolID,
-		func(b []byte) error { pc.InputNotify(toolID, b); return nil },
+		func(b []byte) error { s.browserIn.mark(toolID); pc.InputNotify(toolID, b); return nil },
 		func(c, ro uint16) { pc.ResizeNotify(toolID, c, ro) })
 }
 
@@ -323,13 +323,15 @@ func wsReadLoop(conn *toolhub.SafeConn, toolID string, input func([]byte) error,
 	}
 }
 
-func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool) {
+func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool, onInput func()) {
 	defer func() {
 		if r := recover(); r != nil {
 			dmlog.Errorf(nil, "[tool %s] readWS panic addr=%s: %v\n%s", tool.ID, conn.RemoteAddr(), r, debug.Stack())
 		}
 	}()
-	wsReadLoop(conn, tool.ID, tool.Write, func(c, ro uint16) { tool.Resize(c, ro) })
+	wsReadLoop(conn, tool.ID,
+		func(b []byte) error { onInput(); return tool.Write(b) },
+		func(c, ro uint16) { tool.Resize(c, ro) })
 }
 
 // relayCoalesceMax 는 릴레이가 합쳐 보내는 출력 프레임 하나의 상한이다 (FR-OPT-2-7).
