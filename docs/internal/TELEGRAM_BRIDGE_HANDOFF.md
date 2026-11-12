@@ -14,8 +14,14 @@
 | `78983eef` | hook 보고 확장: `parseClaudeHook` 이 hook·tool_use_id·source·입력 원문(16KB, 넘으면 `InputOver`)을 싣고, `dmctl activity` 가 보고 본문에 싣는다. `agentrec.ActivityReport` 에 필드 추가 |
 | `b97e0f5d` | 도메인 `internal/webserver/domain/telegram`: `Store`(telegram.json 권한 600, `View` 는 token 없음), `Client`(오류에 token 안 실음), `Pairing`, `Bridge`(대화=session_id 별 DM 토픽, 입력·버튼·알림·알람 해제·이름 이모지) |
 | `0ac77d1f` | transcript 출력(허용 목록·이어 읽기·`LastReply`·Markdown→HTML·나누기), 활동 보고에 `transcript` 경로, 보안 리뷰 반영(FR-TGB-10a 짝맞춤 5회 실패 폐기, FR-TGB-40a 잘린 권한 요청에 허용 버튼 없음), architecture.md 패키지 표 |
+| `1b37e953` | ⑤-1 `ToolReader.Write` — 원시 키 쓰기(직접 `ToolManager.Write`, 데몬 `ToolHub.Write`) |
+| `61d888dd` | ⑤-2 브라우저 WS 입력 시각(`Server.LastBrowserInput`) |
+| `a0ec7992` | ⑤-3 `telegramHost`·`telegramWire`(telegram_wire.go), `applyActivityReport` → 브리지, 알람은 `CommandHub.SetAttentionObserver`, `StartTelegram`(app.go), `telegram.json` 홈 표 등재 |
+| `c2fc974e` | ⑤-4 `/api/telegram`(GET·PUT token/enabled/silence·POST/DELETE pair), 오류 코드 `telegram_*` 6종, api.md·errors.md |
+| `decd188a` | 보안 리뷰: token 을 저장하면 살아 있는 등록 코드를 버린다 |
+| `dd646a44` | ⑤-5 설정창 Telegram 패널(app-settings-telegram.js), 단위·e2e 시험, features.md |
 
-도메인은 **서버에 아직 붙지 않았다.** 서버는 보고 필드를 받기만 한다.
+⑤ 는 끝났다. 남은 것은 ⑥ 실측뿐이다.
 
 ## 남은 일 (순서)
 
@@ -56,9 +62,15 @@
 - 문구는 i18n(ko/en) — `check-i18n*` 게이트. UI 규칙 게이트(버튼 키트·글꼴·색 등)가 많다. `make gates` 를 자주 돌린다
 - e2e 는 가짜 Telegram 이 필요하므로 최소로: 설정 화면이 서고 token 칸이 값을 되돌려 보이지 않는지 정도
 
-### ⑥ 실측
-- **TC-TGB-31**: 원시 키 순서. 테스트 탭에서 claude 를 띄워 권한 요청(Bash)과 AskUserQuestion 을 만든 뒤 `ToolIO.Write` 경로(⑤-1 을 쓰는 작은 시험 API 나 Go 시험)로 `1`·`2`·Esc 를 넣어 실제로 선택되는지 본다. 지금 `choiceKeys` 는 숫자 키 하나·Esc 를 가정한다(render.go). 틀리면 그 함수 한 곳만 고친다
-- **TC-TGB-90**: 실기기. 사용자의 dongminal 을 재시작하지 않는다 — 사용자가 직접 재빌드·재시작할 때 함께 확인하도록 순서를 문서로 남긴다
+### ⑥ 실측 (남음 — 사용자의 재빌드·재시작이 필요하다)
+
+원시 키 쓰기는 이 브랜치의 빌드에만 있다. 사용자의 dongminal 은 재시작하지 않는다는 규약이 있으므로, 사용자가 직접 재빌드·재시작할 때 아래 순서로 함께 잰다. 이번 변경은 서버·dmctl 쪽뿐이고, 데몬은 보고 본문을 원문 그대로 넘기므로(`ipc/report.go` `acceptReport`) **데몬 재시작은 필요 없다.**
+
+1. 이 브랜치로 빌드하고 서버만 다시 띄운다.
+2. 설정 ▸ Telegram: 테스트 봇 token 을 넣고 저장 → "설정됨 · @dongminal_office_bot". 켜기. **등록 코드 만들기** → 휴대폰에서 봇에 `/pair <코드>` → "등록됨".
+3. **TC-TGB-31**: 테스트 탭을 브라우저로 한 번 연 뒤 `claude --permission-mode default` 를 띄운다. 의미 없는 요청으로 Bash 권한 요청을 만든다. Telegram 의 `[1 허용]` 을 눌러 PC 대화상자가 그 선택으로 닫히는지 본다. `[3 거절]`·상태 메시지의 `[Esc]` 도 같은 방법으로 본다. AskUserQuestion(선택지 2개 이상)을 만들고 `2` 번 버튼으로 본다. 틀리면 `render.go` 의 `choiceKeys` 한 곳만 고친다
+4. **TC-TGB-90**: 같은 탭에서 알림 → 버튼 답 → PC 대화상자 닫힘, 토픽에 글 입력, `[화면]`, 실시간 출력(블록 단위), `/clear` 뒤 새 토픽, `/close`·`/cleanup`, `[✓ 읽음]` 뒤 PC 알람 꺼짐, PC 입력 5분 안의 알림이 무음인지 본다
+5. 끝나면 SRS 의 상태를 `승인·구현완료` 로 바꾸고 "남은 것" 줄을 지운다
 
 ## 이 세션이 값을 치르고 배운 것
 
