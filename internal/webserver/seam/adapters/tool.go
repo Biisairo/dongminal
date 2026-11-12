@@ -138,6 +138,16 @@ func (a Tool) SendPasteIfForeground(id string, text []byte, submit bool, want st
 	return a.SendPaste(id, text, submit)
 }
 
+func (a Tool) Write(id string, data []byte) error {
+	if a.PM != nil {
+		return a.PM.Write(id, data)
+	}
+	if a.Hub != nil {
+		return a.Hub.Write(id, data)
+	}
+	return fmt.Errorf("tool 없음: %s", id)
+}
+
 func (a Tool) SendPaste(id string, text []byte, submit bool) error {
 	if a.PM != nil {
 		return a.PM.SendPaste(id, text, submit)

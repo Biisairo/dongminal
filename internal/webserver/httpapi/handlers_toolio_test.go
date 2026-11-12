@@ -30,6 +30,7 @@ type fakeToolIO struct {
 	dropped  int64
 	pasteErr error
 	pastes   []fakePaste
+	writes   []string // "<toolID>:<data>"
 }
 
 type fakePaste struct {
@@ -64,6 +65,12 @@ func (f *fakeToolIO) SendPaste(id string, text []byte, submit bool) error {
 	defer f.mu.Unlock()
 	f.pastes = append(f.pastes, fakePaste{ToolID: id, Text: string(text), Submit: submit})
 	return f.pasteErr
+}
+func (f *fakeToolIO) Write(id string, data []byte) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.writes = append(f.writes, id+":"+string(data))
+	return nil
 }
 func (f *fakeToolIO) Size(string) string { return "80x24" }
 func (f *fakeToolIO) SendPasteIfForeground(id string, text []byte, submit bool, _ string) error {
