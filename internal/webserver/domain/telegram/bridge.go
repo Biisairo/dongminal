@@ -18,6 +18,8 @@ type Event struct {
 	Tool, Detail             string
 	Input                    json.RawMessage
 	InputOver                bool
+	// Transcript 는 대화 기록 파일의 경로다. 내용은 실리지 않는다.
+	Transcript string
 }
 
 // AgentInfo 는 `/agents` 목록의 한 줄이다 (FR-TGB-23). hook 이 없는 에이전트는
@@ -50,6 +52,10 @@ const (
 	backoffFirst = time.Second
 	backoffMax   = time.Minute
 	toolSIDPfx   = "tool:"
+	// draftEvery 는 "작업 중" 표시를 다시 보내는 간격이다. draft 는 30초 미리보기다 (FR-TGB-65).
+	draftEvery = 20 * time.Second
+	// stopSettle 은 Stop 뒤 transcript 의 마지막 줄을 한 번 더 읽는 틈이다.
+	stopSettle = 1500 * time.Millisecond
 )
 
 // item 은 작업자 큐의 한 칸이다.
@@ -57,6 +63,7 @@ type item struct {
 	ev                   *Event
 	attnTool, attnReason string
 	flush                bool
+	pumpSID              string
 }
 
 // conv 는 살아 있는 대화 하나다.
@@ -65,6 +72,9 @@ type conv struct {
 	state       string
 	ended       bool
 	lastToolUse string
+	transcript  string
+	tail        *Tail
+	lastDraft   time.Time
 }
 
 // request 는 답을 기다리는 권한 요청·질문 하나다 (FR-TGB-40·41·43).

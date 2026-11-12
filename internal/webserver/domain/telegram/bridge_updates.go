@@ -45,6 +45,7 @@ func (b *Bridge) onMessage(c Config, m Message) {
 				return
 			}
 		}
+		dmlog.Infof(nil, "telegram: 짝맞춤 실패 from=%d", m.From.ID)
 		if m.From.ID == c.UserID {
 			b.reply(c, m, "코드가 틀렸거나 지났습니다.")
 		}

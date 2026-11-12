@@ -85,25 +85,41 @@ func statusKeyboard() map[string]any {
 
 func readButton(kind string) button { return button{"✓ 읽음", "r:" + kind} }
 
-// permSummary 는 권한 요청의 도구 입력 요약이다 (FR-TGB-40).
-func permSummary(tool string, input json.RawMessage, detail string) string {
+// permSummary 는 권한 요청의 도구 입력 요약이다 (FR-TGB-40). 원문이 없으면 Detail 이고,
+// 그때는 전부를 보았다고 할 수 없으므로 whole 이 거짓이다.
+func permSummary(tool string, input json.RawMessage, detail string) (s string, whole bool) {
 	var m map[string]any
 	if len(input) == 0 || json.Unmarshal(input, &m) != nil {
-		return detail
+		return detail, false
 	}
 	for _, k := range []string{"command", "file_path", "notebook_path", "path", "url", "pattern"} {
 		if v, ok := m[k].(string); ok && v != "" {
-			return v
+			return v, true
 		}
 	}
-	return string(input)
+	return string(input), true
 }
 
-func permissionText(tool, summary string) string {
-	return "🔐 <b>권한 요청</b> · " + esc(tool) + "\n<pre>" + esc(cut(summary, summaryMax)) + "</pre>"
+// permissionText 는 요청 메시지다. 길면 앞과 뒤, 전체 길이를 보인다 (FR-TGB-40a).
+// 둘째 값은 사용자가 요청을 다 볼 수 있는가다.
+func permissionText(tool, summary string, whole bool) (string, bool) {
+	body := summary
+	if len(summary) > summaryMax {
+		body = cut(summary, summaryMax/2) + "\n…(" + strconv.Itoa(len(summary)) + "바이트 중 일부)…\n" + tail(summary, summaryMax/3)
+		whole = false
+	}
+	text := "🔐 <b>권한 요청</b> · " + esc(tool) + "\n<pre>" + esc(body) + "</pre>"
+	if !whole {
+		text += "\n<i>전체를 볼 수 없어 허용 버튼을 두지 않습니다. [화면] 으로 확인하고 PC 에서 허용하세요.</i>"
+	}
+	return text, whole
 }
 
-func permissionKeyboard(rid string) map[string]any {
+// permissionKeyboard 는 요청의 버튼이다. 다 볼 수 없으면 허용을 두지 않는다 (FR-TGB-40a).
+func permissionKeyboard(rid string, whole bool) map[string]any {
+	if !whole {
+		return keyboard([]button{{"거절", "c:" + rid + ":esc"}, {"🖥 화면", "s"}}, []button{readButton("q")})
+	}
 	return keyboard(
 		[]button{{"1 허용", "c:" + rid + ":1"}, {"2 항상 허용", "c:" + rid + ":2"}, {"거절", "c:" + rid + ":esc"}},
 		[]button{readButton("q")})

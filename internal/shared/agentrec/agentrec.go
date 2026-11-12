@@ -89,6 +89,8 @@ type ActivityReport struct {
 	Source    string          `json:"source,omitempty"`
 	Input     json.RawMessage `json:"input,omitempty"`
 	InputOver bool            `json:"inputOver,omitempty"`
+	// Transcript 는 대화 기록 파일의 경로다. 내용은 실리지 않는다 (FR-TGB-60).
+	Transcript string `json:"transcript,omitempty"`
 }
 
 // UsageReport 는 `POST /api/tools/usage` 와 report.usage 의 본문이다.

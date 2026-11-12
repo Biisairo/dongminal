@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"strings"
 	"time"
 
 	"dongminal/internal/shared/dmlog"
@@ -21,6 +22,8 @@ func (b *Bridge) process(it item) {
 		b.onAttention(c, it.attnTool, it.attnReason)
 	case it.flush:
 		b.flushLocked(c)
+	case it.pumpSID != "":
+		b.pump(c, it.pumpSID)
 	}
 }
 
@@ -56,6 +59,9 @@ func (b *Bridge) onEvent(c Config, ev Event) {
 		t.ToolID = ev.ToolID
 		_ = b.st.PutTopic(sid, t)
 	}
+	if ev.Transcript != "" && ev.Transcript != cv.transcript {
+		cv.transcript, cv.tail = ev.Transcript, nil
+	}
 	ended := ev.State == "ended"
 	if cv.state != ev.State || cv.ended != ended {
 		cv.state, cv.ended = ev.State, ended
@@ -85,6 +91,62 @@ func (b *Bridge) onEvent(c Config, ev Event) {
 	case "Stop", "StopFailure", "UserPromptSubmit", "SessionEnd", "SessionStart":
 		b.closeRequests(c, sid, "")
 	}
+	b.pump(c, sid)
+	if ev.Hook == "Stop" || ev.Hook == "StopFailure" {
+		time.AfterFunc(stopSettle, func() { b.enqueue(item{pumpSID: sid}) })
+	}
+	if cv.state == "working" {
+		b.draftWorking(c, sid, cv)
+	}
+}
+
+// pump 는 열린 토픽의 transcript 에서 새 조각을 읽어 보낸다 (FR-TGB-60~62). 토픽이
+// 없으면 읽지 않는다 (NFR-TGB-5). 출력은 알림이 아니므로 소리 없이 보낸다.
+func (b *Bridge) pump(c Config, sid string) {
+	cv, ok := b.live[sid]
+	if !ok || cv.transcript == "" {
+		return
+	}
+	if _, open := b.st.Topic(sid); !open {
+		return
+	}
+	if cv.tail == nil {
+		cv.tail = NewTailAtEnd(cv.transcript)
+		return
+	}
+	var tools []string
+	flushTools := func() {
+		if len(tools) > 0 {
+			_, _ = b.send(c, sid, esc(strings.Join(tools, "\n")), nil, true)
+			tools = nil
+		}
+	}
+	for _, p := range cv.tail.ReadNew() {
+		if p.Kind == PieceTool {
+			tools = append(tools, p.Text)
+			continue
+		}
+		flushTools()
+		b.sendReply(c, sid, p.Text)
+	}
+	flushTools()
+}
+
+func (b *Bridge) sendReply(c Config, sid, md string) {
+	for _, part := range SplitMessage(md) {
+		_, _ = b.send(c, sid, MarkdownToHTML(part), nil, true)
+	}
+}
+
+// draftWorking 은 작업 중 표시(점 세 개)다 (FR-TGB-65).
+func (b *Bridge) draftWorking(c Config, sid string, cv *conv) {
+	t, open := b.st.Topic(sid)
+	if !open || b.now().Sub(cv.lastDraft) < draftEvery {
+		return
+	}
+	cv.lastDraft = b.now()
+	_ = b.call(c, "sendMessageDraft", map[string]any{"chat_id": c.UserID, "message_thread_id": t.ThreadID,
+		"draft_id": t.ThreadID, "text": ""}, nil)
 }
 
 func (b *Bridge) hasOpen(sid, toolUseID string) bool {
@@ -119,8 +181,9 @@ func (b *Bridge) silent(c Config, toolID string) bool {
 
 func (b *Bridge) sendPermission(c Config, sid string, ev Event) {
 	rid := b.nextID()
-	text := permissionText(ev.Tool, permSummary(ev.Tool, ev.Input, ev.Detail))
-	id, err := b.send(c, sid, text, permissionKeyboard(rid), b.silent(c, ev.ToolID))
+	summary, whole := permSummary(ev.Tool, ev.Input, ev.Detail)
+	text, whole := permissionText(ev.Tool, summary, whole && !ev.InputOver)
+	id, err := b.send(c, sid, text, permissionKeyboard(rid, whole), b.silent(c, ev.ToolID))
 	if err != nil {
 		return
 	}
@@ -146,6 +209,14 @@ func (b *Bridge) onAttention(c Config, toolID, reason string) {
 		for _, r := range b.reqs {
 			if r.sid == sid && !r.closed {
 				return
+			}
+		}
+	}
+	// 알림이 토픽을 새로 열면 그때까지의 응답을 따라오지 못했다. 마지막 응답을 싣는다 (FR-TGB-52).
+	if _, open := b.st.Topic(sid); !open && reason == "done" {
+		if cv := b.live[sid]; cv != nil && cv.transcript != "" {
+			if reply := LastReply(cv.transcript); reply != "" {
+				b.sendReply(c, sid, reply)
 			}
 		}
 	}
@@ -179,6 +250,9 @@ func (b *Bridge) ensureTopic(c Config, sid string) (Topic, error) {
 			"disable_notification": true}, nil)
 	}
 	b.lastRename[sid] = b.now()
+	if cv.transcript != "" {
+		cv.tail = NewTailAtEnd(cv.transcript)
+	}
 	if err := b.st.PutTopic(sid, t); err != nil {
 		return Topic{}, err
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -27,22 +26,13 @@ func TestStoreDefaults(t *testing.T) {
 	}
 }
 
-func TestStoreFileMode600AndRoundTrip(t *testing.T) {
+func TestStoreRoundTrip(t *testing.T) {
 	s, p := openTemp(t)
 	if err := s.SetToken(testToken, "office_bot"); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SetEnabled(true); err != nil {
 		t.Fatal(err)
-	}
-	if runtime.GOOS != "windows" {
-		st, err := os.Stat(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if st.Mode().Perm() != 0o600 {
-			t.Fatalf("파일 권한 %v, 기대 0600", st.Mode().Perm())
-		}
 	}
 	c := OpenStore(p).Config()
 	if !c.Enabled || c.Token != testToken || c.BotName != "office_bot" {

@@ -59,3 +59,17 @@ func TestPairNoCodeRejects(t *testing.T) {
 		t.Fatal("코드를 내지 않았는데 받았다")
 	}
 }
+
+// 틀린 시도가 PairMaxFails 번이면 코드를 폐기한다. 6자리는 대입에 약하다.
+func TestPairKillsCodeAfterFailures(t *testing.T) {
+	p := NewPairing(time.Now)
+	code, _ := p.Issue()
+	for i := 0; i < PairMaxFails; i++ {
+		if p.Redeem("x") {
+			t.Fatal("틀린 코드를 받았다")
+		}
+	}
+	if p.Redeem(code) {
+		t.Fatal("실패가 쌓였는데 코드가 살아 있다")
+	}
+}

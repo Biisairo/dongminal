@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -493,5 +494,91 @@ func TestBridgeEnqueueNeverBlocks(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("OnActivity 가 막혔다")
+	}
+}
+
+// 잘린 권한 요청에는 허용 버튼을 두지 않는다. 다 보지 못한 명령을 허용하게 하지 않는다.
+func TestBridgeTruncatedPermissionHasNoAllow(t *testing.T) {
+	r := newRig(t)
+	r.start(tabA)
+	long := strings.Repeat("a", summaryMax+100) + " && rm -rf /"
+	in, _ := json.Marshal(map[string]string{"command": long})
+	r.act(Event{ToolID: tabA, SessionID: sess, State: "waiting", Hook: "PermissionRequest", Tool: "Bash", Input: in})
+	body, _ := r.tg.last("sendMessage")
+	text := body["text"].(string)
+	if !strings.Contains(text, "rm -rf /") {
+		t.Fatalf("잘린 명령의 뒷부분이 없다: %s", text)
+	}
+	raw, _ := json.Marshal(body["reply_markup"])
+	if strings.Contains(string(raw), "허용") {
+		t.Fatalf("잘린 요청에 허용 버튼이 있다: %s", raw)
+	}
+	r.act(Event{ToolID: tabA, SessionID: sess, State: "waiting", Hook: "PermissionRequest", Tool: "Write", InputOver: true, Detail: "/x"})
+	body, _ = r.tg.last("sendMessage")
+	raw, _ = json.Marshal(body["reply_markup"])
+	if strings.Contains(string(raw), "허용") {
+		t.Fatalf("원문이 없는 요청에 허용 버튼이 있다: %s", raw)
+	}
+}
+
+// ── 출력 (TC-TGB-50) ──
+
+func writeLines(t *testing.T, p string, lines ...string) {
+	t.Helper()
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	for _, l := range lines {
+		_, _ = f.WriteString(l + "\n")
+	}
+}
+
+func (r *rig) sentTexts() string {
+	r.tg.mu.Lock()
+	defer r.tg.mu.Unlock()
+	var sb strings.Builder
+	for _, c := range r.tg.calls {
+		if c.Method == "sendMessage" {
+			s, _ := c.Body["text"].(string)
+			sb.WriteString(s + "\n")
+		}
+	}
+	return sb.String()
+}
+
+func TestBridgeStreamsTranscriptOnlyWhileOpen(t *testing.T) {
+	r := newRig(t)
+	tp := filepath.Join(t.TempDir(), "s.jsonl")
+	writeLines(t, tp, sampleLines[4])
+	r.act(Event{ToolID: tabA, SessionID: sess, State: "working", Hook: "PreToolUse", Transcript: tp})
+	if strings.Contains(r.sentTexts(), "읽겠습니다") {
+		t.Fatal("토픽이 없는데 출력을 보냈다 (NFR-TGB-5)")
+	}
+	r.attn(tabA, "waiting")
+	writeLines(t, tp, sampleLines[5], sampleLines[6], `{"type":"assistant","isSidechain":false,"message":{"content":[{"type":"text","text":"테스트가 **통과**했습니다."}]}}`)
+	r.act(Event{ToolID: tabA, SessionID: sess, State: "working", Hook: "PostToolUse", Transcript: tp})
+	out := r.sentTexts()
+	if !strings.Contains(out, "🔧 Bash: npm test") || !strings.Contains(out, "<b>통과</b>") {
+		t.Fatalf("열린 토픽에 출력이 가지 않았다:\n%s", out)
+	}
+	if strings.Contains(out, "SECRET") {
+		t.Fatalf("도구 결과가 나갔다:\n%s", out)
+	}
+	if strings.Contains(out, "읽겠습니다") {
+		t.Fatalf("토픽을 열기 전 기록을 보냈다:\n%s", out)
+	}
+}
+
+// 알림이 토픽을 새로 열면 마지막 응답을 함께 싣는다 (FR-TGB-52).
+func TestBridgeDoneAlarmCarriesLastReply(t *testing.T) {
+	r := newRig(t)
+	tp := filepath.Join(t.TempDir(), "s.jsonl")
+	writeLines(t, tp, `{"type":"assistant","isSidechain":false,"message":{"content":[{"type":"text","text":"모두 고쳤습니다."}]}}`)
+	r.act(Event{ToolID: tabA, SessionID: sess, State: "done", Hook: "Stop", Transcript: tp})
+	r.attn(tabA, "done")
+	if !strings.Contains(r.sentTexts(), "모두 고쳤습니다.") {
+		t.Fatalf("마지막 응답이 없다:\n%s", r.sentTexts())
 	}
 }
