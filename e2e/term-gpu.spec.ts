@@ -121,3 +121,19 @@ test('V-TGR-3: 설정을 끄면 곧바로 DOM 으로 돌아가고 글자가 .xte
   expect(await page.evaluate(() => localStorage.getItem('termGpu'))).toBe('0');
   await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('gpu3-42');
 });
+
+// FR-TGR-10 개정·10a (2026-11-12): 실제 컨텍스트를 잃으면 3초 복구 대기 없이 곧바로 DOM 으로 돌아간다.
+// `webglcontextlost` 는 버블되지 않으므로, 칸 요소의 캡처 리스너가 실제로 받는지가 이 시험의 요점이다.
+test('V-TGR-4: 컨텍스트를 잃으면 3초 복구 대기 없이 DOM 으로 돌아가고 입력이 왕복한다', async ({ page }) => {
+  const first = await gpuState(page);
+  test.skip(first.unavailable, '이 환경은 WebGL2 를 쓸 수 없다 — V-TGR-1 이 복귀를 잰다');
+  await expect.poll(() => gpuState(page).then((s) => s.renderer), { timeout: 10000 }).toBe('webgl');
+  const t0 = Date.now();
+  await page.evaluate(() => {
+    const c = (window as any).app.testing.focusedTerminal()._gpuCanvas;
+    c.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext();
+  });
+  await expect.poll(() => gpuState(page).then((s) => s.renderer), { timeout: 1500 }).toBe('dom');
+  expect(Date.now() - t0).toBeLessThan(2500);
+  await roundTrip(page, 'gpu4');
+});

@@ -755,8 +755,8 @@ class TerminalTool {
     this._flingStop();
     if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
     this._sock.close();
-    // FR-TGR-8: `term.dispose()` 가 실린 addon 을 함께 정리한다 — 참조만 버린다.
-    if(this.term){this.term.dispose();this.term=null;this._gpu=null}
+    // FR-TGR-8·10a: GPU 컨텍스트를 반납한 뒤 `term.dispose()` 로 나머지를 정리한다.
+    if(this.term){if(this._gpuDetach)this._gpuDetach();this.term.dispose();this.term=null;this._gpu=null}
     this.el.remove(); this._opened=false;
   }
   _send(m){ this._sock.send(m) }

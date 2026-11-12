@@ -136,8 +136,22 @@ addon 이 없기 때문이다. DOM 렌더러는 xterm 의 렌더러 중 가장 �
 - 페이지 전체를 **GPU 사용 불가**로 둔다. 다른 칸도 다시 시도하지 않는다.
 - `ErrorLog.push` 로 한 번 남긴다.
 
-**FR-TGR-10** `onContextLoss` 가 오면 그 칸의 addon 을 `dispose` 하고 DOM 렌더러로
+**FR-TGR-10** 컨텍스트를 잃으면 그 칸의 addon 을 `dispose` 하고 DOM 렌더러로
 돌린다. 그 칸이 다음에 **숨었다가 다시 보이면** 다시 붙인다.
+
+- 계기는 그 칸 캔버스의 `webglcontextlost` 이벤트다. 칸 요소에 캡처로 받아 **곧바로** 처리한다.
+  addon 의 `onContextLoss` 는 복구를 3초 기다린 뒤에야 오고, 그동안 칸이 빈 채로 하얗게 남는다.
+- `onContextLoss` 도 계기로 남긴다. 이미 처리한 손실은 다시 세지 않는다.
+- 지금 붙은 addon 의 캔버스가 아닌 곳에서 온 이벤트는 무시한다.
+
+> **개정 2026-11-12.** 이전 동작: `onContextLoss` 만 계기였다. 새 동작: 위와 같다. 이유: 실사용에서
+> `webglcontextlost` → `webglcontextrestored` 가 반복됐고, 그 사이 최대 3초 동안 터미널이 하얗게 보였다
+> (사용자 신고·콘솔 기록). 서버의 터미널 연결은 끊기지 않았다.
+
+**FR-TGR-10a** addon 을 뗄 때(숨김·설정 끔·손실·칸 파괴) 그 캔버스의 WebGL 컨텍스트를
+`WEBGL_lose_context` 로 곧바로 반납한다. 순서는 `dispose` 뒤다. addon 은 컨텍스트를 반납하지
+않아 가비지 수거 전까지 남고, 탭을 바꿀 때마다 쌓이면 브라우저의 컨텍스트 상한(Chrome 약 16개)에
+걸려 **보이는 칸의 컨텍스트가 회수될 수 있다** (개정 2026-11-12).
 
 **FR-TGR-11** 페이지 수명 동안 컨텍스트 손실이 `TERM_GPU_LOSS_LIMIT`(3)회에 이르면
 GPU 사용 불가로 둔다. 손실이 되풀이되는 환경에서 붙였다 떼기를 반복하지 않기 위해서다.
@@ -220,6 +234,10 @@ DOM 조회·할당을 하지 않는다.
 | TC-TGR-12 | `_afterLayout` 순서 | 칸마다 `syncGpu` 가 `doFit` 보다 먼저 불림 |
 | TC-TGR-14 | 설정 스위치로 켜고 끔 | 보이는 칸만 `doFit` 이 바뀔 때마다 1회, 숨은 칸은 0회 |
 | TC-TGR-15 | 컨텍스트 손실 | `doFit` 1회 |
+| TC-TGR-16 | 그 칸 캔버스의 `webglcontextlost` | 곧바로 DOM·`doFit` 1회·손실 1회. 뒤늦은 `onContextLoss` 는 다시 세지 않음. 다른 캔버스의 이벤트는 무시 (FR-TGR-10 개정) |
+| TC-TGR-17 | addon 을 뗌 | `dispose` 뒤 그 캔버스 컨텍스트의 `loseContext` 1회 (FR-TGR-10a) |
+| TC-TGR-17b | 칸 파괴 | 그 캔버스 컨텍스트의 `loseContext` 1회 (FR-TGR-8·10a) |
+| V-TGR-4 (e2e) | 실제 브라우저에서 보이는 칸의 컨텍스트를 `loseContext` | 3초 복구 대기 없이 DOM 으로 돌아가고 입력이 왕복. addon 이 만드는 링크용 2D 캔버스가 아닌 WebGL 캔버스를 고른다 |
 | TC-TGR-13 | 터치 기기 (`isMobile` 또는 `pointer: coarse`) | 붙이지 않음. 붙은 뒤 모바일로 바뀌면 뗌 |
 
 ### 7.2 e2e

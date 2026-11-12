@@ -60,6 +60,7 @@ Object.assign(TerminalTool.prototype,{
 
   _gpuAttach(){
     let addon=null;
+    const before=this._gpuCanvases();
     try{
       addon=new WebglAddon.WebglAddon();
       this.term.loadAddon(addon);
@@ -68,19 +69,37 @@ Object.assign(TerminalTool.prototype,{
       TermGpu._giveUp('webgl: '+((e&&e.message)||e));
       return;
     }
-    addon.onContextLoss(()=>{
-      if(this._gpu!==addon) return;
-      this._gpuDetach();
-      this._gpuLost=true;
-      this.doFit();
-      if(++TermGpu.losses>=TERM_GPU_LOSS_LIMIT) TermGpu._giveUp('webgl: context lost '+TermGpu.losses+' times');
-    });
+    addon.onContextLoss(()=>{ if(this._gpu===addon) this._gpuOnLoss() });
     this._gpu=addon;
+    // addon 은 링크 표시용 2D 캔버스도 만든다 — 새 캔버스 중 WebGL 의 것을 고른다.
+    this._gpuCanvas=this._gpuCanvases().find(c=>!before.includes(c)&&c.getContext('webgl2'))||null;
+    // FR-TGR-10 개정: 캔버스의 손실을 곧바로 받는다. addon 은 복구를 3초 기다리고 그동안 칸이 빈다.
+    if(!this._gpuLossHook&&this.el&&typeof this.el.addEventListener==='function'){
+      this._gpuLossHook=e=>{ if(this._gpu&&e.target===this._gpuCanvas) this._gpuOnLoss() };
+      this.el.addEventListener('webglcontextlost',this._gpuLossHook,true);
+    }
+  },
+
+  _gpuCanvases(){
+    const el=this.term&&this.term.element;
+    return el&&typeof el.querySelectorAll==='function'?[...el.querySelectorAll('canvas')]:[];
+  },
+
+  _gpuOnLoss(){
+    this._gpuDetach();
+    this._gpuLost=true;
+    this.doFit();
+    if(++TermGpu.losses>=TERM_GPU_LOSS_LIMIT) TermGpu._giveUp('webgl: context lost '+TermGpu.losses+' times');
   },
 
   _gpuDetach(){
-    const addon=this._gpu;
+    const addon=this._gpu, canvas=this._gpuCanvas;
     this._gpu=null;
+    this._gpuCanvas=null;
     if(addon) addon.dispose();
+    // FR-TGR-10a: addon 은 컨텍스트를 반납하지 않는다 — 쌓이면 보이는 칸의 것이 회수된다.
+    const gl=canvas&&canvas.getContext('webgl2');
+    const ext=gl&&gl.getExtension('WEBGL_lose_context');
+    if(ext) ext.loseContext();
   },
 });

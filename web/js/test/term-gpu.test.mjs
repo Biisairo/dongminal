@@ -260,3 +260,73 @@ test('TC-TGR-12:_afterLayout 은 칸마다 syncGpu 를 doFit 보다 먼저 부�
   r._afterLayout();
   assert.deepEqual([...log], ['a:open', 'a:gpu:true', 'a:fit', 'h:gpu:false']);
 });
+
+/**
+ * FR-TGR-10 개정·10a (2026-11-12): 캔버스를 흉내 낸 칸. addon 을 실으면 캔버스가 생기고, 칸 요소는
+ * 캡처 리스너를 쥔다. 캔버스의 컨텍스트는 `loseContext` 호출을 센다.
+ */
+function canvasPane(ctx) {
+  const p = pane(ctx);
+  const listeners = [];
+  const canvases = [];
+  const order = [];
+  p.el.addEventListener = (type, fn, capture) => listeners.push({ type, fn, capture });
+  p.term.element = { querySelectorAll: (sel) => (sel === 'canvas' ? canvases.slice() : []) };
+  p.term.loadAddon = (a) => {
+    p.loaded.push(a);
+    const c = { lost: 0, getContext: (k) => (k === 'webgl2' ? c.gl : null) };
+    c.gl = { getExtension: (n) => (n === 'WEBGL_lose_context' ? { loseContext() { c.lost++; order.push('lose') } } : null) };
+    const link = { lost: 0, getContext: () => null };
+    canvases.push(link, c);
+    const dispose = a.dispose.bind(a);
+    a.dispose = () => { dispose(); order.push('dispose'); canvases.splice(canvases.indexOf(link), 2) };
+    a.canvas = c;
+  };
+  const fire = (target) => {
+    for (const l of listeners) if (l.type === 'webglcontextlost' && l.capture) l.fn({ type: 'webglcontextlost', target });
+  };
+  return { p, fire, order };
+}
+
+test('TC-TGR-16: 그 칸 캔버스의 webglcontextlost 는 곧바로 DOM 으로 돌리고, 뒤늦은 onContextLoss 는 다시 세지 않는다', () => {
+  const { ctx, lib } = world();
+  const { p, fire } = canvasPane(ctx);
+  p.syncGpu(true);
+  const a = lib.made[0];
+  fire({ other: true });
+  assert.equal(p.gpuRenderer(), 'webgl', '다른 캔버스의 이벤트는 무시한다');
+  fire(a.canvas);
+  assert.equal(p.gpuRenderer(), 'dom');
+  assert.equal(a.disposed, 1);
+  assert.equal(p.fits, 1);
+  assert.equal(ctx.TermGpu.losses, 1);
+  a.lossFn();
+  assert.equal(ctx.TermGpu.losses, 1, '이미 처리한 손실이다');
+  assert.equal(p.fits, 1);
+  p.syncGpu(true);
+  assert.equal(lib.made.length, 1, '보이는 동안은 다시 붙이지 않는다');
+});
+
+test('TC-TGR-17: addon 을 떼면 dispose 뒤 그 캔버스의 컨텍스트를 반납한다', () => {
+  const { ctx, lib } = world();
+  const { p, order } = canvasPane(ctx);
+  p.syncGpu(true);
+  const c = lib.made[0].canvas;
+  p.syncGpu(false);
+  assert.equal(c.lost, 1);
+  assert.equal(order.join(','), 'dispose,lose');
+});
+
+test('TC-TGR-17b: 칸을 파괴해도 GPU 컨텍스트를 반납한다', () => {
+  const { ctx, lib } = world();
+  const { p } = canvasPane(ctx);
+  p.syncGpu(true);
+  const c = lib.made[0].canvas;
+  p.term.dispose = () => {};
+  p.el.remove = () => {};
+  p._sock = { close() {} };
+  p._flingStop = () => {};
+  p.destroy();
+  assert.equal(c.lost, 1);
+  assert.equal(p.gpuRenderer(), 'dom');
+});
