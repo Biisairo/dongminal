@@ -92,6 +92,26 @@ function runDiv(cls, text) {
   return el;
 }
 
+/**
+ * FR-RVZ-3 (개정 2026-11-12): 카드의 멤버 수. 활성은 끝남·잃음이 아닌 멤버이고(`runNodeKind`),
+ * 헤드리스도 활성만 센다 — 사라진 헤드리스가 계속 세어지면 카드가 지금 상태를 말하지 못한다.
+ */
+function runMemberCounts(members) {
+  const all = members || [];
+  const live = all.filter(m => runNodeKind(m.state) === 'active');
+  return { active: live.length, total: all.length, headless: live.filter(m => m.headless).length };
+}
+
+/** FR-RVZ-3 (개정 2026-11-12): 마지막 활동 시각(초). 알려진 시각 가운데 가장 늦은 것이다. */
+function runLastActivity(rv) {
+  let at = rv.createdAt || 0;
+  const see = v => { if (v > at) at = v; };
+  see(rv.coordinator && rv.coordinator.contextAt);
+  for (const m of rv.messages || []) see(m.at);
+  for (const m of rv.members || []) { see(m.createdAt); see(m.reportedAt); see(m.contextAt); }
+  return at;
+}
+
 class RunsPanel {
   constructor(app) { this.app = app; }
 }
@@ -157,7 +177,7 @@ Object.assign(RunsPanel.prototype, {
 
   _runsRow(rv) {
     const members = rv.members || [];
-    const headless = members.filter(m => m.headless).length;
+    const cnt = runMemberCounts(members);
     const row = runDiv('runs-row');
     row.dataset.runid = rv.id;
     row.title = t('runs.row_title');
@@ -168,8 +188,9 @@ Object.assign(RunsPanel.prototype, {
     const st = runDiv('runs-state st-' + (rv.state || ''), rv.state || '');
     row.appendChild(st);
 
-    row.appendChild(runDiv('runs-members',
-      headless ? t('runs.members_headless', { n: members.length, h: headless }) : tn('runs.members', members.length)));
+    row.appendChild(runDiv('runs-members', cnt.headless
+      ? t('runs.members_active_headless', { a: cnt.active, n: cnt.total, h: cnt.headless })
+      : t('runs.members_active', { a: cnt.active, n: cnt.total })));
 
     // FR-RVZ-3: 격리가 none 이면 표시하지 않는다 — 없는 것이 기본값이므로
     // 적어 두면 목록에서 눈에 띄는 것이 전부 같아진다.
@@ -181,7 +202,7 @@ Object.assign(RunsPanel.prototype, {
       : members.some(m => m.contextLevel === 'warn') ? 'warn' : '';
     if (lv) row.appendChild(runDiv('runs-ctx lv-' + lv, '⚠ ' + lv));
 
-    const ago = this._runAgo(rv.createdAt);
+    const ago = this._runAgo(runLastActivity(rv));
     row.appendChild(runDiv('runs-ago', ago ? t('runs.ago', { ago }) : ''));
 
     // FR-DEL-6: 실패는 그 행에 남는다. 삭제 목표보다 앞에 두어 오른쪽 끝이
