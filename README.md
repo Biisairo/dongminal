@@ -137,13 +137,16 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 ### Git
 
 사이드바의 `저장소`(Repo) 탭에 저장소를 추가하면 그 저장소 전용 창이 섭니다.
+경로를 칠 때 열린 터미널들의 현재 폴더와 등록된 경로 아래 폴더가 후보로 뜹니다.
+`↑`·`↓` 로 고르고 `Tab` 으로 채웁니다.
 
 ![Git 창](docs/images/git.png)
 
 `Changes`(줄 단위 스테이징·커밋) · `Diff` · `History`(그래프) · `Branches` ·
-`Stash` · `Console` · `Worktrees` 일곱 탭이 고정으로 붙습니다. 되돌릴 수 없는
+`Stash` · `Console` · `Worktrees` · `Submodules` 여덟 탭이 고정으로 붙습니다. 되돌릴 수 없는
 동작은 **무엇이 사라지는지 세어 보인 뒤** 묻고, 되돌릴 수 있는 것은 `Undo` 를
-줍니다.
+줍니다. 커밋 메시지 입력에서 `Ctrl+Enter`(macOS 는 `⌘Enter`)를 누르면 바로
+커밋합니다.
 
 ### 편집기
 
@@ -186,6 +189,14 @@ Claude Code·Codex 같은 에이전트를 터미널에서 돌릴 때, **보고 �
 구역(`Ctrl+Shift+O`)에서 이슈 트리를 봅니다. `Cmd+휠`(Windows·Linux 는 `Ctrl+휠`)로
 줌하고 끌어서 옮깁니다.
 
+**휴대폰의 Telegram 으로도 알림을 받을 수 있습니다 (실험 기능).** 설정 → Telegram 에서
+봇 token 을 넣고 `/pair` 로 계정을 등록하면, PC 알람이 울릴 때 휴대폰에도 알림이 갑니다.
+Telegram 은 **보기 전용**입니다. 답은 PC 로 돌아와서 하고, 알림의 **읽음** 버튼만 PC
+알람을 끕니다. 켜면 알림 내용(마지막 응답, 질문, 권한 요청의 명령 등)이 Telegram 서버로
+나갑니다. 회사 규정이 외부로 나가는 데이터를 제한하면 승인을 받은 뒤 켜세요. 봇 하나는
+PC 한 대에서만 씁니다. 자세히는
+[Telegram 알림](docs/external/features.md#telegram-알림-실험-기능).
+
 **다른 PC 의 dongminal 과 짝을 맺을 수 있습니다.** 짝맞춘 PC 의 에이전트에게 메시지를
 보내거나 그 PC 에 에이전트를 띄웁니다. 노드 포트는 기본으로 꺼져 있습니다. 설정 →
 Peers 탭이나 `dmctl peer` 로 다룹니다 — 자세히는 [노드 간 통신](docs/external/peers.md).
@@ -206,7 +217,8 @@ tmux 의 detach 와 같은 생각입니다.
 
 ![설정](docs/images/settings.png)
 
-테마 54종(다크 43 · 라이트 11)과 커스텀 편집기가 있습니다. 단축키는 전부 바꿀 수
+설정 창의 탭은 왼쪽 세로 목록입니다. 위의 검색창에 낱말을 치면 탭 이름이나 탭 안의
+항목에 그 낱말이 있는 탭만 남습니다. 테마 54종(다크 43 · 라이트 11)과 커스텀 편집기가 있습니다. 단축키는 전부 바꿀 수
 있고, 하단 상태 표시줄에 무엇을 띄울지도 고릅니다. 브라우저 탭 이름을 바꿔 두면
 여러 대를 띄웠을 때 어느 것이 어느 기계인지 탭 줄에서 갈립니다.
 

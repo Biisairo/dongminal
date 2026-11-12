@@ -56,8 +56,8 @@
 | POST | `/api/tools/attention/clear` | 도구 하나의 주의 상태 해제 |
 | POST | `/api/tools/attention/clear-all` | 전체 해제 |
 | POST | `/api/tools/attention/claim` | `{seq, kinds:["banner"\|"sound"]}` → `{granted:[…]}` — 알람 하나의 배너·소리를 이 창이 맡는다. 같은 컴퓨터(출발지 주소)에서는 처음 온 청구만 승낙된다 |
-| GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건). 사용량 요약(`usage`)과 서브에이전트 목록(`subagents`)이 있으면 함께 싣는다. `subagents` 는 15초 안에 받은 statusLine 목록과 훅으로 받은 서브에이전트 활동을 합친 것이며, 원소마다 `state`·`tool`·`detail`·`description` 이 있다. 최상위 `limits` 는 에이전트별 마지막 계정 한도다 — 창마다 `name`·`usedPct`·`resetsAt`(유닉스 초)·`resetsInSec`(서버가 셈한 남은 초)·`level`(`warn`·`critical`·빈 값). 관측이 없으면 빈 배열이다 |
-| POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용). `agentId` 가 있으면 서브에이전트 활동으로 저장하고 main 상태는 바꾸지 않는다 — 이때 `state` 는 `working`·`waiting`·`done` 만 받는다. 데몬 모드에서 `dmctl` 의 훅 보고(`activity`·`notify`·`statusline`·`subagent-statusline`)는 데몬 소켓 옆의 보고 소켓(`report.sock`)에 먼저 간다. 소켓이 없거나 실패하면 이 종단들로 HTTP 를 보낸다 |
+| GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건). 사용량 요약(`usage`)과 서브에이전트 목록(`subagents`)이 있으면 함께 싣는다. `subagents` 는 15초 안에 받은 statusLine 목록과 훅으로 받은 서브에이전트 활동을 합친 것이며, 원소마다 `state`·`tool`·`detail`·`description` 이 있다. 훅으로 받은 활동은 `done` 이 되고 30초 뒤에 빠진다. `done` 이 아닌 활동도 2분 동안 갱신이 없고, main 이 `working`·`waiting` 이 아니고, statusLine 목록이 그것을 `running` 으로 보이지 않으면 빠진다. 최상위 `limits` 는 에이전트별 마지막 계정 한도다 — 창마다 `name`·`usedPct`·`resetsAt`(유닉스 초)·`resetsInSec`(서버가 셈한 남은 초)·`level`(`warn`·`critical`·빈 값). 관측이 없으면 빈 배열이다 |
+| POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용). `agentId` 가 있으면 서브에이전트 활동으로 저장하고 main 상태는 바꾸지 않는다 — 이때 `state` 는 `working`·`waiting`·`done` 만 받는다. Telegram 알림이 쓰는 곁들이 필드도 받는다. `hook` 은 훅 이름, `input` 은 권한 요청과 `AskUserQuestion` 의 도구 입력 원문, `transcript` 는 대화 기록 파일의 경로다. `input` 이 16 KiB 를 넘으면 싣지 않고 `inputOver:true` 만 싣는다. 이 필드들은 상태 판정에 쓰지 않는다. 데몬 모드에서 `dmctl` 의 훅 보고(`activity`·`notify`·`statusline`·`subagent-statusline`)는 데몬 소켓 옆의 보고 소켓(`report.sock`)에 먼저 간다. 소켓이 없거나 실패하면 이 종단들로 HTTP 를 보낸다 |
 
 ### 백그라운드 도구
 
@@ -244,15 +244,15 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 ### Telegram 알림 (`TELEGRAM_BRIDGE_SRS`)
 
-설정은 `telegram.json`(권한 600)에 있습니다. 봇 token 은 받기만 하고 응답에 싣지 않습니다. 오류 본문은 `{code, message}` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `telegram_unavailable` 입니다.
+설정은 `telegram.json`(권한 600)에 있습니다. 봇 token 은 받기만 하고 응답에 싣지 않습니다. 오류 본문은 `{code, message}` 입니다. 설정 파일을 쓰지 못하면 500 `save_failed` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `telegram_unavailable` 입니다.
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/telegram` | `{enabled, tokenSet, botName, paired, silenceMin, pair}`. `pair` 는 살아 있는 등록 코드의 만료(`{expires}`)이고, 없으면 `null` 입니다. 코드 자체는 싣지 않습니다 |
 | PUT | `/api/telegram/token` | `{token}` — Telegram `getMe` 로 확인한 뒤 저장하고 화면 값을 돌려줍니다. 모양이 틀리거나 Telegram 이 거절하면 400 `telegram_token_invalid`, Telegram 에 닿지 못하면 502 `telegram_unreachable` 입니다. token 을 저장하면 살아 있는 등록 코드를 버리고, token 이 바뀌면 허용 계정도 지웁니다 |
 | PUT | `/api/telegram/enabled` | `{enabled}` — 켜기·끄기. 꺼져 있으면 Telegram 에 아무 요청도 보내지 않습니다 |
-| PUT | `/api/telegram/silence` | `{minutes}` — PC 입력 뒤 알림을 소리 없이 보내는 시간(0~1440분). 범위 밖은 400 `telegram_config_invalid` |
-| POST | `/api/telegram/pair` | `{code, expires}` — 6자리 등록 코드(10분, 한 번). 코드는 이 응답에만 있습니다. 봇에 `/pair <코드>` 를 보내면 보낸 계정이 허용 계정이 됩니다. token 이 없으면 409 `telegram_no_token` |
+| PUT | `/api/telegram/silence` | `{minutes}` — PC 브라우저에서 그 탭에 입력한 뒤 알림을 소리 없이 보내는 시간(0~1440분). 범위 밖은 400 `telegram_config_invalid` |
+| POST | `/api/telegram/pair` | `{code, expires}` — 6자리 등록 코드(10분, 한 번). 코드는 이 응답에만 있습니다. 새 코드를 만들면 이전 코드는 버립니다. 틀린 코드가 5번 오면 코드를 버립니다. 봇에 `/pair <코드>` 를 보내면 보낸 계정이 허용 계정이 됩니다. token 이 없으면 409 `telegram_no_token` |
 | DELETE | `/api/telegram/pair` | 허용 계정을 지우고 살아 있는 등록 코드도 버립니다 |
 
 ### Run (오케스트레이션)
@@ -397,7 +397,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 
 | 요청 | 서버가 보내는 것 |
 |---|---|
-| `since` 없음 | **전량 재생** — 터미널 모드 초기화 + 화면·스크롤백 클리어 + 보유 스크롤백 |
+| `since` 없음 | **전량 재생** — 터미널 모드 초기화 + 화면·스크롤백 클리어 + 보유 스크롤백. 보유 스크롤백의 앞머리가 대체 화면 안이면 클리어 뒤에 대체 화면을 다시 켠다(`ESC[?1049h`) |
 | `since` 가 보유 창 안 | **델타 재개** — 그 뒤의 바이트만. 화면을 지우지 않는다 |
 | `since` 가 보유 창 밖 | 전량 재생으로 조용히 강등 (오류가 아니다) |
 
