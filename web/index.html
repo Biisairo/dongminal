@@ -301,6 +301,8 @@
       <button class="ui-tab mtab" data-tab="access" title="Network access allowlist">Access</button>
       <!-- PEER_NETWORK_SRS FR-PNW-80: 다른 dongminal 과의 짝. -->
       <button class="ui-tab mtab" data-tab="peers" title="Peer nodes">Peers</button>
+      <!-- TELEGRAM_BRIDGE_SRS FR-TGB-1: 휴대폰에서 에이전트를 보는 브리지. -->
+      <button class="ui-tab mtab" data-tab="telegram" title="Telegram bridge">Telegram</button>
       <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
       <button class="ui-tab mtab" data-tab="sandbox" title="Sandbox profile settings">Sandbox</button>
       <button class="ui-tab mtab" data-tab="backup" title="Backup and restore settings">Backup</button>
@@ -641,6 +643,45 @@
           </div>
           <span id="pn-add-status" class="sbx-status"></span>
           <div class="ds-hint" data-i18n="html.pn_add_hint"></div>
+        </div>
+      </div>
+      <div class="mpanel" id="panel-telegram" hidden>
+        <div class="display-settings">
+          <div class="ds-hint" data-i18n="html.tg_hint"></div>
+          <div class="ds-row">
+            <span data-i18n="html.tg_enabled"></span>
+            <label class="sbx-flag"><input type="checkbox" class="ui-switch" id="tg-enabled"><span data-i18n="html.acl_on"></span></label>
+          </div>
+          <div class="ds-sec" data-i18n="html.tg_sec_bot"></div>
+          <div class="ds-row"><span data-i18n="html.tg_bot"></span><span id="tg-bot" class="sbx-status"></span></div>
+          <div class="pn-row">
+            <input type="password" class="sbx-input" id="tg-token" autocomplete="off" spellcheck="false" data-i18n-placeholder="html.tg_token_ph">
+            <button type="button" class="ds-toggle ui-btn" id="tg-token-save" data-i18n-title="html.tg_token_save_title" title="Check and save the bot token" data-i18n="html.save"></button>
+          </div>
+          <span id="tg-token-status" class="sbx-status"></span>
+          <div class="ds-hint" data-i18n="html.tg_token_hint"></div>
+
+          <div class="ds-sec" data-i18n="html.tg_sec_account"></div>
+          <div class="ds-row"><span data-i18n="html.tg_account"></span><span id="tg-account" class="sbx-status"></span></div>
+          <div class="ds-row">
+            <span id="tg-pair-status" class="sbx-status"></span>
+            <button type="button" class="ds-toggle ui-btn" id="tg-pair-make" data-i18n-title="html.tg_pair_make_title" title="Create a registration code" data-i18n="html.tg_pair_make"></button>
+            <button type="button" class="ds-toggle ui-btn" id="tg-unpair" data-i18n-title="html.tg_unpair_title" title="Remove the allowed account" data-i18n="html.tg_unpair"></button>
+          </div>
+          <div class="pn-row" id="tg-pair-box" hidden>
+            <input type="text" class="sbx-input" id="tg-pair-code" readonly>
+            <span id="tg-pair-remain" class="sbx-status"></span>
+          </div>
+          <div class="ds-hint" data-i18n="html.tg_pair_hint"></div>
+
+          <div class="ds-sec" data-i18n="html.tg_sec_notify"></div>
+          <div class="ds-row">
+            <span data-i18n="html.tg_silence"></span>
+            <input type="number" class="ds-num" id="tg-silence" min="0" max="1440">
+            <button type="button" class="ds-toggle ui-btn" id="tg-silence-save" data-i18n-title="html.tg_silence_save_title" title="Save the quiet time" data-i18n="html.save"></button>
+          </div>
+          <span id="tg-silence-status" class="sbx-status"></span>
+          <div class="ds-hint" data-i18n="html.tg_silence_hint"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-sandbox" hidden>
@@ -1040,6 +1081,7 @@
 <script src="js/core/app-settings-access.js?v=__ASSETV__"></script>
 <script src="js/core/app-peers.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-peers.js?v=__ASSETV__"></script>
+<script src="js/core/app-settings-telegram.js?v=__ASSETV__"></script>
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
 <script src="js/core/app-backup.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar.js?v=__ASSETV__"></script>

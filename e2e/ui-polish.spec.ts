@@ -154,7 +154,7 @@ test('TC-UIP-11: 설정 탭은 세로 목록이고 검색으로 거른다', asyn
   await expect(page.locator('#modal .mtab:visible')).toHaveCount(1);
   await expect(page.locator('#modal .mtab.active')).toHaveAttribute('data-tab', 'peers');
   await search.fill('');
-  await expect(page.locator('#modal .mtab:visible')).toHaveCount(13);
+  await expect(page.locator('#modal .mtab:visible')).toHaveCount(14);
 });
 
 test('TC-UIP-12: Diff 보기 방식은 두 칸 선택 묶음이고 지금 방식이 선택돼 보인다', async ({ page }) => {
