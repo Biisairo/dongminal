@@ -227,6 +227,8 @@ func (a *app) run(ctx context.Context) error {
 	a.srv.StartAccessRefresh(ctx.Done())
 	// PEER_NETWORK_SRS FR-PNW-4: 노드 포트. 꺼져 있으면 아무것도 열지 않는다.
 	closePeer := startPeerScoped(ctx, a.srv.StartPeer)
+	// TELEGRAM_BRIDGE_SRS NFR-TGB-1: 꺼져 있으면 Telegram 에 아무 요청도 하지 않는다.
+	a.srv.StartTelegram(ctx.Done())
 	// UPDATE_NOTICE_SRS FR-UPD-2 ①·③: 기동 확인 한 번과 24시간 마감.
 	// 마감은 **한 번도 끄지 않고 띄워 둔 세션**만을 위한 보조다 — 갱신의 주된
 	// 계기는 SSE 연결 수립이고 그쪽은 요청 경로에 있다.
