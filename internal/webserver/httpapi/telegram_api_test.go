@@ -175,3 +175,20 @@ func TestTelegramAPI_Unavailable(t *testing.T) {
 	rec, _ := tgDo(t, s, http.MethodGet, "/api/telegram", "")
 	tgWantErr(t, rec, http.StatusServiceUnavailable, apierr.CodeTelegramUnavailable)
 }
+
+// FR-TGB-5: token 을 바꾸면 허용 계정과 함께, 바꾸기 전에 만든 등록 코드도 버린다.
+// 그러지 않으면 새 봇에서 옛 코드로 등록할 수 있다 (보안 리뷰 2026-11-12).
+func TestTelegramAPI_TokenChangeCancelsPairing(t *testing.T) {
+	fake, _ := tgFakeAPI(t)
+	s := tgAPIServer(t, fake.URL)
+	tgDo(t, s, http.MethodPut, "/api/telegram/token", `{"token":"`+tgGoodToken+`"}`)
+	_, v := tgDo(t, s, http.MethodPost, "/api/telegram/pair", "")
+	code, _ := v["code"].(string)
+	rec, v := tgDo(t, s, http.MethodPut, "/api/telegram/token", `{"token":"`+tgGoodToken+`"}`)
+	if rec.Code != http.StatusOK || v["pair"] != nil {
+		t.Fatalf("status=%d view=%v", rec.Code, v)
+	}
+	if s.tg.bridge.Pairing().Redeem(code) {
+		t.Fatal("token 저장 뒤에도 옛 등록 코드가 살아 있다")
+	}
+}

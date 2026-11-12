@@ -249,7 +249,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/telegram` | `{enabled, tokenSet, botName, paired, silenceMin, pair}`. `pair` 는 살아 있는 등록 코드의 만료(`{expires}`)이고, 없으면 `null` 입니다. 코드 자체는 싣지 않습니다 |
-| PUT | `/api/telegram/token` | `{token}` — Telegram `getMe` 로 확인한 뒤 저장하고 화면 값을 돌려줍니다. 모양이 틀리거나 Telegram 이 거절하면 400 `telegram_token_invalid`, Threaded Mode 가 꺼진 봇이면 400 `telegram_topics_disabled`, Telegram 에 닿지 못하면 502 `telegram_unreachable` 입니다. token 이 바뀌면 허용 계정과 토픽 대응표를 지웁니다 |
+| PUT | `/api/telegram/token` | `{token}` — Telegram `getMe` 로 확인한 뒤 저장하고 화면 값을 돌려줍니다. 모양이 틀리거나 Telegram 이 거절하면 400 `telegram_token_invalid`, Threaded Mode 가 꺼진 봇이면 400 `telegram_topics_disabled`, Telegram 에 닿지 못하면 502 `telegram_unreachable` 입니다. token 을 저장하면 살아 있는 등록 코드를 버리고, token 이 바뀌면 허용 계정과 토픽 대응표도 지웁니다 |
 | PUT | `/api/telegram/enabled` | `{enabled}` — 켜기·끄기. 꺼져 있으면 Telegram 에 아무 요청도 보내지 않습니다 |
 | PUT | `/api/telegram/silence` | `{minutes}` — PC 입력 뒤 알림을 소리 없이 보내는 시간(0~1440분). 범위 밖은 400 `telegram_config_invalid` |
 | POST | `/api/telegram/pair` | `{code, expires}` — 6자리 등록 코드(10분, 한 번). 코드는 이 응답에만 있습니다. 봇에 `/pair <코드>` 를 보내면 보낸 계정이 허용 계정이 됩니다. token 이 없으면 409 `telegram_no_token` |
