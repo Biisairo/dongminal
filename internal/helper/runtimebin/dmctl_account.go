@@ -17,13 +17,18 @@ const dmctlAccountHelp = `dmctl account — Claude 다중 계정
   dmctl account list [--json]                  등록한 계정 (* 는 활성 계정)
   dmctl account add                            Claude Code 에 지금 로그인한 계정을 등록한다
   dmctl account switch <id|별칭|이메일>          그 계정으로 전환한다
-  dmctl account switch --strategy next         순서상 다음 계정으로 전환한다 (제외한 계정은 건너뛴다)
+  dmctl account switch --strategy next|next-available|best
+                                               next = 순서상 다음 계정 (제외한 계정은 건너뛴다)
+                                               next-available = next 와 같되 한도가 찼거나 사용량을 모르는 계정도 건너뛴다
+                                               best = 여유가 가장 큰 계정 (활성 계정보다 크지 않으면 전환하지 않는다)
   dmctl account usage [<계정>] [--refresh] [--json]
                                                사용량 (계정을 주지 않으면 모두). --refresh 는 먼저 바로 조회한다
                                                (1분 안에 조회했거나 물러나는 중이면 서버가 거절한다)
   dmctl account reset <계정> --program juniper_tide|cedar_ember [--grant <id>] [--yes]
                                                제한 초기화를 쓴다. --yes 가 없으면 무엇을 채우는지 보이고 y 를 받아야 보낸다
                                                (juniper_tide = 주간 5시간 초기화, cedar_ember = 초기화 티켓, --grant 로 티켓을 고른다)
+  dmctl account auto on|off|status [--json]    자동 전환을 켜고 끄거나 설정·상태를 본다
+  dmctl account history [--limit N]            전환 기록 (최신 먼저, 기본 20건, 1~1000)
 
   실행 중인 Claude Code 세션은 약 30초 안에, 또는 다시 시작할 때 새 계정을 쓴다.
 `
@@ -121,11 +126,13 @@ func (a accountRow) label() string {
 }
 
 var accountSubs = map[string]peerSub{
-	"list":   {0, false, nil, []string{"json"}, accountList},
-	"add":    {0, false, nil, nil, accountAdd},
-	"switch": {0, true, []string{"strategy"}, nil, accountSwitch},
-	"usage":  {0, true, nil, []string{"refresh", "json"}, accountUsageCmd},
-	"reset":  {1, false, []string{"program", "grant"}, []string{"yes"}, accountReset},
+	"list":    {0, false, nil, []string{"json"}, accountList},
+	"add":     {0, false, nil, nil, accountAdd},
+	"switch":  {0, true, []string{"strategy"}, nil, accountSwitch},
+	"usage":   {0, true, nil, []string{"refresh", "json"}, accountUsageCmd},
+	"reset":   {1, false, []string{"program", "grant"}, []string{"yes"}, accountReset},
+	"auto":    {1, false, nil, []string{"json"}, accountAuto},
+	"history": {0, false, []string{"limit"}, nil, accountHistory},
 }
 
 func runDmctlAccount(args []string, stdout, stderr io.Writer) int {
@@ -173,7 +180,7 @@ func accountAPI(method, path string, body map[string]any, stderr io.Writer) ([]b
 	if method == "GET" {
 		status, raw, err = httpGet(baseURL() + path)
 	} else {
-		status, raw, err = httpPostJSONWithin(baseURL()+path, body, accountCallBudget)
+		status, raw, err = httpJSONWithin(method, baseURL()+path, body, accountCallBudget)
 	}
 	return apiResultWith(status, raw, err, stderr, printPeerRefusal)
 }
@@ -252,29 +259,38 @@ func accountSwitch(pa peerArgs, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, "dmctl account switch: <계정> 하나 또는 --strategy 하나가 필요합니다\n")
 		return 2
 	}
+	if strategy != "" && !accountStrategies[strategy] {
+		fmt.Fprint(stderr, "dmctl account switch: --strategy 는 next, next-available, best 중 하나입니다\n")
+		return 2
+	}
 	v, _, rc := loadAccounts(stderr)
 	if rc != 0 {
 		return rc
 	}
-	body := map[string]any{"strategy": strategy}
+	body := map[string]any{"strategy": strategy, "by": "dmctl"}
 	if strategy == "" {
 		a, ok := resolveAccount(v, pa.pos[0])
 		if !ok {
 			fmt.Fprintf(stderr, "dmctl account: 그런 계정이 없습니다: %s\n", clean(pa.pos[0]))
 			return 1
 		}
-		body = map[string]any{"id": a.ID}
+		body = map[string]any{"id": a.ID, "by": "dmctl"}
 	}
 	raw, rc := accountAPI("POST", "/api/claude-accounts/switch", body, stderr)
 	if rc != 0 {
 		return rc
 	}
 	var res struct {
-		To   string `json:"to"`
-		NoOp bool   `json:"noop"`
+		To     string `json:"to"`
+		NoOp   bool   `json:"noop"`
+		Reason string `json:"reason"`
 	}
 	_ = json.Unmarshal(raw, &res)
 	to, _ := resolveAccount(v, res.To)
+	if res.Reason != "" {
+		fmt.Fprintf(stdout, "전환하지 않았습니다: %s\n", accountReasonText(res.Reason))
+		return 0
+	}
 	if res.NoOp {
 		fmt.Fprintf(stdout, "이미 활성 계정입니다: %s\n", clean(to.label()))
 		return 0

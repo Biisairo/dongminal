@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"dongminal/internal/shared/dmlog"
@@ -15,9 +17,23 @@ import (
 // 로컬 API `/api/claude-accounts/*` (CLAUDE_ACCOUNTS_SRS FR-CAC-120·121). 본문 오류는 fs 방언
 // `{code,message}` 다. 응답에는 토큰이 없다 (FR-CAC-9).
 
+const (
+	claudeHistoryDefault = 50
+	claudeHistoryMax     = 1000
+)
+
 type claudeAccountsView struct {
-	ActiveID string                   `json:"activeId"`
-	Accounts []claudeacct.AccountView `json:"accounts"`
+	ActiveID   string                   `json:"activeId"`
+	Accounts   []claudeacct.AccountView `json:"accounts"`
+	Autoswitch claudeAutoSummary        `json:"autoswitch"`
+	// OtherStatusLines 는 등록되지 않은 계정의 statusLine 값이다 (FR-CAC-78·93).
+	OtherStatusLines []claudeacct.StatusLineView `json:"otherStatusLines"`
+}
+
+// claudeAutoSummary 는 foot 표식에 쓰는 자동 전환 요약이다 (FR-CAC-76·92).
+type claudeAutoSummary struct {
+	Enabled bool   `json:"enabled"`
+	Status  string `json:"status"`
 }
 
 func (s *Server) claudeAccountsReady(w http.ResponseWriter) bool {
@@ -47,6 +63,7 @@ func claudeAccountsFail(w http.ResponseWriter, err error) {
 		{claudeacct.ErrNoCandidate, http.StatusConflict, apierr.CodeClaudeNoCandidate},
 		{claudeacct.ErrKeychainUnavailable, http.StatusServiceUnavailable, apierr.CodeClaudeKeychain},
 		{claudeacct.ErrTooSoon, http.StatusConflict, apierr.CodeClaudeTooSoon},
+		{claudeacct.ErrCswapRunning, http.StatusConflict, apierr.CodeClaudeCswapRunning},
 	} {
 		if errors.Is(err, r.err) {
 			peerFail(w, r.status, r.code, err.Error())
@@ -66,7 +83,17 @@ func (s *Server) apiClaudeAccountsList(w http.ResponseWriter, _ *http.Request) {
 		claudeAccountsFail(w, err)
 		return
 	}
-	v := claudeAccountsView{ActiveID: st.ActiveID, Accounts: claudeacct.BuildViews(st, s.ca.eng.Rows(), time.Now().Unix())}
+	av := s.ca.auto.View()
+	now := time.Now().Unix()
+	views := claudeacct.BuildViews(st, s.ca.eng.Rows(), now)
+	for i := range views {
+		if u, at, ok := s.ca.sl.get(views[i].Account); ok {
+			views[i].StatusLine = claudeacct.StatusLineViewOf(u, at, now)
+		}
+	}
+	v := claudeAccountsView{ActiveID: st.ActiveID, Accounts: views,
+		Autoswitch:       claudeAutoSummary{Enabled: av.Settings.Enabled, Status: av.State.Status},
+		OtherStatusLines: s.ca.sl.others(st.Accounts, now)}
 	httpresp.JSON(w, http.StatusOK, v)
 }
 
@@ -149,23 +176,12 @@ func (s *Server) apiClaudeAccountsSwitch(w http.ResponseWriter, r *http.Request)
 	var req struct {
 		ID       string `json:"id"`
 		Strategy string `json:"strategy"`
+		By       string `json:"by"`
 	}
 	if !peerReadJSON(w, r, &req) {
 		return
 	}
-	var (
-		res claudeacct.SwitchResult
-		err error
-	)
-	switch {
-	case req.ID != "":
-		res, err = s.ca.svc.Switch(r.Context(), req.ID)
-	case req.Strategy == "next":
-		res, err = s.ca.svc.SwitchNext(r.Context())
-	default:
-		peerFail(w, http.StatusBadRequest, apierr.CodeClaudeAccountInvalid, "id 또는 strategy(next) 가 필요합니다")
-		return
-	}
+	res, err := s.ca.eng.Switch(r.Context(), claudeacct.SwitchRequest{ID: req.ID, Strategy: req.Strategy, By: req.By})
 	if err != nil {
 		claudeAccountsFail(w, err)
 		return
@@ -221,4 +237,51 @@ func (s *Server) apiClaudeAccountsReset(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	httpresp.JSON(w, http.StatusOK, res)
+}
+
+// apiClaudeAccountsHistory 는 전환 기록이다 (FR-CAC-110a). 최신 먼저, limit 은 1~1000(기본 50).
+func (s *Server) apiClaudeAccountsHistory(w http.ResponseWriter, r *http.Request) {
+	if !s.claudeAccountsReady(w) {
+		return
+	}
+	limit := claudeHistoryDefault
+	if q := r.URL.Query().Get("limit"); q != "" {
+		v, err := strconv.Atoi(q)
+		if err != nil || v < 1 || v > claudeHistoryMax {
+			peerFail(w, http.StatusBadRequest, apierr.CodeClaudeAccountInvalid, "limit 은 1~1000 입니다")
+			return
+		}
+		limit = v
+	}
+	entries, err := claudeacct.ReadHistory(s.ca.svc.Dir, limit)
+	if err != nil {
+		claudeAccountsFail(w, err)
+		return
+	}
+	httpresp.JSON(w, http.StatusOK, map[string]any{"entries": entries})
+}
+
+// apiClaudeAccountsAutoswitchGet 은 자동 전환 설정과 상태다 (FR-CAC-76).
+func (s *Server) apiClaudeAccountsAutoswitchGet(w http.ResponseWriter, _ *http.Request) {
+	if !s.claudeAccountsReady(w) {
+		return
+	}
+	httpresp.JSON(w, http.StatusOK, s.ca.auto.View())
+}
+
+// apiClaudeAccountsAutoswitchPut 은 설정의 일부 키를 고친다 (FR-CAC-75·76).
+func (s *Server) apiClaudeAccountsAutoswitchPut(w http.ResponseWriter, r *http.Request) {
+	if !s.claudeAccountsReady(w) {
+		return
+	}
+	var raw json.RawMessage
+	if !peerReadJSON(w, r, &raw) {
+		return
+	}
+	v, err := s.ca.auto.Put(raw)
+	if err != nil {
+		claudeAccountsFail(w, err)
+		return
+	}
+	httpresp.JSON(w, http.StatusOK, v)
 }

@@ -62,6 +62,8 @@ type Config struct {
 	ClaudeAPI string
 	// ClaudeSecrets 는 비밀 저장소다. nil 이면 이 OS 의 것(macOS 키체인)이다.
 	ClaudeSecrets platform.Secrets
+	// ClaudeProcs 는 프로세스 명령줄 목록이다(cswap 자동 전환 감지, FR-CAC-75). nil 이면 platform.CommandLines 다.
+	ClaudeProcs func() ([]string, error)
 }
 
 // Server owns the HTTP server lifecycle.

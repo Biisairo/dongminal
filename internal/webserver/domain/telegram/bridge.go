@@ -47,6 +47,8 @@ type item struct {
 	ev                   *Event
 	attnTool, attnReason string
 	clearTool            string
+	// notice 는 탭과 무관한 글이다 (CLAUDE_ACCOUNTS_SRS FR-CAC-100a).
+	notice string
 }
 
 // Bridge 는 Telegram 알림이다. 사건은 큐로 받고(NFR-TGB-2), 작업자 하나와 polling
@@ -83,6 +85,9 @@ func (b *Bridge) OnAttention(toolID, reason string) {
 
 // OnAttentionClear 는 PC 알람이 꺼진 것이다 (FR-TGB-58b).
 func (b *Bridge) OnAttentionClear(toolID string) { b.enqueue(item{clearTool: toolID}) }
+
+// OnNotice 는 탭과 무관한 글 한 통이다 (CLAUDE_ACCOUNTS_SRS FR-CAC-100a). 무음 규칙은 탭 입력 기준이라 쓰지 않는다.
+func (b *Bridge) OnNotice(text string) { b.enqueue(item{notice: text}) }
 
 func (b *Bridge) enqueue(it item) {
 	if !b.st.Config().Enabled {
@@ -121,6 +126,10 @@ func (b *Bridge) process(it item) {
 		b.tab(it.ev.ToolID).observe(*it.ev)
 	case it.clearTool != "":
 		b.clearButtons(c, it.clearTool)
+	case it.notice != "":
+		if err := b.call(c, "sendMessage", map[string]any{"chat_id": c.UserID, "text": it.notice}, nil); err != nil {
+			dmlog.Infof(nil, "telegram: 글을 보내지 못했다: %v", err)
+		}
 	default:
 		b.alarm(c, it.attnTool, it.attnReason)
 	}

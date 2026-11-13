@@ -67,7 +67,7 @@ func TestValidatePatch(t *testing.T) {
 	bad := []Patch{
 		{Alias: s(strings.Repeat("가", 25))},
 		{Threshold: f(49.9)},
-		{Threshold: f(100)},
+		{Threshold: f(100.1)},
 		{Priority: i(-1)},
 		{Priority: i(1001)},
 		{Color: s("red")},
@@ -77,7 +77,7 @@ func TestValidatePatch(t *testing.T) {
 			t.Fatalf("case %d must be invalid: %v", n, err)
 		}
 	}
-	good := Patch{Alias: s(strings.Repeat("가", 24)), Threshold: f(99.9), Priority: i(1000), Color: s("acct-8")}
+	good := Patch{Alias: s(strings.Repeat("가", 24)), Threshold: f(100), Priority: i(1000), Color: s("acct-8")}
 	if err := good.Validate(); err != nil {
 		t.Fatal(err)
 	}

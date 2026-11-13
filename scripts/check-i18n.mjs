@@ -102,6 +102,12 @@ const DYNAMIC_PREFIXES = [
   { prefix: 'cacct.st.', why: "app-claude-accounts.js 가 서버의 계정 상태로 `'cacct.st.' + status` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-56)" },
   { prefix: 'cacct.rs.r.', why: "app-claude-accounts.js 가 서버의 초기화 결과로 `'cacct.rs.r.' + result` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-63)" },
   { prefix: 'cacct.wd.', why: "app-claude-accounts.js 가 요일 번호(0~6)로 `'cacct.wd.' + day` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-91)" },
+  { prefix: 'cacct.auto.', why: "app-claude-accounts.js 가 자동 전환 상태로 `'cacct.auto.' + status` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-76·92)" },
+  { prefix: 'cacct.smart.', why: "app-claude-accounts.js 가 스마트 전환 전략으로 `'cacct.smart.' + strategy` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-31·92)" },
+  { prefix: 'cacct.reason.', why: "app-claude-accounts.js 가 `best` 의 머문 이유로 `'cacct.reason.' + reason` 을 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-31a)" },
+  { prefix: 'cacct.trig.', why: "app-claude-accounts.js 가 전환 기록·알림의 trigger 로 `'cacct.trig.' + trigger` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-110)" },
+  { prefix: 'cacct.by.', why: "app-claude-accounts.js 가 전환 기록의 by 로 `'cacct.by.' + by` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-110a)" },
+  { prefix: 'cacct.alert.', why: "app-claude-accounts.js 가 알림 사건으로 `'cacct.alert.' + kind` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-100a)" },
   { prefix: 'why.', why: "action-answer.js 가 서버 답의 사유 코드로 `t('why.' + code)` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS M-6)" },
 ];
 

@@ -334,9 +334,13 @@ func TestSwitchNextSkipsDisabled(t *testing.T) {
 	if _, err := e.svc.Update("id1", Patch{Disabled: &dis}); err != nil {
 		t.Fatal(err)
 	}
-	res, err := e.svc.SwitchNext(context.Background())
-	if err != nil || res.To != "id2" {
-		t.Fatal(err, res.To)
+	st, _ := e.svc.Store.Load()
+	all := func(Account) bool { return true }
+	if id, ok := st.nextAfter(all); !ok || id != "id2" {
+		t.Fatal(ok, id)
+	}
+	if _, ok := st.nextAfter(func(a Account) bool { return a.ID != "id2" }); ok {
+		t.Fatal("no candidate")
 	}
 }
 

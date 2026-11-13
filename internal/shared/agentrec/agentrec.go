@@ -93,6 +93,14 @@ type ActivityReport struct {
 type UsageReport struct {
 	ToolID string           `json:"toolId"`
 	Usage  statusline.Usage `json:"usage"`
+	// Account 는 그 세션이 로그인한 Claude 계정이다 (CLAUDE_ACCOUNTS_SRS FR-CAC-78). 모르면 없다.
+	Account *ReportAccount `json:"account,omitempty"`
+}
+
+// ReportAccount 는 statusLine 보고의 계정이다. 토큰은 없다.
+type ReportAccount struct {
+	Email   string `json:"email"`
+	OrgUUID string `json:"organizationUuid"`
 }
 
 // SubagentsReport 는 `POST /api/tools/subagents` 와 report.subagents 의 본문이다.

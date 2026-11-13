@@ -99,7 +99,10 @@ func (s *Server) applyUsageReport(body agentrec.UsageReport) {
 	s.usage.put(toolID, u)
 	s.putRecord(toolipc.RecordUsage, toolID, u)
 	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20: 계정 한도의 임자는 statusLine 을 보고하는 에이전트다.
-	if agent, ok := agentadapter.StatusLineReporter(); ok && len(u.RateLimits) > 0 {
+	// CLAUDE_ACCOUNTS_SRS FR-CAC-78: 계정을 실은 보고는 계정별로 둔다. 에이전트 단위 값은 계정을 모르는 보고만이다.
+	if acc := body.Account; acc != nil && acc.Email != "" && s.ca != nil {
+		s.ca.sl.put(*acc, u.RateLimits, time.Now())
+	} else if agent, ok := agentadapter.StatusLineReporter(); ok && len(u.RateLimits) > 0 {
 		s.rateLimits.put(agent, u.RateLimits, time.Now())
 		s.putRecord(toolipc.RecordLimits, "", s.rateLimits.records())
 	}

@@ -256,3 +256,28 @@ func TestReportSocket_ServesConcurrently(t *testing.T) {
 		t.Fatalf("Close 가 보고 소켓을 치우지 않았다: %v", err)
 	}
 }
+
+// CLAUDE_ACCOUNTS_SRS FR-CAC-78: 계정을 실은 사용량 보고는 에이전트 단위 한도 기록에 들어가지 않는다.
+func TestReport_UsageWithAccountSkipsAgentLimits(t *testing.T) {
+	pm := recordsPM(t, "t1")
+	ps := NewPanedServer(pm, "", "")
+	if _, ok := agentadapter.StatusLineReporter(); !ok {
+		t.Skip("statusLine 보고 에이전트가 없다")
+	}
+	req := reportReq(t, agentrec.MethodUsage, map[string]any{"toolId": "t1",
+		"usage":   map[string]any{"rateLimits": map[string]any{"five_hour": map[string]any{"usedPct": 30.0}}},
+		"account": map[string]any{"email": "a@x.com", "organizationUuid": "org-a"}})
+	if r := ps.handleReport(req); !r.OK {
+		t.Fatalf("거절: %s", r.Error)
+	}
+	var buf bytes.Buffer
+	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf), records: ps.records}
+	out := dispatchOne(t, pc, &buf, toolipc.MethodRecords, struct{}{})
+	var res toolipc.RecordsResult
+	if err := json.Unmarshal(out["result"], &res); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := res.Global[toolipc.RecordLimits]; ok && len(v) > 0 && string(v) != "{}" && string(v) != "null" {
+		t.Fatalf("limits=%s", v)
+	}
+}

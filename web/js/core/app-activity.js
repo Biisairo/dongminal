@@ -150,7 +150,8 @@ Object.assign(App.prototype, {
     // FR-ASV-40·43 · FR-CAC-90: Usage 바닥은 늘 맨 끝이고, 계정도 statusLine 값도 없으면 없다.
     const accounts=claudeAcctFootViews(this._claudeAccts,this._claudeAcctOpen());
     const sl=statusLineView(this._limits,Date.now());
-    if(accounts.length||sl) out.push({t:'foot',view:{accounts,next:accounts.length>1,sl}});
+    const acctSl=claudeAcctStatusLines(this._claudeAccts,this._claudeAcctOtherSl);
+    if(accounts.length||sl||acctSl.length) out.push({t:'foot',view:{accounts,next:accounts.length>1,auto:claudeAcctAutoView(this._claudeAcctAuto),acctSl,sl}});
     return out;
   },
 
@@ -255,16 +256,31 @@ Object.assign(App.prototype, {
     return (this._bg||[]).map(b=>({t:'row',sec:'bg',id:b.toolId,el:this._bgRow(b)}));
   },
 
-  /** FR-ASV-40·41 · FR-CAC-90~93: Usage 바닥. 계정 머리 줄 · 계정 묶음 · 맨 아래 statusLine 줄. */
+  /** FR-ASV-40·41 · FR-CAC-90~93: Usage 바닥. 계정 머리 줄(자동 전환 표식·전환 메뉴·기록) · 계정 묶음 · 맨 아래 statusLine 줄. */
   _actUsageFootEl(view){
     const foot=document.createElement('div');
     foot.className='act-usage-foot';
     if(view.accounts.length){
       const head=actEl(foot,'div','act-usage-head');
       actEl(head,'span','act-usage-name',t('cacct.title'));
-      if(view.next) head.appendChild(UIKit.button({label:t('cacct.next'),kind:'ghost',size:'sm',cls:'cacct-next',
-        onClick:e=>{e.stopPropagation();this._claudeAcctNext()}}));
+      actEl(head,'span','cacct-auto'+(view.auto.on?' on':''),view.auto.text);
+      if(view.next) head.appendChild(UIKit.button({label:t('cacct.smart.menu'),kind:'ghost',size:'sm',cls:'cacct-smart',
+        onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._claudeAcctSmartMenu({x:r.left,y:r.bottom})}}));
+      head.appendChild(UIKit.button({label:t('cacct.hist.open'),kind:'ghost',size:'sm',cls:'cacct-history-btn',
+        onClick:e=>{e.stopPropagation();this._claudeAcctHistory()}}));
       for(const a of view.accounts) foot.appendChild(this._claudeAcctEl(a));
+    }
+    // FR-CAC-93: 계정마다 statusLine 한 줄 — 색 점과 이름을 붙인다. 계정을 모르는 보고는 아래 기존 한 줄이다.
+    for(const l of view.acctSl||[]){
+      const row=actEl(foot,'div','act-usage-sl cacct-sl');
+      row.title='Rate limits reported by the Claude Code statusLine';
+      actEl(row,'span','act-usage-sl-label',l.label);
+      const who=actEl(row,'span','cacct-sl-who');
+      if(l.color) actEl(who,'span','cacct-dot').style.background='var(--'+l.color+')';
+      actEl(who,'span','cacct-sl-name',l.name);
+      for(const g of l.segs) actEl(row,'span','act-usage-sl-seg'+(g.level==='warn'||g.level==='critical'?' lv-'+g.level:''),g.text);
+      if(l.reset) actEl(row,'span','act-usage-sl-reset',l.reset);
+      if(l.asOf) actEl(row,'span','act-usage-asof',l.asOf);
     }
     if(view.sl){
       const sl=actEl(foot,'div','act-usage-sl');

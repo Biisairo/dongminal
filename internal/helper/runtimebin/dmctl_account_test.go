@@ -15,15 +15,15 @@ const accountsFakeJSON = `{"activeId":"id-b","accounts":[
  {"id":"id-b","email":"b@x.com","organizationName":"Org B","color":"acct-2","disabled":true,"priority":3}]}`
 
 type acctReq struct {
-	method, path string
-	body         map[string]any
+	method, path, query string
+	body                map[string]any
 }
 
 func withAccountServer(t *testing.T, routes map[string]string) (*[]acctReq, func()) {
 	t.Helper()
 	calls := &[]acctReq{}
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
-		c := acctReq{method: r.Method, path: r.URL.Path}
+		c := acctReq{method: r.Method, path: r.URL.Path, query: r.URL.RawQuery}
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &c.body)
 		*calls = append(*calls, c)

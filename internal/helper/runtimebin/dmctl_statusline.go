@@ -106,7 +106,11 @@ func runStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]str
 	raw, _ := io.ReadAll(stdin)
 	if tool := env["DONGMINAL_TOOL_ID"]; tool != "" {
 		if u := statusline.FromInput(raw); u != nil {
-			_, _, _ = postReport(agentrec.MethodUsage, "/api/tools/usage", map[string]any{"toolId": tool, "usage": u}, slReportBudget)
+			body := map[string]any{"toolId": tool, "usage": u}
+			if acc := statuslineAccount(env); acc != nil {
+				body["account"] = acc
+			}
+			_, _, _ = postReport(agentrec.MethodUsage, "/api/tools/usage", body, slReportBudget)
 		}
 	}
 	return slPassThrough(raw, statuslineDownstream(statuslineProjectDir(raw), env, statusLineKey), stdout, stderr)
@@ -169,4 +173,30 @@ func statuslineEnv() map[string]string {
 		env["HOME"] = env["USERPROFILE"]
 	}
 	return env
+}
+
+// statuslineAccount 는 그 세션의 설정 폴더(`CLAUDE_CONFIG_DIR`, 없으면 홈)의 `.claude.json` 에서
+// 로그인한 계정을 읽는다 (CLAUDE_ACCOUNTS_SRS FR-CAC-78). 읽지 못하면 nil 이다.
+func statuslineAccount(env map[string]string) *agentrec.ReportAccount {
+	dir := env["CLAUDE_CONFIG_DIR"]
+	if dir == "" {
+		dir = env["HOME"]
+	}
+	if dir == "" {
+		return nil
+	}
+	b, err := os.ReadFile(filepath.Join(dir, ".claude.json"))
+	if err != nil {
+		return nil
+	}
+	var v struct {
+		OAuthAccount struct {
+			Email string `json:"emailAddress"`
+			Org   string `json:"organizationUuid"`
+		} `json:"oauthAccount"`
+	}
+	if json.Unmarshal(b, &v) != nil || v.OAuthAccount.Email == "" {
+		return nil
+	}
+	return &agentrec.ReportAccount{Email: v.OAuthAccount.Email, OrgUUID: v.OAuthAccount.Org}
 }

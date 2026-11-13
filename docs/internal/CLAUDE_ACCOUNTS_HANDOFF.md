@@ -70,22 +70,37 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 
 미룬 것: FR-CAC-92 의 자동 전환 표식과 `next-available`·`best` 는 4단계. 펼친 묶음의 예측은 주간(`sevenDay`)만 그린다 — `scoped` 예측은 서버가 주지만 화면에 그리지 않는다. "초기화 사용…" 은 3단계.
 
+### 4단계 (묶음 G·J·L + statusLine 합치기)
+
+| 파일 | 내용 |
+|---|---|
+| `.../claudeacct/history.go` | `history.jsonl` 쓰기·자르기(1000줄)·읽기 (FR-CAC-110) |
+| `.../claudeacct/smart.go` | `Engine.Switch`(by·전략 셋), `refreshStale`(낡은 계정 먼저 조회), `pickBest`(reason), `decisionUsage`·`mergeWindow`(OAuth+statusLine, FR-CAC-78) |
+| `.../claudeacct/lines.go` | 라인 헤드룸·묶는 창 (cswap `lines.py`) |
+| `.../claudeacct/autoswitch.go` | `Auto` — 설정 PUT·검증, 판단(트리거·쿨다운·순위 네 전략·되돌아가기 금지·격리·소진 휴식), cswap auto 감지 |
+| `.../claudeacct/alerts.go` | 알림 판정 여섯 가지·억제 키(8일)·Telegram 글 |
+| `internal/shared/platform/cmdlines_*.go` | `CommandLines()` (`ps -axo args=`, Windows 는 없음) |
+| `telegram/bridge.go` | `OnNotice` — 탭과 무관한 글 |
+| `httpapi` | `GET /history`, `GET·PUT /autoswitch`, 목록의 `autoswitch`·`statusLine`·`otherStatusLines`, SSE `claude_account_alert`, 계정별 statusLine 저장(`claude_accounts_statusline.go`) |
+| `dmctl` | `switch --strategy next\|next-available\|best`(by dmctl), `auto on\|off\|status`, `history`, statusLine 프록시가 계정을 실음 |
+| 화면 | foot 머리 줄 표식·"전환 ▾" 메뉴·"기록" 팝업, 알림 토스트, 계정별 statusLine 줄 |
+
+검증: `go test -race`(shared·webserver·helper·daemon·ctl·cmd), `make gates`, `make lint`(golangci-lint 0건), JS 단위 970건, eslint·typecheck(메인 체크아웃의 node_modules). `git/core` 의 `TestNoCredentialFields` 는 HEAD(`428c0432`)에서도 실패한다 — 1단계의 `ErrNoCredentials` 를 잡는다(아래 §5).
+
 ## 4. 남은 것 (순서대로)
 
 1. ~~2단계 화면~~ — 끝났다 (§3).
 2. ~~`dmctl account usage [<계정>] [--refresh] [--json]`~~ — 끝났다. `internal/helper/runtimebin/dmctl_account.go` `accountUsageCmd`, 시험 `dmctl_account_test.go` (TC-CAC-24 usage 6건). 남은 시간·등급은 서버 값만 쓴다(D-CAC-15). 열 맞춤은 하지 않는다 — 한글 폭을 셀 도우미가 없다.
 3. ~~3단계 제한 초기화~~ — 끝났다. `claudeacct/resets.go`(해석·결과 대응·`Client.ClaimReset`), `engine.go`(`fetchResets`·`FetchResetsNow`·`Claim`, 사용량 조회 3번에 1번 상태 조회), `POST /api/claude-accounts/reset`·`refresh {resets:true}`, `dmctl account reset`, 펼친 묶음의 "제한 초기화" 칸과 확인 대화상자. 원본 형식은 Claude Code 2.1.323 바이너리에서 뽑았다(SRS FR-CAC-60a).
-4. **4단계** 자동 전환·알림·기록 (묶음 G·J·L). `Engine.LineFor` 를 자동 전환 설정과 잇는다. 스마트 전환 `next-available`·`best` 도 이때 넣는다(사용량이 필요하다). foot 머리 줄의 "다음 계정" 단추(`app-activity.js` `_actUsageFootEl`)를 자동 전환 표식 + 세 항목 메뉴로 바꾼다 (FR-CAC-92).
-   - **착수 전 조사 (2026-11-13, 3단계 세션)**:
-     - 규칙은 SRS FR-CAC-31(스마트 전환)·37(헤드룸 정의 표)·70~75·100·101·110·111 에 cswap 그대로 있다. 구현 전에 SRS 에 적을 빈칸: ① 값을 모르는(조회 전·`stale`) 계정을 `next-available` 은 건너뛰지 않고 `best` 는 비교에서 뺄지 ② 전환 기록의 `by`(ui·dmctl·auto)를 어떻게 받을지 — `POST /switch` 본문에 `by` 를 더하는 안 ③ `GET·PUT /api/claude-accounts/autoswitch` 응답에 실을 상태(enabled·unmanaged·cswap 감지·마지막 전환·격리) ④ 알림 SSE 이름과 중복 억제 키 ⑤ 고정 실행 중(FR-CAC-87)은 5단계 전이라 늘 "아님" 으로 둔다.
-     - 알림 경로: 브라우저는 SSE 로 사건을 밀고 화면이 `Toast` 를 띄운다. Telegram 브리지(`internal/webserver/domain/telegram/bridge.go`)는 도구(탭) 알람 단위라 탭과 무관한 글 한 통을 보내는 입구가 없다 — 큐 `item` 에 글 필드를 더하고 `sendMessage` 로 보내는 입구를 새로 둔다(`enqueue` 가 `Enabled` 를 이미 본다). 무음 규칙(`silent`)은 탭 입력 기준이라 계정 알림에는 쓰지 않는다.
-     - FR-CAC-75(cswap auto 감지): `platform.ProcInfo` 에 프로세스 명령줄 목록을 읽는 함수가 없다. 이음매 검사(`check-seams.sh`) 때문에 `ps`·`pgrep` 호출은 platform 안에 새로 둬야 한다.
-     - 화면: foot 머리 줄의 "다음 계정" 단추(`app-activity.js` `_actUsageFootEl`)를 자동 전환 표식 + 세 항목 메뉴로 바꾸고, "기록"(최근 20건) 팝업을 더한다. 자동 전환 설정 화면은 6단계지만, 켜고 끄는 길은 `dmctl account auto on|off|status` 로 4단계에 둔다.
-     - 순서 제안: 기록(FR-CAC-110) → 스마트 전환 두 가지 → 자동 전환 설정·엔진 → 알림 → 화면·dmctl. 덩어리마다 시험 → RED → 구현 → GREEN → gates.
+4. ~~4단계~~ — 끝났다 (§3).
 5. **5단계** 계정별 실행 (묶음 H)과 화면 표시(탭 틴트, Repo 칩, Explorer 칩). 셸 래퍼는 `internal/shared/runtime/shellhooks/{posix/zdotdir/.zshrc, posix/bash-hook.sh, windows/powershell-hook.ps1}` 의 `claude()`, GUI 기동은 `agentadapter/claude_proto.go` `claudeProtoLaunch`.
 6. **6단계** 설정 "Claude 계정" 구역, 기존 결정 개정(FR-CAC-130: D-ACU-3·D-ASV-2 철회 표시, `ACTIVITY_CARD_USAGE_SRS` 비목표 줄), e2e. `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-41(statusLine 창 블록)이 FR-CAC-93 의 한 줄로 바뀐 것도 그 문서에 개정으로 적는다.
 
 ## 5. 끝에 사용자에게 보고할 것
+
+- 4단계 결정: D-CAC-17~23 (SRS §4). 스마트 전환은 값을 모르는 계정을 두 전략 모두 건너뛴다. 문턱값은 50~100. 판단은 OAuth·statusLine 중 큰 값.
+- `TestNoCredentialFields`(git/core)가 1단계부터 실패한다. `claude_accounts_api.go` 의 `ErrNoCredentials` 줄을 자격증명 자리로 잘못 잡는다. 이름을 바꿀지, 검사의 예외로 둘지 사용자 결정이 필요하다.
+- 인계 문서가 가리키던 "FR-CAC-37(헤드룸 정의 표)" 는 SRS 에 없다. 헤드룸 정의는 §1.3 에 있다.
 
 - SRS 의 D-CAC-10 을 ULID 에서 UUIDv7 로 고쳤다(기존 `internal/shared/uuid` 를 쓰기 위해).
 - FR-CAC-98 을 모드별 두 벌로 고쳤다(사용자 결정, D-CAC-14). 계정 창 등급·남은 시간을 서버가 셈하도록 GET 응답의 창에 `resetsInSec`·`level` 을 더했다(D-CAC-15).

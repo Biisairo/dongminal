@@ -1,7 +1,9 @@
 # SRS: Claude 다중 계정 — 등록·사용량·전환·자동 전환·계정별 실행 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 4~6단계. 1~3단계는 끝났다. 2단계 화면에서 FR-CAC-92 의 자동 전환 표식과 `next-available`·`best` 는 4단계로 미뤘다. 인계는 `CLAUDE_ACCOUNTS_HANDOFF.md`
+> **남은 것**: 5~6단계. 1~4단계는 끝났다. 인계는 `CLAUDE_ACCOUNTS_HANDOFF.md`
+> **개정 2026-11-13 (5)**: statusLine 값을 계정별로 받는다(FR-CAC-78, D-CAC-21). 자동 전환·스마트 전환·알림의 판단은 창마다 OAuth 값과 statusLine 값 중 큰 값을 쓴다. 이전: OAuth 값만(최대 5분 늦음). 이유: statusLine 은 요청마다 갱신되는 실시간 값이라 한도를 놓치지 않는다. 문턱값 범위를 50~100 으로 넓혔다(D-CAC-23). statusLine 줄을 계정별로 보인다(FR-CAC-93, D-CAC-22, D-CAC-6 개정)
+> **개정 2026-11-13 (4)**: 4단계 착수. FR-CAC-31a·76·77·100a·110a, D-CAC-17~20 을 더했다. 스마트 전환은 값을 모르는 계정을 두 전략 모두 건너뛴다(D-CAC-17, cswap 은 `next-available` 에서 건너뛰지 않는다)
 > **입력**: 2026-11-13 대화. 사용자 요청 "cswap 을 참고하여 같은 방식으로 사용량을 가져오고, 다중 계정 등록·갱신 기간 확인·다중 계정 사용량·계정 전환·자동 전환을 그대로 가져온다". 정보보호팀 사전 승인 범위 = ① 계정별 OAuth 토큰 저장 ② 내부 API 자동 호출 ③ 계정 전환 ④ 자동 전환 (사용자 확인, 2026-11-13). 사용자 결정은 §4 에 적는다
 > **개정 2026-11-13 (3)**: 3단계 착수. FR-CAC-60a·65 를 더하고 FR-CAC-63 에 `cooldown`·`unconfirmed`·상태 대응·`request_id` 재사용을 적었다. 근거는 Claude Code 2.1.323 바이너리의 `juniper-tide`·`cedar-ember` 구현이다
 > **개정 2026-11-13 (2)**: 키체인 쓰기의 argv 대안을 없앴다(FR-CAC-4, D-CAC-16). 이전: 줄이 4032 바이트를 넘으면 값을 argv 로 넘겼다. 새: 키체인 쓰기를 실패로 돌려 권한 600 파일로 내려간다. 이유: 보안 검토 지적 — argv 는 같은 컴퓨터의 다른 사용자에게 보인다
@@ -112,7 +114,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 - **FR-CAC-11** 계정 레코드는 `{id, email, accountUuid, organizationUuid, organizationName, addedAt, alias?, color, disabled, threshold?, priority}` 이다.
   - `alias`: 1~24자. 화면은 별칭이 있으면 별칭, 없으면 이메일을 보인다.
   - `color`: 등록할 때 팔레트에서 아직 쓰지 않은 색을 자동으로 고른다. 사용자가 바꿀 수 있다.
-  - `threshold`: 50~99.9, 없으면 전역 값.
+  - `threshold`: 50~100, 없으면 전역 값 (D-CAC-23).
   - `priority`: 0~1000 정수, 기본 0.
   - 범위를 벗어난 값은 거절한다(400).
 - **FR-CAC-12** **삭제**: 백업(키체인 항목·파일·`.prev`)·`configs/<id>.json`·사용량 캐시 행·그 계정을 가리키는 매핑과 탭 지정·프로필 폴더를 지운다. 활성 계정은 삭제할 수 있지만 활성 저장소는 건드리지 않는다. 삭제 전에 확인 대화상자를 띄운다.
@@ -135,6 +137,19 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   - `next`: 순서에서 활성 계정 다음 계정으로. 제외된 계정은 건너뛴다.
   - `next-available`: `next` 와 같되 헤드룸이 0 이하인 계정도 건너뛴다.
   - `best`: 헤드룸이 가장 큰 계정으로. 활성 계정보다 크지 않으면 전환하지 않는다.
+- **FR-CAC-31a** **스마트 전환의 값** (`next-available`·`best`, D-CAC-17).
+  - 판단에 쓰는 값은 신선한 값(FR-CAC-55)뿐이다. 헤드룸은 자동 전환 설정의 `models`(FR-CAC-70)를 따른다. `models` 가 없으면 5시간·주간 창만, `all` 이면 모든 `scoped` 창, 이름 목록이면 그 이름의 `scoped` 창을 더한다.
+  - 판단 전에, 제외되지 않은 계정(활성 계정 포함) 가운데 값이 신선하지 않고 **조회할 수 있는** 계정을 먼저 조회한다. 조회할 수 있음 = 물러나기 중이 아님, 마지막 조회 시도가 60초를 넘음, 영구 실패(`relogin_required`) 표식이 없음. 계정 사이는 0.25초 간격이다(FR-CAC-51).
+  - 그래도 값을 모르는 후보는 두 전략 모두 건너뛴다.
+  - `next-available`: 건너뛴 뒤 남은 후보가 없으면 409 `claude_no_candidate` 다.
+  - `best`: 전환하지 않을 때는 200 `{from, to:from, noop:true, reason}` 이다. `reason` 은 아래 하나다. 헤드룸이 같으면 순서가 앞선 후보가 이긴다.
+    | reason | 조건 |
+    |---|---|
+    | `none` | 제외되지 않은 다른 계정이 없다 |
+    | `current-unavailable` | 활성 계정의 값을 모른다 |
+    | `no-comparison` | 값을 아는 후보가 없다 |
+    | `exhausted` | 활성 계정 헤드룸이 0 이하이고 값을 아는 후보도 모두 활성 이하다 |
+    | `stay` | 그 밖에 활성 계정 헤드룸이 가장 크다 |
 - **FR-CAC-32** 나가는 계정의 활성 자격증명을 분류한다.
   | 분류 | 조건 | 처리 |
   |---|---|---|
@@ -232,8 +247,8 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   | 키 | 기본 | 범위 |
   |---|---|---|
   | `enabled` | false | |
-  | `threshold` | 90 | 50~99.9 |
-  | `weeklyThreshold` | 없음(=threshold) | 50~99.9 |
+  | `threshold` | 90 | 50~100 |
+  | `weeklyThreshold` | 없음(=threshold) | 50~100 |
   | `intervalSeconds` | 60 | 15~3600 |
   | `cooldownSeconds` | 300 | 0~86400 |
   | `hysteresisPct` | 10 | 0~50 |
@@ -244,7 +259,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 - **FR-CAC-71** 라인: 5시간 창은 `threshold`, 주간 창과 `scoped` 창은 `weeklyThreshold`. 계정별 `threshold` 가 있으면 두 값 모두 그것을 쓴다. 라인 헤드룸은 0%→100, 라인→`100-라인`, 100%→0 의 구간 선형이다. 묶는 창(binding window)은 라인을 넘은 창, 없으면 라인 헤드룸이 가장 작은 창이다.
 - **FR-CAC-72** 한 번의 판단(tick).
   1. 활성 계정을 읽는다. 등록되지 않은 계정이면 판단하지 않고 상태를 `unmanaged` 로 둔다.
-  2. 활성 계정과, 조회 시각이 된 후보 하나를 조회한다. 활성 계정의 어떤 창이 `라인-15` 이상이거나 값을 모르면 모든 후보를 조회한다.
+  2. 조회 시각이 된 계정은 조회 엔진(FR-CAC-53)이 조회한다. 활성 계정의 어떤 창이 `라인-15` 이상이거나 값을 모르면, 판단 전에 FR-CAC-31a 의 "조회할 수 있는" 낡은 계정을 모두 조회한다.
   3. 트리거를 정한다.
      - 모든 라인 아래: `best` 는 아무것도 하지 않는다. `consume-first`·`priority-consume-first` 는 순위가 더 앞선 후보가 있을 때만 그 전략 이름의 트리거를 건다.
      - 라인 이상: `proactive`. 헤드룸이 0 이하면 `at-limit`.
@@ -253,17 +268,40 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   5. 후보: 제외되지 않음, 활성 아님, `relogin_required` 아님, 고정 실행 중 아님(FR-CAC-87), 값이 신선함.
   6. 순위 (cswap `_rank_candidates` 와 같음).
      - 헤드룸 0 이하는 뺀다.
-     - 직전에 떠난 계정은 "회복" 했을 때만 넣는다. 회복 = 헤드룸이 떠날 때보다 3%p 이상 늘었거나, 묶는 창의 초기화가 300초 이상 앞당겨졌거나, 활성 계정 헤드룸의 2배+3 보다 크다.
+     - **되돌아가기 금지**: 트리거가 `proactive`·`consume-first` 이고 활성 계정이 마지막 전환의 도착 계정이면, 마지막 전환에서 떠난 계정을 뺀다. 단, 그 계정이 회복했고 헤드룸이 `min(2×활성, 활성+3)` 이상이면 빼지 않는다. 회복 = 헤드룸이 떠날 때(`leftHeadroom`)보다 3%p 이상 늘었거나, 묶는 창의 초기화가 떠날 때(`leftRecoveryAt`)보다 300초 이상 앞당겨졌다. 빼서 순위가 비었고 그 계정이 회복했으면 빼지 않고 다시 순위를 매긴다.
      - `proactive`: 후보는 모든 라인 아래이고 `라인헤드룸(후보) - 라인헤드룸(활성) >= hysteresisPct` 여야 한다. 라인 헤드룸이 큰 순.
      - 모든 계정이 라인 이상: 헤드룸이 `min(2*활성, 활성+3)` 이상인 후보만, 헤드룸이 큰 순, 같으면 묶는 창 초기화가 빠른 순.
      - `consume-first`: 주간 초기화가 활성보다 빠른 후보만, 초기화가 빠른 순, 같으면 라인 헤드룸이 큰 순.
-     - `priority-consume-first`: 우선순위가 높은 순, 같으면 주간 초기화가 빠른 순. 활성보다 앞서는 후보만.
+     - `priority-consume-first`: 묶는 창이 라인 아래이고 헤드룸이 0 보다 큰 후보만. 우선순위가 높은 순, 같으면 주간 초기화가 빠른 순(모르면 뒤). 활성 계정이 라인 아래면 활성보다 앞서는 후보만.
+     - 모든 계정이 라인 이상인지는 `proactive`·`consume-first` 에서는 활성 계정과 값을 아는 후보 모두로, `at-limit`·`failover` 에서는 값을 아는 후보만으로 본다.
+     - 라인 헤드룸은 전역 `threshold` 를 자(scale)로 셈한다. 계정별 문턱값이 달라도 한 자로 비교한다.
   7. 순위대로 시도한다. 후보의 토큰이 10분 안에 만료되면 먼저 갱신한다. 갱신이 영구 실패면 그 후보를 격리하고 다음으로 간다. 전환은 FR-CAC-30 이다.
   8. 기록: `lastSwitchAt`, `lastSwitchFrom`, `lastSwitchTo`, `leftHeadroom`, `leftTrigger`.
   9. 모든 후보가 소진이면 가장 이른 회복 시각 + 60초까지 쉰다(600초 상한).
 - **FR-CAC-73** 판단 주기: `intervalSeconds × [0.9, 1.1]`. 활성 계정의 다음 조회 시각이 더 가까우면 그때로 앞당기되 60초보다 짧게 하지 않는다. 막힘·유휴 상태면 300초 이상.
 - **FR-CAC-74** 격리: 갱신이 영구 실패한 후보는 격리한다. 그 계정의 지문이나 이메일이 바뀌면(다시 추가) 풀린다.
 - **FR-CAC-75** **cswap 과 함께 쓸 때**: 자동 전환을 켤 때 `cswap auto` 프로세스가 돌고 있으면 켜지 않고 이유를 알린다. 켜진 뒤에 발견하면 끄고 알린다. 둘이 동시에 활성 저장소를 덮어쓰지 않게 하기 위해서다.
+  - 감지: 프로세스 명령줄 목록에서 실행 파일(또는 `-m` 모듈) 이름이 `cswap`·`claude-swap`·`claude_swap` 이고 그 뒤 토큰에 `auto` 가 있으며 `--dry-run` 이 없는 프로세스다. 명령줄 목록을 읽는 일은 `internal/shared/platform` 안에서 한다(macOS·Linux `ps -axo args=`, Windows 는 감지하지 않음 = 없음). 읽지 못하면 없음으로 본다.
+  - 켤 때(PUT `enabled:true`) 감지되면 409 `claude_cswap_running` 이고 켜지 않는다. 켜진 뒤에는 판단마다 감지하고, 감지되면 `enabled=false` 로 저장하고 `autoswitch_stopped` 알림(FR-CAC-100a)을 보낸다.
+  - cswap 메뉴 막대 앱 안에서 도는 자동 전환은 감지하지 못한다 (§7).
+- **FR-CAC-76** **설정·상태 저장과 API**.
+  - `autoswitch.json` 은 `{schemaVersion, settings, state}` 이다. `settings` 는 FR-CAC-70 의 키다. `state` 는 `{lastSwitch?{at, from, to, trigger, leftHeadroom, leftRecoveryAt}, quarantined{<id>:<지문>}, unhealthy, notified{<키>:<unix 초>}}` 다. 없거나 깨졌으면 기본값으로 시작한다.
+  - `GET /api/claude-accounts/autoswitch` → `{settings, state:{status, lastSwitch?, quarantined[], nextTickAt?}}`. `status` 는 `off`(꺼짐), `on`(켜짐·판단 중), `unmanaged`(활성 계정이 등록되지 않음, FR-CAC-72 1), `exhausted`(모든 후보 소진으로 쉬는 중, FR-CAC-72 9) 중 하나다.
+  - `PUT /api/claude-accounts/autoswitch` 는 `settings` 의 일부 키만 받아 고친다. 응답은 GET 과 같다. 범위를 벗어나거나 모르는 키는 400 `claude_account_invalid`. `weeklyThreshold`·`models` 에 `null` 을 보내면 지운다.
+  - `GET /api/claude-accounts` 응답에 `autoswitch:{enabled, status}` 를 더한다(FR-CAC-92 표식).
+  - 설정이나 상태가 바뀌면 SSE `claude_accounts_changed` 를 보낸다.
+  - 자동 전환기는 사용량 조회 엔진과 같은 서버 프로세스에서 돈다. 꺼져 있어도 알림 판정(FR-CAC-100a)은 같은 주기로 돈다 — 그때 판단은 전환을 하지 않는다.
+- **FR-CAC-78** **statusLine 값의 계정 귀속과 판단 값** (D-CAC-21).
+  - `dmctl statusline` 프록시는 보고에 `account:{email, organizationUuid}` 를 싣는다. 값은 그 세션의 설정 폴더에서 읽는다 — `CLAUDE_CONFIG_DIR` 이 있으면 `<CLAUDE_CONFIG_DIR>/.claude.json`, 없으면 `~/.claude.json` 의 `oauthAccount`. 읽지 못하면 `account` 를 싣지 않는다. 토큰은 싣지 않는다.
+  - 서버는 `account` 가 있는 보고를 `(email, organizationUuid)` 마다 마지막 값 하나로 둔다(서버 메모리, 5시간·주간 창). `account` 가 없는 보고만 기존 에이전트 단위 값(FR-ASV-20)으로 둔다. 데몬의 한도 기록도 같은 규칙이다.
+  - **판단 값**: 계정의 결정 값(FR-CAC-55)은 창마다 OAuth 값과 statusLine 값을 합친 것이다. 쓸 수 있는 statusLine 값 = 마지막 보고가 300초 이내이고, 그 보고가 마지막 전환(dongminal 이 한 전환) 뒤 60초 이후에 왔다 — 전환 직후에는 실행 중인 세션이 옛 토큰을 쓰기 때문이다. 창 하나의 합치기:
+    - 초기화 시각이 지난 값은 버린다.
+    - 두 값의 초기화 시각이 모두 있고 300초 넘게 다르면 늦은 쪽(새 창)을 쓴다.
+    - 그 밖에는 사용률이 큰 쪽을 쓴다. 한 창 안에서 사용률은 줄지 않으므로 큰 값이 더 새 값이다.
+  - OAuth 값이 신선하지 않아도 쓸 수 있는 statusLine 값이 있으면 그 계정의 값을 "안다" 로 본다. `scoped` 창과 `spend` 는 OAuth 값만 쓴다.
+  - 합친 값을 쓰는 곳: 자동 전환(FR-CAC-71·72), 스마트 전환(FR-CAC-31a), 알림 판정(FR-CAC-100a), 전환 기록의 헤드룸(FR-CAC-110a). 계정 묶음의 막대는 OAuth 값 그대로다.
+  - `GET /api/claude-accounts` 의 계정마다 `statusLine?:{windows:{fiveHour?, sevenDay?}, observedAt, ageSeconds, stale}` 를 싣고(창 모양은 `usage.windows` 와 같다), 등록되지 않은 계정의 값은 최상위 `otherStatusLines:[{name, windows, observedAt, ageSeconds, stale}]` 에 싣는다(`name` 은 FR-CAC-101 의 표시 이름).
+- **FR-CAC-77** 고정 실행 중 판정(FR-CAC-87)은 5단계에서 만든다. 4단계에서는 모든 계정을 "고정 실행 중 아님" 으로 본다.
 
 ### 3.H 계정별 실행 (탭 지정·폴더 매핑)
 
@@ -289,7 +327,11 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   - 접힌 기본 모양에서 보이는 것: 머리 + 5시간·주간 막대. 펼치면 `scoped`, 예측, 추가 사용량, 로그인 만료일, 제한 초기화, 동작 버튼이 보인다. 펼침 상태는 계정별로 기억한다.
   - 동작: "이 계정으로 전환"(활성 아닐 때), "새로 고침", 쓸 수 있는 제한 초기화가 있으면 "초기화 사용…".
 - **FR-CAC-92** foot 머리 줄에 "자동 전환 켜짐/꺼짐" 표식과 스마트 전환 메뉴(`next`, `next-available`, `best`)를 둔다. 2단계는 `next` 하나("다음 계정" 버튼, 계정이 둘 이상일 때)만 둔다. 표식과 나머지 둘은 자동 전환·사용량 판단과 함께 4단계에서 더한다.
-- **FR-CAC-93** **statusLine 줄**: 기존 statusLine `rate_limits` 값을 한 줄로 보인다. 예: `statusLine · 세션 34% · 주간 21% · 2시간 10분 후 초기화`. 등급 색은 기존 규칙(70/90)을 쓴다. 값이 없으면 그 줄을 그리지 않는다. 계정 묶음과 섞지 않는다 (D-CAC-6).
+  - 4단계 모양: 머리 줄에 표식(`autoswitch.status` 문구, 켜짐이면 강조)과 "전환 ▾" 단추(계정이 둘 이상일 때)와 "기록" 단추를 둔다. "전환 ▾" 는 세 항목 메뉴를 연다. 표식은 누를 수 없다 — 켜고 끄기는 `dmctl account auto` 와 6단계 설정 화면이 한다.
+  - `best` 가 전환하지 않으면 `reason` 문구(`cacct.reason.<reason>`)를 토스트로 알린다.
+- **FR-CAC-93** **statusLine 줄**: statusLine `rate_limits` 값을 계정마다 한 줄로 보인다 (D-CAC-22). 예: `statusLine · ● 업무 · 세션 34% · 주간 21% · 2시간 10분 후 초기화 · 3분 전`. 등급 색은 기존 규칙(70/90)을 쓴다. 계정 묶음의 막대(OAuth 값)와 섞지 않는다.
+  - 순서: 등록된 계정(계정 순서, 계정 색 점과 표시 이름) → 등록되지 않은 계정(표시 이름만, FR-CAC-101 규칙) → 계정을 모르는 보고(기존 한 줄, 이름 없이 `statusLine`).
+  - 값이 없는 계정은 줄을 그리지 않는다. 마지막 보고가 300초보다 오래됐으면 "n분 전" 을 붙인다.
 - **FR-CAC-94** **설정의 "Claude 계정" 구역**.
   - 계정 목록: 끌어서 순서 바꾸기, 표시 이름·이메일·조직, 색, 별칭, 문턱값, 우선순위, 제외, 로그인 만료일, 상태, 삭제.
   - "현재 로그인한 계정 추가" 버튼과 안내("Claude Code 에서 `/login` 으로 추가할 계정에 로그인한 뒤 누르세요").
@@ -314,6 +356,19 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   | 재로그인 필요 | 계정이 `relogin_required` 가 됐다 |
   | 로그인 만료 임박 | `refreshTokenExpiresAt` 까지 7일 이하 (하루 한 번) |
 - **FR-CAC-101** 알림 문구에 토큰이나 이메일 전체를 넣지 않는다. 표시 이름(별칭, 없으면 이메일 앞부분 `ab***@`)을 쓴다.
+- **FR-CAC-100a** **알림의 형식과 경로**.
+  - 서버는 SSE `claude_account_alert` 를 보낸다. 본문은 `{kind, name?, from?, to?, trigger?, window?, resetsAt?, expiresAt?, resetAvailable?}` 이다. 이름 필드에는 표시 이름(FR-CAC-101)만 싣고 계정 ID·이메일 전체·토큰은 싣지 않는다. 브라우저는 받으면 `Toast` 를 띄운다. 문구는 i18n 키 `cacct.alert.<kind>` 다.
+  - Telegram 브리지가 켜져 있으면 같은 내용을 글 한 통으로 보낸다. 탭과 무관한 글이라 무음 규칙(탭 입력 기준)은 쓰지 않는다. 브리지 큐에 글 항목을 더하는 입구를 둔다.
+  - `kind` 와 중복 억제 키. 억제 키는 `autoswitch.json` 의 `state.notified` 에 보낸 시각과 함께 두고, 8일이 지난 키는 지운다. 서버를 다시 띄워도 같은 사건을 다시 보내지 않는다.
+    | kind | 사건 (FR-CAC-100) | 억제 키 |
+    |---|---|---|
+    | `autoswitch` | 자동 전환 | 없음 (전환마다) |
+    | `near_limit` | 한도 임박 — 활성 계정의 묶는 창이 라인 이상이고 FR-CAC-72 6 의 후보 순위가 비었다 | `near:<계정>:<창>:<그 창 resetsAt>` |
+    | `all_exhausted` | 모두 소진 — 제외되지 않은 모든 계정의 값이 신선하고 헤드룸이 0 이하다. 어느 계정에 쓸 수 있는 제한 초기화(FR-CAC-65 의 "초기화 사용…" 조건)가 있으면 `resetAvailable:true` | `exhausted:<활성 계정 묶는 창 resetsAt>` |
+    | `relogin` | 재로그인 필요 — 계정이 `relogin_required` 가 됐다 | `relogin:<계정>:<지문>` |
+    | `login_expiring` | 로그인 만료 임박 — `refreshTokenExpiresAt` 까지 7일 이하 | `expiring:<계정>:<로컬 날짜>` |
+    | `autoswitch_stopped` | cswap 자동 전환을 감지해 자동 전환을 껐다 (FR-CAC-75) | 없음 |
+  - 꺼진 자동 전환에서도 `near_limit` 의 후보 순위는 같은 규칙(트리거 `proactive`)으로 셈한다.
 
 ### 3.K `dmctl account`
 
@@ -327,7 +382,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   | `dmctl account switch --strategy next\|next-available\|best` | 스마트 전환 |
   | `dmctl account usage [<계정>] [--refresh]` | 사용량 |
   | `dmctl account reset <계정> --program juniper_tide\|cedar_ember [--grant <id>] [--yes]` | 제한 초기화 (`--yes` 없으면 확인을 묻는다) |
-  | `dmctl account auto on\|off\|status` | 자동 전환 |
+  | `dmctl account auto on\|off\|status [--json]` | 자동 전환 (FR-CAC-76 의 PUT·GET) |
   | `dmctl account pin [--tab <toolId>] <계정>\|--clear` | 탭 지정 (기본은 자기 탭) |
   | `dmctl account map <계정> [경로]` / `unmap [경로]` / `maps` | 폴더 매핑 |
   | `dmctl account env [--cwd <경로>]` | 셸 래퍼용 해석 (FR-CAC-83). 사람이 읽을 출력 없음 |
@@ -337,6 +392,12 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 ### 3.L 전환 기록
 
 - **FR-CAC-110** 전환마다 `history.jsonl` 에 `{at, from, to, trigger(manual|next|next-available|best|proactive|at-limit|failover|consume-first|priority), headroomFrom, headroomTo, by(ui|dmctl|auto)}` 한 줄을 더한다. 1000줄을 넘으면 오래된 것부터 지운다.
+- **FR-CAC-110a** **기록의 값과 경로**.
+  - 실제로 전환된 때만 적는다(`noop` 은 적지 않는다). `from`·`to` 는 계정 ID 다. `headroomFrom`·`headroomTo` 는 전환 직전의 신선한 헤드룸(FR-CAC-31a 의 `models` 규칙)이고, 모르면 `null` 이다.
+  - `trigger`: `POST /switch {id}` 는 `manual`, `{strategy}` 는 전략 이름, 자동 전환은 FR-CAC-72 의 트리거다(`priority-consume-first` 는 `priority` 로 적는다).
+  - `by`: `POST /api/claude-accounts/switch` 본문에 `by` 를 받는다. 값은 `ui`·`dmctl` 이고 없으면 `ui` 다. 그 밖의 값(`auto` 포함)은 400 `claude_account_invalid` 다. `auto` 는 서버 안의 자동 전환기만 적는다 (D-CAC-18). `dmctl` 은 늘 `by:"dmctl"` 을 보낸다.
+  - 기록 쓰기가 실패해도 전환은 되돌리지 않는다. 로그만 남긴다.
+  - `GET /api/claude-accounts/history?limit=N` → `{entries:[…]}`, 최신 먼저. `limit` 은 1~1000, 기본 50. 범위 밖이면 400. 계정 이름은 싣지 않는다 — 화면이 계정 목록으로 이름을 찾고, 지워진 계정은 "삭제된 계정" 으로 보인다.
 - **FR-CAC-111** Activity 하단 머리의 "기록" 을 누르면 최근 20건을 띄운다. 설정은 50건을 보인다.
 
 ### 3.M 서버 API 와 전달
@@ -374,7 +435,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | D-CAC-3 | 등록은 "현재 로그인한 계정 추가" 하나만 둔다 | 사용자 결정. 격리 로그인·setup-token·자체 OAuth 로그인은 넣지 않는다(setup-token 은 추론 전용 스코프라 사용량 API 가 403 이다) |
 | D-CAC-4 | 제한 초기화는 수동 사용 + 확인 대화상자로만 쓴다. 자동 전환은 쓰지 않고 알림만 한다 | 사용자 결정. 한정된 자원을 되돌릴 수 없게 소모한다 |
 | D-CAC-5 | 모든 운영체제를 지원한다 | 사용자 결정. Linux·Windows 의 Claude Code 는 `.credentials.json` 파일을 쓰므로 같은 방식이 통한다 |
-| D-CAC-6 | statusLine 한도 경로는 계정과 별개로 남기고 한 줄로 보인다 | 사용자 결정. 표시는 "등록 계정 N 묶음 + statusLine 1줄" 이다 |
+| D-CAC-6 | statusLine 한도 경로는 계정과 별개로 남기고 한 줄로 보인다 | 사용자 결정. 표시는 "등록 계정 N 묶음 + statusLine 1줄" 이다. **개정(D-CAC-22)**: statusLine 줄은 계정마다 한 줄이다 |
 | D-CAC-7 | 계정별 실행은 탭 지정 + 폴더 매핑이고 탭 지정이 우선한다 | 사용자 결정 |
 | D-CAC-8 | 폴더 매핑 전체는 설정의 "폴더 연결" 목록에서만 보이고, 화면 곳곳(사이드바 Repo·Explorer·탭)은 그 자리에 적용되는 계정만 보인다 | 사용자 결정. Repo Explorer 는 저장소마다 따로라 전체를 보일 수 없다 |
 | D-CAC-9 | 탭 표시는 배경 틴트다. 탭 지정은 진하게, 폴더 매핑은 옅게 | 사용자가 배경 틴트를 골랐다. 진하기 구분은 출처를 알리기 위한 기본값이다 |
@@ -384,6 +445,13 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | D-CAC-13 | "웹에서 열기"(등록 계정으로 claude.ai 열기)는 넣지 않는다 | 사용자가 포기했다. OAuth 토큰을 웹 세션으로 바꾸는 공식 경로가 없다 |
 | D-CAC-14 | 계정 색은 다크·라이트 두 벌의 고정 팔레트다. `applyThemeObj` 가 테마 모드로 벌을 골라 `--acct-1`~`--acct-8` 에 넣는다 | 사용자 결정(2026-11-13). 가장 밝은 다크 표면(휘도 0.065)에서 3:1 은 색 휘도 0.295 이상, 가장 어두운 라이트 표면(0.605)에서 3:1 은 0.168 이하라서 한 벌로는 둘 다 넘을 수 없다. `check-contrast.mjs` 가 54종 × 세 표면을 잰다 |
 | D-CAC-15 | 계정 창의 등급과 남은 시간은 서버가 셈한다. 등급 경계는 statusLine 한도와 한 벌(`claudeacct.UsageLevel`)이다 | D-ASV-10 과 같다 — 판정은 서버가 한다. 경계를 두 곳에 두면 갈라진다 |
+| D-CAC-17 | 스마트 전환(`next-available`·`best`)은 신선하지 않은 계정 중 조회할 수 있는 것을 먼저 조회하고, 그래도 값을 모르는 계정은 두 전략 모두 건너뛴다 (FR-CAC-31a) | 사용자 결정(2026-11-13). 값을 모르는 계정으로 옮겨 가서 바로 한도에 걸리는 일을 막는다. 물러나는 중인 계정은 요청 예산 때문에 다시 조회하지 않는다. cswap 은 `next-available` 에서 모르는 계정을 건너뛰지 않는다 |
+| D-CAC-18 | 전환 기록의 `by` 는 `POST /switch` 본문으로 받는다. `auto` 는 API 로 받지 않는다 (FR-CAC-110a) | 사용자 결정(2026-11-13) |
+| D-CAC-19 | 자동 전환 API 는 설정(`settings`)과 상태(`state`)를 나눠 싣고, 목록 응답에는 요약만 싣는다 (FR-CAC-76) | 사용자가 구현자 판단에 맡겼다(2026-11-13). `dmctl account auto status` 가 한 번의 호출로 설정과 상태를 본다 |
+| D-CAC-20 | 알림은 SSE `claude_account_alert` 하나로 보내고, 중복 억제 키를 `autoswitch.json` 에 둔다 (FR-CAC-100a) | 사용자가 구현자 판단에 맡겼다(2026-11-13). 서버를 다시 띄워도 같은 알림이 되풀이되지 않는다 |
+| D-CAC-21 | statusLine 보고에 그 세션의 계정(`email`, `organizationUuid`)을 싣고, 판단은 창마다 OAuth 값과 statusLine 값 중 큰 값을 쓴다 (FR-CAC-78) | 사용자 결정(2026-11-13). OAuth 조회는 최대 5분 늦어 그 사이 한도를 넘길 수 있다. statusLine 은 요청마다 갱신된다. 보고 때 계정을 읽어야 5단계의 탭·폴더별 계정에서도 섞이지 않는다 |
+| D-CAC-22 | statusLine 줄을 계정마다 한 줄로 보인다. 계정 묶음의 막대는 OAuth 값 그대로다 (FR-CAC-93) | 사용자 결정(2026-11-13) |
+| D-CAC-23 | 문턱값(전역·주간·계정별) 범위를 50~100 으로 넓힌다 | 사용자 결정(2026-11-13). statusLine 값이 실시간이면 100 이어도 한도에 닿는 순간 전환한다. statusLine 보고가 없는 동안은 OAuth 값만 쓰므로 잠깐 한도에 걸릴 수 있다 |
 | D-CAC-16 | 키체인 쓰기는 `security -i` 표준 입력으로만 한다. 줄이 길면 키체인 대신 권한 600 파일을 쓴다 | 사용자 결정(2026-11-13, 보안 검토 지적). argv 의 값은 같은 컴퓨터의 다른 사용자가 `ps` 로 본다. Claude Code 는 argv 로 넘기지만 그 노출을 따라 하지 않는다 |
 
 ## 5. 검증 (Verification)
@@ -398,7 +466,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | TC-CAC-4 | FR-CAC-9 | 로그·API 응답·SSE·오류에 토큰 문자열이 없다 (가짜 토큰으로 전수 검색) |
 | TC-CAC-5 | FR-CAC-10~14 | 추가(신규·갱신·거절 셋), 필드 범위, 삭제가 지우는 것, 순서, 제외 |
 | TC-CAC-6 | FR-CAC-30 | 전환 단계 순서, 각 단계 실패 시 되돌림, 락을 쥔 동안 네트워크 호출 없음, `oauthAccount` 만 바뀜 |
-| TC-CAC-7 | FR-CAC-31 | 스마트 전환 셋 |
+| TC-CAC-7 | FR-CAC-31·31a | 스마트 전환 셋, 먼저 조회(물러나기·60초·영구 실패는 조회 안 함), 값 모름 건너뜀, `best` 의 reason 다섯, `models` 규칙 |
 | TC-CAC-8 | FR-CAC-32~34 | 나가는 자격증명 분류 다섯, 빈 값이 백업을 덮지 않음, 보관 |
 | TC-CAC-9 | FR-CAC-40~45 | 갱신 요청 본문, 영구·일시 실패, 만료 판정, 쓰는 곳 셋, 로그인 만료일 |
 | TC-CAC-10 | FR-CAC-51·52 | 헤더, 응답 해석(창·scoped·spend·깨진 응답) |
@@ -407,16 +475,17 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | TC-CAC-13 | FR-CAC-57 | 예측 공식 (cswap `pace.py` 와 같은 입력으로 같은 출력) |
 | TC-CAC-14 | FR-CAC-60·61 | 두 프로그램 해석, 필드 없음·형식 깨짐은 숨김 |
 | TC-CAC-15 | FR-CAC-62·63 | 요청 본문, ID 검증, 같은 `request_id` 재사용, 결과 매핑, 자동 재전송 없음 |
+| TC-CAC-29 | FR-CAC-78 | 프록시가 계정을 실음(CLAUDE_CONFIG_DIR·기본·읽기 실패), 서버의 계정별 저장과 무계정 보고의 분리, 합치기 규칙(초기화 지남·새 창·큰 값), 300초·전환 후 60초, statusLine 만으로 "안다", 판단에 쓰임, 목록 응답 |
 | TC-CAC-16 | FR-CAC-70~74 | 설정 범위, 라인 헤드룸, 트리거, 쿨다운, 순위 네 전략, 회복 규칙, 격리, 판단 주기 |
-| TC-CAC-17 | FR-CAC-75 | cswap 자동 전환이 돌면 켜지지 않음 |
+| TC-CAC-17 | FR-CAC-75·76·77 | cswap 자동 전환 감지(명령줄 판정), 켤 때 409, 켜진 뒤 감지하면 끔, 설정·상태 저장, API 모양·부분 수정·검증 |
 | TC-CAC-18 | FR-CAC-80·81 | 경로 정규화, 해석 순서, 삭제된 계정 무시 |
 | TC-CAC-19 | FR-CAC-82·86·87 | 프로필 생성(자격증명·`.claude.json`·링크·링크 실패 대안), 키체인 서비스 이름 해시, 토큰 회수, 고정 실행 판정 |
 | TC-CAC-20 | FR-CAC-83·84 | 세 셸 래퍼가 `dmctl account env` 결과를 넣음, 실패·빈 출력·사용자 값 우선. GUI 기동 인자에 환경 변수가 실림 |
 | TC-CAC-21 | FR-CAC-90~93 | (JS 단위) foot 뷰 모델: 계정 묶음·statusLine 줄·계정 없음·오래된 값·예측 문구 |
 | TC-CAC-22 | FR-CAC-95~97 | (JS 단위) 탭 틴트 출처·진하기, Repo 칩, Explorer 칩 |
-| TC-CAC-23 | FR-CAC-100·101 | 알림 사건 다섯, 중복 억제, 문구에 토큰·이메일 전체 없음 |
+| TC-CAC-23 | FR-CAC-100·100a·101 | 알림 사건 여섯, 억제 키·재기동 뒤 억제·8일 정리, SSE 본문, Telegram 글 입구, 문구와 본문에 토큰·이메일 전체·계정 ID 없음 |
 | TC-CAC-24 | FR-CAC-102·103 | dmctl 명령 인자 해석, `--json` 스키마, 확인 질문 |
-| TC-CAC-25 | FR-CAC-110 | 기록 형식, 1000줄 자르기 |
+| TC-CAC-25 | FR-CAC-110·110a·111 | 기록 형식, 1000줄 자르기, trigger·by 값, `by` 검증, noop 은 안 적음, history API 의 limit |
 | TC-CAC-26 | FR-CAC-120~122 | 경로, 오류 코드, SSE 발송 |
 | TC-CAC-27 | e2e | 가짜 Anthropic 서버와 가짜 자격증명 저장소(`app.testing` 계약)로: 계정 둘 등록 → foot 에 두 묶음 + statusLine 줄 → 전환 → 활성 표식 이동 → 초기화 확인 대화상자 → 설정에서 별칭·색 → 탭 지정 시 틴트 |
 | TC-CAC-28 | 사용자 확인 | 실제 계정 둘로 macOS 에서 추가·전환·사용량·로그인 만료일 확인. 자동 시험 대상이 아니다 |
@@ -443,5 +512,5 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | 전환 직후 실행 중인 세션이 약 30초 동안 옛 계정을 쓴다 | LOW | 안내 문구 (FR-CAC-35) |
 | 토큰 유출 범위가 dongminal 홈까지 넓어진다 | MEDIUM | macOS 는 키체인, 그 밖은 0600 파일과 0700 폴더. 토큰은 어디로도 나가지 않는다 (FR-CAC-9) |
 | Windows 에서 심볼릭 링크를 만들 수 없다 | LOW | 복사·정션 대안과 경고 (FR-CAC-82) |
-| cswap 과 함께 쓰면 활성 저장소를 서로 덮어쓴다 | MEDIUM | 자동 전환 동시 실행 차단 (FR-CAC-75). 수동 전환은 막지 않는다. 다음 조회 때 활성 계정을 다시 읽는다 |
+| cswap 과 함께 쓰면 활성 저장소를 서로 덮어쓴다 | MEDIUM | 자동 전환 동시 실행 차단 (FR-CAC-75). 수동 전환은 막지 않는다. 다음 조회 때 활성 계정을 다시 읽는다. cswap 메뉴 막대 앱 안의 자동 전환과 Windows 의 cswap 은 감지하지 못한다 — cswap 저장소를 읽지 않기로 했기 때문이다(D-CAC-2) |
 | 사용량 엔드포인트의 요청 예산(시간당 약 30회)을 넘는다 | MEDIUM | cswap 과 같은 주기·물러나기, 계정 간 0.25초 간격 (FR-CAC-51·53·54) |

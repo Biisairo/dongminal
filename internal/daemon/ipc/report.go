@@ -128,7 +128,8 @@ func (ps *PanedServer) applyReport(method string, body json.RawMessage, now time
 			return err
 		}
 		setRecordJSON(p, toolipc.RecordUsage, agentrec.Usage{Usage: r.Usage, ObservedAt: now.UnixMilli()})
-		if agent, ok := agentadapter.StatusLineReporter(); ok && len(r.Usage.RateLimits) > 0 {
+		// CLAUDE_ACCOUNTS_SRS FR-CAC-78: 계정을 실은 보고는 서버가 계정별로 둔다 — 에이전트 단위 기록은 계정을 모르는 보고만이다.
+		if agent, ok := agentadapter.StatusLineReporter(); ok && r.Account == nil && len(r.Usage.RateLimits) > 0 {
 			ps.records.update(toolipc.RecordLimits, func(old json.RawMessage) any {
 				var m map[string]agentrec.LimitRecord
 				if len(old) > 0 {

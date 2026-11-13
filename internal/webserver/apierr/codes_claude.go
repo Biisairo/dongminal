@@ -13,10 +13,11 @@ const (
 	CodeClaudeNoCandidate         = "claude_no_candidate"
 	CodeClaudeKeychain            = "claude_keychain_unavailable"
 	CodeClaudeTooSoon             = "claude_too_soon"
+	CodeClaudeCswapRunning        = "claude_cswap_running"
 )
 
 var claudeCodes = []string{
 	CodeClaudeAccountsUnavailable, CodeClaudeAccountNotFound, CodeClaudeAccountInvalid,
 	CodeClaudeNotLoggedIn, CodeClaudeBackupEmpty, CodeClaudeLocked, CodeClaudeLiveChanged,
-	CodeClaudeNoCandidate, CodeClaudeKeychain, CodeClaudeTooSoon,
+	CodeClaudeNoCandidate, CodeClaudeKeychain, CodeClaudeTooSoon, CodeClaudeCswapRunning,
 }

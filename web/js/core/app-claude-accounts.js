@@ -13,6 +13,8 @@ const CLAUDE_ACCT_POLL_MS=30*1000;
 /** FR-CAC-98: 서버가 주는 색 키. 밖의 값은 첫 색으로 그린다. */
 const CLAUDE_ACCT_COLOR_RE=/^acct-[1-8]$/;
 const CLAUDE_ACCT_COLOR_DEFAULT='acct-1';
+/** FR-CAC-111: Activity 하단의 "기록" 이 보이는 건수. */
+const CLAUDE_ACCT_HISTORY_LIMIT=20;
 
 function claudeAcctDay(ms){
   const d=new Date(ms);
@@ -121,6 +123,80 @@ function claudeAcctView(a,open){
   };
 }
 
+/** 서버 값(`next-available`·`at-limit` 등)으로 i18n 키를 만든다 — 키에는 `-` 를 쓰지 않는다. */
+function claudeAcctKey(prefix,v){ return prefix+String(v).replace(/-/g,'_') }
+
+/** FR-CAC-76·92: 자동 전환 표식. 목록 응답의 요약(`autoswitch`)에서 온다. 꺼져 있으면 상태와 무관하게 "꺼짐" 이다. */
+const CLAUDE_ACCT_AUTO_STATES=['on','unmanaged','exhausted'];
+function claudeAcctAutoView(s){
+  const on=!!(s&&s.enabled);
+  const st=on?(CLAUDE_ACCT_AUTO_STATES.includes(s.status)?s.status:'on'):'off';
+  return {text:t('cacct.auto.'+st),on};
+}
+
+/** FR-CAC-111: 계정 이름. 지워진 계정은 "삭제된 계정" 이다. */
+function claudeAcctName(accounts,id){
+  const a=(Array.isArray(accounts)?accounts:[]).find(x=>x.id===id);
+  return a?(a.alias||a.email):t('cacct.hist.deleted');
+}
+
+/** FR-CAC-110a·111: 기록 한 줄의 값. 서버는 계정 ID 만 주고 이름은 화면이 찾는다. */
+function claudeAcctHistoryRows(entries,accounts){
+  return (Array.isArray(entries)?entries:[]).map(e=>({
+    time:claudeAcctDate(e.at*1000)+' '+limitClock(e.at*1000),
+    from:claudeAcctName(accounts,e.from),
+    to:claudeAcctName(accounts,e.to),
+    trigger:t(claudeAcctKey('cacct.trig.',e.trigger)),
+    by:t('cacct.by.'+e.by),
+  }));
+}
+
+/** FR-CAC-100a: 알림 사건. 모르는 사건은 띄우지 않는다. */
+const CLAUDE_ACCT_ALERTS=['autoswitch','near_limit','all_exhausted','relogin','login_expiring','autoswitch_stopped'];
+function claudeAcctAlertText(a){
+  if(!a||!CLAUDE_ACCT_ALERTS.includes(a.kind)) return '';
+  let s=t('cacct.alert.'+a.kind,{
+    name:a.name||'',from:a.from||'',to:a.to||'',
+    trigger:a.trigger?t(claudeAcctKey('cacct.trig.',a.trigger)):'',
+    window:a.window?limitWindowLabel(a.window):'',
+    d:a.expiresAt>0?claudeAcctDate(a.expiresAt*1000):'',
+  });
+  if(a.resetAvailable) s+=' · '+t('cacct.alert.reset_available');
+  return s;
+}
+
+/** FR-CAC-93: 계정 하나의 statusLine 줄. 값(`statusLine`, 서버가 셈한 창)이 없으면 null 이다. */
+function claudeAcctStatusLine(key,name,color,sl){
+  const w=sl&&sl.windows;
+  if(!w) return null;
+  const segs=[];
+  for(const [k,name2] of [['fiveHour','five_hour'],['sevenDay','seven_day']]){
+    const x=w[k];
+    if(x&&typeof x.pct==='number') segs.push({text:t('usage.sl.'+name2)+' '+Math.round(x.pct)+'%',level:x.level||''});
+  }
+  if(!segs.length) return null;
+  const five=w.fiveHour;
+  return {
+    key,label:t('usage.sl.label'),name,color,segs,
+    reset:five&&typeof five.resetsInSec==='number'?limitResetText(five.resetsInSec):'',
+    asOf:sl.stale?t('cacct.age_min',{n:Math.max(1,Math.floor((sl.ageSeconds||0)/60))}):'',
+  };
+}
+
+/** FR-CAC-78·93 · D-CAC-22: 등록 계정(계정 순서) 다음 등록되지 않은 계정의 statusLine 줄들. */
+function claudeAcctStatusLines(accounts,others){
+  const out=[];
+  for(const a of Array.isArray(accounts)?accounts:[]){
+    const l=claudeAcctStatusLine(a.id,a.alias||a.email,CLAUDE_ACCT_COLOR_RE.test(a.color)?a.color:CLAUDE_ACCT_COLOR_DEFAULT,a.statusLine);
+    if(l) out.push(l);
+  }
+  for(const o of Array.isArray(others)?others:[]){
+    const l=claudeAcctStatusLine('other:'+o.name,o.name,'',o);
+    if(l) out.push(l);
+  }
+  return out;
+}
+
 /** FR-CAC-90: 계정 순서대로의 묶음들. */
 function claudeAcctFootViews(accounts,openSet){
   return (Array.isArray(accounts)?accounts:[]).map(a=>claudeAcctView(a,openSet.has(a.id)));
@@ -132,14 +208,27 @@ Object.assign(App.prototype, {
     return stateFetch(src,'/api/claude-accounts').then(r=>{
       if(!this._restoreLive('claudeAccounts',flight)) return;
       // 503 은 계정 기능이 없는 서버다(데이터 폴더 없음). 망 실패는 마지막 값을 지우지 않는다.
-      if(r.ok&&r.data) this._claudeAccts=Array.isArray(r.data.accounts)?r.data.accounts:[];
-      else if(r.status===503) this._claudeAccts=[];
+      if(r.ok&&r.data){
+        this._claudeAccts=Array.isArray(r.data.accounts)?r.data.accounts:[];
+        this._claudeAcctAuto=r.data.autoswitch||null;
+        this._claudeAcctOtherSl=Array.isArray(r.data.otherStatusLines)?r.data.otherStatusLines:[];
+      }else if(r.status===503){
+        this._claudeAccts=[];
+        this._claudeAcctAuto=null;
+        this._claudeAcctOtherSl=[];
+      }
       this._restoreEnd('claudeAccounts',flight);
       this.agentsRender();
     });
   },
 
   _onClaudeAccountsChanged(){ return this._claudeAcctRestore() },
+
+  /** FR-CAC-100a: 서버의 계정 알림. 자동 전환은 알림(ok), 나머지는 주의(err) 토스트다. */
+  _onClaudeAccountAlert(a){
+    const text=claudeAcctAlertText(a);
+    if(text) Toast.show(text,a.kind==='autoswitch'?'ok':'err');
+  },
 
   /** FR-CAC-91: 펼친 계정의 id. 기기의 취향이므로 local 에 둔다. */
   _claudeAcctOpen(){ return new Set(PrefStore.local.json(STORE_KEYS.claudeAcctOpen,[])) },
@@ -205,8 +294,37 @@ Object.assign(App.prototype, {
   },
 
   _claudeAcctSwitch(id){ return this._claudeAcctAct('/api/claude-accounts/switch',{id},t('cacct.switch')) },
-  /** FR-CAC-92: 스마트 전환. 지금은 `next` 하나다 — `next-available`·`best` 는 사용량 판단과 함께 4단계에 선다. */
-  _claudeAcctNext(){ return this._claudeAcctAct('/api/claude-accounts/switch',{strategy:'next'},t('cacct.next')) },
+  /** FR-CAC-31·31a·92: 스마트 전환. `best` 가 머물면 서버가 준 이유를 알린다. */
+  async _claudeAcctSmart(strategy){
+    const r=await this._claudeAcctAct('/api/claude-accounts/switch',{strategy},t(claudeAcctKey('cacct.smart.',strategy)));
+    if(r.ok&&r.data&&r.data.reason) Toast.show(t(claudeAcctKey('cacct.reason.',r.data.reason)),'');
+    return r;
+  },
+
+  /** FR-CAC-92: "전환 ▾" 의 세 항목 메뉴. */
+  _claudeAcctSmartMenu(at){
+    UIKit.menu(['next','next-available','best'].map(s=>({id:s,label:t(claudeAcctKey('cacct.smart.',s)),onClick:()=>this._claudeAcctSmart(s)})),
+      {at,cls:'cacct-smart-menu'});
+  },
+
+  /** FR-CAC-111: 최근 20건의 전환 기록 팝업. */
+  async _claudeAcctHistory(){
+    const r=await apiGet('/api/claude-accounts/history?limit='+CLAUDE_ACCT_HISTORY_LIMIT);
+    if(!r.ok){ Toast.show(apiErrText(r,t('cacct.hist.open')),'err'); return r }
+    const rows=claudeAcctHistoryRows(r.data&&r.data.entries,this._claudeAccts);
+    const body=document.createElement('div');
+    body.className='cacct-hist ui-scroll-sm';
+    if(!rows.length) actEl(body,'p','cacct-hist-empty',t('cacct.hist.empty'));
+    for(const x of rows){
+      const row=actEl(body,'div','cacct-hist-row');
+      actEl(row,'span','cacct-hist-time',x.time);
+      actEl(row,'span','cacct-hist-move',x.from+' → '+x.to);
+      actEl(row,'span','cacct-hist-meta',x.trigger+' · '+x.by);
+    }
+    const m=UIKit.modal({title:t('cacct.hist.title'),cls:'cacct-history',width:'min(520px,92vw)',body,actions:[{label:t('core.close')}]});
+    document.body.appendChild(m.el);
+    return r;
+  },
   /** FR-CAC-58: 1분 안에 조회했거나 물러나는 중이면 서버가 409 로 다음 가능 시각을 알린다. */
   _claudeAcctRefresh(id){ return this._claudeAcctAct('/api/claude-accounts/refresh',{id},t('cacct.refresh')) },
 

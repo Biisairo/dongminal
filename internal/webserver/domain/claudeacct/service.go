@@ -38,6 +38,8 @@ type SwitchResult struct {
 	To       string   `json:"to"`
 	Outgoing Outgoing `json:"outgoing,omitempty"`
 	NoOp     bool     `json:"noop,omitempty"`
+	// Reason 은 `best` 가 전환하지 않은 이유다 (FR-CAC-31a).
+	Reason string `json:"reason,omitempty"`
 }
 
 // Service 는 계정 관리와 전환이다. 같은 프로세스 안의 전환은 mu 로, 프로세스 사이는
@@ -330,19 +332,15 @@ func (s *Service) Switch(ctx context.Context, id string) (SwitchResult, error) {
 	return res, nil
 }
 
-// SwitchNext 는 순서에서 활성 계정 다음의, 제외되지 않은 계정으로 전환한다 (FR-CAC-31 `next`).
-func (s *Service) SwitchNext(ctx context.Context) (SwitchResult, error) {
-	st, err := s.Store.Load()
-	if err != nil {
-		return SwitchResult{}, err
-	}
-	n := len(st.Accounts)
-	start := st.Find(st.ActiveID)
+// nextAfter 는 순서에서 활성 계정 다음의, 제외되지 않았고 ok 를 만족하는 계정이다 (FR-CAC-31 `next`).
+func (s *State) nextAfter(ok func(Account) bool) (string, bool) {
+	n := len(s.Accounts)
+	start := s.Find(s.ActiveID)
 	for k := 1; k <= n; k++ {
-		a := st.Accounts[(start+k+n)%n]
-		if a.ID != st.ActiveID && !a.Disabled {
-			return s.Switch(ctx, a.ID)
+		a := s.Accounts[(start+k+n)%n]
+		if a.ID != s.ActiveID && !a.Disabled && ok(a) {
+			return a.ID, true
 		}
 	}
-	return SwitchResult{}, ErrNoCandidate
+	return "", false
 }

@@ -969,7 +969,16 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .act-usage-win.lv-critical .act-usage-fill{background:var(--danger)}
 .act-usage-win.lv-critical .act-usage-used{color:var(--danger-text)}
 /* CLAUDE_ACCOUNTS_SRS FR-CAC-90~93: 계정 묶음(머리 + 창 블록, 펼치면 나머지)과 맨 아래 statusLine 한 줄. */
-.act-usage-head .cacct-next{margin-left:auto;flex-shrink:0}
+.act-usage-head .cacct-auto{margin-left:auto;flex-shrink:0;font-weight:400;color:var(--text-hint);white-space:nowrap}
+.act-usage-head .cacct-auto.on{color:var(--accent-text)}
+.act-usage-head .cacct-smart,.act-usage-head .cacct-history-btn{flex-shrink:0}
+/* FR-CAC-111: 전환 기록 팝업 — 줄마다 시각 · 이동 · 트리거와 주체. */
+.cacct-hist{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto;font-size:var(--fs-sm)}
+.cacct-hist-row{display:flex;flex-wrap:wrap;gap:2px 10px;min-width:0}
+.cacct-hist-time{color:var(--text-hint);font-variant-numeric:tabular-nums}
+.cacct-hist-move{color:var(--text-bright);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cacct-hist-meta{color:var(--text-muted)}
+.cacct-hist-empty{color:var(--text-muted)}
 .cacct{margin-top:8px;min-width:0}
 .cacct-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);cursor:pointer;min-width:0}
 .cacct-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%}
@@ -992,6 +1001,8 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .act-usage-sl:first-child{margin-top:0}
 .act-usage-sl>span+span::before{content:'·';margin-right:6px;color:var(--text-hint)}
 .act-usage-sl-label{color:var(--text-hint)}
+.cacct-sl-who{display:inline-flex;align-items:center;gap:4px;min-width:0;color:var(--text-bright)}
+.cacct-sl-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .act-usage-sl-seg.lv-warn{color:var(--attn-text)}
 .act-usage-sl-seg.lv-critical{color:var(--danger-text)}
 

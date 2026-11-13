@@ -75,6 +75,10 @@ type Engine struct {
 	Jitter func() float64
 	// LineFor 는 계정의 라인이다. 비면 계정 문턱값, 그것도 없으면 90 이다.
 	LineFor func(Account) float64
+	// StatusLine 은 계정의 statusLine 값과 보고 시각(unix 초)이다 (FR-CAC-78). 비면 OAuth 값만 쓴다.
+	StatusLine func(Account) (Usage, int64, bool)
+	// Models 는 헤드룸에 넣을 scoped 창 설정이다 (FR-CAC-31a). 비면 5시간·주간만 본다.
+	Models func() []string
 	// OnChange 는 행이 바뀐 뒤 불린다.
 	OnChange func()
 	Stagger  time.Duration
@@ -83,8 +87,10 @@ type Engine struct {
 	rows map[string]Row
 	// unsettled 는 응답을 받지 못한 티켓 사용의 request_id 다. 키는 계정 id + 티켓 id (FR-CAC-63).
 	unsettled map[string]string
-	busy      sync.Mutex
-	wake      chan struct{}
+	// lastSwitchAt 은 dongminal 이 마지막으로 전환한 시각이다 (FR-CAC-78 의 60초).
+	lastSwitchAt int64
+	busy         sync.Mutex
+	wake         chan struct{}
 }
 
 func (e *Engine) path() string { return filepath.Join(e.Svc.Dir, usageFile) }
@@ -110,6 +116,9 @@ func (e *Engine) Load() error {
 	}
 	if f.Accounts != nil {
 		e.rows = f.Accounts
+	}
+	if h, err := ReadHistory(e.Svc.Dir, 1); err == nil && len(h) == 1 {
+		e.lastSwitchAt = h[0].At
 	}
 	return nil
 }

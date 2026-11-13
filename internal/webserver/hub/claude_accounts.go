@@ -9,3 +9,8 @@ import "dongminal/internal/webserver/sse"
 func ClaudeAccountsChangedPayload() []byte {
 	return sse.Payload("claude_accounts_changed", nil)
 }
+
+// ClaudeAccountAlertPayload 는 계정 알림이다 (FR-CAC-100a). 본문에는 표시 이름만 있다 (FR-CAC-101).
+func ClaudeAccountAlertPayload(alert any) []byte {
+	return sse.Payload("claude_account_alert", alert)
+}

@@ -93,7 +93,42 @@ type AccountView struct {
 	Account
 	Active bool       `json:"active"`
 	Usage  *UsageView `json:"usage"`
+	// StatusLine 은 그 계정의 statusLine 값이다 (FR-CAC-78·93). 받은 적이 없으면 없다.
+	StatusLine *StatusLineView `json:"statusLine,omitempty"`
 }
+
+// StatusLineView 는 statusLine 줄 하나의 값이다 (FR-CAC-93). Name 은 등록되지 않은 계정에만 있다.
+type StatusLineView struct {
+	Name       string            `json:"name,omitempty"`
+	Windows    StatusLineWindows `json:"windows"`
+	ObservedAt int64             `json:"observedAt"`
+	AgeSeconds int64             `json:"ageSeconds"`
+	Stale      bool              `json:"stale"`
+}
+
+// StatusLineWindows 는 statusLine 이 주는 두 창이다.
+type StatusLineWindows struct {
+	FiveHour *WindowView `json:"fiveHour,omitempty"`
+	SevenDay *WindowView `json:"sevenDay,omitempty"`
+}
+
+// StatusLineViewOf 는 at(unix 초)에 받은 statusLine 값의 뷰다.
+func StatusLineViewOf(u Usage, at, now int64) *StatusLineView {
+	v := &StatusLineView{ObservedAt: at, AgeSeconds: max(0, now-at)}
+	v.Stale = v.AgeSeconds > freshForDecisionS
+	if u.FiveHour != nil {
+		w := windowView(*u.FiveHour, now)
+		v.Windows.FiveHour = &w
+	}
+	if u.SevenDay != nil {
+		w := windowView(*u.SevenDay, now)
+		v.Windows.SevenDay = &w
+	}
+	return v
+}
+
+// MaskedName 은 등록되지 않은 계정의 표시 이름이다 (FR-CAC-101).
+func MaskedName(email string) string { return displayName(Account{Email: email}) }
 
 // BuildViews 는 계정 순서대로 뷰를 만든다 (FR-CAC-55·57).
 func BuildViews(st State, rows map[string]Row, now int64) []AccountView {

@@ -108,6 +108,8 @@ Object.assign(App.prototype, {
     bus.subscribe('run_changed',a=>this._onRunChanged(a),{owner:'app'});
     // RUN_VIEW_LIVE_SRS FR-RLV-5: 멤버의 상태 변화는 서버가 `run_changed` 로 알리지 못한다.
     bus.subscribe('tool_activity',a=>this._onRunMemberActivity(a),{owner:'app'});
+    // CLAUDE_ACCOUNTS_SRS FR-CAC-100a: 계정 알림은 상태가 아니라 사건이다 — 등록부가 아니라 여기서 받는다.
+    bus.subscribe('claude_account_alert',a=>this._onClaudeAccountAlert(a),{owner:'app'});
 
     /**
      * ── 다섯 상태는 **등록부에서 파생된다** (FR-HUB-3) ──

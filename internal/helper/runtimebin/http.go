@@ -69,11 +69,16 @@ func httpDoWithin(req *http.Request, budget time.Duration) (status int, respBody
 
 // httpPostJSONWithin 은 예산이 있는 POST 다. budget<=0 이면 공용 클라이언트다.
 func httpPostJSONWithin(url string, body any, budget time.Duration) (status int, respBody []byte, err error) {
+	return httpJSONWithin(http.MethodPost, url, body, budget)
+}
+
+// httpJSONWithin 은 JSON 본문을 싣는 요청이다. budget<=0 이면 공용 클라이언트다.
+func httpJSONWithin(method, url string, body any, budget time.Duration) (status int, respBody []byte, err error) {
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return 0, nil, err
 	}
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(buf))
+	req, err := http.NewRequest(method, url, bytes.NewReader(buf))
 	if err != nil {
 		return 0, nil, err
 	}

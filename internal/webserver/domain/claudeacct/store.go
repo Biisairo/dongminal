@@ -20,7 +20,7 @@ const (
 
 	aliasMax     = 24
 	thresholdMin = 50.0
-	thresholdMax = 99.9
+	thresholdMax = 100.0
 	priorityMin  = 0
 	priorityMax  = 1000
 )

@@ -313,7 +313,7 @@ test('FR-CAC-91·92: 전환·다음 계정·새로 고침은 서버 종단을 �
   const app = restoreApp(ctx);
   app._claudeAcctRestore = () => Promise.resolve();
   await app._claudeAcctSwitch('b');
-  await app._claudeAcctNext();
+  await app._claudeAcctSmart('next');
   await app._claudeAcctRefresh('a');
   assert.deepEqual(plain(calls), [
     ['/api/claude-accounts/switch', { id: 'b' }],
@@ -444,4 +444,123 @@ test('FR-CAC-60·65: 펼칠 때 초기화 상태를 조용히 다시 묻는다 �
   await app._claudeAcctToggle('a');
   assert.deepEqual(plain(calls), [['/api/claude-accounts/refresh', { id: 'a', resets: true }]]);
   assert.equal(toasts.length, 0, '409(1분 안) 는 알리지 않는다');
+});
+
+// ── 4단계: 자동 전환 표식·스마트 전환 메뉴·기록·알림 (FR-CAC-92·100a·111) ──
+
+const EN4 = {
+  'cacct.auto.off': 'Auto-switch off', 'cacct.auto.on': 'Auto-switch on',
+  'cacct.auto.unmanaged': 'Auto-switch: unmanaged', 'cacct.auto.exhausted': 'Auto-switch: all exhausted',
+  'cacct.reason.stay': 'Already on the account with the most room', 'cacct.reason.none': 'No other account',
+  'cacct.trig.proactive': 'proactive', 'cacct.trig.manual': 'manual', 'cacct.by.auto': 'auto', 'cacct.by.ui': 'screen',
+  'cacct.hist.deleted': 'Deleted account',
+  'cacct.alert.autoswitch': 'Switched {from} → {to} ({trigger})', 'cacct.alert.relogin': '{name}: log in again',
+  'cacct.alert.near_limit': '{name}: {window} at the line, nowhere to switch', 'cacct.alert.all_exhausted': 'All accounts exhausted',
+  'cacct.alert.reset_available': 'a limit reset is available', 'cacct.alert.login_expiring': '{name}: login expires {d}',
+  'cacct.alert.autoswitch_stopped': 'Auto-switch stopped: cswap auto is running',
+};
+Object.assign(EN, EN4);
+
+test('FR-CAC-92: 자동 전환 표식은 목록 응답의 요약에서 온다', async () => {
+  const ctx = loadFoot();
+  assert.deepEqual(plain(ctx.claudeAcctAutoView(null)), { text: 'Auto-switch off', on: false });
+  assert.deepEqual(plain(ctx.claudeAcctAutoView({ enabled: true, status: 'on' })), { text: 'Auto-switch on', on: true });
+  assert.deepEqual(plain(ctx.claudeAcctAutoView({ enabled: true, status: 'exhausted' })), { text: 'Auto-switch: all exhausted', on: true });
+  assert.deepEqual(plain(ctx.claudeAcctAutoView({ enabled: false, status: 'weird' })), { text: 'Auto-switch off', on: false });
+
+  const app = footApp(ctx);
+  app._claudeAccts = [ACC_A, ACC_B];
+  app._claudeAcctAuto = { enabled: true, status: 'on' };
+  assert.deepEqual(plain(app._actItems().at(-1).view.auto), { text: 'Auto-switch on', on: true });
+
+  const reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [ACC_A], autoswitch: { enabled: true, status: 'unmanaged' } } };
+  const r = restoreApp(loadFoot({ stateFetch: () => Promise.resolve(reply) }));
+  await r._claudeAcctRestore();
+  assert.deepEqual(plain(r._claudeAcctAuto), { enabled: true, status: 'unmanaged' });
+});
+
+test('FR-CAC-31a·92: 스마트 전환 셋은 전략을 보내고, best 가 머물면 이유를 알린다', async () => {
+  const calls = [], toasts = [];
+  let reply = { ok: true, status: 200, data: { from: 'a', to: 'b' } };
+  const ctx = loadFoot({
+    apiPost: (p, b) => { calls.push([p, b]); return Promise.resolve(reply) },
+    apiErrText: (r) => 'E' + r.status,
+    Toast: { show: (m, k) => toasts.push([m, k]) },
+  });
+  const app = restoreApp(ctx);
+  app._claudeAcctRestore = () => Promise.resolve();
+  for (const s of ['next', 'next-available', 'best']) await app._claudeAcctSmart(s);
+  assert.deepEqual(plain(calls.map((c) => c[1])), [{ strategy: 'next' }, { strategy: 'next-available' }, { strategy: 'best' }]);
+  assert.equal(toasts.length, 0);
+  reply = { ok: true, status: 200, data: { from: 'a', to: 'a', noop: true, reason: 'stay' } };
+  await app._claudeAcctSmart('best');
+  assert.deepEqual(plain(toasts), [['Already on the account with the most room', '']]);
+  reply = { ok: false, status: 409, data: { code: 'claude_no_candidate' } };
+  await app._claudeAcctSmart('next-available');
+  assert.deepEqual(plain(toasts.at(-1)), ['E409', 'err']);
+});
+
+test('FR-CAC-111: 기록 줄은 계정 이름·트리거·주체를 보이고, 지워진 계정은 그렇다고 적는다', () => {
+  const ctx = loadFoot();
+  const at = NOW * 1000;
+  const d = new Date(at);
+  const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + clock(at);
+  const rows = ctx.claudeAcctHistoryRows([
+    { at: NOW, from: 'b', to: 'a', trigger: 'proactive', by: 'auto' },
+    { at: NOW, from: 'gone', to: 'b', trigger: 'manual', by: 'ui' },
+  ], [ACC_A, ACC_B]);
+  assert.deepEqual(plain(rows[0]), { time: stamp, from: ACC_B.alias || ACC_B.email, to: 'Work', trigger: 'proactive', by: 'auto' });
+  assert.equal(rows[1].from, 'Deleted account');
+  assert.equal(rows[1].by, 'screen');
+  assert.deepEqual(plain(ctx.claudeAcctHistoryRows(null, [])), []);
+});
+
+test('FR-CAC-100a: 알림은 토스트로 뜬다 — 전환은 ok, 나머지는 err, 모르는 사건은 무시한다', () => {
+  const toasts = [];
+  const ctx = loadFoot({ Toast: { show: (m, k) => toasts.push([m, k]) } });
+  const app = restoreApp(ctx);
+  app._onClaudeAccountAlert({ kind: 'autoswitch', from: 'ab***@', to: 'Work', trigger: 'proactive' });
+  app._onClaudeAccountAlert({ kind: 'near_limit', name: 'Work', window: 'five_hour' });
+  app._onClaudeAccountAlert({ kind: 'all_exhausted', resetAvailable: true });
+  app._onClaudeAccountAlert({ kind: 'relogin', name: 'ab***@' });
+  app._onClaudeAccountAlert({ kind: 'nonsense' });
+  app._onClaudeAccountAlert(null);
+  assert.deepEqual(plain(toasts), [
+    ['Switched ab***@ → Work (proactive)', 'ok'],
+    ['Work: Current session at the line, nowhere to switch', 'err'],
+    ['All accounts exhausted · a limit reset is available', 'err'],
+    ['ab***@: log in again', 'err'],
+  ]);
+});
+
+// ── 계정별 statusLine 줄 (FR-CAC-78·93, D-CAC-22) ──
+
+test('FR-CAC-93: statusLine 줄은 등록 계정(순서·색·이름) 다음 등록되지 않은 계정 순이고, 값이 없으면 줄이 없다', async () => {
+  const ctx = loadFoot();
+  const SLV = (pct, age) => ({ windows: { fiveHour: { pct, resetsInSec: 7800, level: pct >= 90 ? 'critical' : '' }, sevenDay: { pct: 21, level: '' } },
+    observedAt: NOW - age, ageSeconds: age, stale: age > 300 });
+  const a = { ...ACC_A, statusLine: SLV(34, 10) };
+  const b = { ...ACC_B };
+  const lines = ctx.claudeAcctStatusLines([a, b], [{ name: 'ze***@', ...SLV(95, 600) }]);
+  assert.equal(lines.length, 2, '값이 없는 계정(b)은 줄이 없다');
+  assert.deepEqual(plain(lines[0]), {
+    key: 'a', label: 'statusLine', name: 'Work', color: 'acct-3',
+    segs: [{ text: 'Session 34%', level: '' }, { text: 'Week 21%', level: '' }], reset: 'Resets in 2h 10m', asOf: '',
+  });
+  assert.equal(lines[1].name, 'ze***@');
+  assert.equal(lines[1].color, '');
+  assert.deepEqual(plain(lines[1].segs[0]), { text: 'Session 95%', level: 'critical' });
+  assert.equal(lines[1].asOf, '10m ago');
+  assert.deepEqual(plain(ctx.claudeAcctStatusLines(null, null)), []);
+
+  const app = footApp(ctx);
+  app._claudeAccts = [a];
+  app._claudeAcctOtherSl = [];
+  const v = app._actItems().at(-1).view;
+  assert.deepEqual(plain(v.acctSl.map((l) => l.key)), ['a']);
+
+  const reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [a], otherStatusLines: [{ name: 'x***@', ...SLV(1, 1) }] } };
+  const r = restoreApp(loadFoot({ stateFetch: () => Promise.resolve(reply) }));
+  await r._claudeAcctRestore();
+  assert.equal(r._claudeAcctOtherSl.length, 1);
 });

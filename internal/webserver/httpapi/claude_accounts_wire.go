@@ -15,8 +15,10 @@ import (
 
 // claudeAcctWire 는 서버와 Claude 다중 계정 도메인의 이음매다 (CLAUDE_ACCOUNTS_SRS).
 type claudeAcctWire struct {
-	svc *claudeacct.Service
-	eng *claudeacct.Engine
+	svc  *claudeacct.Service
+	eng  *claudeacct.Engine
+	auto *claudeacct.Auto
+	sl   *claudeSLStore
 }
 
 // initClaudeAccounts 는 계정 서비스를 세운다. DataDir 이나 사용자 홈이 없으면 세우지 않는다.
@@ -50,19 +52,30 @@ func (s *Server) initClaudeAccounts() {
 		Now:    time.Now,
 		NewID:  uuid.NewString,
 	}}
-	s.ca.eng = &claudeacct.Engine{Svc: s.ca.svc, API: client, Now: time.Now, OnChange: s.claudeAccountsChanged}
+	s.ca.sl = &claudeSLStore{}
+	s.ca.eng = &claudeacct.Engine{Svc: s.ca.svc, API: client, Now: time.Now, OnChange: s.claudeAccountsChanged, StatusLine: s.ca.sl.get}
 	if err := s.ca.eng.Load(); err != nil {
 		dmlog.Infof(nil, "claude-accounts: 사용량 캐시를 읽지 못했다: %v", err)
 	}
+	procs := s.cfg.ClaudeProcs
+	if procs == nil {
+		procs = platform.CommandLines
+	}
+	s.ca.auto = &claudeacct.Auto{Eng: s.ca.eng, Now: time.Now, Procs: procs, Notify: s.claudeAccountAlert, OnChange: s.claudeAccountsChanged}
+	if err := s.ca.auto.Load(); err != nil {
+		dmlog.Infof(nil, "claude-accounts: 자동 전환 설정을 읽지 못했다: %v", err)
+	}
+	s.ca.eng.LineFor, s.ca.eng.Models = s.ca.auto.LineFor, s.ca.auto.Models
 }
 
-// StartClaudeAccounts 는 사용량 조회기를 돌리고, stop 이 닫히면 멈춘다. 등록된 계정이 없으면
+// StartClaudeAccounts 는 사용량 조회기와 자동 전환기를 돌리고, stop 이 닫히면 멈춘다. 등록된 계정이 없으면
 // 아무 요청도 하지 않는다 (FR-CAC-50).
 func (s *Server) StartClaudeAccounts(stop <-chan struct{}) {
 	if s.ca == nil {
 		return
 	}
 	go s.ca.eng.Run(stop)
+	go s.ca.auto.Run(stop)
 }
 
 func claudeUserAgent(version string) string {
@@ -76,5 +89,17 @@ func claudeUserAgent(version string) string {
 func (s *Server) claudeAccountsChanged() {
 	if s.Commands != nil {
 		s.Commands.Broadcast(hub.ClaudeAccountsChangedPayload())
+	}
+}
+
+// claudeAccountAlert 는 계정 알림을 브라우저(SSE)와, 켜져 있으면 Telegram 으로 보낸다 (FR-CAC-100a).
+func (s *Server) claudeAccountAlert(a claudeacct.Alert) {
+	if s.Commands != nil {
+		s.Commands.Broadcast(hub.ClaudeAccountAlertPayload(a))
+	}
+	if s.tg != nil && s.tg.bridge != nil {
+		if text := a.Text(); text != "" {
+			s.tg.bridge.OnNotice(text)
+		}
 	}
 }
