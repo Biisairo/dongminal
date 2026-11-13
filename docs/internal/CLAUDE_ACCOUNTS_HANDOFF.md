@@ -6,7 +6,7 @@
 
 - 워크트리: `/Users/dykim/personal/dongminal/.claude/worktrees/claude-accounts`
 - 브랜치: `feat/claude-accounts` (로컬 main `710d0ec9` 에서 갈라졌다. origin/main 보다 커밋 하나 앞선 main 이다)
-- 1·2단계는 `0356fb6e`, `dmctl account usage`·argv 제거는 `eeffd3ce`, 3단계는 `f14b0425` 로 커밋했다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
+- 1·2단계는 `0356fb6e`, `dmctl account usage`·argv 제거는 `eeffd3ce`, 3단계는 `f14b0425`, 4단계(+statusLine 합치기)는 `73207c0f` 로 커밋했다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
 - 순서는 단계마다 고정이다: 시험 작성 → RED 확인 → 구현 → GREEN → `make gates`·`golangci-lint`.
 - 시험은 실제 키체인과 실제 Anthropic 엔드포인트를 부르지 않는다. 서버 시험은 `Config.ClaudeSecrets` 에 가짜를, `Config.ClaudeAPI` 에 `httptest` 주소를 넣는다.
 - 워크트리 세션에서는 `cd ... && cat > 파일 <<EOF` 같은 복합 셸 명령이 거절된다. 파일은 Write/Edit 도구로 쓰고, 셸 명령은 단순하게 나눈다. `tmp/` 대신 `/tmp/` 를 쓴다.
@@ -94,7 +94,22 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 3. ~~3단계 제한 초기화~~ — 끝났다. `claudeacct/resets.go`(해석·결과 대응·`Client.ClaimReset`), `engine.go`(`fetchResets`·`FetchResetsNow`·`Claim`, 사용량 조회 3번에 1번 상태 조회), `POST /api/claude-accounts/reset`·`refresh {resets:true}`, `dmctl account reset`, 펼친 묶음의 "제한 초기화" 칸과 확인 대화상자. 원본 형식은 Claude Code 2.1.323 바이너리에서 뽑았다(SRS FR-CAC-60a).
 4. ~~4단계~~ — 끝났다 (§3).
 5. **5단계** 계정별 실행 (묶음 H)과 화면 표시(탭 틴트, Repo 칩, Explorer 칩). 셸 래퍼는 `internal/shared/runtime/shellhooks/{posix/zdotdir/.zshrc, posix/bash-hook.sh, windows/powershell-hook.ps1}` 의 `claude()`, GUI 기동은 `agentadapter/claude_proto.go` `claudeProtoLaunch`.
+   - **착수 블록 (2026-11-13, 4단계 세션)**: SRS §3.H(FR-CAC-80~87)·FR-CAC-95~97·102(`pin`·`map`·`unmap`·`maps`·`env`)·120(`mappings`·`resolve`)·12(삭제가 매핑·프로필을 지움)·36·43(고정 실행 중 갱신)이 범위다. 착수 전에 SRS 빈칸을 찾아 사용자에게 하나씩(권장 답과 함께) 묻고, Spec → 시험 → RED → 구현 → GREEN → gates 순서로 한다. 끝나면 사용자 확인 뒤 커밋.
+   - **4단계와 이어지는 곳**: FR-CAC-77 은 "고정 실행 중 = 늘 아님" 이다. 5단계에서 FR-CAC-87 판정(`profiles/<id>/sessions/<pid>.json` + pid 생존, `platform.Process.Alive`)을 만들고 `claudeacct.Auto.candidates`(autoswitch.go)에 넣어 후보에서 빼고, FR-CAC-77 을 지운다. FR-CAC-86(프로필 토큰 회수)은 `Engine.fetch` 앞에 둔다.
+   - statusLine 프록시(`dmctl_statusline.go` `statuslineAccount`)는 이미 `CLAUDE_CONFIG_DIR/.claude.json` 의 계정을 읽는다. 프로필의 `.claude.json` 에 `oauthAccount` 를 맞춰 두면(FR-CAC-82) 고정 실행 세션의 statusLine 값이 그 계정으로 자동 귀속된다.
+   - 프로필 키체인 이름은 이미 `ClaudePaths`(paths.go)에 있다(`Claude Code-credentials-<sha256(NFC(dir))[:8]>`).
+
 6. **6단계** 설정 "Claude 계정" 구역, 기존 결정 개정(FR-CAC-130: D-ACU-3·D-ASV-2 철회 표시, `ACTIVITY_CARD_USAGE_SRS` 비목표 줄), e2e. `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-41(statusLine 창 블록)이 FR-CAC-93 의 한 줄로 바뀐 것도 그 문서에 개정으로 적는다.
+
+## 4a. 이 세션들이 값을 치르고 배운 것
+
+- i18n 키에는 `-` 를 쓸 수 없다(`check-i18n.mjs`). 서버 값(`next-available` 등)으로 키를 만들 때는 `claudeAcctKey` 처럼 `-` 를 `_` 로 바꾼다. 동적 접두는 `check-i18n.mjs` 의 표에 등록한다.
+- 새 스크롤 표면(목록 팝업 등)에는 킷 클래스 `ui-scroll-sm` 을 만드는 자리에서 단다. 안 달면 `make gates` 의 스크롤바 검사가 멈춘다.
+- SRS 의 결정(D-…)을 고치면 `go run ./scripts/gen-decisions`, apierr 문구를 고치면 `go run ./scripts/gen-errors` 를 돌린다(둘 다 생성물, gates 가 대조).
+- 워크트리에 `node_modules` 가 없다. eslint·typecheck 는 메인 체크아웃의 것을 잠시 심링크해 돌린다: `ln -s /Users/dykim/personal/dongminal/node_modules node_modules` → `…/.bin/eslint <파일>`·`…/.bin/tsc --noEmit -p jsconfig.json` → `rm node_modules`(커밋에 넣지 않는다).
+- SSE 사건(상태가 아닌 것)은 `state-registry.js` 가 아니라 `app-ws-sync.js` 의 `bus.subscribe` 로 받는다.
+- 외부 명령(`ps` 등)은 `internal/shared/platform` 안에만 둔다(`check-seams.sh`). `ProcInfo` 인터페이스를 넓히면 모든 어댑터·가짜를 고쳐야 하므로 독립 함수(예: `CommandLines`)를 쓴다.
+- `git/core` `TestNoCredentialFields` 는 1단계부터 실패한다(아래 §5) — 새 실패로 오인하지 말 것.
 
 ## 5. 끝에 사용자에게 보고할 것
 
