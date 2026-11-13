@@ -146,3 +146,146 @@ func TestDmctlAccountErrors(t *testing.T) {
 		t.Fatalf("help rc=%d", rc)
 	}
 }
+
+// CLAUDE_ACCOUNTS_SRS TC-CAC-24 (2단계): dmctl account usage [<계정>] [--refresh] [--json].
+
+const accountsUsageJSON = `{"activeId":"id-a","accounts":[
+ {"id":"id-a","email":"a@x.com","alias":"work","color":"acct-1","active":true,"usage":{
+   "status":"ok","fetchedAt":1794000000,"ageSeconds":30,
+   "windows":{"fiveHour":{"pct":34.4,"resetsAt":1794007800,"resetsInSec":7800,"level":""},
+     "sevenDay":{"pct":72,"resetsAt":1794368000,"resetsInSec":368000,"level":"warn"},
+     "scoped":[{"name":"Opus","pct":95,"level":"critical"}],
+     "spend":{"used":12.4,"limit":50,"pct":24.8,"currency":"USD"}},
+   "pace":{"sevenDay":{"expectedPct":22,"aheadOfPace":true,"willLastToReset":false}},
+   "loginExpiresAt":1796000000,"loginExpiringSoon":true}},
+ {"id":"id-b","email":"b@x.com","color":"acct-2","active":false,"usage":{
+   "status":"relogin_required","stale":true,"ageSeconds":420,
+   "windows":{"fiveHour":{"pct":5,"level":""}},"pace":{}}},
+ {"id":"id-c","email":"c@x.com","color":"acct-3","active":false,"usage":{"pace":{}}}]}`
+
+func TestAccountSpan(t *testing.T) {
+	for _, c := range []struct {
+		sec  int64
+		want string
+	}{{368000, "4일 6시간"}, {7800, "2시간 10분"}, {2100, "35분"}, {0, "곧"}} {
+		if got := accountSpan(c.sec); got != c.want {
+			t.Errorf("accountSpan(%d)=%q want %q", c.sec, got, c.want)
+		}
+	}
+}
+
+func TestDmctlAccountUsageText(t *testing.T) {
+	calls, cleanup := withAccountServer(t, map[string]string{"GET /api/claude-accounts": accountsUsageJSON})
+	defer cleanup()
+	rc, out, errOut := dmctlRun("account", "usage")
+	if rc != 0 {
+		t.Fatalf("rc=%d %s", rc, errOut)
+	}
+	if len(*calls) != 1 {
+		t.Fatalf("--refresh 없이는 조회만 한다: %+v", *calls)
+	}
+	for _, want := range []string{
+		"* work <a@x.com>",
+		"5시간", "34%", "2시간 10분 후 초기화",
+		"주간", "72% (경고)", "4일 6시간 후 초기화",
+		"예상 22%", "속도가 앞섬", "초기화 전 소진",
+		"Opus", "95% (위험)",
+		"추가 사용량 $12.40 / $50",
+		"로그인 만료", "(7일 안)",
+		"  b@x.com", "relogin_required", "7분 전",
+		"  c@x.com", "아직 조회하지 않음",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("출력에 %q 가 없다:\n%s", want, out)
+		}
+	}
+	if strings.Index(out, "work") > strings.Index(out, "b@x.com") || strings.Index(out, "b@x.com") > strings.Index(out, "c@x.com") {
+		t.Fatalf("계정 순서대로다:\n%s", out)
+	}
+}
+
+func TestDmctlAccountUsageOne(t *testing.T) {
+	_, cleanup := withAccountServer(t, map[string]string{"GET /api/claude-accounts": accountsUsageJSON})
+	defer cleanup()
+	rc, out, _ := dmctlRun("account", "usage", "B@X.com")
+	if rc != 0 || !strings.Contains(out, "b@x.com") || strings.Contains(out, "work") || strings.Contains(out, "c@x.com") {
+		t.Fatalf("rc=%d 한 계정만:\n%s", rc, out)
+	}
+	rc, _, errOut := dmctlRun("account", "usage", "nobody")
+	if rc != 1 || !strings.Contains(errOut, "nobody") {
+		t.Fatalf("없는 계정 rc=%d %q", rc, errOut)
+	}
+	rc, _, _ = dmctlRun("account", "usage", "a", "b")
+	if rc != 2 {
+		t.Fatalf("계정은 하나까지다 rc=%d", rc)
+	}
+}
+
+func TestDmctlAccountUsageRefresh(t *testing.T) {
+	calls, cleanup := withAccountServer(t, map[string]string{
+		"GET /api/claude-accounts":          accountsUsageJSON,
+		"POST /api/claude-accounts/refresh": `{"ok":true}`,
+	})
+	defer cleanup()
+	rc, out, errOut := dmctlRun("account", "usage", "work", "--refresh")
+	if rc != 0 {
+		t.Fatalf("rc=%d %s", rc, errOut)
+	}
+	got := []string{}
+	for _, c := range *calls {
+		got = append(got, c.method+" "+c.path)
+	}
+	want := []string{"GET /api/claude-accounts", "POST /api/claude-accounts/refresh", "GET /api/claude-accounts"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("새로 고친 뒤 다시 받는다: %v", got)
+	}
+	if (*calls)[1].body["id"] != "id-a" || !strings.Contains(out, "work") {
+		t.Fatalf("%+v\n%s", (*calls)[1].body, out)
+	}
+}
+
+func TestDmctlAccountUsageRefreshAllAndFailure(t *testing.T) {
+	n := 0
+	stop := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "GET" {
+			io.WriteString(w, accountsUsageJSON)
+			return
+		}
+		n++
+		if n == 2 {
+			w.Header().Set("X-Error-Code", "claude_too_soon")
+			w.WriteHeader(409)
+			io.WriteString(w, `{"code":"claude_too_soon","message":"1분 뒤에 다시 조회할 수 있습니다"}`)
+			return
+		}
+		io.WriteString(w, `{"ok":true}`)
+	})
+	defer stop()
+	rc, out, errOut := dmctlRun("account", "usage", "--refresh")
+	if n != 3 {
+		t.Fatalf("모든 계정을 새로 고친다: %d", n)
+	}
+	if rc != 1 || !strings.Contains(errOut, "1분 뒤에") || !strings.Contains(out, "c@x.com") {
+		t.Fatalf("한 계정이 실패해도 나머지와 출력은 계속한다. rc=%d err=%q\n%s", rc, errOut, out)
+	}
+}
+
+func TestDmctlAccountUsageJSON(t *testing.T) {
+	_, cleanup := withAccountServer(t, map[string]string{"GET /api/claude-accounts": accountsUsageJSON})
+	defer cleanup()
+	rc, out, _ := dmctlRun("account", "usage", "work", "--json")
+	if rc != 0 {
+		t.Fatal(rc)
+	}
+	var v struct {
+		SchemaVersion int              `json:"schemaVersion"`
+		Accounts      []map[string]any `json:"accounts"`
+	}
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Fatalf("%v %q", err, out)
+	}
+	if v.SchemaVersion != 1 || len(v.Accounts) != 1 || v.Accounts[0]["id"] != "id-a" || v.Accounts[0]["usage"] == nil {
+		t.Fatalf("%+v", v)
+	}
+}

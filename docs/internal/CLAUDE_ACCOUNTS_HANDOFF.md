@@ -6,7 +6,7 @@
 
 - 워크트리: `/Users/dykim/personal/dongminal/.claude/worktrees/claude-accounts`
 - 브랜치: `feat/claude-accounts` (로컬 main `710d0ec9` 에서 갈라졌다. origin/main 보다 커밋 하나 앞선 main 이다)
-- **커밋은 하지 않았다.** 사용자가 확인한 뒤에만 커밋한다. 커밋 메시지에 AI 서명을 넣지 않는다.
+- 1·2단계는 `0356fb6e` 로 커밋했다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
 - 순서는 단계마다 고정이다: 시험 작성 → RED 확인 → 구현 → GREEN → `make gates`·`golangci-lint`.
 - 시험은 실제 키체인과 실제 Anthropic 엔드포인트를 부르지 않는다. 서버 시험은 `Config.ClaudeSecrets` 에 가짜를, `Config.ClaudeAPI` 에 `httptest` 주소를 넣는다.
 - 워크트리 세션에서는 `cd ... && cat > 파일 <<EOF` 같은 복합 셸 명령이 거절된다. 파일은 Write/Edit 도구로 쓰고, 셸 명령은 단순하게 나눈다. `tmp/` 대신 `/tmp/` 를 쓴다.
@@ -73,7 +73,7 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 ## 4. 남은 것 (순서대로)
 
 1. ~~2단계 화면~~ — 끝났다 (§3).
-2. **`dmctl account usage [--refresh]`** (FR-CAC-102).
+2. ~~`dmctl account usage [<계정>] [--refresh] [--json]`~~ — 끝났다. `internal/helper/runtimebin/dmctl_account.go` `accountUsageCmd`, 시험 `dmctl_account_test.go` (TC-CAC-24 usage 6건). 남은 시간·등급은 서버 값만 쓴다(D-CAC-15). 열 맞춤은 하지 않는다 — 한글 폭을 셀 도우미가 없다.
 3. **3단계** 제한 초기화 (묶음 F). 상태 조회는 `UsageRaw(token, "at_wall=1&skip_spend=1")`(`juniper_tide`)와 `"cedar_ember=1&skip_spend=1"`(`cedar_ember`). 사용은 `POST /api/organizations/{org}/reset_rate_limits`. 형식은 SRS FR-CAC-60~64.
 4. **4단계** 자동 전환·알림·기록 (묶음 G·J·L). `Engine.LineFor` 를 자동 전환 설정과 잇는다. 스마트 전환 `next-available`·`best` 도 이때 넣는다(사용량이 필요하다). foot 머리 줄의 "다음 계정" 단추(`app-activity.js` `_actUsageFootEl`)를 자동 전환 표식 + 세 항목 메뉴로 바꾼다 (FR-CAC-92).
 5. **5단계** 계정별 실행 (묶음 H)과 화면 표시(탭 틴트, Repo 칩, Explorer 칩). 셸 래퍼는 `internal/shared/runtime/shellhooks/{posix/zdotdir/.zshrc, posix/bash-hook.sh, windows/powershell-hook.ps1}` 의 `claude()`, GUI 기동은 `agentadapter/claude_proto.go` `claudeProtoLaunch`.
@@ -83,6 +83,7 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 
 - SRS 의 D-CAC-10 을 ULID 에서 UUIDv7 로 고쳤다(기존 `internal/shared/uuid` 를 쓰기 위해).
 - FR-CAC-98 을 모드별 두 벌로 고쳤다(사용자 결정, D-CAC-14). 계정 창 등급·남은 시간을 서버가 셈하도록 GET 응답의 창에 `resetsInSec`·`level` 을 더했다(D-CAC-15).
+- 보안 검토 지적으로 키체인 쓰기의 argv 대안을 없앴다(사용자 결정, D-CAC-16). 줄이 4032 바이트를 넘으면 `platform.ErrSecretTooLong` 으로 실패하고, 호출하는 쪽이 권한 600 파일로 내려간다.
 - 동작 변경: Usage foot 의 statusLine 값은 창마다 막대 블록이던 것이 한 줄이 됐다(FR-CAC-93). 이전 시험 2건(TC-ASV-14 의 창 블록·바닥 원소)은 TC-CAC-21 로 옮겼다.
 - 워크트리에 `node_modules` 가 없어 `make lint` 가 eslint 를 건너뛴다. 메인 체크아웃의 `node_modules` 로 eslint·typecheck 를 따로 돌렸다.
 - `scripts/check-home-layout.sh` 는 `dmenv` 상수를 새로 만들어도 `homelayout.go` 표에 없으면 바로 잡지 못했다. 표에 넣은 뒤에야 문서 누락을 잡았다.

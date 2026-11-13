@@ -1,8 +1,9 @@
 # SRS: Claude 다중 계정 — 등록·사용량·전환·자동 전환·계정별 실행 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: `dmctl account usage`, 3~6단계. 1단계와 2단계(서버·화면)는 끝났다. 2단계 화면에서 FR-CAC-92 의 자동 전환 표식과 `next-available`·`best` 는 4단계로 미뤘다. 인계는 `CLAUDE_ACCOUNTS_HANDOFF.md`
+> **남은 것**: 3~6단계. 1단계와 2단계(서버·화면·`dmctl account usage`)는 끝났다. 2단계 화면에서 FR-CAC-92 의 자동 전환 표식과 `next-available`·`best` 는 4단계로 미뤘다. 인계는 `CLAUDE_ACCOUNTS_HANDOFF.md`
 > **입력**: 2026-11-13 대화. 사용자 요청 "cswap 을 참고하여 같은 방식으로 사용량을 가져오고, 다중 계정 등록·갱신 기간 확인·다중 계정 사용량·계정 전환·자동 전환을 그대로 가져온다". 정보보호팀 사전 승인 범위 = ① 계정별 OAuth 토큰 저장 ② 내부 API 자동 호출 ③ 계정 전환 ④ 자동 전환 (사용자 확인, 2026-11-13). 사용자 결정은 §4 에 적는다
+> **개정 2026-11-13 (2)**: 키체인 쓰기의 argv 대안을 없앴다(FR-CAC-4, D-CAC-16). 이전: 줄이 4032 바이트를 넘으면 값을 argv 로 넘겼다. 새: 키체인 쓰기를 실패로 돌려 권한 600 파일로 내려간다. 이유: 보안 검토 지적 — argv 는 같은 컴퓨터의 다른 사용자에게 보인다
 > **개정 2026-11-13**: FR-CAC-98 을 "모드별 고정 팔레트 두 벌"로 고쳤다(D-CAC-14). 이전: 고정 팔레트 한 벌. 이유: 테마 54종의 다크·라이트 표면 휘도가 겹치지 않아 한 벌로는 3:1 을 넘을 수 없다. 계정 창의 등급·남은 시간을 서버가 셈한다(FR-CAC-91, D-CAC-15)
 
 ## 1. 개요 (Introduction)
@@ -91,7 +92,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 - **FR-CAC-2** 모든 파일 쓰기는 원자적이다. 같은 폴더에 임시 파일을 만들고 0600 으로 바꾸고 fsync 한 뒤 rename 한다. 기존 `platform.WriteFileAtomic` 을 쓴다.
 - **FR-CAC-3** 저장소 변경(`accounts.json`·`usage.json`·`autoswitch.json`·`mappings.json`)은 파일 락으로 직렬화한다. 락은 비재진입이고, 잡지 못하면 0.1초 간격으로 다시 시도하며 10초 뒤 실패한다. 운영체제별 락 구현은 `internal/shared/platform` 경계 뒤에 둔다.
 - **FR-CAC-4** 자격증명 계층은 운영체제별 구현을 `internal/shared/platform` 뒤에 둔다.
-  - macOS 활성 저장소: 키체인 서비스 `Claude Code-credentials`, 계정명 `$USER`(없으면 홈 폴더 이름, 그것도 없으면 `claude-code-user`). `/usr/bin/security` 를 5초 제한으로 부른다. 읽기는 `find-generic-password -a <acct> -w -s <svc>`, 종료 코드 44 는 "없음" 이다. 쓰기는 `security -i` 의 표준 입력으로 `add-generic-password -U -a <acct> -s <svc> -X <hex>` 를 보낸다. 값이 명령줄에 드러나지 않는다. 줄이 4032 바이트를 넘으면 같은 인자를 argv 로 넘긴다.
+  - macOS 활성 저장소: 키체인 서비스 `Claude Code-credentials`, 계정명 `$USER`(없으면 홈 폴더 이름, 그것도 없으면 `claude-code-user`). `/usr/bin/security` 를 5초 제한으로 부른다. 읽기는 `find-generic-password -a <acct> -w -s <svc>`, 종료 코드 44 는 "없음" 이다. 쓰기는 `security -i` 의 표준 입력으로 `add-generic-password -U -a <acct> -s <svc> -X <hex>` 를 보낸다. 값이 명령줄에 드러나지 않는다. 줄이 4032 바이트를 넘으면 키체인에 쓰지 않고 실패로 돌린다. 그러면 호출하는 쪽이 권한 600 파일에 쓰고 키체인 항목을 지운다(FR-CAC-6). 값을 argv 로 넘기지 않는다 — 같은 컴퓨터의 다른 사용자가 `ps` 로 볼 수 있다 (D-CAC-16).
   - macOS 백업: 키체인 서비스 `dongminal-claude-accounts`, 계정명 `account-<id>`. 실패하면 파일 백업(FR-CAC-1)으로 내려가고 그 키체인 항목을 지운다.
   - 그 밖의 운영체제: 활성 저장소는 `<claudeConfigDir>/.credentials.json`, 백업은 파일(FR-CAC-1).
 - **FR-CAC-5** 활성 저장소 읽기 순서는 ① 키체인(macOS, 0.3초 간격으로 두 번 시도) ② `.credentials.json` 이다. API 키 방식 로그인은 계정으로 다루지 않는다.
@@ -368,6 +369,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | D-CAC-13 | "웹에서 열기"(등록 계정으로 claude.ai 열기)는 넣지 않는다 | 사용자가 포기했다. OAuth 토큰을 웹 세션으로 바꾸는 공식 경로가 없다 |
 | D-CAC-14 | 계정 색은 다크·라이트 두 벌의 고정 팔레트다. `applyThemeObj` 가 테마 모드로 벌을 골라 `--acct-1`~`--acct-8` 에 넣는다 | 사용자 결정(2026-11-13). 가장 밝은 다크 표면(휘도 0.065)에서 3:1 은 색 휘도 0.295 이상, 가장 어두운 라이트 표면(0.605)에서 3:1 은 0.168 이하라서 한 벌로는 둘 다 넘을 수 없다. `check-contrast.mjs` 가 54종 × 세 표면을 잰다 |
 | D-CAC-15 | 계정 창의 등급과 남은 시간은 서버가 셈한다. 등급 경계는 statusLine 한도와 한 벌(`claudeacct.UsageLevel`)이다 | D-ASV-10 과 같다 — 판정은 서버가 한다. 경계를 두 곳에 두면 갈라진다 |
+| D-CAC-16 | 키체인 쓰기는 `security -i` 표준 입력으로만 한다. 줄이 길면 키체인 대신 권한 600 파일을 쓴다 | 사용자 결정(2026-11-13, 보안 검토 지적). argv 의 값은 같은 컴퓨터의 다른 사용자가 `ps` 로 본다. Claude Code 는 argv 로 넘기지만 그 노출을 따라 하지 않는다 |
 
 ## 5. 검증 (Verification)
 
@@ -376,7 +378,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | TC | 대상 | 내용 |
 |---|---|---|
 | TC-CAC-1 | FR-CAC-2·3 | 원자 쓰기 0600, 락 경합·시간 초과 |
-| TC-CAC-2 | FR-CAC-4·5·6 | macOS 키체인 명령 인자, 종료 코드 44, 4032 바이트 경계, 실패 시 파일로 내려감, mtime 갱신 규칙. 다른 운영체제는 파일 |
+| TC-CAC-2 | FR-CAC-4·5·6 | macOS 키체인 명령 인자, 종료 코드 44, 4032 바이트 경계(넘으면 argv 없이 실패), 실패 시 파일로 내려감, mtime 갱신 규칙. 다른 운영체제는 파일 |
 | TC-CAC-3 | FR-CAC-7·8 | 모르는 필드 보존, 공유 필드 병합과 삭제 |
 | TC-CAC-4 | FR-CAC-9 | 로그·API 응답·SSE·오류에 토큰 문자열이 없다 (가짜 토큰으로 전수 검색) |
 | TC-CAC-5 | FR-CAC-10~14 | 추가(신규·갱신·거절 셋), 필드 범위, 삭제가 지우는 것, 순서, 제외 |

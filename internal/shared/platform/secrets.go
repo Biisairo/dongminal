@@ -89,6 +89,9 @@ func (k macKeychain) Get(service, account string) (string, bool, error) {
 	return "", false, fmt.Errorf("keychain read failed (rc=%d)", code)
 }
 
+// ErrSecretTooLong 은 값이 `security -i` 한 줄에 들어가지 않아 키체인에 쓰지 않았다는 뜻이다.
+var ErrSecretTooLong = errors.New("keychain write: value too long for security -i")
+
 func keychainQuote(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
@@ -97,13 +100,11 @@ func keychainQuote(s string) string {
 func (k macKeychain) Set(service, account, value string) error {
 	hv := hex.EncodeToString([]byte(value))
 	line := "add-generic-password -U -a " + keychainQuote(account) + " -s " + keychainQuote(service) + " -X " + hv + "\n"
-	var code int
-	var err error
-	if len(line) <= keychainLineMax {
-		_, code, err = k.run([]byte(line), keychainSecurityBin, "-i")
-	} else {
-		_, code, err = k.run(nil, keychainSecurityBin, "add-generic-password", "-U", "-a", account, "-s", service, "-X", hv)
+	// 값을 argv 로 넘기지 않는다 — 같은 컴퓨터의 다른 사용자가 ps 로 볼 수 있다. 호출하는 쪽이 파일로 내려간다.
+	if len(line) > keychainLineMax {
+		return ErrSecretTooLong
 	}
+	_, code, err := k.run([]byte(line), keychainSecurityBin, "-i")
 	if err != nil {
 		return fmt.Errorf("keychain write: %w", err)
 	}

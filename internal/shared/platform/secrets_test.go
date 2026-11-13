@@ -97,15 +97,16 @@ func TestKeychainSetQuotesEscapes(t *testing.T) {
 	}
 }
 
-func TestKeychainSetLongFallsBackToArgv(t *testing.T) {
+// 값을 argv 로 넘기면 같은 컴퓨터의 다른 사용자가 ps 로 볼 수 있다. 줄이 길면 쓰지 않고 실패로 돌려,
+// 호출하는 쪽이 권한 600 파일로 내려가게 한다 (FR-CAC-4·6).
+func TestKeychainSetLongRefusesArgv(t *testing.T) {
 	f := &fakeSec{}
 	long := strings.Repeat("x", keychainLineMax)
-	if err := newFakeKeychain(f, nil).Set("s", "a", long); err != nil {
-		t.Fatal(err)
+	if err := newFakeKeychain(f, nil).Set("s", "a", long); !errors.Is(err, ErrSecretTooLong) {
+		t.Fatalf("err=%v", err)
 	}
-	c := f.calls[0]
-	if c.stdin != "" || c.args[0] != "add-generic-password" || c.args[len(c.args)-1] != hex.EncodeToString([]byte(long)) {
-		t.Fatalf("call %+v", c.args[:6])
+	if len(f.calls) != 0 {
+		t.Fatalf("security 를 부르지 않는다: %+v", f.calls)
 	}
 }
 
