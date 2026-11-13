@@ -81,6 +81,9 @@ func homeLayout() []homeEntry {
 		{Name: dmenv.PeerSpawnsFile, What: "다른 노드가 띄운 도구와 그 짝 (원격 닫기 권한)", Ephemeral: true},
 
 		// ── 사용자가 만든 내용 ──
+		// CLAUDE_ACCOUNTS_SRS FR-CAC-1: 지우면 계정마다 다시 로그인해 추가해야 하므로 보존한다.
+		// macOS 의 자격증명 백업은 키체인에 있어 zip 에는 계정 목록만 담긴다.
+		{Name: dmenv.ClaudeAccountsDir, IsDir: true, What: "Claude 다중 계정 (계정 목록·자격증명 백업·사용량 캐시)", InBackup: true, KeepOnUninstall: true},
 		{Name: dmenv.NotesDir, IsDir: true, What: "메모장", InBackup: true, KeepOnUninstall: true},
 
 		// ── 다시 만들어지는 것 ──

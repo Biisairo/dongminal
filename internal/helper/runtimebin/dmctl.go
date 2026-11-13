@@ -188,6 +188,9 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 	case "run":
 		return runDmctlRun(rest, stdout, stderr), true
 	// PEER_NETWORK_SRS FR-PNW-73 (dmctl_peer.go).
+	// CLAUDE_ACCOUNTS_SRS FR-CAC-102 (dmctl_account.go).
+	case "account":
+		return runDmctlAccount(rest, stdout, stderr), true
 	case "peers":
 		return runDmctlPeers(rest, stdout, stderr), true
 	case "peer":

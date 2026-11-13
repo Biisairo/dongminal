@@ -255,6 +255,20 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/telegram/pair` | `{code, expires}` — 6자리 등록 코드(10분, 한 번). 코드는 이 응답에만 있습니다. 새 코드를 만들면 이전 코드는 버립니다. 틀린 코드가 5번 오면 코드를 버립니다. 봇에 `/pair <코드>` 를 보내면 보낸 계정이 허용 계정이 됩니다. token 이 없으면 409 `telegram_no_token` |
 | DELETE | `/api/telegram/pair` | 허용 계정을 지우고 살아 있는 등록 코드도 버립니다 |
 
+### Claude 다중 계정 (`CLAUDE_ACCOUNTS_SRS`)
+
+계정 데이터는 `$DONGMINAL_HOME/claude-accounts/`(권한 700)에 있습니다. 자격증명 백업은 macOS 에서는 키체인(`dongminal-claude-accounts`), 그 밖의 OS 에서는 권한 600 파일입니다. 응답에는 토큰이 없습니다. 오류 본문은 `{code, message}` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `claude_accounts_unavailable` 입니다. 상태가 바뀌면 SSE `claude_accounts_changed`(본문 없음)가 나갑니다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/claude-accounts` | `{activeId, accounts:[{id, email, accountUuid, organizationUuid, organizationName, addedAt, alias?, color, disabled, threshold?, priority, active, usage}]}`. 배열 순서가 계정 순서입니다. `usage` 는 `{status, windows:{fiveHour, sevenDay, scoped[], spend}, pace:{sevenDay, scoped}, fetchedAt, ageSeconds, stale, nextPollAt, backoffUntil, loginExpiresAt, loginExpiringSoon}` 이고, 창 하나는 `{pct, resetsAt?, resetsInSec?, level}`(`scoped` 는 `name` 을 더함)입니다. `resetsInSec` 는 서버 시계로 셈한 남은 초이고, `level` 은 70% 이상 `warn`, 90% 이상 `critical`, 그 아래는 빈 값입니다. 아직 조회하지 않은 계정은 `usage` 가 비어 있습니다. `status` 는 `ok`·`token_expired`·`relogin_required`·`keychain_unavailable`·`no_credentials`·`rate_limited`·`unavailable` 중 하나입니다 |
+| POST | `/api/claude-accounts/add` | `{account, created}` — Claude Code 에 지금 로그인한 계정을 등록합니다. 같은 `(email, organizationUuid)` 가 있으면 그 계정의 백업을 갱신하고 `created:false` 입니다. 로그인한 계정이 없으면 409 `claude_not_logged_in` |
+| PUT | `/api/claude-accounts/item` | `{id, alias?, color?, disabled?, threshold?, clearThreshold?, priority?}` — 고친 계정을 돌려줍니다. 범위 밖은 400 `claude_account_invalid`, 없는 계정은 404 `claude_account_not_found` |
+| POST | `/api/claude-accounts/remove` | `{id}` — 계정과 그 백업을 지웁니다. 활성 저장소는 건드리지 않습니다 |
+| POST | `/api/claude-accounts/order` | `{ids}` — 계정 순서를 바꿉니다. 모든 계정을 한 번씩 담아야 합니다 |
+| POST | `/api/claude-accounts/refresh` | `{id}` — 그 계정의 사용량을 바로 조회합니다. 1분 안에 조회했거나 물러나는 중이면 409 `claude_too_soon` |
+| POST | `/api/claude-accounts/switch` | `{id}` 또는 `{strategy:"next"}` — `{from, to, outgoing, noop?}`. 실행 중인 Claude Code 세션은 약 30초 안에, 또는 다시 시작할 때 새 계정을 씁니다. Claude Code 가 자격증명을 쓰는 중이면 409 `claude_locked`, 대상 백업이 비었으면 409 `claude_backup_empty`, 다른 후보가 없으면 409 `claude_no_candidate` |
+
 ### Run (오케스트레이션)
 
 | 메서드 | 경로 | 설명 |

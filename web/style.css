@@ -151,6 +151,9 @@
   --term-blue:#7aa2f7;--term-magenta:#bb9af7;--term-cyan:#7dcfff;
   /* Diff 의 추가·삭제 — 팔레트의 초록·빨강 그대로 (theme-vars.js). */
   --diff-add:#9ece6a;--diff-del:#f7768e;
+  /* CLAUDE_ACCOUNTS_SRS FR-CAC-98: 계정 색 — `applyThemeObj` 가 모드별 팔레트로 덮는다. 여기 값은 다크 벌이고 첫 페인트용이다. */
+  --acct-1:#f87171;--acct-2:#fb923c;--acct-3:#facc15;--acct-4:#4ade80;
+  --acct-5:#2dd4bf;--acct-6:#60a5fa;--acct-7:#a78bfa;--acct-8:#f472b6;
   --accent-text:#7aa2f7;--danger-text:#f7768e;--attn-text:#e0af68;
   /* FR-TOK-25: 포커스 링. `applyThemeObj` 가 테마마다 3:1 을 보장해 덮어쓴다 —
      여기 값은 기본 테마의 파생 결과이고 첫 페인트용이다. */
@@ -965,6 +968,26 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .act-usage-win.lv-warn .act-usage-used{color:var(--attn-text)}
 .act-usage-win.lv-critical .act-usage-fill{background:var(--danger)}
 .act-usage-win.lv-critical .act-usage-used{color:var(--danger-text)}
+/* CLAUDE_ACCOUNTS_SRS FR-CAC-90~93: 계정 묶음(머리 + 창 블록, 펼치면 나머지)과 맨 아래 statusLine 한 줄. */
+.act-usage-head .cacct-next{margin-left:auto;flex-shrink:0}
+.cacct{margin-top:8px;min-width:0}
+.cacct-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);cursor:pointer;min-width:0}
+.cacct-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%}
+.cacct-name{flex:1 1 auto;min-width:0;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cacct.active .cacct-name{font-weight:600}
+.cacct-active{flex-shrink:0;color:var(--accent-text)}
+.cacct-st{flex-shrink:0;color:var(--attn-text)}
+.cacct-age{flex-shrink:0;color:var(--text-hint)}
+.cacct-more{min-width:0}
+.cacct-pace,.cacct-spend,.cacct-login{margin-top:4px;font-size:var(--fs-sm);color:var(--text-muted)}
+.cacct-pace.warn,.cacct-login.warn{color:var(--attn-text)}
+.cacct-acts{display:flex;gap:6px;margin-top:6px}
+.act-usage-sl{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;margin-top:8px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
+.act-usage-sl:first-child{margin-top:0}
+.act-usage-sl>span+span::before{content:'·';margin-right:6px;color:var(--text-hint)}
+.act-usage-sl-label{color:var(--text-hint)}
+.act-usage-sl-seg.lv-warn{color:var(--attn-text)}
+.act-usage-sl-seg.lv-critical{color:var(--danger-text)}
 
 .pn-body{flex:1;position:relative;overflow:hidden}
 

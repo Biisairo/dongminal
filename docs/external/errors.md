@@ -41,6 +41,16 @@
 | `branch_is_current` | 지금 올라가 있는 브랜치는 지울 수 없습니다. | 다른 브랜치로 옮긴 뒤 지우세요. |
 | `branch_not_merged` | 병합되지 않은 브랜치라 그냥 지울 수 없습니다. | 정말 버릴 것이면 강제 삭제를 고르세요 — 그 커밋들은 되찾기 어렵습니다. |
 | `busy` | 지금은 자리가 없습니다. | **재시도가 유효한 유일한 4xx 입니다.** 잠시 뒤 다시 보내세요. |
+| `claude_account_invalid` | 계정 값이 허용 범위를 벗어났습니다(별칭 24자, 문턱값 50~99.9, 우선순위 0~1000, 정해진 색). | 범위 안의 값으로 다시 보내세요. |
+| `claude_account_not_found` | 그런 Claude 계정이 등록되어 있지 않습니다. | `dmctl account list` 로 계정 ID 를 확인하세요. |
+| `claude_accounts_unavailable` | 이 서버에는 Claude 계정 기능이 서지 않았습니다 — 데이터 폴더 없이 떴습니다. | dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요. |
+| `claude_backup_empty` | 이 계정의 자격증명 백업이 비었습니다. | 그 계정으로 Claude Code 에 로그인한 뒤 '현재 계정 추가'로 다시 추가하세요. |
+| `claude_keychain_unavailable` | 키체인을 읽을 수 없습니다. | 키체인 잠금을 풀고 다시 시도하세요. |
+| `claude_live_changed` | 전환 도중 활성 자격증명이 바뀌었습니다. | 다시 시도하세요. |
+| `claude_locked` | Claude Code 가 자격증명이나 설정을 쓰는 중입니다. | 잠시 뒤 다시 시도하세요. |
+| `claude_no_candidate` | 전환할 다른 계정이 없습니다. | 계정을 더 추가하거나 제외를 푸세요. |
+| `claude_not_logged_in` | Claude Code 에 로그인한 계정이 없거나 자격증명이 비었습니다. | Claude Code 에서 `/login` 으로 추가할 계정에 로그인한 뒤 다시 시도하세요. |
+| `claude_too_soon` | 조금 전에 조회했거나, 서버 요청 제한 때문에 물러나는 중입니다. | 응답의 `retryAt` 뒤에 다시 시도하세요. |
 | `confirmation_required` | 되돌리기 어려운 동작이라 확인이 필요합니다. | 화면의 확인을 거치거나 confirm 을 함께 보내세요. |
 | `conflict` | 다른 변경이 먼저 반영되어 지금 상태와 어긋납니다. | 현재 상태를 다시 받아 확인한 뒤 다시 시도하세요. 덮어쓰지 마세요. |
 | `corrupt_asset` | 내장 자산을 읽지 못했습니다. | 바이너리가 손상됐을 수 있습니다. 다시 내려받아 설치하세요. |
@@ -174,4 +184,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **140개**.
+총 **150개**.

@@ -9,7 +9,8 @@ import { load, plain } from './harness.mjs';
  *   TC-ASV-11  사용량 줄의 배치, 서브에이전트 값, 목록형 줄 (FR-ASV-30·31·34·35)
  *   TC-ASV-12  보기 전환과 폴더형 접기 (FR-ASV-32·33)
  *   TC-ASV-13  SSE 갱신과 재조정 근거 (FR-ASV-36·37)
- *   TC-ASV-14  Usage 구역의 값 (FR-ASV-41·42·43)
+ *   TC-ASV-14  Usage 구역의 값 (FR-ASV-41·43). 창 블록·바닥 원소는 CLAUDE_ACCOUNTS_SRS FR-CAC-93 이 statusLine 한 줄로
+ *              바꿨다 — `claude-accounts-foot.test.mjs` (TC-CAC-21)
  */
 function memStore() {
   const m = new Map();
@@ -37,7 +38,7 @@ function fillEn(k, p) {
 
 function loadActivity(globals = {}) {
   const local = memStore();
-  const ctx = load(['core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js'], {
+  const ctx = load(['core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js'], {
     expose: ['ACTIVITY_SECTIONS'],
     globals: {
       App: class {},
@@ -190,36 +191,6 @@ test('FR-ASV-41: 창 이름은 도구들의 이름이고, 모르는 이름은 �
   assert.equal(limitWindowLabel('extra_usage_window'), 'Extra usage window');
 });
 
-test('FR-ASV-41·42: 바닥 값 — 에이전트 머리와 창 블록, 사용률·남은 시간·등급·as of', () => {
-  const { limitFootView } = loadActivity();
-  const observedAt = Date.UTC(2026, 10, 10, 5, 0);
-  const limits = [{ agent: 'claude', observedAt, windows: [
-    { name: 'five_hour', usedPct: 34.4, resetsAt: 1794298291, resetsInSec: 7200, level: '' },
-    { name: 'seven_day', usedPct: 91, resetsAt: 1794659091, resetsInSec: 368000, level: 'critical' },
-    { name: 'opus_week', usedPct: 5, level: '' },
-    { name: 'no_pct', resetsInSec: 10, level: '' },
-  ] }];
-  const v = plain(limitFootView(limits, observedAt + 60_000));
-  assert.equal(v.length, 1);
-  assert.equal(v[0].agent, 'claude');
-  assert.equal(v[0].name, 'Claude');
-  assert.equal(v[0].asOf, '');
-  assert.equal(v[0].windows.length, 3);
-  const d = new Date(1794298291 * 1000);
-  const hhmm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-  assert.deepEqual(v[0].windows[0], { id: 'claude:five_hour', label: 'Current session', used: '34% used',
-    fill: 34.4, level: '', reset: 'Resets in 2h 0m', title: 'Current session · 34% used · resets at ' + hhmm });
-  assert.equal(v[0].windows[1].label, 'Current week');
-  assert.equal(v[0].windows[1].reset, 'Resets in 4d 6h');
-  assert.equal(v[0].windows[1].level, 'critical');
-  assert.equal(v[0].windows[2].label, 'Opus week');
-  assert.equal(v[0].windows[2].reset, '');
-
-  const o = new Date(observedAt);
-  const stale = plain(limitFootView(limits, observedAt + 11 * 60_000));
-  assert.equal(stale[0].asOf, 'as of ' + String(o.getHours()).padStart(2, '0') + ':' + String(o.getMinutes()).padStart(2, '0'));
-});
-
 test('FR-ASV-40·43: Usage 는 구역이 아니라 맨 끝의 바닥이고, 한도가 없으면 없다', () => {
   const ctx = loadActivity();
   assert.equal(ctx.ACTIVITY_SECTIONS.some((s) => s.key === 'usage'), false);
@@ -232,26 +203,6 @@ test('FR-ASV-40·43: Usage 는 구역이 아니라 맨 끝의 바닥이고, 한�
   app._limits = [{ agent: 'claude', observedAt: Date.now(), windows: [{ name: 'five_hour', usedPct: 1, level: '' }] }];
   const items = app._actItems();
   assert.equal(items.at(-1).t, 'foot');
-});
-
-test('FR-ASV-41: 바닥 원소 — 머리와 창 블록(이름·사용률 / 막대 / 남은 시간)', () => {
-  const ctx = loadActivity();
-  const app = new ctx.App();
-  const view = ctx.limitFootView([{ agent: 'claude', observedAt: Date.now(), windows: [
-    { name: 'five_hour', usedPct: 72, resetsInSec: 7800, level: 'warn' },
-    { name: 'seven_day', usedPct: 21, level: '' },
-  ] }], Date.now());
-  const foot = app._actUsageFootEl(view);
-  assert.equal(foot.className, 'act-usage-foot');
-  assert.deepEqual(plain(kinds(foot)), ['act-usage-head', 'act-usage-win', 'act-usage-win']);
-  const w = foot.children[1];
-  assert.equal(w.className, 'act-usage-win lv-warn');
-  assert.deepEqual(plain(kinds(w)), ['act-usage-top', 'act-usage-track', 'act-usage-reset']);
-  assert.equal(w.children[0].children[0].textContent, 'Current session');
-  assert.equal(w.children[0].children[1].textContent, '72% used');
-  assert.equal(w.children[1].children[0].style.width, '72%');
-  assert.equal(w.children[2].textContent, 'Resets in 2h 10m');
-  assert.deepEqual(plain(kinds(foot.children[2])), ['act-usage-top', 'act-usage-track']);
 });
 
 test('FR-ASV-21·44: 복원이 limits 를 담는다', async () => {

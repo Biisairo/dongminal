@@ -34,7 +34,7 @@ const ctx = load(['core/contrast.js', 'ui/themes.js'], {
   globals: { TOPTS: {} },
   expose: ['CONTRAST_FLOORS', 'THEMES'],
 });
-const { CONTRAST_FLOORS, THEMES, contrastRatio, deriveContrastTokens } = ctx;
+const { CONTRAST_FLOORS, THEMES, contrastRatio, deriveContrastTokens, deriveAccountColors } = ctx;
 
 /** 토큰 → 바닥. `ACCESSIBILITY_BASELINE_SRS` FR-A11Y-6·7 이 근거다. */
 const CHECK = [
@@ -160,6 +160,15 @@ for (const name of names) {
       const got = contrastRatio(color, bg);
       if (got < CONTRAST_FLOORS.strong - 1e-9) {
         bad.push(`  ${name} / --term-${k}(${color}) on --${bgName}: ${got.toFixed(2)} < ${CONTRAST_FLOORS.strong}`);
+      }
+    }
+  }
+  // CLAUDE_ACCOUNTS_SRS FR-CAC-98: 계정 색은 점·틴트로 쓰는 UI 색이다 — 그 모드의 벌이 세 표면 모두에서 3:1.
+  for (const [k, color] of Object.entries(deriveAccountColors(t.mode))) {
+    for (const [bgName, bg] of bgs) {
+      const got = contrastRatio(color, bg);
+      if (got < CONTRAST_FLOORS.ui - 1e-9) {
+        bad.push(`  ${name} / ${k}(${color}) on --${bgName}: ${got.toFixed(2)} < ${CONTRAST_FLOORS.ui}`);
       }
     }
   }

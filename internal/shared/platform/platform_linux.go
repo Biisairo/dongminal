@@ -23,5 +23,6 @@ func newPlatform() Platform {
 		Paths:   posixPaths{},
 		Browser: unixBrowser(exec.LookPath),
 		Opener:  unixOpener(exec.LookPath),
+		Secrets: noSecrets{},
 	}
 }

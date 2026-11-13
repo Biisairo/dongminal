@@ -26,6 +26,7 @@ import (
 	"dongminal/internal/webserver/domain/wsentry"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/webserver/domain/git/core"
 )
@@ -54,6 +55,13 @@ type Config struct {
 	// TelegramAPI 는 Bot API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다
 	// (TELEGRAM_BRIDGE_SRS §5).
 	TelegramAPI string
+	// ClaudeHome 은 Claude Code 설정(`~/.claude`·`~/.claude.json`)을 찾을 사용자 홈이다. 비면
+	// 실제 홈이다 (CLAUDE_ACCOUNTS_SRS FR-CAC-4). 시험이 임시 폴더로 바꾼다.
+	ClaudeHome string
+	// ClaudeAPI 는 Anthropic API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다.
+	ClaudeAPI string
+	// ClaudeSecrets 는 비밀 저장소다. nil 이면 이 OS 의 것(macOS 키체인)이다.
+	ClaudeSecrets platform.Secrets
 }
 
 // Server owns the HTTP server lifecycle.
@@ -145,6 +153,8 @@ type Server struct {
 	browserIn browserInputs
 	// tg 는 Telegram 알림 이음매다. DataDir 이 없으면 nil 이다.
 	tg *telegramWire
+	// ca 는 Claude 다중 계정이다 (CLAUDE_ACCOUNTS_SRS). DataDir 이 없으면 nil 이다.
+	ca *claudeAcctWire
 
 	started time.Time
 
@@ -288,6 +298,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	srv.hosts = newHostAllow(access, cfg.AllowedHosts)
 	srv.initPeer()
 	srv.initTelegram()
+	srv.initClaudeAccounts()
 	runWorktreeRoot := ""
 	if deps.Worktrees != nil {
 		runWorktreeRoot = deps.Worktrees.Root()

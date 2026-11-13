@@ -19,5 +19,6 @@ func newPlatform() Platform {
 		Paths:   windowsPaths{},
 		Browser: winBrowser(exec.LookPath, os.Getenv, statFile),
 		Opener:  winOpener(),
+		Secrets: noSecrets{},
 	}
 }

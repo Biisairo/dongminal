@@ -58,6 +58,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 
 | 명령 | 설명 |
 |------|------|
+| `dmctl account <list\|add\|switch> …` | Claude 다중 계정을 다룹니다. `list [--json]` 은 등록한 계정을 봅니다(`*` 가 활성 계정). `add` 는 Claude Code 에 지금 로그인한 계정을 등록합니다. `switch <id\|별칭\|이메일>` 은 그 계정으로, `switch --strategy next` 는 순서상 다음 계정으로 전환합니다. 실행 중인 Claude Code 세션은 약 30초 안에, 또는 다시 시작할 때 새 계정을 씁니다 |
 | `dmctl peers [--json]` | 이 노드의 노드 포트 상태, 짝 목록(이름·주소·상태·마지막 응답 시각), 승인 대기를 봅니다. 지문은 앞 16자만 보입니다 |
 | `dmctl peer invite \| add \| approve \| reject \| remove …` | 짝맞춤입니다. `invite [--addr <주소>]` 가 초대 코드를 만들고(10분, 한 번), 상대가 `add <코드> [--name <이름>]` 로 등록을 요청하면, 이쪽이 `approve <id> [--name <이름>]` 로 승인합니다. `reject <id>` 는 거절, `remove <노드>` 는 해제입니다. `info <노드>` 는 상대의 이름·판·받는 명령·설치된 에이전트·허용 폴더(`allowedDirs`), `tools <노드> [--json]` 은 상대의 에이전트 도구 목록(`<노드>/<uuid>`)입니다. `spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트\|->` 는 상대가 허용한 폴더 안에 에이전트를 띄우고 `<노드>/<uuid>` 를 냅니다(권한 모드는 상대의 평소 설정). 프롬프트가 `-` 이면 stdin 을 읽습니다. 프롬프트는 에이전트가 준비된 뒤 들어갑니다. `status <노드>/<uuid> [--json]` 은 상태, `close <노드>/<uuid>` 는 자기가 띄운 에이전트를 끝내고 닫습니다. 상대에 닿지 못하면 사유 코드를 내고 1 로 끝납니다 |
 

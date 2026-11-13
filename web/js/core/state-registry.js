@@ -241,6 +241,21 @@ const STATE_REGISTRY=[
   },
   {
     /**
+     * CLAUDE_ACCOUNTS_SRS FR-CAC-122 — Claude 계정과 그 사용량. 상태가 바뀌면 서버가
+     * `claude_accounts_changed` 를 민다. 사용량은 서버의 조회기가 신호 없이 고치므로
+     * 패널이 열린 동안 주기로도 다시 받는다 (`run.list` 와 같은 모양).
+     */
+    id:'claude.accounts',
+    restore:'_claudeAcctRestore',
+    merge:'latest',
+    flight:'claudeAccounts',
+    events:{claude_accounts_changed:'_onClaudeAccountsChanged'},
+    revalidateOn:['sse:open','softreload'],
+    every:()=>CLAUDE_ACCT_POLL_MS,
+    when:(app)=>app._agentsPanelShown(),
+  },
+  {
+    /**
      * UX_BATCH12 FR-LIV-4 — 열린 설정 패널이 다른 곳의 저장을 따라간다. 패널이 닫혀 있으면
      * 아무것도 하지 않는다 — 열 때 읽는다.
      */

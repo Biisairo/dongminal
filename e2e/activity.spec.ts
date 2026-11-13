@@ -581,15 +581,17 @@ test.describe('Activity subagent views and usage limits', () => {
     await expect(page.locator('#agents-panel .ag-subview')).toHaveCount(0);
     await expect(page.locator('#agents-panel .ag-sub-fold')).toHaveCount(0);
 
-    // Usage 바닥 — 패널의 마지막 원소이고 패널 아랫변에 붙는다 (FR-ASV-40·41)
+    // Usage 바닥 — 패널의 마지막 원소이고 패널 아랫변에 붙는다 (FR-ASV-40). statusLine 값은 한 줄이다 (CLAUDE_ACCOUNTS_SRS FR-CAC-93)
     const foot = page.locator('#agents-panel .act-usage-foot');
     await expect(foot).toHaveCount(1);
-    const wins = foot.locator('.act-usage-win');
-    await expect(wins).toHaveCount(2);
-    await expect(wins.nth(0)).toHaveClass(/lv-warn/);
-    await expect(wins.nth(0).locator('.act-usage-used')).toContainText('72');
-    await expect(wins.nth(0).locator('.act-usage-reset')).toContainText(/(2h (9|10)m|2시간 (9|10)분)/);
-    await expect(wins.nth(1).locator('.act-usage-reset')).toContainText(/(4d (5|6)h|4일 (5|6)시간)/);
+    const sl = foot.locator('.act-usage-sl');
+    await expect(sl).toHaveCount(1);
+    const segs = sl.locator('.act-usage-sl-seg');
+    await expect(segs).toHaveCount(2);
+    await expect(segs.nth(0)).toHaveClass(/lv-warn/);
+    await expect(segs.nth(0)).toContainText('72%');
+    await expect(segs.nth(1)).toContainText('21%');
+    await expect(sl.locator('.act-usage-sl-reset')).toContainText(/(2h (9|10)m|2시간 (9|10)분)/);
     const pinned = await foot.evaluate((el) => {
       const p = el.parentElement as HTMLElement;
       return { last: p.lastElementChild === el,

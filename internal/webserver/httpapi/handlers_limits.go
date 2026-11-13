@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/statusline"
-	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/domain/claudeacct"
 )
 
 // ACTIVITY_STATE_SUBAGENT_SRS 묶음 L — 계정 한도 (FR-ASV-20·21).
@@ -17,9 +17,6 @@ import (
 // 죽어도 지우지 않고 에이전트마다 마지막 값 하나를 둔다. 메모리에만 둔다.
 
 const (
-	// limitWarnPct·limitCriticalPct 는 계정 한도의 경고 경계다 (D-ASV-9).
-	limitWarnPct     = 70
-	limitCriticalPct = 90
 	// resetsAtMillisFloor 를 넘는 resetsAt 은 밀리초로 본다 (R-4).
 	resetsAtMillisFloor = 1e12
 )
@@ -108,13 +105,5 @@ func limitWindowOf(name string, w statusline.RateWindow, now time.Time) limitWin
 	return out
 }
 
-// limitLevel 은 사용률의 경고 등급이다 (FR-ASV-21, D-ASV-9).
-func limitLevel(pct float64) string {
-	switch {
-	case pct >= limitCriticalPct:
-		return run.LevelCritical
-	case pct >= limitWarnPct:
-		return run.LevelWarn
-	}
-	return ""
-}
+// limitLevel 은 사용률의 경고 등급이다 (FR-ASV-21, D-ASV-9). 경계는 계정 묶음과 한 벌이다 (FR-CAC-93).
+func limitLevel(pct float64) string { return claudeacct.UsageLevel(pct) }

@@ -74,6 +74,7 @@ internal/
       adapters/          #     toolaccess 인터페이스 ↔ 구체 타입 브리지
       toolaccess/        #     도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스
     domain/
+      claudeacct/        #     Claude 다중 계정 — 계정 백업·활성 저장소 교체·OAuth API (CLAUDE_ACCOUNTS_SRS)
       git/               #     git 실행의 유일한 경로. 아래 5패키지 (§git 절)
         core/            #       Service + 두 초크포인트(Exec, ExecWrite) + guard·errors·record
         query/           #       조회 — Exec 만 쓴다

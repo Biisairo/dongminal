@@ -44,6 +44,8 @@ type Platform struct {
 	Paths   Paths
 	Browser Browser
 	Opener  Opener
+	// Secrets 는 OS 비밀 저장소다 (CLAUDE_ACCOUNTS_SRS FR-CAC-4).
+	Secrets Secrets
 }
 
 var (

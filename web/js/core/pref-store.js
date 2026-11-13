@@ -43,6 +43,7 @@ const STORE_KEYS=Object.freeze({
   attnDesktop:'attnDesktop',
   termGpu:'termGpu',
   agentsGroupFold:'agentsGroupFold',
+  claudeAcctOpen:'claudeAcctOpen', // CLAUDE_ACCOUNTS_SRS FR-CAC-91: 펼친 계정 묶음
   windowGroupFold:'windowGroupFold',
   sandboxRecent:'dm.sbx.recent',
   // local — 이사가 끝나면 지우기만 하는 옛 키

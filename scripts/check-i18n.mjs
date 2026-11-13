@@ -98,6 +98,9 @@ const DYNAMIC_PREFIXES = [
   { prefix: 'core.sbx_rt_msg.', why: "app-tool.js 가 런타임 응답의 state 로 문장 키를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-i)" },
   { prefix: 'usage.win.', why: "app-activity.js 가 서버 한도의 창 이름으로 `'usage.win.' + name` 을 조립한다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-41)" },
   { prefix: 'usage.dur.', why: "app-activity.js 가 남은 시간의 단위(d·h·m)로 `'usage.dur.' + unit` 을 조립한다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-41)" },
+  { prefix: 'usage.sl.', why: "app-activity.js 가 statusLine 창 이름으로 `'usage.sl.' + name` 을 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-93)" },
+  { prefix: 'cacct.st.', why: "app-claude-accounts.js 가 서버의 계정 상태로 `'cacct.st.' + status` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-56)" },
+  { prefix: 'cacct.wd.', why: "app-claude-accounts.js 가 요일 번호(0~6)로 `'cacct.wd.' + day` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-91)" },
   { prefix: 'why.', why: "action-answer.js 가 서버 답의 사유 코드로 `t('why.' + code)` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS M-6)" },
 ];
 

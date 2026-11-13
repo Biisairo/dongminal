@@ -229,6 +229,22 @@ function deriveScrollSlider(mode){
   };
 }
 
+/**
+ * CLAUDE_ACCOUNTS_SRS FR-CAC-98: Claude 계정 색 8개. 테마 54종의 다크·라이트 표면 휘도가 겹치지 않아 한 벌로는
+ * 3:1 을 넘을 수 없다 — 같은 색상 8개를 모드마다 한 벌씩 둔다. 게이트는 `check-contrast.mjs` 다.
+ */
+const ACCT_PALETTE={
+  dark:['#f87171','#fb923c','#facc15','#4ade80','#2dd4bf','#60a5fa','#a78bfa','#f472b6'],
+  light:['#b91c1c','#c2410c','#a16207','#15803d','#0f766e','#1d4ed8','#6d28d9','#be185d'],
+};
+function deriveAccountColors(mode){
+  const p=ACCT_PALETTE[mode==='light'?'light':'dark'];
+  return{
+    '--acct-1':p[0],'--acct-2':p[1],'--acct-3':p[2],'--acct-4':p[3],
+    '--acct-5':p[4],'--acct-6':p[5],'--acct-7':p[6],'--acct-8':p[7],
+  };
+}
+
 const SYNTAX_KEYS=['red','green','yellow','blue','magenta','cyan'];
 
 function deriveContrastTokens(ui,mode,attn,term){

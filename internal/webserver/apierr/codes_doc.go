@@ -175,11 +175,21 @@ var CodeDoc = map[string]Doc{
 	CodeNameReserved:            {"`.`·`..` 는 이름으로 쓸 수 없습니다.", "다른 이름을 쓰세요."},
 
 	// ── Telegram 브리지 (TELEGRAM_BRIDGE_SRS) ──
-	CodeTelegramUnavailable:   {"이 서버에는 Telegram 브리지가 서지 않았습니다 — 데이터 폴더 없이 떴습니다.", "dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요."},
-	CodeTelegramTokenInvalid:  {"봇 token 의 모양이 틀렸거나 Telegram 이 그 token 을 받지 않았습니다.", "BotFather 가 준 token 전체(`숫자:글자`)를 다시 넣으세요. 폐기한 token 은 쓸 수 없습니다."},
-	CodeTelegramUnreachable:   {"Telegram 에 닿지 못해 token 을 확인하지 못했습니다.", "인터넷 연결을 확인하고 다시 시도하세요. 저장은 되지 않았습니다."},
-	CodeTelegramConfigInvalid: {"Telegram 설정 값이 규칙에 맞지 않습니다.", "무음 시간은 0~1440분입니다."},
-	CodeTelegramNoToken:       {"봇 token 이 없어 등록 코드를 만들 수 없습니다.", "먼저 봇 token 을 저장하세요."},
+	CodeClaudeAccountsUnavailable: {"이 서버에는 Claude 계정 기능이 서지 않았습니다 — 데이터 폴더 없이 떴습니다.", "dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요."},
+	CodeClaudeAccountNotFound:     {"그런 Claude 계정이 등록되어 있지 않습니다.", "`dmctl account list` 로 계정 ID 를 확인하세요."},
+	CodeClaudeAccountInvalid:      {"계정 값이 허용 범위를 벗어났습니다(별칭 24자, 문턱값 50~99.9, 우선순위 0~1000, 정해진 색).", "범위 안의 값으로 다시 보내세요."},
+	CodeClaudeNotLoggedIn:         {"Claude Code 에 로그인한 계정이 없거나 자격증명이 비었습니다.", "Claude Code 에서 `/login` 으로 추가할 계정에 로그인한 뒤 다시 시도하세요."},
+	CodeClaudeBackupEmpty:         {"이 계정의 자격증명 백업이 비었습니다.", "그 계정으로 Claude Code 에 로그인한 뒤 '현재 계정 추가'로 다시 추가하세요."},
+	CodeClaudeLocked:              {"Claude Code 가 자격증명이나 설정을 쓰는 중입니다.", "잠시 뒤 다시 시도하세요."},
+	CodeClaudeLiveChanged:         {"전환 도중 활성 자격증명이 바뀌었습니다.", "다시 시도하세요."},
+	CodeClaudeNoCandidate:         {"전환할 다른 계정이 없습니다.", "계정을 더 추가하거나 제외를 푸세요."},
+	CodeClaudeTooSoon:             {"조금 전에 조회했거나, 서버 요청 제한 때문에 물러나는 중입니다.", "응답의 `retryAt` 뒤에 다시 시도하세요."},
+	CodeClaudeKeychain:            {"키체인을 읽을 수 없습니다.", "키체인 잠금을 풀고 다시 시도하세요."},
+	CodeTelegramUnavailable:       {"이 서버에는 Telegram 브리지가 서지 않았습니다 — 데이터 폴더 없이 떴습니다.", "dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요."},
+	CodeTelegramTokenInvalid:      {"봇 token 의 모양이 틀렸거나 Telegram 이 그 token 을 받지 않았습니다.", "BotFather 가 준 token 전체(`숫자:글자`)를 다시 넣으세요. 폐기한 token 은 쓸 수 없습니다."},
+	CodeTelegramUnreachable:       {"Telegram 에 닿지 못해 token 을 확인하지 못했습니다.", "인터넷 연결을 확인하고 다시 시도하세요. 저장은 되지 않았습니다."},
+	CodeTelegramConfigInvalid:     {"Telegram 설정 값이 규칙에 맞지 않습니다.", "무음 시간은 0~1440분입니다."},
+	CodeTelegramNoToken:           {"봇 token 이 없어 등록 코드를 만들 수 없습니다.", "먼저 봇 token 을 저장하세요."},
 
 	// ── 노드 간 통신 (PEER_NETWORK_SRS) ──
 	CodePeerUnavailable:    {"이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다.", "server.log 의 peer identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(짝은 다시 맺어야 합니다)."},

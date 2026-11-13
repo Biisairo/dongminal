@@ -29,6 +29,9 @@ const (
 	// TelegramFile 은 Telegram 브리지 설정이다 — token 이 들어 있어 권한 600 이다
 	// (TELEGRAM_BRIDGE_SRS FR-TGB-2).
 	TelegramFile = "telegram.json"
+	// ClaudeAccountsDir 는 Claude 다중 계정의 자리다 — 자격증명 백업이 들어 있어 0700 이다
+	// (CLAUDE_ACCOUNTS_SRS FR-CAC-1).
+	ClaudeAccountsDir = "claude-accounts"
 
 	BinDir          = "bin"
 	NotesDir        = "notes"

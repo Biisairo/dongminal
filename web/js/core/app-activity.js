@@ -56,15 +56,22 @@ const ACTIVITY_SECTIONS=[
 
 /**
  * ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40~43 (D-ASV-11): Usage 바닥 — 패널 맨 아래에 붙은 계정 한도.
- * 이름과 모양은 Claude Code `/usage` 와 CodexBar 를 따른다 — 창마다 이름 · `NN% used` · 막대 ·
- * `Resets in 2h 10m`.
+ * 창 블록의 모양은 Claude Code `/usage` 와 CodexBar 를 따른다 — 이름 · `NN% used` · 막대 · `Resets in 2h 10m`.
+ *
+ * CLAUDE_ACCOUNTS_SRS FR-CAC-90·93 (D-CAC-6): 바닥은 등록 계정마다 묶음 하나(`app-claude-accounts.js`)와
+ * 맨 아래 statusLine 한 줄이다.
+ *   이전 동작: statusLine `rate_limits` 를 창마다 막대 블록으로 그렸다
+ *   새  동작: statusLine 값은 한 줄(`statusLine · 세션 34% · 주간 21% · 2시간 10분 후 초기화`)이고,
+ *             창 블록은 계정 묶음이 쓴다
+ *   이유:     계정을 구분하는 값(계정 묶음)과 구분하지 못하는 값(statusLine)을 섞지 않는다
  */
 
-/** FR-ASV-42: 관측이 이보다 오래되면 머리 줄에 `as of HH:MM` 을 보인다. */
+/** FR-ASV-42: 관측이 이보다 오래되면 `as of HH:MM` 을 보인다. */
 const LIMIT_STALE_MS=10*60*1000;
 /** FR-ASV-41: i18n 이름이 있는 창. 나머지는 `limitWindowLabel` 이 사람이 읽는 꼴로 쓴다. */
 const LIMIT_WINDOW_KEYS=Object.freeze(['five_hour','seven_day','seven_day_opus','seven_day_sonnet']);
-const LIMIT_AGENT_NAMES=Object.freeze({claude:'Claude'});
+/** FR-CAC-93: statusLine 줄에서 짧은 이름을 갖는 창. */
+const LIMIT_SL_KEYS=Object.freeze(['five_hour','seven_day']);
 
 function limitWindowLabel(name){
   if(LIMIT_WINDOW_KEYS.includes(name)) return t('usage.win.'+name);
@@ -87,28 +94,43 @@ function limitClock(ms){
 }
 
 /**
- * FR-ASV-41·42: 바닥이 그리는 값. 에이전트마다 머리 하나와 창 블록들이다. 사용률이 없는 창은 뺀다.
- * 남은 시간은 서버가 셈한 `resetsInSec` 만 쓴다 (D-ASV-10). `nowMs` 는 오래된 관측을 가를 때만 쓴다.
+ * FR-ASV-41: 창 블록 하나의 값. 남은 시간과 등급은 서버가 셈한 값만 쓴다 (D-ASV-10).
+ * `resetsAt` 은 unix 초이고 툴팁에만 쓴다.
  */
-function limitFootView(limits,nowMs){
-  const out=[];
-  for(const l of Array.isArray(limits)?limits:[]){
-    const stale=typeof l.observedAt==='number'&&nowMs-l.observedAt>LIMIT_STALE_MS;
-    const windows=[];
-    for(const w of Array.isArray(l.windows)?l.windows:[]){
-      if(typeof w.usedPct!=='number') continue;
-      const pct=Math.round(w.usedPct),label=limitWindowLabel(w.name);
-      // 툴팁은 영어다 (FR-TIP-2) — 이름은 화면 문구를 그대로 쓰고, 나머지 낱말만 영어로 둔다.
-      const title=[label,pct+'% used',typeof w.resetsAt==='number'?'resets at '+limitClock(w.resetsAt*1000):'']
-        .filter(Boolean).join(' · ');
-      windows.push({id:l.agent+':'+w.name,label,used:t('usage.used',{n:pct}),
-        fill:Math.min(100,Math.max(0,w.usedPct)),level:w.level||'',
-        reset:typeof w.resetsInSec==='number'?limitResetText(w.resetsInSec):'',title});
-    }
-    out.push({agent:l.agent,name:LIMIT_AGENT_NAMES[l.agent]||l.agent,
-      asOf:stale?t('usage.as_of',{t:limitClock(l.observedAt)}):'',windows});
+function limitBarView(id,label,pct,resetsAt,resetsInSec,level){
+  const n=Math.round(pct);
+  // 툴팁은 영어다 (FR-TIP-2) — 이름은 화면 문구를 그대로 쓰고, 나머지 낱말만 영어로 둔다.
+  const title=[label,n+'% used',typeof resetsAt==='number'&&resetsAt>0?'resets at '+limitClock(resetsAt*1000):'']
+    .filter(Boolean).join(' · ');
+  return {id,label,used:t('usage.used',{n}),fill:Math.min(100,Math.max(0,pct)),level:level||'',
+    reset:typeof resetsInSec==='number'?limitResetText(resetsInSec):'',title};
+}
+
+/**
+ * FR-CAC-93: statusLine 한 줄. 값이 없으면 null 이다. 창마다 짧은 이름과 %, 끝에 세션 창의 초기화.
+ * `nowMs` 는 오래된 관측을 가를 때만 쓴다.
+ */
+function statusLineView(limits,nowMs){
+  const l=(Array.isArray(limits)?limits:[]).find(x=>x&&x.agent==='claude');
+  if(!l) return null;
+  const segs=[];
+  let reset='';
+  for(const w of Array.isArray(l.windows)?l.windows:[]){
+    if(typeof w.usedPct!=='number') continue;
+    const name=LIMIT_SL_KEYS.includes(w.name)?t('usage.sl.'+w.name):limitWindowLabel(w.name);
+    segs.push({text:name+' '+Math.round(w.usedPct)+'%',level:w.level||''});
+    if(w.name==='five_hour'&&typeof w.resetsInSec==='number') reset=limitResetText(w.resetsInSec);
   }
-  return out;
+  if(!segs.length) return null;
+  const stale=typeof l.observedAt==='number'&&nowMs-l.observedAt>LIMIT_STALE_MS;
+  return {label:t('usage.sl.label'),segs,reset,asOf:stale?t('usage.as_of',{t:limitClock(l.observedAt)}):''};
+}
+
+/** 바닥의 작은 원소 하나를 부모 끝에 붙인다. */
+function actEl(parent,tag,cls,text){
+  const e=document.createElement(tag);e.className=cls;
+  if(text!==undefined) e.textContent=text;
+  parent.appendChild(e);return e;
 }
 
 Object.assign(App.prototype, {
@@ -125,9 +147,10 @@ Object.assign(App.prototype, {
       if(!its.length) out.push({t:'secempty',sec});
       else for(const it of its) out.push(it);
     }
-    // FR-ASV-40·43: Usage 바닥은 늘 맨 끝이고, 한도가 없으면 없다.
-    const foot=limitFootView(this._limits,Date.now());
-    if(foot.length) out.push({t:'foot',view:foot});
+    // FR-ASV-40·43 · FR-CAC-90: Usage 바닥은 늘 맨 끝이고, 계정도 statusLine 값도 없으면 없다.
+    const accounts=claudeAcctFootViews(this._claudeAccts,this._claudeAcctOpen());
+    const sl=statusLineView(this._limits,Date.now());
+    if(accounts.length||sl) out.push({t:'foot',view:{accounts,next:accounts.length>1,sl}});
     return out;
   },
 
@@ -232,31 +255,39 @@ Object.assign(App.prototype, {
     return (this._bg||[]).map(b=>({t:'row',sec:'bg',id:b.toolId,el:this._bgRow(b)}));
   },
 
-  /** FR-ASV-40·41·42: Usage 바닥. 머리 줄 · 창 블록(이름과 사용률 / 막대 / 남은 시간). */
+  /** FR-ASV-40·41 · FR-CAC-90~93: Usage 바닥. 계정 머리 줄 · 계정 묶음 · 맨 아래 statusLine 줄. */
   _actUsageFootEl(view){
     const foot=document.createElement('div');
     foot.className='act-usage-foot';
-    const el=(parent,tag,cls,text)=>{
-      const e=document.createElement(tag);e.className=cls;
-      if(text!==undefined) e.textContent=text;
-      parent.appendChild(e);return e;
-    };
-    for(const a of view){
-      const head=el(foot,'div','act-usage-head');
-      el(head,'span','act-usage-name',a.name);
-      if(a.asOf) el(head,'span','act-usage-asof',a.asOf);
-      for(const w of a.windows){
-        const win=el(foot,'div','act-usage-win'+(w.level==='warn'||w.level==='critical'?' lv-'+w.level:''));
-        win.title=w.title;
-        const top=el(win,'div','act-usage-top');
-        el(top,'span','act-usage-label',w.label);
-        el(top,'span','act-usage-used',w.used);
-        const track=el(win,'div','act-usage-track');
-        el(track,'div','act-usage-fill').style.width=w.fill+'%';
-        if(w.reset) el(win,'div','act-usage-reset',w.reset);
-      }
+    if(view.accounts.length){
+      const head=actEl(foot,'div','act-usage-head');
+      actEl(head,'span','act-usage-name',t('cacct.title'));
+      if(view.next) head.appendChild(UIKit.button({label:t('cacct.next'),kind:'ghost',size:'sm',cls:'cacct-next',
+        onClick:e=>{e.stopPropagation();this._claudeAcctNext()}}));
+      for(const a of view.accounts) foot.appendChild(this._claudeAcctEl(a));
+    }
+    if(view.sl){
+      const sl=actEl(foot,'div','act-usage-sl');
+      sl.title='Rate limits reported by the Claude Code statusLine';
+      actEl(sl,'span','act-usage-sl-label',view.sl.label);
+      for(const g of view.sl.segs) actEl(sl,'span','act-usage-sl-seg'+(g.level==='warn'||g.level==='critical'?' lv-'+g.level:''),g.text);
+      if(view.sl.reset) actEl(sl,'span','act-usage-sl-reset',view.sl.reset);
+      if(view.sl.asOf) actEl(sl,'span','act-usage-asof',view.sl.asOf);
     }
     return foot;
+  },
+
+  /** FR-ASV-41: 창 블록 — 이름과 사용률 / 막대 / 남은 시간. */
+  _actUsageWinEl(parent,w){
+    const win=actEl(parent,'div','act-usage-win'+(w.level==='warn'||w.level==='critical'?' lv-'+w.level:''));
+    win.title=w.title;
+    const top=actEl(win,'div','act-usage-top');
+    actEl(top,'span','act-usage-label',w.label);
+    actEl(top,'span','act-usage-used',w.used);
+    const track=actEl(win,'div','act-usage-track');
+    actEl(track,'div','act-usage-fill').style.width=w.fill+'%';
+    if(w.reset) actEl(win,'div','act-usage-reset',w.reset);
+    return win;
   },
 
   _actRunsRows(){

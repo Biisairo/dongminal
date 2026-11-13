@@ -17,5 +17,6 @@ func newPlatform() Platform {
 		Paths:   posixPaths{},
 		Browser: macBrowser(),
 		Opener:  macOpener(),
+		Secrets: newMacKeychain(),
 	}
 }
