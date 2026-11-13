@@ -77,6 +77,10 @@ const SidebarList = {
       el.firstElementChild.textContent = d.emptyText;
       return;
     }
+    // 이름 편집 중에는 그리지 않는다. 행의 값(알람 등)이 바뀌면 reconcile 이 편집칸째 행을
+    // 지우고, 그 blur 가 다시 그리기를 불러 removeChild 가 던진다. 확정이 끝나면 rename 이 그린다.
+    //   이전: 편집 중 에이전트 알람이 바뀌면 이름 바꾸기가 사라지고 그리기가 예외로 멈췄다
+    if (el.querySelector('.rename-input')) return;
     this._bindKeys(app, def, el);
     // 다시 만들어질 행이 포커스를 쥐고 있으면 그 키를 기억해 둔다 (아래 `_rove`).
     const ae = document.activeElement;
