@@ -93,11 +93,15 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 2. ~~`dmctl account usage [<계정>] [--refresh] [--json]`~~ — 끝났다. `internal/helper/runtimebin/dmctl_account.go` `accountUsageCmd`, 시험 `dmctl_account_test.go` (TC-CAC-24 usage 6건). 남은 시간·등급은 서버 값만 쓴다(D-CAC-15). 열 맞춤은 하지 않는다 — 한글 폭을 셀 도우미가 없다.
 3. ~~3단계 제한 초기화~~ — 끝났다. `claudeacct/resets.go`(해석·결과 대응·`Client.ClaimReset`), `engine.go`(`fetchResets`·`FetchResetsNow`·`Claim`, 사용량 조회 3번에 1번 상태 조회), `POST /api/claude-accounts/reset`·`refresh {resets:true}`, `dmctl account reset`, 펼친 묶음의 "제한 초기화" 칸과 확인 대화상자. 원본 형식은 Claude Code 2.1.323 바이너리에서 뽑았다(SRS FR-CAC-60a).
 4. ~~4단계~~ — 끝났다 (§3).
-5. **5단계** 계정별 실행 (묶음 H)과 화면 표시(탭 틴트, Repo 칩, Explorer 칩). 셸 래퍼는 `internal/shared/runtime/shellhooks/{posix/zdotdir/.zshrc, posix/bash-hook.sh, windows/powershell-hook.ps1}` 의 `claude()` 다. GUI 기동(FR-CAC-84)은 해당 없음이다 — 에이전트 GUI 와 프로토콜 표면을 지웠다(`AGENT_GUI_REMOVAL_SRS` §6).
-   - **착수 블록 (2026-11-13, 4단계 세션)**: SRS §3.H(FR-CAC-80~87)·FR-CAC-95~97·102(`pin`·`map`·`unmap`·`maps`·`env`)·120(`mappings`·`resolve`)·12(삭제가 매핑·프로필을 지움)·36·43(고정 실행 중 갱신)이 범위다. 착수 전에 SRS 빈칸을 찾아 사용자에게 하나씩(권장 답과 함께) 묻고, Spec → 시험 → RED → 구현 → GREEN → gates 순서로 한다. 끝나면 사용자 확인 뒤 커밋.
-   - **4단계와 이어지는 곳**: FR-CAC-77 은 "고정 실행 중 = 늘 아님" 이다. 5단계에서 FR-CAC-87 판정(`profiles/<id>/sessions/<pid>.json` + pid 생존, `platform.Process.Alive`)을 만들고 `claudeacct.Auto.candidates`(autoswitch.go)에 넣어 후보에서 빼고, FR-CAC-77 을 지운다. FR-CAC-86(프로필 토큰 회수)은 `Engine.fetch` 앞에 둔다.
-   - statusLine 프록시(`dmctl_statusline.go` `statuslineAccount`)는 이미 `CLAUDE_CONFIG_DIR/.claude.json` 의 계정을 읽는다. 프로필의 `.claude.json` 에 `oauthAccount` 를 맞춰 두면(FR-CAC-82) 고정 실행 세션의 statusLine 값이 그 계정으로 자동 귀속된다.
-   - 프로필 키체인 이름은 이미 `ClaudePaths`(paths.go)에 있다(`Claude Code-credentials-<sha256(NFC(dir))[:8]>`).
+5. **5단계** 계정별 실행 (묶음 H)과 화면 표시. SRS 빈칸은 **모두 정했다** (2026-11-13, D-CAC-24~28, SRS 머리 개정 (6)). 다시 묻지 말 것. 둘로 나눠 각각 사용자 확인 뒤 커밋한다.
+   - **5a — 서버 + shim + dmctl** (먼저):
+     - 서버(`claudeacct`): `mappings.json` 저장소(FR-CAC-80, 경로 정규화·Windows 대소문자), 해석(FR-CAC-81), 탭 지정 수명(FR-CAC-81a — 도구 종료 시 지움, 도구 목록을 처음 알 때 정리, 목록 모름이면 안 지움. 착수 때 "재기동 뒤 같은 toolId 로 되살아나는가" 를 코드로 확인), 프로필 준비(FR-CAC-82 — 자격증명은 SRS 대로 프로필 키체인/파일에 쓴다, `.claude.json` 은 D-CAC-26 규칙으로 기본 설정에서 계정 항목만 빼고 가져온다, 공유 항목 링크·대안), 토큰 회수(FR-CAC-86, `Engine.fetch` 앞), 고정 실행 판정(FR-CAC-87, `profiles/<id>/sessions/<pid>.json` 의 `pid` + 생존) → `Auto.candidates` 에서 빼고 FR-CAC-77 을 지운다, 고정 실행 중 갱신(FR-CAC-43 셋째 갈래), 전환 응답 `pinnedRunning`(FR-CAC-36, D-CAC-28), 삭제가 매핑·프로필을 지움(FR-CAC-12).
+     - API: `GET·PUT /mappings`, `GET /resolve`(준비 안 함), `POST /launch`(FR-CAC-88, 준비함). SSE `claude_accounts_changed`. `docs/external/api.md`.
+     - shim(FR-CAC-83, D-CAC-24·25): `runtimebin/dispatch.go` 의 `commands` 에 `claude` 를 더하고, 설치(`internal/shared/runtime/install.go`)가 `<home>/bin/agent-shims/claude[.exe]` 를 깐다(`homelayout.go` 표도). 세 셸 훅에서 `claude()` 함수를 지우고 사용자 rc 뒤에 PATH 맨 앞 넣기 + 프롬프트마다 맨 앞으로 다시 옮기기. 진짜 claude 는 PATH 에서 `agent-shims` 를 뺀 나머지에서 찾는다. 서버 호출은 `httpJSONWithin`(3초). 연결 거부는 기본 계정으로 실행, 오류·시간 초과는 실행하지 않음(종료 1). POSIX 는 `syscall.Exec`. 기존 래퍼 대조 시험(runtime 패키지의 `PolicyInjection` 대조)이 함수 대신 shim 을 보게 고친다.
+     - dmctl: `pin [--tab <toolId>] <계정>|--clear`, `map <계정> [경로]`, `unmap [경로]`, `maps`. `env` 는 두지 않는다.
+   - **5b — 화면**: 탭 틴트(FR-CAC-95), Repo 칩(FR-CAC-96), Explorer 칩과 폴더 메뉴(FR-CAC-97), 탭 우클릭 "Claude 계정"(FR-CAC-85), 전환 토스트의 `pinnedRunning` 안내. JS 단위 TC-CAC-22.
+   - **이어지는 곳**: statusLine 프록시(`dmctl_statusline.go` `statuslineAccount`)는 이미 `CLAUDE_CONFIG_DIR/.claude.json` 의 계정을 읽는다 — 프로필 `oauthAccount` 를 맞추면 고정 세션의 statusLine 값이 그 계정으로 귀속된다. 프로필 키체인 이름은 `ProfileClaudePaths`(paths.go)에 있다.
+   - **참고**: cswap 원본은 `~/.local/share/uv/tools/claude-swap/lib/python3.12/site-packages/claude_swap/`(`session.py` 가 프로필·공유 항목·MCP 미러). cswap 은 프로필 자격증명을 평문 `.credentials.json` 으로 넣고 Claude 가 키체인으로 옮기게 둔다. 우리 SRS 는 키체인에 직접 쓴다(FR-CAC-82) — SRS 를 따른다.
 
 6. **6단계** 설정 "Claude 계정" 구역, 기존 결정 개정(FR-CAC-130: D-ACU-3·D-ASV-2 철회 표시, `ACTIVITY_CARD_USAGE_SRS` 비목표 줄), e2e. `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-41(statusLine 창 블록)이 FR-CAC-93 의 한 줄로 바뀐 것도 그 문서에 개정으로 적는다.
 
@@ -110,9 +114,14 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 - SSE 사건(상태가 아닌 것)은 `state-registry.js` 가 아니라 `app-ws-sync.js` 의 `bus.subscribe` 로 받는다.
 - 외부 명령(`ps` 등)은 `internal/shared/platform` 안에만 둔다(`check-seams.sh`). `ProcInfo` 인터페이스를 넓히면 모든 어댑터·가짜를 고쳐야 하므로 독립 함수(예: `CommandLines`)를 쓴다.
 - `git/core` `TestNoCredentialFields` 는 1단계부터 실패한다(아래 §5) — 새 실패로 오인하지 말 것.
+- 에이전트 GUI 는 완전 폐기다(사용자 지시 2026-11-13). 어댑터의 프로토콜 표면·`fakeagent` 까지 `b196e9f8` 에서 지웠다. 남은 GUI 잔재를 보면 함께 지운다.
+- 사용자는 설명 없이 쓴 용어(예: shim)를 싫어한다. 질문 창에는 앞의 설명이 보이지 않을 수 있으니, 질문 안에 필요한 설명을 넣는다.
+- `~/.claude.json` 등 사용자 파일은 키 이름만 본다(값은 보지 않는다).
 
 ## 5. 끝에 사용자에게 보고할 것
 
+- 5단계 결정: D-CAC-24~28. D-CAC-28(전환 경고는 막지 않는 안내)과 FR-CAC-88(launch API 모양)은 구현자 판단이다.
+- GUI 잔재 제거(`b196e9f8`): `M8_UNIFIED_SRS`·`M8_PROGRESS` 는 언어 정책 원문 등을 담고 있어 archive 로 옮기지 않고 개정 표시만 달았다.
 - 4단계 결정: D-CAC-17~23 (SRS §4). 스마트 전환은 값을 모르는 계정을 두 전략 모두 건너뛴다. 문턱값은 50~100. 판단은 OAuth·statusLine 중 큰 값.
 - `TestNoCredentialFields`(git/core)가 1단계부터 실패한다. `claude_accounts_api.go` 의 `ErrNoCredentials` 줄을 자격증명 자리로 잘못 잡는다. 이름을 바꿀지, 검사의 예외로 둘지 사용자 결정이 필요하다.
 - 인계 문서가 가리키던 "FR-CAC-37(헤드룸 정의 표)" 는 SRS 에 없다. 헤드룸 정의는 §1.3 에 있다.
