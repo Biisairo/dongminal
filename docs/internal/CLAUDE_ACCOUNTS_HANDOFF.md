@@ -6,7 +6,7 @@
 
 - 워크트리: `/Users/dykim/personal/dongminal/.claude/worktrees/claude-accounts`
 - 브랜치: `feat/claude-accounts` (로컬 main `710d0ec9` 에서 갈라졌다. origin/main 보다 커밋 하나 앞선 main 이다)
-- 1·2단계는 `0356fb6e`, `dmctl account usage`·argv 제거는 `eeffd3ce`, 3단계는 `f14b0425`, 4단계(+statusLine 합치기)는 `73207c0f` 로 커밋했다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
+- 1·2단계는 `0356fb6e`, `dmctl account usage`·argv 제거는 `eeffd3ce`, 3단계는 `f14b0425`, 4단계(+statusLine 합치기)는 `73207c0f`, 5a 는 `2a90f38e` 로 커밋했다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
 - 순서는 단계마다 고정이다: 시험 작성 → RED 확인 → 구현 → GREEN → `make gates`·`golangci-lint`.
 - 시험은 실제 키체인과 실제 Anthropic 엔드포인트를 부르지 않는다. 서버 시험은 `Config.ClaudeSecrets` 에 가짜를, `Config.ClaudeAPI` 에 `httptest` 주소를 넣는다.
 - 워크트리 세션에서는 `cd ... && cat > 파일 <<EOF` 같은 복합 셸 명령이 거절된다. 파일은 Write/Edit 도구로 쓰고, 셸 명령은 단순하게 나눈다. `tmp/` 대신 `/tmp/` 를 쓴다.
@@ -100,7 +100,9 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
      - shim(FR-CAC-83, D-CAC-24·25): `runtimebin/dispatch.go` 의 `commands` 에 `claude` 를 더하고, 설치(`internal/shared/runtime/install.go`)가 `<home>/bin/agent-shims/claude[.exe]` 를 깐다(`homelayout.go` 표도). 세 셸 훅에서 `claude()` 함수를 지우고 사용자 rc 뒤에 PATH 맨 앞 넣기 + 프롬프트마다 맨 앞으로 다시 옮기기. 진짜 claude 는 PATH 에서 `agent-shims` 를 뺀 나머지에서 찾는다. 서버 호출은 `httpJSONWithin`(3초). 연결 거부는 기본 계정으로 실행, 오류·시간 초과는 실행하지 않음(종료 1). POSIX 는 `syscall.Exec`. 기존 래퍼 대조 시험(runtime 패키지의 `PolicyInjection` 대조)이 함수 대신 shim 을 보게 고친다.
      - dmctl: `pin [--tab <toolId>] <계정>|--clear`, `map <계정> [경로]`, `unmap [경로]`, `maps`. `env` 는 두지 않는다.
    - **5a 결과**: `claudeacct/mappings.go`(저장소·정규화·해석·탭 정리), `profile.go`(프로필 준비·공유 링크·고정 실행 판정·토큰 회수), `engine.go` `refreshPinned`, `httpapi/claude_accounts_mappings.go`(GET·PUT mappings, resolve, launch — 탭 정리는 이 셋이 불릴 때 도구 목록을 알면 한다), `platform.Junction`, `runtimebin/claude_shim*.go`(`runAgentShim`, 이름은 `agentadapter.ShimCommands()`), `dmctl_account_map.go`(pin·map·unmap·maps), 세 셸 훅의 `_dm_shim_front`/`__dongminalShimFront`, 설치·점검의 `agent-shims/`. 결정 D-CAC-29(회수 범위 넓힘, 같은 계열 백업은 더 새 백업을 덮지 않음), SRS 개정 (7).
-   - **5b — 화면**: 탭 틴트(FR-CAC-95), Repo 칩(FR-CAC-96), Explorer 칩과 폴더 메뉴(FR-CAC-97), 탭 우클릭 "Claude 계정"(FR-CAC-85), 전환 토스트의 `pinnedRunning` 안내. JS 단위 TC-CAC-22.
+   - **5b — 화면** (다음): 탭 틴트(FR-CAC-95), Repo 칩(FR-CAC-96), Explorer 칩과 폴더 메뉴(FR-CAC-97), 탭 우클릭 "Claude 계정"(FR-CAC-85), 전환 토스트의 `pinnedRunning` 안내. JS 단위 TC-CAC-22.
+     - **착수 블록**: 먼저 SRS §3.H(FR-CAC-80~88a)·§3.I(FR-CAC-95~99)와 이 문서 §4a 를 읽는다. 서버 쪽은 끝났다. 화면이 쓸 것은 `GET /api/claude-accounts/mappings`(`{folders:{경로:{accountId}}, tabs:{toolId:{accountId}}}`), `GET /resolve?toolId=&cwd=`(`{accountId?, source:"tab"|"folder"|"none", folder?, configDir?}`), `PUT /mappings`(`{folder|toolId, accountId}`, 빈 accountId 는 푼다), 전환 응답의 `pinnedRunning` 이다. 매핑이 바뀌면 SSE `claude_accounts_changed` 가 나간다. 경로 키는 서버가 심볼릭 링크를 푼 값이다. 화면의 cwd·저장소 루트와 비교할 때는 서버의 `resolve` 를 쓰거나 같은 정규화를 거쳐야 한다(문자열을 바로 비교하면 macOS `/var`↔`/private/var` 에서 어긋난다). 계정 색은 `--acct-1`~`--acct-8`(2단계). 순서: Spec 확인 → JS 단위 시험(TC-CAC-22) → RED → 구현 → GREEN → `make gates`·golangci-lint·eslint·typecheck(§4a 의 node_modules 심링크). 끝나면 사용자 확인 뒤 커밋한다.
+     - 화면 문구는 모두 i18n 키(ko·en)다. 새 스크롤 표면에는 `ui-scroll-sm`, 버튼에는 킷 등급이 필요하다(`make gates` 가 잡는다).
    - **이어지는 곳**: statusLine 프록시(`dmctl_statusline.go` `statuslineAccount`)는 이미 `CLAUDE_CONFIG_DIR/.claude.json` 의 계정을 읽는다 — 프로필 `oauthAccount` 를 맞추면 고정 세션의 statusLine 값이 그 계정으로 귀속된다. 프로필 키체인 이름은 `ProfileClaudePaths`(paths.go)에 있다.
    - **참고**: cswap 원본은 `~/.local/share/uv/tools/claude-swap/lib/python3.12/site-packages/claude_swap/`(`session.py` 가 프로필·공유 항목·MCP 미러). cswap 은 프로필 자격증명을 평문 `.credentials.json` 으로 넣고 Claude 가 키체인으로 옮기게 둔다. 우리 SRS 는 키체인에 직접 쓴다(FR-CAC-82) — SRS 를 따른다.
 
