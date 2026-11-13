@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
@@ -77,6 +78,15 @@ func TestHealth_SilentOnHealthyHelpers(t *testing.T) {
 	suffix := platform.Current().Paths.ExeSuffix()
 	for _, n := range dmenv.HelperNames() {
 		if err := os.WriteFile(filepath.Join(binDir, n+suffix), []byte("x"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	shims := dmenv.AgentShimsDirIn(binDir)
+	if err := os.MkdirAll(shims, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range agentadapter.ShimCommands() {
+		if err := os.WriteFile(filepath.Join(shims, n+suffix), []byte("x"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}

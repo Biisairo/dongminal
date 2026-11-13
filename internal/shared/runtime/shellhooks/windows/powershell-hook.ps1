@@ -1,5 +1,5 @@
 ﻿# dongminal 셸 훅 (Windows). POSIX 의 posix/bash-hook.sh · posix/zdotdir/.zshrc 와
-# 같은 세 가지를 한다 — cwd 통지, claude 래퍼, codex 래퍼.
+# 같은 일을 한다 — cwd 통지, claude shim 폴더의 PATH 자리, codex·omp 래퍼.
 #
 # 모든 정의에 global: 을 붙인다. 이 파일은 `powershell -NoExit -File` 로 실행되고,
 # 스크립트 스코프에 정의한 것은 스크립트가 끝나는 순간 사라지기 때문이다.
@@ -44,6 +44,7 @@ if (-not $global:__dongminalPrompt) {
     $global:__dongminalPrompt = $function:prompt
 }
 function global:prompt {
+    __dongminalShimFront
     try {
         $cwd = (Get-Location).ProviderPath
         if ($cwd) {
@@ -68,18 +69,19 @@ function global:__dongminalApp($name) {
         Select-Object -First 1
 }
 
-function global:claude {
-    $app = __dongminalApp 'claude'
-    if (-not $app) { Write-Error 'claude 를 찾을 수 없습니다'; return }
-    $extra = @()
-    if ($env:DONGMINAL_HOME) {
-        $settings = Join-Path $env:DONGMINAL_HOME 'bin\agent-hooks\claude.json'
-        $plugin = Join-Path $env:DONGMINAL_HOME 'bin\agent-plugin'
-        if (Test-Path $settings) { $extra += @('--settings', $settings) }
-        if (Test-Path $plugin) { $extra += @('--plugin-dir', $plugin) }
-    }
-    & $app.Source @extra @args
+# claude 는 셸 함수 대신 shim 이 맡는다 (CLAUDE_ACCOUNTS_SRS FR-CAC-83, D-CAC-24). shim 이 훅 인자와
+# 탭·폴더의 Claude 계정을 넣고 진짜 claude 를 실행한다. 사용자 프로필이 PATH 를 바꿀 수 있으므로
+# 프로필을 읽은 뒤(이 파일은 프로필 뒤에 돈다) 맨 앞에 넣고, 프롬프트마다 맨 앞이 아니면 다시 옮긴다.
+# -eq·-ne 는 대소문자를 가리지 않는다 — Windows 경로와 같다.
+function global:__dongminalShimFront {
+    if (-not $env:DONGMINAL_HOME) { return }
+    $d = Join-Path $env:DONGMINAL_HOME 'bin\agent-shims'
+    $parts = @($env:PATH -split ';')
+    if ($parts[0] -eq $d) { return }
+    $rest = @($parts | Where-Object { $_ -and ($_ -ne $d) })
+    $env:PATH = (@($d) + $rest) -join ';'
 }
+__dongminalShimFront
 
 function global:codex {
     $app = __dongminalApp 'codex'

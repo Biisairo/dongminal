@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"dongminal/internal/shared/agentadapter"
 )
 
 type runFunc func(args []string, stdout, stderr io.Writer) int
@@ -25,6 +27,15 @@ var commands = map[string]runFunc{
 	// VIEWER_URL_OPEN_SRS FR-VUO-12: BROWSER 는 실행 파일을 요구하므로 쉘
 	// 함수로는 대신할 수 없다. 헬퍼로 서야 그 변수가 가리킬 자리가 생긴다.
 	"open-url": runOpenURL,
+}
+
+// CLAUDE_ACCOUNTS_SRS FR-CAC-83: `agent-shims/<명령>` 으로 서는 shim 이다. 이름은 등록부가 정한다.
+func init() {
+	for _, name := range agentadapter.ShimCommands() {
+		commands[name] = func(args []string, stdout, stderr io.Writer) int {
+			return runAgentShim(name, args, stdout, stderr)
+		}
+	}
 }
 
 // HelperName은 argv[0] 에서 실행 파일의 이름을 뽑는다.

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
@@ -123,6 +124,14 @@ func TestCheckHelpers_FindsDangling(t *testing.T) {
 	if err := os.Remove(helperPath(binDir, names[1])); err != nil {
 		t.Fatal(err)
 	}
+	// shim 은 온전하게 둔다 — 이 시험이 세는 것은 위의 두 문제다.
+	shims := dmenv.AgentShimsDirIn(binDir)
+	_ = os.MkdirAll(shims, 0o755)
+	for _, n := range agentadapter.ShimCommands() {
+		if err := os.WriteFile(helperPath(shims, n), []byte("x"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	st := InspectHelpers(binDir)
 	if !st.Installed {
@@ -196,8 +205,9 @@ func TestInspectHelpers_PartialInstallIsBroken(t *testing.T) {
 	if !st.Installed {
 		t.Fatal("하나라도 있으면 설치된 것으로 본다")
 	}
-	if len(st.Problems) != len(names)-1 {
-		t.Fatalf("없는 %d개를 문제로 세야 한다: %+v", len(names)-1, st.Problems)
+	want := len(names) - 1 + len(agentadapter.ShimCommands())
+	if len(st.Problems) != want {
+		t.Fatalf("없는 %d개를 문제로 세야 한다: %+v", want, st.Problems)
 	}
 }
 

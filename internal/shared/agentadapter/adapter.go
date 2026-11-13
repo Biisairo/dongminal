@@ -95,6 +95,9 @@ type PolicyInjection struct {
 	// 않는가다. 참조 구현은 영구 설정에 쓰는 대가로 설치 잠금·소유자 신원·드리프트
 	// 검출 기계를 떠안는다. 우리는 그 비용을 지지 않기로 했다.
 	SessionScoped bool
+	// Shim 은 셸 함수 대신 PATH shim(`bin/agent-shims/<명령>`)이 Flags 를 붙이는가다
+	// (CLAUDE_ACCOUNTS_SRS FR-CAC-83, D-CAC-24).
+	Shim bool
 }
 
 // Signals 는 이 에이전트가 **실제로 낼 수 있는 신호**의 선언이다
@@ -292,6 +295,18 @@ func StatusLineReporter() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// ShimCommands 는 셸 함수 대신 PATH shim 으로 정책을 주입하는 에이전트의 명령 이름이다
+// (CLAUDE_ACCOUNTS_SRS FR-CAC-83). 설치가 `agent-shims/<명령>` 을 깔고 헬퍼가 그 이름으로 선다.
+func ShimCommands() []string {
+	var out []string
+	for _, id := range IDs() {
+		if registry[id].PolicyInjection.Shim {
+			out = append(out, registry[id].DetectCmd)
+		}
+	}
+	return out
 }
 
 // IDs 는 선언된 에이전트 id 를 정렬해 낸다.

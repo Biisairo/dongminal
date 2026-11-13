@@ -94,12 +94,15 @@ func installWith(binDir, self string) error {
 		self = stable
 	}
 	names := helperNames()
-	for _, name := range names {
-		// 확장자는 설치 시점에만 붙인다. helperNames() 는 multi-call 디스패치가
-		// 보는 이름이며 그쪽에는 확장자가 없다 (FR-XPA-3).
-		dst := filepath.Join(binDir, name+paths.ExeSuffix())
-		if err := paths.LinkOrCopy(self, dst); err != nil {
-			return fmt.Errorf("install helper %s: %w", name, err)
+	// 확장자는 설치 시점에만 붙인다. helperNames() 는 multi-call 디스패치가
+	// 보는 이름이며 그쪽에는 확장자가 없다 (FR-XPA-3).
+	// CLAUDE_ACCOUNTS_SRS FR-CAC-83: shim 은 `agent-shims/` 에 선다.
+	if err := os.MkdirAll(dmenv.AgentShimsDirIn(binDir), 0o755); err != nil {
+		return fmt.Errorf("mkdir agent-shims: %w", err)
+	}
+	for _, h := range helperFiles(binDir) {
+		if err := paths.LinkOrCopy(self, h.path); err != nil {
+			return fmt.Errorf("install helper %s: %w", h.name, err)
 		}
 	}
 	// LEFTOVERS_SRS FR-LFT-5: 놓기만 하고 거두지 않으면 폐지된 이름이 영원히 남는다.
@@ -257,11 +260,10 @@ type HelperStatus struct {
 // 하나도 없으면 아무 문제도 보고하지 않는다. **일부만 있으면 그것은 고장이다** —
 // 온전한 설치는 전부를 놓는다 (D-6).
 func InspectHelpers(binDir string) HelperStatus {
-	paths := platform.Current().Paths
 	var st HelperStatus
 	var bad []HelperProblem
-	for _, name := range helperNames() {
-		p := filepath.Join(binDir, name+paths.ExeSuffix())
+	for _, h := range helperFiles(binDir) {
+		name, p := h.name, h.path
 		// Lstat 은 링크를 따라가지 않는다 — 죽은 링크도 "자리에 있다" 로 센다.
 		// 그것이 설치의 흔적이기 때문이다.
 		if _, err := os.Lstat(p); err == nil {
@@ -290,6 +292,21 @@ func InspectHelpers(binDir string) HelperStatus {
 	return st
 }
 
+type helperEntry struct{ name, path string }
+
+// helperFiles 는 설치가 까는 multi-call 헬퍼의 자리 전부다 — bin 의 헬퍼와 `agent-shims/` 의 shim.
+func helperFiles(binDir string) []helperEntry {
+	suffix := platform.Current().Paths.ExeSuffix()
+	var out []helperEntry
+	for _, n := range helperNames() {
+		out = append(out, helperEntry{n, filepath.Join(binDir, n+suffix)})
+	}
+	for _, n := range agentadapter.ShimCommands() {
+		out = append(out, helperEntry{n, filepath.Join(dmenv.AgentShimsDirIn(binDir), n+suffix)})
+	}
+	return out
+}
+
 // HelperNotInstalled 는 아직 설치 전이라는 안내다. 고장이 아니다 (FR-HLI-11).
 const HelperNotInstalled = "아직 설치되지 않았습니다 — 서버를 한 번도 띄우지 않은 홈입니다"
 
@@ -305,7 +322,7 @@ func AgentPluginDir(binDir string) string { return filepath.Join(binDir, "agent-
 // SessionStart 훅을 생성한다 (FR-INJ-1, FR-CTX-2).
 //
 // 이 플러그인은 사용자의 ~/.claude 에 설치되지 않는다. dongminal 이 띄운 PTY 의
-// claude() 래퍼만 --plugin-dir 로 참조하므로, 주입 범위가 그 세션으로 한정된다.
+// claude shim(FR-CAC-83)과 omp 래퍼만 --plugin-dir 로 참조하므로, 주입 범위가 그 세션으로 한정된다.
 //
 // 전개 뒤에는 임베드 트리에 없는 것을 지운다. 설치 트리는 임베드 트리의
 // **거울**이어야 한다 — 삭제된 스킬 자산이 남아 있으면 그 경로를 그대로 쓰는

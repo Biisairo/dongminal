@@ -392,11 +392,12 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 - `bin/download` — 파일을 브라우저로 다운로드
 - `bin/detach` — 현재 도구를 백그라운드로 보내고 탭 닫기
 - `bin/bash-hook.sh`, `bin/zdotdir/.zshrc` — 현재 디렉터리 OSC 리포트 훅
-- `bin/agent-hooks/` — claude 래퍼가 주입하는 hooks settings
+- `bin/agent-hooks/` — claude shim 이 주입하는 hooks settings
+- `bin/agent-shims/claude` — 탭에서 `claude` 를 치면 먼저 도는 shim. 훅 인자와, 탭·폴더에 연결한 Claude 계정(`dmctl account pin`·`map`)을 넣고 진짜 claude 를 실행합니다. 셸 훅이 이 폴더를 PATH 맨 앞에 둡니다. 계정 지정을 적용하지 못하면(서버 오류·3초 초과) claude 를 실행하지 않습니다. 서버가 꺼져 있으면 기본 계정으로 실행합니다
 
 각 터미널 도구의 shell 은 서버가 다음을 주입한 환경으로 스폰되므로 PATH 를 수동 설정할 필요가 없습니다.
 
-- `PATH=<기존 PATH>:$DONGMINAL_HOME/bin`
+- `PATH=<기존 PATH>:$DONGMINAL_HOME/bin` (셸 훅이 사용자 rc 를 읽은 뒤 `$DONGMINAL_HOME/bin/agent-shims` 를 맨 앞에 더합니다)
 - zsh → `ZDOTDIR=$DONGMINAL_HOME/bin/zdotdir`
 - bash → `BASH_ENV=$DONGMINAL_HOME/bin/bash-hook.sh`
 - `TERM=xterm-256color`, `COLORTERM=truecolor`, `LANG/LC_ALL/LC_CTYPE=en_US.UTF-8`

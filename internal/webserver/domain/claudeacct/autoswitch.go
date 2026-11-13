@@ -661,14 +661,14 @@ func (a *Auto) decide(ctx context.Context, st State, s AutoSettings) (string, ti
 	return AutoOn, outBlocked, 0
 }
 
-// candidates 는 후보다: 제외·활성·격리·영구 실패·고정 실행 중이 아닌 계정 (FR-CAC-72 5·77).
+// candidates 는 후보다: 제외·활성·격리·영구 실패·고정 실행 중이 아닌 계정 (FR-CAC-72 5·87).
 func (a *Auto) candidates(st State, s AutoSettings, models map[string]bool) []acctView {
 	a.mu.Lock()
 	quarantined := a.file.State.Quarantined
 	a.mu.Unlock()
 	var out []acctView
 	for _, acc := range st.Accounts {
-		if acc.ID == st.ActiveID || acc.Disabled || quarantined[acc.ID] != "" || a.Eng.row(acc.ID).AuthDeadFP != "" {
+		if acc.ID == st.ActiveID || acc.Disabled || quarantined[acc.ID] != "" || a.Eng.row(acc.ID).AuthDeadFP != "" || a.Eng.Svc.PinnedRunning(acc.ID) {
 			continue
 		}
 		out = append(out, a.view(acc, s, models))

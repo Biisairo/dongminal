@@ -24,3 +24,8 @@ func HelperNames() []string {
 // 멤버 기동줄(`runtimebin`)이 여기서 읽는다 (OMP_AGENT_SUPPORT_SRS FR-OMP-10·21).
 // 두 벌로 적으면 한쪽만 고쳐진다 — 그 결함은 이 저장소가 이미 겪었다.
 func AgentHooksDirIn(binDir string) string { return filepath.Join(binDir, "agent-hooks") }
+
+// AgentShimsDirIn 은 이 bin 디렉터리의 shim 폴더다. 이 폴더는 dongminal 탭의 PATH 맨 앞에 놓여
+// 같은 이름의 진짜 명령보다 먼저 불린다. shim 이 진짜 명령을 찾을 때 PATH 에서 뺀다
+// (CLAUDE_ACCOUNTS_SRS FR-CAC-83, D-CAC-24). 이름은 `agentadapter.ShimCommands` 다.
+func AgentShimsDirIn(binDir string) string { return filepath.Join(binDir, "agent-shims") }

@@ -5,11 +5,13 @@ package runtime
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/testpath"
 )
 
@@ -92,6 +94,14 @@ func TestPolicyInjectionDeclarationMatchesShellWrappers(t *testing.T) {
 			t.Fatal(err)
 		}
 		for rel, s := range wrappers {
+			// CLAUDE_ACCOUNTS_SRS D-CAC-24: shim 이 주입하는 에이전트는 셸 함수가 없어야 한다.
+			// 주입 인자의 대조는 shim 쪽 시험(runtimebin TC-CAC-20)이 한다.
+			if ad.PolicyInjection.Shim {
+				if strings.Contains(s, ad.DetectCmd+"()") {
+					t.Errorf("%s: %q 셸 함수가 남았다 — shim 이 주입한다", rel, ad.DetectCmd)
+				}
+				continue
+			}
 			if !strings.Contains(s, ad.DetectCmd+"()") {
 				t.Errorf("%s: %q 래퍼 함수가 없다 — 선언과 주입기가 어긋났다", rel, ad.DetectCmd)
 				continue
@@ -132,26 +142,86 @@ func TestPolicyInjectionNeverTouchesUserPermanentSettings(t *testing.T) {
 	}
 }
 
-// 다른 쪽은 붙고, 둘 다 없으면 투명하게 위임한다.
-func TestInstallShellHooks_InjectBothIndependently(t *testing.T) {
+// CLAUDE_ACCOUNTS_SRS TC-CAC-20: 설치가 `agent-shims/claude` 를 깔고, 없어지면 점검이 알린다.
+func TestInstallPlacesClaudeShim(t *testing.T) {
 	dir := t.TempDir()
 	if err := Install(dir); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	for _, rel := range []string{"bash-hook.sh", "zdotdir/.zshrc"} {
-		blob, err := os.ReadFile(filepath.Join(dir, rel))
-		if err != nil {
-			t.Fatalf("read %s: %v", rel, err)
+	shim := filepath.Join(dmenv.AgentShimsDirIn(dir), "claude")
+	st, err := os.Stat(shim)
+	if err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o111 == 0 {
+		t.Fatalf("shim: %v %v", st, err)
+	}
+	if hs := InspectHelpers(dir); len(hs.Problems) != 0 {
+		t.Fatalf("problems after install: %+v", hs.Problems)
+	}
+	if err := os.Remove(shim); err != nil {
+		t.Fatal(err)
+	}
+	if hs := InspectHelpers(dir); len(hs.Problems) != 1 || hs.Problems[0].Name != "claude" {
+		t.Fatalf("missing shim not reported: %+v", hs.Problems)
+	}
+	if err := EnsureInstalled(dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(shim); err != nil {
+		t.Fatalf("EnsureInstalled did not restore shim: %v", err)
+	}
+}
+
+// FR-CAC-83: 사용자 rc 뒤에 shim 폴더를 PATH 맨 앞에 넣고, 프롬프트마다 다시 맨 앞으로 옮긴다(중복 없이).
+func TestShellHooksPutShimsFirst(t *testing.T) {
+	// 훅은 `$DONGMINAL_HOME/bin` 을 본다 — 실제 배치와 같은 이름이어야 한다.
+	bin := filepath.Join(t.TempDir(), "bin")
+	if err := installShellHooks(bin); err != nil {
+		t.Fatal(err)
+	}
+	shims := dmenv.AgentShimsDirIn(bin)
+	home := t.TempDir()
+	rc := "export PATH=/rc/first:$PATH\n"
+	for _, f := range []string{".bashrc", ".zshrc"} {
+		if err := os.WriteFile(filepath.Join(home, f), []byte(rc), 0o644); err != nil {
+			t.Fatal(err)
 		}
-		s := string(blob)
-		for _, want := range []string{"--settings", "--plugin-dir", "agent-plugin", "command claude"} {
-			if !strings.Contains(s, want) {
-				t.Errorf("%s 에 %q 없음", rel, want)
+	}
+	// 로드 직후 맨 앞, 사용자가 앞에 넣은 뒤 프롬프트 훅을 한 번 돌리면 다시 맨 앞, 한 번만.
+	script := `echo "$PATH"; PATH="/user/late:$PATH"; _dm_shim_front; _dm_shim_front; echo "$PATH"`
+	type shellCase struct {
+		name string
+		argv []string
+		env  []string
+	}
+	cases := []shellCase{
+		{"bash", []string{"--rcfile", filepath.Join(bin, "bash-hook.sh"), "-i", "-c", script}, nil},
+		{"zsh", []string{"-i", "-c", script}, []string{"ZDOTDIR=" + filepath.Join(bin, "zdotdir")}},
+	}
+	for _, c := range cases {
+		sh, err := exec.LookPath(c.name)
+		if err != nil {
+			continue
+		}
+		cmd := exec.Command(sh, c.argv...)
+		cmd.Env = append(append(os.Environ(), "HOME="+home, "DONGMINAL_HOME="+filepath.Dir(bin)), c.env...)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", c.name, err, out)
+		}
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(lines) < 2 {
+			t.Fatalf("%s: %q", c.name, out)
+		}
+		for _, l := range lines[len(lines)-2:] {
+			parts := strings.Split(l, ":")
+			if parts[0] != shims {
+				t.Errorf("%s: shim 폴더가 맨 앞이 아니다: %s", c.name, l)
+			}
+			if n := strings.Count(":"+l+":", ":"+shims+":"); n != 1 {
+				t.Errorf("%s: shim 폴더가 %d 번 있다: %s", c.name, n, l)
 			}
 		}
-		// 조건부 부착이어야 한다 — 무조건 붙이면 파일이 없을 때 claude 가 죽는다.
-		if !strings.Contains(s, `-f "$s"`) || !strings.Contains(s, `-d "$p"`) {
-			t.Errorf("%s: --settings/--plugin-dir 부착이 조건부가 아니다:\n%s", rel, s)
+		if !strings.Contains(lines[len(lines)-2], "/rc/first") {
+			t.Errorf("%s: 사용자 rc 를 읽지 않았다: %s", c.name, lines[len(lines)-2])
 		}
 	}
 }

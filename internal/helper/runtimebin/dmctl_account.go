@@ -29,6 +29,13 @@ const dmctlAccountHelp = `dmctl account — Claude 다중 계정
                                                (juniper_tide = 주간 5시간 초기화, cedar_ember = 초기화 티켓, --grant 로 티켓을 고른다)
   dmctl account auto on|off|status [--json]    자동 전환을 켜고 끄거나 설정·상태를 본다
   dmctl account history [--limit N]            전환 기록 (최신 먼저, 기본 20건, 1~1000)
+  dmctl account pin [--tab <toolId>] <계정>|--clear
+                                               탭에 계정을 지정하거나 푼다 (기본은 이 탭). 탭을 닫으면 지정이 지워진다
+  dmctl account map <계정> [경로]              폴더(기본은 현재 폴더)와 그 아래에서 claude 를 이 계정으로 실행한다
+  dmctl account unmap [경로]                   폴더 연결을 푼다 (기본은 현재 폴더)
+  dmctl account maps                           폴더 연결과 탭 지정 목록
+
+  탭 지정이 폴더 연결보다 앞선다. 지정은 실행 중인 claude 에는 적용되지 않고 다음 실행부터 적용된다.
 
   실행 중인 Claude Code 세션은 약 30초 안에, 또는 다시 시작할 때 새 계정을 쓴다.
 `
@@ -133,6 +140,10 @@ var accountSubs = map[string]peerSub{
 	"reset":   {1, false, []string{"program", "grant"}, []string{"yes"}, accountReset},
 	"auto":    {1, false, nil, []string{"json"}, accountAuto},
 	"history": {0, false, []string{"limit"}, nil, accountHistory},
+	"pin":     {0, true, []string{"tab"}, []string{"clear"}, accountPin},
+	"map":     {0, true, nil, nil, accountMap},
+	"unmap":   {0, true, nil, nil, accountUnmap},
+	"maps":    {0, false, nil, nil, accountMaps},
 }
 
 func runDmctlAccount(args []string, stdout, stderr io.Writer) int {
@@ -281,9 +292,10 @@ func accountSwitch(pa peerArgs, stdout, stderr io.Writer) int {
 		return rc
 	}
 	var res struct {
-		To     string `json:"to"`
-		NoOp   bool   `json:"noop"`
-		Reason string `json:"reason"`
+		To            string `json:"to"`
+		NoOp          bool   `json:"noop"`
+		Reason        string `json:"reason"`
+		PinnedRunning bool   `json:"pinnedRunning"`
 	}
 	_ = json.Unmarshal(raw, &res)
 	to, _ := resolveAccount(v, res.To)
@@ -296,6 +308,9 @@ func accountSwitch(pa peerArgs, stdout, stderr io.Writer) int {
 		return 0
 	}
 	fmt.Fprintf(stdout, "전환: %s\n실행 중인 Claude Code 세션은 약 30초 안에, 또는 다시 시작할 때 새 계정을 씁니다.\n", clean(to.label()))
+	if res.PinnedRunning {
+		fmt.Fprintln(stdout, "이 계정은 고정 실행 중인 탭이 있습니다. 그 탭은 영향을 받지 않습니다.")
+	}
 	return 0
 }
 

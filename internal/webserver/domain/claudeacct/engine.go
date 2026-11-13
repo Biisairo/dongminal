@@ -301,6 +301,7 @@ func (e *Engine) fetch(ctx context.Context, a Account, active bool) {
 	now := e.Now()
 	r := e.row(a.ID)
 	r.LastAttemptAt = now.Unix()
+	e.Svc.ReclaimProfile(a)
 	cred, ok, live, err := e.credFor(a, active)
 	switch {
 	case errors.Is(err, ErrKeychainUnavailable) || (err != nil && !ok):
@@ -385,7 +386,7 @@ func (e *Engine) usableCred(ctx context.Context, a Account, active bool) (Creden
 		return cred, live, err
 	}
 	if !ok {
-		return cred, live, ErrNoCredentials
+		return cred, live, ErrLiveEmpty
 	}
 	if cred.expired(e.Now()) {
 		cred, err = e.refresh(ctx, a, live, false)
@@ -522,7 +523,7 @@ func (e *Engine) refresh(ctx context.Context, a Account, live, force bool) (Cred
 		defer release()
 		cur, ok, err := e.Svc.Live.Read()
 		if err != nil || !ok {
-			return cur, ErrNoCredentials
+			return cur, ErrLiveEmpty
 		}
 		if !force && !cur.expired(e.Now()) {
 			return cur, nil
@@ -542,14 +543,17 @@ func (e *Engine) refresh(ctx context.Context, a Account, live, force bool) (Cred
 		}
 		return next, nil
 	}
-	unlock, err := platform.LockFile(filepath.Join(e.Svc.Dir, "credentials", ".consume-"+a.ID+".lock"), e.Svc.lockTimeout())
+	if e.Svc.PinnedRunning(a.ID) {
+		return e.refreshPinned(ctx, a, force)
+	}
+	unlock, err := platform.LockFile(e.Svc.consumeLock(a.ID), e.Svc.lockTimeout())
 	if err != nil {
 		return Credential{}, err
 	}
 	defer unlock()
 	cur, ok, err := e.Svc.Backup.Read(a.ID)
 	if err != nil || !ok {
-		return cur, ErrNoCredentials
+		return cur, ErrLiveEmpty
 	}
 	if !force && !cur.expired(e.Now()) {
 		return cur, nil
@@ -561,6 +565,38 @@ func (e *Engine) refresh(ctx context.Context, a Account, live, force bool) (Cred
 	next := cur.WithTokens(tr, e.Now().UnixMilli())
 	if err := e.Svc.Backup.Write(a.ID, next); err != nil {
 		return cur, err
+	}
+	return next, nil
+}
+
+// refreshPinned 는 고정 실행 중인 계정의 갱신이다. 그 프로필의 Claude 락 아래에서 갱신하고 프로필
+// 저장소와 백업 둘 다에 쓴다 (FR-CAC-43 셋째 갈래).
+func (e *Engine) refreshPinned(ctx context.Context, a Account, force bool) (Credential, error) {
+	pl := e.Svc.ProfileLive(a.ID)
+	release, err := lockClaude(pl.Paths, e.Svc.lockTimeout())
+	if err != nil {
+		return Credential{}, err
+	}
+	defer release()
+	cur, ok, err := pl.Read()
+	if err != nil || !ok || cur.IsEmpty() {
+		if cur, ok, err = e.Svc.Backup.Read(a.ID); err != nil || !ok {
+			return cur, ErrLiveEmpty
+		}
+	}
+	if !force && !cur.expired(e.Now()) {
+		return cur, nil
+	}
+	tr, err := e.API.Refresh(ctx, cur.RefreshToken())
+	if err != nil {
+		return cur, err
+	}
+	next := cur.WithTokens(tr, e.Now().UnixMilli())
+	if err := pl.Write(next); err != nil {
+		return cur, err
+	}
+	if err := e.Svc.Backup.Write(a.ID, next); err != nil {
+		dmlog.Infof(nil, "claude-accounts: 고정 계정 백업을 쓰지 못했다: %v", err)
 	}
 	return next, nil
 }

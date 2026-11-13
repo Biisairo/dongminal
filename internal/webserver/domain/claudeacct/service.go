@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	ErrNotLoggedIn   = errors.New("Claude Code 에 로그인한 계정이 없습니다. 먼저 Claude Code 에서 /login 으로 로그인하세요")
-	ErrNoCredentials = errors.New("활성 자격증명이 없습니다. Claude Code 에서 다시 로그인하세요")
-	ErrEmptyBackup   = errors.New("이 계정의 백업이 비었습니다. 그 계정으로 로그인한 뒤 다시 추가하세요")
-	ErrLiveChanged   = errors.New("전환 도중 활성 자격증명이 바뀌었습니다. 다시 시도하세요")
-	ErrNoCandidate   = errors.New("전환할 계정이 없습니다")
+	ErrNotLoggedIn = errors.New("Claude Code 에 로그인한 계정이 없습니다. 먼저 Claude Code 에서 /login 으로 로그인하세요")
+	ErrLiveEmpty   = errors.New("활성 자격증명이 없습니다. Claude Code 에서 다시 로그인하세요")
+	ErrEmptyBackup = errors.New("이 계정의 백업이 비었습니다. 그 계정으로 로그인한 뒤 다시 추가하세요")
+	ErrLiveChanged = errors.New("전환 도중 활성 자격증명이 바뀌었습니다. 다시 시도하세요")
+	ErrNoCandidate = errors.New("전환할 계정이 없습니다")
 )
 
 // Outgoing 은 전환 때 활성 저장소에 있던 자격증명의 분류다 (FR-CAC-32).
@@ -40,6 +40,8 @@ type SwitchResult struct {
 	NoOp     bool     `json:"noop,omitempty"`
 	// Reason 은 `best` 가 전환하지 않은 이유다 (FR-CAC-31a).
 	Reason string `json:"reason,omitempty"`
+	// PinnedRunning 은 떠나는 계정이 프로필로 실행 중이었다는 안내다. 전환을 막지 않는다 (FR-CAC-36, D-CAC-28).
+	PinnedRunning bool `json:"pinnedRunning,omitempty"`
 }
 
 // Service 는 계정 관리와 전환이다. 같은 프로세스 안의 전환은 mu 로, 프로세스 사이는
@@ -54,6 +56,8 @@ type Service struct {
 	Now         func() time.Time
 	NewID       func() string
 	LockTimeout time.Duration
+	// Alive 는 pid 가 살아 있는가다. 비면 운영체제에 묻는다 (FR-CAC-87).
+	Alive func(pid int) bool
 
 	mu sync.Mutex
 }
@@ -85,7 +89,7 @@ func (s *Service) AddCurrent(_ context.Context) (Account, bool, error) {
 		return Account{}, false, err
 	}
 	if !ok || live.IsEmpty() {
-		return Account{}, false, ErrNoCredentials
+		return Account{}, false, ErrLiveEmpty
 	}
 	var out Account
 	created := false
@@ -180,6 +184,12 @@ func (s *Service) Remove(id string) error {
 	if err := os.Remove(s.configCopy(id)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+	if err := s.dropAccountMappings(id); err != nil {
+		return err
+	}
+	if err := s.removeProfile(id); err != nil {
+		return err
+	}
 	return s.Backup.Delete(id)
 }
 
@@ -247,12 +257,17 @@ func (s *Service) Switch(ctx context.Context, id string) (SwitchResult, error) {
 	if from == id {
 		return SwitchResult{From: from, To: id, NoOp: true}, nil
 	}
+	pinned := false
+	if i := st.Find(from); i >= 0 && s.PinnedRunning(from) {
+		s.ReclaimProfile(st.Accounts[i])
+		pinned = true
+	}
 	live, liveOK, err := s.Live.Read()
 	if err != nil {
 		return SwitchResult{}, err
 	}
 	kind, owner := s.classify(ctx, st, from, live, liveOK)
-	res := SwitchResult{From: from, To: id, Outgoing: kind}
+	res := SwitchResult{From: from, To: id, Outgoing: kind, PinnedRunning: pinned}
 
 	unlockStore, err := s.Store.Lock()
 	if err != nil {
@@ -286,8 +301,11 @@ func (s *Service) Switch(ctx context.Context, id string) (SwitchResult, error) {
 
 	switch kind {
 	case OutgoingRotated:
-		if err := s.Backup.Write(owner, live); err != nil {
-			return res, err
+		// 프로필에서 회수한 토큰(FR-CAC-86)이 더 새것이면 낡은 활성 토큰으로 덮지 않는다.
+		if cur, ok, _ := s.Backup.Read(owner); !ok || live.ExpiresAt() >= cur.ExpiresAt() {
+			if err := s.Backup.Write(owner, live); err != nil {
+				return res, err
+			}
 		}
 	case OutgoingForeign, OutgoingUnresolved:
 		if err := s.stash(live); err != nil {

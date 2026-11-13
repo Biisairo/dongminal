@@ -56,7 +56,7 @@ func claudeAccountsFail(w http.ResponseWriter, err error) {
 		{claudeacct.ErrInvalid, http.StatusBadRequest, apierr.CodeClaudeAccountInvalid},
 		{claudeacct.ErrInvalidID, http.StatusBadRequest, apierr.CodeClaudeAccountInvalid},
 		{claudeacct.ErrNotLoggedIn, http.StatusConflict, apierr.CodeClaudeNotLoggedIn},
-		{claudeacct.ErrNoCredentials, http.StatusConflict, apierr.CodeClaudeNotLoggedIn},
+		{claudeacct.ErrLiveEmpty, http.StatusConflict, apierr.CodeClaudeNotLoggedIn},
 		{claudeacct.ErrEmptyBackup, http.StatusConflict, apierr.CodeClaudeBackupEmpty},
 		{claudeacct.ErrClaudeLockTimeout, http.StatusConflict, apierr.CodeClaudeLocked},
 		{claudeacct.ErrLiveChanged, http.StatusConflict, apierr.CodeClaudeLiveChanged},

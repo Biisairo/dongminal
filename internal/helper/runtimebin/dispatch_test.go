@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmenv"
 )
 
@@ -38,7 +39,7 @@ func TestDispatchHelperBasename(t *testing.T) {
 // 서는데 설치되지 않는 헬퍼가 된다 (M8 `GO-4`: 목록을 shared 로 내리면서 생긴
 // 두 자리의 일치를 이 테스트가 지킨다).
 func TestHelperNamesMatchDispatchTable(t *testing.T) {
-	want := append([]string{}, dmenv.HelperNames()...)
+	want := append(append([]string{}, dmenv.HelperNames()...), agentadapter.ShimCommands()...)
 	sort.Strings(want)
 	got := make([]string, 0, len(commands))
 	for k := range commands {

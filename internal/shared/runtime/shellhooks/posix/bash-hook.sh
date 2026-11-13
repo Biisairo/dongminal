@@ -30,17 +30,25 @@ unset _dm_rc _dm_sourced_profile
 _rt_cwd_hook() { printf '\033]777;Cwd;%s\007' "$PWD"; }
 PROMPT_COMMAND="_rt_cwd_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 
-# dongminal: 에이전트 완료/대기 알림 훅(--settings)과 오케스트레이션 스킬
-# (--plugin-dir)을 per-invocation 으로 주입한다. 에이전트의 설정 파일을 영구 수정하지
-# 않으며 dongminal 이 띄운 도구 안에서만 적용된다.
-claude() {
-  local s="${DONGMINAL_HOME}/bin/agent-hooks/claude.json"
-  local p="${DONGMINAL_HOME}/bin/agent-plugin"
-  local -a extra=()
-  [ -f "$s" ] && extra+=(--settings "$s")
-  [ -d "$p" ] && extra+=(--plugin-dir "$p")
-  command claude "${extra[@]}" "$@"
+# dongminal: claude shim 폴더를 PATH 맨 앞에 둔다 (CLAUDE_ACCOUNTS_SRS FR-CAC-83, D-CAC-24).
+# shim 이 훅 인자(--settings·--plugin-dir)와 탭·폴더의 Claude 계정을 넣고 진짜 claude 를 실행한다.
+# 셸 함수와 달리 사용자의 함수·alias 래핑에 덮이지 않는다. 사용자 rc 가 PATH 를 바꿀 수 있으므로
+# rc 뒤에 넣고, 프롬프트마다 맨 앞이 아니면 다시 옮긴다(중복 없이).
+_dm_shim_front() {
+  [ -n "${DONGMINAL_HOME}" ] || return 0
+  local d="${DONGMINAL_HOME}/bin/agent-shims"
+  local p=":${PATH}:"
+  case "$p" in ":$d:"*) return 0 ;; esac
+  while case "$p" in *":$d:"*) true ;; *) false ;; esac; do
+    p="${p%%":$d:"*}:${p#*":$d:"}"
+  done
+  p="${p#:}"
+  p="${p%:}"
+  PATH="$d${p:+:$p}"
 }
+_dm_shim_front
+PROMPT_COMMAND="_dm_shim_front${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+
 codex() { command codex -c "notify=[\"${DONGMINAL_HOME}/bin/dmctl\",\"notify\",\"codex\"]" "$@"; }
 omp() {
   local h="${DONGMINAL_HOME}/bin/agent-hooks/omp-activity.mjs"

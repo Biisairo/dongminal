@@ -31,6 +31,7 @@ var claudeAdapter = Adapter{
 		// 둘 다 per-invocation 이라 사용자의 ~/.claude 를 건드리지 않는다.
 		Flags:         []string{"--settings", "--plugin-dir"},
 		SessionScoped: true,
+		Shim:          true,
 	},
 	HookParse: parseClaudeHook,
 	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20: statusLine 프록시를 설치하는 것은 claude 뿐이다.

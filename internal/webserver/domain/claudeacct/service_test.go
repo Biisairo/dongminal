@@ -134,7 +134,7 @@ func TestAddCurrentRejects(t *testing.T) {
 		t.Fatalf("no config: %v", err)
 	}
 	_ = os.WriteFile(e.paths.GlobalConfig, []byte(`{"oauthAccount":{"emailAddress":"a@x.com","organizationUuid":"o"}}`), 0o600)
-	if _, _, err := e.svc.AddCurrent(context.Background()); !errors.Is(err, ErrNoCredentials) {
+	if _, _, err := e.svc.AddCurrent(context.Background()); !errors.Is(err, ErrLiveEmpty) {
 		t.Fatalf("no creds: %v", err)
 	}
 	_ = os.WriteFile(e.paths.GlobalConfig, []byte(`{"oauthAccount":{"organizationUuid":"o"}}`), 0o600)
