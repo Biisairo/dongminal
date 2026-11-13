@@ -6,7 +6,7 @@
 
 - 워크트리: `/Users/dykim/personal/dongminal/.claude/worktrees/claude-accounts`
 - 브랜치: `feat/claude-accounts` (로컬 main `710d0ec9` 에서 갈라졌다. origin/main 보다 커밋 하나 앞선 main 이다)
-- 1·2단계는 `0356fb6e` 로 커밋했다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
+- 1·2단계는 `0356fb6e`, `dmctl account usage`·argv 제거는 `eeffd3ce`, 3단계는 `f14b0425` 로 커밋했다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
 - 순서는 단계마다 고정이다: 시험 작성 → RED 확인 → 구현 → GREEN → `make gates`·`golangci-lint`.
 - 시험은 실제 키체인과 실제 Anthropic 엔드포인트를 부르지 않는다. 서버 시험은 `Config.ClaudeSecrets` 에 가짜를, `Config.ClaudeAPI` 에 `httptest` 주소를 넣는다.
 - 워크트리 세션에서는 `cd ... && cat > 파일 <<EOF` 같은 복합 셸 명령이 거절된다. 파일은 Write/Edit 도구로 쓰고, 셸 명령은 단순하게 나눈다. `tmp/` 대신 `/tmp/` 를 쓴다.
@@ -76,6 +76,12 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 2. ~~`dmctl account usage [<계정>] [--refresh] [--json]`~~ — 끝났다. `internal/helper/runtimebin/dmctl_account.go` `accountUsageCmd`, 시험 `dmctl_account_test.go` (TC-CAC-24 usage 6건). 남은 시간·등급은 서버 값만 쓴다(D-CAC-15). 열 맞춤은 하지 않는다 — 한글 폭을 셀 도우미가 없다.
 3. ~~3단계 제한 초기화~~ — 끝났다. `claudeacct/resets.go`(해석·결과 대응·`Client.ClaimReset`), `engine.go`(`fetchResets`·`FetchResetsNow`·`Claim`, 사용량 조회 3번에 1번 상태 조회), `POST /api/claude-accounts/reset`·`refresh {resets:true}`, `dmctl account reset`, 펼친 묶음의 "제한 초기화" 칸과 확인 대화상자. 원본 형식은 Claude Code 2.1.323 바이너리에서 뽑았다(SRS FR-CAC-60a).
 4. **4단계** 자동 전환·알림·기록 (묶음 G·J·L). `Engine.LineFor` 를 자동 전환 설정과 잇는다. 스마트 전환 `next-available`·`best` 도 이때 넣는다(사용량이 필요하다). foot 머리 줄의 "다음 계정" 단추(`app-activity.js` `_actUsageFootEl`)를 자동 전환 표식 + 세 항목 메뉴로 바꾼다 (FR-CAC-92).
+   - **착수 전 조사 (2026-11-13, 3단계 세션)**:
+     - 규칙은 SRS FR-CAC-31(스마트 전환)·37(헤드룸 정의 표)·70~75·100·101·110·111 에 cswap 그대로 있다. 구현 전에 SRS 에 적을 빈칸: ① 값을 모르는(조회 전·`stale`) 계정을 `next-available` 은 건너뛰지 않고 `best` 는 비교에서 뺄지 ② 전환 기록의 `by`(ui·dmctl·auto)를 어떻게 받을지 — `POST /switch` 본문에 `by` 를 더하는 안 ③ `GET·PUT /api/claude-accounts/autoswitch` 응답에 실을 상태(enabled·unmanaged·cswap 감지·마지막 전환·격리) ④ 알림 SSE 이름과 중복 억제 키 ⑤ 고정 실행 중(FR-CAC-87)은 5단계 전이라 늘 "아님" 으로 둔다.
+     - 알림 경로: 브라우저는 SSE 로 사건을 밀고 화면이 `Toast` 를 띄운다. Telegram 브리지(`internal/webserver/domain/telegram/bridge.go`)는 도구(탭) 알람 단위라 탭과 무관한 글 한 통을 보내는 입구가 없다 — 큐 `item` 에 글 필드를 더하고 `sendMessage` 로 보내는 입구를 새로 둔다(`enqueue` 가 `Enabled` 를 이미 본다). 무음 규칙(`silent`)은 탭 입력 기준이라 계정 알림에는 쓰지 않는다.
+     - FR-CAC-75(cswap auto 감지): `platform.ProcInfo` 에 프로세스 명령줄 목록을 읽는 함수가 없다. 이음매 검사(`check-seams.sh`) 때문에 `ps`·`pgrep` 호출은 platform 안에 새로 둬야 한다.
+     - 화면: foot 머리 줄의 "다음 계정" 단추(`app-activity.js` `_actUsageFootEl`)를 자동 전환 표식 + 세 항목 메뉴로 바꾸고, "기록"(최근 20건) 팝업을 더한다. 자동 전환 설정 화면은 6단계지만, 켜고 끄는 길은 `dmctl account auto on|off|status` 로 4단계에 둔다.
+     - 순서 제안: 기록(FR-CAC-110) → 스마트 전환 두 가지 → 자동 전환 설정·엔진 → 알림 → 화면·dmctl. 덩어리마다 시험 → RED → 구현 → GREEN → gates.
 5. **5단계** 계정별 실행 (묶음 H)과 화면 표시(탭 틴트, Repo 칩, Explorer 칩). 셸 래퍼는 `internal/shared/runtime/shellhooks/{posix/zdotdir/.zshrc, posix/bash-hook.sh, windows/powershell-hook.ps1}` 의 `claude()`, GUI 기동은 `agentadapter/claude_proto.go` `claudeProtoLaunch`.
 6. **6단계** 설정 "Claude 계정" 구역, 기존 결정 개정(FR-CAC-130: D-ACU-3·D-ASV-2 철회 표시, `ACTIVITY_CARD_USAGE_SRS` 비목표 줄), e2e. `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-41(statusLine 창 블록)이 FR-CAC-93 의 한 줄로 바뀐 것도 그 문서에 개정으로 적는다.
 
