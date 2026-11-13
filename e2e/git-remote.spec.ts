@@ -296,8 +296,9 @@ test.describe('13단계 — 원격 작업', () => {
     await confirm(page).locator('.gc-go').click();
 
     await jobArgv(page, /--force-with-lease/);
-    // 자격증명을 받는 자리는 어디에도 없다 (FR-GIT-104).
-    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+    // 자격증명을 받는 자리는 어디에도 없다 (FR-GIT-104). **보이는** 것을 센다 —
+    // 설정 모달의 숨은 패널(Telegram 봇 token)은 Git 이 묻는 자리가 아니다.
+    await expect(page.locator('input[type="password"]:visible')).toHaveCount(0);
   });
 
   // ── FR-GIT-221 (V98): 끝난 작업의 로그가 자리를 계속 차지하지 않는다 ──

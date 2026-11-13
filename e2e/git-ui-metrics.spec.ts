@@ -7,6 +7,7 @@
  *
  * `TEST-7` 로 `git-ui-revision` 에서 옮겨 왔다.
  */
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
@@ -161,25 +162,30 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
   });
 
   test('V81 (FR-GIT-199): 모바일 폭에서도 하한이 지켜진다', async ({ page }) => {
-    await waitForInit(page);
-    await gurOpenChanges(page, gurFx('basic'));
-    await gurWaitFiles(page, 3);
-    await page.setViewportSize({ width: 420, height: 800 });
     /**
-     * **시간이 아니라 상태로 기다린다** (E2E_QUIESCENCE_SRS I-1).
+     * **이 앱의 모바일 모드로 잰다** (FR-GIT-199 의 "모바일" 은 FR-GIT-94 의 그것이다).
      *
-     * 종전에는 1200ms 를 세고 곧바로 쟀다. 모바일 셸로 갈아타는 일이 그 안에
-     * 끝나지 않으면 `#area .pn-body` 가 아직 없고, `measure` 는 null 을 돌려
-     * 다음 줄이 `Cannot read properties of null` 로 죽는다 — 간헐로 실제 관측됐다.
-     * 재는 것은 "치수가 하한을 넘는가" 이지 "몇 밀리초에 다시 서는가" 가 아니다.
-     *
-     * `body.mobile` 을 기다리지 않는다 — 420px 는 **좁은 폭**일 뿐 이 앱의 모바일
-     * 모드가 켜지는 조건이 아니다 (실측: 그 클래스는 붙지 않는다). 이 검사가
-     * 재려는 것도 모바일 모드가 아니라 좁은 폭에서의 치수다.
+     * 종전에는 데스크톱 모드에서 창 폭만 420px 로 줄였다. 그 폭에서는 사이드바·
+     * Activity 레일(UX_BATCH12 FR-ACF-9)을 뺀 작업 영역을 사이드가 다 쓰고 본문
+     * `#area .pn-body` 의 폭이 0 이 되어, 잴 것이 없는 채로 기다리다 끝났다.
+     * 모바일은 사이드와 본문을 한 자리씩 보인다(REPO_TAB_UNIFY FR-RTU-80) — 파일 행이
+     * 있는 사이드 자리로 가서 Git 표면 전체(FR-RTU-11)를 잰다. V80·V82 와 같은 범위다.
      */
-    await expect(page.locator('#area .pn-body')).toBeVisible();
+    await waitForInit(page, { mode: 'mobile' });
+    await expect(page.locator('body')).toHaveClass(/mobile/);
+    await openGit(page, gurFx('basic'));
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a.testing.mPaneIdx = 0;
+      a.render();
+      a.gitPanel.openView('changes');
+    });
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+    await gurWaitFiles(page, 3);
 
-    const m = (await measure(page, '#area .pn-body'))!;
+    const m = (await measure(page, '#area .ed-win'))!;
+    expect(m.buttons.length, '잴 버튼이 없다').toBeGreaterThan(5);
+    expect(m.rows.length, '잴 행이 없다').toBeGreaterThanOrEqual(3);
     const tooSmall = m.buttons.filter((b) => b.w < MIN_HIT || b.h < MIN_HIT);
     expect(tooSmall, '모바일 히트 영역 미달: ' + JSON.stringify(tooSmall)).toEqual([]);
     const shortRows = m.rows.filter((r) => r.h < MIN_ROW);
@@ -187,8 +193,30 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
   });
 });
 
-test.describe('UI 개정 — 버튼 라벨 (FR-GIT-200~202)', () => {
-  test('V82 (FR-GIT-200·201): Git 표면의 버튼 라벨에 한글이 없다', async ({ page }) => {
+/**
+ * UI_POLISH_SRS 부록 A — ko 에서 한국어로 쓰는 일반 동작 라벨. **SRS 의 표를 읽는다.**
+ * 시험에 목록을 다시 적으면 SRS 가 바뀌어도 시험은 옛 목록으로 남는다.
+ * `나란히 / 통합` 처럼 한 칸에 둘이 있으면 ` / ` 로 나눈다.
+ */
+function generalKoLabels(): Set<string> {
+  const doc = readFileSync('docs/internal/UI_POLISH_SRS.md', 'utf8');
+  const sec = doc.split('## 부록 A.')[1].split('\n## ')[0];
+  const out = new Set<string>();
+  for (const line of sec.split('\n')) {
+    const cells = line.split('|').map((c) => c.trim());
+    if (cells.length < 4 || cells[2] === 'ko' || /^-+$/.test(cells[2])) continue;
+    for (const w of cells[2].split(' / ')) out.add(w.trim());
+  }
+  return out;
+}
+
+/**
+ * **개정 (2026-11-13, 사용자 결정).** FR-GIT-200·201 의 "버튼 라벨은 영어" 는
+ * UI_POLISH_SRS FR-UIP-11·12 가 바꿨다 — 일반 동작 라벨은 ko 에서 한국어이고(부록 A),
+ * git 고유 용어만 영어로 남는다. 그래서 한글 라벨은 **부록 A 의 낱말일 때만** 맞다.
+ */
+test.describe('UI 개정 — 버튼 라벨 (FR-GIT-200~202 → FR-UIP-11·12)', () => {
+  test('V82 (FR-UIP-11·12): Git 표면의 한글 버튼 라벨은 일반 동작 낱말뿐이다', async ({ page }) => {
     await waitForInit(page);
     await gurOpenChanges(page, gurFx('basic'));
     await gurWaitFiles(page, 3);
@@ -201,8 +229,11 @@ test.describe('UI 개정 — 버튼 라벨 (FR-GIT-200~202)', () => {
       [...document.querySelectorAll('#area .ed-win button')]
         .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
         .map((e) => (e.textContent || '').trim()));
+    const general = generalKoLabels();
+    expect(general.size, '부록 A 표를 읽지 못했다').toBeGreaterThan(10);
+    const notGeneral = (t: string) => hangul.test(t) && !general.has(t);
     expect(labels.length).toBeGreaterThan(5);
-    expect(labels.filter((t) => hangul.test(t)), '한글 버튼 라벨이 남아 있다').toEqual([]);
+    expect(labels.filter(notGeneral), '부록 A 밖의 한글 버튼 라벨이 있다').toEqual([]);
 
     // dirty checkout 3선택도 버튼이다 (FR-GIT-201). 실제 경로로 띄운다 —
     // 라벨 목록을 테스트가 복제하면 소스가 바뀌어도 초록으로 남는다.
@@ -214,7 +245,7 @@ test.describe('UI 개정 — 버튼 라벨 (FR-GIT-200~202)', () => {
     await expect(choiceBox).toBeVisible({ timeout: 15000 });
     const opts = await choiceBox.locator('.gch-opt').allTextContents();
     expect(opts.length).toBe(3);
-    expect(opts.filter((t) => hangul.test(t)), '한글 선택지 버튼이 남아 있다').toEqual([]);
+    expect(opts.filter((t) => notGeneral(t.trim())), '부록 A 밖의 한글 선택지 버튼이 있다').toEqual([]);
     await page.keyboard.press('Escape');   // 기본은 취소다 (O14) — 아무것도 하지 않는다
   });
 });

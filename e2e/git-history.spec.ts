@@ -196,7 +196,6 @@ test.describe('16단계 — History 탭', () => {
     await waitLoaded(page, 300);
 
     const cls = () => list(page).getAttribute('class');
-    expect(await cls()).not.toMatch(/hide-hash/);
 
     // ResizeObserver 로 **목록 폭**을 본다 — 창 폭이 아니다 (분할 안의 Git 창).
     // 그래서 refs 사이드바가 먹는 폭을 더해 목록 폭을 겨눈다.
@@ -207,6 +206,10 @@ test.describe('16단계 — History 탭', () => {
         (el as HTMLElement).style.width = px + 'px';
       }, listPx + refsW);
 
+    // 출발 폭도 시험이 정한다. 기본 배치의 목록 폭은 사이드바·Activity 레일·사이드가
+    // 가져가는 만큼 줄어서, 1280px 창에서 이미 첫 경계(720) 아래다.
+    await shrink(800);
+    await expect.poll(cls, { timeout: 5000 }).not.toMatch(/hide-hash/);
     await shrink(700);
     await expect.poll(cls, { timeout: 5000 }).toMatch(/hide-hash/);
     expect(await cls()).not.toMatch(/hide-date/);

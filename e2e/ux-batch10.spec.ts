@@ -431,6 +431,9 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     git(repo, 'add', 'f.txt'); git(repo, 'commit', '-m', 'f');
     writeFileSync(join(repo, 'f.txt'), 'alpha one\nnew two\n');
 
+    // 나란히 보기는 본문 폭이 GIT_DIFF_INLINE_BREAKPOINT(900) 이상일 때만 선다. 기본
+    // 1280px 창의 본문은 그보다 좁으므로 폭을 시험이 정한다.
+    await page.setViewportSize({ width: 1600, height: 720 });
     await waitForInit(page);
     await openGit(page, repo);
     await openDiff(page, 'f.txt');

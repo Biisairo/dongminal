@@ -6,7 +6,8 @@ import { test, expect, waitForInit, waitSettled, JSON_HDR } from './fixtures';
  * OPTIMIZE_REFACTOR_SRS 묶음 O4b — 터미널 창 하나의 정상 상태 트래픽 (§3.4 목표 · FR-OPT-0-4).
  *
  * 세는 것은 요청이다. 터미널 창 하나가 선 채 **아무것도 하지 않는 30초**의 요청을
- * 종단별로 센다. 남는 것은 상태바의 ping·stats 와 저장소 목록의 안전망(30초)뿐이다.
+ * 종단별로 센다. 남는 것은 상태바의 ping·stats 와 저장소 목록의 안전망(30초)이고,
+ * 데스크톱이면 Activity 레일이 읽는 주기 조회가 더해진다(UX_BATCH12 FR-ACF-9, 2026-11-13 개정).
  *
  *   이전 (ec950ea5): repos 10 · ping 10 · stats 10 · git/jobs 10 · tools/activity 6 = 46 (1.53 req/s)
  *   이후 (실측):     ping 10 · stats 10 · repos ≤ 1                                  ≈ 0.70 req/s
@@ -64,15 +65,38 @@ test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)'
     const got = byPath(box);
     const rps = box.length / (WINDOW_MS / 1000);
     console.log('[steady-traffic]', JSON.stringify(got), 'rps=' + rps.toFixed(2));
-    for (const p of ['/api/git/jobs', '/api/tools/activity', '/api/state', '/api/settings']) {
+    for (const p of ['/api/git/jobs', '/api/state', '/api/settings']) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBe(0);
     }
     // 저장소 목록은 안전망(gitStatusInterval, 기본 30초)만 남는다.
     expect(got['/api/git/repos'] || 0, JSON.stringify(got)).toBeLessThanOrEqual(1);
-    const other = box.length - (got['/api/ping'] || 0) - (got['/api/stats'] || 0) - (got['/api/git/repos'] || 0);
-    expect(other, JSON.stringify(got)).toBe(0);
+    // 창의 양 끝에 회차가 하나씩 걸릴 수 있다.
+    const ticksOf = (ms: number) => Math.ceil(WINDOW_MS / ms) + 1;
+    /**
+     * **Activity 의 주기 조회는 남는다** (UX_BATCH12_SRS FR-ACF-9 가 FR-OPT-4-6 을 개정).
+     * 데스크톱에서는 접힌 Activity 도 레일로 목록을 보이므로 "패널이 보인다" 에 들고,
+     * 그 목록을 고치는 주기가 돈다. 셋은 활동 주기(`agentsPollMs`), 계정 둘은
+     * `CLAUDE_ACCT_POLL_MS` 마다다 — 회차마다 계정 목록과 매핑을 한 번씩 받는다.
+     */
+    const { agents, acct } = await page.evaluate(() => ({
+      agents: (window as any).app.agentsPollMs as number,
+      acct: (0, eval)('CLAUDE_ACCT_POLL_MS') as number,
+    }));
+    const RAIL: Record<string, number> = {
+      '/api/tools/activity': ticksOf(agents),
+      '/api/runs': ticksOf(agents),
+      '/api/tools/background': ticksOf(agents),
+      '/api/claude-accounts': ticksOf(acct),
+      '/api/claude-accounts/mappings': ticksOf(acct),
+    };
+    for (const [p, cap] of Object.entries(RAIL)) {
+      expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBeLessThanOrEqual(cap);
+    }
+    const known = ['/api/ping', '/api/stats', '/api/git/repos', ...Object.keys(RAIL)];
+    const other = box.filter((p) => !known.includes(p));
+    expect(other, JSON.stringify(got)).toEqual([]);
     const stats = await page.evaluate(() => (window as any).statsInterval);
-    const ticks = Math.ceil(WINDOW_MS / stats) + 1;   // 창의 양 끝에 회차가 하나씩 걸릴 수 있다
+    const ticks = ticksOf(stats);
     expect(got['/api/stats'] || 0, JSON.stringify(got)).toBeLessThanOrEqual(ticks);
     expect(got['/api/ping'] || 0, JSON.stringify(got)).toBeLessThanOrEqual(ticks);
   });

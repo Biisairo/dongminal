@@ -171,10 +171,11 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
     await settled(page);
     expect(await secondPanel(page)).toBe(true);
 
+    // 딸린 패널은 둘보다 많을 수 있다 — Repo 창의 Diff 탭도 같은 관측기에 자기
+    // 패널을 세운다 (UX_BATCH12_SRS FR-RTB 구현 메모). "전부" 는 관측기의 목록이다.
     await page.evaluate(`(() => {${PANEL}
       const p2 = window.app.testing.gitPanelAt(p.root, 1);
-      p._pollOk = () => false;
-      p2._pollOk = () => false;
+      for (const x of p.obs.panels) x._pollOk = () => false;
       p2._reschedule();
     })()`);
 
@@ -197,11 +198,15 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
      *
      * 상황을 유지하는 것이 더 정확하다 — 재는 것은 "보이지 않는 표면은 깨우지
      * 않는다" 이고, 그 표면은 재는 동안 보이지 않아야 한다.
+     *
+     * **같은 관측기의 패널 전부**가 보이지 않아야 한다 (TC-GOR-5 와 같은 근거). Repo
+     * 창의 Diff 탭 패널이 보이는 채로 남으면 그 패널의 워치독이 같은 낡은 관측을
+     * 정당하게 깨운다 — 재려는 것과 다른 사건이다.
      */
     const woke = await page.evaluate(`(() => {${PANEL}
       p._stop();
       p._lastObsAt = Date.now() - 5 * 60 * 1000;
-      p._pollOk = () => false;
+      for (const x of p.obs.panels) x._pollOk = () => false;
       window.app.testing.gitWdAt = 0;
       p._wdTryAt = 0;                       // 문턱 둘 (staleButPolling 의 근거)
       return p._watchdog();
