@@ -94,7 +94,12 @@ func (s *Service) PrepareProfile(id string) (string, []string, error) {
 	if err := s.mergeProfileConfig(paths.GlobalConfig, cfg); err != nil {
 		return "", nil, err
 	}
-	warn := defaultLinker().link(s.Claude.ConfigHome, dir)
+	link := s.LinkShared
+	if link == nil {
+		link = defaultLinker().link
+	}
+	warn := link(s.Claude.ConfigHome, dir)
+	s.setProfileWarnings(id, warn)
 	for _, w := range warn {
 		dmlog.Infof(nil, "claude-accounts: 프로필 %s 의 공유 항목 %s 를 잇지 못했다", id, w)
 	}
@@ -256,4 +261,24 @@ func (s *Service) removeProfile(id string) error {
 	}
 	_ = os.RemoveAll(dir + ".lock")
 	return os.RemoveAll(dir)
+}
+
+func (s *Service) setProfileWarnings(id string, warn []string) {
+	s.wmu.Lock()
+	defer s.wmu.Unlock()
+	if len(warn) == 0 {
+		delete(s.warns, id)
+		return
+	}
+	if s.warns == nil {
+		s.warns = map[string][]string{}
+	}
+	s.warns[id] = append([]string(nil), warn...)
+}
+
+// ProfileWarnings 는 그 계정의 마지막 프로필 준비에서 잇지 못한 공유 항목이다 (FR-CAC-88b).
+func (s *Service) ProfileWarnings(id string) []string {
+	s.wmu.Lock()
+	defer s.wmu.Unlock()
+	return append([]string(nil), s.warns[id]...)
 }

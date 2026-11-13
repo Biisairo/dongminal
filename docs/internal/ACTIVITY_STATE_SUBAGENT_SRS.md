@@ -2,6 +2,7 @@
 
 > **문서 상태**: 승인·구현완료
 > **확인**: Go·JS 단위 시험, e2e(TC-ASV-1~15), gates·lint 가 통과했다(2026-11-10). Usage 바닥 개정(D-ASV-11)도 같은 날 같은 검사를 통과했다. TC-ASV-16(새 빌드에서 실제 세션 확인)은 하지 않은 채로 사용자가 완료를 정했다
+> **개정 2026-11-13**: D-ASV-2 의 근거(구독 토큰으로 직접 조회하지 않음)를 철회한다. 대체: `CLAUDE_ACCOUNTS_SRS` D-CAC-1. statusLine `rate_limits` 경로는 남지만, Usage 바닥은 등록 계정 묶음(OAuth 값) + 계정마다 statusLine 한 줄이 됐다(FR-ASV-41 개정, `CLAUDE_ACCOUNTS_SRS` FR-CAC-90~93). 이전 동작: 바닥은 `limits` 원소마다 머리 한 줄과 창마다 두 줄 블록이었다. 새 동작: 계정마다 statusLine 한 줄(`statusLine · ● 이름 · 세션 34% · 주간 21% · 2시간 10분 후 초기화`). 이유: 계정 묶음이 창 막대를 그리므로 statusLine 값은 요약 한 줄로 충분하다(D-CAC-6·22). TC-ASV-14 의 창 블록 검사는 TC-CAC-21 로 옮겼다
 > **개정 2026-11-11**: Usage 바닥을 스크롤 영역 밖으로 옮겼다(FR-ASV-40 · D-ASV-12 · TC-ASV-15). 이전 동작: 스크롤되는 패널 안의 sticky 바닥이 목록을 덮었다. 새 동작: 몸통만 스크롤되고 바닥은 그 아래에 고정된다
 > **개정 2026-11-11 (2)**: 끝난 서브에이전트가 `working` 으로 남는 결함(C-10)을 고친다. 실측 2(§2.4)·FR-ASV-5·12·D-ASV-13·14·TC-ASV-17~19 를 더했다. 이전 동작: 서브에이전트가 끝나도 하위 카드가 `working` · `SubagentHandback` 으로 남아 main 이 끝날 때까지 지워지지 않았다. 새 동작: `SubagentHandback` 이 보이면 done 이 되고, 신호를 놓친 `working` 도 안전망이 지운다
 > **입력**: 2026-11-10 대화. 사용자 요청 넷과 결정 셋이다.
@@ -239,7 +240,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 > 개정 이유: 초판은 Usage 를 네 번째 접는 구역으로 두고 창 이름을 `5h`·`7d` 로 줄였다. 사용자가 두 가지를 바꾸라고 했다 — ① 구역이 아니라 **패널 맨 아래에 붙은 바닥**으로 둔다 ② 이름과 막대를 다른 사용량 도구처럼 보인다. 참고한 것은 Claude Code `/usage`(창마다 "Current session"·"Current week (all models)", 막대, "% used", 초기화 시각)와 CodexBar(세션·주간 막대와 초기화까지 남은 시간)다.
 
 - **FR-ASV-40** (개정 2026-11-11, D-ASV-12) Usage 는 구역 목록(`ACTIVITY_SECTIONS`)에 넣지 않는다. 패널은 **스크롤 몸통(`#agents-body`)과 고정 바닥(`#agents-foot`)** 두 칸이다. 머리와 구역 목록은 몸통에 그리고, Usage 바닥(`.act-usage-foot`) 하나는 고정 바닥에 그린다. 바닥은 스크롤 영역 밖이다 — 몸통이 남은 높이 안에서만 스크롤되고, 바닥은 목록을 덮지 않는다. 접지 않는다.
-- **FR-ASV-41** 바닥은 `limits` 원소마다 머리 한 줄(에이전트 이름)과, 창마다 블록 하나를 둔다. 창 블록은 두 줄이다.
+- **FR-ASV-41** (**개정 2026-11-13** — `CLAUDE_ACCOUNTS_SRS` FR-CAC-93 의 계정마다 한 줄로 바뀌었다. 아래는 원문이다) 바닥은 `limits` 원소마다 머리 한 줄(에이전트 이름)과, 창마다 블록 하나를 둔다. 창 블록은 두 줄이다.
   - 첫 줄: 왼쪽에 창 이름, 오른쪽에 `NN% used`
   - 둘째 줄: 패널 폭을 채우는 둥근 막대(트랙과 채움). 그 아래에 `Resets in 2h 10m`
   - 창 이름(i18n): `five_hour` → "Current session"/"현재 세션", `seven_day` → "Current week"/"이번 주", `seven_day_opus` → "Current week (Opus)"/"이번 주 (Opus)", `seven_day_sonnet` → "Current week (Sonnet)"/"이번 주 (Sonnet)". 그 밖의 이름은 `_` 를 빈칸으로 바꾸고 첫 글자를 대문자로 쓴다.
@@ -263,7 +264,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 | ID | 결정 | 이유 |
 |---|---|---|
 | D-ASV-1 | Esc 중단(C-9)은 보완하지 않는다. 다음 프롬프트가 상태를 바로잡는다 | 사용자가 골랐다. 알려 주는 훅이 없어서 어떤 보완도 추정이 된다 |
-| D-ASV-2 | Usage 는 statusLine 의 `rate_limits` 로 Claude 계정 한도(5시간·7일)를 보인다 | 사용자가 골랐다. 구독 OAuth 토큰으로 사용량 API 를 직접 부르는 길은 사내 규정(구독 계정을 자동화에 연결 금지)에 걸려 쓰지 않는다 |
+| D-ASV-2 | Usage 는 statusLine 의 `rate_limits` 로 Claude 계정 한도(5시간·7일)를 보인다 — **직접 조회를 하지 않는다는 근거는 `CLAUDE_ACCOUNTS_SRS` D-CAC-1 로 철회** (2026-11-13) | 사용자가 골랐다. 구독 OAuth 토큰으로 사용량 API 를 직접 부르는 길은 사내 규정(구독 계정을 자동화에 연결 금지)에 걸려 쓰지 않는다 |
 | D-ASV-3 | 서브에이전트는 폴더형과 목록형을 둘 다 만들고, 패널 머리의 버튼으로 고른다. 기본은 폴더형이다 | 사용자가 둘 다 원했다. 보는 방식은 워크스페이스가 아니라 브라우저의 것이다 (FR-AGG-10 과 같은 근거) |
 | D-ASV-4 | statusLine 의 `description` 을 싣는다 (D-SAU-3 을 바꾼다) | 사용자가 서브에이전트의 프롬프트를 보기를 원했다. main 카드는 이미 사용자 프롬프트(자유 글)를 `detail` 로 싣는다. 같은 상한·다듬기를 거친다 |
 | D-ASV-5 | 서브에이전트 활동은 기존 `/api/tools/activity/set` 에 `agentId` 를 실어 보낸다. 새 종단을 만들지 않는다 | 훅 하나가 요청 하나다. 도구 식별·다듬기·시한을 그대로 쓴다 |
@@ -307,7 +308,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 - Esc 중단의 감지 (D-ASV-1). 중단한 뒤 다음 프롬프트까지 카드는 `working` 이다
 - 권한을 승인한 뒤 도구가 끝날 때까지의 상태. `PostToolUse` 가 올 때까지 `waiting` 으로 남는다 — 승인을 알리는 훅이 없다
 - Claude 외 에이전트(codex 등)의 계정 한도와 서브에이전트
-- 구독 OAuth 토큰으로 사용량 API 를 부르는 일 (D-ASV-2)
+- ~~구독 OAuth 토큰으로 사용량 API 를 부르는 일 (D-ASV-2)~~ — 철회(2026-11-13). `CLAUDE_ACCOUNTS_SRS` 가 맡는다 (D-CAC-1)
 - 계정 한도의 영속 저장. 서버를 다시 띄우면 다음 statusLine 보고까지 비어 있다
 - 하위 카드의 끌어 옮기기와 서브에이전트별 점프
 - `PostToolBatch`·`TaskCreated`·`TaskCompleted` 등 상태에 쓰지 않는 훅의 배선

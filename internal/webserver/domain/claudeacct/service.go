@@ -58,8 +58,13 @@ type Service struct {
 	LockTimeout time.Duration
 	// Alive 는 pid 가 살아 있는가다. 비면 운영체제에 묻는다 (FR-CAC-87).
 	Alive func(pid int) bool
+	// LinkShared 는 프로필에 공유 항목을 잇고 잇지 못한 이름을 돌려준다. 비면 심볼릭 링크·복사·정션이다 (FR-CAC-82).
+	LinkShared func(home, dir string) []string
 
 	mu sync.Mutex
+	// warns 는 계정마다 마지막 프로필 준비에서 잇지 못한 공유 항목이다 (FR-CAC-88b).
+	wmu   sync.Mutex
+	warns map[string][]string
 }
 
 func (s *Service) lockTimeout() time.Duration {
@@ -190,6 +195,7 @@ func (s *Service) Remove(id string) error {
 	if err := s.removeProfile(id); err != nil {
 		return err
 	}
+	s.setProfileWarnings(id, nil)
 	return s.Backup.Delete(id)
 }
 
@@ -239,7 +245,7 @@ func (s *Service) stash(c Credential) error {
 		return err
 	}
 	name := strconv.FormatInt(s.Now().Unix(), 10) + "-" + c.Fingerprint() + ".json"
-	return writeSecretFile(filepath.Join(s.Dir, "unclaimed", name), raw)
+	return writeSecretFile(filepath.Join(s.Dir, unclaimedDir, name), raw)
 }
 
 // Switch 는 id 를 활성 계정으로 만든다 (FR-CAC-30). 실패하면 이미 끝낸 단계를 되돌린다.

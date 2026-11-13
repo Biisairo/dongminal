@@ -232,7 +232,8 @@ test.describe('탭 컨텍스트 메뉴 (FR-CMU-8)', () => {
     await page.locator(TAB).last().click({ button: 'right' });
     const m = page.locator('.ui-menu.tab-menu');
     await expect(m).toBeVisible();
-    await expect(m.locator('.ui-menu-item')).toHaveText(['새 탭', '이름 변경', '탭 닫기']);
+    // CLAUDE_ACCOUNTS_SRS FR-CAC-85: 계정 기능이 있는 서버(e2e 서버)는 `Claude 계정…` 이 더 선다.
+    await expect(m.locator('.ui-menu-item')).toHaveText(['새 탭', '이름 변경', 'Claude 계정…', '탭 닫기']);
     await m.locator('.ui-menu-item[data-id="rename"]').click();
     await expect(page.locator(TABS + ' .rename-input')).toHaveCount(1);
   });

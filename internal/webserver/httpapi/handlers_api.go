@@ -264,6 +264,8 @@ var apiRoutes = []apiRoute{
 	httproute.Put("/api/claude-accounts/mappings", (*Server).apiClaudeAccountsMappingsPut),
 	httproute.Get("/api/claude-accounts/resolve", (*Server).apiClaudeAccountsResolve),
 	httproute.Post("/api/claude-accounts/launch", (*Server).apiClaudeAccountsLaunch),
+	httproute.Get("/api/claude-accounts/unclaimed", (*Server).apiClaudeAccountsUnclaimed),
+	httproute.Post("/api/claude-accounts/unclaimed/remove", (*Server).apiClaudeAccountsUnclaimedRemove),
 	httproute.Get("/api/telegram", (*Server).apiTelegramGet),
 	httproute.Put("/api/telegram/token", (*Server).apiTelegramToken),
 	httproute.Put("/api/telegram/enabled", (*Server).apiTelegramEnabled),

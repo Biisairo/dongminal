@@ -8,8 +8,6 @@
  * 로드 순서 계약: `app.js` 뒤, `app-activity.js` 뒤 (`limitBarView`·`actEl` 을 부른다).
  */
 
-/** FR-CAC-122: 패널이 열린 동안 다시 받는 주기. 서버의 조회 주기(최소 180초)보다 짧아 변화를 놓치지 않는다. */
-const CLAUDE_ACCT_POLL_MS=30*1000;
 /** FR-CAC-98: 서버가 주는 색 키. 밖의 값은 첫 색으로 그린다. */
 const CLAUDE_ACCT_COLOR_RE=/^acct-[1-8]$/;
 const CLAUDE_ACCT_COLOR_DEFAULT='acct-1';
@@ -225,7 +223,11 @@ Object.assign(App.prototype, {
     });
   },
 
-  _onClaudeAccountsChanged(){ return this._claudeAcctRestore() },
+  /** FR-CAC-94a: 설정의 Claude 계정 패널이 열려 있으면 그것도 다시 받는다. */
+  _onClaudeAccountsChanged(){
+    if(this._cacctPanelShown&&this._cacctPanelShown()) this._loadClaudePanel();
+    return this._claudeAcctRestore();
+  },
 
   /** FR-CAC-100a: 서버의 계정 알림. 자동 전환은 알림(ok), 나머지는 주의(err) 토스트다. */
   _onClaudeAccountAlert(a){

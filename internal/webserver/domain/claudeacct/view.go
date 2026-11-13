@@ -95,6 +95,8 @@ type AccountView struct {
 	Usage  *UsageView `json:"usage"`
 	// StatusLine 은 그 계정의 statusLine 값이다 (FR-CAC-78·93). 받은 적이 없으면 없다.
 	StatusLine *StatusLineView `json:"statusLine,omitempty"`
+	// ProfileWarnings 는 마지막 프로필 준비에서 잇지 못한 공유 항목이다 (FR-CAC-88b).
+	ProfileWarnings []string `json:"profileWarnings,omitempty"`
 }
 
 // StatusLineView 는 statusLine 줄 하나의 값이다 (FR-CAC-93). Name 은 등록되지 않은 계정에만 있다.

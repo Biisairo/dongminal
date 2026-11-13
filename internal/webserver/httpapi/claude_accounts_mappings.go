@@ -126,3 +126,38 @@ func (s *Server) apiClaudeAccountsLaunch(w http.ResponseWriter, r *http.Request)
 	}
 	httpresp.JSON(w, http.StatusOK, res)
 }
+
+func (s *Server) claudeUnclaimedReply(w http.ResponseWriter) {
+	list, err := s.ca.svc.Unclaimed()
+	if err != nil {
+		claudeAccountsFail(w, err)
+		return
+	}
+	httpresp.JSON(w, http.StatusOK, map[string]any{"entries": list})
+}
+
+// apiClaudeAccountsUnclaimed 는 보관 목록이다. 내용은 싣지 않는다 (FR-CAC-34a).
+func (s *Server) apiClaudeAccountsUnclaimed(w http.ResponseWriter, _ *http.Request) {
+	if !s.claudeAccountsReady(w) {
+		return
+	}
+	s.claudeUnclaimedReply(w)
+}
+
+func (s *Server) apiClaudeAccountsUnclaimedRemove(w http.ResponseWriter, r *http.Request) {
+	if !s.claudeAccountsReady(w) {
+		return
+	}
+	var req struct {
+		Name string `json:"name"`
+	}
+	if !peerReadJSON(w, r, &req) {
+		return
+	}
+	if err := s.ca.svc.RemoveUnclaimed(req.Name); err != nil {
+		claudeAccountsFail(w, err)
+		return
+	}
+	s.claudeAccountsChanged()
+	s.claudeUnclaimedReply(w)
+}

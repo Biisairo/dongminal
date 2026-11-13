@@ -109,7 +109,9 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
    - **이어지는 곳**: statusLine 프록시(`dmctl_statusline.go` `statuslineAccount`)는 이미 `CLAUDE_CONFIG_DIR/.claude.json` 의 계정을 읽는다 — 프로필 `oauthAccount` 를 맞추면 고정 세션의 statusLine 값이 그 계정으로 귀속된다. 프로필 키체인 이름은 `ProfileClaudePaths`(paths.go)에 있다.
    - **참고**: cswap 원본은 `~/.local/share/uv/tools/claude-swap/lib/python3.12/site-packages/claude_swap/`(`session.py` 가 프로필·공유 항목·MCP 미러). cswap 은 프로필 자격증명을 평문 `.credentials.json` 으로 넣고 Claude 가 키체인으로 옮기게 둔다. 우리 SRS 는 키체인에 직접 쓴다(FR-CAC-82) — SRS 를 따른다.
 
-6. **6단계** 설정 "Claude 계정" 구역, 기존 결정 개정(FR-CAC-130: D-ACU-3·D-ASV-2 철회 표시, `ACTIVITY_CARD_USAGE_SRS` 비목표 줄), e2e. `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-41(statusLine 창 블록)이 FR-CAC-93 의 한 줄로 바뀐 것도 그 문서에 개정으로 적는다.
+6. ~~**6단계**~~ — 끝났다 (2026-11-13, 아래 "6단계 결과"). 원래 범위: 설정 "Claude 계정" 구역, 기존 결정 개정(FR-CAC-130: D-ACU-3·D-ASV-2 철회 표시, `ACTIVITY_CARD_USAGE_SRS` 비목표 줄), e2e. `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-41(statusLine 창 블록)이 FR-CAC-93 의 한 줄로 바뀐 것도 그 문서에 개정으로 적는다.
+   - **6단계 결과**: 서버 — 보관 목록·삭제 API(`claudeacct/unclaimed.go`, `GET /unclaimed`·`POST /unclaimed/remove`, FR-CAC-34a), 링크 경고 전달(`Service.LinkShared` 이음매·`ProfileWarnings`, 목록 응답의 `profileWarnings`, FR-CAC-88b). 화면 — 설정 탭 "Claude 계정"(`web/js/core/app-settings-claude.js`, FR-CAC-94a: 계정 줄·끌어서 순서·삭제 확인, 자동 전환 칸, 폴더 연결 트리·연결 추가, 보관 목록, 전환 기록 50건). 문서 개정 — `ACTIVITY_CARD_USAGE_SRS` D-ACU-3·비목표, `ACTIVITY_STATE_SUBAGENT_SRS` D-ASV-2·FR-ASV-41·비목표, `CONTEXT_MENU_UNIFY_SRS` FR-CMU-8·TC-CMU-3(탭 메뉴 넷). 시험 — Go TC-CAC-30, JS `claude-accounts-settings.test.mjs`(7건), e2e `e2e/claude-accounts.spec.ts`(TC-CAC-27, 브라우저 API 위조 — D-CAC-32 사용자 결정). 결정 D-CAC-32, SRS 개정 (9).
+   - 남은 것: TC-CAC-28 — 실제 계정 둘로 macOS 에서 사용자가 확인한다(추가·전환·사용량·로그인 만료일·탭 지정·폴더 연결로 claude 실행).
 
 ## 4a. 이 세션들이 값을 치르고 배운 것
 
@@ -131,6 +133,11 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 - 셸 훅 시험은 `bin` 을 `<home>/bin` 이름으로 만들어야 한다 — 훅이 `$DONGMINAL_HOME/bin/...` 을 본다.
 
 ## 5. 끝에 사용자에게 보고할 것
+
+- e2e 전량(2026-11-13): 이 브랜치 때문에 실패한 5건은 고쳤다 — SSE 복원력 3건(`state-registry.js` 가 `app-claude-accounts.js` 의 주기 상수를 읽어 등록부만 싣는 합성 페이지에서 깨졌다 → 상수를 등록부로 옮김, 2단계부터의 결함), TC-UIP-11(설정 탭 14→15), TC-CMU-3(탭 메뉴 셋→넷). TC-UIP-5 는 전량에서만 흔들렸고 단독으로는 통과한다.
+- **main(`710d0ec9`)에서도 실패하는 7건 — main 에서 따로 고친다(사용자 결정 2026-11-13)**: `git-history` H5(History 열 숨김 `hide-hash`), `git-observe-revive` TC-GOR-5(조건 거짓인데 폴링 남음), `git-ui-metrics` V81(모바일 폭에서 `.pn-body` 숨음)·V82(Git 버튼 라벨 `나란히`·`통합` 이 한글), `git-remote` R15(거부 뒤 비밀번호 칸이 남음), `ux-batch10` diff 나란히 보기(`side-by-side` 클래스 없음), `steady-traffic`(유휴 30초에 `/api/tools/activity` 6회 — Activity 패널이 보이는 것으로 판정됨). steady-traffic 은 같은 원인으로 이 브랜치의 `/api/claude-accounts`·`/mappings` 도 1회씩 세는데, 패널 판정이 고쳐지면 함께 사라진다.
+
+- 6단계 결정: D-CAC-32(e2e 는 브라우저에서 API 위조, 사용자 결정). 동작 변경: 탭 우클릭 메뉴가 셋에서 넷(`Claude 계정…`)이 됐다 — `CONTEXT_MENU_UNIFY_SRS` 에 개정 기록.
 
 - 5b 결정: D-CAC-30(화면이 매핑으로 계정을 셈하고 경로만 서버가 정규화)·D-CAC-31(계정 고르기는 같은 자리의 두 번째 메뉴) — 구현자 판단.
 - e2e `editor-ops` O7 은 원래 코드(HEAD)에서도 8번에 2번 실패하는 flaky 다(5b 와 무관, 2026-11-13 대조).

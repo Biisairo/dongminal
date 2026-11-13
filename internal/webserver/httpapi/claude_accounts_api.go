@@ -90,6 +90,7 @@ func (s *Server) apiClaudeAccountsList(w http.ResponseWriter, _ *http.Request) {
 		if u, at, ok := s.ca.sl.get(views[i].Account); ok {
 			views[i].StatusLine = claudeacct.StatusLineViewOf(u, at, now)
 		}
+		views[i].ProfileWarnings = s.ca.svc.ProfileWarnings(views[i].ID)
 	}
 	v := claudeAccountsView{ActiveID: st.ActiveID, Accounts: views,
 		Autoswitch:       claudeAutoSummary{Enabled: av.Settings.Enabled, Status: av.State.Status},

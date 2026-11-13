@@ -303,6 +303,8 @@
       <button class="ui-tab mtab" data-tab="peers" title="Peer nodes">Peers</button>
       <!-- TELEGRAM_BRIDGE_SRS FR-TGB-1: 휴대폰에서 에이전트를 보는 브리지. -->
       <button class="ui-tab mtab" data-tab="telegram" title="Telegram bridge">Telegram</button>
+      <!-- CLAUDE_ACCOUNTS_SRS FR-CAC-94: 계정·자동 전환·폴더 연결·보관 목록·기록. -->
+      <button class="ui-tab mtab" data-tab="claude" data-i18n="cacct.set.tab" title="Claude accounts">Claude</button>
       <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
       <button class="ui-tab mtab" data-tab="sandbox" title="Sandbox profile settings">Sandbox</button>
       <button class="ui-tab mtab" data-tab="backup" title="Backup and restore settings">Backup</button>
@@ -683,6 +685,9 @@
           <span id="tg-silence-status" class="sbx-status"></span>
           <div class="ds-hint" data-i18n="html.tg_silence_hint"></div>
         </div>
+      </div>
+      <div class="mpanel" id="panel-claude" hidden>
+        <div class="display-settings" id="cacct-set"></div>
       </div>
       <div class="mpanel" id="panel-sandbox" hidden>
         <div class="display-settings">
@@ -1084,6 +1089,7 @@
 <script src="js/core/app-peers.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-peers.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-telegram.js?v=__ASSETV__"></script>
+<script src="js/core/app-settings-claude.js?v=__ASSETV__"></script>
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
 <script src="js/core/app-backup.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar.js?v=__ASSETV__"></script>

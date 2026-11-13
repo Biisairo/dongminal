@@ -31,6 +31,11 @@
  * 증분 자체가 없어 `touched` 가 성립하지 않는 상태였다. **진단이 틀렸던 것도
  * 나란히 놓아서 알았다.**
  */
+/**
+ * CLAUDE_ACCOUNTS_SRS FR-CAC-122: 패널이 열린 동안 계정 목록을 다시 받는 주기. 서버의 조회 주기(최소 180초)보다
+ * 짧아 변화를 놓치지 않는다. 등록부만 싣는 페이지(e2e 합성 페이지)에서도 정의돼야 하므로 여기 둔다.
+ */
+const CLAUDE_ACCT_POLL_MS=30*1000;
 const STATE_REGISTRY=[
   {
     id:'tool.attention',

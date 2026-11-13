@@ -104,3 +104,49 @@ func TestClaudeAccountsMappingErrors(t *testing.T) {
 		}
 	}
 }
+
+// CLAUDE_ACCOUNTS_SRS TC-CAC-30 (API): 보관 목록·삭제 (FR-CAC-34a), 링크 경고 (FR-CAC-88b).
+func TestClaudeAccountsUnclaimedAPI(t *testing.T) {
+	e := newCAEnv(t)
+	dir := filepath.Join(e.srv.ca.svc.Dir, "unclaimed")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "100-aaaaaaaaaaaa.json"), []byte(`{"claudeAiOauth":{"accessToken":"SECRET-U"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rec, out := e.do("GET", "/api/claude-accounts/unclaimed", "")
+	entries, _ := out["entries"].([]any)
+	if rec.Code != 200 || len(entries) != 1 || entries[0].(map[string]any)["fingerprint"] != "aaaaaaaaaaaa" {
+		t.Fatalf("list %d %s", rec.Code, rec.Body)
+	}
+	if strings.Contains(rec.Body.String(), "SECRET-U") {
+		t.Fatal("token leaked")
+	}
+	rec, _ = e.do("POST", "/api/claude-accounts/unclaimed/remove", `{"name":"../accounts.json"}`)
+	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "claude_account_invalid") {
+		t.Fatalf("bad name %d %s", rec.Code, rec.Body)
+	}
+	rec, out = e.do("POST", "/api/claude-accounts/unclaimed/remove", `{"name":"100-aaaaaaaaaaaa.json"}`)
+	if entries, _ := out["entries"].([]any); rec.Code != 200 || len(entries) != 0 {
+		t.Fatalf("remove %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestClaudeAccountsListCarriesProfileWarnings(t *testing.T) {
+	e := newCAEnv(t)
+	id := e.addOne(t)
+	rec, _ := e.do("GET", "/api/claude-accounts", "")
+	if strings.Contains(rec.Body.String(), "profileWarnings") {
+		t.Fatalf("no warnings yet: %s", rec.Body)
+	}
+	e.srv.ca.svc.LinkShared = func(string, string) []string { return []string{"skills"} }
+	if _, _, err := e.srv.ca.svc.PrepareProfile(id); err != nil {
+		t.Fatal(err)
+	}
+	rec, out := e.do("GET", "/api/claude-accounts", "")
+	acc := out["accounts"].([]any)[0].(map[string]any)
+	if w, _ := acc["profileWarnings"].([]any); rec.Code != 200 || len(w) != 1 || w[0] != "skills" {
+		t.Fatalf("warnings %d %s", rec.Code, rec.Body)
+	}
+}
