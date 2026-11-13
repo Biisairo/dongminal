@@ -6,7 +6,7 @@
 
 - 워크트리: `/Users/dykim/personal/dongminal/.claude/worktrees/claude-accounts`
 - 브랜치: `feat/claude-accounts` (로컬 main `710d0ec9` 에서 갈라졌다. origin/main 보다 커밋 하나 앞선 main 이다)
-- 1·2단계는 `0356fb6e`, `dmctl account usage`·argv 제거는 `eeffd3ce`, 3단계는 `f14b0425`, 4단계(+statusLine 합치기)는 `73207c0f`, 5a 는 `2a90f38e` 로 커밋했다. 5b 는 사용자 확인 뒤 커밋한다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
+- 1·2단계는 `0356fb6e`, `dmctl account usage`·argv 제거는 `eeffd3ce`, 3단계는 `f14b0425`, 4단계(+statusLine 합치기)는 `73207c0f`, 5a 는 `2a90f38e` 로 커밋했다. 5b 는 `a6176544` 로 커밋했다. 그 뒤의 커밋도 사용자가 확인한 뒤에만 한다. 커밋 메시지에 AI 서명을 넣지 않는다.
 - 순서는 단계마다 고정이다: 시험 작성 → RED 확인 → 구현 → GREEN → `make gates`·`golangci-lint`.
 - 시험은 실제 키체인과 실제 Anthropic 엔드포인트를 부르지 않는다. 서버 시험은 `Config.ClaudeSecrets` 에 가짜를, `Config.ClaudeAPI` 에 `httptest` 주소를 넣는다.
 - 워크트리 세션에서는 `cd ... && cat > 파일 <<EOF` 같은 복합 셸 명령이 거절된다. 파일은 Write/Edit 도구로 쓰고, 셸 명령은 단순하게 나눈다. `tmp/` 대신 `/tmp/` 를 쓴다.
