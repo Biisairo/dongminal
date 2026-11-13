@@ -982,6 +982,12 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .cacct-pace,.cacct-spend,.cacct-login{margin-top:4px;font-size:var(--fs-sm);color:var(--text-muted)}
 .cacct-pace.warn,.cacct-login.warn{color:var(--attn-text)}
 .cacct-acts{display:flex;gap:6px;margin-top:6px}
+/* FR-CAC-65: 제한 초기화 칸 — 줄마다 이름 · 상태 · (쓸 수 있으면) 버튼. */
+.cacct-resets{margin-top:6px;min-width:0}
+.cacct-resets-h{font-size:var(--fs-sm);color:var(--text-hint)}
+.cacct-rs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin-top:4px;font-size:var(--fs-sm);min-width:0}
+.cacct-rs-name{color:var(--text-bright);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cacct-rs-detail{flex:1 1 auto;color:var(--text-muted);min-width:0}
 .act-usage-sl{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;margin-top:8px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
 .act-usage-sl:first-child{margin-top:0}
 .act-usage-sl>span+span::before{content:'·';margin-right:6px;color:var(--text-hint)}

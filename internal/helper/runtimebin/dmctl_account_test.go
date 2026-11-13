@@ -289,3 +289,107 @@ func TestDmctlAccountUsageJSON(t *testing.T) {
 		t.Fatalf("%+v", v)
 	}
 }
+
+// CLAUDE_ACCOUNTS_SRS TC-CAC-24 (3단계): dmctl account reset 과 usage 의 초기화 줄 (FR-CAC-62·63·65).
+
+const accountsResetsJSON = `{"activeId":"id-a","accounts":[
+ {"id":"id-a","email":"a@x.com","alias":"work","active":true,"usage":{"status":"ok",
+   "windows":{"fiveHour":{"pct":100,"level":"critical"}},"pace":{},
+   "resets":{"fetchedAt":1794000000,
+     "juniperTide":{"eligible":true,"available":false,"nextAvailableAt":1794100000},
+     "cedarEmber":{"eligible":true,"atLimit":true,"exhausted":[],"grants":[
+       {"id":"g_1","label":"Fable reset","resetsTotal":3,"resetsLeft":2,"endsAt":1796000000,"clears":["five_hour","seven_day"],
+        "paused":false,"usableNow":true,"useRequiresLimit":true,"blocking":[],"givesBackWeekly":true},
+       {"id":"g_0","label":"Used up","resetsTotal":1,"resetsLeft":0,"clears":[],"paused":false,"usableNow":false,"useRequiresLimit":true,"blocking":[],"givesBackWeekly":false}]}}}}]}`
+
+func runAccountStdin(in string, args ...string) (int, string, string) {
+	var so, se strings.Builder
+	rc := runDmctlAccountStdin(strings.NewReader(in), args, &so, &se)
+	return rc, so.String(), se.String()
+}
+
+func TestDmctlAccountUsageShowsResets(t *testing.T) {
+	_, cleanup := withAccountServer(t, map[string]string{"GET /api/claude-accounts": accountsResetsJSON})
+	defer cleanup()
+	rc, out, _ := dmctlRun("account", "usage")
+	if rc != 0 {
+		t.Fatal(rc)
+	}
+	for _, want := range []string{"주간 5시간 초기화", "다음 가능", "초기화 티켓 Fable reset", "2/3회 남음", "쓸 수 있음"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("%q 가 없다:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Used up") {
+		t.Fatalf("남은 횟수가 0 인 티켓은 보이지 않는다:\n%s", out)
+	}
+}
+
+func TestDmctlAccountResetConfirm(t *testing.T) {
+	calls, cleanup := withAccountServer(t, map[string]string{
+		"GET /api/claude-accounts":        accountsResetsJSON,
+		"POST /api/claude-accounts/reset": `{"result":"reset","resetsLeft":1,"cleared":["five_hour"]}`,
+	})
+	defer cleanup()
+	rc, out, _ := runAccountStdin("n\n", "reset", "work", "--program", "cedar_ember", "--grant", "g_1")
+	if rc != 1 || len(*calls) != 1 {
+		t.Fatalf("y 가 아니면 보내지 않는다 rc=%d %+v", rc, *calls)
+	}
+	for _, want := range []string{"Fable reset", "채우는 것", "5시간", "주간", "남은 횟수 2/3", "기한", "주간 한도를 돌려받습니다", "[y/N]"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("확인 질문에 %q 가 없다:\n%s", want, out)
+		}
+	}
+	rc, out, errOut := runAccountStdin("y\n", "reset", "work", "--program", "cedar_ember", "--grant", "g_1")
+	if rc != 0 || !strings.Contains(out, "초기화했습니다") {
+		t.Fatalf("rc=%d %s %s", rc, out, errOut)
+	}
+	last := (*calls)[len(*calls)-1]
+	if last.path != "/api/claude-accounts/reset" || last.body["id"] != "id-a" || last.body["program"] != "cedar_ember" || last.body["grantId"] != "g_1" {
+		t.Fatalf("%+v", last)
+	}
+}
+
+func TestDmctlAccountResetYesAndResults(t *testing.T) {
+	for _, c := range []struct {
+		body string
+		rc   int
+		want string
+	}{
+		{`{"result":"already_used"}`, 1, "이미 썼습니다"},
+		{`{"result":"unconfirmed"}`, 1, "확인하지 못했습니다"},
+		{`{"result":"reset","nextAvailableAt":1794200000}`, 0, "초기화했습니다"},
+	} {
+		calls, cleanup := withAccountServer(t, map[string]string{
+			"GET /api/claude-accounts":        accountsResetsJSON,
+			"POST /api/claude-accounts/reset": c.body,
+		})
+		rc, out, _ := runAccountStdin("", "reset", "work", "--program", "juniper_tide", "--yes")
+		cleanup()
+		if rc != c.rc || !strings.Contains(out, c.want) || strings.Contains(out, "[y/N]") {
+			t.Errorf("%s: rc=%d %q", c.body, rc, out)
+		}
+		if (*calls)[len(*calls)-1].body["grantId"] != nil {
+			t.Errorf("주간 5시간 초기화에는 티켓이 없다: %+v", (*calls)[len(*calls)-1].body)
+		}
+	}
+}
+
+func TestDmctlAccountResetArgs(t *testing.T) {
+	_, cleanup := withAccountServer(t, map[string]string{"GET /api/claude-accounts": accountsResetsJSON})
+	defer cleanup()
+	for _, args := range [][]string{
+		{"reset", "work"},
+		{"reset", "work", "--program", "nope"},
+		{"reset", "work", "--program", "cedar_ember"},
+		{"reset", "work", "--program", "juniper_tide", "--grant", "g_1"},
+		{"reset", "--program", "juniper_tide"},
+	} {
+		if rc, _, _ := runAccountStdin("", args...); rc != 2 {
+			t.Errorf("%v → rc=%d", args, rc)
+		}
+	}
+	if rc, _, errOut := runAccountStdin("", "reset", "nobody", "--program", "juniper_tide", "--yes"); rc != 1 || !strings.Contains(errOut, "nobody") {
+		t.Fatalf("rc=%d %q", rc, errOut)
+	}
+}

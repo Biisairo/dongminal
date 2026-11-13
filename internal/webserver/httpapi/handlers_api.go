@@ -256,6 +256,7 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/claude-accounts/order", (*Server).apiClaudeAccountsOrder),
 	httproute.Post("/api/claude-accounts/switch", (*Server).apiClaudeAccountsSwitch),
 	httproute.Post("/api/claude-accounts/refresh", (*Server).apiClaudeAccountsRefresh),
+	httproute.Post("/api/claude-accounts/reset", (*Server).apiClaudeAccountsReset),
 	httproute.Get("/api/telegram", (*Server).apiTelegramGet),
 	httproute.Put("/api/telegram/token", (*Server).apiTelegramToken),
 	httproute.Put("/api/telegram/enabled", (*Server).apiTelegramEnabled),

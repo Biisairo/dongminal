@@ -71,3 +71,13 @@ func TestUsageLevel(t *testing.T) {
 		}
 	}
 }
+
+// FR-CAC-65: 조회한 초기화 상태는 usage.resets 로 나간다. 조회한 적이 없으면 없다.
+func TestBuildViewsResets(t *testing.T) {
+	st := State{Accounts: []Account{{ID: "a"}, {ID: "b"}}}
+	rs := &Resets{Juniper: &JuniperStatus{Eligible: true, Available: true}, FetchedAt: 5}
+	vs := BuildViews(st, map[string]Row{"a": {Resets: rs}}, 10)
+	if vs[0].Usage.Resets != rs || vs[1].Usage.Resets != nil {
+		t.Fatalf("%+v %+v", vs[0].Usage.Resets, vs[1].Usage.Resets)
+	}
+}

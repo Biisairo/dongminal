@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -231,5 +232,73 @@ func TestClaudeAccountsRefreshAndUsageView(t *testing.T) {
 	rec, _ = e.do("POST", "/api/claude-accounts/refresh", `{"id":"nope"}`)
 	if rec.Code != 404 {
 		t.Fatalf("%d", rec.Code)
+	}
+}
+
+// TC-CAC-26 (FR-CAC-65): 제한 초기화 상태는 usage.resets 로, 사용은 /reset 로. 결과는 언제나 200 이다.
+func TestClaudeAccountsResets(t *testing.T) {
+	var claims []string
+	e := newCAEnvWithAPI(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer AT" {
+			w.WriteHeader(401)
+			return
+		}
+		switch {
+		case r.URL.Path == "/api/oauth/usage" && r.URL.RawQuery == "at_wall=1&skip_spend=1":
+			_, _ = w.Write([]byte(`{"juniper_tide":{"eligible":true,"available":true}}`))
+		case r.URL.Path == "/api/oauth/usage" && r.URL.RawQuery == "cedar_ember=1&skip_spend=1":
+			_, _ = w.Write([]byte(`{"cedar_ember":{"eligible":true,"grants":[{"id":"g_1","resets_left":1,"usable_now":true}]}}`))
+		case r.URL.Path == "/api/oauth/usage":
+			_, _ = w.Write([]byte(`{"five_hour":{"utilization":100},"seven_day":{"utilization":7}}`))
+		case r.URL.Path == "/api/organizations/org-a/reset_rate_limits":
+			b, _ := io.ReadAll(r.Body)
+			claims = append(claims, string(b))
+			_, _ = w.Write([]byte(`{"result":"already_used"}`))
+		default:
+			w.WriteHeader(404)
+		}
+	})
+	e.login("a@x.com", "org-a", "AT", "RT")
+	cred := `{"claudeAiOauth":{"accessToken":"AT","refreshToken":"RT","expiresAt":99999999999999}}`
+	_ = os.WriteFile(filepath.Join(e.home, ".claude", ".credentials.json"), []byte(cred), 0o600)
+	_, out := e.do("POST", "/api/claude-accounts/add", "{}")
+	id := out["account"].(map[string]any)["id"].(string)
+
+	rec, _ := e.do("POST", "/api/claude-accounts/refresh", `{"id":"`+id+`","resets":true}`)
+	if rec.Code != 200 {
+		t.Fatalf("resets refresh %d %s", rec.Code, rec.Body)
+	}
+	_, out = e.do("GET", "/api/claude-accounts", "")
+	usage := out["accounts"].([]any)[0].(map[string]any)["usage"].(map[string]any)
+	rs, _ := usage["resets"].(map[string]any)
+	if rs == nil || rs["juniperTide"].(map[string]any)["available"] != true || len(rs["cedarEmber"].(map[string]any)["grants"].([]any)) != 1 {
+		t.Fatalf("%v", usage)
+	}
+	if usage["windows"] != nil {
+		t.Fatalf("resets:true 는 상태만 조회한다: %v", usage)
+	}
+	rec, _ = e.do("POST", "/api/claude-accounts/refresh", `{"id":"`+id+`","resets":true}`)
+	if rec.Code != 409 || rec.Header().Get(apierr.CodeHeader) != apierr.CodeClaudeTooSoon {
+		t.Fatalf("too soon %d", rec.Code)
+	}
+
+	rec, out = e.do("POST", "/api/claude-accounts/reset", `{"id":"`+id+`","program":"cedar_ember","grantId":"g_1"}`)
+	if rec.Code != 200 || out["result"] != "already_used" || len(claims) != 1 || !strings.Contains(claims[0], `"grant_id":"g_1"`) {
+		t.Fatalf("%d %v %v", rec.Code, out, claims)
+	}
+	for _, bad := range []string{
+		`{"id":"` + id + `","program":"nope"}`,
+		`{"id":"` + id + `","program":"cedar_ember"}`,
+		`{"id":"` + id + `","program":"cedar_ember","grantId":"BAD ID"}`,
+	} {
+		if rec, _ := e.do("POST", "/api/claude-accounts/reset", bad); rec.Code != 400 || rec.Header().Get(apierr.CodeHeader) != apierr.CodeClaudeAccountInvalid {
+			t.Errorf("%s → %d", bad, rec.Code)
+		}
+	}
+	if rec, _ := e.do("POST", "/api/claude-accounts/reset", `{"id":"nope","program":"juniper_tide"}`); rec.Code != 404 {
+		t.Fatalf("%d", rec.Code)
+	}
+	if len(claims) != 1 {
+		t.Fatalf("틀린 요청은 보내지 않는다: %v", claims)
 	}
 }

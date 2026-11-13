@@ -18,6 +18,12 @@ const EN = {
   'cacct.pace_lasts': 'lasts until reset', 'cacct.spend': 'Extra usage {used} / {limit}',
   'cacct.login_expires': 'Login expires {d}', 'cacct.switch': 'Switch to this account', 'cacct.refresh': 'Refresh',
   'cacct.wd.3': 'Wed',
+  'cacct.rs.title': 'Limit resets', 'cacct.rs.juniper': '5-hour reset', 'cacct.rs.usable': 'available',
+  'cacct.rs.next': 'next {t}', 'cacct.rs.left': '{n}/{m} left', 'cacct.rs.until': 'until {d}', 'cacct.rs.paused': 'paused',
+  'cacct.rs.use': 'Use reset…', 'cacct.rs.confirm_title': 'Use a limit reset?', 'cacct.rs.clears': 'Refills: {w}',
+  'cacct.rs.weekly_deduct': 'Counts against your weekly limit', 'cacct.rs.weekly_back': 'Gives back weekly usage',
+  'cacct.rs.irreversible': 'This cannot be undone.', 'cacct.rs.confirm_use': 'Use',
+  'cacct.rs.r.reset': 'Reset done', 'cacct.rs.r.unconfirmed': 'Could not confirm',
 };
 function fillEn(k, p) {
   if (!(k in EN)) return k;
@@ -221,7 +227,7 @@ test('FR-CAC-90: 계정이 없으면 statusLine 줄만, 있으면 계정 묶음 
 });
 
 test('FR-CAC-91: 펼침은 계정별로 기억한다', () => {
-  const ctx = loadFoot();
+  const ctx = loadFoot({ apiPost: () => Promise.resolve({ ok: false, status: 409, data: {} }) });
   const app = footApp(ctx);
   let rendered = 0;
   app.agentsRender = () => { rendered++ };
@@ -338,4 +344,104 @@ test('FR-CAC-98: 계정 색 8개는 모드별 고정 팔레트이고, 54종 전�
       assert.ok(ctx.contrastRatio(pal[k], bg) >= ctx.CONTRAST_FLOORS.ui, `${name} ${k} on ${bg}`);
     }
   }
+});
+
+// ── 제한 초기화 (FR-CAC-62·63·65) ──
+
+const RESETS = {
+  fetchedAt: NOW,
+  juniperTide: { eligible: true, available: false, nextAvailableAt: NOW + 3600 },
+  cedarEmber: { eligible: true, atLimit: true, exhausted: [], grants: [
+    { id: 'g_1', label: 'Fable reset', resetsTotal: 3, resetsLeft: 2, endsAt: Date.UTC(2026, 11, 1, 12) / 1000,
+      clears: ['five_hour', 'seven_day'], paused: false, usableNow: true, givesBackWeekly: true, blocking: [] },
+    { id: 'g_0', label: 'Spent', resetsTotal: 1, resetsLeft: 0, clears: [], paused: false, usableNow: false, blocking: [] },
+    { id: 'g_p', label: '', resetsTotal: 1, resetsLeft: 1, clears: ['five_hour'], paused: true, usableNow: false, blocking: [] },
+  ] },
+};
+const withResets = (r) => { const a = structuredClone(ACC_A); a.usage.resets = r; return a };
+const ymdOf = (sec) => { const d = new Date(sec * 1000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') };
+
+test('FR-CAC-65: 펼친 묶음의 초기화 칸 — 주간 5시간 초기화와 남은 티켓', () => {
+  const { claudeAcctView } = loadFoot();
+  const rs = plain(claudeAcctView(withResets(RESETS), true).more.resets);
+  assert.deepEqual(rs.map((r) => r.key), ['juniper', 'g:g_1', 'g:g_p']);
+  const d = new Date((NOW + 3600) * 1000);
+  assert.deepEqual(rs[0], { key: 'juniper', program: 'juniper_tide', grantId: '', name: '5-hour reset',
+    detail: 'next ' + fillEn('cacct.wd.' + d.getDay()) + ' ' + clock((NOW + 3600) * 1000), usable: false,
+    confirm: { clears: 'Refills: Current session', left: '', ends: '', weekly: 'Counts against your weekly limit' } });
+  assert.equal(rs[1].name, 'Fable reset');
+  assert.equal(rs[1].detail, '2/3 left · until ' + ymdOf(RESETS.cedarEmber.grants[0].endsAt) + ' · available');
+  assert.equal(rs[1].usable, true);
+  assert.deepEqual(rs[1].confirm, { clears: 'Refills: Current session, Current week', left: '2/3 left',
+    ends: 'until ' + ymdOf(RESETS.cedarEmber.grants[0].endsAt), weekly: 'Gives back weekly usage' });
+  assert.equal(rs[2].name, 'g_p', '이름이 없으면 id');
+  assert.equal(rs[2].detail, '1/1 left · paused');
+  assert.equal(rs[2].usable, false);
+});
+
+test('FR-CAC-61·65: 자격이 없거나 상태가 없으면 칸이 비고, 쓸 수 있는 주간 초기화는 available', () => {
+  const { claudeAcctView } = loadFoot();
+  assert.deepEqual(plain(claudeAcctView(ACC_A, true).more.resets), []);
+  const off = structuredClone(RESETS);
+  off.juniperTide.eligible = false; off.cedarEmber.eligible = false;
+  assert.deepEqual(plain(claudeAcctView(withResets(off), true).more.resets), []);
+  const on = { fetchedAt: NOW, juniperTide: { eligible: true, available: true } };
+  const r = plain(claudeAcctView(withResets(on), true).more.resets);
+  assert.equal(r[0].detail, 'available');
+  assert.equal(r[0].usable, true);
+  const none = { fetchedAt: NOW, juniperTide: { eligible: true, available: false } };
+  assert.equal(plain(claudeAcctView(withResets(none), true).more.resets)[0].detail, '');
+});
+
+test('FR-CAC-65: 초기화 칸 원소 — 쓸 수 있는 줄에만 버튼', () => {
+  const ctx = loadFoot();
+  const app = footApp(ctx);
+  ctx._local.setJson('claudeAcctOpen', ['a']);
+  app._claudeAccts = [withResets(RESETS)];
+  const box = app._actUsageFootEl(app._actItems().at(-1).view).children[1];
+  const sec = find(box, 'cacct-resets');
+  assert.ok(sec);
+  const rows = sec.children.filter((c) => c.className.split(' ')[0] === 'cacct-rs');
+  assert.equal(rows.length, 3);
+  assert.equal(find(rows[0], 'cacct-rs-use'), null);
+  assert.ok(find(rows[1], 'cacct-rs-use'));
+  assert.equal(find(rows[2], 'cacct-rs-use'), null);
+});
+
+test('FR-CAC-62·63: 사용은 확인 뒤에만 보내고, 결과를 알린다. 실패 응답은 오류로 알린다', async () => {
+  const calls = [], toasts = [];
+  let reply = { ok: true, status: 200, data: { result: 'reset' } };
+  const ctx = loadFoot({
+    apiPost: (p, b) => { calls.push([p, b]); return Promise.resolve(reply) },
+    apiErrText: (r) => 'E' + r.status,
+    Toast: { show: (m, k) => toasts.push([m, k]) },
+  });
+  const app = restoreApp(ctx);
+  app._claudeAcctRestore = () => Promise.resolve();
+  await app._claudeAcctReset('a', { program: 'cedar_ember', grantId: 'g_1' });
+  reply = { ok: true, status: 200, data: { result: 'unconfirmed' } };
+  await app._claudeAcctReset('a', { program: 'juniper_tide', grantId: '' });
+  reply = { ok: false, status: 400, data: { code: 'claude_account_invalid' } };
+  await app._claudeAcctReset('a', { program: 'juniper_tide', grantId: '' });
+  assert.deepEqual(plain(calls), [
+    ['/api/claude-accounts/reset', { id: 'a', program: 'cedar_ember', grantId: 'g_1' }],
+    ['/api/claude-accounts/reset', { id: 'a', program: 'juniper_tide' }],
+    ['/api/claude-accounts/reset', { id: 'a', program: 'juniper_tide' }],
+  ]);
+  assert.deepEqual(plain(toasts), [['Reset done', 'ok'], ['Could not confirm', 'err'], ['E400', 'err']]);
+});
+
+test('FR-CAC-60·65: 펼칠 때 초기화 상태를 조용히 다시 묻는다 — 접을 때는 묻지 않는다', async () => {
+  const calls = [], toasts = [];
+  const ctx = loadFoot({
+    apiPost: (p, b) => { calls.push([p, b]); return Promise.resolve({ ok: false, status: 409, data: {} }) },
+    Toast: { show: (m, k) => toasts.push([m, k]) },
+  });
+  const app = footApp(ctx);
+  app.agentsRender = () => {};
+  app._claudeAcctRestore = () => Promise.resolve();
+  await app._claudeAcctToggle('a');
+  await app._claudeAcctToggle('a');
+  assert.deepEqual(plain(calls), [['/api/claude-accounts/refresh', { id: 'a', resets: true }]]);
+  assert.equal(toasts.length, 0, '409(1분 안) 는 알리지 않는다');
 });

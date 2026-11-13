@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -40,6 +41,7 @@ var ErrTooSoon = errors.New("조금 전에 조회했거나 물러나는 중입�
 type UsageAPI interface {
 	UsageRaw(ctx context.Context, token, query string) ([]byte, error)
 	Refresh(ctx context.Context, refreshToken string) (TokenResult, error)
+	ClaimReset(ctx context.Context, token, org string, body map[string]any) ([]byte, error)
 }
 
 // Row 는 계정 하나의 사용량 캐시와 조회 상태다 (FR-CAC-50). 토큰은 없다.
@@ -56,6 +58,10 @@ type Row struct {
 	AuthDeadFP          string `json:"authDeadFp,omitempty"`
 	LoginExpiresAt      int64  `json:"loginExpiresAt,omitempty"`
 	Status              string `json:"status,omitempty"`
+	// UsageOK 는 사용량 조회의 성공 수다. 3번에 1번 초기화 상태를 함께 조회한다 (FR-CAC-60).
+	UsageOK         int     `json:"usageOk,omitempty"`
+	Resets          *Resets `json:"resets,omitempty"`
+	ResetsAttemptAt int64   `json:"resetsAttemptAt,omitempty"`
 }
 
 func (r Row) dueAt() int64 { return max(r.NextPollAt, r.BackoffUntil) }
@@ -75,8 +81,10 @@ type Engine struct {
 
 	mu   sync.Mutex
 	rows map[string]Row
-	busy sync.Mutex
-	wake chan struct{}
+	// unsettled 는 응답을 받지 못한 티켓 사용의 request_id 다. 키는 계정 id + 티켓 id (FR-CAC-63).
+	unsettled map[string]string
+	busy      sync.Mutex
+	wake      chan struct{}
 }
 
 func (e *Engine) path() string { return filepath.Join(e.Svc.Dir, usageFile) }
@@ -339,7 +347,136 @@ func (e *Engine) fetch(ctx context.Context, a Account, active bool) {
 	r.NextPollAt = planNext(in, j)
 	r.LastGood, r.FetchedAt = &u, now.Unix()
 	r.ConsecutiveFailures, r.LastError, r.BackoffUntil, r.Status = 0, "", 0, StatusOK
+	r.UsageOK++
+	if (r.UsageOK-1)%resetsEvery == 0 {
+		r.Resets, r.ResetsAttemptAt = e.fetchResets(ctx, cred.AccessToken(), r.Resets), now.Unix()
+	}
 	e.setRow(a.ID, r)
+}
+
+// fetchResets 는 두 프로그램의 상태다. 조회가 실패한 쪽은 직전 값을 둔다 (FR-CAC-60·61).
+func (e *Engine) fetchResets(ctx context.Context, token string, prev *Resets) *Resets {
+	out := &Resets{FetchedAt: e.Now().Unix()}
+	if prev != nil {
+		out.Juniper, out.Cedar = prev.Juniper, prev.Cedar
+	}
+	if raw, err := e.API.UsageRaw(ctx, token, queryJuniper); err == nil {
+		out.Juniper = ParseJuniper(raw)
+	}
+	if raw, err := e.API.UsageRaw(ctx, token, queryCedar); err == nil {
+		out.Cedar = ParseCedar(raw)
+	}
+	return out
+}
+
+// usableCred 는 지금 쓸 수 있는 자격증명이다. 만료됐으면 FR-CAC-43 의 규칙으로 갱신한다.
+func (e *Engine) usableCred(ctx context.Context, a Account, active bool) (Credential, bool, error) {
+	cred, ok, live, err := e.credFor(a, active)
+	if err != nil {
+		return cred, live, err
+	}
+	if !ok {
+		return cred, live, ErrNoCredentials
+	}
+	if cred.expired(e.Now()) {
+		cred, err = e.refresh(ctx, a, live, false)
+	}
+	return cred, live, err
+}
+
+// FetchResetsNow 는 계정 줄을 펼칠 때의 상태 조회다 (FR-CAC-65). 60초 안이거나 물러나는 중이면 ErrTooSoon.
+func (e *Engine) FetchResetsNow(ctx context.Context, id string) error {
+	st, err := e.Svc.Store.Load()
+	if err != nil {
+		return err
+	}
+	i := st.Find(id)
+	if i < 0 {
+		return ErrNotFound
+	}
+	r := e.row(id)
+	now := e.Now().Unix()
+	if r.BackoffUntil > now || (r.ResetsAttemptAt > 0 && now-r.ResetsAttemptAt < fetchNowMinGapS) {
+		return ErrTooSoon
+	}
+	e.busy.Lock()
+	defer e.busy.Unlock()
+	cred, _, err := e.usableCred(ctx, st.Accounts[i], id == st.ActiveID)
+	if err != nil {
+		return err
+	}
+	r = e.row(id)
+	r.Resets, r.ResetsAttemptAt = e.fetchResets(ctx, cred.AccessToken(), r.Resets), now
+	e.setRow(id, r)
+	return nil
+}
+
+// Claim 은 제한 초기화 하나를 쓴다 (FR-CAC-62·63). 사용자가 확인한 뒤에만 부른다 — 자동으로 부르는 곳은 없다 (D-CAC-4).
+// 결과는 오류가 아니라 ClaimResult 로 돌려준다. 인자가 틀리면 ErrInvalid, 계정이 없으면 ErrNotFound 다.
+func (e *Engine) Claim(ctx context.Context, id, program, grantID string) (ClaimResult, error) {
+	switch {
+	case program == ProgramJuniper && grantID == "":
+	case program == ProgramCedar && grantIDRe.MatchString(grantID):
+	default:
+		return ClaimResult{}, fmt.Errorf("%w: 프로그램 %q 와 티켓 %q 가 맞지 않습니다", ErrInvalid, program, grantID)
+	}
+	st, err := e.Svc.Store.Load()
+	if err != nil {
+		return ClaimResult{}, err
+	}
+	i := st.Find(id)
+	if i < 0 {
+		return ClaimResult{}, ErrNotFound
+	}
+	a, active := st.Accounts[i], id == st.ActiveID
+	e.busy.Lock()
+	defer e.busy.Unlock()
+	cred, live, err := e.usableCred(ctx, a, active)
+	if err != nil {
+		return ClaimResult{Result: "auth_error"}, nil
+	}
+	body := map[string]any{"program": program}
+	key := id + "\x00" + grantID
+	if program == ProgramCedar {
+		e.mu.Lock()
+		req := e.unsettled[key]
+		e.mu.Unlock()
+		if !requestIDRe.MatchString(req) {
+			req = e.Svc.NewID()
+		}
+		body["grant_id"], body["request_id"] = grantID, req
+	}
+	raw, err := e.API.ClaimReset(ctx, cred.AccessToken(), a.OrgUUID, body)
+	var se *HTTPStatusError
+	if errors.As(err, &se) && se.Status == 401 {
+		if cred, err = e.refresh(ctx, a, live, true); err != nil {
+			return ClaimResult{Result: "auth_error"}, nil
+		}
+		raw, err = e.API.ClaimReset(ctx, cred.AccessToken(), a.OrgUUID, body)
+	}
+	res := claimResultOf(program, raw, err)
+	if program == ProgramCedar {
+		e.mu.Lock()
+		if e.unsettled == nil {
+			e.unsettled = map[string]string{}
+		}
+		if res.Result == "unconfirmed" {
+			e.unsettled[key] = body["request_id"].(string)
+		} else {
+			delete(e.unsettled, key)
+		}
+		e.mu.Unlock()
+	}
+	if res.Result == "reset" {
+		now := e.Now().Unix()
+		e.fetch(ctx, a, active)
+		// 사용량 조회가 이번에 상태도 조회했으면 다시 묻지 않는다.
+		if r := e.row(id); r.ResetsAttemptAt != now {
+			r.Resets, r.ResetsAttemptAt = e.fetchResets(ctx, cred.AccessToken(), r.Resets), now
+			e.setRow(id, r)
+		}
+	}
+	return res, nil
 }
 
 func (e *Engine) fail(id string, r Row, status string, httpStatus int, retryAfter string) {

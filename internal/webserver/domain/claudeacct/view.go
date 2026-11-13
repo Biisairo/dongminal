@@ -85,6 +85,7 @@ type UsageView struct {
 	BackoffUntil      int64        `json:"backoffUntil,omitempty"`
 	LoginExpiresAt    int64        `json:"loginExpiresAt,omitempty"`
 	LoginExpiringSoon bool         `json:"loginExpiringSoon,omitempty"`
+	Resets            *Resets      `json:"resets,omitempty"`
 }
 
 // AccountView 는 계정과 그 사용량이다.
@@ -101,7 +102,7 @@ func BuildViews(st State, rows map[string]Row, now int64) []AccountView {
 		r := rows[a.ID]
 		uv := &UsageView{
 			Status: r.Status, NextPollAt: r.NextPollAt, BackoffUntil: r.BackoffUntil,
-			LoginExpiresAt: r.LoginExpiresAt,
+			LoginExpiresAt: r.LoginExpiresAt, Resets: r.Resets,
 		}
 		if r.LoginExpiresAt > 0 && r.LoginExpiresAt-now <= loginWarnS {
 			uv.LoginExpiringSoon = true

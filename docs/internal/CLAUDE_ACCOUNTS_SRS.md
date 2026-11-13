@@ -1,8 +1,9 @@
 # SRS: Claude 다중 계정 — 등록·사용량·전환·자동 전환·계정별 실행 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 3~6단계. 1단계와 2단계(서버·화면·`dmctl account usage`)는 끝났다. 2단계 화면에서 FR-CAC-92 의 자동 전환 표식과 `next-available`·`best` 는 4단계로 미뤘다. 인계는 `CLAUDE_ACCOUNTS_HANDOFF.md`
+> **남은 것**: 4~6단계. 1~3단계는 끝났다. 2단계 화면에서 FR-CAC-92 의 자동 전환 표식과 `next-available`·`best` 는 4단계로 미뤘다. 인계는 `CLAUDE_ACCOUNTS_HANDOFF.md`
 > **입력**: 2026-11-13 대화. 사용자 요청 "cswap 을 참고하여 같은 방식으로 사용량을 가져오고, 다중 계정 등록·갱신 기간 확인·다중 계정 사용량·계정 전환·자동 전환을 그대로 가져온다". 정보보호팀 사전 승인 범위 = ① 계정별 OAuth 토큰 저장 ② 내부 API 자동 호출 ③ 계정 전환 ④ 자동 전환 (사용자 확인, 2026-11-13). 사용자 결정은 §4 에 적는다
+> **개정 2026-11-13 (3)**: 3단계 착수. FR-CAC-60a·65 를 더하고 FR-CAC-63 에 `cooldown`·`unconfirmed`·상태 대응·`request_id` 재사용을 적었다. 근거는 Claude Code 2.1.323 바이너리의 `juniper-tide`·`cedar-ember` 구현이다
 > **개정 2026-11-13 (2)**: 키체인 쓰기의 argv 대안을 없앴다(FR-CAC-4, D-CAC-16). 이전: 줄이 4032 바이트를 넘으면 값을 argv 로 넘겼다. 새: 키체인 쓰기를 실패로 돌려 권한 600 파일로 내려간다. 이유: 보안 검토 지적 — argv 는 같은 컴퓨터의 다른 사용자에게 보인다
 > **개정 2026-11-13**: FR-CAC-98 을 "모드별 고정 팔레트 두 벌"로 고쳤다(D-CAC-14). 이전: 고정 팔레트 한 벌. 이유: 테마 54종의 다크·라이트 표면 휘도가 겹치지 않아 한 벌로는 3:1 을 넘을 수 없다. 계정 창의 등급·남은 시간을 서버가 셈한다(FR-CAC-91, D-CAC-15)
 
@@ -203,12 +204,26 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 - **FR-CAC-60** 계정마다 두 프로그램의 상태를 조회한다. 조회는 사용량 조회와 같은 헤더·같은 물러나기를 쓰고, 주기는 사용량 조회 3번에 1번, 그리고 Activity 하단에서 계정 줄을 펼칠 때다.
   - 주간 5시간 초기화: `GET /api/oauth/usage?at_wall=1&skip_spend=1` 응답의 `juniper_tide` → `{eligible, ineligibleReason, available, nextAvailableAt}`.
   - 초기화 티켓: `GET /api/oauth/usage?cedar_ember=1&skip_spend=1` 응답의 `cedar_ember` → `{eligible, atLimit, exhausted[], cooldownUntil, weeklyResetsAt, grants[]}`. 티켓마다 `{id, label, resetsTotal, resetsLeft, startsAt, endsAt, clears[], paused, usableNow, useRequiresLimit, percentUsed, blocking[], givesBackWeekly, unavailableReason}`.
+- **FR-CAC-60a** **원본 형식** (Claude Code 2.1.323 `/limit-reset` 의 스키마와 같다). 시각은 ISO 8601 문자열이고 unix 초로 바꾼다. 읽을 수 없는 시각은 0(모름)이다.
+  - `juniper_tide`: `eligible`(필수), `ineligible_reason`, `available`(없으면 false), `next_available_at`.
+  - `cedar_ember`: `eligible`(필수), `ineligible_reason`, `at_limit`, `exhausted[]`, `grants[]`, `weekly_resets_at`, `cooldown_until`.
+  - 티켓: `id`(필수, `^[a-z0-9_-]{1,40}$`), `label`, `resets_total`, `resets_left`(필수, 0 이상 정수), `starts_at`, `ends_at`, `clears[]`, `paused`, `usable_now`, `use_requires_limit`(없으면 true), `percent_used{창:0~100}`, `blocking[]`, `gives_back_weekly`, `unavailable_reason`. 형식이 틀린 티켓은 그 티켓만 뺀다.
+  - `clears`·`blocking`·`exhausted` 는 창 이름 `five_hour`, `seven_day`, `seven_day_overage_included`, `seven_day_opus`, `seven_day_sonnet`, `seven_day_cowork`, `seven_day_omelette`, `seven_day_oauth_apps` 만 남긴다.
 - **FR-CAC-61** 필드가 없거나 형식이 맞지 않으면 그 프로그램을 "없음" 으로 다루고 화면에서 숨긴다. 오류로 알리지 않는다. 서버의 실험 기능이라 계정마다 없을 수 있다.
 - **FR-CAC-62** 사용은 **수동으로만** 한다. 사용자가 버튼을 누르고 확인 대화상자에서 "사용" 을 골라야 보낸다. 대화상자는 무엇이 채워지는지(`clears`), 남은 횟수, 사용 기한, 주간 한도 차감 여부(`givesBackWeekly`, 주간 5시간 초기화는 항상 차감)를 보인다.
   - 주간 5시간 초기화: `POST https://api.anthropic.com/api/organizations/{organizationUuid}/reset_rate_limits`, 본문 `{"program":"juniper_tide"}`.
   - 초기화 티켓: 같은 경로, 본문 `{"program":"cedar_ember","grant_id":<id>,"request_id":<무작위 ID>}`. `grant_id` 는 `^[a-z0-9_-]{1,40}$`, `request_id` 는 `^[A-Za-z0-9_-]{1,64}$` 를 만족해야 한다. 응답을 받지 못해 다시 보낼 때는 같은 `request_id` 를 쓴다.
   - 25초 제한. 활성 계정이면 FR-CAC-43 의 활성 계정 규칙으로 토큰을 갱신한다.
-- **FR-CAC-63** 결과를 화면에 그대로 알린다. `reset`(성공, 그 계정을 바로 다시 조회), `already_used`, `not_limited`, `ineligible`, `unavailable`, `rate_limited`, `auth_error`, `error`. 응답을 받지 못했으면 "확인하지 못함 — 잠시 뒤 사용량을 확인하세요" 를 보이고 자동으로 다시 보내지 않는다.
+- **FR-CAC-63** 결과를 화면에 그대로 알린다. `reset`(성공, 그 계정을 바로 다시 조회), `already_used`, `not_limited`, `cooldown`(티켓만), `ineligible`, `unavailable`, `rate_limited`, `auth_error`, `error`, `unconfirmed`. 응답을 받지 못했으면(망 오류·시간 초과) `unconfirmed` 이고 "확인하지 못함 — 잠시 뒤 사용량을 확인하세요" 를 보이고 자동으로 다시 보내지 않는다.
+  - 2xx 본문의 `result` 를 쓴다. 모르는 값은 `unavailable`, 읽을 수 없는 본문은 `error` 다. 429 는 `rate_limited`, 401 은 토큰을 갱신해 한 번 다시 보내고 그래도 401 이면 `auth_error`, 403 은 `auth_error`, 그 밖의 상태는 `error` 다.
+  - 함께 싣는 값: 주간 5시간 초기화는 `nextAvailableAt`, 티켓은 `reason`, `resetsLeft`, `cleared[]`, `weeklyResetsAt`, `cooldownUntil`.
+  - 티켓을 `unconfirmed` 로 끝낸 뒤 사용자가 같은 계정의 같은 티켓을 다시 쓰면 직전 `request_id` 를 다시 쓴다(서버가 중복을 걸러낸다). 다른 결과가 나오면 그 `request_id` 를 버린다. 서버 프로세스 메모리에만 둔다.
+- **FR-CAC-65** **경로와 표시**.
+  - `GET /api/claude-accounts` 의 `usage.resets` 는 `{juniperTide?, cedarEmber?, fetchedAt}` 이다. 두 상태는 FR-CAC-60 의 필드를 camelCase 로, 시각은 unix 초로 싣는다. 조회한 적이 없으면 `resets` 가 없다.
+  - `POST /api/claude-accounts/reset` `{id, program, grantId?}` → `{result, …}`(FR-CAC-63). 결과는 언제나 200 이다. `program` 이 둘 중 하나가 아니거나, `cedar_ember` 에 `grantId` 가 없거나 형식이 틀리면 400 `claude_account_invalid`.
+  - `POST /api/claude-accounts/refresh` `{id, resets:true}` 는 두 상태만 바로 조회한다. 마지막 상태 조회가 60초 안이면 409 `claude_too_soon`. 화면은 계정 줄을 펼칠 때 이것을 부르고 409 는 조용히 넘긴다.
+  - 펼친 묶음의 "제한 초기화" 칸: 주간 5시간 초기화는 `eligible` 일 때 보인다. `available` 이면 "초기화 사용…", 아니고 `nextAvailableAt` 이 있으면 "다음 가능 <시각>". 티켓은 `eligible` 이고 `resetsLeft > 0` 인 것을 보인다. 이름, 남은 횟수(`resetsLeft/resetsTotal`), 기한(`endsAt`), `paused` 면 "멈춤". `usableNow` 면 "초기화 사용…".
+  - `dmctl account reset <계정> --program juniper_tide|cedar_ember [--grant <id>] [--yes]` 는 `--yes` 가 없으면 FR-CAC-62 의 내용을 보이고 `y` 를 받아야 보낸다. 결과가 `reset` 이 아니면 종료 코드 1 이다. `dmctl account usage` 는 쓸 수 있는 초기화가 있으면 그 줄을 보인다.
 - **FR-CAC-64** 자동 전환은 제한 초기화를 쓰지 않는다. 모든 후보가 헤드룸 0 이하이고 어느 계정에 쓸 수 있는 초기화가 있으면 "초기화 가능" 알림을 보낸다 (FR-CAC-100).
 
 ### 3.G 자동 전환

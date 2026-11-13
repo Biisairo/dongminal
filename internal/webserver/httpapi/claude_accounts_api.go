@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
@@ -182,14 +183,42 @@ func (s *Server) apiClaudeAccountsRefresh(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var req struct {
-		ID string `json:"id"`
+		ID     string `json:"id"`
+		Resets bool   `json:"resets"`
 	}
 	if !peerReadJSON(w, r, &req) {
 		return
 	}
-	if err := s.ca.eng.FetchNow(r.Context(), req.ID); err != nil {
+	fetch := s.ca.eng.FetchNow
+	if req.Resets {
+		fetch = s.ca.eng.FetchResetsNow // FR-CAC-65: 계정 줄을 펼칠 때 — 두 초기화 상태만
+	}
+	if err := fetch(r.Context(), req.ID); err != nil {
 		claudeAccountsFail(w, err)
 		return
 	}
 	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// apiClaudeAccountsReset 은 제한 초기화 하나를 쓴다 (FR-CAC-62·63·65). 사용자가 확인한 뒤에만 불린다.
+// 결과(`reset`·`already_used`·`unconfirmed` 등)는 언제나 200 이다.
+func (s *Server) apiClaudeAccountsReset(w http.ResponseWriter, r *http.Request) {
+	if !s.claudeAccountsReady(w) {
+		return
+	}
+	var req struct {
+		ID      string `json:"id"`
+		Program string `json:"program"`
+		GrantID string `json:"grantId"`
+	}
+	if !peerReadJSON(w, r, &req) {
+		return
+	}
+	// 브라우저가 끊겨도 보낸 사용은 끝까지 기다린다 — 중간에 끊으면 결과를 모르는 채로 자원만 쓴다. 제한은 25초다.
+	res, err := s.ca.eng.Claim(context.WithoutCancel(r.Context()), req.ID, req.Program, req.GrantID)
+	if err != nil {
+		claudeAccountsFail(w, err)
+		return
+	}
+	httpresp.JSON(w, http.StatusOK, res)
 }

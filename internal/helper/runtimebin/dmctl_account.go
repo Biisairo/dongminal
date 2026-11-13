@@ -1,9 +1,11 @@
 package runtimebin
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 )
@@ -19,6 +21,9 @@ const dmctlAccountHelp = `dmctl account — Claude 다중 계정
   dmctl account usage [<계정>] [--refresh] [--json]
                                                사용량 (계정을 주지 않으면 모두). --refresh 는 먼저 바로 조회한다
                                                (1분 안에 조회했거나 물러나는 중이면 서버가 거절한다)
+  dmctl account reset <계정> --program juniper_tide|cedar_ember [--grant <id>] [--yes]
+                                               제한 초기화를 쓴다. --yes 가 없으면 무엇을 채우는지 보이고 y 를 받아야 보낸다
+                                               (juniper_tide = 주간 5시간 초기화, cedar_ember = 초기화 티켓, --grant 로 티켓을 고른다)
 
   실행 중인 Claude Code 세션은 약 30초 안에, 또는 다시 시작할 때 새 계정을 쓴다.
 `
@@ -71,6 +76,36 @@ type accountUsage struct {
 	BackoffUntil      int64 `json:"backoffUntil"`
 	LoginExpiresAt    int64 `json:"loginExpiresAt"`
 	LoginExpiringSoon bool  `json:"loginExpiringSoon"`
+	Resets            *struct {
+		Juniper *struct {
+			Eligible        bool  `json:"eligible"`
+			Available       bool  `json:"available"`
+			NextAvailableAt int64 `json:"nextAvailableAt"`
+		} `json:"juniperTide"`
+		Cedar *struct {
+			Eligible bool           `json:"eligible"`
+			Grants   []accountGrant `json:"grants"`
+		} `json:"cedarEmber"`
+	} `json:"resets"`
+}
+
+type accountGrant struct {
+	ID              string   `json:"id"`
+	Label           string   `json:"label"`
+	ResetsTotal     int      `json:"resetsTotal"`
+	ResetsLeft      int      `json:"resetsLeft"`
+	EndsAt          int64    `json:"endsAt"`
+	Clears          []string `json:"clears"`
+	Paused          bool     `json:"paused"`
+	UsableNow       bool     `json:"usableNow"`
+	GivesBackWeekly bool     `json:"givesBackWeekly"`
+}
+
+func (g accountGrant) name() string {
+	if g.Label != "" {
+		return g.Label
+	}
+	return g.ID
 }
 
 type accountsOut struct {
@@ -90,9 +125,14 @@ var accountSubs = map[string]peerSub{
 	"add":    {0, false, nil, nil, accountAdd},
 	"switch": {0, true, []string{"strategy"}, nil, accountSwitch},
 	"usage":  {0, true, nil, []string{"refresh", "json"}, accountUsageCmd},
+	"reset":  {1, false, []string{"program", "grant"}, []string{"yes"}, accountReset},
 }
 
 func runDmctlAccount(args []string, stdout, stderr io.Writer) int {
+	return runDmctlAccountStdin(os.Stdin, args, stdout, stderr)
+}
+
+func runDmctlAccountStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, dmctlAccountHelp)
 		return 2
@@ -109,6 +149,7 @@ func runDmctlAccount(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	pa, err := parsePeerArgs(rest, spec.flags, spec.bools)
+	pa.stdin = stdin
 	if pa.help {
 		fmt.Fprint(stdout, dmctlAccountHelp)
 		return 0
@@ -328,6 +369,7 @@ func printAccountUsage(w io.Writer, a accountRow, active bool) {
 	for i := range ws.Scoped {
 		accountWinLine(w, ws.Scoped[i].Name, &ws.Scoped[i])
 	}
+	printAccountResets(w, u)
 	if sp := ws.Spend; sp != nil {
 		fmt.Fprintf(w, "    추가 사용량 %s / %s\n", accountMoney(sp.Used, sp.Currency), accountMoney(sp.Limit, sp.Currency))
 	}
@@ -401,4 +443,158 @@ func accountUsageCmd(pa peerArgs, stdout, stderr io.Writer) int {
 		printAccountUsage(stdout, a, a.ID == v.ActiveID)
 	}
 	return code
+}
+
+// accountWindowNames 는 초기화가 채우는 창의 이름이다. 모르는 창은 원래 이름을 쓴다.
+var accountWindowNames = map[string]string{"five_hour": "5시간", "seven_day": "주간"}
+
+func accountWindowName(w string) string {
+	if n, ok := accountWindowNames[w]; ok {
+		return n
+	}
+	return clean(w)
+}
+
+// printAccountResets 는 쓸 수 있는 제한 초기화 줄이다 (FR-CAC-65). 대상이 아니면 아무것도 쓰지 않는다.
+func printAccountResets(w io.Writer, u *accountUsage) {
+	if u.Resets == nil {
+		return
+	}
+	if j := u.Resets.Juniper; j != nil && j.Eligible {
+		switch {
+		case j.Available:
+			fmt.Fprintln(w, "    주간 5시간 초기화: 쓸 수 있음")
+		case j.NextAvailableAt > 0:
+			fmt.Fprintf(w, "    주간 5시간 초기화: 다음 가능 %s\n", time.Unix(j.NextAvailableAt, 0).Format("01-02 15:04"))
+		}
+	}
+	if c := u.Resets.Cedar; c != nil && c.Eligible {
+		for _, g := range c.Grants {
+			if g.ResetsLeft <= 0 {
+				continue
+			}
+			parts := []string{fmt.Sprintf("%d/%d회 남음", g.ResetsLeft, g.ResetsTotal)}
+			if g.EndsAt > 0 {
+				parts = append(parts, time.Unix(g.EndsAt, 0).Format("01-02")+"까지")
+			}
+			switch {
+			case g.Paused:
+				parts = append(parts, "멈춤")
+			case g.UsableNow:
+				parts = append(parts, "쓸 수 있음")
+			}
+			fmt.Fprintf(w, "    초기화 티켓 %s: %s  (--grant %s)\n", clean(g.name()), strings.Join(parts, " · "), clean(g.ID))
+		}
+	}
+}
+
+// accountResultText 는 사용 결과의 문구다 (FR-CAC-63).
+var accountResultText = map[string]string{
+	"reset":        "초기화했습니다",
+	"already_used": "이미 썼습니다",
+	"not_limited":  "지금은 한도에 걸려 있지 않아 쓸 수 없습니다",
+	"cooldown":     "아직 쓸 수 없습니다 (대기 중)",
+	"ineligible":   "이 계정은 쓸 수 없습니다",
+	"unavailable":  "지금은 쓸 수 없습니다",
+	"rate_limited": "요청이 너무 많습니다. 잠시 뒤 다시 하세요",
+	"auth_error":   "인증에 실패했습니다. Claude Code 에서 다시 로그인하세요",
+	"error":        "실패했습니다",
+	"unconfirmed":  "확인하지 못했습니다 — 잠시 뒤 사용량을 확인하세요. 자동으로 다시 보내지 않습니다",
+}
+
+// accountResetPrompt 는 FR-CAC-62 의 확인 내용이다. 서버가 아는 상태가 없으면 그 사실만 적는다.
+func accountResetPrompt(w io.Writer, a accountRow, program, grant string) {
+	fmt.Fprintf(w, "계정: %s\n", clean(a.label()))
+	if program == "juniper_tide" {
+		fmt.Fprintln(w, "주간 5시간 초기화를 씁니다.\n  채우는 것: 5시간\n  주간 한도에서 차감됩니다.")
+		return
+	}
+	var g *accountGrant
+	if u := a.Usage; u != nil && u.Resets != nil && u.Resets.Cedar != nil {
+		for i := range u.Resets.Cedar.Grants {
+			if u.Resets.Cedar.Grants[i].ID == grant {
+				g = &u.Resets.Cedar.Grants[i]
+			}
+		}
+	}
+	if g == nil {
+		fmt.Fprintf(w, "초기화 티켓 %s 를 씁니다. (서버가 아는 상태가 없어 내용을 보일 수 없습니다)\n", clean(grant))
+		return
+	}
+	names := []string{}
+	for _, c := range g.Clears {
+		names = append(names, accountWindowName(c))
+	}
+	fmt.Fprintf(w, "초기화 티켓 %s 를 씁니다.\n  채우는 것: %s\n  남은 횟수 %d/%d\n", clean(g.name()), strings.Join(names, ", "), g.ResetsLeft, g.ResetsTotal)
+	if g.EndsAt > 0 {
+		fmt.Fprintf(w, "  기한: %s\n", time.Unix(g.EndsAt, 0).Format("2006-01-02 15:04"))
+	}
+	if g.GivesBackWeekly {
+		fmt.Fprintln(w, "  쓴 만큼 주간 한도를 돌려받습니다.")
+	} else {
+		fmt.Fprintln(w, "  주간 한도에서 차감됩니다.")
+	}
+}
+
+// accountReset 은 `dmctl account reset` 이다 (FR-CAC-62·65). 결과가 reset 이 아니면 1 로 끝난다.
+func accountReset(pa peerArgs, stdout, stderr io.Writer) int {
+	program, grant := pa.flags["program"], pa.flags["grant"]
+	switch {
+	case program == "juniper_tide" && grant == "":
+	case program == "cedar_ember" && grant != "":
+	default:
+		fmt.Fprint(stderr, "dmctl account reset: --program juniper_tide, 또는 --program cedar_ember --grant <id> 가 필요합니다\n")
+		return 2
+	}
+	v, _, rc := loadAccounts(stderr)
+	if rc != 0 {
+		return rc
+	}
+	a, ok := resolveAccount(v, pa.pos[0])
+	if !ok {
+		fmt.Fprintf(stderr, "dmctl account: 그런 계정이 없습니다: %s\n", clean(pa.pos[0]))
+		return 1
+	}
+	if !pa.bools["yes"] {
+		accountResetPrompt(stdout, a, program, grant)
+		fmt.Fprint(stdout, "계속할까요? [y/N] ")
+		line, _ := bufio.NewReader(pa.stdin).ReadString('\n')
+		if ans := strings.ToLower(strings.TrimSpace(line)); ans != "y" && ans != "yes" {
+			fmt.Fprintln(stdout, "\n취소했습니다.")
+			return 1
+		}
+	}
+	body := map[string]any{"id": a.ID, "program": program}
+	if grant != "" {
+		body["grantId"] = grant
+	}
+	raw, rc := accountAPI("POST", "/api/claude-accounts/reset", body, stderr)
+	if rc != 0 {
+		return rc
+	}
+	var res struct {
+		Result          string `json:"result"`
+		ResetsLeft      *int   `json:"resetsLeft"`
+		NextAvailableAt int64  `json:"nextAvailableAt"`
+		CooldownUntil   int64  `json:"cooldownUntil"`
+	}
+	_ = json.Unmarshal(raw, &res)
+	msg, ok := accountResultText[res.Result]
+	if !ok {
+		msg = "알 수 없는 결과: " + clean(res.Result)
+	}
+	if res.ResetsLeft != nil {
+		msg += fmt.Sprintf(" (남은 횟수 %d)", *res.ResetsLeft)
+	}
+	if res.CooldownUntil > 0 {
+		msg += " — " + time.Unix(res.CooldownUntil, 0).Format("01-02 15:04") + " 뒤에 다시"
+	}
+	if res.NextAvailableAt > 0 && res.Result == "reset" {
+		msg += " — 다음 가능 " + time.Unix(res.NextAvailableAt, 0).Format("01-02 15:04")
+	}
+	fmt.Fprintln(stdout, msg)
+	if res.Result != "reset" {
+		return 1
+	}
+	return 0
 }

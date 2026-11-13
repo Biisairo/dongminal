@@ -43,6 +43,43 @@ function claudeAcctBar(id,label,w){
   return limitBarView(id,label,w.pct,w.resetsAt,w.resetsInSec,w.level);
 }
 
+/** FR-CAC-62: 확인 대화상자의 내용 — 채우는 창, 남은 횟수, 기한, 주간 한도 차감 여부. */
+function claudeAcctResetConfirm(clears,left,ends,givesBack){
+  return {
+    clears:t('cacct.rs.clears',{w:clears.map(limitWindowLabel).join(', ')}),
+    left,ends,
+    weekly:t(givesBack?'cacct.rs.weekly_back':'cacct.rs.weekly_deduct'),
+  };
+}
+
+/**
+ * FR-CAC-65: 펼친 묶음의 "제한 초기화" 칸. 주간 5시간 초기화는 자격이 있을 때, 티켓은 자격이 있고 남은 횟수가
+ * 있을 때만 줄이 된다. 상태가 없으면 빈 배열이다 (FR-CAC-61). 주간 5시간 초기화는 늘 주간 한도에서 차감한다.
+ */
+function claudeAcctResets(rs){
+  const out=[];
+  if(!rs) return out;
+  const j=rs.juniperTide;
+  if(j&&j.eligible){
+    out.push({key:'juniper',program:'juniper_tide',grantId:'',name:t('cacct.rs.juniper'),
+      detail:j.available?t('cacct.rs.usable'):j.nextAvailableAt>0?t('cacct.rs.next',{t:claudeAcctDay(j.nextAvailableAt*1000)}):'',
+      usable:!!j.available,confirm:claudeAcctResetConfirm(['five_hour'],'','',false)});
+  }
+  const c=rs.cedarEmber;
+  if(c&&c.eligible){
+    for(const g of Array.isArray(c.grants)?c.grants:[]){
+      if(!(g.resetsLeft>0)) continue;
+      const left=t('cacct.rs.left',{n:g.resetsLeft,m:g.resetsTotal});
+      const ends=g.endsAt>0?t('cacct.rs.until',{d:claudeAcctDate(g.endsAt*1000)}):'';
+      const usable=!!g.usableNow&&!g.paused;
+      const detail=[left,ends,g.paused?t('cacct.rs.paused'):usable?t('cacct.rs.usable'):''].filter(Boolean).join(' · ');
+      out.push({key:'g:'+g.id,program:'cedar_ember',grantId:g.id,name:g.label||g.id,detail,usable,
+        confirm:claudeAcctResetConfirm(Array.isArray(g.clears)?g.clears:[],left,ends,!!g.givesBackWeekly)});
+    }
+  }
+  return out;
+}
+
 /**
  * FR-CAC-91: 계정 묶음 하나의 값. 접힌 모양은 머리 + 5시간·주간 막대이고, `open` 이면 `more` 에
  * scoped 창·예측·추가 사용량·로그인 만료·동작이 든다.
@@ -66,6 +103,7 @@ function claudeAcctView(a,open){
       pace:claudeAcctPace(u.pace&&u.pace.sevenDay),
       spend:sp?t('cacct.spend',{used:claudeAcctMoney(sp.used,sp.currency),limit:claudeAcctMoney(sp.limit,sp.currency)}):'',
       login:u.loginExpiresAt>0?{text:t('cacct.login_expires',{d:claudeAcctDate(u.loginExpiresAt*1000)}),warn:!!u.loginExpiringSoon}:null,
+      resets:claudeAcctResets(u.resets),
       canSwitch:!a.active,
     };
   }
@@ -108,9 +146,54 @@ Object.assign(App.prototype, {
 
   _claudeAcctToggle(id){
     const s=this._claudeAcctOpen();
-    if(s.has(id)) s.delete(id); else s.add(id);
+    const opening=!s.has(id);
+    if(opening) s.add(id); else s.delete(id);
     PrefStore.local.setJson(STORE_KEYS.claudeAcctOpen,Array.from(s));
     this.agentsRender();
+    return opening?this._claudeAcctResetsPoll(id):Promise.resolve();
+  },
+
+  /**
+   * FR-CAC-60·65: 펼칠 때 두 초기화 상태를 다시 묻는다. 1분 안에 물었으면 서버가 409 로 거절하고, 그것은
+   * 알리지 않는다 — 사용자가 부른 동작이 아니다.
+   */
+  async _claudeAcctResetsPoll(id){
+    const r=await apiPost('/api/claude-accounts/refresh',{id,resets:true});
+    if(r.ok) await this._claudeAcctRestore();
+  },
+
+  /** FR-CAC-62·63: 확인을 받은 뒤의 사용. 결과는 언제나 알리고, 목록을 다시 받는다. */
+  async _claudeAcctReset(id,item){
+    const body={id,program:item.program};
+    if(item.grantId) body.grantId=item.grantId;
+    const r=await apiPost('/api/claude-accounts/reset',body);
+    if(!r.ok){ Toast.show(apiErrText(r,t('cacct.rs.use')),'err'); return r }
+    const res=r.data&&r.data.result;
+    Toast.show(t('cacct.rs.r.'+res),res==='reset'?'ok':'err');
+    await this._claudeAcctRestore();
+    return r;
+  },
+
+  /** FR-CAC-62: 확인 대화상자. "사용" 을 골라야만 보낸다 — 한정된 자원을 되돌릴 수 없게 쓴다 (D-CAC-4). */
+  _claudeAcctResetAsk(v,item){
+    const body=document.createElement('div');
+    for(const line of [v.name+' — '+item.name,item.confirm.clears,item.confirm.left,item.confirm.ends,item.confirm.weekly,t('cacct.rs.irreversible')]){
+      if(!line) continue;
+      const p=document.createElement('p');
+      p.textContent=line;
+      body.appendChild(p);
+    }
+    const m=UIKit.modal({
+      title:t('cacct.rs.confirm_title'),
+      cls:'cacct-reset-confirm',
+      width:'min(420px,90vw)',
+      body,
+      actions:[
+        {label:t('core.cancel')},
+        {label:t('cacct.rs.confirm_use'),kind:'primary',onClick:()=>this._claudeAcctReset(v.id,item)},
+      ],
+    });
+    document.body.appendChild(m.el);
   },
 
   /** 동작 하나. 실패는 알리고, 성공하면 목록을 다시 받는다 (방송도 오지만 이 탭이 먼저 본다). */
@@ -148,6 +231,17 @@ Object.assign(App.prototype, {
     if(m.pace) actEl(more,'div','cacct-pace'+(m.pace.warn?' warn':''),m.pace.text);
     if(m.spend) actEl(more,'div','cacct-spend',m.spend);
     if(m.login) actEl(more,'div','cacct-login'+(m.login.warn?' warn':''),m.login.text);
+    if(m.resets.length){
+      const sec=actEl(more,'div','cacct-resets');
+      actEl(sec,'div','cacct-resets-h',t('cacct.rs.title'));
+      for(const it of m.resets){
+        const row=actEl(sec,'div','cacct-rs');
+        actEl(row,'span','cacct-rs-name',it.name);
+        if(it.detail) actEl(row,'span','cacct-rs-detail',it.detail);
+        if(it.usable) row.appendChild(UIKit.button({label:t('cacct.rs.use'),size:'sm',cls:'cacct-rs-use',
+          onClick:e=>{e.stopPropagation();this._claudeAcctResetAsk(v,it)}}));
+      }
+    }
     const acts=actEl(more,'div','cacct-acts');
     if(m.canSwitch) acts.appendChild(UIKit.button({label:t('cacct.switch'),size:'sm',cls:'cacct-switch',
       onClick:e=>{e.stopPropagation();this._claudeAcctSwitch(v.id)}}));

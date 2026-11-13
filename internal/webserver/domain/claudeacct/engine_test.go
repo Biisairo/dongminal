@@ -21,15 +21,35 @@ type fakeUsageAPI struct {
 	refresh   map[string]TokenResult
 	refreshEr map[string]error
 	calls     []string
+	// byQuery 는 질의가 있는 조회(초기화 상태)의 본문이다. 없으면 `{}` 이다.
+	byQuery map[string]string
+	// claims 는 사용 요청의 차례별 답이다. 비면 `{"result":"reset"}` 이다.
+	claims    []fakeClaim
+	claimBody []map[string]any
+}
+
+type fakeClaim struct {
+	body string
+	err  error
 }
 
 func newFakeUsageAPI() *fakeUsageAPI {
-	return &fakeUsageAPI{usage: map[string]string{}, status: map[string]int{}, refresh: map[string]TokenResult{}, refreshEr: map[string]error{}}
+	return &fakeUsageAPI{usage: map[string]string{}, status: map[string]int{}, refresh: map[string]TokenResult{}, refreshEr: map[string]error{}, byQuery: map[string]string{}}
 }
 
 func (f *fakeUsageAPI) UsageRaw(_ context.Context, token, query string) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if query != "" {
+		f.calls = append(f.calls, "status:"+token+"?"+query)
+		if st, ok := f.status[token]; ok {
+			return nil, &HTTPStatusError{Status: st}
+		}
+		if b, ok := f.byQuery[query]; ok {
+			return []byte(b), nil
+		}
+		return []byte(`{}`), nil
+	}
 	f.calls = append(f.calls, "usage:"+token+query)
 	if st, ok := f.status[token]; ok {
 		return nil, &HTTPStatusError{Status: st}
@@ -53,6 +73,22 @@ func (f *fakeUsageAPI) Refresh(_ context.Context, rt string) (TokenResult, error
 		return TokenResult{}, errors.New("transient")
 	}
 	return tr, nil
+}
+
+func (f *fakeUsageAPI) ClaimReset(_ context.Context, token, org string, body map[string]any) ([]byte, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, "claim:"+token+":"+org)
+	f.claimBody = append(f.claimBody, body)
+	if st, ok := f.status["claim:"+token]; ok {
+		return nil, &HTTPStatusError{Status: st}
+	}
+	if len(f.claims) == 0 {
+		return []byte(`{"result":"reset"}`), nil
+	}
+	c := f.claims[0]
+	f.claims = f.claims[1:]
+	return []byte(c.body), c.err
 }
 
 func (f *fakeUsageAPI) count(prefix string) int {

@@ -74,7 +74,7 @@ SRS §4 에 모두 있다. 자주 볼 것만 적는다.
 
 1. ~~2단계 화면~~ — 끝났다 (§3).
 2. ~~`dmctl account usage [<계정>] [--refresh] [--json]`~~ — 끝났다. `internal/helper/runtimebin/dmctl_account.go` `accountUsageCmd`, 시험 `dmctl_account_test.go` (TC-CAC-24 usage 6건). 남은 시간·등급은 서버 값만 쓴다(D-CAC-15). 열 맞춤은 하지 않는다 — 한글 폭을 셀 도우미가 없다.
-3. **3단계** 제한 초기화 (묶음 F). 상태 조회는 `UsageRaw(token, "at_wall=1&skip_spend=1")`(`juniper_tide`)와 `"cedar_ember=1&skip_spend=1"`(`cedar_ember`). 사용은 `POST /api/organizations/{org}/reset_rate_limits`. 형식은 SRS FR-CAC-60~64.
+3. ~~3단계 제한 초기화~~ — 끝났다. `claudeacct/resets.go`(해석·결과 대응·`Client.ClaimReset`), `engine.go`(`fetchResets`·`FetchResetsNow`·`Claim`, 사용량 조회 3번에 1번 상태 조회), `POST /api/claude-accounts/reset`·`refresh {resets:true}`, `dmctl account reset`, 펼친 묶음의 "제한 초기화" 칸과 확인 대화상자. 원본 형식은 Claude Code 2.1.323 바이너리에서 뽑았다(SRS FR-CAC-60a).
 4. **4단계** 자동 전환·알림·기록 (묶음 G·J·L). `Engine.LineFor` 를 자동 전환 설정과 잇는다. 스마트 전환 `next-available`·`best` 도 이때 넣는다(사용량이 필요하다). foot 머리 줄의 "다음 계정" 단추(`app-activity.js` `_actUsageFootEl`)를 자동 전환 표식 + 세 항목 메뉴로 바꾼다 (FR-CAC-92).
 5. **5단계** 계정별 실행 (묶음 H)과 화면 표시(탭 틴트, Repo 칩, Explorer 칩). 셸 래퍼는 `internal/shared/runtime/shellhooks/{posix/zdotdir/.zshrc, posix/bash-hook.sh, windows/powershell-hook.ps1}` 의 `claude()`, GUI 기동은 `agentadapter/claude_proto.go` `claudeProtoLaunch`.
 6. **6단계** 설정 "Claude 계정" 구역, 기존 결정 개정(FR-CAC-130: D-ACU-3·D-ASV-2 철회 표시, `ACTIVITY_CARD_USAGE_SRS` 비목표 줄), e2e. `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-41(statusLine 창 블록)이 FR-CAC-93 의 한 줄로 바뀐 것도 그 문서에 개정으로 적는다.
