@@ -45,12 +45,16 @@ Object.assign(Renderer.prototype, {
       const aw=app.aw();
       const noNew=app.isGitWin(aw)||app.isEditorWin(aw);
       const label=el.querySelector('.pn-tab-label');
+      const at={x:e.clientX,y:e.clientY};
+      // CLAUDE_ACCOUNTS_SRS FR-CAC-85: 계정 기능이 없는 서버면 항목이 없다.
+      const acct=app.claudeTabMenuItem?app.claudeTabMenuItem(c.tab,at):null;
       UIKit.menu([
         {id:'new',label:TAB_MENU_NEW,disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.addTab(c.pane.id,'terminal')},
         {id:'rename',label:TAB_MENU_RENAME,disabled:c.tab.type===TAB_TYPE_GIT?TAB_MENU_RENAME_GIT_NO:false,
           onClick:()=>{if(c.tab.preview) app.pinPreviewTab(c.tab); if(label) app.renameTab(c.tab,label)}},
+        ...(acct?[{sep:true},acct,{sep:true}]:[]),
         {id:'close',label:TAB_MENU_CLOSE,onClick:()=>app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot})},
-      ],{at:{x:e.clientX,y:e.clientY},cls:'tab-menu'});
+      ],{at,cls:'tab-menu'});
     });
     // FR-RTU-42: 탭 자체의 더블클릭이 고정한다.
     el.addEventListener('dblclick',e=>{

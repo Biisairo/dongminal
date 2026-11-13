@@ -159,6 +159,8 @@ Object.assign(FileTree.prototype, {
       e.preventDefault();
       if(this._edit) this.cancelEdit();
       const dir=this.root;
+      // CLAUDE_ACCOUNTS_SRS FR-CAC-97·95a: 빈 자리는 루트 폴더다 (FR-CMU-9).
+      const ca=this.app.claudeFolderMenu?this.app.claudeFolderMenu(this.root,dir,{x:e.clientX,y:e.clientY}):null;
       UIKit.menu([
         {id:'newFile',label:EDITOR_MENU_NEW_FILE,onClick:()=>this.startCreate(false,dir)},
         // FR-M9-23: 여백 메뉴도 행 메뉴와 같다 — 가림이 폐기됐다.
@@ -167,6 +169,9 @@ Object.assign(FileTree.prototype, {
         {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,onClick:()=>this.pickUpload(dir,true)},
         {sep:true},
         {id:'paste',label:EDITOR_MENU_PASTE,disabled:this.app.edClipGet()?false:EDITOR_PASTE_NONE,onClick:()=>this.doPasteInto(dir)},
+        ...(ca?[{sep:true},
+          {id:'claudeLink',label:t('cacct.map.folder_menu'),disabled:ca.linkWhy||false,onClick:ca.link},
+          {id:'claudeUnlink',label:t('cacct.map.folder_clear'),disabled:ca.unlinkWhy||false,onClick:ca.unlink}]:[]),
       ],{at:{x:e.clientX,y:e.clientY},cls:'edfs-blank-menu'});
       return;
     }
@@ -190,6 +195,8 @@ Object.assign(FileTree.prototype, {
     const paths=[p,...this._selTargets(p).filter(x=>x&&x!==p)];
     // UX_BATCH12 FR-EXM-3·4: 이름 바꾸기·새로 만들기·업로드 밖은 선택 전체가 대상이다.
     const many=this._selOrdered(p).filter(x=>x&&x!==this.root),multi=many.length>1;
+    // CLAUDE_ACCOUNTS_SRS FR-CAC-97·95a: 폴더 행에만. 대상은 우클릭한 행 하나다.
+    const ca=kind==='dir'&&this.app.claudeFolderMenu?this.app.claudeFolderMenu(this.root,p,{x:e.clientX,y:e.clientY}):null;
     GitMenu.openAsked([
       {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.startCreate(false,dir)},
       // FR-M9-23: 메모장에서도 보인다 — FR-EXR-32 의 가림은 폐기됐다.
@@ -233,6 +240,9 @@ Object.assign(FileTree.prototype, {
       // 확인은 `doDelete` 가 한다 — 재귀 여부·항목 수·dirty 탭을 밝혀야 하므로
       // 메뉴의 일반 확인(GitDialog)으로는 FR-EDT-83·84 를 만족하지 못한다.
       {id:'delete',label:EDITOR_MENU_DELETE,act:FS_ACTION_DELETE,run:()=>this.doDelete(p)},
+      ...(ca?[{sep:true},
+        {id:'claudeLink',label:t('cacct.map.folder_menu'),disabled:()=>ca.linkWhy,run:ca.link},
+        {id:'claudeUnlink',label:t('cacct.map.folder_clear'),disabled:()=>ca.unlinkWhy,run:ca.unlink}]:[]),
     ],'edfs',{path:p},e,async stale=>{
       const ans=await this.app.edFsActions(this.root,paths);
       return stale()?null:((ans&&ans.actions)||{});

@@ -100,6 +100,39 @@ func TestResolveOrder(t *testing.T) {
 	}
 }
 
+// FR-CAC-88a · D-CAC-30: 답의 path 는 cwd 를 매핑 키와 같은 규칙으로 정규화한 값이다 — 계정이 없어도 싣는다.
+func TestResolveCarriesNormalizedPath(t *testing.T) {
+	e := twoAccounts(t)
+	root := t.TempDir()
+	real := filepath.Join(root, "real")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip("심볼릭 링크를 만들 수 없다:", err)
+	}
+	want, _ := NormalizeFolder(real, foldCase)
+	r, err := e.svc.Resolve("", link+string(filepath.Separator))
+	if err != nil || r.Path != want || r.Source != SourceNone {
+		t.Fatalf("none: %+v %v (want path %q)", r, err, want)
+	}
+	if err := e.svc.SetFolder(real, "id1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.SetTab("t1", "id2"); err != nil {
+		t.Fatal(err)
+	}
+	r, _ = e.svc.Resolve("", link)
+	if r.Path != want || r.Folder != want {
+		t.Fatalf("folder: %+v", r)
+	}
+	r, _ = e.svc.Resolve("t1", link)
+	if r.Path != want || r.Source != SourceTab {
+		t.Fatalf("tab: %+v", r)
+	}
+}
+
 func TestResolveIgnoresDeletedAccount(t *testing.T) {
 	e := twoAccounts(t)
 	root := t.TempDir()

@@ -41,6 +41,7 @@ type Resolution struct {
 	Source    string `json:"source"`
 	Folder    string `json:"folder,omitempty"`
 	ConfigDir string `json:"configDir,omitempty"`
+	Path      string `json:"path"`
 }
 
 // NormalizeFolder 는 매핑의 키다. 절대 경로여야 한다. 있는 가장 가까운 상위까지 심볼릭 링크를
@@ -245,7 +246,7 @@ func (s *Service) Resolve(toolID, cwd string) (Resolution, error) {
 		return Resolution{}, err
 	}
 	found := func(id, source, folder string) Resolution {
-		return Resolution{AccountID: id, Source: source, Folder: folder, ConfigDir: s.ProfileDir(id)}
+		return Resolution{AccountID: id, Source: source, Folder: folder, ConfigDir: s.ProfileDir(id), Path: key}
 	}
 	if t, ok := m.Tabs[toolID]; ok && toolID != "" && st.Find(t.AccountID) >= 0 {
 		return found(t.AccountID, SourceTab, ""), nil
@@ -262,7 +263,7 @@ func (s *Service) Resolve(toolID, cwd string) (Resolution, error) {
 	if bestID != "" {
 		return found(bestID, SourceFolder, best), nil
 	}
-	return Resolution{Source: SourceNone}, nil
+	return Resolution{Source: SourceNone, Path: key}, nil
 }
 
 // underFolder 는 p 가 folder 이거나 그 아래인가다.

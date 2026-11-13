@@ -982,6 +982,12 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .cacct{margin-top:8px;min-width:0}
 .cacct-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);cursor:pointer;min-width:0}
 .cacct-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%}
+/* CLAUDE_ACCOUNTS_SRS FR-CAC-95: 탭 틴트는 배경색 위의 층이다 — 활성 배경색과 알람 링이 그대로 보인다 */
+.pn-tab.cacct-tint{background-image:linear-gradient(var(--cacct-tint),var(--cacct-tint))}
+/* FR-CAC-96·97·98: 계정 칩. 테두리·바탕은 계정 색, 글자는 본문 색 */
+.cacct-chip{flex-shrink:0;max-width:10em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:6px;padding:0 5px;
+  border:1px solid var(--cacct-c);border-radius:3px;background:color-mix(in srgb,var(--cacct-c) 18%,transparent);
+  color:var(--text);font-size:var(--fs-xs);line-height:1.5}
 .cacct-name{flex:1 1 auto;min-width:0;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cacct.active .cacct-name{font-weight:600}
 .cacct-active{flex-shrink:0;color:var(--accent-text)}

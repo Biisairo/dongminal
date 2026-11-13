@@ -5,7 +5,6 @@ import (
 
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/domain/claudeacct"
 	"dongminal/internal/webserver/httpresp"
 )
 
@@ -117,7 +116,7 @@ func (s *Server) apiClaudeAccountsLaunch(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if res.AccountID == "" {
-		httpresp.JSON(w, http.StatusOK, claudeacct.Resolution{Source: claudeacct.SourceNone})
+		httpresp.JSON(w, http.StatusOK, res)
 		return
 	}
 	if _, _, err := s.ca.svc.PrepareProfile(res.AccountID); err != nil {

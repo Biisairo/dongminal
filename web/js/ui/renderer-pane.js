@@ -207,8 +207,12 @@ Object.assign(Renderer.prototype, {
       const active=tab.id===shown;
       const attn=app.attnHas(tab.toolId);
       // FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧 대체된다".
+      // CLAUDE_ACCOUNTS_SRS FR-CAC-95: 적용되는 계정의 배경 틴트. 활성·알람 표식은 그 위에 그대로 선다.
+      const tint=app.claudeTabTint?app.claudeTabTint(tab):null;
       tabEl.className='pn-tab'+(active?' active':'')+(attn?' attn':'')+(isGit?' git':'')
-        +(tab.preview?' '+REPO_PREVIEW_CLASS:'');
+        +(tab.preview?' '+REPO_PREVIEW_CLASS:'')+(tint?' cacct-tint':'');
+      if(tint) tabEl.style.setProperty('--cacct-tint',claudeAcctTintCss(tint));
+      else tabEl.style.removeProperty('--cacct-tint');
       // FR-A11Y-16: 선택은 클래스와 **같은 것**을 말한다 (TC-A11Y-6b).
       tabEl.setAttribute('aria-selected',active?'true':'false');
       const name=this._tabDisplayName(tab);
@@ -216,7 +220,7 @@ Object.assign(Renderer.prototype, {
       if(lab.textContent!==name) lab.textContent=name;
       // TAB_WIDTH_SRS FR-TBW-6 / D-5: **언제나** 붙인다 — 잘리지 않는 폭에서는
       // 보이지 않을 뿐이므로 해가 없다.
-      tabEl.title=tab.preview?REPO_PREVIEW_TITLE:name;
+      tabEl.title=(tab.preview?REPO_PREVIEW_TITLE:name)+(tint?'\n'+tint.title:'');
       kids.push(tabEl);
     }
     // D-A11Y-11: 탭은 `tablist` 안에, 동작은 그 **밖**에 — tablist 의 자식은 tab

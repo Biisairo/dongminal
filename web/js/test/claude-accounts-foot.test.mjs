@@ -44,7 +44,7 @@ function memStore() {
 
 function loadFoot(globals = {}) {
   const local = memStore();
-  const ctx = load(['core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js'], {
+  const ctx = load(['core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
     expose: ['ACTIVITY_SECTIONS'],
     globals: {
       App: class {},
@@ -57,6 +57,8 @@ function loadFoot(globals = {}) {
         button: (b) => ({ className: 'ui-btn ' + (b.cls || ''), textContent: b.label, children: [] }),
       },
       t: (k, p) => fillEn(k, p),
+      // FR-CAC-95a: 복원 뒤의 매핑 받기. 기본은 계정 기능이 없는 서버(503)다.
+      apiGet: () => Promise.resolve({ ok: false, status: 503, data: null }),
       ...globals,
     },
   });

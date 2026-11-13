@@ -219,6 +219,9 @@ Object.assign(App.prototype, {
       }
       this._restoreEnd('claudeAccounts',flight);
       this.agentsRender();
+      // FR-CAC-95a: 매핑은 탭·Repo·Explorer 가 쓴다. 계정 기능이 없는 서버면 받지 않는다.
+      if(r.status===503){ if(this._claudeMaps){this._claudeMaps=null;this._claudeMapsRepaint()} }
+      else if(r.ok) return this._claudeMapsLoad();
     });
   },
 
@@ -293,12 +296,21 @@ Object.assign(App.prototype, {
     return r;
   },
 
-  _claudeAcctSwitch(id){ return this._claudeAcctAct('/api/claude-accounts/switch',{id},t('cacct.switch')) },
+  /** FR-CAC-36: 떠나는 계정이 고정 실행 중이면 막지 않고 알린다 (D-CAC-28). */
+  _claudeAcctPinnedToast(r){
+    const s=r&&r.ok?claudeAcctPinnedNotice(r.data):'';
+    if(s) Toast.show(s,'');
+    return r;
+  },
+
+  async _claudeAcctSwitch(id){
+    return this._claudeAcctPinnedToast(await this._claudeAcctAct('/api/claude-accounts/switch',{id},t('cacct.switch')));
+  },
   /** FR-CAC-31·31a·92: 스마트 전환. `best` 가 머물면 서버가 준 이유를 알린다. */
   async _claudeAcctSmart(strategy){
     const r=await this._claudeAcctAct('/api/claude-accounts/switch',{strategy},t(claudeAcctKey('cacct.smart.',strategy)));
     if(r.ok&&r.data&&r.data.reason) Toast.show(t(claudeAcctKey('cacct.reason.',r.data.reason)),'');
-    return r;
+    return this._claudeAcctPinnedToast(r);
   },
 
   /** FR-CAC-92: "전환 ▾" 의 세 항목 메뉴. */

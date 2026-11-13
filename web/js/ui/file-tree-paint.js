@@ -738,11 +738,11 @@ Object.assign(FileTree.prototype, {
           sel:this._selHas(p)||this._sel===p,
           st:this._stOf(p,kind),
           ignored:this._isIgnored(p),
-          partial:kind!=='dir'&&this._isPartial(p)};
+          partial:kind!=='dir'&&this._isPartial(p),chip:kind==='dir'?this.app.claudeFolderChip(this.root,p):null}; // CLAUDE_ACCOUNTS_SRS FR-CAC-97
         it.k='r:'+p;
         // 근거는 이 행이 읽는 값 **전부**다 — 좁히면 갱신이 조용히 멈춘다 (FR-RPT-2).
         it.s=[kind,depth,it.open?1:0,it.busy?1:0,it.err,it.sel?1:0,it.st,it.linkDir?1:0,
-          it.partial?1:0,it.ignored?1:0,it.stale?1:0,it.drop?1:0]
+          it.partial?1:0,it.ignored?1:0,it.stale?1:0,it.drop?1:0,it.chip?it.chip.text+'\x02'+it.chip.color:'']
           .join(RPT_SEP);
         if(ed&&ed.mode==='rename'&&ed.path===p){
           out.push(input(depth));
@@ -893,7 +893,7 @@ Object.assign(FileTree.prototype, {
       :(it.stale?it.path+' — '+EDITOR_TREE_STALE:it.path);
     d.appendChild(this._span('ed-tw',it.kind!=='dir'?''
       :(it.busy?EDITOR_TREE_TW_BUSY:(it.open?EDITOR_TREE_TW_OPEN:EDITOR_TREE_TW_CLOSED))));
-    d.appendChild(this._span('ed-name',it.name));
+    d.appendChild(this._span('ed-name',it.name)); if(it.chip) d.appendChild(claudeAcctChipEl(it.chip));
     if(it.kind==='link'){
       d.appendChild(this._span('ed-mark',it.linkDir?EDITOR_TREE_LINK_DIR:EDITOR_TREE_LINK));
     }

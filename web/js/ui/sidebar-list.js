@@ -152,10 +152,11 @@ const SidebarList = {
   // 행의 **보이는 값 전부**다 (FR-RPT-2). 서술자가 row() 에 담은 것과 1:1 이므로
   // 목록마다 따로 쓸 필요가 없다 — 그것이 블루프린트로 내린 이득의 절반이다.
   _sig(r) {
-    const b = r.badge;
+    const b = r.badge, c = r.chip;
     return [r.name || '', r.title || '', r.cls || '', r.dotCls || '',
       r.active ? 1 : 0, r.attn ? 1 : 0, r.removable ? 1 : 0,
       b ? (b.text + '' + (b.cls || '') + '' + (b.title || '')) : '',
+      c ? (c.text + '\x02' + c.color) : '',
     ].join('');
   },
 
@@ -190,6 +191,9 @@ const SidebarList = {
     name.className = ['sbl-name', d.nameClass].filter(Boolean).join(' ');
     name.textContent = r.name || '';
     el.appendChild(name);
+
+    // CLAUDE_ACCOUNTS_SRS FR-CAC-96: 계정 칩.
+    if (r.chip) el.appendChild(claudeAcctChipEl(r.chip));
 
     if (r.badge) {
       const g = document.createElement('span');

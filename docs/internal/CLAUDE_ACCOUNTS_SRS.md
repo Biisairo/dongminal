@@ -1,7 +1,8 @@
 # SRS: Claude 다중 계정 — 등록·사용량·전환·자동 전환·계정별 실행 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 5b(화면)·6단계. 1~4단계와 5a(서버·shim·dmctl)는 끝났다. 인계는 `CLAUDE_ACCOUNTS_HANDOFF.md`
+> **남은 것**: 6단계. 1~5단계(5a 서버·shim·dmctl, 5b 화면)는 끝났다. 인계는 `CLAUDE_ACCOUNTS_HANDOFF.md`
+> **개정 2026-11-13 (8)**: 5b 착수. 화면이 탭·폴더에 적용되는 계정을 셈하는 방법과 메뉴 모양을 적었다(FR-CAC-95a, D-CAC-30·31). `resolve` 응답에 `path`(cwd 를 서버가 정규화한 값)를 더했다(FR-CAC-88a)
 > **개정 2026-11-13 (7)**: 5a 구현. 프로필 토큰 회수를 고정 실행 중인 계정에만 하지 않고 프로필이 있는 모든 계정에 한다(FR-CAC-86, D-CAC-29). 전환의 "같은 계열" 백업은 백업보다 낡은 토큰으로 덮지 않는다(FR-CAC-32). 탭 지정 정리는 매핑을 읽는 때(GET mappings·resolve·launch) 도구 목록을 알면 한다(FR-CAC-81a). `resolve`·`launch` 응답에 `folder` 를, 매핑 PUT 의 모양을 적었다(FR-CAC-88a). FR-CAC-77 을 지웠다
 > **개정 2026-11-13 (6)**: 5단계 착수. 셸 함수 `claude()` 를 PATH shim 으로 바꾼다(FR-CAC-83, D-CAC-24). 이전: 세 셸이 `claude()` 함수로 훅 인자를 붙였다. 새: dongminal 폴더 안의 `claude` 실행 파일(shim)이 계정 환경 변수와 훅 인자를 넣고 진짜 claude 를 실행한다. 이유: 사용자나 다른 도구가 claude 를 함수·alias 로 래핑하면 셸 함수는 덮이거나 건너뛰어진다. 계정 지정을 적용하지 못하면 실행하지 않는다(D-CAC-25). 프로필 `.claude.json` 은 실행 때마다 기본 설정에서 계정 항목만 빼고 가져온다(FR-CAC-82, D-CAC-26). 탭을 닫으면 탭 지정을 지운다(FR-CAC-81a, D-CAC-27). FR-CAC-84(GUI 기동)는 해당 없음이다 — GUI 를 지웠다(`AGENT_GUI_REMOVAL_SRS` §6). `dmctl account env` 는 shim 이 대신하므로 두지 않는다
 > **개정 2026-11-13 (5)**: statusLine 값을 계정별로 받는다(FR-CAC-78, D-CAC-21). 자동 전환·스마트 전환·알림의 판단은 창마다 OAuth 값과 statusLine 값 중 큰 값을 쓴다. 이전: OAuth 값만(최대 5분 늦음). 이유: statusLine 은 요청마다 갱신되는 실시간 값이라 한도를 놓치지 않는다. 문턱값 범위를 50~100 으로 넓혔다(D-CAC-23). statusLine 줄을 계정별로 보인다(FR-CAC-93, D-CAC-22, D-CAC-6 개정)
@@ -324,7 +325,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 - **FR-CAC-85** 탭 지정은 탭 우클릭 메뉴 "Claude 계정" 에서 고르거나 푼다. 이미 실행 중인 claude 에는 적용되지 않고 다음 실행부터 적용된다. 메뉴에 그 사실을 적는다.
 - **FR-CAC-86** **프로필 토큰 회수** (D-CAC-29): 프로필에서 실행한 claude 가 토큰을 돌리면 백업이 낡는다. 조회기는 프로필이 있는 계정을 조회하기 전에 프로필 저장소를 읽고, 같은 계정(프로필 `.claude.json` 의 `oauthAccount` 가 그 계정)이고 백업보다 새것이면(expiresAt 이 더 늦음) 계정별 소비 락 아래에서 백업에 쓴다. 프로필 준비(FR-CAC-82)와 고정 실행 중인 계정에서의 전환(FR-CAC-36) 앞에서도 같은 회수를 한다.
 - **FR-CAC-88** **실행 준비 API**: `POST /api/claude-accounts/launch {toolId?, cwd}` 는 FR-CAC-81 로 계정을 정한다. 계정이 있으면 프로필을 맞추고(FR-CAC-82) `{accountId, source:"tab"|"folder", configDir}` 를 돌려준다. 계정이 없으면 `{source:"none"}` 이다. `cwd` 가 절대 경로가 아니면 400 `claude_account_invalid`. 프로필을 맞추지 못하면 500 이고 shim 은 실행하지 않는다. `GET /api/claude-accounts/resolve` 는 같은 해석이지만 프로필을 맞추지 않는다(화면·dmctl 용 읽기).
-- **FR-CAC-88a** **경로 모양** (5a): `resolve`·`launch` 의 답은 `{accountId?, source, folder?, configDir?}` 다. `folder` 는 출처가 폴더 연결일 때 그 연결의 경로다. `GET /mappings` 는 `mappings.json` 과 같은 모양이다. `PUT /mappings` 는 `{folder, accountId}` 또는 `{toolId, accountId}` 하나를 받고 `accountId` 가 비면 푼다. 둘 다 주거나 둘 다 없으면 400 `claude_account_invalid`, 없는 계정은 404 `claude_account_not_found` 다. 응답은 GET 과 같다. 링크하지 못한 공유 항목(FR-CAC-82)은 서버 로그에 남긴다 — 설정 화면의 경고는 6단계다.
+- **FR-CAC-88a** **경로 모양** (5a): `resolve`·`launch` 의 답은 `{accountId?, source, folder?, configDir?, path}` 다. `folder` 는 출처가 폴더 연결일 때 그 연결의 경로다. `path` 는 받은 `cwd` 를 FR-CAC-80 규칙으로 정규화한 값이다(5b — 화면이 매핑 키와 견줄 때 쓴다, D-CAC-30). `GET /mappings` 는 `mappings.json` 과 같은 모양이다. `PUT /mappings` 는 `{folder, accountId}` 또는 `{toolId, accountId}` 하나를 받고 `accountId` 가 비면 푼다. 둘 다 주거나 둘 다 없으면 400 `claude_account_invalid`, 없는 계정은 404 `claude_account_not_found` 다. 응답은 GET 과 같다. 링크하지 못한 공유 항목(FR-CAC-82)은 서버 로그에 남긴다 — 설정 화면의 경고는 6단계다.
 - **FR-CAC-87** **고정 실행 중**: 프로필 폴더 아래 `sessions/<pid>.json` 이 있고 그 pid 가 살아 있으면 그 계정은 고정 실행 중이다. 고정 실행 중인 계정은 자동 전환의 대상이 아니다. 활성 계정이 고정 실행 중이어도 자동 전환은 활성 저장소만 바꾸므로 그 세션에는 영향이 없다.
 
 ### 3.I 화면
@@ -352,6 +353,14 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 - **FR-CAC-95** **탭 틴트**: 탭에 적용되는 계정(FR-CAC-81)이 있으면 탭 배경을 계정 색으로 옅게 칠한다. 탭 지정은 진하게(불투명도 0.28), 폴더 매핑은 옅게(0.14) 칠한다. 전역 활성 계정이면 칠하지 않는다. 활성 탭 표시와 주의 알림 표시는 틴트 위에 그대로 보인다. 툴팁에 "Claude 계정: <이름> (탭 지정|폴더 <경로>)" 를 더한다. 탭의 cwd 는 기존 cwd 보고값을 쓴다.
 - **FR-CAC-96** **사이드바 Repo 목록**: 저장소 루트에 적용되는 계정(폴더 매핑만, FR-CAC-81 ②)이 있으면 계정 색 칩(별칭 또는 이메일 앞부분)을 붙인다.
 - **FR-CAC-97** **Explorer**: 저장소 안에서 폴더 매핑이 걸린 폴더에 계정 색 칩을 붙인다. 폴더 우클릭 메뉴에 "Claude 계정 연결…" 과 "연결 해제" 를 둔다.
+- **FR-CAC-95a** **화면의 계정 셈과 메뉴** (5b, D-CAC-30·31).
+  - 화면은 `GET /mappings` 와 계정 목록으로 FR-CAC-81 을 스스로 셈한다. 경로는 서버가 정규화한 값(`resolve` 의 `path`)으로 견준다. 원래 경로 → 정규화한 경로는 페이지 수명 동안 기억하고, 같은 경로를 다시 묻지 않는다. 경로 구분자가 `\` 이면(Windows) 견주기 전에 소문자로 바꾼다. 매핑이 바뀌면(`claude_accounts_changed`) 매핑만 다시 받는다.
+  - 탭 틴트의 대상은 터미널 탭이다. 탭의 cwd 는 터미널의 cwd 보고값(OSC `Cwd`)이고, 아직 없으면 `GET /api/cwd?tool=` 을 그 도구마다 한 번 묻는다. cwd 를 모르면 탭 지정만 본다.
+  - 칩 글자는 별칭, 없으면 이메일의 `@` 앞부분이다. 칩의 툴팁은 "Claude 계정: <이름>" 이다.
+  - Explorer 칩(FR-CAC-97)은 그 폴더에 **직접** 걸린 폴더 매핑에만 붙는다. 상위 매핑을 물려받는 폴더에는 붙이지 않는다.
+  - 탭 우클릭 메뉴 "Claude 계정…" 은 계정 목록 메뉴를 같은 자리에 연다. 항목은 계정마다 하나(이름, 지금 지정이면 표시), 지정이 있으면 "지정 해제", 끝에 누를 수 없는 안내 "실행 중인 claude 에는 다음 실행부터 적용됩니다" 다. 터미널 탭이 아니면 사유("터미널 탭에만 지정할 수 있습니다")와 함께 누를 수 없다. 등록된 계정이 없으면 사유("등록된 Claude 계정이 없습니다")와 함께 누를 수 없다.
+  - Explorer 의 "Claude 계정 연결…" 도 같은 계정 목록 메뉴다. 폴더 행과 빈 자리(빈 자리는 루트 폴더다, FR-CMU-9)의 메뉴에 둔다. "연결 해제" 는 그 폴더에 직접 연결이 있을 때만 누를 수 있고, 없으면 사유("이 폴더에 연결된 계정이 없습니다")를 든다.
+  - 전환 응답에 `pinnedRunning:true` 가 있으면 토스트로 FR-CAC-36 의 안내를 보인다.
 - **FR-CAC-98** 색은 대비 검사(WCAG AA, UI 3:1)를 통과하는 고정 팔레트 8색에서 고른다. 팔레트는 다크용·라이트용 두 벌이고 같은 번호는 같은 색상이다. 테마의 모드가 벌을 고른다 (D-CAC-14). 칩 글자색은 대비로 정한다. 하드코딩한 색 대신 테마 토큰을 쓴다.
 - **FR-CAC-99** 모든 문구는 i18n 키다(ko·en).
 
@@ -425,7 +434,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   | `POST /api/claude-accounts/reset` | `{id, program, grantId?}` |
   | `GET·PUT /api/claude-accounts/autoswitch` | 자동 전환 설정 |
   | `GET·PUT /api/claude-accounts/mappings` | 폴더 매핑·탭 지정 |
-  | `GET /api/claude-accounts/resolve?toolId=&cwd=` | 해석 결과 `{accountId?, source, configDir?}` (프로필을 맞추지 않음) |
+  | `GET /api/claude-accounts/resolve?toolId=&cwd=` | 해석 결과 `{accountId?, source, folder?, configDir?, path}` (프로필을 맞추지 않음) |
   | `POST /api/claude-accounts/launch` | `{toolId?, cwd}` — 해석하고 프로필을 맞춘다 (FR-CAC-88, shim 이 부른다) |
   | `GET /api/claude-accounts/history` | 기록 |
   | `GET /api/claude-accounts/unclaimed`, `POST …/unclaimed/remove` | 보관 목록·삭제 |
@@ -469,6 +478,8 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | D-CAC-27 | 탭을 닫으면 그 탭 지정을 지운다 (FR-CAC-81a) | 사용자 결정(2026-11-13) |
 | D-CAC-28 | 고정 실행 중인 계정에서 전환할 때의 경고는 전환을 막지 않는 안내다 (FR-CAC-36) | 구현자 판단(2026-11-13). 전환은 활성 저장소만 바꾸므로 고정 세션에 영향이 없다. 알릴 것은 사실뿐이다 |
 | D-CAC-29 | 프로필 토큰 회수는 고정 실행 중인 계정만이 아니라 프로필이 있는 모든 계정에 한다. 전환의 "같은 계열" 백업은 백업보다 낡은 토큰으로 덮지 않는다 (FR-CAC-32·86) | 구현자 판단(2026-11-13). 프로필의 claude 가 끝난 뒤에도 프로필에는 돈 새 토큰이 남고 백업의 옛 갱신 토큰은 이미 무효다. 회수하지 않으면 조회가 영구 실패(`relogin_required`)로 잘못 떨어진다. 같은 이유로, 회수한 토큰을 활성 저장소의 옛 토큰이 덮으면 안 된다 |
+| D-CAC-30 | 화면은 매핑과 계정 목록으로 계정을 스스로 셈하고, 경로만 서버가 정규화한 값으로 견준다 (FR-CAC-95a) | 구현자 판단(2026-11-13). 탭·Repo·Explorer 칩을 그릴 때마다 서버에 묻지 않는다. 문자열을 바로 견주면 심볼릭 링크(macOS `/var`↔`/private/var`)에서 어긋난다. 정규화는 경로마다 한 번만 묻는다 |
+| D-CAC-31 | 탭·Explorer 메뉴의 계정 고르기는 하위 메뉴 대신 같은 자리에 여는 두 번째 메뉴다. 못 하는 항목은 숨기지 않고 사유를 든다 (FR-CAC-95a) | 구현자 판단(2026-11-13). 메뉴 키트(`UIKit.menu`)에 하위 메뉴가 없다. 사유 표기는 CONTEXT_MENU_UNIFY_SRS FR-CMU-1 이다 |
 | D-CAC-16 | 키체인 쓰기는 `security -i` 표준 입력으로만 한다. 줄이 길면 키체인 대신 권한 600 파일을 쓴다 | 사용자 결정(2026-11-13, 보안 검토 지적). argv 의 값은 같은 컴퓨터의 다른 사용자가 `ps` 로 본다. Claude Code 는 argv 로 넘기지만 그 노출을 따라 하지 않는다 |
 
 ## 5. 검증 (Verification)
@@ -499,7 +510,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | TC-CAC-19 | FR-CAC-82·86·87·36 | 프로필 생성(자격증명·`.claude.json` 가져오기와 계정 항목 제외·링크·링크 실패 대안), 키체인 서비스 이름 해시, 토큰 회수, 고정 실행 판정, 자동 전환 후보 제외, 전환 응답의 `pinnedRunning` |
 | TC-CAC-20 | FR-CAC-83 | shim: 진짜 claude 찾기(자기 폴더 제외·없음 127), 훅 인자, 사용자 `CLAUDE_CONFIG_DIR` 우선, 서버 응답별 환경, 연결 거부는 실행·오류·시간 초과는 실행 안 함. 세 셸 훅의 PATH 맨 앞 넣기·다시 옮기기, `claude()` 함수 없음 |
 | TC-CAC-21 | FR-CAC-90~93 | (JS 단위) foot 뷰 모델: 계정 묶음·statusLine 줄·계정 없음·오래된 값·예측 문구 |
-| TC-CAC-22 | FR-CAC-95~97 | (JS 단위) 탭 틴트 출처·진하기, Repo 칩, Explorer 칩 |
+| TC-CAC-22 | FR-CAC-95~97·95a·85·36 | (JS 단위) 해석(탭 지정 우선·가장 가까운 상위·삭제된 계정 무시·Windows 소문자), 탭 틴트 출처·진하기·툴팁·전역이면 없음, Repo 칩(폴더 매핑만), Explorer 칩(직접 연결만), 칩 글자, 계정 메뉴 항목·사유, `pinnedRunning` 토스트. (Go) `resolve` 의 `path` |
 | TC-CAC-23 | FR-CAC-100·100a·101 | 알림 사건 여섯, 억제 키·재기동 뒤 억제·8일 정리, SSE 본문, Telegram 글 입구, 문구와 본문에 토큰·이메일 전체·계정 ID 없음 |
 | TC-CAC-24 | FR-CAC-102·103 | dmctl 명령 인자 해석, `--json` 스키마, 확인 질문 |
 | TC-CAC-25 | FR-CAC-110·110a·111 | 기록 형식, 1000줄 자르기, trigger·by 값, `by` 검증, noop 은 안 적음, history API 의 limit |

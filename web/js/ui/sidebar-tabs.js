@@ -230,6 +230,8 @@ const SB_TAB_DEFS=[
             title:b.outputTruncated?t('git.badge_truncated')
               :(stale?t('git.badge_stale',{at:new Date(b.observedAtUnixMs).toLocaleTimeString()}):''),
           }:null,
+          // CLAUDE_ACCOUNTS_SRS FR-CAC-96: 저장소 루트에 적용되는 폴더 연결의 계정.
+          chip:app.claudeRepoChip?app.claudeRepoChip(e.path):null,
           fixed:pinned,
           removable:!pinned,
           dataset:{edRoot:e.path,gitRepo:e.path},

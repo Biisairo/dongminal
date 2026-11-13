@@ -686,6 +686,8 @@ class TerminalTool {
     if(f&&f.id===this.id&&app.cwd!==cwd){app.cwd=cwd;app.updateStatusBar()}
     // precmd·에이전트 hook 은 같은 OSC 경로를 탄다 — 셸 명령 직후의 즉시 신호다 (FR-GIT-18).
     if(app)app.gitSignal('cwd');
+    // CLAUDE_ACCOUNTS_SRS FR-CAC-95: 폴더 연결의 틴트는 cwd 를 따른다.
+    if(app&&app.claudeOnCwd)app.claudeOnCwd();
   }
   // FR-TXN-1: 알림은 터미널 화면이 아니라 창 하단 팝업으로 간다 — 셸이 소유한
   // 화면에 남이 쓰면 프롬프트가 어긋나 명령이 도는 것처럼 보인다
