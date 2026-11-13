@@ -82,7 +82,7 @@ stream-json 과 **형식이 겹친다** — `claudeDecode` 의 조각을 재사�
 2. `docs/internal/archive/production/M9_PROGRESS.md` — §1-15·§1-16 · **§2 배운 것 스물다섯**
    (특히 **§2-22**(stash 는 커밋에서 조용히 빠진다) · **§2-23**(문서를 실측으로 읽었다) ·
    **§2-24**(없는 줄 알았던 것이 이미 있었다) · **§2-25**(홀로 싣는 검사)) · **§3 실측 방법 여섯**
-3. `docs/internal/production/M9_P7_GUI_SURVEY.md` — §3.1 은 **두 번 틀렸다.** 그 경고를 읽어라
+3. `docs/internal/archive/production/M9_P7_GUI_SURVEY.md` — §3.1 은 **두 번 틀렸다.** 그 경고를 읽어라
 
 ## P8 이 넘기는 것 (읽고 이어라)
 

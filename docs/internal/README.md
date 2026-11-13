@@ -116,8 +116,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [ACCESS_DENIED_PAGE_SRS.md](./ACCESS_DENIED_PAGE_SRS.md) | **막힌 출발지에게 보이는 화면** (IEEE 29148, `FR-ADP-*`). 종전에는 `403 forbidden` **평문 한 줄**이었고, 그 한 줄은 무엇이 막혔는지도 무엇을 해야 하는지도 말하지 않았다 — 접속하려던 사람은 **자기 IP 를 알 방법이 없고**, 소유자는 무엇을 허용해야 하는지 들을 방법이 없었다. **구현 완료** |
 | [AGENT_ADAPTER_COMPLETION_SRS.md](./AGENT_ADAPTER_COMPLETION_SRS.md) | **어댑터가 에이전트의 전부를 안다 — 이름을 한 자리로** (IEEE 29148, `FR-AAC-*`). `AGENT_EVENT_ABSTRACTION_SRS` 가 **이벤트**를 어댑터로 올렸고, 그때 올리지 않은 셋(훅 설치·전사본 해석·컨텍스트 창)이 전부 claude 의 구현 세부에 묶여 있었다. **구현 완료** |
 | [AGENT_EVENT_ABSTRACTION_SRS.md](./AGENT_EVENT_ABSTRACTION_SRS.md) | **에이전트 이벤트를 선언으로 추상화하고 알람을 그 위에 세운다** (IEEE 29148, `FR-AEV-*`). 증상은 "`omp` 가 활동을 보고하는데 알람이 울리지 않는다" 였고, **원인은 omp 의 결함이 아니라 배선이 에이전트마다 손으로 쓰여 있다는 것**이었다(§2.1). 그래서 고칠 것이 한 자리가 아니라 구조였다 — 이벤트를 **선언**으로 만들면 새 에이전트를 붙일 때 빠진 것이 드러난다. **구현 완료** |
-| [AGENT_GUI_REMOVAL_SRS.md](./AGENT_GUI_REMOVAL_SRS.md) | **에이전트 GUI 제거** (`FR-AGR-*`). `AgentPane` 탭 · `type:'agent'` · `toolhub.KindAgent` · `/api/agent/*` · `domain/agentsess` 를 걷고 **어댑터 한 벌**(`internal/shared/agentadapter`)만 남긴다. 제거 대상은 에이전트를 GUI 대화 뷰로 **직접 구동하는 길** 전체다. **구현 중** |
-| [AGENT_PROTOCOL_SURFACE_SRS.md](./AGENT_PROTOCOL_SURFACE_SRS.md) | **에이전트를 프로토콜로 붙이고 훅을 걷는다** (IEEE 29148). 에이전트를 PTY 바이트스트림이 아니라 프로토콜로 붙여 "지금 무엇을 하는가" 를 추정이 아닌 사실로 만들려던 문서다. **대체됨** — GUI 갈래가 `AGENT_GUI_REMOVAL_SRS` 로 걷혔다. |
+| [AGENT_GUI_REMOVAL_SRS.md](./AGENT_GUI_REMOVAL_SRS.md) | **에이전트 GUI 제거** (`FR-AGR-*`). `AgentPane` 탭 · `type:'agent'` · `toolhub.KindAgent` · `/api/agent/*` · `domain/agentsess` 를 걷었다. 2차 개정(§6, D-4)이 어댑터의 프로토콜 표면(`Adapter.Proto`·`ParseHistory`)과 `fakeagent` 까지 걷었다 — 어댑터에는 훅·활동·사용량·기동줄만 남는다. **구현 완료** |
 | [AGENT_RENDER_ENV_SRS.md](./AGENT_RENDER_ENV_SRS.md) | **에이전트가 화면을 망가뜨리지 않게 띄운다** (`FR-ARE-*`). Claude Code 는 터미널 폭이 바뀌면 **옛 프레임을 스크롤백에 남기고**, 기기를 오가며 쓰면 그것이 쌓여 위쪽 대화를 읽을 수 없게 된다. 터미널 쪽에서 되살릴 수 없다는 것은 조사로 확정됐다(`M11_SRS` §2.4e·2.4f) — 스크롤백에 남은 것은 **이미 배치가 끝난 글자**이고 원본을 가진 것은 앱뿐이다. 그래서 앱을 띄우는 **환경**을 고친다. **구현 완료** |
 | [API_ANSWER_NOT_ABSENCE_SRS.md](./API_ANSWER_NOT_ABSENCE_SRS.md) | **답을 부재로 적지 않는다 — 가짜 404 를 가른다** (IEEE 29148, `FR-ANA-*`). 사용자 보고 `U-22`. "저장소가 아니다" 는 **답**인데 그것을 `404` 로 적으면 없는 종단과 구별되지 않는다 — 콘솔이 붉은 줄로 차고, 진짜 부재가 그 속에 묻힌다. **구현 완료** |
 | [APP_TESTING_CONTRACT_SRS.md](./APP_TESTING_CONTRACT_SRS.md) | **e2e 는 공개 계약만 본다** (IEEE 29148, `FR-ATC-*`). 실측(2026-09-12): **`app._xxx` 507회 · 86파일 · 서로 다른 이름 114개** — e2e 가 앱의 내부를 직접 짚고 있었고, 그래서 내부를 고치면 검사가 깨졌다. 로드맵이 적은 533/81 을 이 문서가 정정한다. **구현 완료** |
@@ -216,6 +215,15 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 그대로 둔다.
 
 ## 보관 (`archive/`) — 완료된 작업의 기록
+
+### 에이전트 GUI 완전 폐기로 보관 (2026-11, AGENT_GUI_REMOVAL_SRS §6 · FR-AGR-21)
+
+GUI 와 프로토콜 표면을 전제로 쓴 문서다. 그 코드는 모두 지워졌다.
+
+| 문서 | 내용 |
+|---|---|
+| [AGENT_PROTOCOL_SURFACE_SRS.md](./archive/AGENT_PROTOCOL_SURFACE_SRS.md) | **에이전트를 프로토콜로 붙이고 훅을 걷는다** (IEEE 29148). 대체됐고(`M8_UNIFIED_SRS`), 그 구현도 `AGENT_GUI_REMOVAL_SRS` 로 모두 걷혔다 |
+| [M9_P7_GUI_SURVEY.md](./archive/production/M9_P7_GUI_SURVEY.md) | 바깥의 에이전트 GUI 조사(2026-09-14). M9 P7 스펙의 참고 자료였다 |
 
 ### 편집기 엔진 교체로 보관 (2026-11, CODEMIRROR_MIGRATION_SRS M9 · FR-CMR-132)
 

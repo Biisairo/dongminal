@@ -10,7 +10,7 @@
   인터페이스(= 에이전트 어댑터)를 이용하여 진행할 것."*
 - 흡수한 것: 로드맵 §M8(Go 아키텍처 부채·CLI 계약) · §M9(국제화) · §M10(에이전트
   프로토콜 표면) — 세 마일스톤이 **하나의 마일스톤 M8** 이 된다. 그리고
-  [`AGENT_PROTOCOL_SURFACE_SRS`](./AGENT_PROTOCOL_SURFACE_SRS.md)(2026-09-12 초안)의
+  [`AGENT_PROTOCOL_SURFACE_SRS`](./archive/AGENT_PROTOCOL_SURFACE_SRS.md)(2026-09-12 초안)의
   본문 전부 — 그 문서는 이 문서로 **대체**된다.
 - 사용자 결정 둘 (2026-09-13): ① **병행** — 에이전트 도구는 프로토콜, 터미널 도구의
   훅은 그대로. 훅 제거(옛 묶음 H)는 하지 않는다. ② **어댑터가 인터페이스다** —
@@ -65,7 +65,7 @@
 
 - 로드맵 [`PRODUCTION_ROADMAP`](./production/PRODUCTION_ROADMAP.md) §M8 — 이 문서가
   그 절의 표와 DoD 를 흡수한다 (§2.1·§3.2·§6.1).
-- [`AGENT_PROTOCOL_SURFACE_SRS`](./AGENT_PROTOCOL_SURFACE_SRS.md) — **대체됨.** 실측
+- [`AGENT_PROTOCOL_SURFACE_SRS`](./archive/AGENT_PROTOCOL_SURFACE_SRS.md) — **대체됨.** 실측
   (§2.3)·요구(§3.4)·검증(§6.3)·리스크(§8)·미확인(§9)이 이 문서로 왔다.
 - 터미널 표면의 계약 — **그대로 산다**: [`AGENT_EVENT_ABSTRACTION_SRS`](./AGENT_EVENT_ABSTRACTION_SRS.md) ·
   [`AGENT_ADAPTER_COMPLETION_SRS`](./AGENT_ADAPTER_COMPLETION_SRS.md) ·
@@ -466,6 +466,9 @@ terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_r
 - 혼용 해소 확인: 한 패널 안에서 언어가 갈리는 자리(`index.html:268,274` 한국어 vs `:286,294` 영어)가 카탈로그 데이터 교정으로 해소되고, **코드 변경 없이** 되는지 확인(외부화가 제대로 됐다는 증거).
 
 ### 3.4 축 C — 에이전트 프로토콜 표면
+
+> **개정(2026-11-13)**: 묶음 P·T 의 구현은 모두 지워졌다 — 에이전트 GUI 는 `AGENT_GUI_REMOVAL_SRS`
+> 1차 제거로, 어댑터의 프로토콜 표면과 `fakeagent` 는 같은 문서의 §6(D-4)으로. 아래는 기록이다.
 
 > 원문 `AGENT_PROTOCOL_SURFACE_SRS` §3 에서 왔다. 병행(FR-U-3)으로 묶음 H 와 묶음 A 의
 > 삭제 조항은 빠졌고, 어댑터 계약(FR-U-1·2)과 TUI 출구(FR-U-4)가 더해졌다.

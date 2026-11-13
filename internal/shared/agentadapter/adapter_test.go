@@ -2,12 +2,28 @@ package agentadapter
 
 import (
 	"errors"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	"dongminal/internal/shared/platform"
 )
+
+// V-AGR-7 (AGENT_GUI_REMOVAL_SRS FR-AGR-17·18): 에이전트 GUI 의 프로토콜 표면이 남지 않는다.
+func TestNoProtocolSurface(t *testing.T) {
+	at := reflect.TypeFor[Adapter]()
+	for _, f := range []string{"Proto", "ParseHistory"} {
+		if _, ok := at.FieldByName(f); ok {
+			t.Errorf("Adapter.%s 가 남아 있다", f)
+		}
+	}
+	for _, pat := range []string{"*_proto.go", "*_decode.go", "proto.go", "fakeagent"} {
+		if m, _ := filepath.Glob(pat); len(m) > 0 {
+			t.Errorf("GUI 잔재가 남아 있다: %v", m)
+		}
+	}
+}
 
 // TC-ADP-2 / FR-ADP-3: an unknown agent id must fail clearly. Silent success
 // and a fallback to some default agent are both forbidden.

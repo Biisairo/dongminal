@@ -312,7 +312,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   - `.claude.json`: 없으면 `{oauthAccount, hasCompletedOnboarding:true}` 로 만든다. 있으면 `oauthAccount` 만 맞춘다.
   - 공유 항목 `settings.json`, `keybindings.json`, `CLAUDE.md`, `skills`, `commands`, `agents`, `rules`, `plugins`, `projects`, `history.jsonl` 은 `~/.claude` 의 것에 심볼릭 링크로 잇는다. 링크를 만들 수 없으면(Windows 권한) 파일은 복사하고 폴더는 디렉터리 정션을 쓴다. 정션도 실패하면 그 항목은 잇지 않고 설정 화면에 경고를 보인다.
 - **FR-CAC-83** **셸 래퍼**: zsh·bash·PowerShell 의 `claude()` 래퍼는 실행 직전에 `dmctl account env` 를 부른다. 출력이 `CLAUDE_CONFIG_DIR=<경로>` 면 그 실행에만 그 값을 넣는다. 출력이 비었거나 `dmctl` 이 실패하면(500ms 제한) 지금과 같이 실행한다. 사용자가 이미 `CLAUDE_CONFIG_DIR` 을 정했으면 덮어쓰지 않는다.
-- **FR-CAC-84** **GUI 기동**: GUI 로 띄우는 claude(`claudeProtoLaunch` 경로)도 같은 해석(FR-CAC-81)으로 `CLAUDE_CONFIG_DIR` 을 넣는다. cwd 는 기동 cwd 다.
+- **FR-CAC-84** ~~GUI 기동~~ **해당 없음** (2026-11-13): 에이전트 GUI 와 그 기동 경로는 지워졌다(`AGENT_GUI_REMOVAL_SRS` §6, D-4). claude 는 늘 터미널 탭의 셸에서 뜨므로(원격 기동·issue-tree 포함) 셸 래퍼(FR-CAC-83)가 모든 기동을 맡는다.
 - **FR-CAC-85** 탭 지정은 탭 우클릭 메뉴 "Claude 계정" 에서 고르거나 푼다. 이미 실행 중인 claude 에는 적용되지 않고 다음 실행부터 적용된다. 메뉴에 그 사실을 적는다.
 - **FR-CAC-86** **프로필 토큰 회수**: 프로필에서 실행한 claude 가 토큰을 돌리면 백업이 낡는다. 조회기는 고정 실행 중인 계정을 조회하기 전에 프로필 저장소를 읽고, 같은 계정이고 백업보다 새것이면(expiresAt 이 더 늦음) 백업에 쓴다.
 - **FR-CAC-87** **고정 실행 중**: 프로필 폴더 아래 `sessions/<pid>.json` 이 있고 그 pid 가 살아 있으면 그 계정은 고정 실행 중이다. 고정 실행 중인 계정은 자동 전환의 대상이 아니다. 활성 계정이 고정 실행 중이어도 자동 전환은 활성 저장소만 바꾸므로 그 세션에는 영향이 없다.
@@ -480,7 +480,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | TC-CAC-17 | FR-CAC-75·76·77 | cswap 자동 전환 감지(명령줄 판정), 켤 때 409, 켜진 뒤 감지하면 끔, 설정·상태 저장, API 모양·부분 수정·검증 |
 | TC-CAC-18 | FR-CAC-80·81 | 경로 정규화, 해석 순서, 삭제된 계정 무시 |
 | TC-CAC-19 | FR-CAC-82·86·87 | 프로필 생성(자격증명·`.claude.json`·링크·링크 실패 대안), 키체인 서비스 이름 해시, 토큰 회수, 고정 실행 판정 |
-| TC-CAC-20 | FR-CAC-83·84 | 세 셸 래퍼가 `dmctl account env` 결과를 넣음, 실패·빈 출력·사용자 값 우선. GUI 기동 인자에 환경 변수가 실림 |
+| TC-CAC-20 | FR-CAC-83 | 세 셸 래퍼가 `dmctl account env` 결과를 넣음, 실패·빈 출력·사용자 값 우선 |
 | TC-CAC-21 | FR-CAC-90~93 | (JS 단위) foot 뷰 모델: 계정 묶음·statusLine 줄·계정 없음·오래된 값·예측 문구 |
 | TC-CAC-22 | FR-CAC-95~97 | (JS 단위) 탭 틴트 출처·진하기, Repo 칩, Explorer 칩 |
 | TC-CAC-23 | FR-CAC-100·100a·101 | 알림 사건 여섯, 억제 키·재기동 뒤 억제·8일 정리, SSE 본문, Telegram 글 입구, 문구와 본문에 토큰·이메일 전체·계정 ID 없음 |
