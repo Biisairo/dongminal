@@ -181,7 +181,7 @@
 - **FR-FHL-3** 포커스 탭이 Diff 탭으로 바뀌면 Changes 의 선택을 그 Diff 의 대상 행 하나로 바꾼다. Explorer 의 선택은 지운다.
 - **FR-FHL-4** Diff 탭이 보는 대상이 바뀌면(‹ › 이동, 다른 행 클릭) FR-FHL-3 을 다시 적용한다. 이때 Changes 의 선택은 그 이동이 정한 것(‹ › 는 대상 하나, Cmd·Shift 클릭은 사용자가 고른 것)을 그대로 두고, Explorer 의 선택만 지운다(FR-FHL-6 과 함께 지키기 위해서다).
 - **FR-FHL-5** Changes·Explorer 사이드 탭은 자동으로 바꾸지 않는다. 보이지 않는 쪽의 선택도 위 규칙대로 바뀐다.
-- **FR-FHL-6** 포커스 탭이 바뀌지 않으면 아무것도 하지 않는다. 사용자가 패널에서 고른 선택(Shift·Cmd·사각형)은 다음 탭 전환까지 그대로다.
+- **FR-FHL-6** 포커스 탭이 바뀌지 않으면 아무것도 하지 않는다. 사용자가 패널에서 고른 선택(Shift·Cmd·사각형)은 다음 탭 전환까지 그대로다. 미리보기 탭이 같은 id 로 대상을 갈아 끼우면(Diff ↔ 파일, 다른 파일, FR-RTB-2) 탭이 바뀐 것으로 본다.
 - **FR-FHL-7** 포커스 탭이 파일·Diff 가 아니거나, 그 파일이 이 창의 루트 밖이면 두 패널의 선택을 바꾸지 않는다.
 - **FR-FHL-8** Activity 패널의 에이전트 카드 하이라이트는 하나다. 포커스된 탭(어느 창이든 포커스 칸의 활성 탭)의 도구가 에이전트 카드를 가지면 그 카드 하나만 하이라이트하고, 없으면 어느 카드도 하이라이트하지 않는다. 포커스 탭이 바뀌면 곧바로 따라간다.
   - 포커스 탭은 포커스된 칸(슬롯)이 보는 창의 포커스 pane 의 활성 탭 하나다.
@@ -282,7 +282,7 @@
 
 - **FR-RTB-1** 미리보기 탭(`tab.preview`)은 칸마다 최대 하나다. 종류(편집기·Diff)는 가리지 않는다.
 - **FR-RTB-2** 미리보기를 여는 요청은 **지금 칸**에 연다. 지금 칸에 미리보기 탭이 있으면 그 탭의 대상(과 종류)을 갈아 끼우고, 없으면 새 미리보기 탭을 만든다. 다른 칸의 미리보기 탭은 건드리지 않는다.
-- **FR-RTB-3** 미리보기를 여는 길: Explorer 파일 한 번 클릭(편집기), Changes 행 한 번 클릭(추적 파일은 Diff, untracked 는 편집기, FR-RTU-50·51), History 의 파일 클릭(Diff). 보조키 클릭은 지금처럼 열지 않는다(FR-RTU-40).
+- **FR-RTB-3** 미리보기를 여는 길: Explorer 파일 한 번 클릭(편집기), Changes 행 한 번 클릭(추적 파일은 Diff, untracked 는 편집기, FR-RTU-50·51), History 의 파일 클릭(Diff), Changes 행의 파일 열기(↗ 단추·우클릭 Open File, 편집기. 여러 파일을 한꺼번에 열면 미리보기가 서로를 갈아 끼우므로 고정 탭으로 연다 — 사용자 결정 2026-11-16). 보조키 클릭은 지금처럼 열지 않는다(FR-RTU-40).
 - **FR-RTB-4** 지금 칸에 같은 대상의 탭(미리보기든 고정이든)이 있으면 새로 만들지 않고 그 탭을 활성으로 한다. 같은 대상이 **다른 칸에만** 있으면 지금 칸에 미리보기로 연다(FR-RTU-45 개정).
 - **FR-RTB-5** 고정하면 그 탭은 보통 탭이 된다(기울임이 풀린다). 그 칸의 다음 미리보기는 새 탭으로 생긴다.
 - **FR-RTB-6** 고정 계기는 다섯이다(편집기·Diff 공통).
@@ -410,6 +410,7 @@
 | TC-FHL-1 | FR-FHL-2·5 | e2e(`focus-highlight.spec.ts`): 접힌 폴더 안의 파일 탭과 다른 탭을 오가며 포커스 | Explorer 에 그 파일 행 하나만 `sel`, 조상이 펼쳐짐, 사이드 탭은 그대로 |
 | TC-FHL-2 | FR-FHL-3·4 | e2e: Diff 탭 포커스, ‹ › 이동 | Changes 에 대상 행 하나만 `sel`, Explorer 선택 없음 |
 | TC-FHL-3 | FR-FHL-6 | e2e: Explorer 에서 셋을 고른 채 같은 탭에서 다시 그리기 | 선택 셋이 그대로다 |
+| TC-FHL-5 | FR-FHL-2·3·6 | e2e(`focus-highlight.spec.ts`): Changes 행 클릭(Diff 미리보기) → Explorer 파일 클릭(같은 미리보기 탭이 파일로) → 폴더 클릭 → Changes 행 클릭(다시 Diff) | 파일일 때 Changes 선택 없음, Diff 일 때 Explorer 선택 없음 |
 | TC-FHL-4 | FR-FHL-8 | e2e(`agent-card-focus.spec.ts`): 에이전트 활동이 있는 탭 둘과 없는 탭 하나를 오가며 포커스 / 같은 창을 두 칸에 띄워 칸마다 다른 에이전트 탭을 고르고 칸 포커스를 옮김 | 에이전트 탭이면 그 카드 하나만 `focused`, 아니면 `focused` 카드가 없다 / 포커스 칸의 카드 하나만 `focused` |
 | TC-RMM-1 | FR-RMM-1·2·4 | e2e: 트리 Run 의 미니맵 | 노드 상자·간선이 있고 상태 클래스가 본 트리와 같다. 상태가 바뀌면 미니맵도 바뀐다 |
 | TC-RMM-2 | FR-RMM-3 | e2e: 보기 상자 안을 눌러 끌기 | 끈 거리만큼 보기가 옮겨진다(누른 점이 중심으로 튀지 않는다) |
@@ -442,6 +443,7 @@
 | TC-HKB-2 | FR-HKB-4 | e2e: 같은 파일에서 12행(문맥)에 커서 | 툴바가 뜨지 않음 |
 | TC-HKB-3 | FR-HKB-1·3 | unit: `gitHunkBlockAt` — 추가·수정·삭제만·파일 끝 삭제·문맥 줄 | 블록 범위 / 삭제 블록은 다음 줄(끝이면 앞 줄) / 문맥은 null |
 | TC-RTB-5 | FR-RTB-12·13 | e2e: Diff 탭 둘 사이 포커스 이동 / 새로고침 | Changes 의 선택이 포커스 Diff 의 대상 하나 / 미리보기·대상이 되살아남 |
+| TC-RTB-7 | FR-RTB-3 | e2e(`repo-tab-diff-preview.spec.ts`): Changes 행 ↗ 로 a·b 를 차례로 연다 / 두 파일을 한꺼번에 연다 | 편집기 미리보기 하나가 b 로 바뀐다 / 고정 탭 둘 |
 | TC-SBA-1 | FR-SBA-1 | e2e(`sidebar-actions.spec.ts`) | `#add-group` 의 좌우 여백·높이·좌우 끝이 `#add-window` 와 같다 |
 | TC-LIV-1 | FR-LIV-1·2 | Go: 세 종단에 대해 GET 의 ETag, 맞는 If-Match 의 PUT, 낡은 If-Match 의 PUT, If-Match 없는 PUT | 200 / 409 `stale_rev` 이고 값이 그대로 / 200 |
 | TC-LIV-2 | FR-LIV-3 | Go: 샌드박스 저장 | `sandbox_changed` 가 한 번 나간다 |

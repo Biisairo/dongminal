@@ -430,12 +430,12 @@ Object.assign(App.prototype, {
    * 없으면 만든다 (O15). 연 뒤 그 창을 활성화한다 — 열었는데 보이지 않으면
    * 사용자는 실패로 읽는다.
    */
-  async gitOpenFile(filePath){
+  async gitOpenFile(filePath,opts){
     if(!filePath) return;
     // FR-EDT-94·97: 편집기 탭은 일반 창에 열리지 않는다. 대상 창은 **활성 리포
     // 경로에 연결된 Editor** 다 — 파일 경로로 고르지 않는다. 연동(FR-EDT-31)으로
     // 핀이 걸린 리포에는 그 Editor 가 늘 있다.
-    if(this.edOn()){ await this.edOpenFile(filePath,{anchor:this._gitActiveRepo()}); return }
+    if(this.edOn()){ await this.edOpenFile(filePath,{anchor:this._gitActiveRepo(),preview:!!(opts||{}).preview}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
     if(rid) await this.addTab(rid,TAB_TYPE_EDITOR,{filePath,windowId:w.id});

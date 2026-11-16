@@ -201,3 +201,26 @@ test.describe('TC-RTB-5 — Diff 탭은 새로고침을 넘는다 (FR-RTB-13)', 
     await expect(diffPath(page)).toHaveText('a.txt');
   });
 });
+
+test.describe('TC-RTB-7 — Changes 의 파일 열기는 한 파일이면 미리보기다 (FR-RTB-3)', () => {
+  const E = (name: string, preview: boolean) => ({ name, preview, kind: 'editor' });
+  const openBtn = (page: Page, p: string) => changeRow(page, p).locator('.git-file-act[data-act="openFile"]');
+
+  test('↗ 로 한 파일씩 열면 편집기 미리보기 하나가 대상만 바꾼다', async ({ page, request }) => {
+    await enter(page, request);
+    await openBtn(page, 'a.txt').click({ force: true });
+    await expect.poll(async () => (await panes(page)).list[0].tabs).toEqual([E('a.txt', true)]);
+    await openBtn(page, 'b.txt').click({ force: true });
+    await expect.poll(async () => (await panes(page)).list[0].tabs).toEqual([E('b.txt', true)]);
+  });
+
+  test('여러 파일을 한꺼번에 열면 고정 탭으로 모두 남는다', async ({ page, request }) => {
+    await enter(page, request);
+    await page.evaluate((root) => {
+      const a = (window as any).app;
+      const p = [...a.testing.gitPanels.values()].find((x: any) => x.repo === root);
+      p._run('openFile', [{ group: 'working', path: 'a.txt' }, { group: 'working', path: 'b.txt' }]);
+    }, REPO);
+    await expect.poll(async () => (await panes(page)).list[0].tabs).toEqual([E('a.txt', false), E('b.txt', false)]);
+  });
+});

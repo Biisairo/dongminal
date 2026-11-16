@@ -225,7 +225,9 @@ Object.assign(GitPanel.prototype, {
     // FR-GIT-236: Open File 은 쓰기가 아니므로 진행 중인 쓰기에 막히지 않는다.
     // 우클릭 메뉴도 이 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
     if(act==='openFile'){
-      for(const i of items) this.app.gitOpenFile(this.absPath(i));
+      // UX_BATCH12_SRS FR-RTB-3: 한 파일은 미리보기다. 여럿은 미리보기가 서로를 갈아 끼우므로 고정한다.
+      const preview=items.length===1;
+      for(const i of items) this.app.gitOpenFile(this.absPath(i),{preview});
       return;
     }
     if(act==='discard'){this._discard(items);return}

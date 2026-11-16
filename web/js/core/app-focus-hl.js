@@ -23,7 +23,8 @@ Object.assign(App.prototype, {
     const tab=(pn.tabs||[]).find(x=>x.id===this.paneTab(pn));
     const slot=this.slotFocused();
     const panel=this.gitPanels?this.gitPanels.get(this._gitPanelKey(root,slot)):null;
-    const at=s.id+'\0'+slot+'\0'+(tab?tab.id:'');
+    // 미리보기 탭은 id 를 지킨 채 Diff ↔ 파일·다른 파일로 바뀐다(FR-RTB-1) — 내용까지 키에 넣는다.
+    const at=s.id+'\0'+slot+'\0'+(tab?tab.id+'\0'+tab.type+'\0'+(tab.filePath||''):'');
     if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath){
       if(this._fhlAt===at) return;
       this._fhlAt=at; this._fhlTarget='';

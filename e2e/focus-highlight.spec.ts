@@ -129,4 +129,23 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
     }, three);
     expect((await state(page)).set).toEqual([...three].sort());
   });
+
+  test('TC-FHL-5: 미리보기 탭이 같은 id 로 Diff ↔ 파일을 오가도 반대쪽 선택을 지운다', async ({ page }) => {
+    await waitForInit(page);
+    await openGit(page, REPO());
+    // Changes 행 클릭 → Diff 미리보기.
+    await page.locator('.git-file[data-path="tracked.txt"]').first().click();
+    await expect.poll(async () => (await state(page)).changes).toEqual(['tracked.txt']);
+    await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'explorer') });
+    // Explorer 파일 클릭 → 같은 미리보기 탭이 파일로 바뀐다 (FR-RTB-1). Changes 는 비어야 한다.
+    await page.locator('.ed-row', { hasText: 'untracked.txt' }).first().click();
+    await expect.poll(async () => (await state(page)).set).toEqual([join(REPO(), 'untracked.txt')]);
+    await expect.poll(async () => (await state(page)).changes).toEqual([]);
+    // 폴더를 고른 뒤 Changes 행 클릭 → 같은 탭이 다시 Diff 로. Explorer 는 비어야 한다.
+    await page.locator('.ed-row', { hasText: '디렉터리 한글' }).first().click();
+    await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'changes') });
+    await page.locator('.git-file[data-path="tracked.txt"]').first().click();
+    await expect.poll(async () => (await state(page)).changes).toEqual(['tracked.txt']);
+    await expect.poll(async () => (await state(page)).set).toEqual([]);
+  });
 });
