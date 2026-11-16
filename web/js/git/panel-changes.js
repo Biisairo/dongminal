@@ -796,6 +796,30 @@ Object.assign(GitPanel.prototype, {
     this._paint();
   },
 
+  /**
+   * UX_BATCH12_SRS FR-FHL-10: 그 행이 **보이게** 한다 — 접힌 그룹·트리 폴더를 펴고, "더 보기" 뒤에
+   * 있으면 그 행까지 그린 뒤 스크롤한다. 목록이 숨어 있으면 스크롤하지 못하므로 false 다.
+   */
+  revealRow(group,path){
+    let paint=this._collapsed.delete(group);
+    if(this._treeMode()){
+      const parts=path.split('/');
+      for(let i=1;i<parts.length;i++) if(this._dirCollapsed.delete(group+':'+parts.slice(0,i).join('/'))) paint=true;
+    }
+    const n=this._fileList().filter(e=>e.group===group).length;
+    if(paint) this._paint();
+    const el=this._els.get('changes'); if(!el) return false;
+    const q='.git-group[data-group="'+group+'"] .git-file[data-path="'+CSS.escape(path)+'"]';
+    let row=el.querySelector(q);
+    while(!row&&(this._shown.get(group)||GIT_FILE_ROW_CHUNK)<n){
+      this._shown.set(group,(this._shown.get(group)||GIT_FILE_ROW_CHUNK)+GIT_FILE_ROW_CHUNK);
+      this._paint(); row=el.querySelector(q);
+    }
+    if(!row||!row.offsetParent) return false;
+    row.scrollIntoView({block:'nearest'});
+    return true;
+  },
+
   // 보기 선택은 localStorage 에 남긴다 (기기별 취향이다). 기본은 플랫이다.
   _treeMode(){
     if(this._fileView==null){

@@ -44,23 +44,25 @@ Object.assign(App.prototype, {
     this._fhlAt=at; this._fhlTarget=''; this._fhlPend=null;
   },
 
-  // FR-FHL-9: 탭이 바뀔 때 아직 서지 않았던 쪽(트리·Changes 패널)은 선 뒤 처음 그릴 때 맞춘다.
+  // FR-FHL-9·10: 탭이 바뀔 때 아직 서지 않았거나 숨어 있던 쪽(트리·Changes)은 보이게 된 뒤 처음 그릴 때
+  // 맞춘다 — 숨은 목록은 스크롤할 수 없다. 선택은 이미 바뀌었고(FR-FHL-5), 사용자는 숨은 쪽을 고를 수 없다.
   _fhlRetry(s,panel,at){
     const p=this._fhlPend; if(!p||p.at!==at) return;
     if(p.path){
-      const tree=this._edTreeFor(s); if(!tree) return;
+      const tree=this._edTreeFor(s); if(!tree||!tree.list||!tree.list.offsetParent) return;
       this._fhlPend=null; tree.revealPath(p.path);
       return;
     }
-    if(!panel) return;
-    this._fhlPend=null; this._fhlDiffSel(panel,p.diff);
+    const el=panel&&panel._els.get('changes'); if(!el||!el.offsetParent) return;
+    this._fhlPend=null; this._fhlDiffSel(panel,p.diff,at);
   },
 
   // FR-FHL-2: Explorer 는 그 파일 하나(조상 펼침·스크롤), Changes 는 비운다. 루트 밖이면 손대지 않는다.
   _fhlFile(s,panel,root,path,at){
     if(!pathUnder(String(root).replace(/[\\/]+$/,''),path)) return;
     const tree=this._edTreeFor(s);
-    if(tree) tree.revealPath(path); else this._fhlPend={at,path};
+    if(tree) tree.revealPath(path);
+    if(!tree||!tree.list||!tree.list.offsetParent) this._fhlPend={at,path};
     if(panel&&panel._sel.size){panel._sel.clear();panel._anchor=null;panel._paint()}
   },
 
@@ -68,13 +70,13 @@ Object.assign(App.prototype, {
   // 패널이 하므로(FR-RTB-9) Changes 의 선택을 스스로 바꾸지 않는다 — 여기서 맞춘다.
   _fhlDiff(s,panel,f,at){
     if(f&&f.path&&f.group){
-      if(panel) this._fhlDiffSel(panel,f); else this._fhlPend={at,diff:f};
+      if(panel) this._fhlDiffSel(panel,f,at); else this._fhlPend={at,diff:f};
     }
     const tree=this._edTreeFor(s);
     if(tree&&(tree._selSet.size||tree._sel)){tree._selOnly('');tree._paintAll()}
   },
 
-  _fhlDiffSel(panel,f){
+  _fhlDiffSel(panel,f,at){
     const key=panel._selKey(f.group,f.path);
     // Changes 의 현재 행(`cur`)도 그 대상이다 — 그 행이 ‹ › 와 범위 선택의 기준이다.
     const cur=panel.previewFile;
@@ -84,5 +86,7 @@ Object.assign(App.prototype, {
       panel._anchor={group:f.group,path:f.path};
       panel._paint();
     }
+    // FR-FHL-10: 접힌 그룹·트리 폴더·"더 보기" 뒤에 있어도 보이게 한다. 숨어 있으면 보일 때 다시 한다.
+    if(!panel.revealRow(f.group,f.path)) this._fhlPend={at,diff:f};
   },
 });
