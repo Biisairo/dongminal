@@ -7,7 +7,9 @@
 Object.assign(App.prototype, {
   applyMobileMode(){
     const mob=this.isMobile;
+    const was=document.body.classList.contains('mobile');
     document.body.classList.toggle('mobile', mob);
+    if(was!==mob) this.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
     if(!mob && this.drawerOpen){this.drawerOpen=false;document.body.classList.remove('drawer-open')}
     if(!mob){document.body.classList.remove('keyboard-up')}
   },

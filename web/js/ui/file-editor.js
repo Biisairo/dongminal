@@ -375,6 +375,7 @@ class FileEditor {
     if (this._edViewKey(e)) return;
     if (e.key !== 'Escape' || !this._ddNode) return;
     if (this._find && this._find.contains(/** @type {Node} */ (e.target))) return;
+    if (this._goto && this._goto.contains(/** @type {Node} */ (e.target))) return;   // UX_BATCH13_SRS FR-EGL-8
     e.preventDefault(); this._ddClose();
   }
 
@@ -398,7 +399,7 @@ class FileEditor {
       // FR-EFP-5: 찾기 패널은 **자기 포커스를 갖는다.** 여기서 되돌리면 질의 칸이
       // 글자를 하나도 받지 못한다 — `ed.focus()` 가 위젯의 포커스를 훔쳤던 것과
       // 같은 종류의 결함이며(그 SRS §2.3), 자리만 다르다.
-      if (e.target && e.target.closest && e.target.closest('.fe-find')) return;
+      if (e.target && e.target.closest && e.target.closest('.fe-find, .fe-goto')) return;   // UX_BATCH13_SRS FR-EGL-4
       if (this._view) this._view.focus();
     });
   }

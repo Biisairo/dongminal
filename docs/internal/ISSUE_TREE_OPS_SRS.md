@@ -304,7 +304,7 @@
 | ⌥←→ · Ctrl+←→ (+Shift) | 낱말 단위 이동·선택 | 키맵에 있음. Win 의 Ctrl+Shift+←→ 는 앱 칸 이동과 겹친다 | 겹침은 편집 키가 이긴다 |
 | ⌘D · Ctrl+D | 다음 같은 낱말 선택 | 없음(`@codemirror/search` 키맵을 넣지 않았다) | `Mod-d` → `selectNextOccurrence` |
 | ⇧⌘L · Ctrl+Shift+L | 같은 낱말 모두 선택 | 없음 | `Mod-Shift-l` → `selectSelectionMatches` |
-| ⌃G · Ctrl+G | 줄로 이동 | 없음 | `Ctrl-g` → `gotoLine` |
+| ⌃G · Ctrl+G | 줄로 이동 | 없음 | `Ctrl-g` → `gotoLine` (UX_BATCH13_SRS FR-EGL-1 이 앱 단축키 `edGotoLine` 으로 바꿨다) |
 | ⌘L · Ctrl+L | 줄 선택 | CodeMirror 는 `Alt-l`(mac `Ctrl-l`) | `Mod-l` → `selectLine` |
 | ⌃⇧⌘→ · Shift+Alt+→ | 선택 넓히기 | CodeMirror 는 `Mod-i` | `Shift-Alt-ArrowRight`(mac `Ctrl-Shift-Cmd-ArrowRight`) → `selectParentSyntax` |
 | ⌥클릭 · Alt+클릭 | 커서 더하기 | CodeMirror 는 Mod+클릭 | `clickAddsSelectionRange` 를 Alt 로. Mod+클릭은 정의로 가기(FR-ELS-*)가 쓴다 |

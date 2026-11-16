@@ -113,5 +113,25 @@ function edFindEngineCm(view) {
       if (!seen) view.dispatch({ effects: CM.EditorView.scrollIntoView(h.from, { y: 'center' }) });
     },
     focus: () => view.focus(),
+    lineCount: () => view.state.doc.lines,
+    // UX_BATCH13_SRS FR-EGL-6: 열은 그 줄 안으로 접는다 (D-4).
+    goto(line, col) {
+      const l = view.state.doc.line(line);
+      const pos = l.from + Math.min(Math.max((col || 1) - 1, 0), l.length);
+      view.dispatch({ selection: { anchor: pos }, effects: CM.EditorView.scrollIntoView(pos, { y: 'center' }) });
+      view.focus();
+    },
   };
+}
+
+/**
+ * UX_BATCH13_SRS FR-EGL-11: 줄 이동 입력 `줄` · `줄:열` 을 읽는다. 줄은 `1..lineCount`, 열은 1 이상으로
+ * 접는다. 읽을 수 없으면 null 이다.
+ */
+function edGotoParse(text, lineCount) {
+  const m = /^(\d+)(?::(\d+))?$/.exec(String(text).trim());
+  if (!m) return null;
+  const line = Math.min(Math.max(Number(m[1]), 1), Math.max(lineCount, 1));
+  const col = m[2] === undefined ? null : Math.max(Number(m[2]), 1);
+  return { line, col };
 }

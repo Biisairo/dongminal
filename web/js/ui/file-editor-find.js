@@ -197,6 +197,7 @@ const ED_FIND_MIXIN = {
      * 보일 때 맨 뒤로 옮기면 "마지막에 보인 것이 위" 가 되고, 그것이 사용자가
      * 방금 한 일을 보여 준다 (사용자 결정 2026-09-13).
      */
+    this.gotoClose(true);   // UX_BATCH13_SRS FR-EGL-10
     this.el.appendChild(p);
     p.classList.add('vis');
     q.focus();
@@ -204,6 +205,58 @@ const ED_FIND_MIXIN = {
     q.select();
     this._findRun();
     return true;
+  },
+
+  /**
+   * UX_BATCH13_SRS FR-EGL-4~10: 줄 이동 패널. 찾기 패널과 같은 자리에 서므로 하나만 연다.
+   * `keepFocus` 는 다른 패널이 열리며 닫힐 때다 — 그때 편집기로 포커스를 돌리지 않는다.
+   */
+  gotoOpen() {
+    const eng = this._findEngine();
+    if (!eng) return false;
+    if (!this._goto) {
+      const g = document.createElement('div');
+      g.className = 'fe-goto';
+      g.innerHTML = '<input class="fe-goto-q" type="text" spellcheck="false" autocomplete="off">'
+        + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-goto-close" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
+      const q = g.querySelector('.fe-goto-q');
+      q.addEventListener('input', () => g.classList.remove('bad'));
+      q.addEventListener('keydown', (e) => {
+        e.stopPropagation();   // FR-EGL-9
+        if (e.key === 'Escape') { e.preventDefault(); this.gotoClose(); return }
+        if (e.key === 'Enter') { e.preventDefault(); this._gotoRun() }
+      });
+      g.querySelector('.fe-goto-close').addEventListener('click', () => this.gotoClose());
+      this._goto = g;
+    }
+    if (this._findVis()) this.findClose();
+    const g = this._goto, q = g.querySelector('.fe-goto-q');
+    q.placeholder = t('editor.goto_placeholder', { n: eng.lineCount() });
+    q.value = '';
+    g.classList.remove('bad');
+    this.el.appendChild(g);
+    g.classList.add('vis');
+    q.focus();
+    return true;
+  },
+
+  gotoClose(keepFocus) {
+    const g = this._goto;
+    if (!g || !g.classList.contains('vis')) return;
+    g.classList.remove('vis');
+    if (keepFocus) return;
+    const eng = this._findEngine();
+    if (eng) eng.focus();
+  },
+
+  _gotoRun() {
+    const eng = this._findEngine();
+    const g = this._goto;
+    if (!eng || !g) return;
+    const r = edGotoParse(g.querySelector('.fe-goto-q').value, eng.lineCount());
+    if (!r) { g.classList.add('bad'); return }
+    g.classList.remove('vis');
+    eng.goto(r.line, r.col);
   },
 
   findClose() {

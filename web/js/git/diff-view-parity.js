@@ -65,6 +65,12 @@ Object.assign(GitDiffView.prototype, {
     if(h) h.findOpen();
   },
 
+  // UX_BATCH13_SRS FR-EGL-4: 줄 이동도 같은 덩이를 빌린다.
+  gotoOpen(){
+    const h=this._findHostFor();
+    if(h) h.gotoOpen();
+  },
+
   /**
    * UX_BATCH10_SRS FR-UXB-47·48 / D-UXB-10·11: **이 쪽이 가리키는 파일.**
    *

@@ -349,12 +349,12 @@ async function edCmLspAttach(view, cmp, path, current) {
 /**
  * ISSUE_TREE_OPS_SRS FR-ITE-1·2: CodeMirror 기본 키맵에 없는 VS Code 기본 편집 키.
  * 명령은 CodeMirror 의 것을 그대로 쓴다. 대조표는 SRS §3.6a 다.
+ * `Ctrl+G`(줄 이동)는 앱 단축키 `edGotoLine` 이다 (UX_BATCH13_SRS FR-EGL-1).
  */
 function edVscodeKeymap() {
   return [
     { key: 'Mod-d', run: CM.selectNextOccurrence, preventDefault: true },
     { key: 'Mod-Shift-l', run: CM.selectSelectionMatches, preventDefault: true },
-    { key: 'Ctrl-g', run: CM.gotoLine, preventDefault: true },
     { key: 'Mod-l', run: CM.selectLine, preventDefault: true },
     { key: 'Shift-Alt-ArrowRight', mac: 'Ctrl-Shift-Cmd-ArrowRight', run: CM.selectParentSyntax, preventDefault: true },
   ];

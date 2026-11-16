@@ -77,6 +77,8 @@ const SHORTCUT_DEFAULTS={
   edFindInFile:'Mod+KeyF',
   edQuickOpen:'Mod+KeyP',
   edGrep:'Mod+Shift+KeyF',
+  // UX_BATCH13_SRS FR-EGL-2: 줄 이동. VS Code 의 관용이라 두 OS 모두 `Ctrl` 이다.
+  edGotoLine:'Ctrl+KeyG',
   // EDITOR_LSP_SRS FR-LSP-40 / D-10: 코드 탐색 셋. 기본이 `F12` 인 것은 그것이
   // 이 동작의 관용이기 때문이며, 대가는 **편집기 안에서 그 키로 개발자 도구가
   // 열리지 않는 것**이다 (`KEY_BLOCK_EXEMPT_BARE` 에 F12 가 있으나 우리가 먼저
@@ -142,6 +144,7 @@ const SHORTCUT_LABELS={
   softReload:t('shortcut.soft_reload'),
   edGotoDef:t('shortcut.ed_goto_def'),
   edFindRefs:t('shortcut.ed_find_refs'),
+  edGotoLine:t('shortcut.ed_goto_line'),
   edFindInFile:t('shortcut.ed_find_in_file'),
   edQuickOpen:t('shortcut.ed_quick_open'),
   edGrep:t('shortcut.ed_grep'),
@@ -160,6 +163,7 @@ const ED_SEARCH_ACTIONS={
   edFindInFile:'_edFindInFile',
   edQuickOpen:'_edQuickOpen',
   edGrep:'_edSearchOpen',
+  edGotoLine:'_edGotoLine',   // UX_BATCH13_SRS FR-EGL-2
   // FUI-07: **창**이 수행한다 — `ED_VIEW_ACTIONS`(편집기 인스턴스의 것)가 아니라
   // 이쪽이다. "어느 편집기가" 가 답의 일부가 아니고, 답은 "이 창의 전부" 다.
   edSaveAll:'_edSaveAll',

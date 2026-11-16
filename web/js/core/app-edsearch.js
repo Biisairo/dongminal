@@ -76,6 +76,14 @@ Object.assign(App.prototype, {
     if(d) d.findOpen();
   },
 
+  // UX_BATCH13_SRS FR-EGL-4: 줄 이동 패널. 고르는 길은 `_edFindInFile` 과 같다.
+  _edGotoLine(){
+    const v=this._edActiveEditor();
+    if(v&&v.gotoOpen){ v.gotoOpen(); return }
+    const d=this._edActiveDiff();
+    if(d) d.gotoOpen();
+  },
+
   /**
    * FR-ERS-20·21·24: 지금 편집기에서 고른 **한 줄 안의** 글자. 없으면 빈 문자열이다.
    *
@@ -140,7 +148,7 @@ Object.assign(App.prototype, {
    */
   _edKeyGate(action){
     if(ED_LSP_ACTIONS[action]) return this._edFindReady()&&!!this._edSearchRoot();
-    if(action==='edFindInFile') return this._edFindReady();
+    if(action==='edFindInFile'||action==='edGotoLine') return this._edFindReady();   // UX_BATCH13_SRS FR-EGL-3
     if(action==='edSaveAll') return this.isEditorWin(this.aw());
     return !!this._edSearchRoot();
   },

@@ -198,7 +198,7 @@ Object.assign(App.prototype, {
         // 보이는지 이 파일은 모르고, 알 필요도 없다.
         if(it.t==='row') return it.el.outerHTML;
         if(it.t==='foot') return JSON.stringify(it.view); // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40
-        if(it.t==='head') return this.agentsPanelOpen()?'open':'rail'; // UX_BATCH12_SRS FR-ACF-5
+        if(it.t==='head') return (this.agentsPanelOpen()?'open':'rail')+':'+this._agCollapseIcon(); // FR-ACF-5 · UX_BATCH13_SRS FR-ACB-5
         if(it.t!=='card') return '1';
         const i=it.info||{};
         // `_agCardEl` 이 읽는 값 전부다 (FR-RPT-2).
@@ -340,10 +340,15 @@ Object.assign(App.prototype, {
     mkBtn('ag-refresh','Refresh the activity list','refresh-cw');
     // UX_BATCH12_SRS FR-ACF-5: 닫기가 아니라 접기다. 레일에서는 같은 단추가 펼친다.
     const open=this.agentsPanelOpen();
-    mkBtn('ag-collapse',open?'Collapse the panel':'Expand the panel',open?'chevron-right':'chevron-left');
+    mkBtn('ag-collapse',open?'Collapse the panel':'Expand the panel',this._agCollapseIcon());
     head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
     head.querySelector('.ag-collapse').addEventListener('click',e=>{e.stopPropagation();this.agentsToggle()});
     return head;
+  },
+
+  // UX_BATCH13_SRS FR-ACB-4
+  _agCollapseIcon(){
+    return agCollapseIcon(this.agentsPanelOpen(),document.documentElement.dataset.agSide||'right',this.isMobile);
   },
 
   /** FR-ACU-10~14: 막대 → 백분율 → 모델·effort. 값이 없는 부분은 원소도 없다. */

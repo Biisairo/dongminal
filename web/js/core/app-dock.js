@@ -22,6 +22,7 @@ Object.assign(App.prototype, {
     PrefStore.session.setJson(STORE_KEYS.panelDock,n);
     this.applyPanelDock();
     this._dockRefit();
+    this.agentsRender();   // UX_BATCH13_SRS FR-ACB-5: 접기 아이콘이 자리를 따른다
   },
 
   // FR-PDK-14: 자리가 바뀌면 보이는 터미널의 폭이 바뀐다.

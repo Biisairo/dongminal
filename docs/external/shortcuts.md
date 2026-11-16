@@ -50,6 +50,7 @@
 | 사이드바 탭: 저장소 | `Ctrl+Shift+2` |
 | 정의로 이동 (Editor) | `F12` |
 | 참조 찾기 (Editor) | `Shift+F12` |
+| 줄로 이동 (Editor) | `Ctrl+G` |
 | 저장 (Editor) | `Ctrl+S` / `Cmd+S` |
 | 모두 저장 (Editor) | `Ctrl+Alt+S` / `Cmd+Alt+S` |
 | 파일 내에서 검색 (Editor) | `Ctrl+F` / `Cmd+F` |

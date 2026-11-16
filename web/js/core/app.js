@@ -405,6 +405,7 @@ class App {
       edGotoDef:()=>this._lspGotoDef(),
       edFindRefs:()=>this._lspFindRefs(),
       edFindInFile:()=>this._edFindInFile(),
+      edGotoLine:()=>this._edGotoLine(),
       edQuickOpen:()=>this._edQuickOpen(),
       edGrep:()=>this._edSearchOpen(),
     };

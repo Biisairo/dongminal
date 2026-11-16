@@ -19,7 +19,6 @@ test('FR-ITE-1·2: VS Code 키가 CodeMirror 명령에 묶인다', () => {
   const want = {
     'Mod-d': CM.selectNextOccurrence,
     'Mod-Shift-l': CM.selectSelectionMatches,
-    'Ctrl-g': CM.gotoLine,
     'Mod-l': CM.selectLine,
     'Shift-Alt-ArrowRight': CM.selectParentSyntax,
   };

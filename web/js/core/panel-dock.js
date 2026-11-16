@@ -82,3 +82,12 @@ function repoSideNormalize(v){ return v==='right'?'right':REPO_SIDE_DOCK_DEFAULT
 
 /** FR-PDK-34 */
 function repoSideDropTarget(x,r){ return x<r.left+r.width/2?'left':'right' }
+
+/**
+ * UX_BATCH13_SRS FR-ACB-1~4: Activity 접기 단추의 아이콘. 펼친 패널은 자기 쪽 가장자리로 접히고,
+ * 레일은 반대로 펼친다. 모바일 패널은 위에서 내려오므로 위로 접힌다 (D-1).
+ */
+function agCollapseIcon(open,side,mobile){
+  if(mobile) return 'chevron-up';
+  return (open===(side==='left'))?'chevron-left':'chevron-right';
+}

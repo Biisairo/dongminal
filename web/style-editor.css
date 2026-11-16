@@ -314,6 +314,21 @@ body.mobile .ed-row{height:var(--touch-min)}
   border-radius:6px;box-shadow:var(--shadow-1);
 }
 .fe-find.vis{display:flex}
+/* UX_BATCH13_SRS FR-EGL-4: 줄 이동 패널. 찾기 패널과 같은 자리·같은 껍데기다 (D-5). */
+.fe-goto{
+  position:absolute;top:6px;right:18px;z-index:var(--z-raised);display:none;
+  align-items:center;gap:4px;padding:4px 6px;
+  background:var(--sidebar-bg);border:1px solid var(--border);
+  border-radius:6px;box-shadow:var(--shadow-1);
+}
+.fe-goto.vis{display:flex}
+.fe-goto-q{
+  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;
+  outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
+}
+.fe-goto-q:focus{border-color:var(--accent)}
+.fe-goto-q:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+.fe-goto.bad .fe-goto-q{border-color:var(--danger)}
 .fe-find-line{display:flex;align-items:center;gap:4px}
 /* 접힘이 기본이다 (D-1) — 열렸을 때만 선다. */
 .fe-find-rep{display:none}
@@ -465,7 +480,7 @@ body.mobile .ed-row{height:var(--touch-min)}
 .fe-note.fe-note-act.vis{pointer-events:auto}
 .fe-note-btn{margin-left:8px}
 /* 찾기 패널이 열려 있으면 그 아래로 내려 앉는다 — 같은 자리를 다투지 않는다. */
-.fe-find.vis ~ .fe-note{top:38px}
+.fe-find.vis ~ .fe-note,.fe-goto.vis ~ .fe-note{top:38px}
 
 /* CODEMIRROR_MIGRATION_SRS FR-CMR-12b: 선택 안 공백 표시는 흐리고 테마를 탄다. CodeMirror 기본은 고정색
    (`#aaa` 점 · `#888` 화살표)이다. 화살표는 같은 모양을 마스크로 두고 색은 배경이 준다 — 그림 안에 색을 적지 않는다. */
@@ -498,7 +513,7 @@ body.mobile .ed-row{height:var(--touch-min)}
    재어 넘긴다). 종전의 `38px` 은 띠가 한 줄이라는 가정이었고, 390px 폭에서
    안내가 접히면 띠가 그보다 커져 아래 것들을 그대로 덮었다. 폴백 32px 은 한
    줄일 때의 높이이므로 넓은 화면의 결과는 종전과 같다. */
-.fe-offer ~ .fe-find{top:calc(var(--fe-offer-h,32px) + 6px)}
+.fe-offer ~ .fe-find,.fe-offer ~ .fe-goto{top:calc(var(--fe-offer-h,32px) + 6px)}
 .fe-offer ~ .fe-note{top:calc(var(--fe-offer-h,32px) + 6px)}
 
 /* ── 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS 묶음 M·P) ──
