@@ -215,7 +215,7 @@ func TestSwitchForeignOutgoingIsStashed(t *testing.T) {
 	if len(ents) != 1 {
 		t.Fatalf("stashed %d", len(ents))
 	}
-	if fi, _ := ents[0].Info(); fi.Mode().Perm() != 0o600 {
+	if fi, _ := ents[0].Info(); !permIs(fi.Mode(), 0o600) {
 		t.Fatal("stash perm")
 	}
 }

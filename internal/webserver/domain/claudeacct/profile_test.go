@@ -33,7 +33,7 @@ func TestPrepareProfileCredentials(t *testing.T) {
 	if dir != filepath.Join(e.data, "profiles", "id1") {
 		t.Fatalf("dir %q", dir)
 	}
-	if st, err := os.Stat(dir); err != nil || st.Mode().Perm() != dirMode {
+	if st, err := os.Stat(dir); err != nil || !permIs(st.Mode(), dirMode) {
 		t.Fatalf("profile dir mode %v %v", st, err)
 	}
 	pl := e.svc.ProfileLive("id1")
@@ -120,7 +120,7 @@ func TestPrepareProfileClaudeJSON(t *testing.T) {
 	if err != nil || !ok || oa.EmailAddress != "a@x.com" {
 		t.Fatalf("oauthAccount %+v %v %v", oa, ok, err)
 	}
-	if st, _ := os.Stat(filepath.Join(dir, globalConfigName)); st.Mode().Perm() != fileMode {
+	if st, _ := os.Stat(filepath.Join(dir, globalConfigName)); !permIs(st.Mode(), fileMode) {
 		t.Fatalf("mode %v", st.Mode())
 	}
 	// 기본 설정을 읽지 못하면 계정 항목만 맞춘다.

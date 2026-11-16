@@ -102,7 +102,7 @@ func TestAutoSettingsDefaultsPutAndPersist(t *testing.T) {
 	if v.Settings.Models != nil {
 		t.Fatal("models cleared")
 	}
-	if st, _ := os.Stat(filepath.Join(x.e.data, autoswitchFile)); st.Mode().Perm() != 0o600 {
+	if st, _ := os.Stat(filepath.Join(x.e.data, autoswitchFile)); !permIs(st.Mode(), 0o600) {
 		t.Fatal("0600")
 	}
 }

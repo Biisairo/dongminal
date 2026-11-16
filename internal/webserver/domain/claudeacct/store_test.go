@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -24,11 +25,11 @@ func TestStoreUpdatePersists(t *testing.T) {
 		t.Fatalf("%+v %v", st, err)
 	}
 	fi, _ := os.Stat(filepath.Join(dir, accountsFile))
-	if fi.Mode().Perm() != 0o600 {
+	if !permIs(fi.Mode(), 0o600) {
 		t.Fatalf("perm %v", fi.Mode())
 	}
 	di, _ := os.Stat(dir)
-	if di.Mode().Perm() != 0o700 {
+	if !permIs(di.Mode(), 0o700) {
 		t.Fatalf("dir perm %v", di.Mode())
 	}
 }
@@ -98,4 +99,9 @@ func TestPickColor(t *testing.T) {
 	if c := pickColor(all); c != "acct-1" {
 		t.Fatalf("all used → wraps: %s", c)
 	}
+}
+
+// permIs 는 유닉스 권한을 본다. Windows 에는 유닉스 권한이 없어 늘 참이다 — 그곳의 보호는 사용자 프로필의 ACL 이다.
+func permIs(m os.FileMode, want os.FileMode) bool {
+	return runtime.GOOS == "windows" || m.Perm() == want
 }

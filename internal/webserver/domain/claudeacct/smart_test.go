@@ -62,7 +62,7 @@ func TestHistoryAppendTrimAndRead(t *testing.T) {
 	if len(all) != historyMax || all[len(all)-1].At != 5 {
 		t.Fatalf("oldest kept is 5: %d %+v", len(all), all[len(all)-1])
 	}
-	if st, _ := os.Stat(filepath.Join(dir, historyFile)); st.Mode().Perm() != 0o600 {
+	if st, _ := os.Stat(filepath.Join(dir, historyFile)); !permIs(st.Mode(), 0o600) {
 		t.Fatalf("perm %v", st.Mode().Perm())
 	}
 }

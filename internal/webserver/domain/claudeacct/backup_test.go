@@ -43,10 +43,10 @@ func TestBackupFileWhenNoKeychain(t *testing.T) {
 	}
 	p := filepath.Join(b.Dir, "credentials", "x.json")
 	st, err := os.Stat(p)
-	if err != nil || st.Mode().Perm() != 0o600 {
+	if err != nil || !permIs(st.Mode(), 0o600) {
 		t.Fatalf("%v %v", err, st)
 	}
-	if dst, _ := os.Stat(filepath.Join(b.Dir, "credentials")); dst.Mode().Perm() != 0o700 {
+	if dst, _ := os.Stat(filepath.Join(b.Dir, "credentials")); !permIs(dst.Mode(), 0o700) {
 		t.Fatalf("dir perm %v", dst.Mode())
 	}
 	got, ok, _ := b.Read("x")

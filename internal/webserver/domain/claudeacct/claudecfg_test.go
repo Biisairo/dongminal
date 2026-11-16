@@ -59,7 +59,7 @@ func TestSpliceOAuthAccountOnlyChangesThatKey(t *testing.T) {
 	if string(prev) != `{"emailAddress":"old@x.com"}` {
 		t.Fatalf("prev %s", prev)
 	}
-	if st, _ := os.Stat(p); st.Mode().Perm() != 0o600 {
+	if st, _ := os.Stat(p); !permIs(st.Mode(), 0o600) {
 		t.Fatalf("perm %v", st.Mode())
 	}
 }

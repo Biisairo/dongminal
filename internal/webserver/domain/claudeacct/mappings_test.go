@@ -72,7 +72,7 @@ func TestResolveOrder(t *testing.T) {
 	if r.Source != SourceFolder || r.AccountID != "id2" || r.ConfigDir != e.svc.ProfileDir("id2") {
 		t.Fatalf("folder: %+v", r)
 	}
-	wantRepo, _ := NormalizeFolder(repo, false)
+	wantRepo, _ := NormalizeFolder(repo, foldCase)
 	if r.Folder != wantRepo {
 		t.Fatalf("folder path: %q", r.Folder)
 	}
@@ -189,7 +189,7 @@ func TestSetMappingValidation(t *testing.T) {
 		t.Fatalf("%+v %v", m, err)
 	}
 	st, err := os.Stat(filepath.Join(e.data, mappingsFile))
-	if err != nil || st.Mode().Perm() != fileMode {
+	if err != nil || !permIs(st.Mode(), fileMode) {
 		t.Fatalf("mappings file: %v %v", st, err)
 	}
 }

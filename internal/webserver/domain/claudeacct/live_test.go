@@ -79,7 +79,7 @@ func TestLiveWriteKeychainTouchesExistingFile(t *testing.T) {
 	if f.AccessToken() != "new" {
 		t.Fatalf("existing file must be rewritten: %s", b)
 	}
-	if st, _ := os.Stat(p.Credentials); st.Mode().Perm() != 0o600 {
+	if st, _ := os.Stat(p.Credentials); !permIs(st.Mode(), 0o600) {
 		t.Fatalf("perm %v", st.Mode())
 	}
 }
