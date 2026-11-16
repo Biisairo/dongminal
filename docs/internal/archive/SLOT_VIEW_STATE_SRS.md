@@ -329,6 +329,8 @@ POST 도 나가지 않는다 (실측: owners 맵이 정확했다).
 - **FR-SVS-2** 오버라이드가 없는 pane 은 `pn.activeTab` 을 따른다. **단일 슬롯 모드는
   오버라이드를 두지 않는다** — 그 상태의 동작은 본 SRS 이전과 완전히 같아야 한다
   (WINDOW_SLOTS_SRS D-4).
+  (개정 2026-11-16) 원격 워크스페이스를 받을 때 `pn.activeTab` 은 이 브라우저 값이 이긴다
+  (UX_BATCH12_SRS FR-VTL-1~3).
 - **FR-SVS-3** 칸이 창을 받을 때(칸 추가·`slotOpen`·`_slotOnSwitch`), 그 창의 모든
   pane 에 대해 오버라이드가 없으면 **그 순간의 `pn.activeTab` 으로 초기화한다.**
   초기화하지 않으면 다른 칸이 탭을 바꿀 때 이 칸이 따라 움직인다.

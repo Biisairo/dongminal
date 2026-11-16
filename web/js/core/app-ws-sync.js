@@ -359,8 +359,12 @@ Object.assign(App.prototype, {
     // but this window stays on its own window/pane.
     const localActive=this.ws.activeWindow;
     const localFocus=new Map();
+    // UX_BATCH12_SRS FR-VTL-1: pane 마다 보이는 탭도 이 브라우저의 것이다. 지키지 않으면
+    // 다른 브라우저의 저장이 이 화면의 탭을 그 브라우저가 보던 탭으로 바꾼다(사용자 보고 2026-11-16).
+    const localTabs=new Map();
     for(const s of this.ws.windows){
       if(s.focusedPane) localFocus.set(s.id, s.focusedPane);
+      if(s.layout) for(const pn of this.flattenPanes(s.layout)) if(pn.activeTab) localTabs.set(pn.id, pn.activeTab);
     }
     // UX_REVISION_SRS FR-GRR-2: 활성 리포도 **이 브라우저가 보고 있는 것**이다
     // (FR-GIT-29 로 Git 창에 붙어 있다). activeWindow·focusedPane 과 같은 범주인데
@@ -400,6 +404,11 @@ Object.assign(App.prototype, {
     for(const s of this.ws.windows){
       const rid=localFocus.get(s.id);
       if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
+      // FR-VTL-2: 보던 탭이 받은 pane 에 없으면 받은 값을 쓴다.
+      if(s.layout) for(const pn of this.flattenPanes(s.layout)){
+        const tid=localTabs.get(pn.id);
+        if(tid&&(pn.tabs||[]).some(tab=>tab.id===tid)) pn.activeTab=tid;
+      }
     }
     // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
     // 그대로 쓴다 — 복원은 그 경로다.
