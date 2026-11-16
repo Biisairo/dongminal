@@ -28,6 +28,34 @@ test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () 
     expect(got.focused, '다른 칸의 탭을 닫았는데 포커스가 그 칸으로 옮겨졌다').toBe(got.mine);
   });
 
+  // 사용자 보고(2026-11-16): 에이전트 탭을 보다 돌아오니 다른 에이전트 탭이 보였다. 이슈 트리의 탭은
+  // 한 칸에 모이므로, 보지 않는 자식 탭을 닫으면 그 칸의 보이는 탭이 닫힌 탭의 이웃으로 바뀌었다.
+  for (const away of [false, true]) {
+    test(`close-tab --at: 같은 칸에서 보이지 않는 탭을 닫아도 보이는 탭이 그대로다${away ? ' (다른 window 에 가 있을 때)' : ''}`, async ({ page }) => {
+      await waitForInit(page);
+      const got = await page.evaluate(async (goAway) => {
+        const a = (window as any).app;
+        const win = a.testing.aw();
+        const rid = a.focused;
+        await a.addTab(rid, undefined, { keepFocus: true });
+        await a.addTab(rid, undefined, { keepFocus: true });
+        await a.addTab(rid, undefined, { keepFocus: true });
+        const pn = a.testing.flattenPanes(win.layout).find((x: any) => x.id === rid);
+        const watched = pn.tabs[1].id;
+        a.switchTab(rid, watched);
+        if (goAway) await a.addWindow();
+        const victim = pn.tabs[3].id;
+        a.testing.execRemote('closeTab', { location: victim, force: true });
+        await new Promise((r) => setTimeout(r, 800));
+        if (goAway) { a.testing.execRemote('closeWindow', { force: true }); await new Promise((r) => setTimeout(r, 800)); }
+        return { watched, victim, left: pn.tabs.map((t: any) => t.id), active: pn.activeTab, shown: a.paneTab(pn) };
+      }, away);
+      expect(got.left, '탭이 닫히지 않았다').not.toContain(got.victim);
+      expect(got.shown, '보이지 않는 탭을 닫았는데 보이는 탭이 바뀌었다').toBe(got.watched);
+      expect(got.active).toBe(got.watched);
+    });
+  }
+
   test('close-window --at: 보고 있지 않은 window 를 닫아도 활성 window 가 그대로다', async ({ page }) => {
     await waitForInit(page);
     const got = await page.evaluate(async () => {

@@ -27,6 +27,7 @@ function world() {
     a[m] = (...args) => { a.calls.push(m) };
   }
   a._isToolBusy = async () => false;
+  a.paneTab = (pn) => pn.activeTab;
   return { a, pane };
 }
 

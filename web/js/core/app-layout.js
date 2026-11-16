@@ -591,6 +591,7 @@ Object.assign(App.prototype, {
     if(isEditor) this.editorsDrop(tab.id);
     const toolId=tab.toolId;
     const closingIdx=pn.tabs.findIndex(x=>x.id===tid);
+    const wasShown=this.paneTab(pn,opts.slot)===tid;
     pn.tabs=pn.tabs.filter(x=>x.id!==tid);
     // FR-RTU-62: 마지막 git 뷰 탭이 닫히면 그 창의 git 표면이 사라진다 —
     // 사이드가 Explorer 면 관측을 쓰는 화면이 없으므로 폴링도 멎어야 한다.
@@ -606,7 +607,9 @@ Object.assign(App.prototype, {
       const nextId=pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id;
       // FR-SVS-10: 닫은 칸의 시선이 이웃 탭으로 간다. 다른 칸은 자기 오버라이드가
       // 살아 있으면 움직이지 않고, 같은 탭을 보고 있었다면 FR-SVS-5 로 폴백한다.
-      this.paneTabSet(pn,nextId,opts.slot);
+      // 보이지 않던 탭을 닫으면 보이는 탭은 그대로다 — 이슈 트리가 자식 탭을 닫을 때 사용자가 보던
+      // 에이전트 탭이 이웃으로 바뀌었다 (사용자 보고 2026-11-16, FR-SVS-10 개정).
+      if(wasShown) this.paneTabSet(pn,nextId,opts.slot);
       // 워크스페이스가 죽은 탭을 가리키지 않게 한다 — 비포커스 칸이 닫은
       // 경우에는 `paneTabSet` 이 `activeTab` 을 쓰지 않는다 (FR-SVS-14).
       if(pn.activeTab===tid) pn.activeTab=nextId;
