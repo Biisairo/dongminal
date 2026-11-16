@@ -23,7 +23,7 @@ const dmctlAccountHelp = `dmctl account — Claude 다중 계정
                                                best = 여유가 가장 큰 계정 (활성 계정보다 크지 않으면 전환하지 않는다)
   dmctl account usage [<계정>] [--refresh] [--json]
                                                사용량 (계정을 주지 않으면 모두). --refresh 는 먼저 바로 조회한다
-                                               (1분 안에 조회했거나 물러나는 중이면 서버가 거절한다)
+                                               (3분 안에 조회했거나 물러나는 중이면 서버가 거절한다)
   dmctl account reset <계정> --program juniper_tide|cedar_ember [--grant <id>] [--yes]
                                                제한 초기화를 쓴다. --yes 가 없으면 무엇을 채우는지 보이고 y 를 받아야 보낸다
                                                (juniper_tide = 주간 5시간 초기화, cedar_ember = 초기화 티켓, --grant 로 티켓을 고른다)
@@ -37,7 +37,7 @@ const dmctlAccountHelp = `dmctl account — Claude 다중 계정
 
   탭 지정이 폴더 연결보다 앞선다. 지정은 실행 중인 claude 에는 적용되지 않고 다음 실행부터 적용된다.
 
-  실행 중인 Claude Code 세션은 약 30초 안에, 또는 다시 시작할 때 새 계정을 쓴다.
+  새로 시작하는 Claude Code 세션부터 새 계정을 쓴다. 실행 중인 세션은 건드리지 않는다.
 `
 
 // accountCallBudget 은 전환의 예산이다. 전환은 Claude Code 의 락 셋을 각각 최대 9초 기다린다.
@@ -307,7 +307,7 @@ func accountSwitch(pa peerArgs, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "이미 활성 계정입니다: %s\n", clean(to.label()))
 		return 0
 	}
-	fmt.Fprintf(stdout, "전환: %s\n실행 중인 Claude Code 세션은 약 30초 안에, 또는 다시 시작할 때 새 계정을 씁니다.\n", clean(to.label()))
+	fmt.Fprintf(stdout, "전환: %s\n새로 시작하는 Claude Code 세션부터 새 계정을 씁니다. 실행 중인 세션은 건드리지 않습니다.\n", clean(to.label()))
 	if res.PinnedRunning {
 		fmt.Fprintln(stdout, "이 계정은 고정 실행 중인 탭이 있습니다. 그 탭은 영향을 받지 않습니다.")
 	}

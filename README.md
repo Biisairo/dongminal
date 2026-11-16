@@ -61,7 +61,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 ./dongminal start
 ```
 
-`✅ dongminal running on http://127.0.0.1:58146` 가 뜨면 준비된 것입니다.
+`✅ dongminal running on http://127.0.0.1:58146 (local-only)` 가 뜨면 준비된 것입니다.
 터미널은 돌려받습니다 — 서버는 뒤에서 계속 돕니다.
 
 **2. 엽니다.** 브라우저에서 `http://localhost:58146` 으로 들어가거나,
@@ -131,8 +131,9 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 (`Ctrl+Shift+S` · `Ctrl+Shift+X`), 칸마다 다른 창을 놓습니다 — 왼쪽에 터미널,
 오른쪽에 Git 같은 배치입니다. 브라우저 창을 여럿 띄우던 자리를 대신합니다. 칸
 사이 이동은 분할 칸 이동 키(`Ctrl+Shift+←→`)가 그대로 이어받으므로 외울 키가
-늘지 않고, 칸 배치는 브라우저 탭마다 따로 기억되어 데스크톱은 세 칸, 휴대폰은
-한 칸으로 볼 수 있습니다.
+늘지 않습니다. 분할이 깊어도 한 번에 옆 칸으로 가려면 `Ctrl+Alt+[` · `]` 를 씁니다.
+칸 배치는 브라우저 탭마다 따로 기억되어 데스크톱은 세 칸, 휴대폰은 한 칸으로 볼 수
+있습니다.
 
 ### Git
 
@@ -201,6 +202,22 @@ PC 한 대에서만 씁니다. 자세히는
 보내거나 그 PC 에 에이전트를 띄웁니다. 노드 포트는 기본으로 꺼져 있습니다. 설정 →
 Peers 탭이나 `dmctl peer` 로 다룹니다 — 자세히는 [노드 간 통신](docs/external/peers.md).
 
+### Claude 계정 여러 개
+
+Claude Code 에 로그인한 계정을 여럿 등록해 두고 바꿔 가며 쓸 수 있습니다. **설정 →
+Claude** 에서 지금 로그인한 계정을 등록하고, 계정마다 별칭·색·문턱값·우선순위를
+정합니다. Activity 하단에 계정마다 카드가 서고, 현재 세션과 이번 주 사용량을 보입니다.
+카드 왼쪽 색 바를 누르면 막대 둘이 있는 넓은 모양과 `세션 34% 2h  주간 72% 4d` 같은
+한 줄 모양을 오갑니다. 카드를 누르면 패널 옆에 요약이 뜨고, 거기서 새로 고침하거나 그
+계정으로 전환합니다.
+
+전환은 카드 요약, 머리 줄의 `전환 ▾`, `dmctl account switch` 로 합니다. 자동 전환을
+켜 두면 활성 계정이 문턱값에 닿을 때 여유가 있는 계정으로 옮깁니다. 폴더나 탭에 계정을
+정해 두면 그 자리에서 실행한 claude 가 그 계정을 씁니다(Explorer 폴더 우클릭
+"Claude 계정 연결…", 탭 우클릭 "Claude 계정…"). 계정 토큰과 사용량 조회는 이 PC 안에서만
+다룹니다. 회사 규정이 AI 계정 사용을 제한하면 승인을 받은 뒤 쓰세요. 자세히는
+[Claude 다중 계정](docs/external/features.md#claude-다중-계정).
+
 ### 백그라운드 도구
 
 탭을 닫아도 하던 작업을 계속 돌리고 싶으면 터미널에서 `detach` 를 칩니다. Activity
@@ -222,7 +239,7 @@ tmux 의 detach 와 같은 생각입니다.
 있고, 하단 상태 표시줄에 무엇을 띄울지도 고릅니다. 브라우저 탭 이름을 바꿔 두면
 여러 대를 띄웠을 때 어느 것이 어느 기계인지 탭 줄에서 갈립니다.
 
-**글자 크기는 두 자리입니다.** *Display ▸ UI 글자 크기*(80~200%, 기본 100%)가
+**글자 크기는 두 자리입니다.** *Display ▸ UI 글자 크기*(8~32px, 기본 14px)가
 사이드바·탭·설정 같은 앱 화면을, *Terminal ▸ 터미널 글자 크기*(8~32px, 기본 14px)가
 터미널 안을 정합니다. 서로 영향을 주지 않고, 터미널 쪽은 **열려 있는 터미널에 곧바로**
 적용되며 칸 수를 다시 계산해 셸에 알립니다. *Terminal ▸ Claude Code 스크롤 속도*
@@ -315,7 +332,7 @@ UI 는 **한국어(`ko`)와 영어(`en`)** 로 나오고 기본은 한국어입�
 ## 더 읽을 것
 
 - [설치·실행 자세히](docs/external/getting-started.md) — 환경 변수, 격리 실행, 헬퍼 배포
-- [기능 전반](docs/external/features.md) — 창·터미널·Git·편집기·표시 설정
+- [기능 전반](docs/external/features.md) — 창·터미널·Git·편집기·표시 설정·Claude 계정
 - [터미널 안 명령](docs/external/commands.md) — `dmctl` · `edit` · `download` · `detach`
 - [단축키](docs/external/shortcuts.md)
 - [에이전트 오케스트레이션](docs/external/agent-orchestration.md)
