@@ -39,8 +39,16 @@ function claudeAcctPace(p){
   return {text,warn:!!p.aheadOfPace};
 }
 
+/** FR-CAC-91: 초기화 시각 — 오늘이면 `14:30`, 아니면 `수 18:00`. `resetsAt` 은 서버가 준 unix 초다. */
+function claudeAcctResetClock(resetsAt){
+  const ms=resetsAt*1000;
+  return new Date(ms).toDateString()===new Date(Date.now()).toDateString()?limitClock(ms):claudeAcctDay(ms);
+}
+
 function claudeAcctBar(id,label,w){
-  return limitBarView(id,label,w.pct,w.resetsAt,w.resetsInSec,w.level);
+  const b=limitBarView(id,label,w.pct,w.resetsAt,w.resetsInSec,w.level);
+  if(b.reset&&w.resetsAt>0) b.reset+=' · '+claudeAcctResetClock(w.resetsAt);
+  return b;
 }
 
 /** FR-CAC-62: 확인 대화상자의 내용 — 채우는 창, 남은 횟수, 기한, 주간 한도 차감 여부. */
@@ -81,7 +89,7 @@ function claudeAcctResets(rs){
 }
 
 /**
- * FR-CAC-91: 계정 묶음 하나의 값. `wide` 면 머리 + 5시간·주간 막대, 아니면 머리 한 줄에 `mini` 를 붙인다.
+ * FR-CAC-91: 계정 묶음 하나의 값. `wide` 면 머리 + 5시간·주간 막대, 아니면 한 줄에 `mini`(세션·주간 칸, D-CAC-37)를 붙인다.
  * `pop` 이면 오버레이의 `more` 에 scoped 창·예측·추가 사용량·로그인 만료·동작이 든다.
  */
 function claudeAcctView(a,pop,wide){
@@ -96,9 +104,7 @@ function claudeAcctView(a,pop,wide){
   const bars=[];
   if(w.fiveHour) bars.push(claudeAcctBar(a.id+':five_hour',limitWindowLabel('five_hour'),w.fiveHour));
   if(w.sevenDay) bars.push(claudeAcctBar(a.id+':seven_day',limitWindowLabel('seven_day'),w.sevenDay));
-  const mini=[];
-  if(w.fiveHour) mini.push(claudeAcctMini('five_hour',w.fiveHour));
-  if(w.sevenDay) mini.push(claudeAcctMini('seven_day',w.sevenDay));
+  const mini=[claudeAcctCell('five_hour',w.fiveHour),claudeAcctCell('seven_day',w.sevenDay)];
   let more=null;
   if(pop){
     const sp=w.spend;
@@ -109,6 +115,8 @@ function claudeAcctView(a,pop,wide){
       spend:sp?t('cacct.spend',{used:claudeAcctMoney(sp.used,sp.currency),limit:claudeAcctMoney(sp.limit,sp.currency)}):'',
       login:u.loginExpiresAt>0?{text:t('cacct.login_expires',{d:claudeAcctDate(u.loginExpiresAt*1000)}),warn:!!u.loginExpiringSoon}:null,
       resets:claudeAcctResets(u.resets),
+      resetsAge:u.resets&&u.resets.fetchedAt>0?t('cacct.age_min',{n:Math.max(1,Math.floor((Date.now()/1000-u.resets.fetchedAt)/60))}):'',
+      resetsUnknown:!u.resets,
       canSwitch:!a.active,
     };
   }
@@ -148,10 +156,8 @@ function claudeAcctPopPlace(card,panel,w,h,vw,vh){
   return {left:g,top:Math.max(g,card.top-h-g),width:vw-2*g,side:'over'};
 }
 
-/** FR-CAC-91: 좁은 모양 머리의 작은 막대 — 짧은 이름과 %. */
-function claudeAcctMini(name,w){
-  return {text:t('usage.sl.'+name)+' '+Math.round(w.pct)+'%',fill:Math.min(100,Math.max(0,w.pct)),level:w.level||''};
-}
+/** D-CAC-37: 서버 창 뷰(`{pct, resetsInSec, level}`) → 칸. 없으면 null. */
+function claudeAcctCell(name,w){ return w?limitCell(name,w.pct,w.resetsInSec,w.level):null }
 
 /** 서버 값(`next-available`·`at-limit` 등)으로 i18n 키를 만든다 — 키에는 `-` 를 쓰지 않는다. */
 function claudeAcctKey(prefix,v){ return prefix+String(v).replace(/-/g,'_') }
@@ -199,16 +205,10 @@ function claudeAcctAlertText(a){
 function claudeAcctStatusLine(key,name,color,sl){
   const w=sl&&sl.windows;
   if(!w) return null;
-  const segs=[];
-  for(const [k,name2] of [['fiveHour','five_hour'],['sevenDay','seven_day']]){
-    const x=w[k];
-    if(x&&typeof x.pct==='number') segs.push({text:t('usage.sl.'+name2)+' '+Math.round(x.pct)+'%',level:x.level||''});
-  }
-  if(!segs.length) return null;
-  const five=w.fiveHour;
+  const cells=[claudeAcctCell('five_hour',w.fiveHour),claudeAcctCell('seven_day',w.sevenDay)];
+  if(!cells.some(Boolean)) return null;
   return {
-    key,label:t('usage.sl.label'),name,color,segs,
-    reset:five&&typeof five.resetsInSec==='number'?limitResetText(five.resetsInSec):'',
+    key,label:t('usage.sl.label'),name,color,cells,
     asOf:sl.stale?t('cacct.age_min',{n:Math.max(1,Math.floor((sl.ageSeconds||0)/60))}):'',
   };
 }
@@ -241,6 +241,7 @@ Object.assign(App.prototype, {
       // 503 은 계정 기능이 없는 서버다(데이터 폴더 없음). 망 실패는 마지막 값을 지우지 않는다.
       if(r.ok&&r.data){
         this._claudeAccts=Array.isArray(r.data.accounts)?r.data.accounts:[];
+        this._claudeAcctActiveSeen(this._claudeAccts);
         this._claudeAcctAuto=r.data.autoswitch||null;
         this._claudeAcctOtherSl=Array.isArray(r.data.otherStatusLines)?r.data.otherStatusLines:[];
       }else if(r.status===503){
@@ -258,7 +259,7 @@ Object.assign(App.prototype, {
 
   /** FR-CAC-94a: 설정의 Claude 계정 패널이 열려 있으면 그것도 다시 받는다. */
   _onClaudeAccountsChanged(){
-    if(this._cacctPanelShown&&this._cacctPanelShown()) this._loadClaudePanel();
+    if(this._cacctPanelShown&&this._cacctPanelShown()) this._cacctRefreshSoft();
     return this._claudeAcctRestore();
   },
 
@@ -272,6 +273,18 @@ Object.assign(App.prototype, {
   _claudeAcctFold(){
     const f=PrefStore.local.json(STORE_KEYS.claudeAcctFold,{});
     return f&&typeof f==='object'&&!Array.isArray(f)?f:{};
+  },
+
+  /** FR-CAC-91: 활성 계정이 바뀌면(어떤 경로든) 이전·새 활성 계정의 기억한 모양을 지워 기본값으로 그린다. */
+  _claudeAcctActiveSeen(accounts){
+    const cur=(accounts.find(a=>a.active)||{}).id||'';
+    const prev=this._claudeAcctActiveId;
+    this._claudeAcctActiveId=cur;
+    if(prev===undefined||prev===cur) return;
+    const f=this._claudeAcctFold();
+    if(!(prev in f)&&!(cur in f)) return;
+    delete f[prev]; delete f[cur];
+    PrefStore.local.setJson(STORE_KEYS.claudeAcctFold,f);
   },
 
   _claudeAcctFoldToggle(id){
@@ -294,7 +307,6 @@ Object.assign(App.prototype, {
       document.addEventListener('keydown',h,true);
     }
     this.agentsRender();
-    return opening?this._claudeAcctResetsPoll(id):Promise.resolve();
   },
 
   /** 칸 누름은 칸의 처리기(`_claudeAcctPopToggle`)가 맡는다 — 여기서 닫으면 같은 칸이 다시 연다. */
@@ -306,14 +318,7 @@ Object.assign(App.prototype, {
     this.agentsRender();
   },
 
-  /**
-   * FR-CAC-60·65: 오버레이를 열 때 두 초기화 상태를 다시 묻는다. 1분 안에 물었으면 서버가 409 로 거절하고, 그것은
-   * 알리지 않는다 — 사용자가 부른 동작이 아니다.
-   */
-  async _claudeAcctResetsPoll(id){
-    const r=await apiPost('/api/claude-accounts/refresh',{id,resets:true});
-    if(r.ok) await this._claudeAcctRestore();
-  },
+
 
   /** FR-CAC-62·63: 확인을 받은 뒤의 사용. 결과는 언제나 알리고, 목록을 다시 받는다. */
   async _claudeAcctReset(id,item){
@@ -425,19 +430,13 @@ Object.assign(App.prototype, {
     box.addEventListener('click',()=>this._claudeAcctPopToggle(v.id));
     const head=actEl(box,'div','cacct-head');
     head.title=v.title;
-    actEl(head,'span','cacct-dot').style.background='var(--'+v.color+')';
-    actEl(head,'span','cacct-name',v.name);
-    if(v.active) actEl(head,'span','cacct-active',t('cacct.active'));
-    if(v.status) actEl(head,'span','cacct-st',v.status);
-    if(v.age) actEl(head,'span','cacct-age',v.age);
-    if(!v.wide){
-      const minis=actEl(head,'span','cacct-minis');
-      for(const m of v.mini){
-        const el=actEl(minis,'span','cacct-mini'+(m.level==='warn'||m.level==='critical'?' lv-'+m.level:''));
-        actEl(actEl(el,'span','cacct-mini-track'),'span','cacct-mini-fill').style.width=m.fill+'%';
-        actEl(el,'span','cacct-mini-text',m.text);
-      }
-    }
+    const who=actEl(head,'span','cacct-who');
+    actEl(who,'span','cacct-dot').style.background='var(--'+v.color+')';
+    actEl(who,'span','cacct-name',v.name);
+    if(v.active) actEl(who,'span','cacct-active',t('cacct.active'));
+    if(v.status) actEl(who,'span','cacct-st',v.status);
+    if(v.age) actEl(who,'span','cacct-age',v.age);
+    if(!v.wide) this._actCellsEl(head,v.mini);
     if(v.wide) for(const b of v.bars) this._actUsageWinEl(box,b);
     const m=v.more;
     if(!m) return box;
@@ -462,9 +461,11 @@ Object.assign(App.prototype, {
       if(m.spend) actEl(info,'div','cacct-spend',m.spend);
       if(m.login) actEl(info,'div','cacct-login'+(m.login.warn?' warn':''),m.login.text);
     }
-    if(m.resets.length){
+    if(m.resets.length||m.resetsUnknown){
       const sec=actEl(more,'div','cacct-pop-sec cacct-resets');
-      actEl(sec,'div','cacct-resets-h',t('cacct.rs.title'));
+      const rh=actEl(sec,'div','cacct-resets-h',t('cacct.rs.title'));
+      if(m.resetsAge) actEl(rh,'span','cacct-resets-age',m.resetsAge);
+      if(m.resetsUnknown) actEl(sec,'div','cacct-resets-unknown',t('cacct.rs.unknown'));
       for(const it of m.resets){
         const row=actEl(sec,'div','cacct-rs');
         const txt=actEl(row,'div','cacct-rs-txt');

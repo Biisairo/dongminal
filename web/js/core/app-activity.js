@@ -88,6 +88,29 @@ function limitResetText(sec){
   return t('usage.resets_in',{t:span});
 }
 
+/** D-CAC-37: 남은 시간을 가장 큰 단위 하나로 짧게 — `4d`·`2h`·`35m`. 1분 미만·모름은 빈 값이다. */
+function limitShortLeft(sec){
+  if(!(sec>=60)) return '';
+  const m=Math.floor(sec/60);
+  if(m>=1440) return t('usage.short.d',{n:Math.floor(m/1440)});
+  if(m>=60) return t('usage.short.h',{n:Math.floor(m/60)});
+  return t('usage.short.m',{n:m});
+}
+
+/**
+ * D-CAC-37: 좁은 카드·statusLine 줄의 칸 하나. `name` 은 `five_hour`·`seven_day` 다. 툴팁은 창 이름·사용률·초기화 문구다.
+ * 값이 없으면 null — 칸은 자리만 지킨다.
+ */
+function limitCell(name,pct,resetsInSec,level){
+  if(typeof pct!=='number') return null;
+  const n=Math.round(pct);
+  const used=t('usage.used',{n});
+  const has=typeof resetsInSec==='number';
+  return {label:t('usage.sl.'+name),pct:n+'%',left:has?limitShortLeft(resetsInSec):'',
+    fill:Math.min(100,Math.max(0,pct)),level:level||'',
+    title:[limitWindowLabel(name),used,has?limitResetText(resetsInSec):''].filter(Boolean).join(' · ')};
+}
+
 function limitClock(ms){
   const d=new Date(ms);
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
@@ -113,17 +136,14 @@ function limitBarView(id,label,pct,resetsAt,resetsInSec,level){
 function statusLineView(limits,nowMs){
   const l=(Array.isArray(limits)?limits:[]).find(x=>x&&x.agent==='claude');
   if(!l) return null;
-  const segs=[];
-  let reset='';
-  for(const w of Array.isArray(l.windows)?l.windows:[]){
-    if(typeof w.usedPct!=='number') continue;
-    const name=LIMIT_SL_KEYS.includes(w.name)?t('usage.sl.'+w.name):limitWindowLabel(w.name);
-    segs.push({text:name+' '+Math.round(w.usedPct)+'%',level:w.level||''});
-    if(w.name==='five_hour'&&typeof w.resetsInSec==='number') reset=limitResetText(w.resetsInSec);
-  }
-  if(!segs.length) return null;
+  const ws=Array.isArray(l.windows)?l.windows:[];
+  const cells=LIMIT_SL_KEYS.map(name=>{
+    const w=ws.find(x=>x&&x.name===name);
+    return w?limitCell(name,w.usedPct,w.resetsInSec,w.level):null;
+  });
+  if(!cells.some(Boolean)) return null;
   const stale=typeof l.observedAt==='number'&&nowMs-l.observedAt>LIMIT_STALE_MS;
-  return {label:t('usage.sl.label'),segs,reset,asOf:stale?t('usage.as_of',{t:limitClock(l.observedAt)}):''};
+  return {label:t('usage.sl.label'),cells,asOf:stale?t('usage.as_of',{t:limitClock(l.observedAt)}):''};
 }
 
 /** 바닥의 작은 원소 하나를 부모 끝에 붙인다. */
@@ -268,27 +288,35 @@ Object.assign(App.prototype, {
         onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._claudeAcctSmartMenu({x:r.left,y:r.bottom})}}));
       for(const a of view.accounts) foot.appendChild(this._claudeAcctEl(a));
     }
-    // FR-CAC-93: 계정마다 statusLine 한 줄 — 색 점과 이름을 붙인다. 계정을 모르는 보고는 아래 기존 한 줄이다.
-    for(const l of view.acctSl||[]){
-      const row=actEl(foot,'div','act-usage-sl cacct-sl');
-      row.title='Rate limits reported by the Claude Code statusLine';
-      actEl(row,'span','act-usage-sl-label',l.label);
-      const who=actEl(row,'span','cacct-sl-who');
+    // FR-CAC-93 · D-CAC-37: statusLine 은 머리 한 줄 아래 좁은 카드와 같은 줄 모양이다. 오래됨은 흐림·툴팁이다.
+    // 계정을 모르는 보고는 이름 칸이 빈 마지막 줄이다.
+    const lines=(view.acctSl||[]).slice();
+    if(view.sl) lines.push(view.sl);
+    if(lines.length) actEl(foot,'div','act-usage-sl-h',lines[0].label);
+    for(const l of lines){
+      const row=actEl(foot,'div','act-usage-sl'+(l.key?' cacct-sl':'')+(l.asOf?' stale':''));
+      row.title='Rate limits reported by the Claude Code statusLine'+(l.asOf?' · '+l.asOf:'');
+      const who=actEl(row,'span','cacct-who');
       if(l.color) actEl(who,'span','cacct-dot').style.background='var(--'+l.color+')';
-      actEl(who,'span','cacct-sl-name',l.name);
-      for(const g of l.segs) actEl(row,'span','act-usage-sl-seg'+(g.level==='warn'||g.level==='critical'?' lv-'+g.level:''),g.text);
-      if(l.reset) actEl(row,'span','act-usage-sl-reset',l.reset);
-      if(l.asOf) actEl(row,'span','act-usage-asof',l.asOf);
-    }
-    if(view.sl){
-      const sl=actEl(foot,'div','act-usage-sl');
-      sl.title='Rate limits reported by the Claude Code statusLine';
-      actEl(sl,'span','act-usage-sl-label',view.sl.label);
-      for(const g of view.sl.segs) actEl(sl,'span','act-usage-sl-seg'+(g.level==='warn'||g.level==='critical'?' lv-'+g.level:''),g.text);
-      if(view.sl.reset) actEl(sl,'span','act-usage-sl-reset',view.sl.reset);
-      if(view.sl.asOf) actEl(sl,'span','act-usage-asof',view.sl.asOf);
+      if(l.name) actEl(who,'span','cacct-name',l.name);
+      this._actCellsEl(row,l.cells);
     }
     return foot;
+  },
+
+  /** D-CAC-37: 세션·주간 두 칸 — 칸 앞에 작은 창 이름. 값이 없는 칸도 자리를 지켜 열이 맞는다. */
+  _actCellsEl(parent,cells){
+    const box=actEl(parent,'span','cacct-cells');
+    for(const c of cells){
+      const el=actEl(box,'span','cacct-cell'+(c&&(c.level==='warn'||c.level==='critical')?' lv-'+c.level:''));
+      if(!c) continue;
+      el.title=c.title;
+      actEl(el,'span','cacct-cell-label',c.label);
+      actEl(el,'span','cacct-cell-pct',c.pct);
+      if(c.left) actEl(el,'span','cacct-cell-left',c.left);
+      actEl(actEl(el,'span','cacct-cell-bar'),'span','cacct-cell-fill').style.width=c.fill+'%';
+    }
+    return box;
   },
 
   /** FR-ASV-41: 창 블록 — 이름과 사용률 / 막대 / 남은 시간. */

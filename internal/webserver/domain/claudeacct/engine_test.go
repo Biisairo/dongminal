@@ -293,9 +293,13 @@ func TestEngineFetchNowRules(t *testing.T) {
 	_, eng, api := newEngineEnv(t)
 	eng.Tick(context.Background())
 	if err := eng.FetchNow(context.Background(), "id1"); !errors.Is(err, ErrTooSoon) {
-		t.Fatalf("within 60s: %v", err)
+		t.Fatalf("within 180s: %v", err)
 	}
-	eng.Now = func() time.Time { return time.Unix(nowUnix+61, 0) }
+	eng.Now = func() time.Time { return time.Unix(nowUnix+179, 0) }
+	if err := eng.FetchNow(context.Background(), "id1"); !errors.Is(err, ErrTooSoon) {
+		t.Fatalf("D-CAC-36: 179s 도 거절한다: %v", err)
+	}
+	eng.Now = func() time.Time { return time.Unix(nowUnix+181, 0) }
 	if err := eng.FetchNow(context.Background(), "id1"); err != nil {
 		t.Fatal(err)
 	}
@@ -314,5 +318,40 @@ func TestEngineDropsRemovedAccounts(t *testing.T) {
 	eng.Tick(context.Background())
 	if _, ok := eng.Rows()["id1"]; ok {
 		t.Fatal("row of removed account is dropped")
+	}
+}
+
+// FR-CAC-34b: dongminal 밖(`/login`·cswap)에서 바꾼 활성 계정을 활성 기록에 맞춘다.
+func TestSyncActiveFromLive(t *testing.T) {
+	e, eng, _ := newEngineEnv(t)
+	active := func() string {
+		st, err := e.svc.Store.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return st.ActiveID
+	}
+	if changed, err := e.svc.SyncActiveFromLive(); err != nil || changed || active() != "id2" {
+		t.Fatalf("같으면 그대로: %v %v %s", changed, err, active())
+	}
+	e.loginCred("a@x.com", "org-a", "acc-a", futureCred("at-a", "rt-a"))
+	if changed, err := e.svc.SyncActiveFromLive(); err != nil || !changed || active() != "id1" {
+		t.Fatalf("등록된 다른 계정이면 고친다: %v %v %s", changed, err, active())
+	}
+	if h, _ := ReadHistory(e.data, 10); len(h) != 0 {
+		t.Fatalf("전환 기록은 남기지 않는다: %+v", h)
+	}
+	e.loginCred("z@x.com", "org-z", "acc-z", futureCred("at-z", "rt-z"))
+	if changed, _ := e.svc.SyncActiveFromLive(); changed || active() != "id1" {
+		t.Fatalf("등록되지 않은 계정이면 고치지 않는다: %s", active())
+	}
+
+	// 조회기 틱도 맞추고, 바뀌면 알린다.
+	e.loginCred("b@x.com", "org-b", "acc-b", futureCred("at-b", "rt-b"))
+	changed := 0
+	eng.OnChange = func() { changed++ }
+	eng.Tick(context.Background())
+	if active() != "id2" || changed == 0 {
+		t.Fatalf("틱: %s %d", active(), changed)
 	}
 }

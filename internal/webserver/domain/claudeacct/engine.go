@@ -191,6 +191,9 @@ func (e *Engine) liveIsAccount(a Account) bool {
 func (e *Engine) Tick(ctx context.Context) time.Time {
 	e.busy.Lock()
 	defer e.busy.Unlock()
+	if changed, _ := e.Svc.SyncActiveFromLive(); changed && e.OnChange != nil {
+		e.OnChange() // FR-CAC-34b
+	}
 	st, err := e.Svc.Store.Load()
 	now := e.Now()
 	if err != nil {
@@ -210,7 +213,7 @@ func (e *Engine) Tick(ctx context.Context) time.Time {
 			time.Sleep(e.stagger())
 		}
 		first = false
-		e.fetch(ctx, a, a.ID == st.ActiveID)
+		e.fetch(ctx, a, a.ID == st.ActiveID, false)
 	}
 	return e.nextWake()
 }
@@ -281,7 +284,7 @@ func (e *Engine) FetchNow(ctx context.Context, id string) error {
 	}
 	e.busy.Lock()
 	defer e.busy.Unlock()
-	e.fetch(ctx, st.Accounts[i], id == st.ActiveID)
+	e.fetch(ctx, st.Accounts[i], id == st.ActiveID, true)
 	return nil
 }
 
@@ -297,7 +300,8 @@ func (e *Engine) credFor(a Account, active bool) (Credential, bool, bool, error)
 	return c, ok && !c.IsEmpty(), false, err
 }
 
-func (e *Engine) fetch(ctx context.Context, a Account, active bool) {
+// fetch 는 사용량을 조회한다. withResets 면 성공한 뒤 두 초기화 상태도 조회한다 — 사용자가 부른 조회만 그렇다 (D-CAC-36).
+func (e *Engine) fetch(ctx context.Context, a Account, active, withResets bool) {
 	now := e.Now()
 	r := e.row(a.ID)
 	r.LastAttemptAt = now.Unix()
@@ -358,7 +362,7 @@ func (e *Engine) fetch(ctx context.Context, a Account, active bool) {
 	r.LastGood, r.FetchedAt = &u, now.Unix()
 	r.ConsecutiveFailures, r.LastError, r.BackoffUntil, r.Status = 0, "", 0, StatusOK
 	r.UsageOK++
-	if (r.UsageOK-1)%resetsEvery == 0 {
+	if withResets {
 		r.Resets, r.ResetsAttemptAt = e.fetchResets(ctx, cred.AccessToken(), r.Resets), now.Unix()
 	}
 	e.setRow(a.ID, r)
@@ -394,7 +398,7 @@ func (e *Engine) usableCred(ctx context.Context, a Account, active bool) (Creden
 	return cred, live, err
 }
 
-// FetchResetsNow 는 계정 줄을 펼칠 때의 상태 조회다 (FR-CAC-65). 60초 안이거나 물러나는 중이면 ErrTooSoon.
+// FetchResetsNow 는 두 초기화 상태만 바로 조회한다 (FR-CAC-65). 180초 안이거나 물러나는 중이면 ErrTooSoon. 화면은 부르지 않는다.
 func (e *Engine) FetchResetsNow(ctx context.Context, id string) error {
 	st, err := e.Svc.Store.Load()
 	if err != nil {
@@ -479,7 +483,7 @@ func (e *Engine) Claim(ctx context.Context, id, program, grantID string) (ClaimR
 	}
 	if res.Result == "reset" {
 		now := e.Now().Unix()
-		e.fetch(ctx, a, active)
+		e.fetch(ctx, a, active, true)
 		// 사용량 조회가 이번에 상태도 조회했으면 다시 묻지 않는다.
 		if r := e.row(id); r.ResetsAttemptAt != now {
 			r.Resets, r.ResetsAttemptAt = e.fetchResets(ctx, cred.AccessToken(), r.Resets), now

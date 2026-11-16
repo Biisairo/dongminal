@@ -149,6 +149,39 @@ Object.assign(App.prototype, {
     return !!(panel&&!panel.hidden&&overlay&&overlay.classList.contains('open'));
   },
 
+  /**
+   * FR-CAC-94a: 설정창을 열 때. 탭은 닫을 때 고른 채로 남는다 — 탭 클릭만 다시 읽으면 닫은 사이
+   * 다른 곳(Explorer·탭 메뉴)에서 바꾼 폴더 연결이 옛 값으로 보인다.
+   */
+  _cacctOnSettingsOpen(modal){
+    const tab=modal.querySelector('.mtab.active');
+    if(tab&&tab.dataset.tab==='claude') this._loadClaudePanel();
+  },
+
+  /** FR-CAC-94a: 입력 중인가 — 구역 안의 입력 칸에 포커스가 있거나, 다시 그린 뒤 입력한 것이 있다. */
+  _cacctEditing(){
+    const root=document.getElementById('cacct-set');
+    if(!root) return false;
+    const f=document.activeElement;
+    return !!this._cacctDirty||!!(f&&root.contains(f)&&/^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName));
+  },
+
+  /** FR-CAC-94a: 변경 신호로 다시 받기. 입력 중이면 미루고, 포커스가 구역을 떠날 때 다시 본다. */
+  _cacctRefreshSoft(){
+    if(!this._cacctEditing()) return this._loadClaudePanel();
+    this._cacctStale=true;
+  },
+
+  /** 구역 뿌리는 한 번만 세워지므로 듣개도 한 번만 단다. */
+  _cacctWireEditing(root){
+    if(this._cacctFocusWired===root) return;
+    this._cacctFocusWired=root;
+    root.addEventListener('input',()=>{this._cacctDirty=true});
+    root.addEventListener('focusout',()=>TIMERS.defer(()=>{
+      if(this._cacctStale&&!this._cacctEditing()&&this._cacctPanelShown()) this._loadClaudePanel();
+    },{label:'cacct-stale'}));
+  },
+
   /** FR-CAC-94a: 탭을 열 때 다섯 가지를 다시 받는다. 503 이면 계정 기능이 없는 서버다. */
   async _loadClaudePanel(){
     const [list,auto,maps,unc]=await Promise.all([
@@ -296,9 +329,12 @@ Object.assign(App.prototype, {
     if(!rows.length) actEl(list,'div','ds-hint',t('cacct.set.folders_none'));
     for(const r of rows){
       const row=actEl(list,'div','cacct-set-folder');
-      row.style.paddingLeft=(r.depth*16)+'px';
-      actEl(row,'span','cacct-set-path',r.path);
-      if(r.overrides) actEl(row,'span','cacct-set-over',t('cacct.set.overrides'));
+      const name=actEl(row,'div','cacct-set-fname');
+      name.style.paddingLeft=(r.depth*16)+'px';
+      name.appendChild(UIKit.icon('folder',{size:'sm'}));
+      const path=actEl(name,'span','cacct-set-path',r.path);
+      path.title=r.path;
+      if(r.overrides) actEl(name,'span','cacct-set-over',t('cacct.set.overrides'));
       const chip=actEl(row,'span','cacct-chip',r.name);
       if(r.color) chip.style.setProperty('--cacct-c','var(--'+r.color+')');
       row.appendChild(UIKit.button({label:t('cacct.set.unlink'),kind:'ghost',size:'sm',cls:'cacct-set-unlink',
@@ -342,6 +378,9 @@ Object.assign(App.prototype, {
     const root=document.getElementById('cacct-set');
     const s=this._cacctSet;
     if(!root||!s) return;
+    this._cacctDirty=false;
+    this._cacctStale=false;
+    this._cacctWireEditing(root);
     root.replaceChildren();
     if(s.off){ actEl(root,'div','ds-hint',t('cacct.set.unavailable')); return }
     actEl(root,'div','ds-sec',t('cacct.set.sec_accounts'));

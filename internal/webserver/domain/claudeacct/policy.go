@@ -30,7 +30,7 @@ const (
 	backoffRAPadS     = 900
 	backoffCap429S    = 4500
 	backoffCapOtherS  = 3600
-	fetchNowMinGapS   = 60
+	fetchNowMinGapS   = 180 // D-CAC-36: cswap SERVE_TTL_S
 	defaultLinePct    = 90.0
 	freshForDecisionS = 300
 )

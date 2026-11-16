@@ -25,8 +25,6 @@ const (
 	queryJuniper = "at_wall=1&skip_spend=1"
 	queryCedar   = "cedar_ember=1&skip_spend=1"
 	claimTimeout = 25 * time.Second
-	// resetsEvery 는 상태를 조회하는 사용량 조회 성공의 간격이다 — 3번에 1번 (FR-CAC-60).
-	resetsEvery = 3
 )
 
 var (

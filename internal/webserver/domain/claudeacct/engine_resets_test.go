@@ -27,33 +27,47 @@ func clockAt(e *env, eng *Engine) func(int64) {
 	return func(d int64) { now += d }
 }
 
-func TestEngineFetchesResetsEveryThirdSuccess(t *testing.T) {
+// D-CAC-36: 초기화 상태는 자동으로 묻지 않는다. 새로 고침(FetchNow)이 성공하면 함께 묻는다.
+func TestEngineResetsOnlyOnManualRefresh(t *testing.T) {
 	e, eng, api := newEngineEnv(t)
 	withResets(api)
 	advance := clockAt(e, eng)
 	eng.Tick(context.Background())
-	if n := api.count("status:at-a?"); n != 2 {
-		t.Fatalf("첫 성공에서 두 상태를 조회한다: %v", api.calls)
+	if n := api.count("status:"); n != 0 || eng.Rows()["id1"].Resets != nil {
+		t.Fatalf("주기 조회는 상태를 묻지 않는다: %v", api.calls)
 	}
-	rs := eng.Rows()["id1"].Resets
-	if rs == nil || rs.Juniper == nil || !rs.Juniper.Available || rs.Cedar == nil || len(rs.Cedar.Grants) != 1 || rs.FetchedAt != nowUnix {
-		t.Fatalf("%+v", rs)
-	}
-	for i, want := range []int{2, 2, 4} {
-		advance(61)
+	for i, want := range []int{2, 4} {
+		advance(181)
 		if err := eng.FetchNow(context.Background(), "id1"); err != nil {
 			t.Fatal(err)
 		}
 		if n := api.count("status:at-a?"); n != want {
-			t.Fatalf("성공 %d 번째: 상태 조회 %d, 기대 %d", i+2, n, want)
+			t.Fatalf("새로 고침 %d 번째: 상태 조회 %d, 기대 %d", i+1, n, want)
 		}
+	}
+	rs := eng.Rows()["id1"].Resets
+	if rs == nil || rs.Juniper == nil || !rs.Juniper.Available || rs.Cedar == nil || len(rs.Cedar.Grants) != 1 || rs.FetchedAt != nowUnix+362 {
+		t.Fatalf("%+v", rs)
+	}
+	// 주기 조회를 여러 번 돌려도 상태는 더 묻지 않는다.
+	for range 3 {
+		advance(700)
+		eng.Tick(context.Background())
+	}
+	if n := api.count("status:at-a?"); n != 4 {
+		t.Fatalf("주기 조회가 상태를 물었다: %v", api.calls)
 	}
 }
 
 func TestEngineResetsMissingKeepsNil(t *testing.T) {
-	_, eng, api := newEngineEnv(t)
+	e, eng, api := newEngineEnv(t)
+	advance := clockAt(e, eng)
 	eng.Tick(context.Background())
-	if api.count("status:") != 4 || eng.Rows()["id1"].Resets == nil || eng.Rows()["id1"].Resets.Juniper != nil || eng.Rows()["id1"].Resets.Cedar != nil {
+	advance(181)
+	if err := eng.FetchNow(context.Background(), "id1"); err != nil {
+		t.Fatal(err)
+	}
+	if api.count("status:") == 0 || eng.Rows()["id1"].Resets == nil || eng.Rows()["id1"].Resets.Juniper != nil || eng.Rows()["id1"].Resets.Cedar != nil {
 		t.Fatalf("필드가 없으면 없음이다 (FR-CAC-61): %+v", eng.Rows()["id1"].Resets)
 	}
 }
@@ -63,17 +77,24 @@ func TestEngineFetchResetsNow(t *testing.T) {
 	withResets(api)
 	advance := clockAt(e, eng)
 	eng.Tick(context.Background())
-	if err := eng.FetchResetsNow(context.Background(), "id1"); !errors.Is(err, ErrTooSoon) {
-		t.Fatalf("60초 안이면 거절한다: %v", err)
+	if err := eng.FetchNow(context.Background(), "id1"); !errors.Is(err, ErrTooSoon) {
+		t.Fatal(err)
 	}
-	advance(61)
+	advance(181)
+	if err := eng.FetchNow(context.Background(), "id1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.FetchResetsNow(context.Background(), "id1"); !errors.Is(err, ErrTooSoon) {
+		t.Fatalf("180초 안이면 거절한다: %v", err)
+	}
+	advance(181)
 	if err := eng.FetchResetsNow(context.Background(), "id1"); err != nil {
 		t.Fatal(err)
 	}
-	if api.count("status:at-a?") != 4 || api.count("usage:at-a") != 1 {
+	if api.count("status:at-a?") != 4 || api.count("usage:at-a") != 2 {
 		t.Fatalf("상태만 조회한다: %v", api.calls)
 	}
-	if eng.Rows()["id1"].Resets.FetchedAt != nowUnix+61 {
+	if eng.Rows()["id1"].Resets.FetchedAt != nowUnix+362 {
 		t.Fatalf("%+v", eng.Rows()["id1"].Resets)
 	}
 	if err := eng.FetchResetsNow(context.Background(), "nope"); !errors.Is(err, ErrNotFound) {

@@ -151,6 +151,32 @@ test.describe('Claude 계정 (TC-CAC-27)', () => {
     await expect(hist).toHaveCount(0);
     await page.keyboard.press('Escape');
 
+    // 설정을 닫은 사이 다른 곳(Explorer 등)에서 폴더를 연결하면, 다시 열 때 Claude 계정 탭이 새 값을 보인다 (FR-CAC-94a)
+    st.maps.folders['/work/proj'] = { accountId: 'b' };
+    await page.click('#settings-btn');
+    await expect(page.locator('#cacct-set .cacct-set-folder')).toHaveCount(1);
+    await expect(page.locator('#cacct-set .cacct-set-folder .cacct-set-path')).toHaveText('/work/proj');
+    // 입력 중에 변경 신호가 와도 입력한 값과 포커스를 지우지 않는다 (FR-CAC-94a)
+    const thr = page.locator('#cacct-set .cacct-set-auto input.ds-num').first();
+    await thr.fill('77');
+    const pathIn = page.locator('#cacct-set .cacct-set-link input.sbx-input');
+    await pathIn.fill('/typing');
+    await page.evaluate(() => (window as any).app.testing.onClaudeAccountsChanged());
+    // **예외 (`TEST-16`)**: 다시 그리기가 **오지 않음**을 잰다 — 기다릴 조건이 없다. 목록 응답은 위조라 즉시 온다.
+    await page.waitForTimeout(300);
+    await expect(pathIn).toBeFocused();
+    await expect(pathIn).toHaveValue('/typing');
+    await expect(thr).toHaveValue('77');
+    // 포커스가 떠나도 저장하지 않은 입력이 있으면 계속 미룬다
+    await page.locator('#cacct-set .ds-sec').first().click();
+    await page.evaluate(() => (window as any).app.testing.onClaudeAccountsChanged());
+    // **예외 (`TEST-16`)**: 위와 같다 — 다시 그리기가 오지 않음을 잰다.
+    await page.waitForTimeout(300);
+    await expect(thr).toHaveValue('77');
+    await page.locator('#modal-close').click();
+    await expect(page.locator('#modal-overlay.open')).toHaveCount(0);
+    delete st.maps.folders['/work/proj'];
+
     // 탭 지정 → 진한 틴트 (FR-CAC-85·95)
     const tab = page.locator('#area .pn.focused .pn-tab.active');
     const toolId = await tab.getAttribute('data-toolid');

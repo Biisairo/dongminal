@@ -164,7 +164,7 @@ func TestNextAvailableSkipsExhausted(t *testing.T) {
 		t.Fatal(err)
 	}
 	api.usage["at-c"] = `{"five_hour":{"utilization":100},"seven_day":{"utilization":10}}`
-	*clock = clock.Add(2 * time.Minute)
+	*clock = clock.Add(4 * time.Minute) // 수동 조회 최소 간격 180초(D-CAC-36) 뒤, 다른 계정 값은 아직 신선(300초)
 	if err := eng.FetchNow(context.Background(), "id3"); err != nil {
 		t.Fatal(err)
 	}

@@ -368,3 +368,38 @@ func (s *State) nextAfter(ok func(Account) bool) (string, bool) {
 	}
 	return "", false
 }
+
+// liveAccountID 는 `~/.claude.json` 의 계정과 같은 등록 계정의 ID 다. 없거나 읽지 못하면 빈 값이다.
+func (s *Service) liveAccountID(st State) string {
+	oa, ok, err := ReadOAuthAccount(s.Claude.GlobalConfig)
+	if err != nil || !ok {
+		return ""
+	}
+	for _, a := range st.Accounts {
+		if a.Email == oa.EmailAddress && a.OrgUUID == oa.OrganizationUUID {
+			return a.ID
+		}
+	}
+	return ""
+}
+
+// SyncActiveFromLive 는 dongminal 밖(`/login`·cswap)에서 바꾼 활성 계정을 활성 기록에 맞춘다 (FR-CAC-34b).
+// 등록되지 않은 계정이면 고치지 않는다. 전환 기록은 남기지 않는다. 고쳤으면 true.
+func (s *Service) SyncActiveFromLive() (bool, error) {
+	st, err := s.Store.Load()
+	if err != nil {
+		return false, err
+	}
+	id := s.liveAccountID(st)
+	if id == "" || id == st.ActiveID {
+		return false, nil
+	}
+	changed := false
+	err = s.Store.Update(func(st *State) error {
+		if id := s.liveAccountID(*st); id != "" && id != st.ActiveID {
+			st.ActiveID, changed = id, true
+		}
+		return nil
+	})
+	return changed, err
+}

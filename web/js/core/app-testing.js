@@ -108,6 +108,8 @@ const APP_TESTING_NAMES = [
   // SSE 구독과 워크스페이스 저장. 두 축이 한 절에 있는 이유는 둘이 같은 경주를 만들기 때문이다 (WORKSPACE_SAVE_CONFLICT_SRS).
   '_sse', '_sseGen', '_sseSeen', '_sseKick', '_cmdES', '_subscribeCommands', '_execRemote', '_echoResult',
   'save', 'saveSettings', '_onWorkspaceChanged', '_wsApplyInflight', '_focusCh',
+  // CLAUDE_ACCOUNTS_SRS FR-CAC-94a: 계정 변경 신호(SSE)를 받은 것처럼 — 입력 중 다시 그리기를 잰다.
+  '_onClaudeAccountsChanged',
   // 같은 구멍 (FR-FMB-45a). 저장의 **비행 중**과 **대기 중**은 다른 사실이다.
   '_applyRemoteWorkspace', '_saveInflight', '_savePending',
   // OPTIMIZE_REFACTOR_SRS D-OPT-7: 자기 에코가 설정을 다시 얹지 않는지 센다.

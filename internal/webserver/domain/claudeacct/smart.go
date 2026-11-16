@@ -171,7 +171,7 @@ func (e *Engine) refreshStale(ctx context.Context, st State) {
 			time.Sleep(e.stagger())
 		}
 		first = false
-		e.fetch(ctx, a, a.ID == st.ActiveID)
+		e.fetch(ctx, a, a.ID == st.ActiveID, false)
 	}
 }
 

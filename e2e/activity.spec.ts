@@ -586,12 +586,14 @@ test.describe('Activity subagent views and usage limits', () => {
     await expect(foot).toHaveCount(1);
     const sl = foot.locator('.act-usage-sl');
     await expect(sl).toHaveCount(1);
-    const segs = sl.locator('.act-usage-sl-seg');
+    // D-CAC-37: 좁은 카드와 같은 칸 둘(세션·주간) — 사용률과 가장 큰 단위 하나의 남은 시간, 초기화 문구는 툴팁
+    const segs = sl.locator('.cacct-cell');
     await expect(segs).toHaveCount(2);
     await expect(segs.nth(0)).toHaveClass(/lv-warn/);
     await expect(segs.nth(0)).toContainText('72%');
+    await expect(segs.nth(0).locator('.cacct-cell-left')).toHaveText('2h');
     await expect(segs.nth(1)).toContainText('21%');
-    await expect(sl.locator('.act-usage-sl-reset')).toContainText(/(2h (9|10)m|2시간 (9|10)분)/);
+    await expect(segs.nth(0)).toHaveAttribute('title', /(2h (9|10)m|2시간 (9|10)분)/);
     const pinned = await foot.evaluate((el) => {
       const p = el.parentElement as HTMLElement;
       return { last: p.lastElementChild === el,

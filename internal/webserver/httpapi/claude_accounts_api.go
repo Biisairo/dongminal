@@ -78,6 +78,9 @@ func (s *Server) apiClaudeAccountsList(w http.ResponseWriter, _ *http.Request) {
 	if !s.claudeAccountsReady(w) {
 		return
 	}
+	if changed, _ := s.ca.svc.SyncActiveFromLive(); changed {
+		s.claudeAccountsChanged() // FR-CAC-34b: 다른 창도 다시 받는다
+	}
 	st, err := s.ca.svc.Store.Load()
 	if err != nil {
 		claudeAccountsFail(w, err)

@@ -432,6 +432,7 @@ Object.assign(App.prototype, {
       // FR-UFE-14: 같은 근거로 이 행도 열 때마다 다시 칠한다 — 체크박스와 세기가
       // 함께 움직이므로 한 함수가 둘을 맡는다.
       this._focusEdgePaintRow();
+      this._cacctOnSettingsOpen(modal);
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this.drawerOpen){this._toggleDrawer(false);this.renderer._rTopbar()}
     });

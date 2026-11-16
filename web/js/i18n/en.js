@@ -1131,6 +1131,9 @@ I18N.register('en', {
   'usage.dur.d': '{n}d',
   'usage.dur.h': '{n}h',
   'usage.dur.m': '{n}m',
+  'usage.short.d': '{n}d',
+  'usage.short.h': '{n}h',
+  'usage.short.m': '{n}m',
   // CLAUDE_ACCOUNTS_SRS FR-CAC-90~93: Activity 하단의 계정 묶음과 statusLine 한 줄
   'usage.sl.label': 'statusLine',
   'usage.sl.five_hour': 'Session',
@@ -1261,6 +1264,7 @@ I18N.register('en', {
   'cacct.pinned_running': 'This account has a pinned tab running. That tab is not affected.',
   'cacct.refresh': 'Refresh',
   'cacct.rs.title': 'Limit resets',
+  'cacct.rs.unknown': 'Press Refresh to check',
   'cacct.rs.juniper': '5-hour reset',
   'cacct.rs.usable': 'available',
   'cacct.rs.next': 'next {t}',

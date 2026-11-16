@@ -1153,6 +1153,9 @@ I18N.register('ko', {
   'usage.dur.d': '{n}일',
   'usage.dur.h': '{n}시간',
   'usage.dur.m': '{n}분',
+  'usage.short.d': '{n}d',
+  'usage.short.h': '{n}h',
+  'usage.short.m': '{n}m',
   // CLAUDE_ACCOUNTS_SRS FR-CAC-90~93: Activity 하단의 계정 묶음과 statusLine 한 줄
   'usage.sl.label': 'statusLine',
   'usage.sl.five_hour': '세션',
@@ -1283,6 +1286,7 @@ I18N.register('ko', {
   'cacct.pinned_running': '이 계정은 고정 실행 중인 탭이 있습니다. 그 탭은 영향을 받지 않습니다',
   'cacct.refresh': '새로 고침',
   'cacct.rs.title': '제한 초기화',
+  'cacct.rs.unknown': '새로 고침을 누르면 조회합니다',
   'cacct.rs.juniper': '주간 5시간 초기화',
   'cacct.rs.usable': '쓸 수 있음',
   'cacct.rs.next': '다음 가능 {t}',

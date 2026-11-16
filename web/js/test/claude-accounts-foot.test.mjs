@@ -10,6 +10,7 @@ const EN = {
   'usage.win.five_hour': 'Current session', 'usage.win.seven_day': 'Current week',
   'usage.used': '{n}% used', 'usage.resets_in': 'Resets in {t}', 'usage.resets_soon': 'Resets soon',
   'usage.as_of': 'as of {t}', 'usage.dur.d': '{n}d', 'usage.dur.h': '{n}h', 'usage.dur.m': '{n}m',
+  'usage.short.d': '{n}d', 'usage.short.h': '{n}h', 'usage.short.m': '{n}m',
   'usage.sl.label': 'statusLine', 'usage.sl.five_hour': 'Session', 'usage.sl.seven_day': 'Week',
   'cacct.title': 'Claude accounts', 'cacct.active': 'Active', 'cacct.next': 'Next account',
   'cacct.age_min': '{n}m ago', 'cacct.retry_at': 'retry {t}',
@@ -18,7 +19,7 @@ const EN = {
   'cacct.pace_lasts': 'lasts until reset', 'cacct.spend': 'Extra usage {used} / {limit}',
   'cacct.login_expires': 'Login expires {d}', 'cacct.switch': 'Switch to this account', 'cacct.refresh': 'Refresh',
   'cacct.wd.3': 'Wed',
-  'cacct.rs.title': 'Limit resets', 'cacct.rs.juniper': '5-hour reset', 'cacct.rs.usable': 'available',
+  'cacct.rs.title': 'Limit resets', 'cacct.rs.unknown': 'Press Refresh to check', 'cacct.rs.juniper': '5-hour reset', 'cacct.rs.usable': 'available',
   'cacct.rs.next': 'next {t}', 'cacct.rs.left': '{n}/{m} left', 'cacct.rs.until': 'until {d}', 'cacct.rs.paused': 'paused',
   'cacct.rs.use': 'Use reset…', 'cacct.rs.confirm_title': 'Use a limit reset?', 'cacct.rs.clears': 'Refills: {w}',
   'cacct.rs.weekly_deduct': 'Counts against your weekly limit', 'cacct.rs.weekly_back': 'Gives back weekly usage',
@@ -100,10 +101,12 @@ test('FR-CAC-91: 오버레이가 닫힌 묶음은 머리와 5시간·주간 막�
   assert.equal(v.age, '');
   assert.equal(v.pop, false);
   assert.equal(v.wide, true);
-  assert.deepEqual(v.mini, [{ text: 'Session 34%', fill: 34.4, level: '' }, { text: 'Week 72%', fill: 72, level: 'warn' }]);
+  assert.deepEqual(v.mini, [{ label: 'Session', pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+    { label: 'Week', pct: '72%', left: '4d', fill: 72, level: 'warn', title: 'Current week · 72% used · Resets in 4d 6h' }], 'D-CAC-37: 칸 — 사용률·가장 큰 단위 하나의 남은 시간');
   assert.deepEqual(v.bars.map((b) => b.label), ['Current session', 'Current week']);
   assert.deepEqual(v.bars[0], { id: 'a:five_hour', label: 'Current session', used: '34% used', fill: 34.4, level: '',
-    reset: 'Resets in 2h 10m', title: 'Current session · 34% used · resets at ' + clock((NOW + 7800) * 1000) });
+    reset: 'Resets in 2h 10m · ' + fillEn('cacct.wd.' + new Date((NOW + 7800) * 1000).getDay()) + ' ' + clock((NOW + 7800) * 1000),
+    title: 'Current session · 34% used · resets at ' + clock((NOW + 7800) * 1000) }, '남은 시간 · 초기화 시각(오늘이 아니면 요일)');
   assert.equal(v.bars[1].level, 'warn');
   assert.equal(v.more, null);
 });
@@ -176,8 +179,8 @@ test('FR-CAC-93: statusLine 은 한 줄이다 — 창마다 이름과 %, 끝에 
   ] }];
   const v = plain(statusLineView(limits, observedAt + 60_000));
   assert.equal(v.label, 'statusLine');
-  assert.deepEqual(v.segs, [{ text: 'Session 34%', level: '' }, { text: 'Week 91%', level: 'critical' }]);
-  assert.equal(v.reset, 'Resets in 2h 10m');
+  assert.deepEqual(v.cells, [{ label: 'Session', pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+    { label: 'Week', pct: '91%', left: '4d', fill: 91, level: 'critical', title: 'Current week · 91% used · Resets in 4d 6h' }]);
   assert.equal(v.asOf, '');
   assert.equal(plain(statusLineView(limits, observedAt + 11 * 60_000)).asOf, 'as of ' + clock(observedAt));
 });
@@ -290,6 +293,24 @@ test('FR-CAC-91: 오버레이는 한 번에 하나 — 같은 칸은 닫고, 다
   assert.deepEqual(pops(), [false, false]);
 });
 
+test('FR-CAC-93: statusLine 줄은 꼭 한 줄 — 오래되면 글자 대신 흐림과 툴팁, 활성 카드는 바탕 대신 표식', () => {
+  const ctx = loadFoot();
+  const app = footApp(ctx);
+  app._claudeAccts = [
+    { ...ACC_A, statusLine: { windows: { fiveHour: { pct: 34, level: '' } }, observedAt: NOW, ageSeconds: 600, stale: true } },
+    { ...ACC_B, statusLine: { windows: { fiveHour: { pct: 5, level: '' } }, observedAt: NOW, ageSeconds: 10, stale: false } },
+  ];
+  const foot = app._actUsageFootEl(app._actItems().at(-1).view);
+  const rows = foot.children.filter((c) => c.className.split(' ')[0] === 'act-usage-sl');
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].className, 'act-usage-sl cacct-sl stale');
+  assert.match(rows[0].title, /10m ago/);
+  assert.equal(find(rows[0], 'act-usage-asof'), null, '오래됨을 글자로 붙이지 않는다');
+  assert.equal(rows[1].className, 'act-usage-sl cacct-sl');
+  assert.deepEqual(rows[0].children.map((c) => c.className.split(' ')[0]), ['cacct-who', 'cacct-cells'], '좁은 카드와 같은 줄 모양');
+  assert.equal(find(rows[0], 'cacct-cells').children.length, 2, '세션·주간 두 칸 — 값이 없는 칸도 자리를 지킨다');
+});
+
 test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusLine 줄', () => {
   const ctx = loadFoot();
   const app = footApp(ctx);
@@ -297,9 +318,9 @@ test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusL
   app._limits = SL;
   const foot = app._actUsageFootEl(app._actItems().at(-1).view);
   const kinds = [...foot.children].map((c) => c.className.split(' ')[0]);
-  assert.deepEqual(kinds, ['act-usage-head', 'cacct', 'cacct', 'act-usage-sl']);
+  assert.deepEqual(kinds, ['act-usage-head', 'cacct', 'cacct', 'act-usage-sl-h', 'act-usage-sl'], '열 이름 줄 없음 · statusLine 머리 한 줄 + 줄');
   assert.equal(find(foot.children[0], 'cacct-history-btn'), null, 'FR-CAC-111: 전환 기록은 Activity 에 두지 않는다');
-  const a = foot.children[1];
+  const [a, b] = foot.children.filter((c) => c.className.split(' ')[0] === 'cacct');
   assert.equal(a.className, 'cacct active wide');
   assert.equal(a.dataset.id, 'a');
   assert.equal(a.children[0].className, 'cacct-bar', '왼쪽 색 바가 첫 원소다');
@@ -312,14 +333,14 @@ test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusL
   assert.equal(find(head, 'cacct-name').textContent, 'Work');
   assert.equal(find(head, 'cacct-active').textContent, 'Active');
   assert.deepEqual([...a.children].slice(2).map((c) => c.className), ['act-usage-win', 'act-usage-win lv-warn']);
-  const b = foot.children[2];
   assert.equal(b.className, 'cacct');
   assert.deepEqual([...b.children].map((c) => c.className), ['cacct-bar', 'cacct-head'], '좁은 모양은 머리 한 줄이다');
-  assert.equal(find(b.children[1], 'cacct-minis').children.length, 0);
+  assert.deepEqual(find(b.children[1], 'cacct-cells').children.map((c) => c.textContent), ['', ''], '값이 없어도 두 칸의 자리');
   assert.equal(find(a, 'cacct-pop'), null);
-  const sl = foot.children[3];
-  assert.deepEqual([...sl.children].map((c) => c.textContent), ['statusLine', 'Session 1%']);
-  assert.equal(sl.children[1].className, 'act-usage-sl-seg');
+  assert.equal(foot.children[3].textContent, 'statusLine');
+  const sl = foot.children[4];
+  assert.equal(find(sl, 'cacct-cell-pct').textContent, '1%');
+  assert.equal(find(sl, 'act-usage-sl-label'), null, '이름표는 머리에 한 번만');
 });
 
 test('FR-CAC-91: 오버레이 자리 — 패널 바깥 옆, 칸 높이에 맞추고 화면 안으로 당긴다. 옆에 자리가 없으면 칸 위', () => {
@@ -344,37 +365,39 @@ test('FR-CAC-91: 오버레이에는 요약과 동작 버튼이 있고, 활성 �
   const ctx = loadFoot();
   const app = footApp(ctx);
   app._claudeAccts = [ACC_A, { ...ACC_B, usage: { windows: { fiveHour: { pct: 1, level: '' } } } }];
-  const render = (id) => { app._claudeAcctPopId = id; return app._actUsageFootEl(app._actItems().at(-1).view) };
+  const render = (id) => { app._claudeAcctPopId = id; return app._actUsageFootEl(app._actItems().at(-1).view).children.filter((c) => c.className.split(' ')[0] === 'cacct') };
   let foot = render('a');
-  const a = foot.children[1];
+  const a = foot[0];
   assert.equal(a.className, 'cacct active wide pop');
   const pop = find(a, 'cacct-pop');
   assert.equal(find(pop, 'cacct-pop-title').textContent, 'a@x.com · Org A');
   const cls = (el) => el.className.split(' ')[0];
-  assert.deepEqual(pop.children.map(cls), ['cacct-pop-head', 'cacct-pop-sec', 'cacct-pop-sec', 'cacct-acts'],
-    '머리 / 사용량 / 기타 / 동작 — 초기화가 없으면 그 구역이 없다');
+  assert.deepEqual(pop.children.map(cls), ['cacct-pop-head', 'cacct-pop-sec', 'cacct-pop-sec', 'cacct-pop-sec', 'cacct-acts'],
+    '머리 / 사용량 / 기타 / 제한 초기화(조회 전 안내) / 동작');
   const head = pop.children[0];
   assert.equal(find(head, 'cacct-pop-name').textContent, 'Work');
   assert.equal(find(head, 'cacct-active').textContent, 'Active', '활성 표식은 머리에');
   const usage = pop.children[1];
   assert.deepEqual(usage.children.map(cls), ['act-usage-win', 'act-usage-win', 'act-usage-win', 'cacct-pace'], '5시간·주간·scoped, 예측은 막대 뒤');
   assert.deepEqual(pop.children[2].children.map(cls), ['cacct-spend']);
-  const acts = pop.children[3];
+  const acts = pop.children[4];
   assert.deepEqual(acts.children.map((c) => c.className.trim()), ['ui-btn cacct-refresh'], '활성 계정은 새로 고침만');
   assert.equal(find(a, 'cacct-switch'), null);
   assert.ok(find(a, 'cacct-refresh'));
   assert.equal(find(a, 'cacct-pace').className, 'cacct-pace warn');
   assert.equal(find(a, 'cacct-spend').textContent, 'Extra usage $12.40 / $50');
-  assert.equal(find(foot.children[2], 'cacct-pop'), null);
+  assert.equal(find(foot[1], 'cacct-pop'), null);
   foot = render('b');
-  const b = foot.children[2];
+  const b = foot[1];
   assert.ok(find(b, 'cacct-switch'));
   const popB = find(b, 'cacct-pop');
-  assert.deepEqual(popB.children.map((c) => c.className.split(' ')[0]), ['cacct-pop-head', 'cacct-pop-sec', 'cacct-acts'], '기타 정보가 없으면 그 구역이 없다');
+  assert.deepEqual(popB.children.map((c) => c.className.split(' ')[0]), ['cacct-pop-head', 'cacct-pop-sec', 'cacct-pop-sec', 'cacct-acts'], '기타 정보가 없으면 그 구역이 없다');
   assert.equal(find(popB.children[0], 'cacct-active'), null);
-  assert.deepEqual(popB.children[2].children.map((c) => c.className.trim()), ['ui-btn cacct-refresh', 'ui-btn cacct-switch'], '새로 고침 왼쪽, 전환 오른쪽');
-  assert.equal(find(b, 'cacct-minis').children.length, 1, '좁은 모양의 머리에 창마다 작은 막대');
-  assert.equal(find(foot.children[1], 'cacct-pop'), null);
+  assert.deepEqual(popB.children[3].children.map((c) => c.className.trim()), ['ui-btn cacct-refresh', 'ui-btn cacct-switch'], '새로 고침 왼쪽, 전환 오른쪽');
+  const cell = find(b, 'cacct-cells').children[0];
+  assert.equal(find(cell, 'cacct-cell-pct').textContent, '1%', '좁은 모양의 한 줄에 창마다 칸');
+  assert.equal(find(cell, 'cacct-cell-label').textContent, 'Session', '칸 앞에 작은 창 이름');
+  assert.equal(find(foot[0], 'cacct-pop'), null);
 });
 
 // ── 데이터 (FR-CAC-122) ──
@@ -387,6 +410,29 @@ function restoreApp(ctx) {
   app.agentsRender = () => {};
   return app;
 }
+
+test('FR-CAC-91: 초기화가 오늘이면 남은 시간 뒤에 시각만 붙인다', () => {
+  const ctx = loadFoot();
+  const at = Math.floor(ctx.Date.now() / 1000) + 120;
+  const v = plain(ctx.claudeAcctView({ ...ACC_B, usage: { windows: { fiveHour: { pct: 1, resetsAt: at, resetsInSec: 120, level: '' } } } }, false, true));
+  assert.equal(v.bars[0].reset, 'Resets in 2m · ' + clock(at * 1000));
+});
+
+test('FR-CAC-91: 활성 계정이 바뀌면 이전·새 활성 계정의 기억한 모양을 지운다', async () => {
+  let reply;
+  const ctx = loadFoot({ stateFetch: () => Promise.resolve(reply) });
+  const app = restoreApp(ctx);
+  reply = { ok: true, status: 200, data: { accounts: [{ ...ACC_A, active: true }, { ...ACC_B, active: false }, { ...ACC_B, id: 'c', active: false }] } };
+  await app._claudeAcctRestore();
+  ctx._local.setJson('claudeAcctFold', { a: false, b: false, c: true });
+  await app._claudeAcctRestore();
+  assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctFold')), { a: false, b: false, c: true }, '활성이 그대로면 둔다');
+  reply = { ok: true, status: 200, data: { accounts: [{ ...ACC_A, active: false }, { ...ACC_B, active: true }, { ...ACC_B, id: 'c', active: false }] } };
+  await app._claudeAcctRestore();
+  assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctFold')), { c: true });
+  const wide = plain(ctx.claudeAcctFootViews(app._claudeAccts, app._claudeAcctFold(), null).map((x) => x.wide));
+  assert.deepEqual(wide, [false, true, true], '새 활성(b)은 넓고, 이전 활성(a)은 기본(좁음)');
+});
 
 test('FR-CAC-122: 복원이 계정 목록을 담고, 503(계정 기능 없음)이면 비운다', async () => {
   let reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [ACC_A] } };
@@ -531,19 +577,28 @@ test('FR-CAC-62·63: 사용은 확인 뒤에만 보내고, 결과를 알린다. 
   assert.deepEqual(plain(toasts), [['Reset done', 'ok'], ['Could not confirm', 'err'], ['E400', 'err']]);
 });
 
-test('FR-CAC-60·65: 오버레이를 열 때 초기화 상태를 조용히 다시 묻는다 — 닫을 때는 묻지 않는다', async () => {
-  const calls = [], toasts = [];
-  const ctx = loadFoot({
-    apiPost: (p, b) => { calls.push([p, b]); return Promise.resolve({ ok: false, status: 409, data: {} }) },
-    Toast: { show: (m, k) => toasts.push([m, k]) },
-  });
+test('D-CAC-36: 오버레이를 열고 닫아도 서버에 묻지 않는다', async () => {
+  const calls = [];
+  const ctx = loadFoot({ apiPost: (p, b) => { calls.push([p, b]); return Promise.resolve({ ok: true, status: 200, data: {} }) } });
   const app = footApp(ctx);
   app.agentsRender = () => {};
-  app._claudeAcctRestore = () => Promise.resolve();
   await app._claudeAcctPopToggle('a');
   await app._claudeAcctPopToggle('a');
-  assert.deepEqual(plain(calls), [['/api/claude-accounts/refresh', { id: 'a', resets: true }]]);
-  assert.equal(toasts.length, 0, '409(1분 안) 는 알리지 않는다');
+  assert.deepEqual(plain(calls), []);
+});
+
+test('FR-CAC-65 · D-CAC-36: 초기화 칸 머리에 조회 시각, 조회한 적이 없으면 새로 고침 안내만', () => {
+  const ctx = loadFoot();
+  const app = footApp(ctx);
+  app._claudeAcctPopId = 'a';
+  app._claudeAccts = [withResets(RESETS)];
+  let sec = find(app._actUsageFootEl(app._actItems().at(-1).view).children[1], 'cacct-resets');
+  assert.ok(find(sec, 'cacct-resets-age'), '조회 시각');
+  assert.equal(find(sec, 'cacct-resets-unknown'), null);
+  app._claudeAccts = [ACC_A];
+  sec = find(app._actUsageFootEl(app._actItems().at(-1).view).children[1], 'cacct-resets');
+  assert.equal(find(sec, 'cacct-resets-unknown').textContent, 'Press Refresh to check');
+  assert.equal(sec.children.filter((c) => c.className.split(' ')[0] === 'cacct-rs').length, 0);
 });
 
 // ── 4단계: 자동 전환 표식·스마트 전환 메뉴·기록·알림 (FR-CAC-92·100a·111) ──
@@ -645,11 +700,12 @@ test('FR-CAC-93: statusLine 줄은 등록 계정(순서·색·이름) 다음 등
   assert.equal(lines.length, 2, '값이 없는 계정(b)은 줄이 없다');
   assert.deepEqual(plain(lines[0]), {
     key: 'a', label: 'statusLine', name: 'Work', color: 'acct-3',
-    segs: [{ text: 'Session 34%', level: '' }, { text: 'Week 21%', level: '' }], reset: 'Resets in 2h 10m', asOf: '',
+    cells: [{ label: 'Session', pct: '34%', left: '2h', fill: 34, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+      { label: 'Week', pct: '21%', left: '', fill: 21, level: '', title: 'Current week · 21% used' }], asOf: '',
   });
   assert.equal(lines[1].name, 'ze***@');
   assert.equal(lines[1].color, '');
-  assert.deepEqual(plain(lines[1].segs[0]), { text: 'Session 95%', level: 'critical' });
+  assert.deepEqual([lines[1].cells[0].pct, lines[1].cells[0].level], ['95%', 'critical']);
   assert.equal(lines[1].asOf, '10m ago');
   assert.deepEqual(plain(ctx.claudeAcctStatusLines(null, null)), []);
 
