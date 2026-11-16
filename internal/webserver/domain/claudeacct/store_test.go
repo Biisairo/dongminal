@@ -4,9 +4,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 func TestStoreUpdatePersists(t *testing.T) {
@@ -103,5 +104,5 @@ func TestPickColor(t *testing.T) {
 
 // permIs 는 유닉스 권한을 본다. Windows 에는 유닉스 권한이 없어 늘 참이다 — 그곳의 보호는 사용자 프로필의 ACL 이다.
 func permIs(m os.FileMode, want os.FileMode) bool {
-	return runtime.GOOS == "windows" || m.Perm() == want
+	return !testpath.PermChecked() || m.Perm() == want
 }

@@ -167,7 +167,8 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
         await expect.poll(async () => (await state(page)).changes).toEqual(['tracked.txt']);
         await openExplorer(page);
       }
-      await page.waitForTimeout(500);
+      // 새로고침 전에 지금 상태의 저장이 서버에 닿게 한다.
+      await page.evaluate(() => (window as any).app.save());
       await page.reload();
       await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
       if (kind === 'file') {

@@ -49,7 +49,11 @@ test.describe('다른 브라우저의 저장이 보이는 탭을 바꾸지 않�
       const pn = ws.windows.flatMap((w: any) => flat(w.layout)).find((p: any) => p.id === rid);
       return pn && pn.activeTab;
     }, { timeout: 10000, message: 'B 의 저장이 서버에 닿지 않았다' }).toBe(tabs[2]);
-    await A.page.waitForTimeout(1000);
+    // A 가 B 의 저장을 받아 적용할 때까지 기다린다 — 적용하면 A 의 판(ETag)이 서버 판과 같아진다.
+    await expect.poll(async () => {
+      const etag = (await A.page.request.get('/api/state')).headers()['etag'];
+      return etag && etag === await A.page.evaluate(() => (window as any).app.wsETag);
+    }, { timeout: 10000, message: 'A 가 B 의 저장을 받지 못했다' }).toBe(true);
 
     expect((await paneState(A.page, rid))?.shown, '다른 브라우저의 저장이 A 의 보이는 탭을 바꿨다').toBe(watched);
     await A.ctx.close();
