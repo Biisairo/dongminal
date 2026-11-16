@@ -338,16 +338,27 @@ func newHeadlessFixture(t *testing.T) *headlessFixture {
 // (`부착이 쓴 명령 = [tools_background_changed restoreTool]`).
 func (f *headlessFixture) waitAction(t *testing.T, name string) {
 	t.Helper()
+	f.waitActionN(t, name, 1)
+}
+
+// waitActionN 은 그 이름의 명령이 n 번 배달될 때까지 기다린다. 같은 방송을 여러 단계가
+// 내보낼 때(`run_changed` 는 Run 시작과 멤버 추가가 각각 쏜다) 마지막 것까지 기다리는 길이다.
+func (f *headlessFixture) waitActionN(t *testing.T, name string, n int) {
+	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
+		got := 0
 		for _, a := range f.actions() {
 			if a == name {
-				return
+				got++
 			}
+		}
+		if got >= n {
+			return
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatalf("%q 방송이 배달되지 않았다: %v", name, f.actions())
+	t.Fatalf("%q 방송이 %d번 배달되지 않았다: %v", name, n, f.actions())
 }
 
 // actions 는 지금까지 배달된 명령 이름들이다.
@@ -525,6 +536,9 @@ func TestRunAttachDetach_DoesNotChangeMemberState(t *testing.T) {
 	// 조건 없이 내보내므로 기다림은 결정적이고, 기다리지 않으면 비운 뒤에 도착해
 	// 다음 계수에 섞인다.
 	f.waitAction(t, "tools_background_changed")
+	// Run 시작과 멤버 추가가 각각 `run_changed` 를 쏜다(RUN_VIEW_LIVE_SRS FR-RLV-1·2). 윈도우 러너에서
+	// 둘째 것이 비운 뒤에 도착해 부착의 계수에 섞였다 (`[run_changed restoreTool]`).
+	f.waitActionN(t, "run_changed", 2)
 	f.resetActions()
 
 	// 부착 — 브라우저가 탭을 만드는 것을 흉내 낸다.
