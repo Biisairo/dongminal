@@ -2,7 +2,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, switchToEditorRoot, gotoWithEditors } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // UX_BATCH12_SRS FR-FHL-1~7 (R12) — Repo 창의 하이라이트는 Changes·Explorer 를 통틀어 하나이고
@@ -148,4 +148,40 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
     await expect.poll(async () => (await state(page)).changes).toEqual(['tracked.txt']);
     await expect.poll(async () => (await state(page)).set).toEqual([]);
   });
+
+  // 하이라이트는 포커스 탭의 **상태**다. 새로고침(버전 갱신의 자동 새로고침 포함) 직후에는 트리·패널이
+  // 늦게 서므로, 그때 적용하지 못한 것을 "처리했다" 로 적으면 탭을 바꾸기 전까지 하이라이트가 없다.
+  for (const kind of ['file', 'diff'] as const) {
+    test(`TC-FHL-6: 새로고침 뒤에도 포커스 탭(${kind})의 대상이 하이라이트다`, async ({ page, request }) => {
+      const r = await request.post('/api/editors/add', { data: { path: REPO() } });
+      expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
+      await gotoWithEditors(page);
+      await switchToEditorRoot(page, REPO());
+      await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
+      // 새로고침할 때 **반대쪽** 사이드를 보게 둔다 — 대상 패널이 늦게 서는 경우다.
+      if (kind === 'file') {
+        await page.evaluate((f) => (window as any).app.edOpenFile(f, { preview: false }), TOP());
+        await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'changes') });
+      } else {
+        await page.locator('#area .ed-side .git-file[data-path="tracked.txt"]').first().click();
+        await expect.poll(async () => (await state(page)).changes).toEqual(['tracked.txt']);
+        await openExplorer(page);
+      }
+      await page.waitForTimeout(500);
+      await page.reload();
+      await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+      if (kind === 'file') {
+        await openExplorer(page);
+        await expect.poll(async () => (await state(page)).set).toEqual([TOP()]);
+      } else {
+        await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'changes') });
+        await expect.poll(async () => (await state(page)).changes).toEqual(['tracked.txt']);
+      }
+    });
+  }
 });
+
+async function openExplorer(page: Page) {
+  await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'explorer') });
+  await expect(page.locator('#area .ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
+}
