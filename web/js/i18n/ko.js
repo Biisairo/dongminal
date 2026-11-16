@@ -1212,7 +1212,6 @@ I18N.register('ko', {
   'cacct.spend': '추가 사용량 {used} / {limit}',
   'cacct.login_expires': '로그인 만료 {d}',
   'cacct.switch': '이 계정으로 전환',
-  'cacct.set.tab': 'Claude 계정',
   'cacct.set.unavailable': '이 서버는 Claude 계정 기능을 쓰지 않습니다.',
   'cacct.set.sec_accounts': '계정',
   'cacct.set.add': '현재 로그인한 계정 추가',

@@ -1190,7 +1190,6 @@ I18N.register('en', {
   'cacct.spend': 'Extra usage {used} / {limit}',
   'cacct.login_expires': 'Login expires {d}',
   'cacct.switch': 'Switch to this account',
-  'cacct.set.tab': 'Claude accounts',
   'cacct.set.unavailable': 'This server does not provide Claude accounts.',
   'cacct.set.sec_accounts': 'Accounts',
   'cacct.set.add': 'Add the logged-in account',
