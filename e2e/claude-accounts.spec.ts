@@ -86,11 +86,38 @@ test.describe('Claude 계정 (TC-CAC-27)', () => {
     await expect(foot.locator('.cacct.active')).toHaveAttribute('data-id', 'a');
     await expect(foot.locator('.act-usage-sl')).toHaveCount(1);
     await expect(foot.locator('.act-usage-sl')).toContainText('Work');
+    await expect(foot.locator('.cacct-history-btn')).toHaveCount(0); // FR-CAC-111
+
+    // 모양: 활성만 넓다. ▸ 로 바꾼다 (FR-CAC-91)
+    await expect(foot.locator('.cacct.wide')).toHaveAttribute('data-id', 'a');
+    await foot.locator('.cacct[data-id="b"] .cacct-bar').click();
+    await expect(foot.locator('.cacct[data-id="b"]')).toHaveClass(/\bwide\b/);
+    await foot.locator('.cacct[data-id="b"] .cacct-bar').click();
+    await expect(foot.locator('.cacct[data-id="b"]')).not.toHaveClass(/\bwide\b/);
+
+    // 오버레이: 칸을 누르면 Activity 패널 바깥 옆에 뜨고, 칸 높이는 그대로다. 바깥을 누르면 닫힌다 (FR-CAC-91)
+    const boxB = foot.locator('.cacct[data-id="b"]');
+    const h0 = (await boxB.boundingBox())!.height;
+    await boxB.locator('.cacct-head').click();
+    await expect(boxB.locator('.cacct-pop')).toBeVisible();
+    expect((await boxB.boundingBox())!.height).toBe(h0);
+    const panelBox = (await page.locator('#agents-panel').boundingBox())!;
+    const popBox = (await boxB.locator('.cacct-pop').boundingBox())!;
+    expect(popBox.x + popBox.width).toBeLessThanOrEqual(panelBox.x);
+    await boxB.locator('.cacct-head').click();
+    await expect(foot.locator('.cacct-pop')).toHaveCount(0);
+    await boxB.locator('.cacct-head').click();
+    await foot.locator('.cacct[data-id="a"] .cacct-head').click();
+    await expect(foot.locator('.cacct[data-id="a"] .cacct-pop')).toBeVisible();
+    await expect(boxB.locator('.cacct-pop')).toHaveCount(0);
+    await page.locator('#agents-body').click({ position: { x: 5, y: 5 } });
+    await expect(foot.locator('.cacct-pop')).toHaveCount(0);
 
     // 전환 → 활성 표식이 옮겨 간다 (FR-CAC-30·91)
-    await foot.locator('.cacct[data-id="b"] .cacct-head').click();
+    await boxB.locator('.cacct-head').click();
     await foot.locator('.cacct[data-id="b"] .cacct-switch').click();
     await expect(foot.locator('.cacct.active')).toHaveAttribute('data-id', 'b');
+    await expect(foot.locator('.cacct-pop')).toHaveCount(0);
 
     // 초기화 확인 대화상자 — 취소하면 보내지 않는다 (FR-CAC-62)
     let resets = 0;
@@ -113,8 +140,15 @@ test.describe('Claude 계정 (TC-CAC-27)', () => {
     await alias.press('Tab');
     await expect.poll(() => st.puts.find((p) => p.alias !== undefined)).toEqual({ id: 'a', alias: 'Home' });
     await expect(page.locator('#cacct-set .cacct-set-row[data-id="a"] .cacct-set-name')).toHaveText('Home');
-    await page.locator('#cacct-set .cacct-set-row[data-id="a"] select.cacct-set-color').selectOption('acct-5');
+    await page.locator('#cacct-set .cacct-set-row[data-id="a"] .cacct-swatch[data-color="acct-5"]').click();
     await expect.poll(() => st.puts.find((p) => p.color !== undefined)).toEqual({ id: 'a', color: 'acct-5' });
+    await expect(page.locator('#cacct-set .cacct-set-row[data-id="a"] .cacct-swatch-name')).toHaveText(/청록|Teal/);
+    // 전환 기록은 설정의 "기록" 단추로 연다 (FR-CAC-111)
+    await page.locator('#cacct-set .cacct-history-btn').click();
+    const hist = page.locator('.cacct-history');
+    await expect(hist.locator('.cacct-hist-empty')).toBeVisible();
+    await hist.locator('button').last().click();
+    await expect(hist).toHaveCount(0);
     await page.keyboard.press('Escape');
 
     // 탭 지정 → 진한 틴트 (FR-CAC-85·95)

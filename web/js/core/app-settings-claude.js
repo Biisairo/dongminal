@@ -22,9 +22,12 @@ const CACCT_STRATEGIES=[
   {id:'consume-first',label:'cacct.set.st_consume_first'},
   {id:'priority-consume-first',label:'cacct.set.st_priority_consume_first'},
 ];
-/** FR-CAC-111: 설정이 보이는 전환 기록 건수. */
-const CACCT_SET_HISTORY_LIMIT=50;
 const CACCT_COLORS=['acct-1','acct-2','acct-3','acct-4','acct-5','acct-6','acct-7','acct-8'];
+
+/** FR-CAC-94a·98: 색 견본 8개 — 번호 순서의 색 이름과 고른 색. */
+function cacctColorSwatches(cur){
+  return CACCT_COLORS.map(c=>({color:c,name:t('cacct.color.'+c.replace('-','_')),selected:c===cur}));
+}
 
 function cacctNum(v){
   const s=String(v==null?'':v).trim();
@@ -148,16 +151,15 @@ Object.assign(App.prototype, {
 
   /** FR-CAC-94a: 탭을 열 때 다섯 가지를 다시 받는다. 503 이면 계정 기능이 없는 서버다. */
   async _loadClaudePanel(){
-    const [list,auto,maps,unc,hist]=await Promise.all([
+    const [list,auto,maps,unc]=await Promise.all([
       apiGet('/api/claude-accounts'),apiGet('/api/claude-accounts/autoswitch'),apiGet('/api/claude-accounts/mappings'),
-      apiGet('/api/claude-accounts/unclaimed'),apiGet('/api/claude-accounts/history?limit='+CACCT_SET_HISTORY_LIMIT)]);
+      apiGet('/api/claude-accounts/unclaimed')]);
     this._cacctSet={
       off:list.status===503,
       accounts:list.ok&&list.data&&Array.isArray(list.data.accounts)?list.data.accounts:[],
       auto:auto.ok&&auto.data?auto.data:null,
       folders:maps.ok&&maps.data?maps.data.folders||{}:{},
       unclaimed:unc.ok&&unc.data?unc.data.entries:[],
-      history:hist.ok&&hist.data?hist.data.entries:[],
     };
     this._cacctPaint();
     return list;
@@ -213,10 +215,24 @@ Object.assign(App.prototype, {
     if(r.status) actEl(head,'span','cacct-st',r.status);
     actEl(head,'span','cacct-set-login'+(r.login.warn?' warn':''),r.login.text);
     const f=actEl(row,'div','cacct-set-fields');
-    const color=actEl(f,'select','sbs-select cacct-set-color');
-    color.title=t('cacct.set.color');
-    CACCT_COLORS.forEach((c,i)=>{const o=actEl(color,'option','',t('cacct.set.color_n',{n:i+1}));o.value=c;o.selected=c===r.color});
-    color.addEventListener('change',()=>this._cacctItem(r.id,'color',color.value));
+    const pick=actEl(f,'div','cacct-swatches');
+    pick.setAttribute('role','radiogroup');
+    pick.setAttribute('aria-label',t('cacct.set.color'));
+    let curName='';
+    for(const sw of cacctColorSwatches(r.color)){
+      const b=actEl(pick,'button','cacct-swatch'+(sw.selected?' on':''));
+      b.type='button';
+      b.dataset.color=sw.color;
+      b.title=sw.name;
+      b.setAttribute('role','radio');
+      b.setAttribute('aria-checked',String(sw.selected));
+      b.setAttribute('aria-label',sw.name);
+      b.style.background='var(--'+sw.color+')';
+      if(!sw.selected) b.addEventListener('click',()=>this._cacctItem(r.id,'color',sw.color));
+      if(sw.selected) curName=sw.name;
+    }
+    const nm=actEl(pick,'span','cacct-swatch-name',curName);
+    nm.style.color='var(--'+r.color+')';
     const field=(key,label,cls,type,value,ph)=>{
       const lab=actEl(f,'label','cacct-set-field',label);
       const inp=actEl(lab,'input',cls);
@@ -315,17 +331,11 @@ Object.assign(App.prototype, {
     }
   },
 
-  _cacctHistoryEl(root,s){
+  /** FR-CAC-111: 전환 기록은 단추로 대화상자를 연다. */
+  _cacctHistoryEl(root){
     actEl(root,'div','ds-sec',t('cacct.set.sec_history'));
-    const rows=claudeAcctHistoryRows(s.history,s.accounts);
-    const box=actEl(root,'div','cacct-hist ui-scroll-sm');
-    if(!rows.length) actEl(box,'p','cacct-hist-empty',t('cacct.hist.empty'));
-    for(const x of rows){
-      const row=actEl(box,'div','cacct-hist-row');
-      actEl(row,'span','cacct-hist-time',x.time);
-      actEl(row,'span','cacct-hist-move',x.from+' → '+x.to);
-      actEl(row,'span','cacct-hist-meta',x.trigger+' · '+x.by);
-    }
+    const row=actEl(root,'div','ds-row');
+    row.appendChild(UIKit.button({label:t('cacct.hist.open'),size:'sm',cls:'cacct-history-btn',onClick:()=>this._claudeAcctHistory()}));
   },
 
   _cacctPaint(){
@@ -346,6 +356,6 @@ Object.assign(App.prototype, {
     this._cacctAutoEl(root,s.auto);
     this._cacctFoldersEl(root,s);
     this._cacctUnclaimedEl(root,s);
-    this._cacctHistoryEl(root,s);
+    this._cacctHistoryEl(root);
   },
 });

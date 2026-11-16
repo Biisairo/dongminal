@@ -85,10 +85,12 @@ func (s *Server) apiClaudeAccountsList(w http.ResponseWriter, _ *http.Request) {
 	}
 	av := s.ca.auto.View()
 	now := time.Now().Unix()
-	views := claudeacct.BuildViews(st, s.ca.eng.Rows(), now)
+	rows := s.ca.eng.Rows()
+	views := claudeacct.BuildViews(st, rows, now)
+	lastSwitch := s.ca.eng.LastSwitchAt()
 	for i := range views {
 		if u, at, ok := s.ca.sl.get(views[i].Account); ok {
-			views[i].StatusLine = claudeacct.StatusLineViewOf(u, at, now)
+			views[i].ApplyStatusLine(rows[views[i].ID].LastGood, u, at, lastSwitch, now)
 		}
 		views[i].ProfileWarnings = s.ca.svc.ProfileWarnings(views[i].ID)
 	}

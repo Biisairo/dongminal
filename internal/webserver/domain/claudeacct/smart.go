@@ -86,6 +86,9 @@ func mergeWindow(oauth, sl *Window, now int64) *Window {
 	return o
 }
 
+// LastSwitchAt 은 dongminal 이 마지막으로 전환한 시각(unix 초)이다. 화면의 표시 값이 쓴다 (D-CAC-35).
+func (e *Engine) LastSwitchAt() int64 { return e.lastSwitch() }
+
 func (e *Engine) lastSwitch() int64 {
 	e.mu.Lock()
 	defer e.mu.Unlock()

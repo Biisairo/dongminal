@@ -979,8 +979,37 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .cacct-hist-move{color:var(--text-bright);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cacct-hist-meta{color:var(--text-muted)}
 .cacct-hist-empty{color:var(--text-muted)}
-.cacct{margin-top:8px;min-width:0}
-.cacct-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);cursor:pointer;min-width:0}
+.cacct{position:relative;margin:0 -12px;padding:5px 12px 5px 16px;min-width:0;border-bottom:1px solid var(--border-weak);cursor:pointer}
+.cacct:first-of-type{border-top:1px solid var(--border-weak)}
+.cacct:hover{background:var(--accent-hover)}
+.cacct.active{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.cacct.pop{background:var(--accent-active)}
+.cacct.wide{padding-bottom:7px}
+.cacct.wide .act-usage-win{margin-top:4px}
+/* FR-CAC-91: 왼쪽 계정 색 바 — 누르는 폭 14px, 왼쪽 4px 만 진하고 나머지는 옅어지며 칸 여백(16px) 안에 깔린다. 누르면 넓은/좁은 모양. */
+.cacct-bar{position:absolute;left:0;top:0;bottom:0;width:14px;cursor:col-resize;
+  -webkit-mask-image:linear-gradient(90deg,#000 4px,rgba(0,0,0,.28) 4px,transparent);mask-image:linear-gradient(90deg,#000 4px,rgba(0,0,0,.28) 4px,transparent)}
+.cacct-bar:hover{-webkit-mask-image:linear-gradient(90deg,#000 4px,rgba(0,0,0,.5) 4px,transparent);mask-image:linear-gradient(90deg,#000 4px,rgba(0,0,0,.5) 4px,transparent)}
+.cacct-head{display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);min-width:0}
+.cacct-minis{display:flex;gap:8px;margin-left:auto;flex-shrink:0}
+.cacct-mini{display:inline-flex;align-items:center;gap:4px;color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cacct-mini-track{width:22px;height:4px;border-radius:2px;background:var(--border-weak);overflow:hidden}
+.cacct-mini-fill{display:block;height:100%;background:var(--accent)}
+.cacct-mini.lv-warn .cacct-mini-fill{background:var(--attn)}
+.cacct-mini.lv-warn .cacct-mini-text{color:var(--attn-text)}
+.cacct-mini.lv-critical .cacct-mini-fill{background:var(--danger)}
+.cacct-mini.lv-critical .cacct-mini-text{color:var(--danger-text)}
+/* FR-CAC-91: 요약 오버레이 — Activity 패널 바깥 옆에 뜬다. 자리는 JS 가 셈한다 (claudeAcctPopPlace). */
+.cacct-pop{position:fixed;left:0;top:0;width:280px;z-index:var(--z-popover);max-height:70vh;overflow-y:auto;
+  cursor:default;background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:6px;box-shadow:var(--shadow-2);font-size:var(--fs-sm)}
+.cacct-pop>*{padding:8px 12px}
+.cacct-pop>*+*{border-top:1px solid var(--border-weak)}
+.cacct-pop-top{display:flex;align-items:center;gap:6px;min-width:0}
+.cacct-pop-name{flex:1 1 auto;min-width:0;font-weight:600;color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cacct-pop-title,.cacct-pop-st{margin-top:2px;padding-left:14px;color:var(--text-hint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cacct-pop-st{color:var(--text-muted)}
+.cacct-pop-sec>.act-usage-win:first-child{margin-top:0}
+.cacct-pop-sec>.act-usage-win+.act-usage-win{margin-top:8px}
 .cacct-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%}
 /* CLAUDE_ACCOUNTS_SRS FR-CAC-95: 탭 틴트는 배경색 위의 층이다 — 활성 배경색과 알람 링이 그대로 보인다 */
 .pn-tab.cacct-tint{background-image:linear-gradient(var(--cacct-tint),var(--cacct-tint))}
@@ -992,6 +1021,12 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .cacct-set-meta,.cacct-set-login,.cacct-set-over{color:var(--text-hint);font-size:var(--fs-sm)}
 .cacct-set-login.warn,.cacct-set-warn{color:var(--attn-text)}
 .cacct-set-fields,.cacct-set-auto{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.cacct-swatches{display:inline-flex;align-items:center;gap:5px}
+.cacct-swatch{width:16px;height:16px;padding:0;border:0;border-radius:50%;cursor:pointer;box-shadow:0 0 0 1px var(--border)}
+.cacct-swatch:hover{box-shadow:0 0 0 2px var(--border-strong)}
+.cacct-swatch.on{box-shadow:0 0 0 2px var(--sidebar-bg),0 0 0 4px var(--text-bright);cursor:default}
+.cacct-swatch:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.cacct-swatch-name{min-width:3em;margin-left:4px;font-size:var(--fs-sm);font-weight:600}
 .cacct-set-field{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-sm)}
 .cacct-set-warn{font-size:var(--fs-sm);margin-top:4px}
 .cacct-set-folder{display:flex;align-items:center;gap:6px;padding:2px 0}
@@ -1000,21 +1035,23 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .cacct-chip{flex-shrink:0;max-width:10em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:6px;padding:0 5px;
   border:1px solid var(--cacct-c);border-radius:3px;background:color-mix(in srgb,var(--cacct-c) 18%,transparent);
   color:var(--text);font-size:var(--fs-xs);line-height:1.5}
-.cacct-name{flex:1 1 auto;min-width:0;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cacct-name{flex:0 1 auto;min-width:0;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cacct.active .cacct-name{font-weight:600}
 .cacct-active{flex-shrink:0;color:var(--accent-text)}
 .cacct-st{flex-shrink:0;color:var(--attn-text)}
 .cacct-age{flex-shrink:0;color:var(--text-hint)}
-.cacct-more{min-width:0}
 .cacct-pace,.cacct-spend,.cacct-login{margin-top:4px;font-size:var(--fs-sm);color:var(--text-muted)}
+.cacct-pop-sec>.cacct-spend:first-child,.cacct-pop-sec>.cacct-login:first-child{margin-top:0}
 .cacct-pace.warn,.cacct-login.warn{color:var(--attn-text)}
-.cacct-acts{display:flex;gap:6px;margin-top:6px}
+.cacct-acts{display:flex;align-items:center;justify-content:space-between;gap:6px}
 /* FR-CAC-65: 제한 초기화 칸 — 줄마다 이름 · 상태 · (쓸 수 있으면) 버튼. */
-.cacct-resets{margin-top:6px;min-width:0}
+.cacct-resets{min-width:0}
 .cacct-resets-h{font-size:var(--fs-sm);color:var(--text-hint)}
-.cacct-rs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin-top:4px;font-size:var(--fs-sm);min-width:0}
+.cacct-rs{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:var(--fs-sm);min-width:0}
+.cacct-rs-txt{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}
+.cacct-rs-use{flex-shrink:0}
 .cacct-rs-name{color:var(--text-bright);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cacct-rs-detail{flex:1 1 auto;color:var(--text-muted);min-width:0}
+.cacct-rs-detail{color:var(--text-hint);min-width:0}
 .act-usage-sl{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;margin-top:8px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
 .act-usage-sl:first-child{margin-top:0}
 .act-usage-sl>span+span::before{content:'·';margin-right:6px;color:var(--text-hint)}

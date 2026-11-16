@@ -51,7 +51,8 @@ function loadFoot(globals = {}) {
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
       AGENT_STATE_ICON: { working: '●', done: '✓', waiting: '…', idle: '○' },
       PrefStore: { local },
-      STORE_KEYS: { agentsGroupFold: 'agentsGroupFold', agentsSubView: 'agentsSubView', claudeAcctOpen: 'claudeAcctOpen' },
+      TIMERS: { frame: () => ({}) },
+      STORE_KEYS: { agentsGroupFold: 'agentsGroupFold', agentsSubView: 'agentsSubView', claudeAcctFold: 'claudeAcctFold' },
       UIKit: {
         iconHTML: (n) => '<i:' + n + '>',
         button: (b) => ({ className: 'ui-btn ' + (b.cls || ''), textContent: b.label, children: [] }),
@@ -87,9 +88,9 @@ const ACC_B = { id: 'b', email: 'b@x.com', color: 'bogus', active: false, usage:
 
 // ── 계정 묶음 (FR-CAC-91) ──
 
-test('FR-CAC-91: 접힌 묶음은 머리와 5시간·주간 막대뿐이다', () => {
+test('FR-CAC-91: 오버레이가 닫힌 묶음은 머리와 5시간·주간 막대뿐이다', () => {
   const { claudeAcctView } = loadFoot();
-  const v = plain(claudeAcctView(ACC_A, false));
+  const v = plain(claudeAcctView(ACC_A, false, true));
   assert.equal(v.id, 'a');
   assert.equal(v.name, 'Work');
   assert.equal(v.title, 'a@x.com · Org A');
@@ -97,7 +98,9 @@ test('FR-CAC-91: 접힌 묶음은 머리와 5시간·주간 막대뿐이다', ()
   assert.equal(v.active, true);
   assert.equal(v.status, '');
   assert.equal(v.age, '');
-  assert.equal(v.open, false);
+  assert.equal(v.pop, false);
+  assert.equal(v.wide, true);
+  assert.deepEqual(v.mini, [{ text: 'Session 34%', fill: 34.4, level: '' }, { text: 'Week 72%', fill: 72, level: 'warn' }]);
   assert.deepEqual(v.bars.map((b) => b.label), ['Current session', 'Current week']);
   assert.deepEqual(v.bars[0], { id: 'a:five_hour', label: 'Current session', used: '34% used', fill: 34.4, level: '',
     reset: 'Resets in 2h 10m', title: 'Current session · 34% used · resets at ' + clock((NOW + 7800) * 1000) });
@@ -105,7 +108,7 @@ test('FR-CAC-91: 접힌 묶음은 머리와 5시간·주간 막대뿐이다', ()
   assert.equal(v.more, null);
 });
 
-test('FR-CAC-91: 펼치면 scoped·예측·추가 사용량·로그인 만료·동작이 보인다', () => {
+test('FR-CAC-91: 오버레이를 열면 scoped·예측·추가 사용량·로그인 만료·동작이 보인다', () => {
   const { claudeAcctView } = loadFoot();
   const exhaust = Date.UTC(2026, 10, 11, 9, 0) / 1000; // 수요일
   const acc = structuredClone(ACC_A);
@@ -113,7 +116,7 @@ test('FR-CAC-91: 펼치면 scoped·예측·추가 사용량·로그인 만료·�
   acc.usage.loginExpiresAt = Date.UTC(2026, 11, 1, 12) / 1000;
   acc.usage.loginExpiringSoon = true;
   const v = plain(claudeAcctView(acc, true));
-  assert.equal(v.open, true);
+  assert.equal(v.pop, true);
   assert.deepEqual(v.more.scoped.map((b) => [b.id, b.label, b.level, b.reset]), [['a:scoped:Opus', 'Opus', 'critical', '']]);
   const d = new Date(exhaust * 1000);
   assert.equal(v.more.pace.text, 'Expected 22% · runs out before reset at this pace (' + fillEn('cacct.wd.' + d.getDay()) + ' ' + clock(exhaust * 1000) + ')');
@@ -141,8 +144,11 @@ test('FR-CAC-55·56·91: 상태 문구·다시 시도 시각·n분 전, 이름�
   const v = plain(claudeAcctView(acc, true));
   assert.equal(v.name, 'c@x.com');
   assert.equal(v.title, 'c@x.com');
-  assert.equal(v.status, 'Rate limited · retry ' + clock((NOW + 600) * 1000));
+  assert.equal(v.status, '', 'D-CAC-34: 저절로 다시 시도하는 상태는 머리에 보이지 않는다');
+  assert.equal(v.more.status, 'Rate limited · retry ' + clock((NOW + 600) * 1000), '오버레이에는 보인다');
   assert.equal(v.age, '7m ago');
+  const re = plain(claudeAcctView({ ...acc, usage: { ...acc.usage, status: 'relogin_required', backoffUntil: 0 } }, false));
+  assert.equal(re.status, 'Log in again', '손써야 하는 상태는 머리에 보인다');
   assert.deepEqual(v.bars.map((b) => b.label), ['Current session']);
   assert.equal(v.more.canSwitch, true);
   assert.equal(v.more.spend, '');
@@ -228,19 +234,60 @@ test('FR-CAC-90: 계정이 없으면 statusLine 줄만, 있으면 계정 묶음 
   assert.equal(foot.view.next, false, '전환할 다른 계정이 없으면 다음 계정 버튼이 없다');
 });
 
-test('FR-CAC-91: 펼침은 계정별로 기억한다', () => {
+test('FR-CAC-91: 모양 기본값은 활성 계정만 넓게이고, 바꾼 모양은 계정별로 기억한다', () => {
+  const ctx = loadFoot();
+  const app = footApp(ctx);
+  let rendered = 0;
+  app.agentsRender = () => { rendered++ };
+  app._claudeAccts = [ACC_A, ACC_B];
+  const wide = () => plain(app._actItems().at(-1).view.accounts.map((a) => a.wide));
+  assert.deepEqual(wide(), [true, false]);
+  app._claudeAcctFoldToggle('b');
+  assert.equal(rendered, 1);
+  assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctFold')), { b: true });
+  assert.deepEqual(wide(), [true, true]);
+  app._claudeAcctFoldToggle('a');
+  assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctFold')), { b: true, a: false });
+  assert.deepEqual(wide(), [false, true]);
+  // 기억한 값이 없는 계정은 활성 여부를 따른다.
+  ctx._local.setJson('claudeAcctFold', {});
+  app._claudeAccts = [{ ...ACC_A, active: false }, { ...ACC_B, active: true }];
+  assert.deepEqual(wide(), [false, true]);
+});
+
+test('FR-CAC-91: 오버레이는 한 번에 하나 — 같은 칸은 닫고, 다른 칸은 옮기고, 바깥 누름·Esc 는 닫는다', () => {
   const ctx = loadFoot({ apiPost: () => Promise.resolve({ ok: false, status: 409, data: {} }) });
   const app = footApp(ctx);
   let rendered = 0;
   app.agentsRender = () => { rendered++ };
   app._claudeAccts = [ACC_A, ACC_B];
-  app._claudeAcctToggle('b');
-  assert.equal(rendered, 1);
-  assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctOpen')), ['b']);
-  const v = app._actItems().at(-1).view;
-  assert.deepEqual(plain(v.accounts.map((a) => a.open)), [false, true]);
-  app._claudeAcctToggle('b');
-  assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctOpen')), []);
+  const pops = () => plain(app._actItems().at(-1).view.accounts.map((a) => a.pop));
+  assert.deepEqual(pops(), [false, false]);
+  app._claudeAcctPopToggle('a');
+  assert.deepEqual(pops(), [true, false]);
+  app._claudeAcctPopToggle('b');
+  assert.deepEqual(pops(), [false, true]);
+  app._claudeAcctPopToggle('b');
+  assert.deepEqual(pops(), [false, false]);
+  assert.equal(ctx._local.m.has('claudeAcctFold'), false, '오버레이는 기억하지 않는다');
+
+  const at = (sel) => ({ type: 'pointerdown', target: { closest: (q) => (q.split(',').includes(sel) ? {} : null) } });
+  app._claudeAcctPopToggle('a');
+  app._claudeAcctPopDismiss(at('.cacct-pop'));
+  assert.deepEqual(pops(), [true, false], '오버레이 안은 닫지 않는다');
+  app._claudeAcctPopDismiss(at('.cacct'));
+  assert.deepEqual(pops(), [true, false], '칸 누름은 칸의 처리기가 맡는다');
+  app._claudeAcctPopDismiss({ type: 'keydown', key: 'a' });
+  assert.deepEqual(pops(), [true, false]);
+  const n = rendered;
+  app._claudeAcctPopDismiss(at('.elsewhere'));
+  assert.deepEqual(pops(), [false, false]);
+  assert.equal(rendered, n + 1);
+  app._claudeAcctPopDismiss(at('.elsewhere'));
+  assert.equal(rendered, n + 1, '열린 것이 없으면 다시 그리지 않는다');
+  app._claudeAcctPopToggle('b');
+  app._claudeAcctPopDismiss({ type: 'keydown', key: 'Escape' });
+  assert.deepEqual(pops(), [false, false]);
 });
 
 test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusLine 줄', () => {
@@ -251,32 +298,83 @@ test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusL
   const foot = app._actUsageFootEl(app._actItems().at(-1).view);
   const kinds = [...foot.children].map((c) => c.className.split(' ')[0]);
   assert.deepEqual(kinds, ['act-usage-head', 'cacct', 'cacct', 'act-usage-sl']);
+  assert.equal(find(foot.children[0], 'cacct-history-btn'), null, 'FR-CAC-111: 전환 기록은 Activity 에 두지 않는다');
   const a = foot.children[1];
-  assert.equal(a.className, 'cacct active');
+  assert.equal(a.className, 'cacct active wide');
   assert.equal(a.dataset.id, 'a');
-  const head = a.children[0];
+  assert.equal(a.children[0].className, 'cacct-bar', '왼쪽 색 바가 첫 원소다');
+  assert.equal(a.children[0].style.background, 'var(--acct-3)');
+  const head = a.children[1];
   assert.equal(head.className, 'cacct-head');
+  assert.equal(find(a, 'cacct-fold'), null, '모양은 색 바로 바꾼다 — ▸/▾ 가 없다');
+  assert.equal(find(head, 'cacct-mini'), null, '넓은 모양은 머리에 작은 막대가 없다');
   assert.equal(find(head, 'cacct-dot').style.background, 'var(--acct-3)');
   assert.equal(find(head, 'cacct-name').textContent, 'Work');
   assert.equal(find(head, 'cacct-active').textContent, 'Active');
-  assert.deepEqual([...a.children].slice(1).map((c) => c.className), ['act-usage-win', 'act-usage-win lv-warn']);
+  assert.deepEqual([...a.children].slice(2).map((c) => c.className), ['act-usage-win', 'act-usage-win lv-warn']);
+  const b = foot.children[2];
+  assert.equal(b.className, 'cacct');
+  assert.deepEqual([...b.children].map((c) => c.className), ['cacct-bar', 'cacct-head'], '좁은 모양은 머리 한 줄이다');
+  assert.equal(find(b.children[1], 'cacct-minis').children.length, 0);
+  assert.equal(find(a, 'cacct-pop'), null);
   const sl = foot.children[3];
   assert.deepEqual([...sl.children].map((c) => c.textContent), ['statusLine', 'Session 1%']);
   assert.equal(sl.children[1].className, 'act-usage-sl-seg');
 });
 
-test('FR-CAC-91: 펼친 묶음에는 동작 버튼이 있고, 활성 계정에는 전환이 없다', () => {
+test('FR-CAC-91: 오버레이 자리 — 패널 바깥 옆, 칸 높이에 맞추고 화면 안으로 당긴다. 옆에 자리가 없으면 칸 위', () => {
+  const { claudeAcctPopPlace } = loadFoot();
+  const card = { top: 600, bottom: 630 };
+  // 패널이 오른쪽: 왼쪽에 뜬다
+  assert.deepEqual(plain(claudeAcctPopPlace(card, { left: 1000, right: 1260 }, 280, 200, 1280, 900)),
+    { left: 714, top: 600, width: 280, side: 'left' });
+  // 화면 아래로 넘치면 위로 당긴다
+  assert.deepEqual(plain(claudeAcctPopPlace({ top: 800, bottom: 830 }, { left: 1000, right: 1260 }, 280, 200, 1280, 900)),
+    { left: 714, top: 694, width: 280, side: 'left' });
+  // 패널이 왼쪽: 오른쪽에 뜬다
+  assert.deepEqual(plain(claudeAcctPopPlace(card, { left: 0, right: 260 }, 280, 200, 1280, 900)),
+    { left: 266, top: 600, width: 280, side: 'right' });
+  // 옆에 자리가 없으면(모바일) 화면 폭으로 칸 위에
+  assert.deepEqual(plain(claudeAcctPopPlace(card, { left: 0, right: 390 }, 280, 200, 390, 800)),
+    { left: 6, top: 394, width: 378, side: 'over' });
+  assert.equal(plain(claudeAcctPopPlace({ top: 100, bottom: 130 }, { left: 0, right: 390 }, 280, 200, 390, 800)).top, 6);
+});
+
+test('FR-CAC-91: 오버레이에는 요약과 동작 버튼이 있고, 활성 계정에는 전환이 없다', () => {
   const ctx = loadFoot();
   const app = footApp(ctx);
-  ctx._local.setJson('claudeAcctOpen', ['a', 'b']);
   app._claudeAccts = [ACC_A, { ...ACC_B, usage: { windows: { fiveHour: { pct: 1, level: '' } } } }];
-  const foot = app._actUsageFootEl(app._actItems().at(-1).view);
-  const [a, b] = [foot.children[1], foot.children[2]];
+  const render = (id) => { app._claudeAcctPopId = id; return app._actUsageFootEl(app._actItems().at(-1).view) };
+  let foot = render('a');
+  const a = foot.children[1];
+  assert.equal(a.className, 'cacct active wide pop');
+  const pop = find(a, 'cacct-pop');
+  assert.equal(find(pop, 'cacct-pop-title').textContent, 'a@x.com · Org A');
+  const cls = (el) => el.className.split(' ')[0];
+  assert.deepEqual(pop.children.map(cls), ['cacct-pop-head', 'cacct-pop-sec', 'cacct-pop-sec', 'cacct-acts'],
+    '머리 / 사용량 / 기타 / 동작 — 초기화가 없으면 그 구역이 없다');
+  const head = pop.children[0];
+  assert.equal(find(head, 'cacct-pop-name').textContent, 'Work');
+  assert.equal(find(head, 'cacct-active').textContent, 'Active', '활성 표식은 머리에');
+  const usage = pop.children[1];
+  assert.deepEqual(usage.children.map(cls), ['act-usage-win', 'act-usage-win', 'act-usage-win', 'cacct-pace'], '5시간·주간·scoped, 예측은 막대 뒤');
+  assert.deepEqual(pop.children[2].children.map(cls), ['cacct-spend']);
+  const acts = pop.children[3];
+  assert.deepEqual(acts.children.map((c) => c.className.trim()), ['ui-btn cacct-refresh'], '활성 계정은 새로 고침만');
   assert.equal(find(a, 'cacct-switch'), null);
   assert.ok(find(a, 'cacct-refresh'));
-  assert.ok(find(b, 'cacct-switch'));
   assert.equal(find(a, 'cacct-pace').className, 'cacct-pace warn');
   assert.equal(find(a, 'cacct-spend').textContent, 'Extra usage $12.40 / $50');
+  assert.equal(find(foot.children[2], 'cacct-pop'), null);
+  foot = render('b');
+  const b = foot.children[2];
+  assert.ok(find(b, 'cacct-switch'));
+  const popB = find(b, 'cacct-pop');
+  assert.deepEqual(popB.children.map((c) => c.className.split(' ')[0]), ['cacct-pop-head', 'cacct-pop-sec', 'cacct-acts'], '기타 정보가 없으면 그 구역이 없다');
+  assert.equal(find(popB.children[0], 'cacct-active'), null);
+  assert.deepEqual(popB.children[2].children.map((c) => c.className.trim()), ['ui-btn cacct-refresh', 'ui-btn cacct-switch'], '새로 고침 왼쪽, 전환 오른쪽');
+  assert.equal(find(b, 'cacct-minis').children.length, 1, '좁은 모양의 머리에 창마다 작은 막대');
+  assert.equal(find(foot.children[1], 'cacct-pop'), null);
 });
 
 // ── 데이터 (FR-CAC-122) ──
@@ -398,7 +496,7 @@ test('FR-CAC-61·65: 자격이 없거나 상태가 없으면 칸이 비고, 쓸 
 test('FR-CAC-65: 초기화 칸 원소 — 쓸 수 있는 줄에만 버튼', () => {
   const ctx = loadFoot();
   const app = footApp(ctx);
-  ctx._local.setJson('claudeAcctOpen', ['a']);
+  app._claudeAcctPopId = 'a';
   app._claudeAccts = [withResets(RESETS)];
   const box = app._actUsageFootEl(app._actItems().at(-1).view).children[1];
   const sec = find(box, 'cacct-resets');
@@ -433,7 +531,7 @@ test('FR-CAC-62·63: 사용은 확인 뒤에만 보내고, 결과를 알린다. 
   assert.deepEqual(plain(toasts), [['Reset done', 'ok'], ['Could not confirm', 'err'], ['E400', 'err']]);
 });
 
-test('FR-CAC-60·65: 펼칠 때 초기화 상태를 조용히 다시 묻는다 — 접을 때는 묻지 않는다', async () => {
+test('FR-CAC-60·65: 오버레이를 열 때 초기화 상태를 조용히 다시 묻는다 — 닫을 때는 묻지 않는다', async () => {
   const calls = [], toasts = [];
   const ctx = loadFoot({
     apiPost: (p, b) => { calls.push([p, b]); return Promise.resolve({ ok: false, status: 409, data: {} }) },
@@ -442,8 +540,8 @@ test('FR-CAC-60·65: 펼칠 때 초기화 상태를 조용히 다시 묻는다 �
   const app = footApp(ctx);
   app.agentsRender = () => {};
   app._claudeAcctRestore = () => Promise.resolve();
-  await app._claudeAcctToggle('a');
-  await app._claudeAcctToggle('a');
+  await app._claudeAcctPopToggle('a');
+  await app._claudeAcctPopToggle('a');
   assert.deepEqual(plain(calls), [['/api/claude-accounts/refresh', { id: 'a', resets: true }]]);
   assert.equal(toasts.length, 0, '409(1분 안) 는 알리지 않는다');
 });

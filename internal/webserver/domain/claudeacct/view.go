@@ -164,3 +164,32 @@ func BuildViews(st State, rows map[string]Row, now int64) []AccountView {
 	}
 	return out
 }
+
+// ApplyStatusLine 은 statusLine 값(sl, slAt 에 받음)을 뷰에 싣는다 (FR-CAC-91·93, D-CAC-35). 줄(StatusLine)은
+// 보고값 그대로이고, 5시간·주간 막대는 OAuth 값과 창마다 합친 표시 값이다. 마지막 전환 뒤 60초 안에 온
+// 보고는 막대에 쓰지 않는다 — 실행 중인 세션이 옛 토큰을 쓰는 동안이다 (FR-CAC-78).
+func (v *AccountView) ApplyStatusLine(oauth *Usage, sl Usage, slAt, lastSwitch, now int64) {
+	v.StatusLine = StatusLineViewOf(sl, slAt, now)
+	if slAt < lastSwitch+statusLineGraceS || v.Usage == nil {
+		return
+	}
+	var o5, o7 *Window
+	if oauth != nil {
+		o5, o7 = oauth.FiveHour, oauth.SevenDay
+	}
+	m5, m7 := mergeWindow(o5, sl.FiveHour, now), mergeWindow(o7, sl.SevenDay, now)
+	if m5 == nil && m7 == nil {
+		return
+	}
+	if v.Usage.Windows == nil {
+		v.Usage.Windows = &WindowsView{}
+	}
+	if m5 != nil {
+		w := windowView(*m5, now)
+		v.Usage.Windows.FiveHour = &w
+	}
+	if m7 != nil {
+		w := windowView(*m7, now)
+		v.Usage.Windows.SevenDay = &w
+	}
+}

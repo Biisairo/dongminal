@@ -14,6 +14,8 @@ const EN = {
   'cacct.set.auto_threshold': 'Threshold', 'cacct.set.auto_interval': 'Check interval',
   'cacct.set.auto_bad': '{field} is out of range',
   'cacct.set.unclaimed_row': '{t} · fingerprint {fp}',
+  'cacct.color.acct_1': 'Red', 'cacct.color.acct_2': 'Orange', 'cacct.color.acct_3': 'Yellow', 'cacct.color.acct_4': 'Green',
+  'cacct.color.acct_5': 'Teal', 'cacct.color.acct_6': 'Blue', 'cacct.color.acct_7': 'Purple', 'cacct.color.acct_8': 'Pink',
 };
 function fillEn(k, p) {
   if (!(k in EN)) return k;
@@ -36,6 +38,17 @@ function loadSet() {
 }
 
 const ymd = (s) => { const d = new Date(s * 1000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') };
+
+// ── 색 고르기 (FR-CAC-94a·98) ──
+
+test('FR-CAC-94a·98: 색 견본 8개 — 번호 순서의 색 이름, 고른 색 표시', () => {
+  const { cacctColorSwatches } = loadSet();
+  const s = plain(cacctColorSwatches('acct-6'));
+  assert.deepEqual(s.map((x) => x.name), ['Red', 'Orange', 'Yellow', 'Green', 'Teal', 'Blue', 'Purple', 'Pink']);
+  assert.deepEqual(s.map((x) => x.color), ['acct-1', 'acct-2', 'acct-3', 'acct-4', 'acct-5', 'acct-6', 'acct-7', 'acct-8']);
+  assert.deepEqual(s.filter((x) => x.selected).map((x) => x.color), ['acct-6']);
+  assert.equal(plain(cacctColorSwatches('bogus')).filter((x) => x.selected).length, 0);
+});
 
 // ── 계정 줄 (FR-CAC-94a) ──
 

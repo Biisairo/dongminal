@@ -81,3 +81,62 @@ func TestBuildViewsResets(t *testing.T) {
 		t.Fatalf("%+v %+v", vs[0].Usage.Resets, vs[1].Usage.Resets)
 	}
 }
+
+// FR-CAC-91 · D-CAC-35: 막대의 표시 값은 창마다 OAuth 값과 statusLine 값을 합친 것이다.
+func TestApplyStatusLine(t *testing.T) {
+	now := int64(1_000_000)
+	oauth := &Usage{
+		FiveHour: &Window{Pct: 20, ResetsAt: now + 3600},
+		SevenDay: &Window{Pct: 60, ResetsAt: now + 4*86400},
+		Scoped:   []ScopedWindow{{Name: "Opus", Window: Window{Pct: 30, ResetsAt: now + 4*86400}}},
+	}
+	build := func(o *Usage) AccountView {
+		rows := map[string]Row{}
+		if o != nil {
+			rows["a"] = Row{LastGood: o, FetchedAt: now - 600}
+		}
+		return BuildViews(State{Accounts: []Account{{ID: "a"}}}, rows, now)[0]
+	}
+	sl := Usage{FiveHour: &Window{Pct: 35, ResetsAt: now + 3600}, SevenDay: &Window{Pct: 50, ResetsAt: now + 4*86400}}
+
+	v := build(oauth)
+	v.ApplyStatusLine(oauth, sl, now-900, 0, now)
+	w := v.Usage.Windows
+	if w.FiveHour.Pct != 35 || w.FiveHour.Level != "" || w.SevenDay.Pct != 60 {
+		t.Fatalf("창마다 큰 값: %+v %+v", w.FiveHour, w.SevenDay)
+	}
+	if len(w.Scoped) != 1 || w.Scoped[0].Pct != 30 {
+		t.Fatalf("scoped 는 OAuth 그대로: %+v", w.Scoped)
+	}
+	if v.StatusLine == nil || v.StatusLine.Windows.FiveHour.Pct != 35 || !v.StatusLine.Stale {
+		t.Fatalf("statusLine 줄은 보고값 그대로: %+v", v.StatusLine)
+	}
+
+	// 새 창(초기화 시각이 300초 넘게 늦다)의 statusLine 값은 작아도 쓴다.
+	v = build(oauth)
+	v.ApplyStatusLine(oauth, Usage{FiveHour: &Window{Pct: 2, ResetsAt: now + 3600 + 5*3600}}, now-10, 0, now)
+	if v.Usage.Windows.FiveHour.Pct != 2 || v.Usage.Windows.SevenDay.Pct != 60 {
+		t.Fatalf("새 창: %+v", v.Usage.Windows)
+	}
+
+	// 전환 뒤 60초 안에 온 보고는 막대에 쓰지 않는다 — 줄은 보인다.
+	v = build(oauth)
+	v.ApplyStatusLine(oauth, sl, now-30, now-50, now)
+	if v.Usage.Windows.FiveHour.Pct != 20 || v.StatusLine == nil {
+		t.Fatalf("전환 직후: %+v %+v", v.Usage.Windows.FiveHour, v.StatusLine)
+	}
+
+	// OAuth 값이 없으면 statusLine 값만으로 그린다.
+	v = build(nil)
+	v.ApplyStatusLine(nil, sl, now-10, 0, now)
+	if v.Usage.Windows == nil || v.Usage.Windows.FiveHour.Pct != 35 || v.Usage.Windows.SevenDay.Pct != 50 {
+		t.Fatalf("OAuth 없음: %+v", v.Usage.Windows)
+	}
+
+	// 초기화가 지난 statusLine 값은 버리고, OAuth 값의 창은 그대로 둔다.
+	v = build(oauth)
+	v.ApplyStatusLine(oauth, Usage{FiveHour: &Window{Pct: 99, ResetsAt: now - 1}}, now-10, 0, now)
+	if v.Usage.Windows.FiveHour.Pct != 20 {
+		t.Fatalf("지난 창: %+v", v.Usage.Windows.FiveHour)
+	}
+}

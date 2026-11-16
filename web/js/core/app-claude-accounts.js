@@ -11,8 +11,8 @@
 /** FR-CAC-98: 서버가 주는 색 키. 밖의 값은 첫 색으로 그린다. */
 const CLAUDE_ACCT_COLOR_RE=/^acct-[1-8]$/;
 const CLAUDE_ACCT_COLOR_DEFAULT='acct-1';
-/** FR-CAC-111: Activity 하단의 "기록" 이 보이는 건수. */
-const CLAUDE_ACCT_HISTORY_LIMIT=20;
+/** FR-CAC-111: 설정의 "기록" 이 띄우는 건수. */
+const CLAUDE_ACCT_HISTORY_LIMIT=50;
 
 function claudeAcctDay(ms){
   const d=new Date(ms);
@@ -81,10 +81,10 @@ function claudeAcctResets(rs){
 }
 
 /**
- * FR-CAC-91: 계정 묶음 하나의 값. 접힌 모양은 머리 + 5시간·주간 막대이고, `open` 이면 `more` 에
- * scoped 창·예측·추가 사용량·로그인 만료·동작이 든다.
+ * FR-CAC-91: 계정 묶음 하나의 값. `wide` 면 머리 + 5시간·주간 막대, 아니면 머리 한 줄에 `mini` 를 붙인다.
+ * `pop` 이면 오버레이의 `more` 에 scoped 창·예측·추가 사용량·로그인 만료·동작이 든다.
  */
-function claudeAcctView(a,open){
+function claudeAcctView(a,pop,wide){
   const u=a.usage||{};
   const w=u.windows||{};
   let status='';
@@ -92,13 +92,18 @@ function claudeAcctView(a,open){
     status=t('cacct.st.'+u.status);
     if(u.backoffUntil>0) status+=' · '+t('cacct.retry_at',{t:limitClock(u.backoffUntil*1000)});
   }
+  const headStatus=CLAUDE_ACCT_ACTION_STATES.includes(u.status)?status:'';
   const bars=[];
   if(w.fiveHour) bars.push(claudeAcctBar(a.id+':five_hour',limitWindowLabel('five_hour'),w.fiveHour));
   if(w.sevenDay) bars.push(claudeAcctBar(a.id+':seven_day',limitWindowLabel('seven_day'),w.sevenDay));
+  const mini=[];
+  if(w.fiveHour) mini.push(claudeAcctMini('five_hour',w.fiveHour));
+  if(w.sevenDay) mini.push(claudeAcctMini('seven_day',w.sevenDay));
   let more=null;
-  if(open){
+  if(pop){
     const sp=w.spend;
     more={
+      status,
       scoped:(Array.isArray(w.scoped)?w.scoped:[]).map(s=>claudeAcctBar(a.id+':scoped:'+s.name,s.name,s)),
       pace:claudeAcctPace(u.pace&&u.pace.sevenDay),
       spend:sp?t('cacct.spend',{used:claudeAcctMoney(sp.used,sp.currency),limit:claudeAcctMoney(sp.limit,sp.currency)}):'',
@@ -113,12 +118,39 @@ function claudeAcctView(a,open){
     title:[a.email,a.organizationName].filter(Boolean).join(' · '),
     color:CLAUDE_ACCT_COLOR_RE.test(a.color)?a.color:CLAUDE_ACCT_COLOR_DEFAULT,
     active:!!a.active,
-    status,
+    status:headStatus,
     age:u.stale?t('cacct.age_min',{n:Math.max(1,Math.floor((u.ageSeconds||0)/60))}):'',
-    open:!!open,
+    pop:!!pop,
+    wide:!!wide,
     bars,
+    mini,
     more,
   };
+}
+
+/** D-CAC-34: 카드 머리에 보이는 상태 — 사용자가 손써야 하는 것만. 나머지는 저절로 다시 시도한다. */
+const CLAUDE_ACCT_ACTION_STATES=['relogin_required','keychain_unavailable','no_credentials'];
+
+/** FR-CAC-91: 오버레이와 패널·화면 가장자리 사이의 틈(px). */
+const CLAUDE_ACCT_POP_GAP=6;
+
+/**
+ * FR-CAC-91: 오버레이 자리. 패널 바깥 옆(패널이 화면 오른쪽 절반이면 왼쪽 먼저)에 칸 높이로 두고 화면 안으로 당긴다.
+ * 양옆에 자리가 없으면 화면 폭으로 칸 위에 둔다. `card`·`panel` 은 getBoundingClientRect 값이다.
+ */
+function claudeAcctPopPlace(card,panel,w,h,vw,vh){
+  const g=CLAUDE_ACCT_POP_GAP;
+  const top=Math.max(g,Math.min(card.top,vh-h-g));
+  const leftOk=panel.left>=w+2*g, rightOk=vw-panel.right>=w+2*g;
+  const preferLeft=(panel.left+panel.right)/2>=vw/2;
+  if(leftOk&&(preferLeft||!rightOk)) return {left:panel.left-g-w,top,width:w,side:'left'};
+  if(rightOk) return {left:panel.right+g,top,width:w,side:'right'};
+  return {left:g,top:Math.max(g,card.top-h-g),width:vw-2*g,side:'over'};
+}
+
+/** FR-CAC-91: 좁은 모양 머리의 작은 막대 — 짧은 이름과 %. */
+function claudeAcctMini(name,w){
+  return {text:t('usage.sl.'+name)+' '+Math.round(w.pct)+'%',fill:Math.min(100,Math.max(0,w.pct)),level:w.level||''};
 }
 
 /** 서버 값(`next-available`·`at-limit` 등)으로 i18n 키를 만든다 — 키에는 `-` 를 쓰지 않는다. */
@@ -195,9 +227,10 @@ function claudeAcctStatusLines(accounts,others){
   return out;
 }
 
-/** FR-CAC-90: 계정 순서대로의 묶음들. */
-function claudeAcctFootViews(accounts,openSet){
-  return (Array.isArray(accounts)?accounts:[]).map(a=>claudeAcctView(a,openSet.has(a.id)));
+/** FR-CAC-90·91: 계정 순서대로의 묶음들. 기억한 모양이 없는 계정은 활성이면 넓다. */
+function claudeAcctFootViews(accounts,fold,popId){
+  return (Array.isArray(accounts)?accounts:[]).map(a=>
+    claudeAcctView(a,a.id===popId,typeof fold[a.id]==='boolean'?fold[a.id]:!!a.active));
 }
 
 Object.assign(App.prototype, {
@@ -235,20 +268,46 @@ Object.assign(App.prototype, {
     if(text) Toast.show(text,a.kind==='autoswitch'?'ok':'err');
   },
 
-  /** FR-CAC-91: 펼친 계정의 id. 기기의 취향이므로 local 에 둔다. */
-  _claudeAcctOpen(){ return new Set(PrefStore.local.json(STORE_KEYS.claudeAcctOpen,[])) },
+  /** FR-CAC-91: 계정별로 기억한 모양(`id → 넓음`). 기기의 취향이므로 local 에 둔다. */
+  _claudeAcctFold(){
+    const f=PrefStore.local.json(STORE_KEYS.claudeAcctFold,{});
+    return f&&typeof f==='object'&&!Array.isArray(f)?f:{};
+  },
 
-  _claudeAcctToggle(id){
-    const s=this._claudeAcctOpen();
-    const opening=!s.has(id);
-    if(opening) s.add(id); else s.delete(id);
-    PrefStore.local.setJson(STORE_KEYS.claudeAcctOpen,Array.from(s));
+  _claudeAcctFoldToggle(id){
+    const f=this._claudeAcctFold();
+    const a=(this._claudeAccts||[]).find(x=>x.id===id);
+    const wide=typeof f[id]==='boolean'?f[id]:!!(a&&a.active);
+    f[id]=!wide;
+    PrefStore.local.setJson(STORE_KEYS.claudeAcctFold,f);
+    this.agentsRender();
+  },
+
+  /** FR-CAC-91: 요약 오버레이. 한 번에 하나이고 기억하지 않는다. 바깥 누름·Esc 는 `_claudeAcctPopDismiss` 가 닫는다. */
+  _claudeAcctPopToggle(id){
+    const opening=this._claudeAcctPopId!==id;
+    this._claudeAcctPopId=opening?id:null;
+    if(opening&&!this._claudeAcctPopWired){
+      this._claudeAcctPopWired=true;
+      const h=e=>this._claudeAcctPopDismiss(e);
+      document.addEventListener('pointerdown',h,true);
+      document.addEventListener('keydown',h,true);
+    }
     this.agentsRender();
     return opening?this._claudeAcctResetsPoll(id):Promise.resolve();
   },
 
+  /** 칸 누름은 칸의 처리기(`_claudeAcctPopToggle`)가 맡는다 — 여기서 닫으면 같은 칸이 다시 연다. */
+  _claudeAcctPopDismiss(e){
+    if(!this._claudeAcctPopId) return;
+    if(e.type==='keydown'){ if(e.key!=='Escape') return }
+    else if(e.target&&e.target.closest&&e.target.closest('.cacct-pop,.cacct')) return;
+    this._claudeAcctPopId=null;
+    this.agentsRender();
+  },
+
   /**
-   * FR-CAC-60·65: 펼칠 때 두 초기화 상태를 다시 묻는다. 1분 안에 물었으면 서버가 409 로 거절하고, 그것은
+   * FR-CAC-60·65: 오버레이를 열 때 두 초기화 상태를 다시 묻는다. 1분 안에 물었으면 서버가 409 로 거절하고, 그것은
    * 알리지 않는다 — 사용자가 부른 동작이 아니다.
    */
   async _claudeAcctResetsPoll(id){
@@ -321,7 +380,7 @@ Object.assign(App.prototype, {
       {at,cls:'cacct-smart-menu'});
   },
 
-  /** FR-CAC-111: 최근 20건의 전환 기록 팝업. */
+  /** FR-CAC-111: 최근 50건의 전환 기록 대화상자. 설정의 "기록" 이 연다. */
   async _claudeAcctHistory(){
     const r=await apiGet('/api/claude-accounts/history?limit='+CLAUDE_ACCT_HISTORY_LIMIT);
     if(!r.ok){ Toast.show(apiErrText(r,t('cacct.hist.open')),'err'); return r }
@@ -342,11 +401,28 @@ Object.assign(App.prototype, {
   /** FR-CAC-58: 1분 안에 조회했거나 물러나는 중이면 서버가 409 로 다음 가능 시각을 알린다. */
   _claudeAcctRefresh(id){ return this._claudeAcctAct('/api/claude-accounts/refresh',{id},t('cacct.refresh')) },
 
-  /** FR-CAC-91: 계정 묶음 — 머리(색 점·이름·활성·상태·n분 전) / 막대 / 펼치면 나머지. 머리를 누르면 접고 편다. */
+  /** FR-CAC-91: 오버레이를 패널 옆에 놓는다. 그린 뒤 한 프레임 뒤에 잰다 — 붙기 전에는 크기가 없다. */
+  _claudeAcctPopPlaceEl(box,pop){
+    if(!box.isConnected) return;
+    const panel=box.closest('#agents-panel')||box;
+    const p=claudeAcctPopPlace(box.getBoundingClientRect(),panel.getBoundingClientRect(),
+      pop.offsetWidth,pop.offsetHeight,window.innerWidth,window.innerHeight);
+    pop.style.left=p.left+'px';
+    pop.style.top=p.top+'px';
+    pop.style.width=p.width+'px';
+    pop.dataset.side=p.side;
+    pop.style.visibility='';
+  },
+
+  /** FR-CAC-91: 계정 묶음 — 색 바(모양 바꾸기) / 머리(색 점·이름·활성·상태·n분 전) / 넓으면 막대, 좁으면 머리에 작은 막대 / 오버레이. 색 바 밖을 누르면 오버레이. */
   _claudeAcctEl(v){
     const box=document.createElement('div');
-    box.className='cacct'+(v.active?' active':'')+(v.open?' open':'');
+    box.className='cacct'+(v.active?' active':'')+(v.wide?' wide':'')+(v.pop?' pop':'');
     box.dataset.id=v.id;
+    const bar=actEl(box,'div','cacct-bar');
+    bar.style.background='var(--'+v.color+')';
+    bar.addEventListener('click',e=>{e.stopPropagation();this._claudeAcctFoldToggle(v.id)});
+    box.addEventListener('click',()=>this._claudeAcctPopToggle(v.id));
     const head=actEl(box,'div','cacct-head');
     head.title=v.title;
     actEl(head,'span','cacct-dot').style.background='var(--'+v.color+')';
@@ -354,31 +430,55 @@ Object.assign(App.prototype, {
     if(v.active) actEl(head,'span','cacct-active',t('cacct.active'));
     if(v.status) actEl(head,'span','cacct-st',v.status);
     if(v.age) actEl(head,'span','cacct-age',v.age);
-    head.addEventListener('click',()=>this._claudeAcctToggle(v.id));
-    for(const b of v.bars) this._actUsageWinEl(box,b);
+    if(!v.wide){
+      const minis=actEl(head,'span','cacct-minis');
+      for(const m of v.mini){
+        const el=actEl(minis,'span','cacct-mini'+(m.level==='warn'||m.level==='critical'?' lv-'+m.level:''));
+        actEl(actEl(el,'span','cacct-mini-track'),'span','cacct-mini-fill').style.width=m.fill+'%';
+        actEl(el,'span','cacct-mini-text',m.text);
+      }
+    }
+    if(v.wide) for(const b of v.bars) this._actUsageWinEl(box,b);
     const m=v.more;
     if(!m) return box;
-    const more=actEl(box,'div','cacct-more');
-    for(const b of m.scoped) this._actUsageWinEl(more,b);
-    if(m.pace) actEl(more,'div','cacct-pace'+(m.pace.warn?' warn':''),m.pace.text);
-    if(m.spend) actEl(more,'div','cacct-spend',m.spend);
-    if(m.login) actEl(more,'div','cacct-login'+(m.login.warn?' warn':''),m.login.text);
+    const more=box.appendChild(document.createElement('div'));
+    more.className='cacct-pop ui-scroll-sm';
+    more.style.visibility='hidden';
+    more.addEventListener('click',e=>e.stopPropagation());
+    TIMERS.frame(()=>this._claudeAcctPopPlaceEl(box,more),{owner:this,label:'cacct-pop'});
+    const ph=actEl(more,'div','cacct-pop-head');
+    const top=actEl(ph,'div','cacct-pop-top');
+    actEl(top,'span','cacct-dot').style.background='var(--'+v.color+')';
+    actEl(top,'span','cacct-pop-name',v.name);
+    if(v.active) actEl(top,'span','cacct-active',t('cacct.active'));
+    if(v.title&&v.title!==v.name) actEl(ph,'div','cacct-pop-title',v.title);
+    if(m.status) actEl(ph,'div','cacct-pop-st',m.status);
+    const usage=actEl(more,'div','cacct-pop-sec');
+    for(const b of v.bars) this._actUsageWinEl(usage,b);
+    for(const b of m.scoped) this._actUsageWinEl(usage,b);
+    if(m.pace) actEl(usage,'div','cacct-pace'+(m.pace.warn?' warn':''),m.pace.text);
+    if(m.spend||m.login){
+      const info=actEl(more,'div','cacct-pop-sec');
+      if(m.spend) actEl(info,'div','cacct-spend',m.spend);
+      if(m.login) actEl(info,'div','cacct-login'+(m.login.warn?' warn':''),m.login.text);
+    }
     if(m.resets.length){
-      const sec=actEl(more,'div','cacct-resets');
+      const sec=actEl(more,'div','cacct-pop-sec cacct-resets');
       actEl(sec,'div','cacct-resets-h',t('cacct.rs.title'));
       for(const it of m.resets){
         const row=actEl(sec,'div','cacct-rs');
-        actEl(row,'span','cacct-rs-name',it.name);
-        if(it.detail) actEl(row,'span','cacct-rs-detail',it.detail);
+        const txt=actEl(row,'div','cacct-rs-txt');
+        actEl(txt,'span','cacct-rs-name',it.name);
+        if(it.detail) actEl(txt,'span','cacct-rs-detail',it.detail);
         if(it.usable) row.appendChild(UIKit.button({label:t('cacct.rs.use'),size:'sm',cls:'cacct-rs-use',
           onClick:e=>{e.stopPropagation();this._claudeAcctResetAsk(v,it)}}));
       }
     }
     const acts=actEl(more,'div','cacct-acts');
-    if(m.canSwitch) acts.appendChild(UIKit.button({label:t('cacct.switch'),size:'sm',cls:'cacct-switch',
-      onClick:e=>{e.stopPropagation();this._claudeAcctSwitch(v.id)}}));
     acts.appendChild(UIKit.button({label:t('cacct.refresh'),kind:'ghost',size:'sm',cls:'cacct-refresh',
       onClick:e=>{e.stopPropagation();this._claudeAcctRefresh(v.id)}}));
+    if(m.canSwitch) acts.appendChild(UIKit.button({label:t('cacct.switch'),kind:'primary',size:'sm',cls:'cacct-switch',
+      onClick:e=>{e.stopPropagation();this._claudeAcctPopId=null;this._claudeAcctSwitch(v.id)}}));
     return box;
   },
 });
