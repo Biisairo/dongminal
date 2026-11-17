@@ -111,17 +111,7 @@ func (c *Client) Call(ctx context.Context, t Target, path string, in, out any) e
 		return fmt.Errorf("%w: %v", ErrUnreachable, err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var e struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		}
-		if json.Unmarshal(raw, &e) != nil || e.Code == "" {
-			if resp.StatusCode == http.StatusForbidden {
-				return ErrRejected
-			}
-			return &RemoteError{Status: resp.StatusCode, Code: "", Message: cleanMessage(string(raw))}
-		}
-		return &RemoteError{Status: resp.StatusCode, Code: cleanMessage(e.Code), Message: cleanMessage(e.Message)}
+		return remoteFailure(resp.StatusCode, raw)
 	}
 	if out == nil {
 		return nil
@@ -129,8 +119,40 @@ func (c *Client) Call(ctx context.Context, t Target, path string, in, out any) e
 	return json.Unmarshal(raw, out)
 }
 
+// remoteFailure 는 성공이 아닌 응답을 오류로 바꾼다. 본문이 `{code,message}` 가 아니면
+// 403 은 거절, 나머지는 본문을 문장으로 쓴다.
+func remoteFailure(status int, raw []byte) error {
+	var e struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(raw, &e) != nil || e.Code == "" {
+		if status == http.StatusForbidden {
+			return ErrRejected
+		}
+		return &RemoteError{Status: status, Code: "", Message: cleanMessage(string(raw))}
+	}
+	return &RemoteError{Status: status, Code: cleanMessage(e.Code), Message: cleanMessage(e.Message)}
+}
+
 func (c *Client) httpClient(fp string) *http.Client {
-	cfg := &tls.Config{
+	return &http.Client{
+		Timeout: RequestTimeout,
+		// 리다이렉트를 따라가지 않는다 — 상대가 고른 곳(이 노드의 로컬 API 등)에 요청을
+		// 다시 보내게 된다 (보안 재리뷰 #5). 3xx 는 그대로 오류로 돌아간다.
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		Transport: &http.Transport{
+			DialContext:         c.dial,
+			TLSClientConfig:     c.tlsConfig(fp),
+			TLSHandshakeTimeout: DialTimeout,
+			DisableKeepAlives:   true,
+		},
+	}
+}
+
+// tlsConfig 는 이 노드의 인증서를 내밀고 상대 지문을 fp 로 고정하는 설정이다.
+func (c *Client) tlsConfig(fp string) *tls.Config {
+	return &tls.Config{
 		MinVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{c.id.Certificate},
 		// 노드 인증서는 자기 서명이라 체인을 볼 것이 없다. 신원은 지문이다 (D-3).
@@ -140,18 +162,6 @@ func (c *Client) httpClient(fp string) *http.Client {
 				return ErrFingerprintMismatch
 			}
 			return nil
-		},
-	}
-	return &http.Client{
-		Timeout: RequestTimeout,
-		// 리다이렉트를 따라가지 않는다 — 상대가 고른 곳(이 노드의 로컬 API 등)에 요청을
-		// 다시 보내게 된다 (보안 재리뷰 #5). 3xx 는 그대로 오류로 돌아간다.
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		Transport: &http.Transport{
-			DialContext:         c.dial,
-			TLSClientConfig:     cfg,
-			TLSHandshakeTimeout: DialTimeout,
-			DisableKeepAlives:   true,
 		},
 	}
 }

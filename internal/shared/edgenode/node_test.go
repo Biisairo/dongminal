@@ -37,6 +37,12 @@ func freePort(t *testing.T) int {
 // newTestNode 는 직접 모드처럼 TCP 노드 포트를 직접 듣는 노드다.
 func newTestNode(t *testing.T, name string) *testNode {
 	t.Helper()
+	return newTestNodeWith(t, name, nil)
+}
+
+// newTestNodeWith 는 채팅 연결 경로에 chat 을 끼운 노드다 (PEER_CHAT_SRS §3.9).
+func newTestNodeWith(t *testing.T, name string, chat http.Handler) *testNode {
+	t.Helper()
 	home := t.TempDir()
 	cfg := edge.Config{Enabled: true, Port: freePort(t), Bind: "127.0.0.1", Name: name, Advertise: "127.0.0.1"}
 	raw, _ := json.Marshal(cfg)
@@ -47,6 +53,7 @@ func newTestNode(t *testing.T, name string) *testNode {
 	n, err := New(Options{
 		Home:       home,
 		Hostname:   name,
+		Chat:       chat,
 		PortStatus: func() edge.Status { return tn.ln.Status() },
 		OnConfig:   func(c edge.Config) { tn.ln.Apply(c) },
 		Notify: func(paired string) {

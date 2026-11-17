@@ -27,6 +27,7 @@ const (
 	pathPrefix  = "/edge/v1/"
 	pairPath    = pathPrefix + "pair"
 	confirmPath = pathPrefix + "pair/confirm"
+	chatPath    = pathPrefix + "chat"
 	// pairRateKey 는 등록 요청 상한의 키 머리다. 간선의 지문 키와 섞이지 않는다.
 	pairRateKey = "pair-addr:"
 	// proto 는 이 노드가 말하는 프로토콜 판이다. 등록 요청에 싣는다 (FR-PNW-50).
@@ -70,7 +71,9 @@ type Options struct {
 	// Notify 는 간선·초대·승인 대기·노드 설정이 바뀐 **뒤에** 부른다. paired 는 이
 	// 노드가 승인해 간선 맺기를 마친 이름이다 (FR-PNW-81·82, FR-PDM-27).
 	Notify func(paired string)
-	Now    func() time.Time
+	// Chat 은 채팅 연결 경로의 핸들러다. nil 이면 그 경로는 404 다 (PEER_CHAT_SRS §3.9).
+	Chat http.Handler
+	Now  func() time.Time
 }
 
 // Node 는 노드 하나다.
@@ -154,12 +157,15 @@ func (n *Node) Admission() edge.Admission {
 	}
 }
 
-// Handler 는 노드 포트의 핸들러다. 짝맞춤 경로 둘 밖은 전부 404 다
-// (FR-PNW-6, FR-PDM-60).
+// Handler 는 노드 포트의 핸들러다. 짝맞춤 경로 둘과 채팅 연결 경로 밖은 전부 404 다
+// (FR-PNW-6, FR-PDM-60, PEER_CHAT_SRS §3.9).
 func (n *Node) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+pairPath, n.pair)
 	mux.HandleFunc("POST "+confirmPath, n.pairConfirm)
+	if n.opts.Chat != nil {
+		mux.Handle(chatPath, n.opts.Chat)
+	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeFail(w, http.StatusNotFound, CodeNotFound, "not found")
 	})
