@@ -22,9 +22,9 @@ func TestEdgeRenamedPaths(t *testing.T) {
 		t.Fatalf("초대 머리: %q", code)
 	}
 	pairNodes(t, a, b)
-	tgt := edge.Target{Addr: "127.0.0.1", Port: b.srv.edges.Config().Port, Fingerprint: b.srv.edgeID.Fingerprint}
+	tgt := edge.Target{Addr: "127.0.0.1", Port: b.srv.edgeNode.Store().Config().Port, Fingerprint: b.srv.edgeNode.Identity().Fingerprint}
 	for _, p := range []string{"/peer/v1/pair", "/peer/v1/pair/confirm"} {
-		err := a.srv.edgeClient.Call(context.Background(), tgt, p, map[string]any{}, nil)
+		err := edge.NewClient(a.srv.edgeNode.Identity()).Call(context.Background(), tgt, p, map[string]any{}, nil)
 		var re *edge.RemoteError
 		if !errors.As(err, &re) || re.Status != http.StatusNotFound {
 			t.Errorf("%s: %v, 기대 404", p, err)
@@ -51,7 +51,7 @@ func TestEdgeLegacyFileMigratedOnInit(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(home, dmenv.EdgesFile)); err != nil {
 		t.Fatalf("edges.json 이 없다: %v", err)
 	}
-	if got := srv.edges.Config().Name; got != "moved" {
+	if got := srv.edgeNode.Store().Config().Name; got != "moved" {
 		t.Errorf("옮긴 설정을 읽지 않았다: %q", got)
 	}
 }

@@ -229,7 +229,7 @@ func TestPairReject(t *testing.T) {
 func TestPairApproveNameTaken(t *testing.T) {
 	a := newEdgeNode(t, "node-a", true)
 	b := newEdgeNode(t, "node-b", true)
-	if err := b.srv.edges.AddEdge(edge.Edge{Name: "node-a", Addr: "10.9.9.9", Port: 1, Fingerprint: strings.Repeat("dd", 32)}); err != nil {
+	if err := b.srv.edgeNode.Store().AddEdge(edge.Edge{Name: "node-a", Addr: "10.9.9.9", Port: 1, Fingerprint: strings.Repeat("dd", 32)}); err != nil {
 		t.Fatal(err)
 	}
 	if code, out := a.api(t, http.MethodPost, "/api/edges/add", map[string]any{"code": b.invite(t)}); code != http.StatusOK {
@@ -261,14 +261,14 @@ func TestPairApproveNameTaken(t *testing.T) {
 func TestPairAddNameTakenBeforeConnect(t *testing.T) {
 	a := newEdgeNode(t, "node-a", true)
 	b := newEdgeNode(t, "node-b", true)
-	if err := a.srv.edges.AddEdge(edge.Edge{Name: "office", Addr: "h", Port: 1, Fingerprint: strings.Repeat("dd", 32)}); err != nil {
+	if err := a.srv.edgeNode.Store().AddEdge(edge.Edge{Name: "office", Addr: "h", Port: 1, Fingerprint: strings.Repeat("dd", 32)}); err != nil {
 		t.Fatal(err)
 	}
 	code, out := a.api(t, http.MethodPost, "/api/edges/add", map[string]any{"code": b.invite(t), "name": "office"})
 	if code != http.StatusConflict || errCode(out) != "edge_name_taken" {
 		t.Fatalf("add: %d %v", code, out["_raw"])
 	}
-	if len(b.pending(t)) != 0 || !b.srv.pairing.HasInvite() {
+	if len(b.pending(t)) != 0 || !b.srv.edgeNode.Pairing().HasInvite() {
 		t.Fatal("거절했는데 B 의 초대를 썼다")
 	}
 }
@@ -320,7 +320,7 @@ func TestInviteRequirements(t *testing.T) {
 func TestEdgeRemoveAndAddress(t *testing.T) {
 	n := newEdgeNode(t, "node-a", true)
 	fp := strings.Repeat("dd", 32)
-	if err := n.srv.edges.AddEdge(edge.Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fp}); err != nil {
+	if err := n.srv.edgeNode.Store().AddEdge(edge.Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fp}); err != nil {
 		t.Fatal(err)
 	}
 	if code, out := n.api(t, http.MethodPut, "/api/edges/address", map[string]any{"name": "b", "addr": "10.0.0.5", "port": 60000}); code != http.StatusOK {
@@ -332,7 +332,7 @@ func TestEdgeRemoveAndAddress(t *testing.T) {
 	if code, out := n.api(t, http.MethodPost, "/api/edges/remove", map[string]any{"name": "b"}); code != http.StatusOK {
 		t.Fatalf("remove: %d %v", code, out["_raw"])
 	}
-	if n.srv.edges.IsEdge(fp) {
+	if n.srv.edgeNode.Store().IsEdge(fp) {
 		t.Fatal("해제 뒤에도 짝이다")
 	}
 	if code, out := n.api(t, http.MethodPost, "/api/edges/remove", map[string]any{"name": "b"}); code != http.StatusNotFound || errCode(out) != "edge_not_found" {
@@ -403,22 +403,6 @@ func TestPairConfirmSaveFailure(t *testing.T) {
 	}
 }
 
-// L-1: 저장소 오류는 종류대로 가른다.
-func TestEdgeStoreFailCodes(t *testing.T) {
-	cases := map[error]string{
-		edge.ErrNameTaken:    "edge_name_taken",
-		edge.ErrSaveFailed:   "save_failed",
-		edge.ErrEdgeNotFound: "edge_not_found",
-	}
-	for err, want := range cases {
-		rec := httptest.NewRecorder()
-		edgeStoreFail(rec, err)
-		if !strings.Contains(rec.Body.String(), `"`+want+`"`) {
-			t.Errorf("%v → %d %s", err, rec.Code, rec.Body.String())
-		}
-	}
-}
-
 // 리뷰 C-3·C-4: 이미 짝인 노드를 같은 이름으로 다시 등록할 수 있고(그 지문의 이름은 비어
 // 있는 것으로 본다, I-29), 응답의 state 는 실제로 저장된 상태(짝 유지, I-37)다.
 func TestPairReAddSameName(t *testing.T) {
@@ -444,14 +428,14 @@ func TestPairRejectsUnusableAddrBeforeConsume(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := `{"token":"` + ic.Token + `","name":"a","addr":"","port":58147,"proto":1}`
-	req := httptest.NewRequest(http.MethodPost, edgePairPath, strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, testEdgePairPath, strings.NewReader(body))
 	req.RemoteAddr = "[fe80::1%en0]:40000"
 	rec := httptest.NewRecorder()
-	b.srv.edgePair(rec, req)
+	b.srv.edgeNode.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "edge_config_invalid") {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
-	if !b.srv.pairing.HasInvite() || len(b.pending(t)) != 0 {
+	if !b.srv.edgeNode.Pairing().HasInvite() || len(b.pending(t)) != 0 {
 		t.Fatal("초대를 썼거나 대기를 남겼다")
 	}
 }
@@ -464,9 +448,9 @@ func TestPairRateLimited(t *testing.T) {
 	body := `{"token":"nope","name":"a","addr":"10.0.0.2","port":58147,"proto":1}`
 	var rec *httptest.ResponseRecorder
 	for i := 0; i <= edge.PerKeyPerMinute; i++ {
-		req := httptest.NewRequest(http.MethodPost, edgePairPath, strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, testEdgePairPath, strings.NewReader(body))
 		rec = httptest.NewRecorder()
-		b.srv.edgePair(rec, req)
+		b.srv.edgeNode.Handler().ServeHTTP(rec, req)
 	}
 	if rec.Code != http.StatusTooManyRequests || !strings.Contains(rec.Body.String(), "edge_rate_limited") {
 		t.Fatalf("61번째: %d %s", rec.Code, rec.Body.String())
@@ -475,10 +459,10 @@ func TestPairRateLimited(t *testing.T) {
 		t.Fatalf("감사 줄 %d, 기대 %d (넘은 요청은 남기지 않는다)", n, edge.PerKeyPerMinute)
 	}
 	// 지문은 상대가 바꿀 수 있으므로 출발지 주소로 센다. 다른 주소는 막히지 않는다.
-	req := httptest.NewRequest(http.MethodPost, edgePairPath, strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, testEdgePairPath, strings.NewReader(body))
 	req.RemoteAddr = "10.0.0.9:40000"
 	rec = httptest.NewRecorder()
-	b.srv.edgePair(rec, req)
+	b.srv.edgeNode.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("다른 주소: %d %s", rec.Code, rec.Body.String())
 	}
@@ -488,25 +472,25 @@ func TestPairRateLimited(t *testing.T) {
 // 짝이 아닌 상대는 등록 경로에 닿지 못한다.
 func TestPairPathNeedsLiveInviteForStrangers(t *testing.T) {
 	b := newEdgeNode(t, "node-b", true)
-	adm := b.srv.edgeAdmission()
+	adm := b.srv.edgeNode.Admission()
 	stranger := strings.Repeat("ee", 32)
 	ic, err := edge.DecodeInvite(b.invite(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !adm.Request(stranger, edgePairPath) {
+	if !adm.Request(stranger, testEdgePairPath) {
 		t.Fatal("초대가 살아 있는데 막았다")
 	}
-	if err := b.srv.pairing.Consume(ic.Token); err != nil {
+	if err := b.srv.edgeNode.Pairing().Consume(ic.Token); err != nil {
 		t.Fatal(err)
 	}
-	if adm.Request(stranger, edgePairPath) {
+	if adm.Request(stranger, testEdgePairPath) {
 		t.Fatal("초대가 없는데 짝이 아닌 상대를 들였다")
 	}
-	if err := b.srv.edges.AddEdge(edgeFixture("c")); err != nil {
+	if err := b.srv.edgeNode.Store().AddEdge(edgeFixture("c")); err != nil {
 		t.Fatal(err)
 	}
-	if !adm.Request(edgeFixture("c").Fingerprint, edgePairPath) {
+	if !adm.Request(edgeFixture("c").Fingerprint, testEdgePairPath) {
 		t.Fatal("짝의 다시 등록을 요청 단계에서 막았다 — edge_no_invite 안내를 받지 못한다")
 	}
 }

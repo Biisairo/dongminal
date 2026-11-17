@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/mimeprobe"
 	"dongminal/internal/shared/textenc"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // /api/file/{probe,raw} — 편집기가 "이 파일을 열 수 있는가"를 묻는 자리

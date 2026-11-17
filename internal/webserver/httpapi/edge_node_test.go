@@ -21,7 +21,7 @@ func TestEdgeHandlerOnlyEdgePaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := srv.edgeHandler()
+	h := srv.edgeNode.Handler()
 	for _, p := range []string{"/", "/index.html", "/api/tools", "/api/edges", "/ws", "/edge", "/edge/v2/node.info", "/peer/v1/pair"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
@@ -38,7 +38,7 @@ func TestEdgeHandlerUnknownCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := httptest.NewRecorder()
-	srv.edgeHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/edge/v1/nope", nil))
+	srv.edgeNode.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/edge/v1/nope", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("code %d, 기대 404", rec.Code)
 	}
@@ -85,7 +85,7 @@ func TestStartEdgeDisabledByDefault(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 	srv.StartEdge(stop)
-	if st := srv.edgeStatus(); st.Listening {
+	if st := edgeStatusOf(srv); st.Listening {
 		t.Fatalf("꺼짐인데 듣는다: %+v", st)
 	}
 }
@@ -110,7 +110,7 @@ func TestStartEdgeEnabled(t *testing.T) {
 	}
 	stop := make(chan struct{})
 	done := srv.StartEdge(stop)
-	st := srv.edgeStatus()
+	st := edgeStatusOf(srv)
 	if !st.Listening {
 		t.Fatalf("켜짐인데 듣지 않는다: %+v", st)
 	}
@@ -128,7 +128,7 @@ func TestStartEdgeWithoutStore(t *testing.T) {
 	stop := make(chan struct{})
 	close(stop)
 	<-srv.StartEdge(stop)
-	if st := srv.edgeStatus(); st.Listening {
+	if st := edgeStatusOf(srv); st.Listening {
 		t.Fatalf("상태 %+v", st)
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 )
 
 // 04-secops `SEC-17` · 01-go-arch `GO-11` — **내부 사정이 응답 본문으로 나가지

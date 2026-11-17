@@ -59,8 +59,6 @@ internal/
   webserver/             # ③ 웹 서버 프로세스
     httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
     httproute/           #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유
-    httpreq/             #   요청 본문을 읽는 한 자리 (표면별 크기 상한)
-    httpresp/            #   성공 JSON 응답을 쓰는 한 자리 (오류 방언 렌더러는 각자 둔다)
     gitapi/              #   /api/git/* 핸들러 (GitServer). 라우트 테이블(routes.go)을 스스로 소유 — 수는 그 표가 답한다
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
     apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
@@ -103,7 +101,10 @@ internal/
                          #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
                          #     tool_{attention,clients,control,cwd,env,exitinfo} — Tool 의 관심사별 (M8 D-A-10)
     edge/                #   ②③  — 노드 간 통신(간선) — 노드 신원(인증서)·edges.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1·70)
+    edgenode/            #   ②③  — 노드 하나의 상태와 연산(짝맞춤 판정·로컬 API 연산). 데몬과 직접 모드 서버가 같이 쓴다 (PEER_DAEMON_SRS FR-PDM-2)
     edgerelay/           #   ②③  — 노드 포트의 바이트 통로 — 서버 노드 포트 → 데몬 node.sock, 데몬 → 서버 dial.sock (PEER_DAEMON_SRS 묶음 L)
+    httpreq/             #   ②③  — 요청 본문을 읽는 한 자리 (표면별 크기 상한)
+    httpresp/            #   ②③  — 성공 JSON 응답을 쓰는 한 자리 (오류 방언 렌더러는 각자 둔다)
     toolipc/             #   ②③  — paned 와이어 포맷만: wire.go(봉투·ProtocolVersion) · protocol.go(메서드·이벤트 이름, typed 인자·결과, hello.features) · files.go(데몬 지문 이름)
     outbuf/              #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성

@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // AttentionDaemon 은 데몬의 알람 판정이다 (AGENT_RECORD_DAEMON_SRS §3.3a). Judges 가 참이면

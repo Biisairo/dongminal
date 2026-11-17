@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/edgenode"
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
@@ -123,17 +124,10 @@ type Server struct {
 	// 모든 표면 앞에 선다. `--expose` 뒤에 아무 제어가 없던 자리를 여기가 메운다.
 	Access *accessStore
 
-	// edges·edgeLn 은 노드 설정과 노드 포트다 (PEER_NETWORK_SRS 묶음 N). DataDir 이
-	// 없거나 신원을 읽지 못하면 edgeLn 이 nil 이고 노드 포트는 서지 않는다.
-	edges  *edge.Store
-	edgeLn *edge.Listener
-	// edgeID·edgeClient·pairing 은 노드 신원, 상대를 부르는 클라이언트, 초대·승인
-	// 대기다 (묶음 P). edgeLn 과 함께 서고 함께 빈다.
-	edgeID     edge.Identity
-	edgeClient *edge.Client
-	pairing    *edge.Pairing
-	// edgeLimiter 는 짝맞춤 경로의 출발지별 상한이다 (S9).
-	edgeLimiter *edge.RateLimiter
+	// edgeNode·edgeLn 은 직접 모드의 노드와 노드 포트다 (PEER_DAEMON_SRS FR-PDM-52). DataDir 이
+	// 없거나 신원을 읽지 못하면 둘 다 nil 이고 노드 포트는 서지 않는다.
+	edgeNode *edgenode.Node
+	edgeLn   *edge.Listener
 	// settingsMu 는 설정 PUT 의 지문 검사와 저장을 한 덩이로 묶는다 (UX_BATCH12 FR-LIV-2).
 	settingsMu sync.Mutex
 

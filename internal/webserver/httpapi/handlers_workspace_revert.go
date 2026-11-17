@@ -10,11 +10,11 @@ import (
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/httpreq"
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/httpreq"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // 워크스페이스 되돌리기 (M5 `G4-7`).

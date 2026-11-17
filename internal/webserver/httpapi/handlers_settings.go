@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"os"
 	"strings"
 	"sync"

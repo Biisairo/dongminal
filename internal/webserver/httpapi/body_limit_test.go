@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/httpreq"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/httpreq"
 )
 
 // SAFETY_CORRECTNESS_SRS 묶음 C (TC-SAF-5).

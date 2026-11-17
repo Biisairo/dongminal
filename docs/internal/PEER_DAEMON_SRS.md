@@ -233,8 +233,9 @@ FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름�
 연산(`Op`)은 `get`·`node`·`invite`·`add`·`pending`·`approve`·`reject`·`remove`·`address` 다. 응답 모양·상태·오류 코드·ETag 는 지금의 `/api/edges/*` 와 같다(FR-PDM-30). 설정 잠금(지금의 `settingsMu` 몫)은 Node 가 갖는다. 상대 노드를 부르는 `add`·`approve` 는 잠금 밖에서 부른다.
 
 - 오류 코드: `edge_*` 상수는 `shared/edge` 로 내리고 `apierr` 는 그 값을 쓴다. Node 가 내는 일반 코드(`save_failed`·`stale_revision`·`invalid_json`·`body_too_large`·`bad_request`·`not_found`·`internal`)는 Node 의 상수로 두고, 값이 `apierr` 카탈로그에 있는지는 httpapi 시험이 확인한다. 상대가 보낸 코드를 옮기는 `remoteCode` 는 Node 가 아는 코드 집합으로 거른다.
-- ETag: `settingsTag` 를 `shared/etag.Of` 로 내려 두 곳이 같은 함수를 쓴다.
-- 본문 읽기: 노드 포트 핸들러는 공유 본문 읽기를 거친다(본문 상한 게이트). 필요한 만큼 `httpreq` 를 shared 로 내린다.
+- ETag: GET 의 ETag 계산과 PUT 의 If-Match 비교를 Node 가 함께 하므로 Node 가 갖는다(계산식은 지금의 `settingsTag` 와 같다).
+- 본문 읽기: 노드 포트 핸들러는 공유 본문 읽기를 거친다(본문 상한 게이트). `httpreq`·`httpresp` 를 shared 로 내린다(표준 라이브러리만 쓰는 패키지다).
+- 상대가 보낸 코드는 Node 가 낼 수 있는 코드(`edgenode.Codes`)일 때만 옮긴다. 전에는 오류 카탈로그 전체였다. 정상 노드는 이 코드만 내므로 동작은 같다.
 
 **IPC (`toolipc`)**
 

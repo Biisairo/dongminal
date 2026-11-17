@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,9 +13,9 @@ import (
 	"strings"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/wsentry"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // /api/fs/* · /api/editors/* — 탐색기의 조회·조작과 Editor 목록

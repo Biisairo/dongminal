@@ -111,7 +111,7 @@ func TestEdgesChangedOnLocalEdits(t *testing.T) {
 			t.Fatalf("%s 뒤 방송 %v", s.path, got)
 		}
 	}
-	if err := b.srv.edges.AddEdge(edgeFixture("c")); err != nil {
+	if err := b.srv.edgeNode.Store().AddEdge(edgeFixture("c")); err != nil {
 		t.Fatal(err)
 	}
 	for _, s := range []struct {

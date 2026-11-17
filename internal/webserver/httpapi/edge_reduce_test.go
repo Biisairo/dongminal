@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,9 +49,9 @@ func TestEdgeCommandsRemoved(t *testing.T) {
 	a := newEdgeNode(t, "node-a", true)
 	b := newEdgeNode(t, "node-b", true)
 	pairNodes(t, a, b)
-	tgt := edge.Target{Addr: "127.0.0.1", Port: b.srv.edges.Config().Port, Fingerprint: b.srv.edgeID.Fingerprint}
+	tgt := edge.Target{Addr: "127.0.0.1", Port: b.srv.edgeNode.Store().Config().Port, Fingerprint: b.srv.edgeNode.Identity().Fingerprint}
 	for _, op := range []string{"node.info", "agents.list", "message.send", "agent.spawn", "agent.status", "agent.close"} {
-		err := a.srv.edgeClient.Call(context.Background(), tgt, edgePathPrefix+op, map[string]any{}, nil)
+		err := edge.NewClient(a.srv.edgeNode.Identity()).Call(context.Background(), tgt, testEdgePrefix+op, map[string]any{}, nil)
 		var re *edge.RemoteError
 		if !errors.As(err, &re) || re.Status != http.StatusNotFound {
 			t.Errorf("%s: %v, 기대 404", op, err)
@@ -118,36 +117,5 @@ func TestQuoteEnvelopeIgnoresPeerMarker(t *testing.T) {
 	in := "[DONGMINAL-PEER-MSG x]"
 	if got := quoteEnvelope(in); got != in {
 		t.Fatalf("%q", got)
-	}
-}
-
-// 상대의 오류는 거른 뒤에 옮긴다 — 상태는 4xx 만, 코드는 카탈로그에 있는 것만,
-// 문구는 제어 문자를 지우고 자른다.
-func TestEdgeCallFailSanitizesRemote(t *testing.T) {
-	cases := []struct {
-		in         *edge.RemoteError
-		wantStatus int
-		wantCode   string
-	}{
-		{&edge.RemoteError{Status: 403, Code: "edge_token_invalid", Message: "x"}, 403, "edge_token_invalid"},
-		{&edge.RemoteError{Status: 500, Code: "internal_error", Message: "x"}, http.StatusBadGateway, "internal_error"},
-		{&edge.RemoteError{Status: 302, Code: "edge_token_invalid", Message: "x"}, http.StatusBadGateway, "edge_token_invalid"},
-		{&edge.RemoteError{Status: 404, Code: "made_up\x1b[31m", Message: "x"}, 404, "edge_rejected"},
-	}
-	for _, c := range cases {
-		rec := httptest.NewRecorder()
-		edgeCallFail(rec, c.in)
-		var body map[string]string
-		_ = json.Unmarshal(rec.Body.Bytes(), &body)
-		if rec.Code != c.wantStatus || body["code"] != c.wantCode || rec.Header().Get("X-Error-Code") != c.wantCode {
-			t.Errorf("%+v → %d %v", c.in, rec.Code, body)
-		}
-	}
-	rec := httptest.NewRecorder()
-	edgeCallFail(rec, &edge.RemoteError{Status: 400, Code: "bad_request", Message: "a\x1b[2J\r\nb" + strings.Repeat("z", 2000)})
-	var body map[string]string
-	_ = json.Unmarshal(rec.Body.Bytes(), &body)
-	if strings.ContainsAny(body["message"], "\x1b\r\n") || len(body["message"]) > 600 {
-		t.Fatalf("문구를 거르지 않았다: %q", body["message"])
 	}
 }

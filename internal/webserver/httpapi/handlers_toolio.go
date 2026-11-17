@@ -17,12 +17,12 @@ import (
 	"net/http"
 	"strings"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"strconv"
 	"time"
 
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/workspace"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // toolIOReady reports whether the toolaccess deps were injected. Daemon/test

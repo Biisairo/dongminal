@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
-	"dongminal/internal/webserver/httpresp"
+	"dongminal/internal/shared/httpreq"
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/webserver/sse"
 	"time"
 )

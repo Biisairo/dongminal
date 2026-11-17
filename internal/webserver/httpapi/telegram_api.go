@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/telegram"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // 로컬 API `/api/telegram/*` (TELEGRAM_BRIDGE_SRS FR-TGB-1~5·10~11). 본문 오류는 fs 방언

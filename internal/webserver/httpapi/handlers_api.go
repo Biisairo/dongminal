@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/sandbox"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
-	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/httproute"
 	"dongminal/internal/webserver/sse"
 )
