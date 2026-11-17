@@ -89,7 +89,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) | 트랙 1(사용자 확인 피드백)의 인계 문서. 스펙·계획은 `archive/` 로 보관됐고 이 문서만 현행이다 — §4 의 **반복하면 안 되는 함정 15개**가 계속 유효한 필독 자료이기 때문 |
 | [SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md) | 상태바 지표 수집 재설계 (IEEE 29148). `/api/stats` 요청당 프로세스 6개·1.5초를 커널 직접 호출로 제거 + 메모리 계산식 정정. **구현 완료** (§4.1 실측) |
 | [WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md) | 식별자와 단일 실행자의 단일 진실 공급원 (IEEE 29148). 묶음 I(엔터티 id → uuid)·X(생성 명령 단일 실행자)·**U(모든 발급 지점을 uuid 로 통일 + 형태 판별 제거)**. **구현 완료** |
-| [AGENT_MEMORY_INJECTION_SRS.md](./AGENT_MEMORY_INJECTION_SRS.md) | dongminal 탭의 claude 에 CLAUDE.md 주입 (IEEE 29148, `FR-AMI-*`). claude shim 이 `--add-dir=<agent-plugin>` 과 `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` 로 `agent-plugin/CLAUDE.md`(dmctl 활용 지침)를 메모리로 읽힌다. **구현 완료** |
+| [AGENT_MEMORY_INJECTION_SRS.md](./AGENT_MEMORY_INJECTION_SRS.md) | dongminal 탭의 claude 에 CLAUDE.md 주입 (IEEE 29148, `FR-AMI-*`). claude shim 이 `--add-dir=<agent-memory>` 와 `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` 로 `agent-memory/CLAUDE.md`(dmctl 활용 지침)를 메모리로 읽힌다. **구현 완료** |
 | [SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md) | MCP 폐지와 세션 스코프 스킬 주입의 단일 진실 공급원 (IEEE 29148). 에이전트 접합면 = `dmctl` (액션) + `--plugin-dir`/`--settings` 주입 스킬·훅 (정책). **구현 완료** |
 | [RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md) | AI 오케스트레이터의 단일 진실 공급원 (IEEE 29148). Run 레코드·상태/대기 계약·에이전트 어댑터 레지스트리·worktree 격리·프리앰블/보고 계약·스킬 재작성. 착수 전 결정 5건 확정. **묶음 S·R·P·A·K 구현 완료, W 남음** |
 | [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md) | 위 SRS 의 입력 — orca(MIT)·paseo(AGPL) **실제 소스** 조사 노트. 파일 경로 근거 포함. §9 는 기존 문서 서술을 뒤집은 5건 |

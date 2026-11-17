@@ -86,12 +86,12 @@ func shimHookArgs(cmd, home string) []string {
 	return out
 }
 
-// shimMemoryDir 는 주입 메모리(CLAUDE.md)가 있는 플러그인 폴더다. 없으면 빈 값이다 (FR-AMI-4).
+// shimMemoryDir 는 주입 메모리(CLAUDE.md)만 든 폴더다. 없으면 빈 값이다 (FR-AMI-4).
 func shimMemoryDir(home string) string {
 	if home == "" {
 		return ""
 	}
-	dir := filepath.Join(home, "bin", "agent-plugin")
+	dir := filepath.Join(home, "bin", "agent-memory")
 	if st, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err == nil && st.Mode().IsRegular() {
 		return dir
 	}

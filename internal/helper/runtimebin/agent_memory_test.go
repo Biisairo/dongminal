@@ -22,7 +22,7 @@ func installedAgentMemory(t *testing.T) string {
 	if err := runtime.Install(dir); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	b, err := os.ReadFile(filepath.Join(runtime.AgentPluginDir(dir), "CLAUDE.md"))
+	b, err := os.ReadFile(filepath.Join(runtime.AgentMemoryDir(dir), "CLAUDE.md"))
 	if err != nil {
 		t.Fatalf("agent memory: %v", err)
 	}

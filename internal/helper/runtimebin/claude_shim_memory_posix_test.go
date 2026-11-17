@@ -17,7 +17,7 @@ func memoryFixture(t *testing.T, withMemory bool) (plugin string, ran *shimRun) 
 	t.Helper()
 	home, _, ran := shimFixture(t)
 	shimServer(t, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"source":"none"}`)) })
-	plugin = filepath.Join(home, "bin", "agent-plugin")
+	plugin = filepath.Join(home, "bin", "agent-memory")
 	if err := os.MkdirAll(plugin, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -32,8 +32,12 @@ func memoryFixture(t *testing.T, withMemory bool) (plugin string, ran *shimRun) 
 
 func TestClaudeShimInjectsMemoryDir(t *testing.T) {
 	plugin, ran := memoryFixture(t, true)
+	// 보안 검토: 실행 파일(훅)이 있는 플러그인 폴더는 작업 폴더로 열지 않는다 (FR-AMI-9).
+	if err := os.RemoveAll(filepath.Join(filepath.Dir(plugin), "agent-plugin")); err != nil {
+		t.Fatal(err)
+	}
 	_ = runClaude([]string{"질문"}, &bytes.Buffer{}, &bytes.Buffer{})
-	want := []string{ran.path, "--plugin-dir", plugin, "--add-dir=" + plugin, "질문"}
+	want := []string{ran.path, "--add-dir=" + plugin, "질문"}
 	if strings.Join(ran.argv, "|") != strings.Join(want, "|") {
 		t.Fatalf("argv %v want %v", ran.argv, want)
 	}

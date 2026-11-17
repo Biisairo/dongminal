@@ -20,7 +20,7 @@ dongminal 탭에서 실행한 claude 에 dongminal 이 정한 CLAUDE.md 를 하�
 
 | 묶음 | 내용 |
 |---|---|
-| A | 임베드 플러그인 트리에 `CLAUDE.md` 를 더한다. 설치·거울 유지는 기존 플러그인 자산 관리를 따른다 |
+| A | 임베드 트리 `agentmemory/` 에 `CLAUDE.md` 를 두고 `bin/agent-memory/` 로 설치한다. 설치·거울 유지는 플러그인 자산 관리와 같은 방식이다 |
 | B | claude shim 이 그 파일을 추가 폴더 메모리로 읽게 한다 (`--add-dir=` + 환경 변수) |
 | C | CLAUDE.md 본문: claude 가 쓸 수 있는 `dmctl` 명령과 활용 지침 |
 
@@ -31,7 +31,8 @@ dongminal 탭에서 실행한 claude 에 dongminal 이 정한 CLAUDE.md 를 하�
 | 용어 | 정의 |
 |------|------|
 | **agent-plugin** | `$DONGMINAL_HOME/bin/agent-plugin/`. SKILL_INJECTION_SRS §1.3 과 같다 |
-| **주입 메모리** | `agent-plugin/CLAUDE.md`. dongminal 탭의 claude 가 사용자 CLAUDE.md 에 더해 읽는 메모리 파일 |
+| **agent-memory** | `$DONGMINAL_HOME/bin/agent-memory/`. 주입 메모리 하나만 든 폴더 |
+| **주입 메모리** | `agent-memory/CLAUDE.md`. dongminal 탭의 claude 가 사용자 CLAUDE.md 에 더해 읽는 메모리 파일 |
 | **추가 폴더 메모리** | Claude Code 가 `--add-dir` 로 받은 폴더의 CLAUDE.md 를 메모리로 읽는 동작. 환경 변수 `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` 일 때만 켜진다 |
 | **훅 전용 명령** | Claude Code 나 셸 훅이 부르는 `dmctl` 명령. `notify`·`activity`·`agent-context`·`ctx-hook`·`statusline`·`subagent-statusline` |
 
@@ -59,13 +60,14 @@ dongminal 탭에서 실행한 claude 에 dongminal 이 정한 CLAUDE.md 를 하�
 
 | ID | 요구사항 |
 |---|---|
-| FR-AMI-1 | 임베드 플러그인 트리(`internal/shared/runtime/agentplugin/`)는 `CLAUDE.md` 를 담는다. `runtime.Install` 은 이것을 `agent-plugin/CLAUDE.md` 로 전개한다. 설치 트리는 임베드 트리의 거울이다(기존 규칙) |
-| FR-AMI-2 | claude shim 은 `agent-plugin/CLAUDE.md` 가 일반 파일이면 `--add-dir=<agent-plugin 경로>` 를 **한 토큰으로** 붙인다. 자리는 `--plugin-dir <경로>` 바로 뒤, 사용자 인자 앞이다 |
+| FR-AMI-1 | 임베드 트리 `internal/shared/runtime/agentmemory/` 는 `CLAUDE.md` 를 담는다. `runtime.Install` 은 이것을 `agent-memory/CLAUDE.md` 로 전개한다. 설치 트리는 임베드 트리의 거울이다 |
+| FR-AMI-2 | claude shim 은 `agent-memory/CLAUDE.md` 가 일반 파일이면 `--add-dir=<agent-memory 경로>` 를 **한 토큰으로** 붙인다. 자리는 다른 shim 인자 뒤, 사용자 인자 앞이다 |
 | FR-AMI-3 | FR-AMI-2 의 인자를 붙일 때, shim 은 `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD` 가 없거나 빈 값이면 `1` 로 둔다. 사용자가 비지 않은 값을 두었으면 그 값을 그대로 둔다 |
-| FR-AMI-4 | `agent-plugin/CLAUDE.md` 가 없으면 shim 은 `--add-dir=` 도, 환경 변수도 더하지 않는다 |
+| FR-AMI-4 | `agent-memory/CLAUDE.md` 가 없으면 shim 은 `--add-dir=` 도, 환경 변수도 더하지 않는다 |
 | FR-AMI-5 | 사용자의 `~/.claude/CLAUDE.md` 와 그 밖의 사용자 설정 파일을 고치지 않는다. 주입은 shim 이 띄운 실행 한 번에만 적용된다 |
 | FR-AMI-6 | 주입 메모리 본문에 적힌 `dmctl <명령>` 은 모두 `dmctl --help` 에 있는 명령이어야 한다. 훅 전용 명령은 적지 않는다 |
 | FR-AMI-7 | 주입 메모리 본문은 아래를 담는다. (a) 명령별 쓰임과 쓸 상황 (b) 사용자에게 묻거나 출력을 붙여 달라고 하기 전에 `dmctl` 로 직접 할 수 있는지 먼저 따지라는 지침 (c) 안전 규칙: 사용자가 쓰는 탭에 `send-input` 하거나 닫지 않는다, 에이전트에게는 `send-input` 이 아니라 `msg` 를 쓴다 |
+| FR-AMI-9 | `--add-dir=` 로 여는 폴더에는 주입 메모리 외의 파일을 두지 않는다. 특히 플러그인 폴더(훅·명령이 있는 곳)를 열지 않는다. 열린 폴더는 claude 의 작업 폴더가 되어 편집 권한 규칙이 그대로 적용되므로, 다음 세션에서 실행될 훅을 고칠 길이 생긴다 (2026-11-17 보안 검토) |
 | FR-AMI-8 | 주입 메모리 본문은 엔벨로프 신뢰 규약을 다시 적지 않는다. 그것은 SessionStart 훅의 몫이다(FR-CTX-3) |
 
 ### 3.2 비기능 요구사항
@@ -78,8 +80,8 @@ dongminal 탭에서 실행한 claude 에 dongminal 이 정한 CLAUDE.md 를 하�
 
 | TC | 대상 | 방법 |
 |---|---|---|
-| TC-AMI-1 | FR-AMI-1 | `Install` 뒤 `agent-plugin/CLAUDE.md` 가 있다 (`TestInstallAgentPlugin_Layout`) |
-| TC-AMI-2 | FR-AMI-2·3 | shim 의 argv 가 `[real, --settings, s, --plugin-dir, p, --add-dir=p, 사용자 인자]` 이고, 환경 변수가 `1` 이다 |
+| TC-AMI-1 | FR-AMI-1·9 | `Install` 뒤 `agent-memory/` 에 `CLAUDE.md` 하나만 있고, 플러그인 폴더에는 없다 (`TestInstallAgentMemory_OnlyClaudeMD`) |
+| TC-AMI-2 | FR-AMI-2·3 | shim 의 argv 가 `[real, --add-dir=<agent-memory>, 사용자 인자]` 이고, 환경 변수가 `1` 이다 |
 | TC-AMI-3 | FR-AMI-3 | 사용자가 환경 변수를 `0` 으로 두면 shim 이 바꾸지 않는다 |
 | TC-AMI-4 | FR-AMI-4 | CLAUDE.md 가 없으면 `--add-dir=` 와 환경 변수가 없다 |
 | TC-AMI-5 | FR-AMI-6·8, NFR-AMI-1 | 본문의 `dmctl <명령>` 이 모두 도움말에 있고, 훅 전용 명령과 엔벨로프 머리표가 없으며, 8KB 이하다 |
@@ -94,4 +96,4 @@ dongminal 탭에서 실행한 claude 에 dongminal 이 정한 CLAUDE.md 를 하�
 ## 6. 알려진 부작용
 
 - `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` 은 사용자가 같은 실행에 직접 준 `--add-dir` 폴더에도 적용된다. 그 폴더에 CLAUDE.md 가 있으면 함께 읽힌다.
-- `--add-dir` 는 그 폴더의 파일 접근 권한도 준다. 대상은 dongminal 이 설치한 플러그인 폴더뿐이다.
+- `--add-dir` 는 그 폴더의 파일 접근 권한도 준다. 대상은 CLAUDE.md 하나만 든 `agent-memory` 폴더뿐이다(FR-AMI-9). claude 가 이 파일을 고쳐도 다음 설치 때 임베드 내용으로 되돌아간다.

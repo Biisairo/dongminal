@@ -32,8 +32,6 @@ func TestInstallAgentPlugin_Layout(t *testing.T) {
 		// 담기는 것과 **설치 트리에 서는 것**은 다른 일이다.
 		"commands/migration.md": 0o644,
 		"hooks/hooks.json":      0o644,
-		// AGENT_MEMORY_INJECTION_SRS FR-AMI-1: claude shim 이 --add-dir= 로 읽히는 주입 메모리.
-		"CLAUDE.md": 0o644,
 	}
 	for rel, wantMode := range want {
 		info, err := os.Stat(filepath.Join(plugin, rel))
@@ -235,5 +233,24 @@ func TestInstall_DoesNotPruneBinDir(t *testing.T) {
 		if _, err := os.Lstat(filepath.Join(dir, rel)); err != nil {
 			t.Errorf("bin/ 의 %s 가 사라졌다: %v", rel, err)
 		}
+	}
+}
+
+// AGENT_MEMORY_INJECTION_SRS FR-AMI-1·9: 주입 메모리는 CLAUDE.md 하나만 든 전용 폴더에 선다.
+// 플러그인 폴더에는 없다 — 그 폴더는 --add-dir 로 열리면 안 된다.
+func TestInstallAgentMemory_OnlyClaudeMD(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	entries, err := os.ReadDir(AgentMemoryDir(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "CLAUDE.md" {
+		t.Fatalf("agent-memory must hold only CLAUDE.md: %v", entries)
+	}
+	if _, err := os.Stat(filepath.Join(AgentPluginDir(dir), "CLAUDE.md")); !os.IsNotExist(err) {
+		t.Fatalf("CLAUDE.md must not be in the plugin dir: %v", err)
 	}
 }
