@@ -2,7 +2,10 @@ package chat
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"time"
 
 	"dongminal/internal/shared/dmlog"
@@ -58,11 +61,12 @@ func (s *Service) Command(sg humancmd.Signed) error {
 	if b.Node != s.id.Fingerprint {
 		return fail(CodeBadRequest, "not this node's command")
 	}
-	if !s.freshLocked(b) {
+	h := cmdHash(sg.B, sg.S)
+	if _, seen := s.cmds[h]; seen || !inWindow(s.now(), b.At) {
 		return fail(CodeBadRequest, "stale human command")
 	}
 	s.helperKey = b.Key
-	s.markCmdLocked(b.ID)
+	remember(s.cmds, h, s.now())
 	s.applyCmdLocked(b)
 	s.broadcastLocked(frame{T: frameCmd, B: sg.B, S: sg.S}, nil)
 	s.changedLocked()
@@ -71,43 +75,55 @@ func (s *Service) Command(sg humancmd.Signed) error {
 
 // acceptCmdLocked 는 서명이 맞고 시각 안의 처음 보는 명령이면 넘기라고(참) 답한다. 적용은 이 노드가
 // 그 노드의 도우미 키를 믿을 때만 한다 — 믿지 못하는 노드가 중간에 있어도 너머에 닿는다 (§3.12a R-10).
+// 본 것은 id 가 아니라 서명된 프레임 전체의 해시로 기억한다. 같은 id 를 단 가짜가 먼저 와도 진짜를
+// 막지 못한다. 믿지 못해 넘기기만 한 것은 따로 기억해, 적용한 것의 기억을 밀어내지 못한다.
 func (s *Service) acceptCmdLocked(fr frame) bool {
 	b, err := humancmd.Open(humancmd.Signed{B: fr.B, S: fr.S})
-	if err != nil || b.Node == s.id.Fingerprint || !s.freshLocked(b) {
+	if err != nil || b.Node == s.id.Fingerprint || !inWindow(s.now(), b.At) {
 		return false
 	}
-	s.markCmdLocked(b.ID)
-	if key, ok := s.trustedKeyLocked(b.Node); ok && key == b.Key {
-		s.applyCmdLocked(b)
+	h := cmdHash(fr.B, fr.S)
+	if _, seen := s.cmds[h]; seen {
+		return false
 	}
+	if _, seen := s.relayed[h]; seen {
+		return false
+	}
+	if key, ok := s.trustedKeyLocked(b.Node); ok && key == b.Key {
+		remember(s.cmds, h, s.now())
+		s.applyCmdLocked(b)
+		return true
+	}
+	remember(s.relayed, h, s.now())
 	return true
 }
 
-func (s *Service) freshLocked(b humancmd.Body) bool {
-	now, at := s.now(), time.UnixMilli(b.At)
-	if at.Before(now.Add(-cmdWindow)) || at.After(now.Add(cmdWindow)) {
-		return false
-	}
-	_, seen := s.cmds[b.ID]
-	return !seen
+func cmdHash(b json.RawMessage, sig string) string {
+	sum := sha256.Sum256(append(append([]byte{}, b...), sig...))
+	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) markCmdLocked(id string) {
-	now := s.now()
+func inWindow(now time.Time, atMs int64) bool {
+	at := time.UnixMilli(atMs)
+	return !at.Before(now.Add(-cmdWindow)) && !at.After(now.Add(cmdWindow))
+}
+
+// remember 는 본 것 하나를 기억한다. cmdSeenFor 가 지난 것은 잊고, 상한을 넘으면 가장 오래된 것을 잊는다.
+func remember(m map[string]time.Time, k string, now time.Time) {
 	oldest := ""
-	for k, at := range s.cmds {
+	for x, at := range m {
 		if now.Sub(at) > cmdSeenFor {
-			delete(s.cmds, k)
+			delete(m, x)
 			continue
 		}
-		if oldest == "" || at.Before(s.cmds[oldest]) {
-			oldest = k
+		if oldest == "" || at.Before(m[oldest]) {
+			oldest = x
 		}
 	}
-	if len(s.cmds) >= maxSeenCmds {
-		delete(s.cmds, oldest)
+	if len(m) >= maxSeenCmds {
+		delete(m, oldest)
 	}
-	s.cmds[id] = now
+	m[k] = now
 }
 
 // applyCmdLocked 는 명령을 이 노드의 참가자에게만 적용한다 (FR-PCH-20·70). 기록을 남기지 않는다.

@@ -351,3 +351,21 @@ func TestCommandForwardedThroughUntrusting(t *testing.T) {
 	eventually(t, "C 가 적용한다", func() bool { return !inRoom(c, pc.ID, r.ID) })
 	never(t, "B 가 적용한다", func() bool { return !inRoom(b, pb.ID, r.ID) })
 }
+
+// 보안 검토: 같은 id 를 단 가짜(다른 키) 명령이 먼저 와도 진짜 명령을 막지 못한다.
+func TestForgedSameIDDoesNotSuppress(t *testing.T) {
+	a, b, _, _, pb, _, room := triangle(t)
+	real := signCmd(t, a.helper, a.fp(), humancmd.OpKick, nil, []humancmd.Kick{{Room: room, Participant: pb.ID}}, time.Now())
+	rb, err := humancmd.Open(real)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, evil, _ := ed25519.GenerateKey(rand.Reader)
+	forged, err := humancmd.Sign(evil, humancmd.Body{ID: rb.ID, Node: a.fp(), Op: rb.Op, Kicks: rb.Kicks, At: rb.At})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.handle(nil, cmdFrame(forged))
+	b.handle(nil, cmdFrame(real))
+	eventually(t, "진짜 강퇴가 적용된다", func() bool { return !inRoom(b, pb.ID, room) })
+}

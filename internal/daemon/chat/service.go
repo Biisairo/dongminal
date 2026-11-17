@@ -182,6 +182,7 @@ type Service struct {
 	// 키를 알린 간선 상대다 (§3.12).
 	helperKey string
 	cmds      map[string]time.Time
+	relayed   map[string]time.Time
 	warned    map[string]string
 	edgeCache []edge.Edge
 	edgeAt    time.Time
@@ -203,7 +204,7 @@ func New(o Options) *Service {
 		parts: map[string]*participant{}, rooms: map[string]room{},
 		nodes: map[string]*remote{}, links: map[string]*peerLink{},
 		wins: map[string]*seqWindow{}, dialing: map[string]*dialState{},
-		cmds: map[string]time.Time{}, warned: map[string]string{},
+		cmds: map[string]time.Time{}, relayed: map[string]time.Time{}, warned: map[string]string{},
 		done: make(chan struct{}), pokes: make(chan struct{}, 1),
 	}
 	s.sendRate = newLimiter(PerMinute, time.Minute, s.clock)
