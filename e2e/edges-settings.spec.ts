@@ -7,9 +7,9 @@ import { E2E_BIN, E2E_HOME } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
 import { expect, hermeticEnv, pingUntilUp, test, waitForInit } from './fixtures';
 
-// PEER_NETWORK_SRS FR-PNW-80~82 — 설정 ▸ Edges.
+// PEER_NETWORK_SRS FR-PNW-80, EDGE_PAIRING_SRS FR-EPR-5·23·70·71 — 설정 ▸ Edges.
 //
-// 브라우저가 붙은 워커 서버가 B(초대하고 승인하는 쪽)다. A 는 이 스펙이 따로 띄우는
+// 브라우저가 붙은 워커 서버가 B(초대하는 쪽)다. A 는 이 스펙이 따로 띄우는
 // 두 번째 서버다 (NFR-PNW-3: 한 기계에서 홈·포트가 다른 서버 둘). A 는 API 로만 다룬다.
 
 // 노드 포트는 워커 UI 포트에서 떨어뜨려 고른다 — 샤드·워커마다 UI 포트가 다르므로 겹치지 않는다.
@@ -43,15 +43,12 @@ async function aAdds(code: string) {
   expect(r.status(), await r.text()).toBe(200);
 }
 
-/** 화면을 거치지 않고 B 가 A 를 name 으로 짝 맺는다. 앞 테스트의 상태에 기대지 않기 위해서다. */
-async function pairViaApi(baseURL: string, name: string) {
+/** 화면을 거치지 않고 B 와 A 를 간선으로 맺는다. 앞 테스트의 상태에 기대지 않기 위해서다. */
+async function pairViaApi(baseURL: string) {
   const b = await pwRequest.newContext({ baseURL });
-  let r = await b.post('/api/edges/invite', { data: {} });
+  const r = await b.post('/api/edges/invite', { data: {} });
   expect(r.status(), await r.text()).toBe(200);
   await aAdds((await r.json()).code);
-  const pend = (await (await b.get('/api/edges/pending')).json()).pending;
-  r = await b.post('/api/edges/approve', { data: { id: pend[0].id, name } });
-  expect(r.status(), await r.text()).toBe(200);
   await b.dispose();
 }
 
@@ -97,99 +94,61 @@ test.describe.serial('설정 ▸ Edges', () => {
     if (aProc) aProc.kill('SIGTERM');
   });
 
-  // FR-PNW-80: 네 구역과 이 노드의 상태.
-  test('네 구역이 서고 노드 포트 상태와 지문 앞 16자가 보인다', async ({ page }) => {
+  // FR-EPR-70: 세 구역과 이 노드의 상태. 승인 대기 구역은 없다.
+  test('세 구역이 서고 노드 포트 상태와 지문 앞 16자가 보인다', async ({ page }) => {
     await waitForInit(page);
     await openEdgesTab(page);
-    await expect(page.locator('#panel-edges .ds-sec')).toHaveCount(4);
+    await expect(page.locator('#panel-edges .ds-sec')).toHaveCount(3);
+    await expect(page.locator('#eg-pending')).toHaveCount(0);
+    await expect(page.locator('#eg-add-name')).toHaveCount(0);
     await expect(page.locator('#eg-enabled')).toBeChecked();
     await expect(page.locator('#eg-name')).toHaveValue('node-b');
     await expect(page.locator('#eg-port-state')).toContainText('127.0.0.1');
     await expect(page.locator('#eg-fp')).toHaveText(/^[0-9a-f]{16}$/);
     // 비어 있으면 "없음" 한 줄만 있다.
-    await expect(page.locator('#eg-pending .eg-item')).toHaveCount(0);
-    await expect(page.locator('#eg-pending .sbx-status')).toHaveCount(1);
     await expect(page.locator('#eg-edges .eg-item')).toHaveCount(0);
     await expect(page.locator('#eg-edges .sbx-status')).toHaveCount(1);
   });
 
-  // FR-PNW-80 초대 · FR-PNW-81 주의 알림 · 거절.
-  test('초대를 만들고, 승인 대기가 생기면 알림이 뜨고, 누르면 탭이 열리고, 거절할 수 있다', async ({ page }) => {
+  // FR-EPR-4·5·32: 붙여 넣기 한 번으로 간선이 생기고 "맺었습니다" 알림이 남는다.
+  test('초대를 만들고 상대가 붙여 넣으면 바로 간선이 생긴다', async ({ page }) => {
     await waitForInit(page);
     await openEdgesTab(page);
     const code = await makeInvite(page);
     await expect(page.locator('#eg-inv-remain')).toHaveText(/^\d+:\d\d$/);
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#modal-overlay')).toBeHidden();
 
     await aAdds(code);
-    const notice = page.locator('.toast.edge-attn');
-    await expect(notice).toBeVisible();
-    await notice.locator('.toast-act').click();
-    await expect(page.locator('#panel-edges')).toBeVisible();
-    const row = page.locator('#eg-pending .eg-item');
-    await expect(row).toHaveCount(1);
-    await expect(row).toContainText('node-a');
-    await expect(row.locator('.eg-fp')).toHaveText(aFp.slice(0, 16));
+    await expect(page.locator('.toast.ok', { hasText: 'node-a' })).toBeVisible();
+    const peer = page.locator(`#eg-edges .eg-item[data-fp="${aFp}"]`);
+    await expect(peer).toBeVisible();
+    await expect(peer.locator('.eg-who')).toContainText('node-a');
+    await expect(peer.locator('.eg-who')).toContainText(aFp.slice(0, 16));
+    await expect(peer.locator('.eg-who')).toContainText('127.0.0.1');
     // 코드는 쓰였다 — 살아 있는 초대가 없으니 코드도 거둔다.
     await expect(page.locator('#eg-inv-box')).toBeHidden();
-
-    await row.locator('.eg-reject').click();
-    await expect(row).toHaveCount(0);
-    await expect(notice).toHaveCount(0);
   });
 
-  // FR-PNW-30 · FR-PNW-82: 이름이 겹치면 다른 이름으로 승인하고, 등록 알림이 남는다.
-  test('이름이 겹치면 다른 이름으로 승인하고 "등록됨" 알림이 남는다', async ({ page, dmServer }) => {
+  // FR-EPR-20·23: 상대가 끊으면 이쪽에서도 사라지고 알림이 뜬다.
+  test('상대가 끊으면 간선이 사라지고 "끊겼습니다" 알림이 뜬다', async ({ page, dmServer }) => {
+    await pairViaApi(dmServer.baseURL);
     await waitForInit(page);
     await openEdgesTab(page);
-    await aAdds(await makeInvite(page));
-    const row = page.locator('#eg-pending .eg-item');
-    await expect(row).toHaveCount(1);
-
-    // 겹침은 Go 시험(TestPairApproveNameTaken)이 실제로 만든다. 여기서는 그 답을 받은 화면을 본다.
-    await page.route('**/api/edges/approve', (route) => route.fulfill({
-      status: 409,
-      headers: { 'X-Error-Code': 'edge_name_taken' },
-      json: { code: 'edge_name_taken', message: 'node-a' },
-    }), { times: 1 });
-    await row.locator('.eg-approve').click();
-    // L-10: 처음 승인은 지문 대조 창을 거친다.
-    const confirm = page.locator('.eg-approve-confirm');
-    await expect(confirm.locator('.eg-fp-big')).toHaveText(aFp.slice(0, 16));
-    // 리뷰 C-10: 확인창이 열린 동안 방송이 와 줄이 새로 만들어져도 이름 칸은 화면의 줄에 열린다.
-    await poke(dmServer.baseURL);
-    await expect(page.locator('#eg-inv-remain')).toHaveText(/^\d+:\d\d$/);
-    await confirm.locator('.ui-btn-primary').click();
-    const rename = row.locator('.eg-rename');
-    await expect(rename).toBeVisible();
-    await expect(page.locator('#eg-pending-status')).toHaveClass(/err/);
-    await rename.fill('laptop');
-    // L-13: 방송이 와도 고치던 이름 칸은 남는다.
-    await poke(dmServer.baseURL);
-    await expect(page.locator('#eg-inv-remain')).toHaveText(/^\d+:\d\d$/);
-    await expect(rename).toHaveValue('laptop');
-    // 이름만 바꿔 다시 승인할 때는 묻지 않는다.
-    await row.locator('.eg-approve').click();
-    await expect(confirm).toHaveCount(0);
-
-    await expect(page.locator('.toast.ok', { hasText: 'laptop' })).toBeVisible();
-    await expect(row).toHaveCount(0);
-    const peer = page.locator('#eg-edges .eg-item[data-name="laptop"]');
+    const peer = page.locator(`#eg-edges .eg-item[data-fp="${aFp}"]`);
     await expect(peer).toBeVisible();
-    await expect(peer).toContainText('127.0.0.1');
-    // A 도 짝이 됐다 — B 의 승인 통지가 닿았다. A 가 붙인 이름은 I-5 가 정하므로 보지 않는다.
     const bFp = await page.locator('#eg-fp').textContent();
-    const ap = await (await a.get('/api/edges')).json();
-    expect(ap.edges.filter((p) => p.state === '' && p.fp.startsWith(bFp)).length).toBe(1);
+    const r = await a.post('/api/edges/remove', { data: { fp: bFp } });
+    expect(r.status(), await r.text()).toBe(200);
+    expect((await r.json()).notified).toBe(true);
+    await expect(peer).toHaveCount(0);
+    await expect(page.locator('.toast', { hasText: /끊겼습니다|was removed/ })).toContainText('node-a');
   });
 
-  // FR-PNW-80 짝: 주소 수정(FR-PNW-32)과 해제(FR-PNW-31).
-  test('짝의 주소를 고치고 해제한다', async ({ page, dmServer }) => {
-    await pairViaApi(dmServer.baseURL, 'desk');
+  // FR-EPR-52·71: 주소 수정과 끊기. 듣지 않는 주소로 고쳤으므로 상대에게 알리지 못한다.
+  test('간선의 주소를 고치고 끊는다', async ({ page, dmServer }) => {
+    await pairViaApi(dmServer.baseURL);
     await waitForInit(page);
     await openEdgesTab(page);
-    const peer = page.locator('#eg-edges .eg-item[data-name="desk"]');
+    const peer = page.locator(`#eg-edges .eg-item[data-fp="${aFp}"]`);
     await expect(peer).toBeVisible();
     // M-7: 고치던 줄은 방송에 덮이지 않고, 취소하면 원래 값으로 돌아온다.
     await peer.locator('.eg-edit').click();
@@ -207,7 +166,9 @@ test.describe.serial('설정 ▸ Edges', () => {
     await expect(peer.locator('.eg-who')).toContainText('127.0.0.2');
     await expect(peer.locator('.eg-addr')).toBeHidden();
     await peer.locator('.eg-remove').click();
+    await expect(page.locator('.eg-confirm')).toContainText(aFp.slice(0, 16));
     await page.locator('.eg-confirm .ui-btn-danger').click();
     await expect(peer).toHaveCount(0);
+    await expect(page.locator('.toast', { hasText: /알리지 못했습니다|Could not notify/ })).toBeVisible();
   });
 });

@@ -4,22 +4,30 @@ import { test } from 'node:test';
 import { load } from './harness.mjs';
 
 /**
- * PEER_NETWORK_SRS FR-PNW-80~82 — 짝 상태의 화면 쪽 규칙.
+ * EDGE_PAIRING_SRS FR-EPR-5·23·32·70·71 — 간선 상태의 화면 쪽 규칙 (TC-EPR-10).
  *
- *   FR-PNW-81 승인 대기가 **새로** 생기면 주의 알림을 띄우고, 누르면 Edges 탭을 연다.
- *             같은 대기로 다시 띄우지 않는다. 대기가 없어지면 알림을 거둔다.
- *   FR-PNW-82 방송의 `paired` 가 오면 "<이름> 등록됨" 알림이 남는다 (스스로 사라지지 않는다).
- *   FR-PNW-80 지문은 앞 16자, 초대는 남은 시간으로 보인다.
+ *   FR-EPR-5  방송의 `paired` 가 오면 "{name}({지문 앞자리})와 맺었습니다" 알림이 남는다.
+ *   FR-EPR-23 방송의 `removed` 가 오면 "{name} 간선이 끊겼습니다" 알림을 띄운다. 이 화면이
+ *             스스로 끊은 간선은 알리지 않는다.
+ *   FR-EPR-32 간선 줄은 `표시 이름 · 지문 앞 16자리 · 주소:포트` 다. 주소를 모르면 `-` 다.
+ *   FR-EPR-70 승인 대기 구역·알림은 없다.
+ *   FR-EPR-71 상대에게 알리지 못하고 끊었으면 그 사실을 알린다.
  */
-function setup() {
+function setup(extra = {}) {
   const shown = [];
-  let next = { ok: true, status: 200, data: { pending: [] } };
-  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js'], {
-    expose: ['edgeFp16', 'edgeRemain'],
+  const posts = [];
+  let next = { ok: true, status: 200, data: { edges: [] } };
+  let postResult = { ok: true, status: 200, data: {} };
+  const after = [];
+  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js', 'core/app-settings-edges.js'], {
+    expose: ['edgeFp16', 'edgeRemain', 'edgeWho'],
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),
       apiGet: async () => next,
+      apiPost: async (path, body) => { posts.push([path, body]); return postResult },
+      statusRun: async (_el, _opts, fn) => fn(),
+      document: { getElementById: () => null },
       Toast: {
         show(text, kind, ms, opts) {
           const h = { text, kind, ms, opts, closed: false, el: { isConnected: true } };
@@ -29,19 +37,21 @@ function setup() {
           return h;
         },
       },
+      ...extra,
     },
   });
   const app = new ctx.App();
   app._liveOpen = () => false; // 설정 패널이 열려 있지 않다 (UX_BATCH12 FR-LIV-4)
-  app.timers = { after: () => ({ stop() {} }), cancel() {} };
+  app.timers = { after: (...a) => { after.push(a); return { stop() {} } }, cancel() {} };
   app._restoreBegin = () => 1;
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
   app._edgesPaint = () => {};
-  app.opened = [];
-  app._openSettings = (tab) => app.opened.push(tab);
-  const pend = (...ids) => { next = { ok: true, status: 200, data: { pending: ids.map((id) => ({ id, name: 'n-' + id })) } } };
-  return { ctx, app, shown, pend, fail: () => { next = { ok: false, status: 503, data: null } } };
+  return {
+    ctx, app, shown, posts, after,
+    setNext: (v) => { next = v },
+    setPost: (v) => { postResult = v },
+  };
 }
 
 test('지문은 앞 16자다', () => {
@@ -59,55 +69,60 @@ test('남은 시간은 m:ss 이고, 지났으면 빈 값이다', () => {
   assert.equal(ctx.edgeRemain('bad', now), '');
 });
 
-test('새 승인 대기가 오면 알림 하나, 같은 대기로는 다시 띄우지 않는다', async () => {
-  const { app, shown, pend } = setup();
-  pend('p1');
+test('간선 줄은 표시 이름 · 지문 앞 16자리 · 주소:포트다', () => {
+  const { ctx } = setup();
+  const fp = '0123456789abcdef'.repeat(4);
+  assert.equal(ctx.edgeWho({ name: 'home', fp, addr: '10.0.0.2', port: 58147 }), 'home · 0123456789abcdef · 10.0.0.2:58147');
+  assert.equal(ctx.edgeWho({ name: 'home', fp, addr: '', port: 0 }), 'home · 0123456789abcdef · -');
+  assert.equal(ctx.edgeWho({ name: 'v6', fp, addr: 'fe80::1', port: 1 }), 'v6 · 0123456789abcdef · [fe80::1]:1');
+});
+
+test('승인 대기가 있어도 알림·만료 타이머가 없다', async () => {
+  const { app, shown, after, setNext } = setup();
+  setNext({ ok: true, status: 200, data: { edges: [], pending: [{ id: 'p1', expires: '2099-01-01T00:00:00Z' }] } });
   await app._edgesRestore();
+  assert.equal(shown.length, 0);
+  assert.equal(after.length, 0);
+});
+
+test('paired 방송은 이름과 지문 앞자리로 "맺었습니다" 알림을 남긴다', async () => {
+  const { app, shown } = setup();
+  await app._onEdgesChanged({ paired: { fp: 'aaaaaaaaaaaaaaaabbbb', name: 'node-a' } });
   assert.equal(shown.length, 1);
-  assert.equal(shown[0].ms, 0, '주의 알림은 스스로 사라지지 않는다');
-  assert.equal(shown[0].opts.actions.length, 1);
-  await app._edgesRestore();
-  assert.equal(shown.length, 1, '같은 대기로 알림을 다시 띄웠다');
-  pend('p1', 'p2');
-  await app._edgesRestore();
-  assert.equal(shown.length, 1, '살아 있는 알림을 두고 하나 더 띄웠다');
-  assert.match(shown[0].text, /"n":2/);
-});
-
-test('알림을 누르면 Edges 탭이 열리고 알림은 닫힌다', async () => {
-  const { app, shown, pend } = setup();
-  pend('p1');
-  await app._edgesRestore();
-  shown[0].opts.actions[0].onClick();
-  assert.deepEqual(app.opened, ['edges']);
-  assert.equal(shown[0].closed, true);
-  pend('p1', 'p3');
-  await app._edgesRestore();
-  assert.equal(shown.length, 2, '닫은 뒤 새 대기가 오면 다시 띄워야 한다');
-});
-
-test('대기가 없어지면 알림을 거둔다. 읽기 실패로는 거두지 않는다', async () => {
-  const { app, shown, pend, fail } = setup();
-  pend('p1');
-  await app._edgesRestore();
-  fail();
-  await app._edgesRestore();
-  assert.equal(shown[0].closed, false);
-  pend();
-  await app._edgesRestore();
-  assert.equal(shown[0].closed, true);
-});
-
-test('paired 방송은 "등록됨" 알림을 남긴다', async () => {
-  const { app, shown, pend } = setup();
-  pend();
-  await app._onEdgesChanged({ paired: 'node-a' });
-  const ok = shown.filter((h) => h.kind === 'ok');
-  assert.equal(ok.length, 1);
-  assert.match(ok[0].text, /node-a/);
-  assert.equal(ok[0].ms, 0, '등록 알림은 남아야 한다');
+  assert.equal(shown[0].kind, 'ok');
+  assert.equal(shown[0].ms, 0, '맺음 알림은 남아야 한다');
+  assert.match(shown[0].text, /^edge\.paired_notice/);
+  assert.match(shown[0].text, /node-a/);
+  assert.match(shown[0].text, /"fp":"aaaaaaaaaaaaaaaa"/);
   await app._onEdgesChanged({});
-  assert.equal(shown.filter((h) => h.kind === 'ok').length, 1);
+  assert.equal(shown.length, 1);
+});
+
+test('removed 방송은 "끊겼습니다" 알림을 띄운다. 이 화면이 끊은 것은 알리지 않는다', async () => {
+  const { app, shown, setPost } = setup();
+  await app._onEdgesChanged({ removed: { fp: 'f1', name: 'node-b' } });
+  assert.equal(shown.length, 1);
+  assert.match(shown[0].text, /^edge\.removed_notice/);
+  assert.match(shown[0].text, /node-b/);
+
+  setPost({ ok: true, status: 200, data: { fp: 'f2', name: 'node-c', notified: true } });
+  await app._egRemove({ fp: 'f2', name: 'node-c' });
+  await app._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
+  assert.equal(shown.length, 1, '스스로 끊은 간선을 알렸다');
+  await app._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
+  assert.equal(shown.length, 2, '스스로 끊은 표시는 한 번만 쓴다');
+});
+
+test('끊기는 지문으로 보내고, 상대에게 알리지 못했으면 알린다', async () => {
+  const { app, shown, posts, setPost } = setup();
+  setPost({ ok: true, status: 200, data: { fp: 'f3', name: 'node-d', notified: false } });
+  await app._egRemove({ fp: 'f3', name: 'node-d' });
+  assert.equal(JSON.stringify(posts), JSON.stringify([['/api/edges/remove', { fp: 'f3' }]]));
+  assert.equal(shown.length, 1);
+  assert.match(shown[0].text, /^edge\.remove_unnotified/);
+  setPost({ ok: true, status: 200, data: { fp: 'f4', name: 'node-e', notified: true } });
+  await app._egRemove({ fp: 'f4', name: 'node-e' });
+  assert.equal(shown.length, 1, '알렸는데 미통지 알림을 띄웠다');
 });
 
 /**
@@ -115,68 +130,14 @@ test('paired 방송은 "등록됨" 알림을 남긴다', async () => {
  * 값으로 채운다. 비어 남은 칸을 저장하면 400 이다.
  */
 test('탭을 여는 읽기가 밀려도 노드 칸은 그 값으로 채운다', async () => {
-  const data = { node: { name: 'office', port: 58147 }, pending: [{ id: 'p1' }], edges: [{ name: 'b' }] };
-  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js', 'core/app-settings-edges.js'], {
-    globals: {
-      App: function App() {},
-      t: (k) => k,
-      apiGet: async () => ({ ok: true, status: 200, data }),
-      statusRun: async (_el, _opts, fn) => fn(),
-      document: { getElementById: () => null },
-      Toast: { show: () => ({ close() {}, update() {}, el: { isConnected: true } }) },
-    },
-  });
-  const app = new ctx.App();
-  app.timers = { after: () => ({ stop() {} }), cancel() {} };
-  app._restoreBegin = () => 1;
+  const data = { node: { name: 'office', port: 58147 }, edges: [{ name: 'b', fp: 'f' }] };
+  const { app } = setup({ apiGet: async () => ({ ok: true, status: 200, data }) });
   app._restoreLive = () => false; // 방송의 다시 읽기가 뒤에 시작했다
-  app._restoreEnd = () => {};
   const painted = {};
   app._egNodePaint = (v) => { painted.node = v };
-  app._egPendingPaint = (p, force) => { painted.pending = [p, force] };
   app._egEdgesPaint = (p, force) => { painted.edges = [p, force] };
   app._egNodeCollect = () => ({}); // 폼 DOM 은 이 시험의 대상이 아니다 (UX_BATCH12 FR-LIV-6 의 기준값)
   await app._loadEdgesPanel();
   assert.equal(painted.node, data);
-  assert.deepEqual(painted.pending, [data.pending, true]);
   assert.deepEqual(painted.edges, [data.edges, true]);
-});
-
-/**
- * C6: 승인 대기는 시간으로 만료돼도 방송이 없다. 가장 이른 만료 뒤에 한 번 다시 읽어
- * 알림을 거둔다. 주기 조회가 아니다 — 대기가 없으면 타이머도 없다.
- */
-test('승인 대기가 만료되는 때에 한 번 다시 읽는다', async () => {
-  const timers = [];
-  const cleared = [];
-  const now = Date.parse('2026-11-10T00:00:00Z');
-  let next = { ok: true, status: 200, data: { pending: [
-    { id: 'p1', expires: '2026-11-10T00:05:00Z' }, { id: 'p2', expires: '2026-11-10T00:02:00Z' }] } };
-  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js'], {
-    globals: {
-      App: function App() {},
-      t: (k) => k,
-      apiGet: async () => next,
-      Date: { now: () => now, parse: Date.parse },
-      Toast: { show: () => { const h = { el: { isConnected: true } }; h.close = () => { h.el.isConnected = false }; h.update = () => {}; return h } },
-    },
-  });
-  const app = new ctx.App();
-  app._liveOpen = () => false; // 설정 패널이 열려 있지 않다 (UX_BATCH12 FR-LIV-4)
-  app.timers = {
-    after: (ms, fn) => { const h = { ms, fn, stop: () => cleared.push(h) }; timers.push(h); return h },
-    cancel: (h) => { if (h) h.stop() },
-  };
-  app._restoreBegin = () => 1;
-  app._restoreLive = () => true;
-  app._restoreEnd = () => {};
-  app._edgesPaint = () => {};
-  await app._edgesRestore();
-  assert.equal(timers.length, 1);
-  assert.ok(timers[0].ms >= 120000 && timers[0].ms <= 125000, `타이머 ${timers[0].ms}`);
-  next = { ok: true, status: 200, data: { pending: [] } };
-  await timers[0].fn();
-  assert.deepEqual(cleared, [timers[0]], '앞 타이머를 거두지 않았다');
-  assert.equal(timers.length, 1, '대기가 없는데 타이머를 걸었다');
-  assert.equal(app._edgeToast, null, '알림을 거두지 않았다');
 });

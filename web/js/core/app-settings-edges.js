@@ -1,7 +1,7 @@
 /**
- * Dongminal — 설정창의 **Edges 패널** (PEER_NETWORK_SRS FR-PNW-80).
+ * Dongminal — 설정창의 **Edges 패널** (PEER_NETWORK_SRS FR-PNW-80, EDGE_PAIRING_SRS FR-EPR-70·71).
  *
- * 구역은 넷이다: 이 노드 · 초대 · 승인 대기 · 간선. 목록은 `app-edges.js` 가 읽은
+ * 구역은 셋이다: 이 노드 · 초대(만들기와 붙여 넣기) · 간선. 목록은 `app-edges.js` 가 읽은
  * `_edges` 를 그린다 — 방송(`edges_changed`)이 오면 그쪽이 다시 읽고 여기를 부른다.
  * 노드 설정 칸은 탭을 열 때와 저장한 뒤에만 채운다. 방송마다 채우면 고치던 값이 덮인다.
  *
@@ -43,7 +43,6 @@ Object.assign(App.prototype, {
       :n.error?t('edge.port_error',{error:n.error}):t('edge.port_off');
     document.getElementById('eg-fp').textContent=edgeFp16(n.fingerprint);
     this._egInvitePaint();
-    this._egPendingPaint(v.pending||[]);
     this._egEdgesPaint(v.edges||[]);
   },
 
@@ -74,71 +73,10 @@ Object.assign(App.prototype, {
     document.getElementById('eg-inv-remain').textContent=left||t('edge.inv_none');
   },
 
-  _egPendingPaint(pending,force){
-    const box=document.getElementById('eg-pending');
-    const keep=this._egKeepEditing(box,'id','.eg-rename:not([hidden])',force);
-    box.replaceChildren(...pending.map(p=>keep.get(p.id)||this._egPendingRow(p)));
-    if(!pending.length){
-      const none=document.createElement('span');
-      none.className='sbx-status';
-      none.textContent=t('edge.pending_none');
-      box.appendChild(none);
-    }
-  },
-
-  _egPendingRow(p){
-    const row=document.createElement('div');
-    row.className='eg-item';
-    row.dataset.id=p.id;
-    const who=document.createElement('span');
-    who.className='eg-who';
-    who.textContent=p.name+' · '+p.addr+':'+p.port;
-    const fp=document.createElement('code');
-    fp.className='eg-fp';
-    fp.textContent=edgeFp16(p.fp);
-    // FR-PNW-30: 이름이 이미 있으면 서버가 409 로 답한다. 그때만 이름 칸을 연다.
-    const name=document.createElement('input');
-    name.type='text';name.className='sbx-input eg-rename';name.hidden=true;
-    name.value=p.name;
-    name.setAttribute('aria-label',t('edge.rename_label'));
-    const ok=UIKit.button({label:t('edge.approve'),kind:'primary',size:'sm',cls:'eg-approve'});
-    const no=UIKit.button({label:t('edge.reject'),kind:'ghost',size:'sm',cls:'eg-reject'});
-    const st=document.getElementById('eg-pending-status');
-    // L-10: 처음 승인할 때 지문 대조를 한 번 거친다. 이름을 바꿔 다시 승인할 때는 묻지 않는다.
-    // 확인창이 열린 동안 방송이 줄을 새로 만들 수 있다 — 대조 여부는 id 로, 이름 칸은 지금
-    // 화면의 줄에서 찾는다.
-    const verified=this._egVerified||(this._egVerified=new Set());
-    ok.addEventListener('click',()=>{
-      if(verified.has(p.id)) return approve();
-      this._egApproveConfirm(p,()=>{ verified.add(p.id); return approve() });
-    });
-    const nameNow=()=>{
-      const cur=document.querySelector('#eg-pending .eg-item[data-id="'+CSS.escape(p.id)+'"]');
-      return (cur&&cur.querySelector('.eg-rename'))||name;
-    };
-    const approve=()=>statusRun(st,{fail:t('edge.approve_fail')},async()=>{
-      const body={id:p.id};
-      const nm=nameNow();
-      if(!nm.hidden) body.name=nm.value.trim();
-      const r=await apiPost('/api/edges/approve',body);
-      if(!r.ok&&r.data&&r.data.code==='edge_name_taken'){
-        const field=nameNow();
-        field.hidden=false;field.focus();
-        return {ok:false,status:r.status,data:{message:t('edge.name_taken',{name:body.name||p.name})},text:'',headers:null};
-      }
-      if(r.ok&&r.data&&r.data.confirmed===false) st.textContent=t('edge.confirm_failed',{reason:r.data.reason||''});
-      return r;
-    });
-    no.addEventListener('click',()=>statusRun(st,{fail:t('edge.reject_fail')},
-      ()=>apiPost('/api/edges/reject',{id:p.id})));
-    row.append(who,fp,name,ok,no);
-    return row;
-  },
-
   _egEdgesPaint(edges,force){
     const box=document.getElementById('eg-edges');
-    const keep=this._egKeepEditing(box,'name','.eg-addr:not([hidden])',force);
-    box.replaceChildren(...edges.map(p=>keep.get(p.name)||this._egEdgeRow(p)));
+    const keep=this._egKeepEditing(box,'fp','.eg-addr:not([hidden])',force);
+    box.replaceChildren(...edges.map(p=>keep.get(p.fp)||this._egEdgeRow(p)));
     if(!edges.length){
       const none=document.createElement('span');
       none.className='sbx-status';
@@ -150,19 +88,15 @@ Object.assign(App.prototype, {
   _egEdgeRow(p){
     const row=document.createElement('div');
     row.className='eg-item';
-    row.dataset.name=p.name;
+    row.dataset.fp=p.fp;
     const who=document.createElement('span');
     who.className='eg-who';
-    who.textContent=p.name+' · '+p.addr+':'+p.port;
-    const state=document.createElement('span');
-    state.className='sbx-status eg-state';
-    state.textContent=!p.state?t('edge.state_paired')
-      :p.state==='pending-out'?t('edge.state_pending_out'):t('edge.state_unknown',{state:p.state});
+    who.textContent=edgeWho(p);
     const addr=document.createElement('input');
     addr.type='text';addr.className='sbx-input eg-addr';addr.value=p.addr;addr.hidden=true;
     addr.setAttribute('aria-label',t('edge.addr_label'));
     const port=document.createElement('input');
-    port.type='number';port.className='ds-num eg-port';port.value=String(p.port);port.hidden=true;
+    port.type='number';port.className='ds-num eg-port';port.value=p.port?String(p.port):'';port.hidden=true;
     port.setAttribute('aria-label',t('edge.port_label'));
     const edit=UIKit.button({label:t('edge.edit_addr'),kind:'ghost',size:'sm',cls:'eg-edit'});
     const cancel=UIKit.button({label:t('core.cancel'),kind:'ghost',size:'sm',cls:'eg-edit-cancel'});
@@ -175,48 +109,26 @@ Object.assign(App.prototype, {
     edit.addEventListener('click',()=>{
       if(addr.hidden){ editing(true);addr.focus();return }
       statusRun(st,{ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
-        const r=await apiPut('/api/edges/address',{name:p.name,addr:addr.value.trim(),port:parseInt(port.value,10)||0});
+        const r=await apiPut('/api/edges/address',{fp:p.fp,addr:addr.value.trim(),port:parseInt(port.value,10)||0});
         if(r.ok){ editing(false); await this._edgesRestore() }
         return r;
       });
     });
     // M-7: 고치기를 그만두면 이 줄도 다시 방송을 따른다.
     cancel.addEventListener('click',()=>{
-      addr.value=p.addr;port.value=String(p.port);editing(false);
+      addr.value=p.addr;port.value=p.port?String(p.port):'';editing(false);
       if(this._edges) this._egEdgesPaint(this._edges.edges||[]);
     });
     const del=UIKit.button({label:t('edge.remove'),kind:'ghost',size:'sm',cls:'eg-remove'});
-    del.addEventListener('click',()=>this._egRemoveConfirm(p.name));
-    row.append(who,state,addr,port,edit,cancel,del);
+    del.addEventListener('click',()=>this._egRemoveConfirm(p));
+    row.append(who,addr,port,edit,cancel,del);
     return row;
   },
 
-  // L-10: 초대 코드를 얻은 남이 먼저 등록할 수 있다. 지문이 상대 화면의 것과 같은지 확인받는다.
-  _egApproveConfirm(p,onOk){
-    const body=document.createElement('div');
-    const msg=document.createElement('p');
-    msg.textContent=t('edge.approve_body',{name:p.name});
-    const fp=document.createElement('code');
-    fp.className='eg-fp eg-fp-big';
-    fp.textContent=edgeFp16(p.fp);
-    body.append(msg,fp);
-    const m=UIKit.modal({
-      title:t('edge.approve_title'),
-      cls:'eg-approve-confirm',
-      width:'min(420px,90vw)',
-      body,
-      actions:[
-        {label:t('core.cancel')},
-        {label:t('edge.approve'),kind:'primary',onClick:onOk},
-      ],
-    });
-    document.body.appendChild(m.el);
-  },
-
-  // 끊으면 다시 간선을 맺어야 한다 — 한 걸음 확인을 받는다 (CONFIRM_ONE_STAGE_SRS).
-  _egRemoveConfirm(name){
+  // 끊으면 다시 간선을 맺어야 한다 — 한 걸음 확인을 받는다 (CONFIRM_ONE_STAGE_SRS, FR-EPR-71).
+  _egRemoveConfirm(p){
     const body=document.createElement('p');
-    body.textContent=t('edge.remove_body',{name});
+    body.textContent=t('edge.remove_body',{name:p.name,fp:edgeFp16(p.fp)});
     const st=document.getElementById('eg-edges-status');
     const m=UIKit.modal({
       title:t('edge.remove_title'),
@@ -225,11 +137,20 @@ Object.assign(App.prototype, {
       body,
       actions:[
         {label:t('core.cancel')},
-        {label:t('edge.remove'),kind:'danger',onClick:()=>statusRun(st,{fail:t('edge.remove_fail')},
-          ()=>apiPost('/api/edges/remove',{name}))},
+        {label:t('edge.remove'),kind:'danger',onClick:()=>statusRun(st,{fail:t('edge.remove_fail')},()=>this._egRemove(p))},
       ],
     });
     document.body.appendChild(m.el);
+  },
+
+  /** 간선을 끊는다. 이 화면이 끊은 지문은 `removed` 방송의 알림을 건너뛴다 (FR-EPR-23·71). */
+  async _egRemove(p){
+    const mine=this._egRemoving||(this._egRemoving=new Set());
+    mine.add(p.fp);
+    const r=await apiPost('/api/edges/remove',{fp:p.fp});
+    if(!r.ok) mine.delete(p.fp);
+    else if(r.data&&r.data.notified===false) Toast.show(t('edge.remove_unnotified'),'',0);
+    return r;
   },
 
   async _loadEdgesPanel(){
@@ -246,7 +167,6 @@ Object.assign(App.prototype, {
     this._egNodePaint(v);
     if(got) this._liveMark('edges',got,this._egNodeCollect());
     // 탭을 열면 고치던 줄도 버리고 지금 값으로 그린다.
-    this._egPendingPaint(v.pending||[],true);
     this._egEdgesPaint(v.edges||[],true);
   },
 
@@ -288,13 +208,10 @@ Object.assign(App.prototype, {
     const addSt=document.getElementById('eg-add-status');
     document.getElementById('eg-add').addEventListener('click',()=>statusRun(addSt,{fail:t('edge.add_fail')},async()=>{
       const code=document.getElementById('eg-add-code').value.trim();
-      const name=document.getElementById('eg-add-name').value.trim();
-      const r=await apiPost('/api/edges/add',name?{code,name}:{code});
+      const r=await apiPost('/api/edges/add',{code});
       if(!r.ok||!r.data) return r;
       document.getElementById('eg-add-code').value='';
-      // FR-PNW-33: 등록은 됐지만 상대가 이 노드로 보낼 수 없다.
-      const msg=t('edge.add_ok',{name:r.data.name});
-      addSt.textContent=r.data.warning==='port_closed'?msg+' '+t('edge.add_port_closed'):msg;
+      addSt.textContent=t('edge.add_ok',{name:r.data.name,fp:edgeFp16(r.data.fp)});
       return r;
     }));
     this.timers.every({
