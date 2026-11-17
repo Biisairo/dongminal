@@ -45,6 +45,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl activity <agent>            # 현재 도구의 작업 상태 보고 (stdin hook JSON 파싱)
   dmctl agent-context               # 세션 상시 주입 컨텍스트 (에이전트 hook 에서 호출)
   dmctl ctx-hook <agent>            # 맥락 기준 migration 제안 (에이전트 hook 에서 호출)
+  dmctl chat-mcp                    # 노드 망 채팅 MCP 서버 (claude shim 이 주입)
   dmctl send <action> [json-args]   # raw 전송
 
 에이전트 접합면 — 다른 도구의 화면을 읽고 입력을 넣는다:
@@ -171,6 +172,8 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 		return runDmctlAgentContext(rest, os.Stdin, stdout, stderr), true
 	case "ctx-hook":
 		return runDmctlCtxHook(rest, os.Stdin, stdout, stderr), true
+	case "chat-mcp":
+		return runDmctlChatMCP(rest, os.Stdin, stdout, stderr), true
 	case "read-screen", "read-output":
 		return runDmctlRead(cmd, rest, stdout, stderr), true
 	case "send-input":

@@ -6,6 +6,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
+	"time"
+
+	"dongminal/internal/shared/chatwire"
+	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/platform"
 )
 
 // ISSUE_TREE_OPS_SRS 묶음 M — 맥락 훅 (FR-ITM-10~14).
@@ -21,6 +28,7 @@ stdin 의 훅 JSON 에서 이벤트 이름을 읽고, 서버에 이 도구의 �
 알린다. 맥락 사용률이 기준 migrationHookCtxPct(기본 50)의 80% 이상이면 다음 일의 크기를 보고
 /dongminal:migration 시점을 판단하라고 알리고, 85% 이상이면 판단 없이 지금 넘기라고 알린다.
 issue-tree 노드는 건너뛴다 — 그 노드는 issue-tree 설정과 절차를 따른다.
+데몬 모드에서는 노드 망 채팅의 읽지 않은 글 수도 함께 알린다(세션 id 로 데몬에 묻는다).
 `
 
 // hookStdinMax 는 훅 stdin 을 읽는 상한이다(activity·agent-context 와 같은 크기).
@@ -42,7 +50,8 @@ func runDmctlCtxHook(args []string, stdin io.Reader, stdout, stderr io.Writer) i
 		}
 	}
 	var in struct {
-		Event string `json:"hook_event_name"`
+		Event   string `json:"hook_event_name"`
+		Session string `json:"session_id"`
 	}
 	data, _ := io.ReadAll(io.LimitReader(stdin, hookStdinMax))
 	_ = json.Unmarshal(data, &in)
@@ -50,20 +59,22 @@ func runDmctlCtxHook(args []string, stdin io.Reader, stdout, stderr io.Writer) i
 	if tool == "" || in.Event == "" {
 		return 0
 	}
-	status, body, err := httpGetWithin(baseURL()+"/api/tools/migration-advice?id="+url.QueryEscape(tool), hookBudget)
-	if err != nil || status != http.StatusOK {
-		return 0
+	// PEER_CHAT_SRS FR-PCH-60: 채팅의 안 읽은 글 수도 같은 훅이 싣는다 (§3.10). 두 질의를
+	// 함께 보내 훅이 길어지지 않게 한다.
+	unread := make(chan string, 1)
+	go func() { unread <- chatUnreadText(os.Getenv(dmenv.EnvHome), in.Session) }()
+	var lines []string
+	if text := ctxAdviceText(fetchCtxAdvice(tool)); text != "" {
+		lines = append(lines, text)
 	}
-	var adv ctxAdvice
-	if json.Unmarshal(body, &adv) != nil {
-		return 0
+	if text := <-unread; text != "" {
+		lines = append(lines, text)
 	}
-	text := ctxAdviceText(adv)
-	if text == "" {
+	if len(lines) == 0 {
 		return 0
 	}
 	blob, err := json.Marshal(map[string]any{
-		"hookSpecificOutput": map[string]any{"hookEventName": in.Event, "additionalContext": text},
+		"hookSpecificOutput": map[string]any{"hookEventName": in.Event, "additionalContext": strings.Join(lines, "\n")},
 	})
 	if err != nil {
 		return 0
@@ -71,6 +82,53 @@ func runDmctlCtxHook(args []string, stdin io.Reader, stdout, stderr io.Writer) i
 	stdout.Write(blob)
 	fmt.Fprintln(stdout)
 	return 0
+}
+
+// fetchCtxAdvice 는 서버의 판정이다. 묻지 못하면 빈 판정이다.
+func fetchCtxAdvice(tool string) ctxAdvice {
+	var adv ctxAdvice
+	status, body, err := httpGetWithin(baseURL()+"/api/tools/migration-advice?id="+url.QueryEscape(tool), hookBudget)
+	if err != nil || status != http.StatusOK {
+		return adv
+	}
+	_ = json.Unmarshal(body, &adv)
+	return adv
+}
+
+// chatUnreadWait 는 채팅 소켓에 안 읽은 수를 묻는 예산이다.
+const chatUnreadWait = 700 * time.Millisecond
+
+// chatUnreadText 는 그 세션의 안 읽은 글 수 알림이다. 방 이름은 싣지 않는다 — 망에서 온
+// 값을 훅 맥락에 넣지 않는다 (§3.10). 없거나 묻지 못하면 빈 값이다.
+func chatUnreadText(home, session string) string {
+	if home == "" || session == "" {
+		return ""
+	}
+	deadline := time.Now().Add(chatUnreadWait)
+	c, err := platform.Current().IPC.Dial(chatwire.SocketPath(home), chatUnreadWait)
+	if err != nil {
+		return ""
+	}
+	defer c.Close()
+	if c.SetDeadline(deadline) != nil {
+		return ""
+	}
+	b, err := chatwire.Encode(chatwire.Frame{T: chatwire.TypeUnread, Session: session})
+	if err != nil {
+		return ""
+	}
+	if _, err := c.Write(b); err != nil {
+		return ""
+	}
+	sc := chatwire.NewScanner(c)
+	if !sc.Scan() {
+		return ""
+	}
+	var f chatwire.Frame
+	if json.Unmarshal(sc.Bytes(), &f) != nil || f.T != chatwire.TypeUnread || f.Total <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("[dongminal chat] 읽지 않은 글 %d건. 하던 일을 마친 뒤 chat_read 로 확인한다.", f.Total)
 }
 
 // ctxAdviceText 는 판정의 문구다. 매 훅마다 사용률을 싣는다. `advise` 는 넘길 시점을

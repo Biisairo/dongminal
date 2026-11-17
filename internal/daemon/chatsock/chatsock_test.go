@@ -300,15 +300,16 @@ func TestRisePastesOnlyWhenResting(t *testing.T) {
 	h.tools.resting["rest"] = true
 	rest, _ := h.agent("s1", "rest", "a")
 	busy, _ := h.agent("s2", "busy", "b")
-	rest.send(chatwire.Frame{T: chatwire.TypeRise, Total: 2, Rooms: []chatwire.RoomCount{{Name: "auth\x07" + strings.Repeat("가", 50), N: 2}}})
-	busy.send(chatwire.Frame{T: chatwire.TypeRise, Total: 1, Rooms: []chatwire.RoomCount{{Name: "x", N: 1}}})
+	rest.send(chatwire.Frame{T: chatwire.TypeRise, Total: 2})
+	busy.send(chatwire.Frame{T: chatwire.TypeRise, Total: 1})
 	eventually(t, "붙여넣기", func() bool { return len(h.tools.pastes()) == 1 })
 	time.Sleep(50 * time.Millisecond)
 	ps := h.tools.pastes()
 	if len(ps) != 1 {
 		t.Fatalf("pastes %q", ps)
 	}
-	want := `rest|[dongminal chat] 새 글 2건 (방: "auth` + strings.Repeat("가", roomNameShown-4) + `"). chat_read 로 확인한다.`
+	// 방 이름은 망에서 온 값이라 붙여 넣지 않는다.
+	want := "rest|[dongminal chat] 새 글 2건. chat_read 로 확인한다."
 	if ps[0] != want {
 		t.Fatalf("paste\n got %q\nwant %q", ps[0], want)
 	}
@@ -321,12 +322,12 @@ func TestUnreadRelaysToSession(t *testing.T) {
 	mcp, _ := h.agent("s1", "t2", "b")
 	go func() {
 		ask := mcp.next(chatwire.TypeCountAsk)
-		mcp.send(chatwire.Frame{T: chatwire.TypeCount, N: ask.N, Total: 3, Rooms: []chatwire.RoomCount{{Name: "auth", N: 3}}})
+		mcp.send(chatwire.Frame{T: chatwire.TypeCount, N: ask.N, Total: 3})
 	}()
 	hook := h.dial()
 	hook.send(chatwire.Frame{T: chatwire.TypeUnread, Session: "s1"})
 	got := hook.next(chatwire.TypeUnread)
-	if got.Total != 3 || len(got.Rooms) != 1 || got.Rooms[0].Name != "auth" {
+	if got.Total != 3 {
 		t.Fatalf("unread %+v", got)
 	}
 	select {

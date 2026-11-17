@@ -10,6 +10,11 @@
 - **dongminal 탭의 claude 가 `dmctl` 활용 지침을 받습니다.** claude shim 이 지침을 시스템 프롬프트 끝에 붙입니다
   (`--append-system-prompt`). 기본 시스템 프롬프트와 사용자의 CLAUDE.md 는 그대로 읽힙니다. 폴더를 추가로 열지 않으므로
   신뢰 확인창("Adding a new directory")이 뜨지 않습니다.
+- **노드 망 채팅의 MCP 도구가 생겼습니다(데몬 모드).** dongminal 탭에서 `claude` 를 띄우면 shim 이 MCP 서버
+  `dongminal`(`dmctl chat-mcp`)을 주입합니다. 도구는 `chat_online`·`chat_rooms`·`chat_create`·`chat_direct`·`chat_join`·
+  `chat_leave`·`chat_send`·`chat_read` 여덟 개이며 허락을 묻지 않습니다. 참가자는 claude 세션 하나이고, MCP 연결이
+  끊기면 모든 방에서 나갑니다. 쉬는 중에 첫 글이 오면 개수만 터미널에 붙여 넣고, 일하는 중에는 맥락 훅이 읽지 않은
+  글 수를 알립니다. 글과 개수는 디스크에 쓰지 않습니다. **데몬을 다시 띄우고 새로 띄운 claude 부터 적용됩니다.**
 
 ### 바뀜
 

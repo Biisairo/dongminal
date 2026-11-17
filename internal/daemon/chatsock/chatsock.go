@@ -26,8 +26,6 @@ const (
 	maxLabel = 64
 	// fpShown 은 온라인 목록에 보이는 지문 앞자리 수다.
 	fpShown = 12
-	// roomNameShown 은 붙여넣기에 쓰는 방 이름의 글자 수다.
-	roomNameShown = 40
 	// helloWait 는 첫 프레임을 기다리는 시한이다.
 	helloWait = 5 * time.Second
 	// writeWait 는 프레임 하나를 쓰는 시한이다.
@@ -362,16 +360,14 @@ func onlineOf(v chat.OnlineView) chatwire.Online {
 	return out
 }
 
-// rise 는 0건→1건 알림이다. 그 도구가 쉬는 중일 때만 붙여 넣는다 (FR-PCH-61~63).
+// rise 는 0건→1건 알림이다. 그 도구가 쉬는 중일 때만 붙여 넣는다 (FR-PCH-61~63). 붙여 넣는
+// 글에는 개수만 싣는다 — 방 이름은 망의 다른 노드가 정한 값이라, 사용자 입력처럼 제출되는
+// 자리에 넣지 않는다. 방 이름은 MCP 도구 결과로만 보인다 (FR-PCH-52).
 func (s *Server) rise(tool string, f chatwire.Frame) {
 	if s.o.Tools == nil || f.Total <= 0 || !s.o.Tools.Resting(tool) {
 		return
 	}
-	names := make([]string, 0, len(f.Rooms))
-	for _, r := range f.Rooms {
-		names = append(names, `"`+truncRunes(clean(strings.ReplaceAll(r.Name, `"`, "")), roomNameShown)+`"`)
-	}
-	text := fmt.Sprintf("[dongminal chat] 새 글 %d건 (방: %s). chat_read 로 확인한다.", f.Total, strings.Join(names, ", "))
+	text := fmt.Sprintf("[dongminal chat] 새 글 %d건. chat_read 로 확인한다.", f.Total)
 	go func() {
 		if err := s.o.Tools.Paste(tool, text); err != nil {
 			dmlog.Warnf(nil, "chat: 알림을 붙여 넣지 못했다: %v", err)
@@ -391,7 +387,7 @@ func (s *Server) answerUnread(nc net.Conn, session string) {
 	s.mu.Unlock()
 	if c != nil {
 		if got, ok := c.ask(s.o.CountWait); ok {
-			reply.Total, reply.Rooms = got.Total, got.Rooms
+			reply.Total = got.Total
 		}
 	}
 	if b, err := chatwire.Encode(reply); err == nil {

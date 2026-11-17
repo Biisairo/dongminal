@@ -73,7 +73,8 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl notify [label]` | 현재 도구에 **주의 알림**을 세웁니다. 탭·분할 칸에 표시가 뜨고, 설정에 따라 데스크톱 알림·소리가 납니다 |
 | `dmctl activity <agent>` | 현재 도구의 **작업 상태**를 보고합니다. 훅 JSON 을 stdin 으로 읽습니다. Telegram 알림을 위해 훅 이름과 대화 기록 파일의 경로를 함께 보내고, 권한 요청·질문(`AskUserQuestion`)이면 도구 입력도 보냅니다. 서브에이전트가 `SubagentHandback` 을 부르면 그 서브에이전트는 `done` 으로 보고합니다 |
 | `dmctl agent-context` | 세션에 상시 주입할 **컨텍스트**를 냅니다 (이 도구가 어느 워크스페이스의 무엇인지) |
-| `dmctl ctx-hook <agent>` | 설정 `migrationHook`(기본 끔)이 켜져 있고 맥락 사용률이 기준(`migrationHookCtxPct`, 기본 50)의 80% 이상이면 다음 일의 크기를 보고 `/dongminal:migration` 시점을 정하라고 알리고, 85% 이상이면 지금 넘기라고 알립니다. 에이전트 훅(PostToolUse·UserPromptSubmit)이 부릅니다 |
+| `dmctl ctx-hook <agent>` | 설정 `migrationHook`(기본 끔)이 켜져 있고 맥락 사용률이 기준(`migrationHookCtxPct`, 기본 50)의 80% 이상이면 다음 일의 크기를 보고 `/dongminal:migration` 시점을 정하라고 알리고, 85% 이상이면 지금 넘기라고 알립니다. 데몬 모드에서는 노드 망 채팅의 읽지 않은 글 수도 함께 알립니다. 에이전트 훅(PostToolUse·UserPromptSubmit)이 부릅니다 |
+| `dmctl chat-mcp` | 노드 망 채팅의 MCP 서버입니다. 데몬 모드에서 dongminal 탭의 `claude` 를 띄우면 shim 이 주입합니다. 사람이 직접 실행하는 명령이 아닙니다 |
 
 #### 파일·URL 열기
 

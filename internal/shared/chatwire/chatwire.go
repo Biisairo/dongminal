@@ -73,21 +73,15 @@ type Frame struct {
 
 	Msg *Message `json:"msg,omitempty"`
 
-	// rise·count·unread: 안 읽은 글 수.
-	Total int         `json:"total,omitempty"`
-	Rooms []RoomCount `json:"rooms,omitempty"`
+	// rise·count·unread: 안 읽은 글 수. 방 이름은 싣지 않는다 — 터미널과 훅 맥락에
+	// 들어가는 값이라 망에서 온 문자열을 넣지 않는다 (§3.10).
+	Total int `json:"total,omitempty"`
 }
 
 // Error 는 실패 하나다.
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
-}
-
-// RoomCount 는 방 하나의 안 읽은 수다.
-type RoomCount struct {
-	Name string `json:"name"`
-	N    int    `json:"n"`
 }
 
 // Message 는 데몬이 MCP 에 넘기는 글이다. 방 종류·이름·목적을 싣는다 (FR-PCH-13).
