@@ -3,13 +3,14 @@
 > 진실은 `docs/internal/PEER_DAEMON_SRS.md` 다. 이 문서는 그 SRS 를 구현하는 세션의 착수 지시와 맥락이다.
 > 다음 일감은 `docs/internal/PEER_CHAT_SRS.md` 다(§5).
 
-## 1. 착수 블록 (단계 4 리뷰 수정 → 간선 맺기 단순화)
+## 1. 착수 블록 (간선 맺기·지우기 단순화 E1~E4)
 
 1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `HEAD` 다.
-2. **사용자 지시(2026-11-17): 두 일을 끝까지 쭉 진행한다.** 단계마다 검사(`make gates`·`make lint`·`npm run typecheck`·`go test ./...`·`npm run unit`)를 통과하면 커밋한다. 적용(데몬·서버 재시작·설치·e2e)·push 는 하지 않는다. 커밋에 AI 서명을 넣지 않는다.
-3. **일 1 — 단계 4 독립 리뷰 수정**: 진실은 `docs/internal/PEER_CHAT_SRS.md` §3.12a(R-1~R-10)다. 각 항목을 시험 먼저(RED) 고친다. 묶어서 커밋해도 된다.
-4. **일 2 — 간선 맺기·지우기 단순화**: 진실은 `docs/internal/EDGE_PAIRING_SRS.md` 다. 미결은 없다. §8 단계 E1~E4 순서로 Spec → Test → Code. 조사 결과(이름이 쓰이는 자리·영향받는 시험 목록)는 아래 §4.6 에 있다.
-5. 둘 다 끝나면 두 SRS 상태를 "승인·구현완료"로 고치고 사용자에게 보고한다. 조율 에이전트는 없다 — 사용자에게 직접 보고한다.
+2. **사용자 지시(2026-11-17): 끝까지 쭉 진행한다. 묻지 않는다.** 단계마다 검사(`make gates`·`make lint`·`npm run typecheck`·`go test ./...`·`npm run unit`)를 통과하면 커밋한다. 적용(데몬·서버 재시작·설치·e2e)·push 는 하지 않는다. 커밋에 AI 서명을 넣지 않는다.
+3. **끝난 것**: 단계 4 독립 리뷰 수정 R-1~R-10 (`d685116f`), 보안 검토 후속(본 명령을 서명 프레임 해시로 기억, `1b17c17e`). PEER_CHAT_SRS 는 "승인·구현완료"다.
+4. **할 일 — 간선 맺기·지우기 단순화**: 진실은 `docs/internal/EDGE_PAIRING_SRS.md` 다(미결 없음). §8 단계 E1~E4 순서로 간다.
+5. **E1 의 RED 시험은 이미 써 두었다**: `docs/internal/_edge_pairing_red/` 의 두 파일. 먼저 제자리로 옮기고(`edge_pairing_simple_test.go.txt` → `internal/shared/edge/pairing_simple_test.go`, `edgenode_pairing_test.go.txt` → `internal/shared/edgenode/pairing_test.go`) RED(컴파일 실패)를 확인한 뒤 구현한다. 다 옮기면 그 폴더를 지운다. 시험이 요구하는 표면(아래 §4.7)이 설계다.
+6. 끝나면 EDGE_PAIRING_SRS 상태를 "승인·구현완료"로 고치고 사용자에게 직접 보고한다(조율 에이전트는 없다). 문서와 코드가 달랐던 곳도 보고한다.
 
 ## 2. 사용자 지시
 
@@ -166,6 +167,17 @@
 - API 경로 `httpapi/handlers_api.go:250-257`, 접착 `edge_api.go`, 데몬 IPC `daemon/ipc/paned_edge.go`, dmctl `runtimebin/dmctl_edge.go`(invite :253, add :269, approve :290, remove :321), 화면 `web/js/core/app-settings-edges.js`(이름 칸 :291, 승인 :100-129·:198, 지우기 :189·:229, 주소 :178, 줄 키 `data-name` :140-153), 알림 `app-edges.js:48`.
 - 영향받는 시험: `edge/config_test.go`·`limit_test.go`·`migrate_test.go`·`pairing_test.go`·`listener_test.go`, `edgenode/node_test.go`·`fail_test.go`, `httpapi/edge_pair_test.go`(28곳)·`edge_notify_test.go`·`edge_daemon_test.go`·`edge_node_test.go`·`edge_reduce_test.go`·`edge_rename_test.go`, `daemon/ipc/edge_test.go`, `runtimebin/dmctl_edge_test.go`, `web/js/test/edges-notice.test.mjs`, `e2e/edges-settings.spec.ts`(돌리지 않는다), e2e 기준선의 `eg-add-name`.
 - 문서: `docs/external/edges.md`·`api.md`·`errors.md`·`commands.md`, `PEER_NETWORK_SRS` FR-PNW-23~33·41·80~82, I-1·I-5·I-37.
+
+### 4.7 EDGE_PAIRING E1 설계 메모 (2026-11-17, RED 시험이 기대하는 표면)
+
+- `edge.Edge` 에서 `State`·`Expires` 를 없앤다. 옛 파일은 `state` 가 빈 값(짝)인 항목만 받는다(`OpenStore` 가 따로 푼다). 이름 유일성 검사를 없앤다. `Addr`·`Port` 는 비어 있을 수 있다(`validateEdge` 를 고친다). 채팅의 `e.State == edge.StatePaired` 검사(`daemon/chat/human.go`·`link.go dialEdges`)를 지우고, 주소가 빈 간선에는 걸지 않는다.
+- `edge.Store`: `AddEdge`(지문으로 덮어쓰기, `helperKey` 넘겨받기), `Remove(fp)`, `SetAddress(fp, addr, port)`, `Resolve(q)`(지문 전체 또는 8자리 이상 앞자리, 겹치면 `ErrAmbiguous`, 없거나 8자리 미만이면 `ErrEdgeNotFound`), `IsEdge(fp)`, `PinHelper`. `IsPendingOut`·`Promote`·`NameTaken*`·`FreeNameFor`·`NameOf`·`ByName` 은 없앤다.
+- `edge.Pairing`: 승인 대기(`Pending`·`AddPending`·`TakePending`·`PutBack`·`PendingTTL`)를 없애고 `Redeem(token, fp)` 를 둔다 — 살아 있는 초대와 맞으면 쓰고 (토큰, 지문, 만료)를 기억, 같은 지문·같은 토큰은 만료까지 nil, 그 밖은 `ErrNoInvite`, 살아 있는 초대에 틀린 토큰은 `ErrBadToken`.
+- `edgenode`: `Options.Notify func(Change)`, `type Change struct{ Paired, Removed *Ref }`, `type Ref struct{ FP, Name string }`(json `fp`·`name`). `Forget(fp)` 는 상대가 지운 간선을 지우고 `Removed` 를 알린다(채팅이 `edge_not_edge` 를 받으면 부른다). `IsNotEdge(err) bool` 은 `RemoteError.Code == edge_not_edge` 인가. 경로 상수 `unpairPath = "/edge/v1/unpair"`, `confirmPath` 는 없앤다. 연산 `pending`·`approve`·`reject` 는 404. `add` 응답 `{fp, name}`, `remove` `{fp}` → `{fp, name, notified}`(상대에 3초 안에 `unpair` 를 부른 뒤 성공 여부와 관계없이 지움). `address` `{fp, addr, port}`.
+- 출입 판정(`Admission`): TLS 는 모두 받는다. `Request` 는 `pair` 면 참(처리기가 `Redeem` 으로 본다), 그 밖은 `IsEdge`. 거절할 때 `edge.requireAdmission` 이 지금은 본문 없는 403 을 쓴다 — `{code:"edge_not_edge"}` 본문과 코드 머리를 쓰게 고친다(그래야 `RemoteError` 로 온다). 새 코드 `CodeNotEdge = "edge_not_edge"`, `CodeAmbiguous = "edge_ambiguous"`; `CodeNameTaken`·`CodePendingMissing` 은 없앤다(`apierr`·`codes_doc`·`gen-errors` 도).
+- `pair` 처리기: 본문 `{token, name, addr, port}`. `port` 가 있으면 `addr`(틀리면 출발지 IP)과 저장, 없으면 주소를 비운다. `Redeem` 성공이면 바로 `AddEdge` 하고 `Paired` 를 알리고 200 `{name}`. A 의 `opAdd` 는 자기 노드 포트가 열려 있을 때만 `port`(와 알릴 주소)를 싣고, 200 이면 B 를 저장하고 `Paired` 를 알린다.
+- 그 다음 바뀌는 곳: 데몬 IPC push `edges`(`toolipc.EdgesEvent` 에 `Paired`·`Removed` 객체), 서버 SSE `edges_changed` `{paired?, removed?}`, `httpapi` 경로 표에서 pending·approve·reject 제거, `dmctl edge` 명령(§4.6 조사), 화면(E3), 문서(E4). 채팅의 `edge_not_edge` 처리는 E2: `chat.Options` 에 `Unpaired func(fp)` 를 두고 `dial` 이 `edgenode.IsNotEdge` 와 같은 판정(chat 은 edgenode 를 import 하지 않으니 `edge.RemoteError` 코드로 본다)이면 부른다. boot 는 `n.Forget` 에 잇는다.
+- 보안 검토가 커밋마다 돈다. 새 경로(`unpair`, TLS 개방)를 만들면 "망의 아무 노드나 악의적" 을 먼저 따진다.
 
 ## 5. 그다음: PEER_CHAT_SRS
 
