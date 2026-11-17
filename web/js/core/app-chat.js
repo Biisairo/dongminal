@@ -78,6 +78,7 @@ Object.assign(App.prototype, {
     const out=[{t:'row',sec:'chats',id:'act',el:this._chatActEl()},
       {t:'row',sec:'chats',id:'h-rooms',el:chatEl('div','chat-sub-h',t('chat.rooms'))}];
     const rooms=this._chatRooms().slice().sort((a,b)=>(b.joined?1:0)-(a.joined?1:0)||chatRoomTitle(a,meId).localeCompare(chatRoomTitle(b,meId)));
+    this._chatRoomOrder=rooms.map(r=>r.id);
     if(!rooms.length) out.push({t:'row',sec:'chats',id:'no-rooms',el:chatEl('div','ui-empty chat-none',t('chat.no_rooms'))});
     for(const r of rooms) out.push({t:'row',sec:'chats',id:'room:'+r.id,el:this._chatRoomRowEl(r,meId)});
     out.push({t:'row',sec:'chats',id:'h-online',el:chatEl('div','chat-sub-h',t('chat.online'))});
@@ -99,7 +100,8 @@ Object.assign(App.prototype, {
   },
 
   _chatRoomRowEl(r,meId){
-    const row=chatEl('div','chat-row chat-room'+(r.joined?' joined':''));
+    const sel=this._chatRoomsSel&&this._chatRoomsSel.sel.has(r.id);
+    const row=chatEl('div','chat-row chat-room'+(r.joined?' joined':'')+(sel?' sel':''));
     row.dataset.room=r.id;
     const title=chatRoomTitle(r,meId);
     row.title=title;
@@ -108,7 +110,8 @@ Object.assign(App.prototype, {
     row.appendChild(chatEl('span','chat-row-sub',t('chat.members',{n:r.members})));
     const n=this._chatS().unread(r.id);
     if(n) row.appendChild(chatEl('span','chat-row-n ui-badge',String(n)));
-    row.addEventListener('click',()=>this._chatOpenRoom(r.id));
+    row.addEventListener('click',e=>{ if(!this._chatRoomPick(r.id,e)) this._chatOpenRoom(r.id) });
+    row.addEventListener('contextmenu',e=>this._chatRoomCtx(r.id,e));
     return row;
   },
 

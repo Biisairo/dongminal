@@ -698,6 +698,8 @@ const TIP_RUNS_YES='Delete this run permanently';
 const TIP_RUNS_NO='Keep this run';
 const TIP_CHAT_CREATE='Create the room and join it'; // PEER_CHAT_SRS §3.11
 const TIP_CHAT_CANCEL='Close without creating';
+const TIP_CHAT_CMD_RUN='Ask the helper to sign and run the command'; // PEER_CHAT_SRS §3.12
+const TIP_CHAT_CMD_CANCEL='Close without running';
 /**
  * `12-func-ui.md FUI-04`: **Run 을 UI 에서 멈출 길이 없었다.**
  *

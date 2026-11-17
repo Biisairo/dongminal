@@ -1377,6 +1377,17 @@ I18N.register('ko', {
   'chat.err_create': '방 만들기',
   'chat.err_leave': '방 나가기',
   'chat.err_direct': '개인채팅 열기',
+  'chat.kill': '강제 삭제',
+  'chat.kick': '강퇴',
+  'chat.kill_what': '방 {n}개 강제 삭제: {list}',
+  'chat.kick_what': '참가자 {n}명 강퇴: {list}',
+  'chat.cmd_title': '사람 명령 확인',
+  'chat.cmd_code': 'OTP 코드',
+  'chat.cmd_hint': 'OTP 앱의 6자리 코드나 복구 코드를 넣습니다.',
+  'chat.cmd_run': '실행',
+  'chat.cmd_bad_code': '코드가 틀렸거나 이미 쓴 코드입니다. 새 코드를 넣으세요.',
+  'chat.cmd_locked': '5번 틀려 잠겼습니다. {time}에 풀립니다.',
+  'chat.err_cmd': '사람 명령',
 
   // ── presets ──
   'presets.default_name': '프리셋 {n}',

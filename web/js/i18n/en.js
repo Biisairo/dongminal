@@ -1355,6 +1355,17 @@ I18N.register('en', {
   'chat.err_create': 'Creating the room',
   'chat.err_leave': 'Leaving the room',
   'chat.err_direct': 'Opening the direct chat',
+  'chat.kill': 'Force delete',
+  'chat.kick': 'Kick',
+  'chat.kill_what': 'Force delete {n} room(s): {list}',
+  'chat.kick_what': 'Kick {n} participant(s): {list}',
+  'chat.cmd_title': 'Confirm human command',
+  'chat.cmd_code': 'OTP code',
+  'chat.cmd_hint': 'Enter the 6-digit code from your OTP app or a recovery code.',
+  'chat.cmd_run': 'Run',
+  'chat.cmd_bad_code': 'The code is wrong or already used. Enter a new code.',
+  'chat.cmd_locked': 'Locked after 5 wrong codes. Unlocks at {time}.',
+  'chat.err_cmd': 'Running the human command',
 
   // ── presets ──
   'presets.default_name': 'Preset {n}',

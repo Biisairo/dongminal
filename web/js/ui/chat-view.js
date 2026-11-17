@@ -65,7 +65,10 @@ Object.assign(App.prototype, {
 
   _chatViewMenu(v,at){
     const r=this._chatRoom(v.roomId);
-    UIKit.menu([{id:'leave',icon:'x',label:t('chat.leave'),disabled:!(r&&r.joined),onClick:()=>this._chatLeave(v.roomId)}],{at,cls:'chat-menu'});
+    const items=[{id:'leave',icon:'x',label:t('chat.leave'),disabled:!(r&&r.joined),onClick:()=>this._chatLeave(v.roomId)}];
+    // FR-PCH-86: 도우미가 있을 때만 강제 삭제를 보인다.
+    if(r&&this._chatHelper()) items.push({sep:true},{id:'kill',icon:'trash',label:t('chat.kill'),danger:true,onClick:()=>this._chatKillAsk([v.roomId])});
+    UIKit.menu(items,{at,cls:'chat-menu'});
   },
 
   /** 열린 뷰를 다시 그린다. `roomId` 가 있으면 그 방의 뷰만이다. 닫힌 탭의 뷰는 여기서 거둔다. */
@@ -108,15 +111,21 @@ Object.assign(App.prototype, {
 
   _chatPeoplePaint(v,r,meId){
     const people=(r&&r.people)||[];
-    const sig=JSON.stringify(people.map(p=>[p.id,p.label,p.kind,p.online]));
+    v.order=people.map(p=>p.id);
+    const sel=v.sel||new Set();
+    const sig=JSON.stringify([people.map(p=>[p.id,p.label,p.kind,p.online]),[...sel]]);
     if(sig===v.peopleSig) return;
     v.peopleSig=sig;
     const els=[chatEl('div','chat-sub-h',t('chat.people'))];
     for(const p of people){
-      const row=chatEl('div','chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':''));
+      const row=chatEl('div','chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':'')+(sel.has(p.id)?' sel':''));
       row.title=p.label+' · '+chatShortId(p.id);
       row.append(chatEl('span','chat-row-name',p.label),chatEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)));
-      if(p.id!==meId&&p.online) row.addEventListener('click',e=>this._chatPersonMenu(p,{x:e.clientX,y:e.clientY}));
+      row.addEventListener('click',e=>{
+        if(this._chatPeoplePick(v,p.id,e)) return;
+        if(p.id!==meId&&p.online) this._chatPersonMenu(p,{x:e.clientX,y:e.clientY});
+      });
+      row.addEventListener('contextmenu',e=>this._chatPersonCtx(v,p,e));
       els.push(row);
     }
     v.people.replaceChildren(...els);
@@ -139,7 +148,9 @@ Object.assign(App.prototype, {
     const mine=m.from&&m.from===meId;
     const d=chatEl('div','chat-msg'+(mine?' mine':'')+(m.fromKind==='user'?' human':''));
     const who=chatEl('div','chat-msg-who');
-    who.append(chatEl('span','chat-msg-name',m.fromLabel||chatShortId(m.from)),
+    const name=chatEl('span','chat-msg-name',m.fromLabel||chatShortId(m.from));
+    if(!mine) name.addEventListener('contextmenu',e=>this._chatAuthorCtx(m,e));
+    who.append(name,
       chatEl('span','chat-msg-meta',(m.fromKind==='user'?t('chat.human')+' · ':'')+chatShortId(m.from)+' · '+chatClock(m.at)));
     d.append(who,chatEl('div','chat-msg-text',m.text||''));
     return d;
