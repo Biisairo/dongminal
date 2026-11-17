@@ -39,6 +39,8 @@ const (
 	OpJoin   = "join"
 	OpLeave  = "leave"
 	OpSend   = "send"
+	// OpState 는 사람 화면의 한 번 읽기다: 나·온라인 목록·방 목록 (§3.11).
+	OpState = "state"
 )
 
 // 채팅 핵심(`chat`)의 코드 밖에서 이 와이어가 더하는 오류 코드.
@@ -137,6 +139,13 @@ type Room struct {
 // Rooms 는 rooms 의 결과다.
 type Rooms struct {
 	Rooms []Room `json:"rooms"`
+}
+
+// State 는 state 의 결과다. Me 는 사람 참가자다.
+type State struct {
+	Me     Member `json:"me"`
+	Online Online `json:"online"`
+	Rooms  []Room `json:"rooms"`
 }
 
 // RoomResult 는 create·direct·join 의 결과다.

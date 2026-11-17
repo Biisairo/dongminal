@@ -820,3 +820,29 @@ func TestDirectAutoJoinCapped(t *testing.T) {
 		return n > maxPartRooms
 	})
 }
+
+// PEER_CHAT_SRS §3.11: 상태가 바뀌면 Changed 로 알린다. 화면이 다시 읽는 계기다.
+func TestChangedNotifies(t *testing.T) {
+	id, err := edge.LoadOrCreateIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	n := 0
+	count := func() int { mu.Lock(); defer mu.Unlock(); return n }
+	s := New(Options{Identity: id, Name: func() string { return "a" }, Changed: func() { mu.Lock(); n++; mu.Unlock() }})
+	t.Cleanup(s.Close)
+	before := count()
+	p := s.Register("a/x", KindAgent)
+	eventually(t, "참가 알림", func() bool { return count() > before })
+	before = count()
+	if _, err := s.Create(p.ID, "r", "p"); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "방 알림", func() bool { return count() > before })
+	b := newTestNode(t, "b")
+	before = count()
+	link(&testNode{Service: s, t: t, name: "a"}, b)
+	b.Register("b/y", KindAgent)
+	eventually(t, "남의 상태 알림", func() bool { return count() > before+1 })
+}

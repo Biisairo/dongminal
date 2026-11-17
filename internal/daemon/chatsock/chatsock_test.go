@@ -348,3 +348,55 @@ func TestUnreadWithoutAnswerIsZero(t *testing.T) {
 		}
 	}
 }
+
+// PEER_CHAT_SRS §3.11 — 사람 참가자 (FR-PCH-41·85). 노드마다 하나이고 글은 OnUser 로만 나간다.
+func TestUserParticipant(t *testing.T) {
+	var mu sync.Mutex
+	var got []chatwire.Message
+	h := newHarness(t, func(o *Options) {
+		o.OnUser = func(m chatwire.Message) { mu.Lock(); got = append(got, m); mu.Unlock() }
+	})
+	me := h.srv.StartUser()
+	if me.Label != "mac/User" || me.Kind != chat.KindUser {
+		t.Fatalf("user %+v", me)
+	}
+	if again := h.srv.StartUser(); again.ID != me.ID {
+		t.Fatal("사람 참가자가 둘이 됐다")
+	}
+	raw, werr := h.srv.UserCall(chatwire.OpCreate, json.RawMessage(`{"name":"ops","purpose":"배포"}`))
+	if werr != nil {
+		t.Fatalf("create %+v", werr)
+	}
+	var rr chatwire.RoomResult
+	_ = json.Unmarshal(raw, &rr)
+	a, _ := h.agent("sa", "ta", "a")
+	mustRoom(t, a.call(chatwire.OpJoin, chatwire.RoomArgs{Room: rr.Room.ID}))
+	if f := a.call(chatwire.OpSend, chatwire.SendArgs{Room: rr.Room.ID, Text: "배포함"}); f.Error != nil {
+		t.Fatal(f.Error)
+	}
+	eventually(t, "사람이 글을 받는다", func() bool { mu.Lock(); defer mu.Unlock(); return len(got) == 1 })
+	if got[0].Text != "배포함" || got[0].RoomName != "ops" {
+		t.Fatalf("msg %+v", got[0])
+	}
+	if _, werr := h.srv.UserCall(chatwire.OpSend, json.RawMessage(`{"room":"`+rr.Room.ID+`","text":"확인"}`)); werr != nil {
+		t.Fatal(werr)
+	}
+	if a.next(chatwire.TypeMsg).Msg.FromLabel != "mac/User" {
+		t.Fatal("사람의 글이 에이전트에 가지 않았다")
+	}
+	raw, werr = h.srv.UserCall(chatwire.OpState, nil)
+	var st chatwire.State
+	if werr != nil || json.Unmarshal(raw, &st) != nil || st.Me.ID != me.ID || len(st.Rooms) != 1 || len(st.Online.Participants) != 2 {
+		t.Fatalf("state %s %+v", raw, werr)
+	}
+	if _, werr := h.srv.UserCall("bogus", nil); werr == nil || werr.Code != chatwire.CodeBadRequest {
+		t.Fatalf("bogus %+v", werr)
+	}
+}
+
+func TestUserCallWithoutUser(t *testing.T) {
+	h := newHarness(t)
+	if _, werr := h.srv.UserCall(chatwire.OpState, nil); werr == nil || werr.Code != chatwire.CodeBadRequest {
+		t.Fatalf("사람 참가자 없이 답했다 %+v", werr)
+	}
+}

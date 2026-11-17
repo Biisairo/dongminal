@@ -114,6 +114,9 @@ type Options struct {
 	Dial func(ctx context.Context, t edge.Target) (net.Conn, error)
 	// Deliver 는 이 노드의 참가자에게 글을 넘긴다. 잠금 밖에서 부른다.
 	Deliver func(pid string, m Message)
+	// Changed 는 온라인 목록이나 방이 바뀌었을 수 있다는 알림이다. 잠금 밖의 고루틴에서
+	// 부르고, 여러 번의 바뀜을 한 번으로 묶을 수 있다. nil 이면 알리지 않는다.
+	Changed func()
 	Now     func() time.Time
 }
 
@@ -142,10 +145,12 @@ type remote struct {
 
 // Service 는 이 노드의 채팅이다.
 type Service struct {
-	id   edge.Identity
-	key  string
-	opts Options
-	now  func() time.Time
+	// pokes 는 Changed 로 알릴 바뀜이다. 하나만 쌓인다.
+	pokes chan struct{}
+	id    edge.Identity
+	key   string
+	opts  Options
+	now   func() time.Time
 
 	pingEvery time.Duration
 	deadAfter time.Duration
@@ -186,14 +191,29 @@ func New(o Options) *Service {
 		parts: map[string]*participant{}, rooms: map[string]room{},
 		nodes: map[string]*remote{}, links: map[string]*peerLink{},
 		wins: map[string]*seqWindow{}, dialing: map[string]*dialState{},
-		done: make(chan struct{}),
+		done: make(chan struct{}), pokes: make(chan struct{}, 1),
 	}
 	s.sendRate = newLimiter(PerMinute, time.Minute, s.clock)
 	s.recvRate = newLimiter(PerMinute, time.Minute, s.clock)
 	s.mu.Lock()
 	s.announceLocked()
 	s.mu.Unlock()
+	if o.Changed != nil {
+		go s.notifyLoop()
+	}
 	return s
+}
+
+// notifyLoop 는 바뀜을 Changed 로 알린다. 쌓인 바뀜은 한 번으로 묶인다.
+func (s *Service) notifyLoop() {
+	for {
+		select {
+		case <-s.done:
+			return
+		case <-s.pokes:
+			s.opts.Changed()
+		}
+	}
 }
 
 func (s *Service) clock() time.Time { return s.now() }
@@ -465,6 +485,10 @@ func (s *Service) dropUnclaimedLocked() {
 
 // changedLocked 는 개인채팅의 따라 나가기·자동 들어가기를 맞춘 뒤 상태를 알린다.
 func (s *Service) changedLocked() {
+	select {
+	case s.pokes <- struct{}{}:
+	default:
+	}
 	for range maxParts {
 		if !s.reactLocked() {
 			break

@@ -52,6 +52,8 @@ type Options struct {
 	CountWait time.Duration
 	// MaxAgents 는 에이전트 참가자 상한이다. 0 이면 노드 상한에서 사람 하나를 뺀 값이다.
 	MaxAgents int
+	// OnUser 는 사람 참가자에게 온 글을 넘긴다. 데몬은 사람의 글을 들지 않는다 (FR-PCH-85).
+	OnUser func(m chatwire.Message)
 }
 
 // Server 는 채팅 소켓이다.
@@ -63,6 +65,7 @@ type Server struct {
 	byPID    map[string]*conn
 	sessions map[string][]*conn
 	closed   bool
+	user     chat.Participant
 }
 
 type conn struct {
@@ -142,18 +145,65 @@ func (s *Server) Close() {
 	}
 }
 
-// Deliver 는 이 노드의 참가자에게 온 글을 그 MCP 연결로 넘긴다 (FR-PCH-54).
+// Deliver 는 이 노드의 참가자에게 온 글을 그 MCP 연결로 넘긴다 (FR-PCH-54). 사람 참가자의
+// 글은 OnUser 로 넘긴다.
 func (s *Server) Deliver(pid string, m chat.Message) {
-	s.mu.Lock()
-	c := s.byPID[pid]
-	s.mu.Unlock()
-	if c == nil {
-		return
-	}
-	c.push(chatwire.Frame{T: chatwire.TypeMsg, Msg: &chatwire.Message{
+	wm := chatwire.Message{
 		ID: m.ID, Room: m.Room, RoomKind: m.RoomKind, RoomName: m.RoomName, RoomPurpose: m.RoomPurpose,
 		From: m.From, FromLabel: m.FromLabel, Node: m.Node, Text: m.Text, At: m.At.UnixMilli(),
-	}})
+	}
+	s.mu.Lock()
+	c := s.byPID[pid]
+	toUser := s.user.ID != "" && pid == s.user.ID
+	s.mu.Unlock()
+	if toUser {
+		if s.o.OnUser != nil {
+			s.o.OnUser(wm)
+		}
+		return
+	}
+	if c != nil {
+		c.push(chatwire.Frame{T: chatwire.TypeMsg, Msg: &wm})
+	}
+}
+
+// StartUser 는 이 노드의 사람 참가자를 세운다. 노드마다 하나이며 데몬이 사는 동안 남는다
+// (FR-PCH-41). 이미 있으면 그것을 돌려준다.
+func (s *Server) StartUser() chat.Participant {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.user.ID == "" {
+		name := ""
+		if s.o.Name != nil {
+			name = clean(s.o.Name())
+		}
+		s.user = s.o.Chat.Register(truncBytes(name+"/User", maxLabel), chat.KindUser)
+	}
+	return s.user
+}
+
+// UserCall 은 사람 화면의 연산 하나다 (§3.11). op 는 채팅 소켓의 call 과 같고, state 를 더한다.
+func (s *Server) UserCall(op string, args json.RawMessage) (json.RawMessage, *chatwire.Error) {
+	s.mu.Lock()
+	me := s.user
+	s.mu.Unlock()
+	if me.ID == "" {
+		return nil, &chatwire.Error{Code: chatwire.CodeBadRequest, Message: "사람 참가자가 없다"}
+	}
+	if op == chatwire.OpState {
+		st := chatwire.State{Me: chatwire.Member{ID: me.ID, Label: me.Label, Kind: me.Kind, Online: true},
+			Online: onlineOf(s.o.Chat.Online()), Rooms: []chatwire.Room{}}
+		for _, r := range s.o.Chat.Rooms(me.ID) {
+			st.Rooms = append(st.Rooms, roomOf(r))
+		}
+		raw, err := json.Marshal(st)
+		if err != nil {
+			return nil, &chatwire.Error{Code: chatwire.CodeBadRequest, Message: err.Error()}
+		}
+		return raw, nil
+	}
+	f := s.call(me.ID, chatwire.Frame{Op: op, Args: args})
+	return f.Result, f.Error
 }
 
 func (s *Server) serve(nc net.Conn) {
