@@ -183,6 +183,8 @@ type Service struct {
 	helperKey string
 	cmds      map[string]time.Time
 	warned    map[string]string
+	edgeCache []edge.Edge
+	edgeAt    time.Time
 	closed    bool
 	done      chan struct{}
 }

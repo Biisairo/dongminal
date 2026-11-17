@@ -113,6 +113,7 @@ func (s *Service) attach(fp string, conn net.Conn, dialed bool) {
 		replaced = old
 	}
 	s.links[fp] = l
+	s.edgeCache = nil // 새 연결은 대개 간선이 바뀐 뒤다 — 고정 판정이 낡은 목록을 보지 않게 한다
 	go l.writeLoop()
 	l.send(encode(s.own))
 	for _, r := range s.nodes {
@@ -166,10 +167,14 @@ func (s *Service) handle(from *peerLink, fr frame) {
 	case frameState:
 		s.mu.Lock()
 		var pin func()
-		if fp, ok := s.acceptStateLocked(fr); ok {
+		if _, ok := s.acceptStateLocked(fr); ok {
 			s.broadcastLocked(fr, from)
-			pin = s.pinLocked(from, fp)
 			s.changedLocked()
+		}
+		// 간선 상대 자신의 연결로 온 상태는, 같은 번호를 다른 길로 먼저 받았어도 고정을 확인한다
+		// (§3.12a R-6). 그 상대의 최신 상태(s.nodes)로 본다.
+		if from != nil {
+			pin = s.pinLocked(from, from.fp)
 		}
 		s.mu.Unlock()
 		if pin != nil {

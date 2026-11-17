@@ -43,6 +43,9 @@ const (
 	CodeLocked     = "locked"
 	CodeBadRequest = "bad_request"
 	CodeNoHelper   = "no_helper"
+	// CodeUnavailable 은 도우미가 코드를 확인했지만 비밀 파일을 쓰지 못했다는 뜻이다. 틀린 횟수에
+	// 넣지 않는다 (PEER_CHAT_SRS §3.12a R-5).
+	CodeUnavailable = "unavailable"
 )
 
 // Kick 은 강퇴 대상 하나다.

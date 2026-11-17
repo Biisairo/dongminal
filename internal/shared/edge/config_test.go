@@ -436,3 +436,23 @@ func TestStorePromoteConcurrent(t *testing.T) {
 		t.Fatalf("바꾼 횟수 %d", promoted)
 	}
 }
+
+// PEER_CHAT_SRS §3.12a R-2: 같은 지문을 다시 더해도 고정한 도우미 키는 남는다.
+func TestAddEdgeKeepsHelperKey(t *testing.T) {
+	s := OpenStore(filepath.Join(t.TempDir(), "edges.json"), "h")
+	fp := strings.Repeat("ab", 32)
+	if err := s.AddEdge(Edge{Name: "p", Addr: "10.0.0.1", Port: 1, Fingerprint: fp, State: StatePaired}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PinHelper(fp, "K"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddEdge(Edge{Name: "p", Addr: "10.0.0.2", Port: 1, Fingerprint: fp, State: StatePaired}); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range s.Config().Edges {
+		if e.Fingerprint == fp && e.HelperKey != "K" {
+			t.Fatalf("고정이 사라졌다: %+v", e)
+		}
+	}
+}

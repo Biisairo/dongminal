@@ -30,15 +30,11 @@ func newFakeHelper(t *testing.T) *fakeHelper {
 	return &fakeHelper{key: priv, code: "123456"}
 }
 
-func (f *fakeHelper) Info() (humancmd.Info, error) {
-	if f.down {
-		return humancmd.Info{}, &humancmd.Error{Code: humancmd.CodeNoHelper}
-	}
-	return humancmd.Info{Key: humancmd.PublicKey(f.key)}, nil
-}
-
 func (f *fakeHelper) Sign(code string, r humancmd.Request) (humancmd.Signed, error) {
 	f.got = append(f.got, r)
+	if f.down {
+		return humancmd.Signed{}, &humancmd.Error{Code: humancmd.CodeNoHelper}
+	}
 	if f.fail != nil {
 		return humancmd.Signed{}, f.fail
 	}
@@ -134,6 +130,11 @@ func TestUserHumanErrors(t *testing.T) {
 	if _, werr := h.srv.UserCall(chatwire.OpKick, json.RawMessage(`{"rooms":["`+room+`"],"code":"123456"}`)); werr == nil || werr.Code != chatwire.CodeBadRequest {
 		t.Fatalf("종류가 섞임 = %+v", werr)
 	}
+	fh.fail = &humancmd.Error{Code: humancmd.CodeUnavailable}
+	if _, werr := h.srv.UserCall(chatwire.OpKill, json.RawMessage(`{"rooms":["`+room+`"],"code":"123456"}`)); werr == nil || werr.Code != chatwire.CodeNoHelper {
+		t.Fatalf("도우미 저장 실패 = %+v", werr)
+	}
+	fh.fail = nil
 	fh.down = true
 	if _, werr := h.srv.UserCall(chatwire.OpKill, json.RawMessage(`{"rooms":["`+room+`"],"code":"123456"}`)); werr == nil || werr.Code != chatwire.CodeNoHelper {
 		t.Fatalf("도우미 없음 = %+v", werr)

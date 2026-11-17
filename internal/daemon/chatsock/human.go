@@ -12,12 +12,11 @@ import (
 
 // Helper 는 사람 명령의 도우미다. humancmd.Client 가 구현한다 (PEER_CHAT_SRS §3.12).
 type Helper interface {
-	Info() (humancmd.Info, error)
 	Sign(code string, r humancmd.Request) (humancmd.Signed, error)
 }
 
 // human 은 사람 참가자의 kill·kick 이다. 도우미에게 코드와 묶음을 보내 서명을 받고, 채팅에 적용해
-// 망에 낸다 (FR-PCH-70~73). 에이전트의 MCP 연결로는 닿지 않는다 — UserCall 만 부른다.
+// 망에 낸다 (FR-PCH-70~73). 도우미 저장 실패(unavailable)는 no_helper 로 본다 (§3.12a R-5). 에이전트의 MCP 연결로는 닿지 않는다 — UserCall 만 부른다.
 func (s *Server) human(op string, args json.RawMessage) (json.RawMessage, *chatwire.Error) {
 	var a chatwire.HumanArgs
 	if err := decode(args, &a); err != nil {
@@ -33,11 +32,7 @@ func (s *Server) human(op string, args json.RawMessage) (json.RawMessage, *chatw
 	if s.o.Helper == nil {
 		return nil, &chatwire.Error{Code: chatwire.CodeNoHelper, Message: "no helper"}
 	}
-	info, err := s.o.Helper.Info()
-	if err != nil {
-		return nil, helperError(err)
-	}
-	s.o.Chat.SetHelper(info.Key)
+	// 도우미는 한 번만 부른다. 서명 본문의 키를 Command 가 싣는다 (§3.12a R-3).
 	sg, err := s.o.Helper.Sign(a.Code, req)
 	if err != nil {
 		return nil, helperError(err)

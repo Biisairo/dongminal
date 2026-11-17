@@ -117,43 +117,77 @@ func install(stdout, stderr io.Writer) error {
 	if self, err = filepath.EvalSymlinks(self); err != nil {
 		return err
 	}
-	if err := copyFile(self, binPath, 0o755); err != nil {
-		return fmt.Errorf("프로그램 복사: %w", err)
-	}
-	var codes []string
-	sec, err := loadSecret(secretPath)
+	return runInstall(installEnv{
+		uid: uid, user: user, self: self,
+		binDir: filepath.Dir(binPath), bin: binPath, plist: plistPath, secret: secretPath,
+		out: stdout, errw: stderr,
+		own: func(p string) error { return os.Chown(p, 0, 0) },
+		launch: func() error {
+			_ = exec.Command("launchctl", "bootout", "system/"+Label).Run()
+			if out, err := exec.Command("launchctl", "bootstrap", "system", plistPath).CombinedOutput(); err != nil {
+				return fmt.Errorf("launchctl bootstrap: %v: %s", err, strings.TrimSpace(string(out)))
+			}
+			return nil
+		},
+		nopasswd: func() bool {
+			if user == "" {
+				return false
+			}
+			out, _ := exec.Command("sudo", "-l", "-U", user).Output()
+			return strings.Contains(string(out), "NOPASSWD")
+		},
+	})
+}
+
+// installEnv 는 설치 한 번의 자리와 바깥 동작이다. 시험이 바꿔 끼운다.
+type installEnv struct {
+	uid                        int
+	user, self                 string
+	binDir, bin, plist, secret string
+	out, errw                  io.Writer
+	own                        func(path string) error
+	launch                     func() error
+	nopasswd                   func() bool
+}
+
+// runInstall 의 순서 (§3.12a R-1·R-8): 비밀 확인(다른 사용자면 멈춤) → 처음이면 비밀을 만들어
+// 저장하고 바로 보임 → 프로그램 폴더를 만들고 복사 → plist → launchctl.
+func runInstall(e installEnv) error {
+	sec, err := loadSecret(e.secret)
 	switch {
 	case err == nil:
-		fmt.Fprintln(stdout, "이미 등록되어 있다. 비밀과 서명 키는 그대로 두고 프로그램만 바꾼다.")
+		if sec.UID != e.uid {
+			return fmt.Errorf("다른 사용자(uid %d)로 등록되어 있다 — uninstall 뒤 다시 설치한다", sec.UID)
+		}
+		fmt.Fprintln(e.out, "이미 등록되어 있다. 비밀과 서명 키는 그대로 두고 프로그램만 바꾼다.")
 	case os.IsNotExist(err):
-		if sec, codes, err = newSecret(uid); err != nil {
+		s, codes, err := newSecret(e.uid)
+		if err != nil {
 			return err
 		}
-		if err := saveSecret(secretPath, sec); err != nil {
+		if err := saveSecret(e.secret, s); err != nil {
 			return fmt.Errorf("비밀 파일: %w", err)
 		}
+		printEnrollment(e.out, s, codes, e.user)
 	default:
 		return fmt.Errorf("비밀 파일: %w", err)
 	}
-	if sec.UID != uid {
-		return fmt.Errorf("다른 사용자(uid %d)로 등록되어 있다 — uninstall 뒤 다시 설치한다", sec.UID)
-	}
-	if err := os.WriteFile(plistPath, []byte(plist(binPath)), 0o644); err != nil {
+	if err := os.MkdirAll(e.binDir, 0o755); err != nil {
 		return err
 	}
-	_ = exec.Command("launchctl", "bootout", "system/"+Label).Run()
-	if out, err := exec.Command("launchctl", "bootstrap", "system", plistPath).CombinedOutput(); err != nil {
-		return fmt.Errorf("launchctl bootstrap: %v: %s", err, strings.TrimSpace(string(out)))
+	if err := copyFile(e.self, e.bin, 0o755, e.own); err != nil {
+		return fmt.Errorf("프로그램 복사: %w", err)
 	}
-	if user != "" {
-		if out, _ := exec.Command("sudo", "-l", "-U", user).Output(); strings.Contains(string(out), "NOPASSWD") {
-			fmt.Fprintln(stderr, "경고: 이 사용자의 sudo 에 NOPASSWD 가 있다. 에이전트가 암호 없이 관리자 권한을 얻으면 도우미를 지킬 수 없다.")
-		}
+	if err := os.WriteFile(e.plist, []byte(plist(e.bin)), 0o644); err != nil {
+		return err
 	}
-	if codes != nil {
-		printEnrollment(stdout, sec, codes, user)
+	if err := e.launch(); err != nil {
+		return err
 	}
-	fmt.Fprintln(stdout, "도우미를 등록했다.")
+	if e.nopasswd() {
+		fmt.Fprintln(e.errw, "경고: 이 사용자의 sudo 에 NOPASSWD 가 있다. 에이전트가 암호 없이 관리자 권한을 얻으면 도우미를 지킬 수 없다.")
+	}
+	fmt.Fprintln(e.out, "도우미를 등록했다.")
 	return nil
 }
 
@@ -228,7 +262,7 @@ func run() error {
 	return srv.Serve(ln)
 }
 
-func copyFile(src, dst string, mode os.FileMode) error {
+func copyFile(src, dst string, mode os.FileMode, own func(string) error) error {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -246,7 +280,7 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	if err := out.Close(); err != nil {
 		return err
 	}
-	if err := os.Chown(tmp, 0, 0); err != nil {
+	if err := own(tmp); err != nil {
 		return err
 	}
 	if err := os.Chmod(tmp, mode); err != nil {

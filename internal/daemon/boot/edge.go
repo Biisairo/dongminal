@@ -112,29 +112,44 @@ func startChat(home string, n *edgenode.Node, dial func(ctx context.Context, net
 	}
 }
 
-// 도우미를 묻는 간격과 한 번의 시한이다 (PEER_CHAT_SRS §3.12).
+// 도우미를 묻는 간격과 한 번의 시한, 키를 비우기까지의 연속 실패 수다 (PEER_CHAT_SRS §3.12·§3.12a R-7).
 const (
 	helperEvery = 30 * time.Second
 	helperWait  = 3 * time.Second
+	helperDrop  = 3
 )
 
 // watchHelper 는 시작할 때와 그 뒤 helperEvery 마다 도우미의 공개키를 물어 채팅에 싣는다. 도우미가
-// 없거나 닿지 않으면 빈 키다 — 화면은 사람 명령 메뉴를 숨긴다 (FR-PCH-78).
+// 없거나 닿지 않는 것이 helperDrop 번 이어지면 키를 비운다 — 화면은 사람 명령 메뉴를 숨긴다 (FR-PCH-78).
 func watchHelper(ctx context.Context, h humancmd.Client, s *chat.Service) {
 	t := time.NewTicker(helperEvery)
 	defer t.Stop()
+	var w helperWatch
 	for {
-		key := ""
-		if info, err := h.Info(); err == nil {
-			key = info.Key
+		info, err := h.Info()
+		if key, set := w.next(info.Key, err); set {
+			s.SetHelper(key)
 		}
-		s.SetHelper(key)
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 		}
 	}
+}
+
+// helperWatch 는 도우미 확인의 연속 실패 수다.
+type helperWatch struct{ fails int }
+
+// next 는 확인 한 번의 결과로 실을 키와 실을지를 정한다. 얻으면 바로 싣고, 비우는 것은 연속
+// helperDrop 번 실패한 뒤다. 한 번의 시한 초과가 사람 명령과 엇갈려 키를 비우지 않게 한다.
+func (w *helperWatch) next(key string, err error) (string, bool) {
+	if err == nil && key != "" {
+		w.fails = 0
+		return key, true
+	}
+	w.fails++
+	return "", w.fails >= helperDrop
 }
 
 // chatTools 는 채팅 소켓이 쓰는 도구 계층이다.

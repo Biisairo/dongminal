@@ -3,6 +3,9 @@ package chat
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
+	"io"
+	"net"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +22,8 @@ type humanNode struct {
 	helper ed25519.PrivateKey
 	emu    sync.Mutex
 	edges  []edge.Edge
+	// noPin 이면 Pin 이 아무것도 적지 않는다(고정하지 못한 노드 흉내).
+	noPin bool
 }
 
 // newHumanNode 는 도우미 키와 간선 목록을 가진 시험 노드다. Pin 은 간선 항목에 적는다.
@@ -49,6 +54,9 @@ func newHumanNode(t *testing.T, name string) *humanNode {
 		Pin: func(fp, key string) {
 			h.emu.Lock()
 			defer h.emu.Unlock()
+			if h.noPin {
+				return
+			}
 			for i := range h.edges {
 				if h.edges[i].Fingerprint == fp && h.edges[i].HelperKey == "" {
 					h.edges[i].HelperKey = key
@@ -165,17 +173,27 @@ func TestKickByNeighbor(t *testing.T) {
 }
 
 // 낸 노드는 자기 도우미 키로 서명된 것만 낸다.
-func TestCommandOwnKeyOnly(t *testing.T) {
+func TestCommandOwnNodeOnly(t *testing.T) {
 	a, b, _, _, _, _, room := triangle(t)
-	if err := a.Command(signCmd(t, b.helper, a.fp(), humancmd.OpKill, []string{room}, nil, time.Now())); err == nil {
-		t.Fatal("남의 도우미 키로 서명한 명령을 냈다")
-	}
 	if err := a.Command(signCmd(t, a.helper, b.fp(), humancmd.OpKill, []string{room}, nil, time.Now())); err == nil {
 		t.Fatal("다른 노드 이름의 명령을 냈다")
 	}
+}
+
+// §3.12a R-3: Command 는 서명 본문의 키를 이 노드의 도우미 키로 싣고 같은 잠금 안에서 적용한다.
+// 도우미 키를 아직 몰라도(watchHelper 가 비웠어도) 도우미가 서명한 명령은 적용된다.
+func TestCommandAdoptsSignedKey(t *testing.T) {
+	a, _, _, pa, _, _, room := triangle(t)
 	a.SetHelper("")
-	if err := a.Command(signCmd(t, a.helper, a.fp(), humancmd.OpKill, []string{room}, nil, time.Now())); err == nil {
-		t.Fatal("도우미가 없는데 명령을 냈다")
+	_, fresh, _ := ed25519.GenerateKey(rand.Reader)
+	if err := a.Command(signCmd(t, fresh, a.fp(), humancmd.OpKill, []string{room}, nil, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if a.HelperKey() != humancmd.PublicKey(fresh) {
+		t.Fatal("서명 본문의 키를 싣지 않았다")
+	}
+	if inRoom(a, pa.ID, room) {
+		t.Fatal("적용되지 않았다")
 	}
 }
 
@@ -281,4 +299,55 @@ func TestHelperKeyShape(t *testing.T) {
 	if validHelperKey("abc") || validHelperKey(strings.Repeat("A", 44)+"x") {
 		t.Fatal("틀린 키를 받았다")
 	}
+}
+
+// §3.12a R-6: 간선 상대의 같은 상태가 다른 길로 먼저 와도, 직접 연결로 온 상태로 고정한다.
+func TestPinAfterRelayedState(t *testing.T) {
+	a, b := newHumanNode(t, "a"), newHumanNode(t, "b")
+	a.edges = append(a.edges, edge.Edge{Name: "b", Fingerprint: b.fp(), State: edge.StatePaired})
+	b.mu.Lock()
+	own := b.own
+	b.mu.Unlock()
+	a.handle(nil, own) // 다른 노드를 거쳐 먼저 온 것처럼
+	p1, p2 := net.Pipe()
+	t.Cleanup(func() { _ = p1.Close(); _ = p2.Close() })
+	go func() { _, _ = io.Copy(io.Discard, p2) }()
+	a.attach(b.fp(), p1, true)
+	raw, _ := json.Marshal(own) // 같은 상태가 직접 연결로 늦게 온다
+	if _, err := p2.Write(append(raw, '\n')); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "A 가 B 의 도우미 키를 고정한다", func() bool { return a.pinOf(b.fp()) == b.HelperKey() })
+}
+
+// §3.12a R-2: 고정한 간선에 같은 지문을 다시 더해도 helperKey 가 남는다 (edge 쪽 시험과 짝).
+
+// §3.12a R-10: 서명이 맞으면 믿지 못해도 넘긴다. 적용은 각 노드가 정한다.
+func TestCommandForwardedThroughUntrusting(t *testing.T) {
+	a, b, c, d := newHumanNode(t, "a"), newHumanNode(t, "b"), newHumanNode(t, "c"), newHumanNode(t, "d")
+	b.noPin = true
+	edgeLink(a, b)
+	edgeLink(b, c)
+	edgeLink(a, d)
+	pa, pb, pc := a.Register("a/x", KindAgent), b.Register("b/x", KindAgent), c.Register("c/x", KindAgent)
+	r, err := c.Create(pc.ID, "ops", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "방이 보인다", func() bool { return roomVisible(a.testNode, pa.ID, r.ID) && roomVisible(b.testNode, pb.ID, r.ID) })
+	if _, err := b.Join(pb.ID, r.ID); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "C 가 D 의 고정값으로 A 를 믿는다", func() bool {
+		k, ok := c.trustedKey(a.fp())
+		return ok && k == a.HelperKey()
+	})
+	if _, ok := b.trustedKey(a.fp()); ok {
+		t.Fatal("B 가 A 를 믿는다 — 시험 전제가 틀렸다")
+	}
+	if err := a.Command(signCmd(t, a.helper, a.fp(), humancmd.OpKill, []string{r.ID}, nil, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "C 가 적용한다", func() bool { return !inRoom(c, pc.ID, r.ID) })
+	never(t, "B 가 적용한다", func() bool { return !inRoom(b, pb.ID, r.ID) })
 }

@@ -406,6 +406,10 @@ func (s *Store) AddEdge(p Edge) error {
 				if s.live(q) && q.State == StatePaired {
 					p.State, p.Expires = StatePaired, time.Time{}
 				}
+				// 고정한 도우미 키는 간선을 지울 때만 사라진다 (PEER_CHAT_SRS §3.12a R-2).
+				if p.HelperKey == "" {
+					p.HelperKey = q.HelperKey
+				}
 				continue
 			}
 			if q.Name == p.Name {

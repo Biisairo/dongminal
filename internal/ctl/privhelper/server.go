@@ -16,6 +16,8 @@ const connWait = 5 * time.Second
 // Server 는 도우미 소켓이다 (FR-PCH-73). 연결 하나에 요청 하나다.
 type Server struct {
 	sec *Secret
+	// uid 는 설치한 사용자다. 시작할 때 복사해 두어 복구 코드 저장과 경합하지 않는다 (§3.12a R-4).
+	uid int
 	key ed25519.PrivateKey
 	g   *guard
 	now func() time.Time
@@ -33,7 +35,7 @@ func NewServer(sec *Secret, now func() time.Time, save func(Secret) error) (*Ser
 	if err != nil {
 		return nil, err
 	}
-	return &Server{sec: sec, key: ed25519.NewKeyFromSeed(seed), g: g, now: now, peerUID: peerUID}, nil
+	return &Server{sec: sec, uid: sec.UID, key: ed25519.NewKeyFromSeed(seed), g: g, now: now, peerUID: peerUID}, nil
 }
 
 // Serve 는 연결을 받는다. 리스너가 닫히면 돌아온다.
@@ -50,7 +52,7 @@ func (s *Server) Serve(ln net.Listener) error {
 func (s *Server) handle(c net.Conn) {
 	defer c.Close()
 	_ = c.SetDeadline(time.Now().Add(connWait))
-	if uid, err := s.peerUID(c); err != nil || uid != s.sec.UID {
+	if uid, err := s.peerUID(c); err != nil || uid != s.uid {
 		return
 	}
 	sc := bufio.NewScanner(c)

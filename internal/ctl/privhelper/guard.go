@@ -64,9 +64,17 @@ func (g *guard) check(code string) error {
 	if u := g.lockLocked(now); !u.IsZero() {
 		return &humancmd.Error{Code: humancmd.CodeLocked, Until: u.UnixMilli()}
 	}
-	if g.totpLocked(code, now) || g.recoveryLocked(code) {
+	if g.totpLocked(code, now) {
 		g.fails = 0
 		return nil
+	}
+	switch g.recoveryLocked(code) {
+	case recoveryOK:
+		g.fails = 0
+		return nil
+	case recoveryUnsaved:
+		// 코드는 맞았다 — 틀린 횟수에 넣지 않는다 (§3.12a R-5).
+		return &humancmd.Error{Code: humancmd.CodeUnavailable}
 	}
 	g.fails++
 	if g.fails >= maxFails {
@@ -95,15 +103,25 @@ func (g *guard) totpLocked(code string, now time.Time) bool {
 	return false
 }
 
-func (g *guard) recoveryLocked(code string) bool {
+type recoveryResult int
+
+const (
+	recoveryNo recoveryResult = iota
+	recoveryOK
+	recoveryUnsaved
+)
+
+// recoveryLocked 는 쓰지 않은 복구 코드인지 본다. 맞으면 쓴 것으로 저장한다. 저장하지 못하면
+// 쓴 것으로 치지 않고 recoveryUnsaved 다.
+func (g *guard) recoveryLocked(code string) recoveryResult {
 	c := normalizeRecovery(code)
 	if c == "" {
-		return false
+		return recoveryNo
 	}
 	h := hashRecovery(c)
 	for _, u := range g.sec.Used {
 		if u == h {
-			return false
+			return recoveryNo
 		}
 	}
 	for _, r := range g.sec.Recovery {
@@ -111,13 +129,13 @@ func (g *guard) recoveryLocked(code string) bool {
 			next := *g.sec
 			next.Used = append(append([]string{}, g.sec.Used...), h)
 			if g.save(next) != nil {
-				return false
+				return recoveryUnsaved
 			}
 			*g.sec = next
-			return true
+			return recoveryOK
 		}
 	}
-	return false
+	return recoveryNo
 }
 
 // normalizeRecovery 는 복구 코드 모양(`xxxxx-xxxxx`, 소문자 base32)이면 그 값을, 아니면 빈 값이다.

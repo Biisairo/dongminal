@@ -19,6 +19,8 @@ const (
 	// cmdSeenFor 는 본 명령 id 를 기억하는 시간, maxSeenCmds 는 그 수의 상한이다.
 	cmdSeenFor  = 10 * time.Minute
 	maxSeenCmds = 4096
+	// edgeCacheFor 는 간선 목록 캐시를 믿는 시간이다.
+	edgeCacheFor = time.Second
 )
 
 // Node 는 이 노드의 지문이다.
@@ -43,7 +45,9 @@ func (s *Service) HelperKey() string {
 	return s.helperKey
 }
 
-// Command 는 이 노드의 도우미가 서명한 명령을 자기에게 적용하고 모든 연결로 낸다.
+// Command 는 이 노드의 도우미가 서명한 명령을 자기에게 적용하고 모든 연결로 낸다. 서명 본문의 키를
+// 이 노드의 도우미 키로 싣는다 — 부르는 쪽(chatsock)이 root 가 만든 도우미 소켓에서 받은 서명이다.
+// 키 싣기와 적용을 한 잠금 안에서 해 도우미 확인 루프와 엇갈리지 않는다 (§3.12a R-3).
 func (s *Service) Command(sg humancmd.Signed) error {
 	b, err := humancmd.Open(sg)
 	if err != nil {
@@ -51,12 +55,13 @@ func (s *Service) Command(sg humancmd.Signed) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.helperKey == "" || b.Key != s.helperKey || b.Node != s.id.Fingerprint {
-		return fail(CodeBadRequest, "not signed by this node's helper")
+	if b.Node != s.id.Fingerprint {
+		return fail(CodeBadRequest, "not this node's command")
 	}
 	if !s.freshLocked(b) {
 		return fail(CodeBadRequest, "stale human command")
 	}
+	s.helperKey = b.Key
 	s.markCmdLocked(b.ID)
 	s.applyCmdLocked(b)
 	s.broadcastLocked(frame{T: frameCmd, B: sg.B, S: sg.S}, nil)
@@ -64,18 +69,17 @@ func (s *Service) Command(sg humancmd.Signed) error {
 	return nil
 }
 
-// acceptCmdLocked 는 믿는 도우미 키로 서명된 처음 보는 명령을 적용한다. 받았으면 참이다.
+// acceptCmdLocked 는 서명이 맞고 시각 안의 처음 보는 명령이면 넘기라고(참) 답한다. 적용은 이 노드가
+// 그 노드의 도우미 키를 믿을 때만 한다 — 믿지 못하는 노드가 중간에 있어도 너머에 닿는다 (§3.12a R-10).
 func (s *Service) acceptCmdLocked(fr frame) bool {
 	b, err := humancmd.Open(humancmd.Signed{B: fr.B, S: fr.S})
-	if err != nil || b.Node == s.id.Fingerprint {
-		return false
-	}
-	key, ok := s.trustedKeyLocked(b.Node)
-	if !ok || key != b.Key || !s.freshLocked(b) {
+	if err != nil || b.Node == s.id.Fingerprint || !s.freshLocked(b) {
 		return false
 	}
 	s.markCmdLocked(b.ID)
-	s.applyCmdLocked(b)
+	if key, ok := s.trustedKeyLocked(b.Node); ok && key == b.Key {
+		s.applyCmdLocked(b)
+	}
 	return true
 }
 
@@ -186,11 +190,23 @@ func agreed(pins []string) (string, bool) {
 	return pins[0], true
 }
 
-func (s *Service) edgeLocked(fp string) (edge.Edge, bool) {
+// edgesLocked 는 간선 목록의 캐시다. 상태를 받을 때마다 간선 설정을 복사하지 않도록, 1초가 넘은
+// 캐시만 다시 읽는다. 고정한 뒤에는 바로 다시 읽는다 (§3.12a R-9).
+func (s *Service) edgesLocked() []edge.Edge {
 	if s.opts.Edges == nil {
-		return edge.Edge{}, false
+		return nil
 	}
-	for _, e := range s.opts.Edges() {
+	if now := s.now(); s.edgeCache == nil || now.Sub(s.edgeAt) > edgeCacheFor {
+		s.edgeCache, s.edgeAt = s.opts.Edges(), now
+		if s.edgeCache == nil {
+			s.edgeCache = []edge.Edge{}
+		}
+	}
+	return s.edgeCache
+}
+
+func (s *Service) edgeLocked(fp string) (edge.Edge, bool) {
+	for _, e := range s.edgesLocked() {
 		if e.Fingerprint == fp && e.State == edge.StatePaired {
 			return e, true
 		}
@@ -200,11 +216,8 @@ func (s *Service) edgeLocked(fp string) (edge.Edge, bool) {
 
 // pinsLocked 는 상태 알림에 싣는 간선 상대의 고정값이다.
 func (s *Service) pinsLocked() map[string]string {
-	if s.opts.Edges == nil {
-		return nil
-	}
 	var out map[string]string
-	for _, e := range s.opts.Edges() {
+	for _, e := range s.edgesLocked() {
 		if e.State != edge.StatePaired || e.HelperKey == "" {
 			continue
 		}
@@ -241,6 +254,7 @@ func (s *Service) pinLocked(from *peerLink, fp string) func() {
 	return func() {
 		s.opts.Pin(fp, key)
 		s.mu.Lock()
+		s.edgeCache = nil
 		s.announceLocked()
 		s.mu.Unlock()
 	}
