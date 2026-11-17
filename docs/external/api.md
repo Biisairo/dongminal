@@ -486,7 +486,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_subagent_activity` | 서브에이전트의 활동 갱신 `{toolId, agentId, agentType, state, tool, detail}` |
 | `run_changed` | Run 기록이 바뀌었다. `args.runId`, 트리 Run 이면 `args.tree`. 대시보드는 이 신호로 다시 받는다 |
 | `sandbox_changed` | 샌드박스 정의가 저장됐다 — 본문은 없고 `GET /api/sandbox/config` 로 다시 받으라는 신호 |
-| `edges_changed` | 노드 설정·초대·간선·승인 대기가 바뀌었다. 이 노드가 승인해 간선 맺기를 마쳤으면 `args.paired` 에 그 이름이 실린다 |
+| `edges_changed` | 노드 설정·초대·간선이 바뀌었다. 간선을 맺었으면 `args.paired`, 지웠으면(상대가 지운 경우 포함) `args.removed` 에 `{fp, name}` 이 실린다 |
 | `chat_message` | 이 노드의 사람에게 채팅 글이 왔다. `args.msg` 는 `{id, room, roomKind, roomName, roomPurpose, from, fromLabel, fromKind, node, text, at}` 다. 서버는 남기지 않는다 |
 | `chat_changed` | 채팅의 온라인 목록이나 방이 바뀌었다 — 본문은 없고 `GET /api/chat` 로 다시 받으라는 신호 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |

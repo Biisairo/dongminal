@@ -24,6 +24,15 @@
 
 ### 바뀜
 
+- **간선 맺기가 한 걸음으로 줄고, 끊으면 양쪽에서 지워집니다.** 초대 코드를 붙여 넣으면 바로 양쪽이 간선입니다.
+  승인 단계(`dmctl edge approve`·`reject`, `GET /api/edges/pending`, `POST /api/edges/approve`·`reject`, 노드 포트
+  `/edge/v1/pair/confirm`)와 간선 이름 입력(`--name`, 409 `edge_name_taken`)을 지웠습니다. 간선은 지문으로 찾습니다:
+  `dmctl edge remove <지문 앞자리>`, `POST /api/edges/remove {fp}`, `PUT /api/edges/address {fp, addr, port}`. 이름은 상대가
+  알린 표시 이름이라 겹칠 수 있습니다. 끊으면 상대에게 `/edge/v1/unpair` 로 알리고, 알리지 못했으면 상대가 다시 연결할 때
+  403 `edge_not_edge` 를 받고 지웁니다. 새 오류 코드는 `edge_not_edge`·`edge_ambiguous` 입니다. `edges_changed` 의
+  `paired`·`removed` 는 `{fp, name}` 입니다. 맺는 노드의 노드 포트는 닫혀 있어도 됩니다. 옛 `edges.json` 의 승인 대기
+  항목(`pending-out`)은 읽을 때 버립니다. **데몬·서버를 다시 띄워야 적용되고, 양쪽 노드를 함께 올려야 맺을 수 있습니다.**
+
 - **노드 사이 연결은 짝맺기만 남습니다.** 짝은 이제 망의 간선입니다. 서로를 믿고 TLS 로 이어진다는 사실만 갖습니다.
   짝에게 보내던 프로토콜 명령(`node.info`·`agents.list`·`message.send`·`agent.spawn`·`agent.status`·`agent.close`),
   `POST /api/peers/call`, `dmctl peer info·tools·spawn·status·close`, `dmctl msg --to <노드>/<uuid>`, 원격 엔벨로프
