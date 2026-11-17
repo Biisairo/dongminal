@@ -1,15 +1,20 @@
-# 인계: PEER_DAEMON 단계 3~5
+# 인계: PEER_DAEMON → PEER_CHAT
 
 > 진실은 `docs/internal/PEER_DAEMON_SRS.md` 다. 이 문서는 그 SRS 를 구현하는 세션의 착수 지시와 맥락이다.
 > 다음 일감은 `docs/internal/PEER_CHAT_SRS.md` 다(§5).
 
-## 1. 착수 블록
+## 1. 착수 블록 (PEER_CHAT 단계 2)
 
-1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon` 이고 `main` 위로 리베이스돼 있다.
-2. PEER_DAEMON 은 단계 1~6 의 코드·문서가 끝났다(§3 표). 남은 확인(e2e TC-PDM-12, 두 PC 간선 맺기)은 **사용자가** 데몬을 다시 띄운 뒤 한다. 이 세션은 하지 않는다.
-3. 이번 일감은 **§5 PEER_CHAT_SRS** 다. `docs/internal/PEER_CHAT_SRS.md` 전체(특히 §9 미결)와 `PEER_DAEMON_SRS.md` §3.5a(노드 = 데몬, `edgenode`·IPC 구조)를 읽는다.
-4. **구현 전에 §9 미결(G-1·G-2·D-1·M-1~3·U-1·H-1·H-2)을 사용자와 하나씩 정한다.** 한 번에 하나, 권장 답과 함께 묻는다(AskUserQuestion). 결정은 PEER_CHAT_SRS §4 에 D-PCH-21 부터 적는다. 미결을 다 정하기 전에는 구현하지 않는다.
-5. PEER_CHAT_SRS 는 "peer" 시절에 쓴 초안이다. 이름(`peer`→`edge`, Run 명부 `team`)과 노드 구조(데몬이 노드, `edgenode`)를 PEER_DAEMON 결과에 맞춰 함께 고친다.
+1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `1e688ca6` 이다.
+2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 모두 정했다(D-PCH-21~35, §9 없음). **다시 묻지 않는다.** 먼저 읽을 것:
+   - §3.3 P(참가자 수명, FR-PCH-40~46), §3.4 M(MCP 도구 여덟 개, FR-PCH-50~55), §3.5 A(알림, FR-PCH-60~63), §3.8 NFR-PCH-1·5
+   - §3.9 단계 1 설계 — 지금 있는 Go 표면(`chat.Service` 의 `Register`·`Unregister`·`Create`·`Direct`·`Join`·`Leave`·`Send`·`Online`·`Rooms`, `Options.Deliver`)
+   - §8 단계 표
+3. 다음 일은 **단계 2(M·A)** 다. 순서: ① SRS §3.10 에 단계 2 설계를 적는다 → ② 시험(RED) → ③ 구현 → 검사 통과하면 커밋.
+   단계 2 범위: MCP 서버(claude 의 자식 프로세스, 데몬에 연결, 부모 claude PID 를 알림), claude shim 의 `--mcp-config` 주입(데몬 모드에서만, NFR-PCH-5), 도구 여덟 개, MCP 프로세스의 안 읽은 글함(상한 200, 넘치면 오래된 것부터 버리고 버린 수를 알림), 훅 알림(데몬이 MCP 에 개수를 물어 전함, 저장 안 함), 0건→1건 순간 + 쉬는 중일 때만 붙여넣기(FR-PCH-61·62), 데몬 IPC 배선.
+   설계 전에 조사할 것: claude shim 의 인자 주입(`AGENT_MEMORY_INJECTION_SRS`, `CLAUDE_ACCOUNTS_SRS` D-CAC-24, main 의 `b2bbf84f`), 데몬 IPC(`shared/toolipc/protocol.go`, `daemon/ipc/paned_handlers.go`, `report.sock` 와 `daemon/ipc/report.go` 의 활동 보고·SessionStart 처리), 데몬의 붙여넣기(`SendPasteIfForeground` — 단계 3 에서 전경 조건을 지웠다, §4), 훅(`dmctl notify`·`activity`).
+4. 구현상 결정이 필요하면 한 번에 하나, 권장 답과 함께 묻는다(AskUserQuestion). **미리보기(preview)는 쓰지 않는다 — 사용자가 볼 수 없다. 설명은 글로 쉽게 한다.** 영어 이름은 뜻이 바로 읽히는 것을 고른다(사용자가 `directory` 를 폴더로 읽었다).
+5. 단계 2 를 마치면 단계 3(U: Activity 탭 전환·Chats 탭·채팅 탭), 단계 4(H: 도우미+TOTP) 순서다.
 
 ## 2. 사용자 지시
 
@@ -29,7 +34,10 @@
 | 3. 간선 축소 (명령·원격 메시지·원격 기동 제거) | 끝 | `457b2d4e` |
 | 4. 이름 변경 peer → edge | 끝 | (이 커밋) |
 | 5. 데몬이 노드 (서버는 통로·위임, 서버도 `edgenode` 사용) | 끝 | 5a `771719d5`, 5b `6ecbae5d` |
-| 6. 문서·e2e | 문서 끝 (이 커밋). e2e 는 사용자가 재시작 뒤 확인 | |
+| 6. 문서·e2e | 문서 끝. e2e 는 사용자가 재시작 뒤 확인 | `088dd549` |
+| PEER_CHAT 미결 해소 | 끝 (D-PCH-21~35) | `f4e361f7`, `f2cc6743` |
+| PEER_CHAT 단계 1 (데몬의 채팅 핵심) | 끝 | 설계 `c7753b43`, Upgrade `0f08acc1`, 핵심 `a9793300`, 보안 수정 `0ab24a2c`·`1e688ca6` |
+| PEER_CHAT 단계 2 (MCP·알림) | **다음** | |
 
 > 2026-11-17 사용자 결정으로 범위가 바뀌었다(SRS D-PDM-13~17). 아래 §3.2·§3.3 의 명령 관련 조사·설계는 낡았다. 명령이 없어지므로 화면 요청(`peerui`)도 없다.
 
@@ -102,6 +110,18 @@
 - `main` 에는 이 브랜치와 별개로 `b2bbf84f`(claude shim 주입 메모리를 `--append-system-prompt` 로)가 있다. 사용자가 적용해 확인을 마쳤다.
 - 이름 변경은 BSD sed 대신 perl(`\b` 지원)과 `gopls rename` 으로 했다. 화면의 `pn-` 접두어는 판 클래스와 겹치므로 일괄 치환하지 않는다.
 - `httpapi` 패키지 시험은 70초 넘게 걸린다. 바꾼 패키지만 먼저 돌리고 마지막에 `go test ./...` 를 돈다.
+
+### 4.1 PEER_CHAT 단계 1 에서 배운 것
+
+- 채팅 핵심은 `internal/daemon/chat`(errors·frame·service·link·view·limit). 노드 포트 경로 `/edge/v1/chat` 는 `edge.AcceptUpgrade`(받는 쪽)·`edge.Client.Upgrade`(거는 쪽)·`edgenode.Options.Chat` 으로 끼웠다. 데몬 배선은 `daemon/boot/edge.go` `startChat` 이다. 지금 `Options.Deliver` 는 nil 이다 — 단계 2 에서 MCP 연결로 잇는다. `chat.Service` 는 `PanedServer` 에 아직 넘기지 않았다.
+- 시험은 `chat_test.go` 의 `net.Pipe` 메모리 연결과 `fakePeer`(서명한 프레임을 손으로 넣음)로 한다. 가짜 참가자 id 는 `f.pid("x")` 로 노드 접두어를 붙인다.
+- 참가자 id 는 `<노드 지문 앞 16자리>-<무작위 32자리>` 다(`idPrefix`). MCP·화면에서 id 앞자리를 보일 때는 접두어 뒤를 보여야 구분된다.
+- **자동 보안 검토(플러그인)가 커밋마다 돈다.** 단계 1 에서 두 번 지적을 받아 고쳤다: 개인채팅에 제3 노드가 끼어듦, 참가자 id 사칭·선점, 재전송, 본문 제어 문자, 아는 노드 상한과 그 부작용. 새 경로를 만들 때 "망의 아무 노드나 악의적일 수 있다"를 먼저 따진다. 단, 개인채팅 글이 망 전체로 퍼지는 것은 사용자 결정(D-PCH-21, FR-PCH-15)이라 고치지 않는다.
+- 상태 알림은 자기 내용이 바뀔 때만 낸다. 처음에는 남의 알림을 받을 때마다 다시 알려 노드끼리 끝없이 주고받았다(시험이 못 잡았다 — `TestStateAnnouncementsSettle` 로 잡는다).
+- IRC 방식의 경합: 들어가기 직전에 보낸 글이 들어간 뒤 도착하면 받는다. 시험에서는 같은 연결로 뒤따르는 상태 알림을 기다려 순서를 맞춘다.
+- `make gates | tail` 처럼 파이프로 이으면 실패해도 `&&` 가 이어진다. 검사 결과는 `make gates > /tmp/g.log; echo $?` 로 본다(한 번 실패한 채 커밋했다가 amend 했다).
+- `http.Error` 를 직접 부르면 게이트(FR-ERR-3)에 걸린다. `{code,message}` 를 `httpresp.JSON` 으로 쓴다.
+- python 으로 여러 곳을 고칠 때 앞 단계의 gofmt 로 필드 정렬이 바뀌면 다음 치환이 어긋난다. 정렬이 바뀌는 자리는 정규식으로 맞춘다.
 
 ## 5. 그다음: PEER_CHAT_SRS
 
