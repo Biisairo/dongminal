@@ -105,7 +105,7 @@
 
 ## 5. 그다음: PEER_CHAT_SRS
 
-`PEER_DAEMON` 이 끝나면 `PEER_CHAT_SRS.md` 로 넘어간다. **§9 미결은 2026-11-17 에 모두 정했다(D-PCH-21~34).** 다음은 SRS §8 단계 1(G·R·P) 설계를 §3.Na 로 적고 Spec → Test → Code 로 가는 것이다.
+`PEER_DAEMON` 이 끝나면 `PEER_CHAT_SRS.md` 로 넘어간다. **§9 미결은 2026-11-17 에 모두 정했다(D-PCH-21~34).** 단계 1(데몬의 채팅 핵심, SRS §3.9)은 끝났다: `internal/daemon/chat`, 노드 포트 `/edge/v1/chat` Upgrade(`edge.Client.Upgrade`·`edge.AcceptUpgrade`, `edgenode.Options.Chat`), 배선 `daemon/boot/edge.go` `startChat`. 다음은 단계 2(MCP·알림) 설계를 SRS §3.10 으로 적는 것이다.
 
 사용자가 정한 큰 원칙(다시 묻지 않는다):
 - 노드 = 데몬. 채팅의 모든 상태는 데몬 메모리. 디스크 저장을 늘리지 않는다.

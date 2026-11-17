@@ -55,6 +55,7 @@ internal/
     toolline/            #   dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
   daemon/                # ② dongminald 프로세스 — PTY 를 소유한다
     boot/                #   데몬 진입점 (Run). 웹 서버를 재시작해도 세션이 살아남는 이유
+    chat/                #   채팅 핵심 — 간선 상대마다 채팅 연결, 서명한 노드 상태·글 전파, 방·참가자. 글을 들지 않는다 (PEER_CHAT_SRS §3.9)
     ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나의 요청은 차례로, create·restore·edge 만 읽기 루프 밖 — FR-OPT-2-3, PEER_DAEMON_SRS §3.5a)
   webserver/             # ③ 웹 서버 프로세스
     httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
