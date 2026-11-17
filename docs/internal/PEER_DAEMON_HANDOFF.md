@@ -3,18 +3,18 @@
 > 진실은 `docs/internal/PEER_DAEMON_SRS.md` 다. 이 문서는 그 SRS 를 구현하는 세션의 착수 지시와 맥락이다.
 > 다음 일감은 `docs/internal/PEER_CHAT_SRS.md` 다(§5).
 
-## 1. 착수 블록 (PEER_CHAT 단계 2)
+## 1. 착수 블록 (PEER_CHAT 단계 3)
 
-1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `HEAD` 다(아래 §3 표의 마지막 보안 수정 뒤 인계 문서 커밋).
-2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 모두 정했다(D-PCH-21~35, §9 없음). **다시 묻지 않는다.** 먼저 읽을 것:
-   - §3.3 P(참가자 수명, FR-PCH-40~46), §3.4 M(MCP 도구 여덟 개, FR-PCH-50~55), §3.5 A(알림, FR-PCH-60~63), §3.8 NFR-PCH-1·5
-   - §3.9 단계 1 설계 — 지금 있는 Go 표면(`chat.Service` 의 `Register`·`Unregister`·`Create`·`Direct`·`Join`·`Leave`·`Send`·`Online`·`Rooms`, `Options.Deliver`)
+1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `HEAD` 다.
+2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 없다(D-PCH-21~37). **정한 것을 다시 묻지 않는다.** 먼저 읽을 것:
+   - §3.7 U(화면, FR-PCH-80~87), §3.3 FR-PCH-41(사람 참가자: 노드마다 하나, `<노드 이름>/User`), FR-PCH-85(사람의 대화는 브라우저만 든다), §4.2 동작 변경 표
+   - §3.9(채팅 핵심 Go 표면), §3.10(채팅 소켓·와이어 `chatwire`·`chatsock`, MCP)
    - §8 단계 표
-3. 다음 일은 **단계 2(M·A)** 다. 순서: ① SRS §3.10 에 단계 2 설계를 적는다 → ② 시험(RED) → ③ 구현 → 검사 통과하면 커밋.
-   단계 2 범위: MCP 서버(claude 의 자식 프로세스, 데몬에 연결, 부모 claude PID 를 알림), claude shim 의 `--mcp-config` 주입(데몬 모드에서만, NFR-PCH-5), 도구 여덟 개, MCP 프로세스의 안 읽은 글함(상한 200, 넘치면 오래된 것부터 버리고 버린 수를 알림), 훅 알림(데몬이 MCP 에 개수를 물어 전함, 저장 안 함), 0건→1건 순간 + 쉬는 중일 때만 붙여넣기(FR-PCH-61·62), 데몬 IPC 배선.
-   설계 전에 조사할 것: claude shim 의 인자 주입(`AGENT_MEMORY_INJECTION_SRS`, `CLAUDE_ACCOUNTS_SRS` D-CAC-24, main 의 `b2bbf84f`), 데몬 IPC(`shared/toolipc/protocol.go`, `daemon/ipc/paned_handlers.go`, `report.sock` 와 `daemon/ipc/report.go` 의 활동 보고·SessionStart 처리), 데몬의 붙여넣기(`SendPasteIfForeground` — 단계 3 에서 전경 조건을 지웠다, §4), 훅(`dmctl notify`·`activity`).
-4. 구현상 결정이 필요하면 한 번에 하나, 권장 답과 함께 묻는다(AskUserQuestion). **미리보기(preview)는 쓰지 않는다 — 사용자가 볼 수 없다. 설명은 글로 쉽게 한다.** 영어 이름은 뜻이 바로 읽히는 것을 고른다(사용자가 `directory` 를 폴더로 읽었다).
-5. 단계 2 를 마치면 단계 3(U: Activity 탭 전환·Chats 탭·채팅 탭), 단계 4(H: 도우미+TOTP) 순서다.
+3. 다음 일은 **단계 3(U)** 다. 순서: ① SRS §3.11 에 단계 3 설계를 적는다 → ② 시험(RED) → ③ 구현 → 검사 통과하면 커밋.
+   단계 3 범위: Activity 패널 맨 위 탭 줄(Agents·Background·Runs·Chats, Usage 는 아래 고정), 탭 개수·알람 점, 레일의 탭 아이콘, Chats 탭(방 목록·온라인 목록), 칸의 채팅 탭(머리·대화·입력칸·참가자 목록, 개인채팅 열기), 사람 참가자.
+   설계 전에 조사할 것: Activity 패널(`UX_BATCH12_SRS` FR-ACF, `web/js` 의 Activity 구역·레일), 칸의 탭 종류(터미널·편집기·Diff 가 어떻게 같은 급으로 서는지), 서버↔데몬 IPC(`shared/toolipc/protocol.go` 메서드·push·기능 협상, `daemon/ipc/paned_edge.go` 가 `edge` 를 붙인 방식), 서버 → 브라우저 이벤트(SSE). 사람 참가자는 데몬의 `chat.Service.Register(label, chat.KindHuman?)` 로 세우고 글은 서버가 push 로 받아 브라우저에 넘긴다 — 데몬은 사람의 글을 들지 않는다(FR-PCH-85). 직접 모드 화면은 "데몬 모드에서만 쓸 수 있다"(NFR-PCH-5).
+4. 구현상 결정이 필요하면 한 번에 하나, 권장 답과 함께 묻는다(AskUserQuestion). **미리보기(preview)는 쓰지 않는다 — 사용자가 볼 수 없다. 설명은 글로 쉽게 한다.**
+5. 단계 3 을 마치면 단계 4(H: 도우미+TOTP) 다.
 
 ## 2. 사용자 지시
 
@@ -37,7 +37,8 @@
 | 6. 문서·e2e | 문서 끝. e2e 는 사용자가 재시작 뒤 확인 | `088dd549` |
 | PEER_CHAT 미결 해소 | 끝 (D-PCH-21~35) | `f4e361f7`, `f2cc6743` |
 | PEER_CHAT 단계 1 (데몬의 채팅 핵심) | 끝 | 설계 `c7753b43`, Upgrade `0f08acc1`, 핵심 `a9793300`, 보안 수정 `0ab24a2c`·`1e688ca6`·`544e1800` |
-| PEER_CHAT 단계 2 (MCP·알림) | **다음** | |
+| PEER_CHAT 단계 2 (MCP·알림) | 끝 | 설계 `25c63c88`, 데몬 소켓 `2099d28a`, MCP·shim·훅 `1b0bf128` |
+| PEER_CHAT 단계 3 (화면) | **다음** | |
 
 > 2026-11-17 사용자 결정으로 범위가 바뀌었다(SRS D-PDM-13~17). 아래 §3.2·§3.3 의 명령 관련 조사·설계는 낡았다. 명령이 없어지므로 화면 요청(`peerui`)도 없다.
 
@@ -122,6 +123,16 @@
 - `make gates | tail` 처럼 파이프로 이으면 실패해도 `&&` 가 이어진다. 검사 결과는 `make gates > /tmp/g.log; echo $?` 로 본다(한 번 실패한 채 커밋했다가 amend 했다).
 - `http.Error` 를 직접 부르면 게이트(FR-ERR-3)에 걸린다. `{code,message}` 를 `httpresp.JSON` 으로 쓴다.
 - python 으로 여러 곳을 고칠 때 앞 단계의 gofmt 로 필드 정렬이 바뀌면 다음 치환이 어긋난다. 정렬이 바뀌는 자리는 정규식으로 맞춘다.
+
+### 4.2 PEER_CHAT 단계 2 에서 배운 것
+
+- 채팅 소켓은 데몬의 `chat.sock`(`chatwire.SocketPath`)이다. 데몬 쪽은 `internal/daemon/chatsock`, 와이어는 `internal/shared/chatwire`, MCP 는 `runtimebin/dmctl_chatmcp.go`, 주입은 `claude_shim.go` `shimChatArgs`, 훅은 `dmctl_ctxhook.go` `chatUnreadText`. 배선은 `daemon/boot/edge.go` `startChat`(채팅 소켓을 열고 `Deliver` 를 잇는다).
+- **세션 신원은 세션 id 하나다(D-PCH-37, 사용자 결정 "세션 id 만이 절대적이다").** MCP 는 claude 가 넘긴 `CLAUDE_CODE_SESSION_ID` 를 쓴다. `/clear` 를 메우려고 프로세스 번호·shim 표식·도구 id 를 더하자고 했다가 거절됐다. 신원에 다른 값을 섞자고 다시 제안하지 않는다.
+- 도구 여덟 개는 허락 없이 쓴다(D-PCH-36, `--allowedTools=mcp__dongminal`).
+- **보안 검토가 지적했다: 망에서 온 문자열(방 이름)을 터미널에 붙여 넣고 제출하면 프롬프트 주입 통로가 된다.** 붙여넣기와 훅 맥락에는 개수만 싣고, 방 이름·본문은 MCP 도구 결과(JSON)로만 보인다. 화면(단계 3)에서도 남의 값은 텍스트로만 그리고 HTML 로 넣지 않는다.
+- 쉬는 중은 활동 상태 `idle`·`done` 뿐이다(`boot.resting`). `waiting`·보고 없음은 쉬는 중이 아니다.
+- 에이전트 참가자 상한은 `chat.MaxParticipants`(64) − 1(사람 몫)이다. 사람 참가자를 붙일 때 이 몫을 쓴다.
+- 시험의 유닉스 소켓은 `os.MkdirTemp("", "짧은접두어")` 홈을 쓴다(shim·훅 시험의 `chatHome`).
 
 ## 5. 그다음: PEER_CHAT_SRS
 
