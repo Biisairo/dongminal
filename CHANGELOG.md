@@ -29,15 +29,15 @@
   만듭니다. 지문이 바뀌므로 옛 판에서 맺은 간선은 다시 맺어야 합니다.
 - **Run 동료 명부는 `team` 입니다.** `GET /api/runs/team`, `dmctl run team`, 응답 키 `team`. 에이전트 프리앰블도
   `dmctl run team` 을 안내합니다. 옛 `dmctl run peers` 로 시작한 에이전트는 새 Run 부터 새 이름을 받습니다.
+- **노드는 이제 데몬입니다.** 신원·`edges.json`·간선 맺기 판정을 데몬(`dongminald`)이 맡고, 서버는 노드 포트의
+  바이트를 데몬에 잇고 로컬 API 를 넘기기만 합니다. 서버만 다시 떠도 간선 맺기 대기가 남습니다. 감사 로그 줄(`edge audit`)은
+  `daemon.log` 에 남습니다. **데몬을 다시 띄워야 적용됩니다**(`dongminal start --restart-daemon`). 그 전까지 새 서버는
+  노드 기능을 끄고 로컬 API 가 409 `edge_daemon_restart` 로 답합니다.
 
 ## [1.3.4] — 2026-11-16
 
 ### 보안
 
-- **노드는 이제 데몬입니다.** 신원·`edges.json`·간선 맺기 판정을 데몬(`dongminald`)이 맡고, 서버는 노드 포트의
-  바이트를 데몬에 잇고 로컬 API 를 넘기기만 합니다. 서버만 다시 떠도 간선 맺기 대기가 남습니다. 감사 로그 줄(`edge audit`)은
-  `daemon.log` 에 남습니다. **데몬을 다시 띄워야 적용됩니다**(`dongminal start --restart-daemon`). 그 전까지 새 서버는
-  노드 기능을 끄고 로컬 API 가 409 `edge_daemon_restart` 로 답합니다.
 - **Go 를 1.26.11 로 올렸습니다.** 1.26.10 의 `net/http` 취약점(GO-2026-6859)이 서버와 `dmctl` 의 HTTP 경로에
   닿았습니다. 동작은 바뀌지 않습니다.
 
