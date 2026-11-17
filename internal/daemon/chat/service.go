@@ -119,6 +119,10 @@ type Options struct {
 	// Pin 은 간선 상대 fp 의 도우미 공개키를 고정한다(비었을 때만, §3.12). 잠금 밖에서 부른다.
 	// nil 이면 고정하지 않는다.
 	Pin func(fp, key string)
+	// Unpaired 는 간선 상대가 이 노드를 간선이 아니라고(403 edge_not_edge) 답했을 때 그 지문으로
+	// 부른다. 상대가 먼저 지운 간선을 이쪽에서도 지운다 (EDGE_PAIRING_SRS FR-EPR-22). 잠금 밖에서
+	// 부른다. nil 이면 아무것도 하지 않는다.
+	Unpaired func(fp string)
 	// Changed 는 온라인 목록이나 방이 바뀌었을 수 있다는 알림이다. 잠금 밖의 고루틴에서
 	// 부르고, 여러 번의 바뀜을 한 번으로 묶을 수 있다. nil 이면 알리지 않는다.
 	Changed func()

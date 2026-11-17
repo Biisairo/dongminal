@@ -90,6 +90,7 @@ func startChat(home string, n *edgenode.Node, dial func(ctx context.Context, net
 				dmlog.Errorf(nil, "chat: 도우미 키 고정: %v", err)
 			}
 		},
+		Unpaired: n.Forget,
 	})
 	slot.Store(s)
 	helper := humancmd.Client{Path: humancmd.SocketPath, Timeout: helperWait}

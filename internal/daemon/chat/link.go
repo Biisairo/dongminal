@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"sync"
@@ -472,6 +473,12 @@ func (s *Service) dial(ctx context.Context, e edge.Edge, d *dialState) {
 		d.next = s.now().Add(d.wait)
 		d.wait = min(d.wait*2, redialMax)
 		s.mu.Unlock()
+		// 지문을 고정한 상대의 서버가 낸 답이라 믿는다 (D-EPR-3).
+		var re *edge.RemoteError
+		if errors.As(err, &re) && re.Code == edge.CodeNotEdge && s.opts.Unpaired != nil {
+			dmlog.Infof(nil, "chat link: %s 가 이 노드를 간선으로 알지 않는다 — 간선을 지운다", short(e.Fingerprint))
+			s.opts.Unpaired(e.Fingerprint)
+		}
 		return
 	}
 	d.wait = redialMin
