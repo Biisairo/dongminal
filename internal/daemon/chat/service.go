@@ -37,6 +37,10 @@ const (
 	maxID        = 64
 	// maxNodes 는 아는 노드의 상한이다. 넘으면 닿지 않는 노드부터 잊는다.
 	maxNodes = 256
+	// maxMarks 는 잊은 노드의 마지막 번호를 기억하는 수다 (재전송 막기).
+	maxMarks = 4096
+	// idPrefix 는 참가자 id 앞에 붙는 노드 지문의 길이다. id 를 노드에 묶는다.
+	idPrefix = 16
 )
 
 // Participant 는 이 노드의 참가자 하나다.
@@ -140,6 +144,7 @@ type Service struct {
 
 	pingEvery time.Duration
 	deadAfter time.Duration
+	maxNodes  int
 
 	mu     sync.Mutex
 	epoch  int64
@@ -151,6 +156,7 @@ type Service struct {
 	nodes map[string]*remote
 	links map[string]*peerLink
 	wins  map[string]*seqWindow
+	marks map[string]mark
 	own   frame
 	// ownContent 는 마지막으로 알린 자기 상태의 내용(순서 번호 제외)이다.
 	ownContent string
@@ -169,7 +175,8 @@ func New(o Options) *Service {
 	}
 	s := &Service{
 		id: o.Identity, key: publicKeyOf(o.Identity), opts: o, now: now,
-		pingEvery: 15 * time.Second, deadAfter: 45 * time.Second,
+		pingEvery: 15 * time.Second, deadAfter: 45 * time.Second, maxNodes: maxNodes,
+		marks: map[string]mark{},
 		epoch: now().UnixNano(),
 		parts: map[string]*participant{}, rooms: map[string]room{},
 		nodes: map[string]*remote{}, links: map[string]*peerLink{},
@@ -216,7 +223,7 @@ func (s *Service) Close() {
 // Register 는 참가자를 만든다. 방이 없는 새 참가자다 (FR-PCH-43·46).
 func (s *Service) Register(label, kind string) Participant {
 	p := &participant{
-		Participant: Participant{ID: randomHex(16), Label: label, Kind: kind},
+		Participant: Participant{ID: s.id.Fingerprint[:idPrefix] + "-" + randomHex(16), Label: label, Kind: kind},
 		rooms:       map[string]bool{}, left: map[string]bool{}, peerSeen: map[string]bool{},
 	}
 	s.mu.Lock()
@@ -577,10 +584,7 @@ func (s *Service) whereLocked(node, pid, roomID string) whereabouts {
 		return absent
 	}
 	r, ok := s.nodes[node]
-	if !ok {
-		return absent
-	}
-	if !s.reachableLocked()[node] {
+	if !ok || !s.reachableLocked()[node] {
 		return unreachable
 	}
 	if partInRoom(r.st, pid, roomID) {

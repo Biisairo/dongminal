@@ -198,15 +198,27 @@ func (s *Service) acceptStateLocked(fr frame) bool {
 		return false
 	}
 	pub, ok := parseKey(st.Node, st.Key)
-	if !ok || !verify(pub, frameState, fr.B, fr.S) || !validState(st) || s.claimsOthersLocked(st) {
+	if !ok || !verify(pub, frameState, fr.B, fr.S) || !validState(st) {
 		return false
 	}
 	if old, ok := s.nodes[st.Node]; ok {
-		if st.Epoch < old.st.Epoch || st.Epoch == old.st.Epoch && st.Seq <= old.st.Seq {
+		if !newer(st, old.st.Epoch, old.st.Seq) {
 			return false
 		}
-	} else if len(s.nodes) >= maxNodes && !s.evictLocked() {
-		return false
+	} else {
+		m, marked := s.marks[st.Node]
+		if marked && !newer(st, m.epoch, m.stateSeq) {
+			return false
+		}
+		if len(s.nodes) >= s.maxNodes && !s.evictLocked() {
+			return false
+		}
+		if marked {
+			delete(s.marks, st.Node)
+			if st.Epoch == m.epoch {
+				s.wins[st.Node] = m.window()
+			}
+		}
 	}
 	rooms := map[string]room{}
 	for _, rec := range st.Rooms {
@@ -218,34 +230,25 @@ func (s *Service) acceptStateLocked(fr frame) bool {
 	return true
 }
 
-// claimsOthersLocked 는 st 가 이 노드나 다른 노드의 참가자 id 를 주장하는지다. 노드는 자기
-// 참가자에 대해서만 말한다 (FR-PCH-20).
-func (s *Service) claimsOthersLocked(st stateBody) bool {
-	for _, sp := range st.Parts {
-		if _, ok := s.parts[sp.ID]; ok {
-			return true
-		}
-		for fp, r := range s.nodes {
-			if fp == st.Node {
-				continue
-			}
-			for _, q := range r.st.Parts {
-				if q.ID == sp.ID {
-					return true
-				}
-			}
-		}
-	}
-	return false
+func newer(st stateBody, epoch int64, seq uint64) bool {
+	return st.Epoch > epoch || st.Epoch == epoch && st.Seq > seq
 }
 
-// evictLocked 는 닿지 않는 노드 가운데 가장 오래 소식이 없는 것을 잊는다. 잊을 것이 없으면 거짓이다.
+// evictLocked 는 닿지 않는 노드 가운데 가장 오래 소식이 없는 것을 잊는다. 이 노드의 개인채팅에
+// 걸린 노드는 잊지 않는다. 잊은 노드의 마지막 번호는 남겨, 옛 상태와 옛 글을 다시 받지 않는다.
+// 잊을 것이 없으면 거짓이다.
 func (s *Service) evictLocked() bool {
 	reach := s.reachableLocked()
+	pinned := map[string]bool{}
+	for _, r := range s.rooms {
+		if r.body.Kind == KindDirect {
+			pinned[r.body.Creator], pinned[r.body.PeerNode] = true, true
+		}
+	}
 	victim := ""
 	var at time.Time
 	for fp, r := range s.nodes {
-		if reach[fp] {
+		if reach[fp] || pinned[fp] {
 			continue
 		}
 		if victim == "" || r.at.Before(at) {
@@ -255,9 +258,45 @@ func (s *Service) evictLocked() bool {
 	if victim == "" {
 		return false
 	}
+	r := s.nodes[victim]
+	m := mark{epoch: r.st.Epoch, stateSeq: r.st.Seq, at: s.now()}
+	if w := s.wins[victim]; w != nil && w.epoch == r.st.Epoch {
+		m.msgMax = w.max
+	}
+	s.rememberLocked(victim, m)
 	delete(s.nodes, victim)
 	delete(s.wins, victim)
 	return true
+}
+
+// mark 는 잊은 노드의 마지막 번호다.
+type mark struct {
+	epoch    int64
+	stateSeq uint64
+	msgMax   uint64
+	at       time.Time
+}
+
+// window 는 msgMax 까지를 모두 본 것으로 치는 순서 창이다.
+func (m mark) window() *seqWindow {
+	w := &seqWindow{epoch: m.epoch, max: m.msgMax}
+	for i := range w.bits {
+		w.bits[i] = true
+	}
+	return w
+}
+
+func (s *Service) rememberLocked(fp string, m mark) {
+	if len(s.marks) >= maxMarks {
+		oldest := ""
+		for k, v := range s.marks {
+			if oldest == "" || v.at.Before(s.marks[oldest].at) {
+				oldest = k
+			}
+		}
+		delete(s.marks, oldest)
+	}
+	s.marks[fp] = m
 }
 
 func validState(st stateBody) bool {
@@ -265,7 +304,7 @@ func validState(st stateBody) bool {
 		return false
 	}
 	for _, p := range st.Parts {
-		if len(p.Rooms) > maxPartRooms || !validID(p.ID) || p.ID == "" || !validText(p.Label, maxLabel) {
+		if len(p.Rooms) > maxPartRooms || !validID(p.ID) || !boundTo(p.ID, st.Node) || !validText(p.Label, maxLabel) {
 			return false
 		}
 	}

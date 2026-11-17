@@ -193,7 +193,7 @@ func openRecord(r signedRecord) (recordBody, bool) {
 	case KindGroup:
 		ok = validText(b.Name, maxName) && b.Name != "" && b.Peer == ""
 	case KindDirect:
-		ok = b.Owner != "" && b.Peer != "" && b.Owner != b.Peer && b.PeerNode != "" && validID(b.PeerNode)
+		ok = b.Owner != b.Peer && boundTo(b.Owner, b.Creator) && boundTo(b.Peer, b.PeerNode)
 	default:
 		ok = false
 	}
@@ -234,6 +234,11 @@ func validBody(s string) bool {
 		}
 	}
 	return true
+}
+
+// boundTo 는 참가자 id 가 노드 node 에 묶였는지 — id 가 그 지문 앞자리로 시작하는지다.
+func boundTo(pid, node string) bool {
+	return len(node) >= idPrefix && len(pid) > idPrefix && pid[:idPrefix+1] == node[:idPrefix]+"-"
 }
 
 // validID 는 참가자·글 id 모양(짧은 hex 같은 값)인지 본다. 빈 값도 받는다.

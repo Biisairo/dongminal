@@ -202,6 +202,9 @@ func newFakePeer(t *testing.T, target *testNode) *fakePeer {
 	return f
 }
 
+// pid 는 이 가짜 노드에 묶인 참가자 id 다.
+func (f *fakePeer) pid(x string) string { return f.id.Fingerprint[:idPrefix] + "-" + x }
+
 func (f *fakePeer) write(t *testing.T, fr frame) {
 	t.Helper()
 	raw, _ := json.Marshal(fr)
@@ -228,10 +231,10 @@ func TestTamperedMessageDropped(t *testing.T) {
 	room, _ := a.Create(pa.ID, "r", "")
 	f := newFakePeer(t, a)
 	rec := a.recordOf(room.ID)
-	f.state(t, []statePart{{ID: "fp1", Label: "fake/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{rec}, []string{a.fp()})
+	f.state(t, []statePart{{ID: f.pid("fp1"), Label: "fake/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{rec}, []string{a.fp()})
 	eventually(t, "A 가 가짜 노드의 참가자를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
 
-	body := msgBody{ID: "m1", Node: f.id.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: "fp1", Text: "원문", At: time.Now()}
+	body := msgBody{ID: "m1", Node: f.id.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: f.pid("fp1"), Text: "원문", At: time.Now()}
 	fr, _ := signFrame(f.id, frameMsg, body)
 	tampered := fr
 	tampered.B = json.RawMessage(strings.Replace(string(fr.B), "원문", "바꿈", 1))
@@ -286,7 +289,7 @@ func TestTamperedRoomRecordDropped(t *testing.T) {
 	}
 	roomID := rec.id()
 	rec.B = json.RawMessage(strings.Replace(string(rec.B), "real", "fake", 1))
-	f.state(t, []statePart{{ID: "p", Label: "f/x", Kind: KindAgent, Rooms: []string{roomID}}}, []signedRecord{rec}, []string{a.fp()})
+	f.state(t, []statePart{{ID: f.pid("p"), Label: "f/x", Kind: KindAgent, Rooms: []string{roomID}}}, []signedRecord{rec}, []string{a.fp()})
 	never(t, "바꾼 방이 보인다", func() bool { return len(a.Rooms(pa.ID)) > 0 })
 }
 
@@ -539,10 +542,10 @@ func TestReceiveRateLimited(t *testing.T) {
 	pa := a.Register("a/x", KindAgent)
 	room, _ := a.Create(pa.ID, "r", "")
 	f := newFakePeer(t, a)
-	f.state(t, []statePart{{ID: "fp1", Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{a.recordOf(room.ID)}, []string{a.fp()})
+	f.state(t, []statePart{{ID: f.pid("fp1"), Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{a.recordOf(room.ID)}, []string{a.fp()})
 	eventually(t, "참가자를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
 	for i := range PerMinute + 5 {
-		fr, _ := signFrame(f.id, frameMsg, msgBody{ID: "m" + string(rune('a'+i%26)) + string(rune('a'+i/26)), Node: f.id.Fingerprint, Epoch: 1, Seq: uint64(i + 1), Room: room.ID, From: "fp1", Text: "x", At: time.Now()})
+		fr, _ := signFrame(f.id, frameMsg, msgBody{ID: "m" + string(rune('a'+i%26)) + string(rune('a'+i/26)), Node: f.id.Fingerprint, Epoch: 1, Seq: uint64(i + 1), Room: room.ID, From: f.pid("fp1"), Text: "x", At: time.Now()})
 		f.write(t, fr)
 	}
 	eventually(t, "상한만큼 받는다", func() bool { return len(a.deliveries(pa.ID)) == PerMinute })
@@ -628,7 +631,7 @@ func TestDirectRejectsThirdNode(t *testing.T) {
 
 	f := newFakePeer(t, a)
 	rec := a.recordOf(room.ID)
-	for i, from := range []string{"evil", pb.ID} {
+	for i, from := range []string{f.pid("evil"), pb.ID} {
 		f.state(t, []statePart{{ID: from, Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{rec}, []string{a.fp()})
 		fr, _ := signFrame(f.id, frameMsg, msgBody{ID: "x" + string(rune('a'+i)), Node: f.id.Fingerprint, Epoch: 1, Seq: uint64(i + 1), Room: room.ID, From: from, Text: "끼어들기", At: time.Now()})
 		f.write(t, fr)
@@ -654,14 +657,14 @@ func TestReplayedMessageDropped(t *testing.T) {
 	pa := a.Register("a/x", KindAgent)
 	room, _ := a.Create(pa.ID, "r", "")
 	f := newFakePeer(t, a)
-	f.state(t, []statePart{{ID: "fp1", Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{a.recordOf(room.ID)}, []string{a.fp()})
+	f.state(t, []statePart{{ID: f.pid("fp1"), Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{a.recordOf(room.ID)}, []string{a.fp()})
 	eventually(t, "참가자를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
-	old, _ := signFrame(f.id, frameMsg, msgBody{ID: "old", Node: f.id.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: "fp1", Text: "1", At: time.Now()})
+	old, _ := signFrame(f.id, frameMsg, msgBody{ID: "old", Node: f.id.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: f.pid("fp1"), Text: "1", At: time.Now()})
 	f.write(t, old)
 	eventually(t, "처음 글", func() bool { return len(a.deliveries(pa.ID)) == 1 })
 	f.write(t, old)
 	never(t, "같은 글이 다시 온다", func() bool { return len(a.deliveries(pa.ID)) > 1 })
-	stale, _ := signFrame(f.id, frameMsg, msgBody{ID: "stale", Node: f.id.Fingerprint, Epoch: 0, Seq: 9, Room: room.ID, From: "fp1", Text: "2", At: time.Now()})
+	stale, _ := signFrame(f.id, frameMsg, msgBody{ID: "stale", Node: f.id.Fingerprint, Epoch: 0, Seq: 9, Room: room.ID, From: f.pid("fp1"), Text: "2", At: time.Now()})
 	f.write(t, stale)
 	never(t, "지난 epoch 의 글이 온다", func() bool { return len(a.deliveries(pa.ID)) > 1 })
 }
@@ -676,9 +679,9 @@ func TestControlCharsRejected(t *testing.T) {
 		t.Fatalf("줄바꿈·탭: %v", err)
 	}
 	f := newFakePeer(t, a)
-	f.state(t, []statePart{{ID: "fp1", Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{a.recordOf(room.ID)}, []string{a.fp()})
+	f.state(t, []statePart{{ID: f.pid("fp1"), Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{a.recordOf(room.ID)}, []string{a.fp()})
 	eventually(t, "참가자를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
-	fr, _ := signFrame(f.id, frameMsg, msgBody{ID: "esc", Node: f.id.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: "fp1", Text: "\x1b]0;x\x07", At: time.Now()})
+	fr, _ := signFrame(f.id, frameMsg, msgBody{ID: "esc", Node: f.id.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: f.pid("fp1"), Text: "\x1b]0;x\x07", At: time.Now()})
 	f.write(t, fr)
 	never(t, "제어 문자 글이 온다", func() bool { return len(a.deliveries(pa.ID)) > 0 })
 }
@@ -700,4 +703,83 @@ func TestRemoteNodesCapped(t *testing.T) {
 	if n := len(a.Online().Nodes) - 1; n > maxNodes {
 		t.Fatalf("아는 노드 %d > %d", n, maxNodes)
 	}
+}
+
+// 보안 검토: 참가자 id 는 노드에 묶인다. 남의 노드 접두어를 단 주장은 버려지고, 진짜 노드의
+// 상태는 막히지 않는다.
+func TestParticipantIDBoundToNode(t *testing.T) {
+	a, b := newTestNode(t, "a"), newTestNode(t, "b")
+	pb := b.Register("b/x", KindAgent)
+	if pb.ID[:idPrefix] != b.fp()[:idPrefix] {
+		t.Fatalf("id %s 가 노드에 묶이지 않았다", pb.ID)
+	}
+	f := newFakePeer(t, a)
+	f.state(t, []statePart{{ID: pb.ID, Label: "squat", Kind: KindAgent}}, nil, []string{a.fp()})
+	link(a, b)
+	eventually(t, "진짜 B 의 참가자가 보인다", func() bool {
+		for _, m := range a.Online().Participants {
+			if m.ID == pb.ID {
+				return m.Label == "b/x" && m.Node == b.fp()
+			}
+		}
+		return false
+	})
+}
+
+// 보안 검토: 잊은 노드의 옛 상태와 옛 글을 다시 보내도 받지 않는다.
+func TestEvictedNodeReplayDropped(t *testing.T) {
+	a := newTestNode(t, "a")
+	a.maxNodes = 2
+	pa := a.Register("a/x", KindAgent)
+	room, _ := a.Create(pa.ID, "r", "")
+	f := newFakePeer(t, a)
+	f.state(t, nil, nil, []string{a.fp()})
+	x, _ := edge.LoadOrCreateIdentity(t.TempDir())
+	xp := x.Fingerprint[:idPrefix] + "-x"
+	xState, _ := signFrame(x, frameState, stateBody{Node: x.Fingerprint, Key: publicKeyOf(x), Name: "x", Epoch: 1, Seq: 1,
+		Parts: []statePart{{ID: xp, Label: "x/x", Kind: KindAgent, Rooms: []string{room.ID}}}})
+	xMsg, _ := signFrame(x, frameMsg, msgBody{ID: "xm", Node: x.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: xp, Text: "옛 글", At: time.Now()})
+	f.write(t, xState)
+	f.write(t, xMsg)
+	eventually(t, "X 의 글을 받는다", func() bool { return len(a.deliveries(pa.ID)) == 1 })
+	y, _ := edge.LoadOrCreateIdentity(t.TempDir())
+	yState, _ := signFrame(y, frameState, stateBody{Node: y.Fingerprint, Key: publicKeyOf(y), Name: "y", Epoch: 1, Seq: 1})
+	f.write(t, yState)
+	eventually(t, "X 를 잊는다", func() bool {
+		for _, n := range a.Online().Nodes {
+			if n.FP == x.Fingerprint {
+				return false
+			}
+		}
+		return true
+	})
+	// 자리를 늘려, X 를 다시 들일지는 상한이 아니라 기억한 번호로만 가르게 한다.
+	a.mu.Lock()
+	a.maxNodes = 3
+	a.mu.Unlock()
+	f.write(t, xState)
+	f.write(t, xMsg)
+	never(t, "옛 글이 다시 온다", func() bool { return len(a.deliveries(pa.ID)) > 1 })
+}
+
+// 보안 검토: 1대1 채팅 상대의 노드를 잊게 만들어도 채팅이 끝나지 않는다.
+func TestDirectPeerNodeNotEvicted(t *testing.T) {
+	a, b := newTestNode(t, "a"), newTestNode(t, "b")
+	cut := link(a, b)
+	pa := a.Register("a/x", KindAgent)
+	pb := b.Register("b/x", KindAgent)
+	eventually(t, "참가자를 본다", func() bool { return len(a.Online().Participants) == 2 })
+	room, _ := a.Direct(pa.ID, pb.ID, "")
+	eventually(t, "A 가 상대의 참가를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
+	cut()
+	eventually(t, "끊김", func() bool { return !nodeOnline(a, b.fp()) })
+	a.mu.Lock()
+	a.maxNodes = 2
+	a.mu.Unlock()
+	f := newFakePeer(t, a)
+	f.state(t, nil, nil, []string{a.fp()})
+	y, _ := edge.LoadOrCreateIdentity(t.TempDir())
+	yState, _ := signFrame(y, frameState, stateBody{Node: y.Fingerprint, Key: publicKeyOf(y), Name: "y", Epoch: 1, Seq: 1})
+	f.write(t, yState)
+	never(t, "1대1 채팅이 끝난다", func() bool { return !roomVisible(a, pa.ID, room.ID) })
 }
