@@ -150,7 +150,7 @@ func TestChatAcrossNetworkNeighbor(t *testing.T) {
 		t.Fatalf("msg %+v", m)
 	}
 	// PEER_CHAT_SRS §3.10: 글에 방 이름·목적을 싣는다 (FR-PCH-13).
-	if m.RoomKind != KindGroup || m.RoomName != "auth-review" || m.RoomPurpose != "리뷰" {
+	if m.RoomKind != KindGroup || m.RoomName != "auth-review" || m.RoomPurpose != "리뷰" || m.FromKind != KindAgent {
 		t.Fatalf("방 정보 %+v", m)
 	}
 	never(t, "같은 글이 두 번 온다", func() bool { return len(c.deliveries(pc.ID)) > 1 })

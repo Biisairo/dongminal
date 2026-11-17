@@ -24,6 +24,8 @@ import (
 const (
 	// maxLabel 은 표시 이름의 바이트 상한이다.
 	maxLabel = 64
+	// userTab 은 사람 참가자의 표시 이름 뒤쪽이다 (FR-PCH-46).
+	userTab = "User"
 	// fpShown 은 온라인 목록에 보이는 지문 앞자리 수다.
 	fpShown = 12
 	// helloWait 는 첫 프레임을 기다리는 시한이다.
@@ -150,7 +152,7 @@ func (s *Server) Close() {
 func (s *Server) Deliver(pid string, m chat.Message) {
 	wm := chatwire.Message{
 		ID: m.ID, Room: m.Room, RoomKind: m.RoomKind, RoomName: m.RoomName, RoomPurpose: m.RoomPurpose,
-		From: m.From, FromLabel: m.FromLabel, Node: m.Node, Text: m.Text, At: m.At.UnixMilli(),
+		From: m.From, FromLabel: m.FromLabel, FromKind: m.FromKind, Node: m.Node, Text: m.Text, At: m.At.UnixMilli(),
 	}
 	s.mu.Lock()
 	c := s.byPID[pid]
@@ -177,7 +179,7 @@ func (s *Server) StartUser() chat.Participant {
 		if s.o.Name != nil {
 			name = clean(s.o.Name())
 		}
-		s.user = s.o.Chat.Register(truncBytes(name+"/User", maxLabel), chat.KindUser)
+		s.user = s.o.Chat.Register(truncBytes(name+"/"+userTab, maxLabel), chat.KindUser)
 	}
 	return s.user
 }
@@ -282,9 +284,13 @@ func (s *Server) admit(nc net.Conn, h chatwire.Frame) (*conn, error) {
 
 // label 은 `<노드 이름>/<탭 이름>` 이다. 탭 이름이 없으면 도구 id 앞 8자다 (§3.10).
 func (s *Server) label(tab, tool string) string {
-	tab = clean(tab)
+	tab = strings.TrimSpace(clean(tab))
 	if tab == "" {
 		tab = "tool-" + truncRunes(clean(tool), 8)
+	}
+	// `<노드>/User` 는 사람 참가자의 이름이다. 에이전트가 그 이름으로 보이지 않게 한다.
+	if strings.EqualFold(tab, userTab) {
+		tab = "tab-" + tab
 	}
 	name := ""
 	if s.o.Name != nil {

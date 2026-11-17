@@ -339,13 +339,13 @@ func (s *Service) acceptMsgLocked(fr frame) ([]pending, bool) {
 	if !s.recvRate.allow(b.Node + "/" + b.From) {
 		return nil, false
 	}
-	label := ""
+	label, kind := "", ""
 	for _, sp := range r.st.Parts {
 		if sp.ID == b.From {
-			label = sp.Label
+			label, kind = sp.Label, sp.Kind
 		}
 	}
-	return s.localDeliveriesLocked(b, label), true
+	return s.localDeliveriesLocked(b, label, kind), true
 }
 
 type dialState struct {

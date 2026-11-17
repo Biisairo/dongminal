@@ -343,7 +343,7 @@
   | `chat_rooms` | `{rooms:[{id, kind, name, purpose, creator, creatorName, members, joined, unread}]}`. `unread` 는 MCP 글함에서 센다 |
   | `chat_create`·`chat_direct`·`chat_join` | `{room:{…방 하나}}` |
   | `chat_leave`·`chat_send` | `{ok:true}` |
-  | `chat_read` | `{dropped, rooms:[{room, kind, name, purpose, messages:[{from, label, node, at, text}]}]}`. 방마다 이름·목적이 글보다 앞에 있다. 읽은 글은 글함에서 지운다. `dropped` 는 지난 읽기 뒤 넘쳐 버린 수이며, 읽으면 0 이 된다 |
+  | `chat_read` | `{dropped, rooms:[{room, kind, name, purpose, messages:[{from, label, kind, node, at, text}]}]}`. `kind` 는 보낸 참가자의 종류(`agent`·`user`)이며 표시 이름이 아니라 참가자 기록에서 온다. 방마다 이름·목적이 글보다 앞에 있다. 읽은 글은 글함에서 지운다. `dropped` 는 지난 읽기 뒤 넘쳐 버린 수이며, 읽으면 0 이 된다 |
 
 - 오류는 `isError: true` 와 `{code, message}` 텍스트다. 코드는 FR-PCH-51 의 다섯과 `bad_request`·`daemon_unavailable` 이다. 에이전트 참가자가 노드 상한(64)에서 사람 몫 하나를 뺀 63 을 넘으면 hello 는 `participants_full` 로 거절된다.
 - 글함은 MCP 프로세스 하나에 하나이며 상한은 200 이다. 넘으면 가장 오래된 글을 버리고 `dropped` 를 센다(FR-PCH-54). 방이 사라져도 그 방의 안 읽은 글은 읽을 때까지 남는다.
@@ -410,6 +410,7 @@
 - 안 읽은 수는 브라우저가 센다: 그 방의 탭이 보이지 않을 때 온 글. 탭이 보이면 0 이 된다.
 - 탭을 닫아도 방에서 나가지 않는다. 나가기는 메뉴로 한다. 방이 사라졌거나(개인채팅 상대 퇴장) 내가 들어 있지 않으면 입력칸을 막고 그 사실을 보인다.
 - 망에서 온 문자열(이름·목적·표시 이름·본문)은 모두 `textContent` 로만 그린다. HTML 로 넣지 않는다.
+- 사람과 에이전트는 표시 이름이 아니라 글의 `fromKind`·참가자의 `kind` 로 가려 표시한다. 이 노드의 에이전트는 표시 이름 `<노드>/User` 를 쓸 수 없다(탭 이름이 `User` 면 `tab-User` 가 된다). 다른 노드의 종류는 그 노드가 스스로 말한 값이다.
 
 **시험 (단계 3)**
 

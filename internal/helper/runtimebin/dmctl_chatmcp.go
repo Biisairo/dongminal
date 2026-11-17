@@ -381,6 +381,7 @@ func (m *chatMCP) push(msg chatwire.Message) bool {
 type readMsg struct {
 	From  string `json:"from"`
 	Label string `json:"label"`
+	Kind  string `json:"kind"`
 	Node  string `json:"node"`
 	At    int64  `json:"at"`
 	Text  string `json:"text"`
@@ -418,7 +419,7 @@ func (m *chatMCP) read(room string) readResult {
 			at[msg.Room] = i
 			res.Rooms = append(res.Rooms, readRoom{Room: msg.Room, Kind: msg.RoomKind, Name: msg.RoomName, Purpose: msg.RoomPurpose})
 		}
-		res.Rooms[i].Messages = append(res.Rooms[i].Messages, readMsg{From: msg.From, Label: msg.FromLabel, Node: msg.Node, At: msg.At, Text: msg.Text})
+		res.Rooms[i].Messages = append(res.Rooms[i].Messages, readMsg{From: msg.From, Label: msg.FromLabel, Kind: msg.FromKind, Node: msg.Node, At: msg.At, Text: msg.Text})
 	}
 	m.inbox = keep
 	return res

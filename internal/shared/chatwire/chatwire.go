@@ -95,6 +95,7 @@ type Message struct {
 	RoomPurpose string `json:"roomPurpose"`
 	From        string `json:"from"`
 	FromLabel   string `json:"fromLabel"`
+	FromKind    string `json:"fromKind"`
 	Node        string `json:"node"`
 	Text        string `json:"text"`
 	At          int64  `json:"at"`

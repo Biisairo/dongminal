@@ -211,6 +211,16 @@ func TestHelloSanitizesTab(t *testing.T) {
 	}
 }
 
+// 에이전트는 사람 참가자의 이름 `<노드>/User` 로 보이지 않는다.
+func TestAgentCannotTakeUserLabel(t *testing.T) {
+	h := newHarness(t)
+	for _, tab := range []string{"User", " user "} {
+		if _, hello := h.agent("s-"+tab, "t1", tab); strings.EqualFold(hello.Label, "mac/User") {
+			t.Fatalf("%q: label %q", tab, hello.Label)
+		}
+	}
+}
+
 func TestHelloRequiresSessionAndTool(t *testing.T) {
 	h := newHarness(t)
 	for _, f := range []chatwire.Frame{
@@ -375,13 +385,13 @@ func TestUserParticipant(t *testing.T) {
 		t.Fatal(f.Error)
 	}
 	eventually(t, "사람이 글을 받는다", func() bool { mu.Lock(); defer mu.Unlock(); return len(got) == 1 })
-	if got[0].Text != "배포함" || got[0].RoomName != "ops" {
+	if got[0].Text != "배포함" || got[0].RoomName != "ops" || got[0].FromKind != chat.KindAgent {
 		t.Fatalf("msg %+v", got[0])
 	}
 	if _, werr := h.srv.UserCall(chatwire.OpSend, json.RawMessage(`{"room":"`+rr.Room.ID+`","text":"확인"}`)); werr != nil {
 		t.Fatal(werr)
 	}
-	if a.next(chatwire.TypeMsg).Msg.FromLabel != "mac/User" {
+	if m := a.next(chatwire.TypeMsg).Msg; m.FromLabel != "mac/User" || m.FromKind != chat.KindUser {
 		t.Fatal("사람의 글이 에이전트에 가지 않았다")
 	}
 	raw, werr = h.srv.UserCall(chatwire.OpState, nil)

@@ -61,11 +61,13 @@ type Message struct {
 	RoomPurpose string
 	From        string
 	FromLabel   string
-	Node        string
-	Text        string
-	At          time.Time
-	Epoch       int64
-	Seq         uint64
+	// FromKind 는 보낸 참가자의 종류(agent·user)다. 표시 이름이 아니라 참가자 기록에서 온다.
+	FromKind string
+	Node     string
+	Text     string
+	At       time.Time
+	Epoch    int64
+	Seq      uint64
 }
 
 // Member 는 방이나 온라인 목록의 참가자 하나다. Online 은 그 노드에 지금 닿는지다.
@@ -398,7 +400,7 @@ func (s *Service) Send(pid, roomID, text string) error {
 		return err
 	}
 	s.broadcastLocked(fr, nil)
-	out := s.localDeliveriesLocked(body, p.Label)
+	out := s.localDeliveriesLocked(body, p.Label, p.Kind)
 	s.mu.Unlock()
 	s.deliver(out)
 	return nil
@@ -419,7 +421,7 @@ func (s *Service) deliver(out []pending) {
 }
 
 // localDeliveriesLocked 는 그 방에 든 이 노드의 참가자(보낸 이 제외)에게 넘길 글이다.
-func (s *Service) localDeliveriesLocked(b msgBody, label string) []pending {
+func (s *Service) localDeliveriesLocked(b msgBody, label, kind string) []pending {
 	var out []pending
 	r, _ := s.recordLocked(b.Room)
 	for _, q := range s.parts {
@@ -428,7 +430,7 @@ func (s *Service) localDeliveriesLocked(b msgBody, label string) []pending {
 		}
 		out = append(out, pending{q.ID, Message{
 			ID: b.ID, Room: b.Room, RoomKind: r.body.Kind, RoomName: r.body.Name, RoomPurpose: r.body.Purpose,
-			From: b.From, FromLabel: label, Node: b.Node,
+			From: b.From, FromLabel: label, FromKind: kind, Node: b.Node,
 			Text: b.Text, At: b.At, Epoch: b.Epoch, Seq: b.Seq,
 		}})
 	}
