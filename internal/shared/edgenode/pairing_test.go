@@ -132,6 +132,23 @@ func TestRemoveBothSides(t *testing.T) {
 	if rm := lastRemoved(b); rm == nil || rm.FP != a.Identity().Fingerprint {
 		t.Fatalf("B 의 removed = %+v", rm)
 	}
+	// FR-EPR-23: 상대가 지운 것과 이쪽이 지운 것을 가른다.
+	if c := lastChange(b); !c.ByPeer {
+		t.Fatalf("B 의 알림은 상대가 지운 것이어야 한다: %+v", c)
+	}
+	if c := lastChange(a); c.ByPeer {
+		t.Fatalf("A 의 알림은 이쪽이 지운 것이어야 한다: %+v", c)
+	}
+}
+
+func lastChange(tn *testNode) Change {
+	cs := tn.changes()
+	for i := len(cs) - 1; i >= 0; i-- {
+		if cs[i].Removed != nil {
+			return cs[i]
+		}
+	}
+	return Change{}
 }
 
 // TC-EPR-5: 상대가 꺼져 있으면 자기 쪽만 지운다. 상대가 다시 걸면 edge_not_edge 를 받고,
@@ -154,6 +171,9 @@ func TestRemoveWhileOffThenReconcile(t *testing.T) {
 	b.Forget(a.Identity().Fingerprint)
 	if b.Store().IsEdge(a.Identity().Fingerprint) {
 		t.Fatal("Forget 이 지우지 않았다")
+	}
+	if c := lastChange(b); !c.ByPeer {
+		t.Fatalf("Forget 의 알림은 상대가 지운 것이어야 한다: %+v", c)
 	}
 	if rm := lastRemoved(b); rm == nil || rm.FP != a.Identity().Fingerprint {
 		t.Fatalf("B 의 removed = %+v", rm)

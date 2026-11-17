@@ -233,7 +233,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/edges` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 간선 목록(`edges[{fp, name, addr, port}]`, `name` 은 상대가 알린 표시 이름이라 겹칠 수 있고, 상대의 노드 포트가 닫혀 있었으면 `addr` 이 비고 `port` 가 0 이다), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·간선이 바뀌면 `edges_changed` 를 방송한다. 간선을 맺었으면 `args.paired`, 지웠으면(상대가 지운 경우 포함) `args.removed` 에 `{fp, name}` 을 싣는다. 바뀐 것이 없으면(실패한 요청) 방송하지 않는다 |
+| GET | `/api/edges` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 간선 목록(`edges[{fp, name, addr, port}]`, `name` 은 상대가 알린 표시 이름이라 겹칠 수 있고, 상대의 노드 포트가 닫혀 있었으면 `addr` 이 비고 `port` 가 0 이다), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·간선이 바뀌면 `edges_changed` 를 방송한다. 간선을 맺었으면 `args.paired`, 지웠으면 `args.removed` 에 `{fp, name}` 을 싣는다. 상대가 지웠으면 `args.byPeer:true` 를 함께 싣는다. 바뀐 것이 없으면(실패한 요청) 방송하지 않는다 |
 | PUT | `/api/edges/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`)을 바꾸고 노드 포트에 바로 적용한다. 간선 목록은 바뀌지 않는다. 틀린 값은 400 `edge_config_invalid`. `GET /api/edges` 의 `ETag`(노드 설정의 지문)를 `If-Match` 로 실으면 낡았을 때 409 `stale_rev` 다 |
 | POST | `/api/edges/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `edge_port_closed`, 주소가 없으면 400 `edge_addr_required` |
 | POST | `/api/edges/add` | `{code}` → `{fp, name}`. 상대 노드에 연결해 지문을 대조하고 간선을 맺는다. 승인 단계는 없고, 200 이면 양쪽이 간선이다. 이 노드의 노드 포트가 열려 있을 때만 상대에게 주소를 알린다. 실패는 `edge_fingerprint_mismatch`·`edge_unreachable`·`edge_token_invalid`·`edge_no_invite` 등 |
@@ -486,7 +486,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_subagent_activity` | 서브에이전트의 활동 갱신 `{toolId, agentId, agentType, state, tool, detail}` |
 | `run_changed` | Run 기록이 바뀌었다. `args.runId`, 트리 Run 이면 `args.tree`. 대시보드는 이 신호로 다시 받는다 |
 | `sandbox_changed` | 샌드박스 정의가 저장됐다 — 본문은 없고 `GET /api/sandbox/config` 로 다시 받으라는 신호 |
-| `edges_changed` | 노드 설정·초대·간선이 바뀌었다. 간선을 맺었으면 `args.paired`, 지웠으면(상대가 지운 경우 포함) `args.removed` 에 `{fp, name}` 이 실린다 |
+| `edges_changed` | 노드 설정·초대·간선이 바뀌었다. 간선을 맺었으면 `args.paired`, 지웠으면 `args.removed` 에 `{fp, name}` 이 실린다. 상대가 지웠으면 `args.byPeer:true` 도 실린다 |
 | `chat_message` | 이 노드의 사람에게 채팅 글이 왔다. `args.msg` 는 `{id, room, roomKind, roomName, roomPurpose, from, fromLabel, fromKind, node, text, at}` 다. 서버는 남기지 않는다 |
 | `chat_changed` | 채팅의 온라인 목록이나 방이 바뀌었다 — 본문은 없고 `GET /api/chat` 로 다시 받으라는 신호 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |

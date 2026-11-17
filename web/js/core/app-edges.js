@@ -48,10 +48,8 @@ Object.assign(App.prototype, {
   _onEdgesChanged(a){
     const paired=a&&a.paired, removed=a&&a.removed;
     if(paired) Toast.show(t('edge.paired_notice',{name:paired.name,fp:edgeFp16(paired.fp)}),'ok',0);
-    // FR-EPR-23: 이 화면이 끊은 간선은 끊기 단계에서 이미 알렸다.
-    const mine=this._egRemoving;
-    if(removed&&mine&&mine.has(removed.fp)) mine.delete(removed.fp);
-    else if(removed) Toast.show(t('edge.removed_notice',{name:removed.name}),'',0);
+    // FR-EPR-23: 상대가 지운 간선만 알린다. 이쪽에서 끊은 것은 끊기 단계에서 이미 보였다.
+    if(removed&&a.byPeer) Toast.show(t('edge.removed_notice',{name:removed.name}),'',0);
     return this._edgesRestore();
   },
 });

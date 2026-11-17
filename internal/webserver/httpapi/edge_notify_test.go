@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/toolipc"
 )
 
 // FR-PNW-81·82: 짝 상태가 바뀌면 화면에 `edges_changed` 를 민다. 화면은 주기로 묻지 않는다.
@@ -69,10 +70,10 @@ func TestEdgesChangedOnRemove(t *testing.T) {
 	if code, out := a.api(t, http.MethodPost, "/api/edges/remove", map[string]any{"fp": b.fingerprint(t)}); code != http.StatusOK {
 		t.Fatalf("remove: %d %v", code, out["_raw"])
 	}
-	if got := edgesChanged(t, ac); len(got) != 1 || refOf(got[0], "removed")["name"] != "node-b" {
+	if got := edgesChanged(t, ac); len(got) != 1 || refOf(got[0], "removed")["name"] != "node-b" || got[0]["byPeer"] != nil {
 		t.Fatalf("A 의 방송 %v", got)
 	}
-	if got := edgesChanged(t, bc); len(got) != 1 || refOf(got[0], "removed")["fp"] != a.fingerprint(t) {
+	if got := edgesChanged(t, bc); len(got) != 1 || refOf(got[0], "removed")["fp"] != a.fingerprint(t) || got[0]["byPeer"] != true {
 		t.Fatalf("B 의 방송 %v", got)
 	}
 }
@@ -127,5 +128,17 @@ func TestSnapshotHasEdgesPart(t *testing.T) {
 	node, _ := p["node"].(map[string]any)
 	if node == nil || node["name"] != "node-a" {
 		t.Fatalf("edges 조각 %v", out["_raw"])
+	}
+}
+
+// FR-EPR-23: 데몬의 edges push 는 byPeer 까지 그대로 방송한다.
+func TestEdgePushedCarriesByPeer(t *testing.T) {
+	cmds := &fakeCommandBroker{}
+	srv := &Server{}
+	srv.Commands = cmds
+	srv.EdgePushed(toolipc.EdgesEvent{Event: toolipc.EventEdges, Removed: &toolipc.EdgeRef{FP: "f", Name: "b"}, ByPeer: true})
+	got := edgesChanged(t, cmds)
+	if len(got) != 1 || refOf(got[0], "removed")["name"] != "b" || got[0]["byPeer"] != true {
+		t.Fatalf("방송 %v", got)
 	}
 }

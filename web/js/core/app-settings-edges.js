@@ -143,13 +143,10 @@ Object.assign(App.prototype, {
     document.body.appendChild(m.el);
   },
 
-  /** 간선을 끊는다. 이 화면이 끊은 지문은 `removed` 방송의 알림을 건너뛴다 (FR-EPR-23·71). */
+  /** 간선을 끊는다. 상대에게 알리지 못했으면 그 사실을 알린다 (FR-EPR-71). */
   async _egRemove(p){
-    const mine=this._egRemoving||(this._egRemoving=new Set());
-    mine.add(p.fp);
     const r=await apiPost('/api/edges/remove',{fp:p.fp});
-    if(!r.ok) mine.delete(p.fp);
-    else if(r.data&&r.data.notified===false) Toast.show(t('edge.remove_unnotified'),'',0);
+    if(r.ok&&r.data&&r.data.notified===false) Toast.show(t('edge.remove_unnotified'),'',0);
     return r;
   },
 

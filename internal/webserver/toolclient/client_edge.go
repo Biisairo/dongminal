@@ -40,7 +40,7 @@ func (pc *ToolClient) pushEdges(m *wireMsg) {
 	cb := pc.onEdges
 	pc.mu.Unlock()
 	if cb != nil {
-		cb(toolipc.EdgesEvent{Event: m.Event, Paired: m.Paired, Removed: m.Removed})
+		cb(toolipc.EdgesEvent{Event: m.Event, Paired: m.Paired, Removed: m.Removed, ByPeer: m.ByPeer})
 	}
 }
 

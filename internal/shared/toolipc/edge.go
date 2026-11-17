@@ -39,4 +39,6 @@ type EdgesEvent struct {
 	Event   string   `json:"event"`
 	Paired  *EdgeRef `json:"paired,omitempty"`
 	Removed *EdgeRef `json:"removed,omitempty"`
+	// ByPeer 는 Removed 를 상대가 지웠다는 뜻이다 (EDGE_PAIRING_SRS FR-EPR-23).
+	ByPeer bool `json:"byPeer,omitempty"`
 }

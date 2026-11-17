@@ -422,6 +422,17 @@ func (s *Service) pingAll(now time.Time) {
 	}
 }
 
+// Drop 은 간선 fp 의 채팅 연결을 바로 닫는다. 간선을 지운 뒤 부른다 (EDGE_PAIRING_SRS
+// FR-EPR-23). 연결이 없으면 아무것도 하지 않는다.
+func (s *Service) Drop(fp string) {
+	s.mu.Lock()
+	l := s.links[fp]
+	s.mu.Unlock()
+	if l != nil {
+		s.detach(l)
+	}
+}
+
 func (s *Service) dialEdges(ctx context.Context, now time.Time) {
 	if s.opts.Edges == nil || s.opts.Dial == nil {
 		return

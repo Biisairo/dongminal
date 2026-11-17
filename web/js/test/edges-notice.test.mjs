@@ -7,8 +7,8 @@ import { load } from './harness.mjs';
  * EDGE_PAIRING_SRS FR-EPR-5·23·32·70·71 — 간선 상태의 화면 쪽 규칙 (TC-EPR-10).
  *
  *   FR-EPR-5  방송의 `paired` 가 오면 "{name}({지문 앞자리})와 맺었습니다" 알림이 남는다.
- *   FR-EPR-23 방송의 `removed` 가 오면 "{name} 간선이 끊겼습니다" 알림을 띄운다. 이 화면이
- *             스스로 끊은 간선은 알리지 않는다.
+ *   FR-EPR-23 상대가 지운 `removed`(`byPeer`)가 오면 "{name} 간선이 끊겼습니다" 알림을 띄운다.
+ *             이쪽에서 끊은 간선은 알리지 않는다.
  *   FR-EPR-32 간선 줄은 `표시 이름 · 지문 앞 16자리 · 주소:포트` 다. 주소를 모르면 `-` 다.
  *   FR-EPR-70 승인 대기 구역·알림은 없다.
  *   FR-EPR-71 상대에게 알리지 못하고 끊었으면 그 사실을 알린다.
@@ -98,19 +98,15 @@ test('paired 방송은 이름과 지문 앞자리로 "맺었습니다" 알림을
   assert.equal(shown.length, 1);
 });
 
-test('removed 방송은 "끊겼습니다" 알림을 띄운다. 이 화면이 끊은 것은 알리지 않는다', async () => {
-  const { app, shown, setPost } = setup();
-  await app._onEdgesChanged({ removed: { fp: 'f1', name: 'node-b' } });
+test('상대가 지운 removed 방송만 "끊겼습니다" 알림을 띄운다', async () => {
+  const { app, shown } = setup();
+  await app._onEdgesChanged({ removed: { fp: 'f1', name: 'node-b' }, byPeer: true });
   assert.equal(shown.length, 1);
   assert.match(shown[0].text, /^edge\.removed_notice/);
   assert.match(shown[0].text, /node-b/);
-
-  setPost({ ok: true, status: 200, data: { fp: 'f2', name: 'node-c', notified: true } });
-  await app._egRemove({ fp: 'f2', name: 'node-c' });
+  // 이쪽에서 지운 것(어느 탭이든 dmctl 이든)은 알리지 않는다.
   await app._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
-  assert.equal(shown.length, 1, '스스로 끊은 간선을 알렸다');
-  await app._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
-  assert.equal(shown.length, 2, '스스로 끊은 표시는 한 번만 쓴다');
+  assert.equal(shown.length, 1, '이쪽에서 지운 간선을 알렸다');
 });
 
 test('끊기는 지문으로 보내고, 상대에게 알리지 못했으면 알린다', async () => {

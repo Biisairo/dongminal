@@ -23,6 +23,7 @@ func TestEdgeWireGolden(t *testing.T) {
 			`{"addr":"0.0.0.0:58147","listening":true}`},
 		{"edges-event", EdgesEvent{Event: EventEdges, Paired: &EdgeRef{FP: "f", Name: "b"}}, `{"event":"edges","paired":{"fp":"f","name":"b"}}`},
 		{"edges-event-removed", EdgesEvent{Event: EventEdges, Removed: &EdgeRef{FP: "f", Name: "b"}}, `{"event":"edges","removed":{"fp":"f","name":"b"}}`},
+		{"edges-event-by-peer", EdgesEvent{Event: EventEdges, Removed: &EdgeRef{FP: "f", Name: "b"}, ByPeer: true}, `{"event":"edges","removed":{"fp":"f","name":"b"},"byPeer":true}`},
 	}
 	for _, c := range cases {
 		got, err := json.Marshal(c.v)

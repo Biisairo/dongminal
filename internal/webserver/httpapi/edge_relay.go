@@ -91,7 +91,7 @@ func (s *Server) kickEdge() {
 // EdgePushed 는 데몬의 edges push 다 (FR-PDM-27). 같은 인자로 edges_changed 를 방송하고 노드
 // 포트를 다시 맞춘다. 읽기 루프에서 불리므로 데몬 RPC 를 기다리지 않는다.
 func (s *Server) EdgePushed(ev toolipc.EdgesEvent) {
-	var c edgenode.Change
+	c := edgenode.Change{ByPeer: ev.ByPeer}
 	if r := ev.Paired; r != nil {
 		c.Paired = &edgenode.Ref{FP: r.FP, Name: r.Name}
 	}

@@ -57,7 +57,7 @@ func (ps *PanedServer) PushEdges(ch edgenode.Change) {
 	if c == nil || !c.edge.Load() {
 		return
 	}
-	ev := toolipc.EdgesEvent{Event: toolipc.EventEdges}
+	ev := toolipc.EdgesEvent{Event: toolipc.EventEdges, ByPeer: ch.ByPeer}
 	if r := ch.Paired; r != nil {
 		ev.Paired = &toolipc.EdgeRef{FP: r.FP, Name: r.Name}
 	}

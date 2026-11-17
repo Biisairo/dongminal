@@ -103,3 +103,24 @@ func TestNoDialWithoutAddress(t *testing.T) {
 		t.Fatal("주소 없는 간선에 걸었다")
 	}
 }
+
+// FR-EPR-23: 간선을 지우면 그 간선의 채팅 연결을 바로 닫는다. 다음 점검 주기를 기다리지 않는다.
+func TestDropClosesLinkAtOnce(t *testing.T) {
+	a, b := newTestNode(t, "a"), newTestNode(t, "b")
+	defer link(a, b)()
+	linked := func(n *testNode, fp string) bool {
+		n.Service.mu.Lock()
+		defer n.Service.mu.Unlock()
+		_, ok := n.links[fp]
+		return ok
+	}
+	if !linked(a, b.fp()) {
+		t.Fatal("시험 전제: 이어져 있어야 한다")
+	}
+	a.Drop(b.fp())
+	if linked(a, b.fp()) {
+		t.Fatal("Drop 뒤에도 연결이 남았다")
+	}
+	eventually(t, "상대 쪽도 연결이 끊긴다", func() bool { return !linked(b, a.fp()) })
+	a.Drop(b.fp()) // 없는 연결은 아무 일도 없다
+}

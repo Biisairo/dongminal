@@ -82,10 +82,12 @@ type Ref struct {
 	Name string `json:"name"`
 }
 
-// Change 는 Notify 의 값이다. 둘 다 nil 이면 초대·노드 설정·주소만 바뀌었다.
+// Change 는 Notify 의 값이다. 둘 다 nil 이면 초대·노드 설정·주소만 바뀌었다. ByPeer 는
+// Removed 를 상대가 지웠다(unpair 알림, edge_not_edge 답)는 뜻이다 (FR-EPR-23).
 type Change struct {
 	Paired  *Ref `json:"paired,omitempty"`
 	Removed *Ref `json:"removed,omitempty"`
+	ByPeer  bool `json:"byPeer,omitempty"`
 }
 
 // Node 는 노드 하나다.
@@ -312,7 +314,7 @@ func (n *Node) unpair(w http.ResponseWriter, r *http.Request) {
 	}
 	n.pairing.Revoke(fp)
 	audit("in", e.Name, "unpair", http.StatusOK)
-	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}})
+	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}, ByPeer: true})
 	httpresp.JSON(w, http.StatusOK, map[string]any{})
 }
 
@@ -329,7 +331,7 @@ func (n *Node) Forget(fp string) {
 	}
 	n.pairing.Revoke(fp)
 	audit("out", e.Name, "forget", http.StatusOK)
-	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}})
+	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}, ByPeer: true})
 }
 
 // Pairing 은 초대 상태다.

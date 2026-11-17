@@ -40,7 +40,13 @@ func startEdge(home string, ps *ipc.PanedServer, pm *toolhub.ToolManager) func()
 				ln.Apply(c)
 			}
 		},
-		Notify: ps.PushEdges,
+		Notify: func(c edgenode.Change) {
+			ps.PushEdges(c)
+			// FR-EPR-23: 지운 간선의 채팅 연결은 다음 점검 주기를 기다리지 않고 닫는다.
+			if s := svc.Load(); s != nil && c.Removed != nil {
+				s.Drop(c.Removed.FP)
+			}
+		},
 		Chat: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if s := svc.Load(); s != nil {
 				s.Handler().ServeHTTP(w, r)

@@ -28,6 +28,9 @@ func (s *Server) edgesChanged(c edgenode.Change) {
 	}
 	if c.Removed != nil {
 		args["removed"] = c.Removed
+		if c.ByPeer {
+			args["byPeer"] = true
+		}
 	}
 	s.Commands.Broadcast(sse.Payload("edges_changed", args))
 }
