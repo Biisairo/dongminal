@@ -196,7 +196,9 @@ func (s *Server) UserCall(op string, args json.RawMessage) (json.RawMessage, *ch
 		st := chatwire.State{Me: chatwire.Member{ID: me.ID, Label: me.Label, Kind: me.Kind, Online: true},
 			Online: onlineOf(s.o.Chat.Online()), Rooms: []chatwire.Room{}}
 		for _, r := range s.o.Chat.Rooms(me.ID) {
-			st.Rooms = append(st.Rooms, roomOf(r))
+			room := roomOf(r)
+			room.People = membersOf(r.Members)
+			st.Rooms = append(st.Rooms, room)
 		}
 		raw, err := json.Marshal(st)
 		if err != nil {
@@ -405,13 +407,17 @@ func roomOf(r chat.RoomInfo) chatwire.Room {
 }
 
 func onlineOf(v chat.OnlineView) chatwire.Online {
-	out := chatwire.Online{Nodes: []chatwire.Node{}, Participants: []chatwire.Member{}}
+	out := chatwire.Online{Nodes: []chatwire.Node{}, Participants: membersOf(v.Participants)}
 	for _, n := range v.Nodes {
 		out.Nodes = append(out.Nodes, chatwire.Node{FP: truncBytes(n.FP, fpShown), Name: n.Name, Online: n.Online, Self: n.Self})
 	}
-	for _, m := range v.Participants {
-		out.Participants = append(out.Participants, chatwire.Member{ID: m.ID, Label: m.Label, Kind: m.Kind,
-			Node: truncBytes(m.Node, fpShown), Online: m.Online})
+	return out
+}
+
+func membersOf(ms []chat.Member) []chatwire.Member {
+	out := []chatwire.Member{}
+	for _, m := range ms {
+		out = append(out, chatwire.Member{ID: m.ID, Label: m.Label, Kind: m.Kind, Node: truncBytes(m.Node, fpShown), Online: m.Online})
 	}
 	return out
 }

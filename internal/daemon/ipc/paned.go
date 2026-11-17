@@ -76,6 +76,9 @@ type panedConn struct {
 	// 읽기 루프 밖에서 읽으므로 원자값이다.
 	edge atomic.Bool
 
+	// chat 은 이 연결의 서버가 chat push 를 아는가다 (PEER_CHAT_SRS §3.11).
+	chat atomic.Bool
+
 	// edgeSlow 는 edge 의 연결당 세마포어다 (panedEdgeSlowMax).
 	edgeSlow chan struct{}
 
@@ -188,6 +191,8 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		return
 	case toolipc.MethodEdgePort:
 		resp = pc.edgePort(req)
+	case toolipc.MethodChat:
+		resp = pc.chatOp(req)
 	case toolipc.MethodKill:
 		resp = pc.kill(req)
 	case toolipc.MethodTerminate:

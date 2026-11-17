@@ -135,6 +135,8 @@ type Room struct {
 	Members     int    `json:"members"`
 	Joined      bool   `json:"joined"`
 	Unread      int    `json:"unread"`
+	// People 은 방의 참가자 목록이다. 사람 화면의 state 만 채운다 (§3.11).
+	People []Member `json:"people,omitempty"`
 }
 
 // Rooms 는 rooms 의 결과다.

@@ -51,7 +51,7 @@ func startEdge(home string, ps *ipc.PanedServer, pm *toolhub.ToolManager) func()
 		dmlog.Errorf(nil, "edge identity: %v — 노드 기능 없이 뜬다", err)
 		return func() {}
 	}
-	stopChat := startChat(home, n, dial, &svc, chatTools{pm})
+	stopChat := startChat(home, n, dial, &svc, chatTools{pm}, ps)
 	ln = edge.NewListener(n.Identity(), n.Admission(), n.Handler())
 	nodeSock := edgerelay.NodeSocketPath(home)
 	ln.UseListen(func(string, int) (net.Listener, error) { return edgerelay.ListenNode(nodeSock) })
@@ -65,8 +65,8 @@ func startEdge(home string, ps *ipc.PanedServer, pm *toolhub.ToolManager) func()
 
 // startChat 은 채팅을 세우고 간선 상대마다 채팅 연결을 유지한다 (PEER_CHAT_SRS FR-PCH-8).
 // 채팅 소켓을 열어 MCP 연결을 참가자로 받는다 (§3.10). 소켓을 열지 못하면 MCP 를 주입하지
-// 않을 뿐 채팅 연결은 그대로 선다.
-func startChat(home string, n *edgenode.Node, dial func(ctx context.Context, network, addr string) (net.Conn, error), slot *atomic.Pointer[chat.Service], tools chatsock.Tools) func() {
+// 않을 뿐 채팅 연결은 그대로 선다. 사람 참가자를 세워 서버에 잇는다 (§3.11).
+func startChat(home string, n *edgenode.Node, dial func(ctx context.Context, network, addr string) (net.Conn, error), slot *atomic.Pointer[chat.Service], tools chatsock.Tools, ps *ipc.PanedServer) func() {
 	client := edge.NewClientVia(n.Identity(), dial)
 	var sock atomic.Pointer[chatsock.Server]
 	name := func() string { return n.Config().Name }
@@ -82,9 +82,12 @@ func startChat(home string, n *edgenode.Node, dial func(ctx context.Context, net
 				cs.Deliver(pid, m)
 			}
 		},
+		Changed: ps.PushChatChanged,
 	})
 	slot.Store(s)
-	cs := chatsock.New(chatsock.Options{Chat: s, Tools: tools, Name: name})
+	cs := chatsock.New(chatsock.Options{Chat: s, Tools: tools, Name: name, OnUser: ps.PushChatMsg})
+	cs.StartUser()
+	ps.SetChat(cs)
 	if err := cs.Listen(chatwire.SocketPath(home)); err != nil {
 		dmlog.Errorf(nil, "채팅 소켓: %v", err)
 	} else {

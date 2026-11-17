@@ -399,6 +399,13 @@ func TestUserParticipant(t *testing.T) {
 	if werr != nil || json.Unmarshal(raw, &st) != nil || st.Me.ID != me.ID || len(st.Rooms) != 1 || len(st.Online.Participants) != 2 {
 		t.Fatalf("state %s %+v", raw, werr)
 	}
+	// state 만 방마다 참가자 목록을 싣는다 (§3.11 채팅 탭의 참가자 목록).
+	if p := st.Rooms[0].People; len(p) != 2 || p[0].ID == "" || p[0].Label == "" || p[0].Kind == "" {
+		t.Fatalf("people %+v", p)
+	}
+	if f := a.call(chatwire.OpRooms, nil); strings.Contains(string(f.Result), `"people"`) {
+		t.Fatalf("rooms 에 people 이 실렸다: %s", f.Result)
+	}
 	if _, werr := h.srv.UserCall("bogus", nil); werr == nil || werr.Code != chatwire.CodeBadRequest {
 		t.Fatalf("bogus %+v", werr)
 	}

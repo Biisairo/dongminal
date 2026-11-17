@@ -54,6 +54,9 @@ const (
 	// 간선(노드)이다 (PEER_DAEMON_SRS §3.5a). FeatureEdge 를 말한 데몬에만 보낸다.
 	MethodEdge     = "edge"
 	MethodEdgePort = "edgeport"
+
+	// 사람 참가자의 채팅이다 (PEER_CHAT_SRS §3.11). FeatureChat 을 말한 데몬에만 보낸다.
+	MethodChat = "chat"
 )
 
 const (
@@ -64,6 +67,7 @@ const (
 	EventReport     = "report"
 	EventAttn       = "attn"
 	EventEdges      = "edges"
+	EventChat       = "chat"
 )
 
 // HelloParams 는 서버가 hello 에 싣는 것이다. Features 는 서버가 아는 기능 이름이다
@@ -111,13 +115,17 @@ const (
 	// 데몬은 edge·edgeport 를 알고 edges push 를 보내며, 서버는 edges push 를 안다. 데몬이
 	// 말하지 않으면 서버는 노드 기능을 끈다 (FR-PDM-51).
 	FeatureEdge = "edge"
+	// FeatureChat: 채팅의 사람 참가자 (PEER_CHAT_SRS §3.11). 데몬과 서버가 함께 말한다 — 데몬은
+	// chat 을 알고 chat push 를 보내며, 서버는 chat push 를 안다. 데몬이 말하지 않으면 서버는
+	// 채팅 API 를 409 chat_daemon_restart 로 답한다.
+	FeatureChat = "chat"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureRecords, FeatureAttention, FeatureEdge}
-	ServerFeatures = []string{FeatureReports, FeatureAttention, FeatureEdge}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureRecords, FeatureAttention, FeatureEdge, FeatureChat}
+	ServerFeatures = []string{FeatureReports, FeatureAttention, FeatureEdge, FeatureChat}
 )
 
 // HasFeature 는 상대가 말한 기능 목록에 name 이 있는가다. 말하지 않은 옛 상대는

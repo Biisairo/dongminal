@@ -51,6 +51,9 @@ type PanedServer struct {
 
 	// edge 는 데몬의 노드와 서버가 알린 노드 포트 상태다 (PEER_DAEMON_SRS §3.5a).
 	edge edgeState
+
+	// chat 은 사람 참가자다 (PEER_CHAT_SRS §3.11).
+	chat chatState
 }
 
 // dialProbeTimeout 은 "이미 살아 있는 데몬이 있는가" 를 묻는 시도의 상한이다.
