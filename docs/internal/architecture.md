@@ -93,6 +93,7 @@ internal/
     cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
     migrate/             #   v1 → v2 엔티티 스키마 1회성 변환
     decidx/              #   결정 색인 생성기 — `go run ./scripts/gen-decisions` 가 부른다
+    privhelper/          #   사람 명령의 도우미 `dongminal helper` — root 로 돌며 TOTP 를 확인하고 묶음에 서명한다 (PEER_CHAT_SRS §3.12)
     errdoc/              #   오류 카탈로그 생성기 — `go run ./scripts/gen-errors` 가 부른다
                          #     (apierr 를 읽는다 — check-pkg-axis.sh 의 예외 등록부)
   shared/                # 둘 이상의 프로세스가 실행한다
@@ -105,6 +106,7 @@ internal/
     edge/                #   ②③  — 노드 간 통신(간선) — 노드 신원(인증서)·edges.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1·70)
     edgenode/            #   ②③  — 노드 하나의 상태와 연산(짝맞춤 판정·로컬 API 연산). 데몬과 직접 모드 서버가 같이 쓴다 (PEER_DAEMON_SRS FR-PDM-2)
     chatwire/            #   ①②③ — 채팅 소켓의 경로·프레임 (데몬 chatsock ↔ dmctl chat-mcp·ctx-hook, PEER_CHAT_SRS §3.10). 서버는 사람 참가자 IPC 의 글 모양으로 쓴다 (§3.11)
+    humancmd/            #   ②④  — 사람 명령의 와이어 — 도우미 소켓 프레임, 서명한 명령 본문(Ed25519), 데몬 쪽 클라이언트 (PEER_CHAT_SRS §3.12)
     edgerelay/           #   ②③  — 노드 포트의 바이트 통로 — 서버 노드 포트 → 데몬 node.sock, 데몬 → 서버 dial.sock (PEER_DAEMON_SRS 묶음 L)
     httpreq/             #   ②③  — 요청 본문을 읽는 한 자리 (표면별 크기 상한)
     httpresp/            #   ②③  — 성공 JSON 응답을 쓰는 한 자리 (오류 방언 렌더러는 각자 둔다)

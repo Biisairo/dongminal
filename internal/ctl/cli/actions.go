@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"dongminal/internal/ctl/privhelper"
 )
 
 // 액션 하나의 **전부**가 한 자리에 있다 (DEEPENING_REFACTOR_SRS 묶음 F).
@@ -150,6 +152,8 @@ func actionsOf() []action {
 				}
 				return RunVerify(o, out, errw)
 			}},
+		{"helper", "사람 명령의 도우미를 설치·제거한다 (sudo, macOS, PEER_CHAT_SRS §3.12)", func() string { return privhelper.Usage },
+			func(rest []string, _ Serve, out, errw io.Writer) int { return privhelper.Main(rest, out, errw) }},
 		// `--version` 별칭은 Dispatch 가 처리한다.
 		{"version", "판·대상·go 런타임을 찍는다 (--version 도 동일)", usageVersion,
 			func(rest []string, _ Serve, out, errw io.Writer) int {
