@@ -166,8 +166,10 @@ func Open(s Signed) (Body, error) {
 	if err != nil || len(pub) != ed25519.PublicKeySize {
 		return Body{}, errBadSigned
 	}
-	sig, err := base64.StdEncoding.DecodeString(s.S)
-	if err != nil || !ed25519.Verify(pub, message(s.B), sig) {
+	// 정규 표기만 받는다. 같은 서명의 다른 표기는 본 명령 해시를 비껴간다 (§3.12a R-10).
+	sig, err := base64.StdEncoding.Strict().DecodeString(s.S)
+	if err != nil || len(sig) != ed25519.SignatureSize || base64.StdEncoding.EncodeToString(sig) != s.S ||
+		!ed25519.Verify(pub, message(s.B), sig) {
 		return Body{}, errBadSigned
 	}
 	if b.ID == "" || !validID(b.ID) || !b.Request().Valid() {

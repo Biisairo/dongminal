@@ -369,3 +369,19 @@ func TestForgedSameIDDoesNotSuppress(t *testing.T) {
 	b.handle(nil, cmdFrame(real))
 	eventually(t, "진짜 강퇴가 적용된다", func() bool { return !inRoom(b, pb.ID, room) })
 }
+
+// 같은 서명을 비정규 base64 로 바꿔 다시 보내도 두 번 적용되지 않는다 (§3.12a R-10).
+func TestNonCanonicalReplayIgnored(t *testing.T) {
+	a, b, _, _, pb, _, room := triangle(t)
+	real := signCmd(t, a.helper, a.fp(), humancmd.OpKick, nil, []humancmd.Kick{{Room: room, Participant: pb.ID}}, time.Now())
+	b.handle(nil, cmdFrame(real))
+	eventually(t, "강퇴가 적용된다", func() bool { return !inRoom(b, pb.ID, room) })
+	if _, err := b.Join(pb.ID, room); err != nil {
+		t.Fatal(err)
+	}
+	replay := humancmd.Signed{B: real.B, S: real.S[:10] + "\n" + real.S[10:]}
+	b.handle(nil, cmdFrame(replay))
+	if !inRoom(b, pb.ID, room) {
+		t.Fatal("비정규 표기 재전송이 다시 적용됐다")
+	}
+}
