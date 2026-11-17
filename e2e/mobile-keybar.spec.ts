@@ -491,7 +491,7 @@ test.describe('모바일의 Activity (FUI-27 · FR-CHR-17)', () => {
     const acts = page.locator('#m-drawer-acts button');
     await expect(acts).toHaveCount(1);
     await acts.first().click();
-    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#agents-panel.open .ag-tab[data-sec="runs"].active')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
   });
 
@@ -502,6 +502,6 @@ test.describe('모바일의 Activity (FUI-27 · FR-CHR-17)', () => {
     await expect(page.locator('#agents-panel')).toBeHidden();
     await page.click('#m-drawer-toggle');
     await page.locator('#m-drawer-acts button').click();
-    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#agents-panel.open .ag-tab[data-sec="bg"].active')).toBeVisible({ timeout: 10000 });
   });
 });

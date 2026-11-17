@@ -246,6 +246,18 @@ const STATE_REGISTRY=[
   },
   {
     /**
+     * PEER_CHAT_SRS §3.11 — 채팅의 나·온라인 목록·방. `every` 가 없다 — 바뀌면 서버가
+     * `chat_changed` 로 민다. 사람에게 온 글은 `chat_message` 로 오고 화면만 든다.
+     */
+    id:'chat',
+    restore:'_chatRestore',
+    merge:'latest',
+    flight:'chat',
+    events:{chat_changed:'_onChatChanged',chat_message:'_onChatMessage'},
+    revalidateOn:['sse:open','softreload'],
+  },
+  {
+    /**
      * CLAUDE_ACCOUNTS_SRS FR-CAC-122 — Claude 계정과 그 사용량. 상태가 바뀌면 서버가
      * `claude_accounts_changed` 를 민다. 사용량은 서버의 조회기가 신호 없이 고치므로
      * 패널이 열린 동안 주기로도 다시 받는다 (`run.list` 와 같은 모양).

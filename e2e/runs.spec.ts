@@ -145,7 +145,7 @@ async function openList(page: Page) {
   // (FR-ACT-2) 이미 열려 있으면 누르지 않는다 — 누르면 닫힌다.
   const open = await page.locator('#agents-panel.open').count();
   if (!open) await page.keyboard.press('Control+Shift+KeyO');
-  await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible();
+  await expect(page.locator('#agents-panel.open .ag-tab[data-sec="runs"].active')).toBeVisible();
 }
 
 const runRow = (page: Page, id: string) => page.locator(`#agents-panel .runs-row[data-runid="${id}"]`);
@@ -183,7 +183,9 @@ test.describe('Run 시각화 (묶음 V)', () => {
     await waitForInit(page);
     await openList(page);
 
-    const empty = page.locator('#agents-panel .ag-sec[data-sec="runs"] + .ag-sec-empty');
+    // PEER_CHAT_SRS §4.2: 고른 탭의 항목만 그리므로 빈 안내는 하나다.
+    await expect(page.locator('#agents-panel .ag-tab[data-sec="runs"].active')).toBeVisible();
+    const empty = page.locator('#agents-panel .ag-sec-empty');
     await expect(empty).toContainText(RUN_EMPTY_TEXT);
     // FR-RVZ-4 · FR-CPY-2: 다음 행동을 함께 낸다 — "없다" 만으로는 무엇을 하라는 말이 없다.
     await expect(empty.locator('.ag-sec-empty-h')).toContainText('/dongminal:issue-tree');

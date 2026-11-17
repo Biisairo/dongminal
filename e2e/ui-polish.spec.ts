@@ -69,8 +69,8 @@ test('TC-UIP-4: 사이드바 하단 버튼은 테두리가 없다', async ({ pag
 
 test('TC-UIP-5: 개수가 0 이면 감추고, 개수는 accent 로 칠하지 않는다', async ({ page }) => {
   await waitForInit(page);
-  // 레일(접힌 Activity)의 셋은 처음에 모두 0 이다.
-  for (const n of await page.locator('#agents-panel .ag-sec-n').all()) await expect(n).toBeHidden();
+  // 레일(접힌 Activity)의 탭 배지는 처음에 모두 0 이다.
+  for (const n of await page.locator('#agents-panel .ag-tab-n').all()) await expect(n).toBeHidden();
   await openGit(page, fx('basic'));
   const counts = changes(page).locator('.git-group-head .git-group-count');
   await expect.poll(async () => counts.evaluateAll((els) =>

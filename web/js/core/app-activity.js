@@ -36,22 +36,25 @@
  */
 
 /**
- * 구역과 그 순서. 급한 것이 위다 — 주의는 사람을 기다리게 하고 있고, Run 은
- * 대개 이미 돌고 있다.
+ * 구역과 그 순서. 패널 머리의 탭 줄이 이 순서다 (PEER_CHAT_SRS FR-PCH-80, §4.2).
  *
  *   items(app)  이 구역이 그릴 항목들. `reconcileList` 의 항목 규약을 따른다
- *   count(its)  머리의 배지 수. 항목 수와 다를 수 있다 (에이전트는 창 머리를 뺀다)
+ *   badge(app,its)  탭의 배지 `{n, dot}`. 없으면 항목 수다
+ *   shownOnly   참이면 고른 탭일 때만 items 를 부른다 — 배지가 항목을 읽지 않는다
  *   empty()     비었을 때의 한 줄 · `hint()` 가 있으면 그 아래 한 줄 더
- *   act(app)    머리에 서는 그 구역만의 동작. 없으면 접기와 수뿐이다
- *   icon        레일에서 이름 대신 서는 아이콘 (UX_BATCH12_SRS FR-ACF-3)
+ *   icon        탭의 아이콘. 레일에서는 이것만 선다 (FR-PCH-82)
  */
 const ACTIVITY_SECTIONS=[
   {key:'agents', icon:'terminal', title:()=>t('panel.sec_agents'), empty:()=>t('attn.no_active_agents'),
-   items:app=>app._agWindowItems(), count:its=>its.filter(i=>i.t==='card').length},
+   items:app=>app._agWindowItems(),
+   // FR-PCH-81: Agents 는 알람 점이다. 접힌 창도 그룹 머리가 알람 수를 갖는다.
+   badge:(app,its)=>({n:0,dot:its.some(i=>i.t==='group'&&i.attn>0)})},
   {key:'bg', icon:'archive', title:()=>t('bg.title'), empty:()=>t('bg.empty'),
    items:app=>app._actBgRows()},
   {key:'runs', icon:'play', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
    items:app=>app._actRunsRows()},
+  {key:'chats', icon:'message-square', title:()=>t('chat.title'), empty:()=>t('chat.empty'),
+   items:app=>app._chatItems(), shownOnly:true, badge:app=>({n:app._chatUnreadTotal()})},
 ];
 
 /**
@@ -155,18 +158,24 @@ function actEl(parent,tag,cls,text){
 
 Object.assign(App.prototype, {
 
-  /** FR-ACT-1: 패널 머리 아래의 전부. 네 구역이 차례로 선다. */
+  /**
+   * FR-PCH-80·81: 패널 머리 아래의 전부 — 탭 줄 하나와 고른 탭의 항목. 다른 탭은 배지만 센다.
+   *
+   *   이전 동작: 세 구역이 위아래로 쌓이고 구역마다 접고 폈다 (UX_BATCH12 FR-ACF)
+   *   새  동작: 탭 줄로 한 번에 한 구역만 보인다. 구역 접기는 없다
+   *   이유:     PEER_CHAT_SRS D-PCH-31 — Chats 를 더하면서 목록이 패널을 채우게 한다
+   */
   _actItems(){
-    const out=[],fold=this._agFolded();
+    const cur=this._actTab(),tabs=[];
+    let body=[];
     for(const sec of ACTIVITY_SECTIONS){
-      const its=sec.items(this)||[];
-      const n=sec.count?sec.count(its):its.length;
-      const folded=fold.has('sec:'+sec.key);
-      out.push({t:'sec',sec,n,folded});
-      if(folded) continue;
-      if(!its.length) out.push({t:'secempty',sec});
-      else for(const it of its) out.push(it);
+      const shown=sec.key===cur;
+      const its=(shown||!sec.shownOnly)?(sec.items(this)||[]):[];
+      const b=sec.badge?sec.badge(this,its):{n:its.length};
+      tabs.push({key:sec.key,icon:sec.icon,title:sec.title(),n:b.n||0,dot:!!b.dot});
+      if(shown) body=its.length?its:[{t:'secempty',sec}];
     }
+    const out=[{t:'tabs',cur,tabs}].concat(body);
     // FR-ASV-40·43 · FR-CAC-90: Usage 바닥은 늘 맨 끝이고, 계정도 statusLine 값도 없으면 없다.
     const accounts=claudeAcctFootViews(this._claudeAccts,this._claudeAcctFold(),this._claudeAcctPopId);
     const sl=statusLineView(this._limits,Date.now());
@@ -175,38 +184,38 @@ Object.assign(App.prototype, {
     return out;
   },
 
-  /** 구역 머리. 창 그룹(`_agGroupEl`)과 달리 **접기와 수**만 갖는다. */
-  _actSecEl(sec,n,folded){
-    const g=document.createElement('div');
-    g.className='ag-sec'+(folded?' folded':'');
-    g.dataset.sec=sec.key;
-    g.appendChild(UIKit.button({
-      icon:folded?'chevron-right':'chevron-down',
-      // FR-TIP-2: 툴팁은 영어다. 패널의 다른 버튼(`Refresh the activity list` ·
-      // `Close the panel`)과 같은 규약이다.
-      title:folded?'Expand this section':'Collapse this section',
-      kind:'ghost',size:'sm',cls:'ag-sec-fold',
-      onClick:e=>{e.stopPropagation();this._actFoldToggle(sec.key)},
-    }));
-    g.appendChild(UIKit.icon(sec.icon,{cls:'ag-sec-icon'}));
-    const name=document.createElement('div');
-    name.className='ag-sec-name';
-    name.textContent=g.title=sec.title();
-    g.appendChild(name);
-    const b=document.createElement('span');
-    b.className='ag-sec-n ui-badge';
-    b.textContent=String(n);
-    // UI_POLISH_SRS FR-UIP-7: 0 은 말하지 않는다 — 레일의 귀퉁이에 0 셋이 서 있었다.
-    b.hidden=!n;
-    g.appendChild(b);
-    // 구역의 동작은 비어 있을 때 뜻이 없다 — 지울 것이 없으면 "모두 제거" 도 없다.
-    if(sec.act&&n){
-      const a=sec.act(this);
-      if(a) g.appendChild(a);
+  /** 고른 탭. 저장 값이 모르는 탭이면 첫 탭이다. */
+  _actTab(){
+    if(!this._actTabKey) this._actTabKey=PrefStore.local.get(STORE_KEYS.activityTab);
+    if(!ACTIVITY_SECTIONS.some(s=>s.key===this._actTabKey)) this._actTabKey=ACTIVITY_SECTIONS[0].key;
+    return this._actTabKey;
+  },
+
+  /** FR-PCH-82: 탭을 바꾼다. 레일이면 레일인 채로 바뀐다. */
+  _actTabSelect(key){
+    if(!ACTIVITY_SECTIONS.some(s=>s.key===key)) return;
+    this._actTabKey=key;
+    PrefStore.local.set(STORE_KEYS.activityTab,key);
+    const body=document.getElementById('agents-body');
+    if(body) body.scrollTop=0;
+    this.agentsRender();
+  },
+
+  /** FR-PCH-80~82: 탭 줄. 탭마다 아이콘·이름·배지(수 또는 점)다. 레일에서는 CSS 가 세로로 세운다. */
+  _actTabsEl(cur,tabs){
+    const bar=document.createElement('div');
+    bar.className='ag-tabs';
+    bar.setAttribute('role','tablist');
+    for(const tb of tabs){
+      const b=UIKit.tab({active:tb.key===cur,title:tb.title,icon:tb.icon,label:tb.title,badge:tb.n,
+        cls:'ag-tab',iconCls:'ag-tab-icon',labelCls:'ag-tab-name',badgeCls:'ag-tab-n',
+        onClick:e=>{e.stopPropagation();this._actTabSelect(tb.key)}});
+      b.dataset.sec=tb.key;
+      // FR-PCH-81: 수가 없으면 알람 점이다. UI_POLISH_SRS FR-UIP-7: 0 은 말하지 않는다.
+      if(!tb.n&&tb.dot) actEl(b,'span','ag-tab-dot');
+      bar.appendChild(b);
     }
-    // UX_BATCH12_SRS FR-ACF-4 (개정 16): 레일에서도 펼침과 같이 그 구역만 접고 편다.
-    g.addEventListener('click',()=>this._actFoldToggle(sec.key));
-    return g;
+    return bar;
   },
 
   /** 빈 구역의 한 줄. 문구는 그 표면이 모달·팝오버 시절에 쓰던 것 그대로다. */
@@ -220,13 +229,6 @@ Object.assign(App.prototype, {
       d.appendChild(h);
     }
     return d;
-  },
-
-  _actFoldToggle(key){
-    const f=this._agFolded(),k='sec:'+key;
-    if(f.has(k)) f.delete(k); else f.add(k);
-    PrefStore.local.setJson(STORE_KEYS.agentsGroupFold,Array.from(f));
-    this.agentsRender();
   },
 
   /**
@@ -248,8 +250,8 @@ Object.assign(App.prototype, {
     // 이 받는다 (FR-ARR-5).
     if(!open) this.agentsToggle();
     else this._actRefresh();
-    this.agentsRender();
-    if(key) this._actScrollTo(key);
+    if(key) this._actTabSelect(key);
+    else this.agentsRender();
   },
 
   /** 구역의 목록을 다시 받는다. 활동은 자기 등록부가 몰고 온다 (FR-HUB-3). */
@@ -257,17 +259,6 @@ Object.assign(App.prototype, {
     this._bgRefresh();
     this._runsPanel()._runsRefresh();
     this._activityRestore();
-  },
-
-  _actScrollTo(key){
-    const panel=document.getElementById('agents-panel');
-    if(!panel) return;
-    // 접혀 있으면 펴 준다 — 부른 구역이 접힌 채로 스크롤되면 아무것도 안 보인다.
-    const f=this._agFolded();
-    if(f.has('sec:'+key)){f.delete('sec:'+key);this.agentsRender()}
-    const el=panel.querySelector('[data-sec="'+key+'"]');
-    if(el) el.scrollIntoView({block:'start'});
-    else document.getElementById('agents-body').scrollTop=0;
   },
 
   // ── 구역이 주는 항목 ─────────────────────────────────────────────

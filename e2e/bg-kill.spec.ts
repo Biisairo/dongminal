@@ -71,7 +71,7 @@ async function openList(page: Page) {
   // 진입점은 **토글**이다 (FR-ACT-4) — 이미 열려 있으면 누르지 않는다.
   const open = await page.locator('#agents-panel.open').count();
   if (!open) await page.keyboard.press('Control+Shift+KeyB');
-  await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
+  await expect(page.locator('#agents-panel.open .ag-tab[data-sec="bg"].active')).toBeVisible();
 }
 
 const list = (page: Page) => page.locator('#agents-panel.open');
@@ -169,7 +169,7 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
     await row(page, a).locator('.bg-yes').click();
 
     // FR-CPY-2: 빈 구역은 사실만 말하지 않는다 — 다음 할 일이 그 줄에 붙는다.
-    await expect(page.locator('#agents-panel .ag-sec[data-sec="bg"] + .ag-sec-empty'))
+    await expect(page.locator('#agents-panel .ag-sec-empty'))
       .toContainText('백그라운드 도구가 없습니다', { timeout: 15000 });
     // **D-7 개정 (FR-CHR-16).** 종전에는 진입점의 하이라이트가 내려가는 것을
     // 함께 쟀다. 진입점은 이제 수를 말하지 않으므로 잴 것이 없다 — 비었다는
@@ -266,17 +266,15 @@ test.describe('FR-BGK-1·5·11: 목표가 겹치지 않는다', () => {
         .filter((el) => !el.closest('.bg-row')).length);
     expect(outside, '행 밖에 종료 버튼이 있다').toBe(0);
     /**
-     * 구역 머리에 **종료 수단**이 없다 — "전체 종료" 가 놓일 유일한 자리다.
+     * 탭에 **종료 수단**이 없다 — "전체 종료" 가 놓일 유일한 자리다.
      *
-     * 종전에는 모달 머리글(`.bg-head`)을 보았다. FR-ACT-1 이 그 머리글을 구역
-     * 머리(`.ag-sec`)로 바꿨고, 거기 있는 버튼은 **접기 하나**다 — 닫기는 패널의
-     * 것이지 이 목록의 것이 아니다. 재는 대상이 달라졌으므로 자리도 옮긴다.
+     * 종전에는 구역 머리(`.ag-sec`)를 보았다. PEER_CHAT_SRS §4.2 가 그 머리를 탭 줄의
+     * 탭(`.ag-tab`)으로 바꿨고, 탭은 그 자체가 버튼이며 안에 다른 버튼을 두지 않는다.
      */
     const headBtns = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('#agents-panel .ag-sec[data-sec="bg"] button'))
-        .filter((el) => !el.classList.contains('ag-sec-fold'))
+      Array.from(document.querySelectorAll('#agents-panel .ag-tab[data-sec="bg"] button'))
         .map((el) => el.className));
-    expect(headBtns, '구역 머리에 접기 아닌 버튼이 있다 (FR-BGK-11)').toEqual([]);
+    expect(headBtns, '탭에 버튼이 있다 (FR-BGK-11)').toEqual([]);
     expect(await list(page).innerText()).not.toContain('전체');
   });
 });

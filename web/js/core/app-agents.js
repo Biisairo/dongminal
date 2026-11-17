@@ -178,22 +178,20 @@ Object.assign(App.prototype, {
     const panel=document.getElementById('agents-panel');
     const body=document.getElementById('agents-body'),footHost=document.getElementById('agents-foot');
     if(!panel||!body||!footHost||!this._agentsPanelShown()) return;
-    // UIUX_OVERHAUL_SRS FR-ACT-1: 패널의 몸통은 **네 구역**이다 (주의 · 에이전트 ·
-    // 백그라운드 · Run). 무엇을 그릴지는 각 표면의 주인이 알고, 여기가 아는 것은
-    // 머리 하나뿐이다 (`app-activity.js` 의 `ACTIVITY_SECTIONS`).
+    // PEER_CHAT_SRS FR-PCH-80: 패널의 몸통은 탭 줄과 고른 탭의 항목이다. 무엇을 그릴지는
+    // 각 표면의 주인이 알고, 여기가 아는 것은 머리 하나뿐이다 (`app-activity.js` 의 `ACTIVITY_SECTIONS`).
     const items=[{t:'head'}].concat(this._actItems());
     const opts={
       key:it=>it.t==='card'?'card:'+it.toolId
         :it.t==='sub'?'sub:'+it.toolId+':'+it.s.id
         :it.t==='group'?'grp:'+it.win.id
-        :it.t==='sec'?'sec:'+it.sec.key
         :it.t==='secempty'?'secempty:'+it.sec.key
         :it.t==='row'?it.sec+':'+it.id
         :it.t,
       sig:it=>{
         // FR-AGG-14: 머리도 항목이다 — 값이 바뀌는 항목이므로 근거를 준다.
         if(it.t==='group') return [it.win.name||'',it.attn,it.folded?1:0].join('\u0001');
-        if(it.t==='sec') return [it.n,it.folded?1:0].join('\u0001');
+        if(it.t==='tabs') return JSON.stringify([it.cur,it.tabs]); // PEER_CHAT_SRS FR-PCH-80·81
         // 구역의 행은 **그려질 마크업 전부**가 근거다 (FR-RPT-2) — 그 행이 무엇을
         // 보이는지 이 파일은 모르고, 알 필요도 없다.
         if(it.t==='row') return it.el.outerHTML;
@@ -212,7 +210,7 @@ Object.assign(App.prototype, {
       },
       build:it=>it.t==='head'?this._agHeadEl()
         :it.t==='group'?this._agGroupEl(it.win,it.attn,it.folded)
-        :it.t==='sec'?this._actSecEl(it.sec,it.n,it.folded)
+        :it.t==='tabs'?this._actTabsEl(it.cur,it.tabs)
         :it.t==='secempty'?this._actSecEmptyEl(it.sec)
         :it.t==='row'?it.el
         :it.t==='foot'?this._actUsageFootEl(it.view)

@@ -402,18 +402,19 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
 
 /**
  * UIUX_OVERHAUL_SRS §4.3.1 (D-7) — **구역은 셋이고, 머리는 몸통으로 접힌다.**
+ * PEER_CHAT_SRS §4.2 로 개정: 구역은 탭 줄의 탭이고 Chats 가 넷째다. 구역 접기는 없다.
  */
 test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
   // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40: Usage 는 구역이 아니라 바닥이다 — 구역은 그대로 셋이다.
-  test('FR-ACT-7: 구역이 셋이고 차례가 에이전트 · 백그라운드 · Run 이다', async ({ page }) => {
+  test('FR-ACT-7 · FR-PCH-80: 탭이 넷이고 차례가 에이전트 · 백그라운드 · Run · 채팅이다', async ({ page }) => {
     await waitForInit(page);
     await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
-    // 빈 구역도 머리를 갖는다 (FR-ACT-1) — 세는 것은 내용이 아니라 구역이다.
+    // 빈 구역도 탭을 갖는다 (FR-ACT-1) — 세는 것은 내용이 아니라 탭이다.
     const secs = await page.evaluate(() =>
-      [...document.querySelectorAll('#agents-panel .ag-sec')].map((e) => (e as HTMLElement).dataset.sec));
-    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs']);
+      [...document.querySelectorAll('#agents-panel .ag-tab')].map((e) => (e as HTMLElement).dataset.sec));
+    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs', 'chats']);
   });
 
   test('FR-ACT-10: 그룹 머리의 몸통을 눌러 접고 편다', async ({ page }) => {

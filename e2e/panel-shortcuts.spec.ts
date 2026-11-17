@@ -40,7 +40,7 @@ test.describe('진입점 단축키', () => {
   test('Ctrl+Shift+B 가 백그라운드 구역을 열고 닫는다', async ({ page }) => {
     await waitForInit(page);
     await page.keyboard.press('Control+Shift+KeyB');
-    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
+    await expect(page.locator('#agents-panel.open .ag-tab[data-sec="bg"].active')).toBeVisible();
     await page.keyboard.press('Control+Shift+KeyB');
     await expect(page.locator('#agents-panel.open')).toHaveCount(0);
   });
@@ -48,7 +48,7 @@ test.describe('진입점 단축키', () => {
   test('Ctrl+Shift+O 가 Run 구역을 열고 닫는다', async ({ page }) => {
     await waitForInit(page);
     await page.keyboard.press('Control+Shift+KeyO');
-    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible();
+    await expect(page.locator('#agents-panel.open .ag-tab[data-sec="runs"].active')).toBeVisible();
     await page.keyboard.press('Control+Shift+KeyO');
     await expect(page.locator('#agents-panel.open')).toHaveCount(0);
   });
