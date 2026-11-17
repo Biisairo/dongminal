@@ -165,7 +165,19 @@ func (s *Service) handle(from *peerLink, fr frame) {
 	switch fr.T {
 	case frameState:
 		s.mu.Lock()
-		if s.acceptStateLocked(fr) {
+		var pin func()
+		if fp, ok := s.acceptStateLocked(fr); ok {
+			s.broadcastLocked(fr, from)
+			pin = s.pinLocked(from, fp)
+			s.changedLocked()
+		}
+		s.mu.Unlock()
+		if pin != nil {
+			pin()
+		}
+	case frameCmd:
+		s.mu.Lock()
+		if s.acceptCmdLocked(fr) {
 			s.broadcastLocked(fr, from)
 			s.changedLocked()
 		}
@@ -191,27 +203,28 @@ func (s *Service) broadcastLocked(fr frame, skip *peerLink) {
 	}
 }
 
-// acceptStateLocked 는 바르고 더 새로운 노드 상태 알림만 받는다 (FR-PCH-5·9·20).
-func (s *Service) acceptStateLocked(fr frame) bool {
+// acceptStateLocked 는 바르고 더 새로운 노드 상태 알림만 받고 그 노드 지문을 돌려준다
+// (FR-PCH-5·9·20).
+func (s *Service) acceptStateLocked(fr frame) (string, bool) {
 	var st stateBody
 	if json.Unmarshal(fr.B, &st) != nil || st.Node == s.id.Fingerprint {
-		return false
+		return "", false
 	}
 	pub, ok := parseKey(st.Node, st.Key)
 	if !ok || !verify(pub, frameState, fr.B, fr.S) || !validState(st) {
-		return false
+		return "", false
 	}
 	if old, ok := s.nodes[st.Node]; ok {
 		if !newer(st, old.st.Epoch, old.st.Seq) {
-			return false
+			return "", false
 		}
 	} else {
 		m, marked := s.marks[st.Node]
 		if marked && !newer(st, m.epoch, m.stateSeq) {
-			return false
+			return "", false
 		}
 		if len(s.nodes) >= s.maxNodes && !s.evictLocked() {
-			return false
+			return "", false
 		}
 		if marked {
 			delete(s.marks, st.Node)
@@ -227,7 +240,7 @@ func (s *Service) acceptStateLocked(fr frame) bool {
 		}
 	}
 	s.nodes[st.Node] = &remote{st: st, key: pub, raw: fr, rooms: rooms, at: s.now()}
-	return true
+	return st.Node, true
 }
 
 func newer(st stateBody, epoch int64, seq uint64) bool {
@@ -302,6 +315,14 @@ func (s *Service) rememberLocked(fp string, m mark) {
 func validState(st stateBody) bool {
 	if len(st.Parts) > maxParts || len(st.Rooms) > maxNodeRooms || len(st.Links) > maxNodes || !validText(st.Name, maxName) {
 		return false
+	}
+	if len(st.Helper) > maxHelperKey || !validText(st.Helper, maxHelperKey) || len(st.Pins) > maxNodes {
+		return false
+	}
+	for fp, k := range st.Pins {
+		if len(fp) != idPrefix || !validID(fp) || len(k) > maxHelperKey || !validText(k, maxHelperKey) {
+			return false
+		}
 	}
 	for _, p := range st.Parts {
 		if len(p.Rooms) > maxPartRooms || !validID(p.ID) || !boundTo(p.ID, st.Node) || !validText(p.Label, maxLabel) {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sync/atomic"
+	"time"
 
 	"dongminal/internal/daemon/chat"
 	"dongminal/internal/daemon/chatsock"
@@ -16,6 +17,7 @@ import (
 	"dongminal/internal/shared/edge"
 	"dongminal/internal/shared/edgenode"
 	"dongminal/internal/shared/edgerelay"
+	"dongminal/internal/shared/humancmd"
 	"dongminal/internal/shared/toolhub"
 )
 
@@ -83,9 +85,15 @@ func startChat(home string, n *edgenode.Node, dial func(ctx context.Context, net
 			}
 		},
 		Changed: ps.PushChatChanged,
+		Pin: func(fp, key string) {
+			if err := n.Store().PinHelper(fp, key); err != nil {
+				dmlog.Errorf(nil, "chat: 도우미 키 고정: %v", err)
+			}
+		},
 	})
 	slot.Store(s)
-	cs := chatsock.New(chatsock.Options{Chat: s, Tools: tools, Name: name, OnUser: ps.PushChatMsg})
+	helper := humancmd.Client{Path: humancmd.SocketPath, Timeout: helperWait}
+	cs := chatsock.New(chatsock.Options{Chat: s, Tools: tools, Name: name, OnUser: ps.PushChatMsg, Helper: helper})
 	cs.StartUser()
 	ps.SetChat(cs)
 	if err := cs.Listen(chatwire.SocketPath(home)); err != nil {
@@ -96,10 +104,36 @@ func startChat(home string, n *edgenode.Node, dial func(ctx context.Context, net
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	go s.Run(ctx)
+	go watchHelper(ctx, helper, s)
 	return func() {
 		cancel()
 		cs.Close()
 		s.Close()
+	}
+}
+
+// 도우미를 묻는 간격과 한 번의 시한이다 (PEER_CHAT_SRS §3.12).
+const (
+	helperEvery = 30 * time.Second
+	helperWait  = 3 * time.Second
+)
+
+// watchHelper 는 시작할 때와 그 뒤 helperEvery 마다 도우미의 공개키를 물어 채팅에 싣는다. 도우미가
+// 없거나 닿지 않으면 빈 키다 — 화면은 사람 명령 메뉴를 숨긴다 (FR-PCH-78).
+func watchHelper(ctx context.Context, h humancmd.Client, s *chat.Service) {
+	t := time.NewTicker(helperEvery)
+	defer t.Stop()
+	for {
+		key := ""
+		if info, err := h.Info(); err == nil {
+			key = info.Key
+		}
+		s.SetHelper(key)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
 	}
 }
 

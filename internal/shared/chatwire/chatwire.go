@@ -41,6 +41,9 @@ const (
 	OpSend   = "send"
 	// OpState 는 사람 화면의 한 번 읽기다: 나·온라인 목록·방 목록 (§3.11).
 	OpState = "state"
+	// OpKill·OpKick 은 사람 명령이다. 사람 참가자만 부른다 (§3.12).
+	OpKill = "kill"
+	OpKick = "kick"
 )
 
 // 채팅 핵심(`chat`)의 코드 밖에서 이 와이어가 더하는 오류 코드.
@@ -48,6 +51,10 @@ const (
 	CodeBadRequest        = "bad_request"
 	CodeDaemonUnavailable = "daemon_unavailable"
 	CodeFull              = "participants_full"
+	// 사람 명령의 도우미 오류다 (§3.12). locked 의 메시지는 풀리는 시각(RFC 3339)이다.
+	CodeBadCode  = "bad_code"
+	CodeLocked   = "locked"
+	CodeNoHelper = "no_helper"
 )
 
 // SocketPath 는 home 인스턴스의 채팅 소켓 경로다.
@@ -149,6 +156,8 @@ type State struct {
 	Me     Member `json:"me"`
 	Online Online `json:"online"`
 	Rooms  []Room `json:"rooms"`
+	// Helper 는 이 노드에 사람 명령의 도우미가 있는가다 (§3.12).
+	Helper bool `json:"helper"`
 }
 
 // RoomResult 는 create·direct·join 의 결과다.
@@ -177,6 +186,16 @@ type (
 	SendArgs struct {
 		Room string `json:"room"`
 		Text string `json:"text"`
+	}
+	// Kick 은 강퇴 대상 하나, HumanArgs 는 kill·kick 의 인자다 (§3.12).
+	Kick struct {
+		Room        string `json:"room"`
+		Participant string `json:"participant"`
+	}
+	HumanArgs struct {
+		Rooms []string `json:"rooms,omitempty"`
+		Kicks []Kick   `json:"kicks,omitempty"`
+		Code  string   `json:"code"`
 	}
 )
 

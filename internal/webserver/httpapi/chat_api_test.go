@@ -66,7 +66,7 @@ func TestChatAPI_PassesOpAndBody(t *testing.T) {
 	if code != http.StatusOK || !strings.Contains(out["_raw"].(string), `"me":{"id":"u"}`) || d.got[0].Op != chatwire.OpState {
 		t.Fatalf("%d %v %+v", code, out, d.got)
 	}
-	for _, op := range []string{chatwire.OpCreate, chatwire.OpDirect, chatwire.OpJoin, chatwire.OpLeave, chatwire.OpSend} {
+	for _, op := range []string{chatwire.OpCreate, chatwire.OpDirect, chatwire.OpJoin, chatwire.OpLeave, chatwire.OpSend, chatwire.OpKill, chatwire.OpKick} {
 		code, _ := n.api(t, http.MethodPost, "/api/chat/"+op, map[string]any{"room": "r1"})
 		last := d.got[len(d.got)-1]
 		if code != http.StatusOK || last.Op != op || string(last.Args) != `{"room":"r1"}` {
@@ -89,6 +89,9 @@ func TestChatAPI_ErrorMapping(t *testing.T) {
 		{"no_such_room", 404, apierr.CodeChatNoSuchRoom},
 		{"no_such_participant", 404, apierr.CodeChatNoSuchParticipant},
 		{chatwire.CodeDaemonUnavailable, 503, apierr.CodeChatUnavailable},
+		{chatwire.CodeBadCode, 403, apierr.CodeChatBadCode},
+		{chatwire.CodeLocked, 423, apierr.CodeChatLocked},
+		{chatwire.CodeNoHelper, 409, apierr.CodeChatNoHelper},
 		{"모르는_코드", 400, apierr.CodeChatBadRequest},
 	}
 	for _, c := range cases {

@@ -116,6 +116,9 @@ type Options struct {
 	Dial func(ctx context.Context, t edge.Target) (net.Conn, error)
 	// Deliver 는 이 노드의 참가자에게 글을 넘긴다. 잠금 밖에서 부른다.
 	Deliver func(pid string, m Message)
+	// Pin 은 간선 상대 fp 의 도우미 공개키를 고정한다(비었을 때만, §3.12). 잠금 밖에서 부른다.
+	// nil 이면 고정하지 않는다.
+	Pin func(fp, key string)
 	// Changed 는 온라인 목록이나 방이 바뀌었을 수 있다는 알림이다. 잠금 밖의 고루틴에서
 	// 부르고, 여러 번의 바뀜을 한 번으로 묶을 수 있다. nil 이면 알리지 않는다.
 	Changed func()
@@ -175,8 +178,13 @@ type Service struct {
 	sendRate   *limiter
 	recvRate   *limiter
 	dialing    map[string]*dialState
-	closed     bool
-	done       chan struct{}
+	// helperKey 는 이 노드의 도우미 공개키, cmds 는 본 사람 명령 id, warned 는 고정과 다른
+	// 키를 알린 간선 상대다 (§3.12).
+	helperKey string
+	cmds      map[string]time.Time
+	warned    map[string]string
+	closed    bool
+	done      chan struct{}
 }
 
 // New 는 채팅을 세운다. 연결 유지는 Run 이 한다.
@@ -193,6 +201,7 @@ func New(o Options) *Service {
 		parts: map[string]*participant{}, rooms: map[string]room{},
 		nodes: map[string]*remote{}, links: map[string]*peerLink{},
 		wins: map[string]*seqWindow{}, dialing: map[string]*dialState{},
+		cmds: map[string]time.Time{}, warned: map[string]string{},
 		done: make(chan struct{}), pokes: make(chan struct{}, 1),
 	}
 	s.sendRate = newLimiter(PerMinute, time.Minute, s.clock)
@@ -520,7 +529,7 @@ func (s *Service) announceLocked() {
 
 // ownStateLocked 는 순서 번호를 뺀 자기 상태다.
 func (s *Service) ownStateLocked() stateBody {
-	st := stateBody{Node: s.id.Fingerprint, Key: s.key, Name: s.name()}
+	st := stateBody{Node: s.id.Fingerprint, Key: s.key, Name: s.name(), Helper: s.helperKey, Pins: s.pinsLocked()}
 	for fp := range s.links {
 		st.Links = append(st.Links, fp)
 	}

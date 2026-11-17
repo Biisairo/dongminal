@@ -54,6 +54,8 @@ type Options struct {
 	CountWait time.Duration
 	// MaxAgents 는 에이전트 참가자 상한이다. 0 이면 노드 상한에서 사람 하나를 뺀 값이다.
 	MaxAgents int
+	// Helper 는 사람 명령의 도우미다. nil 이면 kill·kick 은 no_helper 다 (§3.12).
+	Helper Helper
 	// OnUser 는 사람 참가자에게 온 글을 넘긴다. 데몬은 사람의 글을 들지 않는다 (FR-PCH-85).
 	OnUser func(m chatwire.Message)
 }
@@ -192,9 +194,12 @@ func (s *Server) UserCall(op string, args json.RawMessage) (json.RawMessage, *ch
 	if me.ID == "" {
 		return nil, &chatwire.Error{Code: chatwire.CodeBadRequest, Message: "사람 참가자가 없다"}
 	}
+	if op == chatwire.OpKill || op == chatwire.OpKick {
+		return s.human(op, args)
+	}
 	if op == chatwire.OpState {
 		st := chatwire.State{Me: chatwire.Member{ID: me.ID, Label: me.Label, Kind: me.Kind, Online: true},
-			Online: onlineOf(s.o.Chat.Online()), Rooms: []chatwire.Room{}}
+			Online: onlineOf(s.o.Chat.Online()), Rooms: []chatwire.Room{}, Helper: s.o.Chat.HelperKey() != ""}
 		for _, r := range s.o.Chat.Rooms(me.ID) {
 			room := roomOf(r)
 			room.People = membersOf(r.Members)

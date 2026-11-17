@@ -28,6 +28,9 @@ var chatErrors = map[string]struct {
 	"no_such_room":                 {http.StatusNotFound, apierr.CodeChatNoSuchRoom},
 	"no_such_participant":          {http.StatusNotFound, apierr.CodeChatNoSuchParticipant},
 	chatwire.CodeDaemonUnavailable: {http.StatusServiceUnavailable, apierr.CodeChatUnavailable},
+	chatwire.CodeBadCode:           {http.StatusForbidden, apierr.CodeChatBadCode},
+	chatwire.CodeLocked:            {http.StatusLocked, apierr.CodeChatLocked},
+	chatwire.CodeNoHelper:          {http.StatusConflict, apierr.CodeChatNoHelper},
 }
 
 func (s *Server) apiChatGet(w http.ResponseWriter, r *http.Request) { s.chatDo(w, r, chatwire.OpState) }
@@ -42,6 +45,10 @@ func (s *Server) apiChatLeave(w http.ResponseWriter, r *http.Request) {
 	s.chatDo(w, r, chatwire.OpLeave)
 }
 func (s *Server) apiChatSend(w http.ResponseWriter, r *http.Request) { s.chatDo(w, r, chatwire.OpSend) }
+
+// apiChatKill·apiChatKick 은 사람 명령이다. 본문에 OTP 코드가 든다 (§3.12).
+func (s *Server) apiChatKill(w http.ResponseWriter, r *http.Request) { s.chatDo(w, r, chatwire.OpKill) }
+func (s *Server) apiChatKick(w http.ResponseWriter, r *http.Request) { s.chatDo(w, r, chatwire.OpKick) }
 
 // chatDo 는 연산 op 하나를 데몬에 넘긴다. state 가 아니면 요청 본문이 그 op 의 인자다.
 func (s *Server) chatDo(w http.ResponseWriter, r *http.Request, op string) {

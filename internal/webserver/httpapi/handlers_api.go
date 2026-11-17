@@ -244,6 +244,8 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/chat/join", (*Server).apiChatJoin),
 	httproute.Post("/api/chat/leave", (*Server).apiChatLeave),
 	httproute.Post("/api/chat/send", (*Server).apiChatSend),
+	httproute.Post("/api/chat/kill", (*Server).apiChatKill),
+	httproute.Post("/api/chat/kick", (*Server).apiChatKick),
 	httproute.Get("/api/edges", (*Server).apiEdgesGet),
 	httproute.Put("/api/edges/node", (*Server).apiEdgesNodePut),
 	httproute.Post("/api/edges/invite", (*Server).apiEdgesInvite),

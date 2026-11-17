@@ -247,16 +247,18 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 간선으로 이어진 노드들의 채팅에 이 노드의 사람으로 참가합니다. 채팅은 데몬에 있고 서버는 요청을 데몬에 넘깁니다. 서버와 데몬은 대화 내용을 들지 않습니다. 사람에게 온 글은 `chat_message` 로 방송할 뿐 남기지 않습니다.
 
-UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 입니다. 직접 모드(데몬 없음)는 모든 경로가 409 `chat_daemon_only`, 붙은 데몬이 채팅을 모르는 옛 판이면 409 `chat_daemon_restart`, 데몬에 닿지 못하면 502 `chat_unreachable`, 데몬에 채팅이 서지 않았으면 503 `chat_unavailable` 입니다. 채팅 연산의 실패는 400 `chat_bad_request`, 413 `chat_too_large`(글 16 KiB 초과), 429 `chat_rate_limited`(1분에 30개 초과), 409 `chat_not_in_room`, 404 `chat_no_such_room`·`chat_no_such_participant` 입니다.
+UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 입니다. 직접 모드(데몬 없음)는 모든 경로가 409 `chat_daemon_only`, 붙은 데몬이 채팅을 모르는 옛 판이면 409 `chat_daemon_restart`, 데몬에 닿지 못하면 502 `chat_unreachable`, 데몬에 채팅이 서지 않았으면 503 `chat_unavailable` 입니다. 채팅 연산의 실패는 400 `chat_bad_request`, 413 `chat_too_large`(글 16 KiB 초과), 429 `chat_rate_limited`(1분에 30개 초과), 409 `chat_not_in_room`, 404 `chat_no_such_room`·`chat_no_such_participant` 입니다. 사람 명령(`kill`·`kick`)은 403 `chat_bad_code`(코드가 틀렸거나 이미 씀), 423 `chat_locked`(5번 틀려 5분 잠김, `message` 는 풀리는 시각 RFC 3339), 409 `chat_no_helper`(도우미 없음)를 더합니다.
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/chat` | `{me, online, rooms}`. `me` 는 이 노드의 사람 참가자, `online` 은 온라인 목록(`nodes`·`participants`), `rooms` 는 열린 단체채팅 방과 내 개인채팅(`id`·`kind`·`name`·`purpose`·`creator`·`creatorName`·`members`·`joined`·참가자 목록 `people`)이다. 온라인 목록이나 방이 바뀌면 `chat_changed` 를 방송한다 |
+| GET | `/api/chat` | `{me, online, rooms, helper}`. `me` 는 이 노드의 사람 참가자, `online` 은 온라인 목록(`nodes`·`participants`), `rooms` 는 열린 단체채팅 방과 내 개인채팅(`id`·`kind`·`name`·`purpose`·`creator`·`creatorName`·`members`·`joined`·참가자 목록 `people`)이다. `helper` 는 이 노드에 사람 명령의 도우미가 있는가다. 온라인 목록이나 방이 바뀌면 `chat_changed` 를 방송한다 |
 | POST | `/api/chat/create` | `{name, purpose}` → `{room}`. 단체채팅 방을 만들고 들어간다 |
 | POST | `/api/chat/direct` | `{participant, purpose?}` → `{room}`. 개인채팅을 만든다. 상대는 자동으로 들어간다 |
 | POST | `/api/chat/join` | `{room}` → `{room}`. 단체채팅 방에 들어간다 |
 | POST | `/api/chat/leave` | `{room}` → `{ok}`. 방에서 나간다 |
 | POST | `/api/chat/send` | `{room, text}` → `{ok}`. 글을 쓴다 |
+| POST | `/api/chat/kill` | `{rooms[], code}` → `{ok}`. 방을 강제 삭제한다. `code` 는 OTP 6자리나 복구 코드다. 도우미가 묶음에 서명하면 망에 퍼진다(대상 1~64개) |
+| POST | `/api/chat/kick` | `{kicks[{room, participant}], code}` → `{ok}`. 참가자를 방에서 내보낸다. 다시 들어오는 것은 막지 않는다 |
 
 ### Telegram 알림 (`TELEGRAM_BRIDGE_SRS`)
 

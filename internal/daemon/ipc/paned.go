@@ -192,6 +192,11 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 	case toolipc.MethodEdgePort:
 		resp = pc.edgePort(req)
 	case toolipc.MethodChat:
+		// 사람 명령은 도우미를 기다린다 — 이 연결의 다른 요청을 막지 않는다 (PEER_CHAT_SRS §3.12).
+		if chatSlow(req) {
+			pc.goEdge(func() interface{} { return pc.chatOp(req) })
+			return
+		}
 		resp = pc.chatOp(req)
 	case toolipc.MethodKill:
 		resp = pc.kill(req)

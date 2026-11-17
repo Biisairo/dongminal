@@ -74,3 +74,9 @@ func (pc *panedConn) chatOp(req *toolipc.PanedRequest) interface{} {
 	}
 	return okResp(req, toolipc.ChatResult{Result: res})
 }
+
+// chatSlow 는 도우미를 기다리는 op(kill·kick)인가다. 다른 op 는 읽기 루프에서 차례로 돈다.
+func chatSlow(req *toolipc.PanedRequest) bool {
+	p, perr := decodeParams[toolipc.ChatParams](req)
+	return perr == nil && (p.Op == chatwire.OpKill || p.Op == chatwire.OpKick)
+}

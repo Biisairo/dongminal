@@ -59,6 +59,8 @@ type Edge struct {
 	Fingerprint string    `json:"fp"`
 	State       string    `json:"state"`
 	Expires     time.Time `json:"expires,omitzero"`
+	// HelperKey 는 상대 도우미의 공개키다. 채팅 연결로 처음 받은 값을 고정한다 (PEER_CHAT_SRS FR-PCH-74).
+	HelperKey string `json:"helperKey,omitempty"`
 }
 
 // Config 는 `edges.json` 전체다 (FR-PNW-2).
@@ -296,6 +298,20 @@ func (s *Store) update(fn func(*Config) error) error {
 		return err
 	}
 	return s.saveLocked(c)
+}
+
+// PinHelper 는 짝 fp 의 도우미 공개키를 고정한다. 이미 고정한 값은 바꾸지 않는다
+// (PEER_CHAT_SRS FR-PCH-74). 간선을 지우고 다시 맺으면 새로 고정한다.
+func (s *Store) PinHelper(fp, key string) error {
+	return s.update(func(c *Config) error {
+		for i := range c.Edges {
+			e := &c.Edges[i]
+			if e.Fingerprint == fp && e.State == StatePaired && e.HelperKey == "" {
+				e.HelperKey = key
+			}
+		}
+		return nil
+	})
 }
 
 // SetNode 는 노드 설정만 바꾼다. 짝 목록은 그대로다 (I-8).

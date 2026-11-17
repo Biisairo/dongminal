@@ -22,6 +22,7 @@ const (
 	frameState = "state"
 	frameMsg   = "msg"
 	framePing  = "ping"
+	frameCmd   = "cmd"
 	signRecord = "room"
 )
 
@@ -50,6 +51,9 @@ type stateBody struct {
 	Links []string       `json:"links,omitempty"`
 	Parts []statePart    `json:"parts,omitempty"`
 	Rooms []signedRecord `json:"rooms,omitempty"`
+	// Helper 는 이 노드의 도우미 공개키, Pins 는 간선 상대 지문 → 고정한 도우미 공개키다 (§3.12).
+	Helper string            `json:"helper,omitempty"`
+	Pins   map[string]string `json:"pins,omitempty"`
 }
 
 // msgBody 는 글 하나다. (Epoch, Seq) 가 보낸 노드 안의 순서다 (FR-PCH-32).
