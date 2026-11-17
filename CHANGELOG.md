@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+### 추가
+
+- **dongminal 탭의 claude 가 `dmctl` 활용 지침을 받습니다.** claude shim 이 지침을 시스템 프롬프트 끝에 붙입니다
+  (`--append-system-prompt`). 기본 시스템 프롬프트와 사용자의 CLAUDE.md 는 그대로 읽힙니다. 폴더를 추가로 열지 않으므로
+  신뢰 확인창("Adding a new directory")이 뜨지 않습니다.
+
 ## [1.3.4] — 2026-11-16
 
 ### 보안

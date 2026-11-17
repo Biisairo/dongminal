@@ -237,7 +237,7 @@ func TestInstall_DoesNotPruneBinDir(t *testing.T) {
 }
 
 // AGENT_MEMORY_INJECTION_SRS FR-AMI-1·9: 주입 메모리는 CLAUDE.md 하나만 든 전용 폴더에 선다.
-// 플러그인 폴더에는 없다 — 그 폴더는 --add-dir 로 열리면 안 된다.
+// 플러그인 폴더에는 없다 (FR-AMI-9).
 func TestInstallAgentMemory_OnlyClaudeMD(t *testing.T) {
 	dir := t.TempDir()
 	if err := Install(dir); err != nil {

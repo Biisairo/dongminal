@@ -20,10 +20,6 @@ import (
 
 const claudeConfigDirEnv = "CLAUDE_CONFIG_DIR"
 
-// claudeAddDirMemoryEnv 는 --add-dir 폴더의 CLAUDE.md 를 메모리로 읽게 하는 Claude Code 의 환경 변수다
-// (AGENT_MEMORY_INJECTION_SRS FR-AMI-3).
-const claudeAddDirMemoryEnv = "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD"
-
 // shimBudget 은 실행 준비 API 의 예산이다. 변수인 것은 시험이 시간 초과를 재기 위해서다.
 var shimBudget = 3 * time.Second
 
@@ -41,12 +37,10 @@ func runAgentShim(cmd string, args []string, _, stderr io.Writer) int {
 	}
 	argv := append([]string{real}, shimHookArgs(cmd, home)...)
 	env := os.Environ()
-	if dir := shimMemoryDir(home); dir != "" {
-		// FR-AMI-2: 한 토큰이어야 한다 — `--add-dir` 는 값을 여러 개 받아 뒤의 사용자 인자를 먹는다.
-		argv = append(argv, "--add-dir="+dir)
-		if os.Getenv(claudeAddDirMemoryEnv) == "" {
-			env = append(env, claudeAddDirMemoryEnv+"=1")
-		}
+	if memory := shimMemoryPrompt(home); memory != "" {
+		// FR-AMI-2: 한 토큰으로 붙인다 — 공백 구분이면 값이 사용자 인자와 섞인다. `--add-dir` 는
+		// 쓰지 않는다: 처음 보는 폴더마다 신뢰 확인창이 뜨고 접근 권한이 따라온다 (D-AMI-1).
+		argv = append(argv, "--append-system-prompt="+memory)
 	}
 	argv = append(argv, args...)
 	if os.Getenv(claudeConfigDirEnv) == "" {
@@ -86,16 +80,21 @@ func shimHookArgs(cmd, home string) []string {
 	return out
 }
 
-// shimMemoryDir 는 주입 메모리(CLAUDE.md)만 든 폴더다. 없으면 빈 값이다 (FR-AMI-4).
-func shimMemoryDir(home string) string {
+// shimMemoryPrompt 는 주입 메모리(agent-memory/CLAUDE.md)의 내용이다. 없거나 읽지 못하면
+// 빈 값이다 — 그때는 주입 없이 claude 를 띄운다 (FR-AMI-4).
+func shimMemoryPrompt(home string) string {
 	if home == "" {
 		return ""
 	}
-	dir := filepath.Join(home, "bin", "agent-memory")
-	if st, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err == nil && st.Mode().IsRegular() {
-		return dir
+	path := filepath.Join(home, "bin", "agent-memory", "CLAUDE.md")
+	if st, err := os.Stat(path); err != nil || !st.Mode().IsRegular() {
+		return ""
 	}
-	return ""
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 // claudeLaunchDir 는 서버에 이 실행의 계정을 묻는다. 서버가 꺼져 있으면(연결 거부) 기본 계정이다.

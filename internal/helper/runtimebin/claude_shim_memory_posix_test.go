@@ -13,6 +13,9 @@ import (
 
 // AGENT_MEMORY_INJECTION_SRS TC-AMI-2·3·4.
 
+// claudeAddDirMemoryEnv 는 shim 이 더 이상 건드리지 않는 Claude Code 환경 변수다 (FR-AMI-3).
+const claudeAddDirMemoryEnv = "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD"
+
 func memoryFixture(t *testing.T, withMemory bool) (plugin string, ran *shimRun) {
 	t.Helper()
 	home, _, ran := shimFixture(t)
@@ -30,19 +33,21 @@ func memoryFixture(t *testing.T, withMemory bool) (plugin string, ran *shimRun) 
 	return plugin, ran
 }
 
-func TestClaudeShimInjectsMemoryDir(t *testing.T) {
+func TestClaudeShimInjectsMemoryPrompt(t *testing.T) {
 	plugin, ran := memoryFixture(t, true)
-	// 보안 검토: 실행 파일(훅)이 있는 플러그인 폴더는 작업 폴더로 열지 않는다 (FR-AMI-9).
-	if err := os.RemoveAll(filepath.Join(filepath.Dir(plugin), "agent-plugin")); err != nil {
-		t.Fatal(err)
-	}
 	_ = runClaude([]string{"질문"}, &bytes.Buffer{}, &bytes.Buffer{})
-	want := []string{ran.path, "--add-dir=" + plugin, "질문"}
+	want := []string{ran.path, "--append-system-prompt=# m\n", "질문"}
 	if strings.Join(ran.argv, "|") != strings.Join(want, "|") {
-		t.Fatalf("argv %v want %v", ran.argv, want)
+		t.Fatalf("argv %q want %q", ran.argv, want)
 	}
-	if v, _ := envValue(ran.env, claudeAddDirMemoryEnv); v != "1" {
-		t.Fatalf("env %q want 1", v)
+	// D-AMI-1: 폴더를 열지 않는다 — 신뢰 확인창과 접근 권한이 따라온다 (FR-AMI-9).
+	for _, a := range ran.argv {
+		if strings.HasPrefix(a, "--add-dir") || strings.Contains(a, plugin) {
+			t.Fatalf("unexpected %q in %v", a, ran.argv)
+		}
+	}
+	if v, ok := envValue(ran.env, claudeAddDirMemoryEnv); ok && v != "" {
+		t.Fatalf("env %q want unset", v)
 	}
 }
 
@@ -55,15 +60,26 @@ func TestClaudeShimKeepsUserMemoryEnv(t *testing.T) {
 	}
 }
 
-func TestClaudeShimNoMemoryNoAddDir(t *testing.T) {
+func TestClaudeShimNoMemoryNoPrompt(t *testing.T) {
 	_, ran := memoryFixture(t, false)
 	_ = runClaude([]string{"x"}, &bytes.Buffer{}, &bytes.Buffer{})
 	for _, a := range ran.argv {
-		if strings.HasPrefix(a, "--add-dir") {
+		if strings.HasPrefix(a, "--append-system-prompt") || strings.HasPrefix(a, "--add-dir") {
 			t.Fatalf("unexpected %q in %v", a, ran.argv)
 		}
 	}
-	if v, _ := envValue(ran.env, claudeAddDirMemoryEnv); v != "" {
-		t.Fatalf("env %q want unset", v)
+}
+
+// FR-AMI-4: 빈 파일은 붙이지 않는다.
+func TestClaudeShimEmptyMemoryNoPrompt(t *testing.T) {
+	plugin, ran := memoryFixture(t, true)
+	if err := os.WriteFile(filepath.Join(plugin, "CLAUDE.md"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_ = runClaude([]string{"x"}, &bytes.Buffer{}, &bytes.Buffer{})
+	for _, a := range ran.argv {
+		if strings.HasPrefix(a, "--append-system-prompt") {
+			t.Fatalf("unexpected %q in %v", a, ran.argv)
+		}
 	}
 }

@@ -35,9 +35,8 @@ const shellHookRoot = "shellhooks"
 //go:embed all:agentplugin
 var agentPluginFS embed.FS
 
-// agentmemory 는 claude shim 이 `--add-dir=` 로 여는 주입 메모리 폴더다 (AGENT_MEMORY_INJECTION_SRS).
-// CLAUDE.md 하나만 둔다 — 열린 폴더는 claude 의 작업 폴더가 되므로, 훅처럼 실행되는 파일이
-// 있는 플러그인 폴더와 나눈다 (FR-AMI-9).
+// agentmemory 는 주입 메모리 폴더다 (AGENT_MEMORY_INJECTION_SRS). claude shim 이 CLAUDE.md 의
+// 내용을 `--append-system-prompt=` 로 넘긴다. CLAUDE.md 하나만 둔다 (FR-AMI-9).
 //
 //go:embed agentmemory
 var agentMemoryFS embed.FS
@@ -331,7 +330,7 @@ const HelperFixHint = "서버를 다시 띄우면 다시 설치됩니다: dongmi
 // `claude --plugin-dir <이 경로>` 로 붙인다 (SKILL_INJECTION_SRS FR-INJ-4).
 func AgentPluginDir(binDir string) string { return filepath.Join(binDir, "agent-plugin") }
 
-// AgentMemoryDir 는 주입 메모리(CLAUDE.md) 폴더다. claude shim 이 `--add-dir=` 로 붙인다 (FR-AMI-2).
+// AgentMemoryDir 는 주입 메모리(CLAUDE.md) 폴더다. claude shim 이 그 내용을 시스템 프롬프트로 붙인다 (FR-AMI-2).
 func AgentMemoryDir(binDir string) string { return filepath.Join(binDir, "agent-memory") }
 
 // installAgentPlugin은 임베드된 플러그인(스킬 + 매니페스트)을 전개하고, 그 안에
