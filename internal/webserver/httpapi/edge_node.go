@@ -50,6 +50,10 @@ func (s *Server) initEdge() {
 // 닫기가 끝나면 닫힌다. 노드 포트가 없는 배선에서는 아무것도 하지 않는다.
 func (s *Server) StartEdge(stop <-chan struct{}) <-chan struct{} {
 	done := make(chan struct{})
+	if s.EdgeDaemon != nil {
+		s.startEdgeRelay(stop, done)
+		return done
+	}
 	if s.edgeLn == nil {
 		close(done)
 		return done

@@ -19,6 +19,7 @@ const (
 	CodeEdgePendingMissing = edge.CodePendingMissing
 	CodeEdgeNotFound       = edge.CodeNotFound
 	CodeEdgeRateLimited    = edge.CodeRateLimited
+	CodeEdgeDaemonRestart  = edge.CodeDaemonRestart
 )
 
 var edgeCodes = edge.Codes

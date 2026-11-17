@@ -5,6 +5,7 @@ import (
 
 	"dongminal/internal/shared/edgenode"
 	"dongminal/internal/shared/httpreq"
+	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/sse"
 )
@@ -29,6 +30,10 @@ func (s *Server) edgesChanged(paired string) {
 
 // edgeDo 는 연산 op 하나를 처리한다. withBody 면 요청 본문을 Args 로 넘긴다.
 func (s *Server) edgeDo(w http.ResponseWriter, r *http.Request, op string, withBody bool) {
+	if s.EdgeDaemon != nil {
+		s.edgeDaemonDo(w, r, op, withBody)
+		return
+	}
 	if s.edgeNode == nil {
 		codeFail(w, http.StatusServiceUnavailable, apierr.CodeEdgeUnavailable, "edge layer unavailable")
 		return
@@ -84,4 +89,27 @@ func (s *Server) apiEdgesRemove(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) apiEdgesAddress(w http.ResponseWriter, r *http.Request) {
 	s.edgeDo(w, r, "address", true)
+}
+
+// edgeDaemonDo 는 데몬 모드의 연산 하나다 (FR-PDM-30·51). 데몬의 노드가 답하고 서버는 그대로
+// 쓴다. 데몬이 노드 기능을 모르면 409 edge_daemon_restart 다 — 서버가 대신하지 않는다.
+func (s *Server) edgeDaemonDo(w http.ResponseWriter, r *http.Request, op string, withBody bool) {
+	if !s.EdgeDaemon.EdgeReady() {
+		codeFail(w, http.StatusConflict, apierr.CodeEdgeDaemonRestart, "restart the daemon to use edges")
+		return
+	}
+	var raw []byte
+	if withBody {
+		var err error
+		if raw, err = httpreq.Read(w, r, jsonBodyLimit); err != nil {
+			codeFail(w, httpreq.Status(err), bodyReadCode(err), "read body")
+			return
+		}
+	}
+	res, err := s.EdgeDaemon.Edge(toolipc.EdgeParams{Op: op, Args: raw, IfMatch: r.Header.Get("If-Match")})
+	if err != nil {
+		codeFail(w, http.StatusBadGateway, apierr.CodeEdgeUnreachable, "daemon: "+err.Error())
+		return
+	}
+	writeEdgeResponse(w, edgenode.Response{Status: res.Status, Code: res.Code, Message: res.Message, Body: res.Body, ETag: res.ETag})
 }

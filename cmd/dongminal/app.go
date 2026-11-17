@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"dongminal/internal/shared/toolipc"
 	"errors"
 	"os/signal"
 	"path/filepath"
@@ -80,6 +81,8 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 		a.bd, err = buildDepsWithHub(cfg, a.panedClient, gitRoot)
 		if err == nil {
 			a.wireDaemonPushes()
+			// PEER_DAEMON_SRS §3.5a: 데몬이 노드다. 서버는 통로와 로컬 API 위임만 한다.
+			a.bd.deps.EdgeDaemon = a.panedClient
 			if a.bd.attnTracker != nil {
 				a.records = newRecordWriter(a.panedClient, a.bd.attnTracker)
 				a.bd.deps.Records = a.records
@@ -117,6 +120,7 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 		return nil, errors.Join(errServerInit, err)
 	}
 	a.wireDaemonRecords()
+	a.wireDaemonEdges()
 	return a, nil
 }
 
@@ -126,6 +130,16 @@ var (
 	errRuntimeInstall = errors.New("runtime install")
 	errServerInit     = errors.New("server init")
 )
+
+// wireDaemonEdges 는 데몬 노드의 push 와 재접속을 서버에 잇는다 (PEER_DAEMON_SRS FR-PDM-27·33).
+// 서버가 선 뒤에 건다 — 콜백이 서버를 부른다.
+func (a *app) wireDaemonEdges() {
+	if a.panedClient == nil {
+		return
+	}
+	a.panedClient.SetOnEdges(func(ev toolipc.EdgesEvent) { a.srv.EdgePushed(ev.Paired) })
+	a.panedClient.SetOnEdgeResync(a.srv.EdgeResync)
+}
 
 // wireDaemonPushes 는 데몬 모드의 push 콜백이다 — 출력은 해석층 → 주의 추적,
 // 종료는 해석층 → 활동 정리 → 백그라운드 방송, 전경은 방송.

@@ -50,6 +50,10 @@ const (
 	MethodAttend     = "attend"
 	MethodAttendAll  = "attendall"
 	MethodReport     = "report"
+
+	// 간선(노드)이다 (PEER_DAEMON_SRS §3.5a). FeatureEdge 를 말한 데몬에만 보낸다.
+	MethodEdge     = "edge"
+	MethodEdgePort = "edgeport"
 )
 
 const (
@@ -59,6 +63,7 @@ const (
 	EventSize       = "size"
 	EventReport     = "report"
 	EventAttn       = "attn"
+	EventEdges      = "edges"
 )
 
 // HelloParams 는 서버가 hello 에 싣는 것이다. Features 는 서버가 아는 기능 이름이다
@@ -102,13 +107,17 @@ const (
 	// 서버가 함께 말한다 — 데몬은 attnconfig·attend·attendall·report 를 알고, 서버는 attn
 	// push 를 안다. 둘 다 말할 때만 서버의 추적기가 거울이 된다.
 	FeatureAttention = "attention"
+	// FeatureEdge: 데몬이 노드다 (PEER_DAEMON_SRS FR-PDM-50). 데몬과 서버가 함께 말한다 —
+	// 데몬은 edge·edgeport 를 알고 edges push 를 보내며, 서버는 edges push 를 안다. 데몬이
+	// 말하지 않으면 서버는 노드 기능을 끈다 (FR-PDM-51).
+	FeatureEdge = "edge"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureRecords, FeatureAttention}
-	ServerFeatures = []string{FeatureReports, FeatureAttention}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureRecords, FeatureAttention, FeatureEdge}
+	ServerFeatures = []string{FeatureReports, FeatureAttention, FeatureEdge}
 )
 
 // HasFeature 는 상대가 말한 기능 목록에 name 이 있는가다. 말하지 않은 옛 상대는

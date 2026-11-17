@@ -48,6 +48,9 @@ type PanedServer struct {
 	reportLn   net.Listener
 	reportPath string
 	reportMu   sync.Mutex
+
+	// edge 는 데몬의 노드와 서버가 알린 노드 포트 상태다 (PEER_DAEMON_SRS §3.5a).
+	edge edgeState
 }
 
 // dialProbeTimeout 은 "이미 살아 있는 데몬이 있는가" 를 묻는 시도의 상한이다.

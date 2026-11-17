@@ -122,12 +122,16 @@ func Run(home, version, daemonBuild string) {
 		go ps.ServeReports()
 	}
 
+	// PEER_DAEMON_SRS §3.5a: 데몬이 노드다. 노드 소켓은 서버가 노드 포트로 받은 연결을 받는다.
+	closeEdge := startEdge(home, ps)
+
 	// On signal, close the listener to unblock Accept() and save state.
 	ctx, stop := signal.NotifyContext(context.Background(), platform.Current().Process.ShutdownSignals()...)
 	defer stop()
 
 	go func() {
 		<-ctx.Done()
+		closeEdge()
 		ps.Close()
 	}()
 

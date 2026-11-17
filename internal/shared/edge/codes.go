@@ -18,6 +18,8 @@ const (
 	CodePendingMissing = "edge_pending_not_found"
 	CodeNotFound       = "edge_not_found"
 	CodeRateLimited    = "edge_rate_limited"
+	// CodeDaemonRestart 는 붙은 데몬이 노드 기능을 모른다는 뜻이다 (PEER_DAEMON_SRS FR-PDM-51).
+	CodeDaemonRestart = "edge_daemon_restart"
 )
 
 // Codes 는 위 코드 전부다.
@@ -25,5 +27,5 @@ var Codes = []string{
 	CodeUnavailable, CodeConfigInvalid, CodePortClosed, CodeAddrRequired,
 	CodeInviteInvalid, CodeNoInvite, CodeTokenInvalid, CodeFPMismatch,
 	CodeUnreachable, CodeRejected, CodeNameTaken, CodePendingMissing, CodeNotFound,
-	CodeRateLimited,
+	CodeRateLimited, CodeDaemonRestart,
 }

@@ -128,6 +128,9 @@ type Server struct {
 	// 없거나 신원을 읽지 못하면 둘 다 nil 이고 노드 포트는 서지 않는다.
 	edgeNode *edgenode.Node
 	edgeLn   *edge.Listener
+	// edgeKick 은 데몬 모드에서 노드 설정을 다시 읽어 노드 포트에 적용하라는 신호다
+	// (FR-PDM-33). StartEdge 가 만든다. 하나만 쌓인다.
+	edgeKick chan struct{}
 	// settingsMu 는 설정 PUT 의 지문 검사와 저장을 한 덩이로 묶는다 (UX_BATCH12 FR-LIV-2).
 	settingsMu sync.Mutex
 
@@ -277,7 +280,9 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// REQUEST_GATE_SRS FR-RQG-6: 허용 호스트 집합은 `access.self` 를 읽으므로
 	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.
 	srv.hosts = newHostAllow(access, cfg.AllowedHosts)
-	srv.initEdge()
+	if deps.EdgeDaemon == nil {
+		srv.initEdge()
+	}
 	srv.initTelegram()
 	srv.initClaudeAccounts()
 	runWorktreeRoot := ""

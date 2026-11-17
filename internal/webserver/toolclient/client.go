@@ -91,8 +91,12 @@ type ToolClient struct {
 	// (AGENT_RECORD_DAEMON_SRS §3.2a·FR-ARD-13). `mu` 아래.
 	onReport func(ev toolipc.ReportEvent)
 	// onAttn 은 attn push 콜백이다 (AGENT_RECORD_DAEMON_SRS §3.3a). 읽기 루프에서 돈다.
-	onAttn   func(ev toolipc.AttnEvent)
-	onResync func()
+	onAttn func(ev toolipc.AttnEvent)
+	// onEdges 는 edges push 콜백이다 (PEER_DAEMON_SRS §3.5a). 읽기 루프에서 돈다.
+	onEdges func(ev toolipc.EdgesEvent)
+	// onEdgeResync 는 재접속 뒤의 간선 재동기 콜백이다.
+	onEdgeResync func()
+	onResync     func()
 
 	// fgMu 는 onForeground 호출과 fgSeen·fgSeq 를 한 줄로 세운다. fgSeen 은 마지막으로
 	// 알린 전경 이름과 그 push 의 순번이다 — 재접속 뒤 목록과 대조해 끊긴 동안 놓친
@@ -323,6 +327,7 @@ func (pc *ToolClient) supervise() {
 				dmlog.Infof(nil, "toolclient: reconnected")
 				pc.resyncAfterReconnect()
 				pc.resyncRecords()
+				pc.resyncEdge()
 				break
 			}
 			fails++
@@ -462,6 +467,8 @@ type wireMsg struct {
 	// Reason·Agent 는 attn push 다 (§3.3a).
 	Reason string             `json:"reason"`
 	Agent  toolhub.AgentState `json:"agent"`
+	// Paired 는 edges push 다 (PEER_DAEMON_SRS §3.5a).
+	Paired string `json:"paired"`
 }
 
 // readLoop decodes responses and push events for a single connection. On
