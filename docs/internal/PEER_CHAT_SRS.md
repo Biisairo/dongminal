@@ -207,6 +207,80 @@
 - **NFR-PCH-2** 디스크에 쓰는 것은 둘뿐이다: 도우미의 TOTP 비밀·서명 키(도우미 전용 파일), 간선 상대의 도우미 공개키(`edges.json` 의 필드 하나).
 - **NFR-PCH-3** 모든 노드가 동시에 다시 시작하면 모든 기록이 사라진다. 이것이 정상 동작이다.
 - **NFR-PCH-4** 새 외부 의존성을 들이지 않는다. TOTP 는 Go 표준 라이브러리(HMAC-SHA1)로 만든다.
+- **NFR-PCH-5** 채팅은 데몬 모드에서만 동작한다. 직접 모드(데몬 없음)에서는 채팅 연결을 열지 않고, MCP 를 주입하지 않으며, 화면은 "데몬 모드에서만 쓸 수 있다"고 알린다(D-PCH-35).
+
+### 3.9 단계 1 설계 (데몬의 채팅 핵심)
+
+근거 조사: 2026-11-17 (`edge.Listener`·`edge.Client`·`edgenode`·`edgerelay`·`daemon/boot/edge.go`).
+
+**자리**
+
+| 요소 | 자리 |
+|---|---|
+| 채팅 핵심 | 새 패키지 `internal/daemon/chat`. 데몬만 쓴다(NFR-PCH-5) |
+| 채팅 연결의 노드 포트 경로 | `GET /edge/v1/chat`. `edgenode.Options.Chat`(http.Handler, nil 이면 404)로 끼운다. 판정은 지금의 `Admission` 그대로다 — 짝맞춤 밖의 경로는 간선 상대만 들어온다 |
+| 채팅 연결의 발신 | `edge.Client.Upgrade(ctx, Target, path, proto) (net.Conn, error)`. 지금의 `Call` 과 같은 TLS·지문 고정 위에서 HTTP/1.1 Upgrade 를 보내고 101 을 받으면 연결을 돌려준다. 데몬은 발신 소켓을 지난다 |
+| 데몬 배선 | `daemon/boot/edge.go` 가 노드를 세운 뒤 `chat.New` 로 채팅을 세우고 `edgenode.Options.Chat` 에 넘긴다. IPC 는 단계 2 에서 붙인다 |
+
+**채팅 연결 (FR-PCH-8)**
+
+- 받는 쪽은 `Upgrade: dmchat1` 을 확인하고 연결을 넘겨받아(hijack) 101 을 쓴 뒤, `http.Server` 가 걸어 둔 시한을 지운다. 통로(`edgerelay`)는 바이트를 그대로 옮기므로 오래 사는 연결도 지난다.
+- 프레임은 한 줄에 JSON 하나다. 한 줄의 상한은 80 KiB(글 16 KiB 의 JSON 이스케이프와 서명을 덮는다)다. 넘으면 연결을 끊는다.
+- 양쪽 모두 간선 상대마다 연결을 시도한다. 같은 상대와 연결이 둘이면 지문이 작은 쪽이 건 연결을 남긴다. 실패하면 1초에서 시작해 두 배씩, 최대 60초 간격으로 다시 시도한다. 간선이 지워지면 연결을 끊고 다시 시도하지 않는다.
+- 15초마다 `ping` 프레임을 보낸다. 45초 동안 아무 프레임도 받지 못하면 끊긴 것으로 본다. 잠든 노트북처럼 TCP 가 끊김을 알리지 않는 경우를 잡는다. 이것은 연결 생존 확인이며 참가자 수명(FR-PCH-43)과 무관하다.
+
+**서명과 신원 (FR-PCH-5)**
+
+- 서명은 노드 키(ECDSA P-256)로 `SHA-256(종류 ‖ 0x00 ‖ 본문 JSON)` 에 한다. 프레임은 `{t, b, s}`(종류, 본문 원문, 서명 base64)다. 받은 쪽은 본문 원문 그대로 서명을 확인한 뒤 푼다.
+- 노드 상태 알림의 본문에 노드 공개키(SPKI DER)를 싣는다. 받은 쪽은 `SHA-256(SPKI) = 지문` 을 확인한다. 망 이웃의 키는 그 노드의 상태 알림에서 배운다. 키를 모르는 노드의 글은 버린다.
+
+**프레임 종류**
+
+| 종류 | 본문 | 비고 |
+|---|---|---|
+| `state` | `{node, key, name, epoch, seq, links[], parts[{id, label, kind, rooms[]}], rooms[생성 기록]}` | 노드 상태 알림(FR-PCH-9). `epoch` 는 데몬이 설 때의 시각(ns), `seq` 는 그 안의 번호다. (epoch, seq) 가 더 큰 것만 쓴다. `rooms` 는 자기 참가자가 든 방의 생성 기록이다 |
+| `msg` | `{id, node, epoch, seq, room, from, text, at}` | 글. `id` 는 무작위 16바이트 hex 다. 같은 `from` 의 순서는 (epoch, seq) 로 정한다(FR-PCH-32) |
+| `ping` | 없음 | 서명하지 않고 전파하지 않는다 |
+
+- 생성 기록은 `{kind, creator, name, purpose, peer, created, nonce}` 와 만든 노드의 서명이다. 방 id 는 생성 기록 본문 원문의 SHA-256 hex 다(FR-PCH-10).
+- 전파(FR-PCH-4): `state` 는 (node, epoch, seq), `msg` 는 `id` 로 처음 본 것만 받아 들인 쪽을 뺀 연결로 넘긴다. 본 `id` 는 최근 4096개만 기억한다(작은 망 기준, FR-PCH-6).
+- 한 노드의 상한: 참가자 64, 참가자 하나의 방 64. 넘는 `state` 는 버린다.
+
+**온라인 판정 (FR-PCH-10a)**
+
+- 노드 A·B 사이 간선은 A 의 최신 `state` 가 B 를, B 의 최신 `state` 가 A 를 `links` 에 담을 때만 이어진 것으로 본다. 자기에게서 이 간선들로 닿는 노드가 온라인이다.
+- 닿지 않는 노드의 마지막 `state` 는 지우지 않고 "연결 끊김"으로 둔다(FR-PCH-30). 다시 닿으면 새 `state` 가 덮는다. 메모리는 노드 수에 비례한다.
+- 방 목록(FR-PCH-21)은 온라인 노드의 `state` 에서만 모은다. 방의 참가자 목록에는 연결 끊김 노드의 참가자도 "연결 끊김"으로 보인다.
+
+**방과 참가자**
+
+- 받은 `msg` 는 그 노드의 최신 `state` 에서 `from` 이 그 방에 든 경우에만 받는다. `state` 가 같은 연결로 먼저 오므로 순서가 맞다.
+- 받은 `msg` 를 이 노드의 그 방 참가자(보낸 이 제외)에게 `Deliver(참가자, 글)` 로 넘기고 버린다(FR-PCH-24).
+- 개인채팅(FR-PCH-14~17): 만든 노드는 생성 기록을 자기 `state` 에 싣는다. 상대 노드는 받은 `state` 의 생성 기록에서 `peer` 가 자기 참가자이면 그 참가자를 그 방에 넣고 `state` 를 다시 낸다. 한쪽 노드는 상대 참가자가 그 방에 든 것을 한 번 본 뒤 그 참가자가 방을 떠난 `state` 를 받으면 자기 참가자도 뺀다. 상대가 연결 끊김이 된 것은 떠난 것이 아니다.
+- 상한(FR-PCH-55): 보내기는 16 KiB·1분 30개를 참가자마다 센다. 받는 쪽도 `from` 마다 같은 상한으로 센다.
+
+**Go 표면 (단계 2 가 IPC 로 쓴다)**
+
+`chat.New(Options) *Service` — `Options{Identity, Name func() string, Edges func() []edge.Edge, Dial func(ctx, edge.Target) (net.Conn, error), Deliver func(pid string, m Message), Now}`.
+
+| 메서드 | 하는 일 |
+|---|---|
+| `Register(label, kind) Participant`·`Unregister(pid)` | 참가자를 만들고 없앤다. 없애면 모든 방에서 나간다(FR-PCH-43) |
+| `Create(pid, name, purpose)`·`Direct(pid, peer, purpose)` | 방을 만든다 |
+| `Join(pid, room)`·`Leave(pid, room)`·`Send(pid, room, text)` | 들어가기·나가기·보내기 |
+| `Online()`·`Rooms(pid)` | 온라인 목록, 방 목록 |
+| `Handler()`·`Run(ctx)`·`Close()` | 노드 포트 경로, 연결 유지 루프, 닫기 |
+
+오류 코드는 `not_in_room`·`no_such_room`·`no_such_participant`·`too_large`·`rate_limited`·`bad_request` 다(단계 2 에서 MCP·IPC 로 그대로 나간다).
+
+**시험 (단계 1)**
+
+| TC | 방법 |
+|---|---|
+| TC-PCH-1·2·3·4·5(데몬 쪽)·10·11·12(데몬 쪽) | `chat` 패키지. 노드 여럿을 메모리 연결(`net.Pipe`)로 잇고, 연결을 끊고 잇는 것으로 갈라짐·합침을 만든다 |
+| TC-PCH-14 | `edge`·`edgenode`: 실제 TLS 위의 Upgrade. 간선 상대만 101 을 받고, 간선이 아니면 403, Upgrade 머리가 없으면 400 |
+
+**데몬 재시작**: 단계 1 을 적용하려면 필요하다. 다만 이 단계는 사용자가 쓸 표면(MCP·화면)이 없어, 적용하면 간선 상대 사이에 채팅 연결만 생긴다.
 
 ## 4. 결정 (Decisions)
 
@@ -246,6 +320,7 @@
 | D-PCH-32 | 사람 명령은 채팅 탭과 Chats 목록, 대화 속 이름의 우클릭에서 한다. 여러 대상을 한 묶음으로 고르고 OTP 는 묶음마다 한 번이다 | 사용자 결정. 승인 하나가 묶음 하나를 덮으므로 "OTP 한 번 = 승인 한 번" 원칙(D-PCH-14)은 그대로다 |
 | D-PCH-33 | 도우미는 `sudo dongminal helper install` 로 관리자 자리에 복사해 LaunchDaemon 으로 등록하고, 유닉스 소켓으로 데몬과 이야기한다. OTP 등록은 OS 기본 터미널에서 한 번, 그 뒤 입력은 dongminal 화면에서 한다 | 사용자 결정(미결 H-1). 사용자 폴더의 프로그램은 에이전트가 바꿔칠 수 있다. dongminal 탭의 화면은 에이전트가 읽을 수 있어 비밀을 보이지 않는다 |
 | D-PCH-34 | 틀린 코드 5번이면 5분 잠근다 | 사용자 결정(미결 H-2). 실수에는 넉넉하고, 마구 넣기는 1시간에 60번 안쪽이라 맞힐 수 없다 |
+| D-PCH-35 | 채팅은 데몬 모드에서만 동작한다. 직접 모드에는 채팅이 없다 | 사용자 결정. 직접 모드까지 하려면 MCP·훅·붙여넣기 길을 두 벌 두어야 한다 |
 
 ### 4.1 검토하고 버린 안
 
@@ -295,6 +370,7 @@
 | TC-PCH-11 | FR-PCH-8·9·10a | Go: 채팅 연결을 끊고 잇기 | 끊긴 쪽 너머의 노드가 바로 "연결 끊김"이 되고, 이어지면 "온라인"으로 돌아온다 |
 | TC-PCH-12 | FR-PCH-54·55 | Go: 큰 글·빠른 글·글함 넘침 | `too_large`·`rate_limited`. 201번째 글에서 가장 오래된 글이 빠지고 버린 수가 보인다 |
 | TC-PCH-13 | FR-PCH-80~87 | JS 단위 + e2e(사용자가 돌린다) | 탭 전환, 탭 개수·알람 점, 레일 아이콘, 채팅 탭, 여러 개 고르기, OTP 확인 창 |
+| TC-PCH-14 | FR-PCH-8 | Go: 실제 TLS 위의 채팅 연결 Upgrade | 간선 상대만 101. 간선이 아니면 403, Upgrade 머리가 없으면 400 |
 
 ## 6. 비목표 (Non-goals)
 
