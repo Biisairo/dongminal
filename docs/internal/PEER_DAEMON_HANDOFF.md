@@ -5,7 +5,7 @@
 
 ## 1. 착수 블록 (PEER_CHAT 단계 2)
 
-1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `1e688ca6` 이다.
+1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `HEAD` 다(아래 §3 표의 마지막 보안 수정 뒤 인계 문서 커밋).
 2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 모두 정했다(D-PCH-21~35, §9 없음). **다시 묻지 않는다.** 먼저 읽을 것:
    - §3.3 P(참가자 수명, FR-PCH-40~46), §3.4 M(MCP 도구 여덟 개, FR-PCH-50~55), §3.5 A(알림, FR-PCH-60~63), §3.8 NFR-PCH-1·5
    - §3.9 단계 1 설계 — 지금 있는 Go 표면(`chat.Service` 의 `Register`·`Unregister`·`Create`·`Direct`·`Join`·`Leave`·`Send`·`Online`·`Rooms`, `Options.Deliver`)
@@ -36,7 +36,7 @@
 | 5. 데몬이 노드 (서버는 통로·위임, 서버도 `edgenode` 사용) | 끝 | 5a `771719d5`, 5b `6ecbae5d` |
 | 6. 문서·e2e | 문서 끝. e2e 는 사용자가 재시작 뒤 확인 | `088dd549` |
 | PEER_CHAT 미결 해소 | 끝 (D-PCH-21~35) | `f4e361f7`, `f2cc6743` |
-| PEER_CHAT 단계 1 (데몬의 채팅 핵심) | 끝 | 설계 `c7753b43`, Upgrade `0f08acc1`, 핵심 `a9793300`, 보안 수정 `0ab24a2c`·`1e688ca6` |
+| PEER_CHAT 단계 1 (데몬의 채팅 핵심) | 끝 | 설계 `c7753b43`, Upgrade `0f08acc1`, 핵심 `a9793300`, 보안 수정 `0ab24a2c`·`1e688ca6`·`544e1800` |
 | PEER_CHAT 단계 2 (MCP·알림) | **다음** | |
 
 > 2026-11-17 사용자 결정으로 범위가 바뀌었다(SRS D-PDM-13~17). 아래 §3.2·§3.3 의 명령 관련 조사·설계는 낡았다. 명령이 없어지므로 화면 요청(`peerui`)도 없다.
@@ -115,7 +115,7 @@
 
 - 채팅 핵심은 `internal/daemon/chat`(errors·frame·service·link·view·limit). 노드 포트 경로 `/edge/v1/chat` 는 `edge.AcceptUpgrade`(받는 쪽)·`edge.Client.Upgrade`(거는 쪽)·`edgenode.Options.Chat` 으로 끼웠다. 데몬 배선은 `daemon/boot/edge.go` `startChat` 이다. 지금 `Options.Deliver` 는 nil 이다 — 단계 2 에서 MCP 연결로 잇는다. `chat.Service` 는 `PanedServer` 에 아직 넘기지 않았다.
 - 시험은 `chat_test.go` 의 `net.Pipe` 메모리 연결과 `fakePeer`(서명한 프레임을 손으로 넣음)로 한다. 가짜 참가자 id 는 `f.pid("x")` 로 노드 접두어를 붙인다.
-- 참가자 id 는 `<노드 지문 앞 16자리>-<무작위 32자리>` 다(`idPrefix`). MCP·화면에서 id 앞자리를 보일 때는 접두어 뒤를 보여야 구분된다.
+- 참가자 id 는 `<노드 지문 전체 64자리>-<무작위 32자리>` 다(`idPrefix`). MCP·화면에서 id 를 줄여 보일 때는 접두어 뒤를 보여야 구분된다.
 - **자동 보안 검토(플러그인)가 커밋마다 돈다.** 단계 1 에서 두 번 지적을 받아 고쳤다: 개인채팅에 제3 노드가 끼어듦, 참가자 id 사칭·선점, 재전송, 본문 제어 문자, 아는 노드 상한과 그 부작용. 새 경로를 만들 때 "망의 아무 노드나 악의적일 수 있다"를 먼저 따진다. 단, 개인채팅 글이 망 전체로 퍼지는 것은 사용자 결정(D-PCH-21, FR-PCH-15)이라 고치지 않는다.
 - 상태 알림은 자기 내용이 바뀔 때만 낸다. 처음에는 남의 알림을 받을 때마다 다시 알려 노드끼리 끝없이 주고받았다(시험이 못 잡았다 — `TestStateAnnouncementsSettle` 로 잡는다).
 - IRC 방식의 경합: 들어가기 직전에 보낸 글이 들어간 뒤 도착하면 받는다. 시험에서는 같은 연결로 뒤따르는 상태 알림을 기다려 순서를 맞춘다.
