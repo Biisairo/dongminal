@@ -52,7 +52,7 @@
 - **FR-EPR-5** 양쪽은 맺은 뒤 `edges_changed` `{paired:{fp, name}}` 를 낸다. 화면은 "{name}(지문 앞자리)와 맺었습니다" 알림을 띄운다. 데몬 IPC push `edges` 도 같은 값(`paired`·`removed` 객체)을 싣는다.
 - **FR-EPR-6** 다시 시도: B 는 쓴 토큰을 그 초대가 만료될 때까지 쓴 지문과 함께 기억한다. 같은 지문이 같은 토큰으로 다시 오면 200 으로 답한다(응답이 중간에 끊긴 A 가 다시 시도하는 경우). 다른 지문에게는 이미 초대가 없으므로 403 `edge_no_invite` 다. 살아 있는 초대에 틀린 토큰은 지금처럼 403 `edge_token_invalid` 다. 그 지문의 간선을 지우거나(어느 쪽이 지웠든) 새 초대를 만들면 다시 시도 기억도 지운다 — 끊은 상대가 같은 코드로 다시 맺지 못한다(보안 검토).
 - **FR-EPR-7** 이미 간선인 지문과 다시 맺으면 간선 하나로 남는다. 주소·표시 이름만 바뀌고 고정한 도우미 키(`helperKey`)는 남는다(PEER_CHAT §3.12a R-2).
-- **FR-EPR-8** 상대 이름이 표시 이름 규칙(제어 문자 없음, 64바이트 안)에 맞지 않으면 거절하지 않고 `DefaultName` 으로 고쳐 저장한다.
+- **FR-EPR-8** 상대 이름이 표시 이름 규칙(제어 문자 없음, 64바이트 안)에 맞지 않으면 거절하지 않고 `DefaultName` 으로 고쳐 저장한다 — 노드 이름 규칙(영문·숫자·`.`·`_`·`-`, 32자)에 맞게, 허용하지 않는 글자는 `-` 로 바꾸고 자른 값이다. 정상 노드는 늘 노드 이름 규칙에 맞는 이름을 알리므로 이 경로는 비정상 상대일 때만 탄다.
 
 ### 3.2 묶음 D — 지우기
 
@@ -86,7 +86,7 @@
 
 dmctl
 
-- **FR-EPR-60** `dmctl edges`(목록), `dmctl edge invite [--addr]`, `dmctl edge add <코드>`, `dmctl edge remove <지문 앞자리>`. `approve`·`reject`·`--name` 은 없앤다. 목록 줄은 `edge fp=<앞 16자리> name=<표시 이름> addr=<주소:포트>` 다. 승인 대기 줄은 없다.
+- **FR-EPR-60** `dmctl edges`(목록), `dmctl edge invite [--addr]`, `dmctl edge add <코드>`, `dmctl edge remove <지문 앞자리>`. `approve`·`reject`·`--name` 은 없앤다. 목록 줄은 `edge     fp=<앞 16자리>  name=<표시 이름>  addr=<주소:포트>` 다(필드 사이는 `node` 줄과 같이 공백 둘, 주소를 모르면 `addr=-`). 승인 대기 줄은 없다.
 
 화면 (설정 ▸ Edges)
 
@@ -131,7 +131,7 @@ dmctl
 | TC | 대상 | 방법 | 기대 |
 |---|---|---|---|
 | TC-EPR-1 | FR-EPR-1~5 | Go `edgenode`: 실제 TLS 두 노드, A 의 노드 포트는 닫음 | `add` 한 번으로 양쪽이 간선이다. 응답에 B 의 이름. 양쪽 Notify `paired` |
-| TC-EPR-2 | FR-EPR-6 | 같은 지문·같은 토큰으로 두 번, 다른 지문이 쓴 토큰 | 두 번째도 200. 다른 지문은 401 |
+| TC-EPR-2 | FR-EPR-6 | 같은 지문·같은 토큰으로 두 번, 다른 지문이 쓴 토큰 | 두 번째도 200. 다른 지문은 403 `edge_no_invite` |
 | TC-EPR-3 | FR-EPR-7 | 고정한 `helperKey` 가 있는 간선과 다시 맺기 | 간선 하나, `helperKey` 남음 |
 | TC-EPR-4 | FR-EPR-20·21·23 | 두 노드가 켜진 채 한쪽에서 지우기 | 양쪽에서 지워지고 `notified:true`, 양쪽 Notify `removed` |
 | TC-EPR-5 | FR-EPR-22 | 상대를 끈 채 지우고(`notified:false`), 상대가 채팅 연결을 걸게 함 | 상대가 403 `edge_not_edge` 를 받고 간선을 지운다 |
