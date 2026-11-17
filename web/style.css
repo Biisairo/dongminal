@@ -312,7 +312,7 @@ textarea,
 .sbl-item.si-group.folded .sbl-dot{border-top:4px solid transparent;border-bottom:4px solid transparent;
   border-left:5px solid var(--text-muted);border-right:0}
 .sbl-badge.si-group-count{background:transparent;color:var(--text-hint)}
-.sbl-item.si-in-group{padding-left:22px}
+.sbl-item.si-in-group{--sb-indent:22px;padding-left:var(--sb-indent);position:relative}
 /* 샌드박스 프로파일 선택. 등급이 이름 옆에 붙어, 무엇을 고르는지가 고르는
    자리에서 보인다 (FR-SBX-25). */
 .confirm-btns.sbx-pick{flex-wrap:wrap}
@@ -1893,6 +1893,13 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 /* ── Drag reorder indicators ── */
 .sbl-item.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
 .sbl-item.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
+/* ISSUE_AGENT_TREE_SRS FR-WGR-24: 그룹 안에 놓이는 선은 들여쓴 자리부터, 그룹 밖(.drag-out)에
+   놓이는 선은 행 전체 폭이다 — 선의 길이로 안과 밖을 읽는다. */
+.sbl-item.si-in-group.drag-above:not(.drag-out),.sbl-item.si-in-group.drag-below:not(.drag-out){box-shadow:none}
+.sbl-item.si-in-group.drag-above:not(.drag-out)::after,.sbl-item.si-in-group.drag-below:not(.drag-out)::after{
+  content:'';position:absolute;left:var(--sb-indent);right:0;height:2px;background:var(--accent);pointer-events:none}
+.sbl-item.si-in-group.drag-above:not(.drag-out)::after{top:0}
+.sbl-item.si-in-group.drag-below:not(.drag-out)::after{bottom:0}
 /* UX_REVISION_SRS FR-MOV-7: 탭을 받는 창. 재배치의 위/아래 선과 뜻이 다르므로
    표식도 다르다 — 테두리 전체를 두르면 "이 안으로" 가 한눈에 읽힌다. */
 .sbl-item.drop-into{box-shadow:inset 0 0 0 2px var(--accent);background-color:var(--accent-hover)}

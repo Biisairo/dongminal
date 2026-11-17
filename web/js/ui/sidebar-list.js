@@ -292,7 +292,7 @@ const SidebarList = {
     const d = def.list;
     const list = document.getElementById(d.containerId);
     const clear = () => list && list.querySelectorAll('.sbl-item').forEach(x =>
-      x.classList.remove('drag-above', 'drag-below'));
+      x.classList.remove('drag-above', 'drag-below', 'drag-out'));
     el.draggable = true;
     el.addEventListener('dragstart', e => {
       // FR-RAL-9: 레일에서는 재배치를 하지 않는다 — 40px 폭에서 위/아래 절반을
@@ -309,7 +309,10 @@ const SidebarList = {
       const rect = el.getBoundingClientRect();
       const before = (e.clientY - rect.top) < rect.height / 2;
       dr.target = r.key; dr.before = before;
+      // 서술자가 가로 위치로 "담는 곳 밖" 을 가를 수 있다 (ISSUE_AGENT_TREE_SRS FR-WGR-24).
+      dr.out = !!(d.reorder.outside && d.reorder.outside(app, r, el, e.clientX - rect.left, before));
       el.classList.add(before ? 'drag-above' : 'drag-below');
+      if (dr.out) el.classList.add('drag-out');
     });
     el.addEventListener('drop', e => {
       const dr = app.drag; if (!dr || dr.type !== d.reorder.type) return;
