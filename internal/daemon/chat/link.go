@@ -22,8 +22,6 @@ const (
 	maxLine = 1 << 20
 	// outQueue 는 연결 하나의 보낼 줄 상한이다. 넘치면 느린 상대로 보고 끊는다.
 	outQueue = 1024
-	// seenCap 은 기억하는 글 id 의 수다 (FR-PCH-4, 작은 망 기준).
-	seenCap = 4096
 	// 다시 걸기 간격의 처음과 끝이다 (FR-PCH-8).
 	redialMin = time.Second
 	redialMax = 60 * time.Second
@@ -193,20 +191,22 @@ func (s *Service) broadcastLocked(fr frame, skip *peerLink) {
 	}
 }
 
-// acceptStateLocked 는 바르고 더 새로운 노드 상태 알림만 받는다 (FR-PCH-5·9).
+// acceptStateLocked 는 바르고 더 새로운 노드 상태 알림만 받는다 (FR-PCH-5·9·20).
 func (s *Service) acceptStateLocked(fr frame) bool {
 	var st stateBody
 	if json.Unmarshal(fr.B, &st) != nil || st.Node == s.id.Fingerprint {
 		return false
 	}
 	pub, ok := parseKey(st.Node, st.Key)
-	if !ok || !verify(pub, frameState, fr.B, fr.S) || !validState(st) {
+	if !ok || !verify(pub, frameState, fr.B, fr.S) || !validState(st) || s.claimsOthersLocked(st) {
 		return false
 	}
 	if old, ok := s.nodes[st.Node]; ok {
 		if st.Epoch < old.st.Epoch || st.Epoch == old.st.Epoch && st.Seq <= old.st.Seq {
 			return false
 		}
+	} else if len(s.nodes) >= maxNodes && !s.evictLocked() {
+		return false
 	}
 	rooms := map[string]room{}
 	for _, rec := range st.Rooms {
@@ -214,12 +214,54 @@ func (s *Service) acceptStateLocked(fr frame) bool {
 			rooms[rec.id()] = room{rec: rec, body: b}
 		}
 	}
-	s.nodes[st.Node] = &remote{st: st, key: pub, raw: fr, rooms: rooms}
+	s.nodes[st.Node] = &remote{st: st, key: pub, raw: fr, rooms: rooms, at: s.now()}
+	return true
+}
+
+// claimsOthersLocked 는 st 가 이 노드나 다른 노드의 참가자 id 를 주장하는지다. 노드는 자기
+// 참가자에 대해서만 말한다 (FR-PCH-20).
+func (s *Service) claimsOthersLocked(st stateBody) bool {
+	for _, sp := range st.Parts {
+		if _, ok := s.parts[sp.ID]; ok {
+			return true
+		}
+		for fp, r := range s.nodes {
+			if fp == st.Node {
+				continue
+			}
+			for _, q := range r.st.Parts {
+				if q.ID == sp.ID {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// evictLocked 는 닿지 않는 노드 가운데 가장 오래 소식이 없는 것을 잊는다. 잊을 것이 없으면 거짓이다.
+func (s *Service) evictLocked() bool {
+	reach := s.reachableLocked()
+	victim := ""
+	var at time.Time
+	for fp, r := range s.nodes {
+		if reach[fp] {
+			continue
+		}
+		if victim == "" || r.at.Before(at) {
+			victim, at = fp, r.at
+		}
+	}
+	if victim == "" {
+		return false
+	}
+	delete(s.nodes, victim)
+	delete(s.wins, victim)
 	return true
 }
 
 func validState(st stateBody) bool {
-	if len(st.Parts) > maxParts || len(st.Rooms) > maxNodeRooms || len(st.Links) > maxParts || !validText(st.Name, maxName) {
+	if len(st.Parts) > maxParts || len(st.Rooms) > maxNodeRooms || len(st.Links) > maxNodes || !validText(st.Name, maxName) {
 		return false
 	}
 	for _, p := range st.Parts {
@@ -231,20 +273,33 @@ func validState(st stateBody) bool {
 }
 
 // acceptMsgLocked 는 처음 보는 바른 글을 받고, 이 노드의 그 방 참가자에게 넘길 것을 돌려준다.
-// 보낸 노드의 최신 상태에서 보낸 이가 그 방에 들어 있어야 한다 (§3.9).
+// 보낸 노드의 최신 상태에서 보낸 이가 그 방에 들어 있어야 하고, 개인채팅이면 두 참가자 중
+// 하나여야 한다. 같은 글과 지난 글은 보낸 노드마다의 순서 창으로 거른다 (§3.9).
 func (s *Service) acceptMsgLocked(fr frame) ([]pending, bool) {
 	var b msgBody
-	if json.Unmarshal(fr.B, &b) != nil || b.Node == s.id.Fingerprint || !validID(b.ID) || b.ID == "" || s.seen.has(b.ID) {
+	if json.Unmarshal(fr.B, &b) != nil || b.Node == s.id.Fingerprint || !validID(b.ID) || b.ID == "" {
 		return nil, false
 	}
 	r, ok := s.nodes[b.Node]
-	if !ok || !verify(r.key, frameMsg, fr.B, fr.S) || len(b.Text) > MaxText || !partInRoom(r.st, b.From, b.Room) {
+	if !ok || b.Epoch != r.st.Epoch || !verify(r.key, frameMsg, fr.B, fr.S) ||
+		len(b.Text) > MaxText || !validBody(b.Text) || !partInRoom(r.st, b.From, b.Room) {
+		return nil, false
+	}
+	rm, ok := s.recordLocked(b.Room)
+	if !ok || !partyOK(rm, b.Node, b.From) {
+		return nil, false
+	}
+	w := s.wins[b.Node]
+	if w == nil {
+		w = &seqWindow{}
+		s.wins[b.Node] = w
+	}
+	if !w.accept(b.Epoch, b.Seq) {
 		return nil, false
 	}
 	if !s.recvRate.allow(b.Node + "/" + b.From) {
 		return nil, false
 	}
-	s.seen.add(b.ID)
 	label := ""
 	for _, sp := range r.st.Parts {
 		if sp.ID == b.From {

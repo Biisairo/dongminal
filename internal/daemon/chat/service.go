@@ -35,6 +35,8 @@ const (
 	maxPurpose   = 512
 	maxLabel     = 128
 	maxID        = 64
+	// maxNodes 는 아는 노드의 상한이다. 넘으면 닿지 않는 노드부터 잊는다.
+	maxNodes = 256
 )
 
 // Participant 는 이 노드의 참가자 하나다.
@@ -125,6 +127,8 @@ type remote struct {
 	key   *ecdsa.PublicKey
 	raw   frame
 	rooms map[string]room
+	// at 은 이 노드의 상태를 마지막으로 받은 때다.
+	at time.Time
 }
 
 // Service 는 이 노드의 채팅이다.
@@ -146,10 +150,10 @@ type Service struct {
 	rooms map[string]room
 	nodes map[string]*remote
 	links map[string]*peerLink
+	wins  map[string]*seqWindow
 	own   frame
 	// ownContent 는 마지막으로 알린 자기 상태의 내용(순서 번호 제외)이다.
 	ownContent string
-	seen       *seenSet
 	sendRate   *limiter
 	recvRate   *limiter
 	dialing    map[string]*dialState
@@ -169,7 +173,7 @@ func New(o Options) *Service {
 		epoch: now().UnixNano(),
 		parts: map[string]*participant{}, rooms: map[string]room{},
 		nodes: map[string]*remote{}, links: map[string]*peerLink{},
-		seen: newSeenSet(seenCap), dialing: map[string]*dialState{},
+		wins: map[string]*seqWindow{}, dialing: map[string]*dialState{},
 		done: make(chan struct{}),
 	}
 	s.sendRate = newLimiter(PerMinute, time.Minute, s.clock)
@@ -270,13 +274,14 @@ func (s *Service) Direct(pid, peer, purpose string) (RoomInfo, error) {
 	if err != nil {
 		return RoomInfo{}, err
 	}
-	if peer == pid || !s.onlinePartLocked(peer) {
+	peerNode, ok := s.onlinePartLocked(peer)
+	if peer == pid || !ok {
 		return RoomInfo{}, fail(CodeNoSuchParticipant, peer)
 	}
 	if err := s.roomCapLocked(p); err != nil {
 		return RoomInfo{}, err
 	}
-	rec, err := newRecord(s.id, recordBody{Kind: KindDirect, Owner: pid, Peer: peer, Purpose: purpose, Created: s.now(), Nonce: randomHex(16)})
+	rec, err := newRecord(s.id, recordBody{Kind: KindDirect, Owner: pid, Peer: peer, PeerNode: peerNode, Purpose: purpose, Created: s.now(), Nonce: randomHex(16)})
 	if err != nil {
 		return RoomInfo{}, err
 	}
@@ -345,7 +350,7 @@ func (s *Service) Send(pid, roomID, text string) error {
 		s.mu.Unlock()
 		return fail(CodeTooLarge, "text")
 	}
-	if text == "" {
+	if text == "" || !validBody(text) {
 		s.mu.Unlock()
 		return fail(CodeBadRequest, "text")
 	}
@@ -360,7 +365,6 @@ func (s *Service) Send(pid, roomID, text string) error {
 		s.mu.Unlock()
 		return err
 	}
-	s.seen.add(body.ID)
 	s.broadcastLocked(fr, nil)
 	out := s.localDeliveriesLocked(body, p.Label)
 	s.mu.Unlock()
@@ -515,7 +519,7 @@ func (s *Service) reactLocked() bool {
 			continue
 		}
 		for id, rm := range r.rooms {
-			if rm.body.Kind != KindDirect || rm.body.Creator != r.st.Node {
+			if rm.body.Kind != KindDirect || rm.body.Creator != r.st.Node || rm.body.PeerNode != s.id.Fingerprint {
 				continue
 			}
 			q, ok := s.parts[rm.body.Peer]
@@ -534,11 +538,11 @@ func (s *Service) reactLocked() bool {
 			if !ok || rm.body.Kind != KindDirect {
 				continue
 			}
-			other := rm.body.Peer
+			other, node := rm.body.Peer, rm.body.PeerNode
 			if p.ID == rm.body.Peer {
-				other = rm.body.Owner
+				other, node = rm.body.Owner, rm.body.Creator
 			}
-			switch s.whereLocked(other, id) {
+			switch s.whereLocked(node, other, id) {
 			case presentInRoom:
 				if !p.peerSeen[id] {
 					p.peerSeen[id] = true
@@ -563,30 +567,35 @@ const (
 	unreachable
 )
 
-// whereLocked 는 참가자 pid 가 방 roomID 에 들어 있는지다. 닿지 않는 노드의 참가자는 모른다.
-func (s *Service) whereLocked(pid, roomID string) whereabouts {
-	if q, ok := s.parts[pid]; ok {
-		if q.rooms[roomID] {
+// whereLocked 는 노드 node 의 참가자 pid 가 방 roomID 에 들어 있는지다. 닿지 않는 노드의
+// 참가자는 모른다.
+func (s *Service) whereLocked(node, pid, roomID string) whereabouts {
+	if node == s.id.Fingerprint {
+		if q, ok := s.parts[pid]; ok && q.rooms[roomID] {
 			return presentInRoom
 		}
 		return absent
 	}
-	reach := s.reachableLocked()
-	for fp, r := range s.nodes {
-		for _, sp := range r.st.Parts {
-			if sp.ID != pid {
-				continue
-			}
-			if !reach[fp] {
-				return unreachable
-			}
-			if partInRoom(r.st, pid, roomID) {
-				return presentInRoom
-			}
-			return absent
-		}
+	r, ok := s.nodes[node]
+	if !ok {
+		return absent
+	}
+	if !s.reachableLocked()[node] {
+		return unreachable
+	}
+	if partInRoom(r.st, pid, roomID) {
+		return presentInRoom
 	}
 	return absent
+}
+
+// partyOK 는 노드 node 의 참가자 pid 가 방 rm 에 들 수 있는지다. 개인채팅은 두 참가자가
+// 각자의 노드에 묶인다 — 만든 이는 만든 노드, 상대는 기록에 서명된 상대 노드다.
+func partyOK(rm room, node, pid string) bool {
+	if rm.body.Kind != KindDirect {
+		return true
+	}
+	return pid == rm.body.Owner && node == rm.body.Creator || pid == rm.body.Peer && node == rm.body.PeerNode
 }
 
 func partInRoom(st stateBody, pid, roomID string) bool {
@@ -603,9 +612,10 @@ func partInRoom(st stateBody, pid, roomID string) bool {
 	return false
 }
 
-func (s *Service) onlinePartLocked(pid string) bool {
+// onlinePartLocked 는 온라인 참가자 pid 가 있는 노드다.
+func (s *Service) onlinePartLocked(pid string) (string, bool) {
 	if _, ok := s.parts[pid]; ok {
-		return true
+		return s.id.Fingerprint, true
 	}
 	reach := s.reachableLocked()
 	for fp, r := range s.nodes {
@@ -614,9 +624,9 @@ func (s *Service) onlinePartLocked(pid string) bool {
 		}
 		for _, sp := range r.st.Parts {
 			if sp.ID == pid {
-				return true
+				return fp, true
 			}
 		}
 	}
-	return false
+	return "", false
 }

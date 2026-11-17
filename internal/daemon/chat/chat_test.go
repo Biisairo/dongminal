@@ -614,3 +614,90 @@ func TestStateAnnouncementsSettle(t *testing.T) {
 		}
 	}
 }
+
+// FR-PCH-15·20 (보안 검토): 개인채팅에는 두 참가자만 쓴다. 제3의 노드가 그 방에 참가자를
+// 적거나 상대의 id 를 사칭해도 글은 전달되지 않는다.
+func TestDirectRejectsThirdNode(t *testing.T) {
+	a, b := newTestNode(t, "a"), newTestNode(t, "b")
+	link(a, b)
+	pa := a.Register("a/x", KindAgent)
+	pb := b.Register("b/x", KindAgent)
+	eventually(t, "참가자를 본다", func() bool { return len(a.Online().Participants) == 2 })
+	room, _ := a.Direct(pa.ID, pb.ID, "")
+	eventually(t, "A 가 상대의 참가를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
+
+	f := newFakePeer(t, a)
+	rec := a.recordOf(room.ID)
+	for i, from := range []string{"evil", pb.ID} {
+		f.state(t, []statePart{{ID: from, Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{rec}, []string{a.fp()})
+		fr, _ := signFrame(f.id, frameMsg, msgBody{ID: "x" + string(rune('a'+i)), Node: f.id.Fingerprint, Epoch: 1, Seq: uint64(i + 1), Room: room.ID, From: from, Text: "끼어들기", At: time.Now()})
+		f.write(t, fr)
+	}
+	never(t, "제3의 노드 글이 개인채팅에 들어온다", func() bool { return len(a.deliveries(pa.ID)) > 0 })
+	_ = b.Send(pb.ID, room.ID, "진짜")
+	eventually(t, "진짜 상대의 글은 온다", func() bool { return len(a.deliveries(pa.ID)) == 1 })
+}
+
+// FR-PCH-20 (보안 검토): 이 노드의 참가자 id 를 주장하는 남의 상태는 버린다.
+func TestStateClaimingLocalParticipantDropped(t *testing.T) {
+	a := newTestNode(t, "a")
+	pa := a.Register("a/x", KindAgent)
+	f := newFakePeer(t, a)
+	f.state(t, []statePart{{ID: pa.ID, Label: "spoof", Kind: KindAgent}}, nil, []string{a.fp()})
+	never(t, "사칭한 참가자가 목록에 선다", func() bool { return len(a.Online().Participants) > 1 })
+}
+
+// FR-PCH-4 (보안 검토): 지난 글을 다시 보내도 다시 전달되지 않는다 — id 를 잊은 뒤에도,
+// 보낸 노드가 다시 선 뒤(epoch 가 바뀐 뒤)에도.
+func TestReplayedMessageDropped(t *testing.T) {
+	a := newTestNode(t, "a")
+	pa := a.Register("a/x", KindAgent)
+	room, _ := a.Create(pa.ID, "r", "")
+	f := newFakePeer(t, a)
+	f.state(t, []statePart{{ID: "fp1", Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{a.recordOf(room.ID)}, []string{a.fp()})
+	eventually(t, "참가자를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
+	old, _ := signFrame(f.id, frameMsg, msgBody{ID: "old", Node: f.id.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: "fp1", Text: "1", At: time.Now()})
+	f.write(t, old)
+	eventually(t, "처음 글", func() bool { return len(a.deliveries(pa.ID)) == 1 })
+	f.write(t, old)
+	never(t, "같은 글이 다시 온다", func() bool { return len(a.deliveries(pa.ID)) > 1 })
+	stale, _ := signFrame(f.id, frameMsg, msgBody{ID: "stale", Node: f.id.Fingerprint, Epoch: 0, Seq: 9, Room: room.ID, From: "fp1", Text: "2", At: time.Now()})
+	f.write(t, stale)
+	never(t, "지난 epoch 의 글이 온다", func() bool { return len(a.deliveries(pa.ID)) > 1 })
+}
+
+// 보안 검토: 줄바꿈·탭 밖의 제어 문자가 든 글은 보내지도 받지도 않는다.
+func TestControlCharsRejected(t *testing.T) {
+	a := newTestNode(t, "a")
+	pa := a.Register("a/x", KindAgent)
+	room, _ := a.Create(pa.ID, "r", "")
+	mustCode(t, a.Send(pa.ID, room.ID, "a\x1b[2Jb"), CodeBadRequest)
+	if err := a.Send(pa.ID, room.ID, "줄\n바꿈\t탭"); err != nil {
+		t.Fatalf("줄바꿈·탭: %v", err)
+	}
+	f := newFakePeer(t, a)
+	f.state(t, []statePart{{ID: "fp1", Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{a.recordOf(room.ID)}, []string{a.fp()})
+	eventually(t, "참가자를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
+	fr, _ := signFrame(f.id, frameMsg, msgBody{ID: "esc", Node: f.id.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: "fp1", Text: "\x1b]0;x\x07", At: time.Now()})
+	f.write(t, fr)
+	never(t, "제어 문자 글이 온다", func() bool { return len(a.deliveries(pa.ID)) > 0 })
+}
+
+// 보안 검토: 아는 노드 수에 상한이 있다. 가득 차면 닿지 않는 노드부터 잊는다.
+func TestRemoteNodesCapped(t *testing.T) {
+	a := newTestNode(t, "a")
+	f := newFakePeer(t, a)
+	for range maxNodes + 10 {
+		id, err := edge.LoadOrCreateIdentity(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		fr, _ := signFrame(id, frameState, stateBody{Node: id.Fingerprint, Key: publicKeyOf(id), Name: "n", Epoch: 1, Seq: 1})
+		f.write(t, fr)
+	}
+	f.state(t, nil, nil, []string{a.fp()})
+	eventually(t, "직접 이어진 노드는 남는다", func() bool { return nodeOnline(a, f.id.Fingerprint) })
+	if n := len(a.Online().Nodes) - 1; n > maxNodes {
+		t.Fatalf("아는 노드 %d > %d", n, maxNodes)
+	}
+}

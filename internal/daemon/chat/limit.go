@@ -41,27 +41,39 @@ func (l *limiter) allow(key string) bool {
 	return true
 }
 
-// seenSet 은 최근 본 글 id 다. 가득 차면 가장 오래된 것부터 잊는다 (FR-PCH-4).
-type seenSet struct {
-	ids  map[string]bool
-	ring []string
-	next int
+// replayWindow 는 보낸 노드마다 기억하는 순서 번호의 폭이다.
+const replayWindow = 1024
+
+// seqWindow 는 보낸 노드 하나의 글 순서 창이다. 같은 글과 창보다 오래된 글, 지난 epoch 의
+// 글을 거른다 (FR-PCH-4). 글 id 를 기억하는 집합과 달리 오래 지나도 잊지 않는다.
+type seqWindow struct {
+	epoch int64
+	max   uint64
+	bits  [replayWindow]bool
 }
 
-func newSeenSet(n int) *seenSet {
-	return &seenSet{ids: make(map[string]bool, n), ring: make([]string, n)}
-}
-
-func (s *seenSet) has(id string) bool { return s.ids[id] }
-
-func (s *seenSet) add(id string) {
-	if s.ids[id] {
-		return
+func (w *seqWindow) accept(epoch int64, seq uint64) bool {
+	if epoch < w.epoch || seq == 0 {
+		return false
 	}
-	if old := s.ring[s.next]; old != "" {
-		delete(s.ids, old)
+	if epoch > w.epoch {
+		*w = seqWindow{epoch: epoch}
 	}
-	s.ring[s.next] = id
-	s.ids[id] = true
-	s.next = (s.next + 1) % len(s.ring)
+	switch {
+	case seq > w.max:
+		if seq-w.max >= replayWindow {
+			w.bits = [replayWindow]bool{}
+		} else {
+			for i := w.max + 1; i < seq; i++ {
+				w.bits[i%replayWindow] = false
+			}
+		}
+		w.max = seq
+	case w.max-seq >= replayWindow:
+		return false
+	case w.bits[seq%replayWindow]:
+		return false
+	}
+	w.bits[seq%replayWindow] = true
+	return true
 }

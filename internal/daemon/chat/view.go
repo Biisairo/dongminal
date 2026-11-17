@@ -101,7 +101,7 @@ func (s *Service) claimedLocked() map[string]room {
 				if _, ok := out[id]; ok {
 					continue
 				}
-				if rm, ok := s.recordLocked(id); ok {
+				if rm, ok := s.recordLocked(id); ok && partyOK(rm, fp, sp.ID) {
 					out[id] = rm
 				}
 			}
@@ -156,7 +156,7 @@ func (s *Service) roomInfoLocked(pid, id string) RoomInfo {
 	reach := s.reachableLocked()
 	for fp, n := range s.nodes {
 		for _, sp := range n.st.Parts {
-			if partInRoom(n.st, sp.ID, id) {
+			if partInRoom(n.st, sp.ID, id) && partyOK(r, fp, sp.ID) {
 				info.Members = append(info.Members, Member{ID: sp.ID, Label: sp.Label, Kind: sp.Kind, Node: fp, Online: reach[fp]})
 			}
 		}

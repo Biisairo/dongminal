@@ -67,15 +67,17 @@ type msgBody struct {
 // recordBody 는 방의 생성 기록이다 (FR-PCH-10·14). Key 는 만든 노드의 공개키라서, 만든
 // 노드를 모르는 노드도 기록 하나로 서명을 확인한다.
 type recordBody struct {
-	Kind    string    `json:"kind"`
-	Creator string    `json:"creator"`
-	Key     string    `json:"key"`
-	Owner   string    `json:"owner,omitempty"`
-	Peer    string    `json:"peer,omitempty"`
-	Name    string    `json:"name,omitempty"`
-	Purpose string    `json:"purpose,omitempty"`
-	Created time.Time `json:"created"`
-	Nonce   string    `json:"nonce"`
+	Kind    string `json:"kind"`
+	Creator string `json:"creator"`
+	Key     string `json:"key"`
+	Owner   string `json:"owner,omitempty"`
+	Peer    string `json:"peer,omitempty"`
+	// PeerNode 는 개인채팅 상대가 있는 노드다. 두 참가자를 각자의 노드에 묶는다.
+	PeerNode string    `json:"peerNode,omitempty"`
+	Name     string    `json:"name,omitempty"`
+	Purpose  string    `json:"purpose,omitempty"`
+	Created  time.Time `json:"created"`
+	Nonce    string    `json:"nonce"`
 }
 
 // signedRecord 는 생성 기록 원문과 서명이다.
@@ -191,7 +193,7 @@ func openRecord(r signedRecord) (recordBody, bool) {
 	case KindGroup:
 		ok = validText(b.Name, maxName) && b.Name != "" && b.Peer == ""
 	case KindDirect:
-		ok = b.Owner != "" && b.Peer != "" && b.Owner != b.Peer
+		ok = b.Owner != "" && b.Peer != "" && b.Owner != b.Peer && b.PeerNode != "" && validID(b.PeerNode)
 	default:
 		ok = false
 	}
@@ -210,6 +212,23 @@ func validText(s string, max int) bool {
 		return false
 	}
 	for _, r := range s {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return false
+		}
+	}
+	return true
+}
+
+// validBody 는 글 본문인지 본다. 줄바꿈과 탭만 받고 다른 제어 문자는 받지 않는다 — 본문은
+// 도구 결과와 화면에 찍힌다.
+func validBody(s string) bool {
+	if !utf8.ValidString(s) {
+		return false
+	}
+	for _, r := range s {
+		if r == '\n' || r == '\t' {
+			continue
+		}
 		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
 			return false
 		}
