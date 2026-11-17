@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"time"
 
 	"dongminal/internal/shared/dmlog"
@@ -17,8 +19,6 @@ const (
 	// cmdSeenFor 는 본 명령 id 를 기억하는 시간, maxSeenCmds 는 그 수의 상한이다.
 	cmdSeenFor  = 10 * time.Minute
 	maxSeenCmds = 4096
-	// maxHelperKey 는 도우미 공개키(Ed25519 base64) 문자열의 상한이다.
-	maxHelperKey = 64
 )
 
 // Node 는 이 노드의 지문이다.
@@ -127,7 +127,9 @@ func (s *Service) applyCmdLocked(b humancmd.Body) {
 }
 
 // trustedKeyLocked 는 노드 node 의 믿는 도우미 키다 (FR-PCH-74, D-PCH-39). 자기는 자기 도우미 키,
-// 간선 상대는 고정한 키, 망 이웃은 닿는 노드들이 알린 고정값이 모두 같을 때 그 키다.
+// 간선 상대는 고정한 키다. 망 이웃은 그 노드와 서로 이어진(양쪽 상태의 links 에 서로 있는) 닿는
+// 노드들, 곧 그 노드의 간선 상대들이 알린 고정값이 모두 같고 그 노드 자신이 알린 helper 와도
+// 같을 때 그 키다. 간선이 아닌 노드의 고정값은 세지 않는다.
 func (s *Service) trustedKeyLocked(node string) (string, bool) {
 	if node == s.id.Fingerprint {
 		return s.helperKey, s.helperKey != ""
@@ -135,17 +137,40 @@ func (s *Service) trustedKeyLocked(node string) (string, bool) {
 	if e, ok := s.edgeLocked(node); ok {
 		return e.HelperKey, e.HelperKey != ""
 	}
+	target, ok := s.nodes[node]
+	if !ok || target.st.Helper == "" {
+		return "", false
+	}
 	reach := s.reachableLocked()
 	var pins []string
 	for fp, r := range s.nodes {
-		if fp == node || !reach[fp] {
+		if fp == node || !reach[fp] || !listsLink(r.st, node) || !listsLink(target.st, fp) {
 			continue
 		}
 		if k, ok := r.st.Pins[node]; ok {
 			pins = append(pins, k)
 		}
 	}
-	return agreed(pins)
+	k, ok := agreed(pins)
+	return k, ok && k == target.st.Helper
+}
+
+func listsLink(st stateBody, fp string) bool {
+	for _, l := range st.Links {
+		if l == fp {
+			return true
+		}
+	}
+	return false
+}
+
+// validHelperKey 는 빈 값이거나 32바이트 Ed25519 공개키의 base64 인지 본다.
+func validHelperKey(k string) bool {
+	if k == "" {
+		return true
+	}
+	raw, err := base64.StdEncoding.DecodeString(k)
+	return err == nil && len(raw) == ed25519.PublicKeySize
 }
 
 // agreed 는 고정값이 하나 이상이고 모두 같을 때 그 값이다.

@@ -3,6 +3,7 @@ package chat
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -241,5 +242,43 @@ func TestAgreedPins(t *testing.T) {
 		if got != c.want || ok != c.ok {
 			t.Errorf("agreed(%v) = %q,%v", c.pins, got, ok)
 		}
+	}
+}
+
+// 보증은 대상 노드와 서로 이어진 간선 상대의 고정값만 센다. 간선이 아닌 노드가 실은 다른 키는
+// 믿음을 바꾸지 못한다 (보안 검토).
+func TestNonAdjacentPinIgnored(t *testing.T) {
+	a, _, c, _, _, _, _ := triangle(t)
+	f := newFakePeer(t, a.testNode)
+	_, other, _ := ed25519.GenerateKey(rand.Reader)
+	st := stateBody{Node: f.id.Fingerprint, Key: publicKeyOf(f.id), Name: "fake", Epoch: 1, Seq: 1,
+		Links: []string{a.fp()}, Pins: map[string]string{c.fp(): humancmd.PublicKey(other)}}
+	fr, err := signFrame(f.id, frameState, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.write(t, fr)
+	eventually(t, "A 가 가짜 노드를 온라인으로 본다", func() bool { return nodeOnline(a.testNode, f.id.Fingerprint) })
+	k, ok := a.trustedKey(c.fp())
+	if !ok || k != c.HelperKey() {
+		t.Fatalf("C 의 키 = %q,%v — 간선이 아닌 노드의 고정값에 흔들렸다", k, ok)
+	}
+}
+
+// 대상 노드 자신이 알린 helper 와 다른 보증은 믿지 않는다.
+func TestPinMustMatchOwnHelper(t *testing.T) {
+	a, _, c, _, _, _, _ := triangle(t)
+	_, other, _ := ed25519.GenerateKey(rand.Reader)
+	c.SetHelper(humancmd.PublicKey(other))
+	eventually(t, "A 가 C 를 믿지 않는다", func() bool { _, ok := a.trustedKey(c.fp()); return !ok })
+}
+
+func TestHelperKeyShape(t *testing.T) {
+	_, priv, _ := ed25519.GenerateKey(rand.Reader)
+	if !validHelperKey(humancmd.PublicKey(priv)) || !validHelperKey("") {
+		t.Fatal("바른 키를 거절했다")
+	}
+	if validHelperKey("abc") || validHelperKey(strings.Repeat("A", 44)+"x") {
+		t.Fatal("틀린 키를 받았다")
 	}
 }

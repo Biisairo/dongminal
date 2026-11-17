@@ -316,11 +316,11 @@ func validState(st stateBody) bool {
 	if len(st.Parts) > maxParts || len(st.Rooms) > maxNodeRooms || len(st.Links) > maxNodes || !validText(st.Name, maxName) {
 		return false
 	}
-	if len(st.Helper) > maxHelperKey || !validText(st.Helper, maxHelperKey) || len(st.Pins) > maxNodes {
+	if !validHelperKey(st.Helper) || len(st.Pins) > maxNodes {
 		return false
 	}
 	for fp, k := range st.Pins {
-		if len(fp) != idPrefix || !validID(fp) || len(k) > maxHelperKey || !validText(k, maxHelperKey) {
+		if len(fp) != idPrefix || !validID(fp) || k == "" || !validHelperKey(k) {
 			return false
 		}
 	}
