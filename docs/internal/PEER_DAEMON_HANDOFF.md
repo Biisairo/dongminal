@@ -3,12 +3,13 @@
 > 진실은 `docs/internal/PEER_DAEMON_SRS.md` 다. 이 문서는 그 SRS 를 구현하는 세션의 착수 지시와 맥락이다.
 > 다음 일감은 `docs/internal/PEER_CHAT_SRS.md` 다(§5).
 
-## 1. 착수 블록 (PEER_CHAT 구현 끝 — 적용 대기)
+## 1. 착수 블록 (단계 4 리뷰 수정 → 간선 맺기 단순화)
 
 1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `HEAD` 다.
-2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 단계 1~4 가 모두 끝났다(문서 상태 "승인·구현완료"). 미결은 없다.
-3. 남은 일은 **사용자의 적용**이다: 데몬·서버 재시작(`dongminal start --restart-daemon`), dongminal 재설치(새 `dmctl`), OS 기본 터미널에서 `sudo dongminal helper install`, e2e(기준선 `e2e/baseline/ui-layout.linux.json` 의 `.ag-sec` 갱신 포함, §4.4). 에이전트는 이것을 하지 않는다.
-4. 적용 뒤 사용자가 결함을 알리면 그 결함만 고친다. 고칠 때도 Spec → Test → Code 다.
+2. **사용자 지시(2026-11-17): 두 일을 끝까지 쭉 진행한다.** 단계마다 검사(`make gates`·`make lint`·`npm run typecheck`·`go test ./...`·`npm run unit`)를 통과하면 커밋한다. 적용(데몬·서버 재시작·설치·e2e)·push 는 하지 않는다. 커밋에 AI 서명을 넣지 않는다.
+3. **일 1 — 단계 4 독립 리뷰 수정**: 진실은 `docs/internal/PEER_CHAT_SRS.md` §3.12a(R-1~R-10)다. 각 항목을 시험 먼저(RED) 고친다. 묶어서 커밋해도 된다.
+4. **일 2 — 간선 맺기·지우기 단순화**: 진실은 `docs/internal/EDGE_PAIRING_SRS.md` 다. 미결은 없다. §8 단계 E1~E4 순서로 Spec → Test → Code. 조사 결과(이름이 쓰이는 자리·영향받는 시험 목록)는 아래 §4.6 에 있다.
+5. 둘 다 끝나면 두 SRS 상태를 "승인·구현완료"로 고치고 사용자에게 보고한다. 조율 에이전트는 없다 — 사용자에게 직접 보고한다.
 
 ## 2. 사용자 지시
 
@@ -156,6 +157,15 @@
 - CLI 액션 표에 액션을 더하면 `dispatch_test` 가 `<액션> --bogus` 의 stderr 에 `--bogus` 가 있기를 요구한다.
 - **보안 검토가 지적했다: 망 이웃의 도우미 키 보증을 아무 노드의 `pins` 로 받으면 이웃 하나가 믿음을 흔든다.** 그 노드와 서로 이어진(양쪽 `links`) 간선 상대의 고정값만 세고, 그 노드 자신의 `helper` 와 같아야 믿는다(`cc7ecc2a`). 처음 본 값을 고정하는 방식(TOFU)은 SRS §7 의 LOW 위험으로 남겼다.
 - `make gates` 는 작업 트리 전체를 본다. 커밋하지 않은 화면 파일 때문에 실패한 채 데몬 수정을 커밋한 적이 있다(그 커밋 자체는 문제없었다). 커밋 전 검사는 `git stash -u` 없이 돌리면 작업 중 파일이 섞인다는 것을 기억한다.
+
+### 4.6 간선 맺기 조사 (2026-11-17, EDGE_PAIRING 용)
+
+- 맺기 코드: `edgenode/ops.go` `opInvite`(:176)·`opAdd`(:218, 이름 검사 :230-236, 상대 이름 고르기 :253-260)·`opApprove`(:282)·`opReject`(:323)·`opRemove`(:351, 이름으로 찾음)·`opAddress`(:366, 이름으로 찾음). 노드 포트 `node.go` `pair`(:218, 승인 대기 :273, 응답 이름 :276)·`pairConfirm`(:280)·`Admission`(:141, TLS 단계에서 간선 아닌 것을 끊음).
+- 저장: `edge/config.go` `Edge{Name,Addr,Port,Fingerprint,State,Expires,HelperKey}`, `ValidName`(:83)·`validate` 의 이름 유일성(:155-167)·`AddEdge`(:395, 같은 지문이면 항목을 통째로 바꿔 `helperKey` 를 잃는다 — R-2)·`Remove(name)`·`SetAddress(name…)`·`NameOf`·`ByName`·`FreeNameFor`·`NameTakenExcept`. 승인 대기 `edge/pairing.go` `Pending`·`AddPending`·`TakePending`·`PutBack`.
+- 클라이언트 오류: `edge/client.go` `RemoteError`(:44, 코드를 싣는다). 채팅 다시 걸기 `daemon/chat/link.go` `dial`.
+- API 경로 `httpapi/handlers_api.go:250-257`, 접착 `edge_api.go`, 데몬 IPC `daemon/ipc/paned_edge.go`, dmctl `runtimebin/dmctl_edge.go`(invite :253, add :269, approve :290, remove :321), 화면 `web/js/core/app-settings-edges.js`(이름 칸 :291, 승인 :100-129·:198, 지우기 :189·:229, 주소 :178, 줄 키 `data-name` :140-153), 알림 `app-edges.js:48`.
+- 영향받는 시험: `edge/config_test.go`·`limit_test.go`·`migrate_test.go`·`pairing_test.go`·`listener_test.go`, `edgenode/node_test.go`·`fail_test.go`, `httpapi/edge_pair_test.go`(28곳)·`edge_notify_test.go`·`edge_daemon_test.go`·`edge_node_test.go`·`edge_reduce_test.go`·`edge_rename_test.go`, `daemon/ipc/edge_test.go`, `runtimebin/dmctl_edge_test.go`, `web/js/test/edges-notice.test.mjs`, `e2e/edges-settings.spec.ts`(돌리지 않는다), e2e 기준선의 `eg-add-name`.
+- 문서: `docs/external/edges.md`·`api.md`·`errors.md`·`commands.md`, `PEER_NETWORK_SRS` FR-PNW-23~33·41·80~82, I-1·I-5·I-37.
 
 ## 5. 그다음: PEER_CHAT_SRS
 
