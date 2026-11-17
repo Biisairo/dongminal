@@ -3,19 +3,12 @@
 > 진실은 `docs/internal/PEER_DAEMON_SRS.md` 다. 이 문서는 그 SRS 를 구현하는 세션의 착수 지시와 맥락이다.
 > 다음 일감은 `docs/internal/PEER_CHAT_SRS.md` 다(§5).
 
-## 1. 착수 블록 (PEER_CHAT 단계 4)
+## 1. 착수 블록 (PEER_CHAT 구현 끝 — 적용 대기)
 
 1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `HEAD` 다.
-2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 없다(D-PCH-21~37). **정한 것을 다시 묻지 않는다.**
-3. **사용자 지시: 모든 구현(단계 4)이 끝날 때까지 묻지 말고 알아서 진행한다.** 단계마다 검사(`make gates`·`make lint`·`npm run typecheck`·`go test ./...`·`npm run unit`)를 통과하면 커밋한다.
-4. 단계 3(화면)은 끝났다: IPC `7cd67213`, 서버 API·SSE `dcca46b2`, 화면 `8bda595f`. §4.4 를 읽는다.
-5. 단계 4(H: 도우미+TOTP, §3.6·FR-PCH-70~79·86·87, TC-PCH-7·8): 설계를 SRS §3.12 로 먼저 적고 커밋한 뒤, 시험 먼저 구현한다. 설계에서 정할 것:
-   - 도우미 프로그램의 자리(새 바이너리인지 `dongminal helper` 하위 명령인지), 설치·제거(`sudo dongminal helper install|uninstall`, LaunchDaemon plist, `/Library/PrivilegedHelperTools`), 비밀 파일 자리와 권한.
-   - 도우미 소켓 경로와 접속자 OS 사용자 확인(macOS `getpeereid`/`LOCAL_PEERCRED`), 요청·응답 프레임.
-   - TOTP(RFC 6238, HMAC-SHA1, 30초, 6자리, 앞뒤 한 칸 허용 여부), 재사용 금지, 5번 틀리면 5분 잠금, 복구 코드.
-   - 사람 명령 프레임(`kill`·`kick`)의 모양·서명·전파, 받는 노드의 확인(간선 상대의 도우미 공개키를 `edges.json` 간선 항목에 고정, FR-PCH-74). 망 이웃(간선 상대가 아님)의 도우미 공개키를 어떻게 믿을지 정한다.
-   - 데몬 IPC·로컬 API(`/api/chat/kill`·`kick` + 코드), 오류 코드, 화면(FR-PCH-86·87: 여러 개 고르기, OTP 확인 창, 도우미가 없으면 메뉴를 숨김).
-6. 끝나면 SRS 상태를 "구현 끝"으로 고치고 사용자에게 적용(데몬·서버 재시작, `sudo dongminal helper install`, e2e)을 맡긴다.
+2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 단계 1~4 가 모두 끝났다(문서 상태 "승인·구현완료"). 미결은 없다.
+3. 남은 일은 **사용자의 적용**이다: 데몬·서버 재시작(`dongminal start --restart-daemon`), dongminal 재설치(새 `dmctl`), OS 기본 터미널에서 `sudo dongminal helper install`, e2e(기준선 `e2e/baseline/ui-layout.linux.json` 의 `.ag-sec` 갱신 포함, §4.4). 에이전트는 이것을 하지 않는다.
+4. 적용 뒤 사용자가 결함을 알리면 그 결함만 고친다. 고칠 때도 Spec → Test → Code 다.
 
 ## 2. 사용자 지시
 
@@ -40,7 +33,7 @@
 | PEER_CHAT 단계 1 (데몬의 채팅 핵심) | 끝 | 설계 `c7753b43`, Upgrade `0f08acc1`, 핵심 `a9793300`, 보안 수정 `0ab24a2c`·`1e688ca6`·`544e1800` |
 | PEER_CHAT 단계 2 (MCP·알림) | 끝 | 설계 `25c63c88`, 데몬 소켓 `2099d28a`, MCP·shim·훅 `1b0bf128` |
 | PEER_CHAT 단계 3 (화면) | 끝 | 설계 `10ff68a8`, 데몬 쪽 `37e8868e`, IPC `7cd67213`, 서버 `dcca46b2`, 화면 `8bda595f` |
-| PEER_CHAT 단계 4 (사람 명령) | **다음** | |
+| PEER_CHAT 단계 4 (사람 명령) | 끝 | 설계 `ab8edaa7`, 도우미·TOTP `cf9e2d5b`, 채팅 핵심·API `722354fa`, 보안 수정 `cc7ecc2a`, 화면 `280b0a6d`, 문서 (이 커밋) |
 
 > 2026-11-17 사용자 결정으로 범위가 바뀌었다(SRS D-PDM-13~17). 아래 §3.2·§3.3 의 명령 관련 조사·설계는 낡았다. 명령이 없어지므로 화면 요청(`peerui`)도 없다.
 
@@ -155,6 +148,14 @@
 - 게이트에서 배운 것: 버튼은 `createElement('button')` 대신 `UIKit.button`·`UIKit.tab`. 스크롤 표면 클래스는 `className=` 대입으로 써야 검사가 만든 자리로 본다. outline 을 지우면 `:focus-visible` 을 둔다. 영어 툴팁은 `constants.js` 의 `TIP_*` 상수로. `app-layout.js` 는 크기 기준선에 닿아 있다 — 새 메서드는 다른 파일에 둔다.
 - e2e 의 `.ag-sec` 선택자를 `.ag-tab[data-sec].active` 로 바꿨다. **`e2e/baseline/ui-layout.linux.json` 에 `.ag-sec` 요소가 남아 있다** — e2e 를 돌릴 때 기준선을 다시 만들어야 한다(사용자 몫).
 - 아직 안 한 것: 서버 snapshot 조각(`part`)은 쓰지 않았다(등록부가 `GET /api/chat` 를 직접 부른다).
+
+### 4.5 PEER_CHAT 단계 4 에서 배운 것
+
+- 도우미는 `dongminal helper <install|uninstall|run|status>`(`internal/ctl/privhelper`, D-PCH-38). 와이어·서명은 `internal/shared/humancmd`(②④). 채팅 쪽은 `daemon/chat/human.go`(프레임 `cmd`, `SetHelper`·`Command`·`trustedKeyLocked`), `chatsock/human.go`(사람 참가자 op `kill`·`kick`), boot `watchHelper`(30초마다 `info`). 화면은 `web/js/core/chat-human.js`.
+- `runtime.GOOS` 분기는 게이트(OS 이음매)에 걸린다. OS 별 능력은 빌드 태그 파일의 상수(`supported`)로 가른다.
+- CLI 액션 표에 액션을 더하면 `dispatch_test` 가 `<액션> --bogus` 의 stderr 에 `--bogus` 가 있기를 요구한다.
+- **보안 검토가 지적했다: 망 이웃의 도우미 키 보증을 아무 노드의 `pins` 로 받으면 이웃 하나가 믿음을 흔든다.** 그 노드와 서로 이어진(양쪽 `links`) 간선 상대의 고정값만 세고, 그 노드 자신의 `helper` 와 같아야 믿는다(`cc7ecc2a`). 처음 본 값을 고정하는 방식(TOFU)은 SRS §7 의 LOW 위험으로 남겼다.
+- `make gates` 는 작업 트리 전체를 본다. 커밋하지 않은 화면 파일 때문에 실패한 채 데몬 수정을 커밋한 적이 있다(그 커밋 자체는 문제없었다). 커밋 전 검사는 `git stash -u` 없이 돌리면 작업 중 파일이 섞인다는 것을 기억한다.
 
 ## 5. 그다음: PEER_CHAT_SRS
 

@@ -456,6 +456,12 @@ dongminal uninstall --dry-run            # 지울 것을 먼저 봅니다
 `backup` 이 만드는 zip 은 소유자만 읽을 수 있습니다(`0600`). 이미 있던 파일을
 덮어쓸 때도 권한을 `0600` 으로 바꿉니다. 노드 개인키가 들어가기 때문입니다.
 
+**채팅의 사람 명령 도우미는 홈 밖에 삽니다**(macOS). 프로그램은
+`/Library/PrivilegedHelperTools/com.dongminal.helper`, 비밀은
+`/Library/Application Support/com.dongminal.helper/` 에 있고 관리자만 읽습니다.
+`backup`·`uninstall` 은 이것을 다루지 않습니다. 지우려면
+`sudo dongminal helper uninstall` 을 씁니다([기능 안내](./features.md#사람-명령-강제-삭제강퇴)).
+
 **브라우저에도 일부가 삽니다.** 기기별 취향(알림 켬/끔·슬롯 방향)은
 `localStorage` 에, 탭별 값(표시 모드)은 `sessionStorage` 에 있습니다.
 Settings ▸ Backup 의 내보내기가 그 셋을 한 파일로 담습니다.

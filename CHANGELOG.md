@@ -15,6 +15,12 @@
   `chat_leave`·`chat_send`·`chat_read` 여덟 개이며 허락을 묻지 않습니다. 참가자는 claude 세션 하나이고, MCP 연결이
   끊기면 모든 방에서 나갑니다. 쉬는 중에 첫 글이 오면 개수만 터미널에 붙여 넣고, 일하는 중에는 맥락 훅이 읽지 않은
   글 수를 알립니다. 글과 개수는 디스크에 쓰지 않습니다. **데몬을 다시 띄우고 새로 띄운 claude 부터 적용됩니다.**
+- **채팅의 사람 명령(강제 삭제·강퇴)이 생겼습니다(macOS, 데몬 모드).** OS 기본 터미널에서 `sudo dongminal helper install`
+  로 관리자 권한 도우미를 설치하고, 보이는 TOTP 비밀을 휴대폰 OTP 앱(Ente Auth 권장)에 넣습니다. Chats 의 방 줄이나
+  채팅 탭의 참가자 줄을 우클릭해 명령을 고르고, 명령마다 OTP 코드를 넣습니다. Cmd·Shift 클릭으로 여러 개를 한 번에
+  고릅니다. 5번 틀리면 5분 잠깁니다. 간선 상대의 도우미 공개키는 `edges.json` 의 간선 항목(`helperKey`)에 처음 받은 값으로
+  고정합니다. 로컬 API 는 `POST /api/chat/kill`·`/api/chat/kick`, 오류 코드는 `chat_bad_code`·`chat_locked`·`chat_no_helper`
+  입니다. 도우미가 없는 노드는 메뉴가 보이지 않습니다. **데몬·서버를 다시 띄워야 적용됩니다.**
 
 ### 바뀜
 
