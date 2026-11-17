@@ -285,6 +285,7 @@ func (n *Node) opRemove(ctx context.Context, req Request) Response {
 	if err := n.store.Remove(e.Fingerprint); err != nil {
 		return storeFail(err)
 	}
+	n.pairing.Revoke(e.Fingerprint)
 	n.changed(Change{Removed: &Ref{FP: e.Fingerprint, Name: e.Name}})
 	return ok(map[string]any{"fp": e.Fingerprint, "name": e.Name, "notified": notified})
 }

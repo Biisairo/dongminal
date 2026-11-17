@@ -189,3 +189,21 @@ func TestPendingOpsGone(t *testing.T) {
 		}
 	}
 }
+
+// 보안 검토: 맺은 뒤 B 가 끊으면, A 는 같은 코드로 다시 맺지 못한다.
+func TestRemovedEdgeCannotReplayCode(t *testing.T) {
+	a, b := newTestNode(t, "node-a"), newTestNode(t, "node-b")
+	code := inviteCode(t, b)
+	if add := a.do(t, "add", map[string]any{"code": code}); add.Status != http.StatusOK {
+		t.Fatalf("add %d %s", add.Status, add.Code)
+	}
+	if r := b.do(t, "remove", map[string]any{"fp": a.Identity().Fingerprint}); r.Status != http.StatusOK {
+		t.Fatalf("remove %d %s", r.Status, r.Code)
+	}
+	if add := a.do(t, "add", map[string]any{"code": code}); add.Status != http.StatusForbidden || add.Code != edge.CodeNoInvite {
+		t.Fatalf("끊은 뒤 같은 코드 %d %s", add.Status, add.Code)
+	}
+	if b.Store().IsEdge(a.Identity().Fingerprint) {
+		t.Fatal("끊은 간선이 되살아났다")
+	}
+}

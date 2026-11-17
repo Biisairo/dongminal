@@ -60,13 +60,23 @@ func randomHex(n int) string {
 	return hex.EncodeToString(b)
 }
 
-// NewInvite 는 새 초대를 만든다. 이전 초대는 사라진다 (FR-PNW-20).
+// NewInvite 는 새 초대를 만든다. 이전 초대와 그 다시 시도 기억은 사라진다 (FR-PNW-20).
 func (p *Pairing) NewInvite() (token string, expires time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	inv := &invite{token: randomHex(tokenBytes), expires: p.now().Add(InviteTTL)}
-	p.invite = inv
+	p.invite, p.used = inv, nil
 	return inv.token, inv.expires
+}
+
+// Revoke 는 지문 fp 가 쓴 초대의 다시 시도 기억을 지운다. 간선을 지울 때 부른다 — 지운
+// 간선이 쓴 토큰으로 다시 맺지 못하게 한다(보안 검토).
+func (p *Pairing) Revoke(fp string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.used != nil && p.used.fp == fp {
+		p.used = nil
+	}
 }
 
 // liveInviteLocked 는 만료되지 않은 초대다. 만료됐으면 지운다.

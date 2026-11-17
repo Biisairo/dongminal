@@ -100,3 +100,28 @@ func TestRedeemRetrySameFingerprint(t *testing.T) {
 		t.Fatalf("만료 뒤 = %v", err)
 	}
 }
+
+// 보안 검토: 지운 간선은 쓴 토큰으로 다시 맺지 못한다. 새 초대도 다시 시도 기억을 지운다.
+func TestRedeemRetryRevoked(t *testing.T) {
+	p := NewPairing(time.Now)
+	tok, _ := p.NewInvite()
+	if err := p.Redeem(tok, fpOf("aa")); err != nil {
+		t.Fatal(err)
+	}
+	p.Revoke(fpOf("bb"))
+	if err := p.Redeem(tok, fpOf("aa")); err != nil {
+		t.Fatalf("다른 지문을 지웠는데 다시 시도가 막혔다: %v", err)
+	}
+	p.Revoke(fpOf("aa"))
+	if err := p.Redeem(tok, fpOf("aa")); !errors.Is(err, ErrNoInvite) {
+		t.Fatalf("지운 뒤 다시 시도 = %v", err)
+	}
+	tok2, _ := p.NewInvite()
+	if err := p.Redeem(tok2, fpOf("aa")); err != nil {
+		t.Fatal(err)
+	}
+	p.NewInvite()
+	if err := p.Redeem(tok2, fpOf("aa")); !errors.Is(err, ErrBadToken) {
+		t.Fatalf("새 초대 뒤 옛 토큰 다시 시도 = %v", err)
+	}
+}

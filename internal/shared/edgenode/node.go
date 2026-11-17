@@ -310,6 +310,7 @@ func (n *Node) unpair(w http.ResponseWriter, r *http.Request) {
 		writeFail(w, http.StatusInternalServerError, CodeSaveFailed, "save failed")
 		return
 	}
+	n.pairing.Revoke(fp)
 	audit("in", e.Name, "unpair", http.StatusOK)
 	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}})
 	httpresp.JSON(w, http.StatusOK, map[string]any{})
@@ -326,6 +327,7 @@ func (n *Node) Forget(fp string) {
 		dmlog.Infof(nil, "edge forget: %v", err)
 		return
 	}
+	n.pairing.Revoke(fp)
 	audit("out", e.Name, "forget", http.StatusOK)
 	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}})
 }
