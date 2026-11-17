@@ -26,19 +26,11 @@ const dmctlPeerHelp = `dmctl peer — 노드 간 통신의 짝맞춤
   dmctl peer approve <요청 id> [--name <이름>]  승인 대기를 짝으로 저장한다
   dmctl peer reject <요청 id>                승인 대기를 거절한다
   dmctl peer remove <노드>                   짝을 해제한다
-  dmctl peer info <노드>                     상대 노드의 이름·판·받는 명령·설치된 에이전트·허용 폴더
-  dmctl peer tools <노드> [--json]           상대 노드의 에이전트 도구 목록 (<노드>/<uuid>)
-  dmctl msg --to <노드>/<uuid> <메시지>       상대 노드의 에이전트에게 원격 엔벨로프로 보낸다
-  dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트...|->
-                                             상대 노드에 에이전트를 띄운다. - 이면 stdin 을 읽는다. 성공하면 <노드>/<uuid> 를 낸다.
-                                             폴더는 상대가 허용한 폴더 안이어야 한다. 권한 모드는 상대의 것이다
-  dmctl peer status <노드>/<uuid> [--json]    working · idle · waiting · ended · unknown
-  dmctl peer close <노드>/<uuid>              자기가 띄운 에이전트를 끝내고 닫는다
 
   상대에 닿지 못하면 사유 코드(peer_unreachable 등)를 내고 1 로 끝난다.
 `
 
-// peerCallBudget 은 상대를 부르는 로컬 API(add·approve·call)의 예산이다. 서버의 원격
+// peerCallBudget 은 상대를 부르는 로컬 API(add·approve)의 예산이다. 서버의 원격
 // 요청 시한(15초)보다 길어야 상대의 답을 받기 전에 끊지 않는다 (리뷰 C-1).
 const peerCallBudget = 20 * time.Second
 
@@ -83,12 +75,11 @@ type peersOut struct {
 		Error       string `json:"error"`
 	} `json:"node"`
 	Peers []struct {
-		Name     string `json:"name"`
-		Addr     string `json:"addr"`
-		Port     int    `json:"port"`
-		FP       string `json:"fp"`
-		State    string `json:"state"`
-		LastSeen string `json:"lastSeen"`
+		Name  string `json:"name"`
+		Addr  string `json:"addr"`
+		Port  int    `json:"port"`
+		FP    string `json:"fp"`
+		State string `json:"state"`
 	} `json:"peers"`
 	Pending []struct {
 		ID      string `json:"id"`
@@ -145,11 +136,7 @@ func printPeers(w io.Writer, raw []byte) {
 		if state == "" {
 			state = "paired"
 		}
-		seen := ""
-		if p.LastSeen != "" {
-			seen = "  lastSeen=" + clean(p.LastSeen)
-		}
-		fmt.Fprintf(w, "peer     name=%s  addr=%s  state=%s  fp=%s%s\n", clean(p.Name), clean(hostPort(p.Addr, p.Port)), clean(state), clean(shortFP(p.FP)), seen)
+		fmt.Fprintf(w, "peer     name=%s  addr=%s  state=%s  fp=%s\n", clean(p.Name), clean(hostPort(p.Addr, p.Port)), clean(state), clean(shortFP(p.FP)))
 	}
 	for _, p := range v.Pending {
 		fmt.Fprintf(w, "pending  id=%s  name=%s  addr=%s  fp=%s  expires=%s\n",
@@ -166,7 +153,7 @@ type peerArgs struct {
 	flags map[string]string
 	bools map[string]bool
 	help  bool
-	// stdin 은 spawn 의 프롬프트 "-" 가 읽는다.
+	// stdin 은 본문 "-" 가 읽는다 (dmctl account 의 하위 명령).
 	stdin io.Reader
 }
 
@@ -261,11 +248,6 @@ var peerSubs = map[string]peerSub{
 	"approve": {1, false, []string{"name"}, nil, peerApprove},
 	"reject":  {1, false, nil, nil, peerReject},
 	"remove":  {1, false, nil, nil, peerRemove},
-	"info":    {1, false, nil, nil, peerInfo},
-	"tools":   {1, false, nil, []string{"json"}, peerTools},
-	"spawn":   {2, true, []string{"agent", "cwd", "at", "name"}, []string{"tab"}, peerSpawn},
-	"status":  {1, false, nil, []string{"json"}, peerStatus},
-	"close":   {1, false, nil, nil, peerClose},
 }
 
 func peerInvite(pa peerArgs, stdout, stderr io.Writer) int {
@@ -393,177 +375,4 @@ func clean(s string) string {
 		}
 		return r
 	}, s)
-}
-
-// peerCall 은 짝에 프로토콜 명령 하나를 보낸다 (POST /api/peers/call).
-func peerCall(node, op, from string, args map[string]any, stderr io.Writer) ([]byte, int) {
-	body := map[string]any{"peer": node, "op": op, "args": args}
-	if from != "" {
-		body["from"] = from
-	}
-	return peerAPI("POST", "/api/peers/call", body, stderr)
-}
-
-func peerInfo(pa peerArgs, stdout, stderr io.Writer) int {
-	raw, rc := peerCall(pa.pos[0], "node.info", "", nil, stderr)
-	if rc != 0 {
-		return rc
-	}
-	var v struct {
-		Name        string   `json:"name"`
-		Version     string   `json:"version"`
-		Proto       int      `json:"proto"`
-		Commands    []string `json:"commands"`
-		Agents      []string `json:"agents"`
-		AllowedDirs []string `json:"allowedDirs"`
-	}
-	_ = json.Unmarshal(raw, &v)
-	join := func(xs []string) string {
-		out := make([]string, len(xs))
-		for i, x := range xs {
-			out[i] = clean(x)
-		}
-		return strings.Join(out, ",")
-	}
-	fmt.Fprintf(stdout, "name=%s  version=%s  proto=%d\ncommands=%s\nagents=%s\nallowedDirs=%s\n",
-		clean(v.Name), clean(v.Version), v.Proto, join(v.Commands), join(v.Agents), join(v.AllowedDirs))
-	return 0
-}
-
-func peerTools(pa peerArgs, stdout, stderr io.Writer) int {
-	node := pa.pos[0]
-	raw, rc := peerCall(node, "agents.list", "", nil, stderr)
-	if rc != 0 {
-		return rc
-	}
-	if pa.bools["json"] {
-		printPeerJSON(stdout, raw)
-		return 0
-	}
-	var v struct {
-		Agents []struct {
-			ToolID       string `json:"toolId"`
-			Agent        string `json:"agent"`
-			Window       string `json:"window"`
-			Tab          string `json:"tab"`
-			State        string `json:"state"`
-			Cwd          string `json:"cwd"`
-			SpawnedByYou bool   `json:"spawnedByYou"`
-		} `json:"agents"`
-	}
-	_ = json.Unmarshal(raw, &v)
-	for _, a := range v.Agents {
-		mine := ""
-		if a.SpawnedByYou {
-			mine = "  spawnedByYou"
-		}
-		fmt.Fprintf(stdout, "%s/%s  agent=%s  state=%s  window=%q  tab=%q  cwd=%q%s\n",
-			node, clean(a.ToolID), clean(a.Agent), clean(a.State), clean(a.Window), clean(a.Tab), clean(a.Cwd), mine)
-	}
-	if len(v.Agents) == 0 {
-		fmt.Fprintf(stderr, "%s 에 에이전트 도구가 없습니다.\n", node)
-	}
-	return 0
-}
-
-// runDmctlMsgRemote 는 `--to <노드>/<uuid>` 의 갈래다 (FR-PNW-73). 보낸 도구는 서버가
-// 지금 도구로 해석해 채운다 (FR-PNW-72).
-func runDmctlMsgRemote(to, from, message string, stdout, stderr io.Writer) int {
-	node, uuid, _ := strings.Cut(to, "/")
-	if node == "" || uuid == "" {
-		fmt.Fprintln(stderr, "usage: dmctl msg --to <노드>/<uuid> <메시지>")
-		return 2
-	}
-	raw, rc := peerCall(node, "message.send", from, map[string]any{"to": uuid, "message": message}, stderr)
-	if rc != 0 {
-		return rc
-	}
-	var v struct {
-		Len int `json:"len"`
-	}
-	_ = json.Unmarshal(raw, &v)
-	fmt.Fprintf(stdout, "원격 메시지 전송 완료: → %s/%s, 본문 %d 자\n", node, uuid, v.Len)
-	return 0
-}
-
-// splitRemote 는 `<노드>/<uuid>` 를 가른다.
-func splitRemote(s string, stderr io.Writer) (string, string, bool) {
-	node, uuid, ok := strings.Cut(s, "/")
-	if !ok || node == "" || uuid == "" {
-		fmt.Fprintf(stderr, "dmctl peer: <노드>/<uuid> 모양이어야 합니다: %q\n", s)
-		return "", "", false
-	}
-	return node, uuid, true
-}
-
-func peerSpawn(pa peerArgs, stdout, stderr io.Writer) int {
-	agent, cwd := pa.flags["agent"], pa.flags["cwd"]
-	if agent == "" || cwd == "" {
-		fmt.Fprintln(stderr, "dmctl peer spawn: --agent 와 --cwd 가 필요합니다")
-		return 2
-	}
-	prompt, rc := readBody(pa.pos[1:], pa.stdin, stderr, "dmctl peer spawn")
-	if rc != 0 {
-		return rc
-	}
-	args := map[string]any{"agent": agent, "cwd": cwd, "prompt": prompt, "placement": "window"}
-	if pa.bools["tab"] {
-		if pa.flags["at"] == "" {
-			fmt.Fprintln(stderr, "dmctl peer spawn: --tab 에는 --at <uuid> 가 필요합니다")
-			return 2
-		}
-		args["placement"] = "tab"
-		args["at"] = pa.flags["at"]
-	}
-	if n := pa.flags["name"]; n != "" {
-		args["name"] = n
-	}
-	node := pa.pos[0]
-	raw, rc := peerCall(node, "agent.spawn", selfToolID(), args, stderr)
-	if rc != 0 {
-		return rc
-	}
-	var v struct {
-		ToolID   string `json:"toolId"`
-		Headless bool   `json:"headless"`
-	}
-	_ = json.Unmarshal(raw, &v)
-	fmt.Fprintf(stdout, "%s/%s\n", node, clean(v.ToolID))
-	if v.Headless {
-		fmt.Fprintln(stderr, "상대 노드에 연결된 브라우저가 없어 헤드리스 도구로 띄웠습니다. 상대 화면의 백그라운드 목록에서 붙일 수 있습니다.")
-	}
-	return 0
-}
-
-func peerStatus(pa peerArgs, stdout, stderr io.Writer) int {
-	node, uuid, ok := splitRemote(pa.pos[0], stderr)
-	if !ok {
-		return 2
-	}
-	raw, rc := peerCall(node, "agent.status", "", map[string]any{"toolId": uuid}, stderr)
-	if rc != 0 {
-		return rc
-	}
-	if pa.bools["json"] {
-		printPeerJSON(stdout, raw)
-		return 0
-	}
-	var v struct {
-		State string `json:"state"`
-	}
-	_ = json.Unmarshal(raw, &v)
-	fmt.Fprintln(stdout, clean(v.State))
-	return 0
-}
-
-func peerClose(pa peerArgs, stdout, stderr io.Writer) int {
-	node, uuid, ok := splitRemote(pa.pos[0], stderr)
-	if !ok {
-		return 2
-	}
-	if _, rc := peerCall(node, "agent.close", "", map[string]any{"toolId": uuid}, stderr); rc != 0 {
-		return rc
-	}
-	fmt.Fprintf(stdout, "%s/%s 를 닫았습니다.\n", node, uuid)
-	return 0
 }

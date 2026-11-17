@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -62,17 +61,16 @@ type Peer struct {
 
 // Config 는 `peers.json` 전체다 (FR-PNW-2).
 type Config struct {
-	Enabled     bool     `json:"enabled"`
-	Port        int      `json:"port"`
-	Bind        string   `json:"bind"`
-	Name        string   `json:"name"`
-	Advertise   string   `json:"advertise"`
-	AllowedDirs []string `json:"allowedDirs"`
-	Peers       []Peer   `json:"peers"`
+	Enabled   bool   `json:"enabled"`
+	Port      int    `json:"port"`
+	Bind      string `json:"bind"`
+	Name      string `json:"name"`
+	Advertise string `json:"advertise"`
+	// 옛 파일의 allowedDirs 는 읽을 때 버린다 (PEER_DAEMON_SRS FR-PDM-65).
+	Peers []Peer `json:"peers"`
 }
 
 func (c Config) clone() Config {
-	c.AllowedDirs = append([]string{}, c.AllowedDirs...)
 	c.Peers = append([]Peer{}, c.Peers...)
 	return c
 }
@@ -116,11 +114,10 @@ func DefaultName(hostname string) string {
 
 func defaultConfig(hostname string) Config {
 	return Config{
-		Port:        DefaultPort,
-		Bind:        DefaultBind,
-		Name:        DefaultName(hostname),
-		AllowedDirs: []string{},
-		Peers:       []Peer{},
+		Port:  DefaultPort,
+		Bind:  DefaultBind,
+		Name:  DefaultName(hostname),
+		Peers: []Peer{},
 	}
 }
 
@@ -134,9 +131,6 @@ func fillDefaults(c Config, def Config) Config {
 	}
 	if c.Name == "" {
 		c.Name = def.Name
-	}
-	if c.AllowedDirs == nil {
-		c.AllowedDirs = []string{}
 	}
 	if c.Peers == nil {
 		c.Peers = []Peer{}
@@ -277,20 +271,14 @@ func (s *Store) update(fn func(*Config) error) error {
 
 // SetNode 는 노드 설정만 바꾼다. 짝 목록은 그대로다 (I-8).
 //
-// 허용 폴더·알릴 주소는 여기서만 거른다. 저장 전체의 validate 에 두면 이미 저장된 옛 값
+// 알릴 주소는 여기서만 거른다. 저장 전체의 validate 에 두면 이미 저장된 옛 값
 // 하나 때문에 짝 추가 같은 다른 저장까지 막힌다 (리뷰 C-2·C-7).
 func (s *Store) SetNode(n Config) error {
 	if n.Advertise != "" && !ValidAddr(n.Advertise) {
 		return ErrInvalidNodeField
 	}
-	for _, d := range n.AllowedDirs {
-		if !filepath.IsAbs(d) {
-			return ErrInvalidNodeField
-		}
-	}
 	return s.update(func(c *Config) error {
 		c.Enabled, c.Port, c.Bind, c.Name, c.Advertise = n.Enabled, n.Port, n.Bind, n.Name, n.Advertise
-		c.AllowedDirs = append([]string{}, n.AllowedDirs...)
 		return nil
 	})
 }

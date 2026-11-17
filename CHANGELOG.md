@@ -11,6 +11,17 @@
   (`--append-system-prompt`). 기본 시스템 프롬프트와 사용자의 CLAUDE.md 는 그대로 읽힙니다. 폴더를 추가로 열지 않으므로
   신뢰 확인창("Adding a new directory")이 뜨지 않습니다.
 
+### 바뀜
+
+- **노드 사이 연결은 짝맺기만 남습니다.** 짝은 이제 망의 간선입니다. 서로를 믿고 TLS 로 이어진다는 사실만 갖습니다.
+  짝에게 보내던 프로토콜 명령(`node.info`·`agents.list`·`message.send`·`agent.spawn`·`agent.status`·`agent.close`),
+  `POST /api/peers/call`, `dmctl peer info·tools·spawn·status·close`, `dmctl msg --to <노드>/<uuid>`, 원격 엔벨로프
+  `[DONGMINAL-PEER-MSG …]` 를 지웠습니다. 노드 설정의 허용 폴더(`allowedDirs`)와 짝의 마지막 응답 시각(`lastSeen`)도
+  지웠습니다. 홈에 남은 `peer-spawns.json` 은 서버가 시작할 때 지웁니다.
+- 승인 알림을 받지 못한 쪽은 이제 명령으로 짝이 확정되지 않습니다. 10분 뒤 대기가 만료되면 다시 짝을 맺으세요.
+- 데몬 `paste` 의 전경 조건(`fgguard`)을 지웠습니다. 새 서버는 옛 데몬과도 동작합니다. 데몬 쪽 정리는 데몬을 다시
+  띄우면 적용됩니다(`dongminal start --restart-daemon`).
+
 ## [1.3.4] — 2026-11-16
 
 ### 보안

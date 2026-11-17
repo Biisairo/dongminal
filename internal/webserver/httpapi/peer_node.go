@@ -29,8 +29,11 @@ const (
 	peerConfirmPath = peerPathPrefix + "pair/confirm"
 	// peerPairRateKey 는 등록 요청 상한의 키 머리다. 짝의 지문 키와 섞이지 않는다.
 	peerPairRateKey = "pair-addr:"
-	// peerProto 는 이 서버가 말하는 프로토콜 판이다 (FR-PNW-50).
+	// peerProto 는 이 서버가 말하는 프로토콜 판이다. 등록 요청에 싣는다 (FR-PNW-50).
 	peerProto = 1
+	// legacyPeerSpawnsFile 은 원격 기동 기록의 옛 파일이다. 노드 계층이 설 때 지운다
+	// (PEER_DAEMON_SRS FR-PDM-64).
+	legacyPeerSpawnsFile = "peer-spawns.json"
 	// peerBodyLimit 은 요청 본문 상한이다 (FR-PNW-43).
 	peerBodyLimit = 64 << 10
 )
@@ -52,8 +55,9 @@ func (s *Server) initPeer() {
 	s.peerClient = peer.NewClient(id)
 	s.pairing = peer.NewPairing(time.Now)
 	s.peerLimiter = peer.NewRateLimiter(time.Now)
-	s.peerSeen = peer.NewLastSeen()
-	s.peerSpawns = peer.OpenSpawnLog(filepath.Join(s.cfg.DataDir, dmenv.PeerSpawnsFile))
+	if err := os.Remove(filepath.Join(s.cfg.DataDir, legacyPeerSpawnsFile)); err != nil && !os.IsNotExist(err) {
+		dmlog.Infof(nil, "peer-spawns.json 을 지우지 못했다: %v", err)
+	}
 	s.peerLn = peer.NewListener(id, s.peerAdmission(), s.peerHandler())
 }
 
@@ -77,14 +81,12 @@ func (s *Server) peerAdmission() peer.Admission {
 	}
 }
 
-// peerHandler 는 노드 포트의 핸들러다. `/peer/v1/*` 밖은 전부 404 다 (FR-PNW-6).
+// peerHandler 는 노드 포트의 핸들러다. 짝맞춤 경로 둘 밖은 전부 404 다
+// (FR-PNW-6, PEER_DAEMON_SRS FR-PDM-60).
 func (s *Server) peerHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+peerPairPath, s.peerPair)
 	mux.HandleFunc("POST "+peerConfirmPath, s.peerPairConfirm)
-	for op, fn := range peerCommands() {
-		mux.HandleFunc("POST "+peerPathPrefix+op, s.peerCmd(op, fn))
-	}
 	mux.HandleFunc(peerPathPrefix, func(w http.ResponseWriter, r *http.Request) {
 		peerFail(w, http.StatusNotFound, apierr.CodeNotFound, "unknown command")
 	})
@@ -103,40 +105,27 @@ func peerFail(w http.ResponseWriter, status int, code, msg string) {
 
 // peerReadJSON 은 본문을 상한 안에서 읽어 v 에 푼다. 실패하면 답하고 거짓이다.
 func peerReadJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	return peerReadStatus(w, r, v) == 0
-}
-
-// peerReadStatus 는 peerReadJSON 과 같고, 실패하면 이미 써 보낸 응답 상태를 돌려준다.
-// 감사 로그가 실제 결과 코드를 남기기 위해서다 (FR-PNW-94). 성공이면 0 이다.
-func peerReadStatus(w http.ResponseWriter, r *http.Request, v any) int {
 	raw, err := httpreq.Read(w, r, peerBodyLimit)
 	if err != nil {
-		st := httpreq.Status(err)
-		peerFail(w, st, bodyReadCode(err), "read body")
-		return st
+		peerFail(w, httpreq.Status(err), bodyReadCode(err), "read body")
+		return false
 	}
 	if len(raw) == 0 {
 		raw = []byte("{}")
 	}
 	if err := json.Unmarshal(raw, v); err != nil {
 		peerFail(w, http.StatusBadRequest, apierr.CodeInvalidJSON, "invalid json")
-		return http.StatusBadRequest
+		return false
 	}
-	return 0
+	return true
 }
 
-// peerAudit 는 프로토콜 요청 한 줄이다. 본문·토큰은 남기지 않는다 (FR-PNW-94·95).
+// peerAudit 는 짝맞춤 요청 한 줄이다. 본문·토큰은 남기지 않는다 (FR-PNW-94·95).
 func peerAudit(dir, peerName, op string, status int) {
-	peerAuditCmd(dir, peerName, op, peerCmdResult{status: status})
-}
-
-// peerAuditCmd 는 대상 uuid 와 본문 길이까지 남긴다 (FR-PNW-94).
-func peerAuditCmd(dir, peerName, op string, res peerCmdResult) {
 	if peerName == "" {
 		peerName = "-"
 	}
-	dmlog.Infof(nil, "peer audit dir=%s peer=%s op=%s target=%q len=%d status=%d",
-		dir, peerName, op, res.target, res.n, res.status)
+	dmlog.Infof(nil, "peer audit dir=%s peer=%s op=%s status=%d", dir, peerName, op, status)
 }
 
 // peerPair 는 B 쪽 등록 요청이다 (FR-PNW-23~25).

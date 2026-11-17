@@ -247,7 +247,6 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/peers/reject", (*Server).apiPeersReject),
 	httproute.Post("/api/peers/remove", (*Server).apiPeersRemove),
 	httproute.Put("/api/peers/address", (*Server).apiPeersAddress),
-	httproute.Post("/api/peers/call", (*Server).apiPeersCall),
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-120 (claude_accounts_api.go).
 	httproute.Get("/api/claude-accounts", (*Server).apiClaudeAccountsList),
 	httproute.Post("/api/claude-accounts/add", (*Server).apiClaudeAccountsAdd),

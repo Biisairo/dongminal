@@ -25,8 +25,8 @@
 | SRS 두 개 | 초안 작성 | `a2aa00b5` (main) |
 | 1. 패키지 이동 `internal/webserver/domain/peer` → `internal/shared/peer` | 끝 | `42611bb4` |
 | 2. 통로 부품 `internal/shared/peerrelay` | 끝 | `f6f9c4ab` |
-| 3. 간선 축소 (명령·원격 메시지·원격 기동 제거) | **다음** | |
-| 4. 이름 변경 peer → edge | | |
+| 3. 간선 축소 (명령·원격 메시지·원격 기동 제거) | 끝 | (이 커밋) |
+| 4. 이름 변경 peer → edge | **다음** | |
 | 5. 데몬이 노드 (서버는 통로·위임, 서버도 `edgenode` 사용) | | |
 | 6. 문서·e2e | | |
 
@@ -82,6 +82,9 @@
 - 시험은 지금 httpapi 의 시험을 peernode 쪽으로 옮겨, 가짜 `Tools`·`Screen` 으로 같은 기대를 확인한다(NFR-PDM-1).
 
 ## 4. 배운 것
+
+- **e2e 를 돌리지 않는다. 사용 중인 서버·데몬에 닿는 명령(`dongminal start`·`stop`, e2e, 포트를 쓰는 실행)을 하지 않는다.** e2e 워커의 기본 포트는 58147 이고 노드 포트 기본값과 같다. e2e 의 `start` 는 격리 모드가 아니라서 그 포트를 쥔 프로세스를 종료한다(`ctl/cli/start.go` `killPort`). 2026-11-17 에 이 경로로 사용자의 운영 서버가 내려갔다. 검증은 Go·JS 단위 시험과 `make gates`·`make lint` 로 한다.
+- 단계 3 에서 데몬 paste 의 전경 조건을 지우며, 그 조건으로 paste 를 붙잡던 `daemon/ipc/paste_async_test.go` 를 시험용 자리 `pasteInto` 로 바꿨다.
 
 - 유닉스 소켓 경로는 104바이트 상한이 있다. 시험에서 `t.TempDir()` 은 이름이 길어 넘는다. `os.MkdirTemp("", "짧은접두어")` 를 쓴다(`peerrelay/relay_test.go` `shortDir`).
 - 시험에서도 `net.Dial("unix", …)` 를 직접 쓰면 게이트가 막는다. `platform.Current().IPC.Dial` 을 쓴다.

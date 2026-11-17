@@ -78,7 +78,6 @@ func homeLayout() []homeEntry {
 		// FR-PNW-62: 서버를 다시 켜도 남아야 하지만, 도구 id 는 그 기계의 것이라 옮겨 봐야 뜻이 없다.
 		// TELEGRAM_BRIDGE_SRS FR-TGB-2: peers.json 과 같이 비밀(봇 token)을 담으므로 backup zip 은 비밀이다.
 		{Name: dmenv.TelegramFile, What: "Telegram 알림 설정 (봇 token·허용 계정·무음 시간)", InBackup: true, KeepOnUninstall: true},
-		{Name: dmenv.PeerSpawnsFile, What: "다른 노드가 띄운 도구와 그 짝 (원격 닫기 권한)", Ephemeral: true},
 
 		// ── 사용자가 만든 내용 ──
 		// CLAUDE_ACCOUNTS_SRS FR-CAC-1: 지우면 계정마다 다시 로그인해 추가해야 하므로 보존한다.

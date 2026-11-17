@@ -132,15 +132,10 @@ type Server struct {
 	peerID     peer.Identity
 	peerClient *peer.Client
 	pairing    *peer.Pairing
-	// peerLimiter·peerSeen 은 짝마다의 분당 상한과 마지막 응답 시각이다 (묶음 R).
+	// peerLimiter 는 짝맞춤 경로의 출발지별 상한이다 (S9).
 	peerLimiter *peer.RateLimiter
-	peerSeen    *peer.LastSeen
 	// settingsMu 는 설정 PUT 의 지문 검사와 저장을 한 덩이로 묶는다 (UX_BATCH12 FR-LIV-2).
 	settingsMu sync.Mutex
-	// peerSpawns 는 다른 노드가 띄운 도구와 그 짝이다 (FR-PNW-62).
-	peerSpawns *peer.SpawnLog
-	// peerGate 는 원격 글의 도구별 전달 상태다 — 동시 1건, 닫는 중 (I-59·I-70·I-73).
-	peerGate peerGate
 
 	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.
@@ -234,13 +229,6 @@ type serverLimits struct {
 	// `diag` 의 hold 임계와 같다 (FR-CNR-13) — 그 선을 치면 거절이 시작된다는 뜻이고,
 	// 로그가 그 사실을 함께 말한다.
 	waitMaxConcurrent int64
-	// peerPromptWait 은 원격 spawn 의 첫 프롬프트가 에이전트 준비를 기다리는 상한이다 (I-30).
-	peerPromptWait time.Duration
-	// peerTabCloseWait 은 closeTab 방송 뒤 도구가 사라지기를 기다리는 상한이다 (I-32).
-	peerTabCloseWait time.Duration
-	// peerCloseWait 은 agent.close 가 진행 중인 전달과 에이전트 종료를 함께 기다리는 상한이다
-	// (I-20·I-70). 보내는 쪽의 요청 한도 안에 답해야 한다.
-	peerCloseWait time.Duration
 }
 
 func defaultLimits() serverLimits {
@@ -252,9 +240,6 @@ func defaultLimits() serverLimits {
 		toolKillGrace:  3 * time.Second,
 
 		waitMaxConcurrent: 32,
-		peerPromptWait:    2 * time.Minute,
-		peerTabCloseWait:  3 * time.Second,
-		peerCloseWait:     peerCloseWait,
 	}
 }
 

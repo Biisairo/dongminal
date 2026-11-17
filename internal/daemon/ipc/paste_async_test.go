@@ -36,23 +36,34 @@ func respID(t *testing.T, v interface{}) int64 {
 	return r.ID
 }
 
-func guardedPaste(id int64, tool string) *toolipc.PanedRequest {
+func pasteReq(id int64, tool string) *toolipc.PanedRequest {
 	return &toolipc.PanedRequest{ID: id, Method: toolipc.MethodPaste,
-		Params: json.RawMessage(`{"id":"` + tool + `","data":"aGk=","submit":true,"foreground":"claude"}`)}
+		Params: json.RawMessage(`{"id":"` + tool + `","data":"aGk=","submit":true}`)}
 }
 
-// S6: 전경 조건이 있는 paste 가 전경 조회·제출 틈을 기다리는 동안에도 이 연결의 다른
+// holdPaste 는 paste 가 실제로 쓰기 전에 hold(도구 id)를 부르게 한다. 오래 걸리는 paste 를
+// 흉내 낸다.
+func holdPaste(t *testing.T, hold func(id string)) {
+	t.Helper()
+	prev := pasteInto
+	pasteInto = func(pm *toolhub.ToolManager, id string, data []byte, submit bool) error {
+		hold(id)
+		return prev(pm, id, data, submit)
+	}
+	t.Cleanup(func() { pasteInto = prev })
+}
+
+// S6: paste 가 제출 틈을 기다리는 동안에도 이 연결의 다른
 // 요청은 바로 답한다.
-func TestGuardedPasteDoesNotBlockDispatch(t *testing.T) {
+func TestPasteDoesNotBlockDispatch(t *testing.T) {
 	pc := asyncConn(t, "a")
 	release := make(chan struct{})
-	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+	holdPaste(t, func(id string) {
 		<-release
-		return map[string]string{ids[0]: "claude"}
-	}))
+	})
 	// 읽기 루프 자리. 지금 구현이 막히면 이 고루틴이 멈출 뿐 시험은 시한으로 끝난다.
 	go func() {
-		pc.dispatch(guardedPaste(1, "a"))
+		pc.dispatch(pasteReq(1, "a"))
 		pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodBusy, Params: json.RawMessage(`{"id":"a"}`)})
 	}()
 	select {
@@ -63,7 +74,7 @@ func TestGuardedPasteDoesNotBlockDispatch(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		close(release)
-		t.Fatal("조건부 paste 가 다른 요청을 막았다")
+		t.Fatal("paste 가 다른 요청을 막았다")
 	}
 	close(release)
 	select {
@@ -76,16 +87,16 @@ func TestGuardedPasteDoesNotBlockDispatch(t *testing.T) {
 	}
 }
 
-// S6: 같은 도구의 조건부 paste 끼리는 차례를 지킨다 — 한 paste 의 글과 제출 사이에 다른
+// S6: 같은 도구의 paste 끼리는 차례를 지킨다 — 한 paste 의 글과 제출 사이에 다른
 // paste 가 끼지 않는다. 다른 도구는 기다리지 않는다.
-func TestGuardedPasteSerializedPerTool(t *testing.T) {
+func TestPasteSerializedPerTool(t *testing.T) {
 	pc := asyncConn(t, "a", "b")
 	var mu sync.Mutex
 	inA, maxA := 0, 0
 	var probes atomic.Int32
-	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+	holdPaste(t, func(id string) {
 		probes.Add(1)
-		if ids[0] == "a" {
+		if id == "a" {
 			mu.Lock()
 			inA++
 			if inA > maxA {
@@ -97,11 +108,10 @@ func TestGuardedPasteSerializedPerTool(t *testing.T) {
 			inA--
 			mu.Unlock()
 		}
-		return map[string]string{ids[0]: "claude"}
-	}))
-	pc.dispatch(guardedPaste(1, "a"))
-	pc.dispatch(guardedPaste(2, "a"))
-	pc.dispatch(guardedPaste(3, "b"))
+	})
+	pc.dispatch(pasteReq(1, "a"))
+	pc.dispatch(pasteReq(2, "a"))
+	pc.dispatch(pasteReq(3, "b"))
 	got := map[int64]bool{}
 	for range 3 {
 		select {
@@ -116,8 +126,8 @@ func TestGuardedPasteSerializedPerTool(t *testing.T) {
 	if maxA != 1 {
 		t.Fatalf("같은 도구의 paste 가 겹쳤다 (동시 %d)", maxA)
 	}
-	if probes.Load() != 6 {
-		t.Fatalf("전경 조회 %d, 기대 6 (paste 마다 2)", probes.Load())
+	if probes.Load() != 3 {
+		t.Fatalf("paste %d번, 기대 3", probes.Load())
 	}
 }
 
@@ -173,19 +183,18 @@ func TestSerialQueueFIFO(t *testing.T) {
 
 // 정확성 재리뷰(3차) #1: 조건 없는 paste 와 write 도 같은 도구의 줄 뒤에 선다. 한 paste 의
 // 글과 제출 사이에 다른 paste·글이 끼지 않는다. 다른 요청은 기다리지 않는다.
-func TestPasteAndWriteQueueBehindGuardedPaste(t *testing.T) {
+func TestPasteAndWriteQueueBehindPaste(t *testing.T) {
 	pc := asyncConn(t, "a")
 	release := make(chan struct{})
 	var first atomic.Bool
 	first.Store(true)
-	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+	holdPaste(t, func(id string) {
 		if first.CompareAndSwap(true, false) {
 			<-release
 		}
-		return map[string]string{ids[0]: "claude"}
-	}))
+	})
 	go func() {
-		pc.dispatch(guardedPaste(1, "a"))
+		pc.dispatch(pasteReq(1, "a"))
 		pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodPaste, Params: json.RawMessage(`{"id":"a","data":"aGk=","submit":true}`)})
 		pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: toolipc.MethodWrite, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
 		pc.dispatch(&toolipc.PanedRequest{ID: 4, Method: toolipc.MethodBusy, Params: json.RawMessage(`{"id":"a"}`)})
@@ -242,12 +251,11 @@ func TestQueuedWriteSkippedAfterStop(t *testing.T) {
 	pc := asyncConn(t, "a")
 	release := make(chan struct{})
 	entered := make(chan struct{}, 4)
-	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+	holdPaste(t, func(id string) {
 		entered <- struct{}{}
 		<-release
-		return map[string]string{ids[0]: "claude"}
-	}))
-	pc.dispatch(guardedPaste(1, "a"))
+	})
+	pc.dispatch(pasteReq(1, "a"))
 	<-entered
 	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodWrite, Params: json.RawMessage(`{"id":"a","data":"UVFXUklURVFR"}`)})
 	pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: toolipc.MethodInput, Params: json.RawMessage(`{"id":"a","data":"UVFJTlBVVFFR"}`)})
@@ -289,12 +297,11 @@ func TestInputQueuesBehindPaste(t *testing.T) {
 	pc := asyncConn(t, "a")
 	release := make(chan struct{})
 	entered := make(chan struct{}, 4)
-	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+	holdPaste(t, func(id string) {
 		entered <- struct{}{}
 		<-release
-		return map[string]string{ids[0]: "claude"}
-	}))
-	pc.dispatch(guardedPaste(1, "a"))
+	})
+	pc.dispatch(pasteReq(1, "a"))
 	<-entered // paste 가 줄에서 꺼내져 돌고 있다
 	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodInput, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
 	pc.toolQueue.mu.Lock()

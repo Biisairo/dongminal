@@ -292,13 +292,6 @@ func TestPairWhenCallerPortClosed(t *testing.T) {
 	if ap := a.peers(t); len(ap) != 1 || ap[0]["state"] != peer.StatePendingOut {
 		t.Fatalf("A 는 pending-out 이어야 한다: %v", ap)
 	}
-	// FR-PNW-28 · I-11: confirm 을 잃어도 A 의 다음 명령이 성공하면 짝으로 바뀐다.
-	if code, out := a.call(t, ap0Name(t, a), "node.info", nil); code != http.StatusOK {
-		t.Fatalf("node.info: %d %v", code, out["_raw"])
-	}
-	if ap := a.peers(t); len(ap) != 1 || ap[0]["state"] != peer.StatePaired {
-		t.Fatalf("회복 뒤 A 는 짝이어야 한다: %v", ap)
-	}
 }
 
 func ap0Name(t *testing.T, n *peerNode) string {
@@ -351,7 +344,7 @@ func TestPeerRemoveAndAddress(t *testing.T) {
 func TestPeerNodePut(t *testing.T) {
 	n := newPeerNode(t, "node-a", false)
 	port := freeLoopbackPort(t)
-	body := map[string]any{"enabled": true, "port": port, "bind": "127.0.0.1", "name": "renamed", "advertise": "", "allowedDirs": []string{}}
+	body := map[string]any{"enabled": true, "port": port, "bind": "127.0.0.1", "name": "renamed", "advertise": ""}
 	if code, out := n.api(t, http.MethodPut, "/api/peers/node", body); code != http.StatusOK {
 		t.Fatalf("PUT: %d %v", code, out["_raw"])
 	}

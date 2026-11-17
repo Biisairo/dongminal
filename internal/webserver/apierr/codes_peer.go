@@ -16,21 +16,12 @@ const (
 	CodePeerNameTaken      = "peer_name_taken"
 	CodePeerPendingMissing = "peer_pending_not_found"
 	CodePeerNotFound       = "peer_not_found"
-	CodePeerUnknownOp      = "peer_unknown_op"
 	CodePeerRateLimited    = "peer_rate_limited"
-	CodePeerTargetMissing  = "peer_target_not_found"
-	CodePeerTargetNotAgent = "peer_target_not_agent"
-	CodePeerTargetBusy     = "peer_target_busy"
-	CodePeerAgentMissing   = "peer_agent_unavailable"
-	CodePeerDirNotAllowed  = "peer_dir_not_allowed"
-	CodePeerNotOwner       = "peer_not_owner"
-	CodePeerSpawnLimit     = "peer_spawn_limit"
 )
 
 var peerCodes = []string{
 	CodePeerUnavailable, CodePeerConfigInvalid, CodePeerPortClosed, CodePeerAddrRequired,
 	CodePeerInviteInvalid, CodePeerNoInvite, CodePeerTokenInvalid, CodePeerFPMismatch,
 	CodePeerUnreachable, CodePeerRejected, CodePeerNameTaken, CodePeerPendingMissing, CodePeerNotFound,
-	CodePeerUnknownOp, CodePeerRateLimited, CodePeerTargetMissing, CodePeerTargetNotAgent, CodePeerTargetBusy,
-	CodePeerAgentMissing, CodePeerDirNotAllowed, CodePeerNotOwner, CodePeerSpawnLimit,
+	CodePeerRateLimited,
 }

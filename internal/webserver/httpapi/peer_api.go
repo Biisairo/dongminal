@@ -20,22 +20,15 @@ import (
 
 // peerNodeView 는 이 노드의 설정과 노드 포트 상태다 (FR-PNW-80 "이 노드").
 type peerNodeView struct {
-	Enabled     bool     `json:"enabled"`
-	Port        int      `json:"port"`
-	Bind        string   `json:"bind"`
-	Name        string   `json:"name"`
-	Advertise   string   `json:"advertise"`
-	AllowedDirs []string `json:"allowedDirs"`
-	Fingerprint string   `json:"fingerprint"`
-	Listening   bool     `json:"listening"`
-	Addr        string   `json:"addr,omitempty"`
-	Error       string   `json:"error,omitempty"`
-}
-
-// peerItemView 는 짝 하나에 마지막 응답 시각을 얹은 것이다 (FR-PNW-73).
-type peerItemView struct {
-	peer.Peer
-	LastSeen *time.Time `json:"lastSeen,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	Port        int    `json:"port"`
+	Bind        string `json:"bind"`
+	Name        string `json:"name"`
+	Advertise   string `json:"advertise"`
+	Fingerprint string `json:"fingerprint"`
+	Listening   bool   `json:"listening"`
+	Addr        string `json:"addr,omitempty"`
+	Error       string `json:"error,omitempty"`
 }
 
 type peerInviteView struct {
@@ -45,7 +38,7 @@ type peerInviteView struct {
 // peersView 는 GET /api/peers 다. 초대 토큰은 싣지 않는다 (FR-PNW-95, I-3).
 type peersView struct {
 	Node    peerNodeView    `json:"node"`
-	Peers   []peerItemView  `json:"peers"`
+	Peers   []peer.Peer     `json:"peers"`
 	Pending []peer.Pending  `json:"pending"`
 	Invite  *peerInviteView `json:"invite"`
 }
@@ -65,18 +58,11 @@ func (s *Server) peersView() peersView {
 	v := peersView{
 		Node: peerNodeView{
 			Enabled: cfg.Enabled, Port: cfg.Port, Bind: cfg.Bind, Name: cfg.Name,
-			Advertise: cfg.Advertise, AllowedDirs: cfg.AllowedDirs, Fingerprint: s.peerID.Fingerprint,
+			Advertise: cfg.Advertise, Fingerprint: s.peerID.Fingerprint,
 			Listening: st.Listening, Addr: st.Addr, Error: st.Err,
 		},
-		Peers:   make([]peerItemView, 0, len(cfg.Peers)),
+		Peers:   append([]peer.Peer{}, cfg.Peers...),
 		Pending: s.pairing.Pending(),
-	}
-	for _, p := range cfg.Peers {
-		item := peerItemView{Peer: p}
-		if t, ok := s.peerSeen.Get(p.Fingerprint); ok {
-			item.LastSeen = &t
-		}
-		v.Peers = append(v.Peers, item)
 	}
 	if exp, ok := s.pairing.InviteExpires(); ok {
 		v.Invite = &peerInviteView{Expires: exp}

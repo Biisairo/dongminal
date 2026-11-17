@@ -74,7 +74,7 @@ test.describe.serial('설정 ▸ Peers', () => {
     await pingUntilUp(`http://localhost:${aPort}/api/ping`, 90_000);
     a = await pwRequest.newContext({ baseURL: `http://localhost:${aPort}` });
     const node = (port: number, name: string) => ({
-      enabled: true, port, bind: '127.0.0.1', name, advertise: '127.0.0.1', allowedDirs: [],
+      enabled: true, port, bind: '127.0.0.1', name, advertise: '127.0.0.1',
     });
     let r = await a.put('/api/peers/node', { data: node(dmServer.port + A_NODE_OFFSET, 'node-a') });
     expect(r.status(), await r.text()).toBe(200);
@@ -89,7 +89,7 @@ test.describe.serial('설정 ▸ Peers', () => {
     // 워커 서버의 노드 포트를 다시 닫는다 — 뒤 스펙은 꺼진 노드를 전제로 한다 (NFR-PNW-1).
     const b = await pwRequest.newContext({ baseURL: dmServer.baseURL });
     await b.put('/api/peers/node', {
-      data: { enabled: false, port: 58147, bind: '0.0.0.0', name: 'node-b', advertise: '', allowedDirs: [] },
+      data: { enabled: false, port: 58147, bind: '0.0.0.0', name: 'node-b', advertise: '' },
     });
     await b.dispose();
     if (a) await a.dispose();

@@ -68,7 +68,7 @@ func TestOpenStoreDefaults(t *testing.T) {
 	if c.Name != "host-a" {
 		t.Errorf("name = %q", c.Name)
 	}
-	if c.Advertise != "" || len(c.AllowedDirs) != 0 || len(c.Peers) != 0 {
+	if c.Advertise != "" || len(c.Peers) != 0 {
 		t.Errorf("빈 기본값이 아니다: %+v", c)
 	}
 	// NFR-PNW-1: 손대지 않으면 파일을 만들지 않는다.
@@ -86,7 +86,6 @@ func TestStoreSaveAndReload(t *testing.T) {
 	c.Bind = "127.0.0.1"
 	c.Name = "office"
 	c.Advertise = "office.example"
-	c.AllowedDirs = []string{"/work"}
 	c.Peers = []Peer{{Name: "home", Addr: "10.0.0.2", Port: 58147, Fingerprint: strings.Repeat("ab", 32)}}
 	if err := s.Save(c); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -335,39 +334,6 @@ func TestStoreFreeName(t *testing.T) {
 	}
 }
 
-// FR-PNW-59: 허용 폴더 판정. 심볼릭 링크를 푼 실제 경로로 본다.
-func TestDirAllowed(t *testing.T) {
-	root := t.TempDir()
-	allowed := filepath.Join(root, "work")
-	inside := filepath.Join(allowed, "proj")
-	outside := filepath.Join(root, "other")
-	for _, d := range []string{inside, outside} {
-		if err := os.MkdirAll(d, 0o700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if got, ok := DirAllowed(inside, []string{allowed}); !ok || got == "" {
-		t.Fatalf("안쪽 = %q %v", got, ok)
-	}
-	if _, ok := DirAllowed(allowed, []string{allowed}); !ok {
-		t.Fatal("허용 폴더 자신을 거절했다")
-	}
-	for _, c := range []string{outside, root, allowed + "x", "relative/path", filepath.Join(root, "missing")} {
-		if _, ok := DirAllowed(c, []string{allowed}); ok {
-			t.Errorf("%q 를 허용했다", c)
-		}
-	}
-	if _, ok := DirAllowed(inside, nil); ok {
-		t.Fatal("허용 폴더가 비었는데 허용했다")
-	}
-	link := filepath.Join(allowed, "escape")
-	if err := os.Symlink(outside, link); err == nil {
-		if _, ok := DirAllowed(link, []string{allowed}); ok {
-			t.Fatal("밖을 가리키는 링크를 허용했다")
-		}
-	}
-}
-
 // I-5: 같은 지문의 항목은 갈아 끼워지므로 그 이름은 비어 있는 것으로 본다.
 func TestStoreFreeNameIgnoresSameFingerprint(t *testing.T) {
 	clk := newFakeClock()
@@ -401,25 +367,17 @@ func TestStoreReAddKeepsPaired(t *testing.T) {
 	}
 }
 
-// 리뷰 C-2·C-7: 노드 설정을 바꿀 때 허용 폴더는 절대 경로, 알릴 주소는 주소여야 한다.
-// 틀린 값을 저장하면 모든 spawn 이 이유 없이 거절되거나 초대를 만들 때에야 실패한다.
-func TestStoreSetNodeValidatesDirsAndAdvertise(t *testing.T) {
+// 리뷰 C-7: 노드 설정을 바꿀 때 알릴 주소는 주소여야 한다. 틀린 값을 저장하면 초대를
+// 만들 때에야 실패한다.
+func TestStoreSetNodeValidatesAdvertise(t *testing.T) {
 	s := newTestStore(t, newFakeClock())
 	base := s.Config()
-	for _, bad := range []Config{
-		{AllowedDirs: []string{"~/work"}},
-		{AllowedDirs: []string{"rel/dir"}},
-		{AllowedDirs: []string{""}},
-		{Advertise: "not an addr!"},
-	} {
-		c := base
-		c.AllowedDirs, c.Advertise = bad.AllowedDirs, bad.Advertise
-		if err := s.SetNode(c); !errors.Is(err, ErrInvalidNodeField) {
-			t.Errorf("%+v → %v", bad, err)
-		}
-	}
 	c := base
-	c.AllowedDirs, c.Advertise = []string{filepath.Join(t.TempDir(), "w")}, "192.168.0.5"
+	c.Advertise = "not an addr!"
+	if err := s.SetNode(c); !errors.Is(err, ErrInvalidNodeField) {
+		t.Errorf("틀린 주소 → %v", err)
+	}
+	c.Advertise = "192.168.0.5"
 	if err := s.SetNode(c); err != nil {
 		t.Fatal(err)
 	}

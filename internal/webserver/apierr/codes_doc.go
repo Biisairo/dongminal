@@ -194,7 +194,7 @@ var CodeDoc = map[string]Doc{
 
 	// ── 노드 간 통신 (PEER_NETWORK_SRS) ──
 	CodePeerUnavailable:    {"이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다.", "server.log 의 peer identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(짝은 다시 맺어야 합니다)."},
-	CodePeerConfigInvalid:  {"노드 설정 값이 규칙에 맞지 않습니다.", "이름은 영문·숫자·`.`·`_`·`-` 1~32자, 포트는 1~65535, 듣는 주소는 IP 입니다. 허용 폴더는 절대 경로, 알릴 주소는 IP 주소나 호스트명입니다. 등록 요청이 이 오류로 거절되면 상대가 쓸 수 없는 주소(zone 이 붙은 link-local 등)에서 왔습니다. 요청하는 노드에 알릴 주소를 정하세요."},
+	CodePeerConfigInvalid:  {"노드 설정 값이 규칙에 맞지 않습니다.", "이름은 영문·숫자·`.`·`_`·`-` 1~32자, 포트는 1~65535, 듣는 주소는 IP 입니다. 알릴 주소는 IP 주소나 호스트명입니다. 등록 요청이 이 오류로 거절되면 상대가 쓸 수 없는 주소(zone 이 붙은 link-local 등)에서 왔습니다. 요청하는 노드에 알릴 주소를 정하세요."},
 	CodePeerPortClosed:     {"노드 포트가 열려 있지 않아 초대를 만들 수 없습니다.", "노드 포트를 켜고(설정 ▸ Peers 또는 PUT /api/peers/node), 열지 못한 사유가 있으면 먼저 해결하세요."},
 	CodePeerAddrRequired:   {"초대 코드에 담을 이 노드의 주소가 없습니다.", "초대를 만들 때 주소(--addr)를 주거나 노드 설정의 알릴 주소(advertise)를 정하세요."},
 	CodePeerInviteInvalid:  {"초대 코드의 모양이 틀렸습니다.", "dmpeer1: 로 시작하는 코드를 잘리지 않게 통째로 붙여 넣으세요."},
@@ -206,13 +206,5 @@ var CodeDoc = map[string]Doc{
 	CodePeerNameTaken:      {"그 이름의 짝이 이미 있습니다.", "다른 이름(--name)을 정하세요."},
 	CodePeerPendingMissing: {"그 승인 대기가 없습니다 — 만료됐거나 이미 처리됐습니다.", "dmctl peers 로 지금 목록을 보세요. 승인 대기는 10분 뒤 사라집니다."},
 	CodePeerNotFound:       {"그 이름의 짝이 없습니다.", "dmctl peers 로 짝 이름을 확인하세요."},
-	CodePeerUnknownOp:      {"모르는 프로토콜 명령입니다.", "node.info 의 commands 로 상대가 받는 명령을 확인하세요. 원격으로는 정해진 명령만 오갑니다."},
-	CodePeerRateLimited:    {"이 짝이 1분 동안 보낼 수 있는 요청 수(60)를 넘었습니다.", "잠시 뒤 다시 보내세요. 반복 호출이라면 간격을 두세요."},
-	CodePeerTargetMissing:  {"상대 노드에 그 도구가 없습니다.", "dmctl peer tools <노드> 로 지금 목록을 다시 받으세요."},
-	CodePeerTargetBusy:     {"상대 노드가 그 도구에 다른 원격 글을 넣는 중이거나 이미 닫는 중입니다. 아무것도 하지 않았습니다.", "잠시 뒤 다시 보내세요. 한 도구에는 원격 글을 한 번에 하나씩 넣고, 닫기도 한 번에 하나만 합니다."},
-	CodePeerTargetNotAgent: {"그 도구에서 지금 에이전트가 돌고 있지 않습니다. 아무것도 넣지 않았습니다.", "에이전트가 끝났을 수 있습니다. dmctl peer tools <노드> 로 다시 확인하세요."},
-	CodePeerAgentMissing:   {"상대 노드에 그 에이전트가 없거나 설치되지 않았습니다.", "dmctl peer info <노드> 의 agents 로 상대가 띄울 수 있는 에이전트를 확인하세요."},
-	CodePeerDirNotAllowed:  {"그 폴더는 상대 노드가 허용한 폴더 밖입니다. 허용 폴더가 비어 있으면 모든 띄우기를 거절합니다.", "dmctl peer info <노드> 의 allowedDirs 안의 폴더를 쓰세요. 허용 폴더는 받는 노드의 사용자가 정합니다."},
-	CodePeerNotOwner:       {"이 노드가 띄운 도구가 아니라서 닫을 수 없습니다.", "원격으로는 자기가 agent.spawn 으로 띄운 도구만 닫을 수 있습니다."},
-	CodePeerSpawnLimit:     {"이 짝이 띄워 둔 도구가 상한(4개)에 닿았습니다. 아무것도 띄우지 않았습니다.", "다 쓴 도구를 agent.close 로 닫은 뒤 다시 띄우세요."},
+	CodePeerRateLimited:    {"한 출발지 주소가 1분 동안 보낼 수 있는 등록 요청 수(60)를 넘었습니다.", "잠시 뒤 다시 보내세요."},
 }

@@ -12,19 +12,6 @@
 const PEER_REMAIN_TICK_MS=1000;
 
 Object.assign(App.prototype, {
-  _pnDirRow(v){
-    const row=document.createElement('div');
-    row.className='acl-row';
-    const inp=document.createElement('input');
-    inp.type='text';inp.className='acl-value';
-    inp.placeholder='/path/to/work';
-    inp.value=v||'';
-    const del=UIKit.button({icon:'x',title:t('peer.dir_del'),kind:'ghost',size:'sm'});
-    del.addEventListener('click',()=>row.remove());
-    row.append(inp,del);
-    return row;
-  },
-
   _pnNodePaint(v=this._peers){
     const n=v&&v.node;
     if(!n) return;
@@ -33,23 +20,15 @@ Object.assign(App.prototype, {
     document.getElementById('pn-port').value=n.port?String(n.port):'';
     document.getElementById('pn-bind').value=n.bind||'';
     document.getElementById('pn-advertise').value=n.advertise||'';
-    const box=document.getElementById('pn-dirs');
-    box.replaceChildren(...(n.allowedDirs||[]).map(d=>this._pnDirRow(d)));
   },
 
   _pnNodeCollect(){
-    const dirs=[];
-    for(const inp of document.querySelectorAll('#pn-dirs .acl-value')){
-      const v=inp.value.trim();
-      if(v) dirs.push(v);
-    }
     return {
       enabled:document.getElementById('pn-enabled').checked,
       name:document.getElementById('pn-name').value.trim(),
       port:parseInt(document.getElementById('pn-port').value,10)||0,
       bind:document.getElementById('pn-bind').value.trim(),
       advertise:document.getElementById('pn-advertise').value.trim(),
-      allowedDirs:dirs,
     };
   },
 
@@ -179,9 +158,6 @@ Object.assign(App.prototype, {
     state.className='sbx-status pn-state';
     state.textContent=!p.state?t('peer.state_paired')
       :p.state==='pending-out'?t('peer.state_pending_out'):t('peer.state_unknown',{state:p.state});
-    const seen=document.createElement('span');
-    seen.className='sbx-status';
-    seen.textContent=p.lastSeen?t('peer.last_seen',{at:new Date(p.lastSeen).toLocaleString()}):t('peer.never_seen');
     const addr=document.createElement('input');
     addr.type='text';addr.className='sbx-input pn-addr';addr.value=p.addr;addr.hidden=true;
     addr.setAttribute('aria-label',t('peer.addr_label'));
@@ -211,7 +187,7 @@ Object.assign(App.prototype, {
     });
     const del=UIKit.button({label:t('peer.remove'),kind:'ghost',size:'sm',cls:'pn-remove'});
     del.addEventListener('click',()=>this._pnRemoveConfirm(p.name));
-    row.append(who,state,seen,addr,port,edit,cancel,del);
+    row.append(who,state,addr,port,edit,cancel,del);
     return row;
   },
 
@@ -283,8 +259,6 @@ Object.assign(App.prototype, {
   _initPeersPanel(){
     const save=document.getElementById('pn-save');
     if(!save) return;
-    document.getElementById('pn-dir-add').addEventListener('click',()=>
-      document.getElementById('pn-dirs').appendChild(this._pnDirRow('')));
     save.addEventListener('click',()=>statusRun(document.getElementById('pn-node-status'),
       {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
