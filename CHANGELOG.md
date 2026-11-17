@@ -23,8 +23,12 @@
   띄우면 적용됩니다(`dongminal start --restart-daemon`).
 - **이름 `peer` 를 `edge`(간선)로 바꿨습니다.** 로컬 API 는 `/api/edges/*`, 명령은 `dmctl edges`·`dmctl edge <sub>`,
   설정 탭은 **Edges**, 이벤트는 `edges_changed`, 오류 코드는 `edge_*` 입니다. 노드 포트 경로(`/edge/v1/*`)와 초대 코드
-  머리(`dmedge1:`)도 바뀌어 **옛 판과는 간선을 맺을 수 없습니다.** 양쪽을 새 판으로 올리세요. 이미 맺은 간선은 남습니다.
+  머리(`dmedge1:`)도 바뀌어 **옛 판과는 간선을 맺을 수 없습니다.** 양쪽을 새 판으로 올리세요.
   홈의 `peers.json` 은 서버가 시작할 때 `edges.json` 으로 옮깁니다. 감사 로그 줄은 `edge audit` 입니다.
+- **신원 파일이 `edge-cert.pem`·`edge-key.pem` 으로 바뀝니다.** 옛 `node-cert.pem`·`node-key.pem` 은 지우고 신원을 새로
+  만듭니다. 지문이 바뀌므로 옛 판에서 맺은 간선은 다시 맺어야 합니다.
+- **Run 동료 명부는 `team` 입니다.** `GET /api/runs/team`, `dmctl run team`, 응답 키 `team`. 에이전트 프리앰블도
+  `dmctl run team` 을 안내합니다. 옛 `dmctl run peers` 로 시작한 에이전트는 새 Run 부터 새 이름을 받습니다.
 
 ## [1.3.4] — 2026-11-16
 

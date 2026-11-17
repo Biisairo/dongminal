@@ -60,14 +60,14 @@ func TestNewCreatesNodeIdentity(t *testing.T) {
 	if _, err := New(Config{DataDir: home}, Deps{}); err != nil {
 		t.Fatal(err)
 	}
-	st, err := os.Stat(filepath.Join(home, dmenv.NodeKeyFile))
+	st, err := os.Stat(filepath.Join(home, dmenv.EdgeKeyFile))
 	if err != nil {
 		t.Fatalf("키 파일: %v", err)
 	}
 	if testpath.PermChecked() && st.Mode().Perm() != 0o600 {
 		t.Fatalf("키 권한 %o", st.Mode().Perm())
 	}
-	if _, err := os.Stat(filepath.Join(home, dmenv.NodeCertFile)); err != nil {
+	if _, err := os.Stat(filepath.Join(home, dmenv.EdgeCertFile)); err != nil {
 		t.Fatalf("인증서 파일: %v", err)
 	}
 	// NFR-PNW-1: 손대지 않은 설정 파일은 만들지 않는다.

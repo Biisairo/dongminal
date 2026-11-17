@@ -41,14 +41,14 @@ func TestLoadOrCreateIdentityCreates(t *testing.T) {
 	if life < CertValidity-24*time.Hour || life > CertValidity+24*time.Hour {
 		t.Fatalf("유효 기간 %v, 기대 %v", life, CertValidity)
 	}
-	st, err := os.Stat(filepath.Join(dir, dmenv.NodeKeyFile))
+	st, err := os.Stat(filepath.Join(dir, dmenv.EdgeKeyFile))
 	if err != nil {
 		t.Fatalf("키 파일: %v", err)
 	}
 	if perm := st.Mode().Perm(); testpath.PermChecked() && perm != 0o600 {
 		t.Fatalf("키 파일 권한 %o, 기대 600", perm)
 	}
-	if _, err := os.Stat(filepath.Join(dir, dmenv.NodeCertFile)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, dmenv.EdgeCertFile)); err != nil {
 		t.Fatalf("인증서 파일: %v", err)
 	}
 }
@@ -77,7 +77,7 @@ func TestLoadOrCreateIdentityReuses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keyBefore, _ := os.ReadFile(filepath.Join(dir, dmenv.NodeKeyFile))
+	keyBefore, _ := os.ReadFile(filepath.Join(dir, dmenv.EdgeKeyFile))
 	second, err := LoadOrCreateIdentity(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestLoadOrCreateIdentityReuses(t *testing.T) {
 	if first.Fingerprint != second.Fingerprint {
 		t.Fatalf("지문이 바뀌었다: %s → %s", first.Fingerprint, second.Fingerprint)
 	}
-	keyAfter, _ := os.ReadFile(filepath.Join(dir, dmenv.NodeKeyFile))
+	keyAfter, _ := os.ReadFile(filepath.Join(dir, dmenv.EdgeKeyFile))
 	if string(keyBefore) != string(keyAfter) {
 		t.Fatal("키 파일을 다시 썼다")
 	}
@@ -97,7 +97,7 @@ func TestLoadOrCreateIdentityCorruptFails(t *testing.T) {
 	if _, err := LoadOrCreateIdentity(dir); err != nil {
 		t.Fatal(err)
 	}
-	keyPath := filepath.Join(dir, dmenv.NodeKeyFile)
+	keyPath := filepath.Join(dir, dmenv.EdgeKeyFile)
 	if err := os.WriteFile(keyPath, []byte("garbage"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -116,13 +116,13 @@ func TestLoadOrCreateIdentityPartialFails(t *testing.T) {
 	if _, err := LoadOrCreateIdentity(dir); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Remove(filepath.Join(dir, dmenv.NodeCertFile)); err != nil {
+	if err := os.Remove(filepath.Join(dir, dmenv.EdgeCertFile)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := LoadOrCreateIdentity(dir); err == nil {
 		t.Fatal("인증서만 없는데 오류가 없다")
 	}
-	if _, err := os.Stat(filepath.Join(dir, dmenv.NodeCertFile)); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, dmenv.EdgeCertFile)); err == nil {
 		t.Fatal("인증서를 새로 만들었다")
 	}
 }
@@ -133,7 +133,7 @@ func TestIdentityCertWriteFailureRemovesKey(t *testing.T) {
 	dir := t.TempDir()
 	prev := writeIdentityFile
 	writeIdentityFile = func(path string, data []byte, perm os.FileMode) error {
-		if filepath.Base(path) == dmenv.NodeCertFile {
+		if filepath.Base(path) == dmenv.EdgeCertFile {
 			return errors.New("disk full")
 		}
 		return prev(path, data, perm)

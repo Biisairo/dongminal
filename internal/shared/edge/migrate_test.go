@@ -14,12 +14,12 @@ const legacyJSON = `{"enabled":true,"port":58147,"bind":"0.0.0.0","name":"old","
 	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + `","state":""}]}`
 
 // PEER_DAEMON_SRS FR-PDM-71 (TC-PDM-26): peers.json 만 있으면 edges.json 으로 옮긴다.
-func TestMigrateLegacyConfigMoves(t *testing.T) {
+func TestMigrateLegacyFilesMoves(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, dmenv.LegacyPeersFile), []byte(legacyJSON), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := MigrateLegacyConfig(dir); err != nil {
+	if err := MigrateLegacyFiles(dir); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, dmenv.LegacyPeersFile)); !os.IsNotExist(err) {
@@ -32,7 +32,7 @@ func TestMigrateLegacyConfigMoves(t *testing.T) {
 }
 
 // FR-PDM-71: 둘 다 있으면 edges.json 을 쓰고 peers.json 은 그대로 둔다.
-func TestMigrateLegacyConfigKeepsBoth(t *testing.T) {
+func TestMigrateLegacyFilesKeepsBoth(t *testing.T) {
 	dir := t.TempDir()
 	legacy := filepath.Join(dir, dmenv.LegacyPeersFile)
 	if err := os.WriteFile(legacy, []byte(legacyJSON), 0o600); err != nil {
@@ -41,7 +41,7 @@ func TestMigrateLegacyConfigKeepsBoth(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, dmenv.EdgesFile), []byte(`{"name":"new","edges":[]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := MigrateLegacyConfig(dir); err != nil {
+	if err := MigrateLegacyFiles(dir); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(legacy); err != nil {
@@ -53,9 +53,9 @@ func TestMigrateLegacyConfigKeepsBoth(t *testing.T) {
 }
 
 // FR-PDM-71: 둘 다 없으면 아무 파일도 만들지 않고 빈 설정이다.
-func TestMigrateLegacyConfigNone(t *testing.T) {
+func TestMigrateLegacyFilesNone(t *testing.T) {
 	dir := t.TempDir()
-	if err := MigrateLegacyConfig(dir); err != nil {
+	if err := MigrateLegacyFiles(dir); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, dmenv.EdgesFile)); !os.IsNotExist(err) {
@@ -93,4 +93,31 @@ func jsonHasKey(t *testing.T, raw []byte, key string) bool {
 	}
 	_, ok := m[key]
 	return ok
+}
+
+// FR-PDM-71, D-PDM-18 (TC-PDM-26): 옛 신원 파일 node-*.pem 은 옮기지 않고 지운다.
+// 신원은 edge-cert.pem·edge-key.pem 으로 새로 만든다.
+func TestMigrateLegacyFilesDropsNodeIdentity(t *testing.T) {
+	dir := t.TempDir()
+	for _, n := range []string{"node-cert.pem", "node-key.pem"} {
+		if err := os.WriteFile(filepath.Join(dir, n), []byte("old"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := MigrateLegacyFiles(dir); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"node-cert.pem", "node-key.pem"} {
+		if _, err := os.Stat(filepath.Join(dir, n)); !os.IsNotExist(err) {
+			t.Errorf("%s 가 남았다: %v", n, err)
+		}
+	}
+	if _, err := LoadOrCreateIdentity(dir); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"edge-cert.pem", "edge-key.pem"} {
+		if _, err := os.Stat(filepath.Join(dir, n)); err != nil {
+			t.Errorf("%s 가 없다: %v", n, err)
+		}
+	}
 }

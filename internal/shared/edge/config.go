@@ -217,9 +217,15 @@ func OpenStore(path, hostname string) *Store {
 	return s
 }
 
-// MigrateLegacyConfig 는 dir 에 edges.json 이 없고 peers.json 이 있으면 이름을 바꾼다.
-// 둘 다 있으면 아무것도 하지 않는다 (PEER_DAEMON_SRS FR-PDM-71).
-func MigrateLegacyConfig(dir string) error {
+// MigrateLegacyFiles 는 옛 이름의 홈 파일을 정리한다 (PEER_DAEMON_SRS FR-PDM-71).
+// edges.json 이 없고 peers.json 이 있으면 이름을 바꾼다. 둘 다 있으면 그대로 둔다.
+// 옛 신원 파일 node-*.pem 은 옮기지 않고 지운다 — 신원은 edge-*.pem 으로 새로 선다 (D-PDM-18).
+func MigrateLegacyFiles(dir string) error {
+	for _, n := range []string{dmenv.LegacyNodeCertFile, dmenv.LegacyNodeKeyFile} {
+		if err := os.Remove(filepath.Join(dir, n)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
 	cur := filepath.Join(dir, dmenv.EdgesFile)
 	if _, err := os.Stat(cur); !errors.Is(err, os.ErrNotExist) {
 		return err

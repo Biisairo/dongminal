@@ -26,7 +26,7 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
   dmctl run list
   dmctl run attach --member <uuid> [--at <탭 uuid>]
   dmctl run detach --member <uuid>
-  dmctl run peers
+  dmctl run team
   dmctl run succeed --member <uuid> (--at <탭 uuid> | --headless) [--model <m>] [--timeout-ms N]
   dmctl run succeed --self --at <탭 uuid> --summary <본문>|-     # 자기 승계 (migration)
   dmctl run handoff [--member <uuid>] --summary <본문>|-
@@ -210,8 +210,8 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 		return runSubSucceed(f, stdin, stdout, stderr)
 	case "handoff":
 		return runSubHandoff(f, stdin, stdout, stderr)
-	case "peers":
-		return runSubPeers(f, stdout, stderr)
+	case "team":
+		return runSubTeam(f, stdout, stderr)
 	case "tree":
 		return runSubTree(f, stdout, stderr)
 	case "assign":

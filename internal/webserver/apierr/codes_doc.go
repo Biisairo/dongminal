@@ -193,7 +193,7 @@ var CodeDoc = map[string]Doc{
 	CodeTelegramNoToken:           {"봇 token 이 없어 등록 코드를 만들 수 없습니다.", "먼저 봇 token 을 저장하세요."},
 
 	// ── 노드 간 통신 (PEER_NETWORK_SRS) ──
-	CodeEdgeUnavailable:    {"이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다.", "server.log 의 edge identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(간선은 다시 맺어야 합니다)."},
+	CodeEdgeUnavailable:    {"이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다.", "server.log 의 edge identity 줄을 보세요. edge-cert.pem·edge-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(간선은 다시 맺어야 합니다)."},
 	CodeEdgeConfigInvalid:  {"노드 설정 값이 규칙에 맞지 않습니다.", "이름은 영문·숫자·`.`·`_`·`-` 1~32자, 포트는 1~65535, 듣는 주소는 IP 입니다. 알릴 주소는 IP 주소나 호스트명입니다. 등록 요청이 이 오류로 거절되면 상대가 쓸 수 없는 주소(zone 이 붙은 link-local 등)에서 왔습니다. 요청하는 노드에 알릴 주소를 정하세요."},
 	CodeEdgePortClosed:     {"노드 포트가 열려 있지 않아 초대를 만들 수 없습니다.", "노드 포트를 켜고(설정 ▸ 간선 또는 PUT /api/edges/node), 열지 못한 사유가 있으면 먼저 해결하세요."},
 	CodeEdgeAddrRequired:   {"초대 코드에 담을 이 노드의 주소가 없습니다.", "초대를 만들 때 주소(--addr)를 주거나 노드 설정의 알릴 주소(advertise)를 정하세요."},

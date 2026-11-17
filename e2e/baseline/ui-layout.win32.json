@@ -21449,7 +21449,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|div.pn-row[hidden]": {
+ "terminal|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21458,7 +21458,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|div.pn-row": {
+ "terminal|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21494,7 +21494,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|div.pn-row[hidden]": {
+ "git:changes|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21503,7 +21503,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|div.pn-row": {
+ "git:changes|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21539,7 +21539,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|div.pn-row[hidden]": {
+ "git:diff|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21548,7 +21548,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|div.pn-row": {
+ "git:diff|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21584,7 +21584,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.pn-row[hidden]": {
+ "git:history|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21593,7 +21593,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.pn-row": {
+ "git:history|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21629,7 +21629,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|div.pn-row[hidden]": {
+ "git:branches|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21638,7 +21638,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|div.pn-row": {
+ "git:branches|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21674,7 +21674,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|div.pn-row[hidden]": {
+ "git:stash|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21683,7 +21683,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|div.pn-row": {
+ "git:stash|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21719,7 +21719,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|div.pn-row[hidden]": {
+ "git:console|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21728,7 +21728,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|div.pn-row": {
+ "git:console|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21764,7 +21764,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|div.pn-row[hidden]": {
+ "git:worktrees|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21773,7 +21773,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|div.pn-row": {
+ "git:worktrees|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21809,7 +21809,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|div.pn-row[hidden]": {
+ "git:submodules|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21818,7 +21818,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|div.pn-row": {
+ "git:submodules|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21845,7 +21845,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|div.pn-row[hidden]": {
+ "editor|div.set-row[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21854,7 +21854,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|div.pn-row": {
+ "editor|div.set-row": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",

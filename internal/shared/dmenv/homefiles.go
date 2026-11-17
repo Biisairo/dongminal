@@ -24,8 +24,12 @@ const (
 	EdgesFile = "edges.json"
 	// LegacyPeersFile 은 EdgesFile 의 옛 이름이다. 이관에만 쓴다 (PEER_DAEMON_SRS FR-PDM-71).
 	LegacyPeersFile = "peers.json"
-	NodeCertFile    = "node-cert.pem"
-	NodeKeyFile     = "node-key.pem"
+	EdgeCertFile    = "edge-cert.pem"
+	EdgeKeyFile     = "edge-key.pem"
+	// LegacyNodeCertFile·LegacyNodeKeyFile 은 신원 파일의 옛 이름이다. 지우기에만 쓴다
+	// (PEER_DAEMON_SRS FR-PDM-71, D-PDM-18).
+	LegacyNodeCertFile = "node-cert.pem"
+	LegacyNodeKeyFile  = "node-key.pem"
 	// TelegramFile 은 Telegram 브리지 설정이다 — token 이 들어 있어 권한 600 이다
 	// (TELEGRAM_BRIDGE_SRS FR-TGB-2).
 	TelegramFile = "telegram.json"

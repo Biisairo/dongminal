@@ -14,18 +14,18 @@ import (
 
 // 묶음 P — 동료 명부 (ORCHESTRATION_V2_SRS FR-PAT-5, V-PAT-6~8).
 
-// peersOf calls the endpoint and returns the decoded roster.
-func peersOf(t *testing.T, s *Server) (int, []map[string]any) {
+// teamOf calls the endpoint and returns the decoded roster.
+func teamOf(t *testing.T, s *Server) (int, []map[string]any) {
 	t.Helper()
-	code, out := getRun(t, s, "/api/runs/peers")
-	raw, _ := json.Marshal(out["peers"])
-	var peers []map[string]any
-	_ = json.Unmarshal(raw, &peers)
-	return code, peers
+	code, out := getRun(t, s, "/api/runs/team")
+	raw, _ := json.Marshal(out["team"])
+	var mates []map[string]any
+	_ = json.Unmarshal(raw, &mates)
+	return code, mates
 }
 
 // FR-PAT-5: 명부는 **자기를 제외한** 같은 Run 의 동료를 낸다.
-func TestApiRunPeers_ExcludesTheCallerAndKeepsTheRest(t *testing.T) {
+func TestApiRunTeam_ExcludesTheCallerAndKeepsTheRest(t *testing.T) {
 	s, _, _, _ := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	for _, spec := range []string{
@@ -36,14 +36,14 @@ func TestApiRunPeers_ExcludesTheCallerAndKeepsTheRest(t *testing.T) {
 			t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
 		}
 	}
-	code, peers := peersOf(t, s)
+	code, mates := teamOf(t, s)
 	if code != http.StatusOK {
 		t.Fatalf("want 200, got %d", code)
 	}
-	if len(peers) != 1 {
-		t.Fatalf("자기를 뺀 1명이어야 한다: %+v", peers)
+	if len(mates) != 1 {
+		t.Fatalf("자기를 뺀 1명이어야 한다: %+v", mates)
 	}
-	p := peers[0]
+	p := mates[0]
 	if p["role"] != "비평가" || p["to"] != "tool-b" {
 		t.Fatalf("동료 행이 어긋난다: %+v", p)
 	}
@@ -59,7 +59,7 @@ func TestApiRunPeers_ExcludesTheCallerAndKeepsTheRest(t *testing.T) {
 
 // V-PAT-7: Run 에 속하지 않은 도구의 호출은 거부된다. 조정자도 멤버가 아니므로
 // 여기서 거부된다 — 조정자의 명부는 `run status` 다.
-func TestApiRunPeers_RejectsNonMembers(t *testing.T) {
+func TestApiRunTeam_RejectsNonMembers(t *testing.T) {
 	s, _, _, who := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	if code, out := postRun(t, s, "/api/runs/members",
@@ -68,12 +68,12 @@ func TestApiRunPeers_RejectsNonMembers(t *testing.T) {
 	}
 
 	// 조정자(tool-a)는 멤버가 아니다.
-	if code, _ := getRun(t, s, "/api/runs/peers"); code != http.StatusForbidden {
+	if code, _ := getRun(t, s, "/api/runs/team"); code != http.StatusForbidden {
 		t.Fatalf("조정자 호출 want 403, got %d", code)
 	}
 	// 아무 관계 없는 도구.
 	who.toolID = "tool-z"
-	code, out := getRun(t, s, "/api/runs/peers")
+	code, out := getRun(t, s, "/api/runs/team")
 	if code != http.StatusForbidden {
 		t.Fatalf("외부 도구 호출 want 403, got %d", code)
 	}
@@ -82,14 +82,14 @@ func TestApiRunPeers_RejectsNonMembers(t *testing.T) {
 	}
 	// 멤버가 부르면 열린다.
 	who.toolID = "tool-b"
-	if code, _ := getRun(t, s, "/api/runs/peers"); code != http.StatusOK {
+	if code, _ := getRun(t, s, "/api/runs/team"); code != http.StatusOK {
 		t.Fatalf("멤버 호출 want 200, got %d", code)
 	}
 }
 
 // V-PAT-8: 승계·이탈로 자리를 넘긴 멤버는 명부에서 사라진다. 남겨 두면 아무도
 // 읽지 않는 주소로 메시지가 가고, 발신자는 상한까지 기다림을 태운다.
-func TestApiRunPeers_DropsSucceededAndReleasedMembers(t *testing.T) {
+func TestApiRunTeam_DropsSucceededAndReleasedMembers(t *testing.T) {
 	s, _, _, who := runsServer(t, "tool-a")
 	who.toolID = "tool-a"
 	s.Runs = storeWithFixture(t, `{
@@ -107,18 +107,18 @@ func TestApiRunPeers_DropsSucceededAndReleasedMembers(t *testing.T) {
 	  }]
 	}`)
 
-	code, peers := peersOf(t, s)
+	code, mates := teamOf(t, s)
 	if code != http.StatusOK {
 		t.Fatalf("want 200, got %d", code)
 	}
-	if len(peers) != 1 || peers[0]["memberId"] != "m-b" {
-		t.Fatalf("승계·이탈한 멤버가 명부에 남았다: %+v", peers)
+	if len(mates) != 1 || mates[0]["memberId"] != "m-b" {
+		t.Fatalf("승계·이탈한 멤버가 명부에 남았다: %+v", mates)
 	}
 }
 
 // 도구가 죽은 동료는 **명부에 남는다** — state=lost 가 곧 조정자에게 알리라는
 // 신호이며(FR-PAT-6), 지워 버리면 발신자는 상대가 없어진 사실조차 모른다.
-func TestApiRunPeers_KeepsLostPeersSoTheCallerCanReport(t *testing.T) {
+func TestApiRunTeam_KeepsLostMatesSoTheCallerCanReport(t *testing.T) {
 	s, _, _, who := runsServer(t, "tool-a")
 	who.toolID = "tool-a"
 	s.Runs = storeWithFixture(t, `{
@@ -134,20 +134,20 @@ func TestApiRunPeers_KeepsLostPeersSoTheCallerCanReport(t *testing.T) {
 	  }]
 	}`)
 
-	_, peers := peersOf(t, s)
-	if len(peers) != 1 {
-		t.Fatalf("죽은 동료가 명부에서 사라졌다: %+v", peers)
+	_, mates := teamOf(t, s)
+	if len(mates) != 1 {
+		t.Fatalf("죽은 동료가 명부에서 사라졌다: %+v", mates)
 	}
-	if peers[0]["state"] != string(run.Lost) {
-		t.Fatalf("state 가 lost 여야 한다: %+v", peers[0])
+	if mates[0]["state"] != string(run.Lost) {
+		t.Fatalf("state 가 lost 여야 한다: %+v", mates[0])
 	}
-	if peers[0]["headless"] != true {
-		t.Fatalf("headless 가 그대로 실려야 한다: %+v", peers[0])
+	if mates[0]["headless"] != true {
+		t.Fatalf("headless 가 그대로 실려야 한다: %+v", mates[0])
 	}
 }
 
 // 다른 Run 의 멤버는 동료가 아니다.
-func TestApiRunPeers_DoesNotCrossRunBoundaries(t *testing.T) {
+func TestApiRunTeam_DoesNotCrossRunBoundaries(t *testing.T) {
 	s, _, _, who := runsServer(t, "tool-a")
 	who.toolID = "tool-a"
 	s.Runs = storeWithFixture(t, `{
@@ -162,9 +162,9 @@ func TestApiRunPeers_DoesNotCrossRunBoundaries(t *testing.T) {
 	  ]
 	}`)
 
-	_, peers := peersOf(t, s)
-	if len(peers) != 0 {
-		t.Fatalf("남의 Run 멤버가 명부에 섞였다: %+v", peers)
+	_, mates := teamOf(t, s)
+	if len(mates) != 0 {
+		t.Fatalf("남의 Run 멤버가 명부에 섞였다: %+v", mates)
 	}
 }
 
@@ -182,4 +182,13 @@ func storeWithFixture(t *testing.T, body string) *run.Store {
 		t.Fatal(err)
 	}
 	return st
+}
+
+// PEER_DAEMON_SRS FR-PDM-72 (TC-PDM-27): 옛 경로 /api/runs/peers 는 없다.
+func TestApiRunTeam_OldPathGone(t *testing.T) {
+	s, _, _, _ := runsServer(t, "tool-a")
+	startRun(t, s)
+	if code, _ := getRun(t, s, "/api/runs/peers"); code != http.StatusNotFound {
+		t.Fatalf("옛 경로: %d, 기대 404", code)
+	}
 }

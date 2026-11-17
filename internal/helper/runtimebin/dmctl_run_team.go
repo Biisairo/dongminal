@@ -14,8 +14,8 @@ import (
 // 프리앰블에 박지 않고 **필요할 때 조회**하는 이유는 명부가 승계·이탈로 변하기
 // 때문이다 — 박으면 낡는다.
 
-// runPeer 는 명부 한 줄이다. to 는 `dmctl msg --to` 에 그대로 넣는 값이다.
-type runPeer struct {
+// teamMate 는 명부 한 줄이다. to 는 `dmctl msg --to` 에 그대로 넣는 값이다.
+type teamMate struct {
 	Role     string `json:"role"`
 	MemberID string `json:"memberId"`
 	To       string `json:"to"`
@@ -23,14 +23,14 @@ type runPeer struct {
 	Headless bool   `json:"headless"`
 }
 
-// runSubPeers implements `dmctl run peers` (FR-PAT-5). 인자가 없다 — 호출자의
+// runSubTeam implements `dmctl run team` (FR-PAT-5). 인자가 없다 — 호출자의
 // 정체($DONGMINAL_TOOL_ID)로 소속 Run 을 찾는다.
-func runSubPeers(f runFlags, stdout, stderr io.Writer) int {
+func runSubTeam(f runFlags, stdout, stderr io.Writer) int {
 	q := url.Values{}
 	if id := selfToolID(); id != "" {
 		q.Set("toolId", id)
 	}
-	path := "/api/runs/peers"
+	path := "/api/runs/team"
 	if len(q) > 0 {
 		path += "?" + q.Encode()
 	}
@@ -43,17 +43,17 @@ func runSubPeers(f runFlags, stdout, stderr io.Writer) int {
 		return 0
 	}
 	var got struct {
-		Peers []runPeer `json:"peers"`
+		Team []teamMate `json:"team"`
 	}
 	if err := json.Unmarshal(raw, &got); err != nil {
-		fmt.Fprintf(stderr, "dmctl: invalid peers response: %v\n", err)
+		fmt.Fprintf(stderr, "dmctl: invalid team response: %v\n", err)
 		return 1
 	}
-	if len(got.Peers) == 0 {
+	if len(got.Team) == 0 {
 		fmt.Fprintln(stdout, "(동료 없음)")
 		return 0
 	}
-	for _, p := range got.Peers {
+	for _, p := range got.Team {
 		fmt.Fprintf(stdout, "role=%s  member=%s  to=%s  state=%s  headless=%v\n",
 			p.Role, p.MemberID, p.To, p.State, p.Headless)
 	}

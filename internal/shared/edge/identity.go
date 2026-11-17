@@ -50,8 +50,8 @@ func FingerprintOf(cert *x509.Certificate) string {
 // 하나만 있거나 읽지 못하면 오류다. 새로 만들면 지문이 바뀌고, 그러면 짝들이 이
 // 노드를 거절한다. 신원은 조용히 바꾸지 않는다.
 func LoadOrCreateIdentity(dir string) (Identity, error) {
-	certPath := filepath.Join(dir, dmenv.NodeCertFile)
-	keyPath := filepath.Join(dir, dmenv.NodeKeyFile)
+	certPath := filepath.Join(dir, dmenv.EdgeCertFile)
+	keyPath := filepath.Join(dir, dmenv.EdgeKeyFile)
 	certExists, err := fileExists(certPath)
 	if err != nil {
 		return Identity{}, err

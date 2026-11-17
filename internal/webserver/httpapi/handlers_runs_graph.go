@@ -20,7 +20,7 @@ import (
 // run.Record 를 embed 하지 않고 필드를 하나씩 고른다. embed 하면 Brief·Summary·
 // SessionID 처럼 **지금은 없지만 나중에 늘어날** 필드까지 자동으로 새어 나가고,
 // 그때 이 파일을 고치는 사람은 아무도 없다 (NFR-RVZ-3 / V-RVZ-10). 명시 선택이
-// 규율을 타입으로 바꾼다. handlers_runs_peers.go 의 peerView 가 같은 판단이다.
+// 규율을 타입으로 바꾼다. handlers_runs_team.go 의 teamView 가 같은 판단이다.
 //
 // 도해(FR-RVZ-10)의 `패턴: debate` 행은 없다. Run 레코드에 패턴 필드가 없고,
 // 신설하지 않는 이유는 범위가 아니라 NFR-RVZ-4 다 — `dmctl run status` 로 읽히지

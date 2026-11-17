@@ -11,6 +11,7 @@
 > - D-PDM-13 노드 사이 연결은 **망의 간선 하나**로만 동작한다. 짝맺기만 남기고, 프로토콜 명령(`node.info` 포함)과 원격 메시지·원격 기동을 모두 지운다
 > - D-PDM-14 이름 `peer` 를 **`edge`** 로 바꾼다. 짝은 "친구"가 아니라 간선이다
 > - D-PDM-15 서버도 데몬 이관과 같은 단계에서 공유 노드 패키지를 쓴다. 판정을 두 벌 두는 기간을 만들지 않는다
+> - D-PDM-18 헷갈리지 않게 `peer` 라는 이름을 모두 없앤다. Run 동료 명부는 `team`, 신원 파일은 `edge-cert.pem`·`edge-key.pem` 이다
 
 ## 1. 개요 (Introduction)
 
@@ -149,8 +150,8 @@
   | 사용자 문서 | `docs/external/peers.md` | `docs/external/edges.md` |
   | 감사 로그 | `peer audit` | `edge audit` |
 
-- **FR-PDM-71** 노드 계층이 처음 설 때 `edges.json` 이 없고 `peers.json` 이 있으면 `peers.json` 을 `edges.json` 으로 옮긴다(이름 바꾸기). 둘 다 있으면 `edges.json` 을 쓰고 `peers.json` 은 그대로 둔다. 신원 파일(`node-cert.pem`·`node-key.pem`)의 이름은 바꾸지 않는다.
-- **FR-PDM-72** Run 동료 명부(`/api/runs/peers` 등)는 바꾸지 않는다.
+- **FR-PDM-71** 노드 계층이 처음 설 때 `edges.json` 이 없고 `peers.json` 이 있으면 `peers.json` 을 `edges.json` 으로 옮긴다(이름 바꾸기). 둘 다 있으면 `edges.json` 을 쓰고 `peers.json` 은 그대로 둔다. 신원 파일은 `edge-cert.pem`·`edge-key.pem` 이다. 옛 신원 파일 `node-cert.pem`·`node-key.pem` 은 옮기지 않고 지운다. 새 신원(새 지문)이 생기므로 옛 간선은 다시 맺어야 한다(D-PDM-18, 맺은 간선이 없다는 사용자 확인).
+- **FR-PDM-72** Run 동료 명부를 `team` 으로 바꾼다. `GET /api/runs/peers` → `GET /api/runs/team`, `dmctl run peers` → `dmctl run team`, 응답 키 `peers` → `team`, 프리앰블 안내문도 `dmctl run team` 이다. 옛 경로와 옛 하위 명령은 없다(404·모르는 하위 명령).
 
 ### 3.4a 단계 4 설계 (이름 변경)
 
@@ -180,13 +181,17 @@ FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름�
 
 **문서**: `peers.md` → `edges.md`(`git mv`), `api.md`·`commands.md`·`features.md`·`getting-started.md`·`README.md`·`docs/external/README.md`·`agentmemory/CLAUDE.md`·`architecture.md` 를 새 이름으로 맞춘다. 옛 SRS 파일 이름(`PEER_*`)과 CHANGELOG 의 지난 항목은 바꾸지 않는다.
 
-**바꾸지 않는 것**: Run 동료 명부(`handlers_runs_peers.go`, `dmctl_run_peers.go`, `/api/runs/peers`), 신원 파일 이름, 프리앰블 `DMRELAY1`, 소켓 이름.
+**바꾸지 않는 것**: 프리앰블 `DMRELAY1`, 소켓 이름.
+
+**Run 동료 명부 (FR-PDM-72)**: `handlers_runs_peers.go`·`dmctl_run_peers.go` → `handlers_runs_team.go`·`dmctl_run_team.go`, `apiRunPeers` → `apiRunTeam`, `peerView` → `teamView`, `runPeer`·`runSubPeers` → `teamMate`·`runSubTeam`.
+
+**신원 파일 (FR-PDM-71)**: `dmenv.NodeCertFile`·`NodeKeyFile` → `EdgeCertFile`·`EdgeKeyFile`(`edge-cert.pem`·`edge-key.pem`). 옛 이름은 `LegacyNodeCertFile`·`LegacyNodeKeyFile` 로 지우기에만 쓴다. 이관 함수는 `edge.MigrateLegacyFiles` 하나다.
 
 **구현 중 정한 것 (2026-11-17)**
 
 - 텔레그램·Claude 계정 API 도 쓰는 공용 도우미는 dmctl 공용 해석기와 같이 중립 이름으로 바꾼다. `peerFail` → `codeFail`, `peerReadJSON` → `readJSONBody`, `peerBodyLimit` → `jsonBodyLimit`, dmctl `printPeerRefusal` → `printRefusal`.
 - 스냅숏 조각 이름도 상태 키를 따라 `peers` → `edges` 다(`/api/snapshot?parts=…,edges`).
-- 화면의 `pn-*` 중 간선 패널만 쓰는 id·클래스를 `eg-*` 로 바꾼다. `pn-row` 는 Claude 계정 설정도 쓰므로 그대로 둔다. 판(pane) 클래스 `pn-tab`·`pn-body` 등은 무관하다. e2e 레이아웃 기준선(`e2e/baseline/ui-layout.*.json`)의 선택자 키도 같이 바꾼다.
+- 화면의 `pn-*` 중 간선 패널만 쓰는 id·클래스를 `eg-*` 로 바꾼다. 간선 패널과 Claude 계정 설정이 같이 쓰는 `pn-row` 는 중립 이름 `set-row` 로 바꾼다(D-PDM-18). 판(pane) 클래스 `pn-tab`·`pn-body` 등은 무관하다. e2e 레이아웃 기준선(`e2e/baseline/ui-layout.*.json`)의 선택자 키도 같이 바꾼다.
 - 설정 탭 이름은 다른 탭처럼 번역하지 않고 "Edges" 하나다. 패널 안의 문구는 ko "간선", en "edge" 다. "해제"는 "끊기"로 바꾼다.
 - 옛 `dmctl peers`·`dmctl peer <sub>` 는 모르는 명령으로 실패하고 서버를 부르지 않는다.
 - 이관(`edge.MigrateLegacyConfig`)은 `initEdge` 가 저장소를 열기 전에 부른다. 실패하면 로그만 남기고 계속한다.
@@ -240,6 +245,7 @@ D-PDM-13 으로 다음 요구를 지운다. 번호는 다시 쓰지 않는다.
 | D-PDM-14 | 이름을 `edge` 로 바꾼다 | 사용자 결정. 짝은 친구가 아니라 망의 간선이다 |
 | D-PDM-15 | 서버도 같은 단계에서 `edgenode` 를 쓴다 | 사용자 결정. 판정이 두 벌인 기간을 만들지 않고, 기존 짝맺기 시험이 바뀐 코드를 그대로 검증한다 |
 | D-PDM-16 | 축소(단계 3)를 이름 변경(단계 4)과 이관(단계 5)보다 먼저 한다 | 지울 코드의 이름을 바꾸거나 옮기는 일을 하지 않는다 |
+| D-PDM-18 | `peer` 라는 이름을 모두 없앤다. Run 동료 명부는 `team`, 신원 파일은 `edge-*.pem`, `pn-row` 는 `set-row` | 사용자 결정 (2026-11-17). 이름이 같으면 헷갈린다. 맺은 간선이 없으므로 신원을 옮기지 않는다 |
 | D-PDM-17 | 노드 포트 경로·초대 코드 머리도 `edge` 로 바꾼다. 옛 경로를 받지 않는다 | 이름을 한 벌로 둔다. 초대는 10분만 살고, 이미 맺은 간선은 지문으로 저장돼 있어 경로가 바뀌어도 남는다 |
 
 ### 4.1 동작 변경 (D-PDM-4 의 예외)
@@ -270,7 +276,8 @@ D-PDM-13 으로 다음 요구를 지운다. 번호는 다시 쓰지 않는다.
 | TC-PDM-23 | FR-PDM-65·66 | Go: `allowedDirs` 가 든 설정 파일 읽기·PUT, 조회 응답 | 항목이 응답·파일에 없다. `lastSeen` 이 없다 |
 | TC-PDM-24 | FR-PDM-63·67·68 | Go: 엔벨로프 인용 시험, 안내문 시험, 오류 카탈로그 시험 | PEER 표지·원격 절·지운 코드가 없다 |
 | TC-PDM-25 | FR-PDM-70 | Go: 짝맞춤 시험을 새 경로·초대 머리로 | 통과. 옛 경로는 404 |
-| TC-PDM-26 | FR-PDM-71 | Go: `peers.json` 만 있음 / 둘 다 있음 / 둘 다 없음 | 옮김 / `edges.json` 사용·옛 파일 유지 / 빈 설정 |
+| TC-PDM-26 | FR-PDM-71 | Go: `peers.json` 만 있음 / 둘 다 있음 / 둘 다 없음, 옛 `node-*.pem` 있음 | 옮김 / `edges.json` 사용·옛 파일 유지 / 빈 설정, 옛 신원 파일 지움·`edge-*.pem` 생성 |
+| TC-PDM-27 | FR-PDM-72 | Go(서버·dmctl): `/api/runs/team`, `dmctl run team`, 옛 경로·옛 하위 명령, 프리앰블 | 새 이름으로 동작, 옛 이름은 404·실패, 프리앰블이 `dmctl run team` 을 안내 |
 | TC-PDM-4 | FR-PDM-20~22·2 | Go: 노드 둘(서버 통로+데몬 노드 쌍 둘)로 짝맞춤 전 과정 | PEER_NETWORK 짝맞춤 시험 기대와 같다 |
 | TC-PDM-7 | FR-PDM-30·31·33 | Go + dmctl: 로컬 API 전부를 데몬 경유로 | 응답 모양이 직접 모드와 같다 |
 | TC-PDM-9 | FR-PDM-27 | Go: 짝맞춤 중 push `edges` | 서버가 `edges_changed` 를 같은 본문으로 방송한다 |
@@ -292,7 +299,7 @@ D-PDM-13 으로 다음 요구를 지운다. 번호는 다시 쓰지 않는다.
 |---|---|---|
 | 노드 코드를 고칠 때마다 데몬을 다시 띄워야 하고, 그때 모든 터미널 세션이 끊긴다 | MEDIUM | 사용자가 받아들인 대가(D-PDM-1). 단계마다 보고에 적는다(NFR-PDM-5) |
 | 서버가 꺼져 있는 동안 노드에 닿을 수 없다 | LOW | D-PDM-2·6 의 결과. 데몬의 상태는 남으므로 서버가 돌아오면 바로 이어진다 |
-| 이름 변경이 무관한 "peer"(Run 동료 명부)까지 바꾼다 | MEDIUM | FR-PDM-72. 바꿀 파일을 목록으로 정하고 일괄 치환을 쓰지 않는다 |
+| Run 동료 명부 이름이 바뀌어 이미 떠 있는 에이전트가 옛 `dmctl run peers` 를 부른다 | LOW | FR-PDM-72. 새 Run 부터 프리앰블이 `dmctl run team` 을 안내한다. 옛 명령은 모르는 하위 명령으로 바로 실패한다 |
 | 승인 확인(confirm)을 놓친 쪽이 대기로 남는다 | LOW | §4.1. 만료 뒤 다시 짝맺는다. 화면은 지금처럼 대기 상태를 보인다 |
 | 같은 사용자의 다른 프로세스가 `node.sock` 에 붙어 프리앰블의 출발지 주소를 꾸민다 | LOW | 프리앰블은 주소 기본값에만 쓴다. 신원 판정은 TLS 클라이언트 인증서로만 한다 |
 | 같은 사용자의 다른 프로세스가 `dial.sock` 으로 임의 TCP 연결을 연다 | LOW | 그 프로세스가 스스로 열 수 있는 연결과 같다. 권한이 늘지 않는다 |

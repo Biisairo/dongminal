@@ -291,7 +291,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | GET | `/api/runs/tree` | `?ref=<owner/repo#N>` 이슈 트리의 열린 Run 과 노드(역할 · 상태 · 부모 · 잎) |
 | POST | `/api/runs/members` | Run 에 팀원을 등록한다 |
 | GET | `/api/runs/preamble` | 그 팀원의 기동 프리앰블 |
-| GET | `/api/runs/peers` | 같은 Run 의 다른 팀원들 |
+| GET | `/api/runs/team` | 같은 Run 의 다른 팀원들 |
 | POST | `/api/runs/context` | 세션에 상시 주입할 컨텍스트 |
 | POST | `/api/runs/attach` · `/api/runs/detach` | 도구를 Run 에 붙이고 뗀다 |
 | POST | `/api/runs/handoff` | 팀원 자리를 넘긴다 |

@@ -363,7 +363,7 @@ func TestDmctlRunHelp_ListsEverySubcommand(t *testing.T) {
 	text := out.String()
 	for _, sub := range []string{
 		"run start", "run member", "run launch", "run report", "run status",
-		"run close", "run list", "run attach", "run detach", "run peers",
+		"run close", "run list", "run attach", "run detach", "run team",
 		"run succeed", "run handoff",
 	} {
 		if !strings.Contains(text, sub) {

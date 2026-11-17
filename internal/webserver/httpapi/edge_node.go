@@ -44,8 +44,8 @@ func (s *Server) initEdge() {
 	if s.cfg.DataDir == "" {
 		return
 	}
-	if err := edge.MigrateLegacyConfig(s.cfg.DataDir); err != nil {
-		dmlog.Infof(nil, "edge config: peers.json 을 edges.json 으로 옮기지 못했다: %v", err)
+	if err := edge.MigrateLegacyFiles(s.cfg.DataDir); err != nil {
+		dmlog.Infof(nil, "edge config: 옛 홈 파일을 정리하지 못했다: %v", err)
 	}
 	hostname, _ := os.Hostname()
 	s.edges = edge.OpenStore(filepath.Join(s.cfg.DataDir, dmenv.EdgesFile), hostname)

@@ -1,7 +1,7 @@
 // dmctl 의 run 출력이다 (RUN_ORCHESTRATION_SRS 묶음 R).
 //
 // `dmctl_run.go` 에서 갈라 나왔다 (DRIFT_RECLAIM_SRS FR-DRC-13). 이 패키지는 이미
-// run 을 주제별로 갈라 두었고(`dmctl_run_context.go` · `_headless.go` · `_peers.go`),
+// run 을 주제별로 갈라 두었고(`dmctl_run_context.go` · `_headless.go` · `_team.go`),
 // 남아 있던 두 덩어리가 **명령을 받는 쪽**과 **결과를 보이는 쪽**이었다.
 //
 // 여기 있는 타입들은 서버 응답을 읽기 위한 모양이며 **도메인 타입이 아니다** —

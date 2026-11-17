@@ -110,7 +110,7 @@ var apiRoutes = []apiRoute{
 	//
 	// 순서 주의: 매칭은 **첫 성공이 이긴다**(§dispatch). 아래 정확 매칭 종단들이
 	// /api/runs/{id}/graph 의 prefix 매칭보다 먼저 와야 한다.
-	httproute.Get("/api/runs/peers", (*Server).apiRunPeers),            // 묶음 P (WS-4)
+	httproute.Get("/api/runs/team", (*Server).apiRunTeam),              // 묶음 P (WS-4)
 	httproute.Post("/api/runs/attach", (*Server).apiRunAttach),         // 묶음 H (WS-2)
 	httproute.Post("/api/runs/detach", (*Server).apiRunDetach),         // 묶음 H (WS-2)
 	httproute.Post("/api/runs/succeed", (*Server).apiRunSucceed),       // 묶음 C (WS-3)

@@ -21,14 +21,14 @@ import (
 // 쪽 요구라서 묶음 C 의 도착을 기다릴 수 없다.
 const succeededState = run.MemberState("succeeded")
 
-// peerView 는 명부 한 줄이다 (FR-PAT-5).
+// teamView 는 명부 한 줄이다 (FR-PAT-5).
 //
 // MemberID 와 To 가 **둘 다** 있는 이유: member uuid 는 Run 기록에서의 정체이고,
 // `dmctl msg --to` 가 실제로 라우팅하는 것은 toolId 다 (workspace.Resolve 의 1단계).
 // member uuid 는 공간 계층의 엔티티가 아니라 해석되지 않는다. 하나만 내면 명부를
 // 받은 멤버가 말을 걸 수 없거나(uuid 만), 보고에서 자기 동료를 지목할 수
 // 없다(toolId 만).
-type peerView struct {
+type teamView struct {
 	Role     string          `json:"role"`
 	MemberID string          `json:"memberId"`
 	To       string          `json:"to"`
@@ -36,10 +36,10 @@ type peerView struct {
 	Headless bool            `json:"headless"`
 }
 
-// apiRunPeers implements GET /api/runs/peers (FR-PAT-5).
+// apiRunTeam implements GET /api/runs/team (FR-PAT-5).
 // 호출자의 정체로 소속 Run 을 찾아, **자기를 제외한** 동료의 role·member uuid·
 // state·headless 를 낸다. Run 에 속하지 않은 도구의 호출은 거부한다.
-func (s *Server) apiRunPeers(w http.ResponseWriter, r *http.Request) {
+func (s *Server) apiRunTeam(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) {
 		return
 	}
@@ -51,7 +51,7 @@ func (s *Server) apiRunPeers(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, run.ErrSenderNotMember, map[string]any{"toolId": caller})
 		return
 	}
-	peers := make([]peerView, 0, len(rec.Members))
+	mates := make([]teamView, 0, len(rec.Members))
 	for _, m := range rec.Members {
 		if m.ID == self.ID {
 			continue
@@ -61,7 +61,7 @@ func (s *Server) apiRunPeers(w http.ResponseWriter, r *http.Request) {
 		if m.State == run.Released || m.State == succeededState {
 			continue
 		}
-		peers = append(peers, peerView{
+		mates = append(mates, teamView{
 			Role:     m.Role,
 			MemberID: m.ID,
 			To:       m.ToolID,
@@ -70,7 +70,7 @@ func (s *Server) apiRunPeers(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, map[string]any{
-		"runId": rec.ID, "memberId": self.ID, "role": self.Role, "peers": peers,
+		"runId": rec.ID, "memberId": self.ID, "role": self.Role, "team": mates,
 	})
 }
 

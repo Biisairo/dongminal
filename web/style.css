@@ -1958,7 +1958,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 .acl-state.err{color:var(--danger-text)}
 
 /* ── 짝 (PEER_NETWORK_SRS FR-PNW-80) ── */
-.pn-row{display:flex;align-items:center;gap:6px}
+.set-row{display:flex;align-items:center;gap:6px}
 .eg-add-name{flex:0 1 140px}
 .eg-item{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:4px 0 4px 10px;
   border-left:2px solid var(--border)}

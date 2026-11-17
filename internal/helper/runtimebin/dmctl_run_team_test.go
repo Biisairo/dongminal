@@ -11,19 +11,19 @@ import (
 // 묶음 P — 동료 명부의 CLI 절반 (ORCHESTRATION_V2_SRS FR-PAT-5).
 
 // FR-PAT-5: 인자가 없다. 소속은 호출자의 정체($DONGMINAL_TOOL_ID)로 정해진다.
-func TestDmctlRun_PeersSendsCallerIdentityAndTakesNoArgs(t *testing.T) {
+func TestDmctlRun_TeamSendsCallerIdentityAndTakesNoArgs(t *testing.T) {
 	ts, calls := runStub(t, map[string]string{
-		"/api/runs/peers": `{"runId":"run-1","memberId":"m-a","role":"작가","peers":[
+		"/api/runs/team": `{"runId":"run-1","memberId":"m-a","role":"작가","team":[
 		  {"role":"비평가","memberId":"m-b","to":"tool-b","state":"working","headless":false},
 		  {"role":"검수","memberId":"m-c","to":"tool-c","state":"ready","headless":true}]}`,
 	})
 	pointDmctlAtServer(t, ts, "tool-a")
 
 	var out bytes.Buffer
-	if code := runDmctlRun([]string{"peers"}, &out, io.Discard); code != 0 {
+	if code := runDmctlRun([]string{"team"}, &out, io.Discard); code != 0 {
 		t.Fatalf("exit = %d (%s)", code, out.String())
 	}
-	if len(*calls) != 1 || (*calls)[0].Method != http.MethodGet || (*calls)[0].Path != "/api/runs/peers" {
+	if len(*calls) != 1 || (*calls)[0].Method != http.MethodGet || (*calls)[0].Path != "/api/runs/team" {
 		t.Fatalf("요청이 다르다: %+v", *calls)
 	}
 	if !strings.Contains((*calls)[0].Query, "toolId=tool-a") {
@@ -42,12 +42,12 @@ func TestDmctlRun_PeersSendsCallerIdentityAndTakesNoArgs(t *testing.T) {
 }
 
 // 동료가 없는 것은 오류가 아니다 — 첫 멤버는 실제로 혼자다.
-func TestDmctlRun_PeersEmptyRosterIsNotAnError(t *testing.T) {
-	ts, _ := runStub(t, map[string]string{"/api/runs/peers": `{"runId":"run-1","peers":[]}`})
+func TestDmctlRun_TeamEmptyRosterIsNotAnError(t *testing.T) {
+	ts, _ := runStub(t, map[string]string{"/api/runs/team": `{"runId":"run-1","team":[]}`})
 	pointDmctlAtServer(t, ts, "tool-a")
 
 	var out bytes.Buffer
-	if code := runDmctlRun([]string{"peers"}, &out, io.Discard); code != 0 {
+	if code := runDmctlRun([]string{"team"}, &out, io.Discard); code != 0 {
 		t.Fatalf("exit = %d", code)
 	}
 	if !strings.Contains(out.String(), "동료 없음") {
@@ -56,17 +56,29 @@ func TestDmctlRun_PeersEmptyRosterIsNotAnError(t *testing.T) {
 }
 
 // V-PAT-7: Run 에 속하지 않은 도구의 호출은 거부되고, 사유가 그대로 드러난다.
-func TestDmctlRun_PeersSurfacesTheRefusalReason(t *testing.T) {
+func TestDmctlRun_TeamSurfacesTheRefusalReason(t *testing.T) {
 	ts, _ := runStub(t,
-		map[string]string{"/api/runs/peers": `{"error":"sender_not_member","detail":"Run 의 멤버가 아니다"}`},
+		map[string]string{"/api/runs/team": `{"error":"sender_not_member","detail":"Run 의 멤버가 아니다"}`},
 		http.StatusForbidden)
 	pointDmctlAtServer(t, ts, "tool-z")
 
 	var errOut bytes.Buffer
-	if code := runDmctlRun([]string{"peers"}, io.Discard, &errOut); code == 0 {
+	if code := runDmctlRun([]string{"team"}, io.Discard, &errOut); code == 0 {
 		t.Fatal("멤버가 아닌 도구의 호출이 성공했다")
 	}
 	if !strings.Contains(errOut.String(), "sender_not_member") {
 		t.Fatalf("거부 사유가 묻혔다: %q", errOut.String())
+	}
+}
+
+// PEER_DAEMON_SRS FR-PDM-72 (TC-PDM-27): 옛 하위 명령 run peers 는 없다. 서버를 부르지 않는다.
+func TestDmctlRun_OldPeersSubGone(t *testing.T) {
+	ts, calls := runStub(t, map[string]string{"/api/runs/peers": `{"runId":"run-1","peers":[]}`})
+	pointDmctlAtServer(t, ts, "tool-a")
+	if code := runDmctlRun([]string{"peers"}, io.Discard, io.Discard); code == 0 {
+		t.Fatal("옛 하위 명령이 성공했다")
+	}
+	if len(*calls) != 0 {
+		t.Fatalf("서버를 %d 번 불렀다", len(*calls))
 	}
 }
