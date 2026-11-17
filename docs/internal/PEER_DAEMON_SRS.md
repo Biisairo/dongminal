@@ -212,6 +212,74 @@ FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름�
 - **FR-PDM-52** 직접 모드(데몬 없음)에서는 서버 프로세스가 노드다. 같은 `edgenode` 코드를 쓰고, 바이트 통로 대신 노드 포트를 직접 처리한다.
 - **FR-PDM-53** 묶음 N 이 끝나면 서버에는 노드 판정 코드가 없다. 서버의 노드 관련 코드는 통로·`edge` 위임·SSE 방송뿐이다.
 
+### 3.5a 단계 5 설계 (데몬이 노드)
+
+근거 조사: 2026-11-17 (데몬 IPC·서버 생명주기·httpapi 노드 코드). 아래 이름은 단계 4 이후 이름이다.
+
+**공유 패키지 `internal/shared/edgenode` (FR-PDM-2)**
+
+노드 하나의 상태와 연산을 갖는다. 데몬과 직접 모드의 서버가 같은 코드를 쓴다. webserver 축을 가져오지 않는다(축 게이트).
+
+| 요소 | 내용 |
+|---|---|
+| `New(Options) (*Node, error)` | `Options{Home, Hostname, Dial, PortStatus, Notify, Now}`. `edge.MigrateLegacyFiles`·`peer-spawns.json` 삭제·저장소·신원·발신 클라이언트·짝맞춤 상태·속도 제한을 세운다. 신원을 읽지 못하면 오류다 |
+| `Dial` | 발신 연결. 데몬은 `edgerelay.Dialer(dial.sock)`, 직접 모드는 nil(TCP) |
+| `PortStatus func() PortStatus` | 노드 포트의 `{Listening, Addr, Error}`. 데몬은 서버가 알린 마지막 값, 직접 모드는 자기 리스너 |
+| `Notify func(paired string)` | 간선·초대·승인 대기·노드 설정이 바뀐 뒤 부른다. 데몬은 push `edges`, 직접 모드는 SSE `edges_changed` |
+| `Admission()`·`Handler()` | 노드 포트의 두 단계 판정과 짝맞춤 경로 둘의 핸들러. 판정 규칙은 지금 httpapi 의 것을 그대로 옮긴다 |
+| `Do(ctx, Request) Response` | 로컬 API 연산 하나. `Request{Op, Args, IfMatch}`, `Response{Status, Code, Message, Body, ETag}` |
+| `Config()` | 노드 설정. 서버(데몬 모드)는 이것으로 노드 포트를 연다 |
+
+연산(`Op`)은 `get`·`node`·`invite`·`add`·`pending`·`approve`·`reject`·`remove`·`address` 다. 응답 모양·상태·오류 코드·ETag 는 지금의 `/api/edges/*` 와 같다(FR-PDM-30). 설정 잠금(지금의 `settingsMu` 몫)은 Node 가 갖는다. 상대 노드를 부르는 `add`·`approve` 는 잠금 밖에서 부른다.
+
+- 오류 코드: `edge_*` 상수는 `shared/edge` 로 내리고 `apierr` 는 그 값을 쓴다. Node 가 내는 일반 코드(`save_failed`·`stale_revision`·`invalid_json`·`body_too_large`·`bad_request`·`not_found`·`internal`)는 Node 의 상수로 두고, 값이 `apierr` 카탈로그에 있는지는 httpapi 시험이 확인한다. 상대가 보낸 코드를 옮기는 `remoteCode` 는 Node 가 아는 코드 집합으로 거른다.
+- ETag: `settingsTag` 를 `shared/etag.Of` 로 내려 두 곳이 같은 함수를 쓴다.
+- 본문 읽기: 노드 포트 핸들러는 공유 본문 읽기를 거친다(본문 상한 게이트). 필요한 만큼 `httpreq` 를 shared 로 내린다.
+
+**IPC (`toolipc`)**
+
+| 이름 | 방향 | 모양 |
+|---|---|---|
+| 메서드 `edge` | 서버 → 데몬 | `EdgeParams{Args, IfMatch, Op}` → `EdgeResult{Body, Code, ETag, Message, Status}`. 데몬은 따로 둔 느린 풀(동시 2)에서 돌린다. 도구 생성 풀과 나눈다 (FR-PDM-31) |
+| 메서드 `edgeport` | 서버 → 데몬 | `EdgePortParams{Addr, Error, Listening}`. 노드 포트를 연 뒤·닫은 뒤·열지 못했을 때·다시 붙었을 때 보낸다 (FR-PDM-14) |
+| push `edges` | 데몬 → 서버 | `EdgesEvent{Paired}`. 본문은 `edges_changed` 의 인자와 같다 (FR-PDM-27) |
+| 기능 `edge` | 양쪽 | 데몬은 `DaemonFeatures` 에, 서버는 `ServerFeatures` 에 싣는다 (FR-PDM-50) |
+
+와이어 구조체의 필드는 JSON 키 사전순이고 `TestWireGolden` 을 갱신한다. 판(`ProtocolVersion`)은 올리지 않는다.
+
+**데몬**
+
+- 부팅 때 `edgenode.New` 로 노드를 세우고, `edge.NewListener(…).UseListen(edgerelay.ListenNode(node.sock))` 로 노드 소켓을 듣는다. 노드 설정의 `enabled` 가 거짓이면 듣지 않는다. 설정이 바뀌면 다시 적용한다.
+- 노드를 세우지 못하면(신원 오류) 데몬은 계속 뜨고, `edge` 는 503 `edge_unavailable` 로 답한다.
+- 종료 때 노드 소켓을 닫고 그 파일을 지운다(보고 소켓과 같은 자리).
+- 감사 로그(`edge audit`)는 데몬 로그(`daemon.log`)에 남는다 (FR-PDM-26).
+
+**서버 — 데몬 모드 (`Deps.EdgeDaemon != nil`)**
+
+- 신원·`edges.json` 을 열지 않는다 (FR-PDM-20). `initEdge` 는 직접 모드에서만 돈다.
+- `/api/edges/*` 는 `EdgeDaemon.Do` 로 넘기고 답을 그대로 쓴다. 시한은 30초다(상대 호출 15초 + 연결·핸드셰이크). 시한을 넘기면 502 `edge_unreachable` 이다.
+- 데몬이 `edge` 를 말하지 않으면 409 `edge_daemon_restart` 다. 노드 포트와 발신 소켓을 열지 않는다 (FR-PDM-51).
+- `StartEdge` 가 발신 소켓(`ListenDial`+`ServeDial`)과 노드 포트(`edgerelay.NewPort`)를 띄운다. 데몬에 붙거나 다시 붙을 때, push `edges` 를 받을 때 `edge get` 으로 노드 설정을 받아 `Port.Apply` 하고, 결과를 `edgeport` 로 알린다 (FR-PDM-33). 재조회는 push 콜백 밖의 큐에서 한다(읽기 루프에서 RPC 를 기다리지 않는다).
+- push `edges` 를 받으면 `edges_changed` 를 같은 인자로 방송한다. 다시 붙은 뒤에는 한 번 방송해 화면이 다시 읽게 한다.
+
+**서버 — 직접 모드 (`Deps.EdgeDaemon == nil`)**
+
+- 서버가 `edgenode.New` 로 노드를 세운다(Dial nil). 노드 포트는 지금처럼 `edge.Listener` 가 TCP 로 직접 듣는다. `/api/edges/*` 는 같은 HTTP 접착 코드로 `Node.Do` 를 부른다 (FR-PDM-52).
+
+**httpapi 에 남는 것 (FR-PDM-53)**: `/api/edges/*` 접착(요청 → `Do` → 응답), SSE 방송, 데몬 모드의 통로 기동. 판정·짝맞춤·저장 코드는 없다.
+
+**시험**
+
+| TC | 자리 | 방법 |
+|---|---|---|
+| TC-PDM-4 | `edgenode` | 노드 둘을 통로(서버 `Port` + 데몬 `ListenNode`, `Dialer`)로 이어 짝맞춤 전 과정 |
+| TC-PDM-7 | httpapi `daemon_integration_test` | 실제 `ipc.NewPanedServer` 위에서 `/api/edges/*` 전부. 응답 모양이 직접 모드와 같다 |
+| TC-PDM-9 | 같은 자리 | 짝맞춤 중 push `edges` → `edges_changed` |
+| TC-PDM-10 | httpapi | `edge` 없는 가짜 데몬: 409 `edge_daemon_restart`, 노드 포트 닫힘 |
+| TC-PDM-11 | httpapi | 지금의 짝맞춤 시험(직접 모드)이 그대로 통과한다 |
+
+**데몬 재시작**: 필요하다. 커밋 메시지와 보고에 적는다 (NFR-PDM-5).
+
 ### 3.6 비기능 (Non-functional)
 
 - **NFR-PDM-1** `PEER_NETWORK_SRS` 의 짝맺기 시험(축소 후 남은 것)이 모두 통과해야 한다. 시험이 서버 내부를 직접 부르던 곳은 같은 동작을 `edgenode` 쪽에서 확인하도록 옮긴다.
