@@ -20,6 +20,10 @@ import (
 
 const claudeConfigDirEnv = "CLAUDE_CONFIG_DIR"
 
+// claudeAddDirMemoryEnv 는 --add-dir 폴더의 CLAUDE.md 를 메모리로 읽게 하는 Claude Code 의 환경 변수다
+// (AGENT_MEMORY_INJECTION_SRS FR-AMI-3).
+const claudeAddDirMemoryEnv = "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD"
+
 // shimBudget 은 실행 준비 API 의 예산이다. 변수인 것은 시험이 시간 초과를 재기 위해서다.
 var shimBudget = 3 * time.Second
 
@@ -36,8 +40,15 @@ func runAgentShim(cmd string, args []string, _, stderr io.Writer) int {
 		return 127
 	}
 	argv := append([]string{real}, shimHookArgs(cmd, home)...)
-	argv = append(argv, args...)
 	env := os.Environ()
+	if dir := shimMemoryDir(home); dir != "" {
+		// FR-AMI-2: 한 토큰이어야 한다 — `--add-dir` 는 값을 여러 개 받아 뒤의 사용자 인자를 먹는다.
+		argv = append(argv, "--add-dir="+dir)
+		if os.Getenv(claudeAddDirMemoryEnv) == "" {
+			env = append(env, claudeAddDirMemoryEnv+"=1")
+		}
+	}
+	argv = append(argv, args...)
 	if os.Getenv(claudeConfigDirEnv) == "" {
 		dir, reason := claudeLaunchDir()
 		if reason != "" {
@@ -73,6 +84,18 @@ func shimHookArgs(cmd, home string) []string {
 		out = append(out, "--plugin-dir", filepath.Join(bin, "agent-plugin"))
 	}
 	return out
+}
+
+// shimMemoryDir 는 주입 메모리(CLAUDE.md)가 있는 플러그인 폴더다. 없으면 빈 값이다 (FR-AMI-4).
+func shimMemoryDir(home string) string {
+	if home == "" {
+		return ""
+	}
+	dir := filepath.Join(home, "bin", "agent-plugin")
+	if st, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err == nil && st.Mode().IsRegular() {
+		return dir
+	}
+	return ""
 }
 
 // claudeLaunchDir 는 서버에 이 실행의 계정을 묻는다. 서버가 꺼져 있으면(연결 거부) 기본 계정이다.

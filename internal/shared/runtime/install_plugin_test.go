@@ -32,6 +32,8 @@ func TestInstallAgentPlugin_Layout(t *testing.T) {
 		// 담기는 것과 **설치 트리에 서는 것**은 다른 일이다.
 		"commands/migration.md": 0o644,
 		"hooks/hooks.json":      0o644,
+		// AGENT_MEMORY_INJECTION_SRS FR-AMI-1: claude shim 이 --add-dir= 로 읽히는 주입 메모리.
+		"CLAUDE.md": 0o644,
 	}
 	for rel, wantMode := range want {
 		info, err := os.Stat(filepath.Join(plugin, rel))
