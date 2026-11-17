@@ -34,13 +34,13 @@ const (
 	maxName      = 64 * 4
 	maxPurpose   = 512
 	maxLabel     = 128
-	maxID        = 64
+	maxID        = 128
 	// maxNodes 는 아는 노드의 상한이다. 넘으면 닿지 않는 노드부터 잊는다.
 	maxNodes = 256
 	// maxMarks 는 잊은 노드의 마지막 번호를 기억하는 수다 (재전송 막기).
 	maxMarks = 4096
-	// idPrefix 는 참가자 id 앞에 붙는 노드 지문의 길이다. id 를 노드에 묶는다.
-	idPrefix = 16
+	// idPrefix 는 참가자 id 앞에 붙는 노드 지문의 길이(지문 전체)다. id 를 노드에 묶는다.
+	idPrefix = 64
 )
 
 // Participant 는 이 노드의 참가자 하나다.
@@ -530,7 +530,7 @@ func (s *Service) reactLocked() bool {
 				continue
 			}
 			q, ok := s.parts[rm.body.Peer]
-			if !ok || q.rooms[id] || q.left[id] || !partInRoom(r.st, rm.body.Owner, id) {
+			if !ok || q.rooms[id] || q.left[id] || !partInRoom(r.st, rm.body.Owner, id) || s.roomCapLocked(q) != nil {
 				continue
 			}
 			s.rooms[id] = rm

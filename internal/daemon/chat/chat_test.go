@@ -783,3 +783,36 @@ func TestDirectPeerNodeNotEvicted(t *testing.T) {
 	f.write(t, yState)
 	never(t, "1대1 채팅이 끝난다", func() bool { return !roomVisible(a, pa.ID, room.ID) })
 }
+
+// 보안 검토: 남이 만든 개인채팅에 자동으로 들어가는 것도 방 상한을 지킨다.
+func TestDirectAutoJoinCapped(t *testing.T) {
+	a := newTestNode(t, "a")
+	pa := a.Register("a/x", KindAgent)
+	f := newFakePeer(t, a)
+	owners := []string{f.pid("o1"), f.pid("o2")}
+	var recs []signedRecord
+	byOwner := map[string][]string{}
+	for i := range maxPartRooms + 5 {
+		o := owners[i/maxPartRooms]
+		rec, err := newRecord(f.id, recordBody{Kind: KindDirect, Owner: o, Peer: pa.ID, PeerNode: a.fp(), Created: time.Now(), Nonce: string(rune('a'+i%26)) + string(rune('a'+i/26))})
+		if err != nil {
+			t.Fatal(err)
+		}
+		recs = append(recs, rec)
+		byOwner[o] = append(byOwner[o], rec.id())
+	}
+	f.state(t, []statePart{
+		{ID: owners[0], Label: "f/o1", Kind: KindAgent, Rooms: byOwner[owners[0]]},
+		{ID: owners[1], Label: "f/o2", Kind: KindAgent, Rooms: byOwner[owners[1]]},
+	}, recs, []string{a.fp()})
+	eventually(t, "상한까지 들어간다", func() bool { return len(a.Rooms(pa.ID)) >= maxPartRooms })
+	never(t, "상한을 넘어 들어간다", func() bool {
+		n := 0
+		for _, r := range a.Rooms(pa.ID) {
+			if r.Joined {
+				n++
+			}
+		}
+		return n > maxPartRooms
+	})
+}
