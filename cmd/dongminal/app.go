@@ -226,7 +226,7 @@ func (a *app) run(ctx context.Context) error {
 	// 게이트 판정에 DNS 왕복이 붙으면 모든 요청이 그만큼 느려진다.
 	a.srv.StartAccessRefresh(ctx.Done())
 	// PEER_NETWORK_SRS FR-PNW-4: 노드 포트. 꺼져 있으면 아무것도 열지 않는다.
-	closePeer := startPeerScoped(ctx, a.srv.StartPeer)
+	closeEdge := startEdgeScoped(ctx, a.srv.StartEdge)
 	// TELEGRAM_BRIDGE_SRS NFR-TGB-1: 꺼져 있으면 Telegram 에 아무 요청도 하지 않는다.
 	a.srv.StartTelegram(ctx.Done())
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-50: 등록된 계정이 없으면 아무 요청도 하지 않는다.
@@ -275,13 +275,13 @@ func (a *app) run(ctx context.Context) error {
 	// 5초 폴링 뒤 "기동 실패" 만 낸다 — 어느 값이 문제인지가 없다.
 	err := a.srv.Run(ctx, dmenv.ListenAddr(a.host, a.port))
 	// 노드 포트를 닫고 기다린다. Run 이 종료 신호 없이 실패해도(포트 사용 중) 닫는다 (C7).
-	closePeer()
+	closeEdge()
 	return err
 }
 
-// startPeerScoped 는 노드 포트를 ctx 가 끝나거나 돌려준 함수를 부르면 닫히게 띄운다.
+// startEdgeScoped 는 노드 포트를 ctx 가 끝나거나 돌려준 함수를 부르면 닫히게 띄운다.
 // 돌려준 함수는 닫기가 끝날 때까지 기다린다.
-func startPeerScoped(ctx context.Context, start func(stop <-chan struct{}) <-chan struct{}) func() {
+func startEdgeScoped(ctx context.Context, start func(stop <-chan struct{}) <-chan struct{}) func() {
 	pctx, cancel := context.WithCancel(ctx)
 	done := start(pctx.Done())
 	return func() {

@@ -1959,13 +1959,13 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 
 /* ── 짝 (PEER_NETWORK_SRS FR-PNW-80) ── */
 .pn-row{display:flex;align-items:center;gap:6px}
-.pn-add-name{flex:0 1 140px}
-.pn-item{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:4px 0 4px 10px;
+.eg-add-name{flex:0 1 140px}
+.eg-item{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:4px 0 4px 10px;
   border-left:2px solid var(--border)}
-.pn-who{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-size:var(--fs-md);color:var(--text-bright)}
-.pn-fp{font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-hint)}
-.pn-fp-big{display:block;margin-top:8px;font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
-.pn-item .sbx-input{flex:0 1 160px}
+.eg-who{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-size:var(--fs-md);color:var(--text-bright)}
+.eg-fp{font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-hint)}
+.eg-fp-big{display:block;margin-top:8px;font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
+.eg-item .sbx-input{flex:0 1 160px}
 
 /* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
    FR-BTS-7: 색은 테마의 것이다 — head 인라인이 선주입한 변수를 그대로 쓰므로,

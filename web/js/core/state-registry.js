@@ -234,14 +234,14 @@ const STATE_REGISTRY=[
   {
     /**
      * PEER_NETWORK_SRS FR-PNW-81·82 — 짝·승인 대기. `every` 가 없다 — 바뀌면 서버가
-     * `peers_changed` 로 민다. 끊겨 있던 동안 생긴 대기는 재연결의 스냅샷이 준다.
+     * `edges_changed` 로 민다. 끊겨 있던 동안 생긴 대기는 재연결의 스냅샷이 준다.
      */
-    id:'peers',
-    restore:'_peersRestore',
+    id:'edges',
+    restore:'_edgesRestore',
     merge:'latest',
-    flight:'peers',
-    part:'peers',
-    events:{peers_changed:'_onPeersChanged'},
+    flight:'edges',
+    part:'edges',
+    events:{edges_changed:'_onEdgesChanged'},
     revalidateOn:['sse:open','softreload'],
   },
   {

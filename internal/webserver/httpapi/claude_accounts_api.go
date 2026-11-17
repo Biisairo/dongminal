@@ -38,7 +38,7 @@ type claudeAutoSummary struct {
 
 func (s *Server) claudeAccountsReady(w http.ResponseWriter) bool {
 	if s.ca == nil {
-		peerFail(w, http.StatusServiceUnavailable, apierr.CodeClaudeAccountsUnavailable, "claude accounts unavailable")
+		codeFail(w, http.StatusServiceUnavailable, apierr.CodeClaudeAccountsUnavailable, "claude accounts unavailable")
 		return false
 	}
 	return true
@@ -66,12 +66,12 @@ func claudeAccountsFail(w http.ResponseWriter, err error) {
 		{claudeacct.ErrCswapRunning, http.StatusConflict, apierr.CodeClaudeCswapRunning},
 	} {
 		if errors.Is(err, r.err) {
-			peerFail(w, r.status, r.code, err.Error())
+			codeFail(w, r.status, r.code, err.Error())
 			return
 		}
 	}
 	dmlog.Infof(nil, "claude-accounts: %v", err)
-	peerFail(w, http.StatusInternalServerError, apierr.CodeInternal, "claude accounts operation failed")
+	codeFail(w, http.StatusInternalServerError, apierr.CodeInternal, "claude accounts operation failed")
 }
 
 func (s *Server) apiClaudeAccountsList(w http.ResponseWriter, _ *http.Request) {
@@ -127,7 +127,7 @@ func (s *Server) apiClaudeAccountsItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req claudeAccountItemReq
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	a, err := s.ca.svc.Update(req.ID, req.Patch)
@@ -146,7 +146,7 @@ func (s *Server) apiClaudeAccountsRemove(w http.ResponseWriter, r *http.Request)
 	var req struct {
 		ID string `json:"id"`
 	}
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	if err := s.ca.svc.Remove(req.ID); err != nil {
@@ -164,7 +164,7 @@ func (s *Server) apiClaudeAccountsOrder(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		IDs []string `json:"ids"`
 	}
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	if err := s.ca.svc.Reorder(req.IDs); err != nil {
@@ -184,7 +184,7 @@ func (s *Server) apiClaudeAccountsSwitch(w http.ResponseWriter, r *http.Request)
 		Strategy string `json:"strategy"`
 		By       string `json:"by"`
 	}
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	res, err := s.ca.eng.Switch(r.Context(), claudeacct.SwitchRequest{ID: req.ID, Strategy: req.Strategy, By: req.By})
@@ -208,7 +208,7 @@ func (s *Server) apiClaudeAccountsRefresh(w http.ResponseWriter, r *http.Request
 		ID     string `json:"id"`
 		Resets bool   `json:"resets"`
 	}
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	fetch := s.ca.eng.FetchNow
@@ -233,7 +233,7 @@ func (s *Server) apiClaudeAccountsReset(w http.ResponseWriter, r *http.Request) 
 		Program string `json:"program"`
 		GrantID string `json:"grantId"`
 	}
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	// 브라우저가 끊겨도 보낸 사용은 끝까지 기다린다 — 중간에 끊으면 결과를 모르는 채로 자원만 쓴다. 제한은 25초다.
@@ -254,7 +254,7 @@ func (s *Server) apiClaudeAccountsHistory(w http.ResponseWriter, r *http.Request
 	if q := r.URL.Query().Get("limit"); q != "" {
 		v, err := strconv.Atoi(q)
 		if err != nil || v < 1 || v > claudeHistoryMax {
-			peerFail(w, http.StatusBadRequest, apierr.CodeClaudeAccountInvalid, "limit 은 1~1000 입니다")
+			codeFail(w, http.StatusBadRequest, apierr.CodeClaudeAccountInvalid, "limit 은 1~1000 입니다")
 			return
 		}
 		limit = v
@@ -281,7 +281,7 @@ func (s *Server) apiClaudeAccountsAutoswitchPut(w http.ResponseWriter, r *http.R
 		return
 	}
 	var raw json.RawMessage
-	if !peerReadJSON(w, r, &raw) {
+	if !readJSONBody(w, r, &raw) {
 		return
 	}
 	v, err := s.ca.auto.Put(raw)

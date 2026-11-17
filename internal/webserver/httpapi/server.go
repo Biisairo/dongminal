@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"dongminal/internal/shared/peer"
+	"dongminal/internal/shared/edge"
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
@@ -123,17 +123,17 @@ type Server struct {
 	// 모든 표면 앞에 선다. `--expose` 뒤에 아무 제어가 없던 자리를 여기가 메운다.
 	Access *accessStore
 
-	// peers·peerLn 은 노드 설정과 노드 포트다 (PEER_NETWORK_SRS 묶음 N). DataDir 이
-	// 없거나 신원을 읽지 못하면 peerLn 이 nil 이고 노드 포트는 서지 않는다.
-	peers  *peer.Store
-	peerLn *peer.Listener
-	// peerID·peerClient·pairing 은 노드 신원, 상대를 부르는 클라이언트, 초대·승인
-	// 대기다 (묶음 P). peerLn 과 함께 서고 함께 빈다.
-	peerID     peer.Identity
-	peerClient *peer.Client
-	pairing    *peer.Pairing
-	// peerLimiter 는 짝맞춤 경로의 출발지별 상한이다 (S9).
-	peerLimiter *peer.RateLimiter
+	// edges·edgeLn 은 노드 설정과 노드 포트다 (PEER_NETWORK_SRS 묶음 N). DataDir 이
+	// 없거나 신원을 읽지 못하면 edgeLn 이 nil 이고 노드 포트는 서지 않는다.
+	edges  *edge.Store
+	edgeLn *edge.Listener
+	// edgeID·edgeClient·pairing 은 노드 신원, 상대를 부르는 클라이언트, 초대·승인
+	// 대기다 (묶음 P). edgeLn 과 함께 서고 함께 빈다.
+	edgeID     edge.Identity
+	edgeClient *edge.Client
+	pairing    *edge.Pairing
+	// edgeLimiter 는 짝맞춤 경로의 출발지별 상한이다 (S9).
+	edgeLimiter *edge.RateLimiter
 	// settingsMu 는 설정 PUT 의 지문 검사와 저장을 한 덩이로 묶는다 (UX_BATCH12 FR-LIV-2).
 	settingsMu sync.Mutex
 
@@ -283,7 +283,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// REQUEST_GATE_SRS FR-RQG-6: 허용 호스트 집합은 `access.self` 를 읽으므로
 	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.
 	srv.hosts = newHostAllow(access, cfg.AllowedHosts)
-	srv.initPeer()
+	srv.initEdge()
 	srv.initTelegram()
 	srv.initClaudeAccounts()
 	runWorktreeRoot := ""

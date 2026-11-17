@@ -21440,7 +21440,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|code.pn-fp": {
+ "terminal|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21467,7 +21467,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|input.pn-add-name.sbx-input": {
+ "terminal|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21485,7 +21485,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|code.pn-fp": {
+ "git:changes|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21512,7 +21512,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|input.pn-add-name.sbx-input": {
+ "git:changes|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21530,7 +21530,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|code.pn-fp": {
+ "git:diff|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21557,7 +21557,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|input.pn-add-name.sbx-input": {
+ "git:diff|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21575,7 +21575,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|code.pn-fp": {
+ "git:history|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21602,7 +21602,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|input.pn-add-name.sbx-input": {
+ "git:history|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21620,7 +21620,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|code.pn-fp": {
+ "git:branches|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21647,7 +21647,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|input.pn-add-name.sbx-input": {
+ "git:branches|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21665,7 +21665,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|code.pn-fp": {
+ "git:stash|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21692,7 +21692,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|input.pn-add-name.sbx-input": {
+ "git:stash|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21710,7 +21710,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|code.pn-fp": {
+ "git:console|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21737,7 +21737,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|input.pn-add-name.sbx-input": {
+ "git:console|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21755,7 +21755,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|code.pn-fp": {
+ "git:worktrees|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21782,7 +21782,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|input.pn-add-name.sbx-input": {
+ "git:worktrees|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21800,7 +21800,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|code.pn-fp": {
+ "git:submodules|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21827,7 +21827,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|input.pn-add-name.sbx-input": {
+ "git:submodules|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",
@@ -21836,7 +21836,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|code.pn-fp": {
+ "editor|code.eg-fp": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21863,7 +21863,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|input.pn-add-name.sbx-input": {
+ "editor|input.eg-add-name.sbx-input": {
   "display": "block",
   "overflowX": "clip",
   "overflowY": "clip",

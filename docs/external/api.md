@@ -21,7 +21,7 @@
 | PUT | `/api/update` | 자동 판 확인 토글 — `{ enabled: bool }`. `server.json` 의 `updateCheck` 에 남습니다 (설정 블롭이 아닙니다) |
 | GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }`. `?jobs=1` 이면 `/api/git/jobs` 의 `jobs` 를 함께 싣습니다 (git 이 없으면 키가 없습니다) |
 | GET | `/api/ping` | `"ok"` (레이턴시 측정용) |
-| GET | `/api/snapshot?parts=` | 구독이 열릴 때의 복원 조각을 한 번에 — `parts` 는 `attention`·`activity`·`background`·`settings`·`update`·`focus`·`peers` 의 쉼표 목록. 각 조각은 그 종단(`/api/tools/attention`·`/api/tools/activity`·`/api/tools/background`·`/api/settings`·`/api/update`·`/api/focus`·`/api/peers`)의 본문 그대로이고, 200 이 아닌 조각과 모르는 이름은 싣지 않습니다 |
+| GET | `/api/snapshot?parts=` | 구독이 열릴 때의 복원 조각을 한 번에 — `parts` 는 `attention`·`activity`·`background`·`settings`·`update`·`focus`·`edges` 의 쉼표 목록. 각 조각은 그 종단(`/api/tools/attention`·`/api/tools/activity`·`/api/tools/background`·`/api/settings`·`/api/update`·`/api/focus`·`/api/edges`)의 본문 그대로이고, 200 이 아닌 조각과 모르는 이름은 싣지 않습니다 |
 
 ### 도구
 
@@ -225,21 +225,23 @@
 | GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다. `ready`(데몬에 닿았다)·`installed`(바이너리가 있다)는 그 뜻이다. `actions["sandbox.runtime.start"]` 는 시작할 수 있는지의 답(`{ok, why}`)이다 |
 | POST | `/api/sandbox/runtime/start` | 멎어 있는 런타임을 띄운다. 상태를 다시 조회해 답이 거짓이면 아무것도 실행하지 않고 409 `runtime_missing`·`runtime_start_manual` 로 거절한다 |
 
-### 노드 간 통신 (`PEER_NETWORK_SRS`)
+### 노드 간 통신 (`PEER_NETWORK_SRS`, `PEER_DAEMON_SRS`)
 
-UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 이고, 상대 노드가 돌려준 오류는 이렇게 옮깁니다. 4xx 는 상태를 그대로, 그 밖은 502 로 바꿉니다. 코드는 오류 카탈로그에 있는 것만 그대로 옮기고, 모르는 코드는 `peer_rejected` 로 바꿉니다. 문장은 제어 문자를 지우고 512 바이트로 자릅니다. 상대에 닿지 못하거나 JSON 이 아닌 답이면 `peer_unreachable` 입니다. 단, JSON 이 아닌 403 은 상대가 이 노드를 받지 않았다는 뜻이므로 `peer_rejected` 입니다.
+노드 사이의 연결을 간선(edge)이라 부릅니다. 사용 안내는 [edges.md](./edges.md) 에 있습니다.
+
+UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 이고, 상대 노드가 돌려준 오류는 이렇게 옮깁니다. 4xx 는 상태를 그대로, 그 밖은 502 로 바꿉니다. 코드는 오류 카탈로그에 있는 것만 그대로 옮기고, 모르는 코드는 `edge_rejected` 로 바꿉니다. 문장은 제어 문자를 지우고 512 바이트로 자릅니다. 상대에 닿지 못하거나 JSON 이 아닌 답이면 `edge_unreachable` 입니다. 단, JSON 이 아닌 403 은 상대가 이 노드를 받지 않았다는 뜻이므로 `edge_rejected` 입니다.
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/peers` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 짝 목록(`peers`, `state` 가 빈 값이면 짝, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·짝·승인 대기가 바뀌면 `peers_changed` 를 방송한다. 상대의 승인 통지로 `pending-out` 이 짝이 될 때도 방송한다. 바뀐 것이 없으면(이미 짝, 실패한 요청) 방송하지 않는다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름을 싣는다 |
-| PUT | `/api/peers/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`)을 바꾸고 노드 포트에 바로 적용한다. 짝 목록은 바뀌지 않는다. 틀린 값은 400 `peer_config_invalid`. `GET /api/peers` 의 `ETag`(노드 설정의 지문)를 `If-Match` 로 실으면 낡았을 때 409 `stale_rev` 다 |
-| POST | `/api/peers/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `peer_port_closed`, 주소가 없으면 400 `peer_addr_required` |
-| POST | `/api/peers/add` | `{code, name?}` → `{name, state, warning?}`. `state` 는 실제로 저장된 상태다. 보통 `"pending-out"` 이고, 이미 짝이면 `""` 이다. 상대 노드에 연결해 지문을 대조하고 등록을 요청한다. `warning:"port_closed"` 는 이 노드의 포트가 닫혀 있어 상대가 보낼 수 없다는 뜻이다. 실패는 `peer_fingerprint_mismatch`·`peer_unreachable`·`peer_token_invalid` 등 |
-| GET | `/api/peers/pending` | `{pending:[{id, name, addr, port, fp, expires}]}` — 승인 대기 |
-| POST | `/api/peers/approve` | `{id, name?}` → `{name, fp, confirmed, reason?}`. 짝으로 저장하고 상대에 승인을 알린다. 알리지 못해도 저장은 남고 `confirmed:false`. 이름이 겹치면 409 `peer_name_taken` |
-| POST | `/api/peers/reject` | `{id}` — 승인 대기를 버린다 |
-| POST | `/api/peers/remove` | `{name}` — 짝을 해제한다. 그 노드의 요청은 바로 거절된다 |
-| PUT | `/api/peers/address` | `{name, addr, port}` — 짝의 주소를 고친다. 신원(지문)은 그대로다 |
+| GET | `/api/edges` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 간선 목록(`edges`, `state` 가 빈 값이면 간선, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·간선·승인 대기가 바뀌면 `edges_changed` 를 방송한다. 상대의 승인 통지로 `pending-out` 이 간선이 될 때도 방송한다. 바뀐 것이 없으면(이미 간선, 실패한 요청) 방송하지 않는다. 이 노드가 승인해 간선 맺기를 마쳤으면 `args.paired` 에 그 이름을 싣는다 |
+| PUT | `/api/edges/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`)을 바꾸고 노드 포트에 바로 적용한다. 간선 목록은 바뀌지 않는다. 틀린 값은 400 `edge_config_invalid`. `GET /api/edges` 의 `ETag`(노드 설정의 지문)를 `If-Match` 로 실으면 낡았을 때 409 `stale_rev` 다 |
+| POST | `/api/edges/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `edge_port_closed`, 주소가 없으면 400 `edge_addr_required` |
+| POST | `/api/edges/add` | `{code, name?}` → `{name, state, warning?}`. `state` 는 실제로 저장된 상태다. 보통 `"pending-out"` 이고, 이미 간선이면 `""` 이다. 상대 노드에 연결해 지문을 대조하고 등록을 요청한다. `warning:"port_closed"` 는 이 노드의 포트가 닫혀 있어 상대가 보낼 수 없다는 뜻이다. 실패는 `edge_fingerprint_mismatch`·`edge_unreachable`·`edge_token_invalid` 등 |
+| GET | `/api/edges/pending` | `{pending:[{id, name, addr, port, fp, expires}]}` — 승인 대기 |
+| POST | `/api/edges/approve` | `{id, name?}` → `{name, fp, confirmed, reason?}`. 간선으로 저장하고 상대에 승인을 알린다. 알리지 못해도 저장은 남고 `confirmed:false`. 이름이 겹치면 409 `edge_name_taken` |
+| POST | `/api/edges/reject` | `{id}` — 승인 대기를 버린다 |
+| POST | `/api/edges/remove` | `{name}` — 간선을 끊는다. 그 노드의 요청은 바로 거절된다 |
+| PUT | `/api/edges/address` | `{name, addr, port}` — 간선의 주소를 고친다. 신원(지문)은 그대로다 |
 
 ### Telegram 알림 (`TELEGRAM_BRIDGE_SRS`)
 
@@ -470,7 +472,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_subagent_activity` | 서브에이전트의 활동 갱신 `{toolId, agentId, agentType, state, tool, detail}` |
 | `run_changed` | Run 기록이 바뀌었다. `args.runId`, 트리 Run 이면 `args.tree`. 대시보드는 이 신호로 다시 받는다 |
 | `sandbox_changed` | 샌드박스 정의가 저장됐다 — 본문은 없고 `GET /api/sandbox/config` 로 다시 받으라는 신호 |
-| `peers_changed` | 노드 설정·초대·짝·승인 대기가 바뀌었다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름이 실린다 |
+| `edges_changed` | 노드 설정·초대·간선·승인 대기가 바뀌었다. 이 노드가 승인해 간선 맺기를 마쳤으면 `args.paired` 에 그 이름이 실린다 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
 | `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
 | `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |

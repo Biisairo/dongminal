@@ -70,13 +70,13 @@ func homeLayout() []homeEntry {
 		{Name: dmenv.ToolsFile, What: "도구의 이름·작업 폴더 등 복원 정보", InBackup: true, KeepOnUninstall: true, Rollback: true},
 		{Name: serverconf.FileName, What: "서버 기동값 (host·port·로그)", InBackup: true, KeepOnUninstall: true},
 		{Name: "sandbox.json", What: "샌드박스 프로파일 정의", InBackup: true, KeepOnUninstall: true},
-		// PEER_NETWORK_SRS FR-PNW-1·2: 키를 담아야 복원 뒤에도 지문이 같아 짝이 유지된다
+		// PEER_NETWORK_SRS FR-PNW-1·2: 키를 담아야 복원 뒤에도 지문이 같아 간선이 유지된다
 		// (사용자 결정 2026-11-10). 그래서 backup zip 은 비밀로 다룬다.
-		{Name: dmenv.PeersFile, What: "노드 간 통신 설정과 짝 목록", InBackup: true, KeepOnUninstall: true},
+		{Name: dmenv.EdgesFile, What: "노드 간 통신 설정과 간선 목록", InBackup: true, KeepOnUninstall: true},
 		{Name: dmenv.NodeCertFile, What: "노드 인증서 (노드 간 통신의 신원)", InBackup: true, KeepOnUninstall: true},
 		{Name: dmenv.NodeKeyFile, What: "노드 개인키", InBackup: true, KeepOnUninstall: true},
 		// FR-PNW-62: 서버를 다시 켜도 남아야 하지만, 도구 id 는 그 기계의 것이라 옮겨 봐야 뜻이 없다.
-		// TELEGRAM_BRIDGE_SRS FR-TGB-2: peers.json 과 같이 비밀(봇 token)을 담으므로 backup zip 은 비밀이다.
+		// TELEGRAM_BRIDGE_SRS FR-TGB-2: edges.json 과 같이 비밀(봇 token)을 담으므로 backup zip 은 비밀이다.
 		{Name: dmenv.TelegramFile, What: "Telegram 알림 설정 (봇 token·허용 계정·무음 시간)", InBackup: true, KeepOnUninstall: true},
 
 		// ── 사용자가 만든 내용 ──

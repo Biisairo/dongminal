@@ -30,7 +30,7 @@ func wantStale(t *testing.T, rec *httptest.ResponseRecorder) {
 		Code string `json:"code"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
-	// httpErr 방언은 코드를 헤더로, peer 방언은 본문으로 싣는다.
+	// httpErr 방언은 코드를 헤더로, codeFail 방언은 본문으로 싣는다.
 	if out.Code == "" {
 		out.Code = rec.Header().Get(apierr.CodeHeader)
 	}
@@ -112,17 +112,17 @@ func TestSettingsETag_SandboxAndBroadcast(t *testing.T) {
 	}
 }
 
-func TestSettingsETag_PeersNode(t *testing.T) {
-	n := newPeerNode(t, "node-a", true)
+func TestSettingsETag_EdgesNode(t *testing.T) {
+	n := newEdgeNode(t, "node-a", true)
 	h := n.srv.Handler()
-	e1 := settingsReq(h, http.MethodGet, "/api/peers", "", "").Header().Get("ETag")
+	e1 := settingsReq(h, http.MethodGet, "/api/edges", "", "").Header().Get("ETag")
 	if e1 == "" {
-		t.Fatal("GET /api/peers 가 ETag 를 싣지 않았다")
+		t.Fatal("GET /api/edges 가 ETag 를 싣지 않았다")
 	}
-	cfg := n.srv.peers.Config()
+	cfg := n.srv.edges.Config()
 	cfg.Name = "renamed"
 	raw, _ := json.Marshal(cfg)
-	rec := settingsReq(h, http.MethodPut, "/api/peers/node", string(raw), e1)
+	rec := settingsReq(h, http.MethodPut, "/api/edges/node", string(raw), e1)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("맞는 If-Match: %d %s", rec.Code, rec.Body.String())
 	}
@@ -131,11 +131,11 @@ func TestSettingsETag_PeersNode(t *testing.T) {
 	}
 	cfg.Name = "again"
 	raw, _ = json.Marshal(cfg)
-	wantStale(t, settingsReq(h, http.MethodPut, "/api/peers/node", string(raw), e1))
-	if n.srv.peers.Config().Name != "renamed" {
+	wantStale(t, settingsReq(h, http.MethodPut, "/api/edges/node", string(raw), e1))
+	if n.srv.edges.Config().Name != "renamed" {
 		t.Fatal("거절된 PUT 이 값을 바꿨다")
 	}
-	if rec := settingsReq(h, http.MethodPut, "/api/peers/node", string(raw), ""); rec.Code != http.StatusOK {
+	if rec := settingsReq(h, http.MethodPut, "/api/edges/node", string(raw), ""); rec.Code != http.StatusOK {
 		t.Fatalf("If-Match 없는 PUT: %d", rec.Code)
 	}
 }

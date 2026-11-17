@@ -61,11 +61,11 @@ func (s *Server) apiClaudeAccountsMappingsPut(w http.ResponseWriter, r *http.Req
 		ToolID    string `json:"toolId"`
 		AccountID string `json:"accountId"`
 	}
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	if (req.Folder == "") == (req.ToolID == "") {
-		peerFail(w, http.StatusBadRequest, apierr.CodeClaudeAccountInvalid, "folder 와 toolId 중 하나만 주세요")
+		codeFail(w, http.StatusBadRequest, apierr.CodeClaudeAccountInvalid, "folder 와 toolId 중 하나만 주세요")
 		return
 	}
 	var err error
@@ -106,7 +106,7 @@ func (s *Server) apiClaudeAccountsLaunch(w http.ResponseWriter, r *http.Request)
 		ToolID string `json:"toolId"`
 		Cwd    string `json:"cwd"`
 	}
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	s.claudePruneTabs()
@@ -121,7 +121,7 @@ func (s *Server) apiClaudeAccountsLaunch(w http.ResponseWriter, r *http.Request)
 	}
 	if _, _, err := s.ca.svc.PrepareProfile(res.AccountID); err != nil {
 		dmlog.Infof(nil, "claude-accounts: 프로필을 맞추지 못했다: %v", err)
-		peerFail(w, http.StatusInternalServerError, apierr.CodeInternal, "profile preparation failed")
+		codeFail(w, http.StatusInternalServerError, apierr.CodeInternal, "profile preparation failed")
 		return
 	}
 	httpresp.JSON(w, http.StatusOK, res)
@@ -151,7 +151,7 @@ func (s *Server) apiClaudeAccountsUnclaimedRemove(w http.ResponseWriter, r *http
 	var req struct {
 		Name string `json:"name"`
 	}
-	if !peerReadJSON(w, r, &req) {
+	if !readJSONBody(w, r, &req) {
 		return
 	}
 	if err := s.ca.svc.RemoveUnclaimed(req.Name); err != nil {

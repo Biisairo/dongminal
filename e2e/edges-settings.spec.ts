@@ -1,0 +1,213 @@
+import { spawn, type ChildProcess } from 'child_process';
+import { mkdirSync } from 'fs';
+
+import { request as pwRequest, type APIRequestContext } from '@playwright/test';
+
+import { E2E_BIN, E2E_HOME } from '../playwright.config';
+import { stopDaemon } from './daemon-cleanup';
+import { expect, hermeticEnv, pingUntilUp, test, waitForInit } from './fixtures';
+
+// PEER_NETWORK_SRS FR-PNW-80~82 — 설정 ▸ Edges.
+//
+// 브라우저가 붙은 워커 서버가 B(초대하고 승인하는 쪽)다. A 는 이 스펙이 따로 띄우는
+// 두 번째 서버다 (NFR-PNW-3: 한 기계에서 홈·포트가 다른 서버 둘). A 는 API 로만 다룬다.
+
+// 노드 포트는 워커 UI 포트에서 떨어뜨려 고른다 — 샤드·워커마다 UI 포트가 다르므로 겹치지 않는다.
+const B_NODE_OFFSET = 3000;
+const A_UI_OFFSET = 3100;
+const A_NODE_OFFSET = 3200;
+
+let aProc: ChildProcess | null = null;
+let aHome = '';
+let a: APIRequestContext;
+let aFp = '';
+
+async function openEdgesTab(page) {
+  await page.click('#settings-btn');
+  await expect(page.locator('#modal-overlay')).toBeVisible();
+  await page.click('button.mtab[data-tab="edges"]');
+  await expect(page.locator('#panel-edges')).toBeVisible();
+  await expect(page.locator('#eg-port-state')).not.toHaveText('');
+}
+
+/** B 화면에서 초대를 만들고 그 코드를 돌려준다. 코드는 만든 응답에만 있다 (FR-PNW-95). */
+async function makeInvite(page): Promise<string> {
+  await page.click('#eg-inv-make');
+  const code = page.locator('#eg-inv-code');
+  await expect(code).toHaveValue(/^dmedge1:/);
+  return code.inputValue();
+}
+
+async function aAdds(code: string) {
+  const r = await a.post('/api/edges/add', { data: { code } });
+  expect(r.status(), await r.text()).toBe(200);
+}
+
+/** 화면을 거치지 않고 B 가 A 를 name 으로 짝 맺는다. 앞 테스트의 상태에 기대지 않기 위해서다. */
+async function pairViaApi(baseURL: string, name: string) {
+  const b = await pwRequest.newContext({ baseURL });
+  let r = await b.post('/api/edges/invite', { data: {} });
+  expect(r.status(), await r.text()).toBe(200);
+  await aAdds((await r.json()).code);
+  const pend = (await (await b.get('/api/edges/pending')).json()).pending;
+  r = await b.post('/api/edges/approve', { data: { id: pend[0].id, name } });
+  expect(r.status(), await r.text()).toBe(200);
+  await b.dispose();
+}
+
+/** B 에서 방송(edges_changed)을 하나 일으킨다. 초대를 만들면 서버가 민다. */
+async function poke(baseURL: string) {
+  const b = await pwRequest.newContext({ baseURL });
+  expect((await b.post('/api/edges/invite', { data: {} })).status()).toBe(200);
+  await b.dispose();
+}
+
+test.describe.serial('설정 ▸ Edges', () => {
+  test.beforeAll(async ({ dmServer }) => {
+    const aPort = dmServer.port + A_UI_OFFSET;
+    aHome = E2E_HOME + '/peer-a-' + dmServer.port;
+    mkdirSync(aHome + '/tool-home', { recursive: true });
+    aProc = spawn(E2E_BIN, ['start', '--foreground'], {
+      env: { ...hermeticEnv(), PORT: String(aPort), DONGMINAL_HOME: aHome, DONGMINAL_TOOL_HOME: aHome + '/tool-home' },
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    await pingUntilUp(`http://localhost:${aPort}/api/ping`, 90_000);
+    a = await pwRequest.newContext({ baseURL: `http://localhost:${aPort}` });
+    const node = (port: number, name: string) => ({
+      enabled: true, port, bind: '127.0.0.1', name, advertise: '127.0.0.1',
+    });
+    let r = await a.put('/api/edges/node', { data: node(dmServer.port + A_NODE_OFFSET, 'node-a') });
+    expect(r.status(), await r.text()).toBe(200);
+    aFp = (await r.json()).node.fingerprint;
+    const b = await pwRequest.newContext({ baseURL: dmServer.baseURL });
+    r = await b.put('/api/edges/node', { data: node(dmServer.port + B_NODE_OFFSET, 'node-b') });
+    expect(r.status(), await r.text()).toBe(200);
+    await b.dispose();
+  });
+
+  test.afterAll(async ({ dmServer }) => {
+    // 워커 서버의 노드 포트를 다시 닫는다 — 뒤 스펙은 꺼진 노드를 전제로 한다 (NFR-PNW-1).
+    const b = await pwRequest.newContext({ baseURL: dmServer.baseURL });
+    await b.put('/api/edges/node', {
+      data: { enabled: false, port: 58147, bind: '0.0.0.0', name: 'node-b', advertise: '' },
+    });
+    await b.dispose();
+    if (a) await a.dispose();
+    if (aHome) stopDaemon(aHome);
+    if (aProc) aProc.kill('SIGTERM');
+  });
+
+  // FR-PNW-80: 네 구역과 이 노드의 상태.
+  test('네 구역이 서고 노드 포트 상태와 지문 앞 16자가 보인다', async ({ page }) => {
+    await waitForInit(page);
+    await openEdgesTab(page);
+    await expect(page.locator('#panel-edges .ds-sec')).toHaveCount(4);
+    await expect(page.locator('#eg-enabled')).toBeChecked();
+    await expect(page.locator('#eg-name')).toHaveValue('node-b');
+    await expect(page.locator('#eg-port-state')).toContainText('127.0.0.1');
+    await expect(page.locator('#eg-fp')).toHaveText(/^[0-9a-f]{16}$/);
+    // 비어 있으면 "없음" 한 줄만 있다.
+    await expect(page.locator('#eg-pending .eg-item')).toHaveCount(0);
+    await expect(page.locator('#eg-pending .sbx-status')).toHaveCount(1);
+    await expect(page.locator('#eg-edges .eg-item')).toHaveCount(0);
+    await expect(page.locator('#eg-edges .sbx-status')).toHaveCount(1);
+  });
+
+  // FR-PNW-80 초대 · FR-PNW-81 주의 알림 · 거절.
+  test('초대를 만들고, 승인 대기가 생기면 알림이 뜨고, 누르면 탭이 열리고, 거절할 수 있다', async ({ page }) => {
+    await waitForInit(page);
+    await openEdgesTab(page);
+    const code = await makeInvite(page);
+    await expect(page.locator('#eg-inv-remain')).toHaveText(/^\d+:\d\d$/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#modal-overlay')).toBeHidden();
+
+    await aAdds(code);
+    const notice = page.locator('.toast.edge-attn');
+    await expect(notice).toBeVisible();
+    await notice.locator('.toast-act').click();
+    await expect(page.locator('#panel-edges')).toBeVisible();
+    const row = page.locator('#eg-pending .eg-item');
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText('node-a');
+    await expect(row.locator('.eg-fp')).toHaveText(aFp.slice(0, 16));
+    // 코드는 쓰였다 — 살아 있는 초대가 없으니 코드도 거둔다.
+    await expect(page.locator('#eg-inv-box')).toBeHidden();
+
+    await row.locator('.eg-reject').click();
+    await expect(row).toHaveCount(0);
+    await expect(notice).toHaveCount(0);
+  });
+
+  // FR-PNW-30 · FR-PNW-82: 이름이 겹치면 다른 이름으로 승인하고, 등록 알림이 남는다.
+  test('이름이 겹치면 다른 이름으로 승인하고 "등록됨" 알림이 남는다', async ({ page, dmServer }) => {
+    await waitForInit(page);
+    await openEdgesTab(page);
+    await aAdds(await makeInvite(page));
+    const row = page.locator('#eg-pending .eg-item');
+    await expect(row).toHaveCount(1);
+
+    // 겹침은 Go 시험(TestPairApproveNameTaken)이 실제로 만든다. 여기서는 그 답을 받은 화면을 본다.
+    await page.route('**/api/edges/approve', (route) => route.fulfill({
+      status: 409,
+      headers: { 'X-Error-Code': 'edge_name_taken' },
+      json: { code: 'edge_name_taken', message: 'node-a' },
+    }), { times: 1 });
+    await row.locator('.eg-approve').click();
+    // L-10: 처음 승인은 지문 대조 창을 거친다.
+    const confirm = page.locator('.eg-approve-confirm');
+    await expect(confirm.locator('.eg-fp-big')).toHaveText(aFp.slice(0, 16));
+    // 리뷰 C-10: 확인창이 열린 동안 방송이 와 줄이 새로 만들어져도 이름 칸은 화면의 줄에 열린다.
+    await poke(dmServer.baseURL);
+    await expect(page.locator('#eg-inv-remain')).toHaveText(/^\d+:\d\d$/);
+    await confirm.locator('.ui-btn-primary').click();
+    const rename = row.locator('.eg-rename');
+    await expect(rename).toBeVisible();
+    await expect(page.locator('#eg-pending-status')).toHaveClass(/err/);
+    await rename.fill('laptop');
+    // L-13: 방송이 와도 고치던 이름 칸은 남는다.
+    await poke(dmServer.baseURL);
+    await expect(page.locator('#eg-inv-remain')).toHaveText(/^\d+:\d\d$/);
+    await expect(rename).toHaveValue('laptop');
+    // 이름만 바꿔 다시 승인할 때는 묻지 않는다.
+    await row.locator('.eg-approve').click();
+    await expect(confirm).toHaveCount(0);
+
+    await expect(page.locator('.toast.ok', { hasText: 'laptop' })).toBeVisible();
+    await expect(row).toHaveCount(0);
+    const peer = page.locator('#eg-edges .eg-item[data-name="laptop"]');
+    await expect(peer).toBeVisible();
+    await expect(peer).toContainText('127.0.0.1');
+    // A 도 짝이 됐다 — B 의 승인 통지가 닿았다. A 가 붙인 이름은 I-5 가 정하므로 보지 않는다.
+    const bFp = await page.locator('#eg-fp').textContent();
+    const ap = await (await a.get('/api/edges')).json();
+    expect(ap.edges.filter((p) => p.state === '' && p.fp.startsWith(bFp)).length).toBe(1);
+  });
+
+  // FR-PNW-80 짝: 주소 수정(FR-PNW-32)과 해제(FR-PNW-31).
+  test('짝의 주소를 고치고 해제한다', async ({ page, dmServer }) => {
+    await pairViaApi(dmServer.baseURL, 'desk');
+    await waitForInit(page);
+    await openEdgesTab(page);
+    const peer = page.locator('#eg-edges .eg-item[data-name="desk"]');
+    await expect(peer).toBeVisible();
+    // M-7: 고치던 줄은 방송에 덮이지 않고, 취소하면 원래 값으로 돌아온다.
+    await peer.locator('.eg-edit').click();
+    await peer.locator('.eg-addr').fill('10.9.9.9');
+    await poke(dmServer.baseURL);
+    await expect(page.locator('#eg-inv-remain')).toHaveText(/^\d+:\d\d$/);
+    await expect(peer.locator('.eg-addr')).toHaveValue('10.9.9.9');
+    await peer.locator('.eg-edit-cancel').click();
+    await expect(peer.locator('.eg-addr')).toBeHidden();
+    await expect(peer.locator('.eg-edit-cancel')).toBeHidden();
+    await expect(peer.locator('.eg-who')).toContainText('127.0.0.1');
+    await peer.locator('.eg-edit').click();
+    await peer.locator('.eg-addr').fill('127.0.0.2');
+    await peer.locator('.eg-edit').click();
+    await expect(peer.locator('.eg-who')).toContainText('127.0.0.2');
+    await expect(peer.locator('.eg-addr')).toBeHidden();
+    await peer.locator('.eg-remove').click();
+    await page.locator('.eg-confirm .ui-btn-danger').click();
+    await expect(peer).toHaveCount(0);
+  });
+});

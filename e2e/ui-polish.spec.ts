@@ -150,9 +150,9 @@ test('TC-UIP-11: 설정 탭은 세로 목록이고 검색으로 거른다', asyn
   const tabs = page.locator('#modal .modal-tabs');
   expect(await tabs.evaluate((e) => getComputedStyle(e).flexDirection)).toBe('column');
   const search = page.locator('#modal .modal-search');
-  await search.fill('peer');
+  await search.fill('edge');
   await expect(page.locator('#modal .mtab:visible')).toHaveCount(1);
-  await expect(page.locator('#modal .mtab.active')).toHaveAttribute('data-tab', 'peers');
+  await expect(page.locator('#modal .mtab.active')).toHaveAttribute('data-tab', 'edges');
   await search.fill('');
   // CLAUDE_ACCOUNTS_SRS FR-CAC-94: "Claude 계정" 탭이 더해져 열다섯이다.
   await expect(page.locator('#modal .mtab:visible')).toHaveCount(15);

@@ -7,8 +7,8 @@
 
 1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon` 이다.
 2. `PEER_DAEMON_SRS.md` 전체(특히 §3.4·§3.4a·§3.5)와 이 문서 §4(배운 것)를 읽는다. **§4 첫 항목(e2e·서버·데몬 금지)을 반드시 지킨다.**
-3. **단계 4(이름 변경)를 SRS §3.4a 대로** Spec → Test(RED: TC-PDM-25·26) → Code → `make gates`·`make lint`·`make unit`·`make typecheck`·`go test ./...` 순서로 진행한다. e2e 는 돌리지 않는다.
-4. 단계 4 → 5 → 6 순서로 진행한다. 단계 5 설계는 SRS §3.5 아래 "§3.5a" 로 먼저 적는다. 단계마다 검사가 통과하면 **묻지 말고 커밋**한다.
+3. **단계 5(데몬이 노드)를** SRS §3.5 아래 "§3.5a" 설계부터 적고 Spec → Test(RED) → Code → `make gates`·`make lint`·`make unit`·`make typecheck`·`go test ./...` 순서로 진행한다. e2e 는 돌리지 않는다.
+4. 단계 5 → 6 순서로 진행한다. 단계 5 설계는 SRS §3.5 아래 "§3.5a" 로 먼저 적는다. 단계마다 검사가 통과하면 **묻지 말고 커밋**한다.
 
 ## 2. 사용자 지시
 
@@ -26,8 +26,8 @@
 | 1. 패키지 이동 `internal/webserver/domain/peer` → `internal/shared/peer` | 끝 | `42611bb4` |
 | 2. 통로 부품 `internal/shared/peerrelay` | 끝 | `f6f9c4ab` |
 | 3. 간선 축소 (명령·원격 메시지·원격 기동 제거) | 끝 | `457b2d4e` |
-| 4. 이름 변경 peer → edge | **다음** | |
-| 5. 데몬이 노드 (서버는 통로·위임, 서버도 `edgenode` 사용) | | |
+| 4. 이름 변경 peer → edge | 끝 | (이 커밋) |
+| 5. 데몬이 노드 (서버는 통로·위임, 서버도 `edgenode` 사용) | **다음** | |
 | 6. 문서·e2e | | |
 
 > 2026-11-17 사용자 결정으로 범위가 바뀌었다(SRS D-PDM-13~17). 아래 §3.2·§3.3 의 명령 관련 조사·설계는 낡았다. 명령이 없어지므로 화면 요청(`peerui`)도 없다.
@@ -91,6 +91,8 @@
 - 새 Go 패키지는 `docs/internal/architecture.md` 패키지 표에 올려야 `make gates`(pkg-axis)가 통과한다. 공유 패키지는 실행하는 프로세스 표시(②③ 등)를 붙인다.
 - import 경로를 sed 로 바꾸면 import 정렬이 깨진다. `gofmt -w` 를 함께 돌린다.
 - 데몬 IPC 종단 폴더에 두는 소켓(`report.sock`·`node.sock`·`dial.sock`)은 `check-home-layout.sh` 의 대상이 아니다(`filepath.Join(home, …)` 가 아니다).
+- 단계 4 이후 이름: 패키지 `shared/edge`·`shared/edgerelay`, httpapi `edge_*.go`(`s.edges`·`s.edgeLn`·`s.edgeID`·`s.edgeClient`·`s.edgeLimiter`·`initEdge`·`StartEdge`), 공용 도우미 `codeFail`·`readJSONBody`. 이 문서 §3.1·§3.2 의 옛 이름은 이 표로 읽는다.
+- 이름 변경은 BSD sed 대신 perl(`\b` 지원)과 `gopls rename` 으로 했다. 화면의 `pn-` 접두어는 판 클래스와 겹치므로 일괄 치환하지 않는다.
 - `httpapi` 패키지 시험은 70초 넘게 걸린다. 바꾼 패키지만 먼저 돌리고 마지막에 `go test ./...` 를 돈다.
 
 ## 5. 그다음: PEER_CHAT_SRS

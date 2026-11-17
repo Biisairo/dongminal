@@ -299,8 +299,8 @@
       <button class="ui-tab mtab" data-tab="notify" title="Notification settings">Notifications</button>
       <!-- ACCESS_ALLOWLIST_SRS FR-ACL-22: --expose 뒤의 유일한 문. -->
       <button class="ui-tab mtab" data-tab="access" title="Network access allowlist">Access</button>
-      <!-- PEER_NETWORK_SRS FR-PNW-80: 다른 dongminal 과의 짝. -->
-      <button class="ui-tab mtab" data-tab="peers" title="Peer nodes">Peers</button>
+      <!-- PEER_NETWORK_SRS FR-PNW-80, PEER_DAEMON_SRS FR-PDM-70: 다른 dongminal 과의 간선. -->
+      <button class="ui-tab mtab" data-tab="edges" title="Edges to other nodes">Edges</button>
       <!-- TELEGRAM_BRIDGE_SRS FR-TGB-1: 휴대폰에서 에이전트를 보는 브리지. -->
       <button class="ui-tab mtab" data-tab="telegram" title="Telegram bridge">Telegram</button>
       <!-- CLAUDE_ACCOUNTS_SRS FR-CAC-94: 계정·자동 전환·폴더 연결·보관 목록·기록. -->
@@ -594,52 +594,52 @@
           </div>
         </div>
       </div>
-      <div class="mpanel" id="panel-peers" hidden>
+      <div class="mpanel" id="panel-edges" hidden>
         <div class="display-settings">
-          <div class="ds-sec" data-i18n="html.pn_sec_node"></div>
+          <div class="ds-sec" data-i18n="html.eg_sec_node"></div>
           <div class="ds-row">
-            <span data-i18n="html.pn_enabled"></span>
-            <label class="sbx-flag"><input type="checkbox" class="ui-switch" id="pn-enabled"><span data-i18n="html.acl_on"></span></label>
+            <span data-i18n="html.eg_enabled"></span>
+            <label class="sbx-flag"><input type="checkbox" class="ui-switch" id="eg-enabled"><span data-i18n="html.acl_on"></span></label>
           </div>
-          <div class="ds-row"><span data-i18n="html.pn_name"></span><input type="text" class="ds-text" id="pn-name" maxlength="32"></div>
-          <div class="ds-row"><span data-i18n="html.pn_port"></span><input type="number" class="ds-num" id="pn-port" min="1" max="65535"></div>
-          <div class="ds-row"><span data-i18n="html.pn_bind"></span><input type="text" class="ds-text" id="pn-bind" placeholder="0.0.0.0"></div>
-          <div class="ds-row"><span data-i18n="html.pn_advertise"></span><input type="text" class="ds-text" id="pn-advertise" placeholder="192.168.0.5"></div>
-          <div class="ds-hint" data-i18n="html.pn_advertise_hint"></div>
-          <div class="ds-row"><span data-i18n="html.pn_port_state"></span><span id="pn-port-state" class="sbx-status"></span></div>
-          <div class="ds-row"><span data-i18n="html.pn_fp"></span><code id="pn-fp" class="pn-fp"></code></div>
+          <div class="ds-row"><span data-i18n="html.eg_name"></span><input type="text" class="ds-text" id="eg-name" maxlength="32"></div>
+          <div class="ds-row"><span data-i18n="html.eg_port"></span><input type="number" class="ds-num" id="eg-port" min="1" max="65535"></div>
+          <div class="ds-row"><span data-i18n="html.eg_bind"></span><input type="text" class="ds-text" id="eg-bind" placeholder="0.0.0.0"></div>
+          <div class="ds-row"><span data-i18n="html.eg_advertise"></span><input type="text" class="ds-text" id="eg-advertise" placeholder="192.168.0.5"></div>
+          <div class="ds-hint" data-i18n="html.eg_advertise_hint"></div>
+          <div class="ds-row"><span data-i18n="html.eg_port_state"></span><span id="eg-port-state" class="sbx-status"></span></div>
+          <div class="ds-row"><span data-i18n="html.eg_fp"></span><code id="eg-fp" class="eg-fp"></code></div>
           <div class="ds-row">
-            <span id="pn-node-status" class="sbx-status"></span>
-            <button type="button" class="ds-toggle ui-btn" id="pn-save" data-i18n-title="html.pn_save_title" title="Save the node settings" data-i18n="html.save"></button>
+            <span id="eg-node-status" class="sbx-status"></span>
+            <button type="button" class="ds-toggle ui-btn" id="eg-save" data-i18n-title="html.eg_save_title" title="Save the node settings" data-i18n="html.save"></button>
           </div>
 
-          <div class="ds-sec" data-i18n="html.pn_sec_invite"></div>
-          <div class="ds-row"><span data-i18n="html.pn_inv_addr"></span><input type="text" class="ds-text" id="pn-inv-addr"></div>
-          <div class="ds-row"><span data-i18n="html.pn_inv_remain"></span><span id="pn-inv-remain" class="sbx-status"></span></div>
+          <div class="ds-sec" data-i18n="html.eg_sec_invite"></div>
+          <div class="ds-row"><span data-i18n="html.eg_inv_addr"></span><input type="text" class="ds-text" id="eg-inv-addr"></div>
+          <div class="ds-row"><span data-i18n="html.eg_inv_remain"></span><span id="eg-inv-remain" class="sbx-status"></span></div>
           <div class="ds-row">
-            <span id="pn-inv-status" class="sbx-status"></span>
-            <button type="button" class="ds-toggle ui-btn" id="pn-inv-make" data-i18n-title="html.pn_inv_make_title" title="Create an invite code" data-i18n="html.pn_inv_make"></button>
+            <span id="eg-inv-status" class="sbx-status"></span>
+            <button type="button" class="ds-toggle ui-btn" id="eg-inv-make" data-i18n-title="html.eg_inv_make_title" title="Create an invite code" data-i18n="html.eg_inv_make"></button>
           </div>
-          <div class="pn-row" id="pn-inv-box" hidden>
-            <input type="text" class="sbx-input" id="pn-inv-code" readonly>
-            <button type="button" class="ds-toggle ui-btn" id="pn-inv-copy" data-i18n-title="html.pn_inv_copy_title" title="Copy the invite code" data-i18n="html.pn_copy"></button>
+          <div class="pn-row" id="eg-inv-box" hidden>
+            <input type="text" class="sbx-input" id="eg-inv-code" readonly>
+            <button type="button" class="ds-toggle ui-btn" id="eg-inv-copy" data-i18n-title="html.eg_inv_copy_title" title="Copy the invite code" data-i18n="html.eg_copy"></button>
           </div>
-          <div class="ds-hint" data-i18n="html.pn_inv_hint"></div>
+          <div class="ds-hint" data-i18n="html.eg_inv_hint"></div>
 
-          <div class="ds-sec" data-i18n="html.pn_sec_pending"></div>
-          <div id="pn-pending" class="sbx-mounts"></div>
-          <span id="pn-pending-status" class="sbx-status"></span>
+          <div class="ds-sec" data-i18n="html.eg_sec_pending"></div>
+          <div id="eg-pending" class="sbx-mounts"></div>
+          <span id="eg-pending-status" class="sbx-status"></span>
 
-          <div class="ds-sec" data-i18n="html.pn_sec_peers"></div>
-          <div id="pn-peers" class="sbx-mounts"></div>
-          <span id="pn-peers-status" class="sbx-status"></span>
+          <div class="ds-sec" data-i18n="html.eg_sec_edges"></div>
+          <div id="eg-edges" class="sbx-mounts"></div>
+          <span id="eg-edges-status" class="sbx-status"></span>
           <div class="pn-row">
-            <input type="text" class="sbx-input" id="pn-add-code" placeholder="dmpeer1:…">
-            <input type="text" class="sbx-input pn-add-name" id="pn-add-name" data-i18n-placeholder="html.pn_add_name">
-            <button type="button" class="ds-toggle ui-btn" id="pn-add" data-i18n-title="html.pn_add_title" title="Request pairing with an invite code" data-i18n="html.add"></button>
+            <input type="text" class="sbx-input" id="eg-add-code" placeholder="dmedge1:…">
+            <input type="text" class="sbx-input eg-add-name" id="eg-add-name" data-i18n-placeholder="html.eg_add_name">
+            <button type="button" class="ds-toggle ui-btn" id="eg-add" data-i18n-title="html.eg_add_title" title="Request pairing with an invite code" data-i18n="html.add"></button>
           </div>
-          <span id="pn-add-status" class="sbx-status"></span>
-          <div class="ds-hint" data-i18n="html.pn_add_hint"></div>
+          <span id="eg-add-status" class="sbx-status"></span>
+          <div class="ds-hint" data-i18n="html.eg_add_hint"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-telegram" hidden>
@@ -1081,8 +1081,8 @@
 <script src="js/core/settings-live.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-sandbox.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-access.js?v=__ASSETV__"></script>
-<script src="js/core/app-peers.js?v=__ASSETV__"></script>
-<script src="js/core/app-settings-peers.js?v=__ASSETV__"></script>
+<script src="js/core/app-edges.js?v=__ASSETV__"></script>
+<script src="js/core/app-settings-edges.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-telegram.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-claude.js?v=__ASSETV__"></script>
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->

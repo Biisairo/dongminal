@@ -1,7 +1,7 @@
 # SRS: 노드 역할의 데몬 이관과 간선 축소 (Edge Daemon) — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 단계 3~6. 단계 1(패키지 이동)과 단계 2(통로 부품 `peerrelay`)는 끝났다.
+> **남은 것**: 단계 5~6. 단계 1(패키지 이동), 단계 2(통로 부품), 단계 3(간선 축소), 단계 4(이름 변경)는 끝났다.
 > **입력**: 2026-11-17 대화. 사용자 결정은 여덟이다.
 > - D-PDM-1 노드는 서버가 아니라 **데몬**이다. 연결의 주체도 데몬이다
 > - D-PDM-2 서버는 **망이 통하게만** 한다. 들어오는 연결과 나가는 연결 모두 서버를 거치지만, 서버는 내용을 보지 않는다
@@ -182,6 +182,15 @@ FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름�
 
 **바꾸지 않는 것**: Run 동료 명부(`handlers_runs_peers.go`, `dmctl_run_peers.go`, `/api/runs/peers`), 신원 파일 이름, 프리앰블 `DMRELAY1`, 소켓 이름.
 
+**구현 중 정한 것 (2026-11-17)**
+
+- 텔레그램·Claude 계정 API 도 쓰는 공용 도우미는 dmctl 공용 해석기와 같이 중립 이름으로 바꾼다. `peerFail` → `codeFail`, `peerReadJSON` → `readJSONBody`, `peerBodyLimit` → `jsonBodyLimit`, dmctl `printPeerRefusal` → `printRefusal`.
+- 스냅숏 조각 이름도 상태 키를 따라 `peers` → `edges` 다(`/api/snapshot?parts=…,edges`).
+- 화면의 `pn-*` 중 간선 패널만 쓰는 id·클래스를 `eg-*` 로 바꾼다. `pn-row` 는 Claude 계정 설정도 쓰므로 그대로 둔다. 판(pane) 클래스 `pn-tab`·`pn-body` 등은 무관하다. e2e 레이아웃 기준선(`e2e/baseline/ui-layout.*.json`)의 선택자 키도 같이 바꾼다.
+- 설정 탭 이름은 다른 탭처럼 번역하지 않고 "Edges" 하나다. 패널 안의 문구는 ko "간선", en "edge" 다. "해제"는 "끊기"로 바꾼다.
+- 옛 `dmctl peers`·`dmctl peer <sub>` 는 모르는 명령으로 실패하고 서버를 부르지 않는다.
+- 이관(`edge.MigrateLegacyConfig`)은 `initEdge` 가 저장소를 열기 전에 부른다. 실패하면 로그만 남기고 계속한다.
+
 ### 3.5 묶음 N — 데몬의 노드 처리
 
 - **FR-PDM-20** 데몬이 신원 파일과 `edges.json` 을 읽고 쓴다. 서버는 이 파일을 읽지도 쓰지도 않는다.
@@ -295,6 +304,6 @@ D-PDM-13 으로 다음 요구를 지운다. 번호는 다시 쓰지 않는다.
 | 1 | M | 패키지 이동, 기존 시험 통과 | 필요 없음 (끝) |
 | 2 | L | 통로 부품, TC-PDM-2·3 | 필요 없음 (부품만, 끝) |
 | 3 | R | 간선 축소, TC-PDM-20~24 | 필요 (데몬 `paste` 의 `foreground` 를 지운다. 새 서버는 옛 데몬과도 동작한다) |
-| 4 | E | 이름 변경, TC-PDM-25·26 | 필요 없음 (데몬은 아직 노드 코드를 쓰지 않는다) |
+| 4 | E | 이름 변경, TC-PDM-25·26 | 필요 없음 (데몬은 아직 노드 코드를 쓰지 않는다, 끝) |
 | 5 | N | 데몬이 노드, 서버는 통로·위임, TC-PDM-4·7·9~11 | 필요 |
 | 6 | X | `edges.md`·`api.md`·`errors.md`·`architecture.md`·홈 폴더 표, e2e TC-PDM-12 | 필요 |

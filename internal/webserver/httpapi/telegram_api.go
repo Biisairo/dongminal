@@ -34,7 +34,7 @@ type telegramView struct {
 
 func (s *Server) telegramReady(w http.ResponseWriter) bool {
 	if s.tg == nil || s.tg.bridge == nil {
-		peerFail(w, http.StatusServiceUnavailable, apierr.CodeTelegramUnavailable, "telegram bridge unavailable")
+		codeFail(w, http.StatusServiceUnavailable, apierr.CodeTelegramUnavailable, "telegram bridge unavailable")
 		return false
 	}
 	return true
@@ -54,9 +54,9 @@ func (s *Server) telegramSaved(w http.ResponseWriter, err error) {
 	case err == nil:
 		httpresp.JSON(w, http.StatusOK, s.telegramView())
 	case errors.Is(err, telegram.ErrInvalidSilence):
-		peerFail(w, http.StatusBadRequest, apierr.CodeTelegramConfigInvalid, err.Error())
+		codeFail(w, http.StatusBadRequest, apierr.CodeTelegramConfigInvalid, err.Error())
 	default:
-		peerFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, "save failed")
+		codeFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, "save failed")
 	}
 }
 
@@ -76,11 +76,11 @@ func (s *Server) apiTelegramToken(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Token string `json:"token"`
 	}
-	if !peerReadJSON(w, r, &in) {
+	if !readJSONBody(w, r, &in) {
 		return
 	}
 	if !tgTokenRe.MatchString(in.Token) {
-		peerFail(w, http.StatusBadRequest, apierr.CodeTelegramTokenInvalid, "token is malformed")
+		codeFail(w, http.StatusBadRequest, apierr.CodeTelegramTokenInvalid, "token is malformed")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), tgGetMeTimeout)
@@ -89,11 +89,11 @@ func (s *Server) apiTelegramToken(w http.ResponseWriter, r *http.Request) {
 	var apiErr *telegram.APIError
 	switch {
 	case errors.As(err, &apiErr):
-		peerFail(w, http.StatusBadRequest, apierr.CodeTelegramTokenInvalid, "telegram rejected the token")
+		codeFail(w, http.StatusBadRequest, apierr.CodeTelegramTokenInvalid, "telegram rejected the token")
 		return
 	case err != nil:
 		dmlog.Infof(nil, "telegram: token 확인 실패: %v", err)
-		peerFail(w, http.StatusBadGateway, apierr.CodeTelegramUnreachable, "telegram unreachable")
+		codeFail(w, http.StatusBadGateway, apierr.CodeTelegramUnreachable, "telegram unreachable")
 		return
 	}
 	// 바꾸기 전에 만든 등록 코드는 그 봇을 위한 것이다. 허용 계정과 함께 버린다.
@@ -108,7 +108,7 @@ func (s *Server) apiTelegramEnabled(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Enabled bool `json:"enabled"`
 	}
-	if !peerReadJSON(w, r, &in) {
+	if !readJSONBody(w, r, &in) {
 		return
 	}
 	s.telegramSaved(w, s.tg.st.SetEnabled(in.Enabled))
@@ -121,7 +121,7 @@ func (s *Server) apiTelegramSilence(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Minutes int `json:"minutes"`
 	}
-	if !peerReadJSON(w, r, &in) {
+	if !readJSONBody(w, r, &in) {
 		return
 	}
 	s.telegramSaved(w, s.tg.st.SetSilence(in.Minutes))
@@ -133,12 +133,12 @@ func (s *Server) apiTelegramPair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.tg.st.View().TokenSet {
-		peerFail(w, http.StatusConflict, apierr.CodeTelegramNoToken, "no bot token")
+		codeFail(w, http.StatusConflict, apierr.CodeTelegramNoToken, "no bot token")
 		return
 	}
 	code, exp := s.tg.bridge.Pairing().Issue()
 	if code == "" {
-		peerFail(w, http.StatusInternalServerError, apierr.CodeInternal, "could not make a code")
+		codeFail(w, http.StatusInternalServerError, apierr.CodeInternal, "could not make a code")
 		return
 	}
 	httpresp.JSON(w, http.StatusOK, map[string]any{"code": code, "expires": exp})

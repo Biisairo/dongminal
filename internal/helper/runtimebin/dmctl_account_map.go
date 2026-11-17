@@ -36,7 +36,7 @@ func accountByRef(ref string, stderr io.Writer) (accountRow, int) {
 	return a, 0
 }
 
-func accountPin(pa peerArgs, stdout, stderr io.Writer) int {
+func accountPin(pa subArgs, stdout, stderr io.Writer) int {
 	unpin := pa.bools["clear"]
 	if unpin == (len(pa.pos) == 1) || len(pa.pos) > 1 {
 		fmt.Fprint(stderr, "dmctl account pin: <계정> 하나 또는 --clear 가 필요합니다\n")
@@ -83,7 +83,7 @@ func accountFolderArg(p string, stderr io.Writer) (string, int) {
 	return abs, 0
 }
 
-func accountMap(pa peerArgs, stdout, stderr io.Writer) int {
+func accountMap(pa subArgs, stdout, stderr io.Writer) int {
 	if len(pa.pos) < 1 || len(pa.pos) > 2 {
 		fmt.Fprint(stderr, "dmctl account map: <계정> [경로] 가 필요합니다\n")
 		return 2
@@ -107,7 +107,7 @@ func accountMap(pa peerArgs, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func accountUnmap(pa peerArgs, stdout, stderr io.Writer) int {
+func accountUnmap(pa subArgs, stdout, stderr io.Writer) int {
 	if len(pa.pos) > 1 {
 		fmt.Fprint(stderr, "dmctl account unmap: [경로] 하나만 받습니다\n")
 		return 2
@@ -127,7 +127,7 @@ func accountUnmap(pa peerArgs, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func accountMaps(_ peerArgs, stdout, stderr io.Writer) int {
+func accountMaps(_ subArgs, stdout, stderr io.Writer) int {
 	v, _, rc := loadAccounts(stderr)
 	if rc != 0 {
 		return rc

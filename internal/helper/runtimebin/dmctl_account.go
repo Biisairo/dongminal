@@ -132,7 +132,7 @@ func (a accountRow) label() string {
 	return a.Email
 }
 
-var accountSubs = map[string]peerSub{
+var accountSubs = map[string]subSpec{
 	"list":    {0, false, nil, []string{"json"}, accountList},
 	"add":     {0, false, nil, nil, accountAdd},
 	"switch":  {0, true, []string{"strategy"}, nil, accountSwitch},
@@ -166,7 +166,7 @@ func runDmctlAccountStdin(stdin io.Reader, args []string, stdout, stderr io.Writ
 		fmt.Fprint(stderr, dmctlAccountHelp)
 		return 2
 	}
-	pa, err := parsePeerArgs(rest, spec.flags, spec.bools)
+	pa, err := parseSubArgs(rest, spec.flags, spec.bools)
 	pa.stdin = stdin
 	if pa.help {
 		fmt.Fprint(stdout, dmctlAccountHelp)
@@ -193,7 +193,7 @@ func accountAPI(method, path string, body map[string]any, stderr io.Writer) ([]b
 	} else {
 		status, raw, err = httpJSONWithin(method, baseURL()+path, body, accountCallBudget)
 	}
-	return apiResultWith(status, raw, err, stderr, printPeerRefusal)
+	return apiResultWith(status, raw, err, stderr, printRefusal)
 }
 
 func loadAccounts(stderr io.Writer) (accountsOut, []byte, int) {
@@ -209,7 +209,7 @@ func loadAccounts(stderr io.Writer) (accountsOut, []byte, int) {
 	return v, raw, 0
 }
 
-func accountList(pa peerArgs, stdout, stderr io.Writer) int {
+func accountList(pa subArgs, stdout, stderr io.Writer) int {
 	v, raw, rc := loadAccounts(stderr)
 	if rc != 0 {
 		return rc
@@ -236,7 +236,7 @@ func accountList(pa peerArgs, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func accountAdd(_ peerArgs, stdout, stderr io.Writer) int {
+func accountAdd(_ subArgs, stdout, stderr io.Writer) int {
 	raw, rc := accountAPI("POST", "/api/claude-accounts/add", map[string]any{}, stderr)
 	if rc != 0 {
 		return rc
@@ -264,7 +264,7 @@ func resolveAccount(v accountsOut, ref string) (accountRow, bool) {
 	return accountRow{}, false
 }
 
-func accountSwitch(pa peerArgs, stdout, stderr io.Writer) int {
+func accountSwitch(pa subArgs, stdout, stderr io.Writer) int {
 	strategy := pa.flags["strategy"]
 	if (strategy == "") == (len(pa.pos) == 0) || len(pa.pos) > 1 {
 		fmt.Fprint(stderr, "dmctl account switch: <계정> 하나 또는 --strategy 하나가 필요합니다\n")
@@ -415,7 +415,7 @@ func printAccountUsage(w io.Writer, a accountRow, active bool) {
 
 // accountUsageCmd 는 `dmctl account usage [<계정>] [--refresh] [--json]` 이다 (FR-CAC-102).
 // --refresh 는 대상 계정마다 바로 조회하고(FR-CAC-58), 실패한 계정이 있어도 나머지와 출력을 마친 뒤 1 로 끝난다.
-func accountUsageCmd(pa peerArgs, stdout, stderr io.Writer) int {
+func accountUsageCmd(pa subArgs, stdout, stderr io.Writer) int {
 	if len(pa.pos) > 1 {
 		fmt.Fprint(stderr, "dmctl account usage: 계정은 하나까지입니다\n")
 		return 2
@@ -568,7 +568,7 @@ func accountResetPrompt(w io.Writer, a accountRow, program, grant string) {
 }
 
 // accountReset 은 `dmctl account reset` 이다 (FR-CAC-62·65). 결과가 reset 이 아니면 1 로 끝난다.
-func accountReset(pa peerArgs, stdout, stderr io.Writer) int {
+func accountReset(pa subArgs, stdout, stderr io.Writer) int {
 	program, grant := pa.flags["program"], pa.flags["grant"]
 	switch {
 	case program == "juniper_tide" && grant == "":
