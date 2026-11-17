@@ -88,7 +88,6 @@ internal/
       wsentry/           #     workspace.json 최상위 두 목록 (git.pinned[]·editors.list[])
       lsp/               #     언어 서버 세션 (정의·참조·호버) — 세션 상한·유휴 회수
       ext/               #     언어 서버 플러그인 매니페스트 — 서버 목록은 여기 없다
-      peer/              #     노드 간 통신 — 노드 신원(인증서)·peers.json·노드 전용 리스너
       telegram/          #     Telegram 브리지 — telegram.json·Bot API 클라이언트·대화별 토픽·transcript 출력 (실험)
   ctl/                   # ④ 제어 CLI 프로세스
     cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
@@ -103,6 +102,7 @@ internal/
                          #     conn(SafeConn) · tool(PTY 하나의 수명) · manager(레지스트리)
                          #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
                          #     tool_{attention,clients,control,cwd,env,exitinfo} — Tool 의 관심사별 (M8 D-A-10)
+    peer/                #   ②③  — 노드 간 통신 — 노드 신원(인증서)·peers.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1)
     toolipc/             #   ②③  — paned 와이어 포맷만: wire.go(봉투·ProtocolVersion) · protocol.go(메서드·이벤트 이름, typed 인자·결과, hello.features) · files.go(데몬 지문 이름)
     outbuf/              #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성

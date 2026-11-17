@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/webserver/domain/peer"
+	"dongminal/internal/shared/peer"
 )
 
 // FR-PNW-81·82: 짝 상태가 바뀌면 화면에 `peers_changed` 를 민다. 화면은 주기로 묻지 않는다.

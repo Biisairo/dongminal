@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/httpresp"
 )
 

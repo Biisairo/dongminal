@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/shared/testpath"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/domain/peer"
 )
 
 // FR-PNW-6: 노드 포트는 `/peer/v1/*` 만 받는다. 나머지는 404 다.

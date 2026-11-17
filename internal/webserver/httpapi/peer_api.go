@@ -7,8 +7,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/sse"
 )

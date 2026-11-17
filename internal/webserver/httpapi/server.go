@@ -18,10 +18,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
-	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/wsentry"
 

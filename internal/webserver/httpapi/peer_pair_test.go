@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/shared/testpath"
-	"dongminal/internal/webserver/domain/peer"
 )
 
 // NFR-PNW-3: 한 프로세스 안의 서버 둘(홈·포트가 다르다)로 짝맞춤을 검증한다.

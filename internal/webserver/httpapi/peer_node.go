@@ -11,8 +11,8 @@ import (
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/httpreq"
 	"dongminal/internal/webserver/httpresp"
 )

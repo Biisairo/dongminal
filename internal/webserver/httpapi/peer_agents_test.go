@@ -13,7 +13,7 @@ import (
 
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmenv"
-	"dongminal/internal/webserver/domain/peer"
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/webserver/seam/toolaccess"
 )
 

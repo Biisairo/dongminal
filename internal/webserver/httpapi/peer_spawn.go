@@ -9,9 +9,9 @@ import (
 
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/hub"
 )

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/webserver/domain/peer"
+	"dongminal/internal/shared/peer"
 )
 
 // pairNodes 는 a 와 b 를 짝으로 맺는다 (a 가 add, b 가 approve).

@@ -14,8 +14,8 @@ import (
 	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/peer"
 	"dongminal/internal/shared/testpath"
-	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/hub"
 	"dongminal/internal/webserver/seam/toolaccess"
 )
