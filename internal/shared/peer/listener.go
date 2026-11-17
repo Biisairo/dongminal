@@ -65,6 +65,23 @@ type Listener struct {
 	closed bool
 	// errLog 는 노드 포트 서버의 오류 기록이다. 핸드셰이크 실패는 모아 남긴다 (I-71).
 	errLog *log.Logger
+	// listen 은 Apply 가 여는 자리다. nil 이면 bind:port 의 TCP 다. 데몬은 서버가
+	// 넘겨주는 노드 소켓을 듣는다 (PEER_DAEMON_SRS FR-PDM-11).
+	listen func(bind string, port int) (net.Listener, error)
+}
+
+// UseListen 은 Apply 가 TCP 대신 f 가 연 자리를 듣게 한다. Apply 전에 부른다.
+func (l *Listener) UseListen(f func(bind string, port int) (net.Listener, error)) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.listen = f
+}
+
+func (l *Listener) openLocked(key listenKey) (net.Listener, error) {
+	if l.listen != nil {
+		return l.listen(key.bind, key.port)
+	}
+	return net.Listen("tcp", net.JoinHostPort(key.bind, strconv.Itoa(key.port)))
 }
 
 // Admission 은 누가 노드 포트에 들어오는가다. TLS 는 핸드셰이크에서 지문만 보고,
@@ -151,7 +168,7 @@ func (l *Listener) Apply(c Config) {
 	if !key.enabled {
 		return
 	}
-	raw, err := net.Listen("tcp", net.JoinHostPort(key.bind, strconv.Itoa(key.port)))
+	raw, err := l.openLocked(key)
 	if err != nil {
 		dmlog.Infof(nil, "peer listener: %v", err)
 		l.status = Status{Err: err.Error()}

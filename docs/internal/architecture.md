@@ -103,6 +103,7 @@ internal/
                          #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
                          #     tool_{attention,clients,control,cwd,env,exitinfo} — Tool 의 관심사별 (M8 D-A-10)
     peer/                #   ②③  — 노드 간 통신 — 노드 신원(인증서)·peers.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1)
+    peerrelay/           #   ②③  — 노드 포트의 바이트 통로 — 서버 노드 포트 → 데몬 node.sock, 데몬 → 서버 dial.sock (PEER_DAEMON_SRS 묶음 L)
     toolipc/             #   ②③  — paned 와이어 포맷만: wire.go(봉투·ProtocolVersion) · protocol.go(메서드·이벤트 이름, typed 인자·결과, hello.features) · files.go(데몬 지문 이름)
     outbuf/              #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성

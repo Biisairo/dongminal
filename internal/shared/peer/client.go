@@ -71,11 +71,20 @@ func (e *RemoteError) Error() string {
 
 // Client 는 이 노드의 인증서를 내밀고 상대의 지문을 고정해 부른다 (D-3).
 type Client struct {
-	id Identity
+	id   Identity
+	dial func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
-// NewClient 는 id 를 클라이언트 인증서로 쓴다.
-func NewClient(id Identity) *Client { return &Client{id: id} }
+// NewClient 는 id 를 클라이언트 인증서로 쓴다. 상대에는 TCP 로 바로 연결한다.
+func NewClient(id Identity) *Client {
+	return &Client{id: id, dial: (&net.Dialer{Timeout: DialTimeout}).DialContext}
+}
+
+// NewClientVia 는 dial 로 연결을 얻는다. 데몬은 서버의 발신 소켓을 지난다
+// (PEER_DAEMON_SRS FR-PDM-22). TLS 와 지문 고정은 그 연결 위에서 이 클라이언트가 한다.
+func NewClientVia(id Identity, dial func(ctx context.Context, network, addr string) (net.Conn, error)) *Client {
+	return &Client{id: id, dial: dial}
+}
 
 // Call 은 t 의 path 에 in 을 JSON 으로 POST 하고, 성공이면 응답을 out 에 푼다.
 // out 이 nil 이면 응답 본문을 버린다.
@@ -139,7 +148,7 @@ func (c *Client) httpClient(fp string) *http.Client {
 		// 다시 보내게 된다 (보안 재리뷰 #5). 3xx 는 그대로 오류로 돌아간다.
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		Transport: &http.Transport{
-			DialContext:         (&net.Dialer{Timeout: DialTimeout}).DialContext,
+			DialContext:         c.dial,
 			TLSClientConfig:     cfg,
 			TLSHandshakeTimeout: DialTimeout,
 			DisableKeepAlives:   true,
