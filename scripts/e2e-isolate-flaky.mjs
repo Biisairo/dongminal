@@ -34,15 +34,18 @@ export const ISOLATION_ROUNDS = 3;
 export const MAX_FLAKY = 8;
 
 /** 본 실행의 기본 포트 뿌리 (`scripts/e2e-shard-run.sh` 와 같다). */
-const DEFAULT_ROOT = 58147;
+const DEFAULT_ROOT = 60147;
+
+/** 독립 재실행 대역이 뿌리에서 떨어진 거리. */
+const ISOLATION_OFFSET = 853;
 
 /**
  * 독립 재실행이 쓰는 포트 대역. 본 실행 대역(뿌리 ~ 뿌리+79)과 겹치지 않게 뿌리에서
- * 853 떨어진다 — 기본 뿌리면 59000 이다. 뿌리는 `E2E_PORT_BASE` 가 옮긴다 (FR-OPT-16-4).
+ * 853 떨어진다 — 기본 뿌리면 61000 이다. 뿌리는 `E2E_PORT_BASE` 가 옮긴다 (FR-OPT-16-4).
  */
 export function isolationPortBase(env) {
   const root = parseInt(env.E2E_PORT_BASE || '', 10) || DEFAULT_ROOT;
-  return root + (59000 - DEFAULT_ROOT);
+  return root + ISOLATION_OFFSET;
 }
 
 /**

@@ -100,8 +100,10 @@ npx playwright test        # 전량 (약 5분)
 npx playwright test e2e/git-panel.spec.ts   # 스펙 하나
 ```
 
-e2e 는 `go run ./cmd/dongminal start --foreground` 로 포트 58147 에 서버를 직접
-띄우고 임시 홈을 쓴다 (`playwright.config.ts`). 운영 인스턴스와 겹치지 않는다.
+e2e 는 `go run ./cmd/dongminal start --foreground` 로 포트 60147 부터 서버를 직접
+띄우고 임시 홈을 쓴다 (`playwright.config.ts`). 운영 인스턴스의 UI 포트(58146)와 노드 포트
+기본값(58147)을 피한다. 워커의 `start` 는 그 포트를 쥔 프로세스를 종료하므로, 운영 포트와
+겹치면 운영 서버가 내려간다.
 
 수동으로 실동작을 확인할 때도 **운영 인스턴스를 건드리지 않는 경로**를 쓴다:
 

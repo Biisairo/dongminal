@@ -29,7 +29,12 @@ export const E2E_BIN = E2E_HOME + '/dongminal-e2e' + (isWin ? '.exe' : '');
 //
 // 홈은 이미 갈린다 — `E2E_HOME` 이 `pid` 를 품으므로 샤드마다 다른 프로세스가
 // 다른 뿌리를 만든다. 갈리지 않던 것은 포트뿐이었다.
-export const E2E_PORT0 = parseInt(process.env.E2E_PORT_BASE || '', 10) || 58147;
+//
+// **기본값은 운영 인스턴스의 포트와 멀리 둔다.** 종전 58147 은 노드 포트의 기본값과
+// 같았다. 워커의 `start` 는 격리 모드가 아니라 그 포트를 쥔 프로세스를 종료하므로,
+// 노드 포트를 켠 운영 서버가 e2e 한 번에 내려갔다 (2026-11-17 실측). 워커 수와
+// `peers-settings` 의 오프셋(+3200)을 더해도 65535 를 넘지 않는 자리다.
+export const E2E_PORT0 = parseInt(process.env.E2E_PORT_BASE || '', 10) || 60147;
 
 /**
  * 워커 수 (FR-EPL-7).
