@@ -238,6 +238,12 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/workspace/revert", (*Server).apiWorkspaceRevert),
 	httproute.Get("/api/stats", (*Server).apiStats),
 	// PEER_NETWORK_SRS FR-PNW-70: 노드 간 통신의 로컬 API (edge_api.go).
+	httproute.Get("/api/chat", (*Server).apiChatGet),
+	httproute.Post("/api/chat/create", (*Server).apiChatCreate),
+	httproute.Post("/api/chat/direct", (*Server).apiChatDirect),
+	httproute.Post("/api/chat/join", (*Server).apiChatJoin),
+	httproute.Post("/api/chat/leave", (*Server).apiChatLeave),
+	httproute.Post("/api/chat/send", (*Server).apiChatSend),
 	httproute.Get("/api/edges", (*Server).apiEdgesGet),
 	httproute.Put("/api/edges/node", (*Server).apiEdgesNodePut),
 	httproute.Post("/api/edges/invite", (*Server).apiEdgesInvite),

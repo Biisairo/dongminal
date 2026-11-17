@@ -194,6 +194,16 @@ type Deps struct {
 	// EdgeDaemon 은 데몬의 노드다 (PEER_DAEMON_SRS §3.5a). nil 이면 직접 모드 — 서버가 노드다
 	// (FR-PDM-52). nil 이 아니면 서버는 신원·edges.json 을 열지 않는다 (FR-PDM-20).
 	EdgeDaemon EdgeDaemon
+	// ChatDaemon 은 데몬의 채팅 사람 참가자다 (PEER_CHAT_SRS §3.11). nil 이면 직접 모드 — 채팅이
+	// 없다 (NFR-PCH-5).
+	ChatDaemon ChatDaemon
+}
+
+// ChatDaemon 은 데몬 채팅의 접합면이다. `*toolclient.ToolClient` 가 만족한다.
+type ChatDaemon interface {
+	// ChatReady 는 데몬이 chat 기능을 말하는가다. 부를 때마다 묻는다.
+	ChatReady() bool
+	Chat(p toolipc.ChatParams) (toolipc.ChatResult, error)
 }
 
 // EdgeDaemon 은 데몬 노드의 접합면이다. `*toolclient.ToolClient` 가 만족한다.

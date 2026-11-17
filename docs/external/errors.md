@@ -41,6 +41,16 @@
 | `branch_is_current` | 지금 올라가 있는 브랜치는 지울 수 없습니다. | 다른 브랜치로 옮긴 뒤 지우세요. |
 | `branch_not_merged` | 병합되지 않은 브랜치라 그냥 지울 수 없습니다. | 정말 버릴 것이면 강제 삭제를 고르세요 — 그 커밋들은 되찾기 어렵습니다. |
 | `busy` | 지금은 자리가 없습니다. | **재시도가 유효한 유일한 4xx 입니다.** 잠시 뒤 다시 보내세요. |
+| `chat_bad_request` | 채팅 요청의 모양이 틀렸습니다. | 보낸 값(방 id·이름·목적·본문)의 형식과 필수 항목을 확인하세요. |
+| `chat_daemon_only` | 채팅은 데몬 모드에서만 쓸 수 있습니다. | 데몬 모드로 dongminal 을 시작하세요. |
+| `chat_daemon_restart` | 붙은 데몬이 채팅을 모르는 옛 판입니다. | dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다. |
+| `chat_no_such_participant` | 그 참가자가 온라인 목록에 없습니다. | 온라인 목록을 다시 받아 지금 있는 참가자를 고르세요. |
+| `chat_no_such_room` | 그 방이 없습니다 — 참가자가 모두 나가 사라졌습니다. | 방 목록을 다시 받아 확인하세요. |
+| `chat_not_in_room` | 그 방에 들어가 있지 않습니다. | 방에 다시 들어간 뒤 보내세요. 개인채팅은 상대가 나가면 끝나므로 새로 만드세요. |
+| `chat_rate_limited` | 참가자 하나가 1분 동안 보낼 수 있는 글 수(30)를 넘었습니다. | 잠시 뒤 다시 보내세요. |
+| `chat_too_large` | 글 하나가 16 KiB 를 넘었습니다. | 글을 나눠 보내세요. |
+| `chat_unavailable` | 데몬에 채팅이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | daemon.log 의 edge identity 줄을 보세요. 노드 기능이 서야 채팅도 섭니다. |
+| `chat_unreachable` | 데몬에 닿지 못했습니다. | dongminal health 로 데몬 연결을 보세요. |
 | `claude_account_invalid` | 계정 값이나 요청 값이 허용 범위를 벗어났습니다(별칭 24자, 문턱값 50~100, 우선순위 0~1000, 정해진 색, 자동 전환 설정, 전환의 by·strategy, 기록의 limit). | 범위 안의 값으로 다시 보내세요. |
 | `claude_account_not_found` | 그런 Claude 계정이 등록되어 있지 않습니다. | `dmctl account list` 로 계정 ID 를 확인하세요. |
 | `claude_accounts_unavailable` | 이 서버에는 Claude 계정 기능이 서지 않았습니다 — 데이터 폴더 없이 떴습니다. | dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요. |
@@ -178,4 +188,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **144개**.
+총 **154개**.

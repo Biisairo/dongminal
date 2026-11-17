@@ -83,6 +83,8 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 			a.wireDaemonPushes()
 			// PEER_DAEMON_SRS §3.5a: 데몬이 노드다. 서버는 통로와 로컬 API 위임만 한다.
 			a.bd.deps.EdgeDaemon = a.panedClient
+			// PEER_CHAT_SRS §3.11: 채팅의 사람 참가자도 데몬에 있다.
+			a.bd.deps.ChatDaemon = a.panedClient
 			if a.bd.attnTracker != nil {
 				a.records = newRecordWriter(a.panedClient, a.bd.attnTracker)
 				a.bd.deps.Records = a.records
@@ -139,6 +141,9 @@ func (a *app) wireDaemonEdges() {
 	}
 	a.panedClient.SetOnEdges(func(ev toolipc.EdgesEvent) { a.srv.EdgePushed(ev.Paired) })
 	a.panedClient.SetOnEdgeResync(a.srv.EdgeResync)
+	// PEER_CHAT_SRS §3.11: 사람에게 온 글과 채팅 바뀜을 화면에 방송한다.
+	a.panedClient.SetOnChat(a.srv.ChatPushed)
+	a.panedClient.SetOnChatResync(a.srv.ChatResync)
 }
 
 // wireDaemonPushes 는 데몬 모드의 push 콜백이다 — 출력은 해석층 → 주의 추적,

@@ -1,6 +1,7 @@
 package toolclient
 
 import (
+	"dongminal/internal/shared/chatwire"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
@@ -96,6 +97,9 @@ type ToolClient struct {
 	onEdges func(ev toolipc.EdgesEvent)
 	// onEdgeResync 는 재접속 뒤의 간선 재동기 콜백이다.
 	onEdgeResync func()
+	// onChat·onChatResync 는 chat push 와 재접속 뒤 콜백이다 (PEER_CHAT_SRS §3.11).
+	onChat       func(ev toolipc.ChatEvent)
+	onChatResync func()
 	onResync     func()
 
 	// fgMu 는 onForeground 호출과 fgSeen·fgSeq 를 한 줄로 세운다. fgSeen 은 마지막으로
@@ -328,6 +332,7 @@ func (pc *ToolClient) supervise() {
 				pc.resyncAfterReconnect()
 				pc.resyncRecords()
 				pc.resyncEdge()
+				pc.resyncChat()
 				break
 			}
 			fails++
@@ -469,6 +474,9 @@ type wireMsg struct {
 	Agent  toolhub.AgentState `json:"agent"`
 	// Paired 는 edges push 다 (PEER_DAEMON_SRS §3.5a).
 	Paired string `json:"paired"`
+	// ChatKind·Chat 은 chat push 다 (PEER_CHAT_SRS §3.11).
+	ChatKind string            `json:"chatKind"`
+	Chat     *chatwire.Message `json:"chat"`
 }
 
 // readLoop decodes responses and push events for a single connection. On

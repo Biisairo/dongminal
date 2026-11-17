@@ -243,6 +243,21 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/edges/remove` | `{name}` — 간선을 끊는다. 그 노드의 요청은 바로 거절된다 |
 | PUT | `/api/edges/address` | `{name, addr, port}` — 간선의 주소를 고친다. 신원(지문)은 그대로다 |
 
+### 채팅 (`PEER_CHAT_SRS`)
+
+간선으로 이어진 노드들의 채팅에 이 노드의 사람으로 참가합니다. 채팅은 데몬에 있고 서버는 요청을 데몬에 넘깁니다. 서버와 데몬은 대화 내용을 들지 않습니다. 사람에게 온 글은 `chat_message` 로 방송할 뿐 남기지 않습니다.
+
+UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 입니다. 직접 모드(데몬 없음)는 모든 경로가 409 `chat_daemon_only`, 붙은 데몬이 채팅을 모르는 옛 판이면 409 `chat_daemon_restart`, 데몬에 닿지 못하면 502 `chat_unreachable`, 데몬에 채팅이 서지 않았으면 503 `chat_unavailable` 입니다. 채팅 연산의 실패는 400 `chat_bad_request`, 413 `chat_too_large`(글 16 KiB 초과), 429 `chat_rate_limited`(1분에 30개 초과), 409 `chat_not_in_room`, 404 `chat_no_such_room`·`chat_no_such_participant` 입니다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/chat` | `{me, online, rooms}`. `me` 는 이 노드의 사람 참가자, `online` 은 온라인 목록(`nodes`·`participants`), `rooms` 는 열린 단체채팅 방과 내 개인채팅(`id`·`kind`·`name`·`purpose`·`creator`·`creatorName`·`members`·`joined`·참가자 목록 `people`)이다. 온라인 목록이나 방이 바뀌면 `chat_changed` 를 방송한다 |
+| POST | `/api/chat/create` | `{name, purpose}` → `{room}`. 단체채팅 방을 만들고 들어간다 |
+| POST | `/api/chat/direct` | `{participant, purpose?}` → `{room}`. 개인채팅을 만든다. 상대는 자동으로 들어간다 |
+| POST | `/api/chat/join` | `{room}` → `{room}`. 단체채팅 방에 들어간다 |
+| POST | `/api/chat/leave` | `{room}` → `{ok}`. 방에서 나간다 |
+| POST | `/api/chat/send` | `{room, text}` → `{ok}`. 글을 쓴다 |
+
 ### Telegram 알림 (`TELEGRAM_BRIDGE_SRS`)
 
 설정은 `telegram.json`(권한 600)에 있습니다. 봇 token 은 받기만 하고 응답에 싣지 않습니다. 오류 본문은 `{code, message}` 입니다. 설정 파일을 쓰지 못하면 500 `save_failed` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `telegram_unavailable` 입니다.
@@ -473,6 +488,8 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `run_changed` | Run 기록이 바뀌었다. `args.runId`, 트리 Run 이면 `args.tree`. 대시보드는 이 신호로 다시 받는다 |
 | `sandbox_changed` | 샌드박스 정의가 저장됐다 — 본문은 없고 `GET /api/sandbox/config` 로 다시 받으라는 신호 |
 | `edges_changed` | 노드 설정·초대·간선·승인 대기가 바뀌었다. 이 노드가 승인해 간선 맺기를 마쳤으면 `args.paired` 에 그 이름이 실린다 |
+| `chat_message` | 이 노드의 사람에게 채팅 글이 왔다. `args.msg` 는 `{id, room, roomKind, roomName, roomPurpose, from, fromLabel, fromKind, node, text, at}` 다. 서버는 남기지 않는다 |
+| `chat_changed` | 채팅의 온라인 목록이나 방이 바뀌었다 — 본문은 없고 `GET /api/chat` 로 다시 받으라는 신호 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
 | `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
 | `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |

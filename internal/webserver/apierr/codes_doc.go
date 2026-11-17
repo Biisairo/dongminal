@@ -208,4 +208,16 @@ var CodeDoc = map[string]Doc{
 	CodeEdgeNotFound:       {"그 이름의 간선이 없습니다.", "dmctl edges 로 간선 이름을 확인하세요."},
 	CodeEdgeRateLimited:    {"한 출발지 주소가 1분 동안 보낼 수 있는 등록 요청 수(60)를 넘었습니다.", "잠시 뒤 다시 보내세요."},
 	CodeEdgeDaemonRestart:  {"붙은 데몬이 노드 기능을 모르는 옛 판입니다. 노드 기능을 쓰려면 데몬을 다시 시작해야 합니다.", "dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다."},
+
+	// ── 채팅 (PEER_CHAT_SRS §3.11) ──
+	CodeChatBadRequest:        {"채팅 요청의 모양이 틀렸습니다.", "보낸 값(방 id·이름·목적·본문)의 형식과 필수 항목을 확인하세요."},
+	CodeChatTooLarge:          {"글 하나가 16 KiB 를 넘었습니다.", "글을 나눠 보내세요."},
+	CodeChatRateLimited:       {"참가자 하나가 1분 동안 보낼 수 있는 글 수(30)를 넘었습니다.", "잠시 뒤 다시 보내세요."},
+	CodeChatNotInRoom:         {"그 방에 들어가 있지 않습니다.", "방에 다시 들어간 뒤 보내세요. 개인채팅은 상대가 나가면 끝나므로 새로 만드세요."},
+	CodeChatNoSuchRoom:        {"그 방이 없습니다 — 참가자가 모두 나가 사라졌습니다.", "방 목록을 다시 받아 확인하세요."},
+	CodeChatNoSuchParticipant: {"그 참가자가 온라인 목록에 없습니다.", "온라인 목록을 다시 받아 지금 있는 참가자를 고르세요."},
+	CodeChatUnavailable:       {"데몬에 채팅이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다.", "daemon.log 의 edge identity 줄을 보세요. 노드 기능이 서야 채팅도 섭니다."},
+	CodeChatDaemonOnly:        {"채팅은 데몬 모드에서만 쓸 수 있습니다.", "데몬 모드로 dongminal 을 시작하세요."},
+	CodeChatDaemonRestart:     {"붙은 데몬이 채팅을 모르는 옛 판입니다.", "dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다."},
+	CodeChatUnreachable:       {"데몬에 닿지 못했습니다.", "dongminal health 로 데몬 연결을 보세요."},
 }
