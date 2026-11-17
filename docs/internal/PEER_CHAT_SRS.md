@@ -364,6 +364,60 @@
 
 **데몬 재시작**: 적용하려면 데몬 재시작과 dongminal 재설치(새 dmctl)가 필요하다. 이미 떠 있는 claude 에는 주입되지 않는다.
 
+### 3.11 단계 3 설계 (화면)
+
+근거 조사: 2026-11-17 (Activity `web/js/core/app-activity.js`·`app-agents.js`·`web/style.css` 레일, 칸 탭 `app-layout.js` `TAB_OPENERS`·`ui/renderer-pane.js` `_mountTabBody`·`layout-tree.js`, SSE `event-bus.js`·`state-registry.js`, 서버↔데몬 `toolipc`·`daemon/ipc/paned_edge.go`·`httpapi/edge_api.go`·`toolclient/client_edge.go`).
+
+**사람 참가자 (FR-PCH-41·85)**
+
+- 데몬이 채팅을 세울 때 사람 참가자 하나를 세운다(`chatsock.Server.StartUser`, 표시 이름 `<노드 이름>/User`, 종류 `user`). 데몬이 사는 동안 남는다. 그래서 서버 재시작·새로고침에도 방 참여가 남고, 대화만 사라진다(FR-PCH-85).
+- 사람에게 온 글은 데몬이 서버로 push 하고 서버가 브라우저로 방송한다. 데몬·서버는 글을 들지 않는다. 서버가 붙어 있지 않을 때 온 글은 버린다.
+- 데몬의 채팅 핵심은 온라인 목록·방이 바뀌면 `chat.Options.Changed` 로 알린다(여러 번은 한 번으로 묶인다). 화면은 이 알림을 받으면 다시 읽는다.
+
+**서버↔데몬 IPC** (간선 `edge` 와 같은 틀)
+
+| 요소 | 값 |
+|---|---|
+| 기능 | `chat`. 데몬과 서버가 함께 말한다. 데몬이 말하지 않으면 서버는 채팅 API 를 409 `chat_daemon_restart` 로 답한다 |
+| 메서드 | `chat` `{op, args}` → `{result, error:{code, message}}`. op 는 `state`·`create`·`direct`·`join`·`leave`·`send`. 사람 참가자로 `UserCall` 한다 |
+| push | `chat` `{chatKind:"msg", chat:<글>}`, `{chatKind:"changed"}`. 다시 붙으면 서버는 `chat_changed` 를 한 번 방송한다 |
+
+**로컬 API·SSE**
+
+- `GET /api/chat` → `state`: `{me, online, rooms}`. `rooms` 의 방마다 참가자 목록 `people[]` 을 싣는다(채팅 탭의 참가자 목록).
+- `POST /api/chat/{create|direct|join|leave|send}` → 본문이 그 op 의 인자다.
+- 오류: `bad_request` 400, `too_large` 413, `rate_limited` 429, `not_in_room` 409, `no_such_room`·`no_such_participant` 404. 앞에 `chat_` 를 붙인 코드로 낸다. 직접 모드는 409 `chat_daemon_only`(NFR-PCH-5), 데몬에 닿지 못하면 502 `chat_unreachable`.
+- SSE: `chat_message` `{msg}`, `chat_changed` `{}`. `STATE_REGISTRY` 에 `chat` 항목을 두고 `sse:open`·`softreload` 에 다시 읽는다.
+
+**Activity 탭 (FR-PCH-80~82, §4.2)**
+
+- 패널 머리에 탭 줄을 둔다: Agents·Background·Runs·Chats. `ACTIVITY_SECTIONS` 의 구역이 곧 탭이다. 고른 탭의 항목만 그린다. 구역 접기는 없앤다. 고른 탭은 `PrefStore.local` 에 둔다.
+- 탭 배지: Agents 는 알람 점(알람 카드가 하나라도 있으면), Background·Runs 는 개수, Chats 는 안 읽은 수.
+- 레일: 탭 넷을 아이콘으로 세로로 세우고 배지를 귀퉁이에 둔다. 아래에 고른 탭의 항목만 보인다. 아이콘을 누르면 레일인 채로 탭만 바뀐다.
+- Usage 는 지금처럼 `#agents-foot` 에 고정한다.
+
+**Chats 탭 (FR-PCH-83)**
+
+- 위에 방 목록(단체채팅·개인채팅, 들어간 방 먼저, 안 읽은 수 배지), 아래에 온라인 목록(노드별 참가자, 연결 끊김은 흐리게). 방을 누르면 들어가지 않았으면 들어간 뒤 채팅 탭을 연다. 같은 방의 탭이 있으면 그 탭을 드러낸다.
+- 단체채팅 만들기 버튼은 이름·목적 입력창을 띄운다. 온라인 목록의 참가자 메뉴에서 개인채팅을 연다.
+- 직접 모드는 "데몬 모드에서만 쓸 수 있습니다" 안내만 보인다.
+
+**채팅 탭 (FR-PCH-84·85)**
+
+- 새 탭 종류 `chat`, 기록 `{id, name, type:'chat', roomId}`. 워크스페이스에 그대로 저장된다(서버는 탭 종류를 모른다). 열기는 `run` 탭과 같은 틀(`TAB_OPENERS`, 같은 방의 탭 찾기).
+- 머리에 방 이름·목적·종류, `⋯` 메뉴(나가기). 가운데 대화, 아래 입력칸(Enter 보냄, Shift+Enter 줄바꿈), 오른쪽 참가자 목록(참가자 메뉴에서 개인채팅).
+- 대화는 브라우저 메모리의 방별 목록에만 둔다(방마다 최근 500개). 내가 보낸 글은 보낸 순간 목록에 넣는다. 새로고침하면 사라진다.
+- 안 읽은 수는 브라우저가 센다: 그 방의 탭이 보이지 않을 때 온 글. 탭이 보이면 0 이 된다.
+- 탭을 닫아도 방에서 나가지 않는다. 나가기는 메뉴로 한다. 방이 사라졌거나(개인채팅 상대 퇴장) 내가 들어 있지 않으면 입력칸을 막고 그 사실을 보인다.
+- 망에서 온 문자열(이름·목적·표시 이름·본문)은 모두 `textContent` 로만 그린다. HTML 로 넣지 않는다.
+
+**시험 (단계 3)**
+
+| TC | 방법 |
+|---|---|
+| TC-PCH-13(일부) | JS 단위(`node:test`): 탭 전환·탭 배지·레일 항목, 채팅 저장소(방별 상한·안 읽은 수), 채팅 탭 열기(같은 방은 한 탭) |
+| TC-PCH-16 | Go: `chatsock` 사람 참가자, 데몬 IPC `chat`(기능 협상·push), 서버 `/api/chat`(데몬 모드·직접 모드·오류 코드 대응·SSE 방송) |
+
 ## 4. 결정 (Decisions)
 
 | ID | 결정 | 이유 |
@@ -456,6 +510,7 @@
 | TC-PCH-12 | FR-PCH-54·55 | Go: 큰 글·빠른 글·글함 넘침 | `too_large`·`rate_limited`. 201번째 글에서 가장 오래된 글이 빠지고 버린 수가 보인다 |
 | TC-PCH-13 | FR-PCH-80~87 | JS 단위 + e2e(사용자가 돌린다) | 탭 전환, 탭 개수·알람 점, 레일 아이콘, 채팅 탭, 여러 개 고르기, OTP 확인 창 |
 | TC-PCH-14 | FR-PCH-8 | Go: 실제 TLS 위의 채팅 연결 Upgrade | 간선 상대만 101. 간선이 아니면 403, Upgrade 머리가 없으면 400 |
+| TC-PCH-16 | FR-PCH-41·83·85·NFR-PCH-5 | Go: 사람 참가자, IPC `chat`, `/api/chat` | 사람 참가자는 노드마다 하나다. 글은 SSE 로만 나간다. 직접 모드는 409 `chat_daemon_only` |
 | TC-PCH-15 | FR-PCH-50·NFR-PCH-5·D-PCH-36 | Go: shim 인자, 맥락 훅 | 채팅 소켓이 열려 있을 때만 `--mcp-config=`·`--allowedTools=` 를 사용자 인자 앞에 붙인다. 훅은 안 읽은 글이 있을 때만 줄을 덧붙인다 |
 
 ## 6. 비목표 (Non-goals)

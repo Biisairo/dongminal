@@ -3,18 +3,17 @@
 > 진실은 `docs/internal/PEER_DAEMON_SRS.md` 다. 이 문서는 그 SRS 를 구현하는 세션의 착수 지시와 맥락이다.
 > 다음 일감은 `docs/internal/PEER_CHAT_SRS.md` 다(§5).
 
-## 1. 착수 블록 (PEER_CHAT 단계 3)
+## 1. 착수 블록 (PEER_CHAT 단계 3 구현 → 단계 4)
 
 1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `HEAD` 다.
-2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 없다(D-PCH-21~37). **정한 것을 다시 묻지 않는다.** 먼저 읽을 것:
-   - §3.7 U(화면, FR-PCH-80~87), §3.3 FR-PCH-41(사람 참가자: 노드마다 하나, `<노드 이름>/User`), FR-PCH-85(사람의 대화는 브라우저만 든다), §4.2 동작 변경 표
-   - §3.9(채팅 핵심 Go 표면), §3.10(채팅 소켓·와이어 `chatwire`·`chatsock`, MCP)
-   - §8 단계 표
-3. 다음 일은 **단계 3(U)** 다. 순서: ① SRS §3.11 에 단계 3 설계를 적는다 → ② 시험(RED) → ③ 구현 → 검사 통과하면 커밋.
-   단계 3 범위: Activity 패널 맨 위 탭 줄(Agents·Background·Runs·Chats, Usage 는 아래 고정), 탭 개수·알람 점, 레일의 탭 아이콘, Chats 탭(방 목록·온라인 목록), 칸의 채팅 탭(머리·대화·입력칸·참가자 목록, 개인채팅 열기), 사람 참가자.
-   설계 전에 조사할 것: Activity 패널(`UX_BATCH12_SRS` FR-ACF, `web/js` 의 Activity 구역·레일), 칸의 탭 종류(터미널·편집기·Diff 가 어떻게 같은 급으로 서는지), 서버↔데몬 IPC(`shared/toolipc/protocol.go` 메서드·push·기능 협상, `daemon/ipc/paned_edge.go` 가 `edge` 를 붙인 방식), 서버 → 브라우저 이벤트(SSE). 사람 참가자는 데몬의 `chat.Service.Register(label, chat.KindHuman?)` 로 세우고 글은 서버가 push 로 받아 브라우저에 넘긴다 — 데몬은 사람의 글을 들지 않는다(FR-PCH-85). 직접 모드 화면은 "데몬 모드에서만 쓸 수 있다"(NFR-PCH-5).
-4. 구현상 결정이 필요하면 한 번에 하나, 권장 답과 함께 묻는다(AskUserQuestion). **미리보기(preview)는 쓰지 않는다 — 사용자가 볼 수 없다. 설명은 글로 쉽게 한다.**
-5. 단계 3 을 마치면 단계 4(H: 도우미+TOTP) 다.
+2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 없다(D-PCH-21~37). **정한 것을 다시 묻지 않는다.** 단계 3 설계는 **§3.11 에 이미 적었다.** 먼저 §3.11 과 §3.7·§4.2 를 읽는다.
+3. **사용자 지시: 모든 구현(단계 3·4)이 끝날 때까지 묻지 말고 알아서 진행한다.** 단계마다 검사(`make gates`·`make lint`·`go test ./...`·`npm run unit`)를 통과하면 커밋한다.
+4. 단계 3 에서 끝난 것: 채팅 핵심의 `Options.Changed`(바뀜 알림), `chatsock.Server.StartUser`·`UserCall`(사람 참가자, op `state` 포함), `chatwire.OpState`·`State` (`37e8868e`). **아직 boot 에 잇지 않았다.**
+5. 단계 3 에서 남은 것(이 순서로, 각각 시험 먼저):
+   ① IPC: `toolipc` 에 `MethodChat`·`EventChat`·`FeatureChat`(데몬·서버 목록 둘 다 — 와이어 골든 두 곳 `daemon/ipc/wire_typed_test.go`·`webserver/toolclient/wire_typed_test.go` 를 고친다), `ChatParams{Op, Args}`·`ChatResult{Result, Error}`·`ChatEvent{Event, ChatKind, Chat}`. 데몬 `daemon/ipc/paned_chat.go`(`SetChat`, `chat` 처리, `PushChat`), `paned.go` dispatch, hello 의 기능 저장(`pc.chat`). boot `startChat` 에서 `cs.StartUser()`, `OnUser` → `ps.PushChat(msg)`, `chat.Options.Changed` → `ps.PushChat(changed)`. `state` 의 방마다 참가자 목록 `people[]` 을 싣도록 `chatwire.Room` 에 `People []Member \`json:"people,omitempty"\`` 를 더하고 `UserCall(state)` 에서만 채운다.
+   ② 서버: `toolclient/client_chat.go`(`ChatReady`·`Chat`·`SetOnChat`·재접속 콜백), `wireMsg` 에 `ChatKind`·`Chat` 필드, `client_push.go` 분기, `httpapi/deps.go` `ChatDaemon` 접합면, `httpapi/chat_api.go`(`GET /api/chat`, `POST /api/chat/{op}`, 오류 코드 대응, SSE `chat_message`·`chat_changed`), `cmd/dongminal/app.go` 배선(`SetOnEdges` 옆). 오류 코드 `chat_*` 는 `apierr` + `codes_doc.go` 에 넣고 `go run ./scripts/gen-errors`. API 문서 게이트(`check-api-docs.sh`)를 맞춘다. 스냅샷 조각이 필요하면 서버 snapshot 핸들러에도 `chat` 조각을 더한다.
+   ③ 화면: §4.3 의 조사 결과대로. Activity 탭 줄, Chats 구역, 채팅 탭(`TAB_TYPE_CHAT='chat'`), 채팅 저장소, i18n(ko·en), `index.html` 스크립트 순서, JS 단위 시험.
+6. 그다음 단계 4(H: 도우미+TOTP, §3.6·FR-PCH-70~79, TC-PCH-7·8). 설계를 §3.12 로 먼저 적는다.
 
 ## 2. 사용자 지시
 
@@ -38,7 +37,7 @@
 | PEER_CHAT 미결 해소 | 끝 (D-PCH-21~35) | `f4e361f7`, `f2cc6743` |
 | PEER_CHAT 단계 1 (데몬의 채팅 핵심) | 끝 | 설계 `c7753b43`, Upgrade `0f08acc1`, 핵심 `a9793300`, 보안 수정 `0ab24a2c`·`1e688ca6`·`544e1800` |
 | PEER_CHAT 단계 2 (MCP·알림) | 끝 | 설계 `25c63c88`, 데몬 소켓 `2099d28a`, MCP·shim·훅 `1b0bf128` |
-| PEER_CHAT 단계 3 (화면) | **다음** | |
+| PEER_CHAT 단계 3 (화면) | **진행 중** — 설계 §3.11, 데몬 쪽 `37e8868e` | |
 
 > 2026-11-17 사용자 결정으로 범위가 바뀌었다(SRS D-PDM-13~17). 아래 §3.2·§3.3 의 명령 관련 조사·설계는 낡았다. 명령이 없어지므로 화면 요청(`peerui`)도 없다.
 
@@ -133,6 +132,16 @@
 - 쉬는 중은 활동 상태 `idle`·`done` 뿐이다(`boot.resting`). `waiting`·보고 없음은 쉬는 중이 아니다.
 - 에이전트 참가자 상한은 `chat.MaxParticipants`(64) − 1(사람 몫)이다. 사람 참가자를 붙일 때 이 몫을 쓴다.
 - 시험의 유닉스 소켓은 `os.MkdirTemp("", "짧은접두어")` 홈을 쓴다(shim·훅 시험의 `chatHome`).
+
+### 4.3 화면 조사 결과 (2026-11-17, 단계 3 용)
+
+- Activity: 구역 서술자 `ACTIVITY_SECTIONS`(`web/js/core/app-activity.js:48-55`, 항목 `{key, icon, title(), empty(), hint?(), items(app), count?(its), act?(app)}`, "새 구역 = 배열 한 줄"). 렌더는 `App.prototype.agentsRender()`(`app-agents.js:177-224`)가 `[{t:'head'}] + _actItems()` 를 `reconcileList` 로 차분 갱신한다. `_actItems()`(`app-activity.js:159-176`)가 구역마다 `{t:'sec',sec,n,folded}` 를 넣는다. 구역 머리 `_actSecEl`(`:179-210`, `.ag-sec`·`.ag-sec-icon`·`.ag-sec-name`·`.ag-sec-n.ui-badge`), 접기 `_actFoldToggle`(`:225`), 접힘 저장 `PrefStore.local` `STORE_KEYS.agentsGroupFold`(`pref-store.js:45`). Usage 는 `foot` 항목으로 `#agents-foot` 에 따로(`_actUsageFootEl` `:280`). DOM 골격 `web/index.html:264-265`.
+- 레일: `#agents-panel` 에 `.open` 이 없는 상태(`setAgentsPanelOpen` `app-agents.js:81-91`, sessionStorage). CSS 만으로 줄인다(`web/style.css:824-853`) — 레일에서 `.ag-sec-icon` 만 크게, `.ag-sec-n` 은 귀퉁이 absolute. head 항목 sig 에 `'open'|'rail'` 이 있다(`app-agents.js:201`). 갱신 계기는 SSE `tool_activity` → `_onToolActivity`(`app-agents.js:31`).
+- 칸 탭 종류: `web/js/core/constants.js:610-614`(`TAB_TYPE_GIT`·`TERMINAL`·`EDITOR`·`RUN`). 열기 `TAB_OPENERS`(`app-layout.js:11-16`) → `addTab`(`:411`) → `_addRunTab`(~`:466`, 레코드 `{id,name,type:'run',runId}` `:480`) 이 베낄 틀이다. 마운트 `_mountTabBody`(`ui/renderer-pane.js:47-95`) if-체인. 함께 볼 곳: `normalizeTab`·`TOOL_CAPABILITIES`·이름 출처(`layout-tree.js:10-24`, `:300`, `:340`), 닫기 분기(`app-layout.js:578,652,675,707`), 탭 메뉴(`ui/renderer-pane-wire.js:53,69,288`), `app-tab-reopen.js`·`app-dnd.js`·`app-search.js`·`app-presets.js`. 창 타입 제약 `app-layout.js:434-438`. run 뷰 `runViewEl(tab, slot)`(`ui/runs-panel.js:376-391`, `slotKey` 로 루트 DOM 캐시). 서버는 탭 종류를 모르고 blob 을 그대로 저장한다(`workspace/manager.go:272-299`). `dmctl_listworkspace.go:236-243` 이 `Type` 을 읽는다.
+- SSE: `EventSource('/api/commands/sse')`(`app-ws-sync.js:139`), `EventBus`(`event-bus.js:169-253`). 새 이벤트는 `STATE_REGISTRY`(`state-registry.js`, edges 예 `:240-246`: `{id, restore, merge, flight, part, events:{edges_changed:'_onEdgesChanged'}, revalidateOn:['sse:open','softreload']}`), 핸들러는 `App.prototype`(`app-edges.js`). `part` 를 쓰면 서버 `/api/snapshot?parts=` 에도 조각을 더해야 한다 — 쓰지 않아도 된다.
+- 시험: `node:test`, `web/js/test/*.test.mjs`, 하네스 `web/js/test/harness.mjs` `load([...files], {expose, globals})`. `npm run unit`.
+- 게이트: 새 파일은 `index.html` 의 `<script>` 순서에 넣는다(`check-load-order.mjs`). i18n(`t()`·ko/en 키 일치·조사·합쇼체 문장/명사형 라벨), 저장소는 `PrefStore` 만, 템플릿 리터럴에 `${}` 금지(`check-html.sh`), UIKit 버튼(`check-button-kit`), 타이머는 TIMERS·TimerHub, CSS 변수·색·폰트 크기·z-index 게이트, 툴팁(title)은 영어(FR-TIP-2), API·SSE action 은 문서(`check-api-docs.sh`·`check-commands-docs.sh`). 파일 크기 기준선(`check-file-size.mjs`).
+- i18n: `t(key, params)`·`tn`(`web/js/core/i18n.js:163,169`), 카탈로그 `web/js/i18n/ko.js`·`en.js`(네임스페이스 순 정렬, 예 `'panel.sec_agents'`).
 
 ## 5. 그다음: PEER_CHAT_SRS
 
