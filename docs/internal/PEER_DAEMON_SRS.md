@@ -152,6 +152,36 @@
 - **FR-PDM-71** 노드 계층이 처음 설 때 `edges.json` 이 없고 `peers.json` 이 있으면 `peers.json` 을 `edges.json` 으로 옮긴다(이름 바꾸기). 둘 다 있으면 `edges.json` 을 쓰고 `peers.json` 은 그대로 둔다. 신원 파일(`node-cert.pem`·`node-key.pem`)의 이름은 바꾸지 않는다.
 - **FR-PDM-72** Run 동료 명부(`/api/runs/peers` 등)는 바꾸지 않는다.
 
+### 3.4a 단계 4 설계 (이름 변경)
+
+FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름이 모두 `edge` 가 되고, 코드의 이름도 같이 따른다. 일괄 치환을 쓰지 않는다(Run 동료 명부 보호, FR-PDM-72).
+
+**Go**
+
+| 이전 | 새 이름 |
+|---|---|
+| 패키지 `shared/peer`, `shared/peerrelay` | `shared/edge`, `shared/edgerelay` (`git mv`) |
+| `peer.Peer`, `Config.Peers`(json `peers`) | `edge.Edge`, `Config.Edges`(json `edges`) |
+| `IsPeer`·`AddPeer`·`PeersOnly`·`ErrInvalidPeer`·`ErrPeerNotFound`·`PerPeerPerMinute` | `IsEdge`·`AddEdge`·`EdgesOnly`·`ErrInvalidEdge`·`ErrEdgeNotFound`·`PerKeyPerMinute` |
+| `InvitePrefix = "dmpeer1:"` | `"dmedge1:"` |
+| `dmenv.PeersFile = "peers.json"` | `dmenv.EdgesFile = "edges.json"`. 옛 이름은 이관에만 쓴다 |
+| `httpapi/peer_*.go`, 메서드 `peer*`·`apiPeers*`, 필드 `s.peers`·`s.peerLn`·`s.peerID`·`s.peerClient`·`s.peerLimiter` | `httpapi/edge_*.go`, `edge*`·`apiEdges*`, `s.edges`·`s.edgeLn`·`s.edgeID`·`s.edgeClient`·`s.edgeLimiter` |
+| 노드 포트 경로 `/peer/v1/` | `/edge/v1/` |
+| `apierr/codes_peer.go`, `CodePeer*` = `peer_*` | `apierr/codes_edge.go`, `CodeEdge*` = `edge_*`. `errors.md` 는 다시 만든다 |
+| 로그 `peer audit`, `peer listener`, `peer identity` | `edge audit`, `edge listener`, `edge identity` |
+| `cmd/dongminal` 의 `startPeerScoped`·`StartPeer` | `startEdgeScoped`·`StartEdge` |
+| dmctl `dmctl_peer.go`, `peers`·`peer <sub>`, 출력 줄 머리 `peer` | `dmctl_edge.go`, `edges`·`edge <sub>`, 줄 머리 `edge`. 공용 인자 해석기 `peerArgs`·`peerSub`·`parsePeerArgs`(account 도 씀)는 `subArgs`·`subSpec`·`parseSubArgs` 로 바꾼다 |
+
+**파일 이관 (FR-PDM-71)**: 노드 계층이 설 때 `edges.json` 이 없고 `peers.json` 이 있으면 이름을 바꾼다. 읽을 때 json 키 `edges` 가 없고 `peers` 가 있으면 그 값을 쓴다. 저장은 `edges` 로만 한다. 홈 폴더 표(`homelayout.go`·`getting-started.md`)는 `edges.json` 으로 바꾼다.
+
+**API·이벤트**: `/api/edges`, `/api/edges/{node,invite,add,pending,approve,reject,remove,address}`. 조회 응답은 `{node, edges, pending, invite}` 다. 이벤트는 `edges_changed`(`paired` 그대로). 상태 값 `pending-out` 과 승인 대기 항목 모양은 그대로다.
+
+**화면**: `app-peers.js`·`app-settings-peers.js` → `app-edges.js`·`app-settings-edges.js`, 패널 `panel-peers` → `panel-edges`, 요소 id `pn-*` → `eg-*`, i18n `peer.*`·`html.pn_*` → `edge.*`·`html.eg_*`, 상태 키 `peers` → `edges`. 설정 탭 이름은 ko "간선", en "Edges". 화면 문구의 "짝"은 "간선"으로, "짝맞춤·짝맺기"는 "간선 맺기"로 바꾼다. 시험 `peers-notice.test.mjs` → `edges-notice.test.mjs`, e2e `peers-settings.spec.ts` → `edges-settings.spec.ts`(실행하지 않는다).
+
+**문서**: `peers.md` → `edges.md`(`git mv`), `api.md`·`commands.md`·`features.md`·`getting-started.md`·`README.md`·`docs/external/README.md`·`agentmemory/CLAUDE.md`·`architecture.md` 를 새 이름으로 맞춘다. 옛 SRS 파일 이름(`PEER_*`)과 CHANGELOG 의 지난 항목은 바꾸지 않는다.
+
+**바꾸지 않는 것**: Run 동료 명부(`handlers_runs_peers.go`, `dmctl_run_peers.go`, `/api/runs/peers`), 신원 파일 이름, 프리앰블 `DMRELAY1`, 소켓 이름.
+
 ### 3.5 묶음 N — 데몬의 노드 처리
 
 - **FR-PDM-20** 데몬이 신원 파일과 `edges.json` 을 읽고 쓴다. 서버는 이 파일을 읽지도 쓰지도 않는다.
