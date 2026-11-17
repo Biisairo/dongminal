@@ -149,6 +149,10 @@ func TestChatAcrossNetworkNeighbor(t *testing.T) {
 	if m.Text != "안녕" || m.From != pa.ID || m.Room != room.ID || m.FromLabel != "a/claude" {
 		t.Fatalf("msg %+v", m)
 	}
+	// PEER_CHAT_SRS §3.10: 글에 방 이름·목적을 싣는다 (FR-PCH-13).
+	if m.RoomKind != KindGroup || m.RoomName != "auth-review" || m.RoomPurpose != "리뷰" {
+		t.Fatalf("방 정보 %+v", m)
+	}
 	never(t, "같은 글이 두 번 온다", func() bool { return len(c.deliveries(pc.ID)) > 1 })
 	if len(a.deliveries(pa.ID)) != 0 {
 		t.Fatal("보낸 이에게 되돌아왔다")

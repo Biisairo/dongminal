@@ -291,7 +291,7 @@
 | 요소 | 자리 |
 |---|---|
 | 채팅 소켓 | 데몬이 여는 유닉스 소켓 `chat.sock`. 데몬 IPC 종단과 같은 0700 폴더다(`report.sock` 옆). 서버를 지나지 않으므로 서버 재시작에 영향받지 않는다(FR-PCH-43) |
-| 와이어 | 새 패키지 `internal/shared/chatwire`(②③). 소켓 경로·프레임·상한. 데몬과 dmctl 이 같이 쓴다 |
+| 와이어 | 새 패키지 `internal/shared/chatwire`(①②). 소켓 경로·프레임·상한. 데몬과 dmctl 이 같이 쓴다 |
 | 데몬 쪽 | 새 패키지 `internal/daemon/chatsock`(②). 연결마다 참가자 하나, 글 넘기기, 훅 질의 중계, 붙여넣기 알림. 도구 접근은 인터페이스 `Tools{Resting(toolID) bool; Paste(toolID, text) error}` 로 받는다 |
 | MCP 서버 | `dmctl chat-mcp`(`runtimebin`). stdio 의 MCP(JSON-RPC 2.0, 줄 하나에 메시지 하나)를 표준 라이브러리로 구현한다(NFR-PCH-4). 안 읽은 글함을 든다 |
 | 주입 | claude shim(FR-PCH-50) |
@@ -345,7 +345,7 @@
   | `chat_leave`·`chat_send` | `{ok:true}` |
   | `chat_read` | `{dropped, rooms:[{room, kind, name, purpose, messages:[{from, label, node, at, text}]}]}`. 방마다 이름·목적이 글보다 앞에 있다. 읽은 글은 글함에서 지운다. `dropped` 는 지난 읽기 뒤 넘쳐 버린 수이며, 읽으면 0 이 된다 |
 
-- 오류는 `isError: true` 와 `{code, message}` 텍스트다. 코드는 FR-PCH-51 의 다섯과 `bad_request`·`daemon_unavailable` 이다.
+- 오류는 `isError: true` 와 `{code, message}` 텍스트다. 코드는 FR-PCH-51 의 다섯과 `bad_request`·`daemon_unavailable` 이다. 에이전트 참가자가 노드 상한(64)에서 사람 몫 하나를 뺀 63 을 넘으면 hello 는 `participants_full` 로 거절된다.
 - 글함은 MCP 프로세스 하나에 하나이며 상한은 200 이다. 넘으면 가장 오래된 글을 버리고 `dropped` 를 센다(FR-PCH-54). 방이 사라져도 그 방의 안 읽은 글은 읽을 때까지 남는다.
 
 **알림 (FR-PCH-60~63)**

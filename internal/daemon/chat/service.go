@@ -22,13 +22,15 @@ const (
 
 // 상한이다 (FR-PCH-55, §3.9).
 const (
+	// MaxParticipants 는 노드 하나의 참가자 상한이다. 넘는 노드 상태 알림은 받는 쪽이 버린다.
+	MaxParticipants = 64
 	// MaxText 는 글 하나의 바이트 상한이다.
 	MaxText = 16 << 10
 	// PerMinute 는 참가자 하나가 1분에 쓸 수 있는 글 수다.
 	PerMinute = 30
 	// maxParts 는 노드 하나의 참가자 상한, maxPartRooms 는 참가자 하나의 방 상한,
 	// maxNodeRooms 는 노드 하나가 싣는 방 기록의 상한이다.
-	maxParts     = 64
+	maxParts     = MaxParticipants
 	maxPartRooms = 64
 	maxNodeRooms = 128
 	maxName      = 64 * 4
@@ -50,17 +52,20 @@ type Participant struct {
 	Kind  string
 }
 
-// Message 는 참가자에게 넘기는 글이다.
+// Message 는 참가자에게 넘기는 글이다. 방 종류·이름·목적을 함께 싣는다 (FR-PCH-13).
 type Message struct {
-	ID        string
-	Room      string
-	From      string
-	FromLabel string
-	Node      string
-	Text      string
-	At        time.Time
-	Epoch     int64
-	Seq       uint64
+	ID          string
+	Room        string
+	RoomKind    string
+	RoomName    string
+	RoomPurpose string
+	From        string
+	FromLabel   string
+	Node        string
+	Text        string
+	At          time.Time
+	Epoch       int64
+	Seq         uint64
 }
 
 // Member 는 방이나 온라인 목록의 참가자 하나다. Online 은 그 노드에 지금 닿는지다.
@@ -396,12 +401,14 @@ func (s *Service) deliver(out []pending) {
 // localDeliveriesLocked 는 그 방에 든 이 노드의 참가자(보낸 이 제외)에게 넘길 글이다.
 func (s *Service) localDeliveriesLocked(b msgBody, label string) []pending {
 	var out []pending
+	r, _ := s.recordLocked(b.Room)
 	for _, q := range s.parts {
 		if q.ID == b.From || !q.rooms[b.Room] {
 			continue
 		}
 		out = append(out, pending{q.ID, Message{
-			ID: b.ID, Room: b.Room, From: b.From, FromLabel: label, Node: b.Node,
+			ID: b.ID, Room: b.Room, RoomKind: r.body.Kind, RoomName: r.body.Name, RoomPurpose: r.body.Purpose,
+			From: b.From, FromLabel: label, Node: b.Node,
 			Text: b.Text, At: b.At, Epoch: b.Epoch, Seq: b.Seq,
 		}})
 	}
