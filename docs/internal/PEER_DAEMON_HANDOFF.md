@@ -5,10 +5,11 @@
 
 ## 1. 착수 블록
 
-1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon` 이다.
-2. `PEER_DAEMON_SRS.md` 전체(특히 §3.4·§3.4a·§3.5)와 이 문서 §4(배운 것)를 읽는다. **§4 첫 항목(e2e·서버·데몬 금지)을 반드시 지킨다.**
-3. PEER_DAEMON 은 코드·문서가 끝났다. 남은 확인(e2e TC-PDM-12, 두 PC 간선 맺기)은 사용자가 데몬을 다시 띄운 뒤 한다.
-4. 다음 일감은 §5 PEER_CHAT_SRS 다. 구현 전에 미결을 사용자와 하나씩 정한다. 단계 5 설계는 SRS §3.5 아래 "§3.5a" 로 먼저 적는다. 단계마다 검사가 통과하면 **묻지 말고 커밋**한다.
+1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon` 이고 `main` 위로 리베이스돼 있다.
+2. PEER_DAEMON 은 단계 1~6 의 코드·문서가 끝났다(§3 표). 남은 확인(e2e TC-PDM-12, 두 PC 간선 맺기)은 **사용자가** 데몬을 다시 띄운 뒤 한다. 이 세션은 하지 않는다.
+3. 이번 일감은 **§5 PEER_CHAT_SRS** 다. `docs/internal/PEER_CHAT_SRS.md` 전체(특히 §9 미결)와 `PEER_DAEMON_SRS.md` §3.5a(노드 = 데몬, `edgenode`·IPC 구조)를 읽는다.
+4. **구현 전에 §9 미결(G-1·G-2·D-1·M-1~3·U-1·H-1·H-2)을 사용자와 하나씩 정한다.** 한 번에 하나, 권장 답과 함께 묻는다(AskUserQuestion). 결정은 PEER_CHAT_SRS §4 에 D-PCH-21 부터 적는다. 미결을 다 정하기 전에는 구현하지 않는다.
+5. PEER_CHAT_SRS 는 "peer" 시절에 쓴 초안이다. 이름(`peer`→`edge`, Run 명부 `team`)과 노드 구조(데몬이 노드, `edgenode`)를 PEER_DAEMON 결과에 맞춰 함께 고친다.
 
 ## 2. 사용자 지시
 
@@ -91,7 +92,14 @@
 - 새 Go 패키지는 `docs/internal/architecture.md` 패키지 표에 올려야 `make gates`(pkg-axis)가 통과한다. 공유 패키지는 실행하는 프로세스 표시(②③ 등)를 붙인다.
 - import 경로를 sed 로 바꾸면 import 정렬이 깨진다. `gofmt -w` 를 함께 돌린다.
 - 데몬 IPC 종단 폴더에 두는 소켓(`report.sock`·`node.sock`·`dial.sock`)은 `check-home-layout.sh` 의 대상이 아니다(`filepath.Join(home, …)` 가 아니다).
-- 단계 4 이후 이름: 패키지 `shared/edge`·`shared/edgerelay`, httpapi `edge_*.go`(`s.edges`·`s.edgeLn`·`s.edgeID`·`s.edgeClient`·`s.edgeLimiter`·`initEdge`·`StartEdge`), 공용 도우미 `codeFail`·`readJSONBody`. 이 문서 §3.1·§3.2 의 옛 이름은 이 표로 읽는다.
+- 지금 이름과 구조(단계 5 이후): 노드 = `internal/shared/edgenode`(`New`·`Admission`·`Handler`·`Do(op)`·`Store`·`Identity`·`Pairing`). 데몬은 `daemon/boot/edge.go` 가 세우고 `daemon/ipc/paned_edge.go` 가 IPC(`edge`·`edgeport`, push `edges`, 기능 `edge`)를 처리한다. 서버는 데몬 모드에서 `httpapi/edge_relay.go`(노드 포트·발신 소켓·재조회 큐), 직접 모드에서 `edge_node.go`(`initEdge`). `/api/edges/*` 접착은 `edge_api.go` 한 곳. 공용 도우미 `codeFail`·`readJSONBody` 는 `httpapi/codefail.go`. `httpreq`·`httpresp` 는 `internal/shared` 로 옮겼다. 이 문서 §3.1~3.3 의 옛 이름은 이 줄로 읽는다.
+- `edge_*` 오류 코드의 주인은 `shared/edge/codes.go` 다. `apierr/codes_edge.go` 는 그 값을 쓴다. 새 코드는 `codes_doc.go` 에도 넣고 `go run ./scripts/gen-errors` 로 `errors.md` 를 다시 만든다.
+- SRS 의 결정(D-)을 고치면 `go run ./scripts/gen-decisions` 로 `decisions.md` 를 다시 만들어야 `make gates` 가 통과한다.
+- 데몬 hello 기능 목록을 바꾸면 와이어 골든 두 곳(`daemon/ipc/wire_typed_test.go`, `webserver/toolclient/wire_typed_test.go`)을 같이 고친다.
+- 본문 상한 게이트(`check-body-limit.sh`)는 이름이 `r` 인 변수의 `.Body` 도 잡는다. 변수 이름을 바꾼다.
+- CHANGELOG 에 python 으로 줄을 넣을 때 다음 판 머리(`## [1.3.4]`) 아래로 들어간 적이 있다. 넣은 뒤 `grep -n '^## '` 으로 자리를 확인한다.
+- 사용자 지시: **적용(데몬·서버 재시작, 설치)은 하지 않는다. 사용자가 한다.** 단계마다 검사를 통과하면 묻지 않고 커밋한다. 구현상 결정만 묻는다. push 하지 않는다. 커밋에 AI 서명을 넣지 않는다.
+- `main` 에는 이 브랜치와 별개로 `b2bbf84f`(claude shim 주입 메모리를 `--append-system-prompt` 로)가 있다. 사용자가 적용해 확인을 마쳤다.
 - 이름 변경은 BSD sed 대신 perl(`\b` 지원)과 `gopls rename` 으로 했다. 화면의 `pn-` 접두어는 판 클래스와 겹치므로 일괄 치환하지 않는다.
 - `httpapi` 패키지 시험은 70초 넘게 걸린다. 바꾼 패키지만 먼저 돌리고 마지막에 `go test ./...` 를 돈다.
 
