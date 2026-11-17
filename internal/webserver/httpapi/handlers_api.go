@@ -250,9 +250,6 @@ var apiRoutes = []apiRoute{
 	httproute.Put("/api/edges/node", (*Server).apiEdgesNodePut),
 	httproute.Post("/api/edges/invite", (*Server).apiEdgesInvite),
 	httproute.Post("/api/edges/add", (*Server).apiEdgesAdd),
-	httproute.Get("/api/edges/pending", (*Server).apiEdgesPending),
-	httproute.Post("/api/edges/approve", (*Server).apiEdgesApprove),
-	httproute.Post("/api/edges/reject", (*Server).apiEdgesReject),
 	httproute.Post("/api/edges/remove", (*Server).apiEdgesRemove),
 	httproute.Put("/api/edges/address", (*Server).apiEdgesAddress),
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-120 (claude_accounts_api.go).

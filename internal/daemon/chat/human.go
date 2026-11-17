@@ -223,7 +223,7 @@ func (s *Service) edgesLocked() []edge.Edge {
 
 func (s *Service) edgeLocked(fp string) (edge.Edge, bool) {
 	for _, e := range s.edgesLocked() {
-		if e.Fingerprint == fp && e.State == edge.StatePaired {
+		if e.Fingerprint == fp {
 			return e, true
 		}
 	}
@@ -234,7 +234,7 @@ func (s *Service) edgeLocked(fp string) (edge.Edge, bool) {
 func (s *Service) pinsLocked() map[string]string {
 	var out map[string]string
 	for _, e := range s.edgesLocked() {
-		if e.State != edge.StatePaired || e.HelperKey == "" {
+		if e.HelperKey == "" {
 			continue
 		}
 		if out == nil {

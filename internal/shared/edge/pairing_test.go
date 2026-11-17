@@ -38,8 +38,8 @@ func TestInviteTokenAndExpiry(t *testing.T) {
 	if p.HasInvite() {
 		t.Fatal("만료 뒤에도 남았다")
 	}
-	if err := p.Consume(token); !errors.Is(err, ErrNoInvite) {
-		t.Fatalf("만료된 초대 Consume = %v", err)
+	if err := p.Redeem(token, fpOf("aa")); !errors.Is(err, ErrNoInvite) {
+		t.Fatalf("만료된 초대 Redeem = %v", err)
 	}
 }
 
@@ -47,14 +47,14 @@ func TestInviteTokenAndExpiry(t *testing.T) {
 func TestInviteOneTime(t *testing.T) {
 	p := NewPairing(newFakeClock().now)
 	token, _ := p.NewInvite()
-	if err := p.Consume(token); err != nil {
-		t.Fatalf("Consume: %v", err)
+	if err := p.Redeem(token, fpOf("aa")); err != nil {
+		t.Fatalf("Redeem: %v", err)
 	}
 	if p.HasInvite() {
 		t.Fatal("쓴 뒤에도 초대가 남았다")
 	}
-	if err := p.Consume(token); !errors.Is(err, ErrNoInvite) {
-		t.Fatalf("두 번째 Consume = %v", err)
+	if err := p.Redeem(token, fpOf("bb")); !errors.Is(err, ErrNoInvite) {
+		t.Fatalf("다른 지문의 두 번째 Redeem = %v", err)
 	}
 }
 
@@ -66,11 +66,11 @@ func TestInviteReplaces(t *testing.T) {
 	if old == fresh {
 		t.Fatal("같은 토큰이 나왔다")
 	}
-	if err := p.Consume(old); !errors.Is(err, ErrBadToken) {
-		t.Fatalf("이전 토큰 Consume = %v", err)
+	if err := p.Redeem(old, fpOf("aa")); !errors.Is(err, ErrBadToken) {
+		t.Fatalf("이전 토큰 Redeem = %v", err)
 	}
-	if err := p.Consume(fresh); err != nil {
-		t.Fatalf("새 토큰 Consume = %v", err)
+	if err := p.Redeem(fresh, fpOf("aa")); err != nil {
+		t.Fatalf("새 토큰 Redeem = %v", err)
 	}
 }
 
@@ -80,55 +80,12 @@ func TestInviteSurvivesBadTokens(t *testing.T) {
 	p := NewPairing(newFakeClock().now)
 	token, _ := p.NewInvite()
 	for i := 0; i < 100; i++ {
-		if err := p.Consume("bad"); !errors.Is(err, ErrBadToken) {
+		if err := p.Redeem("bad", fpOf("aa")); !errors.Is(err, ErrBadToken) {
 			t.Fatalf("%d번째: %v", i+1, err)
 		}
 	}
-	if err := p.Consume(token); err != nil {
+	if err := p.Redeem(token, fpOf("aa")); err != nil {
 		t.Fatalf("틀린 토큰 뒤 맞는 토큰 = %v", err)
-	}
-}
-
-// FR-PNW-25: 승인 대기는 10분 산다. 꺼내면 사라진다.
-func TestPendingLifecycle(t *testing.T) {
-	clk := newFakeClock()
-	p := NewPairing(clk.now)
-	a := p.AddPending(Pending{Name: "a", Addr: "10.0.0.1", Port: 58147, Fingerprint: strings.Repeat("aa", 32)})
-	b := p.AddPending(Pending{Name: "b", Addr: "10.0.0.2", Port: 58147, Fingerprint: strings.Repeat("bb", 32)})
-	if a.ID == "" || a.ID == b.ID {
-		t.Fatalf("id 가 비었거나 겹친다: %q %q", a.ID, b.ID)
-	}
-	if !a.Expires.Equal(clk.t.Add(PendingTTL)) || PendingTTL != 10*time.Minute {
-		t.Fatalf("만료 %v", a.Expires)
-	}
-	if got := p.Pending(); len(got) != 2 {
-		t.Fatalf("목록 %d", len(got))
-	}
-	got, ok := p.TakePending(a.ID)
-	if !ok || got.Name != "a" {
-		t.Fatalf("TakePending = %+v %v", got, ok)
-	}
-	if _, ok := p.TakePending(a.ID); ok {
-		t.Fatal("꺼낸 것이 남았다")
-	}
-	clk.advance(PendingTTL + time.Second)
-	if len(p.Pending()) != 0 {
-		t.Fatal("만료된 승인 대기가 남았다")
-	}
-	if _, ok := p.TakePending(b.ID); ok {
-		t.Fatal("만료된 것을 꺼냈다")
-	}
-}
-
-// 같은 지문이 다시 오면 앞의 승인 대기를 갈아 끼운다.
-func TestPendingSameFingerprintReplaces(t *testing.T) {
-	p := NewPairing(newFakeClock().now)
-	fp := strings.Repeat("cc", 32)
-	p.AddPending(Pending{Name: "old", Fingerprint: fp, Port: 1})
-	p.AddPending(Pending{Name: "new", Fingerprint: fp, Port: 1})
-	got := p.Pending()
-	if len(got) != 1 || got[0].Name != "new" {
-		t.Fatalf("목록 %+v", got)
 	}
 }
 
@@ -189,21 +146,5 @@ func TestValidAddr(t *testing.T) {
 		if ValidAddr(a) {
 			t.Errorf("ValidAddr(%q) = true", a)
 		}
-	}
-}
-
-// L-7: 꺼낸 사이에 같은 지문의 새 대기가 들어오면 돌려놓는 옛 것은 버린다.
-func TestPutBackYieldsToNewerSameFingerprint(t *testing.T) {
-	p := NewPairing(newFakeClock().now)
-	old := p.AddPending(Pending{Name: "a", Fingerprint: fpOf("aa")})
-	e, ok := p.TakePending(old.ID)
-	if !ok {
-		t.Fatal("꺼내지 못했다")
-	}
-	fresh := p.AddPending(Pending{Name: "a", Fingerprint: fpOf("aa")})
-	p.PutBack(e)
-	got := p.Pending()
-	if len(got) != 1 || got[0].ID != fresh.ID {
-		t.Fatalf("대기 %+v", got)
 	}
 }

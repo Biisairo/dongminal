@@ -14,15 +14,11 @@ import (
 	"dongminal/internal/shared/edge"
 )
 
-// pairNodes 는 a 와 b 를 짝으로 맺는다 (a 가 add, b 가 approve).
+// pairNodes 는 a 와 b 를 간선으로 맺는다 (b 가 초대, a 가 add).
 func pairNodes(t *testing.T, a, b *edgeNode) {
 	t.Helper()
 	if code, out := a.api(t, http.MethodPost, "/api/edges/add", map[string]any{"code": b.invite(t)}); code != http.StatusOK {
 		t.Fatalf("add: %d %v", code, out["_raw"])
-	}
-	id := b.pending(t)[0]["id"]
-	if code, out := b.api(t, http.MethodPost, "/api/edges/approve", map[string]any{"id": id}); code != http.StatusOK {
-		t.Fatalf("approve: %d %v", code, out["_raw"])
 	}
 }
 

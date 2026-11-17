@@ -16,14 +16,18 @@ import (
 // 노드의 판정·저장은 여기에 없다 (FR-PDM-53).
 
 // edgesChanged 는 간선 상태가 바뀐 **뒤에** 화면에 알린다. 화면은 `GET /api/edges` 로
-// 다시 읽는다 (FR-PNW-81). `paired` 는 이 노드가 승인해 간선 맺기를 마친 이름이다 (FR-PNW-82).
-func (s *Server) edgesChanged(paired string) {
+// 다시 읽는다 (FR-PNW-81). 맺거나 지운 간선이 있으면 `paired`·`removed` `{fp, name}` 로
+// 싣는다 (EDGE_PAIRING_SRS FR-EPR-5·23).
+func (s *Server) edgesChanged(c edgenode.Change) {
 	if s.Commands == nil {
 		return
 	}
 	args := map[string]any{}
-	if paired != "" {
-		args["paired"] = paired
+	if c.Paired != nil {
+		args["paired"] = c.Paired
+	}
+	if c.Removed != nil {
+		args["removed"] = c.Removed
 	}
 	s.Commands.Broadcast(sse.Payload("edges_changed", args))
 }
@@ -75,15 +79,6 @@ func (s *Server) apiEdgesInvite(w http.ResponseWriter, r *http.Request) {
 	s.edgeDo(w, r, "invite", true)
 }
 func (s *Server) apiEdgesAdd(w http.ResponseWriter, r *http.Request) { s.edgeDo(w, r, "add", true) }
-func (s *Server) apiEdgesPending(w http.ResponseWriter, r *http.Request) {
-	s.edgeDo(w, r, "pending", false)
-}
-func (s *Server) apiEdgesApprove(w http.ResponseWriter, r *http.Request) {
-	s.edgeDo(w, r, "approve", true)
-}
-func (s *Server) apiEdgesReject(w http.ResponseWriter, r *http.Request) {
-	s.edgeDo(w, r, "reject", true)
-}
 func (s *Server) apiEdgesRemove(w http.ResponseWriter, r *http.Request) {
 	s.edgeDo(w, r, "remove", true)
 }

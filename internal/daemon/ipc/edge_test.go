@@ -103,12 +103,12 @@ func edgesEvents(t *testing.T, buf *bytes.Buffer) []toolipc.EdgesEvent {
 // FR-PDM-27: 상태가 바뀌면 edges push 를 보낸다. edge 를 모르는 서버에는 보내지 않는다.
 func TestEdgesPush_OnlyToEdgeServer(t *testing.T) {
 	ps, _, buf := edgeServer(t, true, true)
-	ps.PushEdges("b")
-	if ev := edgesEvents(t, buf); len(ev) != 1 || ev[0].Paired != "b" {
+	ps.PushEdges(edgenode.Change{Removed: &edgenode.Ref{FP: "f", Name: "b"}})
+	if ev := edgesEvents(t, buf); len(ev) != 1 || ev[0].Removed == nil || ev[0].Removed.Name != "b" || ev[0].Paired != nil {
 		t.Fatalf("push %+v", ev)
 	}
 	ps2, _, buf2 := edgeServer(t, true, false)
-	ps2.PushEdges("")
+	ps2.PushEdges(edgenode.Change{})
 	if ev := edgesEvents(t, buf2); len(ev) != 0 {
 		t.Fatalf("edge 를 모르는 서버에 보냈다: %+v", ev)
 	}

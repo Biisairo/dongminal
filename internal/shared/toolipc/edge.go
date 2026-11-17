@@ -28,8 +28,15 @@ type EdgePortParams struct {
 	Listening bool   `json:"listening,omitempty"`
 }
 
+// EdgeRef 는 맺거나 지운 간선 하나다 (EDGE_PAIRING_SRS FR-EPR-5·23).
+type EdgeRef struct {
+	FP   string `json:"fp"`
+	Name string `json:"name"`
+}
+
 // EdgesEvent 는 edges push 다. 본문은 `edges_changed` 의 인자와 같다 (FR-PDM-27).
 type EdgesEvent struct {
-	Event  string `json:"event"`
-	Paired string `json:"paired,omitempty"`
+	Event   string   `json:"event"`
+	Paired  *EdgeRef `json:"paired,omitempty"`
+	Removed *EdgeRef `json:"removed,omitempty"`
 }

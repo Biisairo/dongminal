@@ -67,26 +67,6 @@ func (r *RateLimiter) size() int {
 	return len(r.hits)
 }
 
-// FR-PNW-91: 지문으로 받는 쪽이 저장한 이름을 찾는다. pending-out 은 짝 이름이 아니다.
-func TestStoreNameOf(t *testing.T) {
-	clk := newFakeClock()
-	s := newTestStore(t, clk)
-	_ = s.AddEdge(Edge{Name: "home", Addr: "h", Port: 1, Fingerprint: fpOf("aa")})
-	_ = s.AddEdge(Edge{Name: "lab", Addr: "h", Port: 1, Fingerprint: fpOf("bb"), State: StatePendingOut, Expires: clk.t.Add(PendingTTL)})
-	if n, ok := s.NameOf(fpOf("aa")); !ok || n != "home" {
-		t.Fatalf("NameOf = %q %v", n, ok)
-	}
-	if _, ok := s.NameOf(fpOf("bb")); ok {
-		t.Fatal("pending-out 의 이름을 짝 이름으로 돌려줬다")
-	}
-	if p, ok := s.ByName("lab"); !ok || p.State != StatePendingOut {
-		t.Fatalf("ByName = %+v %v", p, ok)
-	}
-	if _, ok := s.ByName("nope"); ok {
-		t.Fatal("없는 이름을 찾았다")
-	}
-}
-
 // 보안 재리뷰(3차) #4: 살아 있는 키가 문턱을 넘어도 정리는 창마다 한 번이다. 요청마다 맵 전체를
 // 훑지 않는다.
 func TestRateLimiterSweepsOncePerWindow(t *testing.T) {

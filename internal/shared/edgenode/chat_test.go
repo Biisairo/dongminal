@@ -21,10 +21,6 @@ func pairNodes(t *testing.T, a, b *testNode) {
 	if add := a.do(t, "add", map[string]any{"code": code}); add.Status != http.StatusOK {
 		t.Fatalf("add %d %s %s", add.Status, add.Code, add.Message)
 	}
-	id := body(t, b.do(t, "pending", nil))["pending"].([]any)[0].(map[string]any)["id"]
-	if ap := b.do(t, "approve", map[string]any{"id": id}); ap.Status != http.StatusOK {
-		t.Fatalf("approve %d %s", ap.Status, ap.Body)
-	}
 }
 
 func targetOf(t *testing.T, tn *testNode) edge.Target {
@@ -79,7 +75,7 @@ func TestChatPathRejectsNonEdge(t *testing.T) {
 	b := newTestNodeWith(t, "node-b", http.NotFoundHandler())
 	stranger := newTestNode(t, "stranger")
 	_, err := edge.NewClient(stranger.Identity()).Upgrade(context.Background(), targetOf(t, b), chatPath, "dmchat1")
-	if !errors.Is(err, edge.ErrRejected) {
-		t.Fatalf("err = %v, want ErrRejected", err)
+	if !IsNotEdge(err) {
+		t.Fatalf("err = %v, want edge_not_edge", err)
 	}
 }

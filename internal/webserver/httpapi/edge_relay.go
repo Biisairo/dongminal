@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/edgenode"
 	"dongminal/internal/shared/edgerelay"
 	"dongminal/internal/shared/toolipc"
 )
@@ -89,14 +90,21 @@ func (s *Server) kickEdge() {
 
 // EdgePushed 는 데몬의 edges push 다 (FR-PDM-27). 같은 인자로 edges_changed 를 방송하고 노드
 // 포트를 다시 맞춘다. 읽기 루프에서 불리므로 데몬 RPC 를 기다리지 않는다.
-func (s *Server) EdgePushed(paired string) {
-	s.edgesChanged(paired)
+func (s *Server) EdgePushed(ev toolipc.EdgesEvent) {
+	var c edgenode.Change
+	if r := ev.Paired; r != nil {
+		c.Paired = &edgenode.Ref{FP: r.FP, Name: r.Name}
+	}
+	if r := ev.Removed; r != nil {
+		c.Removed = &edgenode.Ref{FP: r.FP, Name: r.Name}
+	}
+	s.edgesChanged(c)
 	s.kickEdge()
 }
 
 // EdgeResync 는 데몬에 다시 붙은 뒤다 (FR-PDM-33). 붙지 않은 동안의 push 는 잃었으므로 화면이
 // 다시 읽게 하고 노드 포트를 다시 맞춘다.
 func (s *Server) EdgeResync() {
-	s.edgesChanged("")
+	s.edgesChanged(edgenode.Change{})
 	s.kickEdge()
 }

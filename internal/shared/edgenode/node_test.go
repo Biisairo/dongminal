@@ -20,8 +20,8 @@ type testNode struct {
 	*Node
 	ln *edge.Listener
 	mu sync.Mutex
-	// notes 는 Notify 로 받은 paired 값이다.
-	notes []string
+	// notes 는 Notify 로 받은 값이다.
+	notes []Change
 }
 
 func freePort(t *testing.T) int {
@@ -56,9 +56,9 @@ func newTestNodeWith(t *testing.T, name string, chat http.Handler) *testNode {
 		Chat:       chat,
 		PortStatus: func() edge.Status { return tn.ln.Status() },
 		OnConfig:   func(c edge.Config) { tn.ln.Apply(c) },
-		Notify: func(paired string) {
+		Notify: func(c Change) {
 			tn.mu.Lock()
-			tn.notes = append(tn.notes, paired)
+			tn.notes = append(tn.notes, c)
 			tn.mu.Unlock()
 		},
 	})
@@ -87,34 +87,17 @@ func body(t *testing.T, r Response) map[string]any {
 	return m
 }
 
-// TC-PDM-11 (축약): Do 만으로 초대 → 등록 → 승인이 돈다.
+// TC-PDM-11 (축약): Do 만으로 초대 → 맺기가 돈다.
 func TestNodePairViaDo(t *testing.T) {
 	a := newTestNode(t, "node-a")
 	b := newTestNode(t, "node-b")
-	inv := b.do(t, "invite", map[string]any{})
-	if inv.Status != http.StatusOK {
-		t.Fatalf("invite %d %s %s", inv.Status, inv.Code, inv.Message)
-	}
-	code, _ := body(t, inv)["code"].(string)
-	if add := a.do(t, "add", map[string]any{"code": code}); add.Status != http.StatusOK {
-		t.Fatalf("add %d %s %s", add.Status, add.Code, add.Message)
-	}
-	pend := body(t, b.do(t, "pending", nil))["pending"].([]any)
-	if len(pend) != 1 {
-		t.Fatalf("pending %v", pend)
-	}
-	id := pend[0].(map[string]any)["id"]
-	ap := b.do(t, "approve", map[string]any{"id": id})
-	if ap.Status != http.StatusOK || body(t, ap)["confirmed"] != true {
-		t.Fatalf("approve %d %s", ap.Status, ap.Body)
-	}
+	pairNodes(t, a, b)
 	if !a.Store().IsEdge(b.Identity().Fingerprint) || !b.Store().IsEdge(a.Identity().Fingerprint) {
 		t.Fatal("양쪽이 간선이 아니다")
 	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if last := b.notes[len(b.notes)-1]; last != "node-a" {
-		t.Fatalf("승인 알림의 paired = %q", last)
+	// A 의 노드 포트가 열려 있었으므로 B 는 A 의 주소를 안다 (FR-EPR-2).
+	if e, _ := b.Store().Resolve(a.Identity().Fingerprint); e.Addr != "127.0.0.1" || e.Port != a.Config().Port {
+		t.Fatalf("B 가 저장한 A 의 주소 = %s:%d", e.Addr, e.Port)
 	}
 }
 

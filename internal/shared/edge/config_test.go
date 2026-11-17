@@ -6,9 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"dongminal/internal/shared/dmenv"
 )
@@ -189,27 +187,26 @@ func TestStoreIsEdge(t *testing.T) {
 	}
 }
 
-func newTestStore(t *testing.T, clk *fakeClock) *Store {
+func newTestStore(t *testing.T) *Store {
 	t.Helper()
-	s := OpenStore(filepath.Join(t.TempDir(), dmenv.EdgesFile), "host-a")
-	s.now = clk.now
-	return s
+	return OpenStore(filepath.Join(t.TempDir(), dmenv.EdgesFile), "host-a")
 }
 
-func fpOf(b string) string { return strings.Repeat(b, 32) }
+func fpRep(b string) string { return strings.Repeat(b, 32) }
 
 // 짝 항목도 저장 전에 검증한다.
 func TestStoreRejectsInvalidEdge(t *testing.T) {
-	s := newTestStore(t, newFakeClock())
+	s := newTestStore(t)
 	cases := []Edge{
-		{Name: "a b", Addr: "h", Port: 1, Fingerprint: fpOf("aa")},
-		{Name: "a", Addr: "h", Port: 0, Fingerprint: fpOf("aa")},
+		{Name: "a\x01", Addr: "h", Port: 1, Fingerprint: fpRep("aa")},
+		{Name: "", Addr: "h", Port: 1, Fingerprint: fpRep("aa")},
+		{Name: strings.Repeat("x", DisplayNameMax+1), Addr: "h", Port: 1, Fingerprint: fpRep("aa")},
+		{Name: "a", Addr: "h", Port: 0, Fingerprint: fpRep("aa")},
 		{Name: "a", Addr: "h", Port: 1, Fingerprint: "xyz"},
-		{Name: "a", Addr: "", Port: 1, Fingerprint: fpOf("aa")},
-		{Name: "a", Addr: "h", Port: 1, Fingerprint: fpOf("aa"), State: "weird"},
+		{Name: "a", Addr: "", Port: 1, Fingerprint: fpRep("aa")},
 	}
 	for _, p := range cases {
-		if err := s.AddEdge(p); !errors.Is(err, ErrInvalidEdge) && !errors.Is(err, ErrInvalidName) {
+		if err := s.AddEdge(p); !errors.Is(err, ErrInvalidEdge) {
 			t.Errorf("AddEdge(%+v) = %v", p, err)
 		}
 	}
@@ -218,66 +215,13 @@ func TestStoreRejectsInvalidEdge(t *testing.T) {
 	}
 }
 
-// FR-PNW-26·27·29: pending-out 은 짝이 아니고, 10분 안에 승격되며, 지나면 사라진다.
-func TestStorePendingOutLifecycle(t *testing.T) {
-	clk := newFakeClock()
-	s := newTestStore(t, clk)
-	fp := fpOf("aa")
-	if err := s.AddEdge(Edge{Name: "b", Addr: "10.0.0.2", Port: 58147, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
+// FR-EPR-7: 같은 지문이 다시 오면 그 항목의 이름·주소를 바꾼다.
+func TestStoreReplaceSameFingerprint(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fpRep("aa")}); err != nil {
 		t.Fatal(err)
 	}
-	if s.IsEdge(fp) {
-		t.Fatal("pending-out 을 짝으로 셌다")
-	}
-	if !s.IsPendingOut(fp) {
-		t.Fatal("pending-out 을 모른다")
-	}
-	if err := s.Promote(fp); err != nil {
-		t.Fatalf("승격하지 못했다: %v", err)
-	}
-	if !s.IsEdge(fp) || s.IsPendingOut(fp) {
-		t.Fatal("승격 뒤 상태가 틀렸다")
-	}
-	got := OpenStore(s.path, "x").Config().Edges
-	if len(got) != 1 || got[0].State != "" || !got[0].Expires.IsZero() {
-		t.Fatalf("승격이 저장되지 않았다: %+v", got)
-	}
-}
-
-func TestStorePendingOutExpires(t *testing.T) {
-	clk := newFakeClock()
-	s := newTestStore(t, clk)
-	fp := fpOf("aa")
-	if err := s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
-		t.Fatal(err)
-	}
-	clk.advance(PendingTTL + time.Second)
-	if s.IsPendingOut(fp) || !errors.Is(s.Promote(fp), ErrNotPending) {
-		t.Fatal("만료된 pending-out 이 살아 있다")
-	}
-	if s.NameTaken("b") {
-		t.Fatal("만료된 pending-out 이 이름을 쥐고 있다")
-	}
-	for _, p := range s.Config().Edges {
-		if p.Fingerprint == fp {
-			t.Fatal("만료된 pending-out 이 목록에 보인다")
-		}
-	}
-}
-
-// FR-PNW-30: 이름은 겹치지 않는다. 같은 지문이 다시 오면 그 항목을 갈아 끼운다.
-func TestStoreNamesAndReplace(t *testing.T) {
-	s := newTestStore(t, newFakeClock())
-	if err := s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("aa")}); err != nil {
-		t.Fatal(err)
-	}
-	if !s.NameTaken("b") || s.NameTaken("c") {
-		t.Fatal("NameTaken 이 틀렸다")
-	}
-	if err := s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("bb")}); !errors.Is(err, ErrNameTaken) {
-		t.Fatalf("같은 이름 = %v", err)
-	}
-	if err := s.AddEdge(Edge{Name: "b2", Addr: "h2", Port: 2, Fingerprint: fpOf("aa")}); err != nil {
+	if err := s.AddEdge(Edge{Name: "b2", Addr: "h2", Port: 2, Fingerprint: fpRep("aa")}); err != nil {
 		t.Fatalf("같은 지문 = %v", err)
 	}
 	got := s.Config().Edges
@@ -286,91 +230,40 @@ func TestStoreNamesAndReplace(t *testing.T) {
 	}
 }
 
-// FR-PNW-31·32: 해제와 주소 수정.
+// FR-EPR-30·52: 지문으로 지우고 주소를 고친다.
 func TestStoreRemoveAndAddress(t *testing.T) {
-	s := newTestStore(t, newFakeClock())
-	fp := fpOf("aa")
+	s := newTestStore(t)
+	fp := fpRep("aa")
 	if err := s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fp}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetAddress("b", "10.0.0.9", 60000); err != nil {
+	if err := s.SetAddress(fp, "10.0.0.9", 60000); err != nil {
 		t.Fatal(err)
 	}
 	if p := s.Config().Edges[0]; p.Addr != "10.0.0.9" || p.Port != 60000 || p.Fingerprint != fp {
 		t.Fatalf("주소 수정: %+v", p)
 	}
-	if err := s.SetAddress("b", "", 1); !errors.Is(err, ErrInvalidEdge) {
+	if err := s.SetAddress(fp, "", 1); !errors.Is(err, ErrInvalidEdge) {
 		t.Fatalf("빈 주소 = %v", err)
 	}
-	if err := s.SetAddress("nope", "h", 1); !errors.Is(err, ErrEdgeNotFound) {
+	if err := s.SetAddress(fpRep("bb"), "h", 1); !errors.Is(err, ErrEdgeNotFound) {
 		t.Fatalf("없는 짝 주소 = %v", err)
 	}
-	if err := s.Remove("b"); err != nil {
+	if err := s.Remove(fp); err != nil {
 		t.Fatal(err)
 	}
 	if s.IsEdge(fp) {
 		t.Fatal("해제 뒤에도 짝이다")
 	}
-	if err := s.Remove("b"); !errors.Is(err, ErrEdgeNotFound) {
+	if err := s.Remove(fp); !errors.Is(err, ErrEdgeNotFound) {
 		t.Fatalf("두 번째 해제 = %v", err)
-	}
-}
-
-// FR-PNW-30 (I-5): 겹치지 않는 이름을 만든다.
-func TestStoreFreeName(t *testing.T) {
-	s := newTestStore(t, newFakeClock())
-	if got := s.FreeNameFor("b", ""); got != "b" {
-		t.Fatalf("FreeName = %q", got)
-	}
-	_ = s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("aa")})
-	_ = s.AddEdge(Edge{Name: "b-2", Addr: "h", Port: 1, Fingerprint: fpOf("bb")})
-	if got := s.FreeNameFor("b", ""); got != "b-3" {
-		t.Fatalf("FreeName = %q", got)
-	}
-	long := strings.Repeat("x", NameMaxLen)
-	_ = s.AddEdge(Edge{Name: long, Addr: "h", Port: 1, Fingerprint: fpOf("cc")})
-	if got := s.FreeNameFor(long, ""); ValidName(got) != nil || got == long {
-		t.Fatalf("긴 이름의 FreeName = %q", got)
-	}
-}
-
-// I-5: 같은 지문의 항목은 갈아 끼워지므로 그 이름은 비어 있는 것으로 본다.
-func TestStoreFreeNameIgnoresSameFingerprint(t *testing.T) {
-	clk := newFakeClock()
-	s := newTestStore(t, clk)
-	_ = s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("aa"), State: StatePendingOut, Expires: clk.t.Add(PendingTTL)})
-	if got := s.FreeNameFor("b", fpOf("aa")); got != "b" {
-		t.Fatalf("같은 지문 = %q", got)
-	}
-	if got := s.FreeNameFor("b", fpOf("bb")); got != "b-2" {
-		t.Fatalf("다른 지문 = %q", got)
-	}
-}
-
-// L-2: 이미 짝인 지문을 다시 등록해도 짝으로 남는다. 상대가 승인하지 않아도 10분 뒤 사라지지 않는다.
-func TestStoreReAddKeepsPaired(t *testing.T) {
-	clk := newFakeClock()
-	s := newTestStore(t, clk)
-	fp := fpOf("aa")
-	if err := s.AddEdge(Edge{Name: "b", Addr: "10.0.0.2", Port: 58147, Fingerprint: fp}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.AddEdge(Edge{Name: "b2", Addr: "10.0.0.3", Port: 58147, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
-		t.Fatal(err)
-	}
-	clk.advance(PendingTTL + time.Second)
-	if !s.IsEdge(fp) {
-		t.Fatal("다시 등록한 짝이 pending-out 으로 내려가 사라졌다")
-	}
-	if p, ok := s.ByName("b2"); !ok || p.Addr != "10.0.0.3" {
-		t.Fatalf("새 이름·주소가 반영되지 않았다 %+v", p)
 	}
 }
 
 // 리뷰 C-7: 노드 설정을 바꿀 때 알릴 주소는 주소여야 한다. 틀린 값을 저장하면 초대를
 // 만들 때에야 실패한다.
 func TestStoreSetNodeValidatesAdvertise(t *testing.T) {
-	s := newTestStore(t, newFakeClock())
+	s := newTestStore(t)
 	base := s.Config()
 	c := base
 	c.Advertise = "not an addr!"
@@ -383,71 +276,17 @@ func TestStoreSetNodeValidatesAdvertise(t *testing.T) {
 	}
 }
 
-// C3: 확인과 갱신은 한 락 안에서 한다. 결과는 "바꿈"·"이미 짝"·"없음"으로 나뉜다.
-func TestStorePromoteResults(t *testing.T) {
-	clk := newFakeClock()
-	s := newTestStore(t, clk)
-	fp := fpOf("aa")
-	if err := s.Promote(fp); !errors.Is(err, ErrNotPending) {
-		t.Fatalf("없는 항목: %v", err)
-	}
-	if err := s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Promote(fp); err != nil {
-		t.Fatalf("첫 승격: %v", err)
-	}
-	if err := s.Promote(fp); !errors.Is(err, ErrAlreadyPaired) {
-		t.Fatalf("이미 짝: %v", err)
-	}
-}
-
-// C3: confirm 과 call 회복이 동시에 와도 하나만 바꾸고 나머지는 "이미 짝"이다.
-func TestStorePromoteConcurrent(t *testing.T) {
-	clk := newFakeClock()
-	s := newTestStore(t, clk)
-	fp := fpOf("aa")
-	if err := s.AddEdge(Edge{Name: "b", Addr: "h", Port: 1, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
-		t.Fatal(err)
-	}
-	const n = 8
-	errs := make(chan error, n)
-	var wg sync.WaitGroup
-	for range n {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			errs <- s.Promote(fp)
-		}()
-	}
-	wg.Wait()
-	close(errs)
-	promoted := 0
-	for err := range errs {
-		switch {
-		case err == nil:
-			promoted++
-		case errors.Is(err, ErrAlreadyPaired):
-		default:
-			t.Fatalf("동시 승격의 결과: %v", err)
-		}
-	}
-	if promoted != 1 {
-		t.Fatalf("바꾼 횟수 %d", promoted)
-	}
-}
-
 // PEER_CHAT_SRS §3.12a R-2: 같은 지문을 다시 더해도 고정한 도우미 키는 남는다.
 func TestAddEdgeKeepsHelperKey(t *testing.T) {
 	s := OpenStore(filepath.Join(t.TempDir(), "edges.json"), "h")
 	fp := strings.Repeat("ab", 32)
-	if err := s.AddEdge(Edge{Name: "p", Addr: "10.0.0.1", Port: 1, Fingerprint: fp, State: StatePaired}); err != nil {
+	if err := s.AddEdge(Edge{Name: "p", Addr: "10.0.0.1", Port: 1, Fingerprint: fp}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.PinHelper(fp, "K"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddEdge(Edge{Name: "p", Addr: "10.0.0.2", Port: 1, Fingerprint: fp, State: StatePaired}); err != nil {
+	if err := s.AddEdge(Edge{Name: "p", Addr: "10.0.0.2", Port: 1, Fingerprint: fp}); err != nil {
 		t.Fatal(err)
 	}
 	for _, e := range s.Config().Edges {

@@ -50,14 +50,21 @@ func (ps *PanedServer) EdgePort() edge.Status {
 
 // PushEdges 는 간선 상태가 바뀌었다고 서버에 알린다 (FR-PDM-27). edges push 를 모르는 서버나
 // 서버가 없으면 보내지 않는다 — 서버는 붙을 때 다시 읽는다. 노드의 Notify 로 쓴다.
-func (ps *PanedServer) PushEdges(paired string) {
+func (ps *PanedServer) PushEdges(ch edgenode.Change) {
 	ps.mu.Lock()
 	c := ps.currConn
 	ps.mu.Unlock()
 	if c == nil || !c.edge.Load() {
 		return
 	}
-	c.enqueue(toolipc.EdgesEvent{Event: toolipc.EventEdges, Paired: paired}, false)
+	ev := toolipc.EdgesEvent{Event: toolipc.EventEdges}
+	if r := ch.Paired; r != nil {
+		ev.Paired = &toolipc.EdgeRef{FP: r.FP, Name: r.Name}
+	}
+	if r := ch.Removed; r != nil {
+		ev.Removed = &toolipc.EdgeRef{FP: r.FP, Name: r.Name}
+	}
+	c.enqueue(ev, false)
 }
 
 // edgeOp 는 로컬 API 연산 하나다 (FR-PDM-30).

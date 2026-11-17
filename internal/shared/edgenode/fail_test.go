@@ -11,7 +11,7 @@ import (
 // L-1: 저장소 오류는 종류대로 가른다.
 func TestStoreFailCodes(t *testing.T) {
 	cases := map[error]string{
-		edge.ErrNameTaken:    edge.CodeNameTaken,
+		edge.ErrAmbiguous:    edge.CodeAmbiguous,
 		edge.ErrSaveFailed:   CodeSaveFailed,
 		edge.ErrEdgeNotFound: edge.CodeNotFound,
 	}

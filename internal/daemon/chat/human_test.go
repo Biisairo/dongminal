@@ -83,10 +83,10 @@ func (h *humanNode) pinOf(fp string) string {
 // edgeLink 는 두 노드를 간선으로 등록하고 메모리 연결로 잇는다.
 func edgeLink(a, b *humanNode) func() {
 	a.emu.Lock()
-	a.edges = append(a.edges, edge.Edge{Name: b.name, Fingerprint: b.fp(), State: edge.StatePaired})
+	a.edges = append(a.edges, edge.Edge{Name: b.name, Fingerprint: b.fp()})
 	a.emu.Unlock()
 	b.emu.Lock()
-	b.edges = append(b.edges, edge.Edge{Name: a.name, Fingerprint: a.fp(), State: edge.StatePaired})
+	b.edges = append(b.edges, edge.Edge{Name: a.name, Fingerprint: a.fp()})
 	b.emu.Unlock()
 	return link(a.testNode, b.testNode)
 }
@@ -222,8 +222,8 @@ func TestCommandRejected(t *testing.T) {
 func TestPinNotReplaced(t *testing.T) {
 	a, b := newHumanNode(t, "a"), newHumanNode(t, "b")
 	_, stale, _ := ed25519.GenerateKey(rand.Reader)
-	a.edges = append(a.edges, edge.Edge{Name: "b", Fingerprint: b.fp(), State: edge.StatePaired, HelperKey: humancmd.PublicKey(stale)})
-	b.edges = append(b.edges, edge.Edge{Name: "a", Fingerprint: a.fp(), State: edge.StatePaired})
+	a.edges = append(a.edges, edge.Edge{Name: "b", Fingerprint: b.fp(), HelperKey: humancmd.PublicKey(stale)})
+	b.edges = append(b.edges, edge.Edge{Name: "a", Fingerprint: a.fp()})
 	link(a.testNode, b.testNode)
 	pa, pb := a.Register("a/x", KindAgent), b.Register("b/x", KindAgent)
 	r, err := b.Create(pb.ID, "ops", "")
@@ -304,7 +304,7 @@ func TestHelperKeyShape(t *testing.T) {
 // §3.12a R-6: 간선 상대의 같은 상태가 다른 길로 먼저 와도, 직접 연결로 온 상태로 고정한다.
 func TestPinAfterRelayedState(t *testing.T) {
 	a, b := newHumanNode(t, "a"), newHumanNode(t, "b")
-	a.edges = append(a.edges, edge.Edge{Name: "b", Fingerprint: b.fp(), State: edge.StatePaired})
+	a.edges = append(a.edges, edge.Edge{Name: "b", Fingerprint: b.fp()})
 	b.mu.Lock()
 	own := b.own
 	b.mu.Unlock()

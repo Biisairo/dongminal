@@ -8,22 +8,19 @@ import (
 	"encoding/json"
 	"errors"
 	"net/netip"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 )
 
-// 짝맞춤의 시간·횟수 (FR-PNW-20·24·25).
+// 간선 맺기의 시간 (FR-PNW-20, EDGE_PAIRING_SRS FR-EPR-1).
 const (
-	InviteTTL  = 10 * time.Minute
-	PendingTTL = 10 * time.Minute
+	InviteTTL = 10 * time.Minute
 	// InvitePrefix 는 초대 코드의 접두어다 (FR-PNW-21).
 	InvitePrefix = "dmedge1:"
 	tokenBytes   = 16
 	maxHostLen   = 253
 	maxLabelLen  = 63
-	idBytes      = 8
 )
 
 var (
@@ -32,32 +29,29 @@ var (
 	ErrInvalidInvite = errors.New("초대 코드의 모양이 틀렸습니다")
 )
 
-// Pending 은 승인 대기 하나다 (FR-PNW-25).
-type Pending struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Addr        string    `json:"addr"`
-	Port        int       `json:"port"`
-	Fingerprint string    `json:"fp"`
-	Expires     time.Time `json:"expires"`
-}
-
 type invite struct {
 	token   string
 	expires time.Time
 }
 
-// Pairing 은 초대와 승인 대기다. 메모리에만 둔다 — 둘 다 10분짜리다.
+// redeemed 는 쓴 초대다. 응답이 끊긴 쪽의 다시 시도를 그 초대의 만료까지 받는다 (FR-EPR-6).
+type redeemed struct {
+	token   string
+	fp      string
+	expires time.Time
+}
+
+// Pairing 은 초대 하나와 마지막으로 쓴 초대다. 메모리에만 둔다 — 10분짜리다.
 type Pairing struct {
-	mu      sync.Mutex
-	now     func() time.Time
-	invite  *invite
-	pending map[string]Pending
+	mu     sync.Mutex
+	now    func() time.Time
+	invite *invite
+	used   *redeemed
 }
 
 // NewPairing 은 now 를 시계로 쓴다.
 func NewPairing(now func() time.Time) *Pairing {
-	return &Pairing{now: now, pending: map[string]Pending{}}
+	return &Pairing{now: now}
 }
 
 func randomHex(n int) string {
@@ -101,82 +95,29 @@ func (p *Pairing) InviteExpires() (time.Time, bool) {
 	return inv.expires, true
 }
 
-// Consume 은 토큰을 대조해 맞으면 초대를 쓴다. 틀린 토큰은 그 요청만 거절한다 —
-// 128비트 토큰은 10분 안에 맞힐 수 없고, 횟수로 폐기하면 남이 초대를 없앨 수 있다 (FR-PNW-24, I-39).
-func (p *Pairing) Consume(token string) error {
+func sameToken(a, b string) bool { return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1 }
+
+// Redeem 은 지문 fp 의 노드가 낸 토큰을 대조한다 (FR-EPR-3·6). 살아 있는 초대와 맞으면
+// 쓰고 (토큰, 지문, 만료)를 기억한다. 같은 지문이 같은 토큰으로 다시 오면 초대 만료까지
+// 성공이다. 살아 있는 초대에 틀린 토큰은 ErrBadToken 이고 그 요청만 거절한다 — 128비트
+// 토큰은 10분 안에 맞힐 수 없고, 횟수로 폐기하면 남이 초대를 없앨 수 있다 (I-39).
+// 그 밖은 ErrNoInvite 다.
+func (p *Pairing) Redeem(token, fp string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if u := p.used; u != nil && p.now().Before(u.expires) && u.fp == fp && sameToken(token, u.token) {
+		return nil
+	}
 	inv := p.liveInviteLocked()
 	if inv == nil {
 		return ErrNoInvite
 	}
-	if subtle.ConstantTimeCompare([]byte(token), []byte(inv.token)) != 1 {
+	if !sameToken(token, inv.token) {
 		return ErrBadToken
 	}
 	p.invite = nil
+	p.used = &redeemed{token: inv.token, fp: fp, expires: inv.expires}
 	return nil
-}
-
-// AddPending 은 승인 대기를 더한다. 같은 지문의 이전 항목은 갈아 끼운다.
-func (p *Pairing) AddPending(in Pending) Pending {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for id, old := range p.pending {
-		if old.Fingerprint == in.Fingerprint {
-			delete(p.pending, id)
-		}
-	}
-	in.ID = randomHex(idBytes)
-	in.Expires = p.now().Add(PendingTTL)
-	p.pending[in.ID] = in
-	return in
-}
-
-func (p *Pairing) pruneLocked() {
-	now := p.now()
-	for id, e := range p.pending {
-		if !now.Before(e.Expires) {
-			delete(p.pending, id)
-		}
-	}
-}
-
-// Pending 은 살아 있는 승인 대기 목록이다. 만료 순이다.
-func (p *Pairing) Pending() []Pending {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.pruneLocked()
-	out := make([]Pending, 0, len(p.pending))
-	for _, e := range p.pending {
-		out = append(out, e)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Expires.Before(out[j].Expires) })
-	return out
-}
-
-// TakePending 은 승인 대기 하나를 꺼낸다.
-func (p *Pairing) TakePending(id string) (Pending, bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.pruneLocked()
-	e, ok := p.pending[id]
-	if ok {
-		delete(p.pending, id)
-	}
-	return e, ok
-}
-
-// PutBack 은 꺼낸 승인 대기를 그대로 돌려놓는다 (승인이 이름 충돌로 멈춘 경우).
-// 그 사이 같은 지문의 새 대기가 들어왔으면 새 것이 이긴다 (AddPending 과 같은 규칙).
-func (p *Pairing) PutBack(e Pending) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for _, cur := range p.pending {
-		if cur.Fingerprint == e.Fingerprint {
-			return
-		}
-	}
-	p.pending[e.ID] = e
 }
 
 // InviteCode 는 초대 코드의 내용이다 (FR-PNW-21).

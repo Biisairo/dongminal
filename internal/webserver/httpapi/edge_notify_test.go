@@ -18,7 +18,7 @@ func newEdgeNodeObserved(t *testing.T, name string) (*edgeNode, *fakeCommandBrok
 }
 
 func edgeFixture(name string) edge.Edge {
-	return edge.Edge{Name: name, Addr: "h", Port: 1, Fingerprint: strings.Repeat("dd", 32)}
+	return edge.Edge{Name: name, Addr: "127.0.0.1", Port: 1, Fingerprint: strings.Repeat("dd", 32)}
 }
 
 // edgesChanged 는 방송된 `edges_changed` 의 args 를 차례로 꺼내고 비운다.
@@ -40,6 +40,7 @@ func edgesChanged(t *testing.T, f *fakeCommandBroker) []map[string]any {
 	return out
 }
 
+// FR-EPR-5: 맺으면 양쪽이 `paired` `{fp, name}` 을 방송한다.
 func TestEdgesChangedOnPairing(t *testing.T) {
 	a, ac := newEdgeNodeObserved(t, "node-a")
 	b, bc := newEdgeNodeObserved(t, "node-b")
@@ -50,76 +51,55 @@ func TestEdgesChangedOnPairing(t *testing.T) {
 	if code, out := a.api(t, http.MethodPost, "/api/edges/add", map[string]any{"code": invite}); code != http.StatusOK {
 		t.Fatalf("add: %d %v", code, out["_raw"])
 	}
-	if got := edgesChanged(t, bc); len(got) != 1 || got[0]["paired"] != nil {
-		t.Fatalf("승인 대기가 생긴 B 의 방송 %v", got)
+	if got := edgesChanged(t, bc); len(got) != 1 || refOf(got[0], "paired")["name"] != "node-a" || refOf(got[0], "paired")["fp"] != a.fingerprint(t) {
+		t.Fatalf("B 의 방송 %v", got)
 	}
-	if got := edgesChanged(t, ac); len(got) != 1 {
-		t.Fatalf("등록을 요청한 A 의 방송 %v", got)
-	}
-	id := b.pending(t)[0]["id"]
-	if code, out := b.api(t, http.MethodPost, "/api/edges/approve", map[string]any{"id": id}); code != http.StatusOK {
-		t.Fatalf("approve: %d %v", code, out["_raw"])
-	}
-	if got := edgesChanged(t, bc); len(got) != 1 || got[0]["paired"] != "node-a" {
-		t.Fatalf("승인한 B 의 방송 %v", got)
-	}
-	if got := edgesChanged(t, ac); len(got) != 1 || got[0]["paired"] != nil {
-		t.Fatalf("confirm 을 받은 A 의 방송 %v", got)
+	if got := edgesChanged(t, ac); len(got) != 1 || refOf(got[0], "paired")["name"] != "node-b" {
+		t.Fatalf("A 의 방송 %v", got)
 	}
 }
 
-// 이름 충돌로 승인하지 못하면 바뀐 것이 없다 — 방송하지 않는다.
-func TestEdgesChangedNotOnFailedApprove(t *testing.T) {
-	a := newEdgeNode(t, "node-a", true)
+// FR-EPR-23: 지우면 양쪽이 `removed` `{fp, name}` 을 방송한다.
+func TestEdgesChangedOnRemove(t *testing.T) {
+	a, ac := newEdgeNodeObserved(t, "node-a")
 	b, bc := newEdgeNodeObserved(t, "node-b")
-	if code, out := b.api(t, http.MethodPost, "/api/edges/approve", map[string]any{"id": "nope"}); code != http.StatusNotFound {
-		t.Fatalf("approve: %d %v", code, out["_raw"])
-	}
-	if code, out := a.api(t, http.MethodPost, "/api/edges/add", map[string]any{"code": b.invite(t)}); code != http.StatusOK {
-		t.Fatalf("add: %d %v", code, out["_raw"])
-	}
+	pairNodes(t, a, b)
+	edgesChanged(t, ac)
 	edgesChanged(t, bc)
-	if code, _ := b.api(t, http.MethodPost, "/api/edges/approve", map[string]any{"id": b.pending(t)[0]["id"], "name": "bad name"}); code == http.StatusOK {
-		t.Fatal("틀린 이름으로 승인됐다")
+	if code, out := a.api(t, http.MethodPost, "/api/edges/remove", map[string]any{"fp": b.fingerprint(t)}); code != http.StatusOK {
+		t.Fatalf("remove: %d %v", code, out["_raw"])
 	}
-	if got := edgesChanged(t, bc); len(got) != 0 {
-		t.Fatalf("실패한 승인이 방송됐다 %v", got)
+	if got := edgesChanged(t, ac); len(got) != 1 || refOf(got[0], "removed")["name"] != "node-b" {
+		t.Fatalf("A 의 방송 %v", got)
 	}
+	if got := edgesChanged(t, bc); len(got) != 1 || refOf(got[0], "removed")["fp"] != a.fingerprint(t) {
+		t.Fatalf("B 의 방송 %v", got)
+	}
+}
+
+func refOf(args map[string]any, key string) map[string]any {
+	m, _ := args[key].(map[string]any)
+	return m
 }
 
 func TestEdgesChangedOnLocalEdits(t *testing.T) {
-	a := newEdgeNode(t, "node-a", true)
 	b, bc := newEdgeNodeObserved(t, "node-b")
-	if code, out := a.api(t, http.MethodPost, "/api/edges/add", map[string]any{"code": b.invite(t)}); code != http.StatusOK {
-		t.Fatalf("add: %d %v", code, out["_raw"])
+	if code, out := b.api(t, http.MethodPut, "/api/edges/node", map[string]any{"enabled": true, "port": freeLoopbackPort(t), "bind": "127.0.0.1", "name": "node-b2", "advertise": ""}); code != http.StatusOK {
+		t.Fatalf("node: %d %v", code, out["_raw"])
 	}
-	edgesChanged(t, bc)
-	steps := []struct {
-		method, path string
-		body         func() map[string]any
-	}{
-		{http.MethodPost, "/api/edges/reject", func() map[string]any { return map[string]any{"id": b.pending(t)[0]["id"]} }},
-		{http.MethodPut, "/api/edges/node", func() map[string]any {
-			return map[string]any{"enabled": true, "port": freeLoopbackPort(t), "bind": "127.0.0.1", "name": "node-b2", "advertise": ""}
-		}},
+	if got := edgesChanged(t, bc); len(got) != 1 {
+		t.Fatalf("node 뒤 방송 %v", got)
 	}
-	for _, s := range steps {
-		if code, out := b.api(t, s.method, s.path, s.body()); code != http.StatusOK {
-			t.Fatalf("%s: %d %v", s.path, code, out["_raw"])
-		}
-		if got := edgesChanged(t, bc); len(got) != 1 {
-			t.Fatalf("%s 뒤 방송 %v", s.path, got)
-		}
-	}
-	if err := b.srv.edgeNode.Store().AddEdge(edgeFixture("c")); err != nil {
+	fx := edgeFixture("c")
+	if err := b.srv.edgeNode.Store().AddEdge(fx); err != nil {
 		t.Fatal(err)
 	}
 	for _, s := range []struct {
 		method, path string
 		body         map[string]any
 	}{
-		{http.MethodPut, "/api/edges/address", map[string]any{"name": "c", "addr": "10.0.0.7", "port": 60001}},
-		{http.MethodPost, "/api/edges/remove", map[string]any{"name": "c"}},
+		{http.MethodPut, "/api/edges/address", map[string]any{"fp": fx.Fingerprint, "addr": "127.0.0.1", "port": 1}},
+		{http.MethodPost, "/api/edges/remove", map[string]any{"fp": fx.Fingerprint}},
 	} {
 		if code, out := b.api(t, s.method, s.path, s.body); code != http.StatusOK {
 			t.Fatalf("%s: %d %v", s.path, code, out["_raw"])
@@ -128,11 +108,11 @@ func TestEdgesChangedOnLocalEdits(t *testing.T) {
 			t.Fatalf("%s 뒤 방송 %v", s.path, got)
 		}
 	}
-	if code, _ := b.api(t, http.MethodPost, "/api/edges/remove", map[string]any{"name": "c"}); code != http.StatusNotFound {
-		t.Fatal("없는 짝 해제가 성공했다")
+	if code, _ := b.api(t, http.MethodPost, "/api/edges/remove", map[string]any{"fp": fx.Fingerprint}); code != http.StatusNotFound {
+		t.Fatal("없는 간선 지우기가 성공했다")
 	}
 	if got := edgesChanged(t, bc); len(got) != 0 {
-		t.Fatalf("실패한 해제가 방송됐다 %v", got)
+		t.Fatalf("실패한 지우기가 방송됐다 %v", got)
 	}
 }
 

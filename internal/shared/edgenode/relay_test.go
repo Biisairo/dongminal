@@ -65,10 +65,6 @@ func TestRelayPairFullFlow(t *testing.T) {
 	if add := do(a, "add", map[string]any{"code": code}); add.Status != http.StatusOK {
 		t.Fatalf("add %d %s %s", add.Status, add.Code, add.Message)
 	}
-	id := body(t, do(b, "pending", nil))["pending"].([]any)[0].(map[string]any)["id"]
-	if ap := do(b, "approve", map[string]any{"id": id}); ap.Status != http.StatusOK || body(t, ap)["confirmed"] != true {
-		t.Fatalf("approve %d %s", ap.Status, ap.Body)
-	}
 	if !a.Store().IsEdge(b.Identity().Fingerprint) || !b.Store().IsEdge(a.Identity().Fingerprint) {
 		t.Fatal("양쪽이 간선이 아니다")
 	}

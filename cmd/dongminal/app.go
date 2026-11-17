@@ -139,7 +139,7 @@ func (a *app) wireDaemonEdges() {
 	if a.panedClient == nil {
 		return
 	}
-	a.panedClient.SetOnEdges(func(ev toolipc.EdgesEvent) { a.srv.EdgePushed(ev.Paired) })
+	a.panedClient.SetOnEdges(func(ev toolipc.EdgesEvent) { a.srv.EdgePushed(ev) })
 	a.panedClient.SetOnEdgeResync(a.srv.EdgeResync)
 	// PEER_CHAT_SRS §3.11: 사람에게 온 글과 채팅 바뀜을 화면에 방송한다.
 	a.panedClient.SetOnChat(a.srv.ChatPushed)

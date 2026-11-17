@@ -7,10 +7,10 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
@@ -32,33 +32,33 @@ var (
 	ErrInvalidName  = errors.New("노드 이름은 영문·숫자·`.`·`_`·`-` 1~32자입니다")
 	ErrInvalidPort  = errors.New("포트는 1~65535 입니다")
 	ErrInvalidBind  = errors.New("듣는 주소는 IP 주소여야 합니다")
-	ErrInvalidEdge  = errors.New("짝 항목의 주소·포트·지문·상태가 틀렸습니다")
-	ErrNameTaken    = errors.New("그 이름의 짝이 이미 있습니다")
-	ErrEdgeNotFound = errors.New("그 이름의 짝이 없습니다")
-	// ErrAlreadyPaired·ErrNotPending 은 Promote 가 바꾸지 않은 이유다.
-	ErrAlreadyPaired = errors.New("이미 짝입니다")
-	ErrNotPending    = errors.New("승인 대기 중인 짝이 없습니다")
+	ErrInvalidEdge  = errors.New("간선 항목의 이름·주소·포트·지문이 틀렸습니다")
+	ErrEdgeNotFound = errors.New("그 지문의 간선이 없습니다")
+	// ErrAmbiguous 는 지문 앞자리가 간선 둘 이상에 맞는다는 뜻이다 (EDGE_PAIRING_SRS FR-EPR-30).
+	ErrAmbiguous = errors.New("지문 앞자리가 간선 둘 이상에 맞습니다")
 	// ErrInvalidNodeField 는 허용 폴더(절대 경로)·알릴 주소(주소)가 틀렸다는 뜻이다.
 	ErrInvalidNodeField = errors.New("허용 폴더는 절대 경로, 알릴 주소는 IP 주소나 호스트명이어야 합니다")
 	// ErrSaveFailed 는 저장 자체의 실패다. 사유는 로그로만 간다.
 	ErrSaveFailed = errors.New("노드 설정을 저장하지 못했습니다")
 )
 
-// 짝 항목의 상태. 빈 값이 짝이다 (I-2).
+// 간선 찾기와 표시 이름의 한도 (EDGE_PAIRING_SRS FR-EPR-8·30).
 const (
-	StatePaired     = ""
-	StatePendingOut = "pending-out"
+	// MinPrefix 는 간선을 찾을 때 받는 지문 앞자리의 최소 길이다.
+	MinPrefix = 8
+	// DisplayNameMax 는 상대가 알린 표시 이름의 바이트 상한이다.
+	DisplayNameMax = 64
+	fingerprintLen = 64
 )
 
-// Edge 는 짝 하나다. 신원은 Fingerprint 이고 이름·주소는 사용자가 고칠 수 있다.
-// State 가 pending-out 이면 상대의 승인을 기다리는 중이고 Expires 에 사라진다.
+// Edge 는 간선 하나다. 신원은 Fingerprint 다. Name 은 상대가 알린 표시 이름이라 겹쳐도
+// 된다. 상대의 노드 포트가 닫혀 있었으면 Addr·Port 가 비어 있고, 이 노드는 걸지 않는다
+// (EDGE_PAIRING_SRS FR-EPR-2·31·80).
 type Edge struct {
-	Name        string    `json:"name"`
-	Addr        string    `json:"addr"`
-	Port        int       `json:"port"`
-	Fingerprint string    `json:"fp"`
-	State       string    `json:"state"`
-	Expires     time.Time `json:"expires,omitzero"`
+	Name        string `json:"name"`
+	Addr        string `json:"addr"`
+	Port        int    `json:"port"`
+	Fingerprint string `json:"fp"`
 	// HelperKey 는 상대 도우미의 공개키다. 채팅 연결로 처음 받은 값을 고정한다 (PEER_CHAT_SRS FR-PCH-74).
 	HelperKey string `json:"helperKey,omitempty"`
 }
@@ -94,6 +94,28 @@ func ValidName(name string) error {
 
 func nameRune(r rune) bool {
 	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-'
+}
+
+// ValidDisplayName 은 표시 이름 규칙이다: 비지 않고, 64바이트 안이며, 제어 문자가 없다.
+func ValidDisplayName(name string) bool {
+	if name == "" || len(name) > DisplayNameMax || !utf8.ValidString(name) {
+		return false
+	}
+	for _, r := range name {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return false
+		}
+	}
+	return true
+}
+
+// DisplayName 은 상대가 알린 이름이다. 규칙에 맞지 않으면 거절하지 않고 DefaultName 으로
+// 고친다 (FR-EPR-8).
+func DisplayName(name string) string {
+	if ValidDisplayName(name) {
+		return name
+	}
+	return DefaultName(name)
 }
 
 // DefaultName 은 호스트 이름을 FR-PNW-3 에 맞춘 기본 이름이다. 허용하지 않는 글자는
@@ -152,32 +174,28 @@ func validate(c Config) error {
 	if _, err := netip.ParseAddr(c.Bind); err != nil {
 		return ErrInvalidBind
 	}
-	names := map[string]bool{}
 	fps := map[string]bool{}
 	for _, p := range c.Edges {
 		if err := validateEdge(p); err != nil {
 			return err
 		}
-		if names[p.Name] {
-			return ErrNameTaken
-		}
 		if fps[p.Fingerprint] {
 			return ErrInvalidEdge
 		}
-		names[p.Name] = true
 		fps[p.Fingerprint] = true
 	}
 	return nil
 }
 
+// validateEdge 는 간선 하나다. 주소와 포트는 함께 있거나 함께 비어 있다 (FR-EPR-80).
 func validateEdge(p Edge) error {
-	if err := ValidName(p.Name); err != nil {
-		return err
-	}
-	if !ValidAddr(p.Addr) || !validPort(p.Port) || !validFingerprint(p.Fingerprint) {
+	if !ValidDisplayName(p.Name) || !validFingerprint(p.Fingerprint) {
 		return ErrInvalidEdge
 	}
-	if p.State != StatePaired && p.State != StatePendingOut {
+	if p.Addr == "" && p.Port == 0 {
+		return nil
+	}
+	if !ValidAddr(p.Addr) || !validPort(p.Port) {
 		return ErrInvalidEdge
 	}
 	return nil
@@ -188,14 +206,13 @@ type Store struct {
 	mu   sync.Mutex
 	path string
 	cfg  Config
-	now  func() time.Time
 }
 
 // OpenStore 는 path 를 읽는다. 없거나 읽지 못하면 꺼진 기본값으로 선다 — 이 파일이
 // 서버 기동을 막지 않는다. 열기만으로는 파일을 만들지 않는다 (NFR-PNW-1).
 func OpenStore(path, hostname string) *Store {
 	def := defaultConfig(hostname)
-	s := &Store{path: path, cfg: def, now: time.Now}
+	s := &Store{path: path, cfg: def}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -203,10 +220,16 @@ func OpenStore(path, hostname string) *Store {
 		}
 		return s
 	}
+	// 옛 항목의 state 가 빈 값(짝)이 아니면(pending-out) 버린다 (FR-EPR-80).
+	type stored struct {
+		Edge
+		State string `json:"state"`
+	}
 	var c struct {
 		Config
+		Edges []stored `json:"edges"`
 		// LegacyEdges 는 옛 키 peers 다. edges 가 없을 때만 쓴다 (PEER_DAEMON_SRS §3.4a).
-		LegacyEdges []Edge `json:"peers"`
+		LegacyEdges []stored `json:"peers"`
 	}
 	if err := json.Unmarshal(data, &c); err != nil {
 		dmlog.Infof(nil, "loadEdges: %v — 노드 기능을 끈 채로 시작한다", err)
@@ -214,6 +237,12 @@ func OpenStore(path, hostname string) *Store {
 	}
 	if c.Edges == nil {
 		c.Edges = c.LegacyEdges
+	}
+	c.Config.Edges = []Edge{}
+	for _, e := range c.Edges {
+		if e.State == "" {
+			c.Config.Edges = append(c.Config.Edges, e.Edge)
+		}
 	}
 	s.cfg = fillDefaults(c.Config, def)
 	return s
@@ -239,23 +268,11 @@ func MigrateLegacyFiles(dir string) error {
 	return err
 }
 
-// live 는 만료되지 않은 항목인가다. 짝은 만료가 없다 (I-2).
-func (s *Store) live(p Edge) bool {
-	return p.State != StatePendingOut || s.now().Before(p.Expires)
-}
-
-// Config 는 지금 값의 사본이다. 만료된 pending-out 은 빠진다.
+// Config 는 지금 값의 사본이다.
 func (s *Store) Config() Config {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	c := s.cfg.clone()
-	c.Edges = c.Edges[:0]
-	for _, p := range s.cfg.Edges {
-		if s.live(p) {
-			c.Edges = append(c.Edges, p)
-		}
-	}
-	return c
+	return s.cfg.clone()
 }
 
 // Save 는 설정 전체를 바꾼다. 틀린 값이 하나라도 있으면 아무것도 바꾸지 않고,
@@ -283,17 +300,11 @@ func (s *Store) saveLocked(c Config) error {
 	return nil
 }
 
-// update 는 지금 값(만료된 항목을 뺀 것)을 fn 으로 바꿔 저장한다.
+// update 는 지금 값을 fn 으로 바꿔 저장한다.
 func (s *Store) update(fn func(*Config) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c := s.cfg.clone()
-	c.Edges = c.Edges[:0]
-	for _, p := range s.cfg.Edges {
-		if s.live(p) {
-			c.Edges = append(c.Edges, p)
-		}
-	}
 	if err := fn(&c); err != nil {
 		return err
 	}
@@ -306,7 +317,7 @@ func (s *Store) PinHelper(fp, key string) error {
 	return s.update(func(c *Config) error {
 		for i := range c.Edges {
 			e := &c.Edges[i]
-			if e.Fingerprint == fp && e.State == StatePaired && e.HelperKey == "" {
+			if e.Fingerprint == fp && e.HelperKey == "" {
 				e.HelperKey = key
 			}
 		}
@@ -328,128 +339,66 @@ func (s *Store) SetNode(n Config) error {
 	})
 }
 
-func (s *Store) find(fp string) (Edge, bool) {
-	if fp == "" {
-		return Edge{}, false
+// IsEdge 는 fp 가 간선의 지문인가다.
+func (s *Store) IsEdge(fp string) bool {
+	_, err := s.Resolve(fp)
+	return err == nil && len(fp) == fingerprintLen
+}
+
+// Resolve 는 지문 전체나 앞자리(MinPrefix 자리 이상)로 간선 하나를 찾는다. 둘 이상에
+// 맞으면 ErrAmbiguous, 없거나 너무 짧으면 ErrEdgeNotFound 다 (FR-EPR-30).
+func (s *Store) Resolve(q string) (Edge, error) {
+	q = strings.ToLower(strings.TrimSpace(q))
+	if len(q) < MinPrefix {
+		return Edge{}, ErrEdgeNotFound
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, p := range s.cfg.Edges {
-		if p.Fingerprint == fp && s.live(p) {
-			return p, true
+	var found []Edge
+	for _, e := range s.cfg.Edges {
+		if e.Fingerprint == q {
+			return e, nil
+		}
+		if strings.HasPrefix(e.Fingerprint, q) {
+			found = append(found, e)
 		}
 	}
-	return Edge{}, false
-}
-
-// IsEdge 는 fp 가 짝의 지문인가다 (FR-PNW-41). pending-out 은 짝이 아니다.
-func (s *Store) IsEdge(fp string) bool {
-	p, ok := s.find(fp)
-	return ok && p.State == StatePaired
-}
-
-// IsPendingOut 은 fp 가 만료되지 않은 pending-out 인가다 (FR-PNW-26·27).
-func (s *Store) IsPendingOut(fp string) bool {
-	p, ok := s.find(fp)
-	return ok && p.State == StatePendingOut
-}
-
-// NameTaken 은 그 이름을 살아 있는 항목이 쓰고 있는가다.
-func (s *Store) NameTaken(name string) bool { return s.nameTakenExcept(name, "") }
-
-// NameTakenExcept 는 지문이 fp 인 항목을 빼고 본다. 같은 지문은 AddEdge 가 갈아 끼우므로
-// 그 이름은 비어 있는 것과 같다 (I-29).
-func (s *Store) NameTakenExcept(name, fp string) bool { return s.nameTakenExcept(name, fp) }
-
-// nameTakenExcept 는 지문이 except 인 항목을 빼고 본다.
-func (s *Store) nameTakenExcept(name, except string) bool {
-	for _, p := range s.Config().Edges {
-		if p.Name == name && (except == "" || p.Fingerprint != except) {
-			return true
-		}
+	switch len(found) {
+	case 0:
+		return Edge{}, ErrEdgeNotFound
+	case 1:
+		return found[0], nil
 	}
-	return false
+	return Edge{}, ErrAmbiguous
 }
 
-// FreeNameFor 는 base 가 비어 있으면 그대로, 아니면 `-2`·`-3` … 을 붙인 이름이다 (I-5).
-// 지문이 fp 인 항목은 AddEdge 가 갈아 끼우므로 그 이름은 비어 있는 것으로 본다.
-func (s *Store) FreeNameFor(base, fp string) string {
-	if !s.nameTakenExcept(base, fp) {
-		return base
-	}
-	for n := 2; ; n++ {
-		suffix := "-" + strconv.Itoa(n)
-		head := base
-		if len(head)+len(suffix) > NameMaxLen {
-			head = head[:NameMaxLen-len(suffix)]
-		}
-		if name := head + suffix; !s.nameTakenExcept(name, fp) {
-			return name
-		}
-	}
-}
-
-// AddEdge 는 짝(또는 pending-out)을 더한다. 같은 지문이 있으면 갈아 끼운다. 이미 짝인
-// 지문을 pending-out 으로 다시 더하면 짝으로 남긴다 — 상대가 승인하지 않아도 잃지 않는다.
-// 다른 항목이 이미 그 이름을 쓰면 ErrNameTaken 이다 (FR-PNW-30).
+// AddEdge 는 간선을 더한다. 같은 지문이 있으면 이름·주소만 바꾸고 고정한 도우미 키는
+// 넘겨받는다 — 도우미 키는 간선을 지울 때만 사라진다 (FR-EPR-7, PEER_CHAT_SRS §3.12a R-2).
 func (s *Store) AddEdge(p Edge) error {
-	if p.State == StatePaired {
-		p.Expires = time.Time{}
-	}
 	if err := validateEdge(p); err != nil {
 		return err
 	}
 	return s.update(func(c *Config) error {
-		kept := c.Edges[:0]
-		for _, q := range c.Edges {
-			if q.Fingerprint == p.Fingerprint {
-				if s.live(q) && q.State == StatePaired {
-					p.State, p.Expires = StatePaired, time.Time{}
-				}
-				// 고정한 도우미 키는 간선을 지울 때만 사라진다 (PEER_CHAT_SRS §3.12a R-2).
-				if p.HelperKey == "" {
-					p.HelperKey = q.HelperKey
-				}
+		for i, q := range c.Edges {
+			if q.Fingerprint != p.Fingerprint {
 				continue
 			}
-			if q.Name == p.Name {
-				return ErrNameTaken
+			if p.HelperKey == "" {
+				p.HelperKey = q.HelperKey
 			}
-			kept = append(kept, q)
+			c.Edges[i] = p
+			return nil
 		}
-		c.Edges = append(kept, p)
+		c.Edges = append(c.Edges, p)
 		return nil
 	})
 }
 
-// Promote 는 살아 있는 pending-out 을 짝으로 바꾼다 (FR-PNW-27). 확인과 갱신은 한 락
-// 안에서 한다 (C3). 바꿨으면 nil, 이미 짝이면 ErrAlreadyPaired, 살아 있는 항목이 없으면
-// ErrNotPending, 그 밖은 저장 실패다.
-func (s *Store) Promote(fp string) error {
-	if fp == "" {
-		return ErrNotPending
-	}
-	return s.update(func(c *Config) error {
-		for i := range c.Edges {
-			if c.Edges[i].Fingerprint != fp {
-				continue
-			}
-			if c.Edges[i].State == StatePaired {
-				return ErrAlreadyPaired
-			}
-			c.Edges[i].State = StatePaired
-			c.Edges[i].Expires = time.Time{}
-			return nil
-		}
-		return ErrNotPending
-	})
-}
-
-// Remove 는 그 이름의 항목을 지운다 (FR-PNW-31).
-func (s *Store) Remove(name string) error {
+// Remove 는 지문이 fp 인 간선을 지운다.
+func (s *Store) Remove(fp string) error {
 	return s.update(func(c *Config) error {
 		for i, p := range c.Edges {
-			if p.Name == name {
+			if p.Fingerprint == fp {
 				c.Edges = append(c.Edges[:i], c.Edges[i+1:]...)
 				return nil
 			}
@@ -458,37 +407,18 @@ func (s *Store) Remove(name string) error {
 	})
 }
 
-// SetAddress 는 그 이름의 주소를 고친다. 신원(지문)은 그대로다 (FR-PNW-32).
-func (s *Store) SetAddress(name, addr string, port int) error {
+// SetAddress 는 지문이 fp 인 간선의 주소를 고친다. 신원(지문)은 그대로다 (FR-EPR-52).
+func (s *Store) SetAddress(fp, addr string, port int) error {
 	if !ValidAddr(addr) || !validPort(port) {
 		return ErrInvalidEdge
 	}
 	return s.update(func(c *Config) error {
 		for i := range c.Edges {
-			if c.Edges[i].Name == name {
+			if c.Edges[i].Fingerprint == fp {
 				c.Edges[i].Addr, c.Edges[i].Port = addr, port
 				return nil
 			}
 		}
 		return ErrEdgeNotFound
 	})
-}
-
-// NameOf 는 짝 fp 에 이 노드가 붙인 이름이다 (FR-PNW-91). pending-out 은 짝이 아니다.
-func (s *Store) NameOf(fp string) (string, bool) {
-	p, ok := s.find(fp)
-	if !ok || p.State != StatePaired {
-		return "", false
-	}
-	return p.Name, true
-}
-
-// ByName 은 그 이름의 살아 있는 항목이다.
-func (s *Store) ByName(name string) (Edge, bool) {
-	for _, p := range s.Config().Edges {
-		if p.Name == name {
-			return p, true
-		}
-	}
-	return Edge{}, false
 }

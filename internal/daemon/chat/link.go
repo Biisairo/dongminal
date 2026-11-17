@@ -427,9 +427,7 @@ func (s *Service) dialEdges(ctx context.Context, now time.Time) {
 	}
 	paired := map[string]edge.Edge{}
 	for _, e := range s.opts.Edges() {
-		if e.State == edge.StatePaired {
-			paired[e.Fingerprint] = e
-		}
+		paired[e.Fingerprint] = e
 	}
 	s.mu.Lock()
 	var stale []*peerLink
@@ -444,7 +442,9 @@ func (s *Service) dialEdges(ctx context.Context, now time.Time) {
 		}
 	}
 	for fp, e := range paired {
-		if _, linked := s.links[fp]; linked {
+		// 주소를 모르는 간선(상대의 노드 포트가 닫혀 있었음)에는 걸지 않는다 — 상대가 건다
+		// (EDGE_PAIRING_SRS FR-EPR-2).
+		if _, linked := s.links[fp]; linked || e.Addr == "" {
 			continue
 		}
 		d := s.dialing[fp]

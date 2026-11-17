@@ -2,6 +2,7 @@ package edge
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"log"
 	"net"
@@ -29,7 +30,7 @@ const (
 
 var (
 	errNoClientCert = errors.New("클라이언트 인증서가 없습니다")
-	errNotEdge      = errors.New("짝이 아닌 노드입니다")
+	errNotEdge      = errors.New("간선이 아닌 노드입니다")
 )
 
 // Status 는 노드 포트의 지금 상태다 (FR-PNW-9). Err 는 열지 못한 사유다.
@@ -138,14 +139,22 @@ func ClientFingerprint(r *http.Request) string {
 	return fp
 }
 
-// requireAdmission 은 요청마다 다시 거른다. 짝을 해제한 뒤에도 열려 있던 keep-alive
-// 연결이 핸들러에 닿지 않게 한다 (FR-PNW-31).
+// errCodeHeader 는 오류 코드를 싣는 응답 헤더다. apierr.CodeHeader 와 같다.
+const errCodeHeader = "X-Error-Code"
+
+// requireAdmission 은 요청마다 다시 거른다. 간선을 지운 뒤에도 열려 있던 keep-alive
+// 연결이 핸들러에 닿지 않게 한다 (FR-PNW-31). 거절은 403 `edge_not_edge` 본문이다 — 지문을
+// 고정한 상대가 그 답을 믿고 간선을 지운다 (EDGE_PAIRING_SRS FR-EPR-22·41).
 func requireAdmission(admit func(fp, path string) bool, next http.Handler) http.Handler {
+	notEdge, _ := json.Marshal(map[string]string{"code": CodeNotEdge, "message": errNotEdge.Error()})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fp := ClientFingerprint(r)
 		if fp == "" || !admit(fp, r.URL.Path) {
 			w.Header().Set("Connection", "close")
+			w.Header().Set(errCodeHeader, CodeNotEdge)
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write(notEdge)
 			return
 		}
 		next.ServeHTTP(w, r)

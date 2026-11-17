@@ -84,14 +84,8 @@ func (n *Node) Do(ctx context.Context, req Request) Response {
 		return n.opInvite(req)
 	case "add":
 		return n.opAdd(ctx, req)
-	case "pending":
-		return ok(map[string]any{"pending": n.pairing.Pending()})
-	case "approve":
-		return n.opApprove(ctx, req)
-	case "reject":
-		return n.opReject(req)
 	case "remove":
-		return n.opRemove(req)
+		return n.opRemove(ctx, req)
 	case "address":
 		return n.opAddress(req)
 	}
@@ -117,10 +111,9 @@ type inviteView struct {
 
 // view 는 get 의 본문이다. 초대 토큰은 싣지 않는다 (FR-PNW-95, I-3).
 type view struct {
-	Node    nodeView       `json:"node"`
-	Edges   []edge.Edge    `json:"edges"`
-	Pending []edge.Pending `json:"pending"`
-	Invite  *inviteView    `json:"invite"`
+	Node   nodeView    `json:"node"`
+	Edges  []edge.Edge `json:"edges"`
+	Invite *inviteView `json:"invite"`
 }
 
 func (n *Node) view() view {
@@ -132,8 +125,7 @@ func (n *Node) view() view {
 			Advertise: cfg.Advertise, Fingerprint: n.id.Fingerprint,
 			Listening: st.Listening, Addr: st.Addr, Error: st.Err,
 		},
-		Edges:   append([]edge.Edge{}, cfg.Edges...),
-		Pending: n.pairing.Pending(),
+		Edges: append([]edge.Edge{}, cfg.Edges...),
 	}
 	if exp, has := n.pairing.InviteExpires(); has {
 		v.Invite = &inviteView{Expires: exp}
@@ -166,7 +158,7 @@ func (n *Node) opNode(req Request) Response {
 	if n.opts.OnConfig != nil {
 		n.opts.OnConfig(cfg)
 	}
-	n.changed("")
+	n.changed(Change{})
 	r := ok(n.view())
 	r.ETag = tag(cfg)
 	return r
@@ -196,7 +188,7 @@ func (n *Node) opInvite(req Request) Response {
 	}
 	token, expires := n.pairing.NewInvite()
 	code := edge.EncodeInvite(edge.InviteCode{Addr: addr, Port: cfg.Port, Fingerprint: n.id.Fingerprint, Token: token})
-	n.changed("")
+	n.changed(Change{})
 	return ok(map[string]any{"code": code, "expires": expires})
 }
 
@@ -214,11 +206,14 @@ func callFail(err error) Response {
 	return fail(http.StatusBadGateway, edge.CodeUnreachable, err.Error())
 }
 
-// opAdd 는 초대 코드로 상대에 등록을 요청한다 (FR-PNW-22·23·26·33, I-5).
+// unpairTimeout 은 지울 때 상대에게 알리는 시한이다 (FR-EPR-20).
+const unpairTimeout = 3 * time.Second
+
+// opAdd 는 초대 코드로 상대와 간선을 맺는다 (FR-EPR-2·4·5). 이 노드의 노드 포트가 열려
+// 있을 때만 주소를 알린다. 200 이면 맺기는 끝이다.
 func (n *Node) opAdd(ctx context.Context, req Request) Response {
 	var in struct {
 		Code string `json:"code"`
-		Name string `json:"name"`
 	}
 	if r := decode(req.Args, &in); r != nil {
 		return *r
@@ -227,111 +222,26 @@ func (n *Node) opAdd(ctx context.Context, req Request) Response {
 	if err != nil {
 		return fail(http.StatusBadRequest, edge.CodeInviteInvalid, err.Error())
 	}
-	if in.Name != "" {
-		if err := edge.ValidName(in.Name); err != nil {
-			return fail(http.StatusBadRequest, edge.CodeConfigInvalid, err.Error())
-		}
-		if n.store.NameTakenExcept(in.Name, ic.Fingerprint) {
-			return fail(http.StatusConflict, edge.CodeNameTaken, in.Name)
-		}
-	}
 	cfg := n.store.Config()
-	body := map[string]any{"token": ic.Token, "name": cfg.Name, "addr": cfg.Advertise, "port": cfg.Port, "proto": proto}
+	body := map[string]any{"token": ic.Token, "name": cfg.Name, "proto": proto}
+	if cfg.Enabled && n.portStatus().Listening {
+		body["addr"], body["port"] = cfg.Advertise, cfg.Port
+	}
 	var resp struct {
 		Name string `json:"name"`
 	}
 	tgt := edge.Target{Addr: ic.Addr, Port: ic.Port, Fingerprint: ic.Fingerprint}
 	if err := n.client.Call(ctx, tgt, pairPath, body, &resp); err != nil {
 		audit("out", "-", "pair", http.StatusBadGateway)
-		// 상대는 초대가 없으면 TLS 단계에서 거절한다 (I-1). 간선이 아닌 이 노드가
-		// 거절당하는 이유는 그것뿐이다.
-		if errors.Is(err, edge.ErrRejected) {
-			return fail(http.StatusForbidden, edge.CodeNoInvite, "no live invite")
-		}
 		return callFail(err)
 	}
-	name := in.Name
-	if name == "" {
-		base := resp.Name
-		if edge.ValidName(base) != nil {
-			base = edge.DefaultName(base)
-		}
-		name = n.store.FreeNameFor(base, ic.Fingerprint)
-	}
-	e := edge.Edge{Name: name, Addr: ic.Addr, Port: ic.Port, Fingerprint: ic.Fingerprint,
-		State: edge.StatePendingOut, Expires: n.opts.Now().Add(edge.PendingTTL)}
-	if err := n.store.AddEdge(e); err != nil {
+	name := edge.DisplayName(resp.Name)
+	if err := n.store.AddEdge(edge.Edge{Name: name, Addr: ic.Addr, Port: ic.Port, Fingerprint: ic.Fingerprint}); err != nil {
 		return storeFail(err)
 	}
 	audit("out", name, "pair", http.StatusOK)
-	n.changed("")
-	// 이미 간선이던 지문이면 간선으로 남는다 (I-37). 저장된 상태를 그대로 알린다.
-	state := edge.StatePendingOut
-	if n.store.IsEdge(ic.Fingerprint) {
-		state = edge.StatePaired
-	}
-	out := map[string]any{"name": name, "state": state}
-	// FR-PNW-33: 내 포트가 닫혀 있으면 상대가 나에게 보낼 수 없다. 등록은 막지 않는다.
-	if !cfg.Enabled || !n.portStatus().Listening {
-		out["warning"] = "port_closed"
-	}
-	return ok(out)
-}
-
-// opApprove 는 승인 대기를 간선으로 저장하고 A 에 confirm 을 보낸다 (FR-PNW-27·30, I-9).
-func (n *Node) opApprove(ctx context.Context, req Request) Response {
-	var in struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	}
-	if r := decode(req.Args, &in); r != nil {
-		return *r
-	}
-	p, found := n.pairing.TakePending(in.ID)
-	if !found {
-		return fail(http.StatusNotFound, edge.CodePendingMissing, in.ID)
-	}
-	name := in.Name
-	if name == "" {
-		name = p.Name
-	}
-	err := n.store.AddEdge(edge.Edge{Name: name, Addr: p.Addr, Port: p.Port, Fingerprint: p.Fingerprint})
-	switch {
-	case errors.Is(err, edge.ErrNameTaken):
-		n.pairing.PutBack(p)
-		return fail(http.StatusConflict, edge.CodeNameTaken, name)
-	case errors.Is(err, edge.ErrSaveFailed):
-		n.pairing.PutBack(p)
-		return fail(http.StatusInternalServerError, CodeSaveFailed, err.Error())
-	case err != nil:
-		n.pairing.PutBack(p)
-		return fail(http.StatusBadRequest, edge.CodeConfigInvalid, err.Error())
-	}
-	out := map[string]any{"name": name, "fp": p.Fingerprint, "confirmed": true}
-	tgt := edge.Target{Addr: p.Addr, Port: p.Port, Fingerprint: p.Fingerprint}
-	if err := n.client.Call(ctx, tgt, confirmPath, map[string]any{}, nil); err != nil {
-		out["confirmed"] = false
-		out["reason"] = err.Error()
-		audit("out", name, "pair.confirm", http.StatusBadGateway)
-	} else {
-		audit("out", name, "pair.confirm", http.StatusOK)
-	}
-	n.changed(name)
-	return ok(out)
-}
-
-func (n *Node) opReject(req Request) Response {
-	var in struct {
-		ID string `json:"id"`
-	}
-	if r := decode(req.Args, &in); r != nil {
-		return *r
-	}
-	if _, found := n.pairing.TakePending(in.ID); !found {
-		return fail(http.StatusNotFound, edge.CodePendingMissing, in.ID)
-	}
-	n.changed("")
-	return ok(map[string]any{"rejected": true})
+	n.changed(Change{Paired: &Ref{FP: ic.Fingerprint, Name: name}})
+	return ok(map[string]any{"fp": ic.Fingerprint, "name": name})
 }
 
 // storeFail 은 간선 목록 조작의 실패를 옮긴다.
@@ -339,44 +249,65 @@ func storeFail(err error) Response {
 	switch {
 	case errors.Is(err, edge.ErrEdgeNotFound):
 		return fail(http.StatusNotFound, edge.CodeNotFound, err.Error())
+	case errors.Is(err, edge.ErrAmbiguous):
+		return fail(http.StatusBadRequest, edge.CodeAmbiguous, err.Error())
 	case errors.Is(err, edge.ErrSaveFailed):
 		return fail(http.StatusInternalServerError, CodeSaveFailed, err.Error())
-	case errors.Is(err, edge.ErrNameTaken):
-		return fail(http.StatusConflict, edge.CodeNameTaken, err.Error())
 	}
 	return fail(http.StatusBadRequest, edge.CodeConfigInvalid, err.Error())
 }
 
-// opRemove 는 간선을 끊는다 (FR-PNW-31). 열린 연결도 다음 요청에서 끊긴다.
-func (n *Node) opRemove(req Request) Response {
+// opRemove 는 간선을 끊는다 (FR-EPR-20·23·30). 상대에게 먼저 알리고, 알렸든 못 알렸든 이쪽
+// 간선을 지운다. 주소를 모르는 간선은 알리지 못한다. 열린 연결은 다음 요청에서 끊긴다.
+func (n *Node) opRemove(ctx context.Context, req Request) Response {
 	var in struct {
-		Name string `json:"name"`
+		FP string `json:"fp"`
 	}
 	if r := decode(req.Args, &in); r != nil {
 		return *r
 	}
-	if err := n.store.Remove(in.Name); err != nil {
+	e, err := n.store.Resolve(in.FP)
+	if err != nil {
 		return storeFail(err)
 	}
-	n.changed("")
-	return ok(map[string]any{"removed": in.Name})
+	notified := false
+	if e.Addr != "" {
+		cctx, cancel := context.WithTimeout(ctx, unpairTimeout)
+		err := n.client.Call(cctx, edge.Target{Addr: e.Addr, Port: e.Port, Fingerprint: e.Fingerprint}, unpairPath, map[string]any{}, nil)
+		cancel()
+		notified = err == nil
+	}
+	status := http.StatusOK
+	if !notified {
+		status = http.StatusBadGateway
+	}
+	audit("out", e.Name, "unpair", status)
+	if err := n.store.Remove(e.Fingerprint); err != nil {
+		return storeFail(err)
+	}
+	n.changed(Change{Removed: &Ref{FP: e.Fingerprint, Name: e.Name}})
+	return ok(map[string]any{"fp": e.Fingerprint, "name": e.Name, "notified": notified})
 }
 
-// opAddress 는 간선의 주소를 고친다 (FR-PNW-32).
+// opAddress 는 간선의 주소를 고친다 (FR-EPR-30·52).
 func (n *Node) opAddress(req Request) Response {
 	var in struct {
-		Name string `json:"name"`
+		FP   string `json:"fp"`
 		Addr string `json:"addr"`
 		Port int    `json:"port"`
 	}
 	if r := decode(req.Args, &in); r != nil {
 		return *r
 	}
-	if err := n.store.SetAddress(in.Name, in.Addr, in.Port); err != nil {
+	e, err := n.store.Resolve(in.FP)
+	if err != nil {
 		return storeFail(err)
 	}
-	n.changed("")
-	return ok(map[string]any{"name": in.Name, "addr": in.Addr, "port": in.Port})
+	if err := n.store.SetAddress(e.Fingerprint, in.Addr, in.Port); err != nil {
+		return storeFail(err)
+	}
+	n.changed(Change{})
+	return ok(map[string]any{"fp": e.Fingerprint, "name": e.Name, "addr": in.Addr, "port": in.Port})
 }
 
 // remoteTextMax 는 상대가 보낸 문구를 옮길 때의 상한(바이트)이다.

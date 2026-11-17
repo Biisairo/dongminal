@@ -24,10 +24,10 @@ import (
 
 const (
 	// pathPrefix 는 노드 포트가 받는 유일한 경로다 (FR-PNW-6).
-	pathPrefix  = "/edge/v1/"
-	pairPath    = pathPrefix + "pair"
-	confirmPath = pathPrefix + "pair/confirm"
-	chatPath    = pathPrefix + "chat"
+	pathPrefix = "/edge/v1/"
+	pairPath   = pathPrefix + "pair"
+	unpairPath = pathPrefix + "unpair"
+	chatPath   = pathPrefix + "chat"
 	// pairRateKey 는 등록 요청 상한의 키 머리다. 간선의 지문 키와 섞이지 않는다.
 	pairRateKey = "pair-addr:"
 	// proto 는 이 노드가 말하는 프로토콜 판이다. 등록 요청에 싣는다 (FR-PNW-50).
@@ -68,12 +68,24 @@ type Options struct {
 	PortStatus func() edge.Status
 	// OnConfig 는 노드 설정이 저장된 뒤 부른다. 노드 포트에 바로 적용한다.
 	OnConfig func(edge.Config)
-	// Notify 는 간선·초대·승인 대기·노드 설정이 바뀐 **뒤에** 부른다. paired 는 이
-	// 노드가 승인해 간선 맺기를 마친 이름이다 (FR-PNW-81·82, FR-PDM-27).
-	Notify func(paired string)
+	// Notify 는 간선·초대·노드 설정이 바뀐 **뒤에** 부른다. 간선을 맺거나 지웠으면 그
+	// 간선을 싣는다 (EDGE_PAIRING_SRS FR-EPR-5·23, FR-PDM-27).
+	Notify func(Change)
 	// Chat 은 채팅 연결 경로의 핸들러다. nil 이면 그 경로는 404 다 (PEER_CHAT_SRS §3.9).
 	Chat http.Handler
 	Now  func() time.Time
+}
+
+// Ref 는 맺거나 지운 간선 하나다.
+type Ref struct {
+	FP   string `json:"fp"`
+	Name string `json:"name"`
+}
+
+// Change 는 Notify 의 값이다. 둘 다 nil 이면 초대·노드 설정·주소만 바뀌었다.
+type Change struct {
+	Paired  *Ref `json:"paired,omitempty"`
+	Removed *Ref `json:"removed,omitempty"`
 }
 
 // Node 는 노드 하나다.
@@ -131,38 +143,37 @@ func (n *Node) portStatus() edge.Status {
 	return n.opts.PortStatus()
 }
 
-func (n *Node) changed(paired string) {
+func (n *Node) changed(c Change) {
 	if n.opts.Notify != nil {
-		n.opts.Notify(paired)
+		n.opts.Notify(c)
 	}
 }
 
-// Admission 은 노드 포트의 두 단계 판정이다 (I-1, FR-PNW-24·27·41).
+// Admission 은 노드 포트의 두 단계 판정이다 (EDGE_PAIRING_SRS FR-EPR-41, D-EPR-4). TLS 는
+// 클라이언트 인증서가 있으면 받는다 — 간선이 아닌 상대에게도 "간선이 아니다"를 말하려면
+// TLS 를 마쳐야 한다. 요청 단계에서 pair 는 누구나 닿고 처리기가 초대·토큰·횟수를 본다.
+// 그 밖의 경로는 간선만 닿고, 아니면 403 edge_not_edge 다.
 func (n *Node) Admission() edge.Admission {
 	return edge.Admission{
-		TLS: func(fp string) bool {
-			return n.store.IsEdge(fp) || n.store.IsPendingOut(fp) || n.pairing.HasInvite()
-		},
+		TLS: func(string) bool { return true },
 		Request: func(fp, path string) bool {
-			switch path {
-			case pairPath:
-				// 간선이 아닌 상대는 초대가 살아 있을 때만이다. 초대가 있을 때 연 keep-alive
-				// 연결로 그 뒤에도 닿지 못하게 한다. 간선·대기는 만료 안내(edge_no_invite)를 받는다.
-				return n.pairing.HasInvite() || n.store.IsEdge(fp) || n.store.IsPendingOut(fp)
-			case confirmPath:
-				return n.store.IsEdge(fp) || n.store.IsPendingOut(fp)
-			}
-			return n.store.IsEdge(fp)
+			return path == pairPath || n.store.IsEdge(fp)
 		},
 	}
 }
 
-// Handler 는 노드 포트의 핸들러다. 짝맞춤 경로 둘과 채팅 연결 경로 밖은 전부 404 다
-// (FR-PNW-6, FR-PDM-60, PEER_CHAT_SRS §3.9).
+// IsNotEdge 는 상대가 이 노드를 간선이 아니라고 답했는가다 (FR-EPR-22).
+func IsNotEdge(err error) bool {
+	var re *edge.RemoteError
+	return errors.As(err, &re) && re.Code == edge.CodeNotEdge
+}
+
+// Handler 는 노드 포트의 핸들러다. 맺기·지우기 경로와 채팅 연결 경로 밖은 전부 404 다
+// (FR-EPR-40, FR-PDM-60, PEER_CHAT_SRS §3.9).
 func (n *Node) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+pairPath, n.pair)
-	mux.HandleFunc("POST "+confirmPath, n.pairConfirm)
+	mux.HandleFunc("POST "+unpairPath, n.unpair)
 	if n.opts.Chat != nil {
 		mux.Handle(chatPath, n.opts.Chat)
 	}
@@ -214,7 +225,8 @@ func audit(dir, name, op string, status int) {
 	dmlog.Infof(nil, "edge audit dir=%s edge=%s op=%s status=%d", dir, name, op, status)
 }
 
-// pair 는 B 쪽 등록 요청이다 (FR-PNW-23~25).
+// pair 는 B 쪽 맺기 요청이다 (FR-EPR-2·3·6·8). 토큰이 맞으면 A 의 지문을 바로 간선으로
+// 저장한다. A 가 노드 포트를 알렸을 때만 A 의 주소를 저장한다 — 비어 있으면 B 는 걸지 않는다.
 func (n *Node) pair(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Token string `json:"token"`
@@ -239,23 +251,26 @@ func (n *Node) pair(w http.ResponseWriter, r *http.Request) {
 		writeFail(w, res.Status, res.Code, res.Message)
 		return
 	}
-	if in.Port < 1 || in.Port > 65535 {
-		writeFail(w, http.StatusBadRequest, CodeBadRequest, "port")
-		return
+	addr, port := "", 0
+	if in.Port != 0 {
+		if in.Port < 1 || in.Port > 65535 {
+			writeFail(w, http.StatusBadRequest, CodeBadRequest, "port")
+			return
+		}
+		// I-4: A 가 알릴 주소를 정하지 않았으면 이 연결의 출발지를 쓴다.
+		addr, port = in.Addr, in.Port
+		if !edge.ValidAddr(addr) {
+			addr = host
+		}
+		// 저장할 수 없는 주소(zone 이 붙은 link-local 등)면 초대를 쓰기 전에 거절한다 (리뷰 C-15).
+		if !edge.ValidAddr(addr) {
+			audit("in", "-", "pair", http.StatusBadRequest)
+			writeFail(w, http.StatusBadRequest, edge.CodeConfigInvalid, "addr: set advertise on the requesting node")
+			return
+		}
 	}
-	// I-4: A 가 알릴 주소를 정하지 않았으면 이 연결의 출발지를 쓴다.
-	addr := in.Addr
-	if !edge.ValidAddr(addr) {
-		addr = host
-	}
-	// 승인할 때 쓸 수 없는 주소(zone 이 붙은 link-local 등)면 초대를 쓰기 전에 거절한다.
-	// 받아 두면 그 대기는 승인되지 않고 초대만 사라진다 (리뷰 C-15).
-	if !edge.ValidAddr(addr) {
-		audit("in", "-", "pair", http.StatusBadRequest)
-		writeFail(w, http.StatusBadRequest, edge.CodeConfigInvalid, "addr: set advertise on the requesting node")
-		return
-	}
-	switch err := n.pairing.Consume(in.Token); err {
+	fp := edge.ClientFingerprint(r)
+	switch err := n.pairing.Redeem(in.Token, fp); err {
 	case nil:
 	case edge.ErrNoInvite:
 		audit("in", "-", "pair", http.StatusForbidden)
@@ -266,40 +281,54 @@ func (n *Node) pair(w http.ResponseWriter, r *http.Request) {
 		writeFail(w, http.StatusForbidden, edge.CodeTokenInvalid, err.Error())
 		return
 	}
-	name := in.Name
-	if edge.ValidName(name) != nil {
-		name = edge.DefaultName(name)
-	}
-	n.pairing.AddPending(edge.Pending{Name: name, Addr: addr, Port: in.Port, Fingerprint: edge.ClientFingerprint(r)})
-	audit("in", name, "pair", http.StatusOK)
-	n.changed("")
-	httpresp.JSON(w, http.StatusOK, map[string]any{"status": "pending", "name": n.store.Config().Name})
-}
-
-// pairConfirm 은 A 쪽 승인 통지다 (FR-PNW-27).
-func (n *Node) pairConfirm(w http.ResponseWriter, r *http.Request) {
-	fp := edge.ClientFingerprint(r)
-	err := n.store.Promote(fp)
-	switch {
-	case err == nil, errors.Is(err, edge.ErrAlreadyPaired):
-	case errors.Is(err, edge.ErrNotPending):
-		audit("in", "-", "pair.confirm", http.StatusForbidden)
-		writeFail(w, http.StatusForbidden, edge.CodeRejected, "not pending")
-		return
-	default:
-		// pending-out 인데 바꾸지 못했으면 저장 실패다 (L-6).
-		audit("in", "-", "pair.confirm", http.StatusInternalServerError)
+	name := edge.DisplayName(in.Name)
+	if err := n.store.AddEdge(edge.Edge{Name: name, Addr: addr, Port: port, Fingerprint: fp}); err != nil {
+		audit("in", name, "pair", http.StatusInternalServerError)
 		writeFail(w, http.StatusInternalServerError, CodeSaveFailed, "save failed")
 		return
 	}
-	name, _ := n.store.NameOf(fp)
-	audit("in", name, "pair.confirm", http.StatusOK)
-	// I-24: 이미 간선이었으면 바뀐 것이 없다.
-	if err == nil {
-		n.changed("")
-	}
-	httpresp.JSON(w, http.StatusOK, map[string]any{"paired": true})
+	audit("in", name, "pair", http.StatusOK)
+	n.changed(Change{Paired: &Ref{FP: fp, Name: name}})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"name": n.store.Config().Name})
 }
 
-// Pairing 은 초대·승인 대기 상태다.
+// unpair 는 상대가 간선을 지웠다는 알림이다 (FR-EPR-21). 출입 판정이 간선만 들인다.
+func (n *Node) unpair(w http.ResponseWriter, r *http.Request) {
+	fp := edge.ClientFingerprint(r)
+	e, err := n.store.Resolve(fp)
+	if err == nil {
+		err = n.store.Remove(fp)
+	}
+	switch {
+	case err == nil:
+	case errors.Is(err, edge.ErrEdgeNotFound):
+		// 판정과 지우기 사이에 이쪽에서 먼저 지웠다.
+		writeFail(w, http.StatusForbidden, edge.CodeNotEdge, "not an edge")
+		return
+	default:
+		audit("in", e.Name, "unpair", http.StatusInternalServerError)
+		writeFail(w, http.StatusInternalServerError, CodeSaveFailed, "save failed")
+		return
+	}
+	audit("in", e.Name, "unpair", http.StatusOK)
+	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}})
+	httpresp.JSON(w, http.StatusOK, map[string]any{})
+}
+
+// Forget 은 상대가 이미 지운 간선을 이쪽에서도 지운다. 채팅이 상대에게서 edge_not_edge 를
+// 받았을 때 부른다 (FR-EPR-22). 간선이 아니면 아무것도 하지 않는다.
+func (n *Node) Forget(fp string) {
+	e, err := n.store.Resolve(fp)
+	if err != nil || e.Fingerprint != fp {
+		return
+	}
+	if err := n.store.Remove(fp); err != nil {
+		dmlog.Infof(nil, "edge forget: %v", err)
+		return
+	}
+	audit("out", e.Name, "forget", http.StatusOK)
+	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}})
+}
+
+// Pairing 은 초대 상태다.
 func (n *Node) Pairing() *edge.Pairing { return n.pairing }

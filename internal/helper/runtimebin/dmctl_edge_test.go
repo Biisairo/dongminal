@@ -10,14 +10,14 @@ import (
 	"testing"
 )
 
-// PEER_NETWORK_SRS FR-PNW-73·74 — dmctl edges · edge invite/add/approve/reject/remove.
+// PEER_NETWORK_SRS FR-PNW-73·74, EDGE_PAIRING_SRS FR-EPR-60 — dmctl edges · edge invite/add/remove.
 
 const edgesFakeJSON = `{
  "node":{"enabled":true,"port":58147,"bind":"0.0.0.0","name":"office","advertise":"",
   "fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","listening":false,"error":"bind: address already in use"},
- "edges":[{"name":"home","addr":"10.0.0.2","port":58147,"fp":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","state":""},
-          {"name":"lab","addr":"10.0.0.3","port":58147,"fp":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","state":"pending-out","expires":"2026-11-10T09:10:00Z"}],
- "pending":[{"id":"p1","name":"laptop","addr":"10.0.0.4","port":58147,"fp":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","expires":"2026-11-10T09:10:00Z"}],
+ "edges":[{"name":"home","addr":"10.0.0.2","port":58147,"fp":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          {"name":"home","addr":"","port":0,"fp":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+          {"name":"laptop","addr":"10.0.0.4","port":58147,"fp":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}],
  "invite":null}`
 
 // edgeReq 은 가짜 서버가 받은 요청 하나다.
@@ -59,13 +59,16 @@ func TestDmctlEdgesText(t *testing.T) {
 	}
 	for _, want := range []string{
 		"name=office", "port=58147", "listening=no", "fp=0123456789abcdef", "address already in use",
-		"edge     name=home", "addr=10.0.0.2:58147", "state=paired",
-		"name=lab", "state=pending-out",
-		"id=p1", "name=laptop",
+		"edge     fp=aaaaaaaaaaaaaaaa  name=home  addr=10.0.0.2:58147",
+		"edge     fp=bbbbbbbbbbbbbbbb  name=home  addr=-",
+		"name=laptop",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("출력에 %q 가 없다:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "state=") || strings.Contains(out, "pending") {
+		t.Errorf("승인 대기·상태가 보인다:\n%s", out)
 	}
 	// FR-PNW-95: 지문은 앞 16자만 보인다.
 	if strings.Contains(out, strings.Repeat("a", 17)) {
@@ -99,23 +102,20 @@ func TestDmctlEdgeInvite(t *testing.T) {
 	}
 }
 
+// FR-EPR-51: add 는 코드만 보내고, 맺은 상대의 이름과 지문 앞자리를 낸다.
 func TestDmctlEdgeAdd(t *testing.T) {
-	calls, cleanup := withEdgeServer(t, 200, `{"name":"home","state":"pending-out","warning":"port_closed"}`)
+	calls, cleanup := withEdgeServer(t, 200, `{"fp":"0123456789abcdef0011","name":"home"}`)
 	defer cleanup()
-	rc, out, errOut := dmctlRun("edge", "add", "dmedge1:abc", "--name", "home")
+	rc, out, errOut := dmctlRun("edge", "add", "dmedge1:abc")
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, errOut)
 	}
 	c := (*calls)[0]
-	if c.path != "/api/edges/add" || c.body["code"] != "dmedge1:abc" || c.body["name"] != "home" {
+	if c.path != "/api/edges/add" || c.body["code"] != "dmedge1:abc" || len(c.body) != 1 {
 		t.Fatalf("요청 %+v", c)
 	}
-	if !strings.Contains(out, "home") {
+	if !strings.Contains(out, "home") || !strings.Contains(out, "0123456789abcdef") || strings.Contains(out, "0011") {
 		t.Errorf("stdout %q", out)
-	}
-	// FR-PNW-33: 내 포트가 닫혀 있으면 미리 알린다.
-	if !strings.Contains(errOut, "노드 포트") {
-		t.Errorf("포트 경고가 없다: %q", errOut)
 	}
 }
 
@@ -129,36 +129,34 @@ func TestDmctlEdgeAddUnreachable(t *testing.T) {
 	}
 }
 
-func TestDmctlEdgeApprove(t *testing.T) {
-	calls, cleanup := withEdgeServer(t, 200, `{"name":"lap","confirmed":false,"reason":"상대 노드에 닿지 못했습니다"}`)
+// FR-EPR-52·60: remove 는 지문 앞자리를 보내고, 상대에게 알리지 못했으면 stderr 에 알린다.
+func TestDmctlEdgeRemove(t *testing.T) {
+	calls, cleanup := withEdgeServer(t, 200, `{"fp":"0123456789abcdef0011","name":"home","notified":false}`)
 	defer cleanup()
-	rc, out, errOut := dmctlRun("edge", "approve", "p1", "--name", "lap")
+	rc, out, e := dmctlRun("edge", "remove", "01234567")
 	if rc != 0 {
-		t.Fatalf("rc=%d stderr=%s", rc, errOut)
+		t.Fatalf("remove rc=%d %s", rc, e)
 	}
-	c := (*calls)[0]
-	if c.path != "/api/edges/approve" || c.body["id"] != "p1" || c.body["name"] != "lap" {
-		t.Fatalf("요청 %+v", c)
+	if (*calls)[0].path != "/api/edges/remove" || (*calls)[0].body["fp"] != "01234567" {
+		t.Fatalf("remove 요청 %+v", (*calls)[0])
 	}
-	if !strings.Contains(out, "lap") || !strings.Contains(errOut, "닿지 못했습니다") {
-		t.Fatalf("out=%q err=%q", out, errOut)
+	if !strings.Contains(out, "home") || !strings.Contains(e, "알리지 못했습니다") {
+		t.Fatalf("out=%q err=%q", out, e)
 	}
 }
 
-func TestDmctlEdgeRejectAndRemove(t *testing.T) {
-	calls, cleanup := withEdgeServer(t, 200, `{}`)
+// FR-EPR-60: approve·reject·--name 은 없다. 서버에 보내지 않는다.
+func TestDmctlEdgePendingCommandsGone(t *testing.T) {
+	var hits atomic.Int64
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) { hits.Add(1) })
 	defer cleanup()
-	if rc, _, e := dmctlRun("edge", "reject", "p1"); rc != 0 {
-		t.Fatalf("reject rc=%d %s", rc, e)
+	for _, args := range [][]string{{"edge", "approve", "p1"}, {"edge", "reject", "p1"}, {"edge", "add", "c", "--name", "x"}} {
+		if rc, _, _ := dmctlRun(args...); rc != 2 {
+			t.Errorf("%v: rc=%d, 기대 2", args, rc)
+		}
 	}
-	if rc, _, e := dmctlRun("edge", "remove", "home"); rc != 0 {
-		t.Fatalf("remove rc=%d %s", rc, e)
-	}
-	if (*calls)[0].path != "/api/edges/reject" || (*calls)[0].body["id"] != "p1" {
-		t.Fatalf("reject 요청 %+v", (*calls)[0])
-	}
-	if (*calls)[1].path != "/api/edges/remove" || (*calls)[1].body["name"] != "home" {
-		t.Fatalf("remove 요청 %+v", (*calls)[1])
+	if hits.Load() != 0 {
+		t.Fatalf("서버에 %d 번 보냈다", hits.Load())
 	}
 }
 
@@ -168,7 +166,7 @@ func TestDmctlEdgeUsage(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) { hits.Add(1) })
 	defer cleanup()
 	for _, args := range [][]string{
-		{"edge"}, {"edge", "bogus"}, {"edge", "add"}, {"edge", "approve"}, {"edge", "reject"},
+		{"edge"}, {"edge", "bogus"}, {"edge", "add"},
 		{"edge", "remove"}, {"edge", "invite", "--addr"}, {"edge", "add", "c", "--nope"},
 	} {
 		if rc, _, _ := dmctlRun(args...); rc != 2 {
@@ -207,7 +205,7 @@ func TestDmctlEdgesCleansRemoteText(t *testing.T) {
 	}
 }
 
-// 로컬 API 의 거절 본문과 상대가 준 사유도 제어 문자를 지우고 찍는다.
+// 로컬 API 의 거절 본문과 상대가 준 이름도 제어 문자를 지우고 찍는다.
 func TestDmctlEdgeCleansRefusalAndReason(t *testing.T) {
 	refusals := []string{
 		`{"code":"edge_unreachable","message":"x\u001b]52;c;AA==\u0007"}`,
@@ -215,15 +213,15 @@ func TestDmctlEdgeCleansRefusalAndReason(t *testing.T) {
 	}
 	for _, body := range refusals {
 		_, cleanup := withEdgeServer(t, 502, body)
-		if _, _, e := dmctlRun("edge", "reject", "p1"); strings.ContainsAny(e, "\x1b\x07") {
+		if _, _, e := dmctlRun("edge", "remove", "01234567"); strings.ContainsAny(e, "\x1b\x07") {
 			t.Errorf("거절 출력에 제어 문자 %q", e)
 		}
 		cleanup()
 	}
-	_, cleanup := withEdgeServer(t, 200, `{"name":"la\u001b[2Jp","confirmed":false,"reason":"r\u001b]52;c;AA==\u0007"}`)
+	_, cleanup := withEdgeServer(t, 200, `{"name":"la\u001b[2Jp","fp":"f\u001b]52;c;AA==\u0007"}`)
 	defer cleanup()
-	if _, out, e := dmctlRun("edge", "approve", "p1"); strings.ContainsAny(out+e, "\x1b\x07") {
-		t.Errorf("approve 출력에 제어 문자 %q %q", out, e)
+	if _, out, e := dmctlRun("edge", "add", "dmedge1:abc"); strings.ContainsAny(out+e, "\x1b\x07") {
+		t.Errorf("add 출력에 제어 문자 %q %q", out, e)
 	}
 }
 
@@ -238,16 +236,6 @@ func TestParseSubArgsForms(t *testing.T) {
 	}
 	if _, err := parseSubArgs([]string{"--json=1"}, nil, []string{"json"}); err == nil {
 		t.Fatal("불 플래그에 값을 받았다")
-	}
-}
-
-// L-10: approve 는 승인한 지문(앞 16자)을 낸다 — 상대 화면의 지문과 대조하라고.
-func TestDmctlEdgeApprovePrintsFingerprint(t *testing.T) {
-	_, cleanup := withEdgeServer(t, 200, `{"name":"lap","fp":"0123456789abcdef0011","confirmed":true}`)
-	defer cleanup()
-	rc, out, e := dmctlRun("edge", "approve", "p1")
-	if rc != 0 || !strings.Contains(out, "0123456789abcdef") || strings.Contains(out, "0011") {
-		t.Fatalf("rc=%d out=%q err=%q", rc, out, e)
 	}
 }
 
@@ -288,7 +276,7 @@ func TestDmctlNoEdgeRemnants(t *testing.T) {
 	if strings.Contains(agentContextText, "DONGMINAL-PEER-MSG") {
 		t.Error("안내문에 원격 엔벨로프가 남았다")
 	}
-	body := strings.Replace(edgesFakeJSON, `"state":""}`, `"state":"","lastSeen":"2026-11-10T09:01:02Z"}`, 1)
+	body := strings.Replace(edgesFakeJSON, `"port":58147,"fp":"aaaa`, `"lastSeen":"2026-11-10T09:01:02Z","port":58147,"fp":"aaaa`, 1)
 	_, cleanup := withEdgeServer(t, 200, body)
 	defer cleanup()
 	if _, out, _ := dmctlRun("edges"); strings.Contains(out, "lastSeen") {

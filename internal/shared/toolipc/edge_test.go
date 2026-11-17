@@ -21,7 +21,8 @@ func TestEdgeWireGolden(t *testing.T) {
 			`{"code":"edge_unreachable","message":"m","status":502}`},
 		{"edgeport-params", EdgePortParams{Addr: "0.0.0.0:58147", Listening: true},
 			`{"addr":"0.0.0.0:58147","listening":true}`},
-		{"edges-event", EdgesEvent{Event: EventEdges, Paired: "b"}, `{"event":"edges","paired":"b"}`},
+		{"edges-event", EdgesEvent{Event: EventEdges, Paired: &EdgeRef{FP: "f", Name: "b"}}, `{"event":"edges","paired":{"fp":"f","name":"b"}}`},
+		{"edges-event-removed", EdgesEvent{Event: EventEdges, Removed: &EdgeRef{FP: "f", Name: "b"}}, `{"event":"edges","removed":{"fp":"f","name":"b"}}`},
 	}
 	for _, c := range cases {
 		got, err := json.Marshal(c.v)

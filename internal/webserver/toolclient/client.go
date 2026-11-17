@@ -472,8 +472,9 @@ type wireMsg struct {
 	// Reason·Agent 는 attn push 다 (§3.3a).
 	Reason string             `json:"reason"`
 	Agent  toolhub.AgentState `json:"agent"`
-	// Paired 는 edges push 다 (PEER_DAEMON_SRS §3.5a).
-	Paired string `json:"paired"`
+	// Paired·Removed 는 edges push 다 (PEER_DAEMON_SRS §3.5a, EDGE_PAIRING_SRS FR-EPR-5).
+	Paired  *toolipc.EdgeRef `json:"paired"`
+	Removed *toolipc.EdgeRef `json:"removed"`
 	// ChatKind·Chat 은 chat push 다 (PEER_CHAT_SRS §3.11).
 	ChatKind string            `json:"chatKind"`
 	Chat     *chatwire.Message `json:"chat"`

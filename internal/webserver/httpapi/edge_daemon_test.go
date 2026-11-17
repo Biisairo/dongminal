@@ -103,7 +103,7 @@ func daemonEdgeFixture(t *testing.T, home string, cfg edge.Config) (*edgeNode, *
 	if err != nil {
 		t.Fatal(err)
 	}
-	pc.SetOnEdges(func(ev toolipc.EdgesEvent) { srv.EdgePushed(ev.Paired) })
+	pc.SetOnEdges(func(ev toolipc.EdgesEvent) { srv.EdgePushed(ev) })
 	pc.SetOnEdgeResync(srv.EdgeResync)
 	return &edgeNode{srv: srv, home: home}, cmds, ps
 }

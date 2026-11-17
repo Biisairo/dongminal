@@ -13,24 +13,25 @@ import (
 	"unicode"
 )
 
-// PEER_NETWORK_SRS FR-PNW-73·74, PEER_DAEMON_SRS FR-PDM-70 — 노드 간 통신의 dmctl 명령 (간선 맺기).
+// PEER_NETWORK_SRS FR-PNW-73·74, PEER_DAEMON_SRS FR-PDM-70, EDGE_PAIRING_SRS FR-EPR-60 — 노드 간
+// 통신의 dmctl 명령 (간선 맺기).
 
 const dmctlEdgesHelp = `dmctl edges [--json]
-  노드 포트 상태, 간선 목록(이름·주소·상태), 승인 대기를 보인다.
+  노드 포트 상태와 간선 목록(지문 앞자리·표시 이름·주소)을 보인다.
 `
 
 const dmctlEdgeHelp = `dmctl edge — 노드 간 통신의 간선 맺기
 
-  dmctl edge invite [--addr <주소>]           초대 코드를 만들어 출력한다 (10분, 한 번)
-  dmctl edge add <코드> [--name <이름>]       초대 코드로 등록을 요청한다
-  dmctl edge approve <요청 id> [--name <이름>]  승인 대기를 간선으로 저장한다
-  dmctl edge reject <요청 id>                승인 대기를 거절한다
-  dmctl edge remove <노드>                   간선을 끊는다
+  dmctl edge invite [--addr <주소>]   초대 코드를 만들어 출력한다 (10분, 한 번)
+  dmctl edge add <코드>               초대 코드로 간선을 맺는다
+  dmctl edge remove <지문 앞자리>     간선을 끊는다. 상대 쪽에서도 지워진다
+
+  지문 앞자리는 8자리 이상이고 간선 하나에만 맞아야 한다(dmctl edges 로 본다).
 
   상대에 닿지 못하면 사유 코드(edge_unreachable 등)를 내고 1 로 끝난다.
 `
 
-// edgeCallBudget 은 상대를 부르는 로컬 API(add·approve)의 예산이다. 서버의 원격
+// edgeCallBudget 은 상대를 부르는 로컬 API(add·remove)의 예산이다. 서버의 원격
 // 요청 시한(15초)보다 길어야 상대의 답을 받기 전에 끊지 않는다 (리뷰 C-1).
 const edgeCallBudget = 20 * time.Second
 
@@ -75,20 +76,11 @@ type edgesOut struct {
 		Error       string `json:"error"`
 	} `json:"node"`
 	Edges []struct {
-		Name  string `json:"name"`
-		Addr  string `json:"addr"`
-		Port  int    `json:"port"`
-		FP    string `json:"fp"`
-		State string `json:"state"`
+		Name string `json:"name"`
+		Addr string `json:"addr"`
+		Port int    `json:"port"`
+		FP   string `json:"fp"`
 	} `json:"edges"`
-	Pending []struct {
-		ID      string `json:"id"`
-		Name    string `json:"name"`
-		Addr    string `json:"addr"`
-		Port    int    `json:"port"`
-		FP      string `json:"fp"`
-		Expires string `json:"expires"`
-	} `json:"pending"`
 	Invite *struct {
 		Expires string `json:"expires"`
 	} `json:"invite"`
@@ -108,7 +100,11 @@ func yesNo(b bool) string {
 	return "no"
 }
 
+// hostPort 는 주소:포트다. 주소를 모르는 간선(상대의 노드 포트가 닫혀 있었음)은 `-` 다.
 func hostPort(addr string, port int) string {
+	if addr == "" {
+		return "-"
+	}
 	if strings.Contains(addr, ":") {
 		return "[" + addr + "]:" + strconv.Itoa(port)
 	}
@@ -132,15 +128,7 @@ func printEdges(w io.Writer, raw []byte) {
 		fmt.Fprintf(w, "         port error: %s\n", clean(n.Error))
 	}
 	for _, p := range v.Edges {
-		state := p.State
-		if state == "" {
-			state = "paired"
-		}
-		fmt.Fprintf(w, "edge     name=%s  addr=%s  state=%s  fp=%s\n", clean(p.Name), clean(hostPort(p.Addr, p.Port)), clean(state), clean(shortFP(p.FP)))
-	}
-	for _, p := range v.Pending {
-		fmt.Fprintf(w, "pending  id=%s  name=%s  addr=%s  fp=%s  expires=%s\n",
-			clean(p.ID), clean(p.Name), clean(hostPort(p.Addr, p.Port)), clean(shortFP(p.FP)), clean(p.Expires))
+		fmt.Fprintf(w, "edge     fp=%s  name=%s  addr=%s\n", clean(shortFP(p.FP)), clean(p.Name), clean(hostPort(p.Addr, p.Port)))
 	}
 	if v.Invite != nil {
 		fmt.Fprintf(w, "invite   expires=%s\n", clean(v.Invite.Expires))
@@ -243,11 +231,9 @@ type subSpec struct {
 }
 
 var edgeSubs = map[string]subSpec{
-	"invite":  {0, false, []string{"addr"}, nil, edgeInvite},
-	"add":     {1, false, []string{"name"}, nil, edgeAdd},
-	"approve": {1, false, []string{"name"}, nil, edgeApprove},
-	"reject":  {1, false, nil, nil, edgeReject},
-	"remove":  {1, false, nil, nil, edgeRemove},
+	"invite": {0, false, []string{"addr"}, nil, edgeInvite},
+	"add":    {1, false, nil, nil, edgeAdd},
+	"remove": {1, false, nil, nil, edgeRemove},
 }
 
 func edgeInvite(pa subArgs, stdout, stderr io.Writer) int {
@@ -267,62 +253,34 @@ func edgeInvite(pa subArgs, stdout, stderr io.Writer) int {
 }
 
 func edgeAdd(pa subArgs, stdout, stderr io.Writer) int {
-	body := map[string]any{"code": pa.pos[0]}
-	if n := pa.flags["name"]; n != "" {
-		body["name"] = n
-	}
-	raw, rc := edgeAPI("POST", "/api/edges/add", body, stderr)
+	raw, rc := edgeAPI("POST", "/api/edges/add", map[string]any{"code": pa.pos[0]}, stderr)
 	if rc != 0 {
 		return rc
 	}
 	var v struct {
-		Name    string `json:"name"`
-		Warning string `json:"warning"`
+		Name string `json:"name"`
+		FP   string `json:"fp"`
 	}
 	_ = json.Unmarshal(raw, &v)
-	fmt.Fprintf(stdout, "%s 에 등록을 요청했습니다. 상대가 승인하면 간선이 맺어집니다 (10분 안).\n", clean(v.Name))
-	if v.Warning == "port_closed" {
-		fmt.Fprintln(stderr, "주의: 이 노드의 노드 포트가 닫혀 있어 상대가 이 노드로 보낼 수 없습니다. 승인 통지도 받지 못합니다.")
-	}
-	return 0
-}
-
-func edgeApprove(pa subArgs, stdout, stderr io.Writer) int {
-	body := map[string]any{"id": pa.pos[0]}
-	if n := pa.flags["name"]; n != "" {
-		body["name"] = n
-	}
-	raw, rc := edgeAPI("POST", "/api/edges/approve", body, stderr)
-	if rc != 0 {
-		return rc
-	}
-	var v struct {
-		Name      string `json:"name"`
-		FP        string `json:"fp"`
-		Confirmed bool   `json:"confirmed"`
-		Reason    string `json:"reason"`
-	}
-	_ = json.Unmarshal(raw, &v)
-	fmt.Fprintf(stdout, "%s 를 간선으로 저장했습니다. 지문 %s — 상대 노드의 지문과 같은지 확인하세요.\n", clean(v.Name), clean(shortFP(v.FP)))
-	if !v.Confirmed {
-		fmt.Fprintf(stderr, "주의: 상대에게 승인을 알리지 못했습니다 (%s). 상대는 아직 이 노드를 간선으로 모릅니다.\n", clean(v.Reason))
-	}
-	return 0
-}
-
-func edgeReject(pa subArgs, stdout, stderr io.Writer) int {
-	if _, rc := edgeAPI("POST", "/api/edges/reject", map[string]any{"id": pa.pos[0]}, stderr); rc != 0 {
-		return rc
-	}
-	fmt.Fprintln(stdout, "거절했습니다.")
+	fmt.Fprintf(stdout, "%s(%s)와 간선을 맺었습니다.\n", clean(v.Name), clean(shortFP(v.FP)))
 	return 0
 }
 
 func edgeRemove(pa subArgs, stdout, stderr io.Writer) int {
-	if _, rc := edgeAPI("POST", "/api/edges/remove", map[string]any{"name": pa.pos[0]}, stderr); rc != 0 {
+	raw, rc := edgeAPI("POST", "/api/edges/remove", map[string]any{"fp": pa.pos[0]}, stderr)
+	if rc != 0 {
 		return rc
 	}
-	fmt.Fprintf(stdout, "%s 와의 간선을 끊었습니다. 상대 쪽 기록은 상대가 따로 지웁니다.\n", pa.pos[0])
+	var v struct {
+		Name     string `json:"name"`
+		FP       string `json:"fp"`
+		Notified bool   `json:"notified"`
+	}
+	_ = json.Unmarshal(raw, &v)
+	fmt.Fprintf(stdout, "%s(%s) 간선을 끊었습니다.\n", clean(v.Name), clean(shortFP(v.FP)))
+	if !v.Notified {
+		fmt.Fprintln(stderr, "상대에게 알리지 못했습니다. 다시 이어지면 상대 쪽에서도 지워집니다.")
+	}
 	return 0
 }
 
