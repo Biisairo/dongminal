@@ -3,17 +3,19 @@
 > 진실은 `docs/internal/PEER_DAEMON_SRS.md` 다. 이 문서는 그 SRS 를 구현하는 세션의 착수 지시와 맥락이다.
 > 다음 일감은 `docs/internal/PEER_CHAT_SRS.md` 다(§5).
 
-## 1. 착수 블록 (PEER_CHAT 단계 3 구현 → 단계 4)
+## 1. 착수 블록 (PEER_CHAT 단계 4)
 
 1. `git status` 로 작업 트리가 깨끗한지 확인한다. 브랜치는 `feat/peer-daemon`, 직전 커밋은 `HEAD` 다.
-2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 없다(D-PCH-21~37). **정한 것을 다시 묻지 않는다.** 단계 3 설계는 **§3.11 에 이미 적었다.** 먼저 §3.11 과 §3.7·§4.2 를 읽는다.
-3. **사용자 지시: 모든 구현(단계 3·4)이 끝날 때까지 묻지 말고 알아서 진행한다.** 단계마다 검사(`make gates`·`make lint`·`go test ./...`·`npm run unit`)를 통과하면 커밋한다.
-4. 단계 3 에서 끝난 것: 채팅 핵심의 `Options.Changed`(바뀜 알림), `chatsock.Server.StartUser`·`UserCall`(사람 참가자, op `state` 포함), `chatwire.OpState`·`State` (`37e8868e`). **아직 boot 에 잇지 않았다.**
-5. 단계 3 에서 남은 것(이 순서로, 각각 시험 먼저):
-   ① IPC: `toolipc` 에 `MethodChat`·`EventChat`·`FeatureChat`(데몬·서버 목록 둘 다 — 와이어 골든 두 곳 `daemon/ipc/wire_typed_test.go`·`webserver/toolclient/wire_typed_test.go` 를 고친다), `ChatParams{Op, Args}`·`ChatResult{Result, Error}`·`ChatEvent{Event, ChatKind, Chat}`. 데몬 `daemon/ipc/paned_chat.go`(`SetChat`, `chat` 처리, `PushChat`), `paned.go` dispatch, hello 의 기능 저장(`pc.chat`). boot `startChat` 에서 `cs.StartUser()`, `OnUser` → `ps.PushChat(msg)`, `chat.Options.Changed` → `ps.PushChat(changed)`. `state` 의 방마다 참가자 목록 `people[]` 을 싣도록 `chatwire.Room` 에 `People []Member \`json:"people,omitempty"\`` 를 더하고 `UserCall(state)` 에서만 채운다.
-   ② 서버: `toolclient/client_chat.go`(`ChatReady`·`Chat`·`SetOnChat`·재접속 콜백), `wireMsg` 에 `ChatKind`·`Chat` 필드, `client_push.go` 분기, `httpapi/deps.go` `ChatDaemon` 접합면, `httpapi/chat_api.go`(`GET /api/chat`, `POST /api/chat/{op}`, 오류 코드 대응, SSE `chat_message`·`chat_changed`), `cmd/dongminal/app.go` 배선(`SetOnEdges` 옆). 오류 코드 `chat_*` 는 `apierr` + `codes_doc.go` 에 넣고 `go run ./scripts/gen-errors`. API 문서 게이트(`check-api-docs.sh`)를 맞춘다. 스냅샷 조각이 필요하면 서버 snapshot 핸들러에도 `chat` 조각을 더한다.
-   ③ 화면: §4.3 의 조사 결과대로. Activity 탭 줄, Chats 구역, 채팅 탭(`TAB_TYPE_CHAT='chat'`), 채팅 저장소, i18n(ko·en), `index.html` 스크립트 순서, JS 단위 시험.
-6. 그다음 단계 4(H: 도우미+TOTP, §3.6·FR-PCH-70~79, TC-PCH-7·8). 설계를 §3.12 로 먼저 적는다.
+2. 진실은 `docs/internal/PEER_CHAT_SRS.md` 다. 미결은 없다(D-PCH-21~37). **정한 것을 다시 묻지 않는다.**
+3. **사용자 지시: 모든 구현(단계 4)이 끝날 때까지 묻지 말고 알아서 진행한다.** 단계마다 검사(`make gates`·`make lint`·`npm run typecheck`·`go test ./...`·`npm run unit`)를 통과하면 커밋한다.
+4. 단계 3(화면)은 끝났다: IPC `7cd67213`, 서버 API·SSE `dcca46b2`, 화면 `8bda595f`. §4.4 를 읽는다.
+5. 단계 4(H: 도우미+TOTP, §3.6·FR-PCH-70~79·86·87, TC-PCH-7·8): 설계를 SRS §3.12 로 먼저 적고 커밋한 뒤, 시험 먼저 구현한다. 설계에서 정할 것:
+   - 도우미 프로그램의 자리(새 바이너리인지 `dongminal helper` 하위 명령인지), 설치·제거(`sudo dongminal helper install|uninstall`, LaunchDaemon plist, `/Library/PrivilegedHelperTools`), 비밀 파일 자리와 권한.
+   - 도우미 소켓 경로와 접속자 OS 사용자 확인(macOS `getpeereid`/`LOCAL_PEERCRED`), 요청·응답 프레임.
+   - TOTP(RFC 6238, HMAC-SHA1, 30초, 6자리, 앞뒤 한 칸 허용 여부), 재사용 금지, 5번 틀리면 5분 잠금, 복구 코드.
+   - 사람 명령 프레임(`kill`·`kick`)의 모양·서명·전파, 받는 노드의 확인(간선 상대의 도우미 공개키를 `edges.json` 간선 항목에 고정, FR-PCH-74). 망 이웃(간선 상대가 아님)의 도우미 공개키를 어떻게 믿을지 정한다.
+   - 데몬 IPC·로컬 API(`/api/chat/kill`·`kick` + 코드), 오류 코드, 화면(FR-PCH-86·87: 여러 개 고르기, OTP 확인 창, 도우미가 없으면 메뉴를 숨김).
+6. 끝나면 SRS 상태를 "구현 끝"으로 고치고 사용자에게 적용(데몬·서버 재시작, `sudo dongminal helper install`, e2e)을 맡긴다.
 
 ## 2. 사용자 지시
 
@@ -37,7 +39,8 @@
 | PEER_CHAT 미결 해소 | 끝 (D-PCH-21~35) | `f4e361f7`, `f2cc6743` |
 | PEER_CHAT 단계 1 (데몬의 채팅 핵심) | 끝 | 설계 `c7753b43`, Upgrade `0f08acc1`, 핵심 `a9793300`, 보안 수정 `0ab24a2c`·`1e688ca6`·`544e1800` |
 | PEER_CHAT 단계 2 (MCP·알림) | 끝 | 설계 `25c63c88`, 데몬 소켓 `2099d28a`, MCP·shim·훅 `1b0bf128` |
-| PEER_CHAT 단계 3 (화면) | **진행 중** — 설계 §3.11, 데몬 쪽 `37e8868e` | |
+| PEER_CHAT 단계 3 (화면) | 끝 | 설계 `10ff68a8`, 데몬 쪽 `37e8868e`, IPC `7cd67213`, 서버 `dcca46b2`, 화면 `8bda595f` |
+| PEER_CHAT 단계 4 (사람 명령) | **다음** | |
 
 > 2026-11-17 사용자 결정으로 범위가 바뀌었다(SRS D-PDM-13~17). 아래 §3.2·§3.3 의 명령 관련 조사·설계는 낡았다. 명령이 없어지므로 화면 요청(`peerui`)도 없다.
 
@@ -143,6 +146,15 @@
 - 시험: `node:test`, `web/js/test/*.test.mjs`, 하네스 `web/js/test/harness.mjs` `load([...files], {expose, globals})`. `npm run unit`.
 - 게이트: 새 파일은 `index.html` 의 `<script>` 순서에 넣는다(`check-load-order.mjs`). i18n(`t()`·ko/en 키 일치·조사·합쇼체 문장/명사형 라벨), 저장소는 `PrefStore` 만, 템플릿 리터럴에 `${}` 금지(`check-html.sh`), UIKit 버튼(`check-button-kit`), 타이머는 TIMERS·TimerHub, CSS 변수·색·폰트 크기·z-index 게이트, 툴팁(title)은 영어(FR-TIP-2), API·SSE action 은 문서(`check-api-docs.sh`·`check-commands-docs.sh`). 파일 크기 기준선(`check-file-size.mjs`).
 - i18n: `t(key, params)`·`tn`(`web/js/core/i18n.js:163,169`), 카탈로그 `web/js/i18n/ko.js`·`en.js`(네임스페이스 순 정렬, 예 `'panel.sec_agents'`).
+
+### 4.4 PEER_CHAT 단계 3 에서 배운 것
+
+- IPC: `toolipc/chat.go`(`ChatParams`·`ChatResult`·`ChatEvent`), 데몬 `daemon/ipc/paned_chat.go`(`SetChat`·`PushChatMsg`·`PushChatChanged`, op 는 읽기 루프에서 바로 돈다 — 채팅 핵심은 메모리 연산뿐). boot `startChat` 이 `cs.StartUser()`·`ps.SetChat(cs)`·`OnUser`·`Changed` 를 잇는다.
+- 서버: `toolclient/client_chat.go`, `httpapi/chat_api.go`(`ChatDaemon` 접합면, 오류 대응표 `chatErrors`), 배선 `cmd/dongminal/app.go`. 오류 코드 `apierr/codes_chat.go`.
+- 화면: 탭 줄은 `app-activity.js` 의 `ACTIVITY_SECTIONS`(항목 `badge`·`shownOnly`), `_actTab`·`_actTabSelect`·`_actTabsEl`(UIKit.tab). 채팅은 `core/chat-store.js`(ChatStore·chatRoomTitle·chatShortId), `core/app-chat.js`(상태·Chats 항목·동작·`_addChatTab`), `ui/chat-view.js`(채팅 탭). 탭 종류 `TAB_TYPE_CHAT`.
+- 게이트에서 배운 것: 버튼은 `createElement('button')` 대신 `UIKit.button`·`UIKit.tab`. 스크롤 표면 클래스는 `className=` 대입으로 써야 검사가 만든 자리로 본다. outline 을 지우면 `:focus-visible` 을 둔다. 영어 툴팁은 `constants.js` 의 `TIP_*` 상수로. `app-layout.js` 는 크기 기준선에 닿아 있다 — 새 메서드는 다른 파일에 둔다.
+- e2e 의 `.ag-sec` 선택자를 `.ag-tab[data-sec].active` 로 바꿨다. **`e2e/baseline/ui-layout.linux.json` 에 `.ag-sec` 요소가 남아 있다** — e2e 를 돌릴 때 기준선을 다시 만들어야 한다(사용자 몫).
+- 아직 안 한 것: 서버 snapshot 조각(`part`)은 쓰지 않았다(등록부가 `GET /api/chat` 를 직접 부른다).
 
 ## 5. 그다음: PEER_CHAT_SRS
 
