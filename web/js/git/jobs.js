@@ -54,7 +54,7 @@ class GitJobs {
     this.slots=list.map(s=>({slot:String(s.slot),remote:!!s.remote}));
     for(const s of this.slots) this.views[s.slot]=new GitRemote(this.panel,s.slot,this);
     const box=this._el&&this._el.querySelector('.git-jobs');
-    if(box){box.innerHTML=this.boxesHTML();this.bind(this._el);this.paint(this._el)}
+    if(box){box.innerHTML=this.boxesHTML();GitJobs.label(box);this.bind(this._el);this.paint(this._el)}
     for(const h of this._heads){this.bindHead(h);this.paintHead(h)}
     this._heads.clear();
     if(this._jobs) this.adoptJobs(this._jobs);
@@ -69,6 +69,18 @@ class GitJobs {
   _headView(){const s=this.slots.find(x=>x.remote);return s?this.views[s.slot]:null}
   /** 이 잡이 원격 칸을 쥐는가 — 취소 문구가 "원격에 남는다" 를 고른다. */
   touchesRemote(job){return ((job&&job.slots)||[]).some(sl=>this.slots.some(x=>x.slot===sl&&x.remote))}
+
+  /**
+   * 박스 버튼의 글자와 툴팁. 골격을 세울 때와 정책이 늦게 와 박스를 갈아 끼울 때(`_build`)
+   * 둘 다 이것을 부른다 — 한쪽만 넣으면 갈아 끼운 버튼이 빈 네모로 남는다.
+   */
+  static label(root){
+    for(const b of root.querySelectorAll('.git-job-cancel')){b.textContent=GIT_JOB_CANCEL; b.title=GIT_TIP_JOB_CANCEL}
+    for(const b of root.querySelectorAll('.git-job-copy')){b.textContent=GIT_JOB_COPY; b.title=GIT_TIP_JOB_COPY}
+    for(const b of root.querySelectorAll('.git-job-close')){b.textContent=GIT_JOB_CLOSE; b.title=GIT_TIP_JOB_CLOSE}
+    for(const b of root.querySelectorAll('.git-job-fold')) b.title=GIT_TIP_JOB_FOLD;
+    for(const b of root.querySelectorAll('.git-job-auth-copy')){b.textContent=GIT_JOB_AUTH_COPY; b.title=GIT_TIP_JOB_AUTH_COPY}
+  }
 
   // 칸 하나의 박스. 두 칸이 같은 골격이다 — 한 벌을 두 번 찍는다.
   static boxHTML(slot){

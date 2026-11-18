@@ -211,13 +211,7 @@ Object.assign(GitPanel.prototype, {
         '</div>'+
       '</div>';
     this._wireHead(el);
-    for(const b of el.querySelectorAll('.git-job-cancel')){
-      b.textContent=GIT_JOB_CANCEL; b.title=GIT_TIP_JOB_CANCEL;
-    }
-    for(const b of el.querySelectorAll('.git-job-copy')){b.textContent=GIT_JOB_COPY; b.title=GIT_TIP_JOB_COPY}
-    for(const b of el.querySelectorAll('.git-job-close')){b.textContent=GIT_JOB_CLOSE; b.title=GIT_TIP_JOB_CLOSE}
-    for(const b of el.querySelectorAll('.git-job-fold')) b.title=GIT_TIP_JOB_FOLD;
-    for(const b of el.querySelectorAll('.git-job-auth-copy')){b.textContent=GIT_JOB_AUTH_COPY; b.title=GIT_TIP_JOB_AUTH_COPY}
+    GitJobs.label(el);
     const partClose=el.querySelector('.git-partial-close');
     partClose.textContent=GIT_NOTE_CLOSE; partClose.title=GIT_TIP_NOTE_CLOSE;
     el.querySelector('.git-partial-close')
