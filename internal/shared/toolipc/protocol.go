@@ -57,6 +57,9 @@ const (
 
 	// 사람 참가자의 채팅이다 (PEER_CHAT_SRS §3.11). FeatureChat 을 말한 데몬에만 보낸다.
 	MethodChat = "chat"
+
+	// 복구 판정의 셸 상태다 (RUN_RECOVERY_SRS FR-RRC-10). FeatureShellProbe 를 말한 데몬에만 보낸다.
+	MethodShellProbe = "shellprobe"
 )
 
 const (
@@ -119,12 +122,15 @@ const (
 	// chat 을 알고 chat push 를 보내며, 서버는 chat push 를 안다. 데몬이 말하지 않으면 서버는
 	// 채팅 API 를 409 chat_daemon_restart 로 답한다.
 	FeatureChat = "chat"
+	// FeatureShellProbe: shellprobe(id, pids) 를 안다 (RUN_RECOVERY_SRS FR-RRC-10). 말하지 않는
+	// 옛 데몬이면 서버는 판정을 unknown 으로 본다 (NFR-RRC-3).
+	FeatureShellProbe = "shellprobe"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureRecords, FeatureAttention, FeatureEdge, FeatureChat}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureRecords, FeatureAttention, FeatureEdge, FeatureChat, FeatureShellProbe}
 	ServerFeatures = []string{FeatureReports, FeatureAttention, FeatureEdge, FeatureChat}
 )
 
@@ -226,6 +232,17 @@ type CwdResult struct {
 
 type BusyResult struct {
 	Busy bool `json:"busy"`
+}
+
+// ShellProbeParams·ShellProbeResult 는 shellprobe 다 (FR-RRC-10). PIDs 는 세션 등록부가 그 세션을
+// 기록한 pid 들이고, State 는 toolhub.ShellState 의 값이다.
+type ShellProbeParams struct {
+	ID   string `json:"id"`
+	PIDs []int  `json:"pids"`
+}
+
+type ShellProbeResult struct {
+	State string `json:"state"`
 }
 
 // BusyManyParams·BusyManyResult 는 busymany 다 (FR-OPT-2-4). 없는 도구는 false 다 —

@@ -87,6 +87,19 @@ func (windowsProcInfo) ChildrenOf(pids []int) map[int]bool {
 	return childrenFromPairs(pairs, pids)
 }
 
+// Parents 는 스냅샷 하나로 답한다 (RUN_RECOVERY_SRS FR-RRC-10).
+func (windowsProcInfo) Parents() (map[int]int, bool) {
+	entries, err := winSnaps.get()
+	if err != nil {
+		return nil, false
+	}
+	out := make(map[int]int, len(entries))
+	for _, e := range entries {
+		out[e.pid] = e.ppid
+	}
+	return out, true
+}
+
 // CWD 는 조회하지 않는다 (FR-XPI-6). 다른 프로세스의 작업 디렉터리를 읽으려면
 // 그 프로세스의 PEB 를 원격으로 읽어야 하는데, 32/64비트 조합마다 배치가
 // 다르고 권한도 필요하다. 도구의 cwd 는 셸 훅의 OSC 777 로 이미 들어온다 —

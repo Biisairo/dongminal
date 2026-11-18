@@ -33,6 +33,7 @@ import (
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/serverconf"
+	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -153,6 +154,12 @@ type Server struct {
 	tg *telegramWire
 	// ca 는 Claude 다중 계정이다 (CLAUDE_ACCOUNTS_SRS). DataDir 이 없으면 nil 이다.
 	ca *claudeAcctWire
+	// recoverProbe·recoverDirs 는 Run 복구의 셸 판정과 설정 폴더 목록을 바꿔 끼우는 자리다
+	// (RUN_RECOVERY_SRS). 비면 데몬·계정 서비스에 묻는다. 시험만 채운다.
+	recoverProbe func(toolID string, pids []int) toolhub.ShellState
+	recoverDirs  func() []string
+	// recoverHeld 는 재개줄을 막 넣은 도구다 (FR-RRC-18). 제로값이 빈 표다.
+	recoverHeld recoverHolds
 
 	started time.Time
 

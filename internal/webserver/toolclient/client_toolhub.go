@@ -318,6 +318,23 @@ func (pc *ToolClient) BusyMany(ids []string) (map[string]bool, bool) {
 	return out, true
 }
 
+// ShellProbe 는 shellprobe 한 번이다 (RUN_RECOVERY_SRS FR-RRC-10). 옛 데몬·오류·모르는 값은
+// unknown 이다 — 모르는 것을 "비었다" 로 읽지 않는다 (NFR-RRC-3).
+func (pc *ToolClient) ShellProbe(id string, pids []int) toolhub.ShellState {
+	if !pc.HasFeature(toolipc.FeatureShellProbe) {
+		return toolhub.ShellUnknown
+	}
+	resp, err := callT[toolipc.ShellProbeResult](pc, toolipc.MethodShellProbe, toolipc.ShellProbeParams{ID: id, PIDs: pids})
+	if err != nil {
+		return toolhub.ShellUnknown
+	}
+	switch st := toolhub.ShellState(resp.State); st {
+	case toolhub.ShellIdle, toolhub.ShellBusy, toolhub.ShellHere, toolhub.ShellElsewhere:
+		return st
+	}
+	return toolhub.ShellUnknown
+}
+
 func (pc *ToolClient) SetBackground(id string, bg bool) bool {
 	pc.invalidateList()
 	resp, _ := callT[toolipc.SetBackgroundResult](pc, toolipc.MethodSetBackground, toolipc.SetBackgroundParams{ID: id, Background: bg})

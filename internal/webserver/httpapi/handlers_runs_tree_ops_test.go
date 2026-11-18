@@ -88,10 +88,27 @@ func TestMemberStateFrom(t *testing.T) {
 		{"죽은 중간 노드", "", false, activity.Idle, true, run.Lost},
 		{"보고한 노드", run.Done, true, activity.Idle, true, run.Done},
 		{"보고 없음", "", true, "", true, run.Starting},
+		// RUN_RECOVERY_SRS FR-RRC-42: 승계로 넘긴 멤버는 도구가 죽어도 lost 가 아니다.
+		{"승계로 넘긴 노드", run.Succeeded, false, "", false, run.Succeeded},
+		{"승계로 넘긴 살아 있는 노드", run.Succeeded, true, activity.Idle, false, run.Succeeded},
 	}
 	for _, c := range cases {
 		if got := memberStateFrom(c.recorded, c.live, c.hook, c.children); got != c.want {
 			t.Errorf("%s: got %s want %s", c.name, got, c.want)
+		}
+	}
+}
+
+// RUN_RECOVERY_SRS FR-RRC-43: 트리 노드의 끝남 판정도 succeeded 를 끝난 것으로 본다.
+func TestTreeEnded_Succeeded(t *testing.T) {
+	for _, st := range []run.MemberState{run.Done, run.Failed, run.Released, run.Succeeded} {
+		if !treeEnded(st) {
+			t.Errorf("%s: 끝난 상태여야 한다", st)
+		}
+	}
+	for _, st := range []run.MemberState{run.Lost, run.Working, run.Ready, run.WaitingChildren} {
+		if treeEnded(st) {
+			t.Errorf("%s: 끝난 상태가 아니다", st)
 		}
 	}
 }

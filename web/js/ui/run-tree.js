@@ -8,18 +8,20 @@ Object.assign(RunsPanel.prototype, {
    * 부모·잎은 서버가 사슬 이름에서 정했다. 누르면 그 에이전트의 탭으로 간다.
    * ISSUE_TREE_OPS_SRS FR-ITC-6·10: 위에서 아래로 내려가는 도형 다이어그램(SVG)이다.
    */
-  _runPaintTree(root, tree) {
+  _runPaintTree(root, tree, d) {
     const el = root.querySelector('.run-tree');
-    const nodes = (tree && tree.nodes) || [];
+    const members = (tree && tree.nodes) || [];
+    // RUN_RECOVERY_SRS FR-RRC-40: 평평한 그래프가 숨으므로 조정자는 트리의 루트로 선다.
+    const nodes = runTreeWithCoord(members, runCoordItem(d));
     el.classList.toggle('vis', !!tree);
     // ISSUE_TREE_OPS_SRS FR-ITC-6: 트리 Run 은 평평한 그래프 대신 트리가 중심이다.
     root.classList.toggle('tree-run', !!tree);
-    const sig = tree ? JSON.stringify(nodes.map(n => [n.id, n.role, n.parent, n.state, n.leaf, n.contextRatio || 0, n.issue || '', n.title || ''])) : '';
+    const sig = tree ? JSON.stringify(nodes.map(n => [n.id, n.role, n.parent, n.state, n.leaf, n.contextRatio || 0, n.issue || '', n.title || '', n.agent || '', n.recoverable ? 1 : 0])) : '';
     paintIfChanged(el, sig, () => {
       el.textContent = '';
       if (!tree) return;
       el.appendChild(runDiv('run-tree-h', t('runs.tree_title', {ref: tree.tree})));
-      if (!nodes.length) { el.appendChild(runDiv('run-tree-empty', t('runs.tree_empty'))); return }
+      if (!members.length) { el.appendChild(runDiv('run-tree-empty', t('runs.tree_empty'))); return }
       const lay = runTreeLayout(nodes);
       const svg = runSvg('svg', { class: 'run-tree-svg', viewBox: `0 0 ${lay.w} ${lay.h}` });
       svg.dataset.w = lay.w;
@@ -193,14 +195,14 @@ Object.assign(RunsPanel.prototype, {
   _runTreeNodeEl(n, p) {
     const kind = runNodeKind(n.state);
     const active = kind === 'active';
-    const cls = 'run-tree-node state-' + (n.state || 'starting') + (n.leaf ? ' leaf' : '')
+    const cls = 'run-tree-node ' + (n.coord ? 'coord' : 'state-' + (n.state || 'starting')) + (n.leaf ? ' leaf' : '')
       + (active ? '' : ' inactive ' + kind);
     const g = runSvg('g', active ? { class: cls, role: 'button', tabindex: '0' } : { class: cls });
     g.dataset.member = n.id;
     g.dataset.depth = String(p.depth);
     const x = p.x - p.w / 2;
     const tip = runSvg('title');
-    tip.textContent = [runTreeIssueNumber(n.issue), n.title, n.role, n.state, active ? t('runs.tree_jump') : '']
+    tip.textContent = [runTreeIssueNumber(n.issue), n.title, n.coord ? n.agent : n.role, n.state, active ? t('runs.tree_jump') : '']
       .filter(Boolean).join(' · ');
     g.appendChild(tip);
     g.appendChild(runSvg('rect', { class: 'run-tree-box', x, y: p.y, width: p.w, height: p.h, rx: 5 }));
@@ -210,7 +212,8 @@ Object.assign(RunsPanel.prototype, {
     const num = runTreeIssueNumber(n.issue);
     if (num) head.appendChild(runTreeSpan('run-tree-issue', num));
     if (n.title) {
-      const units = kind === 'ended' ? RUN_TREE_TEXT_UNITS_ENDED : RUN_TREE_TEXT_UNITS;
+      // RUN_RECOVERY_SRS FR-RRC-31: 복구 단추가 오른쪽 위에 서면 그 폭만큼 제목을 줄인다.
+      const units = (kind === 'ended' ? RUN_TREE_TEXT_UNITS_ENDED : RUN_TREE_TEXT_UNITS) - (n.recoverable ? RUN_TREE_RECOVER_UNITS : 0);
       const s = runTreeSpan('run-tree-title', runTreeClip(n.title, units - (num ? num.length + 1 : 0)));
       if (num) s.setAttribute('dx', '6');
       head.appendChild(s);
@@ -218,13 +221,14 @@ Object.assign(RunsPanel.prototype, {
     if (head.childNodes.length) g.appendChild(head);
     if (kind === 'ended') return g;
     const role = runSvg('text', { class: 'run-tree-role', x: tx, y: p.y + 37 });
-    role.textContent = runTreeClip(n.role || '', RUN_TREE_TEXT_UNITS);
+    role.textContent = runTreeClip((n.coord ? n.agent : n.role) || '', RUN_TREE_TEXT_UNITS);
     g.appendChild(role);
     const foot = runSvg('text', { x: tx, y: p.y + 54 });
     foot.appendChild(runTreeSpan('run-tree-state', n.state || ''));
     if (active && n.contextRatio) foot.appendChild(runTreeSpan('run-tree-ctx', Math.round(n.contextRatio * 100) + '%', '8'));
     if (n.leaf) foot.appendChild(runTreeSpan('run-tree-leaf', t('runs.tree_leaf'), '8'));
     g.appendChild(foot);
+    if (n.recoverable) g.appendChild(this._runTreeRecoverEl(n, p)); // RUN_RECOVERY_SRS FR-RRC-31
     if (!active) return g;
 
     const go = () => this._runJumpToMember(n);
@@ -243,7 +247,7 @@ Object.assign(RunsPanel.prototype, {
 });
 
 /** 흔적으로만 남는 노드의 상태 (FR-ITC-3·7). */
-const RUN_TREE_ENDED = new Set(['done', 'failed', 'released']);
+const RUN_TREE_ENDED = new Set(['done', 'failed', 'released', 'succeeded']);
 
 /**
  * RUN_INACTIVE_NODE_SRS: 노드·카드의 종류. `ended`(끝남)·`lost`(잃음)는 비활성이다. 상태는
@@ -257,6 +261,37 @@ function runNodeKind(state) {
 /** FR-RIN-10: 카드 목록에는 끝난 멤버를 싣지 않는다. 잃은 멤버는 남는다(FR-RIN-11). */
 function runCardsShown(members) {
   return members.filter(m => runNodeKind(m.state) !== 'ended');
+}
+
+/**
+ * RUN_RECOVERY_SRS FR-RRC-40·41: 조정자의 화면 항목. 조정자 도구가 없는 Run 에는 없다.
+ * 관측(`coordinator`)을 얹어 멤버와 같은 규칙으로 그린다 (FR-RCX-8).
+ */
+function runCoordItem(d) {
+  if (!d || !d.coordinatorToolId) return null;
+  return Object.assign({}, d.coordinator || {}, {
+    id: RUN_COORD, role: RUN_COORD, coord: true, state: '', parent: '',
+    toolId: d.coordinatorToolId, agent: d.coordinatorAgent || '', title: t('runs.coordinator'),
+    runId: d.id, recoverable: !!d.coordinatorRecoverable,
+  });
+}
+
+/**
+ * FR-RRC-40: 조정자를 트리의 루트로 세운다. 이 Run 의 노드 가운데 부모가 목록에 없는 것이 그 자식이
+ * 된다. 트리는 여러 Run 에 걸치므로 다른 Run 의 루트는 루트로 둔다.
+ */
+function runTreeWithCoord(nodes, coord) {
+  if (!coord) return nodes;
+  const roles = new Set(nodes.map(n => n.role));
+  const under = n => n.runId === coord.runId && !(n.parent && roles.has(n.parent));
+  return [coord, ...nodes.map(n => (under(n) ? Object.assign({}, n, { parent: coord.role }) : n))];
+}
+
+/** FR-RRC-41: 카드 목록 — 조정자 카드가 맨 앞이다. */
+function runCardItems(d, members) {
+  const coord = runCoordItem(d);
+  const shown = runCardsShown(members);
+  return coord ? [coord, ...shown] : shown;
 }
 
 // FR-ITC-10: 트리 다이어그램의 치수. 전부 viewBox 좌표다 — 같은 트리는 어느 창에서도 같은 모양이다.

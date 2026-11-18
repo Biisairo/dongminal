@@ -126,6 +126,7 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 .run-view .run-tree-node.state-done .run-tree-box{stroke:var(--run-ok)}
 .run-view .run-tree-node.state-failed .run-tree-box{stroke:var(--danger);stroke-width:2}
 .run-view .run-tree-node.state-lost .run-tree-box{stroke:var(--text-dim)}
+.run-view .run-tree-node.coord .run-tree-box{stroke:var(--accent-border)}
 .run-view .run-tree-node.leaf .run-tree-box{stroke-width:2.5}
 .run-view .run-tree-node.ended{opacity:.55}
 /* RUN_INACTIVE_NODE_SRS FR-RIN-2·3·11: 비활성은 누를 수 없고, 잃은 멤버는 경고색 점선으로 드러난다. */
@@ -144,6 +145,13 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 .run-view .run-tree-node .run-tree-role{font-family:var(--mono);fill:var(--text-hint);font-size:var(--fs-xs)}
 .run-view .run-tree-state,.run-view .run-tree-ctx{fill:var(--text-muted)}
 .run-view .run-tree-leaf{fill:var(--accent-text)}
+.run-view .run-tree-recover{cursor:pointer;outline:none}
+.run-view .run-tree-recover:focus-visible{outline:1px solid var(--focus-ring)}
+.run-view .run-tree-recover rect{fill:var(--accent-subtle);stroke:var(--accent-border)}
+.run-view .run-tree-recover text{fill:var(--accent-text);font-size:var(--fs-xs)}
+.run-view .run-tree-recover:hover rect,.run-view .run-tree-recover:focus-visible rect{fill:var(--accent);stroke:var(--accent)}
+.run-view .run-recover-bar{display:flex;gap:6px}
+.run-view .run-recover-bar:empty{display:none}
 /* ISSUE_TREE_OPS_SRS FR-ITC-6·7: 트리 Run 은 트리가 중심이다 — 평평한 그래프를 감추고 트리를 넓힌다. */
 .run-view.tree-run .run-graph-wrap{display:none}
 .run-view.tree-run .run-tree{padding:12px 14px;gap:3px}
@@ -206,6 +214,7 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 }
 .run-view .run-card:hover{background:var(--accent-subtle)}
 .run-view .run-card.state-working{border-left-color:var(--accent)}
+.run-view .run-card.coord{border-left-color:var(--accent-border)}
 .run-view .run-card.state-waiting{border-left-color:var(--attn)}
 .run-view .run-card.state-done{border-left-color:var(--run-ok)}
 .run-view .run-card.state-failed{border-left-color:var(--danger)}
@@ -223,6 +232,7 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
    `margin-left:auto` 가 카드 폭이 어떻든 오른쪽 끝에 붙인다. 실패 안내는 그
    뒤에 남는다 (FR-DEL-6 과 같은 규약: 사유는 그 자리에 있다). */
 .run-view .run-card-detach{margin-left:auto;flex-shrink:0}
+.run-view .run-card .run-recover{flex-shrink:0}
 .run-view .run-card-err{color:var(--danger-text);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
 body.mobile .run-view .run-card{min-height:var(--touch-min)}

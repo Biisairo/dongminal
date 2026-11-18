@@ -121,6 +121,8 @@ type ToolHub interface {
 	// 데몬 모드는 busymany RPC 한 번이다. ok=false 는 "모른다"(RPC 오류)이며 "바쁘지
 	// 않음" 이 아니다 — 호출자는 판정을 보류한다.
 	BusyMany(ids []string) (busy map[string]bool, ok bool)
+	// ShellProbe 는 Run 복구의 셸 판정이다 (RUN_RECOVERY_SRS FR-RRC-10). 데몬 모드는 shellprobe RPC 다.
+	ShellProbe(id string, pids []int) ShellState
 	// Delete 는 도구를 지운다. 없으면 `ErrToolNotFound` 다 (`GO-8`) — IPC 경계가
 	// 실패를 성공으로 답하지 않기 위해서다. 이미 없는 것을 지우는 일이 정상인
 	// 호출자는 그 오류를 명시로 무시한다.

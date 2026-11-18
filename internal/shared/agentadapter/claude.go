@@ -51,6 +51,9 @@ var claudeAdapter = Adapter{
 	Readiness: Readiness{Hooks: true},
 	// /exit 은 대화를 저장하고 정상 종료한다. SIGKILL 로 끊으면 이력이 남지 않는다.
 	ExitCommand: "/exit",
+	// RUN_RECOVERY_SRS FR-RRC-2: `claude --resume <session-id>` (2026-11-18 `--help` 확인).
+	Resume:      func(id string) []string { return []string{"--resume", id} },
+	SessionPIDs: claudeSessionPIDs,
 }
 
 // parseClaudeHook maps a Claude Code hook event (stdin JSON) to an activity

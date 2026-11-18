@@ -76,6 +76,19 @@ func (s *Service) mappingsPath() string { return filepath.Join(s.Dir, mappingsFi
 // ProfileDir 은 계정의 프로필 폴더다 (FR-CAC-82).
 func (s *Service) ProfileDir(id string) string { return filepath.Join(s.Dir, profilesDir, id) }
 
+// ConfigDirs 는 Claude Code 설정 폴더 전부다 — 기본 프로필과 계정 프로필 폴더(이름순).
+// Run 복구가 세션 등록부(`sessions/`)를 찾는 자리다 (RUN_RECOVERY_SRS FR-RRC-5).
+func (s *Service) ConfigDirs() []string {
+	dirs := []string{s.Claude.ConfigHome}
+	entries, _ := os.ReadDir(filepath.Join(s.Dir, profilesDir))
+	for _, e := range entries {
+		if e.IsDir() {
+			dirs = append(dirs, s.ProfileDir(e.Name()))
+		}
+	}
+	return dirs
+}
+
 func (s *Service) loadMappings() (Mappings, error) {
 	m := Mappings{Folders: map[string]Mapping{}, Tabs: map[string]Mapping{}}
 	b, err := os.ReadFile(s.mappingsPath())

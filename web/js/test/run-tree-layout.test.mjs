@@ -81,12 +81,12 @@ test('짧은 제목은 그대로, 긴 제목은 줄여 끝에 … 를 붙인다'
  */
 const ix = load(['ui/runs-panel.js', 'ui/run-tree.js'], {
   globals: { t: (k) => k, panesOf: () => [] },
-  expose: ['runNodeKind', 'runCardsShown', 'runTreeLayout', 'runTreeEdgePath', 'RUN_TREE_NODE_H', 'RUN_TREE_NODE_H_ENDED',
+  expose: ['runNodeKind', 'runCardsShown', 'runCoordItem', 'runTreeWithCoord', 'runCardItems', 'RUN_COORD', 'runTreeLayout', 'runTreeEdgePath', 'RUN_TREE_NODE_H', 'RUN_TREE_NODE_H_ENDED',
     'RUN_TREE_NODE_W', 'RUN_TREE_NODE_W_ENDED'],
 });
 
 test('TC-RIN-1·2: 상태마다 노드의 종류가 갈린다', () => {
-  for (const s of ['done', 'failed', 'released']) assert.equal(ix.runNodeKind(s), 'ended', s);
+  for (const s of ['done', 'failed', 'released', 'succeeded']) assert.equal(ix.runNodeKind(s), 'ended', s);
   assert.equal(ix.runNodeKind('lost'), 'lost');
   for (const s of ['working', 'waiting', 'ready', 'starting', 'waiting-children', '', undefined]) {
     assert.equal(ix.runNodeKind(s), 'active', String(s));
@@ -143,4 +143,58 @@ test('TC-RIN-5: 부모가 자식들보다 넓으면 가지를 밀어 같은 줄�
 test('TC-RIN-3: 카드 목록은 끝난 멤버를 빼고 잃은 멤버는 남긴다', () => {
   const ms = ['working', 'done', 'lost', 'failed', 'released', 'ready'].map((state, i) => ({ id: String(i), state }));
   assert.deepEqual([...ix.runCardsShown(ms).map((m) => m.state)], ['working', 'lost', 'ready']);
+});
+
+test('TC-RRC-14: 승계로 넘긴 멤버(succeeded)도 카드 목록에서 빠진다', () => {
+  const ms = ['working', 'succeeded', 'lost'].map((state, i) => ({ id: String(i), state }));
+  assert.deepEqual([...ix.runCardsShown(ms).map((m) => m.state)], ['working', 'lost']);
+});
+
+/** RUN_RECOVERY_SRS FR-RRC-40·41 — 트리 Run 에서도 조정자가 보인다. */
+const plain = (x) => JSON.parse(JSON.stringify(x));
+
+test('TC-RRC-12: 조정자 항목은 조정자 도구가 있을 때만 생긴다', () => {
+  assert.equal(ix.runCoordItem({ coordinatorToolId: '' }), null);
+  assert.equal(ix.runCoordItem({}), null);
+  const c = plain(ix.runCoordItem({ coordinatorToolId: 'T0', coordinatorAgent: 'claude',
+    coordinator: { contextRatio: 0.4, contextLevel: 'ok', sessionId: 's' } }));
+  assert.equal(c.id, ix.RUN_COORD);
+  assert.equal(c.coord, true);
+  assert.equal(c.toolId, 'T0');
+  assert.equal(c.agent, 'claude');
+  assert.equal(c.contextRatio, 0.4);
+  assert.equal(c.state, '');
+});
+
+test('TC-RRC-12: 트리는 조정자를 루트로 세우고 최상위 노드를 그 아래에 잇는다', () => {
+  const nodes = [
+    { id: 'a', role: 'r', parent: '', state: 'working', runId: 'R1' },
+    { id: 'b', role: 'r›1', parent: 'r', state: 'done', runId: 'R1' },
+    { id: 'c', role: 'x', parent: 'gone', state: 'working', runId: 'R1' },
+  ];
+  const coord = ix.runCoordItem({ id: 'R1', coordinatorToolId: 'T0' });
+  const out = plain(ix.runTreeWithCoord(nodes, coord));
+  assert.equal(out.length, 4);
+  assert.equal(out[0].id, ix.RUN_COORD);
+  assert.equal(out[0].coord, true);
+  assert.equal(out[0].parent, '');
+  assert.deepEqual(out.slice(1).map((n) => n.parent), [out[0].role, 'r', out[0].role]);
+  const l = ix.runTreeLayout(out);
+  assert.equal(l.pos[0].depth, 0);
+  assert.deepEqual([...l.pos.slice(1).map((p) => p.depth)], [1, 2, 1]);
+  // 리뷰 지적 6: 트리는 여러 Run 에 걸친다 — 다른 Run 의 루트는 이 Run 의 조정자 밑에 붙이지 않는다.
+  const multi = plain(ix.runTreeWithCoord([
+    { id: 'a', role: 'r', parent: '', state: 'working', runId: 'R1' },
+    { id: 'x', role: 'b', parent: '', state: 'working', runId: 'R2' },
+  ], ix.runCoordItem({ id: 'R1', coordinatorToolId: 'T0' })));
+  assert.deepEqual(multi.slice(1).map((n) => n.parent), [ix.RUN_COORD, '']);
+  // 조정자가 없으면 노드는 그대로다. 원본은 바뀌지 않는다.
+  assert.equal(ix.runTreeWithCoord(nodes, null), nodes);
+  assert.equal(nodes[0].parent, '');
+});
+
+test('TC-RRC-12: 카드 목록은 조정자 카드를 맨 앞에 두고 끝난 멤버를 뺀다', () => {
+  const ms = [{ id: '1', state: 'working' }, { id: '2', state: 'succeeded' }];
+  assert.deepEqual([...ix.runCardItems({ coordinatorToolId: 'T0' }, ms).map((m) => m.id)], [ix.RUN_COORD, '1']);
+  assert.deepEqual([...ix.runCardItems({}, ms).map((m) => m.id)], ['1']);
 });

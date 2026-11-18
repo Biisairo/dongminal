@@ -323,10 +323,11 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/runs/assign` | 이슈 트리 노드의 배정을 고친다 |
 | POST | `/api/runs/coordinate` | 부르는 도구가 조율하는 열린 Run 을 다른 도구로 넘긴다(조율 migration). 트리 Run 이면 루트 노드에 알린다 |
 | POST | `/api/runs/report` | 팀원이 자기 몫의 결과를 보고한다 |
+| POST | `/api/runs/recover` | 데몬이 죽은 뒤 빈 셸이 된 조정자·팀원의 에이전트를 기록된 세션 id 로 재개한다(`dmctl run recover`). 본문은 `{runId, memberId?, coordinator?, force?}` 다. 둘 다 없으면 Run 전체이고, `force` 는 대상 하나일 때만 받는다. 응답은 `{runId, results:[{target, memberId?, toolId, agent, outcome, reason?, needsForce?}]}` 다. `outcome` 은 `resumed`·`skipped`·`failed` 이다. 세션이 이미 돌거나(`running-here`·`running-elsewhere`) 셸에서 다른 프로그램이 돌면(`busy`) 강제여도 넣지 않는다. 재개줄을 넣은 도구는 15초 동안 `recovering` 으로 건너뛴다. 판정하지 못하면 `unknown` 이고, 대상 하나 복구면 `needsForce:true` 를 함께 낸다. Run 목록의 팀원에는 `recoverable`, Run 에는 `coordinatorRecoverable` 이 실린다 |
 | POST | `/api/runs/succeed` | Run 을 성공으로 닫는다 |
 | POST | `/api/runs/close` | Run 을 닫는다. 응답의 `closedTabs[].closed` 는 **방송 결과**다 — 구독 중인 브라우저가 없으면 `false`(`delivered:0`)이고 그 탭의 Run 표식은 지워진다. 탭 닫기와 worktree 정리는 요청 연결과 무관하게 끝까지 한다. 호출자가 먼저 연결을 끊어도 정리는 계속되므로, 결과는 `GET /api/runs?id=` 로 본다. worktree 의 경로와 브랜치가 모두 없으면 정리된 것으로 본다 |
 
-Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭제) SSE `run_changed` 를 방송한다. `args.runId` 가 그 Run 이고, 트리 Run 이면 `args.tree` 에 트리 표지가 실린다.
+Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭제·복구로 재개) SSE `run_changed` 를 방송한다. `args.runId` 가 그 Run 이고, 트리 Run 이면 `args.tree` 에 트리 표지가 실린다.
 
 ### Git — 저장소·상태
 

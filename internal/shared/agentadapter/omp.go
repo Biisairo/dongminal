@@ -69,6 +69,8 @@ var ompAdapter = Adapter{
 	Readiness: Readiness{Hooks: true},
 	// `/exit` 은 "Exit the application" 이며 `/quit` 과 같은 종료 경로다 (실측).
 	ExitCommand: "/exit",
+	// RUN_RECOVERY_SRS FR-RRC-2: `omp --resume=<value>` (2026-11-18 `--help` 확인).
+	Resume: func(id string) []string { return []string{"--resume=" + id} },
 }
 
 // OmpMemberConfigFile 은 멤버의 `dmctl` 사전 허용을 담은 오버레이의 파일명이다.

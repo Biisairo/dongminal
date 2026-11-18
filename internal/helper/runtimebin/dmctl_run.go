@@ -32,6 +32,8 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
   dmctl run handoff [--member <uuid>] --summary <본문>|-
   dmctl run assign --member <uuid> [--title <제목>] [--goal <번호들>] [--parallel] [--ctx N] [--no-commit]
   dmctl run coordinate --to <toolId>   # 이 세션이 조율하는 열린 Run 을 넘긴다 (조율 migration)
+  dmctl run recover --run <uuid> [--member <uuid> | --coordinator] [--force] [--json]
+                 # 데몬이 죽은 뒤 빈 셸에서 에이전트를 세션 id 로 재개한다 (RUN_RECOVERY_SRS)
 
   --projection   dedicated-window(기본) | background | inline
                  전용 창이 기본이다 — 사용자 작업 공간을 침범하지 않는다.
@@ -159,6 +161,7 @@ type runFlags struct {
 	noCommit bool   // --no-commit
 	self     bool   // --self  run succeed 의 자기 승계 (FR-ITB-1)
 	to       string // --to    run coordinate 의 새 조율 (ISSUE_TREE_CLOSE_SRS FR-ITX-7)
+	coord    bool   // --coordinator  run recover 의 조정자 하나 (RUN_RECOVERY_SRS FR-RRC-24)
 	// given 은 실제로 받은 값 플래그다 — run assign 은 받은 것만 고친다.
 	given map[string]bool
 }
@@ -218,6 +221,8 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 		return runSubAssign(f, stdout, stderr)
 	case "coordinate":
 		return runSubCoordinate(f, stdout, stderr)
+	case "recover":
+		return runSubRecover(f, stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "run: 알 수 없는 서브커맨드: %s\n", sub)
 	fmt.Fprint(stderr, dmctlRunHelp)
@@ -247,6 +252,7 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (f runFl
 			"--force": &f.force, "--headless": &f.headless, "--keep-worktrees": &f.keepTrees,
 			"--keep-tools": &f.keepTools, "--json": &f.jsonOut, "--text": &f.textOut,
 			"--branch": &f.branch, "--parallel": &f.parallel, "--no-commit": &f.noCommit, "--self": &f.self,
+			"--coordinator": &f.coord,
 		},
 	}
 	code, proceed = spec.run("run "+sub, args, stdout, stderr)

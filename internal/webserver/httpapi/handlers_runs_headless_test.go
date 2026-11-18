@@ -169,11 +169,12 @@ func (h *headlessHub) Busy(id string) bool {
 	h.mu.Unlock()
 	return f != nil && f(id)
 }
-func (h *headlessHub) BusyMany([]string) (map[string]bool, bool) { return map[string]bool{}, true }
-func (h *headlessHub) Write(string, []byte) error                { return nil }
-func (h *headlessHub) SendPaste(string, []byte, bool) error      { return nil }
-func (h *headlessHub) Resize(string, uint16, uint16) error       { return nil }
-func (h *headlessHub) IsLive(id string) bool                     { return h.io.Has(id) }
+func (h *headlessHub) BusyMany([]string) (map[string]bool, bool)   { return map[string]bool{}, true }
+func (h *headlessHub) ShellProbe(string, []int) toolhub.ShellState { return toolhub.ShellUnknown }
+func (h *headlessHub) Write(string, []byte) error                  { return nil }
+func (h *headlessHub) SendPaste(string, []byte, bool) error        { return nil }
+func (h *headlessHub) Resize(string, uint16, uint16) error         { return nil }
+func (h *headlessHub) IsLive(id string) bool                       { return h.io.Has(id) }
 func (h *headlessHub) SnapshotTool(string) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil
 }

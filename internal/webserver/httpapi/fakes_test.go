@@ -74,6 +74,8 @@ func (f *fakePaneHub) Busy(id string) bool {
 }
 
 // BusyMany 는 Busy 를 ids 전부에 답하고 부른 횟수를 센다. busyUnknown 이면 "모른다" 다.
+func (f *fakePaneHub) ShellProbe(string, []int) toolhub.ShellState { return toolhub.ShellUnknown }
+
 func (f *fakePaneHub) BusyMany(ids []string) (map[string]bool, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -309,7 +309,12 @@ func (s *Store) observeCoordinator(toolID string, obs ContextObservation, policy
 		before := *r.Coordinator
 		applyContextObservation(r.Coordinator, obs, policy, s.now())
 		out := Member{RunID: r.ID, ContextState: *r.Coordinator}
-		if onlyContextAtChanged(before, *r.Coordinator) {
+		// FR-RRC-25: 빈 값은 덮지 않는다 — 에이전트를 싣지 않는 관측(statusLine)도 온다.
+		agentChanged := obs.Agent != "" && obs.Agent != r.CoordinatorAgent
+		if agentChanged {
+			r.CoordinatorAgent = obs.Agent
+		}
+		if !agentChanged && onlyContextAtChanged(before, *r.Coordinator) {
 			return out, "", true
 		}
 		if err := s.save(); err != nil {

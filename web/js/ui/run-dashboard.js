@@ -25,7 +25,8 @@ Object.assign(RunsPanel.prototype, {
     const members = this._runTreeOrder(d.members || [], v.tree);
     const pos = this._runLayout(members.length);
     this._runPaintSummary(v.root, d, members);
-    this._runPaintTree(v.root, v.tree);
+    this._runPaintRecover(v.root, d);
+    this._runPaintTree(v.root, v.tree, d);
     this._runPaintGraph(v.root, d, members, pos);
     this._runPaintCards(v.root, d, members);
     this._runPaintTimeline(v.root, d);
@@ -296,7 +297,8 @@ Object.assign(RunsPanel.prototype, {
   // FR-RVZ-10: 멤버 카드. FR-RVZ-13: 클릭하면 그 멤버의 도구로 포커스가 점프한다.
   _runPaintCards(root, d, members) {
     const el = root.querySelector('.run-cards');
-    reconcileList(el, runCardsShown(members), {
+    // RUN_RECOVERY_SRS FR-RRC-41: 조정자 카드가 맨 앞이다.
+    reconcileList(el, runCardItems(d, members), {
       key: m => m.id,
       // FUI-04: `분리` 버튼의 유무가 서버의 답으로 갈린다 — 근거에 넣지 않으면
       // 부착·분리 뒤 버튼이 따라오지 않는다 (FR-RPT-2).
@@ -304,19 +306,20 @@ Object.assign(RunsPanel.prototype, {
         Math.round((m.contextRatio || 0) * 100), m.compactCount || 0,
         m.contextTokens || 0, m.contextLimit || 0,
         (m.worktree && m.worktree.branch) || '', m.succeededBy || '',
-        actionOk(m, RUN_ACTION_DETACH) ? 1 : 0, this._runDetachErr === m.id ? 1 : 0].join(':'),
-      build: m => this._runCardEl(m),
+        actionOk(m, RUN_ACTION_DETACH) ? 1 : 0, this._runDetachErr === m.id ? 1 : 0, m.recoverable ? 1 : 0].join(':'),
+      build: m => this._runCardEl(m, d.id),
     });
   },
 
-  _runCardEl(m) {
+  _runCardEl(m, runId) {
     const card = runDiv('run-card state-' + (m.state || 'starting'));
     card.dataset.member = m.id;
     // RUN_INACTIVE_NODE_SRS FR-RIN-11: 잃은 멤버는 눈에 띄게 남기되 누를 수 없고 맥락을 싣지 않는다.
     const lost = runNodeKind(m.state) === 'lost';
     if (lost) card.classList.add('inactive', 'lost');
     if (m.headless) card.classList.add('headless');
-    card.appendChild(runDiv('run-card-role', '[' + (m.role || t('runs.no_role')) + ']'));
+    if (m.coord) card.classList.add('coord');
+    card.appendChild(runDiv('run-card-role', '[' + (m.coord ? t('runs.coordinator') : (m.role || t('runs.no_role'))) + ']'));
     if (m.agent) card.appendChild(runDiv('run-card-agent', m.agent));
     card.appendChild(runDiv('run-card-state', m.state || ''));
     if (m.contextLevel && !lost) {
@@ -371,6 +374,7 @@ Object.assign(RunsPanel.prototype, {
     }
     // R-g: 뗄 수 있는지는 서버의 답이다. 이전에는 화면이 `m.tabId` 로 골랐다.
     if (actionOk(m, RUN_ACTION_DETACH)) card.appendChild(this._runDetachBtn(m));
+    if (m.recoverable) card.appendChild(this._runRecoverBtn(runId, m)); // RUN_RECOVERY_SRS FR-RRC-31
     return card;
   },
 
@@ -413,6 +417,8 @@ Object.assign(RunsPanel.prototype, {
   async _runJumpToMember(m) {
     if (!m || !m.id) return;
     if (m.toolId && this.app.findToolLocation(m.toolId)) { this.app.jumpToTool(m.toolId); return }
+    // FR-RRC-41: 조정자는 멤버가 아니라 부착할 것이 없다 — 탭이 없으면 가지 않는다.
+    if (m.coord) return;
     try {
       // location 을 비워 둔다 — 그래야 지금 포커스된 분할 칸이 대상이 된다.
       const r = await apiPost(RUNS_ATTACH_API, { memberId: m.id });

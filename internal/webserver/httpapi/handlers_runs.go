@@ -40,6 +40,8 @@ type memberView struct {
 	Preamble string `json:"preamble,omitempty"`
 	// Actions 는 목록·조회에서만 싣는다 (SERVER_DRIVEN_ACTIONS_SRS R-b).
 	Actions map[string]action.Answer `json:"actions,omitempty"`
+	// Recoverable 은 복구 버튼의 근거다 (RUN_RECOVERY_SRS FR-RRC-26).
+	Recoverable bool `json:"recoverable,omitempty"`
 }
 
 // runView is a Record whose members carry derived state.
@@ -56,6 +58,8 @@ type runView struct {
 	// Liveness 는 열린 Run 의 열림을 생존으로 계산한 값이다 (AGENT_RECORD_DAEMON_SRS
 	// FR-ARD-4). open·gone·unknown 이며, 닫힌 Run 에는 싣지 않는다.
 	Liveness string `json:"liveness,omitempty"`
+	// CoordinatorRecoverable 은 조정자 복구 버튼의 근거다 (FR-RRC-26).
+	CoordinatorRecoverable bool `json:"coordinatorRecoverable,omitempty"`
 }
 
 // deriveMemberState resolves what a member is doing right now. A member that
@@ -63,7 +67,7 @@ type runView struct {
 // an agent idling at its prompt after reporting is still done.
 func (s *Server) deriveMemberState(m run.Member) run.MemberState {
 	switch m.State {
-	case run.Done, run.Failed, run.Released:
+	case run.Done, run.Failed, run.Released, run.Succeeded:
 		return m.State
 	}
 	// RUN_INACTIVE_NODE_SRS FR-RIN-21: lost 는 확인된 죽음일 때만이다. 생존을 모르면
@@ -82,7 +86,7 @@ func (s *Server) deriveMemberState(m run.Member) run.MemberState {
 // 프롬프트에서 쉬어도 done 이다). 일하거나 묻는 중이면 그것이 기다림보다 먼저다.
 func memberStateFrom(recorded run.MemberState, live bool, hook string, openChild bool) run.MemberState {
 	switch recorded {
-	case run.Done, run.Failed, run.Released:
+	case run.Done, run.Failed, run.Released, run.Succeeded:
 		return recorded
 	}
 	if !live {
@@ -105,10 +109,13 @@ func memberStateFrom(recorded run.MemberState, live bool, hook string, openChild
 func (s *Server) viewOf(rec run.Record) runView {
 	members := make([]memberView, 0, len(rec.Members))
 	for _, m := range rec.Members {
-		members = append(members, memberView{Member: m, State: s.deriveMemberState(m), Actions: memberActions(m)})
+		mv := memberView{Member: m, State: s.deriveMemberState(m), Actions: memberActions(m)}
+		mv.Recoverable = rec.State == run.Open && s.recoverable(memberTarget(m))
+		members = append(members, mv)
 	}
 	return runView{Record: rec, Members: members, Orphans: s.orphanHeadless(rec),
-		Actions: runActions(rec), Unreported: runUnreported(rec), Liveness: s.runLiveness(rec)}
+		Actions: runActions(rec), Unreported: runUnreported(rec), Liveness: s.runLiveness(rec),
+		CoordinatorRecoverable: rec.State == run.Open && s.recoverable(coordTarget(rec))}
 }
 
 // runLiveness 는 Run 의 열림을 저장하지 않고 물을 때 계산한다 (FR-ARD-4, D-ARD-4).

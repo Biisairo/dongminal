@@ -99,6 +99,8 @@ type treeNode struct {
 	Issue   string `json:"issue,omitempty"`
 	Title   string `json:"title,omitempty"`
 	EndedAt int64  `json:"endedAt,omitempty"`
+	// Recoverable 은 노드별 복구 버튼의 근거다 (RUN_RECOVERY_SRS FR-RRC-26·31).
+	Recoverable bool `json:"recoverable,omitempty"`
 
 	parentID  string // 배정 부모(승계 사슬 끝으로 옮긴 뒤)
 	createdAt int64
@@ -122,7 +124,7 @@ const treeChainSep = "›"
 
 // treeEnded 는 흔적으로만 남는 노드의 상태다.
 func treeEnded(st run.MemberState) bool {
-	return st == run.Done || st == run.Failed || st == run.Released
+	return st == run.Done || st == run.Failed || st == run.Released || st == run.Succeeded
 }
 
 // apiRunsTree implements GET /api/runs/tree?ref=<owner/repo#N> (FR-ITD-5).
@@ -171,6 +173,7 @@ func (s *Server) apiRunsTree(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			n := treeNode{graphMember: gm, RunID: rec.ID, EndedAt: m.ReportedAt, createdAt: started[m.ID], seq: seq[m.ID]}
+			n.Recoverable = rec.State == run.Open && s.recoverable(memberTarget(m))
 			if a := m.Assign; a != nil {
 				n.Issue, n.Title, n.parentID = a.Issue, a.Title, a.Parent
 			}

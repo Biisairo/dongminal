@@ -216,6 +216,13 @@ type Adapter struct {
 	// ExitCommand 는 정중한 종료 지시다. Run 정리에서 조정자가 이것을 보낸 뒤
 	// 탭을 닫는다 (FR-RUN-11a). 비어 있으면 확인된 종료 지시가 없다는 뜻이다.
 	ExitCommand string
+	// Resume 은 세션 id 로 재개할 때 Launch 뒤에 붙일 인자다 (RUN_RECOVERY_SRS FR-RRC-1).
+	// `nil` 이면 재개 방법을 확인하지 못했다는 뜻이다 — ExitCommand 의 "미확인" 과 같은 규약이다.
+	Resume func(sessionID string) []string
+	// SessionPIDs 는 세션 등록부에서 그 세션을 기록한 pid 들이다 (FR-RRC-5). configDirs 는
+	// 이 에이전트의 설정 폴더 목록이다. 등록부를 읽지 못하면 ok 가 거짓이다 — "없다" 와
+	// "모른다" 를 가른다. `nil` 이면 등록부가 없다.
+	SessionPIDs func(sessionID string, configDirs []string) (pids []int, ok bool)
 
 	// ── 아래 셋은 **능력 선언**이다 (AGENT_ADAPTER_COMPLETION_SRS D-2).
 	//
@@ -344,12 +351,31 @@ func (a Adapter) launchLine(sh platform.ShellProvider, hooksDir, model, prompt s
 	if model != "" && a.ModelFlag != "" {
 		parts = append(parts, a.ModelFlag, sh.Quote(model))
 	}
+	member, err := a.memberArgs(sh, hooksDir)
+	if err != nil {
+		return "", err
+	}
+	parts = append(parts, member...)
+	if a.PromptInjection == PromptArgv && prompt != "" {
+		// 구분자는 프롬프트 바로 앞이어야 한다 — 뒤에 오는 플래그가 있으면
+		// 그것까지 프롬프트로 먹힌다.
+		if a.ArgvSeparator != "" {
+			parts = append(parts, a.ArgvSeparator)
+		}
+		parts = append(parts, sh.Quote(prompt))
+	}
+	return strings.Join(parts, " "), nil
+}
+
+// memberArgs 는 인용을 마친 MemberArgs 다. 기동줄과 재개줄이 같은 한 벌을 쓴다.
+func (a Adapter) memberArgs(sh platform.ShellProvider, hooksDir string) ([]string, error) {
+	var parts []string
 	for _, arg := range a.MemberArgs {
 		// FR-OMP-22: 자리를 먼저 채우고 그 다음 인용한다. 순서를 바꾸면 인용
 		// 안쪽을 고치는 일이 되어 셸마다 다르게 깨진다.
 		if strings.Contains(arg, HooksDirToken) {
 			if hooksDir == "" {
-				return "", fmt.Errorf("%s: %q 의 자리를 채울 경로가 없다", a.ID, arg)
+				return nil, fmt.Errorf("%s: %q 의 자리를 채울 경로가 없다", a.ID, arg)
 			}
 			// **선언은 슬래시, 조립은 OS 의 것이다.** `MemberArgs` 는 플랫폼을
 			// 모르는 자리라 `{{dmHooks}}/omp-member.yml` 처럼 슬래시로 적히는데,
@@ -363,13 +389,5 @@ func (a Adapter) launchLine(sh platform.ShellProvider, hooksDir, model, prompt s
 		}
 		parts = append(parts, sh.Quote(arg))
 	}
-	if a.PromptInjection == PromptArgv && prompt != "" {
-		// 구분자는 프롬프트 바로 앞이어야 한다 — 뒤에 오는 플래그가 있으면
-		// 그것까지 프롬프트로 먹힌다.
-		if a.ArgvSeparator != "" {
-			parts = append(parts, a.ArgvSeparator)
-		}
-		parts = append(parts, sh.Quote(prompt))
-	}
-	return strings.Join(parts, " "), nil
+	return parts, nil
 }

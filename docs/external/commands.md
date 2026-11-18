@@ -95,6 +95,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl run close --run <uuid> [--force] [--keep-worktrees] [--keep-tools]` | Run 을 닫고 탭과 worktree 를 정리한다. 서버는 dmctl 의 연결과 무관하게 정리를 끝까지 한다. dmctl 은 5분 20초까지 기다리고, 넘기면 `dmctl run status --run <id>` 로 결과를 보라고 알린다. worktree 의 경로와 브랜치가 모두 없으면 정리된 것으로 본다 |
 | `dmctl run delete --run <uuid>` | 레코드를 지운다 — close 와 달리 미보고 검사 없이 (웹 UI 의 삭제와 같다). 잔여물은 보고한다 |
 | `dmctl run coordinate --to <toolId>` | 이 세션이 조율하는 열린 Run 을 그 도구로 넘긴다(조율 migration). 넘긴 Run 이 없으면 `(조율하는 열린 Run 없음)` 을 낸다 |
+| `dmctl run recover --run <uuid> [--member <uuid> \| --coordinator] [--force] [--json]` | 데몬이 죽은 뒤 빈 셸이 된 조정자·팀원의 에이전트를 기록된 세션 id 로 재개한다(claude·omp). 대상마다 `resumed`·`skipped <사유>` 한 줄을 낸다. 세션이 이미 돌거나 셸에서 다른 프로그램이 돌면 건너뛴다. 셸을 판정하지 못하면(`unknown`) 건너뛰고, 화면을 확인한 뒤 `--member`·`--coordinator` 와 `--force` 로 하나씩 재개한다. 방금 재개한 도구는 15초 동안 `recovering` 으로 건너뛴다. 재개한 대상이 있으면 종료 코드 0, 없으면 1, 요청 오류(서버의 거절 포함)는 2 다. 웹의 Run 대시보드에도 같은 「복구」 버튼이 있다 |
 | `dmctl run graph --run <uuid> [--json]` | 멤버·메시지 간선·타임라인 — 대시보드가 그리는 그것 |
 | `dmctl run tree --ref <owner/repo#N> [--json]` | 이슈 트리의 열린 노드를 사슬 순서로 — 대시보드의 「이슈 트리」 가 그리는 그것. `run start --tree <ref> [--branch]` 로 연 Run 이 대상이다 |
 

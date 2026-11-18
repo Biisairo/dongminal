@@ -269,6 +269,14 @@ func (pc *panedConn) busyMany(req *toolipc.PanedRequest) interface{} {
 	return okResp(req, toolipc.BusyManyResult{Busy: busy})
 }
 
+func (pc *panedConn) shellProbe(req *toolipc.PanedRequest) interface{} {
+	p, perr := decodeParams[toolipc.ShellProbeParams](req)
+	if perr != nil {
+		return *perr
+	}
+	return okResp(req, toolipc.ShellProbeResult{State: string(pc.pm.ShellProbe(p.ID, p.PIDs))})
+}
+
 func (pc *panedConn) setBackground(req *toolipc.PanedRequest) interface{} {
 	p, perr := decodeParams[toolipc.SetBackgroundParams](req)
 	if perr != nil {

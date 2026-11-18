@@ -205,7 +205,10 @@ type Record struct {
 	 * 옛 레코드는 nil 이고 화면에 아무것도 그리지 않는다 (FR-RCX-11).
 	 */
 	Coordinator *ContextState `json:"coordinator,omitempty"`
-	WindowID    string        `json:"windowId,omitempty"`
+	// CoordinatorAgent 는 조정자의 에이전트 id 다 (RUN_RECOVERY_SRS FR-RRC-25). 조정자를 재개할
+	// 때 쓴다. ContextState 에 두지 않는 이유는 D-RRC-9 다 — 멤버에 임베드되어 `agent` 가 겹친다.
+	CoordinatorAgent string `json:"coordinatorAgent,omitempty"`
+	WindowID         string `json:"windowId,omitempty"`
 	// ISSUE_AGENT_TREE_SRS FR-ITU-1: 이슈 트리 표지(`owner/repo#N`)와 가지 여부. 비면 트리가 아니다.
 	Tree       string   `json:"tree,omitempty"`
 	TreeBranch bool     `json:"treeBranch,omitempty"`

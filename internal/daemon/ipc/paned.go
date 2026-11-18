@@ -264,6 +264,8 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = pc.busy(req)
 	case toolipc.MethodBusyMany:
 		resp = pc.busyMany(req)
+	case toolipc.MethodShellProbe:
+		resp = pc.shellProbe(req)
 	case toolipc.MethodSetBackground:
 		resp = pc.setBackground(req)
 	case toolipc.MethodBackgroundList:

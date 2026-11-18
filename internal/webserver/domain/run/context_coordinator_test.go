@@ -130,3 +130,25 @@ func TestObserveContext_MemberStillEnters(t *testing.T) {
 		t.Errorf("전이 = %q, want critical", entered)
 	}
 }
+
+// RUN_RECOVERY_SRS TC-RRC-9 (FR-RRC-25): 조정자 관측의 에이전트 id 를 저장한다. 다시 읽어도
+// 남고, 빈 값은 덮지 않는다.
+func TestObserveContext_CoordinatorAgentIsKept(t *testing.T) {
+	s := newTestStore(t)
+	rec, _ := openRunWithMember(t, s, "member-tool", nil)
+	s.ObserveContext("coord", ContextObservation{SessionID: "S1", Agent: "claude"}, DefaultContextPolicy())
+	s.ObserveContext("coord", ContextObservation{Tokens: 10, HasTokens: true}, DefaultContextPolicy())
+
+	got, _ := s.Get(rec.ID)
+	if got.CoordinatorAgent != "claude" {
+		t.Fatalf("CoordinatorAgent = %q, want claude", got.CoordinatorAgent)
+	}
+	again := NewStore(s.dir)
+	if err := again.Load(); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = again.Get(rec.ID)
+	if got.CoordinatorAgent != "claude" || got.Coordinator == nil || got.Coordinator.SessionID != "S1" {
+		t.Fatalf("다시 읽은 기록: agent=%q coord=%+v", got.CoordinatorAgent, got.Coordinator)
+	}
+}

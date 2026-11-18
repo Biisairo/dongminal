@@ -710,6 +710,9 @@ const TIP_CHAT_CMD_CANCEL='Close without running';
 const TIP_RUNS_CLOSE='Stop this run and clean up — the record stays';
 const TIP_RUNS_CLOSE_YES='Stop this run now';
 const TIP_RUNS_DETACH='Detach this member — the tab closes, the tool keeps running';
+const TIP_RUNS_RECOVER_ONE='Resume this agent by its session id in its empty shell';
+const TIP_RUNS_RECOVER_ALL='Resume every agent of this Run whose shell is empty';
+const TIP_RUNS_RECOVER_FORCE='Resume anyway — you checked that the shell is empty';
 // FR-TIP-1: 단축키 설정의 두 버튼. 키 조합과 `↺` 가 라벨이라 무엇을 하는지는
 // 툴팁만 말할 수 있다.
 const SHORTCUT_REBIND_TITLE='Click, then press the keys you want for this action';

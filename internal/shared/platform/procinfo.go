@@ -52,6 +52,10 @@ type ProcInfo interface {
 	// ParentPID 는 pid 의 부모다 (FR-XPI-7).
 	ParentPID(pid int) (int, bool)
 
+	// Parents 는 모든 프로세스의 pid → 부모 pid 표를 **한 번에** 읽는다
+	// (RUN_RECOVERY_SRS FR-RRC-10). 읽지 못하면 ok 가 거짓이다 — 빈 표와 "모름" 을 가른다.
+	Parents() (map[int]int, bool)
+
 	// ConnectionOwnerPID 는 이 서버에 붙은 로컬 TCP 연결의 **반대쪽 끝**을
 	// 소유한 프로세스다. remoteAddr 는 "host:port" 이고, 그 port 를 로컬
 	// 포트로 갖는 소켓의 주인이 곧 클라이언트다. 서버 자신은 제외한다.
@@ -123,6 +127,19 @@ func (d darwinProcInfo) ChildrenOf(pids []int) map[int]bool {
 		return out
 	}
 	return childrenFromPairs(parsePidPpid(string(raw)), pids)
+}
+
+// Parents 는 `ps` 한 번이다.
+func (d darwinProcInfo) Parents() (map[int]int, bool) {
+	raw, err := d.run("ps", "-A", "-o", "pid=,ppid=")
+	if err != nil {
+		return nil, false
+	}
+	out := map[int]int{}
+	for _, pp := range parsePidPpid(string(raw)) {
+		out[pp[0]] = pp[1]
+	}
+	return out, true
 }
 
 // parsePidPpid 는 `ps -o pid=,ppid=` 의 줄들을 (pid, ppid) 쌍으로 읽는다.
@@ -427,6 +444,29 @@ func (l linuxProcInfo) ParentPID(pid int) (int, bool) {
 		return 0, false
 	}
 	return parseStatPPID(string(blob))
+}
+
+// Parents 는 /proc/<pid>/stat 을 훑는다. 그 사이 끝난 프로세스는 표에 없다.
+func (l linuxProcInfo) Parents() (map[int]int, bool) {
+	stats, err := l.glob(procPath("[0-9]*", "stat"))
+	if err != nil {
+		return nil, false
+	}
+	out := map[int]int{}
+	for _, st := range stats {
+		pid, err := strconv.Atoi(path.Base(path.Dir(st)))
+		if err != nil {
+			continue
+		}
+		blob, err := l.read(st)
+		if err != nil {
+			continue
+		}
+		if ppid, ok := parseStatPPID(string(blob)); ok {
+			out[pid] = ppid
+		}
+	}
+	return out, true
 }
 
 func (l linuxProcInfo) ConnectionOwnerPID(remoteAddr string) (int, bool) {
