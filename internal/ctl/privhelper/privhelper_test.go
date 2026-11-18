@@ -314,7 +314,7 @@ func TestSecretFile(t *testing.T) {
 
 func TestPlist(t *testing.T) {
 	p := plist("/Library/PrivilegedHelperTools/com.dongminal.helper")
-	for _, want := range []string{"<string>com.dongminal.helper</string>", "<string>helper</string>", "<string>run</string>", "<key>KeepAlive</key>", "<key>RunAtLoad</key>"} {
+	for _, want := range []string{"<string>com.dongminal.helper</string>", "<string>otp</string>", "<string>run</string>", "<key>KeepAlive</key>", "<key>RunAtLoad</key>"} {
 		if !strings.Contains(p, want) {
 			t.Errorf("plist 에 %q 가 없다", want)
 		}
@@ -324,5 +324,14 @@ func TestPlist(t *testing.T) {
 func TestFormatSecret(t *testing.T) {
 	if got := groupBy4("ABCDEFGHIJ"); got != "ABCD EFGH IJ" {
 		t.Fatalf("groupBy4 = %q", got)
+	}
+}
+
+// 사용법은 OTP 를 어디에 쓰는지까지 말한다 — 이름만 보고는 무엇인지 알 수 없었다.
+func TestUsageExplainsOTP(t *testing.T) {
+	for _, want := range []string{"dongminal otp", "6자리", "강제 삭제", "강퇴", "복구 코드", "5번", "5분"} {
+		if !strings.Contains(Usage, want) {
+			t.Errorf("사용법에 %q 가 없다:\n%s", want, Usage)
+		}
 	}
 }

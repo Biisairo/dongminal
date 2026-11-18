@@ -52,7 +52,7 @@
 | `chat_daemon_only` | 채팅은 데몬 모드에서만 쓸 수 있습니다. | 데몬 모드로 dongminal 을 시작하세요. |
 | `chat_daemon_restart` | 붙은 데몬이 채팅을 모르는 옛 판입니다. | dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다. |
 | `chat_locked` | 코드를 5번 틀려 도우미가 잠겼습니다. 메시지는 풀리는 시각(RFC 3339)입니다. | 그 시각이 지난 뒤 다시 넣으세요. |
-| `chat_no_helper` | 이 노드에 사람 명령의 도우미가 없거나 닿지 않습니다. | OS 기본 터미널에서 sudo dongminal helper install 로 설치하세요. dongminal helper status 로 확인합니다. |
+| `chat_no_helper` | 이 노드에 사람 명령의 도우미가 없거나 닿지 않습니다. | OS 기본 터미널에서 sudo dongminal otp install 로 설치하세요. dongminal otp status 로 확인합니다. |
 | `chat_no_such_participant` | 그 참가자가 온라인 목록에 없습니다. | 온라인 목록을 다시 받아 지금 있는 참가자를 고르세요. |
 | `chat_no_such_room` | 그 방이 없습니다 — 참가자가 모두 나가 사라졌습니다. | 방 목록을 다시 받아 확인하세요. |
 | `chat_not_in_room` | 그 방에 들어가 있지 않습니다. | 방에 다시 들어간 뒤 보내세요. 개인채팅은 상대가 나가면 끝나므로 새로 만드세요. |

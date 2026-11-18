@@ -1,5 +1,5 @@
 // Package privhelper 는 사람 명령의 도우미다 (PEER_CHAT_SRS §3.12, FR-PCH-72~79). 관리자 권한으로
-// 돌며 TOTP 를 확인하고 사람 명령 묶음에 서명한다. `dongminal helper` 하위 명령이다 (D-PCH-38).
+// 돌며 TOTP 를 확인하고 사람 명령 묶음에 서명한다. `dongminal otp` 하위 명령이다(옛 이름 `helper` 도 받는다, D-PCH-38).
 package privhelper
 
 import (
@@ -27,20 +27,32 @@ const (
 	logPath    = "/var/log/" + Label + ".log"
 )
 
-// Usage 는 `dongminal helper --help` 다.
-const Usage = `사용법: dongminal helper <install|uninstall|run|status>
+// Usage 는 `dongminal otp --help` 다. 옛 이름 `dongminal helper` 도 같은 것을 부른다.
+const Usage = `사용법: dongminal otp <install|uninstall|run|status>
+
+OTP 도우미다. 채팅의 강제 삭제·강퇴는 사람만 할 수 있어야 하므로, 할 때마다 휴대폰
+OTP 앱의 6자리를 넣게 한다. 도우미는 관리자(root) 권한으로 따로 돌며 OTP 를 확인하고,
+맞으면 그 명령에 서명한다. 에이전트는 사용자와 같은 계정으로 돌기 때문에 이 비밀과
+서명 키를 읽을 수 없다.
 
   install    (sudo) 도우미를 관리자 자리에 복사하고 LaunchDaemon 으로 등록한다.
-             처음이면 TOTP 비밀과 복구 코드를 한 번만 보인다.
+             처음이면 TOTP 비밀과 복구 코드를 한 번만 보인다. 비밀은 OTP 앱
+             (Ente Auth 권장)에 넣고, 복구 코드는 따로 적어 둔다.
   uninstall  (sudo) 등록을 내리고 프로그램과 비밀 파일을 지운다.
   run        LaunchDaemon 이 부른다. 직접 부르지 않는다.
   status     도우미가 떠 있는지와 공개키 지문을 보인다.
+
+쓰는 법: 채팅 탭이나 Activity ▸ Chats 에서 방·참가자를 고르고 우클릭해 강제 삭제·강퇴를
+고르면 확인 창이 뜬다. 거기에 OTP 앱의 6자리를 넣는다. 원격 화면에서도 된다.
+  - 한 코드는 한 번만 받는다. 여러 개를 골랐으면 한 번에 승인된다.
+  - 5번 틀리면 5분 동안 잠긴다.
+  - 휴대폰이 없으면 6자리 대신 복구 코드를 넣는다. 복구 코드도 한 번씩만 쓰인다.
 
 install 은 dongminal 탭이 아닌 OS 기본 터미널 앱에서 실행한다 — dongminal 탭의 화면은
 에이전트가 읽을 수 있다. 지금은 macOS 만 된다.
 `
 
-// Main 은 `dongminal helper` 를 실행한다.
+// Main 은 `dongminal otp` 를 실행한다.
 func Main(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, Usage)
@@ -74,7 +86,7 @@ func fail(stderr io.Writer, err error) int {
 	if err == nil {
 		return 0
 	}
-	fmt.Fprintln(stderr, "dongminal helper:", err)
+	fmt.Fprintln(stderr, "dongminal otp:", err)
 	return 1
 }
 
@@ -289,7 +301,8 @@ func copyFile(src, dst string, mode os.FileMode, own func(string) error) error {
 	return os.Rename(tmp, dst)
 }
 
-// plist 는 LaunchDaemon 정의다. root 로 `helper run` 을 띄우고 죽으면 다시 띄운다.
+// plist 는 LaunchDaemon 정의다. root 로 `otp run` 을 띄우고 죽으면 다시 띄운다.
+// 옛 설치의 plist 는 `helper run` 을 부르고, 그 이름도 별칭으로 계속 받는다.
 func plist(bin string) string {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -300,7 +313,7 @@ func plist(bin string) string {
   <key>ProgramArguments</key>
   <array>
     <string>` + bin + `</string>
-    <string>helper</string>
+    <string>otp</string>
     <string>run</string>
   </array>
   <key>RunAtLoad</key>

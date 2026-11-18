@@ -152,7 +152,7 @@ func actionsOf() []action {
 				}
 				return RunVerify(o, out, errw)
 			}},
-		{"helper", "사람 명령의 도우미를 설치·제거한다 (sudo, macOS, PEER_CHAT_SRS §3.12)", func() string { return privhelper.Usage },
+		{"otp", "OTP 도우미 — 채팅 강제 삭제·강퇴를 사람만 하게 한다 (설치는 sudo, macOS)", func() string { return privhelper.Usage },
 			func(rest []string, _ Serve, out, errw io.Writer) int { return privhelper.Main(rest, out, errw) }},
 		// `--version` 별칭은 Dispatch 가 처리한다.
 		{"version", "판·대상·go 런타임을 찍는다 (--version 도 동일)", usageVersion,
@@ -166,7 +166,14 @@ func actionsOf() []action {
 }
 
 // lookupAction 은 이름으로 액션을 찾는다.
+// actionAliases 는 목록에 보이지 않는 옛 이름이다. `helper` 는 이미 설치된 OTP 도우미의
+// LaunchDaemon 이 `helper run` 으로 부르므로 남긴다.
+var actionAliases = map[string]string{"helper": "otp"}
+
 func lookupAction(name string) (action, bool) {
+	if to, ok := actionAliases[name]; ok {
+		name = to
+	}
 	for _, a := range actionsOf() {
 		if a.name == name {
 			return a, true

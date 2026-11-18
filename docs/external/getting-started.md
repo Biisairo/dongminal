@@ -496,7 +496,7 @@ dongminal uninstall --dry-run            # 지울 것을 먼저 봅니다
 `/Library/PrivilegedHelperTools/com.dongminal.helper`, 비밀은
 `/Library/Application Support/com.dongminal.helper/` 에 있고 관리자만 읽습니다.
 `backup`·`uninstall` 은 이것을 다루지 않습니다. 지우려면
-`sudo dongminal helper uninstall` 을 씁니다([기능 안내](./features.md#사람-명령-강제-삭제강퇴)).
+`sudo dongminal otp uninstall` 을 씁니다([기능 안내](./features.md#사람-명령-강제-삭제강퇴)).
 
 **브라우저에도 일부가 삽니다.** 기기별 취향(알림 켬/끔·슬롯 방향)은
 `localStorage` 에, 탭별 값(표시 모드)은 `sessionStorage` 에 있습니다.

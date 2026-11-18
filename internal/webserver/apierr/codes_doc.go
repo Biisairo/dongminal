@@ -230,5 +230,5 @@ var CodeDoc = map[string]Doc{
 	CodeChatUnreachable:       {"데몬에 닿지 못했습니다.", "dongminal health 로 데몬 연결을 보세요."},
 	CodeChatBadCode:           {"사람 명령의 OTP 코드가 틀렸거나 이미 쓴 코드입니다.", "OTP 앱의 새 코드를 넣으세요. 5번 틀리면 5분 잠깁니다."},
 	CodeChatLocked:            {"코드를 5번 틀려 도우미가 잠겼습니다. 메시지는 풀리는 시각(RFC 3339)입니다.", "그 시각이 지난 뒤 다시 넣으세요."},
-	CodeChatNoHelper:          {"이 노드에 사람 명령의 도우미가 없거나 닿지 않습니다.", "OS 기본 터미널에서 sudo dongminal helper install 로 설치하세요. dongminal helper status 로 확인합니다."},
+	CodeChatNoHelper:          {"이 노드에 사람 명령의 도우미가 없거나 닿지 않습니다.", "OS 기본 터미널에서 sudo dongminal otp install 로 설치하세요. dongminal otp status 로 확인합니다."},
 }

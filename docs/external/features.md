@@ -304,11 +304,11 @@ dmctl new-tab --at <uuid> --no-focus   # 특정 위치에 탭, 포커스 유지
 **도우미 설치**
 
 1. dongminal 탭이 아닌 OS 기본 터미널 앱(터미널.app 등)을 엽니다. dongminal 탭의 화면은 에이전트가 읽을 수 있습니다.
-2. `sudo dongminal helper install` 을 실행합니다. 처음 설치하면 TOTP 비밀 문자열과 복구 코드 8개가 **한 번만** 보입니다.
+2. `sudo dongminal otp install` 을 실행합니다. 처음 설치하면 TOTP 비밀 문자열과 복구 코드 8개가 **한 번만** 보입니다.
 3. 휴대폰 OTP 앱에서 '직접 입력'을 고르고 비밀 문자열을 넣습니다. 방식은 TOTP·SHA1·6자리·30초입니다. 앱은 [Ente Auth](https://ente.io/auth/) 를 권장합니다. TOTP 는 표준이라 다른 앱도 쓸 수 있습니다. OTP 앱의 클라우드 백업을 켜면 비밀이 기기 밖으로 나갑니다.
 4. 복구 코드는 따로 적어 둡니다. 휴대폰을 잃었을 때 코드 대신 하나씩 한 번만 씁니다.
 
-- 확인: `dongminal helper status`. 제거: `sudo dongminal helper uninstall`. dongminal 을 새 판으로 바꾼 뒤 `sudo dongminal helper install` 을 다시 하면 프로그램만 바뀌고 비밀은 그대로입니다.
+- 확인: `dongminal otp status`. 제거: `sudo dongminal otp uninstall`. dongminal 을 새 판으로 바꾼 뒤 `sudo dongminal otp install` 을 다시 하면 프로그램만 바뀌고 비밀은 그대로입니다.
 - 사용자의 sudo 에 `NOPASSWD` 가 있으면 에이전트가 관리자 권한을 얻을 수 있어 도우미를 지킬 수 없습니다. 설치할 때 경고합니다.
 
 **명령 내기**

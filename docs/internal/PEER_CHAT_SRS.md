@@ -427,7 +427,7 @@
 
 | 요소 | 자리 |
 |---|---|
-| 도우미 프로그램 | 새 바이너리를 만들지 않는다. `dongminal helper <install\|uninstall\|run\|status>` 하위 명령이다. 설치는 지금 실행 중인 `dongminal` 바이너리를 `/Library/PrivilegedHelperTools/com.dongminal.helper` 로 복사하고(root:wheel, 0755), LaunchDaemon 이 그 사본을 `helper run` 으로 띄운다(D-PCH-38) |
+| 도우미 프로그램 | 새 바이너리를 만들지 않는다. `dongminal otp <install\|uninstall\|run\|status>` 하위 명령이다(옛 이름 `helper` 는 별칭). 설치는 지금 실행 중인 `dongminal` 바이너리를 `/Library/PrivilegedHelperTools/com.dongminal.helper` 로 복사하고(root:wheel, 0755), LaunchDaemon 이 그 사본을 `otp run` 으로 띄운다(옛 설치는 `helper run`, D-PCH-38) |
 | 도우미 코드 | 새 패키지 `internal/ctl/privhelper`(④). TOTP·잠금·비밀 파일·소켓 서버·설치 |
 | 사람 명령 와이어 | 새 패키지 `internal/shared/humancmd`(②④). 도우미 소켓 경로·프레임, 명령 본문, 서명·확인(Ed25519), 데몬 쪽 클라이언트 |
 | 채팅 쪽 | `daemon/chat` 에 프레임 `cmd`, 도우미 키 신뢰, 명령 적용. `chatsock.UserCall` 에 op `kill`·`kick` |
@@ -578,7 +578,7 @@
 | D-PCH-35 | 채팅은 데몬 모드에서만 동작한다. 직접 모드에는 채팅이 없다 | 사용자 결정. 직접 모드까지 하려면 MCP·훅·붙여넣기 길을 두 벌 두어야 한다 |
 | D-PCH-36 | 주입한 채팅 도구 여덟 개는 claude 의 허락을 묻지 않고 쓴다(`--allowedTools=mcp__dongminal`) | 사용자 결정(단계 2). 허락을 묻게 두면 쉬는 중 알림을 받아도 사람이 누를 때까지 에이전트가 멈춘다 |
 | D-PCH-37 | 세션의 신원은 세션 id 하나다. MCP 는 claude 가 넘긴 `CLAUDE_CODE_SESSION_ID` 로, 훅은 보고의 `session_id` 로 찾는다. `/clear`·claude 안의 `/resume` 로 세션 id 가 바뀐 것은 메우지 않고 다른 세션으로 본다 | 사용자 결정(단계 2): "세션 id 만이 절대적이다". 프로세스 번호나 shim 표식을 더하지 않는다 |
-| D-PCH-38 | 도우미는 새 바이너리가 아니라 `dongminal helper` 하위 명령이다. 설치가 실행 중인 바이너리를 관리자 자리로 복사한다 | 단계 4 설계. 빌드·배포 대상을 늘리지 않는다. 복사본은 root 소유라 에이전트가 바꿔칠 수 없다 |
+| D-PCH-38 | 도우미는 새 바이너리가 아니라 `dongminal helper` 하위 명령이다. 설치가 실행 중인 바이너리를 관리자 자리로 복사한다 | 단계 4 설계. 빌드·배포 대상을 늘리지 않는다. 복사본은 root 소유라 에이전트가 바꿔칠 수 없다 . 2026-11-18 이름을 `dongminal otp` 로 바꿨다 — `helper` 로는 무엇인지 알아보기 어렵다(사용자). 옛 설치의 LaunchDaemon 이 `helper run` 을 부르므로 `helper` 는 목록에 보이지 않는 별칭으로 남긴다 |
 | D-PCH-39 | 간선 상대의 도우미 키는 채팅 연결로 처음 받은 값을 `edges.json` 에 고정한다. 망 이웃의 키는 그 이웃의 간선 상대들이 상태 알림에 실은 고정값이 하나 이상 있고 모두 같을 때만 믿는다 | 단계 4 설계(FR-PCH-74). 노드 하나의 데몬을 바꿔쳐서는 이웃에게 가짜 사람 명령을 믿게 할 수 없다. 키 이력 사슬(D-PCH-19)은 넣지 않는다 |
 
 ### 4.1 검토하고 버린 안
