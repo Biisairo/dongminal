@@ -832,7 +832,7 @@ body:not(.mobile) #agents-panel:not(.open){
   display:flex;width:var(--sb-rail-w);min-width:var(--sb-rail-w);overflow-x:hidden;
 }
 body:not(.mobile) #agents-panel:not(.open) :is(.ag-title,.ag-refresh,.ag-tab-name,
-  .ag-sec-empty,.chat-row-sub,.chat-act,.act-usage-foot,.ag-state,.ag-detail,.ag-usage,.ag-sub,
+  .ag-sec-empty,.chat-row-sub,.chat-act,.chat-sub-h,.chat-none,.chat-node,.chat-person,.chat-down,.act-usage-foot,.ag-state,.ag-detail,.ag-usage,.ag-sub,
   .bg-row > :not(.bg-name),.runs-row > :not(.runs-short)){display:none}
 body:not(.mobile) #agents-panel:not(.open) .ag-head{justify-content:center;padding:6px 0}
 /* PEER_CHAT_SRS FR-PCH-82: 레일에서는 탭 넷이 아이콘으로 세로로 선다. */
@@ -870,21 +870,21 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ag-refresh,.ag-collapse{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
 .ag-refresh:hover,.ag-collapse:hover{color:var(--accent-text);background:var(--accent-hover)}
 /* PANEL_SURFACE_SRS FR-AGG-1·10·11·12: 창 그룹의 머리. 카드가 있는 창만 갖는다. */
-/* PEER_CHAT_SRS FR-PCH-80·81: 패널 머리의 탭 줄. 고른 탭만 이름을 보이고, 다른 탭은 아이콘과 배지다
-   — 260px 에 이름 넷이 들지 않는다. 이름은 툴팁에도 있다. */
+/* PEER_CHAT_SRS FR-PCH-80·81: 패널 머리의 탭 줄. 같은 폭의 탭 넷이고, 탭은 아이콘과 배지만 보인다.
+   이름은 툴팁에 있다. 고른 탭은 밑줄과 밝은 글자로 가린다.
+   이전: 고른 탭만 넓어지며 이름을 보였다 — 탭을 바꿀 때마다 줄이 출렁였다 */
 .ag-tabs{
   position:sticky;top:0;z-index:var(--z-sticky);
   display:flex;background:var(--bg-alt);border-bottom:1px solid var(--border);
 }
 .ag-tab{
-  position:relative;flex:none;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;
+  position:relative;flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;
   padding:6px 8px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;
   font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);
 }
-.ag-tab.active{flex:1 1 auto;color:var(--text-bright);border-bottom-color:var(--accent)}
+.ag-tab.active{color:var(--text-bright);border-bottom-color:var(--accent)}
 .ag-tab:hover{color:var(--accent-text);background:var(--accent-hover)}
-.ag-tab-name{display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.ag-tab.active .ag-tab-name{display:inline}
+.ag-tab-name{display:none}
 .ag-tab-n{flex:0 0 auto}
 .ag-tab-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--attn)}
 /* FR-CPY-2: 빈 구역은 사실만 말하지 않는다 — 모달·팝오버 시절의 그 문구 그대로다. */

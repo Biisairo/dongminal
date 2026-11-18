@@ -45,13 +45,13 @@
  *   icon        탭의 아이콘. 레일에서는 이것만 선다 (FR-PCH-82)
  */
 const ACTIVITY_SECTIONS=[
-  {key:'agents', icon:'terminal', title:()=>t('panel.sec_agents'), empty:()=>t('attn.no_active_agents'),
+  {key:'agents', icon:'bot', title:()=>t('panel.sec_agents'), empty:()=>t('attn.no_active_agents'),
    items:app=>app._agWindowItems(),
    // FR-PCH-81: Agents 는 알람 점이다. 접힌 창도 그룹 머리가 알람 수를 갖는다.
    badge:(app,its)=>({n:0,dot:its.some(i=>i.t==='group'&&i.attn>0)})},
-  {key:'bg', icon:'archive', title:()=>t('bg.title'), empty:()=>t('bg.empty'),
+  {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), empty:()=>t('bg.empty'),
    items:app=>app._actBgRows()},
-  {key:'runs', icon:'play', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
+  {key:'runs', icon:'list-tree', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
    items:app=>app._actRunsRows()},
   {key:'chats', icon:'message-square', title:()=>t('chat.title'), empty:()=>t('chat.empty'),
    items:app=>app._chatItems(), shownOnly:true, badge:app=>({n:app._chatUnreadTotal()})},

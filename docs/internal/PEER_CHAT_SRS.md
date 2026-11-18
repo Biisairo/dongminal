@@ -391,9 +391,9 @@
 
 **Activity 탭 (FR-PCH-80~82, §4.2)**
 
-- 패널 머리에 탭 줄을 둔다: Agents·Background·Runs·Chats. `ACTIVITY_SECTIONS` 의 구역이 곧 탭이다. 고른 탭의 항목만 그린다. 구역 접기는 없앤다. 고른 탭은 `PrefStore.local` 에 둔다.
+- 패널 머리에 탭 줄을 둔다: Agents·Background·Runs·Chats. 탭 넷은 같은 폭이고 아이콘(`bot`·`terminal-bg`·`list-tree`·`message-square`)과 배지만 보인다. 이름은 툴팁에 둔다(2026-11-18 사용자 요청 — 이전: 고른 탭만 넓어지며 이름을 보였다). `ACTIVITY_SECTIONS` 의 구역이 곧 탭이다. 고른 탭의 항목만 그린다. 구역 접기는 없앤다. 고른 탭은 `PrefStore.local` 에 둔다.
 - 탭 배지: Agents 는 알람 점(알람 카드가 하나라도 있으면), Background·Runs 는 개수, Chats 는 안 읽은 수.
-- 레일: 탭 넷을 아이콘으로 세로로 세우고 배지를 귀퉁이에 둔다. 아래에 고른 탭의 항목만 보인다. 아이콘을 누르면 레일인 채로 탭만 바뀐다.
+- 레일: 탭 넷을 아이콘으로 세로로 세우고 배지를 귀퉁이에 둔다. 아래에 고른 탭의 항목만 보인다. Chats 는 레일에서 방 줄(아이콘·안 읽은 수·두 줄 이름)만 남기고 소제목·빈 문구·노드 줄·참가자 줄을 숨긴다(2026-11-18 — 이전: 40px 폭에 글자가 한 자씩 꺾였다). 아이콘을 누르면 레일인 채로 탭만 바뀐다.
 - Usage 는 지금처럼 `#agents-foot` 에 고정한다.
 
 **Chats 탭 (FR-PCH-83)**
