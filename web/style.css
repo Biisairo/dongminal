@@ -2049,6 +2049,24 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 #pf-fp{word-break:break-all;flex:0 1 auto;min-width:0}
 .eg-fp-big{display:block;margin-top:8px;font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
 .eg-item .sbx-input{flex:0 1 160px}
+/* ── 망 그림·받은 초대 (EDGE_MESH_SRS FR-EGM-50~55) ──
+   상태는 색만으로 말하지 않는다: 온라인은 채운 점, 연결 끊김은 빈 점, 내 간선은 굵은 선이다. */
+.eg-mark{font-size:var(--fs-sm);color:var(--attn-text)}
+.eg-mesh{border:1px solid var(--border);border-radius:6px}
+.eg-mesh-svg{display:block;width:100%;max-height:280px}
+.eg-mesh-link{stroke:var(--text-hint);stroke-width:1}
+.eg-mesh-link.mine{stroke:var(--accent);stroke-width:2.5}
+.eg-mesh-link.off{stroke-dasharray:4 3}
+.eg-mesh-node{cursor:pointer;outline:none}
+.eg-mesh-node circle{fill:var(--accent);stroke:var(--accent);stroke-width:2}
+.eg-mesh-node.off circle{fill:none;stroke:var(--text-hint)}
+.eg-mesh-node.self circle{fill:var(--text-bright);stroke:var(--accent);stroke-width:3}
+.eg-mesh-node:focus-visible{outline:1px solid var(--focus-ring)}
+.eg-mesh-node.sel circle,.eg-mesh-node:focus-visible circle{stroke:var(--text-bright);stroke-width:4}
+.eg-mesh-name{fill:var(--text-bright);font-size:var(--fs-sm)}
+.eg-mesh-node.off .eg-mesh-name{fill:var(--text-hint)}
+.eg-mesh-mark{fill:var(--attn-text);font-size:var(--fs-xs)}
+.eg-mesh-act{margin-top:6px}
 
 /* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
    FR-BTS-7: 색은 테마의 것이다 — head 인라인이 선주입한 변수를 그대로 쓰므로,

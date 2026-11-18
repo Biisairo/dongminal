@@ -34,6 +34,9 @@ func (s *Server) edgesChanged(c edgenode.Change) {
 			args["byPeer"] = true
 		}
 	}
+	if c.Invited != nil {
+		args["invited"] = taggedRef(c.Invited)
+	}
 	s.Commands.Broadcast(sse.Payload("edges_changed", args))
 }
 
@@ -94,6 +97,20 @@ func (s *Server) apiEdgesRemove(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) apiEdgesAddress(w http.ResponseWriter, r *http.Request) {
 	s.edgeDo(w, r, "address", true)
+}
+
+// EDGE_MESH_SRS §3.7 — 수동 알리기와 간선 초대.
+func (s *Server) apiEdgesNotify(w http.ResponseWriter, r *http.Request) {
+	s.edgeDo(w, r, "notify", true)
+}
+func (s *Server) apiEdgesInviteSend(w http.ResponseWriter, r *http.Request) {
+	s.edgeDo(w, r, "invite_send", true)
+}
+func (s *Server) apiEdgesInviteAccept(w http.ResponseWriter, r *http.Request) {
+	s.edgeDo(w, r, "invite_accept", true)
+}
+func (s *Server) apiEdgesInviteReject(w http.ResponseWriter, r *http.Request) {
+	s.edgeDo(w, r, "invite_reject", true)
 }
 
 // edgeDaemonDo 는 데몬 모드의 연산 하나다 (FR-PDM-30·51). 데몬의 노드가 답하고 서버는 그대로

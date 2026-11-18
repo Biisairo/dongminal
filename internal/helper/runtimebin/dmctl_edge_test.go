@@ -299,3 +299,49 @@ func TestDmctlOldPeerCommandsGone(t *testing.T) {
 		t.Fatalf("서버에 %d 번 보냈다", hits.Load())
 	}
 }
+
+// EDGE_MESH_SRS FR-EGM-62: dmctl edge notify 는 /api/edges/notify 를 부르고 알린 상대를 찍는다.
+func TestDmctlEdgeNotify(t *testing.T) {
+	calls, cleanup := withEdgeServer(t, 200, `{"fp":"aaaaaaaaaaaaaaaaaaaaaaaa","name":"home","tag":"1234","notified":true}`)
+	defer cleanup()
+	rc, out, errOut := dmctlRun("edge", "notify", "home#1234")
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, errOut)
+	}
+	if c := (*calls)[0]; c.method != http.MethodPost || c.path != "/api/edges/notify" || c.body["fp"] != "home#1234" {
+		t.Fatalf("요청 %+v", c)
+	}
+	if out != "알렸습니다: home#1234\n" {
+		t.Fatalf("stdout %q", out)
+	}
+}
+
+// FR-EGM-62: 실패하면 사유 코드를 찍고 1 이다. 인자가 없으면 2 다.
+func TestDmctlEdgeNotifyFails(t *testing.T) {
+	_, cleanup := withEdgeServer(t, 409, `{"code":"edge_addr_unknown","message":"상대 주소를 모른다"}`)
+	defer cleanup()
+	rc, _, errOut := dmctlRun("edge", "notify", "home#1234")
+	if rc != 1 || !strings.Contains(errOut, "edge_addr_unknown") {
+		t.Fatalf("rc=%d stderr=%s", rc, errOut)
+	}
+	if rc, _, _ := dmctlRun("edge", "notify"); rc != 2 {
+		t.Fatalf("인자 없음 rc=%d", rc)
+	}
+}
+
+// FR-EGM-63: 간선 줄 끝에 알림 대기·옛 판을 적는다.
+func TestDmctlEdgesShowsMeshMarks(t *testing.T) {
+	_, cleanup := withEdgeServer(t, 200, `{"node":{"name":"office","tag":"4321"},
+ "edges":[{"name":"home","tag":"1234","addr":"10.0.0.2","port":1,"fp":"aaaaaaaaaaaaaaaaaaaaaaaa","pending":true},
+          {"name":"old","tag":"5678","addr":"10.0.0.3","port":1,"fp":"bbbbbbbbbbbbbbbbbbbbbbbb","outdated":true},
+          {"name":"ok","tag":"9999","addr":"10.0.0.4","port":1,"fp":"cccccccccccccccccccccccc"}]}`)
+	defer cleanup()
+	_, out, _ := dmctlRun("edges")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("줄 %q", out)
+	}
+	if !strings.HasSuffix(lines[1], "  알림 대기") || !strings.HasSuffix(lines[2], "  옛 판") || strings.Contains(lines[3], "대기") || strings.Contains(lines[3], "옛 판") {
+		t.Fatalf("표시 %q", out)
+	}
+}

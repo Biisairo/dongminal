@@ -68,7 +68,7 @@ func (s *Service) Command(sg humancmd.Signed) error {
 	s.helperKey = b.Key
 	remember(s.cmds, h, s.now())
 	s.applyCmdLocked(b)
-	s.broadcastLocked(frame{T: frameCmd, B: sg.B, S: sg.S}, nil)
+	s.broadcastLocked(frame{T: frameCmd, B: sg.B, S: sg.S}, "")
 	s.changedLocked()
 	return nil
 }
@@ -147,9 +147,9 @@ func (s *Service) applyCmdLocked(b humancmd.Body) {
 }
 
 // trustedKeyLocked 는 노드 node 의 믿는 도우미 키다 (FR-PCH-74, D-PCH-39). 자기는 자기 도우미 키,
-// 간선 상대는 고정한 키다. 망 이웃은 그 노드와 서로 이어진(양쪽 상태의 links 에 서로 있는) 닿는
-// 노드들, 곧 그 노드의 간선 상대들이 알린 고정값이 모두 같고 그 노드 자신이 알린 helper 와도
-// 같을 때 그 키다. 간선이 아닌 노드의 고정값은 세지 않는다.
+// 간선 상대는 고정한 키다. 망 이웃은 그 노드와 서로 이어진(양쪽의 서명된 망 정보 links 에 서로
+// 있는, EDGE_MESH_SRS FR-EGM-43) 닿는 노드들, 곧 그 노드의 간선 상대들이 알린 고정값이 모두 같고
+// 그 노드 자신이 알린 helper 와도 같을 때 그 키다. 간선이 아닌 노드의 고정값은 세지 않는다.
 func (s *Service) trustedKeyLocked(node string) (string, bool) {
 	if node == s.id.Fingerprint {
 		return s.helperKey, s.helperKey != ""
@@ -164,7 +164,7 @@ func (s *Service) trustedKeyLocked(node string) (string, bool) {
 	reach := s.reachableLocked()
 	var pins []string
 	for fp, r := range s.nodes {
-		if fp == node || !reach[fp] || !listsLink(r.st, node) || !listsLink(target.st, fp) {
+		if fp == node || !reach[fp] || !s.mutualLocked(fp, node) {
 			continue
 		}
 		if k, ok := r.st.Pins[node]; ok {
@@ -173,15 +173,6 @@ func (s *Service) trustedKeyLocked(node string) (string, bool) {
 	}
 	k, ok := agreed(pins)
 	return k, ok && k == target.st.Helper
-}
-
-func listsLink(st stateBody, fp string) bool {
-	for _, l := range st.Links {
-		if l == fp {
-			return true
-		}
-	}
-	return false
 }
 
 // validHelperKey 는 빈 값이거나 32바이트 Ed25519 공개키의 base64 인지 본다.
@@ -247,8 +238,8 @@ func (s *Service) pinsLocked() map[string]string {
 
 // pinLocked 는 간선 상대 자신이 그 연결로 보낸 상태에 도우미 키가 있고 아직 고정하지 않았으면,
 // 잠금 밖에서 부를 고정 함수를 돌려준다. 고정한 값과 다르면 바꾸지 않고 한 번 경고한다.
-func (s *Service) pinLocked(from *peerLink, fp string) func() {
-	if from == nil || from.fp != fp || s.opts.Pin == nil {
+func (s *Service) pinLocked(fp string) func() {
+	if fp == "" || s.opts.Pin == nil {
 		return nil
 	}
 	r, ok := s.nodes[fp]

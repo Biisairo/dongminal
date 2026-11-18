@@ -476,6 +476,7 @@ type wireMsg struct {
 	Paired  *toolipc.EdgeRef `json:"paired"`
 	Removed *toolipc.EdgeRef `json:"removed"`
 	ByPeer  bool             `json:"byPeer"`
+	Invited *toolipc.EdgeRef `json:"invited"`
 	// ChatKind·Chat 은 chat push 다 (PEER_CHAT_SRS §3.11).
 	ChatKind string            `json:"chatKind"`
 	Chat     *chatwire.Message `json:"chat"`

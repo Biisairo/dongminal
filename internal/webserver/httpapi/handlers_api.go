@@ -258,6 +258,10 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/edges/add", (*Server).apiEdgesAdd),
 	httproute.Post("/api/edges/remove", (*Server).apiEdgesRemove),
 	httproute.Put("/api/edges/address", (*Server).apiEdgesAddress),
+	httproute.Post("/api/edges/notify", (*Server).apiEdgesNotify),
+	httproute.Post("/api/edges/invite/send", (*Server).apiEdgesInviteSend),
+	httproute.Post("/api/edges/invite/accept", (*Server).apiEdgesInviteAccept),
+	httproute.Post("/api/edges/invite/reject", (*Server).apiEdgesInviteReject),
 	// PROFILE_NAME_SRS §3.2: 이름#번호 (profile_api.go).
 	httproute.Get("/api/profile", (*Server).apiProfileGet),
 	httproute.Put("/api/profile", (*Server).apiProfilePut),

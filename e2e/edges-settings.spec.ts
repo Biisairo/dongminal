@@ -94,11 +94,12 @@ test.describe.serial('설정 ▸ Edges', () => {
     if (aProc) aProc.kill('SIGTERM');
   });
 
-  // FR-EPR-70: 세 구역과 이 노드의 상태. 승인 대기 구역은 없다.
-  test('세 구역이 서고 노드 포트 상태와 지문 앞 16자가 보인다', async ({ page }) => {
+  // FR-EPR-70, EDGE_MESH_SRS FR-EGM-50·55: 이 노드·초대·망·받은 초대·간선의 다섯 구역과 이 노드의 상태.
+  // 승인 대기 구역은 없다.
+  test('다섯 구역이 서고 노드 포트 상태와 지문 앞 16자가 보인다', async ({ page }) => {
     await waitForInit(page);
     await openEdgesTab(page);
-    await expect(page.locator('#panel-edges .ds-sec')).toHaveCount(3);
+    await expect(page.locator('#panel-edges .ds-sec')).toHaveCount(5);
     await expect(page.locator('#eg-pending')).toHaveCount(0);
     await expect(page.locator('#eg-add-name')).toHaveCount(0);
     await expect(page.locator('#eg-enabled')).toBeChecked();
@@ -172,5 +173,24 @@ test.describe.serial('설정 ▸ Edges', () => {
     await page.locator('.eg-confirm .ui-btn-danger').click();
     await expect(peer).toHaveCount(0);
     await expect(page.locator('.toast', { hasText: /알리지 못했습니다|Could not notify/ })).toBeVisible();
+  });
+
+  // EDGE_MESH_SRS FR-EGM-3·50~54: 맺으면 간선 연결이 서고, 망 그림에 나와 상대가 이어져 보인다.
+  // 상대를 누르면 알리기가 나오고, 알리면 알렸다는 알림이 뜬다.
+  test('망 그림에 간선 상대가 보이고 알리기가 된다', async ({ page, dmServer }) => {
+    await pairViaApi(dmServer.baseURL);
+    await waitForInit(page);
+    await openEdgesTab(page);
+    const node = page.locator(`#eg-mesh .eg-mesh-node[data-fp="${aFp}"]`);
+    await expect(node).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#eg-mesh .eg-mesh-node.self')).toHaveCount(1);
+    await expect(page.locator('#eg-mesh .eg-mesh-link.mine')).toHaveCount(1);
+    await expect(node).not.toHaveClass(/\boff\b/);
+    await node.click();
+    await expect(page.locator('#eg-mesh-act .eg-who')).toContainText(/node-a#\d{4}/);
+    await page.locator('#eg-mesh-act .eg-mesh-notify').click();
+    await expect(page.locator('.toast.ok', { hasText: 'node-a' })).toBeVisible();
+    await expect(page.locator(`#eg-edges .eg-item[data-fp="${aFp}"] .eg-notify`)).toBeVisible();
+    await expect(page.locator('#eg-invites .sbx-status')).toHaveCount(1);
   });
 });

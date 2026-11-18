@@ -216,6 +216,9 @@ var CodeDoc = map[string]Doc{
 	CodeEdgeAmbiguous:     {"지문 앞자리가 간선 둘 이상에 맞습니다.", "dmctl edges 로 지문을 보고 더 긴 앞자리를 주세요."},
 	CodeEdgeRateLimited:   {"한 출발지 주소가 1분 동안 보낼 수 있는 등록 요청 수(60)를 넘었습니다.", "잠시 뒤 다시 보내세요."},
 	CodeEdgeDaemonRestart: {"붙은 데몬이 노드 기능을 모르는 옛 판입니다. 노드 기능을 쓰려면 데몬을 다시 시작해야 합니다.", "dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다."},
+	CodeEdgeAddrUnknown:   {"상대 주소를 몰라 이 노드가 걸 수 없습니다. 상대의 노드 포트가 닫혀 있을 때 맺은 간선입니다.", "상대에게 노드 포트를 켜 달라고 하거나, Edges 의 주소 고치기로 상대 주소를 넣으세요."},
+	CodeEdgePeerOutdated:  {"상대 노드가 간선 연결을 모르는 옛 판입니다.", "상대 노드의 dongminal 을 업데이트하세요."},
+	CodeEdgeAlreadyEdge:   {"이미 간선인 노드입니다.", "Edges 의 간선 목록을 보세요."},
 
 	// ── 채팅 (PEER_CHAT_SRS §3.11) ──
 	CodeChatBadRequest:        {"채팅 요청의 모양이 틀렸습니다.", "보낸 값(방 id·이름·목적·본문)의 형식과 필수 항목을 확인하세요."},

@@ -20,6 +20,9 @@ const (
 	CodeEdgeAmbiguous     = edge.CodeAmbiguous
 	CodeEdgeRateLimited   = edge.CodeRateLimited
 	CodeEdgeDaemonRestart = edge.CodeDaemonRestart
+	CodeEdgeAddrUnknown   = edge.CodeAddrUnknown
+	CodeEdgePeerOutdated  = edge.CodePeerOutdated
+	CodeEdgeAlreadyEdge   = edge.CodeAlreadyEdge
 )
 
 var edgeCodes = edge.Codes

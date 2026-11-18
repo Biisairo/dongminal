@@ -17,7 +17,8 @@ import (
 // 통신의 dmctl 명령 (간선 맺기).
 
 const dmctlEdgesHelp = `dmctl edges [--json]
-  노드 포트 상태와 간선 목록(지문 앞자리·이름#번호·주소)을 보인다.
+  노드 포트 상태와 간선 목록(지문 앞자리·이름#번호·주소)을 보인다. 바뀐 내 정보를 아직 받지
+  못한 간선은 "알림 대기", 간선 연결을 모르는 옛 판은 "옛 판" 을 줄 끝에 적는다.
 `
 
 const dmctlEdgeHelp = `dmctl edge — 노드 간 통신의 간선 맺기
@@ -26,6 +27,8 @@ const dmctlEdgeHelp = `dmctl edge — 노드 간 통신의 간선 맺기
   dmctl edge add <코드>               초대 코드로 간선을 맺는다
   dmctl edge remove <이름#번호|지문 앞자리>
                                       간선을 끊는다. 상대 쪽에서도 지워진다
+  dmctl edge notify <이름#번호|지문 앞자리>
+                                      내 이름·노드 포트·알릴 주소를 그 간선에 지금 알린다
 
   이름#번호(예: 동민#0427)나 8자리 이상의 지문 앞자리로 가리킨다. 간선 하나에만 맞아야
   한다(dmctl edges 로 본다).
@@ -79,11 +82,13 @@ type edgesOut struct {
 		Error       string `json:"error"`
 	} `json:"node"`
 	Edges []struct {
-		Name string `json:"name"`
-		Tag  string `json:"tag"`
-		Addr string `json:"addr"`
-		Port int    `json:"port"`
-		FP   string `json:"fp"`
+		Name     string `json:"name"`
+		Tag      string `json:"tag"`
+		Addr     string `json:"addr"`
+		Port     int    `json:"port"`
+		FP       string `json:"fp"`
+		Pending  bool   `json:"pending"`
+		Outdated bool   `json:"outdated"`
 	} `json:"edges"`
 	Invite *struct {
 		Expires string `json:"expires"`
@@ -140,7 +145,15 @@ func printEdges(w io.Writer, raw []byte) {
 		fmt.Fprintf(w, "         port error: %s\n", clean(n.Error))
 	}
 	for _, p := range v.Edges {
-		fmt.Fprintf(w, "edge     fp=%s  name=%s  addr=%s\n", clean(shortFP(p.FP)), clean(handle(p.Name, p.Tag)), clean(hostPort(p.Addr, p.Port)))
+		fmt.Fprintf(w, "edge     fp=%s  name=%s  addr=%s", clean(shortFP(p.FP)), clean(handle(p.Name, p.Tag)), clean(hostPort(p.Addr, p.Port)))
+		// EDGE_MESH_SRS FR-EGM-63
+		if p.Pending {
+			fmt.Fprint(w, "  알림 대기")
+		}
+		if p.Outdated {
+			fmt.Fprint(w, "  옛 판")
+		}
+		fmt.Fprintln(w)
 	}
 	if v.Invite != nil {
 		fmt.Fprintf(w, "invite   expires=%s\n", clean(v.Invite.Expires))
@@ -246,6 +259,7 @@ var edgeSubs = map[string]subSpec{
 	"invite": {0, false, []string{"addr"}, nil, edgeInvite},
 	"add":    {1, false, nil, nil, edgeAdd},
 	"remove": {1, false, nil, nil, edgeRemove},
+	"notify": {1, false, nil, nil, edgeNotify},
 }
 
 func edgeInvite(pa subArgs, stdout, stderr io.Writer) int {
@@ -293,6 +307,21 @@ func edgeRemove(pa subArgs, stdout, stderr io.Writer) int {
 	if !v.Notified {
 		fmt.Fprintln(stderr, "상대에게 알리지 못했습니다. 다시 이어지면 상대 쪽에서도 지워집니다.")
 	}
+	return 0
+}
+
+// edgeNotify 는 간선 하나에 내 직접 정보를 지금 알린다 (EDGE_MESH_SRS FR-EGM-62).
+func edgeNotify(pa subArgs, stdout, stderr io.Writer) int {
+	raw, rc := edgeAPI("POST", "/api/edges/notify", map[string]any{"fp": pa.pos[0]}, stderr)
+	if rc != 0 {
+		return rc
+	}
+	var v struct {
+		Name string `json:"name"`
+		Tag  string `json:"tag"`
+	}
+	_ = json.Unmarshal(raw, &v)
+	fmt.Fprintf(stdout, "알렸습니다: %s\n", clean(handle(v.Name, v.Tag)))
 	return 0
 }
 

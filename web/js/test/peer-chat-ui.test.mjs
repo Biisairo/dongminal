@@ -19,7 +19,7 @@ function memStore() {
 
 function loadUI() {
   const local = memStore();
-  const ctx = load(['core/app-activity.js', 'core/chat-store.js', 'core/app-chat.js', 'ui/chat-view.js'], {
+  const ctx = load(['core/app-activity.js', 'core/chat-store.js', 'core/app-chat.js', 'ui/chat-view.js', 'core/app-edges-mesh.js'], {
     expose: ['ACTIVITY_SECTIONS', 'ChatStore', 'chatRoomTitle', 'chatShortId'],
     globals: {
       App: class {},

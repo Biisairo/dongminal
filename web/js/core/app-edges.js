@@ -41,6 +41,8 @@ Object.assign(App.prototype, {
         if(r.data.node&&r.data.node.name!==profileName){ profileName=r.data.node.name; this._applyPageTitle() }
         if(this._pfFollow) this._pfFollow(r);
         this._edgesPaint();
+        // EDGE_MESH_SRS FR-EGM-56: 개인채팅의 초대 버튼은 망 그림을 따른다.
+        if(this._chatViewsPaint) this._chatViewsPaint();
         // UX_BATCH12 FR-LIV-4: 노드 설정 폼은 목록과 따로 — 지문이 바뀌었을 때만 따라간다.
         const v=r.data;
         if(this._liveOpen('edges')) this._liveChanged('edges',r,this._egNodeCollect(),()=>{
@@ -56,6 +58,8 @@ Object.assign(App.prototype, {
     if(paired) Toast.show(t('edge.paired_notice',{name:edgeHandle(paired)}),'ok',0);
     // FR-EPR-23: 상대가 지운 간선만 알린다. 이쪽에서 끊은 것은 끊기 단계에서 이미 보였다.
     if(removed&&a.byPeer) Toast.show(t('edge.removed_notice',{name:edgeHandle(removed)}),'',0);
+    // EDGE_MESH_SRS FR-EGM-55: 망 이웃이 보낸 간선 초대를 받았다. 맺기·거절은 Edges 에서 한다.
+    if(a&&a.invited) Toast.show(t('edge.invited_notice',{name:edgeHandle(a.invited)}),'',0);
     return this._edgesRestore();
   },
 });

@@ -945,3 +945,7 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   · `inset:auto auto auto auto` 한 가지이고 글꼴이 끼어들 자리가 없다(§9 의 면제
   조건 밖). 드리프트는 세 판 모두 40 그대로다. **`linux`·`win32` 는 파생값이라 CI
   초록으로 확인해야 한다.**
+- 2026-11-18 (`EDGE_MESH_SRS` D-EGM, 인계 Q-7) darwin 기준선을 **다시 떴다.** 이전 커밋들의 Activity 채팅 탭
+  (`ag-tabs`)·설정 탭 묶음(`mtab-grp`)과 이번 Edges 의 망·받은 초대 구역이 V-LAY-1 을 깨고 있었다(재지 않는 자리 110).
+  사용자 결정으로 darwin 만 `LAYOUT_BASELINE=write` 로 뜨고, 다시 재어 통과를 확인했다. **`linux`·`win32` 는 낡은
+  채로 남았다** — CI 산출물로 따로 채워야 한다. 이 재생성은 바뀐 화면이 옳다는 증명이 아니다(§5.1).

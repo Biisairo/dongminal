@@ -22,6 +22,11 @@ const (
 	CodeRateLimited = "edge_rate_limited"
 	// CodeDaemonRestart 는 붙은 데몬이 노드 기능을 모른다는 뜻이다 (PEER_DAEMON_SRS FR-PDM-51).
 	CodeDaemonRestart = "edge_daemon_restart"
+	// CodeAddrUnknown 은 상대 주소를 몰라 걸 수 없다는 뜻, CodePeerOutdated 는 상대가 간선 연결을
+	// 모르는 옛 판이라는 뜻, CodeAlreadyEdge 는 이미 간선이라는 뜻이다 (EDGE_MESH_SRS FR-EGM-60).
+	CodeAddrUnknown  = "edge_addr_unknown"
+	CodePeerOutdated = "edge_peer_outdated"
+	CodeAlreadyEdge  = "edge_already_edge"
 )
 
 // Codes 는 위 코드 전부다.
@@ -29,5 +34,5 @@ var Codes = []string{
 	CodeUnavailable, CodeConfigInvalid, CodePortClosed, CodeAddrRequired,
 	CodeInviteInvalid, CodeNoInvite, CodeTokenInvalid, CodeFPMismatch,
 	CodeUnreachable, CodeRejected, CodeNotFound, CodeNotEdge, CodeAmbiguous,
-	CodeRateLimited, CodeDaemonRestart,
+	CodeRateLimited, CodeDaemonRestart, CodeAddrUnknown, CodePeerOutdated, CodeAlreadyEdge,
 }

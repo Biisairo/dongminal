@@ -21,6 +21,8 @@ const (
 	tokenBytes   = 16
 	maxHostLen   = 253
 	maxLabelLen  = 63
+	// maxBoundInvites 는 지문에 묶인 초대의 상한이다 (EDGE_MESH_SRS FR-EGM-31).
+	maxBoundInvites = 32
 )
 
 var (
@@ -32,6 +34,8 @@ var (
 type invite struct {
 	token   string
 	expires time.Time
+	// fp 는 이 초대를 쓸 수 있는 지문이다. 비면 누구나 쓴다 (FR-EGM-31).
+	fp string
 }
 
 // redeemed 는 쓴 초대다. 응답이 끊긴 쪽의 다시 시도를 그 초대의 만료까지 받는다 (FR-EPR-6).
@@ -41,11 +45,13 @@ type redeemed struct {
 	expires time.Time
 }
 
-// Pairing 은 초대 하나와 마지막으로 쓴 초대다. 메모리에만 둔다 — 10분짜리다.
+// Pairing 은 사람이 만든 초대 하나, 지문에 묶인 초대들, 마지막으로 쓴 초대다. 메모리에만
+// 둔다 — 10분짜리다.
 type Pairing struct {
 	mu     sync.Mutex
 	now    func() time.Time
 	invite *invite
+	bound  []*invite
 	used   *redeemed
 }
 
@@ -67,6 +73,32 @@ func (p *Pairing) NewInvite() (token string, expires time.Time) {
 	inv := &invite{token: randomHex(tokenBytes), expires: p.now().Add(InviteTTL)}
 	p.invite, p.used = inv, nil
 	return inv.token, inv.expires
+}
+
+// NewBoundInvite 는 지문 fp 만 쓸 수 있는 초대를 만든다 (FR-EGM-31). 사람이 만든 초대와 따로
+// 두어 서로 밀어내지 않는다. 상한을 넘으면 가장 오래된 것을 버린다.
+func (p *Pairing) NewBoundInvite(fp string) (token string, expires time.Time) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	inv := &invite{token: randomHex(tokenBytes), expires: p.now().Add(InviteTTL), fp: fp}
+	p.liveBoundLocked()
+	if len(p.bound) >= maxBoundInvites {
+		p.bound = p.bound[1:]
+	}
+	p.bound = append(p.bound, inv)
+	return inv.token, inv.expires
+}
+
+// liveBoundLocked 는 만료된 묶인 초대를 지운다.
+func (p *Pairing) liveBoundLocked() {
+	now := p.now()
+	live := p.bound[:0]
+	for _, inv := range p.bound {
+		if now.Before(inv.expires) {
+			live = append(live, inv)
+		}
+	}
+	p.bound = live
 }
 
 // Revoke 는 지문 fp 가 쓴 초대의 다시 시도 기억을 지운다. 간선을 지울 때 부른다 — 지운
@@ -116,6 +148,18 @@ func (p *Pairing) Redeem(token, fp string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if u := p.used; u != nil && p.now().Before(u.expires) && u.fp == fp && sameToken(token, u.token) {
+		return nil
+	}
+	p.liveBoundLocked()
+	for i, b := range p.bound {
+		if !sameToken(token, b.token) {
+			continue
+		}
+		if b.fp != fp {
+			return ErrBadToken
+		}
+		p.bound = append(p.bound[:i], p.bound[i+1:]...)
+		p.used = &redeemed{token: b.token, fp: fp, expires: b.expires}
 		return nil
 	}
 	inv := p.liveInviteLocked()

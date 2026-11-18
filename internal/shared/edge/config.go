@@ -63,6 +63,8 @@ type Edge struct {
 	Fingerprint string `json:"fp"`
 	// HelperKey 는 상대 도우미의 공개키다. 채팅 연결로 처음 받은 값을 고정한다 (PEER_CHAT_SRS FR-PCH-74).
 	HelperKey string `json:"helperKey,omitempty"`
+	// Pending 은 이 노드의 바뀐 직접 정보를 상대가 아직 받지 못했다는 표시다 (EDGE_MESH_SRS FR-EGM-25).
+	Pending bool `json:"pending,omitempty"`
 }
 
 // Config 는 `edges.json` 전체다 (FR-PNW-2).
@@ -471,4 +473,64 @@ func (s *Store) SetAddress(fp, addr string, port int) error {
 		}
 		return ErrEdgeNotFound
 	})
+}
+
+// ApplyHello 는 간선 fp 가 보낸 직접 정보를 반영한다 (EDGE_MESH_SRS FR-EGM-21). 이름은 표시 이름
+// 규칙으로 고쳐 쓴다. port 가 바를 때만 주소를 고친다 — addr 이 바르면 그 값, 아니면 지금 주소,
+// 그것도 없으면 출발지 remoteHost 다. 바뀐 것이 있으면 저장하고 참이다.
+func (s *Store) ApplyHello(fp, name, addr string, port int, remoteHost string) (bool, error) {
+	return s.change(fp, func(e *Edge) {
+		if name != "" {
+			e.Name = DisplayName(name)
+		}
+		if !validPort(port) {
+			return
+		}
+		switch {
+		case ValidAddr(addr):
+			e.Addr, e.Port = addr, port
+		case e.Addr != "":
+			e.Port = port
+		case ValidAddr(remoteHost):
+			e.Addr, e.Port = remoteHost, port
+		}
+	})
+}
+
+// change 는 간선 fp 를 fn 으로 고친다. 바뀐 것이 있을 때만 저장하고 참이다.
+func (s *Store) change(fp string, fn func(*Edge)) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c := s.cfg.clone()
+	for i := range c.Edges {
+		e := &c.Edges[i]
+		if e.Fingerprint != fp {
+			continue
+		}
+		before := *e
+		fn(e)
+		if *e == before {
+			return false, nil
+		}
+		if err := s.saveLocked(c); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, ErrEdgeNotFound
+}
+
+// SetPendingAll 은 모든 간선을 알림 대기로 표시한다 (FR-EGM-23).
+func (s *Store) SetPendingAll() error {
+	return s.update(func(c *Config) error {
+		for i := range c.Edges {
+			c.Edges[i].Pending = true
+		}
+		return nil
+	})
+}
+
+// SetPending 은 간선 fp 의 알림 대기를 on 으로 둔다. 바뀌었으면 참이다 (FR-EGM-24).
+func (s *Store) SetPending(fp string, on bool) (bool, error) {
+	return s.change(fp, func(e *Edge) { e.Pending = on })
 }

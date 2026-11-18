@@ -64,6 +64,9 @@ func (ps *PanedServer) PushEdges(ch edgenode.Change) {
 	if r := ch.Removed; r != nil {
 		ev.Removed = &toolipc.EdgeRef{FP: r.FP, Name: r.Name}
 	}
+	if r := ch.Invited; r != nil {
+		ev.Invited = &toolipc.EdgeRef{FP: r.FP, Name: r.Name}
+	}
 	c.enqueue(ev, false)
 }
 

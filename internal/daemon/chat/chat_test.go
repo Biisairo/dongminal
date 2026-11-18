@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/edgemesh"
 )
 
 // PEER_CHAT_SRS §3.9 단계 1 — 데몬의 채팅 핵심.
@@ -21,6 +22,7 @@ type delivery struct {
 
 type testNode struct {
 	*Service
+	mesh *edgemesh.Mesh
 	t    *testing.T
 	mu   sync.Mutex
 	got  []delivery
@@ -33,10 +35,10 @@ func newTestNode(t *testing.T, name string) *testNode {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tn := &testNode{t: t, name: name}
+	tn := &testNode{t: t, name: name, mesh: newMesh(t, id, name)}
 	tn.Service = New(Options{
 		Identity: id,
-		Name:     func() string { return name },
+		Mesh:     tn.mesh,
 		Deliver: func(pid string, m Message) {
 			tn.mu.Lock()
 			tn.got = append(tn.got, delivery{pid, m})
@@ -45,6 +47,14 @@ func newTestNode(t *testing.T, name string) *testNode {
 	})
 	t.Cleanup(tn.Close)
 	return tn
+}
+
+// newMesh 는 시험 노드의 간선 계층이다. 연결은 link 로 손으로 잇는다.
+func newMesh(t *testing.T, id edge.Identity, name string) *edgemesh.Mesh {
+	t.Helper()
+	m := edgemesh.New(edgemesh.Options{Identity: id, Name: func() string { return name }})
+	t.Cleanup(m.Close)
+	return m
 }
 
 func (tn *testNode) fp() string { return tn.id.Fingerprint }
@@ -64,8 +74,8 @@ func (tn *testNode) deliveries(pid string) []Message {
 // link 는 a(건 쪽)와 b 를 메모리 연결로 잇는다. 돌려준 함수가 끊는다.
 func link(a, b *testNode) func() {
 	p1, p2 := net.Pipe()
-	a.attach(b.fp(), p1, true)
-	b.attach(a.fp(), p2, false)
+	a.mesh.Attach(b.fp(), p1, true)
+	b.mesh.Attach(a.fp(), p2, false)
 	return func() { _ = p1.Close(); _ = p2.Close() }
 }
 
@@ -192,7 +202,6 @@ func newFakePeer(t *testing.T, target *testNode) *fakePeer {
 		t.Fatal(err)
 	}
 	p1, p2 := net.Pipe()
-	target.attach(id.Fingerprint, p1, false)
 	f := &fakePeer{id: id, conn: p2}
 	go func() { // 상대가 보내는 것은 읽어 버린다
 		buf := make([]byte, 64<<10)
@@ -202,6 +211,7 @@ func newFakePeer(t *testing.T, target *testNode) *fakePeer {
 			}
 		}
 	}()
+	target.mesh.Attach(id.Fingerprint, p1, false)
 	t.Cleanup(func() { _ = p2.Close() })
 	return f
 }
@@ -217,10 +227,20 @@ func (f *fakePeer) write(t *testing.T, fr frame) {
 	}
 }
 
+// state 는 가짜 노드의 채팅 상태를 보낸다. links 가 있으면 간선 계층의 망 정보(net)를 먼저 보낸다
+// — 온라인 판정은 간선 계층이 한다 (EDGE_MESH_SRS FR-EGM-42).
 func (f *fakePeer) state(t *testing.T, parts []statePart, rooms []signedRecord, links []string) {
 	t.Helper()
 	f.seq++
-	st := stateBody{Node: f.id.Fingerprint, Key: publicKeyOf(f.id), Name: "fake", Epoch: 1, Seq: f.seq, Links: links, Parts: parts, Rooms: rooms}
+	if links != nil {
+		nf, err := signFrame(f.id, edgemesh.FrameNet, map[string]any{"node": f.id.Fingerprint, "key": publicKeyOf(f.id),
+			"name": "fake", "epoch": 1, "seq": f.seq, "links": links})
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.write(t, nf)
+	}
+	st := stateBody{Node: f.id.Fingerprint, Key: publicKeyOf(f.id), Epoch: 1, Seq: f.seq, Parts: parts, Rooms: rooms}
 	fr, err := signFrame(f.id, frameState, st)
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +276,7 @@ func TestStateWithForeignKeyDropped(t *testing.T) {
 	a := newTestNode(t, "a")
 	f := newFakePeer(t, a)
 	other, _ := edge.LoadOrCreateIdentity(t.TempDir())
-	st := stateBody{Node: other.Fingerprint, Key: publicKeyOf(f.id), Name: "spoof", Epoch: 1, Seq: 1}
+	st := stateBody{Node: other.Fingerprint, Key: publicKeyOf(f.id), Epoch: 1, Seq: 1}
 	fr, _ := signFrame(f.id, frameState, st)
 	f.write(t, fr)
 	never(t, "가짜 노드가 목록에 선다", func() bool {
@@ -561,7 +581,7 @@ func TestDuplicateLinksCollapse(t *testing.T) {
 	a, b := newTestNode(t, "a"), newTestNode(t, "b")
 	link(a, b)
 	link(b, a)
-	eventually(t, "연결이 하나씩 남는다", func() bool { return a.linkCount() == 1 && b.linkCount() == 1 })
+	eventually(t, "이어진다", func() bool { return a.mesh.Linked(b.fp()) && b.mesh.Linked(a.fp()) })
 	pa := a.Register("a/x", KindAgent)
 	pb := b.Register("b/x", KindAgent)
 	room, _ := a.Create(pa.ID, "r", "")
@@ -570,26 +590,6 @@ func TestDuplicateLinksCollapse(t *testing.T) {
 	eventually(t, "A 가 참가를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
 	_ = a.Send(pa.ID, room.ID, "x")
 	eventually(t, "B 가 받는다", func() bool { return len(b.deliveries(pb.ID)) == 1 })
-}
-
-// FR-PCH-8: 아무 프레임도 오지 않으면 연결을 끊는다.
-func TestSilentLinkDropped(t *testing.T) {
-	a := newTestNode(t, "a")
-	a.deadAfter = 100 * time.Millisecond
-	a.pingEvery = 20 * time.Millisecond
-	go a.Run(t.Context())
-	newFakePeer(t, a)
-	eventually(t, "연결이 선다", func() bool { return a.linkCount() == 1 })
-	eventually(t, "조용한 연결이 끊긴다", func() bool { return a.linkCount() == 0 })
-}
-
-// 프레임 한 줄의 상한을 넘으면 연결을 끊는다.
-func TestOversizedLineDropsLink(t *testing.T) {
-	a := newTestNode(t, "a")
-	f := newFakePeer(t, a)
-	eventually(t, "연결이 선다", func() bool { return a.linkCount() == 1 })
-	go func() { _, _ = f.conn.Write([]byte(strings.Repeat("x", maxLine+1) + "\n")) }()
-	eventually(t, "연결이 끊긴다", func() bool { return a.linkCount() == 0 })
 }
 
 func TestErrorCodeOfPlainError(t *testing.T) {
@@ -608,8 +608,8 @@ func TestStateAnnouncementsSettle(t *testing.T) {
 	eventually(t, "C 가 A 의 참가자를 본다", func() bool { return len(c.Online().Participants) == 1 })
 	time.Sleep(100 * time.Millisecond)
 	seqOf := func(n *testNode) uint64 {
-		n.mu.Lock()
-		defer n.mu.Unlock()
+		n.Service.mu.Lock()
+		defer n.Service.mu.Unlock()
 		return n.seq
 	}
 	before := []uint64{seqOf(a), seqOf(b), seqOf(c)}
@@ -699,12 +699,15 @@ func TestRemoteNodesCapped(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fr, _ := signFrame(id, frameState, stateBody{Node: id.Fingerprint, Key: publicKeyOf(id), Name: "n", Epoch: 1, Seq: 1})
+		fr, _ := signFrame(id, frameState, stateBody{Node: id.Fingerprint, Key: publicKeyOf(id), Epoch: 1, Seq: 1})
 		f.write(t, fr)
 	}
 	f.state(t, nil, nil, []string{a.fp()})
 	eventually(t, "직접 이어진 노드는 남는다", func() bool { return nodeOnline(a, f.id.Fingerprint) })
-	if n := len(a.Online().Nodes) - 1; n > maxNodes {
+	a.Service.mu.Lock()
+	n := len(a.nodes)
+	a.Service.mu.Unlock()
+	if n > maxNodes {
 		t.Fatalf("아는 노드 %d > %d", n, maxNodes)
 	}
 }
@@ -740,27 +743,25 @@ func TestEvictedNodeReplayDropped(t *testing.T) {
 	f.state(t, nil, nil, []string{a.fp()})
 	x, _ := edge.LoadOrCreateIdentity(t.TempDir())
 	xp := x.Fingerprint[:idPrefix] + "-x"
-	xState, _ := signFrame(x, frameState, stateBody{Node: x.Fingerprint, Key: publicKeyOf(x), Name: "x", Epoch: 1, Seq: 1,
+	xState, _ := signFrame(x, frameState, stateBody{Node: x.Fingerprint, Key: publicKeyOf(x), Epoch: 1, Seq: 1,
 		Parts: []statePart{{ID: xp, Label: "x/x", Kind: KindAgent, Rooms: []string{room.ID}}}})
 	xMsg, _ := signFrame(x, frameMsg, msgBody{ID: "xm", Node: x.Fingerprint, Epoch: 1, Seq: 1, Room: room.ID, From: xp, Text: "옛 글", At: time.Now()})
 	f.write(t, xState)
 	f.write(t, xMsg)
 	eventually(t, "X 의 글을 받는다", func() bool { return len(a.deliveries(pa.ID)) == 1 })
 	y, _ := edge.LoadOrCreateIdentity(t.TempDir())
-	yState, _ := signFrame(y, frameState, stateBody{Node: y.Fingerprint, Key: publicKeyOf(y), Name: "y", Epoch: 1, Seq: 1})
+	yState, _ := signFrame(y, frameState, stateBody{Node: y.Fingerprint, Key: publicKeyOf(y), Epoch: 1, Seq: 1})
 	f.write(t, yState)
 	eventually(t, "X 를 잊는다", func() bool {
-		for _, n := range a.Online().Nodes {
-			if n.FP == x.Fingerprint {
-				return false
-			}
-		}
-		return true
+		a.Service.mu.Lock()
+		defer a.Service.mu.Unlock()
+		_, known := a.nodes[x.Fingerprint]
+		return !known
 	})
 	// 자리를 늘려, X 를 다시 들일지는 상한이 아니라 기억한 번호로만 가르게 한다.
-	a.mu.Lock()
+	a.Service.mu.Lock()
 	a.maxNodes = 3
-	a.mu.Unlock()
+	a.Service.mu.Unlock()
 	f.write(t, xState)
 	f.write(t, xMsg)
 	never(t, "옛 글이 다시 온다", func() bool { return len(a.deliveries(pa.ID)) > 1 })
@@ -777,13 +778,13 @@ func TestDirectPeerNodeNotEvicted(t *testing.T) {
 	eventually(t, "A 가 상대의 참가를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
 	cut()
 	eventually(t, "끊김", func() bool { return !nodeOnline(a, b.fp()) })
-	a.mu.Lock()
+	a.Service.mu.Lock()
 	a.maxNodes = 2
-	a.mu.Unlock()
+	a.Service.mu.Unlock()
 	f := newFakePeer(t, a)
 	f.state(t, nil, nil, []string{a.fp()})
 	y, _ := edge.LoadOrCreateIdentity(t.TempDir())
-	yState, _ := signFrame(y, frameState, stateBody{Node: y.Fingerprint, Key: publicKeyOf(y), Name: "y", Epoch: 1, Seq: 1})
+	yState, _ := signFrame(y, frameState, stateBody{Node: y.Fingerprint, Key: publicKeyOf(y), Epoch: 1, Seq: 1})
 	f.write(t, yState)
 	never(t, "1대1 채팅이 끝난다", func() bool { return !roomVisible(a, pa.ID, room.ID) })
 }
@@ -830,7 +831,8 @@ func TestChangedNotifies(t *testing.T) {
 	var mu sync.Mutex
 	n := 0
 	count := func() int { mu.Lock(); defer mu.Unlock(); return n }
-	s := New(Options{Identity: id, Name: func() string { return "a" }, Changed: func() { mu.Lock(); n++; mu.Unlock() }})
+	m := newMesh(t, id, "a")
+	s := New(Options{Identity: id, Mesh: m, Changed: func() { mu.Lock(); n++; mu.Unlock() }})
 	t.Cleanup(s.Close)
 	before := count()
 	p := s.Register("a/x", KindAgent)
@@ -842,7 +844,7 @@ func TestChangedNotifies(t *testing.T) {
 	eventually(t, "방 알림", func() bool { return count() > before })
 	b := newTestNode(t, "b")
 	before = count()
-	link(&testNode{Service: s, t: t, name: "a"}, b)
+	link(&testNode{Service: s, mesh: m, t: t, name: "a"}, b)
 	b.Register("b/y", KindAgent)
 	eventually(t, "남의 상태 알림", func() bool { return count() > before+1 })
 }

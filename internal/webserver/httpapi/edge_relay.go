@@ -98,6 +98,9 @@ func (s *Server) EdgePushed(ev toolipc.EdgesEvent) {
 	if r := ev.Removed; r != nil {
 		c.Removed = &edgenode.Ref{FP: r.FP, Name: r.Name}
 	}
+	if r := ev.Invited; r != nil {
+		c.Invited = &edgenode.Ref{FP: r.FP, Name: r.Name}
+	}
 	s.edgesChanged(c)
 	s.kickEdge()
 }

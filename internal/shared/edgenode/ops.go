@@ -60,9 +60,13 @@ func decode(raw json.RawMessage, v any) *Response {
 	return nil
 }
 
-// tag 는 노드 설정의 지문이다 (UX_BATCH12 FR-LIV-1). 실행 중에 정해지는 값(노드 포트 상태
-// 등)은 넣지 않는다 — 그것이 바뀌었다고 저장이 낡은 것은 아니다.
+// tag 는 노드 설정의 지문이다 (UX_BATCH12 FR-LIV-1). 실행 중에 정해지는 값(노드 포트 상태,
+// 간선의 알림 대기 등)은 넣지 않는다 — 그것이 바뀌었다고 저장이 낡은 것은 아니다.
 func tag(c edge.Config) string {
+	c.Edges = append([]edge.Edge{}, c.Edges...)
+	for i := range c.Edges {
+		c.Edges[i].Pending = false
+	}
 	b, err := json.Marshal(c)
 	if err != nil {
 		return ""
@@ -94,6 +98,14 @@ func (n *Node) Do(ctx context.Context, req Request) Response {
 		return n.opRemove(ctx, req)
 	case "address":
 		return n.opAddress(req)
+	case "notify":
+		return n.opNotify(ctx, req)
+	case "invite_send":
+		return n.opInviteSend(req)
+	case "invite_accept":
+		return n.opInviteAccept(ctx, req)
+	case "invite_reject":
+		return n.opInviteReject(req)
 	}
 	return fail(http.StatusNotFound, CodeNotFound, "unknown op")
 }
@@ -116,17 +128,22 @@ type inviteView struct {
 	Expires time.Time `json:"expires"`
 }
 
-// edgeView 는 간선에 번호를 얹은 응답 모양이다 (PROFILE_NAME_SRS FR-PFN-23).
+// edgeView 는 간선에 번호와 간선 연결 상태를 얹은 응답 모양이다 (PROFILE_NAME_SRS FR-PFN-23,
+// EDGE_MESH_SRS §3.7).
 type edgeView struct {
 	edge.Edge
-	Tag string `json:"tag"`
+	Tag      string `json:"tag"`
+	Linked   bool   `json:"linked"`
+	Outdated bool   `json:"outdated"`
 }
 
-// view 는 get 의 본문이다. 초대 토큰은 싣지 않는다 (FR-PNW-95, I-3).
+// view 는 get 의 본문이다. 초대 토큰과 받은 초대의 코드는 싣지 않는다 (FR-PNW-95, I-3).
 type view struct {
-	Node   nodeView    `json:"node"`
-	Edges  []edgeView  `json:"edges"`
-	Invite *inviteView `json:"invite"`
+	Node    nodeView     `json:"node"`
+	Edges   []edgeView   `json:"edges"`
+	Invite  *inviteView  `json:"invite"`
+	Mesh    *meshView    `json:"mesh"`
+	Invites []invitedRow `json:"invites"`
 }
 
 // profileView 는 profile 의 본문이다 (PROFILE_NAME_SRS §3.2).
@@ -157,11 +174,17 @@ func (n *Node) view() view {
 		Edges: make([]edgeView, 0, len(cfg.Edges)),
 	}
 	for _, e := range cfg.Edges {
-		v.Edges = append(v.Edges, edgeView{Edge: e, Tag: edge.Tag(e.Fingerprint)})
+		ev := edgeView{Edge: e, Tag: edge.Tag(e.Fingerprint)}
+		if n.mesh != nil {
+			ev.Linked, ev.Outdated = n.mesh.Linked(e.Fingerprint), n.mesh.Outdated(e.Fingerprint)
+		}
+		v.Edges = append(v.Edges, ev)
 	}
 	if exp, has := n.pairing.InviteExpires(); has {
 		v.Invite = &inviteView{Expires: exp}
 	}
+	v.Mesh = n.meshView()
+	v.Invites = n.invitedRows()
 	return v
 }
 
@@ -178,6 +201,7 @@ func (n *Node) opNode(req Request) Response {
 		r.ETag = cur
 		return r
 	}
+	before := n.store.Config()
 	if err := n.store.SetNode(in); err != nil {
 		n.mu.Unlock()
 		if errors.Is(err, edge.ErrSaveFailed) {
@@ -187,6 +211,8 @@ func (n *Node) opNode(req Request) Response {
 	}
 	cfg := n.store.Config()
 	n.mu.Unlock()
+	// FR-EGM-23: 바뀐 직접 정보는 새 노드 포트를 적용하기 전에 보낸다.
+	n.announceChange(before, cfg)
 	if n.opts.OnConfig != nil {
 		n.opts.OnConfig(cfg)
 	}
@@ -211,6 +237,7 @@ func (n *Node) opProfileName(req Request) Response {
 		r.ETag = cur
 		return r
 	}
+	before := n.store.Config()
 	if err := n.store.SetName(in.Name); err != nil {
 		n.mu.Unlock()
 		if errors.Is(err, edge.ErrSaveFailed) {
@@ -220,6 +247,7 @@ func (n *Node) opProfileName(req Request) Response {
 	}
 	cfg := n.store.Config()
 	n.mu.Unlock()
+	n.announceChange(before, cfg)
 	n.changed(Change{})
 	r := ok(n.profile())
 	r.ETag = tag(cfg)
@@ -280,7 +308,12 @@ func (n *Node) opAdd(ctx context.Context, req Request) Response {
 	if r := decode(req.Args, &in); r != nil {
 		return *r
 	}
-	ic, err := edge.DecodeInvite(in.Code)
+	return n.addCode(ctx, in.Code)
+}
+
+// addCode 는 초대 코드 하나로 맺는다. 사람이 붙여 넣은 코드와 받은 간선 초대가 함께 쓴다.
+func (n *Node) addCode(ctx context.Context, code string) Response {
+	ic, err := edge.DecodeInvite(code)
 	if err != nil {
 		return fail(http.StatusBadRequest, edge.CodeInviteInvalid, err.Error())
 	}
@@ -348,6 +381,7 @@ func (n *Node) opRemove(ctx context.Context, req Request) Response {
 		return storeFail(err)
 	}
 	n.pairing.Revoke(e.Fingerprint)
+	n.dropLink(e.Fingerprint)
 	n.changed(Change{Removed: &Ref{FP: e.Fingerprint, Name: e.Name}})
 	return ok(map[string]any{"fp": e.Fingerprint, "name": e.Name, "notified": notified})
 }

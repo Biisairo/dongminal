@@ -4,6 +4,8 @@
 > **남은 것**: 없음. 단계 1~4 와 독립 리뷰 수정(§3.12a)이 끝났다. 적용(데몬·서버 재시작, 재설치, `sudo dongminal helper install`)과 e2e 는 사용자가 한다
 > **선행**: `PEER_DAEMON_SRS.md` (노드 = 데몬, 이름 peer → edge). 이 SRS 의 "노드"는 모두 데몬이다.
 > **입력**: 2026-11-17 대화 두 번. 결정은 §4 다. §9 미결은 모두 정했다.
+> **후속**: `EDGE_MESH_SRS.md`(2026-11-18)가 채팅 연결을 간선 계층의 간선 연결(`/edge/v1/link`, `dmlink1`)로 옮기고,
+> `state` 에서 `links`·`name` 을 뺐다(FR-EGM-40~45). 아래의 채팅 연결·다시 걸기·`links` 서술은 그 뒤로 간선 계층의 것이다.
 
 ## 1. 개요 (Introduction)
 
@@ -218,7 +220,7 @@
 | 요소 | 자리 |
 |---|---|
 | 채팅 핵심 | 새 패키지 `internal/daemon/chat`. 데몬만 쓴다(NFR-PCH-5) |
-| 채팅 연결의 노드 포트 경로 | `GET /edge/v1/chat`. `edgenode.Options.Chat`(http.Handler, nil 이면 404)로 끼운다. 판정은 지금의 `Admission` 그대로다 — 짝맞춤 밖의 경로는 간선 상대만 들어온다 |
+| 채팅 연결의 노드 포트 경로 | `GET /edge/v1/link`(간선 계층의 간선 연결, EDGE_MESH_SRS FR-EGM-2). 옛 `GET /edge/v1/chat` 은 404 다. 판정은 지금의 `Admission` 그대로다 — 짝맞춤 밖의 경로는 간선 상대만 들어온다 |
 | 채팅 연결의 발신 | `edge.Client.Upgrade(ctx, Target, path, proto) (net.Conn, error)`. 지금의 `Call` 과 같은 TLS·지문 고정 위에서 HTTP/1.1 Upgrade 를 보내고 101 을 받으면 연결을 돌려준다. 데몬은 발신 소켓을 지난다 |
 | 데몬 배선 | `daemon/boot/edge.go` 가 노드를 세운 뒤 `chat.New` 로 채팅을 세우고 `edgenode.Options.Chat` 에 넘긴다. IPC 는 단계 2 에서 붙인다 |
 
@@ -238,7 +240,7 @@
 
 | 종류 | 본문 | 비고 |
 |---|---|---|
-| `state` | `{node, key, name, epoch, seq, links[], parts[{id, label, kind, rooms[]}], rooms[생성 기록]}` | 노드 상태 알림(FR-PCH-9). `epoch` 는 데몬이 설 때의 시각(ns), `seq` 는 그 안의 번호다. (epoch, seq) 가 더 큰 것만 쓴다. `rooms` 는 자기 참가자가 든 방의 생성 기록이다 |
+| `state` | `{node, key, epoch, seq, parts[{id, label, kind, rooms[]}], rooms[생성 기록], helper, pins}` — 이름과 `links` 는 간선 계층의 `net` 에 있다(EDGE_MESH_SRS FR-EGM-41) | 노드 상태 알림(FR-PCH-9). `epoch` 는 데몬이 설 때의 시각(ns), `seq` 는 그 안의 번호다. (epoch, seq) 가 더 큰 것만 쓴다. `rooms` 는 자기 참가자가 든 방의 생성 기록이다 |
 | `msg` | `{id, node, epoch, seq, room, from, text, at}` | 글. `id` 는 무작위 16바이트 hex 다. 같은 `from` 의 순서는 (epoch, seq) 로 정한다(FR-PCH-32) |
 | `ping` | 없음 | 서명하지 않고 전파하지 않는다 |
 
@@ -248,7 +250,7 @@
 
 **온라인 판정 (FR-PCH-10a)**
 
-- 노드 A·B 사이 간선은 A 의 최신 `state` 가 B 를, B 의 최신 `state` 가 A 를 `links` 에 담을 때만 이어진 것으로 본다. 자기에게서 이 간선들로 닿는 노드가 온라인이다.
+- 노드 A·B 사이 간선은 A 의 최신 망 정보(`net`)가 B 를, B 의 최신 `net` 이 A 를 `links` 에 담을 때만 이어진 것으로 본다. 자기에게서 이 간선들로 닿는 노드가 온라인이다. 판정은 간선 계층이 한다(EDGE_MESH_SRS FR-EGM-12·42).
 - 닿지 않는 노드의 마지막 `state` 는 지우지 않고 "연결 끊김"으로 둔다(FR-PCH-30). 다시 닿으면 새 `state` 가 덮는다. 메모리는 노드 수에 비례한다.
 - 방 목록(FR-PCH-21)은 온라인 노드의 `state` 에서만 모은다. 방의 참가자 목록에는 연결 끊김 노드의 참가자도 "연결 끊김"으로 보인다.
 
@@ -484,7 +486,7 @@
 - 명령의 `node` 가 X 일 때 받는 노드 A 가 믿는 키:
   - X 가 A 자신: A 의 도우미 키.
   - X 가 A 의 간선 상대: A 의 `edges.json` 에 고정한 키. 고정이 없으면 받지 않는다.
-  - X 가 망 이웃: 닿는 노드 가운데 X 와 서로 이어진 노드(양쪽 최신 상태 알림의 `links` 에 서로 있는 노드, 곧 X 의 간선 상대)의 `pins[X]` 만 모은다. 하나 이상 있고 모두 같으며 X 자신이 알린 `helper` 와도 같으면 그 키다. 없거나 엇갈리면 받지 않는다. X 의 데몬 하나를 바꿔쳐서는 이웃에게 가짜 명령을 믿게 할 수 없다 — X 의 간선 상대가 고정한 키를 함께 바꿔야 한다. X 와 이어지지 않은 노드가 실은 고정값은 세지 않는다(보안 검토).
+  - X 가 망 이웃: 닿는 노드 가운데 X 와 서로 이어진 노드(양쪽 최신 망 정보 `net` 의 `links` 에 서로 있는 노드, 곧 X 의 간선 상대, EDGE_MESH_SRS FR-EGM-43)의 `pins[X]` 만 모은다. 하나 이상 있고 모두 같으며 X 자신이 알린 `helper` 와도 같으면 그 키다. 없거나 엇갈리면 받지 않는다. X 의 데몬 하나를 바꿔쳐서는 이웃에게 가짜 명령을 믿게 할 수 없다 — X 의 간선 상대가 고정한 키를 함께 바꿔야 한다. X 와 이어지지 않은 노드가 실은 고정값은 세지 않는다(보안 검토).
 - `helper` 와 `pins` 의 값은 32바이트 Ed25519 공개키의 base64 여야 한다. 아니면 그 상태 알림을 버린다.
 - 명령 본문의 `key` 가 믿는 키와 같고 서명이 맞아야 받는다.
 

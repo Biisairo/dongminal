@@ -70,6 +70,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl edge invite [--addr <주소>]          # 초대 코드 (10분, 한 번)
   dmctl edge add <코드>                      # 초대 코드로 간선을 맺는다
   dmctl edge remove <이름#번호|지문 앞자리>  # 간선을 끊는다 (상대 쪽에서도 지워진다)
+  dmctl edge notify <이름#번호|지문 앞자리>  # 바뀐 내 이름·포트·주소를 그 간선에 알린다
 
   레이아웃 명령은 구독 중인 브라우저가 없으면(delivered=0) exit 1 이다 — 아무것도
   만들어지지 않았다. 생성 명령이 결과를 받지 못해도(timedOut) exit 1 이다.

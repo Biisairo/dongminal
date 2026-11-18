@@ -18,6 +18,7 @@ import (
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/edgemesh"
 	"dongminal/internal/shared/httpreq"
 	"dongminal/internal/shared/httpresp"
 )
@@ -27,7 +28,9 @@ const (
 	pathPrefix = "/edge/v1/"
 	pairPath   = pathPrefix + "pair"
 	unpairPath = pathPrefix + "unpair"
-	chatPath   = pathPrefix + "chat"
+	// legacyChatPath 는 옛 판의 채팅 연결 경로다. 404 로 답하고 그 간선을 옛 판으로 표시한다
+	// (EDGE_MESH_SRS FR-EGM-2·7).
+	legacyChatPath = pathPrefix + "chat"
 	// pairRateKey 는 등록 요청 상한의 키 머리다. 간선의 지문 키와 섞이지 않는다.
 	pairRateKey = "pair-addr:"
 	// proto 는 이 노드가 말하는 프로토콜 판이다. 등록 요청에 싣는다 (FR-PNW-50).
@@ -71,8 +74,8 @@ type Options struct {
 	// Notify 는 간선·초대·노드 설정이 바뀐 **뒤에** 부른다. 간선을 맺거나 지웠으면 그
 	// 간선을 싣는다 (EDGE_PAIRING_SRS FR-EPR-5·23, FR-PDM-27).
 	Notify func(Change)
-	// Chat 은 채팅 연결 경로의 핸들러다. nil 이면 그 경로는 404 다 (PEER_CHAT_SRS §3.9).
-	Chat http.Handler
+	// Mesh 면 간선 계층(간선 연결·망 정보·초대)을 세운다. 데몬만 켠다 (EDGE_MESH_SRS FR-EGM-1).
+	Mesh bool
 	Now  func() time.Time
 }
 
@@ -82,12 +85,14 @@ type Ref struct {
 	Name string `json:"name"`
 }
 
-// Change 는 Notify 의 값이다. 둘 다 nil 이면 초대·노드 설정·주소만 바뀌었다. ByPeer 는
-// Removed 를 상대가 지웠다(unpair 알림, edge_not_edge 답)는 뜻이다 (FR-EPR-23).
+// Change 는 Notify 의 값이다. 모두 nil 이면 초대·노드 설정·주소·망 그림만 바뀌었다. ByPeer 는
+// Removed 를 상대가 지웠다(unpair 알림, edge_not_edge 답)는 뜻이다 (FR-EPR-23). Invited 는 망
+// 이웃이 보낸 간선 초대를 받았다는 뜻이다 (EDGE_MESH_SRS FR-EGM-34).
 type Change struct {
 	Paired  *Ref `json:"paired,omitempty"`
 	Removed *Ref `json:"removed,omitempty"`
 	ByPeer  bool `json:"byPeer,omitempty"`
+	Invited *Ref `json:"invited,omitempty"`
 }
 
 // Node 는 노드 하나다.
@@ -100,6 +105,13 @@ type Node struct {
 	limiter *edge.RateLimiter
 	// mu 는 ETag 검사와 노드 설정 저장을 한 덩이로 묶는다.
 	mu sync.Mutex
+	// mesh 는 간선 계층이다. Options.Mesh 가 거짓이면 nil 이다.
+	mesh *edgemesh.Mesh
+	// invMu 는 받은 간선 초대를 지킨다 (FR-EGM-34).
+	invMu   sync.Mutex
+	invites []edgemesh.Invite
+	// rejected 는 거절한 초대 id 와 그 만료다. 같은 초대가 다시 와도 목록에 올리지 않는다.
+	rejected map[string]time.Time
 }
 
 // New 는 노드를 세운다. 옛 홈 파일을 정리하고 저장소와 신원을 연다. 신원을 읽지
@@ -123,10 +135,14 @@ func New(o Options) (*Node, error) {
 	if o.Dial != nil {
 		client = edge.NewClientVia(id, o.Dial)
 	}
-	return &Node{
+	n := &Node{
 		opts: o, store: store, id: id, client: client,
 		pairing: edge.NewPairing(o.Now), limiter: edge.NewRateLimiter(o.Now),
-	}, nil
+	}
+	if o.Mesh {
+		n.mesh = n.newMesh()
+	}
+	return n, nil
 }
 
 // Identity 는 노드 신원이다.
@@ -170,14 +186,18 @@ func IsNotEdge(err error) bool {
 	return errors.As(err, &re) && re.Code == edge.CodeNotEdge
 }
 
-// Handler 는 노드 포트의 핸들러다. 맺기·지우기 경로와 채팅 연결 경로 밖은 전부 404 다
-// (FR-EPR-40, FR-PDM-60, PEER_CHAT_SRS §3.9).
+// Handler 는 노드 포트의 핸들러다. 맺기·지우기 경로와 간선 연결 경로 밖은 전부 404 다
+// (FR-EPR-40, FR-PDM-60, EDGE_MESH_SRS FR-EGM-2).
 func (n *Node) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+pairPath, n.pair)
 	mux.HandleFunc("POST "+unpairPath, n.unpair)
-	if n.opts.Chat != nil {
-		mux.Handle(chatPath, n.opts.Chat)
+	if n.mesh != nil {
+		mux.Handle(edgemesh.Path, n.mesh.Handler())
+		mux.HandleFunc(legacyChatPath, func(w http.ResponseWriter, r *http.Request) {
+			n.mesh.MarkOutdated(edge.ClientFingerprint(r))
+			writeFail(w, http.StatusNotFound, CodeNotFound, "not found")
+		})
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeFail(w, http.StatusNotFound, CodeNotFound, "not found")
@@ -313,6 +333,7 @@ func (n *Node) unpair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n.pairing.Revoke(fp)
+	n.dropLink(fp)
 	audit("in", e.Name, "unpair", http.StatusOK)
 	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}, ByPeer: true})
 	httpresp.JSON(w, http.StatusOK, map[string]any{})
@@ -330,6 +351,7 @@ func (n *Node) Forget(fp string) {
 		return
 	}
 	n.pairing.Revoke(fp)
+	n.dropLink(fp)
 	audit("out", e.Name, "forget", http.StatusOK)
 	n.changed(Change{Removed: &Ref{FP: fp, Name: e.Name}, ByPeer: true})
 }

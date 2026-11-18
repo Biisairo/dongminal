@@ -2,65 +2,42 @@ package chat
 
 import "sort"
 
-// reachableLocked 는 자기에게서 닿는 노드다. 간선 A-B 는 A·B 의 최신 상태가 서로를 담을
-// 때만 이어진 것으로 본다 (FR-PCH-10a). 자기의 간선은 지금 열린 연결이다.
+// reachableLocked 는 자기에게서 닿는 노드다. 간선 계층의 망 정보로 판정한다 (EDGE_MESH_SRS
+// FR-EGM-12·42). 간선 계층이 없으면 자기뿐이다.
 func (s *Service) reachableLocked() map[string]bool {
-	self := s.id.Fingerprint
-	linksOf := func(fp string) []string {
-		if fp == self {
-			out := make([]string, 0, len(s.links))
-			for l := range s.links {
-				out = append(out, l)
-			}
-			return out
-		}
-		if r, ok := s.nodes[fp]; ok {
-			return r.st.Links
-		}
-		return nil
+	if s.opts.Mesh == nil {
+		return map[string]bool{s.id.Fingerprint: true}
 	}
-	lists := func(a, b string) bool {
-		for _, x := range linksOf(a) {
-			if x == b {
-				return true
-			}
-		}
-		return false
-	}
-	seen := map[string]bool{self: true}
-	queue := []string{self}
-	for len(queue) > 0 {
-		cur := queue[0]
-		queue = queue[1:]
-		for _, next := range linksOf(cur) {
-			if !seen[next] && lists(next, cur) {
-				seen[next] = true
-				queue = append(queue, next)
-			}
-		}
-	}
-	return seen
+	return s.opts.Mesh.Reachable()
 }
 
-// Online 은 온라인 목록이다. 닿지 않는 노드와 그 참가자는 Online 이 거짓이다 (FR-PCH-3·30).
+// mutualLocked 는 a·b 가 서로 이어졌는가다 — 양쪽의 서명된 망 정보가 서로를 담는다 (FR-EGM-43).
+func (s *Service) mutualLocked(a, b string) bool {
+	return s.opts.Mesh != nil && s.opts.Mesh.Mutual(a, b)
+}
+
+// Online 은 온라인 목록이다. 노드는 간선 계층이 아는 노드다 (EDGE_MESH_SRS FR-EGM-42). 닿지 않는
+// 노드와 그 참가자는 Online 이 거짓이다 (FR-PCH-3·30).
 func (s *Service) Online() OnlineView {
+	var v OnlineView
+	if s.opts.Mesh != nil {
+		for _, n := range s.opts.Mesh.Nodes() {
+			v.Nodes = append(v.Nodes, NodeInfo{FP: n.FP, Name: n.Name, Online: n.Online, Self: n.Self})
+		}
+	} else {
+		v.Nodes = []NodeInfo{{FP: s.id.Fingerprint, Online: true, Self: true}}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	reach := s.reachableLocked()
-	v := OnlineView{Nodes: []NodeInfo{{FP: s.id.Fingerprint, Name: s.name(), Online: true, Self: true}}}
 	for _, p := range s.parts {
 		v.Participants = append(v.Participants, Member{ID: p.ID, Label: p.Label, Kind: p.Kind, Node: s.id.Fingerprint, Online: true})
 	}
 	for fp, r := range s.nodes {
-		v.Nodes = append(v.Nodes, NodeInfo{FP: fp, Name: r.st.Name, Online: reach[fp]})
 		for _, sp := range r.st.Parts {
 			v.Participants = append(v.Participants, Member{ID: sp.ID, Label: sp.Label, Kind: sp.Kind, Node: fp, Online: reach[fp]})
 		}
 	}
-	sort.Slice(v.Nodes[1:], func(i, j int) bool {
-		a, b := v.Nodes[1+i], v.Nodes[1+j]
-		return a.Name < b.Name || a.Name == b.Name && a.FP < b.FP
-	})
 	sortMembers(v.Participants)
 	return v
 }
@@ -139,12 +116,8 @@ func (s *Service) visibleRoomLocked(pid, id string) (room, bool) {
 
 func (s *Service) roomInfoLocked(pid, id string) RoomInfo {
 	r, _ := s.recordLocked(id)
-	info := RoomInfo{ID: id, Kind: r.body.Kind, Name: r.body.Name, Purpose: r.body.Purpose, Creator: r.body.Creator}
-	if r.body.Creator == s.id.Fingerprint {
-		info.CreatorName = s.name()
-	} else if n, ok := s.nodes[r.body.Creator]; ok {
-		info.CreatorName = n.st.Name
-	}
+	info := RoomInfo{ID: id, Kind: r.body.Kind, Name: r.body.Name, Purpose: r.body.Purpose, Creator: r.body.Creator,
+		CreatorName: s.nameOf(r.body.Creator)}
 	if p, ok := s.parts[pid]; ok {
 		info.Joined = p.rooms[id]
 	}
@@ -183,10 +156,4 @@ func (s *Service) recordCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return len(s.rooms)
-}
-
-func (s *Service) linkCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return len(s.links)
 }

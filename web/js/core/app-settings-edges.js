@@ -44,6 +44,8 @@ Object.assign(App.prototype, {
     document.getElementById('eg-fp').textContent=edgeFp16(n.fingerprint);
     this._egInvitePaint();
     this._egEdgesPaint(v.edges||[]);
+    this._egMeshPaint();
+    this._egInvitesPaint();
   },
 
   /** 고치던 줄(열린 입력 칸이 있는 줄)은 그대로 두고 나머지만 새로 만든다. force 면 전부 새로 만든다. */
@@ -123,7 +125,15 @@ Object.assign(App.prototype, {
     });
     const del=UIKit.button({label:t('edge.remove'),kind:'ghost',size:'sm',cls:'eg-remove'});
     del.addEventListener('click',()=>this._egRemoveConfirm(p));
-    row.append(who,addr,port,edit,cancel,del);
+    // EDGE_MESH_SRS FR-EGM-54: 알림 대기·옛 판 표시와 수동 알리기.
+    const marks=meshNodeMarks(p).map(k=>t(k));
+    const mark=document.createElement('span');
+    mark.className='eg-mark';
+    mark.textContent=marks.join(' · ');
+    mark.hidden=!marks.length;
+    const notify=UIKit.button({label:t('edge.notify'),kind:'ghost',size:'sm',cls:'eg-notify',
+      title:'Send my name, node port and address to this edge',onClick:()=>this._egNotify(p)});
+    row.append(who,mark,addr,port,edit,cancel,notify,del);
     return row;
   },
 

@@ -1,15 +1,14 @@
 package chat
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"encoding/json"
-	"net"
 	"sort"
 	"sync"
 	"time"
 
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/edgemesh"
 )
 
 // 참가자와 방의 종류다.
@@ -108,21 +107,16 @@ type OnlineView struct {
 // Options 는 채팅을 세우는 값이다.
 type Options struct {
 	Identity edge.Identity
-	// Name 은 이 노드의 표시 이름이다.
-	Name func() string
-	// Edges 는 지금의 간선이다. 맺은 간선마다 채팅 연결을 건다. nil 이면 걸지 않는다.
+	// Mesh 는 채팅이 얹힐 간선 계층이다 (EDGE_MESH_SRS FR-EGM-40). 연결·온라인 판정·노드 이름을
+	// 여기서 얻는다. nil 이면 이 노드 혼자다.
+	Mesh *edgemesh.Mesh
+	// Edges 는 지금의 간선이다. 도우미 키 고정과 신뢰에 쓴다 (§3.12).
 	Edges func() []edge.Edge
-	// Dial 은 간선 상대에게 채팅 연결을 연다(노드 포트 Upgrade).
-	Dial func(ctx context.Context, t edge.Target) (net.Conn, error)
 	// Deliver 는 이 노드의 참가자에게 글을 넘긴다. 잠금 밖에서 부른다.
 	Deliver func(pid string, m Message)
 	// Pin 은 간선 상대 fp 의 도우미 공개키를 고정한다(비었을 때만, §3.12). 잠금 밖에서 부른다.
 	// nil 이면 고정하지 않는다.
 	Pin func(fp, key string)
-	// Unpaired 는 간선 상대가 이 노드를 간선이 아니라고(403 edge_not_edge) 답했을 때 그 지문으로
-	// 부른다. 상대가 먼저 지운 간선을 이쪽에서도 지운다 (EDGE_PAIRING_SRS FR-EPR-22). 잠금 밖에서
-	// 부른다. nil 이면 아무것도 하지 않는다.
-	Unpaired func(fp string)
 	// Changed 는 온라인 목록이나 방이 바뀌었을 수 있다는 알림이다. 잠금 밖의 고루틴에서
 	// 부르고, 여러 번의 바뀜을 한 번으로 묶을 수 있다. nil 이면 알리지 않는다.
 	Changed func()
@@ -161,9 +155,7 @@ type Service struct {
 	opts  Options
 	now   func() time.Time
 
-	pingEvery time.Duration
-	deadAfter time.Duration
-	maxNodes  int
+	maxNodes int
 
 	mu     sync.Mutex
 	epoch  int64
@@ -173,7 +165,6 @@ type Service struct {
 	// rooms 는 이 노드의 참가자가 든 방의 기록이다 (FR-PCH-22).
 	rooms map[string]room
 	nodes map[string]*remote
-	links map[string]*peerLink
 	wins  map[string]*seqWindow
 	marks map[string]mark
 	own   frame
@@ -181,7 +172,6 @@ type Service struct {
 	ownContent string
 	sendRate   *limiter
 	recvRate   *limiter
-	dialing    map[string]*dialState
 	// helperKey 는 이 노드의 도우미 공개키, cmds 는 본 사람 명령 id, warned 는 고정과 다른
 	// 키를 알린 간선 상대다 (§3.12).
 	helperKey string
@@ -194,7 +184,7 @@ type Service struct {
 	done      chan struct{}
 }
 
-// New 는 채팅을 세운다. 연결 유지는 Run 이 한다.
+// New 는 채팅을 세우고 간선 계층의 위층으로 싣는다. 연결 유지는 간선 계층이 한다.
 func New(o Options) *Service {
 	now := o.Now
 	if now == nil {
@@ -202,13 +192,13 @@ func New(o Options) *Service {
 	}
 	s := &Service{
 		id: o.Identity, key: publicKeyOf(o.Identity), opts: o, now: now,
-		pingEvery: 15 * time.Second, deadAfter: 45 * time.Second, maxNodes: maxNodes,
-		marks: map[string]mark{},
-		epoch: now().UnixNano(),
-		parts: map[string]*participant{}, rooms: map[string]room{},
-		nodes: map[string]*remote{}, links: map[string]*peerLink{},
-		wins: map[string]*seqWindow{}, dialing: map[string]*dialState{},
-		cmds: map[string]time.Time{}, relayed: map[string]time.Time{}, warned: map[string]string{},
+		maxNodes: maxNodes,
+		marks:    map[string]mark{},
+		epoch:    now().UnixNano(),
+		parts:    map[string]*participant{}, rooms: map[string]room{},
+		nodes: map[string]*remote{},
+		wins:  map[string]*seqWindow{},
+		cmds:  map[string]time.Time{}, relayed: map[string]time.Time{}, warned: map[string]string{},
 		done: make(chan struct{}), pokes: make(chan struct{}, 1),
 	}
 	s.sendRate = newLimiter(PerMinute, time.Minute, s.clock)
@@ -218,6 +208,9 @@ func New(o Options) *Service {
 	s.mu.Unlock()
 	if o.Changed != nil {
 		go s.notifyLoop()
+	}
+	if o.Mesh != nil {
+		o.Mesh.SetUpper(s)
 	}
 	return s
 }
@@ -236,31 +229,24 @@ func (s *Service) notifyLoop() {
 
 func (s *Service) clock() time.Time { return s.now() }
 
-func (s *Service) name() string {
-	if s.opts.Name == nil {
+// nameOf 는 간선 계층이 아는 노드 fp 의 이름이다 (EDGE_MESH_SRS FR-EGM-42).
+func (s *Service) nameOf(fp string) string {
+	if s.opts.Mesh == nil {
 		return ""
 	}
-	return s.opts.Name()
+	name, _ := s.opts.Mesh.NameOf(fp)
+	return name
 }
 
-// Close 는 모든 연결을 닫는다. 그 뒤에는 연결을 받지 않는다.
+// Close 는 채팅을 멈춘다. 그 뒤에는 프레임을 받지 않는다. 간선 연결은 간선 계층의 것이다.
 func (s *Service) Close() {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.closed {
-		s.mu.Unlock()
 		return
 	}
 	s.closed = true
 	close(s.done)
-	links := make([]*peerLink, 0, len(s.links))
-	for _, l := range s.links {
-		links = append(links, l)
-	}
-	s.links = map[string]*peerLink{}
-	s.mu.Unlock()
-	for _, l := range links {
-		l.close()
-	}
 }
 
 // Register 는 참가자를 만든다. 방이 없는 새 참가자다 (FR-PCH-43·46).
@@ -415,7 +401,7 @@ func (s *Service) Send(pid, roomID, text string) error {
 		s.mu.Unlock()
 		return err
 	}
-	s.broadcastLocked(fr, nil)
+	s.broadcastLocked(fr, "")
 	out := s.localDeliveriesLocked(body, p.Label, p.Kind)
 	s.mu.Unlock()
 	s.deliver(out)
@@ -531,16 +517,12 @@ func (s *Service) announceLocked() {
 		return
 	}
 	s.own = fr
-	s.broadcastLocked(fr, nil)
+	s.broadcastLocked(fr, "")
 }
 
 // ownStateLocked 는 순서 번호를 뺀 자기 상태다.
 func (s *Service) ownStateLocked() stateBody {
-	st := stateBody{Node: s.id.Fingerprint, Key: s.key, Name: s.name(), Helper: s.helperKey, Pins: s.pinsLocked()}
-	for fp := range s.links {
-		st.Links = append(st.Links, fp)
-	}
-	sort.Strings(st.Links)
+	st := stateBody{Node: s.id.Fingerprint, Key: s.key, Helper: s.helperKey, Pins: s.pinsLocked()}
 	ids := make([]string, 0, len(s.parts))
 	for id := range s.parts {
 		ids = append(ids, id)

@@ -37,10 +37,10 @@ func newHumanNode(t *testing.T, name string) *humanNode {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := &humanNode{testNode: &testNode{t: t, name: name}, helper: priv}
+	h := &humanNode{testNode: &testNode{t: t, name: name, mesh: newMesh(t, id, name)}, helper: priv}
 	h.Service = New(Options{
 		Identity: id,
-		Name:     func() string { return name },
+		Mesh:     h.mesh,
 		Deliver: func(pid string, m Message) {
 			h.mu.Lock()
 			h.got = append(h.got, delivery{pid, m})
@@ -202,19 +202,19 @@ func TestCommandRejected(t *testing.T) {
 	a, b, _, pa, pb, _, room := triangle(t)
 	_, other, _ := ed25519.GenerateKey(rand.Reader)
 	kickA := []humancmd.Kick{{Room: room, Participant: pa.ID}}
-	a.handle(nil, cmdFrame(signCmd(t, other, b.fp(), humancmd.OpKick, nil, kickA, time.Now())))
+	a.handle("", cmdFrame(signCmd(t, other, b.fp(), humancmd.OpKick, nil, kickA, time.Now())))
 	never(t, "고정과 다른 키의 강퇴", func() bool { return !inRoom(a, pa.ID, room) })
-	a.handle(nil, cmdFrame(signCmd(t, b.helper, b.fp(), humancmd.OpKick, nil, kickA, time.Now().Add(-6*time.Minute))))
+	a.handle("", cmdFrame(signCmd(t, b.helper, b.fp(), humancmd.OpKick, nil, kickA, time.Now().Add(-6*time.Minute))))
 	never(t, "오래된 강퇴", func() bool { return !inRoom(a, pa.ID, room) })
 
 	kickB := []humancmd.Kick{{Room: room, Participant: pb.ID}}
 	once := signCmd(t, a.helper, a.fp(), humancmd.OpKick, nil, kickB, time.Now())
-	b.handle(nil, cmdFrame(once))
+	b.handle("", cmdFrame(once))
 	eventually(t, "첫 강퇴", func() bool { return !inRoom(b, pb.ID, room) })
 	if _, err := b.Join(pb.ID, room); err != nil {
 		t.Fatal(err)
 	}
-	b.handle(nil, cmdFrame(once))
+	b.handle("", cmdFrame(once))
 	never(t, "같은 id 의 두 번째 강퇴", func() bool { return !inRoom(b, pb.ID, room) })
 }
 
@@ -269,8 +269,9 @@ func TestNonAdjacentPinIgnored(t *testing.T) {
 	a, _, c, _, _, _, _ := triangle(t)
 	f := newFakePeer(t, a.testNode)
 	_, other, _ := ed25519.GenerateKey(rand.Reader)
-	st := stateBody{Node: f.id.Fingerprint, Key: publicKeyOf(f.id), Name: "fake", Epoch: 1, Seq: 1,
-		Links: []string{a.fp()}, Pins: map[string]string{c.fp(): humancmd.PublicKey(other)}}
+	f.state(t, nil, nil, []string{a.fp()})
+	st := stateBody{Node: f.id.Fingerprint, Key: publicKeyOf(f.id), Epoch: 1, Seq: 2,
+		Pins: map[string]string{c.fp(): humancmd.PublicKey(other)}}
 	fr, err := signFrame(f.id, frameState, st)
 	if err != nil {
 		t.Fatal(err)
@@ -308,11 +309,11 @@ func TestPinAfterRelayedState(t *testing.T) {
 	b.mu.Lock()
 	own := b.own
 	b.mu.Unlock()
-	a.handle(nil, own) // 다른 노드를 거쳐 먼저 온 것처럼
+	a.handle("", own) // 다른 노드를 거쳐 먼저 온 것처럼
 	p1, p2 := net.Pipe()
 	t.Cleanup(func() { _ = p1.Close(); _ = p2.Close() })
 	go func() { _, _ = io.Copy(io.Discard, p2) }()
-	a.attach(b.fp(), p1, true)
+	a.mesh.Attach(b.fp(), p1, true)
 	raw, _ := json.Marshal(own) // 같은 상태가 직접 연결로 늦게 온다
 	if _, err := p2.Write(append(raw, '\n')); err != nil {
 		t.Fatal(err)
@@ -365,8 +366,8 @@ func TestForgedSameIDDoesNotSuppress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.handle(nil, cmdFrame(forged))
-	b.handle(nil, cmdFrame(real))
+	b.handle("", cmdFrame(forged))
+	b.handle("", cmdFrame(real))
 	eventually(t, "진짜 강퇴가 적용된다", func() bool { return !inRoom(b, pb.ID, room) })
 }
 
@@ -374,13 +375,13 @@ func TestForgedSameIDDoesNotSuppress(t *testing.T) {
 func TestNonCanonicalReplayIgnored(t *testing.T) {
 	a, b, _, _, pb, _, room := triangle(t)
 	real := signCmd(t, a.helper, a.fp(), humancmd.OpKick, nil, []humancmd.Kick{{Room: room, Participant: pb.ID}}, time.Now())
-	b.handle(nil, cmdFrame(real))
+	b.handle("", cmdFrame(real))
 	eventually(t, "강퇴가 적용된다", func() bool { return !inRoom(b, pb.ID, room) })
 	if _, err := b.Join(pb.ID, room); err != nil {
 		t.Fatal(err)
 	}
 	replay := humancmd.Signed{B: real.B, S: real.S[:10] + "\n" + real.S[10:]}
-	b.handle(nil, cmdFrame(replay))
+	b.handle("", cmdFrame(replay))
 	if !inRoom(b, pb.ID, room) {
 		t.Fatal("비정규 표기 재전송이 다시 적용됐다")
 	}

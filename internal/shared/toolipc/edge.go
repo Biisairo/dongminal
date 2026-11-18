@@ -41,4 +41,6 @@ type EdgesEvent struct {
 	Removed *EdgeRef `json:"removed,omitempty"`
 	// ByPeer 는 Removed 를 상대가 지웠다는 뜻이다 (EDGE_PAIRING_SRS FR-EPR-23).
 	ByPeer bool `json:"byPeer,omitempty"`
+	// Invited 는 망 이웃이 보낸 간선 초대를 받았다는 뜻이다 (EDGE_MESH_SRS FR-EGM-64).
+	Invited *EdgeRef `json:"invited,omitempty"`
 }

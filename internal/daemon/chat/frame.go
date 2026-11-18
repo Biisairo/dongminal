@@ -1,37 +1,37 @@
 package chat
 
 import (
-	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/edgemesh"
 )
 
 // 프레임 종류다 (§3.9). 기록 서명은 프레임이 아니지만 같은 서명 방식을 쓴다.
 const (
 	frameState = "state"
 	frameMsg   = "msg"
-	framePing  = "ping"
 	frameCmd   = "cmd"
 	signRecord = "room"
 )
 
-// frame 은 채팅 연결의 한 줄이다. B 는 본문 원문이고, S 는 그 원문에 한 서명이다.
-type frame struct {
-	T string          `json:"t"`
-	B json.RawMessage `json:"b,omitempty"`
-	S string          `json:"s,omitempty"`
-}
+// frame 은 간선 연결의 한 줄이다 (EDGE_MESH_SRS FR-EGM-4). 서명 방식은 간선 계층과 같다.
+type frame = edgemesh.Frame
+
+// 서명과 노드 키는 간선 계층의 것을 쓴다 (FR-EGM-40).
+var (
+	sign        = edgemesh.Sign
+	verify      = edgemesh.Verify
+	signFrame   = edgemesh.SignFrame
+	publicKeyOf = edgemesh.PublicKey
+	parseKey    = edgemesh.ParseKey
+)
 
 // statePart 는 노드 상태 알림의 참가자 하나다.
 type statePart struct {
@@ -41,14 +41,13 @@ type statePart struct {
 	Rooms []string `json:"rooms,omitempty"`
 }
 
-// stateBody 는 노드 상태 알림이다 (FR-PCH-9). 노드는 자기에 대해서만 말한다.
+// stateBody 는 노드 상태 알림이다 (FR-PCH-9). 노드는 자기에 대해서만 말한다. 이름과 간선 연결은
+// 간선 계층의 망 정보에 있다 (EDGE_MESH_SRS FR-EGM-41).
 type stateBody struct {
 	Node  string         `json:"node"`
 	Key   string         `json:"key"`
-	Name  string         `json:"name"`
 	Epoch int64          `json:"epoch"`
 	Seq   uint64         `json:"seq"`
-	Links []string       `json:"links,omitempty"`
 	Parts []statePart    `json:"parts,omitempty"`
 	Rooms []signedRecord `json:"rooms,omitempty"`
 	// Helper 는 이 노드의 도우미 공개키, Pins 는 간선 상대 지문 → 고정한 도우미 공개키다 (§3.12).
@@ -94,78 +93,6 @@ type signedRecord struct {
 func (r signedRecord) id() string {
 	sum := sha256.Sum256(r.B)
 	return hex.EncodeToString(sum[:])
-}
-
-var errNoSigner = errors.New("노드 키로 서명할 수 없다")
-
-func digest(kind string, body []byte) []byte {
-	h := sha256.New()
-	h.Write([]byte(kind))
-	h.Write([]byte{0})
-	h.Write(body)
-	return h.Sum(nil)
-}
-
-func sign(id edge.Identity, kind string, body []byte) (string, error) {
-	signer, ok := id.Certificate.PrivateKey.(crypto.Signer)
-	if !ok {
-		return "", errNoSigner
-	}
-	sig, err := signer.Sign(rand.Reader, digest(kind, body), crypto.SHA256)
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(sig), nil
-}
-
-func verify(pub *ecdsa.PublicKey, kind string, body []byte, sig string) bool {
-	raw, err := base64.StdEncoding.DecodeString(sig)
-	if err != nil {
-		return false
-	}
-	return ecdsa.VerifyASN1(pub, digest(kind, body), raw)
-}
-
-func signFrame(id edge.Identity, kind string, v any) (frame, error) {
-	body, err := json.Marshal(v)
-	if err != nil {
-		return frame{}, err
-	}
-	s, err := sign(id, kind, body)
-	if err != nil {
-		return frame{}, err
-	}
-	return frame{T: kind, B: body, S: s}, nil
-}
-
-// publicKeyOf 는 노드 공개키(SPKI DER)의 base64 다. 그 SHA-256 이 노드 지문이다.
-func publicKeyOf(id edge.Identity) string {
-	if len(id.Certificate.Certificate) == 0 {
-		return ""
-	}
-	cert, err := x509.ParseCertificate(id.Certificate.Certificate[0])
-	if err != nil {
-		return ""
-	}
-	return base64.StdEncoding.EncodeToString(cert.RawSubjectPublicKeyInfo)
-}
-
-// parseKey 는 key 가 지문 node 의 공개키일 때만 그 키를 돌려준다 (FR-PCH-5).
-func parseKey(node, key string) (*ecdsa.PublicKey, bool) {
-	der, err := base64.StdEncoding.DecodeString(key)
-	if err != nil {
-		return nil, false
-	}
-	sum := sha256.Sum256(der)
-	if hex.EncodeToString(sum[:]) != node {
-		return nil, false
-	}
-	pk, err := x509.ParsePKIXPublicKey(der)
-	if err != nil {
-		return nil, false
-	}
-	ec, ok := pk.(*ecdsa.PublicKey)
-	return ec, ok
 }
 
 // newRecord 는 id 의 노드가 서명한 생성 기록이다. 만든 노드와 키는 id 로 채운다.

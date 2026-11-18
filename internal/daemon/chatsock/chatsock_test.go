@@ -14,6 +14,7 @@ import (
 	"dongminal/internal/daemon/chat"
 	"dongminal/internal/shared/chatwire"
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/edgemesh"
 	"dongminal/internal/shared/platform"
 )
 
@@ -65,7 +66,9 @@ func newHarness(t *testing.T, opts ...func(*Options)) *harness {
 	t.Cleanup(func() { os.RemoveAll(dir) })
 	h := &harness{t: t, tools: &fakeTools{resting: map[string]bool{}}, path: filepath.Join(dir, "c.sock")}
 	var srv *Server
-	h.svc = chat.New(chat.Options{Identity: id, Name: func() string { return "mac" },
+	mesh := edgemesh.New(edgemesh.Options{Identity: id, Name: func() string { return "mac" }})
+	t.Cleanup(mesh.Close)
+	h.svc = chat.New(chat.Options{Identity: id, Mesh: mesh,
 		Deliver: func(pid string, m chat.Message) { srv.Deliver(pid, m) }})
 	o := Options{Chat: h.svc, Tools: h.tools, Name: func() string { return "mac" }, CountWait: 100 * time.Millisecond}
 	for _, f := range opts {

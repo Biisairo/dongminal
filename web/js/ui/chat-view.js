@@ -36,7 +36,11 @@ Object.assign(App.prototype, {
     const kind=chatEl('span','chat-kind ui-badge');
     const purpose=chatEl('span','chat-purpose');
     const v={key,tabId:tab.id,roomId:tab.roomId,root,title,kind,purpose,drawn:[],peopleSig:''};
-    head.append(title,kind,purpose,UIKit.button({icon:'more-horizontal',title:'Room actions',kind:'ghost',size:'sm',cls:'chat-more',
+    // EDGE_MESH_SRS FR-EGM-56: 개인채팅 상대 노드가 간선이 아닌 온라인 망 이웃이면 간선 초대를 보낸다.
+    v.invite=UIKit.button({label:t('edge.invite_send'),kind:'ghost',size:'sm',cls:'chat-edge-invite',
+      title:'Send an edge invite to this node',onClick:e=>{e.stopPropagation();if(v.invitePeer) this._egInviteSend(v.invitePeer)}});
+    v.invite.hidden=true;
+    head.append(title,kind,purpose,v.invite,UIKit.button({icon:'more-horizontal',title:'Room actions',kind:'ghost',size:'sm',cls:'chat-more',
       onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._chatViewMenu(v,{x:r.left,y:r.bottom})}}));
     const main=chatEl('div','chat-main');
     v.log=document.createElement('div');
@@ -100,6 +104,8 @@ Object.assign(App.prototype, {
       v.kind.textContent=t(r.kind==='direct'?'chat.direct':'chat.group');
       v.purpose.textContent=r.purpose||'';
     }
+    v.invitePeer=meshDirectPeer(r,meId,this._edges&&this._edges.mesh);
+    v.invite.hidden=!v.invitePeer;
     // FR-PCH-84·§3.11: 방이 사라졌거나 내가 들어 있지 않으면 입력칸을 막고 그 사실을 보인다.
     const why=!r?t('chat.gone'):!r.joined?t('chat.not_joined'):'';
     v.note.textContent=why;

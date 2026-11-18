@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/edgemesh"
 )
 
 // EDGE_PAIRING_SRS — 맺기·지우기 (TC-EPR-1~5·7).
@@ -154,7 +155,7 @@ func lastChange(tn *testNode) Change {
 // TC-EPR-5: 상대가 꺼져 있으면 자기 쪽만 지운다. 상대가 다시 걸면 edge_not_edge 를 받고,
 // Forget 으로 지운다.
 func TestRemoveWhileOffThenReconcile(t *testing.T) {
-	a, b := newTestNodeWith(t, "node-a", http.NotFoundHandler()), newTestNode(t, "node-b")
+	a, b := newMeshNode(t, "node-a"), newTestNode(t, "node-b")
 	pairNodes(t, a, b)
 	closePort(t, b)
 	r := a.do(t, "remove", map[string]any{"fp": b.Identity().Fingerprint})
@@ -164,7 +165,7 @@ func TestRemoveWhileOffThenReconcile(t *testing.T) {
 	if !b.Store().IsEdge(a.Identity().Fingerprint) {
 		t.Fatal("시험 전제: B 에는 아직 간선이 있어야 한다")
 	}
-	_, err := edge.NewClient(b.Identity()).Upgrade(context.Background(), targetOf(t, a), chatPath, "dmchat1")
+	_, err := edge.NewClient(b.Identity()).Upgrade(context.Background(), targetOf(t, a), edgemesh.Path, edgemesh.Proto)
 	if !IsNotEdge(err) {
 		t.Fatalf("err = %v, edge_not_edge 를 기대", err)
 	}
@@ -180,12 +181,12 @@ func TestRemoveWhileOffThenReconcile(t *testing.T) {
 	}
 }
 
-// TC-EPR-7: 간선이 아니면 chat·unpair 는 403 edge_not_edge, 초대 없는 pair 는 edge_no_invite.
+// TC-EPR-7: 간선이 아니면 link·unpair 는 403 edge_not_edge, 초대 없는 pair 는 edge_no_invite.
 func TestNonEdgeGetsNotEdge(t *testing.T) {
-	b := newTestNodeWith(t, "node-b", http.NotFoundHandler())
+	b := newMeshNode(t, "node-b")
 	stranger := newTestNode(t, "stranger")
 	cl := edge.NewClient(stranger.Identity())
-	_, err := cl.Upgrade(context.Background(), targetOf(t, b), chatPath, "dmchat1")
+	_, err := cl.Upgrade(context.Background(), targetOf(t, b), edgemesh.Path, edgemesh.Proto)
 	if !IsNotEdge(err) {
 		t.Fatalf("chat err = %v", err)
 	}

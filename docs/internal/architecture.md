@@ -105,6 +105,7 @@ internal/
                          #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
                          #     tool_{attention,clients,control,cwd,env,exitinfo} — Tool 의 관심사별 (M8 D-A-10)
     edge/                #   ②③  — 노드 간 통신(간선) — 노드 신원(인증서)·edges.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1·70)
+    edgemesh/            #   ②③  — 간선 계층의 간선 연결·망 정보(net)·직접 정보(hello)·간선 초대(invite). 채팅이 그 위층이다. 데몬만 세운다 (EDGE_MESH_SRS)
     edgenode/            #   ②③  — 노드 하나의 상태와 연산(짝맞춤 판정·로컬 API 연산). 데몬과 직접 모드 서버가 같이 쓴다 (PEER_DAEMON_SRS FR-PDM-2)
     chatwire/            #   ①②③ — 채팅 소켓의 경로·프레임 (데몬 chatsock ↔ dmctl chat-mcp·ctx-hook, PEER_CHAT_SRS §3.10). 서버는 사람 참가자 IPC 의 글 모양으로 쓴다 (§3.11)
     humancmd/            #   ②④  — 사람 명령의 와이어 — 도우미 소켓 프레임, 서명한 명령 본문(Ed25519), 데몬 쪽 클라이언트 (PEER_CHAT_SRS §3.12)
