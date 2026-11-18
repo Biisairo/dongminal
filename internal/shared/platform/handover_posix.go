@@ -131,14 +131,22 @@ func SetCloseOnExec(fd uintptr, on bool) error {
 }
 
 // openFDs 는 이 프로세스의 열린 fd 다.
+//
+// 이름만 읽는다. os.ReadDir 은 macOS 에서 항목마다 fstatat 을 부르고, 목록을 읽은 뒤
+// 다른 고루틴이 닫은 fd 하나가 EBADF 로 목록 전체를 실패시킨다.
 func openFDs() ([]uintptr, error) {
-	ents, err := os.ReadDir(fdDir)
+	dir, err := os.Open(fdDir)
 	if err != nil {
 		return nil, err
 	}
-	fds := make([]uintptr, 0, len(ents))
-	for _, e := range ents {
-		if n, err := strconv.Atoi(e.Name()); err == nil {
+	names, err := dir.Readdirnames(-1)
+	_ = dir.Close()
+	if err != nil {
+		return nil, err
+	}
+	fds := make([]uintptr, 0, len(names))
+	for _, name := range names {
+		if n, err := strconv.Atoi(name); err == nil {
 			fds = append(fds, uintptr(n))
 		}
 	}
