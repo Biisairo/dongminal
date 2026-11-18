@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -24,12 +25,14 @@ import (
 // ConfigOpts 는 `dongminal config` 의 옵션이다.
 type ConfigOpts struct {
 	Common
-	// Sub 는 `show` 또는 `validate` 다.
+	// Sub 는 `show`·`validate`·`set`·`get` 이다.
 	Sub  string
 	JSON bool
+	// Key·Value 는 `set` 의 인자다 (HOT_REBIND_SRS FR-HRB-41).
+	Key, Value string
 }
 
-var configSubs = []string{"show", "validate"}
+var configSubs = []string{"show", "validate", "set", "get"}
 
 // ParseConfig 는 `config <show|validate> [--json] [--home …]` 를 읽는다.
 func ParseConfig(args []string) (ConfigOpts, error) {
@@ -51,6 +54,10 @@ func ParseConfig(args []string) (ConfigOpts, error) {
 			}
 		case o.Sub == "":
 			o.Sub = a
+		case o.Sub == "set" && o.Key == "":
+			o.Key = a
+		case o.Sub == "set" && o.Value == "":
+			o.Value = a
 		default:
 			return ConfigOpts{}, fmt.Errorf("config: 인자가 너무 많습니다: %s", a)
 		}
@@ -58,8 +65,13 @@ func ParseConfig(args []string) (ConfigOpts, error) {
 	if o.Sub == "" {
 		return ConfigOpts{}, fmt.Errorf("config: 하위 명령이 필요합니다 (%s)", strings.Join(configSubs, "|"))
 	}
-	if o.Sub != "show" && o.Sub != "validate" {
+	if !slices.Contains(configSubs, o.Sub) {
 		return ConfigOpts{}, fmt.Errorf("config: 알 수 없는 하위 명령 %q (%s)", o.Sub, strings.Join(configSubs, "|"))
+	}
+	if o.Sub == "set" {
+		if err := checkConfigSet(o.Key, o.Value); err != nil {
+			return ConfigOpts{}, err
+		}
 	}
 	return o, nil
 }
@@ -82,6 +94,12 @@ func RunConfig(o ConfigOpts, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
+	}
+	switch o.Sub {
+	case "set":
+		return runConfigSet(home, o.Key, o.Value, stdout, stderr)
+	case "get":
+		return runConfigGet(home, stdout)
 	}
 	rep := configReport{Home: home}
 	rep.Server = serverconf.Resolve(serverconf.Inputs{

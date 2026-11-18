@@ -263,7 +263,8 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| POST | `/api/server/bind` | `{port?: number, expose?: bool}` → `{host, port, expose, url, warning?}`. 빠진 값은 지금 값입니다. **루프백 출발지만** 받습니다(아니면 403 `bind_local_only`). 포트가 바뀌면 새 포트로 리슨하고 SSE `server_moving` 을 보낸 뒤, 옛 포트는 30초 동안 남겨 그리로 온 `GET /` 를 새 포트로 307 보냅니다. expose 만 바뀌면 같은 포트를 닫고 새 호스트로 다시 엽니다 — 실패하면 옛 호스트로 돌아가 409 `bind_rebind_failed`. 범위(1024~65535) 밖은 400 `bind_port_invalid`, 쓰이는 포트는 409 `bind_port_in_use`, 진행 중이면 409 `bind_busy`, 파일을 쓰지 못하면 500 `save_failed` 입니다. expose 를 켜면 `warning` 이 실립니다 |
+| GET | `/api/server/bind` | `{host, port, expose, url, local, source:{host, port}}`. 지금 리슨하는 바인드와, `server.json` 값의 출처(`file`·`default`)입니다. `local` 은 이 요청이 루프백에서 왔는지입니다 — 바꾸기는 루프백에서만 됩니다 |
+| POST | `/api/server/bind` | `{port?: number, expose?: bool}` → `{host, port, expose, url, warning?}`. 빠진 값은 지금 값입니다. **루프백 출발지만** 받습니다(아니면 403 `bind_local_only`). 포트가 바뀌면 새 포트로 리슨하고 SSE `server_moving` 을 보낸 뒤, 옛 포트는 30초 동안 남겨 그리로 온 `GET /` 를 새 포트로 307 보냅니다. expose 만 바뀌면 같은 포트를 닫고 새 호스트로 다시 엽니다 — 실패하면 옛 호스트로 돌아가 409 `bind_rebind_failed`. 범위(1024~65535) 밖은 400 `bind_port_invalid`, 쓰이는 포트는 409 `bind_port_in_use`, 진행 중이면 409 `bind_busy`, 파일을 쓰지 못하면 500 `save_failed` 입니다. expose 를 켜면 `warning` 이 실립니다. expose 를 끄면 같은 망에서 맺은 연결을 바로 끊고, 노출된 옛 리스너는 유예 없이 닫습니다 |
 | POST | `/api/server/carry` | 이사하는 화면의 `localStorage` 를 맡깁니다. 본문은 JSON(1 MiB 까지) → `{token}`. 토큰은 한 번만, 60초 안에만 쓰입니다. 한 번에 16개까지이고 넘치면 503 `busy` |
 | GET | `/api/server/carry/<token>` | 맡긴 JSON 을 그대로 돌려주고 지웁니다. 없거나 지났으면 404 `not_found` |
 

@@ -373,3 +373,90 @@ func TestCarry(t *testing.T) {
 		t.Errorf("17번째 %d %q", w.Code, w.Header().Get(apierr.CodeHeader))
 	}
 }
+
+// fakeConn 은 출발지만 정할 수 있는 연결이다.
+type fakeConn struct {
+	net.Conn
+	remote net.Addr
+	closed bool
+}
+
+func (c *fakeConn) RemoteAddr() net.Addr { return c.remote }
+func (c *fakeConn) Close() error         { c.closed = true; return nil }
+
+// FR-HRB-32: expose 를 끄면 루프백이 아닌 출발지의 연결을 끊는다. 루프백 연결은 남긴다.
+func TestConnSetRevokeRemote(t *testing.T) {
+	set := newConnSet()
+	lan := &fakeConn{remote: &net.TCPAddr{IP: net.ParseIP("192.168.1.9"), Port: 5000}}
+	lo := &fakeConn{remote: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5001}}
+	tl := set.track(lan)
+	set.track(lo)
+	set.revokeRemote()
+	if !lan.closed || lo.closed {
+		t.Fatalf("lan.closed=%v lo.closed=%v", lan.closed, lo.closed)
+	}
+	// 닫힌 연결은 집합에서 빠진다.
+	_ = tl.Close()
+	if n := set.size(); n != 1 {
+		t.Errorf("남은 연결 = %d", n)
+	}
+}
+
+// FR-HRB-32: 노출된 옛 리스너는 expose 를 끄며 포트를 옮길 때 유예 없이 닫힌다.
+func TestRebindUnexposeMoveClosesOldAtOnce(t *testing.T) {
+	var asked []string
+	s, _, p1 := startBindServer(t, func(s *Server) {
+		s.bindGrace = 5 * time.Second
+		s.bindListen = exposeListen(false, &asked)
+	})
+	if code, _, body := postBind(t, p1, `{"expose":true}`); code != http.StatusOK {
+		t.Fatalf("expose: %d %v", code, body)
+	}
+	p2 := freeTCPPort(t)
+	if code, _, body := postBind(t, p1, `{"port":`+p2+`,"expose":false}`); code != http.StatusOK || body["expose"] != false {
+		t.Fatalf("이동: %d %v", code, body)
+	}
+	if pingOK(p1) {
+		t.Error("노출된 옛 리스너가 유예로 남았다")
+	}
+	s.bind.mu.Lock()
+	n := len(s.bind.grace)
+	s.bind.mu.Unlock()
+	if n != 0 {
+		t.Errorf("유예 목록 = %d", n)
+	}
+	if !pingOK(p2) {
+		t.Error("새 포트가 받지 않는다")
+	}
+}
+
+// FR-HRB-40: Settings 가 읽는 지금 바인드와 server.json 의 출처. 루프백인지(local)도 싣는다.
+func TestServerBindGet(t *testing.T) {
+	_, _, p1 := startBindServer(t, nil)
+	get := func() map[string]any {
+		resp, err := noKeepAlive.Get("http://127.0.0.1:" + p1 + "/api/server/bind")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		m := map[string]any{}
+		if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&m) != nil {
+			t.Fatalf("GET %d", resp.StatusCode)
+		}
+		return m
+	}
+	m := get()
+	src, _ := m["source"].(map[string]any)
+	if m["port"] != p1 || m["host"] != "127.0.0.1" || m["expose"] != false || m["local"] != true || src["port"] != "default" {
+		t.Fatalf("GET = %v", m)
+	}
+	p2 := freeTCPPort(t)
+	if code, _, body := postBind(t, p1, `{"port":`+p2+`}`); code != http.StatusOK {
+		t.Fatalf("이동 %d %v", code, body)
+	}
+	m = get()
+	src, _ = m["source"].(map[string]any)
+	if m["port"] != p2 || src["port"] != "file" {
+		t.Errorf("이동 뒤 GET = %v", m)
+	}
+}

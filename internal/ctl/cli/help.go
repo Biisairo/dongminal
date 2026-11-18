@@ -64,7 +64,7 @@ func usageStart() string {
 ` + commonFlags + `
 
 --port·--expose 는 $DONGMINAL_HOME/server.json 에 저장되어 다음 기동에도 쓰인다.
-expose 를 끄려면 server.json 의 host 를 127.0.0.1 로 고친다.
+서버를 끄지 않고 바꾸려면 dongminal config set port|expose 나 설정 ▸ Server 를 쓴다.
 환경변수 PORT·DONGMINAL_PORT·DONGMINAL_HOST 는 바인드를 정하지 않는다.
 
 로그: $DONGMINAL_LOG (기본: $DONGMINAL_HOME/server.log) — 배경 모드에서만
@@ -273,6 +273,9 @@ func usageUpdate() string {
 
 func usageConfig() string {
 	return `사용법: dongminal config <show|validate> [--json] [--home <경로>]
+       dongminal config set port <1024~65535> [--home <경로>]
+       dongminal config set expose <on|off> [--home <경로>]
+       dongminal config get [--home <경로>]
 
   설정의 **실효값과 그 출처**를 보이고, 설정 파일을 서술자 표에 대조한다
   (CONFIG_MANAGEMENT_SRS 묶음 C).
@@ -289,6 +292,13 @@ func usageConfig() string {
             쓴 키가 빨갛게 뜨면 사용자가 멀쩡한 설정을 지운다.
 
   --json    기계가 읽는 형태. 기본은 사람이 읽는 표다.
+
+  set       포트나 expose 를 바꾼다. 서버가 돌고 있으면 끄지 않고 바꾸고
+            (열린 화면은 새 주소로 옮겨 간다), 돌고 있지 않으면 server.json 만 고친다.
+            바인드는 서버가 도는 컴퓨터에서만 바꿀 수 있다.
+
+  get       지금 리슨하는 바인드($DONGMINAL_HOME/run/server.addr)와
+            server.json 의 값·출처를 함께 보인다.
 
   서버는 settings.json 을 **런타임에 해석하지 않는다.** 이 명령이 그것을 읽는
   것은 사람이 부를 때만 도는 진단이며 요청 경로에 없다.

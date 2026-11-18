@@ -279,6 +279,11 @@ const STATE_REGISTRY=[
     id:'settings.live',
     events:{access_changed:'_onAccessChanged',sandbox_changed:'_onSandboxChanged'},
   },
+  {
+    /** HOT_REBIND_SRS FR-HRB-26 — 서버가 포트를 옮겼다. 화면은 설정을 맡기고 새 주소로 간다. */
+    id:'server.move',
+    events:{server_moving:'_onServerMoving'},
+  },
 ];
 
 /**

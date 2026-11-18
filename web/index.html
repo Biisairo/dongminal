@@ -37,6 +37,9 @@
        **100·400 은 여기서만 숫자로 남는다** (M6 `FE-18`). 이 줄은 어떤 스크립트
        보다 먼저 돌아야 하므로 `SIDEBAR_W_MIN_PX`·`SIDEBAR_W_MAX_PX` 를 볼 수
        없다 — 고칠 때 `web/js/core/constants.js` 의 그 둘을 함께 고친다. -->
+  <!-- HOT_REBIND_SRS FR-HRB-26: 서버가 포트를 옮긴 뒤의 첫 페이지면 맡긴 localStorage 를 되넣는다.
+       localStorage 를 읽는 아래 머리 스크립트(테마·언어)보다 먼저 돌아야 한다. -->
+  <script src="js/core/server-move.js?v=__ASSETV__"></script>
   <!-- PANEL_LAYOUT_SRS FR-PLY-22: 저장 레이아웃의 씨앗을 이 탭에 넣는다. 아래 줄보다 먼저
        돌아야 한다 — 아래 줄이 그 값(폭·접힘)을 읽는다. 접힘도 이 탭의 것이다 (FR-PLY-1). -->
   <script src="js/core/panel-layout.js?v=__ASSETV__"></script>
@@ -300,6 +303,8 @@
       <button class="ui-tab mtab" data-tab="terminal" title="Terminal settings">Terminal</button>
       <button class="ui-tab mtab" data-tab="code" title="Editor and code settings">Code</button>
       <button class="ui-tab mtab" data-tab="notify" title="Notification settings">Notifications</button>
+      <!-- HOT_REBIND_SRS FR-HRB-40: 포트와 expose 를 서버를 끄지 않고 바꾼다. -->
+      <button class="ui-tab mtab" data-tab="server" title="Server port and expose">Server</button>
       <!-- ACCESS_ALLOWLIST_SRS FR-ACL-22: --expose 뒤의 유일한 문. -->
       <button class="ui-tab mtab" data-tab="access" title="Network access allowlist">Access</button>
       <!-- PEER_NETWORK_SRS FR-PNW-80, PEER_DAEMON_SRS FR-PDM-70: 다른 dongminal 과의 간선. -->
@@ -561,6 +566,24 @@
         <div class="ds-hint" data-i18n="html.polling_hint"></div>
       </div>
       <!-- FR-SPT-14·15: 무엇이 실리고 무엇이 실리지 않는지를 함께 적는다. -->
+      <div class="mpanel" id="panel-server" hidden>
+        <div class="display-settings">
+          <div class="ds-hint" data-i18n="html.srv_hint"></div>
+          <div class="ds-row"><span data-i18n="html.srv_now"></span><span id="srv-now" class="sbx-status"></span></div>
+          <div class="ds-row"><span data-i18n="html.srv_source"></span><span id="srv-source" class="sbx-status"></span></div>
+          <div class="ds-row"><span data-i18n="html.srv_port"></span><input type="number" class="ds-num" id="srv-port" min="1024" max="65535"></div>
+          <div class="ds-row">
+            <span data-i18n="html.srv_expose"></span>
+            <label class="sbx-flag"><input type="checkbox" class="ui-switch" id="srv-expose"><span data-i18n="html.acl_on"></span></label>
+          </div>
+          <div class="ds-hint" data-i18n="html.srv_expose_hint"></div>
+          <div class="ds-hint" id="srv-local" data-i18n="html.srv_local_only" hidden></div>
+          <div class="ds-row">
+            <span id="srv-status" class="sbx-status"></span>
+            <button type="button" class="ds-toggle ui-btn" id="srv-apply" data-i18n-title="html.srv_apply_title" title="Apply the port and expose without restarting" data-i18n="html.srv_apply"></button>
+          </div>
+        </div>
+      </div>
       <div class="mpanel" id="panel-access" hidden>
         <div class="display-settings">
           <div class="ds-row">
@@ -1087,6 +1110,7 @@
 <script src="js/core/app-edges.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-edges.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-telegram.js?v=__ASSETV__"></script>
+<script src="js/core/app-settings-server.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-claude.js?v=__ASSETV__"></script>
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
 <script src="js/core/app-backup.js?v=__ASSETV__"></script>

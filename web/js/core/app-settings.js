@@ -12,7 +12,7 @@
  *   app-settings-sandbox.js   샌드박스 패널
  *   app-settings-access.js    접속 허용 목록(ACL) 패널
  *   app-settings-edges.js     간선(Edges) 패널
- *   app-settings-telegram.js  Telegram 브리지 패널
+ *   app-settings-telegram.js  Telegram 브리지 패널 · app-settings-server.js  Server(바인드) 패널
  *   app-settings-claude.js    Claude 계정 패널
  */
 /**
@@ -458,9 +458,8 @@ Object.assign(App.prototype, {
         // 허용 목록도 파일이 진실이다. 게다가 해석 상태는 관측값이라 캐시할
         // 수 없다 — 열 때마다 서버에 묻는다.
         if(tab.dataset.tab==='access')this._loadAccessPanel();
-        if(tab.dataset.tab==='edges')this._loadEdgesPanel();
-        if(tab.dataset.tab==='telegram')this._loadTelegramPanel();
-        if(tab.dataset.tab==='claude')this._loadClaudePanel();
+        const load={edges:'_loadEdgesPanel',telegram:'_loadTelegramPanel',server:'_loadServerPanel',claude:'_loadClaudePanel'}[tab.dataset.tab];
+        if(load)this[load]();
         // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
         // 같은 근거로 열 때마다 다시 읽는다.
         if(tab.dataset.tab==='code'){
@@ -496,5 +495,6 @@ Object.assign(App.prototype, {
     this._initAccessPanel();
     this._initEdgesPanel();
     this._initTelegramPanel();
+    this._initServerPanel();
   },
 });

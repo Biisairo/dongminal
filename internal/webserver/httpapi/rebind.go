@@ -35,6 +35,7 @@ type rebinder struct {
 	srv   *http.Server
 	home  string
 	errCh chan error
+	conns *connSet
 
 	mu         sync.Mutex
 	busy       bool
@@ -49,7 +50,7 @@ func (b *rebinder) addr() string { return net.JoinHostPort(b.host, b.port) }
 // serve 는 리스너 하나를 서빙한다. 일부러 닫은 리스너의 끝은 서버의 끝이 아니다.
 func (b *rebinder) serve(ln net.Listener) {
 	go func() {
-		err := b.srv.Serve(ln)
+		err := b.srv.Serve(trackedListener{Listener: ln, set: b.conns})
 		if errors.Is(err, net.ErrClosed) {
 			return
 		}
@@ -113,19 +114,28 @@ func viewOf(host, port string) bindView {
 	return bindView{Host: host, Port: port, Expose: dmenv.IsExposedHost(host), URL: dmenv.BaseURL(host, port)}
 }
 
-// isLoopbackRemote 는 요청의 출발지가 루프백인지 본다 (FR-HRB-21).
-func isLoopbackRemote(r *http.Request) bool {
-	h, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return false
+// apiServerBindGet 은 `GET /api/server/bind` 다 — Settings 의 Server 구역이 읽는다 (FR-HRB-40).
+// 지금 바인드, server.json 값의 출처(file·default), 이 요청이 루프백인지(local)를 준다.
+// Run 밖에서 만든 서버는 server.json 의 값을 지금 바인드로 보인다.
+func (s *Server) apiServerBindGet(w http.ResponseWriter, r *http.Request) {
+	conf := serverconf.Resolve(serverconf.Inputs{Home: s.cfg.DataDir})
+	host, port := conf.Host.Value, conf.Port.Value
+	if b := s.bind; b != nil {
+		b.mu.Lock()
+		host, port = b.host, b.port
+		b.mu.Unlock()
 	}
-	ip := net.ParseIP(h)
-	return ip != nil && ip.IsLoopback()
+	httpresp.JSON(w, http.StatusOK, struct {
+		bindView
+		Local  bool              `json:"local"`
+		Source map[string]string `json:"source"`
+	}{viewOf(host, port), isLoopbackAddr(r.RemoteAddr),
+		map[string]string{"host": string(conf.Host.Source), "port": string(conf.Port.Source)}})
 }
 
 // apiServerBind 는 `POST /api/server/bind` 다 (FR-HRB-20~31).
 func (s *Server) apiServerBind(w http.ResponseWriter, r *http.Request) {
-	if !isLoopbackRemote(r) {
+	if !isLoopbackAddr(r.RemoteAddr) {
 		codeFail(w, http.StatusForbidden, apierr.CodeBindLocalOnly, "bind is local only")
 		return
 	}
@@ -189,6 +199,10 @@ func (s *Server) apiServerBind(w http.ResponseWriter, r *http.Request) {
 		codeFail(w, status, code, "rebind failed")
 		return
 	}
+	if dmenv.IsExposedHost(curHost) && !dmenv.IsExposedHost(newHost) {
+		// FR-HRB-32: expose 를 껐으면 같은 망에서 이미 맺은 연결도 끊는다.
+		b.conns.revokeRemote()
+	}
 	view := viewOf(newHost, newPort)
 	reason := "port"
 	if newPort == curPort {
@@ -235,10 +249,17 @@ func (s *Server) movePort(b *rebinder, host, port string) (int, string) {
 	}
 
 	b.mu.Lock()
-	old, oldPort := b.ln, b.port
+	old, oldHost, oldPort := b.ln, b.host, b.port
 	b.ln, b.host, b.port = ln, host, port
-	b.grace[oldPort] = old
+	// FR-HRB-32: 노출을 끄며 옮기면 노출된 옛 리스너를 유예로 남기지 않는다.
+	keep := !dmenv.IsExposedHost(oldHost) || dmenv.IsExposedHost(host)
+	if keep {
+		b.grace[oldPort] = old
+	}
 	b.mu.Unlock()
+	if !keep {
+		_ = old.Close()
+	}
 	b.serve(ln)
 
 	s.Commands.Broadcast(sse.Payload("server_moving", map[string]any{"port": port}))

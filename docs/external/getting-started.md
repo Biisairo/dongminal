@@ -237,8 +237,20 @@ Chrome/Chromium 계열의 `--app` 이고, 없으면 기본 브라우저로 내�
 ```
 
 `--expose` 와 `--port` 는 `$DONGMINAL_HOME/server.json` 에 저장됩니다. 그래서 다음 `start` 도
-같은 호스트·포트로 뜹니다. 노출을 끄려면 `server.json` 의 `host` 를 `127.0.0.1` 로 고친 뒤
-다시 띄웁니다. 환경변수 `DONGMINAL_HOST` 로는 바인드를 바꿀 수 없습니다.
+같은 호스트·포트로 뜹니다. 환경변수 `DONGMINAL_HOST` 로는 바인드를 바꿀 수 없습니다.
+
+서버를 끄지 않고 바꿀 수도 있습니다. 설정 ▸ **Server** 에서 포트와 expose 를 고쳐 적용하거나,
+CLI 로 바꿉니다. 바꾼 값은 `server.json` 에 남습니다.
+
+```bash
+dongminal config set port 9100      # 포트를 옮깁니다 — 열린 화면은 설정을 들고 새 주소로 옮겨 갑니다
+dongminal config set expose off     # 노출을 끕니다 — 같은 망에서 맺은 연결을 바로 끊습니다
+dongminal config get                # 지금 바인드와 server.json 의 값
+```
+
+서버가 돌고 있지 않으면 `config set` 은 `server.json` 만 고칩니다. 바인드는 서버가 도는
+컴퓨터(localhost)에서만 바꿀 수 있습니다. 포트를 옮기면 옛 포트는 30초 뒤 닫히고, 터미널
+세션은 끊기지 않습니다.
 
 **`--expose` 만으로는 아무 보호가 없습니다.** 이 서버가 여는 것은 터미널·파일·명령
 실행이므로, 노출된 상태에서 그 네트워크의 누구나 그 전부에 접근할 수 있습니다.
@@ -372,6 +384,7 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 ```bash
 dongminal config show          # 값과 출처(flag/env/file/default)
 dongminal config validate      # 설정 파일을 스키마에 대조 (불일치가 있으면 exit 1)
+dongminal config get           # 지금 리슨하는 바인드와 server.json 의 값
 ```
 
 ### `server.json` — 기계마다 다른 기동값을 고정합니다
