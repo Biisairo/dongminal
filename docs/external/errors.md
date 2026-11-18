@@ -44,7 +44,7 @@
 | `chat_bad_code` | 사람 명령의 OTP 코드가 틀렸거나 이미 쓴 코드입니다. | OTP 앱의 새 코드를 넣으세요. 5번 틀리면 5분 잠깁니다. |
 | `chat_bad_request` | 채팅 요청의 모양이 틀렸습니다. | 보낸 값(방 id·이름·목적·본문)의 형식과 필수 항목을 확인하세요. |
 | `chat_daemon_only` | 채팅은 데몬 모드에서만 쓸 수 있습니다. | 데몬 모드로 dongminal 을 시작하세요. |
-| `chat_daemon_restart` | 붙은 데몬이 채팅을 모르는 옛 판입니다. | dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다. |
+| `chat_daemon_restart` | 붙은 데몬이 채팅을 모르는 옛 판입니다. | dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다. |
 | `chat_locked` | 코드를 5번 틀려 도우미가 잠겼습니다. 메시지는 풀리는 시각(RFC 3339)입니다. | 그 시각이 지난 뒤 다시 넣으세요. |
 | `chat_no_helper` | 이 노드에 사람 명령의 도우미가 없거나 닿지 않습니다. | OS 기본 터미널에서 sudo dongminal helper install 로 설치하세요. dongminal helper status 로 확인합니다. |
 | `chat_no_such_participant` | 그 참가자가 온라인 목록에 없습니다. | 온라인 목록을 다시 받아 지금 있는 참가자를 고르세요. |
@@ -71,7 +71,7 @@
 | `edge_addr_required` | 초대 코드에 담을 이 노드의 주소가 없습니다. | 초대를 만들 때 주소(--addr)를 주거나 노드 설정의 알릴 주소(advertise)를 정하세요. |
 | `edge_ambiguous` | 지문 앞자리가 간선 둘 이상에 맞습니다. | dmctl edges 로 지문을 보고 더 긴 앞자리를 주세요. |
 | `edge_config_invalid` | 노드 설정 값이 규칙에 맞지 않습니다. | 이름은 영문·숫자·`.`·`_`·`-` 1~32자, 포트는 1~65535, 듣는 주소는 IP 입니다. 알릴 주소는 IP 주소나 호스트명입니다. 등록 요청이 이 오류로 거절되면 상대가 쓸 수 없는 주소(zone 이 붙은 link-local 등)에서 왔습니다. 요청하는 노드에 알릴 주소를 정하세요. |
-| `edge_daemon_restart` | 붙은 데몬이 노드 기능을 모르는 옛 판입니다. 노드 기능을 쓰려면 데몬을 다시 시작해야 합니다. | dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다. |
+| `edge_daemon_restart` | 붙은 데몬이 노드 기능을 모르는 옛 판입니다. 노드 기능을 쓰려면 데몬을 다시 시작해야 합니다. | dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다. |
 | `edge_fingerprint_mismatch` | 상대 노드의 지문이 초대 코드와 다릅니다. 아무것도 보내지 않았습니다. | 주소가 다른 기계를 가리키는지 확인하세요. 같은 기계라면 상대가 신원을 새로 만든 것이니 초대를 다시 받으세요. |
 | `edge_invite_invalid` | 초대 코드의 모양이 틀렸습니다. | dmedge1: 로 시작하는 코드를 잘리지 않게 통째로 붙여 넣으세요. |
 | `edge_no_invite` | 상대 노드에 살아 있는 초대가 없습니다 — 만료됐거나 이미 쓰였습니다. | 상대 노드에서 초대를 새로 만들어 받으세요. 초대는 10분 살고 한 번만 쓸 수 있습니다. |

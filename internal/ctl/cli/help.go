@@ -51,7 +51,10 @@ func usageStart() string {
   --expose          0.0.0.0 에 바인드한다 (사내망 다른 기기에서 접근 가능)
                     인증이 없으므로, 켜 두지 않으면 같은 망의 누구나 셸을 얻는다
                     Settings ▸ Access 에서 허용 목록을 켜세요
-  --restart-daemon  dongminald 도 재시작한다 (터미널 세션을 잃는다)
+  (기본)            dongminald 를 세션을 유지하며 새 바이너리로 교체한다
+                    교체하지 못하면 서버·데몬을 그대로 두고 실패로 끝난다
+  --server-only     dongminald 는 그대로 두고 서버만 다시 띄운다
+  --refresh-daemon  dongminald 를 새로 띄운다 (터미널 세션을 잃는다)
                     도구 안에서 쓰면 대리 프로세스가 이어서 수행하고
                     출력은 $DONGMINAL_HOME/restart.log 에 남는다
   --isolated        임시 홈 + 비어 있는 포트로 띄운다. 운영 인스턴스를 건드리지 않는다

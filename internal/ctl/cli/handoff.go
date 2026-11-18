@@ -15,11 +15,12 @@ import (
 const restartLogFile = "restart.log"
 
 // shouldHandOffRestart는 재시작을 대리 프로세스에 넘겨야 하는지다
-// (FR-ACT-3a/3b). 도구 안에서 데몬을 내리는 실행만 자기 목숨줄을 끊는다 —
+// (FR-ACT-3a/3b). 도구 안에서 데몬을 내리는 실행(`--refresh-daemon`)만 자기 목숨줄을
+// 끊는다. 세션 유지 교체는 셸을 끊지 않으므로 넘기지 않는다 (DAEMON_SESSION_KEEP_SRS) —
 // 도구의 셸은 dongminald 의 자식이고 제어 터미널이 그 PTY 이기 때문이다.
 // 대리 자신은 다시 넘기지 않고, 도구 밖 실행은 종전대로 그 자리에서 한다.
-func shouldHandOffRestart(restartDaemon bool, runner, toolID string) bool {
-	return restartDaemon && runner == "" && toolID != ""
+func shouldHandOffRestart(refreshDaemon bool, runner, toolID string) bool {
+	return refreshDaemon && runner == "" && toolID != ""
 }
 
 // handOffRestart는 재시작을 새 세션(setsid)의 대리 프로세스에 위임한다
@@ -27,7 +28,7 @@ func shouldHandOffRestart(restartDaemon bool, runner, toolID string) bool {
 // 진행한다. 위임했으면 호출자는 아무 것도 더 하지 않고 code 로 끝낸다 —
 // 데몬 종료를 포함한 FR-ACT-1 전량이 대리의 몫이다.
 func handOffRestart(o StartOpts, home string, stdout, stderr io.Writer) (handedOff bool, code int) {
-	if !shouldHandOffRestart(o.RestartDaemon, os.Getenv(EnvRestartRunner), os.Getenv(EnvToolID)) {
+	if !shouldHandOffRestart(o.RefreshDaemon, os.Getenv(EnvRestartRunner), os.Getenv(EnvToolID)) {
 		return false, 0
 	}
 	exe, err := os.Executable()

@@ -207,7 +207,7 @@ var CodeDoc = map[string]Doc{
 	CodeEdgeNotEdge:       {"상대 노드가 이 노드를 간선으로 알지 않습니다 — 상대 쪽에서 간선을 지웠습니다.", "필요하면 새 초대로 간선을 다시 맺으세요."},
 	CodeEdgeAmbiguous:     {"지문 앞자리가 간선 둘 이상에 맞습니다.", "dmctl edges 로 지문을 보고 더 긴 앞자리를 주세요."},
 	CodeEdgeRateLimited:   {"한 출발지 주소가 1분 동안 보낼 수 있는 등록 요청 수(60)를 넘었습니다.", "잠시 뒤 다시 보내세요."},
-	CodeEdgeDaemonRestart: {"붙은 데몬이 노드 기능을 모르는 옛 판입니다. 노드 기능을 쓰려면 데몬을 다시 시작해야 합니다.", "dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다."},
+	CodeEdgeDaemonRestart: {"붙은 데몬이 노드 기능을 모르는 옛 판입니다. 노드 기능을 쓰려면 데몬을 다시 시작해야 합니다.", "dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다."},
 
 	// ── 채팅 (PEER_CHAT_SRS §3.11) ──
 	CodeChatBadRequest:        {"채팅 요청의 모양이 틀렸습니다.", "보낸 값(방 id·이름·목적·본문)의 형식과 필수 항목을 확인하세요."},
@@ -218,7 +218,7 @@ var CodeDoc = map[string]Doc{
 	CodeChatNoSuchParticipant: {"그 참가자가 온라인 목록에 없습니다.", "온라인 목록을 다시 받아 지금 있는 참가자를 고르세요."},
 	CodeChatUnavailable:       {"데몬에 채팅이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다.", "daemon.log 의 edge identity 줄을 보세요. 노드 기능이 서야 채팅도 섭니다."},
 	CodeChatDaemonOnly:        {"채팅은 데몬 모드에서만 쓸 수 있습니다.", "데몬 모드로 dongminal 을 시작하세요."},
-	CodeChatDaemonRestart:     {"붙은 데몬이 채팅을 모르는 옛 판입니다.", "dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다."},
+	CodeChatDaemonRestart:     {"붙은 데몬이 채팅을 모르는 옛 판입니다.", "dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다."},
 	CodeChatUnreachable:       {"데몬에 닿지 못했습니다.", "dongminal health 로 데몬 연결을 보세요."},
 	CodeChatBadCode:           {"사람 명령의 OTP 코드가 틀렸거나 이미 쓴 코드입니다.", "OTP 앱의 새 코드를 넣으세요. 5번 틀리면 5분 잠깁니다."},
 	CodeChatLocked:            {"코드를 5번 틀려 도우미가 잠겼습니다. 메시지는 풀리는 시각(RFC 3339)입니다.", "그 시각이 지난 뒤 다시 넣으세요."},

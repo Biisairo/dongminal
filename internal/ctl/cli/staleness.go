@@ -74,11 +74,11 @@ func daemonStateLine(s DaemonState) string {
 	case DaemonNotRunning:
 		return "ℹ️  dongminald 미실행 — dongminal start 가 새 바이너리로 기동합니다"
 	case DaemonFresh:
-		return "✅ 데몬 코드 그대로 — dongminal start 만 하면 됩니다 (세션 보존)"
+		return "✅ 데몬 코드 그대로 — dongminal start 는 세션을 유지합니다"
 	case DaemonStale:
-		return "⚠️  데몬 코드가 바뀌었습니다 — dongminal start --restart-daemon (터미널 세션을 잃습니다)"
+		return "⚠️  데몬 코드가 바뀌었습니다 — dongminal start 가 세션을 유지하며 교체합니다"
 	default:
-		return "ℹ️  데몬 판을 모릅니다 — 반영을 확실히 하려면 dongminal start --restart-daemon"
+		return "ℹ️  데몬 판을 모릅니다 — dongminal start 가 세션을 유지하며 교체합니다"
 	}
 }
 

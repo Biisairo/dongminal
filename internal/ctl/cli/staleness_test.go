@@ -55,11 +55,12 @@ func TestDaemonStateLine_AllStatesDistinct(t *testing.T) {
 		seen[line] = s
 	}
 	// 불일치만이 조치를 부른다 — 그 한 줄에 조치가 없으면 사실을 알려도 쓸모가 없다.
-	if !strings.Contains(daemonStateLine(DaemonStale), "--restart-daemon") {
+	// FR-DSK-7: 조치는 플래그 없는 start 다 — 세션을 유지하며 교체한다.
+	if !strings.Contains(daemonStateLine(DaemonStale), "세션을 유지") {
 		t.Fatalf("불일치 줄에 조치가 없다: %q", daemonStateLine(DaemonStale))
 	}
 	// 일치는 조치를 부르지 않는다. 늘 재시작을 권하면 세션 손실이 기본값이 된다.
-	if strings.Contains(daemonStateLine(DaemonFresh), "--restart-daemon") {
+	if strings.Contains(daemonStateLine(DaemonFresh), "교체") {
 		t.Fatalf("일치 줄이 재시작을 권한다: %q", daemonStateLine(DaemonFresh))
 	}
 }
@@ -133,7 +134,7 @@ func TestRunHealth_DaemonOnly_StaleKeepsExitZero(t *testing.T) {
 	if code := RunHealth(o, &out, &errOut); code != 0 {
 		t.Fatalf("종료 코드 %d, stderr=%q", code, errOut.String())
 	}
-	if !strings.Contains(out.String(), "--restart-daemon") {
+	if !strings.Contains(out.String(), daemonStateLine(DaemonStale)) {
 		t.Fatalf("불일치를 말하지 않았다: %q", out.String())
 	}
 }
@@ -151,7 +152,7 @@ func TestRunningDaemonNotice(t *testing.T) {
 	DaemonBuild = "cafebabe"
 
 	// 데몬이 없으면 종전 문구 그대로다.
-	if got := runningDaemonNotice(home, false); strings.Contains(got, "--restart-daemon") {
+	if got := runningDaemonNotice(home, false); strings.Contains(got, "교체") {
 		t.Fatalf("데몬이 없는데 재시작을 권한다: %q", got)
 	}
 
@@ -168,7 +169,7 @@ func TestRunningDaemonNotice(t *testing.T) {
 
 	// 지문이 같으면 붙지 않는다.
 	writeDaemonBuild(t, home, "cafebabe")
-	if got := runningDaemonNotice(home, true); strings.Contains(got, "--restart-daemon") {
+	if got := runningDaemonNotice(home, true); strings.Contains(got, "교체") {
 		t.Fatalf("일치인데 재시작을 권한다: %q", got)
 	}
 }

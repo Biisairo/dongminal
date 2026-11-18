@@ -100,17 +100,17 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	// ── 사전 정리 ────────────────────────────────────────────
 	// 격리 실행은 기존 서버를 건드리지 않는다 (FR-ISO-2). 빈 포트를 고른
 	// 이상 죽일 대상이 없고, 운영 인스턴스를 죽이는 사고를 구조로 막는다.
+	//
+	// 데몬을 먼저 정리한다 (DAEMON_SESSION_KEEP_SRS FR-DSK-2). 교체에 실패하면 서버도
+	// 끄지 않아야 "명령을 안 친 것처럼" 된다 (D-DSK-4).
+	if proceed, code := prepareDaemon(o, realDaemonOps(home, stdout), stdout, stderr); !proceed {
+		return code
+	}
 	if !o.Isolated {
 		if !killPort(port, stdout, "기존 dongminal") {
 			fmt.Fprintf(stderr, "❌ 포트 %s 를 비우지 못했습니다\n", port)
 			return 1
 		}
-	}
-	if o.RestartDaemon {
-		fmt.Fprintln(stdout, "dongminald 재시작 (터미널 세션을 잃습니다)...")
-		stopDaemon(home, stdout)
-	} else {
-		fmt.Fprintln(stdout, runningDaemonNotice(home, socketExists(home)))
 	}
 
 	// UPDATE_NOTICE_SRS FR-UPD-10: 기본 켜짐을 처음 한 번 말한다. 전경·분리

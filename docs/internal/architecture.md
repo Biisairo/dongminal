@@ -117,6 +117,7 @@ internal/
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
     agentrec/            #   ①②③ — 에이전트 보고의 해석·기록 값의 모양·보고 소켓 경로 (AGENT_RECORD_DAEMON_SRS §3.2a)
     agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
+    handover/            #   ③④  — 데몬 교체(세션 유지 재시작)의 와이어 — 교체 요청·사유 코드·인계 판 (DAEMON_SESSION_KEEP_SRS)
     runfile/             #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
     statusline/          #   ①③  — statusLine 입력의 허용 목록 한 벌 (dmctl statusline 이 채우고 서버가 같은 타입으로 받는다)
     runwait/             #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 dmctl 이 같은 수를 읽는다, M8 D-A-1·24)

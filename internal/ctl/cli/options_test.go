@@ -16,11 +16,11 @@ import (
 // FR-CLI-4/6/7: 액션 옵션 파싱.
 
 func TestParseStart_Flags(t *testing.T) {
-	o, err := ParseStart([]string{"--expose", "--restart-daemon", "--isolated", "--foreground"})
+	o, err := ParseStart([]string{"--expose", "--server-only", "--isolated", "--foreground"})
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
-	if !o.Expose || !o.RestartDaemon || !o.Isolated || !o.Foreground {
+	if !o.Expose || !o.ServerOnly || !o.Isolated || !o.Foreground {
 		t.Fatalf("플래그 누락: %+v", o)
 	}
 }
@@ -43,7 +43,7 @@ func TestParseStart_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
-	if o.Expose || o.RestartDaemon || o.Isolated || o.Foreground {
+	if o.Expose || o.ServerOnly || o.RefreshDaemon || o.Isolated || o.Foreground {
 		t.Fatalf("기본값이 켜져 있음: %+v", o)
 	}
 	if o.Port != "" || o.Home != "" {

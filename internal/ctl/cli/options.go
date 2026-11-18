@@ -214,11 +214,22 @@ func expandTilde(p string) string {
 // StartOpts는 `dongminal start` 의 옵션이다.
 type StartOpts struct {
 	Common
-	Expose        bool
-	RestartDaemon bool
+	Expose bool
+	// ServerOnly 는 데몬에 아무것도 묻지 않고 서버만 다시 띄운다 (DAEMON_SESSION_KEEP_SRS FR-DSK-4).
+	ServerOnly bool
+	// RefreshDaemon 은 데몬을 끝내고 새로 띄운다. 터미널 세션을 잃는다 (FR-DSK-5).
+	RefreshDaemon bool
 	Isolated      bool
 	Foreground    bool
 }
+
+// errRestartDaemonRemoved 는 없어진 `--restart-daemon` 의 안내다 (FR-DSK-6).
+var errRestartDaemonRemoved = errors.New(`--restart-daemon 은 없어졌습니다.
+  세션을 유지하며 데몬을 바꾸려면: dongminal start
+  세션을 버리고 새로 띄우려면:    dongminal start --refresh-daemon`)
+
+// errStartDaemonFlags 는 데몬을 두는 플래그와 새로 띄우는 플래그를 함께 준 경우다 (FR-DSK-6).
+var errStartDaemonFlags = errors.New("--server-only 와 --refresh-daemon 은 함께 쓸 수 없습니다")
 
 // StopOpts는 `dongminal stop` 의 옵션이다.
 type StopOpts struct {
@@ -279,8 +290,12 @@ func ParseStart(args []string) (StartOpts, error) {
 		switch args[i] {
 		case "--expose":
 			o.Expose = true
+		case "--server-only":
+			o.ServerOnly = true
+		case "--refresh-daemon":
+			o.RefreshDaemon = true
 		case "--restart-daemon":
-			o.RestartDaemon = true
+			return StartOpts{}, errRestartDaemonRemoved
 		case "--isolated":
 			o.Isolated = true
 		case "--foreground":
@@ -296,6 +311,9 @@ func ParseStart(args []string) (StartOpts, error) {
 				return StartOpts{}, unknownFlag("start", args[i])
 			}
 		}
+	}
+	if o.ServerOnly && o.RefreshDaemon {
+		return StartOpts{}, errStartDaemonFlags
 	}
 	return o, nil
 }
