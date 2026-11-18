@@ -274,6 +274,11 @@ func TestChatMCPInboxCapAndRead(t *testing.T) {
 	}
 	d.send(msgFrame("b", "r2", "ops", "다른 방"))
 	d.next(chatwire.TypeRise)
+	// 프레임은 차례로 처리된다 — 개수 질의의 답이 오면 앞선 글은 모두 글함에 들었다.
+	d.send(chatwire.Frame{T: chatwire.TypeCountAsk, N: 1})
+	if c := d.next(chatwire.TypeCount); c.Total != inboxMax {
+		t.Fatalf("count %+v, want %d", c, inboxMax)
+	}
 	var read struct {
 		Dropped int `json:"dropped"`
 		Rooms   []struct {
