@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/apierr"
 	"net/url"
 	"strconv"
@@ -19,9 +18,9 @@ import (
 )
 
 func TestHandleAPI_ToolBusy(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm, pmHub := daemonPairAt(t, t.TempDir())
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -62,9 +61,9 @@ func TestHandleAPI_ToolBusy_DaemonMode(t *testing.T) {
 }
 
 func TestHandleAPI_DeleteTool(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm, pmHub := daemonPairAt(t, t.TempDir())
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -266,9 +265,9 @@ func TestHandleAPI_Download_RelativePath(t *testing.T) {
 }
 
 func TestHandleAPI_Cwd(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm, pmHub := daemonPairAt(t, t.TempDir())
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 

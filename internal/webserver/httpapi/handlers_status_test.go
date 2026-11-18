@@ -16,14 +16,40 @@ import (
 
 // 묶음 S — 상태·대기 계약 (RUN_ORCHESTRATION_SRS §3.2, TC-STA-1~8).
 
-// statusServer wires a direct-mode Server (toolhub.ToolManager) with the toolaccess
-// fakes so /api/tools/activity/{get,wait} can resolve and check liveness.
-func statusServer(t *testing.T) (*Server, *toolhub.ToolManager, *toolhub.Tool) {
+// statusPane 은 상태 시험이 도구 하나의 관측을 세우는 손잡이다. 관측은 서버의 추적기에 있다
+// (DIRECT_MODE_REMOVAL_SRS FR-DMR-12) — 도구 자신은 상태를 갖지 않는다.
+type statusPane struct {
+	ID           string
+	tr           *hub.AttnTracker
+	LastOutputAt outputClock
+}
+
+// SetActivity 는 그 도구의 활동 보고 하나다.
+func (p *statusPane) SetActivity(state, tool, detail string) {
+	p.tr.SetActivity(p.ID, state, tool, detail)
+}
+
+// outputClock 은 그 도구의 마지막 출력 시각을 정한다.
+type outputClock struct {
+	id string
+	tr *hub.AttnTracker
+}
+
+// Store 는 ns 시각에 출력이 있었던 것으로 적는다.
+func (c outputClock) Store(ns int64) {
+	c.tr.SetClockForTesting(func() int64 { return ns })
+	c.tr.FeedOutput(c.id, nil)
+	c.tr.SetClockForTesting(nil)
+}
+
+// statusServer 는 데몬에 붙은 서버와 toolaccess 대역으로 /api/tools/activity/{get,wait} 가
+// 도구를 찾고 생존을 확인하게 한다. 관측은 추적기가 갖는다.
+func statusServer(t *testing.T) (*Server, *toolhub.ToolManager, *statusPane) {
 	t.Helper()
-	m := toolhub.NewToolManager("", nil)
-	t.Cleanup(m.StopSaving)
-	p := &toolhub.Tool{ID: "p1"}
-	m.Adopt(p)
+	m, mHub := daemonPairAt(t, "")
+	m.Adopt(&toolhub.Tool{ID: "p1"})
+	tr := hub.NewAttnTracker(hub.NewCommandHub(), 0)
+	p := &statusPane{ID: "p1", tr: tr, LastOutputAt: outputClock{id: "p1", tr: tr}}
 
 	io := newFakeToolIO()
 	io.setHas("p1", true)
@@ -35,7 +61,7 @@ func statusServer(t *testing.T) (*Server, *toolhub.ToolManager, *toolhub.Tool) {
 		},
 		coords: map[string]string{},
 	}
-	return &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}, limits: defaultLimits()}, m, p
+	return &Server{Deps: Deps{Tools: mHub, ToolIO: io, WorkIndex: wi, AttnTracker: tr}, limits: defaultLimits()}, m, p
 }
 
 func getStatus(t *testing.T, s *Server, query string) (int, map[string]any) {
@@ -259,34 +285,6 @@ func TestApiToolStatusWait_ArgumentValidation(t *testing.T) {
 	_, out := getWait(t, s, "id=p1&for=done&timeoutMs=1")
 	if got, ok := out["timeoutMs"].(float64); !ok || int(got) != waitMinTimeoutMS {
 		t.Fatalf("below-floor timeout must clamp to %d and be reported, got %+v", waitMinTimeoutMS, out)
-	}
-}
-
-// TC-STA-8 (FR-STA-8): direct 모드와 daemon 모드가 같은 결과를 낸다.
-func TestToolStatus_DirectDaemonParity(t *testing.T) {
-	io := newFakeToolIO()
-	io.setHas("p1", true)
-	wi := &fakeWorkIndex{resolve: map[string]string{"p1": "p1"}, coords: map[string]string{}}
-
-	// direct: 상태는 toolhub.ToolManager 의 toolhub.Tool 에 있다.
-	m := toolhub.NewToolManager("", nil)
-	t.Cleanup(m.StopSaving)
-	dp := &toolhub.Tool{ID: "p1"}
-	m.Adopt(dp)
-	dp.SetActivity("working", "Edit", "a.go")
-	direct := &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}}
-
-	// daemon: 상태는 hub.AttnTracker 에 있고 Tools.Get 은 합성 toolhub.Tool 을 준다.
-	tracker := hub.NewAttnTracker(hub.NewCommandHub(), 0)
-	tracker.SetActivity("p1", "working", "Edit", "a.go")
-	daemon := &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi, AttnTracker: tracker}}
-
-	_, a := getStatus(t, direct, "id=p1")
-	_, b := getStatus(t, daemon, "id=p1")
-	for _, k := range []string{"toolId", "live", "state", "tool", "detail"} {
-		if a[k] != b[k] {
-			t.Fatalf("direct/daemon differ on %q: %v vs %v", k, a[k], b[k])
-		}
 	}
 }
 

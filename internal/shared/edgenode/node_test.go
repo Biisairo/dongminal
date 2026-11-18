@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -34,7 +35,7 @@ func freePort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-// newTestNode 는 직접 모드처럼 TCP 노드 포트를 직접 듣는 노드다.
+// newTestNode 는 TCP 노드 포트를 직접 듣는 노드다(통로 없이).
 func newTestNode(t *testing.T, name string) *testNode {
 	t.Helper()
 	return newTestNodeOpts(t, name, false)
@@ -141,5 +142,37 @@ func TestNodeConfigAppliesPort(t *testing.T) {
 	}
 	if n.ln.Status().Listening {
 		t.Fatal("끈 노드 포트가 열려 있다")
+	}
+}
+
+// FR-PNW-6: 노드 포트는 `/edge/v1/*` 의 맺기·지우기·간선 연결만 받는다. 나머지는 404 다.
+// (DIRECT_MODE_REMOVAL_SRS: 서버의 직접 노드 시험에서 옮겨 왔다.)
+func TestHandlerOnlyEdgePaths(t *testing.T) {
+	h := newTestNode(t, "node-a").Handler()
+	for _, p := range []string{"/", "/index.html", "/api/tools", "/api/edges", "/ws", "/edge", "/edge/v2/node.info", "/peer/v1/pair"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s: code %d, 기대 404", p, rec.Code)
+		}
+	}
+}
+
+// FR-PNW-42: 모르는 경로는 404 와 `{code, message}` 다.
+func TestHandlerUnknownPath(t *testing.T) {
+	rec := httptest.NewRecorder()
+	newTestNode(t, "node-a").Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/edge/v1/nope", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("code %d, 기대 404", rec.Code)
+	}
+	var body struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("본문이 JSON 이 아니다: %q", rec.Body.String())
+	}
+	if body.Code != CodeNotFound || body.Message == "" {
+		t.Fatalf("본문 %+v", body)
 	}
 }

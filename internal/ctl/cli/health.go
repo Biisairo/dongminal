@@ -60,8 +60,8 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 
 	switch pid, alive := daemonPID(home); {
 	case !socketExists(home):
-		// 소켓 부재는 실패가 아니다 — direct mode 이거나 아직 기동 전이다.
-		fmt.Fprintln(stdout, "ℹ️  dongminald 소켓 없음 (direct mode 이거나 미기동)")
+		// 소켓 부재는 실패가 아니다 — 아직 기동 전이다.
+		fmt.Fprintln(stdout, "ℹ️  dongminald 소켓 없음 (미기동)")
 	case alive:
 		fmt.Fprintf(stdout, "✅ dongminald pid=%d socket=%s/%s\n", pid, home, daemonSockFile)
 	case pid > 0:

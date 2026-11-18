@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -22,32 +21,14 @@ func pairNodes(t *testing.T, a, b *edgeNode) {
 	}
 }
 
-func newEdgeNodeWith(t *testing.T, name string, enabled bool, deps Deps) *edgeNode {
-	t.Helper()
-	home := t.TempDir()
-	cfg := edge.Config{Enabled: enabled, Port: freeLoopbackPort(t), Bind: "127.0.0.1", Name: name}
-	data, _ := json.Marshal(cfg)
-	if err := os.WriteFile(filepath.Join(home, dmenv.EdgesFile), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	srv, err := New(Config{DataDir: home}, deps)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stop := make(chan struct{})
-	done := srv.StartEdge(stop)
-	t.Cleanup(func() { close(stop); <-done })
-	return &edgeNode{srv: srv, home: home}
-}
-
 // PEER_DAEMON_SRS FR-PDM-60·61 (TC-PDM-20): 짝이어도 옛 명령 경로는 404 다. 로컬 call 도 없다.
 func TestEdgeCommandsRemoved(t *testing.T) {
 	a := newEdgeNode(t, "node-a", true)
 	b := newEdgeNode(t, "node-b", true)
 	pairNodes(t, a, b)
-	tgt := edge.Target{Addr: "127.0.0.1", Port: b.srv.edgeNode.Store().Config().Port, Fingerprint: b.srv.edgeNode.Identity().Fingerprint}
+	tgt := edge.Target{Addr: "127.0.0.1", Port: b.node.Store().Config().Port, Fingerprint: b.node.Identity().Fingerprint}
 	for _, op := range []string{"node.info", "agents.list", "message.send", "agent.spawn", "agent.status", "agent.close"} {
-		err := edge.NewClient(a.srv.edgeNode.Identity()).Call(context.Background(), tgt, testEdgePrefix+op, map[string]any{}, nil)
+		err := edge.NewClient(a.node.Identity()).Call(context.Background(), tgt, testEdgePrefix+op, map[string]any{}, nil)
 		var re *edge.RemoteError
 		if !errors.As(err, &re) || re.Status != http.StatusNotFound {
 			t.Errorf("%s: %v, 기대 404", op, err)
@@ -58,16 +39,14 @@ func TestEdgeCommandsRemoved(t *testing.T) {
 	}
 }
 
-// FR-PDM-64 (TC-PDM-22): 남은 peer-spawns.json 은 노드 계층이 설 때 지운다.
+// FR-PDM-64 (TC-PDM-22): 남은 peer-spawns.json 은 노드(데몬)가 설 때 지운다.
 func TestEdgeSpawnsFileRemoved(t *testing.T) {
 	home := t.TempDir()
 	stale := filepath.Join(home, "peer-spawns.json")
 	if err := os.WriteFile(stale, []byte(`{"t1":"fp"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := New(Config{DataDir: home}, Deps{}); err != nil {
-		t.Fatal(err)
-	}
+	edgeDaemonNodeAt(t, home, &fakeCommandBroker{})
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
 		t.Fatalf("peer-spawns.json 이 남았다: %v", err)
 	}
@@ -80,11 +59,7 @@ func TestEdgeAllowedDirsAndLastSeenRemoved(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, dmenv.EdgesFile), []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	srv, err := New(Config{DataDir: home}, Deps{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	n := &edgeNode{srv: srv, home: home}
+	n := edgeDaemonNodeAt(t, home, &fakeCommandBroker{})
 	_, view := n.api(t, http.MethodGet, "/api/edges", nil)
 	if node, _ := view["node"].(map[string]any); node == nil || node["allowedDirs"] != nil {
 		t.Fatalf("조회에 allowedDirs 가 있다: %v", view["_raw"])

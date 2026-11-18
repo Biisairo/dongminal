@@ -43,17 +43,18 @@
  *   shownOnly   참이면 고른 탭일 때만 items 를 부른다 — 배지가 항목을 읽지 않는다
  *   empty()     비었을 때의 한 줄 · `hint()` 가 있으면 그 아래 한 줄 더
  *   icon        탭의 아이콘. 레일에서는 이것만 선다 (FR-PCH-82)
+ *   tip         탭의 툴팁. 영어다 (FR-TIP-2)
  */
 const ACTIVITY_SECTIONS=[
-  {key:'agents', icon:'bot', title:()=>t('panel.sec_agents'), empty:()=>t('attn.no_active_agents'),
+  {key:'agents', icon:'bot', title:()=>t('panel.sec_agents'), tip:()=>TIP_ACT_AGENTS, empty:()=>t('attn.no_active_agents'),
    items:app=>app._agWindowItems(),
    // FR-PCH-81: Agents 는 알람 점이다. 접힌 창도 그룹 머리가 알람 수를 갖는다.
    badge:(app,its)=>({n:0,dot:its.some(i=>i.t==='group'&&i.attn>0)})},
-  {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), empty:()=>t('bg.empty'),
+  {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), tip:()=>TIP_ACT_BG, empty:()=>t('bg.empty'),
    items:app=>app._actBgRows()},
-  {key:'runs', icon:'workflow', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
+  {key:'runs', icon:'workflow', title:()=>t('runs.title'), tip:()=>TIP_ACT_RUNS, empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
    items:app=>app._actRunsRows()},
-  {key:'chats', icon:'message-square', title:()=>t('chat.title'), empty:()=>t('chat.empty'),
+  {key:'chats', icon:'message-square', title:()=>t('chat.title'), tip:()=>TIP_ACT_CHATS, empty:()=>t('chat.empty'),
    items:app=>app._chatItems(), shownOnly:true, badge:app=>({n:app._chatUnreadTotal()})},
 ];
 
@@ -172,7 +173,7 @@ Object.assign(App.prototype, {
       const shown=sec.key===cur;
       const its=(shown||!sec.shownOnly)?(sec.items(this)||[]):[];
       const b=sec.badge?sec.badge(this,its):{n:its.length};
-      tabs.push({key:sec.key,icon:sec.icon,title:sec.title(),n:b.n||0,dot:!!b.dot});
+      tabs.push({key:sec.key,icon:sec.icon,title:sec.title(),tip:sec.tip(),n:b.n||0,dot:!!b.dot});
       if(shown) body=its.length?its:[{t:'secempty',sec}];
     }
     const out=[{t:'tabs',cur,tabs}].concat(body);
@@ -207,7 +208,7 @@ Object.assign(App.prototype, {
     bar.className='ag-tabs';
     bar.setAttribute('role','tablist');
     for(const tb of tabs){
-      const b=UIKit.tab({active:tb.key===cur,title:tb.title,icon:tb.icon,label:tb.title,badge:tb.n,
+      const b=UIKit.tab({active:tb.key===cur,title:tb.tip,icon:tb.icon,label:tb.title,badge:tb.n,
         cls:'ag-tab',iconCls:'ag-tab-icon',labelCls:'ag-tab-name',badgeCls:'ag-tab-n',
         onClick:e=>{e.stopPropagation();this._actTabSelect(tb.key)}});
       b.dataset.sec=tb.key;

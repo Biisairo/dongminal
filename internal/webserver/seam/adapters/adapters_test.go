@@ -12,10 +12,8 @@ import (
 	"dongminal/internal/shared/workspace"
 )
 
-func TestToolAdapter_EmptyManager(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
-	t.Cleanup(pm.StopSaving)
-	a := Tool{PM: pm}
+func TestToolAdapter_EmptyHub(t *testing.T) {
+	a := Tool{Hub: fakeHub{}}
 	if got := a.List(); len(got) != 0 {
 		t.Errorf("List=%v want []", got)
 	}
@@ -30,6 +28,10 @@ func TestToolAdapter_EmptyManager(t *testing.T) {
 	}
 	if err := a.SendPaste("nope", []byte("x"), false); err == nil {
 		t.Errorf("SendPaste(nope) err=nil")
+	}
+	// 허브가 없으면 아무 도구도 없다.
+	if err := (Tool{}).SendPaste("nope", []byte("x"), false); err == nil {
+		t.Errorf("허브 없는 SendPaste err=nil")
 	}
 }
 
@@ -71,15 +73,35 @@ func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
 	}
 }
 
-// fakeHub is a minimal ToolHub for exercising daemon-mode adapters.
+// fakeHub is a minimal ToolHub for exercising the adapters.
 type fakeHub struct {
 	list []toolhub.ToolInfo
 }
 
+func (f fakeHub) has(id string) bool {
+	for _, m := range f.list {
+		if m.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (fakeHub) Subscribe(string, chan toolhub.OutChunk) (<-chan struct{}, func()) {
+	return make(chan struct{}), func() {}
+}
+func (fakeHub) SnapshotToolSince(string, int64) (toolhub.ToolSnapshot, error) {
+	return toolhub.ToolSnapshot{}, nil
+}
+func (fakeHub) DaemonInfo() toolhub.DaemonInfo      { return toolhub.DaemonInfo{} }
+func (fakeHub) Reconnects() int64                   { return 0 }
+func (fakeHub) HasFeature(string) bool              { return false }
+func (fakeHub) InputNotify(string, []byte)          {}
+func (fakeHub) ResizeNotify(string, uint16, uint16) {}
+
 func (f fakeHub) List() []toolhub.ToolInfo           { return f.list }
 func (f fakeHub) ListOK() ([]toolhub.ToolInfo, bool) { return f.list, true }
 func (f fakeHub) Connected() bool                    { return true }
-func (f fakeHub) Daemon() toolhub.DaemonHub          { return nil }
 func (f fakeHub) Create(string, uint16, uint16, toolhub.Placement) (*toolhub.Tool, error) {
 	return nil, nil
 }
@@ -98,9 +120,17 @@ func (f fakeHub) ShellProbe(string, []int) toolhub.ShellState { return toolhub.S
 func (f fakeHub) Delete(string) error                         { return nil }
 func (f fakeHub) Terminate(string, time.Duration) error       { return nil }
 func (f fakeHub) Write(string, []byte) error                  { return nil }
-func (f fakeHub) SendPaste(string, []byte, bool) error        { return nil }
-func (f fakeHub) Resize(string, uint16, uint16) error         { return nil }
-func (f fakeHub) SnapshotTool(string) (toolhub.ToolSnapshot, error) {
+func (f fakeHub) SendPaste(id string, _ []byte, _ bool) error {
+	if !f.has(id) {
+		return toolhub.ErrToolNotFound
+	}
+	return nil
+}
+func (f fakeHub) Resize(string, uint16, uint16) error { return nil }
+func (f fakeHub) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
+	if !f.has(id) {
+		return toolhub.ToolSnapshot{}, toolhub.ErrToolNotFound
+	}
 	return toolhub.ToolSnapshot{}, nil
 }
 func (f fakeHub) IsLive(string) bool                        { return true }
@@ -148,32 +178,15 @@ func TestClientResolver_DaemonMatchesAncestor(t *testing.T) {
 
 // ── 전경 프로세스 이름 (CONVENIENCE_SRS 묶음 N) ──────────────────────────
 
-// TestToolAdapter_ForegroundNameBothModes는 두 모드가 같은 값을 내는 것을
-// 고정한다 (C-1, FR-TAN-7, V-TAN-9).
-//
-// direct 모드는 ToolManager 에게 직접 묻고, 데몬 모드는 데몬이 조회해 목록
-// 응답에 실어 보낸 fgName 을 읽는다. 웹 서버가 스스로 tcgetpgrp 을 부르는
-// 경로는 없다 — 데몬 모드에는 PTMX 가 없기 때문이다 (R1).
-func TestToolAdapter_ForegroundNameBothModes(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
-	t.Cleanup(pm.StopSaving)
-	pm.Adopt(toolhub.NewDetachedTool("1", nil))
-
-	// 데몬이 보낸 목록의 모양 그대로 흉내낸다.
+// TestToolAdapter_ForegroundNameFromDaemon 은 전경 이름이 데몬이 조회해 목록 응답에 실어
+// 보낸 fgName 임을 고정한다 (C-1, FR-TAN-7, V-TAN-9). 웹 서버가 스스로 tcgetpgrp 을 부르는
+// 경로는 없다 — 이 프로세스에는 PTMX 가 없다 (R1).
+func TestToolAdapter_ForegroundNameFromDaemon(t *testing.T) {
 	daemon := Tool{Hub: fakeHub{list: []toolhub.ToolInfo{
 		{ID: "1", Name: "Shell", PID: 4242, FgName: "claude"},
 	}}}
-	got := daemon.List()
-	if len(got) != 1 || got[0].ForegroundName != "claude" {
-		t.Fatalf("데몬 모드 List=%+v want ForegroundName=claude", got)
-	}
-
-	// direct 모드: 같은 값을 ToolManager 에서 읽는다.
-	if direct := (Tool{PM: pm}).List(); len(direct) != 1 {
-		t.Fatalf("direct 모드 List len=%d want 1", len(direct))
-	} else if direct[0].ForegroundName != "" {
-		// PTY 없는 도구는 전경 프로그램이 없다 — 추측하지 않는다 (FR-TAN-5).
-		t.Fatalf("direct 모드 ForegroundName=%q want \"\"", direct[0].ForegroundName)
+	if got := daemon.List(); len(got) != 1 || got[0].ForegroundName != "claude" {
+		t.Fatalf("List=%+v want ForegroundName=claude", got)
 	}
 }
 

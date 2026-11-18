@@ -49,7 +49,6 @@
 | `busy` | 지금은 자리가 없습니다. | **재시도가 유효한 유일한 4xx 입니다.** 잠시 뒤 다시 보내세요. |
 | `chat_bad_code` | 사람 명령의 OTP 코드가 틀렸거나 이미 쓴 코드입니다. | OTP 앱의 새 코드를 넣으세요. 5번 틀리면 5분 잠깁니다. |
 | `chat_bad_request` | 채팅 요청의 모양이 틀렸습니다. | 보낸 값(방 id·이름·목적·본문)의 형식과 필수 항목을 확인하세요. |
-| `chat_daemon_only` | 채팅은 데몬 모드에서만 쓸 수 있습니다. | 데몬 모드로 dongminal 을 시작하세요. |
 | `chat_daemon_restart` | 붙은 데몬이 채팅을 모르는 옛 판입니다. | dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다. |
 | `chat_locked` | 코드를 5번 틀려 도우미가 잠겼습니다. 메시지는 풀리는 시각(RFC 3339)입니다. | 그 시각이 지난 뒤 다시 넣으세요. |
 | `chat_no_helper` | 이 노드에 사람 명령의 도우미가 없거나 닿지 않습니다. | OS 기본 터미널에서 sudo dongminal otp install 로 설치하세요. dongminal otp status 로 확인합니다. |
@@ -90,7 +89,7 @@
 | `edge_rate_limited` | 한 출발지 주소가 1분 동안 보낼 수 있는 등록 요청 수(60)를 넘었습니다. | 잠시 뒤 다시 보내세요. |
 | `edge_rejected` | 상대 노드가 이 노드를 받지 않았습니다. | 상대가 옛 판일 수 있습니다. 상대의 dongminal 을 새 판으로 올리세요. |
 | `edge_token_invalid` | 초대 토큰이 맞지 않습니다. | 가장 최근에 만든 초대 코드인지 확인하세요. 새 초대를 만들면 이전 코드는 쓸 수 없습니다. |
-| `edge_unavailable` | 이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | 데몬 모드는 daemon.log, 직접 모드는 server.log 의 edge identity 줄을 보세요. edge-cert.pem·edge-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(간선은 다시 맺어야 합니다). |
+| `edge_unavailable` | 이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | daemon.log 의 edge identity 줄을 보세요. edge-cert.pem·edge-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(간선은 다시 맺어야 합니다). |
 | `edge_unreachable` | 상대 노드에 닿지 못했습니다. | 상대의 노드 포트가 켜져 있는지, 주소·포트가 맞는지, 방화벽이 막지 않는지 확인하세요. 큐·재시도는 없습니다. |
 | `editor_root_protected` | Editor 루트는 지우거나 옮길 수 없습니다. | 목록에서 빼려면 Editor 목록의 제거를 쓰세요. |
 | `empty_message` | 커밋 메시지가 비었습니다. | 메시지를 적으세요. |
@@ -200,4 +199,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **166개**.
+총 **165개**.

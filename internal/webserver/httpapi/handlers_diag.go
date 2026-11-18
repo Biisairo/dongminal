@@ -74,9 +74,7 @@ func (s *Server) apiDiag(w http.ResponseWriter, r *http.Request) {
 	if s.Tools != nil {
 		// **수만 센다.** 목록의 내용(이름·작업 폴더)은 나가지 않는다.
 		out.Tools = len(s.Tools.List())
-		if d := s.Tools.Daemon(); d != nil {
-			out.Reconnects = d.Reconnects()
-		}
+		out.Reconnects = s.Tools.Reconnects()
 	}
 	if s.Work != nil {
 		// `GO-10` 의 짝이다. 헬스도 이 값을 내지만 거기서는 **사람에게 보이는

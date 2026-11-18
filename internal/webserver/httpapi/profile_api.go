@@ -54,26 +54,21 @@ func (s *Server) profileHandle() string {
 	return v
 }
 
-// askHandle 은 노드에 핸들을 묻는다. 데몬 모드에서는 IPC 한 번이다.
+// askHandle 은 노드(데몬)에 핸들을 묻는다. IPC 한 번이다. 데몬이 없거나 준비되지 않았으면
+// 빈 값이다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-23).
 func (s *Server) askHandle() string {
-	if s.EdgeDaemon != nil {
-		if !s.EdgeDaemon.EdgeReady() {
-			return ""
-		}
-		res, err := s.EdgeDaemon.Edge(toolipc.EdgeParams{Op: "profile"})
-		if err != nil || res.Code != "" {
-			return ""
-		}
-		var v struct {
-			Handle string `json:"handle"`
-		}
-		if json.Unmarshal(res.Body, &v) != nil {
-			return ""
-		}
-		return v.Handle
-	}
-	if s.edgeNode == nil {
+	if s.EdgeDaemon == nil || !s.EdgeDaemon.EdgeReady() {
 		return ""
 	}
-	return s.edgeNode.Handle()
+	res, err := s.EdgeDaemon.Edge(toolipc.EdgeParams{Op: "profile"})
+	if err != nil || res.Code != "" {
+		return ""
+	}
+	var v struct {
+		Handle string `json:"handle"`
+	}
+	if json.Unmarshal(res.Body, &v) != nil {
+		return ""
+	}
+	return v.Handle
 }

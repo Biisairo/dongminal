@@ -24,7 +24,7 @@ type AttnTracker struct {
 
 	// allowBell 은 맨 BEL 을 알람으로 볼지다 (HOST_PARITY_SRS FR-HPR-17).
 	//
-	// **직접 모드와 같은 자리에서 온다** — 종전에는 이 값을 읽는 코드가 아예
+	// **데몬의 `toolhub.Tool` 과 같은 자리에서 온다** — 종전에는 이 값을 읽는 코드가 아예
 	// 없어 `attnPaneState.allowBell` 이 zero value 로 굳었고,
 	// `DONGMINAL_ATTENTION_BELL=1` 이 데몬 모드에서 무성 무시되었다. 이 파일
 	// 머리말이 약속한 동형성(FR-ATF-12·NFR-4)이 깨져 있던 자리다.
@@ -55,8 +55,8 @@ type AttnTracker struct {
 	mirror atomic.Pointer[func() bool]
 }
 
-// attnPaneState 는 직접 모드 `toolhub.Tool` 의 주의 관련 필드와 **같은 모양**을
-// 갖는다 (FR-ATF-12·NFR-4). 두 모드의 판정이 갈라지지 않게 하려면 상태부터
+// attnPaneState 는 데몬의 `toolhub.Tool` 의 주의 관련 필드와 **같은 모양**을
+// 갖는다 (FR-ATF-12·NFR-4). 두 판정이 갈라지지 않게 하려면 상태부터
 // 갈라지지 않아야 한다.
 type attnPaneState struct {
 	id              string
@@ -65,7 +65,7 @@ type attnPaneState struct {
 	attention       atomic.Bool
 	attnRearmLocked atomic.Bool // FR-ATF-5
 	agentSeen       atomic.Bool // FR-ATF-1
-	// turn 은 에이전트 훅이 말한 턴의 상태다 (묶음 N). 직접 모드의 `Tool.turn`
+	// turn 은 에이전트 훅이 말한 턴의 상태다 (묶음 N). 데몬의 `Tool.turn`
 	// 과 **같은 타입**이다 — 판정을 두 벌로 적지 않는다 (FR-ATN-14).
 	turn      toolhub.AgentTurn
 	attnCarry []byte
@@ -75,7 +75,7 @@ type attnPaneState struct {
 
 // DefaultIdleMS returns the L2 idle threshold in milliseconds, honoring the
 // DONGMINAL_ATTENTION_IDLE_MS override. Daemon-mode wiring uses it so L2 idle
-// behaves identically to direct mode (FR-15).
+// behaves identically to the daemon-side toolhub.Tool (FR-15).
 func DefaultIdleMS() int { return int(toolhub.AttentionIdleThreshold() / time.Millisecond) }
 
 // NewAttnTracker creates an attention/activity tracker wired to the SSE hub.
@@ -98,7 +98,7 @@ type BusyManyProbe func(ids []string) (busy map[string]bool, ok bool)
 
 // SetBusyProbe installs the foreground-process check used by the L2 idle
 // sweeper. In daemon mode this is wired to toolclient.ToolClient.BusyMany (one busymany
-// RPC to dongminald). Without it, idle never fires (matching direct mode, where a
+// RPC to dongminald). Without it, idle never fires (matching toolhub.Tool, where a
 // bare prompt must not raise an alarm — DAEMON_SPLIT_SRS FR-15).
 func (t *AttnTracker) SetBusyProbe(f BusyManyProbe) {
 	t.mu.Lock()
@@ -190,7 +190,7 @@ func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 	if bytes.IndexByte(scan, 0x1b) >= 0 || bytes.IndexByte(scan, 0x07) >= 0 {
 		sig, carry := toolhub.DetectAttentionSignal(scan, ps.allowBell, toolhub.AttnMaxCarry)
 		ps.attnCarry = carry
-		// FR-ATN-22: 에이전트 도구의 알림 시퀀스는 알람이 아니다 — 직접 모드
+		// FR-ATN-22: 에이전트 도구의 알림 시퀀스는 알람이 아니다 — 데몬의
 		// `Tool.observeOutputAt` 과 같은 판정이다 (FR-ATN-25).
 		if sig && !ps.agentSeen.Load() {
 			if ps.attention.CompareAndSwap(false, true) {
@@ -207,7 +207,7 @@ func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 //
 // **무엇이 사건인지는 먼저 묻는다** (묶음 N). 입력 유휴 알림은 되풀이지
 // 사건이 아니므로 여기서 걸러 내며, 걸러진 신호는 방송도 하지 않는다
-// (FR-ATN-6·15). 직접 모드 `Tool.SignalAttention` 과 같은 자리, 같은 판정이다.
+// (FR-ATN-6·15). 데몬의 `Tool.SignalAttention` 과 같은 자리, 같은 판정이다.
 func (t *AttnTracker) SignalAttention(toolID, reason string) {
 	ps := t.state(toolID)
 
@@ -223,7 +223,7 @@ func (t *AttnTracker) SignalAttention(toolID, reason string) {
 }
 
 // SignalAgentEvent 는 활동 이벤트에서 파생한 알람이다 (FR-AEV-10·14).
-// 직접 모드 `toolhub.Tool.SignalAgentEvent` 와 **같은 자리, 같은 판정**이다 —
+// 데몬의 `toolhub.Tool.SignalAgentEvent` 와 **같은 자리, 같은 판정**이다 —
 // 두 벌로 적으면 한쪽만 고쳐지는 날이 온다.
 func (t *AttnTracker) SignalAgentEvent(toolID, state string, turnKnown bool) {
 	ps := t.state(toolID)
@@ -250,7 +250,7 @@ func (t *AttnTracker) attend(toolID string, typed bool) {
 	ps.attnArmed.Store(false)
 	ps.attnRearmLocked.Store(!typed)
 	// 키를 누른 주목도 L1 명시 신호의 대기 표시는 건드리지 않는다 (FR-ATN-16a —
-	// 직접 모드 `Tool.AttendTyped` 와 같은 판정, FR-ATF-12·NFR-4).
+	// 데몬의 `Tool.AttendTyped` 와 같은 판정, FR-ATF-12·NFR-4).
 	if ps.attention.CompareAndSwap(true, false) {
 		t.onAttentionClear(toolID)
 	}
@@ -289,6 +289,18 @@ func (t *AttnTracker) clockLocked() func() int64 {
 }
 
 func wallNow() int64 { return time.Now().UnixNano() }
+
+// SetClockForTesting 은 시험 전용이다. 프로덕션은 부르지 않는다. 시계를 주입하고(NFR-5),
+// nil 이면 벽시계로 돌린다.
+//
+// 공개로 둔 이유: httpapi 의 상태 시험은 "몇 초 전 출력"을 만들어야 하는데, 서버의 상태
+// 종단은 이 추적기의 시각만 읽고 그 사이에 바꿔 끼울 자리가 없다. export_test.go 는 다른
+// 패키지에서 보이지 않는다. 그래서 공개 진입점 말고는 길이 없다 (DIRECT_MODE_REMOVAL_SRS §6).
+func (t *AttnTracker) SetClockForTesting(now func() int64) {
+	t.mu.Lock()
+	t.nowFn = now
+	t.mu.Unlock()
+}
 
 // now 는 주입된 시계를 읽는다 (NFR-5).
 func (t *AttnTracker) now() int64 {
@@ -338,8 +350,8 @@ func (t *AttnTracker) AttentionIDs() []string {
 //
 // FR-ATF-13: 정리는 도구 하나를 주목한 것과 **같다** — 무장을 내리고 재무장을
 // 잠근다. 개정 전에는 주의 비트만 내려, 이미 임계 시간을 넘긴 도구들이 다음 1초
-// tick 에서 통째로 되살아났다. 직접 모드는 처음부터 `Attend()` 를 지났으므로
-// 이 결함이 없었다 (§2.4) — 두 모드가 갈라져 있던 자리다.
+// tick 에서 통째로 되살아났다. `toolhub.Tool` 쪽은 처음부터 `Attend()` 를 지났으므로
+// 이 결함이 없었다 (§2.4) — 두 판정이 갈라져 있던 자리다.
 func (t *AttnTracker) ClearAllAttention() int {
 	// 방송은 락을 놓고 한다 — Forget 과 같은 규약이다 (M8 `GO-32`). Broadcast 가
 	// hub 락을 잡으므로 여기서 t.mu 를 쥔 채 부르면 락 순서 의존이 되고, 구독자가
@@ -414,7 +426,7 @@ func (t *AttnTracker) LastOutputAt(toolID string) int64 {
 // ActivitySnapshot returns current activity for all tools. A "working" card
 // whose foreground process is gone is pruned so an abnormal agent exit (no
 // Stop/SessionEnd hook) doesn't leave a stale "working" card — parity with
-// direct-mode toolhub.ToolManager.ActivitySnapshot (FR-AAP-20). The busy probe (one RPC
+// toolhub.ToolManager.ActivitySnapshot (FR-AAP-20). The busy probe (one RPC
 // to dongminald for all working cards, FR-OPT-2-4) runs outside the lock. When the
 // probe cannot answer, working cards are kept (IPC-M2).
 func (t *AttnTracker) ActivitySnapshot() []toolhub.ActivitySnap {
@@ -462,11 +474,10 @@ func (t *AttnTracker) ActivitySnapshot() []toolhub.ActivitySnap {
 // sweepIdle runs one L2 idle pass at the tracker's clock.
 func (t *AttnTracker) sweepIdle() { t.SweepIdleAt(t.now()) }
 
-// SweepIdleAt runs one L2 idle pass at the given time. 공개인 이유는 직접 모드의
-// 대응물(`ToolManager.sweepIdle`)과 같다 — 결정적 테스트가 이 자리를 시계 없이
-// 재야 하고, 데몬 모드에서는 그 테스트가 다른 패키지에 산다 (NFR-5).
+// SweepIdleAt runs one L2 idle pass at the given time. 공개인 이유는 결정적
+// 테스트가 이 자리를 시계 없이 재야 하고, 그 테스트가 다른 패키지에 살기 때문이다 (NFR-5).
 //
-// 판정의 순서와 뜻은 직접 모드 `Tool.maybeIdle` 과 **글자 그대로 같다**
+// 판정의 순서와 뜻은 데몬의 `Tool.maybeIdle` 과 **글자 그대로 같다**
 // (FR-ATF-12): ① 에이전트가 도는 도구인가 ② 턴이 진행 중인가 ③ 지금 일하는 중은
 // 아닌가(굳은 `working` 은 억제하지 못한다) ④ 전경 프로세스가 있는가. ④ 만 데몬
 // RPC 라 마지막에, 남은 후보 전부를 한 번에 묻는다 (FR-OPT-2-4). 답을 모르면 울지

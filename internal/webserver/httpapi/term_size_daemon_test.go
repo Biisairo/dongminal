@@ -12,18 +12,23 @@ import (
 
 // V-M9-3a (daemon) — 크기 통보는 **프로세스 경계를 건넌다** (M9_SRS FR-M9-3).
 //
-// direct 모드만 고치면 그 자리가 다음 결함이 된다 (M8 D-A-16 의 교훈). 여기서
-// 재는 것은 IPC 경계 둘이다: ① snapshot 응답이 크기를 실어 오는가 ② PTY 크기가
+// 여기서 재는 것은 IPC 경계 둘이다: ① snapshot 응답이 크기를 실어 오는가 ② PTY 크기가
 // 바뀌면 `size` push 가 구독자에게 닿는가.
 
 // daemonPair 는 데몬(PanedServer)과 웹서버 쪽 손잡이(ToolClient)를 세운다.
 func daemonPair(t *testing.T) (*toolhub.ToolManager, *toolclient.ToolClient) {
 	t.Helper()
-	dir := toolTempDir(t)
-	sockPath := dir + "/s"
-	dataDir := dir + "/d"
+	dataDir := toolTempDir(t) + "/d"
 	os.MkdirAll(dataDir, 0o755)
+	return daemonPairAt(t, dataDir)
+}
 
+// daemonPairAt 은 daemonPair 와 같되 데몬의 데이터 폴더를 정한다. 서버는 늘 데몬에 붙으므로
+// (DIRECT_MODE_REMOVAL_SRS FR-DMR-10) 도구가 필요한 서버 시험은 이 짝으로 배선한다. 소켓은
+// 경로 길이 상한 때문에 짧은 임시 폴더에 둔다.
+func daemonPairAt(t *testing.T, dataDir string) (*toolhub.ToolManager, *toolclient.ToolClient) {
+	t.Helper()
+	sockPath := shortHome(t) + "/s"
 	pm := toolhub.NewToolManager(dataDir, nil)
 	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, "")

@@ -547,8 +547,8 @@ test.describe('묶음 K — 편집기 안에서의 키', () => {
       await expect.poll(async () => (await view()).text).toBe('line one\n');
       expect(await page.evaluate(() => (window as any).__iteActions)).not.toContain('softReload');
     }
-    // Ctrl+G 는 줄 이동 대화상자를 연다 (gotoLine — VS Code 는 두 플랫폼 모두 Ctrl+G).
+    // Ctrl+G 는 줄 이동 패널을 연다 — 앱 단축키 edGotoLine 의 `.fe-goto` 다 (UX_BATCH13_SRS FR-EGL-1·4).
     await page.keyboard.press('Control+g');
-    await expect(page.locator('.file-editor .cm-panel.cm-gotoLine, .file-editor .cm-dialog')).toHaveCount(1);
+    await expect(page.locator('.fe-goto.vis:visible')).toHaveCount(1);
   });
 });

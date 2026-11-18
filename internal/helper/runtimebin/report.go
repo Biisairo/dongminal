@@ -18,7 +18,7 @@ import (
 // 판정(`dmctl notify` 의 종료 코드)이 바뀌지 않게 한다.
 var reportOK = []byte(`{"ok":true}`)
 
-// postReport 는 보고 하나다. 보고 소켓이 없거나(직접 모드·샌드박스·옛 데몬) 실패하면
+// postReport 는 보고 하나다. 보고 소켓이 없거나(샌드박스·옛 데몬) 실패하면
 // 같은 본문을 path 의 HTTP 로 보낸다. 소켓 시도는 예산의 절반까지이고, HTTP 는 남은
 // 예산을 쓴다 — 두 시도의 합이 budget 을 넘지 않는다.
 func postReport(method, path string, body any, budget time.Duration) (status int, respBody []byte, err error) {

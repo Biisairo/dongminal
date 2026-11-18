@@ -16,7 +16,24 @@ import (
 
 // ── fakePaneHub ─────────────────────────────────────
 
+// nopDaemon 은 데몬 표면(toolhub.DaemonHub)을 아무 일도 하지 않게 채운다. 가짜 허브가
+// 품는다 — 데몬 표면을 쓰지 않는 시험의 대역이다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-10).
+type nopDaemon struct{}
+
+func (nopDaemon) Subscribe(string, chan toolhub.OutChunk) (<-chan struct{}, func()) {
+	return make(chan struct{}), func() {}
+}
+func (nopDaemon) SnapshotToolSince(string, int64) (toolhub.ToolSnapshot, error) {
+	return toolhub.ToolSnapshot{}, nil
+}
+func (nopDaemon) DaemonInfo() toolhub.DaemonInfo      { return toolhub.DaemonInfo{} }
+func (nopDaemon) Reconnects() int64                   { return 0 }
+func (nopDaemon) HasFeature(string) bool              { return false }
+func (nopDaemon) InputNotify(string, []byte)          {}
+func (nopDaemon) ResizeNotify(string, uint16, uint16) {}
+
 type fakePaneHub struct {
+	nopDaemon
 	lastPlace toolhub.Placement
 	mu        sync.Mutex
 	tools     map[string]*toolhub.Tool
@@ -112,7 +129,6 @@ func (f *fakePaneHub) List() []toolhub.ToolInfo {
 }
 func (f *fakePaneHub) ListOK() ([]toolhub.ToolInfo, bool) { return f.List(), true }
 func (f *fakePaneHub) Connected() bool                    { return true }
-func (f *fakePaneHub) Daemon() toolhub.DaemonHub          { return nil }
 
 func (f *fakePaneHub) Create(cwd string, cols, rows uint16, place toolhub.Placement) (*toolhub.Tool, error) {
 	f.mu.Lock()

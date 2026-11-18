@@ -1,7 +1,6 @@
 package hub
 
 import (
-	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/sse"
 )
 
@@ -21,11 +20,4 @@ import (
 // 어긋날 때 어느 쪽이 진실인지 말할 수 없다.
 func BackgroundChangedPayload() []byte {
 	return sse.Payload("tools_background_changed", nil)
-}
-
-// WireBackground 는 백그라운드 목록 변화를 SSE 로 잇는다 (FR-BGP-2).
-func WireBackground(pm *toolhub.ToolManager, hub CommandBroker) {
-	pm.SetBackgroundChanged(func() {
-		hub.Broadcast(BackgroundChangedPayload())
-	})
 }

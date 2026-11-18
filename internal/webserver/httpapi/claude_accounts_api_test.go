@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/platform"
-	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/apierr"
 )
 
@@ -39,9 +38,9 @@ func newCAEnv(t *testing.T) *caEnv {
 	t.Helper()
 	home := t.TempDir()
 	data := t.TempDir()
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
-	srv, err := New(Config{DataDir: data, ClaudeHome: home, ClaudeAPI: "http://127.0.0.1:1", ClaudeSecrets: caNoSecrets{}}, Deps{Tools: m})
+	srv, err := New(Config{DataDir: data, ClaudeHome: home, ClaudeAPI: "http://127.0.0.1:1", ClaudeSecrets: caNoSecrets{}}, Deps{Tools: mHub})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,9 +167,9 @@ func TestClaudeAccountsErrors(t *testing.T) {
 }
 
 func TestClaudeAccountsUnavailableWithoutDataDir(t *testing.T) {
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
-	srv, err := New(Config{}, Deps{Tools: m})
+	srv, err := New(Config{}, Deps{Tools: mHub})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,9 +185,9 @@ func newCAEnvWithAPI(t *testing.T, h http.HandlerFunc) *caEnv {
 	api := httptest.NewServer(h)
 	t.Cleanup(api.Close)
 	home, data := t.TempDir(), t.TempDir()
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
-	srv, err := New(Config{DataDir: data, ClaudeHome: home, ClaudeAPI: api.URL, ClaudeSecrets: caNoSecrets{}}, Deps{Tools: m})
+	srv, err := New(Config{DataDir: data, ClaudeHome: home, ClaudeAPI: api.URL, ClaudeSecrets: caNoSecrets{}}, Deps{Tools: mHub})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -43,6 +43,8 @@ function loadActivity(globals = {}) {
     globals: {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
+      // FR-TIP-2: Activity 탭의 영어 툴팁 (constants.js).
+      TIP_ACT_AGENTS: 'Show running agents', TIP_ACT_BG: 'Show background tools', TIP_ACT_RUNS: 'Show runs', TIP_ACT_CHATS: 'Show chat rooms',
       AGENT_STATE_ICON: { working: '●', done: '✓', waiting: '…', idle: '○' },
       PrefStore: { local },
       STORE_KEYS: { agentsGroupFold: 'agentsGroupFold', agentsSubView: 'agentsSubView' },

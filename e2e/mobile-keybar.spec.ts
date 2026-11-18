@@ -491,7 +491,8 @@ test.describe('모바일의 Activity (FUI-27 · FR-CHR-17)', () => {
     const acts = page.locator('#m-drawer-acts button');
     await expect(acts).toHaveCount(1);
     await acts.first().click();
-    await expect(page.locator('#agents-panel.open .ag-tab[data-sec="runs"].active')).toBeVisible({ timeout: 10000 });
+    // PEER_CHAT_SRS FR-PCH-80: 패널은 탭 줄이다. 드로어는 구역을 고르지 않고 열며, 구역은 탭 하나 거리다.
+    await expect(page.locator('#agents-panel.open .ag-tab[data-sec="runs"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
   });
 
@@ -502,6 +503,8 @@ test.describe('모바일의 Activity (FUI-27 · FR-CHR-17)', () => {
     await expect(page.locator('#agents-panel')).toBeHidden();
     await page.click('#m-drawer-toggle');
     await page.locator('#m-drawer-acts button').click();
-    await expect(page.locator('#agents-panel.open .ag-tab[data-sec="bg"].active')).toBeVisible({ timeout: 10000 });
+    const bg = page.locator('#agents-panel.open .ag-tab[data-sec="bg"]');
+    await bg.click({ timeout: 10000 });
+    await expect(bg).toHaveClass(/\bactive\b/);
   });
 });

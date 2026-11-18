@@ -66,7 +66,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 
 이 넷은 사람이 직접 치는 명령이 아닙니다. 에이전트의 훅이 부릅니다.
 
-데몬 모드에서 `notify`·`activity`(그리고 `statusline`·`subagent-statusline`)는 보고를 데몬의 보고 소켓(`report.sock`)에 먼저 보냅니다. 서버가 꺼져 있어도 데몬이 기록해 두었다가, 서버가 다시 붙으면 그 상태를 보입니다. 보고 소켓이 없거나(직접 모드·샌드박스 창·옛 데몬) 실패하면 이전처럼 서버에 HTTP 로 보냅니다. 두 시도를 합쳐도 이전 시한을 넘지 않습니다. 보고 소켓은 데몬을 다시 띄워야 생깁니다(`dongminal start`. 교체를 모르는 옛 데몬이면 `dongminal start --refresh-daemon`).
+데몬 모드에서 `notify`·`activity`(그리고 `statusline`·`subagent-statusline`)는 보고를 데몬의 보고 소켓(`report.sock`)에 먼저 보냅니다. 서버가 꺼져 있어도 데몬이 기록해 두었다가, 서버가 다시 붙으면 그 상태를 보입니다. 보고 소켓이 없거나(샌드박스 창·옛 데몬) 실패하면 이전처럼 서버에 HTTP 로 보냅니다. 두 시도를 합쳐도 이전 시한을 넘지 않습니다. 보고 소켓은 데몬을 다시 띄워야 생깁니다(`dongminal start`. 교체를 모르는 옛 데몬이면 `dongminal start --refresh-daemon`).
 
 | 명령 | 설명 |
 |------|------|

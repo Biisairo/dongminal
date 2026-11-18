@@ -8,15 +8,9 @@ import (
 // UX_BATCH6_SRS 묶음 B — 백그라운드 목록은 **살아 있는 프로세스의 목록**이다
 // (FR-BGP-1·2·3·4).
 
-// V-BGP-1 (FR-BGP-1·2): 도구가 죽으면 목록에서 빠지고 그 사실이 알려진다.
-//
-// 알림이 요구인 이유는 접수 ⑮다 — 다른 브라우저의 배지는 SSE 재연결 전까지
-// 낡은 수를 보인다.
-func TestDelete_DropsFromBackgroundAndNotifies(t *testing.T) {
+// V-BGP-1 (FR-BGP-1): 도구가 죽으면 목록에서 빠진다.
+func TestDelete_DropsFromBackground(t *testing.T) {
 	m := newTestManager(t)
-	got := make(chan struct{}, 4)
-	m.SetBackgroundChanged(func() { got <- struct{}{} })
-
 	p, err := m.Create(t.TempDir(), 80, 24, Placement{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -24,38 +18,9 @@ func TestDelete_DropsFromBackgroundAndNotifies(t *testing.T) {
 	if !m.SetBackground(p.ID, true) {
 		t.Fatal("백그라운드로 보내지 못했다")
 	}
-	// FR-BGP-2: 보냄·되돌림은 HTTP 종단이 알린다 — 이 훅은 **죽음만** 낸다.
-	select {
-	case <-got:
-		t.Fatal("SetBackground 가 훅을 냈다 — 그 자리는 종단의 몫이다")
-	case <-time.After(100 * time.Millisecond):
-	}
-
 	m.Delete(p.ID)
 	if m.IsBackground(p.ID) {
 		t.Fatal("죽은 도구가 목록에 남았다")
-	}
-	select {
-	case <-got:
-	case <-time.After(2 * time.Second):
-		t.Fatal("죽음이 알려지지 않았다 — 다른 브라우저의 배지가 낡은 채로 남는다")
-	}
-}
-
-// 백그라운드가 아니었던 도구의 죽음은 목록을 바꾸지 않는다 — 알릴 것이 없다.
-func TestDelete_NoNotifyForNonBackgroundTool(t *testing.T) {
-	m := newTestManager(t)
-	fired := make(chan struct{}, 1)
-	m.SetBackgroundChanged(func() { fired <- struct{}{} })
-	p, err := m.Create(t.TempDir(), 80, 24, Placement{})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	m.Delete(p.ID)
-	select {
-	case <-fired:
-		t.Fatal("목록이 바뀌지 않았는데 알렸다")
-	case <-time.After(150 * time.Millisecond):
 	}
 }
 

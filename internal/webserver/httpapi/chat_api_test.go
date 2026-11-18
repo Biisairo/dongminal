@@ -37,12 +37,13 @@ func chatSrv(t *testing.T, d ChatDaemon) (*edgeNode, *fakeCommandBroker) {
 	return &edgeNode{srv: srv}, cmds
 }
 
-// NFR-PCH-5: 직접 모드는 409 chat_daemon_only 다.
-func TestChatAPI_DirectModeIsDaemonOnly(t *testing.T) {
+// DIRECT_MODE_REMOVAL_SRS FR-DMR-22 (TC-DMR-4): 데몬이 배선되지 않은 서버는 준비되지 않은
+// 데몬과 같다 — 409 chat_daemon_restart.
+func TestChatAPI_NoDaemonIsNotReady(t *testing.T) {
 	n, _ := chatSrv(t, nil)
 	for _, c := range []struct{ m, p string }{{http.MethodGet, "/api/chat"}, {http.MethodPost, "/api/chat/send"}} {
 		code, out := n.api(t, c.m, c.p, map[string]any{"room": "r", "text": "x"})
-		if code != http.StatusConflict || errCode(out) != apierr.CodeChatDaemonOnly {
+		if code != http.StatusConflict || errCode(out) != apierr.CodeChatDaemonRestart {
 			t.Fatalf("%s %s: %d %v", c.m, c.p, code, out)
 		}
 	}

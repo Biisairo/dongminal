@@ -67,8 +67,8 @@ func (m *ToolManager) Busy(id string) bool {
 	return p.IsBusy()
 }
 
-// BusyMany 는 Busy 를 ids 전부에 답한다. 직접 모드는 모르는 답이 없어 ok 는 언제나
-// true 다 (FR-OPT-2-4).
+// BusyMany 는 Busy 를 ids 전부에 답한다. 레지스트리가 이 프로세스에 있어 모르는 답이
+// 없으므로 ok 는 언제나 true 다 (FR-OPT-2-4).
 //
 // 조회는 도구 수와 무관하게 한 번이다 (FR-OPT-8-3 · SHR-28) — 데몬의 busymany RPC 가
 // 도구마다 pgrep 을 띄우지 않는다.
@@ -192,10 +192,8 @@ func ParseSize(r *http.Request) (uint16, uint16) {
 // this tool" cannot be told apart from a leak (FR-BG).
 //
 // **여기서 방송하지 않는다** (UX_BATCH6_SRS FR-BGP-2). 이 경로에는 언제나 HTTP
-// 종단(`apiToolBackgroundSet`)이 앞에 있고, 데몬 모드에서는 이 함수가 웹서버가
-// 아니라 데몬 프로세스에서 돈다 — 거기에는 알릴 구독자가 없다. 방송은 두 모드가
-// 공유하는 그 종단이 한다. 이 훅이 답하는 것은 **아무도 부탁하지 않은 변화**,
-// 곧 프로세스의 죽음뿐이다 (`Delete`).
+// 종단(`apiToolBackgroundSet`)이 앞에 있고, 이 함수는 웹서버가 아니라 데몬 프로세스에서
+// 돈다 — 거기에는 알릴 구독자가 없다. 방송은 그 종단이 한다.
 func (m *ToolManager) SetBackground(id string, bg bool) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()

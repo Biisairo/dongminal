@@ -20,9 +20,8 @@ const (
 	Aborted State = "aborted"
 )
 
-// AbortDaemonRestart 는 재기동이 Run 을 닫은 사유다 (FR-RUN-5). 데몬 모드는 새로
-// 쓰지 않고 옛 runs.json 에서 읽기만 한다 (AGENT_RECORD_DAEMON_SRS FR-ARD-7). 직접
-// 모드의 WithAbortOpenOnLoad 는 종전처럼 쓴다.
+// AbortDaemonRestart 는 재기동이 Run 을 닫은 사유다 (FR-RUN-5). 새로 쓰지 않고 옛
+// runs.json 에서 읽기만 한다 (AGENT_RECORD_DAEMON_SRS FR-ARD-7, DIRECT_MODE_REMOVAL_SRS).
 const AbortDaemonRestart = "daemon-restart"
 
 // Isolation 은 멤버가 파일시스템을 나누는 방식이다 (FR-WKT-1). 기본은 none 이며,

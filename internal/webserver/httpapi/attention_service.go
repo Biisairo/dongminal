@@ -8,12 +8,11 @@ import (
 )
 
 // attentionService 는 attention/activity 종단이 부르는 상태의 자리다
-// (OPTIMIZE_REFACTOR_SRS FR-OPT-9-3 · HTTP-13). 데몬 모드는 관측을 이 프로세스의
-// hub.AttnTracker 가 갖고(PTY 는 dongminald 에 있다), 직접 모드는 toolhub.Tool 이
-// 스스로 갖는다. 모드는 attention() 한 자리에서만 가른다 — 종단마다 두 갈래를 두면
-// 새 신호를 더할 때 한쪽만 고쳐진다.
+// (OPTIMIZE_REFACTOR_SRS FR-OPT-9-3 · HTTP-13). 관측은 이 프로세스의 hub.AttnTracker 가
+// 갖는다(PTY 는 dongminald 에 있다).
 //
-// 도구 허브가 없으면 신호·해제·보고는 무동작이다 (종전 동작).
+// 추적기가 배선되지 않았으면 신호·해제·보고는 무동작이다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-12 —
+// 도구 자신이 상태를 갖던 직접 모드 서비스는 없다).
 type attentionService interface {
 	// AttentionIDs 는 주의가 선 도구들이다.
 	AttentionIDs() []string
@@ -36,7 +35,7 @@ func (s *Server) attention() attentionService {
 	if s.AttnTracker != nil {
 		return trackerAttention{t: s.AttnTracker, tools: s.Tools, d: s.AttnDaemon}
 	}
-	return directAttention{tools: s.Tools}
+	return noAttention{}
 }
 
 // trackerAttention 은 데몬 모드다. 데몬이 판정하면(§3.3a) 추적기는 거울이다 — 보고는
@@ -108,81 +107,15 @@ func (a trackerAttention) LastOutputAt(toolID string) int64 { return a.t.LastOut
 // Forget: 데몬 모드에서 이미 죽어 있던 도구를 지우는 경로에는 OnExit 가 오지 않는다 (FR-ATL-5).
 func (a trackerAttention) Forget(toolID string) { a.t.Forget(toolID) }
 
-// directAttention 은 직접 모드다 — 상태는 도구 자신에 있다.
-type directAttention struct {
-	tools toolhub.ToolHub
-}
+// noAttention 은 추적기가 없는 서버의 서비스다. 아무것도 갖지 않는다.
+type noAttention struct{}
 
-func (a directAttention) tool(toolID string) *toolhub.Tool {
-	if a.tools == nil {
-		return nil
-	}
-	return a.tools.Get(toolID)
-}
-
-func (a directAttention) AttentionIDs() []string {
-	if al, ok := a.tools.(interface{ AttentionIDs() []string }); ok {
-		if got := al.AttentionIDs(); got != nil {
-			return got
-		}
-	}
-	return []string{}
-}
-
-func (a directAttention) SignalAttention(toolID, reason string) {
-	if t := a.tool(toolID); t != nil {
-		t.SignalAttention(reason)
-	}
-}
-
-func (a directAttention) Attend(toolID string, typed bool) {
-	t := a.tool(toolID)
-	switch {
-	case t == nil:
-	case typed:
-		t.AttendTyped()
-	default:
-		t.Attend()
-	}
-}
-
-func (a directAttention) ClearAllAttention() int {
-	if ca, ok := a.tools.(interface{ ClearAllAttention() int }); ok {
-		return ca.ClearAllAttention()
-	}
-	return 0
-}
-
-func (a directAttention) ActivitySnapshot() []toolhub.ActivitySnap {
-	if al, ok := a.tools.(interface{ ActivitySnapshot() []toolhub.ActivitySnap }); ok {
-		if got := al.ActivitySnapshot(); got != nil {
-			return got
-		}
-	}
-	return []toolhub.ActivitySnap{}
-}
-
-func (a directAttention) ReportActivity(toolID, state, tool, detail string, turnKnown bool) {
-	t := a.tool(toolID)
-	if t == nil {
-		return
-	}
-	t.ReportActivity(state, tool, detail, turnKnown)
-}
-
-func (a directAttention) Activity(toolID string) *toolhub.ActivityState {
-	if t := a.tool(toolID); t != nil {
-		return t.Activity()
-	}
-	return nil
-}
-
-func (a directAttention) LastOutputAt(toolID string) int64 {
-	if t := a.tool(toolID); t != nil {
-		return t.LastOutputAt.Load()
-	}
-	return 0
-}
-
-// Forget: 직접 모드는 Delete → kill() 이 이미 해제한다.
-func (directAttention) Forget(string) {}
+func (noAttention) AttentionIDs() []string                              { return []string{} }
+func (noAttention) SignalAttention(string, string)                      {}
+func (noAttention) Attend(string, bool)                                 {}
+func (noAttention) ClearAllAttention() int                              { return 0 }
+func (noAttention) ActivitySnapshot() []toolhub.ActivitySnap            { return []toolhub.ActivitySnap{} }
+func (noAttention) ReportActivity(string, string, string, string, bool) {}
+func (noAttention) Activity(string) *toolhub.ActivityState              { return nil }
+func (noAttention) LastOutputAt(string) int64                           { return 0 }
+func (noAttention) Forget(string)                                       {}

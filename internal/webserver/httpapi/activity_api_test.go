@@ -1,25 +1,20 @@
 package httpapi
 
 import (
-	"dongminal/internal/shared/toolhub"
-
+	"dongminal/internal/webserver/hub"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 )
 
 // FR-AAP-3 / TC-AAP-6: activity set endpoint — known / unknown / missing / bad-state.
 func TestApiToolActivitySet(t *testing.T) {
-	m := toolhub.NewToolManager("", nil)
-	t.Cleanup(m.StopSaving)
-	var mu sync.Mutex
-	var events []string
-	p := newActivityPane("9", &mu, &events)
-	m.Adopt(p)
-	s := &Server{Deps: Deps{Tools: m}}
+	cmds := &fakeCommandBroker{}
+	s, _, _ := trackedServer(t, "9")
+	s.AttnTracker = hub.NewAttnTracker(cmds, 0)
+	p := trackedTool{id: "9", tr: s.AttnTracker}
 
 	// known tool → updates + notifier fires.
 	rec := httptest.NewRecorder()
@@ -32,8 +27,8 @@ func TestApiToolActivitySet(t *testing.T) {
 	if got == nil || got.State != "working" || got.Tool != "Bash" || got.Detail != "npm test" {
 		t.Fatalf("activity not set: %+v", got)
 	}
-	if len(events) != 1 || events[0] != "9:working:Bash:npm test" {
-		t.Fatalf("notifier should fire once, got %v", events)
+	if got := len(publishedActions(cmds, "tool_activity")); got != 1 {
+		t.Fatalf("notifier should fire once, got %d", got)
 	}
 
 	// unknown tool → 200 no-op.
@@ -64,13 +59,9 @@ func TestApiToolActivitySet(t *testing.T) {
 // NFR-AAP-3 / TC-AAP-5: agentrec.Sanitize strips control chars and bounds length.
 // FR-AAP-4 / TC-AAP-7: activity snapshot endpoint returns reported tools.
 func TestApiToolsActivity_Endpoint(t *testing.T) {
-	defer toolhub.SetAttnBusyProbe(func(*toolhub.Tool) bool { return true })() // agent alive
-	m := toolhub.NewToolManager("", nil)
-	t.Cleanup(m.StopSaving)
-	p1 := &toolhub.Tool{ID: "1"}
-	p1.SetActivity("working", "Edit", "app.js")
-	m.Adopt(p1)
-	s := &Server{Deps: Deps{Tools: m}}
+	s, _, tr := trackedServer(t, "1")
+	tr.SetBusyProbe(busyAll(true)) // agent alive
+	tr.SetActivity("1", "working", "Edit", "app.js")
 
 	rec := httptest.NewRecorder()
 	s.apiToolsActivity(rec, apiTestRequest(http.MethodGet, "/api/tools/activity", nil))
@@ -95,13 +86,8 @@ func TestApiToolsActivity_Endpoint(t *testing.T) {
 
 // V-ATN-1 (개정, D-12): `working` 활동 보고가 턴 시작 표시에 닿고, 그 턴의 done 은 알람이다.
 func TestApiToolActivitySet_WorkingReachesTheTurnMark(t *testing.T) {
-	m := toolhub.NewToolManager("", nil)
-	t.Cleanup(m.StopSaving)
-	var mu sync.Mutex
-	var attn, clear []string
-	p := newAttnPane("9", &mu, &attn, &clear)
-	m.Adopt(p)
-	s := &Server{Deps: Deps{Tools: m}}
+	s, _, tr := trackedServer(t, "9")
+	p := trackedTool{id: "9", tr: tr}
 
 	post := func(body string) {
 		rec := httptest.NewRecorder()
@@ -112,7 +98,7 @@ func TestApiToolActivitySet_WorkingReachesTheTurnMark(t *testing.T) {
 		}
 	}
 	post(`{"toolId":"9","state":"working","tool":"Bash"}`)
-	if !p.AgentState().Turn.TurnRan {
+	if !tr.AgentStateOf("9").Turn.TurnRan {
 		t.Fatalf("working 이 턴 시작 표시에 닿지 않았다")
 	}
 	p.SignalAttention("done")

@@ -87,7 +87,7 @@ func shimHookArgs(cmd, home string) []string {
 const shimChatDialWait = 300 * time.Millisecond
 
 // shimChatArgs 는 채팅 MCP 주입 인자다 (PEER_CHAT_SRS FR-PCH-50, §3.10). 데몬의 채팅 소켓에
-// 붙을 때만 붙인다 — 직접 모드·옛 데몬·꺼진 데몬에서는 주입하지 않는다 (NFR-PCH-5). `=` 꼴
+// 붙을 때만 붙인다 — 옛 데몬·꺼진 데몬에서는 주입하지 않는다 (NFR-PCH-5). `=` 꼴
 // 한 토큰이어야 가변 인자 옵션이 사용자 인자를 삼키지 않는다. 도구 여덟 개는 허락 없이 쓴다
 // (D-PCH-36).
 func shimChatArgs(home, tool string) []string {

@@ -28,9 +28,9 @@ func TestBrowserInputs_MarkAndLast(t *testing.T) {
 
 // FR-TGB-53: 브라우저 WS 의 OpInput 은 그 도구의 입력 시각을 남긴다 (직접 배선).
 func TestHandleWS_OpInputMarksBrowserInput(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 

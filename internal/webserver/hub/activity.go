@@ -2,7 +2,6 @@ package hub
 
 import (
 	"dongminal/internal/shared/activity"
-	"dongminal/internal/shared/toolhub"
 
 	"dongminal/internal/webserver/sse"
 )
@@ -15,10 +14,4 @@ func ValidActivityState(s string) bool { return activity.Valid(s) }
 // lowerCamelCase.
 func toolActivityPayload(toolID, state, tool, detail string) []byte {
 	return sse.Payload("tool_activity", map[string]any{"toolId": toolID, "state": state, "tool": tool, "detail": detail})
-}
-
-// WireActivity connects tool activity transitions to SSE broadcasts. Called
-// from the composition root once both the toolhub.ToolManager and CommandHub exist.
-func WireActivity(pm *toolhub.ToolManager, hub CommandBroker) {
-	pm.SetActivityNotifier(attnBroadcastsOf(hub).activity)
 }

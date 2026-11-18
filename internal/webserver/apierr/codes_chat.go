@@ -9,7 +9,6 @@ const (
 	CodeChatNoSuchRoom        = "chat_no_such_room"
 	CodeChatNoSuchParticipant = "chat_no_such_participant"
 	CodeChatUnavailable       = "chat_unavailable"
-	CodeChatDaemonOnly        = "chat_daemon_only"
 	CodeChatDaemonRestart     = "chat_daemon_restart"
 	CodeChatUnreachable       = "chat_unreachable"
 	// 사람 명령(§3.12)의 코드다.
@@ -20,6 +19,6 @@ const (
 
 var chatCodes = []string{
 	CodeChatBadRequest, CodeChatTooLarge, CodeChatRateLimited, CodeChatNotInRoom, CodeChatNoSuchRoom,
-	CodeChatNoSuchParticipant, CodeChatUnavailable, CodeChatDaemonOnly, CodeChatDaemonRestart, CodeChatUnreachable,
+	CodeChatNoSuchParticipant, CodeChatUnavailable, CodeChatDaemonRestart, CodeChatUnreachable,
 	CodeChatBadCode, CodeChatLocked, CodeChatNoHelper,
 }

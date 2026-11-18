@@ -46,10 +46,10 @@ type OutChunk struct {
 // TermSize 는 PTY 의 크기다 (FR-M9-3).
 type TermSize struct{ Cols, Rows uint16 }
 
-// DaemonHub 는 바이트 길이 **프로세스 경계를 건너는** 허브가 더 갖는 표면이다
-// (M8 `GO-46`). 직접 모드에는 없다 — 그쪽은 Tool 이 같은 프로세스에 있어
-// `Tool.AddClient` 로 붙는다. 종류(터미널·에이전트)를 묻는 메서드는 없다: 무엇이
-// 흐르든 바이트이고, 해석은 소비자의 몫이다 (M8_UNIFIED_SRS §9.3 ④·⑤).
+// DaemonHub 는 바이트 길이 **프로세스 경계를 건너는** 표면이다 (M8 `GO-46`).
+// ToolHub 가 이것을 품는다 — 웹 서버는 늘 데몬에 붙는다 (DIRECT_MODE_REMOVAL_SRS
+// FR-DMR-10). 종류(터미널·에이전트)를 묻는 메서드는 없다: 무엇이 흐르든 바이트이고,
+// 해석은 소비자의 몫이다 (M8_UNIFIED_SRS §9.3 ④·⑤).
 type DaemonHub interface {
 	// Subscribe 는 도구의 출력 조각을 ch 로 받는다. 돌려주는 exitCh 는 도구가
 	// 끝나면 닫힌다. unsubscribe 로 끊는다. 허브가 ch 를 닫으면 구독이 끊긴
@@ -84,21 +84,19 @@ type DaemonInfo struct {
 	Build string
 }
 
-// ToolHub is the minimum surface that HTTP/WS handlers need from the tool
-// registry. *ToolManager satisfies it naturally.
+// ToolHub 는 웹 서버의 HTTP/WS 처리기가 도구 등록부에 닿는 표면이다. 구현은 데몬
+// IPC(`toolclient.ToolClient`)다. *ToolManager 는 이것이 아니다 — 그것은 데몬 안의
+// 등록부다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-10·11).
 type ToolHub interface {
+	DaemonHub
 	List() []ToolInfo
 	// ListOK 는 목록과 함께 **그 목록이 관측된 사실인지**를 답한다
-	// (TOOL_LIST_UNKNOWN_SRS FR-TLU-2). 직접 모드는 언제나 안다 — 모를 수 있는
-	// 것은 목록이 다른 프로세스에 있는 데몬 모드뿐이다 (FR-TLU-3).
+	// (TOOL_LIST_UNKNOWN_SRS FR-TLU-2). 목록이 다른 프로세스에 있으므로 모를 수
+	// 있다 (FR-TLU-3).
 	ListOK() ([]ToolInfo, bool)
-	// Connected 는 레지스트리에 **지금** 닿는지다. 직접 모드는 언제나 참이고,
-	// 데몬 모드는 재접속 창에서 거짓이다 — 그때 없는 도구는 "사라진 것" 이 아니라
-	// "모르는 것" 이다.
+	// Connected 는 레지스트리에 **지금** 닿는지다. 재접속 창에서 거짓이다 — 그때
+	// 없는 도구는 "사라진 것" 이 아니라 "모르는 것" 이다.
 	Connected() bool
-	// Daemon 은 프로세스 경계를 건너는 허브의 추가 표면이다. 직접 모드는 nil —
-	// 이것이 모드 판별의 유일한 자리이며 타입 단언을 대신한다 (M8 `GO-46`).
-	Daemon() DaemonHub
 	// Create 는 도구를 띄운다. windowUUID 가 비어 있지 않고 그 Window 가
 	// 샌드박스 창이면 도구는 대응 컨테이너 안에서 돈다 (FR-SBX-10).
 	Create(cwd string, cols, rows uint16, place Placement) (*Tool, error)

@@ -700,6 +700,11 @@ const TIP_CHAT_CREATE='Create the room and join it'; // PEER_CHAT_SRS §3.11
 const TIP_CHAT_CANCEL='Close without creating';
 const TIP_CHAT_CMD_RUN='Ask the helper to sign and run the command'; // PEER_CHAT_SRS §3.12
 const TIP_CHAT_CMD_CANCEL='Close without running';
+// FR-TIP-2: Activity 탭 줄. 라벨은 카탈로그 말이고 툴팁은 영어다 (PEER_CHAT_SRS §3.11).
+const TIP_ACT_AGENTS='Show running agents';
+const TIP_ACT_BG='Show background tools';
+const TIP_ACT_RUNS='Show runs';
+const TIP_ACT_CHATS='Show chat rooms';
 /**
  * `12-func-ui.md FUI-04`: **Run 을 UI 에서 멈출 길이 없었다.**
  *

@@ -20,8 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"dongminal/internal/shared/edge"
-	"dongminal/internal/shared/edgenode"
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
@@ -129,10 +127,6 @@ type Server struct {
 	// 모든 표면 앞에 선다. `--expose` 뒤에 아무 제어가 없던 자리를 여기가 메운다.
 	Access *accessStore
 
-	// edgeNode·edgeLn 은 직접 모드의 노드와 노드 포트다 (PEER_DAEMON_SRS FR-PDM-52). DataDir 이
-	// 없거나 신원을 읽지 못하면 둘 다 nil 이고 노드 포트는 서지 않는다.
-	edgeNode *edgenode.Node
-	edgeLn   *edge.Listener
 	// edgeKick 은 데몬 모드에서 노드 설정을 다시 읽어 노드 포트에 적용하라는 신호다
 	// (FR-PDM-33). StartEdge 가 만든다. 하나만 쌓인다.
 	edgeKick chan struct{}
@@ -304,9 +298,6 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// REQUEST_GATE_SRS FR-RQG-6: 허용 호스트 집합은 `access.self` 를 읽으므로
 	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.
 	srv.hosts = newHostAllow(access, cfg.AllowedHosts)
-	if deps.EdgeDaemon == nil {
-		srv.initEdge()
-	}
 	srv.initTelegram()
 	srv.initClaudeAccounts()
 	runWorktreeRoot := ""

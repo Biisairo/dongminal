@@ -23,7 +23,7 @@ type key struct{ kind, tool string }
 //   - 연결 오류로 실패한 값은 남겨 두었다가 다음 Put·Flush 때 다시 보낸다
 //   - 데몬이 거절한 값(*toolipc.RPCError)은 버린다
 //
-// nil Writer 는 아무것도 하지 않는다 — 옛 데몬이나 직접 모드다 (FR-ARD-14).
+// nil Writer 는 아무것도 하지 않는다 — records 를 모르는 옛 데몬이다 (FR-ARD-14).
 type Writer struct {
 	send Sender
 	kick chan struct{}

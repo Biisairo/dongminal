@@ -190,9 +190,12 @@
   font:inherit;font-size:var(--fs-sm);line-height:1.5;color:var(--text);text-align:center;
 }
 .ui-badge-attn{background:var(--attn-subtle);border-color:var(--attn);color:var(--attn-text)}
+/* 탭 배지도 한 글자는 원이다 (FR-CMP-81) — 모서리는 지름의 절반, 폭은 수가 바뀌어도 그대로다. */
 .ui-tab-badge{
-  min-width:15px;padding:0 4px;border-radius:8px;
-  background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;
+  --ui-tab-badge-d:15px;
+  min-width:var(--ui-tab-badge-d);padding:0 4px;border-radius:calc(var(--ui-tab-badge-d) / 2);
+  background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:var(--ui-tab-badge-d);text-align:center;
+  font-variant-numeric:tabular-nums;
 }
 
 /* ── 세그먼트 (KIT_COMPONENTS_SRS FR-CMP-40~41) ─────────────────────────

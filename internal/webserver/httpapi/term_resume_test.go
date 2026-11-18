@@ -12,7 +12,6 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"dongminal/internal/shared/outbuf"
 	"dongminal/internal/shared/toolhub"
 )
 
@@ -290,106 +289,19 @@ func TestParseSince(t *testing.T) {
 
 // ── 회귀 방벽 ─────────────────────────────────────────────────────────────
 
-// FR-TRS-12: direct 모드와 daemon 모드가 **같은 바이트**를 보낸다. 두 경로가
-// 따로 조립하면 한쪽만 고쳐지는 자리가 다시 생긴다 (§2.4).
+// FR-TRS-12: 재생은 buildReplay 하나가 조립한다. 따로 조립하는 자리가 생기면 한쪽만
+// 고쳐지는 자리가 다시 생긴다 (§2.4).
 func TestBuildReplay_IsTheOnlyAssembler(t *testing.T) {
 	raw, err := os.ReadFile("handlers_ws.go")
 	if err != nil {
 		t.Fatalf("read handlers_ws.go: %v", err)
 	}
 	src := string(raw)
-	if strings.Count(src, "buildReplay(") < 2 {
-		t.Error("두 모드가 buildReplay 를 함께 쓰지 않는다")
+	if strings.Count(src, "buildReplay(") < 1 {
+		t.Error("WS 배선이 buildReplay 를 쓰지 않는다")
 	}
 	if strings.Contains(src, "tool.Restored") || strings.Contains(src, "Restored =") {
 		t.Error("FR-TRS-12·D-6: Restored 조건부 termReset 이 남아 있다")
-	}
-}
-
-// ── FR-TRS-17: direct 모드의 재생 경계 ────────────────────────────────────
-
-func newStream(t *testing.T, max int) *outbuf.Stream {
-	t.Helper()
-	s := outbuf.NewStream(max)
-	t.Cleanup(s.Close)
-	return s
-}
-
-// V-TRS-15: 재생은 **등록 오프셋에서 멈춘다.** 그 뒤는 broadcast 가 나르므로
-// 넘긴 만큼이 그대로 두 번 보인다.
-func TestDirectReplay_StopsAtRegistrationOffset(t *testing.T) {
-	s := newStream(t, 1000)
-	s.Feed([]byte("AAAAA")) // [0,5)  — 등록 전
-	regOff := s.Offset()
-	s.Feed([]byte("BBBBB")) // [5,10) — 등록 후, broadcast 가 나른다
-	data, full := directReplay(s, -1, regOff)
-	if !full {
-		t.Error("since 가 없으면 전량 재생이다")
-	}
-	if string(data) != "AAAAA" {
-		t.Errorf("data=%q want %q (등록 오프셋을 넘었다)", data, "AAAAA")
-	}
-}
-
-// V-TRS-15: 델타 재개도 같은 경계를 지킨다.
-func TestDirectReplay_DeltaStopsAtRegistrationOffset(t *testing.T) {
-	s := newStream(t, 1000)
-	s.Feed([]byte("0123456789")) // 클라이언트는 3 까지 봤다
-	regOff := s.Offset()         // 10
-	s.Feed([]byte("XYZ"))        // [10,13) — broadcast 몫
-	data, full := directReplay(s, 3, regOff)
-	if full {
-		t.Error("full=true, want false (창 안이다)")
-	}
-	if string(data) != "3456789" {
-		t.Errorf("data=%q want %q", data, "3456789")
-	}
-}
-
-// V-TRS-15: 겹침도 빈틈도 없다 — 재생 + broadcast 가 원본과 정확히 같다.
-func TestDirectReplay_NoGapNoOverlap(t *testing.T) {
-	s := newStream(t, 1000)
-	s.Feed([]byte("hello "))
-	regOff := s.Offset()
-	s.Feed([]byte("world"))
-	replay, _ := directReplay(s, 0, regOff)
-	// broadcast 가 등록 오프셋 뒤의 청크를 그대로 나른다.
-	if got := string(replay) + "world"; got != "hello world" {
-		t.Errorf("이어 붙인 결과=%q want %q", got, "hello world")
-	}
-}
-
-// V-TRS-15: 창 밖 since 는 전량 재생으로 조용히 강등된다.
-func TestDirectReplay_OutsideWindowFallsBack(t *testing.T) {
-	s := newStream(t, 100)
-	s.Feed(bytes.Repeat([]byte("x"), 250)) // 보유 창은 [150,250)
-	regOff := s.Offset()
-	data, full := directReplay(s, 0, regOff)
-	if !full {
-		t.Error("full=false, want true (창 밖이면 전량)")
-	}
-	if len(data) != 100 {
-		t.Errorf("len=%d want 100", len(data))
-	}
-}
-
-// 완전 동기 상태로 붙으면 보낼 것이 없다 — 화면을 건드리지 않는다.
-func TestDirectReplay_AlreadyInSync(t *testing.T) {
-	s := newStream(t, 1000)
-	s.Feed([]byte("abc"))
-	regOff := s.Offset()
-	data, full := directReplay(s, regOff, regOff)
-	if full {
-		t.Error("full=true, want false")
-	}
-	if len(data) != 0 {
-		t.Errorf("data=%q want empty", data)
-	}
-}
-
-func TestDirectReplay_NilStream(t *testing.T) {
-	if data, full := directReplay(nil, 0, 0); data != nil || !full {
-		t.Errorf("data=%q full=%v want nil true", data, full)
 	}
 }
 
@@ -426,9 +338,9 @@ func outputBytes(frames [][]byte) []byte {
 // V-TRS-6: since 없이 붙으면 전량 재생이고, 클리어가 스냅샷 앞에 온다.
 // V-TRS-10: 좌표가 OpSeq 로 통보되고 플래그가 전량 재생을 가리킨다.
 func TestHandleWS_FirstConnectIsFullReplay(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -466,9 +378,9 @@ func TestHandleWS_FirstConnectIsFullReplay(t *testing.T) {
 // V-TRS-8: 통보받은 좌표로 다시 붙으면 **클리어가 없고**, 그 좌표까지의 내용이
 // 다시 오지 않는다. 이것이 접수한 증상이 사라지는 자리다 (SRS §2.2).
 func TestHandleWS_ResumeSendsNoClearAndNoDuplicate(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -518,9 +430,9 @@ func TestHandleWS_ResumeSendsNoClearAndNoDuplicate(t *testing.T) {
 
 // V-TRS-6: 창 밖 좌표는 조용히 전량 재생으로 강등된다. 오류가 아니다.
 func TestHandleWS_StaleSinceFallsBackToFull(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 

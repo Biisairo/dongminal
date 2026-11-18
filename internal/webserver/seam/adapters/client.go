@@ -11,14 +11,13 @@ import (
 // Client는 원격 TCP 연결(remoteAddr) 로부터 클라이언트 PID 를 구하고,
 // 조상 체인을 거슬러 올라가며 tool 의 shell PID 와 매칭되는 toolID 를 반환한다.
 // /api/whoami 의 toolId 폴백 경로가 쓴다.
-// PM이 nil이면 (daemon mode) Hub 를 통해 tool 목록을 얻는다.
+// 도구 목록은 허브(데몬)에서 얻는다.
 type Client struct {
-	PM  *toolhub.ToolManager
 	Hub toolhub.ToolHub
 }
 
-// tools 는 같은 두 필드로 도구 목록을 읽는 Tool 어댑터다.
-func (r Client) tools() Tool { return Tool{PM: r.PM, Hub: r.Hub} }
+// tools 는 같은 허브로 도구 목록을 읽는 Tool 어댑터다.
+func (r Client) tools() Tool { return Tool{Hub: r.Hub} }
 
 func (r Client) ResolveClientPane(remoteAddr string) (string, int, error) {
 	// 클라이언트 pid 역추적과 부모 거슬러 오르기는 OS 마다 방법이 다르다.

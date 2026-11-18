@@ -26,10 +26,10 @@ func (h *countingHub) Get(id string) *toolhub.Tool {
 
 func (h *countingHub) evaluations() int64 { return h.gets.Load() / 2 }
 
-func countingStatusServer(t *testing.T) (*Server, *countingHub, *toolhub.Tool) {
+func countingStatusServer(t *testing.T) (*Server, *countingHub, *statusPane) {
 	t.Helper()
-	s, m, p := statusServer(t)
-	h := &countingHub{ToolHub: m}
+	s, _, p := statusServer(t)
+	h := &countingHub{ToolHub: s.Tools}
 	s.Tools = h
 	return s, h, p
 }

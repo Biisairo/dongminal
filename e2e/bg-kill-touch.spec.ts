@@ -68,6 +68,8 @@ test.describe('FR-BGK-2: 터치로 종료 목표에 닿는다', () => {
     // UX_BATCH12_SRS FR-ACF-10: 모바일에서 Activity 에 닿는 길은 서랍의 단추다.
     await page.locator('#m-drawer-toggle').tap();
     await page.locator('#m-drawer-acts button').tap();
+    // PEER_CHAT_SRS FR-PCH-80: 패널은 탭 줄이다. 서랍은 구역을 고르지 않으므로 Background 탭을 고른다.
+    await page.locator('#agents-panel.open .ag-tab[data-sec="bg"]').tap();
     const row = page.locator(`#agents-panel .bg-row[data-toolid="${id}"]`);
     await expect(row).toBeVisible();
 

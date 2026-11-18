@@ -4,10 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
-
-	"dongminal/internal/shared/toolhub"
 )
 
 // AGENT_EVENT_ABSTRACTION_SRS 묶음 A — 알람을 활동 이벤트에서 파생한다
@@ -27,15 +24,10 @@ func activityPost(t *testing.T, s *Server, body string) int {
 	return rec.Code
 }
 
-func alarmTool(t *testing.T) (*Server, *toolhub.Tool) {
+func alarmTool(t *testing.T) (*Server, trackedTool) {
 	t.Helper()
-	m := toolhub.NewToolManager("", nil)
-	t.Cleanup(m.StopSaving)
-	var mu sync.Mutex
-	var events []string
-	p := newActivityPane("1", &mu, &events)
-	m.Adopt(p)
-	return &Server{Deps: Deps{Tools: m}}, p
+	s, _, tr := trackedServer(t, "1")
+	return s, trackedTool{id: "1", tr: tr}
 }
 
 // V-AEV-1: **접수한 증상 그대로.** omp 가 턴을 시작했다가 끝내면 알람이 선다.

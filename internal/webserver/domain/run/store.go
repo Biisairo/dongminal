@@ -85,8 +85,6 @@ type Store struct {
 	// changed 는 메모리의 Run 이 바뀔 때마다 울린다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-4).
 	// 기다리는 쪽(프리앰블의 인수인계 대기)이 주기적으로 묻지 않게 한다.
 	changed pollwait.Signal
-	// abortOpenOnLoad 는 직접 모드의 표지다 (WithAbortOpenOnLoad).
-	abortOpenOnLoad bool
 	// writeMu 는 디스크 쓰기를 한 줄로 세운다 (FR-OPT-5-4). save 가 mu 를 놓고
 	// 쓰므로 순서를 지키는 것은 이쪽이다 — mu 를 쥔 채 writeMu 를 잡고 나서 mu 를
 	// 놓기 때문에, 직렬화 순서가 곧 디스크 도착 순서다.
@@ -187,16 +185,6 @@ func cloneRuns(in []Record) []Record {
 // Option customizes a Store for deterministic tests.
 type Option func(*Store)
 
-// WithAbortOpenOnLoad 는 Load 가 열린 Run 을 전부 `aborted` 로 저장하게 한다.
-// **직접 모드만 쓴다** (AGENT_RECORD_DAEMON_SRS §3.4a).
-//
-// 직접 모드에서는 서버 프로세스가 곧 도구를 들고 있다. 서버가 다시 뜨면 에이전트는
-// 실제로 죽었고, 도구는 빈 셸로만 되살아난다. 그래서 Load 때 열린 Run 은 모두 지난
-// 기동의 것이며 닫는 것이 맞다 — 종전 펜싱이 직접 모드에서 낸 결과와 같다 (§1.2).
-// 데몬 모드는 쓰지 않는다. 그쪽은 도구가 서버보다 오래 살고, 열림을 생존으로
-// 계산한다 (FR-ARD-3·4).
-func WithAbortOpenOnLoad() Option { return func(s *Store) { s.abortOpenOnLoad = true } }
-
 func WithClock(now func() int64) Option  { return func(s *Store) { s.now = now } }
 func WithIDGen(gen func() string) Option { return func(s *Store) { s.newID = gen } }
 
@@ -223,7 +211,7 @@ func (s *Store) path() string { return filepath.Join(s.dir, fileName) }
 // AGENT_RECORD_DAEMON_SRS FR-ARD-3: **데몬 모드에서는 열림을 판정하지 않는다.** 종전에는
 // 지난 기동의 열린 Run 을 여기서 `aborted` 로 저장했다(epoch 펜싱). 데몬이 답하지 못한
 // 순간의 "모른다"가 그 판정에서 "죽었다"가 되어 살아 있는 Run 이 영구히 닫혔다. 열림은
-// 이제 응답을 만들 때마다 생존으로 계산한다 (FR-ARD-4). 직접 모드는 WithAbortOpenOnLoad.
+// 이제 응답을 만들 때마다 생존으로 계산한다 (FR-ARD-4).
 func (s *Store) Load() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -249,28 +237,7 @@ func (s *Store) Load() error {
 	// 실패가 빈 목록으로 되돌리고, 그것은 손실을 막으려던 장치가 손실을 만드는
 	// 일이다. 아래 `save()` 가 도는 갈래에서는 그쪽이 다시 세운다.
 	s.persistedBlob = blob
-
-	if s.abortOpenOnLoad && s.abortOpen() {
-		return s.save()
-	}
 	return nil
-}
-
-// abortOpen 은 열린 Run 을 전부 aborted 로 바꾼다 (WithAbortOpenOnLoad). 이미 끝난
-// Run 은 끝난 이유를 그대로 둔다.
-func (s *Store) abortOpen() bool {
-	changed := false
-	for i := range s.runs {
-		r := &s.runs[i]
-		if r.State != Open {
-			continue
-		}
-		r.State = Aborted
-		r.AbortReason = AbortDaemonRestart
-		r.ClosedAt = s.now()
-		changed = true
-	}
-	return changed
 }
 
 // save writes runs.json atomically (FR-RUN-4): a temp file in the same

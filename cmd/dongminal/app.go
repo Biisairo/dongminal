@@ -43,7 +43,6 @@ type app struct {
 	// AfterFunc 가, 신호 없는 오류 종료면 종료 표의 첫 단계가 부른다.
 	cancelGit context.CancelFunc
 	// records 는 에이전트 기록을 데몬에 쓰는 큐다 (AGENT_RECORD_DAEMON_SRS FR-ARD-11).
-	// 직접 모드에서는 nil 이다.
 	records *recordsync.Writer
 }
 
@@ -71,31 +70,27 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 	cfg := httpapi.Config{Port: port, DataDir: home, StaticFS: web.FS(), Version: cli.Version}
 
 	a := &app{home: home, host: host, port: port}
-	// Try daemon mode: connect to dongminald if available
-	a.panedClient = dialOrStartDaemon(home)
-
-	var err error
-	if a.panedClient != nil {
-		// Daemon mode: ToolClient implements ToolHub
-		a.bd, err = buildDepsWithHub(cfg, a.panedClient, gitRoot)
-		if err == nil {
-			a.wireDaemonPushes()
-			// PEER_DAEMON_SRS §3.5a: 데몬이 노드다. 서버는 통로와 로컬 API 위임만 한다.
-			a.bd.deps.EdgeDaemon = a.panedClient
-			// PEER_CHAT_SRS §3.11: 채팅의 사람 참가자도 데몬에 있다.
-			a.bd.deps.ChatDaemon = a.panedClient
-			if a.bd.attnTracker != nil {
-				a.records = newRecordWriter(a.panedClient, a.bd.attnTracker)
-				a.bd.deps.Records = a.records
-				a.bd.deps.AttnDaemon = wireDaemonAttention(a.panedClient, a.bd.attnTracker)
-			}
-		}
-	} else {
-		// Direct mode: ToolManager directly (backward compatible)
-		a.bd, err = buildDeps(cfg, gitRoot)
-	}
+	// DIRECT_MODE_REMOVAL_SRS FR-DMR-1·2: 서버는 늘 데몬에 붙는다. 붙지 못하면 리스너를 열지
+	// 않고 끝난다 — 데몬 없이 도구를 직접 띄우는 갈래는 없다.
+	pc, err := dialOrStartDaemon(home)
 	if err != nil {
 		return nil, err
+	}
+	a.panedClient = pc
+	a.bd, err = buildDepsWithHub(cfg, a.panedClient, gitRoot)
+	if err != nil {
+		a.panedClient.Close()
+		return nil, err
+	}
+	a.wireDaemonPushes()
+	// PEER_DAEMON_SRS §3.5a: 데몬이 노드다. 서버는 통로와 로컬 API 위임만 한다.
+	a.bd.deps.EdgeDaemon = a.panedClient
+	// PEER_CHAT_SRS §3.11: 채팅의 사람 참가자도 데몬에 있다.
+	a.bd.deps.ChatDaemon = a.panedClient
+	if a.bd.attnTracker != nil {
+		a.records = newRecordWriter(a.panedClient, a.bd.attnTracker)
+		a.bd.deps.Records = a.records
+		a.bd.deps.AttnDaemon = wireDaemonAttention(a.panedClient, a.bd.attnTracker)
 	}
 	dmlog.Infof(nil, "workspace manager ready rev=%d bytes=%d", a.bd.wsMgr.CurrentRev(), len(a.bd.wsMgr.Raw()))
 
@@ -125,11 +120,12 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 	return a, nil
 }
 
-// errRuntimeInstall·errServerInit 은 조립 실패의 자리를 가른다 — `serve` 가 로그
-// 문구를 고른다.
+// errRuntimeInstall·errServerInit·errDaemonUnavailable 은 조립 실패의 자리를 가른다 —
+// `serve` 가 로그 문구를 고른다.
 var (
-	errRuntimeInstall = errors.New("runtime install")
-	errServerInit     = errors.New("server init")
+	errRuntimeInstall    = errors.New("runtime install")
+	errServerInit        = errors.New("server init")
+	errDaemonUnavailable = errors.New("daemon unavailable")
 )
 
 // wireDaemonEdges 는 데몬 노드의 push 와 재접속을 서버에 잇는다 (PEER_DAEMON_SRS FR-PDM-27·33).
@@ -162,8 +158,7 @@ func (a *app) wireDaemonPushes() {
 		attnTracker.SetActivity(toolID, activity.Ended, "", "")
 		attnTracker.Forget(toolID)
 		// UX_BATCH6_SRS FR-BGP-1·2: 백그라운드 목록은 살아 있는
-		// 프로세스의 목록이다. 데몬 모드에서 그 죽음을 웹서버가 아는
-		// 자리는 여기 하나다 — direct 모드의 짝은 `hub.WireBackground`.
+		// 프로세스의 목록이다. 그 죽음을 웹서버가 아는 자리는 여기 하나다.
 		//
 		// **백그라운드였는지 가리지 않는다.** 그 사실을 아는 것은 데몬의
 		// 레지스트리이고, 여기 닿을 때는 이미 지워진 뒤다. 방송이 나르는
@@ -173,7 +168,7 @@ func (a *app) wireDaemonPushes() {
 		a.bd.deps.Commands.Broadcast(hub.BackgroundChangedPayload())
 	})
 	// FR-TAN-7: PTY 를 dongminald 가 들고 있으므로 전경 이름은 IPC push
-	// 로 온다. direct 모드의 WireForeground 와 같은 Broadcast 에 잇는다.
+	// 로 온다.
 	a.panedClient.SetOnForeground(hub.BroadcastForeground(a.bd.deps.Commands))
 }
 
@@ -210,11 +205,6 @@ func (a *app) run(ctx context.Context) error {
 
 	// 스위퍼의 틱은 여기서 만든다 — 스위퍼는 틱을 받을 뿐 시계를 갖지 않는다
 	// (TEST-8). 티커는 ctx 와 함께 멈춘다.
-	if bd.pm != nil {
-		tk := time.NewTicker(toolhub.AttentionSweepInterval)
-		context.AfterFunc(ctx, tk.Stop)
-		bd.pm.StartAttentionSweeper(ctx.Done(), tk.C)
-	}
 	a.records.Start(ctx.Done())
 	if bd.attnTracker != nil {
 		tk := time.NewTicker(hub.SweeperInterval)
@@ -224,9 +214,8 @@ func (a *app) run(ctx context.Context) error {
 	if bd.sampler != nil {
 		bd.sampler.Start(ctx.Done())
 	}
-	// FR-TAN-8: direct 모드에서 전경 조회를 돌리는 주체. 데몬 모드에서는 데몬이
-	// 스스로 돌리므로 틱을 흘려보낸다 — 전경 티커가 없는 옛 데몬에만 list RPC 로
-	// 조회를 시킨다 (FR-OPT-2-1).
+	// FR-TAN-8: 전경 조회는 데몬이 스스로 돌리므로 틱을 흘려보낸다 — 전경 티커가
+	// 없는 옛 데몬에만 list RPC 로 조회를 시킨다 (FR-OPT-2-1).
 	{
 		tk := time.NewTicker(hub.ForegroundInterval)
 		context.AfterFunc(ctx, tk.Stop)
@@ -237,7 +226,7 @@ func (a *app) run(ctx context.Context) error {
 	// 실행하지 않고 read 1회 + stat 2회다.
 	a.srv.StartGitWatch(ctx.Done())
 	// UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
-	// 부팅 직후 한 번 돌므로 직접 모드의 재기동이 aborted 로 표시한 Run 도 여기서 사라진다.
+	// 부팅 직후 한 번 돌므로 옛 판의 재기동이 aborted 로 표시한 Run 도 여기서 사라진다.
 	a.srv.StartRunReaper(ctx.Done())
 	// ACCESS_ALLOWLIST_SRS FR-ACL-5a·15: 허용 목록의 호스트명 해석과 이 머신의
 	// 인터페이스 주소를 주기적으로 갱신한다. 요청 경로는 그 결과만 읽는다 —
@@ -353,12 +342,6 @@ func (a *app) shutdownSteps() []shutdownStep {
 				a.panedClient.Close()
 			}
 		}},
-		{"도구 저장", func() {
-			if a.bd.pm != nil {
-				a.bd.pm.StopSaving()
-				a.bd.pm.SaveAll()
-			}
-		}},
 		{"샌드박스", func() {
 			if a.bd.deps.Sandbox != nil {
 				a.bd.deps.Sandbox.Shutdown()
@@ -406,6 +389,10 @@ func serve(home, host, port string) int {
 			dmlog.Infof(nil, "  3) 변환 실행:                 dongminal migrate")
 		case errors.Is(err, errRuntimeInstall), errors.Is(err, errServerInit):
 			dmlog.Infof(nil, "%v", err)
+		case errors.Is(err, errDaemonUnavailable):
+			// FR-DMR-2: 원인과 데몬 로그의 자리를 함께 낸다 — 데몬의 실패 사유는 그쪽에 있다.
+			dmlog.Errorf(nil, "%v", err)
+			dmlog.Errorf(nil, "  데몬 로그: %s", filepath.Join(home, dmenv.DaemonLogFile))
 		default:
 			dmlog.Infof(nil, "buildDeps: %v", err)
 		}

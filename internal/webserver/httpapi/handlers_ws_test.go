@@ -25,9 +25,9 @@ func mustWS(t *testing.T, srv *httptest.Server, path string) *websocket.Conn {
 }
 
 func TestHandleWS_NewTool(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -62,9 +62,9 @@ func TestHandleWS_NewTool(t *testing.T) {
 }
 
 func TestHandleWS_ExistingTool(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -139,9 +139,9 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 }
 
 func TestHandleWS_OpInput(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -194,9 +194,9 @@ func TestHandleWS_OpInput(t *testing.T) {
 }
 
 func TestHandleWS_OpResize(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -230,9 +230,9 @@ func TestHandleWS_OpResize(t *testing.T) {
 }
 
 func TestHandleWS_MissingTool(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -520,9 +520,9 @@ func dialWS(t *testing.T, ts *httptest.Server, path string, hdr http.Header) int
 
 func wsGateServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	return ts
@@ -541,9 +541,9 @@ func TestHandleWS_CrossOriginRejected(t *testing.T) {
 // TC-ROP-2: 같은 기계의 다른 포트가 연 WebSocket 은 업그레이드 전에 막히고 셸이
 // 생기지 않는다 (REQUEST_GATE_ORIGIN_PORT_SRS §1.1 재현).
 func TestHandleWS_OtherPortOriginRejected(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	before := len(pm.List())

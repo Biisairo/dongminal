@@ -163,8 +163,8 @@ func (s *Server) applyActivityReport(req agentrec.ActivityReport) string {
 // 않았다 (SRS §2.1).
 //
 // 파생의 자리가 서버인 이유는 D-1 이다: `dmctl` 이 한 번 더 POST 하면 왕복이
-// 늘고 **두 요청의 순서가 다시 문제가 된다.** 한 요청 안에서는 순서가 확정되고,
-// 직접·데몬 두 모드가 같은 자리를 지난다 (FR-AEV-14).
+// 늘고 **두 요청의 순서가 다시 문제가 된다.** 한 요청 안에서는 순서가 확정된다
+// (FR-AEV-14).
 func (s *Server) reportActivity(toolID, state, tool, detail string, turnKnown bool) {
 	tool = agentrec.Sanitize(tool, agentrec.ToolMax)
 	detail = agentrec.Sanitize(detail, agentrec.DetailMax)
@@ -258,9 +258,8 @@ func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
 	 *             갱신되는 경우 갱신되지 않는다". 다른 브라우저는 SSE 재연결
 	 *             전까지 낡은 수를 보인다
 	 *
-	 * 이 자리인 이유는 **두 모드가 공유하는 유일한 자리**이기 때문이다. 데몬
-	 * 모드에서 `SetBackground` 는 웹서버가 아니라 데몬 프로세스에서 돌아 알릴
-	 * 구독자가 없다.
+	 * 이 자리인 이유는 `SetBackground` 가 웹서버가 아니라 데몬 프로세스에서 돌아
+	 * 거기에는 알릴 구독자가 없기 때문이다.
 	 */
 	s.broadcastLayout("tools_background_changed", nil)
 	httpresp.JSON(w, http.StatusOK, map[string]any{"ok": true})

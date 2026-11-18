@@ -25,8 +25,8 @@ func targetFlags(c Common, port, home string) string {
 // RunMigrate는 `dongminal migrate` 다 (FR-ACT-11/12).
 //
 // 서버 실행 중 거부(FR-ACT-12)를 migrate.Apply 의 데몬 검사에 맡길 수 없다 —
-// direct mode 로 도는 인스턴스는 paned.pid 가 죽은 pid 를 가리키므로 그
-// 검사를 통과한다. 서버 자체를 두드려 확인한다.
+// 데몬이 죽은 채 도는 서버는 paned.pid 가 죽은 pid 를 가리키므로 그 검사를
+// 통과한다. 서버 자체를 두드려 확인한다.
 func RunMigrate(o MigrateOpts, stdout, stderr io.Writer) int {
 	// 겨냥은 `start` 와 같은 규칙이다 (FR-STR-23).
 	//

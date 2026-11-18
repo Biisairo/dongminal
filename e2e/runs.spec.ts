@@ -111,6 +111,13 @@ function graphB(): Json {
   });
 }
 
+// FUI-04: 분리는 탭에 붙은 **활성** 멤버의 카드에만 선다. graphA 에서 탭에 붙은 m4 는 승계로
+// 끝난 멤버라 카드가 없다 (RUN_INACTIVE_NODE_SRS FR-RIN-10) — 활성 멤버 m5 를 탭에 붙인다.
+function graphAttached(): Json {
+  const g = graphA();
+  return withActions({ ...g, members: g.members.map((m: Json) => (m.id === 'm5' ? { ...m, tabId: 'tab-m5' } : m)) });
+}
+
 // 모달의 목록은 /api/runs 이며 레코드 요약이다 (graph 와 다른 종단이다).
 function listOf(...graphs: Json[]) {
   return graphs.map((g) => ({
@@ -536,7 +543,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
 
   test('V-FUI-4d: 붙어 있는 멤버 카드에만 분리가 서고, 누르면 detach 가 나간다',
     async ({ page }) => {
-      const a = graphA();
+      const a = graphAttached();
       await mockRuns(page, listOf(a), { [RUN_A]: a });
       const posts = captureRunPost(page, '/api/runs/detach');
       await waitForInit(page);
@@ -560,7 +567,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
     });
 
   test('V-FUI-4e: 분리 클릭이 그 도구로 끌고 가지 않는다', async ({ page }) => {
-    const a = graphA();
+    const a = graphAttached();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     captureRunPost(page, '/api/runs/detach');
     await waitForInit(page);

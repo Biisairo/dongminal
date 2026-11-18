@@ -123,7 +123,7 @@ func (m *ToolManager) ActivitySnapshot() []ActivitySnap {
 }
 
 // sweepIdle runs one L2 idle pass at the given time. Exposed for deterministic
-// tests; the goroutine in StartAttentionSweeper calls it on each tick.
+// tests; the goroutine in RunAttentionSweeper calls it on each tick.
 func (m *ToolManager) sweepIdle(now int64) {
 	m.mu.RLock()
 	tools := make([]*Tool, 0, len(m.tools))
@@ -135,19 +135,6 @@ func (m *ToolManager) sweepIdle(now int64) {
 	for _, p := range tools {
 		p.maybeIdle(now, threshold)
 	}
-}
-
-// StartAttentionSweeper launches the L2 idle sweeper goroutine. stop closes on
-// server shutdown. No-op when L2 is disabled (idleThreshold<=0).
-//
-// 틱은 주입한다 (M8 TEST-8) — 배선은 `AttentionSweepInterval` 티커의 채널을,
-// 테스트는 자기 채널을 준다. 데몬 모드의 `hub.AttnTracker.StartSweeper` 와 같은
-// 모양이다.
-func (m *ToolManager) StartAttentionSweeper(stop <-chan struct{}, tick <-chan time.Time) {
-	if m.idleThreshold <= 0 {
-		return
-	}
-	m.RunAttentionSweeper(stop, tick)
 }
 
 // RunAttentionSweeper 는 문턱과 무관하게 스위퍼를 띄운다. 데몬이 쓴다 — 문턱은 서버가
@@ -249,23 +236,4 @@ func (m *ToolManager) SetInvalidator(f func(string)) {
 	m.mu.Lock()
 	m.invalidator = f
 	m.mu.Unlock()
-}
-
-// SetBackgroundChanged 는 백그라운드 목록 변화의 수신자를 꽂는다 (FR-BGP-2).
-func (m *ToolManager) SetBackgroundChanged(f func()) {
-	m.mu.Lock()
-	m.bgChanged = f
-	m.mu.Unlock()
-}
-
-// notifyBackground 는 수신자를 잠금 밖에서 부른다 — 수신자가 SSE 브로드캐스트를
-// 하며, 그 안에서 다시 이 매니저를 물을 수 있다 (`BackgroundList`). 잠금을 쥔 채
-// 부르면 그 자리에서 잠긴다.
-func (m *ToolManager) notifyBackground() {
-	m.mu.RLock()
-	f := m.bgChanged
-	m.mu.RUnlock()
-	if f != nil {
-		f()
-	}
 }

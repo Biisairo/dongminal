@@ -250,7 +250,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 간선으로 이어진 노드들의 채팅에 이 노드의 사람으로 참가합니다. 채팅은 데몬에 있고 서버는 요청을 데몬에 넘깁니다. 서버와 데몬은 대화 내용을 들지 않습니다. 사람에게 온 글은 `chat_message` 로 방송할 뿐 남기지 않습니다.
 
-UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 입니다. 직접 모드(데몬 없음)는 모든 경로가 409 `chat_daemon_only`, 붙은 데몬이 채팅을 모르는 옛 판이면 409 `chat_daemon_restart`, 데몬에 닿지 못하면 502 `chat_unreachable`, 데몬에 채팅이 서지 않았으면 503 `chat_unavailable` 입니다. 채팅 연산의 실패는 400 `chat_bad_request`, 413 `chat_too_large`(글 16 KiB 초과), 429 `chat_rate_limited`(1분에 30개 초과), 409 `chat_not_in_room`, 404 `chat_no_such_room`·`chat_no_such_participant` 입니다. 사람 명령(`kill`·`kick`)은 403 `chat_bad_code`(코드가 틀렸거나 이미 씀), 423 `chat_locked`(5번 틀려 5분 잠김, `message` 는 풀리는 시각 RFC 3339), 409 `chat_no_helper`(도우미 없음)를 더합니다.
+UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 입니다. 붙은 데몬이 채팅을 모르는 옛 판이면 409 `chat_daemon_restart`, 데몬에 닿지 못하면 502 `chat_unreachable`, 데몬에 채팅이 서지 않았으면 503 `chat_unavailable` 입니다. 채팅 연산의 실패는 400 `chat_bad_request`, 413 `chat_too_large`(글 16 KiB 초과), 429 `chat_rate_limited`(1분에 30개 초과), 409 `chat_not_in_room`, 404 `chat_no_such_room`·`chat_no_such_participant` 입니다. 사람 명령(`kill`·`kick`)은 403 `chat_bad_code`(코드가 틀렸거나 이미 씀), 423 `chat_locked`(5번 틀려 5분 잠김, `message` 는 풀리는 시각 RFC 3339), 409 `chat_no_helper`(도우미 없음)를 더합니다.
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|

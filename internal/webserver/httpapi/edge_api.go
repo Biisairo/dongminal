@@ -47,24 +47,12 @@ func taggedRef(r *edgenode.Ref) map[string]string {
 
 // edgeDo 는 연산 op 하나를 처리한다. withBody 면 요청 본문을 Args 로 넘긴다.
 func (s *Server) edgeDo(w http.ResponseWriter, r *http.Request, op string, withBody bool) {
-	if s.EdgeDaemon != nil {
-		s.edgeDaemonDo(w, r, op, withBody)
-		return
-	}
-	if s.edgeNode == nil {
+	// 노드는 데몬이다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-21). 데몬이 배선되지 않은 서버는 노드가 없다.
+	if s.EdgeDaemon == nil {
 		codeFail(w, http.StatusServiceUnavailable, apierr.CodeEdgeUnavailable, "edge layer unavailable")
 		return
 	}
-	var raw []byte
-	if withBody {
-		var err error
-		if raw, err = httpreq.Read(w, r, jsonBodyLimit); err != nil {
-			codeFail(w, httpreq.Status(err), bodyReadCode(err), "read body")
-			return
-		}
-	}
-	res := s.edgeNode.Do(r.Context(), edgenode.Request{Op: op, Args: raw, IfMatch: r.Header.Get("If-Match")})
-	writeEdgeResponse(w, res)
+	s.edgeDaemonDo(w, r, op, withBody)
 }
 
 // writeEdgeResponse 는 노드의 답을 그대로 쓴다. ETag 는 오류(409 포함)에도 싣는다.

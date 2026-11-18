@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"dongminal/internal/shared/agentrec"
-	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/domain/telegram"
 	"dongminal/internal/webserver/hub"
 	"dongminal/internal/webserver/seam/toolaccess"
@@ -52,7 +51,7 @@ func (r *tgRec) events() []telegram.Event {
 // tgServer 는 도구 p1(윈도우 "작업창", 탭 "작업탭")과 브리지 기록기를 가진 서버다.
 func tgServer(t *testing.T, enabled bool) (*Server, *tgRec) {
 	t.Helper()
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
 	m.AdoptDetached("p1")
 	io := newFakeToolIO()
@@ -63,7 +62,8 @@ func tgServer(t *testing.T, enabled bool) (*Server, *tgRec) {
 		t.Fatal(err)
 	}
 	rec := &tgRec{}
-	s := &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}, limits: defaultLimits()}
+	tr := hub.NewAttnTracker(hub.NewCommandHub(), 0)
+	s := &Server{Deps: Deps{Tools: mHub, ToolIO: io, WorkIndex: wi, AttnTracker: tr}, limits: defaultLimits()}
 	s.tg = newTelegramWire(st, rec)
 	return s, rec
 }
@@ -118,39 +118,17 @@ func TestTelegramHost(t *testing.T) {
 	}
 	// FR-TGB-58a: 읽음은 포커스와 같은 해제다.
 	s.attention().SignalAttention("p1", "bell")
-	if !s.Tools.Get("p1").Attention() {
+	if !s.AttnTracker.Attention("p1") {
 		t.Fatal("알람이 서지 않았다")
 	}
 	h.Attend("p1", false)
-	if s.Tools.Get("p1").Attention() {
+	if s.AttnTracker.Attention("p1") {
 		t.Fatal("읽음으로 알람이 꺼지지 않았다")
 	}
 	before := time.Now()
 	s.browserIn.mark("p1")
 	if got := h.LastBrowserInput("p1"); got.Before(before) {
 		t.Fatalf("LastBrowserInput=%v", got)
-	}
-}
-
-// FR-TGB-50: 알람 판정은 브리지에도 간다 (직접 모드의 실제 콜백 경로).
-func TestTelegramWire_AttentionObserver(t *testing.T) {
-	m := toolhub.NewToolManager("", nil)
-	t.Cleanup(m.StopSaving)
-	cmd := hub.NewCommandHub()
-	hub.WireAttention(m, cmd)
-	m.AdoptDetached("p1")
-	st := telegram.OpenStore(filepath.Join(t.TempDir(), "telegram.json"))
-	_ = st.SetEnabled(true)
-	rec := &tgRec{}
-	s := &Server{Deps: Deps{Tools: m, Commands: cmd}, limits: defaultLimits()}
-	s.tg = newTelegramWire(st, rec)
-	s.wireTelegramAttention()
-	s.attention().SignalAttention("p1", "bell")
-	s.attention().Attend("p1", false)
-	rec.mu.Lock()
-	defer rec.mu.Unlock()
-	if len(rec.attn) != 2 || rec.attn[0] != "p1:bell" || rec.attn[1] != "p1:clear" {
-		t.Fatalf("attn=%v", rec.attn)
 	}
 }
 
@@ -163,10 +141,10 @@ func TestTelegramWire_OffSendsNoRequests(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true,"result":[]}`))
 	}))
 	defer fake.Close()
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
 	m.AdoptDetached("p1")
-	srv, err := New(Config{DataDir: t.TempDir(), TelegramAPI: fake.URL}, Deps{Tools: m})
+	srv, err := New(Config{DataDir: t.TempDir(), TelegramAPI: fake.URL}, Deps{Tools: mHub})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"sync"
+	"testing"
 
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/webserver/hub"
 )
 
 // attnHooks는 주의 알림 이벤트를 슬라이스에 모으는 훅 묶음이다. 종단 핸들러
@@ -44,4 +46,27 @@ func newActivityPane(id string, mu *sync.Mutex, events *[]string) *toolhub.Tool 
 			mu.Unlock()
 		},
 	})
+}
+
+// trackedTool 은 서버 추적기 위의 도구 하나다. 시험이 그 도구의 주의·활동을 묻고 세운다 —
+// 관측은 추적기에 있다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-12).
+type trackedTool struct {
+	id string
+	tr *hub.AttnTracker
+}
+
+func (p trackedTool) Attention() bool                  { return p.tr.Attention(p.id) }
+func (p trackedTool) Attend()                          { p.tr.Attend(p.id) }
+func (p trackedTool) SignalAttention(reason string)    { p.tr.SignalAttention(p.id, reason) }
+func (p trackedTool) Activity() *toolhub.ActivityState { return p.tr.Activity(p.id) }
+
+// trackedServer 는 데몬에 붙고 추적기를 가진 서버다. ids 의 도구를 데몬에 들인다.
+func trackedServer(t *testing.T, ids ...string) (*Server, *toolhub.ToolManager, *hub.AttnTracker) {
+	t.Helper()
+	m, mHub := daemonPairAt(t, "")
+	for _, id := range ids {
+		m.Adopt(toolhub.NewDetachedTool(id, nil))
+	}
+	tr := hub.NewAttnTracker(hub.NewCommandHub(), 0)
+	return &Server{Deps: Deps{Tools: mHub, AttnTracker: tr}, limits: defaultLimits()}, m, tr
 }

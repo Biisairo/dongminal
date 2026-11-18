@@ -45,7 +45,8 @@ func postKill(s *Server, body string) *httptest.ResponseRecorder {
 }
 
 func TestApiToolKill_RejectsMissingToolID(t *testing.T) {
-	s := &Server{Deps: Deps{Tools: toolhub.NewToolManager(toolTempDir(t), nil)}}
+	_, hub := daemonPair(t)
+	s := &Server{Deps: Deps{Tools: hub}}
 	for _, body := range []string{``, `{}`, `{"toolId":""}`} {
 		if got := postKill(s, body).Code; got != http.StatusBadRequest {
 			t.Errorf("body=%q status=%d, want 400", body, got)
@@ -56,7 +57,8 @@ func TestApiToolKill_RejectsMissingToolID(t *testing.T) {
 // V-BGK-10 의 서버측 근거: 알 수 없는 도구는 404 다. 조용히 성공하면 모달이
 // 낡은 행을 지우고 사용자는 무엇이 잘못됐는지 알 수 없다.
 func TestApiToolKill_UnknownToolIs404(t *testing.T) {
-	s := &Server{Deps: Deps{Tools: toolhub.NewToolManager(toolTempDir(t), nil)}}
+	_, hub := daemonPair(t)
+	s := &Server{Deps: Deps{Tools: hub}}
 	if got := postKill(s, `{"toolId":"nope"}`).Code; got != http.StatusNotFound {
 		t.Fatalf("status=%d, want 404", got)
 	}
@@ -73,14 +75,14 @@ func TestApiToolKill_NoHubIs404(t *testing.T) {
 // background 맵에서도 제거한다).
 func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	dir := toolTempDir(t)
-	m := toolhub.NewToolManager(dir, nil)
+	m, mHub := daemonPairAt(t, dir)
 	t.Cleanup(m.StopSaving)
 	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
 	m.SetBackground(tl.ID, true)
-	s := &Server{Deps: Deps{Tools: m}}
+	s := &Server{Deps: Deps{Tools: mHub}}
 	shortGrace(s, 200*time.Millisecond)
 
 	rec := postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`)
@@ -131,7 +133,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	}
 	t.Setenv("SHELL", shell)
 
-	m := toolhub.NewToolManager(dir, nil)
+	m, mHub := daemonPairAt(t, dir)
 	t.Cleanup(m.StopSaving)
 	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
@@ -144,7 +146,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	waitFor(t, ready)
 	m.SetBackground(tl.ID, true)
 
-	s := &Server{Deps: Deps{Tools: m}}
+	s := &Server{Deps: Deps{Tools: mHub}}
 	shortGrace(s, grace)
 	start := time.Now()
 	done := make(chan int, 1)

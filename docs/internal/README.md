@@ -168,6 +168,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [PEER_NETWORK_SRS.md](./PEER_NETWORK_SRS.md) | **노드 간 통신** (IEEE 29148, `FR-PNW-*`). 다른 PC의 dongminal과 짝맞춰 에이전트 목록·메시지·원격 기동을 프로토콜 명령으로 주고받는다. **승인·구현완료** |
 | [PEER_DAEMON_SRS.md](./PEER_DAEMON_SRS.md) | **노드 역할의 데몬 이관** (IEEE 29148, `FR-PDM-*`). 노드(신원·짝·TLS·프로토콜)를 데몬으로 옮기고, 서버는 바이트 통로와 화면만 맡는다. 동작은 바꾸지 않는다. **승인·구현중** |
 | [PEER_CHAT_SRS.md](./PEER_CHAT_SRS.md) | **노드 망 채팅** (IEEE 29148, `FR-PCH-*`). 짝을 건너 이어진 망에서 방을 만들어 대화한다. 에이전트는 MCP, 사람은 화면으로 참여하고, 사람 명령은 도우미 + TOTP 로 확인한다. 모든 상태는 데몬 메모리. 선행: PEER_DAEMON. **초안** |
+| [DIRECT_MODE_REMOVAL_SRS.md](./DIRECT_MODE_REMOVAL_SRS.md) | **직접 모드 제거** (IEEE 29148, `FR-DMR-*`). 데몬 없이 서버만 도는 배선은 지원 대상이 아니었다. 서버는 늘 데몬에 붙고, 붙지 못하면 오류로 끝난다. 서버 안 노드·in-process 허브·`Daemon()` 분기를 지우고 서버 시험을 데몬 배선으로 옮겼다 |
 | [STATE_FILE_DURABILITY_SRS.md](./STATE_FILE_DURABILITY_SRS.md) | **상태 파일의 내구성 — 세대·격리·빈 판 방지** (IEEE 29148). **사용자의 워크스페이스가 조용히 사라지지 않게 한다.** 세 구멍이 한 뿌리다 — 깨졌을 때 **돌아갈 곳이 없고**, 깨진 것을 **알아채는 자리가 없고**, 그 상태에서 브라우저가 **빈 판을 저장한다.** **구현 완료** |
 | [SUBMODULE_DIRTY_NOTICE_SRS.md](./SUBMODULE_DIRTY_NOTICE_SRS.md) | **서브모듈 행이 왜 사라지지 않는지 말한다** (IEEE 29148). 확인 결과 **버그가 아니었다** — 재현으로 그 사실을 확정하고, 대신 **왜 남는지를 말하지 않던 것**을 고친다. **구현 완료** |
 | [TERMINAL_FOLDER_DROP_SRS.md](./TERMINAL_FOLDER_DROP_SRS.md) | **터미널에 폴더를 놓는다** (IEEE 29148, `FR-FTR-*`). **문서가 거짓을 말하고 있었다** — `README.md` 와 `features.md`·`commands.md` 가 폴더 드롭을 적는데, `term-pane.js` 는 `dataTransfer.files` 만 보아 터미널 쪽은 사실이 아니었다. **구현 완료** |

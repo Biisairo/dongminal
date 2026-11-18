@@ -66,13 +66,28 @@ func TestEdgeDaemonOldDaemonNeedsRestart(t *testing.T) {
 	}
 }
 
-// daemonEdgeFixture 는 실제 데몬 IPC 위의 노드와, 그 데몬에 붙은 데몬 모드 서버다.
+// daemonEdgeFixture 는 실제 데몬 IPC 위의 노드와, 그 데몬에 붙은 서버다.
 func daemonEdgeFixture(t *testing.T, home string, cfg edge.Config) (*edgeNode, *fakeCommandBroker, *ipc.PanedServer) {
+	t.Helper()
+	cmds := &fakeCommandBroker{}
+	n := edgeDaemonNode(t, home, cfg, cmds)
+	return n, cmds, n.ps
+}
+
+// edgeDaemonNode 는 home 의 설정으로 데몬 노드를 세우고 서버를 그 데몬에 붙인다. 노드는 데몬이다
+// (DIRECT_MODE_REMOVAL_SRS FR-DMR-20) — 노드 포트를 열려면 서버의 StartEdge 가 통로를 연다.
+func edgeDaemonNode(t *testing.T, home string, cfg edge.Config, cmds *fakeCommandBroker) *edgeNode {
 	t.Helper()
 	raw, _ := json.Marshal(cfg)
 	if err := os.WriteFile(filepath.Join(home, dmenv.EdgesFile), raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	return edgeDaemonNodeAt(t, home, cmds)
+}
+
+// edgeDaemonNodeAt 은 home 에 이미 있는 파일 그대로 데몬 노드를 세운다.
+func edgeDaemonNodeAt(t *testing.T, home string, cmds *fakeCommandBroker) *edgeNode {
+	t.Helper()
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	t.Cleanup(pm.StopSaving)
 	sock := filepath.Join(shortHome(t), "s")
@@ -98,14 +113,13 @@ func daemonEdgeFixture(t *testing.T, home string, cfg edge.Config) (*edgeNode, *
 		t.Fatal(err)
 	}
 	t.Cleanup(pc.Close)
-	cmds := &fakeCommandBroker{}
 	srv, err := New(Config{DataDir: home}, Deps{Commands: cmds, EdgeDaemon: pc})
 	if err != nil {
 		t.Fatal(err)
 	}
 	pc.SetOnEdges(func(ev toolipc.EdgesEvent) { srv.EdgePushed(ev) })
 	pc.SetOnEdgeResync(srv.EdgeResync)
-	return &edgeNode{srv: srv, home: home}, cmds, ps
+	return &edgeNode{srv: srv, home: home, node: node, ps: ps}
 }
 
 func edgeWait(t *testing.T, what string, cond func() bool) {

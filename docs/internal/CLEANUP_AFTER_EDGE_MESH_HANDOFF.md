@@ -55,6 +55,8 @@
 ## 값을 치르고 배운 것
 
 - **e2e 를 도는 중에 다른 e2e 를 띄우지 않는다.** `global-setup` 이 바이너리를 다시 빌드해 도는 전량을 깬다.
+- **e2e 가 도는 중에 Go 소스를 고치지 않는다.** 샤드마다 시작할 때 `global-setup` 이 `go build` 를 따로 한다 — 앞 샤드가 도는
+  동안 고친 소스는 뒤 샤드가 빌드한다(2026-11-18, 샤드 4~8 이 반쯤 고친 코드와 빌드 실패로 돌았다).
 - **e2e 가 도는 중에 `git stash` 하지 않는다.** 그 틈에 뜬 서버가 옛 소스를 읽을 수 있다(앞 세션이 한 번 했다).
 - 전량 e2e: `make e2e > /tmp/dm-e2e-full.log 2>&1` 를 백그라운드로. 결과는
   `LC_ALL=C sed 's/\x1b\[[0-9;]*[A-Za-z]//g' /tmp/dm-e2e-full.log | LC_ALL=C grep -a -E "^\[샤드 [0-9]/8\]\s+[0-9]+\) \[chromium\]"`
@@ -82,3 +84,16 @@
 - 직접 모드는 지원 대상이 아니다(EDGE_MESH_HANDOFF D-8) — 이번에 지운다.
 - V-LAY-1 은 darwin 을 이 맥에서 뜨고 linux·win32 는 CI 산출물로 채운다(D-11).
 - 간선 망(EDGE_MESH_SRS)은 구현 완료·커밋됨. 남긴 위험: 시빌 노드로 아는 노드 표 채우기(SRS §5a, MEDIUM) — 이번 범위 아님.
+
+## 결과 (2026-11-18, CLEANUP 세션)
+
+- e2e 실패 21건: 코드 둘(Activity 탭 툴팁 영어 `TIP_ACT_*`, 탭 배지 정원)과 시험 셋(줄 이동 패널 `.fe-goto`, 분리 대상 멤버,
+  모바일 드로어 탭)을 고쳤다. 기록은 CHANGELOG 「고침」과 PEER_CHAT_SRS 탭 절.
+- V-LAY-1 linux·win32: 보류(사용자 결정). 까닭과 채우는 방법은 UI_LAYOUT_DEFAULTS_SRS 기록 절 2026-11-18 둘째 항목.
+- 직접 모드: 전면 제거(사용자 결정). `DIRECT_MODE_REMOVAL_SRS.md`. 데몬 쪽 `toolhub.Tool` 의 프로세스 안 팬아웃은 그 문서 §7 로 남겼다.
+- PEER_NETWORK_SRS 묶음 R: 폐기 표시(사용자 결정). 원문은 기록으로 둔다.
+- 전량 e2e 에서 새로 드러난 둘을 고쳤다(둘 다 시험): `edges-settings` 가 맺은 간선을 남겨 같은 워커의 V-LAY-1 에 간선 줄이
+  보이던 것(`afterAll` 에서 지운다), `bg-kill-touch` 가 서랍으로 연 패널에서 Background 탭을 고르지 않던 것.
+- 검증: e2e 전량 2177건 통과(샤드 4·6 은 위 수정 뒤 다시 돌렸다). `make test` 의 `TestSessionKeep_RealReload` 는 부하 속에서
+  한 번 실패했고 단독 3회는 통과한다(앞 세션 기록과 같다).
+

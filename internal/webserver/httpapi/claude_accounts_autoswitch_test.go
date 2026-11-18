@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/apierr"
 )
 
@@ -15,10 +14,10 @@ import (
 func newCAEnvProcs(t *testing.T, procs *[]string) *caEnv {
 	t.Helper()
 	home, data := t.TempDir(), t.TempDir()
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
 	srv, err := New(Config{DataDir: data, ClaudeHome: home, ClaudeAPI: "http://127.0.0.1:1", ClaudeSecrets: caNoSecrets{},
-		ClaudeProcs: func() ([]string, error) { return *procs, nil }}, Deps{Tools: m})
+		ClaudeProcs: func() ([]string, error) { return *procs, nil }}, Deps{Tools: mHub})
 	if err != nil {
 		t.Fatal(err)
 	}

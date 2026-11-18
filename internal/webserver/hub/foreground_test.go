@@ -77,8 +77,11 @@ func TestBroadcastForeground(t *testing.T) {
 	}
 }
 
-// fakeHub는 List 호출 횟수만 세는 toolhub.ToolHub 대역이다.
-type fakeHub struct{ calls atomic.Int64 }
+// fakeHub는 List 호출 횟수만 세는 toolhub.ToolHub 대역이다. 데몬 표면은 기능만 답한다.
+type fakeHub struct {
+	fakeDaemonHub
+	calls atomic.Int64
+}
 
 func (f *fakeHub) List() []toolhub.ToolInfo {
 	f.calls.Add(1)
@@ -87,7 +90,6 @@ func (f *fakeHub) List() []toolhub.ToolInfo {
 func (f *fakeHub) count() int64                       { return f.calls.Load() }
 func (f *fakeHub) ListOK() ([]toolhub.ToolInfo, bool) { return f.List(), true }
 func (f *fakeHub) Connected() bool                    { return true }
-func (f *fakeHub) Daemon() toolhub.DaemonHub          { return nil }
 func (f *fakeHub) Create(string, uint16, uint16, toolhub.Placement) (*toolhub.Tool, error) {
 	return nil, nil
 }
@@ -151,15 +153,8 @@ func (f fakeDaemonHub) HasFeature(name string) bool         { return f.features[
 func (f fakeDaemonHub) InputNotify(string, []byte)          {}
 func (f fakeDaemonHub) ResizeNotify(string, uint16, uint16) {}
 
-type fakeDaemonToolHub struct {
-	fakeHub
-	d fakeDaemonHub
-}
-
-func (f *fakeDaemonToolHub) Daemon() toolhub.DaemonHub { return f.d }
-
 // OPTIMIZE_REFACTOR_SRS FR-OPT-2-1: 전경 티커를 도는 데몬에는 폴이 List 를 부르지
-// 않는다. 직접 모드와 옛 데몬에는 틱마다 한 번 부른다.
+// 않는다. 그 기능을 말하지 않는 옛 데몬에는 틱마다 한 번 부른다.
 func TestStartForegroundPollSkipsDaemonTicker(t *testing.T) {
 	cases := []struct {
 		name string
@@ -169,9 +164,8 @@ func TestStartForegroundPollSkipsDaemonTicker(t *testing.T) {
 		}
 		want int64
 	}{
-		{"direct", &fakeHub{}, 3},
-		{"legacy-daemon", &fakeDaemonToolHub{d: fakeDaemonHub{}}, 3},
-		{"fgtick-daemon", &fakeDaemonToolHub{d: fakeDaemonHub{features: map[string]bool{toolipc.FeatureForegroundTick: true}}}, 0},
+		{"legacy-daemon", &fakeHub{}, 3},
+		{"fgtick-daemon", &fakeHub{fakeDaemonHub: fakeDaemonHub{features: map[string]bool{toolipc.FeatureForegroundTick: true}}}, 0},
 	}
 	for _, c := range cases {
 		stop := make(chan struct{})

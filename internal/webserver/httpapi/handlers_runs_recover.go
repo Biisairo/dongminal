@@ -171,7 +171,7 @@ func (s *Server) recoverable(t recoverTarget) bool {
 	return why == ""
 }
 
-// shellState 는 데몬(또는 직접 모드의 도구 관리자)에 셸 판정을 묻는다 (FR-RRC-10).
+// shellState 는 데몬에 셸 판정을 묻는다 (FR-RRC-10).
 func (s *Server) shellState(toolID string, pids []int) toolhub.ShellState {
 	if s.recoverProbe != nil {
 		return s.recoverProbe(toolID, pids)

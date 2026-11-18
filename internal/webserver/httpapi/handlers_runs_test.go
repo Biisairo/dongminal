@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/hub"
 	"dongminal/internal/webserver/seam/toolaccess"
 
 	"dongminal/internal/shared/testpath"
@@ -36,7 +37,7 @@ func (*callerErr) Error() string { return "no caller" }
 // fakes. caller is what the PID-chain resolver reports for every request.
 func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *run.Store, *fakeWhoAmI) {
 	t.Helper()
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
 	io := newFakeToolIO()
 	wi := &fakeWorkIndex{resolve: map[string]string{}, coords: map[string]string{}}
@@ -58,7 +59,8 @@ func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *ru
 		t.Fatalf("store load: %v", err)
 	}
 	who := &fakeWhoAmI{toolID: caller}
-	return &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi, Runs: store, WhoAmI: who}}, m, store, who
+	tr := hub.NewAttnTracker(hub.NewCommandHub(), 0)
+	return &Server{Deps: Deps{Tools: mHub, ToolIO: io, WorkIndex: wi, Runs: store, WhoAmI: who, AttnTracker: tr}}, m, store, who
 }
 
 func postRun(t *testing.T, s *Server, path, body string) (int, map[string]any) {
@@ -204,14 +206,14 @@ func TestApiRunReport_FallsBackToClaimedToolID(t *testing.T) {
 
 // TC-RUN-5 (FR-RUN-6): 도구가 죽으면 그 멤버는 lost 다. 상태는 조회 시점 파생이다.
 func TestApiRunStatus_DerivesMemberState(t *testing.T) {
-	s, m, _, _ := runsServer(t, "tool-a")
+	s, _, _, _ := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	_, _ = postRun(t, s, "/api/runs/members", `{"runId":`+testpath.JSONQuote(runID)+`,"role":"a","agent":"claude","id":"tool-a"}`)
 	_, _ = postRun(t, s, "/api/runs/members", `{"runId":`+testpath.JSONQuote(runID)+`,"role":"b","agent":"claude","id":"tool-b"}`)
 
 	// 훅 상태를 넣으면 그대로 파생된다.
-	m.Get("tool-a").SetActivity("working", "Bash", "go test")
-	m.Get("tool-b").SetActivity("waiting", "", "")
+	s.AttnTracker.SetActivity("tool-a", "working", "Bash", "go test")
+	s.AttnTracker.SetActivity("tool-b", "waiting", "", "")
 
 	code, out := getRun(t, s, "/api/runs?id="+runID)
 	if code != http.StatusOK {
@@ -230,7 +232,7 @@ func TestApiRunStatus_DerivesMemberState(t *testing.T) {
 		t.Fatalf("죽은 도구의 멤버는 lost 여야 한다: %+v", members["b"])
 	}
 	// 보고한 멤버는 관측이 아니라 기록이 이긴다.
-	m.Get("tool-a").SetActivity("working", "", "")
+	s.AttnTracker.SetActivity("tool-a", "working", "", "")
 	_, _ = postRun(t, s, "/api/runs/report", `{"outcome":"succeeded","summary":"끝"}`)
 	_, out = getRun(t, s, "/api/runs?id="+runID)
 	members = memberMap(t, out)

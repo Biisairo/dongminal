@@ -85,6 +85,8 @@ test.describe.serial('설정 ▸ Edges', () => {
   test.afterAll(async ({ dmServer }) => {
     // 워커 서버의 노드 포트를 다시 닫는다 — 뒤 스펙은 꺼진 노드를 전제로 한다 (NFR-PNW-1).
     const b = await pwRequest.newContext({ baseURL: dmServer.baseURL });
+    // 맺은 간선을 남기지 않는다 — 워커 데몬의 간선은 뒤 스펙의 화면(V-LAY-1 의 Edges 탭)에 그대로 보인다.
+    if (aFp) await b.post('/api/edges/remove', { data: { fp: aFp } });
     await b.put('/api/edges/node', {
       data: { enabled: false, port: 58147, bind: '0.0.0.0', name: 'node-b', advertise: '' },
     });

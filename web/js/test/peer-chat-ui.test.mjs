@@ -25,6 +25,8 @@ function loadUI() {
       App: class {},
       PrefStore: { local },
       STORE_KEYS: { activityTab: 'activityTab' },
+      // FR-TIP-2: Activity 탭의 영어 툴팁 (constants.js).
+      TIP_ACT_AGENTS: 'Show running agents', TIP_ACT_BG: 'Show background tools', TIP_ACT_RUNS: 'Show runs', TIP_ACT_CHATS: 'Show chat rooms',
       TAB_TYPE_CHAT: 'chat',
       TIMERS: { defer: (fn) => fn() },
       UIKit: { icon: () => ({}), button: () => ({}) },
@@ -94,7 +96,7 @@ test('FR-PCH-81: Agents 는 알람 점, Background·Runs 는 개수, Chats 는 �
   assert.deepEqual(tabsOf(app._actItems()), [['agents', 0, true], ['bg', 2, false], ['runs', 0, false], ['chats', 2, false]]);
 });
 
-test('Chats 탭: 고른 탭일 때만 항목을 만든다. 데몬이 없으면 까닭 한 줄이다', () => {
+test('Chats 탭: 고른 탭일 때만 항목을 만든다. 데몬이 준비되지 않으면 까닭 한 줄이다', () => {
   const ctx = loadUI();
   const app = rig(ctx);
   let built = 0;
@@ -105,10 +107,10 @@ test('Chats 탭: 고른 탭일 때만 항목을 만든다. 데몬이 없으면 �
   app._actItems();
   assert.equal(built, 1);
   delete app._chatItems;
-  app._chat = { down: 'chat_daemon_only' };
+  app._chat = { down: 'chat_daemon_restart' };
   const rows = app._actItems().slice(1);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0].el.textContent, 'chat.need_daemon');
+  assert.equal(rows[0].el.textContent, 'chat.need_restart');
 });
 
 test('채팅 저장소: 같은 글은 한 번, 방별 상한, 보이지 않을 때만 안 읽음', () => {

@@ -108,7 +108,9 @@ type subCountingHub struct {
 	d *subCountingDaemon
 }
 
-func (h *subCountingHub) Daemon() toolhub.DaemonHub { return h.d }
+func (h *subCountingHub) Subscribe(id string, ch chan toolhub.OutChunk) (<-chan struct{}, func()) {
+	return h.d.Subscribe(id, ch)
+}
 
 // 없는 도구의 구독은 OpExit 를 보내기 전에 푼다 — 붙잡는 동안(holdMiss, 최대
 // MissHoldMax) 없는 도구의 구독이 남지 않는다 (FR-OPT-2-5).

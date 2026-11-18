@@ -1,8 +1,6 @@
 package httpapi
 
 import (
-	"dongminal/internal/shared/toolhub"
-
 	"encoding/json"
 	"io"
 	"net/http"
@@ -79,9 +77,9 @@ func TestTwoServersInSameProcess(t *testing.T) {
 // tools.json 쓰기가 go-routine 으로 돌아가지만 테스트 종료에 의해 정리된다.
 func TestCreateToolViaServer(t *testing.T) {
 	dir := t.TempDir()
-	pm := toolhub.NewToolManager(dir, nil)
+	pm, pmHub := daemonPairAt(t, dir)
 	t.Cleanup(pm.StopSaving)
-	srv, err := New(Config{DataDir: dir}, Deps{Tools: pm})
+	srv, err := New(Config{DataDir: dir}, Deps{Tools: pmHub})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

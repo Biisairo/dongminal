@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"dongminal/internal/shared/outbuf"
 	"dongminal/internal/shared/toolhub"
 )
 
@@ -25,7 +24,7 @@ import (
 
 // termReset 은 이전 연결이 켜 둔 터미널 모드를 끈다 — 마우스 보고(?9·?1000~?1006·?1015),
 // 괄호 붙여넣기(?2004), 대체 화면(?1049·?47·?1047), 커서 감춤·깜빡임(?25h·?12l),
-// 자동 개행(?20l). direct 모드와 daemon 모드가 **같은 값을 보내야** 하므로 한 곳에 둔다.
+// 자동 개행(?20l). 재생의 조립(buildReplay)이 한 곳에서 쓴다.
 var termReset = []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
 
 // termHardClear 는 전량 재생이 멱등이 되게 하는 네 시퀀스다 (FR-TRS-10 ②).
@@ -67,9 +66,8 @@ func alignHead(b []byte) []byte {
 
 // buildReplay 는 한 번의 접속이 `OpOutput` 으로 보낼 바이트를 조립한다.
 //
-// **direct 모드와 daemon 모드가 이 함수 하나를 함께 쓴다** (FR-TRS-12). 두 벌로
-// 두었던 것이 "한쪽만 고쳐지는" 자리였다 — 종전에 daemon 은 termReset 을 스냅샷
-// 앞에, direct 는 뒤에, 그것도 `Restored` 일 때만 보냈다 (SRS §2.4).
+// **조립은 이 함수 하나다** (FR-TRS-12). 두 벌로 두었던 것이 "한쪽만 고쳐지는"
+// 자리였다 — 종전에 두 배선이 termReset 을 서로 다른 자리에 보냈다 (SRS §2.4).
 func buildReplay(data []byte, full, alt bool) []byte {
 	// 델타도 **기록**이지 라이브가 아니다. 그 구간의 질의에 지금 답하면
 	// architecture.md 가 적은 `56;9R` 폭주가 그대로 돌아온다 (FR-TRS-5).
@@ -117,10 +115,8 @@ func seqPayload(offset int64, full, alt bool) []byte {
 
 // sendSize 는 접속 직후의 크기 통보다 (M9_SRS FR-M9-3 ①).
 //
-// **두 모드가 이 함수 하나를 함께 쓴다** — direct 는 `tool.Size()` 로, daemon 은
-// 스냅샷이 실어 온 값으로 부른다. 값을 받는 모양인 것은 daemon 쪽의 PTY 가 다른
-// 프로세스에 있어 여기서 물을 수 없기 때문이다 (`buildReplay` 가 두 모드를
-// 함께 쓰는 것과 같은 근거, FR-TRS-12).
+// 스냅샷이 실어 온 값으로 부른다. 값을 받는 모양인 것은 PTY 가 데몬 프로세스에 있어
+// 여기서 물을 수 없기 때문이다 (FR-TRS-12).
 //
 // 크기를 모르면 **보내지 않는다.** 0×0 을 보내면 받는 쪽이 `term.resize(0,0)` 로
 // 화면을 잃는다 — 모르는 것을 값으로 말하지 않는 것이 이 자리의 규약이다.
@@ -170,34 +166,4 @@ func parseSince(r *http.Request) (int64, bool) {
 		return 0, false
 	}
 	return v, true
-}
-
-// directReplay 는 direct 모드가 재생할 바이트와 그 갈래를 정한다 (FR-TRS-17).
-//
-// **재생은 등록 오프셋에서 멈춘다.** 그 자리부터는 `readPTY` 의 broadcast 가 이
-// 소켓에 직접 나르므로, 넘긴 만큼이 그대로 두 번 보인다. daemon 모드에는 이
-// 경계가 없다 — 거기서는 릴레이가 `trimOverlap` 으로 같은 일을 한다.
-func directReplay(st *outbuf.Stream, since, regOff int64) (data []byte, full bool) {
-	if st == nil {
-		return nil, true
-	}
-	if since >= 0 && since <= regOff {
-		if d, _, ok := st.Since(since); ok {
-			return clampReplay(d, since, regOff), false
-		}
-	}
-	d, stats := st.Snapshot()
-	return clampReplay(d, stats.TotalBytesIn-int64(len(d)), regOff), true
-}
-
-// clampReplay 는 `[start, …)` 를 덮는 재생분을 regOff 에서 자른다.
-func clampReplay(d []byte, start, regOff int64) []byte {
-	keep := regOff - start
-	if keep <= 0 {
-		return nil
-	}
-	if keep >= int64(len(d)) {
-		return d
-	}
-	return d[:keep]
 }

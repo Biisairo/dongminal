@@ -111,7 +111,7 @@ type ToolClient struct {
 
 	// Per-tool WS subscribers: output channel → its exit-signal channel. The
 	// exit channel is closed when the tool exits so the WS handler can send
-	// toolhub.OpExit and tear down (parity with direct-mode tool.kill).
+	// toolhub.OpExit and tear down.
 	subMu   sync.RWMutex
 	subbers map[string]map[chan OutChunk]chan struct{}
 	dropped atomic.Int64

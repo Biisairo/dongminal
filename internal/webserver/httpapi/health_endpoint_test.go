@@ -29,10 +29,10 @@ func getHealth(t *testing.T, s *Server) (int, map[string]any) {
 
 // V-VHL-5: 필드가 선다.
 func TestHealthShape(t *testing.T) {
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
 	m.Adopt(&toolhub.Tool{ID: "1"})
-	s := &Server{Deps: Deps{Tools: m, Work: newFakeWorkspaceStore()}}
+	s := &Server{Deps: Deps{Tools: mHub, Work: newFakeWorkspaceStore()}}
 
 	code, body := getHealth(t, s)
 	if code != http.StatusOK {
@@ -69,25 +69,6 @@ func TestHealthShape(t *testing.T) {
 	}
 }
 
-// V-VHL-6: **데몬이 없으면 어긋난 것도 없다** (FR-VHL-11).
-//
-// direct 모드는 데몬을 쓰지 않는 구성이다. 없는 것을 불일치로 읽으면 그 구성이
-// 영원히 빨갛다.
-func TestHealthDirectModeIsNotMismatch(t *testing.T) {
-	m := toolhub.NewToolManager("", nil)
-	t.Cleanup(m.StopSaving)
-	s := &Server{Deps: Deps{Tools: m, Work: newFakeWorkspaceStore()}}
-
-	_, body := getHealth(t, s)
-	d := body["daemon"].(map[string]any)
-	if d["connected"] != false {
-		t.Errorf("connected=%v — 데몬이 없는데 붙었다고 한다", d["connected"])
-	}
-	if d["mismatch"] != false {
-		t.Errorf("mismatch=%v — 없는 것은 어긋난 것이 아니다 (FR-VHL-11)", d["mismatch"])
-	}
-}
-
 // V-VHL-7: **어긋난 것이 있어도 200 이다** (FR-VHL-12).
 //
 // 503 으로 답하면 그 뒤의 필드를 아무도 읽지 않고 "왜" 가 사라진다. 생존 판정이
@@ -105,9 +86,9 @@ func TestHealthAlwaysOK(t *testing.T) {
 // 카나리아다. 담는 것은 숫자와 판과 불리언뿐이며, 늘리는 사람이 무심코 경로를
 // 실으면 여기서 걸린다.
 func TestHealthCarriesNoSecrets(t *testing.T) {
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
-	s := &Server{Deps: Deps{Tools: m, Work: newFakeWorkspaceStore()}}
+	s := &Server{Deps: Deps{Tools: mHub, Work: newFakeWorkspaceStore()}}
 
 	rec := httptest.NewRecorder()
 	s.apiHealth(rec, apiTestRequest(http.MethodGet, "/api/health", nil))

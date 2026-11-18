@@ -232,7 +232,7 @@ stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 �
 확인해 각각 한 줄로 출력한다.
 
 **FR-ACT-10** 종료 코드는 HTTP 실패 또는 "소켓은 있으나 pid 가 죽음" 이면 1,
-그 외 0. 소켓 부재는 실패가 아니다 (direct mode 이거나 아직 미기동).
+그 외 0. 소켓 부재는 실패가 아니다 (아직 미기동). **(2026-11-18 개정 — 이전: "direct mode 이거나 아직 미기동". 직접 모드가 없어졌다, DIRECT_MODE_REMOVAL_SRS.)**
 
 #### migrate
 

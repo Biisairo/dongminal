@@ -1385,7 +1385,6 @@ I18N.register('en', {
   'chat.input_ph': 'Enter sends, Shift+Enter adds a line.',
   'chat.not_joined': 'You are not in this room.',
   'chat.gone': 'This room is gone.',
-  'chat.need_daemon': 'Chat works only in daemon mode.',
   'chat.need_restart': 'Restart the daemon to use chat.',
   'chat.unavailable': 'Chat is unavailable right now.',
   'chat.name': 'Name',

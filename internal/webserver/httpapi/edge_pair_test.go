@@ -6,20 +6,24 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/daemon/ipc"
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/edgenode"
 	"dongminal/internal/shared/testpath"
 )
 
-// NFR-PNW-3: 한 프로세스 안의 서버 둘(홈·포트가 다르다)로 짝맞춤을 검증한다.
+// NFR-PNW-3: 한 프로세스 안의 노드 둘(홈·포트가 다르다)로 짝맞춤을 검증한다. 노드마다 데몬과
+// 그 데몬에 붙은 서버가 선다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-20).
 
 type edgeNode struct {
 	srv  *Server
 	home string
+	// node 는 데몬 쪽 노드다. 서버 밖의 상태(저장소·짝맺기)를 시험이 직접 볼 때 쓴다.
+	node *edgenode.Node
+	ps   *ipc.PanedServer
 }
 
 func freeLoopbackPort(t *testing.T) int {
@@ -33,23 +37,37 @@ func freeLoopbackPort(t *testing.T) int {
 	return p
 }
 
-// newEdgeNode 는 노드 포트를 켤지 정해 서버 하나를 세운다.
+// newEdgeNode 는 노드 포트를 켤지 정해 노드 하나(데몬과 서버)를 세운다.
 func newEdgeNode(t *testing.T, name string, enabled bool) *edgeNode {
 	t.Helper()
-	home := t.TempDir()
+	return newEdgeNodeWith(t, name, enabled, &fakeCommandBroker{})
+}
+
+// newEdgeNodeWith 는 newEdgeNode 와 같되 서버의 방송을 cmds 로 받는다. 노드 포트의 통로를 연다.
+func newEdgeNodeWith(t *testing.T, name string, enabled bool, cmds *fakeCommandBroker) *edgeNode {
+	t.Helper()
 	cfg := edge.Config{Enabled: enabled, Port: freeLoopbackPort(t), Bind: "127.0.0.1", Name: name}
-	data, _ := json.Marshal(cfg)
-	if err := os.WriteFile(filepath.Join(home, dmenv.EdgesFile), data, 0o600); err != nil {
-		t.Fatal(err)
+	n := edgeDaemonNode(t, shortHome(t), cfg, cmds)
+	n.startPort(t)
+	if enabled {
+		n.waitListening(t)
 	}
-	srv, err := New(Config{DataDir: home}, Deps{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	return n
+}
+
+// startPort 는 서버의 노드 포트 통로를 연다. 시험이 끝나면 닫는다.
+func (n *edgeNode) startPort(t *testing.T) {
+	t.Helper()
 	stop := make(chan struct{})
-	done := srv.StartEdge(stop)
+	done := n.srv.StartEdge(stop)
 	t.Cleanup(func() { close(stop); <-done })
-	return &edgeNode{srv: srv, home: home}
+}
+
+// waitListening 은 통로가 연 노드 포트를 데몬이 알 때까지 기다린다 — 통로는 비동기로 열고
+// 그 상태를 데몬에 알린다 (PEER_DAEMON_SRS FR-PDM-33).
+func (n *edgeNode) waitListening(t *testing.T) {
+	t.Helper()
+	edgeWait(t, "노드 포트", func() bool { return n.ps.EdgePort().Listening })
 }
 
 // api 는 로컬 API 한 번이다. 상태와 본문을 돌려준다.
@@ -173,7 +191,7 @@ func TestPairFingerprintMismatch(t *testing.T) {
 	if code == http.StatusOK || errCode(out) != "edge_fingerprint_mismatch" {
 		t.Fatalf("add: %d %v", code, out["_raw"])
 	}
-	if len(b.edges(t)) != 0 || len(a.edges(t)) != 0 || !b.srv.edgeNode.Pairing().HasInvite() {
+	if len(b.edges(t)) != 0 || len(a.edges(t)) != 0 || !b.node.Pairing().HasInvite() {
 		t.Fatal("지문이 다른데 무언가 저장했거나 초대를 썼다")
 	}
 }
@@ -240,7 +258,7 @@ func TestEdgeRemoveAndAddress(t *testing.T) {
 	fp := "12345678" + strings.Repeat("dd", 28)
 	other := "12345678" + strings.Repeat("ee", 28)
 	for _, f := range []string{fp, other} {
-		if err := n.srv.edgeNode.Store().AddEdge(edge.Edge{Name: "b", Addr: "127.0.0.1", Port: freeLoopbackPort(t), Fingerprint: f}); err != nil {
+		if err := n.node.Store().AddEdge(edge.Edge{Name: "b", Addr: "127.0.0.1", Port: freeLoopbackPort(t), Fingerprint: f}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -250,7 +268,7 @@ func TestEdgeRemoveAndAddress(t *testing.T) {
 	if code, out := n.api(t, http.MethodPut, "/api/edges/address", map[string]any{"fp": fp[:12], "addr": "127.0.0.1", "port": 60000}); code != http.StatusOK || out["fp"] != fp {
 		t.Fatalf("address: %d %v", code, out["_raw"])
 	}
-	e, _ := n.srv.edgeNode.Store().Resolve(fp)
+	e, _ := n.node.Store().Resolve(fp)
 	if e.Port != 60000 {
 		t.Fatalf("주소 %+v", e)
 	}
@@ -258,7 +276,7 @@ func TestEdgeRemoveAndAddress(t *testing.T) {
 	if code != http.StatusOK || out["fp"] != fp || out["name"] != "b" || out["notified"] != false {
 		t.Fatalf("remove: %d %v", code, out["_raw"])
 	}
-	if n.srv.edgeNode.Store().IsEdge(fp) || !n.srv.edgeNode.Store().IsEdge(other) {
+	if n.node.Store().IsEdge(fp) || !n.node.Store().IsEdge(other) {
 		t.Fatal("지운 간선이 남았거나 다른 간선이 지워졌다")
 	}
 	if code, out := n.api(t, http.MethodPost, "/api/edges/remove", map[string]any{"fp": fp}); code != http.StatusNotFound || errCode(out) != "edge_not_found" {
@@ -288,6 +306,7 @@ func TestEdgeNodePut(t *testing.T) {
 	if code, out := n.api(t, http.MethodPut, "/api/edges/node", body); code != http.StatusOK {
 		t.Fatalf("PUT: %d %v", code, out["_raw"])
 	}
+	n.waitListening(t)
 	_, v := n.api(t, http.MethodGet, "/api/edges", nil)
 	node := v["node"].(map[string]any)
 	if node["listening"] != true || node["name"] != "renamed" {
@@ -371,11 +390,11 @@ func TestPairRejectsUnusableAddrBeforeConsume(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, testEdgePairPath, strings.NewReader(body))
 	req.RemoteAddr = "[fe80::1%en0]:40000"
 	rec := httptest.NewRecorder()
-	b.srv.edgeNode.Handler().ServeHTTP(rec, req)
+	b.node.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "edge_config_invalid") {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
-	if !b.srv.edgeNode.Pairing().HasInvite() || len(b.edges(t)) != 0 {
+	if !b.node.Pairing().HasInvite() || len(b.edges(t)) != 0 {
 		t.Fatal("초대를 썼거나 간선을 남겼다")
 	}
 }
@@ -390,7 +409,7 @@ func TestPairRateLimited(t *testing.T) {
 	for i := 0; i <= edge.PerKeyPerMinute; i++ {
 		req := httptest.NewRequest(http.MethodPost, testEdgePairPath, strings.NewReader(body))
 		rec = httptest.NewRecorder()
-		b.srv.edgeNode.Handler().ServeHTTP(rec, req)
+		b.node.Handler().ServeHTTP(rec, req)
 	}
 	if rec.Code != http.StatusTooManyRequests || !strings.Contains(rec.Body.String(), "edge_rate_limited") {
 		t.Fatalf("61번째: %d %s", rec.Code, rec.Body.String())
@@ -402,7 +421,7 @@ func TestPairRateLimited(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, testEdgePairPath, strings.NewReader(body))
 	req.RemoteAddr = "10.0.0.9:40000"
 	rec = httptest.NewRecorder()
-	b.srv.edgeNode.Handler().ServeHTTP(rec, req)
+	b.node.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("다른 주소: %d %s", rec.Code, rec.Body.String())
 	}
@@ -412,7 +431,7 @@ func TestPairRateLimited(t *testing.T) {
 // edge_no_invite 로 거절한다.
 func TestPairPathForStrangers(t *testing.T) {
 	b := newEdgeNode(t, "node-b", true)
-	adm := b.srv.edgeNode.Admission()
+	adm := b.node.Admission()
 	stranger := strings.Repeat("ee", 32)
 	if !adm.TLS(stranger) || !adm.Request(stranger, testEdgePairPath) {
 		t.Fatal("간선이 아닌 상대를 pair 에서 막았다")
@@ -424,13 +443,13 @@ func TestPairPathForStrangers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := b.srv.edgeNode.Pairing().Redeem(ic.Token, strings.Repeat("dd", 32)); err != nil {
+	if err := b.node.Pairing().Redeem(ic.Token, strings.Repeat("dd", 32)); err != nil {
 		t.Fatal(err)
 	}
 	body := `{"token":"` + ic.Token + `","name":"s"}`
 	req := httptest.NewRequest(http.MethodPost, testEdgePairPath, strings.NewReader(body))
 	rec := httptest.NewRecorder()
-	b.srv.edgeNode.Handler().ServeHTTP(rec, req)
+	b.node.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "edge_no_invite") {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}

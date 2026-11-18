@@ -48,10 +48,7 @@ func profileDo(t *testing.T, srv *Server, method, body string) (*httptest.Respon
 
 // FR-PFN-10·11: 읽고, 이름만 바꾸고, 틀린 이름은 400 이다.
 func TestProfileAPI(t *testing.T) {
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	srv := newEdgeNode(t, "node-a", false).srv
 	rec, got := profileDo(t, srv, http.MethodGet, "")
 	if rec.Code != http.StatusOK || rec.Header().Get("ETag") == "" {
 		t.Fatalf("GET %d etag=%q", rec.Code, rec.Header().Get("ETag"))
@@ -73,14 +70,12 @@ func TestProfileAPI(t *testing.T) {
 
 // FR-PFN-21: Telegram 기기 이름은 핸들이다.
 func TestTelegramDeviceIsHandle(t *testing.T) {
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	n := newEdgeNode(t, "node-a", false)
+	srv := n.srv
 	if rec, _ := profileDo(t, srv, http.MethodPut, `{"name":"동민"}`); rec.Code != http.StatusOK {
 		t.Fatalf("PUT %d", rec.Code)
 	}
-	want := edge.Handle("동민", srv.edgeNode.Identity().Fingerprint)
+	want := edge.Handle("동민", n.node.Identity().Fingerprint)
 	if got := (telegramHost{srv}).device(); got != want {
 		t.Fatalf("device = %q, 기대 %q", got, want)
 	}
@@ -88,7 +83,7 @@ func TestTelegramDeviceIsHandle(t *testing.T) {
 	if rec, _ := profileDo(t, srv, http.MethodPut, `{"name":"새이름"}`); rec.Code != http.StatusOK {
 		t.Fatalf("PUT %d", rec.Code)
 	}
-	if got, want := (telegramHost{srv}).device(), edge.Handle("새이름", srv.edgeNode.Identity().Fingerprint); got != want {
+	if got, want := (telegramHost{srv}).device(), edge.Handle("새이름", n.node.Identity().Fingerprint); got != want {
 		t.Fatalf("바꾼 뒤 device = %q, 기대 %q", got, want)
 	}
 }

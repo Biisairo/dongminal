@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/apierr"
 )
 
@@ -43,9 +42,9 @@ func tgFakeAPI(t *testing.T) (*httptest.Server, *atomic.Int64) {
 
 func tgAPIServer(t *testing.T, base string) *Server {
 	t.Helper()
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
-	srv, err := New(Config{DataDir: t.TempDir(), TelegramAPI: base}, Deps{Tools: m})
+	srv, err := New(Config{DataDir: t.TempDir(), TelegramAPI: base}, Deps{Tools: mHub})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,9 +167,9 @@ func TestTelegramAPI_Pair(t *testing.T) {
 }
 
 func TestTelegramAPI_Unavailable(t *testing.T) {
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
-	s, err := New(Config{}, Deps{Tools: m})
+	s, err := New(Config{}, Deps{Tools: mHub})
 	if err != nil {
 		t.Fatal(err)
 	}

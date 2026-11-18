@@ -43,7 +43,7 @@ func decodeParamsInto(req *toolipc.PanedRequest, p any) *toolipc.PanedError {
 }
 
 // createError 는 생성 실패를 코드로 옮긴다. 상한 초과는 CodeToolCap — 서버가 그것을
-// `toolhub.ErrToolCap` 으로 되돌려 두 모드가 같은 429 를 낸다 (D-A-16).
+// `toolhub.ErrToolCap` 으로 되돌려 429 를 낸다 (D-A-16).
 func createError(req *toolipc.PanedRequest, err error) toolipc.PanedError {
 	code := toolipc.CodeInternal
 	if errors.Is(err, toolhub.ErrToolCap) {

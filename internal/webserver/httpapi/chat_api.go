@@ -52,11 +52,8 @@ func (s *Server) apiChatKick(w http.ResponseWriter, r *http.Request) { s.chatDo(
 
 // chatDo 는 연산 op 하나를 데몬에 넘긴다. state 가 아니면 요청 본문이 그 op 의 인자다.
 func (s *Server) chatDo(w http.ResponseWriter, r *http.Request, op string) {
-	if s.ChatDaemon == nil {
-		codeFail(w, http.StatusConflict, apierr.CodeChatDaemonOnly, "chat needs daemon mode")
-		return
-	}
-	if !s.ChatDaemon.ChatReady() {
+	// 데몬이 배선되지 않은 서버는 준비되지 않은 데몬과 같다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-22).
+	if s.ChatDaemon == nil || !s.ChatDaemon.ChatReady() {
 		codeFail(w, http.StatusConflict, apierr.CodeChatDaemonRestart, "restart the daemon to use chat")
 		return
 	}

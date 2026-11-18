@@ -1407,7 +1407,6 @@ I18N.register('ko', {
   'chat.input_ph': 'Enter 로 보내고 Shift+Enter 로 줄을 바꿉니다.',
   'chat.not_joined': '이 방에 들어가 있지 않습니다.',
   'chat.gone': '방이 사라졌습니다.',
-  'chat.need_daemon': '채팅은 데몬 모드에서만 쓸 수 있습니다.',
   'chat.need_restart': '채팅을 쓰려면 데몬을 다시 시작해야 합니다.',
   'chat.unavailable': '지금은 채팅을 쓸 수 없습니다.',
   'chat.name': '이름',

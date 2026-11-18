@@ -16,14 +16,14 @@ import (
 
 func reportServer(t *testing.T, ids ...string) (*Server, *hub.AttnTracker, *fakeCommandBroker) {
 	t.Helper()
-	m := toolhub.NewToolManager("", nil)
+	m, mHub := daemonPairAt(t, "")
 	t.Cleanup(m.StopSaving)
 	for _, id := range ids {
 		m.Adopt(toolhub.NewDetachedTool(id, nil))
 	}
 	fb := &fakeCommandBroker{}
 	tr := hub.NewAttnTracker(fb, 0)
-	return &Server{Deps: Deps{Tools: m, AttnTracker: tr, Commands: fb}, limits: defaultLimits()}, tr, fb
+	return &Server{Deps: Deps{Tools: mHub, AttnTracker: tr, Commands: fb}, limits: defaultLimits()}, tr, fb
 }
 
 func applyReport(t *testing.T, s *Server, method string, body any) {

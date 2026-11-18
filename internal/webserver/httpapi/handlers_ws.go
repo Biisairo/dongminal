@@ -50,8 +50,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	// FR-OPT-2-5: snapshot 이 "없음" 을 말하는 데몬에는 존재 확인(Get = list RPC)을
 	// 하지 않는다 — handleWSDaemon 의 snapshot 이 같은 판정을 한다.
-	d := s.Tools.Daemon()
-	snapJudges := d != nil && d.HasFeature(toolipc.FeatureSnapshotNotFound)
+	snapJudges := s.Tools.HasFeature(toolipc.FeatureSnapshotNotFound)
 	if toolID != "" && !snapJudges {
 		tool = s.Tools.Get(toolID)
 		if tool == nil {
@@ -85,12 +84,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		since = -1
 	}
 
-	// Branch: daemon mode vs direct mode — 모드 판별은 `Daemon()` 하나다 (`GO-46`).
-	if d != nil {
-		s.handleWSDaemon(r, conn, d, toolID, since)
-	} else {
-		s.handleWSDirect(conn, tool, r.RemoteAddr, since)
-	}
+	s.handleWSDaemon(r, conn, s.Tools, toolID, since)
 }
 
 // wsToolGone 은 없는 도구에 붙은 연결에 끝을 알린다.
@@ -136,56 +130,6 @@ func sendModeRestore(conn *toolhub.SafeConn, toolID string, modes toolhub.TermMo
 	return true
 }
 
-// handleWSDirect is the original (non-daemon) WebSocket handler.
-//
-// 재생의 끝은 **등록 오프셋**이다 (FR-TRS-17). 거기서부터는 readPTY 의 broadcast
-// 가 이 연결의 송신 큐로 나르므로, 재생이 그 자리를 넘으면 넘은 만큼 두 번 보인다.
-func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remoteAddr string, since int64) {
-	regOff, ok := tool.AddClientAt(conn)
-	if !ok {
-		dmlog.Infof(nil, "ws addr=%s: tool %s already exited; sent toolhub.OpExit", remoteAddr, tool.ID)
-		return
-	}
-	defer tool.RemoveClient(conn)
-
-	_ = conn.Send(toolhub.OpToolID, []byte(tool.ID))
-
-	// FR-M9-3 ①: 크기는 **재생보다 앞**이다. 재생 바이트는 PTY 폭 기준으로 쓰인
-	// 이스케이프를 담고 있으므로, 그것을 해석하기 전에 폭이 맞아야 한다.
-	if cols, rows, ok := tool.Size(); ok {
-		sendSize(conn, cols, rows)
-	}
-
-	// FR-RPS-4: 좌석 통보는 **재생보다 앞**이다. 재생·라이브보다 먼저 닿아야 그
-	// 구간의 질의를 만나기 전에 누가 답할지가 정해져 있다.
-	s.Seats.Join(tool.ID, conn)
-	defer s.Seats.Leave(tool.ID, conn)
-
-	data, full := directReplay(tool.Stream(), since, regOff)
-	if payload := buildReplay(data, full, tool.TermModes().AltScreen); len(payload) > 0 {
-		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
-			dmlog.Errorf(nil, "[tool %s] replay send error addr=%s: %v", tool.ID, remoteAddr, err)
-			return
-		}
-	}
-	if !sendModeRestore(conn, tool.ID, tool.TermModes()) {
-		return
-	}
-	// FR-TRS-8: 좌표 통보는 재생 **뒤**다. 이 뒤로 오는 OpOutput 은 라이브 PTY
-	// 바이트뿐이므로, 클라이언트는 길이를 더하는 것만으로 좌표를 유지한다.
-	if err := conn.Send(toolhub.OpSeq, seqPayload(regOff, full, tool.TermModes().AltScreen)); err != nil {
-		dmlog.Errorf(nil, "[tool %s] seq send error addr=%s: %v", tool.ID, remoteAddr, err)
-		return
-	}
-	// FR-OPT-3-1: 라이브 프레임은 등록 때부터 송신 큐에 쌓였다. 좌표 통보 뒤에야
-	// 흘려보낸다 — 그래야 OpSeq 뒤의 OpOutput 이 등록 오프셋부터의 바이트다.
-	conn.StartSender()
-
-	go pingLoop(conn, tool.Wait())
-	readWS(conn, tool, func() { s.browserIn.mark(tool.ID) })
-	dmlog.Infof(nil, "ws disconnected addr=%s tool=%s", remoteAddr, tool.ID)
-}
-
 // handleWSDaemon is the daemon-mode WebSocket handler.
 // It uses toolhub.ToolHub methods (which go through toolclient.ToolClient RPC) instead of
 // toolhub.Tool struct internals.
@@ -229,11 +173,10 @@ func (s *Server) handleWSDaemon(r *http.Request, conn *toolhub.SafeConn, pc tool
 	full := !snap.Resumed
 	dmlog.Infof(nil, "[ws-daemon] replay tool=%s len=%d end=%d full=%v since=%d",
 		toolID, len(snap.Data), snap.End, full, since)
-	// FR-M9-3 ①: direct 모드와 **같은 자리**다 — 재생보다 앞. 두 모드가 같은
-	// 바이트를 같은 순서로 보내야 어느 쪽이 맞는지 물을 수 있다 (FR-TRS-12).
+	// FR-M9-3 ①: 크기는 재생보다 앞이다 — 재생 바이트는 PTY 폭 기준이다 (FR-TRS-12).
 	sendSize(conn, snap.Cols, snap.Rows)
-	// FR-RPS-2·4: direct 배선과 **같은 자리**다 — 재생보다 앞. 좌석을 두 배선이
-	// 함께 쓰는 근거는 `buildReplay` 를 함께 쓰는 것과 같다 (FR-TRS-12).
+	// FR-RPS-2·4: 좌석 통보는 재생보다 앞이다 — 재생 구간의 질의를 만나기 전에 누가
+	// 답할지가 정해져 있어야 한다.
 	s.Seats.Join(toolID, conn)
 	defer s.Seats.Leave(toolID, conn)
 
@@ -258,7 +201,7 @@ func (s *Server) handleWSDaemon(r *http.Request, conn *toolhub.SafeConn, pc tool
 	// Output relay goroutine. Attention/activity detection happens once in the
 	// toolclient.ToolClient readLoop (OnOutput), not here, so it is not tied to this WS
 	// subscription. On tool exit (exitCh closed) we send toolhub.OpExit and close the
-	// socket so the browser tears the terminal down (parity with direct mode).
+	// socket so the browser tears the terminal down.
 	go relayOutput(conn, toolID, outputCh, exitCh, done, snap.End)
 
 	go pingLoop(conn, done)
@@ -321,17 +264,6 @@ func wsReadLoop(conn *toolhub.SafeConn, toolID string, input func([]byte) error,
 			}
 		}
 	}
-}
-
-func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool, onInput func()) {
-	defer func() {
-		if r := recover(); r != nil {
-			dmlog.Errorf(nil, "[tool %s] readWS panic addr=%s: %v\n%s", tool.ID, conn.RemoteAddr(), r, debug.Stack())
-		}
-	}()
-	wsReadLoop(conn, tool.ID,
-		func(b []byte) error { onInput(); return tool.Write(b) },
-		func(c, ro uint16) { tool.Resize(c, ro) })
 }
 
 // relayCoalesceMax 는 릴레이가 합쳐 보내는 출력 프레임 하나의 상한이다 (FR-OPT-2-7).

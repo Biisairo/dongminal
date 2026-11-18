@@ -1,8 +1,8 @@
 // Package edgenode 는 노드 하나의 상태와 연산이다 (PEER_DAEMON_SRS FR-PDM-2, §3.5a).
 //
 // 신원·`edges.json`·짝맞춤 상태·속도 제한을 갖고, 노드 포트의 판정과 짝맞춤 경로 둘,
-// 로컬 API 연산(Do)을 처리한다. 데몬과 직접 모드의 서버가 같은 코드를 쓴다 — 판정을
-// 두 벌 두지 않는다 (D-PDM-15). webserver 축을 가져오지 않는다.
+// 로컬 API 연산(Do)을 처리한다. 노드는 데몬이다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-20).
+// webserver 축을 가져오지 않는다.
 package edgenode
 
 import (

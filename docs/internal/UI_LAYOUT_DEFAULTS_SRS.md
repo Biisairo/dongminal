@@ -949,3 +949,9 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   (`ag-tabs`)·설정 탭 묶음(`mtab-grp`)과 이번 Edges 의 망·받은 초대 구역이 V-LAY-1 을 깨고 있었다(재지 않는 자리 110).
   사용자 결정으로 darwin 만 `LAYOUT_BASELINE=write` 로 뜨고, 다시 재어 통과를 확인했다. **`linux`·`win32` 는 낡은
   채로 남았다** — CI 산출물로 따로 채워야 한다. 이 재생성은 바뀐 화면이 옳다는 증명이 아니다(§5.1).
+- 2026-11-18 (`CLEANUP_AFTER_EDGE_MESH_HANDOFF` 2단계) `linux`·`win32` 기준선은 **보류한다** (사용자 결정). 뜰 길이 지금 없다 —
+  CI 의 e2e 잡이 `if: false` 로 꺼져 있고(2026-11-04 사용자 결정, `.github/workflows/e2e.yml`), 그 잡이 유일하게 두 판의
+  V-LAY-1 을 돌린다. 꺼져 있는 동안 낡은 두 파일은 어느 실행에서도 대조되지 않으므로 실패를 내지 않는다. **채우는 방법**:
+  e2e 잡을 되살린 뒤(`if: false` 한 줄을 지운다) 그 판의 `ui-layout.{linux,win32}.json` 을 지우고 한 번 돌린다 — V-LAY-1 이
+  `test-results/` 에 뜬 것을 남기고 실패하며, 실패한 회차의 `playwright-report-<os>-<샤드>` 아티팩트에서 그 파일을 꺼내
+  `e2e/baseline/` 에 커밋한다(위 `expect(false, …)` 의 경로). 또는 그 러너에서 `LAYOUT_BASELINE=write` 로 돌린다.

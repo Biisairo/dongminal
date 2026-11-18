@@ -30,22 +30,10 @@ func BroadcastForeground(hub CommandBroker) func(toolID, name string) {
 	return func(toolID, name string) { hub.Broadcast(toolForegroundPayload(toolID, name)) }
 }
 
-// WireForeground connects foreground process name transitions to SSE broadcasts.
-// Called from the composition root once both the toolhub.ToolManager and
-// CommandHub exist — direct mode only; the daemon-mode equivalent is
-// BroadcastForeground on the IPC push.
+// StartForegroundPoll 은 전경 조회를 돌리는 주체다. 틱마다 `List()` 를 불러 데몬이
+// 전경 이름을 조회하게 한다. 틱은 배선이 만든다 (TEST-8).
 //
-// SetForegroundNotifier 는 **값이 바뀌었을 때만** 부르는 계약이다 (FR-TAN-9).
-// 그 위에 중복 억제를 다시 쌓지 않는다.
-func WireForeground(pm *toolhub.ToolManager, hub CommandBroker) {
-	pm.SetForegroundNotifier(BroadcastForeground(hub))
-}
-
-// StartForegroundPoll 은 전경 조회를 돌리는 주체다. 틱마다 `List()` 를 부르고,
-// direct 모드에서는 그것이 ToolManager.ForegroundNames() 를 부른다. 값이 바뀐
-// 도구에 대해서만 notifier 가 뜬다. 틱은 배선이 만든다 (TEST-8).
-//
-// 데몬 모드에서 전경 티커를 도는 데몬(toolipc.FeatureForegroundTick)에는 아무것도
+// 전경 티커를 도는 데몬(toolipc.FeatureForegroundTick)에는 아무것도
 // 하지 않는다 (FR-OPT-2-1) — 조회는 데몬이 스스로 돌리고 바뀐 것을 push 한다. 그
 // 기능을 말하지 않는 옛 데몬에는 종전대로 `list` RPC 로 조회를 시킨다. 판정은 틱마다
 // 한다 — 재접속하면 상대 데몬이 바뀔 수 있다.
@@ -63,7 +51,7 @@ func StartForegroundPoll(tools toolhub.ToolHub, stopCh <-chan struct{}, tick <-c
 		for {
 			select {
 			case <-tick:
-				if d := tools.Daemon(); d != nil && d.HasFeature(toolipc.FeatureForegroundTick) {
+				if tools.HasFeature(toolipc.FeatureForegroundTick) {
 					continue
 				}
 				tools.List()

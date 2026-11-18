@@ -16,8 +16,8 @@ import (
 // 않는 것이 이 기능의 안전 요구다 (FR-SBX-21). 런타임이 없어도 나머지 기능은
 // 영향받지 않는다 (NFR-SBX-3).
 //
-// 배선이 한 자리인 것은 direct 모드(웹서버)와 데몬 모드(dongminald)가 같은
-// 배치를 써야 하기 때문이다. 두 벌이면 한쪽만 고쳐도 컴파일이 통과한다.
+// 배선이 한 자리인 것은 배치(데몬)와 회수(웹서버)가 같은 런타임 판정을 써야 하기
+// 때문이다. 두 벌이면 한쪽만 고쳐도 컴파일이 통과한다.
 func Wire(home, version, port string) *Placer {
 	dockerPath, err := sandbox.FindRuntime(sandbox.LookPath)
 	if err != nil {

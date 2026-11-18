@@ -133,7 +133,7 @@ type Deps struct {
 	Sandbox     SandboxReaper
 	Commands    hub.CommandBroker
 	Settings    SettingsStore
-	AttnTracker *hub.AttnTracker // daemon mode: attention/activity tracking in dongminal (nil = 직접 모드 — Server.attention 이 가른다)
+	AttnTracker *hub.AttnTracker // attention/activity tracking in dongminal (nil = 배선 없음 — Server.attention 이 무동작으로 답한다)
 	// WhoAmI resolves a request's RemoteAddr to the originating tool via
 	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.
 	WhoAmI toolaccess.ClientToolResolver
@@ -184,17 +184,17 @@ type Deps struct {
 	// server.json 도 알지 않는다.**
 	Updates UpdateService
 	// Records 는 에이전트 기록을 데몬에 쓰는 자리다 (AGENT_RECORD_DAEMON_SRS FR-ARD-11).
-	// nil 이면 직접 모드이거나 records 를 말하지 않는 옛 데몬이다 — 거울만 쓴다
+	// nil 이면 records 를 말하지 않는 옛 데몬이다 — 거울만 쓴다
 	// (FR-ARD-14).
 	Records RecordSink
 	// AttnDaemon 은 데몬의 알람 판정이다 (AGENT_RECORD_DAEMON_SRS §3.3a). nil 이거나 Judges 가
 	// 거짓이면 데몬 모드의 판정은 종전처럼 AttnTracker 가 한다.
 	AttnDaemon AttentionDaemon
-	// EdgeDaemon 은 데몬의 노드다 (PEER_DAEMON_SRS §3.5a). nil 이면 직접 모드 — 서버가 노드다
-	// (FR-PDM-52). nil 이 아니면 서버는 신원·edges.json 을 열지 않는다 (FR-PDM-20).
+	// EdgeDaemon 은 데몬의 노드다 (PEER_DAEMON_SRS §3.5a). 서버는 신원·edges.json 을 열지 않는다
+	// (FR-PDM-20). nil 이면 노드가 없다 — 간선 API 는 503 이다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-21).
 	EdgeDaemon EdgeDaemon
-	// ChatDaemon 은 데몬의 채팅 사람 참가자다 (PEER_CHAT_SRS §3.11). nil 이면 직접 모드 — 채팅이
-	// 없다 (NFR-PCH-5).
+	// ChatDaemon 은 데몬의 채팅 사람 참가자다 (PEER_CHAT_SRS §3.11). nil 이면 준비되지 않은 데몬과
+	// 같다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-22).
 	ChatDaemon ChatDaemon
 }
 

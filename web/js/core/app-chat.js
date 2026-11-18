@@ -12,7 +12,6 @@
 
 /** 화면이 아는 실패. 코드 → 안내 문구 키. 없으면 `chat.unavailable` 이다. */
 const CHAT_DOWN_KEYS=Object.freeze({
-  chat_daemon_only:'chat.need_daemon',
   chat_daemon_restart:'chat.need_restart',
 });
 

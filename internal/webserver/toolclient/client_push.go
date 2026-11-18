@@ -138,7 +138,7 @@ func (pc *ToolClient) pushForeground(ev *wireMsg) {
 func (pc *ToolClient) pushExit(ev *wireMsg) {
 	pc.invalidateList()
 	// Signal every WS subscriber of this tool so it can send toolhub.OpExit and
-	// tear down (parity with direct-mode tool.kill). Closing + removing
+	// tear down. Closing + removing
 	// under subMu means no concurrent output dispatch sends on a closed chan.
 	pc.subMu.Lock()
 	subs := pc.subbers[ev.Tool]

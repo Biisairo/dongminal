@@ -57,14 +57,18 @@ const (
 // statements, ensuring the goroutine exits promptly. The dial goroutine below
 // is fire-and-forget: it writes its result to a buffered channel and exits,
 // regardless of whether the outer select consumes it.
-func dialOrStartDaemon(home string) *toolclient.ToolClient {
+func dialOrStartDaemon(home string) (*toolclient.ToolClient, error) {
+	// spawn is handed to the reconnect supervisor so it can respawn dongminald
+	// if it dies while we are running (FR-13).
+	return dialOrStartDaemonWith(home, func() error { return startDaemon(home) })
+}
+
+// dialOrStartDaemonWith 는 dialOrStartDaemon 의 본체다. spawn 이 데몬을 띄운다 — 시험이
+// 실패를 넣는 자리다 (DIRECT_MODE_REMOVAL_SRS TC-DMR-1).
+func dialOrStartDaemonWith(home string, spawn func() error) (*toolclient.ToolClient, error) {
 	// 종단 주소는 platform 이 만든다 — 데몬(boot.Run)이 listen 하는 주소와 같은
 	// 함수에서 나와야 표현이 바뀌어도 양쪽이 함께 옮겨간다 (FR-XIP-1).
 	endpoint := platform.Current().IPC.Endpoint(home)
-
-	// spawn is handed to the reconnect supervisor so it can respawn dongminald
-	// if it dies while we are running (FR-13).
-	spawn := func() error { return startDaemon(home) }
 
 	// Try connecting. DialToolClient sends hello and waits for response.
 	// If the old dongminal is still shutting down, this blocks until
@@ -83,7 +87,7 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	case r := <-ch:
 		if r.err == nil {
 			dmlog.Infof(nil, "connected to dongminald at %s", endpoint)
-			return r.pc
+			return r.pc, nil
 		}
 		// Connection failed (e.g. socket doesn't exist). Start fresh daemon.
 	case <-time.After(daemonBusyWait):
@@ -92,15 +96,14 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 		r := <-ch
 		if r.err == nil {
 			dmlog.Infof(nil, "connected to dongminald (after waiting)")
-			return r.pc
+			return r.pc, nil
 		}
 	}
 
 	// Daemon not running or not reachable. Start it.
 	dmlog.Infof(nil, "dongminald not reachable, starting...")
-	if err := startDaemon(home); err != nil {
-		dmlog.Errorf(nil, "failed to start dongminald: %v (falling back to direct mode)", err)
-		return nil
+	if err := spawn(); err != nil {
+		return nil, fmt.Errorf("%w: 데몬을 띄우지 못했습니다: %v", errDaemonUnavailable, err)
 	}
 
 	// Wait for daemon socket to appear (M8 D-A-15 — 상한은 tries×poll).
@@ -115,10 +118,9 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	})
 	if err == nil {
 		dmlog.Infof(nil, "connected to newly started dongminald")
-		return pc
+		return pc, nil
 	}
-	dmlog.Infof(nil, "dongminald did not become ready (falling back to direct mode)")
-	return nil
+	return nil, fmt.Errorf("%w: 데몬이 %s 안에 준비되지 않았습니다", errDaemonUnavailable, daemonReadyTries*daemonReadyPoll)
 }
 
 // daemonSubcommand 는 데몬 진입점의 인자다 — startDaemon 이 띄우고 main 이 알아본다.
@@ -153,7 +155,6 @@ func startDaemon(home string) error {
 
 type builtDeps struct {
 	deps        httpapi.Deps
-	pm          *toolhub.ToolManager
 	attnTracker *hub.AttnTracker
 	sampler     *sysstat.Sampler
 	wsMgr       *workspace.Manager
@@ -161,44 +162,6 @@ type builtDeps struct {
 	// 없다 — 그쪽은 인터페이스이고, 거기에 Sweeper·Shutdown 을 넣으면 httpapi 가
 	// 프로세스의 수명을 알게 되어 방향이 어긋난다 (EDITOR_LSP_SRS D-4).
 	lspSvc *lsp.Service
-}
-
-// restoreHeadlessBackground puts the restored headless tools back into the
-// background registry (FR-HLM-3).
-//
-// LoadAll 은 도구를 되살리기만 한다. 백그라운드 등록은 런타임 상태라 tools.json
-// 에 없으므로 여기서 되돌려야 한다 — 등록하지 않으면 탭에도 ⏻ 목록에도 없는,
-// 어디서도 닿을 수 없는 도구가 된다 (FR-BGR-5 와 같은 이유).
-//
-// **되살아난 것은 빈 셸이다.** 그 안에서 돌던 에이전트는 돌아오지 않는다. 그럼에도
-// 되살리는 이유는 소유자 때문이다 — Run 은 재시작으로 aborted 가 되고(FR-RUN-5),
-// 그 도구는 FR-HLM-5 의 고아로 run status 에 나타나 run close 로 거둬진다.
-// 기재하지 않으면 거둘 대상조차 사라진다.
-func restoreHeadlessBackground(pm *toolhub.ToolManager, headless map[string]struct{}) {
-	restored := 0
-	for id := range headless {
-		if pm.SetBackground(id, true) {
-			restored++
-		}
-	}
-	if restored > 0 {
-		dmlog.Infof(nil, "[run] 헤드리스 도구 %d개를 백그라운드로 복원", restored)
-	}
-}
-
-// wireSandbox 는 샌드박스 배치를 꽂는다 (SANDBOX_WINDOW_SRS FR-SBX-10).
-//
-// 런타임을 찾지 못하면 **꽂지 않고 nil 을 낸다.** 그 상태에서 샌드박스 창의
-// 도구를 만들면 ToolManager 가 명확한 오류로 실패시킨다 — 호스트 셸로 조용히
-// 내려가지 않는 것이 이 기능의 안전 요구다 (FR-SBX-21). 런타임이 없어도 나머지
-// 기능은 영향받지 않는다 (NFR-SBX-3).
-func wireSandbox(pm *toolhub.ToolManager, cfg httpapi.Config) *sandboxplace.Placer {
-	pl := sandboxplace.Wire(cfg.DataDir, cli.Version, cfg.Port)
-	if pl == nil {
-		return nil
-	}
-	pm.SetPlacer(pl.Place)
-	return pl
 }
 
 // liveWindowUUIDs 는 회수에 넘길 살아 있는 Window 목록이다. nil 은 그대로
@@ -214,50 +177,8 @@ func liveWindowUUIDs(ws []workspace.WindowInfo) []string {
 	return out
 }
 
-func buildDeps(cfg httpapi.Config, gitRoot context.Context) (builtDeps, error) {
-	pm := toolhub.NewToolManager(cfg.DataDir, nil)
-	placer := wireSandbox(pm, cfg)
-	cmdHub := hub.NewCommandHub()
-	// Wire attention SSE before LoadAll so restored tools also get detection.
-	hub.WireAttention(pm, cmdHub)
-	hub.WireActivity(pm, cmdHub)
-	// UX_BATCH6_SRS FR-BGP-2: 백그라운드 목록의 변화도 방송한다 — 보냄·되돌림·
-	// 도구의 죽음 셋 모두가 이 길을 지난다.
-	hub.WireBackground(pm, cmdHub)
-	// CONVENIENCE_SRS FR-TAN-7: direct 모드는 PTY 를 자기가 들고 있으므로 전경
-	// 조회도 여기서 일어난다. 데몬 모드의 짝은 serve() 의 OnForeground 다.
-	hub.WireForeground(pm, cmdHub)
-
-	// FR-HLM-3: 지난 세대의 헤드리스 도구를 **Load 전에** 읽는다. 직접 모드의
-	// runStore.Load(buildCommonDeps 안)가 열린 Run 을 aborted 로 확정하므로(FR-RUN-5),
-	// 그 뒤에 물으면 되살릴 대상이 하나도 남지 않는다.
-	headless := run.HeadlessToolIDs(cfg.DataDir)
-
-	bd, err := buildCommonDeps(cfg, pm, cmdHub, nil, gitRoot)
-	if err != nil {
-		return builtDeps{}, err
-	}
-
-	// 소유 판별을 꽂아야 SaveAll 이 헤드리스 도구를 기재한다 (FR-HLM-3). 이것이
-	// 없으면 FR-BG-9 의 제외 규칙이 그대로 적용돼 다음 부팅에 되살릴 것이 없다.
-	pm.SetOwnedTools(func() map[string]struct{} { return run.HeadlessToolIDs(cfg.DataDir) })
-	refs, err := workspace.ReferencedToolIDs(bd.wsMgr.Raw())
-	if err != nil {
-		return builtDeps{}, fmt.Errorf("workspace 참조 해석: %w", err)
-	}
-	for id := range headless {
-		refs[id] = struct{}{}
-	}
-	pm.LoadAll(refs)
-	restoreHeadlessBackground(pm, headless)
-	bd.pm = pm
-	attachSandbox(&bd, placer)
-	return bd, nil
-}
-
-// buildDepsWithHub is the daemon-mode variant that uses a ToolHub (ToolClient)
-// instead of a direct ToolManager. Attention/activity are not wired here
-// because in daemon mode they are driven by output push events from dongminald.
+// buildDepsWithHub 는 데몬 허브(ToolClient)로 의존을 조립한다. 도구는 데몬에 있다
+// (DIRECT_MODE_REMOVAL_SRS). attention/activity 는 데몬의 출력 push 가 몬다.
 func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitRoot context.Context) (builtDeps, error) {
 	cmdHub := hub.NewCommandHub()
 	// 배치는 데몬이 한다(boot.Run). 여기서는 회수만 맡는다 — 회수는 workspace 를
@@ -292,12 +213,8 @@ func attachSandbox(bd *builtDeps, pl *sandboxplace.Placer) {
 	pl.Reap(liveWindowUUIDs(bd.wsMgr.Windows()))
 }
 
-// newToolAdapters 는 toolaccess 어댑터 둘을 만든다. 직접 모드는 구체 ToolManager 로
-// 더 넓은 접근을 쓰고, 데몬 모드는 허브(ToolClient)를 쓴다.
+// newToolAdapters 는 toolaccess 어댑터 둘을 만든다. 둘 다 허브(ToolClient)를 쓴다.
 func newToolAdapters(toolHub toolhub.ToolHub) (adapters.Tool, adapters.Client) {
-	if pm, ok := toolHub.(*toolhub.ToolManager); ok {
-		return adapters.Tool{PM: pm}, adapters.Client{PM: pm}
-	}
 	return adapters.Tool{Hub: toolHub}, adapters.Client{Hub: toolHub}
 }
 
@@ -332,15 +249,10 @@ func newGitDeps(cfg httpapi.Config, gitRoot context.Context) gitDeps {
 // newRunStore 는 Run 레코드 저장소다 (RUN_ORCHESTRATION_SRS 묶음 R). Load 는 파일이
 // 없거나 손상돼도 부팅을 막지 않는다.
 //
-// 재기동이 열린 Run 을 닫는 것은 **직접 모드뿐이다.** 그쪽은 서버가 곧 도구를 들고
-// 있어 에이전트가 함께 죽었다. 데몬 모드는 도구가 서버보다 오래 살므로 닫지 않고,
-// 열림을 물을 때마다 생존으로 계산한다 (AGENT_RECORD_DAEMON_SRS FR-ARD-3·4).
-func newRunStore(cfg httpapi.Config, toolHub toolhub.ToolHub) *run.Store {
-	var opts []run.Option
-	if toolHub.Daemon() == nil {
-		opts = append(opts, run.WithAbortOpenOnLoad())
-	}
-	runStore := run.NewStore(cfg.DataDir, opts...)
+// 재기동은 열린 Run 을 닫지 않는다. 도구가 서버보다 오래 살므로 열림을 물을 때마다
+// 생존으로 계산한다 (AGENT_RECORD_DAEMON_SRS FR-ARD-3·4).
+func newRunStore(cfg httpapi.Config) *run.Store {
+	runStore := run.NewStore(cfg.DataDir)
 	if err := runStore.Load(); err != nil {
 		dmlog.Infof(nil, "run store load: %v", err)
 	}
@@ -367,7 +279,7 @@ func newLSPService(cfg httpapi.Config) *lsp.Service {
 	return lspSvc
 }
 
-// buildCommonDeps wires up the managers shared by both direct and daemon modes.
+// buildCommonDeps wires up the managers around the daemon hub.
 // toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
 // the tool adapters.
 // gitRoot 는 git 의 서버 수명 ctx 다 (REPO_FIX 01 §8) — Store flight·잡·동기 쓰기의
@@ -378,7 +290,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 		return builtDeps{}, err
 	}
 	pa, resolver := newToolAdapters(toolHub)
-	runStore := newRunStore(cfg, toolHub)
+	runStore := newRunStore(cfg)
 	git := newGitDeps(cfg, gitRoot)
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
@@ -408,7 +320,6 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 			OnGitBaseline: repoWatch.Seen,
 			LSP:           lspSvc,
 		},
-		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,
 		wsMgr:       wsMgr,
 		sampler:     sampler,

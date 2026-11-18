@@ -111,6 +111,11 @@
 
 ### 3.3 묶음 R — 프로토콜
 
+> **폐기 (2026-11-17, PEER_DAEMON_SRS D-PDM-13·14 — 2026-11-18 본문 표시).** 이 절(FR-PNW-40~64)은 코드에 없다. 아래 원문은 기록으로 남긴다.
+> 지금 노드 포트가 받는 경로는 셋이다: `POST /edge/v1/pair`·`POST /edge/v1/unpair`(EDGE_PAIRING_SRS)와 간선 연결 `/edge/v1/link`(EDGE_MESH_SRS).
+> 그 밖은 404 다(`internal/shared/edgenode/node.go` `Handler`). 노드 사이의 일(채팅·망 정보·변경 알림·간선 초대)은 간선 연결 위에서 돈다 — EDGE_MESH_SRS 를 본다.
+> 묶음 C 도 같은 결정을 따른다: `/api/peers/*`·`dmctl peers`·`dmctl peer` 의 짝맺기 명령은 `/api/edges/*`·`dmctl edges`·`dmctl edge` 로 이름이 바뀌었고, 프로토콜 명령을 부르던 `/api/peers/call`·`dmctl peer info|tools|spawn|status|close`·원격 `dmctl msg --to <노드>/<uuid>` 는 없다.
+
 공통
 
 - **FR-PNW-40** 모든 프로토콜 명령은 `POST /peer/v1/<명령>`이고 본문과 응답은 JSON이다.

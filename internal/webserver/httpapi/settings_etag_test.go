@@ -119,7 +119,7 @@ func TestSettingsETag_EdgesNode(t *testing.T) {
 	if e1 == "" {
 		t.Fatal("GET /api/edges 가 ETag 를 싣지 않았다")
 	}
-	cfg := n.srv.edgeNode.Store().Config()
+	cfg := n.node.Store().Config()
 	cfg.Name = "renamed"
 	raw, _ := json.Marshal(cfg)
 	rec := settingsReq(h, http.MethodPut, "/api/edges/node", string(raw), e1)
@@ -132,7 +132,7 @@ func TestSettingsETag_EdgesNode(t *testing.T) {
 	cfg.Name = "again"
 	raw, _ = json.Marshal(cfg)
 	wantStale(t, settingsReq(h, http.MethodPut, "/api/edges/node", string(raw), e1))
-	if n.srv.edgeNode.Store().Config().Name != "renamed" {
+	if n.node.Store().Config().Name != "renamed" {
 		t.Fatal("거절된 PUT 이 값을 바꿨다")
 	}
 	if rec := settingsReq(h, http.MethodPut, "/api/edges/node", string(raw), ""); rec.Code != http.StatusOK {

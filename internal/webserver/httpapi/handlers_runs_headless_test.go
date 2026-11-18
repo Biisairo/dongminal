@@ -32,6 +32,7 @@ import (
 // 생성의 일부이므로(FR-HLM-2) 그 fake 로는 이 묶음을 검증할 수 없다.
 
 type headlessHub struct {
+	nopDaemon
 	mu        sync.Mutex
 	tools     map[string]*toolhub.Tool
 	bg        map[string]int64
@@ -150,8 +151,7 @@ func (h *headlessHub) ListOK() ([]toolhub.ToolInfo, bool) {
 	defer h.mu.Unlock()
 	return nil, !h.listUnknown
 }
-func (h *headlessHub) Connected() bool           { return true }
-func (h *headlessHub) Daemon() toolhub.DaemonHub { return nil }
+func (h *headlessHub) Connected() bool { return true }
 func (h *headlessHub) Get(id string) *toolhub.Tool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -312,6 +312,7 @@ func newHeadlessFixture(t *testing.T) *headlessFixture {
 		s: &Server{Deps: Deps{
 			Tools: h, ToolIO: io, WorkIndex: wi, Runs: store,
 			Commands: cmds, WhoAmI: &fakeWhoAmI{toolID: "tool-a"},
+			AttnTracker: hub.NewAttnTracker(cmds, 0),
 		}},
 		hub: h, io: io, wi: wi, store: store, cmds: cmds,
 	}

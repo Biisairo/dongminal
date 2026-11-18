@@ -15,7 +15,7 @@ import (
 func newEdgeNodeObserved(t *testing.T, name string) (*edgeNode, *fakeCommandBroker) {
 	t.Helper()
 	cmds := &fakeCommandBroker{}
-	return newEdgeNodeWith(t, name, true, Deps{Commands: cmds}), cmds
+	return newEdgeNodeWith(t, name, true, cmds), cmds
 }
 
 func edgeFixture(name string) edge.Edge {
@@ -92,7 +92,7 @@ func TestEdgesChangedOnLocalEdits(t *testing.T) {
 		t.Fatalf("node 뒤 방송 %v", got)
 	}
 	fx := edgeFixture("c")
-	if err := b.srv.edgeNode.Store().AddEdge(fx); err != nil {
+	if err := b.node.Store().AddEdge(fx); err != nil {
 		t.Fatal(err)
 	}
 	for _, s := range []struct {

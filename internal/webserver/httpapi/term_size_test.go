@@ -43,9 +43,9 @@ func firstOp(frames [][]byte, op byte) []byte {
 // 앞이어야 하는 이유는 재생 때문이다. 재생 바이트는 PTY 폭 기준으로 쓰인
 // 이스케이프를 담고 있으므로, 클라이언트가 그것을 해석하기 전에 폭이 맞아야 한다.
 func TestHandleWS_SizeAnnouncedBeforeSeq(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -85,9 +85,9 @@ func TestHandleWS_SizeAnnouncedBeforeSeq(t *testing.T) {
 // 하나만 받으면 고친 것이 아니다 — 어긋나는 쪽은 언제나 크기를 **보내지 않은**
 // 클라이언트(비소유자)이기 때문이다 (D-M9-3).
 func TestHandleWS_SizeChangeReachesEveryClient(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -146,9 +146,9 @@ func readSize(t *testing.T, ws *websocket.Conn, who string) (cols, rows uint16) 
 // `resendWindowSizes` 가 **창 전환마다** 같은 값을 보내므로(`app-focus.js`),
 // 거르지 않으면 전환마다 모든 클라이언트가 같은 프레임을 받는다.
 func TestHandleWS_SizeUnchangedIsSilent(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 

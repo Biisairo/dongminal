@@ -85,28 +85,3 @@ func TestStartDoesNotWriteEpoch(t *testing.T) {
 		t.Fatalf("runs.json 에 epoch 가 있다:\n%s", blob)
 	}
 }
-
-// 직접 모드는 종전 결과 그대로다 (§3.4a): 서버가 다시 뜨면 에이전트가 죽었으므로
-// 열린 Run 을 aborted 로 저장한다. 끝난 Run 은 끝난 이유를 그대로 둔다.
-func TestAbortOpenOnLoadForDirectMode(t *testing.T) {
-	dir := writeLegacyRuns(t)
-	s := NewStore(dir, WithAbortOpenOnLoad(), WithClock(func() int64 { return 99 }))
-	if err := s.Load(); err != nil {
-		t.Fatal(err)
-	}
-	op, _ := s.Get("00000000-0000-7000-8000-000000000001")
-	if op.State != Aborted || op.AbortReason != AbortDaemonRestart || op.ClosedAt != 99 {
-		t.Fatalf("직접 모드의 열린 Run 이 닫히지 않았다: %+v", op)
-	}
-	ab, _ := s.Get("00000000-0000-7000-8000-000000000002")
-	if ab.ClosedAt != 2 {
-		t.Fatalf("이미 끝난 Run 의 종료 시각을 고쳤다: %+v", ab)
-	}
-	again := NewStore(dir)
-	if err := again.Load(); err != nil {
-		t.Fatal(err)
-	}
-	if g, _ := again.Get(op.ID); g.State != Aborted {
-		t.Fatalf("닫은 것이 저장되지 않았다: %+v", g)
-	}
-}

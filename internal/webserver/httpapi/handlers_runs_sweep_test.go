@@ -1,13 +1,16 @@
 package httpapi
 
 import (
+	"bytes"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/worktree"
 
+	"dongminal/internal/shared/runfile"
 	"dongminal/internal/shared/testpath"
 )
 
@@ -40,9 +43,19 @@ func fencedRun(t *testing.T) (*Server, string, string, *worktree.Manager) {
 		t.Fatalf("worktree 가 만들어지지 않았다: %v", err)
 	}
 
-	// 서버 재기동: 직접 모드의 다음 세대가 이 Run 을 aborted 로 확정한다 (FR-RUN-5).
-	// 데몬 모드는 닫지 않는다 (AGENT_RECORD_DAEMON_SRS FR-ARD-3).
-	next := run.NewStore(dir, run.WithAbortOpenOnLoad())
+	// 옛 판의 재기동이 이 Run 을 aborted 로 확정해 둔 runs.json 을 흉내 낸다 (FR-RUN-5).
+	// 지금은 재기동이 닫지 않지만, 그렇게 남은 기록은 읽는다 (AGENT_RECORD_DAEMON_SRS FR-ARD-7).
+	runsPath := filepath.Join(dir, runfile.FileName)
+	blob, err := os.ReadFile(runsPath)
+	if err != nil {
+		t.Fatalf("runs.json: %v", err)
+	}
+	blob = bytes.Replace(blob, []byte(`"state":"open"`),
+		[]byte(`"state":"aborted","abortReason":"`+run.AbortDaemonRestart+`"`), 1)
+	if err := os.WriteFile(runsPath, blob, 0o600); err != nil {
+		t.Fatalf("runs.json 쓰기: %v", err)
+	}
+	next := run.NewStore(dir)
 	if err := next.Load(); err != nil {
 		t.Fatalf("재기동 store load: %v", err)
 	}

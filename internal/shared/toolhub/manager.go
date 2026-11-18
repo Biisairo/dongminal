@@ -51,16 +51,6 @@ type ToolManager struct {
 	// 프로파일도 알지 않으며, 완성된 명세만 받는다.
 	placer func(Placement) (*platform.ProcSpec, error)
 
-	// bgChanged 는 **아무도 부탁하지 않은 백그라운드 목록의 변화**를 위층에
-	// 알린다 — 곧 도구 프로세스의 죽음이다 (UX_BATCH6_SRS FR-BGP-1·2).
-	// invalidator·placer 와 같은 방향이다: toolhub 는 SSE 도 브라우저도 알지
-	// 않으며 사실만 낸다.
-	//
-	// 사용자가 부탁한 변화(보냄·되돌림)는 이 훅이 아니라 HTTP 종단이 알린다 —
-	// 그쪽에는 두 모드가 공유하는 한 자리가 있고, 이 훅은 데몬 모드에서 구독자
-	// 없는 프로세스에서 돈다.
-	bgChanged func()
-
 	// mutated 는 **기동 후 한 번이라도 상태가 바뀌었는가** 다. 한 번 서면 내려오지
 	// 않으며, 그것이 이 값의 뜻이다 (FR-CAF-13).
 	//
@@ -201,15 +191,6 @@ func (m *ToolManager) listWith(fg map[string]string) []ToolInfo {
 	return out
 }
 
-// ListOK 는 직접 모드에서 언제나 안다 (FR-TLU-3) — 목록이 이 프로세스에 있다.
-func (m *ToolManager) ListOK() ([]ToolInfo, bool) { return m.List(), true }
-
-// Connected 는 직접 모드에서 언제나 참이다 — 레지스트리가 이 프로세스에 있다.
-func (m *ToolManager) Connected() bool { return true }
-
-// Daemon 은 직접 모드에서 nil 이다 — 프로세스 경계가 없다.
-func (m *ToolManager) Daemon() DaemonHub { return nil }
-
 // Delete 는 도구를 지운다. **없으면 `ErrToolNotFound` 다** (`GO-8`).
 //
 // 종전에는 반환이 없어서 데몬 IPC 가 언제나 성공으로 답했다. 이미 없는 것을
@@ -232,8 +213,6 @@ func (m *ToolManager) Delete(id string) error {
 	p := m.tools[id]
 	delete(m.tools, id)
 	// UX_BATCH6_SRS FR-BGP-1: 백그라운드 목록은 **살아 있는 프로세스의 목록**이다.
-	// 지우는 것은 종전과 같고, 달라진 것은 그 사실을 알린다는 점이다.
-	_, wasBg := m.background[id]
 	delete(m.background, id)
 	remaining := len(m.tools)
 	m.mu.Unlock()
@@ -243,9 +222,6 @@ func (m *ToolManager) Delete(id string) error {
 	}
 	m.mutated.Store(true)
 	m.saveAsync()
-	if wasBg {
-		m.notifyBackground()
-	}
 	// 없던 것을 지운 것도 **사실대로** 말한다. 정리(목록·배경·저장)는 그대로
 	// 도는데, 그것은 남은 찌꺼기를 치우는 일이라 대상이 없어도 해가 없다.
 	if p == nil {

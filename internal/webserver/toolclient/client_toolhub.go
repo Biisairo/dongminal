@@ -40,9 +40,6 @@ func (pc *ToolClient) Subscribe(toolID string, ch chan OutChunk) (exitCh <-chan 
 	}
 }
 
-// Daemon 은 자기 자신이다 — 이 클라이언트가 곧 프로세스 경계를 건너는 표면이다.
-func (pc *ToolClient) Daemon() toolhub.DaemonHub { return pc }
-
 // Connected reports whether a live daemon connection is currently established.
 // During a reconnect window it returns false, so callers can distinguish a
 // genuinely missing tool from a transient outage and avoid telling the browser
@@ -175,7 +172,7 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 		ExtraEnv: place.ExtraEnv,
 	}, toolCreateTimeout)
 	if err != nil {
-		// M8 D-A-16: 상한 초과는 코드로 건너온다 — 핸들러의 `errors.Is` 가 두 모드에서 같다.
+		// M8 D-A-16: 상한 초과는 코드로 건너온다 — 핸들러가 `errors.Is` 로 가린다.
 		var rpc *toolipc.RPCError
 		if errors.As(err, &rpc) && rpc.Code == toolipc.CodeToolCap {
 			return nil, fmt.Errorf("%w: %s", toolhub.ErrToolCap, rpc.Message)

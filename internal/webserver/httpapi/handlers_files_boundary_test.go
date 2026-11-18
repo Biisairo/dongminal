@@ -164,9 +164,9 @@ func TestFileWrite_ToolCwdIsRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	pm, pmHub := daemonPairAt(t, toolTempDir(t))
 	t.Cleanup(pm.StopSaving)
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm, Work: newFakeWorkspaceStore()})
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Tools: pmHub, Work: newFakeWorkspaceStore()})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

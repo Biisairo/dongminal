@@ -142,7 +142,7 @@ func (m *ToolManager) RefreshForeground() { m.refreshForeground(time.Now()) }
 
 // StartForegroundRefresh 는 틱마다 RefreshForeground 를 부른다 (FR-OPT-2-1). 데몬이
 // 건다 — 종전에는 서버의 2초 list 폴이 dispatch 안에서 이 조회를 일으켰다. 틱은
-// 배선이 만든다 (StartAttentionSweeper 와 같다).
+// 배선이 만든다 (RunAttentionSweeper 와 같다).
 func (m *ToolManager) StartForegroundRefresh(stop <-chan struct{}, tick <-chan time.Time) {
 	go func() {
 		for {

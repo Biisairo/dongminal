@@ -270,10 +270,8 @@ func TestHeadlessToolIDs_SkipsTabbedMembers(t *testing.T) {
 	}
 }
 
-// 재기동 뒤의 되살릴 대상. 데몬 모드(옵션 없음)는 Run 을 닫지 않으므로 대상이 남는다
-// (AGENT_RECORD_DAEMON_SRS FR-ARD-3). 직접 모드(WithAbortOpenOnLoad)는 Load 가 열린
-// Run 을 aborted 로 확정하므로 그 뒤에는 비어 있다 — 부팅 배선이 Load 보다 먼저
-// 물어야 하는 이유이며, 이 테스트가 그 순서의 근거를 고정한다.
+// 재기동 뒤의 되살릴 대상. 재기동은 Run 을 닫지 않으므로 대상이 남는다
+// (AGENT_RECORD_DAEMON_SRS FR-ARD-3).
 func TestHeadlessToolIDs_AfterReload(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -282,7 +280,6 @@ func TestHeadlessToolIDs_AfterReload(t *testing.T) {
 		left int
 	}{
 		{"daemon", nil, Open, 1},
-		{"direct", []Option{WithAbortOpenOnLoad()}, Aborted, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()

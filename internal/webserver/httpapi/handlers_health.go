@@ -57,20 +57,16 @@ func (s *Server) apiHealth(w http.ResponseWriter, r *http.Request) {
 
 	if s.Tools != nil {
 		out.Tools = len(s.Tools.List())
-		// 데몬 모드의 판정은 `Daemon()` 하나다 (`GO-46`) — 두 모드를 가르는
-		// 자리를 새로 만들지 않는다.
-		if d := s.Tools.Daemon(); d != nil {
-			info := d.DaemonInfo()
-			out.Daemon = healthDaemon{
-				Connected: s.Tools.Connected(),
-				Protocol:  info.Protocol,
-				Build:     info.Build,
-				// FR-VHL-11: 빌드를 **아는데** 다를 때만 어긋남이다. 데몬이 판을
-				// 말하지 않으면(옛 데몬) 빈 값이고, 그것은 "모른다" 이지 불일치가
-				// 아니다 (FR-CBG-5).
-				// 우리 판을 모를 때도 불일치가 아니다 — 견줄 기준이 없다.
-				Mismatch: info.Build != "" && out.Version != "" && info.Build != out.Version,
-			}
+		info := s.Tools.DaemonInfo()
+		out.Daemon = healthDaemon{
+			Connected: s.Tools.Connected(),
+			Protocol:  info.Protocol,
+			Build:     info.Build,
+			// FR-VHL-11: 빌드를 **아는데** 다를 때만 어긋남이다. 데몬이 판을
+			// 말하지 않으면(옛 데몬) 빈 값이고, 그것은 "모른다" 이지 불일치가
+			// 아니다 (FR-CBG-5).
+			// 우리 판을 모를 때도 불일치가 아니다 — 견줄 기준이 없다.
+			Mismatch: info.Build != "" && out.Version != "" && info.Build != out.Version,
 		}
 	}
 	if s.Work != nil {
