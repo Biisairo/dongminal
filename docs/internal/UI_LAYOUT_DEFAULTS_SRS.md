@@ -955,3 +955,8 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   e2e 잡을 되살린 뒤(`if: false` 한 줄을 지운다) 그 판의 `ui-layout.{linux,win32}.json` 을 지우고 한 번 돌린다 — V-LAY-1 이
   `test-results/` 에 뜬 것을 남기고 실패하며, 실패한 회차의 `playwright-report-<os>-<샤드>` 아티팩트에서 그 파일을 꺼내
   `e2e/baseline/` 에 커밋한다(위 `expect(false, …)` 의 경로). 또는 그 러너에서 `LAYOUT_BASELINE=write` 로 돌린다.
+- 2026-11-18 (`CLEANUP_FOLLOWUP_HANDOFF` 할 일 4) 보류를 풀었다(사용자 지시). 꺼진 e2e 잡을 되살리지 않고, 사람이 부를 때만
+  도는 워크플로 `.github/workflows/layout-baseline.yml` 을 두었다 — `ubuntu-24.04`·`windows-latest` 에서
+  `ui-layout-defaults` 하나를 `LAYOUT_BASELINE=write` 로 돌려 `ui-layout-baseline-<os>` 아티팩트로 올린다.
+  **아직 돌리지 않았다** — 푸시와 CI 실행은 바깥으로 나가는 일이라 사용자가 한다. 순서: 푸시 → Actions 에서
+  `layout-baseline` 실행 → 아티팩트 두 파일을 `e2e/baseline/` 에 덮어 커밋.

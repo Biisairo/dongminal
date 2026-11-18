@@ -90,8 +90,12 @@ func TestSessionKeep_RealReload(t *testing.T) {
 	if out.Kind != handover.Swapped {
 		t.Fatalf("Reload = %+v", out)
 	}
+	// 데몬은 교체 답을 쓴 **뒤에** 새 판으로 exec 한다(pid 는 같다). 그래서 hello·pid 만으로는 아직 옛 판이
+	// 답하는 것과 가리지 못하고, 그 틈에 붙은 연결은 exec 에 끊긴다. 새 판이 남기는 기동 줄을 함께 기다린다.
 	eventually(t, "교체 뒤 hello", func() bool {
-		return handover.Hello(home, 200*time.Millisecond) && pidFile(home) == daemon.Process.Pid
+		log, _ := os.ReadFile(filepath.Join(home, "daemon.log"))
+		return strings.Contains(string(log), "handover=true") &&
+			handover.Hello(home, 200*time.Millisecond) && pidFile(home) == daemon.Process.Pid
 	})
 
 	pc2, err := toolclient.DialToolClient(sock)

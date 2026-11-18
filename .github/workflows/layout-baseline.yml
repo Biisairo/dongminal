@@ -1,0 +1,59 @@
+name: layout-baseline
+
+# V-LAY-1 의 linux·win32 기준선을 뜬다 (UI_LAYOUT_DEFAULTS_SRS §9 기록 2026-11-18).
+#
+# e2e 잡은 꺼져 있다(2026-11-04 사용자 결정, `e2e.yml` 의 `if: false`). 두 판의 기준선을 뜰 러너는
+# 여기뿐이다. **사람이 부를 때만 돈다** — 푸시로 돌지 않는다. `ui-layout-defaults` 하나를
+# `LAYOUT_BASELINE=write` 로 돌려 `e2e/baseline/ui-layout.<판>.json` 을 쓰고, 그 파일을 아티팩트로
+# 올린다. 받은 파일을 `e2e/baseline/` 에 커밋하면 다음 회차부터 대조가 선다.
+# 이 재생성은 바뀐 화면이 옳다는 증명이 아니다(§5.1).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  baseline:
+    strategy:
+      fail-fast: false
+      matrix:
+        # 판은 e2e.yml 과 같다 — 기준선을 뜬 판과 대조하는 판이 갈리면 안 된다.
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+
+      # 픽스처가 만드는 저장소의 전제다 (e2e.yml 의 같은 단계).
+      - name: git 기본값
+        shell: bash
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.name  'dongminal e2e'
+          git config --global user.email 'e2e@example.invalid'
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - name: 의존
+        run: npm ci
+
+      - name: 브라우저
+        run: npx playwright install --with-deps chromium
+
+      - name: 기준선 뜨기
+        shell: bash
+        env:
+          LAYOUT_BASELINE: write
+        run: npx playwright test ui-layout-defaults --reporter=line
+
+      - name: 기준선 올리기
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ui-layout-baseline-${{ matrix.os }}
+          path: e2e/baseline/ui-layout.*.json
+          retention-days: 7

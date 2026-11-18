@@ -247,6 +247,12 @@ func (s *Service) pinLocked(fp string) func() {
 		return nil
 	}
 	e, ok := s.edgeLocked(fp)
+	if !ok {
+		// 자기 연결로 상태를 보낸 상대는 간선이다 — 없다면 캐시가 그 간선보다 낡았다. 간선 계층이 Linked(캐시
+		// 비우기)와 읽기 루프를 따로 띄우므로 이 상태가 먼저 올 수 있다. 한 번 새로 읽는다.
+		s.edgeCache = nil
+		e, ok = s.edgeLocked(fp)
+	}
 	key := r.st.Helper
 	switch {
 	case !ok || e.HelperKey == key:

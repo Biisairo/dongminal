@@ -386,3 +386,22 @@ func TestNonCanonicalReplayIgnored(t *testing.T) {
 		t.Fatal("비정규 표기 재전송이 다시 적용됐다")
 	}
 }
+
+// §3.12a R-6: 간선 목록 캐시가 새 간선을 모르는 채로 그 상대의 직접 연결 상태가 와도 고정한다. 간선 계층은
+// Linked(캐시 비우기)와 읽기 루프를 따로 띄우므로, 상태가 Linked 보다 먼저 처리될 수 있다.
+func TestPinWithStaleEdgeCache(t *testing.T) {
+	a, b := newHumanNode(t, "a"), newHumanNode(t, "b")
+	a.mu.Lock()
+	_ = a.edgesLocked() // 간선이 없을 때의 목록을 캐시에 둔다
+	a.mu.Unlock()
+	a.emu.Lock()
+	a.edges = append(a.edges, edge.Edge{Name: "b", Fingerprint: b.fp()})
+	a.emu.Unlock()
+	b.mu.Lock()
+	own := b.own
+	b.mu.Unlock()
+	a.handle(b.fp(), own)
+	if got := a.pinOf(b.fp()); got != b.HelperKey() {
+		t.Fatalf("pin=%q want %q — 낡은 간선 캐시로 고정을 놓쳤다", got, b.HelperKey())
+	}
+}
