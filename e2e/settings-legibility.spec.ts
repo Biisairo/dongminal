@@ -89,4 +89,44 @@ test.describe('설정 항목의 가시성 (FR-SIL-1~7)', () => {
       }
       await closePanel(page);
     });
+
+  // SETTINGS_TAB_ORDER_SRS FR-STO-6~8: 카드형 — 항목은 카드, 섹션 제목은 밝고 굵게, 묶음 이름 위에 선.
+  test('V-STO-6~8: 항목은 카드이고 섹션·묶음이 갈린다', async ({ page }) => {
+    await waitForInit(page);
+    await openPanel(page, 'display');
+    const got = await page.evaluate(() => {
+      const panel = document.getElementById('panel-display')!;
+      const row = panel.querySelector('.ds-row:has(#ds-uifs)') as HTMLElement;
+      const hint = row.nextElementSibling as HTMLElement;
+      const next = hint.nextElementSibling as HTMLElement;
+      const sec = panel.querySelector('.ds-sec') as HTMLElement;
+      const label = row.querySelector('span') as HTMLElement;
+      const body = document.querySelector('#modal .modal-body') as HTMLElement;
+      const cs = (e: Element) => getComputedStyle(e);
+      const grp = document.querySelector('#modal .mtab-grp') as HTMLElement;
+      return {
+        rowBg: cs(row).backgroundColor, hintBg: cs(hint).backgroundColor, bodyBg: cs(body).backgroundColor,
+        radius: parseFloat(cs(row).borderTopLeftRadius),
+        gap: next.getBoundingClientRect().top - hint.getBoundingClientRect().bottom,
+        secWeight: Number(cs(sec).fontWeight), secSize: parseFloat(cs(sec).fontSize), labelSize: parseFloat(cs(label).fontSize),
+        labelWeight: Number(cs(label).fontWeight),
+        grpBorder: parseFloat(cs(grp).borderTopWidth),
+      };
+    });
+    expect(got.rowBg).toBe(got.hintBg);
+    expect(got.rowBg).not.toBe(got.bodyBg);
+    expect(got.rowBg).not.toBe('rgba(0, 0, 0, 0)');
+    expect(got.radius).toBeGreaterThan(0);
+    expect(got.gap).toBeGreaterThan(0);
+    expect(got.secWeight).toBeGreaterThanOrEqual(600);
+    expect(got.secSize).toBeGreaterThanOrEqual(got.labelSize);
+    // 색은 테마마다 같을 수 있다(밝은 글자와 본문 글자가 같은 테마) — 굵기로 가른다.
+    expect(got.secWeight).toBeGreaterThan(got.labelWeight);
+    expect(got.grpBorder).toBeGreaterThan(0);
+    // 저장 버튼·상태만 있는 행은 카드가 아니다.
+    await page.click('.mtab[data-tab="edges"]');
+    const saveBg = await page.locator('#panel-edges .ds-row:has(#eg-save)').evaluate((e) => getComputedStyle(e).backgroundColor);
+    expect(saveBg).toBe('rgba(0, 0, 0, 0)');
+    await closePanel(page);
+  });
 });
