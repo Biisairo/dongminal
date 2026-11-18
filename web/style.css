@@ -885,6 +885,11 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ag-tab.active{color:var(--text-bright);border-bottom-color:var(--accent)}
 .ag-tab:hover{color:var(--accent-text);background:var(--accent-hover)}
 .ag-tab-name{display:none}
+/* UI_KIT_SRS FR-UIK-5·FR-GLY-5: 이름 없이 아이콘만 서는 탭이라, 아이콘 버튼처럼 높이에서 파생한다. */
+.ag-tab-icon>.ui-icon{
+  width:calc(var(--ui-tab-h) * var(--ui-icon-ratio));
+  height:calc(var(--ui-tab-h) * var(--ui-icon-ratio));
+}
 .ag-tab-n{flex:0 0 auto}
 .ag-tab-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--attn)}
 /* FR-CPY-2: 빈 구역은 사실만 말하지 않는다 — 모달·팝오버 시절의 그 문구 그대로다. */

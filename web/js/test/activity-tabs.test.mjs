@@ -14,7 +14,7 @@ const icons = () => Object.fromEntries([...read('js/core/app-activity.js')
   .matchAll(/\{key:'(\w+)', icon:'([\w-]+)'/g)].map((m) => [m[1], m[2]]));
 
 test('탭마다 뜻에 맞는 아이콘이다', () => {
-  assert.deepEqual(icons(), { agents: 'bot', bg: 'terminal-bg', runs: 'list-tree', chats: 'message-square' });
+  assert.deepEqual(icons(), { agents: 'bot', bg: 'terminal-bg', runs: 'workflow', chats: 'message-square' });
 });
 
 test('탭 아이콘은 모두 스프라이트에 있다', () => {
@@ -41,4 +41,13 @@ test('레일의 Chats 는 방 줄만 보인다', () => {
     assert.ok(hide.includes(cls), `레일에서 ${cls} 를 숨기지 않는다`);
   }
   assert.ok(!hide.includes('.chat-room'), '방 줄은 레일에 남아야 한다');
+});
+
+// UI_KIT_SRS FR-UIK-5·FR-GLY-5: 아이콘만 있는 탭의 아이콘은 탭 높이에서 파생한다 (× --ui-icon-ratio).
+test('탭 아이콘은 탭 높이 × --ui-icon-ratio 다', () => {
+  const css = read('style.css');
+  const m = css.match(/\n\.ag-tab-icon>\.ui-icon\{([^}]*)\}/);
+  assert.ok(m, '.ag-tab-icon>.ui-icon 규칙이 없다');
+  assert.match(m[1], /width:calc\(var\(--ui-tab-h\) \* var\(--ui-icon-ratio\)\)/);
+  assert.match(m[1], /height:calc\(var\(--ui-tab-h\) \* var\(--ui-icon-ratio\)\)/);
 });

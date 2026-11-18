@@ -51,7 +51,7 @@ const ACTIVITY_SECTIONS=[
    badge:(app,its)=>({n:0,dot:its.some(i=>i.t==='group'&&i.attn>0)})},
   {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), empty:()=>t('bg.empty'),
    items:app=>app._actBgRows()},
-  {key:'runs', icon:'list-tree', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
+  {key:'runs', icon:'workflow', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
    items:app=>app._actRunsRows()},
   {key:'chats', icon:'message-square', title:()=>t('chat.title'), empty:()=>t('chat.empty'),
    items:app=>app._chatItems(), shownOnly:true, badge:app=>({n:app._chatUnreadTotal()})},
