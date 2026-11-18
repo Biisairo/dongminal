@@ -83,7 +83,7 @@
 
 | ID | 요구 | 방법 |
 |---|---|---|
-| TC-DMR-1 | FR-DMR-2 | Go `cmd/dongminal/daemon_required_test.go`: 띄우기 실패·준비 안 됨 둘 다 `dialOrStartDaemonWith` 가 `errDaemonUnavailable` 을 낸다. `buildApp` 은 그 오류를 그대로 돌려주고 `serve` 는 리스너를 열기 전에 1 로 끝난다 |
+| TC-DMR-1 | FR-DMR-2 | Go `cmd/dongminal/daemon_required_test.go`: 띄우기 실패·준비 안 됨 둘 다 `dialOrStartDaemonWith` 가 `errDaemonUnavailable` 을 낸다. `buildApp` 이 그 오류를 그대로 돌려주고 `serve` 가 리스너를 열기 전에 1 로 끝나는 것은 시험하지 않는다 — 코드 검토로 확인한다(`app.go` 의 `serve` 는 `buildApp` 의 어떤 오류에서든 리스너 전에 1 을 돌려준다) |
 | TC-DMR-2 | FR-DMR-10·11 | 컴파일: `var _ toolhub.ToolHub = (*toolclient.ToolClient)(nil)` 이 서고, `*toolhub.ToolManager` 는 `ToolHub` 가 아니다. 서버 프로덕션 코드의 `*toolhub.ToolManager` 참조는 0 이다 |
 | TC-DMR-3 | FR-DMR-21 | Go `edge_node_test.go`: `EdgeDaemon` 없는 서버의 `GET /api/edges` 가 503 `edge_unavailable` |
 | TC-DMR-4 | FR-DMR-22 | Go `chat_api_test.go`: `ChatDaemon` 없는 서버의 `/api/chat` 이 409 `chat_daemon_restart` |
@@ -124,6 +124,7 @@
   통째로). 옮긴 불변식: "느린 소비자가 읽기 루프를 세우지 못한다" → `ipc` `TestPushOutputDropsWhenQueueFull`(`droppable`
   을 false 로 바꾸면 실패함을 확인). 패닉 시험은 릴레이 `onExit` 로 남겼다. `toolhub`·`internal/daemon`·서버 시험의 "직접 모드"
   주석을 고쳤다(남은 것은 제거 기록 둘).
+- 2026-11-18 TC-DMR-1 의 서술을 실제 시험 범위에 맞췄다. 시험은 연결 함수의 반환만 보고, `serve` 의 종료 코드는 코드 검토로 확인한다.
 - 바꾼 로그 문구: 조립 실패의 기본 갈래 `buildDeps: …` → `buildApp: …` (`buildDeps` 는 지워졌다).
 - 바꾼 사용자 문구: `dongminal health` 의 소켓 부재 안내 `(direct mode 이거나 미기동)` → `(미기동)` (CLI_CONSOLIDATION_SRS FR-ACT-10 개정).
 
