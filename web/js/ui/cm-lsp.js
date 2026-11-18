@@ -134,9 +134,33 @@ function edLspDiagShow(buf, on) {
   for (const s of buf.sinks) s.dispatch(CM.setDiagnostics(s.state, list));
 }
 
+/** showMessage 의 `type` 을 라이브러리와 같은 패널 이름으로 (1 error · 2 warning · 3 info). */
+const LSP_MSG_KIND = { 1: 'error', 2: 'warning', 3: 'info' };
+
 /**
- * `LSPClient` 확장 — 능력과 autoSync(`didChange`)는 라이브러리 것을 그대로 쓰고, 진단 처리기만
- * 바꾼다: 그룹의 버퍼에 보관하고 모든 칸에 그린다. 켜기/끄기는 처리기가 본다 (FR-CMR-92).
+ * FR-CMR-161: `window/showMessage` 를 라이브러리처럼 편집기 위 패널로 보이되, 같은 문구의 패널이 떠 있으면
+ * 다시 붙이지 않는다. 라이브러리 기본 처리기는 받을 때마다 패널을 더해 같은 문구가 화면을 덮었다.
+ * `show` 는 시험이 바꿔 끼우는 자리다.
+ */
+function edLspShowMessage(client, params, show = CM.showDialog) {
+  const kind = LSP_MSG_KIND[params.type];
+  if (!kind) return true;
+  let view = null;
+  for (const f of client.workspace.files) {
+    view = f.getView();
+    if (view) break;
+  }
+  if (!view) return true;
+  for (const el of view.dom.querySelectorAll('.cm-lsp-message')) {
+    if (el.textContent.includes(params.message)) return true;
+  }
+  show(view, { label: params.message, class: 'cm-lsp-message cm-lsp-message-' + kind, top: true });
+  return true;
+}
+
+/**
+ * `LSPClient` 확장 — 능력과 autoSync(`didChange`)는 라이브러리 것을 그대로 쓰고, 진단 처리기와
+ * showMessage 처리기(FR-CMR-161)만 바꾼다: 그룹의 버퍼에 보관하고 모든 칸에 그린다. 켜기/끄기는 처리기가 본다 (FR-CMR-92).
  *
  * hooks.bufOf(path): 그 파일의 `EdBuffer`. hooks.on(): 진단을 그리는가.
  */
@@ -157,6 +181,7 @@ function edLspDiagnostics(hooks) {
         edLspDiagShow(buf, hooks.on());
         return true;
       },
+      'window/showMessage': (client, params) => edLspShowMessage(client, params),
     },
   };
 }

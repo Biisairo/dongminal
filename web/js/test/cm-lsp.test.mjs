@@ -39,7 +39,7 @@ class FakeWS {
 
 const ctx = load(['ui/cm-buffer.js', 'ui/cm-lsp.js'], {
   expose: ['edLspUri', 'edLspPath', 'edLspLangId', 'edLspServerReply', 'edLspWorkspaceClass', 'EdLspSocket', 'EdLspConn',
-    'EdBuffer', 'edLspDiagItems', 'edLspDiagShow', 'edLspDiagnostics', 'edLspCloseNote'],
+    'EdBuffer', 'edLspDiagItems', 'edLspDiagShow', 'edLspDiagnostics', 'edLspCloseNote', 'edLspShowMessage'],
   globals: {
     CM, WebSocket: FakeWS, TextEncoder, TextDecoder, URLSearchParams, queueMicrotask,
     location: { protocol: 'http:', host: 'h:1' },
@@ -381,6 +381,58 @@ test('edLspDiagnostics: 능력과 autoSync 는 라이브러리 serverDiagnostics
   assert.equal(ext.editorExtension, base.editorExtension);
   assert.deepEqual(plain(ext.clientCapabilities), plain(base.clientCapabilities));
   assert.equal(typeof ext.notificationHandlers['textDocument/publishDiagnostics'], 'function');
+});
+
+// ── window/showMessage (FR-CMR-161) ──
+
+function msgSetup() {
+  const panels = [];
+  const view = { dom: { querySelectorAll: (sel) => (sel === '.cm-lsp-message' ? panels.filter((p) => p.open) : []) } };
+  const client = { workspace: { files: [{ getView: () => view }] } };
+  const shown = [];
+  const show = (v, o) => {
+    shown.push(o);
+    panels.push({ open: true, textContent: o.label + 'OK' });
+  };
+  return { client, panels, shown, show };
+}
+
+test('showMessage: 같은 문구의 패널이 떠 있으면 다시 붙이지 않는다', () => {
+  const { edLspShowMessage } = ctx;
+  const m = msgSetup();
+  const p = { type: 1, message: 'Failed to run build scripts of some packages.' };
+  for (let i = 0; i < 5; i++) assert.equal(edLspShowMessage(m.client, p, m.show), true);
+  assert.equal(m.shown.length, 1);
+  assert.equal(m.shown[0].class, 'cm-lsp-message cm-lsp-message-error');
+  assert.equal(m.shown[0].top, true);
+  // 다른 문구는 따로 보인다.
+  edLspShowMessage(m.client, { type: 2, message: 'other' }, m.show);
+  assert.equal(m.shown.length, 2);
+  assert.equal(m.shown[1].class, 'cm-lsp-message cm-lsp-message-warning');
+});
+
+test('showMessage: 패널을 닫은 뒤 같은 문구가 오면 다시 보인다', () => {
+  const { edLspShowMessage } = ctx;
+  const m = msgSetup();
+  const p = { type: 3, message: 'indexing' };
+  edLspShowMessage(m.client, p, m.show);
+  m.panels[0].open = false;
+  edLspShowMessage(m.client, p, m.show);
+  assert.equal(m.shown.length, 2);
+  assert.equal(m.shown[1].class, 'cm-lsp-message cm-lsp-message-info');
+});
+
+test('showMessage: log(type 4)와 뷰가 없는 경우는 보이지 않는다', () => {
+  const { edLspShowMessage } = ctx;
+  const m = msgSetup();
+  edLspShowMessage(m.client, { type: 4, message: 'log' }, m.show);
+  edLspShowMessage({ workspace: { files: [{ getView: () => null }] } }, { type: 1, message: 'x' }, m.show);
+  assert.equal(m.shown.length, 0);
+});
+
+test('edLspDiagnostics: showMessage 처리기를 단다', () => {
+  const ext = ctx.edLspDiagnostics({ bufOf: () => null, on: () => true });
+  assert.equal(typeof ext.notificationHandlers['window/showMessage'], 'function');
 });
 
 // ── 소켓 ──
