@@ -183,8 +183,11 @@ Claude Code·Codex 같은 에이전트를 터미널에서 돌릴 때, **보고 �
 
 **서버만 다시 띄워도 이 기록이 남습니다.** 활동 카드·알람·사용량을 데몬도 함께 들고
 있다가, 서버가 다시 붙으면 그대로 보입니다. 서버가 꺼져 있는 동안 들어온 에이전트
-보고도 데몬이 받아 둡니다. 1.2.5 로 올린 뒤 한 번은 `dongminal start --restart-daemon`
-으로 데몬을 다시 띄워야 적용됩니다.
+보고도 데몬이 받아 둡니다.
+
+**데몬을 새 판으로 바꿔도 세션이 남습니다.** `dongminal start` 는 데몬을 세션을 유지한 채
+교체합니다(macOS·Linux). 돌고 있는 데몬이 교체를 모르는 옛 판이면 한 번은
+`dongminal start --refresh-daemon` 으로 새로 띄워야 합니다(터미널 세션을 잃습니다).
 
 `dmctl run` 이나 `/dongminal:issue-tree` 로 여러 에이전트를 묶어 돌리면 Activity 의 Run
 구역(`Ctrl+Shift+O`)에서 이슈 트리를 봅니다. `Cmd+휠`(Windows·Linux 는 `Ctrl+휠`)로

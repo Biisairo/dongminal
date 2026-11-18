@@ -22,7 +22,9 @@ import (
 // ── Unix socket server ──────────────────────────────────────────────────
 
 type PanedServer struct {
-	pm       *toolhub.ToolManager
+	pm *toolhub.ToolManager
+	// reloader 는 세션 유지 교체기다 (DAEMON_SESSION_KEEP_SRS). 비면 교체를 하지 않는다.
+	reloader reloaderSlot
 	sockPath string
 	pidPath  string
 	// buildVersion 은 `hello` 가 싣는 빌드 판이다 (FR-VHL-1). `mu` 아래 둔다 —

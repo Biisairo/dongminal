@@ -156,19 +156,24 @@ cd dongminal
 `start` 는 다음을 수행합니다.
 
 1. `--expose` 를 해석해 바인드 주소 결정 (기본 `127.0.0.1`).
-2. 대상 포트를 점유한 이전 프로세스가 있으면 `lsof` 로 종료. **`--isolated` 일 때는 하지 않습니다.**
-3. `--restart-daemon` 이면 dongminald 를 정지하고 `paned.pid`·`paned.sock` 을 제거.
+2. dongminald 가 돌고 있으면 **서버를 끄기 전에** 세션을 유지하며 새 바이너리로 교체하라고 요청합니다. 교체에 실패하면 서버·데몬·세션을 그대로 두고 종료 코드 1로 끝납니다. `--server-only` 면 이 단계를 건너뛰고, `--refresh-daemon` 이면 데몬을 정지합니다.
+3. 대상 포트를 점유한 이전 프로세스가 있으면 `lsof` 로 종료. **`--isolated` 일 때는 하지 않습니다.**
 4. 자기 자신을 `start --foreground` 로 재실행해 백그라운드로 띄우고, 로그를 `$DONGMINAL_LOG` 로 리다이렉트.
 5. `/api/ping` 이 응답할 때까지 최대 5초 대기.
 6. 결과 안내 출력 (`local-only` / `LAN 노출` 표기).
 
 창은 `start` 가 열지 않습니다 — `dongminal window` 가 따로 엽니다.
 
-`start` 는 데몬을 그대로 두므로, 판을 올려도 데몬은 옛 판으로 남습니다. 데몬 쪽이
-바뀐 기능은 `dongminal start --restart-daemon` 으로 데몬을 다시 띄워야 적용됩니다
-(터미널 세션을 잃습니다). 1.2.5 에서는 서버를 다시 띄워도 에이전트 기록(활동 카드·
-알람·사용량)이 남는 것, 서버가 꺼져 있는 동안의 에이전트 보고를 받아 두는 것, 알람
-판정을 데몬이 하는 것이 그렇습니다. 옛 데몬과 함께 쓰면 이 셋은 이전처럼 동작합니다.
+`start` 는 데몬을 **세션을 유지한 채** 새 바이너리로 교체합니다. 셸과 에이전트는
+끊기지 않고, 화면 내용과 활동 카드·알람·사용량 기록도 그대로 이어집니다. 그래서 판을
+올리면 `dongminal start` 한 번으로 서버와 데몬이 모두 새 판이 됩니다.
+
+- 돌고 있는 데몬이 교체를 모르는 옛 판이면, `start` 는 서버만 다시 띄우고 그 사실을
+  알립니다. 이때는 한 번만 `dongminal start --refresh-daemon` 으로 데몬을 새로 띄웁니다
+  (터미널 세션을 잃습니다). 그 뒤로는 `start` 가 교체합니다.
+- 세션 유지 교체는 macOS·Linux 에서만 됩니다. Windows 의 `start` 는 교체를 거절받고
+  아무것도 끄지 않은 채 끝납니다. Windows 에서는 `--server-only` 나 `--refresh-daemon`
+  을 씁니다.
 
 빌드는 하지 않습니다 — `./scripts/build.sh` 의 책임입니다.
 
@@ -203,7 +208,8 @@ cd dongminal
 | 옵션 | 설명 |
 |---|---|
 | `--expose` | `0.0.0.0` 에 바인드 (사내망 다른 기기에서 접근 가능) |
-| `--restart-daemon` | dongminald 도 재시작 (터미널 세션을 잃습니다). dongminal 도구 안에서 실행하면 재시작을 대리 프로세스가 이어서 수행하고 출력은 `$DONGMINAL_HOME/restart.log` 에 남습니다 — 데몬을 내리는 순간 명령 자신도 함께 끊기기 때문입니다 |
+| `--server-only` | dongminald 에 아무것도 묻지 않고 서버만 다시 띄웁니다 |
+| `--refresh-daemon` | dongminald 를 새로 띄웁니다 (터미널 세션을 잃습니다). dongminal 도구 안에서 실행하면 재시작을 대리 프로세스가 이어서 수행하고 출력은 `$DONGMINAL_HOME/restart.log` 에 남습니다 — 데몬을 내리는 순간 명령 자신도 함께 끊기기 때문입니다 |
 | `--isolated` | 임시 홈 + 비어 있는 포트로 띄웁니다. 운영 인스턴스를 건드리지 않습니다. 도구 셸도 그 아래의 빈 홈(`tool-home`)에서 뜨므로 사용자 rc·git config·자격증명이 없습니다 — 기동 출력이 두 경로를 찍습니다 (`--foreground` 에서도) |
 | `--foreground` | 터미널을 점유하며 실행 (`^C` 로 정지) |
 | `--port <n>` / `--home <path>` | 모든 액션 공통. 환경변수보다 우선합니다 |
@@ -317,7 +323,7 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 | `DONGMINAL_LOG` | `/tmp/dongminal.log`<br>(Windows: `%LOCALAPPDATA%` 아래) | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
 | `DONGMINAL_LOG_LEVEL` | `info` | 로그 수준 — `debug`·`info`·`warn`·`error`. 알 수 없는 값은 `info` 로 떨어집니다 |
 | `DONGMINAL_NO_UPDATE_CHECK` | (없음) | `1` 이면 서버가 새 판을 **확인하지 않습니다**. `server.json` 의 `updateCheck` 와 설정 화면의 토글보다 **먼저** 이깁니다 — 에어갭·CI 환경에서 한 줄로 막는 자리입니다. `dongminal update --check` 는 사람이 직접 친 명령이므로 이 변수와 무관하게 동작합니다 |
-| `DONGMINAL_RESTART_RUNNER` | (내부) | **직접 설정하지 마세요.** `--restart-daemon` 이 재시작을 대리 프로세스에 넘길 때 그 대리에게 심는 표시입니다 — 대리가 다시 위임하지 않게 하는 것이 전부입니다 |
+| `DONGMINAL_RESTART_RUNNER` | (내부) | **직접 설정하지 마세요.** `--refresh-daemon` 이 재시작을 대리 프로세스에 넘길 때 그 대리에게 심는 표시입니다 — 대리가 다시 위임하지 않게 하는 것이 전부입니다 |
 
 ### 도구 셸에 주입되는 값
 

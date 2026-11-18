@@ -58,6 +58,7 @@ internal/
     chat/                #   채팅 핵심 — 간선 상대마다 채팅 연결, 서명한 노드 상태·글 전파, 방·참가자. 글을 들지 않는다 (PEER_CHAT_SRS §3.9)
     chatsock/            #   채팅 소켓 chat.sock — MCP 연결 하나가 참가자 하나, 훅 질의 중계, 쉬는 중 붙여넣기 알림 (PEER_CHAT_SRS §3.10)
     ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나의 요청은 차례로, create·restore·edge 만 읽기 루프 밖 — FR-OPT-2-3, PEER_DAEMON_SRS §3.5a)
+    swap/                #   세션 유지 교체 — 교체 요청 검사·사전 확인·인계 상태·exec, 새 데몬의 되살리기·되찾기·입양 (DAEMON_SESSION_KEEP_SRS)
   webserver/             # ③ 웹 서버 프로세스
     httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
     httproute/           #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유

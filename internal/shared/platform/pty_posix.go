@@ -27,18 +27,54 @@ func (posixPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
 	if err != nil {
 		return nil, fmt.Errorf("pty start %s (cwd=%s): %w", spec.Path, spec.Dir, err)
 	}
-	return &posixTerminal{ptmx: ptmx, cmd: cmd}, nil
+	gate, err := newReadGate()
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_ = ptmx.Close()
+		return nil, err
+	}
+	return &posixTerminal{ptmx: ptmx, fd: int(ptmx.Fd()), cmd: cmd, gate: gate}, nil
 }
 
-// posixTerminal 은 ptmx 파일과 exec.Cmd 를 한 덩어리로 든다.
+// AdoptTerminal 은 넘겨받은 마스터 fd 와 셸 pid 로 터미널을 다시 만든다
+// (DAEMON_SESSION_KEEP_SRS FR-DSK-21). exec 는 pid 를 바꾸지 않으므로 셸은 여전히 이
+// 프로세스의 자식이고, Wait 는 wait4 로 거둔다.
+func AdoptTerminal(fd uintptr, pid int) (Terminal, error) {
+	if pid <= 0 {
+		return nil, fmt.Errorf("셸 pid 가 아닙니다: %d", pid)
+	}
+	if _, err := unix.IoctlGetWinsize(int(fd), unix.TIOCGWINSZ); err != nil {
+		return nil, fmt.Errorf("fd %d 는 의사 터미널이 아닙니다: %w", fd, err)
+	}
+	syscall.CloseOnExec(int(fd))
+	gate, err := newReadGate()
+	if err != nil {
+		return nil, err
+	}
+	return &posixTerminal{ptmx: os.NewFile(fd, "ptmx"), fd: int(fd), pid: pid, gate: gate}, nil
+}
+
+// posixTerminal 은 ptmx 파일과 셸 프로세스를 한 덩어리로 든다. cmd 는 이 프로세스가 띄운
+// 셸이고, 넘겨받은 셸이면 nil 이며 pid 만 있다.
 type posixTerminal struct {
 	ptmx *os.File
+	fd   int
 	cmd  *exec.Cmd
+	pid  int
+	gate *readGate
 }
 
-func (t *posixTerminal) Read(b []byte) (int, error)  { return t.ptmx.Read(b) }
+func (t *posixTerminal) Read(b []byte) (int, error)  { return t.gate.read(t.fd, b) }
 func (t *posixTerminal) Write(b []byte) (int, error) { return t.ptmx.Write(b) }
-func (t *posixTerminal) Close() error                { return t.ptmx.Close() }
+
+func (t *posixTerminal) Close() error {
+	t.gate.close()
+	return t.ptmx.Close()
+}
+
+func (t *posixTerminal) Freeze()           { t.gate.freeze() }
+func (t *posixTerminal) Thaw()             { t.gate.thaw() }
+func (t *posixTerminal) MasterFD() uintptr { return uintptr(t.fd) }
 
 func (t *posixTerminal) Resize(cols, rows uint16) error {
 	return t.control(func(fd int) error {
@@ -114,25 +150,51 @@ func (t *posixTerminal) tcgetpgrp() (int, bool) {
 
 func (t *posixTerminal) PID() int {
 	if t.cmd == nil || t.cmd.Process == nil {
-		return 0
+		return t.pid
 	}
 	return t.cmd.Process.Pid
 }
 
 func (t *posixTerminal) Wait() error {
-	if t.cmd == nil {
+	if t.cmd != nil {
+		return t.cmd.Wait()
+	}
+	if t.pid <= 0 {
 		return nil
 	}
-	return t.cmd.Wait()
+	var ws syscall.WaitStatus
+	for {
+		_, err := syscall.Wait4(t.pid, &ws, 0, nil)
+		if err == syscall.EINTR {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if ws.ExitStatus() != 0 || ws.Signaled() {
+			return &adoptedExitError{ws: ws}
+		}
+		return nil
+	}
 }
+
+// adoptedExitError 는 넘겨받은 셸의 비정상 종료다. ExitCode 는 exec.ExitError 와 같은 뜻이다.
+type adoptedExitError struct{ ws syscall.WaitStatus }
+
+func (e *adoptedExitError) Error() string { return fmt.Sprintf("셸 종료: %v", e.ws) }
+func (e *adoptedExitError) ExitCode() int { return e.ws.ExitStatus() }
 
 func (t *posixTerminal) Terminate() error { return t.signal(syscall.SIGTERM) }
 
 func (t *posixTerminal) Kill() error { return t.signal(syscall.SIGKILL) }
 
 func (t *posixTerminal) signal(sig syscall.Signal) error {
-	if t.cmd == nil || t.cmd.Process == nil {
+	pid := t.PID()
+	if pid <= 0 {
 		return nil
 	}
-	return t.cmd.Process.Signal(sig)
+	if t.cmd != nil && t.cmd.Process != nil {
+		return t.cmd.Process.Signal(sig)
+	}
+	return syscall.Kill(pid, sig)
 }

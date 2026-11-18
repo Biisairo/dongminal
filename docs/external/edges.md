@@ -99,7 +99,7 @@ dmctl edge remove 0123abcd       # 지문 앞자리
 
 개인키와 초대 토큰은 로그, API 응답, 화면에 나오지 않습니다. 예외는 초대를 만든 응답 하나이며, 그 응답의 초대 코드 안에 토큰이 들어 있습니다. 화면과 `dmctl` 에는 지문 앞 16자만 보입니다.
 
-신원을 바꾸고 싶으면(개인키 유출 등) `dongminal stop` 으로 멈추고 `edge-cert.pem` · `edge-key.pem` 을 **둘 다** 지운 뒤 `dongminal start --restart-daemon` 으로 다시 켭니다. 새 지문이 생기므로 모든 간선을 다시 맺어야 합니다. 하나만 지우면 노드 기능이 서지 않고 로컬 API 가 `edge_unavailable` 로 답합니다. 사유는 노드의 로그(`daemon.log`)에 남습니다.
+신원을 바꾸고 싶으면(개인키 유출 등) `dongminal stop` 으로 멈추고 `edge-cert.pem` · `edge-key.pem` 을 **둘 다** 지운 뒤 `dongminal start` 로 다시 켭니다(데몬이 세션을 유지한 채 교체되며 새 신원을 읽습니다). 새 지문이 생기므로 모든 간선을 다시 맺어야 합니다. 하나만 지우면 노드 기능이 서지 않고 로컬 API 가 `edge_unavailable` 로 답합니다. 사유는 노드의 로그(`daemon.log`)에 남습니다.
 
 ## 4. 문제 해결
 
@@ -113,7 +113,7 @@ dmctl edge remove 0123abcd       # 지문 앞자리
 | `edge_not_found` · `edge_ambiguous` | 그 지문의 간선이 없거나, 앞자리가 간선 둘 이상에 맞습니다 | `dmctl edges` 로 지문을 보고 8자리 이상의 더 긴 앞자리를 주세요 |
 | `edge_port_closed` | 노드 포트가 닫혀 있어 초대를 만들 수 없습니다 | 노드 포트를 켜고 `dmctl edges` 의 `port error` 를 확인하세요 |
 | `edge_rate_limited` | 한 출발지 주소의 맺기 요청이 1분에 60회를 넘었습니다 | 잠시 뒤 다시 보내세요 |
-| `edge_daemon_restart` | 붙은 데몬이 노드 기능을 모르는 옛 판입니다 | `dongminal start --restart-daemon` 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다 |
+| `edge_daemon_restart` | 붙은 데몬이 노드 기능을 모르는 옛 판입니다 | `dongminal start` 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 `dongminal start --refresh-daemon` 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다 |
 
 전체 오류 코드는 [errors.md](./errors.md) 에 있습니다. API 는 [api.md](./api.md) 의 "노드 간 통신" 절을 봅니다.
 

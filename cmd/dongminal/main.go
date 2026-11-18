@@ -2,6 +2,7 @@ package main
 
 import (
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/handover"
 	"dongminal/internal/webserver/hub"
 
 	"dongminal/internal/shared/sandboxplace"
@@ -431,12 +432,26 @@ func main() {
 	// argv[0] 은 확장자를 떼고 본다 — Windows 의 실행 파일은 `dongminald.exe` 다
 	// (`runtimebin.helperName` 과 같은 근거).
 	if (len(os.Args) > 1 && os.Args[1] == daemonSubcommand) || runtimebin.HelperName(os.Args[0]) == "dongminald" {
+		var rest []string
+		if len(os.Args) > 1 && os.Args[1] == daemonSubcommand {
+			rest = os.Args[2:]
+		}
+		dargs, err := handover.ParseDaemonArgs(rest)
+		if err != nil {
+			dmlog.Errorf(nil, "%v", err)
+			os.Exit(2)
+		}
+		// DAEMON_SESSION_KEEP_SRS FR-DSK-12: 사전 확인은 인계 판만 묻는다. 홈도 소켓도 건드리지 않는다.
+		if dargs.VersionQuery {
+			fmt.Println(handover.Version)
+			return
+		}
 		home, err := resolveHome()
 		if err != nil {
 			dmlog.Errorf(nil, "%v", err)
 			os.Exit(1)
 		}
-		boot.Run(home, cli.Version, cli.DaemonBuild)
+		boot.Run(home, cli.Version, cli.DaemonBuild, dargs.HandoverFD)
 		return
 	}
 

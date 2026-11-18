@@ -30,7 +30,9 @@ type ToolManager struct {
 	tools map[string]*Tool
 	// pending 은 예약됐으나 아직 등록되지 않은 도구 수다 — Create 가 잠금 밖에서
 	// 띄우는 동안 상한(ToolCap)이 그 자리를 세게 한다 (M8 `GO-29`).
-	pending   int
+	pending int
+	// sealed 는 데몬 교체 중이라 도구를 새로 만들지 않는다는 뜻이다 (DAEMON_SESSION_KEEP_SRS FR-DSK-13).
+	sealed    bool
 	startTool startToolFunc
 
 	dataDir     string

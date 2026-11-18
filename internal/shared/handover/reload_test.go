@@ -160,3 +160,24 @@ func TestHello(t *testing.T) {
 		t.Fatalf("method = %q", rq.Method)
 	}
 }
+
+// FR-DSK-12·20: 데몬 진입 인자의 해석.
+func TestParseDaemonArgs(t *testing.T) {
+	a, err := ParseDaemonArgs(nil)
+	if err != nil || a.VersionQuery || a.HandoverFD != 0 {
+		t.Fatalf("빈 인자: %+v %v", a, err)
+	}
+	a, err = ParseDaemonArgs([]string{"--handover-version"})
+	if err != nil || !a.VersionQuery {
+		t.Fatalf("--handover-version: %+v %v", a, err)
+	}
+	a, err = ParseDaemonArgs([]string{"--handover-fd", "7"})
+	if err != nil || a.HandoverFD != 7 {
+		t.Fatalf("--handover-fd 7: %+v %v", a, err)
+	}
+	for _, bad := range [][]string{{"--handover-fd"}, {"--handover-fd", "x"}, {"--handover-fd", "2"}, {"--what"}} {
+		if _, err := ParseDaemonArgs(bad); err == nil {
+			t.Errorf("%v 를 받아들였다", bad)
+		}
+	}
+}

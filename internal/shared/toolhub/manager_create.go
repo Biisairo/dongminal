@@ -111,6 +111,10 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 		dmlog.Infof(nil, "[tool] 상한 초과로 생성을 거절한다 (cap=%d)", ToolCap)
 		return nil, ErrToolCap
 	}
+	if m.sealed {
+		m.mu.Unlock()
+		return nil, ErrSealed
+	}
 	m.pending++
 	hooks := m.attnHooks()
 	start := m.startTool
@@ -224,6 +228,10 @@ func (m *ToolManager) placement(place Placement) (*platform.ProcSpec, error) {
 // 것과 같은 id 를 덮어쓰는 것은 종전 그대로다.
 func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	m.mu.Lock()
+	if m.sealed {
+		m.mu.Unlock()
+		return ErrSealed
+	}
 	m.pending++
 	hooks := m.attnHooks()
 	start := m.startTool

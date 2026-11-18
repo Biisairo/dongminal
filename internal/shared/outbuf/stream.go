@@ -181,3 +181,19 @@ func (s *Stream) Close() {
 	s.buf, s.head, s.full, s.vlen = nil, 0, false, 0
 	s.mu.Unlock()
 }
+
+// Restore 는 넘겨받은 화면 내용과 누적 좌표로 Stream 을 되세운다 (DAEMON_SESSION_KEEP_SRS
+// FR-DSK-22). 뒤의 Feed 좌표는 offset 에 이어지므로, 재접속의 겹침 자르기가 그대로 맞는다.
+// data 가 max 보다 길면 끝 쪽만 남긴다.
+func Restore(max int, data []byte, offset int64) *Stream {
+	s := NewStream(max)
+	if len(data) > max {
+		data = data[len(data)-max:]
+	}
+	s.mu.Lock()
+	s.write(data)
+	s.vlen = len(data)
+	s.mu.Unlock()
+	s.totalIn.Store(offset)
+	return s
+}

@@ -21,6 +21,9 @@ type ToolState struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Cwd  string `json:"cwd"`
+	// PID 는 셸의 pid 다. 교체 뒤 인계 상태를 잃은 새 데몬이 자식 셸을 이 값으로 알아본다
+	// (DAEMON_SESSION_KEEP_SRS FR-DSK-27). exec 는 pid 를 바꾸지 않는다.
+	PID int `json:"pid,omitempty"`
 }
 
 // SaveAll writes tools.json. Skips when no state mutation has occurred since
@@ -92,7 +95,7 @@ func (m *ToolManager) SaveAll() {
 		if p.sandboxed {
 			continue
 		}
-		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServer(p, cwds)})
+		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServer(p, cwds), PID: p.CmdProcessPID()})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, err := json.Marshal(states)

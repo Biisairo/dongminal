@@ -6,6 +6,8 @@ package handover
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -122,4 +124,42 @@ func Hello(home string, within time.Duration) bool {
 	}
 	var reply agentrec.Reply
 	return json.NewDecoder(c).Decode(&reply) == nil && reply.OK
+}
+
+// 데몬 진입 인자 (`dongminal d …`, FR-DSK-12·20).
+const (
+	ArgVersion = "--handover-version"
+	ArgFD      = "--handover-fd"
+)
+
+// DaemonArgs 는 `dongminal d` 뒤의 인자다.
+type DaemonArgs struct {
+	// VersionQuery 는 인계 판만 말하고 끝내라는 뜻이다 (사전 확인).
+	VersionQuery bool
+	// HandoverFD 는 인계 상태를 담은 fd 다. 0 이면 일반 기동이다.
+	HandoverFD int
+}
+
+// ParseDaemonArgs 는 `dongminal d` 뒤의 인자를 해석한다. fd 는 표준 입출력(0~2)일 수 없다.
+func ParseDaemonArgs(args []string) (DaemonArgs, error) {
+	var a DaemonArgs
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case ArgVersion:
+			a.VersionQuery = true
+		case ArgFD:
+			if i+1 >= len(args) {
+				return DaemonArgs{}, fmt.Errorf("%s 뒤에 fd 가 없습니다", ArgFD)
+			}
+			i++
+			fd, err := strconv.Atoi(args[i])
+			if err != nil || fd <= 2 {
+				return DaemonArgs{}, fmt.Errorf("%s 의 값이 fd 가 아닙니다: %q", ArgFD, args[i])
+			}
+			a.HandoverFD = fd
+		default:
+			return DaemonArgs{}, fmt.Errorf("알 수 없는 데몬 인자: %s", args[i])
+		}
+	}
+	return a, nil
 }

@@ -3,7 +3,6 @@ package toolhub
 import (
 	"errors"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"dongminal/internal/shared/activity"
@@ -101,7 +100,8 @@ func (p *Tool) kill() {
 			}
 			if werr != nil {
 				dmlog.Infof(nil, "[tool %s] wait: %v", p.ID, werr)
-				var ee *exec.ExitError
+				// exec.ExitError 와 넘겨받은 셸의 종료(DAEMON_SESSION_KEEP_SRS FR-DSK-21)가 같은 모양이다.
+				var ee interface{ ExitCode() int }
 				if errors.As(werr, &ee) {
 					p.exitCode.Store(int32(ee.ExitCode()))
 				} else {

@@ -12,6 +12,7 @@ import (
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/handover"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
@@ -23,7 +24,8 @@ import (
 // 훅 보고는 따로 연 이 소켓으로 받는다. 받는 메서드는 넷뿐이고 PTY 를 건드리지 않는다.
 
 var (
-	errReportMethod    = errors.New("보고 소켓이 받지 않는 메서드다")
+	// 문구는 handover 에 있다 — `start` 가 이 문구로 교체를 모르는 옛 데몬을 알아본다 (FR-DSK-3).
+	errReportMethod    = errors.New(handover.OldDaemonUnknownMethod)
 	errReportOldServer = errors.New("붙은 서버가 report push 를 모른다")
 	errReportToolID    = errors.New("toolId 가 비었다")
 	errReportState     = errors.New("활동 상태가 틀렸다")
@@ -71,13 +73,34 @@ func (ps *PanedServer) serveReport(c net.Conn) {
 	if err := json.NewDecoder(c).Decode(&rq); err != nil {
 		return
 	}
+	if isControl(rq.Method) {
+		ps.serveControl(c, rq)
+		return
+	}
 	if err := json.NewEncoder(c).Encode(ps.handleReport(rq)); err != nil {
 		dmlog.Warnf(nil, "report: 응답을 쓰지 못했다: %v", err)
 	}
 }
 
+// serveControl 은 교체 메서드에 답하고, 받아들인 교체는 답을 보낸 뒤에 실행한다 (FR-DSK-13 6→7).
+func (ps *PanedServer) serveControl(c net.Conn, rq agentrec.Request) {
+	_ = c.SetDeadline(time.Now().Add(reloadWithin))
+	reply, commit := ps.handleControl(rq)
+	if err := json.NewEncoder(c).Encode(reply); err != nil {
+		dmlog.Warnf(nil, "control: 응답을 쓰지 못했다: %v", err)
+	}
+	c.Close()
+	if commit != nil {
+		commit()
+	}
+}
+
 // handleReport 는 보고 하나를 데몬 기록에 반영하고, 붙은 서버에 보고 그대로 push 한다.
 func (ps *PanedServer) handleReport(rq agentrec.Request) agentrec.Reply {
+	if rq.Method == handover.MethodHello {
+		reply, _ := ps.handleControl(rq)
+		return reply
+	}
 	if !agentrec.KnownMethod(rq.Method) {
 		return agentrec.Reply{Error: errReportMethod.Error() + ": " + rq.Method}
 	}

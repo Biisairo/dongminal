@@ -136,6 +136,9 @@ type Tool struct {
 	// 차례로 쓴다 (readPTY 고루틴 전용, FR-OPT-3-2).
 	scanScratch []byte
 
+	// frz 는 데몬 교체 전의 읽기 멈춤이다 (DAEMON_SESSION_KEEP_SRS FR-DSK-13).
+	frz freezeState
+
 	// reportedCwd 는 셸 훅이 OSC 777;Cwd 로 알린 작업 디렉터리다
 	// (WINDOWS_TOOL_CWD_SRS FR-WTC-2). readPTY 고루틴이 쓰고 아무 고루틴이나
 	// 읽으므로 원자값이다. 값이 실린 적이 없으면 nil 이다.
@@ -297,9 +300,28 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	if err != nil {
 		return nil, err
 	}
+	p := newToolOnTerm(id, name, term, place != nil, onExit, hooks)
+	// **뜬 자리를 기억한다** (WINDOWS_TOOL_CWD_SRS FR-WTC-6).
+	//
+	// 직접 조회가 되는 처지에서는 필요 없지만(그쪽이 이긴다), Windows 에서는
+	// 첫 프롬프트가 돌기 전까지 이 도구의 자리를 **아무도 모른다** — 그 사이에
+	// 이 도구를 기준으로 새 도구를 만들면(`cwdTool=…`) 승계가 홈으로 떨어진다
+	// (러너 실측: 요청한 자리 대신 `C:\Users\runneradmin` 이 나왔다). 서버는
+	// 어디서 띄웠는지 알고 있으므로 그것을 말한다.
+	p.noteCwdReport(startDir)
+	go p.readPTY()
+	dmlog.Infof(nil, "[tool %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
+		id, spec.Path, term.PID(), startDir, cols, rows)
+	return p, nil
+}
+
+// newToolOnTerm 은 터미널 하나에 도구를 세운다. 읽기 루프는 돌리지 않는다 — 호출자가
+// 자리를 마저 적은 뒤 `go p.readPTY()` 한다. 새로 띄운 셸(StartTool)과 넘겨받은 셸
+// (AdoptHandover, DAEMON_SESSION_KEEP_SRS FR-DSK-21)이 같은 배선을 지난다.
+func newToolOnTerm(id, name string, term platform.Terminal, sandboxed bool, onExit func(string), hooks *ToolHooks) *Tool {
 	p := &Tool{
 		ID: id, Name: name,
-		sandboxed: place != nil,
+		sandboxed: sandboxed,
 		term:      term,
 		stream:    outbuf.NewStream(bufMax),
 		done:      make(chan struct{}),
@@ -314,18 +336,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	if hooks != nil {
 		p.onSize = hooks.OnSize
 	}
-	// **뜬 자리를 기억한다** (WINDOWS_TOOL_CWD_SRS FR-WTC-6).
-	//
-	// 직접 조회가 되는 처지에서는 필요 없지만(그쪽이 이긴다), Windows 에서는
-	// 첫 프롬프트가 돌기 전까지 이 도구의 자리를 **아무도 모른다** — 그 사이에
-	// 이 도구를 기준으로 새 도구를 만들면(`cwdTool=…`) 승계가 홈으로 떨어진다
-	// (러너 실측: 요청한 자리 대신 `C:\Users\runneradmin` 이 나왔다). 서버는
-	// 어디서 띄웠는지 알고 있으므로 그것을 말한다.
-	p.noteCwdReport(startDir)
-	go p.readPTY()
-	dmlog.Infof(nil, "[tool %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
-		id, spec.Path, term.PID(), startDir, cols, rows)
-	return p, nil
+	return p
 }
 
 // readPTY drains the PTY master, feeds the bounded stream buffer (single
@@ -345,9 +356,14 @@ func (p *Tool) readPTY() {
 			p.exitAfterRead()
 		}
 	}()
+	defer p.markReadDone()
 	raw := make([]byte, 8192)
 	for {
 		n, err := p.term.Read(raw)
+		if errors.Is(err, platform.ErrFrozen) {
+			p.parkWhileFrozen()
+			continue
+		}
 		if err != nil {
 			// **errno 로 가른다** (04-secops SEC-17). 문구로 가르면 Go 나 OS 가
 			// 그 말을 바꾸는 날 조용히 다른 갈래로 가고, 그때 정상 종료가
