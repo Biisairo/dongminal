@@ -257,6 +257,16 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/chat/kill` | `{rooms[], code}` → `{ok}`. 방을 강제 삭제한다. `code` 는 OTP 6자리나 복구 코드다. 도우미가 묶음에 서명하면 망에 퍼진다(대상 1~64개) |
 | POST | `/api/chat/kick` | `{kicks[{room, participant}], code}` → `{ok}`. 참가자를 방에서 내보낸다. 다시 들어오는 것은 막지 않는다 |
 
+### 바인드 (`HOT_REBIND_SRS`)
+
+서버를 끄지 않고 포트와 expose 를 바꿉니다. 바꾼 값은 `server.json` 과 주소 파일(`run/server.addr`)에 남습니다. 오류 본문은 `{code, message}` 입니다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/server/bind` | `{port?: number, expose?: bool}` → `{host, port, expose, url, warning?}`. 빠진 값은 지금 값입니다. **루프백 출발지만** 받습니다(아니면 403 `bind_local_only`). 포트가 바뀌면 새 포트로 리슨하고 SSE `server_moving` 을 보낸 뒤, 옛 포트는 30초 동안 남겨 그리로 온 `GET /` 를 새 포트로 307 보냅니다. expose 만 바뀌면 같은 포트를 닫고 새 호스트로 다시 엽니다 — 실패하면 옛 호스트로 돌아가 409 `bind_rebind_failed`. 범위(1024~65535) 밖은 400 `bind_port_invalid`, 쓰이는 포트는 409 `bind_port_in_use`, 진행 중이면 409 `bind_busy`, 파일을 쓰지 못하면 500 `save_failed` 입니다. expose 를 켜면 `warning` 이 실립니다 |
+| POST | `/api/server/carry` | 이사하는 화면의 `localStorage` 를 맡깁니다. 본문은 JSON(1 MiB 까지) → `{token}`. 토큰은 한 번만, 60초 안에만 쓰입니다. 한 번에 16개까지이고 넘치면 503 `busy` |
+| GET | `/api/server/carry/<token>` | 맡긴 JSON 을 그대로 돌려주고 지웁니다. 없거나 지났으면 404 `not_found` |
+
 ### Telegram 알림 (`TELEGRAM_BRIDGE_SRS`)
 
 설정은 `telegram.json`(권한 600)에 있습니다. 봇 token 은 받기만 하고 응답에 싣지 않습니다. 오류 본문은 `{code, message}` 입니다. 설정 파일을 쓰지 못하면 500 `save_failed` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `telegram_unavailable` 입니다.
@@ -491,6 +501,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `chat_changed` | 채팅의 온라인 목록이나 방이 바뀌었다 — 본문은 없고 `GET /api/chat` 로 다시 받으라는 신호 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
 | `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
+| `server_moving` | 서버가 포트를 옮겼다. `args.port` 는 새 포트다. 화면은 `localStorage` 를 `POST /api/server/carry` 로 맡긴 뒤 같은 호스트 이름의 새 포트로 `?carry=<token>` 을 붙여 이동한다 |
 | `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |
 
 ## OSC 777 커스텀 이스케이프

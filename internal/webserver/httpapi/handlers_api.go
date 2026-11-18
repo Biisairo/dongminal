@@ -150,6 +150,10 @@ var apiRoutes = []apiRoute{
 	// UPDATE_NOTICE_SRS FR-UPD-7·13 — 배지가 읽는 캐시와, 그것을 켜고 끄는 토글.
 	// 토글이 `/api/settings` 가 아닌 것은 D-UPD-2 다: 서버가 읽어야 하는 값이고,
 	// 설정 블롭은 서버가 해석하지 않는다.
+	// HOT_REBIND_SRS 묶음 R — 리바인드(루프백만)와 이사의 일회용 보관.
+	httproute.Post("/api/server/bind", (*Server).apiServerBind),
+	httproute.Post("/api/server/carry", (*Server).apiServerCarryPost),
+	httproute.When(http.MethodGet, httproute.Under(carryPrefix), (*Server).apiServerCarryGet),
 	httproute.Get("/api/update", (*Server).apiUpdateGet),
 	httproute.Put("/api/update", (*Server).apiUpdatePut),
 	// ACCESS_ALLOWLIST_SRS FR-ACL-19·20. 게이트 **뒤**에 있다 — 허용된 기기는

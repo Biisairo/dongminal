@@ -198,6 +198,13 @@ type Server struct {
 	// 채우고 시험만이 서버 하나의 값을 낮춘다.
 	limits serverLimits
 
+	// HOT_REBIND_SRS 묶음 R. bind 는 Run 이 세운다 — Run 밖에서 만든 서버는 nil 이고
+	// 리바인드가 bind_unavailable 이다. bindListen·bindGrace 는 시험이 바꾼다.
+	bind       *rebinder
+	bindListen func(network, addr string) (net.Listener, error)
+	bindGrace  time.Duration
+	carry      *carryStore
+
 	// fsOps 는 탐색기의 파일 조작을 직렬화한다 (FR-EDT-115). 잡는 구간은
 	// **실제 파일 조작**뿐이다 — 본문 읽기와 경로 판정은 밖에서 한다.
 	fsOps sync.Mutex
@@ -280,6 +287,10 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Access:  access,
 		started: time.Now(),
 		limits:  defaultLimits(),
+
+		bindListen: net.Listen,
+		bindGrace:  defaultBindGrace,
+		carry:      newCarryStore(),
 	}
 	// REQUEST_GATE_SRS FR-RQG-6: 허용 호스트 집합은 `access.self` 를 읽으므로
 	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.
@@ -415,8 +426,9 @@ const (
 
 func (s *Server) Run(ctx context.Context, addr string) error {
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: s.Handler(),
+		Addr: addr,
+		// HOT_REBIND_SRS FR-HRB-23 ⑧: 유예 중인 옛 리스너의 문서 요청은 새 포트로 보낸다.
+		Handler: s.graceRedirect(s.Handler()),
 		// REQUEST_GATE_SRS FR-RQG-18: 타임아웃이 하나도 없었다.
 		//
 		// 헤더를 천천히 보내는 연결(slowloris)이 fd 와 goroutine 을 무기한
@@ -438,24 +450,26 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 
 	// HOT_REBIND_SRS FR-HRB-10: 리슨에 성공한 뒤에 주소 파일을 쓴다. 헬퍼는 그것으로
 	// 서버를 찾는다. 정상 종료 때 자기가 쓴 내용이면 지운다.
-	ln, err := net.Listen("tcp", addr)
+	ln, err := s.bindListen("tcp", addr)
 	if err != nil {
 		return err
 	}
-	bound := boundAddr(addr, ln)
-	if err := serverconf.WriteAddr(s.cfg.DataDir, bound); err != nil {
+	host, _, _ := net.SplitHostPort(addr)
+	_, port, _ := net.SplitHostPort(boundAddr(addr, ln))
+	// 묶음 R: 리스너는 rebinder 가 쥔다 — 실행 중에 갈아 끼울 수 있다.
+	b := &rebinder{srv: srv, home: s.cfg.DataDir, errCh: make(chan error, 1),
+		host: host, port: port, ln: ln, grace: map[string]net.Listener{}}
+	s.bind = b
+	if err := serverconf.WriteAddr(s.cfg.DataDir, b.addr()); err != nil {
 		dmlog.Warnf(nil, "주소 파일을 쓰지 못했습니다: %v", err)
 	}
-	defer serverconf.RemoveAddr(s.cfg.DataDir, bound)
-
-	errCh := make(chan error, 1)
-	go func() {
-		err := srv.Serve(ln)
-		if err == http.ErrServerClosed {
-			err = nil
-		}
-		errCh <- err
+	defer func() {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		serverconf.RemoveAddr(s.cfg.DataDir, b.addr())
 	}()
+	errCh := b.errCh
+	b.serve(ln)
 
 	select {
 	case <-ctx.Done():

@@ -174,6 +174,14 @@ var CodeDoc = map[string]Doc{
 	CodeNotADirectory:           {"디렉터리가 아닙니다.", "Editor 루트로는 폴더를 고르세요."},
 	CodeNameReserved:            {"`.`·`..` 는 이름으로 쓸 수 없습니다.", "다른 이름을 쓰세요."},
 
+	// ── 리바인드 (HOT_REBIND_SRS) ──
+	CodeBindPortInvalid:  {"포트가 1024~65535 밖입니다.", "1024 이상 65535 이하의 포트를 고르세요."},
+	CodeBindPortInUse:    {"그 포트를 다른 프로세스가 쓰고 있습니다. 바인드는 그대로입니다.", "다른 포트를 고르거나, 그 포트를 쓰는 프로세스를 끄세요."},
+	CodeBindRebindFailed: {"새 호스트로 다시 리슨하지 못해 옛 호스트로 돌아갔습니다.", "로그의 사유를 확인하고 다시 시도하세요."},
+	CodeBindBusy:         {"다른 바인드 변경이 진행 중입니다.", "잠시 뒤 다시 시도하세요."},
+	CodeBindLocalOnly:    {"바인드는 이 컴퓨터(루프백)에서만 바꿀 수 있습니다.", "서버가 도는 컴퓨터에서 바꾸세요."},
+	CodeBindUnavailable:  {"이 서버는 실행 중에 리스너를 갈아 끼울 수 없습니다.", "`server.json` 을 고친 뒤 서버를 다시 띄우세요."},
+
 	// ── Telegram 브리지 (TELEGRAM_BRIDGE_SRS) ──
 	CodeClaudeAccountsUnavailable: {"이 서버에는 Claude 계정 기능이 서지 않았습니다 — 데이터 폴더 없이 떴습니다.", "dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요."},
 	CodeClaudeAccountNotFound:     {"그런 Claude 계정이 등록되어 있지 않습니다.", "`dmctl account list` 로 계정 ID 를 확인하세요."},
