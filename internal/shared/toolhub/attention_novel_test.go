@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// ATTENTION_FIRING_SRS 묶음 N 의 직접 모드 검증. 여기서 재는 것은 **무엇이 알람이
+// ATTENTION_FIRING_SRS 묶음 N 의 `Tool`(데몬 쪽 판정) 검증. 여기서 재는 것은 **무엇이 알람이
 // 되는가** 다 — 묶음 F 가 "누가 언제 우는가" 를 잰 자리 바로 옆이다.
 
 // V-ATN-1·2 (D-12): `Stop` 훅의 done 신호는 사용자 턴이든 배경 턴이든 알람이다.

@@ -134,7 +134,7 @@ func edgeWait(t *testing.T, what string, cond func() bool) {
 }
 
 // TC-PDM-7·9 (FR-PDM-30·27): 로컬 API 는 데몬의 노드가 답하고, 노드의 변경은 edges push 를
-// 거쳐 edges_changed 로 방송된다. ETag·stale 도 직접 모드와 같다.
+// 거쳐 edges_changed 로 방송된다. ETag·stale 은 노드의 답 그대로다.
 func TestEdgeDaemonModeDelegates(t *testing.T) {
 	home := shortHome(t)
 	n, cmds, _ := daemonEdgeFixture(t, home, edge.Config{Name: "dnode", Port: freeLoopbackPort(t), Bind: "127.0.0.1"})

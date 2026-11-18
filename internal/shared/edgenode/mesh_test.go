@@ -107,7 +107,7 @@ func notify(t *testing.T, from, to *testNode) Response {
 
 func fpOf(tn *testNode) string { return tn.Identity().Fingerprint }
 
-// FR-EGM-1: 간선 계층이 없는 노드(직접 모드)의 간선 연결 경로는 404 다.
+// FR-EGM-1: 간선 계층이 없는 노드(Options.Mesh 거짓)의 간선 연결 경로는 404 다.
 func TestLinkPathWithoutMeshIs404(t *testing.T) {
 	a, b := newTestNode(t, "node-a"), newTestNode(t, "node-b")
 	pairNodes(t, a, b)

@@ -33,40 +33,21 @@ func (m *ToolManager) SetActivityNotifier(notify func(id, state, tool, detail st
 }
 
 // attnHooks builds the per-tool hooks from the manager's notifier config.
-// SetOutputObserver 는 모든 도구의 출력 청크를 받는 관측자를 꽂는다 (D-C-2) —
-// 직접 모드의 에이전트 해석층이 그 자리다. 기동 전에 릴레이에 실리므로 이 뒤에
-// 만들어진 도구만 받는다; 배선에서 LoadAll 앞에 한 번 부른다.
-func (m *ToolManager) SetOutputObserver(f func(id string, data []byte, end int64)) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.outputObserver = f
-}
-
-// SetExitObserver 는 도구의 죽음을 받는 관측자다 — 직접 모드의 에이전트 해석층이
-// 세션을 오류·휴면 상태로 옮기는 자리 (D-C-2·D-C-15). info 는 종료 코드다 (D-OPT-6).
-// 데몬 모드의 짝은 ToolClient.SetOnExit.
-func (m *ToolManager) SetExitObserver(f func(id string, info ExitInfo)) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.exitObserver = f
-}
-
 // attnHooks 는 StartTool 이 거는 훅 묶음이다.
 //
 // **크기 통보는 주의 배선과 무관하게 언제나 실린다** (FR-M9-3) — 주의 훅이 하나도
 // 없어도 PTY 크기는 말해야 한다. 그래서 이 함수는 더 이상 nil 을 돌려주지 않는다.
 // 받는 쪽(`StartTool`)은 필드마다 nil 을 견디므로 빈 훅이 실리는 것은 무동작이다.
 func (m *ToolManager) attnHooks() *ToolHooks {
-	if m.attnNotify == nil && m.attnClear == nil && m.activityNotify == nil && m.outputObserver == nil {
+	if m.attnNotify == nil && m.attnClear == nil && m.activityNotify == nil {
 		return &ToolHooks{OnSize: m.sizeNotify}
 	}
 	return &ToolHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, OnActivity: m.activityNotify,
-		AllowBell: m.allowBell, OnOutput: m.outputObserver, OnSize: m.sizeNotify}
+		AllowBell: m.allowBell, OnSize: m.sizeNotify}
 }
 
 // SetResizeNotifier 는 PTY 크기가 **바뀌었을 때만** 불리는 콜백을 건다
-// (FR-M9-3). 데몬 모드에서는 PanedServer 가 이것을 IPC push 로 잇는다.
-// 직접 모드는 걸지 않는다 — 그쪽의 통보는 `Tool.broadcast` 가 끝낸다.
+// (FR-M9-3). 데몬의 PanedServer 가 이것을 IPC push 로 잇는다.
 func (m *ToolManager) SetResizeNotifier(notify func(id string, cols, rows uint16)) {
 	m.szMu.Lock()
 	m.szNotify = notify
@@ -171,20 +152,6 @@ func (m *ToolManager) SetAttentionConfig(idle time.Duration, allowBell bool) {
 
 // AttentionSweepInterval 은 배선이 스위퍼에 주는 틱의 주기다.
 const AttentionSweepInterval = attnTickMS * time.Millisecond
-
-// AttentionIDs returns the ids of tools currently needing attention (FR-PAN-8).
-func (m *ToolManager) AttentionIDs() []string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	var ids []string
-	for id, p := range m.tools {
-		if p.Attention() {
-			ids = append(ids, id)
-		}
-	}
-	sort.Strings(ids)
-	return ids
-}
 
 // ClearAllAttention attends to every tool currently needing attention and
 // returns how many were cleared (FR-PAN-17, bulk dismiss).

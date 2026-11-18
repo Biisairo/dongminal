@@ -3,8 +3,7 @@ package toolhub
 import "fmt"
 
 // ExitInfo 는 도구 프로세스가 끝난 사정이다. Code 는 종료 코드다 — 신호로 죽었으면
-// -1, 모르면 0. 두 모드가 같은 모양을 나른다: 직접 모드는 ExitObserver 의 인자,
-// 데몬 모드는 `exit` push 의 `code`.
+// -1, 모르면 0. 데몬이 `exit` push 의 `code` 로 나른다.
 type ExitInfo struct {
 	Code int `json:"code"`
 }

@@ -700,7 +700,7 @@ func TestHandleAPI_State_ToolsKnownByDefault(t *testing.T) {
 		t.Fatalf("응답에 toolsKnown 이 없다 (FR-TLU-1)")
 	}
 	if !*got.ToolsKnown {
-		t.Errorf("toolsKnown=false, 직접 모드는 언제나 알고 있어야 한다 (FR-TLU-3)")
+		t.Errorf("toolsKnown=false, 허브가 목록을 아는데 모른다고 답했다 (FR-TLU-3)")
 	}
 	if len(got.Tools) != 1 {
 		t.Errorf("tools=%d want 1", len(got.Tools))

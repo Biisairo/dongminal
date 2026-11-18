@@ -2,8 +2,8 @@ package hub
 
 import "testing"
 
-// ATTENTION_FIRING_SRS §3.4.7 의 데몬 모드 검증. 직접 모드
-// (`toolhub/attention_agent_osc_test.go`) 와 **같은 항목**을 같은 순서로 잰다
+// ATTENTION_FIRING_SRS §3.4.7 의 서버 추적기 검증. 데몬 `Tool`
+// (`toolhub/attention_agent_osc_test.go`) 과 **같은 항목**을 같은 순서로 잰다
 // (FR-ATN-25·NFR-4).
 
 const claudeIdleOSC = "\x1b]777;notify;Claude Code;Claude is waiting for your input\x07"

@@ -21,7 +21,7 @@ import (
 // 시각을 견주지 않는다. 세움과 내림의 두 사건이 이미 순서를 말하고, 시각으로
 // 견주면 "보고한 적 없음"과 "시각 0 에 보고함"이 구별되지 않는다.
 //
-// 직접 모드(`Tool`)와 데몬 모드(`hub.AttnTracker`)가 이 한 벌을 공유한다
+// 데몬의 `Tool` 과 서버의 `hub.AttnTracker` 가 이 한 벌을 공유한다
 // (FR-ATN-14·NFR-4). 두 벌로 적으면 한쪽만 고쳐지는 날이 온다.
 type AgentTurn struct {
 	inProgress atomic.Bool

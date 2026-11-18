@@ -15,8 +15,8 @@ import (
 
 // V-BGP-2 (FR-BGP-2): `background/set` 이 방송한다.
 //
-// 이 자리인 이유는 **두 모드가 공유하는 유일한 자리**이기 때문이다 — 데몬 모드에서
-// `SetBackground` 는 웹서버가 아니라 데몬 프로세스에서 돌아 알릴 구독자가 없다.
+// 이 자리인 이유는 웹서버가 이 변화를 아는 자리가 여기이기 때문이다 — `SetBackground` 는
+// 데몬 프로세스에서 돌아 그쪽에는 알릴 구독자가 없다.
 func TestBackgroundSet_Broadcasts(t *testing.T) {
 	f := newHeadlessFixture(t)
 	f.resetActions()

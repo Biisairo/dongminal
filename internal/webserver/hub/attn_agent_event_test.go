@@ -2,10 +2,10 @@ package hub
 
 import "testing"
 
-// AGENT_EVENT_ABSTRACTION_SRS V-AEV-10 — 데몬 모드의 알람 파생.
+// AGENT_EVENT_ABSTRACTION_SRS V-AEV-10 — 서버 추적기의 알람 파생.
 //
-// 직접 모드(`toolhub.Tool`)와 **같은 항목을 같은 순서로** 잰다 (FR-AEV-14 ·
-// NFR-4). 한쪽에만 있는 판정을 만들면 두 모드가 조용히 갈라진다.
+// 데몬 `toolhub.Tool` 과 **같은 항목을 같은 순서로** 잰다 (FR-AEV-14 ·
+// NFR-4). 한쪽에만 있는 판정을 만들면 둘이 조용히 갈라진다.
 
 func agentEventTracker() (*AttnTracker, *fakeBroker) {
 	fb := &fakeBroker{}

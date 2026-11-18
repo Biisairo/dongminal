@@ -107,7 +107,7 @@ func TestModes_RestoreEmptyWhenNothingOn(t *testing.T) {
 }
 
 // 되세운 바이트를 다시 관찰하면 같은 상태가 나와야 한다 — 복원이 관찰의
-// 역함수여야 두 모드(direct·daemon)가 같은 화면에 이른다.
+// 역함수여야 재접속한 화면이 끊기기 전과 같은 상태에 이른다.
 func TestModes_RestoreRoundTrips(t *testing.T) {
 	want := TermModes{BracketedPaste: true, MouseProtocol: 1003, MouseEncoding: 1015, FocusEvent: true}
 	var p Tool

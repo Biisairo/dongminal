@@ -44,8 +44,8 @@ func waitUntil(t *testing.T, what string, ok func() bool) {
 // 그래서 doctor 와 같은 신호를 쓴다 (CROSS_PLATFORM_SRS §11, a36417a):
 // **출력이 오고 조용해지는 것.**
 //
-// size 는 지금까지 쌓인 출력의 길이를 준다. 그것만 다르고 나머지는 같으므로
-// 직접 모드와 데몬 모드가 이 함수를 공유한다.
+// size 는 지금까지 쌓인 출력의 길이를 준다. 출력을 읽는 길이 다른 시험들이 이
+// 함수를 공유한다.
 func waitForShellReady(t *testing.T, size func() int) {
 	t.Helper()
 	deadline := time.Now().Add(shellReadyLimit)

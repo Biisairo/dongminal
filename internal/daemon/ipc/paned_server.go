@@ -105,8 +105,7 @@ func NewPanedServer(pm *toolhub.ToolManager, sockPath, pidPath string) *PanedSer
 		}
 	})
 	// PTY 를 소유한 것이 데몬이므로 크기가 바뀐 것을 아는 자리도 여기다
-	// (FR-M9-3 ②). 직접 모드에서는 이 배선이 없고 `Tool.broadcast` 가 같은
-	// 일을 그 프로세스 안에서 끝낸다 — **두 모드가 같은 바이트를 낸다**.
+	// (FR-M9-3 ②).
 	pm.SetResizeNotifier(func(toolID string, cols, rows uint16) {
 		ps.mu.Lock()
 		c := ps.currConn

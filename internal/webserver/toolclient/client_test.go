@@ -405,9 +405,8 @@ func allToolIDs(dataDir string) map[string]struct{} {
 // 응답에 실려 오는 것을 고정한다 (FR-TAN-7, V-TAN-9).
 //
 // R1 이 HIGH 인 이유가 이것이다 — PTY 를 가진 것은 데몬이고, 웹 서버는 PTMX 가
-// 없어 스스로 tcgetpgrp 을 부를 수 없다. 여기서 두 모드가 같은 값을 내는지를
-// 직접 비교한다: pm.List()가 direct 모드가 보는 것이고, pc.List()가 데몬 모드가
-// 소켓 너머로 받는 것이다.
+// 없어 스스로 tcgetpgrp 을 부를 수 없다. 여기서 데몬 안의 값(pm.List)과 웹 서버가
+// 소켓 너머로 받는 값(pc.List)이 같은지를 견준다.
 func TestToolClientForegroundNameOverIPC(t *testing.T) {
 	// 전경 프로세스 그룹은 POSIX 에만 있다 (FR-XPT-5 — Windows 의
 	// ForegroundPGID 는 (0,false) 고정). 건너뛴 사실이 출력에 남도록
@@ -481,12 +480,12 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("전경 이름이 바뀌었는데 fg push 가 오지 않았다")
 	}
-	daemonName := fgOf(pc.List())
-	if daemonName != "sleep" {
-		t.Fatalf("데몬 모드 fgName=%q — sleep 이어야 한다", daemonName)
+	remote := fgOf(pc.List())
+	if remote != "sleep" {
+		t.Fatalf("소켓 너머 fgName=%q — sleep 이어야 한다", remote)
 	}
-	if direct := fgOf(pm.List()); direct != daemonName {
-		t.Fatalf("direct 모드 fgName=%q, 데몬 모드=%q — 같아야 한다 (C-1)", direct, daemonName)
+	if local := fgOf(pm.List()); local != remote {
+		t.Fatalf("데몬 안 fgName=%q, 소켓 너머=%q — 같아야 한다 (C-1)", local, remote)
 	}
 }
 

@@ -65,7 +65,7 @@ func TestListenClearsFP(t *testing.T) {
 	}
 }
 
-// 자리를 주지 않으면 아무것도 쓰지 않는다 — 검사와 직접 모드가 그 상태다.
+// 자리를 주지 않으면 아무것도 쓰지 않는다 — 검사 때가 그 상태다.
 func TestListenSkipsFP(t *testing.T) {
 	home := t.TempDir()
 	// 소켓은 짧은 자리에 둔다 — 유닉스 종단 경로에는 길이 상한이 있어 검사

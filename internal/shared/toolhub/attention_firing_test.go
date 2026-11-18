@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// ATTENTION_FIRING_SRS 묶음 F 의 직접 모드 검증. 여기서 재는 것은 **누가 언제
+// ATTENTION_FIRING_SRS 묶음 F 의 `Tool`(데몬 쪽 판정) 검증. 여기서 재는 것은 **누가 언제
 // 우는가** 다 — 알람의 수명(ATTENTION_LIFECYCLE) 이나 감지 규약(OSC) 이 아니다.
 
 // V-ATF-1: 활동을 한 번도 보고하지 않은 도구는 전경 프로세스가 있고 조용해도

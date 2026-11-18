@@ -153,7 +153,7 @@ func TestAttentionWire_DaemonJudgesServerBroadcasts(t *testing.T) {
 		t.Fatal("해제가 데몬·거울에 닿지 않았다")
 	}
 
-	// 보고 소켓의 사용자 턴 done — 직접 모드처럼 사유 done 으로 운다.
+	// 보고 소켓의 사용자 턴 done — 사유 done 으로 운다.
 	r.report(t, agentrec.MethodActivity, `{"toolId":"t1","agent":"claude","state":"working","tool":"Bash"}`)
 	r.sse.await(t, `"tool_activity"`, `"state":"working"`)
 	r.report(t, agentrec.MethodActivity, `{"toolId":"t1","agent":"claude","state":"done"}`)

@@ -11,7 +11,7 @@ import (
 
 // OPTIMIZE_REFACTOR_SRS FR-OPT-16-3 (HTTP-31) — 활동 대기는 상태 변화 알림과 마감
 // 시각에만 재평가한다. 재평가 수는 도구 조회(Get) 수로 센다 — 재평가 하나가 활동과
-// 마지막 출력을 한 번씩 읽는다 (직접 모드).
+// 마지막 출력을 한 번씩 읽는다.
 
 // countingHub 는 Get 을 센다.
 type countingHub struct {

@@ -23,8 +23,8 @@ var (
 	pasteEnd   = []byte("\x1b[201~")
 )
 
-// pasteSubmitDelay 는 감싼 텍스트와 제출(\r) 사이의 틈이다. 값이 한 곳에만
-// 있어야 direct 모드와 daemon 모드가 갈라지지 않는다 (FR-BPW-3).
+// pasteSubmitDelay 는 감싼 텍스트와 제출(\r) 사이의 틈이다. 값은 이 한 곳에만
+// 둔다 (FR-BPW-3).
 const pasteSubmitDelay = 120 * time.Millisecond
 
 // SendPaste 는 도구에 텍스트를 넣고, submit 이면 제출까지 한다.

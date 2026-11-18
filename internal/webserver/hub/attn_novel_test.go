@@ -8,8 +8,8 @@ import (
 	"dongminal/internal/shared/toolhub"
 )
 
-// ATTENTION_FIRING_SRS 묶음 N 의 데몬 모드 검증. 직접 모드
-// (`toolhub/attention_novel_test.go`) 와 **같은 항목**을 같은 순서로 잰다
+// ATTENTION_FIRING_SRS 묶음 N 의 서버 추적기 검증. 데몬 `Tool`
+// (`toolhub/attention_novel_test.go`) 과 **같은 항목**을 같은 순서로 잰다
 // (FR-ATN-14·NFR-4).
 
 // firedReason 은 그 도구에 실린 특정 이유의 알람 수를 센다.
@@ -141,8 +141,8 @@ func TestAttnTracker_Ended_DropsTurnMarks(t *testing.T) {
 	}
 }
 
-// V-ATN-14·16: 대기 하나가 낳는 알람은 한 번뿐이다. 직접 모드
-// (`TestTool_SignalWaiting_FiresOncePerWait`) 와 같은 항목을 잰다 (NFR-4).
+// V-ATN-14·16: 대기 하나가 낳는 알람은 한 번뿐이다. 데몬 `Tool`
+// (`TestTool_SignalWaiting_FiresOncePerWait`) 과 같은 항목을 잰다 (NFR-4).
 func TestAttnTracker_SignalWaiting_FiresOncePerWait(t *testing.T) {
 	tr, fb := firingTracker(1000)
 
@@ -166,7 +166,7 @@ func TestAttnTracker_SignalWaiting_FiresOncePerWait(t *testing.T) {
 	}
 
 	// FR-ATN-16a: 키를 눌러도 대기 표시는 남는다 — 만졌다고 대기가 끝난 것이
-	// 아니다. 데몬 모드도 직접 모드와 **글자 그대로 같은** 판정이어야 한다.
+	// 아니다. 서버 추적기도 데몬 `Tool` 과 **글자 그대로 같은** 판정이어야 한다.
 	tr.AttendTyped("agent")
 	tr.SignalAttention("agent", "waiting")
 	if got := firedReason(fb, "agent", "waiting"); got != 1 {

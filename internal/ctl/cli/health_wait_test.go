@@ -38,10 +38,10 @@ func TestWaitDaemonConnected(t *testing.T) {
 	}
 }
 
-// **데몬을 쓰지 않는 구성에서 매달리지 않는다** (FR-VHL-20a).
+// **`connected` 가 끝내 거짓이어도 매달리지 않는다** (FR-VHL-20a).
 //
-// 직접 모드는 `connected` 가 영원히 거짓이다. 그것을 실패로 읽어 기동을 막으면
-// 그 구성이 통째로 못 뜬다 — 호출자는 이 거짓을 "기다릴 것이 없었다" 로 읽는다.
+// 호출자는 이 거짓을 "기다릴 것이 없었다" 로 읽는다 — 실패로 읽어 기동을 막으면
+// HTTP 는 준비된 서버가 뜨지 못한다.
 func TestWaitDaemonNeverConnectsIsBounded(t *testing.T) {
 	url := healthServer(t, `{"version":"1.0.0","daemon":{"connected":false}}`)
 	start := time.Now()

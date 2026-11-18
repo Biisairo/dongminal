@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// ATTENTION_FIRING_SRS §3.4.7 의 직접 모드 검증 — 에이전트 도구의 OSC 알림
-// (FR-ATN-22~25). 데몬 모드는 `hub/attn_agent_osc_test.go` 가 같은 항목을 잰다.
+// ATTENTION_FIRING_SRS §3.4.7 의 `Tool`(데몬 쪽 판정) 검증 — 에이전트 도구의 OSC 알림
+// (FR-ATN-22~25). 서버의 추적기는 `hub/attn_agent_osc_test.go` 가 같은 항목을 잰다.
 
 // claudeIdleOSC 는 §1.11 에서 격리 PTY 로 포착한 바이트 그대로다.
 const claudeIdleOSC = "\x1b]777;notify;Claude Code;Claude is waiting for your input\x07"

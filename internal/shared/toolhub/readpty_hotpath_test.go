@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"math/rand"
 	"testing"
-	"time"
 )
 
 // OPTIMIZE_REFACTOR_SRS FR-OPT-3-2 (SHR-3 · SHR-4) — 청크 하나의 할당 수를 고정한다.
@@ -68,132 +67,11 @@ func TestHandleChunk_RelayDataNotOverwritten(t *testing.T) {
 	}
 }
 
-// 구독자가 없으면 OpOutput 프레임을 만들지 않는다 — 데몬 모드의 모든 청크가 그렇다.
+// 릴레이가 없으면 OpOutput 프레임을 만들지 않는다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-41).
 func TestFeedAndDeliver_NoClientsNoFrame(t *testing.T) {
 	p := newHotpathTool(false)
-	if _, msg, _ := p.feedAndDeliver([]byte("x"), false); msg != nil {
+	if _, msg := p.feedAndDeliver([]byte("x"), false); msg != nil {
 		t.Fatalf("msg=%v want nil", msg)
-	}
-}
-
-// FR-OPT-3-1 (SHR-2 · IPC-15) — 느린 브라우저 하나가 PTY 읽기 루프도, 같은 도구의
-// 다른 클라이언트도 세우지 못한다. 넘친 연결은 닫히고 목록에서 빠진다.
-func TestDeliver_SlowClientDoesNotBlockReadLoop(t *testing.T) {
-	p := newHotpathTool(false)
-
-	slowSrv, slowCli := wsPair(t) // slowCli 는 읽지 않는다
-	_ = slowCli
-	fastSrv, fastCli := wsPair(t)
-	slow, fast := NewSafeConn(slowSrv), NewSafeConn(fastSrv)
-	slow.StartSender()
-	fast.StartSender()
-	if !p.AddClient(slow) || !p.AddClient(fast) {
-		t.Fatal("AddClient 가 거절했다")
-	}
-
-	chunk := bytes.Repeat([]byte("y"), 32<<10)
-	const n = 2000 // 64 MB — 소켓 버퍼와 큐를 넉넉히 넘는다
-	var received int
-	readDone := make(chan struct{})
-	go func() {
-		defer close(readDone)
-		fastCli.SetReadDeadline(time.Now().Add(20 * time.Second))
-		for received < n*len(chunk) {
-			_, msg, err := fastCli.ReadMessage()
-			if err != nil {
-				return
-			}
-			received += len(msg) - 1
-		}
-	}()
-
-	start := time.Now()
-	for i := 0; i < n; i++ {
-		p.handleChunk(chunk)
-		// 빠른 쪽도 큐를 넘기면 닫힌다 — 읽기 루프의 속도를 소비자에 맞춘다.
-		for fast.queueLen() > sendQueueCap/2 {
-			time.Sleep(time.Millisecond)
-		}
-	}
-	if d := time.Since(start); d > 15*time.Second {
-		t.Fatalf("읽기 루프가 %v 걸렸다 — 느린 소켓에 막혔다", d)
-	}
-	<-readDone
-	if received != n*len(chunk) {
-		t.Fatalf("빠른 클라이언트가 %d/%d 바이트만 받았다", received, n*len(chunk))
-	}
-	p.cmu.Lock()
-	cls := p.cls
-	p.cmu.Unlock()
-	if len(cls) != 1 || cls[0] != fast {
-		t.Fatalf("넘친 연결이 목록에 남았다: %d 개", len(cls))
-	}
-	select {
-	case <-slow.closed:
-	default:
-		t.Fatal("넘친 연결이 닫히지 않았다")
-	}
-}
-
-// 송신 고루틴이 서기 전의 라이브 프레임은 큐에서 기다린다 — 동기 송신(재생·OpSeq)이
-// 먼저 나가고, 그 뒤에 쌓인 순서대로 나간다 (FR-TRS-8).
-func TestSafeConn_QueuedFramesFollowSyncSends(t *testing.T) {
-	srv, cli := wsPair(t)
-	sc := NewSafeConn(srv)
-	defer sc.Close()
-	if !sc.Enqueue([]byte{OpOutput, 'a'}) || !sc.Enqueue([]byte{OpOutput, 'b'}) {
-		t.Fatal("Enqueue 거절")
-	}
-	if err := sc.Send(OpSeq, []byte{9}); err != nil {
-		t.Fatal(err)
-	}
-	sc.StartSender()
-	sc.StartSender() // 두 번 불러도 고루틴은 하나다
-	want := [][]byte{{OpSeq, 9}, {OpOutput, 'a'}, {OpOutput, 'b'}}
-	cli.SetReadDeadline(time.Now().Add(5 * time.Second))
-	for i, w := range want {
-		_, msg, err := cli.ReadMessage()
-		if err != nil {
-			t.Fatalf("frame %d: %v", i, err)
-		}
-		if !bytes.Equal(msg, w) {
-			t.Fatalf("frame %d=%v want %v", i, msg, w)
-		}
-	}
-}
-
-// 닫힌 연결의 Enqueue 는 false 이고 막히지 않는다.
-func TestSafeConn_EnqueueAfterClose(t *testing.T) {
-	srv, _ := wsPair(t)
-	sc := NewSafeConn(srv)
-	sc.Close()
-	for i := 0; i < 2*sendQueueCap; i++ {
-		if sc.Enqueue([]byte{OpOutput}) {
-			t.Fatal("닫힌 연결이 받았다")
-		}
-	}
-}
-
-// kill 의 OpExit 은 이미 쌓인 출력 뒤에 나간다.
-func TestKill_ExitFollowsQueuedOutput(t *testing.T) {
-	p := newHotpathTool(false)
-	srv, cli := wsPair(t)
-	sc := NewSafeConn(srv)
-	defer sc.Close()
-	if !p.AddClient(sc) {
-		t.Fatal("AddClient 거절")
-	}
-	p.handleChunk([]byte("last words"))
-	p.kill()
-	sc.StartSender()
-	cli.SetReadDeadline(time.Now().Add(5 * time.Second))
-	_, m1, err := cli.ReadMessage()
-	if err != nil || string(m1) != "\x00last words" {
-		t.Fatalf("frame1=%q err=%v", m1, err)
-	}
-	_, m2, err := cli.ReadMessage()
-	if err != nil || !bytes.Equal(m2, []byte{OpExit}) {
-		t.Fatalf("frame2=%v err=%v", m2, err)
 	}
 }
 
@@ -304,62 +182,6 @@ func TestClassifyEsc_SkipIsSound(t *testing.T) {
 					t.Fatalf("modes=false 인데 scanModes=(%+v,%q) — %q", next, carry, in)
 				}
 			}
-		}
-	}
-}
-
-// 청크를 읽는 사이에 다른 경로가 kill 해도 OpExit 은 마지막 프레임이다 — 늦은 출력
-// 프레임이 OpExit 뒤에 큐에 들어가지 않는다. 릴레이 콜백은 목록 확보와 송신 사이에
-// 불리므로 그 창에 kill 을 끼워 넣는다.
-func TestHandleChunk_ConcurrentKillKeepsExitLast(t *testing.T) {
-	p := newHotpathTool(false)
-	p.relay.Store(&toolRelay{onOutput: func(string, []byte, int64) { p.kill() }})
-	srv, cli := wsPair(t)
-	sc := NewSafeConn(srv)
-	defer sc.Close()
-	if !p.AddClient(sc) {
-		t.Fatal("AddClient 거절")
-	}
-	p.handleChunk([]byte("late"))
-	sc.StartSender()
-	cli.SetReadDeadline(time.Now().Add(5 * time.Second))
-	var frames [][]byte
-	for {
-		_, m, err := cli.ReadMessage()
-		if err != nil {
-			t.Fatalf("frames=%q err=%v", frames, err)
-		}
-		frames = append(frames, m)
-		if len(m) == 1 && m[0] == OpExit {
-			break
-		}
-	}
-	if len(frames) != 2 || string(frames[0]) != "\x00late" {
-		t.Fatalf("frames=%q want [late, exit]", frames)
-	}
-}
-
-// 송신 고루틴이 서기 전(동기 재생·OpSeq 창)에는 큐 상한을 넘어도 닫지 않고 잃지도
-// 않는다 — 재생이 1 MB 를 보내는 동안 라이브 출력이 몰려도 재접속 고리에 들지 않는다.
-func TestSafeConn_BacklogBeforeStartIsUnbounded(t *testing.T) {
-	srv, cli := wsPair(t)
-	sc := NewSafeConn(srv)
-	defer sc.Close()
-	const n = 4 * sendQueueCap
-	for i := 0; i < n; i++ {
-		if !sc.Enqueue([]byte{OpOutput, byte(i)}) {
-			t.Fatalf("frame %d 거절 — 시작 전에 닫혔다", i)
-		}
-	}
-	sc.StartSender()
-	cli.SetReadDeadline(time.Now().Add(5 * time.Second))
-	for i := 0; i < n; i++ {
-		_, m, err := cli.ReadMessage()
-		if err != nil {
-			t.Fatalf("frame %d: %v", i, err)
-		}
-		if !bytes.Equal(m, []byte{OpOutput, byte(i)}) {
-			t.Fatalf("frame %d=%v", i, m)
 		}
 	}
 }

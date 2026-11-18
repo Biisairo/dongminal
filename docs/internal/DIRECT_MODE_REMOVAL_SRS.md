@@ -1,7 +1,7 @@
 # SRS: 직접 모드 제거 — 서버는 늘 데몬에 붙는다 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: §8 — 데몬 쪽 `toolhub.Tool` 의 프로세스 안 클라이언트 팬아웃 제거
+> **문서 상태**: 승인·구현완료
+> **남은 것**: 없음
 > **입력**: 2026-11-18 사용자 지시와 결정. `CLEANUP_AFTER_EDGE_MESH_HANDOFF.md` 3단계.
 
 ## 1. 개요
@@ -117,6 +117,13 @@
   - 활동·주의 해제 방송의 내용(개수만 재던 단언을 `args` 로): `TestApiToolActivitySet`·`TestApiToolAttentionClear`.
   - 실제 데몬에 없는 도구의 `SendPaste`·`SnapshotTool` 오류: `toolclient` `TestToolClientUnknownToolErrors`.
   - 상태 시험의 `outputClock.Store` 가 유휴 무장도 세운다는 부작용을 주석에 적었다.
+- 2026-11-18 §8 구현. `tool_clients.go` 와 `SafeConn` 송신 큐를 지웠다. `kill` 은 클라이언트 `OpExit` 을,
+  `notifySize` 는 `broadcast` 를 더 하지 않는다. `feedAndDeliver` 는 릴레이용 사본만 만든다(할당 수 그대로: 릴레이 없음 0,
+  있음 1). 함께 지운 무호출 표면(FR-DMR-47): `ToolManager.AttentionIDs`·`SetOutputObserver`·`SetExitObserver`,
+  `ToolHooks.OnOutput`. 지운 시험: 클라이언트 프레임 순서·`SafeConn` 큐만 재던 여덟(`concurrency_invariants_test.go` 는
+  통째로). 옮긴 불변식: "느린 소비자가 읽기 루프를 세우지 못한다" → `ipc` `TestPushOutputDropsWhenQueueFull`(`droppable`
+  을 false 로 바꾸면 실패함을 확인). 패닉 시험은 릴레이 `onExit` 로 남겼다. `toolhub`·`internal/daemon`·서버 시험의 "직접 모드"
+  주석을 고쳤다(남은 것은 제거 기록 둘).
 - 바꾼 로그 문구: 조립 실패의 기본 갈래 `buildDeps: …` → `buildApp: …` (`buildDeps` 는 지워졌다).
 - 바꾼 사용자 문구: `dongminal health` 의 소켓 부재 안내 `(direct mode 이거나 미기동)` → `(미기동)` (CLI_CONSOLIDATION_SRS FR-ACT-10 개정).
 
@@ -124,7 +131,7 @@
 
 | 항목 | 상태 | 까닭 |
 |---|---|---|
-| `toolhub.Tool` 의 프로세스 안 클라이언트 팬아웃(`AddClientAt`·`RemoveClient`·`broadcast`·`cls`, `SafeConn` 송신 큐·`StartSender`) | §8 에서 지운다 | 데몬 쪽 PTY 출력의 뜨거운 경로(`feedAndDeliver`·`kill`·크기 통보)와 성능 시험(`readpty_hotpath_test` 등)에 얽혀 있다. 서버의 직접 모드 제거와 따로 검증해야 하는 데몬 내부 정리라 별도 작업으로 두었다 |
+| `toolhub.Tool` 의 프로세스 안 클라이언트 팬아웃(`AddClientAt`·`RemoveClient`·`broadcast`·`cls`, `SafeConn` 송신 큐·`StartSender`) | §8 에서 지웠다(2026-11-18) | 데몬 쪽 PTY 출력의 뜨거운 경로(`feedAndDeliver`·`kill`·크기 통보)와 성능 시험(`readpty_hotpath_test` 등)에 얽혀 있다. 서버의 직접 모드 제거와 따로 검증해야 하는 데몬 내부 정리라 별도 작업으로 두었다 |
 
 ## 8. 후속 — `toolhub.Tool` 의 프로세스 안 팬아웃 제거
 
@@ -147,7 +154,8 @@
   `sendQueueCap`)는 없다. 서버의 터미널 WS 는 이미 `Send` 만 쓴다.
 - **FR-DMR-45** `toolhub`·`internal/daemon` 의 주석에 직접 모드를 현재 배선으로 서술하는 문장이 없다. 판정을 두 곳이
   나눠 쓰는 서술은 "데몬의 `Tool`" 과 "서버의 `hub.AttnTracker`" 로 적는다.
-- **FR-DMR-47** 프로덕션 호출처가 없는 `ToolManager.AttentionIDs` 는 없다(서버의 주의 목록은 `hub.AttnTracker` 가 답한다).
+- **FR-DMR-47** 호출처가 없는 직접 모드의 남은 표면은 없다: `ToolManager.AttentionIDs`(서버의 주의 목록은 `hub.AttnTracker` 가 답한다)·
+  `SetOutputObserver`·`SetExitObserver`, `ToolHooks.OnOutput`(출력 릴레이는 데몬의 `WireRelayOnce` 하나다).
 
 ### 8.3 불변식의 이전 (FR-DMR-46)
 

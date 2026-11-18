@@ -36,38 +36,28 @@ func (p *Tool) terminateWait(grace time.Duration) {
 const terminateGrace = 50 * time.Millisecond
 
 // kill transitions the tool to exited exactly once: it marks exited under
-// cmu, fans out a final OpExit to the clients that were registered at that
-// moment (outside cmu), then tears down the PTY/process and stream.
+// cmu, then tears down the PTY/process and stream. 종료 통보는 릴레이의 onExit
+// 이다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-42).
 //
 // It is race-free by design:
 //   - sync.Once guarantees the body executes at most once, even when the
 //     readPTY goroutine calls kill() on EOF while an external caller (API
 //     handler, watchdog) concurrently calls kill().
-//   - The once.Do body is self-contained: it snapshots the client list
-//     under cmu, broadcasts outside cmu (avoiding deadlock with addClient),
-//     then tears down resources (ptmx, cmd, stream). No call from inside
-//     the once body re-enters kill() or readPTY.
+//   - The once.Do body is self-contained: it marks exited under cmu, then
+//     tears down resources (ptmx, cmd, stream). No call from inside the
+//     once body re-enters kill() or readPTY.
 //   - Closing p.done inside once.Do safely unblocks any Wait() readers;
 //     the close is also idempotent under the Once guard.
 //   - The onExit callback is NOT invoked here — it was moved to readPTY
 //     (which is the sole caller after EOF) to avoid re-entrancy issues.
 func (p *Tool) kill() {
 	p.once.Do(func() {
-		// Phase 1: atomic mark + snapshot under cmu.
+		// Phase 1: atomic mark under cmu.
 		p.cmu.Lock()
 		p.exited = true
-		snap := p.cls
 		p.cmu.Unlock()
 
-		// Phase 2: final OpExit via each client's send queue (FR-OPT-3-1) —
-		// it follows the output already queued. Overflow is ignored: the tool
-		// is dying anyway and a closed client reconnects to find it gone.
-		exitMsg := []byte{OpExit}
-		for _, c := range snap {
-			_ = c.Enqueue(exitMsg)
-		}
-
-		// Phase 3: tear down PTY/process/stream.
+		// Phase 2: tear down PTY/process/stream.
 		pid := p.CmdProcessPID()
 		dmlog.Infof(nil, "[tool %s] killing pid=%d", p.ID, pid)
 		// NewDetachedTool 로 만든 Tool 은 done 이 nil 이다 (PTY 도 프로세스도 없는
@@ -139,12 +129,11 @@ func (p *Tool) Write(data []byte) error {
 // Resize is the exported wrapper around the unexported resize for
 // ToolManager delegation. It resizes the PTY master.
 //
-// **크기가 실제로 바뀌었으면 붙어 있는 클라이언트에게 통보한다**
-// (M9_SRS FR-M9-3). 비소유자는 PTY 폭을 알 길이 없어 같은 바이트를 자기 폭으로
+// **크기가 실제로 바뀌었으면 통보한다** (M9_SRS FR-M9-3). 비소유자는 PTY 폭을 알 길이 없어 같은 바이트를 자기 폭으로
 // 해석했고, 그것이 위쪽 글이 깨지던 자리다 (D-M9-3).
 //
-// 통보는 `tmu` **밖**이다 — `broadcast` 는 `cmu` 를 잡으므로 락 안에서 부르면
-// `tmu → cmu` 라는 새 순서가 생긴다. 이 파일은 그런 자리를 만들지 않는다.
+// 통보는 `tmu` **밖**이다 — 훅이 무엇을 잡을지 이 파일은 모른다. 락 안에서 부르면
+// `tmu` 뒤에 새 락 순서가 생길 수 있다.
 func (p *Tool) Resize(cols, rows uint16) error {
 	changed, err := p.resize(cols, rows)
 	if err != nil {
@@ -152,21 +141,16 @@ func (p *Tool) Resize(cols, rows uint16) error {
 	}
 	// 바뀌지 않았으면 말하지 않는다 — `resendWindowSizes` 가 창 전환마다 같은
 	// 값을 보내므로(`app-focus.js`), 여기서 거르지 않으면 전환마다 모든
-	// 클라이언트가 같은 프레임을 받는다. `SetForegroundNotifier` 와 같은 규약이다.
+	// 브라우저가 같은 프레임을 받는다. `SetForegroundNotifier` 와 같은 규약이다.
 	if changed {
 		p.notifySize(cols, rows)
 	}
 	return nil
 }
 
-// notifySize 는 크기를 **붙어 있는 클라이언트**와 **훅**에 알린다 (FR-M9-3).
-//
-// 두 길인 이유는 배선이 둘이기 때문이다. 직접 모드에서는 브라우저 소켓이 이
-// 프로세스에 있으므로 `broadcast` 가 곧 통보다. 데몬 모드에서는 PTY 가 데몬에
-// 있고 브라우저는 웹서버에 있으므로 `cls` 가 비어 있다 — 그쪽은 훅이 IPC push 로
-// 잇는다. **두 모드가 같은 바이트를 낸다** (FR-TRS-12 의 규약).
+// notifySize 는 크기를 훅에 알린다 (FR-M9-3). PTY 는 데몬에 있고 브라우저는
+// 웹서버에 있으므로 데몬이 훅을 size push 로 잇는다.
 func (p *Tool) notifySize(cols, rows uint16) {
-	p.broadcast(append([]byte{OpSize}, SizePayload(cols, rows)...))
 	if h := p.onSize; h != nil {
 		h(p.ID, cols, rows)
 	}

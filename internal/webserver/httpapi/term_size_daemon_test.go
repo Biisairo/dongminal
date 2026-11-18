@@ -106,7 +106,7 @@ func TestDaemonResizePushesSizeToSubscriber(t *testing.T) {
 	}
 }
 
-// V-M9-3a: 같은 크기를 다시 주면 push 하지 않는다 — 두 모드가 같은 규약이다.
+// V-M9-3a: 같은 크기를 다시 주면 push 하지 않는다.
 func TestDaemonResizeUnchangedIsSilent(t *testing.T) {
 	pm, pc := daemonPair(t)
 

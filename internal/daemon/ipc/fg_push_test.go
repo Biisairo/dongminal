@@ -36,6 +36,30 @@ func TestPushForegroundNotDropped(t *testing.T) {
 	}
 }
 
+// DIRECT_MODE_REMOVAL_SRS FR-DMR-46: 출력 push 는 PTY 읽기 루프에서 돈다. 큐가 찬 연결(느린 서버)이
+// 읽기 루프를 세우면 안 되므로, 기다리지 않고 버리고 버린 수를 센다.
+func TestPushOutputDropsWhenQueueFull(t *testing.T) {
+	pc := &panedConn{out: make(chan interface{}, 1), done: make(chan struct{})}
+	pc.out <- "busy"
+	returned := make(chan struct{})
+	go func() {
+		pc.pushOutputData("t1", []byte("a"), 1)
+		pc.pushOutputData("t1", []byte("b"), 2)
+		close(returned)
+	}()
+	select {
+	case <-returned:
+	case <-time.After(2 * time.Second):
+		t.Fatal("큐가 찬 연결에서 출력 push 가 막혔다 — 읽기 루프가 선다")
+	}
+	if n := pc.dropped.Load(); n != 2 {
+		t.Fatalf("dropped=%d, want 2", n)
+	}
+	if v := <-pc.out; v != "busy" {
+		t.Fatalf("큐 내용이 바뀌었다: %#v", v)
+	}
+}
+
 // FR-OPT-2-1: list 핸들러는 전경을 조회하지 않고 캐시만 싣는다 (ListCached). 조회는
 // 데몬의 티커가 돌린다 — dispatch 안에서 돌면 그동안 이 연결의 입력이 줄을 선다.
 func TestListHandlerDoesNotProbe(t *testing.T) {

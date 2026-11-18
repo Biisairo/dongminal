@@ -715,7 +715,7 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 }
 
 // TestDaemonExitClosesSubscriber verifies a tool exit closes the per-subscriber
-// exit channel so the WS handler can send toolhub.OpExit (parity with direct mode).
+// exit channel so the WS handler can send toolhub.OpExit.
 func TestDaemonExitClosesSubscriber(t *testing.T) {
 	dir := toolTempDir(t)
 	sockPath := dir + "/s"

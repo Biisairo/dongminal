@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -39,8 +40,11 @@ func TestAttentionIDs_Endpoint(t *testing.T) {
 	s, tr, _ := attnServer(t, "2", "5", "7")
 	tr.SignalAttention("2", "bell")
 	tr.SignalAttention("5", "bell")
-	if got := attentionIDsOf(t, s); len(got) != 2 || got[0] != "2" || got[1] != "5" {
-		t.Fatalf("endpoint toolIds want [2 5], got %v", got)
+	// 순서는 계약이 아니다 — 추적기는 맵 순서로 답한다.
+	got := attentionIDsOf(t, s)
+	sort.Strings(got)
+	if len(got) != 2 || got[0] != "2" || got[1] != "5" {
+		t.Fatalf("endpoint toolIds want {2 5}, got %v", got)
 	}
 }
 

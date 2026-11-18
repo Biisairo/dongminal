@@ -367,7 +367,7 @@ func TestRelayOutput_KeepsPumpingWhileHealthy(t *testing.T) {
 	}
 }
 
-// 도구가 종료되면 toolhub.OpExit 를 보내고 소켓을 닫는다 (직접 모드와 동일).
+// 도구가 종료되면 toolhub.OpExit 를 보내고 소켓을 닫는다.
 func TestRelayOutput_SendsExitOnToolExit(t *testing.T) {
 	srvConn, cli, cleanup := wsPair(t)
 	defer cleanup()

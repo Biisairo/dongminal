@@ -49,7 +49,7 @@ func relayNode(t *testing.T, name string) *Node {
 }
 
 // TC-PDM-4 (FR-PDM-20~22·2): 서버는 바이트만 잇고 TLS·판정은 노드가 한다. 통로를 지나도
-// 간선 맺기 전 과정이 직접 모드와 같다.
+// 간선 맺기 전 과정이 통로 없이 맺을 때와 같다.
 func TestRelayPairFullFlow(t *testing.T) {
 	a := relayNode(t, "node-a")
 	b := relayNode(t, "node-b")

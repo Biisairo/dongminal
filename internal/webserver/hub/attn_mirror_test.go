@@ -82,7 +82,7 @@ func TestMirror_ApplyAttnBroadcastsByKind(t *testing.T) {
 	if !fb.has(`"tool_activity"`) || tr.Activity("t1") == nil || tr.Activity("t1").Tool != "Bash" {
 		t.Fatal("활동 push 가 거울·방송에 닿지 않았다")
 	}
-	// 카드가 같아도 방송한다 — 직접 모드의 onActivity 와 같다.
+	// 카드가 같아도 방송한다 — 데몬 `Tool` 의 onActivity 와 같다.
 	n := fb.count()
 	tr.ApplyAttn(toolipc.AttnEvent{Tool: "t1", Kind: toolipc.AttnKindActivity, Agent: toolhub.AgentState{Activity: card, AgentSeen: true}})
 	if fb.count() != n+1 {

@@ -220,5 +220,3 @@ func TestTool_Attend_ClearsOnce(t *testing.T) {
 		t.Fatalf("attending a non-attention tool must be no-op, got %v", clear)
 	}
 }
-
-// TC-PAN-13: AttentionIDs + endpoint return current attention set.

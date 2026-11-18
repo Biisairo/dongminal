@@ -6,7 +6,7 @@ import (
 	"dongminal/internal/shared/activity"
 )
 
-// AGENT_RECORD_DAEMON_SRS §3.2a — main 활동 반영은 한 함수다. 직접 모드와 데몬이 함께 쓴다.
+// AGENT_RECORD_DAEMON_SRS §3.2a — main 활동 반영은 한 함수다.
 
 func TestReportActivity_UserTurnDoneRaisesAttention(t *testing.T) {
 	var fired []string

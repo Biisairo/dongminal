@@ -18,20 +18,19 @@ import (
 
 // Tool — PTY 하나의 수명.
 //
-// 기동(StartTool)·읽기 루프(readPTY)·클라이언트 방송(broadcast)·주의 알림
-// 관측(observeOutput)·활동 상태·쓰기·종료(kill)·크기 변경이 여기 산다. 이 파일이
+// 기동(StartTool)·읽기 루프(readPTY)·출력 릴레이·주의 알림 관측(observeOutput)·
+// 활동 상태·쓰기·종료(kill)·크기 변경이 여기 산다. 이 파일이
 // 대답하는 질문은 **"도구 하나에게 무슨 일이 일어나는가"** 다.
 //
 // 레지스트리 쪽 질문("도구가 몇 개고 누가 그것을 찾는가")은 manager.go 다.
 
 // Tool invariants:
-//   - cmu protects cls and exited.
-//   - broadcast/addClient/removeClient must NOT be called by a caller
-//     already holding cmu (these methods acquire cmu themselves).
-//   - Once exited=true, broadcast becomes a no-op and addClient rejects
-//     new clients (sending OpExit immediately, outside cmu).
+//   - cmu protects exited and orders it against stream feeding.
 //   - The exited transition happens exactly once, inside kill() under
 //     the protection of `once`.
+//
+// 출력을 받는 쪽은 릴레이 하나다 — 데몬이 그것을 IPC push 로 서버에 잇는다
+// (DIRECT_MODE_REMOVAL_SRS FR-DMR-40). 이 프로세스 안의 클라이언트 목록은 없다.
 //
 // toolRelay holds the output/exit relay callbacks for a Tool. It is stored
 // via atomic.Pointer so the readPTY goroutine can read the callbacks without
@@ -61,7 +60,6 @@ type Tool struct {
 	// (FR-SBX-33), 그것 말고는 도구의 동작을 바꾸지 않는다.
 	sandboxed bool
 	cmu       sync.Mutex
-	cls       []*SafeConn
 	exited    bool
 	done      chan struct{}
 	once      sync.Once
@@ -93,9 +91,8 @@ type Tool struct {
 	allowBell        atomic.Bool
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
-	// onSize 는 PTY 크기가 **바뀌었을 때만** 불린다 (M9_SRS FR-M9-3). 데몬
-	// 모드에서 이것을 IPC push 로 잇는 것이 PanedServer 이며, 직접 모드에서는
-	// 걸리지 않는다 — 그쪽은 `broadcast` 가 같은 일을 이 프로세스 안에서 끝낸다.
+	// onSize 는 PTY 크기가 **바뀌었을 때만** 불린다 (M9_SRS FR-M9-3). 이것을
+	// IPC push 로 잇는 것이 데몬의 PanedServer 다.
 	// StartTool 이 readPTY 앞에서 한 번 세운다(경쟁 없음) — onAttention 과 같다.
 	onSize func(id string, cols, rows uint16)
 
@@ -111,7 +108,7 @@ type Tool struct {
 	//
 	// 닫는 중에 들어온 `Resize` 가 이미 닫힌 터미널 핸들을 만지지 않게 한다.
 	// 종료 처리 전체를 감싸지 않는 이유는 그것이 프로세스를
-	// 50ms 기다리기 때문이다. 그동안 `cmu` 를 쥐면 접속·브로드캐스트가 멎는다.
+	// 50ms 기다리기 때문이다. 그동안 `cmu` 를 쥐면 읽기 루프의 적재가 멎는다.
 	tmu        sync.Mutex
 	termClosed bool
 
@@ -187,14 +184,8 @@ type ToolHooks struct {
 	OnAttentionClear func(id string)
 	OnActivity       func(id, state, tool, detail string)
 	AllowBell        bool
-	// OnOutput 은 출력 청크마다 readPTY 고루틴에서 한 번 돈다 — 직접 모드의
-	// 해석층이 바이트를 받는 자리다 (M8_UNIFIED_SRS D-C-2). end 는 청크를 포함한
-	// 누적 오프셋. 기동 **전에** 릴레이에 실리므로 첫 바이트도 놓치지 않는다;
-	// 데몬 모드는 `WireRelayOnce` 가 릴레이를 통째로 바꾸므로 그쪽에는 닿지 않는다
-	// — 데몬 프로세스에는 해석층이 없다.
-	OnOutput func(id string, data []byte, end int64)
-	// OnSize 는 PTY 크기가 바뀌었을 때 불린다 (M9_SRS FR-M9-3). 데몬 모드에서만
-	// 걸린다 — 직접 모드의 통보는 `Tool.broadcast` 가 이 프로세스 안에서 끝낸다.
+	// OnSize 는 PTY 크기가 바뀌었을 때 불린다 (M9_SRS FR-M9-3). 데몬이 그것을
+	// size push 로 잇는다.
 	OnSize func(id string, cols, rows uint16)
 }
 
@@ -213,8 +204,8 @@ func NewDetachedTool(id string, hooks *ToolHooks) *Tool {
 	return p
 }
 
-// applyHooks 는 주의·활동 배선을 옮겨 싣는다. OnSize·OnOutput 은 싣지 않는다 —
-// 그 둘은 PTY 가 있는 StartTool 만의 것이다. readPTY 가 돌기 전에 불러야 한다.
+// applyHooks 는 주의·활동 배선을 옮겨 싣는다. OnSize 는 싣지 않는다 —
+// PTY 가 있는 StartTool 만의 것이다. readPTY 가 돌기 전에 불러야 한다.
 func (p *Tool) applyHooks(hooks *ToolHooks) {
 	if hooks == nil {
 		return
@@ -326,12 +317,9 @@ func newToolOnTerm(id, name string, term platform.Terminal, sandboxed bool, onEx
 		stream:    outbuf.NewStream(bufMax),
 		done:      make(chan struct{}),
 	}
-	// Set the base exit callback before readPTY starts (race-free).
-	relay := &toolRelay{onExit: onExit}
-	if hooks != nil && hooks.OnOutput != nil {
-		relay.onOutput = hooks.OnOutput
-	}
-	p.relay.Store(relay)
+	// Set the base exit callback before readPTY starts (race-free). 출력 릴레이는
+	// 데몬의 WireRelayOnce 가 단다.
+	p.relay.Store(&toolRelay{onExit: onExit})
 	p.applyHooks(hooks)
 	if hooks != nil {
 		p.onSize = hooks.OnSize
@@ -340,14 +328,13 @@ func newToolOnTerm(id, name string, term platform.Terminal, sandboxed bool, onEx
 }
 
 // readPTY drains the PTY master, feeds the bounded stream buffer (single
-// drop path: outbuf.Stream compaction → Stats.TotalBytesDrop), and
-// fan-outs OpOutput messages to live clients. On EOF/IO error — **and on
-// panic** — it triggers a single kill() (which itself emits the final OpExit)
-// and signals onExit.
+// drop path: outbuf.Stream compaction → Stats.TotalBytesDrop), and hands each
+// chunk to the output relay. On EOF/IO error — **and on panic** — it triggers
+// a single kill() and signals the relay's onExit.
 //
 // 패닉 경로가 EOF 경로와 같은 이유 (M8 `GO-7`): 종전에는 recover 가 로그만
-// 남기고 돌아갔다. 그러면 PTY fd 와 프로세스가 남고, 클라이언트는 OpExit 을 받지
-// 못해 재연결을 되풀이하며(무한 재연결의 조건), tools.json 에는 계속 기재된다 —
+// 남기고 돌아갔다. 그러면 PTY fd 와 프로세스가 남고, 종료 통보가 나가지 않아
+// 클라이언트가 재연결을 되풀이하며(무한 재연결의 조건), tools.json 에는 계속 기재된다 —
 // 반죽음이다. 읽기 고루틴이 죽은 도구는 죽은 도구다.
 func (p *Tool) readPTY() {
 	defer func() {
@@ -383,24 +370,16 @@ func (p *Tool) readPTY() {
 	}
 }
 
-// handleChunk 는 읽은 청크 하나를 스트림·릴레이·관측·클라이언트로 나른다.
+// handleChunk 는 읽은 청크 하나를 스트림·릴레이·관측으로 나른다.
 // chunk 는 읽기 버퍼 그 자체이므로 보관하지 않는다.
 func (p *Tool) handleChunk(chunk []byte) {
 	// Single backpressure path: Stream.Feed never blocks; loss (if any)
-	// is recorded in Stats.TotalBytesDrop.
-	//
-	// FR-TRS-17: Feed 와 **클라이언트 목록 확보**가 한 번의 cmu 구간 안에
-	// 있어야 한다. 갈라 두면 그 사이에 붙은 클라이언트가 이 청크를 재생으로도
-	// broadcast 로도 받아 한 번 더 보게 된다. 락 순서는 언제나 cmu → stream.mu 다.
-	//
-	// 송신 큐에 넣는 것도 같은 cmu 구간이다 — kill 이 exited 를 세운 뒤에 이 청크가
-	// 큐에 들어가면 OpExit 뒤에 출력이 온다. Enqueue 는 막히지 않는다.
+	// is recorded in Stats.TotalBytesDrop. 락 순서는 언제나 cmu → stream.mu 다.
 	r := p.relay.Load()
 	relay := r != nil && r.onOutput != nil
-	end, msg, dropped := p.feedAndDeliver(chunk, relay)
-	p.removeClients(dropped)
+	end, data := p.feedAndDeliver(chunk, relay)
 	if relay {
-		r.onOutput(p.ID, msg[1:], end)
+		r.onOutput(p.ID, data, end)
 	}
 	c := classifyEsc(chunk, p.allowBell.Load())
 	p.observeOutputClassified(chunk, attnNow(), c)
@@ -417,31 +396,20 @@ func (p *Tool) exitAfterRead() {
 	}
 }
 
-// feedAndDeliver 는 청크를 스트림에 넣고, **같은 cmu 구간에서** 붙어 있는
-// 클라이언트의 송신 큐에 넣는다 (FR-TRS-17). 그래야 AddClient 가 돌려준 오프셋이
-// "이 클라이언트가 broadcast 로 받기 시작하는 자리" 와 정확히 일치하고, kill 의
-// OpExit 이 언제나 마지막 프레임이다.
+// feedAndDeliver 는 청크를 스트림에 넣고, 릴레이가 있으면 릴레이에 줄 사본을 만든다.
 //
 // Feed 에는 읽기 버퍼를 **그대로** 넘긴다 — Stream 은 자기 버퍼에 복사하고 인자를
 // 보관하지 않는다 (outbuf.Feed 의 계약, M8 `GO-37`). 청크당 사본은 하나다
-// (FR-OPT-3-2, SHR-3): 릴레이와 클라이언트가 같은 사본을 읽기 전용으로 나눠 쓴다 —
-// 릴레이는 msg[1:] 를 보관할 수 있으므로(데몬의 push 큐) 이 사본은 다시 쓰지 않는다.
-// 받을 쪽이 없으면 만들지 않는다. dropped 는 넘쳐 닫힌 연결이다.
-func (p *Tool) feedAndDeliver(chunk []byte, relay bool) (end int64, msg []byte, dropped []*SafeConn) {
+// (FR-OPT-3-2, SHR-3): 릴레이는 data 를 보관할 수 있으므로(데몬의 push 큐) 이 사본은
+// 다시 쓰지 않는다. 릴레이가 없으면 만들지 않는다 (DIRECT_MODE_REMOVAL_SRS FR-DMR-41).
+func (p *Tool) feedAndDeliver(chunk []byte, relay bool) (end int64, data []byte) {
 	p.cmu.Lock()
 	defer p.cmu.Unlock()
 	_, end = p.stream.Feed(chunk)
-	live := !p.exited && len(p.cls) > 0
-	if !relay && !live {
-		return end, nil, nil
+	if !relay {
+		return end, nil
 	}
-	msg = make([]byte, 1+len(chunk))
-	msg[0] = OpOutput
-	copy(msg[1:], chunk)
-	if live {
-		dropped = enqueueAll(msg, p.cls)
-	}
-	return end, msg, dropped
+	return end, append([]byte(nil), chunk...)
 }
 
 // Wait returns a channel closed when the tool terminates (test helper).

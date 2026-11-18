@@ -127,9 +127,9 @@ type ToolHub interface {
 	Delete(id string) error
 	// Terminate 는 정중히 종료를 청하고(SIGTERM) grace 안에 끝나기를 기다린 뒤
 	// 지운다 — 끝나지 않았으면 Delete 가 강제 종료한다 (FR-BGK-7). 없으면
-	// `ErrToolNotFound` 다. **두 모드가 같은 유예를 갖는다** (M8 FBE-05/12):
-	// 종전에는 유예가 httpapi 에 있어 데몬 모드에서는 pid 없는 합성 Tool 앞에서
-	// 건너뛰어졌고, 데몬의 Delete 는 50ms 만 기다렸다.
+	// `ErrToolNotFound` 다. **유예는 데몬 쪽에 있다** (M8 FBE-05/12):
+	// 종전에는 유예가 httpapi 에 있어 pid 없는 합성 Tool 앞에서 건너뛰어졌고,
+	// 데몬의 Delete 는 50ms 만 기다렸다.
 	Terminate(id string, grace time.Duration) error
 	Write(id string, data []byte) error
 	// SendPaste 는 텍스트를 넣고 submit 이면 제출까지 한다. **감싸기 판단이

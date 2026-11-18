@@ -93,8 +93,6 @@ type ToolManager struct {
 	attnNotify     func(id, reason string)
 	attnClear      func(id string)
 	activityNotify func(id, state, tool, detail string)
-	outputObserver func(id string, data []byte, end int64)
-	exitObserver   func(id string, info ExitInfo)
 
 	// background는 탭에서 떼어내 백그라운드로 보낸 도구의 전환 시각(unix
 	// nanos)을 담는다. 런타임 전용 — tools.json 에 기재하지 않으므로 데몬

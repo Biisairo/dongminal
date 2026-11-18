@@ -58,8 +58,8 @@ func fetchHealth(url string, timeout time.Duration) (healthState, bool) {
 // waitDaemonConnected 는 데몬이 붙을 때까지의 **유한 덤 대기**다 (FR-VHL-20).
 //
 // 참을 주면 붙었다는 뜻이고, 그때의 판도 함께 온다. 거짓은 **실패가 아니라
-// "기다릴 것이 없었다"** 이다 (FR-VHL-20a) — 데몬을 쓰지 않는 구성에서는
-// `connected` 가 영원히 거짓이고, 그것을 실패로 읽으면 그 구성이 못 뜬다.
+// "기다릴 것이 없었다"** 이다 (FR-VHL-20a) — 다시 붙는 중인 서버의 `connected` 는
+// 한동안 거짓이고, 그것을 실패로 읽으면 HTTP 는 준비된 서버의 기동을 막는다.
 //
 // 그래서 호출자는 이 거짓으로 기동을 막지 않는다. HTTP 준비는 `waitReady` 가
 // 이미 **단단한 관문**으로 판정했고, 이것은 그 위의 덤이다.

@@ -8,7 +8,7 @@ import (
 	"dongminal/internal/shared/toolhub"
 )
 
-// ATTENTION_FIRING_SRS 묶음 F 의 데몬 모드 검증. 직접 모드와 **같은 항목**을
+// ATTENTION_FIRING_SRS 묶음 F 의 서버 추적기 검증. 데몬 `Tool` 과 **같은 항목**을
 // 같은 순서로 잰다 (FR-ATF-12·NFR-4) — 한쪽에만 있는 판정을 만들지 않기 위해서다.
 
 // firingTracker 는 무장까지 세운 상태의 추적기를 만든다. 출력 한 조각이 곧
@@ -21,7 +21,7 @@ func firingTracker(idleMS int) (*AttnTracker, *fakeBroker) {
 }
 
 // startStaleWork 는 L2 가 발화할 수 있는 최소 전제를 세운다 — 턴이 **진행 중**
-// 이고 (FR-ATN-10), 그 `working` 보고는 이미 **굳었다** (FR-ATF-10). 직접 모드의
+// 이고 (FR-ATN-10), 그 `working` 보고는 이미 **굳었다** (FR-ATF-10). `toolhub` 의
 // 동명 헬퍼와 같은 뜻이다 (NFR-4).
 //
 // 개정 전 이 전제는 `SetActivity(id, "done", "", "")` 한 줄이었다. 묶음 N 이 그
