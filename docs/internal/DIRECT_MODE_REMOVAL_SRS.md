@@ -1,7 +1,7 @@
 # SRS: 직접 모드 제거 — 서버는 늘 데몬에 붙는다 — IEEE 29148
 
-> **문서 상태**: 승인·구현완료
-> **남은 것**: 없음. 범위 밖으로 남긴 정리 하나는 §7 이다 (데몬 쪽 `toolhub.Tool` 의 프로세스 안 클라이언트 팬아웃)
+> **문서 상태**: 승인·구현중
+> **남은 것**: §8 — 데몬 쪽 `toolhub.Tool` 의 프로세스 안 클라이언트 팬아웃 제거
 > **입력**: 2026-11-18 사용자 지시와 결정. `CLEANUP_AFTER_EDGE_MESH_HANDOFF.md` 3단계.
 
 ## 1. 개요
@@ -104,10 +104,74 @@
     붙여 시험 전용임을 드러낸다(사용자 결정 2026-11-18).
   - 지운 경로만 재던 시험은 지웠다: `directReplay` 여섯, 직접 모드 텔레그램 콜백, 헬스의 "데몬 없음", 상태의 직접·데몬
     동치, 직접 모드 Run 펜싱, 백그라운드 죽음 훅.
+- 2026-11-18 시험 이전의 독립 리뷰(앞 판단에 묶이지 않은 리뷰어에게 diff 와 코드만 주었다). 지운 시험 26개 가운데 21개는
+  코드와 함께 지워졌거나 다른 시험이 지킨다. 보호가 빠진 8건을 메웠다. 메운 시험마다 지키는 코드를 지워 보아 실패를 확인했다.
+  - 도구 종료 push → 주의 버림·`tools_background_changed` 방송: `cmd/dongminal` `TestDaemonPushes_ExitForgetsAndBroadcastsBackground`
+    (`wireDaemonPushes` 를 실제 데몬·클라이언트 위에서 부른다).
+  - 텔레그램 알람 관찰자 배선: `TestTelegramWire_AttentionObserver` 를 추적기 위로 되살렸다.
+  - `/api/health` 의 `daemon.connected`·`mismatch`: `TestHealthShape` 단언 + `TestHealthMismatch` 표 시험.
+  - 서버가 멈추면 노드 포트가 닫힌다: `TestEdgeDaemonModeOpensPortAndReports` 끝 단언. 프로덕션 `boot.startEdge`(신원·노드
+    소켓·닫기): `internal/daemon/boot` `TestStartEdge_IdentityAndNodeSocket`. 서버 시험의 데몬 노드 픽스처는 그 배선을 따로
+    짜므로 프로덕션 배선은 이 시험이 잰다. `SetEdge`·`Mesh` 배선은 e2e `edges-settings` 가 실제 바이너리로 덮는다.
+  - `edgenode.New` 의 peers.json 이전: `TestNewMigratesLegacyFile`.
+  - 활동·주의 해제 방송의 내용(개수만 재던 단언을 `args` 로): `TestApiToolActivitySet`·`TestApiToolAttentionClear`.
+  - 실제 데몬에 없는 도구의 `SendPaste`·`SnapshotTool` 오류: `toolclient` `TestToolClientUnknownToolErrors`.
+  - 상태 시험의 `outputClock.Store` 가 유휴 무장도 세운다는 부작용을 주석에 적었다.
+- 바꾼 로그 문구: 조립 실패의 기본 갈래 `buildDeps: …` → `buildApp: …` (`buildDeps` 는 지워졌다).
 - 바꾼 사용자 문구: `dongminal health` 의 소켓 부재 안내 `(direct mode 이거나 미기동)` → `(미기동)` (CLI_CONSOLIDATION_SRS FR-ACT-10 개정).
 
 ## 7. 범위 밖으로 남긴 것
 
 | 항목 | 상태 | 까닭 |
 |---|---|---|
-| `toolhub.Tool` 의 프로세스 안 클라이언트 팬아웃(`AddClientAt`·`RemoveClient`·`broadcast`·`cls`, `SafeConn` 송신 큐·`StartSender`) | 프로덕션 호출처가 없어졌다(유일한 호출처가 `handleWSDirect` 였다). 데몬 안에서는 구독자가 없어 빈 갈래로 돈다 | 데몬 쪽 PTY 출력의 뜨거운 경로(`feedAndDeliver`·`kill`·크기 통보)와 성능 시험(`readpty_hotpath_test` 등)에 얽혀 있다. 서버의 직접 모드 제거와 따로 검증해야 하는 데몬 내부 정리라 별도 작업으로 둔다. `toolhub` 의 남은 "직접 모드" 주석도 그때 함께 고친다 |
+| `toolhub.Tool` 의 프로세스 안 클라이언트 팬아웃(`AddClientAt`·`RemoveClient`·`broadcast`·`cls`, `SafeConn` 송신 큐·`StartSender`) | §8 에서 지운다 | 데몬 쪽 PTY 출력의 뜨거운 경로(`feedAndDeliver`·`kill`·크기 통보)와 성능 시험(`readpty_hotpath_test` 등)에 얽혀 있다. 서버의 직접 모드 제거와 따로 검증해야 하는 데몬 내부 정리라 별도 작업으로 두었다 |
+
+## 8. 후속 — `toolhub.Tool` 의 프로세스 안 팬아웃 제거
+
+> 2026-11-18 사용자 지시(`CLEANUP_FOLLOWUP_HANDOFF.md` 할 일 3).
+
+### 8.1 범위
+
+`internal/shared/toolhub` 의 `Tool`·`SafeConn`, 그리고 그 둘을 서술하는 주석(`internal/daemon/ipc` 포함).
+데몬의 IPC 출력 경로(`WireRelayOnce`·`panedConn.enqueue`)의 동작은 바꾸지 않는다.
+
+### 8.2 요구 (FR-DMR-40~45·47)
+
+- **FR-DMR-40** `Tool` 은 클라이언트 목록을 갖지 않는다. `AddClient`·`AddClientAt`·`RemoveClient`·`broadcast`·
+  `enqueueAll`·`removeClients`·`cls` 가 없다.
+- **FR-DMR-41** `readPTY` 의 청크 처리는 스트림 적재와 릴레이(`OnOutput`)만 한다. 릴레이가 없으면 청크 사본을 만들지
+  않는다(할당 0). 릴레이가 있으면 청크당 사본은 하나다(종전 `TestHandleChunk_Allocs` 의 수치 유지).
+- **FR-DMR-42** `kill` 은 클라이언트에 `OpExit` 을 보내지 않는다. 종료 통보는 릴레이의 `onExit`(데몬 push) 하나다.
+- **FR-DMR-43** 크기 변화 통보(`notifySize`)는 `onSize` 훅만 부른다.
+- **FR-DMR-44** `SafeConn` 은 동기 송신(`Send`·`WriteMsg`·`WritePing`)만 갖는다. 송신 큐(`Enqueue`·`StartSender`·
+  `sendQueueCap`)는 없다. 서버의 터미널 WS 는 이미 `Send` 만 쓴다.
+- **FR-DMR-45** `toolhub`·`internal/daemon` 의 주석에 직접 모드를 현재 배선으로 서술하는 문장이 없다. 판정을 두 곳이
+  나눠 쓰는 서술은 "데몬의 `Tool`" 과 "서버의 `hub.AttnTracker`" 로 적는다.
+- **FR-DMR-47** 프로덕션 호출처가 없는 `ToolManager.AttentionIDs` 는 없다(서버의 주의 목록은 `hub.AttnTracker` 가 답한다).
+
+### 8.3 불변식의 이전 (FR-DMR-46)
+
+- **FR-DMR-46** 팬아웃과 함께 지우는 시험이 지키던 불변식 가운데 데몬 경로에도 걸린 것은 데몬 쪽 시험으로 옮긴다.
+  - "느린 소비자가 PTY 읽기 루프를 세우지 못한다"(`TestDeliver_SlowClientDoesNotBlockReadLoop`) → 데몬에서는
+    `panedConn.enqueue(…, droppable=true)` 가 그 보장이다. 송신 큐가 찬 연결에 `pushOutputData` 가 막히지 않고 버린 수를
+    센다는 시험을 `internal/daemon/ipc` 에 둔다(현재 그 시험이 없다).
+  - 읽기 패닉이 도구를 죽이고 종료를 알린다(`TestTool_ReadPTYPanic_KillsAndSignalsExit`) → 클라이언트 단언을 빼고 릴레이의
+    `onExit` 단언으로 남긴다.
+  - 릴레이 쪽 시험(`TestHandleChunk_RelayDataNotOverwritten`·할당 시험의 relay 갈래·탐지기 참조 시험)은 남긴다.
+  - 클라이언트 프레임 순서만 재던 시험(`TestKill_ExitFollowsQueuedOutput`·`TestHandleChunk_ConcurrentKillKeepsExitLast`·
+    `TestTool_AddClientRejectedAfterExit`·`TestTool_BroadcastAddRemoveRace`·`SafeConn` 큐 시험 넷·`BenchmarkSafeConnSend` 의
+    큐 갈래)은 지킬 동작이 없어지므로 지운다.
+
+### 8.4 동작 변경
+
+없다. 지우는 갈래는 데몬 안에서 구독자가 없어 늘 비어 있었다.
+
+### 8.5 검증
+
+| ID | 요구 | 방법 |
+|---|---|---|
+| TC-DMR-40 | FR-DMR-40·44 | 컴파일. `grep` 으로 지운 심볼의 참조 0 |
+| TC-DMR-41 | FR-DMR-41 | `TestHandleChunk_Allocs`(plain·tui × relay 유무)·`TestFeedAndDeliver_NoClientsNoFrame` 통과 |
+| TC-DMR-42 | FR-DMR-46 | 새 `internal/daemon/ipc` 시험: 큐가 찬 `panedConn` 에 `pushOutputData` 가 시한 안에 돌아오고 `dropped` 가 는다. 구현 전 시험 코드가 컴파일·통과하는지(동작은 이미 있음)와, `droppable` 을 false 로 바꾸면 실패하는지 확인한다 |
+| TC-DMR-43 | FR-DMR-42 | `TestTool_ReadPTYPanic_KillsAndSignalsExit` 가 릴레이 `onExit` 로 통과 |
+| TC-DMR-44 | 전체 | `go test ./...`, e2e `term-resume`·`term-held-input`·`reply-seat` 뒤 전량 |

@@ -176,3 +176,22 @@ func TestHandlerUnknownPath(t *testing.T) {
 		t.Fatalf("본문 %+v", body)
 	}
 }
+
+// FR-PDM-71 (TC-PDM-26): 노드가 설 때 peers.json 을 edges.json 으로 옮긴다.
+func TestNewMigratesLegacyFile(t *testing.T) {
+	home := t.TempDir()
+	if err := os.WriteFile(filepath.Join(home, dmenv.LegacyPeersFile), []byte(`{"name":"moved"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	n, err := New(Options{Home: home, Hostname: "h"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(n.Close)
+	if _, err := os.Stat(filepath.Join(home, dmenv.LegacyPeersFile)); !os.IsNotExist(err) {
+		t.Fatalf("peers.json 이 남았다: %v", err)
+	}
+	if got := n.Config().Name; got != "moved" {
+		t.Fatalf("옮긴 설정을 읽지 않았다: %q", got)
+	}
+}

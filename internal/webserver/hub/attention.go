@@ -48,7 +48,7 @@ func attnBroadcastsOf(hub CommandBroker) attnBroadcasts {
 }
 
 // SetAttentionObserver 는 알람 방송을 함께 받을 함수를 단다. nil 이면 걷는다
-// (TELEGRAM_BRIDGE_SRS FR-TGB-50). 직접·데몬 모드가 같은 콜백 묶음을 지나므로 한 자리로 둘 다 받는다.
+// (TELEGRAM_BRIDGE_SRS FR-TGB-50). 추적기의 알람 방송이 모두 이 콜백 묶음을 지나므로 한 자리에서 받는다.
 func (h *CommandHub) SetAttentionObserver(f func(id, reason string)) {
 	if f == nil {
 		h.attnObs.Store(nil)

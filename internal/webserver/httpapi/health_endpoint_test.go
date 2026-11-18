@@ -55,6 +55,12 @@ func TestHealthShape(t *testing.T) {
 			t.Errorf("daemon 에 %q 가 없다", k)
 		}
 	}
+	if d["connected"] != true {
+		t.Errorf("connected=%v — 데몬에 붙은 서버다", d["connected"])
+	}
+	if d["mismatch"] != false {
+		t.Errorf("mismatch=%v — 데몬이 빌드를 말하지 않았다 (FR-VHL-11)", d["mismatch"])
+	}
 	ws, _ := body["workspace"].(map[string]any)
 	if ws == nil {
 		t.Fatal("workspace 객체가 없다")
@@ -66,6 +72,38 @@ func TestHealthShape(t *testing.T) {
 	// 이며 M3 의 뒤 묶음이다 — 자리가 먼저 있어야 그때 한 줄로 끝난다.
 	if _, ok := ws["lastPersistErr"]; !ok {
 		t.Error("workspace.lastPersistErr 자리가 없다")
+	}
+}
+
+// infoHub 는 데몬이 hello 에서 말한 판을 정해 둔 가짜 허브다.
+type infoHub struct {
+	*fakePaneHub
+	info toolhub.DaemonInfo
+}
+
+func (h infoHub) DaemonInfo() toolhub.DaemonInfo { return h.info }
+
+// V-VHL-6: 어긋남은 **양쪽 빌드를 알고 다를 때만**이다 (FR-VHL-11 · FR-CBG-5).
+func TestHealthMismatch(t *testing.T) {
+	cases := []struct {
+		name, ours, theirs string
+		want               bool
+	}{
+		{"같다", "v1", "v1", false},
+		{"다르다", "v1", "v2", true},
+		{"데몬이 판을 말하지 않는다", "v1", "", false},
+		{"우리 판을 모른다", "", "v2", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := infoHub{fakePaneHub: newFakePaneHub(), info: toolhub.DaemonInfo{Build: tc.theirs}}
+			s := &Server{cfg: Config{Version: tc.ours}, Deps: Deps{Tools: h}}
+			_, body := getHealth(t, s)
+			d := body["daemon"].(map[string]any)
+			if d["mismatch"] != tc.want {
+				t.Fatalf("mismatch=%v want %v", d["mismatch"], tc.want)
+			}
+		})
 	}
 }
 

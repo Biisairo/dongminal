@@ -35,7 +35,8 @@ type outputClock struct {
 	tr *hub.AttnTracker
 }
 
-// Store 는 ns 시각에 출력이 있었던 것으로 적는다.
+// Store 는 ns 시각에 출력이 있었던 것으로 적는다. 추적기의 FeedOutput 을 지나므로 시각과 함께
+// 유휴 알람 무장(attnArmed)도 선다 — 상태 시험은 무장을 읽지 않는다. L2 스위퍼 시험에는 쓰지 않는다.
 func (c outputClock) Store(ns int64) {
 	c.tr.SetClockForTesting(func() int64 { return ns })
 	c.tr.FeedOutput(c.id, nil)

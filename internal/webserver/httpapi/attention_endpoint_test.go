@@ -67,8 +67,12 @@ func TestApiToolAttentionClear(t *testing.T) {
 	if tr.Attention("4") {
 		t.Fatalf("tool 4 attention should be cleared")
 	}
-	if got := len(publishedActions(cmds, "tool_attention_clear")); got != 1 {
-		t.Fatalf("clear notifier should fire once, got %d", got)
+	ev := publishedActions(cmds, "tool_attention_clear")
+	if len(ev) != 1 {
+		t.Fatalf("clear notifier should fire once, got %d", len(ev))
+	}
+	if a, _ := ev[0]["args"].(map[string]any); a["toolId"] != "4" {
+		t.Fatalf("tool_attention_clear args=%v", ev[0]["args"])
 	}
 
 	// missing toolId → 400.

@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// DIRECT_MODE_REMOVAL_SRS FR-DMR-2 (TC-DMR-1): 데몬을 띄우지 못하면 서버는 직접 모드로
-// 내려가지 않고 오류를 낸다. serve 는 그 오류로 리스너를 열지 않고 1 로 끝난다.
+// DIRECT_MODE_REMOVAL_SRS FR-DMR-2 (TC-DMR-1): 데몬을 띄우지 못하면 연결 함수는 errDaemonUnavailable 을
+// 낸다. 이 시험은 그 반환만 본다 — serve 는 buildApp 의 어떤 오류에서든 리스너를 열기 전에 1 을 돌려준다.
 func TestDialOrStartDaemon_SpawnFailureIsError(t *testing.T) {
 	home, err := os.MkdirTemp("", "dmr")
 	if err != nil {

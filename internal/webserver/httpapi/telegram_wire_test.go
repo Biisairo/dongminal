@@ -132,6 +132,27 @@ func TestTelegramHost(t *testing.T) {
 	}
 }
 
+// FR-TGB-50·58b: PC 알람과 그 해제는 브리지에도 간다 — 추적기의 방송 콜백 → CommandHub 관찰자 → 싱크.
+func TestTelegramWire_AttentionObserver(t *testing.T) {
+	m, mHub := daemonPairAt(t, "")
+	m.AdoptDetached("p1")
+	cmd := hub.NewCommandHub()
+	tr := hub.NewAttnTracker(cmd, 0)
+	st := telegram.OpenStore(filepath.Join(t.TempDir(), "telegram.json"))
+	_ = st.SetEnabled(true)
+	rec := &tgRec{}
+	s := &Server{Deps: Deps{Tools: mHub, Commands: cmd, AttnTracker: tr}, limits: defaultLimits()}
+	s.tg = newTelegramWire(st, rec)
+	s.wireTelegramAttention()
+	s.attention().SignalAttention("p1", "bell")
+	s.attention().Attend("p1", false)
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.attn) != 2 || rec.attn[0] != "p1:bell" || rec.attn[1] != "p1:clear" {
+		t.Fatalf("attn=%v", rec.attn)
+	}
+}
+
 // NFR-TGB-1 · TC-TGB-80: 꺼져 있으면(기본값) 서버를 띄우고 보고·알람이 와도 Telegram
 // 요청이 0건이다.
 func TestTelegramWire_OffSendsNoRequests(t *testing.T) {

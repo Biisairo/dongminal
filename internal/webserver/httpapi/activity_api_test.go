@@ -27,8 +27,12 @@ func TestApiToolActivitySet(t *testing.T) {
 	if got == nil || got.State != "working" || got.Tool != "Bash" || got.Detail != "npm test" {
 		t.Fatalf("activity not set: %+v", got)
 	}
-	if got := len(publishedActions(cmds, "tool_activity")); got != 1 {
-		t.Fatalf("notifier should fire once, got %d", got)
+	ev := publishedActions(cmds, "tool_activity")
+	if len(ev) != 1 {
+		t.Fatalf("notifier should fire once, got %d", len(ev))
+	}
+	if a, _ := ev[0]["args"].(map[string]any); a["toolId"] != "9" || a["state"] != "working" || a["tool"] != "Bash" || a["detail"] != "npm test" {
+		t.Fatalf("tool_activity args=%v", ev[0]["args"])
 	}
 
 	// unknown tool → 200 no-op.

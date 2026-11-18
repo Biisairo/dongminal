@@ -840,3 +840,29 @@ func TestToolClientListStaleGen(t *testing.T) {
 		t.Fatalf("현재 세대의 응답은 저장돼야 한다: %v %v", tools, ok)
 	}
 }
+
+// 실제 데몬에 없는 도구를 물으면 오류다 — 어댑터(seam/adapters.Tool)는 이 오류를 그대로 옮긴다.
+func TestToolClientUnknownToolErrors(t *testing.T) {
+	d := t.TempDir()
+	sockPath := d + "/s"
+	pm := toolhub.NewToolManager("", nil)
+	t.Cleanup(pm.StopSaving)
+	ps := ipc.NewPanedServer(pm, sockPath, "")
+	if err := ps.Listen(); err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	t.Cleanup(func() { _ = ps.Close() })
+	go func() { _ = ps.Accept() }()
+	pc, err := DialToolClient(sockPath)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	t.Cleanup(pc.Close)
+
+	if err := pc.SendPaste("nope", []byte("x"), false); err == nil {
+		t.Error("SendPaste(nope) err=nil")
+	}
+	if _, err := pc.SnapshotTool("nope"); err == nil {
+		t.Error("SnapshotTool(nope) err=nil")
+	}
+}

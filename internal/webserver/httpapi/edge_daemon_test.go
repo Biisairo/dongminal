@@ -174,14 +174,30 @@ func TestEdgeDaemonModeOpensPortAndReports(t *testing.T) {
 	n, _, ps := daemonEdgeFixture(t, home, edge.Config{Enabled: true, Name: "dnode", Port: port, Bind: "127.0.0.1"})
 	stop := make(chan struct{})
 	done := n.srv.StartEdge(stop)
-	t.Cleanup(func() { close(stop); <-done })
+	stopped := false
+	t.Cleanup(func() {
+		if !stopped {
+			close(stop)
+			<-done
+		}
+	})
 	edgeWait(t, "edgeport listening", func() bool { return ps.EdgePort().Listening })
-	c, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", jsonNum(port)), time.Second)
+	addr := net.JoinHostPort("127.0.0.1", jsonNum(port))
+	c, err := net.DialTimeout("tcp", addr, time.Second)
 	if err != nil {
 		t.Fatalf("노드 포트에 닿지 않는다: %v", err)
 	}
 	_ = c.Close()
 	if _, err := os.Stat(filepath.Join(home, dmenv.EdgeKeyFile)); err != nil {
 		t.Fatalf("데몬의 신원이 없다: %v", err)
+	}
+
+	// 서버가 멈추면 노드 포트도 닫힌다.
+	close(stop)
+	<-done
+	stopped = true
+	if c, err := net.DialTimeout("tcp", addr, time.Second); err == nil {
+		_ = c.Close()
+		t.Fatal("서버가 멈췄는데 노드 포트가 열려 있다")
 	}
 }

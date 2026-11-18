@@ -16,6 +16,7 @@ import (
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
+	"dongminal/internal/webserver/httpapi"
 	"dongminal/internal/webserver/hub"
 	"dongminal/internal/webserver/toolclient"
 )
@@ -69,6 +70,7 @@ func (b *sseLog) await(t *testing.T, subs ...string) {
 
 type attnRig struct {
 	pm   *toolhub.ToolManager
+	c    *toolclient.ToolClient
 	tr   *hub.AttnTracker
 	sse  *sseLog
 	d    daemonAttention
@@ -110,7 +112,7 @@ func newAttnRig(t *testing.T) *attnRig {
 	tr := hub.NewAttnTracker(sse, hub.DefaultIdleMS())
 	d := wireDaemonAttention(c, tr)
 	c.SetOnReport(func(toolipc.ReportEvent) {})
-	return &attnRig{pm: pm, tr: tr, sse: sse, d: d, sock: sock}
+	return &attnRig{pm: pm, c: c, tr: tr, sse: sse, d: d, sock: sock}
 }
 
 func (r *attnRig) report(t *testing.T, method, body string) {
@@ -189,5 +191,32 @@ func TestAttentionWire_ServerDoesNotJudge(t *testing.T) {
 	r.tr.FeedOutput("t1", []byte("\x1b]9;hi\x07"))
 	if r.tr.Attention("t1") {
 		t.Fatal("거울이 출력으로 판정했다")
+	}
+}
+
+// UX_BATCH6_SRS FR-BGP-2 · FR-ATL-3: 데몬이 도구의 죽음을 알리면 서버는 그 도구의 주의를 버리고
+// 백그라운드 목록을 다시 묻게 방송한다. 그 자리는 wireDaemonPushes 하나다.
+func TestDaemonPushes_ExitForgetsAndBroadcastsBackground(t *testing.T) {
+	r := newAttnRig(t)
+	a := &app{panedClient: r.c, bd: builtDeps{attnTracker: r.tr, deps: httpapi.Deps{Commands: r.sse}}}
+	a.wireDaemonPushes()
+
+	tool, err := r.c.Create(t.TempDir(), 80, 24, toolhub.Placement{})
+	if err != nil {
+		t.Skipf("PTY 생성 불가(환경): %v", err)
+	}
+	id := tool.ID
+	r.pm.Get(id).ObserveOutput([]byte("\x1b]9;hi\x07"))
+	r.sse.await(t, `"action":"tool_attention"`)
+	if !r.tr.Attention(id) {
+		t.Fatal("거울에 알람이 없다")
+	}
+
+	if err := r.c.Delete(id); err != nil {
+		t.Fatal(err)
+	}
+	r.sse.await(t, `"tools_background_changed"`)
+	if r.tr.Attention(id) {
+		t.Fatal("죽은 도구의 알람이 거울에 남았다")
 	}
 }

@@ -394,7 +394,7 @@ func serve(home, host, port string) int {
 			dmlog.Errorf(nil, "%v", err)
 			dmlog.Errorf(nil, "  데몬 로그: %s", filepath.Join(home, dmenv.DaemonLogFile))
 		default:
-			dmlog.Infof(nil, "buildDeps: %v", err)
+			dmlog.Infof(nil, "buildApp: %v", err)
 		}
 		return 1
 	}
