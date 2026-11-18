@@ -198,9 +198,9 @@ Telegram 은 **보기 전용**입니다. 답은 PC 로 돌아와서 하고, 알�
 PC 한 대에서만 씁니다. 자세히는
 [Telegram 알림](docs/external/features.md#telegram-알림-실험-기능).
 
-**다른 PC 의 dongminal 과 짝을 맺을 수 있습니다.** 짝맞춘 PC 의 에이전트에게 메시지를
-보내거나 그 PC 에 에이전트를 띄웁니다. 노드 포트는 기본으로 꺼져 있습니다. 설정 →
-Peers 탭이나 `dmctl peer` 로 다룹니다 — 자세히는 [노드 간 통신](docs/external/peers.md).
+**다른 PC 의 dongminal 과 간선을 맺을 수 있습니다.** 간선은 서로의 인증서 지문을 믿고
+TLS 로 잇는 관계입니다. 노드 포트는 기본으로 꺼져 있습니다. 설정 → Edges 탭이나
+`dmctl edge` 로 다룹니다 — 자세히는 [노드 간 통신](docs/external/edges.md).
 
 ### Claude 계정 여러 개
 
@@ -336,7 +336,7 @@ UI 는 **한국어(`ko`)와 영어(`en`)** 로 나오고 기본은 한국어입�
 - [터미널 안 명령](docs/external/commands.md) — `dmctl` · `edit` · `download` · `detach`
 - [단축키](docs/external/shortcuts.md)
 - [에이전트 오케스트레이션](docs/external/agent-orchestration.md)
-- [노드 간 통신](docs/external/peers.md) — 다른 PC 의 dongminal 과 짝맞춤
+- [노드 간 통신](docs/external/edges.md) — 다른 PC 의 dongminal 과 간선 맺기
 - [HTTP·WebSocket API](docs/external/api.md)
 - [변경 이력](CHANGELOG.md)
 

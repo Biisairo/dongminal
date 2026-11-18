@@ -10,6 +10,49 @@
 - **dongminal 탭의 claude 가 `dmctl` 활용 지침을 받습니다.** claude shim 이 지침을 시스템 프롬프트 끝에 붙입니다
   (`--append-system-prompt`). 기본 시스템 프롬프트와 사용자의 CLAUDE.md 는 그대로 읽힙니다. 폴더를 추가로 열지 않으므로
   신뢰 확인창("Adding a new directory")이 뜨지 않습니다.
+- **노드 망 채팅의 MCP 도구가 생겼습니다(데몬 모드).** dongminal 탭에서 `claude` 를 띄우면 shim 이 MCP 서버
+  `dongminal`(`dmctl chat-mcp`)을 주입합니다. 도구는 `chat_online`·`chat_rooms`·`chat_create`·`chat_direct`·`chat_join`·
+  `chat_leave`·`chat_send`·`chat_read` 여덟 개이며 허락을 묻지 않습니다. 참가자는 claude 세션 하나이고, MCP 연결이
+  끊기면 모든 방에서 나갑니다. 쉬는 중에 첫 글이 오면 개수만 터미널에 붙여 넣고, 일하는 중에는 맥락 훅이 읽지 않은
+  글 수를 알립니다. 글과 개수는 디스크에 쓰지 않습니다. **데몬을 다시 띄우고 새로 띄운 claude 부터 적용됩니다.**
+- **채팅의 사람 명령(강제 삭제·강퇴)이 생겼습니다(macOS, 데몬 모드).** OS 기본 터미널에서 `sudo dongminal helper install`
+  로 관리자 권한 도우미를 설치하고, 보이는 TOTP 비밀을 휴대폰 OTP 앱(Ente Auth 권장)에 넣습니다. Chats 의 방 줄이나
+  채팅 탭의 참가자 줄을 우클릭해 명령을 고르고, 명령마다 OTP 코드를 넣습니다. Cmd·Shift 클릭으로 여러 개를 한 번에
+  고릅니다. 5번 틀리면 5분 잠깁니다. 간선 상대의 도우미 공개키는 `edges.json` 의 간선 항목(`helperKey`)에 처음 받은 값으로
+  고정합니다. 로컬 API 는 `POST /api/chat/kill`·`/api/chat/kick`, 오류 코드는 `chat_bad_code`·`chat_locked`·`chat_no_helper`
+  입니다. 도우미가 없는 노드는 메뉴가 보이지 않습니다. **데몬·서버를 다시 띄워야 적용됩니다.**
+
+### 바뀜
+
+- **간선 맺기가 한 걸음으로 줄고, 끊으면 양쪽에서 지워집니다.** 초대 코드를 붙여 넣으면 바로 양쪽이 간선입니다.
+  승인 단계(`dmctl edge approve`·`reject`, `GET /api/edges/pending`, `POST /api/edges/approve`·`reject`, 노드 포트
+  `/edge/v1/pair/confirm`)와 간선 이름 입력(`--name`, 409 `edge_name_taken`)을 지웠습니다. 간선은 지문으로 찾습니다:
+  `dmctl edge remove <지문 앞자리>`, `POST /api/edges/remove {fp}`, `PUT /api/edges/address {fp, addr, port}`. 이름은 상대가
+  알린 표시 이름이라 겹칠 수 있습니다. 끊으면 상대에게 `/edge/v1/unpair` 로 알리고, 알리지 못했으면 상대가 다시 연결할 때
+  403 `edge_not_edge` 를 받고 지웁니다. 새 오류 코드는 `edge_not_edge`·`edge_ambiguous` 입니다. `edges_changed` 의
+  `paired`·`removed` 는 `{fp, name}` 입니다. 맺는 노드의 노드 포트는 닫혀 있어도 됩니다. 옛 `edges.json` 의 승인 대기
+  항목(`pending-out`)은 읽을 때 버립니다. **데몬·서버를 다시 띄워야 적용되고, 양쪽 노드를 함께 올려야 맺을 수 있습니다.**
+
+- **노드 사이 연결은 짝맺기만 남습니다.** 짝은 이제 망의 간선입니다. 서로를 믿고 TLS 로 이어진다는 사실만 갖습니다.
+  짝에게 보내던 프로토콜 명령(`node.info`·`agents.list`·`message.send`·`agent.spawn`·`agent.status`·`agent.close`),
+  `POST /api/peers/call`, `dmctl peer info·tools·spawn·status·close`, `dmctl msg --to <노드>/<uuid>`, 원격 엔벨로프
+  `[DONGMINAL-PEER-MSG …]` 를 지웠습니다. 노드 설정의 허용 폴더(`allowedDirs`)와 짝의 마지막 응답 시각(`lastSeen`)도
+  지웠습니다. 홈에 남은 `peer-spawns.json` 은 서버가 시작할 때 지웁니다.
+- 승인 알림을 받지 못한 쪽은 이제 명령으로 짝이 확정되지 않습니다. 10분 뒤 대기가 만료되면 다시 짝을 맺으세요.
+- 데몬 `paste` 의 전경 조건(`fgguard`)을 지웠습니다. 새 서버는 옛 데몬과도 동작합니다. 데몬 쪽 정리는 데몬을 다시
+  띄우면 적용됩니다(`dongminal start --restart-daemon`).
+- **이름 `peer` 를 `edge`(간선)로 바꿨습니다.** 로컬 API 는 `/api/edges/*`, 명령은 `dmctl edges`·`dmctl edge <sub>`,
+  설정 탭은 **Edges**, 이벤트는 `edges_changed`, 오류 코드는 `edge_*` 입니다. 노드 포트 경로(`/edge/v1/*`)와 초대 코드
+  머리(`dmedge1:`)도 바뀌어 **옛 판과는 간선을 맺을 수 없습니다.** 양쪽을 새 판으로 올리세요.
+  홈의 `peers.json` 은 서버가 시작할 때 `edges.json` 으로 옮깁니다. 감사 로그 줄은 `edge audit` 입니다.
+- **신원 파일이 `edge-cert.pem`·`edge-key.pem` 으로 바뀝니다.** 옛 `node-cert.pem`·`node-key.pem` 은 지우고 신원을 새로
+  만듭니다. 지문이 바뀌므로 옛 판에서 맺은 간선은 다시 맺어야 합니다.
+- **Run 동료 명부는 `team` 입니다.** `GET /api/runs/team`, `dmctl run team`, 응답 키 `team`. 에이전트 프리앰블도
+  `dmctl run team` 을 안내합니다. 옛 `dmctl run peers` 로 시작한 에이전트는 새 Run 부터 새 이름을 받습니다.
+- **노드는 이제 데몬입니다.** 신원·`edges.json`·간선 맺기 판정을 데몬(`dongminald`)이 맡고, 서버는 노드 포트의
+  바이트를 데몬에 잇고 로컬 API 를 넘기기만 합니다. 서버만 다시 떠도 간선 맺기 대기가 남습니다. 감사 로그 줄(`edge audit`)은
+  `daemon.log` 에 남습니다. **데몬을 다시 띄워야 적용됩니다**(`dongminal start --restart-daemon`). 그 전까지 새 서버는
+  노드 기능을 끄고 로컬 API 가 409 `edge_daemon_restart` 로 답합니다.
 
 ## [1.3.4] — 2026-11-16
 

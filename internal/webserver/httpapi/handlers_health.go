@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"dongminal/internal/webserver/httpresp"
+	"dongminal/internal/shared/httpresp"
 )
 
 // VERSION_HEALTH_SRS 묶음 H — `GET /api/health`.

@@ -72,6 +72,16 @@ type panedConn struct {
 	// 도구의 알림(readPTY·스위퍼·보고)이 읽으므로 원자값이다.
 	attention atomic.Bool
 
+	// edge 는 이 연결의 서버가 edges push 를 아는가다 (PEER_DAEMON_SRS §3.5a). 노드의 알림이
+	// 읽기 루프 밖에서 읽으므로 원자값이다.
+	edge atomic.Bool
+
+	// chat 은 이 연결의 서버가 chat push 를 아는가다 (PEER_CHAT_SRS §3.11).
+	chat atomic.Bool
+
+	// edgeSlow 는 edge 의 연결당 세마포어다 (panedEdgeSlowMax).
+	edgeSlow chan struct{}
+
 	// srv 는 이 연결을 받은 서버다 — report 메서드가 보고 소켓과 같은 반영을 딛는다.
 	srv *PanedServer
 }
@@ -85,6 +95,7 @@ func newPanedConn(conn net.Conn, pm *toolhub.ToolManager) *panedConn {
 		done:      make(chan struct{}),
 		writerEnd: make(chan struct{}),
 		slow:      make(chan struct{}, panedSlowMax),
+		edgeSlow:  make(chan struct{}, panedEdgeSlowMax),
 	}
 	go pc.writeLoop()
 	return pc
@@ -174,6 +185,19 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 	case toolipc.MethodRestore:
 		pc.goSlow(func() interface{} { return pc.restore(req) })
 		return
+	case toolipc.MethodEdge:
+		// 상대 노드를 기다리는 동안 이 연결의 다른 요청을 막지 않는다 (FR-PDM-31).
+		pc.goEdge(func() interface{} { return pc.edgeOp(req) })
+		return
+	case toolipc.MethodEdgePort:
+		resp = pc.edgePort(req)
+	case toolipc.MethodChat:
+		// 사람 명령은 도우미를 기다린다 — 이 연결의 다른 요청을 막지 않는다 (PEER_CHAT_SRS §3.12).
+		if chatSlow(req) {
+			pc.goEdge(func() interface{} { return pc.chatOp(req) })
+			return
+		}
+		resp = pc.chatOp(req)
 	case toolipc.MethodKill:
 		resp = pc.kill(req)
 	case toolipc.MethodTerminate:

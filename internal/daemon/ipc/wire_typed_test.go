@@ -27,7 +27,7 @@ func TestHelloWireGolden(t *testing.T) {
 	got := wireOf(t, func(pc *panedConn) {
 		pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: toolipc.MethodHello, Params: json.RawMessage(`{"server_pid":0}`)})
 	})
-	if want := `{"id":1,"result":{"build":"b","features":["fgtick","snapnotfound","notify","busymany","fgguard","records","attention"],"version":1}}` + "\n"; got != want {
+	if want := `{"id":1,"result":{"build":"b","features":["fgtick","snapnotfound","notify","busymany","records","attention","edge","chat"],"version":1}}` + "\n"; got != want {
 		t.Fatalf("hello 바이트\n got %s\nwant %s", got, want)
 	}
 }
@@ -115,45 +115,5 @@ func TestSnapshotEmptyDataIsString(t *testing.T) {
 	}
 	if bytes.Contains(b, []byte(`"data":null`)) {
 		t.Fatalf("data 가 null 로 나갔다: %s", b)
-	}
-}
-
-// C9 · PEER_NETWORK_SRS I-47: paste 의 Foreground 는 데몬이 쓰기 직전에 전경을 새로 보고
-// 다르면 거절한다. 그 거절은 CodeForegroundChanged 로 나간다.
-func TestPasteForegroundGuard(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.StopSaving)
-	if err := pm.Restore("7", "R", t.TempDir(), 80, 24); err != nil {
-		t.Skipf("PTY 생성 불가(환경): %v", err)
-	}
-	defer pm.Delete("7")
-	fg := "zsh"
-	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
-		out := map[string]string{}
-		for _, id := range ids {
-			out[id] = fg
-		}
-		return out
-	}))
-	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&bytes.Buffer{})}
-	paste := func() []byte {
-		res := pc.pasteWith(&toolipc.PanedRequest{ID: 1}, toolipc.PasteParams{ID: "7", Data: []byte("hi"), Foreground: "claude"})
-		b, err := json.Marshal(res)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return b
-	}
-	var refused struct {
-		Error struct {
-			Code int `json:"code"`
-		} `json:"error"`
-	}
-	if err := json.Unmarshal(paste(), &refused); err != nil || refused.Error.Code != toolipc.CodeForegroundChanged {
-		t.Fatalf("셸이 전경인데 거절하지 않았다: %+v err=%v", refused, err)
-	}
-	fg = "claude"
-	if b := paste(); bytes.Contains(b, []byte(`"error"`)) {
-		t.Fatalf("전경이 맞는데 거절했다: %s", b)
 	}
 }

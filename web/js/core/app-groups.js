@@ -153,7 +153,9 @@ Object.assign(App.prototype, {
 
   /**
    * 창 목록의 항목: 그룹 머리 `{kind:'group',group,windows}` 와 창 객체가 섞인 평면 목록.
-   * 접힌 그룹의 창은 빠진다. 활성 창이 든 그룹은 펼친다 (FR-WGR-22).
+   * 접힌 그룹의 창은 빠진다. 접힌 그룹 안의 창이 활성이 **되는 순간** 그 그룹을 펼친다
+   * (FR-WGR-22).
+   *   이전: 활성 창이 든 동안 그릴 때마다 펼쳐, 그 그룹은 접을 수 없었다
    */
   sidebarWindowEntries(){
     const plain=this.plainWindows();
@@ -162,11 +164,14 @@ Object.assign(App.prototype, {
     const byId=new Map(plain.map(w=>[w.id,w]));
     const gById=new Map(groups.map(g=>[g.id,g]));
     const fold=this._wgFolded();
+    const act=this.ws.activeWindow;
+    const became=act!==this._wgSeenActive;
+    this._wgSeenActive=act;
     const out=[];
     for(const it of winOrderItems(plain,groups)){
       if(it.kind==='window'){ out.push(byId.get(it.id)); continue }
       const wins=it.windows.map(id=>byId.get(id));
-      if(wins.some(w=>w.id===this.ws.activeWindow)&&fold.has(it.id)){
+      if(became&&wins.some(w=>w.id===act)&&fold.has(it.id)){
         fold.delete(it.id);
         PrefStore.local.setJson(STORE_KEYS.windowGroupFold,Array.from(fold));
       }
@@ -176,7 +181,12 @@ Object.assign(App.prototype, {
     return out;
   },
 
-  /** 사이드바 끌어 놓기를 순서 명령으로 옮긴다. 키는 창 id 또는 `grp:<그룹 id>` 다. */
+  /**
+   * 사이드바 끌어 놓기를 순서 명령으로 옮긴다. 키는 창 id 또는 `grp:<그룹 id>` 다.
+   * `dr.out` 은 포인터가 그룹 들여쓰기 왼쪽에 있었다는 뜻이다. 그룹의 첫 창 위·마지막 창
+   * 아래에서만 뜻이 있고, 그때는 그룹 밖(그룹 앞·뒤)에 놓는다 (FR-WGR-24).
+   *   이전: 그룹 창의 아래에 놓으면 늘 그룹 안으로 들어갔다
+   */
   sidebarReorder(dr){
     const gid=k=>k.startsWith(WG_KEY)?k.slice(WG_KEY.length):null;
     const srcG=gid(dr.src),tgtG=gid(dr.target);
@@ -189,11 +199,22 @@ Object.assign(App.prototype, {
       r=winOrderMoveWindow(this.ws.windows,this.windowGroups(),dr.src,
         dr.before&&!empty?{before:tgtG}:{to:tgtG,index:1});
     }else{
-      r=winOrderMoveWindow(this.ws.windows,this.windowGroups(),dr.src,{[dr.before?'before':'after']:dr.target});
+      const side=dr.before?'before':'after';
+      const edge=dr.out?this.wgEdgeGroup(dr.target,dr.before):null;
+      r=winOrderMoveWindow(this.ws.windows,this.windowGroups(),dr.src,{[side]:edge||dr.target});
     }
     if(!r.ok) return false;
     this.ws.windows=r.windows;
     return true;
+  },
+
+  /** 창 id 가 그룹의 첫 창(before)·마지막 창(after)이면 그 그룹 id 다. 아니면 null 이다. */
+  wgEdgeGroup(id,before){
+    const w=this.ws.windows.find(x=>x&&x.id===id);
+    const g=w&&w.groupId;
+    if(!g) return null;
+    const mates=this.ws.windows.filter(x=>x&&x.groupId===g);
+    return mates[before?0:mates.length-1].id===id?g:null;
   },
 
   /** `+ 그룹` 버튼: 빈 그룹을 만들고 바로 이름을 고치게 한다 (FR-WGR-23). */

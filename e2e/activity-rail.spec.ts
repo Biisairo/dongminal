@@ -40,8 +40,8 @@ test.describe('FR-ACF Activity 레일', () => {
     await expect(card.locator('.ag-loc')).toBeVisible();
     await expect(card.locator('.ag-state')).toBeHidden();
     await expect(card.locator('.ag-detail')).toBeHidden();
-    await expect(panel(page).locator('.ag-sec[data-sec="agents"] .ag-sec-icon')).toBeVisible();
-    await expect(panel(page).locator('.ag-sec[data-sec="agents"] .ag-sec-name')).toBeHidden();
+    await expect(panel(page).locator('.ag-tab[data-sec="agents"] .ag-tab-icon')).toBeVisible();
+    await expect(panel(page).locator('.ag-tab[data-sec="agents"] .ag-tab-name')).toBeHidden();
     await expect(panel(page).locator('.ag-title')).toBeHidden();
 
     await page.keyboard.press('Control+Shift+KeyA');
@@ -55,16 +55,18 @@ test.describe('FR-ACF Activity 레일', () => {
     expect(await width(page)).toBe(await railW(page));
   });
 
-  test('TC-ACF-2: 레일의 구역 머리는 레일인 채로 그 구역을 접고 펴고, 머리의 접기 단추는 레일로 접는다', async ({ page }) => {
+  // PEER_CHAT_SRS FR-PCH-82 로 개정: 레일의 탭 아이콘은 레일인 채로 탭만 바꾼다.
+  test('TC-ACF-2: 레일의 탭 아이콘은 레일인 채로 탭을 바꾸고, 머리의 접기 단추는 레일로 접는다', async ({ page }) => {
     await waitForInit(page);
-    const runs = panel(page).locator('.ag-sec[data-sec="runs"]');
-    await expect(runs).not.toHaveClass(/\bfolded\b/);
+    const runs = panel(page).locator('.ag-tab[data-sec="runs"]');
+    const agents = panel(page).locator('.ag-tab[data-sec="agents"]');
+    await expect(runs).not.toHaveClass(/\bactive\b/);
     await runs.click();
-    await expect(runs).toHaveClass(/\bfolded\b/);
+    await expect(runs).toHaveClass(/\bactive\b/);
     await expect(panel(page)).not.toHaveClass(/\bopen\b/);
     expect(await width(page)).toBe(await railW(page));
-    await runs.click();
-    await expect(runs).not.toHaveClass(/\bfolded\b/);
+    await agents.click();
+    await expect(agents).toHaveClass(/\bactive\b/);
     await expect(panel(page)).not.toHaveClass(/\bopen\b/);
 
     await page.keyboard.press('Control+Shift+KeyA');

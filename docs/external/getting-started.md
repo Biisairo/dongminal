@@ -424,15 +424,14 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `tools.json` | 도구의 이름·작업 폴더 | ✅ |
 | `server.json` | 서버 기동값 | ✅ |
 | `sandbox.json` | 샌드박스 프로파일 | ✅ |
-| `peers.json` | 노드 간 통신 설정과 짝 목록 | ✅ |
-| `node-cert.pem` · `node-key.pem` | 노드 인증서와 개인키 (노드의 신원) | ✅ 개인키가 들어가므로 백업 파일을 남에게 주지 마세요 |
+| `edges.json` | 노드 간 통신 설정과 간선 목록 | ✅ |
+| `edge-cert.pem` · `edge-key.pem` | 노드 인증서와 개인키 (노드의 신원) | ✅ 개인키가 들어가므로 백업 파일을 남에게 주지 마세요 |
 | `telegram.json` | Telegram 알림 설정 (봇 token·허용 계정·무음 시간) | ✅ 봇 token 이 들어가므로 백업 파일을 남에게 주지 마세요 |
 | `claude-accounts/` | Claude 다중 계정 (계정 목록·자격증명 백업·사용량 캐시) | ✅ macOS 가 아닌 OS 에서는 자격증명이 들어가므로 백업 파일을 남에게 주지 마세요 |
 | `notes/` | 메모장 | ✅ |
 | `git-worktrees/` | Git 창에서 만든 worktree | ✅ |
 | `panes.json` | 변환 전 레이아웃 (`migrate` 가 옮깁니다) | ✅ |
 | `bin/` | 런타임 헬퍼 | ❌ 기동마다 다시 채웁니다 |
-| `peer-spawns.json` | 다른 노드가 띄운 도구와 그 짝 | ❌ 도구 id 는 그 기계의 것입니다 |
 | `ext/` | 편집기 플러그인·언어 서버 | ❌ 다시 받을 수 있습니다 |
 | `cache/` | 컨테이너용 리눅스 헬퍼 | ❌ |
 | `worktrees/` | Run 격리 worktree | ❌ |
@@ -456,6 +455,12 @@ dongminal uninstall --dry-run            # 지울 것을 먼저 봅니다
 
 `backup` 이 만드는 zip 은 소유자만 읽을 수 있습니다(`0600`). 이미 있던 파일을
 덮어쓸 때도 권한을 `0600` 으로 바꿉니다. 노드 개인키가 들어가기 때문입니다.
+
+**채팅의 사람 명령 도우미는 홈 밖에 삽니다**(macOS). 프로그램은
+`/Library/PrivilegedHelperTools/com.dongminal.helper`, 비밀은
+`/Library/Application Support/com.dongminal.helper/` 에 있고 관리자만 읽습니다.
+`backup`·`uninstall` 은 이것을 다루지 않습니다. 지우려면
+`sudo dongminal helper uninstall` 을 씁니다([기능 안내](./features.md#사람-명령-강제-삭제강퇴)).
 
 **브라우저에도 일부가 삽니다.** 기기별 취향(알림 켬/끔·슬롯 방향)은
 `localStorage` 에, 탭별 값(표시 모드)은 `sessionStorage` 에 있습니다.

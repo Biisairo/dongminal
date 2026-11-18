@@ -7,7 +7,7 @@
  *
  * 로드 순서 계약: `app.js` 뒤, `app-settings-*.js` 앞.
  */
-const SETTINGS_LIVE_PANEL={access:'panel-access',sandbox:'panel-sandbox',peers:'panel-peers'};
+const SETTINGS_LIVE_PANEL={access:'panel-access',sandbox:'panel-sandbox',edges:'panel-edges'};
 
 Object.assign(App.prototype, {
   _liveOf(k){

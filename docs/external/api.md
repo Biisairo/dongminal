@@ -21,7 +21,7 @@
 | PUT | `/api/update` | 자동 판 확인 토글 — `{ enabled: bool }`. `server.json` 의 `updateCheck` 에 남습니다 (설정 블롭이 아닙니다) |
 | GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }`. `?jobs=1` 이면 `/api/git/jobs` 의 `jobs` 를 함께 싣습니다 (git 이 없으면 키가 없습니다) |
 | GET | `/api/ping` | `"ok"` (레이턴시 측정용) |
-| GET | `/api/snapshot?parts=` | 구독이 열릴 때의 복원 조각을 한 번에 — `parts` 는 `attention`·`activity`·`background`·`settings`·`update`·`focus`·`peers` 의 쉼표 목록. 각 조각은 그 종단(`/api/tools/attention`·`/api/tools/activity`·`/api/tools/background`·`/api/settings`·`/api/update`·`/api/focus`·`/api/peers`)의 본문 그대로이고, 200 이 아닌 조각과 모르는 이름은 싣지 않습니다 |
+| GET | `/api/snapshot?parts=` | 구독이 열릴 때의 복원 조각을 한 번에 — `parts` 는 `attention`·`activity`·`background`·`settings`·`update`·`focus`·`edges` 의 쉼표 목록. 각 조각은 그 종단(`/api/tools/attention`·`/api/tools/activity`·`/api/tools/background`·`/api/settings`·`/api/update`·`/api/focus`·`/api/edges`)의 본문 그대로이고, 200 이 아닌 조각과 모르는 이름은 싣지 않습니다 |
 
 ### 도구
 
@@ -225,22 +225,37 @@
 | GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다. `ready`(데몬에 닿았다)·`installed`(바이너리가 있다)는 그 뜻이다. `actions["sandbox.runtime.start"]` 는 시작할 수 있는지의 답(`{ok, why}`)이다 |
 | POST | `/api/sandbox/runtime/start` | 멎어 있는 런타임을 띄운다. 상태를 다시 조회해 답이 거짓이면 아무것도 실행하지 않고 409 `runtime_missing`·`runtime_start_manual` 로 거절한다 |
 
-### 노드 간 통신 (`PEER_NETWORK_SRS`)
+### 노드 간 통신 (`PEER_NETWORK_SRS`, `PEER_DAEMON_SRS`)
 
-UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 이고, 상대 노드가 돌려준 오류는 이렇게 옮깁니다. 4xx 는 상태를 그대로, 그 밖은 502 로 바꿉니다. 코드는 오류 카탈로그에 있는 것만 그대로 옮기고, 모르는 코드는 `peer_rejected` 로 바꿉니다. 문장은 제어 문자를 지우고 512 바이트로 자릅니다. 상대에 닿지 못하거나 JSON 이 아닌 답이면 `peer_unreachable` 입니다. 단, JSON 이 아닌 403 은 상대가 이 노드를 받지 않았다는 뜻이므로 `peer_rejected` 입니다.
+노드 사이의 연결을 간선(edge)이라 부릅니다. 사용 안내는 [edges.md](./edges.md) 에 있습니다. 데몬 모드에서는 데몬이 노드이고 서버는 이 요청을 데몬에 넘깁니다. 응답 모양은 같습니다. 붙은 데몬이 노드 기능을 모르는 옛 판이면 모든 경로가 409 `edge_daemon_restart` 입니다.
+
+UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 이고, 상대 노드가 돌려준 오류는 이렇게 옮깁니다. 4xx 는 상태를 그대로, 그 밖은 502 로 바꿉니다. 코드는 오류 카탈로그에 있는 것만 그대로 옮기고, 모르는 코드는 `edge_rejected` 로 바꿉니다. 문장은 제어 문자를 지우고 512 바이트로 자릅니다. 상대에 닿지 못하거나 JSON 이 아닌 답이면 `edge_unreachable` 입니다. 단, JSON 이 아닌 403 은 상대가 이 노드를 받지 않았다는 뜻이므로 `edge_rejected` 입니다.
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/peers` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 짝 목록(`peers`, `state` 가 빈 값이면 짝, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·짝·승인 대기가 바뀌면 `peers_changed` 를 방송한다. 상대의 승인 통지나 명령 성공으로 `pending-out` 이 짝이 될 때도 방송한다. 바뀐 것이 없으면(이미 짝, 실패한 요청) 방송하지 않는다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름을 싣는다 |
-| PUT | `/api/peers/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`·`allowedDirs`)을 바꾸고 노드 포트에 바로 적용한다. 짝 목록은 바뀌지 않는다. 틀린 값은 400 `peer_config_invalid`. `GET /api/peers` 의 `ETag`(노드 설정의 지문)를 `If-Match` 로 실으면 낡았을 때 409 `stale_rev` 다 |
-| POST | `/api/peers/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `peer_port_closed`, 주소가 없으면 400 `peer_addr_required` |
-| POST | `/api/peers/add` | `{code, name?}` → `{name, state, warning?}`. `state` 는 실제로 저장된 상태다. 보통 `"pending-out"` 이고, 이미 짝이면 `""` 이다. 상대 노드에 연결해 지문을 대조하고 등록을 요청한다. `warning:"port_closed"` 는 이 노드의 포트가 닫혀 있어 상대가 보낼 수 없다는 뜻이다. 실패는 `peer_fingerprint_mismatch`·`peer_unreachable`·`peer_token_invalid` 등 |
-| GET | `/api/peers/pending` | `{pending:[{id, name, addr, port, fp, expires}]}` — 승인 대기 |
-| POST | `/api/peers/approve` | `{id, name?}` → `{name, fp, confirmed, reason?}`. 짝으로 저장하고 상대에 승인을 알린다. 알리지 못해도 저장은 남고 `confirmed:false`. 이름이 겹치면 409 `peer_name_taken` |
-| POST | `/api/peers/reject` | `{id}` — 승인 대기를 버린다 |
-| POST | `/api/peers/remove` | `{name}` — 짝을 해제한다. 그 노드의 요청은 바로 거절된다 |
-| PUT | `/api/peers/address` | `{name, addr, port}` — 짝의 주소를 고친다. 신원(지문)은 그대로다 |
-| POST | `/api/peers/call` | `{peer, op, from?, args}` — 그 짝에 프로토콜 명령(`node.info`·`agents.list`·`message.send`·`agent.spawn`·`agent.status`·`agent.close`)을 보내고 결과를 그대로 돌려준다. `message.send`·`agent.spawn` 의 `args.from` 은 서버가 `from`(부른 도구)을 해석해 채운다. 성공하면 그 짝의 `lastSeen` 이 갱신되고, `pending-out` 이던 짝은 짝으로 바뀐다. 모르는 명령은 400 `peer_unknown_op` |
+| GET | `/api/edges` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 간선 목록(`edges[{fp, name, addr, port}]`, `name` 은 상대가 알린 표시 이름이라 겹칠 수 있고, 상대의 노드 포트가 닫혀 있었으면 `addr` 이 비고 `port` 가 0 이다), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·간선이 바뀌면 `edges_changed` 를 방송한다. 간선을 맺었으면 `args.paired`, 지웠으면 `args.removed` 에 `{fp, name}` 을 싣는다. 상대가 지웠으면 `args.byPeer:true` 를 함께 싣는다. 바뀐 것이 없으면(실패한 요청) 방송하지 않는다 |
+| PUT | `/api/edges/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`)을 바꾸고 노드 포트에 바로 적용한다. 간선 목록은 바뀌지 않는다. 틀린 값은 400 `edge_config_invalid`. `GET /api/edges` 의 `ETag`(노드 설정의 지문)를 `If-Match` 로 실으면 낡았을 때 409 `stale_rev` 다 |
+| POST | `/api/edges/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `edge_port_closed`, 주소가 없으면 400 `edge_addr_required` |
+| POST | `/api/edges/add` | `{code}` → `{fp, name}`. 상대 노드에 연결해 지문을 대조하고 간선을 맺는다. 승인 단계는 없고, 200 이면 양쪽이 간선이다. 이 노드의 노드 포트가 열려 있을 때만 상대에게 주소를 알린다. 실패는 `edge_fingerprint_mismatch`·`edge_unreachable`·`edge_token_invalid`·`edge_no_invite` 등 |
+| POST | `/api/edges/remove` | `{fp}` → `{fp, name, notified}`. `fp` 는 지문 전체나 8자리 이상의 앞자리다. 상대에게 먼저 알리고(3초) 알렸든 못 알렸든 간선을 끊는다. `notified:false` 면 상대가 다시 걸어올 때 상대 쪽에서도 지워진다. 앞자리가 둘 이상에 맞으면 400 `edge_ambiguous`, 없으면 404 `edge_not_found` |
+| PUT | `/api/edges/address` | `{fp, addr, port}` → `{fp, name, addr, port}` — 간선의 주소를 고친다. `fp` 는 `remove` 와 같다. 신원(지문)은 그대로다 |
+
+### 채팅 (`PEER_CHAT_SRS`)
+
+간선으로 이어진 노드들의 채팅에 이 노드의 사람으로 참가합니다. 채팅은 데몬에 있고 서버는 요청을 데몬에 넘깁니다. 서버와 데몬은 대화 내용을 들지 않습니다. 사람에게 온 글은 `chat_message` 로 방송할 뿐 남기지 않습니다.
+
+UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 입니다. 직접 모드(데몬 없음)는 모든 경로가 409 `chat_daemon_only`, 붙은 데몬이 채팅을 모르는 옛 판이면 409 `chat_daemon_restart`, 데몬에 닿지 못하면 502 `chat_unreachable`, 데몬에 채팅이 서지 않았으면 503 `chat_unavailable` 입니다. 채팅 연산의 실패는 400 `chat_bad_request`, 413 `chat_too_large`(글 16 KiB 초과), 429 `chat_rate_limited`(1분에 30개 초과), 409 `chat_not_in_room`, 404 `chat_no_such_room`·`chat_no_such_participant` 입니다. 사람 명령(`kill`·`kick`)은 403 `chat_bad_code`(코드가 틀렸거나 이미 씀), 423 `chat_locked`(5번 틀려 5분 잠김, `message` 는 풀리는 시각 RFC 3339), 409 `chat_no_helper`(도우미 없음)를 더합니다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/chat` | `{me, online, rooms, helper}`. `me` 는 이 노드의 사람 참가자, `online` 은 온라인 목록(`nodes`·`participants`), `rooms` 는 열린 단체채팅 방과 내 개인채팅(`id`·`kind`·`name`·`purpose`·`creator`·`creatorName`·`members`·`joined`·참가자 목록 `people`)이다. `helper` 는 이 노드에 사람 명령의 도우미가 있는가다. 온라인 목록이나 방이 바뀌면 `chat_changed` 를 방송한다 |
+| POST | `/api/chat/create` | `{name, purpose}` → `{room}`. 단체채팅 방을 만들고 들어간다 |
+| POST | `/api/chat/direct` | `{participant, purpose?}` → `{room}`. 개인채팅을 만든다. 상대는 자동으로 들어간다 |
+| POST | `/api/chat/join` | `{room}` → `{room}`. 단체채팅 방에 들어간다 |
+| POST | `/api/chat/leave` | `{room}` → `{ok}`. 방에서 나간다 |
+| POST | `/api/chat/send` | `{room, text}` → `{ok}`. 글을 쓴다 |
+| POST | `/api/chat/kill` | `{rooms[], code}` → `{ok}`. 방을 강제 삭제한다. `code` 는 OTP 6자리나 복구 코드다. 도우미가 묶음에 서명하면 망에 퍼진다(대상 1~64개) |
+| POST | `/api/chat/kick` | `{kicks[{room, participant}], code}` → `{ok}`. 참가자를 방에서 내보낸다. 다시 들어오는 것은 막지 않는다 |
 
 ### Telegram 알림 (`TELEGRAM_BRIDGE_SRS`)
 
@@ -290,7 +305,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | GET | `/api/runs/tree` | `?ref=<owner/repo#N>` 이슈 트리의 열린 Run 과 노드(역할 · 상태 · 부모 · 잎) |
 | POST | `/api/runs/members` | Run 에 팀원을 등록한다 |
 | GET | `/api/runs/preamble` | 그 팀원의 기동 프리앰블 |
-| GET | `/api/runs/peers` | 같은 Run 의 다른 팀원들 |
+| GET | `/api/runs/team` | 같은 Run 의 다른 팀원들 |
 | POST | `/api/runs/context` | 세션에 상시 주입할 컨텍스트 |
 | POST | `/api/runs/attach` · `/api/runs/detach` | 도구를 Run 에 붙이고 뗀다 |
 | POST | `/api/runs/handoff` | 팀원 자리를 넘긴다 |
@@ -471,7 +486,9 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_subagent_activity` | 서브에이전트의 활동 갱신 `{toolId, agentId, agentType, state, tool, detail}` |
 | `run_changed` | Run 기록이 바뀌었다. `args.runId`, 트리 Run 이면 `args.tree`. 대시보드는 이 신호로 다시 받는다 |
 | `sandbox_changed` | 샌드박스 정의가 저장됐다 — 본문은 없고 `GET /api/sandbox/config` 로 다시 받으라는 신호 |
-| `peers_changed` | 노드 설정·초대·짝·승인 대기가 바뀌었다. 짝에게서 인증된 호출을 받아 마지막 응답 시각이 바뀐 것도 짝마다 60초에 한 번 알린다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름이 실린다 |
+| `edges_changed` | 노드 설정·초대·간선이 바뀌었다. 간선을 맺었으면 `args.paired`, 지웠으면 `args.removed` 에 `{fp, name}` 이 실린다. 상대가 지웠으면 `args.byPeer:true` 도 실린다 |
+| `chat_message` | 이 노드의 사람에게 채팅 글이 왔다. `args.msg` 는 `{id, room, roomKind, roomName, roomPurpose, from, fromLabel, fromKind, node, text, at}` 다. 서버는 남기지 않는다 |
+| `chat_changed` | 채팅의 온라인 목록이나 방이 바뀌었다 — 본문은 없고 `GET /api/chat` 로 다시 받으라는 신호 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
 | `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
 | `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |

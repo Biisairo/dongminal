@@ -55,12 +55,12 @@ internal/
     toolline/            #   dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
   daemon/                # ② dongminald 프로세스 — PTY 를 소유한다
     boot/                #   데몬 진입점 (Run). 웹 서버를 재시작해도 세션이 살아남는 이유
-    ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나의 요청은 차례로, create·restore 만 읽기 루프 밖 — FR-OPT-2-3)
+    chat/                #   채팅 핵심 — 간선 상대마다 채팅 연결, 서명한 노드 상태·글 전파, 방·참가자. 글을 들지 않는다 (PEER_CHAT_SRS §3.9)
+    chatsock/            #   채팅 소켓 chat.sock — MCP 연결 하나가 참가자 하나, 훅 질의 중계, 쉬는 중 붙여넣기 알림 (PEER_CHAT_SRS §3.10)
+    ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나의 요청은 차례로, create·restore·edge 만 읽기 루프 밖 — FR-OPT-2-3, PEER_DAEMON_SRS §3.5a)
   webserver/             # ③ 웹 서버 프로세스
     httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
     httproute/           #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유
-    httpreq/             #   요청 본문을 읽는 한 자리 (표면별 크기 상한)
-    httpresp/            #   성공 JSON 응답을 쓰는 한 자리 (오류 방언 렌더러는 각자 둔다)
     gitapi/              #   /api/git/* 핸들러 (GitServer). 라우트 테이블(routes.go)을 스스로 소유 — 수는 그 표가 답한다
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
     apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
@@ -88,12 +88,12 @@ internal/
       wsentry/           #     workspace.json 최상위 두 목록 (git.pinned[]·editors.list[])
       lsp/               #     언어 서버 세션 (정의·참조·호버) — 세션 상한·유휴 회수
       ext/               #     언어 서버 플러그인 매니페스트 — 서버 목록은 여기 없다
-      peer/              #     노드 간 통신 — 노드 신원(인증서)·peers.json·노드 전용 리스너
       telegram/          #     Telegram 브리지 — telegram.json·Bot API 클라이언트·대화별 토픽·transcript 출력 (실험)
   ctl/                   # ④ 제어 CLI 프로세스
     cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
     migrate/             #   v1 → v2 엔티티 스키마 1회성 변환
     decidx/              #   결정 색인 생성기 — `go run ./scripts/gen-decisions` 가 부른다
+    privhelper/          #   사람 명령의 도우미 `dongminal helper` — root 로 돌며 TOTP 를 확인하고 묶음에 서명한다 (PEER_CHAT_SRS §3.12)
     errdoc/              #   오류 카탈로그 생성기 — `go run ./scripts/gen-errors` 가 부른다
                          #     (apierr 를 읽는다 — check-pkg-axis.sh 의 예외 등록부)
   shared/                # 둘 이상의 프로세스가 실행한다
@@ -103,6 +103,13 @@ internal/
                          #     conn(SafeConn) · tool(PTY 하나의 수명) · manager(레지스트리)
                          #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
                          #     tool_{attention,clients,control,cwd,env,exitinfo} — Tool 의 관심사별 (M8 D-A-10)
+    edge/                #   ②③  — 노드 간 통신(간선) — 노드 신원(인증서)·edges.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1·70)
+    edgenode/            #   ②③  — 노드 하나의 상태와 연산(짝맞춤 판정·로컬 API 연산). 데몬과 직접 모드 서버가 같이 쓴다 (PEER_DAEMON_SRS FR-PDM-2)
+    chatwire/            #   ①②③ — 채팅 소켓의 경로·프레임 (데몬 chatsock ↔ dmctl chat-mcp·ctx-hook, PEER_CHAT_SRS §3.10). 서버는 사람 참가자 IPC 의 글 모양으로 쓴다 (§3.11)
+    humancmd/            #   ②④  — 사람 명령의 와이어 — 도우미 소켓 프레임, 서명한 명령 본문(Ed25519), 데몬 쪽 클라이언트 (PEER_CHAT_SRS §3.12)
+    edgerelay/           #   ②③  — 노드 포트의 바이트 통로 — 서버 노드 포트 → 데몬 node.sock, 데몬 → 서버 dial.sock (PEER_DAEMON_SRS 묶음 L)
+    httpreq/             #   ②③  — 요청 본문을 읽는 한 자리 (표면별 크기 상한)
+    httpresp/            #   ②③  — 성공 JSON 응답을 쓰는 한 자리 (오류 방언 렌더러는 각자 둔다)
     toolipc/             #   ②③  — paned 와이어 포맷만: wire.go(봉투·ProtocolVersion) · protocol.go(메서드·이벤트 이름, typed 인자·결과, hello.features) · files.go(데몬 지문 이름)
     outbuf/              #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
@@ -203,7 +210,7 @@ GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열
 | 방언 | 본문 | 쓰는 곳 |
 |---|---|---|
 | git | `{"error": <코드>, "message": <tail>}` | `/api/git/*` |
-| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` · `/api/peers/*` |
+| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/edge/v1/*` · `/api/edges/*` |
 | runs | `{"error": <sentinel 문자열>, "detail": <err>}` | `/api/runs/*` |
 | 단문 | `{"error": <msg>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
 | 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` (`httpErr`) |

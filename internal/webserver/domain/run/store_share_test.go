@@ -135,7 +135,7 @@ func TestStore_ListIsRaceFreeUnderConcurrentReport(t *testing.T) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
-	// 읽는 쪽 — 잠금 밖에서 Members 를 훑는다 (handlers_runs_peers.go:84 와 같은 모양).
+	// 읽는 쪽 — 잠금 밖에서 Members 를 훑는다 (handlers_runs_team.go:84 와 같은 모양).
 	wg.Go(func() {
 		for {
 			select {

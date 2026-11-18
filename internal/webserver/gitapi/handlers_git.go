@@ -8,16 +8,16 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"os"
 	"path/filepath"
 
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/textenc"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/wsentry"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // /api/git/* — 리포 해석·핀·상태·시그니처 (GIT_SRS §3.8 FR-GIT-60~63).

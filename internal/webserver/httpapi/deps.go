@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"dongminal/internal/shared/toolipc"
 
 	"dongminal/internal/webserver/hub"
 
@@ -190,6 +191,27 @@ type Deps struct {
 	// AttnDaemon 은 데몬의 알람 판정이다 (AGENT_RECORD_DAEMON_SRS §3.3a). nil 이거나 Judges 가
 	// 거짓이면 데몬 모드의 판정은 종전처럼 AttnTracker 가 한다.
 	AttnDaemon AttentionDaemon
+	// EdgeDaemon 은 데몬의 노드다 (PEER_DAEMON_SRS §3.5a). nil 이면 직접 모드 — 서버가 노드다
+	// (FR-PDM-52). nil 이 아니면 서버는 신원·edges.json 을 열지 않는다 (FR-PDM-20).
+	EdgeDaemon EdgeDaemon
+	// ChatDaemon 은 데몬의 채팅 사람 참가자다 (PEER_CHAT_SRS §3.11). nil 이면 직접 모드 — 채팅이
+	// 없다 (NFR-PCH-5).
+	ChatDaemon ChatDaemon
+}
+
+// ChatDaemon 은 데몬 채팅의 접합면이다. `*toolclient.ToolClient` 가 만족한다.
+type ChatDaemon interface {
+	// ChatReady 는 데몬이 chat 기능을 말하는가다. 부를 때마다 묻는다.
+	ChatReady() bool
+	Chat(p toolipc.ChatParams) (toolipc.ChatResult, error)
+}
+
+// EdgeDaemon 은 데몬 노드의 접합면이다. `*toolclient.ToolClient` 가 만족한다.
+type EdgeDaemon interface {
+	// EdgeReady 는 데몬이 노드 기능을 말하는가다. 부를 때마다 묻는다 (FR-PDM-50·51).
+	EdgeReady() bool
+	Edge(p toolipc.EdgeParams) (toolipc.EdgeResult, error)
+	EdgePort(p toolipc.EdgePortParams) error
 }
 
 // UpdateService 는 판 확인의 접합면이다. `*updatecheck.Checker` 가 만족한다.

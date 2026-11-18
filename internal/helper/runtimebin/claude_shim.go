@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/chatwire"
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/platform"
 )
 
 // CLAUDE_ACCOUNTS_SRS FR-CAC-83 — claude shim. 셸 훅이 `agent-shims` 를 PATH 맨 앞에 두므로 탭에서
@@ -42,6 +44,7 @@ func runAgentShim(cmd string, args []string, _, stderr io.Writer) int {
 		// 쓰지 않는다: 처음 보는 폴더마다 신뢰 확인창이 뜨고 접근 권한이 따라온다 (D-AMI-1).
 		argv = append(argv, "--append-system-prompt="+memory)
 	}
+	argv = append(argv, shimChatArgs(home, selfToolID())...)
 	argv = append(argv, args...)
 	if os.Getenv(claudeConfigDirEnv) == "" {
 		dir, reason := claudeLaunchDir()
@@ -79,6 +82,38 @@ func shimHookArgs(cmd, home string) []string {
 	}
 	return out
 }
+
+// shimChatDialWait 는 채팅 소켓이 열려 있는지 보는 시한이다.
+const shimChatDialWait = 300 * time.Millisecond
+
+// shimChatArgs 는 채팅 MCP 주입 인자다 (PEER_CHAT_SRS FR-PCH-50, §3.10). 데몬의 채팅 소켓에
+// 붙을 때만 붙인다 — 직접 모드·옛 데몬·꺼진 데몬에서는 주입하지 않는다 (NFR-PCH-5). `=` 꼴
+// 한 토큰이어야 가변 인자 옵션이 사용자 인자를 삼키지 않는다. 도구 여덟 개는 허락 없이 쓴다
+// (D-PCH-36).
+func shimChatArgs(home, tool string) []string {
+	if home == "" || tool == "" {
+		return nil
+	}
+	c, err := platform.Current().IPC.Dial(chatwire.SocketPath(home), shimChatDialWait)
+	if err != nil {
+		return nil
+	}
+	c.Close()
+	cfg := map[string]any{"mcpServers": map[string]any{chatMCPServer: map[string]any{
+		"type":    "stdio",
+		"command": filepath.Join(home, dmenv.BinDir, "dmctl"+platform.Current().Paths.ExeSuffix()),
+		"args":    []string{"chat-mcp"},
+		"env":     map[string]string{dmenv.EnvHome: home, dmenv.EnvToolID: tool},
+	}}}
+	blob, err := json.Marshal(cfg)
+	if err != nil {
+		return nil
+	}
+	return []string{"--mcp-config=" + string(blob), "--allowedTools=mcp__" + chatMCPServer}
+}
+
+// chatMCPServer 는 주입하는 MCP 서버 이름이다. 도구는 `mcp__dongminal__chat_*` 로 보인다.
+const chatMCPServer = "dongminal"
 
 // shimMemoryPrompt 는 주입 메모리(agent-memory/CLAUDE.md)의 내용이다. 없거나 읽지 못하면
 // 빈 값이다 — 그때는 주입 없이 claude 를 띄운다 (FR-AMI-4).

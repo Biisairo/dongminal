@@ -84,6 +84,9 @@ Object.assign(Renderer.prototype, {
     }else if(at.type==='run'){
       // FR-RVZ-6: 네 번째 타입. 루트 DOM 은 탭마다 캐시된다 (NFR-RVZ-2).
       el=this.app.runViewEl(at,slot);
+    }else if(at.type===TAB_TYPE_CHAT){
+      // PEER_CHAT_SRS §3.11: 채팅 탭. 루트 DOM 은 탭과 칸마다 캐시된다.
+      el=this.app.chatViewEl(at,slot);
     }else{
       // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 (FR-WSL-20).
       const p=at.toolId?this.app.mkTool(at.toolId,at.name||'',slot):null;

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // 한 컴퓨터에서 한 번 (ATTENTION_FIRING_SRS 묶음 D).

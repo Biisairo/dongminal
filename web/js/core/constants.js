@@ -612,6 +612,8 @@ const TAB_TYPE_GIT='git';
 const TAB_TYPE_TERMINAL='terminal';
 const TAB_TYPE_EDITOR='editor';
 const TAB_TYPE_RUN='run';
+// PEER_CHAT_SRS §3.11: 채팅 방 하나의 탭. 레코드는 `{id, name, type:'chat', roomId}` 다.
+const TAB_TYPE_CHAT='chat';
 
 // ── 샌드박스 창의 작업 방식 (SANDBOX_PICK_COPY_SRS FR-SPK-10·23) ──
 //
@@ -694,6 +696,10 @@ const TIP_BG_KILL_NO='Leave it running';
 const TIP_RUNS_DEL='Remove this run from the list and its history';
 const TIP_RUNS_YES='Delete this run permanently';
 const TIP_RUNS_NO='Keep this run';
+const TIP_CHAT_CREATE='Create the room and join it'; // PEER_CHAT_SRS §3.11
+const TIP_CHAT_CANCEL='Close without creating';
+const TIP_CHAT_CMD_RUN='Ask the helper to sign and run the command'; // PEER_CHAT_SRS §3.12
+const TIP_CHAT_CMD_CANCEL='Close without running';
 /**
  * `12-func-ui.md FUI-04`: **Run 을 UI 에서 멈출 길이 없었다.**
  *

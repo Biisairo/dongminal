@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/dmlog"
-	"dongminal/internal/webserver/httpresp"
+	"dongminal/internal/shared/httpresp"
 )
 
 // `GET /api/diag` — **기계가 읽는 자리** (OBSERVABILITY_SRS 묶음 D).

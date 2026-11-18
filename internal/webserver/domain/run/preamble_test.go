@@ -239,7 +239,7 @@ func TestPreamble_CarriesThePeerCommunicationClause(t *testing.T) {
 	p := Preamble(rec, m)
 
 	cases := []struct{ name, needle string }{
-		{"명부 조회 경로", "dmctl run peers"},
+		{"명부 조회 경로", "dmctl run team"},
 		{"lost 상대는 조정자에게", "lost"},
 		{"응답 대기 상한", "상한"},
 		{"받은 엔벨로프는 협업 요청", "협업 요청"},

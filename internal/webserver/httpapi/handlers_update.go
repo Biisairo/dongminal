@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"dongminal/internal/shared/httpreq"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/httpreq"
 )
 
 // `/api/update` — 배지가 읽는 자리와 토글이 쓰는 자리 (UPDATE_NOTICE_SRS 묶음 안내).

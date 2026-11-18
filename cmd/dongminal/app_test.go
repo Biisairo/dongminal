@@ -36,15 +36,15 @@ func TestShutdownSteps_CancelsGitRootFirst(t *testing.T) {
 }
 
 // C7: UI 서버가 종료 신호 없이 실패해도(포트 사용 중) 노드 포트를 닫고 기다린다.
-func TestStartPeerScoped_ClosesWithoutCancel(t *testing.T) {
+func TestStartEdgeScoped_ClosesWithoutCancel(t *testing.T) {
 	var stop <-chan struct{}
 	done := make(chan struct{})
-	closePeer := startPeerScoped(context.Background(), func(s <-chan struct{}) <-chan struct{} {
+	closeEdge := startEdgeScoped(context.Background(), func(s <-chan struct{}) <-chan struct{} {
 		stop = s
 		go func() { <-s; close(done) }()
 		return done
 	})
-	closePeer()
+	closeEdge()
 	select {
 	case <-stop:
 	default:

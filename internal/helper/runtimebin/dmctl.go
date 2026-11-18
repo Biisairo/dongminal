@@ -45,6 +45,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl activity <agent>            # 현재 도구의 작업 상태 보고 (stdin hook JSON 파싱)
   dmctl agent-context               # 세션 상시 주입 컨텍스트 (에이전트 hook 에서 호출)
   dmctl ctx-hook <agent>            # 맥락 기준 migration 제안 (에이전트 hook 에서 호출)
+  dmctl chat-mcp                    # 노드 망 채팅 MCP 서버 (claude shim 이 주입)
   dmctl send <action> [json-args]   # raw 전송
 
 에이전트 접합면 — 다른 도구의 화면을 읽고 입력을 넣는다:
@@ -63,11 +64,11 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl run status [--run <uuid>] / dmctl run list / dmctl run close --run <uuid>
   dmctl run delete --run <uuid> / dmctl run graph --run <uuid>
 
-노드 간 통신 — 짝맞춘 다른 dongminal (상세: dmctl peer --help):
-  dmctl peers [--json]                       # 노드 포트 상태·짝·승인 대기
-  dmctl peer invite [--addr <주소>]          # 초대 코드 (10분, 한 번)
-  dmctl peer add <코드> [--name <이름>]      # 초대 코드로 등록 요청
-  dmctl peer approve <id> [--name <이름>] / dmctl peer reject <id> / dmctl peer remove <노드>
+노드 간 통신 — 간선을 맺은 다른 dongminal (상세: dmctl edge --help):
+  dmctl edges [--json]                       # 노드 포트 상태·간선
+  dmctl edge invite [--addr <주소>]          # 초대 코드 (10분, 한 번)
+  dmctl edge add <코드>                      # 초대 코드로 간선을 맺는다
+  dmctl edge remove <지문 앞자리>            # 간선을 끊는다 (상대 쪽에서도 지워진다)
 
   레이아웃 명령은 구독 중인 브라우저가 없으면(delivered=0) exit 1 이다 — 아무것도
   만들어지지 않았다. 생성 명령이 결과를 받지 못해도(timedOut) exit 1 이다.
@@ -171,6 +172,8 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 		return runDmctlAgentContext(rest, os.Stdin, stdout, stderr), true
 	case "ctx-hook":
 		return runDmctlCtxHook(rest, os.Stdin, stdout, stderr), true
+	case "chat-mcp":
+		return runDmctlChatMCP(rest, os.Stdin, stdout, stderr), true
 	case "read-screen", "read-output":
 		return runDmctlRead(cmd, rest, stdout, stderr), true
 	case "send-input":
@@ -187,14 +190,14 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 		return runDmctlWait(rest, stdout, stderr), true
 	case "run":
 		return runDmctlRun(rest, stdout, stderr), true
-	// PEER_NETWORK_SRS FR-PNW-73 (dmctl_peer.go).
+	// PEER_NETWORK_SRS FR-PNW-73 (dmctl_edge.go).
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-102 (dmctl_account.go).
 	case "account":
 		return runDmctlAccount(rest, stdout, stderr), true
-	case "peers":
-		return runDmctlPeers(rest, stdout, stderr), true
-	case "peer":
-		return runDmctlPeer(rest, stdout, stderr), true
+	case "edges":
+		return runDmctlEdges(rest, stdout, stderr), true
+	case "edge":
+		return runDmctlEdge(rest, stdout, stderr), true
 	// ISSUE_AGENT_TREE_SRS 묶음 G·O (dmctl_order.go).
 	case "move-tab", "move-window", "move-group":
 		return runDmctlMove(cmd, rest, stdout, stderr), true

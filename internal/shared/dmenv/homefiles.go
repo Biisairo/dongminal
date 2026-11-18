@@ -20,12 +20,16 @@ const (
 	PanedPIDFile  = "paned.pid"
 	ServerLogFile = "server.log"
 	DaemonLogFile = "daemon.log"
-	// 노드 간 통신의 설정·짝 목록과 노드 신원 (PEER_NETWORK_SRS FR-PNW-1·2).
-	PeersFile    = "peers.json"
-	NodeCertFile = "node-cert.pem"
-	NodeKeyFile  = "node-key.pem"
-	// PeerSpawnsFile 은 다른 노드가 띄운 도구와 그 짝의 지문이다 (FR-PNW-62).
-	PeerSpawnsFile = "peer-spawns.json"
+	// 노드 간 통신의 설정·간선 목록과 노드 신원 (PEER_NETWORK_SRS FR-PNW-1·2).
+	EdgesFile = "edges.json"
+	// LegacyPeersFile 은 EdgesFile 의 옛 이름이다. 이관에만 쓴다 (PEER_DAEMON_SRS FR-PDM-71).
+	LegacyPeersFile = "peers.json"
+	EdgeCertFile    = "edge-cert.pem"
+	EdgeKeyFile     = "edge-key.pem"
+	// LegacyNodeCertFile·LegacyNodeKeyFile 은 신원 파일의 옛 이름이다. 지우기에만 쓴다
+	// (PEER_DAEMON_SRS FR-PDM-71, D-PDM-18).
+	LegacyNodeCertFile = "node-cert.pem"
+	LegacyNodeKeyFile  = "node-key.pem"
 	// TelegramFile 은 Telegram 브리지 설정이다 — token 이 들어 있어 권한 600 이다
 	// (TELEGRAM_BRIDGE_SRS FR-TGB-2).
 	TelegramFile = "telegram.json"

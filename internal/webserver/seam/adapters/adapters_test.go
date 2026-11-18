@@ -1,7 +1,6 @@
 package adapters
 
 import (
-	"errors"
 	"time"
 
 	"dongminal/internal/shared/toolhub"
@@ -185,55 +184,5 @@ func TestToolAdapter_ForegroundNameAbsentField(t *testing.T) {
 	}}}
 	if got := a.List(); len(got) != 1 || got[0].ForegroundName != "" {
 		t.Fatalf("List=%+v want ForegroundName=\"\"", got)
-	}
-}
-
-// guardHub 는 조건부 붙여넣기를 아는 허브다 (데몬 모드의 ToolClient 자리).
-type guardHub struct {
-	fakeHub
-	want *string
-}
-
-func (g guardHub) SendPasteIfForeground(_ string, _ []byte, _ bool, want string) error {
-	*g.want = want
-	return toolhub.ErrForegroundChanged
-}
-
-// PEER_NETWORK_SRS I-47: 데몬 모드의 조건부 붙여넣기는 허브에 맡긴다. 그 기능이 없는
-// 허브에는 조건 없이 넣는다.
-func TestToolAdapter_SendPasteIfForegroundDelegates(t *testing.T) {
-	var got string
-	if err := (Tool{Hub: guardHub{want: &got}}).SendPasteIfForeground("a", []byte("x"), true, "claude"); !errors.Is(err, toolhub.ErrForegroundChanged) || got != "claude" {
-		t.Fatalf("err=%v want=%q", err, got)
-	}
-	// C9: 기능 없는 허브에는 실제로 SendPaste 로 넣었는가.
-	var pasted []string
-	if err := (Tool{Hub: pasteHub{pasted: &pasted}}).SendPasteIfForeground("a", []byte("x"), true, "claude"); err != nil || len(pasted) != 1 || pasted[0] != "a" {
-		t.Fatalf("기능 없는 허브: err=%v pasted=%v", err, pasted)
-	}
-}
-
-// pasteHub 는 SendPaste 를 기록하는 허브다 (조건부 붙여넣기 기능 없음).
-type pasteHub struct {
-	fakeHub
-	pasted *[]string
-}
-
-func (p pasteHub) SendPaste(id string, _ []byte, _ bool) error {
-	*p.pasted = append(*p.pasted, id)
-	return nil
-}
-
-// S11b: 바라는 전경이 비면 어느 모드에서든 넣지 않는다 (직접 모드 ToolManager 와 같다).
-func TestToolAdapter_SendPasteIfForegroundEmptyWant(t *testing.T) {
-	var got string
-	var pasted []string
-	for _, a := range []Tool{{Hub: guardHub{want: &got}}, {Hub: pasteHub{pasted: &pasted}}} {
-		if err := a.SendPasteIfForeground("a", []byte("x"), true, ""); !errors.Is(err, toolhub.ErrForegroundChanged) {
-			t.Fatalf("빈 전경: %v", err)
-		}
-	}
-	if got != "" || len(pasted) != 0 {
-		t.Fatalf("빈 전경인데 허브에 넘겼다 want=%q pasted=%v", got, pasted)
 	}
 }

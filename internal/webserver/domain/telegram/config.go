@@ -52,7 +52,7 @@ func defaultConfig() Config {
 }
 
 // Store 는 telegram.json 이다. 틀린 값은 저장하지 않고, 쓰기에 실패하면 메모리도
-// 그대로 둔다 (peer.Store 와 같은 규약).
+// 그대로 둔다 (edge.Store 와 같은 규약).
 type Store struct {
 	mu   sync.Mutex
 	path string

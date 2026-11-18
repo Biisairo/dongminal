@@ -26,7 +26,7 @@ import (
 //
 // 통신 규약 절(FR-PAT-6)에 **동료 명부를 박지 않는다.** 이 함수는 `run member`
 // 시점에 불리므로 그때 아직 등록되지 않은 동료를 담을 수 없고 — 첫 멤버에게는
-// 동료가 0명이다 — 담을 수 있었더라도 승계·이탈로 낡는다. 대신 `run peers` 를
+// 동료가 0명이다 — 담을 수 있었더라도 승계·이탈로 낡는다. 대신 `run team` 을
 // 부르라고 적는다. 이 한 줄이 8패턴 중 5개가 쓰는 P2P 의 입구다 (§3.4.1).
 // userFirstRule 은 두 프리앰블이 같이 쓰는 계약 문장이다 (ISSUE_TREE_OPS_SRS NFR-ITO-3).
 const (
@@ -83,7 +83,7 @@ func Preamble(rec Record, m Member) string {
 	w("# 요청의 응답을 무한정 기다리지 마라 — 상한을 정하고 넘으면 조정자에게 보고한다.")
 	w("# 동료의 주소는 아래로 얻는다. 승계·이탈로 변하니 말을 걸기 직전에 부르고,")
 	w("# 출력의 to= 를 위 msg 의 --to 에 넣는다. state 가 lost 면 조정자에게 알린다.")
-	w("dmctl run peers")
+	w("dmctl run team")
 	w("")
 	w("# 팀 구성과 다른 멤버의 진행은 대화 기록이 아니라 기록에서 읽는다.")
 	w("dmctl run status --run %s", rec.ID)

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
+	"dongminal/internal/shared/httpreq"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/httpreq"
 )
 
 // 핵심 표면의 오류 렌더러 (ERROR_CONTRACT_SRS 묶음 C·H).

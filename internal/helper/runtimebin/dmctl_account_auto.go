@@ -80,7 +80,7 @@ func accountName(v accountsOut, id string) string {
 	return "삭제된 계정"
 }
 
-func accountAuto(pa peerArgs, stdout, stderr io.Writer) int {
+func accountAuto(pa subArgs, stdout, stderr io.Writer) int {
 	switch pa.pos[0] {
 	case "on", "off":
 		raw, rc := accountAPI("PUT", "/api/claude-accounts/autoswitch", map[string]any{"enabled": pa.pos[0] == "on"}, stderr)
@@ -98,7 +98,7 @@ func accountAuto(pa peerArgs, stdout, stderr io.Writer) int {
 	return 2
 }
 
-func accountAutoStatus(pa peerArgs, stdout, stderr io.Writer) int {
+func accountAutoStatus(pa subArgs, stdout, stderr io.Writer) int {
 	raw, rc := accountAPI("GET", "/api/claude-accounts/autoswitch", nil, stderr)
 	if rc != 0 {
 		return rc
@@ -147,7 +147,7 @@ func accountAutoStatus(pa peerArgs, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func accountHistory(pa peerArgs, stdout, stderr io.Writer) int {
+func accountHistory(pa subArgs, stdout, stderr io.Writer) int {
 	limit := historyDefaultLimit
 	if s, ok := pa.flags["limit"]; ok {
 		n, err := strconv.Atoi(s)

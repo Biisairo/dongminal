@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 )
 
 // 오류를 응답으로 옮기는 한 자리 (04-secops `SEC-17` · 01-go-arch `GO-11`).

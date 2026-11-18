@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"path/filepath"
 	"sort"
 	"sync"

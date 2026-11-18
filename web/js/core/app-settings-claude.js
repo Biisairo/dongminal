@@ -341,7 +341,7 @@ Object.assign(App.prototype, {
         onClick:()=>this._cacctDo('PUT','/api/claude-accounts/mappings',{folder:r.path,accountId:''},t('cacct.set.unlink'))}));
     }
     if(!s.accounts.length) return;
-    const add=actEl(root,'div','pn-row cacct-set-link');
+    const add=actEl(root,'div','set-row cacct-set-link');
     const path=actEl(add,'input','sbx-input');
     path.placeholder=t('cacct.set.folder_ph'); path.spellcheck=false;
     if(typeof PathSuggest==='function') new PathSuggest(path,v=>this._edPathCandidates(v,[]));

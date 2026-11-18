@@ -377,23 +377,3 @@ func TestParseCodexHook_ClaimsNoContextSignal(t *testing.T) {
 		t.Fatalf("codex 가 갖지 않은 신호를 지어냈다: %+v", r)
 	}
 }
-
-// PEER_NETWORK_SRS FR-PNW-60: 원격 기동줄은 등록부의 기동 명령뿐이다. Run 멤버의
-// 사전 허용(MemberArgs)도, 모델도, 프롬프트도 싣지 않는다.
-func TestBareLaunchLine_HasNoMemberArgs(t *testing.T) {
-	for _, id := range IDs() {
-		a, err := Get(id)
-		if err != nil {
-			t.Fatal(err)
-		}
-		line := a.BareLaunchLine()
-		if line != strings.Join(a.Launch, " ") {
-			t.Errorf("%s: %q", id, line)
-		}
-		for _, m := range a.MemberArgs {
-			if strings.Contains(line, m) {
-				t.Errorf("%s: 멤버 인자 %q 가 실렸다: %q", id, m, line)
-			}
-		}
-	}
-}

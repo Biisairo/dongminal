@@ -24,7 +24,7 @@
 | 방언 | 본문 | 쓰는 곳 |
 |---|---|---|
 | git | `{"error": <코드>, "message": <tail>}` | `/api/git/*` |
-| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` · `/api/peers/*` · `/api/telegram/*` |
+| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/edge/v1/*` · `/api/edges/*` · `/api/telegram/*` |
 | runs | `{"error": <코드>, "detail": <err>}` | `/api/runs/*` |
 | 단문 | `{"error": <문구>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
 | 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` |
@@ -41,6 +41,19 @@
 | `branch_is_current` | 지금 올라가 있는 브랜치는 지울 수 없습니다. | 다른 브랜치로 옮긴 뒤 지우세요. |
 | `branch_not_merged` | 병합되지 않은 브랜치라 그냥 지울 수 없습니다. | 정말 버릴 것이면 강제 삭제를 고르세요 — 그 커밋들은 되찾기 어렵습니다. |
 | `busy` | 지금은 자리가 없습니다. | **재시도가 유효한 유일한 4xx 입니다.** 잠시 뒤 다시 보내세요. |
+| `chat_bad_code` | 사람 명령의 OTP 코드가 틀렸거나 이미 쓴 코드입니다. | OTP 앱의 새 코드를 넣으세요. 5번 틀리면 5분 잠깁니다. |
+| `chat_bad_request` | 채팅 요청의 모양이 틀렸습니다. | 보낸 값(방 id·이름·목적·본문)의 형식과 필수 항목을 확인하세요. |
+| `chat_daemon_only` | 채팅은 데몬 모드에서만 쓸 수 있습니다. | 데몬 모드로 dongminal 을 시작하세요. |
+| `chat_daemon_restart` | 붙은 데몬이 채팅을 모르는 옛 판입니다. | dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다. |
+| `chat_locked` | 코드를 5번 틀려 도우미가 잠겼습니다. 메시지는 풀리는 시각(RFC 3339)입니다. | 그 시각이 지난 뒤 다시 넣으세요. |
+| `chat_no_helper` | 이 노드에 사람 명령의 도우미가 없거나 닿지 않습니다. | OS 기본 터미널에서 sudo dongminal helper install 로 설치하세요. dongminal helper status 로 확인합니다. |
+| `chat_no_such_participant` | 그 참가자가 온라인 목록에 없습니다. | 온라인 목록을 다시 받아 지금 있는 참가자를 고르세요. |
+| `chat_no_such_room` | 그 방이 없습니다 — 참가자가 모두 나가 사라졌습니다. | 방 목록을 다시 받아 확인하세요. |
+| `chat_not_in_room` | 그 방에 들어가 있지 않습니다. | 방에 다시 들어간 뒤 보내세요. 개인채팅은 상대가 나가면 끝나므로 새로 만드세요. |
+| `chat_rate_limited` | 참가자 하나가 1분 동안 보낼 수 있는 글 수(30)를 넘었습니다. | 잠시 뒤 다시 보내세요. |
+| `chat_too_large` | 글 하나가 16 KiB 를 넘었습니다. | 글을 나눠 보내세요. |
+| `chat_unavailable` | 데몬에 채팅이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | daemon.log 의 edge identity 줄을 보세요. 노드 기능이 서야 채팅도 섭니다. |
+| `chat_unreachable` | 데몬에 닿지 못했습니다. | dongminal health 로 데몬 연결을 보세요. |
 | `claude_account_invalid` | 계정 값이나 요청 값이 허용 범위를 벗어났습니다(별칭 24자, 문턱값 50~100, 우선순위 0~1000, 정해진 색, 자동 전환 설정, 전환의 by·strategy, 기록의 limit). | 범위 안의 값으로 다시 보내세요. |
 | `claude_account_not_found` | 그런 Claude 계정이 등록되어 있지 않습니다. | `dmctl account list` 로 계정 ID 를 확인하세요. |
 | `claude_accounts_unavailable` | 이 서버에는 Claude 계정 기능이 서지 않았습니다 — 데이터 폴더 없이 떴습니다. | dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요. |
@@ -55,6 +68,21 @@
 | `confirmation_required` | 되돌리기 어려운 동작이라 확인이 필요합니다. | 화면의 확인을 거치거나 confirm 을 함께 보내세요. |
 | `conflict` | 다른 변경이 먼저 반영되어 지금 상태와 어긋납니다. | 현재 상태를 다시 받아 확인한 뒤 다시 시도하세요. 덮어쓰지 마세요. |
 | `corrupt_asset` | 내장 자산을 읽지 못했습니다. | 바이너리가 손상됐을 수 있습니다. 다시 내려받아 설치하세요. |
+| `edge_addr_required` | 초대 코드에 담을 이 노드의 주소가 없습니다. | 초대를 만들 때 주소(--addr)를 주거나 노드 설정의 알릴 주소(advertise)를 정하세요. |
+| `edge_ambiguous` | 지문 앞자리가 간선 둘 이상에 맞습니다. | dmctl edges 로 지문을 보고 더 긴 앞자리를 주세요. |
+| `edge_config_invalid` | 노드 설정 값이 규칙에 맞지 않습니다. | 이름은 영문·숫자·`.`·`_`·`-` 1~32자, 포트는 1~65535, 듣는 주소는 IP 입니다. 알릴 주소는 IP 주소나 호스트명입니다. 등록 요청이 이 오류로 거절되면 상대가 쓸 수 없는 주소(zone 이 붙은 link-local 등)에서 왔습니다. 요청하는 노드에 알릴 주소를 정하세요. |
+| `edge_daemon_restart` | 붙은 데몬이 노드 기능을 모르는 옛 판입니다. 노드 기능을 쓰려면 데몬을 다시 시작해야 합니다. | dongminal start --restart-daemon 으로 데몬을 다시 띄우세요. 이때 모든 터미널 세션이 끊깁니다. |
+| `edge_fingerprint_mismatch` | 상대 노드의 지문이 초대 코드와 다릅니다. 아무것도 보내지 않았습니다. | 주소가 다른 기계를 가리키는지 확인하세요. 같은 기계라면 상대가 신원을 새로 만든 것이니 초대를 다시 받으세요. |
+| `edge_invite_invalid` | 초대 코드의 모양이 틀렸습니다. | dmedge1: 로 시작하는 코드를 잘리지 않게 통째로 붙여 넣으세요. |
+| `edge_no_invite` | 상대 노드에 살아 있는 초대가 없습니다 — 만료됐거나 이미 쓰였습니다. | 상대 노드에서 초대를 새로 만들어 받으세요. 초대는 10분 살고 한 번만 쓸 수 있습니다. |
+| `edge_not_edge` | 상대 노드가 이 노드를 간선으로 알지 않습니다 — 상대 쪽에서 간선을 지웠습니다. | 필요하면 새 초대로 간선을 다시 맺으세요. |
+| `edge_not_found` | 그 지문의 간선이 없습니다. | dmctl edges 로 간선의 지문을 확인하세요. 지문 앞자리는 8자리 이상이어야 합니다. |
+| `edge_port_closed` | 노드 포트가 열려 있지 않아 초대를 만들 수 없습니다. | 노드 포트를 켜고(설정 ▸ 간선 또는 PUT /api/edges/node), 열지 못한 사유가 있으면 먼저 해결하세요. |
+| `edge_rate_limited` | 한 출발지 주소가 1분 동안 보낼 수 있는 등록 요청 수(60)를 넘었습니다. | 잠시 뒤 다시 보내세요. |
+| `edge_rejected` | 상대 노드가 이 노드를 받지 않았습니다. | 상대가 옛 판일 수 있습니다. 상대의 dongminal 을 새 판으로 올리세요. |
+| `edge_token_invalid` | 초대 토큰이 맞지 않습니다. | 가장 최근에 만든 초대 코드인지 확인하세요. 새 초대를 만들면 이전 코드는 쓸 수 없습니다. |
+| `edge_unavailable` | 이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | 데몬 모드는 daemon.log, 직접 모드는 server.log 의 edge identity 줄을 보세요. edge-cert.pem·edge-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(간선은 다시 맺어야 합니다). |
+| `edge_unreachable` | 상대 노드에 닿지 못했습니다. | 상대의 노드 포트가 켜져 있는지, 주소·포트가 맞는지, 방화벽이 막지 않는지 확인하세요. 큐·재시도는 없습니다. |
 | `editor_root_protected` | Editor 루트는 지우거나 옮길 수 없습니다. | 목록에서 빼려면 Editor 목록의 제거를 쓰세요. |
 | `empty_message` | 커밋 메시지가 비었습니다. | 메시지를 적으세요. |
 | `empty_name` | 이름이 비었습니다. | 이름을 적어 다시 보내세요. |
@@ -114,28 +142,6 @@
 | `outside_root` | 허용된 뿌리 밖의 경로입니다. | 작업 폴더 안의 경로를 쓰세요. 이 거절이 경계를 지켰습니다. |
 | `patch_empty` | 만들어진 패치가 비었습니다. | 고른 범위를 확인하세요. |
 | `path_must_be_absolute` | 경로가 절대 경로여야 합니다. | `/` 로 시작하는 경로를 보내세요. |
-| `peer_addr_required` | 초대 코드에 담을 이 노드의 주소가 없습니다. | 초대를 만들 때 주소(--addr)를 주거나 노드 설정의 알릴 주소(advertise)를 정하세요. |
-| `peer_agent_unavailable` | 상대 노드에 그 에이전트가 없거나 설치되지 않았습니다. | dmctl peer info <노드> 의 agents 로 상대가 띄울 수 있는 에이전트를 확인하세요. |
-| `peer_config_invalid` | 노드 설정 값이 규칙에 맞지 않습니다. | 이름은 영문·숫자·`.`·`_`·`-` 1~32자, 포트는 1~65535, 듣는 주소는 IP 입니다. 허용 폴더는 절대 경로, 알릴 주소는 IP 주소나 호스트명입니다. 등록 요청이 이 오류로 거절되면 상대가 쓸 수 없는 주소(zone 이 붙은 link-local 등)에서 왔습니다. 요청하는 노드에 알릴 주소를 정하세요. |
-| `peer_dir_not_allowed` | 그 폴더는 상대 노드가 허용한 폴더 밖입니다. 허용 폴더가 비어 있으면 모든 띄우기를 거절합니다. | dmctl peer info <노드> 의 allowedDirs 안의 폴더를 쓰세요. 허용 폴더는 받는 노드의 사용자가 정합니다. |
-| `peer_fingerprint_mismatch` | 상대 노드의 지문이 초대 코드와 다릅니다. 아무것도 보내지 않았습니다. | 주소가 다른 기계를 가리키는지 확인하세요. 같은 기계라면 상대가 신원을 새로 만든 것이니 초대를 다시 받으세요. |
-| `peer_invite_invalid` | 초대 코드의 모양이 틀렸습니다. | dmpeer1: 로 시작하는 코드를 잘리지 않게 통째로 붙여 넣으세요. |
-| `peer_name_taken` | 그 이름의 짝이 이미 있습니다. | 다른 이름(--name)을 정하세요. |
-| `peer_no_invite` | 상대 노드에 살아 있는 초대가 없습니다 — 만료됐거나 이미 쓰였습니다. | 상대 노드에서 초대를 새로 만들어 받으세요. 초대는 10분 살고 한 번만 쓸 수 있습니다. |
-| `peer_not_found` | 그 이름의 짝이 없습니다. | dmctl peers 로 짝 이름을 확인하세요. |
-| `peer_not_owner` | 이 노드가 띄운 도구가 아니라서 닫을 수 없습니다. | 원격으로는 자기가 agent.spawn 으로 띄운 도구만 닫을 수 있습니다. |
-| `peer_pending_not_found` | 그 승인 대기가 없습니다 — 만료됐거나 이미 처리됐습니다. | dmctl peers 로 지금 목록을 보세요. 승인 대기는 10분 뒤 사라집니다. |
-| `peer_port_closed` | 노드 포트가 열려 있지 않아 초대를 만들 수 없습니다. | 노드 포트를 켜고(설정 ▸ Peers 또는 PUT /api/peers/node), 열지 못한 사유가 있으면 먼저 해결하세요. |
-| `peer_rate_limited` | 이 짝이 1분 동안 보낼 수 있는 요청 수(60)를 넘었습니다. | 잠시 뒤 다시 보내세요. 반복 호출이라면 간격을 두세요. |
-| `peer_rejected` | 상대 노드가 이 노드를 받지 않았습니다. | 상대가 짝을 해제했을 수 있습니다. 필요하면 짝을 다시 맺으세요. |
-| `peer_spawn_limit` | 이 짝이 띄워 둔 도구가 상한(4개)에 닿았습니다. 아무것도 띄우지 않았습니다. | 다 쓴 도구를 agent.close 로 닫은 뒤 다시 띄우세요. |
-| `peer_target_busy` | 상대 노드가 그 도구에 다른 원격 글을 넣는 중이거나 이미 닫는 중입니다. 아무것도 하지 않았습니다. | 잠시 뒤 다시 보내세요. 한 도구에는 원격 글을 한 번에 하나씩 넣고, 닫기도 한 번에 하나만 합니다. |
-| `peer_target_not_agent` | 그 도구에서 지금 에이전트가 돌고 있지 않습니다. 아무것도 넣지 않았습니다. | 에이전트가 끝났을 수 있습니다. dmctl peer tools <노드> 로 다시 확인하세요. |
-| `peer_target_not_found` | 상대 노드에 그 도구가 없습니다. | dmctl peer tools <노드> 로 지금 목록을 다시 받으세요. |
-| `peer_token_invalid` | 초대 토큰이 맞지 않습니다. | 가장 최근에 만든 초대 코드인지 확인하세요. 새 초대를 만들면 이전 코드는 쓸 수 없습니다. |
-| `peer_unavailable` | 이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | server.log 의 peer identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(짝은 다시 맺어야 합니다). |
-| `peer_unknown_op` | 모르는 프로토콜 명령입니다. | node.info 의 commands 로 상대가 받는 명령을 확인하세요. 원격으로는 정해진 명령만 오갑니다. |
-| `peer_unreachable` | 상대 노드에 닿지 못했습니다. | 상대의 노드 포트가 켜져 있는지, 주소·포트가 맞는지, 방화벽이 막지 않는지 확인하세요. 큐·재시도는 없습니다. |
 | `permission_denied` | 파일 권한이 이 동작을 막았습니다. | 그 파일과 상위 폴더의 권한을 보세요. |
 | `preflight_blocked` | 사전 점검이 이 동작을 막았습니다. | 본문의 사유를 읽고 그 조건을 먼저 해소하세요. |
 | `publish_required` | 이 브랜치가 아직 원격에 없습니다. | 먼저 publish(최초 push) 하세요. |
@@ -185,4 +191,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **151개**.
+총 **157개**.

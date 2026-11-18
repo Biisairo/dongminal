@@ -25,7 +25,7 @@ Object.assign(App.prototype, {
   _tgPairPaint(){
     const v=this._tg;
     const mine=this._tgPair;
-    const left=mine?peerRemain(mine.expires,Date.now()):'';
+    const left=mine?edgeRemain(mine.expires,Date.now()):'';
     // 내 코드는 만료되었거나, 서버에 더는 살아 있는 코드가 없을 때(등록됨·해제) 버린다.
     if(mine&&(!left||!(v&&v.pair))) this._tgPair=null;
     const box=document.getElementById('tg-pair-box');

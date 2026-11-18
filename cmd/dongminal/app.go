@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"dongminal/internal/shared/toolipc"
 	"errors"
 	"os/signal"
 	"path/filepath"
@@ -80,6 +81,10 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 		a.bd, err = buildDepsWithHub(cfg, a.panedClient, gitRoot)
 		if err == nil {
 			a.wireDaemonPushes()
+			// PEER_DAEMON_SRS §3.5a: 데몬이 노드다. 서버는 통로와 로컬 API 위임만 한다.
+			a.bd.deps.EdgeDaemon = a.panedClient
+			// PEER_CHAT_SRS §3.11: 채팅의 사람 참가자도 데몬에 있다.
+			a.bd.deps.ChatDaemon = a.panedClient
 			if a.bd.attnTracker != nil {
 				a.records = newRecordWriter(a.panedClient, a.bd.attnTracker)
 				a.bd.deps.Records = a.records
@@ -117,6 +122,7 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 		return nil, errors.Join(errServerInit, err)
 	}
 	a.wireDaemonRecords()
+	a.wireDaemonEdges()
 	return a, nil
 }
 
@@ -126,6 +132,19 @@ var (
 	errRuntimeInstall = errors.New("runtime install")
 	errServerInit     = errors.New("server init")
 )
+
+// wireDaemonEdges 는 데몬 노드의 push 와 재접속을 서버에 잇는다 (PEER_DAEMON_SRS FR-PDM-27·33).
+// 서버가 선 뒤에 건다 — 콜백이 서버를 부른다.
+func (a *app) wireDaemonEdges() {
+	if a.panedClient == nil {
+		return
+	}
+	a.panedClient.SetOnEdges(func(ev toolipc.EdgesEvent) { a.srv.EdgePushed(ev) })
+	a.panedClient.SetOnEdgeResync(a.srv.EdgeResync)
+	// PEER_CHAT_SRS §3.11: 사람에게 온 글과 채팅 바뀜을 화면에 방송한다.
+	a.panedClient.SetOnChat(a.srv.ChatPushed)
+	a.panedClient.SetOnChatResync(a.srv.ChatResync)
+}
 
 // wireDaemonPushes 는 데몬 모드의 push 콜백이다 — 출력은 해석층 → 주의 추적,
 // 종료는 해석층 → 활동 정리 → 백그라운드 방송, 전경은 방송.
@@ -226,7 +245,7 @@ func (a *app) run(ctx context.Context) error {
 	// 게이트 판정에 DNS 왕복이 붙으면 모든 요청이 그만큼 느려진다.
 	a.srv.StartAccessRefresh(ctx.Done())
 	// PEER_NETWORK_SRS FR-PNW-4: 노드 포트. 꺼져 있으면 아무것도 열지 않는다.
-	closePeer := startPeerScoped(ctx, a.srv.StartPeer)
+	closeEdge := startEdgeScoped(ctx, a.srv.StartEdge)
 	// TELEGRAM_BRIDGE_SRS NFR-TGB-1: 꺼져 있으면 Telegram 에 아무 요청도 하지 않는다.
 	a.srv.StartTelegram(ctx.Done())
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-50: 등록된 계정이 없으면 아무 요청도 하지 않는다.
@@ -275,13 +294,13 @@ func (a *app) run(ctx context.Context) error {
 	// 5초 폴링 뒤 "기동 실패" 만 낸다 — 어느 값이 문제인지가 없다.
 	err := a.srv.Run(ctx, dmenv.ListenAddr(a.host, a.port))
 	// 노드 포트를 닫고 기다린다. Run 이 종료 신호 없이 실패해도(포트 사용 중) 닫는다 (C7).
-	closePeer()
+	closeEdge()
 	return err
 }
 
-// startPeerScoped 는 노드 포트를 ctx 가 끝나거나 돌려준 함수를 부르면 닫히게 띄운다.
+// startEdgeScoped 는 노드 포트를 ctx 가 끝나거나 돌려준 함수를 부르면 닫히게 띄운다.
 // 돌려준 함수는 닫기가 끝날 때까지 기다린다.
-func startPeerScoped(ctx context.Context, start func(stop <-chan struct{}) <-chan struct{}) func() {
+func startEdgeScoped(ctx context.Context, start func(stop <-chan struct{}) <-chan struct{}) func() {
 	pctx, cancel := context.WithCancel(ctx)
 	done := start(pctx.Done())
 	return func() {

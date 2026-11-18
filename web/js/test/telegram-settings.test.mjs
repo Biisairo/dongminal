@@ -29,7 +29,7 @@ function setup() {
     calls.push([method, path, body]);
     return replies[method + ' ' + path] || { ok: true, status: 200, data: null };
   };
-  const ctx = load(['core/app-peers.js', 'core/app-settings-telegram.js'], {
+  const ctx = load(['core/app-edges.js', 'core/app-settings-telegram.js'], {
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),

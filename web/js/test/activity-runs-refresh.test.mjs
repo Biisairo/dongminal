@@ -36,7 +36,7 @@ function rig() {
   app.refreshes = 0;
   app._actRefresh = () => { app.refreshes++ };
   app.agentsRender = () => {};
-  app._actScrollTo = () => {};
+  app._actTabSelect = () => {};
   return { app, panel: els['agents-panel'] };
 }
 

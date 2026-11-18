@@ -1,8 +1,8 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/sse"
 	"net/http"
 )

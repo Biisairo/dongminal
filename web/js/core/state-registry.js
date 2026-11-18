@@ -234,14 +234,26 @@ const STATE_REGISTRY=[
   {
     /**
      * PEER_NETWORK_SRS FR-PNW-81·82 — 짝·승인 대기. `every` 가 없다 — 바뀌면 서버가
-     * `peers_changed` 로 민다. 끊겨 있던 동안 생긴 대기는 재연결의 스냅샷이 준다.
+     * `edges_changed` 로 민다. 끊겨 있던 동안 생긴 대기는 재연결의 스냅샷이 준다.
      */
-    id:'peers',
-    restore:'_peersRestore',
+    id:'edges',
+    restore:'_edgesRestore',
     merge:'latest',
-    flight:'peers',
-    part:'peers',
-    events:{peers_changed:'_onPeersChanged'},
+    flight:'edges',
+    part:'edges',
+    events:{edges_changed:'_onEdgesChanged'},
+    revalidateOn:['sse:open','softreload'],
+  },
+  {
+    /**
+     * PEER_CHAT_SRS §3.11 — 채팅의 나·온라인 목록·방. `every` 가 없다 — 바뀌면 서버가
+     * `chat_changed` 로 민다. 사람에게 온 글은 `chat_message` 로 오고 화면만 든다.
+     */
+    id:'chat',
+    restore:'_chatRestore',
+    merge:'latest',
+    flight:'chat',
+    events:{chat_changed:'_onChatChanged',chat_message:'_onChatMessage'},
     revalidateOn:['sse:open','softreload'],
   },
   {

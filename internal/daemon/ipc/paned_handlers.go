@@ -67,6 +67,8 @@ func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 		pc.serverFeatures = p.Features
 		pc.reports.Store(toolipc.HasFeature(p.Features, toolipc.FeatureReports))
 		pc.attention.Store(toolipc.HasFeature(p.Features, toolipc.FeatureAttention))
+		pc.edge.Store(toolipc.HasFeature(p.Features, toolipc.FeatureEdge))
+		pc.chat.Store(toolipc.HasFeature(p.Features, toolipc.FeatureChat))
 	}
 	// FR-VHL-1: 판을 **둘로 나눠** 싣는다.
 	//
@@ -157,22 +159,15 @@ func (pc *panedConn) write(req *toolipc.PanedRequest) interface{} {
 	return okResp(req, struct{}{})
 }
 
+// pasteInto 는 paste 의 실제 쓰기다. 시험이 오래 걸리는 paste 를 흉내 내는 자리다.
+var pasteInto = (*toolhub.ToolManager).SendPaste
+
 // pasteWith 는 감싸기 판단까지 **데몬에서** 한다. 셸이 bracketed paste 모드를 켰는지는
 // PTY 출력을 읽는 이쪽만 알고, 클라이언트의 Get(id) 은 cmd 없는 합성 Tool 을 주기
 // 때문이다 (BRACKETED_PASTE_SRS FR-BPW-4). cwd·busy 가 데몬 RPC 를 경유하는 것과
-// 같은 이유다. Foreground 가 비면 조건 없이 넣는다 — 그 판정은
-// 웹서버의 공통 입구가 한다 (PEER_NETWORK_SRS I-67). 이 갈래는 평범한 SendPaste 다.
+// 같은 이유다.
 func (pc *panedConn) pasteWith(req *toolipc.PanedRequest, p toolipc.PasteParams) interface{} {
-	var err error
-	if p.Foreground != "" {
-		err = pc.pm.SendPasteIfForeground(p.ID, p.Data, p.Submit, p.Foreground)
-	} else {
-		err = pc.pm.SendPaste(p.ID, p.Data, p.Submit)
-	}
-	switch {
-	case errors.Is(err, toolhub.ErrForegroundChanged):
-		return errResp(req, toolipc.CodeForegroundChanged, err)
-	case err != nil:
+	if err := pasteInto(pc.pm, p.ID, p.Data, p.Submit); err != nil {
 		return errResp(req, toolipc.CodeServer, err)
 	}
 	return okResp(req, struct{}{})

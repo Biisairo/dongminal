@@ -319,8 +319,10 @@ test.describe('FR-CMP-81: 배지의 모양', () => {
 
     // UI_POLISH_SRS FR-UIP-7: 0 은 감춘다 — 모양은 보일 때의 것이므로 감춤만 풀고 잰다.
     const got = await page.evaluate(() => {
-      const b = document.querySelector('#agents-panel .ag-sec-n') as HTMLElement;
+      const b = document.querySelector('#agents-panel .ag-tab-n') as HTMLElement;
       b.hidden = false;
+      // 0 인 배지는 글자가 없다 (UIKit.tab). 한 자리 수의 모양을 재려고 한 자리를 넣는다.
+      if (!b.textContent) b.textContent = '1';
       const r = b.getBoundingClientRect();
       const cs = getComputedStyle(b);
       return {

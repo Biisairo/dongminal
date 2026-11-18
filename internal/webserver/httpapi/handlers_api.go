@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/sandbox"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
-	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/httproute"
 	"dongminal/internal/webserver/sse"
 )
@@ -110,7 +110,7 @@ var apiRoutes = []apiRoute{
 	//
 	// 순서 주의: 매칭은 **첫 성공이 이긴다**(§dispatch). 아래 정확 매칭 종단들이
 	// /api/runs/{id}/graph 의 prefix 매칭보다 먼저 와야 한다.
-	httproute.Get("/api/runs/peers", (*Server).apiRunPeers),            // 묶음 P (WS-4)
+	httproute.Get("/api/runs/team", (*Server).apiRunTeam),              // 묶음 P (WS-4)
 	httproute.Post("/api/runs/attach", (*Server).apiRunAttach),         // 묶음 H (WS-2)
 	httproute.Post("/api/runs/detach", (*Server).apiRunDetach),         // 묶음 H (WS-2)
 	httproute.Post("/api/runs/succeed", (*Server).apiRunSucceed),       // 묶음 C (WS-3)
@@ -237,17 +237,21 @@ var apiRoutes = []apiRoute{
 	httproute.Get("/api/workspace/revisions", (*Server).apiWorkspaceRevisions),
 	httproute.Post("/api/workspace/revert", (*Server).apiWorkspaceRevert),
 	httproute.Get("/api/stats", (*Server).apiStats),
-	// PEER_NETWORK_SRS FR-PNW-70: 노드 간 통신의 로컬 API (peer_api.go).
-	httproute.Get("/api/peers", (*Server).apiPeersGet),
-	httproute.Put("/api/peers/node", (*Server).apiPeersNodePut),
-	httproute.Post("/api/peers/invite", (*Server).apiPeersInvite),
-	httproute.Post("/api/peers/add", (*Server).apiPeersAdd),
-	httproute.Get("/api/peers/pending", (*Server).apiPeersPending),
-	httproute.Post("/api/peers/approve", (*Server).apiPeersApprove),
-	httproute.Post("/api/peers/reject", (*Server).apiPeersReject),
-	httproute.Post("/api/peers/remove", (*Server).apiPeersRemove),
-	httproute.Put("/api/peers/address", (*Server).apiPeersAddress),
-	httproute.Post("/api/peers/call", (*Server).apiPeersCall),
+	// PEER_NETWORK_SRS FR-PNW-70: 노드 간 통신의 로컬 API (edge_api.go).
+	httproute.Get("/api/chat", (*Server).apiChatGet),
+	httproute.Post("/api/chat/create", (*Server).apiChatCreate),
+	httproute.Post("/api/chat/direct", (*Server).apiChatDirect),
+	httproute.Post("/api/chat/join", (*Server).apiChatJoin),
+	httproute.Post("/api/chat/leave", (*Server).apiChatLeave),
+	httproute.Post("/api/chat/send", (*Server).apiChatSend),
+	httproute.Post("/api/chat/kill", (*Server).apiChatKill),
+	httproute.Post("/api/chat/kick", (*Server).apiChatKick),
+	httproute.Get("/api/edges", (*Server).apiEdgesGet),
+	httproute.Put("/api/edges/node", (*Server).apiEdgesNodePut),
+	httproute.Post("/api/edges/invite", (*Server).apiEdgesInvite),
+	httproute.Post("/api/edges/add", (*Server).apiEdgesAdd),
+	httproute.Post("/api/edges/remove", (*Server).apiEdgesRemove),
+	httproute.Put("/api/edges/address", (*Server).apiEdgesAddress),
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-120 (claude_accounts_api.go).
 	httproute.Get("/api/claude-accounts", (*Server).apiClaudeAccountsList),
 	httproute.Post("/api/claude-accounts/add", (*Server).apiClaudeAccountsAdd),

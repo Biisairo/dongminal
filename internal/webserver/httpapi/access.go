@@ -10,7 +10,7 @@ import (
 	"net"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"net/netip"
 	"os"
 	"strings"
@@ -18,8 +18,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/platform"
-	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/sse"
 )
 

@@ -188,40 +188,29 @@ test.describe('FR-SBR-8·9 (D-7 개정): 활동 진입점', () => {
 
   /**
    * FR-CHR-18 · NFR-4: 버튼이 없어졌다고 외운 키를 뺏지 않는다. 셋이 **문
-   * 하나**를 열고, 앞의 둘은 제 구역을 펴 준다.
+   * 하나**를 열고, 앞의 둘은 제 탭을 고른다.
    *
-   * 스크롤 자체가 아니라 **접힌 구역이 펴지는 것**을 잰다 (`_actScrollTo`) —
-   * 스크롤 위치는 패널 높이에 따라 흔들리지만 접힘은 결정적이다.
+   * PEER_CHAT_SRS §4.2: 구역 접기가 없어지고 탭 줄이 됐다. 키의 일은 "제 구역을 편다" 에서
+   * "제 탭을 고른다" 로 바뀌었다.
    */
-  test('TC-CHR-18: 단축키 셋이 살아 각자의 구역을 연다', async ({ page }) => {
+  test('TC-CHR-18: 단축키 셋이 살아 각자의 탭을 연다', async ({ page }) => {
     await waitForInit(page);
-    const folded = (sec: string) => page.locator(`#agents-panel .ag-sec[data-sec="${sec}"].folded`);
-
-    // 세 구역을 **화면에서** 접어 둔다 — 펴지는 것이 키의 일이었음을 드러낸다.
-    // 접기는 머리의 몸통으로 한다 (FR-ACT-10).
-    await page.click('#agents-panel .ag-collapse');
-    await expect(page.locator('#agents-panel.open')).toBeVisible();
-    for (const sec of ['agents', 'bg', 'runs']) {
-      await page.locator(`#agents-panel .ag-sec[data-sec="${sec}"] .ag-sec-name`).click();
-      await expect(folded(sec)).toHaveCount(1);
-    }
-    await page.click('#agents-panel .ag-collapse');
-    await expect(page.locator('#agents-panel.open')).toHaveCount(0);
+    const active = (sec: string) => page.locator(`#agents-panel .ag-tab[data-sec="${sec}"].active`);
 
     await page.keyboard.press('Control+Shift+KeyB');
     await expect(page.locator('#agents-panel.open')).toBeVisible();
-    await expect(folded('bg')).toHaveCount(0);
-    await expect(folded('runs'), '부르지 않은 구역까지 폈다').toHaveCount(1);
+    await expect(active('bg')).toHaveCount(1);
 
     await page.keyboard.press('Control+Shift+KeyO');
-    await expect(folded('runs')).toHaveCount(0);
+    await expect(active('runs')).toHaveCount(1);
+    await expect(active('bg')).toHaveCount(0);
 
-    // `Ctrl+Shift+A` 는 구역을 지정하지 않는 **문 그 자체**다 — 토글로 닫힌다.
+    // `Ctrl+Shift+A` 는 탭을 지정하지 않는 **문 그 자체**다 — 토글로 닫힌다.
     await page.keyboard.press('Control+Shift+KeyA');
     await expect(page.locator('#agents-panel.open')).toHaveCount(0);
     await page.keyboard.press('Control+Shift+KeyA');
     await expect(page.locator('#agents-panel.open')).toBeVisible();
-    await expect(folded('agents'), '문만 여는 키가 구역까지 폈다').toHaveCount(1);
+    await expect(active('runs'), '문만 여는 키가 탭을 바꿨다').toHaveCount(1);
   });
 });
 
@@ -242,7 +231,7 @@ test.describe('FR-BGU-6..8 (FR-ACT-1·2 개정): 백그라운드 구역', () => 
     await makeBackgroundTool(page, request);
 
     await pressBgKey(page);
-    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
+    await expect(page.locator('#agents-panel.open .ag-tab[data-sec="bg"].active')).toBeVisible();
     // 조회 경로에 **보이는** 오버레이가 없다 (FR-ACT-2 · §9 의 검증 항목).
     // `#modal-overlay` 는 설정의 것으로 항상 DOM 에 있고 숨어 있다 — 세는 것은
     // 존재가 아니라 화면을 덮었는가다.

@@ -34,9 +34,9 @@ function shardPort(i, env) {
   }
 }
 
-test('기본 뿌리는 58147 이고 샤드마다 10 씩 옮긴다', { skip }, () => {
-  assert.equal(shardPort(1, {}).port, 58147);
-  assert.equal(shardPort(3, {}).port, 58167);
+test('기본 뿌리는 60147 이고 샤드마다 10 씩 옮긴다', { skip }, () => {
+  assert.equal(shardPort(1, {}).port, 60147);
+  assert.equal(shardPort(3, {}).port, 60167);
 });
 
 test('E2E_PORT_BASE 가 뿌리를 옮긴다', { skip }, () => {
@@ -50,7 +50,13 @@ test('운영 포트 58146 을 덮는 뿌리는 거절한다', { skip }, () => {
   assert.equal(r.port, null, '거절했는데 playwright 를 불렀다');
 });
 
-test('격리 재실행 대역도 뿌리를 따른다 (기본 59000)', () => {
-  assert.equal(isolationPortBase({}), 59000);
-  assert.equal(isolationPortBase({ E2E_PORT_BASE: '60500' }), 60500 + (59000 - 58147));
+test('노드 포트 기본값 58147 을 덮는 뿌리도 거절한다', { skip }, () => {
+  const r = shardPort(1, { E2E_PORT_BASE: '58147' });
+  assert.notEqual(r.status, 0, r.out);
+  assert.equal(r.port, null, '거절했는데 playwright 를 불렀다');
+});
+
+test('격리 재실행 대역도 뿌리를 따른다 (기본 61000)', () => {
+  assert.equal(isolationPortBase({}), 61000);
+  assert.equal(isolationPortBase({ E2E_PORT_BASE: '60500' }), 60500 + 853);
 });

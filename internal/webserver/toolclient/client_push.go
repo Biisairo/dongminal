@@ -30,6 +30,10 @@ func (pc *ToolClient) handlePush(m *wireMsg) {
 		pc.pushReport(m)
 	case toolipc.EventAttn:
 		pc.pushAttn(m)
+	case toolipc.EventEdges:
+		pc.pushEdges(m)
+	case toolipc.EventChat:
+		pc.pushChat(m)
 	}
 }
 

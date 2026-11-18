@@ -11,15 +11,15 @@ import (
 	"io"
 	"net/http"
 
-	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/shared/httpreq"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/textenc"
 	"dongminal/internal/webserver/domain/lsp"
-	"dongminal/internal/webserver/httpresp"
 )
 
 // 파일 종단 — 업로드·다운로드·읽기·쓰기와 그 기준 경로(cwd). 경로를 사용자 입력에서
