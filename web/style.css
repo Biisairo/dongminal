@@ -1131,6 +1131,23 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .act-usage-sl:last-child{padding-bottom:6px;margin-bottom:-10px}
 .act-usage-sl .cacct-name{color:var(--text-muted)}
 .act-usage-sl.stale{opacity:.5}
+/* 좁은 패널(바닥 안쪽 폭 300px 미만 ≈ 패널 324px 미만): 이름 줄 아래로 칸 줄을 내리고, 색 바 여백을 줄이고, 머리 줄을 두 줄로 나눈다. 안쪽 폭 150px 미만이면 칸을 한 줄에 하나씩 쌓는다. */
+.act-usage-foot{container-type:inline-size}
+@container (max-width:299px){
+  .act-usage-head{flex-wrap:wrap;align-items:center;row-gap:2px}
+  .act-usage-name{flex-basis:100%}
+  .act-usage-head .cacct-auto{margin-left:0;flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .act-usage-head .cacct-smart{margin-left:auto}
+  .cacct,.act-usage-sl-h,.act-usage-sl{padding-left:16px}
+  .cacct-bar{width:12px}
+  .cacct-head,.act-usage-sl{flex-wrap:wrap;row-gap:2px}
+  .cacct-who{flex:1 1 100%}
+  .act-usage-sl .cacct-who:empty{display:none}
+  .cacct-cells{flex:1 1 100%;grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@container (max-width:149px){
+  .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:3px}
+}
 
 .pn-body{flex:1;position:relative;overflow:hidden}
 
