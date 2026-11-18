@@ -61,11 +61,11 @@ Object.assign(RunsPanel.prototype, {
     let bar = root.querySelector('.run-recover-bar');
     if (!bar) { bar = runDiv('run-recover-bar'); sum.after(bar) }
     const show = d.state === 'open' && runRecoverAny(d);
-    paintIfChanged(bar, show ? d.id : '', () => {
+    paintIfChanged(bar, show ? d.runId : '', () => {
       bar.textContent = '';
       if (!show) return;
       const btn = UIKit.button({ label: t('runs.recover_all'), title: TIP_RUNS_RECOVER_ALL, size: 'sm', cls: 'run-recover-all',
-        onClick: () => this._runRecover(d.id, null, false, btn) });
+        onClick: () => this._runRecover(d.runId, null, false, btn) });
       bar.appendChild(btn);
     });
   },

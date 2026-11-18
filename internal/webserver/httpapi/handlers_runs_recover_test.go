@@ -278,6 +278,19 @@ func TestApiRunView_Recoverable(t *testing.T) {
 	}
 }
 
+// TC-RRC-10: 대시보드는 /graph 로 그린다 — 거기에도 복구 버튼의 근거가 실려야 한다.
+func TestApiRunGraph_Recoverable(t *testing.T) {
+	f := newRecoverFixture(t)
+	_, out := getRun(t, f.s, "/api/runs/"+f.runID+"/graph")
+	if out["coordinatorRecoverable"] != true || out["coordinatorAgent"] != "claude" {
+		t.Fatalf("조정자: rec=%v agent=%v", out["coordinatorRecoverable"], out["coordinatorAgent"])
+	}
+	members := memberMap(t, out)
+	if members["c"]["recoverable"] != true || members["e"]["recoverable"] == true {
+		t.Fatalf("c=%v e=%v", members["c"]["recoverable"], members["e"]["recoverable"])
+	}
+}
+
 // TC-RRC-10 (FR-RRC-31): 트리 노드도 복구 버튼의 근거를 싣는다 — 트리는 여러 Run 에 걸친다.
 func TestRunsTree_Recoverable(t *testing.T) {
 	s, _, store, _ := runsServer(t, "tool-a")

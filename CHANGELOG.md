@@ -38,8 +38,9 @@
   [--member <uuid> | --coordinator] [--force]` 나 Run 화면의 **빈 셸 복구**·노드별 **복구** 버튼이 조정자·멤버의 에이전트를
   기록된 세션 id 로 재개합니다(`claude --resume <id>`, `omp --resume=<id>`; codex 는 아직 아님). 세션이 이미 돌거나
   셸에서 다른 프로그램이 돌면 넣지 않고, 방금 넣은 도구는 15초 동안 다시 넣지 않습니다. 셸을 판정하지 못하면 노드별 복구만
-  확인을 받고 진행합니다. 로컬 API 는 `POST /api/runs/recover`, Run 보기에 `recoverable`·`coordinatorRecoverable` 이
-  실립니다. **셸 판정은 데몬 교체(`dongminal start`) 뒤에 켜집니다.**
+  확인을 받고 진행합니다. 로컬 API 는 `POST /api/runs/recover`, Run 보기와 대시보드 응답(`/api/runs/<id>/graph`)에
+  `recoverable`·`coordinatorRecoverable` 이 실립니다. 대시보드 응답은 조정자 노드의 에이전트와 컨텍스트 사용률도 싣습니다.
+  **셸 판정은 데몬 교체(`dongminal start`) 뒤에 켜집니다.**
 - **데몬을 세션을 유지한 채 새 판으로 교체합니다(macOS·Linux).** `dongminal start` 가 서버를 끄기 전에 데몬을 같은
   프로세스 번호로 새 바이너리로 갈아 끼웁니다. 셸·에이전트·화면 내용·활동 기록이 이어집니다. 교체에 실패하면 아무것도 끄지
   않고 종료 코드 1로 끝납니다. 돌고 있는 데몬이 옛 판이면 서버만 다시 띄우고, 한 번은 `--refresh-daemon` 이 필요하다고

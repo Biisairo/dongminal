@@ -172,7 +172,7 @@ test('TC-RRC-12: 트리는 조정자를 루트로 세우고 최상위 노드를 
     { id: 'b', role: 'r›1', parent: 'r', state: 'done', runId: 'R1' },
     { id: 'c', role: 'x', parent: 'gone', state: 'working', runId: 'R1' },
   ];
-  const coord = ix.runCoordItem({ id: 'R1', coordinatorToolId: 'T0' });
+  const coord = ix.runCoordItem({ runId: 'R1', coordinatorToolId: 'T0' });
   const out = plain(ix.runTreeWithCoord(nodes, coord));
   assert.equal(out.length, 4);
   assert.equal(out[0].id, ix.RUN_COORD);
@@ -186,7 +186,7 @@ test('TC-RRC-12: 트리는 조정자를 루트로 세우고 최상위 노드를 
   const multi = plain(ix.runTreeWithCoord([
     { id: 'a', role: 'r', parent: '', state: 'working', runId: 'R1' },
     { id: 'x', role: 'b', parent: '', state: 'working', runId: 'R2' },
-  ], ix.runCoordItem({ id: 'R1', coordinatorToolId: 'T0' })));
+  ], ix.runCoordItem({ runId: 'R1', coordinatorToolId: 'T0' })));
   assert.deepEqual(multi.slice(1).map((n) => n.parent), [ix.RUN_COORD, '']);
   // 조정자가 없으면 노드는 그대로다. 원본은 바뀌지 않는다.
   assert.equal(ix.runTreeWithCoord(nodes, null), nodes);

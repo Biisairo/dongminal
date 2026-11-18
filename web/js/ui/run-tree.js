@@ -272,7 +272,7 @@ function runCoordItem(d) {
   return Object.assign({}, d.coordinator || {}, {
     id: RUN_COORD, role: RUN_COORD, coord: true, state: '', parent: '',
     toolId: d.coordinatorToolId, agent: d.coordinatorAgent || '', title: t('runs.coordinator'),
-    runId: d.id, recoverable: !!d.coordinatorRecoverable,
+    runId: d.runId, recoverable: !!d.coordinatorRecoverable,
   });
 }
 

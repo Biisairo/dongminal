@@ -20,7 +20,7 @@
 | **묶음 J** | 판정 (Judge) — 재개 대상 고르기, 세션 생존과 셸 점유 판정 | `FR-RRC-10..17` |
 | **묶음 E** | 실행 (Execute) — API·`dmctl run recover`·조정자 에이전트 기록 | `FR-RRC-20..28` |
 | **묶음 W** | 화면 (Web) — Run 단위 버튼, 노드별 버튼 | `FR-RRC-30..35` |
-| **묶음 F** | 결함 수정 (Fix) — 조정자 표시, 승계 멤버 상태 | `FR-RRC-40..45` |
+| **묶음 F** | 결함 수정 (Fix) — 조정자 표시, 승계 멤버 상태 | `FR-RRC-40..46` |
 
 **미포함:** §6 비목표.
 
@@ -188,7 +188,7 @@
 
 **FR-RRC-25** 조정자의 에이전트 id 를 Run 기록에 저장한다. 맥락 관측이 조정자에게 앉을 때(`observeCoordinator`) 관측의 `Agent` 가 비어 있지 않으면 `Record.CoordinatorAgent`(`coordinatorAgent`, `omitempty`)에 적는다. 값이 바뀌면 저장한다.
 
-**FR-RRC-26** 응답의 Run 보기(`/api/runs`·`/api/runs/{id}`)에 화면이 버튼을 그릴 근거를 싣는다. 멤버마다 `recoverable`(불리언)이다. 조정자는 Run 에 `coordinatorRecoverable` 로 싣는다. 판정은 FR-RRC-11 의 1~6 이다. 7~11 은 싣지 않는다 — 목록을 그릴 때마다 프로세스 목록을 읽지 않기 위해서다.
+**FR-RRC-26** 응답의 Run 보기(`/api/runs`·`/api/runs/{id}`)와 대시보드 응답(`/api/runs/{id}/graph`)에 화면이 버튼을 그릴 근거를 싣는다. Run 화면은 대시보드 응답으로 그리므로, 그 응답에 빠지면 버튼이 보이지 않는다. 멤버마다 `recoverable`(불리언)이다. 조정자는 Run 에 `coordinatorRecoverable` 로 싣는다. 판정은 FR-RRC-11 의 1~6 이다. 7~11 은 싣지 않는다 — 목록을 그릴 때마다 프로세스 목록을 읽지 않기 위해서다.
 
 **FR-RRC-27** 이 API 는 다른 Run API 와 같은 인증을 따른다. 새 권한을 만들지 않는다(§2.5). 서버 로그에는 대상·결과·사유만 남기고 재개줄 본문은 남기지 않는다.
 
@@ -214,6 +214,12 @@
 ### 3.5 묶음 F — 결함 수정
 
 **FR-RRC-40** 트리 Run 의 트리 다이어그램은 맨 위에 조정자 노드를 둔다. 이 Run 의 최상위 노드들은 조정자 노드의 자식으로 이어 그린다. 트리는 같은 트리의 여러 Run(가지 Run)에 걸치므로, 다른 Run 의 최상위 노드는 루트로 둔다. 조정자 노드는 그 Run 의 조정자 관측(`coordinator`)을 멤버 노드와 같은 규칙으로 그린다(FR-RCX-8).
+
+**FR-RRC-46** 대시보드 응답(`/api/runs/{id}/graph`)은 조정자 노드를 그릴 값을 싣는다.
+
+- `coordinatorAgent`: 조정자의 에이전트 id 다(FR-RRC-25).
+- `coordinator`: 조정자 관측 가운데 멤버 노드와 같은 다섯 값만 싣는다. `contextRatio`·`contextLevel`·`compactCount`·`contextTokens`·`contextLimit` 이다. `sessionId`·`contextBytes`·`contextAt`·`windowOfficial` 은 싣지 않는다(NFR-RVZ-3). 관측이 없으면 `coordinator` 를 싣지 않는다.
+- Run id 는 `runId` 에 실린다. 화면은 이 응답의 Run id 를 `runId` 로 읽는다.
 
 **FR-RRC-41** 카드 목록은 맨 앞에 조정자 카드를 둔다. 조정자 도구가 없는 Run(`coordinatorToolId` 가 비었다)은 조정자 노드와 카드를 그리지 않는다.
 
@@ -248,11 +254,13 @@
 | TC-RRC-7 | FR-RRC-23 | 유닛(httpapi) — 재개 하나 이상이면 `run_changed` 한 번, 없으면 0 번 | 그렇다 |
 | TC-RRC-8 | FR-RRC-24 | 유닛(runtimebin) — 출력 줄·종료 코드 0/1/2·`--force` 단독 거절·`needsForce` 안내 | 그렇다 |
 | TC-RRC-9 | FR-RRC-25 | 유닛(domain/run) — 조정자 관측의 `Agent` 가 `coordinatorAgent` 로 저장되고 다시 읽힌다. 빈 값은 덮지 않는다 | 그렇다 |
-| TC-RRC-10 | FR-RRC-26 | 유닛(httpapi) — `recoverable`·`coordinatorRecoverable` 계산 | 판정 1~6 과 같다 |
+| TC-RRC-10 | FR-RRC-26 | 유닛(httpapi) — `recoverable`·`coordinatorRecoverable` 계산. Run 보기와 대시보드 응답 둘 다 | 판정 1~6 과 같다 |
 | TC-RRC-11 | FR-RRC-30~34 | 단위(JS, run-dashboard) — 버튼 보이기 조건, 누름 중 막기, `needsForce` 확인 뒤 `force` 재호출 | 그렇다 |
 | TC-RRC-12 | FR-RRC-40·41 | 단위(JS) — 트리 Run 의 다이어그램 맨 위와 카드 맨 앞에 조정자. 조정자 도구가 없으면 없다 | 그렇다 |
 | TC-RRC-13 | FR-RRC-42·43 | 유닛(httpapi) — 저장 `succeeded` + 도구 죽음 → `succeeded`. 트리 노드 끝남 | 그렇다 (`lost` 가 아니다) |
 | TC-RRC-14 | FR-RRC-44 | 단위(JS) — `succeeded` 카드가 목록에 없다 | 그렇다 |
+| TC-RRC-16 | FR-RRC-46 | 유닛(httpapi) — 대시보드 응답의 조정자 관측: 다섯 값을 싣고 `sessionId`·`contextBytes` 는 싣지 않는다. 관측이 없으면 `coordinator` 가 없다 | 그렇다 |
+| TC-RRC-17 | FR-RRC-30·46 | 단위(JS) — 대시보드 응답 모양(`runId`)으로 Run 단위 버튼을 그리고, 누르면 그 Run 으로 복구를 부른다 | 그렇다 |
 
 ## 5. 설계 결정 (Design Decisions)
 
@@ -299,6 +307,12 @@
 | R-5 | 조정자의 옛 기록에 에이전트 id 가 없다 | LOW | 다음 맥락 관측이 채운다(D-RRC-9) |
 
 ## 8. 변경 기록
+
+- 2026-11-19 결함 수정. 이전 동작 → 새 동작(이유):
+  - Run 단위 「빈 셸 복구」 버튼이 보이지 않았다 → 보인다. Run 화면은 `/graph` 응답으로 그리는데, 그 응답에 `recoverable`·`coordinatorRecoverable` 이 없었다(FR-RRC-26).
+  - 화면이 Run id 를 `id` 로 읽어 `/graph` 응답에서 비었다. Run 단위 복구 요청에 Run id 가 없고, 조정자 노드가 자기 Run 의 최상위 노드와 이어지지 않았다 → `runId` 로 읽는다(FR-RRC-46).
+  - 조정자 노드에 에이전트 id 와 컨텍스트 표기가 없었다 → `/graph` 가 `coordinatorAgent`·`coordinator`(다섯 값)를 싣는다(FR-RRC-46).
+  - JS 시험이 실제 응답과 다른 모양(`id`)을 넣어 이 결함을 놓쳤다 → 실제 모양으로 고쳤다(TC-RRC-17).
 
 - 2026-11-18 독립 리뷰 반영. 이전 동작 → 새 동작(이유):
   - 겹친 두 복구 요청이 같은 셸에 재개줄을 두 번 넣을 수 있었다 → 넣은 도구는 15초 동안 `recovering` 으로 건너뛴다(FR-RRC-18).

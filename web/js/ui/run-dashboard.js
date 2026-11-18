@@ -307,7 +307,7 @@ Object.assign(RunsPanel.prototype, {
         m.contextTokens || 0, m.contextLimit || 0,
         (m.worktree && m.worktree.branch) || '', m.succeededBy || '',
         actionOk(m, RUN_ACTION_DETACH) ? 1 : 0, this._runDetachErr === m.id ? 1 : 0, m.recoverable ? 1 : 0].join(':'),
-      build: m => this._runCardEl(m, d.id),
+      build: m => this._runCardEl(m, d.runId),
     });
   },
 

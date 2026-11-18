@@ -90,6 +90,50 @@ func TestApiRunGraph_LeaksNoBriefSummaryOrTranscript(t *testing.T) {
 	}
 }
 
+// RUN_RECOVERY_SRS FR-RRC-40: 조정자 노드는 멤버와 같은 컨텍스트 표기를 받는다. 세션 결속은 싣지 않는다.
+func TestApiRunGraph_CoordinatorContextWithoutSession(t *testing.T) {
+	s, _, _, _ := runsServer(t, "tool-a")
+	s.Runs = storeWithFixture(t, `{
+	  "schemaVersion": 1,
+	  "runs": [{
+	    "id": "run-1", "short": "run-1", "objective": "조율",
+	    "projection": "dedicated-window", "isolation": "none",
+	    "state": "open", "epoch": "epoch-test", "coordinatorToolId": "tool-a",
+	    "coordinator": {"contextBytes":4096,"contextRatio":0.46,"contextTokens":460000,"contextLimit":1000000,
+	      "contextLevel":"ok","contextAt":9,"compactCount":2,"sessionId":"SESSION-비밀-경로","windowOfficial":true},
+	    "members": []
+	  }]
+	}`)
+	code, body, raw := graphOf(t, s, "run-1")
+	if code != http.StatusOK {
+		t.Fatalf("want 200, got %d (%+v)", code, body)
+	}
+	for _, forbidden := range []string{"SESSION-비밀-경로", "sessionId", "contextBytes"} {
+		if strings.Contains(raw, forbidden) {
+			t.Fatalf("응답이 %q 를 실었다 (NFR-RVZ-3): %s", forbidden, raw)
+		}
+	}
+	c, _ := body["coordinator"].(map[string]any)
+	if c == nil || c["contextRatio"] != 0.46 || c["contextLevel"] != "ok" || c["contextTokens"] != float64(460000) ||
+		c["contextLimit"] != float64(1000000) || c["compactCount"] != float64(2) {
+		t.Fatalf("조정자 컨텍스트: %+v", body["coordinator"])
+	}
+}
+
+// RUN_RECOVERY_SRS FR-RRC-40: 관측이 없는 조정자는 coordinator 를 싣지 않는다.
+func TestApiRunGraph_NoCoordinatorObservation(t *testing.T) {
+	s, _, _, _ := runsServer(t, "tool-a")
+	s.Runs = storeWithFixture(t, `{
+	  "schemaVersion": 1,
+	  "runs": [{"id": "run-1", "short": "run-1", "objective": "조율", "projection": "inline", "isolation": "none",
+	    "state": "open", "epoch": "epoch-test", "coordinatorToolId": "tool-a", "members": []}]
+	}`)
+	_, body, _ := graphOf(t, s, "run-1")
+	if _, ok := body["coordinator"]; ok {
+		t.Fatalf("관측이 없는데 coordinator 가 있다: %+v", body["coordinator"])
+	}
+}
+
 // V-RVZ-5: 헤드리스 2 / 일반 2 가 그대로 구분돼 나온다.
 func TestApiRunGraph_CarriesHeadlessPerMember(t *testing.T) {
 	s, _, _, _ := runsServer(t, "tool-a")

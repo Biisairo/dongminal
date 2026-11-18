@@ -22,6 +22,8 @@ function setup(replies) {
         return { ok: r.ok !== false, status: r.status || 200, data: r.json, text: "" };
       },
       apiErrText: (_r, what) => what,
+      paintIfChanged: (el, sig, draw) => { if (el.dataset.sig === String(sig)) return false; draw(); el.dataset.sig = String(sig); return true },
+      UIKit: { button: (o) => Object.assign({ disabled: false }, o) },
       Toast: { show: (text, kind, ms, opts) => { const h = { closed: 0, close() { h.closed++ } }; toasts.push({ text, kind, ms, opts, h }); return h } },
     },
     expose: ['RunsPanel', 'runRecoverBody', 'runRecoverAny', 'runRecoverSummary', 'runCoordItem'],
@@ -47,9 +49,22 @@ test('FR-RRC-30: Run 단위 버튼은 복구할 것이 하나라도 있을 때�
 
 test('FR-RRC-41: 조정자 항목은 복구 근거와 Run id 를 싣는다', () => {
   const { ctx } = setup([]);
-  const c = plain(ctx.runCoordItem({ id: 'R', coordinatorToolId: 'T', coordinatorRecoverable: true }));
+  const c = plain(ctx.runCoordItem({ runId: 'R', coordinatorToolId: 'T', coordinatorRecoverable: true }));
   assert.equal(c.runId, 'R');
   assert.equal(c.recoverable, true);
+});
+
+// 대시보드는 /api/runs/{id}/graph 로 그린다 — Run id 는 `runId` 에 실려 온다.
+test('FR-RRC-30: Run 단위 버튼은 /graph 응답으로 그려지고 그 Run 을 복구한다', async () => {
+  const { ctx, posts } = setup([{ json: { results: [{ outcome: 'resumed' }] } }]);
+  const self = Object.create(ctx.RunsPanel.prototype);
+  self._runRefreshViewsOf = () => {};
+  const bar = { dataset: {}, textContent: '', kids: [], appendChild(x) { this.kids.push(x) } };
+  const root = { querySelector: (q) => (q === '.run-summary' ? {} : q === '.run-recover-bar' ? bar : null) };
+  self._runPaintRecover(root, { runId: 'R', state: 'open', members: [{ id: 'M', recoverable: true }] });
+  assert.equal(bar.kids.length, 1);
+  await bar.kids[0].onClick();
+  assert.deepEqual(posts[0].body, { runId: 'R' });
 });
 
 test('FR-RRC-33: 결과 요약', () => {

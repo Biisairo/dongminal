@@ -34,6 +34,11 @@ type runGraphView struct {
 	CreatedAt         int64         `json:"createdAt"`
 	ClosedAt          int64         `json:"closedAt,omitempty"`
 	CoordinatorToolID string        `json:"coordinatorToolId,omitempty"`
+	// RUN_RECOVERY_SRS FR-RRC-26·41: 조정자 항목과 Run 단위 복구 버튼의 근거다.
+	CoordinatorAgent       string `json:"coordinatorAgent,omitempty"`
+	CoordinatorRecoverable bool   `json:"coordinatorRecoverable,omitempty"`
+	// Coordinator 는 조정자 노드의 컨텍스트 표기다 (FR-RRC-40). 관측이 없으면 없다.
+	Coordinator *graphContext `json:"coordinator,omitempty"`
 	// Tree 는 이슈 트리 표지다 (ISSUE_AGENT_TREE_SRS FR-ITD-1). 있으면 대시보드가 「이슈 트리」 를 그린다.
 	Tree string `json:"tree,omitempty"`
 
@@ -63,6 +68,8 @@ type graphMember struct {
 	// Actions 는 카드의 떼기 버튼이 읽는다 (R-b).
 	Actions map[string]action.Answer `json:"actions"`
 	Outcome run.Outcome              `json:"outcome,omitempty"`
+	// Recoverable 은 복구 버튼의 근거다 (RUN_RECOVERY_SRS FR-RRC-26).
+	Recoverable bool `json:"recoverable,omitempty"`
 
 	ContextRatio float64 `json:"contextRatio,omitempty"`
 	ContextLevel string  `json:"contextLevel,omitempty"`
@@ -86,6 +93,24 @@ type graphMember struct {
 type graphWorktree struct {
 	Branch string `json:"branch,omitempty"`
 	Path   string `json:"path,omitempty"`
+}
+
+// graphContext 는 조정자 노드가 멤버 노드와 같이 그리는 컨텍스트 표기다.
+// SessionID 와 ContextBytes 는 싣지 않는다 — graphMember 와 같은 규율이다 (NFR-RVZ-3).
+type graphContext struct {
+	ContextRatio  float64 `json:"contextRatio,omitempty"`
+	ContextLevel  string  `json:"contextLevel,omitempty"`
+	CompactCount  int     `json:"compactCount,omitempty"`
+	ContextTokens int64   `json:"contextTokens,omitempty"`
+	ContextLimit  float64 `json:"contextLimit,omitempty"`
+}
+
+func graphCoordinator(c *run.ContextState) *graphContext {
+	if c == nil {
+		return nil
+	}
+	return &graphContext{ContextRatio: c.ContextRatio, ContextLevel: c.ContextLevel, CompactCount: c.CompactCount,
+		ContextTokens: c.ContextTokens, ContextLimit: c.ContextLimit}
 }
 
 // graphEdge 는 (from,to) 로 접은 메시지 흐름이다. 방향이 있다 — 누가 누구에게
@@ -136,20 +161,23 @@ func (s *Server) apiRunGraph(w http.ResponseWriter, r *http.Request) {
 // graphOf projects a Record onto what the dashboard draws.
 func (s *Server) graphOf(rec run.Record) runGraphView {
 	return runGraphView{
-		RunID:             rec.ID,
-		Short:             rec.Short,
-		Objective:         rec.Objective,
-		State:             rec.State,
-		Isolation:         rec.Isolation,
-		CreatedAt:         rec.CreatedAt,
-		ClosedAt:          rec.ClosedAt,
-		CoordinatorToolID: rec.CoordinatorToolID,
-		Tree:              rec.Tree,
-		Actions:           runActions(rec),
-		Members:           s.graphMembers(rec),
-		Edges:             graphEdges(rec.Messages),
-		Messages:          graphMessages(rec.Messages),
-		Timeline:          graphTimeline(rec),
+		RunID:                  rec.ID,
+		Short:                  rec.Short,
+		Objective:              rec.Objective,
+		State:                  rec.State,
+		Isolation:              rec.Isolation,
+		CreatedAt:              rec.CreatedAt,
+		ClosedAt:               rec.ClosedAt,
+		CoordinatorToolID:      rec.CoordinatorToolID,
+		CoordinatorAgent:       rec.CoordinatorAgent,
+		CoordinatorRecoverable: rec.State == run.Open && s.recoverable(coordTarget(rec)),
+		Coordinator:            graphCoordinator(rec.Coordinator),
+		Tree:                   rec.Tree,
+		Actions:                runActions(rec),
+		Members:                s.graphMembers(rec),
+		Edges:                  graphEdges(rec.Messages),
+		Messages:               graphMessages(rec.Messages),
+		Timeline:               graphTimeline(rec),
 	}
 }
 
@@ -175,6 +203,7 @@ func (s *Server) graphMembers(rec run.Record) []graphMember {
 			CreatedAt:     m.CreatedAt,
 			ReportedAt:    m.ReportedAt,
 			Actions:       memberActions(m),
+			Recoverable:   rec.State == run.Open && s.recoverable(memberTarget(m)),
 		}
 		if m.Worktree != nil {
 			g.Worktree = &graphWorktree{Branch: m.Worktree.Branch, Path: m.Worktree.Path}
