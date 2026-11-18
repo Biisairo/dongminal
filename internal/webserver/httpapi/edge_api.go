@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 
+	"dongminal/internal/shared/edge"
 	"dongminal/internal/shared/edgenode"
 	"dongminal/internal/shared/httpreq"
 	"dongminal/internal/shared/toolipc"
@@ -19,20 +20,26 @@ import (
 // 다시 읽는다 (FR-PNW-81). 맺거나 지운 간선이 있으면 `paired`·`removed` `{fp, name}` 로
 // 싣는다 (EDGE_PAIRING_SRS FR-EPR-5·23).
 func (s *Server) edgesChanged(c edgenode.Change) {
+	s.handle.invalidate()
 	if s.Commands == nil {
 		return
 	}
 	args := map[string]any{}
 	if c.Paired != nil {
-		args["paired"] = c.Paired
+		args["paired"] = taggedRef(c.Paired)
 	}
 	if c.Removed != nil {
-		args["removed"] = c.Removed
+		args["removed"] = taggedRef(c.Removed)
 		if c.ByPeer {
 			args["byPeer"] = true
 		}
 	}
 	s.Commands.Broadcast(sse.Payload("edges_changed", args))
+}
+
+// taggedRef 는 방송의 간선에 번호를 얹는다. 화면은 번호를 계산하지 않는다 (PROFILE_NAME_SRS NFR-PFN-1).
+func taggedRef(r *edgenode.Ref) map[string]string {
+	return map[string]string{"fp": r.FP, "name": r.Name, "tag": edge.Tag(r.FP)}
 }
 
 // edgeDo 는 연산 op 하나를 처리한다. withBody 면 요청 본문을 Args 로 넘긴다.

@@ -258,6 +258,9 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/edges/add", (*Server).apiEdgesAdd),
 	httproute.Post("/api/edges/remove", (*Server).apiEdgesRemove),
 	httproute.Put("/api/edges/address", (*Server).apiEdgesAddress),
+	// PROFILE_NAME_SRS §3.2: 이름#번호 (profile_api.go).
+	httproute.Get("/api/profile", (*Server).apiProfileGet),
+	httproute.Put("/api/profile", (*Server).apiProfilePut),
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-120 (claude_accounts_api.go).
 	httproute.Get("/api/claude-accounts", (*Server).apiClaudeAccountsList),
 	httproute.Post("/api/claude-accounts/add", (*Server).apiClaudeAccountsAdd),

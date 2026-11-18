@@ -347,7 +347,6 @@ func (f *fakeSettingsStore) Save() error {
 func (f *fakeSettingsStore) RenderEnv() []string              { return agentRenderEnv(f.Get()) }
 func (f *fakeSettingsStore) ContextPolicy() run.ContextPolicy { return parseContextPolicy(f.Get()) }
 func (f *fakeSettingsStore) FgTabNames() bool                 { return parseFgTabNames(f.Get()) }
-func (f *fakeSettingsStore) PageTitle() string                { return parsePageTitle(f.Get()) }
 
 // ── fakeUnknownHub ─────────────────────────────────────
 //

@@ -38,11 +38,11 @@ test('TC-RST-2 되돌리면 서버 설정이 비워지고 다시 열린다', asy
 
   // 되돌릴 값을 하나 심는다 — 되돌아갔는지 보려면 되돌릴 것이 있어야 한다.
   await page.evaluate(() => {
-    (window as any).pageTitle = '되돌리기 전';
+    (window as any).tabWidthPx = 200;
     return (window as any).app.testing.saveSettings();
   });
   const before = await (await page.request.get(`${baseURL}/api/settings`)).json();
-  expect(before.pageTitle).toBe('되돌리기 전');
+  expect(before.tabWidthPx).toBe(200);
 
   await openBackupTab(page);
   // 다시 열렸는지 보려고 창에 표식을 심는다 — 주소는 그대로라 URL 로는 알 수 없다.
@@ -65,7 +65,7 @@ test('TC-RST-2 되돌리면 서버 설정이 비워지고 다시 열린다', asy
     undefined, { timeout: 10_000 });
 
   const after = await (await page.request.get(`${baseURL}/api/settings`)).json();
-  expect(after.pageTitle ?? '').toBe('');
+  expect(after.tabWidthPx).toBeUndefined();
 });
 
 // G4-7 — 되돌릴 수 있는 판을 보인다.

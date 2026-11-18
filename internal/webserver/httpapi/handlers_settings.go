@@ -8,7 +8,6 @@ import (
 
 	"dongminal/internal/shared/httpreq"
 	"os"
-	"strings"
 	"sync"
 
 	"dongminal/internal/shared/platform"
@@ -36,7 +35,6 @@ type settingsView struct {
 	policy     run.ContextPolicy
 	fgTabNames bool
 	migration  migrationConf
-	pageTitle  string
 }
 
 func (s *settingsStore) view() *settingsView {
@@ -44,7 +42,7 @@ func (s *settingsStore) view() *settingsView {
 	defer s.mu.Unlock()
 	if s.parsed == nil {
 		s.parsed = &settingsView{renderEnv: agentRenderEnv(s.raw), policy: parseContextPolicy(s.raw),
-			fgTabNames: parseFgTabNames(s.raw), migration: parseMigrationConf(s.raw), pageTitle: parsePageTitle(s.raw)}
+			fgTabNames: parseFgTabNames(s.raw), migration: parseMigrationConf(s.raw)}
 	}
 	return s.parsed
 }
@@ -73,19 +71,6 @@ func parseFgTabNames(blob []byte) bool {
 		return true
 	}
 	return *cfg.FgTabNames
-}
-
-// PageTitle 은 Display ▸ 페이지 제목이다. Telegram 알림의 기기 이름이 된다 (TELEGRAM_BRIDGE_SRS D-TGB-17).
-func (s *settingsStore) PageTitle() string { return s.view().pageTitle }
-
-func parsePageTitle(blob []byte) string {
-	var cfg struct {
-		PageTitle string `json:"pageTitle"`
-	}
-	if json.Unmarshal(blob, &cfg) != nil {
-		return ""
-	}
-	return strings.TrimSpace(cfg.PageTitle)
 }
 
 func newSettingsStore(path string) *settingsStore {

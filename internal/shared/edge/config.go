@@ -22,6 +22,8 @@ const (
 	DefaultPort = 58147
 	DefaultBind = "0.0.0.0"
 	NameMaxLen  = 32
+	// NameMaxBytes 는 이름의 UTF-8 바이트 상한이다. 상대의 DisplayNameMax 와 같다 (PROFILE_NAME_SRS FR-PFN-2).
+	NameMaxBytes = DisplayNameMax
 	// fallbackName 은 호스트 이름에서 아무것도 얻지 못했을 때의 이름이다.
 	fallbackName = "node"
 	maxPort      = 65535
@@ -29,7 +31,7 @@ const (
 )
 
 var (
-	ErrInvalidName  = errors.New("노드 이름은 영문·숫자·`.`·`_`·`-` 1~32자입니다")
+	ErrInvalidName  = errors.New("이름은 영문·한글·숫자·`_`·`-` 1~32자(64바이트 이내)입니다")
 	ErrInvalidPort  = errors.New("포트는 1~65535 입니다")
 	ErrInvalidBind  = errors.New("듣는 주소는 IP 주소여야 합니다")
 	ErrInvalidEdge  = errors.New("간선 항목의 이름·주소·포트·지문이 틀렸습니다")
@@ -79,9 +81,9 @@ func (c Config) clone() Config {
 	return c
 }
 
-// ValidName 은 FR-PNW-3 의 이름 규칙이다.
+// ValidName 은 이름 규칙이다 (PROFILE_NAME_SRS FR-PFN-2).
 func ValidName(name string) error {
-	if name == "" || len(name) > NameMaxLen {
+	if name == "" || utf8.RuneCountInString(name) > NameMaxLen || len(name) > NameMaxBytes {
 		return ErrInvalidName
 	}
 	for _, r := range name {
@@ -93,7 +95,8 @@ func ValidName(name string) error {
 }
 
 func nameRune(r rune) bool {
-	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-'
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' ||
+		r >= '가' && r <= '힣'
 }
 
 // ValidDisplayName 은 표시 이름 규칙이다: 비지 않고, 64바이트 안이며, 제어 문자가 없다.
@@ -118,19 +121,20 @@ func DisplayName(name string) string {
 	return DefaultName(name)
 }
 
-// DefaultName 은 호스트 이름을 FR-PNW-3 에 맞춘 기본 이름이다. 허용하지 않는 글자는
-// `-` 로 바꾸고 32자로 자른다.
+// DefaultName 은 hostname 을 FR-PFN-2 에 맞춘 이름이다. 허용하지 않는 글자는 `-` 로 바꾸고
+// 길이 상한 안으로 자른다 (FR-PFN-3).
 func DefaultName(hostname string) string {
 	var b strings.Builder
+	n := 0
 	for _, r := range hostname {
-		if b.Len() == NameMaxLen {
+		if !nameRune(r) {
+			r = '-'
+		}
+		if n == NameMaxLen || b.Len()+utf8.RuneLen(r) > NameMaxBytes {
 			break
 		}
-		if nameRune(r) {
-			b.WriteRune(r)
-		} else {
-			b.WriteByte('-')
-		}
+		b.WriteRune(r)
+		n++
 	}
 	if b.Len() == 0 {
 		return fallbackName
@@ -245,6 +249,9 @@ func OpenStore(path, hostname string) *Store {
 		}
 	}
 	s.cfg = fillDefaults(c.Config, def)
+	if ValidName(s.cfg.Name) != nil {
+		s.cfg.Name = DefaultName(s.cfg.Name)
+	}
 	return s
 }
 
@@ -334,7 +341,22 @@ func (s *Store) SetNode(n Config) error {
 		return ErrInvalidNodeField
 	}
 	return s.update(func(c *Config) error {
-		c.Enabled, c.Port, c.Bind, c.Name, c.Advertise = n.Enabled, n.Port, n.Bind, n.Name, n.Advertise
+		c.Enabled, c.Port, c.Bind, c.Advertise = n.Enabled, n.Port, n.Bind, n.Advertise
+		// 이름은 프로필에서 바꾼다. 빈 값이면 지금 이름을 둔다 (PROFILE_NAME_SRS FR-PFN-31).
+		if n.Name != "" {
+			c.Name = n.Name
+		}
+		return nil
+	})
+}
+
+// SetName 은 이름만 바꾼다 (PROFILE_NAME_SRS FR-PFN-1·11).
+func (s *Store) SetName(name string) error {
+	if err := ValidName(name); err != nil {
+		return err
+	}
+	return s.update(func(c *Config) error {
+		c.Name = name
 		return nil
 	})
 }
@@ -349,6 +371,9 @@ func (s *Store) IsEdge(fp string) bool {
 // 맞으면 ErrAmbiguous, 없거나 너무 짧으면 ErrEdgeNotFound 다 (FR-EPR-30).
 func (s *Store) Resolve(q string) (Edge, error) {
 	q = strings.ToLower(strings.TrimSpace(q))
+	if strings.Contains(q, "#") {
+		return s.resolveHandle(q)
+	}
 	if len(q) < MinPrefix {
 		return Edge{}, ErrEdgeNotFound
 	}
@@ -360,6 +385,31 @@ func (s *Store) Resolve(q string) (Edge, error) {
 			return e, nil
 		}
 		if strings.HasPrefix(e.Fingerprint, q) {
+			found = append(found, e)
+		}
+	}
+	switch len(found) {
+	case 0:
+		return Edge{}, ErrEdgeNotFound
+	case 1:
+		return found[0], nil
+	}
+	return Edge{}, ErrAmbiguous
+}
+
+// resolveHandle 은 핸들 `이름#번호` 로 간선 하나를 찾는다. 이름은 대소문자를 가리지 않는다
+// (PROFILE_NAME_SRS FR-PFN-24).
+func (s *Store) resolveHandle(q string) (Edge, error) {
+	i := strings.LastIndex(q, "#")
+	name, num := q[:i], q[i+1:]
+	if name == "" || num == "" {
+		return Edge{}, ErrEdgeNotFound
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var found []Edge
+	for _, e := range s.cfg.Edges {
+		if strings.EqualFold(e.Name, name) && Tag(e.Fingerprint) == num {
 			found = append(found, e)
 		}
 	}

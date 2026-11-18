@@ -12,10 +12,13 @@ const EDGE_FP_SHOWN=16;
 
 function edgeFp16(fp){ return String(fp||'').slice(0,EDGE_FP_SHOWN) }
 
-/** FR-EPR-32: 간선 한 줄 — `표시 이름 · 지문 앞 16자리 · 주소:포트`. 주소를 모르면 `-` 다. */
+/** PROFILE_NAME_SRS FR-PFN-6: `이름#번호`. 번호는 서버가 준 값이고, 없으면 이름만이다. */
+function edgeHandle(p){ return p.tag?p.name+'#'+p.tag:p.name }
+
+/** FR-EPR-32 · PROFILE_NAME_SRS FR-PFN-22: 간선 한 줄 — `이름#번호 · 주소:포트`. 주소를 모르면 `-` 다. */
 function edgeWho(p){
   const addr=!p.addr?'-':(String(p.addr).includes(':')?'['+p.addr+']':p.addr)+':'+p.port;
-  return p.name+' · '+edgeFp16(p.fp)+' · '+addr;
+  return edgeHandle(p)+' · '+addr;
 }
 
 /** 만료까지 남은 시간 `m:ss`. 지났거나 읽을 수 없으면 빈 값이다. */
@@ -34,6 +37,9 @@ Object.assign(App.prototype, {
       // 503 은 노드 계층이 없는 서버다.
       if(r.ok&&r.data){
         this._edges=r.data;
+        // PROFILE_NAME_SRS FR-PFN-20: 탭 제목의 이름은 노드 이름이다. 이름을 바꾸면 방송이 다시 읽힌다.
+        if(r.data.node&&r.data.node.name!==profileName){ profileName=r.data.node.name; this._applyPageTitle() }
+        if(this._pfFollow) this._pfFollow(r);
         this._edgesPaint();
         // UX_BATCH12 FR-LIV-4: 노드 설정 폼은 목록과 따로 — 지문이 바뀌었을 때만 따라간다.
         const v=r.data;
@@ -47,9 +53,9 @@ Object.assign(App.prototype, {
 
   _onEdgesChanged(a){
     const paired=a&&a.paired, removed=a&&a.removed;
-    if(paired) Toast.show(t('edge.paired_notice',{name:paired.name,fp:edgeFp16(paired.fp)}),'ok',0);
+    if(paired) Toast.show(t('edge.paired_notice',{name:edgeHandle(paired)}),'ok',0);
     // FR-EPR-23: 상대가 지운 간선만 알린다. 이쪽에서 끊은 것은 끊기 단계에서 이미 보였다.
-    if(removed&&a.byPeer) Toast.show(t('edge.removed_notice',{name:removed.name}),'',0);
+    if(removed&&a.byPeer) Toast.show(t('edge.removed_notice',{name:edgeHandle(removed)}),'',0);
     return this._edgesRestore();
   },
 });

@@ -296,6 +296,8 @@
            Status Bar 옆인 것은 옮겨 온 둘 중 하나가 거기 있었기 때문이다. -->
       <button class="ui-tab mtab" data-tab="polling" title="Polling interval settings">Polling</button>
       <button class="ui-tab mtab" data-tab="presets" title="Layout preset settings">Presets</button>
+      <!-- PROFILE_NAME_SRS FR-PFN-10: 이 기기의 이름#번호를 정하는 한 자리. -->
+      <button class="ui-tab mtab" data-tab="profile" title="Profile name of this device">Profile</button>
       <button class="ui-tab mtab" data-tab="display" title="Display settings">Display</button>
       <!-- EDITOR_LSP_SRS FR-LSP-46 -->
       <!-- AGENT_RENDER_ENV_SRS FR-ARE-3: 터미널에서 도는 것들의 설정. 자리가
@@ -354,6 +356,22 @@
         <div class="preset-list" id="preset-list"></div>
         <button id="preset-save" class="ui-btn ui-btn-lg" title="Save the current layout as a preset" data-i18n="html.preset_save"></button>
       </div>
+      <div class="mpanel" id="panel-profile" hidden>
+        <div class="display-settings">
+          <div class="ds-row">
+            <span data-i18n="html.profile_name"></span>
+            <input type="text" class="ds-text" id="pf-name" maxlength="32">
+            <code id="pf-tag" class="eg-fp"></code>
+          </div>
+          <div class="ds-hint" data-i18n="html.profile_name_hint"></div>
+          <div class="ds-row"><span data-i18n="html.profile_fp"></span><code id="pf-fp" class="eg-fp"></code></div>
+          <div class="ds-hint" data-i18n="html.profile_fp_hint"></div>
+          <div class="ds-row">
+            <span id="pf-status" class="sbx-status"></span>
+            <button type="button" class="ds-toggle ui-btn" id="pf-save" title="Save the profile name" data-i18n="html.save"></button>
+          </div>
+        </div>
+      </div>
       <div class="mpanel" id="panel-display" hidden>
         <div class="display-settings">
           <div class="ds-sec" data-i18n="html.dssec_general"></div>
@@ -374,11 +392,6 @@
             <button type="button" class="ds-toggle ui-btn" id="ds-layout-reset" title="Reset the panel layout" data-i18n="html.panel_layout_reset"></button>
           </div>
           <div class="ds-hint" data-i18n="html.panel_layout_hint"></div>
-          <div class="ds-row">
-            <span data-i18n="html.page_title"></span>
-            <input type="text" class="ds-text" id="ds-title" maxlength="60" placeholder="Dongminal">
-          </div>
-          <div class="ds-hint" data-i18n="html.page_title_hint"></div>
           <div class="ds-sec" data-i18n="html.dssec_layout"></div>
           <!-- FR-WSL-81: 슬롯 방향. 값은 창 안 분할과 같은 용어다. -->
           <div class="ds-row">
@@ -627,7 +640,8 @@
             <span data-i18n="html.eg_enabled"></span>
             <label class="sbx-flag"><input type="checkbox" class="ui-switch" id="eg-enabled"><span data-i18n="html.acl_on"></span></label>
           </div>
-          <div class="ds-row"><span data-i18n="html.eg_name"></span><input type="text" class="ds-text" id="eg-name" maxlength="32"></div>
+          <div class="ds-row"><span data-i18n="html.eg_name"></span><code id="eg-handle" class="eg-fp"></code></div>
+          <div class="ds-hint" data-i18n="html.eg_name_hint"></div>
           <div class="ds-row"><span data-i18n="html.eg_port"></span><input type="number" class="ds-num" id="eg-port" min="1" max="65535"></div>
           <div class="ds-row"><span data-i18n="html.eg_bind"></span><input type="text" class="ds-text" id="eg-bind" placeholder="0.0.0.0"></div>
           <div class="ds-row"><span data-i18n="html.eg_advertise"></span><input type="text" class="ds-text" id="eg-advertise" placeholder="192.168.0.5"></div>
@@ -1110,6 +1124,7 @@
 <script src="js/core/app-settings-access.js?v=__ASSETV__"></script>
 <script src="js/core/app-edges.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-edges.js?v=__ASSETV__"></script>
+<script src="js/core/app-settings-profile.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-telegram.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-server.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-claude.js?v=__ASSETV__"></script>

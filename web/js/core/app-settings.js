@@ -12,6 +12,7 @@
  *   app-settings-sandbox.js   샌드박스 패널
  *   app-settings-access.js    접속 허용 목록(ACL) 패널
  *   app-settings-edges.js     간선(Edges) 패널
+ *   app-settings-profile.js   프로필(이름#번호) 패널
  *   app-settings-telegram.js  Telegram 브리지 패널 · app-settings-server.js  Server(바인드) 패널
  *   app-settings-claude.js    Claude 계정 패널
  */
@@ -56,8 +57,6 @@ const SETTINGS_ACCESS={
   // FR-ARE-3: 저장된 적 없으면 기본값(켬). 서버도 같은 기본값을 쓴다
   // (`agentRenderEnv`) — 두 자리가 어긋나면 화면과 실제가 갈린다.
   claudeFullscreen:{get:()=>claudeFullscreen,ctl:{id:'ds-claudefs',kind:'check'},set(v){claudeFullscreen=v}},
-  // PAGE_TITLE_SRS FR-PGT-10
-  pageTitle:{get:()=>pageTitle,ctl:{id:'ds-title',kind:'value'},set(v){pageTitle=v;this._applyPageTitle()}},
   // FR-LVC-6: 저장된 적 없으면 기본값(끔).
   confirmLeave:{get:()=>confirmLeave,ctl:{id:'ds-confirmleave',kind:'check'},set(v){confirmLeave=v}},
   // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
@@ -458,7 +457,7 @@ Object.assign(App.prototype, {
         // 허용 목록도 파일이 진실이다. 게다가 해석 상태는 관측값이라 캐시할
         // 수 없다 — 열 때마다 서버에 묻는다.
         if(tab.dataset.tab==='access')this._loadAccessPanel();
-        const load={edges:'_loadEdgesPanel',telegram:'_loadTelegramPanel',server:'_loadServerPanel',claude:'_loadClaudePanel'}[tab.dataset.tab];
+        const load={profile:'_loadProfilePanel',edges:'_loadEdgesPanel',telegram:'_loadTelegramPanel',server:'_loadServerPanel',claude:'_loadClaudePanel'}[tab.dataset.tab];
         if(load)this[load]();
         // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
         // 같은 근거로 열 때마다 다시 읽는다.
@@ -471,7 +470,6 @@ Object.assign(App.prototype, {
         }
       });
     });
-    this._initPageTitle();
     this._initTabWidth();
     this._initUiFontScale();
     this._initFgNames();
@@ -494,6 +492,7 @@ Object.assign(App.prototype, {
     this._initSandboxPanel();
     this._initAccessPanel();
     this._initEdgesPanel();
+    this._initProfilePanel();
     this._initTelegramPanel();
     this._initServerPanel();
   },

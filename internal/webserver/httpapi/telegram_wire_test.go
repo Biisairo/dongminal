@@ -100,7 +100,7 @@ func TestTelegramWire_OffForwardsNothing(t *testing.T) {
 	}
 }
 
-// FR-TGB-56 · D-TGB-17 · TC-TGB-44·46: 위치는 페이지 제목 › 윈도우 › 탭 이다.
+// FR-TGB-56 · D-TGB-17 · TC-TGB-44·46: 위치는 기기 › 윈도우 › 탭 이다.
 func TestTelegramHost(t *testing.T) {
 	s, _ := tgServer(t, true)
 	h := telegramHost{s}
@@ -108,13 +108,10 @@ func TestTelegramHost(t *testing.T) {
 	if got := h.Location("p1"); got != (telegram.Location{Device: host, Window: "작업창", Tab: "작업탭"}) {
 		t.Fatalf("설정 없음 Location=%+v", got)
 	}
+	// PROFILE_NAME_SRS FR-PFN-30: 페이지 제목은 더 읽지 않는다.
 	s.Settings = &fakeSettingsStore{blob: []byte(`{"pageTitle":"  office  "}`)}
-	if got := h.Location("p1"); got.Device != "office" {
-		t.Fatalf("페이지 제목을 쓰지 않았다: %+v", got)
-	}
-	s.Settings = &fakeSettingsStore{blob: []byte(`{"pageTitle":"  "}`)}
 	if got := h.Location("p1"); got.Device != host {
-		t.Fatalf("빈 페이지 제목인데 호스트 이름이 아니다: %+v", got)
+		t.Fatalf("노드가 없는데 호스트 이름이 아니다: %+v", got)
 	}
 	if got := h.Location("zz"); got != (telegram.Location{Device: host, Tab: "zz"}) {
 		t.Fatalf("모르는 도구 Location=%+v", got)

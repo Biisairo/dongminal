@@ -144,7 +144,8 @@ test.describe('접속 허용 목록', () => {
     await page.click('#acl-host-add');
     const row = page.locator('#acl-host-list .acl-row').last();
     await row.locator('.acl-value').fill('macmini-office');
-    await row.locator('.acl-label').fill('e2e tailnet');
+    // PROFILE_NAME_SRS FR-PFN-32: 축②는 도메인만 받는다 — 이름표 칸이 없다.
+    await expect(row.locator('.acl-label')).toHaveCount(0);
     await page.click('#acl-save');
     await expect(page.locator('#acl-status')).toHaveText('저장했습니다');
 

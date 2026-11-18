@@ -29,10 +29,13 @@ Object.assign(App.prototype, {
     val.type='text';val.className='acl-value';
     val.placeholder=opts.placeholder||'100.117.248.111 · 192.168.0.0/24 · macmini';
     val.value=(e&&e.value)||'';
-    const lab=document.createElement('input');
-    lab.type='text';lab.className='acl-label';
-    lab.placeholder=t('acl.label_placeholder');
-    lab.value=(e&&e.label)||'';
+    // PROFILE_NAME_SRS FR-PFN-32: 축②(`plain`)는 도메인만 받는다 — 이름표 칸이 없다.
+    const lab=opts.plain?null:document.createElement('input');
+    if(lab){
+      lab.type='text';lab.className='acl-label';
+      lab.placeholder=t('acl.label_placeholder');
+      lab.value=(e&&e.label)||'';
+    }
     const st=document.createElement('span');
     st.className='acl-state';
     // FR-ACL-16: 해석 실패가 조용히 지나가면 사용자는 규칙이 걸린 줄 안다.
@@ -42,7 +45,7 @@ Object.assign(App.prototype, {
     else if(e&&e.resolved&&e.resolved.length){st.textContent=e.resolved.join(', ');st.title=t('acl.resolved_title')}
     const del=UIKit.button({icon:'x',title:TIP_ACCESS_DEL,kind:'ghost',size:'sm'});
     del.addEventListener('click',()=>row.remove());
-    row.append(on,val,lab,st,del);
+    row.append(...[on,val,lab,st,del].filter(Boolean));
     return row;
   },
 
@@ -55,7 +58,7 @@ Object.assign(App.prototype, {
       out.push({
         id:row.dataset.id||(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
         value,
-        label:row.querySelector('.acl-label').value.trim(),
+        label:row.querySelector('.acl-label')?.value.trim()||'',
         enabled:row.querySelector('input[type=checkbox]').checked,
       });
     }

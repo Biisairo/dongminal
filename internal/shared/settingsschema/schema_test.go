@@ -28,8 +28,10 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//    + EDITOR_LIVE_RELOAD_SRS FR-ELR-76 의 `gitWorktreeInterval`
 	//    + ISSUE_TREE_OPS_SRS FR-ITM-1 의 넷(`migrationHook`·`migrationHookCtxPct`·
 	//      `issueTreeMigration`·`issueTreeCtxPct`) = 33
-	if len(specs) != 33 {
-		t.Fatalf("서술자 %d개, 기대 33개", len(specs))
+	//    `pageTitle` 은 프로필 이름으로 옮겨 빠졌다 (PROFILE_NAME_SRS FR-PFN-30) = 32. 이미 쓰인 값은
+	//    Validate 가 unknown 으로 흘린다.
+	if len(specs) != 32 {
+		t.Fatalf("서술자 %d개, 기대 32개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
 	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontSize", "termFontSize"} {
@@ -59,7 +61,7 @@ func TestValidateReportsAllProblems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blob := []byte(`{"tabWidthPx":9999,"focusEdgeLevel":-3,"attnEdgeLevel":77,"pageTitle":"ok"}`)
+	blob := []byte(`{"tabWidthPx":9999,"focusEdgeLevel":-3,"attnEdgeLevel":77,"themeName":"ok"}`)
 	probs, unknown, err := settingsschema.Validate(specs, blob)
 	if err != nil {
 		t.Fatalf("Validate: %v", err)
@@ -114,7 +116,7 @@ func TestValidateFontSizeBounds(t *testing.T) {
 // 판이 앞선 브라우저가 쓴 키가 빨갛게 뜨면 사용자가 멀쩡한 설정을 지운다.
 func TestValidateUnknownKeyIsWarningOnly(t *testing.T) {
 	specs, _ := settingsschema.Load()
-	probs, unknown, err := settingsschema.Validate(specs, []byte(`{"futureKey":1,"pageTitle":"x"}`))
+	probs, unknown, err := settingsschema.Validate(specs, []byte(`{"futureKey":1,"themeName":"x"}`))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,7 +9,7 @@ import { load } from './harness.mjs';
  *   FR-EPR-5  방송의 `paired` 가 오면 "{name}({지문 앞자리})와 맺었습니다" 알림이 남는다.
  *   FR-EPR-23 상대가 지운 `removed`(`byPeer`)가 오면 "{name} 간선이 끊겼습니다" 알림을 띄운다.
  *             이쪽에서 끊은 간선은 알리지 않는다.
- *   FR-EPR-32 간선 줄은 `표시 이름 · 지문 앞 16자리 · 주소:포트` 다. 주소를 모르면 `-` 다.
+ *   FR-EPR-32 간선 줄은 `이름#번호 · 주소:포트` 다 (PROFILE_NAME_SRS FR-PFN-22). 주소를 모르면 `-` 다.
  *   FR-EPR-70 승인 대기 구역·알림은 없다.
  *   FR-EPR-71 상대에게 알리지 못하고 끊었으면 그 사실을 알린다.
  */
@@ -20,7 +20,7 @@ function setup(extra = {}) {
   let postResult = { ok: true, status: 200, data: {} };
   const after = [];
   const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js', 'core/app-settings-edges.js'], {
-    expose: ['edgeFp16', 'edgeRemain', 'edgeWho'],
+    expose: ['edgeFp16', 'edgeRemain', 'edgeWho', 'edgeHandle'],
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),
@@ -28,6 +28,7 @@ function setup(extra = {}) {
       apiPost: async (path, body) => { posts.push([path, body]); return postResult },
       statusRun: async (_el, _opts, fn) => fn(),
       document: { getElementById: () => null },
+      profileName: '',
       Toast: {
         show(text, kind, ms, opts) {
           const h = { text, kind, ms, opts, closed: false, el: { isConnected: true } };
@@ -47,6 +48,8 @@ function setup(extra = {}) {
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
   app._edgesPaint = () => {};
+  app._titles = 0;
+  app._applyPageTitle = () => { app._titles++ };
   return {
     ctx, app, shown, posts, after,
     setNext: (v) => { next = v },
@@ -69,12 +72,19 @@ test('남은 시간은 m:ss 이고, 지났으면 빈 값이다', () => {
   assert.equal(ctx.edgeRemain('bad', now), '');
 });
 
-test('간선 줄은 표시 이름 · 지문 앞 16자리 · 주소:포트다', () => {
+test('간선 줄은 이름#번호 · 주소:포트다 (FR-PFN-22)', () => {
   const { ctx } = setup();
   const fp = '0123456789abcdef'.repeat(4);
-  assert.equal(ctx.edgeWho({ name: 'home', fp, addr: '10.0.0.2', port: 58147 }), 'home · 0123456789abcdef · 10.0.0.2:58147');
-  assert.equal(ctx.edgeWho({ name: 'home', fp, addr: '', port: 0 }), 'home · 0123456789abcdef · -');
-  assert.equal(ctx.edgeWho({ name: 'v6', fp, addr: 'fe80::1', port: 1 }), 'v6 · 0123456789abcdef · [fe80::1]:1');
+  assert.equal(ctx.edgeWho({ name: 'home', tag: '1234', fp, addr: '10.0.0.2', port: 58147 }), 'home#1234 · 10.0.0.2:58147');
+  assert.equal(ctx.edgeWho({ name: 'home', tag: '1234', fp, addr: '', port: 0 }), 'home#1234 · -');
+  assert.equal(ctx.edgeWho({ name: 'v6', tag: '0007', fp, addr: 'fe80::1', port: 1 }), 'v6#0007 · [fe80::1]:1');
+});
+
+test('핸들은 이름#번호이고, 번호가 없으면 이름만이다 (FR-PFN-6)', () => {
+  const { ctx } = setup();
+  assert.equal(ctx.edgeHandle({ name: '동민', tag: '0427' }), '동민#0427');
+  assert.equal(ctx.edgeHandle({ name: '동민' }), '동민');
+  assert.equal(ctx.edgeHandle({ name: '동민', tag: '' }), '동민');
 });
 
 test('승인 대기가 있어도 알림·만료 타이머가 없다', async () => {
@@ -85,25 +95,24 @@ test('승인 대기가 있어도 알림·만료 타이머가 없다', async () =
   assert.equal(after.length, 0);
 });
 
-test('paired 방송은 이름과 지문 앞자리로 "맺었습니다" 알림을 남긴다', async () => {
+test('paired 방송은 상대 핸들로 "맺었습니다" 알림을 남긴다 (FR-PFN-22)', async () => {
   const { app, shown } = setup();
-  await app._onEdgesChanged({ paired: { fp: 'aaaaaaaaaaaaaaaabbbb', name: 'node-a' } });
+  await app._onEdgesChanged({ paired: { fp: 'aaaaaaaaaaaaaaaabbbb', name: 'node-a', tag: '0042' } });
   assert.equal(shown.length, 1);
   assert.equal(shown[0].kind, 'ok');
   assert.equal(shown[0].ms, 0, '맺음 알림은 남아야 한다');
   assert.match(shown[0].text, /^edge\.paired_notice/);
-  assert.match(shown[0].text, /node-a/);
-  assert.match(shown[0].text, /"fp":"aaaaaaaaaaaaaaaa"/);
+  assert.match(shown[0].text, /"name":"node-a#0042"/);
   await app._onEdgesChanged({});
   assert.equal(shown.length, 1);
 });
 
 test('상대가 지운 removed 방송만 "끊겼습니다" 알림을 띄운다', async () => {
   const { app, shown } = setup();
-  await app._onEdgesChanged({ removed: { fp: 'f1', name: 'node-b' }, byPeer: true });
+  await app._onEdgesChanged({ removed: { fp: 'f1', name: 'node-b', tag: '0001' }, byPeer: true });
   assert.equal(shown.length, 1);
   assert.match(shown[0].text, /^edge\.removed_notice/);
-  assert.match(shown[0].text, /node-b/);
+  assert.match(shown[0].text, /"name":"node-b#0001"/);
   // 이쪽에서 지운 것(어느 탭이든 dmctl 이든)은 알리지 않는다.
   await app._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
   assert.equal(shown.length, 1, '이쪽에서 지운 간선을 알렸다');
@@ -136,4 +145,23 @@ test('탭을 여는 읽기가 밀려도 노드 칸은 그 값으로 채운다', 
   await app._loadEdgesPanel();
   assert.equal(painted.node, data);
   assert.deepEqual(painted.edges, [data.edges, true]);
+});
+
+test('간선 읽기의 노드 이름이 탭 제목 이름이 된다 (PROFILE_NAME_SRS FR-PFN-20)', async () => {
+  const { ctx, app, setNext } = setup();
+  setNext({ ok: true, status: 200, data: { node: { name: '동민', tag: '0427' }, edges: [] } });
+  await app._edgesRestore();
+  assert.equal(ctx.profileName, '동민');
+  assert.equal(app._titles, 1);
+});
+
+test('간선 읽기는 열린 프로필 패널에도 알린다 (FR-PFN-14)', async () => {
+  const { app, setNext } = setup();
+  const seen = [];
+  app._pfFollow = (r) => { seen.push(r) };
+  const r = { ok: true, status: 200, data: { node: { name: '동민' }, edges: [] } };
+  setNext(r);
+  await app._edgesRestore();
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0], r);
 });

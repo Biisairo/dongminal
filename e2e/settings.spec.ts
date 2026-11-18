@@ -179,78 +179,93 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
   });
 });
 
-// PAGE_TITLE_SRS — Settings ▸ Display 의 `페이지 제목`.
+// PROFILE_NAME_SRS — Settings ▸ Profile 의 이름#번호 (FR-PFN-10~13·20·31).
 //
-// 값이 서버 설정 blob 에 살므로(D-1) 스펙 사이에 남는다 — 매번 되돌린다.
-test.describe('페이지 제목', () => {
-  const TITLE = '작업 서버';
+// 이름은 노드 설정(`edges.json`)에 살아 스펙 사이에 남는다 — 매번 되돌린다.
+test.describe('프로필 이름', () => {
+  const NAME = '작업서버';
+  let original = '';
 
-  async function openDisplayPanel(page) {
+  async function openProfilePanel(page) {
     await waitForInit(page);
     await page.click('#settings-btn');
-    await page.click('button.mtab[data-tab="display"]');
-    await expect(page.locator('#panel-display')).toBeVisible();
+    await page.click('button.mtab[data-tab="profile"]');
+    await expect(page.locator('#panel-profile')).toBeVisible();
   }
 
-  // 저장은 입력이 멎은 뒤에 나간다 (FR-PGT-5) — 그 PUT 을 기다린다.
-  async function setTitle(page, value: string) {
+  async function saveName(page, value: string) {
     const saved = page.waitForResponse(
-      r => r.url().includes('/api/settings') && r.request().method() === 'PUT'
+      r => r.url().includes('/api/profile') && r.request().method() === 'PUT'
     );
-    await page.fill('#ds-title', value);
-    await saved;
+    await page.fill('#pf-name', value);
+    await page.click('#pf-save');
+    return saved;
   }
 
-  test.afterEach(async ({ request }) => {
-    const r = await request.get('/api/settings');
-    const saved = r.ok() ? await r.json() : {};
-    delete saved.pageTitle;
-    await request.put('/api/settings', { data: saved });
+  test.beforeEach(async ({ request }) => {
+    const r = await request.get('/api/profile');
+    original = r.ok() ? (await r.json()).name : '';
   });
 
-  // V-PGT-1 · V-PGT-2
-  test('바꾼 제목이 즉시 반영되고 새로고침 뒤에도 남는다', async ({ page }) => {
-    await openDisplayPanel(page);
-    await setTitle(page, TITLE);
-    await expect(page).toHaveTitle(new RegExp(TITLE + '$'));
+  test.afterEach(async ({ request }) => {
+    if (original) await request.put('/api/profile', { data: { name: original } });
+  });
 
+  test('번호와 지문은 읽기 전용이고, 저장한 이름이 탭 제목이 된다', async ({ page }) => {
+    await openProfilePanel(page);
+    await expect(page.locator('#pf-tag')).toHaveText(/^#\d{4}$/);
+    await expect(page.locator('#pf-fp')).toHaveText(/^[0-9a-f]{64}$/);
+    const r = await saveName(page, NAME);
+    expect(r.status()).toBe(200);
+    await expect(page.locator('#pf-status')).toHaveText('저장했습니다');
+    await expect(page).toHaveTitle(new RegExp(NAME + '$'));
+
+    // 새로고침 뒤에도 그 이름이고, Edges 는 이름#번호를 보여 준다.
     await page.click('#modal-close');
     await page.reload();
     await waitForInit(page);
-    await expect(page).toHaveTitle(new RegExp(TITLE + '$'));
-    // 모달을 다시 열면 그 값이 입력에 서 있다 (FR-PGT-3).
+    await expect(page).toHaveTitle(new RegExp(NAME + '$'));
+    const tag = (await page.request.get('/api/profile').then(x => x.json())).tag;
     await page.click('#settings-btn');
-    await page.click('button.mtab[data-tab="display"]');
-    await expect(page.locator('#ds-title')).toHaveValue(TITLE);
+    await page.click('button.mtab[data-tab="edges"]');
+    await expect(page.locator('#eg-handle')).toHaveText(NAME + '#' + tag);
   });
 
-  // V-PGT-3: 비어 있음이 곧 기본 이름이다 (D-2).
-  test('비우면 기본 이름으로 돌아간다', async ({ page }) => {
-    await openDisplayPanel(page);
-    await setTitle(page, TITLE);
-    await setTitle(page, '');
-    await expect(page).toHaveTitle(/Dongminal$/);
+  test('규칙에 맞지 않는 이름은 거절하고 탭 제목을 바꾸지 않는다', async ({ page }) => {
+    await openProfilePanel(page);
+    const before = await page.title();
+    const r = await saveName(page, '작업 서버#1');
+    expect(r.status()).toBe(400);
+    await expect(page.locator('#pf-status')).toHaveClass(/err/);
+    expect(await page.title()).toBe(before);
+  });
 
-    await page.reload();
+  // FR-PFN-14: 열린 패널은 다른 창의 변경을 따라간다.
+  test('열린 패널은 다른 창이 바꾼 이름으로 다시 그려진다', async ({ page, request }) => {
+    await openProfilePanel(page);
+    await expect(page.locator('#pf-name')).toHaveValue(original);
+    const r = await request.put('/api/profile', { data: { name: NAME } });
+    expect(r.status()).toBe(200);
+    await expect(page.locator('#pf-name')).toHaveValue(NAME);
+    await expect(page).toHaveTitle(new RegExp(NAME + '$'));
+    await expect(page.locator('#panel-profile .settings-stale')).toHaveCount(0);
+  });
+
+  test('고치던 이름은 덮지 않고 바뀌었다는 안내를 띄운다', async ({ page, request }) => {
+    await openProfilePanel(page);
+    await page.fill('#pf-name', '고치는중');
+    const r = await request.put('/api/profile', { data: { name: NAME } });
+    expect(r.status()).toBe(200);
+    await expect(page.locator('#panel-profile .settings-stale')).toBeVisible();
+    await expect(page.locator('#pf-name')).toHaveValue('고치는중');
+    // 안내의 다시 읽기를 누르면 바뀐 값으로 그린다.
+    await page.locator('#panel-profile .settings-stale button').click();
+    await expect(page.locator('#pf-name')).toHaveValue(NAME);
+  });
+
+  test('Display 에 페이지 제목 칸이 없다', async ({ page }) => {
     await waitForInit(page);
-    await expect(page).toHaveTitle(/Dongminal$/);
-  });
-
-  // V-PGT-4: PUT 이 blob 전체를 갈아치우므로, 다른 설정을 건드리면 조용히
-  // 사라질 수 있는 자리다 (SRS §2.3).
-  test('다른 설정을 바꿔도 제목이 살아남는다', async ({ page, request }) => {
-    await openDisplayPanel(page);
-    await setTitle(page, TITLE);
-
-    await page.click('button.mtab[data-tab="theme"]');
-    const themeSaved = page.waitForResponse(
-      r => r.url().includes('/api/settings') && r.request().method() === 'PUT'
-    );
-    await page.locator('#theme-list .tl-item').nth(1).click();
-    await themeSaved;
-
-    const saved = await (await request.get('/api/settings')).json();
-    expect(saved.pageTitle).toBe(TITLE);
+    await expect(page.locator('#ds-title')).toHaveCount(0);
   });
 });
 

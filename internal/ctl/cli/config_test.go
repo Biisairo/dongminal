@@ -102,7 +102,7 @@ func TestConfigValidateReportsAllAndFails(t *testing.T) {
 // TC-CFG-13: 알 수 없는 키는 **경고이며 exit 0** (FR-CFG-9 / D-CFG-4).
 func TestConfigValidateUnknownKeyIsWarning(t *testing.T) {
 	home := t.TempDir()
-	writeSettingsJSON(t, home, `{"futureKey":1,"pageTitle":"x"}`)
+	writeSettingsJSON(t, home, `{"futureKey":1,"themeName":"x"}`)
 	isolateEnv(t, home)
 	var out, errw bytes.Buffer
 	o, _ := ParseConfig([]string{"validate"})
@@ -132,7 +132,7 @@ func TestConfigShowSurvivesCorruptServerJSON(t *testing.T) {
 // 파일이 전부 정상이면 조용히 통과한다.
 func TestConfigValidateCleanPasses(t *testing.T) {
 	home := t.TempDir()
-	writeSettingsJSON(t, home, `{"tabWidthPx":200,"pageTitle":"hi"}`)
+	writeSettingsJSON(t, home, `{"tabWidthPx":200,"themeName":"hi"}`)
 	writeServerJSON(t, home, `{"port":"8080"}`)
 	isolateEnv(t, home)
 	var out, errw bytes.Buffer

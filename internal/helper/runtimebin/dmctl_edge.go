@@ -17,16 +17,18 @@ import (
 // 통신의 dmctl 명령 (간선 맺기).
 
 const dmctlEdgesHelp = `dmctl edges [--json]
-  노드 포트 상태와 간선 목록(지문 앞자리·표시 이름·주소)을 보인다.
+  노드 포트 상태와 간선 목록(지문 앞자리·이름#번호·주소)을 보인다.
 `
 
 const dmctlEdgeHelp = `dmctl edge — 노드 간 통신의 간선 맺기
 
   dmctl edge invite [--addr <주소>]   초대 코드를 만들어 출력한다 (10분, 한 번)
   dmctl edge add <코드>               초대 코드로 간선을 맺는다
-  dmctl edge remove <지문 앞자리>     간선을 끊는다. 상대 쪽에서도 지워진다
+  dmctl edge remove <이름#번호|지문 앞자리>
+                                      간선을 끊는다. 상대 쪽에서도 지워진다
 
-  지문 앞자리는 8자리 이상이고 간선 하나에만 맞아야 한다(dmctl edges 로 본다).
+  이름#번호(예: 동민#0427)나 8자리 이상의 지문 앞자리로 가리킨다. 간선 하나에만 맞아야
+  한다(dmctl edges 로 본다).
 
   상대에 닿지 못하면 사유 코드(edge_unreachable 등)를 내고 1 로 끝난다.
 `
@@ -70,6 +72,7 @@ type edgesOut struct {
 		Port        int    `json:"port"`
 		Bind        string `json:"bind"`
 		Name        string `json:"name"`
+		Tag         string `json:"tag"`
 		Advertise   string `json:"advertise"`
 		Fingerprint string `json:"fingerprint"`
 		Listening   bool   `json:"listening"`
@@ -77,6 +80,7 @@ type edgesOut struct {
 	} `json:"node"`
 	Edges []struct {
 		Name string `json:"name"`
+		Tag  string `json:"tag"`
 		Addr string `json:"addr"`
 		Port int    `json:"port"`
 		FP   string `json:"fp"`
@@ -91,6 +95,14 @@ func shortFP(fp string) string {
 		return fp[:fpShown]
 	}
 	return fp
+}
+
+// handle 은 `이름#번호` 다. 번호가 없으면(구버전 서버) 이름만이다 (PROFILE_NAME_SRS FR-PFN-23).
+func handle(name, tag string) string {
+	if tag == "" {
+		return name
+	}
+	return name + "#" + tag
 }
 
 func yesNo(b bool) string {
@@ -119,7 +131,7 @@ func printEdges(w io.Writer, raw []byte) {
 	}
 	n := v.Node
 	fmt.Fprintf(w, "node     name=%s  enabled=%s  bind=%s  port=%d  listening=%s  fp=%s",
-		clean(n.Name), yesNo(n.Enabled), clean(n.Bind), n.Port, yesNo(n.Listening), clean(shortFP(n.Fingerprint)))
+		clean(handle(n.Name, n.Tag)), yesNo(n.Enabled), clean(n.Bind), n.Port, yesNo(n.Listening), clean(shortFP(n.Fingerprint)))
 	if n.Advertise != "" {
 		fmt.Fprintf(w, "  advertise=%s", clean(n.Advertise))
 	}
@@ -128,7 +140,7 @@ func printEdges(w io.Writer, raw []byte) {
 		fmt.Fprintf(w, "         port error: %s\n", clean(n.Error))
 	}
 	for _, p := range v.Edges {
-		fmt.Fprintf(w, "edge     fp=%s  name=%s  addr=%s\n", clean(shortFP(p.FP)), clean(p.Name), clean(hostPort(p.Addr, p.Port)))
+		fmt.Fprintf(w, "edge     fp=%s  name=%s  addr=%s\n", clean(shortFP(p.FP)), clean(handle(p.Name, p.Tag)), clean(hostPort(p.Addr, p.Port)))
 	}
 	if v.Invite != nil {
 		fmt.Fprintf(w, "invite   expires=%s\n", clean(v.Invite.Expires))

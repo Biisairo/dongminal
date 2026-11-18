@@ -213,7 +213,8 @@ func normalizeAccessConfig(cfg accessConfig) (accessConfig, error) {
 			return accessConfig{}, fmt.Errorf("hosts[%d]: %w", i, err)
 		}
 		e.Value = v
-		e.Label = strings.TrimSpace(e.Label)
+		// PROFILE_NAME_SRS FR-PFN-32: 축②는 도메인만 받는다. 별명은 프로필 이름 하나다.
+		e.Label = ""
 		hosts = append(hosts, e)
 	}
 	return accessConfig{Enabled: cfg.Enabled, Entries: entries, Hosts: hosts}, nil

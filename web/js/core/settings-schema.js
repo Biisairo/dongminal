@@ -43,7 +43,6 @@ const SETTINGS_SCHEMA = [
   {"key":"claudeFullscreen","type":"bool","def":true,"where":"Terminal ▸ Claude Code fullscreen"},
   {"key":"termFontSize","type":"int","def":14,"min":8,"max":32,"where":"Terminal ▸ 터미널 글자 크기"},
   {"key":"claudeScrollSpeed","type":"int","def":3,"min":1,"max":20,"where":"Terminal ▸ Claude Code 스크롤 속도"},
-  {"key":"pageTitle","type":"string","def":"","where":"Display ▸ 페이지 제목"},
   {"key":"confirmLeave","type":"bool","def":false,"where":"Display ▸ 떠날 때 확인"},
   {"key":"editorWordWrap","type":"bool","def":false,"where":"Display ▸ 편집기 줄바꿈"},
   {"key":"editorMinimap","type":"bool","def":true,"where":"Display ▸ 편집기 미니맵"},

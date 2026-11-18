@@ -125,11 +125,10 @@ func (h telegramHost) Location(toolID string) telegram.Location {
 	return loc
 }
 
+// device 는 이 기기의 핸들이다. 노드가 없으면 OS 호스트 이름이다 (PROFILE_NAME_SRS FR-PFN-21).
 func (h telegramHost) device() string {
-	if h.s.Settings != nil {
-		if t := h.s.Settings.PageTitle(); t != "" {
-			return t
-		}
+	if t := h.s.profileHandle(); t != "" {
+		return t
 	}
 	name, _ := os.Hostname()
 	return name

@@ -102,7 +102,8 @@ test.describe.serial('설정 ▸ Edges', () => {
     await expect(page.locator('#eg-pending')).toHaveCount(0);
     await expect(page.locator('#eg-add-name')).toHaveCount(0);
     await expect(page.locator('#eg-enabled')).toBeChecked();
-    await expect(page.locator('#eg-name')).toHaveValue('node-b');
+    // PROFILE_NAME_SRS FR-PFN-31: 이름은 프로필에서 바꾸고 여기는 이름#번호를 보여 준다.
+    await expect(page.locator('#eg-handle')).toHaveText(/^node-b#\d{4}$/);
     await expect(page.locator('#eg-port-state')).toContainText('127.0.0.1');
     await expect(page.locator('#eg-fp')).toHaveText(/^[0-9a-f]{16}$/);
     // 비어 있으면 "없음" 한 줄만 있다.
@@ -121,8 +122,9 @@ test.describe.serial('설정 ▸ Edges', () => {
     await expect(page.locator('.toast.ok', { hasText: 'node-a' })).toBeVisible();
     const peer = page.locator(`#eg-edges .eg-item[data-fp="${aFp}"]`);
     await expect(peer).toBeVisible();
-    await expect(peer.locator('.eg-who')).toContainText('node-a');
-    await expect(peer.locator('.eg-who')).toContainText(aFp.slice(0, 16));
+    // PROFILE_NAME_SRS FR-PFN-22: 줄은 이름#번호이고, 지문 앞 16자는 툴팁이다.
+    await expect(peer.locator('.eg-who')).toContainText(/node-a#\d{4}/);
+    await expect(peer.locator('.eg-who')).toHaveAttribute('title', aFp.slice(0, 16));
     await expect(peer.locator('.eg-who')).toContainText('127.0.0.1');
     // 코드는 쓰였다 — 살아 있는 초대가 없으니 코드도 거둔다.
     await expect(page.locator('#eg-inv-box')).toBeHidden();

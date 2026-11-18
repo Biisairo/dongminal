@@ -24,19 +24,6 @@ Object.assign(App.prototype, {
 
   _saveSettingsNow(key){ return this._settingsSync()._saveSettingsNow(key) },
 
-  // FR-PGT-1: Settings ▸ Display 의 `페이지 제목`.
-  _initPageTitle(){
-    const el=document.getElementById('ds-title');
-    if(!el) return;
-    el.addEventListener('input',()=>{
-      pageTitle=el.value;
-      // FR-PGT-9: 저장을 기다리지 않고 지금 값이 탭에서 어떻게 보이는지 보인다.
-      this._applyPageTitle();
-      // FR-PGT-5: 글자마다 PUT 을 보내지 않는다.
-      this._saveSettingsSoon('title');
-    });
-  },
-
   /**
    * TAB_WIDTH_SRS FR-TBW-1·2·10: Settings ▸ Display 의 `탭 너비 고정`과 그 폭.
    *
@@ -44,7 +31,7 @@ Object.assign(App.prototype, {
    * 따라와야 하고, 브라우저 탭별 저장으로는 그것이 서지 않는다.
    *
    * 폭 입력은 `input` 마다 적용하되 저장은 미룬다 — 타이핑 한 글자마다 PUT 을
-   * 보내면 요청이 글자 수만큼 난다 (`ds-title` 과 같은 규약).
+   * 보내면 요청이 글자 수만큼 난다.
    */
   _initTabWidth(){
     const cb=document.getElementById('ds-tabfix');
@@ -137,7 +124,7 @@ Object.assign(App.prototype, {
   /**
    * FR-LVC-1·10: Settings ▸ Display 의 `떠날 때 확인`.
    *
-   * 값이 서버에 있는 이유는 `pageTitle` 과 같다 (D-2). 자리가 Display 인
+   * 값이 서버에 있는 이유는 D-2 다 — 기기를 옮겨도 같은 판단이 서야 한다. 자리가 Display 인
    * 이유는 D-3 이다 — 저쪽은 **키**를 다루고 이쪽은 떠남의 동작이다.
    *
    * 가드가 이 전역을 그때그때 읽으므로 리스너를 다시 걸 일이 없다 (FR-LVC-10).

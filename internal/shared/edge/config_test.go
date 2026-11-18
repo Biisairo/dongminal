@@ -11,15 +11,16 @@ import (
 	"dongminal/internal/shared/dmenv"
 )
 
-// FR-PNW-3: `[A-Za-z0-9._-]` 1~32자.
+// PROFILE_NAME_SRS FR-PFN-2: 영문·한글 음절·숫자·`_`·`-` 1~32자, 64바이트 이내.
 func TestValidName(t *testing.T) {
-	ok := []string{"office", "a", "A.b_c-1", strings.Repeat("x", NameMaxLen)}
+	ok := []string{"office", "a", "A_b-1", "동민", "동민_맥북-2", strings.Repeat("x", NameMaxLen), strings.Repeat("가", 21)}
 	for _, n := range ok {
 		if err := ValidName(n); err != nil {
 			t.Errorf("ValidName(%q) = %v, 기대 nil", n, err)
 		}
 	}
-	bad := []string{"", strings.Repeat("x", NameMaxLen+1), "a b", "a/b", "한글", "a:b", "office\n"}
+	bad := []string{"", strings.Repeat("x", NameMaxLen+1), strings.Repeat("가", 22), "a b", "a/b", "a#b", "a.b",
+		"ㄱ", "ㅏ", "a:b", "office\n", "é"}
 	for _, n := range bad {
 		if err := ValidName(n); !errors.Is(err, ErrInvalidName) {
 			t.Errorf("ValidName(%q) = %v, 기대 ErrInvalidName", n, err)
@@ -27,12 +28,12 @@ func TestValidName(t *testing.T) {
 	}
 }
 
-// 기본 이름(호스트 이름)도 FR-PNW-3 을 지켜야 한다.
+// 기본 이름(호스트 이름)도 FR-PFN-2 를 지켜야 한다.
 func TestDefaultName(t *testing.T) {
 	cases := map[string]string{
-		"Mac-Pro.local": "Mac-Pro.local",
+		"Mac-Pro.local": "Mac-Pro-local",
 		"my host!":      "my-host-",
-		"한글pc":          "--pc",
+		"한글pc":          "한글pc",
 		"":              "node",
 	}
 	for in, want := range cases {
@@ -46,6 +47,11 @@ func TestDefaultName(t *testing.T) {
 	}
 	if err := ValidName(long); err != nil {
 		t.Errorf("자른 이름이 유효하지 않다: %v", err)
+	}
+	// 한글은 64바이트에서 자른다 (21자).
+	ko := DefaultName(strings.Repeat("가", 30))
+	if ko != strings.Repeat("가", 21) {
+		t.Errorf("한글 호스트 이름을 %q 로 잘랐다, 기대 21자", ko)
 	}
 }
 

@@ -56,10 +56,9 @@ var editorMinimap=true;
  * 정하는 자리가 설정 화면이기 때문이며, `claudeScrollSpeed` 와 같은 방향이다.
  */
 var claudeFullscreen=true;
-// PAGE_TITLE_SRS FR-PGT-4: 브라우저 탭에 뜨는 이름. /api/settings blob 에 실린다 —
-// "이 서버가 무엇인가" 를 말하는 값이라 기기를 옮겨도 같아야 한다 (D-1).
-// 기본값이 빈 문자열인 이유는 D-2 다: 비어 있음이 곧 기본 이름을 쓴다는 뜻이다.
-var pageTitle='';
+// PROFILE_NAME_SRS FR-PFN-20: 브라우저 탭에 뜨는 이름. 노드 설정의 이름이고 `GET /api/edges`
+// 가 채운다 — 설정 블롭에 싣지 않는다. 비어 있으면 기본 이름을 쓴다.
+var profileName='';
 // LEAVE_CONFIRM_TOGGLE_SRS FR-LVC-4·6: 떠날 때 되물을지. /api/settings blob 에
 // 실린다 — 기기를 옮겨도 같은 판단이 서야 한다 (D-2).
 //
@@ -150,4 +149,4 @@ function migrateUiFontScale(blob){
 }
 
 // `lspDiagOn` 은 lsp-paths.js 에 있다 — 저장소(PrefStore)를 딛는 초기값이라서다.
-function effectiveTitle(){return (pageTitle||'').trim()||DEFAULT_PAGE_TITLE}
+function effectiveTitle(){return (profileName||'').trim()||DEFAULT_PAGE_TITLE}

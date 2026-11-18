@@ -1,0 +1,132 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { load } from './harness.mjs';
+
+/**
+ * PROFILE_NAME_SRS FR-PFN-10~13·20 — 프로필 패널.
+ *
+ *   FR-PFN-10 이름 칸·`#번호`·지문을 그린다.
+ *   FR-PFN-11 저장은 `PUT /api/profile {name}` 이다. 거절이면 탭 제목을 바꾸지 않는다.
+ *   FR-PFN-12 저장에 성공하면 탭 제목을 곧바로 바꾼다.
+ *   FR-PFN-13 읽을 때의 지문을 `If-Match` 로 싣는다.
+ *   FR-PFN-14 열린 패널은 방송을 따라간다 — 고치던 값이 없으면 다시 그리고, 있으면 안내한다.
+ *             저장 중에 온 방송은 안내하지 않는다.
+ */
+const PROFILE = { name: '동민', tag: '0427', handle: '동민#0427', fingerprint: 'ab'.repeat(32) };
+
+function setup({ get, put, open = false } = {}) {
+  const els = {};
+  for (const id of ['pf-name', 'pf-tag', 'pf-fp', 'pf-status', 'panel-profile', 'modal-overlay']) {
+    els[id] = { value: '', textContent: '', hidden: false, classList: { contains: () => open }, querySelector: () => null };
+  }
+  const puts = [];
+  let gets = 0;
+  const ctx = load(['core/settings-live.js', 'core/app-settings-profile.js'], {
+    globals: {
+      App: function App() {},
+      t: (k) => k,
+      profileName: '',
+      apiGet: async () => { gets++; return typeof get === 'function' ? get() : get || { ok: true, status: 200, data: PROFILE, headers: { get: () => 'E1' } } },
+      apiPut: async (path, body, opts) => { puts.push([path, body, opts]); if (typeof put === 'function') return put(body); return put || { ok: true, status: 200, data: { ...PROFILE, name: body.name, handle: body.name + '#0427' }, headers: { get: () => 'E2' } } },
+      statusRun: async (_el, _opts, fn) => fn(),
+      document: { getElementById: (id) => els[id] || null },
+      UIKit: { button: () => ({}) },
+    },
+  });
+  const app = new ctx.App();
+  let titles = 0;
+  app._applyPageTitle = () => { titles++ };
+  const notices = [];
+  app._liveNotice = (k, reload) => { if (reload) notices.push(k) };
+  return { ctx, app, els, puts, titles: () => titles, gets: () => gets, notices };
+}
+
+test('패널을 열면 이름·번호·지문을 그리고 탭 제목 이름을 맞춘다', async () => {
+  const { ctx, app, els, titles } = setup();
+  await app._loadProfilePanel();
+  assert.equal(els['pf-name'].value, '동민');
+  assert.equal(els['pf-tag'].textContent, '#0427');
+  assert.equal(els['pf-fp'].textContent, PROFILE.fingerprint);
+  assert.equal(ctx.profileName, '동민');
+  assert.ok(titles() >= 1);
+});
+
+test('저장은 이름만 If-Match 와 함께 보내고, 성공하면 탭 제목을 바꾼다', async () => {
+  const { ctx, app, els, puts, titles } = setup();
+  await app._loadProfilePanel();
+  const before = titles();
+  els['pf-name'].value = '  새이름 ';
+  await app._profileSave();
+  assert.equal(puts.length, 1);
+  assert.equal(puts[0][0], '/api/profile');
+  assert.deepEqual(JSON.parse(JSON.stringify(puts[0][1])), { name: '새이름' });
+  assert.equal(puts[0][2].headers['If-Match'], 'E1');
+  assert.equal(ctx.profileName, '새이름');
+  assert.ok(titles() > before);
+});
+
+test('거절된 저장은 이름과 탭 제목을 바꾸지 않는다', async () => {
+  const { ctx, app, els, titles } = setup({ put: { ok: false, status: 400, data: null, headers: { get: () => '' } } });
+  await app._loadProfilePanel();
+  const before = titles();
+  els['pf-name'].value = '동 민';
+  await app._profileSave();
+  assert.equal(ctx.profileName, '동민');
+  assert.equal(titles(), before);
+});
+
+const edgesRead = (tag) => ({ ok: true, status: 200, data: { node: { name: '동민' } }, headers: { get: () => tag } });
+
+test('열린 패널은 고치던 값이 없으면 방송 뒤 다시 읽는다 (FR-PFN-14)', async () => {
+  let name = '동민';
+  const { app, els, gets, notices } = setup({ open: true, get: () => ({ ok: true, status: 200, data: { ...PROFILE, name }, headers: { get: () => name === '동민' ? 'E1' : 'E9' } }) });
+  await app._loadProfilePanel();
+  name = '다른창';
+  await app._pfFollow(edgesRead('E9'));
+  assert.equal(gets(), 2);
+  assert.equal(els['pf-name'].value, '다른창');
+  assert.equal(notices.length, 0);
+});
+
+test('같은 지문의 방송은 아무것도 하지 않는다', async () => {
+  const { app, gets, notices } = setup({ open: true });
+  await app._loadProfilePanel();
+  await app._pfFollow(edgesRead('E1'));
+  assert.equal(gets(), 1);
+  assert.equal(notices.length, 0);
+});
+
+test('고치던 값이 있으면 덮지 않고 안내한다', async () => {
+  const { app, els, gets, notices } = setup({ open: true });
+  await app._loadProfilePanel();
+  els['pf-name'].value = '고치는중';
+  await app._pfFollow(edgesRead('E9'));
+  assert.equal(gets(), 1);
+  assert.equal(els['pf-name'].value, '고치는중');
+  assert.deepEqual(notices, ['profile']);
+});
+
+test('저장 중에 온 방송은 안내하지 않는다', async () => {
+  let release;
+  const { app, els, notices } = setup({
+    open: true,
+    put: (body) => new Promise(res => { release = () => res({ ok: true, status: 200, data: { ...PROFILE, name: body.name }, headers: { get: () => 'E9' } }) }),
+  });
+  await app._loadProfilePanel();
+  els['pf-name'].value = '새이름';
+  const saving = app._profileSave();
+  await new Promise(r => setTimeout(r, 0));
+  await app._pfFollow(edgesRead('E9'));
+  release();
+  await saving;
+  assert.equal(notices.length, 0);
+  assert.equal(els['pf-name'].value, '새이름');
+});
+
+test('닫힌 패널은 방송을 따라가지 않는다', async () => {
+  const { app, gets } = setup({ open: false });
+  await app._loadProfilePanel();
+  await app._pfFollow(edgesRead('E9'));
+  assert.equal(gets(), 1);
+});

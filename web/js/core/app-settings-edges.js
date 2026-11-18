@@ -16,7 +16,8 @@ Object.assign(App.prototype, {
     const n=v&&v.node;
     if(!n) return;
     document.getElementById('eg-enabled').checked=!!n.enabled;
-    document.getElementById('eg-name').value=n.name||'';
+    // PROFILE_NAME_SRS FR-PFN-31: 이름은 프로필에서 바꾼다. 여기는 보여 주기만 한다.
+    document.getElementById('eg-handle').textContent=edgeHandle(n);
     document.getElementById('eg-port').value=n.port?String(n.port):'';
     document.getElementById('eg-bind').value=n.bind||'';
     document.getElementById('eg-advertise').value=n.advertise||'';
@@ -25,7 +26,6 @@ Object.assign(App.prototype, {
   _egNodeCollect(){
     return {
       enabled:document.getElementById('eg-enabled').checked,
-      name:document.getElementById('eg-name').value.trim(),
       port:parseInt(document.getElementById('eg-port').value,10)||0,
       bind:document.getElementById('eg-bind').value.trim(),
       advertise:document.getElementById('eg-advertise').value.trim(),
@@ -92,6 +92,8 @@ Object.assign(App.prototype, {
     const who=document.createElement('span');
     who.className='eg-who';
     who.textContent=edgeWho(p);
+    // PROFILE_NAME_SRS FR-PFN-22: 지문 앞자리는 줄에서 빠지고 툴팁으로 간다.
+    who.title=edgeFp16(p.fp);
     const addr=document.createElement('input');
     addr.type='text';addr.className='sbx-input eg-addr';addr.value=p.addr;addr.hidden=true;
     addr.setAttribute('aria-label',t('edge.addr_label'));
@@ -128,7 +130,7 @@ Object.assign(App.prototype, {
   // 끊으면 다시 간선을 맺어야 한다 — 한 걸음 확인을 받는다 (CONFIRM_ONE_STAGE_SRS, FR-EPR-71).
   _egRemoveConfirm(p){
     const body=document.createElement('p');
-    body.textContent=t('edge.remove_body',{name:p.name,fp:edgeFp16(p.fp)});
+    body.textContent=t('edge.remove_body',{name:edgeHandle(p),fp:edgeFp16(p.fp)});
     const st=document.getElementById('eg-edges-status');
     const m=UIKit.modal({
       title:t('edge.remove_title'),
@@ -208,7 +210,7 @@ Object.assign(App.prototype, {
       const r=await apiPost('/api/edges/add',{code});
       if(!r.ok||!r.data) return r;
       document.getElementById('eg-add-code').value='';
-      addSt.textContent=t('edge.add_ok',{name:r.data.name,fp:edgeFp16(r.data.fp)});
+      addSt.textContent=t('edge.add_ok',{name:edgeHandle(r.data)});
       return r;
     }));
     this.timers.every({

@@ -172,12 +172,12 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
     await waitForInit(page);
     await page.evaluate(() => { (window as any).gitStatusInterval = 700 });
     // 주기 키가 하나도 없는 설정을 저장한다 — 방송이 오고 `_settingsApply` 가 돈다.
-    await patchSettings(request, { pageTitle: 'poll-guard' });
-    await expect.poll(() => page.evaluate(() => (window as any).pageTitle),
-      { timeout: 10000 }).toBe('poll-guard');
+    await patchSettings(request, { tabWidthPx: 161 });
+    await expect.poll(() => page.evaluate(() => (window as any).tabWidthPx),
+      { timeout: 10000 }).toBe(161);
     expect(await page.evaluate(() => (window as any).gitStatusInterval),
       '키 없는 방송이 넣어 둔 주기를 지웠다').toBe(700);
-    await patchSettings(request, { pageTitle: undefined });
+    await patchSettings(request, { tabWidthPx: undefined });
   });
 
   /**

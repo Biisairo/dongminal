@@ -13,10 +13,10 @@ import (
 // PEER_NETWORK_SRS FR-PNW-73·74, EDGE_PAIRING_SRS FR-EPR-60 — dmctl edges · edge invite/add/remove.
 
 const edgesFakeJSON = `{
- "node":{"enabled":true,"port":58147,"bind":"0.0.0.0","name":"office","advertise":"",
+ "node":{"enabled":true,"port":58147,"bind":"0.0.0.0","name":"office","tag":"4321","advertise":"",
   "fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","listening":false,"error":"bind: address already in use"},
- "edges":[{"name":"home","addr":"10.0.0.2","port":58147,"fp":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-          {"name":"home","addr":"","port":0,"fp":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+ "edges":[{"name":"home","tag":"1234","addr":"10.0.0.2","port":58147,"fp":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          {"name":"home","tag":"5678","addr":"","port":0,"fp":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
           {"name":"laptop","addr":"10.0.0.4","port":58147,"fp":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}],
  "invite":null}`
 
@@ -58,10 +58,11 @@ func TestDmctlEdgesText(t *testing.T) {
 		t.Fatalf("요청 %+v", c)
 	}
 	for _, want := range []string{
-		"name=office", "port=58147", "listening=no", "fp=0123456789abcdef", "address already in use",
-		"edge     fp=aaaaaaaaaaaaaaaa  name=home  addr=10.0.0.2:58147",
-		"edge     fp=bbbbbbbbbbbbbbbb  name=home  addr=-",
-		"name=laptop",
+		// PROFILE_NAME_SRS FR-PFN-23: 이름은 핸들로 보인다. 번호가 없으면(구버전 서버) 이름만.
+		"name=office#4321", "port=58147", "listening=no", "fp=0123456789abcdef", "address already in use",
+		"edge     fp=aaaaaaaaaaaaaaaa  name=home#1234  addr=10.0.0.2:58147",
+		"edge     fp=bbbbbbbbbbbbbbbb  name=home#5678  addr=-",
+		"name=laptop  ",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("출력에 %q 가 없다:\n%s", want, out)

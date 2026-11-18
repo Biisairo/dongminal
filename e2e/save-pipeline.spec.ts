@@ -120,14 +120,14 @@ test.describe('설정 저장 파이프라인 (FR-OPT-5-2)', () => {
       const a = (window as any).app;
       const ps = [];
       for (let i = 0; i < 5; i++) {
-        (window as any).pageTitle = 'coalesce-' + i;
+        (window as any).tabWidthPx = 156 + i;
         ps.push(a.testing.saveSettings());
       }
       return Promise.all(ps);
     });
     expect(oks.every(Boolean)).toBe(true);
     const r = await page.request.get('/api/settings');
-    expect((await r.json()).pageTitle).toBe('coalesce-4');
+    expect((await r.json()).tabWidthPx).toBe(160);
     expect(puts.n).toBe(2);
   });
 
@@ -147,7 +147,7 @@ test.describe('설정 저장 파이프라인 (FR-OPT-5-2)', () => {
     });
     const gets = countRequests(page, 'GET', '/api/settings');
     await page.evaluate(() => {
-      (window as any).pageTitle = 'echo-self';
+      (window as any).tabWidthPx = 160;
       return (window as any).app.testing.saveSettings();
     });
     const self = await page.evaluate(() => (window as any).app.clientId);

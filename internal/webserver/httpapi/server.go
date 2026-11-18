@@ -136,6 +136,8 @@ type Server struct {
 	// edgeKick 은 데몬 모드에서 노드 설정을 다시 읽어 노드 포트에 적용하라는 신호다
 	// (FR-PDM-33). StartEdge 가 만든다. 하나만 쌓인다.
 	edgeKick chan struct{}
+	// handle 은 이 기기의 `이름#번호` 를 기억한다 (PROFILE_NAME_SRS NFR-PFN-3).
+	handle handleCache
 	// settingsMu 는 설정 PUT 의 지문 검사와 저장을 한 덩이로 묶는다 (UX_BATCH12 FR-LIV-2).
 	settingsMu sync.Mutex
 

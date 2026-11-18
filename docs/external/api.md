@@ -233,12 +233,14 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/edges` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 간선 목록(`edges[{fp, name, addr, port}]`, `name` 은 상대가 알린 표시 이름이라 겹칠 수 있고, 상대의 노드 포트가 닫혀 있었으면 `addr` 이 비고 `port` 가 0 이다), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·간선이 바뀌면 `edges_changed` 를 방송한다. 간선을 맺었으면 `args.paired`, 지웠으면 `args.removed` 에 `{fp, name}` 을 싣는다. 상대가 지웠으면 `args.byPeer:true` 를 함께 싣는다. 바뀐 것이 없으면(실패한 요청) 방송하지 않는다 |
-| PUT | `/api/edges/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`)을 바꾸고 노드 포트에 바로 적용한다. 간선 목록은 바뀌지 않는다. 틀린 값은 400 `edge_config_invalid`. `GET /api/edges` 의 `ETag`(노드 설정의 지문)를 `If-Match` 로 실으면 낡았을 때 409 `stale_rev` 다 |
+| GET | `/api/edges` | 이 노드(`node`: 설정·지문·번호 `tag`·`listening`·열지 못한 사유 `error`), 간선 목록(`edges[{fp, name, tag, addr, port}]`, `name` 은 상대가 알린 이름이라 겹칠 수 있고, `tag` 는 지문에서 계산한 네 자리 번호이고, 상대의 노드 포트가 닫혀 있었으면 `addr` 이 비고 `port` 가 0 이다), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·간선이 바뀌면 `edges_changed` 를 방송한다. 간선을 맺었으면 `args.paired`, 지웠으면 `args.removed` 에 `{fp, name, tag}` 를 싣는다. 상대가 지웠으면 `args.byPeer:true` 를 함께 싣는다. 바뀐 것이 없으면(실패한 요청) 방송하지 않는다 |
+| PUT | `/api/edges/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`)을 바꾸고 노드 포트에 바로 적용한다. `name` 이 비면 지금 이름을 둔다. 간선 목록은 바뀌지 않는다. 틀린 값은 400 `edge_config_invalid`. `GET /api/edges` 의 `ETag`(노드 설정의 지문)를 `If-Match` 로 실으면 낡았을 때 409 `stale_rev` 다 |
 | POST | `/api/edges/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `edge_port_closed`, 주소가 없으면 400 `edge_addr_required` |
-| POST | `/api/edges/add` | `{code}` → `{fp, name}`. 상대 노드에 연결해 지문을 대조하고 간선을 맺는다. 승인 단계는 없고, 200 이면 양쪽이 간선이다. 이 노드의 노드 포트가 열려 있을 때만 상대에게 주소를 알린다. 실패는 `edge_fingerprint_mismatch`·`edge_unreachable`·`edge_token_invalid`·`edge_no_invite` 등 |
-| POST | `/api/edges/remove` | `{fp}` → `{fp, name, notified}`. `fp` 는 지문 전체나 8자리 이상의 앞자리다. 상대에게 먼저 알리고(3초) 알렸든 못 알렸든 간선을 끊는다. `notified:false` 면 상대가 다시 걸어올 때 상대 쪽에서도 지워진다. 앞자리가 둘 이상에 맞으면 400 `edge_ambiguous`, 없으면 404 `edge_not_found` |
+| POST | `/api/edges/add` | `{code}` → `{fp, name, tag}`. 상대 노드에 연결해 지문을 대조하고 간선을 맺는다. 승인 단계는 없고, 200 이면 양쪽이 간선이다. 이 노드의 노드 포트가 열려 있을 때만 상대에게 주소를 알린다. 실패는 `edge_fingerprint_mismatch`·`edge_unreachable`·`edge_token_invalid`·`edge_no_invite` 등 |
+| POST | `/api/edges/remove` | `{fp}` → `{fp, name, notified}`. `fp` 는 `이름#번호`, 지문 전체, 8자리 이상의 지문 앞자리 중 하나다. 상대에게 먼저 알리고(3초) 알렸든 못 알렸든 간선을 끊는다. `notified:false` 면 상대가 다시 걸어올 때 상대 쪽에서도 지워진다. 앞자리가 둘 이상에 맞으면 400 `edge_ambiguous`, 없으면 404 `edge_not_found` |
 | PUT | `/api/edges/address` | `{fp, addr, port}` → `{fp, name, addr, port}` — 간선의 주소를 고친다. `fp` 는 `remove` 와 같다. 신원(지문)은 그대로다 |
+| GET | `/api/profile` | `{name, tag, handle, fingerprint}` — 이 기기의 이름, 지문에서 계산한 네 자리 번호, `이름#번호`, 노드 지문 전체. `ETag` 는 `/api/edges` 와 같은 노드 설정의 지문이다. 노드 계층이 없으면 503 `edge_unavailable` |
+| PUT | `/api/profile` | `{name}` → `GET` 과 같은 본문. 이름만 바꾼다. 이름은 영문·한글·숫자·`_`·`-` 1~32자, 64바이트 이내이고 틀리면 400 `edge_config_invalid`. 낡은 `If-Match` 는 409 `stale_rev`. 바꾸면 `edges_changed` 를 방송한다 |
 
 ### 채팅 (`PEER_CHAT_SRS`)
 

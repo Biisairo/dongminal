@@ -2024,6 +2024,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
   border-left:2px solid var(--border)}
 .eg-who{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-size:var(--fs-md);color:var(--text-bright)}
 .eg-fp{font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-hint)}
+#pf-fp{word-break:break-all}
 .eg-fp-big{display:block;margin-top:8px;font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
 .eg-item .sbx-input{flex:0 1 160px}
 

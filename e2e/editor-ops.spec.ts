@@ -764,7 +764,7 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
       await expect.poll(async () => {
         const r = await request.get('/api/settings');
         const j = await r.json();
-        return j.editorWordWrap === true && typeof j.pageTitle !== 'undefined';
+        return j.editorWordWrap === true && typeof j.tabWidthPx !== 'undefined';
       }, { timeout: 10000 }).toBe(true);
 
       await page.reload();

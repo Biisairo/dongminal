@@ -80,6 +80,12 @@ func (n *Node) Do(ctx context.Context, req Request) Response {
 		return r
 	case "node":
 		return n.opNode(req)
+	case "profile":
+		r := ok(n.profile())
+		r.ETag = tag(n.store.Config())
+		return r
+	case "profile_name":
+		return n.opProfileName(req)
 	case "invite":
 		return n.opInvite(req)
 	case "add":
@@ -98,6 +104,7 @@ type nodeView struct {
 	Port        int    `json:"port"`
 	Bind        string `json:"bind"`
 	Name        string `json:"name"`
+	Tag         string `json:"tag"`
 	Advertise   string `json:"advertise"`
 	Fingerprint string `json:"fingerprint"`
 	Listening   bool   `json:"listening"`
@@ -109,23 +116,48 @@ type inviteView struct {
 	Expires time.Time `json:"expires"`
 }
 
+// edgeView 는 간선에 번호를 얹은 응답 모양이다 (PROFILE_NAME_SRS FR-PFN-23).
+type edgeView struct {
+	edge.Edge
+	Tag string `json:"tag"`
+}
+
 // view 는 get 의 본문이다. 초대 토큰은 싣지 않는다 (FR-PNW-95, I-3).
 type view struct {
 	Node   nodeView    `json:"node"`
-	Edges  []edge.Edge `json:"edges"`
+	Edges  []edgeView  `json:"edges"`
 	Invite *inviteView `json:"invite"`
 }
+
+// profileView 는 profile 의 본문이다 (PROFILE_NAME_SRS §3.2).
+type profileView struct {
+	Name        string `json:"name"`
+	Tag         string `json:"tag"`
+	Handle      string `json:"handle"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+func (n *Node) profile() profileView {
+	name, fp := n.store.Config().Name, n.id.Fingerprint
+	return profileView{Name: name, Tag: edge.Tag(fp), Handle: edge.Handle(name, fp), Fingerprint: fp}
+}
+
+// Handle 은 이 노드의 `이름#번호` 다 (PROFILE_NAME_SRS FR-PFN-21).
+func (n *Node) Handle() string { return n.profile().Handle }
 
 func (n *Node) view() view {
 	cfg := n.store.Config()
 	st := n.portStatus()
 	v := view{
 		Node: nodeView{
-			Enabled: cfg.Enabled, Port: cfg.Port, Bind: cfg.Bind, Name: cfg.Name,
+			Enabled: cfg.Enabled, Port: cfg.Port, Bind: cfg.Bind, Name: cfg.Name, Tag: edge.Tag(n.id.Fingerprint),
 			Advertise: cfg.Advertise, Fingerprint: n.id.Fingerprint,
 			Listening: st.Listening, Addr: st.Addr, Error: st.Err,
 		},
-		Edges: append([]edge.Edge{}, cfg.Edges...),
+		Edges: make([]edgeView, 0, len(cfg.Edges)),
+	}
+	for _, e := range cfg.Edges {
+		v.Edges = append(v.Edges, edgeView{Edge: e, Tag: edge.Tag(e.Fingerprint)})
 	}
 	if exp, has := n.pairing.InviteExpires(); has {
 		v.Invite = &inviteView{Expires: exp}
@@ -160,6 +192,36 @@ func (n *Node) opNode(req Request) Response {
 	}
 	n.changed(Change{})
 	r := ok(n.view())
+	r.ETag = tag(cfg)
+	return r
+}
+
+// opProfileName 은 이름만 바꾼다. 낡은 If-Match 는 409 다 (PROFILE_NAME_SRS FR-PFN-11·13).
+func (n *Node) opProfileName(req Request) Response {
+	var in struct {
+		Name string `json:"name"`
+	}
+	if r := decode(req.Args, &in); r != nil {
+		return *r
+	}
+	n.mu.Lock()
+	if cur := tag(n.store.Config()); req.IfMatch != "" && req.IfMatch != cur {
+		n.mu.Unlock()
+		r := fail(http.StatusConflict, CodeStaleRev, "stale revision")
+		r.ETag = cur
+		return r
+	}
+	if err := n.store.SetName(in.Name); err != nil {
+		n.mu.Unlock()
+		if errors.Is(err, edge.ErrSaveFailed) {
+			return fail(http.StatusInternalServerError, CodeSaveFailed, err.Error())
+		}
+		return fail(http.StatusBadRequest, edge.CodeConfigInvalid, err.Error())
+	}
+	cfg := n.store.Config()
+	n.mu.Unlock()
+	n.changed(Change{})
+	r := ok(n.profile())
 	r.ETag = tag(cfg)
 	return r
 }
@@ -241,7 +303,7 @@ func (n *Node) opAdd(ctx context.Context, req Request) Response {
 	}
 	audit("out", name, "pair", http.StatusOK)
 	n.changed(Change{Paired: &Ref{FP: ic.Fingerprint, Name: name}})
-	return ok(map[string]any{"fp": ic.Fingerprint, "name": name})
+	return ok(map[string]any{"fp": ic.Fingerprint, "name": name, "tag": edge.Tag(ic.Fingerprint)})
 }
 
 // storeFail 은 간선 목록 조작의 실패를 옮긴다.
