@@ -150,12 +150,32 @@ test('TC-UIP-11: 설정 탭은 세로 목록이고 검색으로 거른다', asyn
   const tabs = page.locator('#modal .modal-tabs');
   expect(await tabs.evaluate((e) => getComputedStyle(e).flexDirection)).toBe('column');
   const search = page.locator('#modal .modal-search');
+  const groups = page.locator('#modal .mtab-grp');
+  await expect(groups.filter({ visible: true })).toHaveCount(6);
   await search.fill('edge');
   await expect(page.locator('#modal .mtab:visible')).toHaveCount(1);
   await expect(page.locator('#modal .mtab.active')).toHaveAttribute('data-tab', 'edges');
+  // SETTINGS_TAB_ORDER_SRS FR-STO-4: 검색 중에는 묶음 이름이 숨는다.
+  await expect(groups.filter({ visible: true })).toHaveCount(0);
   await search.fill('');
-  // CLAUDE_ACCOUNTS_SRS FR-CAC-94: "Claude 계정" 탭이 더해져 열다섯이다.
-  await expect(page.locator('#modal .mtab:visible')).toHaveCount(15);
+  await expect(groups.filter({ visible: true })).toHaveCount(6);
+  await expect(page.locator('#modal .mtab:visible')).toHaveCount(17);
+});
+
+// SETTINGS_TAB_ORDER_SRS FR-STO-1·2·5.
+test('TC-STO-1: 탭은 묶음 순서이고, 처음 열면 Profile 이 읽혀 있다', async ({ page }) => {
+  await waitForInit(page);
+  await page.locator('#settings-btn').click();
+  const order = await page.locator('#modal .mtab').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.tab));
+  expect(order).toEqual(['profile', 'display', 'theme', 'statusbar', 'presets', 'terminal', 'code', 'shortcuts',
+    'notify', 'telegram', 'polling', 'server', 'access', 'edges', 'claude', 'sandbox', 'backup']);
+  await expect(page.locator('#modal .mtab.active')).toHaveAttribute('data-tab', 'profile');
+  await expect(page.locator('#panel-profile')).toBeVisible();
+  await expect(page.locator('#pf-name')).not.toHaveValue('');
+  await expect(page.locator('#pf-tag')).toHaveText(/^#\d{4}$/);
+  // 묶음 이름은 접근성 트리 밖이다 — tablist 의 자식은 tab 뿐이다.
+  const hidden = await page.locator('#modal .mtab-grp').evaluateAll((els) => els.every((e) => e.getAttribute('aria-hidden') === 'true'));
+  expect(hidden).toBe(true);
 });
 
 test('TC-UIP-12: Diff 보기 방식은 두 칸 선택 묶음이고 지금 방식이 선택돼 보인다', async ({ page }) => {

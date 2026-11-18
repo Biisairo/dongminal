@@ -52,6 +52,7 @@ test.describe('Boot screen', () => {
   test('V-1: 마지막에 쓴 테마가 첫 페인트의 색이다', async ({ page }) => {
     await waitForInit(page);
     await page.click('#settings-btn');
+    await page.click('button.mtab[data-tab="theme"]');
     await page.locator('#theme-list .tl-item', { hasText: 'GitHub Light' }).click();
     await page.click('#modal-close');
 
@@ -77,6 +78,7 @@ test.describe('Boot screen', () => {
     await expect(page.locator('#boot')).toHaveCount(0, { timeout: 20_000 });
     await page.unroute('**/api/settings');
     await page.click('#settings-btn');
+    await page.click('button.mtab[data-tab="theme"]');
     await page.locator('#theme-list .tl-item', { hasText: 'Tokyo Night' }).first().click();
     await page.click('#modal-close');
   });

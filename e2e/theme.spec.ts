@@ -10,7 +10,8 @@ test.describe('Theme & settings', () => {
     await page.click('#settings-btn');
     await expect(page.locator('#modal-overlay')).toBeVisible();
 
-    // Theme tab should be active by default.
+    // SETTINGS_TAB_ORDER_SRS FR-STO-2: 처음 열리는 탭은 Profile 이다 — Theme 를 고른다.
+    await page.click('button.mtab[data-tab="theme"]');
     await expect(page.locator('#theme-list')).toBeVisible();
 
     const themeItems = page.locator('#theme-list .tl-item');
@@ -46,6 +47,7 @@ test.describe('Theme & settings', () => {
     await page.click('#settings-btn');
     await expect(page.locator('#modal-overlay')).toBeVisible();
 
+    await page.click('button.mtab[data-tab="theme"]');
     // Pick GitHub Light by name (robust to ordering changes).
     await page.locator('#theme-list .tl-item', { hasText: 'GitHub Light' }).click();
     const bg = await page.evaluate(() =>

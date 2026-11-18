@@ -27,6 +27,7 @@ test.afterEach(async ({ request }) => {
 
 async function openCustomEditor(page: Page) {
   await page.click('#settings-btn');
+  await page.click('button.mtab[data-tab="theme"]');
   await expect(page.locator('#theme-list')).toBeVisible();
   await page.click('#custom-toggle');
   await expect(page.locator('#custom-editor')).toBeVisible();

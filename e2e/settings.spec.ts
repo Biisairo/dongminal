@@ -25,7 +25,8 @@ test.describe('Settings & configuration', () => {
         .filter((el) => !el.hidden).map((el) => el.id),
       editorHidden: (document.getElementById('custom-editor') as HTMLElement).hidden,
     }));
-    expect(await state()).toEqual({ inline: [], shown: ['panel-theme'], editorHidden: true });
+    // SETTINGS_TAB_ORDER_SRS FR-STO-2: 처음 보이는 패널은 Profile 이다.
+    expect(await state()).toEqual({ inline: [], shown: ['panel-profile'], editorHidden: true });
 
     await page.click('button.mtab[data-tab="shortcuts"]');
     await expect(page.locator('#panel-shortcuts')).toBeVisible();
@@ -74,6 +75,7 @@ test.describe('Settings & configuration', () => {
   test('theme persists after refresh', async ({ page }) => {
     await waitForInit(page);
     await page.click('#settings-btn');
+    await page.click('button.mtab[data-tab="theme"]');
     await expect(page.locator('#theme-list')).toBeVisible();
 
     // Click second theme.

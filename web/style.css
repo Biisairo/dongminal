@@ -1230,6 +1230,8 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .mtab:hover{color:var(--text)}
 .mtab.active{color:var(--accent-text);border-bottom-color:var(--accent)}
 .modal-search{display:none}
+/* SETTINGS_TAB_ORDER_SRS FR-STO-3: 묶음 이름은 아래 세로 목록에서만 보인다. */
+.mtab-grp{display:none}
 /* UI_POLISH_SRS FR-UIP-22·23: 데스크톱에서 탭은 **왼쪽 세로 목록**이다. 열셋이 가로
    한 줄을 넘쳐 접혔고(FR-UIK-14 ③), 접힌 두 줄은 어느 줄이 고른 탭인지 흐렸다.
    DOM 은 그대로다 — 머리·검색·탭·본문 네 자식을 격자 칸에 놓는다.
@@ -1250,6 +1252,9 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
     justify-content:flex-start;height:32px;padding:0 10px;border-bottom:none;border-radius:var(--ui-radius);
   }
   body:not(.mobile) #modal .mtab.active{background:var(--accent-subtle);color:var(--text-bright)}
+  body:not(.mobile) #modal .mtab-grp:not([hidden]){
+    display:block;margin:10px 0 2px;padding:0 10px;font-size:var(--fs-xs);color:var(--text-hint);
+  }
 }
 
 /* FR-UIK-13: 스크롤은 **여기 하나**다. 패널마다 자기 `max-height` 를 들면 상자
@@ -2023,7 +2028,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
   border-left:2px solid var(--border)}
 .eg-who{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-size:var(--fs-md);color:var(--text-bright)}
 .eg-fp{font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-hint)}
-#pf-fp{word-break:break-all}
+#pf-fp{word-break:break-all;flex:0 1 auto;min-width:0}
 .eg-fp-big{display:block;margin-top:8px;font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
 .eg-item .sbx-input{flex:0 1 160px}
 

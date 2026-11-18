@@ -109,6 +109,7 @@ test.describe('나가기 확인 토글', () => {
     await seedConfirmLeave(request, true);
     await waitForInit(page);
     await page.click('#settings-btn');
+    await page.click('button.mtab[data-tab="theme"]');
     await expect(page.locator('#theme-list')).toBeVisible();
     const put = page.waitForResponse(
       (r: any) => r.url().includes('/api/settings') && r.request().method() === 'PUT');

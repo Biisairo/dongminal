@@ -289,38 +289,44 @@
     <!-- UI_POLISH_SRS FR-UIP-23: 탭 이름과 그 탭의 항목 라벨로 탭 목록을 거른다. -->
     <input type="search" class="ui-input modal-search" id="modal-search" data-i18n-placeholder="html.settings_search" placeholder="Search settings" aria-label="Search settings">
     <div class="modal-tabs ui-scroll-sm" lang="en">
-      <button class="ui-tab mtab active" data-tab="theme" title="Theme settings">Theme</button>
-      <button class="ui-tab mtab" data-tab="shortcuts" title="Keyboard shortcut settings">Shortcuts</button>
-      <button class="ui-tab mtab" data-tab="statusbar" title="Status bar settings">Status Bar</button>
-      <!-- FR-PIS-20 / D-2: 흩어져 있던 주기 손잡이가 한 자리로 모인다. 자리가
-           Status Bar 옆인 것은 옮겨 온 둘 중 하나가 거기 있었기 때문이다. -->
-      <button class="ui-tab mtab" data-tab="polling" title="Polling interval settings">Polling</button>
-      <button class="ui-tab mtab" data-tab="presets" title="Layout preset settings">Presets</button>
+      <!-- SETTINGS_TAB_ORDER_SRS FR-STO-1·5: 성격별 묶음. 묶음 이름은 데스크톱 세로 목록에서만 보이고
+           접근성 트리 밖이다 — tablist 의 자식은 tab 뿐이다. -->
       <!-- PROFILE_NAME_SRS FR-PFN-10: 이 기기의 이름#번호를 정하는 한 자리. -->
-      <button class="ui-tab mtab" data-tab="profile" title="Profile name of this device">Profile</button>
+      <button class="ui-tab mtab active" data-tab="profile" title="Profile name of this device">Profile</button>
+      <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_view"></div>
       <button class="ui-tab mtab" data-tab="display" title="Display settings">Display</button>
+      <button class="ui-tab mtab" data-tab="theme" title="Theme settings">Theme</button>
+      <button class="ui-tab mtab" data-tab="statusbar" title="Status bar settings">Status Bar</button>
+      <button class="ui-tab mtab" data-tab="presets" title="Layout preset settings">Presets</button>
+      <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_work"></div>
       <!-- EDITOR_LSP_SRS FR-LSP-46 -->
-      <!-- AGENT_RENDER_ENV_SRS FR-ARE-3: 터미널에서 도는 것들의 설정. 자리가
-           Display 옆인 것은 둘 다 "무엇이 어떻게 보이는가" 이기 때문이다. -->
+      <!-- AGENT_RENDER_ENV_SRS FR-ARE-3: 터미널에서 도는 것들의 설정. -->
       <button class="ui-tab mtab" data-tab="terminal" title="Terminal settings">Terminal</button>
       <button class="ui-tab mtab" data-tab="code" title="Editor and code settings">Code</button>
+      <button class="ui-tab mtab" data-tab="shortcuts" title="Keyboard shortcut settings">Shortcuts</button>
+      <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_alerts"></div>
       <button class="ui-tab mtab" data-tab="notify" title="Notification settings">Notifications</button>
+      <!-- TELEGRAM_BRIDGE_SRS FR-TGB-1: 휴대폰에서 에이전트를 보는 브리지. -->
+      <button class="ui-tab mtab" data-tab="telegram" title="Telegram bridge">Telegram</button>
+      <!-- FR-PIS-20 / D-2: 흩어져 있던 주기 손잡이가 한 자리로 모인다. -->
+      <button class="ui-tab mtab" data-tab="polling" title="Polling interval settings">Polling</button>
+      <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_net"></div>
       <!-- HOT_REBIND_SRS FR-HRB-40: 포트와 expose 를 서버를 끄지 않고 바꾼다. -->
       <button class="ui-tab mtab" data-tab="server" title="Server port and expose">Server</button>
       <!-- ACCESS_ALLOWLIST_SRS FR-ACL-22: --expose 뒤의 유일한 문. -->
       <button class="ui-tab mtab" data-tab="access" title="Network access allowlist">Access</button>
       <!-- PEER_NETWORK_SRS FR-PNW-80, PEER_DAEMON_SRS FR-PDM-70: 다른 dongminal 과의 간선. -->
       <button class="ui-tab mtab" data-tab="edges" title="Edges to other nodes">Edges</button>
-      <!-- TELEGRAM_BRIDGE_SRS FR-TGB-1: 휴대폰에서 에이전트를 보는 브리지. -->
-      <button class="ui-tab mtab" data-tab="telegram" title="Telegram bridge">Telegram</button>
+      <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_agents"></div>
       <!-- CLAUDE_ACCOUNTS_SRS FR-CAC-94: 계정·자동 전환·폴더 연결·보관 목록·기록. -->
       <button class="ui-tab mtab" data-tab="claude" title="Claude accounts">Claude</button>
-      <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
       <button class="ui-tab mtab" data-tab="sandbox" title="Sandbox profile settings">Sandbox</button>
+      <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_manage"></div>
+      <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
       <button class="ui-tab mtab" data-tab="backup" title="Backup and restore settings">Backup</button>
     </div>
     <div class="modal-body ui-scroll">
-      <div class="mpanel" id="panel-theme">
+      <div class="mpanel" id="panel-theme" hidden>
         <!-- SYSTEM_THEME_FOLLOW_SRS FR-STF-8: 추종 스위치. 이름은 `.ds-row` 구조에서 파생한다. -->
         <div class="display-settings">
           <div class="ds-row" id="theme-follow-row">
@@ -356,7 +362,7 @@
         <div class="preset-list" id="preset-list"></div>
         <button id="preset-save" class="ui-btn ui-btn-lg" title="Save the current layout as a preset" data-i18n="html.preset_save"></button>
       </div>
-      <div class="mpanel" id="panel-profile" hidden>
+      <div class="mpanel" id="panel-profile">
         <div class="display-settings">
           <div class="ds-row">
             <span data-i18n="html.profile_name"></span>

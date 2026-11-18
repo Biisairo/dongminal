@@ -63,5 +63,10 @@ Object.assign(App.prototype, {
     const save=document.getElementById('pf-save');
     if(!save) return;
     save.addEventListener('click',()=>this._profileSave());
+    // SETTINGS_TAB_ORDER_SRS FR-STO-2: 처음 열리는 탭이 Profile 이다 — 탭을 누르지 않아도 읽는다.
+    const open=document.getElementById('settings-btn');
+    if(open) open.addEventListener('click',()=>{
+      if(document.querySelector('#modal .mtab.active[data-tab="profile"]')) this._loadProfilePanel();
+    });
   },
 });
