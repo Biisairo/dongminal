@@ -15,7 +15,20 @@
   `chat_leave`·`chat_send`·`chat_read` 여덟 개이며 허락을 묻지 않습니다. 참가자는 claude 세션 하나이고, MCP 연결이
   끊기면 모든 방에서 나갑니다. 쉬는 중에 첫 글이 오면 개수만 터미널에 붙여 넣고, 일하는 중에는 맥락 훅이 읽지 않은
   글 수를 알립니다. 글과 개수는 디스크에 쓰지 않습니다. **데몬을 다시 띄우고 새로 띄운 claude 부터 적용됩니다.**
-- **채팅의 사람 명령(강제 삭제·강퇴)이 생겼습니다(macOS, 데몬 모드).** OS 기본 터미널에서 `sudo dongminal helper install`
+- **데몬이 죽은 뒤 Run 을 복구합니다.** 데몬이 다시 뜨면 탭은 빈 셸로 돌아옵니다. `dmctl run recover --run <uuid>
+  [--member <uuid> | --coordinator] [--force]` 나 Run 화면의 **빈 셸 복구**·노드별 **복구** 버튼이 조정자·멤버의 에이전트를
+  기록된 세션 id 로 재개합니다(`claude --resume <id>`, `omp --resume=<id>`; codex 는 아직 아님). 세션이 이미 돌거나
+  셸에서 다른 프로그램이 돌면 넣지 않고, 방금 넣은 도구는 15초 동안 다시 넣지 않습니다. 셸을 판정하지 못하면 노드별 복구만
+  확인을 받고 진행합니다. 로컬 API 는 `POST /api/runs/recover`, Run 보기에 `recoverable`·`coordinatorRecoverable` 이
+  실립니다. **셸 판정은 데몬 교체(`dongminal start`) 뒤에 켜집니다.**
+- **데몬을 세션을 유지한 채 새 판으로 교체합니다(macOS·Linux).** `dongminal start` 가 서버를 끄기 전에 데몬을 같은
+  프로세스 번호로 새 바이너리로 갈아 끼웁니다. 셸·에이전트·화면 내용·활동 기록이 이어집니다. 교체에 실패하면 아무것도 끄지
+  않고 종료 코드 1로 끝납니다. 돌고 있는 데몬이 옛 판이면 서버만 다시 띄우고, 한 번은 `--refresh-daemon` 이 필요하다고
+  알립니다.
+- **서버를 끄지 않고 포트와 노출을 바꿉니다.** 설정 ▸ **Server** 나 `dongminal config set port|expose`·`config get`
+  으로 바꿉니다. 열린 화면은 새 주소로 옮겨 가고, 옛 포트는 30초 뒤 닫힙니다. 노출을 끄면 같은 망에서 맺은 연결을 바로
+  끊습니다. 로컬 API 는 `POST /api/server/bind`.
+- **채팅의 사람 명령(강제 삭제·강퇴)이 생겼습니다(macOS, 데몬 모드).** OS 기본 터미널에서 `sudo dongminal otp install`
   로 관리자 권한 도우미를 설치하고, 보이는 TOTP 비밀을 휴대폰 OTP 앱(Ente Auth 권장)에 넣습니다. Chats 의 방 줄이나
   채팅 탭의 참가자 줄을 우클릭해 명령을 고르고, 명령마다 OTP 코드를 넣습니다. Cmd·Shift 클릭으로 여러 개를 한 번에
   고릅니다. 5번 틀리면 5분 잠깁니다. 간선 상대의 도우미 공개키는 `edges.json` 의 간선 항목(`helperKey`)에 처음 받은 값으로
@@ -23,6 +36,16 @@
   입니다. 도우미가 없는 노드는 메뉴가 보이지 않습니다. **데몬·서버를 다시 띄워야 적용됩니다.**
 
 ### 바뀜
+
+- **`dongminal start` 의 플래그가 바뀝니다.** 플래그 없이는 데몬을 세션 유지로 교체합니다. `--server-only` 는 데몬을 두고
+  서버만 다시 띄웁니다(종전의 기본 동작). `--refresh-daemon` 은 데몬을 새로 띄웁니다(세션을 잃습니다). `--restart-daemon` 은
+  없어졌고, 주면 새 플래그를 안내하고 아무것도 끄지 않습니다.
+- **바인드는 `server.json` 하나가 정합니다.** `start` 에 준 `--port`·`--expose` 는 `server.json` 에 저장됩니다. `PORT`·
+  `DONGMINAL_PORT`·`DONGMINAL_HOST` 는 서버의 바인드를 정하지 않습니다. `dmctl`·`edit` 와 `stop`·`health` 는
+  `$DONGMINAL_HOME/run/server.addr`(지금 리슨하는 주소)로 서버를 찾고, 셸에는 포트를 넣지 않습니다.
+- **OTP 도우미 명령의 이름이 `dongminal otp` 입니다.** `install`·`status`·`uninstall`. `dongminal helper` 는 별칭으로 남습니다.
+- **Activity 의 탭 넷이 같은 폭의 아이콘입니다.** 레일의 Chats 는 방 줄만 보입니다. Background 는 덜 조밀하고, Runs 는
+  흐름 모양입니다.
 
 - **간선 맺기가 한 걸음으로 줄고, 끊으면 양쪽에서 지워집니다.** 초대 코드를 붙여 넣으면 바로 양쪽이 간선입니다.
   승인 단계(`dmctl edge approve`·`reject`, `GET /api/edges/pending`, `POST /api/edges/approve`·`reject`, 노드 포트
@@ -40,7 +63,7 @@
   지웠습니다. 홈에 남은 `peer-spawns.json` 은 서버가 시작할 때 지웁니다.
 - 승인 알림을 받지 못한 쪽은 이제 명령으로 짝이 확정되지 않습니다. 10분 뒤 대기가 만료되면 다시 짝을 맺으세요.
 - 데몬 `paste` 의 전경 조건(`fgguard`)을 지웠습니다. 새 서버는 옛 데몬과도 동작합니다. 데몬 쪽 정리는 데몬을 다시
-  띄우면 적용됩니다(`dongminal start --restart-daemon`).
+  띄우면 적용됩니다(`dongminal start --refresh-daemon`).
 - **이름 `peer` 를 `edge`(간선)로 바꿨습니다.** 로컬 API 는 `/api/edges/*`, 명령은 `dmctl edges`·`dmctl edge <sub>`,
   설정 탭은 **Edges**, 이벤트는 `edges_changed`, 오류 코드는 `edge_*` 입니다. 노드 포트 경로(`/edge/v1/*`)와 초대 코드
   머리(`dmedge1:`)도 바뀌어 **옛 판과는 간선을 맺을 수 없습니다.** 양쪽을 새 판으로 올리세요.
@@ -51,8 +74,18 @@
   `dmctl run team` 을 안내합니다. 옛 `dmctl run peers` 로 시작한 에이전트는 새 Run 부터 새 이름을 받습니다.
 - **노드는 이제 데몬입니다.** 신원·`edges.json`·간선 맺기 판정을 데몬(`dongminald`)이 맡고, 서버는 노드 포트의
   바이트를 데몬에 잇고 로컬 API 를 넘기기만 합니다. 서버만 다시 떠도 간선 맺기 대기가 남습니다. 감사 로그 줄(`edge audit`)은
-  `daemon.log` 에 남습니다. **데몬을 다시 띄워야 적용됩니다**(`dongminal start --restart-daemon`). 그 전까지 새 서버는
+  `daemon.log` 에 남습니다. **데몬을 다시 띄워야 적용됩니다**(`dongminal start --refresh-daemon`). 그 전까지 새 서버는
   노드 기능을 끄고 로컬 API 가 409 `edge_daemon_restart` 로 답합니다.
+
+### 고침
+
+- **Run 화면**: 승계로 일을 넘긴 멤버(`succeeded`)가 `lost` 로 계산돼 카드 목록에 남던 것을 고쳤습니다. 끝난 멤버로 보고
+  목록에서 빼며, 트리에는 끝난 노드로 남습니다. 이슈 트리 Run 에서 보이지 않던 조정자를 트리 맨 위 루트와 카드 목록 맨 앞에
+  보입니다.
+- **git**: 정책 응답이 늦게 와 잡 박스를 갈아 끼워도 복사·닫기 버튼의 글자가 남습니다.
+- **사이드바 그룹**: 활성 창이 든 그룹도 접힙니다. 그룹 끝에 창을 놓을 때 포인터가 들여쓰기 왼쪽이면 그룹 밖에 둡니다.
+- **간선**: 지운 간선의 채팅 연결을 바로 닫고, 상대가 지운 간선만 '끊겼습니다'로 알립니다.
+- **노출 해제**: expose 를 끌 때 30초 유예 중인 노출 리스너도 닫습니다.
 
 ## [1.3.4] — 2026-11-16
 

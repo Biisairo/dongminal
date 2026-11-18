@@ -168,6 +168,8 @@ DONGMINAL_HOME=~/.dongminal ← main.go 기본값과 동일
 이다. 환경변수 `DONGMINAL_HOST` 가 있으면 그 값이 기본을 대신하고, `--expose`
 가 그보다 우선한다.
 
+> **개정 (2026-11-18, DAEMON_SESSION_KEEP_SRS FR-DSK-1~6)**: `--restart-daemon` 은 없어졌다. 플래그 없는 `start` 가 데몬을 세션 유지로 교체하고, 세션을 버리는 재시작은 `--refresh-daemon`, 서버만 다시 띄우는 것은 `--server-only` 다. 아래 FR-ACT-3·3a 의 `--restart-daemon` 은 지금의 `--refresh-daemon` 으로 읽는다.
+
 **FR-ACT-3** `--restart-daemon` 은 FR-ACT-1 ②의 데몬 재시작 경로를 켠다.
 
 **FR-ACT-3a** `--restart-daemon` 이 dongminal 도구 안에서 실행되면(환경변수

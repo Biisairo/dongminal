@@ -957,6 +957,7 @@ JSON 키의 사전순이라 종전 map 부호화와 **바이트가 같다** (`pr
 | `notify` | WS 의 키 입력·리사이즈를 응답 없는 `input`·`resizenotify` 로 | `write`·`resize` RPC |
 | `busymany` | 도구 N 개의 busy 를 RPC 한 번으로 | busy 를 하나씩 |
 | `snapnotfound` | 없는 도구의 snapshot 을 `CodeNotFound` 로 — WS 연결당 RPC 1 | 존재 확인 list 를 먼저 |
+| `shellprobe` | Run 복구의 셸 판정 — 프로세스 표를 한 번 읽어 `idle`·`busy`·`here`·`elsewhere`·`unknown` (RUN_RECOVERY_SRS FR-RRC-10) | 늘 `unknown` |
 
 정상 상태에 RPC 가 없으므로, 받되 답하지 않는 데몬은 RPC 시한(FR-14)으로 잡히지 않는다. 서버가
 15 s 마다 `hello` 로 생존을 확인하고 시한 안에 답이 없으면 끊고 재접속한다 (FR-OPT-2-1) — `hello` 는
