@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/serverconf"
 )
 
 // 환경변수 이름과 기본 엔드포인트는 dmenv 한 곳에만 있다.
@@ -60,7 +61,7 @@ func TestNoHardcodedEnvContract(t *testing.T) {
 // 도움말은 상수에서 만들어진다 — 문서가 코드보다 늦게 고쳐지면 사용자가 없는
 // 포트로 붙는다.
 func TestDmctlHelpUsesEnvContract(t *testing.T) {
-	for _, want := range []string{dmenv.EnvPort, dmenv.EnvHost, dmenv.DefaultPort, dmenv.DefaultHost} {
+	for _, want := range []string{dmenv.EnvPort, dmenv.EnvHost, dmenv.DefaultPort, dmenv.DefaultHost, serverconf.AddrFileName, dmenv.ContainerAddrDir} {
 		if !strings.Contains(dmctlHelp, want) {
 			t.Errorf("도움말에 %q 가 없다", want)
 		}

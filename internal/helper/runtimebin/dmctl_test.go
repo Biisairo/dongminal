@@ -61,8 +61,7 @@ func withDmctlServer(t *testing.T, handler http.HandlerFunc) (cleanup func()) {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	u, _ := url.Parse(srv.URL)
-	t.Setenv("DONGMINAL_HOST", u.Hostname())
-	t.Setenv("DONGMINAL_PORT", u.Port())
+	pointAt(t, u.Hostname(), u.Port())
 	return srv.Close
 }
 

@@ -236,7 +236,7 @@ func TestResolveTargetOrder(t *testing.T) {
 	home := tempHome(t)
 	isolateEnv(t, home)
 	writeServerJSON(t, home, `{"host":"127.0.0.1","port":"9000"}`)
-	if err := os.WriteFile(filepath.Join(home, serverconf.AddrFileName), []byte("0.0.0.0:9300\n"), 0o600); err != nil {
+	if err := serverconf.WriteAddr(home, "0.0.0.0:9300"); err != nil {
 		t.Fatal(err)
 	}
 	tgt, err := Common{}.ResolveTarget()
@@ -253,7 +253,7 @@ func TestResolveTargetOrder(t *testing.T) {
 	if tgt.Port != "7777" {
 		t.Errorf("플래그가 주소 파일에 졌다: %+v", tgt)
 	}
-	if err := os.Remove(filepath.Join(home, serverconf.AddrFileName)); err != nil {
+	if err := os.Remove(serverconf.AddrPath(home)); err != nil {
 		t.Fatal(err)
 	}
 	tgt, _ = Common{}.ResolveTarget()

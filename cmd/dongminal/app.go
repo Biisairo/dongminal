@@ -51,9 +51,8 @@ type app struct {
 // 되살림. 여기서 돌아오면 요청을 받을 수 있는 상태이며 아직 아무것도 돌지 않는다.
 func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 	os.Setenv(dmenv.EnvHome, home)
-	// helper multi-call(dmctl/edit/…)이 서버 주소를 찾는 값이다.
-	os.Setenv(dmenv.EnvPort, port)
-	os.Setenv(dmenv.EnvHost, host)
+	// 바인드는 환경변수로 넘기지 않는다 — 헬퍼(dmctl/edit/…)는 주소 파일로 서버를
+	// 찾는다 (HOT_REBIND_SRS FR-HRB-11·12). 셸이 옛 값을 물려받지 않게 한다.
 
 	// CONFIG_MANAGEMENT_SRS FR-CFG-13: 홈이 정해졌으므로 이제 파일 계층까지
 	// 읽어 로그 수준을 다시 세운다. `main` 의 첫 Init 은 환경변수까지만 봤다.

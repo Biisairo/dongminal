@@ -433,7 +433,7 @@ func TestDmctlAgentContext_EmitsSessionStartJSON(t *testing.T) {
 
 // FR-DMA-7: 훅으로 돌기 때문에 서버가 없어도 세션 시작을 막지 않는다.
 func TestDmctlAgentContext_AlwaysZeroWithoutServer(t *testing.T) {
-	t.Setenv("DONGMINAL_PORT", "1")
+	pointAt(t, "127.0.0.1", "1")
 	var stdout, stderr bytes.Buffer
 	if rc := runDmctlAgentContext(nil, strings.NewReader(""), &stdout, &stderr); rc != 0 {
 		t.Fatalf("rc=%d want 0", rc)

@@ -76,8 +76,8 @@ func Run(home, version, daemonBuild string, handoverFD int) {
 	// 데몬 모드에서는 PTY 를 데몬이 소유하므로 샌드박스 배치도 여기서 일어난다
 	// (FR-SBX-10). 웹서버 쪽 짝은 buildDepsWithHub 의 회수 배선이다.
 	//
-	// 포트를 넘기지 않는 것은 데몬이 그것을 환경으로 물려받기 때문이다 — 서버가
-	// 심는 값이 진실이고, 데몬이 따로 기억하면 두 벌이 된다.
+	// 포트를 넘기지 않으면 주소 파일 → server.json → 기본값으로 정한다
+	// (HOT_REBIND_SRS FR-HRB-13). 서버는 포트를 환경변수로 넘기지 않는다 (FR-HRB-11).
 	if pl := sandboxplace.Wire(home, version, ""); pl != nil {
 		pm.SetPlacer(pl.Place)
 	}

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"dongminal/internal/shared/agentrec"
-	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -66,7 +65,7 @@ func startReportSock(t *testing.T, reply *agentrec.Reply) *fakeReportSock {
 		}
 	}()
 	t.Cleanup(func() { ln.Close(); os.RemoveAll(home) })
-	t.Setenv(dmenv.EnvHome, home)
+	setTestHome(t, home)
 	return f
 }
 
@@ -115,7 +114,7 @@ func TestPostReport_NoSocketGoesHTTP(t *testing.T) {
 	hits := startReportHTTP(t)
 	home, _ := os.MkdirTemp("", "rbn")
 	t.Cleanup(func() { os.RemoveAll(home) })
-	t.Setenv(dmenv.EnvHome, home)
+	setTestHome(t, home)
 	if status, _, err := postReport(agentrec.MethodNotify, "/api/tools/attention/set", map[string]any{"toolId": "t1"}, hookBudget); err != nil || status != http.StatusOK {
 		t.Fatalf("status=%d err=%v", status, err)
 	}

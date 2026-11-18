@@ -12,8 +12,10 @@ import (
 
 	"context"
 	"io/fs"
+	"net"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,8 +29,10 @@ import (
 	"dongminal/internal/webserver/domain/wsentry"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/pollwait"
+	"dongminal/internal/shared/serverconf"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -432,9 +436,21 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	defer stopDiag()
 	go s.runDiagSnapshots(diagCtx, DiagSnapshotEvery)
 
+	// HOT_REBIND_SRS FR-HRB-10: 리슨에 성공한 뒤에 주소 파일을 쓴다. 헬퍼는 그것으로
+	// 서버를 찾는다. 정상 종료 때 자기가 쓴 내용이면 지운다.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	bound := boundAddr(addr, ln)
+	if err := serverconf.WriteAddr(s.cfg.DataDir, bound); err != nil {
+		dmlog.Warnf(nil, "주소 파일을 쓰지 못했습니다: %v", err)
+	}
+	defer serverconf.RemoveAddr(s.cfg.DataDir, bound)
+
 	errCh := make(chan error, 1)
 	go func() {
-		err := srv.ListenAndServe()
+		err := srv.Serve(ln)
 		if err == http.ErrServerClosed {
 			err = nil
 		}
@@ -459,6 +475,16 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+// boundAddr 는 주소 파일에 쓸 `host:port` 다. 호스트는 요청한 바인드 그대로, 포트는
+// 실제로 잡힌 것이다 — `0.0.0.0` 을 리스너가 `[::]` 로 보고하는 것을 따르지 않는다.
+func boundAddr(addr string, ln net.Listener) string {
+	host, _, _ := net.SplitHostPort(addr)
+	if tcp, ok := ln.Addr().(*net.TCPAddr); ok {
+		return net.JoinHostPort(host, strconv.Itoa(tcp.Port))
+	}
+	return addr
 }
 
 // assetVersion 은 지금 서빙하는 자산의 판을 준다. 모르면 빈 문자열이다.

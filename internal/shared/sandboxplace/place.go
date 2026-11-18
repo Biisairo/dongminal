@@ -17,6 +17,7 @@ import (
 
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/sandbox"
+	"dongminal/internal/shared/serverconf"
 	"dongminal/internal/shared/toolhub"
 )
 
@@ -159,6 +160,12 @@ func (p *Placer) Place(pl toolhub.Placement) (*platform.ProcSpec, error) {
 			return nil, err
 		}
 		rs.HelperPath = path
+		// FR-HRB-13: 주소 파일 폴더를 미리 만든다. 없는 원본은 런타임이 그 자리에 만들어
+		// 버린다. 만들지 못하면 붙이지 않고 기동 때의 포트로 간다.
+		dir := filepath.Dir(serverconf.AddrPath(p.home))
+		if err := os.MkdirAll(dir, 0o700); err == nil {
+			rs.AddrDir = dir
+		}
 	}
 
 	if err := p.mgr.Ensure(pl.WindowUUID, prof, rs); err != nil {

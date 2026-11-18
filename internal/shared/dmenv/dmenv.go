@@ -46,6 +46,13 @@ const (
 	EnvHost = "DONGMINAL_HOST"
 	EnvPort = "DONGMINAL_PORT"
 
+	// ContainerHost 는 샌드박스 컨테이너에서 호스트를 부르는 이름이다. 컨테이너 안
+	// 도구의 EnvHost 가 이 값이면 헬퍼는 ContainerAddrDir 의 주소 파일을 읽는다
+	// (HOT_REBIND_SRS FR-HRB-13).
+	ContainerHost = "host.docker.internal"
+	// ContainerAddrDir 은 홈의 주소 파일 폴더(`run/`)가 컨테이너 안에 붙는 자리다 (D-HRB-9).
+	ContainerAddrDir = "/run/dongminal"
+
 	// EnvAgentBinDir 은 에이전트 도구의 실행 파일을 먼저 찾는 디렉터리다
 	// (M8_UNIFIED_SRS D-C-7). 거기에 어댑터의 DetectCmd 이름이 있으면 그것, 없으면
 	// PATH 다. e2e 가 가짜 에이전트를 꽂는 자리이며, 그래서 서버 코드에 에이전트

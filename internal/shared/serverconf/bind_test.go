@@ -159,7 +159,10 @@ func TestReadAddr(t *testing.T) {
 		t.Error("없는 파일이 ok")
 	}
 	writeAddr := func(body string) {
-		if err := os.WriteFile(filepath.Join(home, serverconf.AddrFileName), []byte(body), 0o600); err != nil {
+		if err := os.MkdirAll(filepath.Dir(serverconf.AddrPath(home)), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(serverconf.AddrPath(home), []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -183,5 +186,56 @@ func TestReadAddr(t *testing.T) {
 	}
 	if _, _, ok := serverconf.ReadAddr(""); ok {
 		t.Error("빈 홈이 ok")
+	}
+}
+
+// 주소 파일은 전용 폴더 run/ 에 있다 (D-HRB-9).
+func TestAddrPathIsInRunDir(t *testing.T) {
+	if got, want := serverconf.AddrPath("/h"), filepath.Join("/h", "run", "server.addr"); got != want {
+		t.Errorf("AddrPath = %q want %q", got, want)
+	}
+}
+
+// TC-HRB-4 (FR-HRB-10): 쓰기는 0600·폴더 0700, 다시 쓰면 바뀐다. 지우기는 자기가
+// 쓴 내용일 때만이고 폴더는 남긴다.
+func TestWriteRemoveAddr(t *testing.T) {
+	home := t.TempDir()
+	if err := serverconf.WriteAddr(home, "127.0.0.1:9300"); err != nil {
+		t.Fatal(err)
+	}
+	if h, p, ok := serverconf.ReadAddr(home); !ok || h != "127.0.0.1" || p != "9300" {
+		t.Errorf("ReadAddr = %q %q %v", h, p, ok)
+	}
+	st, err := os.Stat(serverconf.AddrPath(home))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o600 {
+		t.Errorf("파일 권한 = %v", st.Mode().Perm())
+	}
+	dst, err := os.Stat(filepath.Dir(serverconf.AddrPath(home)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dst.Mode().Perm() != 0o700 {
+		t.Errorf("폴더 권한 = %v", dst.Mode().Perm())
+	}
+	if err := serverconf.WriteAddr(home, "0.0.0.0:9301"); err != nil {
+		t.Fatal(err)
+	}
+	// 남이 쓴 내용이면 지우지 않는다.
+	serverconf.RemoveAddr(home, "127.0.0.1:9300")
+	if _, p, ok := serverconf.ReadAddr(home); !ok || p != "9301" {
+		t.Errorf("남의 주소 파일을 지웠다: %q %v", p, ok)
+	}
+	serverconf.RemoveAddr(home, "0.0.0.0:9301")
+	if _, _, ok := serverconf.ReadAddr(home); ok {
+		t.Error("지우지 않았다")
+	}
+	if _, err := os.Stat(filepath.Dir(serverconf.AddrPath(home))); err != nil {
+		t.Errorf("폴더까지 지웠다: %v", err)
+	}
+	if err := serverconf.WriteAddr("", "127.0.0.1:1"); err == nil {
+		t.Error("홈 없이 썼다")
 	}
 }

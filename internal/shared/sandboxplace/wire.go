@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/sandbox"
+	"dongminal/internal/shared/serverconf"
 )
 
 // Wire 는 실제 환경에서 배치기를 만든다 (FR-SBX-10).
@@ -37,8 +37,18 @@ func Wire(home, version, port string) *Placer {
 	// 지금 판이 아닌 헬퍼는 기동 때 치운다 (FR-SBX-29).
 	sandbox.PruneHelperCache(helper)
 
-	if port == "" {
-		port = dmenv.Or(dmenv.EnvPort, dmenv.DefaultPort)
+	return New(sandbox.New(sandbox.CLIRunner(dockerPath), home), dockerPath, profiles, helper, startupPort(home, port), home)
+}
+
+// startupPort 는 컨테이너에 심을 기동 때의 포트다. 주지 않았으면 주소 파일 → `server.json`
+// → 기본값이다 (HOT_REBIND_SRS FR-HRB-13). 데몬은 더 이상 포트를 환경변수로 물려받지
+// 않는다 (FR-HRB-11).
+func startupPort(home, port string) string {
+	if port != "" {
+		return port
 	}
-	return New(sandbox.New(sandbox.CLIRunner(dockerPath), home), dockerPath, profiles, helper, port, home)
+	if _, p, ok := serverconf.ReadAddr(home); ok {
+		return p
+	}
+	return serverconf.Resolve(serverconf.Inputs{Home: home}).Port.Value
 }

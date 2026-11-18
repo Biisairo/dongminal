@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/serverconf"
 )
 
 const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
@@ -107,9 +108,11 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
                           닫으면 컨테이너도 사라진다. 컨테이너 런타임(docker)이
                           필요하고, 없으면 도구 생성이 실패한다.
 
-환경변수:
-  ` + dmenv.EnvPort + ` — 기본 ` + dmenv.DefaultPort + `
-  ` + dmenv.EnvHost + ` — 기본 ` + dmenv.DefaultHost + `
+서버 주소:
+  $` + dmenv.EnvHome + `/` + serverconf.AddrDir + `/` + serverconf.AddrFileName + ` (지금 리슨하는 주소) → $` + dmenv.EnvHome + `/` + serverconf.FileName + `
+  → 기본 ` + dmenv.DefaultHost + `:` + dmenv.DefaultPort + `. 요청마다 다시 읽는다.
+  샌드박스 컨테이너 안(` + dmenv.EnvHost + `=` + dmenv.ContainerHost + `)에서는
+  ` + dmenv.ContainerAddrDir + `/` + serverconf.AddrFileName + `, 없으면 ` + dmenv.EnvPort + ` 를 쓴다.
 `
 
 func runDmctl(args []string, stdout, stderr io.Writer) int {

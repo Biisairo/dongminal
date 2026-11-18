@@ -16,8 +16,7 @@ func pointDmctlAtServer(t *testing.T, ts *httptest.Server, toolID string) {
 	if err != nil {
 		t.Fatalf("parse url: %v", err)
 	}
-	t.Setenv("DONGMINAL_HOST", u.Hostname())
-	t.Setenv("DONGMINAL_PORT", u.Port())
+	pointAt(t, u.Hostname(), u.Port())
 	t.Setenv("DONGMINAL_TOOL_ID", toolID)
 }
 

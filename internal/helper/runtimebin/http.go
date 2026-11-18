@@ -6,27 +6,67 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"time"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/serverconf"
 )
 
-// baseURL 의 기본값은 dmenv 가 갖는다 — 정상 경로에서는 server 가 자식
-// 프로세스에 주소를 항상 주입하고, 여기 값은 그것이 비었을 때의 안전망이다.
+// serverAddr 는 이 셸이 붙을 서버 주소다 (HOT_REBIND_SRS FR-HRB-12·13·14).
 //
-// **파일 계층(`server.json`)은 여기 없다** (D-STR-3). `helper/runtimebin` 은
-// `ctl/cli` 를 import 할 수 없다 — 프로세스 축 경계이고 `check-pkg-axis.sh` 가
-// 그것을 지킨다. 계층을 주려면 `serverconf` 가 `shared` 로 가야 하고 그것은
-// 패키지 구조 변경이다. 여기서 한 벌로 만든 것은 **주소 조립**까지다
-// (FR-STR-21·26) — IPv6 의 대괄호가 `dmenv.BaseURL` 에서 붙는다.
-func baseURL() string {
-	return dmenv.BaseURL(
-		dmenv.Or(dmenv.EnvHost, dmenv.DefaultHost),
-		dmenv.Or(dmenv.EnvPort, dmenv.DefaultPort),
-	)
+// 주소 파일 → `server.json` → 기본값 순서이고 **요청마다 다시 읽는다** — 서버가 포트를
+// 바꿔도 이미 뜬 셸이 따라간다. 셸의 `DONGMINAL_PORT` 는 읽지 않는다. 이 변경 전 데몬이
+// 띄운 셸에 옛 값이 남아 있기 때문이다.
+//
+// 샌드박스 컨테이너 안(`DONGMINAL_HOST` 가 게이트웨이)은 마운트된 주소 파일의 포트를 쓰고,
+// 없으면 기동 때 심은 `DONGMINAL_PORT` 를 쓴다.
+func serverAddr() (host, port string) {
+	if os.Getenv(dmenv.EnvHost) == dmenv.ContainerHost {
+		if _, p, ok := serverconf.ReadAddrFile(containerAddrFile); ok {
+			return dmenv.ContainerHost, p
+		}
+		return dmenv.ContainerHost, dmenv.Or(dmenv.EnvPort, dmenv.DefaultPort)
+	}
+	home := helperHome()
+	if h, p, ok := serverconf.ReadAddr(home); ok {
+		return h, p
+	}
+	conf := serverconf.Resolve(serverconf.Inputs{Home: home})
+	return conf.Host.Value, conf.Port.Value
 }
 
-func currentPort() string { return dmenv.Or(dmenv.EnvPort, dmenv.DefaultPort) }
+// containerAddrFile 은 컨테이너 안 주소 파일의 자리다. 변수인 것은 시험이 바꾸기 위해서다.
+var containerAddrFile = path.Join(dmenv.ContainerAddrDir, serverconf.AddrFileName)
+
+// helperHome 은 인스턴스 홈이다. 서버가 셸에 `DONGMINAL_HOME` 을 넣는다. 없으면 기본 홈이다.
+func helperHome() string {
+	if h := os.Getenv(dmenv.EnvHome); h != "" {
+		return h
+	}
+	return fallbackHome()
+}
+
+// fallbackHome 은 `DONGMINAL_HOME` 이 없을 때의 홈이다. 변수인 것은 시험이 사용 중인 홈에
+// 닿지 않게 바꾸기 위해서다.
+var fallbackHome = func() string {
+	if u, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(u, dmenv.DefaultHomeDir)
+	}
+	return ""
+}
+
+// baseURL 은 서버를 두드릴 주소다. 미지정 주소(`0.0.0.0`)는 `dmenv.BaseURL` 이 loopback 으로 바꾼다.
+func baseURL() string {
+	h, p := serverAddr()
+	return dmenv.BaseURL(h, p)
+}
+
+func currentPort() string {
+	_, p := serverAddr()
+	return p
+}
 
 // selfToolID 는 이 셸이 속한 도구다. --at 이 생략됐을 때의 기본 대상이고,
 // 자신을 서버에 알리는 모든 명령의 신원이다.

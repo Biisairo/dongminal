@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -84,7 +85,7 @@ func Scratch() Profile {
 //
 // 전송 계층은 바뀌지 않는다 — dmctl 은 이미 HTTP 로 붙고(§2.4), 여기서 다른
 // 것은 주소뿐이다.
-const HostGateway = "host.docker.internal"
+const HostGateway = dmenv.ContainerHost
 
 // RunSpec 은 컨테이너를 만들 때 필요한 **창별** 값이다. 프로파일이 정책이라면
 // 이쪽은 그 창의 사정이다.
@@ -94,6 +95,9 @@ type RunSpec struct {
 	// HelperPath 는 컨테이너에 넣을 리눅스 dmctl 이다. 프로파일이 헬퍼를
 	// 원하지 않으면 무시된다.
 	HelperPath string
+	// AddrDir 은 홈의 주소 파일 폴더다. 헬퍼와 함께 읽기 전용으로 붙인다
+	// (HOT_REBIND_SRS FR-HRB-13). 비면 붙이지 않는다.
+	AddrDir string
 }
 
 // ExecEnv 는 컨테이너 안 도구에 심을 값이다.
@@ -196,6 +200,10 @@ func (m *Manager) create(name, windowUUID string, p Profile, rs RunSpec) error {
 	// 전체를 조작할 수 있기 때문이며, 그래서 scratch 에는 넣지 않는다.
 	if p.Helper && rs.HelperPath != "" {
 		args = append(args, "-v", rs.HelperPath+":"+HelperMountPath+":ro")
+		// 주소 파일은 폴더째 붙인다 — 파일 하나를 붙이면 교체된 뒤에도 옛 inode 를 본다 (D-HRB-9).
+		if rs.AddrDir != "" {
+			args = append(args, "-v", rs.AddrDir+":"+dmenv.ContainerAddrDir+":ro")
+		}
 		// 리눅스 호스트에서도 같은 이름이 서도록 게이트웨이를 명시한다. macOS·
 		// Windows 는 런타임이 이미 이 이름을 풀지만, 한 자리에서 세워 두면
 		// 호스트별 분기가 생기지 않는다 (NFR-SBX-1).

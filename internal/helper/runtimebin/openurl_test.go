@@ -56,8 +56,7 @@ func TestOpenURL_LocalWhereOpensHere(t *testing.T) {
 
 // FR-VUO-4: 서버에 닿지 못해도 열기 요청은 소실되지 않는다.
 func TestOpenURL_ServerUnreachableStillOpensHere(t *testing.T) {
-	t.Setenv("DONGMINAL_PORT", "1") // 아무도 듣지 않는 포트
-	t.Setenv("DONGMINAL_HOST", "127.0.0.1")
+	pointAt(t, "127.0.0.1", "1") // 아무도 듣지 않는 포트
 
 	var opened string
 	var stdout, stderr bytes.Buffer

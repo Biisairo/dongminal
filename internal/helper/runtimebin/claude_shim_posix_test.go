@@ -63,8 +63,7 @@ func shimServer(t *testing.T, h http.HandlerFunc) {
 	t.Cleanup(srv.Close)
 	u, _ := url.Parse(srv.URL)
 	host, port, _ := net.SplitHostPort(u.Host)
-	t.Setenv(dmenv.EnvHost, host)
-	t.Setenv(dmenv.EnvPort, port)
+	pointAt(t, host, port)
 }
 
 func envValue(env []string, key string) (string, bool) {
@@ -219,8 +218,7 @@ func TestClaudeShimServerDownRunsDefault(t *testing.T) {
 	}
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 	_ = ln.Close()
-	t.Setenv(dmenv.EnvHost, "127.0.0.1")
-	t.Setenv(dmenv.EnvPort, port)
+	pointAt(t, "127.0.0.1", port)
 	var errb bytes.Buffer
 	if code := runClaude(nil, &bytes.Buffer{}, &errb); code != 7 {
 		t.Fatalf("code %d %s", code, errb.String())

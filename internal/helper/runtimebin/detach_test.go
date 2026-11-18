@@ -14,8 +14,7 @@ import (
 func setTestServer(t *testing.T, srv *httptest.Server) {
 	t.Helper()
 	u, _ := url.Parse(srv.URL)
-	t.Setenv("DONGMINAL_HOST", u.Hostname())
-	t.Setenv("DONGMINAL_PORT", u.Port())
+	pointAt(t, u.Hostname(), u.Port())
 }
 
 // FR-BG-2/6/7: detach 는 현재 도구를 백그라운드로 보내고 탭을 닫는다.

@@ -88,8 +88,7 @@ func TestRunDmctlWhoAmI_NotFound(t *testing.T) {
 
 // TC-DMC-WAI-4: 서버 unreachable → rc=1 + stderr.
 func TestRunDmctlWhoAmI_Unreachable(t *testing.T) {
-	t.Setenv("DONGMINAL_HOST", "127.0.0.1")
-	t.Setenv("DONGMINAL_PORT", "1") // unbound port
+	pointAt(t, "127.0.0.1", "1") // unbound port
 
 	var stdout, stderr bytes.Buffer
 	rc := runDmctl([]string{"who-am-i"}, &stdout, &stderr)

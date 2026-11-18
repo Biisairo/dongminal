@@ -320,8 +320,8 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 | 변수 | 기본 | 설명 |
 |------|------|------|
 | `PORT` | (없음) | **서버의 포트를 정하지 않습니다.** 포트는 `--port` 와 `server.json` 이 정합니다(아래 "우선순위"). 설정돼 있으면 `start` 가 경고를 한 줄 냅니다 |
-| `DONGMINAL_PORT` | (서버가 넣음) | 서버가 도구 셸에 넣는 자기 포트입니다. `dmctl`·`edit` 가 이 값으로 서버를 찾습니다. **서버의 포트를 정하지 않습니다** — 설정된 채로 `start` 하면 경고를 한 줄 냅니다 |
-| `DONGMINAL_HOST` | (서버가 넣음) | 서버가 도구 셸에 넣는 자기 호스트입니다. `dmctl` 이 이 값으로 서버에 접속합니다. **서버의 바인드를 정하지 않습니다** — 노출은 `--expose` 와 `server.json` 의 `host` 가 정합니다 |
+| `DONGMINAL_PORT` | (없음) | **서버의 포트를 정하지 않습니다** — 설정된 채로 `start` 하면 경고를 한 줄 냅니다. 호스트의 `dmctl`·`edit` 도 읽지 않고 `run/server.addr` 로 서버를 찾습니다. 샌드박스 컨테이너 안에서만, 주소 파일이 없을 때 쓰는 기동 때의 포트입니다 |
+| `DONGMINAL_HOST` | (없음) | **서버의 바인드를 정하지 않습니다** — 노출은 `--expose` 와 `server.json` 의 `host` 가 정합니다. 샌드박스 컨테이너 안에서만 `host.docker.internal` 로 넣어, `dmctl` 이 호스트의 서버를 부릅니다 |
 | `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `server.json`, `settings.json`, `access.json`(접속 허용 목록), `workspace.json`, `tools.json`, `notes/`(메모장) 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
 | `DONGMINAL_LOG` | `/tmp/dongminal.log`<br>(Windows: `%LOCALAPPDATA%` 아래) | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
 | `DONGMINAL_LOG_LEVEL` | `info` | 로그 수준 — `debug`·`info`·`warn`·`error`. 알 수 없는 값은 `info` 로 떨어집니다 |
@@ -363,7 +363,7 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 `start` 에 준 `--port`·`--expose` 는 `server.json` 에 저장됩니다.
 레포 루트의 `.env` 는 더 이상 읽히지 않습니다.
 
-`stop`·`health`·`window` 는 겨눌 서버를 **플래그 > `$DONGMINAL_HOME/server.addr`(지금 리슨하는 주소) >
+`stop`·`health`·`window` 와 `dmctl`·`edit` 는 겨눌 서버를 **플래그 > `$DONGMINAL_HOME/run/server.addr`(지금 리슨하는 주소) >
 `server.json` > 기본값** 순으로 찾습니다.
 
 빈 값은 "정하지 않음" 이라 다음 계층으로 넘어갑니다. 지금 실효값이 무엇이고
@@ -419,9 +419,13 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 - zsh → `ZDOTDIR=$DONGMINAL_HOME/bin/zdotdir`
 - bash → `BASH_ENV=$DONGMINAL_HOME/bin/bash-hook.sh`
 - `TERM=xterm-256color`, `COLORTERM=truecolor`, `LANG/LC_ALL/LC_CTYPE=en_US.UTF-8`
-- `DONGMINAL_PORT=<서버 포트>`, `DONGMINAL_TOOL_ID=<도구 id>`
+- `DONGMINAL_HOME=<홈>`, `DONGMINAL_TOOL_ID=<도구 id>`
 
-외부 터미널에서도 `dmctl`/`edit` 를 쓰고 싶다면 별도로 `PATH`/`DONGMINAL_PORT` 를 export 하면 됩니다.
+서버의 포트는 주입하지 않습니다. `dmctl`·`edit` 는 요청마다 `$DONGMINAL_HOME/run/server.addr` 를 읽어 서버를
+찾으므로, 서버가 포트를 바꿔도 이미 열린 셸이 따라갑니다.
+
+외부 터미널에서도 `dmctl`/`edit` 를 쓰고 싶다면 `PATH` 에 `$DONGMINAL_HOME/bin` 을 더하면 됩니다. 홈이 기본값이
+아니면 `DONGMINAL_HOME` 도 export 합니다.
 
 ## 접속
 
@@ -457,7 +461,7 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `tool-home/` | `--isolated` 기동에서 도구 셸이 쓰는 홈 | ❌ |
 | `paned.sock` · `paned.pid` · `paned.build` | 데몬 IPC 와 코드 지문 | ❌ |
 | `.lastexit` | 마지막 종료가 정상이었는지 | ❌ |
-| `server.addr` | 서버가 지금 리슨하는 주소 (`host:port` 한 줄) | ❌ 정상 종료면 스스로 지웁니다 |
+| `run/` | 서버가 지금 리슨하는 주소 `run/server.addr` (`host:port` 한 줄). 샌드박스 컨테이너에 읽기 전용으로 붙습니다 | ❌ 정상 종료면 파일을 스스로 지웁니다 |
 | `server.log` · `daemon.log` · `restart.log` | 로그 | ❌ |
 | `doctor/` · `doctor-tools/` · `doctor-probe.txt` | `doctor` 의 작업 자리 | ❌ |
 | `verify-too-large.bin` | `verify` 가 413 을 확인할 때 쓰는 큰 파일 | ❌ 정상 종료면 스스로 치웁니다 |

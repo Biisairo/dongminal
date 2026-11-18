@@ -54,7 +54,7 @@ func chatShimRun(t *testing.T, socket bool) *shimRun {
 	_, _, ran := shimFixture(t)
 	shimServer(t, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"source":"none"}`)) })
 	home := chatHome(t)
-	t.Setenv(dmenv.EnvHome, home)
+	setTestHome(t, home)
 	if socket {
 		listenChat(t, home, func(net.Conn) {})
 	}
@@ -109,7 +109,7 @@ func TestClaudeShimNoChatWithoutTool(t *testing.T) {
 	_, _, ran := shimFixture(t)
 	shimServer(t, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"source":"none"}`)) })
 	home := chatHome(t)
-	t.Setenv(dmenv.EnvHome, home)
+	setTestHome(t, home)
 	t.Setenv(dmenv.EnvToolID, "")
 	listenChat(t, home, func(net.Conn) {})
 	_ = runClaude(nil, &bytes.Buffer{}, &bytes.Buffer{})
@@ -124,7 +124,7 @@ func TestClaudeShimNoChatWithoutTool(t *testing.T) {
 func chatHookRun(t *testing.T, verdict string, total int) (string, chatwire.Frame) {
 	t.Helper()
 	home := chatHome(t)
-	t.Setenv(dmenv.EnvHome, home)
+	setTestHome(t, home)
 	asked := make(chan chatwire.Frame, 1)
 	listenChat(t, home, func(c net.Conn) {
 		sc := chatwire.NewScanner(c)
