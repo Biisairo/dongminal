@@ -460,3 +460,31 @@ func TestServerBindGet(t *testing.T) {
 		t.Errorf("이동 뒤 GET = %v", m)
 	}
 }
+
+// FR-HRB-32: 노출된 채 포트를 옮겨 옛 리스너가 유예 중일 때 expose 만 끄면, 그 옛 리스너도 바로 닫는다.
+func TestRebindUnexposeClosesExposedGrace(t *testing.T) {
+	var asked []string
+	_, _, p1 := startBindServer(t, func(s *Server) {
+		s.bindGrace = 5 * time.Second
+		s.bindListen = exposeListen(false, &asked)
+	})
+	if code, _, body := postBind(t, p1, `{"expose":true}`); code != http.StatusOK {
+		t.Fatalf("expose: %d %v", code, body)
+	}
+	p2 := freeTCPPort(t)
+	if code, _, body := postBind(t, p1, `{"port":`+p2+`}`); code != http.StatusOK || body["expose"] != true {
+		t.Fatalf("노출 유지 이동: %d %v", code, body)
+	}
+	if !pingOK(p1) {
+		t.Fatal("노출이 그대로면 옛 리스너는 유예로 남아야 한다")
+	}
+	if code, _, body := postBind(t, p2, `{"expose":false}`); code != http.StatusOK || body["expose"] != false {
+		t.Fatalf("expose 끄기: %d %v", code, body)
+	}
+	if pingOK(p1) {
+		t.Error("expose 를 껐는데 노출된 유예 리스너가 남았다")
+	}
+	if !pingOK(p2) {
+		t.Error("지금 포트가 받지 않는다")
+	}
+}

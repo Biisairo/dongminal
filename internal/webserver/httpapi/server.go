@@ -458,7 +458,7 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	_, port, _ := net.SplitHostPort(boundAddr(addr, ln))
 	// 묶음 R: 리스너는 rebinder 가 쥔다 — 실행 중에 갈아 끼울 수 있다.
 	b := &rebinder{srv: srv, home: s.cfg.DataDir, errCh: make(chan error, 1), conns: newConnSet(),
-		host: host, port: port, ln: ln, grace: map[string]net.Listener{}}
+		host: host, port: port, ln: ln, grace: map[string]graceEntry{}}
 	s.bind = b
 	if err := serverconf.WriteAddr(s.cfg.DataDir, b.addr()); err != nil {
 		dmlog.Warnf(nil, "주소 파일을 쓰지 못했습니다: %v", err)

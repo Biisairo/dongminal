@@ -150,16 +150,25 @@ $ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
 | 상태 | 조건 | 출력 |
 |---|---|---|
 | **미실행** | `paned.pid` 가 없거나 그 pid 가 죽어 있다 | 데몬 미실행 — `start` 가 새 바이너리로 기동한다 |
-| **일치** | `paned.build` == 새 지문 | 데몬 코드 그대로 — `start` 만 하면 된다 (세션 보존) |
-| **불일치** | `paned.build` != 새 지문 | ⚠ 데몬 코드가 바뀌었다 — `start --restart-daemon` (세션을 잃는다) |
-| **모른다** | 새 지문이 비었거나 `paned.build` 가 없다 | 판을 모른다 — 확실히 하려면 `--restart-daemon` |
+| **일치** | `paned.build` == 새 지문 | 데몬 코드 그대로 — `start` 는 세션을 유지한다 |
+| **불일치** | `paned.build` != 새 지문 | ⚠ 데몬 코드가 바뀌었다 — `start` 가 세션을 유지하며 교체한다 |
+| **모른다** | 새 지문이 비었거나 `paned.build` 가 없다 | 판을 모른다 — `start` 가 세션을 유지하며 교체한다 |
+
+> **변경 2026-11-18 (`DAEMON_SESSION_KEEP_SRS` FR-DSK-1·2).** `start` 가 데몬을 세션을 유지하며
+> 새 바이너리로 교체하게 되어, 불일치·모른다의 안내가 "`--restart-daemon` (세션을 잃는다)" 에서
+> "`start` 가 세션을 유지하며 교체한다" 로 바뀌었다. `--restart-daemon` 은 없어졌고, 세션을 버리고
+> 새로 띄우는 길은 `--refresh-daemon` 이다. 네 상태와 판정 규칙은 그대로다.
 
 **모른다**를 **일치**로 접지 않는다. 낡은 데몬 위에서 고친 줄 알았던 버그를 다시
 보는 것이 이 문서가 없애려는 바로 그 값이다.
 
-**FR-DFP-9** `dongminal start` 가 데몬을 살려 둔 채 뜰 때
-(`socketExists && !RestartDaemon`, `start.go:110`) 불일치면 기존 "dongminald 실행 중
+**FR-DFP-9** `dongminal start --server-only` 가 데몬을 건드리지 않고 뜰 때
+(`prepareDaemon` 의 `ServerOnly` 갈래, `session_keep.go`) 불일치면 "dongminald 실행 중
 (세션 보존)" 줄 아래에 경고를 덧댄다. 빌드와 기동 사이에 시간이 떠도 잡힌다.
+
+> **변경 2026-11-18 (`DAEMON_SESSION_KEEP_SRS`).** 이전에는 플래그 없는 `start` 가 데몬을 살려 둔 채
+> 떴다(`socketExists && !RestartDaemon`). 지금 플래그 없는 `start` 는 데몬을 교체하므로, 데몬을 그대로
+> 두는 길은 `--server-only` 하나다. 경고는 그 자리로 옮겼다.
 
 **FR-DFP-10** `dongminal health` 는 데몬 줄 아래에 판 일치 여부를 한 줄 낸다.
 불일치를 **실패로 세지 않는다**(종료 코드 0 을 유지한다) — 낡은 데몬은 어긋남이지
@@ -219,6 +228,7 @@ $ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
 - **자동 재시작.** 데몬 재시작은 터미널 세션 손실이다. 그 결정은 사람의 것이며,
   이 문서는 결정에 필요한 사실만 놓는다.
 - **릴리스 산출물 간 비교.** `dist/` 의 바이너리는 이 기계의 데몬과 무관하다.
-- **부분 재시작 (세션을 살린 채 데몬만 교체).** 별개의 큰 주제다.
+- **부분 재시작 (세션을 살린 채 데몬만 교체).** 이 문서의 범위 밖이다. 2026-11-18
+  `DAEMON_SESSION_KEEP_SRS` 가 구현했다 — 플래그 없는 `dongminal start` 가 그것이다.
 - **`cli.Version` 의 대체.** 빌드 판과 데몬 지문은 다른 것을 센다 —
   `FR-VHL-1` 이 프로토콜 판과 빌드 판을 합치지 않은 것과 같은 근거다.

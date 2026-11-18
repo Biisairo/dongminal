@@ -42,7 +42,28 @@ type rebinder struct {
 	host, port string
 	ln         net.Listener
 	// grace 는 유예 중인 옛 리스너다. 키는 포트다.
-	grace map[string]net.Listener
+	grace map[string]graceEntry
+}
+
+// graceEntry 는 유예 중인 옛 리스너와 그것이 묶인 호스트다. 호스트를 들고 있어야 expose 를
+// 끌 때 노출된 것만 골라 닫을 수 있다 (FR-HRB-32).
+type graceEntry struct {
+	ln   net.Listener
+	host string
+}
+
+// revokeExposure 는 노출을 거둔다 (FR-HRB-32). 노출된 유예 리스너를 먼저 닫아 새 연결을 막고,
+// 그다음 같은 망에서 이미 맺은 연결을 끊는다.
+func (b *rebinder) revokeExposure() {
+	b.mu.Lock()
+	for port, g := range b.grace {
+		if dmenv.IsExposedHost(g.host) {
+			delete(b.grace, port)
+			_ = g.ln.Close()
+		}
+	}
+	b.mu.Unlock()
+	b.conns.revokeRemote()
 }
 
 func (b *rebinder) addr() string { return net.JoinHostPort(b.host, b.port) }
@@ -200,8 +221,8 @@ func (s *Server) apiServerBind(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if dmenv.IsExposedHost(curHost) && !dmenv.IsExposedHost(newHost) {
-		// FR-HRB-32: expose 를 껐으면 같은 망에서 이미 맺은 연결도 끊는다.
-		b.conns.revokeRemote()
+		// FR-HRB-32: expose 를 껐으면 노출된 유예 리스너와 같은 망에서 맺은 연결을 거둔다.
+		b.revokeExposure()
 	}
 	view := viewOf(newHost, newPort)
 	reason := "port"
@@ -230,7 +251,7 @@ func (s *Server) movePort(b *rebinder, host, port string) (int, string) {
 	if old, in := b.grace[port]; in {
 		// 유예 중인 옛 포트로 되돌린다 — 그 리스너가 포트를 쥐고 있다.
 		delete(b.grace, port)
-		_ = old.Close()
+		_ = old.ln.Close()
 	}
 	b.mu.Unlock()
 
@@ -254,7 +275,7 @@ func (s *Server) movePort(b *rebinder, host, port string) (int, string) {
 	// FR-HRB-32: 노출을 끄며 옮기면 노출된 옛 리스너를 유예로 남기지 않는다.
 	keep := !dmenv.IsExposedHost(oldHost) || dmenv.IsExposedHost(host)
 	if keep {
-		b.grace[oldPort] = old
+		b.grace[oldPort] = graceEntry{ln: old, host: oldHost}
 	}
 	b.mu.Unlock()
 	if !keep {
@@ -266,9 +287,9 @@ func (s *Server) movePort(b *rebinder, host, port string) (int, string) {
 	time.AfterFunc(s.bindGrace, func() {
 		b.mu.Lock()
 		defer b.mu.Unlock()
-		if g, in := b.grace[oldPort]; in && g == old {
+		if g, in := b.grace[oldPort]; in && g.ln == old {
 			delete(b.grace, oldPort)
-			_ = g.Close()
+			_ = g.ln.Close()
 		}
 	})
 	return 0, ""
