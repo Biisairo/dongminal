@@ -6,7 +6,6 @@
  */
 I18N.register('en', {
   // ── acl ──
-  'acl.label_placeholder': 'Label',
   'acl.lockout_p1a': 'This list does not allow the address you are connecting from, ',
   'acl.lockout_p1b': '.',
   'acl.lockout_p2a': 'If you save, ',

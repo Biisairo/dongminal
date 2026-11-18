@@ -2012,7 +2012,6 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 .acl-row input[type=text]:focus{outline:none;border-color:var(--accent)}
 .acl-row input[type=text]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .acl-value{flex:2 1 0}
-.acl-label{flex:1 1 0}
 /* 해석 결과는 줄의 끝에서 조용히 있어야 한다 — 평소에는 배경이고, 실패했을 때만 눈에 든다. */
 .acl-state{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:var(--fs-sm);color:var(--text-hint)}

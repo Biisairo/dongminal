@@ -21,7 +21,6 @@
  */
 I18N.register('ko', {
   // ── acl ──
-  'acl.label_placeholder': '이름표',
   'acl.lockout_p1a': '이 목록은 지금 접속 중인 주소 ',
   'acl.lockout_p1b': ' 를 허용하지 않습니다.',
   'acl.lockout_p2a': '저장하면 ',

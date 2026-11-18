@@ -59,7 +59,8 @@ test.describe('접속 허용 목록', () => {
     await page.click('#acl-add');
     const row = page.locator('#acl-list .acl-row').last();
     await row.locator('.acl-value').fill('192.168.77.0/24');
-    await row.locator('.acl-label').fill('e2e');
+    // PROFILE_NAME_SRS FR-PFN-33: 이름표 칸이 없다.
+    await expect(row.locator('.acl-label')).toHaveCount(0);
     await page.click('#acl-save');
     await expect(page.locator('#acl-status')).toHaveText('저장했습니다');
 
@@ -144,7 +145,7 @@ test.describe('접속 허용 목록', () => {
     await page.click('#acl-host-add');
     const row = page.locator('#acl-host-list .acl-row').last();
     await row.locator('.acl-value').fill('macmini-office');
-    // PROFILE_NAME_SRS FR-PFN-32: 축②는 도메인만 받는다 — 이름표 칸이 없다.
+    // PROFILE_NAME_SRS FR-PFN-32: 축②도 도메인만 받는다 — 이름표 칸이 없다.
     await expect(row.locator('.acl-label')).toHaveCount(0);
     await page.click('#acl-save');
     await expect(page.locator('#acl-status')).toHaveText('저장했습니다');
@@ -188,7 +189,7 @@ test.describe('접속 허용 목록', () => {
     const rows = page.locator('#acl-list .acl-row');
     const notice = page.locator('#panel-access .settings-stale');
 
-    await put([{ id: 'x', value: '10.9.9.9', label: 'ext', enabled: true }]);
+    await put([{ id: 'x', value: '10.9.9.9', enabled: true }]);
     await expect(rows).toHaveCount(1, { timeout: 10000 });
     await expect(notice).toHaveCount(0);
 

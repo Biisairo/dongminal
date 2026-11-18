@@ -86,7 +86,7 @@ func TestAccessStore_SaveSuccessUnchanged(t *testing.T) {
 
 	if err := st.setConfig(accessConfig{
 		Enabled: true,
-		Entries: []accessEntry{{Value: "10.0.0.1", Label: "노트북"}},
+		Entries: []accessEntry{{Value: "10.0.0.1"}},
 	}); err != nil {
 		t.Fatalf("정상 경로가 실패했다: %v", err)
 	}

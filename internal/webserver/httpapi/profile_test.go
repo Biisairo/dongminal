@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -92,19 +93,44 @@ func TestTelegramDeviceIsHandle(t *testing.T) {
 	}
 }
 
-// FR-PFN-32: 축②의 라벨은 저장하지 않는다. 축①의 라벨은 그대로다.
-func TestHostAlias_LabelDropped(t *testing.T) {
-	st := newTestAccessStore(t)
-	mustSetConfig(t, st, accessConfig{
-		Entries: []accessEntry{{ID: "a", Value: "10.0.0.1", Label: "phone", Enabled: true}},
-		Hosts:   []accessEntry{{ID: "h", Value: "macmini-office", Label: "tailnet", Enabled: true}},
-	})
-	got := st.config()
-	if got.Hosts[0].Label != "" {
-		t.Fatalf("축② 라벨이 남았다: %+v", got.Hosts)
+// FR-PFN-32·33: 두 축 모두 이름표를 저장하지도 응답하지도 않는다. 옛 파일의 이름표는 다음 저장 때 사라진다.
+func TestAccessLabelDropped(t *testing.T) {
+	home := t.TempDir()
+	old := `{"enabled":false,"entries":[{"id":"a","value":"10.0.0.1","label":"phone","enabled":true}],` +
+		`"hosts":[{"id":"h","value":"macmini-office","label":"tailnet","enabled":true}]}`
+	if err := os.WriteFile(filepath.Join(home, "access.json"), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if got.Entries[0].Label != "phone" {
-		t.Fatalf("축① 라벨이 상했다: %+v", got.Entries)
+	srv, err := New(Config{DataDir: home}, Deps{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Access.lookupHost = func(string) ([]string, error) { return nil, nil }
+	req := apiTestRequest(http.MethodGet, "/api/access", nil)
+	req.RemoteAddr = "127.0.0.1:5000"
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), `"label"`) {
+		t.Fatalf("GET %d — 이름표가 응답에 있다: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "10.0.0.1") {
+		t.Fatalf("항목이 사라졌다: %s", rec.Body.String())
+	}
+	body := `{"enabled":false,"entries":[{"id":"a","value":"10.0.0.1","label":"phone","enabled":true}],` +
+		`"hosts":[{"id":"h","value":"macmini-office","label":"tailnet","enabled":true}]}`
+	req = apiTestRequest(http.MethodPut, "/api/access", strings.NewReader(body))
+	req.RemoteAddr = "127.0.0.1:5000"
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT %d %s", rec.Code, rec.Body.String())
+	}
+	disk, err := os.ReadFile(filepath.Join(home, "access.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(disk), "label") || !strings.Contains(string(disk), "10.0.0.1") {
+		t.Fatalf("저장된 파일 = %s", disk)
 	}
 }
 

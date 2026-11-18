@@ -33,7 +33,7 @@ func mustSetConfig(t *testing.T, st *accessStore, cfg accessConfig) {
 }
 
 func entry(value string) accessEntry {
-	return accessEntry{ID: "e-" + value, Value: value, Label: value, Enabled: true}
+	return accessEntry{ID: "e-" + value, Value: value, Enabled: true}
 }
 
 // gateStatus 는 주어진 출발지로 게이트를 통과시켰을 때의 상태코드다.

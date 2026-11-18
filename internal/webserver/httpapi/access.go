@@ -37,11 +37,11 @@ import (
 // 이 결과만 읽는다 (FR-ACL-15).
 const DefaultAccessRefresh = 60 * time.Second
 
-// accessEntry 는 허용 목록의 한 줄이다. 이것이 디스크에 저장되는 모양이다.
+// accessEntry 는 허용 목록의 한 줄이다. 이것이 디스크에 저장되는 모양이다. 옛 파일의 `label` 은
+// 판정에 쓰이지 않던 메모라 읽을 때 버린다 (PROFILE_NAME_SRS FR-PFN-33).
 type accessEntry struct {
 	ID      string `json:"id"`
 	Value   string `json:"value"`
-	Label   string `json:"label"`
 	Enabled bool   `json:"enabled"`
 }
 
@@ -201,7 +201,6 @@ func normalizeAccessConfig(cfg accessConfig) (accessConfig, error) {
 			return accessConfig{}, fmt.Errorf("entries[%d]: %w", i, err)
 		}
 		e.Value = v
-		e.Label = strings.TrimSpace(e.Label)
 		entries = append(entries, e)
 	}
 	// FR-ACL-30: 축②도 같은 규약이다 — 하나라도 유효하지 않으면 아무것도 저장하지
@@ -213,8 +212,6 @@ func normalizeAccessConfig(cfg accessConfig) (accessConfig, error) {
 			return accessConfig{}, fmt.Errorf("hosts[%d]: %w", i, err)
 		}
 		e.Value = v
-		// PROFILE_NAME_SRS FR-PFN-32: 축②는 도메인만 받는다. 별명은 프로필 이름 하나다.
-		e.Label = ""
 		hosts = append(hosts, e)
 	}
 	return accessConfig{Enabled: cfg.Enabled, Entries: entries, Hosts: hosts}, nil
