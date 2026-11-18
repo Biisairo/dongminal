@@ -138,7 +138,7 @@ func emitConfigText(o ConfigOpts, rep configReport, stdout, stderr io.Writer) in
 	if o.Sub == "show" {
 		// **출처가 값보다 중요하다** (FR-CFG-7) — 안 듣는 설정을 쫓는 사람이
 		// 묻는 것은 "값이 무엇인가" 가 아니라 "그 값이 어디서 왔는가" 다.
-		fmt.Fprintln(stdout, "서버 기동값 (플래그 > 환경변수 > 파일 > 기본값)")
+		fmt.Fprintln(stdout, "서버 기동값 (플래그 > 환경변수 > 파일 > 기본값 — host·port 는 환경변수를 보지 않는다)")
 		fmt.Fprintf(stdout, "  %-10s %-28s %s\n", "키", "값", "출처")
 		for _, row := range []struct {
 			name string

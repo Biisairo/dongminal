@@ -237,6 +237,12 @@
 > 가 그것을 센다. **`dmctl`(헬퍼)은 여전히 3계층이다** — 프로세스 축 경계가
 > `ctl/cli` import 를 막는다 (D-STR-3).
 
+> **변경 2026-11-18 (`HOT_REBIND_SRS` FR-HRB-1·3·7 / D-HRB-1·2).** 바인드(`host`·`port`)에는
+> 환경변수 계층이 없다 — **플래그 > 파일 > 기본값**이다. `PORT`·`DONGMINAL_PORT`·`DONGMINAL_HOST`
+> 가 설정돼 있으면 `start` 가 경고만 한다. `start` 의 `--port`·`--expose` 는 `server.json` 에
+> 저장된다. 겨누는 명령은 **플래그 > 주소 파일(`server.addr`) > 파일 > 기본값**이다.
+> 로그 계층(`logLevel`·`logFile`)은 그대로 넷이다.
+
 **FR-CFG-14** `server.json` 이 없으면 **조용히 넘어간다.** 없는 것이 정상이다.
 
 **FR-CFG-15** `server.json` 이 깨졌으면 **기동을 막지 않고 경고한 뒤 다음 계층으로
@@ -245,6 +251,9 @@
 > **`access.json` 과 다른 이유**: 그쪽은 **경계**라 읽지 못하면 fail-closed 가
 > 답이다(`FR-RQG-21`). 이쪽은 **편의**라 fail-open 이 답이다. 둘을 같은 규칙으로
 > 묶으면 한쪽이 반드시 틀린다.
+
+> **변경 2026-11-18 (`HOT_REBIND_SRS` FR-HRB-2).** 파일의 `port` 가 숫자가 아니거나 범위 밖이어도
+> 같다 — 경고하고 기본값을 쓴다.
 
 **FR-CFG-16** `server.json` 도 `platform.WriteStateFile` 의 자리를 쓴다 — 세대·원자성이
 다른 상태 파일과 같다.
@@ -260,6 +269,9 @@
 
 **FR-CFG-19** `PORT`·`DONGMINAL_PORT` 의 비숫자 값은 **`net.Listen` 전에**
 거부된다. 오류 문구에 **어느 변수의 어떤 값인지**가 실린다.
+
+> **변경 2026-11-18 (`HOT_REBIND_SRS` FR-HRB-1·2).** 두 변수는 이제 포트를 정하지 않으므로 거부할
+> 값도 없다. `net.Listen` 전 검사는 플래그(`--port`)에만 남고, 파일의 틀린 포트는 FR-CFG-15 를 따른다.
 
 ---
 
@@ -327,7 +339,9 @@
 1. **블롭의 런타임 해석·거절.** D-CFG-1.
 2. **설정 마이그레이션 엔진.** `internal/ctl/migrate` 가 이미 있고 이 문서의 일이 아니다.
 3. **`server.json` 을 UI 에서 편집하는 것.** 기동값은 기동 전에 정해진다.
+   *(2026-11-18 바인드에 한해 해제 — `HOT_REBIND_SRS` 묶음 U 가 Settings·CLI 로 `host`·`port` 를 바꾼다.)*
 4. **환경변수의 재정의(rename)·폐기.** 이름은 계약이다. 문서화만 한다.
+   *(2026-11-18 `PORT`·`DONGMINAL_PORT`·`DONGMINAL_HOST` 는 바인드를 정하지 않게 됐다 — `HOT_REBIND_SRS` D-HRB-1.)*
 5. **TLS·인증 관련 키.** 영구 제외다 (로드맵 결정 9).
 
 ---
@@ -337,3 +351,4 @@
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-12 | 신규. M5 `G5-1`·`G5-2`·`G5-3`. `SEC-27` 잔여의 `settings.json`·`access.json` 쪽을 §2.4 로 **판정하고 닫는다**. 로드맵의 낡은 수치 둘을 정정 — 블롭 키 **24→20**, 환경변수 **13→14**(`DONGMINAL_SHELL` 누락) |
+| 2026-11-18 | `HOT_REBIND_SRS` 묶음 S 반영 — 바인드의 환경변수 계층 제거(FR-CFG-13·19), 파일의 틀린 포트는 기본값(FR-CFG-15), 비목표 3·4 를 바인드에 한해 해제 |

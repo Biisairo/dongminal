@@ -94,6 +94,8 @@ func homeLayout() []homeEntry {
 		{Name: dmenv.ServerLogFile, What: "웹 서버 로그", Ephemeral: true},
 		{Name: dmenv.DaemonLogFile, What: "dongminald 로그", Ephemeral: true},
 		{Name: restartLogFile, What: "재시작 대리의 출력", Ephemeral: true},
+		// HOT_REBIND_SRS FR-HRB-10: 서버가 리슨할 때마다 쓰고 정상 종료 때 지운다.
+		{Name: serverconf.AddrFileName, What: "서버가 지금 리슨하는 주소 (host:port 한 줄)", Ephemeral: true},
 
 		// ── 2026-09-21 에 더한 것 (STRUCTURE_CLEANUP_SRS FR-STR-30) ──
 		//

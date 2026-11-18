@@ -260,14 +260,14 @@ func TestResolveStartTarget_Plain(t *testing.T) {
 	}
 }
 
-// 그 환경변수는 이제 `serverconf` 가 지난다 — 계층이 옮겨졌을 뿐 사라지지 않았다.
-func TestStartPortStillHonorsEnv(t *testing.T) {
+// HOT_REBIND_SRS FR-HRB-1: 포트 환경변수는 바인드를 정하지 않는다.
+func TestStartPortIgnoresEnv(t *testing.T) {
 	home := t.TempDir()
 	isolateEnv(t, home)
 	t.Setenv(EnvPort, "58146")
 	got := serverconf.Resolve(serverconf.Inputs{Home: home})
-	if got.Port.Value != "58146" || got.Port.Source != serverconf.SourceEnv {
-		t.Errorf("환경변수 포트가 사라졌다: %+v", got.Port)
+	if got.Port.Source == serverconf.SourceEnv {
+		t.Errorf("환경변수 포트가 이겼다: %+v", got.Port)
 	}
 }
 

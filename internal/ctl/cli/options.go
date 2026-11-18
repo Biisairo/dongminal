@@ -139,7 +139,7 @@ func (c Common) ResolveHome() (string, error) {
 
 // Target 은 이 명령이 **겨누는 서버**다.
 //
-// 계층은 `start` 와 같다 (FR-CFG-13: 플래그 > 환경변수 > 파일 > 기본값).
+// 계층은 플래그 > 주소 파일 > `server.json` > 기본값이다 (HOT_REBIND_SRS FR-HRB-7).
 // 종전에는 겨누는 명령 넷이 `ResolvePort` 의 3계층에 머물러 `server.json` 을
 // 보지 못했다. `server.json` 에 `{"port":"9000"}` 한 줄을 적으면 그 순간 갈렸다:
 //
@@ -183,6 +183,12 @@ func (c Common) ResolveTarget() (Target, error) {
 		return Target{}, err
 	}
 	host, port := conf.Host.Value, conf.Port.Value
+	// HOT_REBIND_SRS FR-HRB-7: 플래그가 없으면 지금 리슨하는 주소(주소 파일)가 먼저다.
+	if c.Port == "" {
+		if h, p, ok := serverconf.ReadAddr(home); ok {
+			host, port = h, p
+		}
+	}
 	return Target{
 		Home:     home,
 		Host:     dmenv.DialHost(host),

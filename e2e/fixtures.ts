@@ -261,10 +261,10 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
       const toolHome = home + '/tool-home';
       mkdirSync(toolHome, { recursive: true });
 
-      const child = spawn(E2E_BIN, ['start', '--foreground'], {
+      // 포트는 플래그로 준다 — 환경변수는 바인드를 정하지 않는다 (HOT_REBIND_SRS FR-HRB-1).
+      const child = spawn(E2E_BIN, ['start', '--foreground', '--port', String(port)], {
         env: {
           ...hermeticEnv(),
-          PORT: String(port),
           DONGMINAL_HOME: home,
           DONGMINAL_TOOL_HOME: toolHome,
         },

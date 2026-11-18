@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -72,8 +71,8 @@ func TestResolveTargetFlagBeatsFile(t *testing.T) {
 	}
 }
 
-// TC-STR-7: 환경변수가 파일을 이긴다.
-func TestResolveTargetEnvBeatsFile(t *testing.T) {
+// HOT_REBIND_SRS FR-HRB-1·7: 환경변수는 대상을 정하지 않는다 — 파일이 이긴다.
+func TestResolveTargetIgnoresEnv(t *testing.T) {
 	home := t.TempDir()
 	writeServerJSON(t, home, `{"port":"9000"}`)
 	isolateEnv(t, home)
@@ -83,23 +82,23 @@ func TestResolveTargetEnvBeatsFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
-	if tgt.Port != "8888" {
-		t.Errorf("Port = %q, want 8888", tgt.Port)
+	if tgt.Port != "9000" {
+		t.Errorf("Port = %q, want 9000 — 환경변수가 이겼다", tgt.Port)
 	}
 }
 
-// 잘못된 포트는 **두드리기 전에** 잡는다 (FR-CFG-19 와 같은 이유). 종전에는
-// 그 값으로 ping 해서 "응답 없음" 이 나왔고, 그 문구에는 어느 값이 잘못됐는지가
-// 없었다.
-func TestResolveTargetRejectsBadPort(t *testing.T) {
+// 파일의 잘못된 포트는 경고하고 기본값으로 겨눈다 (HOT_REBIND_SRS FR-HRB-2).
+func TestResolveTargetBadFilePortFallsBack(t *testing.T) {
 	home := t.TempDir()
 	writeServerJSON(t, home, `{"port":"abc"}`)
 	isolateEnv(t, home)
 
-	if _, err := (Common{}).ResolveTarget(); err == nil {
-		t.Fatal("잘못된 포트가 그대로 지나간다")
-	} else if !strings.Contains(err.Error(), "abc") {
-		t.Fatalf("어느 값이 잘못됐는지 말하지 않는다: %v", err)
+	tgt, err := (Common{}).ResolveTarget()
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if tgt.Port != DefaultPort || len(tgt.Warnings) == 0 {
+		t.Errorf("tgt = %+v", tgt)
 	}
 }
 

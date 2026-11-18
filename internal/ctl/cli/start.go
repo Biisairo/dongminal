@@ -41,11 +41,18 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	}
 
 	// CONFIG_MANAGEMENT_SRS 묶음 F·P: 기동값의 계층이 **넷**이다 —
-	// 플래그 > 환경변수 > 파일(`<home>/server.json`) > 기본값.
+	// 플래그 > 환경변수 > 파일(`<home>/server.json`) > 기본값. 바인드에는 환경변수
+	// 계층이 없다 (HOT_REBIND_SRS FR-HRB-1).
 	//
 	// 홈이 정해진 **뒤에야** 파일 계층을 읽을 수 있어 여기 선다. 격리 기동은
 	// 홈과 포트를 스스로 고르므로(`FR-ISO-2`) 그 둘은 위에서 이미 정해졌고,
 	// 여기서는 그 값을 플래그 계층으로 넣어 파일이 그것을 이기지 못하게 한다.
+	// HOT_REBIND_SRS FR-HRB-3·4 / D-HRB-2: 기동 플래그는 `server.json` 에 쓴 뒤 그 값으로
+	// 뜬다. 끊어 띄운 자식은 환경변수가 아니라 이 파일을 읽는다 (FR-HRB-5).
+	if err := serverconf.SetBind(home, startFlagHost(o), port); err != nil {
+		fmt.Fprintf(stderr, "%s 에 바인드를 쓰지 못했습니다: %v\n", serverconf.FileName, err)
+		return 1
+	}
 	var host string
 	conf := serverconf.Resolve(serverconf.Inputs{
 		Home:           home,
@@ -57,6 +64,15 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 		// FR-CFG-15 / D-CFG-3: **막지 않는다.** 설정 파일 하나가 서버를 못 뜨게
 		// 만들면 사용자는 그것을 고칠 화면에 닿을 수 없다.
 		fmt.Fprintf(stderr, "⚠ %s\n", w)
+	}
+	// FR-HRB-8·6: 바인드를 정하지 않게 된 환경변수와 서비스 파일을 알린다.
+	if w := conf.BindEnvWarning(); w != "" {
+		fmt.Fprintf(stderr, "⚠ %s\n", w)
+	}
+	if !o.Isolated {
+		if w := serviceBindEnvWarning(installedServiceFiles()); w != "" {
+			fmt.Fprintf(stderr, "⚠ %s\n", w)
+		}
 	}
 	// FR-CFG-19: 포트는 `net.Listen` **전에** 본다. 종전에는 `PORT=abc` 가 해석을
 	// 통과해 주소 해석 오류로 끝났고, 그 문구에는 어느 변수가 잘못됐는지가 없었다.
@@ -203,7 +219,7 @@ func resolveStartTarget(o StartOpts) (home, port string, err error) {
 // startDetached는 자기 자신을 `start --foreground` 로 재실행해 detach 하고,
 // 준비를 확인한 뒤 결과를 알린다 (FR-FG-2/3/4).
 func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Writer) int {
-	cmd, logFile, logPath, err := prepareServerCmd(home, host, port, "")
+	cmd, logFile, logPath, err := prepareServerCmd(home, "")
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -302,7 +318,7 @@ const toolHomeDir = "tool-home"
 //
 // logPath 가 비면 $DONGMINAL_LOG, 그것도 비면 기본 로그 자리다.
 // 돌려주는 logFile 은 호출자가 닫는다.
-func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, string, error) {
+func prepareServerCmd(home, logPath string) (*exec.Cmd, *os.File, string, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("실행 파일 경로 확인 실패: %w", err)
@@ -330,10 +346,9 @@ func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, st
 	}
 
 	cmd := exec.Command(exe, "start", "--foreground")
+	// 바인드는 넘기지 않는다 — 자식은 `server.json` 을 읽는다 (FR-HRB-5).
 	env := map[string]string{
-		EnvPort: port,
 		EnvHome: home,
-		EnvHost: host,
 	}
 	// 격리 인스턴스면 도구 셸의 홈도 함께 격리한다 (FR-E2G-1 의 연장). 셸이
 	// 없는 홈을 받지 않도록 여기서 만든다 — 만들지 못하면 격리를 포기하는 대신
@@ -346,7 +361,9 @@ func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, st
 		// 값이 그 사슬을 타고 도구 셸까지 흘러가면 다음 재시작이 자신을 대리로
 		// 오인해 위임을 건너뛰고, 그 자리에서 데몬을 내리다 자기 PTY 와 함께
 		// 죽는다 — 서버도 데몬도 돌아오지 않는다 (FR-ACT-3a/3b).
-		EnvRestartRunner, EnvToolID)
+		//
+		// 바인드 환경변수도 끊는다. 자식이 같은 경고를 다시 내지 않게 한다 (FR-HRB-8).
+		EnvRestartRunner, EnvToolID, EnvPort, dmenv.EnvPort, EnvHost)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	platform.Current().Process.Detach(cmd)

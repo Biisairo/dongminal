@@ -129,6 +129,47 @@ func RunService(o ServiceOpts, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// installedServiceFiles 는 `darwinHint`·`linuxHint` 가 안내하는 설치 자리다.
+func installedServiceFiles() []string {
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	return []string{
+		filepath.Join(userHome, "Library", "LaunchAgents", serviceLabel+".plist"),
+		filepath.Join(userHome, ".config", "systemd", "user", "dongminal.service"),
+	}
+}
+
+// serviceBindEnvMarks 는 예전 서비스 파일이 바인드를 넣던 모양이다.
+var serviceBindEnvMarks = []string{
+	"<key>" + dmenv.EnvHost + "</key>", "<key>" + dmenv.EnvPort + "</key>", "<key>" + EnvPort + "</key>",
+	"Environment=" + dmenv.EnvHost + "=", "Environment=" + dmenv.EnvPort + "=", "Environment=" + EnvPort + "=",
+}
+
+// serviceBindEnvWarning 은 설치된 서비스 파일에 바인드 환경변수가 남아 있을 때의
+// 경고 한 줄이다 (HOT_REBIND_SRS FR-HRB-6). 없으면 빈 문자열.
+func serviceBindEnvWarning(paths []string) string {
+	var stale []string
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		for _, m := range serviceBindEnvMarks {
+			if strings.Contains(string(data), m) {
+				stale = append(stale, p)
+				break
+			}
+		}
+	}
+	if len(stale) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("서비스 파일 %s 에 바인드 환경변수가 남아 있습니다 (무시됩니다) — dongminal service install 로 다시 만드세요",
+		strings.Join(stale, ", "))
+}
+
 // serviceLabel 은 감독자가 쓰는 이름이다.
 const serviceLabel = "com.dongminal.server"
 
@@ -157,8 +198,6 @@ func launchdPlist(exe, home string, conf serverconf.Resolved) string {
   <key>EnvironmentVariables</key>
   <dict>
     <key>` + dmenv.EnvHome + `</key><string>` + xmlEsc(home) + `</string>
-    <key>` + dmenv.EnvHost + `</key><string>` + xmlEsc(conf.Host.Value) + `</string>
-    <key>` + EnvPort + `</key><string>` + xmlEsc(conf.Port.Value) + `</string>
     <key>` + serverconf.EnvLogLevel + `</key><string>` + xmlEsc(conf.LogLevel.Value) + `</string>
   </dict>
   <key>StandardOutPath</key><string>` + xmlEsc(conf.LogFile.Value) + `</string>
@@ -190,8 +229,6 @@ Wants=network-online.target
 Type=simple
 ExecStart=` + exe + ` start --foreground
 Environment=` + dmenv.EnvHome + `=` + home + `
-Environment=` + dmenv.EnvHost + `=` + conf.Host.Value + `
-Environment=PORT=` + conf.Port.Value + `
 Environment=` + serverconf.EnvLogLevel + `=` + conf.LogLevel.Value + `
 # 감독의 본체. 종료 코드를 가리지 않는 이유는, 우리가 "정상 종료" 로 세는 것이
 # 사용자가 직접 내린 경우뿐이고 그때는 systemctl 로 내리기 때문입니다.

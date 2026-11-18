@@ -234,8 +234,11 @@ Chrome/Chromium 계열의 `--app` 이고, 없으면 기본 브라우저로 내�
 ```bash
 ./dongminal start                              # 127.0.0.1 바인딩 (동일 PC 에서만 접근)
 ./dongminal start --expose                     # 0.0.0.0 바인딩 (사내망 다른 기기에서도 접근)
-DONGMINAL_HOST=0.0.0.0 ./dongminal start       # 동등한 형태
 ```
+
+`--expose` 와 `--port` 는 `$DONGMINAL_HOME/server.json` 에 저장됩니다. 그래서 다음 `start` 도
+같은 호스트·포트로 뜹니다. 노출을 끄려면 `server.json` 의 `host` 를 `127.0.0.1` 로 고친 뒤
+다시 띄웁니다. 환경변수 `DONGMINAL_HOST` 로는 바인드를 바꿀 수 없습니다.
 
 **`--expose` 만으로는 아무 보호가 없습니다.** 이 서버가 여는 것은 터미널·파일·명령
 실행이므로, 노출된 상태에서 그 네트워크의 누구나 그 전부에 접근할 수 있습니다.
@@ -316,9 +319,9 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 
 | 변수 | 기본 | 설명 |
 |------|------|------|
-| `PORT` | `58146` | HTTP 서버 포트. `--port` 가 우선. **숫자가 아니거나 1~65535 밖이면 기동 전에 거부**되고, 그 문구에 변수 이름과 값이 실립니다 |
-| `DONGMINAL_PORT` | = `PORT` | 같은 포트를 가리키는 두 번째 이름. `PORT` 가 먼저입니다. 서버가 자식 PTY 프로세스에 주입하므로 `dmctl`·`edit` 가 이 값으로 서버에 되붙습니다 |
-| `DONGMINAL_HOST` | `127.0.0.1` | HTTP 서버 바인딩 주소. `--expose`(=`0.0.0.0`) 가 우선. `dmctl` 도 이 값으로 서버에 접속합니다.<br>**loopback(`127.0.0.1`·`::1`·`localhost`)이 아니면 전부 "노출" 입니다** — `192.168.x` 같은 주소도 노출이고, 그때는 Settings ▸ Access 의 허용 목록을 켜야 서버가 뜹니다 |
+| `PORT` | (없음) | **서버의 포트를 정하지 않습니다.** 포트는 `--port` 와 `server.json` 이 정합니다(아래 "우선순위"). 설정돼 있으면 `start` 가 경고를 한 줄 냅니다 |
+| `DONGMINAL_PORT` | (서버가 넣음) | 서버가 도구 셸에 넣는 자기 포트입니다. `dmctl`·`edit` 가 이 값으로 서버를 찾습니다. **서버의 포트를 정하지 않습니다** — 설정된 채로 `start` 하면 경고를 한 줄 냅니다 |
+| `DONGMINAL_HOST` | (서버가 넣음) | 서버가 도구 셸에 넣는 자기 호스트입니다. `dmctl` 이 이 값으로 서버에 접속합니다. **서버의 바인드를 정하지 않습니다** — 노출은 `--expose` 와 `server.json` 의 `host` 가 정합니다 |
 | `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `server.json`, `settings.json`, `access.json`(접속 허용 목록), `workspace.json`, `tools.json`, `notes/`(메모장) 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
 | `DONGMINAL_LOG` | `/tmp/dongminal.log`<br>(Windows: `%LOCALAPPDATA%` 아래) | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
 | `DONGMINAL_LOG_LEVEL` | `info` | 로그 수준 — `debug`·`info`·`warn`·`error`. 알 수 없는 값은 `info` 로 떨어집니다 |
@@ -356,7 +359,12 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 ### 우선순위
 
 **플래그 > 환경변수 > `$DONGMINAL_HOME/server.json` > 기본값** 입니다.
+단, 바인드(`host`·`port`)에는 환경변수 계층이 없습니다 — **플래그 > `server.json` > 기본값** 입니다.
+`start` 에 준 `--port`·`--expose` 는 `server.json` 에 저장됩니다.
 레포 루트의 `.env` 는 더 이상 읽히지 않습니다.
+
+`stop`·`health`·`window` 는 겨눌 서버를 **플래그 > `$DONGMINAL_HOME/server.addr`(지금 리슨하는 주소) >
+`server.json` > 기본값** 순으로 찾습니다.
 
 빈 값은 "정하지 않음" 이라 다음 계층으로 넘어갑니다. 지금 실효값이 무엇이고
 **어디서 왔는지**는 이것으로 봅니다:
@@ -380,7 +388,11 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 }
 ```
 
-**깨져 있어도 서버는 뜹니다.** 경고를 내고 다음 계층으로 갑니다 — 설정 파일
+`host` 가 loopback(`127.0.0.1`·`::1`·`localhost`)이 아니면 전부 "노출" 입니다 — `192.168.x` 같은
+주소도 노출입니다. 노출할 때는 Settings ▸ Access 의 허용 목록을 켜세요.
+
+**깨져 있어도 서버는 뜹니다.** `port` 가 숫자가 아니거나 1~65535 밖이어도 같습니다.
+경고를 내고 다음 계층으로 갑니다 — 설정 파일
 하나가 서버를 못 뜨게 만들면 그것을 고칠 화면에 닿을 수 없기 때문입니다.
 (`access.json` 은 반대로 읽지 못하면 loopback 만 통과시킵니다. 그쪽은 **경계**고
 이쪽은 **편의**라 답이 갈립니다.)
@@ -445,6 +457,7 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `tool-home/` | `--isolated` 기동에서 도구 셸이 쓰는 홈 | ❌ |
 | `paned.sock` · `paned.pid` · `paned.build` | 데몬 IPC 와 코드 지문 | ❌ |
 | `.lastexit` | 마지막 종료가 정상이었는지 | ❌ |
+| `server.addr` | 서버가 지금 리슨하는 주소 (`host:port` 한 줄) | ❌ 정상 종료면 스스로 지웁니다 |
 | `server.log` · `daemon.log` · `restart.log` | 로그 | ❌ |
 | `doctor/` · `doctor-tools/` · `doctor-probe.txt` | `doctor` 의 작업 자리 | ❌ |
 | `verify-too-large.bin` | `verify` 가 413 을 확인할 때 쓰는 큰 파일 | ❌ 정상 종료면 스스로 치웁니다 |

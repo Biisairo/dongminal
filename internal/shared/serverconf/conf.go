@@ -3,6 +3,9 @@
 //
 //	플래그 > 환경변수 > 파일(<home>/server.json) > 기본값
 //
+// 바인드(host·port)에는 환경변수 계층이 없다 (HOT_REBIND_SRS FR-HRB-1 / D-HRB-1).
+// 화면·CLI 로 바꾼 값이 다음 기동에서 환경변수에 지면 안 된다.
+//
 // 종전에는 계층이 둘(플래그·환경변수)이었다. 기계마다 다른 기동값을 고정하려면
 // 셸 프로필이나 래퍼 스크립트가 필요했고, 그것은 dongminal 이 관리하지 않는 자리다.
 //
@@ -18,6 +21,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"dongminal/internal/shared/dmenv"
 )
@@ -81,6 +85,9 @@ type Resolved struct {
 	// 표식으로 쓴다 (FR-UPD-10) — 적힌 적 없다는 것이 곧 아직 알리지 않았다는 뜻이다.
 	UpdateCheckSet bool `json:"updateCheckSet"`
 
+	// BindEnv 는 설정돼 있었지만 바인드를 정하지 않은 환경변수의 이름이다 (FR-HRB-8).
+	BindEnv []string `json:"bindEnv,omitempty"`
+
 	portErr error
 }
 
@@ -117,10 +124,20 @@ func Resolve(in Inputs) Resolved {
 
 	var r Resolved
 	r.Warnings = warns
-	r.Host = pick(in.FlagHost, []envRef{{dmenv.EnvHost, getenv(dmenv.EnvHost)}}, f.Host, dmenv.DefaultHost)
-	r.Port = pick(in.FlagPort,
-		[]envRef{{EnvPort, getenv(EnvPort)}, {dmenv.EnvPort, getenv(dmenv.EnvPort)}},
-		f.Port, dmenv.DefaultPort)
+	r.Host = pick(in.FlagHost, nil, f.Host, dmenv.DefaultHost)
+	r.Port = pick(in.FlagPort, nil, f.Port, dmenv.DefaultPort)
+	if r.Port.Source == SourceFile {
+		// FR-HRB-2: 파일의 틀린 포트는 기동을 막지 않는다 — 기본값으로 간다.
+		if err := checkPort(r.Port); err != nil {
+			r.Warnings = append(r.Warnings, fmt.Sprintf("%s 의 port 를 쓸 수 없습니다: %v — 기본값(%s)을 씁니다", FileName, err, dmenv.DefaultPort))
+			r.Port = Value{Value: dmenv.DefaultPort, Source: SourceDefault}
+		}
+	}
+	for _, k := range bindEnvNames {
+		if getenv(k) != "" {
+			r.BindEnv = append(r.BindEnv, k)
+		}
+	}
 	r.LogLevel = pick(in.FlagLogLevel, []envRef{{EnvLogLevel, getenv(EnvLogLevel)}}, f.LogLevel, DefaultLogLevel)
 	r.LogFile = pick(in.FlagLogFile, []envRef{{EnvLogFile, getenv(EnvLogFile)}}, f.LogFile, in.DefaultLogFile)
 
@@ -134,10 +151,22 @@ func Resolve(in Inputs) Resolved {
 	return r
 }
 
+// bindEnvNames 는 예전에 바인드를 정하던 환경변수다. 이제 경고만 한다 (FR-HRB-8).
+var bindEnvNames = []string{dmenv.EnvHost, dmenv.EnvPort, EnvPort}
+
+// BindEnvWarning 은 바인드 환경변수가 설정돼 있을 때의 경고 한 줄이다. 없으면 빈 문자열.
+func (r Resolved) BindEnvWarning() string {
+	if len(r.BindEnv) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s 는 바인드를 정하지 않습니다 — %s 나 --port·--expose 를 쓰세요",
+		strings.Join(r.BindEnv, "·"), FileName)
+}
+
 // EnvLogLevel·EnvLogFile 은 로그 계층의 환경변수다.
 //
-// EnvPort 는 DONGMINAL_ 접두어가 붙기 전부터 읽던 포트 변수다 — `dmenv.EnvPort`
-// 보다 앞 계층이다. `ctl/cli` 의 같은 이름이 이것을 가리킨다 (SHR-30).
+// EnvPort 는 DONGMINAL_ 접두어가 붙기 전부터 읽던 포트 변수다. 이제 바인드를
+// 정하지 않는다 (FR-HRB-1). `ctl/cli` 의 같은 이름이 이것을 가리킨다 (SHR-30).
 const (
 	EnvLogLevel = "DONGMINAL_LOG_LEVEL"
 	EnvLogFile  = "DONGMINAL_LOG"

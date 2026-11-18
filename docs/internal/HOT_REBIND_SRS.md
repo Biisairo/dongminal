@@ -1,7 +1,7 @@
 # SRS: 포트·expose 의 실행 중 변경 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 S·D·R·U 전부 (시험·구현 전)
+> **남은 것**: 묶음 D·R·U (묶음 S 는 구현·시험 완료)
 > **입력**: 2026-11-18 사용자 요청 "포트 동적 변경 및 expose 동적 변경도 가능한지" 와 인터뷰. 결정은 §5 에 있다.
 > **선행**: `CONFIG_MANAGEMENT_SRS`(설정 계층), `REQUEST_GATE_SRS`·`REQUEST_GATE_ORIGIN_PORT_SRS`(Host·Origin 판정), `DAEMON_SESSION_KEEP_SRS`(세션은 데몬이 쥔다)
 

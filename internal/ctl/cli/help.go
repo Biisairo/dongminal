@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const commonFlags = `  --port <n>        포트 (기본: $PORT, 없으면 ` + DefaultPort + `)
+const commonFlags = `  --port <n>        포트 (기본: $DONGMINAL_HOME/server.json, 없으면 ` + DefaultPort + `)
   --home <path>     DONGMINAL_HOME (기본: $DONGMINAL_HOME, 없으면 ~/.dongminal)`
 
 // Help는 무인자·-h·--help 실행 시의 출력이다 (FR-CLI-1..3).
@@ -62,6 +62,10 @@ func usageStart() string {
                     git config·자격증명이 없다. 기동 출력이 두 경로를 찍는다
   --foreground      터미널을 점유하며 실행한다 (^C 로 정지)
 ` + commonFlags + `
+
+--port·--expose 는 $DONGMINAL_HOME/server.json 에 저장되어 다음 기동에도 쓰인다.
+expose 를 끄려면 server.json 의 host 를 127.0.0.1 로 고친다.
+환경변수 PORT·DONGMINAL_PORT·DONGMINAL_HOST 는 바인드를 정하지 않는다.
 
 로그: $DONGMINAL_LOG (기본: $DONGMINAL_HOME/server.log) — 배경 모드에서만
 `

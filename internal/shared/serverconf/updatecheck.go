@@ -19,6 +19,11 @@ import (
 // 고칠 수 없게 된 파일을 사용자가 쓴 적 없는 값으로 덮는 편이 낫다 — 이 파일은
 // 경계가 아니라 편의이기 때문이다 (D-CFG-3).
 func SetUpdateCheck(home string, on bool) error {
+	return setKeys(home, map[string]any{"updateCheck": on})
+}
+
+// setKeys 는 `server.json` 의 키 몇 개만 바꿔 쓴다. 다른 키는 그대로 둔다.
+func setKeys(home string, kv map[string]any) error {
 	if home == "" {
 		return ErrNoHome
 	}
@@ -31,11 +36,13 @@ func SetUpdateCheck(home string, on bool) error {
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	b, err := json.Marshal(on)
-	if err != nil {
-		return err
+	for k, v := range kv {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		m[k] = b
 	}
-	m["updateCheck"] = b
 	out, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err

@@ -27,6 +27,10 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 		return 1
 	}
 	tgt.warn(stderr)
+	// HOT_REBIND_SRS FR-HRB-6: 남은 서비스 파일의 바인드 환경변수는 이제 무시된다.
+	if w := serviceBindEnvWarning(installedServiceFiles()); w != "" {
+		fmt.Fprintf(stderr, "⚠ %s\n", w)
+	}
 	home := tgt.Home
 	// FR-DFP-7: 데몬의 낡음만 묻는 갈래. HTTP 도 헬퍼도 보지 않으므로 서버가
 	// 떠 있지 않아도 즉시 답한다.

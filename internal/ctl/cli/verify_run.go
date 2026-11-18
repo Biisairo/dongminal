@@ -9,6 +9,7 @@ import (
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/serverconf"
 )
 
 // RunVerify 는 `dongminal verify` 다 (E2E_UNIFICATION_SRS FR-E2C-1).
@@ -41,8 +42,13 @@ func RunVerify(o VerifyOpts, stdout, stderr io.Writer) int {
 
 	r.section("격리 인스턴스 기동")
 	host := dmenv.DefaultHost
+	// 자식은 바인드를 격리 홈의 `server.json` 에서 읽는다 (HOT_REBIND_SRS FR-HRB-4·5).
+	if err := serverconf.SetBind(home, host, port); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
 	// 서버 로그도 격리 홈 안에 둔다 — 운영 인스턴스의 로그에 섞이지 않는다.
-	cmd, logFile, serverLog, err := prepareServerCmd(home, host, port, filepath.Join(home, logFileName))
+	cmd, logFile, serverLog, err := prepareServerCmd(home, filepath.Join(home, logFileName))
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

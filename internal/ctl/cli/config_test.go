@@ -43,7 +43,7 @@ func TestConfigShowCarriesSource(t *testing.T) {
 	home := t.TempDir()
 	writeServerJSON(t, home, `{"host":"10.0.0.1"}`)
 	isolateEnv(t, home)
-	t.Setenv("PORT", "4321")
+	t.Setenv("DONGMINAL_LOG_LEVEL", "warn")
 
 	var out, errw bytes.Buffer
 	o, err := ParseConfig([]string{"show"})
@@ -54,7 +54,7 @@ func TestConfigShowCarriesSource(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, errw.String())
 	}
 	s := out.String()
-	for _, want := range []string{"host", "10.0.0.1", "file", "port", "4321", "env", "logLevel", "info", "default"} {
+	for _, want := range []string{"host", "10.0.0.1", "file", "port", DefaultPort, "default", "logLevel", "warn", "env"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("출력에 %q 가 없다:\n%s", want, s)
 		}
@@ -149,18 +149,18 @@ func TestConfigUnknownSubcommand(t *testing.T) {
 	}
 }
 
-// TC-CFG-16: `PORT=abc` 는 `net.Listen` 전에 거부되고 문구에 변수와 값이 실린다.
-func TestConfigValidateCatchesBadPort(t *testing.T) {
+// HOT_REBIND_SRS FR-HRB-2: 파일의 틀린 포트는 막지 않고 경고한다. 문구에 값이 실린다.
+func TestConfigValidateWarnsBadFilePort(t *testing.T) {
 	home := t.TempDir()
 	isolateEnv(t, home)
-	t.Setenv("PORT", "abc")
+	writeServerJSON(t, home, `{"port":"abc"}`)
 	var out, errw bytes.Buffer
 	o, _ := ParseConfig([]string{"validate"})
-	if code := RunConfig(o, &out, &errw); code != 1 {
-		t.Fatalf("exit = %d, 기대 1", code)
+	if code := RunConfig(o, &out, &errw); code != 0 {
+		t.Fatalf("exit = %d, 기대 0: %s", code, errw.String())
 	}
-	s := out.String() + errw.String()
-	if !strings.Contains(s, "PORT") || !strings.Contains(s, "abc") {
-		t.Errorf("문구에 변수와 값이 없다:\n%s", s)
+	s := out.String()
+	if !strings.Contains(s, "port") || !strings.Contains(s, "abc") {
+		t.Errorf("문구에 키와 값이 없다:\n%s", s)
 	}
 }

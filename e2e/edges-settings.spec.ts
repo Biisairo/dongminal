@@ -64,8 +64,8 @@ test.describe.serial('설정 ▸ Edges', () => {
     const aPort = dmServer.port + A_UI_OFFSET;
     aHome = E2E_HOME + '/peer-a-' + dmServer.port;
     mkdirSync(aHome + '/tool-home', { recursive: true });
-    aProc = spawn(E2E_BIN, ['start', '--foreground'], {
-      env: { ...hermeticEnv(), PORT: String(aPort), DONGMINAL_HOME: aHome, DONGMINAL_TOOL_HOME: aHome + '/tool-home' },
+    aProc = spawn(E2E_BIN, ['start', '--foreground', '--port', String(aPort)], {
+      env: { ...hermeticEnv(), DONGMINAL_HOME: aHome, DONGMINAL_TOOL_HOME: aHome + '/tool-home' },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     await pingUntilUp(`http://localhost:${aPort}/api/ping`, 90_000);
