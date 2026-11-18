@@ -38,6 +38,11 @@ func orphanShell(t *testing.T) (fd uintptr, pid int) {
 func TestFindOrphans_MatchesChildShells(t *testing.T) {
 	fdA, pidA := orphanShell(t)
 	fdB, pidB := orphanShell(t)
+	// 이 시험은 fd 를 입양하지 않는다 — 닫지 않으면 같은 프로세스의 다음 시험이 이 셸을 찾는다.
+	t.Cleanup(func() {
+		_ = syscall.Close(int(fdA))
+		_ = syscall.Close(int(fdB))
+	})
 
 	orphans, err := FindOrphans(nil)
 	if err != nil {
@@ -78,9 +83,17 @@ func TestRecover_RecoversAndAdopts(t *testing.T) {
 	}
 
 	pm := toolhub.NewToolManager(home, nil)
-	orphans, err := FindOrphans(nil)
+	found, err := FindOrphans(nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// FindOrphans 는 이 시험 프로세스 전체를 훑는다. 앞선 시험이 남긴 셸이 섞이지 않게
+	// 이 시험이 띄운 둘만 넘긴다.
+	var orphans []Orphan
+	for _, o := range found {
+		if o.PID == pidA || o.PID == pidB {
+			orphans = append(orphans, o)
+		}
 	}
 	refs := map[string]struct{}{"tool-a": {}}
 	recovered, adopted := Recover(pm, home, refs, orphans)
