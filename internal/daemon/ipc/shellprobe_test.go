@@ -3,11 +3,11 @@ package ipc
 import (
 	"encoding/json"
 	"os"
-	"runtime"
 	"testing"
 	"time"
 
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/testpath"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
 )
@@ -53,7 +53,7 @@ func TestShellProbeRealShell(t *testing.T) {
 	waitState(toolhub.ShellIdle, nil)
 	// pwsh 의 sleep 은 셸 안에서 도는 명령이라 자식이 생기지 않는다 — 외부 프로그램을 띄운다.
 	busy := "sleep 30\r"
-	if runtime.GOOS == "windows" {
+	if !testpath.POSIXShell() {
 		busy = "ping -n 30 127.0.0.1\r"
 	}
 	if err := pm.Write(tl.ID, []byte(busy)); err != nil {

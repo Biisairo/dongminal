@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +15,7 @@ import (
 
 	"dongminal/internal/shared/humancmd"
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/testpath"
 )
 
 // TC-PCH-8: RFC 6238 부록 B 의 SHA1 시험 값. 비밀은 "12345678901234567890" 이다.
@@ -300,11 +300,11 @@ func TestSecretFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	fi, err := os.Stat(path)
-	if err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
+	if err != nil || testpath.PermChecked() && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("비밀 파일 모드 = %v, %v", fi.Mode(), err)
 	}
 	di, _ := os.Stat(filepath.Dir(path))
-	if runtime.GOOS != "windows" && di.Mode().Perm() != 0o700 {
+	if testpath.PermChecked() && di.Mode().Perm() != 0o700 {
 		t.Fatalf("비밀 폴더 모드 = %v", di.Mode())
 	}
 	got, err := loadSecret(path)
