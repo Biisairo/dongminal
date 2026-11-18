@@ -3,6 +3,7 @@ package ipc
 import (
 	"encoding/json"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -50,7 +51,12 @@ func TestShellProbeRealShell(t *testing.T) {
 		t.Fatalf("셸 판정 = %s, want %s", got, want)
 	}
 	waitState(toolhub.ShellIdle, nil)
-	if err := pm.Write(tl.ID, []byte("sleep 30\r")); err != nil {
+	// pwsh 의 sleep 은 셸 안에서 도는 명령이라 자식이 생기지 않는다 — 외부 프로그램을 띄운다.
+	busy := "sleep 30\r"
+	if runtime.GOOS == "windows" {
+		busy = "ping -n 30 127.0.0.1\r"
+	}
+	if err := pm.Write(tl.ID, []byte(busy)); err != nil {
 		t.Fatal(err)
 	}
 	waitState(toolhub.ShellBusy, nil)

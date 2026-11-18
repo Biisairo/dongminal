@@ -83,6 +83,8 @@ func TestRecover_RecoversAndAdopts(t *testing.T) {
 	}
 
 	pm := toolhub.NewToolManager(home, nil)
+	// 비동기 저장이 시험 뒤에 home 에 쓰면 임시 폴더를 지우지 못한다.
+	t.Cleanup(pm.StopSaving)
 	found, err := FindOrphans(nil)
 	if err != nil {
 		t.Fatal(err)

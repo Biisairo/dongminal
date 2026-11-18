@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"dongminal/internal/shared/dmenv"
@@ -106,7 +107,7 @@ func TestSetBind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && st.Mode().Perm() != 0o600 {
 		t.Errorf("권한 = %v", st.Mode().Perm())
 	}
 	got := serverconf.Resolve(serverconf.Inputs{Home: home, Getenv: envOf(nil)})
@@ -210,14 +211,14 @@ func TestWriteRemoveAddr(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && st.Mode().Perm() != 0o600 {
 		t.Errorf("파일 권한 = %v", st.Mode().Perm())
 	}
 	dst, err := os.Stat(filepath.Dir(serverconf.AddrPath(home)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dst.Mode().Perm() != 0o700 {
+	if runtime.GOOS != "windows" && dst.Mode().Perm() != 0o700 {
 		t.Errorf("폴더 권한 = %v", dst.Mode().Perm())
 	}
 	if err := serverconf.WriteAddr(home, "0.0.0.0:9301"); err != nil {

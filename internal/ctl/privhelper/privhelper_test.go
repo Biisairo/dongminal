@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -299,11 +300,11 @@ func TestSecretFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	fi, err := os.Stat(path)
-	if err != nil || fi.Mode().Perm() != 0o600 {
+	if err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("비밀 파일 모드 = %v, %v", fi.Mode(), err)
 	}
 	di, _ := os.Stat(filepath.Dir(path))
-	if di.Mode().Perm() != 0o700 {
+	if runtime.GOOS != "windows" && di.Mode().Perm() != 0o700 {
 		t.Fatalf("비밀 폴더 모드 = %v", di.Mode())
 	}
 	got, err := loadSecret(path)

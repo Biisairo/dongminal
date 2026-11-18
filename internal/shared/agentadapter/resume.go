@@ -83,8 +83,12 @@ func claudeSessionPIDs(sessionID string, configDirs []string) ([]int, bool) {
 	for _, dir := range configDirs {
 		reg := filepath.Join(dir, claudeSessionsDir)
 		entries, err := os.ReadDir(reg)
+		// Windows 는 폴더가 아닌 파일을 읽어도 "없음" 으로 답한다 — 정말 없을 때만 건너뛴다.
 		if errors.Is(err, fs.ErrNotExist) {
-			continue
+			if _, serr := os.Lstat(reg); errors.Is(serr, fs.ErrNotExist) {
+				continue
+			}
+			return nil, false
 		}
 		if err != nil {
 			return nil, false

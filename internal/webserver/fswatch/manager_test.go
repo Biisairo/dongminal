@@ -296,10 +296,14 @@ func TestManager_RestartsOnErrorUpToFive(t *testing.T) {
 	for i := 1; i <= MaxRestarts; i++ {
 		fx.backend().errs <- errors.New("boom")
 		want := i + 1
-		waitFor(t, func() bool { return fx.backendCount() == want })
-		if w := fx.backend().list(); len(w) != 1 || w[0] != "/a" {
-			t.Fatalf("재시작 뒤 감시 %v, want [/a]", w)
-		}
+		// 백엔드는 만들어진 뒤에 감시를 되받는다 — 개수만 기다리면 그 사이를 읽는다.
+		waitFor(t, func() bool {
+			if fx.backendCount() != want {
+				return false
+			}
+			w := fx.backend().list()
+			return len(w) == 1 && w[0] == "/a"
+		})
 	}
 	// 여섯 번째 오류는 다시 세우지 않는다.
 	fx.backend().errs <- errors.New("boom")
