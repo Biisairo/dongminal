@@ -152,7 +152,7 @@ body.mobile .git-diff-sep{display:none}
 .git-hist-search{
   font:inherit;font-size:var(--fs-sm);padding:3px 8px;min-width:0;width:100%;
   background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 .git-hist-search:focus{border-color:var(--accent);outline:none}
 .git-hist-search:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
@@ -162,7 +162,7 @@ body.mobile .git-diff-sep{display:none}
 .git-hist-opts:hover{background:var(--accent-hover);color:var(--accent-text)}
 .git-hist-opts.on{border-color:var(--accent-border);color:var(--accent-text)}
 .git-hist-opts-badge{
-  min-width:14px;padding:0 4px;border-radius:7px;
+  min-width:14px;padding:0 4px;border-radius:var(--radius-pill);
   background:var(--accent-subtle);color:var(--accent-text);
   font-size:var(--fs-xs);line-height:13px;text-align:center;
 }
@@ -193,7 +193,7 @@ body.mobile .git-diff-sep{display:none}
 .git-hist-rev.vis{display:flex}
 .git-hist-rev:hover{background:var(--accent-active)}
 .git-hist-rev-mark{
-  flex:0 0 auto;padding:0 5px;border-radius:8px;
+  flex:0 0 auto;padding:0 5px;border-radius:var(--radius-lg);
   background:var(--accent-border);color:var(--accent-text);font-size:var(--fs-sm);line-height:14px;
 }
 .git-hist-rev-oid{flex:0 0 auto;font-family:var(--mono);color:var(--accent-text)}
@@ -261,7 +261,7 @@ body.mobile .git-diff-sep{display:none}
 .git-hist-row.head .git-hist-subject{color:var(--text-bright)}
 /* FR-GIT-126: 종류를 구분하고 HEAD 표식을 따로 보인다 */
 .git-hist-badge{
-  flex-shrink:0;max-width:140px;padding:0 5px;border-radius:8px;font-size:var(--fs-sm);
+  flex-shrink:0;max-width:140px;padding:0 5px;border-radius:var(--radius-lg);font-size:var(--fs-sm);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   background:var(--accent-subtle);color:var(--accent-text);
 }
@@ -297,7 +297,7 @@ body.mobile .git-diff-sep{display:none}
 .git-hist-d-body{
   margin:4px 0;padding:4px 6px;max-height:120px;overflow:auto;
   font:inherit;font-family:var(--mono);white-space:pre-wrap;word-break:break-word;
-  background:var(--bg);border:1px solid var(--border);border-radius:3px;
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 .git-hist-d-filehead{display:flex;align-items:center;gap:8px}
 .git-hist-d-filelabel{color:var(--text-hint)}
@@ -306,7 +306,7 @@ body.mobile .git-diff-sep{display:none}
 .git-hist-d-pick.vis{display:flex}
 .git-hist-d-parentpick{
   font:inherit;font-size:var(--fs-sm);background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 .git-hist-file{display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer}
 .git-hist-file:hover{background:var(--accent-hover)}
@@ -352,7 +352,7 @@ body.mobile .git-refs{width:110px}
   flex:1 1 120px;min-width:60px;font:inherit;font-size:var(--fs-sm);
   padding:0 6px;min-height:var(--git-btn-h);
   background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 .git-con-search:focus{outline:none;border-color:var(--accent)}
 .git-con-search:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
@@ -367,7 +367,7 @@ body.mobile .git-refs{width:110px}
 .git-con-time{flex:0 0 auto;color:var(--text-hint);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .git-con-argv{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
 .git-con-badges{flex:0 0 auto;display:flex;gap:4px}
-.git-con-badge{padding:0 4px;border-radius:8px;font-size:var(--fs-sm)}
+.git-con-badge{padding:0 4px;border-radius:var(--radius-lg);font-size:var(--fs-sm)}
 .git-con-badge.destructive{background:var(--attn-subtle);color:var(--attn-text)}
 .git-con-dur{flex:0 0 auto;color:var(--text-hint);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .git-con-exit{flex:0 0 auto;color:var(--danger-text);font-size:var(--fs-sm)}
@@ -438,12 +438,12 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .gc-hint.vis,.gc-err.vis{display:block}
 .gc-hint-label{color:var(--text-bright);margin-bottom:4px}
 .gc-hint-note{color:var(--text-muted);margin-bottom:4px}
-.gc-hint-cmd{display:block;padding:6px 8px;background:var(--sidebar-bg);border-radius:4px;
+.gc-hint-cmd{display:block;padding:6px 8px;background:var(--sidebar-bg);border-radius:var(--radius-sm);
   font-family:var(--mono);word-break:break-all;color:var(--text-bright)}
 .gc-err-reason{color:var(--danger-text);margin-bottom:4px}
 /* stderr tail 은 원문 그대로 보존한다 (FR-GIT-96) */
 .gc-err-tail{max-height:24vh;overflow:auto;margin:0;padding:6px 8px;background:var(--sidebar-bg);
-  border-radius:4px;font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-muted);white-space:pre}
+  border-radius:var(--radius-sm);font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-muted);white-space:pre}
 /* 복사 버튼의 외형은 `.ui-btn.ui-btn-sm` — 힌트·오류 아래 한 줄 띄우는 것만 여기 것이다. */
 .gc-hint>.ui-btn,.gc-err>.ui-btn{margin-top:6px}
 .gc-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 12px;
@@ -471,7 +471,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-br-spacer{flex:1 1 auto}
 .git-br-search{
   font:inherit;font-size:var(--fs-sm);padding:2px 6px;width:160px;min-width:0;
-  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 .git-br-new:hover,.git-br-retry:hover{background:var(--accent-hover);color:var(--accent-text)}
 .git-br-tree{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:var(--fs-md);padding:4px 0}
@@ -530,7 +530,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-stash-filter{
   font:inherit;font-size:var(--fs-sm);padding:2px 6px;width:150px;min-width:0;
   background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 /* FR-GIT-167: 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 */
 .git-stash-why{display:none;color:var(--text-muted);font-size:var(--fs-sm);min-width:0;overflow:hidden}
@@ -598,7 +598,7 @@ body.mobile .git-stash-row,body.mobile .git-br-row{min-height:var(--touch-min)}
 /* 사용자 것은 표식이 없다 — 그것이 기본이기 때문이다 (FR-GIT-240). 요소는 늘 있고
    글자만 비므로 자리를 먹지 않는다 */
 .git-wt-own{flex-shrink:0;font-size:var(--fs-sm);color:var(--text-muted)}
-.git-wt-main{flex-shrink:0;font-size:var(--fs-sm);padding:0 4px;border-radius:8px;
+.git-wt-main{flex-shrink:0;font-size:var(--fs-sm);padding:0 4px;border-radius:var(--radius-lg);
   background:var(--accent-subtle);color:var(--accent-text)}
 .git-wt-rowspacer{flex:0 0 4px}
 /* 행 인라인 동작. 항상 보인다 — .git-file-acts 와 같은 규약 */
@@ -635,7 +635,7 @@ body.mobile .git-stash-row,body.mobile .git-br-row{min-height:var(--touch-min)}
   color:var(--text-bright)}
 /* 상태는 색으로 갈린다. `ok` 만 조용하다 — 나머지 셋은 사용자가 무엇인가 해야
    하는 상태이며, 그 사실이 목록에서 바로 보여야 한다 */
-.git-sub-state{flex-shrink:0;font-size:var(--fs-sm);padding:0 5px;border-radius:8px;
+.git-sub-state{flex-shrink:0;font-size:var(--fs-sm);padding:0 5px;border-radius:var(--radius-lg);
   background:var(--accent-subtle);color:var(--text-muted)}
 .git-sub-state[data-state="ok"]{color:var(--git-st-add)}
 .git-sub-state[data-state="uninitialized"]{color:var(--text-hint)}
@@ -721,7 +721,7 @@ input[type="checkbox"]:not(.ui-switch),input[type="radio"]{
      한 변만 늘리면 타원·직사각이 된다 — 네 값을 함께 못박는다 (실측 결함). */
   flex-shrink:0;align-self:center;
   width:14px;height:14px;min-width:14px;min-height:14px;margin:0;
-  background:transparent;border:1px solid var(--text-dim);border-radius:3px;
+  background:transparent;border:1px solid var(--text-dim);border-radius:var(--radius-sm);
   cursor:pointer;transition:background var(--dur-fast),border-color var(--dur-fast);
 }
 input[type="radio"]{border-radius:50%}
@@ -745,7 +745,7 @@ input[type="checkbox"]:not(.ui-switch):focus-visible,input[type="radio"]:focus-v
 select{
   appearance:none;-webkit-appearance:none;
   font:inherit;color:var(--text);background:var(--bg);
-  border:1px solid var(--border);border-radius:3px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
   padding:0 22px 0 8px;cursor:pointer;
   background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),
                    linear-gradient(135deg,currentColor 50%,transparent 50%);
@@ -777,7 +777,7 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
   display:flex;align-items:center;gap:4px;
   padding:2px 4px;
   background:var(--sidebar-bg);
-  border:1px solid var(--border);border-radius:4px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
   box-shadow:var(--shadow-1);
   /* diff 의 글자 위에 겹쳐 뜨므로 그 위여야 한다. */
   z-index:var(--z-raised);

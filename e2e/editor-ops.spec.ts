@@ -526,7 +526,8 @@ test.describe('server-driven F-1 — 탐색기 메뉴의 답', () => {
     for (const id of ['rename', 'cut', 'delete']) {
       await expect(menuItem(page, id)).toHaveClass(/disabled/);
     }
-    await expect(menuItem(page, 'delete')).toHaveAttribute('title', /Editor 루트/);
+    // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 `Editor 루트` / 지금 `편집기 루트` / 이유 §3.5.2 의 옮긴 말(X1)
+    await expect(menuItem(page, 'delete')).toHaveAttribute('title', /편집기 루트/);
     await expect(menuItem(page, 'copy')).not.toHaveClass(/disabled/);
     await page.keyboard.press('Escape');
 

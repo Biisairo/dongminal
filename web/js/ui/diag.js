@@ -53,7 +53,7 @@
       'background:#020;border-bottom:1px solid #060}'+
     '#diag-ov .dg-t{color:#0f0;font-weight:700;margin-right:auto}'+
     '#diag-ov .dg-b{background:#030;border:1px solid #0a0;color:#0f0;font:10px ui-monospace,monospace;'+
-      'padding:3px 6px;border-radius:3px}'+
+      'padding:3px 6px;border-radius:var(--radius-sm)}'+
     '#diag-ov .dg-log{overflow-y:auto;padding:3px 4px;white-space:pre-wrap;word-break:break-all;'+
       '-webkit-user-select:text;user-select:text}';
   document.head.appendChild(style);

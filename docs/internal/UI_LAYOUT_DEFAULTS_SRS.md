@@ -986,3 +986,7 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   `terminal|span` 의 `inset` 왼쪽 `127.422px` → `106.938px`. **이유**: `+ 새 창` 안쪽 단추의 글자가 `Box` 에서 `샌드박스` 로
   바뀌어 폭이 늘었다 — 오른쪽에 붙은 절대 위치 요소라 왼쪽 inset 이 그만큼 준다. **`linux`·`win32` 는 아직이다** — 푸시 뒤
   `layout-baseline` 워크플로(사용자 실행).
+- 2026-11-20 (UX_AUDIT_FIX_SRS 3묶음·FR-UXF-44~54) `ui-layout.darwin.json` 을 **다시 떴다**. 양쪽에 있는 키의 값은 하나도 바뀌지 않았고
+  키만 늘었다(열 화면 × 둘 = 20자리): `code.ds-wide.eg-fp`(지문에 `.ds-wide` 표식, FR-UXF-50)와 `button.ui-btn.ui-btn-ghost.ui-btn-icon`
+  (지문 복사 단추, FR-UXF-54). 같은 회차의 다른 데스크톱 변경(모서리 토큰·읽는 글 11px·설정 섹션 행 32→30·레일 탭 36→30·설정 본문의
+  컨테이너 쿼리)은 기준선이 재는 키의 값을 바꾸지 않았다. **`linux`·`win32` 는 아직이다** — 푸시 뒤 `layout-baseline` 워크플로(사용자 실행).

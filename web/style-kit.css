@@ -32,7 +32,7 @@
      늘어난다 — 높이·최소폭·모서리가 전부 이 하나에서 나온다. 버튼과 같은
      이유로 배율을 탄다 (FR-FSS-5): 글자만 키우면 원 밖으로 숫자가 넘친다. */
   --ui-badge-h:calc(16px * var(--fs-scale));
-  --ui-radius:4px;
+  --ui-radius:var(--radius-sm);
   --ui-gap:calc(6px * var(--fs-scale));
   /* FR-TOK-20: 값을 갖지 않는다 — `--fs-sm` 을 가리킨다. 두 이름이 각자 11px
      을 들고 있던 동안 본문을 키우면 키트만 안 커졌다. */
@@ -189,7 +189,7 @@
 /* UI_POLISH_SRS FR-UIP-19: 키캡. 글자 크기를 따라가는 작은 상자다. */
 .ui-kbd{
   display:inline-block;min-width:calc(16px * var(--fs-scale));padding:0 4px;
-  border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:4px;
+  border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:var(--radius-sm);
   font:inherit;font-size:var(--fs-sm);line-height:1.5;color:var(--text);text-align:center;
 }
 .ui-badge-attn{background:var(--attn-subtle);border-color:var(--attn);color:var(--attn-text)}
@@ -396,7 +396,7 @@ body.mobile .ui-switch{
 }
 .ui-modal-box{
   display:flex;flex-direction:column;min-width:280px;max-width:90vw;max-height:82vh;
-  background:var(--bg);border:1px solid var(--border-strong);border-radius:8px;
+  background:var(--bg);border:1px solid var(--border-strong);border-radius:var(--radius-lg);
   box-shadow:var(--shadow-2);
   animation:ui-surface-in var(--dur-fast) ease-out;   /* UX_AUDIT_FIX_SRS FR-UXF-11 */
 }
@@ -415,13 +415,13 @@ body.mobile .ui-switch{
 /* ── 메뉴 (FR-UIK-8) ─────────────────────────────────────────────────── */
 .ui-menu{
   position:fixed;z-index:var(--z-popover);min-width:160px;padding:3px;
-  background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:5px;
+  background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:var(--radius-md);
   box-shadow:var(--shadow-2);font-size:var(--fs-md);color:var(--text);
   animation:ui-surface-in var(--dur-fast) ease-out;   /* UX_AUDIT_FIX_SRS FR-UXF-11 */
 }
 .ui-menu-item{
   display:flex;align-items:center;gap:7px;
-  padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;
+  padding:5px 10px;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;
 }
 /* MOBILE_UX_OVERHAUL_SRS FR-MUX-53: 메뉴 항목도 터치 하한을 지킨다. 키운 만큼 길어진 메뉴는
    화면을 넘지 않고 스스로 구른다. */
@@ -527,7 +527,7 @@ body.mobile .ui-menu-item{min-height:var(--touch-min);padding:0 14px;font-size:v
 .ui-scroll-sm::-webkit-scrollbar{width:var(--ui-scroll-w-sm);height:var(--ui-scroll-w-sm)}
 .ui-scroll::-webkit-scrollbar-track,.ui-scroll-sm::-webkit-scrollbar-track,.ui-modal-body::-webkit-scrollbar-track,.xterm-viewport::-webkit-scrollbar-track{background:transparent}
 .ui-scroll::-webkit-scrollbar-thumb,.ui-scroll-sm::-webkit-scrollbar-thumb,.ui-modal-body::-webkit-scrollbar-thumb,.xterm-viewport::-webkit-scrollbar-thumb{
-  background:var(--text-dim);border-radius:4px;
+  background:var(--text-dim);border-radius:var(--radius-sm);
 }
 .ui-scroll::-webkit-scrollbar-thumb:hover,.ui-scroll-sm::-webkit-scrollbar-thumb:hover,.ui-modal-body::-webkit-scrollbar-thumb:hover,.xterm-viewport::-webkit-scrollbar-thumb:hover{
   background:var(--text-muted);

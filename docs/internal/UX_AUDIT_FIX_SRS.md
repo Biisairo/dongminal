@@ -1,7 +1,7 @@
 # SRS: UI/UX 진단 반영 — UX_AUDIT_2026-11-19 의 항목 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 3묶음 D19·X9, 4묶음 이후, 채팅 창 분리(D-7, 별도 SRS). 1묶음 FR-UXF-1~12, 2묶음 FR-UXF-20~31. V-LAY-1 의 linux·win32 기준선은 푸시 뒤 `layout-baseline` 워크플로(사용자 실행)
+> **남은 것**: 4묶음 이후, 채팅 창 분리(D-7, 별도 SRS). 1묶음 FR-UXF-1~12, 2묶음 FR-UXF-20~31, 3묶음 FR-UXF-40~43(X1)·44~49(D19)·50~54(X9·D7·M13·M14). V-LAY-1 의 linux·win32 기준선은 푸시 뒤 `layout-baseline` 워크플로(사용자 실행)
 
 요구사항 식별자 접두어: `FR-UXF-`
 
@@ -18,7 +18,7 @@
 
 ### 1.2 범위 (Scope)
 
-**포함(이 판):** 1묶음 — D1·D3·D8·D11·D14·M3·M7·M9·X5·X7·O4. 2묶음 — M5·M6·D9·D16·M11·M12·X2.
+**포함(이 판):** 1묶음 — D1·D3·D8·D11·D14·M3·M7·M9·X5·X7·O4. 2묶음 — M5·M6·D9·D16·M11·M12·X2. 3묶음 — X1·D19·X9, 그리고 X9 와 겹치는 D7·M13·M14.
 
 **미포함:** §6 비목표.
 
@@ -57,6 +57,11 @@
 | D-11 | X1: git 명령·옵션·용어(Commit·Fetch·Pull·Push·Merge·Rebase·Stash·Cherry-pick·Reset·Revert·Checkout·Blame·HEAD·amend·ours/theirs 등)는 영어로 둔다. 메뉴의 설명부와 뷰 이름(History·Branches·Console·Worktrees·Submodules·Changes·Explorer)은 한국어로 옮긴다 |
 | D-12 | `Run`(dmctl run 의 실행 단위)은 이름 그대로 영어다 |
 | D-10 | 갱신 실패를 덮던 수동 새로고침 단추 둘 — 작업 패널의 목록 ⟳(`.ag-refresh`)과 Changes 의 git ⟳(`.ed-side-refresh`) — 을 뺀다. 자동 갱신이 제대로 돌게 하고, 실패하면 알리고 **앱 새로고침**(`#soft-reload-btn`, 남긴다)으로 복구하게 한다 |
+| D-13 | D19 글자: 9px(`--fs-xs`)는 **기호 자리**(배지 숫자·접기 화살표·레일 글자·표식 글리프)에만 남는다. 읽는 글은 11px(`--fs-sm`)로 올린다. 고정폭 10.34px 는 보정 배율(FR-TYP-4)이라 그대로 둔다 (2026-11-20) |
+| D-14 | D19 모서리: 토큰 넷 — 4px·6px·8px·알약. 리터럴 px 를 막는 검사 스크립트를 둔다 (2026-11-20) |
+| D-16 | X9: 설정 칸이 좁으면 **넓은 입력**(글 입력·선택 상자·긴 읽기 전용 값)만 라벨 아래 줄로 내려 전체 폭을 쓴다. 스위치·숫자·작은 단추는 같은 줄 오른쪽에 남는다 (2026-11-20) |
+| D-17 | D7·M14: 프로필 지문은 4자씩 띄어 보이고, **앞 16자**(간선 화면이 보이는 길이 `EDGE_FP_SHOWN`)를 강조한다. 복사 단추는 띄어쓰기 없는 원문을 복사한다 (2026-11-20) |
+| D-15 | D19 단추 높이: 키트의 세 단계(22·26·30)를 유지한다. 눈금 밖 값만 모은다 — 데스크톱은 행·키트 토큰으로, 모바일 32·36px 단추·입력은 터치 하한 44px 로 (2026-11-20) |
 
 ### 2.2 제약 (Constraints)
 
@@ -216,6 +221,120 @@ D-WRD-10)과 이미 만들어진 git 뷰 탭의 이름은 데이터라 바꾸지
 | 표 밖에서 확정 | Rebase onto… · host · port · Remotes · `Editor 루트` 오류 문장 | 여기로 Rebase… · 호스트 · 포트 · 원격 · `편집기 루트` |
 | 작업 패널 이름 (D-8) | Activity (단축키 이름·모바일 단추 툴팁) | 작업 / Work |
 
+### 3.6 3묶음 — 눈금 (D19 · D-13~D-15)
+
+#### 3.6.1 글자 (D-13)
+
+**FR-UXF-44** — `--fs-xs`(9px)는 **기호 자리**에만 쓴다. 기호 자리는 아래 표의 선택자다. 그 밖에서 쓰던 자리는 `--fs-sm`(11px)로 올린다.
+
+| 남는 자리(기호) | 선택자 |
+|---|---|
+| 배지 숫자 | `.sb-tab-badge` · 레일의 `.sb-tab-badge`·`.ag-tab-n` · `.ui-tab-badge` · `.git-hist-opts-badge` |
+| 접기 화살표 | `.ed-tw` · `.git-br-twist` |
+| 레일 글자 | `--sb-rail-fs` (레일 `.sbl-name` 둘) |
+| 표식 글리프 | `.eg-mesh-mark` |
+
+| 올리는 자리(읽는 글) | 선택자 |
+|---|---|
+| 채팅 | `.chat-sub-h` · `.chat-row-sub` · `.chat-node-fp` · `.chat-msg-meta` |
+| 계정·사용량 | `.cacct-cell-label` · `.cacct-chip` · `.cacct-active` · `.act-usage-sl-h` |
+| 테마 목록 머리 | `.tl-section` |
+| Runs 트리 | `.run-tree-role` · `.run-tree-recover text` · `.run-node-ctx` |
+
+> 이전 동작: 읽는 글 열둘이 9px 였다. / 지금: 11px. / 이유: 9px 는 읽기 하한 밖이다(진단 D19, 사용자 결정 D-13).
+
+고정폭 글자의 10.34px(11px × `--mono-scale` .94)는 눈금 밖 값이 아니다. 산세리프와 섞일 때 같은 크기로 보이게 하는
+보정이다(FR-TYP-4). 바꾸지 않는다. 테마 미리 보기의 `--pv-fs-*`(축소 모형)도 대상이 아니다.
+
+**FR-UXF-45** — 단위 시험이 `web/*.css` 에서 `var(--fs-xs)` 를 쓰는 선언의 선택자를 모아 FR-UXF-44 의 남는 자리 표와 대조한다.
+표 밖이면 실패한다.
+
+#### 3.6.2 모서리 (D-14)
+
+**FR-UXF-46** — 모서리 토큰은 넷이다. `:root` 에 둔다.
+
+| 토큰 | 값 | 뜻 |
+|---|---|---|
+| `--radius-sm` | 4px | 단추·입력·작은 표식. `--ui-radius` 는 이것을 가리킨다 |
+| `--radius-md` | 6px | 카드·메뉴·떠 있는 작은 상자·코드 블록 |
+| `--radius-lg` | 8px | 모달·시트·큰 상자 |
+| `--radius-pill` | 999px | 배지·가는 막대·작은 견본 — 짧은 변의 절반을 넘는 반지름 |
+
+종전 값은 아래 규칙으로 옮긴다.
+
+| 종전 | 지금 |
+|---|---|
+| 1·2·3·4px | `--radius-sm`. 단, 짧은 변이 8px 이하인 막대·점·견본(사용량 막대, 진행 막대, 슬라이더 트랙, 테마 점·견본)은 `--radius-pill` |
+| 5·6px | `--radius-md` |
+| 7·9px (반지름이 높이의 절반인 배지) | `--radius-pill` |
+| 8px | `--radius-lg` |
+| `0`·`50%`·`inherit`·`calc(var(…) / 2)` | 그대로 |
+
+> 이전 동작: 모서리 값이 1·2·3·4·5·6·7·8·9px 아홉 종이었다. / 지금: 토큰 넷. / 이유: 진단 D19, 사용자 결정 D-14.
+> 4px→4px 처럼 값이 같은 자리는 화면이 바뀌지 않는다. 바뀌는 것은 2·3px→4px, 5px→6px, 짧은 막대의 둥근 끝이다.
+
+**FR-UXF-47** — 검사 스크립트 `scripts/check-radius.mjs` 가 `web/*.css` 의 `border-radius`(와 `border-*-radius`) 값에 px 리터럴이
+남았는지 본다. `:root` 의 `--radius-*` 정의는 예외다. 0 이 아니면 실패한다. `make gates` 와 `verify.yml` 에 넣는다.
+
+**FR-UXF-48** — 앱 크롬의 JS 인라인 모서리도 토큰을 쓴다: `diag.js`, `app-presets.js` 의 이름 입력, CodeMirror 의 선택 일치·스크롤
+막대 손잡이(`cm-setup.js`·`cm-scrollbar.js`). 테마 미리 보기(`app-settings-theme.js` 의 축소 모형)는 대상이 아니다. 이 항목은
+검사 스크립트 밖이다(FR-TOK-32 와 같이 CSS 만 잰다).
+
+#### 3.6.3 단추·행 높이 (D-15)
+
+**FR-UXF-49** — 단추 높이는 키트의 세 단계(`--ui-btn-h-sm` 22 · `--ui-btn-h` 26 · `--ui-btn-h-lg` 30)다. 눈금 밖 높이를 아래처럼 모은다.
+
+| 자리 | 종전 | 지금 |
+|---|---|---|
+| 데스크톱 설정 모달의 섹션 목록 행 `#modal .mtab` | 32px | `--row`(30) |
+| 접힌 레일의 패널 탭 `.ui-panel-tab` | 36px | `--row`(30) |
+| 편집기 찾기의 옵션 토글 `.fe-find-opt` | 22px 리터럴 | `--ui-btn-h-sm` |
+| 테마 색 입력 `.ce-item input[type=color]` | 22px 리터럴 | `--ui-btn-h-sm` |
+| 모바일 찾기 입력 `.fe-find-q`·`.fe-find-r`·`.fe-goto-q`, `.search-bar input` | 최소 36px | `--touch-min`(44) |
+| 모바일 `#add-sandbox-window`, `.bg-kill`·`.bg-yes`·`.bg-no` | 최소 32px | `--touch-min`(44) |
+
+`#topbar`(32px)·`.status-bar`(22px)·`.chat-input`(여러 줄 입력)은 단추가 아니라 대상이 아니다.
+
+> 이전 동작: 데스크톱에 32·36px, 모바일에 32·36px 의 키트 밖 높이가 있었다. / 지금: 위 표. / 이유: 진단 D19·X2,
+> 사용자 결정 D-15. 모바일은 "누르는 자리 44"(FR-A11Y-27)를 따른다.
+
+### 3.7 3묶음 — 설정 행 문법 (X9 · D7 · M13 · M14 · D-16·D-17)
+
+**FR-UXF-50 (D-16)** — 설정 본문(`.display-settings`)은 컨테이너다(`container-type:inline-size`). 행 문법은 그 폭이 정한다 — 화면
+모드(`body.mobile`)가 아니다.
+
+| 칸 폭 | 행 문법 |
+|---|---|
+| 440px 이상 (넓음) | 지금과 같다 — 라벨 왼쪽, 입력 오른쪽 |
+| 440px 미만 (좁음) | **넓은 입력이 있는 행**은 라벨이 한 줄을 다 쓰고, 입력이 그 아래 줄에서 남은 폭을 다 쓴다. 그 밖의 행은 넓을 때와 같다 |
+
+**넓은 입력**은 행의 직계 자식 가운데 `input.ds-text`, `select`, `textarea`, 그리고 `.ds-wide` 표식을 단 긴 읽기 전용 값이다.
+`.ds-wide` 는 프로필 지문(`#pf-fp`)에 단다. 스위치·숫자 입력(`.ds-num`)·단추·분할 단추·짧은 상태 글자는 넓은 입력이 아니다.
+
+> 이전 동작: 모바일에서 행이 넘칠 때만 입력이 다음 줄로 밀렸다(FR-MUX-25). 밀린 입력은 제 폭(`.ds-text` 200px)을 지켜 오른쪽이
+> 비거나, 좁은 폭에서 잘렸다. 데스크톱 모달을 좁혀도 행 문법이 바뀌지 않았다.
+> 지금: 위 표. FR-MUX-25(라벨 하한·넘치면 줄바꿈)는 넓은 입력이 없는 행에 그대로 남는다.
+> 이유: 진단 X9·M13, 사용자 결정 D-16.
+
+**FR-UXF-51** — 기준 폭 440px 는 CSS 한 자리에 둔다. 컨테이너 쿼리 조건에는 사용자 정의 속성을 쓸 수 없으므로 리터럴이고, 그
+자리 주석이 이 FR 을 가리킨다.
+
+**FR-UXF-52 (M13)** — 프로필 이름 행은 FR-UXF-50 을 따른다. 좁으면 이름 입력이 라벨 아래 전체 폭이고 `#번호`(`#pf-tag`)는 그 오른쪽에
+붙는다. 모바일 입력 글자(`--fs-xl`, FR-MUX-26)는 iOS 의 포커스 확대를 막는 값이라 바꾸지 않는다. 진단이 함께 제안한 "저장은
+하단 고정 줄로" 는 D6(설정 저장 규칙)의 결정에 걸려 있어 이 절의 범위가 아니다.
+
+**FR-UXF-53 (D7·M14, D-17)** — 프로필 지문(`#pf-fp`)은 4자 묶음 열여섯으로 보인다.
+
+- 묶음 사이의 틈은 **CSS 여백**이다. 글자 노드에 띄어쓰기를 넣지 않는다 — `#pf-fp` 의 `textContent` 는 서버가 준 원문 그대로이고,
+  드래그로 복사해도 원문이다.
+- 앞 넷(16자, `EDGE_FP_SHOWN`)은 밝은 글자(`--text-bright`), 나머지는 흐린 글자(`--text-hint`)다.
+- 묶음은 줄 끝에서만 꺾인다 — 묶음 가운데에서 끊기지 않는다.
+- 지문이 비면 묶음도 없다.
+
+**FR-UXF-54 (D7)** — 지문 행에 복사 단추(`#pf-fp-copy`, 아이콘 `i-copy`, 툴팁·`aria-label` `Copy the fingerprint`)를 둔다.
+누르면 원문 64자를 `ClipboardWriter.write` 로 복사하고, 결과를 프로필 상태 줄(`#pf-status`)에 `복사했습니다` / `복사하지
+못했습니다` 로 알린다. 지문이 비면 아무것도 하지 않는다.
+
 ### 3.4 두 패널의 접기 단추 (D-9)
 
 **FR-UXF-30** — 데스크톱에서 메인 패널도 머리 끝 단추 자리(`#sb-acts`)에 접기 단추(`.sb-collapse`)를 둔다. 누르면 레일로 접고, 레일에서는
@@ -253,6 +372,12 @@ D-WRD-10)과 이미 만들어진 git 뷰 탭의 이름은 데이터라 바꾸지
 | TC-UXF-40 | FR-UXF-42 | unit: ko 카탈로그의 라틴 문자 전용 값이 모두 §3.5.1 허용 목록 안이다 |
 | TC-UXF-41 | FR-UXF-40·41 | e2e(ko): 설정 제목이 `설정`, 첫 탭이 `프로필`. 작업 카드 상태가 `작업 중 · Edit`. Repo 사이드 탭이 `변경`·`탐색기`. 진입점 라벨이 `기록` 등이고 툴팁은 영어다 |
 | TC-UXF-42 | FR-UXF-43 | e2e(모바일): `#m-act-btn` 의 `aria-label` 이 Work 를 말한다. unit: `agentsToggle` 단축키 이름에 `작업` |
+| TC-UXF-44 | FR-UXF-44·45 | unit: `--fs-xs` 를 쓰는 선택자가 모두 남는 자리 표 안이다. e2e(데스크톱): `.chat-msg-meta`·`.act-usage-sl-h` 의 계산 `font-size` 가 11px |
+| TC-UXF-45 | FR-UXF-46·47 | gate: `check-radius.mjs` 가 0 을 낸다. 탐침 `border-radius:3px` 를 넣으면 실패한다. unit: `--ui-radius` 가 `var(--radius-sm)` |
+| TC-UXF-46 | FR-UXF-49 | e2e(데스크톱): 설정 섹션 행과 접힌 레일 탭의 높이가 30. e2e(모바일): `.search-bar input` 높이 ≥ 44 |
+| TC-UXF-50 | FR-UXF-50·52 | e2e(모바일): 프로필 이름 행에서 `#pf-name` 의 top 이 라벨의 bottom 이상이고, 폭이 행 안쪽 폭의 80% 이상이다. 같은 화면의 스위치 행은 라벨과 스위치의 top 차가 행 높이의 절반 미만이다. e2e(데스크톱): 프로필 이름 행은 라벨과 입력이 같은 줄이다 |
+| TC-UXF-51 | FR-UXF-53 | unit: 묶음 함수가 64자를 4자 열여섯으로 나누고 앞 넷을 강조로 표시한다. 빈 값은 빈 목록이다. e2e: `#pf-fp` 의 `textContent` 가 원문과 같고 `.fp-g` 가 16개, `.fp-g.key` 가 4개다 |
+| TC-UXF-52 | FR-UXF-54 | e2e: `#pf-fp-copy` 를 누르면 클립보드가 원문이고 `#pf-status` 가 `복사했습니다` 다 |
 | TC-UXF-21 | FR-UXF-30 | e2e(데스크톱): `#sb-acts .sb-collapse` 를 누르면 레일(폭 40), 다시 누르면 펼침. 모바일에는 보이지 않는다 |
 | TC-UXF-22 | FR-UXF-31 | e2e(데스크톱): 왼쪽 메인 패널의 접기 단추 left < 첫 탭 left, 오른쪽 작업 패널의 접기 단추 right ≈ 패널 right. 메인 패널을 오른쪽으로 옮기면 접기 단추가 오른쪽 끝이다 |
 | TC-UXF-14 | FR-UXF-23 | e2e: `.git-head .git-files-mode` 둘, `.git-head-sep` 하나, `.git-files-bar` 없음 |
@@ -271,6 +396,10 @@ D-WRD-10)과 이미 만들어진 git 뷰 탭의 이름은 데이터라 바꾸지
 | 제목에 span 이 생겨 V-LAY-1 키가 늘어난다 | LOW | 데스크톱 DOM 변경 — darwin 기준선 다시 뜸, §9 기록 |
 | 링 억제가 키보드 사용자의 링까지 지운다 | MEDIUM | 키를 누르면 억제 표식을 걷는다. TC-UXF-3 이 `Tab` 뒤 링을 본다 |
 | O4 의 순서 바꿈이 끌어 놓기 재정렬과 부딪힌다 | LOW | 저장 순서는 그대로 두고 그릴 때만 옮긴다 |
+| 9→11px 로 오른 Runs 트리 글자가 SVG 노드 상자를 넘친다 | MEDIUM | Runs e2e 와 화면으로 확인한다. 넘치면 노드 폭이 아니라 글자 줄임으로 맞춘다 |
+| 레일 탭 36→30 에서 모서리 배지가 아이콘과 겹친다 | LOW | 레일 e2e·V-LAY-1 다시 뜸 |
+| 컨테이너 쿼리가 설정 본문의 폭 계산을 바꾼다(`inline-size` 봉쇄) | LOW | 설정 e2e·V-LAY-1 로 확인한다 |
+| 모서리·높이 변경으로 V-LAY-1 키가 바뀐다 | LOW | darwin 기준선 다시 뜸, `UI_LAYOUT_DEFAULTS_SRS` §9 기록 |
 
 ## 6. 비목표 (Non-goals)
 
@@ -278,6 +407,8 @@ D-WRD-10)과 이미 만들어진 git 뷰 탭의 이름은 데이터라 바꾸지
 - 모바일에서 나란히 보기 단추를 감추는 일 (D-2)
 - fetch·pull 단추의 라벨(진단 D12 — 뒤 묶음)
 - 시트(모바일 서랍·Activity)의 미끄러짐 — 패널 템플릿이 정했다
+- 설정 저장 단추의 자리(D6·M13 의 저장 부분) — 뒤 묶음의 결정
+- 대화상자의 키트 행(`.ui-field`)과 설정 행(`.ds-row`)을 하나로 합치는 일 — X9 는 설정 화면의 행만 다룬다
 
 ## 7. 구현 위치
 
@@ -298,4 +429,8 @@ D-WRD-10)과 이미 만들어진 git 뷰 탭의 이름은 데이터라 바꾸지
 | `web/js/git/panel-changes.js` | 보기 전환을 머리 끝으로 (FR-UXF-23) |
 | `web/js/git/commit.js` | 모바일 접기 (FR-UXF-24) |
 | `web/js/core/app-agents.js`, `web/style.css` | 카드 줄 구성·모바일 그룹 머리 (FR-UXF-25·26) |
+| `web/style*.css` | `--fs-xs` 자리 정리(FR-UXF-44), 모서리 토큰과 사상(FR-UXF-46), 높이(FR-UXF-49) |
+| `web/style.css`, `web/index.html`, `web/js/core/app-settings-profile.js` | 설정 행 컨테이너 쿼리(FR-UXF-50·51), 지문 묶음·복사(FR-UXF-53·54) |
+| `scripts/check-radius.mjs` (신규), `Makefile`, `.github/workflows/verify.yml` | 모서리 게이트 (FR-UXF-47) |
+| `web/js/test/ux-scale.test.mjs` (신규) | TC-UXF-44·45 의 unit |
 | `e2e/ux-audit-fix.spec.ts` (신규) | TC-UXF-1·3~17 |

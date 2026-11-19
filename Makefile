@@ -117,6 +117,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-focus.mjs
 	@echo "── 글자 크기 (font-size 가 토큰에서 오는가)"
 	@node scripts/check-font-size.mjs
+	@echo "── 모서리 (border-radius 가 토큰에서 오는가)"
+	@node scripts/check-radius.mjs
 	@echo "── 글꼴 (font-family 가 토큰에서 오는가)"
 	@node scripts/check-font-family.mjs
 	@echo "── z-index 층 (값이 층에서 오고 산술이 없는가)"

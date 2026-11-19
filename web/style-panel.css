@@ -57,7 +57,7 @@ body:not(.mobile) .ui-panel-acts:not(:has(>:not(.ui-panel-act-mobile))){display:
 }
 :is(html.sb-collapsed body:not(.mobile) #sidebar,body:not(.mobile) #agents-panel:not(.open)) .ui-panel-acts{padding:4px 0}
 :is(html.sb-collapsed body:not(.mobile) #sidebar,body:not(.mobile) #agents-panel:not(.open)) .ui-panel-tab{
-  flex:0 0 auto;height:36px;padding:0;border-bottom:none;border-left:2px solid transparent;
+  flex:0 0 auto;height:var(--row);padding:0;border-bottom:none;border-left:2px solid transparent;
 }
 :is(html.sb-collapsed body:not(.mobile) #sidebar,body:not(.mobile) #agents-panel:not(.open)) .ui-panel-tab.active{border-left-color:var(--accent)}
 /* 오른쪽에 선 레일. Activity 의 기본 자리는 오른쪽이다 (PANEL_DOCK_SRS). */

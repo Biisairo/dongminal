@@ -200,7 +200,7 @@ function edCmScrollbar() {
     CM.EditorView.theme({
       '.cm-scroller': { marginRight: ED_SCROLL_W + 'px' },
       '.cm-scroller::-webkit-scrollbar': { width: '0', height: 'var(--ui-scroll-w)' },
-      '.cm-scroller::-webkit-scrollbar-thumb': { background: 'var(--text-dim)', borderRadius: '4px' },
+      '.cm-scroller::-webkit-scrollbar-thumb': { background: 'var(--text-dim)', borderRadius: 'var(--radius-sm)' },
       '.cm-vscroll': { position: 'absolute', right: '0', width: ED_SCROLL_W + 'px', zIndex: 'var(--z-raised)' },
       '.cm-vscroll-ruler': { position: 'absolute', left: '0', top: '0', width: '100%', pointerEvents: 'none' },
       '.cm-vscroll-thumb': {

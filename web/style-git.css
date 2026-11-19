@@ -52,7 +52,7 @@
 .git-missing-reason{color:var(--text-hint);font-size:var(--fs-sm)}
 .git-missing-acts{display:flex;gap:8px;margin-top:4px}
 .git-missing-acts button{
-  background:transparent;border:1px solid var(--border);border-radius:4px;
+  background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);
   color:var(--text-bright);font:inherit;font-size:var(--fs-md);padding:4px 12px;cursor:pointer;
 }
 .git-missing-acts button:hover{background:var(--border)}
@@ -86,7 +86,7 @@
 .git-head-branch{color:var(--accent-text);white-space:nowrap}
 .git-head-badges{display:flex;gap:4px;min-width:0;overflow:hidden}
 .git-head-badge{
-  padding:0 6px;border-radius:8px;font-size:var(--fs-sm);white-space:nowrap;
+  padding:0 6px;border-radius:var(--radius-lg);font-size:var(--fs-sm);white-space:nowrap;
   background:var(--accent-subtle);color:var(--accent-text);
 }
 .git-head-badge.git-badge-detached,.git-head-badge.git-badge-conflict{
@@ -164,7 +164,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-job-auth-note{font-size:var(--fs-sm);color:var(--attn-text)}
 .git-job-auth-cmd{
   font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-bright);
-  background:var(--accent-subtle);padding:3px 6px;border-radius:3px;
+  background:var(--accent-subtle);padding:3px 6px;border-radius:var(--radius-sm);
   white-space:pre-wrap;word-break:break-all;
 }
 .git-job-auth-copy{align-self:flex-start}
@@ -198,7 +198,7 @@ body.mobile .git-head-remote{gap:2px}
 }
 .git-dialog-head{flex:0 0 auto;font-size:var(--fs-lg);color:var(--text-bright)}
 /* FR-GIT-178: 상단에 알리기만 한다 — 실행을 막지 않는다 */
-.git-dialog-changed{flex:0 0 auto;display:none;padding:6px 8px;border-radius:4px;
+.git-dialog-changed{flex:0 0 auto;display:none;padding:6px 8px;border-radius:var(--radius-sm);
   color:var(--attn-text);background:var(--attn-subtle)}
 .git-dialog-changed.vis{display:block}
 /* FR-GIT-177a: **본문도 구른다.** 형제 셋(head·changed·fields)은 자기 몫을
@@ -223,7 +223,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-dialog-row{display:flex;align-items:center;gap:6px;cursor:pointer}
 .git-dialog-input{
   font:inherit;font-size:var(--fs-md);padding:5px 8px;min-width:0;
-  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 /* FR-GIT-159·167: 왜 실행할 수 없는지 보인다 — 사유 없이 꺼진 버튼은 해소할 수 없다 */
 .git-dialog-why{display:none;color:var(--attn-text);font-size:var(--fs-sm)}
@@ -233,7 +233,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-dialog-err.vis{display:block}
 .git-dialog-err-reason{color:var(--danger-text);font-size:var(--fs-sm);word-break:break-all}
 .git-dialog-err-tail{display:none;max-height:24vh;overflow:auto;margin:4px 0 0;
-  padding:6px 8px;background:var(--sidebar-bg);border-radius:4px;
+  padding:6px 8px;background:var(--sidebar-bg);border-radius:var(--radius-sm);
   font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-muted);white-space:pre}
 .git-dialog-err-tail.vis{display:block}
 /* 복사 버튼의 외형은 `.ui-btn.ui-btn-sm` — 오류 아래 한 줄 띄우는 것만 여기 것이다. */
@@ -292,7 +292,7 @@ body.mobile .git-head-remote{gap:2px}
   flex:0 0 auto;min-width:0;resize:none;overflow-y:auto;
   font:inherit;font-size:var(--fs-md);padding:4px 6px;line-height:17px;
   background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 .git-commit-msg:disabled{color:var(--text-hint)}
 .git-commit-bar{display:flex;align-items:center;gap:8px;min-width:0}
@@ -311,11 +311,11 @@ body.mobile .git-head-remote{gap:2px}
 .git-commit-menu{
   display:none;position:absolute;left:0;top:calc(100% + 3px);z-index:var(--z-popover);
   min-width:170px;padding:4px;font-size:var(--fs-sm);
-  background:var(--bg);border:1px solid var(--border-strong);border-radius:5px;
+  background:var(--bg);border:1px solid var(--border-strong);border-radius:var(--radius-md);
   box-shadow:var(--shadow-2);
 }
 .git-commit-menu.vis{display:block}
-.git-commit-opt{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:3px;cursor:pointer;color:var(--text)}
+.git-commit-opt{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text)}
 .git-commit-opt:hover{background:var(--accent-hover)}
 /* FR-GIT-84: 왜 못 누르는지 보인다 */
 .git-commit-why{display:none;padding:0 2px 2px;font-size:var(--fs-sm);color:var(--text-muted)}
@@ -336,7 +336,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-preflight-reason{color:var(--text-bright);word-break:break-all}
 .git-preflight-fix{display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap}
 .git-preflight-fix-label{color:var(--text-muted);flex-shrink:0}
-.git-preflight-cmd{flex:1 1 auto;min-width:0;padding:2px 6px;border-radius:3px;
+.git-preflight-cmd{flex:1 1 auto;min-width:0;padding:2px 6px;border-radius:var(--radius-sm);
   background:var(--sidebar-bg);color:var(--text-bright);font-family:var(--mono);word-break:break-all}
 .git-preflight-copy:hover{color:var(--text-bright);border-color:var(--accent)}
 

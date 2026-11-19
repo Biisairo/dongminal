@@ -1082,6 +1082,8 @@ I18N.register('en', {
   'html.polling_hint': 'Hidden browser tabs and invisible screens ask for nothing, and catch up once immediately on return. Moments whose result must be seen right away — switching windows, saving, git commands — refresh then, regardless of the interval.',
   'html.preset_save': 'Save current layout',
   'html.profile_fp': 'Fingerprint',
+  'html.profile_fp_copied': 'Copied',
+  'html.profile_fp_copy_fail': 'Could not copy',
   'html.profile_fp_hint': 'The node identity of this device. It is made on the first run and cannot be changed. The #number comes from its first digits.',
   'html.profile_name': 'Name',
   'html.profile_name_hint': 'The name of this device. The browser tab shows the name; other nodes, Telegram alerts and dmctl show name#number. Use 1–32 letters (English or Korean), digits, _ or -. Korean names can have up to 21 characters.',

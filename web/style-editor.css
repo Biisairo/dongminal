@@ -229,7 +229,7 @@ body.mobile .ed-row{height:var(--touch-min)}
   flex:1 1 auto;min-width:0;height:18px;padding:0 4px;
   font:inherit;font-size:var(--fs-md);
   background:var(--bg);color:var(--text-bright);
-  border:1px solid var(--accent);border-radius:2px;outline:none;
+  border:1px solid var(--accent);border-radius:var(--radius-sm);outline:none;
 }
 .ed-input:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 /* FR-EDT-85: 놓을 수 있는 폴더. 테두리로 알린다 — 배경만 바꾸면 hover 와 구분되지
@@ -267,7 +267,7 @@ body.mobile .ed-row{height:var(--touch-min)}
 .ed-find-box{
   width:min(720px,92vw);max-height:70vh;display:flex;flex-direction:column;
   background:var(--sidebar-bg);border:1px solid var(--border);
-  border-radius:8px;box-shadow:var(--shadow-2);overflow:hidden;
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-2);overflow:hidden;
 }
 .ed-find-q{
   flex:0 0 auto;padding:10px 12px;border:none;outline:none;font-size:var(--fs-lg);
@@ -305,24 +305,24 @@ body.mobile .ed-row{height:var(--touch-min)}
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);display:none;
   flex-direction:column;gap:4px;padding:4px 6px;
   background:var(--sidebar-bg);border:1px solid var(--border);
-  border-radius:6px;box-shadow:var(--shadow-1);
+  border-radius:var(--radius-md);box-shadow:var(--shadow-1);
 }
 .fe-find.vis{display:flex}
 /* MOBILE_UX_OVERHAUL_SRS FR-MUX-47: 모바일에서 찾기·줄 이동 패널은 칸의 폭 안에 선다 — 입력칸의
    고정 폭(200px)과 오른쪽 기준 자리가 합쳐져 왼쪽 끝이 화면 밖으로 나갔다. `--fs-xl`(기본 18px)은 iOS 확대 기준(16px)을 넘는다. */
 body.mobile :is(.fe-find,.fe-goto){left:6px;right:6px}
 body.mobile .fe-find-line{flex-wrap:wrap}
-body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-width:0;min-height:36px;font-size:var(--fs-xl)}
+body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-width:0;min-height:var(--touch-min);font-size:var(--fs-xl)}
 /* UX_BATCH13_SRS FR-EGL-4: 줄 이동 패널. 찾기 패널과 같은 자리·같은 껍데기다 (D-5). */
 .fe-goto{
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);display:none;
   align-items:center;gap:4px;padding:4px 6px;
   background:var(--sidebar-bg);border:1px solid var(--border);
-  border-radius:6px;box-shadow:var(--shadow-1);
+  border-radius:var(--radius-md);box-shadow:var(--shadow-1);
 }
 .fe-goto.vis{display:flex}
 .fe-goto-q{
-  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;
+  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);
   outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
 }
 .fe-goto-q:focus{border-color:var(--accent)}
@@ -333,7 +333,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 .fe-find-rep{display:none}
 .fe-find.rep-open .fe-find-rep{display:flex}
 .fe-find-r{
-  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;
+  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);
   outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
 }
 .fe-find-r:focus{border-color:var(--accent)}
@@ -344,7 +344,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 .fe-find-toggle:hover{background:var(--border);color:var(--text-bright)}
 .fe-find-toggle:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .fe-find-q{
-  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;
+  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);
   outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
 }
 .fe-find-q:focus{border-color:var(--accent)}
@@ -359,9 +359,9 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 /* 이동·닫기 셋의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost.ui-btn-sm` 이다 (§7.4).
    옵션 토글은 켜진 상태(`.on`)를 갖는 글자 버튼이라 자기 것이다. */
 .fe-find-opt{
-  flex:0 0 auto;min-width:22px;height:22px;padding:0 4px;
+  flex:0 0 auto;min-width:var(--ui-btn-h-sm);height:var(--ui-btn-h-sm);padding:0 4px;
   display:flex;align-items:center;justify-content:center;
-  border:1px solid transparent;border-radius:4px;cursor:pointer;
+  border:1px solid transparent;border-radius:var(--radius-sm);cursor:pointer;
   background:transparent;color:var(--text-muted);font-size:var(--fs-sm);line-height:1;
 }
 .fe-find-opt:hover{background:var(--border);color:var(--text-bright)}
@@ -375,7 +375,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
    아래 규칙이 그 위에 한 겹 더 얹힌다. */
 /* UX_BATCH12_SRS FR-EFC-1·2: 다른 일치 25%, 현재 일치 45% + 강조색 테두리. 현재 일치를 꽉 채우면
    글자가 묻히고, 다른 일치가 같은 단어 표시(FR-EFC-3)보다 흐리면 검색 결과가 덜 보인다. */
-.fe-find-hit{background:color-mix(in srgb, var(--accent) 25%, transparent);border-radius:2px}
+.fe-find-hit{background:color-mix(in srgb, var(--accent) 25%, transparent);border-radius:var(--radius-sm)}
 .fe-find-hit-cur{
   background:color-mix(in srgb, var(--accent) 45%, transparent);
   box-shadow:0 0 0 1px var(--accent) inset;
@@ -413,7 +413,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
   display:flex;flex-direction:column;gap:6px;
   width:min(560px,calc(100vw - 32px));padding:12px;
   background:var(--sidebar-bg);border:1px solid var(--accent);
-  border-radius:8px;box-shadow:var(--shadow-2);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-2);
   color:var(--text-bright);font-size:var(--fs-md);
 }
 .tc-copy-head{font-weight:600}
@@ -422,13 +422,13 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
    iOS 는 readOnly 인 요소의 선택을 무시해 복사가 되지 않는다. */
 .tc-copy-text{
   width:100%;min-height:120px;max-height:40vh;resize:vertical;
-  padding:8px;border:1px solid var(--border);border-radius:5px;
+  padding:8px;border:1px solid var(--border);border-radius:var(--radius-md);
   background:var(--bg);color:var(--text);
   font-family:var(--mono);font-size:var(--fs-md);line-height:1.4;
 }
 .tc-copy-row{display:flex;justify-content:flex-end;gap:6px}
 .tc-copy-row button{
-  border:none;border-radius:5px;padding:6px 12px;font:inherit;font-weight:600;
+  border:none;border-radius:var(--radius-md);padding:6px 12px;font:inherit;font-weight:600;
 }
 
 /* ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · FR-LSP-46) ──
@@ -439,7 +439,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
   display:grid;grid-template-columns:1fr auto;grid-template-areas:
     "head act" "state act" "path act" "msg msg";
   gap:2px 10px;padding:8px 10px;
-  border:1px solid var(--border);border-radius:6px;background:var(--bg);
+  border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg);
 }
 .lsp-head{grid-area:head;display:flex;align-items:baseline;gap:8px;min-width:0}
 .lsp-name{color:var(--text-bright);font-size:var(--fs-md);font-weight:600}
@@ -468,7 +468,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 .fe-note{
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);
   max-width:min(520px,72%);padding:5px 10px;
-  border:1px solid var(--border);border-radius:6px;
+  border:1px solid var(--border);border-radius:var(--radius-md);
   background:var(--sidebar-bg);color:var(--text-bright);
   font-size:var(--fs-sm);line-height:1.4;box-shadow:var(--shadow-1);
   opacity:0;pointer-events:none;transition:opacity var(--dur-fast);

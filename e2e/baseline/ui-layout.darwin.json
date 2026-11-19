@@ -1235,6 +1235,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "terminal|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "terminal|span.sbx-status": {
   "display": "block",
   "overflowX": "visible",
@@ -3682,6 +3700,24 @@
  },
  "git:changes|code.eg-fp": {
   "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -6262,6 +6298,24 @@
  },
  "git:diff|code.eg-fp": {
   "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -9032,6 +9086,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:history|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:history|span.sbx-status": {
   "display": "block",
   "overflowX": "visible",
@@ -11771,6 +11843,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:branches|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:branches|span.sbx-status": {
   "display": "block",
   "overflowX": "visible",
@@ -14267,6 +14357,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:stash|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:stash|span.sbx-status": {
   "display": "block",
   "overflowX": "visible",
@@ -16705,6 +16813,24 @@
  },
  "git:console|code.eg-fp": {
   "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -19232,6 +19358,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:worktrees|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:worktrees|span.sbx-status": {
   "display": "block",
   "overflowX": "visible",
@@ -21686,6 +21830,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:submodules|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:submodules|span.sbx-status": {
   "display": "block",
   "overflowX": "visible",
@@ -23296,6 +23458,24 @@
  },
  "editor|code.eg-fp": {
   "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|code.ds-wide.eg-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|button.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",

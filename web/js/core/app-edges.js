@@ -12,6 +12,14 @@ const EDGE_FP_SHOWN=16;
 
 function edgeFp16(fp){ return String(fp||'').slice(0,EDGE_FP_SHOWN) }
 
+/** UX_AUDIT_FIX_SRS FR-UXF-53: 지문의 4자 묶음. 앞 `EDGE_FP_SHOWN` 자가 강조(`key`)다. 이어 붙이면 원문이다. */
+const EDGE_FP_GROUP=4;
+function edgeFpGroups(fp){
+  const s=String(fp||''),out=[];
+  for(let i=0;i<s.length;i+=EDGE_FP_GROUP) out.push({text:s.slice(i,i+EDGE_FP_GROUP),key:i<EDGE_FP_SHOWN});
+  return out;
+}
+
 /** PROFILE_NAME_SRS FR-PFN-6: `이름#번호`. 번호는 서버가 준 값이고, 없으면 이름만이다. */
 function edgeHandle(p){ return p.tag?p.name+'#'+p.tag:p.name }
 

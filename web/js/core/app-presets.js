@@ -87,7 +87,7 @@ Object.assign(App.prototype, {
     const item=document.querySelector(`.preset-item[data-idx="${idx}"] .preset-name`);
     if(!item)return;
     const inp=document.createElement('input');inp.className='preset-rename-input';
-    inp.value=layoutPresets[idx].name;inp.style.cssText='background:var(--bg);border:1px solid var(--accent);border-radius:3px;padding:2px 6px;color:var(--text);font-size:12px;width:100%;outline:none';
+    inp.value=layoutPresets[idx].name;inp.style.cssText='background:var(--bg);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:2px 6px;color:var(--text);font-size:12px;width:100%;outline:none';
     item.replaceWith(inp);inp.focus();inp.select();
     const save=()=>{
       layoutPresets[idx].name=inp.value.trim()||layoutPresets[idx].name;

@@ -335,6 +335,12 @@ M7 이 `10px`→`11px` 을 올린 것과 같은 방향이고, `13px` 17곳에는
 | `--pv-fs-xs/sm/md` | 7·8·9px | `.theme-preview-panel` 지역 (4) | 4 |
 | | | | **385** |
 
+> **UX_AUDIT_FIX_SRS FR-UXF-44 으로 개정 (2026-11-20)**: 이전 — `--fs-xs` 는 9px 이 필요한 어느 자리든 썼다(채팅 메타·계정
+> 라벨·Runs 트리 글자 등 읽는 글 포함). / 지금 — `--fs-xs` 는 **기호 자리**(배지 숫자·접기 화살표·레일 글자·표식 글리프)
+> 전용이고, 읽는 글 열둘은 `--fs-sm` 으로 올랐다. 자리 목록은 그 SRS §3.6.1, 시험은 `web/js/test/ux-scale.test.mjs`. /
+> 이유 — 진단 D19: 9px 는 읽기 하한 밖이다(사용자 결정 D-13). 모서리도 같은 개정에서 토큰 넷(`--radius-sm·md·lg·pill`)과
+> 게이트 `scripts/check-radius.mjs` 를 얻었다(FR-UXF-46·47).
+
 > **이 값들은 이제 기준값이다** (2026-09-19 · `FONT_SIZE_SETTING_SRS` FR-FSS-4).
 > 다섯은 `calc(<기준px> * var(--fs-scale))` 이고 `--fs-scale` 은 설정
 > `uiFontScale` 이 정한다. 기본 배율 1 에서 계산값은 위 표 그대로이므로 사상표의

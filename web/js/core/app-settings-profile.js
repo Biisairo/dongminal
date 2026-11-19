@@ -8,7 +8,13 @@ Object.assign(App.prototype, {
   _pfPaint(v){
     document.getElementById('pf-name').value=v.name||'';
     document.getElementById('pf-tag').textContent=v.tag?'#'+v.tag:'';
-    document.getElementById('pf-fp').textContent=v.fingerprint||'';
+    const fp=document.getElementById('pf-fp');
+    fp.replaceChildren(...edgeFpGroups(v.fingerprint).map(g=>{
+      const s=document.createElement('span');
+      s.className=g.key?'fp-g key':'fp-g';
+      s.textContent=g.text;
+      return s;
+    }));
   },
 
   _pfCollect(){ return {name:document.getElementById('pf-name').value.trim()} },
@@ -63,6 +69,16 @@ Object.assign(App.prototype, {
     const save=document.getElementById('pf-save');
     if(!save) return;
     save.addEventListener('click',()=>this._profileSave());
+    // UX_AUDIT_FIX_SRS FR-UXF-54: 지문의 원문을 복사한다. 결과는 상태 줄이 말한다.
+    const copy=document.getElementById('pf-fp-copy');
+    if(copy) copy.addEventListener('click',async()=>{
+      const raw=document.getElementById('pf-fp').textContent;
+      if(!raw) return;
+      const ok=await ClipboardWriter.write(raw);
+      const st=document.getElementById('pf-status');
+      st.classList.toggle('err',!ok);
+      st.textContent=ok?t('html.profile_fp_copied'):t('html.profile_fp_copy_fail');
+    });
     // SETTINGS_TAB_ORDER_SRS FR-STO-2: 처음 열리는 탭이 Profile 이다 — 탭을 누르지 않아도 읽는다.
     const open=document.getElementById('settings-btn');
     if(open) open.addEventListener('click',()=>{

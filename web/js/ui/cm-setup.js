@@ -209,7 +209,7 @@ function edCmTheme() {
     '.cm-gutters': { backgroundColor: 'var(--bg)', color: 'color-mix(in srgb, var(--text) 40%, var(--bg))', border: 'none' },
     '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--text)' },
     // UX_BATCH12_SRS FR-EFC-3: 같은 단어는 배경 없이 테두리만 — 검색 일치(배경)와 겹쳐도 구분된다.
-    '.cm-selectionMatch': { backgroundColor: 'transparent', boxShadow: '0 0 0 1px var(--accent) inset', borderRadius: '2px' },
+    '.cm-selectionMatch': { backgroundColor: 'transparent', boxShadow: '0 0 0 1px var(--accent) inset', borderRadius: 'var(--radius-sm)' },
     '&.cm-focused .cm-matchingBracket': { backgroundColor: 'color-mix(in srgb, var(--accent) 25%, transparent)' },
     '.cm-tooltip': { backgroundColor: 'var(--bg-alt)', color: 'var(--text)', border: '1px solid var(--border)' },
     // EDITOR_LINK_LSP_SRS FR-ELS-45: 긴 설명이 편집기를 덮지 않는다.
@@ -217,7 +217,7 @@ function edCmTheme() {
     // FR-ELS-46: 미리보기 안의 스크롤바는 앱 킷 스크롤바와 같다 (style-kit.css `.ui-scroll`).
     '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar': { width: 'var(--ui-scroll-w)', height: 'var(--ui-scroll-w)' },
     '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar-track': { background: 'transparent' },
-    '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar-thumb': { background: 'var(--text-dim)', borderRadius: '4px' },
+    '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar-thumb': { background: 'var(--text-dim)', borderRadius: 'var(--radius-sm)' },
     '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar-thumb:hover': { background: 'var(--text-muted)' },
     '.cm-sel-ws': { color: 'var(--text-hint)' },
     // EDITOR_LINK_LSP_SRS FR-ELS-40: 대화상자·패널은 앱 버튼·입력 칸과 같은 토큰이다. 기본 테마의

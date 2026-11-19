@@ -59,12 +59,12 @@
 .dr-body th{background:var(--bg-alt);font-weight:600}
 
 .dr-body code{
-  padding:.15em .4em;border-radius:3px;font-size:.88em;
+  padding:.15em .4em;border-radius:var(--radius-sm);font-size:.88em;
   background:color-mix(in srgb,var(--text) 10%,var(--bg));
   font-family:var(--mono);
 }
 .dr-body pre{
-  margin:.9em 0;padding:10px 12px;border:1px solid var(--border);border-radius:5px;
+  margin:.9em 0;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);
   overflow-x:auto;background:color-mix(in srgb,var(--text) 6%,var(--bg));
 }
 .dr-body pre code{padding:0;background:none;font-size:var(--fs-md);line-height:1.55}
@@ -127,7 +127,7 @@ body.mobile .fe-render{left:auto;right:12px;bottom:12px;background:var(--bg)}
 .dr-html-wrap{display:flex;flex-direction:column;flex:1 1 auto;min-width:0;height:100%;min-height:0;gap:6px}
 /* 스크립트가 돌지 않는다는 사실. 이 줄이 없으면 빈 화면이 우리 버그로 읽힌다. */
 .dr-html-note{
-  flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
+  flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);
   background:color-mix(in srgb,var(--text) 6%,var(--bg));
   color:var(--text-hint);font-size:var(--fs-sm);
 }
@@ -137,7 +137,7 @@ body.mobile .fe-render{left:auto;right:12px;bottom:12px;background:var(--bg)}
    예외로 둔 것과 같은 논리이며, 예외로 등록하지 않고 **이름을 준다**. */
 :root{--doc-paper:#fff}
 .dr-html{
-  flex:1 1 auto;min-height:0;width:100%;border:1px solid var(--border);border-radius:4px;
+  flex:1 1 auto;min-height:0;width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);
   background:var(--doc-paper);   /* 문서 자신의 배경을 쓴다 — 우리 테마를 문서에 강요하지 않는다 */
 }
 

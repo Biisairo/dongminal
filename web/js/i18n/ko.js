@@ -1105,6 +1105,8 @@ I18N.register('ko', {
   'html.polling_hint': '숨은 브라우저 탭과 보이지 않는 화면에서는 아무것도 묻지 않고, 돌아오면 즉시 한 번 갚습니다. 창 전환·저장·git 명령처럼 결과를 곧바로 봐야 하는 순간은 주기와 무관하게 그때 갱신합니다.',
   'html.preset_save': '현재 레이아웃 저장',
   'html.profile_fp': '지문',
+  'html.profile_fp_copied': '복사했습니다',
+  'html.profile_fp_copy_fail': '복사하지 못했습니다',
   'html.profile_fp_hint': '이 기기의 노드 신원입니다. 처음 실행할 때 만들어지며 바꿀 수 없습니다. #번호는 이 값의 앞자리에서 만들어집니다.',
   'html.profile_name': '이름',
   'html.profile_name_hint': '이 기기의 이름입니다. 브라우저 탭에는 이름이, 다른 노드·Telegram 알림·dmctl 에는 이름#번호가 보입니다. 영문·한글·숫자·_·- 1~32자이고, 한글은 21자까지 쓸 수 있습니다.',

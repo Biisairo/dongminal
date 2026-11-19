@@ -20,9 +20,11 @@ function setup({ get, put, open = false } = {}) {
   for (const id of ['pf-name', 'pf-tag', 'pf-fp', 'pf-status', 'panel-profile', 'modal-overlay']) {
     els[id] = { value: '', textContent: '', hidden: false, classList: { contains: () => open }, querySelector: () => null };
   }
+  // UX_AUDIT_FIX_SRS FR-UXF-53: 지문은 4자 묶음 span 으로 그린다 — 묶음을 이어 붙인 글자가 textContent 다.
+  els['pf-fp'].replaceChildren = (...kids) => { els['pf-fp'].textContent = kids.map((k) => k.textContent).join('') };
   const puts = [];
   let gets = 0;
-  const ctx = load(['core/settings-live.js', 'core/app-settings-profile.js'], {
+  const ctx = load(['core/settings-live.js', 'core/app-edges.js', 'core/app-settings-profile.js'], {
     globals: {
       App: function App() {},
       t: (k) => k,
@@ -30,7 +32,7 @@ function setup({ get, put, open = false } = {}) {
       apiGet: async () => { gets++; return typeof get === 'function' ? get() : get || { ok: true, status: 200, data: PROFILE, headers: { get: () => 'E1' } } },
       apiPut: async (path, body, opts) => { puts.push([path, body, opts]); if (typeof put === 'function') return put(body); return put || { ok: true, status: 200, data: { ...PROFILE, name: body.name, handle: body.name + '#0427' }, headers: { get: () => 'E2' } } },
       statusRun: async (_el, _opts, fn) => fn(),
-      document: { getElementById: (id) => els[id] || null },
+      document: { getElementById: (id) => els[id] || null, createElement: () => ({ className: '', textContent: '' }) },
       UIKit: { button: () => ({}) },
     },
   });
