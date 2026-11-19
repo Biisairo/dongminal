@@ -65,9 +65,9 @@ test.describe('FR-BGK-2: 터치로 종료 목표에 닿는다', () => {
     await gotoMobile(page);
     const id = await makeBackgroundTool(page, request);
 
-    // UX_BATCH12_SRS FR-ACF-10: 모바일에서 Activity 에 닿는 길은 서랍의 단추다.
-    await page.locator('#m-drawer-toggle').tap();
-    await page.locator('#m-drawer-acts button').tap();
+    // UX_BATCH12_SRS FR-ACF-10 → MOBILE_UX_OVERHAUL_SRS FR-MUX-74 로 개정: 모바일에서 Activity 에 닿는 길은
+    // 상단바의 단추다 (이전: 서랍을 열고 그 머리의 단추).
+    await page.locator('#m-act-btn').tap();
     // PEER_CHAT_SRS FR-PCH-80: 패널은 탭 줄이다. 서랍은 구역을 고르지 않으므로 Background 탭을 고른다.
     await page.locator('#agents-panel.open .ag-tab[data-sec="bg"]').tap();
     const row = page.locator(`#agents-panel .bg-row[data-toolid="${id}"]`);

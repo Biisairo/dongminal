@@ -84,8 +84,9 @@ test.describe('Claude 계정 (TC-CAC-27)', () => {
     const foot = page.locator('#agents-panel .act-usage-foot');
     await expect(foot.locator('.cacct')).toHaveCount(2, { timeout: 10000 });
     await expect(foot.locator('.cacct.active')).toHaveAttribute('data-id', 'a');
-    await expect(foot.locator('.act-usage-sl')).toHaveCount(1);
-    await expect(foot.locator('.act-usage-sl')).toContainText('Work');
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-81 로 개정: 등록 계정(Work)의 statusLine 줄은 없다 — 묶음 막대가 이미
+    // OAuth·statusLine 중 큰 값이다 (D-CAC-35). 이전: statusLine 한 줄이 `Work` 를 보였다.
+    await expect(foot.locator('.act-usage-sl')).toHaveCount(0);
     await expect(foot.locator('.cacct-history-btn')).toHaveCount(0); // FR-CAC-111
 
     // 모양: 활성만 넓다. ▸ 로 바꾼다 (FR-CAC-91)

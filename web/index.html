@@ -233,8 +233,9 @@
         <span class="slot-ctl-label" data-i18n="html.slot_label">Slot</span>
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" data-i18n-title="html.slot_add_title" data-i18n-shortcut="slotAdd" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </span>
-      <!-- UX_BATCH12_SRS FR-ACF-7: Activity 단추(`#agents-toggle`)는 없다. 데스크톱은 패널의 레일이,
-           모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 그 길이다. -->
+      <!-- UX_BATCH12_SRS FR-ACF-7: Activity 단추(`#agents-toggle`)는 없다. 데스크톱은 패널의 레일이 그 길이다.
+           모바일은 ☰ 바로 앞의 `#m-act-btn` 이다 — 모바일에서 처음 필요할 때 app-mobile-nav.js 가
+           만든다 (MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76, 이전: 서랍의 `#m-drawer-acts`). -->
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-search-btn" title="Find in this pane" aria-label="Find in this pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
     </div>
@@ -1121,6 +1122,7 @@
 <script src="js/core/app-search.js?v=__ASSETV__"></script>
 <script src="js/core/app-mobile.js?v=__ASSETV__"></script>
 <script src="js/core/app-mobile-sheets.js?v=__ASSETV__"></script>
+<script src="js/core/app-mobile-nav.js?v=__ASSETV__"></script>
 <!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 app-settings.js
      **앞**이어야 한다 — 그쪽 `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
 <script src="js/core/app-polling.js?v=__ASSETV__"></script>

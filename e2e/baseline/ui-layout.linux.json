@@ -189,7 +189,7 @@
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
  "terminal|button.ui-btn.ui-btn-attn.ui-btn-lg": {
   "display": "inline-flex",

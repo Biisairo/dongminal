@@ -302,3 +302,152 @@ test.describe('터치 메뉴·편집기 (FR-MUX-43·46·50·51)', () => {
     expect(r.r).toBeLessThanOrEqual(r.vw);
   });
 });
+
+// ── 2차 (FR-MUX-70~82) ──────────────────────────────────────────────
+
+const NOW = () => Math.floor(Date.now() / 1000);
+const win = (pct: number, inSec: number) =>
+  ({ pct, resetsAt: NOW() + inSec, resetsInSec: inSec, level: pct >= 90 ? 'critical' : pct >= 70 ? 'warn' : '' });
+
+/** 계정 셋 — 실측(270px)과 같은 바닥이 나온다. 활성 계정 `a` 는 statusLine 값도 갖는다 (FR-MUX-81). */
+async function mockAccounts(page: Page) {
+  const acct = (id: string, alias: string, color: string, active: boolean, extra: object = {}) => ({
+    id, email: id + '@x.com', alias, color, active, disabled: false, priority: 0,
+    usage: { status: 'ok', ageSeconds: 10, windows: { fiveHour: win(34, 7800), sevenDay: win(72, 368000) } }, ...extra,
+  });
+  const list = {
+    activeId: 'a', autoswitch: { enabled: false, status: 'off' }, otherStatusLines: [],
+    accounts: [
+      acct('a', 'Work', 'acct-3', true,
+        { statusLine: { windows: { fiveHour: win(40, 7000), sevenDay: win(21, 360000) }, observedAt: NOW(), ageSeconds: 5, stale: false } }),
+      acct('b', 'Home', 'acct-6', false),
+      acct('c', 'Spare', 'acct-1', false),
+    ],
+  };
+  await page.route('**/api/claude-accounts**', async (route) => {
+    const path = new URL(route.request().url()).pathname.replace('/api/claude-accounts', '') || '/';
+    const json = (data: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+    if (route.request().method() !== 'GET') return route.fallback();
+    if (path === '/') return json(list);
+    if (path === '/mappings') return json({ folders: {}, tabs: {} });
+    return route.fallback();
+  });
+}
+
+test.describe('2차 — 사용량 한 줄 요약 (FR-MUX-70~73)', () => {
+  test('TC-MUX-20·21: 모바일 바닥은 요약 한 줄이고, 누르면 펼쳐지고 다시 누르면 접힌다', async ({ page }) => {
+    await mockAccounts(page);
+    await mobile(page);
+    await page.evaluate(() => (window as any).app.actPanelOpen());
+    const foot = page.locator('#agents-foot');
+    const sum = foot.locator('.act-usage-sum');
+    await expect(sum).toHaveCount(1, { timeout: 10000 });
+    await expect(sum).toContainText('Work');
+    await expect(sum.locator('.cacct-cell')).toHaveCount(2);
+    await expect(sum).toHaveAttribute('aria-expanded', 'false');
+    await expect(foot.locator('.cacct')).toHaveCount(0);
+    const h = await page.evaluate(() => ({
+      sum: document.querySelector('#agents-foot .act-usage-sum')!.getBoundingClientRect().height,
+      foot: document.getElementById('agents-foot')!.getBoundingClientRect().height,
+      min: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--touch-min')),
+    }));
+    expect(h.sum).toBeGreaterThanOrEqual(h.min - 0.5);
+    expect(h.foot).toBeLessThan(100);
+
+    await sum.click();
+    await expect(foot.locator('.cacct')).toHaveCount(3);
+    await expect(foot.locator('.act-usage-sum')).toHaveAttribute('aria-expanded', 'true');
+    await foot.locator('.act-usage-sum').click();
+    await expect(foot.locator('.cacct')).toHaveCount(0);
+  });
+
+  test('TC-MUX-22·28·29: 데스크톱 바닥은 전체이고, 색 띠는 단색·사용 중은 테두리 없음·등록 계정 statusLine 줄 없음', async ({ page }) => {
+    await mockAccounts(page);
+    await waitForInit(page);
+    await page.evaluate(() => (window as any).app.actPanelOpen());
+    const foot = page.locator('#agents-foot');
+    await expect(foot.locator('.cacct')).toHaveCount(3, { timeout: 10000 });
+    await expect(foot.locator('.act-usage-sum')).toHaveCount(0);
+    // FR-MUX-81: 등록 계정의 statusLine 줄(`.cacct-sl`)이 없다. 계정을 모르는 보고 줄은 서버를 함께 쓰는 다른 시험이
+    // 보고할 수 있어 세지 않는다 (그 줄은 FR-MUX-81 이 남기는 줄이다).
+    await expect(foot.locator('.act-usage-sl.cacct-sl')).toHaveCount(0);
+    const st = await page.evaluate(() => {
+      const bar = getComputedStyle(document.querySelector('#agents-foot .cacct-bar')!);
+      const act = getComputedStyle(document.querySelector('#agents-foot .cacct-active')!);
+      return { mask: bar.maskImage || (bar as any).webkitMaskImage, border: act.borderTopWidth };
+    });
+    // 이전: `#000 4px, rgba(0,0,0,.28) 4px, transparent` (번짐 띠). 지금: 3px 에서 끊기는 단색.
+    expect(st.mask).not.toContain('0.28');
+    expect(st.mask).toContain('3px');
+    expect(st.border).toBe('0px');
+  });
+});
+
+test.describe('2차 — 상단바 Activity 단추 (FR-MUX-74~76)', () => {
+  test('TC-MUX-23: ☰ 바로 앞의 단추가 Activity 를 열고, 서랍의 단추는 없다', async ({ page }) => {
+    await mobile(page);
+    const btn = page.locator('#m-act-btn');
+    await expect(btn).toBeVisible();
+    expect(await page.evaluate(() => document.getElementById('m-act-btn')!.nextElementSibling!.id)).toBe('m-drawer-toggle');
+    await expect(page.locator('#m-drawer-acts')).toHaveCount(0);
+    await openDrawer(page);
+    await btn.evaluate((el: HTMLElement) => el.click());
+    await expect(page.locator('#agents-panel')).toHaveClass(/open/);
+    await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
+  });
+
+  test('TC-MUX-24: 작업 중인 에이전트가 있으면 상태 점과 수를 보인다', async ({ page }) => {
+    await mobile(page);
+    const id = await page.evaluate(() => (window as any).app.testing.focusedTerminal().id);
+    const n = page.locator('#m-act-btn .m-act-n');
+    await expect(n).toBeHidden();
+    await page.evaluate((t: string) => (window as any).app.testing.onToolActivity({ toolId: t, state: 'working' }), id);
+    await expect(n).toHaveText('1');
+    await expect(page.locator('#m-act-btn .m-act-dot')).toBeVisible();
+    await expect(page.locator('#m-act-btn')).toHaveAttribute('aria-label', /1/);
+    await page.evaluate((t: string) => (window as any).app.testing.onToolActivity({ toolId: t, state: 'done' }), id);
+    await expect(n).toBeHidden();
+  });
+
+  test('TC-MUX-25: 데스크톱으로 연 앱에는 단추가 없다', async ({ page }) => {
+    await waitForInit(page);
+    await expect(page.locator('#m-act-btn')).toHaveCount(0);
+  });
+});
+
+test.describe('2차 — Repo 세그먼트 (FR-MUX-77~79)', () => {
+  test('TC-MUX-26: 세그먼트로 Changes·Explorer·Editor 를 한 번에 오간다', async ({ page }) => {
+    await mobile(page);
+    const repo = await openRepoExplorer(page, 'mux-26');
+    const seg = page.locator('#topbar .m-repo-seg');
+    await expect(seg).toBeVisible();
+    await expect(page.locator('#topbar .m-pane-nav')).toBeHidden();
+    await expect(page.locator('#area .ed-side .ed-side-tab:visible')).toHaveCount(0);
+    const cell = (k: string) => seg.locator(`[data-seg="${k}"]`);
+    await expect(cell('explorer')).toHaveAttribute('aria-pressed', 'true');
+    await expect(cell('editor')).toBeDisabled();
+
+    await cell('changes').click();
+    await expect(cell('changes')).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => { const a = (window as any).app; return a.testing.edSideOf(a.testing.aw()) })).toBe('changes');
+
+    await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }), repo + '/tracked.txt');
+    await expect(page.locator('#area .cm-editor').first()).toBeVisible({ timeout: 15000 });
+    await expect(cell('editor')).toHaveAttribute('aria-pressed', 'true');
+    await expect(cell('editor')).toContainText('1');
+
+    await cell('explorer').click();
+    await expect(page.locator('#area .ed-side .ed-explorer')).toBeVisible();
+    await expect(page.locator('#area .cm-editor').first()).toBeHidden();
+    await cell('editor').click();
+    await expect(page.locator('#area .cm-editor').first()).toBeVisible();
+    await cell('changes').click();
+    await expect(cell('changes')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#area .cm-editor').first()).toBeHidden();
+  });
+
+  test('TC-MUX-27: 일반 터미널 창에는 세그먼트가 보이지 않는다', async ({ page }) => {
+    await mobile(page);
+    await expect(page.locator('#topbar .m-repo-seg')).toBeHidden();
+  });
+});

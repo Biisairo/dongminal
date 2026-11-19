@@ -487,25 +487,30 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
 // `Agents` 는 같은 패널을 열고 있었다. 상단바의 `Activity` 는 UX_BATCH12_SRS FR-ACF-7 로
 // 없어졌고, 모바일의 길은 드로어 하나다.
 test.describe('모바일의 Activity (FUI-27 · FR-CHR-17)', () => {
-  test('드로어의 진입점이 하나이고 활동 패널을 연다', async ({ page }) => {
+  // MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76 으로 개정 (2026-11-19).
+  //   이전: 서랍 머리의 단추(`#m-drawer-acts`) 하나가 길이었다
+  //   지금: 상단바 ☰ 앞의 `#m-act-btn` 하나가 길이고, 서랍에는 없다. 서랍이 열려 있으면 닫고 연다
+  //   이유: 서랍을 연 뒤 한 번 더 눌러야 닿았다 (사용자 접수)
+  test('상단바의 진입점이 하나이고 활동 패널을 연다', async ({ page }) => {
     await gotoMobile(page);
     await page.click('#m-drawer-toggle');
     await expect(page.locator('body')).toHaveClass(/drawer-open/);
-    const acts = page.locator('#m-drawer-acts button');
+    await expect(page.locator('#m-drawer-acts')).toHaveCount(0);
+    const acts = page.locator('#m-act-btn');
     await expect(acts).toHaveCount(1);
-    await acts.first().click();
+    await acts.evaluate((el: HTMLElement) => el.click());
     // PEER_CHAT_SRS FR-PCH-80: 패널은 탭 줄이다. 드로어는 구역을 고르지 않고 열며, 구역은 탭 하나 거리다.
     await expect(page.locator('#agents-panel.open .ag-tab[data-sec="runs"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
   });
 
-  // UX_BATCH12_SRS FR-ACF-7·10: 상단바의 `Activity` 는 없어졌다. 모바일의 길은 서랍 하나다.
-  test('상단바에 Activity 가 없고, 서랍의 단추로 Background 구역에 닿는다', async ({ page }) => {
+  // UX_BATCH12_SRS FR-ACF-7·10: 데스크톱의 상단바 `Activity`(`#agents-toggle`)는 없다.
+  // FR-MUX-74 로 개정: 모바일의 길은 서랍이 아니라 상단바의 `#m-act-btn` 이다.
+  test('데스크톱 Activity 단추가 없고, 모바일 상단바 단추로 Background 구역에 닿는다', async ({ page }) => {
     await gotoMobile(page);
     await expect(page.locator('#agents-toggle')).toHaveCount(0);
     await expect(page.locator('#agents-panel')).toBeHidden();
-    await page.click('#m-drawer-toggle');
-    await page.locator('#m-drawer-acts button').click();
+    await page.locator('#m-act-btn').click();
     const bg = page.locator('#agents-panel.open .ag-tab[data-sec="bg"]');
     await bg.click({ timeout: 10000 });
     await expect(bg).toHaveClass(/\bactive\b/);

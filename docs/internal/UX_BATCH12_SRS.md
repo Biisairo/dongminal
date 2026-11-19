@@ -247,6 +247,8 @@
 - **FR-ACF-8** 레일 상태는 지금의 "닫힘" 값으로 저장한다. 탭 상태 `agentsPanelOpen`(sessionStorage)과 저장 레이아웃 `activity.open` 의 모양은 바뀌지 않는다. `false` 는 데스크톱에서 레일을 뜻한다. 레이아웃 저장(FR-PLY-11)은 레일이면 `open:false` 를, 펼침이면 `open:true` 를 담는다. 그 레이아웃으로 시작한 새 탭은 같은 상태로 선다. 기본값(값 없음)은 레일이다.
 - **FR-ACF-9** 레일도 화면에 목록을 보이므로 Activity 의 주기 조회(`tool.activity`·`run.list`·`tool.background` 의 `when`)와 그리기(`agentsRender`)는 패널이 **보이는 동안** 돈다. 보이는 동안이란 데스크톱이거나 `.open` 인 것이다.
 - **FR-ACF-10** 모바일은 바뀌지 않는다. `.open` 이 없으면 패널은 숨는다. 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이다.
+
+  > **MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76 으로 개정 (2026-11-19)**: 이전 — 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이었다 / 지금 — 그 단추는 없고, 상단바 ☰ 바로 왼쪽의 `#m-act-btn` 이 연다(작업 중인 에이전트가 있으면 `● n`) / 이유 — 서랍을 연 뒤 한 번 더 눌러야 닿았고, 같은 패널의 문이 하나여야 한다.
   > **MOBILE_UX_OVERHAUL_SRS FR-MUX-12·14·15·17 로 개정 (2026-11-19)**: 이전 — 모바일 패널은 위에서 내려오는 띠였고, 탭 상태 `agentsPanelOpen` 이 참이면 열린 채로 시작했다(FR-ACF-8) / 지금 — 모바일 패널은 화면 전체를 덮는 시트이고, 머리 단추 `x`·Escape 로 닫힌다. 모바일로 앱을 열 때는 저장된 열림 상태를 되살리지 않는다(데스크톱은 종전대로 되살린다). 여는 길은 그대로 서랍의 Activity 단추다 / 이유 — 열린 채 새로고침하면 모바일 앱이 전체 화면 Activity 로 시작해 작업 화면을 덮었다.
 - **FR-ACF-11** Activity 가 오른쪽·왼쪽 어디에 있든(PANEL_DOCK_SRS) 레일의 경계선은 콘텐츠 쪽 면에 선다.
 

@@ -99,8 +99,7 @@ html[data-repo-side="right"] body:not(.mobile) .ed-side{border-right:none;border
 body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 /* FR-MUX-4: 모바일에서는 미니맵을 그리지 않는다. 설정 값(`editorMinimap`)은 그대로다. */
 body.mobile .cm-minimap-gutter{display:none}
-/* FR-MUX-40: Changes·Explorer 전환 탭도 터치 하한을 지킨다. */
-body.mobile .ed-side-tab{height:var(--touch-min);font-size:var(--fs-md)}
+/* FR-MUX-40 의 전환 탭 높이 규칙은 걷었다 — 모바일에서 그 탭은 서지 않는다 (FR-MUX-79, style.css). */
 
 /* ── 탐색기 트리 (EDITOR_TAB_SRS 묶음 X) ── */
 

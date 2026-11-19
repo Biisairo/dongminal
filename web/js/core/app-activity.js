@@ -150,6 +150,17 @@ function statusLineView(limits,nowMs){
   return {label:t('usage.sl.label'),cells,asOf:stale?t('usage.as_of',{t:limitClock(l.observedAt)}):''};
 }
 
+/**
+ * MOBILE_UX_OVERHAUL_SRS FR-MUX-70: 모바일 바닥의 요약 한 줄 — 활성 계정, 없으면 첫 계정, 계정이 없으면 첫 statusLine 줄.
+ * `accounts` 는 `claudeAcctFootViews` 의 값, `lines` 는 statusLine 줄들이다.
+ */
+function actUsageSumView(accounts,lines,open){
+  const a=accounts.find(x=>x.active)||accounts[0];
+  if(a) return {name:a.name,color:a.color,cells:a.mini,open};
+  const l=lines[0];
+  return {name:l.name||l.label,color:l.color||'',cells:l.cells,open};
+}
+
 /** 바닥의 작은 원소 하나를 부모 끝에 붙인다. */
 function actEl(parent,tag,cls,text){
   const e=document.createElement(tag);e.className=cls;
@@ -180,8 +191,11 @@ Object.assign(App.prototype, {
     // FR-ASV-40·43 · FR-CAC-90: Usage 바닥은 늘 맨 끝이고, 계정도 statusLine 값도 없으면 없다.
     const accounts=claudeAcctFootViews(this._claudeAccts,this._claudeAcctFold(),this._claudeAcctPopId);
     const sl=statusLineView(this._limits,Date.now());
-    const acctSl=claudeAcctStatusLines(this._claudeAccts,this._claudeAcctOtherSl);
-    if(accounts.length||sl||acctSl.length) out.push({t:'foot',view:{accounts,next:accounts.length>1,auto:claudeAcctAutoView(this._claudeAcctAuto),acctSl,sl}});
+    const acctSl=claudeAcctStatusLines(this._claudeAcctOtherSl);   // MOBILE_UX_OVERHAUL_SRS FR-MUX-81
+    if(!accounts.length&&!sl&&!acctSl.length) return out;
+    const view={accounts,next:accounts.length>1,auto:claudeAcctAutoView(this._claudeAcctAuto),acctSl,sl};
+    if(this.isMobile) view.sum=actUsageSumView(accounts,sl?acctSl.concat([sl]):acctSl,!!this._actUsageOpen);
+    out.push({t:'foot',view});
     return out;
   },
 
@@ -272,6 +286,12 @@ Object.assign(App.prototype, {
   _actUsageFootEl(view){
     const foot=document.createElement('div');
     foot.className='act-usage-foot';
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-70·71: 모바일은 요약 한 줄이 먼저다. 접혀 있으면 그것뿐이다.
+    if(view.sum){
+      foot.classList.add('has-sum');
+      foot.appendChild(this._actUsageSumEl(view.sum));
+      if(!view.sum.open) return foot;
+    }
     if(view.accounts.length){
       const head=actEl(foot,'div','act-usage-head');
       actEl(head,'span','act-usage-name',t('cacct.title'));
@@ -294,6 +314,21 @@ Object.assign(App.prototype, {
       this._actCellsEl(row,l.cells);
     }
     return foot;
+  },
+
+  /** FR-MUX-70~72: 요약 줄 — 색 점 · 이름 · 세션·주간 칸 · 펼침 아이콘. 누르면 펼치고 접는다. */
+  _actUsageSumEl(v){
+    const b=document.createElement('button');
+    b.type='button';b.className='ui-btn ui-btn-ghost act-usage-sum';
+    b.setAttribute('aria-expanded',String(v.open));
+    b.title=v.open?TIP_USAGE_SUM_CLOSE:TIP_USAGE_SUM_OPEN;
+    b.addEventListener('click',e=>{e.stopPropagation();this._actUsageOpen=!this._actUsageOpen;this.agentsRender()});
+    const who=actEl(b,'span','cacct-who');
+    if(v.color) actEl(who,'span','cacct-dot').style.background='var(--'+v.color+')';
+    actEl(who,'span','cacct-name',v.name);
+    this._actCellsEl(b,v.cells);
+    b.appendChild(UIKit.icon(v.open?'chevron-down':'chevron-up'));
+    return b;
   },
 
   /** D-CAC-37: 세션·주간 두 칸 — 칸 앞에 작은 창 이름. 값이 없는 칸도 자리를 지켜 열이 맞는다. */

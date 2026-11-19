@@ -260,7 +260,8 @@ test.describe('모바일 390px', () => {
     expect(hHead).toBeLessThanOrEqual(78);
 
     // ── 본문 자리 ───────────────────────────────────────────────────
-    await page.click('#m-pane-next');
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-77 로 개정: Repo 창의 칸 순회(`#m-pane-next`)는 세그먼트의 `Editor` 가 대신한다.
+    await page.locator('#m-repo-seg [data-seg="editor"]').click();
     await clickGitView(page, 'history');
     await expect(hist(page).locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
     // **예외 (`TEST-16`)**: 위와 같다.

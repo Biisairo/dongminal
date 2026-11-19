@@ -140,8 +140,10 @@ Object.assign(Renderer.prototype, {
     const n=this.app.mobilePaneCount();
     // FR-MUX-5: 순회할 자리가 둘 이상일 때만 선다. 데스크톱에서는 `.mobile-only` 가 이미 감추므로
     // 속성을 건드리지 않는다 (데스크톱 DOM 은 종전과 같다 — V-LAY-1).
+    // FR-MUX-77: 모바일 Repo 창에서는 세그먼트가 그 자리를 갖는다 (`mobileSideSlots()>0` = 모바일 + Repo 창).
     const nav=ind.closest('.m-pane-nav');
-    if(nav) nav.hidden=this.app.isMobile&&n<=1;
+    if(nav) nav.hidden=this.app.isMobile&&(n<=1||this.app.mobileSideSlots()>0);
+    if(this.app.mobileRepoSegSync) this.app.mobileRepoSegSync();
     if(n<=0){ind.textContent='0/0';return}
     if(this.app.mPaneIdx>=n) this.app.mPaneIdx=n-1;
     if(this.app.mPaneIdx<0) this.app.mPaneIdx=0;

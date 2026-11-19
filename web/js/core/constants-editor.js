@@ -338,6 +338,9 @@ const REPO_SIDE_TABS=[
  * 답이며 `edSideOf` 가 그렇게 읽는다.
  */
 const REPO_SIDE_DEFAULT=REPO_SIDE_CHANGES;
+// MOBILE_UX_OVERHAUL_SRS FR-MUX-77: 모바일 Repo 세그먼트의 셋째 칸 — 본문(편집기 칸)으로 간다.
+// 앞의 두 칸은 `REPO_SIDE_TABS` 를 그대로 쓴다.
+const REPO_SEG_EDITOR={id:'editor',label:'Editor',title:'Files open in this repository'};
 
 // REPO_SIDE_WIDTH_SRS FR-RSW-1 / D-3·D-4 (UX_BATCH10_SRS FR-UXB-7 이 저장 위치를
 // 개정했다 — 워크스페이스가 아니라 **브라우저 창**이다): 사이드 폭은 한 자리에 산다

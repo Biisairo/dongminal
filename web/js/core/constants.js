@@ -744,6 +744,11 @@ const TIP_THEME_LIST='Theme';
 const TIP_THEME_PREVIEW='Theme preview: ';
 const TIP_SIDEBAR_CLOSE='Close the sidebar';
 const TIP_MOBILE_ACTIVITY='Show everything that is running';
+// MOBILE_UX_OVERHAUL_SRS FR-MUX-75: 작업 중인 에이전트가 있으면 단추의 이름이 그 수를 말한다.
+const TIP_MOBILE_ACTIVITY_WORKING='Show everything that is running — {n} working';
+// FR-MUX-72: 모바일 사용량 요약 줄. 펼침·접힘에 따라 이름이 바뀐다.
+const TIP_USAGE_SUM_OPEN='Show usage of every account';
+const TIP_USAGE_SUM_CLOSE='Hide usage details';
 const TIP_SETTINGS_BACK='Back to settings sections';
 
 // ── 컨테이너 런타임의 상태 (UX_BATCH5_SRS 묶음 B / FR-SRT-1~8) ──

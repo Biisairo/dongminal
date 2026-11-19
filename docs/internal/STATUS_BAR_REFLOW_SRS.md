@@ -143,6 +143,8 @@ Git 작업 chip 이 붙는 경우)는 `window.resize` 를 내지 않는다.
 ### 3.2 묶음 B — 진입점 이전
 
 > **개정 (UX_BATCH12_SRS FR-ACF-7, 2026-11-11 · R18).** 상단바의 Activity 단추(`#agents-toggle`)는 없어졌다. 데스크톱의 Activity 패널은 펼침·레일 두 상태이고 레일이 늘 보이며(FR-ACF-1), 구역 머리를 누르면 펼친다. 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이다. 단축키(`agentsToggle`·`runsToggle`·`bgToggle`)는 그대로다. 아래 본문의 `#agents-toggle` 은 그 시점의 기록이다.
+
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76 으로 개정 (2026-11-19)**: 이전 — 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이었다 / 지금 — 그 단추는 없고, 상단바 ☰ 바로 왼쪽의 `#m-act-btn` 이 연다(작업 중인 에이전트가 있으면 `● n`) / 이유 — 서랍을 연 뒤 한 번 더 눌러야 닿았고, 같은 패널의 문이 하나여야 한다.
 - **FR-SBR-8** 진입점은 상단바로 옮겨 `Split H · Split V · Runs · **BG** ·
   Agents` 순서에 선다. 상태바에는 지표만 남는다.
 - **FR-SBR-9** 진입점은 **항상 보인다.** 백그라운드 도구가 0개여도 자리를 지킨다.

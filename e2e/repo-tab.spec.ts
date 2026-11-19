@@ -494,6 +494,14 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   const indicator = (page: Page) => page.locator('#m-pane-indicator');
+  /**
+   * MOBILE_UX_OVERHAUL_SRS FR-MUX-77·78 로 개정 (2026-11-19).
+   *   이전: Repo 창에서 `‹ n/m ›`(`#m-pane-prev`·`next`)로 자리를 돌고, 사이드 안의 탭으로 Changes·Explorer 를 골랐다
+   *   지금: 상단바 세그먼트 `[Changes] [Explorer] [Editor n]` 가 둘을 합친다. 칸 순회는 감춰지지만
+   *         `#m-pane-indicator` 의 글자는 그대로 칠해지므로 자리 단정(`n/m`)은 유지한다
+   *   이유: 편집기 자리에서 Changes·Explorer 로 한 번에 가지 못했다 (사용자 접수)
+   */
+  const seg = (page: Page, id: string) => page.locator(`#m-repo-seg [data-seg="${id}"]`);
 
   async function enterMobile(page: Page, request: APIRequestContext, root: string) {
     await addEditor(request, root);
@@ -520,17 +528,17 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
       await expect(indicator(page)).toHaveText('2/2', { timeout: 10000 });
 
       // 첫 자리로 간다 — 사이드가 화면 전체를 쓰고 본문은 없다.
-      await page.click('#m-pane-prev');
+      await seg(page, 'explorer').click();
       await expect(indicator(page)).toHaveText('1/2');
       await expect(page.locator('#area .ed-win .ed-side')).toBeVisible();
       await expect(page.locator('#area .ed-win .ed-area')).toHaveCount(0);
 
-      // FR-RTU-81: 그 자리에서 사이드 탭이 그대로 동작한다.
-      await sideTab(page, 'changes').click();
+      // FR-RTU-81: 그 자리에서 사이드 탭이 그대로 동작한다 (FR-MUX-78: 세그먼트가 그 탭이다).
+      await seg(page, 'changes').click();
       await expect(side(page).locator('.git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
       // 다시 본문으로 — 사이드는 물러난다.
-      await page.click('#m-pane-next');
+      await seg(page, 'editor').click();
       await expect(indicator(page)).toHaveText('2/2');
       await expect(page.locator('#area .ed-win .ed-area')).toHaveCount(1);
       await expect(page.locator('#area .ed-win .ed-side')).toHaveCount(0);
@@ -540,7 +548,7 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
     async ({ page, request }) => {
       await enterMobile(page, request, REPO);
       await expect(indicator(page)).toHaveText('1/1', { timeout: 10000 });
-      await sideTab(page, 'changes').click();
+      await seg(page, 'changes').click();
       await expect(side(page).locator('.git-view.git-changes')).toBeVisible({ timeout: 10000 });
       // 목록이 실제로 들어찬 뒤에 재야 경계를 넘는 요소가 있다면 보인다 —
       // 빈 뷰는 언제나 경계 안이다.
@@ -578,7 +586,7 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
       await expect(indicator(page)).toHaveText('2/2', { timeout: 15000 });
 
       // 사이드로 돌아간다. 이제 본문의 pane 은 **있고 이미 포커스**다.
-      await page.click('#m-pane-prev');
+      await seg(page, 'explorer').click();
       await expect(indicator(page)).toHaveText('1/2');
       await openExplorerSide(page);
       const tree = page.locator('#area .ed-side .ed-tree');
@@ -592,9 +600,8 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
       await expect(page.locator('#area .ed-area .pn-tab.active')).toContainText('a.ts');
 
       // ③ diff — 다른 진입점(`openView`)이고 같은 규약이다.
-      await page.click('#m-pane-prev');
+      await seg(page, 'changes').click();
       await expect(indicator(page)).toHaveText('1/2');
-      await sideTab(page, 'changes').click();
       const changed = side(page).locator('.git-view.git-changes .git-file').first();
       await expect(changed).toBeVisible({ timeout: 15000 });
       await changed.click();

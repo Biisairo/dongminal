@@ -2,6 +2,8 @@
 
 > **문서 상태**: 승인·구현완료
 
+1차 FR-MUX-1~61, 2차 FR-MUX-70~82 (2026-11-19, §3.8).
+
 요구사항 식별자 접두어: `FR-MUX-`
 
 ## 1. 개요 (Introduction)
@@ -100,6 +102,9 @@
 | C-4 | 자산 버전은 서버가 내용 해시로 만든다 (ASSET_VERSION_SINGLE_SOURCE_SRS) — 손으로 올리지 않는다 |
 | C-5 | 터미널의 터치 스크롤·IME 처리(FR-MTI)를 바꾸지 않는다. 키보드 뷰포트 보정(FR-MKV)은 키바가 빠졌을 때 그 높이를 비우지 않는 것만 바꾼다 |
 
+> **2차 개정 (2026-11-19)**: C-1 의 예외는 §3.8 의 FR-MUX-80~82 뿐이다. 사용자 결정 E-4 가 unslop 정리를
+> 데스크톱에도 적용하라고 정했다. 나머지 2차 요구(FR-MUX-70~79)는 모바일에서만 동작이 바뀐다.
+
 ---
 
 ## 3. 요구사항 (Specific Requirements)
@@ -152,6 +157,9 @@ Escape(FR-MUX-23)가 우선한다. 데스크톱의 Escape 동작은 바꾸지 �
 > 시작해 작업 화면을 덮었다.
 
 **FR-MUX-16** — 서랍 머리의 Activity 단추는 그 줄의 폭을 다 쓴다.
+
+> **FR-MUX-76 으로 개정 (2026-11-19)**: 이전 서랍 머리에 Activity 단추가 있었다 / 지금 그 단추가 없고 상단바의
+> `#m-act-btn` 이 Activity 를 연다 / 이유 서랍을 연 뒤 한 번 더 눌러야 닿았다 (E-1).
 
 **FR-MUX-17 (B23)** — 모바일 Activity 의 머리 단추는 닫기(`×`, `Close the panel`)다.
 
@@ -238,6 +246,100 @@ Escape(FR-MUX-23)가 우선한다. 데스크톱의 Escape 동작은 바꾸지 �
 
 **FR-MUX-61** — 높이가 넉넉한 터치 기기(태블릿)와 마우스 기기는 종전대로다.
 
+### 3.8 2차 — Activity 접근·Repo 세그먼트·사용량 요약·unslop 정리 (2026-11-19)
+
+접수한 말:
+
+> **"패널 열고 액티비티로 접근해 들어가는 점, 에디터 탭이 있으면 git 이나 탐색기 패널을 못 보는 점이 불편하고,
+> 모바일에서는 액티비티의 사용량이 너무 커서 불편해. /unslop 도 적극 이용해봐"**
+
+실측 (412×839, 계정 셋): `#agents-foot` 가 839px 중 270px 를 차지한다.
+
+사용자 결정:
+
+| # | 결정 |
+|---|---|
+| E-1 | 모바일 상단바의 ☰ 옆에 Activity 단추를 둔다. 작업 중인 에이전트가 있으면 상태 점과 수를 보인다. 서랍 안의 Activity 단추는 뺀다 — 문은 하나다 |
+| E-2 | 모바일 Repo 창에서 칸 순회(`‹ n/m ›`)와 사이드의 `Changes │ Explorer` 탭 줄을 한 줄 세그먼트 `[Changes] [Explorer] [Editor n]` 로 합친다. 어느 화면에서나 한 번에 간다 |
+| E-3 | 모바일 Activity 의 사용량은 사용 중 계정의 한 줄 요약(이름·세션 %·주간 %)만 보인다. 누르면 전체가 펼쳐진다 |
+| E-4 | unslop 정리(polish)를 데스크톱까지 적용한다: 계정 색 번짐 띠 → 얇은 단색 막대, statusLine 줄의 중복 제거, `사용 중` 테두리 알약 → 조용한 글자 |
+| E-5 | statusLine 중복은 "큰 값 하나로 합친다". 계정 묶음의 막대는 이미 창마다 OAuth 값과 statusLine 값 중 큰 값이다(CLAUDE_ACCOUNTS_SRS D-CAC-35). 그러므로 등록 계정의 statusLine 줄을 뺀다 (D-CAC-22 개정) |
+
+unslop 방향 (사용자 확인): 조용함·정확함·손에 맞음. 화면의 중심(모먼트)은 Activity 의 에이전트 상태와 사용량
+막대 하나다. 나머지 크롬은 조용히 둔다. 시그니처는 살아 있는 상태 점(작업 중 `●`)이며 E-1 의 단추에도 쓴다.
+
+#### 사용량 한 줄 요약 (E-3)
+
+**FR-MUX-70** — 모바일 Activity 의 사용량 바닥(`.act-usage-foot`)은 기본으로 **접힌 요약 한 줄**(`.act-usage-sum`)만 보인다.
+요약은 계정 색 점·이름·세션 칸·주간 칸·펼침 아이콘으로 이루어진다. 칸은 좁은 계정 카드의 칸(`.cacct-cell`)과 같다.
+요약의 대상은 다음 순서로 고른다:
+
+1. 활성 계정
+2. 활성 계정이 없으면 첫 계정
+3. 계정이 없으면 첫 statusLine 줄. 이름이 없으면 `statusLine` 이다
+
+**FR-MUX-71** — 요약을 누르면 바닥이 펼쳐진다. 요약 줄은 맨 위에 남고, 그 아래에 기존 바닥 전체(계정 머리·계정 묶음·
+statusLine 줄)가 선다. 요약을 다시 누르면 접힌다. 펼침 상태는 저장하지 않는다 — 앱을 열면 접혀 있다.
+
+**FR-MUX-72** — 요약 줄의 높이는 터치 하한(`--touch-min`) 이상이다. 요약은 단추(`button`)이며 `aria-expanded` 로 펼침을 알린다.
+
+**FR-MUX-73** — 데스크톱의 사용량 바닥은 바뀌지 않는다. 요약 줄이 없고 전체가 보인다.
+
+#### 상단바 Activity 단추 (E-1)
+
+**FR-MUX-74** — 모바일 상단바의 ☰(`#m-drawer-toggle`) 바로 왼쪽에 Activity 단추(`#m-act-btn`)가 선다. 누르면 Activity 시트가 열린다.
+서랍이 열려 있으면 서랍을 닫고 연다. 단추는 **모바일에서 처음 필요할 때** 만든다 — 데스크톱 DOM 은 종전과 같다(V-LAY-1).
+
+**FR-MUX-75** — 작업 중(`ACTIVITY_STATE.WORKING`)인 에이전트가 하나 이상이면 단추에 상태 점과 그 수를 보인다.
+수는 창에 자리가 있는 에이전트(카드가 그려지는 에이전트)만 센다. 없으면 아이콘만 보인다. 접근 이름(`aria-label`)에 수를 넣는다.
+상태 점은 깜빡이거나 맥동하지 않는다.
+
+**FR-MUX-76** — 서랍 머리의 Activity 단추(`#m-drawer-acts`)를 없앤다.
+
+> 이전 동작: 서랍을 연 뒤 그 머리의 `Activity` 단추로 들어갔다 (FUI-27, FR-MUX-16).
+> 새 동작: 상단바의 단추 하나로 바로 연다.
+> 이유: 두 번 눌러야 닿았고, 같은 패널의 문이 둘이 된다 (E-1). FR-MUX-16 은 이 요구로 대체된다.
+
+#### Repo 세그먼트 (E-2)
+
+**FR-MUX-77** — 모바일 Repo 창에서는 상단바의 칸 순회(`.m-pane-nav`) 대신 **세그먼트**(`.m-repo-seg`)가 선다. 세그먼트는
+`Changes`·`Explorer`·`Editor` 세 칸이다. 그 창에 설 수 없는 사이드 탭(`edSideTabs`)은 세그먼트에도 없다. `Editor` 칸에는 본문에
+열린 탭 수 `n` 을 붙인다. 열린 탭이 없으면 `Editor` 칸은 비활성이다. 세그먼트는 모바일 Repo 창을 처음 그릴 때 만든다(V-LAY-1).
+세그먼트가 서 있는 동안 상단바의 창 이름(`#window-name`)을 감춘다 — 실측(412px)에서 둘이 함께 서지 못해 `Editor` 칸이
+잘렸다. 저장소 이름은 Changes 머리와 편집기 탭이 말한다.
+
+**FR-MUX-78** — 세그먼트의 동작:
+
+- `Changes`·`Explorer` 를 누르면 사이드 자리(`mPaneIdx=0`)로 가고 그 사이드 탭으로 바꾼다(`edSetSide`).
+- `Editor` 를 누르면 포커스 칸의 자리로 간다. 이미 편집기 자리에 있고 칸이 둘 이상이면 다음 칸으로 간다.
+- 지금 자리의 칸이 활성(`aria-pressed=true`)이다. 사이드 자리면 그 사이드 탭이, 편집기 자리면 `Editor` 가 활성이다.
+
+**FR-MUX-79** — 모바일 Repo 창의 사이드 안 탭 줄에서 `Changes`·`Explorer` 탭을 감춘다 — 세그먼트가 그 일을 한다. 새로고침 단추
+(Changes 일 때)는 그 줄에 남는다. 보일 것이 없는 줄(Explorer 일 때)은 감춘다. 일반 터미널 창은 종전대로 `‹ n/m ›` 다(FR-MUX-5).
+데스크톱은 바뀌지 않는다.
+
+#### unslop 정리 — 데스크톱 포함 (E-4)
+
+**FR-MUX-80** — 계정 묶음 왼쪽의 색 띠(`.cacct-bar`)는 폭 3px 의 단색 막대다. 누르는 폭(40px, 좁은 패널 12px)과
+누르면 모양이 바뀌는 동작(FR-CAC-91)은 그대로다. 마우스를 올리면 막대가 4px 가 된다.
+
+> 이전 동작: 4px 진한 띠 뒤로 36px 가 옅어지는 그라데이션 마스크.
+> 새 동작: 3px 단색 막대.
+> 이유: 번짐 띠는 장식이다. 계정 색은 막대와 점이 이미 말한다 (E-4).
+
+**FR-MUX-81** — Activity 사용량 바닥의 statusLine 구역에는 **등록되지 않은 계정**과 **계정을 모르는 보고**의 줄만 선다.
+등록 계정의 statusLine 줄은 그리지 않는다.
+
+> 이전 동작: 등록 계정마다 statusLine 줄을 따로 그렸다 (CLAUDE_ACCOUNTS_SRS FR-CAC-93, D-CAC-22).
+> 새 동작: 등록 계정의 값은 계정 묶음의 막대 하나로만 보인다.
+> 이유: 그 막대가 이미 OAuth 값과 statusLine 값 중 큰 값이다(D-CAC-35). 같은 계정의 사용량이 두 번 보였다 (E-5).
+
+**FR-MUX-82** — 활성 계정의 `사용 중` 표식(`.cacct-active`)은 테두리 없는 보조 글자색(`--text-muted`) 글자다.
+
+> 이전 동작: 강조색 테두리 알약.
+> 새 동작: 테두리 없는 보조 글자색 글자. 활성 계정의 이름은 종전대로 굵다.
+> 이유: 활성은 이름의 굵기가 이미 말한다. 알약은 바닥에서 가장 큰 소리를 냈다 (E-4).
+
 ---
 
 ## 4. 검증 (Verification)
@@ -264,6 +366,16 @@ Escape(FR-MUX-23)가 우선한다. 데스크톱의 Escape 동작은 바꾸지 �
 | TC-MUX-17 | FR-MUX-46 | e2e: 편집기 칸에서 돋보기는 편집기 찾기 패널을 연다 |
 | TC-MUX-18 | FR-MUX-43 | e2e: 모바일 편집기는 `editorWordWrap=false` 여도 줄을 바꾼다 |
 | TC-ACB-1 | FR-MUX-17 | unit: 모바일 접기 아이콘은 `x` |
+| TC-MUX-20 | FR-MUX-70·72 | e2e: 모바일·계정 셋에서 Activity 를 열면 `.act-usage-sum` 한 줄이 활성 계정 이름을 보이고 `.cacct` 가 없다. 요약 높이 ≥ 터치 하한, 바닥 높이 < 100px |
+| TC-MUX-21 | FR-MUX-71 | e2e: 요약을 누르면 `.cacct` 셋이 보이고 `aria-expanded=true`. 다시 누르면 접힌다 |
+| TC-MUX-22 | FR-MUX-73 | e2e: 데스크톱 바닥에는 `.act-usage-sum` 이 없고 `.cacct` 셋이 보인다 |
+| TC-MUX-23 | FR-MUX-74·76 | e2e: 모바일 상단바에 `#m-act-btn` 이 `#m-drawer-toggle` 바로 앞에 있고, `#m-drawer-acts` 가 없다. 누르면 Activity 가 열린다 |
+| TC-MUX-24 | FR-MUX-75 | e2e: 지금 탭의 에이전트가 `working` 이면 단추에 수 1 이 보이고, `done` 이면 사라진다 |
+| TC-MUX-25 | FR-MUX-74 | e2e: 데스크톱으로 연 앱에는 `#m-act-btn` 이 없다 |
+| TC-MUX-26 | FR-MUX-77~79 | e2e: 모바일 Repo 창에 세그먼트가 서고 `.m-pane-nav` 가 감춰진다. `Explorer`·`Changes` 로 사이드가 바뀐다. 파일을 열면 `Editor 1` 이 되고 편집기가 보인다. 편집기에서 `Changes` 를 누르면 사이드로 돌아온다. 사이드 안의 `.ed-side-tab` 은 보이지 않는다 |
+| TC-MUX-27 | FR-MUX-77 | e2e: 일반 터미널 창에는 세그먼트가 보이지 않는다 |
+| TC-MUX-28 | FR-MUX-80·82 | e2e: 데스크톱 바닥에서 `.cacct-bar` 의 마스크가 없고(3px 단색), `.cacct-active` 의 테두리가 0 이다 |
+| TC-MUX-29 | FR-MUX-81 | unit: `claudeAcctStatusLines` 는 등록 계정의 줄을 내지 않는다. e2e: 등록 계정만 있으면 `.act-usage-sl` 이 없다 |
 | 실측 | §2.1·§2.4 | Pixel 7 에뮬레이션으로 화면별 캡처 대조 |
 | 회귀 | C-1 | 기존 e2e 의 모바일·데스크톱 스펙 회귀 없음 |
 
@@ -276,6 +388,9 @@ Escape(FR-MUX-23)가 우선한다. 데스크톱의 Escape 동작은 바꾸지 �
 | 키바 상시 노출을 단정하는 기존 e2e 가 비터미널 칸에서 실패 | MEDIUM | 해당 단정을 FR-MUX-2 로 개정하고 이전/새 동작을 기록한다 |
 | 키바 높이 변화 뒤 터미널 행 수가 어긋남 | MEDIUM | FR-MUX-3 — 전이 때 `_scheduleFit` |
 | 설정 탭 DOM 에 의존하는 기존 테스트 | LOW | 데스크톱 구조는 그대로 두고 모바일 상태만 class 로 더한다 |
+| (2차) 서랍 Activity 단추를 쓰는 기존 e2e | LOW | `#m-act-btn` 으로 바꾸고 이전/새 동작을 적는다 |
+| (2차) FR-MUX-80·82 의 데스크톱 CSS 가 V-LAY-1 값 대조에 걸린다 | LOW | 기준선은 계정 바닥을 재지 않는다(계정 목이 없다). 걸리면 사용자에게 묻는다 |
+| (2차) statusLine 줄 수를 단정하는 기존 시험 | LOW | FR-MUX-81 로 개정하고 이전/새 동작을 적는다 |
 
 ## 6. 비목표 (Non-goals)
 
@@ -299,7 +414,12 @@ Escape(FR-MUX-23)가 우선한다. 데스크톱의 Escape 동작은 바꾸지 �
 | `web/js/core/panel-dock.js`·`app-agents.js` | 모바일 Activity 머리 단추 `x`(FR-MUX-17) |
 | `web/js/ui/ui-kit.js` | 메뉴 표면의 킷 스크롤바 클래스(FR-MUX-53) |
 | `web/style*.css` | `MOBILE_UX_OVERHAUL_SRS` 주석이 달린 `body.mobile` 규칙 |
-| `e2e/mobile-ux-overhaul.spec.ts` | TC-MUX-1~18 |
+| `e2e/mobile-ux-overhaul.spec.ts` | TC-MUX-1~18, 2차 TC-MUX-20~28 |
+| `web/js/core/app-mobile-nav.js` (2차 신규) | 상단바 Activity 단추(FR-MUX-74·75), Repo 세그먼트(FR-MUX-77·78) |
+| `web/js/core/app-activity.js` | 사용량 요약 줄(FR-MUX-70~73), statusLine 줄의 대상(FR-MUX-81) |
+| `web/js/core/app-claude-accounts.js` | `claudeAcctStatusLines` 가 등록 계정을 건너뛴다(FR-MUX-81) |
+| `web/js/core/app-mobile.js` | 서랍 Activity 단추 제거(FR-MUX-76) |
+| `web/js/ui/renderer-chrome.js` | 칸 순회와 세그먼트의 가름(FR-MUX-77·79) |
 
 데스크톱 DOM 은 종전과 같다 — 설정의 뒤로 단추는 모바일에서 처음 열 때 만들고, 칸 순회의
 `hidden` 은 모바일에서만 쓴다. 계산값 기준선(`UI_LAYOUT_DEFAULTS_SRS` V-LAY-1)이 재는 대상이

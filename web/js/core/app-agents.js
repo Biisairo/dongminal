@@ -176,6 +176,7 @@ Object.assign(App.prototype, {
    * 머리글도 항목으로 다룬다 — 값이 없으므로 한 번 만들면 그대로 남는다.
    */
   agentsRender(){
+    if(this.mobileActSync) this.mobileActSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-75 — 닫힌 패널은 아래에서 물러선다
     const panel=document.getElementById('agents-panel');
     const body=document.getElementById('agents-body'),footHost=document.getElementById('agents-foot');
     if(!panel||!body||!footHost||!this._agentsPanelShown()) return;

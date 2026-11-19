@@ -132,17 +132,8 @@ Object.assign(App.prototype, {
       xb.title=TIP_SIDEBAR_CLOSE;xb.setAttribute('aria-label',TIP_SIDEBAR_CLOSE);
       xb.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
       sb.insertBefore(xb, sb.firstChild);
-      // 로드맵 M7 `FUI-27`: 모바일에서 활동에 닿는 길. 단축키는 물리 키가 없는
-      // 기기에서 길이 아니다. 버튼과 **같은 함수**를 부른다 (FR-PSC-3 의 규약).
-      //
-      // UIUX_OVERHAUL_SRS FR-CHR-17 (D-7): **둘이 하나가 됐다.** `Runs` 와
-      // `Agents` 는 같은 패널을 열고 있었다 — 서랍 머리에서도 문은 하나다.
-      const acts=document.createElement('div');
-      acts.id='m-drawer-acts'; acts.className='m-drawer-acts mobile-only';
-      const activity=UIKit.button({label:'Activity',title:TIP_MOBILE_ACTIVITY,kind:'attn',size:'lg'});
-      activity.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar();this.actPanelOpen()});
-      acts.append(activity);
-      sb.insertBefore(acts, xb.nextSibling);
+      // MOBILE_UX_OVERHAUL_SRS FR-MUX-76: 서랍 머리의 Activity 단추(`#m-drawer-acts`, FUI-27)가 없다 —
+      // 상단바의 단추(`#m-act-btn`, app-mobile-nav.js)가 한 번에 연다. 같은 패널의 문은 하나다.
     }
     this._initMobileSheets();   // MOBILE_UX_OVERHAUL_SRS — app-mobile-sheets.js
     // Auto-close drawer on window switch (mobile)

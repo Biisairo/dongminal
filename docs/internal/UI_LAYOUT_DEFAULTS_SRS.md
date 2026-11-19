@@ -962,3 +962,8 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   `ui-layout-defaults` 하나를 `LAYOUT_BASELINE=write` 로 돌려 `ui-layout-baseline-<os>` 아티팩트로 올린다.
   **아직 돌리지 않았다** — 푸시와 CI 실행은 바깥으로 나가는 일이라 사용자가 한다. 순서: 푸시 → Actions 에서
   `layout-baseline` 실행 → 아티팩트 두 파일을 `e2e/baseline/` 에 덮어 커밋.
+- 2026-11-19 (MOBILE_UX_OVERHAUL_SRS FR-MUX-76) 세 판 기준선의 **한 값**을 손으로 옮겼다. 기준선 자체는 다시 뜨지 않았다.
+  `terminal|span.ui-btn-label` 의 `minHeight` 가 `0px` → `auto` 다. **이유**: 같은 키를 가진 요소 중 첫 것이 값이 된다.
+  그 첫 것이 서랍의 Activity 단추(`#m-drawer-acts`, flex 항목이라 `0px`) 안의 글자였는데 그 단추가 없어졌다. 지금은
+  다음 요소(flex 항목이 아닌 `.ui-btn-label`)가 키를 이어받는다. 화면의 어떤 요소도 계산값이 바뀌지 않았다.
+  `terminal|div.m-drawer-acts.mobile-only` 와 `terminal|button.ui-btn.ui-btn-attn.ui-btn-lg` 키는 "기준선에만" 쪽으로 빠진다(게이트 밖).

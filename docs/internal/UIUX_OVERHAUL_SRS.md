@@ -538,6 +538,8 @@ D-6 이 푼 것은 *"찾을 수 없다"* 였고 남은 것은 **"같은 것이 �
 않는다.** 오른쪽 다섯이 셋이 된다.
 
 > **개정 (UX_BATCH12_SRS FR-ACF-7, 2026-11-11 · R18).** 상단바의 Activity 단추(`#agents-toggle`)는 없어졌다. 데스크톱의 Activity 패널은 펼침·레일 두 상태이고 레일이 늘 보이며(FR-ACF-1), 구역 머리를 누르면 펼친다. 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이다. 단축키(`agentsToggle`·`runsToggle`·`bgToggle`)는 그대로다. 아래 본문의 `#agents-toggle` 은 그 시점의 기록이다.
+
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76 으로 개정 (2026-11-19)**: 이전 — 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이었다 / 지금 — 그 단추는 없고, 상단바 ☰ 바로 왼쪽의 `#m-act-btn` 이 연다(작업 중인 에이전트가 있으면 `● n`) / 이유 — 서랍을 연 뒤 한 번 더 눌러야 닿았고, 같은 패널의 문이 하나여야 한다.
 **FR-CHR-15** `#runs-btn` 과 `#bg-btn` 은 **없어진다.** `#agents-toggle` 은
 **식별자를 지키고** 라벨·툴팁만 `Activity` 가 된다 — R-1 이 *"id 는 새 자리에서
 보존"* 을 요구하고, 패널의 이름은 FR-ACT-1 에서 이미 `Activity` 가 됐는데 버튼만
@@ -565,6 +567,8 @@ FR-SBR-12)을 `Activity` 가 받는다 — `#agents-toggle` 의 `desktop-only` �
 서랍 머리의 `Runs`·`Agents` 둘(`app-mobile.js` 의 `#m-drawer-acts`, 로드맵 M7
 `FUI-27`)도 **하나**가 된다. 모바일 패널은 이미 뜬다 (`body.mobile
 #agents-panel.open` 은 옆이 아니라 위에 선다).
+
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76 으로 개정 (2026-11-19)**: 이전 — 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이었다 / 지금 — 그 단추는 없고, 상단바 ☰ 바로 왼쪽의 `#m-act-btn` 이 연다(작업 중인 에이전트가 있으면 `● n`) / 이유 — 서랍을 연 뒤 한 번 더 눌러야 닿았고, 같은 패널의 문이 하나여야 한다.
 
 > **MOBILE_UX_OVERHAUL_SRS FR-MUX-12·14·17 로 개정 (2026-11-19)**: 이전 — 모바일 패널은 위에서 내려오는 띠였다 / 지금 — `body.mobile #agents-panel.open` 은 화면 전체를 덮는 시트이고, 머리 단추 `x`·Escape 로 닫힌다 / 이유 — 서랍·Activity·설정을 전체 높이 시트로 통일했다.
 
@@ -998,7 +1002,7 @@ M6 은 마지막이다 — R-1 의 조사가 선행한다.
 | FR-CHR-13 | e2e: 모바일에서 상단바의 구성이 종전 그대로이고 데스크톱 전용 여섯이 숨는다 |
 | FR-CHR-14·15 | e2e: 데스크톱 상단바에 `#runs-btn`·`#bg-btn` 이 **없고**, `#agents-toggle` 이 살아 라벨이 `Activity` 다. 오른쪽 차례가 `알림 · 슬롯 ± · Activity` 다 (`background-ui.spec.ts` 의 순서 단정과 `window-slots.spec.ts` 의 "가장 오른쪽" 단정을 이 차례로 다시 쓴다) |
 | FR-CHR-16 | e2e: 백그라운드 도구를 하나 띄워도 `Activity` 의 글자가 바뀌지 않고 `.on` 이 붙지 않는다 |
-| FR-CHR-17 | e2e: 모바일에서 `Activity` 가 보이고, 서랍 머리(`#m-drawer-acts`)의 버튼이 **하나**다 |
+| FR-CHR-17 | e2e: 모바일에서 `Activity` 가 보이고, 서랍 머리(`#m-drawer-acts`)의 버튼이 **하나**다  — **FR-MUX-74·76 으로 개정 (2026-11-19)**: 지금은 서랍에 버튼이 없고 상단바 `#m-act-btn` 하나다 (`mobile-keybar.spec.ts`) |
 | FR-CHR-18 | e2e: `Ctrl+Shift+B`·`O` 가 패널을 열고 각각 백그라운드·Run 구역으로 스크롤한다. 키 목록은 개편 전후가 같다 (NFR-4) |
 | FR-ACT-7 | e2e: 패널의 구역 머리가 **셋**이고 차례가 에이전트 · 백그라운드 · Run 이다 |
 | FR-ACT-8·9 | e2e: 알림 배지를 누르면 `#attn-center` 가 뜨고 패널은 열리지 않는다. 다시 누르면 닫히고, 머리글의 *"모두 제거"* 가 전부를 뗀다 |

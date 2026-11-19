@@ -299,9 +299,14 @@ test('FR-CAC-91: 오버레이는 한 번에 하나 — 같은 칸은 닫고, 다
 test('FR-CAC-93: statusLine 줄은 꼭 한 줄 — 오래되면 글자 대신 흐림과 툴팁, 활성 카드는 바탕 대신 표식', () => {
   const ctx = loadFoot();
   const app = footApp(ctx);
+  // MOBILE_UX_OVERHAUL_SRS FR-MUX-81: 등록 계정의 statusLine 은 줄이 되지 않는다 — 줄은 등록되지 않은 계정의 것이다.
+  //   이전: 등록 계정 둘(ACC_A·ACC_B)의 statusLine 으로 두 줄을 그렸다. 지금: 같은 값을 등록되지 않은 계정 둘로 준다.
   app._claudeAccts = [
     { ...ACC_A, statusLine: { windows: { fiveHour: { pct: 34, level: '' } }, observedAt: NOW, ageSeconds: 600, stale: true } },
-    { ...ACC_B, statusLine: { windows: { fiveHour: { pct: 5, level: '' } }, observedAt: NOW, ageSeconds: 10, stale: false } },
+  ];
+  app._claudeAcctOtherSl = [
+    { name: 'x***@', windows: { fiveHour: { pct: 34, level: '' } }, observedAt: NOW, ageSeconds: 600, stale: true },
+    { name: 'y***@', windows: { fiveHour: { pct: 5, level: '' } }, observedAt: NOW, ageSeconds: 10, stale: false },
   ];
   const foot = app._actUsageFootEl(app._actItems().at(-1).view);
   const rows = foot.children.filter((c) => c.className.split(' ')[0] === 'act-usage-sl');
@@ -693,16 +698,19 @@ test('FR-CAC-100a: 알림은 토스트로 뜬다 — 전환은 ok, 나머지는 
 
 // ── 계정별 statusLine 줄 (FR-CAC-78·93, D-CAC-22) ──
 
-test('FR-CAC-93: statusLine 줄은 등록 계정(순서·색·이름) 다음 등록되지 않은 계정 순이고, 값이 없으면 줄이 없다', async () => {
+// MOBILE_UX_OVERHAUL_SRS FR-MUX-81 (TC-MUX-29): 등록 계정의 줄은 없다.
+//   이전: 등록 계정(순서·색·이름) 다음 등록되지 않은 계정 순 (D-CAC-22)
+//   지금: 등록되지 않은 계정의 줄만 — 등록 계정의 값은 묶음 막대(OAuth·statusLine 중 큰 값, D-CAC-35)가 보인다
+test('FR-CAC-93 · FR-MUX-81: statusLine 줄은 등록되지 않은 계정의 것뿐이고, 값이 없으면 줄이 없다', async () => {
   const ctx = loadFoot();
   const SLV = (pct, age) => ({ windows: { fiveHour: { pct, resetsInSec: 7800, level: pct >= 90 ? 'critical' : '' }, sevenDay: { pct: 21, level: '' } },
     observedAt: NOW - age, ageSeconds: age, stale: age > 300 });
   const a = { ...ACC_A, statusLine: SLV(34, 10) };
   const b = { ...ACC_B };
-  const lines = ctx.claudeAcctStatusLines([a, b], [{ name: 'ze***@', ...SLV(95, 600) }]);
-  assert.equal(lines.length, 2, '값이 없는 계정(b)은 줄이 없다');
+  const lines = ctx.claudeAcctStatusLines([{ name: 'wo***@', ...SLV(34, 10) }, { name: 'em***@' }, { name: 'ze***@', ...SLV(95, 600) }]);
+  assert.equal(lines.length, 2, '값이 없는 계정(em***@)은 줄이 없다');
   assert.deepEqual(plain(lines[0]), {
-    key: 'a', label: 'statusLine', name: 'Work', color: 'acct-3',
+    key: 'other:wo***@', label: 'statusLine', name: 'wo***@', color: '',
     cells: [{ label: 'Session', pct: '34%', left: '2h', fill: 34, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
       { label: 'Week', pct: '21%', left: '', fill: 21, level: '', title: 'Current week · 21% used' }], asOf: '',
   });
@@ -710,13 +718,13 @@ test('FR-CAC-93: statusLine 줄은 등록 계정(순서·색·이름) 다음 등
   assert.equal(lines[1].color, '');
   assert.deepEqual([lines[1].cells[0].pct, lines[1].cells[0].level], ['95%', 'critical']);
   assert.equal(lines[1].asOf, '10m ago');
-  assert.deepEqual(plain(ctx.claudeAcctStatusLines(null, null)), []);
+  assert.deepEqual(plain(ctx.claudeAcctStatusLines(null)), []);
 
   const app = footApp(ctx);
   app._claudeAccts = [a];
   app._claudeAcctOtherSl = [];
   const v = app._actItems().at(-1).view;
-  assert.deepEqual(plain(v.acctSl.map((l) => l.key)), ['a']);
+  assert.deepEqual(plain(v.acctSl.map((l) => l.key)), [], '등록 계정(a)의 statusLine 은 줄이 되지 않는다');
 
   const reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [a], otherStatusLines: [{ name: 'x***@', ...SLV(1, 1) }] } };
   const r = restoreApp(loadFoot({ stateFetch: () => Promise.resolve(reply) }));

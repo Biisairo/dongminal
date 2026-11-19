@@ -213,13 +213,16 @@ function claudeAcctStatusLine(key,name,color,sl){
   };
 }
 
-/** FR-CAC-78·93 · D-CAC-22: 등록 계정(계정 순서) 다음 등록되지 않은 계정의 statusLine 줄들. */
-function claudeAcctStatusLines(accounts,others){
+/**
+ * FR-CAC-78·93: 등록되지 않은 계정의 statusLine 줄들.
+ *
+ *   이전 동작: 등록 계정(계정 순서)의 줄을 먼저 그렸다 (D-CAC-22)
+ *   새  동작: 등록되지 않은 계정의 줄만 낸다 (MOBILE_UX_OVERHAUL_SRS FR-MUX-81)
+ *   이유:     등록 계정의 묶음 막대가 이미 OAuth 값과 statusLine 값 중 큰 값이다 (D-CAC-35) —
+ *             같은 계정의 사용량이 두 번 보였다
+ */
+function claudeAcctStatusLines(others){
   const out=[];
-  for(const a of Array.isArray(accounts)?accounts:[]){
-    const l=claudeAcctStatusLine(a.id,a.alias||a.email,CLAUDE_ACCT_COLOR_RE.test(a.color)?a.color:CLAUDE_ACCT_COLOR_DEFAULT,a.statusLine);
-    if(l) out.push(l);
-  }
   for(const o of Array.isArray(others)?others:[]){
     const l=claudeAcctStatusLine('other:'+o.name,o.name,'',o);
     if(l) out.push(l);

@@ -335,6 +335,8 @@ clientId` 이고, 여전히 클라이언트 하나가 창 하나를 소유한다
 ### 3.6 묶음 U — 진입점
 
 > **개정 (UX_BATCH12_SRS FR-ACF-7, 2026-11-11 · R18).** 상단바의 Activity 단추(`#agents-toggle`)는 없어졌다. 데스크톱의 Activity 패널은 펼침·레일 두 상태이고 레일이 늘 보이며(FR-ACF-1), 구역 머리를 누르면 펼친다. 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이다. 단축키(`agentsToggle`·`runsToggle`·`bgToggle`)는 그대로다. 아래 본문의 `#agents-toggle` 은 그 시점의 기록이다.
+
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76 으로 개정 (2026-11-19)**: 이전 — 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이었다 / 지금 — 그 단추는 없고, 상단바 ☰ 바로 왼쪽의 `#m-act-btn` 이 연다(작업 중인 에이전트가 있으면 `● n`) / 이유 — 서랍을 연 뒤 한 번 더 눌러야 닿았고, 같은 패널의 문이 하나여야 한다.
 > **덧붙임 (UX_BATCH12_SRS FR-RTR-13, 2026-11-11 · R24).** Repo 창이 활성이면 슬롯 버튼의 왼쪽에 뒤로·앞으로 버튼 묶음(`#nav-ctl`)이 구분선으로 갈려 선다. 슬롯 버튼의 자리와 동작은 그대로다.
 **FR-WSL-50** 토프바에 슬롯 **추가(`+`)·제거(`−`)** 버튼을 둔다. `desktop-only` 이며,
 창 안 분할인 `Split H`·`Split V` 와 **떨어진 자리**에 놓는다 (§7 R-3).
