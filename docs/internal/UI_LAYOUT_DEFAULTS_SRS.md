@@ -977,3 +977,8 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   넘었다). 양쪽에 있는 키의 값은 하나도 바뀌지 않았다(대조 `diffs` 0). 같은 회차의 데스크톱 CSS 변경(discard 단추 위험색·간격,
   미리보기 단추 자리, 미리보기 탭 글자색, 떠 있는 표면의 fade)은 기준선이 재는 키의 값을 바꾸지 않았다. **`linux`·`win32` 는
   아직이다** — 푸시 뒤 `layout-baseline` 워크플로로 받는다(사용자가 실행한다).
+- 2026-11-19 (UX_AUDIT_FIX_SRS 2묶음·FR-UXF-23·25·27·30) `ui-layout.darwin.json` 을 **다시 떴다**. 바뀐 값은 열 화면 × 둘(20자리)이다:
+  `div.ui-panel-acts` 의 `display` `none` → `flex`, `minHeight` `0px` → `auto`. **이유**: 메인 패널의 끝 단추 자리(`#sb-acts`)가
+  데스크톱에서 비어 숨어 있었는데(PANEL_TEMPLATE `.ui-panel-acts:not(:has(...))`), 접기 단추(`.sb-collapse`, FR-UXF-30)를 품고 선다.
+  같은 회차의 다른 데스크톱 변경(보기 전환을 `.git-head` 끝으로 · `.git-files-bar` 제거 · git 새로고침 단추 제거 · 카드 줄 구성)은
+  키가 생기고 빠지는 쪽(드리프트)이다. **`linux`·`win32` 는 아직이다** — 푸시 뒤 `layout-baseline` 워크플로(사용자 실행).

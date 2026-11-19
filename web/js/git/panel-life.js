@@ -286,8 +286,11 @@ Object.assign(GitPanel.prototype, {
       let head=null;
       for(const c of el.children) if(c.classList&&c.classList.contains('git-head')){head=c;break}
       el.insertBefore(note,head?head.nextSibling:el.firstChild);
+      // UX_AUDIT_FIX_SRS FR-UXF-29: 수동 git 새로고침이 없으므로(FR-UXF-27) 복구 길은 앱 새로고침이다.
+      note.append(document.createElement('span'),
+        UIKit.button({label:t('core.reload_app'),kind:'ghost',size:'sm',cls:'git-stale-reload',onClick:()=>this.app.softReload()}));
     }
-    note.textContent=info.text;
+    note.firstChild.textContent=info.text;
     note.classList.add('vis');
     note.classList.toggle('loading',info.loading);
   },

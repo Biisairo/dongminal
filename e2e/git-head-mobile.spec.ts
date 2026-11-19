@@ -14,6 +14,7 @@ import { tmpPath, realPath } from './osenv';
 // 지워졌고("뭔지도 모르고 안 써봤다"), 새로고침은 머리를 떠나 **사이드 탭 줄의
 // 오른쪽 끝**으로 올라갔다. 그래서 이 스펙이 머리에서 재던 셋 중 둘은 "없다" 가
 // 계약이고, 새로고침은 재는 자리가 바뀌었다.
+// UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 새로고침 단추는 이제 어디에도 없다 — 갱신은 자동 관측과 `refresh()` 다.
 const FIXTURES = tmpPath('dm-git-fx-head-' + process.pid);
 
 test.beforeAll(() => {
@@ -26,10 +27,10 @@ test.afterAll(() => {
 const fx = (name: string) => realPath(join(FIXTURES, name));
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const hist = (page: Page) => page.locator('#area .pn-body .git-view.git-history');
-// FR-GCC-10 / D-8: 자리가 바뀌었을 뿐 같은 버튼이다 — 클래스 이름은 그대로이고
-// 사는 곳이 사이드 탭 줄이다. `Changes` 탭에서만 선다 (FR-GCC-12).
+// UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 탭 줄의 새로고침 단추를 잡았다 / 지금 단추가 없으므로
+// 어디에도 없다는 단정에 쓴다 / 이유 목록은 자동 관측으로만 바뀐다.
 const sideRefresh = (page: Page) =>
-  page.locator('#area .ed-side .ed-side-tabs .git-head-refresh');
+  page.locator('#area .ed-side .git-head-refresh');
 
 async function init(page: Page, mode: 'mobile' | 'desktop') {
   await page.context().addInitScript((m) => {
@@ -64,10 +65,12 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await openGit(page, fx('with-remote'));
     await expect(changes(page).locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
 
-    // V1: .git-head 의 마지막 자식이 spacer 다 → 남는 공간이 오른쪽에 있다.
+    // V1: 원격 동작부 뒤에 spacer 가 있다 → 남는 공간이 동작부 오른쪽에 있다.
+    // UX_AUDIT_FIX_SRS FR-UXF-23 로 개정: 이전 마지막 자식이 spacer / 지금 spacer 뒤에 구분선과 보기 전환이 끝에 선다
+    // / 이유 보기 전환이 목록 위 줄에서 브랜치 줄 끝으로 왔다.
     const order = await changes(page).locator('.git-head').evaluate((h) =>
       Array.from(h.children).map((c) => (c as HTMLElement).className));
-    expect(order[order.length - 1]).toBe('git-head-spacer');
+    expect(order.slice(-3)).toEqual(['git-head-spacer', 'git-head-sep', 'ui-segment']);
     expect(order.indexOf('git-head-remote')).toBeLessThan(order.indexOf('git-head-spacer'));
 
     /**
@@ -98,9 +101,9 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     // U-6: History 머리에는 원격 동작부가 없다.
     expect(histOrder).not.toContain('git-head-remote');
 
-    // V2 (FR-GCC-10 개정): 새로고침은 원격 밖이며, 이제 **머리 밖**이다 —
-    // 사이드 탭 줄에 하나 서고 머리에는 없다.
-    await expect(sideRefresh(page)).toHaveCount(1);
+    // V2 (FR-GCC-10 개정): 새로고침은 원격 밖이며, 이제 **머리 밖**이다.
+    // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 탭 줄에 하나 / 지금 없다 / 이유 자동 관측만 남겼다.
+    await expect(sideRefresh(page)).toHaveCount(0);
     await expect(changes(page).locator('.git-head-refresh')).toHaveCount(0);
     await expect(changes(page).locator('.git-head-remote button')).toHaveCount(6);
   });
@@ -120,8 +123,8 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await expect(hist(page).locator('.git-head-remote button')).toHaveCount(0);
     // Changes 쪽은 그대로 여섯이다 — 사라진 것이 아니라 **한 자리로 모았다.**
     await expect(changes(page).locator('.git-head-remote button')).toHaveCount(6);
-    // FR-GCC-1·2·10: 머리에서 셋이 사라졌다. 새로고침은 사이드로 올라갔고
-    // (거기 하나뿐이다), Sync·Preview 는 지워졌다.
+    // FR-GCC-1·2·10: 머리에서 셋이 사라졌다. Sync·Preview 는 지워졌고, 새로고침은
+    // 사이드로 올라갔다가 UX_AUDIT_FIX_SRS FR-UXF-27 로 아예 없어졌다.
     await expect(hist(page).locator('.git-head-refresh')).toHaveCount(0);
     await expect(hist(page).locator('.git-remote-sync')).toHaveCount(0);
     await expect(hist(page).locator('.git-push-preview')).toHaveCount(0);
@@ -146,9 +149,10 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await clickGitView(page, 'history');
     await expect(hist(page).locator('.git-head-repo')).toHaveText('with-remote');
 
-    // V6 (FR-GCC-10 개정): 새로고침은 사이드에 있다. 눌러도 오류 없이 돌고
-    // **본문의 머리가 살아 있다** — 재는 것은 자리가 아니라 그 사실이다.
-    await sideRefresh(page).click();
+    // V6 (FR-GCC-10 개정): 새로고침이 오류 없이 돌고 **본문의 머리가 살아 있다** — 재는 것은 자리가 아니라 그 사실이다.
+    // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 단추를 눌렀다 / 지금 같은 갱신 함수를 부른다 / 이유 단추가 없다.
+    await expect(sideRefresh(page)).toHaveCount(0);
+    await page.evaluate(() => (window as any).app.gitPanel.refresh());
     await expect(hist(page).locator('.git-head-branch')).toHaveText('main', { timeout: 10000 });
 
     // V5: 리포명 클릭 → 전환 메뉴
@@ -256,8 +260,10 @@ test.describe('모바일 390px', () => {
     expect(c.scrollW).toBe(c.clientW);
 
     // V12
+    // UX_AUDIT_FIX_SRS FR-UXF-23 로 개정: 이전 ≤78(단추 한 줄) / 지금 ≤108(44px 단추 두 줄 + 여백 6×3 + 선 1)
+    // / 이유 목록 위 보기 전환 줄이 머리로 들어와 390px 에서 머리가 한 줄 더 감긴다 — 목록 위 줄 수는 같다.
     const hHead = await changes(page).locator('.git-head').evaluate((e) => e.getBoundingClientRect().height);
-    expect(hHead).toBeLessThanOrEqual(78);
+    expect(hHead).toBeLessThanOrEqual(108);
 
     // ── 본문 자리 ───────────────────────────────────────────────────
     // MOBILE_UX_OVERHAUL_SRS FR-MUX-77 로 개정: Repo 창의 칸 순회(`#m-pane-next`)는 세그먼트의 `Editor` 가 대신한다.

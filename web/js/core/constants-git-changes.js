@@ -84,13 +84,10 @@ const GIT_LOADING_HINT=t('git.loading_hint');
 const GIT_STALE_NOTE=t('git.stale_note');
 // FR-RTU-52: 저장 실패는 그 자리에 남는다 — 알림창은 닫는 순간 사유가 사라진다.
 const GIT_DIFF_SAVE_FAIL=t('git.diff_save_fail');
-// FR-GIT-238: 새로고침. 이모지를 쓰지 않는다 (FR-GIT-187·192 와 같은 어휘).
-const GIT_REFRESH_LABEL='refresh-cw';
 // FR-GCC-8: 파일 목록의 보기 방식. 같은 패널의 언어를 하나로 모은다 — 글자
 // 버튼 둘만 남으면 그 줄에서 눈이 한 번 더 멎는다. 툴팁은 이미 있는
 // `GIT_FILE_VIEW_TITLE` 이 말한다 — 같은 것을 두 벌로 두지 않는다.
 const GIT_FILES_MODE_ICON={tree:'folder',flat:'list'};
-const GIT_REFRESH_TITLE='Refresh everything — status, History, Branches and Console';
 const GIT_ERR_NOT_REPO=t('git.err_not_repo');
 const GIT_ERR_GIT_MISSING=t('git.err_git_missing');
 //

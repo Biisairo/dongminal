@@ -195,3 +195,201 @@ test.describe('1묶음 — 모바일', () => {
     await expect(diffMode(page)).toHaveAttribute('data-mode', 'side', { timeout: 20000 });
   });
 });
+
+// ── 2묶음 — 밀도와 위계 (FR-UXF-20~26) ─────────────────────────────
+
+const rectOf = (page: Page, sel: string) => page.locator(sel).first().evaluate((el) => {
+  const r = el.getBoundingClientRect();
+  return { left: r.left, top: r.top, height: r.height, width: r.width };
+});
+
+async function mobileChanges(page: Page, repo: string) {
+  await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
+  await openGit(page, repo);
+  await page.locator('#m-repo-seg .m-seg-btn', { hasText: 'Changes' }).click();
+  await expect(changes(page)).toBeVisible({ timeout: 15000 });
+}
+
+test.describe('2묶음 — 모바일 Changes', () => {
+  test('TC-UXF-12: 파일 행과 그룹 머리는 44px 이고 discard 단추는 그대로다', async ({ page }) => {
+    await mobileChanges(page, fx('basic'));
+    const r = row(page, 'working', 'tracked.txt');
+    await expect(r).toBeVisible({ timeout: 15000 });
+    expect((await r.boundingBox())!.height).toBeLessThanOrEqual(44.5);
+    await expect(r.locator('[data-act="discard"]')).toBeVisible();
+    const gh = await rectOf(page, '#area .git-changes .git-group[data-group="working"] .git-group-head');
+    expect(Math.round(gh.height)).toBe(44);
+  });
+
+  test('TC-UXF-13: git 새로고침 단추가 없고 새로고침만의 줄도 없다', async ({ page }) => {
+    await mobileChanges(page, fx('basic'));
+    await expect(page.locator('#area .ed-side-acts')).toBeVisible();
+    await expect(page.locator('#area .ed-side .ed-side-refresh')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .ed-side-tabs')).toBeHidden();
+  });
+
+  test('TC-UXF-15: 스테이지가 없으면 커밋 영역은 접혀 있고 Commit 을 누르면 펼쳐진다', async ({ page }) => {
+    await mobileChanges(page, fx('detached'));
+    const box = page.locator('#area .git-changes .git-commit');
+    await expect(box).toHaveClass(/folded/, { timeout: 15000 });
+    await expect(box.locator('.git-commit-msg')).toBeHidden();
+    const btn = box.locator('.git-commit-btn');
+    await expect(btn).toBeEnabled();
+    await btn.click();
+    await expect(box).not.toHaveClass(/folded/);
+    await expect(box.locator('.git-commit-msg')).toBeFocused();
+  });
+});
+
+test.describe('2묶음 — 두 모드', () => {
+  test('TC-UXF-13b·15b: 데스크톱에도 새로고침 단추가 없고 커밋 영역은 접히지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    await openGit(page, fx('detached'));
+    await expect(page.locator('#area .ed-side .ed-side-tabs')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#area .ed-side .ed-side-refresh')).toHaveCount(0);
+    await expect(page.locator('#area .git-changes .git-commit-msg')).toBeVisible();
+    await expect(page.locator('#area .git-changes .git-commit')).not.toHaveClass(/folded/);
+  });
+
+  test('TC-UXF-14: 보기 전환은 브랜치 줄 끝에 구분선과 함께 선다', async ({ page }) => {
+    await waitForInit(page);
+    await openGit(page, fx('basic'));
+    const head = page.locator('#area .git-changes .git-head');
+    await expect(head.locator('.git-files-mode')).toHaveCount(2, { timeout: 15000 });
+    await expect(head.locator('.git-head-sep')).toHaveCount(1);
+    await expect(page.locator('#area .git-changes .git-files-bar')).toHaveCount(0);
+  });
+
+  test('TC-UXF-16: 카드 첫 줄은 상태 기호와 탭 이름, 둘째 줄은 상태·도구와 detail 이다', async ({ page }) => {
+    await waitForInit(page);
+    const id: string = await page.evaluate(() => (window as any).app.testing.focusedTerminal().id);
+    const act = { toolId: id, state: 'working', tool: 'Edit', detail: 'web/js/app.js', updatedAt: Date.now() };
+    await page.route('**/api/tools/activity', (route) => route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ activities: [act], limits: [] }) }));
+    await page.evaluate((a) => (window as any).app.testing.onToolActivity(a), act);
+    await page.evaluate(() => (window as any).app.actPanelOpen());
+    const card = page.locator(`#agents-panel .ag-card[data-toolid="${id}"]`);
+    await expect(card).toBeVisible({ timeout: 10000 });
+    const sel = (s: string) => `#agents-panel .ag-card[data-toolid="${id}"] ${s}`;
+    const dot = await rectOf(page, sel('.ag-dot'));
+    const loc = await rectOf(page, sel('.ag-loc'));
+    const st = await rectOf(page, sel('.ag-state'));
+    const dt = await rectOf(page, sel('.ag-detail'));
+    expect(Math.abs(dot.top + dot.height / 2 - (loc.top + loc.height / 2))).toBeLessThanOrEqual(2);
+    expect(st.top).toBeGreaterThan(loc.top + loc.height / 2);
+    expect(Math.abs(st.top + st.height / 2 - (dt.top + dt.height / 2))).toBeLessThanOrEqual(2);
+    expect(dt.left).toBeGreaterThan(st.left);
+    await expect(card.locator('.ag-state')).toHaveText(/^working · Edit/);
+    await expect(card.locator('.ag-dot')).toHaveClass(/working/);
+  });
+});
+
+test('TC-UXF-17: 모바일 Activity 그룹 머리는 44px 이고 사이드바 행처럼 들여 쓴다', async ({ page }) => {
+  await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
+  const id: string = await page.evaluate(() => (window as any).app.testing.focusedTerminal().id);
+  const act = { toolId: id, state: 'working', tool: 'Edit', detail: 'x', updatedAt: Date.now() };
+  await page.route('**/api/tools/activity', (route) => route.fulfill({ status: 200, contentType: 'application/json',
+    body: JSON.stringify({ activities: [act], limits: [] }) }));
+  await page.evaluate((a) => (window as any).app.testing.onToolActivity(a), act);
+  await page.locator('#m-act-btn').click();
+  const g = page.locator('#agents-panel .ag-group').first();
+  await expect(g).toBeVisible({ timeout: 10000 });
+  // 시트는 오른쪽에서 미끄러져 들어온다(PANEL_TEMPLATE_SRS FR-PNT-11) — 전환이 끝난 자리를 잰다.
+  await expect.poll(async () => (await rectOf(page, '#agents-panel')).left).toBe(0);
+  expect((await g.boundingBox())!.height).toBeLessThanOrEqual(44.5);
+  const fold = await rectOf(page, '#agents-panel .ag-group .ag-group-fold');
+  const panel = await rectOf(page, '#agents-panel');
+  expect(fold.left - panel.left).toBeLessThanOrEqual(10);
+});
+
+// ── 갱신 — 수동 새로고침 대신 (FR-UXF-27~29) ─────────────────────
+
+test.describe('갱신', () => {
+  test('TC-UXF-18: 스냅샷이 실패해도 카드는 남고, 이어서 실패하면 앱 새로고침 안내가 선다', async ({ page }) => {
+    await waitForInit(page);
+    const id: string = await page.evaluate(() => (window as any).app.testing.focusedTerminal().id);
+    const act = { toolId: id, state: 'working', tool: 'Edit', detail: 'x', updatedAt: Date.now() };
+    let fail = false;
+    await page.route('**/api/tools/activity', (route) => fail
+      ? route.fulfill({ status: 500, body: 'boom' })
+      : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ activities: [act], limits: [] }) }));
+    await page.evaluate((a) => (window as any).app.testing.onToolActivity(a), act);
+    await page.evaluate(() => (window as any).app.actPanelOpen());
+    const card = page.locator(`#agents-panel .ag-card[data-toolid="${id}"]`);
+    await expect(card).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#agents-panel .ag-refresh')).toHaveCount(0);
+    fail = true;
+    const restore = () => page.evaluate(() => (window as any).app.testing.activityRestore());
+    await restore();
+    await expect(card).toBeVisible();
+    await expect(page.locator('#agents-panel .ag-stale')).toHaveCount(0);
+    await restore();
+    const note = page.locator('#agents-panel .ag-stale');
+    await expect(note).toBeVisible();
+    await expect(note.locator('.ag-stale-reload')).toBeVisible();
+    await expect(card).toBeVisible();
+    fail = false;
+    await restore();
+    await expect(note).toHaveCount(0);
+  });
+
+  test('TC-UXF-19: 단추 없이 — 파일을 바꾸면 Changes 에 저절로 나타난다', async ({ page }) => {
+    await waitForInit(page);
+    await openGit(page, fx('detached'));
+    await expect(changes(page)).toBeVisible({ timeout: 15000 });
+    fs.writeFileSync(path.join(fx('detached'), 'uxf-new.txt'), 'x\n');
+    await expect(changes(page).locator(`.git-file[data-path="uxf-new.txt"]`)).toBeVisible({ timeout: 20000 });
+  });
+
+  test('TC-UXF-20: git 낡음 안내에 앱 새로고침 단추가 있다', async ({ page }) => {
+    await waitForInit(page);
+    await openGit(page, fx('basic'));
+    await expect(changes(page)).toBeVisible({ timeout: 15000 });
+    await page.route('**/api/git/status**', (route) => route.fulfill({ status: 500, body: 'boom' }));
+    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    const note = page.locator('#area .git-changes .git-stale-note.vis');
+    await expect(note).toBeVisible({ timeout: 20000 });
+    await expect(note.locator('.git-stale-reload')).toBeVisible();
+  });
+});
+
+// ── 두 패널의 접기 단추 (FR-UXF-30·31) ────────────────────────────
+
+test.describe('접기 단추', () => {
+  test('TC-UXF-21: 메인 패널 머리의 접기 단추가 레일로 접고, 같은 단추가 펼친다', async ({ page }) => {
+    await waitForInit(page);
+    const btn = page.locator('#sb-acts .sb-collapse');
+    await expect(btn).toBeVisible();
+    await btn.click();
+    await expect.poll(async () => (await rectOf(page, '#sidebar')).width).toBe(40);
+    await expect(btn).toBeVisible();
+    await btn.click();
+    await expect.poll(async () => (await rectOf(page, '#sidebar')).width).toBeGreaterThan(40);
+  });
+
+  test('TC-UXF-21b: 모바일에는 메인 패널 접기 단추가 보이지 않는다', async ({ page }) => {
+    await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
+    await expect(page.locator('#sb-acts .sb-collapse')).toBeHidden();
+  });
+
+  test('TC-UXF-22: 접기 단추는 패널의 바깥 가장자리 쪽 끝에 선다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(() => (window as any).app.actPanelOpen());
+    const sbBtn = await rectOf(page, '#sb-acts .sb-collapse');
+    const sbTab = await rectOf(page, '#sb-tabs .ui-panel-tab');
+    expect(sbBtn.left).toBeLessThan(sbTab.left);
+    const agBtn = await rectOf(page, '#agents-panel .ag-collapse');
+    const ag = await rectOf(page, '#agents-panel');
+    expect(Math.abs(agBtn.left + agBtn.width - (ag.left + ag.width))).toBeLessThanOrEqual(6);
+    // 자리를 바꾸면 끝도 따라간다.
+    await page.evaluate(() => (window as any).app.testing.setPanelDock({ left: ['activity'], right: ['sidebar'] }));
+    await expect.poll(async () => {
+      const b = await rectOf(page, '#sb-acts .sb-collapse');
+      const sb = await rectOf(page, '#sidebar');
+      return Math.abs(b.left + b.width - (sb.left + sb.width)) <= 6;
+    }).toBe(true);
+    const agBtn2 = await rectOf(page, '#agents-panel .ag-collapse');
+    const agTab = await rectOf(page, '#agents-panel .ui-panel-tab');
+    expect(agBtn2.left).toBeLessThan(agTab.left);
+  });
+});

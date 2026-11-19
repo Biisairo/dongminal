@@ -138,7 +138,9 @@ test('TC-CMP-6b: 킷이 .ui-section-head 를 갖는다 (FR-CMP-30)', () => {
 const NOTICE = ['git-job-note', 'git-stale-note', 'git-partial-note', 'git-diff-note',
   'git-con-note', 'git-blame-note', 'git-job-opts-note', 'sbx-rt-note', 'fe-offer',
   // FR-CMP-54 (FEU-29): git 목록 뷰의 안내 띠. 착수 시 킷 없이 같은 모양을 자기 값으로 그렸다.
-  'git-hist-note', 'git-br-note', 'git-stash-note'];
+  'git-hist-note', 'git-br-note', 'git-stash-note',
+  // UX_AUDIT_FIX_SRS FR-UXF-28: 작업 목록 갱신 실패 안내.
+  'ag-stale'];
 /**
  * 접두사로 만드는 안내 띠 (`list-tab.js` 의 `p+'-note'`). 이름이 마크업에 글자
  * 그대로 나오지 않으므로 만드는 자리 하나를 따로 본다.

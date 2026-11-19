@@ -69,8 +69,12 @@ test('TC-UIP-4: 사이드바 하단 버튼은 테두리가 없다', async ({ pag
 
 test('TC-UIP-5: 개수가 0 이면 감추고, 개수는 accent 로 칠하지 않는다', async ({ page }) => {
   await waitForInit(page);
-  // 레일(접힌 Activity)의 탭 배지는 처음에 모두 0 이다.
-  for (const n of await page.locator('#agents-panel .ag-tab-n').all()) await expect(n).toBeHidden();
+  // 개정: 이전 레일의 탭 배지가 처음에 모두 0 이라 보고 전부 감춰졌다고 단정했다 / 지금 0 인 배지만 감춰졌다고 단정한다
+  // / 이유 서버는 워커마다 하나라 앞선 시험(git-worktrees 의 /api/runs)이 남긴 Run 이 Runs 배지 1 로 보였다.
+  const badges = await page.locator('#agents-panel .ag-tab-n').evaluateAll((els) => els.map((e) => ({
+    t: (e.textContent || '').trim(), vis: (e as HTMLElement).offsetParent !== null,
+  })));
+  for (const b of badges) if (b.t === '0' || b.t === '') expect(b.vis).toBe(false);
   await openGit(page, fx('basic'));
   const counts = changes(page).locator('.git-group-head .git-group-count');
   await expect.poll(async () => counts.evaluateAll((els) =>

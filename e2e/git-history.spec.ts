@@ -637,7 +637,8 @@ test.describe('17단계 — 커밋 상세', () => {
     await commits(page).first().click();
     await expect(hist(page).locator('.git-hist-detail')).toBeVisible({ timeout: 15000 });
 
-    await page.locator('#area .git-head-refresh').first().click();
+    // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 새로고침 단추를 눌렀다 / 지금 같은 갱신 함수를 부른다 / 이유 단추가 없다.
+    await page.evaluate(() => (window as any).app.gitPanel.refresh());
     await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0, { timeout: 15000 });
   });
 

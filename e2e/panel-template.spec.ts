@@ -32,7 +32,8 @@ test.describe('데스크톱 — 같은 머리 (FR-PNT-1~8)', () => {
     expect(await page.evaluate(() => !!document.querySelector('#agents-body .ui-panel-head, #agents-body .ag-tabs'))).toBe(false);
     const head = page.locator('#agents-panel > .ui-panel-head');
     await expect(head.locator('> .ui-panel-tabs.ag-tabs')).toHaveCount(1);
-    await expect(head.locator('> .ui-panel-acts .ag-refresh')).toHaveCount(1);
+    // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 머리 동작부에 .ag-refresh 하나 / 지금 없다 / 이유 목록은 자동 갱신만 한다.
+    await expect(head.locator('.ag-refresh')).toHaveCount(0);
     await expect(head.locator('> .ui-panel-acts .ag-collapse')).toHaveCount(1);
     const acts = await box(page, '#agents-panel > .ui-panel-head > .ui-panel-acts');
     const panel = await box(page, '#agents-panel');
@@ -184,7 +185,10 @@ test.describe('모바일 Activity — 누른 뒤 (FR-PNT-15~17)', () => {
     await expect(panel(page)).toHaveClass(/open/);
     await page.locator('#agents-panel .ag-tab[data-sec="runs"]').click();
     await expect(page.locator('#agents-panel .ag-tab[data-sec="runs"]')).toHaveClass(/active/);
-    await page.locator('#agents-panel .ag-refresh').click();
+    // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 .ag-refresh 를 눌렀다 / 지금 단추가 없고 같은 갱신 함수를 부른다
+    // / 이유 단추를 없앴다. 남는 계약은 "갱신이 시트를 닫지 않는다" 다.
+    await expect(page.locator('#agents-panel .ag-refresh')).toHaveCount(0);
+    await page.evaluate(() => (window as any).app.testing.activityRestore());
     await expect(panel(page)).toHaveClass(/open/);
   });
 

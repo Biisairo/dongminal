@@ -115,7 +115,7 @@ Object.assign(GitPanel.prototype, {
   async refresh(){
     if(this._refreshing||!this.repo) return;
     this._refreshing=true;
-    for(const p of this.obs.panels){p._paintRefresh(); p.blameStale()}
+    for(const p of this.obs.panels) p.blameStale();
     /**
      * 플래그 해제는 `finally` 가 한다 (선례: `_wsApply` 의 `_wsApplyInflight`).
      *
@@ -143,7 +143,6 @@ Object.assign(GitPanel.prototype, {
       await Promise.allSettled([this.collect(),...jobs]);
     }finally{
       this._refreshing=false;
-      for(const p of this.obs.panels) p._paintRefresh();
     }
   },
 
@@ -235,18 +234,6 @@ Object.assign(GitPanel.prototype, {
     // FR-OPT-4-9: 보이지 않으면 표식만 남긴다 — `_reloadViews` 와 같은 규약.
     if(this._viewShown('history')) this._historyView.reload(true);
     else this._staleMark('history');
-  },
-
-  // 받는 동안 진입점은 다시 눌리지 않는다 (FR-GIT-238). `_refreshing` 이 실제
-  // 방어이고 `disabled` 는 그것을 화면에 보이는 것이다.
-  _paintRefresh(){
-    const el=this._els.get('changes'); if(!el) return;
-    // GIT_CHANGES_CONTROLS_SRS FR-GCC-10: 버튼은 이제 **뷰 밖**(사이드 최상단의
-    // 진입점 줄)에 산다. 슬롯이 둘이면 사이드도 둘이므로, 이 뷰가 담긴 사이드에서
-    // 찾아야 남의 칸을 끄지 않는다.
-    const side=el.closest('.ed-side');
-    const b=side&&side.querySelector('.git-head-refresh');
-    if(b) b.disabled=this._refreshing;
   },
 
   // ── 변경 감지 3계층 (FR-GIT-18~24) ──

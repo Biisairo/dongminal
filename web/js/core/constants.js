@@ -900,6 +900,8 @@ const TERM_COPY_CLOSE=t('core.term_copy_close');
 const RELOAD_BTN_ID='soft-reload-btn';
 // UX_AUDIT_FIX_SRS FR-UXF-2: 상단바·칸 머리글 제목의 구분점.
 const TITLE_SEP=' · ';
+// UX_AUDIT_FIX_SRS FR-UXF-28: 작업 목록 스냅샷이 이만큼 이어서 실패하면 안내를 세운다 — 한 번은 일시적일 수 있다.
+const ACT_STALE_AFTER=2;
 const RELOAD_TITLE='Reload the app without a full page refresh';
 const RELOAD_BUSY_TITLE=t('core.reload_busy_title');
 

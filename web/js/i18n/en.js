@@ -104,6 +104,8 @@ I18N.register('en', {
   'core.file_unsupported_title': 'Unsupported format',
   'core.no': 'No',
   'core.no_window': 'No window',
+  'core.reload_app': 'Reload app',
+  'activity.stale': 'Could not update the work list.',
   'core.off': 'Off',
   'core.ok': 'OK',
   'core.open_window_fail': 'Could not open a window',

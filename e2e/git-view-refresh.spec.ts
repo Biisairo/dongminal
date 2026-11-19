@@ -318,12 +318,9 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     git(repo, 'stash', 'push', '-m', '바깥에서 만든 stash');
 
     await openTab(page, 'changes');
-    // FR-GCC-10 / D-7a: 새로고침은 사이드 **탭 줄**의 오른쪽 끝이다 — 머리에서
-    // 올라왔고 클래스 이름은 그대로다 (D-8).
-    const refreshBtn = page.locator('#area .ed-side .ed-side-tabs .git-head-refresh');
-    await expect(refreshBtn, '새로고침 버튼이 없다').toHaveCount(1, { timeout: 20000 });
-    await refreshBtn.click();
-    await expect(refreshBtn, '새로고침이 끝나지 않았다').toBeEnabled({ timeout: 20000 });
+    // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 새로고침 단추를 누르고 끝나기를 기다렸다 / 지금 같은 갱신 함수를
+    // 부르고 그 끝(Promise)을 기다린다 / 이유 단추가 없다.
+    await page.evaluate(() => (window as any).app.gitPanel.refresh());
 
     // 탭을 다시 여는 것은 목록을 다시 받지 않는다 — 보이는 것은 새로고침의 결과다.
     await openTab(page, 'stash');

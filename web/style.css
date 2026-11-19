@@ -850,6 +850,8 @@ body:not(.mobile) #agents-panel:not(.open) .ag-tab-n{
 body:not(.mobile) #agents-panel:not(.open) .ag-tab-dot{position:absolute;top:4px;right:6px}
 /* 창 그룹 머리는 구분선만 남는다 — 이름도 알람 수도 40px 에 들지 않는다. */
 body:not(.mobile) #agents-panel:not(.open) .ag-group{padding:0;height:0;overflow:hidden;pointer-events:none}
+/* UX_AUDIT_FIX_SRS FR-UXF-25: 레일의 카드는 이름 한 칸이다 — 상태 기호는 카드의 상태 띠가 대신한다. */
+body:not(.mobile) #agents-panel:not(.open) .ag-dot{display:none}
 body:not(.mobile) #agents-panel:not(.open) :is(.ag-card,.bg-row,.runs-row,.chat-row){padding:6px 3px;display:block}
 /* FR-RAL-2 와 같다: 이름은 두 줄까지, 넘치면 둘째 줄 끝에 `…`. */
 body:not(.mobile) #agents-panel:not(.open) :is(.ag-loc,.bg-name,.runs-short,.chat-row-name){
@@ -932,6 +934,8 @@ body:not(.mobile) #agents-panel:not(.open) :is(.ag-loc,.bg-name,.runs-short,.cha
 .chat-cmd-hint{font-size:var(--fs-sm);color:var(--text-hint)}
 .chat-create-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-bright)}
 .ag-group{display:flex;align-items:center;gap:4px;padding:5px 8px 5px 16px;cursor:pointer;background:transparent;border-bottom:1px solid var(--border-weak);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
+/* UX_AUDIT_FIX_SRS FR-UXF-26: 모바일 그룹 머리는 터치 하한 한 줄이고 사이드바 행처럼 들여 쓴다 (이전 52px·왼쪽 16px). */
+body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 .ag-group:hover{color:var(--accent-text);background:var(--accent-hover)}
 .ag-group-fold{flex:none}
 .ag-group-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -942,7 +946,12 @@ body:not(.mobile) #agents-panel:not(.open) :is(.ag-loc,.bg-name,.runs-short,.cha
 .ag-card.dragging{opacity:.35}
 .ag-card.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
 .ag-card.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
-.ag-loc{font-size:var(--fs-sm);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* UX_AUDIT_FIX_SRS FR-UXF-25: 카드의 줄 — 첫 줄 상태 기호 · 탭 이름(주인공), 둘째 줄 상태·도구 · detail(보조).
+   이전: 탭 이름이 작은 흐린 글자(`--fs-sm`·`--text-muted`)였다. */
+.ag-line{display:flex;align-items:baseline;gap:6px;min-width:0}
+.ag-line-what{margin-top:2px}
+.ag-dot{flex:none;font-size:var(--fs-sm);color:var(--text-muted)}
+.ag-loc{flex:1 1 auto;min-width:0;font-size:var(--fs-md);font-weight:600;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* UIUX_OVERHAUL_SRS FR-ACT-6: 항목은 패널 폭 안에서 잘린다.
      이전 동작: 카드 세 줄 중 이 줄만 말줄임이 없어, 긴 도구 이름
                (`mcp__plugin_playwright_playwright_browser_take_screenshot`)이
@@ -950,18 +959,18 @@ body:not(.mobile) #agents-panel:not(.open) :is(.ag-loc,.bg-name,.runs-short,.cha
                밀었다 — 실측 `scrollWidth` 433 vs `clientWidth` 259 (기준선 04)
      새  동작: `.ag-loc`·`.ag-detail` 과 같은 말줄임. 패널은 가로로 스크롤되지 않는다
      이유:     도킹 패널의 폭은 사용자가 정한다. 그 폭을 내용이 뒤집으면 폭이 아니다 */
-.ag-state{font-size:var(--fs-md);color:var(--text-bright);margin-top:2px;
+.ag-state{flex:none;max-width:60%;font-size:var(--fs-sm);color:var(--text-bright);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* UIUX_OVERHAUL_SRS FR-SEM-1 · 원칙 3: **working 은 green 이다.**
    종전 `--accent-text` 는 "지금 어디" 의 색을 상태에 빌려 쓴 것이었다 —
    그래서 포커스된 칸과 일하는 에이전트가 같은 색으로 경쟁했다.
    `.waiting` 이 이미 `--attn-text`(yellow) 를 쓰고 있었으므로 이 줄만
    옮기면 네 상태가 한 사상표 위에 선다. */
-.ag-state.working{color:var(--term-green)}
-.ag-state.done{color:var(--text-bright)}
-.ag-state.waiting{color:var(--attn-text)}
-.ag-state.idle{color:var(--text)}
-.ag-detail{font-size:var(--fs-sm);color:var(--text);margin-top:2px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:is(.ag-state,.ag-dot).working{color:var(--term-green)}
+:is(.ag-state,.ag-dot).done{color:var(--text-bright)}
+:is(.ag-state,.ag-dot).waiting{color:var(--attn-text)}
+:is(.ag-state,.ag-dot).idle{color:var(--text)}
+.ag-detail{flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--text-muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ACTIVITY_CARD_USAGE_SRS FR-ACU-10·13 · NFR-ACU-2: 막대·백분율은 줄지 않고,
    좁아지면 모델·effort 만 말줄임으로 준다. 등급 색은 Run 화면의 `lv-*` 와 같다.
    ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-30: 모델·effort 가 왼쪽, 막대와 백분율이 오른쪽 끝이다 —
@@ -1993,10 +2002,9 @@ body.mobile #topbar:has(>.m-repo-seg:not([hidden])) #window-name{display:none}
 .m-seg-btn:disabled{opacity:.4}
 .m-seg-n{font-size:var(--fs-sm);font-variant-numeric:tabular-nums;color:var(--text-hint)}
 .m-seg-n:empty{display:none}
-/* FR-MUX-79: 사이드 안의 Changes·Explorer 탭은 세그먼트가 대신한다. 새로고침이 없으면 줄도 없다. */
-body.mobile .ed-side-tab{display:none}
-body.mobile .ed-side-tabs{justify-content:flex-end}
-body.mobile .ed-side-tabs:not(:has(>.ed-side-refresh:not([hidden]))){display:none}
+/* FR-MUX-79: 사이드 안의 Changes·Explorer 탭은 세그먼트가 대신한다. UX_AUDIT_FIX_SRS FR-UXF-27: 줄 끝의 새로고침도
+   없으므로 모바일에는 탭 줄이 서지 않는다. */
+body.mobile .ed-side-tabs{display:none}
 /* FR-MUX-70~72: 사용량 요약 한 줄 — 누르면 펼치고 접는다. 펼치면 요약 아래에 전체가 선다. */
 /* 외형은 킷(`.ui-btn-ghost`)이 갖고, 자리와 글자만 여기 것이다 — 바닥 안에서는 줄 전체를 쓰는 행이다. */
 .act-usage-foot .act-usage-sum{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;

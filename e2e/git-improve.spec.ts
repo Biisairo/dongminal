@@ -21,9 +21,9 @@ import { TMP, tmpPath, realPath, cssPath, appJoin } from './osenv';
 // 고치면 된다:
 //   - `.git-file-act[data-act="openFile"]`  Open File 인라인 버튼 (I1)
 //   - `.git-file-path-dir` / `.git-file-path-name`  디렉터리·파일명 분리 요소 (I2)
-//   - `.git-head-refresh`                    새로고침 버튼 (I3). **자리가 바뀌었다** —
-//     GIT_CHANGES_CONTROLS_SRS FR-GCC-10 이 이 버튼을 머리에서 **사이드 탭 줄**로
-//     올렸다(D-8: 이름은 그대로다). 그래서 재는 자리는 `.ed-side-tabs` 다.
+//   - `.git-head-refresh`                    새로고침 버튼 (I3). GIT_CHANGES_CONTROLS_SRS FR-GCC-10 이
+//     사이드 탭 줄로 올렸고, UX_AUDIT_FIX_SRS FR-UXF-27 로 없어졌다 — 갱신은 같은 함수
+//     (`app.gitPanel.refresh()`)를 직접 부르고, 단추는 "없다" 만 잰다.
 
 const FIXTURES = tmpPath('dm-git-fx-improve-' + process.pid);
 
@@ -46,10 +46,11 @@ const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-chang
 const group = (page: Page, key: string) => changes(page).locator(`.git-group[data-group="${key}"]`);
 const rows = (page: Page, key: string) => group(page, key).locator('.git-file');
 const files = (page: Page) => page.locator('#area .ed-side .git-file');
-// FR-GCC-10: 새로고침은 사이드 탭 줄의 오른쪽 끝이다 — `.git-view.git-changes`
-// 안이 아니다. `Changes` 탭에서만 선다 (FR-GCC-12).
+// UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 탭 줄의 새로고침 단추 / 지금 사이드 어디에도 없다는 단정에만 쓴다
+// / 이유 목록은 자동 관측으로만 바뀐다. 갱신은 `refresh()` 를 부른다.
 const sideRefresh = (page: Page) =>
-  page.locator('#area .ed-side .ed-side-tabs .git-head-refresh');
+  page.locator('#area .ed-side .git-head-refresh');
+const refresh = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.refresh());
 
 // 파일 목록이 채워질 때까지 기다린다 — status 조회는 비동기다.
 async function waitFiles(page: Page, min = 1) {
@@ -118,14 +119,16 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     await waitFiles(page, 3);
 
     const filesBox = changes(page).locator('.git-files');
-    await filesBox.locator('.git-files-mode[data-mode="tree"]').click();
+    // UX_AUDIT_FIX_SRS FR-UXF-23 로 개정: 이전 목록 안의 전환 단추 / 지금 브랜치 줄 끝 / 이유 보기 전환 줄이 머리로 합쳐졌다.
+    const mode = (m: string) => changes(page).locator(`.git-head .git-files-mode[data-mode="${m}"]`);
+    await mode('tree').click();
     await expect(filesBox.locator('.git-dir').first()).toBeVisible({ timeout: 10000 });
     await expect(filesBox.locator('.git-dir .git-file-act[data-act="openFile"]'),
       '디렉터리 행에 Open File 이 있다').toHaveCount(0);
     await expect(changes(page).locator('.git-group-head .git-file-act[data-act="openFile"]'),
       '그룹 머리에 Open File 이 있다').toHaveCount(0);
 
-    await filesBox.locator('.git-files-mode[data-mode="flat"]').click();
+    await mode('flat').click();
     const row = rows(page, 'working').first();
     const btn = row.locator('.git-file-act[data-act="openFile"]');
     await expect(btn, '인라인 Open File 버튼이 없다').toHaveCount(1, { timeout: 5000 });
@@ -399,15 +402,14 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
       if (u.includes('/api/git/records')) seen.records++;
     });
 
-    const btn = sideRefresh(page);
-    await expect(btn, '새로고침 버튼(.git-head-refresh)이 사이드 탭 줄에 없다').toHaveCount(1, { timeout: 5000 });
-    // 머리로 되돌아가지 않았는지도 함께 확인한다 (FR-GCC-10) — 되돌아가면 그
-    // 자리를 다투던 문제가 그대로 살아난다.
+    // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 탭 줄에 단추 하나·눌러 갱신 / 지금 단추가 없고 같은 갱신 함수를 부른다
+    // / 이유 단추를 없앴다. 남는 계약은 "갱신 한 번에 넷이 다시 요청된다" 다.
+    await expect(sideRefresh(page)).toHaveCount(0);
     await expect(changes(page).locator('.git-head-refresh')).toHaveCount(0);
     expect(await changes(page).locator('.git-remote-btn').count()).toBe(remoteBtnCountBefore);
 
     const before = { ...seen };
-    await btn.click();
+    await refresh(page);
 
     // **넷은 따로 나가는 요청이다** (M9_SRS FR-M9-16). 종전에는 `status` 하나만
     // 기다리고 나머지 셋을 그 자리에서 동기로 쟀다 — 하나가 왔다는 것이 나머지가
@@ -441,8 +443,9 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
-    const btn = sideRefresh(page);
-    await expect(btn, '새로고침 버튼(.git-head-refresh)이 없다').toHaveCount(1, { timeout: 5000 });
+    // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 단추를 두 번 눌렀다 / 지금 단추가 없고 갱신 함수를 겹쳐 부른다
+    // / 이유 단추를 없앴다. 겹침 막기는 `refresh()` 안의 `_refreshing` 이 한다.
+    await expect(sideRefresh(page)).toHaveCount(0);
 
     let logHits = 0;
     await page.route('**/api/git/log*', async (route) => {
@@ -451,8 +454,11 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
       await route.continue();
     });
 
-    await btn.click();
-    await btn.click({ force: true }); // 받는 동안 다시 누른다 — 막혀 있어야 한다
+    await page.evaluate(() => {
+      const p = (window as any).app.gitPanel;
+      void p.refresh();
+      void p.refresh(); // 받는 동안 다시 부른다 — 막혀 있어야 한다
+    });
     // **예외 (`TEST-16`): 나가지 않는 두 번째 요청을 잰다.** 위 라우트가 1.5초를
     // 붙들므로 그보다 넉넉히 두고 하나뿐인지 본다.
     await page.waitForTimeout(2200);
@@ -462,7 +468,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // 실패는 조용히 지나가지 않는다 — 이미 있는 .git-stale-note 를 재사용한다
     // (panel.js:249·316, GIT_STALE_NOTE).
     await page.route('**/api/git/status*', (route) => route.abort());
-    await btn.click();
+    await refresh(page);
     await expect(changes(page).locator('.git-stale-note.vis'), '새로고침 실패 사유가 보이지 않는다')
       .toBeVisible({ timeout: 10000 });
     await page.unroute('**/api/git/status*');

@@ -940,6 +940,7 @@ Object.assign(App.prototype, {
     document.documentElement.classList.toggle(SIDEBAR_COLLAPSED_CLASS,on);
     if(on) PrefStore.session.set(SIDEBAR_COLLAPSED_KEY,'1');
     else PrefStore.session.remove(SIDEBAR_COLLAPSED_KEY);
+    if(this.sbCollapsePaint) this.sbCollapsePaint();   // UX_AUDIT_FIX_SRS FR-UXF-30
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
   },
 

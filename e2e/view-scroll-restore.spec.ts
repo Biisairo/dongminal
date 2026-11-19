@@ -131,7 +131,9 @@ test.describe('시선 보존', () => {
 
     await roundTrip(page, 'other.txt', 'long.txt');
 
-    expect(await edScroll(page, 'long.txt')).toBe(1200);
+    // 개정: 이전 돌아온 즉시 한 번 읽었다 / 지금 되돌림이 놓일 때까지 기다린다 / 이유 스냅숏은 편집기의 다음 측정
+    // 프레임에 놓인다 — 부하가 크면 그 전에 읽혀 0 이 나왔다. 되돌림이 없으면 여전히 1200 에 닿지 않는다.
+    await expect.poll(() => edScroll(page, 'long.txt'), { timeout: 5000 }).toBe(1200);
     const ln = await page.evaluate(() => {
       const a = (window as any).app;
       for (const v of a.fileEditors.values()) {
@@ -150,12 +152,13 @@ test.describe('시선 보존', () => {
     await openPinned(page, 'long.txt');
     await edScrollTo(page, 'long.txt', 900);
 
+    // 개정: 위 V-VSR-1 과 같다 — 되돌림은 다음 측정 프레임에 놓인다.
     await roundTrip(page, 'other.txt', 'long.txt');
-    expect(await edScroll(page, 'long.txt')).toBe(900);
+    await expect.poll(() => edScroll(page, 'long.txt'), { timeout: 5000 }).toBe(900);
 
     await edScrollTo(page, 'long.txt', 1500);
     await roundTrip(page, 'other.txt', 'long.txt');
-    expect(await edScroll(page, 'long.txt')).toBe(1500);
+    await expect.poll(() => edScroll(page, 'long.txt'), { timeout: 5000 }).toBe(1500);
   });
 
   // V-VSR-2a — 떠나 있는 동안 시간이 지나도 남는다. `automaticLayout` 의

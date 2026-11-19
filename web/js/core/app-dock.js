@@ -40,6 +40,26 @@ Object.assign(App.prototype, {
     de.dataset.sbSide=dockSideOf(s,'sidebar');
     de.dataset.agSide=dockSideOf(s,'activity');
     de.dataset.repoSide=this.repoSideDock();
+    this.sbCollapsePaint();
+  },
+
+  /**
+   * UX_AUDIT_FIX_SRS FR-UXF-30: 메인 패널 머리의 접기 단추 — 작업 패널의 `.ag-collapse` 와 같은 규칙이다(아이콘은
+   * `agCollapseIcon`). 처음 필요할 때 끝 단추 자리(`#sb-acts`)에 세우고, 접힘·좌우가 바뀌면 칠한다. 모바일은 CSS 가 감춘다.
+   */
+  sbCollapsePaint(){
+    const acts=document.getElementById('sb-acts');
+    if(!acts) return;
+    let b=acts.querySelector('.sb-collapse');
+    if(!b){
+      // 킷은 이름 없는 단추를 거절한다(던진다) — 부팅 경로이므로 처음부터 이름을 준다.
+      b=UIKit.button({icon:'chevron-left',title:'Collapse the panel',kind:'ghost',size:'lg',cls:'sb-collapse ui-panel-act-desktop',onClick:e=>{e.stopPropagation();this._toggleSidebar()}});
+      acts.prepend(b);
+    }
+    const open=!this.sidebarCollapsed();
+    const tip=open?'Collapse the panel':'Expand the panel';
+    b.title=tip; b.setAttribute('aria-label',tip);
+    b.replaceChildren(UIKit.icon(agCollapseIcon(open,document.documentElement.dataset.sbSide||'left',false)));
   },
 
   repoSideDock(){return repoSideNormalize(PrefStore.session.get(STORE_KEYS.repoSideDock))},

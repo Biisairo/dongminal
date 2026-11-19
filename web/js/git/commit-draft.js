@@ -62,6 +62,7 @@ Object.assign(GitCommit.prototype, {
     this._draftFlush();
     this._repo=repo;
     this._amend=false; this._amendText='';
+    this._unfold=false;   // UX_AUDIT_FIX_SRS FR-UXF-24: 펼침은 저장소마다다
     this._opts={signoff:false,noVerify:false,all:false};
     this._menuOpen=false; this._blocks=null; this._err=null; this._busy=false;
     this._answer=null; this._askedKey=null; this._asking=false;

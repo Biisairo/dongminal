@@ -164,12 +164,15 @@ test.describe('묶음 E — Changes 탭', () => {
     await expect(files.locator('.git-dir')).toHaveCount(0);
     await expect(rows(page, 'working').filter({ hasText: '디렉터리 한글/파일 이름.txt' })).toHaveCount(1);
 
-    await files.locator('.git-files-mode[data-mode="tree"]').click();
+    // UX_AUDIT_FIX_SRS FR-UXF-23 로 개정: 이전 목록(.git-files) 안의 전환 단추 / 지금 브랜치 줄(.git-head) 끝의 단추
+    // / 이유 보기 전환 줄이 머리로 합쳐졌다.
+    const mode = (m: string) => changes(page).locator(`.git-head .git-files-mode[data-mode="${m}"]`);
+    await mode('tree').click();
     await expect(files.locator('.git-dir').first()).toBeVisible();
     await expect(files.locator('.git-dir .git-dir-name').filter({ hasText: '디렉터리 한글' }).first())
       .toBeVisible();
 
-    await files.locator('.git-files-mode[data-mode="flat"]').click();
+    await mode('flat').click();
     await expect(files.locator('.git-dir')).toHaveCount(0);
   });
 

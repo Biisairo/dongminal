@@ -51,7 +51,10 @@ Object.assign(App.prototype, {
   _activityRestore(src){
     const flight=this._restoreBegin('activity');
     return stateFetch(src,'/api/tools/activity').then(res=>{
-      const j=res.ok?res.data:null;
+      // UX_AUDIT_FIX_SRS FR-UXF-28: 실패한 응답은 "활동이 없다" 가 아니다 — 목록을 그대로 두고 실패만 센다.
+      //   이전: `res.ok` 가 아니면 빈 목록으로 읽어 카드를 모두 지웠다
+      if(!res.ok||!res.data){this._restoreEnd('activity',flight);this._actStaleCount(false);return}
+      const j=res.data;
       if(!this._restoreLive('activity',flight)) return;
       const list=(j&&Array.isArray(j.activities))?j.activities.slice():[];
       if(j) this._limits=Array.isArray(j.limits)?j.limits:[]; // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40
@@ -67,8 +70,28 @@ Object.assign(App.prototype, {
         if(!seen.has(id)&&!flight.has(id)) this._activity.delete(id);
       }
       this._restoreEnd('activity',flight);
+      this._actStaleCount(true);
       this.agentsRender();
-    }).catch(()=>{});
+    }).catch(()=>{this._restoreEnd('activity',flight);this._actStaleCount(false)});
+  },
+
+  /**
+   * FR-UXF-28: 스냅샷 실패가 `ACT_STALE_AFTER` 번 이어지면 머리 아래에 안내와 앱 새로고침 단추를 세운다.
+   * 성공하면 걷는다. 수동 목록 새로고침은 없다 (FR-UXF-27) — 실패는 보여야 한다.
+   */
+  _actStaleCount(ok){
+    this._actFails=ok?0:(this._actFails||0)+1;
+    if(typeof document.getElementById!=='function') return;   // 단위 시험 하네스에는 DOM 이 없다
+    const panel=document.getElementById('agents-panel'),body=document.getElementById('agents-body');
+    if(!panel||!body) return;
+    let note=panel.querySelector(':scope>.ag-stale');
+    if(this._actFails<ACT_STALE_AFTER){ if(note) note.remove(); return }
+    if(note) return;
+    note=document.createElement('div');
+    note.className='ui-notice ui-notice-attn ag-stale';
+    note.append(document.createTextNode(t('activity.stale')),
+      UIKit.button({label:t('core.reload_app'),kind:'ghost',size:'sm',cls:'ag-stale-reload',onClick:()=>this.softReload()}));
+    panel.insertBefore(note,body);
   },
 
   // FR-AAP-11/12: 우측 활동 패널 토글(열림 상태 영속)
@@ -327,7 +350,7 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * PANEL_TEMPLATE_SRS FR-PNT-2~4: 머리의 끝 단추 — 새로고침과 접기. 머리 줄 자체(`#agents-head.ag-head`,
+   * PANEL_TEMPLATE_SRS FR-PNT-2~4: 머리의 끝 단추 — 접기 (UX_AUDIT_FIX_SRS FR-UXF-27: 새로고침은 없다). 머리 줄 자체(`#agents-head.ag-head`,
    * 끌어서 자리를 바꾸는 손잡이, PANEL_DOCK_SRS FR-PDK-30)는 index.html 에 있다.
    *
    *   이전 동작: 제목 `Activity` 와 두 단추가 한 줄(`.ag-head`)이었고 그 아래에 탭 줄이 섰다
@@ -351,11 +374,9 @@ Object.assign(App.prototype, {
       b.innerHTML=UIKit.iconHTML(icon);
       head.appendChild(b);
     };
-    mkBtn('ag-refresh','Refresh the activity list','refresh-cw');
     // UX_BATCH12_SRS FR-ACF-5: 닫기가 아니라 접기다. 레일에서는 같은 단추가 펼친다.
     const open=this.agentsPanelOpen();
     mkBtn('ag-collapse',open?(this.isMobile?'Close the panel':'Collapse the panel'):'Expand the panel',this._agCollapseIcon());   // FR-MUX-17
-    head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
     head.querySelector('.ag-collapse').addEventListener('click',e=>{e.stopPropagation();this.agentsToggle()});
     return head;
   },
@@ -398,13 +419,23 @@ Object.assign(App.prototype, {
     // FR-AGG-13: 창 이름은 머리가 말한다. 카드에는 도구 이름만 남는다.
     const locDiv=document.createElement('div');locDiv.className='ag-loc';
     locDiv.textContent=this._toolName(toolId,loc.tab.name||toolId);
-    const st=document.createElement('div');st.className='ag-state';
+    /**
+     * UX_AUDIT_FIX_SRS FR-UXF-25: 첫 줄은 상태 기호 · 탭 이름, 둘째 줄은 상태·도구 · detail 이다.
+     *   이전: detail → 탭 이름(작은 보조 글자) → `● working · Edit` 차례로 세 줄
+     *   이유: 카드의 주인공(어느 탭인가)이 가장 작은 글자였다 (진단 D16·M12)
+     */
+    const dot=document.createElement('span');dot.className='ag-dot';
+    if(info.state) dot.classList.add(info.state);
+    dot.textContent=AGENT_STATE_ICON[info.state]||'●';
+    const head=document.createElement('div');head.className='ag-line ag-line-head';
+    head.append(dot,locDiv);
+    const st=document.createElement('span');st.className='ag-state';
     if(info.state) st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
-    st.textContent=(AGENT_STATE_ICON[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');
-    const dt=document.createElement('div');dt.className='ag-detail';
-    if(info.detail){dt.textContent=info.detail;card.appendChild(dt);}
-    card.appendChild(locDiv);
-    card.appendChild(st);
+    st.textContent=info.state+(info.tool?' · '+info.tool:'');
+    const what=document.createElement('div');what.className='ag-line ag-line-what';
+    what.appendChild(st);
+    if(info.detail){const dt=document.createElement('span');dt.className='ag-detail';dt.textContent=info.detail;what.appendChild(dt);}
+    card.append(head,what);
     const uv=agentUsageView(info.usage); // FR-ACU-10·11
     if(uv) card.appendChild(this._agUsageEl(uv));
     const subs=Array.isArray(info.subagents)?info.subagents:[];

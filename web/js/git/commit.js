@@ -23,6 +23,7 @@ class GitCommit {
     this._pfRepo=null;
     this._st=null;        // 마지막 status. 비활성 사유 판정이 딛는다 (FR-GIT-84)
     this._amend=false;
+    this._unfold=false;   // FR-UXF-24: 이 저장소에서 사용자가 펼쳤다
     // REPO_FIX 05 F-7.2: amend 메시지 슬롯 — 메모리에만 둔다(저장·동기화하지 않는다).
     this._amendText='';
     this._opts={signoff:false,noVerify:false,all:false};
@@ -90,7 +91,11 @@ class GitCommit {
     });
     el.querySelector('.git-commit-amend input')
       .addEventListener('change',ev=>this._amendToggle(ev.target.checked));
-    el.querySelector('.git-commit-btn').addEventListener('click',()=>this._commit());
+    el.querySelector('.git-commit-btn').addEventListener('click',()=>{
+      // UX_AUDIT_FIX_SRS FR-UXF-24: 접혀 있으면 이 단추는 펼치기다.
+      if(this._folded()){this._unfold=true;this._paint();this._msg.focus();return}
+      this._commit();
+    });
     el.querySelector('.git-commit-more').addEventListener('click',()=>{
       this._menuOpen=!this._menuOpen; this._paint();
     });
@@ -247,8 +252,10 @@ class GitCommit {
     if(this._repo) this._maybeAsk();
     const st=this._repo?this._state():{enabled:false,why:GIT_NO_REPO_HINT};
     const code=!this._repo?GIT_COMMIT_WHY_NO_REPO:(this._answer?this._answer.why:'loading');
+    const fold=this._folded();
+    el.classList.toggle('folded',fold);
     const btn=el.querySelector('.git-commit-btn');
-    btn.disabled=!st.enabled||this._busy;
+    btn.disabled=!fold&&(!st.enabled||this._busy);
     btn.title=st.enabled?'':(GIT_COMMIT_WHY_TITLE[code]||'');
     // UI_POLISH_SRS FR-UIP-14: "메시지가 비었다" 는 처음 보는 상태라 경고 줄에 띄우지
     // 않는다 — 버튼의 title 이 그 말을 한다. 다른 사유는 줄에 남는다.
@@ -268,6 +275,16 @@ class GitCommit {
    * 버튼의 상태 (FR-SDA-6·7). 다시 묻는 동안에는 버튼만 끄고 사유 줄은 앞선 답의 것을
    * 그대로 둔다 — 글자를 칠 때마다 사유 줄이 깜박이지 않게 한다 (GR-3d).
    */
+  /**
+   * UX_AUDIT_FIX_SRS FR-UXF-24: 모바일에서 쓸 것이 없으면 커밋 영역을 접는다 — 메시지가 비었고, 스테이지된
+   * 파일이 없고, amend 가 아니다. 한 번 펼치면 그 저장소에서는 다시 접지 않는다. 데스크톱은 접지 않는다.
+   */
+  _folded(){
+    const app=this.panel&&this.panel.app;
+    if(!app||!app.isMobile||this._unfold||this._amend||!this._msg||this._msg.value) return false;
+    return !gitGroupEntries((this.panel._status||{}).status,'staged').length;
+  }
+
   _state(){
     const s=actionState(this._answer,this._busy);
     return this._asking&&s.enabled?{enabled:false,why:''}:s;

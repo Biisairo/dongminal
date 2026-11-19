@@ -95,6 +95,12 @@
 .git-head-badge.git-badge-noupstream{background:transparent;color:var(--text-muted)}
 .git-head-ab{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
 .git-head-spacer{flex:1 1 auto}
+/* UX_AUDIT_FIX_SRS FR-UXF-23: 원격 단추와 보기 전환은 성격이 다르다 — 한 줄에 서되 세로 선으로 가른다. */
+.git-head-sep{align-self:stretch;width:1px;background:var(--border)}
+/* 모바일 머리는 줄을 바꿔 감긴다 — 보기 전환이 다음 줄로 가면 선만 홀로 남으므로, 줄바꿈이 가름을 맡는다. */
+body.mobile .git-head-sep{display:none}
+/* FR-UXF-24: 모바일의 접힌 커밋 영역 — `Commit` 단추 하나만 남는다. */
+body.mobile .git-commit.folded :is(.git-commit-msg,.git-commit-amend,.git-commit-gpg,.git-commit-more,.git-commit-why,.git-preflight,.git-commit-resize){display:none}
 .git-head-remote{display:flex;gap:4px;flex-shrink:0}
 /* 머리·목록 줄의 버튼 외형은 키트다 (DESIGN_TOKENS_SRS §7.5) — 아이콘 버튼은
    `.ui-btn-icon.ui-btn-lg`(30px = 옛 `--git-btn-h`) 이고 아이콘은 키트 비율로
@@ -651,10 +657,11 @@ body.mobile .git-head-remote{gap:2px}
    — 여기 남는 것은 FR-GIT-282 "지금 서 있는 자리" 하나다. */
 .git-menu-item.cur{color:var(--accent-text);font-weight:500}
 
-body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
-/* MOBILE_UX_OVERHAUL_SRS FR-MUX-40: 행 자체가 누르는 대상이다 — 터치 하한을 지킨다. */
-body.mobile .git-file,body.mobile .git-dir{min-height:var(--touch-min)}
-body.mobile .git-group-head{min-height:40px}
+/* MOBILE_UX_OVERHAUL_SRS FR-MUX-40: 행 자체가 누르는 대상이다 — 터치 하한을 지킨다.
+   UX_AUDIT_FIX_SRS FR-UXF-20·21: 보이는 행도 그 눈금 하나다 — 이전 위아래 5px 여백이 단추(44)에 더해져 54px,
+   그룹 머리는 40px 이었다. */
+body.mobile .git-file,body.mobile .git-dir{min-height:var(--touch-min);padding-top:0;padding-bottom:0}
+body.mobile .git-group-head{min-height:var(--touch-min);padding-top:0;padding-bottom:0}
 /* FR-MUX-42: 터치에는 hover 가 없다 — 행과 그룹의 동작을 흐름 안에 늘 보인다. 겹(absolute)과
    페이드를 걷는 것은 좁은 폭(@container ≤165px)의 규약과 같다. 모바일 사이드의 배경은
    `--sidebar-bg` 가 아니어서 페이드가 어두운 사각형으로 보였다. */

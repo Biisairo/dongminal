@@ -199,17 +199,20 @@ Object.assign(GitPanel.prototype, {
        */
       '<div class="git-changes-body">'+
         '<div class="git-files ui-scroll-sm">'+
-          '<div class="git-files-bar">'+
-            // FR-CMP-40: 배타 선택지 둘이므로 세그먼트다 — 붙어 한 덩이로 보이고
-            // 고른 쪽이 채워진다.
-            '<span class="ui-segment">'+
-              '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="tree"></button>'+
-              '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="flat"></button>'+
-            '</span>'+
-            '<span class="git-files-spacer"></span>'+
-          '</div>'+
         '</div>'+
       '</div>';
+    /**
+     * UX_AUDIT_FIX_SRS FR-UXF-23: 보기 전환(폴더/목록)은 브랜치 줄의 끝에 선다. 원격 단추와는 세로 선으로 가른다.
+     *   이전: 목록 위에 보기 전환만의 줄(`.git-files-bar`)이 따로 섰다
+     *   이유: 목록 첫 줄 위의 줄이 너무 많았다 (진단 D9·M5)
+     * FR-CMP-40: 배타 선택지 둘이므로 세그먼트다 — 붙어 한 덩이로 보이고 고른 쪽이 채워진다.
+     */
+    el.querySelector('.git-head').insertAdjacentHTML('beforeend',
+      '<span class="git-head-sep" aria-hidden="true"></span>'+
+      '<span class="ui-segment">'+
+        '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="tree"></button>'+
+        '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="flat"></button>'+
+      '</span>');
     this._wireHead(el);
     GitJobs.label(el);
     const partClose=el.querySelector('.git-partial-close');

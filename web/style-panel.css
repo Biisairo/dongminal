@@ -27,6 +27,11 @@
 .ui-panel-tabs{display:flex;flex:1 1 auto;min-width:0}
 .ui-panel-acts{display:flex;align-items:center;flex:0 0 auto;gap:2px;padding:0 4px}
 body:not(.mobile) .ui-panel-act-mobile{display:none}
+/* UX_AUDIT_FIX_SRS FR-UXF-30: 데스크톱에서만 서는 끝 단추 (메인 패널의 접기). */
+body.mobile .ui-panel-act-desktop{display:none}
+/* FR-UXF-31: 펼친 패널의 끝 단추는 바깥 가장자리 쪽 끝이다 — 왼쪽에 선 패널은 탭 줄 앞. 레일은 FR-PNT-8 대로 탭 아래다. */
+:is(html:not(.sb-collapsed):not([data-sb-side="right"]) body:not(.mobile) #sidebar,
+    html[data-ag-side="left"] body:not(.mobile) #agents-panel.open)>.ui-panel-head>.ui-panel-acts{order:-1}
 body:not(.mobile) .ui-panel-acts:not(:has(>:not(.ui-panel-act-mobile))){display:none}
 
 /* FR-PNT-6: 두 패널의 탭이 같다 — 높이·바탕·글자·hover·활성. */

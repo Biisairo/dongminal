@@ -328,27 +328,8 @@ Object.assign(Renderer.prototype, {
         btn.hidden=!allowed.has(btn.dataset.side);
         btn.classList.toggle('active',btn.dataset.side===active);
       }
-    /**
-     * GIT_CHANGES_CONTROLS_SRS FR-GCC-10 / D-7·D-8: 새로고침은 **창의 최상단**,
-     * 탭 줄의 오른쪽 여백에 선다.
-     *
-     * 종전 자리는 브랜치 줄 안이었고, 목록을 다시 읽고 싶은 손이 세 번째 줄까지
-     * 내려가야 했다. 진입점 줄에 넣어 봤더니 그쪽은 여섯 칸이 폭을 나눠 갖는
-     * 자리라 일곱 번째가 **다음 줄로 밀렸다**(실측) — 탭 줄은 탭 둘뿐이라 오른쪽이
-     * 비어 있고, 최상단이라는 뜻에도 그쪽이 더 맞는다.
-     *
-     * `Changes` 탭에서만 **보인다**: 새로고침하는 대상이 git 이고, Explorer 에서는
-     * 그 자리가 뜻을 잃는다 (FR-RTU-22 와 같은 근거). 요소는 재사용하고 숨김만
-     * 갈아 끼운다 (FR-GRF-14) — 버튼을 없앴다 만들면 그 위의 손이 클릭을 잃는다.
-     */
-    const rf=this._keep(key+'/refresh',()=>{
-      // 요구 ③/⑤: 글자가 아니라 아이콘이다. 크기는 `.ui-icon` 이 정한다.
-      return UIKit.button({icon:GIT_REFRESH_LABEL,title:GIT_REFRESH_TITLE,kind:'ghost',size:'lg',
-        cls:'ed-side-refresh git-head-refresh',
-        onClick:()=>app.gitPanelAt(app.edRootOf(s),slot).refresh()});
-    });
-    rf.hidden=active!==REPO_SIDE_CHANGES;
-    this._place(bar,[...[...bar.children].filter(c=>c!==rf),rf]);
+    // UX_AUDIT_FIX_SRS FR-UXF-27 (D-10): git 새로고침 단추(GIT_CHANGES_CONTROLS_SRS FR-GCC-10)는 없다 — 목록은 자동
+    // 관측으로만 바뀌고, 관측이 실패하면 낡음 안내가 앱 새로고침을 권한다 (FR-UXF-29).
     const body=this._keep(key+'/body',()=>{
       const b=document.createElement('div'); b.className='ed-side-body'; return b;
     });

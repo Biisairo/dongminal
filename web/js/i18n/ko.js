@@ -129,6 +129,9 @@ I18N.register('ko', {
   'core.file_unsupported_title': '열 수 없는 형식입니다',
   'core.no': '아니오',
   'core.no_window': '창 없음',
+  // UX_AUDIT_FIX_SRS FR-UXF-28·29: 자동 갱신이 실패했을 때의 복구 길.
+  'core.reload_app': '앱 새로고침',
+  'activity.stale': '작업 목록을 갱신하지 못했습니다.',
   'core.off': '끔',
   'core.ok': '확인',
   'core.open_window_fail': '창을 열지 못했습니다',

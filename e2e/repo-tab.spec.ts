@@ -165,9 +165,9 @@ test.describe('묶음 W — 사이드는 Explorer 와 Changes 를 갈아 끼운�
       await expect(side(page).locator('.ed-side-act[data-view]')).toHaveCount(6);
       // Diff 는 이 줄에 없다 — 파일을 누르면 열린다 (FR-RTU-21 개정).
       await expect(side(page).locator('.ed-side-act[data-view="diff"]')).toHaveCount(0);
-      // FR-GCC-10: 새로고침은 창의 최상단(탭 줄 오른쪽 끝)이다 — 브랜치 줄에는 없다.
-      await expect(side(page).locator('.ed-side-tabs .git-head-refresh')).toHaveCount(1);
-      await expect(side(page).locator('.git-head .git-head-refresh')).toHaveCount(0);
+      // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 탭 줄 오른쪽 끝에 새로고침 하나(FR-GCC-10) / 지금 사이드 어디에도 없다
+      // / 이유 목록은 자동 관측으로만 바뀐다.
+      await expect(side(page).locator('.git-head-refresh')).toHaveCount(0);
       // FR-GCC-13: 사이드 탭의 첫 번째는 Changes 다.
       await expect(side(page).locator('.ed-side-tab').first()).toHaveAttribute('data-side', 'changes');
     });
