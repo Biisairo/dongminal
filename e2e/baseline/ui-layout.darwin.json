@@ -440,6 +440,15 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
+ "terminal|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "terminal|span.desktop-only[hidden]": {
   "display": "none",
   "overflowX": "visible",
@@ -753,15 +762,6 @@
   "minHeight": "auto"
  },
  "terminal|span.ok.sb-dot": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "terminal|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -1969,6 +1969,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:changes|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:changes|span.desktop-only[hidden]": {
   "display": "none",
@@ -3224,15 +3233,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:changes|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:changes|span.mono.sb-ref": {
   "display": "block",
   "overflowX": "visible",
@@ -4432,6 +4432,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:diff|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:diff|span.desktop-only[hidden]": {
   "display": "none",
@@ -5813,15 +5822,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:diff|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:diff|span.mono.sb-ref": {
   "display": "block",
   "overflowX": "visible",
@@ -7021,6 +7021,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:history|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:history|span.desktop-only[hidden]": {
   "display": "none",
@@ -8336,7 +8345,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-row": {
+ "git:history|div.git-hist-row.head": {
   "display": "flex",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8378,7 +8387,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:history|span.git-hist-badge.local": {
+ "git:history|span.git-hist-badge.head.local": {
   "display": "block",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8432,7 +8441,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-row.head": {
+ "git:history|div.git-hist-row": {
   "display": "flex",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8444,7 +8453,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:history|span.git-hist-badge.head.local": {
+ "git:history|span.git-hist-badge.local": {
   "display": "block",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8577,15 +8586,6 @@
   "minHeight": "auto"
  },
  "git:history|span.ok.sb-dot": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:history|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -9793,6 +9793,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:branches|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:branches|span.desktop-only[hidden]": {
   "display": "none",
@@ -11333,15 +11342,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:branches|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:branches|span.mono.sb-ref": {
   "display": "block",
   "overflowX": "visible",
@@ -12541,6 +12541,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:stash|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:stash|span.desktop-only[hidden]": {
   "display": "none",
@@ -13838,15 +13847,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:stash|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:stash|span.mono.sb-ref": {
   "display": "block",
   "overflowX": "visible",
@@ -15046,6 +15046,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:console|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:console|span.desktop-only[hidden]": {
   "display": "none",
@@ -16292,15 +16301,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:console|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:console|span.mono.sb-ref": {
   "display": "block",
   "overflowX": "visible",
@@ -17500,6 +17500,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:worktrees|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:worktrees|span.desktop-only[hidden]": {
   "display": "none",
@@ -18821,15 +18830,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:worktrees|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:worktrees|span.mono.sb-ref": {
   "display": "block",
   "overflowX": "visible",
@@ -20029,6 +20029,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:submodules|span.tt-sep": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:submodules|span.desktop-only[hidden]": {
   "display": "none",
@@ -21276,15 +21285,6 @@
   "minHeight": "auto"
  },
  "git:submodules|span.ok.sb-dot": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:submodules|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -22911,15 +22911,6 @@
   "minHeight": "auto"
  },
  "editor|span.ok.sb-dot": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "editor|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",

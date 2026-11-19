@@ -389,7 +389,8 @@ body:not(.mobile) #sidebar{
    그대로 반복된다. */
 /* REPO_TAB_UNIFY_SRS FR-RTU-41: 미리보기 탭. 기울임 하나로 "곧 대체된다" 를
    말한다 — VSCode 와 같은 어휘이므로 사용자가 배울 것이 없다. */
-.pn-tab.pn-tab-preview .pn-tab-label{font-style:italic}
+.pn-tab.pn-tab-preview .pn-tab-label{color:var(--text-muted)}
+/* UX_AUDIT_FIX_SRS FR-UXF-9: 이전 기울임꼴 / 지금 흐린 글자 / 이유 기울임은 글꼴 문제로 읽혔다(진단 M9). 뜻은 툴팁이 말한다. */
 
 #add-window,#add-preset,#add-group,#repo-add{
   margin:0 8px 4px;padding:4px 8px;min-height:30px;
@@ -524,6 +525,8 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   background:var(--sidebar-bg);border-bottom:1px solid var(--border-strong);padding:0 8px;gap:6px;
 }
 #window-name{font-size:var(--fs-md);color:var(--text-muted)}
+/* UX_AUDIT_FIX_SRS FR-UXF-2: 제목의 구분점은 흐린 글자다 — 상단바와 칸 머리글이 같다. */
+.tt-sep{color:var(--text-hint)}
 
 /* SLOT_MARKER_SRS FR-SMK-1·4·5·6·20·21: 칸 마커.
    `#window-name` 이 비는 자리에 선다 — 칸이 여럿일 때만 서므로 그 둘이 같은
@@ -1395,6 +1398,7 @@ body:not(.mobile) #agents-panel:not(.open) :is(.ag-loc,.bg-name,.runs-short,.cha
   background:var(--bg);color:var(--text-muted);
   border:1px solid var(--border);box-shadow:var(--shadow-2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:ui-surface-in var(--dur-fast) ease-out;   /* UX_AUDIT_FIX_SRS FR-UXF-11 */
 }
 .toast.ok{border-color:var(--accent-border);color:var(--text-bright)}
 .toast.err{border-color:var(--danger);color:var(--danger-text)}

@@ -19,7 +19,9 @@ Object.assign(GitPanel.prototype, {
 
   // 보기 모드와 공백무시는 기기별 취향이라 localStorage 에 남는다 (§3.3).
   _sideBySidePref(){
-    if(this._sideBy==null) this._sideBy=PrefStore.local.bool(GIT_DIFF_SIDE_KEY,true);
+    // UX_AUDIT_FIX_SRS FR-UXF-8 (D-2): 저장값이 없으면 모바일은 통합, 데스크톱은 나란히로 시작한다.
+    //   이전: 기기와 상관없이 나란히 — 좁은 폭에서 한 쪽만 보여 선택과 화면이 어긋났다 (진단 M7).
+    if(this._sideBy==null) this._sideBy=PrefStore.local.bool(GIT_DIFF_SIDE_KEY,!this.app.isMobile);
     return this._sideBy;
   },
 

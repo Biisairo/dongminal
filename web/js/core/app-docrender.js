@@ -41,6 +41,25 @@ Object.assign(App.prototype, {
       this._docRenderOpen(view.filePath, view.name);
     });
     view.el.appendChild(b);
+    this._docRenderPlace(view, b);
+  },
+
+  /**
+   * UX_AUDIT_FIX_SRS FR-UXF-6: 단추는 오른쪽 아래, 미니맵·스크롤바 앞에 선다. 그 폭은 문서와 설정에 따라
+   * 달라지므로 CSS 가 알 수 없다 — 스크롤 영역의 크기가 바뀔 때마다 비킬 폭(`--fe-render-end`)을 적는다.
+   */
+  _docRenderPlace(view, b) {
+    const sc = view._view && view._view.scrollDOM;
+    if (!sc) return;
+    const place = () => {
+      const box = view.el.getBoundingClientRect();
+      const map = view.el.querySelector('.cm-minimap-gutter');
+      const end = Math.min(sc.getBoundingClientRect().left + sc.clientWidth, map ? map.getBoundingClientRect().left : Infinity);
+      b.style.setProperty('--fe-render-end', Math.max(0, box.right - end) + 'px');
+    };
+    view._docRenderRo = new ResizeObserver(place);
+    view._docRenderRo.observe(sc);
+    place();
   },
 
   /**

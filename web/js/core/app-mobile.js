@@ -262,7 +262,8 @@ Object.assign(App.prototype, {
   // 버튼 하나를 세우고 터치·클릭을 배선한다. 판정 상태는 버튼마다 따로다.
   _mkbButton(k){
     const b=document.createElement('button');
-    b.className='ui-btn mkb-btn';b.textContent=k.label;b.type='button';
+    b.className='ui-btn mkb-btn';b.type='button';
+    if(k.icon) b.appendChild(UIKit.icon(k.icon)); else b.textContent=k.label;   // UX_AUDIT_FIX_SRS FR-UXF-7
     // FR-MTI-14: 버튼이 포커스를 가져가면 소프트 키보드가 내려가고, 이어지는
     // term.focus() 가 다시 올려 visualViewport 이벤트가 폭주한다. 스와이프로
     // 판정된 터치(preventDefault 를 하지 않는 경로)에서도 그 일이 없어야 한다.

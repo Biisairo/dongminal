@@ -280,6 +280,8 @@ const UIKit = {
   _dlgStack: [],
   _dlgSeq: 0,
   _dlgBound: false,
+  /** UX_AUDIT_FIX_SRS FR-UXF-4: 마지막 입력이 포인터였는가 — 문서 끝의 두 수신기가 적는다. */
+  _ptrInput: false,
 
   /** 상자 안에서 `Tab` 이 닿을 수 있는 것들. 보이지 않는 것은 닿지 않는다. */
   _dlgFocusables(box) {
@@ -337,7 +339,8 @@ const UIKit = {
       document.addEventListener('keydown', this._dlgOnKey, true);
       this._dlgBound = true;
     }
-    const entry = { box, returnTo: s.returnTo || document.activeElement };
+    // FR-UXF-4: 포인터로 열었으면 열 때·닫을 때 스크립트가 주는 포커스는 링을 그리지 않는다.
+    const entry = { box, returnTo: s.returnTo || document.activeElement, quiet: this._ptrInput };
     this._dlgStack.push(entry);
 
     /**
@@ -352,7 +355,7 @@ const UIKit = {
       const cur = document.activeElement;
       if (cur && cur !== box && box.contains && box.contains(cur)) return;
       const want = s.focus && s.focus.isConnected ? s.focus : this._dlgFocusables(box)[0];
-      (want || box).focus();
+      this._focusMaybeQuiet(want || box, entry.quiet);
     }, { label: 'dialog-focus' });
 
     let released = false;
@@ -365,8 +368,20 @@ const UIKit = {
       // 사라진 요소에 `focus()` 하면 포커스가 `<body>` 로 떨어지고, 그러면 다음
       // `Tab` 이 문서 맨 앞에서 시작한다.
       const r = entry.returnTo;
-      if (r && r.isConnected && typeof r.focus === 'function') r.focus();
+      if (r && r.isConnected && typeof r.focus === 'function') this._focusMaybeQuiet(r, entry.quiet);
     };
+  },
+
+  /**
+   * FR-UXF-4: 포커스의 **자리**는 그대로 두고 링만 끈다. 표식(`.ui-focus-quiet`)은 포커스를 잃거나
+   * 키를 누르면 걷힌다 — 키보드 사용자의 링은 종전과 같다.
+   */
+  _focusMaybeQuiet(el, quiet) {
+    if (quiet && el.classList) {
+      el.classList.add('ui-focus-quiet');
+      el.addEventListener('blur', () => el.classList.remove('ui-focus-quiet'), { once: true });
+    }
+    el.focus();
   },
 
   /**
@@ -851,3 +866,14 @@ const UIKit = {
     return Math.max(1, Math.floor(w / cell.w)) + ' cols';
   },
 };
+
+// UX_AUDIT_FIX_SRS FR-UXF-4: 입력 방식을 적는다. 키를 누르면 링을 끈 표식을 걷는다 — 다음 포커스부터 링이 선다.
+// 단위 시험 하네스의 `document` 에는 수신기가 없다 — 그때는 적지 않는다.
+if (typeof document.addEventListener === 'function') {
+  document.addEventListener('pointerdown', () => { UIKit._ptrInput = true }, true);
+  document.addEventListener('keydown', () => {
+    UIKit._ptrInput = false;
+    const a = document.activeElement;
+    if (a && a.classList) a.classList.remove('ui-focus-quiet');
+  }, true);
+}

@@ -579,6 +579,8 @@ body.mobile .git-head-remote{gap:2px}
    사라져도 누를 자리는 그대로다 — 히트 영역과 테두리는 다른 것이다. */
 /* 행 동작의 외형·히트 영역은 `.ui-btn.ui-btn-ghost.ui-btn-lg`(30px = 옛 `--git-hit`)
    다 (§7.5). 폐기만 hover 에서 위험색을 미리 보인다 — 담는 쪽에 건다 (D-TOK-11). */
+/* UX_AUDIT_FIX_SRS FR-UXF-5: 폐기는 되돌릴 수 없다 — 늘 흐린 위험색이고 앞 단추와 간격을 둔다 (이전: hover 에서만 위험색, 간격 없음). */
+.git-file-acts>[data-act="discard"]{color:var(--danger-text);margin-left:var(--ui-gap)}
 .git-file-acts>[data-act="discard"]:hover{color:var(--danger-text);background:var(--attn-subtle)}
 /* `ours`·`theirs` 는 글자다 (FR-GLY-8) — 정사각에 갇히지 않는다. */
 /* `ours`·`theirs` 는 글자다 (FR-GLY-8) — 정사각에 갇히지 않는다. 겹이 사이드를

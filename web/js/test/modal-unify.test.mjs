@@ -47,6 +47,8 @@ test('UIKit.modal 의 Escape 는 preventDefault·stopPropagation 을 하고 닫�
   };
   const ctx = load(['ui/ui-kit.js'], { expose: ['UIKit'], globals: { document } });
   ctx.UIKit.dialogOpen = () => () => {};
+  // UX_AUDIT_FIX_SRS FR-UXF-4: 킷은 실릴 때 입력 방식 수신기를 하나 단다 — 모달이 다는 것만 센다.
+  keys.length = 0;
   let closed = 0;
   ctx.UIKit.modal({ head: false, onClose: () => { closed++ } });
   assert.equal(keys.length, 1);

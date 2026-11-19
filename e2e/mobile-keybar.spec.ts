@@ -418,7 +418,8 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
 
     for (let i = 0; i < count; i++) {
       const btn = buttons.nth(i);
-      const label = (await btn.textContent())?.trim() ?? '';
+      // UX_AUDIT_FIX_SRS FR-UXF-7: 키보드 키는 아이콘이라 글자가 없다 — 이름표의 열쇠 `⌨` 로 읽는다.
+      const label = (await btn.getAttribute('data-act')) === 'kb' ? '⌨' : (await btn.textContent())?.trim() ?? '';
       const expected = FULL_NAMES[label];
       expect(expected, `unexpected label: ${label}`).toBeDefined();
       await expect(btn).toHaveAttribute('title', expected);

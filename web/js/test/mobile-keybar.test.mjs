@@ -18,7 +18,7 @@ const ctx = () => load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js'], { ex
 test('키 표가 보내는 바이트는 종전과 같다', () => {
   const keys = plain(ctx().MKB_KEYS);
   assert.deepEqual(keys, [
-    { label: '⌨', act: 'kb' },
+    { label: '⌨', act: 'kb', icon: 'keyboard' },   // UX_AUDIT_FIX_SRS FR-UXF-7: 아이콘으로 그린다
     { label: 'Esc', send: '\x1b' },
     { label: 'Tab', send: '\t' },
     { label: '⏎', send: '\r' },

@@ -156,7 +156,8 @@ const MKB_KEYS=Object.freeze([
   // 키보드를 내리려면 키바를 끝까지 가로로 밀어야 했다. 이제 이 버튼은
   // 키보드를 **올리는** 유일한 길이기도 하므로(FR-MKB-4) 손이 먼저 닿는
   // 자리에 있어야 한다.
-  {label:'⌨',act:'kb'},
+  // UX_AUDIT_FIX_SRS FR-UXF-7: 글자 대신 아이콘을 그린다 — `⌨` 가 글꼴 대체로 `▬` 처럼 보였다(진단 M3). 라벨은 이름표의 열쇠로 남는다.
+  {label:'⌨',act:'kb',icon:'keyboard'},
   {label:'Esc',send:'\x1b'},
   {label:'Tab',send:'\t'},
   // FR-MKB-15: 소프트 키보드를 내려 둔 채 쓰는 길이 `⌨` 로 생겼으므로
@@ -897,6 +898,8 @@ const TERM_COPY_CLOSE=t('core.term_copy_close');
 // 탐색기의 펼침·스크롤, Git 패널의 열린 탭이 함께 사라진다. 이쪽은 **서버의
 // 사실만 다시 받는다.**
 const RELOAD_BTN_ID='soft-reload-btn';
+// UX_AUDIT_FIX_SRS FR-UXF-2: 상단바·칸 머리글 제목의 구분점.
+const TITLE_SEP=' · ';
 const RELOAD_TITLE='Reload the app without a full page refresh';
 const RELOAD_BUSY_TITLE=t('core.reload_busy_title');
 

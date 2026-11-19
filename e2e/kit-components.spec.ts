@@ -353,6 +353,10 @@ test.describe('FR-TYP-4: 상태바의 두 글꼴', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       for (const k of Object.keys(a.sbShow || {})) a.sbShow[k] = true;
+      // UX_AUDIT_FIX_SRS FR-UXF-3 로 개정: 이전 메모리·지연이 기본 켜짐이라 쌍이 늘 섰다 / 지금 기본 꺼짐 —
+      // 설정 표(`statusBar`, settings-state.js 의 `var`)에서 켠다.
+      const sb = (window as any).statusBar;
+      for (const k of Object.keys(sb || {})) sb[k] = true;
       a.testing.updateStatusBar();
     });
     await expect(page.locator('#sb-items .sb-item .mono').first()).toBeVisible({ timeout: 15000 });

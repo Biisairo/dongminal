@@ -42,7 +42,8 @@ test.describe('Git 창의 상단 이름', () => {
     await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
     const wantA = await listName(page, a).textContent();
     expect(wantA).toBeTruthy();
-    await expect(topName(page)).toHaveText(`저장소 · ${wantA!.trim()}`, { timeout: 10000 });
+    // UX_AUDIT_FIX_SRS FR-UXF-1 로 개정: 이전 `저장소 · <리포>` / 지금 `<리포>` — 라벨은 창 이름이 빌 때만 선다.
+    await expect(topName(page)).toHaveText(wantA!.trim(), { timeout: 10000 });
     await expect(topName(page)).not.toHaveText('Git');
 
     // 같은 창에서 리포만 바꾼다 — render 가 돌지 않는 경로다.
@@ -50,7 +51,7 @@ test.describe('Git 창의 상단 이름', () => {
     const wantB = await listName(page, b).textContent();
     expect(wantB).toBeTruthy();
     expect(wantB!.trim()).not.toBe(wantA!.trim());
-    await expect(topName(page)).toHaveText(`저장소 · ${wantB!.trim()}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(wantB!.trim(), { timeout: 10000 });
   });
 
   /**
@@ -70,6 +71,6 @@ test.describe('Git 창의 상단 이름', () => {
       // ISSUE_TREE_OPS_SRS FR-ITW-1: 끝에 포커스 탭 이름이 붙는다.
       return w.name + ' · ' + app.renderer._rWinTab(w);
     });
-    await expect(topName(page)).toHaveText(`창 · ${name}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(name, { timeout: 10000 });   // FR-UXF-1: 라벨 `창 · ` 이 붙지 않는다
   });
 });

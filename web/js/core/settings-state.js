@@ -9,15 +9,16 @@
 
 const STATUS_ITEMS={
   connection:{label:t('statusbar.connection'),def:true},
-  latency:{label:t('statusbar.latency'),def:true},
-  location:{label:t('statusbar.location'),def:true},
+  // UX_AUDIT_FIX_SRS FR-UXF-3: 지연·위치·메모리는 기본 꺼짐이다 (이전: 켜짐). 저장된 값이 있으면 그것을 따른다(D-1).
+  latency:{label:t('statusbar.latency'),def:false},
+  location:{label:t('statusbar.location'),def:false},
   cwd:{label:t('statusbar.cwd'),def:true},
   // U-19 ① (2026-09-11 사용자 판정): **`git` 항목은 제거됐다.**
   // 몇 초 동안만 뜨는 것을 켜고 끄는 스위치는 켜 두어도 늘 안 보이므로 설정으로서
   // 뜻이 없었다. FR-GIT-112(상태바 표시)가 철회됐다 — 작업 목록 폴링 자체는
   // 남는다(FR-GIT-101a). 저장된 설정에 옛 키가 있어도 이 표를 딛는 화면은 그것을
   // 보지 않는다.
-  memory:{label:t('statusbar.memory'),def:true},
+  memory:{label:t('statusbar.memory'),def:false},
   hostname:{label:t('statusbar.hostname'),def:false},
   cpu:{label:t('statusbar.cpu'),def:false},
   disk:{label:t('statusbar.disk'),def:false},

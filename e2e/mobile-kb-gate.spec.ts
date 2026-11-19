@@ -120,8 +120,10 @@ test.describe('묶음 MKB — 키 배열과 `^C` (FR-MKB-8~12)', () => {
   // FR-MKB-8·9: 자리가 요구의 절반이다 — 맨 왼쪽과 `Ctrl` 옆.
   test('MKB6 (V-9): `⌨` 가 첫 버튼이고 `^C` 가 `Ctrl` 다음이다', async ({ page }) => {
     await gotoMobile(page);
+    // UX_AUDIT_FIX_SRS FR-UXF-7 로 개정: 이전 첫 버튼의 글자가 `⌨` / 지금 키보드 아이콘이라 글자가 없다 —
+    // `data-act="kb"` 로 가린다 / 이유 글자가 글꼴 대체로 `▬` 처럼 보였다(진단 M3).
     const labels = await page.locator('#mobile-keybar .mkb-btn')
-      .evaluateAll(els => els.map(e => (e.textContent || '').trim()));
+      .evaluateAll(els => els.map(e => (e as HTMLElement).dataset.act === 'kb' ? '⌨' : (e.textContent || '').trim()));
     expect(labels[0]).toBe('⌨');
     expect(labels[labels.indexOf('Ctrl') + 1]).toBe('^C');
   });

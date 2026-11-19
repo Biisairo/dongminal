@@ -23,8 +23,9 @@ test('TC-ITW-1: 표시줄이 포커스 탭 이름을 따라가고 title 에 전�
   await rename(page, 'ccr#32›33 피킹');
   const name = await winName(page);
   const top = page.locator('#window-name');
-  await expect(top).toHaveText(`창 · ${name} · ccr#32›33 피킹`, { timeout: 10000 });
-  await expect(top).toHaveAttribute('title', `창 · ${name} · ccr#32›33 피킹`);
+  // UX_AUDIT_FIX_SRS FR-UXF-1 로 개정: 이전 `창 · <창> · <탭>` / 지금 `<창> · <탭>` — 사이드바 탭 라벨은 붙지 않는다.
+  await expect(top).toHaveText(`${name} · ccr#32›33 피킹`, { timeout: 10000 });
+  await expect(top).toHaveAttribute('title', `${name} · ccr#32›33 피킹`);
 
   // 칸을 나누고 새 칸에 포커스가 가면 그 칸의 탭 이름이 된다 — 포커스를 따라간다 (FR-ITW-4).
   await page.evaluate(() => (window as any).app.executeAction('splitH'));
@@ -34,9 +35,9 @@ test('TC-ITW-1: 표시줄이 포커스 탭 이름을 따라가고 title 에 전�
     const panes = app.flattenPanes(w.layout);
     return { first: panes[0].id, focused: app.focused };
   });
-  await expect(top).not.toHaveText(`창 · ${name} · ccr#32›33 피킹`, { timeout: 10000 });
+  await expect(top).not.toHaveText(`${name} · ccr#32›33 피킹`, { timeout: 10000 });
   await page.evaluate((id) => (window as any).app.setFocus(id), second.first);
-  await expect(top).toHaveText(`창 · ${name} · ccr#32›33 피킹`, { timeout: 10000 });
+  await expect(top).toHaveText(`${name} · ccr#32›33 피킹`, { timeout: 10000 });
 });
 
 test('TC-ITW-1: 칸이 여럿이면 각 머리글이 자기 창의 포커스 탭 이름을 보인다', async ({ page }) => {

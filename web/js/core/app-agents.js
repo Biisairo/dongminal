@@ -246,9 +246,14 @@ Object.assign(App.prototype, {
       g.push({t:'card',toolId,info:this._activity.get(toolId),loc});
     }
     const out=[],fold=this._agFolded();
+    // UX_AUDIT_FIX_SRS FR-UXF-12: 승인 대기(`waiting`)가 위다 — 그룹 안에서는 그 카드가, 그룹 사이에서는 그것을 가진
+    // 창이 앞에 선다. 나머지 순서와 저장된 순서(`agentsOrder`)는 그대로다 — 그릴 때만 옮긴다.
+    const waits=c=>!!c.info&&c.info.state===ACTIVITY_STATE.WAITING;
+    const front=(xs,f)=>xs.filter(f).concat(xs.filter(x=>!f(x)));
+    for(const [id,g] of byWin) byWin.set(id,front(g,waits));
     // FR-AGG-2·3: 그룹 순서는 `ws.windows` 의 순서다. 패널이 따로 갖는 순서가
     // 없으므로 창 순서가 바뀌면 그 자리에서 따라간다.
-    for(const win of this.ws.windows||[]){
+    for(const win of front(this.ws.windows||[],w=>(byWin.get(w.id)||[]).some(waits))){
       const g=byWin.get(win.id);
       if(!g||!g.length) continue; // FR-AGG-4: 빈 머리는 정보가 아니다
       const folded=fold.has(win.id);

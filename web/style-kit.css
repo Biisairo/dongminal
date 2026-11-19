@@ -88,6 +88,9 @@
 }
 .ui-btn:hover{background:var(--accent-active);color:var(--accent-text);border-color:var(--accent-border)}
 .ui-btn:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+/* UX_AUDIT_FIX_SRS FR-UXF-4: 포인터로 연 모달이 스크립트로 준 포커스는 링을 그리지 않는다. 키를 누르면 표식이 걷힌다(ui-kit.js). */
+/*   링을 지우지 않고 색만 투명하게 한다 — 표식이 걷히면(키 입력·포커스 잃음) 같은 링이 그대로 보인다 (FR-TOK-24). */
+.ui-focus-quiet:focus-visible{outline-color:transparent}
 .ui-btn:disabled,.ui-btn.disabled{opacity:.4;cursor:default;background:transparent;color:var(--text-hint);border-color:var(--border)}
 
 /* FR-UIK-5 / 요구 ⑤: 아이콘 버튼은 정사각이고 **아이콘이 상자를 꽉 채운다**. */
@@ -395,6 +398,7 @@ body.mobile .ui-switch{
   display:flex;flex-direction:column;min-width:280px;max-width:90vw;max-height:82vh;
   background:var(--bg);border:1px solid var(--border-strong);border-radius:8px;
   box-shadow:var(--shadow-2);
+  animation:ui-surface-in var(--dur-fast) ease-out;   /* UX_AUDIT_FIX_SRS FR-UXF-11 */
 }
 .ui-modal-head{
   display:flex;align-items:center;gap:8px;flex:0 0 auto;
@@ -413,6 +417,7 @@ body.mobile .ui-switch{
   position:fixed;z-index:var(--z-popover);min-width:160px;padding:3px;
   background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:5px;
   box-shadow:var(--shadow-2);font-size:var(--fs-md);color:var(--text);
+  animation:ui-surface-in var(--dur-fast) ease-out;   /* UX_AUDIT_FIX_SRS FR-UXF-11 */
 }
 .ui-menu-item{
   display:flex;align-items:center;gap:7px;
@@ -542,3 +547,8 @@ body.mobile .ui-menu-item{min-height:var(--touch-min);padding:0 14px;font-size:v
   content:'';position:absolute;top:0;bottom:0;
   left:calc(var(--ui-resize-hit) * -1);right:calc(var(--ui-resize-hit) * -1);
 }
+
+/* UX_AUDIT_FIX_SRS FR-UXF-11: 떠 있는 표면(메뉴·토스트·모달 상자)이 나타나는 동작 하나 — 짧은 fade.
+   위치는 움직이지 않는다: 메뉴를 화면 안으로 뒤집는 계산이 나타나는 순간의 상자를 잰다(진단 제안의 4px rise 를 뺀 이유).
+   합성 속성만 움직인다(FR-PRF-35). 움직임 줄이기는 전역 규칙이 멎게 한다. */
+@keyframes ui-surface-in{from{opacity:0}to{opacity:1}}

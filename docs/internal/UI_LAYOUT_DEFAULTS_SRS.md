@@ -972,3 +972,8 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   키가 옮겨 간 자리뿐이었다: `#sidebar` 의 키가 `div.ui-scroll` → `div.ui-scroll.ui-panel` 이 되어 `div.ui-scroll` 을
   `#agents-body` 가 이어받았다(열 화면 × `overflowX`·`overflowY`·`minHeight`, 30자리). **`linux`·`win32` 는 아직이다** —
   푸시 뒤 `layout-baseline` 워크플로를 돌려 받은 두 파일로 덮어야 그 판의 V-LAY-1 이 선다(사용자가 실행한다).
+- 2026-11-19 (UX_AUDIT_FIX_SRS FR-UXF-2) `ui-layout.darwin.json` 을 **다시 떴다**(2515자리). 상단바 제목의 구분점이 흐린 글자
+  span(`.tt-sep`)이 되어 열 화면 중 아홉에 `span.tt-sep` 키가 새로 생겼다(대조 때 "지금에만" 9 → 드리프트가 기준선 40 을
+  넘었다). 양쪽에 있는 키의 값은 하나도 바뀌지 않았다(대조 `diffs` 0). 같은 회차의 데스크톱 CSS 변경(discard 단추 위험색·간격,
+  미리보기 단추 자리, 미리보기 탭 글자색, 떠 있는 표면의 fade)은 기준선이 재는 키의 값을 바꾸지 않았다. **`linux`·`win32` 는
+  아직이다** — 푸시 뒤 `layout-baseline` 워크플로로 받는다(사용자가 실행한다).

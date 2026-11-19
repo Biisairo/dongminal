@@ -76,26 +76,39 @@ Object.assign(Renderer.prototype, {
   },
 
   /**
-   * 창의 표시 제목 — `<타입 라벨> · <창 이름>` (FR-STB-1).
+   * 창의 표시 제목 — `<창 이름> · <탭 이름>` (FR-STB-1 → UX_AUDIT_FIX_SRS FR-UXF-1).
    *
    * **조립하는 자리는 여기 하나다** (FR-STB-4). 토프바와 슬롯 머리글이 각자
    * 만들던 동안 Git 창은 두 자리에서 다른 이름으로 불렸다 — 토프바는 리포명,
    * 머리글은 저장된 `Git`. 형식을 바꾸는 이번에도 자리를 둘로 남기면 같은 결함이
    * 다시 자란다.
    *
-   * 이름이 라벨과 같으면 겹쳐 적지 않는다 (`Git · Git` 이 되지 않도록).
+   *   이전 동작: `<타입 라벨> · <창 이름> · <탭 이름>` (예: `창 · Window · Shell`)
+   *   새  동작: 라벨은 창 이름이 빌 때만 이름 자리에 선다
+   *   이유:     라벨은 사이드바 탭 이름이라 제목에서 정보가 없다 (진단 D1)
+   *
+   * 같은 말은 겹쳐 적지 않는다 (`Git · Git` 이 되지 않도록).
    */
-  _rWinTitle(w,slot){
-    if(!w) return '';
-    const label=SidebarTabs.labelForWindow(this.app,w);
-    const name=this._rWinName(w);
-    let base;
-    if(!label) base=name;                   // FR-STB-6: 모르는 타입이면 이름만
-    else if(!name||name===label) base=label;
-    else base=label+' · '+name;
-    // ISSUE_TREE_OPS_SRS FR-ITW-1: 그 창의 포커스 탭 이름까지. 같은 말이면 겹쳐 적지 않는다.
+  _rWinTitleParts(w,slot){
+    if(!w) return [];
+    const name=this._rWinName(w)||SidebarTabs.labelForWindow(this.app,w)||'';
+    // ISSUE_TREE_OPS_SRS FR-ITW-1: 그 창의 포커스 탭 이름까지.
     const tab=this._rWinTab(w,slot);
-    return (!tab||tab===name||tab===label)?base:(base?base+' · '+tab:tab);
+    return [name,tab!==name?tab:''].filter(Boolean);
+  },
+
+  _rWinTitle(w,slot){
+    return this._rWinTitleParts(w,slot).join(TITLE_SEP);
+  },
+
+  /** FR-UXF-2: 제목을 칠한다 — 구분점은 흐린 글자(`.tt-sep`), `title` 은 전체 문자열이다. */
+  _rPaintTitle(el,parts){
+    el.replaceChildren();
+    parts.forEach((p,i)=>{
+      if(i){ const sep=document.createElement('span'); sep.className='tt-sep'; sep.textContent=TITLE_SEP; el.appendChild(sep) }
+      el.appendChild(document.createTextNode(p));
+    });
+    el.title=parts.join(TITLE_SEP);
   },
 
   /**
@@ -119,13 +132,12 @@ Object.assign(Renderer.prototype, {
     const app=this.app;
     const multi=!app.isMobile&&app.slotCount()>1;
     const top=document.getElementById('window-name');
-    if(top){ const s=multi?'':this._rWinTitle(app.aw()); top.textContent=s; top.title=s }
+    if(top) this._rPaintTitle(top,multi?[]:this._rWinTitleParts(app.aw()));
     if(!multi) return;
     document.querySelectorAll('#area .slot[data-slot] .slot-head').forEach(h=>{
       const i=Number(h.closest('.slot').dataset.slot);
       const win=app.slotWindow(i);
-      const s=win?this._rWinTitle(win,i):t('core.no_window');
-      h.textContent=s; h.title=s;
+      this._rPaintTitle(h,win?this._rWinTitleParts(win,i):[t('core.no_window')]);
     });
   },
 
