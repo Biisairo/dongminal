@@ -26,6 +26,8 @@
 | # | 질문 | 결정 | 근거 |
 |---|---|---|---|
 | D-1 | 모바일에서 접기 아이콘 | `chevron-up` | 모바일 패널은 화면 위에서 내려온다(`style.css` `body.mobile #agents-panel.open`). 닫으면 위로 사라진다 |
+
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-12·17 로 개정 (2026-11-19)**: 이전 — 모바일 패널은 위에서 내려오는 띠였고 아이콘은 `chevron-up` 이었다 / 지금 — 패널은 화면 전체를 덮는 시트이고 아이콘은 `x`, 라벨은 `Close the panel` 이다 / 이유 — 전체 화면 시트에는 접히는 방향이 없다.
 | D-2 | 줄 이동 기본 키 | `Ctrl+KeyG` (두 OS 공통) | VS Code 의 관용이다. 종전 내장 키와 같다 |
 | D-3 | 입력 형식 | `줄` 또는 `줄:열` | VS Code 와 같다 |
 | D-4 | 범위 밖 값 | 줄은 `1..마지막 줄`, 열은 그 줄의 `1..길이+1` 로 접는다 | CodeMirror 내장 `gotoLine` 과 같다 |
@@ -45,6 +47,7 @@
 - **FR-ACB-1** 데스크톱에서 패널이 오른쪽에 있으면, 펼친 상태의 아이콘은 `chevron-right`, 레일 상태의 아이콘은 `chevron-left` 다.
 - **FR-ACB-2** 데스크톱에서 패널이 왼쪽에 있으면, 펼친 상태의 아이콘은 `chevron-left`, 레일 상태의 아이콘은 `chevron-right` 다.
 - **FR-ACB-3** 모바일에서 아이콘은 `chevron-up` 이다 (D-1).
+  > **MOBILE_UX_OVERHAUL_SRS FR-MUX-17 로 개정 (2026-11-19)**: 이전 `chevron-up` / 지금 `x`(`Close the panel`) / 이유 — 전체 화면 시트는 접는 것이 아니라 닫는 것이다. TC-ACB-1 의 모바일 단정도 `x` 다.
 - **FR-ACB-4** 아이콘은 순수 함수 `agCollapseIcon(open, side, mobile)` 하나가 정한다.
 - **FR-ACB-5** 패널 위치가 바뀌거나 모바일 여부가 바뀌면 머리를 다시 그린다. 머리의 `sig` 는 FR-ACB-4 의 결과를 포함한다.
 

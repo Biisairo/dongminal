@@ -353,7 +353,7 @@ Object.assign(App.prototype, {
       }
       for(const g of modal.querySelectorAll('.mtab-grp')) g.hidden=!!q; // FR-STO-4: 거른 목록에 묶음 이름은 없다
       const cur=modal.querySelector('.mtab.active');
-      if(cur&&cur.hidden){
+      if(cur&&cur.hidden&&!(this.isMobile&&modal.dataset.mview==='list')){   // MOBILE_UX_OVERHAUL_SRS FR-MUX-21: 모바일 목록에서는 상세로 넘기지 않는다
         const first=tabs.find(x=>!x.hidden);
         if(first) first.click();
       }

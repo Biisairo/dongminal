@@ -353,11 +353,14 @@ test.describe('Mobile RFC §7.2 verification automation (SRS REQ-D1..D4)', () =>
     expect(prevented, 'mousedown 이 preventDefault 되지 않아 포커스를 빼앗는다').toBe(true);
   });
 
-  test('TC-D3: single-pane session shows 1/1 indicator', async ({ page }) => {
+  // MOBILE_UX_OVERHAUL_SRS FR-MUX-5 로 개정 — 이전: 칸 하나여도 `1/1` 이 보였다.
+  // 새: 순회할 자리가 하나면 순회 묶음이 서지 않는다(값은 그대로 `1/1`). 이유: 눌러도
+  // 갈 곳이 없는 `‹ ›` 가 상단바 폭을 차지했다.
+  test('TC-D3: single-pane session hides the 1/1 navigator', async ({ page }) => {
     await gotoMobile(page);
     const indicator = page.locator('#m-pane-indicator');
-    await expect(indicator).toBeVisible();
     await expect(indicator).toHaveText('1/1');
+    await expect(page.locator('#topbar .m-pane-nav')).toBeHidden();
   });
 
   test('TC-D4: split controls and split handles are hidden in mobile mode', async ({ page }) => {

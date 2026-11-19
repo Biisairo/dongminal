@@ -39,11 +39,13 @@ test.describe('FR-ACB — Activity 접기 단추', () => {
     expect(await icon(page)).toContain('chevron-right');          // 왼쪽 레일
   });
 
-  test('ACB2: 모바일에서는 위로 접는다', async ({ page }) => {
+  // MOBILE_UX_OVERHAUL_SRS FR-MUX-17 로 개정 — 이전: `chevron-up`(위에서 내려오는 띠를 위로 접는다).
+  // 새: `x`. 이유: 모바일 Activity 는 화면 전체를 덮는 시트라 접히는 방향이 없다.
+  test('ACB2: 모바일에서는 닫는다', async ({ page }) => {
     await waitForInit(page, { mode: 'mobile', clearOnFirstLoad: ['panelDock', 'agentsPanelOpen'] });
     await page.evaluate(() => (window as any).app.setAgentsPanelOpen(true));
     await nextFrames(page);
-    expect(await icon(page)).toContain('chevron-up');
+    expect(await icon(page)).toContain('#i-x');
   });
 });
 

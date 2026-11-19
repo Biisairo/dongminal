@@ -418,6 +418,10 @@ body.mobile .ui-switch{
   display:flex;align-items:center;gap:7px;
   padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;
 }
+/* MOBILE_UX_OVERHAUL_SRS FR-MUX-53: 메뉴 항목도 터치 하한을 지킨다. 키운 만큼 길어진 메뉴는
+   화면을 넘지 않고 스스로 구른다. */
+body.mobile .ui-menu{max-height:calc(100dvh - 16px);max-width:calc(100vw - 16px);overflow-y:auto}
+body.mobile .ui-menu-item{min-height:var(--touch-min);padding:0 14px;font-size:var(--fs-lg)}
 .ui-menu-item:hover,.ui-menu-item.active{background:var(--accent-hover);color:var(--accent-text)}
 .ui-menu-item:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 /* FR-CMU-1: 비활성은 **사유를 보여야** 하므로 포인터를 막지 않는다 — `title` 은

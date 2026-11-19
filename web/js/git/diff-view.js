@@ -426,7 +426,7 @@ class GitDiffView {
       this._cmDestroy();
     }
     const kind=this._cmKind();
-    const opts={diff:true,readOnly:true,wordWrap:editorWordWrap,fontSize:edFontSize()};
+    const opts={diff:true,readOnly:true,wordWrap:edWrapOn(),fontSize:edFontSize()};
     const ea=edCmExtensions(opts),eb=edCmExtensions(opts);
     const buf=this._buf;
     // FR-ELR-38: 칸이 붙은 버퍼를 기억한다 — 버릴 때 `_buf` 는 이미 다음 문서의 것일 수 있다.

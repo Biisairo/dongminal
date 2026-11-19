@@ -74,6 +74,8 @@
 
 - **수용 기준**: visualViewport.height 를 300px 줄인 후 `getComputedStyle(document.body).paddingBottom` ≥ 338px (= 38 + 300). #app 의 boundingBox bottom ≤ `window.innerHeight - kbH - keybar_height + 1`.
 
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-2 로 개정 (2026-11-19)**: 이전 — 모바일이면 늘 키바 높이를 더했다 / 지금 — 키바가 감춰진 자리(`body.m-no-kb`, 비터미널 칸·시트 열림)에서는 키바 높이를 0 으로 보고 `kbH + safe-bottom` 만 비운다 / 이유 — 키바는 이제 터미널 칸에서만 서므로, 없는 키바의 높이를 비우면 본문이 그만큼 줄어든다.
+
 #### REQ-A-2 (키바 위치 보정 유지)
 
 키보드 등장 시 `#mobile-keybar.style.bottom` 은 `kbH px` 이어야 한다 (기존 동작 유지). 미등장 시 `safe-bottom px` 이어야 한다.

@@ -166,6 +166,14 @@ function edFontSize(){
   return Math.round(EDITOR_FONT_SIZE_BASE*uiFontSizeNow()/UI_FONT_BASE_PX);
 }
 
+/**
+ * MOBILE_UX_OVERHAUL_SRS FR-MUX-43: 지금 줄을 바꿔 보이는가. 모바일에서는 설정과 무관하게
+ * 바꾼다 — 좁은 화면에서 줄마다 가로로 미는 것은 읽을 수 없다. 설정 값은 그대로 둔다.
+ */
+function edWrapOn(){
+  return editorWordWrap||document.body.classList.contains('mobile');
+}
+
 // 글꼴 차례. 편집기 테마의 값이므로 CSS 토큰이 아니다 — `edFontSize` 와 같은 범주다.
 const ED_FONT_FAMILY="'Menlo','Consolas','Liberation Mono','Courier New',monospace";
 

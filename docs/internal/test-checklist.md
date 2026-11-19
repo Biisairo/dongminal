@@ -298,6 +298,7 @@
 |---|------|------------------|
 | C6.1 | 모달 열기/닫기 | overlay 클릭, close 버튼 |
 | C6.2 | 탭 전환 — Theme/Shortcuts/Status Bar/Presets/Display | active 클래스 토글 |
+| C6.9 | 모바일 — 전체 화면 설정, 섹션 목록 → 상세 (MOBILE_UX_OVERHAUL FR-MUX-20~23) | 열면 목록만 보이고 패널은 없다. 섹션을 누르면 패널과 뒤로 단추가 보인다. 뒤로·Escape 는 목록으로, 목록에서 Escape 는 닫기. 목록에서 검색해도 상세로 넘어가지 않는다 |
 | C6.3 | Theme 탭 — 테마 목록 + 프리뷰 | 클릭 시 즉시 적용 |
 | C6.4 | Custom Theme — 토글 + 색상 편집 | UI/Terminal 분리 |
 | C6.5 | Shortcuts 탭 — 단축키 표시 및 재정의 | 키 캡처 |
@@ -338,6 +339,7 @@
 | C8.10 | 업타임 | /api/stats의 sysUptime/srvUptime |
 | C8.11 | 주기적 갱신 | statsInterval(기본 3000ms) |
 | C8.12 | 항목별 on/off | 설정에 따른 표시/숨김 |
+| C8.13 | 모바일 — 연결·cwd 항목만 (FR-MUX-30·13) | 다른 항목은 설정과 무관하게 감춘다(설정 값은 그대로). 서랍·Activity·설정이 열려 있는 동안 상태바 전체가 감춰진다 |
 
 ### C9. 검색 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
@@ -357,15 +359,15 @@
 | C10.3 | `+ New` 버튼 — 새 창 | |
 | C10.4 | `★ Preset` 버튼 — 프리셋으로 새 창 | defaultPreset |
 | C10.5 | 리사이징 핸들 — 드래그 | localStorage에 sidebarWidth 저장 |
-| C10.6 | 모바일 — drawer 토글 | backdrop, swipe |
+| C10.6 | 모바일 — drawer 토글. 왼쪽에서 들어오는 전체 높이 시트, 폭 `min(86vw,360px)`, `#sb-bottom` 은 맨 아래 (FR-MUX-10·11) | backdrop, swipe, Escape 로 닫힘 |
 
 ### C11. 모바일 UI (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
-| C11.1 | 반응형 레이아웃 — breakpoint 기반 | Auto 모드: viewport width < breakpoint |
-| C11.2 | 모바일 전용 버튼 — 분할 칸 prev/next, search, add tab, drawer | |
+| C11.1 | 반응형 레이아웃 — breakpoint 기반 | Auto 모드: viewport width < breakpoint, 또는 화면 높이 < `MOBILE_LANDSCAPE_MAX_H`(500) 이고 `pointer:coarse` (FR-MUX-60). 높이가 넉넉한 터치 기기·마우스 기기는 폭만 본다 |
+| C11.2 | 모바일 전용 버튼 — 분할 칸 prev/next, search, drawer | 상단바에 add tab(`#m-add-tab`)은 없다 — 새 탭은 탭바의 `+` (FR-MUX-6). prev/next(`‹ n/m ›`)는 순회할 자리가 둘 이상일 때만 보인다 (FR-MUX-5). search 는 터미널 칸이면 터미널 검색, 편집기·diff 칸이면 편집기 찾기 패널 (FR-MUX-46) |
 | C11.3 | 가상 키보드 — sticky Ctrl/Alt | toggle/lock 모드 |
-| C11.4 | 모바일 키보드 바 | 동적 생성 |
+| C11.4 | 모바일 키보드 바 | 동적 생성. 포커스 칸이 터미널이고 시트(서랍·Activity·설정)가 닫혀 있을 때만 보인다. 감춰지면 본문이 그 높이만큼 늘고 터미널이 다시 fit 한다 (FR-MUX-2·3·13) |
 | C11.5 | **키바 터치 경로** — 짧은 탭이 키 전송, 한 제스처 = 1회 발동 | `hasTouch:true` 프로젝트 필수. `touchstart` 의 `preventDefault()` 는 합성 click 을 취소해 마우스 경로 테스트로는 결함이 보이지 않는다 |
 | C11.6 | **키바 수평 슬라이드** — 버튼 위에서 시작한 스와이프 | 이동 임계값(`MKB_TAP_SLOP_PX`) 초과 시 키 미전송 |
 | C11.7 | 롱프레스 툴팁 — 손떨림 내성 | 임계값 미만 이동은 롱프레스 유지 |

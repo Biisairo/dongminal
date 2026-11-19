@@ -551,7 +551,8 @@ const UIKit = {
     const o = opts || {};
     this.closeMenu();
     const m = document.createElement('div');
-    m.className = ['ui-menu', o.cls || ''].filter(Boolean).join(' ');
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-53: 모바일 메뉴는 화면을 넘으면 스스로 구른다 — 그 표면의 스크롤바는 킷의 것이다.
+    m.className = 'ui-menu ui-scroll-sm' + (o.cls ? ' ' + o.cls : '');
     m.setAttribute('role', 'menu');
     const returnTo = document.activeElement;
     for (const it of (items || [])) {

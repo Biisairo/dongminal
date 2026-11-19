@@ -447,14 +447,15 @@ test('V-LAY-22 (FR-LAY-1b): 모바일에서 hidden 이 .mobile-only 를 이긴�
     // 할 버튼**이므로 시간을 주는 쪽이 안전하다.
     await page.waitForTimeout(600);
 
-    // FR-EDT-54: Editor·Git 창에는 새 탭 버튼의 대상이 없다. 종전에는
-    // `body.mobile .mtbtn.mobile-only{display:flex!important}`(0-3-0)이
+    // 종전에는 `body.mobile .mtbtn.mobile-only{display:flex!important}`(0-3-0)이
     // 숨김(0-1-0 !important)을 이겨 **아무 일도 하지 않는 버튼이 보였다.**
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-6 으로 그 버튼(`#m-add-tab`)이 없어졌으므로,
+    // 같은 규칙을 칸 순회(`.m-pane-nav`, 칸 하나면 hidden — FR-MUX-5)로 잰다.
     const r = await page.evaluate(() => {
-      const el = document.getElementById('m-add-tab');
+      const el = document.querySelector('#topbar .m-pane-nav') as HTMLElement | null;
       if (!el) return null;
       return { hidden: el.hidden, display: getComputedStyle(el).display };
     });
-    expect(r, 'm-add-tab 이 없다').not.toBeNull();
+    expect(r, 'm-pane-nav 이 없다').not.toBeNull();
     if (r!.hidden) expect(r!.display, 'hidden 인데 보인다').toBe('none');
   });

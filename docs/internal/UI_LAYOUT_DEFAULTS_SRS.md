@@ -527,6 +527,8 @@ C2 단계는 스냅샷이 정확히 의도한 집합만 짚었다(§8 의 2단�
 | **V-LAY-21** | FR-LAY-3 | 옮긴 자리가 여전히 꺼지고 켜진다 — `#search-bar` 의 초기 상태(`index.html` 의 속성)와 `toggleSearch`·`closeSearch` |
 | **V-LAY-22** | FR-LAY-1b | 모바일에서 `hidden` 이 `.mobile-only` 를 이긴다 — §2.3b 의 결함 |
 
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-5·6 으로 개정 (2026-11-19)**: 이전 — V-LAY-22 는 `#m-add-tab` 으로 쟀다 / 지금 — `#m-add-tab` 은 없다. 같은 규칙(FR-LAY-1b)을 칸 순회 `#topbar .m-pane-nav`(자리가 하나면 `hidden`)로 잰다 / 이유 — 상단바의 새 탭 단추가 탭바의 `+` 와 겹쳐 지웠다.
+
 ### 5.4 게이트 (`FR-LAY-30`~`40`)
 
 | ID | 요구 | 검증 |

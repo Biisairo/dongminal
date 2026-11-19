@@ -138,6 +138,14 @@ const MKB_DOUBLE_TAP_MS=350;
 const MKB_TAP_SLOP_PX=10;
 const MKB_GHOST_CLICK_MS=700;
 /**
+ * MOBILE_UX_OVERHAUL_SRS FR-MUX-50: 길게 누르기 → 컨텍스트 메뉴. iOS Safari 는 길게 눌러도
+ * `contextmenu` 를 보내지 않는다. 터미널·편집기·입력칸은 자기 길게 누르기(선택)를 가지므로 뺀다.
+ */
+const MOBILE_LONG_PRESS_MS=500;
+// FR-MUX-60: 이 높이보다 낮은 터치 화면은 Auto 에서 모바일이다 (가로 휴대폰 ≤ 430, 태블릿 ≥ 600).
+const MOBILE_LANDSCAPE_MAX_H=500;
+const MOBILE_LONG_PRESS_SKIP='.xterm,.tp,.cm-editor,input,textarea,select,[contenteditable]';
+/**
  * FR-OPT-11-2 (FEC-34): 모바일 키바의 키 표. 보내는 바이트는 이스케이프로 적는다 —
  * 날 제어 문자는 편집기에서 보이지 않는다.
  *
@@ -736,6 +744,7 @@ const TIP_THEME_LIST='Theme';
 const TIP_THEME_PREVIEW='Theme preview: ';
 const TIP_SIDEBAR_CLOSE='Close the sidebar';
 const TIP_MOBILE_ACTIVITY='Show everything that is running';
+const TIP_SETTINGS_BACK='Back to settings sections';
 
 // ── 컨테이너 런타임의 상태 (UX_BATCH5_SRS 묶음 B / FR-SRT-1~8) ──
 //

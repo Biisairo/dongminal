@@ -332,6 +332,8 @@ MIT 라이선스 파일과 원본 판·커밋을 함께 둔다.
 **FR-CMR-63** ~~슬라이더는 마우스를 올렸을 때만 보인다.~~ (**개정** 2026-11-03 — `EDITOR_LINK_LSP_SRS` FR-ELS-55a: 늘 보인다) 켜고 끄기는 `editorMinimap` 설정이다
 (EDITOR_MINIMAP_TOGGLE_SRS). 생성과 갱신은 한 함수(`edMinimapOpts` 후속)에서 만든다 (FR-MMT-5).
 
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-4·43 으로 개정 (2026-11-19)**: 이전 — 미니맵과 줄바꿈(§1 옵션 표의 `wordWrap`)은 설정값만 따랐다 / 지금 — 모바일에서는 미니맵을 그리지 않고, 줄바꿈은 설정과 무관하게 켠다(`edWrapOn()`). 설정 값은 바뀌지 않는다 / 이유 — 좁은 화면에서 미니맵이 코드를 가리고 긴 줄을 가로로 밀어야 했다.
+
 ### 3.8 묶음 R — Overview ruler
 
 **FR-CMR-70** 스크롤바 옆에 겹쳐 그리는 overview ruler 확장을 직접 만든다. 칸은 왼쪽·오른쪽 둘이다.

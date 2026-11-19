@@ -55,6 +55,8 @@ RFC §7.2 의 다음 4개 항목은 현재 수동 검증으로만 분류되어 �
 
 - **수용 기준**: 모바일 모드 첫 로드 후 indicator `toHaveText('1/1')` + `toBeVisible()`.
 
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-5 로 개정 (2026-11-19)**: 이전 — 칸 하나여도 `1/1` 이 보였다 / 지금 — 값은 그대로 `1/1` 이지만 순회 묶음(`#topbar .m-pane-nav`)이 감춰진다. TC-D3 은 `toHaveText('1/1')` + `.m-pane-nav` `toBeHidden()` 을 단정한다 / 이유 — 순회할 자리가 하나면 눌러도 갈 곳이 없다.
+
 ### REQ-D4 (split controls hidden)
 
 모바일 모드에서 `#split-h`, `#split-v` 버튼은 `display: none` 이어야 하며, 모든 `.sh` (split handle) 도 `display: none !important`.

@@ -16,8 +16,9 @@ test('TC-ACB-1: 접기 아이콘은 위치와 모바일 여부를 따른다', ()
   assert.equal(f(false, 'right', false), 'chevron-left');
   assert.equal(f(true, 'left', false), 'chevron-left');
   assert.equal(f(false, 'left', false), 'chevron-right');
-  assert.equal(f(true, 'right', true), 'chevron-up');
-  assert.equal(f(true, 'left', true), 'chevron-up');
+  // MOBILE_UX_OVERHAUL_SRS FR-MUX-17: 모바일 Activity 는 전체 화면 시트다 — 접는 것이 아니라 닫는다.
+  assert.equal(f(true, 'right', true), 'x');
+  assert.equal(f(true, 'left', true), 'x');
 });
 
 const CM = await loadCM();

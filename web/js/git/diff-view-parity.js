@@ -24,7 +24,7 @@ Object.assign(GitDiffView.prototype, {
     const c=this._cm;
     if(!c) return;
     const fx=(cmp)=>({effects:[
-      cmp.wrap.reconfigure(editorWordWrap?CM.EditorView.lineWrapping:[]),
+      cmp.wrap.reconfigure(edWrapOn()?CM.EditorView.lineWrapping:[]),
       cmp.font.reconfigure(edCmFontTheme(edFontSize())),
     ]});
     if(c.a) c.a.dispatch(fx(c.cmpA));

@@ -54,6 +54,8 @@ Monaco 편집기의 미니맵을 **설정에서 끌 수 있게** 한다. 지금�
 | FR-MMT-7 | 문구는 카탈로그 키다 — `html.minimap` · `html.minimap_hint`, ko·en 한 벌 | 필수 |
 | FR-MMT-8 | diff 화면은 이 설정을 따르지 않는다 | 필수 |
 
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-4 로 개정 (2026-11-19)**: 이전 — 미니맵은 어느 모드에서나 `editorMinimap` 을 따랐다(FR-MMT-3·4) / 지금 — 모바일(`body.mobile`)에서는 설정과 무관하게 미니맵을 그리지 않는다(`body.mobile .cm-minimap-gutter{display:none}`). 설정 값은 바뀌지 않고, 데스크톱으로 돌아가면 설정대로 다시 그린다 / 이유 — 좁은 화면에서 미니맵이 폭의 약 20% 를 먹어 코드가 잘렸다.
+
 ## 4. 검증
 
 | ID | 층 | 내용 |

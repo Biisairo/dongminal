@@ -212,6 +212,8 @@ provider 가 **하나도 걸려 있지 않고**, Monaco 는 그 언어에 대해
 | FR-UXB-43 | `diffMinimap` 은 `settings-schema.js` · `SETTINGS_ACCESS` · Display 탭의 행 · `docs/external/features.md` 네 표면에 함께 선다 (게이트가 강제한다). | 필수 |
 | FR-UXB-44 | 찾기: `Mod+F`(설정의 `edFindInFile`)가 diff 에서 **편집기 탭과 같은 패널**(FR-EFP)을 연다. 판정은 app 한 자리이며(`_edFindReady`·`_edFindInFile`, FR-EKB-1·5) diff 는 여는 문(`findOpen`) 하나만 갖는다. Monaco 의 find 위젯을 여는 키는 양쪽 편집기에서 닫힌다. | 필수 |
 | FR-UXB-45 | 찾기 패널은 diff 인스턴스마다 하나이며 그 인스턴스의 DOM 안에 산다 — 칸 둘이 서로의 질의를 흔들지 않는다 (FR-EFP-8 규약). | 필수 |
+
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-4·43 으로 개정 (2026-11-19)**: 이전 — diff 의 줄바꿈은 `editorWordWrap`, 미니맵은 `diffMinimap` 을 따랐다(FR-UXB-40·42) / 지금 — 모바일에서는 설정과 무관하게 줄을 바꾸고(`edWrapOn()`) 미니맵을 그리지 않는다. 두 설정 값은 바뀌지 않으며 모드가 바뀌면 열린 diff 가 따라간다 / 이유 — 좁은 화면에서 가로로 밀어 읽을 수 없고, 미니맵이 폭을 먹었다.
 | FR-UXB-46 | 편집기의 키바인딩이 diff 에서 **같은 표**를 딛는다 — 찾기·다음/이전 일치는 우리 패널이, 저장은 `Mod+S`(FR-RTU-52)가, 정의로 이동은 Monaco 의 기본 경로(등록된 provider + `F12`·커맨드클릭)가 든다. | 필수 |
 | FR-UXB-47 | LSP: **편집 가능 축**에서 수정 편집기의 호버·정의로 이동이 동작한다. 그러려면 둘이 필요하다 — 모델 → 절대경로 되돌림이 diff 의 모델도 답하고(`lspPathOf`), diff 가 설 때 **provider 등록**(`lspHoverRegister`)이 불린다 (§2.7 나). | 필수 |
 | FR-UXB-48 | 편집 불가 축(커밋 간 비교 등)에서는 LSP 가 **조용히** 비활성이다 — 디스크에 없는 내용의 좌표를 서버에 묻지 않고, 오류도 띄우지 않는다. | 필수 |

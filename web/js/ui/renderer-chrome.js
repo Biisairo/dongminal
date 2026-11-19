@@ -138,6 +138,10 @@ Object.assign(Renderer.prototype, {
     const ind=document.getElementById('m-pane-indicator');
     if(!ind) return;
     const n=this.app.mobilePaneCount();
+    // FR-MUX-5: 순회할 자리가 둘 이상일 때만 선다. 데스크톱에서는 `.mobile-only` 가 이미 감추므로
+    // 속성을 건드리지 않는다 (데스크톱 DOM 은 종전과 같다 — V-LAY-1).
+    const nav=ind.closest('.m-pane-nav');
+    if(nav) nav.hidden=this.app.isMobile&&n<=1;
     if(n<=0){ind.textContent='0/0';return}
     if(this.app.mPaneIdx>=n) this.app.mPaneIdx=n-1;
     if(this.app.mPaneIdx<0) this.app.mPaneIdx=0;
@@ -179,11 +183,8 @@ Object.assign(Renderer.prototype, {
       const b=document.getElementById(id);
       if(b) b.disabled=noSplit;
     }
-    // FR-EDT-54: Editor 창에는 편집기 탭만 있다 — 새 탭 버튼의 **대상이 없다.**
-    // 그래서 이쪽만 종전대로 감춘다 (데스크톱의 `.pn-tab-add` 는 아예 서지
-    // 않는다 — `_makeTabAdd` 를 부르지 않는다).
-    const mAdd=document.getElementById('m-add-tab');
-    if(mAdd) mAdd.hidden=noSplit;
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-6: 상단바의 새 탭 버튼(`#m-add-tab`)은 없다 —
+    // 탭바의 `+` 와 같은 일을 하는 두 번째 자리였다.
     this._rPaneIndicator();
     const dt=document.getElementById('m-drawer-toggle');
     // UI_KIT_SRS FR-GLY-4: 글자가 아니라 아이콘이므로 `textContent` 로 바꿀 수

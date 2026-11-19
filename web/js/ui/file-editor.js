@@ -261,7 +261,7 @@ class FileEditor {
       // REPO_FIX 03 §3A-1: 어느 인코딩으로도 풀리지 않은 문서는 읽기 전용이다 —
       // 치환 문자로 된 내용을 되쓰면 원본이 파괴된다.
       readOnly: !!(this._doc && this._doc.decodable === false),
-      wordWrap: editorWordWrap,
+      wordWrap: edWrapOn(),
       fontSize: edFontSize(),
       minimap: editorMinimap,
     });
@@ -428,7 +428,7 @@ class FileEditor {
    */
   applyWordWrap() {
     if (!this._view) return;
-    this._view.dispatch({ effects: this._cmp.wrap.reconfigure(editorWordWrap ? CM.EditorView.lineWrapping : []) });
+    this._view.dispatch({ effects: this._cmp.wrap.reconfigure(edWrapOn() ? CM.EditorView.lineWrapping : []) });
   }
 
   /**

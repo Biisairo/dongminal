@@ -650,6 +650,15 @@ body.mobile .git-head-remote{gap:2px}
 .git-menu-item.cur{color:var(--accent-text);font-weight:500}
 
 body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
+/* MOBILE_UX_OVERHAUL_SRS FR-MUX-40: 행 자체가 누르는 대상이다 — 터치 하한을 지킨다. */
+body.mobile .git-file,body.mobile .git-dir{min-height:var(--touch-min)}
+body.mobile .git-group-head{min-height:40px}
+/* FR-MUX-42: 터치에는 hover 가 없다 — 행과 그룹의 동작을 흐름 안에 늘 보인다. 겹(absolute)과
+   페이드를 걷는 것은 좁은 폭(@container ≤165px)의 규약과 같다. 모바일 사이드의 배경은
+   `--sidebar-bg` 가 아니어서 페이드가 어두운 사각형으로 보였다. */
+body.mobile :is(.git-file,.git-dir) .git-file-acts,body.mobile .git-group-acts{
+  position:static;opacity:1;pointer-events:auto;background:none;padding-left:0;margin-left:auto;
+}
 /* 모바일에는 hover 가 없다 — 인라인 동작을 늘 보인다 */
 body.mobile .git-file-check{width:14px;height:14px}
 

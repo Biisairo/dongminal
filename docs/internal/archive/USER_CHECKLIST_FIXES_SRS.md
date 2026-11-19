@@ -535,6 +535,8 @@ Client 가 소유자가 된다. 기기 종류·화면 크기를 구분하지 않
 `[offsetTop, innerHeight - kbH - 키바높이]` 가 되고, 키바(fixed)는
 `[innerHeight - kbH - 키바높이, innerHeight - kbH]` 에 남아 정확히 맞물린다 (§2.8c).
 
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-2 로 개정 (2026-11-19)**: 이전 — `<키바 높이>` 는 모바일이면 늘 더해졌다 / 지금 — 키바가 감춰진 자리(`body.m-no-kb`: 비터미널 칸·시트 열림)에서는 키바 높이를 0 으로 본다 / 이유 — 키바는 이제 터미널 칸에서만 선다. 없는 키바의 높이를 비우지 않는다(C-5). 키바가 선 자리의 계산은 그대로다.
+
 **FR-MKV-6** `vv.offsetTop` 은 `resize` 뿐 아니라 `scroll` 에서도 추적한다 (현행
 리스너 2종 유지). 사용자가 visual viewport 를 직접 스크롤해도 앱이 가시 영역에 고정된다.
 

@@ -84,6 +84,7 @@ Object.assign(App.prototype, {
     panel.classList.toggle('open',open);
     handle.classList.toggle('open',open);
     PrefStore.session.setBool(STORE_KEYS.agentsPanelOpen,open);
+    if(this.mobileChromeSync) this.mobileChromeSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-13
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
     // FR-ARR-4: 핸들로 열어도 단축키로 열 때처럼 구역 목록을 다시 받는다.
     if(open) this._actRefresh();
@@ -338,7 +339,7 @@ Object.assign(App.prototype, {
     mkBtn('ag-refresh','Refresh the activity list','refresh-cw');
     // UX_BATCH12_SRS FR-ACF-5: 닫기가 아니라 접기다. 레일에서는 같은 단추가 펼친다.
     const open=this.agentsPanelOpen();
-    mkBtn('ag-collapse',open?'Collapse the panel':'Expand the panel',this._agCollapseIcon());
+    mkBtn('ag-collapse',open?(this.isMobile?'Close the panel':'Collapse the panel'):'Expand the panel',this._agCollapseIcon());   // FR-MUX-17
     head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
     head.querySelector('.ag-collapse').addEventListener('click',e=>{e.stopPropagation();this.agentsToggle()});
     return head;

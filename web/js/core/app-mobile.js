@@ -9,15 +9,20 @@ Object.assign(App.prototype, {
     const mob=this.isMobile;
     const was=document.body.classList.contains('mobile');
     document.body.classList.toggle('mobile', mob);
-    if(was!==mob) this.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
+    if(was!==mob){
+      this.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
+      if(this._edApplyWordWrap) this._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
+    }
     if(!mob && this.drawerOpen){this.drawerOpen=false;document.body.classList.remove('drawer-open')}
     if(!mob){document.body.classList.remove('keyboard-up')}
   },
   _toggleDrawer(open){
-    if(!this.isMobile){this.drawerOpen=false;document.body.classList.remove('drawer-open');return}
+    if(!this.isMobile){this.drawerOpen=false;document.body.classList.remove('drawer-open');this.mobileChromeSync();return}
     this.drawerOpen = (open===undefined) ? !this.drawerOpen : !!open;
     document.body.classList.toggle('drawer-open', this.drawerOpen);
+    this.mobileChromeSync();
   },
+
   /**
    * REPO_TAB_UNIFY_SRS FR-RTU-80: **모바일 순회의 첫 자리는 사이드다.**
    *
@@ -45,8 +50,7 @@ Object.assign(App.prototype, {
     const n=regs.length+off;
     if(this.mPaneIdx>=n) this.mPaneIdx=n-1;
     if(this.mPaneIdx<0) this.mPaneIdx=0;
-    // 사이드 자리에는 pane 이 없다 — 부르는 쪽이 그 없음을 견딘다 (`initMobile`
-    // 의 `+` 버튼이 그렇다).
+    // 사이드 자리에는 pane 이 없다 — 부르는 쪽이 그 없음을 견딘다.
     const i=this.mPaneIdx-off;
     return i>=0?regs[i]:null;
   },
@@ -105,16 +109,18 @@ Object.assign(App.prototype, {
     // Topbar mobile buttons
     const prev=document.getElementById('m-pane-prev');
     const next=document.getElementById('m-pane-next');
-    const addT=document.getElementById('m-add-tab');
     const srch=document.getElementById('m-search-btn');
     const drwr=document.getElementById('m-drawer-toggle');
     const bd=document.getElementById('drawer-backdrop');
     if(prev) prev.addEventListener('click',()=>this.navMobilePane(-1));
     if(next) next.addEventListener('click',()=>this.navMobilePane(1));
-    if(addT) addT.addEventListener('click',()=>{
-      const pn=this._mobileCurrentPane(); if(pn) this.addTab(pn.id);
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-46: 돋보기는 지금 칸의 찾기를 연다 — 터미널이면 터미널
+    // 검색, 편집기·diff 면 그 파일의 찾기 패널이다. 종전에는 늘 터미널 검색이라 편집기
+    // 칸에서는 아무것도 찾지 않았다.
+    if(srch) srch.addEventListener('click',()=>{
+      if(!this.focusedTerminal()&&(this._edActiveEditor()||this._edActiveDiff())){this._edFindInFile();return}
+      this.toggleSearch();
     });
-    if(srch) srch.addEventListener('click',()=>this.toggleSearch&&this.toggleSearch());
     if(drwr) drwr.addEventListener('click',()=>{this._toggleDrawer();this.renderer._rTopbar()});
     if(bd) bd.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
     // Drawer close button injected into sidebar (visible only on mobile)
@@ -138,6 +144,7 @@ Object.assign(App.prototype, {
       acts.append(activity);
       sb.insertBefore(acts, xb.nextSibling);
     }
+    this._initMobileSheets();   // MOBILE_UX_OVERHAUL_SRS — app-mobile-sheets.js
     // Auto-close drawer on window switch (mobile)
     // (handled in switchWindow via drawerOpen check)
 
@@ -375,6 +382,8 @@ Object.assign(App.prototype, {
     if(!vv) return;
     const bar=document.getElementById('mobile-keybar');
     const kbH_PX=()=>{
+      // FR-MUX-2: 키바가 빠진 자리에서는 그 높이를 비워 두지 않는다.
+      if(document.body.classList.contains('m-no-kb')) return 0;
       const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--m-kb-h'));
       return isFinite(v)?v:38;
     };

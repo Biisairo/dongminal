@@ -17,6 +17,9 @@
   flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:var(--fs-md);
 }
+/* MOBILE_UX_OVERHAUL_SRS FR-MUX-41: 좁은 폭에서 도구 줄은 밀리지 않고 접힌다 — 화면 밖의 단추는 없는 것과 같다. */
+body.mobile :is(.git-diff-bar,.git-img-bar,.git-hist-bar,.git-con-bar,.git-br-bar,.git-stash-bar){flex-wrap:wrap;row-gap:4px}
+body.mobile .git-diff-sep{display:none}
 .git-diff-nav{font-size:var(--fs-lg)}
 .git-diff-nav:disabled{color:var(--text-hint);cursor:not-allowed}
 .git-diff-path{color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -533,6 +536,12 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-stash-why{display:none;color:var(--text-muted);font-size:var(--fs-sm);min-width:0;overflow:hidden}
 .git-stash-why.vis{display:block}
 .git-stash-main{flex:1 1 auto;min-height:0;display:flex}
+/* MOBILE_UX_OVERHAUL_SRS FR-MUX-48: 좁은 폭에서는 목록과 미리보기를 위아래로 쌓는다 — 나란히 두면
+   둘 다 150px 남짓이라 어느 쪽도 읽히지 않는다. */
+body.mobile .git-stash-main{flex-direction:column}
+body.mobile .git-stash-list{flex:0 1 auto;max-height:40%;border-bottom:1px solid var(--border)}
+body.mobile .git-stash-preview{flex:1 1 auto;width:auto;max-width:none;border-left:none;min-height:0}
+body.mobile .git-stash-row,body.mobile .git-br-row{min-height:var(--touch-min)}
 .git-stash-list{flex:1 1 auto;min-width:0;overflow-y:auto;font-size:var(--fs-md)}
 .git-stash-row{
   display:flex;align-items:center;gap:8px;padding:3px 10px;cursor:pointer;

@@ -7,6 +7,8 @@
 > 작업 대상 리포: `/Users/dykim/personal/dongminal`
 > 상위 문서: [MOBILE_MODE_RFC.md](MOBILE_MODE_RFC.md) — §4.1 "가상 키보드 등장 시 표시" 결정을 본 SRS로 갱신한다.
 > 작성일: 2026-05-11
+>
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-2·13 으로 개정 (2026-11-19)**: 이 문서의 "모바일이면 항상 표시"는 더 이상 지금 동작이 아니다. 지금은 포커스 칸이 터미널이고 시트가 닫혀 있을 때만 보인다 (아래 REQ-F-1·F-4 의 개정 블록).
 
 ---
 
@@ -88,11 +90,15 @@ dongminal 단일 페이지 앱의 모바일 분기 표현 레이어 일부. 서�
 
 - **수용 기준**: 모바일 모드 진입 직후, `xterm` 에 포커스를 주지 않고 페이지 로드만 한 시점에 `#mobile-keybar` 가 `getBoundingClientRect().height > 0` 이며 `visibility: visible`.
 
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-2·13 으로 개정 (2026-11-19)**: 이전 — `body.mobile` 이면 늘 보였다 / 지금 — 포커스 칸이 터미널이고 시트(서랍·Activity·설정)가 닫혀 있을 때만 보인다 (`body.m-no-kb`·`body.m-sheet`) / 이유 — 키바의 키는 터미널에만 가므로 다른 칸에서는 눌러도 아무 일이 없는 줄이었다. 키보드 등장과 무관하게 보인다는 이 요구의 뜻은 터미널 칸에서 그대로다.
+
 #### REQ-F-2 (데스크톱 비노출)
 
 `body.mobile` 클래스가 없는 모든 상태에서 `#mobile-keybar` 의 computed style `display` 는 `none` 이어야 한다.
 
 - **수용 기준**: viewport width ≥ `mobileBreakpoint` (기본 768px) 인 상태에서 `#mobile-keybar` 가 `offsetParent === null`.
+
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-60 으로 개정 (2026-11-19)**: 이전 — Auto 는 폭만 보았다 / 지금 — 폭이 `mobileBreakpoint` 이상이어도 화면 높이가 `MOBILE_LANDSCAPE_MAX_H`(500) 보다 낮고 주 포인터가 coarse 면 모바일이다. 이 수용 기준은 마우스 기기나 높이가 넉넉한 화면에서만 성립한다 / 이유 — 가로로 돌린 휴대폰이 데스크톱 화면이 되었다.
 
 #### REQ-F-3 (위치 보정 유지)
 
@@ -105,6 +111,8 @@ dongminal 단일 페이지 앱의 모바일 분기 표현 레이어 일부. 서�
 키바가 상시 노출되므로 터미널 영역이 키바 아래로 숨지 않아야 한다. 모바일 모드에서 `#content` 또는 적절한 컨테이너에 `padding-bottom`(또는 동등한 margin) 으로 키바 높이(38px) 만큼 여백을 확보한다.
 
 - **수용 기준**: 모바일 모드에서 status-bar 또는 터미널 최하단 행이 `#mobile-keybar` 의 `getBoundingClientRect().top` 보다 위에 위치.
+
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-2 로 개정 (2026-11-19)**: 이전 — 모바일이면 늘 키바 높이만큼 비웠다 / 지금 — 키바가 감춰지면(`body.mobile.m-no-kb`) 그 여백도 없어지고 본문이 아래로 늘어난다 / 이유 — 키바가 없는 자리를 비워 둘 까닭이 없다.
 
 ### 3.2 Non-Functional Requirements
 
@@ -124,6 +132,8 @@ CSS 규칙 추가/삭제 외 변경 없음 → 렌더 비용 증가 없음. visu
 ### 3.3 External Interface Requirements
 
 - 사용자 인터페이스: 모바일 페이지 첫 로드 시점부터 화면 하단 38px 영역에 키바가 노출된다. 햄버거(`☰`)·검색(`🔍`)·새 탭(`+`) 버튼과 상호 배제 없음.
+
+  > **MOBILE_UX_OVERHAUL_SRS FR-MUX-2·6 으로 개정 (2026-11-19)**: 이전 — 첫 로드부터 키바가 섰고 상단바에 새 탭(`+`, `#m-add-tab`)이 있었다 / 지금 — 키바는 터미널 칸에서 시트가 닫혀 있을 때만 서고, `#m-add-tab` 은 없다(새 탭은 탭바의 `+`) / 이유 — 비터미널 칸의 키바는 아무 일도 하지 않고, `+` 가 두 자리에 있었다.
 - 키보드/입력: 키바 버튼 동작(sticky/lock modifier, xterm dispatch) 변경 없음 (`web/app.js:2197~2252`).
 - 영속화: 변경 없음. `displayMode`/`mobileBreakpoint` sessionStorage 키, workspace.json 모두 무영향.
 

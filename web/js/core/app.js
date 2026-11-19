@@ -93,7 +93,11 @@ class App {
     const m=this.displayMode;
     if(m==='mobile') return true;
     if(m==='desktop') return false;
-    return window.innerWidth < this.mobileBreakpoint;
+    if(window.innerWidth < this.mobileBreakpoint) return true;
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-60: 가로로 돌린 휴대폰은 폭이 기준을 넘는다. 손가락으로 쓰는
+    // 낮은 화면이면 폭과 무관하게 모바일이다 — 태블릿(높이가 넉넉하다)과 마우스 기기는 종전대로다.
+    return window.innerHeight < MOBILE_LANDSCAPE_MAX_H
+      && typeof matchMedia==='function' && matchMedia('(pointer:coarse)').matches;
   }
 
   // 분할 트리 → pane 배열 (L→R, T→B). 순회는 `panesOf` 한 벌이다 (FR-OPT-11-1 · FEC-21) —

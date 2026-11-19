@@ -44,7 +44,9 @@ class InputBinding {
     // 하나만 `agentsToggle()` 을 불러 같은 줄에서 처신이 갈려 있었다.
     // UX_BATCH12_SRS FR-ACF-7: 상단바 단추는 없다. 데스크톱에서 닫힘은 레일이다.
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
-    if(PrefStore.session.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open')}
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-15: 모바일의 Activity 는 화면 전체를 덮는 시트다 —
+    // 되살리면 앱이 그 시트로 시작해 작업 화면이 보이지 않는다.
+    if(!this.app.isMobile&&PrefStore.session.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open')}
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다. 폭 손잡이 둘은
      * 그 위에서 다시 한 구현이다 (`_bindWidthHandle`, FR-OPT-16-2 · FEU-17).

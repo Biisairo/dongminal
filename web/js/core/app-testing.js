@@ -121,6 +121,8 @@ const APP_TESTING_NAMES = [
   //
   // 위 어느 축에도 들지 않는 것. **이 절이 길어지면 축이 하나 빠진 것이다.**
   '_applyPageTitle', '_mKbH', 'modKbd', '_mobileVvApply',
+  // MOBILE_UX_OVERHAUL_SRS TC-MUX-9·10b: 설정을 연다 — 섹션을 주면 그 상세로 바로 들어간다.
+  '_openSettings',
   '_scheduleMobileFit', 'resizeCheck',
   '_lspRootOfPath',
   // REPO_FIX 03 E-7.1: 렌더 탭을 여는 자리 — 렌더 탭만 남은 문서의 갱신을 잰다.

@@ -74,6 +74,8 @@ onEnter·list·cycle` 이다 (`sidebar-tabs.js:19~31`). 레일은 라벨을 쓸 
 숨어 있다 (`style.css:788`). 드로어를 여닫는 손잡이는 `#m-drawer-toggle` 이
 이미 갖고 있다 (`index.html:99`). **접힘은 그 위에 얹지 않는다.**
 
+> **MOBILE_UX_OVERHAUL_SRS FR-MUX-10 으로 개정 (2026-11-19)**: 이전 — 모바일 `#sidebar` 는 드로어 띠였다 / 지금 — 화면 왼쪽에서 들어오는 전체 높이 시트(폭 `min(86vw,360px)`)이고, 배경 막·Escape 로 닫힌다. 접힘을 얹지 않는다는 결론은 그대로다(`html.sb-collapsed body:not(.mobile)`) / 이유 — 서랍·Activity·설정을 전체 높이 시트로 통일했다.
+
 ### 2.5 폭이 바뀌면 터미널을 다시 맞춘다
 
 드래그가 끝날 때 하는 일이다 (`input-binding.js:47`):
