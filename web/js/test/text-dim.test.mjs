@@ -13,7 +13,7 @@ import { load } from './harness.mjs';
  */
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const ctx = load(['core/contrast.js', 'ui/themes.js', 'core/theme-vars.js'], {
-  globals: { TOPTS: {} },
+  globals: { TOPTS: {}, t: (k) => k },
   expose: ['THEMES', 'themeVarsOf', 'mixHex', 'TEXT_DIM_LIFT'],
 });
 

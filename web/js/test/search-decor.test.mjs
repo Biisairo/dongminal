@@ -33,7 +33,7 @@ test('doSearch 세 번에 getComputedStyle 0회 — 테마가 계산해 둔 장�
 });
 
 test('searchDecorOf 는 테마 변수에서 종전과 같은 장식을 만든다', () => {
-  const ctx = load(['core/theme-vars.js'], { globals: { hexRgb: () => [0, 0, 0], mixHex: () => '#000000' } });
+  const ctx = load(['core/theme-vars.js'], { globals: { hexRgb: () => [0, 0, 0], mixHex: () => '#000000', t: (k) => k } });
   const d = ctx.searchDecorOf({ '--accent': '#102030', '--accent-border': '#aabbcc', '--danger': '#ff0000' });
   assert.equal(d.matchBackground, 'rgba(16,32,48,0.4)');
   assert.equal(d.matchBorder, '#aabbcc');

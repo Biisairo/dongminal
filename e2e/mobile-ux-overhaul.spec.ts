@@ -178,7 +178,8 @@ test.describe('설정 — 전체 화면, 목록 → 상세 (FR-MUX-20~25)', () =
     await expect(page.locator('#panel-display')).toBeVisible();
     await expect(page.locator('#modal .modal-tabs')).toBeHidden();
     await expect(page.locator('#modal-back')).toBeVisible();
-    await expect(page.locator('#modal .modal-section')).toHaveText('Display');
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'Display' / 지금 '화면' / 이유 설정 탭 이름 (§3.5.2)
+    await expect(page.locator('#modal .modal-section')).toHaveText('화면');
 
     await page.locator('#modal-back').click();
     await expect(page.locator('#modal .modal-tabs')).toBeVisible();

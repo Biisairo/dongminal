@@ -181,8 +181,9 @@ test.describe('1묶음 — 모바일', () => {
     await mobile(page);
     await page.evaluate(() => localStorage.removeItem('gitDiffSideBySide'));
     await openGit(page, fx('basic'));
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 hasText 'Changes' / 지금 '변경' / 이유 Repo 세그먼트 (§3.5.2)
     // 모바일 Repo 창은 세그먼트로 Changes 를 고른다 (MOBILE_UX_OVERHAUL_SRS FR-MUX-77).
-    await page.locator('#m-repo-seg .m-seg-btn', { hasText: 'Changes' }).click();
+    await page.locator('#m-repo-seg .m-seg-btn', { hasText: '변경' }).click();
     await row(page, 'working', 'tracked.txt').click();
     await expect(diffMode(page)).toHaveAttribute('data-mode', 'inline', { timeout: 20000 });
   });
@@ -205,8 +206,9 @@ const rectOf = (page: Page, sel: string) => page.locator(sel).first().evaluate((
 
 async function mobileChanges(page: Page, repo: string) {
   await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
+  // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 hasText 'Changes' / 지금 '변경' / 이유 Repo 세그먼트 (§3.5.2)
   await openGit(page, repo);
-  await page.locator('#m-repo-seg .m-seg-btn', { hasText: 'Changes' }).click();
+  await page.locator('#m-repo-seg .m-seg-btn', { hasText: '변경' }).click();
   await expect(changes(page)).toBeVisible({ timeout: 15000 });
 }
 
@@ -279,7 +281,8 @@ test.describe('2묶음 — 두 모드', () => {
     expect(st.top).toBeGreaterThan(loc.top + loc.height / 2);
     expect(Math.abs(st.top + st.height / 2 - (dt.top + dt.height / 2))).toBeLessThanOrEqual(2);
     expect(dt.left).toBeGreaterThan(st.left);
-    await expect(card.locator('.ag-state')).toHaveText(/^working · Edit/);
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 /^working · Edit/ / 지금 /^작업 중 · Edit/ / 이유 한국어 화면의 보이는 글자는 한국어다
+    await expect(card.locator('.ag-state')).toHaveText(/^작업 중 · Edit/);
     await expect(card.locator('.ag-dot')).toHaveClass(/working/);
   });
 });
@@ -391,5 +394,40 @@ test.describe('접기 단추', () => {
     const agBtn2 = await rectOf(page, '#agents-panel .ag-collapse');
     const agTab = await rectOf(page, '#agents-panel .ui-panel-tab');
     expect(agBtn2.left).toBeLessThan(agTab.left);
+  });
+});
+
+// ── 3묶음 — 말 통일 (FR-UXF-40~43) ────────────────────────────────
+
+test.describe('3묶음 — 말 통일', () => {
+  test('TC-UXF-41: 한국어 화면의 설정·카드 상태·Repo 사이드·진입점은 한국어이고 툴팁은 영어다', async ({ page }) => {
+    await waitForInit(page);
+    await page.locator('#settings-btn').click();
+    await expect(page.locator('#modal .modal-title')).toHaveText('설정');
+    await expect(page.locator('#modal .mtab').first()).toHaveText('프로필');
+    await expect(page.locator('#modal .mtab[data-tab="telegram"]')).toHaveText('Telegram');
+    await page.keyboard.press('Escape');
+
+    const id: string = await page.evaluate(() => (window as any).app.testing.focusedTerminal().id);
+    const act = { toolId: id, state: 'working', tool: 'Edit', detail: 'x', updatedAt: Date.now() };
+    await page.route('**/api/tools/activity', (route) => route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ activities: [act], limits: [] }) }));
+    await page.evaluate((a) => (window as any).app.testing.onToolActivity(a), act);
+    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await expect(page.locator(`#agents-panel .ag-card[data-toolid="${id}"] .ag-state`)).toHaveText('작업 중 · Edit', { timeout: 10000 });
+
+    await openGit(page, fx('basic'));
+    await expect(page.locator('#area .ed-side-tab[data-side="changes"]')).toHaveText('변경');
+    await expect(page.locator('#area .ed-side-tab[data-side="explorer"]')).toHaveText('탐색기');
+    const hist = page.locator('#area .ed-side-act[data-view="history"]');
+    await expect(hist.locator('.ed-side-act-label')).toHaveText('기록');
+    await expect(hist).toHaveAttribute('title', 'History');
+    await expect(hist).toHaveAttribute('aria-label', 'History');
+  });
+
+  test('TC-UXF-42: 모바일 상단바의 작업 단추는 Work 를 말한다', async ({ page }) => {
+    await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
+    await expect(page.locator('#m-act-btn')).toHaveAttribute('aria-label', /^Work\b/);
+    await expect(page.locator('#m-act-btn')).toHaveAttribute('title', /^Work\b/);
   });
 });

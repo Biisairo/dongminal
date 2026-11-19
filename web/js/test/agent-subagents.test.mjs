@@ -13,7 +13,7 @@ function loadAgents(globals = {}) {
   return load(['core/app-agents.js', 'core/app-agents-sub.js'], {
     globals: {
       App: class {}, ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done' },
-      AGENT_STATE_ICON: { working: '●', done: '✓' }, ...globals,
+      AGENT_STATE_ICON: { working: '●', done: '✓' }, AGENT_STATE_LABEL: {}, ...globals,
     },
   });
 }

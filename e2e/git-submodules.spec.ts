@@ -258,7 +258,8 @@ test.describe('묶음 D — Submodules 탭', () => {
 
       const diff = page.locator('#area .pn-body .git-view.git-diff');
       await expect(diff).toBeVisible({ timeout: 15000 });
-      const link = diff.locator('button', { hasText: 'Submodules' });
+      // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'Submodules' / 지금 '서브모듈' / 이유 git 뷰 이름 (§3.5.2)
+      const link = diff.locator('button', { hasText: '서브모듈' });
       await expect(link).toBeVisible({ timeout: 15000 });
       await link.click();
 

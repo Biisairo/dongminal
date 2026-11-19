@@ -85,7 +85,8 @@ const reopenKey = async (page: Page) => {
 
 const E = (name: string) => ({ name, preview: false, kind: 'editor', path: '' });
 const DIFF = { name: 'b.txt', preview: false, kind: 'diff', path: 'b.txt' };
-const HIST = { name: 'History', preview: false, kind: 'history', path: '' };
+// UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 'History' / 지금 '기록' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+const HIST = { name: '기록', preview: false, kind: 'history', path: '' };
 
 test.describe('TC-RTR-1 — 닫은 탭을 역순으로 다시 연다 (FR-RTR-1~5)', () => {
   test('편집기·Diff·History 를 닫고 Ctrl+Shift+U 셋이면 원래 자리에 보통 탭으로 선다', async ({ page, request }) => {
@@ -102,7 +103,7 @@ test.describe('TC-RTR-1 — 닫은 탭을 역순으로 다시 연다 (FR-RTR-1~5
     await expect.poll(async () => (await tabs(page)).list).toEqual([E('a.txt'), DIFF, HIST]);
 
     await closeByName(page, 'a.txt');
-    await closeByName(page, 'History');
+    await closeByName(page, HIST.name);
     await closeByName(page, 'b.txt');
     await expect.poll(async () => (await tabs(page)).list.length).toBe(0);
 

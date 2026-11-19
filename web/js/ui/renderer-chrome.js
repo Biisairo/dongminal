@@ -375,7 +375,7 @@ Object.assign(Renderer.prototype, {
         // UI_POLISH_SRS FR-UIP-18: 이름은 늘 DOM 에 있고, 폭이 남을 때만 CSS 가 보인다.
         // 이름은 `aria-label` 과 같은 말이라 읽기 트리에서는 감춘다.
         const lab=document.createElement('span');
-        lab.className='ed-side-act-label'; lab.textContent=a.title; lab.setAttribute('aria-hidden','true');
+        lab.className='ed-side-act-label'; lab.textContent=a.label; lab.setAttribute('aria-hidden','true');
         btn.appendChild(lab);
         b.appendChild(btn);
       }

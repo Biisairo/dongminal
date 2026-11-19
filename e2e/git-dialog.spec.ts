@@ -189,7 +189,8 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     // 버튼은 이미 disable 이고 키 경로도 함께 막힌다.
     await page.keyboard.press('Enter');
     expect(await ran(page)).toBe(1);
-    await expect(box(page).locator('.git-dialog-progress')).toContainText('Running');
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'Running' / 지금 '실행 중' / 이유 커밋 진행 문구 (§3.5.2)
+    await expect(box(page).locator('.git-dialog-progress')).toContainText('실행 중');
     await expect(go(page)).toBeDisabled();
     await expect(cancel(page)).toBeDisabled();
     // 옵션도 함께 막힌다 — 실행 중에 값이 바뀌면 무엇이 실행됐는지 알 수 없다.

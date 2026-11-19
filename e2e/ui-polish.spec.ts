@@ -52,7 +52,8 @@ test('TC-UIP-3: Git 진입점은 키트 규칙의 아이콘·히트 30px 이고,
   const side = page.locator('#area .ed-side').first();
   await side.evaluate((e: HTMLElement) => { e.style.width = '660px'; e.style.flexBasis = '660px'; });
   await expect(acts.locator('.ed-side-act-label').first()).toBeVisible();
-  await expect(acts.locator('.ed-side-act-label').first()).toHaveText('History');
+  // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'History' / 지금 '기록' (툴팁은 영어 그대로) / 이유 진입점 라벨과 툴팁을 나눴다
+  await expect(acts.locator('.ed-side-act-label').first()).toHaveText('기록');
   // 이름을 단 여섯이 한 줄에 선다 — 줄이 늘면 "남는 폭" 이 아니다.
   const rows = await acts.locator('.ed-side-act').evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().top))).size);
   expect(rows).toBe(1);

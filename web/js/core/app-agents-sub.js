@@ -35,7 +35,7 @@ function agentSubagentsSig(list){
 
 /** FR-ASV-31: 상태 표시 글자 — main 카드의 상태 줄과 같은 모양이다. */
 function agentStateText(state,tool){
-  return (AGENT_STATE_ICON[state]||'●')+' '+state+(tool?' · '+tool:'');
+  return (AGENT_STATE_ICON[state]||'●')+' '+(AGENT_STATE_LABEL[state]||state)+(tool?' · '+tool:'');
 }
 
 /** UX_BATCH12_SRS FR-SVL-3: 없어진 보기 전환이 남긴 브라우저 값의 키. 읽지 않고 지우기만 한다. */

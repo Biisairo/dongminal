@@ -30,22 +30,22 @@ const GIT_DIFF_TAB_SEP='\u0001';
 // Git 창 내부의 고정 탭. 생성·삭제되지 않는다 (FR-GIT-28).
 // pending 인 탭은 M1 에서 자리만 있고 "준비 중" 을 표시한다.
 const GIT_VIEWS=[
-  {key:'changes',  name:'Changes'},
+  {key:'changes',  name:t('git.view.changes')},
   // `diff` 의 뷰 객체는 `_diffView` 이지만 `field` 를 두지 않는다 — 편집기를 들고
   // 있어 언마운트가 아니라 `destroy()` 를 지나야 풀린다 (FR-GIT-56). 같은 목록에
   // 넣으면 그 차이가 지워진다.
-  {key:'diff',     name:'Diff'},
-  {key:'history',  name:'History',   field:'_historyView'},
-  {key:'branches', name:'Branches',  field:'_branchesView'},
-  {key:'stash',    name:'Stash',     field:'_stashView'},
-  {key:'console',  name:'Console',   field:'_consoleView'},
+  {key:'diff',     name:t('git.view.diff')},
+  {key:'history',  name:t('git.view.history'),   field:'_historyView'},
+  {key:'branches', name:t('git.view.branches'),  field:'_branchesView'},
+  {key:'stash',    name:t('git.view.stash'),     field:'_stashView'},
+  {key:'console',  name:t('git.view.console'),   field:'_consoleView'},
   // FR-GIT-28 (개정): 고정 탭이 7개가 된다. 요청이 "관리 **탭**" 이었으므로 기존 탭
   // 안에 밀어 넣지 않는다 — 그러면 Branches 탭이 두 가지 일을 한다.
-  {key:'worktrees', name:'Worktrees', field:'_worktreesView'},
+  {key:'worktrees', name:t('git.view.worktrees'), field:'_worktreesView'},
   // UX_BATCH5_SRS FR-SUB-6: 고정 탭이 8개가 된다. Worktrees 바로 뒤인 이유는 둘이
   // 같은 성질이기 때문이다 — 저장소 안에 있으나 **자기 .git 을 가진 것**들이고,
   // 둘 다 `openGitWindow` 로 열린다 (D-10).
-  {key:'submodules', name:'Submodules', field:'_submodulesView'},
+  {key:'submodules', name:t('git.view.submodules'), field:'_submodulesView'},
 ];
 // REFACTOR_STABILIZATION_SRS FR-RST-20·21: 뷰 객체를 가진 탭의 **필드 이름**.
 //
@@ -79,12 +79,12 @@ const GIT_STALE_VIEWS=['history','branches','stash','worktrees','submodules'];
  * 문자였다. `⏲≣⊞` 는 폰트마다 모양이 크게 달라 특히 그랬다.
  */
 const GIT_SIDE_ACTIONS=[
-  {key:'history',  icon:'clock',      title:'History'},
-  {key:'branches', icon:'git-branch', title:'Branches'},
-  {key:'stash',    icon:'git-stash',  title:'Stash'},
-  {key:'console',  icon:'terminal',   title:'Console'},
-  {key:'worktrees',icon:'git-worktree',title:'Worktrees'},
-  {key:'submodules',icon:'git-submodule',title:'Submodules'},
+  {key:'history',  icon:'clock',      label:t('git.view.history'),title:'History'},
+  {key:'branches', icon:'git-branch', label:t('git.view.branches'),title:'Branches'},
+  {key:'stash',    icon:'git-stash',  label:t('git.view.stash'),title:'Stash'},
+  {key:'console',  icon:'terminal',   label:t('git.view.console'),title:'Console'},
+  {key:'worktrees',icon:'git-worktree',label:t('git.view.worktrees'),title:'Worktrees'},
+  {key:'submodules',icon:'git-submodule',label:t('git.view.submodules'),title:'Submodules'},
 ];
 
 // REPO_TAB_UNIFY_SRS FR-RTU-25·26: 저장소가 아닌 자리와 거기서 만드는 길.

@@ -297,7 +297,8 @@ test.describe('묶음 J — 파괴적 동작의 확인', () => {
     await go(page).click();
     await expect(go(page)).toBeDisabled();
     await expect(cancel(page)).toBeDisabled();
-    await expect(page.locator('#git-confirm .gc-progress')).toContainText('Running');
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'Running' / 지금 '실행 중' / 이유 커밋 진행 문구 (§3.5.2)
+    await expect(page.locator('#git-confirm .gc-progress')).toContainText('실행 중');
 
     // 실행 중에는 Esc 도 취소하지 않는다.
     await page.keyboard.press('Escape');

@@ -322,8 +322,8 @@ const REPO_SIDE_CHANGES='changes';
 // GIT_CHANGES_CONTROLS_SRS FR-GCC-13 (사용자 지시, 2026-09-06): **Changes 가 왼쪽**이다.
 // 이 창을 여는 이유가 대개 변경을 보는 것이고, 왼쪽이 먼저 읽히는 자리다.
 const REPO_SIDE_TABS=[
-  {id:REPO_SIDE_CHANGES, label:'Changes', title:'Uncommitted changes in this repository'},
-  {id:REPO_SIDE_EXPLORER,label:'Explorer',title:'Browse files in this repository'},
+  {id:REPO_SIDE_CHANGES, label:t('editor.side_changes'), title:'Uncommitted changes in this repository'},
+  {id:REPO_SIDE_EXPLORER,label:t('editor.side_explorer'),title:'Browse files in this repository'},
 ];
 /**
  * UX_BATCH6_SRS FR-DSP-1: 기본 탭도 **Changes** 다.
@@ -340,7 +340,7 @@ const REPO_SIDE_TABS=[
 const REPO_SIDE_DEFAULT=REPO_SIDE_CHANGES;
 // MOBILE_UX_OVERHAUL_SRS FR-MUX-77: 모바일 Repo 세그먼트의 셋째 칸 — 본문(편집기 칸)으로 간다.
 // 앞의 두 칸은 `REPO_SIDE_TABS` 를 그대로 쓴다.
-const REPO_SEG_EDITOR={id:'editor',label:'Editor',title:'Files open in this repository'};
+const REPO_SEG_EDITOR={id:'editor',label:t('editor.seg_editor'),title:'Files open in this repository'};
 
 // REPO_SIDE_WIDTH_SRS FR-RSW-1 / D-3·D-4 (UX_BATCH10_SRS FR-UXB-7 이 저장 위치를
 // 개정했다 — 워크스페이스가 아니라 **브라우저 창**이다): 사이드 폭은 한 자리에 산다

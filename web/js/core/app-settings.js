@@ -329,7 +329,7 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * UI_POLISH_SRS FR-UIP-23: 설정 검색. 탭 이름이나 그 탭 안의 글(항목 라벨·설명)에
+   * UI_POLISH_SRS FR-UIP-23: 설정 검색. 탭 이름(영어 툴팁도, FR-UXF-40)이나 그 탭 안의 글(항목 라벨·설명)에
    * 입력이 들어 있는 탭만 목록에 남긴다. 선택지(`<option>`)의 글은 보지 않는다 —
    * 언어·테마 이름 같은 값이 거의 모든 낱말에 걸린다.
    * 고른 탭이 걸러지면 남은 첫 탭으로 옮긴다. 모달을 열 때마다 비운다.
@@ -349,7 +349,7 @@ Object.assign(App.prototype, {
       const tabs=[...modal.querySelectorAll('.mtab')];
       for(const tab of tabs){
         const pn=document.getElementById('panel-'+tab.dataset.tab);
-        tab.hidden=!!q&&!(tab.textContent.toLowerCase().includes(q)||(pn&&textOf(pn).includes(q)));
+        tab.hidden=!!q&&!((tab.textContent+' '+tab.title).toLowerCase().includes(q)||(pn&&textOf(pn).includes(q)));
       }
       for(const g of modal.querySelectorAll('.mtab-grp')) g.hidden=!!q; // FR-STO-4: 거른 목록에 묶음 이름은 없다
       const cur=modal.querySelector('.mtab.active');

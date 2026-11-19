@@ -66,6 +66,8 @@ const KO = {
   'git.act.tag_push': '원격에 Push',
   'git.act.tag_push_all': '모든 태그 Push',
   'editor.repo_entries_none': '등록된 저장소가 없습니다',
+  // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 KEEP_EN 의 'Slot' / 지금 '칸' / 이유 git 용어가 아니다 (§3.5.2)
+  'html.slot_label': '칸',
 };
 
 const KEEP_EN = {
@@ -80,7 +82,6 @@ const KEEP_EN = {
   'git.act.stash_drop': 'Drop',
   'git.act.unc_clean': 'Clean',
   'git.act.unc_reset': 'Reset (mixed)',
-  'html.slot_label': 'Slot',
 };
 
 test('TC-UIP-7a: 부록 A 의 일반 동작 라벨은 ko 에서 한국어다', () => {

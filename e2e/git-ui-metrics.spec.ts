@@ -210,6 +210,19 @@ function generalKoLabels(): Set<string> {
   return out;
 }
 
+/** UX_AUDIT_FIX_SRS §3.5.2 의 "지금" 칸 — 뷰·탭 이름 같은 화면 이름의 한국어. */
+function uxfKoLabels(): Set<string> {
+  const doc = readFileSync('docs/internal/UX_AUDIT_FIX_SRS.md', 'utf8');
+  const sec = doc.split('#### 3.5.2')[1].split('\n#')[0];
+  const out = new Set<string>();
+  for (const line of sec.split('\n')) {
+    const cells = line.split('|').map((c) => c.trim());
+    if (cells.length < 5 || cells[3] === '지금' || /^-+$/.test(cells[3])) continue;
+    for (const w of cells[3].replace(/\(.*?\)/g, '').split(/ · | \/ /)) out.add(w.trim());
+  }
+  return out;
+}
+
 /**
  * **개정 (2026-11-13, 사용자 결정).** FR-GIT-200·201 의 "버튼 라벨은 영어" 는
  * UI_POLISH_SRS FR-UIP-11·12 가 바꿨다 — 일반 동작 라벨은 ko 에서 한국어이고(부록 A),
@@ -229,7 +242,8 @@ test.describe('UI 개정 — 버튼 라벨 (FR-GIT-200~202 → FR-UIP-11·12)', 
       [...document.querySelectorAll('#area .ed-win button')]
         .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
         .map((e) => (e.textContent || '').trim()));
-    const general = generalKoLabels();
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 부록 A 낱말만 / 지금 §3.5.2 의 화면 이름도 / 이유 뷰·사이드 이름이 한국어가 됐다
+    const general = new Set([...generalKoLabels(), ...uxfKoLabels()]);
     expect(general.size, '부록 A 표를 읽지 못했다').toBeGreaterThan(10);
     const notGeneral = (t: string) => hangul.test(t) && !general.has(t);
     expect(labels.length).toBeGreaterThan(5);

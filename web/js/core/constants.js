@@ -128,6 +128,8 @@ const ATTN_DETAIL_VIEW_MAX=140;
 const ACTIVITY_STATE=Object.freeze({WORKING:'working',WAITING:'waiting',DONE:'done',IDLE:'idle',ENDED:'ended'});
 // 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
 const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'●',[ACTIVITY_STATE.DONE]:'✓',[ACTIVITY_STATE.WAITING]:'…',[ACTIVITY_STATE.IDLE]:'○'};
+// UX_AUDIT_FIX_SRS FR-UXF-40: 상태의 보이는 글자. 상태값(데이터)은 그대로다.
+const AGENT_STATE_LABEL={[ACTIVITY_STATE.WORKING]:t('activity.state_working'),[ACTIVITY_STATE.DONE]:t('activity.state_done'),[ACTIVITY_STATE.WAITING]:t('activity.state_waiting'),[ACTIVITY_STATE.IDLE]:t('activity.state_idle')};
 
 
 // 모바일 키바 제스처 상수 (USER_CHECKLIST_FIXES_SRS FR-MTB-2/4/5).
@@ -744,9 +746,9 @@ const TIP_SBX_MOUNT_DEL='Remove this mount';
 const TIP_THEME_LIST='Theme';
 const TIP_THEME_PREVIEW='Theme preview: ';
 const TIP_SIDEBAR_CLOSE='Close the sidebar';
-const TIP_MOBILE_ACTIVITY='Show everything that is running';
+const TIP_MOBILE_ACTIVITY='Work — everything that is running';
 // MOBILE_UX_OVERHAUL_SRS FR-MUX-75: 작업 중인 에이전트가 있으면 단추의 이름이 그 수를 말한다.
-const TIP_MOBILE_ACTIVITY_WORKING='Show everything that is running — {n} working';
+const TIP_MOBILE_ACTIVITY_WORKING='Work — {n} working';
 // FR-MUX-72: 모바일 사용량 요약 줄. 펼침·접힘에 따라 이름이 바뀐다.
 const TIP_USAGE_SUM_OPEN='Show usage of every account';
 const TIP_USAGE_SUM_CLOSE='Hide usage details';

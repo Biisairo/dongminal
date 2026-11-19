@@ -108,7 +108,7 @@ const GIT_DIFF_ERR={
 // 폴링(FR-GIT-18~24)은 1초에 한 번 기록되므로 거르지 않으면 목록이 그것으로만
 // 찬다. 기본은 쓰기와 실패만 보이고, 토글이 읽기까지 연다.
 const GIT_CON_READS_LABEL=t('git.act.con_reads_label');
-const GIT_CON_REFRESH='Refresh';
+const GIT_CON_REFRESH=t('git.con_refresh');
 // FR-TIP-1: 무엇을 다시 받는지가 라벨에 없다 — 머리의 `⟳` 와 대상이 다르다.
 const GIT_CON_REFRESH_TITLE='Reload the list of git commands this app has run';
 const GIT_CON_EMPTY=t('git.con_empty');

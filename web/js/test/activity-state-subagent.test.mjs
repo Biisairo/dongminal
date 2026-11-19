@@ -46,6 +46,7 @@ function loadActivity(globals = {}) {
       // FR-TIP-2: Activity 탭의 영어 툴팁 (constants.js).
       TIP_ACT_AGENTS: 'Show running agents', TIP_ACT_BG: 'Show background tools', TIP_ACT_RUNS: 'Show runs', TIP_ACT_CHATS: 'Show chat rooms',
       AGENT_STATE_ICON: { working: '●', done: '✓', waiting: '…', idle: '○' },
+      AGENT_STATE_LABEL: { working: '작업 중' },
       PrefStore: { local },
       STORE_KEYS: { agentsGroupFold: 'agentsGroupFold', agentsSubView: 'agentsSubView' },
       UIKit: { iconHTML: (n) => '<i:' + n + '>' },
@@ -102,7 +103,8 @@ test('FR-ASV-34: 목록형 줄은 머리(↳·종류·상태) 한 줄과 사용�
   assert.equal(row.className, 'ag-sub');
   assert.deepEqual(plain(kinds(row)), ['ag-sub-head', 'ag-usage']);
   assert.deepEqual(plain(kinds(row.children[0])), ['ag-sub-arrow', 'ag-sub-type', 'ag-sub-state']);
-  assert.equal(row.children[0].children[2].textContent, '● working · Grep');
+  // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 '● working · Grep' / 지금 상태의 보이는 글자 / 이유 상태값이 아니라 카탈로그 말을 보인다
+  assert.equal(row.children[0].children[2].textContent, '● 작업 중 · Grep');
   assert.equal(row.children[0].children[2].className, 'ag-sub-state working');
   assert.deepEqual(plain(kinds(row.children[1])), ['ag-usage-model', 'ag-usage-bar', 'ag-usage-pct']);
   assert.match(row.title, /Find parseClaudeHook/);

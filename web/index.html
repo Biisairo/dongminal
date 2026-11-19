@@ -294,48 +294,48 @@
 <div id="modal-overlay" class="ui-modal">
   <div id="modal" class="ui-modal-box">
     <div class="modal-header">
-      <span class="modal-title" lang="en">Settings</span>
+      <span class="modal-title" data-i18n="html.settings_title">Settings</span>
       <button class="modal-close ui-btn ui-btn-icon ui-btn-ghost" id="modal-close" title="Close settings" aria-label="Close settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
-    <!-- FR-B-5: 탭 이름은 ko 카탈로그에서도 영어다 (FR-B-9 의 데이터) — 요소가 그 언어를 말한다. -->
+    <!-- UX_AUDIT_FIX_SRS FR-UXF-40: 탭 이름은 카탈로그 말이다. 제품 이름(Telegram·Claude)만 영어다. -->
     <!-- UI_POLISH_SRS FR-UIP-23: 탭 이름과 그 탭의 항목 라벨로 탭 목록을 거른다. -->
     <input type="search" class="ui-input modal-search" id="modal-search" data-i18n-placeholder="html.settings_search" placeholder="Search settings" aria-label="Search settings">
-    <div class="modal-tabs ui-scroll-sm" lang="en">
+    <div class="modal-tabs ui-scroll-sm">
       <!-- SETTINGS_TAB_ORDER_SRS FR-STO-1·5: 성격별 묶음. 묶음 이름은 데스크톱 세로 목록에서만 보이고
            접근성 트리 밖이다 — tablist 의 자식은 tab 뿐이다. -->
       <!-- PROFILE_NAME_SRS FR-PFN-10: 이 기기의 이름#번호를 정하는 한 자리. -->
-      <button class="ui-tab mtab active" data-tab="profile" title="Profile name of this device">Profile</button>
+      <button class="ui-tab mtab active" data-tab="profile" title="Profile name of this device" data-i18n="html.mtab_profile">Profile</button>
       <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_view"></div>
-      <button class="ui-tab mtab" data-tab="display" title="Display settings">Display</button>
-      <button class="ui-tab mtab" data-tab="theme" title="Theme settings">Theme</button>
-      <button class="ui-tab mtab" data-tab="statusbar" title="Status bar settings">Status Bar</button>
-      <button class="ui-tab mtab" data-tab="presets" title="Layout preset settings">Presets</button>
+      <button class="ui-tab mtab" data-tab="display" title="Display settings" data-i18n="html.mtab_display">Display</button>
+      <button class="ui-tab mtab" data-tab="theme" title="Theme settings" data-i18n="html.mtab_theme">Theme</button>
+      <button class="ui-tab mtab" data-tab="statusbar" title="Status bar settings" data-i18n="html.mtab_statusbar">Status Bar</button>
+      <button class="ui-tab mtab" data-tab="presets" title="Layout preset settings" data-i18n="html.mtab_presets">Presets</button>
       <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_work"></div>
       <!-- EDITOR_LSP_SRS FR-LSP-46 -->
       <!-- AGENT_RENDER_ENV_SRS FR-ARE-3: 터미널에서 도는 것들의 설정. -->
-      <button class="ui-tab mtab" data-tab="terminal" title="Terminal settings">Terminal</button>
-      <button class="ui-tab mtab" data-tab="code" title="Editor and code settings">Code</button>
-      <button class="ui-tab mtab" data-tab="shortcuts" title="Keyboard shortcut settings">Shortcuts</button>
+      <button class="ui-tab mtab" data-tab="terminal" title="Terminal settings" data-i18n="html.mtab_terminal">Terminal</button>
+      <button class="ui-tab mtab" data-tab="code" title="Editor and code settings" data-i18n="html.mtab_code">Code</button>
+      <button class="ui-tab mtab" data-tab="shortcuts" title="Keyboard shortcut settings" data-i18n="html.mtab_shortcuts">Shortcuts</button>
       <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_alerts"></div>
-      <button class="ui-tab mtab" data-tab="notify" title="Notification settings">Notifications</button>
+      <button class="ui-tab mtab" data-tab="notify" title="Notification settings" data-i18n="html.mtab_notify">Notifications</button>
       <!-- TELEGRAM_BRIDGE_SRS FR-TGB-1: 휴대폰에서 에이전트를 보는 브리지. -->
-      <button class="ui-tab mtab" data-tab="telegram" title="Telegram bridge">Telegram</button>
+      <button class="ui-tab mtab" data-tab="telegram" title="Telegram bridge" lang="en">Telegram</button>
       <!-- FR-PIS-20 / D-2: 흩어져 있던 주기 손잡이가 한 자리로 모인다. -->
-      <button class="ui-tab mtab" data-tab="polling" title="Polling interval settings">Polling</button>
+      <button class="ui-tab mtab" data-tab="polling" title="Polling interval settings" data-i18n="html.mtab_polling">Polling</button>
       <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_net"></div>
       <!-- HOT_REBIND_SRS FR-HRB-40: 포트와 expose 를 서버를 끄지 않고 바꾼다. -->
-      <button class="ui-tab mtab" data-tab="server" title="Server port and expose">Server</button>
+      <button class="ui-tab mtab" data-tab="server" title="Server port and expose" data-i18n="html.mtab_server">Server</button>
       <!-- ACCESS_ALLOWLIST_SRS FR-ACL-22: --expose 뒤의 유일한 문. -->
-      <button class="ui-tab mtab" data-tab="access" title="Network access allowlist">Access</button>
+      <button class="ui-tab mtab" data-tab="access" title="Network access allowlist" data-i18n="html.mtab_access">Access</button>
       <!-- PEER_NETWORK_SRS FR-PNW-80, PEER_DAEMON_SRS FR-PDM-70: 다른 dongminal 과의 간선. -->
-      <button class="ui-tab mtab" data-tab="edges" title="Edges to other nodes">Edges</button>
+      <button class="ui-tab mtab" data-tab="edges" title="Edges to other nodes" data-i18n="html.mtab_edges">Edges</button>
       <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_agents"></div>
       <!-- CLAUDE_ACCOUNTS_SRS FR-CAC-94: 계정·자동 전환·폴더 연결·보관 목록·기록. -->
-      <button class="ui-tab mtab" data-tab="claude" title="Claude accounts">Claude</button>
-      <button class="ui-tab mtab" data-tab="sandbox" title="Sandbox profile settings">Sandbox</button>
+      <button class="ui-tab mtab" data-tab="claude" title="Claude accounts" lang="en">Claude</button>
+      <button class="ui-tab mtab" data-tab="sandbox" title="Sandbox profile settings" data-i18n="html.mtab_sandbox">Sandbox</button>
       <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_manage"></div>
       <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
-      <button class="ui-tab mtab" data-tab="backup" title="Backup and restore settings">Backup</button>
+      <button class="ui-tab mtab" data-tab="backup" title="Backup and restore settings" data-i18n="html.mtab_backup">Backup</button>
     </div>
     <div class="modal-body ui-scroll">
       <div class="mpanel" id="panel-theme" hidden>

@@ -982,3 +982,7 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   데스크톱에서 비어 숨어 있었는데(PANEL_TEMPLATE `.ui-panel-acts:not(:has(...))`), 접기 단추(`.sb-collapse`, FR-UXF-30)를 품고 선다.
   같은 회차의 다른 데스크톱 변경(보기 전환을 `.git-head` 끝으로 · `.git-files-bar` 제거 · git 새로고침 단추 제거 · 카드 줄 구성)은
   키가 생기고 빠지는 쪽(드리프트)이다. **`linux`·`win32` 는 아직이다** — 푸시 뒤 `layout-baseline` 워크플로(사용자 실행).
+- 2026-11-20 (UX_AUDIT_FIX_SRS 3묶음·FR-UXF-40) `ui-layout.darwin.json` 을 **다시 떴다**. 바뀐 값은 한 자리다:
+  `terminal|span` 의 `inset` 왼쪽 `127.422px` → `106.938px`. **이유**: `+ 새 창` 안쪽 단추의 글자가 `Box` 에서 `샌드박스` 로
+  바뀌어 폭이 늘었다 — 오른쪽에 붙은 절대 위치 요소라 왼쪽 inset 이 그만큼 준다. **`linux`·`win32` 는 아직이다** — 푸시 뒤
+  `layout-baseline` 워크플로(사용자 실행).

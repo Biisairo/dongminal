@@ -38,7 +38,7 @@
 | 닫은 탭 다시 열기 | `Ctrl+Shift+U` |
 | Run 오케스트레이션 | `Ctrl+Shift+O` |
 | 백그라운드 도구 | `Ctrl+Shift+B` |
-| 에이전트 패널 | `Ctrl+Shift+A` |
+| 작업 패널 | `Ctrl+Shift+A` |
 | 창 슬롯 더하기 | `Ctrl+Shift+S` |
 | 창 슬롯 빼기 | `Ctrl+Shift+X` |
 | 이전 슬롯 | `Ctrl+Alt+[` |
@@ -48,14 +48,14 @@
 | 단축키 목록 | `Ctrl+Shift+/` |
 | 사이드바 탭: 창 | `Ctrl+Shift+1` |
 | 사이드바 탭: 저장소 | `Ctrl+Shift+2` |
-| 정의로 이동 (Editor) | `F12` |
-| 참조 찾기 (Editor) | `Shift+F12` |
-| 줄로 이동 (Editor) | `Ctrl+G` |
-| 저장 (Editor) | `Ctrl+S` / `Cmd+S` |
-| 모두 저장 (Editor) | `Ctrl+Alt+S` / `Cmd+Alt+S` |
-| 파일 내에서 검색 (Editor) | `Ctrl+F` / `Cmd+F` |
-| 파일 검색 (Editor) | `Ctrl+P` / `Cmd+P` |
-| 파일 전체에서 검색 (Editor) | `Ctrl+Shift+F` / `Cmd+Shift+F` |
+| 정의로 이동 (편집기) | `F12` |
+| 참조 찾기 (편집기) | `Shift+F12` |
+| 줄로 이동 (편집기) | `Ctrl+G` |
+| 저장 (편집기) | `Ctrl+S` / `Cmd+S` |
+| 모두 저장 (편집기) | `Ctrl+Alt+S` / `Cmd+Alt+S` |
+| 파일 내에서 검색 (편집기) | `Ctrl+F` / `Cmd+F` |
+| 파일 검색 (편집기) | `Ctrl+P` / `Cmd+P` |
+| 파일 전체에서 검색 (편집기) | `Ctrl+Shift+F` / `Cmd+Shift+F` |
 | 터미널 검색 | `Ctrl+F` / `Cmd+F` (고정) |
 
 커밋 메시지 입력에서는 `Ctrl+Enter` 또는 `Cmd+Enter` 로 커밋합니다. 이 키는 고정이며 설정에서 바꿀 수 없습니다.

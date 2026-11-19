@@ -25,7 +25,7 @@ const GIT_BR_GROUPS=[
   {key:GIT_REF_KIND_TAG,   name:t('git.br_groups.tag')},
 ];
 const GIT_BR_SEARCH_PLACEHOLDER=t('git.br_search_placeholder');
-const GIT_BR_NEW='+ New Branch';
+const GIT_BR_NEW=t('git.br_new');
 // FR-TIP-1: 어디에서 갈라지는지가 라벨에 없다 — 그것이 이 버튼의 유일한 물음이다.
 const GIT_BR_NEW_TITLE='Create a new branch from the current HEAD';
 const GIT_BR_EMPTY=t('git.br_empty');
@@ -87,7 +87,7 @@ const GIT_BR_WHY_EXISTS=t('git.br_why_exists');
 const GIT_BR_VALIDATE_FAIL=t('git.br_validate_fail');
 const GIT_BR_VALIDATE_DEBOUNCE_MS=200;
 
-const GIT_STASH_NEW='+ New Stash';
+const GIT_STASH_NEW=t('git.stash_new');
 // FR-TIP-1: 무엇이 담기는지가 라벨에 없다.
 const GIT_STASH_NEW_TITLE='Stash the current working tree changes';
 // 막혔을 때. 사유의 한국어 원문은 버튼 옆 한 줄이 말한다 (FR-TIP-3).

@@ -111,8 +111,9 @@ test.describe('묶음 W — 사이드는 Explorer 와 Changes 를 갈아 끼운�
   test('W1 (V-RTU-10·11 / V-DSP-1): 사이드에 탭 둘이 서고 기본은 Changes 다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
-      await expect(sideTab(page, 'explorer')).toHaveText('Explorer');
-      await expect(sideTab(page, 'changes')).toHaveText('Changes');
+      // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'Explorer'·'Changes' / 지금 '탐색기'·'변경' / 이유 Repo 사이드 탭 (§3.5.2)
+      await expect(sideTab(page, 'explorer')).toHaveText('탐색기');
+      await expect(sideTab(page, 'changes')).toHaveText('변경');
       await expect(sideTab(page, 'changes')).toHaveClass(/active/);
       // 한 번에 하나만 보인다 (FR-RTU-12).
       await expect(side(page).locator('.git-view.git-changes')).toHaveCount(1);
@@ -179,7 +180,8 @@ test.describe('묶음 V — git 뷰는 본문 탭이 된다', () => {
     await sideTab(page, 'changes').click();
     await side(page).locator('.ed-side-act[data-view="history"]').click();
 
-    const tab = mainTabs(page).filter({ hasText: 'History' });
+    // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 hasText 'History' / 지금 '기록' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+    const tab = mainTabs(page).filter({ hasText: '기록' });
     await expect(tab).toHaveCount(1, { timeout: 10000 });
     // 편집기 탭과 같은 자격이다 — 같은 탭 바에 선다 (FR-RTU-33).
     await expect(tab).toHaveAttribute('data-git-view', 'history');
@@ -190,9 +192,10 @@ test.describe('묶음 V — git 뷰는 본문 탭이 된다', () => {
     await sideTab(page, 'changes').click();
     const act = side(page).locator('.ed-side-act[data-view="branches"]');
     await act.click();
-    await expect(mainTabs(page).filter({ hasText: 'Branches' })).toHaveCount(1, { timeout: 10000 });
+    // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 hasText 'Branches' / 지금 '브랜치' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+    await expect(mainTabs(page).filter({ hasText: '브랜치' })).toHaveCount(1, { timeout: 10000 });
     await act.click();
-    await expect(mainTabs(page).filter({ hasText: 'Branches' })).toHaveCount(1);
+    await expect(mainTabs(page).filter({ hasText: '브랜치' })).toHaveCount(1);
   });
 
   test('V3 (V-RTU-14): 본문에 터미널 탭은 여전히 만들 수 없다',
@@ -219,14 +222,15 @@ test.describe('묶음 V — git 뷰는 본문 탭이 된다', () => {
       await openRepo(page, REPO);
       await sideTab(page, 'changes').click();
       await side(page).locator('.ed-side-act[data-view="history"]').click();
-      await expect(mainTabs(page).filter({ hasText: 'History' })).toHaveCount(1, { timeout: 10000 });
+      // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 hasText 'History' / 지금 '기록' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+      await expect(mainTabs(page).filter({ hasText: '기록' })).toHaveCount(1, { timeout: 10000 });
 
       // 다른 저장소의 창으로 간다 — 그쪽에는 아직 History 가 없다.
       await openRepo(page, other);
-      await expect(mainTabs(page).filter({ hasText: 'History' })).toHaveCount(0);
+      await expect(mainTabs(page).filter({ hasText: '기록' })).toHaveCount(0);
       await sideTab(page, 'changes').click();
       await side(page).locator('.ed-side-act[data-view="history"]').click();
-      await expect(mainTabs(page).filter({ hasText: 'History' })).toHaveCount(1, { timeout: 10000 });
+      await expect(mainTabs(page).filter({ hasText: '기록' })).toHaveCount(1, { timeout: 10000 });
     });
 });
 

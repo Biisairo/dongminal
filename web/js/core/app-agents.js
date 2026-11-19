@@ -431,7 +431,7 @@ Object.assign(App.prototype, {
     head.append(dot,locDiv);
     const st=document.createElement('span');st.className='ag-state';
     if(info.state) st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
-    st.textContent=info.state+(info.tool?' · '+info.tool:'');
+    st.textContent=(AGENT_STATE_LABEL[info.state]||info.state)+(info.tool?' · '+info.tool:'');
     const what=document.createElement('div');what.className='ag-line ag-line-what';
     what.appendChild(st);
     if(info.detail){const dt=document.createElement('span');dt.className='ag-detail';dt.textContent=info.detail;what.appendChild(dt);}

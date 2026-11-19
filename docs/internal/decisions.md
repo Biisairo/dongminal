@@ -1665,6 +1665,8 @@
 | `D-8` | Activity 패널에는 에이전트·백그라운드·Runs 가 남고, 부르는 이름(단축키·툴팁·문서)은 **작업 / Work** 다. 화면 제목은 두지 않는다 |  | 채택 |
 | `D-9` | 두 패널 모두 머리에 접기 단추를 둔다. 자리는 패널의 바깥 가장자리 쪽 끝(왼쪽 패널은 왼쪽 끝, 오른쪽 패널은 오른쪽 끝)이다 |  | 채택 |
 | `D-10` | 갱신 실패를 덮던 수동 새로고침 단추 둘 — 작업 패널의 목록 ⟳(`.ag-refresh`)과 Changes 의 git ⟳(`.ed-side-refresh`) — 을 뺀다. 자동 갱신이 제대로 돌게 하고, 실패하면 알리고 **앱 새로고침**(`#sof… |  | 채택 |
+| `D-11` | X1: git 명령·옵션·용어(Commit·Fetch·Pull·Push·Merge·Rebase·Stash·Cherry-pick·Reset·Revert·Checkout·Blame·HEAD·amend·ours/theirs 등)는 영어로 둔다. 메뉴의 설명… |  | 채택 |
+| `D-12` | `Run`(dmctl run 의 실행 단위)은 이름 그대로 영어다 |  | 채택 |
 
 ## [`UX_BATCH11_SRS`](./UX_BATCH11_SRS.md)
 
@@ -1812,4 +1814,4 @@
 
 ---
 
-결정 **1089건** · 문서 **140개**.
+결정 **1091건** · 문서 **140개**.

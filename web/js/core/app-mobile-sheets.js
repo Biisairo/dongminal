@@ -93,7 +93,7 @@ Object.assign(App.prototype, {
     back.appendChild(UIKit.icon('chevron-left'));
     back.addEventListener('click',()=>this._settingsView(modal,'list'));
     const sec=document.createElement('span');
-    sec.className='modal-section';sec.lang='en';
+    sec.className='modal-section';
     modal.querySelector('.modal-header').prepend(back,sec);
   },
 

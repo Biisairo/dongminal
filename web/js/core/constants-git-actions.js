@@ -285,8 +285,8 @@ Object.assign(GIT_WRITE_ERR,{
 
 // FR-GIT-269: Branches 탭의 원격 목록. **URL 은 서버가 자격증명을 지운 값이다**
 // (FR-GIT-104) — 화면이 다시 가리지 않는다. 가리는 자리가 둘이면 한쪽만 고쳐진다.
-const GIT_RM_TITLE='Remotes';
-const GIT_RM_ADD='+ Add Remote';
+const GIT_RM_TITLE=t('git.rm_title');
+const GIT_RM_ADD=t('git.rm_add');
 const GIT_RM_ADD_TITLE='Add a new remote (git remote add)';
 const GIT_RM_EMPTY=t('git.rm_empty');
 const GIT_RM_LOAD_FAIL=t('git.rm_load_fail');

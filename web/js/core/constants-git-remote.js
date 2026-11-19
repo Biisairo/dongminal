@@ -152,7 +152,7 @@ const GIT_REMOTE_DIALOGS={
   ]},
 };
 
-const GIT_WT_ADD='+ New Worktree';
+const GIT_WT_ADD=t('git.wt_add');
 // FR-TIP-1: worktree 가 무엇인지 모르는 사용자에게 라벨은 아무 말도 하지 않는다.
 const GIT_WT_ADD_TITLE='Create a worktree — a second checkout of this repository in its own folder';
 const GIT_WT_EMPTY=t('git.wt_empty');
@@ -170,7 +170,7 @@ const GIT_WT_OWN_TITLE={
 // 행에 붙지 않는다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다 (FR-GIT-180).
 // FR-GIT-249: 핀은 **상태의 토글**이다 — 이미 핀된 것에 Pin 을 다시 보이면 눌러도
 // 아무 일이 없고(서버 pin 은 멱등이다) 사용자는 그것을 고장으로 읽는다.
-const GIT_WT_ACT_LABEL={open:'Open',pin:'Pin',unpin:'Unpin',term:'Shell',remove:'Remove'};
+const GIT_WT_ACT_LABEL={open:t('git.wt_act.open'),pin:t('git.wt_act.pin'),unpin:t('git.wt_act.unpin'),term:t('git.wt_act.term'),remove:t('git.wt_act.remove')};
 /**
   * UX_BATCH5_SRS FR-WTG-2: `open` 의 문구가 **하는 일과 어긋나 있었다.**
   *
@@ -200,10 +200,10 @@ const GIT_SUB_STATE_UNINIT='uninitialized';
 const GIT_SUB_STATE_MODIFIED='modified';
 const GIT_SUB_STATE_CONFLICT='conflict';
 const GIT_SUB_STATE_LABEL={
-  [GIT_SUB_STATE_OK]:'ok',
-  [GIT_SUB_STATE_UNINIT]:'uninit',
-  [GIT_SUB_STATE_MODIFIED]:'modified',
-  [GIT_SUB_STATE_CONFLICT]:'conflict',
+  [GIT_SUB_STATE_OK]:t('git.sub_state.ok'),
+  [GIT_SUB_STATE_UNINIT]:t('git.sub_state.uninit'),
+  [GIT_SUB_STATE_MODIFIED]:t('git.sub_state.modified'),
+  [GIT_SUB_STATE_CONFLICT]:t('git.sub_state.conflict'),
 };
 // 상태 배지는 `<span>` 이라 FR-TIP-1 의 대상이 아니지만, 같은 표면의 툴팁이
 // 언어를 섞으면 그것이 더 읽기 어렵다 — 이 탭의 툴팁은 전부 영어다.
@@ -216,7 +216,7 @@ const GIT_SUB_STATE_TITLE={
 // 행 동작 (FR-SUB-8). 초기화되지 않은 서브모듈에는 `open`·`term` 이 붙지 않는다 —
 // 열 저장소가 없고, 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다
 // (FR-GIT-180). 그 자리에는 `init` 이 대신 선다.
-const GIT_SUB_ACT_LABEL={open:'Open',init:'Init',update:'Update',sync:'Sync',term:'Shell'};
+const GIT_SUB_ACT_LABEL={open:t('git.sub_act.open'),init:t('git.sub_act.init'),update:t('git.sub_act.update'),sync:t('git.sub_act.sync'),term:t('git.sub_act.term')};
 const GIT_SUB_ACT_TITLE={
   open:'Open this submodule as its own repository window',
   init:'Initialize this submodule and check out its recorded commit',
@@ -225,7 +225,7 @@ const GIT_SUB_ACT_TITLE={
   term:'Open a terminal tab in this submodule (in a non-Git window)',
 };
 // 머리의 일괄 (FR-SUB-9). 대상이 **전부**이므로 라벨이 그것을 말한다.
-const GIT_SUB_BULK_LABEL={update:'Update all',sync:'Sync all'};
+const GIT_SUB_BULK_LABEL={update:t('git.sub_bulk.update'),sync:t('git.sub_bulk.sync')};
 const GIT_SUB_BULK_TITLE={
   update:'Initialize and update every submodule to its recorded commit',
   sync:'Copy every submodule URL from .gitmodules into this repository config',

@@ -1,7 +1,7 @@
 # SRS: UI/UX 진단 반영 — UX_AUDIT_2026-11-19 의 항목 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 3묶음(말·눈금) 이후. 1묶음 FR-UXF-1~12, 2묶음 FR-UXF-20~28. V-LAY-1 의 linux·win32 기준선은 푸시 뒤 `layout-baseline` 워크플로(사용자 실행)
+> **남은 것**: 3묶음 D19·X9, 4묶음 이후, 채팅 창 분리(D-7, 별도 SRS). 1묶음 FR-UXF-1~12, 2묶음 FR-UXF-20~31. V-LAY-1 의 linux·win32 기준선은 푸시 뒤 `layout-baseline` 워크플로(사용자 실행)
 
 요구사항 식별자 접두어: `FR-UXF-`
 
@@ -54,6 +54,8 @@
 | D-7 | 채팅은 **채팅 전용 창**으로 분리한다 — 사이드바에 채팅 탭, Repo 창처럼 메인 창 한 종류와 짝을 이룬다. 별도 SRS 로 다룬다 |
 | D-8 | Activity 패널에는 에이전트·백그라운드·Runs 가 남고, 부르는 이름(단축키·툴팁·문서)은 **작업 / Work** 다. 화면 제목은 두지 않는다 |
 | D-9 | 두 패널 모두 머리에 접기 단추를 둔다. 자리는 패널의 바깥 가장자리 쪽 끝(왼쪽 패널은 왼쪽 끝, 오른쪽 패널은 오른쪽 끝)이다 |
+| D-11 | X1: git 명령·옵션·용어(Commit·Fetch·Pull·Push·Merge·Rebase·Stash·Cherry-pick·Reset·Revert·Checkout·Blame·HEAD·amend·ours/theirs 등)는 영어로 둔다. 메뉴의 설명부와 뷰 이름(History·Branches·Console·Worktrees·Submodules·Changes·Explorer)은 한국어로 옮긴다 |
+| D-12 | `Run`(dmctl run 의 실행 단위)은 이름 그대로 영어다 |
 | D-10 | 갱신 실패를 덮던 수동 새로고침 단추 둘 — 작업 패널의 목록 ⟳(`.ag-refresh`)과 Changes 의 git ⟳(`.ed-side-refresh`) — 을 뺀다. 자동 갱신이 제대로 돌게 하고, 실패하면 알리고 **앱 새로고침**(`#soft-reload-btn`, 남긴다)으로 복구하게 한다 |
 
 ### 2.2 제약 (Constraints)
@@ -166,6 +168,54 @@
 
 **FR-UXF-29** — git 낡음 안내(`.git-stale-note`)에 `앱 새로고침` 단추가 있다.
 
+### 3.5 3묶음 — 말 통일 (X1 · D-6·D-8·D-11·D-12)
+
+**FR-UXF-40** — 한국어 로케일에서 화면에 보이는 글자(라벨·탭·제목·상태·버튼·메뉴 항목·빈 상태)는 한국어다. 예외는 §3.5.1 의 표에
+있는 것뿐이다. 툴팁(`title`)·`aria-label` 은 FR-TIP-2 대로 영어다 — 같은 상수가 툴팁과 보이는 라벨을 함께 맡던 자리
+(`GIT_SIDE_ACTIONS`)는 둘을 나눈다.
+
+**FR-UXF-41** — 보이는 글자는 `t()` 를 지난다. ko·en 카탈로그에 같은 키가 있다. 저장되는 기본 이름(`Shell`·`Window`·`Chat`,
+D-WRD-10)과 이미 만들어진 git 뷰 탭의 이름은 데이터라 바꾸지 않는다 — 새로 만드는 탭만 새 이름을 받는다.
+
+**FR-UXF-42** — 단위 시험이 ko 카탈로그에서 값이 라틴 문자로만 된 키를 모아 §3.5.1 의 허용 목록과 대조한다. 목록 밖이면 실패한다.
+
+**FR-UXF-43 (D-8)** — Activity 패널을 부르는 이름은 **작업 / Work** 다: 단축키 항목 이름(`agentsToggle`), 모바일 상단바 단추
+(`#m-act-btn`)의 툴팁·`aria-label`, 문서. 화면 제목은 두지 않는다. 패널 안의 탭 이름(에이전트·백그라운드·Run·채팅)은 그대로다.
+
+#### 3.5.1 영어로 남기는 것
+
+| 갈래 | 낱말 |
+|---|---|
+| 제품·서비스·모델 | Claude, Git, Telegram, Opus, Sonnet, statusLine, CPU, `server.json` |
+| git 명령·옵션·용어 (D-11) | Commit, Fetch, Pull, Push, Merge, Rebase, Stash, Pop, Drop, Cherry-pick, Revert, Reset, Clean, Checkout, Blame, Diff, HEAD, detached, main, amend, `--signoff`·`--no-verify`·`-a`·`--rebase`, reflog, date·author-date·topo, ours·Theirs, Continue·Skip·Abort, Stage/Unstage/Revert hunk·lines, Init·Update·Sync(서브모듈), am, Bisect, cwd |
+| 실행 단위 (D-12) | Run |
+| 키 이름·기호 | Esc, Tab, Ctrl, Alt, Home, End, PgUp, PgDn, `^C`, `Aa`·`ab`·`.*` |
+| ANSI 색 이름 | Black·Red·Green·Yellow·Blue·Magenta·Cyan·White 와 Br 계열 |
+| 저장 데이터 기본값 | Shell, Window, Chat |
+| 그 밖 (구현 중 확정) | `mixed`(Reset 옵션), `dmctl`(제품 CLI) |
+
+#### 3.5.2 옮기는 말 (보이는 글자)
+
+| 자리 | 이전 | 지금 |
+|---|---|---|
+| 설정 제목·탭 | Settings · Profile · Display · Theme · Status Bar · Presets · Terminal · Code · Shortcuts · Notifications · Polling · Server · Access · Edges · Sandbox · Backup | 설정 · 프로필 · 화면 · 테마 · 상태바 · 프리셋 · 터미널 · 코드 · 단축키 · 알림 · 갱신 주기 · 서버 · 접근 · 간선 · 샌드박스 · 백업 (Telegram·Claude 는 그대로) |
+| 테마 UI 색 | Background · Sidebar · Border · Accent · Text · Muted · Bright · Dim · Danger · Accent Bd | 배경 · 사이드바 · 경계 · 강조 · 글자 · 흐린 글자 · 밝은 글자 · 옅은 글자 · 위험 · 강조 경계 |
+| 테마 터미널 색 | BG · FG · Cursor · Select | 배경 · 글자 · 커서 · 선택 |
+| 표시 모드 | Auto · Desktop · Mobile | 자동 · 데스크톱 · 모바일 |
+| 작업 카드 상태 | working · waiting · done · idle | 작업 중 · 대기 · 완료 · 멈춤 |
+| 사용량 남은 시간 | 3d · 2h · 10m | 3일 · 2시간 · 10분 |
+| Repo 사이드·세그먼트 | Changes · Explorer · Editor | 변경 · 탐색기 · 편집기 |
+| git 뷰 이름 | History · Branches · Console · Worktrees · Submodules | 기록 · 브랜치 · 콘솔 · 워크트리 · 서브모듈 (Diff·Stash 는 그대로) |
+| 목록 머리 단추 | + New Branch · + New Stash · + New Worktree · + Add Remote · + Branch · Refresh | + 새 브랜치 · + 새 Stash · + 새 워크트리 · + 원격 추가 · + 브랜치 · 새로고침 |
+| 커밋 진행 | Running… | 실행 중… |
+| History 필터 | Author · Since · Until · Path | 작성자 · 이후 · 이전 · 경로 |
+| Worktree 행 | Open · Pin · Unpin · Shell · Remove | 열기 · 고정 · 고정 해제 · 셸 · 제거 |
+| Submodule | ok · uninit · modified · conflict / Open · Shell / Update all · Sync all | 정상 · 초기화 안 됨 · 수정됨 · 충돌 / 열기 · 셸 / 모두 Update · 모두 Sync |
+| git 메뉴 설명부 | Create Branch from… · Rename… · Set upstream… · Compare with… · Reset to here… · Branch from stash… | 여기서 브랜치 만들기… · 이름 바꾸기… · upstream 설정… · 비교… · 여기로 Reset… · stash 에서 브랜치 만들기… |
+| 기타 | Box · Slot · `(Editor)` · Editor 편집/코드 탐색/검색 | 샌드박스 · 칸 · `(편집기)` · 편집기 편집/코드 탐색/검색 |
+| 표 밖에서 확정 | Rebase onto… · host · port · Remotes · `Editor 루트` 오류 문장 | 여기로 Rebase… · 호스트 · 포트 · 원격 · `편집기 루트` |
+| 작업 패널 이름 (D-8) | Activity (단축키 이름·모바일 단추 툴팁) | 작업 / Work |
+
 ### 3.4 두 패널의 접기 단추 (D-9)
 
 **FR-UXF-30** — 데스크톱에서 메인 패널도 머리 끝 단추 자리(`#sb-acts`)에 접기 단추(`.sb-collapse`)를 둔다. 누르면 레일로 접고, 레일에서는
@@ -200,6 +250,9 @@
 | TC-UXF-18 | FR-UXF-28 | e2e: 스냅샷이 500 이면 카드가 남는다. 두 번 이어지면 `.ag-stale` 과 앱 새로고침 단추가 선다. 다시 성공하면 걷힌다 |
 | TC-UXF-19 | FR-UXF-27 | e2e: 단추 없이 — 파일을 바꾸면 Changes 목록에 자동으로 나타난다(관측 주기 안). 활동을 보고하면 카드가 자동으로 바뀐다 |
 | TC-UXF-20 | FR-UXF-29 | e2e: git 낡음 안내에 앱 새로고침 단추가 있다 |
+| TC-UXF-40 | FR-UXF-42 | unit: ko 카탈로그의 라틴 문자 전용 값이 모두 §3.5.1 허용 목록 안이다 |
+| TC-UXF-41 | FR-UXF-40·41 | e2e(ko): 설정 제목이 `설정`, 첫 탭이 `프로필`. 작업 카드 상태가 `작업 중 · Edit`. Repo 사이드 탭이 `변경`·`탐색기`. 진입점 라벨이 `기록` 등이고 툴팁은 영어다 |
+| TC-UXF-42 | FR-UXF-43 | e2e(모바일): `#m-act-btn` 의 `aria-label` 이 Work 를 말한다. unit: `agentsToggle` 단축키 이름에 `작업` |
 | TC-UXF-21 | FR-UXF-30 | e2e(데스크톱): `#sb-acts .sb-collapse` 를 누르면 레일(폭 40), 다시 누르면 펼침. 모바일에는 보이지 않는다 |
 | TC-UXF-22 | FR-UXF-31 | e2e(데스크톱): 왼쪽 메인 패널의 접기 단추 left < 첫 탭 left, 오른쪽 작업 패널의 접기 단추 right ≈ 패널 right. 메인 패널을 오른쪽으로 옮기면 접기 단추가 오른쪽 끝이다 |
 | TC-UXF-14 | FR-UXF-23 | e2e: `.git-head .git-files-mode` 둘, `.git-head-sep` 하나, `.git-files-bar` 없음 |

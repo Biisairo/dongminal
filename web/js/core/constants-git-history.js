@@ -61,16 +61,16 @@ const GIT_HIST_ORDERS=[
 
 // 필터 (FR-GIT-130). 가능한 것을 git 옵션으로 내려보낸다 — 키는 질의 인자 이름이다.
 const GIT_HIST_FILTERS=[
-  {key:'author',label:'Author'},
-  {key:'since', label:'Since'},
-  {key:'until', label:'Until'},
-  {key:'path',  label:'Path'},
+  {key:'author',label:t('git.hist_f_author')},
+  {key:'since', label:t('git.hist_f_since')},
+  {key:'until', label:t('git.hist_f_until')},
+  {key:'path',  label:t('git.hist_f_path')},
 ];
 const GIT_HIST_APPLY=t('git.act.hist_apply');
 // FR-TIP-1: `Apply`·`Go` 만으로는 무엇에 적용하고 어디로 가는지 보이지 않는다.
 const GIT_HIST_APPLY_TITLE='Apply these filters to the history list';
 // HISTORY_BRANCH_BUTTON_SRS FR-HBB-3: 같은 바의 라벨은 같은 자리에 모인다.
-const GIT_HIST_BRANCH='+ Branch';
+const GIT_HIST_BRANCH=t('git.hist_branch');
 const GIT_HIST_BRANCH_TITLE='Create a branch at the current HEAD (right-click a commit to branch from it instead)';
 
 // reflog 포함 (FR-GIT-280). 어떤 ref 도 가리키지 않게 된 커밋 — reset 으로 되돌린

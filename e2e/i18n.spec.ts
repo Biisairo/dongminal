@@ -110,10 +110,10 @@ test.describe('축 B — 국제화', () => {
     await seedLocale(request, null);
     await waitForInit(page);
     await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
-    // 설정 모달의 탭 이름은 ko 카탈로그에서도 영어다 (FR-B-9 의 데이터) — 그 요소가 말한다.
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 `.modal-tabs`·`.modal-title` 이 lang=en / 지금 제품 이름 탭(Telegram)만 / 이유 탭 이름·제목이 카탈로그 말이 됐다
     await openSettingsTab(page, 'display');
-    await expect(page.locator('.modal-tabs')).toHaveAttribute('lang', 'en');
-    await expect(page.locator('.boot-name, .modal-title').first()).toHaveAttribute('lang', 'en');
+    await expect(page.locator('.modal-tabs')).not.toHaveAttribute('lang', 'en');
+    await expect(page.locator('.mtab[data-tab="telegram"]')).toHaveAttribute('lang', 'en');
   });
 
   // TC-B-4 · FR-B-6 (FR-A11Y-21) — ① 빈 칸 안내

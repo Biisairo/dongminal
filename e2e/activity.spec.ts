@@ -41,7 +41,8 @@ test.describe('Agent activity panel', () => {
     // A new signal overwrites the same card in place (TC-AAP-14).
     expect(await setActivity(page, pid, 'done', '', '')).toBe(200);
     await expect(page.locator('#agents-panel .ag-card')).toHaveCount(1);
-    await expect(card.locator('.ag-state')).toContainText('done');
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'done' / 지금 '완료' / 이유 상태의 보이는 글자는 카탈로그 말이다
+    await expect(card.locator('.ag-state')).toContainText('완료');
 
     // Clicking the card jumps to that pane (here the only pane → stays focused,
     // and the card click must not throw / panel still consistent).
@@ -578,7 +579,8 @@ test.describe('Activity subagent views and usage limits', () => {
     // FR-SVL-1·2: 카드 안의 줄이고, 하위 카드·전환 버튼·접기 단추는 없다
     const row = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub`);
     await expect(row).toHaveCount(1, { timeout: 10000 });
-    await expect(row.locator('.ag-sub-state')).toHaveText('● working · A-Very-Long-Tool-Name-For-Overflow-Check');
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 '● working · …' / 지금 '● 작업 중 · …' / 이유 한국어 화면의 보이는 글자는 한국어다
+    await expect(row.locator('.ag-sub-state')).toHaveText('● 작업 중 · A-Very-Long-Tool-Name-For-Overflow-Check');
     await expect(row.locator('.ag-usage-model')).toHaveText('haiku-5-5·low');
     await expect(page.locator('#agents-panel .ag-subcard')).toHaveCount(0);
     await expect(page.locator('#agents-panel .ag-subview')).toHaveCount(0);
@@ -594,7 +596,8 @@ test.describe('Activity subagent views and usage limits', () => {
     await expect(segs).toHaveCount(2);
     await expect(segs.nth(0)).toHaveClass(/lv-warn/);
     await expect(segs.nth(0)).toContainText('72%');
-    await expect(segs.nth(0).locator('.cacct-cell-left')).toHaveText('2h');
+    // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 '2h' / 지금 '2시간' / 이유 사용량 남은 시간 단위 (§3.5.2)
+    await expect(segs.nth(0).locator('.cacct-cell-left')).toHaveText('2시간');
     await expect(segs.nth(1)).toContainText('21%');
     await expect(segs.nth(0)).toHaveAttribute('title', /(2h (9|10)m|2시간 (9|10)분)/);
     const pinned = await foot.evaluate((el) => {

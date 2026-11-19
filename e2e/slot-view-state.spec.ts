@@ -138,10 +138,11 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await focusSlot(page, 0);
     await clickTab(page, 0, 'Diff');
     await focusSlot(page, 1);
-    await clickTab(page, 1, 'History');
+    // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 'History' / 지금 '기록' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+    await clickTab(page, 1, '기록');
 
     expect(await activeTabLabel(page, 0)).toBe('Diff');
-    expect(await activeTabLabel(page, 1)).toBe('History');
+    expect(await activeTabLabel(page, 1)).toBe('기록');
 
     // 양쪽 모두 자기 뷰를 실제로 그렸다 — 한쪽이 빈 것이 접수된 결함이었다.
     expect(await gitViewIn(page, 0)).toBe('git-diff');
@@ -155,7 +156,8 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await openInSlot(page, 0, git);
     await openInSlot(page, 1, git);
     await focusSlot(page, 1);
-    await clickTab(page, 1, 'Branches');
+    // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 'Branches' / 지금 '브랜치' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+    await clickTab(page, 1, '브랜치');
     await focusSlot(page, 0);
     await clickTab(page, 0, 'Stash');
 
@@ -165,7 +167,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await page.waitForSelector('#area .slot[data-slot="1"]', { timeout: 15000 });
 
     expect(await activeTabLabel(page, 0)).toBe('Stash');
-    expect(await activeTabLabel(page, 1)).toBe('Branches');
+    expect(await activeTabLabel(page, 1)).toBe('브랜치');
   });
 
   test('TC-SVS-3: 한 칸이 보던 탭을 닫으면 그 칸만 움직인다 (FR-SVS-5·10)', async ({ page }) => {
@@ -203,11 +205,12 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
   test('TC-SVS-4: 단일 슬롯 모드는 오버라이드를 두지 않는다 (FR-SVS-2·72)', async ({ page }) => {
     await waitForInit(page);
     const git = await openGitWindow(page);
-    await clickTab(page, null, 'History');
+    // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 'History' / 지금 '기록' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+    await clickTab(page, null, '기록');
 
     // 슬롯 상태 자체가 없다 — 단일 슬롯 모드의 표현은 `slots === null` 이다.
     expect(await slotsState(page)).toBeNull();
-    expect(await activeTabLabel(page, null)).toBe('History');
+    expect(await activeTabLabel(page, null)).toBe('기록');
 
     // 워크스페이스의 activeTab 이 그 탭이다 — 본 SRS 이전과 같은 동작이다.
     const shown = await page.evaluate((id) => {
@@ -216,7 +219,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
       const pn = walk(w.layout);
       return pn.tabs.find((t: any) => t.id === pn.activeTab)?.name || null;
     }, git);
-    expect(shown).toBe('History');
+    expect(shown).toBe('기록');
   });
 
   test('TC-SVS-5: 포커스 칸의 탭이 워크스페이스에 반영된다 (FR-SVS-14)', async ({ page, request }) => {
@@ -231,7 +234,8 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await focusSlot(page, 0);
     await clickTab(page, 0, 'Diff');
     await focusSlot(page, 1);
-    await clickTab(page, 1, 'Console');
+    // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 'Console' / 지금 '콘솔' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+    await clickTab(page, 1, '콘솔');
     /**
      * 워크스페이스가 말하는 활성 탭의 **이름**.
      *
@@ -256,7 +260,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     };
 
     // 포커스는 칸 1 이므로 이제 워크스페이스가 Console 을 말해야 한다.
-    await expect.poll(activeTabName, { timeout: 10000 }).toBe('Console');
+    await expect.poll(activeTabName, { timeout: 10000 }).toBe('콘솔');
 
     // 포커스를 칸 0 으로 옮기면 워크스페이스는 칸 0 이 보는 것을 말한다.
     await focusSlot(page, 0);
@@ -696,11 +700,12 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     await clickTab(page, 1, 'Diff');
     await focusSlot(page, 0);
     expect(await activeTabLabel(page, 1)).toBe('Diff');
-    await clickTab(page, 1, 'History');
+    // UX_AUDIT_FIX_SRS FR-UXF-41 로 개정: 이전 'History' / 지금 '기록' / 이유 새로 여는 git 뷰 탭의 이름 (§3.5.2)
+    await clickTab(page, 1, '기록');
 
     // 그 한 번으로 칸 1 이 포커스가 되고 그 탭이 열린다 — 두 번 누를 필요가 없다.
     expect(await page.evaluate(() => (window as any).app.slots.focused)).toBe(1);
-    expect(await activeTabLabel(page, 1)).toBe('History');
+    expect(await activeTabLabel(page, 1)).toBe('기록');
     // 칸 0 은 자기 탭을 그대로 본다.
     expect(await activeTabLabel(page, 0)).toBe('Diff');
   });
