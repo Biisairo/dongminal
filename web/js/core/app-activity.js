@@ -219,11 +219,11 @@ Object.assign(App.prototype, {
   /** FR-PCH-80~82: 탭 줄. 탭마다 아이콘·이름·배지(수 또는 점)다. 레일에서는 CSS 가 세로로 세운다. */
   _actTabsEl(cur,tabs){
     const bar=document.createElement('div');
-    bar.className='ag-tabs';
+    bar.className='ag-tabs ui-panel-tabs';   // PANEL_TEMPLATE_SRS FR-PNT-2
     bar.setAttribute('role','tablist');
     for(const tb of tabs){
       const b=UIKit.tab({active:tb.key===cur,title:tb.tip,icon:tb.icon,label:tb.title,badge:tb.n,
-        cls:'ag-tab',iconCls:'ag-tab-icon',labelCls:'ag-tab-name',badgeCls:'ag-tab-n',
+        cls:'ag-tab ui-panel-tab',iconCls:'ag-tab-icon',labelCls:'ag-tab-name',badgeCls:'ag-tab-n',
         onClick:e=>{e.stopPropagation();this._actTabSelect(tb.key)}});
       b.dataset.sec=tb.key;
       // FR-PCH-81: 수가 없으면 알람 점이다. UI_POLISH_SRS FR-UIP-7: 0 은 말하지 않는다.

@@ -422,7 +422,8 @@ const SidebarTabs={
       // FR-TIP-1: 문자열은 탭 정의가 든다 — 만드는 자리에 적으면 표가 두 벌이 된다.
       title:d.title,
       icon:d.icon,iconText:d.icon?null:(d.label||'?').charAt(0),
-      cls:'sb-tab',iconCls:'sb-tab-icon',labelCls:'sb-tab-label',badgeCls:'sb-tab-badge',
+      // PANEL_TEMPLATE_SRS FR-PNT-6: 탭의 모양은 패널 템플릿(`ui-panel-tab`)이 정한다.
+      cls:'sb-tab ui-panel-tab',iconCls:'sb-tab-icon',labelCls:'sb-tab-label',badgeCls:'sb-tab-badge',
     });
     /**
      * FR-SBC-17·18 (2026-09-06 개정): 레일에서의 클릭은 **전환만 한다.**

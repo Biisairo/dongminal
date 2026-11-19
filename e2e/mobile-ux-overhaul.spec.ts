@@ -99,11 +99,12 @@ test.describe('전체 높이 시트 (FR-MUX-10~14)', () => {
     });
     expect(r.top).toBe(0);
     expect(r.left).toBe(0);
-    expect(r.w).toBeLessThanOrEqual(360);
+    // PANEL_TEMPLATE_SRS FR-PNT-10·14 로 개정: 이전 폭 `min(86vw,360px)` + 배경 막(누르면 닫힘) /
+    // 지금 화면 전체 — 막이 보일 자리가 없다. 닫기는 머리의 `×` 다 / 이유 두 패널이 같은 시트다 (D-2).
+    expect(Math.abs(r.w - VIEW.width)).toBeLessThanOrEqual(1);
     expect(Math.abs(r.h - r.vh)).toBeLessThanOrEqual(1);
     expect(r.vh - r.bb).toBeLessThanOrEqual(16);
-    // 배경 막을 누르면 닫힌다.
-    await page.mouse.click(VIEW.width - 10, VIEW.height / 2);
+    await page.locator('#drawer-close').click();
     await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
   });
 
@@ -112,6 +113,8 @@ test.describe('전체 높이 시트 (FR-MUX-10~14)', () => {
     await page.evaluate(() => (window as any).app.actPanelOpen());
     const panel = page.locator('#agents-panel');
     await expect(panel).toHaveClass(/open/);
+    // PANEL_TEMPLATE_SRS FR-PNT-11: 시트는 오른쪽에서 미끄러져 들어온다 — 전환이 끝난 자리를 잰다.
+    await expect.poll(() => panel.evaluate((el) => el.getBoundingClientRect().left)).toBe(0);
     const r = await panel.evaluate((el) => {
       const b = el.getBoundingClientRect();
       return { top: b.top, left: b.left, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight };
@@ -130,7 +133,8 @@ test.describe('전체 높이 시트 (FR-MUX-10~14)', () => {
     await openDrawer(page);
     await expect(page.locator('#mobile-keybar')).toBeHidden();
     await expect(page.locator('#status-bar')).toBeHidden();
-    await page.mouse.click(VIEW.width - 10, VIEW.height / 2);
+    // PANEL_TEMPLATE_SRS FR-PNT-14 로 개정: 배경 막이 없다 — 머리의 `×` 로 닫는다.
+    await page.locator('#drawer-close').click();
     await expect(page.locator('#mobile-keybar')).toBeVisible();
 
     await page.evaluate(() => (window as any).app.actPanelOpen());

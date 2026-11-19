@@ -16,20 +16,9 @@
    밀려 `Wind…` 로 잘렸으므로(실측), **글자와 패딩을 그만큼 줄인다.** 값은 실측에서
    나온 것이다 — 11px·좌우 4px 면 42px 이 남아 48px 짜리 이름이 잘리고,
    10px·좌우 3px 면 44px 이 남아 44px 짜리 이름이 들어간다. */
-#sb-tabs{
-  display:flex;flex:0 0 auto;
-  border-bottom:1px solid var(--border);
-}
-.sb-tab{
-  flex:1 1 0;min-width:0;height:30px;
-  display:flex;align-items:center;justify-content:center;gap:4px;
-  background:transparent;border:none;border-bottom:2px solid transparent;
-  color:var(--text-muted);font-family:inherit;font-size:var(--fs-sm);font-weight:600;
-  cursor:pointer;padding:0 3px;transition:background var(--dur-fast),color var(--dur-fast);
-}
+/* PANEL_TEMPLATE_SRS FR-PNT-6: 탭 줄과 탭의 높이·바탕·글자·활성 표식은 패널 템플릿(`ui-panel-tabs`·`ui-panel-tab`,
+   style-panel.css)이 정한다 — Activity 의 탭과 같다. 여기는 메인 패널의 탭 내용(라벨·배지)만 갖는다. */
 .sb-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sb-tab:hover{background:var(--accent-hover);color:var(--accent-text)}
-.sb-tab.active{color:var(--text-bright);border-bottom-color:var(--accent);background:var(--accent-active)}
 /* FR-LAY-2: `[hidden]` 이 한 자리에서 한다 (style.css). */
 
 /* FR-SBT-12·13: 배지는 **비활성 탭에서만** 보인다 — 활성 탭은 목록에 그 정보가
@@ -65,10 +54,6 @@
 .sb-panel{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding-top:8px}
 /* FR-LAY-2: 같은 근거. */
 
-/* FR-SBT-16·17: 모바일 드로어에서 탭 바는 상단에 고정되고 패널만 스크롤한다.
-   터치 타깃은 최소 44px (데스크톱 30px 은 `.si`·버튼과 맞춘 값이다). */
-/* 드로어 닫기 `✕` 는 사이드바 우상단에 절대 배치된다 (app-mobile.js) — 자리를
-   비워 두지 않으면 마지막 탭 위에 겹친다. */
-body.mobile #sb-tabs{position:sticky;top:0;z-index:var(--z-sticky);background:var(--sidebar-bg);padding-right:36px}
-body.mobile .sb-tab{height:var(--touch-min);font-size:var(--fs-md)}
+/* FR-SBT-16·17 → PANEL_TEMPLATE_SRS FR-PNT-1·5·12 로 개정: 머리 고정·터치 높이는 패널 템플릿이 정한다.
+   닫기 `✕` 는 머리의 끝 단추 자리다 — 이전에는 우상단에 겹쳐 서서 탭 줄이 덮었다(눌리지 않았다). */
 body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:var(--fs-sm);line-height:18px;border-radius:9px}

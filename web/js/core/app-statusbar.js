@@ -325,6 +325,7 @@ Object.assign(App.prototype, {
       // 취소와 복귀를 한 클릭에 겹치면 확인의 의미가 사라진다.
       if(this._bgConfirm){this._bgConfirmSet(null);return}
       this._restoreTool(b.toolId);
+      if(this.actSheetLeave) this.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
     });
     return row;
   },

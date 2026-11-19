@@ -128,7 +128,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|div.ui-scroll": {
+ "terminal|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -137,52 +137,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "terminal|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "terminal|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "terminal|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "terminal|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "terminal|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "terminal|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "terminal|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "terminal|button.active.sb-tab.ui-tab": {
+ "terminal|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -193,6 +166,15 @@
  },
  "terminal|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -221,7 +203,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|button.sb-tab.ui-tab": {
+ "terminal|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -229,6 +211,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "terminal|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "terminal|div.sb-panel": {
   "display": "flex",
@@ -256,6 +256,15 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "terminal|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "terminal|span": {
   "display": "flex",
@@ -779,43 +788,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|div.ag-head": {
+ "terminal|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "terminal|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "terminal|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "terminal|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "terminal|div.ag-tabs": {
+ "terminal|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -824,7 +809,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "terminal|button.active.ag-tab.ui-tab": {
+ "terminal|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "terminal|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -860,7 +854,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|button.ag-tab.ui-tab": {
+ "terminal|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -868,6 +862,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "terminal|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "terminal|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "terminal|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -1646,7 +1670,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|div.ui-scroll": {
+ "git:changes|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -1655,52 +1679,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:changes|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "git:changes|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:changes|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:changes|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "git:changes|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:changes|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:changes|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:changes|button.sb-tab.ui-tab": {
+ "git:changes|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -1711,6 +1708,15 @@
  },
  "git:changes|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -1739,7 +1745,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|button.active.sb-tab.ui-tab": {
+ "git:changes|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -1747,6 +1753,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:changes|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:changes|div.sb-panel[hidden]": {
   "display": "none",
@@ -1774,6 +1798,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:changes|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:changes|span": {
   "display": "flex",
@@ -2037,15 +2070,6 @@
   "minHeight": "auto"
  },
  "git:changes|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:changes|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3227,43 +3251,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|div.ag-head": {
+ "git:changes|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "git:changes|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:changes|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:changes|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:changes|div.ag-tabs": {
+ "git:changes|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3272,7 +3272,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:changes|button.active.ag-tab.ui-tab": {
+ "git:changes|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "git:changes|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3308,7 +3317,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|button.ag-tab.ui-tab": {
+ "git:changes|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3316,6 +3325,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:changes|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:changes|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:changes|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -4094,7 +4133,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|div.ui-scroll": {
+ "git:diff|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -4103,52 +4142,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:diff|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "git:diff|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:diff|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:diff|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "git:diff|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:diff|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:diff|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:diff|button.sb-tab.ui-tab": {
+ "git:diff|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -4159,6 +4171,15 @@
  },
  "git:diff|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -4187,7 +4208,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|button.active.sb-tab.ui-tab": {
+ "git:diff|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -4195,6 +4216,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:diff|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:diff|div.sb-panel[hidden]": {
   "display": "none",
@@ -4222,6 +4261,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:diff|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:diff|span": {
   "display": "flex",
@@ -4485,15 +4533,6 @@
   "minHeight": "auto"
  },
  "git:diff|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:diff|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -5801,43 +5840,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|div.ag-head": {
+ "git:diff|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "git:diff|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:diff|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:diff|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:diff|div.ag-tabs": {
+ "git:diff|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -5846,7 +5861,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:diff|button.active.ag-tab.ui-tab": {
+ "git:diff|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "git:diff|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -5882,7 +5906,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|button.ag-tab.ui-tab": {
+ "git:diff|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -5890,6 +5914,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:diff|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:diff|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:diff|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -6668,7 +6722,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.ui-scroll": {
+ "git:history|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -6677,52 +6731,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:history|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "git:history|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:history|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:history|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "git:history|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:history|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:history|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:history|button.sb-tab.ui-tab": {
+ "git:history|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -6733,6 +6760,15 @@
  },
  "git:history|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -6761,7 +6797,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|button.active.sb-tab.ui-tab": {
+ "git:history|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -6769,6 +6805,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:history|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:history|div.sb-panel[hidden]": {
   "display": "none",
@@ -6796,6 +6850,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:history|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:history|span": {
   "display": "flex",
@@ -7059,15 +7122,6 @@
   "minHeight": "auto"
  },
  "git:history|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:history|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -8282,7 +8336,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-row.head": {
+ "git:history|div.git-hist-row": {
   "display": "flex",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8324,7 +8378,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:history|span.git-hist-badge.head.local": {
+ "git:history|span.git-hist-badge.local": {
   "display": "block",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8378,7 +8432,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-row": {
+ "git:history|div.git-hist-row.head": {
   "display": "flex",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8390,7 +8444,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:history|span.git-hist-badge.local": {
+ "git:history|span.git-hist-badge.head.local": {
   "display": "block",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8558,43 +8612,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.ag-head": {
+ "git:history|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "git:history|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:history|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:history|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:history|div.ag-tabs": {
+ "git:history|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -8603,7 +8633,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:history|button.active.ag-tab.ui-tab": {
+ "git:history|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "git:history|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -8639,7 +8678,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|button.ag-tab.ui-tab": {
+ "git:history|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -8647,6 +8686,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:history|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:history|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -9425,7 +9494,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|div.ui-scroll": {
+ "git:branches|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -9434,52 +9503,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:branches|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "git:branches|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:branches|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:branches|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "git:branches|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:branches|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:branches|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:branches|button.sb-tab.ui-tab": {
+ "git:branches|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -9490,6 +9532,15 @@
  },
  "git:branches|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -9518,7 +9569,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|button.active.sb-tab.ui-tab": {
+ "git:branches|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -9526,6 +9577,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:branches|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:branches|div.sb-panel[hidden]": {
   "display": "none",
@@ -9553,6 +9622,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:branches|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:branches|span": {
   "display": "flex",
@@ -9816,15 +9894,6 @@
   "minHeight": "auto"
  },
  "git:branches|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:branches|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -11291,43 +11360,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|div.ag-head": {
+ "git:branches|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "git:branches|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:branches|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:branches|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:branches|div.ag-tabs": {
+ "git:branches|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -11336,7 +11381,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:branches|button.active.ag-tab.ui-tab": {
+ "git:branches|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "git:branches|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -11372,7 +11426,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|button.ag-tab.ui-tab": {
+ "git:branches|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -11380,6 +11434,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:branches|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:branches|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:branches|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -12158,7 +12242,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|div.ui-scroll": {
+ "git:stash|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -12167,52 +12251,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:stash|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "git:stash|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:stash|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:stash|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "git:stash|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:stash|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:stash|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:stash|button.sb-tab.ui-tab": {
+ "git:stash|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -12223,6 +12280,15 @@
  },
  "git:stash|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -12251,7 +12317,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|button.active.sb-tab.ui-tab": {
+ "git:stash|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -12259,6 +12325,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:stash|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:stash|div.sb-panel[hidden]": {
   "display": "none",
@@ -12286,6 +12370,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:stash|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:stash|span": {
   "display": "flex",
@@ -12549,15 +12642,6 @@
   "minHeight": "auto"
  },
  "git:stash|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:stash|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13781,43 +13865,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|div.ag-head": {
+ "git:stash|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "git:stash|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:stash|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:stash|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:stash|div.ag-tabs": {
+ "git:stash|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13826,7 +13886,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:stash|button.active.ag-tab.ui-tab": {
+ "git:stash|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "git:stash|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13862,7 +13931,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|button.ag-tab.ui-tab": {
+ "git:stash|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13870,6 +13939,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:stash|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:stash|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:stash|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -14648,7 +14747,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|div.ui-scroll": {
+ "git:console|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -14657,52 +14756,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:console|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "git:console|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:console|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:console|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "git:console|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:console|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:console|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:console|button.sb-tab.ui-tab": {
+ "git:console|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -14713,6 +14785,15 @@
  },
  "git:console|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -14741,7 +14822,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|button.active.sb-tab.ui-tab": {
+ "git:console|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -14749,6 +14830,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:console|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:console|div.sb-panel[hidden]": {
   "display": "none",
@@ -14776,6 +14875,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:console|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:console|span": {
   "display": "flex",
@@ -15039,15 +15147,6 @@
   "minHeight": "auto"
  },
  "git:console|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:console|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -16220,43 +16319,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|div.ag-head": {
+ "git:console|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "git:console|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:console|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:console|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:console|div.ag-tabs": {
+ "git:console|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -16265,7 +16340,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:console|button.active.ag-tab.ui-tab": {
+ "git:console|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "git:console|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -16301,7 +16385,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|button.ag-tab.ui-tab": {
+ "git:console|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -16309,6 +16393,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:console|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:console|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:console|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -17087,7 +17201,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|div.ui-scroll": {
+ "git:worktrees|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -17096,52 +17210,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:worktrees|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "git:worktrees|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:worktrees|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:worktrees|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "git:worktrees|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:worktrees|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:worktrees|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:worktrees|button.sb-tab.ui-tab": {
+ "git:worktrees|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -17152,6 +17239,15 @@
  },
  "git:worktrees|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -17180,7 +17276,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|button.active.sb-tab.ui-tab": {
+ "git:worktrees|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -17188,6 +17284,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:worktrees|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:worktrees|div.sb-panel[hidden]": {
   "display": "none",
@@ -17215,6 +17329,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:worktrees|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:worktrees|span": {
   "display": "flex",
@@ -17478,15 +17601,6 @@
   "minHeight": "auto"
  },
  "git:worktrees|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:worktrees|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -18734,43 +18848,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|div.ag-head": {
+ "git:worktrees|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "git:worktrees|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:worktrees|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:worktrees|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:worktrees|div.ag-tabs": {
+ "git:worktrees|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -18779,7 +18869,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:worktrees|button.active.ag-tab.ui-tab": {
+ "git:worktrees|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "git:worktrees|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -18815,7 +18914,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|button.ag-tab.ui-tab": {
+ "git:worktrees|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -18823,6 +18922,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:worktrees|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:worktrees|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:worktrees|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -19601,7 +19730,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|div.ui-scroll": {
+ "git:submodules|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -19610,52 +19739,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:submodules|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "git:submodules|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:submodules|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:submodules|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "git:submodules|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "git:submodules|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:submodules|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:submodules|button.sb-tab.ui-tab": {
+ "git:submodules|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -19666,6 +19768,15 @@
  },
  "git:submodules|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -19694,7 +19805,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|button.active.sb-tab.ui-tab": {
+ "git:submodules|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -19702,6 +19813,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:submodules|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:submodules|div.sb-panel[hidden]": {
   "display": "none",
@@ -19729,6 +19858,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:submodules|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:submodules|span": {
   "display": "flex",
@@ -19992,15 +20130,6 @@
   "minHeight": "auto"
  },
  "git:submodules|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:submodules|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21182,43 +21311,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|div.ag-head": {
+ "git:submodules|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "git:submodules|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:submodules|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "git:submodules|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:submodules|div.ag-tabs": {
+ "git:submodules|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21227,7 +21332,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "git:submodules|button.active.ag-tab.ui-tab": {
+ "git:submodules|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "git:submodules|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21263,7 +21377,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|button.ag-tab.ui-tab": {
+ "git:submodules|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21271,6 +21385,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "git:submodules|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:submodules|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:submodules|div.ag-sec-empty.ui-empty": {
   "display": "none",
@@ -22049,7 +22193,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|div.ui-scroll": {
+ "editor|div.ui-panel.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -22058,52 +22202,25 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "editor|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
+ "editor|div.ui-panel-head": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "6px 6px auto auto",
+  "position": "sticky",
+  "inset": "0px auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "editor|use": {
-  "display": "inline",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "editor|div.m-drawer-acts.mobile-only": {
-  "display": "none",
+ "editor|div.ui-panel-tabs": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
  },
- "editor|button.ui-btn.ui-btn-attn.ui-btn-lg": {
-  "display": "inline-flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "editor|span.ui-btn-label": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "editor|button.sb-tab.ui-tab": {
+ "editor|button.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -22114,6 +22231,15 @@
  },
  "editor|span.sb-tab-icon.ui-tab-icon": {
   "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|use": {
+  "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -22142,7 +22268,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|button.active.sb-tab.ui-tab": {
+ "editor|button.active.sb-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -22150,6 +22276,24 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "editor|div.ui-panel-acts": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|button.drawer-close.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-mobile": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "editor|div.sb-panel[hidden]": {
   "display": "none",
@@ -22177,6 +22321,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "editor|span.ui-btn-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "editor|span": {
   "display": "flex",
@@ -22440,15 +22593,6 @@
   "minHeight": "auto"
  },
  "editor|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "editor|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -22802,43 +22946,19 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|div.ag-head": {
+ "editor|div.ui-panel": {
   "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
+  "flexDirection": "column",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
- "editor|span.ag-title": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "editor|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "none",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "0px"
- },
- "editor|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "editor|div.ag-tabs": {
+ "editor|div.ag-head.ui-panel-head": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -22847,7 +22967,16 @@
   "flexDirection": "column",
   "minHeight": "auto"
  },
- "editor|button.active.ag-tab.ui-tab": {
+ "editor|div.ag-tabs.ui-panel-tabs": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "auto"
+ },
+ "editor|button.active.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -22883,7 +23012,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|button.ag-tab.ui-tab": {
+ "editor|button.ag-tab.ui-panel-tab.ui-tab": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -22891,6 +23020,36 @@
   "inset": "0px 0px 0px 0px",
   "flexDirection": "row",
   "minHeight": "auto"
+ },
+ "editor|button.ag-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "editor|div.ui-scroll": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "editor|div.ag-sec-empty.ui-empty": {
   "display": "none",

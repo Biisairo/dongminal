@@ -241,6 +241,7 @@ Object.assign(RunsPanel.prototype, {
       // FR-DEL-3·4: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
       if (this._runsConfirm) { this._runsConfirmSet(null); return }
       this.app.addTab(this.app.focused, 'run', { runId: rv.id, short: rv.short });
+      if (this.app.actSheetLeave) this.app.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
     });
     return row;
   },

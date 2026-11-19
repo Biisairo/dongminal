@@ -9,6 +9,20 @@
  */
 Object.assign(App.prototype, {
   /**
+   * PANEL_TEMPLATE_SRS FR-PNT-15~17: 모바일 Activity 시트에서 **다른 화면으로 이동한 뒤** 시트를 닫는 한 자리.
+   *
+   * 시트는 화면 전체를 덮으므로 이동한 곳은 시트를 닫아야 보인다. 이동을 실제로 한 처리기만 부른다 — 탭 전환·
+   * 접기·확인·취소처럼 패널 안에서 끝나는 누름은 부르지 않으므로 시트가 남는다 (FR-PNT-16). 데스크톱 패널은
+   * 화면을 덮지 않으므로 그대로 둔다.
+   *
+   * 부르는 자리: 에이전트 카드(`app-agents.js`), Background 행(`app-statusbar.js`), Runs 행(`runs-panel.js`),
+   * 채팅 탭 열기(`app-chat.js` `_chatOpenTab`).
+   */
+  actSheetLeave(){
+    if(this.isMobile&&this.agentsPanelOpen()) this.setAgentsPanelOpen(false);
+  },
+
+  /**
    * FR-MUX-74·75: Activity 단추의 수. `agentsRender` 가 맨 앞에서 부른다 — 모바일에서 패널이 닫혀
    * 있으면 그 함수가 곧바로 물러서므로, 단추는 그보다 먼저 칠해야 한다.
    * 수는 카드가 그려지는 에이전트(창에 자리가 있는 것)만 센다.

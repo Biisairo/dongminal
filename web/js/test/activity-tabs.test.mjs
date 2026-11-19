@@ -24,11 +24,15 @@ test('탭 아이콘은 모두 스프라이트에 있다', () => {
   }
 });
 
+// PANEL_TEMPLATE_SRS FR-PNT-6 으로 개정: 탭의 폭 규칙은 `.ag-tab` 이 아니라 패널 템플릿의 `.ui-panel-tab`(style-panel.css)이
+// 갖는다 — 메인 패널의 탭과 같은 규칙이다. Activity 의 탭은 그 클래스를 함께 단다.
 test('탭은 같은 폭이고 고른 탭도 넓어지지 않는다', () => {
   const css = read('style.css');
-  const rule = (sel) => (css.match(new RegExp('\\n' + sel.replace(/[.]/g, '\\.') + '\\{([^}]*)\\}')) || [])[1] || '';
-  assert.match(rule('.ag-tab'), /flex:1 1 0/);
-  assert.doesNotMatch(rule('.ag-tab.active'), /flex/);
+  const panel = read('style-panel.css');
+  const rule = (sel) => (panel.match(new RegExp('\\n' + sel.replace(/[.]/g, '\\.') + '\\{([^}]*)\\}')) || [])[1] || '';
+  assert.match(rule('.ui-panel-tab'), /flex:1 1 0/);
+  assert.doesNotMatch(rule('.ui-panel-tab.active'), /flex/);
+  assert.match(read('js/core/app-activity.js'), /cls:'ag-tab ui-panel-tab'/);
   assert.ok(!css.includes('.ag-tab.active .ag-tab-name{display:inline}'), '고른 탭이 이름을 보인다');
 });
 

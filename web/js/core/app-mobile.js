@@ -13,14 +13,20 @@ Object.assign(App.prototype, {
       this.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
       if(this._edApplyWordWrap) this._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
     }
-    if(!mob && this.drawerOpen){this.drawerOpen=false;document.body.classList.remove('drawer-open')}
+    if(!mob && this.drawerOpen){this.drawerOpen=false;document.body.classList.remove('drawer-open');this._drawerSheetSync()}
     if(!mob){document.body.classList.remove('keyboard-up')}
   },
   _toggleDrawer(open){
-    if(!this.isMobile){this.drawerOpen=false;document.body.classList.remove('drawer-open');this.mobileChromeSync();return}
+    if(!this.isMobile){this.drawerOpen=false;document.body.classList.remove('drawer-open');this._drawerSheetSync();this.mobileChromeSync();return}
     this.drawerOpen = (open===undefined) ? !this.drawerOpen : !!open;
     document.body.classList.toggle('drawer-open', this.drawerOpen);
+    this._drawerSheetSync();
     this.mobileChromeSync();
+  },
+  // PANEL_TEMPLATE_SRS FR-PNT-11: 패널 템플릿의 열림 표식은 패널의 `.open` 이다 — Activity 와 같다.
+  _drawerSheetSync(){
+    const sb=document.getElementById('sidebar');
+    if(sb) sb.classList.toggle('open',!!this.drawerOpen);
   },
 
   /**
@@ -127,11 +133,13 @@ Object.assign(App.prototype, {
     const sb=document.getElementById('sidebar');
     if(sb && !sb.querySelector('.drawer-close')){
       const xb=document.createElement('button');
-      xb.id='drawer-close'; xb.className='ui-btn ui-btn-icon ui-btn-ghost drawer-close';
+      xb.id='drawer-close'; xb.className='ui-btn ui-btn-icon ui-btn-ghost drawer-close ui-panel-act-mobile';
       xb.appendChild(UIKit.icon('x'));
       xb.title=TIP_SIDEBAR_CLOSE;xb.setAttribute('aria-label',TIP_SIDEBAR_CLOSE);
       xb.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
-      sb.insertBefore(xb, sb.firstChild);
+      // PANEL_TEMPLATE_SRS FR-PNT-3·12: 머리의 끝 단추 자리다. 이전에는 사이드바 우상단에 겹쳐 서서 탭 줄이 덮었다.
+      const acts=document.getElementById('sb-acts');
+      if(acts) acts.appendChild(xb); else sb.insertBefore(xb, sb.firstChild);
       // MOBILE_UX_OVERHAUL_SRS FR-MUX-76: 서랍 머리의 Activity 단추(`#m-drawer-acts`, FUI-27)가 없다 —
       // 상단바의 단추(`#m-act-btn`, app-mobile-nav.js)가 한 번에 연다. 같은 패널의 문은 하나다.
     }

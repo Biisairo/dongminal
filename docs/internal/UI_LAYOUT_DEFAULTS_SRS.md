@@ -967,3 +967,8 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   그 첫 것이 서랍의 Activity 단추(`#m-drawer-acts`, flex 항목이라 `0px`) 안의 글자였는데 그 단추가 없어졌다. 지금은
   다음 요소(flex 항목이 아닌 `.ui-btn-label`)가 키를 이어받는다. 화면의 어떤 요소도 계산값이 바뀌지 않았다.
   `terminal|div.m-drawer-acts.mobile-only` 와 `terminal|button.ui-btn.ui-btn-attn.ui-btn-lg` 키는 "기준선에만" 쪽으로 빠진다(게이트 밖).
+- 2026-11-19 (PANEL_TEMPLATE_SRS D-4) `ui-layout.darwin.json` 을 **다시 떴다**(2516자리). 패널 템플릿이 데스크톱 DOM 을
+  바꿨다 — 메인 패널의 `#sb-head`(머리)·`ui-panel` 클래스, Activity 의 `#agents-head`(머리가 몸통 밖으로). 바뀐 값은
+  키가 옮겨 간 자리뿐이었다: `#sidebar` 의 키가 `div.ui-scroll` → `div.ui-scroll.ui-panel` 이 되어 `div.ui-scroll` 을
+  `#agents-body` 가 이어받았다(열 화면 × `overflowX`·`overflowY`·`minHeight`, 30자리). **`linux`·`win32` 는 아직이다** —
+  푸시 뒤 `layout-baseline` 워크플로를 돌려 받은 두 파일로 덮어야 그 판의 V-LAY-1 이 선다(사용자가 실행한다).

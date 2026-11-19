@@ -179,8 +179,9 @@ Object.assign(App.prototype, {
     if(this.mobileActSync) this.mobileActSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-75 — 닫힌 패널은 아래에서 물러선다
     const panel=document.getElementById('agents-panel');
     const body=document.getElementById('agents-body'),footHost=document.getElementById('agents-foot');
-    if(!panel||!body||!footHost||!this._agentsPanelShown()) return;
-    // PEER_CHAT_SRS FR-PCH-80: 패널의 몸통은 탭 줄과 고른 탭의 항목이다. 무엇을 그릴지는
+    const headHost=document.getElementById('agents-head');
+    if(!panel||!body||!footHost||!headHost||!this._agentsPanelShown()) return;
+    // PEER_CHAT_SRS FR-PCH-80: 탭 줄과 고른 탭의 항목. 무엇을 그릴지는
     // 각 표면의 주인이 알고, 여기가 아는 것은 머리 하나뿐이다 (`app-activity.js` 의 `ACTIVITY_SECTIONS`).
     const items=[{t:'head'}].concat(this._actItems());
     const opts={
@@ -218,8 +219,11 @@ Object.assign(App.prototype, {
         :it.t==='foot'?this._actUsageFootEl(it.view)
         :this._agCardEl(panel,it.toolId,it.info,it.loc),
     };
-    // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40 (D-ASV-12): Usage 바닥은 스크롤 몸통 밖에 그린다.
-    reconcileList(body,items.filter(it=>it.t!=='foot'),opts);
+    // PANEL_TEMPLATE_SRS FR-PNT-1·2: 머리(탭 줄 → 끝 단추)는 몸통 스크롤 밖의 `#agents-head` 다.
+    // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40 (D-ASV-12): Usage 바닥도 스크롤 몸통 밖에 그린다.
+    const inHead=it=>it.t==='tabs'||it.t==='head';
+    reconcileList(headHost,items.filter(it=>it.t==='tabs').concat(items.filter(it=>it.t==='head')),opts);
+    reconcileList(body,items.filter(it=>!inHead(it)&&it.t!=='foot'),opts);
     reconcileList(footHost,items.filter(it=>it.t==='foot'),opts);
   },
 
@@ -317,10 +321,17 @@ Object.assign(App.prototype, {
     return g;
   },
 
+  /**
+   * PANEL_TEMPLATE_SRS FR-PNT-2~4: 머리의 끝 단추 — 새로고침과 접기. 머리 줄 자체(`#agents-head.ag-head`,
+   * 끌어서 자리를 바꾸는 손잡이, PANEL_DOCK_SRS FR-PDK-30)는 index.html 에 있다.
+   *
+   *   이전 동작: 제목 `Activity` 와 두 단추가 한 줄(`.ag-head`)이었고 그 아래에 탭 줄이 섰다
+   *   새  동작: 제목이 없고, 두 단추는 탭 줄 끝의 `.ui-panel-acts` 다
+   *   이유:     메인 패널과 같은 머리 — 탭 줄 한 줄이 상단바 선에 맞는다 (D-3)
+   */
   _agHeadEl(){
     const head=document.createElement('div');
-    head.className='ag-head';
-    head.draggable=true;                                   // PANEL_DOCK_SRS FR-PDK-30
+    head.className='ui-panel-acts';
     // UI_KIT_SRS FR-GLY-4·6 / FR-TIP-2: 문자에서 스프라이트로. 문구도 영어가
     // 된다 — 아이콘만 있는 버튼은 툴팁이 이름의 유일한 자리다.
     // 골격은 마크업으로, **값이 들어가는 자리는 DOM 으로** 세운다.
@@ -328,8 +339,6 @@ Object.assign(App.prototype, {
     // 아니지만, 문자열 조립 안에 두면 "여기 들어오는 것은 마크업이다" 라는
     // 예외가 생긴다 — 예외가 있으면 다음 사람이 판단해야 하고, 그 판단이
     // 틀리는 날이 온다 (`scripts/check-html.sh`).
-    // FR-ACT-1: 패널이 에이전트만 담던 때의 이름이었다. 이제 네 구역이 산다.
-    head.innerHTML='<span class="ag-title">Activity</span>';
     const mkBtn=(cls,tip,icon)=>{
       const b=document.createElement('button');
       b.className='ui-btn ui-btn-icon ui-btn-ghost '+cls;
@@ -396,7 +405,8 @@ Object.assign(App.prototype, {
     const subs=Array.isArray(info.subagents)?info.subagents:[];
     // UX_BATCH12_SRS FR-SVL-1: 서브에이전트는 언제나 카드 안의 목록이다 (FR-ASV-34).
     for(const s of subs) card.appendChild(this._agSubagentEl(agentSubagentView(s))); // FR-SAU-20
-    card.addEventListener('click',()=>this.jumpToTool(toolId)); // FR-ATA-6: 해제는 jumpToTool 이 한다
+    // FR-ATA-6: 해제는 jumpToTool 이 한다. PANEL_TEMPLATE_SRS FR-PNT-15: 이동했으면 모바일 시트를 닫는다.
+    card.addEventListener('click',()=>{this.jumpToTool(toolId);if(this.actSheetLeave)this.actSheetLeave()});
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
     card.draggable=true;
     card.addEventListener('dragstart',e=>{this.drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';TIMERS.defer(()=>card.classList.add('dragging'),{label:'drag-class'})});

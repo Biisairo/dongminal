@@ -366,14 +366,16 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
     // 둘 + 카드 셋)을 박았는데, `UIUX_OVERHAUL_SRS` FR-ACT-1 이 패널에 구역 넷과
     // 그 빈 줄을 더하면서 그 수가 패널의 **구성**을 따라 움직이게 됐다. 이 검증이
     // 묻는 것은 "다시 그려도 그대로인가" 이므로 앞뒤를 견준다.
-    const before = await page.locator('#agents-body > *').count();
+    // PANEL_TEMPLATE_SRS FR-PNT-1 로 개정: 머리(탭 줄·끝 단추)는 몸통 밖의 `#agents-head` 다 — 세는 범위에 함께 넣는다.
+    const KIDS = '#agents-head > *, #agents-body > *';
+    const before = await page.locator(KIDS).count();
     expect(before, '패널이 비었다 — 검증이 공회전한다').toBeGreaterThan(5);
     await page.evaluate(() => {
-      for (const e of document.querySelectorAll('#agents-body > *')) (e as HTMLElement).dataset.mark = '1';
+      for (const e of document.querySelectorAll('#agents-head > *, #agents-body > *')) (e as HTMLElement).dataset.mark = '1';
     });
     await page.evaluate(() => (window as any).app.render());
     await page.evaluate(() => (window as any).app.render());
-    expect(await page.locator('#agents-body > *[data-mark="1"]').count()).toBe(before);
+    expect(await page.locator('#agents-head > *[data-mark="1"], #agents-body > *[data-mark="1"]').count()).toBe(before);
 
     // FR-AGG-10: 머리를 접으면 그 그룹의 카드만 사라진다.
     await page.locator(`#agents-panel .ag-group[data-sid="${win1}"] .ag-group-fold`).click();

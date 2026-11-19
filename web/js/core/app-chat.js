@@ -175,7 +175,10 @@ Object.assign(App.prototype, {
 
   _chatOpenTab(id){
     const r=this._chatRoom(id),me=this._chatMe();
-    return this.addTab(this.focused,TAB_TYPE_CHAT,{roomId:id,name:r?chatRoomTitle(r,me&&me.id):''});
+    const out=this.addTab(this.focused,TAB_TYPE_CHAT,{roomId:id,name:r?chatRoomTitle(r,me&&me.id):''});
+    // PANEL_TEMPLATE_SRS FR-PNT-15: 방 행·개인 대화·새 그룹 대화가 모두 여기로 온다 — 탭을 열었으면 모바일 시트를 닫는다.
+    if(this.actSheetLeave) this.actSheetLeave();
+    return out;
   },
 
   async _chatCreateAsk(){
