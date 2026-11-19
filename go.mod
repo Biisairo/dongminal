@@ -9,6 +9,6 @@ require (
 
 require golang.org/x/sys v0.36.0
 
-require golang.org/x/text v0.40.0
+require golang.org/x/text v0.44.0
 
 require github.com/fsnotify/fsnotify v1.10.1
