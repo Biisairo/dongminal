@@ -525,6 +525,14 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 /* 아이콘은 항상 DOM 에 있고(FR-SBC-13, C-3) 보임은 여기서 정한다 — 펼침에서는
    라벨이 이름을 말하므로 아이콘이 그 옆에 겹칠 이유가 없다. */
 .sb-tab-icon{display:none}
+/* CHAT_WINDOW_SRS FR-CW-24: 탭이 셋이 되면서 좁은 사이드바(최소 100px)에서는 이름이 한 탭에 20px 남짓이라 읽히지 않는다.
+   좁으면 레일처럼 아이콘만 서고 이름은 툴팁이 말한다 — 원격 단추(UX_AUDIT_FIX_SRS D-27)와 같은 "넓으면 라벨, 좁으면 아이콘" 규칙이다.
+   값은 쿼리 조건이라 변수를 쓸 수 없다. 기본 폭에서는 이름이 선다(화면 확인). */
+#sb-head{container:sb-head / inline-size}
+@container sb-head (max-width:179px){
+  .sb-tab-label{display:none}
+  .sb-tab-icon{display:block;font-size:var(--fs-lg);line-height:1}
+}
 
 /* ── Content ── */
 #content{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}

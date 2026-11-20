@@ -293,7 +293,8 @@ Object.assign(Renderer.prototype, {
     // 회수는 호출자(_rLayout)가 슬롯 바깥에서 한다.
     if(!s||!s.layout){
       // 옛 트리가 남아 있으면 거둔다. Editor 창은 `_rEditorWin` 이 안내문을 놓았다.
-      if(!ed) this._placeLayout(host,[]);
+      // CHAT_WINDOW_SRS FR-CW-4: 칸 없는 채팅 창은 빈 상태 한 줄이다.
+      if(!ed) this._placeLayout(host,app.isChatWin(s)?[this._rChatEmpty()]:[]);
       return;
     }
     // 포커스 보정은 **포커스 슬롯에서만** 한다. 비포커스 슬롯의 창을 그린다고
@@ -359,6 +360,13 @@ Object.assign(Renderer.prototype, {
    * 탐색기의 내용은 M3 의 것이다. 여기서는 자리와 폭만 잡는다.
    * 분할 트리가 붙을 요소를 돌려준다.
    */
+  /** CHAT_WINDOW_SRS FR-CW-4: 칸 없는 채팅 창의 안내. 그릴 때마다 같은 원소를 쓴다. */
+  _rChatEmpty(){
+    if(!this._chatEmptyEl) this._chatEmptyEl=chatEl('div','ui-empty ui-empty-center chat-window-empty');
+    this._chatEmptyEl.textContent=t('chat.window_empty');
+    return this._chatEmptyEl;
+  },
+
   _rEditorWin(s){
     const app=this.app, slot=this._rSlot||0;
     // FR-PDR-1: 골격은 창(과 칸)마다 하나다. 이것이 남아 있어야 `.ed-area` 안의

@@ -409,7 +409,8 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
  */
 test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
   // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40: Usage 는 구역이 아니라 바닥이다 — 구역은 그대로 셋이다.
-  test('FR-ACT-7 · FR-PCH-80: 탭이 넷이고 차례가 에이전트 · 백그라운드 · Run · 채팅이다', async ({ page }) => {
+  // CHAT_WINDOW_SRS FR-CW-40 으로 개정: 이전 — 탭이 넷(…·채팅) / 지금 — 셋, 채팅은 메인 패널의 `채팅` 탭 / 이유 — 사용자 결정 D-7.
+  test('FR-ACT-7 · FR-PCH-80 · FR-CW-40: 탭이 셋이고 차례가 에이전트 · 백그라운드 · Run 이다', async ({ page }) => {
     await waitForInit(page);
     await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
@@ -417,7 +418,7 @@ test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
     // 빈 구역도 탭을 갖는다 (FR-ACT-1) — 세는 것은 내용이 아니라 탭이다.
     const secs = await page.evaluate(() =>
       [...document.querySelectorAll('#agents-panel .ag-tab')].map((e) => (e as HTMLElement).dataset.sec));
-    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs', 'chats']);
+    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs']);
   });
 
   test('FR-ACT-10: 그룹 머리의 몸통을 눌러 접고 편다', async ({ page }) => {

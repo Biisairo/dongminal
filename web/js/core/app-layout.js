@@ -105,7 +105,7 @@ Object.assign(App.prototype, {
     const arr=this.ws.windows;
     // FR-EDT-45: Editor 창도 대상이 아니다 — 창 하나 닫았을 뿐인데 편집기
     // 화면에 떨어지면 안 된다 (Git 창을 거르는 것과 같은 근거).
-    const plain=s=>s&&!this.isGitWin(s)&&!this.isEditorWin(s);
+    const plain=s=>s&&!this.isKindWin(s);
     for(let d=0;d<arr.length;d++){
       const a=arr[removedIdx+d], b=arr[removedIdx-d];
       if(plain(a)) return a;
@@ -369,7 +369,7 @@ Object.assign(App.prototype, {
     // 탭 자체는 이미 건너는데(localStorage `sidebarTab`) 그 탭이 **돌아갈 자리**는
     // 건너지 못해, 새로고침 뒤 Windows 탭이 늘 첫 창으로 갔다 (SRS §2.2).
     // 적는 자리는 여기 하나다 — 두 벌로 만들면 한쪽만 갱신된다.
-    if(cur&&!this.isGitWin(cur)&&!this.isEditorWin(cur)) this._rememberReturn('plain',cur.id);
+    if(cur&&!this.isKindWin(cur)) this._rememberReturn('plain',cur.id);
     this._activateWindow(sid);
     // WINDOW_SLOTS_SRS FR-WSL-54: 포커스 슬롯이 이 창을 받는다. 다른 슬롯은
     // 건드리지 않는다 — 그것이 두 칸을 나란히 두는 이유다.
@@ -433,6 +433,8 @@ Object.assign(App.prototype, {
     //   이유:     diff·history 는 좁은 사이드가 아니라 본문에서 봐야 읽힌다.
     //             그리고 그 탭들은 편집기 탭과 같은 자격이어야 한다 (FR-RTU-33)
     if (this.isEditorWin(s) && type !== TAB_TYPE_EDITOR && type !== TAB_TYPE_GIT) return false;
+    // CHAT_WINDOW_SRS FR-CW-10: 채팅 창에는 채팅 탭만, 채팅 탭은 채팅 창에만 선다.
+    if (this.isChatWin(s) || type === TAB_TYPE_CHAT) return this.isChatWin(s) && type === TAB_TYPE_CHAT;
     // FR-EDT-94·106: 그 반대도 불변식이다 — 편집기 탭은 어떤 경로로도 일반
     // 창에 생기지 않는다. Editor 표면이 없는 환경(FR-EDT-120)에서는 갈 곳이
     // 없으므로 옛 경로가 그대로 남는다.
@@ -718,7 +720,7 @@ Object.assign(App.prototype, {
     // FR-EDT-52·55·56: Editor 창은 pane 이 0이 되어도 남는다 — 창의 수명은
     // 행의 수명이다 (FR-EDT-42). 빈 pane 을 남기지 않는 것과 창을 지우는 것은
     // 다른 일이다.
-    if(!s.layout&&this.isEditorWin(s)){
+    if(!s.layout&&(this.isEditorWin(s)||this.isChatWin(s))){ // CHAT_WINDOW_SRS FR-CW-4·13: 채팅 창도 같다
       if(isActive){this.setFocusState(null,s);this._focusWindow(s.id)}
       this.render();
       this.save();
@@ -780,7 +782,7 @@ Object.assign(App.prototype, {
     if(this.isGitWin(s)) return;
     // FR-EDT-50·51: Editor 창에서 분할이 생기는 유일한 길은 드래그드롭이다.
     // 단축키와 버튼은 이 자리에서 무시된다.
-    if(this.isEditorWin(s)) return;
+    if(this.isEditorWin(s)||this.isChatWin(s)) return; // CHAT_WINDOW_SRS FR-CW-11: 채팅 창도 같다
     const tgtPaneId=opts.targetPane||(tgtWindowId===this.ws.activeWindow?this.focused:null);
     if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;

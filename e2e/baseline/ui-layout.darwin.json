@@ -431,6 +431,18 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "terminal|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
  "terminal|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -1978,6 +1990,18 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:changes|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:changes|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
@@ -4468,6 +4492,18 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:diff|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:diff|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
@@ -7085,6 +7121,18 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:history|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
  "git:history|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -8435,7 +8483,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-row.head": {
+ "git:history|div.git-hist-row": {
   "display": "flex",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8477,7 +8525,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:history|span.git-hist-badge.head.local": {
+ "git:history|span.git-hist-badge.local": {
   "display": "block",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8531,7 +8579,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-row": {
+ "git:history|div.git-hist-row.head": {
   "display": "flex",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8543,7 +8591,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:history|span.git-hist-badge.local": {
+ "git:history|span.git-hist-badge.head.local": {
   "display": "block",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -9883,6 +9931,18 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:branches|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:branches|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
@@ -12659,6 +12719,18 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:stash|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
  "git:stash|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -15191,6 +15263,18 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:console|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
  "git:console|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -17671,6 +17755,18 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:worktrees|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:worktrees|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
@@ -20228,6 +20324,18 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:submodules|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
  "git:submodules|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -22717,6 +22825,18 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "editor|div.chat-list.ui-scroll": {
+  "display": "block",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "editor|button.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",

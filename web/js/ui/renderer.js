@@ -24,7 +24,7 @@
  * `index.html` 의 순서는 `check-load-order.mjs` 가 지킨다 (C-2).
  */
 // `#area` 에서 이 렌더러가 임자인 요소들. 나머지는 남의 것이므로 건드리지 않는다.
-const LAYOUT_CLASSES=['sp','pn','ed-win','slot','slot-handle'];
+const LAYOUT_CLASSES=['sp','pn','ed-win','slot','slot-handle','chat-window-empty']; // CHAT_WINDOW_SRS FR-CW-4: 빈 채팅 창의 안내도 골격이다
 
 class Renderer {
   constructor(app){

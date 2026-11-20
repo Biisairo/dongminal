@@ -40,7 +40,7 @@ Object.assign(App.prototype, {
       if(r.ok&&r.data) this._chat=r.data;
       else if(r.status) this._chat={down:(r.data&&r.data.code)||'chat_unavailable'};
       this._restoreEnd('chat',flight);
-      this.agentsRender();
+      if(this._chatRepaint) this._chatRepaint(); // CHAT_WINDOW_SRS FR-CW-21: 목록은 메인 패널이다
       this._chatViewsPaint();
     });
   },
@@ -52,7 +52,7 @@ Object.assign(App.prototype, {
     const m=a&&a.msg;
     if(!m||!m.room) return;
     if(!this._chatS().add(m.room,m,this._chatRoomShown(m.room))) return;
-    this.agentsRender();
+    if(this._chatRepaint) this._chatRepaint();
     this._chatViewsPaint(m.room);
   },
 
@@ -60,13 +60,13 @@ Object.assign(App.prototype, {
   _chatMe(){ return (this._chat&&this._chat.me)||null },
   _chatRoom(id){ return this._chatRooms().find(r=>r.id===id)||null },
 
-  /** FR-PCH-81: Chats 탭의 배지 — 지금 있는 방의 안 읽은 수의 합이다. */
-  _chatUnreadTotal(){
+  /** FR-PCH-81 → CHAT_WINDOW_SRS FR-CW-20: 메인 패널 `채팅` 탭의 배지 — 지금 있는 방의 안 읽은 수의 합이다. */
+  chatUnreadTotal(){
     const s=this._chatS();
     return this._chatRooms().reduce((n,r)=>n+s.unread(r.id),0);
   },
 
-  // ── Chats 탭 (FR-PCH-83) ───────────────────────────────────────
+  // ── 채팅 목록 (FR-PCH-83 → CHAT_WINDOW_SRS FR-CW-21: 메인 패널의 `채팅` 탭) ──
 
   /** 들어간 방 먼저, 그다음 이름 순이다. */
   _chatItems(){
@@ -109,6 +109,9 @@ Object.assign(App.prototype, {
     row.appendChild(chatEl('span','chat-row-sub',t('chat.members',{n:r.members})));
     const n=this._chatS().unread(r.id);
     if(n) row.appendChild(chatEl('span','chat-row-n ui-badge',String(n)));
+    // CHAT_WINDOW_SRS FR-CW-23 (D-22): 들어간 방의 행에는 `⋯` 가 선다 — 나가기가 여기서도 된다.
+    if(r.joined) row.appendChild(UIKit.button({icon:'more-horizontal',kind:'ghost',size:'sm',cls:'chat-row-more',
+      title:'More actions for this room',onClick:e=>{e.stopPropagation();const b=e.currentTarget.getBoundingClientRect();this._chatRoomMenu(r.id,{x:b.left,y:b.bottom})}}));
     row.addEventListener('click',e=>{ if(!this._chatRoomPick(r.id,e)) this._chatOpenRoom(r.id) });
     row.addEventListener('contextmenu',e=>this._chatRoomCtx(r.id,e));
     return row;
@@ -173,13 +176,7 @@ Object.assign(App.prototype, {
     return { uuid: id };
   },
 
-  _chatOpenTab(id){
-    const r=this._chatRoom(id),me=this._chatMe();
-    const out=this.addTab(this.focused,TAB_TYPE_CHAT,{roomId:id,name:r?chatRoomTitle(r,me&&me.id):''});
-    // PANEL_TEMPLATE_SRS FR-PNT-15: 방 행·개인 대화·새 그룹 대화가 모두 여기로 온다 — 탭을 열었으면 모바일 시트를 닫는다.
-    if(this.actSheetLeave) this.actSheetLeave();
-    return out;
-  },
+  // `_chatOpenTab` 은 app-chat-window.js 다 — 탭은 채팅 창에만 선다 (CHAT_WINDOW_SRS FR-CW-12).
 
   async _chatCreateAsk(){
     const body=chatEl('div','chat-create');
@@ -218,6 +215,8 @@ Object.assign(App.prototype, {
 
   async _chatLeave(roomId){
     if(!(await this._chatPost('leave',{room:roomId},t('chat.err_leave')))) return;
+    // CHAT_WINDOW_SRS FR-CW-31 (D-CW-4): 나가면 그 방의 탭도 닫힌다.
+    if(this._chatCloseRoomTabs) this._chatCloseRoomTabs(roomId);
     await this._chatRestore();
   },
 });

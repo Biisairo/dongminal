@@ -203,7 +203,7 @@ test('FR-ASV-40·43: Usage 는 구역이 아니라 맨 끝의 바닥이고, 한�
   const app = new ctx.App();
   app._bg = []; app._runsPanel = () => ({});
   app._agWindowItems = () => [];
-  app._chatUnreadTotal = () => 0;
+  app.chatUnreadTotal = () => 0;
   app._agFolded = () => new Set();
   app._limits = [];
   assert.equal(app._actItems().some((i) => i.t === 'foot'), false);

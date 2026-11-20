@@ -112,7 +112,7 @@ test('안전망 주기 폴은 gitReposKick 을 지나 비행 중인 갱신과 �
 // Repo 탭의 들고 남은 목록 갱신을 합치는 줄(`gitReposKick`)로 보낸다 — `observe=1` 과
 // `observe=0` 이 동시에 떠 서버에 도착 순서가 뒤바뀌면 임대가 남거나 사라진다.
 test('Repo 탭의 onEnter·onLeave 는 목록 갱신을 합치는 줄로 보낸다', () => {
-  const ctx = load(['core/constants-api.js', 'ui/sidebar-tabs.js'], {
+  const ctx = load(['core/constants-api.js', 'ui/sidebar-tab-chat.js', 'ui/sidebar-tabs.js'], {
     expose: ['SB_TAB_DEFS'],
     globals: {
       t: (k) => k, REPO_TAB_ID: 'repo', REPO_TAB_LABEL: 'Repo', REPO_PANEL_ID: 'p', REPO_LIST_ID: 'l',

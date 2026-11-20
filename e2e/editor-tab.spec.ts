@@ -150,10 +150,11 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
   //   이전 동작: 마크업·상수에 `Windows`·`Repo` 가 박혀 있었다
   //   새  동작: ko 는 `창`·`저장소`, en 은 `Windows`·`Repo` (FR-RTU-1 개정)
   //   이유:     같은 대상을 탭·버튼·대화상자가 네 낱말로 부르고 있었다 (§2.1)
-  test('E1 (V-RTU-1): 탭이 창·저장소 순으로 보인다', async ({ page }) => {
+  // CHAT_WINDOW_SRS FR-CW-20 으로 개정: 이전 — 탭 둘(창·저장소) / 지금 — 셋째 `채팅` / 이유 — 사용자 결정 D-7.
+  test('E1 (V-RTU-1): 탭이 창·저장소·채팅 순으로 보인다', async ({ page }) => {
     await goto(page);
     const labels = await page.locator('#sb-tabs .sb-tab:not([hidden]) .sb-tab-label').allTextContents();
-    expect(labels).toEqual(['창', '저장소']);
+    expect(labels).toEqual(['창', '저장소', '채팅']);
   });
 
   // FR-RTU-7: 번호는 **배열 인덱스에서 파생**되므로 탭이 줄면 함께 당겨진다.
@@ -167,7 +168,9 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
   // **파생의 증거가 뒤집혔다** (FR-RTU-7). 손으로 넣은 항목이 없으므로 탭이
   // 줄자 `sidebarTab3` 도 **함께 사라졌다** — 남아 있다면 그것이 손으로 넣은
   // 것이라는 뜻이다.
-  test('E3 (V-RTU-4): 직행 키가 배열에서 파생된다 — sidebarTab3 이 사라졌다', async ({ page }) => {
+  // CHAT_WINDOW_SRS FR-CW-20 으로 개정: 이전 — 탭이 둘이라 `sidebarTab3` 이 없었다 / 지금 — 셋째 탭(채팅)에서 파생되고
+  // `sidebarTab4` 가 없다 / 이유 — 직행 키는 여전히 배열에서만 나온다 (D-7).
+  test('E3 (V-RTU-4): 직행 키가 배열에서 파생된다 — sidebarTab3 은 채팅이고 sidebarTab4 는 없다', async ({ page }) => {
     await goto(page);
     const got = await page.evaluate(() => ({
       binding2: (window as any).shortcuts.sidebarTab2,
@@ -175,14 +178,19 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
       label2: SHORTCUT_LABELS.sidebarTab2,
       derived2: '사이드바 탭: ' + (SB_TAB_DEFS[1] as any).label,
       binding3: (window as any).shortcuts.sidebarTab3,
-      def3: SHORTCUT_DEFAULTS.sidebarTab3,
+      label3: SHORTCUT_LABELS.sidebarTab3,
+      derived3: '사이드바 탭: ' + (SB_TAB_DEFS[2] as any).label,
+      binding4: (window as any).shortcuts.sidebarTab4,
+      def4: SHORTCUT_DEFAULTS.sidebarTab4,
       action: typeof (window as any).app.executeAction === 'function',
     }));
     expect(got.binding2).toBe('Ctrl+Shift+Digit2');
     expect(got.def2).toBe('Ctrl+Shift+Digit2');
     expect(got.label2).toBe(got.derived2);
-    expect(got.binding3).toBeUndefined();
-    expect(got.def3).toBeUndefined();
+    expect(got.binding3).toBe('Ctrl+Shift+Digit3');
+    expect(got.label3).toBe(got.derived3);
+    expect(got.binding4).toBeUndefined();
+    expect(got.def4).toBeUndefined();
     expect(got.action).toBe(true);
   });
 

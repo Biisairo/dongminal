@@ -36,6 +36,7 @@ function world() {
   });
   const a = new ctx.App();
   a.isEditorWin = (s) => !!(s && s.editor);
+  a.isChatWin = (s) => !!(s && s.type === 'chat');
   a.edRootOf = (s) => (s && s.editor && s.editor.root) || '';
   a._migrateGitWindow = () => 0;
   a._migrateEditorTabs = () => 0;

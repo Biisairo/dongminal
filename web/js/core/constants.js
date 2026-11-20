@@ -618,6 +618,7 @@ const TERM_MOUSE_RE=/^(?:\x1b\[<\d+;(?:-?\d+|NaN);(?:-?\d+|NaN)[Mm])+$/;
 // 로드돼야 한다 (FR-GIT-25). 판정은 항상 WINDOW_TYPE_GIT 인지로만 한다.
 const WINDOW_TYPE_TERMINAL='terminal';
 const WINDOW_TYPE_GIT='git';
+const WINDOW_TYPE_CHAT='chat'; // CHAT_WINDOW_SRS FR-CW-1: 채팅 창. 노드에 하나다
 const TAB_TYPE_GIT='git';
 // FR-OPT-11-7 (FEC-31): 나머지 탭 타입. 워크스페이스에 저장되는 값이라 바꾸지 않는다.
 const TAB_TYPE_TERMINAL='terminal';
@@ -717,7 +718,6 @@ const TIP_CHAT_CMD_CANCEL='Close without running';
 const TIP_ACT_AGENTS='Show running agents';
 const TIP_ACT_BG='Show background tools';
 const TIP_ACT_RUNS='Show runs';
-const TIP_ACT_CHATS='Show chat rooms';
 /**
  * `12-func-ui.md FUI-04`: **Run 을 UI 에서 멈출 길이 없었다.**
  *

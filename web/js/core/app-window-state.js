@@ -28,8 +28,11 @@ Object.assign(App.prototype, {
     // FR-EDT-49 / D-13: **layout 이 없는 Editor 창은 지워지지 않는다.** 갓 만든
     // Editor 창은 pane 이 없고(FR-EDT-55) 그것이 정상이다 — `git pin` 하나에도
     // `workspace_changed` 가 오므로(§2.4) 예외가 없으면 다음 핀 한 번에 사라진다.
-    const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)))};
+    // CHAT_WINDOW_SRS FR-CW-4: 칸이 없는 채팅 창도 남는다.
+    const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)||this.isChatWin(s)))};
     keep();
+    // CHAT_WINDOW_SRS FR-CW-2·14: 채팅 창은 하나이고, 그 밖의 채팅 탭은 닫는다.
+    const chatFixed=this._chatNormalize?this._chatNormalize(sv.windows):0;
     // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
     this._migrateGitWindow(sv.windows);
     // FR-EDT-103·104·106 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다 — 다른 브라우저가
@@ -37,10 +40,10 @@ Object.assign(App.prototype, {
     // 만들어져 있고 창 타입을 알지 못한다 (§2.9).
     const migrated=!!this._migrateEditorTabs(sv.windows);
     // FR-EDT-105: 탭이 0이 된 pane 은 붕괴하고, layout 이 빈 **일반** 창은 사라진다.
-    if(migrated) keep();
+    if(migrated||chatFixed) keep();
     // ISSUE_AGENT_TREE_SRS FR-WGR-6: 그룹 불변식은 창 목록이 정해진 뒤에 세운다.
     this._groupsNormalizeWs(sv);
-    return migrated;
+    return migrated||!!chatFixed;
   },
 
   /**
@@ -51,7 +54,7 @@ Object.assign(App.prototype, {
    */
   _fallbackActiveWindow(ws){
     if(ws.windows.find(s=>s.id===ws.activeWindow)) return;
-    ws.activeWindow=(ws.windows.find(s=>!this.isEditorWin(s))||ws.windows[0])?.id||null;
+    ws.activeWindow=(ws.windows.find(s=>!this.isEditorWin(s)&&!this.isChatWin(s))||ws.windows[0])?.id||null;
   },
 
   /**

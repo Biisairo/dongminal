@@ -53,16 +53,31 @@ Object.assign(App.prototype, {
     const s=this._chatRoomSel(),had=s.sel.size>0;
     const r=chatPick(s.sel,s.anchor,this._chatRoomOrder||[],id,e);
     s.anchor=r.anchor;
-    if(r.handled||had) this.agentsRender();
+    if((r.handled||had)&&this._chatRepaint) this._chatRepaint();
     return r.handled;
   },
 
   /** FR-PCH-86: Chats 방 줄 우클릭 → 강제 삭제. */
   _chatRoomCtx(id,e){
-    if(!this._chatHelper()) return;
+    const r=this._chatRoom(id);
+    if(!this._chatHelper()&&!(r&&r.joined)) return;
     e.preventDefault();
-    const ids=chatCtxTargets(this._chatRoomSel().sel,id,this._chatRoomOrder||[id]);
-    UIKit.menu([{id:'kill',icon:'trash',label:t('chat.kill'),danger:true,onClick:()=>this._chatKillAsk(ids)}],{at:{x:e.clientX,y:e.clientY},cls:'chat-menu'});
+    this._chatRoomMenu(id,{x:e.clientX,y:e.clientY});
+  },
+
+  /**
+   * CHAT_WINDOW_SRS FR-CW-23·30 (D-22): 방 행의 메뉴 — 나가기(들어간 방), 도우미가 있으면 강제 삭제.
+   * 강제 삭제의 대상은 종전대로 고른 방들이다(FR-PCH-86).
+   */
+  _chatRoomMenu(id,at){
+    const r=this._chatRoom(id),items=[];
+    if(r&&r.joined) items.push({id:'leave',icon:'x',label:t('chat.leave'),onClick:()=>this._chatLeave(id)});
+    if(this._chatHelper()){
+      const ids=chatCtxTargets(this._chatRoomSel().sel,id,this._chatRoomOrder||[id]);
+      if(items.length) items.push({sep:true});
+      items.push({id:'kill',icon:'trash',label:t('chat.kill'),danger:true,onClick:()=>this._chatKillAsk(ids)});
+    }
+    if(items.length) UIKit.menu(items,{at,cls:'chat-menu'});
   },
 
   /** 채팅 탭 참가자 줄의 클릭. 고르기로 처리했으면 참이다. */

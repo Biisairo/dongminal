@@ -1445,6 +1445,8 @@ I18N.register('en', {
   'edge.invites_none': 'No invites',
   'edge.removed_notice': 'The edge with {name} was removed',
   'chat.title': 'Chats',
+  'chat.window_name': 'Chat',
+  'chat.window_empty': 'Pick a room from the chat list',
   'chat.empty': 'Chat state has not loaded yet.',
   'chat.direct': 'Direct chat',
   'chat.group': 'Group chat',

@@ -57,3 +57,11 @@
 /* FR-SBT-16·17 → PANEL_TEMPLATE_SRS FR-PNT-1·5·12 로 개정: 머리 고정·터치 높이는 패널 템플릿이 정한다.
    닫기 `✕` 는 머리의 끝 단추 자리다 — 이전에는 우상단에 겹쳐 서서 탭 줄이 덮었다(눌리지 않았다). */
 body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:var(--fs-sm);line-height:18px;border-radius:var(--radius-pill)}
+
+/* CHAT_WINDOW_SRS FR-CW-21: 메인 패널 `채팅` 탭의 목록. 스크롤은 목록 하나다(`.sbl-list` 와 같은 규약). */
+.chat-list{flex:1 1 auto;min-height:0;overflow-y:auto}
+/* FR-CW-23: 방 행의 `⋯` — 데스크톱은 올리거나 고른 행에서, 모바일은 늘 보인다. 자리는 늘 차지해 행이 흔들리지 않는다. */
+.chat-row-more{flex:none;visibility:hidden}
+.chat-row:hover .chat-row-more,.chat-row.sel .chat-row-more,.chat-row-more:focus-visible,body.mobile .chat-row-more{visibility:visible}
+/* FR-CW-23: 모바일의 방 행은 `⋯` 가 있든 없든 같은 높이다 — 터치 하한. */
+body.mobile .chat-row{min-height:var(--touch-min)}

@@ -25,7 +25,7 @@ Object.assign(App.prototype, {
     v.roomId=tab.roomId;
     this._chatViewPaint(v);
     // 탭이 보였다 — 그 방의 안 읽은 수가 0 이 된다. 패널은 그리는 중이 아닐 때 다시 그린다.
-    if(this._chatS().read(v.roomId)) TIMERS.defer(()=>this.agentsRender(),{owner:this,label:'chat-read'});
+    if(this._chatS().read(v.roomId)) TIMERS.defer(()=>{if(this._chatRepaint)this._chatRepaint()},{owner:this,label:'chat-read'});
     return v.root;
   },
 

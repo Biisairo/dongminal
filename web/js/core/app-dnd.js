@@ -65,7 +65,7 @@ Object.assign(App.prototype, {
     this.paneTabSet(dst,tab.id);this.setFocusState(dstRid, s);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다 — 여기서 터미널 창을
     // 만들면 안 된다.
-    if(!s.layout&&!this.isEditorWin(s)){this._mkWindow();return}
+    if(!s.layout&&!this.isEditorWin(s)&&!this.isChatWin(s)){this._mkWindow();return}
     this.save();this.render();
   },
 
@@ -81,10 +81,10 @@ Object.assign(App.prototype, {
     // FR-MOV-5: Git 창은 주지도 받지도 않는다 (FR-GIT-181).
     // FR-EDT-53: Editor 창의 탭은 그 창 **밖으로 나가지 못한다** — 다른 Editor
     // 창으로도, 일반 창으로도.
-    if(this.isGitWin(src)||this.isEditorWin(src)) return;
+    if(this.isKindWin(src)) return; // CHAT_WINDOW_SRS FR-CW-10: 채팅 창도 경계다
     const dst=this.ws.windows.find(w=>w&&w.id===dstWinId);
     // FR-EDT-53: 밖에서 들어오지도 못한다.
-    if(!dst||dst.id===src.id||this.isGitWin(dst)||this.isEditorWin(dst)||!dst.layout) return;
+    if(!dst||dst.id===src.id||this.isKindWin(dst)||!dst.layout) return;
     const srcPane=findPane(src.layout,srcRid); if(!srcPane) return;
     const ti=srcPane.tabs.findIndex(x=>x.id===tabId); if(ti<0) return;
     // FR-MOV-6: git 탭은 옮기지 않는다 (FR-GIT-28).
@@ -125,8 +125,8 @@ Object.assign(App.prototype, {
    * FR-EDT-53), 마지막 탭(FR-MOV-4), git 뷰 탭(FR-MOV-6)이 그대로 선다.
    */
   _moveTabAcrossWindows(src,srcRid,tabId,dst,dstRid,beforeTabId,insertBefore){
-    if(this.isGitWin(src)||this.isEditorWin(src)) return;
-    if(this.isGitWin(dst)||this.isEditorWin(dst)||!dst.layout) return;
+    if(this.isKindWin(src)) return;
+    if(this.isKindWin(dst)||!dst.layout) return;
     const srcPane=findPane(src.layout,srcRid); if(!srcPane) return;
     const ti=srcPane.tabs.findIndex(x=>x.id===tabId); if(ti<0) return;
     if(srcPane.tabs[ti].type===TAB_TYPE_GIT) return;
@@ -198,7 +198,7 @@ Object.assign(App.prototype, {
     };
     s.layout=splitNode(s.layout);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다.
-    if(!s.layout&&!this.isEditorWin(s)){this._mkWindow();return}
+    if(!s.layout&&!this.isEditorWin(s)&&!this.isChatWin(s)){this._mkWindow();return}
     this.setFocusState(newRid, s);this.save();this.render();
   },
 });

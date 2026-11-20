@@ -454,7 +454,7 @@ Object.assign(App.prototype, {
       // 있어야 한다 — 없으면 Editor 창에 터미널 탭이 생기고, 일반 창만 걷는
       // `_migrateEditorTabs` 가 그것을 영원히 지나친다. Git 창도 같은 구멍이다.
       const a=this.aw();
-      const cur=this.isEditorWin(a)||this.isGitWin(a)?null:a;
+      const cur=this.isKindWin(a)?null:a;
       const pn=(this.focused&&cur&&cur.layout?findPane(cur.layout,this.focused):null)
         ||(cur&&cur.layout?firstPane(cur.layout):null)
         ||this.plainWindows().map(s=>firstPane(s.layout)).find(Boolean)

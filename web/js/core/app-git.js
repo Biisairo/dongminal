@@ -273,7 +273,11 @@ Object.assign(App.prototype, {
   isGitWin(s){return !!(s&&s.type===WINDOW_TYPE_GIT)},
   // EDITOR_TAB_SRS FR-EDT-45: Editor 창도 같은 근거로 창 목록·창 순회의 대상이
   // 아니다 — 진입점은 Editor 탭의 행뿐이다. 판정을 여기 하나에 모은다.
-  plainWindows(){return this.ws.windows.filter(s=>!this.isGitWin(s)&&!this.isEditorWin(s))},
+  // CHAT_WINDOW_SRS FR-CW-1·5: 채팅 창도 같다 — 진입점은 메인 패널의 `채팅` 탭이다.
+  isChatWin(s){return !!(s&&s.type===WINDOW_TYPE_CHAT)},
+  /** 일반(터미널) 창이 아닌 창 — Git·Repo·채팅. 창 목록·순회·대체의 판정은 이것 하나다. */
+  isKindWin(s){return this.isGitWin(s)||this.isEditorWin(s)||this.isChatWin(s)},
+  plainWindows(){return this.ws.windows.filter(s=>!this.isKindWin(s))},
 
   /**
    * FR-GIT-183a → FR-SBT-23·24: Git 창을 떠날 때 가는 창.

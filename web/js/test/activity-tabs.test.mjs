@@ -14,7 +14,8 @@ const icons = () => Object.fromEntries([...read('js/core/app-activity.js')
   .matchAll(/\{key:'(\w+)', icon:'([\w-]+)'/g)].map((m) => [m[1], m[2]]));
 
 test('탭마다 뜻에 맞는 아이콘이다', () => {
-  assert.deepEqual(icons(), { agents: 'bot', bg: 'terminal-bg', runs: 'workflow', chats: 'message-square' });
+  // CHAT_WINDOW_SRS FR-CW-40 으로 개정: 이전 — chats: 'message-square' 도 있었다 / 지금 — 채팅은 메인 패널이다 / 이유 — D-7.
+  assert.deepEqual(icons(), { agents: 'bot', bg: 'terminal-bg', runs: 'workflow' });
 });
 
 test('탭 아이콘은 모두 스프라이트에 있다', () => {

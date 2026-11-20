@@ -101,15 +101,22 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
     })).toBe(root);
   });
 
-  test('T3 (V-SBT-16): 사이드바 100px 에서도 두 탭이 겹치지 않는다', async ({ page }) => {
+  // CHAT_WINDOW_SRS FR-CW-24 로 개정 (TC-CW-11): 이전 — 100px 에서 두 탭의 이름이 읽혔다(폭 > 30) / 지금 — 탭이 셋이고
+  // 좁으면 아이콘만 선다. 셋이 같은 폭으로 겹치지 않는다 / 이유 — 셋이 이름을 나누면 한 탭이 20px 남짓이다 (D-7).
+  test('T3 (V-SBT-16): 사이드바 100px 에서도 세 탭이 겹치지 않고 아이콘으로 선다', async ({ page }) => {
     await waitForInit(page);
+    await expect(tab(page, 'chat').locator('.sb-tab-label')).toBeVisible();
     await page.evaluate(() =>
       document.documentElement.style.setProperty('--sb-w', '100px'));
     const w = (await tab(page, 'windows').boundingBox())!;
     const g = (await tab(page, 'repo').boundingBox())!;
-    expect(w.width, '탭이 너비를 나눠 갖지 않는다').toBeGreaterThan(30);
-    expect(Math.abs(w.width - g.width), '두 탭이 균등 분할되지 않는다').toBeLessThan(2);
-    expect(g.x, '두 탭이 겹친다').toBeGreaterThanOrEqual(w.x + w.width - 1);
+    const c = (await tab(page, 'chat').boundingBox())!;
+    expect(Math.abs(w.width - g.width), '탭이 균등 분할되지 않는다').toBeLessThan(2);
+    expect(Math.abs(g.width - c.width), '탭이 균등 분할되지 않는다').toBeLessThan(2);
+    expect(g.x, '탭이 겹친다').toBeGreaterThanOrEqual(w.x + w.width - 1);
+    expect(c.x, '탭이 겹친다').toBeGreaterThanOrEqual(g.x + g.width - 1);
+    await expect(tab(page, 'chat').locator('.sb-tab-icon')).toBeVisible();
+    await expect(tab(page, 'chat').locator('.sb-tab-label')).toBeHidden();
   });
 
   test('T4 (V-SBT-7): 패널을 떠났다 돌아와도 스크롤 위치가 남는다', async ({ page }) => {

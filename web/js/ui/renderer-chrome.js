@@ -192,7 +192,7 @@ Object.assign(Renderer.prototype, {
     // 단축키 경로는 이것과 무관하게 막힌다 — `_splitInner` 가 `isGitWin`·
     // `isEditorWin` 에서 되돌아간다 (V70·E6 의 뒷문장).
     const isGit=this.app.isGitWin(a);
-    const noSplit=isGit||this.app.isEditorWin(a);
+    const noSplit=isGit||this.app.isEditorWin(a)||this.app.isChatWin(a);
     for(const id of ['split-h','split-v']){
       const b=document.getElementById(id);
       if(b) b.disabled=noSplit;

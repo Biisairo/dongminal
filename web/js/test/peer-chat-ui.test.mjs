@@ -49,7 +49,9 @@ function rig(ctx) {
   app._agFolded = () => new Set();
   app._limits = [];
   app.renders = 0;
-  app.agentsRender = () => { app.renders++ };
+  app.agentsRender = () => {};
+  // CHAT_WINDOW_SRS FR-CW-21: 채팅 상태가 바뀌면 다시 그리는 것은 메인 패널의 목록이다.
+  app._chatRepaint = () => { app.renders++ };
   app._chatViewsPaint = () => {};
   app._claudeAcctFold = () => new Set();
   return app;
@@ -63,7 +65,8 @@ test('FR-PCH-80: 탭 줄 하나와 고른 탭의 항목만 그린다', () => {
   let items = app._actItems();
   assert.equal(items[0].t, 'tabs');
   assert.equal(items[0].cur, 'agents');
-  assert.deepEqual(plain(items[0].tabs.map((x) => x.key)), ['agents', 'bg', 'runs', 'chats']);
+  // CHAT_WINDOW_SRS FR-CW-40 으로 개정: 이전 — 작업 패널 탭은 넷(…·chats)이었다 / 지금 — 셋이고 채팅은 메인 패널의 `채팅` 탭이다 / 이유 — 사용자 결정 D-7.
+  assert.deepEqual(plain(items[0].tabs.map((x) => x.key)), ['agents', 'bg', 'runs']);
   assert.deepEqual(plain(items.slice(1).map((i) => i.t)), ['group', 'card']);
   app._actTabSelect('bg');
   items = app._actItems();
@@ -84,31 +87,36 @@ test('FR-PCH-80: 저장 값이 모르는 탭이면 첫 탭이다. 모르는 탭�
   assert.equal(app.renders, 0);
 });
 
-test('FR-PCH-81: Agents 는 알람 점, Background·Runs 는 개수, Chats 는 안 읽은 수다', () => {
+test('FR-PCH-81: Agents 는 알람 점, Background·Runs 는 개수다. 안 읽은 수는 지금 있는 방의 합이다', () => {
   const ctx = loadUI();
   const app = rig(ctx);
   app._chat = { me: { id: 'me' }, rooms: [{ id: 'r1', joined: true }, { id: 'r2', joined: true }] };
-  assert.deepEqual(tabsOf(app._actItems()), [['agents', 0, false], ['bg', 2, false], ['runs', 0, false], ['chats', 0, false]]);
+  // CHAT_WINDOW_SRS FR-CW-40 으로 개정: 이전 — 작업 패널 탭은 넷(…·chats)이었다 / 지금 — 셋이고 채팅은 메인 패널의 `채팅` 탭이다 / 이유 — 사용자 결정 D-7.
+  // 안 읽은 수는 메인 패널 `채팅` 탭의 배지가 쓴다 (FR-CW-20).
+  assert.deepEqual(tabsOf(app._actItems()), [['agents', 0, false], ['bg', 2, false], ['runs', 0, false]]);
   app._agWindowItems = () => [{ t: 'group', attn: 1 }];
   app._chatS().add('r1', { id: 'm1' }, false);
   app._chatS().add('r2', { id: 'm2' }, false);
   app._chatS().add('gone', { id: 'm3' }, false);
-  assert.deepEqual(tabsOf(app._actItems()), [['agents', 0, true], ['bg', 2, false], ['runs', 0, false], ['chats', 2, false]]);
+  assert.deepEqual(tabsOf(app._actItems()), [['agents', 0, true], ['bg', 2, false], ['runs', 0, false]]);
+  assert.equal(app.chatUnreadTotal(), 2);
 });
 
-test('Chats 탭: 고른 탭일 때만 항목을 만든다. 데몬이 준비되지 않으면 까닭 한 줄이다', () => {
+test('채팅 목록: 작업 패널은 채팅 항목을 만들지 않는다. 데몬이 준비되지 않으면 까닭 한 줄이다', () => {
   const ctx = loadUI();
   const app = rig(ctx);
   let built = 0;
   app._chatItems = () => { built++; return [] };
+  // CHAT_WINDOW_SRS FR-CW-40 으로 개정: 이전 — 작업 패널 탭은 넷(…·chats)이었다 / 지금 — 셋이고 채팅은 메인 패널의 `채팅` 탭이다 / 이유 — 사용자 결정 D-7.
+  // 저장된 고른 탭이 `chats` 여도 첫 탭이다 (FR-CW-40).
+  ctx._local.set('activityTab', 'chats');
+  app._actTabKey = null;
+  assert.equal(app._actTab(), 'agents');
   app._actItems();
   assert.equal(built, 0);
-  app._actTabSelect('chats');
-  app._actItems();
-  assert.equal(built, 1);
   delete app._chatItems;
   app._chat = { down: 'chat_daemon_restart' };
-  const rows = app._actItems().slice(1);
+  const rows = app._chatItems();
   assert.equal(rows.length, 1);
   assert.equal(rows[0].el.textContent, 'chat.need_restart');
 });

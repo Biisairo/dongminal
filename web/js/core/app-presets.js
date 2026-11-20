@@ -19,7 +19,7 @@ Object.assign(App.prototype, {
   // 창이고, 일반 창이 하나도 없으면 null 이다.
   _presetSource(){
     const a=this.aw();
-    if(a&&!this.isEditorWin(a)&&!this.isGitWin(a)) return a;
+    if(a&&!this.isKindWin(a)) return a;
     const plain=this.plainWindows();
     return plain.find(s=>s.id===this._lastPlainWindow)||plain[0]||null;
   },

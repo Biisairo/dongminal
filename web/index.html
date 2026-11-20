@@ -191,6 +191,10 @@
       <div id="repo-entries"></div>
       <div id="repo-root"></div>
     </div>
+    <!-- CHAT_WINDOW_SRS FR-CW-21: `채팅` 탭의 본문 — 새 그룹 대화 · 방 · 온라인. 그리기는 app-chat-window.js 다. -->
+    <div class="sb-panel" id="sb-panel-chat" hidden>
+      <div id="chat-list" class="chat-list ui-scroll"></div>
+    </div>
     <!-- FR-SBT-4: 탭 밖 최하단. 어느 탭에서나 보인다.
          FR-SRL-8: 내부 새로고침도 같은 자리다 — 어느 탭에서 어긋남을 느끼든
          손이 닿아야 한다. -->
@@ -937,6 +941,7 @@
 <script src="js/ui/ui-kit.js?v=__ASSETV__"></script>
 <!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
      활성 탭 상태를 읽는다. -->
+<script src="js/ui/sidebar-tab-chat.js?v=__ASSETV__"></script>
 <script src="js/ui/sidebar-tabs.js?v=__ASSETV__"></script>
 <!-- 사이드바 리스트 블루프린트 (UX_REVISION_SRS 묶음 B). 서술자(sidebar-tabs.js)
      뒤, 렌더러 앞이어야 한다 — 렌더러가 이것으로 두 목록을 그린다. -->
@@ -1107,6 +1112,8 @@
 <script src="js/core/app-chat.js?v=__ASSETV__"></script>
 <script src="js/ui/chat-view.js?v=__ASSETV__"></script>
 <script src="js/core/chat-human.js?v=__ASSETV__"></script>
+<!-- 채팅 창 (CHAT_WINDOW_SRS). `app-chat.js` 뒤 — prototype 확장이다. -->
+<script src="js/core/app-chat-window.js?v=__ASSETV__"></script>
 <script src="js/core/app-claude-accounts.js?v=__ASSETV__"></script>
 <script src="js/core/app-claude-accounts-map.js?v=__ASSETV__"></script>
 <!-- Repo 목록 갱신 (APP_STATE_EXTRACT_SRS FR-ASE-8). `app-git.js` 의 껍데기가 부른다. -->

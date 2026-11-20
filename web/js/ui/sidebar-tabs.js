@@ -263,6 +263,7 @@ const SB_TAB_DEFS=[
       },
     },
   },
+  SB_CHAT_TAB, // CHAT_WINDOW_SRS FR-CW-20: 셋째 탭 — 서술자는 sidebar-tab-chat.js
 ];
 
 /**
@@ -314,7 +315,7 @@ const SidebarTabs={
   labelForWindow(app,w){
     // FR-RTU-1: Git 창과 Repo 창이 같은 탭에 속한다. 옛 Git 창은 마이그레이션
     // 전까지 남으므로(FR-RTU-70) 그 라벨도 여기서 나온다.
-    const id=(app.isGitWin(w)||app.isEditorWin(w))?REPO_TAB_ID:'windows';
+    const id=(app.isGitWin(w)||app.isEditorWin(w))?REPO_TAB_ID:app.isChatWin(w)?CHAT_TAB_ID:'windows';
     const d=SB_TAB_DEFS.find(x=>x.id===id);
     return d?d.label:'';
   },
@@ -365,6 +366,8 @@ const SidebarTabs={
     // `repo` 로 따라온다. 재진입은 기존 `sbBusy` 가드가 그대로 끊는다.
     const w=app.aw();
     if(app.isGitWin(w)||app.isEditorWin(w)){this.setTab(app,REPO_TAB_ID,{silent:true});return}
+    if(app.isChatWin(w)){this.setTab(app,CHAT_TAB_ID,{silent:true});return} // CHAT_WINDOW_SRS FR-CW-22
+    if(app.sbTab===CHAT_TAB_ID){this.setTab(app,'windows',{silent:true});return}
     // 그 반대는 **갈 창이 실제로 있을 때만** 한다 — 없는데 내려보내면 탭만
     // 전환된 상태(FR-SBT-25)를 깬다.
     if(app.sbTab===REPO_TAB_ID&&(app.edWindows().length||app.gitWindow()))

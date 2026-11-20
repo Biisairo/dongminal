@@ -1468,6 +1468,8 @@ I18N.register('ko', {
   'edge.invites_none': '받은 초대 없음',
   'edge.removed_notice': '{name} 간선이 끊겼습니다',
   'chat.title': '채팅',
+  'chat.window_name': '채팅',
+  'chat.window_empty': '채팅 목록에서 방을 고르세요',
   'chat.empty': '아직 채팅 상태를 받지 못했습니다.',
   'chat.direct': '개인채팅',
   'chat.group': '단체채팅',

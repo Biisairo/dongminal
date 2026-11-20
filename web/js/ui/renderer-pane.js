@@ -234,7 +234,7 @@ Object.assign(Renderer.prototype, {
     const list=scroll.firstChild;
     this._place(list,kids);
     const aw=app.aw();
-    const closed=app.isGitWin(aw)||app.isEditorWin(aw);
+    const closed=app.isKindWin(aw);
     /**
      * UIUX_OVERHAUL_SRS FR-CHR-2·3: 고정 구. **가르는 것은 모드가 아니라
      * 컨트롤이다.**

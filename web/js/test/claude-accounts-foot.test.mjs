@@ -204,7 +204,7 @@ function footApp(ctx) {
   const app = new ctx.App();
   app._bg = []; app._runsPanel = () => ({});
   app._agWindowItems = () => [];
-  app._chatUnreadTotal = () => 0;
+  app.chatUnreadTotal = () => 0;
   app._agFolded = () => new Set();
   app._limits = [];
   app._claudeAccts = [];

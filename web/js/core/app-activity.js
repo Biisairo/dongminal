@@ -55,8 +55,7 @@ const ACTIVITY_SECTIONS=[
    items:app=>app._actBgRows()},
   {key:'runs', icon:'workflow', title:()=>t('runs.title'), tip:()=>TIP_ACT_RUNS, empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
    items:app=>app._actRunsRows()},
-  {key:'chats', icon:'message-square', title:()=>t('chat.title'), tip:()=>TIP_ACT_CHATS, empty:()=>t('chat.empty'),
-   items:app=>app._chatItems(), shownOnly:true, badge:app=>({n:app._chatUnreadTotal()})},
+  // CHAT_WINDOW_SRS FR-CW-40 (D-7): Chats 구역은 메인 패널의 `채팅` 탭으로 옮겼다. 이전: 넷째 탭 `chats`.
 ];
 
 /**
