@@ -5648,7 +5648,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:diff|button.git-diff-nav.ui-btn.ui-btn-sm": {
+ "git:diff|button.git-diff-nav.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -5726,7 +5726,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:diff|button.git-diff-blame.ui-btn.ui-btn-sm": {
+ "git:diff|button.git-diff-blame.ui-btn.ui-btn-ghost.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -5771,7 +5771,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:diff|label.git-diff-ws": {
+ "git:diff|label.git-diff-ws.ui-btn.ui-btn-ghost.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -5780,8 +5780,17 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:diff|label.git-diff-fold": {
+ "git:diff|label.git-diff-fold.ui-btn.ui-btn-ghost.ui-btn-sm": {
   "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
+ "git:diff|button.git-diff-more.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-sm": {
+  "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -8483,7 +8492,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-row": {
+ "git:history|div.git-hist-row.head": {
   "display": "flex",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8525,7 +8534,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:history|span.git-hist-badge.local": {
+ "git:history|span.git-hist-badge.head.local": {
   "display": "block",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8579,7 +8588,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-row.head": {
+ "git:history|div.git-hist-row": {
   "display": "flex",
   "overflowX": "hidden",
   "overflowY": "hidden",
@@ -8591,7 +8600,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:history|span.git-hist-badge.head.local": {
+ "git:history|span.git-hist-badge.local": {
   "display": "block",
   "overflowX": "hidden",
   "overflowY": "hidden",

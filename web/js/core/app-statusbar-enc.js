@@ -28,10 +28,23 @@ Object.assign(App.prototype, {
     return `<span class="sb-item sb-enc" role="button" tabindex="0" title="${e(ENC_TITLE)}"><span class="mono">${e(this._sbEncLabel(got.d))}</span></span>`;
   },
 
+  /**
+   * UX_AUDIT_FIX_SRS FR-UXF-83: 띠를 한 번 보인 언어의 파일인데 서버가 아직 없으면 서는 표식.
+   * 켜고 끄는 지표가 아니라 상황 표식이다. 누르면 그 편집기에 띠를 다시 연다.
+   */
+  _sbLspHtml(){
+    const v=this._edActiveEditor();
+    const s=v&&this.lspOfferPending(v);
+    if(!s) return '';
+    const e=escHtml;
+    return `<span class="sb-item sb-lsp-offer" role="button" tabindex="0" title="${e(LSP_OFFER_MARK_TITLE.replace('%s',s.id))}">${e(LSP_OFFER_MARK)}</span>`;
+  },
+
   // 상태바에 한 번만 건다 — 항목은 reconcile 로 새로 만들어지므로 위임한다.
   _sbEncBind(bar){
     if(bar._encBound) return;
     bar._encBound=true;
+    const lsp=()=>{const v=this._edActiveEditor(); if(v) this.lspOfferReopen(v)};
     const open=(el)=>{
       const got=this._sbEncDoc();
       if(!got) return;
@@ -41,11 +54,13 @@ Object.assign(App.prototype, {
     bar.addEventListener('click',(ev)=>{
       const el=/** @type {HTMLElement} */ (ev.target).closest('.sb-enc');
       if(el) open(el);
+      if(/** @type {HTMLElement} */ (ev.target).closest('.sb-lsp-offer')) lsp();
     });
     bar.addEventListener('keydown',(ev)=>{
       if(ev.key!=='Enter'&&ev.key!==' ') return;
       const el=/** @type {HTMLElement} */ (ev.target).closest('.sb-enc');
       if(el){ev.preventDefault();open(el)}
+      if(/** @type {HTMLElement} */ (ev.target).closest('.sb-lsp-offer')){ev.preventDefault();lsp()}
     });
   },
 

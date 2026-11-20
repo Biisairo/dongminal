@@ -300,7 +300,31 @@ Object.assign(LspClient.prototype, {
     const s=list.find(x=>(x.exts||[]).some(e=>e===ext));
     if(!s||s.found) return;
     if(this._lspDismissed(s.id)) return;
+    // UX_AUDIT_FIX_SRS FR-UXF-82: 띠는 언어마다 처음 한 번 선다 — 선 순간 "제안함" 이다.
+    this.lspDismiss(s.id);
     if(view.offer) view.offer(s);
+    this.app.updateStatusBar();
+  },
+
+  /**
+   * FR-UXF-83: "제안함" 인데 서버가 아직 없는 언어의 서술자 — 상태바 표식이 쓴다.
+   * 상태바는 동기로 그리므로 굳혀 둔 상태만 본다. 굳힌 것이 없으면 받아 온 뒤 다시 그린다.
+   */
+  lspOfferPending(view){
+    if(!view||!view.filePath||!view._view) return null;
+    const ext=this._lspExtOf(view.filePath);
+    if(!ext) return null;
+    if(!this._lspStatus){
+      if(!this._lspStatusP) this._lspStatusCached().then(()=>this.app.updateStatusBar());
+      return null;
+    }
+    const s=this._lspStatus.find(x=>(x.exts||[]).some(e=>e===ext));
+    return s&&!s.found&&this._lspDismissed(s.id)?s:null;
+  },
+
+  lspOfferReopen(view){
+    const s=this.lspOfferPending(view);
+    if(s&&view.offer) view.offer(s);
   },
 
   _lspExtOf(path){
@@ -330,8 +354,8 @@ Object.assign(LspClient.prototype, {
   // 사용자는 설치가 실패한 줄로 읽는다 (FR-LSP-47 과 같은 근거).
   _lspStatusInvalidate(){ this._lspStatus=null },
 
-  // FR-LSP-45: 닫으면 그 언어에 다시 뜨지 않는다. 기기별인 이유는 "이 화면에서
-  // 그만 보겠다" 는 뜻이기 때문이다.
+  // FR-LSP-45 → UX_AUDIT_FIX_SRS FR-UXF-82: 기록은 "제안함" 이다 — 종전 `다시 보지 않기` 의
+  // 기록도 같은 키라 그대로 "제안함" 으로 읽힌다. 기기별인 이유는 "이 화면에서 봤다" 는 뜻이기 때문이다.
   _lspDismissed(id){
     const o=PrefStore.local.json(LSP_OFFER_KEY,null);
     return !!(o&&o[id]);

@@ -1,7 +1,7 @@
 # SRS: UI/UX 진단 반영 — UX_AUDIT_2026-11-19 의 항목 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 4묶음(구현중) 이후, 채팅 창 분리(D-7, 별도 SRS). 1묶음 FR-UXF-1~12, 2묶음 FR-UXF-20~31, 3묶음 FR-UXF-40~43(X1)·44~49(D19)·50~54(X9·D7·M13·M14). 4묶음 FR-UXF-60~66(X6·O1·O2·D2·M2). V-LAY-1 의 linux·win32 기준선은 푸시 뒤 `layout-baseline` 워크플로(사용자 실행)
+> **남은 것**: 7묶음(모바일 M1·M4·O7·M10·O6·D9). 구현된 것: 1묶음 FR-UXF-1~12, 2묶음 20~31, 3묶음 40~54, 4묶음 60~66, 5묶음 70~79, 6묶음 80~85. 채팅 창 분리(D-7)는 `CHAT_WINDOW_SRS` 로 구현됨. V-LAY-1 의 linux·win32 기준선은 푸시 뒤 `layout-baseline` 워크플로(사용자 실행)
 
 요구사항 식별자 접두어: `FR-UXF-`
 
@@ -468,7 +468,7 @@ D5(설정 모달 높이·묶음 접기)와 O8(빈 상태의 행동 단추)은 �
 
 ### 3.10 6묶음 — 도구 줄·제안 띠·메뉴 단축키 (D13 · M8 · D15 · D18 · D-29)
 
-> 상태: **스펙만 썼다(2026-11-20). 시험·구현 전이다.** 다음 세션이 시험(RED)부터 시작한다.
+> 상태: **구현됨(2026-11-20, 6차 세션).** 시험을 먼저 써서 RED 를 확인했다(unit 2건, e2e 6건) — 그 뒤 구현해 통과했다.
 
 #### 3.10.1 diff 도구 줄 (D13·M8, D-29)
 
@@ -505,6 +505,11 @@ D5(설정 모달 높이·묶음 접기)와 O8(빈 상태의 행동 단추)은 �
 
 **FR-UXF-85** — 키캡을 다는 자리: 칸 탭 메뉴(`renderer-pane-wire.js` — 새 탭·닫기·이름 바꾸기 등 단축키가 있는 항목), 사이드바 창 행 메뉴,
 편집기 탭 메뉴. 단축키가 없는 항목은 그대로다.
+
+> **구현 메모 (스펙·코드 어긋남, 2026-11-20)**: 코드에는 **사이드바 창 행 메뉴가 없다**(`sidebar-list.js` 에 `contextmenu` 가 없다).
+> 편집기 탭은 따로 메뉴가 없고 칸 탭 메뉴(`renderer-pane-wire.js`)를 함께 쓴다. 그래서 키캡은 칸 탭 메뉴(`new`→`newTab`,
+> `close`→`closeTab`)와 `+` 단추의 메뉴(`new`)에만 달렸고, 그것으로 편집기 탭도 덮인다. `이름 바꾸기`에는 단축키가 없어 키캡이 없다.
+> 창 행 메뉴를 새로 만드는 일은 이 묶음의 범위가 아니다.
 
 > 이전 동작: 메뉴에 단축키 표시가 없었다. / 이유: 진단 D18.
 
@@ -640,3 +645,7 @@ D5(설정 모달 높이·묶음 접기)와 O8(빈 상태의 행동 단추)은 �
 | `web/js/ui/renderer-chrome.js`, `web/index.html` | 칸 수 (FR-UXF-76), 데스크톱 돋보기 (FR-UXF-79) |
 | `web/js/git/panel-changes.js`, `web/js/git/remote.js`, `web/style-git.css` | 원격 라벨·수 (FR-UXF-77·78) |
 | `e2e/ux-audit-fix-5.spec.ts` (신규) | TC-UXF-70~76 |
+| `web/js/git/panel-diff.js`, `web/style-git-views.css`, `web/js/core/constants-git-diff.js` | 고스트 도구 줄·모바일 한 줄과 `⋯` 메뉴 (FR-UXF-80·81) |
+| `web/js/ui/file-editor.js`, `web/js/core/lsp-client.js`, `web/js/core/app-lsp.js`, `web/js/core/app-statusbar-enc.js`, `web/js/core/app-statusbar.js`, `web/style.css` | 제안 띠 한 번·`나중에`, 상태바 표식 (FR-UXF-82·83) |
+| `web/js/ui/ui-kit.js`, `web/style-kit.css`, `web/js/ui/renderer-pane-wire.js` | 메뉴 키캡 `key` (FR-UXF-84·85) |
+| `e2e/ux-audit-fix-6.spec.ts` (신규), `e2e/editor-lsp-nav.spec.ts`, `web/js/test/menu-key.test.mjs` (신규), `web/js/test/lsp-offer.test.mjs` | TC-UXF-80~84 |

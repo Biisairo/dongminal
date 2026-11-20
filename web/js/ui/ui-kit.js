@@ -557,7 +557,8 @@ const UIKit = {
    * 한 번에 하나만 열린다. 활성 항목이 포커스를 갖고(D-CMU-2) 닫으면 연 자리로
    * 돌아간다.
    *
-   * items: {id, label, icon, onClick, disabled:boolean|string, danger, cur, title}
+   * items: {id, label, icon, key, onClick, disabled:boolean|string, danger, cur, title}
+   *        — `key` 는 단축키 동작 이름이다. 바인딩이 있으면 끝에 키캡이 선다 (UX_AUDIT_FIX_SRS FR-UXF-84)
    *        | {sep:true} | {el:<HTMLElement>} | {label, static:true}
    * opts:  {at, align, cls, itemCls, sepCls, flipGap} — `itemCls`·`sepCls` 는 옛
    *        이름을 함께 붙이는 자리다 (D-5, `GitMenu` 의 `.git-menu-item`).
@@ -594,6 +595,13 @@ const UIKit = {
       const l = document.createElement('span');
       l.textContent = it.label || '';
       d.appendChild(l);
+      const combo = it.key && typeof shortcuts === 'object' ? shortcuts[it.key] : '';
+      if (combo) {
+        const k = document.createElement('span');
+        k.className = 'ui-menu-key';
+        k.textContent = displayKey(combo);
+        d.appendChild(k);
+      }
       if (why) d.title = why; else if (it.title) d.title = it.title;
       if (off) d.setAttribute('aria-disabled', 'true');
       if (!off && it.onClick) d.addEventListener('click', () => { UIKit.closeMenu(); it.onClick() });

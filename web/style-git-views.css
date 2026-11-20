@@ -18,11 +18,15 @@
   border-bottom:1px solid var(--border);font-size:var(--fs-md);
 }
 /* MOBILE_UX_OVERHAUL_SRS FR-MUX-41: 좁은 폭에서 도구 줄은 밀리지 않고 접힌다 — 화면 밖의 단추는 없는 것과 같다. */
-body.mobile :is(.git-diff-bar,.git-img-bar,.git-hist-bar,.git-con-bar,.git-br-bar,.git-stash-bar){flex-wrap:wrap;row-gap:4px}
-body.mobile .git-diff-sep{display:none}
-.git-diff-nav{font-size:var(--fs-lg)}
+body.mobile :is(.git-img-bar,.git-hist-bar,.git-con-bar,.git-br-bar,.git-stash-bar){flex-wrap:wrap;row-gap:4px}
+/* UX_AUDIT_FIX_SRS FR-UXF-81 (D-29): 모바일 diff 줄은 한 줄이다 — `‹ ›`·파일명·나란히/통합·`⋯`.
+   이전: 위 접기 규칙에 들어 두세 줄로 꺾였다. 축·위치는 파일명 툴팁이, Blame·공백·접기는 `⋯` 메뉴가 맡는다. */
+body.mobile :is(.git-diff-axis,.git-diff-pos,.git-diff-sep,.git-diff-blame,.git-diff-ws,.git-diff-fold){display:none}
+.git-diff-more{display:none}
+body.mobile .git-diff-more{display:inline-flex;flex-shrink:0}
+.git-diff-nav{flex-shrink:0}
 .git-diff-nav:disabled{color:var(--text-hint);cursor:not-allowed}
-.git-diff-path{color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.git-diff-path{min-width:0;color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .git-diff-pos{color:var(--text-muted);font-size:var(--fs-sm);flex-shrink:0}
 /* REPO_TAB_UNIFY_SRS FR-RTU-20: 걷어낸 인라인 미리보기의 축 라벨이 옮겨 왔다. */
 .git-diff-axis{color:var(--text-muted);font-size:var(--fs-sm);flex-shrink:0}
@@ -32,7 +36,7 @@ body.mobile .git-diff-sep{display:none}
 /* UI_POLISH_SRS FR-UIP-17: 동작과 보기 상태 사이의 구분선. */
 .git-diff-sep{width:1px;align-self:stretch;margin:4px 4px;background:var(--border);flex-shrink:0}
 .git-diff-mode{flex-shrink:0}
-.git-diff-ws,.git-diff-fold{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--text-muted);flex-shrink:0;cursor:pointer}
+.git-diff-ws,.git-diff-fold{gap:4px;color:var(--text-muted);flex-shrink:0}
 .git-diff-body{flex:1 1 auto;min-height:0;position:relative}
 /* FR-LAY-3: `.off` 를 `[hidden]` 으로 옮겼다. */
 

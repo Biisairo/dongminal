@@ -280,6 +280,9 @@ const LSP_OFFER_BLOCKED=t('editor.lsp_offer_blocked');
 const LSP_OFFER_INSTALL=t('editor.lsp_offer_install');
 const LSP_OFFER_DISMISS=t('editor.lsp_offer_dismiss');
 const LSP_OFFER_SETTINGS=t('editor.lsp_offer_settings');
+// UX_AUDIT_FIX_SRS FR-UXF-83: 제안한 언어의 서버가 없을 때 상태바에 서는 표식.
+const LSP_OFFER_MARK='LSP';
+const LSP_OFFER_MARK_TITLE='Language server for %s is not installed — click to set up';
 
 // ── Editor 탐색기 (EDITOR_TAB_SRS 묶음 X · FR-EDT-57~78) ──
 

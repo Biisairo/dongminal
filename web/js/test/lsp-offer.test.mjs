@@ -24,9 +24,10 @@ function setup(servers, dismissed = {}) {
       PrefStore,
       LSP_STATUS_API: '/api/lsp/status',
       LSP_OFFER_KEY: 'lsp-offer',
+      LSP_STATUS_TTL_MS: 60000,
     },
   });
-  return new ctx.LspClient({});
+  return new ctx.LspClient({ updateStatusBar() {} });
 }
 
 function editor(path, mounted = true) {
@@ -78,4 +79,17 @@ test('확장자가 없거나 표에 없으면 제안하지 않는다', async () 
   await app.lspOfferFor(a);
   await app.lspOfferFor(b);
   assert.deepEqual([...a.offers, ...b.offers], []);
+});
+
+/**
+ * UX_AUDIT_FIX_SRS FR-UXF-82: 띠는 한 언어에 **처음 한 번** 선다 — 선 순간 "제안함" 으로 기억한다.
+ * 닫지 않고 파일을 떠나도 같다.
+ */
+test('한 번 제안하면 같은 언어의 다음 파일에는 제안하지 않는다', async () => {
+  const app = setup([GO]);
+  const a = editor('/r/a.go');
+  const b = editor('/r/b.go');
+  await app.lspOfferFor(a);
+  await app.lspOfferFor(b);
+  assert.deepEqual([...a.offers, ...b.offers], ['gopls']);
 });

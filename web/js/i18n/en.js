@@ -309,7 +309,7 @@ I18N.register('en', {
   'editor.lsp_not_isolated': 'Not isolated',
   'editor.lsp_offer_blocked': '%s cannot be installed right now.',
   'editor.lsp_offer_body': 'Installing %s enables go-to-definition, find-references, hover and diagnostics for this file.',
-  'editor.lsp_offer_dismiss': 'Don\'t show again',
+  'editor.lsp_offer_dismiss': 'Later',
   'editor.lsp_offer_install': 'Install',
   'editor.lsp_offer_settings': 'Show in Settings',
   'editor.lsp_origin_label.config': 'Path set in config',

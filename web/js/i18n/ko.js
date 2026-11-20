@@ -335,7 +335,7 @@ I18N.register('ko', {
   'editor.lsp_not_isolated': '격리 안 됨',
   'editor.lsp_offer_blocked': '%s {을를} 지금 받을 수 없습니다.',
   'editor.lsp_offer_body': '%s {을를} 설치하면 이 파일에서 정의 이동·참조 찾기·호버·진단이 동작합니다.',
-  'editor.lsp_offer_dismiss': '다시 보지 않기',
+  'editor.lsp_offer_dismiss': '나중에',
   'editor.lsp_offer_install': '받기',
   'editor.lsp_offer_settings': '설정에서 보기',
   'editor.lsp_origin_label.config': '설정에 적은 경로',

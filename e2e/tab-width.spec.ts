@@ -233,7 +233,8 @@ test.describe('탭 컨텍스트 메뉴 (FR-CMU-8)', () => {
     const m = page.locator('.ui-menu.tab-menu');
     await expect(m).toBeVisible();
     // CLAUDE_ACCOUNTS_SRS FR-CAC-85: 계정 기능이 있는 서버(e2e 서버)는 `Claude 계정…` 이 더 선다.
-    await expect(m.locator('.ui-menu-item')).toHaveText(['새 탭', '이름 변경', 'Claude 계정…', '탭 닫기']);
+    // UX_AUDIT_FIX_SRS FR-UXF-84 로 개정: 이전 항목 전체 글자 / 지금 라벨(`span` 중 키캡이 아닌 것) / 이유 항목 끝에 단축키 키캡이 선다.
+    await expect(m.locator('.ui-menu-item > span:not(.ui-menu-key)')).toHaveText(['새 탭', '이름 변경', 'Claude 계정…', '탭 닫기']);
     await m.locator('.ui-menu-item[data-id="rename"]').click();
     await expect(page.locator(TABS + ' .rename-input')).toHaveCount(1);
   });

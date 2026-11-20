@@ -1541,6 +1541,9 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
    넷이 상단바로 돌아갔다. 규칙을 남기면 다음에 이 이름을 다시 쓰는 손이 없던
    배치를 물려받는다. */
 .sb-item .sb-ref{color:var(--term-cyan)}
+/* UX_AUDIT_FIX_SRS FR-UXF-83: 띠를 다시 여는 상황 표식 — 눌리는 것이다. */
+.sb-lsp-offer{cursor:pointer;color:var(--attn-text)}
+.sb-lsp-offer:hover{color:var(--text-bright)}
 .sb-dot.ok{background:var(--term-green)}
 .sb-dot.err{background:var(--danger)}
 .sb-sep{color:var(--border-weak);margin:0 2px}

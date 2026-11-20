@@ -23,6 +23,7 @@ Object.assign(App.prototype, {
   lspExtFor(path) { return this._lspClient().lspExtFor(path) },
   lspOfferFor(view) { return this._lspClient().lspOfferFor(view) },
   lspOfferInstall(id, view) { return this._lspClient().lspOfferInstall(id, view) },
-  lspDismiss(id) { return this._lspClient().lspDismiss(id) },
+  lspOfferPending(view) { return this._lspClient().lspOfferPending(view) },
+  lspOfferReopen(view) { return this._lspClient().lspOfferReopen(view) },
 
 });

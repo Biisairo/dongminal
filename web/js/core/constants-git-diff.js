@@ -68,6 +68,7 @@ const GIT_DIFF_MODE_TITLE='Switch between side-by-side and unified diff';
 // 파일 사이를 오가는 화살표. `\u2039`·`\u203a` 만으로는 무엇의 이전·다음인지
 // 보이지 않는다.
 const GIT_DIFF_NAV_TITLE={prev:'Previous changed file',next:'Next changed file'};
+const GIT_DIFF_MORE_TITLE='More diff options';  // UX_AUDIT_FIX_SRS FR-UXF-81
 const GIT_DIFF_WS_LABEL=t('git.act.diff_ws_label');
 // FR-GIT-55: 편집기 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
 // 사유를 보인다.

@@ -20,9 +20,11 @@ const LSP_METHODS = ['_initLSP', '_lspConn', '_lspConnNote', '_lspConnOf', '_lsp
   '_lspDisplay', '_lspExtOf', '_lspFindRefs', '_lspGotoDef', '_lspInstall', '_lspInstallOnce', '_lspLinkAt', '_lspPaint',
   '_lspPathPut', '_lspPathRows', '_lspPathsBind', '_lspPathsLoad',
   '_lspRefresh', '_lspRootOfPath', '_lspRun', '_lspRunOn', '_lspSetDiag', '_lspStatusCached', '_lspStatusInvalidate',
-  'lspClickDef', 'lspDismiss', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall'];
+  'lspClickDef', 'lspDismiss', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall', 'lspOfferPending', 'lspOfferReopen'];
+// UX_AUDIT_FIX_SRS FR-UXF-82·83 로 개정: 이전 껍데기 `lspDismiss`(띠의 `다시 보지 않기`) / 지금 기록은 띠가 설 때
+// LspClient 안에서 남고, 상태바 표식이 `lspOfferPending`·`lspOfferReopen` 을 부른다 / 이유 진단 D15.
 const LSP_SHELLS = ['_initLSP', '_lspRefresh', '_lspGotoDef', '_lspFindRefs',
-  '_lspRootOfPath', 'lspClickDef', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall', 'lspDismiss'];
+  '_lspRootOfPath', 'lspClickDef', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall', 'lspOfferPending', 'lspOfferReopen'];
 
 function loadLsp() {
   const store = { bool: (_k, d) => d, remove() {}, json: () => null, setJson() {}, setBool() {} };
@@ -32,7 +34,7 @@ function loadLsp() {
   });
 }
 
-test('FR-ASE-7: LspClient 가 LSP 메서드 29개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
+test('FR-ASE-7: LspClient 가 LSP 메서드 31개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
   const ctx = loadLsp();
   assert.deepEqual(ownNames(ctx.LspClient.prototype), [...LSP_METHODS].sort());
   assert.deepEqual(ownNames(ctx.App.prototype), [...LSP_SHELLS, '_lspClient'].sort());

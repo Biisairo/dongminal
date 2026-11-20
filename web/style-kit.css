@@ -435,6 +435,8 @@ body.mobile .ui-menu-item{min-height:var(--touch-min);padding:0 14px;font-size:v
 .ui-menu-item.disabled:hover{background:transparent;color:var(--text-hint)}
 .ui-menu-item.danger{color:var(--danger-text)}
 .ui-menu-item.danger:hover{background:var(--danger-subtle);color:var(--danger-text)}
+/* UX_AUDIT_FIX_SRS FR-UXF-84: 항목 끝의 단축키 표기. 누르는 것이 아니라 읽는 것이라 `.ui-key` 상자가 아니다. */
+.ui-menu-key{margin-left:auto;padding-left:16px;font-size:var(--fs-sm);color:var(--text-hint)}
 .ui-menu-sep{height:1px;margin:3px 6px;background:var(--border)}
 .ui-menu-label{padding:5px 10px 3px;color:var(--text-hint);font-size:var(--fs-sm)}
 /* 메뉴 안에 앉는 컨트롤 무리 — 필터·옵션처럼 누르는 것이 아니라 채우는 것들. */

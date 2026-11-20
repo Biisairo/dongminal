@@ -562,20 +562,60 @@ test.describe('코드 탐색 — 설치 제안 (M5)', () => {
     await expect(offer(page)).toHaveCount(0);
   });
 
-  // V-LSP-20 · FR-LSP-45: `다시 보지 않기` 는 **그 언어**에 대한 것이다. 파일마다
-  // 뜨면 그것이 곧 고장이다.
-  test('다시 보지 않기를 누르면 다른 파일에서도 뜨지 않는다', async ({ page, request }) => {
+  /**
+   * TC-UXF-82 (UX_AUDIT_FIX_SRS FR-UXF-82, FR-LSP-45 개정).
+   *
+   *   이전 동작: 닫는 길이 셋(받기·다시 보지 않기·×)이고, `다시 보지 않기` 를 눌러야 그 언어에 다시 뜨지 않았다
+   *   새  동작: 닫는 길은 둘(받기·나중에). 띠가 한 번 서면 그 언어는 "제안함" 이다
+   *   이유:     진단 D15 — 파일을 열 때마다 띠가 섰다
+   */
+  test('TC-UXF-82: 띠는 처음 한 번 서고 ×가 없으며, 나중에 뒤 같은 언어의 다른 파일에는 서지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
+    await openFile(page, 'main.go');
+    await expect(offer(page)).toBeVisible({ timeout: 10000 });
+    await expect(offer(page).locator('.fe-offer-x')).toHaveCount(0);
+    await expect(offer(page).locator('.fe-offer-no')).toHaveText('나중에');
+    await offer(page).locator('.fe-offer-no').click();
+    await expect(offer(page)).toHaveCount(0);
+
+    await openFile(page, 'pkg/deep/helper.go');
+    await page.waitForTimeout(700);
+    await expect(offer(page)).toHaveCount(0);
+  });
+
+  // TC-UXF-82: 닫지 않고 떠나도 "제안함" 이다.
+  test('TC-UXF-82b: 띠를 닫지 않고 다른 파일로 가도 그 언어에는 다시 서지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
+    await openFile(page, 'main.go');
+    await expect(offer(page)).toBeVisible({ timeout: 10000 });
+
+    await openFile(page, 'pkg/deep/helper.go');
+    await page.waitForTimeout(700);
+    await expect(offer(page)).toHaveCount(0);
+  });
+
+  // TC-UXF-83 (FR-UXF-83): 제안한 언어의 파일에 서버가 없으면 상태바 표식이 서고, 누르면 띠가 다시 선다.
+  test('TC-UXF-83: 제안한 언어의 파일이면 상태바 표식이 서고 누르면 띠가 다시 선다', async ({ page, request }) => {
     await enter(page, request);
     await stubStatus(page, [GOPLS_MISSING]);
     await openFile(page, 'main.go');
     await expect(offer(page)).toBeVisible({ timeout: 10000 });
     await offer(page).locator('.fe-offer-no').click();
-    await expect(offer(page)).toHaveCount(0);
 
-    // 같은 언어의 다른 파일 — 다시 뜨지 않는다.
     await openFile(page, 'pkg/deep/helper.go');
-    await page.waitForTimeout(700);
-    await expect(offer(page)).toHaveCount(0);
+    const mark = page.locator('#sb-items .sb-lsp-offer');
+    await expect(mark).toBeVisible({ timeout: 10000 });
+    await expect(mark).toHaveText('LSP');
+    await expect(mark).toHaveAttribute('title', /gopls/);
+    await mark.click();
+    await expect(offer(page)).toBeVisible({ timeout: 10000 });
+    await expect(offer(page)).toContainText('gopls');
+
+    // 그 언어가 아닌 파일에서는 표식이 없다.
+    await openFile(page, 'notes.txt');
+    await expect(mark).toBeHidden();
   });
 
   // FR-LSP-11: 받을 수 없으면 **무엇이 없어서** 그런지가 이름으로 보이고, 받기

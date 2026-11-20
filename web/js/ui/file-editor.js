@@ -721,8 +721,7 @@ class FileEditor {
     el.innerHTML =
       '<span class="fe-offer-msg"></span>' +
       actBtn +
-      '<button type="button" class="ui-btn ui-btn-sm fe-offer-no">' + LSP_OFFER_DISMISS + '</button>' +
-      '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-offer-x" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
+      '<button type="button" class="ui-btn ui-btn-sm fe-offer-no">' + LSP_OFFER_DISMISS + '</button>';
     // 사유는 텍스트 노드로 넣는다 — 서버가 보낸 이름이 그 자리에 닿는다.
     el.querySelector('.fe-offer-msg').textContent = body;
     this.el.appendChild(el);
@@ -774,14 +773,9 @@ class FileEditor {
         this.offerClose();
       });
     }
-    // FR-LSP-45: `다시 보지 않기` 는 그 **언어**에 대한 것이다. 파일마다 뜨면
-    // 그것이 곧 고장이므로 이 기억이 필요하다.
-    el.querySelector('.fe-offer-no').addEventListener('click', () => {
-      if (window.app) window.app.lspDismiss(st.id);
-      this.offerClose();
-    });
-    // ✕ 는 이번만 닫는다 — 기억하지 않는다.
-    el.querySelector('.fe-offer-x').addEventListener('click', () => this.offerClose());
+    // UX_AUDIT_FIX_SRS FR-UXF-82: 닫는 길은 둘(받기·나중에)이다. "제안함" 기록은 띠가 설 때
+    // 이미 남았다(`lspOfferFor`) — 다시 열려면 상태바 표식을 누른다(FR-UXF-83).
+    el.querySelector('.fe-offer-no').addEventListener('click', () => this.offerClose());
   }
 
   // FR-LSP-44a: 띠가 지금 먹고 있는 높이. 이 값 하나로 손잡이·찾기 줄·알림 줄이

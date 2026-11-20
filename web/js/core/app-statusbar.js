@@ -168,6 +168,7 @@ Object.assign(App.prototype, {
       const h=this._sbEncHtml();
       if(h) push('encoding',h);
     }
+    const lh=this._sbLspHtml(); if(lh) push('lsp-offer',lh);  // UX_AUDIT_FIX_SRS FR-UXF-83: 상황 표식이라 설정 항목이 아니다
     if(statusBar.uptime){
       // FR-TYP-3: 사람말과 기계값이 한 문자열로 섞여 있어 M1 이 이 줄만 남겼다 —
       // `'시스템 {v}'` 안에서는 `1d 21h` 를 꺼낼 수 없다. 템플릿을 **라벨만**으로

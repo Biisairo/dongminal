@@ -149,8 +149,8 @@ Object.assign(GitPanel.prototype, {
   _buildDiff(el){
     el.innerHTML=
       '<div class="git-diff-bar">'+
-        '<button class="ui-btn ui-btn-sm git-diff-nav" data-nav="prev">\u2039</button>'+
-        '<button class="ui-btn ui-btn-sm git-diff-nav" data-nav="next">\u203a</button>'+
+        '<button class="ui-btn ui-btn-sm ui-btn-ghost ui-btn-icon git-diff-nav" data-nav="prev"></button>'+
+        '<button class="ui-btn ui-btn-sm ui-btn-ghost ui-btn-icon git-diff-nav" data-nav="next"></button>'+
         '<span class="git-diff-path"></span>'+
         // REPO_TAB_UNIFY_SRS FR-RTU-20: 축 라벨은 걷어낸 인라인 미리보기가 들고
         // 있었다 (`worktree ↔ index`). 어느 두 쪽을 비교하는지는 diff 를 읽는
@@ -166,16 +166,19 @@ Object.assign(GitPanel.prototype, {
         '<span class="git-diff-spacer"></span>'+
         // UI_POLISH_SRS FR-UIP-17: 동작(Blame)과 보기 상태(방식·공백·접기)를 가른다.
         // 방식은 둘 중 하나를 고르는 묶음이라 지금 방식이 선택돼 보인다.
-        '<button class="ui-btn ui-btn-sm git-diff-blame"></button>'+
+        '<button class="ui-btn ui-btn-sm ui-btn-ghost git-diff-blame"></button>'+
         '<span class="git-diff-sep" aria-hidden="true"></span>'+
         '<span class="ui-segment git-diff-mode">'+
           '<button class="ui-btn ui-btn-sm" data-mode="side"></button>'+
           '<button class="ui-btn ui-btn-sm" data-mode="inline"></button>'+
         '</span>'+
-        '<label class="git-diff-ws"><input type="checkbox"></label>'+
+        // FR-UXF-80: 라벨만 고스트 단추 모양이다 — 안의 체크박스는 남긴다(시험·키보드 경로가 그 위에 선다).
+        '<label class="ui-btn ui-btn-sm ui-btn-ghost git-diff-ws"><input type="checkbox"></label>'+
         // FR-DOR-3: 접기 토글. 공백무시와 같은 규약·같은 자리다 — 둘 다
         // "무엇을 보여 줄 것인가"를 정하는 기기별 취향이다.
-        '<label class="git-diff-fold"><input type="checkbox"></label>'+
+        '<label class="ui-btn ui-btn-sm ui-btn-ghost git-diff-fold"><input type="checkbox"></label>'+
+        // FR-UXF-81 (D-29): 모바일 한 줄의 `⋯` — Blame·공백 무시·접기가 여기로 간다.
+        '<button class="ui-btn ui-btn-sm ui-btn-ghost ui-btn-icon git-diff-more"></button>'+
       '</div>'+
       // FR-GIT-276: blame 은 Diff 탭의 **모드**다 (D8). 두 본문이 함께 보이면
       // 사용자는 무엇을 보고 있는지 모른다 — 켜진 쪽만 보인다.
@@ -188,7 +191,9 @@ Object.assign(GitPanel.prototype, {
     el.querySelector('.git-diff-fold').appendChild(document.createTextNode(GIT_DIFF_FOLD_LABEL));
     el.querySelector('.git-diff-body').appendChild(this._diff().el);
     for(const b of el.querySelectorAll('.git-diff-nav')){
+      b.appendChild(UIKit.icon(b.dataset.nav==='next'?'chevron-right':'chevron-left'));
       b.title=GIT_DIFF_NAV_TITLE[b.dataset.nav]||'';
+      b.setAttribute('aria-label',b.title);
       b.addEventListener('click',()=>this._diffMove(b.dataset.nav==='next'?1:-1));
     }
     const bl=el.querySelector('.git-diff-blame');
@@ -204,7 +209,20 @@ Object.assign(GitPanel.prototype, {
       .addEventListener('change',ev=>this._setIgnoreWs(ev.target.checked));
     el.querySelector('.git-diff-fold input')
       .addEventListener('change',ev=>this._setFold(ev.target.checked));
+    const more=el.querySelector('.git-diff-more'); more.appendChild(UIKit.icon('more-horizontal'));
+    more.title=GIT_DIFF_MORE_TITLE; more.setAttribute('aria-label',GIT_DIFF_MORE_TITLE); more.addEventListener('click',()=>this._diffMoreMenu(more));
     el.dataset.built='1';
+  },
+
+  // FR-UXF-81: 메뉴 항목은 데스크톱 단추와 같은 동작을 부른다. 켜진 것은 체크 표시다.
+  _diffMoreMenu(btn){
+    const ws=this._ignoreWsPref(), fold=this._foldPref(), bl=!!this._blameOn, r=btn.getBoundingClientRect();
+    const it=(id,label,on,fn)=>({id,label,cur:on,icon:on?'check':undefined,onClick:fn});
+    UIKit.menu([
+      it('blame',GIT_BLAME_TOGGLE,bl,()=>{this._blameOn=!bl; this._paint()}),
+      it('ws',GIT_DIFF_WS_LABEL,ws,()=>this._setIgnoreWs(!ws)),
+      it('fold',GIT_DIFF_FOLD_LABEL,fold,()=>this._setFold(!fold)),
+    ],{at:{x:r.right,y:r.bottom},align:'right',flipGap:r.height,cls:'git-diff-more-menu'});
   },
 
   _paintDiff(el){
@@ -217,13 +235,15 @@ Object.assign(GitPanel.prototype, {
     if(i>=0) this._diffPos=i;
     // 목록이 비면 0/0 이고 ‹ › 는 disabled 다.
     for(const b of el.querySelectorAll('.git-diff-nav')) b.disabled=!list.length||!!cf;
-    el.querySelector('.git-diff-path').textContent=
-      f?(f.origPath&&f.origPath!==f.path?f.origPath+' \u2192 '+f.path:f.path):'';
-    el.querySelector('.git-diff-axis').textContent=
-      f?(GIT_AXIS_LABEL[f.axis]||f.axis||''):'';
+    const pathEl=el.querySelector('.git-diff-path');
+    pathEl.textContent=f?(f.origPath&&f.origPath!==f.path?f.origPath+' \u2192 '+f.path:f.path):'';
+    const axis=f?(GIT_AXIS_LABEL[f.axis]||f.axis||''):'';
+    el.querySelector('.git-diff-axis').textContent=axis;
     // UI_POLISH_SRS FR-UIP-24: 수만으로는 무엇의 위치인지 말하지 않는다.
-    el.querySelector('.git-diff-pos').textContent=
-      cf?'':t('git.diff_pos',{pos:list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0'});
+    const pos=cf?'':t('git.diff_pos',{pos:list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0'});
+    el.querySelector('.git-diff-pos').textContent=pos;
+    // FR-UXF-81: 모바일은 축·위치를 숨기고 파일명의 툴팁이 말한다.
+    pathEl.title=f?[axis,pos].filter(Boolean).join(' \u00b7 '):'';
     // 대상이 목록에서 사라졌으면(커밋·discard) 그 사실만 알린다 — 아무 파일이나
     // 임의로 보이지 않는다 (§3.3). UX_BATCH12_SRS FR-DNC-1: 목록이 비어도 같은 규칙이다 —
     // 변경을 전부 커밋하면 목록이 비고, 그때 안내가 빠졌다. 관측이 오기 전은 모르는 것이다.
@@ -243,7 +263,8 @@ Object.assign(GitPanel.prototype, {
     }
     el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
     el.querySelector('.git-diff-fold input').checked=this._foldPref();
-    el.querySelector('.git-diff-blame').classList.toggle('on',!!this._blameOn);
+    const bl=el.querySelector('.git-diff-blame');
+    bl.classList.toggle('on',!!this._blameOn); bl.setAttribute('aria-pressed',String(!!this._blameOn));
     // UX_BATCH6_SRS FR-GLV-1: 관측이 나른 재적재는 **같은 대상을 다시 받는
     // 것**이므로 키 비교를 지나야 한다. 플래그를 여기서 소비하는 이유는 한 번의
     // 계기가 한 번만 받아야 하기 때문이다 — 남겨 두면 이후 모든 회차가 다시 받는다.
