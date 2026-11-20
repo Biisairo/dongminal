@@ -1038,7 +1038,8 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 .act-usage-win.lv-critical :is(.act-usage-used,.act-usage-reset){color:var(--danger-text)}
 /* CLAUDE_ACCOUNTS_SRS FR-CAC-90~93: 계정 묶음(머리 + 창 블록, 펼치면 나머지)과 맨 아래 statusLine 한 줄. */
 .act-usage-head .cacct-auto{margin-left:auto;flex-shrink:0;font-weight:400;color:var(--text-hint);white-space:nowrap}
-.act-usage-head .cacct-auto.on{color:var(--accent-text)}
+/* UX_AUDIT_FIX_SRS FR-UXF-75: 켜져 있어도 보조 글자다. 이전: 강조색 — 바닥에서 가장 튀는 글자가 상태 표식이었다 (진단 D17). */
+.act-usage-head .cacct-auto.on{color:var(--text-muted)}
 .act-usage-head .cacct-smart,.act-usage-head .cacct-history-btn{flex-shrink:0}
 /* FR-CAC-111: 전환 기록 팝업 — 줄마다 시각 · 이동 · 트리거와 주체. */
 .cacct-hist{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto;font-size:var(--fs-sm)}
@@ -2045,6 +2046,8 @@ body.mobile .ed-side-tabs{display:none}
 .act-usage-sum>.ui-icon{flex-shrink:0;color:var(--text-hint)}
 .act-usage-foot.has-sum:has(>.act-usage-sum[aria-expanded="false"]){padding-bottom:0}
 .act-usage-sum[aria-expanded="true"]{margin-bottom:0}
+/* UX_AUDIT_FIX_SRS FR-UXF-73: 데스크톱의 요약 줄은 행 높이다 — 터치 하한은 모바일의 것이다. */
+body:not(.mobile) .act-usage-foot .act-usage-sum{min-height:var(--row)}
 body.mobile #modal[data-mview="detail"] .modal-section{
   display:block;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:var(--fs-lg);font-weight:500;color:var(--text-bright);

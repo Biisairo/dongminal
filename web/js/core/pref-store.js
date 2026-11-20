@@ -44,6 +44,7 @@ const STORE_KEYS=Object.freeze({
   termGpu:'termGpu',
   agentsGroupFold:'agentsGroupFold',
   activityTab:'activityTab', // PEER_CHAT_SRS FR-PCH-80: Activity 패널의 고른 탭
+  activityUsageOpen:'activityUsageOpen', // UX_AUDIT_FIX_SRS FR-UXF-74: 사용량 바닥의 펼침
   claudeAcctFold:'claudeAcctFold', // CLAUDE_ACCOUNTS_SRS FR-CAC-91: 계정 묶음별 넓은/좁은 모양
   windowGroupFold:'windowGroupFold',
   sandboxRecent:'dm.sbx.recent',

@@ -195,10 +195,17 @@ Object.assign(App.prototype, {
     const acctSl=claudeAcctStatusLines(this._claudeAcctOtherSl);   // MOBILE_UX_OVERHAUL_SRS FR-MUX-81
     if(!accounts.length&&!sl&&!acctSl.length) return out;
     const view={accounts,next:accounts.length>1,auto:claudeAcctAutoView(this._claudeAcctAuto),acctSl,sl};
-    if(this.isMobile) view.sum=actUsageSumView(accounts,sl?acctSl.concat([sl]):acctSl,!!this._actUsageOpen);
+    // UX_AUDIT_FIX_SRS FR-UXF-73 (D-25): 데스크톱도 요약 줄이 먼저다.
+    //   이전 동작: 요약 줄은 모바일에만 있었다 (MOBILE_UX_OVERHAUL_SRS FR-MUX-73)
+    //   새  동작: 두 모드 모두. 펼침은 기기에 기억한다 (FR-UXF-74)
+    //   이유:     진단 D17·X8 — 데스크톱 바닥이 늘 약 250px 를 차지했다
+    view.sum=actUsageSumView(accounts,sl?acctSl.concat([sl]):acctSl,this._actUsageOpenNow());
     out.push({t:'foot',view});
     return out;
   },
+
+  /** FR-UXF-74: 사용량 바닥의 펼침. 저장값이 없으면 데스크톱은 펼침, 모바일은 접힘이다. */
+  _actUsageOpenNow(){ return PrefStore.local.bool(STORE_KEYS.activityUsageOpen,!this.isMobile) },
 
   /** 고른 탭. 저장 값이 모르는 탭이면 첫 탭이다. */
   _actTab(){
@@ -287,7 +294,7 @@ Object.assign(App.prototype, {
   _actUsageFootEl(view){
     const foot=document.createElement('div');
     foot.className='act-usage-foot';
-    // MOBILE_UX_OVERHAUL_SRS FR-MUX-70·71: 모바일은 요약 한 줄이 먼저다. 접혀 있으면 그것뿐이다.
+    // MOBILE_UX_OVERHAUL_SRS FR-MUX-70·71 · FR-UXF-73: 요약 한 줄이 먼저다(두 모드). 접혀 있으면 그것뿐이다.
     if(view.sum){
       foot.classList.add('has-sum');
       foot.appendChild(this._actUsageSumEl(view.sum));
@@ -317,13 +324,13 @@ Object.assign(App.prototype, {
     return foot;
   },
 
-  /** FR-MUX-70~72: 요약 줄 — 색 점 · 이름 · 세션·주간 칸 · 펼침 아이콘. 누르면 펼치고 접는다. */
+  /** FR-MUX-70~72 · FR-UXF-73·74: 요약 줄 — 색 점 · 이름 · 세션·주간 칸 · 펼침 아이콘. 누르면 펼치고 접고, 기억한다. */
   _actUsageSumEl(v){
     const b=document.createElement('button');
     b.type='button';b.className='ui-btn ui-btn-ghost act-usage-sum';
     b.setAttribute('aria-expanded',String(v.open));
     b.title=v.open?TIP_USAGE_SUM_CLOSE:TIP_USAGE_SUM_OPEN;
-    b.addEventListener('click',e=>{e.stopPropagation();this._actUsageOpen=!this._actUsageOpen;this.agentsRender()});
+    b.addEventListener('click',e=>{e.stopPropagation();PrefStore.local.setBool(STORE_KEYS.activityUsageOpen,!v.open);this.agentsRender()});
     const who=actEl(b,'span','cacct-who');
     if(v.color) actEl(who,'span','cacct-dot').style.background='var(--'+v.color+')';
     actEl(who,'span','cacct-name',v.name);

@@ -141,27 +141,32 @@ test.describe('13단계 — 원격 작업', () => {
     await ready(page);
 
     // with-remote 는 ahead 1 이다.
-    await expect(head(page).locator('.git-head-ab')).toHaveText(/↑1/, { timeout: 20000 });
+    // UX_AUDIT_FIX_SRS FR-UXF-78 로 개정 (TC-UXF-75): 이전 — 수는 브랜치 옆 `.git-head-ab` 에 있었다 /
+    // 지금 — 앞선 수는 Push 단추 안, 뒤처진 수는 Pull 단추 안의 `.git-remote-n`(수만 — 방향은 아이콘)이고 이 머리의 `.git-head-ab` 는 비어 있다 /
+    // 이유 — 진단 D12·X5, 사용자 결정 D-27.
+    await expect(btn(page, 'push').locator('.git-remote-n')).toHaveText('1', { timeout: 20000 });
+    await expect(head(page).locator('.git-head-ab')).toHaveText('');
 
     // Push — 기본 동작이므로 다이얼로그 없이 바로 돈다 (FR-GIT-99).
     await btn(page, 'push').click();
     await jobEnded(page, '완료');
     expect(git(repo, 'rev-parse', 'main')).toBe(git(remote, 'rev-parse', 'main'));
     // FR-GIT-107: 작업이 끝나면 상태가 갱신된다 — 폴링 주기를 기다리지 않는다.
-    await expect(head(page).locator('.git-head-ab')).toHaveText('', { timeout: 20000 });
+    await expect(btn(page, 'push').locator('.git-remote-n')).toHaveCount(0, { timeout: 20000 });
 
     // 원격을 앞세우고 Fetch — behind 가 보여야 한다.
     advanceRemote(remote, 'from-remote');
     await btn(page, 'fetch').click();
     await jobArgv(page, 'git fetch --progress');
     await jobEnded(page, '완료');
-    await expect(head(page).locator('.git-head-ab')).toHaveText(/↓1/, { timeout: 20000 });
+    await expect(btn(page, 'pull').locator('.git-remote-n')).toHaveText('1', { timeout: 20000 });
+    await expect(head(page).locator('.git-head-ab')).toHaveText('');
 
     // Pull — fast-forward 로 따라잡는다.
     await btn(page, 'pull').click();
     await jobArgv(page, 'git pull --progress');
     await jobEnded(page, '완료');
-    await expect(head(page).locator('.git-head-ab')).toHaveText('', { timeout: 20000 });
+    await expect(btn(page, 'pull').locator('.git-remote-n')).toHaveCount(0, { timeout: 20000 });
     expect(git(repo, 'rev-parse', 'main')).toBe(git(remote, 'rev-parse', 'main'));
   });
 

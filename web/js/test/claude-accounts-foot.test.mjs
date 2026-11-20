@@ -38,6 +38,8 @@ function memStore() {
     get: (k) => (m.has(k) ? m.get(k) : null),
     set: (k, v) => { m.set(k, String(v)); return true },
     remove: (k) => { m.delete(k); return true },
+    bool: (k, d) => (m.has(k) ? (d ? m.get(k) !== '0' : m.get(k) === '1') : d),
+    setBool: (k, on) => { m.set(k, on ? '1' : '0'); return true },
     json: (k, d) => (m.has(k) ? JSON.parse(m.get(k)) : d),
     setJson: (k, v) => { m.set(k, JSON.stringify(v)); return true },
   };
@@ -51,13 +53,15 @@ function loadFoot(globals = {}) {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
       // FR-TIP-2: Activity 탭의 영어 툴팁 (constants.js).
+      TIP_USAGE_SUM_OPEN: 'Show usage', TIP_USAGE_SUM_CLOSE: 'Hide usage',
       TIP_ACT_AGENTS: 'Show running agents', TIP_ACT_BG: 'Show background tools', TIP_ACT_RUNS: 'Show runs', TIP_ACT_CHATS: 'Show chat rooms',
       AGENT_STATE_ICON: { working: '●', done: '✓', waiting: '…', idle: '○' },
       PrefStore: { local },
       TIMERS: { frame: () => ({}) },
-      STORE_KEYS: { agentsGroupFold: 'agentsGroupFold', agentsSubView: 'agentsSubView', claudeAcctFold: 'claudeAcctFold' },
+      STORE_KEYS: { agentsGroupFold: 'agentsGroupFold', agentsSubView: 'agentsSubView', claudeAcctFold: 'claudeAcctFold', activityUsageOpen: 'activityUsageOpen' },
       UIKit: {
         iconHTML: (n) => '<i:' + n + '>',
+        icon: (n) => ({ className: 'ui-icon', icon: n, children: [] }),
         button: (b) => ({ className: 'ui-btn ' + (b.cls || ''), textContent: b.label, children: [] }),
       },
       t: (k, p) => fillEn(k, p),
@@ -212,6 +216,8 @@ function find(el, cls) {
   for (const c of el.children || []) { const f = find(c, cls); if (f) return f }
   return null;
 }
+/** 바닥의 첫 계정 묶음. UX_AUDIT_FIX_SRS FR-UXF-73: 데스크톱도 요약 줄이 맨 앞이라 자리로 찾지 않는다. */
+const firstAcct = (foot) => foot.children.find((c) => c.className.split(' ')[0] === 'cacct');
 const SL = [{ agent: 'claude', observedAt: Date.now(), windows: [{ name: 'five_hour', usedPct: 1, level: '' }] }];
 
 test('FR-CAC-90: 계정도 statusLine 도 없으면 바닥이 없다', () => {
@@ -325,9 +331,13 @@ test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusL
   app._claudeAccts = [ACC_A, ACC_B];
   app._limits = SL;
   const foot = app._actUsageFootEl(app._actItems().at(-1).view);
-  const kinds = [...foot.children].map((c) => c.className.split(' ')[0]);
+  // UX_AUDIT_FIX_SRS FR-UXF-73 으로 개정: 이전 — 데스크톱 바닥의 첫 원소는 계정 머리 줄이었다 / 지금 — 요약 줄
+  // (`act-usage-sum`)이 맨 앞이고 저장값이 없으면 펼친 채다 / 이유 — 진단 D17·X8, 사용자 결정 D-25.
+  assert.ok(foot.children[0].className.split(' ').includes('act-usage-sum'));
+  const parts = foot.children.slice(1);
+  const kinds = parts.map((c) => c.className.split(' ')[0]);
   assert.deepEqual(kinds, ['act-usage-head', 'cacct', 'cacct', 'act-usage-sl-h', 'act-usage-sl'], '열 이름 줄 없음 · statusLine 머리 한 줄 + 줄');
-  assert.equal(find(foot.children[0], 'cacct-history-btn'), null, 'FR-CAC-111: 전환 기록은 Activity 에 두지 않는다');
+  assert.equal(find(parts[0], 'cacct-history-btn'), null, 'FR-CAC-111: 전환 기록은 Activity 에 두지 않는다');
   const [a, b] = foot.children.filter((c) => c.className.split(' ')[0] === 'cacct');
   assert.equal(a.className, 'cacct active wide');
   assert.equal(a.dataset.id, 'a');
@@ -345,8 +355,8 @@ test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusL
   assert.deepEqual([...b.children].map((c) => c.className), ['cacct-bar', 'cacct-head'], '좁은 모양은 머리 한 줄이다');
   assert.deepEqual(find(b.children[1], 'cacct-cells').children.map((c) => c.textContent), ['', ''], '값이 없어도 두 칸의 자리');
   assert.equal(find(a, 'cacct-pop'), null);
-  assert.equal(foot.children[3].textContent, 'statusLine');
-  const sl = foot.children[4];
+  assert.equal(parts[3].textContent, 'statusLine');
+  const sl = parts[4];
   assert.equal(find(sl, 'cacct-cell-pct').textContent, '1%');
   assert.equal(find(sl, 'act-usage-sl-label'), null, '이름표는 머리에 한 번만');
 });
@@ -552,7 +562,7 @@ test('FR-CAC-65: 초기화 칸 원소 — 쓸 수 있는 줄에만 버튼', () =
   const app = footApp(ctx);
   app._claudeAcctPopId = 'a';
   app._claudeAccts = [withResets(RESETS)];
-  const box = app._actUsageFootEl(app._actItems().at(-1).view).children[1];
+  const box = firstAcct(app._actUsageFootEl(app._actItems().at(-1).view));
   const sec = find(box, 'cacct-resets');
   assert.ok(sec);
   const rows = sec.children.filter((c) => c.className.split(' ')[0] === 'cacct-rs');
@@ -600,11 +610,11 @@ test('FR-CAC-65 · D-CAC-36: 초기화 칸 머리에 조회 시각, 조회한 �
   const app = footApp(ctx);
   app._claudeAcctPopId = 'a';
   app._claudeAccts = [withResets(RESETS)];
-  let sec = find(app._actUsageFootEl(app._actItems().at(-1).view).children[1], 'cacct-resets');
+  let sec = find(firstAcct(app._actUsageFootEl(app._actItems().at(-1).view)), 'cacct-resets');
   assert.ok(find(sec, 'cacct-resets-age'), '조회 시각');
   assert.equal(find(sec, 'cacct-resets-unknown'), null);
   app._claudeAccts = [ACC_A];
-  sec = find(app._actUsageFootEl(app._actItems().at(-1).view).children[1], 'cacct-resets');
+  sec = find(firstAcct(app._actUsageFootEl(app._actItems().at(-1).view)), 'cacct-resets');
   assert.equal(find(sec, 'cacct-resets-unknown').textContent, 'Press Refresh to check');
   assert.equal(sec.children.filter((c) => c.className.split(' ')[0] === 'cacct-rs').length, 0);
 });

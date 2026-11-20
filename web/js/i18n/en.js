@@ -994,7 +994,6 @@ I18N.register('en', {
   'html.search_word': 'ab',
   'html.settings_search': 'Search settings',
   'html.settings_title': 'Settings',
-  'html.slot_label': 'Slot',
   'html.nav_back_title': 'Go back to previous place ({key})',
   'html.nav_forward_title': 'Go forward ({key})',
   'html.slot_marker_cell': 'Focus slot {n}',

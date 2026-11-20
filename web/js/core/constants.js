@@ -692,6 +692,8 @@ const WINDOW_CLOSE_UNDO_TITLE='Bring the window and its shells back';
 // 라벨이 한두 낱말인 버튼들이다 — `예`·`아니오`·`확인`·`복사` 는 **무엇을** 하는지
 // 말하지 않는다. 문자열은 상수 표에 산다 (FR-TIP-4).
 const TIP_NOTIFY_OK='Dismiss this message';
+/** UX_AUDIT_FIX_SRS FR-UXF-76: 상단바 칸 수의 툴팁 머리. 뒤에 수가 붙는다. */
+const TIP_SLOT_COUNT='Window slots: ';
 const TIP_CLOSE_TOOL='Close this tool and end its session';
 const TIP_CLOSE_CANCEL='Keep this tool open';
 const TIP_CLOSE_SAVE='Save the file, then close';

@@ -109,6 +109,18 @@ body.mobile .git-commit.folded :is(.git-commit-msg,.git-commit-amend,.git-commit
    적었고, 부모의 `gap:4px` 이 쌍 **안에도** 틈을 줘서 모서리만 붙은 척했다.
    변형은 `▾` 다이얼로그에서만 온다 (FR-GIT-99). */
 .git-remote-more>.ui-icon{width:12px;height:12px}
+/* UX_AUDIT_FIX_SRS FR-UXF-77·78 (D-27): 라벨은 머리가 넓을 때만, 수는 늘 단추 안이다.
+   이전: 아이콘만인 정사각 단추(FR-GCC-5 — 좁은 사이드에서 글자 셋이 두 줄을 먹었다).
+   지금: 폭은 내용을 따르고 최소는 종전 정사각이다. 좁으면 종전 모양과 같다. */
+.git-head{container:git-head / inline-size}
+.git-head .git-remote-btn{width:auto;min-width:var(--ui-btn-h-lg);gap:4px}
+.git-head .git-remote-btn:has(>.git-remote-n){padding:0 8px}
+.git-remote-label{display:none}
+.git-remote-n{font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+@container git-head (min-width:480px){
+  .git-remote-label{display:inline}
+  .git-head .git-remote-btn{padding:0 8px}
+}
 
 /* ── 좁은 폭의 머리 (FR-GHM-10·11) ── */
 /* 줄바꿈한 머리에서 여백은 뜻이 없다 — 마지막 줄의 남은 자리를 다시 먹기만 한다 */

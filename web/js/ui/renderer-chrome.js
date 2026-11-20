@@ -218,6 +218,9 @@ Object.assign(Renderer.prototype, {
       sr.hidden=this.app.isMobile;
       sr.disabled=n<=1;
     }
+    // UX_AUDIT_FIX_SRS FR-UXF-76 (D-26): 두 버튼 사이는 지금 칸 수다 — 누른 결과가 그 자리에서 보인다.
+    const sl=document.querySelector('.slot-ctl-label');
+    if(sl){ sl.textContent=String(n); sl.title=TIP_SLOT_COUNT+n }
     this._rNavButtons();
     // SLOT_MARKER_SRS FR-SMK-1·2: 마커는 `#window-name` 이 비는 그 자리에 선다 —
     // 조건이 위 `multi` 와 **같은 식**이다.

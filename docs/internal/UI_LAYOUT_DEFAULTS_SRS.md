@@ -990,3 +990,7 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   키만 늘었다(열 화면 × 둘 = 20자리): `code.ds-wide.eg-fp`(지문에 `.ds-wide` 표식, FR-UXF-50)와 `button.ui-btn.ui-btn-ghost.ui-btn-icon`
   (지문 복사 단추, FR-UXF-54). 같은 회차의 다른 데스크톱 변경(모서리 토큰·읽는 글 11px·설정 섹션 행 32→30·레일 탭 36→30·설정 본문의
   컨테이너 쿼리)은 기준선이 재는 키의 값을 바꾸지 않았다. **`linux`·`win32` 는 아직이다** — 푸시 뒤 `layout-baseline` 워크플로(사용자 실행).
+- 2026-11-20 (UX_AUDIT_FIX_SRS 5묶음·FR-UXF-73·77·78·79) `ui-layout.darwin.json` 을 **다시 떴다**. 양쪽에 있는 키의 값은 하나도 바뀌지 않았고
+  키만 늘었다(대조 때 드리프트가 기준선 40 을 넘었다): git 머리 원격 단추 안의 `span.git-remote-label`(라벨, FR-UXF-77)과
+  `span.git-remote-n`(앞선 수, FR-UXF-78), 여덟 git 화면 × 둘 = 16자리. 같은 회차의 다른 데스크톱 변경(칸 수 글자·저장 단추 활성·사용량
+  요약 줄·데스크톱 돋보기 FR-UXF-79)은 키를 새로 만들지 않았고 기준선이 재는 값도 바꾸지 않았다. **`linux`·`win32` 는 아직이다** — 푸시 뒤 `layout-baseline` 워크플로(사용자 실행).

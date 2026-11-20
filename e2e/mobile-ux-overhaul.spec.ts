@@ -366,13 +366,15 @@ test.describe('2차 — 사용량 한 줄 요약 (FR-MUX-70~73)', () => {
     await expect(foot.locator('.cacct')).toHaveCount(0);
   });
 
-  test('TC-MUX-22·28·29: 데스크톱 바닥은 전체이고, 색 띠는 단색·사용 중은 테두리 없음·등록 계정 statusLine 줄 없음', async ({ page }) => {
+  test('TC-MUX-22·28·29: 데스크톱 바닥은 펼친 채 시작하고, 색 띠는 단색·사용 중은 테두리 없음·등록 계정 statusLine 줄 없음', async ({ page }) => {
     await mockAccounts(page);
     await waitForInit(page);
     await page.evaluate(() => (window as any).app.actPanelOpen());
     const foot = page.locator('#agents-foot');
     await expect(foot.locator('.cacct')).toHaveCount(3, { timeout: 10000 });
-    await expect(foot.locator('.act-usage-sum')).toHaveCount(0);
+    // UX_AUDIT_FIX_SRS FR-UXF-73·74 로 개정: 이전 — 데스크톱 바닥에는 요약 줄이 없었다 / 지금 — 요약 줄이 있고 저장값이
+    // 없으면 펼친 채 시작한다 / 이유 — 진단 D17·X8, 사용자 결정 D-25.
+    await expect(foot.locator('.act-usage-sum')).toHaveAttribute('aria-expanded', 'true');
     // FR-MUX-81: 등록 계정의 statusLine 줄(`.cacct-sl`)이 없다. 계정을 모르는 보고 줄은 서버를 함께 쓰는 다른 시험이
     // 보고할 수 있어 세지 않는다 (그 줄은 FR-MUX-81 이 남기는 줄이다).
     await expect(foot.locator('.act-usage-sl.cacct-sl')).toHaveCount(0);

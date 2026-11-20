@@ -87,6 +87,9 @@ function elementStub() {
     appendChild(c) { el.children.push(c); return c },
     replaceChildren() { el.children.length = 0 },
     addEventListener() {}, removeEventListener() {},
+    attrs: {},
+    setAttribute(k, v) { el.attrs[k] = String(v) },
+    getAttribute: (k) => (k in el.attrs ? el.attrs[k] : null),
     querySelector: () => null,
     textContent: '',
   };

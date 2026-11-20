@@ -19,6 +19,7 @@ class InputBinding {
     this._bindKeys();
     this._bindSearch();
     this.app.initModal();
+    this.app.initSaveButtons(); // UX_AUDIT_FIX_SRS FR-UXF-72: 설정 패널들이 선 뒤다
     this.app.initStatusBar();
     // UPDATE_NOTICE_SRS FR-UPD-15: 토글의 리스너를 한 번만 붙인다 — `#bg-btn`
     // 과 같은 규약이다 (FR-BGU-4). 값은 `_updateRender` 가 채운다.

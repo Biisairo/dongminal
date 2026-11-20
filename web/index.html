@@ -229,6 +229,9 @@
            없다.** 셋이 같은 패널 하나를 열고 있었고, 문이 셋이면 방도 셋으로
            읽힌다. 셋은 `Activity` 하나가 됐다 — 구역으로 직행하는 길은 단축키가
            갖는다 (FR-CHR-18 · PANEL_SHORTCUTS_SRS). -->
+      <!-- UX_AUDIT_FIX_SRS FR-UXF-79 (X4): 돋보기는 두 모드에 다 선다. 이전: 모바일 전용(`mobile-only`) — 데스크톱은 키보드뿐이었다.
+           데스크톱에서는 뒤로·앞으로와 칸 단추 묶음의 왼쪽이다 — 칸 더하기가 가장 오른쪽이다(FR-WSL-50). 하는 일은 같다(FR-MUX-46). -->
+      <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost" id="m-search-btn" title="Find in this pane" aria-label="Find in this pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
       <!-- WINDOW_SLOTS_SRS FR-WSL-50: 창 **밖**을 쪼갠다 — 창 **안**을 쪼개는
            Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
            리스너는 app-slots.js 가 붙인다. -->
@@ -238,15 +241,15 @@
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm nav-btn" id="nav-back" data-i18n-title="html.nav_back_title" data-i18n-shortcut="focusBack" aria-label="Go back"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm nav-btn" id="nav-forward" data-i18n-title="html.nav_forward_title" data-i18n-shortcut="focusForward" aria-label="Go forward"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
       </span>
+      <!-- UX_AUDIT_FIX_SRS FR-UXF-76 (D-26): 가운데는 지금 칸 수다. 이전: 글자 `칸`(en `Slot`). 칠하기는 renderer-chrome.js 다. -->
       <span class="slot-ctl desktop-only">
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-remove" data-i18n-title="html.slot_remove_title" data-i18n-shortcut="slotRemove" aria-label="Remove a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
-        <span class="slot-ctl-label" data-i18n="html.slot_label">Slot</span>
+        <span class="slot-ctl-label"></span>
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" data-i18n-title="html.slot_add_title" data-i18n-shortcut="slotAdd" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </span>
       <!-- UX_BATCH12_SRS FR-ACF-7: Activity 단추(`#agents-toggle`)는 없다. 데스크톱은 패널의 레일이 그 길이다.
            모바일은 ☰ 바로 앞의 `#m-act-btn` 이다 — 모바일에서 처음 필요할 때 app-mobile-nav.js 가
            만든다 (MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76, 이전: 서랍의 `#m-drawer-acts`). -->
-      <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-search-btn" title="Find in this pane" aria-label="Find in this pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
     </div>
     <div id="area"></div>
@@ -1150,6 +1153,7 @@
 <script src="js/core/app-settings-theme.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-keys.js?v=__ASSETV__"></script>
 <script src="js/core/settings-live.js?v=__ASSETV__"></script>
+<script src="js/core/settings-save-state.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-sandbox.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-access.js?v=__ASSETV__"></script>
 <script src="js/core/app-edges.js?v=__ASSETV__"></script>

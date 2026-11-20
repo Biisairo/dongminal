@@ -54,6 +54,8 @@ const GIT_WRITE_UNBOUNDED=new Set([GIT_API.worktreesRemove,GIT_API.submodulesSyn
 // FR-GCC-5: **버튼의 얼굴**. 좁은 사이드에서 글자 셋과 `▾` 셋은 두 줄을 먹었고
 // `Push` 의 `▾` 는 줄을 넘겼다(실측). 무엇인지는 툴팁(GIT_REMOTE_TITLE)이 말한다.
 const GIT_REMOTE_ICON={fetch:'download',pull:'arrow-down',push:'arrow-up'};
+// UX_AUDIT_FIX_SRS FR-UXF-78: 앞선 수는 Push 단추, 뒤처진 수는 Pull 단추 안에 선다. 방향은 단추의 아이콘이 이미 말하므로 수만이다.
+const GIT_REMOTE_COUNT={push:'ahead',pull:'behind'};
 const GIT_REMOTE_TITLE={
   fetch:'Fetch from the remote (git fetch)',
   pull:'Fetch and merge into the current branch (git pull)',

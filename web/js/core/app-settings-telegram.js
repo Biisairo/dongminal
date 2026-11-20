@@ -20,6 +20,7 @@ Object.assign(App.prototype, {
     const sil=document.getElementById('tg-silence');
     if(document.activeElement!==sil) sil.value=String(v.silenceMin??'');
     this._tgPairPaint();
+    if(this._saveBtnsPaint) this._saveBtnsPaint(); // UX_AUDIT_FIX_SRS FR-UXF-72: 서버 값이 새 기준이다
   },
 
   _tgPairPaint(){
@@ -69,7 +70,7 @@ Object.assign(App.prototype, {
       if(!token) return;
       statusRun(tokSt,{pending:t('tg.checking'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         const r=this._tgApply(await apiPut('/api/telegram/token',{token}));
-        if(r.ok) inp.value='';
+        if(r.ok){ inp.value=''; if(this._saveBtnsPaint) this._saveBtnsPaint() }
         return r;
       });
     });

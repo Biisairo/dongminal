@@ -66,8 +66,7 @@ const KO = {
   'git.act.tag_push': '원격에 Push',
   'git.act.tag_push_all': '모든 태그 Push',
   'editor.repo_entries_none': '등록된 저장소가 없습니다',
-  // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 KEEP_EN 의 'Slot' / 지금 '칸' / 이유 git 용어가 아니다 (§3.5.2)
-  'html.slot_label': '칸',
+  // UX_AUDIT_FIX_SRS FR-UXF-76 으로 개정: 이전 'html.slot_label' 은 '칸' / 지금 키가 없다 — 그 자리는 칸 수다 (D-26)
 };
 
 const KEEP_EN = {

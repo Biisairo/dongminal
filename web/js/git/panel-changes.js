@@ -125,8 +125,15 @@ Object.assign(GitPanel.prototype, {
     const head=el&&el.querySelector('.git-head'); if(!head) return;
     // 요구 ③: 아이콘이 버튼을 꽉 채운다 — 크기는 `.ui-icon` 이 버튼 높이에서
     // 파생시킨다 (FR-GLY-5). 글자 화살표는 폰트 크기를 따라 작게 남아 있었다.
-    for(const b of head.querySelectorAll('.git-remote-btn'))
+    for(const b of head.querySelectorAll('.git-remote-btn')){
       b.appendChild(UIKit.icon(GIT_REMOTE_ICON[b.dataset.remote]));
+      // UX_AUDIT_FIX_SRS FR-UXF-77 (D-27): 머리가 넓으면 아이콘 뒤에 라벨이 선다 — 작업 줄의 이름과 같은 말이다.
+      //   이전 동작: 아이콘만 (FR-GCC-5) — ⤓(fetch)와 ↓(pull)가 구별되지 않았다 (진단 D12·X5)
+      //   새  동작: 넓으면 라벨, 좁으면 아이콘만 — 폭은 style-git.css 의 컨테이너 쿼리가 가른다
+      const l=document.createElement('span');
+      l.className='git-remote-label'; l.textContent=gitJobKindLabel(b.dataset.remote);
+      b.appendChild(l);
+    }
     for(const b of head.querySelectorAll('.git-remote-more'))
       b.appendChild(UIKit.icon(GIT_REMOTE_MORE,{size:'sm'}));
     // FR-GIT-282: 리포명 자체가 전환 자리다 — 헤더에 새 버튼을 더하지 않는다.
@@ -323,10 +330,29 @@ Object.assign(GitPanel.prototype, {
       }
     });
     // ahead/behind 는 0 이면 그리지 않는다.
+    // UX_AUDIT_FIX_SRS FR-UXF-78 (D-27): 원격 단추가 있는 머리에서는 수가 단추 **안**이다 — 같은 수를 두 곳에 두지 않는다.
+    //   이전 동작: 수는 늘 브랜치 옆 `.git-head-ab` 였다 / 이유: 진단 D12 — 무엇을 밀고 당길지가 단추에서 보인다
+    const remote=el.querySelector('.git-head-remote');
+    if(remote){
+      for(const [kind,key] of Object.entries(GIT_REMOTE_COUNT)){
+        const b=remote.querySelector('.git-remote-btn[data-remote="'+kind+'"]');
+        if(b) this._paintRemoteCount(b,s&&s[key]>0?String(s[key]):'');
+      }
+      el.querySelector('.git-head-ab').textContent='';
+      return;
+    }
     const ab=[];
     if(s&&s.ahead>0) ab.push('↑'+s.ahead);
     if(s&&s.behind>0) ab.push('↓'+s.behind);
     el.querySelector('.git-head-ab').textContent=ab.join(' ');
+  },
+
+  /** FR-UXF-78: 단추 안의 수. 빈 값이면 원소를 거둔다. */
+  _paintRemoteCount(b,text){
+    let n=b.querySelector('.git-remote-n');
+    if(!text){ if(n) n.remove(); return }
+    if(!n){ n=document.createElement('span'); n.className='git-remote-n'; b.appendChild(n) }
+    n.textContent=text;
   },
 
   // 그룹 (FR-GIT-34·42). 빈 그룹도 개수를 보인다 — 숨기면 "없다"와 "모른다"가

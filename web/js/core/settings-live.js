@@ -23,6 +23,7 @@ Object.assign(App.prototype, {
     l.etag=this._liveTag(r);
     l.base=JSON.stringify(form);
     this._liveNotice(k,null);
+    if(this._saveBtnsPaint) this._saveBtnsPaint(); // UX_AUDIT_FIX_SRS FR-UXF-72: 기준이 바뀌었다
   },
 
   /** FR-LIV-6: 저장하지 않은 수정은 지금 폼 값이 마지막으로 읽은 값과 다른 것이다. */

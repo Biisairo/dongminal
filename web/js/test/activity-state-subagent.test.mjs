@@ -19,6 +19,8 @@ function memStore() {
     get: (k) => (m.has(k) ? m.get(k) : null),
     set: (k, v) => { m.set(k, String(v)); return true },
     remove: (k) => { m.delete(k); return true },
+    bool: (k, d) => (m.has(k) ? (d ? m.get(k) !== '0' : m.get(k) === '1') : d),
+    setBool: (k, on) => { m.set(k, on ? '1' : '0'); return true },
     json: (k, d) => (m.has(k) ? JSON.parse(m.get(k)) : d),
     setJson: (k, v) => { m.set(k, JSON.stringify(v)); return true },
   };

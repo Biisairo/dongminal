@@ -2444,6 +2444,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:changes|span.git-remote-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:changes|button.git-remote-more.ui-btn.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -2452,6 +2461,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:changes|span.git-remote-n": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:changes|span.git-head-spacer": {
   "display": "block",
@@ -4916,6 +4934,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:diff|span.git-remote-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:diff|button.git-remote-more.ui-btn.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -4924,6 +4951,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:diff|span.git-remote-n": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:diff|span.git-head-spacer": {
   "display": "block",
@@ -7514,6 +7550,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:history|span.git-remote-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:history|button.git-remote-more.ui-btn.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -7522,6 +7567,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:history|span.git-remote-n": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:history|span.git-head-spacer": {
   "display": "block",
@@ -10295,6 +10349,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:branches|span.git-remote-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:branches|button.git-remote-more.ui-btn.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -10303,6 +10366,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:branches|span.git-remote-n": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:branches|span.git-head-spacer": {
   "display": "block",
@@ -13052,6 +13124,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:stash|span.git-remote-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:stash|button.git-remote-more.ui-btn.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -13060,6 +13141,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:stash|span.git-remote-n": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:stash|span.git-head-spacer": {
   "display": "block",
@@ -15566,6 +15656,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:console|span.git-remote-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:console|button.git-remote-more.ui-btn.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -15574,6 +15673,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:console|span.git-remote-n": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:console|span.git-head-spacer": {
   "display": "block",
@@ -18029,6 +18137,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:worktrees|span.git-remote-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:worktrees|button.git-remote-more.ui-btn.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -18037,6 +18154,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:worktrees|span.git-remote-n": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:worktrees|span.git-head-spacer": {
   "display": "block",
@@ -20567,6 +20693,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:submodules|span.git-remote-label": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:submodules|button.git-remote-more.ui-btn.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
@@ -20575,6 +20710,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:submodules|span.git-remote-n": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:submodules|span.git-head-spacer": {
   "display": "block",

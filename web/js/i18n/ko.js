@@ -1018,7 +1018,6 @@ I18N.register('ko', {
   'html.search_word': 'ab',
   'html.settings_search': '설정 검색',
   'html.settings_title': '설정',
-  'html.slot_label': '칸',
   'html.nav_back_title': 'Go back to previous place ({key})',
   'html.nav_forward_title': 'Go forward ({key})',
   'html.slot_marker_cell': '{n}번 칸으로',
