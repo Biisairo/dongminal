@@ -1066,15 +1066,16 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
   -webkit-mask-image:linear-gradient(90deg,#000 3px,transparent 3px);mask-image:linear-gradient(90deg,#000 3px,transparent 3px)}
 .cacct-bar:hover{-webkit-mask-image:linear-gradient(90deg,#000 4px,transparent 4px);mask-image:linear-gradient(90deg,#000 4px,transparent 4px)}
 .cacct-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);min-width:0}
-.cacct-who{display:flex;align-items:center;gap:5px;flex:1 1 0;min-width:0}
+.cacct-who{display:flex;flex-wrap:wrap;align-items:center;gap:2px 5px;flex:1 1 0;min-width:0}
 /* D-CAC-37: 좁은 카드·statusLine 줄이 같은 열을 쓴다 — 이름 칸 + 세션·주간 고정 폭 칸(앞에 작은 창 이름). */
 .act-usage-foot{--cacct-cell-w:76px}
 .cacct-cells{display:grid;grid-template-columns:repeat(2,minmax(0,var(--cacct-cell-w)));gap:6px;flex:0 1 auto;min-width:0}
 .cacct-cell{position:relative;display:flex;align-items:baseline;gap:4px;padding-bottom:3px;min-width:0;overflow:hidden;
   font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-muted)}
 .cacct-cell-label{flex-shrink:0;font-size:var(--fs-sm);color:var(--text-hint)}
-.cacct-cell-pct{color:inherit}
-.cacct-cell-left{color:inherit}
+/* 좁으면 남은 시간만 말줄임한다 — 칸이 글자를 자르면 이웃 칸과 붙어 겹쳐 읽혔다. */
+.cacct-cell-pct{flex-shrink:0;color:inherit}
+.cacct-cell-left{min-width:0;overflow:hidden;text-overflow:ellipsis;color:inherit}
 .cacct-cell-bar{position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:var(--radius-pill);background:var(--border-weak);overflow:hidden}
 .cacct-cell-fill{display:block;height:100%;background:var(--accent)}
 .cacct-cell.lv-warn{color:var(--attn-text)}
@@ -1128,7 +1129,9 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 .cacct.active .cacct-name{font-weight:600}
 /* MOBILE_UX_OVERHAUL_SRS FR-MUX-82: `사용 중` 은 테두리 없는 보조 글자다 (이전: 강조색 테두리 알약). 활성은 이름의 굵기가 이미 말한다. */
 .cacct-active{flex-shrink:0;font-size:var(--fs-sm);line-height:1.5;color:var(--text-muted)}
-.cacct-st{flex-shrink:0;color:var(--attn-text)}
+/* 손써야 하는 경고는 줄지 않고 이름 아래 줄로 내려간다(`.cacct-who` 가 줄을 넘긴다). 그 줄보다 길면 말줄임, 전체는 툴팁이다.
+     이전 동작: 줄지도 넘기지도 않아 좁은 패널에서 카드 밖으로 넘쳐 칸과 겹쳤다 */
+.cacct-st{flex-shrink:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--attn-text)}
 .cacct-age{flex-shrink:0;color:var(--text-hint)}
 .cacct-pace,.cacct-spend,.cacct-login{margin-top:4px;font-size:var(--fs-sm);color:var(--text-muted)}
 .cacct-pop-sec>.cacct-spend:first-child,.cacct-pop-sec>.cacct-login:first-child{margin-top:0}
@@ -1167,9 +1170,13 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
   .cacct-who{flex:1 1 100%}
   .act-usage-sl .cacct-who:empty{display:none}
   .cacct-cells{flex:1 1 100%;grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* 요약 줄은 한 줄이다 — 남은 시간을 빼고 칸이 제 글자 폭을 가져 `세션 34%` 가 잘리지 않는다. 이름이 대신 줄어든다. */
+  .act-usage-sum .cacct-cells{flex:0 0 auto;grid-template-columns:repeat(2,auto)}
+  .act-usage-sum .cacct-cell-left{display:none}
 }
+.act-usage-sum .cacct-who{flex-wrap:nowrap}
 @container (max-width:149px){
-  .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:3px}
+  .cacct-cells,.act-usage-sum .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:3px}
 }
 
 .pn-body{flex:1;position:relative;overflow:hidden}

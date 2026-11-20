@@ -437,7 +437,7 @@ Object.assign(App.prototype, {
     actEl(who,'span','cacct-dot').style.background='var(--'+v.color+')';
     actEl(who,'span','cacct-name',v.name);
     if(v.active) actEl(who,'span','cacct-active',t('cacct.active'));
-    if(v.status) actEl(who,'span','cacct-st',v.status);
+    if(v.status) actEl(who,'span','cacct-st',v.status).title=v.status;
     if(v.age) actEl(who,'span','cacct-age',v.age);
     if(!v.wide) this._actCellsEl(head,v.mini);
     if(v.wide) for(const b of v.bars) this._actUsageWinEl(box,b);
