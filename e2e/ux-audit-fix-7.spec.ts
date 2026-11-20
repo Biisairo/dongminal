@@ -170,4 +170,16 @@ test.describe('7묶음 — 서랍 단추 한 줄 (FR-UXF-96)', () => {
     expect(new Set(tops.map((x) => x[0])).size, `줄이 갈린다: ${JSON.stringify(tops)}`).toBe(1);
     for (const [, hh] of tops) expect(hh).toBeGreaterThanOrEqual(touch);
   });
+
+  // D-32 개정: 데스크톱 메인 패널도 한 줄이다. 기본 폭(200px)에서 `샌드박스` 는 아이콘만이고 `새 창` 라벨은 잘리지 않는다.
+  test('TC-UXF-95: 데스크톱 메인 패널의 단추 줄도 한 줄이고 `새 창` 이 잘리지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    const acts = page.locator('#sb-panel-windows .sb-actions');
+    const tops = await acts.locator(':scope > button:visible').evaluateAll((els) =>
+      els.map((e) => Math.round(e.getBoundingClientRect().top)));
+    expect(new Set(tops).size, `줄이 갈린다: ${tops.join(',')}`).toBe(1);
+    const label = page.locator('#add-window > .ui-btn-label');
+    expect(await label.evaluate((e) => e.scrollWidth <= e.clientWidth), '`새 창` 라벨이 잘렸다').toBe(true);
+    await expect(page.locator('#add-sandbox-window .ui-btn-label')).toBeHidden();
+  });
 });

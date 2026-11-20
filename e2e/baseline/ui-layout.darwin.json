@@ -254,7 +254,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "auto"
  },
  "terminal|button.ui-btn": {
@@ -268,19 +268,22 @@
  },
  "terminal|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "auto"
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "terminal|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
-  "inset": "14px 5px -4px 106.938px",
+  "position": "static",
+  "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
  },
@@ -2012,7 +2015,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "git:changes|button.ui-btn": {
@@ -2026,18 +2029,21 @@
  },
  "git:changes|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:changes|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
@@ -4700,7 +4706,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "git:diff|button.ui-btn": {
@@ -4714,18 +4720,21 @@
  },
  "git:diff|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:diff|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
@@ -7523,7 +7532,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "git:history|button.ui-btn": {
@@ -7537,18 +7546,21 @@
  },
  "git:history|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:history|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
@@ -10520,7 +10532,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "git:branches|button.ui-btn": {
@@ -10534,18 +10546,21 @@
  },
  "git:branches|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:branches|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
@@ -13493,7 +13508,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "git:stash|button.ui-btn": {
@@ -13507,18 +13522,21 @@
  },
  "git:stash|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:stash|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
@@ -16223,7 +16241,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "git:console|button.ui-btn": {
@@ -16237,18 +16255,21 @@
  },
  "git:console|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:console|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
@@ -18902,7 +18923,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "git:worktrees|button.ui-btn": {
@@ -18916,18 +18937,21 @@
  },
  "git:worktrees|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:worktrees|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
@@ -21656,7 +21680,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "git:submodules|button.ui-btn": {
@@ -21670,18 +21694,21 @@
  },
  "git:submodules|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:submodules|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
@@ -24344,7 +24371,7 @@
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
-  "flexDirection": "column",
+  "flexDirection": "row",
   "minHeight": "0px"
  },
  "editor|button.ui-btn": {
@@ -24358,18 +24385,21 @@
  },
  "editor|span.ui-btn-label": {
   "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "editor|span": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "absolute",
+  "position": "static",
   "inset": "50% 5px auto auto",
   "flexDirection": "row",
   "minHeight": "0px"

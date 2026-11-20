@@ -293,9 +293,6 @@ const SidebarList = {
    */
   _bindDrag(app, def, el, r) {
     const d = def.list;
-    const list = document.getElementById(d.containerId);
-    const clear = () => list && list.querySelectorAll('.sbl-item').forEach(x =>
-      x.classList.remove('drag-above', 'drag-below', 'drag-out'));
     el.draggable = true;
     el.addEventListener('dragstart', e => {
       // FR-RAL-9: 레일에서는 재배치를 하지 않는다 — 40px 폭에서 위/아래 절반을
@@ -306,25 +303,40 @@ const SidebarList = {
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
       TIMERS.defer(() => el.classList.add('dragging'), {label:'drag-class'});
     });
-    el.addEventListener('dragover', e => {
-      const dr = app.drag; if (!dr || dr.type !== d.reorder.type) return;
-      e.preventDefault(); clear();
-      const rect = el.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height / 2;
-      dr.target = r.key; dr.before = before;
-      // 서술자가 가로 위치로 "담는 곳 밖" 을 가를 수 있다 (ISSUE_AGENT_TREE_SRS FR-WGR-24).
-      dr.out = !!(d.reorder.outside && d.reorder.outside(app, r, el, e.clientX - rect.left, before));
-      el.classList.add(before ? 'drag-above' : 'drag-below');
-      if (dr.out) el.classList.add('drag-out');
-    });
-    el.addEventListener('drop', e => {
-      const dr = app.drag; if (!dr || dr.type !== d.reorder.type) return;
-      e.preventDefault(); e.stopPropagation(); clear();
-      SidebarList.commit(app, def, dr);
-    });
+    // 끄는 동안의 자리(`dragAt`)와 놓기는 문서가 받는다 (input-binding.js) — 포인터가 행 밖·패널 밖이어도 따라온다.
     el.addEventListener('dragend', () => {
-      app.drag = null; el.classList.remove('dragging', 'drop-into'); clear();
+      app.drag = null; el.classList.remove('dragging', 'drop-into'); this.dragClear(def);
     });
+  },
+
+  dragClear(def) {
+    const list = document.getElementById(def.list.containerId);
+    if (list) list.querySelectorAll('.sbl-item').forEach(x => x.classList.remove('drag-above', 'drag-below', 'drag-out'));
+  },
+
+  /**
+   * ISSUE_AGENT_TREE_SRS FR-WGR-24 (개정 2026-11-20): 놓을 자리는 **포인터 높이**로 고른다.
+   *
+   * 포인터가 행 위에 있지 않아도(패널 밖 위·아래·좌우) 그 높이에서 가장 가까운 행에 표시선이 선다. 목록 위로 나가면
+   * 첫 행 앞, 끝 아래로 나가면 맨 뒤(`dr.end`)다. 서술자가 가로 위치로 "담는 곳 밖" 을 가를 수 있다(`outside`).
+   *   이전: 행의 dragover 만 자리를 바꿔, 패널 밖에서 놓으면 마지막으로 지나간 행 기준이었고 그룹 밖 띠는 들여쓰기 22px 였다
+   */
+  dragAt(app, def, x, y) {
+    const d = def.list, dr = app.drag;
+    const list = document.getElementById(d.containerId);
+    if (!list || !dr) return;
+    this.dragClear(def);
+    const rows = [...list.querySelectorAll('.sbl-item')].filter(x => x.offsetParent !== null);
+    if (!rows.length) return;
+    let el = rows.find(x => y < x.getBoundingClientRect().bottom);
+    dr.end = !el;
+    if (!el) el = rows[rows.length - 1];
+    const rect = el.getBoundingClientRect();
+    const before = !dr.end && (y - rect.top) < rect.height / 2;
+    dr.target = el.dataset.rkey; dr.before = before;
+    dr.out = dr.end || !!(d.reorder.outside && d.reorder.outside(app, dr.target, el, x, before));
+    el.classList.add(before ? 'drag-above' : 'drag-below');
+    if (dr.out) el.classList.add('drag-out');
   },
 
   /**
@@ -338,7 +350,8 @@ const SidebarList = {
   commit(app, def, dr) {
     const d = def && def.list;
     if (!d || !d.reorder) return;
-    if (!dr || dr.done || !dr.src || !dr.target || dr.src === dr.target) return;
+    // 제 행에 놓는 것은 아무 일도 아니다 — 그룹 밖·맨 뒤(FR-WGR-24)일 때만 뜻이 있다(그룹의 끝 창을 바로 아래로 빼기).
+    if (!dr || dr.done || !dr.src || !dr.target || (dr.src === dr.target && !dr.out)) return;
     dr.done = true;
     // apply 는 **로컬 순서만** 바꾼다. 영속은 commit 이 한다 — 창은 워크스페이스에
     // 쓰고 핀은 서버를 지난다 (FR-GIT-223). 두 목록의 구조가 같고 타깃만 다르다.

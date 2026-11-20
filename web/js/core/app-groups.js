@@ -191,6 +191,18 @@ Object.assign(App.prototype, {
     const gid=k=>k.startsWith(WG_KEY)?k.slice(WG_KEY.length):null;
     const srcG=gid(dr.src),tgtG=gid(dr.target);
     let r;
+    // FR-WGR-24 (개정): 목록 끝 아래는 맨 뒤 그룹 밖이다. 그룹은 마지막 최상위 덩어리 뒤로 간다.
+    if(dr.end){
+      if(!srcG) r=winOrderMoveWindow(this.ws.windows,this.windowGroups(),dr.src,{to:WIN_ORDER_TOP});
+      else{
+        const last=winOrderItems(this.plainWindows(),this.windowGroups()).filter(it=>it.kind==='window'||it.windows.length).pop();
+        if(!last||last.id===srcG) return false;
+        r=winOrderMoveGroup(this.ws.windows,this.windowGroups(),srcG,{after:last.id});
+      }
+      if(!r.ok) return false;
+      this.ws.windows=r.windows;
+      return true;
+    }
     if(srcG){
       r=winOrderMoveGroup(this.ws.windows,this.windowGroups(),srcG,{[dr.before?'before':'after']:tgtG||dr.target});
     }else if(tgtG){

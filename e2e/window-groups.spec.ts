@@ -294,3 +294,76 @@ test('TC-RGT-1: 그룹에 알람이 서면 머리가 알람을 보이고(다시 
   expect(got).toEqual({ bg: 'rgba(0, 0, 0, 0)', before: 'none' });
   await request.post('/api/tools/attention/clear-all', { headers: JSON_HDR });
 });
+
+/**
+ * ISSUE_AGENT_TREE_SRS TC-WGR-3b — FR-WGR-24 (개정 2026-11-20): **실제 마우스 끌기**로 그룹 안·밖을 잰다.
+ * 위의 시험들은 명령 API 로 순서를 바꾸므로 끌기 제스처 자체는 지키지 않았다(사용자 보고: 그룹 아래에 두면 늘 안으로 들어갔다).
+ * 놓을 자리는 포인터 높이로 고르고, 패널 밖에서도 따라온다. 안·밖은 행의 가로 가운데로 가르고, 목록 끝 아래는 늘 맨 뒤 그룹 밖이다.
+ */
+test.describe('TC-WGR-3b: 실제 끌기로 그룹 안·밖 (FR-WGR-24 개정)', () => {
+  // 평창 b 를 먼저, 그다음 그룹 G(a, c)를 만든다 — 그룹이 목록의 맨 끝이다.
+  async function setup(page, request) {
+    await waitForInit(page);
+    const b = (await newWindow(request)).win;
+    const g = await newGroup(request, 'GD');
+    const a = (await newWindow(request, { group: g })).win;
+    const c = (await newWindow(request, { group: g })).win;
+    await page.waitForSelector(`#windows .sbl-item[data-sid="${c}"]`);
+    return { b, g, a, c };
+  }
+  const row = (page, id: string) => page.locator(`#windows .sbl-item[data-sid="${id}"]`);
+  async function drag(page, src: string, to: { x: number; y: number }, during?: () => Promise<void>) {
+    const s = (await row(page, src).boundingBox())!;
+    await page.mouse.move(s.x + s.width / 2, s.y + s.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(s.x + s.width / 2 + 4, s.y + s.height / 2 + 4, { steps: 2 });
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    // 실제 브라우저는 포인터가 멈춰도 dragover 를 되풀이한다. 합성 끌기는 마지막 이동의 것을 놓칠 때가 있어 한 번 더 움직인다.
+    await page.mouse.move(to.x + 1, to.y);
+    await page.mouse.move(to.x, to.y);
+    if (during) await during();
+    await page.mouse.up();
+  }
+  const where = async (page, id: string) => {
+    const w = await ws(page);
+    const me = w.windows.find((x) => x.id === id)!;
+    const plain = w.windows.filter((x) => !x.type);
+    return { groupId: me.groupId, last: plain[plain.length - 1].id === id };
+  };
+
+  test('마지막 창 아래, 왼쪽 절반에 놓으면 그룹 밖(맨 뒤)이다', async ({ page, request }) => {
+    const { b, c } = await setup(page, request);
+    const r = (await row(page, c).boundingBox())!;
+    await drag(page, b, { x: r.x + r.width * 0.4, y: r.y + r.height - 3 }, async () => {
+      await expect(row(page, c)).toHaveClass(/\bdrag-out\b/);
+    });
+    await expect.poll(() => where(page, b)).toEqual({ groupId: null, last: true });
+  });
+
+  test('마지막 창 아래, 오른쪽 절반에 놓으면 그룹 안이다', async ({ page, request }) => {
+    const { b, g, c } = await setup(page, request);
+    const r = (await row(page, c).boundingBox())!;
+    await drag(page, b, { x: r.x + r.width - 10, y: r.y + r.height - 3 });
+    await expect.poll(() => where(page, b)).toEqual({ groupId: g, last: true });
+  });
+
+  test('목록 끝 아래로 내려 놓으면 가로 위치와 상관없이 그룹 밖(맨 뒤)이다', async ({ page, request }) => {
+    const { b, c } = await setup(page, request);
+    const r = (await row(page, c).boundingBox())!;
+    await drag(page, b, { x: r.x + r.width - 10, y: r.y + r.height + 60 }, async () => {
+      await expect(row(page, c)).toHaveClass(/\bdrag-out\b/);
+    });
+    await expect.poll(() => where(page, b)).toEqual({ groupId: null, last: true });
+  });
+
+  test('패널 오른쪽 밖에서도 표시선이 따라오고 그 자리에 놓인다', async ({ page, request }) => {
+    const { b, g, c } = await setup(page, request);
+    const r = (await row(page, c).boundingBox())!;
+    const sb = (await page.locator('#sidebar').boundingBox())!;
+    await drag(page, b, { x: sb.x + sb.width + 150, y: r.y + r.height - 3 }, async () => {
+      await expect(row(page, c)).toHaveClass(/\bdrag-below\b/);
+      await expect(row(page, c)).not.toHaveClass(/\bdrag-out\b/);
+    });
+    await expect.poll(() => where(page, b)).toEqual({ groupId: g, last: true });
+  });
+});

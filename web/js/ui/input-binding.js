@@ -87,9 +87,18 @@ class InputBinding {
     document.addEventListener('drop',e=>{
       const dr=this.app.drag; if(!dr) return;
       if(dr.type==='agent'){e.preventDefault();this.app.reorderAgents(dr);return}
-      const def=SidebarList.defByDragType(dr.type);
-      if(def){e.preventDefault();SidebarList.commit(this.app,def,dr)}
     });
+    // ISSUE_AGENT_TREE_SRS FR-WGR-24 (개정): 사이드바 목록의 재배치는 **문서 전체**가 받는다 — 포인터가 패널 밖이어도
+    // 표시선이 따라오고 그 자리에 놓인다. 캡처인 것은 `.pn-body` 의 drop 이 전파를 끊기 때문이다(아래 패널 도킹과 같은 근거).
+    //   이전: 행의 dragover·drop 만 자리를 정했고, 행 밖에서 놓으면 마지막으로 지나간 행 기준이었다
+    document.addEventListener('dragover',e=>{
+      const def=this.app.drag&&SidebarList.defByDragType(this.app.drag.type); if(!def) return;
+      e.preventDefault(); SidebarList.dragAt(this.app,def,e.clientX,e.clientY);
+    },true);
+    document.addEventListener('drop',e=>{
+      const dr=this.app.drag, def=dr&&SidebarList.defByDragType(dr.type); if(!def) return;
+      e.preventDefault(); e.stopPropagation(); SidebarList.dragClear(def); SidebarList.commit(this.app,def,dr);
+    },true);
   }
 
   /**

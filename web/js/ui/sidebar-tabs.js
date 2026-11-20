@@ -120,9 +120,12 @@ const SB_TAB_DEFS=[
         // ISSUE_AGENT_TREE_SRS FR-WGR-24: 그룹 안팎·그룹 통째 이동은 순서 함수가 정한다
         // (FR-WGR-4 의 불변식을 끌어 놓기도 지킨다).
         apply:(app,dr)=>app.sidebarReorder(dr),
-        // FR-WGR-24: 그룹의 첫 창 위·마지막 창 아래에서 포인터가 들여쓰기 왼쪽이면 그룹 밖이다.
-        outside:(app,r,el,x,before)=>el.classList.contains('si-in-group')
-          &&x<parseFloat(getComputedStyle(el).paddingLeft)&&!!app.wgEdgeGroup(r.key,before),
+        // FR-WGR-24 (개정): 그룹의 첫 창 위·마지막 창 아래에서 포인터가 행의 가로 가운데보다 왼쪽(패널 왼쪽 밖 포함)이면 그룹 밖이다.
+        //   이전: 들여쓰기(22px) 왼쪽일 때만 — 그 띠에 포인터를 정확히 올리기 어려웠다
+        outside:(app,key,el,x,before)=>{
+          const r=el.getBoundingClientRect();
+          return el.classList.contains('si-in-group')&&x<r.left+r.width/2&&!!app.wgEdgeGroup(key,before);
+        },
         // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
         // FR-AGG-3: agents 패널의 그룹 순서는 이 배열에서 파생하므로(D-9) 같은
         // 자리에서 다시 그린다 — 폴링을 기다리면 방금 만든 순서를 한 박자 늦게 본다.
