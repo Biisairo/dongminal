@@ -31,8 +31,7 @@ Object.assign(App.prototype, {
     if(!this.isMobile) return;
     const btn=document.getElementById('m-act-btn')||this._mActBtnEl();
     if(!btn) return;
-    let n=0;
-    for(const [id,a] of this._activity) if(a&&a.state===ACTIVITY_STATE.WORKING&&this.findToolLocation(id)) n++;
+    const n=this.workingToolIds().size;   // UX_AUDIT_FIX_SRS FR-UXF-63 과 같은 판정
     const num=btn.querySelector('.m-act-n');
     if(num) num.textContent=n?String(n):'';
     btn.classList.toggle('working',n>0);

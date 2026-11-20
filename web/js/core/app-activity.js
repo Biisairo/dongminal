@@ -49,7 +49,8 @@ const ACTIVITY_SECTIONS=[
   {key:'agents', icon:'bot', title:()=>t('panel.sec_agents'), tip:()=>TIP_ACT_AGENTS, empty:()=>t('attn.no_active_agents'),
    items:app=>app._agWindowItems(),
    // FR-PCH-81: Agents 는 알람 점이다. 접힌 창도 그룹 머리가 알람 수를 갖는다.
-   badge:(app,its)=>({n:0,dot:its.some(i=>i.t==='group'&&i.attn>0)})},
+   // UX_AUDIT_FIX_SRS FR-UXF-63: 배지는 작업 중인 수다. 주의가 있으면 종전대로 점이고 수는 말하지 않는다.
+   badge:(app,its)=>{const dot=its.some(i=>i.t==='group'&&i.attn>0);return {n:dot||!app.workingToolIds?0:app.workingToolIds().size,dot}}},
   {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), tip:()=>TIP_ACT_BG, empty:()=>t('bg.empty'),
    items:app=>app._actBgRows()},
   {key:'runs', icon:'workflow', title:()=>t('runs.title'), tip:()=>TIP_ACT_RUNS, empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),

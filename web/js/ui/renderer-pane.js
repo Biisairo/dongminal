@@ -221,6 +221,7 @@ Object.assign(Renderer.prototype, {
       const name=this._tabDisplayName(tab);
       const lab=tabEl.querySelector('.pn-tab-label');
       if(lab.textContent!==name) lab.textContent=name;
+      workDotSync(tabEl,app.tabWorkDot(tab.toolId),lab);   // UX_AUDIT_FIX_SRS FR-UXF-61
       // TAB_WIDTH_SRS FR-TBW-6 / D-5: **언제나** 붙인다 — 잘리지 않는 폭에서는
       // 보이지 않을 뿐이므로 해가 없다.
       tabEl.title=(tab.preview?REPO_PREVIEW_TITLE:name)+(tint?'\n'+tint.title:'');

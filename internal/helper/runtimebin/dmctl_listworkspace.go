@@ -187,7 +187,8 @@ type toolEntry struct {
 	SizeCols int    `json:"sizeCols"`
 	SizeRows int    `json:"sizeRows"`
 	// FgName 은 이 도구의 전경 프로세스 이름이다 (CONVENIENCE_SRS FR-TAN-5).
-	// 셸이 프롬프트에서 대기 중이거나 조회에 실패하면 빈 문자열이다.
+	// 셸이 프롬프트에서 대기 중이면 cwd 의 마지막 이름(홈은 ~)이고, 그것도 모르면
+	// 빈 문자열이다 (UX_AUDIT_FIX_SRS FR-UXF-65).
 	FgName string `json:"fgName"`
 }
 

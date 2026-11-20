@@ -310,6 +310,8 @@ Object.assign(App.prototype, {
       const pid=at?at.dataset.toolid:null;
       pn.classList.toggle('attn', !!(pid&&this.attnHas(pid)));
     });
+    // UX_AUDIT_FIX_SRS FR-UXF-61·62: 주의가 서고 걷히면 작업 중 표식도 따라 바뀐다(주의가 앞선다).
+    if(this._workRefresh) this._workRefresh();
     // 열린 센터는 배지보다 **먼저** 다시 그린다 — 마지막 알림이 떨어지면 그리기가 목록을
     // 비우고 닫는다. 배지가 먼저 닫으면 `.open` 이 사라져 옛 항목이 닫힌 센터에 남는다
     // (x 클릭의 두 번째 그리기가 그것을 치우고 있었다, FR-OPT-11-7 · FEC-32).

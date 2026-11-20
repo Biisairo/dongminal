@@ -96,6 +96,7 @@ const SB_TAB_DEFS=[
         active:s.id===app.ws.activeWindow,
         // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시.
         attn:app.windowHasAttn(s),
+        work:app.windowWorkDot(s),   // UX_AUDIT_FIX_SRS FR-UXF-62
         // SANDBOX_WINDOW_SRS: 격리된 창임을 목록에서 구분한다. 어느 창이
         // 샌드박스인지 알 수 없으면 사용자가 격리를 신뢰할 근거가 없다.
         // SANDBOX_PICK_COPY_SRS FR-SPK-21·22: 작업 폴더가 복사본인 창은 그

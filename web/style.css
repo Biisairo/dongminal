@@ -756,6 +756,13 @@ body.tabfix .pn-tab .pn-tab-label{
    (하한 40px 의 근거, D-3). */
 body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .pn-tab:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-2px}
+/* UX_AUDIT_FIX_SRS FR-UXF-60~62 (X6·O2, D-18): 작업 중 표식 — 모바일 작업 단추의 `.m-act-dot` 과 같은 점.
+   맥동하지 않는다(조용한 계기판의 램프). 주의가 있는 자리에는 JS 가 두지 않는다. */
+.work-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.pn-tab>.work-dot{margin-right:6px}
+/* 레일의 행은 두 줄 이름이 폭을 다 채운다 — 표식은 왼쪽 점(`.sbl-dot`) 아래, 글자가 없는 왼쪽 아래 귀퉁이에 얹는다. */
+html.sb-collapsed body:not(.mobile) .sbl-item:has(>.work-dot){position:relative}
+html.sb-collapsed body:not(.mobile) .sbl-item>.work-dot{position:absolute;left:2px;bottom:3px}
 .pn-tab:hover{background:var(--accent-hover);color:var(--text)}
 .pn-tab.active{color:var(--text-bright);background:var(--accent-subtle)}
 .pn-tab-x{font-size:var(--fs-sm);color:var(--text-hint);opacity:0;cursor:pointer}
@@ -1931,6 +1938,9 @@ body.mobile .pn-tab-x{
   opacity:1;width:18px;height:var(--touch-min);
   display:flex;align-items:center;justify-content:center;
 }
+/* UX_AUDIT_FIX_SRS FR-UXF-66 (M2): 닫기는 활성 탭에만 선다. 다른 탭은 길게 눌러 여는 탭 메뉴의 `닫기`다(FR-MUX-50).
+     이전 동작: 모든 탭에 `×` 가 늘 보여 탭 셋이면 폭이 다 찼다 */
+body.mobile .pn-tab:not(.active) .pn-tab-x{display:none}
 body.mobile .pn-tab-add{width:var(--touch-min);font-size:var(--fs-xl)}
 /* 이것들은 `#id` 로 `min-height` 를 따로 들고 있어 `.ui-btn` 의 하한이 닿지
    않는다 — 같은 자리에서 함께 올린다. */

@@ -1,6 +1,7 @@
 package toolhub
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -38,6 +39,8 @@ type fgRequest struct {
 	ID       string
 	Term     platform.Terminal
 	ShellPID int
+	// ReportedCwd 는 셸 훅이 알린 cwd 다. 쉬는 셸의 이름은 이것을 먼저 쓴다 (foregroundCwds).
+	ReportedCwd string
 }
 
 // fgProbe 는 전경 조회 구현이다. toolProcInfo 와 같은 이유로 패키지 변수다 —
@@ -87,6 +90,69 @@ func foregroundNames(reqs []fgRequest) map[string]string {
 		}
 	}
 	return out
+}
+
+// fgCwds 는 전경이 셸인 도구들의 cwd 를 한 번에 읽는다 (UX_AUDIT_FIX_SRS FR-UXF-65).
+// fgProbe 와 같은 이유로 패키지 변수다 — 테스트가 호스트에 기대지 않는다.
+var fgCwds = foregroundCwds
+
+// fgHome 은 사용자 홈이다. 모르면 빈 값이고, 그때는 홈 판정을 하지 않는다.
+var fgHome = func() string {
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return h
+}
+
+// foregroundCwds 는 쉬는 셸들의 cwd 다. 셸 훅이 알린 값이 먼저다 — 쉬는 셸에서는 마지막
+// 프롬프트의 보고가 곧 지금의 cwd 이고, 이 조회는 2초마다 돈다. Tool.Cwd 와 순서가 반대인
+// 이유가 그것이다: 직접 조회는 darwin 에서 lsof fork 라 상시로 띄우지 않는다. 보고가 없는
+// 도구만 pid 묶음 조회 한 번으로 읽는다 (NFR-CNV-1). 훅이 없는 셸(fish 등)은 시작 폴더의
+// 보고에 머물 수 있다 — 사용자 결정(2026-11-20)으로 받아들인 한계다.
+func foregroundCwds(reqs []fgRequest) map[string]string {
+	out := make(map[string]string, len(reqs))
+	pids := make([]int, 0, len(reqs))
+	for _, r := range reqs {
+		if r.ReportedCwd != "" {
+			out[r.ID] = r.ReportedCwd
+		} else if r.ShellPID > 0 {
+			pids = append(pids, r.ShellPID)
+		}
+	}
+	if len(pids) == 0 {
+		return out
+	}
+	byPID := toolProcInfo().CWDs(pids)
+	for _, r := range reqs {
+		if _, ok := out[r.ID]; ok {
+			continue
+		}
+		if cwd := byPID[r.ShellPID]; cwd != "" {
+			out[r.ID] = cwd
+		}
+	}
+	return out
+}
+
+// cwdTabName 은 쉬는 셸 탭의 이름이다 (FR-UXF-65): 홈이면 `~`, 루트면 루트, 그 밖은 마지막
+// 성분을 16자로 자른 것. cwd 를 모르면 빈 값이다 — 탭은 Shell 로 돌아간다 (FR-TAN-12).
+func cwdTabName(cwd, home string) string {
+	if cwd == "" {
+		return ""
+	}
+	clean := filepath.Clean(cwd)
+	if home != "" && clean == filepath.Clean(home) {
+		return "~"
+	}
+	name := filepath.Base(clean)
+	if name == "." || name == "" {
+		return ""
+	}
+	if r := []rune(name); len(r) > fgNameMax {
+		name = string(r[:fgNameMax])
+	}
+	return name
 }
 
 // derivedName 은 조회한 프로세스 이름을 탭에 쓸 파생 이름으로 만든다.
@@ -177,7 +243,8 @@ func (m *ToolManager) refreshForeground(now time.Time) {
 	m.mu.RLock()
 	live := make([]fgRequest, 0, len(m.tools))
 	for id, p := range m.tools {
-		live = append(live, fgRequest{ID: id, Term: p.term, ShellPID: p.CmdProcessPID()})
+		reported, _ := p.reportedCwd.Load().(string)
+		live = append(live, fgRequest{ID: id, Term: p.term, ShellPID: p.CmdProcessPID(), ReportedCwd: reported})
 	}
 	m.mu.RUnlock()
 
@@ -211,6 +278,28 @@ func (m *ToolManager) refreshForeground(now time.Time) {
 	// 조회는 락 밖에서 한다 — macOS ps 폴백은 수십 ms 가 걸리고, 그동안
 	// Create/Delete 가 막히면 안 된다 (SaveAll 의 Cwd 와 같은 사정).
 	names := fgProbe(stale)
+	// UX_AUDIT_FIX_SRS FR-UXF-65: 전경이 셸이거나 읽지 못한 도구는 cwd 의 마지막 이름이다.
+	//   이전 동작: 빈 이름 — 탭이 Shell 이었다(FR-TAN-11·12)
+	//   새  동작: cwd 의 마지막 성분(홈은 ~). cwd 를 모르면 종전대로 빈 이름
+	//   이유:     진단 D2 — 쉬는 셸 탭 셋이 모두 Shell 이라 구별되지 않았다(사용자 결정 D-19·D-20)
+	idle := make([]fgRequest, 0, len(stale))
+	for _, r := range stale {
+		if names[r.ID] == "" {
+			idle = append(idle, r)
+		}
+	}
+	if len(idle) > 0 {
+		home := fgHome()
+		cwds := fgCwds(idle)
+		if names == nil {
+			names = make(map[string]string, len(idle))
+		}
+		for _, r := range idle {
+			if n := cwdTabName(cwds[r.ID], home); n != "" {
+				names[r.ID] = n
+			}
+		}
+	}
 
 	type change struct{ id, name string }
 	var changed []change

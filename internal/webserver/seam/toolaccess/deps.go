@@ -9,8 +9,10 @@ type ToolInfo struct {
 	Name     string
 	ShellPID int
 
-	// ForegroundName is the tool's foreground process name, or "" when the
-	// shell sits at a prompt or the lookup failed (CONVENIENCE_SRS FR-TAN-5/6).
+	// ForegroundName is the tool's foreground process name. When the shell sits
+	// at a prompt it is the last element of the tool's cwd ("~" at home), and ""
+	// only when that is unknown too (CONVENIENCE_SRS FR-TAN-5/6, UX_AUDIT_FIX_SRS
+	// FR-UXF-65). It names the tool; it does not say whether a program runs.
 	// The lookup happens in whichever process owns the PTY, so this is filled
 	// identically in direct and daemon mode (FR-TAN-7).
 	ForegroundName string

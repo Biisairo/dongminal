@@ -73,6 +73,9 @@
 ### 2.4 에이전트가 도는지 아는 근거
 
 - **전경 이름**(`toolhub/foreground.go`)은 셸 이름이어도, 읽지 못해도 빈 문자열이다. "셸이 비었다"와 "모른다"를 가를 수 없다. Windows 는 `ForegroundPGID` 가 늘 실패한다(`pty_windows.go:315`).
+  > **UX_AUDIT_FIX_SRS FR-UXF-65 로 개정 (2026-11-20)**: 이전 — 셸이면 빈 문자열. / 지금 — 셸이면 cwd 의 마지막 이름(홈은 `~`)이고,
+  > cwd 도 모를 때만 빈 문자열이다. / 이유 — 쉬는 셸 탭의 이름(진단 D2). 이 문서의 결론(전경 이름으로 에이전트 실행을 판정하지
+  > 않는다)은 더 강해진다 — 전경 이름은 이제 "무엇이 도는가"가 아니라 "탭을 무엇이라 부르는가"다.
 - **셸의 자식 유무**(`busy`·`busymany`, `Tool.IsBusy`)는 세 OS 모두 답한다(macOS `ps`, Linux `/proc`, Windows 프로세스 스냅샷). 그러나 프로세스 목록을 읽지 못해도 "자식 없음"으로 답한다. 또 자식이 무엇인지는 모른다.
 - **claude 의 세션 등록부**: 실행 중인 claude 는 `<설정 폴더>/sessions/<pid>.json` 을 남긴다. 안에 `pid`·`sessionId`·`cwd`·`status` 가 있다. 2026-11-18 이 기계에서 9개 모두 살아 있는 `claude` 프로세스였고, 끝난 세션의 대화 기록(`projects/*/*.jsonl`, 772개)과 다르다. 파일 이름이 pid 이므로 pid 가 재사용되면 새 claude 가 그 파일을 덮어쓴다. 계정 기능(FR-CAC-87 `PinnedRunning`)이 이미 같은 파일을 "pid 가 살아 있으면 실행 중"으로 읽는다. 비공개 형식이다.
 - 설정 폴더는 기본 `~/.claude` 와 계정 프로필 폴더(`claudeacct` `ProfileDir`, `CLAUDE_CONFIG_DIR`)들이다.

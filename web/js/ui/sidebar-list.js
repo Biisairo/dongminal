@@ -158,7 +158,7 @@ const SidebarList = {
   _sig(r) {
     const b = r.badge, c = r.chip;
     return [r.name || '', r.title || '', r.cls || '', r.dotCls || '',
-      r.active ? 1 : 0, r.attn ? 1 : 0, r.removable ? 1 : 0,
+      r.active ? 1 : 0, r.attn ? 1 : 0, r.work ? 1 : 0, r.removable ? 1 : 0,
       b ? (b.text + '' + (b.cls || '') + '' + (b.title || '')) : '',
       c ? (c.text + '\x02' + c.color) : '',
     ].join('');
@@ -195,6 +195,8 @@ const SidebarList = {
     name.className = ['sbl-name', d.nameClass].filter(Boolean).join(' ');
     name.textContent = r.name || '';
     el.appendChild(name);
+    // UX_AUDIT_FIX_SRS FR-UXF-62: 작업 중 표식은 이름 뒤다.
+    if (r.work) workDotSync(el, true, null);
 
     // CLAUDE_ACCOUNTS_SRS FR-CAC-96: 계정 칩.
     if (r.chip) el.appendChild(claudeAcctChipEl(r.chip));

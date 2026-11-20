@@ -545,3 +545,80 @@ test.describe('3묶음 — 설정 행 문법', () => {
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(raw);
   });
 });
+
+// ── 4묶음 — 시그니처 (FR-UXF-60~66) ────────────────────────────────
+
+const reportAct = (page: Page, toolId: string, state: string) => page.evaluate(
+  (a) => (window as any).app.testing.onToolActivity({ ...a, tool: 'Edit', detail: 'x', updatedAt: Date.now() }),
+  { toolId, state },
+);
+const quietActivity = (page: Page) => page.route('**/api/tools/activity', (route) => route.fulfill({
+  status: 200, contentType: 'application/json', body: JSON.stringify({ activities: [], limits: [] }) }));
+
+test.describe('4묶음 — 작업 중 표식', () => {
+  test('TC-UXF-60: 작업 중인 탭에는 점이 서고, 끝나면 걷히며, 주의가 있으면 점이 없다', async ({ page }) => {
+    await waitForInit(page);
+    await quietActivity(page);
+    const tab = page.locator('#area .pn.focused .pn-tab.active');
+    const id = (await tab.getAttribute('data-toolid'))!;
+    await reportAct(page, id, 'working');
+    await expect(tab.locator('.work-dot')).toHaveCount(1);
+    await reportAct(page, id, 'waiting');
+    await expect(tab.locator('.work-dot')).toHaveCount(0);
+    await reportAct(page, id, 'working');
+    await expect(tab.locator('.work-dot')).toHaveCount(1);
+    await page.evaluate((t) => (window as any).app.testing.onToolAttention({ toolId: t, reason: 'done' }), id);
+    await expect(tab).toHaveClass(/\battn\b/);
+    await expect(tab.locator('.work-dot')).toHaveCount(0);
+    await page.evaluate((t) => (window as any).app.testing.attnClear(t), id);
+    await reportAct(page, id, 'done');
+    await expect(tab.locator('.work-dot')).toHaveCount(0);
+  });
+
+  test('TC-UXF-61: 작업 중인 도구가 있는 창의 사이드바 행에 점이 있다 (레일에서도)', async ({ page }) => {
+    await waitForInit(page);
+    await quietActivity(page);
+    const id = (await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid'))!;
+    const sid: string = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    const row = page.locator(`#sidebar .sbl-item[data-sid="${sid}"]`);
+    await expect(row.locator('.work-dot')).toHaveCount(0);
+    await reportAct(page, id, 'working');
+    await expect(row.locator('.work-dot')).toHaveCount(1);
+    await page.locator('#sb-acts .sb-collapse').click();
+    await expect.poll(async () => (await rectOf(page, '#sidebar')).width).toBe(40);
+    await expect(row.locator('.work-dot')).toBeVisible();
+    await reportAct(page, id, 'done');
+    await expect(row.locator('.work-dot')).toHaveCount(0);
+  });
+
+  test('TC-UXF-62: 작업 패널 에이전트 탭의 배지는 작업 중인 수다', async ({ page }) => {
+    await waitForInit(page);
+    await quietActivity(page);
+    const pid1 = (await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid'))!;
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
+    const pid2 = (await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid'))!;
+    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await reportAct(page, pid1, 'working');
+    await reportAct(page, pid2, 'working');
+    const badge = page.locator('#agents-panel .ag-tab[data-sec="agents"] .ag-tab-n');
+    await expect(badge).toHaveText('2');
+    await reportAct(page, pid2, 'done');
+    await expect(badge).toHaveText('1');
+    await reportAct(page, pid1, 'idle');
+    await expect(badge).toBeHidden();
+  });
+});
+
+test('TC-UXF-64: 모바일에서 탭의 닫기는 활성 탭에만 선다', async ({ page }) => {
+  await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
+  const tabs = page.locator('#area .pn.focused .pn-tab');
+  const before = await tabs.count();
+  await page.locator('#area .pn.focused .pn-tab-add').click();
+  await expect(tabs).toHaveCount(before + 1, { timeout: 10000 });
+  await expect(page.locator('#area .pn.focused .pn-tab.active .pn-tab-x')).toBeVisible();
+  const others = page.locator('#area .pn.focused .pn-tab:not(.active) .pn-tab-x');
+  expect(await others.count()).toBeGreaterThan(0);
+  for (const x of await others.all()) await expect(x).toBeHidden();
+});

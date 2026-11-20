@@ -200,6 +200,7 @@ Object.assign(App.prototype, {
    */
   agentsRender(){
     if(this.mobileActSync) this.mobileActSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-75 — 닫힌 패널은 아래에서 물러선다
+    if(this._workSync) this._workSync();   // UX_AUDIT_FIX_SRS FR-UXF-64 — 탭·창 행의 작업 중 표식도 닫힌 패널과 무관하다
     const panel=document.getElementById('agents-panel');
     const body=document.getElementById('agents-body'),footHost=document.getElementById('agents-foot');
     const headHost=document.getElementById('agents-head');
