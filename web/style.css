@@ -990,7 +990,9 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 :is(.ag-state,.ag-dot).done{color:var(--text-bright)}
 :is(.ag-state,.ag-dot).waiting{color:var(--attn-text)}
 :is(.ag-state,.ag-dot).idle{color:var(--text)}
-.ag-detail{flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--text-muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* UX_AUDIT_FIX_SRS D-39: detail(명령·경로·지시 글)은 참조 값이라 cyan 이다(FR-SEM-1, 상태바 cwd 와 같은 색).
+     이전 동작: `--text-muted` — 아래 줄의 모델·사용량과 같은 색이라 셋이 한 덩어리로 읽혔다 */
+.ag-detail{flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--term-cyan);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ACTIVITY_CARD_USAGE_SRS FR-ACU-10·13 · NFR-ACU-2: 막대·백분율은 줄지 않고,
    좁아지면 모델·effort 만 말줄임으로 준다. 등급 색은 Run 화면의 `lv-*` 와 같다.
    ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-30: 모델·effort 가 왼쪽, 막대와 백분율이 오른쪽 끝이다 —
