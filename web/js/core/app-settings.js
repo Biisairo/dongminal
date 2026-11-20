@@ -57,8 +57,7 @@ const SETTINGS_ACCESS={
   // FR-ARE-3: 저장된 적 없으면 기본값(켬). 서버도 같은 기본값을 쓴다
   // (`agentRenderEnv`) — 두 자리가 어긋나면 화면과 실제가 갈린다.
   claudeFullscreen:{get:()=>claudeFullscreen,ctl:{id:'ds-claudefs',kind:'check'},set(v){claudeFullscreen=v}},
-  // FR-LVC-6: 저장된 적 없으면 기본값(끔).
-  confirmLeave:{get:()=>confirmLeave,ctl:{id:'ds-confirmleave',kind:'check'},set(v){confirmLeave=v}},
+  confirmLeave:{get:()=>confirmLeave,ctl:{id:'ds-confirmleave',kind:'check'},set(v){confirmLeave=v}},   // FR-LVC-6: 저장된 적 없으면 기본값(끔).
   // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
   // 이미 열려 있는 편집기에도 얹는다.
   editorWordWrap:{get:()=>editorWordWrap,ctl:{id:'ds-wordwrap',kind:'check'},set(v){
@@ -109,6 +108,7 @@ const SETTINGS_ACCESS={
     const el=document.getElementById('ds-treemigpct');
     if(el) el.value=String(issueTreeCtxPct);
   }},
+  keybar:{get:()=>keybarCfg,set(v){keybarCfg=v;this._keybarApply()}},   // UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바·설정 구역을 곧바로 다시 그린다
   claudeScrollSpeed:{get:()=>claudeScrollSpeed,set(v){
     claudeScrollSpeed=clampSetting('claudeScrollSpeed',v);
     const el=document.getElementById('ds-scrollspeed');
@@ -478,7 +478,7 @@ Object.assign(App.prototype, {
     this._initTermGpu();
     this._initTermFontSize();
     this._initClaudeScrollSpeed();
-    this._initMigrationSettings();
+    this._initMigrationSettings();this._initKeybarSettings();
     this._initConfirmLeave();
     this._initFocusEdge();
     this._initAttnEdge();

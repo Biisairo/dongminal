@@ -58,7 +58,8 @@ const SETTINGS_SCHEMA = [
   {"key":"migrationHook","type":"bool","def":false,"where":"Terminal ▸ 맥락 기준 migration 제안"},
   {"key":"migrationHookCtxPct","type":"int","def":50,"min":1,"max":100,"where":"Terminal ▸ migration 제안 기준(%)"},
   {"key":"issueTreeMigration","type":"bool","def":true,"where":"Terminal ▸ issue-tree 맥락 migration"},
-  {"key":"issueTreeCtxPct","type":"int","def":50,"min":1,"max":100,"where":"Terminal ▸ issue-tree migration 기준(%)"}
+  {"key":"issueTreeCtxPct","type":"int","def":50,"min":1,"max":100,"where":"Terminal ▸ issue-tree migration 기준(%)"},
+  {"key":"keybar","type":"object","def":{},"where":"Terminal ▸ 모바일 키바"}
 ];
 
 const SETTINGS_BY_KEY=Object.fromEntries(SETTINGS_SCHEMA.map(s=>[s.key,s]));

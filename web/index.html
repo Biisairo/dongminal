@@ -122,6 +122,13 @@
   <symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M9 13v2M15 13v2"/></symbol>
   <symbol id="i-terminal-bg" viewBox="0 0 24 24"><path d="M7 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"/><rect x="3" y="9" width="12" height="12" rx="2"/><path d="m7 13 3 2-3 2"/></symbol>
   <symbol id="i-workflow" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></symbol>
+  <!-- UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): 문자 아이콘·16×16 별도 SVG 를 옮겨 온 심볼 (Lucide 같은 이름) -->
+  <symbol id="i-app-window" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4M2 8h20M6 4v4"/></symbol>
+  <symbol id="i-file-plus" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M9 15h6M12 18v-6"/></symbol>
+  <symbol id="i-folder-plus" viewBox="0 0 24 24"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-corner-down-right" viewBox="0 0 24 24"><path d="m15 10 5 5-5 5"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></symbol>
 </svg>
 <!-- BOOT_SCREEN_SRS FR-BTS-6·9 / D-7: **정적 마크업**이다. JS 로 만들면 그 스크립트가
      실행될 때까지 아래 골격이 그대로 노출되고, 그것이 이 스펙이 없애려는 장면이다.
@@ -201,6 +208,8 @@
     <div id="sb-bottom">
       <button id="soft-reload-btn" class="ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost" title="Reload the app without a full page refresh" aria-label="Reload the app"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-rotate-ccw"/></svg></button>
       <button id="settings-btn" class="ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost" title="Settings" aria-label="Settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-settings"/></svg></button>
+      <!-- UX_AUDIT_FIX_SRS FR-UXF-92 (D-30): 모바일의 새 판 링크 — 상태바 배지와 같은 글자·주소. 채우기는 app-update.js 다. -->
+      <a id="m-update-link" class="sb-update mobile-only" hidden target="_blank" rel="noopener noreferrer"></a>
     </div>
   </div>
   <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-7 (2026-09-06 개정): **접기 버튼이 없다.**
@@ -211,6 +220,8 @@
   <div id="sb-handle" class="ui-resize-handle" title="Drag to resize — drag all the way in to collapse"></div>
   <div id="content">
     <div id="topbar">
+      <!-- UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일 연결 점. 칠하기는 app-mobile.js `mTopPaint` 다. -->
+      <span class="m-conn-dot mobile-only" role="img" title="Disconnected" aria-label="Disconnected"></span>
       <span id="window-name"></span>
       <!-- SLOT_MARKER_SRS FR-SMK-1·2: 칸이 여럿이면 **이 자리는 빈다**
            (SLOT_TITLE_BOUNDARY_SRS FR-STB-12) — 머리글이 창 이름을 이어받기
@@ -254,7 +265,7 @@
       <!-- UX_BATCH12_SRS FR-ACF-7: Activity 단추(`#agents-toggle`)는 없다. 데스크톱은 패널의 레일이 그 길이다.
            모바일은 ☰ 바로 앞의 `#m-act-btn` 이다 — 모바일에서 처음 필요할 때 app-mobile-nav.js 가
            만든다 (MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76, 이전: 서랍의 `#m-drawer-acts`). -->
-      <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
+      <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg><span class="m-update-dot" hidden></span></button>
     </div>
     <div id="area"></div>
     <div id="search-bar" class="search-bar" hidden>
@@ -542,6 +553,21 @@
             <input type="checkbox" class="ui-switch" id="ds-termgpu">
           </div>
           <div class="ds-hint" data-i18n="html.term_gpu_hint"></div>
+          <!-- UX_AUDIT_FIX_SRS FR-UXF-95 (D-31): 모바일 키바 구성. 행은 app-settings-keybar.js 가 그린다. -->
+          <div class="ds-sec" data-i18n="html.dssec_keybar"></div>
+          <div id="ds-keybar" class="kbc">
+            <div class="kbc-list"></div>
+            <div class="kbc-add" lang="en">
+              <label class="kbc-mod"><input type="checkbox" class="ui-switch kbc-ctrl">Ctrl</label>
+              <label class="kbc-mod"><input type="checkbox" class="ui-switch kbc-alt">Alt</label>
+              <label class="kbc-mod"><input type="checkbox" class="ui-switch kbc-shift">Shift</label>
+              <select class="ui-select kbc-key" aria-label="Key"></select>
+              <input type="text" class="ui-input kbc-lbl" maxlength="8" aria-label="Label">
+              <button class="ui-btn kbc-add-btn" disabled data-i18n="html.keybar_add" title="Add the macro to the key bar"></button>
+            </div>
+            <div class="ds-hint" data-i18n="html.keybar_hint"></div>
+            <button class="ui-btn kbc-reset" data-i18n="html.keybar_reset" title="Restore the default order and keys — macros stay"></button>
+          </div>
         </div>
       </div>
       <div class="mpanel" id="panel-code" hidden>
@@ -887,6 +913,8 @@
 <script src="js/core/settings-schema.js?v=__ASSETV__"></script>
 <script src="js/core/settings-defaults.js?v=__ASSETV__"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
+<!-- 모바일 키바 구성의 순수 함수 (UX_AUDIT_FIX_SRS FR-UXF-93·94). constants.js 의 MKB_KEYS 를 딛는다. -->
+<script src="js/core/keybar.js?v=__ASSETV__"></script>
 <!-- API 경로 표 (FR-OPT-12-5). 의존이 없고 constants-git*.js 가 로드 시점에 딛는다. -->
 <script src="js/core/constants-api.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
@@ -1157,6 +1185,7 @@
      app.js 뒤이기만 하면 되고, 서로를 로드 시점에 참조하지 않는다.
      `app-settings.js` 뒤인 이유는 그것이 이 묶음의 주제를 말하는 파일이기 때문이다. -->
 <script src="js/core/app-settings-init.js?v=__ASSETV__"></script>
+<script src="js/core/app-settings-keybar.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-theme.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-keys.js?v=__ASSETV__"></script>
 <script src="js/core/settings-live.js?v=__ASSETV__"></script>
@@ -1174,7 +1203,6 @@
 <script src="js/core/app-backup.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar-enc.js?v=__ASSETV__"></script>
-<script src="js/core/app-statusbar-fold.js?v=__ASSETV__"></script>
 <script src="js/core/app-update.js?v=__ASSETV__"></script>
 <script src="js/core/app-presets.js?v=__ASSETV__"></script>
 <script src="js/core/app-dnd.js?v=__ASSETV__"></script>

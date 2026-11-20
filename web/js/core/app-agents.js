@@ -159,9 +159,10 @@ Object.assign(App.prototype, {
     this.save();this.agentsRender();
   },
 
-  // FR-AAP-21: ws.agentsOrder(workspace 영속·동기화)를 현재 활동 집합과 정합한다.
-  // 사라진 toolId 는 제외, 배열에 없던 새 toolId 는 신호 도착 순서대로 최하단에 추가.
-  // reconcile 은 결정적이라 save() 를 유발하지 않는다(드래그 시에만 저장).
+  // FR-AAP-21 → UX_AUDIT_FIX_SRS FR-UXF-111·112 (D-37): 그릴 순서 = 저장된 순서(ws.agentsOrder)를 지금 활동 집합으로 거른 것.
+  //   이전: 보고 없는 id 를 저장된 순서에서 **지웠고** 새 id 는 도착 순서로 붙였다 — 새로 고침 직후 끌어 놓은 순서가 사라졌다
+  //   지금: 저장된 순서는 지우지 않는다(정리는 `_pruneAgentOrder` 만). 새 id 는 생성 순서(UUID v7 의 사전순)로 끝에 붙는다
+  // save() 를 유발하지 않는다(드래그 시에만 저장).
   // FR-EM-16: 부팅 시 workspace 트리에 없는 도구 id 를 agentsOrder 에서
   // 제거한다. _agentOrderSync 는 활동 보고가 있는 도구만 남기므로 부팅
   // 직후(활동 0건)에 쓰면 순서가 전부 날아간다 — 여기서는 레이아웃 참조를
@@ -178,12 +179,10 @@ Object.assign(App.prototype, {
 
   _agentOrderSync(){
     if(!Array.isArray(this.ws.agentsOrder)) this.ws.agentsOrder=[];
-    const present=new Set(this._activity.keys());
-    const order=this.ws.agentsOrder.filter(pid=>present.has(pid));
-    const seen=new Set(order);
-    for(const pid of this._activity.keys()) if(!seen.has(pid)) order.push(pid);
-    this.ws.agentsOrder=order;
-    return order;
+    const ord=this.ws.agentsOrder, seen=new Set(ord);
+    const fresh=[...this._activity.keys()].filter(pid=>!seen.has(pid)).sort();
+    ord.push(...fresh);
+    return ord.filter(pid=>this._activity.has(pid));
   },
 
   // FR-AAP-13/14/16/18/21: 활동 중인 pane 카드 렌더. findToolLocation 실패(종료/없음)
@@ -247,6 +246,7 @@ Object.assign(App.prototype, {
     // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40 (D-ASV-12): Usage 바닥도 스크롤 몸통 밖에 그린다.
     const inHead=it=>it.t==='tabs'||it.t==='head';
     reconcileList(headHost,items.filter(it=>it.t==='tabs').concat(items.filter(it=>it.t==='head')),opts);
+    UIKit.tabsFitWatch(headHost,'.ag-tabs'); UIKit.tabsFit(headHost,'.ag-tabs');  // UX_AUDIT_FIX_SRS FR-UXF-98
     reconcileList(body,items.filter(it=>!inHead(it)&&it.t!=='foot'),opts);
     reconcileList(footHost,items.filter(it=>it.t==='foot'),opts);
   },
@@ -270,14 +270,10 @@ Object.assign(App.prototype, {
       g.push({t:'card',toolId,info:this._activity.get(toolId),loc});
     }
     const out=[],fold=this._agFolded();
-    // UX_AUDIT_FIX_SRS FR-UXF-12: 승인 대기(`waiting`)가 위다 — 그룹 안에서는 그 카드가, 그룹 사이에서는 그것을 가진
-    // 창이 앞에 선다. 나머지 순서와 저장된 순서(`agentsOrder`)는 그대로다 — 그릴 때만 옮긴다.
-    const waits=c=>!!c.info&&c.info.state===ACTIVITY_STATE.WAITING;
-    const front=(xs,f)=>xs.filter(f).concat(xs.filter(x=>!f(x)));
-    for(const [id,g] of byWin) byWin.set(id,front(g,waits));
     // FR-AGG-2·3: 그룹 순서는 `ws.windows` 의 순서다. 패널이 따로 갖는 순서가
     // 없으므로 창 순서가 바뀌면 그 자리에서 따라간다.
-    for(const win of front(this.ws.windows||[],w=>(byWin.get(w.id)||[]).some(waits))){
+    // UX_AUDIT_FIX_SRS FR-UXF-110 (D-37): 상태로 자리를 옮기지 않는다 — 승인 대기 끌어올리기(FR-UXF-12)는 철회됐다.
+    for(const win of this.ws.windows||[]){
       const g=byWin.get(win.id);
       if(!g||!g.length) continue; // FR-AGG-4: 빈 머리는 정보가 아니다
       const folded=fold.has(win.id);
@@ -427,7 +423,7 @@ Object.assign(App.prototype, {
      */
     const dot=document.createElement('span');dot.className='ag-dot';
     if(info.state) dot.classList.add(info.state);
-    dot.textContent=AGENT_STATE_ICON[info.state]||'●';
+    dot.appendChild(agentStateIcon(info.state));  // UX_AUDIT_FIX_SRS FR-UXF-100
     const head=document.createElement('div');head.className='ag-line ag-line-head';
     head.append(dot,locDiv);
     const st=document.createElement('span');st.className='ag-state';

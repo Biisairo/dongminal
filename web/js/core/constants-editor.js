@@ -389,21 +389,15 @@ const EDITOR_GIT_BACKOFF_FACTOR=10;
 
 // 펼침 표시. 조회 중(`BUSY`)을 따로 두는 이유는 "비었다" 와 "아직 오지 않았다" 가
 // 같은 화면이 되면 사용자가 지연을 고장으로 읽기 때문이다.
-const EDITOR_TREE_TW_OPEN='▾';
-const EDITOR_TREE_TW_CLOSED='▸';
+// UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): 열림·닫힘은 `UIKit.caret` 의 아이콘이다(이전 `▾`·`▸` 글자). 열림은 `data-open` 이 말한다.
 const EDITOR_TREE_TW_BUSY='·';
 // FR-EDT-60: 링크는 펼치지도 열지도 않는다. 표시가 그 사실과 대상 종류를 알린다.
-const EDITOR_TREE_LINK='↗';
-const EDITOR_TREE_LINK_DIR='↗/';
+// FR-UXF-100: 아이콘 `link`(이전 `↗`). 폴더 링크는 뒤에 `/` 글자가 붙는다.
+const EDITOR_TREE_LINK='link';
+const EDITOR_TREE_LINK_DIR_SUFFIX='/';
 // FR-EDT-64: 펼쳐져 있는 폴더만 다시 읽는다.
-// 새 파일·새 폴더와 **같은 줄에 서므로** 같은 형식이어야 한다 (아래
-// EDITOR_TREE_NEW_FILE 의 근거 참조). 하나만 글자로 두면 선 굵기와 크기가 달라
-// 그 하나가 도리어 눈에 띈다.
-const EDITOR_TREE_REFRESH=
-  '<svg viewBox="0 0 16 16" aria-hidden="true">'+
-  '<path d="M13.6 8A5.6 5.6 0 1 1 11.9 4"/>'+
-  '<path d="M13.8 1.9v3.3h-3.3"/>'+
-  '</svg>';
+// FR-UXF-100: 머리 단추 셋은 스프라이트 아이콘이다 — 이전에는 16×16·1.3px 선으로 따로 그린 SVG 였다.
+const EDITOR_TREE_REFRESH='refresh-cw';
 const EDITOR_TREE_REFRESH_TITLE='Refresh the tree (re-reads expanded folders only)';
 // FR-EDT-65: 상한을 넘긴 폴더. **조회는 실패하지 않는다** — 잘렸다는 사실만 알린다.
 /**
@@ -467,29 +461,10 @@ const FS_IGNORED_API='/api/fs/ignored';
 //
 // 이모지가 아니라 인라인 SVG 인 이유는 둘이다 — 이모지는 상태 기호의 기존
 // 규약이 배제하고(플랫폼마다 다른 그림이 온다), SVG 는 `currentColor` 로
-// 테마색을 그대로 따른다.
-//
-// 플러스는 둘 다 **오른쪽 아래 같은 자리**다. 다른 것은 왼쪽 위의 모양뿐이며,
-// 그것이 곧 "무엇을 새로 만드는가" 다.
-const EDITOR_TREE_NEW_FILE=
-  '<svg viewBox="0 0 16 16" aria-hidden="true">'+
-  '<path d="M9 1.6H4.3A1.3 1.3 0 0 0 3 2.9v10.2a1.3 1.3 0 0 0 1.3 1.3H8"/>'+
-  '<path d="M9 1.6 12.6 5.2V8"/>'+
-  '<path d="M9 1.6V5.2h3.6"/>'+
-  '<path d="M11.6 10.2v4.4M9.4 12.4h4.4"/>'+
-  '</svg>';
+const EDITOR_TREE_NEW_FILE='file-plus';
 const EDITOR_TREE_NEW_FILE_TITLE='New file in the selected folder';
-const EDITOR_TREE_NEW_DIR=
-  '<svg viewBox="0 0 16 16" aria-hidden="true">'+
-  '<path d="M1.8 12.6V3.6a1.1 1.1 0 0 1 1.1-1.1h2.7l1.4 1.8h6.2a1.1 1.1 0 0 1 1.1 1.1V8"/>'+
-  '<path d="M1.8 12.6a1.1 1.1 0 0 0 1.1 1.1H8"/>'+
-  '<path d="M11.6 10.2v4.4M9.4 12.4h4.4"/>'+
-  '</svg>';
+const EDITOR_TREE_NEW_DIR='folder-plus';
 const EDITOR_TREE_NEW_DIR_TITLE='New folder in the selected folder';
-// 머리 버튼이 그림으로 넣어도 되는 값의 **전부**다. 화이트리스트로 두는 이유는
-// "우리가 쓴 상수뿐" 이라는 사실을 주석이 아니라 코드가 보장하게 하기 위해서다 —
-// 나중에 사용자 입력이 그 자리에 닿아도 그림이 되지 않는다.
-const EDITOR_HEAD_ICONS=new Set([EDITOR_TREE_NEW_FILE,EDITOR_TREE_NEW_DIR,EDITOR_TREE_REFRESH]);
 const EDITOR_MENU_NEW_FILE=t('editor.menu_new_file');
 const EDITOR_MENU_NEW_DIR=t('editor.menu_new_dir');
 const EDITOR_MENU_RENAME=t('editor.menu_rename');

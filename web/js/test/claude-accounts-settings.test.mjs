@@ -29,7 +29,7 @@ function loadSet() {
     globals: {
       App: class {}, t: (k, p) => fillEn(k, p),
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
-      AGENT_STATE_ICON: { working: '●', done: '✓', waiting: '…', idle: '○' },
+      AGENT_STATE_ICON: { working: 'dot', done: 'check', waiting: 'more-horizontal', idle: 'circle' },
       PrefStore: { local: { json: (k, d) => d, setJson: () => true } },
       STORE_KEYS: {},
       UIKit: { iconHTML: () => '' },

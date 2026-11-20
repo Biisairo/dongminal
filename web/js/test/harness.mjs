@@ -85,6 +85,8 @@ function elementStub() {
     className: '', dataset: {}, style: { cssText: '' }, children: [],
     classList: { add() {}, remove() {}, contains: () => false },
     appendChild(c) { el.children.push(c); return c },
+    // UX_AUDIT_FIX_SRS FR-UXF-100: 글자 앞에 아이콘을 세우는 자리가 쓴다. 글자 조각은 원소가 아니므로 세지 않는다.
+    prepend(...cs) { el.children.unshift(...cs.filter((c) => typeof c === 'object')) },
     replaceChildren() { el.children.length = 0 },
     addEventListener() {}, removeEventListener() {},
     attrs: {},

@@ -194,22 +194,11 @@ class FileTree {
     return h;
   }
 
-  /**
-   * 머리의 버튼 하나. `label` 이 **알려진 아이콘**이면 그림으로, 아니면 글자로
-   * 넣는다.
-   *
-   * 판정이 "SVG 처럼 생겼는가" 가 아니라 `EDITOR_HEAD_ICONS` 에 **있는가** 인
-   * 것이 요점이다 — 모양으로 판정하면 언젠가 사용자 입력이 그 모양을 하고
-   * 들어온다. 목록에 있는 것만 그림이 되므로 그 경로가 아예 없다.
-   */
-  _headBtn(cls,label,title,fn){
+  // 머리의 버튼 하나 — 스프라이트 아이콘이다 (UX_AUDIT_FIX_SRS FR-UXF-100).
+  _headBtn(cls,icon,title,fn){
     // UX_BATCH10_SRS FR-UXB-31: 기본 크기다 (`ui-btn-sm` 이 아니다) — 세 버튼이
-    // 눌러야 할 것으로 보이지 않을 만큼 작았다. 아이콘 치수는 CSS 가 이 높이에서
-    // 파생한다 (FR-UXB-30).
-    const b=UIKit.button({title,kind:'ghost',cls:'ui-btn-icon ed-head-btn '+cls,onClick:fn});
-    if(EDITOR_HEAD_ICONS.has(label)) b.innerHTML=label;
-    else b.textContent=label;
-    return b;
+    // 눌러야 할 것으로 보이지 않을 만큼 작았다. 아이콘 치수는 킷이 이 높이에서 파생한다 (FR-UXB-30).
+    return UIKit.button({icon,title,kind:'ghost',cls:'ed-head-btn '+cls,onClick:fn});
   }
 
   /**

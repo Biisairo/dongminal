@@ -33,9 +33,15 @@ function agentSubagentsSig(list){
     .join('\u0002');
 }
 
-/** FR-ASV-31: 상태 표시 글자 — main 카드의 상태 줄과 같은 모양이다. */
+/** FR-ASV-31: 상태 표시 글자 — main 카드의 상태 줄과 같은 모양이다. 앞의 상태 아이콘은 `agentStateIcon` 이 따로 그린다 (UX_AUDIT_FIX_SRS FR-UXF-100). */
 function agentStateText(state,tool){
-  return (AGENT_STATE_ICON[state]||'●')+' '+(AGENT_STATE_LABEL[state]||state)+(tool?' · '+tool:'');
+  return (AGENT_STATE_LABEL[state]||state)+(tool?' · '+tool:'');
+}
+
+/** UX_AUDIT_FIX_SRS FR-UXF-100: 상태 아이콘 — 카드의 점과 하위 행이 같이 쓴다. 작업 중의 점은 채워 그린다. */
+function agentStateIcon(state){
+  const name=AGENT_STATE_ICON[state]||AGENT_STATE_ICON.working;
+  return UIKit.icon(name,{size:'sm',fill:name==='dot'});
 }
 
 /** UX_BATCH12_SRS FR-SVL-3: 없어진 보기 전환이 남긴 브라우저 값의 키. 읽지 않고 지우기만 한다. */
@@ -61,10 +67,11 @@ Object.assign(App.prototype, {
   /** FR-ASV-31: 서브에이전트 머리 — (↳) · 종류 · 상태. */
   _agSubHeadEl(v){
     const head=document.createElement('div');head.className='ag-sub-head';
-    const span=(cls,text)=>{const e=document.createElement('span');e.className=cls;e.textContent=text;head.appendChild(e)};
-    span('ag-sub-arrow','↳');
+    const span=(cls,text)=>{const e=document.createElement('span');e.className=cls;e.textContent=text;head.appendChild(e);return e};
+    // UX_AUDIT_FIX_SRS FR-UXF-100: 화살표·상태 기호는 아이콘이다(이전 `↳`·`●` 글자).
+    span('ag-sub-arrow','').appendChild(UIKit.icon('corner-down-right',{size:'sm'}));
     span('ag-sub-type',v.type);
-    span('ag-sub-state '+v.state,agentStateText(v.state,v.tool));
+    span('ag-sub-state '+v.state,agentStateText(v.state,v.tool)).prepend(agentStateIcon(v.state),' ');
     return head;
   },
 

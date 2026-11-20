@@ -62,7 +62,7 @@ function loadFoot(globals = {}) {
       UIKit: {
         iconHTML: (n) => '<i:' + n + '>',
         icon: (n) => ({ className: 'ui-icon', icon: n, children: [] }),
-        button: (b) => ({ className: 'ui-btn ' + (b.cls || ''), textContent: b.label, children: [] }),
+        button: (b) => ({ className: 'ui-btn ' + (b.cls || ''), textContent: b.label, children: [], appendChild(c) { this.children.push(c); return c } }),
       },
       t: (k, p) => fillEn(k, p),
       // FR-CAC-95a: 복원 뒤의 매핑 받기. 기본은 계정 기능이 없는 서버(503)다.

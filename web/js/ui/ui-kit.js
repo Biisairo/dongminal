@@ -143,6 +143,38 @@ const UIKit = {
     return b;
   },
 
+  // UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): 펼침 꺾쇠. 글자(`▸`·`▾`) 대신 아이콘을 다시 채우고, 상태는 `data-open` 이 말한다.
+  caret(el, open) {
+    if (!el) return;
+    el.replaceChildren(this.icon(open ? 'chevron-down' : 'chevron-right', { size: 'sm' }));
+    el.dataset.open = open ? '1' : '0';
+  },
+
+  /**
+   * UX_AUDIT_FIX_SRS FR-UXF-98·99 (D-35): 패널 탭 줄은 라벨이 **다 들어가면** 아이콘 + 라벨(`labeled`), 하나라도 잘리면 아이콘만이다.
+   * 라벨을 세운 상태에서 재므로 같은 폭에서는 늘 같은 답이다. `sel` 을 주면 `host` 안의 탭 줄을 찾는다(다시 그려지는 줄).
+   */
+  tabsFit(host, sel) {
+    const bar = host && (sel ? host.querySelector(sel) : host);
+    if (!bar) return;
+    bar.classList.add('labeled');
+    // 잰 라벨이 없으면(레일처럼 CSS 가 라벨을 숨긴 자리) 들어간다고 말하지 않는다.
+    let seen = 0, ok = true;
+    for (const l of bar.querySelectorAll('.ui-tab-label')) {
+      if (!l.offsetParent) continue;
+      seen++;
+      if (l.scrollWidth > l.clientWidth + 1) { ok = false; break }
+    }
+    bar.classList.toggle('labeled', ok && seen > 0);
+  },
+
+  // 폭이 바뀔 때 다시 잰다. 관측은 오래 사는 원소(`host`)에 한 번만 건다.
+  tabsFitWatch(host, sel) {
+    if (!host || host._fitRo || typeof ResizeObserver !== 'function') return;
+    host._fitRo = new ResizeObserver(() => UIKit.tabsFit(host, sel));
+    host._fitRo.observe(host);
+  },
+
   /**
    * ACCESSIBILITY_BASELINE_SRS FR-A11Y-16 (`UX-4`) — **목록·탭 줄의 키보드 계약이
    * 한 자리에 있다** (roving tabindex, D-A11Y-11).

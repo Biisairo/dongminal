@@ -208,8 +208,7 @@ class GitRemote {
     const collapsed=this._logCollapsed();
     box.classList.toggle('log-collapsed',collapsed);
     // FR-RTU-100: 토글은 지금 상태를 말한다 — 눌러서 무엇이 되는지가 아니라.
-    box.querySelector('.git-job-fold').textContent=
-      collapsed?GIT_JOB_FOLD_CLOSED:GIT_JOB_FOLD_OPEN;
+    UIKit.caret(box.querySelector('.git-job-fold'),!collapsed);  // UX_AUDIT_FIX_SRS FR-UXF-100
     this._paintFail(box);
     this._paintLog(box);
   }

@@ -162,10 +162,13 @@ test.describe('묶음 SBC — 레일의 구성 (FR-SBC-11~16)', () => {
     expect(await sidebarWidth(page)).toBe(RAIL_W);
   });
 
-  test('SBC7: 펼침에서는 아이콘이 아니라 라벨이 이름을 말한다', async ({ page }) => {
+  // UX_AUDIT_FIX_SRS FR-UXF-98 (D-35) 로 개정: 이전 펼침에서는 라벨만(아이콘 숨김) / 지금 아이콘은 늘 서고, 넓으면 라벨이 함께 선다 /
+  // 이유 사용자 지시 "좁으면 아이콘만, 넓으면 아이콘 + 라벨".
+  test('SBC7: 펼침에서는 아이콘이 서고, 넓으면 라벨이 함께 선다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => document.documentElement.style.setProperty('--sb-w', '400px'));
     await expect(page.locator('.sb-tab[data-panel="windows"] .sb-tab-label')).toBeVisible();
-    await expect(page.locator('.sb-tab[data-panel="windows"] .sb-tab-icon')).toBeHidden();
+    await expect(page.locator('.sb-tab[data-panel="windows"] .sb-tab-icon')).toBeVisible();
   });
 });
 

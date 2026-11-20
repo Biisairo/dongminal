@@ -324,7 +324,6 @@ Object.assign(RunsPanel.prototype, {
     card.appendChild(runDiv('run-card-state', m.state || ''));
     if (m.contextLevel && !lost) {
       const pct = Math.round((m.contextRatio || 0) * 100);
-      const warn = m.contextLevel === 'ok' ? '' : ' ⚠';
       /**
        * FR-RCX-1: **숫자가 본문으로 나온다.**
        *
@@ -338,9 +337,11 @@ Object.assign(RunsPanel.prototype, {
        */
       const measured = m.contextTokens && m.contextLimit;
       const text = measured
-        ? `${this._runTokens(m.contextTokens)} / ${this._runTokens(m.contextLimit)} · ${pct}%${warn}`
-        : `ctx ~${pct}%${warn}`;
-      card.appendChild(runDiv('run-card-ctx lv-' + m.contextLevel, text));
+        ? `${this._runTokens(m.contextTokens)} / ${this._runTokens(m.contextLimit)} · ${pct}%`
+        : `ctx ~${pct}%`;
+      const ctx = runDiv('run-card-ctx lv-' + m.contextLevel, text);
+      if (m.contextLevel !== 'ok') ctx.append(' ', UIKit.icon('triangle-alert', { size: 'sm' }));   // UX_AUDIT_FIX_SRS FR-UXF-100: 이전 글자 `⚠`
+      card.appendChild(ctx);
     }
     if (m.compactCount) card.appendChild(runDiv('run-card-compact', tn('runs.compact_count', m.compactCount)));
     if (m.worktree && m.worktree.branch) card.appendChild(runDiv('run-card-wt', 'wt: ' + m.worktree.branch));

@@ -418,7 +418,7 @@ body.mobile .git-head-remote{gap:2px}
   min-height:calc(var(--git-btn-h) + 6px);min-width:0;
   font-size:var(--fs-sm);color:var(--text-muted)}
 .git-group-head:hover{background:var(--accent-hover)}
-.git-group-caret{width:9px;flex-shrink:0}
+.git-group-caret{display:inline-flex;flex-shrink:0}   /* FR-UXF-100: 아이콘(--ui-icon-sm)이 폭을 준다 */
 /* 기준 폭을 60px 로 **명시**한다 — `auto` 로 두면 wrap 이 그룹 이름의 글자 수로
    줄을 갈라 `CHANGES` 와 `UNTRACKED` 가 다른 폭에서 접힌다 (`.git-job-argv` 와
    같은 이유). */
@@ -657,7 +657,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-file.conflict .git-file-st,.git-file.conflict .git-file-path,
 .git-file.conflict .git-file-path-dir,.git-file.conflict .git-file-path-name,
 .git-file.conflict .git-file-path-arrow{color:var(--danger-text)}
-.git-dir-caret{width:9px;flex-shrink:0;color:var(--text-muted)}
+.git-dir-caret{display:inline-flex;flex-shrink:0;color:var(--text-muted)}
 /* FR-WBR-80 / NFR-WBR-11: 폴더 행도 동작을 가지므로 이름의 60px 하한이 그대로
    온다 (NFR-RTU-6). `.git-dir` 은 `.git-file` 과 같은 규칙에서 이미 `flex-wrap`
    을 받으므로, 좁아지면 버튼이 다음 줄로 간다 — 감추지 않는다. */

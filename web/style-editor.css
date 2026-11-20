@@ -112,26 +112,8 @@ body.mobile .cm-minimap-gutter{display:none}
 .ed-head.sel{background:var(--accent-active)}
 .ed-head-name{flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--text-bright);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* 머리 버튼의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost` 이다 (§7.4).
-   FR-EDT-80: 새 파일·새 폴더는 문서와 폴더를 그대로 그린다 (종전 `⊕`·`⊞` 는
-   어느 쪽이 무엇인지 말하지 않았다). 이 그림은 스프라이트가 아니라 자기 경로
-   (`EDITOR_HEAD_ICONS`)라 `.ui-icon` 의 치수를 받지 않는다 — 담는 쪽에 건다.
-   `currentColor` 라 hover 의 색 변화를 글자 버튼과 똑같이 따라간다.
-
-   UX_BATCH10_SRS FR-UXB-30·32: **치수를 직접 들지 않는다.**
-
-     이전 동작: `14px` 고정 — 키트의 파생(`--ui-btn-h × --ui-icon-ratio`)과
-               `--fs-scale` 둘 다의 밖에 있었다. UI 글자 크기를 키워도 14px 이다
-     새  동작: `.ui-btn-icon>.ui-icon` 과 **같은 식**을 쓴다
-     이유:     접수 — "file explorer 아이콘이 너무 작다". 22px 버튼 안의 14px 은
-               키트 비율(.68)이 말하는 15px 보다도 작았다 */
-.ed-head .ui-btn svg{
-  width:calc(var(--ui-btn-h) * var(--ui-icon-ratio));
-  height:calc(var(--ui-btn-h) * var(--ui-icon-ratio));
-  display:block;
-  fill:none;stroke:currentColor;stroke-width:1.3;
-  stroke-linecap:round;stroke-linejoin:round;
-}
+/* 머리 버튼의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost` 이다 (§7.4). UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): 아이콘은 스프라이트이고
+   치수·선은 킷(`.ui-btn-icon>.ui-icon`)이 준다. 이전: 16×16 별도 SVG 를 1.3px 선으로 여기서 그렸다(UX_BATCH10 FR-UXB-30). */
 /* FR-EDT-68: 스크롤 주체는 트리 하나다. 행은 중첩 DOM 이 아니라 패딩으로 들여쓴
    평평한 목록이므로(FR-GIT-211 과 같은 규약) 재사용이 성립한다. */
 /* KIT_COMPONENTS_SRS FR-CMP-84 / `AUDIT-uiux.md` §5A.4: **아래 여백을 패딩으로
@@ -160,7 +142,7 @@ body.mobile .ed-row{height:var(--touch-min)}
 .ed-row.sel{background:var(--accent-active)}
 /* 펼침 표시의 칸은 폴더가 아닌 행에서도 자리를 지킨다 — 없으면 이름이 깊이마다
    어긋나 보인다. */
-.ed-tw{flex:0 0 10px;text-align:center;font-size:var(--fs-xs);color:var(--text-muted)}
+.ed-tw{flex:0 0 var(--ui-icon-sm);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);color:var(--text-muted)}
 .ed-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .ed-row.ed-dir .ed-name{color:var(--text-bright)}
 /* UIUX_OVERHAUL_SRS FR-HIE-5: 타입 단서가 10px 삼각형 **하나**에 실려 있었다
@@ -174,7 +156,7 @@ body.mobile .ed-row{height:var(--touch-min)}
            Segoe UI 등에서 400 과 같게 그려져 단서가 되지 않는다 */
 .ed-row.ed-dir .ed-name{font-weight:600}
 /* FR-EDT-60: 링크는 따라가지 않는다는 사실을 표시가 알린다. */
-.ed-mark{flex:0 0 auto;font-size:var(--fs-sm);color:var(--text-muted)}
+.ed-mark{flex:0 0 auto;display:inline-flex;align-items:center;font-size:var(--fs-sm);color:var(--text-muted)}
 /* FR-EDT-63: 조회 실패는 그 폴더 행에만 남는다 — 트리는 그대로 산다. */
 .ed-row.ed-err .ed-name{color:var(--danger-text);text-decoration:line-through}
 .ed-tree-err,.ed-more{font-size:var(--fs-sm);color:var(--text-hint);padding-top:2px;padding-bottom:2px}
@@ -248,9 +230,9 @@ body.mobile .ed-row{height:var(--touch-min)}
 }
 /* REPO_FIX 04 §3A-3: 실패 표시는 사용자가 닫는다. */
 .ed-op-err-msg{flex:1;min-width:0}
-.ed-op-err-x{flex:none;border:0;background:none;color:inherit;cursor:pointer;padding:0 2px;font-size:var(--fs-sm)}
+.ed-op-err-x{flex:none;color:inherit}
 /* REPO_FIX 04 §3A-2: 일시 오류로 갱신하지 못한 폴더 — 목록은 이전 것이다. */
-.ed-row.ed-stale .ed-name::after{content:" ⚠";color:var(--attn-text)}
+.ed-stale-mark{flex:0 0 auto;color:var(--attn-text)}   /* UX_AUDIT_FIX_SRS FR-UXF-100: 이전 `.ed-name::after{content:" ⚠"}` */
 /* §3A-5 (T-7.4): 다시 그려져도 드래그 원본이 보인다. */
 .ed-row.ed-dragging{opacity:.55}
 /* FR-EDT-83: 삭제 확인창은 `_confirmClose` 의 껍데기를 그대로 쓴다 — 줄만 여럿이다. */

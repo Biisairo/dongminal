@@ -21,7 +21,6 @@ Object.assign(App.prototype, {
      * `Activity` 하나가 됐고, 백그라운드 구역으로 직행하는 길은 `Ctrl+Shift+B`
      * 가 갖는다 (FR-CHR-18 · `PANEL_SHORTCUTS_SRS` FR-PSC-1).
      */
-    this._initStatusBarFold();
     /**
      * FR-CHR-11 (D-6): **깼던 규약을 되돌린다.**
      *
@@ -208,13 +207,9 @@ Object.assign(App.prototype, {
         return tpl.content.firstElementChild;
       },
     });
-    // FR-HIE-4: 순위를 행에 싣는다. `reconcileList` 가 키를 `dataset.rkey` 로
-    // 남기므로(repaint.js) 그것을 표에 대어 보면 된다 — 마크업에 순위를 적지 않는다.
-    for(const el of bar.children){
-      const pri=STATUSBAR_PRI[el.dataset.rkey];
-      if(pri) el.dataset.pri=String(pri);
-    }
-    this._foldStatusBar();
+    // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일은 상태바 대신 상단바가 연결과 cwd 를 말한다.
+    // 이전: 여기서 순위(FR-HIE-4)를 싣고 모바일 접힘을 다시 쟀다 — 모바일에 상태바가 없어 걷었다.
+    this.mTopPaint();
   },
 
   /**
@@ -225,15 +220,9 @@ Object.assign(App.prototype, {
   _initStatusBarReflow(){
     const bar=document.getElementById('status-bar');
     if(!bar||typeof ResizeObserver==='undefined')return;
-    let h=null,w=null;
+    let h=null;
     this._sbRo=new ResizeObserver(es=>{
-      const r=es[es.length-1].contentRect;
-      const nh=r.height,nw=r.width;
-      // FR-HIE-4: 폭이 바뀌면 접힘을 다시 잰다. 높이보다 먼저 보는 것은, 접는
-      // 일이 높이를 바꾸어 아래 분기를 스스로 부르기 때문이다 — 순서가 반대면
-      // 한 프레임 늦게 맞춘다. 접힘은 멱등이라 되먹임이 돌지 않는다.
-      if(w!==null&&Math.abs(nw-w)>=0.5) this._foldStatusBar();
-      w=nw;
+      const nh=es[es.length-1].contentRect.height;
       // 첫 관측은 지금 높이를 적어 두는 일일 뿐이다 — 변한 것이 없다.
       if(h===null){h=nh;return}
       if(Math.abs(nh-h)<0.5)return;

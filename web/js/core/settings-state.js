@@ -111,6 +111,8 @@ var migrationHook;
 var migrationHookCtxPct;
 var issueTreeMigration;
 var issueTreeCtxPct;
+// UX_AUDIT_FIX_SRS FR-UXF-93: 모바일 키바 구성. 값이 없으면 기본 키바다(`keybarResolve`).
+var keybarCfg;
 
 /** 지금 쓸 값. 설정이 아직 오지 않았으면 표의 기본값이다. */
 function uiFontSizeNow(){ return uiFontSize??SETTINGS_BY_KEY.uiFontSize.def }

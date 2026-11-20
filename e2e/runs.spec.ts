@@ -330,8 +330,9 @@ test.describe('Run 시각화 (묶음 V)', () => {
       .toHaveText('128k / 1.0M · 13%');   // `_runTokens` 는 M 단위에 소수 한 자리다
     // FR-RCX-2: 실측이 없어 바이트 추정으로 낸 값은 `~` 를 유지한다 — 추정과
     // 실측이 같은 얼굴이면 안 된다.
-    await expect(view.locator('.run-card[data-member="m3"] .run-card-ctx'))
-      .toHaveText('ctx ~93% ⚠');
+    // UX_AUDIT_FIX_SRS FR-UXF-100 로 개정: 이전 글자 'ctx ~93% ⚠' / 지금 글자 'ctx ~93%' 와 경고 아이콘 / 이유 아이콘 통일 D-36.
+    await expect(view.locator('.run-card[data-member="m3"] .run-card-ctx')).toHaveText('ctx ~93%');
+    await expect(view.locator('.run-card[data-member="m3"] .run-card-ctx svg')).toHaveCount(1);
     // FR-RCX-5: 값이 없으면 아무것도 적지 않는다. "모른다" 와 "0%" 는 다르다.
     await expect(view.locator('.run-card[data-member="m1"] .run-card-ctx')).toHaveCount(0);
   });

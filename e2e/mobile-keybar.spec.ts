@@ -221,12 +221,12 @@ test.describe('묶음 F — 모바일 키보드 뷰포트 (FR-MKV-*)', () => {
 
   test('TC-MKV-7: 줄어드는 것은 #area 뿐이다 (FR-MKV-8)', async ({ page }) => {
     await gotoMobile(page);
-    const before = { topbar: await box(page, '#topbar'), sb: await box(page, '.status-bar'), area: await box(page, '#area') };
+    // UX_AUDIT_FIX_SRS FR-UXF-90 으로 개정: 이전 상태바 높이도 그대로인지 쟀다 / 지금 모바일에 상태바가 없어 뺀다 / 이유 D-30.
+    const before = { topbar: await box(page, '#topbar'), area: await box(page, '#area') };
     await simulateKeyboard(page, { kb: KB, offsetTop: SCROLL });
-    const after = { topbar: await box(page, '#topbar'), sb: await box(page, '.status-bar'), area: await box(page, '#area') };
+    const after = { topbar: await box(page, '#topbar'), area: await box(page, '#area') };
 
     expect(after.topbar!.h).toBe(before.topbar!.h);
-    expect(after.sb!.h).toBe(before.sb!.h);
     expect(after.area!.h).toBeLessThan(before.area!.h);
   });
 

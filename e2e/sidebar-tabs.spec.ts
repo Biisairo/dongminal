@@ -105,7 +105,9 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
   // 좁으면 아이콘만 선다. 셋이 같은 폭으로 겹치지 않는다 / 이유 — 셋이 이름을 나누면 한 탭이 20px 남짓이다 (D-7).
   test('T3 (V-SBT-16): 사이드바 100px 에서도 세 탭이 겹치지 않고 아이콘으로 선다', async ({ page }) => {
     await waitForInit(page);
-    await expect(tab(page, 'chat').locator('.sb-tab-label')).toBeVisible();
+    // UX_AUDIT_FIX_SRS FR-UXF-98 (D-35) 로 개정: 이전 기본 폭(200px)에서 라벨이 보였다 / 지금 기본 폭은 라벨이 다 들어가지 않아 아이콘만이다
+    // (`저장소` 가 6px 모자람, 사용자 확인) / 이유 "좁으면 아이콘만, 넓으면 아이콘 + 라벨".
+    await expect(tab(page, 'chat').locator('.sb-tab-icon')).toBeVisible();
     await page.evaluate(() =>
       document.documentElement.style.setProperty('--sb-w', '100px'));
     const w = (await tab(page, 'windows').boundingBox())!;

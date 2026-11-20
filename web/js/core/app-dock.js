@@ -53,7 +53,8 @@ Object.assign(App.prototype, {
     let b=acts.querySelector('.sb-collapse');
     if(!b){
       // 킷은 이름 없는 단추를 거절한다(던진다) — 부팅 경로이므로 처음부터 이름을 준다.
-      b=UIKit.button({icon:'chevron-left',title:'Collapse the panel',kind:'ghost',size:'lg',cls:'sb-collapse ui-panel-act-desktop',onClick:e=>{e.stopPropagation();this._toggleSidebar()}});
+      // UX_AUDIT_FIX_SRS D-38: 작업 패널의 접기(`ag-collapse`)와 같은 크기다. 이전 `size:'lg'` — 레일 맨 위에서 두 레일의 탭 선이 4px 어긋났다.
+      b=UIKit.button({icon:'chevron-left',title:'Collapse the panel',kind:'ghost',cls:'sb-collapse ui-panel-act-desktop',onClick:e=>{e.stopPropagation();this._toggleSidebar()}});
       acts.prepend(b);
     }
     const open=!this.sidebarCollapsed();

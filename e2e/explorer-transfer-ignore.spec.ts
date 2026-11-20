@@ -109,7 +109,8 @@ async function open(page: Page, ...paths: string[]) {
     // 펼침이 화면에 선 뒤 다음 겹으로 간다 — 고정 대기로는 아직 닫힌 행을
     // 다음 경로의 부모로 삼게 된다. 표식은 트위스티다 (`EDITOR_TREE_TW_OPEN`);
     // 읽는 중이면 `·` 이므로 그 사이도 여기서 걸러진다.
-    await expect(r.locator('.ed-tw')).toHaveText('▾', { timeout: 10000 });
+    // UX_AUDIT_FIX_SRS FR-UXF-100 로 개정: 이전 글자 `▾` / 지금 `data-open="1"`(표식은 아이콘) / 이유 아이콘 통일 D-36.
+    await expect(r.locator('.ed-tw')).toHaveAttribute('data-open', '1', { timeout: 10000 });
   }
 }
 

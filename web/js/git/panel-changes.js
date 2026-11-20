@@ -456,7 +456,7 @@ Object.assign(GitPanel.prototype, {
     for(const b of box.querySelectorAll('.git-group-bulk')) b.disabled=!entries.length;
     const collapsed=this._collapsed.has(g.key)||!entries.length;
     box.classList.toggle('collapsed',collapsed);
-    box.querySelector('.git-group-caret').textContent=collapsed?'▸':'▾';
+    UIKit.caret(box.querySelector('.git-group-caret'),!collapsed);
     const rows=box.querySelector('.git-group-rows');
     if(collapsed){rows.innerHTML=''; return}
     const limit=this._shown.get(g.key)||GIT_FILE_ROW_CHUNK;
@@ -557,7 +557,7 @@ Object.assign(GitPanel.prototype, {
     this._indent(d,it.depth);
     d.innerHTML='<span class="git-dir-caret"></span><span class="git-dir-name"></span>'+
       '<span class="git-file-acts"></span>';
-    d.querySelector('.git-dir-caret').textContent=it.collapsed?'▸':'▾';
+    UIKit.caret(d.querySelector('.git-dir-caret'),!it.collapsed);
     d.querySelector('.git-dir-name').textContent=it.label;
     /**
      * FR-WBR-80: 폴더 행이 **그 그룹의** 동작을 갖는다. 파일 행과 같은 클래스를

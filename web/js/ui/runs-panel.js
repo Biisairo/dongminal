@@ -200,7 +200,8 @@ Object.assign(RunsPanel.prototype, {
     // 빈 contextLevel 은 "모른다" 이므로 배지를 달지 않는다 (FR-CBG-5).
     const lv = members.some(m => m.contextLevel === 'critical') ? 'critical'
       : members.some(m => m.contextLevel === 'warn') ? 'warn' : '';
-    if (lv) row.appendChild(runDiv('runs-ctx lv-' + lv, '⚠ ' + lv));
+    // UX_AUDIT_FIX_SRS FR-UXF-100: 경고 표식은 아이콘이다(이전 글자 `⚠`).
+    if (lv) row.appendChild(runDiv('runs-ctx lv-' + lv, ' ' + lv)).prepend(UIKit.icon('triangle-alert', { size: 'sm' }));
 
     const ago = this._runAgo(runLastActivity(rv));
     row.appendChild(runDiv('runs-ago', ago ? t('runs.ago', { ago }) : ''));

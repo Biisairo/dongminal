@@ -57,7 +57,8 @@ function groupRow(app,e){
 
 const SB_TAB_DEFS=[
   {
-    id:'windows',label:t('sidebar.tab_windows'),icon:'terminal',panelId:'sb-panel-windows',
+    id:'windows',label:t('sidebar.tab_windows'),icon:'app-window',  // UX_AUDIT_FIX_SRS FR-UXF-100: 이전 `terminal`(Background 와 닮았다)
+    panelId:'sb-panel-windows',
     // FR-TIP-1·2: 무슨 탭인지 영어로 알린다. 라벨만으로는 이 목록이
     // **무엇의** 목록인지 처음 보는 사용자에게 보이지 않는다.
     title:'Terminal windows in this workspace',
@@ -103,7 +104,8 @@ const SB_TAB_DEFS=[
         // 사실을 함께 적는다 — 컨테이너 안의 변경이 호스트로 돌아오지 않는다는
         // 것은 창을 여는 순간에만 말하고 끝낼 성질이 아니다. 폴더를 실제로 받은
         // 창에만 붙는다 (복사한 것이 없으면 뜻이 없다).
-        badge:s.sandbox?{text:'▣ '+s.sandbox+(s.sandboxCopy?' · '+SANDBOX_COPY_BADGE:''),
+        // UX_AUDIT_FIX_SRS FR-UXF-100: 앞의 표식은 아이콘 `box` 다(이전 글자 `▣`).
+        badge:s.sandbox?{icon:'box',text:s.sandbox+(s.sandboxCopy?' · '+SANDBOX_COPY_BADGE:''),
           cls:'si-sbx',
           title:t('sbx.window_badge_title')
             +(s.sandboxCopy?String.fromCharCode(10)+SANDBOX_COPY_BADGE_TITLE:'')}:null,
@@ -455,6 +457,8 @@ const SidebarTabs={
       g.hidden=!(n>0);
       if(n>0) g.textContent=String(n);
     }
+    // UX_AUDIT_FIX_SRS FR-UXF-98: 배지가 서고 지면 라벨 자리가 바뀐다 — 다시 잰다.
+    UIKit.tabsFitWatch(bar); UIKit.tabsFit(bar);
   },
 
   /**

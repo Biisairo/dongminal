@@ -221,12 +221,12 @@ test.describe('설정 — 전체 화면, 목록 → 상세 (FR-MUX-20~25)', () =
   });
 });
 
-test('TC-MUX-12: 모바일 상태바는 연결·cwd 항목만 보인다', async ({ page }) => {
+// UX_AUDIT_FIX_SRS FR-UXF-90 으로 개정: 이전 모바일 상태바는 연결·cwd 항목만 보였다 / 지금 상태바 줄이 없고
+// 연결·cwd 는 상단바가 말한다(TC-UXF-90) / 이유 진단 M1, D-30 — 키바 위 한 줄이 터미널 세로를 먹었다.
+test('TC-MUX-12: 모바일에는 상태바 줄이 없고 연결 점이 상단바에 있다', async ({ page }) => {
   await mobile(page);
-  await expect(page.locator('#sb-items .sb-item[data-rkey="connection"]')).toBeVisible();
-  const shown = await page.evaluate(() => [...document.querySelectorAll('#sb-items>.sb-item')]
-    .filter((e) => getComputedStyle(e).display !== 'none').map((e) => (e as HTMLElement).dataset.rkey));
-  expect(shown.sort()).toEqual(['connection', 'cwd']);
+  await expect(page.locator('#status-bar')).toBeHidden();
+  await expect(page.locator('#topbar .m-conn-dot')).toBeVisible();
 });
 
 // FR-MUX-60: 가로로 돌린 휴대폰(터치, 낮은 높이)은 폭이 기준을 넘어도 Auto 에서 모바일이다.

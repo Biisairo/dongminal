@@ -126,8 +126,9 @@ const ATTN_DETAIL_VIEW_MAX=140;
 // `internal/shared/activity` 이고, `scripts/check-activity-vocab.sh` 가 두 목록을 대조한다.
 // `ENDED` 는 종료 신호 — 카드를 거둔다.
 const ACTIVITY_STATE=Object.freeze({WORKING:'working',WAITING:'waiting',DONE:'done',IDLE:'idle',ENDED:'ended'});
-// 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
-const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'●',[ACTIVITY_STATE.DONE]:'✓',[ACTIVITY_STATE.WAITING]:'…',[ACTIVITY_STATE.IDLE]:'○'};
+// 상태별 아이콘 — 색(.ag-state.<state>)과 함께 상태를 구분.
+// UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): 스프라이트 이름이다(이전 글자 `● ✓ … ○`). 작업 중의 점은 채워 그린다.
+const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'dot',[ACTIVITY_STATE.DONE]:'check',[ACTIVITY_STATE.WAITING]:'more-horizontal',[ACTIVITY_STATE.IDLE]:'circle'};
 // UX_AUDIT_FIX_SRS FR-UXF-40: 상태의 보이는 글자. 상태값(데이터)은 그대로다.
 const AGENT_STATE_LABEL={[ACTIVITY_STATE.WORKING]:t('activity.state_working'),[ACTIVITY_STATE.DONE]:t('activity.state_done'),[ACTIVITY_STATE.WAITING]:t('activity.state_waiting'),[ACTIVITY_STATE.IDLE]:t('activity.state_idle')};
 
@@ -152,6 +153,7 @@ const MOBILE_LONG_PRESS_SKIP='.xterm,.tp,.cm-editor,input,textarea,select,[conte
  * 날 제어 문자는 편집기에서 보이지 않는다.
  *
  * `send` 는 sticky 수식을 거치고, `raw` 는 거치지 않는다. `mod` 는 수식 키, `act` 는 동작이다.
+ * `id` 는 설정 `keybar` 가 가리키는 이름이다(UX_AUDIT_FIX_SRS FR-UXF-93). `⌨` 는 구성 대상이 아니라 없다.
  */
 const MKB_KEYS=Object.freeze([
   // FR-MKB-8: `⌨` 는 **맨 왼쪽**이다. 종전에는 열일곱 개 중 열일곱 번째였고,
@@ -160,33 +162,33 @@ const MKB_KEYS=Object.freeze([
   // 자리에 있어야 한다.
   // UX_AUDIT_FIX_SRS FR-UXF-7: 글자 대신 아이콘을 그린다 — `⌨` 가 글꼴 대체로 `▬` 처럼 보였다(진단 M3). 라벨은 이름표의 열쇠로 남는다.
   {label:'⌨',act:'kb',icon:'keyboard'},
-  {label:'Esc',send:'\x1b'},
-  {label:'Tab',send:'\t'},
+  {id:'esc',label:'Esc',send:'\x1b'},
+  {id:'tab',label:'Tab',send:'\t'},
   // FR-MKB-15: 소프트 키보드를 내려 둔 채 쓰는 길이 `⌨` 로 생겼으므로
   // (FR-MKB-4), 그 상태에서 줄을 넘길 자리가 있어야 한다. `Tab` 옆인 것은
   // 둘 다 **입력을 확정하는 키**이기 때문이고, `Ctrl`–`^C` 쌍(D-4)은
   // 건드리지 않는다.
-  {label:'⏎',send:'\r'},
-  {label:'Ctrl',mod:'ctrl'},
+  {id:'enter',label:'⏎',send:'\r'},
+  {id:'ctrl',label:'Ctrl',mod:'ctrl'},
   // FR-MKB-9·10 / D-4·D-12: `Ctrl` 바로 옆이다. 소프트 키보드를 올리지
   // 않기로 하면(③) `Ctrl` 을 켠 뒤 `c` 를 칠 자리가 사라지므로, 접수한 말이
   // 그 둘을 한 문장에 담고 있었다. **모디파이어를 거치지 않고** 곧바로
   // `0x03` 을 보낸다 — 중단은 급할 때 누르는 것이고, 두 번 눌러야 하는
   // 중단은 중단이 아니다. `Ctrl` 의 sticky 를 읽지도 바꾸지도 않는다.
-  {label:'^C',raw:'\x03'},
-  {label:'Alt',mod:'alt'},
-  {label:'↑',send:'\x1b[A'},
-  {label:'↓',send:'\x1b[B'},
-  {label:'←',send:'\x1b[D'},
-  {label:'→',send:'\x1b[C'},
-  {label:'|',send:'|'},
-  {label:'~',send:'~'},
-  {label:'/',send:'/'},
-  {label:'-',send:'-'},
-  {label:'Home',send:'\x1b[H'},
-  {label:'End',send:'\x1b[F'},
-  {label:'PgUp',send:'\x1b[5~'},
-  {label:'PgDn',send:'\x1b[6~'},
+  {id:'ctrlc',label:'^C',raw:'\x03'},
+  {id:'alt',label:'Alt',mod:'alt'},
+  {id:'up',label:'↑',send:'\x1b[A'},
+  {id:'down',label:'↓',send:'\x1b[B'},
+  {id:'left',label:'←',send:'\x1b[D'},
+  {id:'right',label:'→',send:'\x1b[C'},
+  {id:'pipe',label:'|',send:'|'},
+  {id:'tilde',label:'~',send:'~'},
+  {id:'slash',label:'/',send:'/'},
+  {id:'hyphen',label:'-',send:'-'},
+  {id:'home',label:'Home',send:'\x1b[H'},
+  {id:'end',label:'End',send:'\x1b[F'},
+  {id:'pgup',label:'PgUp',send:'\x1b[5~'},
+  {id:'pgdn',label:'PgDn',send:'\x1b[6~'},
 ]);
 // 키바 버튼의 전체 이름 — title·aria-label 이 된다.
 const MKB_FULL_NAMES=Object.freeze({

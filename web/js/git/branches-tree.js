@@ -62,6 +62,7 @@ Object.assign(GitBranches.prototype, {
     const h=document.createElement('div'); h.className='git-br-group-head';
     h.appendChild(this._twist(true));
     const nm=document.createElement('span'); nm.className='git-br-group-name'; nm.textContent=g.name;
+    if(g.key===GIT_BR_GROUP_FAV) nm.prepend(UIKit.icon(GIT_BR_FAV_MARK,{size:'sm',fill:true}),' ');  // UX_AUDIT_FIX_SRS FR-UXF-100: 이전 카탈로그 글자 `★`
     const c=document.createElement('span'); c.className='git-br-group-count';
     h.appendChild(nm); h.appendChild(c);
     h.addEventListener('click',()=>this._toggleCollapse('g:'+g.key));
@@ -76,7 +77,7 @@ Object.assign(GitBranches.prototype, {
     if(!d) return;
     const open=searching||!this._collapsed('g:'+g.key);
     d.classList.toggle('open',open);
-    d.querySelector('.git-br-twist').textContent=open?'▾':'▸';
+    UIKit.caret(d.querySelector('.git-br-twist'),open);
     d.querySelector('.git-br-group-count').textContent='('+list.length+')';
     const body=d.querySelector('.git-br-group-body');
     // 접힌 그룹은 본문이 비어야 한다 — 빈 목록으로 조정하면 요소만 걷힌다.
@@ -153,7 +154,7 @@ Object.assign(GitBranches.prototype, {
     if(!d) return;
     const open=searching||!this._collapsed('p:'+key+':'+pfx);
     d.classList.toggle('open',open);
-    d.querySelector('.git-br-twist').textContent=open?'▾':'▸';
+    UIKit.caret(d.querySelector('.git-br-twist'),open);
     d.querySelector('.git-br-pfx-count').textContent='('+list.length+')';
     const body=d.querySelector('.git-br-pfx-body');
     reconcileList(body,open?list:[],{
@@ -165,7 +166,7 @@ Object.assign(GitBranches.prototype, {
 
   _twist(open){
     const twist=document.createElement('span'); twist.className='git-br-twist';
-    twist.textContent=open?'▾':'▸';
+    UIKit.caret(twist,open);
     return twist;
   },
 
@@ -181,7 +182,7 @@ Object.assign(GitBranches.prototype, {
       const on=this._favs().indexOf(r.short)>=0;
       const f=document.createElement('span');
       f.className='git-br-fav'+(on?' on':'');
-      f.textContent=GIT_BR_FAV_MARK;
+      f.appendChild(UIKit.icon(GIT_BR_FAV_MARK,{size:'sm',fill:on}));
       f.title=on?GIT_BR_FAV_ON_TITLE:GIT_BR_FAV_OFF_TITLE;
       f.addEventListener('click',ev=>{ev.stopPropagation();this._toggleFav(r.short)});
       d.appendChild(f);
@@ -192,7 +193,7 @@ Object.assign(GitBranches.prototype, {
     // FR-GIT-152: 현재 브랜치를 구분 표시한다.
     if(r.isHead){
       const c=document.createElement('span'); c.className='git-br-cur';
-      c.textContent=GIT_BR_CURRENT_MARK;
+      c.appendChild(UIKit.icon(GIT_BR_CURRENT_MARK,{size:'sm'}));
       d.appendChild(c);
     }
     // FR-GIT-153: ahead/behind 는 0 이면 숨긴다.

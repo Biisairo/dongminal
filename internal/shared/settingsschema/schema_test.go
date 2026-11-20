@@ -30,8 +30,9 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//      `issueTreeMigration`·`issueTreeCtxPct`) = 33
 	//    `pageTitle` 은 프로필 이름으로 옮겨 빠졌다 (PROFILE_NAME_SRS FR-PFN-30) = 32. 이미 쓰인 값은
 	//    Validate 가 unknown 으로 흘린다.
-	if len(specs) != 32 {
-		t.Fatalf("서술자 %d개, 기대 32개", len(specs))
+	//    + UX_AUDIT_FIX_SRS FR-UXF-93 의 `keybar`(모바일 키바 구성) = 33
+	if len(specs) != 33 {
+		t.Fatalf("서술자 %d개, 기대 33개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
 	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontSize", "termFontSize"} {

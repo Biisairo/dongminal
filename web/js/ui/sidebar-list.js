@@ -159,7 +159,7 @@ const SidebarList = {
     const b = r.badge, c = r.chip;
     return [r.name || '', r.title || '', r.cls || '', r.dotCls || '',
       r.active ? 1 : 0, r.attn ? 1 : 0, r.work ? 1 : 0, r.removable ? 1 : 0,
-      b ? (b.text + '' + (b.cls || '') + '' + (b.title || '')) : '',
+      b ? ((b.icon || '') + b.text + '' + (b.cls || '') + '' + (b.title || '')) : '',
       c ? (c.text + '\x02' + c.color) : '',
     ].join('');
   },
@@ -205,6 +205,7 @@ const SidebarList = {
       const g = document.createElement('span');
       g.className = ['sbl-badge', d.badgeClass, r.badge.cls].filter(Boolean).join(' ');
       g.textContent = r.badge.text;
+      if (r.badge.icon) g.prepend(UIKit.icon(r.badge.icon, { size: 'sm' }), ' ');   // UX_AUDIT_FIX_SRS FR-UXF-100
       if (r.badge.title) g.title = r.badge.title;
       el.appendChild(g);
     }

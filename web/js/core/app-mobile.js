@@ -171,9 +171,8 @@ Object.assign(App.prototype, {
   initMobileKeybar(){
     const bar=document.getElementById('mobile-keybar');
     if(!bar) return;
-    bar.innerHTML='';
     this.modKbd={ctrl:false,alt:false};
-    for(const k of MKB_KEYS) bar.appendChild(this._mkbButton(k));
+    this._mkbRender();
     // M9_SRS FR-M9-8 / D-M9-7: **가려진 키가 있다는 것을 보인다.**
     //
     // 키바는 한 줄에 열아홉이 서는 가로 스크롤 스트립이고(ACCESSIBILITY_BASELINE_SRS
@@ -191,6 +190,28 @@ Object.assign(App.prototype, {
       vv.addEventListener('scroll', apply);
       apply();
     }
+  },
+
+  // UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일은 상태바가 없다 — 연결은 창 이름 앞의 점, cwd 는 창 이름의 툴팁이다.
+  // 상태바 갱신과 제목 칠하기(`_rPaintTitles` 가 `title` 을 덮는다)가 부른다.
+  mTopPaint(){
+    if(!this.isMobile) return;
+    const ok=this._latency!==null&&this._latency!==undefined;
+    const dot=document.querySelector('#topbar .m-conn-dot');
+    if(dot){
+      dot.classList.toggle('ok',ok);dot.classList.toggle('err',!ok);
+      dot.title=ok?'Connected':'Disconnected';dot.setAttribute('aria-label',dot.title);
+    }
+    const name=document.getElementById('window-name');
+    if(name) name.title=this._shortCwd(this.cwd||'~');
+  },
+
+  // UX_AUDIT_FIX_SRS FR-UXF-93 (D-31): 키바는 설정 `keybar` 를 따른다. 설정이 바뀌면 다시 그리고(`_keybarApply`) sticky 표시를 다시 단다.
+  _mkbRender(){
+    const bar=document.getElementById('mobile-keybar');
+    if(!bar) return;
+    bar.innerHTML='';
+    for(const k of keybarResolve(keybarCfg)) bar.appendChild(this._mkbButton(k));
   },
 
   // FR-MTI-15~17: sticky 수식은 TerminalTool 한 곳에서 읽는다 — 키바 경로와
@@ -268,7 +289,7 @@ Object.assign(App.prototype, {
     // term.focus() 가 다시 올려 visualViewport 이벤트가 폭주한다. 스와이프로
     // 판정된 터치(preventDefault 를 하지 않는 경로)에서도 그 일이 없어야 한다.
     b.tabIndex=-1;
-    const full=MKB_FULL_NAMES[k.label]||k.label;
+    const full=k.name||MKB_FULL_NAMES[k.label]||k.label;   // FR-UXF-94: 매크로는 `Macro: Ctrl+D`
     b.title=full;b.setAttribute('aria-label',full);
     if(k.mod){b.dataset.mod=k.mod}
     if(k.act){b.dataset.act=k.act}

@@ -71,7 +71,8 @@ async function open(page: Page, ...paths: string[]) {
     const r = row(page, p);
     await r.click();
     // 펼침이 선 뒤 다음 겹으로 간다 — 표식은 트위스티다 (`EDITOR_TREE_TW_OPEN`).
-    await expect(r.locator('.ed-tw')).toHaveText('▾', { timeout: 10000 });
+    // UX_AUDIT_FIX_SRS FR-UXF-100 로 개정: 이전 글자 `▾` / 지금 `data-open="1"`(표식은 아이콘) / 이유 아이콘 통일 D-36.
+    await expect(r.locator('.ed-tw')).toHaveAttribute('data-open', '1', { timeout: 10000 });
   }
 }
 

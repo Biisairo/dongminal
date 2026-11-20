@@ -20,8 +20,9 @@ const GIT_COMMIT_HEIGHT_KEY='gitCommitHeight';
 // 키 하나마다 PUT 을 보내지 않는다.
 const GIT_COMMIT_DRAFT_DEBOUNCE_MS=300;
 const GIT_COMMIT_BTN=t('git.act.commit_btn');
-const GIT_COMMIT_MORE='▾';
-// FR-TIP-1: `▾` 만으로는 무엇이 열리는지 보이지 않는다.
+// UX_AUDIT_FIX_SRS FR-UXF-100: 아이콘 이름이다(이전 글자 `▾`).
+const GIT_COMMIT_MORE='chevron-down';
+// FR-TIP-1: 꺾쇠만으로는 무엇이 열리는지 보이지 않는다.
 const GIT_COMMIT_MORE_TITLE='More commit options';
 const GIT_COMMIT_AMEND='amend';
 // FR-GIT-79: VSCode 의 조합 명령 20개를 이 체크박스 3개가 대체한다. **선택을

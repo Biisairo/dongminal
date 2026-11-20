@@ -93,3 +93,70 @@ test.describe('6묶음 — 메뉴의 단축키 (FR-UXF-84·85)', () => {
     await expect(menu.locator('.ui-menu-item[data-id="rename"] .ui-menu-key')).toHaveCount(0);
   });
 });
+
+test.describe('패널 탭의 아이콘과 라벨 (FR-UXF-98·99, D-35)', () => {
+  const sbTab = (page: Page, id: string) => page.locator(`#sb-tabs .sb-tab[data-panel="${id}"]`);
+  const agTab = (page: Page, id: string) => page.locator(`#agents-head .ag-tab[data-sec="${id}"]`);
+  const clipped = (page: Page, sel: string) => page.locator(sel).evaluateAll((els) =>
+    els.filter((e) => (e as HTMLElement).offsetParent && e.scrollWidth > e.clientWidth + 1).length);
+
+  test('TC-UXF-96: 넓으면 아이콘과 라벨, 좁으면 아이콘만 (두 패널)', async ({ page }) => {
+    await waitForInit(page);
+    const ids = ['windows', 'repo', 'chat'];
+    await page.evaluate(() => document.documentElement.style.setProperty('--sb-w', '400px'));
+    for (const id of ids) {
+      await expect(sbTab(page, id).locator('.sb-tab-icon')).toBeVisible();
+      await expect(sbTab(page, id).locator('.sb-tab-label')).toBeVisible();
+    }
+    expect(await clipped(page, '#sb-tabs .sb-tab-label')).toBe(0);
+    // 탭을 바꿔도 탭들의 폭이 그대로다 (FR-UXF-99).
+    const widths = () => page.locator('#sb-tabs .sb-tab').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width)));
+    const before = await widths();
+    await sbTab(page, 'repo').click();
+    expect(await widths()).toEqual(before);
+    await sbTab(page, 'windows').click();
+
+    await page.evaluate(() => document.documentElement.style.setProperty('--sb-w', '100px'));
+    for (const id of ids) {
+      await expect(sbTab(page, id).locator('.sb-tab-icon')).toBeVisible();
+      await expect(sbTab(page, id).locator('.sb-tab-label')).toBeHidden();
+    }
+
+    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await expect(page.locator('#agents-panel')).toHaveClass(/\bopen\b/);
+    await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '480px'));
+    for (const id of ['agents', 'bg', 'runs']) {
+      await expect(agTab(page, id).locator('.ag-tab-icon')).toBeVisible();
+      await expect(agTab(page, id).locator('.ag-tab-name')).toBeVisible();
+    }
+    expect(await clipped(page, '#agents-head .ag-tab-name')).toBe(0);
+    await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '160px'));
+    for (const id of ['agents', 'bg', 'runs']) {
+      await expect(agTab(page, id).locator('.ag-tab-icon')).toBeVisible();
+      await expect(agTab(page, id).locator('.ag-tab-name')).toBeHidden();
+    }
+  });
+
+  test('TC-UXF-97: 모바일 서랍의 탭은 아이콘과 라벨이 함께 보인다', async ({ page }) => {
+    await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
+    await page.locator('#m-drawer-toggle').click();
+    for (const id of ['windows', 'repo', 'chat']) {
+      await expect(sbTab(page, id).locator('.sb-tab-icon')).toBeVisible();
+      await expect(sbTab(page, id).locator('.sb-tab-label')).toBeVisible();
+    }
+  });
+});
+
+test.describe('레일의 접기 단추 (FR-UXF-31 개정, D-38)', () => {
+  const top = (page: Page, sel: string) => page.locator(sel).first().evaluate((e) => e.getBoundingClientRect().top);
+
+  test('TC-UXF-31b: 레일로 접힌 두 패널에서 접기 단추가 탭보다 위, 맨 위에 선다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.setSidebarCollapsed(true));
+    await expect(page.locator('html')).toHaveClass(/\bsb-collapsed\b/);
+    expect(await top(page, '#sidebar .sb-collapse')).toBeLessThan(await top(page, '#sb-tabs .sb-tab'));
+
+    await expect(page.locator('#agents-panel')).not.toHaveClass(/\bopen\b/);
+    expect(await top(page, '#agents-panel .ag-collapse')).toBeLessThan(await top(page, '#agents-head .ag-tab'));
+  });
+});

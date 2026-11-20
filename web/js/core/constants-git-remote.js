@@ -87,11 +87,7 @@ const GIT_JOB_UNKNOWN_NOTE=t('git.job_unknown_note');
 const GIT_JOB_CANCELED=t('git.job_canceled');
 const GIT_JOB_CANCELING=t('git.job_canceling');
 const GIT_JOB_CLOSE=t('git.act.job_close');
-// REPO_TAB_UNIFY_SRS FR-RTU-100: 로그 접기 토글. 폭이 줄어도 자리가 고정인 유일한
-// 계기이므로 라벨도 한 글자여야 한다 — 글자가 길면 그것이 다시 폭을 다툰다.
-const GIT_JOB_FOLD_OPEN='\u25be';
-const GIT_JOB_FOLD_CLOSED='\u25b8';
-
+// REPO_TAB_UNIFY_SRS FR-RTU-100: 로그 접기 토글의 모양은 `UIKit.caret` 의 아이콘이다 (UX_AUDIT_FIX_SRS FR-UXF-100).
 const GIT_JOB_COPY=t('git.act.job_copy');
 const GIT_JOB_STREAM_FAIL=t('git.job_stream_fail');
 const GIT_JOB_START_FAIL=t('git.job_start_fail');

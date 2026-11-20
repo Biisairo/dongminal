@@ -35,10 +35,11 @@ const GIT_BR_RETRY=t('git.act.br_retry');
 // 기기별 취향이라 localStorage 다 (FR-GIT-150) — 실제 키는 <이것>:<repo>.
 const GIT_BR_FAV_FIELD='favorites';
 const GIT_BR_COLLAPSE_KEY='gitBrCollapsed';
-const GIT_BR_FAV_MARK='★';
+// UX_AUDIT_FIX_SRS FR-UXF-100: 두 표식은 아이콘 이름이다(이전 글자 `★`·`✓`). 즐겨찾기가 켜지면 채운 별이다.
+const GIT_BR_FAV_MARK='star';
 const GIT_BR_FAV_ON_TITLE=t('git.br_fav_on_title');
 const GIT_BR_FAV_OFF_TITLE=t('git.br_fav_off_title');
-const GIT_BR_CURRENT_MARK='✓';
+const GIT_BR_CURRENT_MARK='check';
 // 접두사 그룹핑은 이름의 첫 조각이다 (FR-GIT-150).
 const GIT_BR_PREFIX_SEP='/';
 

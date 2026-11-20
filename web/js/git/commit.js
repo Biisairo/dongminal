@@ -71,7 +71,7 @@ class GitCommit {
     el.querySelector('.git-commit-amend span').textContent=GIT_COMMIT_AMEND;
     el.querySelector('.git-commit-btn').textContent=GIT_COMMIT_BTN;
     const more=el.querySelector('.git-commit-more');
-    more.textContent=GIT_COMMIT_MORE; more.title=GIT_COMMIT_MORE_TITLE;
+    more.replaceChildren(UIKit.icon(GIT_COMMIT_MORE,{size:'sm'})); more.title=GIT_COMMIT_MORE_TITLE;
     const menu=el.querySelector('.git-commit-menu');
     for(const o of GIT_COMMIT_OPTS){
       const lab=document.createElement('label');

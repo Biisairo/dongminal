@@ -581,7 +581,9 @@ test.describe('Activity subagent views and usage limits', () => {
     const row = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub`);
     await expect(row).toHaveCount(1, { timeout: 10000 });
     // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 '● working · …' / 지금 '● 작업 중 · …' / 이유 한국어 화면의 보이는 글자는 한국어다
-    await expect(row.locator('.ag-sub-state')).toHaveText('● 작업 중 · A-Very-Long-Tool-Name-For-Overflow-Check');
+    // UX_AUDIT_FIX_SRS FR-UXF-100 로 개정: 이전 '● 작업 중 · …' / 지금 상태 기호는 아이콘(`svg`), 글자는 '작업 중 · …' / 이유 아이콘 통일 D-36.
+    await expect(row.locator('.ag-sub-state')).toHaveText('작업 중 · A-Very-Long-Tool-Name-For-Overflow-Check');
+    await expect(row.locator('.ag-sub-state svg')).toHaveCount(1);
     await expect(row.locator('.ag-usage-model')).toHaveText('haiku-5-5·low');
     await expect(page.locator('#agents-panel .ag-subcard')).toHaveCount(0);
     await expect(page.locator('#agents-panel .ag-subview')).toHaveCount(0);

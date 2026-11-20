@@ -139,7 +139,9 @@ test.describe('1묶음 — 데스크톱', () => {
     expect(await anim('#modal')).toBe('ui-surface-in');
   });
 
-  test('TC-UXF-11: 승인 대기 카드는 그 창 그룹의 맨 위로 오고, 풀리면 제자리다', async ({ page }) => {
+  // UX_AUDIT_FIX_SRS FR-UXF-110 (D-37) 로 개정: 이전 승인 대기 카드가 그룹 맨 위로 올라갔다(FR-UXF-12) / 지금 상태로 자리를 옮기지 않는다 /
+  // 이유 결함 신고 "agent 패널에서 배치가 계속 바뀐다".
+  test('TC-UXF-11: 승인 대기로 바뀌어도 카드가 자리를 옮기지 않는다', async ({ page }) => {
     await waitForInit(page);
     const pid1 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     const before = await page.locator('#area .pn.focused .pn-tab').count();
@@ -159,7 +161,8 @@ test.describe('1묶음 — 데스크톱', () => {
     await expect(cards).toHaveCount(2, { timeout: 10000 });
     await expect(cards.first()).toHaveAttribute('data-toolid', pid1!);
     await set(pid2!, 'waiting');
-    await expect(cards.first()).toHaveAttribute('data-toolid', pid2!);
+    await expect(cards.nth(1).locator('.ag-state')).toHaveClass(/\bwaiting\b/);
+    await expect(cards.first()).toHaveAttribute('data-toolid', pid1!);
     await set(pid2!, 'done');
     await expect(cards.first()).toHaveAttribute('data-toolid', pid1!);
     expect(await page.evaluate(() => (window as any).app.ws.agentsOrder.slice(-2))).toEqual([pid1, pid2]);

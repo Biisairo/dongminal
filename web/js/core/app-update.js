@@ -42,14 +42,19 @@ Object.assign(App.prototype, {
       if(row) row.hidden=!u;
       cb.checked=!!(u&&u.enabled);
     }
-    const el=document.getElementById('update-badge');
-    if(!el) return;
     const show=!!(u&&u.enabled&&u.newer&&u.latest);
-    el.hidden=!show;
-    if(!show){ el.removeAttribute('href'); el.textContent=''; return }
-    el.textContent=t('update.badge',{version:u.latest});
-    el.title=t('update.badge_title',{version:u.latest});
-    if(u.link) el.href=u.link; else el.removeAttribute('href');
+    // UX_AUDIT_FIX_SRS FR-UXF-92 (D-30): 모바일은 상태바가 없다 — ☰ 의 점과 서랍 바닥의 링크가 배지를 대신한다.
+    // 링크는 배지와 같은 글자·주소다. 데스크톱에서는 `.mobile-only` 와 감춘 ☰ 가 둘을 가린다.
+    const dot=document.querySelector('#m-drawer-toggle .m-update-dot');
+    if(dot) dot.hidden=!show;
+    for(const el of [document.getElementById('update-badge'),document.getElementById('m-update-link')]){
+      if(!el) continue;
+      el.hidden=!show;
+      if(!show){ el.removeAttribute('href'); el.textContent=''; continue }
+      el.textContent=t('update.badge',{version:u.latest});
+      el.title=t('update.badge_title',{version:u.latest});
+      if(u.link) el.href=u.link; else el.removeAttribute('href');
+    }
   },
 
   /**

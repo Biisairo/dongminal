@@ -491,7 +491,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-br-group-name{color:var(--text-bright)}
 .git-br-pfx-name{color:var(--text)}
 .git-br-group-count,.git-br-pfx-count{color:var(--text-hint);font-size:var(--fs-sm)}
-.git-br-twist{flex:0 0 auto;width:10px;color:var(--text-hint);font-size:var(--fs-xs)}
+.git-br-twist{flex:0 0 auto;display:inline-flex;color:var(--text-hint);font-size:var(--fs-xs)}
 .git-br-pfx-head{padding-left:20px}
 .git-br-pfx-body>.git-br-row{padding-left:44px}
 .git-br-group-body>.git-br-row{padding-left:28px}
@@ -505,9 +505,9 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-br-row.sel{background:var(--accent-hover);box-shadow:inset 2px 0 0 var(--accent)}
 /* FR-GIT-152: 현재 브랜치를 구분 표시한다 */
 .git-br-row.current .git-br-name{color:var(--accent-text)}
-.git-br-cur{flex:0 0 auto;color:var(--accent-text);font-size:var(--fs-sm)}
+.git-br-cur{flex:0 0 auto;display:inline-flex;color:var(--accent-text)}
 /* FR-GIT-149: ★ 는 꺼진 상태에서도 자리를 지킨다 — 자리가 흔들리면 누를 수 없다 */
-.git-br-fav{flex:0 0 auto;width:12px;color:var(--border);cursor:pointer;font-size:var(--fs-sm)}
+.git-br-fav{flex:0 0 auto;display:inline-flex;color:var(--border);cursor:pointer}
 .git-br-fav:hover{color:var(--text-muted)}
 .git-br-fav.on{color:var(--accent-text)}
 .git-br-name{min-width:0;overflow:hidden;text-overflow:ellipsis}

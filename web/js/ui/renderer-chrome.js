@@ -133,6 +133,7 @@ Object.assign(Renderer.prototype, {
     const multi=!app.isMobile&&app.slotCount()>1;
     const top=document.getElementById('window-name');
     if(top) this._rPaintTitle(top,multi?[]:this._rWinTitleParts(app.aw()));
+    app.mTopPaint();   // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일에서 창 이름의 툴팁은 cwd 다
     if(!multi) return;
     document.querySelectorAll('#area .slot[data-slot] .slot-head').forEach(h=>{
       const i=Number(h.closest('.slot').dataset.slot);
@@ -203,7 +204,8 @@ Object.assign(Renderer.prototype, {
     const dt=document.getElementById('m-drawer-toggle');
     // UI_KIT_SRS FR-GLY-4: 글자가 아니라 아이콘이므로 `textContent` 로 바꿀 수
     // 없다 — 그 대입은 `<svg>` 를 지운다.
-    if(dt) dt.replaceChildren(UIKit.icon(this.app.drawerOpen?'x':'menu'));
+    // UX_AUDIT_FIX_SRS FR-UXF-92: 아이콘만 바꾼다 — 새 판 점(`.m-update-dot`)이 같은 단추 안에 있다.
+    if(dt){ const ic=dt.querySelector('svg'); const n=UIKit.icon(this.app.drawerOpen?'x':'menu'); if(ic) ic.replaceWith(n); else dt.prepend(n) }
     // FR-WSL-50·62: 칸 더하기·빼기. 모바일에는 칸을 만드는 길이 없다.
     // 한계에 닿은 버튼은 비활성이다 — 눌리지만 아무 일도 하지 않는 버튼은
     // 고장으로 읽힌다 (FR-GIT-180 이 세운 규약).
