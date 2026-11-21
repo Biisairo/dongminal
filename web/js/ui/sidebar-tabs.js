@@ -303,183 +303,21 @@ for(let i=SB_TAB_DEFS.length;i<SB_JUMP_MAX;i++){
   delete shortcuts[k];
 }
 
+/**
+ * 사이드바 탭 줄의 입구 (REFACTOR3_FE_BASE_SRS FR-FEB-21 · INV-F2). 하는 일은 `SidebarTabBar`(sidebar-tab-bar.js)가 맡고,
+ * 이 객체는 렌더러·App 이 부르던 이름을 그 인스턴스(`app.sbPanel().tabs`)에 넘긴다. 이름을 지우는 일은 단계 9 다.
+ */
 const SidebarTabs={
-  // 등록된 서술자 중 지금 보이는 것들 (FR-SBT-19 `visible`).
-  visible(app){return SB_TAB_DEFS.filter(d=>!d.visible||d.visible(app))},
-
-  def(app,id){return this.visible(app).find(d=>d.id===id)||null},
-
-  /**
-   * SLOT_TITLE_BOUNDARY_SRS FR-STB-3: 창 타입의 **보이는 이름**.
-   *
-   * 제목이 부르는 이름과 사이드바 탭이 부르는 이름이 갈라지면 둘을 잇는 일이
-   * 사용자 몫이 된다 (D-5). 그래서 라벨의 출처는 서술자 하나다.
-   *
-   * `visible` 을 거치지 않는다 — 라벨은 그 탭이 지금 보이는지와 무관하다.
-   */
-  labelForWindow(app,w){
-    // FR-RTU-1: Git 창과 Repo 창이 같은 탭에 속한다. 옛 Git 창은 마이그레이션
-    // 전까지 남으므로(FR-RTU-70) 그 라벨도 여기서 나온다.
-    const id=(app.isGitWin(w)||app.isEditorWin(w))?REPO_TAB_ID:app.isChatWin(w)?CHAT_TAB_ID:'windows';
-    const d=SB_TAB_DEFS.find(x=>x.id===id);
-    return d?d.label:'';
-  },
-
-  // FR-SBT-7: 보관된 값이 없거나 알 수 없는 값이면 첫 탭이다.
-  restore(){
-    const v=PrefStore.local.get(SB_TAB_KEY);
-    return SB_TAB_DEFS.some(d=>d.id===v)?v:SB_TAB_DEFS[0].id;
-  },
-
-  /**
-   * FR-SBT-22: 탭을 활성화하면 패널이 바뀌고 **콘텐츠 영역의 활성 창도 함께
-   * 바뀐다.** 탭과 활성 창은 한 상태의 두 표현이다 (FR-SBT-15 개정, D-7).
-   *
-   * `silent` 는 역방향(창 → 탭, FR-SBT-14)의 것이다 — 콘텐츠가 이미 그 창이므로
-   * 다시 옮길 이유가 없다. `sbBusy` 는 §3.9.2 가 요구하는 **재진입 가드**다:
-   * 탭 전환이 창을 바꾸고 그 창 변경이 다시 탭 동기화를 부르는 순환을 한 번에
-   * 끊는다 (V-SBT-10).
-   */
-  setTab(app,id,opts){
-    if(app.sbBusy) return;
-    const d=this.def(app,id); if(!d||app.sbTab===id) return;
-    const prev=this.def(app,app.sbTab);
-    this.saveScroll(app.sbTab);
-    app.sbTab=id;
-    PrefStore.local.set(SB_TAB_KEY,id);
-    this.paint(app);
-    this.restoreScroll(id);
-    // FR-GOB-9: 패널이 화면에 온 사실은 `silent` 와 무관하다 — 창 쪽에서 따라온
-    // 전환(FR-SBT-14)도 사용자에게는 똑같이 "그 탭에 들어갔다" 이다.
-    if(prev&&prev.onLeave) prev.onLeave(app);
-    if(d.onEnter) d.onEnter(app);
-    if(opts&&opts.silent) return;
-    if(!d.onActivate) return;
-    app.sbBusy=true;
-    try{d.onActivate(app)}finally{app.sbBusy=false}
-  },
-
-  /**
-   * FR-SBT-14: 창이 바뀌면 탭이 따라간다. 콘텐츠는 이미 그 창이므로 silent 다.
-   *
-   * 일반 창 쪽에는 조건이 하나 붙는다 — **Git 창이 실제로 있을 때만** `Git` 탭에서
-   * 내려온다. Git 창이 없는데 보관된 탭이 `git` 인 경우는 FR-SBT-25 가 허용한 상태이며
-   * (탭만 전환, 콘텐츠 불변), 여기서 내려보내면 V-SBT-25 를 깬다.
-   */
-  syncToWindow(app){
-    // FR-EDT-8 + FR-RTU-1: Repo 창(과 아직 남아 있는 옛 Git 창)이 활성이면 탭도
-    // `repo` 로 따라온다. 재진입은 기존 `sbBusy` 가드가 그대로 끊는다.
-    const w=app.aw();
-    if(app.isGitWin(w)||app.isEditorWin(w)){this.setTab(app,REPO_TAB_ID,{silent:true});return}
-    if(app.isChatWin(w)){this.setTab(app,CHAT_TAB_ID,{silent:true});return} // CHAT_WINDOW_SRS FR-CW-22
-    if(app.sbTab===CHAT_TAB_ID){this.setTab(app,'windows',{silent:true});return}
-    // 그 반대는 **갈 창이 실제로 있을 때만** 한다 — 없는데 내려보내면 탭만
-    // 전환된 상태(FR-SBT-25)를 깬다.
-    if(app.sbTab===REPO_TAB_ID&&(app.edWindows().length||app.gitWindow()))
-      this.setTab(app,'windows',{silent:true});
-  },
-
-  // FR-SBT-26·29: n 은 1-based 이며 **서술자 배열의 인덱스**다 — 숨은 탭이 있어도 번호가 밀리지 않는다.
-  // UX_AUDIT_FIX_SRS FR-UXF-122 (D-41): 작업 패널의 직행 키와 같은 토글이다 — 펼친 채 지금 보는 탭이면 접고, 그 밖에는
-  // 그 탭을 고르고 접혀 있으면 편다. 모바일(서랍)은 접기가 없어 고르기만 한다 (FR-SBC-20).
-  //   이전: 토글이 아니어서 이미 그 탭이면 아무 일도 하지 않았다 (FR-SBT-27)
-  jumpTo(app,n){
-    const d=SB_TAB_DEFS[n-1];
-    if(!d||!this.def(app,d.id)) return;
-    const desk=!app.isMobile, folded=desk&&app.sidebarCollapsed();
-    if(desk&&!folded&&app.sbTab===d.id){app.setSidebarCollapsed(true);return}
-    if(app.sbTab!==d.id) this.setTab(app,d.id);
-    if(folded) app.setSidebarCollapsed(false);
-  },
-
-  /**
-   * 탭 바를 그린다. **버튼을 다시 만들지 않는다** (C-3) — 서술자마다 한 번 만들고
-   * 이후로는 글자·클래스·배지만 고친다. 배열 전체로 한 번에 만들므로 나중에
-   * 보이게 된 탭이 순서를 잃지 않는다.
-   */
-  paint(app){
-    const bar=document.getElementById('sb-tabs'); if(!bar) return;
-    // ACCESSIBILITY_BASELINE_SRS FR-A11Y-12 (`G7-1` 첫 판): `tab` 은 `tablist` 안에
-    // 있어야 한다 — axe `aria-required-parent` 가 사이드바 탭 둘을 올렸다.
-    bar.setAttribute('role','tablist');
-    if(!bar.childElementCount) for(const d of SB_TAB_DEFS) bar.appendChild(this.build(app,d));
-    // 보관된 탭이 지금 보이지 않으면 첫 탭으로 떨어진다 (FR-SBT-8).
-    const vis=this.visible(app);
-    if(!vis.some(d=>d.id===app.sbTab)) app.sbTab=vis.length?vis[0].id:null;
-    for(const d of SB_TAB_DEFS){
-      const b=bar.querySelector('.sb-tab[data-panel="'+d.id+'"]');
-      const on=vis.includes(d);
-      if(b){
-        b.hidden=!on;
-        b.classList.toggle('active',on&&app.sbTab===d.id);
-        b.setAttribute('aria-selected',on&&app.sbTab===d.id?'true':'false');
-      }
-      const p=document.getElementById(d.panelId);
-      if(p) p.hidden=!(on&&app.sbTab===d.id);
-    }
-    this.updateBadges(app);
-  },
-
-  build(app,d){
-    /**
-     * UI_KIT_SRS FR-UIK-24: 탭을 만드는 자리는 하나다 (`UIKit.tab`).
-     *
-     * 기존 클래스(`sb-tab`·`sb-tab-icon`·`sb-tab-label`·`sb-tab-badge`)는
-     * **함께** 붙는다 — e2e 와 CSS 가 그 이름 위에 서 있다 (FR-UIK-10 / D-5).
-     *
-     * SIDEBAR_COLLAPSE_SRS FR-SBC-13: 아이콘은 항상 DOM 에 있고 보임은 CSS 가
-     * 정한다 — 접힘마다 버튼을 다시 만들면 C-3 이 깨진다. 서술자에 아이콘이
-     * 없으면 라벨의 첫 글자로 떨어지는 규약도 그대로다 (`iconText`).
-     */
-    const b=UIKit.tab({
-      id:d.id,label:d.label,
-      // FR-TIP-1: 문자열은 탭 정의가 든다 — 만드는 자리에 적으면 표가 두 벌이 된다.
-      title:d.title,
-      icon:d.icon,iconText:d.icon?null:(d.label||'?').charAt(0),
-      // PANEL_TEMPLATE_SRS FR-PNT-6: 탭의 모양은 패널 템플릿(`ui-panel-tab`)이 정한다.
-      cls:'sb-tab ui-panel-tab',iconCls:'sb-tab-icon',labelCls:'sb-tab-label',badgeCls:'sb-tab-badge',
-    });
-    /**
-     * FR-SBC-17·18 (2026-09-06 개정): 레일에서의 클릭은 **전환만 한다.**
-     *
-     *   이전 동작: 전환하고 **펼쳤다**
-     *   새  동작: 접힘을 유지한 채 활성 탭만 바꾼다
-     *   이유:     접어 둔 것은 접어 두려는 뜻이다 (사용자 지시). 탭을 고르는 일과
-     *             사이드바를 펼치는 일은 서로 다른 결정이고, 펼치는 손잡이는
-     *             경계에 따로 있다 (FR-SBC-7 개정).
-     *
-     * 접힌 채 탭을 바꾸면 레일의 활성 표시가 옮겨 간다 — 보이는 것이 없지는 않고,
-     * 다음에 펼쳤을 때 그 탭이 선다.
-     */
-    b.addEventListener('click',()=>this.setTab(app,d.id));
-    return b;
-  },
-
-  // FR-SBT-13: 0·null 이면 배지가 없다. UX_AUDIT_FIX_SRS FR-UXF-120 (D-41): 고른 탭에도 보인다 — 작업 패널과 같은 규칙이다.
-  //   이전: 비활성 탭에서만 보였다 (FR-SBT-12)
-  updateBadges(app){
-    const bar=document.getElementById('sb-tabs'); if(!bar) return;
-    for(const d of SB_TAB_DEFS){
-      const g=bar.querySelector('.sb-tab[data-panel="'+d.id+'"] .sb-tab-badge');
-      if(!g) continue;
-      // REFACTOR3_FE_BASE_SRS FR-FEB-15: 배지 판정은 작업 패널과 같은 `badgeOf` 다.
-      const bd=badgeOf(d.badge?d.badge(app):0);
-      g.hidden=!bd.shown;
-      if(bd.shown) g.textContent=bd.text;
-    }
-    // UX_AUDIT_FIX_SRS FR-UXF-98: 배지가 서고 지면 라벨 자리가 바뀐다 — 다시 잰다.
-    UIKit.tabsFitWatch(bar); UIKit.tabsFit(bar);
-  },
-
-  /**
-   * FR-SBT-11: 숨김이 display:none 이면 스크롤이 0 으로 돌아간다. 전환 전
-   * scrollTop 을 요소에 적어 두고 다시 보일 때 복원한다 — 값을 요소에 두는 이유는
-   * 패널마다 스크롤 컨테이너가 몇 개인지 서술자가 알 필요가 없기 때문이다.
-   */
-  panelOf(id){
-    const d=SB_TAB_DEFS.find(x=>x.id===id);
-    return d?document.getElementById(d.panelId):null;
-  },
-  saveScroll(id){ UIKit.scrollSave(this.panelOf(id)) },
-  restoreScroll(id){ UIKit.scrollRestore(this.panelOf(id)) },
+  bar(app){ return app.sbPanel().tabs },
+  visible(app){ return this.bar(app).visibleDefs() },
+  def(app,id){ return this.bar(app).def(id) },
+  labelForWindow(app,w){ return this.bar(app).labelForWindow(w) },
+  restore(){ return TabBar.restoreFrom(SB_TAB_KEY,SB_TAB_DEFS) },
+  setTab(app,id,opts){ this.bar(app).select(id,opts) },
+  syncToWindow(app){ this.bar(app).syncToWindow() },
+  jumpTo(app,n){ this.bar(app).jump(n) },
+  paint(app){ this.bar(app).paint() },
+  build(app,d){ return this.bar(app).buildTab(d) },
+  updateBadges(app){ this.bar(app).paintBadges() },
+  panelOf(id){ return SidebarTabBar.panelOf(id) },
 };

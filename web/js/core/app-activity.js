@@ -199,64 +199,21 @@ Object.assign(App.prototype, {
   /** FR-UXF-74: 사용량 바닥의 펼침. 저장값이 없으면 데스크톱은 펼침, 모바일은 접힘이다. */
   _actUsageOpenNow(){ return PrefStore.local.bool(STORE_KEYS.activityUsageOpen,!this.isMobile) },
 
+  /** 작업 패널과 그 탭 줄 (REFACTOR3_FE_BASE_SRS FR-FEB-24). 처음 부를 때 만든다 — 단위 시험의 App 대역도 같은 길을 지난다. */
+  actPanel(){ return this.activityPanel||(this.activityPanel=new ActivityPanel(this)) },
+
+  // ── 탭 줄 (REFACTOR3_FE_BASE_SRS FR-FEB-22, 위임) ── 하는 일은 `ActivityTabBar`(activity-tab-bar.js)가 맡는다.
+
   /** 고른 탭. 저장 값이 모르는 탭이면 첫 탭이다. */
-  _actTab(){
-    if(!this._actTabKey) this._actTabKey=PrefStore.local.get(STORE_KEYS.activityTab);
-    if(!ACTIVITY_SECTIONS.some(s=>s.key===this._actTabKey)) this._actTabKey=ACTIVITY_SECTIONS[0].key;
-    return this._actTabKey;
-  },
+  _actTab(){ return this.actPanel().tabs.current },
 
-  /**
-   * FR-PCH-82: 탭을 바꾼다. 레일이면 레일인 채로 바뀐다.
-   * UX_AUDIT_FIX_SRS FR-UXF-121 (D-41): 탭마다 보던 자리로 돌아온다 — 메인 패널과 같은 규칙이다. 몸통이 하나라 자리는 탭 키로 적는다.
-   *   이전: 탭을 바꾸면 맨 위로 갔다
-   */
-  _actTabSelect(key){
-    if(!ACTIVITY_SECTIONS.some(s=>s.key===key)) return;
-    const body=document.getElementById('agents-body');
-    if(!this._actScroll) this._actScroll=new Map();
-    if(body) this._actScroll.set(this._actTab(),body.scrollTop);
-    this._actTabKey=key;
-    PrefStore.local.set(STORE_KEYS.activityTab,key);
-    this.agentsRender();
-    if(body) body.scrollTop=this._actScroll.get(key)||0;
-  },
+  /** FR-PCH-82 · FR-UXF-121: 탭을 바꾼다. 레일이면 레일인 채로 바뀌고, 탭마다 보던 자리로 돌아온다. */
+  _actTabSelect(key){ this.actPanel().tabs.select(key) },
 
-  /**
-   * FR-PCH-80~82: 탭 줄. 탭마다 아이콘·이름·배지(수 또는 점)다. 레일에서는 CSS 가 세로로 세운다.
-   * UX_AUDIT_FIX_SRS FR-UXF-123 (D-41): 단추는 **한 번** 만들고(구역 목록은 고정이다) 활성·배지·점·툴팁은 `_actTabsPaint` 가 고친다.
-   *   이전: 고른 탭이나 수가 바뀔 때마다 줄을 새로 만들어 그 위의 툴팁·포커스·hover 가 끊겼다
-   */
-  _actTabsEl(tabs){
-    const bar=document.createElement('div');
-    bar.className='ag-tabs ui-panel-tabs';   // PANEL_TEMPLATE_SRS FR-PNT-2
-    bar.setAttribute('role','tablist');
-    for(const tb of tabs){
-      const b=UIKit.tab({title:tb.tip,icon:tb.icon,label:tb.title,
-        cls:'ag-tab ui-panel-tab',iconCls:'ag-tab-icon',labelCls:'ag-tab-name',badgeCls:'ag-tab-n',
-        onClick:e=>{e.stopPropagation();this._actTabSelect(tb.key)}});
-      b.dataset.sec=tb.key;
-      bar.appendChild(b);
-    }
-    return bar;
-  },
+  /** FR-PCH-80~82 · FR-UXF-123: 탭 줄. 단추는 한 번 만들고 활성·배지·점·툴팁은 `_actTabsPaint` 가 고친다. */
+  _actTabsEl(){ return this.actPanel().tabs.ensure() },
 
-  _actTabsPaint(bar,cur,tabs){
-    if(!bar) return;
-    for(const tb of tabs){
-      const b=bar.querySelector('.ag-tab[data-sec="'+tb.key+'"]');
-      if(!b) continue;
-      b.classList.toggle('active',tb.key===cur);
-      b.setAttribute('aria-selected',tb.key===cur?'true':'false');
-      b.title=tb.tip;
-      const n=b.querySelector('.ag-tab-n');   // 킷의 탭은 배지 자리를 늘 만든다 (UIKit.tab)
-      // FR-PCH-81: 수가 없으면 알람 점이다. UI_POLISH_SRS FR-UIP-7: 0 은 말하지 않는다. 판정은 사이드바와 같은 `badgeOf` 다(FR-FEB-15).
-      const bd=badgeOf(tb.n,{dot:tb.dot});
-      if(n){ n.hidden=!bd.shown; n.textContent=bd.text }
-      const dot=b.querySelector('.ag-tab-dot');
-      if(bd.dot){ if(!dot) b.appendChild(domEl('span','ag-tab-dot')) }else if(dot) dot.remove();
-    }
-  },
+  _actTabsPaint(bar,cur,tabs){ if(bar) this.actPanel().tabs.paintWith(tabs) },
 
   /** 빈 구역의 한 줄. 문구는 그 표면이 모달·팝오버 시절에 쓰던 것 그대로다. */
   _actSecEmptyEl(sec){
@@ -279,21 +236,7 @@ Object.assign(App.prototype, {
    * **외운 키를 뺏지 않는다** (NFR-4). 같은 구역을 다시 부르면 패널이 닫힌다:
    * 토글이던 것은 토글로 남는다.
    */
-  actPanelOpen(key){
-    const panel=document.getElementById('agents-panel');
-    if(!panel) return;
-    const open=panel.classList.contains('open');
-    // UX_AUDIT_FIX_SRS FR-UXF-122 (D-41): 기준은 **지금 보고 있는 탭**이다 — 메인 패널의 직행 키와 같은 토글이다.
-    //   이전: 마지막으로 키로 부른 구역(`_actLastKey`)이 같을 때만 닫혀, 손으로 탭을 바꾼 뒤에는 닫히지 않았다
-    if(open&&(!key||this._actTab()===key)){this.agentsToggle();return}
-    // 구역이 비어 있으면 그릴 것이 없으므로 먼저 받아 온다 — 열자마자 빈 구역을
-    // 보이고 한 박자 뒤에 채우면 "없다" 를 잘못 읽는다. 닫혀 있었으면 `agentsToggle`
-    // 이 받는다 (FR-ARR-5).
-    if(!open) this.agentsToggle();
-    else this._actRefresh();
-    if(key) this._actTabSelect(key);
-    else this.agentsRender();
-  },
+  actPanelOpen(key){ this.actPanel().show(key) },
 
   /** 구역의 목록을 다시 받는다. 활동은 자기 등록부가 몰고 온다 (FR-HUB-3). */
   _actRefresh(){

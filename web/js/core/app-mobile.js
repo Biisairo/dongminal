@@ -12,22 +12,20 @@ Object.assign(App.prototype, {
     if(was!==mob){
       this.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
       if(this._edApplyWordWrap) this._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
+      // REFACTOR3_FE_BASE_SRS FR-FEB-26: 모바일 진입·이탈은 두 탭 줄을 같은 길로 다시 잰다. 이전: 작업 패널은 닫혀 있으면 재지 않았다.
+      this.sbPanel().tabs.fit(); this.actPanel().tabs.fit();
     }
-    if(!mob && this.drawerOpen){this.drawerOpen=false;document.body.classList.remove('drawer-open');this._drawerSheetSync()}
-    if(!mob){document.body.classList.remove('keyboard-up')}
+    if(!mob){this.drawerSheet().close();document.body.classList.remove('keyboard-up')}
+  },
+  /** 모바일 서랍 (REFACTOR3_FE_BASE_SRS FR-FEB-25). 필드·`body.drawer-open`·`#sidebar.open` 과 상단바를 `DrawerSheet` 가 함께 바꾼다. */
+  drawerSheet(){
+    return this._drawer||(this._drawer=new DrawerSheet(this,{tabs:this.sbPanel?this.sbPanel().tabs:null,
+      onChange:()=>{if(this.renderer) this.renderer._rTopbar()}}));   // REFACTOR3_DEFECTS_SRS FR-RD3-80
   },
   _toggleDrawer(open){
-    if(!this.isMobile){this.drawerOpen=false;document.body.classList.remove('drawer-open');this._drawerSheetSync();this.mobileChromeSync();return}
-    this.drawerOpen = (open===undefined) ? !this.drawerOpen : !!open;
-    document.body.classList.toggle('drawer-open', this.drawerOpen);
-    this._drawerSheetSync();
-    this.mobileChromeSync();
-    if(this.renderer) this.renderer._rTopbar();  // REFACTOR3_DEFECTS_SRS FR-RD3-80 — 이전: 호출처마다 따로 불러 두 경로가 빠졌다
-  },
-  // PANEL_TEMPLATE_SRS FR-PNT-11: 패널 템플릿의 열림 표식은 패널의 `.open` 이다 — Activity 와 같다.
-  _drawerSheetSync(){
-    const sb=document.getElementById('sidebar');
-    if(sb) sb.classList.toggle('open',!!this.drawerOpen);
+    const d=this.drawerSheet();
+    if(!this.isMobile){ if(!d.close()) this.mobileChromeSync(); return }
+    d.setOpen(open===undefined?!d.isOpen():open);
   },
 
   /**

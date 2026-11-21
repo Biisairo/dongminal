@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, PANELS, load } from './harness.mjs';
 
 /**
  * ACTIVITY_RUNS_REFRESH_SRS — 패널을 여는 경로와 Runs 목록 재조회 (TC-ARR-2~4).
@@ -21,7 +21,7 @@ function classList() {
 
 function rig() {
   const els = { 'agents-panel': { classList: classList() }, 'agents-handle': { classList: classList() } };
-  const ctx = load(['core/app-runs.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js'], {
+  const ctx = load([...BASE, ...PANELS, 'core/app-runs.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js'], {
     globals: {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended' },

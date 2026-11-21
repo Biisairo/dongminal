@@ -95,29 +95,15 @@ Object.assign(App.prototype, {
   },
 
   // FR-AAP-11/12: 우측 활동 패널 토글(열림 상태 영속)
-  agentsToggle(){this.setAgentsPanelOpen(!this.agentsPanelOpen())},
+  agentsToggle(){ this.actPanel().toggle() },
 
   /**
    * UX_BATCH12_SRS FR-ACF-1·8: `.open` 은 **펼침**이다. 데스크톱에서 `.open` 이 없으면 레일이고
-   * (CSS 가 폭을 덮는다), 모바일에서는 숨는다. 저장 값(`agentsPanelOpen`)의 뜻도 같다.
+   * (CSS 가 폭을 덮는다), 모바일에서는 숨는다. 저장 값(`agentsPanelOpen`)의 뜻도 같다. 하는 일은 `ActivityPanel` 이 맡는다.
    */
-  setAgentsPanelOpen(open){
-    const panel=document.getElementById('agents-panel'),handle=document.getElementById('agents-handle');
-    if(!panel||panel.classList.contains('open')===open) return;
-    panel.classList.toggle('open',open);
-    handle.classList.toggle('open',open);
-    PrefStore.session.setBool(STORE_KEYS.agentsPanelOpen,open);
-    if(this.mobileChromeSync) this.mobileChromeSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-13
-    for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
-    // FR-ARR-4: 핸들로 열어도 단축키로 열 때처럼 구역 목록을 다시 받는다.
-    if(open) this._actRefresh();
-    this.agentsRender();
-  },
+  setAgentsPanelOpen(open){ this.actPanel().setOpen(open) },
 
-  agentsPanelOpen(){
-    const panel=document.getElementById('agents-panel');
-    return !!(panel&&panel.classList.contains('open'));
-  },
+  agentsPanelOpen(){ return this.actPanel().isOpen() },
 
   /**
    * FR-AAP-19 (회복 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-6): 활동 스냅샷의 주기는 **패널이
@@ -236,7 +222,7 @@ Object.assign(App.prototype, {
       },
       build:it=>it.t==='head'?this._agHeadEl()
         :it.t==='group'?this._agGroupEl(it.win,it.attn,it.folded)
-        :it.t==='tabs'?this._actTabsEl(it.tabs)
+        :it.t==='tabs'?this._actTabsEl()
         :it.t==='secempty'?this._actSecEmptyEl(it.sec)
         :it.t==='row'?it.el
         :it.t==='foot'?this._actUsageFootEl(it.view)
@@ -247,8 +233,9 @@ Object.assign(App.prototype, {
     const inHead=it=>it.t==='tabs'||it.t==='head';
     reconcileList(headHost,items.filter(it=>it.t==='tabs').concat(items.filter(it=>it.t==='head')),opts);
     const tabsIt=items.find(it=>it.t==='tabs');
+    // UX_AUDIT_FIX_SRS FR-UXF-98: 라벨 맞춤은 탭 줄이 그리면서 한다 (REFACTOR3_FE_BASE_SRS FR-FEB-26 — 사이드바와 같은 길).
+    //   이전: 여기서 `#agents-head` 에 관측을 걸고 직접 쟀다 — 사이드바는 `#sb-tabs` 에 걸어, 두 패널의 재는 대상과 시점이 갈렸다
     if(tabsIt) this._actTabsPaint(headHost.querySelector('.ag-tabs'),tabsIt.cur,tabsIt.tabs);
-    UIKit.tabsFitWatch(headHost,'.ag-tabs'); UIKit.tabsFit(headHost,'.ag-tabs');  // UX_AUDIT_FIX_SRS FR-UXF-98
     reconcileList(body,items.filter(it=>!inHead(it)&&it.t!=='foot'),opts);
     reconcileList(footHost,items.filter(it=>it.t==='foot'),opts);
   },

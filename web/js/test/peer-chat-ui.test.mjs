@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { BASE, PANELS, load, plain } from './harness.mjs';
 
 /**
  * PEER_CHAT_SRS §3.11 — 화면 (TC-PCH-13 일부).
@@ -19,7 +19,7 @@ function memStore() {
 
 function loadUI() {
   const local = memStore();
-  const ctx = load(['core/helpers.js', 'core/app-activity.js', 'core/chat-store.js', 'core/app-chat.js', 'ui/chat-view.js', 'core/app-edges-mesh.js'], {
+  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/app-activity.js', 'core/chat-store.js', 'core/app-chat.js', 'ui/chat-view.js', 'core/app-edges-mesh.js'], {
     expose: ['ACTIVITY_SECTIONS', 'ChatStore', 'chatRoomTitle', 'chatShortId'],
     globals: {
       App: class {},

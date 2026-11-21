@@ -33,7 +33,8 @@ test('탭은 같은 폭이고 고른 탭도 넓어지지 않는다', () => {
   const rule = (sel) => (panel.match(new RegExp('\\n' + sel.replace(/[.]/g, '\\.') + '\\{([^}]*)\\}')) || [])[1] || '';
   assert.match(rule('.ui-panel-tab'), /flex:1 1 0/);
   assert.doesNotMatch(rule('.ui-panel-tab.active'), /flex/);
-  assert.match(read('js/core/app-activity.js'), /cls:'ag-tab ui-panel-tab'/);
+  // REFACTOR3_FE_BASE_SRS FR-FEB-22 로 개정: 이전 — 탭을 app-activity.js 가 만들었다 / 지금 — ActivityTabBar(activity-tab-bar.js) / 이유 — 탭 줄을 TabBar 의 하위로 옮겼다.
+  assert.match(read('js/core/activity-tab-bar.js'), /cls:'ag-tab ui-panel-tab'/);
   assert.ok(!css.includes('.ag-tab.active .ag-tab-name{display:inline}'), '고른 탭이 이름을 보인다');
 });
 

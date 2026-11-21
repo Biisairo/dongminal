@@ -41,6 +41,13 @@ export const TERM_PANE = ['ui/term-socket.js', 'ui/term-pane.js', 'ui/term-input
 export const BASE = ['core/base/component.js', 'core/base/view.js', 'core/base/controller.js',
   'core/base/escape-stack.js', 'core/base/scroll-memo.js', 'core/base/badge.js'];
 
+/**
+ * 패널과 탭 줄 — index.html 의 순서다 (REFACTOR3_FE_BASE_SRS FR-FEB-20~25). `BASE` 뒤에 싣는다.
+ * 부모(`Panel`·`TabBar`)가 하위보다 먼저다.
+ */
+export const PANELS = ['ui/panel.js', 'ui/tab-bar.js', 'ui/sidebar-tab-bar.js', 'ui/sidebar-panel.js', 'ui/drawer-sheet.js',
+  'core/activity-tab-bar.js', 'core/activity-panel.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 

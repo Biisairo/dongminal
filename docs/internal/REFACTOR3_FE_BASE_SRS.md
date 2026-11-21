@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 P3a 단계 0~2 — 프론트 기반 클래스와 두 패널 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 단계 2(FR-FEB-20~26)의 구현과 검증. 단계 0·1 은 `6a30fc80` 에서 닫혔다.
+> **남은 것**: 없음 — 단계 0·1 은 `6a30fc80`, 단계 2 는 §6 의 커밋에서 닫혔다. 상태를 `구현완료` 로 올리는 일은 사용자 확인 뒤에 한다.
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `docs/internal/refactor/FE_OBJECT_MODEL.md` 단계 0~2 · `PROD3.md` P3a·FU-20)
 - 사용자 결정(2026-11-21): 외부 프레임워크 없이 자체 클래스 계층을 세운다. 화면 부품은 모두 `View` 의 파생, App 의 주제별 일은 `Controller` 의 파생, 둘 다 `Component` 에서 나온다. 클래스 하나 = 파일 하나. FU-20 의 라벨 표시 규칙은 지금처럼 패널별이다.
@@ -97,10 +97,29 @@
 
 | 단계 | 이전 | 새 | 이유 |
 |---|---|---|---|
-| 2 | (FR-FEB-26 의 표가 차이를 찾으면 여기에 적는다) | 두 패널이 같은 사건에서 같은 라벨 판정 경로를 부른다 | FU-20 — 사용자가 "두 패널 상단 탭의 동작이 하나 다르다"고 했다 |
+| 2 | 라벨 판정 경로가 패널마다 달랐다(아래 표) | 두 패널이 같은 사건에서 같은 길(`TabBar.fit` → `UIKit.tabsFit(자기 탭 줄)`)을 지난다 | FU-20 — 사용자가 "두 패널 상단 탭의 동작이 하나 다르다"고 했다 |
+| 2 | 작업 패널에서 지금 보는 탭을 다시 누르면 다시 그리고 스크롤 자리를 적고 되돌렸다 | 아무 일도 하지 않는다(`TabBar.select` 는 같은 탭이면 멈춘다 — 사이드바와 같다) | 같은 규칙 한 벌. 보이는 결과는 같다 |
+| 2 | 모바일 서랍을 같은 상태로 다시 열거나 닫아도 상단바·하단 크롬을 다시 그렸다. 데스크톱 전환으로 서랍이 닫힐 때는 그리지 않았다 | 상태가 바뀔 때만, 바뀌면 늘 다시 그린다(`DrawerSheet`) | 서랍 상태를 한 자리에서 바꾼다(FC-02) |
+
+FR-FEB-26 — 라벨 판정 시점 (단계 2 착수 시 코드와 임시 e2e 실측. `fit` 은 `UIKit.tabsFit` 호출)
+
+| 사건 | 사이드바(이전) | 작업 패널(이전) | 둘 다(지금) |
+|---|---|---|---|
+| 배지 변화 | `updateBadges` → fit | `agentsRender` → fit | `paintBadges` → `fit` |
+| 폭 변화 | `#sb-tabs`(탭 줄) 관측 | `#agents-head`(머리 전체) 관측 | 자기 탭 줄 관측 → `fit` |
+| 탭 전환 | `setTab` → `paint` → fit | `_actTabSelect` → `agentsRender` → fit | `select` → `paint` → `fit` |
+| 다시 그리기 | `paint`(렌더마다) | `agentsRender` 끝에서 직접(주기·SSE 마다) | `paint` → `fit` |
+| 레일에서 펼치기·접기 | 관측만 기다렸다 | `agentsRender` 로 바로 | `Panel.setOpen` → `tabs.fit` |
+| 서랍·시트 열기 | 재지 않았다 | `agentsRender` 로 바로 | `Panel.setOpen` → `tabs.fit` |
+| 모바일 진입 | 렌더(`paint`)와 관측 | 패널이 닫혀 있으면 `agentsRender` 가 일찍 돌아가 관측만 | `applyMobileMode` → 두 `tabs.fit` |
+| 라벨 글자 바뀜 | 없음 | 없음 | 없음 — 로케일을 바꾸면 페이지를 새로 싣는다(첫 페인트) |
+| 첫 페인트 | 첫 `paint` 가 관측을 걸고 잰다 | 첫 `agentsRender`(모바일·닫힘이면 열 때) | 줄을 처음 쓸 때(`root`) 관측을 걸고, 첫 `paint` 가 잰다 |
+
+임시 e2e(같은 사건 뒤 `labeled` 가 새로 잰 값과 같은지)로는 위 사건에서 두 패널의 **판정 결과** 차이를 재현하지 못했다(두 패널 모두 낡은 판정 0건). 차이는 경로·시점이었다 — 사이드바는 펼치기·서랍 열기에서 관측만 기다렸고, 작업 패널은 닫힌 채 모바일에 들어가면 재지 않았으며, 관측 대상이 달랐다.
 
 ## 6. 구현 기록
 
 | 단계 | 커밋 | 요점 |
 |---|---|---|
 | 0·1 | `6a30fc80` | `domEl`·`svgEl` 로 헬퍼 여덟을 지웠다(`runTreeSpan`·`mk` 는 합성 헬퍼라 본문만 `svgEl`/`domEl` 을 쓴다). 죽은 함수 넷 삭제(`cm-lsp` `unsubscribe` 는 라이브러리 Transport 계약이라 남기고 주석). `tabsFitWatch`·`roving` 은 해제 함수를 돌려준다. `core/base/` 여섯 파일. `badgeOf` 는 두 탭 줄의 배지 판정에 이미 쓰인다. 단위 1178 · 게이트 · typecheck · e2e 78건(activity·sidebar-tabs·panel-tabs-unify·run-tree·git-repo-missing·claude-accounts·git-diff) 통과. **단계 2 에 넘긴 것:** `EscapeStack` 은 버블 단계에서 받고 `stopPropagation` 을 하지 않는다 — 패널을 등록할 때 기존 Esc 처리기와의 순서를 정한다 |
+| 2 | (이 커밋) | `ui/panel.js` `Panel` · `ui/tab-bar.js` `TabBar` 아래 `SidebarPanel`·`DrawerSheet`·`SidebarTabBar`(ui/) · `ActivityPanel`·`ActivityTabBar`(core/). App 의 `sidebarCollapsed`·`setSidebarCollapsed`·`setAgentsPanelOpen`·`agentsPanelOpen`·`agentsToggle`·`actPanelOpen`·`_actTab`·`_actTabSelect`·`_actTabsEl`·`_actTabsPaint`·`_toggleDrawer`·`applyMobileMode`(서랍 부분)과 `SidebarTabs` 는 위임자다. 인스턴스는 `sbPanel()`·`actPanel()`·`drawerSheet()` 가 처음 부를 때 만든다(단위 시험의 App 대역도 같은 길). **SRS 와 다른 점:** ① 작업 패널의 탭별 스크롤은 `ScrollMemo` 가 아니라 탭 키별 Map 이다 — 몸통이 하나라 요소에 적는 규약이 맞지 않는다 ② 두 패널·서랍은 `EscapeStack` 에 등록하지 않았다 — 모바일 시트 Esc(`app-mobile-sheets.js`)와 두 번 반응하고, 데스크톱 작업 패널은 Esc 로 닫히지 않으므로 등록하면 동작이 바뀐다. `Panel` 의 `escapable` 로 단계 6 에서 켠다 ③ 쓰이지 않게 된 `_drawerSheetSync`·`SidebarTabs.saveScroll/restoreScroll` 은 지웠다 ④ `UIKit.tabsFitWatch` 는 앱 안에서 부르는 곳이 없어졌다(FR-FEB-3 의 시험은 남는다) |

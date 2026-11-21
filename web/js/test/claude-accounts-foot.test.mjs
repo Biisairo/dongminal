@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { BASE, PANELS, load, plain } from './harness.mjs';
 
 /**
  * CLAUDE_ACCOUNTS_SRS TC-CAC-21 — Activity 하단(Usage foot)의 계정 묶음과 statusLine 한 줄 (FR-CAC-90~93).
@@ -47,7 +47,7 @@ function memStore() {
 
 function loadFoot(globals = {}) {
   const local = memStore();
-  const ctx = load(['core/helpers.js', 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
+  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
     expose: ['ACTIVITY_SECTIONS'],
     globals: {
       App: class {},

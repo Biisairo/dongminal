@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, PANELS, load } from './harness.mjs';
 
 /**
  * REFACTOR3_DEFECTS_SRS 묶음 A·I (프론트).
@@ -59,10 +59,14 @@ test('TC-RD3-2: 내장 테마 54종은 그대로 통과한다', () => {
 
 test('TC-RD3-80: 서랍을 닫으면 상단바를 다시 그린다', () => {
   const cls = { toggle() {}, remove() {}, contains: () => false };
-  const c = load(['core/app-mobile.js'], {
+  // REFACTOR3_FE_BASE_SRS FR-FEB-25 로 개정: 이전 — 열림은 필드 `drawerOpen` 이었다 / 지금 — `#sidebar.open` 하나이고 필드는 따라온다 /
+  // 이유 — 서랍 상태가 세 자리에서 따로 바뀌었다(FC-02). 그래서 열린 서랍은 `#sidebar` 의 표식으로 준다.
+  const open = new Set(['open']);
+  const sidebar = { classList: { contains: (k) => open.has(k), toggle: (k, on) => { if (on) open.add(k); else open.delete(k) } } };
+  const c = load([...BASE, ...PANELS, 'core/app-mobile.js'], {
     globals: {
       App: class {},
-      document: { body: { classList: cls }, getElementById: () => null },
+      document: { body: { classList: cls }, getElementById: (id) => (id === 'sidebar' ? sidebar : null) },
     },
     expose: ['App'],
   });

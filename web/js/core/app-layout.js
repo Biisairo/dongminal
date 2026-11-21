@@ -923,9 +923,7 @@ Object.assign(App.prototype, {
    * D-2: 자리는 `documentElement` 다. index.html 의 인라인 스크립트가 같은 곳에
    * 붙이며(FR-SBC-5), 그 시점에 `body` 는 아직 없다.
    */
-  sidebarCollapsed(){
-    return document.documentElement.classList.contains(SIDEBAR_COLLAPSED_CLASS);
-  },
+  sidebarCollapsed(){ return !this.sbPanel().isOpen() },
 
   /**
    * FR-SBC-6: 저장이 막힌 환경에서도 화면은 바뀐다. 상태는 이 탭의 것이다
@@ -934,17 +932,12 @@ Object.assign(App.prototype, {
    * FR-SBC-19: 폭이 바뀌면 터미널의 열 수가 바뀐다. 재적합은 드래그 리사이즈가
    * 끝날 때와 **같은 코드**다 (input-binding.js) — 두 벌로 두면 한쪽만 고쳐진다.
    * 상태가 그대로면 아무것도 하지 않는다: 레일의 활성 탭 클릭(FR-SBC-18)이 이미
-   * 펼쳐진 사이드바에 재적합을 걸 이유가 없다.
+   * 펼쳐진 사이드바에 재적합을 걸 이유가 없다. 하는 일은 `SidebarPanel` 이 맡는다 (REFACTOR3_FE_BASE_SRS FR-FEB-24).
    */
-  setSidebarCollapsed(on){
-    on=!!on;
-    if(this.sidebarCollapsed()===on) return;
-    document.documentElement.classList.toggle(SIDEBAR_COLLAPSED_CLASS,on);
-    if(on) PrefStore.session.set(SIDEBAR_COLLAPSED_KEY,'1');
-    else PrefStore.session.remove(SIDEBAR_COLLAPSED_KEY);
-    if(this.sbCollapsePaint) this.sbCollapsePaint();   // UX_AUDIT_FIX_SRS FR-UXF-30
-    for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
-  },
+  setSidebarCollapsed(on){ this.sbPanel().setOpen(!on) },
+
+  /** 메인 패널 (FR-FEB-24). 처음 부를 때 만든다 — 탭 줄(`SidebarTabBar`)을 든다. */
+  sbPanel(){ return this.sidebarPanel||(this.sidebarPanel=new SidebarPanel(this)) },
 
   _toggleSidebar(){this.setSidebarCollapsed(!this.sidebarCollapsed())},
 

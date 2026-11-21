@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { BASE, PANELS, load, plain } from './harness.mjs';
 
 /**
  * ACTIVITY_STATE_SUBAGENT_SRS 묶음 V — 서브에이전트 두 보기·사용량 줄 배치·Usage 구역.
@@ -40,7 +40,7 @@ function fillEn(k, p) {
 
 function loadActivity(globals = {}) {
   const local = memStore();
-  const ctx = load(['core/helpers.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js'], {
+  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js'], {
     expose: ['ACTIVITY_SECTIONS'],
     globals: {
       App: class {},
