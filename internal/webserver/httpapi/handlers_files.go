@@ -432,7 +432,7 @@ type fileStampsReq struct {
 func (s *Server) apiFileStamps(w http.ResponseWriter, r *http.Request) {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
+		httpErr(w, "read body", httpreq.Status(err), apierr.BodyReadCode(err))
 		return
 	}
 	var req fileStampsReq
@@ -549,7 +549,7 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	//	새  동작: 파일 상한을 JSON 문자열로 실은 최악의 크기 (`editorlimit.BodyMaxBytes`)
 	body, err := httpreq.Read(w, r, editorlimit.BodyMaxBytes(fileReadMaxBytes))
 	if err != nil {
-		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
+		httpErr(w, "read body", httpreq.Status(err), apierr.BodyReadCode(err))
 		return
 	}
 	var req fileWriteReq
@@ -571,6 +571,9 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "unknown encoding: "+req.Encoding, http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
+	// REFACTOR3_DEFECTS_SRS FR-RD3-20: 표식 검사부터 새 표식까지 같은 경로는 한 번에 하나다.
+	//	이전: 검사와 쓰기 사이에 잠금이 없어, 같은 표식의 저장 여럿이 다 통과하고 뒤가 앞을 덮었다
+	defer s.fileWrites.lock(target)()
 	// EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-5·7: 우리가 읽은 뒤 디스크가 바뀌었으면
 	// 덮지 않는다. 종전에는 **마지막에 저장한 쪽이 이겼다.**
 	//

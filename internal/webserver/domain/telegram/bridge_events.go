@@ -101,7 +101,9 @@ func questionInput(ts *tabState) []byte {
 }
 
 func (b *Bridge) alarm(c Config, toolID, reason string) {
+	b.mu.Lock()
 	kind, body := classify(reason, b.tabs[toolID])
+	b.mu.Unlock()
 	p := map[string]any{"chat_id": c.UserID, "text": alarmText(kind, b.host.Location(toolID), body), "parse_mode": "HTML"}
 	kb := readKeyboard(toolID)
 	if kb != nil {
@@ -118,20 +120,32 @@ func (b *Bridge) alarm(c Config, toolID, reason string) {
 		return
 	}
 	if kb != nil {
-		b.buttons[toolID] = append(b.buttons[toolID], msg.MessageID)
+		b.mu.Lock()
+		ids := append(b.buttons[toolID], msg.MessageID)
+		// FR-RD3-42: 넘치면 가장 오래된 것을 잊는다. 그 버튼을 눌러도 답은 같다(FR-TGB-58a).
+		if len(ids) > maxButtonsPerTab {
+			ids = ids[len(ids)-maxButtonsPerTab:]
+		}
+		b.buttons[toolID] = ids
+		b.mu.Unlock()
 	}
 }
 
 // clearButtons 는 그 탭의 남은 `[읽음]` 을 모두 걷는다 (FR-TGB-58b).
 func (b *Bridge) clearButtons(c Config, toolID string) {
-	for _, id := range b.buttons[toolID] {
+	b.mu.Lock()
+	ids := b.buttons[toolID]
+	delete(b.buttons, toolID)
+	b.mu.Unlock()
+	for _, id := range ids {
 		b.dropButton(c, c.UserID, id)
 	}
-	delete(b.buttons, toolID)
 }
 
 // forgetButton 은 이미 걷은 메시지를 목록에서 뺀다.
 func (b *Bridge) forgetButton(toolID string, msgID int64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	ids := slices.DeleteFunc(b.buttons[toolID], func(id int64) bool { return id == msgID })
 	if len(ids) == 0 {
 		delete(b.buttons, toolID)

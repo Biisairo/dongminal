@@ -136,7 +136,7 @@ func fsOSMsg(code string) string {
 func fsDecode(w http.ResponseWriter, r *http.Request, into any) bool {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		fsFail(w, fsErrBadRequest, "본문을 읽지 못했다: "+err.Error())
+		fsFail(w, apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
 		return false
 	}
 	if err := json.Unmarshal(body, into); err != nil {

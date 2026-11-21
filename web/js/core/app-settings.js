@@ -231,7 +231,7 @@ Object.assign(App.prototype, {
     this._paintSettingControls();
     // 테마는 두 키가 한 쌍이라 표 밖에 남는다 — **사용자 정의가 이름을 이긴다.**
     // 표를 돌며 각자 얹으면 순서에 따라 답이 갈린다.
-    if(saved.customTheme){customTheme=saved.customTheme}
+    if(saved.customTheme){customTheme=sanitizeCustomTheme(saved.customTheme)}
     else if(saved.themeName&&THEMES[saved.themeName]){customTheme=null;currentThemeName=saved.themeName}
     // FR-STF-2·7: 추종이 켜져 있으면 슬롯이 이기고, 사용자 정의는 남되 적용되지 않는다.
     this._applyThemeChoice();
@@ -434,7 +434,7 @@ Object.assign(App.prototype, {
       this._focusEdgePaintRow();
       this._cacctOnSettingsOpen(modal);
       // Auto-close drawer when opening settings on mobile
-      if(this.isMobile && this.drawerOpen){this._toggleDrawer(false);this.renderer._rTopbar()}
+      if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
     });
     document.getElementById('modal-close').addEventListener('click',closeSettings);
     overlay.addEventListener('click',e=>{if(e.target===overlay)closeSettings()});

@@ -268,7 +268,13 @@ func (e *Engine) nextWake() time.Time {
 }
 
 // FetchNow 는 사용자의 "새로 고침" 이다 (FR-CAC-58).
+//
+// REFACTOR3_DEFECTS_SRS FR-RD3-50: 잠금을 먼저 얻고 저장소와 간격을 본다.
+//
+//	이전: 간격 검사가 busy 밖이라, 겹친 새로 고침 둘이 다 통과한 뒤 차례로 조회했다
 func (e *Engine) FetchNow(ctx context.Context, id string) error {
+	e.busy.Lock()
+	defer e.busy.Unlock()
 	st, err := e.Svc.Store.Load()
 	if err != nil {
 		return err
@@ -282,8 +288,6 @@ func (e *Engine) FetchNow(ctx context.Context, id string) error {
 	if r.BackoffUntil > now || (r.LastAttemptAt > 0 && now-r.LastAttemptAt < fetchNowMinGapS) {
 		return ErrTooSoon
 	}
-	e.busy.Lock()
-	defer e.busy.Unlock()
 	e.fetch(ctx, st.Accounts[i], id == st.ActiveID, true)
 	return nil
 }

@@ -50,7 +50,7 @@ Object.assign(App.prototype, {
     const num=document.createElement('span');num.className='m-act-n';num.setAttribute('aria-hidden','true');
     b.append(dot,num);
     b.addEventListener('click',()=>{
-      if(this.drawerOpen){this._toggleDrawer(false);this.renderer._rTopbar()}
+      if(this.drawerOpen) this._toggleDrawer(false);
       this.actPanelOpen();
     });
     menu.before(b);

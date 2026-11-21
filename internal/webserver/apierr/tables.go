@@ -196,7 +196,7 @@ func FSStatus(code string) int {
 		return http.StatusConflict
 	case CodeOutsideRoot, CodePermission:
 		return http.StatusForbidden
-	case CodeTooLarge:
+	case CodeTooLarge, CodeBodyTooBig:
 		return http.StatusRequestEntityTooLarge
 	case CodeBusy:
 		return http.StatusTooManyRequests

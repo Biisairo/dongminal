@@ -82,7 +82,7 @@ func (c *carryStore) take(token string) ([]byte, bool) {
 func (s *Server) apiServerCarryPost(w http.ResponseWriter, r *http.Request) {
 	raw, err := httpreq.Read(w, r, carryBodyLimit)
 	if err != nil {
-		codeFail(w, httpreq.Status(err), bodyReadCode(err), "read body")
+		codeFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "read body")
 		return
 	}
 	if !json.Valid(raw) {

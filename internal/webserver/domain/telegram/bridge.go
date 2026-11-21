@@ -35,11 +35,13 @@ type Host interface {
 }
 
 const (
-	queueSize    = 256
-	callTimeout  = 15 * time.Second
-	pollTimeout  = 50
-	backoffFirst = time.Second
-	backoffMax   = time.Minute
+	queueSize = 256
+	// maxButtonsPerTab 는 탭 하나가 기억하는 `[읽음]` 메시지 수다 (REFACTOR3_DEFECTS_SRS FR-RD3-42 · D-RD3-4).
+	maxButtonsPerTab = 32
+	callTimeout      = 15 * time.Second
+	pollTimeout      = 50
+	backoffFirst     = time.Second
+	backoffMax       = time.Minute
 )
 
 // item 은 작업자 큐의 한 칸이다.
@@ -52,7 +54,9 @@ type item struct {
 }
 
 // Bridge 는 Telegram 알림이다. 사건은 큐로 받고(NFR-TGB-2), 작업자 하나와 polling
-// 하나가 mu 아래에서 차례로 처리한다.
+// 하나가 처리한다. mu 는 tabs·buttons 만 지킨다 — Telegram HTTP 는 mu 밖에서 부른다
+// (REFACTOR3_DEFECTS_SRS FR-RD3-40). 이전에는 mu 를 쥔 채 HTTP 를 불러, 작업자가 응답을
+// 기다리는 동안(호출당 최대 callTimeout) polling 이 멈췄다.
 type Bridge struct {
 	st   *Store
 	host Host
@@ -119,11 +123,11 @@ func (b *Bridge) process(it item) {
 	if !ok {
 		return
 	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	switch {
 	case it.ev != nil:
+		b.mu.Lock()
 		b.tab(it.ev.ToolID).observe(*it.ev)
+		b.mu.Unlock()
 	case it.clearTool != "":
 		b.clearButtons(c, it.clearTool)
 	case it.notice != "":

@@ -535,10 +535,11 @@ func (c *conn) answer(f chatwire.Frame) {
 	}
 }
 
-// clean 은 제어 문자를 지운다. 표시 이름과 붙여넣기는 터미널에 찍힌다.
+// clean 은 제어 문자와 서식 문자(Cf — bidi 재정렬·zero-width)를 지운다. 표시 이름과 붙여넣기는
+// 터미널에 찍힌다 (REFACTOR3_DEFECTS_SRS FR-RD3-70 — 이전: Cf 를 남겨 다른 일곱 자리와 달랐다).
 func clean(s string) string {
 	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) || r == unicode.ReplacementChar {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || r == unicode.ReplacementChar {
 			return -1
 		}
 		return r

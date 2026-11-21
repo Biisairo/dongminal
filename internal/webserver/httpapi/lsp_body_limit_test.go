@@ -12,6 +12,9 @@ import (
 // OPTIMIZE_REFACTOR_SRS FR-OPT-1-10 (HTTP-29): 상한을 넘은 LSP 본문은 413 이다.
 // 종전에는 LimitReader 가 조용히 잘라, 잘린 JSON 이 400 'bad request' 로 나갔다 —
 // 사용자는 "형식이 틀렸다" 로 읽고 나눠 보낼 생각을 하지 못한다.
+//
+// REFACTOR3_DEFECTS_SRS FR-RD3-31: 코드가 `too_large` → `body_too_large` 로 바뀌었다.
+// 이유: 공개 계약(features.md 용량 표)이 JSON 본문의 상한 초과를 `body_too_large` 로 적었다.
 func TestLSP_OversizeBodyIs413(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: &fakeLSP{}})
 	h := srv.Handler()
@@ -26,8 +29,8 @@ func TestLSP_OversizeBodyIs413(t *testing.T) {
 		body := `{"id":"gopls","path":"/a","text":"` + pad + `"}`
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, apiTestRequest(c.method, c.path, strings.NewReader(body)))
-		if rec.Code != http.StatusRequestEntityTooLarge || rec.Header().Get(apierr.CodeHeader) != apierr.CodeTooLarge {
-			t.Errorf("%s %s = %d %q, want 413 %q", c.method, c.path, rec.Code, rec.Header().Get(apierr.CodeHeader), apierr.CodeTooLarge)
+		if rec.Code != http.StatusRequestEntityTooLarge || rec.Header().Get(apierr.CodeHeader) != apierr.CodeBodyTooBig {
+			t.Errorf("%s %s = %d %q, want 413 %q", c.method, c.path, rec.Code, rec.Header().Get(apierr.CodeHeader), apierr.CodeBodyTooBig)
 		}
 	}
 }

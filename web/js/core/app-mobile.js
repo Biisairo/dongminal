@@ -22,6 +22,7 @@ Object.assign(App.prototype, {
     document.body.classList.toggle('drawer-open', this.drawerOpen);
     this._drawerSheetSync();
     this.mobileChromeSync();
+    if(this.renderer) this.renderer._rTopbar();  // REFACTOR3_DEFECTS_SRS FR-RD3-80 — 이전: 호출처마다 따로 불러 두 경로가 빠졌다
   },
   // PANEL_TEMPLATE_SRS FR-PNT-11: 패널 템플릿의 열림 표식은 패널의 `.open` 이다 — Activity 와 같다.
   _drawerSheetSync(){
@@ -127,8 +128,8 @@ Object.assign(App.prototype, {
       if(!this.focusedTerminal()&&(this._edActiveEditor()||this._edActiveDiff())){this._edFindInFile();return}
       this.toggleSearch();
     });
-    if(drwr) drwr.addEventListener('click',()=>{this._toggleDrawer();this.renderer._rTopbar()});
-    if(bd) bd.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
+    if(drwr) drwr.addEventListener('click',()=>this._toggleDrawer());
+    if(bd) bd.addEventListener('click',()=>this._toggleDrawer(false));
     // Drawer close button injected into sidebar (visible only on mobile)
     const sb=document.getElementById('sidebar');
     if(sb && !sb.querySelector('.drawer-close')){
@@ -136,7 +137,7 @@ Object.assign(App.prototype, {
       xb.id='drawer-close'; xb.className='ui-btn ui-btn-icon ui-btn-ghost drawer-close ui-panel-act-mobile';
       xb.appendChild(UIKit.icon('x'));
       xb.title=TIP_SIDEBAR_CLOSE;xb.setAttribute('aria-label',TIP_SIDEBAR_CLOSE);
-      xb.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
+      xb.addEventListener('click',()=>this._toggleDrawer(false));
       // PANEL_TEMPLATE_SRS FR-PNT-3·12: 머리의 끝 단추 자리다. 이전에는 사이드바 우상단에 겹쳐 서서 탭 줄이 덮었다.
       const acts=document.getElementById('sb-acts');
       if(acts) acts.appendChild(xb); else sb.insertBefore(xb, sb.firstChild);

@@ -119,7 +119,7 @@
 상한뿐입니다. **접속한 기기는 서버를 띄운 계정의 권한으로 파일시스템 전체를 읽고
 씁니다** — 무엇이 열렸는지는 [`SECURITY.md`](../../SECURITY.md) §4-5 에 있습니다.
 
-`/api/fs/*` 는 **다릅니다** — 전부 `root` 를 함께 받아 **그 아래로만** 동작합니다. `root` 는 서버가 신뢰하지 않고 `editors.list`·홈·메모 루트 중 하나에 실재하는지 대조합니다 — 그 셋이 `Roots()` 의 전부이며, 메모장이 파일 조작을 얻는 것도 메모 루트가 그 목록에 들기 때문입니다. 오류는 `{code, message}` 이며 코드는 `bad_request`(400) · `outside_root`·`permission_denied`(403) · `not_found`(404) · `exists`(409) · `too_large`(413) · `io_failed`(500) 입니다.
+`/api/fs/*` 는 **다릅니다** — 전부 `root` 를 함께 받아 **그 아래로만** 동작합니다. `root` 는 서버가 신뢰하지 않고 `editors.list`·홈·메모 루트 중 하나에 실재하는지 대조합니다 — 그 셋이 `Roots()` 의 전부이며, 메모장이 파일 조작을 얻는 것도 메모 루트가 그 목록에 들기 때문입니다. 오류는 `{code, message}` 이며 코드는 `bad_request`(400) · `outside_root`·`permission_denied`(403) · `not_found`(404) · `exists`(409) · `too_large`·`body_too_large`(413, 뒤의 것은 본문이 1 MiB 를 넘을 때) · `io_failed`(500) 입니다.
 
 ### 원격 제어
 

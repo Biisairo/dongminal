@@ -61,7 +61,7 @@ func (s *Server) chatDo(w http.ResponseWriter, r *http.Request, op string) {
 	if op != chatwire.OpState {
 		raw, err := httpreq.Read(w, r, jsonBodyLimit)
 		if err != nil {
-			codeFail(w, httpreq.Status(err), bodyReadCode(err), "read body")
+			codeFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "read body")
 			return
 		}
 		if !json.Valid(raw) {

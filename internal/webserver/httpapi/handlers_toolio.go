@@ -217,7 +217,7 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, body any, limit ...i
 	// 본문 하나가 서버 메모리를 정했다 (REQUEST_GATE_SRS FR-RQG-14).
 	raw, err := httpreq.Read(w, r, lim)
 	if err != nil {
-		writeToolIOError(w, httpreq.Status(err), "본문을 읽지 못했다: "+err.Error())
+		writeToolIOErrorCode(w, httpreq.Status(err), apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
 		return false
 	}
 	if err := json.Unmarshal(raw, body); err != nil {
@@ -279,7 +279,13 @@ func writeToolIOError(w http.ResponseWriter, status int, msg string) {
 	// `{"error": <문구>}` 가 공개 계약이고 그 문구는 사람이 읽는 말이다.
 	// 그래서 코드는 헤더로만 간다. 상태에서 파생하는 것이 이 표면에서 가능한
 	// 가장 좁은 답이다.
-	w.Header().Set(apierr.CodeHeader, apierr.CodeForStatus(status))
+	writeToolIOErrorCode(w, status, apierr.CodeForStatus(status), msg)
+}
+
+// writeToolIOErrorCode 는 상태보다 좁은 코드를 아는 자리의 같은 방언이다 — 본문 상한 초과가
+// 그렇다 (REFACTOR3_DEFECTS_SRS FR-RD3-31).
+func writeToolIOErrorCode(w http.ResponseWriter, status int, code, msg string) {
+	w.Header().Set(apierr.CodeHeader, code)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})

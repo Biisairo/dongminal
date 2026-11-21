@@ -451,7 +451,7 @@ func gitEntryStates(st query.Status) map[string]string {
 func gitDecodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		gitFail(w, httpreq.Status(err), gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
+		gitFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
 		return false
 	}
 	if err := json.Unmarshal(body, v); err != nil {

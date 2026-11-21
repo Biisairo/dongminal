@@ -323,7 +323,7 @@ func gitDecodePath(w http.ResponseWriter, r *http.Request) (string, bool) {
 func gitDecodeRawPath(w http.ResponseWriter, r *http.Request) (string, bool) {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		gitFail(w, httpreq.Status(err), gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
+		gitFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
 		return "", false
 	}
 	var req gitPathReq
@@ -432,14 +432,8 @@ func (s *GitServer) apiGitReorder(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	body, err := httpreq.Read(w, r, 0)
-	if err != nil {
-		gitFail(w, httpreq.Status(err), gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
-		return
-	}
 	var req gitReorderReq
-	if err := json.Unmarshal(body, &req); err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
+	if !gitDecodeBody(w, r, &req) {
 		return
 	}
 	if req.Src == "" {

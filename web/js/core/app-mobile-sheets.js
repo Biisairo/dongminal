@@ -45,7 +45,7 @@ Object.assign(App.prototype, {
       if(e.key!=='Escape'||!this.isMobile) return;
       const ov=document.getElementById('modal-overlay');
       if(ov&&ov.classList.contains('open')) return;
-      if(this.drawerOpen){e.preventDefault();this._toggleDrawer(false);this.renderer._rTopbar();return}
+      if(this.drawerOpen){e.preventDefault();this._toggleDrawer(false);return}
       const ag=document.getElementById('agents-panel');
       if(ag&&ag.classList.contains('open')){e.preventDefault();this.setAgentsPanelOpen(false)}
     });

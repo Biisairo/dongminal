@@ -367,17 +367,19 @@ func (s *Store) ReapTargets(dead func(toolID string) bool) []Record {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// REFACTOR3_DEFECTS_SRS FR-RD3-10: 호출자는 잠금 밖에서 읽는다 — 다른 조회처럼 복사한다.
+	//	이전: 얕은 복사라 Members·Worktree 를 저장소와 함께 썼다(MarkWorktrees 와 경합)
 	var out []Record
 	for _, r := range s.runs {
 		if r.State != Open {
-			out = append(out, r)
+			out = append(out, cloneRun(r))
 			continue
 		}
 		if r.CoordinatorToolID == "" {
 			continue
 		}
 		if dead != nil && dead(r.CoordinatorToolID) {
-			out = append(out, r)
+			out = append(out, cloneRun(r))
 		}
 	}
 	return out

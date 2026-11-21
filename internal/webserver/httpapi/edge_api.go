@@ -112,7 +112,7 @@ func (s *Server) edgeDaemonDo(w http.ResponseWriter, r *http.Request, op string,
 	if withBody {
 		var err error
 		if raw, err = httpreq.Read(w, r, jsonBodyLimit); err != nil {
-			codeFail(w, httpreq.Status(err), bodyReadCode(err), "read body")
+			codeFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "read body")
 			return
 		}
 	}

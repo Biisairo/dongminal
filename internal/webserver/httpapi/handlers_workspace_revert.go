@@ -74,7 +74,7 @@ func (s *Server) apiWorkspaceRevert(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
+		httpErr(w, "read body", httpreq.Status(err), apierr.BodyReadCode(err))
 		return
 	}
 	var req struct {

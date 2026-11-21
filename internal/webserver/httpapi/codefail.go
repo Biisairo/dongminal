@@ -23,7 +23,7 @@ func codeFail(w http.ResponseWriter, status int, code, msg string) {
 func readJSONBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	raw, err := httpreq.Read(w, r, jsonBodyLimit)
 	if err != nil {
-		codeFail(w, httpreq.Status(err), bodyReadCode(err), "read body")
+		codeFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "read body")
 		return false
 	}
 	if len(raw) == 0 {

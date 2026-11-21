@@ -211,6 +211,8 @@ type Server struct {
 	// fsOps 는 탐색기의 파일 조작을 직렬화한다 (FR-EDT-115). 잡는 구간은
 	// **실제 파일 조작**뿐이다 — 본문 읽기와 경로 판정은 밖에서 한다.
 	fsOps sync.Mutex
+	// fileWrites 는 편집기 저장의 표식 검사~쓰기를 경로마다 한 번에 하나로 묶는다 (REFACTOR3_DEFECTS_SRS FR-RD3-20).
+	fileWrites pathLocks
 
 	// contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7). 서버
 	// 수명이지 프로세스 수명이 아니다.

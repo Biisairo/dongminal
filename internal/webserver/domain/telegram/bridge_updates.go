@@ -12,8 +12,6 @@ func (b *Bridge) handleUpdate(u Update) {
 	if !c.Enabled || c.Token == "" {
 		return
 	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	switch {
 	case u.Message != nil:
 		b.onMessage(c, *u.Message)

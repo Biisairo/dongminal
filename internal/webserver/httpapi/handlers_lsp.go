@@ -33,7 +33,7 @@ func lspReadBody(w http.ResponseWriter, r *http.Request, max int64) ([]byte, boo
 		return nil, false
 	}
 	if int64(len(body)) > max {
-		writeToolIOError(w, http.StatusRequestEntityTooLarge, "body too large")
+		writeToolIOErrorCode(w, http.StatusRequestEntityTooLarge, apierr.CodeBodyTooBig, "body too large")
 		return nil, false
 	}
 	return body, true
