@@ -28,8 +28,8 @@ function methodLines(file, head) {
 }
 
 const CASES = [
-  ['core/app-layout.js', '  async addTab('],
-  ['core/app-layout.js', '  async closeTab('],
+  ['core/layout-tab-add.js', '  async addTab('],
+  ['core/layout-tab-ops.js', '  async closeTab('],
   ['core/app.js', '  save(){'],
   ['core/app.js', '  async init(){'],
   ['core/app-cmd.js', '  _execRemote(action, args){'],

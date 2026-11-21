@@ -49,7 +49,6 @@ class App {
     this.mPaneIdx=0; // mobile current pane index (volatile)
     this.drawerOpen=false;
     this._bg=[]; // 백그라운드 도구 목록 (FR-BG-6)
-    this._winUndo=null; // 닫은 창의 유예 하나 (WINDOW_CLOSE_UNDO_SRS FR-WCU-6)
     this.modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
     this.gitRepos=null; // GIT 섹션 목록 {follow,pinned} (FR-GIT-13)
     this._lastPlainWindow=null; // Open File 이 돌아갈 일반 창 (FR-GIT-185, O15)
@@ -77,6 +76,7 @@ class App {
     this.wsSync=new WsSyncController(this);
     this.focus=new FocusController(this);
     this.slot=new SlotsController(this);
+    this.layout=new LayoutController(this);
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }

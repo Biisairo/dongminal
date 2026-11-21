@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, FOCUS, GIT, PANELS, SETTINGS, SLOTS, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { BASE, FOCUS, GIT, LAYOUT, PANELS, SETTINGS, SLOTS, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -91,6 +91,12 @@ const ISSUES = {
     gone: ['core/app-slots.js'],
     plainNow: [],
     mixins: 23,
+  },
+  '9i-1': {
+    ctl: ['core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js'],
+    gone: ['core/app-layout.js'],
+    plainNow: [],
+    mixins: 22,
   },
 };
 
@@ -874,9 +880,9 @@ test('TC-FEA-1(9g): focused 의 쓰기는 포커스 묶음 하나다 — 레이�
   app.focusClear();
   assert.equal(app.focused, null);
   assert.equal(Object.hasOwn(app.focus, 'focused'), false);
-  const layout = read('core/app-layout.js');
-  assert.doesNotMatch(layout, /this\.focused\s*=(?!=)/);
-  assert.equal(layout.match(/this\.focusClear\(\)/g).length, 2);
+  const layout = read('core/layout-controller.js');
+  assert.doesNotMatch(layout, /this\.(?:app\.)?focused\s*=(?!=)/);
+  assert.equal(layout.match(/this\.app\.focusClear\(\)/g).length, 2);
   for (const f of walk(JS_ROOT, (n) => n.endsWith('.js')).filter((x) => !x.includes('/test/') && !x.endsWith('/core/app.js')
     && !x.endsWith('/core/focus-controller.js')))
     assert.doesNotMatch(readFileSync(f, 'utf8'), /\b(?:this|app|this\.app)\.focused\s*=(?!=)/, f);
@@ -1051,6 +1057,128 @@ test('TC-FEA-3(9h): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
   const ctx = load9h();
   const contract = contractNames();
   const names = Object.values(DELEGATES_9H).flat().filter((x) => contract.has(x));
+  assert.ok(names.length > 0);
+  for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+});
+
+// ── 9i-1: 레이아웃 — 창 · 탭 더하기 · 탭 닫기와 전환 ─────────────────────────────────────
+
+const CLASSES_9I1 = ['LayoutController', 'LayoutTabAdd', 'LayoutTabOps'];
+
+const DELEGATES_9I1 = {
+  layout: ['_restoreReturn', '_tabToManual', '_tabToAuto', 'renameTab', '_mkWindow', 'addWindow', 'delWindow', 'switchWindow'],
+  'layout.tabAdd': ['findGitViewTab', '_findEditorTab', 'addTab', '_revealTab', '_pushTab'],
+  'layout.tabOps': ['closeTab', 'switchTab', 'split', 'switchTabPrev', 'switchTabNext', 'switchWindowPrev', 'switchWindowNext',
+    'paneNavigate', 'addTabFocused', 'closeTabFocused', 'closeWindowActive', 'sidebarCollapsed', 'setSidebarCollapsed', 'sbPanel',
+    '_toggleSidebar', 'sbRail', 'termIn'],
+};
+
+function load9i1(globals = {}) {
+  return load([...BASE, ...LAYOUT], {
+    expose: [...CLASSES_9I1, 'Controller', 'Component'],
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      TAB_TYPE_TERMINAL: 'terminal', TAB_TYPE_EDITOR: 'editor', TAB_TYPE_RUN: 'run', TAB_TYPE_CHAT: 'chat', TAB_TYPE_GIT: 'git',
+      RETURN_WINDOW_KEY: { plain: 'rp', editor: 're' }, PrefStore: { session: { get: () => null, set() {} } },
+      findPane: (layout, id) => (layout && layout.id === id ? layout : null),
+      firstPane: (layout) => layout || null, findPath: () => null,
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9i-1): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9i1();
+  const app = new ctx.App();
+  for (const c of CLASSES_9I1) {
+    const o = new ctx[c](app);
+    assert.ok(o instanceof ctx.Controller, c);
+    assert.ok(o instanceof ctx.Component, c);
+    assert.equal(o.app, app, c);
+  }
+  const layout = new ctx.LayoutController(app);
+  assert.ok(layout.tabAdd instanceof ctx.LayoutTabAdd);
+  assert.ok(layout.tabOps instanceof ctx.LayoutTabOps);
+  assert.equal(layout._winUndo, null);
+});
+
+test('TC-FEA-1(9i-1): App 생성자가 컨트롤러를 만들고 창 닫기 유예는 App 에서 빠진다 (§2.2 C/9i)', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  assert.ok(ctor.includes('this.layout=new LayoutController(this);'));
+  assert.doesNotMatch(ctor, /this\._winUndo=/);
+  assert.ok(ctor.includes('this._lastPlainWindow=null;'));
+});
+
+test('TC-FEA-1(9i-1): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9i1();
+  const app = new ctx.App();
+  app.layout = { tabAdd: {}, tabOps: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9I1)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9I1)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9I1).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-2(9i-1): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9i-1'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9i-1): 갈아 끼운 aw·setFocusState·render·save·slotFocused·paneTabSet·_revealTab 을 컨트롤러 경로가 부른다', () => {
+  const ctx = load9i1();
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  const pane = { type: 'pane', id: 'p1', tabs: [{ id: 't1', type: 'terminal' }, { id: 't2', type: 'terminal' }], activeTab: 't1' };
+  const w1 = { id: 'w1', layout: pane };
+  const w2 = { id: 'w2', layout: { type: 'pane', id: 'p2', tabs: [], activeTab: null } };
+  app.ws = { activeWindow: 'w1', windows: [w1, w2] };
+  app.focused = 'p1';
+  Object.assign(app, {
+    paneTab: (pn) => pn.activeTab, isKindWin: () => false, isEditorWin: () => false, isGitWin: () => false, isChatWin: () => false,
+    edOn: () => true, _activateWindow: (id) => { app.ws.activeWindow = id }, _slotOnSwitch: () => {}, focusClear: () => {},
+    _focusWindow: () => {}, _gitRescheduleAll: () => {}, _findRunTab: () => ({ win: w1, pane, tab: pane.tabs[0] }),
+    slotNavigate: (d) => log.push('nav:' + d),
+  });
+  app.aw = () => { log.push('aw'); return app.ws.windows.find((w) => w.id === app.ws.activeWindow) };
+  app.slotFocused = () => { log.push('slot'); return 0 };
+  app.paneTabSet = (pn, id) => { log.push('tab:' + id); pn.activeTab = id };
+  app.setFocusState = (id) => log.push('focus:' + id);
+  app.render = () => log.push('render');
+  app.save = () => log.push('save');
+  app._revealTab = (f) => log.push('reveal:' + f.tab.id);
+  app.switchTab('p1', 't2');
+  assert.deepEqual(log.splice(0), ['slot', 'aw', 'tab:t2', 'focus:p1', 'save', 'render']);
+  app.addTab('p1', 'run', { runId: 'r' });
+  assert.deepEqual(log.splice(0), ['aw', 'reveal:t1', 'render', 'save']);
+  app.switchWindow('w2');
+  assert.deepEqual(log.splice(0), ['aw', 'aw', 'aw', 'focus:p2', 'save', 'render']);
+  app.focused = null;
+  app.paneNavigate('left');
+  assert.deepEqual(log.splice(0), ['aw', 'nav:left']);
+});
+
+test('TC-FEA-3(9i-1): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9i-1'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9i-1): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9i1();
+  const contract = contractNames();
+  const names = Object.values(DELEGATES_9I1).flat().filter((x) => contract.has(x));
   assert.ok(names.length > 0);
   for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
 });

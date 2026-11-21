@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, LAYOUT, controllers, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-2 (FEC-22): `closeTab` 을 나눠도 **물을 것이 없는 닫기는 같은
@@ -9,7 +9,7 @@ import { load } from './harness.mjs';
  * run 변경 수신, e2e `slot-run-view` TC-SRV-6). 나눈 뒤 묻기를 늘 기다리게 해서 그것이 깨졌었다.
  */
 function world() {
-  const ctx = load(['core/app-layout.js'], {
+  const ctx = load([...BASE, ...LAYOUT], {
     globals: {
       App: function App() {}, TAB_TYPE_TERMINAL: 'terminal', TAB_TYPE_EDITOR: 'editor', TAB_TYPE_RUN: 'run', TAB_TYPE_CHAT: 'chat',
       TAB_TYPE_GIT: 'git',
@@ -17,7 +17,7 @@ function world() {
       doRemove: () => null, firstPane: () => null,
     },
   });
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
   const pane = { type: 'pane', id: 'p1', tabs: [{ id: 'r1', type: 'run', runId: 'x' }, { id: 't2', type: 'terminal', toolId: 'k' }], activeTab: 'r1' };
   const win = { id: 'w1', layout: pane };
   a.ws = { activeWindow: 'w1', windows: [win] };

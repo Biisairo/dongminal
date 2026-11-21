@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, CHAT, GIT, HELPERS, controllers, load, plain } from './harness.mjs';
+import { BASE, CHAT, GIT, HELPERS, LAYOUT, controllers, load, plain } from './harness.mjs';
 
 /**
  * CHAT_WINDOW_SRS — 채팅 창 (TC-CW-3~6).
@@ -13,7 +13,7 @@ import { BASE, CHAT, GIT, HELPERS, controllers, load, plain } from './harness.mj
  *   FR-CW-5   창 목록(plainWindows)에 채팅 창이 없다
  */
 function world() {
-  const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS, ...CHAT, 'core/app-layout.js', ...GIT], {
+  const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS, ...CHAT, ...LAYOUT, ...GIT], {
     globals: { App: function App() {}, ErrorLog: { push() {} }, crypto: { randomUUID: (() => { let n = 0; return () => 'id' + (++n) })() } },
   });
   const a = controllers(ctx, new ctx.App());
@@ -30,12 +30,12 @@ const term = (id) => ({ id, type: 'terminal', toolId: 't-' + id });
 test('TC-CW-3: 채팅 창에는 채팅 탭만, 채팅 탭은 채팅 창에만 선다', () => {
   const { a } = world();
   const C = { id: 'C', type: 'chat', layout: null }, P = { id: 'P', layout: pane('p', []) }, E = { id: 'E', type: 'editor' };
-  assert.equal(a._tabTypeFits(C, 'chat'), true);
-  assert.equal(a._tabTypeFits(C, 'terminal'), false);
-  assert.equal(a._tabTypeFits(C, 'editor'), false);
-  assert.equal(a._tabTypeFits(P, 'chat'), false);
-  assert.equal(a._tabTypeFits(E, 'chat'), false);
-  assert.equal(a._tabTypeFits(P, 'terminal'), true, '일반 창의 터미널은 그대로다');
+  assert.equal(a.layout.tabAdd._tabTypeFits(C, 'chat'), true);
+  assert.equal(a.layout.tabAdd._tabTypeFits(C, 'terminal'), false);
+  assert.equal(a.layout.tabAdd._tabTypeFits(C, 'editor'), false);
+  assert.equal(a.layout.tabAdd._tabTypeFits(P, 'chat'), false);
+  assert.equal(a.layout.tabAdd._tabTypeFits(E, 'chat'), false);
+  assert.equal(a.layout.tabAdd._tabTypeFits(P, 'terminal'), true, '일반 창의 터미널은 그대로다');
 });
 
 test('TC-CW-3b: 분할은 채팅 창에서 아무 일도 하지 않는다', async () => {
