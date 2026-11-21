@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 P2 — Go 의 같은 규칙 여러 벌을 한 벌로 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 GA~GD 의 구현과 검증 전부.
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `docs/internal/refactor/PROD3.md` §2.2·§2.7 · 묶음 P2)
 - 선행: `REFACTOR3_DEFECTS_SRS`(P1). 사용자 결정(2026-11-21): 목록 전부를 진행한다 · GH-6 은 검색도 UTF-16(BOM)을 텍스트로 본다(Q2) · DM-4 는 `shared/workspace` 로 합친다(Q4).
@@ -72,7 +71,7 @@
 | FR-RDG-41 | 채팅 IPC 의 연산 이름(`kill`·`kick`)과 프레임 종류(`hello`·`msg`)는 한 벌로 선언하고 나머지 자리는 그것을 가리킨다. 두 이름이 어긋나면 실패하는 시험을 둔다 | DM-7 |
 | FR-RDG-42 | IPC 소켓과 같은 폴더의 형제 소켓 경로는 `platform` 의 함수 하나가 만든다(`agentrec`·`edgerelay`·`chatwire`) | DM-8 |
 | FR-RDG-43 | 이름·지문 줄이기는 함수 하나와 길이 이름 둘(지문 표시 길이, 짧은 코드 길이)이다. `edgemesh.short` ↔ `daemon/chat.short` 를 합친다. 지문 표시 길이가 12·16 둘인 이유를 이름과 주석으로 적는다(같으면 하나로) | DM-9 |
-| FR-RDG-44 | 표시용 정화(제어 문자 · Cf · U+FFFD 를 지움)는 `shared` 의 함수 하나다. 지금의 여덟 자리(P1 에서 맞춘 `chatsock.clean` 포함)가 그것을 쓴다 | DM-10 |
+| FR-RDG-44 | 표시용 정화의 공통 핵심(제어 문자 · Cf 를 지움)은 `shared/termtext` 의 함수 하나다. 지금의 여덟 자리(P1 에서 맞춘 `chatsock.clean` 포함)가 그것을 쓴다. U+FFFD 는 지금처럼 `chatsock` 만 지운다 — 다른 자리까지 넓히면 `dmctl` 출력과 `edge` 오류 문구가 바뀐다(INV-1·2). *2026-11-21 정정: 처음 문구는 공용 함수가 U+FFFD 도 지운다고 적었다* | DM-10 |
 | FR-RDG-45 | `DONGMINAL_*` 환경 변수 이름은 `dmenv` 에 모은다(`serverconf`·`updatecheck`·`ctl/cli/options.go` 의 것). `sandbox` 는 문자열 대신 `dmenv` 상수를 쓴다 | DM-11 |
 | FR-RDG-46 | `sandbox` 의 런타임 시작·설치 명령은 OS 표 하나에서 문자열과 인자 배열을 함께 만든다 | DM-17 |
 
@@ -105,7 +104,7 @@
 | TC-RDG-21 | `list-workspace` 골든 — 출력이 종전과 같다(표본 워크스페이스 JSON 하나 이상) | GB |
 | TC-RDG-22 | 모르는 인자 문구가 모든 하위 명령에서 같다 | GB |
 | TC-RDG-40 | IPC 이름 대조 시험(어긋나면 실패) | GC |
-| TC-RDG-41 | 정화 함수 — 제어·Cf·U+FFFD 를 지우고 나머지는 그대로 | GC |
+| TC-RDG-41 | 정화 함수 — 제어·Cf 를 지우고 나머지는 그대로(U+FFFD 는 `chatsock/clean_test.go` 가 본다) | GC |
 | TC-RDG-60 | 기존 `worktree`·`submodule`·`claudeacct`·`wsentry` 시험이 그대로 통과한다 | GD |
 
 새 시험은 새 함수가 없는 옛 코드에서 실패한다(컴파일 실패 포함). 묶음마다 `go vet ./...` · `go test ./...`(바뀐 패키지는 `-race`) · `make gates` 를 돌린다.
@@ -115,5 +114,18 @@
 | 묶음 | 이전 | 새 | 이유 |
 |---|---|---|---|
 | GA | 파일 검색이 UTF-16(BOM) 파일을 이진으로 보고 건너뛰었다 | 텍스트로 보고 찾는다(바이트 비교) | Q2 — 편집기와 같은 규칙 |
-| GB | 모르는 인자 문구가 셋(`모르는 인자 %q` · `unknown argument: %s` · `모르는 플래그 %s`) | 하나 | DM-5 |
+| GB | 모르는 인자 문구가 넷(`모르는 인자 %q` · `unknown argument: %s` · `모르는 플래그 %s` · `unknown flag: %s`) | 하나(`unknown argument: X`). `argparse.golden` 은 그 줄만 바뀌었다 | DM-5 · TC-RDG-22. *처음 표는 셋으로 적었다 — `unknown flag:` 는 구현 중에 찾았다* |
+| GB | `list-workspace` 가 pane·split 이 아닌 레이아웃 노드의 자식도 돌았다 | 서버(`shared/workspace.CollectPanes`)와 같이 돌지 않는다 | Q4 로 한 벌이 되었다. 브라우저는 pane·split 만 만들므로(`layout-tree.js`) 실제로 나타나지 않는다 |
+| GB | `rename-tab` 확인이 `/api/state` 200 만 성공으로 봤다 | 2xx | `/api/state` 읽기가 한 벌이 되었다. 서버는 늘 200 이라 실제로 나타나지 않는다 |
 | GB | `detach` 가 응답 본문을 해석하지 못해도 "브라우저 없음" 으로 1 | 해석하지 못하면 `dmctlDelivery` 규칙("모른다" → 0) | DM-F3 — 규칙 두 벌을 하나로 |
+
+## 6. 구현 기록 (2026-11-21)
+
+| 묶음 | 커밋 | 요점 |
+|---|---|---|
+| GA | `d94b16bd` | `httpresp.Fail`·`FailCode`·`CodeHeader`, `httpreq.DecodeJSON`·`SmallLimit`, git 가드 10곳을 라우트 `needGit` 으로, 이진 판정 하나(검색도 UTF-16 BOM 을 텍스트로). 방언 골든 httpapi 15갈래·git 5갈래. **남긴 것:** `lspReadBody` 는 상한 상수만 공유한다(`DecodeJSON` 의 `MaxBytesReader` 가 실제 서버에서 `Connection: close` 를 붙여 INV-1 을 어긴다). 본문 검증을 git 가드보다 먼저 하는 처리기(`gitResolveRepoSoft` 류)는 감싸지 않았다(감싸면 400 이 503 이 된다). ripgrep 경로의 UTF-16 처리는 확인하지 않았다 |
+| GB | `a0372852` | `httpExit`+`exitRule` 이 응답→종료 코드 아홉 자리를, `parseRefusal` 이 거절 방언 셋을, `fetchState` 가 `/api/state` 읽기 셋을 맡는다. `list-workspace` 는 `shared/workspace` 타입을 쓴다(`WsState`·`WsWindow`·`ShortCode` 로 이름을 내보냄). 골든 `httpexit.golden`(17 종단 × 19 본문)·`listworkspace.golden` 은 옛 코드로 만들었다. **남긴 것:** `send-input`·`msg`·`detach`·`parseSubArgs` 는 `argSpec` 으로 옮기면 출력이 바뀌어 문구만 맞췄다. Claude 가 부르는 명령(activity·notify·ctxhook·agentcontext·chatmcp)은 외부 계약이라 손대지 않았다 |
+| GC | `994d9805` | `edgemesh.HelloWait`, kill·kick 원천은 `humancmd`(hello·msg 는 층이 달라 합치지 않음), `platform.SiblingSocket`, 새 패키지 `shared/termtext`(`Cut`·`Hidden`·`Strip`·`Line`, `FPShown=16`·`FPShort=12`), `dmenv` 에 env 이름 넷, `sandbox` OS 표 하나. **남긴 것:** `DONGMINAL_*` 문자열 셋(`httpapi/openurl.go`·`runtimebin/dmctl_statusline.go`·`ctl/cli/doctor_probe.go`)은 FR 범위 밖이라 P4 로 |
+| GD | `56dffed0` | `worktree.prepareRemove`·`pruneAndCheckGone`, `core.ExecUnguardedText`(게이트 정규식을 넓힘), `claudeacct.waker`, `wsentry.home`·`ensureRoot` |
+
+묶음 넷을 `main` 에 합친 뒤(`cef773f3`): `gofmt` 0 · `go vet ./...` · `go test ./...` · `make gates` · `npm run -s unit`(1157) 통과. 문서의 옛 이름(`ensureDir`·`shortCodeOf`·`printRefusal`·`isBinary` 의 자리)은 `PROD3.md` P7 로 넘겼다.
