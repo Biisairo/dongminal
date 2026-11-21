@@ -21,6 +21,8 @@ const (
 	fetchStagger   = 250 * time.Millisecond
 	activeRefreshT = 6 * time.Second
 	idleWake       = 5 * time.Minute
+	// roundFloor 는 Run 의 회차 사이 최소 간격이다.
+	roundFloor = time.Second
 )
 
 // 계정 상태 (FR-CAC-56).
@@ -613,9 +615,9 @@ func (e *Engine) refreshPinned(ctx context.Context, a Account, force bool) (Cred
 func (e *Engine) Wake() { e.wake.wake() }
 
 // Run 은 stop 이 닫힐 때까지 조회한다. 등록된 계정이 없으면 아무것도 부르지 않는다 (FR-CAC-50).
-// 회차 사이는 최소 1초다.
+// 회차 사이는 최소 roundFloor 다.
 func (e *Engine) Run(stop <-chan struct{}) {
-	e.wake.loop(stop, time.Second, func(ctx context.Context) time.Duration {
+	e.wake.loop(stop, roundFloor, func(ctx context.Context) time.Duration {
 		return time.Until(e.Tick(ctx))
 	})
 }

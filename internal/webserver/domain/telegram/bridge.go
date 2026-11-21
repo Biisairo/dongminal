@@ -39,9 +39,15 @@ const (
 	// maxButtonsPerTab 는 탭 하나가 기억하는 `[읽음]` 메시지 수다 (REFACTOR3_DEFECTS_SRS FR-RD3-42 · D-RD3-4).
 	maxButtonsPerTab = 32
 	callTimeout      = 15 * time.Second
-	pollTimeout      = 50
-	backoffFirst     = time.Second
-	backoffMax       = time.Minute
+	// pollTimeout 은 getUpdates long polling 의 대기다. Bot API 는 초 단위 정수를 받는다.
+	pollTimeout = 50 * time.Second
+	// pollClientTimeout 은 HTTP 클라이언트의 시한이다 — 서버가 pollTimeout 을 채우고 답하는
+	// 시간에 여유를 더한다. pollTimeout 보다 짧으면 정상 응답 전에 끊긴다.
+	pollClientTimeout = pollTimeout + 20*time.Second
+	// disabledRecheck 는 꺼져 있을 때 설정을 다시 보는 간격이다.
+	disabledRecheck = 3 * time.Second
+	backoffFirst    = time.Second
+	backoffMax      = time.Minute
 )
 
 // item 은 작업자 큐의 한 칸이다.
@@ -167,12 +173,12 @@ func (b *Bridge) pollLoop(ctx context.Context) {
 	for ctx.Err() == nil {
 		c := b.st.Config()
 		if !c.Enabled || c.Token == "" {
-			if !sleepCtx(ctx, 3*time.Second) {
+			if !sleepCtx(ctx, disabledRecheck) {
 				return
 			}
 			continue
 		}
-		ups, err := b.client(c).GetUpdates(ctx, offset, pollTimeout)
+		ups, err := b.client(c).GetUpdates(ctx, offset, int(pollTimeout/time.Second))
 		if err != nil {
 			if ctx.Err() != nil {
 				return

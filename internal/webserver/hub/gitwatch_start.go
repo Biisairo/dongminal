@@ -11,7 +11,7 @@ import (
 StartGitWatch 는 회차를 도는 주체다 (FR-GPO-13).
 
 대상이 없어도 티커는 돈다. 멈췄다 켜는 대신 빈 순회를 하는 이유는, 시작·정지의
-경합을 다루는 비용이 500ms 마다의 빈 순회보다 크기 때문이다 — 빈 순회는 맵
+경합을 다루는 비용이 `GitWatchInterval` 마다의 빈 순회보다 크기 때문이다 — 빈 순회는 맵
 하나를 잠그고 길이를 보는 일이다.
 */
 func StartGitWatch(w *GitWatcher, stopCh <-chan struct{}) {

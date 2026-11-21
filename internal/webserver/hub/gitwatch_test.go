@@ -407,15 +407,10 @@ func TestGitWatch_SignatureErrorFallsBackToStatus(t *testing.T) {
 func TestGitWatch_WorktreePhaseSpread(t *testing.T) {
 	seen := map[uint64]bool{}
 	for _, r := range []string{"/a", "/b", "/c", "/d", "/e", "/f", "/g", "/h"} {
-		seen[watchPhase(r)] = true
+		seen[phaseHash(r)%GitWatchWorktreeEvery] = true
 	}
 	if len(seen) < 2 {
 		t.Fatalf("위상이 흩어지지 않는다: %v (FR-GDT-4)", seen)
-	}
-	for p := range seen {
-		if p >= GitWatchWorktreeEvery {
-			t.Fatalf("위상이 회차 범위를 벗어난다: %d", p)
-		}
 	}
 }
 
@@ -1050,7 +1045,7 @@ func TestGitWatch_SlowStatusBeyondRoundTimeoutStillBroadcasts(t *testing.T) {
 	}
 	w.mu.Lock()
 	e := w.watch["/r"]
-	fixed, pending := e.lastSig, e.pending
+	fixed, pending := e.lastSig, e.pend.on
 	w.mu.Unlock()
 	if fixed != "b" || pending {
 		t.Fatalf("lastSig=%q pending=%v, want b/false", fixed, pending)

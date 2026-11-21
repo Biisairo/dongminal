@@ -201,22 +201,22 @@ type gitWatchEntry struct {
 	// **비어 있지 않으면 유휴로 만료되지 않는다** (FR-GWL-2).
 	holders map[string]uint64
 
-	// REPO_FIX 02 §3A-1. pending 은 "signature 가 바뀌어 변화 이후의 관측을 기다린다"
-	// 이다 — lastSig 는 그 관측이 성립한 뒤에만 pendingSig 로 확정한다.
-	pending    bool
-	pendingSig string
-	pendingAt  time.Time
+	// REPO_FIX 02 §3A-1. pend 는 "signature 가 바뀌어 변화 이후의 관측을 기다린다"
+	// 이다 — lastSig 는 그 관측이 성립한 뒤에만 pend.sig 로 확정한다.
+	pend watchPend
 	// fails·retryAt 은 일시적 관측 실패의 연속 횟수와 다음 관측 시각이다.
 	fails   int
 	retryAt time.Time
 }
 
-// watchPhase 는 저장소 경로에서 워크트리 회차의 위상을 뽑는다 (FR-GDT-4).
-func watchPhase(repo string) uint64 {
-	return phaseHash(repo) % GitWatchWorktreeEvery
+// watchPend 는 기다리는 변화다: 기다리는가, 그 signature, 기다리기 시작한 시각.
+type watchPend struct {
+	on  bool
+	sig string
+	at  time.Time
 }
 
-// phaseHash 는 위상의 원천이다. 간격이 설정으로 바뀌므로(FR-ELR-76) 나머지는 회차마다 구한다.
+// phaseHash 는 워크트리 회차 위상(FR-GDT-4)의 원천이다. 간격이 설정으로 바뀌므로(FR-ELR-76) 나머지는 회차마다 구한다.
 func phaseHash(repo string) uint64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(repo))

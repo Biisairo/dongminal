@@ -130,16 +130,10 @@ func (w *GitWatcher) observe(ctx context.Context, repo string, round uint64, for
 	}
 	// FR-GDT-4 / D-GDT-2: 워크트리 회차를 저장소마다 **어긋나게** 돈다.
 	worktreeRound := (round+e.phase)%w.worktreeRounds() == 0
-	invalidate := false
-	if sigErr == nil && (!e.hasSig || e.lastSig != sig.Value) {
-		// 새 변화다. 기다리던 것과 같은 값이면 이미 무효화했다 — 합류만 한다.
-		if !e.pending || e.pendingSig != sig.Value {
-			invalidate = true
-			e.pending, e.pendingSig, e.pendingAt = true, sig.Value, w.now()
-		}
-	}
-	pending, pendingAt := e.pending, e.pendingAt
-	need := pending || worktreeRound || sigErr != nil || force
+	var invalidate bool
+	e.pend, invalidate = pendingStep(e.pend, e.lastSig, e.hasSig, sig.Value, sigErr == nil, w.now())
+	pending, pendingAt := e.pend.on, e.pend.at
+	need := needStatus(pending, worktreeRound, sigErr != nil, force)
 	invalidate = invalidate || force
 	w.mu.Unlock()
 
@@ -175,9 +169,9 @@ func (w *GitWatcher) observe(ctx context.Context, repo string, round uint64, for
 		return false
 	}
 	e.fails, e.retryAt = 0, time.Time{}
-	if pending && e.pending && e.pendingSig != "" {
-		e.lastSig, e.hasSig = e.pendingSig, true
-		e.pending = false
+	if settlesPending(pending, e.pend) {
+		e.lastSig, e.hasSig = e.pend.sig, true
+		e.pend.on = false
 	}
 	first := !e.hasMark
 	changed := e.hasMark && e.lastMark != mark
@@ -189,6 +183,34 @@ func (w *GitWatcher) observe(ctx context.Context, repo string, round uint64, for
 	}
 	w.announce(repo, mark)
 	return true
+}
+
+// pendingStep 은 1차 게이트 한 번의 pending 전이다 (FR-GDT-1·2 · REPO_FIX 02 §3A-1). 순수하다.
+//
+// signature 를 읽지 못했거나(sigOK 거짓) 확정값과 같으면 그대로다. 다르면 새 변화다 —
+// 이미 그 값을 기다리는 중이면 합류만 하고(이미 무효화했다), 아니면 그 값을 기다리기
+// 시작하며 무효화를 요구한다.
+func pendingStep(cur watchPend, lastSig string, hasSig bool, sig string, sigOK bool, now time.Time) (watchPend, bool) {
+	if !sigOK || (hasSig && lastSig == sig) {
+		return cur, false
+	}
+	if cur.on && cur.sig == sig {
+		return cur, false
+	}
+	return watchPend{on: true, sig: sig, at: now}, true
+}
+
+// needStatus 는 2차(`git status`)를 돌릴 회차인가다 — observe 머리말의 ①~④ 와 계기(force).
+// ① 은 pendingStep 이 pending 으로 옮겨 두므로 pending 하나로 본다.
+func needStatus(pending, worktreeRound, sigFailed, force bool) bool {
+	return pending || worktreeRound || sigFailed || force
+}
+
+// settlesPending 은 관측이 성립한 뒤 기다리던 signature 를 확정할 때인가다. 회차 시작에
+// 기다리던(waited) 변화가 아직 기다리는 중이어야 한다 — 그 사이 다른 회차가 확정했으면
+// 다시 하지 않는다.
+func settlesPending(waited bool, cur watchPend) bool {
+	return waited && cur.on && cur.sig != ""
 }
 
 // drop 은 결정적 오류(저장소 소실·비저장소·git 부재)의 저장소를 감시에서 빼고

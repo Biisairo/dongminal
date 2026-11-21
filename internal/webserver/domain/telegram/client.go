@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 // DefaultBaseURL 은 Bot API 의 주소다. 시험은 가짜 서버로 바꾼다 (§5).
@@ -42,7 +41,7 @@ func NewClient(base, token string, hc *http.Client) *Client {
 		base = DefaultBaseURL
 	}
 	if hc == nil {
-		hc = &http.Client{Timeout: 70 * time.Second}
+		hc = &http.Client{Timeout: pollClientTimeout}
 	}
 	return &Client{base: base, token: token, hc: hc}
 }

@@ -18,6 +18,8 @@ const (
 	DefaultLockWait   = 9 * time.Second
 	dirLockPollMin    = 250 * time.Millisecond
 	dirLockPollJitter = 250 * time.Millisecond
+	// staleRetryWait 는 낡은 잠금을 걷지 못했을 때(다른 쪽이 먼저 걷는 중) 다시 보기까지의 틈이다.
+	staleRetryWait = 50 * time.Millisecond
 )
 
 // dirLockTouch 는 잡은 동안 mtime 을 갱신하는 주기다. 시험이 줄인다.
@@ -48,7 +50,7 @@ func acquireDirLock(dir string, staleness, timeout time.Duration) (func(), error
 		}
 		if err == nil && time.Since(st.ModTime()) > staleness {
 			if !removeIfStillStale(dir, staleness) {
-				time.Sleep(50 * time.Millisecond)
+				time.Sleep(staleRetryWait)
 			}
 			continue
 		}

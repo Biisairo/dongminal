@@ -257,6 +257,9 @@ func (w *GitWatcher) Leases() int {
 
 // Watching 은 지금 감시 중인 저장소 수다. 검사와 진단이 쓴다.
 func (w *GitWatcher) Watching() int {
+	if w == nil {
+		return 0
+	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return len(w.watch)
