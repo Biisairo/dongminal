@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, TOOL, controllers, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-7 (FEC-33): 검색은 키 입력마다 계산 스타일을 읽지 않는다 —
@@ -11,9 +11,9 @@ test('doSearch 세 번에 getComputedStyle 0회 — 테마가 계산해 둔 장�
   let reads = 0;
   const input = { value: 'foo' }, count = { textContent: '' };
   const seen = [];
-  const ctx = load(['core/app-search.js'], {
+  const ctx = load([...BASE, ...TOOL], {
     globals: {
-      App: function App() {},
+      App: function App() {}, TIMERS: { disposeOwner() {} },
       document: { getElementById: (id) => (id === 'search-input' ? input : count), documentElement: {} },
       getComputedStyle: () => { reads++; return { getPropertyValue: () => '#000000' } },
       hexToRgba: (h, a) => h + '/' + a,
@@ -21,11 +21,11 @@ test('doSearch 세 번에 getComputedStyle 0회 — 테마가 계산해 둔 장�
       SEARCH_NONE: 'none', SEARCH_BAD_REGEX: 'bad',
     },
   });
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
   const term = { search: { findNext: (q, o) => { seen.push(o.decorations); return true } }, _searchSub: null };
   a.focusedTerminal = () => term;
-  a._searchOpt = () => false;
-  a._searchBindResults = () => {};
+  a.tool.search._searchOpt = () => false;          // REFACTOR3_FE_APPCTL_SRS 9j: 부품 `ToolSearch` 의 것이다
+  a.tool.search._searchBindResults = () => {};
   for (let i = 0; i < 3; i++) a.doSearch('next');
   assert.equal(reads, 0);
   assert.equal(seen.length, 3);

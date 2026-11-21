@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, GIT, WS_SYNC, controllers, load } from './harness.mjs';
+import { BASE, GIT, TOOL, WS_SYNC, controllers, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3·4-4 후속 (Ofix2) — 목록 두 개의 순서.
@@ -13,7 +13,7 @@ function setup() {
   const waits = [];
   const hold = (path, r) => new Promise((resolve) => waits.push({ path, go: () => resolve(r) }));
   const answers = {};
-  const ctx = load([...BASE, 'core/constants-api.js', 'core/event-bus.js', 'core/app-cmd.js', ...WS_SYNC, 'core/statusbar-controller.js',
+  const ctx = load([...BASE, 'core/constants-api.js', 'core/event-bus.js', ...TOOL, ...WS_SYNC, 'core/statusbar-controller.js',
     'core/statusbar-enc.js', ...GIT], {
     expose: ['EventBus', 'StatusBarController'],
     globals: {

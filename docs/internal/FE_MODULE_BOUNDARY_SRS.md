@@ -410,12 +410,14 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 코드가 아니거나 검사 코드이고, `i18n/ko.js`·`en.js` 는 **데이터**라 키가 늘면 줄이
 늘고 분할이 뜻을 갖지 않는다.
 
-    500줄초과=13 · 최대=971
+    500줄초과=12 · 최대=971
 
 | 지표 | §2.1 기준선 (2026-09-12) | §7.1 달성 (2026-09-13) | 게이트를 세운 순간 (2026-09-21) | **게이트 기준선 (2026-09-21)** |
 |---|---:|---:|---:|---:|
 | 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **18** |
 | 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,020** (`core/app-git.js`) |
+
+> 13 → 12 (2026-11-21, `REFACTOR3_FE_APPCTL_SRS` 9j). `core/app-tool.js`(591)가 `ToolController`(`tool-controller.js` 427)와 부품 `ToolLife`(`tool-life.js` 189)로 갈렸다. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 
 > 14 → 13 (2026-11-21, `REFACTOR3_FE_APPCTL_SRS` 9i-1). `core/app-layout.js`(967)가 `LayoutController`(`layout-controller.js` 397)와 부품 둘(`layout-tab-add.js` 200 · `layout-tab-ops.js` 407)로 갈렸다. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 

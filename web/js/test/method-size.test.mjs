@@ -32,7 +32,7 @@ const CASES = [
   ['core/layout-tab-ops.js', '  async closeTab('],
   ['core/app.js', '  save(){'],
   ['core/app.js', '  async init(){'],
-  ['core/app-cmd.js', '  _execRemote(action, args){'],
+  ['core/tool-cmd.js', '  _execRemote(action, args){'],
   ['core/mobile-controller.js', '  initMobileKeybar('],
 ];
 

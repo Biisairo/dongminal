@@ -1,10 +1,10 @@
 /**
  * Remote Terminal — App 검색 (PACKAGE_RESTRUCTURE_SRS FR-APP-2)
  *
- * class App 본문에서 옮겨온 메서드 7개. 본문은 수정하지 않았다 (FR-APP-3).
+ * 터미널 찾기 줄. `ToolController` 의 부품 `.search` 다(REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-search.js`).
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
-Object.assign(App.prototype, {
+class ToolSearch extends Controller {
   // ── Search ──
   toggleSearch(){
     const bar=document.getElementById('search-bar');
@@ -12,38 +12,38 @@ Object.assign(App.prototype, {
     if(!bar.hidden){this.closeSearch();return}
     bar.hidden=false;
     document.getElementById('search-input').focus();
-    for(const pane of this.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
-  },
+    for(const pane of this.app.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
+  }
   closeSearch(){
     const bar=document.getElementById('search-bar');
     bar.hidden=true;
     document.getElementById('search-input').value='';
     document.getElementById('search-count').textContent='';
     this.clearAllSearchDecorations();
-    this.focusedTerminal()?.focus();
-    for(const pane of this.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
-  },
+    this.app.focusedTerminal()?.focus();
+    for(const pane of this.app.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
+  }
   clearAllSearchDecorations(){
-    for(const p of this.tools.values())if(p.search)p.search.clearDecorations();
-  },
-  _searchOpen(){return !document.getElementById('search-bar').hidden},
+    for(const p of this.app.tools.values())if(p.search)p.search.clearDecorations();
+  }
+  _searchOpen(){return !document.getElementById('search-bar').hidden}
   researchIfOpen(){
     if(!this._searchOpen())return;
-    this.timers.after(50,()=>this.doSearch('next'),{owner:'app',label:'search-first'});
-  },
+    this.app.timers.after(50,()=>this.doSearch('next'),{owner:'app',label:'search-first'});
+  }
   focusedTerminal(){
-    if(!this.focused)return null;
-    const s=this.aw();if(!s)return null;
-    const pn=findPane(s.layout,this.focused);if(!pn)return null;
-    const tab=pn.tabs.find(x=>x.id===this.paneTab(pn));
+    if(!this.app.focused)return null;
+    const s=this.app.aw();if(!s)return null;
+    const pn=findPane(s.layout,this.app.focused);if(!pn)return null;
+    const tab=pn.tabs.find(x=>x.id===this.app.paneTab(pn));
     if(!tab||tab.type!==TAB_TYPE_TERMINAL)return null;
-    return this.tools.get(tab.toolId);
-  },
+    return this.app.tools.get(tab.toolId);
+  }
   // FUI-15: 토글 하나의 상태. id 하나로 묻는 자리가 넷이라 여기 모은다.
   _searchOpt(id){
     const el=document.getElementById(id);
     return !!(el&&el.classList.contains('active'));
-  },
+  }
 
   /**
    * `12-func-ui.md FUI-15`: **일치 수와 자리를 보인다.**
@@ -62,10 +62,10 @@ Object.assign(App.prototype, {
     if(typeof p.search.onDidChangeResults!=='function') return;
     p._searchSub=p.search.onDidChangeResults(r=>{
       // 이 패널이 더 이상 검색 대상이 아니면 남의 수를 적지 않는다.
-      if(this.focusedTerminal()!==p) return;
+      if(this.app.focusedTerminal()!==p) return;
       this._searchPaintCount(r);
     });
-  },
+  }
 
   /**
    * 결과 하나를 `n/N` 으로 적는다.
@@ -80,17 +80,17 @@ Object.assign(App.prototype, {
     // `resultIndex` 는 0-based 이고 아무것도 고르지 않았으면 -1 이다.
     const at=(typeof r.resultIndex==='number'&&r.resultIndex>=0)?(r.resultIndex+1):0;
     el.textContent=at?(at+'/'+r.resultCount):String(r.resultCount);
-  },
+  }
 
   // 테마를 아직 적용하지 않았으면(부팅 중) 지금의 계산 스타일로 한 번 만든다.
   _searchDecorNow(){
     const cs=getComputedStyle(document.documentElement);
     const v=(k)=>cs.getPropertyValue(k).trim();
     return searchDecorOf({'--accent':v('--accent'),'--accent-border':v('--accent-border'),'--danger':v('--danger')});
-  },
+  }
 
   doSearch(dir){
-    const p=this.focusedTerminal();if(!p||!p.search)return;
+    const p=this.app.focusedTerminal();if(!p||!p.search)return;
     const q=document.getElementById('search-input').value;
     const count=document.getElementById('search-count');
     if(!q){count.textContent='';this.clearAllSearchDecorations();return}
@@ -110,5 +110,9 @@ Object.assign(App.prototype, {
     // 구독이 있으면 그쪽이 같은 값을 곧 덮는다.
     if(!p._searchSub) count.textContent=found!==undefined?(found?'':SEARCH_NONE):'';
     else if(found===false) count.textContent=SEARCH_NONE;
-  },
-});
+  }
+}
+
+// 바깥이 부르는 이름 — 단축키·찾기 줄 배선(`ui/`)·렌더러·e2e·계약.
+Controller.delegate(App,'tool.search',['toggleSearch','closeSearch','clearAllSearchDecorations','researchIfOpen',
+  'focusedTerminal','doSearch']);

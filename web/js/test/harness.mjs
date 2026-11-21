@@ -98,12 +98,14 @@ export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'co
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];
 export const LAYOUT = ['core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js', 'core/layout-window-state.js',
   'core/layout-dock.js', 'core/layout-tab-reopen.js', 'core/layout-dnd.js', 'core/layout-groups.js'];
+export const TOOL = ['core/tool-cmd.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/tool-work.js', 'core/tool-search.js'];
 
 /** App 필드 → 뿌리 컨트롤러 클래스. App 생성자가 세우는 것과 같다 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). */
 const APP_CONTROLLERS = { settings: 'SettingsController', edges: 'EdgesController', update: 'UpdateController',
   attn: 'AttnController', claude: 'ClaudeAccountsController', statusbar: 'StatusBarController', chat: 'ChatController',
   agents: 'AgentsController', mobile: 'MobileController', git: 'GitController', wsSync: 'WsSyncController',
-  focus: 'FocusController', slot: 'SlotsController', layout: 'LayoutController' };
+  focus: 'FocusController', slot: 'SlotsController', layout: 'LayoutController',
+  tool: 'ToolController' };
 
 /**
  * 실은 파일에 있는 뿌리 컨트롤러를 앱에 세운다 — App 생성자의 몫을 시험이 대신한다. 이미 있는 필드는 두고, 싣지 않은

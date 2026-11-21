@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { load, plain } from './harness.mjs';
+import { BASE, TOOL, controllers, load, plain } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-2 (FEC-23 · IPC-17): `_execRemote` 는 action 표다.
@@ -24,23 +24,24 @@ function serverActions() {
 }
 
 function world() {
-  const ctx = load(['core/app-cmd.js'], {
-    globals: { App: function App() {}, OpenUrl: { handle() {} }, TAB_TYPE_TERMINAL: 'terminal' },
+  const ctx = load([...BASE, ...TOOL], {
+    globals: { App: function App() {}, TIMERS: { disposeOwner() {} }, OpenUrl: { handle() {} }, TAB_TYPE_TERMINAL: 'terminal' },
     expose: ['REMOTE_ACTIONS'],
   });
   const calls = [];
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
+  const cmd = a.tool.cmd;   // REFACTOR3_FE_APPCTL_SRS 9j: 자리 풀이·시선 되돌리기는 부품 `ToolCmd` 의 것이다
   const rec = (name, ret) => (...args) => { calls.push(plain([name, ...args])); return ret };
   a.calls = calls;
   a.ws = { activeWindow: 'w1', windows: [{ id: 'w1' }] };
   a.focused = 'p1';
-  a._resolveLocation = (loc) => (loc === 'W1.P1.T1'
+  cmd._resolveLocation = (loc) => (loc === 'W1.P1.T1'
     ? { windowId: 'w1', paneId: 'p1', tabId: 't1', win: { id: 'w1' }, pane: { id: 'p1' }, tab: { id: 't1' } }
     : null);
-  a._focusLocation = rec('_focusLocation');
+  cmd._focusLocation = rec('_focusLocation');
   a.executeAction = rec('executeAction');
-  a._viewMark = () => null;
-  a._viewRestore = rec('_viewRestore');
+  cmd._viewMark = () => null;
+  cmd._viewRestore = rec('_viewRestore');
   a.closeTab = rec('closeTab');
   a.closeWindowActive = rec('closeWindowActive');
   a.delWindow = rec('delWindow');

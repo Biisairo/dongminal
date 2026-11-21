@@ -5,7 +5,8 @@
  * 사이드바 창 행은 점 대신 선택 점을 두르는 링이다 (FR-UXF-129, D-44).
  * 주의(`_attn`) 표식이 있는 자리에는 점을 두지 않는다 — 사람이 손대야 하는 것이 앞선다.
  *
- * 로드 순서 계약: attn-controller.js · agents-controller.js 뒤 — prototype 확장이다.
+ * `ToolController` 의 부품 `.work` 다(REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-work.js`). 마지막으로 칠한 표식 `_workSig` 는 이 부품의
+ * 것이다(§2.2 SH-4).
  */
 const WORK_DOT_CLASS='work-dot';
 // FR-UXF-129 (D-44): 사이드바 창 행은 점 대신 이 클래스로 선택 점에 링을 두른다.
@@ -22,23 +23,23 @@ function workDotSync(el,on,before){
   el.insertBefore(d,before||null);
 }
 
-Object.assign(App.prototype, {
+class ToolWork extends Controller {
   /** FR-UXF-60: 도구가 작업 중인가. */
   toolWorking(toolId){
-    const a=toolId&&this._activity.get(toolId);
+    const a=toolId&&this.app._activity.get(toolId);
     return !!a&&a.state===ACTIVITY_STATE.WORKING;
-  },
+  }
 
   /** 작업 중이고 창에 자리가 있는 도구 — 모바일 작업 단추·에이전트 탭 배지의 수가 이것이다. */
   workingToolIds(){
     const out=new Set();
-    for(const id of this._activity.keys()) if(this.toolWorking(id)&&this.findToolLocation(id)) out.add(id);
+    for(const id of this.app._activity.keys()) if(this.toolWorking(id)&&this.app.findToolLocation(id)) out.add(id);
     return out;
-  },
+  }
 
   /** FR-UXF-62: 창 layout 안에 작업 중인 도구가 있는가 (`windowHasAttn` 과 같은 걸음). */
   windowWorking(s){
-    if(!s||!s.layout||!this._activity.size) return false;
+    if(!s||!s.layout||!this.app._activity.size) return false;
     const walk=(node)=>{
       if(!node) return false;
       if(node.type==='pane') return (node.tabs||[]).some(tab=>this.toolWorking(tab.toolId));
@@ -46,13 +47,13 @@ Object.assign(App.prototype, {
       return false;
     };
     return walk(s.layout);
-  },
+  }
 
   /** FR-UXF-61: 탭에 점을 두는가. */
-  tabWorkDot(toolId){ return this.toolWorking(toolId)&&!this.attnHas(toolId) },
+  tabWorkDot(toolId){ return this.toolWorking(toolId)&&!this.app.attnHas(toolId) }
 
   /** FR-UXF-62·129: 창 행의 선택 점에 링을 두는가. */
-  windowWorkDot(s){ return this.windowWorking(s)&&!this.windowHasAttn(s) },
+  windowWorkDot(s){ return this.windowWorking(s)&&!this.app.windowHasAttn(s) }
 
   /** FR-UXF-64: 작업 중 모임이 바뀌었을 때만 표식을 고친다. */
   _workSync(){
@@ -60,7 +61,7 @@ Object.assign(App.prototype, {
     if(sig===this._workSig) return;
     this._workSig=sig;
     this._workRefresh();
-  },
+  }
 
   /** 전체 render() 없이 표식만 고친다 — `_attnRefresh` 와 같은 이유(포커스 플리커). */
   _workRefresh(){
@@ -68,8 +69,11 @@ Object.assign(App.prototype, {
       workDotSync(el,this.tabWorkDot(el.dataset.toolid),el.querySelector('.pn-tab-label'));
     });
     document.querySelectorAll('#windows .si[data-sid]').forEach(el=>{
-      const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
+      const s=this.app.ws.windows.find(x=>x.id===el.dataset.sid);
       el.classList.toggle(WORK_ROW_CLASS,!!s&&this.windowWorkDot(s));
     });
-  },
-});
+  }
+}
+
+// 바깥이 부르는 이름 — 렌더러·사이드바·작업 패널·e2e.
+Controller.delegate(App,'tool.work',['workingToolIds','tabWorkDot','windowWorkDot','_workSync','_workRefresh']);

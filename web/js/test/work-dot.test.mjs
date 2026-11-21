@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { AGENTS, BASE, controllers, load } from './harness.mjs';
+import { AGENTS, BASE, TOOL, controllers, load } from './harness.mjs';
 
 /**
  * UX_AUDIT_FIX_SRS TC-UXF-62 의 unit 부분 (FR-UXF-60·63) — 작업 중 판정과 에이전트 탭 배지.
@@ -9,9 +9,9 @@ import { AGENTS, BASE, controllers, load } from './harness.mjs';
 const ACTIVITY_STATE = { WORKING: 'working', WAITING: 'waiting', DONE: 'done', IDLE: 'idle', ENDED: 'ended' };
 
 function setup(acts, { located = () => true, attn = new Set() } = {}) {
-  const ctx = load([...BASE, ...AGENTS, 'core/app-work.js'], {
+  const ctx = load([...BASE, ...AGENTS, ...TOOL], {
     expose: ['ACTIVITY_SECTIONS'],
-    globals: { App: function App() {}, t: (k) => k, ACTIVITY_STATE },
+    globals: { App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, ACTIVITY_STATE },
   });
   const app = controllers(ctx, new ctx.App());
   app._activity = new Map(Object.entries(acts).map(([id, state]) => [id, { state }]));

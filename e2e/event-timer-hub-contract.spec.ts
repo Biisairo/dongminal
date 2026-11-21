@@ -31,7 +31,8 @@ const WEB = join(process.cwd(), 'web', 'js');
 // (CLIENT_API_SRS FR-CAPI-1). 합성 페이지는 index.html 의 로드 순서를 물려받지
 // 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
 const API_JS = join(WEB, 'core', 'api.js');
-const APP_CMD_JS = join(WEB, 'core', 'app-cmd.js');
+// REFACTOR3_FE_APPCTL_SRS 9j: 원격 커맨드는 `ToolController` 의 부품 `ToolCmd`(옛 `app-cmd.js`)이고 App 원형에는 위임자가 선다.
+const TOOL_CMD_JS = join(WEB, 'core', 'tool-cmd.js');
 // SSE 배선(`_subscribeCommands`)과 `_sse` 껍데기는 `ws-sync-controller.js` 에 있다 (REFACTOR PROD2 §8).
 // REFACTOR3_FE_APPCTL_SRS 9f: 그 본체는 `WsSyncController`(부품 `SoftReload`)이고 App 원형에는 위임자가 선다.
 // 기반(`Component` → `Controller`)을 앞에 싣고, 대역을 만든 뒤 `wsSync` 를 세운다.
@@ -78,7 +79,7 @@ async function loadRestoreProtocol(page: Page) {
   await page.setContent('<!doctype html><title>restore-protocol</title>');
   await page.addScriptTag({ path: EVENT_BUS_JS });
   await page.evaluate(() => {
-    // app-cmd.js 는 App.prototype 에 메서드를, ws-sync-controller.js 는 위임자를 얹는다. 껍데기만 세운다 —
+    // tool-cmd.js 와 ws-sync-controller.js 는 App.prototype 에 위임자를 얹는다. 껍데기만 세운다 —
     // `_fgApply` 가 만지는 것은 `_fgMap()` 이 돌려주는 Map 하나뿐이다.
     (window as any).App = class {
       clientId = 'test-client';
@@ -107,10 +108,10 @@ async function loadRestoreProtocol(page: Page) {
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: COMPONENT_JS });
   await page.addScriptTag({ path: BASE_CONTROLLER_JS });
-  await page.addScriptTag({ path: APP_CMD_JS });
+  await page.addScriptTag({ path: TOOL_CMD_JS });
   await page.addScriptTag({ path: APP_WS_SYNC_JS });
   await page.addScriptTag({ path: SOFT_RELOAD_JS });
-  await page.addScriptTag({ content: 'window.__wsSyncOf = (a) => { a.wsSync = new WsSyncController(a); return a; };' });
+  await page.addScriptTag({ content: 'window.__wsSyncOf = (a) => { a.wsSync = new WsSyncController(a); a.tool = { cmd: new ToolCmd(a) }; return a; };' });
   await page.evaluate(() => {
     (window as any).__app = (window as any).__wsSyncOf(new (window as any).App());
   });

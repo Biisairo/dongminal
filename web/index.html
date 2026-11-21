@@ -1148,12 +1148,15 @@
 <script src="js/ui/renderer-pane.js?v=__ASSETV__"></script>
 <script src="js/ui/renderer-pane-wire.js?v=__ASSETV__"></script>
 <script src="js/core/app.js?v=__ASSETV__"></script>
-<script src="js/core/app-cmd.js?v=__ASSETV__"></script>
+<!-- 원격 커맨드 — 도구 묶음의 부품 `ToolCmd` (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-cmd.js`). 끝에서 App 원형에 위임자를 둔다. -->
+<script src="js/core/tool-cmd.js?v=__ASSETV__"></script>
 <!-- 워크스페이스 동기화·SSE 배선과 내부 새로고침 (REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`·`app-reload.js`).
      끝에서 App 원형에 위임자와 `_sse` 접근자 넷을 둔다. -->
 <script src="js/core/ws-sync-controller.js?v=__ASSETV__"></script>
 <script src="js/core/soft-reload.js?v=__ASSETV__"></script>
-<script src="js/core/app-tool.js?v=__ASSETV__"></script>
+<!-- 도구와 그 부품 — 수명 (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-tool.js`). 작업 중 표식·검색 부품은 아래 옛 자리에 있다. -->
+<script src="js/core/tool-controller.js?v=__ASSETV__"></script>
+<script src="js/core/tool-life.js?v=__ASSETV__"></script>
 <!-- 창과 그 부품 둘 — 탭 더하기·탭 닫기와 전환 (REFACTOR3_FE_APPCTL_SRS 9i-1, 옛 `app-layout.js`). 끝에서 App 원형에 위임자를 둔다. -->
 <script src="js/core/layout-controller.js?v=__ASSETV__"></script>
 <script src="js/core/layout-tab-add.js?v=__ASSETV__"></script>
@@ -1186,8 +1189,8 @@
 <script src="js/core/agents-controller.js?v=__ASSETV__"></script>
 <script src="js/core/agents-sub.js?v=__ASSETV__"></script>
 <script src="js/core/activity-list.js?v=__ASSETV__"></script>
-<!-- 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64). `attn-controller.js`·`agents-controller.js` 뒤 — prototype 확장이다. -->
-<script src="js/core/app-work.js?v=__ASSETV__"></script>
+<!-- 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64) — 도구 묶음의 부품 `ToolWork` (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-work.js`). -->
+<script src="js/core/tool-work.js?v=__ASSETV__"></script>
 <!-- 채팅 (PEER_CHAT_SRS §3.11). `ChatController` 와 그 부품 (REFACTOR3_FE_APPCTL_SRS 9c). `activity-list.js` 뒤. -->
 <script src="js/core/chat-store.js?v=__ASSETV__"></script>
 <script src="js/core/chat-controller.js?v=__ASSETV__"></script>
@@ -1224,7 +1227,7 @@
 <script src="js/core/lsp-client.js?v=__ASSETV__"></script>
 <script src="js/core/lsp-paths.js?v=__ASSETV__"></script>
 <script src="js/core/app-edsearch.js?v=__ASSETV__"></script>
-<script src="js/core/app-search.js?v=__ASSETV__"></script>
+<script src="js/core/tool-search.js?v=__ASSETV__"></script>
 <script src="js/core/mobile-controller.js?v=__ASSETV__"></script>
 <script src="js/core/mobile-sheets.js?v=__ASSETV__"></script>
 <script src="js/core/mobile-nav.js?v=__ASSETV__"></script>

@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, FOCUS, GIT, LAYOUT, PANELS, SETTINGS, SLOTS, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { BASE, FOCUS, GIT, LAYOUT, PANELS, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -104,6 +104,12 @@ const ISSUES = {
       'core/app-tab-reopen.js'],
     plainNow: [],
     mixins: 16,
+  },
+  '9j': {
+    ctl: ['core/tool-controller.js', 'core/tool-life.js', 'core/tool-cmd.js', 'core/tool-work.js', 'core/tool-search.js'],
+    gone: ['core/app-tool.js', 'core/app-cmd.js', 'core/app-work.js', 'core/app-search.js'],
+    plainNow: [],
+    mixins: 12,
   },
 };
 
@@ -1333,6 +1339,128 @@ test('TC-FEA-3(9i-2): 옮긴 묶음의 계약 이름이 App 원형에서 함수�
   const ctx = load9i2();
   const contract = contractNames();
   const names = Object.values(DELEGATES_9I2).flat().filter((x) => contract.has(x));
+  assert.ok(names.length > 0);
+  for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+});
+
+// ── 9j: 도구 · 수명 · 원격 커맨드 · 작업 중 표식 · 검색 ─────────────────────────────────────
+
+const CLASSES_9J = ['ToolController', 'ToolLife', 'ToolCmd', 'ToolWork', 'ToolSearch'];
+const PARTS_9J = { life: 'ToolLife', cmd: 'ToolCmd', work: 'ToolWork', search: 'ToolSearch' };
+
+const DELEGATES_9J = {
+  tool: ['_isToolBusy', '_toolsBusy', '_notify', '_sbxProgress', '_sbxRuntime', '_sbxRuntimeModal', '_sbxRemember', '_pickSandbox',
+    '_confirmClose'],
+  'tool.life': ['_setToolBackground', '_bgRefresh', '_restoreTool', '_newTool', '_focusedCwd', '_kill', '_killTool', 'aw', '_toolName',
+    'findToolLocation'],
+  'tool.cmd': ['_echoResult', '_execRemote', '_findTabById'],
+  'tool.work': ['workingToolIds', 'tabWorkDot', 'windowWorkDot', '_workSync', '_workRefresh'],
+  'tool.search': ['toggleSearch', 'closeSearch', 'clearAllSearchDecorations', 'researchIfOpen', 'focusedTerminal', 'doSearch'],
+};
+
+function load9j(globals = {}) {
+  return load([...BASE, ...TOOL], {
+    expose: ['ToolController', 'Controller', 'Component', 'REMOTE_ACTIONS'],
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      ACTIVITY_STATE: { WORKING: 'working' }, TAB_TYPE_TERMINAL: 'terminal',
+      document: { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] },
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9j): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9j();
+  const app = new ctx.App();
+  const tool = new ctx.ToolController(app);
+  const all = [tool, ...Object.keys(PARTS_9J).map((k) => tool[k])];
+  assert.deepEqual(all.map((o) => o.constructor.name), CLASSES_9J);
+  for (const o of all) {
+    assert.ok(o instanceof ctx.Controller, o.constructor.name);
+    assert.ok(o instanceof ctx.Component, o.constructor.name);
+    assert.equal(o.app, app, o.constructor.name);
+  }
+});
+
+test('TC-FEA-1(9j): App 생성자가 컨트롤러를 만든다 — 백그라운드 목록은 App 에 남는다 (§2.2 A/9j)', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  assert.ok(ctor.includes('this.tool=new ToolController(this);'));
+  assert.ok(ctor.includes('this._bg=[];'));
+  const life = read('core/tool-life.js');
+  assert.match(life, /this\.app\._bg=/);
+  assert.doesNotMatch(life, /(?<![\w$.])this\._bg\b/);
+});
+
+test('TC-FEA-1(9j): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9j();
+  const app = new ctx.App();
+  app.tool = { life: {}, cmd: {}, work: {}, search: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9J)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9J)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9J).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-1(9j): 원격 명령 표는 App 을 받아 부품의 처리기를 부른다 — 작업 중 표식의 서명은 부품이 든다 (§2.2 SH-4)', () => {
+  const ctx = load9j();
+  const app = controllers(ctx, new ctx.App());
+  const seen = [];
+  app.tool.cmd._remoteViaAction = (action, a) => seen.push(action, a.n);
+  app._execRemote('tabNext', { n: 1 });
+  app._execRemote('nope', { n: 2 });
+  assert.deepEqual(seen, ['tabNext', 1, 'nope', 2]);
+  app._activity = new Map();
+  app._workSync();
+  assert.equal(app.tool.work._workSig, '');
+  assert.equal('_workSig' in app, false);
+});
+
+test('TC-FEA-2(9j): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9j'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9j): 갈아 끼운 findToolLocation·aw·executeAction·tools·focused 를 부품 경로가 부른다', () => {
+  const ctx = load9j();
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app._activity = new Map([['a', { state: 'working' }], ['b', { state: 'done' }]]);
+  app.findToolLocation = (id) => { log.push('loc:' + id); return {} };
+  assert.deepEqual([...app.workingToolIds()], ['a']);
+  app.aw = () => { log.push('aw'); return null };
+  assert.equal(app.tool.life._isToolInActiveWindow('k'), false);
+  app.executeAction = (a) => { log.push('exec:' + a) };
+  app._execRemote('nope', {});
+  app.tools = new Map([['k', { search: { clearDecorations: () => log.push('clear') } }]]);
+  app.clearAllSearchDecorations();
+  app.focused = 'p';
+  assert.equal(app.focusedTerminal(), null);
+  assert.deepEqual(log, ['loc:a', 'aw', 'exec:nope', 'clear', 'aw']);
+});
+
+test('TC-FEA-3(9j): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9j'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9j): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9j();
+  const contract = contractNames();
+  const names = Object.values(DELEGATES_9J).flat().filter((x) => contract.has(x));
   assert.ok(names.length > 0);
   for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
 });
