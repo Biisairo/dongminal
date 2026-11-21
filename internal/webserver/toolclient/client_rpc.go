@@ -234,6 +234,11 @@ func (pc *ToolClient) callWithin(method string, params any, within time.Duration
 	case <-cd:
 		return nil, fmt.Errorf("paned connection lost")
 	case <-timeout.C:
+		// 시한 초과에 연결 전체를 끊는 것은 **설계다** (REFACTOR3_GO_STRUCT_SRS FR-RGS-8
+		// 검토 결과 유지). DAEMON_SPLIT_SRS FR-14 가 "close 하고 재연결로 전이" 를 요구하고,
+		// ping 은 호출이 걸려 있으면 건너뛰므로 이 시한이 무응답 데몬을 찾는 유일한 수단이다.
+		// 옛 데몬은 요청을 읽기 루프 안에서 처리하므로, 한 호출이 시한을 넘기면 그 연결의
+		// 뒤 호출도 같이 막혀 있다. 호출만 버리면 모든 호출이 하나씩 시한을 다 기다린다.
 		pc.mu.Lock()
 		delete(pc.pending, id)
 		pc.mu.Unlock()
