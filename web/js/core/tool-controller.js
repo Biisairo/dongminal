@@ -8,6 +8,21 @@
  *
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
+// 샌드박스 창의 작업 방식(SANDBOX_PICK_COPY_SRS FR-SPK-10·23)의 라벨·도움말은 방식 이름을 키로 고르고, 없으면 이름(도움말은 빈 글자) 그대로다 (FR-SDA-84).
+function sandboxWorkLabel(work){
+  const k='core.sandbox_work_label.'+work;
+  return I18N.has(k)?t(k):String(work);
+}
+function sandboxWorkTitle(work){
+  const k='core.sandbox_work_title.'+work;
+  return I18N.has(k)?t(k):'';
+}
+// 컨테이너 런타임의 상태(UX_BATCH5_SRS FR-SRT-1~8). 갈래는 서버가 싣는 뜻(`ready`·`installed`)으로 고르고, 제목·문장은 `state` 를 키로
+// 고른다 (SERVER_DRIVEN_ACTIONS_SRS K-i). 키가 없으면 `state` 그대로다.
+function sbxRuntimeText(prefix,state){
+  const k=prefix+state;
+  return I18N.has(k)?t(k):String(state);
+}
 // SERVER_DRIVEN_ACTIONS_SRS K-i: 프로파일이 받는 방식(`workPicks`, 서버가 싣는다).
 const sbxPicksOf=p=>(p&&Array.isArray(p.workPicks))?p.workPicks:[];
 /** 고르는 줄은 프로파일들의 `workPicks` 를 방식으로 합친 것이다(서버 순서). 선택은 `{work, copies}` 그대로 든다. */

@@ -3,6 +3,21 @@
  * App 의 _bind 책임을 분리. 동작은 1:1 보존.
  */
 
+/** 사이드바 폭을 그 구간(`SIDEBAR_W_MIN_PX`~`SIDEBAR_W_MAX_PX`)으로 접는다. 저장·복원·드래그가 전부 이 한 자리를 지난다. */
+function clampSidebarWidth(w){
+  return Math.max(SIDEBAR_W_MIN_PX,Math.min(SIDEBAR_W_MAX_PX,w));
+}
+/**
+ * 범위로 강제해 담는다 (FR-UXB-10) — 손으로 고친 값 하나가 화면을 못 쓰게 하지
+ * 않는다. **읽는 짝이 여기 없는 것이 맞다**: 복원은 첫 페인트 스크립트 한 자리이며
+ * (FR-SBC-5) 그것은 어떤 스크립트보다 먼저 돈다. 키는 `SIDEBAR_W_KEY`(constants.js)다.
+ */
+function sidebarWidthStore(w){
+  const v=clampSidebarWidth(w);
+  PrefStore.session.set(SIDEBAR_W_KEY,v);
+  return v;
+}
+
 class InputBinding {
   constructor(app){ this.app = app; }
 

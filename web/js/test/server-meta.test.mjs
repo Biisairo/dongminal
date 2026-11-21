@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { load } from './harness.mjs';
@@ -8,7 +9,7 @@ import { load } from './harness.mjs';
  * 보낸다. 받기 전에는 자르지 않고, 목록은 비어 있다.
  */
 function fresh() {
-  return load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/constants-git-history.js'], {
+  return load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/server-meta.js', 'core/constants-git-history.js'], {
     expose: ['applyServerMeta', 'capToServer', 'gitLogLimit', 'serverMeta'],
   });
 }
@@ -53,4 +54,13 @@ test('정책이 없으면 limit 을 싣지 않는다 — 서버가 첫 장 크�
   const { gitLogLimit } = fresh();
   assert.equal(gitLogLimit(null, false, false, 0), undefined);
   assert.equal(gitLogLimit(null, true, false, 55), undefined);
+});
+
+/**
+ * REFACTOR3_FE_REST2_SRS FR-FR2-4·5 · TC-FR2-2 (FC-10): 상수 파일에는 함수가 없다. 서버 상한과 그 함수는
+ * `core/server-meta.js` 에 있다.
+ */
+test('TC-FR2-2: constants.js 에 function 선언이 없다', () => {
+  const src = readFileSync(new URL('../core/constants.js', import.meta.url), 'utf8');
+  assert.deepEqual(src.split('\n').filter((l) => /^\s*function\s/.test(l)), []);
 });

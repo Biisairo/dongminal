@@ -8,7 +8,7 @@ import { load } from './harness.mjs';
  * 화면은 `GET /api/meta` 의 `entityNameMax` 로 자르고, 받기 전에는 자르지 않는다.
  */
 function fresh() {
-  return load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js'], { expose: ['clampEntityName', 'applyServerMeta'] });
+  return load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/server-meta.js'], { expose: ['clampEntityName', 'applyServerMeta'] });
 }
 
 test('받기 전에는 자르지 않는다 — 화면이 상한을 지어내지 않는다', () => {

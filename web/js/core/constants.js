@@ -353,11 +353,6 @@ const AGENTS_W_MIN_PX=160;
 const AGENTS_W_MAX_PX=480;
 /** UX_BATCH12_SRS FR-ACF-6: Activity 손잡이가 이 폭 아래로 끌리면 레일이 된다 (사이드바와 같은 값). */
 const AGENTS_COLLAPSE_AT_PX=SIDEBAR_COLLAPSE_AT_PX;
-function agentsWidthOk(w){ return w>=AGENTS_W_MIN_PX&&w<=AGENTS_W_MAX_PX }
-/** 그 구간으로 접는다. 저장·복원·드래그가 전부 이 한 자리를 지난다. */
-function clampSidebarWidth(w){
-  return Math.max(SIDEBAR_W_MIN_PX,Math.min(SIDEBAR_W_MAX_PX,w));
-}
 /**
  * UX_BATCH10_SRS FR-UXB-6 / D-UXB-1: **폭은 이 창의 것이다.**
  *
@@ -368,19 +363,9 @@ function clampSidebarWidth(w){
  *             워크스페이스에서 나온 길이다 (app.js 의 두 `delete`)
  *
  * **`index.html` 의 첫 페인트 스크립트는 예외다** (D-SBW-1 과 같은 근거) — 그
- * 한 줄은 이 함수보다 먼저 돌아야 하므로 키 이름을 직접 적는다.
+ * 한 줄은 `sidebarWidthStore`(`ui/input-binding.js`)보다 먼저 돌아야 하므로 키 이름을 직접 적는다.
  */
 const SIDEBAR_W_KEY='sidebarWidth';
-/**
- * 범위로 강제해 담는다 (FR-UXB-10) — 손으로 고친 값 하나가 화면을 못 쓰게 하지
- * 않는다. **읽는 짝이 여기 없는 것이 맞다**: 복원은 첫 페인트 스크립트 한 자리이며
- * (FR-SBC-5) 그것은 이 파일보다 먼저 돈다.
- */
-function sidebarWidthStore(w){
-  const v=clampSidebarWidth(w);
-  PrefStore.session.set(SIDEBAR_W_KEY,v);
-  return v;
-}
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 /**
@@ -494,46 +479,7 @@ const TERM_SCROLLBACK_LINES=50000;
  * 여기에 이르면 그 페이지는 GPU 렌더링을 다시 시도하지 않는다.
  */
 const TERM_GPU_LOSS_LIMIT=3;
-/**
- * 창·탭 이름의 길이 상한 (`12-func-ui.md FUI-18`).
- *
- *   이전 동작: **만들 때만** 잘랐다 — `app-layout.js` 네 자리의 `.slice(0,64)`.
- *             이름을 **바꾸는** 두 자리(`renameTab`·`rename`)는 자르지 않아,
- *             수천 자를 넣으면 워크스페이스 JSON 과 사이드바 폭이 그대로 받았다
- *   새  동작: 만들기와 바꾸기가 **같은 상한**을 지난다
- *   이유:     상한이 한쪽에만 있으면 그것은 상한이 아니다 — 우회로가 화면에
- *             버젓이 있다
- */
-/*
- * SERVER_DRIVEN_ACTIONS_SRS F-4 (FR-SDA-54): 상한의 주인은 **서버**다. 부팅 때
- * `GET /api/meta` 의 `entityNameMax` 를 받아 여기 둔다(`applyServerMeta`). 받기 전(0)에는
- * 자르지 않는다 — 화면이 상한을 지어내지 않는다. dmctl 은 서버가 같은 상한으로 거절한다.
- *	이전 동작: 화면이 64 를 따로 들고 있었고 서버는 길이를 보지 않았다
- */
-let ENTITY_NAME_MAX=0;
-/** 이름 하나를 그 상한으로 접는다. 만들기·바꾸기가 같은 자리를 지난다. */
-function clampEntityName(s){
-  const v=String(s==null?'':s);
-  return ENTITY_NAME_MAX>0?v.slice(0,ENTITY_NAME_MAX):v;
-}
-/*
- * SERVER_DRIVEN_ACTIONS_SRS K-c·K-d (FR-SDA-80): 서버의 요청 상한(겹 스탬프·파일 표식·감시 등록)과
- * 다시 열기 인코딩 목록. 받기 전(0·빈 목록)에는 자르지 않고 다시 열기 항목이 없다 — 넘으면 서버의
- * 400 이 보인다.
- *	이전 동작: 화면이 512·512·1024 와 인코딩 넷을 따로 들고 있었다
- */
-const serverMeta={fsStampMax:0,fileStampsMax:0,fsWatchDirsMax:0,encodings:[]};
-/** 목록을 서버 상한으로 자른다. 상한을 모르면(0) 그대로다. */
-function capToServer(list,max){return max>0&&list.length>max?list.slice(0,max):list}
 const META_API='/api/meta';
-/** `GET /api/meta` 의 답을 받는다. 모르는 값은 무시한다. */
-function applyServerMeta(m){
-  if(!m) return;
-  if(Number.isInteger(m.entityNameMax)&&m.entityNameMax>0) ENTITY_NAME_MAX=m.entityNameMax;
-  for(const k of ['fsStampMax','fileStampsMax','fsWatchDirsMax'])
-    if(Number.isInteger(m[k])&&m[k]>0) serverMeta[k]=m[k];
-  if(Array.isArray(m.encodings)&&m.encodings.every(e=>typeof e==='string')) serverMeta.encodings=m.encodings.slice();
-}
 /**
  * 백그라운드 복귀가 실패했을 때의 안내 (`12-func-ui.md FUI-21`).
  *
@@ -638,15 +584,6 @@ const TAB_TYPE_CHAT='chat';
 // **뜻이 다른 것은 표기가 아니라 결과다** — 마운트는 컨테이너 안 변경이 호스트에
 // 남고, 복사는 남지 않는다. 그 차이를 화면 세 자리에서 같은 말로 알린다
 // (FR-SPK-21): 선택창의 버튼, 입력란 도움말, 사이드바 창 배지.
-// 라벨·도움말은 방식 이름을 키로 고르고, 없으면 이름(도움말은 빈 글자) 그대로다 (FR-SDA-84).
-function sandboxWorkLabel(work){
-  const k='core.sandbox_work_label.'+work;
-  return I18N.has(k)?t(k):String(work);
-}
-function sandboxWorkTitle(work){
-  const k='core.sandbox_work_title.'+work;
-  return I18N.has(k)?t(k):'';
-}
 // FR-SBM-5: 마운트에 폴더를 함께 고르면 그 창은 격리 경계가 아니다. 등급 배지는
 // 프로파일의 것이므로(FR-SBM-4) 그 사실은 이 줄이 따로 말한다.
 const SANDBOX_MOUNT_WARN=t('core.sandbox_mount_warn');
@@ -766,13 +703,6 @@ const TIP_SETTINGS_BACK='Back to settings sections';
 // 알렸다. 그 둘은 **사용자가 할 일이 다르다** — 하나는 설치이고 하나는 실행이다.
 // 그리고 데몬이 죽어도 프로파일 목록은 정상으로 오므로(§2.3 실측), 그 안내는
 // 실제로 닿지도 않았다.
-//
-// 갈래는 서버가 싣는 뜻(`ready`·`installed`)으로 고르고, 제목·문장은 `state` 를 키로
-// 고른다 (SERVER_DRIVEN_ACTIONS_SRS K-i). 키가 없으면 `state` 그대로다.
-function sbxRuntimeText(prefix,state){
-  const k=prefix+state;
-  return I18N.has(k)?t(k):String(state);
-}
 // FR-SRT-7: 기동 뒤 데몬이 뜨기를 기다리는 주기와 상한 (NFR-SRT-2). Docker Desktop
 // 의 기동은 수십 초가 걸리므로 상한을 넉넉히 둔다.
 const SBX_RT_POLL_MS=2000;
