@@ -198,9 +198,10 @@ class GitJobs {
 
   // 머리의 원격 버튼은 common 칸 표시기가 받는다 — pull 은 run 이 index 로 보낸다.
   // 정책 전에는 걸 표시기가 없다 — 머리를 남겨 두고 `_build` 가 건다.
-  bindHead(head){const v=this._headView();if(v) v.bindHead(head); else if(head) this._heads.add(head)}
-  paintHead(head){const v=this._headView();if(v) v.paintHead(head); else if(head) this._heads.add(head)}
-  bind(el){this._el=el;this._each(v=>v.bind(el))}
+  // 배선과 머리 칠하기는 표시기의 뷰가 한다 (REFACTOR3_FE_REST3_SRS FR-FR3-14).
+  bindHead(head){const v=this._headView();if(v) v.view.bindHead(head); else if(head) this._heads.add(head)}
+  paintHead(head){const v=this._headView();if(v) v.view.paintHead(head); else if(head) this._heads.add(head)}
+  bind(el){this._el=el;this._each(v=>v.view.bind(el))}
   paint(el){this._el=el;this._each(v=>v.paint(el))}
   detachRepo(){this._owned.clear(); this._each(v=>v.detachRepo())}
   notifyStatus(){this._each(v=>v.notifyStatus())}

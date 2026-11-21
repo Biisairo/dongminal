@@ -25,7 +25,7 @@ function root() {
 }
 
 test('정책이 늦게 와 박스를 갈아 끼워도 버튼에 글자와 툴팁이 있다', () => {
-  const ctx = load(['git/remote.js', 'git/jobs.js'], { globals: { ...L } });
+  const ctx = load(['git/remote.js', 'git/remote-view.js', 'git/jobs.js'], { globals: { ...L } });
   const box = root();
   const j = Object.create(ctx.GitJobs.prototype);
   Object.assign(j, {

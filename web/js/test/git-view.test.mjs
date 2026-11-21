@@ -217,7 +217,7 @@ test('TC-FEV-5 일곱 뷰는 GitView 하위이고 옛 루트·가드 이름이 �
     assert.doesNotMatch(read(f), /_el\b|_seq\b|_askSeq|panel\.token\(|panel\.isStale\(|gitLoadTicket/, f);
   }
   assert.doesNotMatch(read('git/history.js'), /h\._el\b/);
-  for (const f of ['git/remote.js', 'git/remote-opts.js', 'git/remote-list.js', 'git/remote-add.js']) {
+  for (const f of ['git/remote.js', 'git/remote-view.js', 'git/remote-opts.js', 'git/remote-list.js', 'git/remote-add.js']) {
     assert.equal([...read(f).matchAll(/^class\s/gm)].length, 1, f + ' 의 클래스가 하나가 아니다');
   }
 });

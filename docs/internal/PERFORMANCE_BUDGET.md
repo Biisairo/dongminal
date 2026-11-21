@@ -128,8 +128,8 @@
 | `web/js/git/git-view-roots.js` | `_renderMissing` | `el` | 1 | 사용자 | 리포 소실 — 상태 전이 한 번 |
 | `web/js/git/git-views.js` | `_renderView` | `el` | 1 | 가드 | `el.dataset.built` (목록 뷰 여섯의 한 골격 — OPTIMIZE_REFACTOR_SRS FR-OPT-12-2) |
 | `web/js/git/git-write.js` | `_paintNote` | `ul` | 1 | 사용자 | 사용자가 연 부분 스테이지 대화상자 |
-| `web/js/git/remote.js` | `_paintFail` | `opts` | 1 | 가드 | `opts.dataset.opts` |
-| `web/js/git/remote.js` | `_paintLog` | `log` | 1 | 가드 | `log.dataset.job` — job 이 바뀔 때만 |
+| `web/js/git/remote-view.js` | `_paintFail` | `opts` | 1 | 가드 | `opts.dataset.opts` |
+| `web/js/git/remote-view.js` | `_paintLog` | `log` | 1 | 가드 | `log.dataset.job` — job 이 바뀔 때만 |
 | `web/js/ui/doc-render.js` | `_note` | `this._body` | 1 | 사용자 | 문서를 여는 경로의 안내 |
 | `web/js/ui/doc-render.js` | `_paintTable` | `this._body` | 1 | 사용자 | 문서를 여는 경로 |
 | `web/js/ui/file-editor.js` | `_createEditor` | `this.el` | 1 | 사용자 | 편집기를 세울 때 한 번 |
