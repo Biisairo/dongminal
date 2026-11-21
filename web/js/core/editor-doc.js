@@ -279,7 +279,7 @@ class EditorDoc extends Controller {
       // 두 버튼 모두 `keepOpen` 이다 — 기본 순서(close 먼저)면 덮어쓰기를 눌러도
       // `onClose` 가 취소로 먼저 접수한다. `Esc`·바깥 클릭은 쓰지 않은 것이다 (FR-PDA-3).
       const m=UIKit.modal({
-        cls:'fe-conflict',title:FILE_CONFLICT_TITLE,width:'min(460px,90vw)',body,
+        cls:'fe-conflict',title:FILE_CONFLICT_TITLE,boxCls:'ui-modal-md',body,
         actions:[
           {label:FILE_CONFLICT_CANCEL,kind:'ghost',cls:'fe-conflict-cancel',
             keepOpen:true,onClick:()=>{settle(false);m.close()}},
@@ -313,7 +313,7 @@ class EditorDoc extends Controller {
       body.className='fe-enc-msg';
       body.textContent=msg;
       const m=UIKit.modal({
-        cls:'fe-enc-confirm',title:ENC_TITLE,width:'min(460px,90vw)',body,
+        cls:'fe-enc-confirm',title:ENC_TITLE,boxCls:'ui-modal-md',body,
         actions:[
           {label:ENC_CANCEL,kind:'ghost',cls:'fe-enc-cancel',keepOpen:true,onClick:()=>{settle(false);m.close()}},
           {label:ENC_OK,kind:'danger',cls:'fe-enc-go',keepOpen:true,onClick:()=>{settle(true);m.close()}},

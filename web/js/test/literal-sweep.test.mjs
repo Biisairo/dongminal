@@ -54,3 +54,13 @@ test('TC-FR2-5: 코드 안 툴팁 리터럴은 TIP_* 로 간다', () => {
   const allow = (x) => isConstFile(x.f) || ['ui/sidebar-tabs.js', 'ui/sidebar-tab-chat.js', 'ui/diag.js'].includes(x.f);
   assert.deepEqual(hits(re, allow), []);
 });
+
+/** REFACTOR3_FE_REST2_SRS FR-FR2-12 · TC-FR2-5 (FU-19): 모달 폭은 CSS 클래스(`ui-modal-sm·md·lg`)다. */
+test('TC-FR2-5: 모달 폭을 JS 문자열로 박지 않는다', () => {
+  assert.deepEqual(hits(/width\s*:\s*['"`]min\(/), []);
+  assert.ok(!/\bs\.width\b/.test(readFileSync(join(ROOT, 'ui/kit-modal.js'), 'utf8')), 'KitModal 에 width 선택지가 없다');
+  const css = readFileSync(join(ROOT, '..', 'style-kit.css'), 'utf8');
+  for (const [c, w] of [['sm', 420], ['md', 460], ['lg', 520]]) {
+    assert.ok(css.includes(`.ui-modal-box.ui-modal-${c}{width:min(${w}px,90vw)}`), c);
+  }
+});

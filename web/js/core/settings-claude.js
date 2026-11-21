@@ -92,7 +92,7 @@ class ClaudeSection extends SettingsSection {
   _cacctAsk(title,text,okLabel,run){
     const body=document.createElement('p');
     body.textContent=text;
-    const m=UIKit.modal({title,cls:'cacct-set-confirm',width:'min(420px,90vw)',body,
+    const m=UIKit.modal({title,cls:'cacct-set-confirm',boxCls:'ui-modal-sm',body,
       actions:[{label:t('core.cancel')},{label:okLabel,kind:'danger',onClick:run}]});
     document.body.appendChild(m.el);
   }

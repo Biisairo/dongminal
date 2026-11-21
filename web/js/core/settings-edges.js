@@ -148,7 +148,7 @@ class EdgesSection extends SettingsSection {
     const m=UIKit.modal({
       title:t('edge.remove_title'),
       cls:'eg-confirm',
-      width:'min(420px,90vw)',
+      boxCls:'ui-modal-sm',
       body,
       actions:[
         {label:t('core.cancel')},

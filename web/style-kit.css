@@ -405,6 +405,10 @@ body.mobile .ui-switch{
   box-shadow:var(--shadow-2);
   animation:ui-surface-in var(--dur-fast) ease-out;   /* UX_AUDIT_FIX_SRS FR-UXF-11 */
 }
+/* REFACTOR3_FE_REST2_SRS FR-FR2-12 (FU-19): 상자 폭 세 단. 종전에는 부르는 쪽이 `width:'min(…)'` 를 JS 로 박았다. */
+.ui-modal-box.ui-modal-sm{width:min(420px,90vw)}
+.ui-modal-box.ui-modal-md{width:min(460px,90vw)}
+.ui-modal-box.ui-modal-lg{width:min(520px,90vw)}
 .ui-modal-head{
   display:flex;align-items:center;gap:8px;flex:0 0 auto;
   padding:10px 12px;border-bottom:1px solid var(--border);

@@ -168,7 +168,7 @@ class AccessSection extends SettingsSection {
       const m=UIKit.modal({
         title:t('acl.lockout_title'),
         cls:'acl-confirm',
-        width:'min(460px,90vw)',
+        boxCls:'ui-modal-md',
         body,
         // title 을 주면 그것이 aria-label 이 되어 접근 이름이 라벨을 덮는다.
         // 라벨만 둔다 (open-url.js 와 같은 규약).

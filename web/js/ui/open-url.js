@@ -71,7 +71,7 @@ const OpenUrl = {
     const m=UIKit.modal({
       title:t('openurl.title'),
       cls:'openurl-modal',
-      width:'min(520px,90vw)',
+      boxCls:'ui-modal-lg',
       body,
       actions:[
         {label:t('core.cancel')},

@@ -134,7 +134,7 @@ class ClaudeAccountsController extends Controller {
     const m=UIKit.modal({
       title:t('cacct.rs.confirm_title'),
       cls:'cacct-reset-confirm',
-      width:'min(420px,90vw)',
+      boxCls:'ui-modal-sm',
       body,
       actions:[
         {label:t('core.cancel')},
@@ -189,7 +189,7 @@ class ClaudeAccountsController extends Controller {
       row.appendChild(domEl('span','cacct-hist-move',x.from+' → '+x.to));
       row.appendChild(domEl('span','cacct-hist-meta',x.trigger+' · '+x.by));
     }
-    const m=UIKit.modal({title:t('cacct.hist.title'),cls:'cacct-history',width:'min(520px,92vw)',body,actions:[{label:t('core.close')}]});
+    const m=UIKit.modal({title:t('cacct.hist.title'),cls:'cacct-history',boxCls:'ui-modal-lg',body,actions:[{label:t('core.close')}]});
     document.body.appendChild(m.el);
     return r;
   }

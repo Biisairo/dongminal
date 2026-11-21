@@ -27,7 +27,6 @@ class KitModal extends Dialog {
     ov.className=['ui-modal',s.cls||''].filter(Boolean).join(' ');
     const box=document.createElement('div');
     box.className=['ui-modal-box',s.boxCls||''].filter(Boolean).join(' ');
-    if(s.width) box.style.width=s.width;
     ov.appendChild(box);
     this.ov=this.el=ov; this.box=box;
 
