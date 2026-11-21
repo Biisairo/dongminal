@@ -145,10 +145,16 @@ FR-GIT-32~42) ──` 에서 이름이 지우는 것은 앞쪽뿐이고, 뒤쪽�
     그때 여는 자리가 파일 이름으로 답해진다
 
 **FR-FMB-4** 변수 선언(`var gitStatusInterval` 등 3개)은 그 섹션을 따라간다.
-`POLL_SETTINGS` 가 `get/set` 으로만 닿으므로(`app-polling.js:30`) 선언 파일이
+`POLL_SETTINGS` 가 `get/set` 으로만 닿으므로(당시 `app-polling.js`, 지금 `poll-settings.js`) 선언 파일이
 바뀌어도 호출부가 바뀌지 않는다.
 
 ### 3.2 묶음 B — `app-settings.js` 분할
+
+> **지금 이름 (2026-11-22, PROD3 P7).** 아래 여섯은 그 뒤 다시 갈렸다 — `REFACTOR3_FE_APPCTL_SRS` 9a 와
+> `REFACTOR3_FE_SETTINGS_SRS` 8d 가 설정 컨트롤러(`settings-controller.js`·`settings-apply.js`·`settings-live.js`·
+> `settings-sync.js` 등)와 탭마다 하나인 섹션(`settings-theme.js`·`settings-shortcuts.js`·`settings-sandbox.js`·
+> `settings-access.js` 등, `SettingsSection` 하위)으로 만들었다. 서술자 표 `SETTINGS_ACCESS` 는 `settings-table.js` 에 있다.
+> 아래 표는 이 묶음이 한 분할의 기록이다.
 
 **FR-FMB-10** `app-settings.js` 1,107줄을 여섯으로 가른다. 원본이 이미
 `Object.assign(App.prototype, {…})` 둘이므로 **객체 리터럴을 자르는 것**이 전부다.
@@ -167,6 +173,10 @@ FR-GIT-32~42) ──` 에서 이름이 지우는 것은 앞쪽뿐이고, 뒤쪽�
 적용·복원이 그것을 돈다.
 
 ### 3.3 묶음 C — `app-editor.js` 분할
+
+> **지금 이름 (2026-11-22, PROD3 P7).** 아래 다섯은 그 뒤 `REFACTOR3_FE_APPCTL_SRS` 9k-1·9k-2 가 `EditorController`
+> (`editor-controller.js`)와 부품(`editor-sync.js`·`editor-open.js`·`editor-pane.js`·`editor-section.js`·`editor-file.js`·
+> `editor-doc.js` 등)으로 만들었다. 아래 표는 이 묶음이 한 분할의 기록이다.
 
 **FR-FMB-20** `app-editor.js` 1,254줄을 다섯으로 가른다.
 
@@ -330,8 +340,8 @@ RHS 가 정확히 `window.app`/`(window as any).app` 인 것만 별칭으로 본
 
 | 감사가 요구한 것 | 지금 |
 |---|---|
-| 서술자 표 | `SETTINGS_ACCESS` (`app-settings.js:22-93`) — FR-CFG-5 |
-| 키마다 `if` 제거 | `_settingsApply` 가 `SETTINGS_SCHEMA` 를 **돈다** (`:436`) — FR-CFG-3 |
+| 서술자 표 | `SETTINGS_ACCESS` (`settings-table.js`) — FR-CFG-5 |
+| 키마다 `if` 제거 | `_settingsApply` 가 `SETTINGS_SCHEMA` 를 **돈다** (`settings-apply.js`) — FR-CFG-3 |
 | `saveSettings` 의 나열 파생 | 같은 표에서 파생 — FR-CFG-6 |
 | — | **게이트까지 있다**: `TC-CFG-1` 이 세 표(JS·Go·접근자)의 키 집합 동일성을 강제한다 |
 

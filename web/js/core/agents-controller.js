@@ -154,14 +154,9 @@ class AgentsController extends Controller {
     this.app.save();this.app.agentsRender();
   }
 
-  // FR-AAP-21 → UX_AUDIT_FIX_SRS FR-UXF-111·112 (D-37): 그릴 순서 = 저장된 순서(ws.agentsOrder)를 지금 활동 집합으로 거른 것.
-  //   이전: 보고 없는 id 를 저장된 순서에서 **지웠고** 새 id 는 도착 순서로 붙였다 — 새로 고침 직후 끌어 놓은 순서가 사라졌다
-  //   지금: 저장된 순서는 지우지 않는다(정리는 `_pruneAgentOrder` 만). 새 id 는 생성 순서(UUID v7 의 사전순)로 끝에 붙는다
-  // save() 를 유발하지 않는다(드래그 시에만 저장).
-  // FR-EM-16: 부팅 시 workspace 트리에 없는 도구 id 를 agentsOrder 에서
-  // 제거한다. _agentOrderSync 는 활동 보고가 있는 도구만 남기므로 부팅
-  // 직후(활동 0건)에 쓰면 순서가 전부 날아간다 — 여기서는 레이아웃 참조를
-  // 기준으로만 정리한다.
+  // FR-EM-16: 부팅 시 workspace 트리에 없는 도구 id 를 agentsOrder 에서 제거한다.
+  // 저장된 순서를 지우는 자리는 여기 하나다(FR-UXF-112). 기준은 활동 보고가 아니라
+  // 레이아웃 참조다 — 부팅 직후에는 보고가 0건이다.
   _pruneAgentOrder(){
     if(!Array.isArray(this.app.ws.agentsOrder)||!this.app.ws.agentsOrder.length) return;
     const present=new Set();
@@ -172,6 +167,10 @@ class AgentsController extends Controller {
     if(kept.length!==this.app.ws.agentsOrder.length) this.app.ws.agentsOrder=kept;
   }
 
+  // FR-AAP-21 → UX_AUDIT_FIX_SRS FR-UXF-111·112 (D-37): 그릴 순서 = 저장된 순서(ws.agentsOrder)를 지금 활동 집합으로 거른 것.
+  //   이전: 보고 없는 id 를 저장된 순서에서 **지웠고** 새 id 는 도착 순서로 붙였다 — 새로 고침 직후 끌어 놓은 순서가 사라졌다
+  //   지금: 저장된 순서는 지우지 않는다(정리는 `_pruneAgentOrder` 만). 새 id 는 생성 순서(UUID v7 의 사전순)로 끝에 붙는다
+  // save() 를 유발하지 않는다(드래그 시에만 저장).
   _agentOrderSync(){
     if(!Array.isArray(this.app.ws.agentsOrder)) this.app.ws.agentsOrder=[];
     const ord=this.app.ws.agentsOrder, seen=new Set(ord);

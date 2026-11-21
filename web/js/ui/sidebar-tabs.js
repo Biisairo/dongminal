@@ -1,4 +1,4 @@
-// 사이드바 상단 탭 — Windows / Git (GIT_SIDEBAR_TABS_SRS 묶음 T).
+// 사이드바 상단 탭 — windows(창) / repo(저장소) / chat(채팅) (GIT_SIDEBAR_TABS_SRS 묶음 T · REPO_TAB_UNIFY_SRS · CHAT_WINDOW_SRS).
 //
 // 탭은 서술자의 배열로 정의된다 (FR-SBT-18/19). 배열 순서가 표시 순서이자 직행 키
 // 번호이며, 새 탭을 더하는 비용은 서술자 1개다 (FR-SBT-21) — index.html·단축키 맵·
