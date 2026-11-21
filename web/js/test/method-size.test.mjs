@@ -12,7 +12,8 @@ import { fileURLToPath } from 'node:url';
  * 나누기 전 → 뒤 (2026-09-26, 코드 줄): addTab 106→6 · closeTab 82→37 · save 78→43 ·
  * init 68→29 · _execRemote 116→8 · initMobileKeybar 144→14.
  * REFACTOR3_FE_REST3_SRS (2026-11-21): _applyRemoteWorkspace 66→22 · save 43→23 · _saveAdoptRemote 30→10.
- * REFACTOR3_FE_REST3_SRS R3b (TC-FR3-41): delWindow 56→13 · _renderPreview 77→11.
+ * REFACTOR3_FE_REST3_SRS R3b (TC-FR3-41): delWindow 56→13 · _renderPreview 77→11 ·
+ * buildLaneGraph 121→5 · _buildChanges 73→22 · _rowEl 60→28 · _applyStatus 32→9.
  */
 const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MAX = 50;
@@ -40,6 +41,11 @@ const CASES = [
   ['core/app.js', '  async _saveAdoptRemote('],
   ['core/layout-controller.js', '  async delWindow('],
   ['core/settings-theme.js', '  _renderPreview('],
+  ['git/lanes.js', 'function buildLaneGraph('],
+  ['git/lanes.js', '  follow('],
+  ['git/git-changes.js', '  _buildChanges('],
+  ['git/git-change-rows.js', '  _rowEl('],
+  ['git/git-poll.js', '  _applyStatus('],
 ];
 
 for (const [file, head] of CASES) {

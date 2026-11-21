@@ -10,6 +10,36 @@
  * `_applyStatus` 가 그 응답을 패널의 상태로 바꾸며, `_cadence` 가 실패 누적에 따라
  * 주기를 늦춘다 (FR-RMS-22).
  */
+/**
+ * status 응답 하나의 판정 (REFACTOR3_FE_REST3_SRS FR-FR3-20). 세대 검사 **뒤**에 부른다. `repo` 는 보낸 요청의 저장소다.
+ *   net       상태 0 — 네트워크 오류. 이전 화면을 유지한다
+ *   error     실패 응답 — 사유(`d.error`)로 간다
+ *   drop      본문이 없거나 서버가 되돌려준 요청값이 다르다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수 있다 (②)
+ *   not_repo  200 인데 답이 "저장소가 아니다" 다
+ *   ok        받아들인다
+ *
+ * API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1·4: **200 인데 답은 "저장소가 아니다" 다.**
+ *
+ *   이전 동작: 서버가 404 로 적었고 그것이 `r.ok===false` 를 지나 위의
+ *             `_applyError` 로 갔다. 화면은 옳았으나 브라우저 콘솔에 정상
+ *             동작이 오류로 쌓였다 — 노트 폴더처럼 git 이 아닌 루트를 보는
+ *             동안 창을 옮길 때마다 한 줄씩 늘었다
+ *   새  동작: 200 을 받아 같은 자리로 보낸다
+ *   이유:     달라지는 것은 전송 계층의 표기뿐이다. 여기 도달한 뒤의 처리는
+ *             한 글자도 바뀌지 않는다 — `_notRepo` 가 서고 `_stop()` 이
+ *             폴링을 멈추며, 되살아나는 길 셋도 그대로다 (FR-DSP-1a)
+ *
+ * 세대 검사 **뒤**에 둔다. 이 응답의 임자가 지금 보는 저장소인지 먼저 가려야
+ * 옛 요청의 답이 현재 화면을 끄지 않는다.
+ */
+function gitStatusVerdict(r,d,repo){
+  if(r.status===0) return 'net';
+  if(!r.ok) return 'error';
+  if(!d||d.requested!==repo) return 'drop';
+  if(d.isRepo===false) return 'not_repo';
+  return 'ok';
+}
+
 class GitPoll extends GitPart {
   /**
    * **파일 목록의 크기·방향은 폐기됐다** (REPO_TAB_UNIFY_SRS FR-RTU-20).
@@ -511,36 +541,30 @@ class GitPoll extends GitPart {
     if(again) this.p.collect();
   }
 
+  // REFACTOR3_FE_REST3_SRS FR-FR3-20 (FU-16): 세대 → 판정(순수) → 갈래. 성공은 받아들이기 → 칠하기 순서다.
   _applyStatus(tok,r,d){
     // ① 세대·리포 확인 (FR-GIT-16)
     if(this.p.isStale(tok)) return;
-    if(r.status===0){
-      // 네트워크 오류 — 이전 화면을 유지한다. **목록을 지우지 않는다.**
-      // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 — 근거를 버려 회복하는
-      // 관측이 값이 같아도 다시 그리게 한다 (FR-GIT-227).
-      this.p._obsSig=null;
-      this._fail();
-      this.p._staleNote=true; this.p.obs.paintAll(); return;
-    }
-    if(!r.ok){this._applyError(d&&d.error);return}
-    // ② 서버가 되돌려준 요청값 확인. 같은 세대 안에서도 응답 순서가 뒤바뀔 수 있다.
-    if(!d||d.requested!==tok.repo) return;
-    /**
-     * API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1·4: **200 인데 답은 "저장소가 아니다" 다.**
-     *
-     *   이전 동작: 서버가 404 로 적었고 그것이 `r.ok===false` 를 지나 위의
-     *             `_applyError` 로 갔다. 화면은 옳았으나 브라우저 콘솔에 정상
-     *             동작이 오류로 쌓였다 — 노트 폴더처럼 git 이 아닌 루트를 보는
-     *             동안 창을 옮길 때마다 한 줄씩 늘었다
-     *   새  동작: 200 을 받아 같은 자리로 보낸다
-     *   이유:     달라지는 것은 전송 계층의 표기뿐이다. 여기 도달한 뒤의 처리는
-     *             한 글자도 바뀌지 않는다 — `_notRepo` 가 서고 `_stop()` 이
-     *             폴링을 멈추며, 되살아나는 길 셋도 그대로다 (FR-DSP-1a)
-     *
-     * 세대 검사 **뒤**에 둔다. 이 응답의 임자가 지금 보는 저장소인지 먼저 가려야
-     * 옛 요청의 답이 현재 화면을 끄지 않는다.
-     */
-    if(d.isRepo===false){this._applyError('not_a_git_repo');return}
+    const v=gitStatusVerdict(r,d,tok.repo);
+    if(v==='net'){this._applyNetFail();return}
+    if(v==='error'){this._applyError(d&&d.error);return}
+    if(v==='drop') return;
+    if(v==='not_repo'){this._applyError('not_a_git_repo');return}
+    this._adoptObs(d);
+    this._paintObs(d);
+  }
+
+  _applyNetFail(){
+    // 네트워크 오류 — 이전 화면을 유지한다. **목록을 지우지 않는다.**
+    // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 — 근거를 버려 회복하는
+    // 관측이 값이 같아도 다시 그리게 한다 (FR-GIT-227).
+    this.p._obsSig=null;
+    this._fail();
+    this.p._staleNote=true; this.p.obs.paintAll();
+  }
+
+  // 성공한 관측을 패널의 상태로 받아들인다 — 실패 누적·관측 시각·주기·근거·뷰 따라가기·오류 표식 풀기.
+  _adoptObs(d){
     // 관측이 성공했다 — 누적을 놓고 주기를 기준으로 되돌린다 (FR-RMS-24).
     // 소실이었다면 여기가 복구 지점이다 (FR-RMS-11).
     this.p._failStreak=0;
@@ -597,6 +621,10 @@ class GitPoll extends GitPart {
      * 타이머는 걷힌 채 남는다. 위의 `_applyCadence()` 는 이 해제 **전**에 돌았다.
      */
     if(this.p._gitMissing){this.p._gitMissing=false;this._applyCadence()}
+  }
+
+  // 받아들인 관측을 화면과 이웃에 알린다 — 같은 관측이면 칠하지 않는다.
+  _paintObs(d){
     /**
      * FR-GIT-227 (FR-RPT-1·2): 관측이 지난 회차와 같으면 다시 그리지 않는다.
      *

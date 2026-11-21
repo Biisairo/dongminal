@@ -3,6 +3,30 @@
  * (FR-GIT-34~42 · REFACTOR3_FE_GITPANEL_SRS 7f). 목록 끝을 지켜보는 관측기(`_io`)를 소유한다.
  * 접힘(`_collapsed`·`_dirCollapsed`)·그린 수(`_shown`)·선택은 패널의 것이다.
  */
+/**
+ * 행의 `title` (REFACTOR3_FE_REST3_SRS FR-FR3-19). 이름 바뀜(`옛 → 새`)·유사도·일부 스테이지·디렉터리 항목의 종류.
+ * `dirTitle` 은 디렉터리 항목일 때의 설명이다(`_dirTitle`).
+ */
+function gitRowTitle(e,partial,dirTitle){
+  return (e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+
+    (partial?' — '+GIT_PARTIAL_TITLE:'')+
+    // SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-8: 서브모듈 행은 **여기서 처리될 수
+    // 있는지**까지 말한다. 종전 문장은 "다른 저장소다" 만 말했고, 사용자가
+    // 부딪힌 것은 "눌러도 사라지지 않는다" 였다 (SRS §1.1).
+    (dirTitle?' — '+dirTitle:'');
+}
+
+/**
+ * 행 동작 단추의 제목 — 막힘 사유를 얹기 전 (FR-FR3-19). `op` 는 진행 중인 조작(`_op()`).
+ * ours·theirs 는 진행 중인 조작에 따라 뜻이 뒤집힌다 (FR-GIT-224). FR-CMG-5: 폐기의 뜻은 그 행의 출신이 정한다 —
+ * 새 파일의 폐기는 삭제다.
+ */
+function gitRowActTitle(a,e,op){
+  return (a==='ours'||a==='theirs')
+    ? (GIT_SIDE_TITLE[op]||GIT_SIDE_TITLE[''])[a]
+    : ((e.untracked&&GIT_ACT_TITLE_UNTRACKED[a])||GIT_ACT_TITLE[a]);
+}
+
 class GitChangeRows extends GitPart {
 
   _paintGroup(el,g,entries){
@@ -200,6 +224,7 @@ class GitChangeRows extends GitPart {
     el.style.setProperty('--git-depth',depth||0);
   }
 
+  // REFACTOR3_FE_REST3_SRS FR-FR3-19 (FU-16): 행 = 겉(클래스·선택·포커스) → 상태 문자·경로 → 동작 열 → 배선.
   _rowEl(group,e,depth){
     const d=document.createElement('div');
     // 충돌 행은 따로 구분한다 (FR-GIT-37). M1 은 표시만 한다.
@@ -228,50 +253,52 @@ class GitChangeRows extends GitPart {
     // FR-DIR-20: 디렉터리 항목은 종류까지 밝힌다 — 서브모듈과 중첩 저장소는
     // 사용자가 할 수 있는 일이 다르다.
     if(e.dir) d.classList.add('dir-entry');
-    d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+
-      (partial?' — '+GIT_PARTIAL_TITLE:'')+
-      // SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-8: 서브모듈 행은 **여기서 처리될 수
-      // 있는지**까지 말한다. 종전 문장은 "다른 저장소다" 만 말했고, 사용자가
-      // 부딪힌 것은 "눌러도 사라지지 않는다" 였다 (SRS §1.1).
-      (e.dir?' — '+this._dirTitle(e):'');
+    d.title=gitRowTitle(e,partial,e.dir?this._dirTitle(e):'');
     d.appendChild(st); d.appendChild(p);
     // 행 인라인 동작 (FR-GIT-64·65·89). 그룹이 할 수 있는 것만 붙인다.
     const acts=document.createElement('span'); acts.className='git-file-acts';
     for(const c of this._actCols(GIT_ROW_ACTS[group]||[])){
       if(!c.act){acts.appendChild(this._actGap());continue}
-      const a=c.act;
-      // ours·theirs 는 진행 중인 조작에 따라 뜻이 뒤집힌다 (FR-GIT-224).
-      // FR-CMG-5: 폐기의 뜻은 그 행의 출신이 정한다 — 새 파일의 폐기는 삭제다.
-      let title=(a==='ours'||a==='theirs')
-        ? (GIT_SIDE_TITLE[this.p._op()]||GIT_SIDE_TITLE[''])[a]
-        : ((e.untracked&&GIT_ACT_TITLE_UNTRACKED[a])||GIT_ACT_TITLE[a]);
-      /**
-       * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-12·13 (D-2a): 담을 몫이 없으면 끈다 — 안쪽만 더러운
-       * 서브모듈(상태 B)에서 `git add` 는 index 에 올릴 것이 없다.
-       *
-       * REFACTOR3_FE_REST1_SRS FR-FR1-9 (FU-17, 사용자 결정 Q3):
-       *   이전 동작: 화면이 `gitSubParts(e.sub)` 로 판정했고 서버는 그 요청을 200 으로 받았다
-       *   새  동작: 서버의 행 답(`rowActions`)이 끈다. 서버도 같은 함수로 409 거절한다
-       *   이유:     판정이 한 벌이다 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-3·6)
-       */
-      const offTitle=a==='stage'?this._stageOff(e):'';
-      const off=!!offTitle;
-      if(off) title=offTitle;
-      // `ours`·`theirs` 는 어휘이지 아이콘이 아니다 (FR-GLY-8) — 정사각이 아니다.
-      const b=UIKit.button(GIT_ACT_ICON[a]
-        ?{icon:GIT_ACT_ICON[a],title,kind:'ghost',size:'lg',cls:'git-file-act',dataset:{act:a},disabled:off}
-        :{label:GIT_ACT_LABEL[a],title,kind:'ghost',size:'lg',cls:'git-file-act git-act-word',dataset:{act:a},disabled:off});
-      b.addEventListener('click',ev=>{
-        ev.stopPropagation();
-        // FR-GIT-236: Open File 은 선택을 끌어오지 않는다 — `_rowTargets` 는 쓰기
-        // 동작의 규약이고, 그것을 그대로 쓰면 고른 수만큼 편집기 탭이 열린다.
-        this.p._run(a, a==='openFile'
-          ? [this.p._target(group,e)]
-          : this.p._rowTargets(a,group,e.path,e.origPath,e.untracked));
-      });
-      acts.appendChild(b);
+      acts.appendChild(this._rowActBtn(group,e,c.act));
     }
     d.appendChild(acts);
+    this._rowWire(d,group,e);
+    return d;
+  }
+
+  // 행의 동작 단추 하나. 뜻(제목)은 `gitRowActTitle`, 막힘은 서버의 행 답이다.
+  _rowActBtn(group,e,a){
+    // 진행 중인 조작은 뜻이 뒤집히는 둘에서만 묻는다 — 행마다 단추마다 묻지 않는다.
+    let title=gitRowActTitle(a,e,(a==='ours'||a==='theirs')?this.p._op():'');
+    /**
+     * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-12·13 (D-2a): 담을 몫이 없으면 끈다 — 안쪽만 더러운
+     * 서브모듈(상태 B)에서 `git add` 는 index 에 올릴 것이 없다.
+     *
+     * REFACTOR3_FE_REST1_SRS FR-FR1-9 (FU-17, 사용자 결정 Q3):
+     *   이전 동작: 화면이 `gitSubParts(e.sub)` 로 판정했고 서버는 그 요청을 200 으로 받았다
+     *   새  동작: 서버의 행 답(`rowActions`)이 끈다. 서버도 같은 함수로 409 거절한다
+     *   이유:     판정이 한 벌이다 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-3·6)
+     */
+    const offTitle=a==='stage'?this._stageOff(e):'';
+    const off=!!offTitle;
+    if(off) title=offTitle;
+    // `ours`·`theirs` 는 어휘이지 아이콘이 아니다 (FR-GLY-8) — 정사각이 아니다.
+    const b=UIKit.button(GIT_ACT_ICON[a]
+      ?{icon:GIT_ACT_ICON[a],title,kind:'ghost',size:'lg',cls:'git-file-act',dataset:{act:a},disabled:off}
+      :{label:GIT_ACT_LABEL[a],title,kind:'ghost',size:'lg',cls:'git-file-act git-act-word',dataset:{act:a},disabled:off});
+    b.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      // FR-GIT-236: Open File 은 선택을 끌어오지 않는다 — `_rowTargets` 는 쓰기
+      // 동작의 규약이고, 그것을 그대로 쓰면 고른 수만큼 편집기 탭이 열린다.
+      this.p._run(a, a==='openFile'
+        ? [this.p._target(group,e)]
+        : this.p._rowTargets(a,group,e.path,e.origPath,e.untracked));
+    });
+    return b;
+  }
+
+  // 행의 손짓 — 클릭(고르고 연다)·더블클릭(고정)·오른쪽 클릭(메뉴).
+  _rowWire(d,group,e){
     /**
      * REPO_TAB_UNIFY_SRS FR-RTU-40 (사용자 지시 2026-09-04): **한 번 클릭이 연다.**
      *
@@ -305,7 +332,6 @@ class GitChangeRows extends GitPart {
       ev.preventDefault();
       GitMenu.open('file',this.p._target(group,e),ev);
     });
-    return d;
   }
 
   /**

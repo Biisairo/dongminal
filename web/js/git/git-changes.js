@@ -10,6 +10,65 @@
  * `_paint` 안의 자기 부름도 패널 위임자를 지난다 — e2e·시험이 패널 인스턴스에서 그것을 덮는다.
  * `headHTML` 은 정적이다 — 머리 골격은 패널 인스턴스 없이도 필요하다(`GitPanel.headHTML` 이 잇는다).
  */
+/**
+ * Changes 탭의 골격 (REFACTOR3_FE_REST3_SRS FR-FR3-18, FU-15). `head` 는 머리 골격(`GitPanel.headHTML()`), `boxes` 는
+ * 잡 칸 박스(`GitJobs.boxesHTML()`)다. 안쪽은 부품들이 채우고 배선은 `_buildChanges` 가 한다.
+ *
+ * FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 이고 목록 스크롤은 .git-files 안에서만 일어난다. 커밋 영역이
+ * 목록과 함께 스크롤되면 요구사항 실패다 — 구조가 그것을 보장한다.
+ */
+function gitChangesHTML(head,boxes){
+  return (
+    // REPO_TAB_UNIFY_SRS FR-RTU-20 / D-RTU-4: **커밋 입력이 브랜치 줄보다
+    // 위다.** 사용자 지시이며, 가장 자주 쓰는 입력이 목록의 스크롤에 밀리지
+    // 않는 자리에 있어야 한다는 것이 근거다.
+    //
+    // 안쪽은 GitCommit 이 채운다 (FR-GIT-74~85). 자리와 고정 성질은 여기 있다.
+    '<div class="git-commit"></div>'+
+    head+
+    // 잡 칸 둘의 화면 (FR-GIT-102·103·105·108, REPO_FIX 01 §6.4). 진행 중이
+    // 아니면 접힌다. 골격은 GitJobs 가 한 벌을 칸마다 찍는다.
+    '<div class="git-jobs">'+boxes+'</div>'+
+    // FR-GIT-252: 진행 중 작업과 **나갈 길**. 상태만 보이고 출구가 없으면
+    // 사용자는 GUI 안에 갇힌다.
+    '<div class="git-op-bar">'+
+      '<span class="git-op-kind"></span>'+
+      '<span class="git-op-at"></span>'+
+      '<span class="git-op-spacer"></span>'+
+      '<button class="ui-btn ui-btn-lg git-op-act" data-act="'+GIT_OP_CONTINUE+'" hidden></button>'+
+      '<button class="ui-btn ui-btn-lg git-op-act" data-act="'+GIT_OP_SKIP+'" hidden></button>'+
+      '<button class="ui-btn ui-btn-lg ui-btn-danger git-op-act" data-act="'+GIT_OP_ABORT+'" hidden></button>'+
+    '</div>'+
+    // FR-GRF-11: 낡음 배너는 **여기 없다.** 뷰 공통으로 옮겼다
+    // (`git-view-roots.js` `_paintStaleIn`) — 이 골격에만 있던 탓에 History·
+    // Branches·Stash·Console 을 보는 동안에는 실패가 화면에 한 톨도 나타나지
+    // 않았다 (`11 GP-4`). 자리는 같다: 머리 바로 아래.
+    '<div class="ui-notice ui-notice-attn git-partial-note">'+
+      '<div class="git-partial-msg"></div>'+
+      '<ul class="git-partial-list ui-scroll-sm"></ul>'+
+      '<button class="ui-btn ui-btn-lg git-lock-remove"></button>'+
+      '<button class="ui-btn ui-btn-lg git-partial-close"></button>'+
+    '</div>'+
+    /**
+     * REPO_TAB_UNIFY_SRS FR-RTU-20: **목록 하나다.**
+     *
+     *   이전 동작: `목록 | 손잡이 | 인라인 diff 미리보기` 가로 두 칸
+     *   새  동작: 목록만. diff 는 본문의 탭이다 (FR-RTU-30)
+     *   이유:     사이드는 260px 이고 그 안을 둘로 나누면 목록이 ~90px 이 된다 —
+     *             실측에서 행 이름이 0 으로 눌려 사라지고 호버 동작 버튼이 행
+     *             가운데를 덮어, 선택하려는 클릭이 stage 를 실행했다 (C4b).
+     *             그리고 diff 를 본문 탭으로 옮긴 것이 이번 통합의 요구 ②다 —
+     *             같은 것을 두 자리에 두면 어느 쪽이 진짜인지 말할 수 없다
+     *
+     * 이 삭제로 EDITOR_GIT_UX_SRS 묶음 D(FR-CSZ-1~8, 두 칸 손잡이)는 폐기된다.
+     * 나눌 칸이 없으면 그 사이의 손잡이도 없다 (§7 D-RTU-22).
+     */
+    '<div class="git-changes-body">'+
+      '<div class="git-files ui-scroll-sm">'+
+      '</div>'+
+    '</div>');
+}
+
 class GitChanges extends GitPart {
   constructor(panel){
     super(panel);
@@ -159,59 +218,9 @@ class GitChanges extends GitPart {
       if(el.dataset.built==='1') this._paintHeadIn(el);
   }
 
-  // FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 이고 목록 스크롤은
-  // .git-files 안에서만 일어난다. 커밋 영역이 목록과 함께 스크롤되면 요구사항
-  // 실패다 — 구조가 그것을 보장한다.
+  // 골격을 세우고 배선한다 (FR-FR3-18). 순서: 골격 → 보기 전환 → 머리 → 잡 글자 → 노트·진행 중 작업 → 그룹 → 커밋 → 원격.
   _buildChanges(el){
-    el.innerHTML=
-      // REPO_TAB_UNIFY_SRS FR-RTU-20 / D-RTU-4: **커밋 입력이 브랜치 줄보다
-      // 위다.** 사용자 지시이며, 가장 자주 쓰는 입력이 목록의 스크롤에 밀리지
-      // 않는 자리에 있어야 한다는 것이 근거다.
-      //
-      // 안쪽은 GitCommit 이 채운다 (FR-GIT-74~85). 자리와 고정 성질은 여기 있다.
-      '<div class="git-commit"></div>'+
-      GitPanel.headHTML()+
-      // 잡 칸 둘의 화면 (FR-GIT-102·103·105·108, REPO_FIX 01 §6.4). 진행 중이
-      // 아니면 접힌다. 골격은 GitJobs 가 한 벌을 칸마다 찍는다.
-      '<div class="git-jobs">'+this.p._remote().boxesHTML()+'</div>'+
-      // FR-GIT-252: 진행 중 작업과 **나갈 길**. 상태만 보이고 출구가 없으면
-      // 사용자는 GUI 안에 갇힌다.
-      '<div class="git-op-bar">'+
-        '<span class="git-op-kind"></span>'+
-        '<span class="git-op-at"></span>'+
-        '<span class="git-op-spacer"></span>'+
-        '<button class="ui-btn ui-btn-lg git-op-act" data-act="'+GIT_OP_CONTINUE+'" hidden></button>'+
-        '<button class="ui-btn ui-btn-lg git-op-act" data-act="'+GIT_OP_SKIP+'" hidden></button>'+
-        '<button class="ui-btn ui-btn-lg ui-btn-danger git-op-act" data-act="'+GIT_OP_ABORT+'" hidden></button>'+
-      '</div>'+
-      // FR-GRF-11: 낡음 배너는 **여기 없다.** 뷰 공통으로 옮겼다
-      // (`git-view-roots.js` `_paintStaleIn`) — 이 골격에만 있던 탓에 History·
-      // Branches·Stash·Console 을 보는 동안에는 실패가 화면에 한 톨도 나타나지
-      // 않았다 (`11 GP-4`). 자리는 같다: 머리 바로 아래.
-      '<div class="ui-notice ui-notice-attn git-partial-note">'+
-        '<div class="git-partial-msg"></div>'+
-        '<ul class="git-partial-list ui-scroll-sm"></ul>'+
-        '<button class="ui-btn ui-btn-lg git-lock-remove"></button>'+
-        '<button class="ui-btn ui-btn-lg git-partial-close"></button>'+
-      '</div>'+
-      /**
-       * REPO_TAB_UNIFY_SRS FR-RTU-20: **목록 하나다.**
-       *
-       *   이전 동작: `목록 | 손잡이 | 인라인 diff 미리보기` 가로 두 칸
-       *   새  동작: 목록만. diff 는 본문의 탭이다 (FR-RTU-30)
-       *   이유:     사이드는 260px 이고 그 안을 둘로 나누면 목록이 ~90px 이 된다 —
-       *             실측에서 행 이름이 0 으로 눌려 사라지고 호버 동작 버튼이 행
-       *             가운데를 덮어, 선택하려는 클릭이 stage 를 실행했다 (C4b).
-       *             그리고 diff 를 본문 탭으로 옮긴 것이 이번 통합의 요구 ②다 —
-       *             같은 것을 두 자리에 두면 어느 쪽이 진짜인지 말할 수 없다
-       *
-       * 이 삭제로 EDITOR_GIT_UX_SRS 묶음 D(FR-CSZ-1~8, 두 칸 손잡이)는 폐기된다.
-       * 나눌 칸이 없으면 그 사이의 손잡이도 없다 (§7 D-RTU-22).
-       */
-      '<div class="git-changes-body">'+
-        '<div class="git-files ui-scroll-sm">'+
-        '</div>'+
-      '</div>';
+    el.innerHTML=gitChangesHTML(GitPanel.headHTML(),this.p._remote().boxesHTML());
     /**
      * UX_AUDIT_FIX_SRS FR-UXF-23: 보기 전환(폴더/목록)은 브랜치 줄의 끝에 선다. 원격 단추와는 세로 선으로 가른다.
      *   이전: 목록 위에 보기 전환만의 줄(`.git-files-bar`)이 따로 섰다
@@ -226,49 +235,9 @@ class GitChanges extends GitPart {
       '</span>');
     this._wireHead(el);
     GitJobs.label(el);
-    const partClose=el.querySelector('.git-partial-close');
-    partClose.textContent=GIT_NOTE_CLOSE; partClose.title=GIT_TIP_NOTE_CLOSE;
-    el.querySelector('.git-partial-close')
-      .addEventListener('click',()=>{this.p._note=null;this.p._paint()});
-    const lockBtn=el.querySelector('.git-lock-remove');
-    lockBtn.textContent=GIT_LOCK_REMOVE;
-    lockBtn.addEventListener('click',()=>this.p.removeIndexLock());
-    for(const b of el.querySelectorAll('.git-op-act')){
-      b.textContent=GIT_OP_ACT_LABEL[b.dataset.act]||'';
-      b.title=GIT_OP_ACT_TITLE[b.dataset.act]||'';
-      b.addEventListener('click',()=>this.p.runOperation(b.dataset.act));
-    }
+    this._wireChangesBar(el);
     const files=el.querySelector('.git-files');
-    for(const g of GIT_GROUPS){
-      const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
-      d.innerHTML='<div class="git-group-head"><span class="git-group-caret"></span>'+
-        '<span class="git-group-name"></span><span class="git-group-count ui-count"></span>'+
-        '<span class="git-group-spacer"></span></div>'+
-        '<div class="git-group-rows"></div>';
-      d.querySelector('.git-group-name').textContent=g.name;
-      d.querySelector('.git-group-head').addEventListener('click',()=>this.p._toggleGroup(g.key));
-      // 그룹별 일괄 (FR-GIT-66·67·68 / FR-WBR-50·51·52). 그룹이 이미 tracked /
-      // untracked 를 가르므로 그룹별 일괄이 곧 그 구분이다. 그리는 순서가 곧
-      // 손에서의 거리이므로 `GIT_GROUP_BULK` 의 배열 순서를 그대로 따른다 —
-      // 여기서 정렬하면 순서의 뜻이 두 자리에 살게 된다.
-      // 일괄도 행과 **같은 열**에 선다 (GIT_ACT_COLS) — 자리지킴이 없는 열을
-      // 메운다. 머리와 행의 오른쪽 끝이 어긋나면 같은 뜻의 아이콘이 다른 자리에
-      // 서고, 그것이 접수한 말의 "정렬이 안되었다" 다.
-      const acts=document.createElement('span');
-      acts.className='git-act-cols git-group-acts';
-      for(const c of this.p._actCols(GIT_GROUP_BULK[g.key]||[],GIT_BULK_COLS)){
-        if(!c.act){acts.appendChild(this.p._actGap());continue}
-        // FR-WBR-52: 행 동작과 **같은 어휘**의 아이콘이다. FR-WBR-52a: 뜻이
-        // 갈리는 자리는 툴팁이다 — 워킹 그룹의 폐기는 삭제를 포함한다.
-        // 헤더 클릭은 접기다 — 일괄 버튼이 그것을 함께 일으키지 않는다.
-        acts.appendChild(UIKit.button({icon:GIT_ACT_ICON[c.act],
-          title:(GIT_BULK_TITLE_GROUP[g.key]||{})[c.act]||GIT_BULK_TITLE[c.act],
-          kind:'ghost',size:'lg',cls:'git-group-bulk',dataset:{act:c.act},
-          onClick:ev=>{ev.stopPropagation();this.p._bulk(g.key,c.act)}}));
-      }
-      d.querySelector('.git-group-head').appendChild(acts);
-      files.appendChild(d);
-    }
+    for(const g of GIT_GROUPS) files.appendChild(this._groupEl(g));
     for(const b of el.querySelectorAll('.git-files-mode')){
       // FR-GCC-8 / NFR-3: 아이콘만 남으므로 툴팁이 유일한 설명이다.
       b.appendChild(UIKit.icon(GIT_FILES_MODE_ICON[b.dataset.mode]));
@@ -282,6 +251,54 @@ class GitChanges extends GitPart {
     // FR-GIT-42: 목록 끝이 보일 때마다 다음 덩어리를 이어 그린다 — 관측기는 행 부품이 든다.
     this.p._watchMore(files);
     el.dataset.built='1';
+  }
+
+  // 부분 노트의 닫기·lock 지우기·진행 중 작업의 단추 (FR-GIT-252).
+  _wireChangesBar(el){
+    const partClose=el.querySelector('.git-partial-close');
+    partClose.textContent=GIT_NOTE_CLOSE; partClose.title=GIT_TIP_NOTE_CLOSE;
+    el.querySelector('.git-partial-close')
+      .addEventListener('click',()=>{this.p._note=null;this.p._paint()});
+    const lockBtn=el.querySelector('.git-lock-remove');
+    lockBtn.textContent=GIT_LOCK_REMOVE;
+    lockBtn.addEventListener('click',()=>this.p.removeIndexLock());
+    for(const b of el.querySelectorAll('.git-op-act')){
+      b.textContent=GIT_OP_ACT_LABEL[b.dataset.act]||'';
+      b.title=GIT_OP_ACT_TITLE[b.dataset.act]||'';
+      b.addEventListener('click',()=>this.p.runOperation(b.dataset.act));
+    }
+  }
+
+  // 그룹 하나 — 머리(접기·이름·수·일괄 단추)와 행 자리.
+  _groupEl(g){
+    const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
+    d.innerHTML='<div class="git-group-head"><span class="git-group-caret"></span>'+
+      '<span class="git-group-name"></span><span class="git-group-count ui-count"></span>'+
+      '<span class="git-group-spacer"></span></div>'+
+      '<div class="git-group-rows"></div>';
+    d.querySelector('.git-group-name').textContent=g.name;
+    d.querySelector('.git-group-head').addEventListener('click',()=>this.p._toggleGroup(g.key));
+    // 그룹별 일괄 (FR-GIT-66·67·68 / FR-WBR-50·51·52). 그룹이 이미 tracked /
+    // untracked 를 가르므로 그룹별 일괄이 곧 그 구분이다. 그리는 순서가 곧
+    // 손에서의 거리이므로 `GIT_GROUP_BULK` 의 배열 순서를 그대로 따른다 —
+    // 여기서 정렬하면 순서의 뜻이 두 자리에 살게 된다.
+    // 일괄도 행과 **같은 열**에 선다 (GIT_ACT_COLS) — 자리지킴이 없는 열을
+    // 메운다. 머리와 행의 오른쪽 끝이 어긋나면 같은 뜻의 아이콘이 다른 자리에
+    // 서고, 그것이 접수한 말의 "정렬이 안되었다" 다.
+    const acts=document.createElement('span');
+    acts.className='git-act-cols git-group-acts';
+    for(const c of this.p._actCols(GIT_GROUP_BULK[g.key]||[],GIT_BULK_COLS)){
+      if(!c.act){acts.appendChild(this.p._actGap());continue}
+      // FR-WBR-52: 행 동작과 **같은 어휘**의 아이콘이다. FR-WBR-52a: 뜻이
+      // 갈리는 자리는 툴팁이다 — 워킹 그룹의 폐기는 삭제를 포함한다.
+      // 헤더 클릭은 접기다 — 일괄 버튼이 그것을 함께 일으키지 않는다.
+      acts.appendChild(UIKit.button({icon:GIT_ACT_ICON[c.act],
+        title:(GIT_BULK_TITLE_GROUP[g.key]||{})[c.act]||GIT_BULK_TITLE[c.act],
+        kind:'ghost',size:'lg',cls:'git-group-bulk',dataset:{act:c.act},
+        onClick:ev=>{ev.stopPropagation();this.p._bulk(g.key,c.act)}}));
+    }
+    d.querySelector('.git-group-head').appendChild(acts);
+    return d;
   }
 
   _paintChanges(el){
