@@ -8,6 +8,7 @@
 
 - `web/js` 는 약 61k 줄이고 모듈이 아니다. `index.html` 이 `<script>` 를 순서대로 싣고, 최상위 이름을 전역으로 서로 본다.
 - 주류는 mixin 이다. `Object.assign(App.prototype, …)` 가 68개 파일이고, `Object.assign(GitPanel.prototype, …)` 가 6~8개 파일이다.
+  - 단계 9 완료(2026-11-21, `REFACTOR3_FE_APPCTL_SRS`): `Object.assign(App.prototype, …)` 는 0 이다. App 은 주제별 `Controller` 를 드는 조립자이고, 바깥이 부르는 이름은 위임자 표로 남는다. (`GitPanel` 의 mixin 은 단계 7 에서 0 이 됐다.)
 - 이미 있는 기반은 다음과 같다.
   - `UIKit`(객체 리터럴 930줄): `tab`·`button`·`modal`·`menu`·`dialogOpen`·`roving`·`tabsFit`·`fadeWatch`
   - `reconcileList`(호출 약 20곳)

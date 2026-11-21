@@ -102,13 +102,14 @@ export const TOOL = ['core/tool-cmd.js', 'core/tool-controller.js', 'core/tool-l
 export const EDITOR = ['core/editor-controller.js', 'core/editor-sync.js', 'core/editor-open.js', 'core/editor-doc.js',
   'core/editor-pane.js', 'core/editor-watch.js', 'core/editor-file.js', 'core/editor-section.js', 'core/editor-doc-render.js',
   'core/editor-search.js'];
+export const REPO_WIN = ['core/repo-preview.js', 'core/repo-win-controller.js'];
 
 /** App 필드 → 뿌리 컨트롤러 클래스. App 생성자가 세우는 것과 같다 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). */
 const APP_CONTROLLERS = { settings: 'SettingsController', edges: 'EdgesController', update: 'UpdateController',
   attn: 'AttnController', claude: 'ClaudeAccountsController', statusbar: 'StatusBarController', chat: 'ChatController',
   agents: 'AgentsController', mobile: 'MobileController', git: 'GitController', wsSync: 'WsSyncController',
   focus: 'FocusController', slot: 'SlotsController', layout: 'LayoutController',
-  tool: 'ToolController', editor: 'EditorController' };
+  tool: 'ToolController', editor: 'EditorController', repoWin: 'RepoWinController' };
 
 /**
  * 실은 파일에 있는 뿌리 컨트롤러를 앱에 세운다 — App 생성자의 몫을 시험이 대신한다. 이미 있는 필드는 두고, 싣지 않은

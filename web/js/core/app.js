@@ -79,6 +79,7 @@ class App {
     this.layout=new LayoutController(this);
     this.tool=new ToolController(this);
     this.editor=new EditorController(this);
+    this.repoWin=new RepoWinController(this);
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }

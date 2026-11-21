@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, REPO_WIN, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -124,6 +124,12 @@ const ISSUES = {
     gone: ['core/app-editor-doc.js', 'core/app-editor-file.js', 'core/app-edsearch.js', 'core/app-docrender.js'],
     plainNow: [],
     mixins: 2,
+  },
+  '9k-3': {
+    ctl: ['core/repo-win-controller.js', 'core/repo-preview.js'],
+    gone: ['core/app-diff-tab.js', 'core/app-preview.js'],
+    plainNow: [],
+    mixins: 0,
   },
 };
 
@@ -1790,4 +1796,128 @@ test('TC-FEA-3(9k-2): 옮긴 묶음의 계약 이름이 App 원형에서 함수�
   const names = Object.values(DELEGATES_9K2).flat().filter((x) => contract.has(x));
   assert.ok(names.length > 0);
   for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+});
+
+// ── 9k-3: Repo 창 — Diff 탭 · 미리보기 탭 ───────────────────────────────────────────────────
+
+const DELEGATES_9K3 = {
+  repoWin: ['diffTabKey', 'gitDiffOpen', 'gitDiffStep', 'gitDiffPin', 'gitDiffTabPin', 'gitDiffPanelFor', '_gitDiffPanelOf',
+    'gitDiffPanelActive', '_gitDiffPanelsDrop', '_gitDiffTabIds'],
+  'repoWin.preview': ['pinPreviewTab', '_findEditorTabIn', '_retargetPreview'],
+};
+
+function load9k3(globals = {}) {
+  return load([...BASE, ...REPO_WIN], {
+    expose: ['RepoWinController', 'Controller', 'Component'],
+    globals: {
+      App: class App extends App9k {
+        edFocusHandoff() { this.focusHandoff = true } editorsDrop() {} _slotOf() { return 0 }
+        isEditorWin(s) { return !!(s && s.type === 'editor') } paneTab(pn) { return pn.activeTab } tabDirty() { return false }
+        flattenPanes(l) { return l ? [l] : [] }
+      },
+      TIMERS: { disposeOwner() {} }, TAB_TYPE_GIT: 'git', TAB_TYPE_EDITOR: 'editor', GIT_DIFF_TAB_SEP: '#',
+      findPane: (l, id) => (l && l.id === id ? l : null), panesOf: (l) => (l ? [l] : []),
+      findTabWhere: (wins, fn) => {
+        for (const w of wins) for (const t of w.layout.tabs) if (fn(t)) return { win: w, pane: w.layout, tab: t };
+        return null;
+      },
+      pathBase: (p) => String(p).split('/').pop(), clampEntityName: (n) => n,
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9k-3): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9k3();
+  const app = new ctx.App();
+  const repo = new ctx.RepoWinController(app);
+  const all = [repo, repo.preview];
+  assert.deepEqual(all.map((o) => o.constructor.name), ['RepoWinController', 'RepoPreview']);
+  for (const o of all) {
+    assert.ok(o instanceof ctx.Controller, o.constructor.name);
+    assert.ok(o instanceof ctx.Component, o.constructor.name);
+    assert.equal(o.app, app, o.constructor.name);
+  }
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  assert.ok(ctor.includes('this.repoWin=new RepoWinController(this);'));
+});
+
+test('TC-FEA-1(9k-3): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9k3();
+  const app = new ctx.App();
+  app.repoWin = { preview: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9K3)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9K3)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9K3).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-1(9k-3): Diff 탭 패널은 App 의 등록부(gitPanels)에 서고 App 을 든다 — 미리보기 고정은 편집기 뿌리로 포커스를 넘긴다', () => {
+  const ctx = load9k3({ GitPanel: class { constructor(app, root) { this.app = app; this.root = root } _reschedule() {} diffTabApply() {} } });
+  const app = controllers(ctx, new ctx.App());
+  const p = app.gitDiffPanelFor('/r', 0, { id: 't' });
+  assert.equal(p.app, app);
+  assert.deepEqual([...app.gitPanels.keys()], ['git:/r#t']);
+  assert.equal(app._gitDiffPanelOf('t', 0), p);
+  app.render = () => {};
+  app.save = () => {};
+  assert.equal(app.pinPreviewTab({ preview: true }), true);
+  assert.equal(app.focusHandoff, true);
+  assert.match(read('core/repo-preview.js'), /this\.app\.edFocusHandoff\(\)/);
+});
+
+test('TC-FEA-2(9k-3): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9k-3'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9k-3): 갈아 끼운 aw·focused·slotFocused·gitPanels·ws·paneTabSet·setFocusState·render·save·fileEditors 를 컨트롤러 경로가 부른다', () => {
+  const ctx = load9k3();
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  const pane = { id: 'p', tabs: [{ id: 'd', type: 'git', gitView: 'diff' }], activeTab: 'd' };
+  app.aw = () => { log.push('aw'); return { id: 'w', type: 'editor', layout: pane } };
+  app.focused = 'p';
+  app.slotFocused = () => { log.push('slot'); return 0 };
+  const panel = { diffTabId: 'd' };
+  app.gitPanels = new Map([['git:/r#d', panel]]);
+  assert.equal(app.gitDiffPanelActive(), panel);
+  app.ws = { windows: [{ id: 'w', layout: pane }] };
+  assert.deepEqual([...app._gitDiffTabIds()], ['d']);
+  const ed = { id: 'e', preview: true, type: 'editor', filePath: '/a' };
+  const pn2 = { id: 'q', tabs: [ed] };
+  app.fileEditors = new Map([['e', { destroy: () => log.push('destroy') }], ['x', {}]]);
+  app.paneTabSet = (p, id) => log.push('tab:' + id);
+  app.setFocusState = (id) => log.push('focus:' + id);
+  app.render = () => log.push('render');
+  app.save = () => log.push('save');
+  assert.deepEqual(plain(app._retargetPreview({ id: 'w' }, pn2, { filePath: '/b' })), { uuid: 'e' });
+  assert.deepEqual([...app.fileEditors.keys()], ['x']);
+  assert.deepEqual(log, ['aw', 'slot', 'destroy', 'tab:e', 'focus:q', 'render', 'save']);
+});
+
+test('TC-FEA-3(9k-3): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 이 0 이다 (FR-FEA-7)', () => {
+  const issue = ISSUES['9k-3'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.deepEqual(mixins, []);
+  // 계약은 접근자 하나로 정의한다 — mixin 이 아니다.
+  assert.match(read('core/app-testing.js'), /Object\.defineProperty\(App\.prototype, 'testing'/);
+});
+
+test('TC-FEA-3(9k-3): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9k3();
+  const contract = contractNames();
+  for (const n of Object.values(DELEGATES_9K3).flat().filter((x) => contract.has(x)))
+    assert.equal(typeof ctx.App.prototype[n], 'function', n);
 });

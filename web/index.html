@@ -1169,10 +1169,10 @@
 <script src="js/core/layout-tab-reopen.js?v=__ASSETV__"></script>
 <script src="js/core/layout-dnd.js?v=__ASSETV__"></script>
 <script src="js/core/layout-groups.js?v=__ASSETV__"></script>
-<!-- 미리보기 탭 (UX_BATCH12_SRS FR-RTB). `layout-tab-add.js` 뒤 — prototype 확장이다. -->
-<script src="js/core/app-preview.js?v=__ASSETV__"></script>
-<!-- Diff 탭 (UX_BATCH12_SRS FR-RTB-7). 탭마다 전용 GitPanel 이다. -->
-<script src="js/core/app-diff-tab.js?v=__ASSETV__"></script>
+<!-- Repo 창 — Diff 탭(UX_BATCH12_SRS FR-RTB-7, 탭마다 전용 GitPanel)과 부품 미리보기 탭(FR-RTB)
+     (REFACTOR3_FE_APPCTL_SRS 9k-3, 옛 `app-diff-tab.js`·`app-preview.js`). 끝에서 App 원형에 위임자를 둔다. -->
+<script src="js/core/repo-win-controller.js?v=__ASSETV__"></script>
+<script src="js/core/repo-preview.js?v=__ASSETV__"></script>
 <!-- 창 슬롯 — 상태와 부품 `SlotOps`(조작) (REFACTOR3_FE_APPCTL_SRS 9h, 옛 `app-slots.js`). 끝에서 App 원형에 위임자와 접근자
      `slots`·`slotDir` 를 둔다. -->
 <script src="js/core/slots-controller.js?v=__ASSETV__"></script>
