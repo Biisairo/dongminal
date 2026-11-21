@@ -57,7 +57,7 @@
 | DM-12 | `internal/{daemon,shared,ctl,helper}`·`cmd` | `"/api/…"` 경로 리터럴 **89곳**(표본). 이름이 바뀌면 빌드가 아니라 실행 중 404 로 드러난다 | 경로 상수 한 벌 | M |
 | DM-16 | `shared/humancmd/humancmd.go:27` | 도우미 소켓이 절대 경로로 고정이다. 다른 소켓은 home 에서 파생한다 | 플랫폼 transport 에서 얻는다 | S |
 | GH-20 | `httpapi/handlers_fs_search.go:263` | rg JSON 줄 상한 `4<<20` 이 인라인이다 | 이름 있는 상수 | S |
-| FU-19 | `ui/open-url.js:74` | `min(520px,90vw)` 를 JS 문자열에 박았다 | CSS 클래스로 | S |
+| FU-19 | `ui/open-url.js:74` | `min(520px,90vw)` 를 JS 문자열에 박았다 | CSS 클래스로 — **처리함 (R2, `324d7922`)**: 같은 꼴 9줄을 `ui-modal-sm·md·lg` 로, `KitModal` 의 `width` 삭제 | S |
 | FU-9 | `web/style.css:875-876` | Activity 레일 숨김 목록이 한 선택자에 클래스 28개다. 새 클래스를 빠뜨리면 레일에 글자가 샌다. 그 가운데 죽은 선택자가 섞였다(DOC-15) | 죽은 것을 걷고, 숨김 대상에 표식을 달거나 게이트로 대조한다 | M |
 | FC-12 | `core/app-settings-theme.js:206-267` | 테마 미리보기의 인라인 `style` 27줄(px·색) | `.pv-*` 클래스로. FC-F1 과 함께 | M |
 
@@ -97,8 +97,8 @@
 | GD-20 | `telegram/bridge.go:40·166`·`client.go:45`·`claudeacct/engine.go:637`·`dirlock.go:51` | 시간 값 다섯. `client.Timeout 70s` 는 `pollTimeout 50`(단위 없음)+20 인데 관계가 코드에 없다 | 이름, 파생 | S |
 | DM-13·14·15 | 시간 상수 115줄/64파일(표본) · "떠 있나" 시한 6개(1·2·3·5초) · `humancmd.Info` 예산 두 벌 | 흩어진 예산 | 한 파일, 목적 두세 개로 | M |
 | DM-11 | `dmenv` 머리말 vs `serverconf`·`updatecheck`·`ctl/cli/options.go`·`sandbox.go:279` | "이름은 여기 있다" 인데 밖에 넷, `sandbox` 는 문자열로 적는다 | `dmenv` 로 모은다 | S |
-| FC-10 | `core/constants.js` 939줄 | 상수 파일에 함수 9개 | 쓰는 쪽으로 옮긴다 | M |
-| FC-19·20·22 | `*1000` 환산·`after(50)` 류 · 타이밍 상수가 파일별 · 툴팁 리터럴 10곳(표본) | `constants*.js`·`TIP_*` 규약 밖 | 모은다 | S |
+| FC-10 | `core/constants.js` 939줄 | 상수 파일에 함수 9개 | 쓰는 쪽으로 옮긴다 — **처리함 (R2, `49136bd7`)**: 서버 상한은 새 `core/server-meta.js`, 사이드바 폭은 `input-binding.js`, 샌드박스 문구는 `tool-controller.js`, `agentsWidthOk` 은 호출 0 이라 삭제 | M |
+| FC-19·20·22 | `*1000` 환산·`after(50)` 류 · 타이밍 상수가 파일별 · 툴팁 리터럴 10곳(표본) | `constants*.js`·`TIP_*` 규약 밖 | 모은다 — **처리함 (R2, `b3fe9935`)**: 전수는 `REFACTOR3_FE_REST2_SRS` §2.6. `MS_PER_SEC`, 주기 상수 넷 → `constants.js`, 지연 이름 다섯, `TIP_*` 열일곱. 남김: `CLAUDE_ACCT_POLL_MS`(등록부만 싣는 페이지) · 서술자 표·`diag.js` 의 툴팁 | S |
 | FU-10 | `web/style*.css` | 간격 px 리터럴 **821건**(정규식 근사), 간격 토큰 0. `gap:6px` 68·`gap:8px` 63 | 간격 토큰 3~4단 → 치환 → 게이트 | L |
 
 ### 2.4. 쓸데없이 복잡한 로직 단순화 (분류 4)
@@ -107,9 +107,9 @@
 |---|---|---|---|---|
 | GD-17 | `hub/gitwatch.go:706-787` `observe` | 잠금 3번, `need` 조건 4개, 전이가 함수 안에 묻혔다 | `need`·전이를 순수 함수로 떼고 시험 | M |
 | GD-21 | `hub/gitwatch.go:354` `watchPhase` | 운영 호출 0(시험만) | 지운다 | S |
-| FU-2~6 | `renderer-chrome.js:100` `_rWinTitle` · `history-load.js:201` `reloadRefs` · `panel-views.js:78` `_submodules` · `ui-kit.js:730` `menuOpen` · `cm-lsp.js:360` `unsubscribe` | 호출처 0 인 함수(뒤 둘은 `?`) | 확인 후 지운다 — **넷 처리함** (§7.1 P3a 0~2. `_rWinTitle` 은 `_rWinTitleParts` 로 살아 있어 죽은 것이 아니었다). `cm-lsp.js` `unsubscribe` 는 남음 | S |
+| FU-2~6 | `renderer-chrome.js:100` `_rWinTitle` · `history-load.js:201` `reloadRefs` · `panel-views.js:78` `_submodules` · `ui-kit.js:730` `menuOpen` · `cm-lsp.js:360` `unsubscribe` | 호출처 0 인 함수(뒤 둘은 `?`) | 확인 후 지운다 — **넷 처리함** (§7.1 P3a 0~2. `_rWinTitle` 은 `_rWinTitleParts` 로 살아 있어 죽은 것이 아니었다). `cm-lsp.js` `unsubscribe` 는 **남김 (R2)** — 호출처 0 이 아니다. 번들 `cm.js` 의 `LSPClient.connect`·`disconnect` 가 부른다(`REFACTOR3_FE_REST2_SRS` D-FR2-9). 같은 R2 에서 앱 호출 0 인 `UIKit.tabsFitWatch` 를 지웠다(`854590b2`) | S |
 | FU-17 | `git/panel-changes.js:661-665` | 서브모듈 stage 금지를 화면만 판정한다(SERVER_DRIVEN 목록 밖의 C 부류) | 정책 결정 먼저(§6) — **처리함 (R1, `19f60b6a`)**: 서버 판정·409 `submodule_inner_only`·행 답 `rowActions` | S |
-| FC-15 | `core/app-agents.js:248-253` | `filter` 4번, `reconcileList` 3번 | 구역 표를 한 번 순회 | S |
+| FC-15 | `core/app-agents.js:248-253` | `filter` 4번, `reconcileList` 3번 | 구역 표를 한 번 순회 — **처리함 (R2, `854590b2`)**: 한 번 훑어 구역 넷으로. `reconcileList` 는 받는 곳이 셋이라 세 번 그대로 | S |
 | DM-24 | `ctl/cli/options.go:293-460` | `take`·`unknownFlag` 블록 6번 | 공통 적용기 | S |
 
 ### 2.5. 너무 큰 함수·클래스 분할 (분류 5)
@@ -118,7 +118,7 @@
 |---|---|---|---|---|
 | FC-04 | `core/app-settings.js` `initModal` | 135줄, 파일 500(게이트 경계) | `app-settings-modal.js` — **처리함** (§7.1 P3a 3·8: 열기·닫기·탭은 `SettingsModal`, `_init*` 나열은 `SettingsController` 의 표 하나. `initModal` 은 한 줄, `app-settings.js` 386줄) | M · L |
 | FC-05 | `core/app-layout.js` | 975줄·메서드 44(저장소 최대), `delWindow` 108줄 | 창 / 탭 열기 / 탭 닫기 / 분할 / 사이드바 — **파일은 처리함** (P3a 9: `layout-*.js` 아홉). `delWindow` 108줄은 남음 | M · M |
-| FC-06·08 | `app-tool.js` `_pickSandbox` 155 · `app-statusbar.js` `updateStatusBar` 122 | 빌더 분리 | S · L |
+| FC-06·08 | `app-tool.js` `_pickSandbox` 155 · `app-statusbar.js` `updateStatusBar` 122 | 빌더 분리 — **처리함 (R2, `7cfe190b`)**: 41줄·22줄, 순수 판정 셋은 단위 시험 | S · L |
 | FC-07·09 | `app-ws-sync.js` `_applyRemoteWorkspace` 136 · `app.js` `save` 90·`_saveAdoptRemote` 88 | **먼저 순서·충돌을 시험으로 고정** | M · **H** |
 | FU-12 | `git/remote.js` `GitRemote` | 약 680줄 클래스 | 실행·스트림 / 표시 — **파일 분할은 처리함** (P3a 5: `remote-list`·`remote-add`·`remote-opts`). `GitRemote` 안 나누기(671줄)는 남음 | M · M |
 | FU-13 | `ui/ui-kit.js` `UIKit` | 930줄 | modal·menu·drag·HUD 내부 모듈 — **modal·menu 처리함** (P3a 3·6, 930 → 695줄). drag·HUD 는 남음 | M · M |
@@ -148,9 +148,9 @@
 
 | ID | 자리 | 현상 |
 |---|---|---|
-| FC-16 · DOC-16 | `core/app-statusbar.js:258` `_bgModalToggle` | 모달 시절 이름. 인자를 넘기는 곳이 없어 `open===false` 분기가 죽었다 → `_bgPanelOpen` |
+| FC-16 · DOC-16 | `core/app-statusbar.js:258` `_bgModalToggle` | 모달 시절 이름. 인자를 넘기는 곳이 없어 `open===false` 분기가 죽었다 → `_bgPanelOpen` — **처리함 (R2, `854590b2`)**: 단축키가 컨트롤러를 직접 부른다, 위임자 없음 |
 | FC-17 | `app-layout.js:2-5`·`app-git.js:2-5` | 머리 주석의 메서드 수가 낡았다(21→44, 23→48) — **대상 소멸** (P3a 9 에서 두 파일이 컨트롤러로 나뉘었다) |
-| FC-18 | `app-settings.js:130` | 500줄 게이트를 맞추려고 짜낸 198자 한 줄 — **원 자리 소멸** (P3a 8). 같은 종류(150자 넘는 줄)는 남았다 |
+| FC-18 | `app-settings.js:130` | 500줄 게이트를 맞추려고 짜낸 198자 한 줄 — **원 자리 소멸** (P3a 8). 같은 종류(150자 넘는 줄)는 남았다 — **처리함 (R2, `7cd0bb29`)**: 198자 넘는 17줄을 나누고 단위 시험이 고정한다. 150~198자 58줄은 남김 |
 | GH-9 | `httpapi/httperr.go:69-79` | 주석의 코드 이름 `body_too_big` — 실제는 `body_too_large`(`SAFETY_CORRECTNESS_SRS:205-218` 도 같은 오기) |
 | GH-23 | `toolclient/client.go` | 오류 문구의 옛 데몬 이름 `paned` |
 | GD-19 | `hub/gitwatch.go:836` | 주석 "500ms 마다" — 실제 `GitWatchInterval` 1000ms |
@@ -294,6 +294,7 @@
 | P3a 9 | `b0e3b411`…(이 커밋) | `REFACTOR3_FE_APPCTL_SRS` — App mixin(`Object.assign(App.prototype, …)` 57파일·메서드 835)을 하위 이슈 열하나(9a~9k)로 주제별 `Controller` 와 그 부품(클래스 하나 = 파일 하나)으로 옮겼다 — 간선·업데이트·설정 · 알림·Claude 계정·상태바 · 채팅·활동·모바일 · git · 상태 동기화 · 포커스 · 슬롯 · 레이아웃 · 도구 · 편집기 · Repo 창. 공유 상태의 주인과 쓰기 입구는 9e 가 정했다(App 이 공용 상태의 주인, 쓰기 모음 `focused`·`focusHandoff`·`_edGitHeld`). 바깥·e2e·계약이 부르는 이름은 컨트롤러 파일 끝의 위임자 표(`Controller.delegate`)로 남는다. `Object.assign(App.prototype` 57 → 0, 500줄 초과 16 → 12. 동작 변경 없음 |
 | P3 FE 나머지 — 정리 | (이 커밋) | P3a 가 흡수한 ID 에 「처리함」 표시(실측 HEAD `c96988c7`): FC-F2·01·02·04·13·14 · FU-1·20 · FU-2~6 넷 · FC-05·FU-12·13 일부 · FC-17·18 대상 소멸. 남은 것을 하위 묶음 넷으로 나눈다 — **R1 동작 변경·서버 원천**(FC-03 redmean · FU-17 서브모듈 stage 서버 거부 · FC-11 자동 전환 범위 서버 원천 · FC-21 ping·stats) · **R2 JS 작은 정리**(FC-06·08·10·15·16·18·19·20·22 · FU-19 · `cm-lsp` `unsubscribe` · `UIKit.tabsFitWatch`) · **R3 큰 함수·클래스**(FC-05 `delWindow` · FC-07·09 시험 고정 먼저 · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) · **R4 CSS**(FU-8·9·18 · FU-11 CSS 크기 게이트 · FU-10 간격 토큰) |
 | R1 | `32b9e597`·`8ab87528`·`19f60b6a`·`a51da4bb`·`85668248`…(이 커밋) | `REFACTOR3_FE_REST1_SRS` — FC-03 알림색 거리 redmean(Ayu Mirage 알림색 `#dfbfff`→`#95e6cb`, 실행 중 색 `#6dcbfa`→`#dfbfff`, 메인색 조합 432개 중 알림색 31·실행 중 색 29 바뀜) · FU-17 서브모듈 안쪽만 바뀐 경로만 담는 stage 를 서버가 409 `submodule_inner_only` 로 거절, 화면은 status 의 `rowActions` 로 끈다 · FC-11 자동 전환 칸 범위를 `autoswitch` 응답의 `ranges` 로 · FC-21 ping·stats 를 함께. 남은 것: 계정 행 칸의 범위 두 벌 |
+| R2 | `903526b9`·`7cfe190b`·`49136bd7`·`854590b2`·`7cd0bb29`·`b3fe9935`·`324d7922`…(이 커밋) | `REFACTOR3_FE_REST2_SRS` — 동작 불변. FC-06·08 빌더 분리 · FC-10 상수 파일의 함수 9개(새 `core/server-meta.js`) · FC-15 한 번 훑기 · FC-16 `_bgPanelOpen` · `UIKit.tabsFitWatch` 삭제 · FC-18 198자 넘는 줄 17 · FC-19·20·22 `MS_PER_SEC`·주기 상수·`TIP_*` 열일곱 · FU-19 모달 폭 클래스. 남긴 것: `cm-lsp` `unsubscribe`(라이브러리가 부른다) · `CLAUDE_ACCT_POLL_MS` · 서술자 표·`diag.js` 툴팁 · 150~198자 줄 |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---

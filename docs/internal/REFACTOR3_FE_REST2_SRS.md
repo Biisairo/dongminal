@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R2 — JS 작은 정리 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: FC-06·08 · FC-10 · FC-15·16 · FU-2~6 · FC-18 · FC-19·20·22 · FU-19 구현
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `refactor/PROD3.md` §2 FC-06·08·10·15·16·18·19·20·22 · FU-19 · FU-2~6 의 `cm-lsp` `unsubscribe`, §7.1 「P3 FE 나머지 — 정리」 의 하위 묶음 R2, `UIKit.tabsFitWatch`)
 - 사용자 결정: 진행은 묻지 않고 끝까지 한다(`REFACTOR_PROD3_HANDOFF_2.md` §8). 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -166,7 +165,7 @@ R2 는 동작을 바꾸지 않는 JS 정리다. 큰 함수를 빌더로 나누�
 | `ui/runs-panel.js:33` | `RUN_RECENT_SEC=30` | `constants.js` |
 | `core/state-registry.js:38` | `CLAUDE_ACCT_POLL_MS` | 남긴다 (D-FR2-11) |
 | `core/tool-search.js:32` | `after(50,…)` | `SEARCH_FIRST_DELAY_MS=50` (`constants.js`) |
-| `ui/file-editor.js:611` | `after(500,…)` | `FILE_SAVE_FAIL_FLASH_MS=500` (`constants-editor.js`) |
+| `ui/file-editor.js:611` | `after(500,…)` | `FILE_SAVE_FAIL_FLASH_MS=500` (`constants.js`, `FILE_SAVE_FAIL` 옆) |
 | `ui/run-dashboard.js:50` | `+ 50` | `RUN_DECAY_SLACK_MS=50` (`constants.js`) |
 | `ui/diag.js:196·205·269` | `setInterval(…,1000)` | 파일 머리의 `HOOK_RETRY_MS` (D-FR2-13) |
 | `ui/diag.js:357` | `setTimeout(env,800)` | 파일 머리의 `ENV_DELAY_MS` (D-FR2-13) |
@@ -190,6 +189,7 @@ R2 는 동작을 바꾸지 않는 JS 정리다. 큰 함수를 빌더로 나누�
 | `core/constants-editor.js:328·329·346` · `core/constants-git.js:82-87` (9줄) | 서술자 표의 `title` | 남긴다 — 이미 상수 파일의 표다 |
 | `ui/sidebar-tabs.js:64·149` · `ui/sidebar-tab-chat.js:11` | 탭 서술자의 `title` | 남긴다 (D-FR2-13) |
 | `ui/diag.js:37-43` (7줄) | 진단 오버레이 마크업의 `title` | 남긴다 (D-FR2-13) |
+| `core/layout-dock.js:63` · `core/agents-controller.js:318·376` · `core/settings-terminal.js:115·116` | 삼항식·도우미 인자 안의 툴팁(위 정규식이 못 잡는 꼴): Expand the panel · Close the panel · Expand/Collapse this window group · Move up · Move down · Delete macro | `TIP_PANEL_EXPAND`·`TIP_PANEL_CLOSE`·`TIP_AG_GROUP_EXPAND`·`TIP_AG_GROUP_COLLAPSE`·`TIP_KEYBAR_UP`·`TIP_KEYBAR_DOWN`·`TIP_KEYBAR_DEL` (구현 중 더 찾았다, §6) |
 
 ## 3. 결정
 
@@ -229,4 +229,20 @@ R2 는 동작을 바꾸지 않는 JS 정리다. 큰 함수를 빌더로 나누�
 
 ## 6. 구현 기록
 
-(구현 커밋에서 채운다)
+| 커밋 | 요점 |
+|---|---|
+| `903526b9` | 이 SRS |
+| `7cfe190b` | FC-06·08 — `sbxWorkPicks`·`sbxDefaultWork`·`sbxPickResult`(순수) · `_sbxWorkdirRow`·`_sbxWorkRow`·`_sbxProfileAction`·`_sbxDevHint`·`_sbxGradeBadges`. `_pickSandbox` 155 → 41줄. `_sbItems`·`_sbUptimeEl`, `updateStatusBar` 122 → 22줄. 시험 `sandbox-pick.test.mjs`(TC-FR2-1 넷) |
+| `49136bd7` | FC-10 — `core/server-meta.js`(`ENTITY_NAME_MAX`·`clampEntityName`·`serverMeta`·`capToServer`·`applyServerMeta`, `index.html` 에서 `constants.js` 뒤) · `clampSidebarWidth`·`sidebarWidthStore` → `ui/input-binding.js` · `sandboxWorkLabel`·`sandboxWorkTitle`·`sbxRuntimeText` → `core/tool-controller.js` · `agentsWidthOk` 삭제. `constants.js` 939 → 869줄. 시험 `server-meta.test.mjs`(TC-FR2-2)·`entity-name.test.mjs`·`chat-window.test.mjs` 가 새 파일을 싣는다 |
+| `854590b2` | FC-15·16 · FU-2~6 — `agentsRender` 의 구역 표 `zone`(한 번 훑기) · `_bgPanelOpen`(단축키가 `this.statusbar._bgPanelOpen()`, 위임자 없음) · `UIKit.tabsFitWatch` 삭제 · `cm-lsp` `unsubscribe` 주석에 부르는 자리. `REFACTOR3_FE_BASE_SRS` FR-FEB-3 개정 줄. 시험 `app-controllers.test.mjs`·`kit-dispose.test.mjs`(TC-FR2-3) |
+| `7cd0bb29` | FC-18 — 17줄 나눔. 시험 `line-length.test.mjs`(TC-FR2-4) |
+| `b3fe9935` | FC-19·20·22 — `MS_PER_SEC`, 24줄 환산 · `LIMIT_STALE_MS`·`TG_PAIR_TICK_MS`·`EDGE_REMAIN_TICK_MS`·`RUN_RECENT_SEC` → `constants.js` · `SEARCH_FIRST_DELAY_MS`·`FILE_SAVE_FAIL_FLASH_MS`·`RUN_DECAY_SLACK_MS` · `diag.js` 머리의 `HOOK_RETRY_MS`·`ENV_DELAY_MS` · `TIP_*` 열일곱. 시험 `literal-sweep.test.mjs`(TC-FR2-5 넷), 단위 시험 다섯의 전역 대역에 새 이름 |
+| `324d7922` | FU-19 — `style-kit.css` `.ui-modal-box.ui-modal-sm·md·lg`, 9줄이 `boxCls`, `KitModal` 의 `width` 삭제. 시험 `literal-sweep.test.mjs`(TC-FR2-5). 임시 e2e 로 계산된 폭이 옛 인라인 폭과 같음을 1280·400 폭에서 쟀다(420/460/520/520 · 360×4) |
+
+**SRS 와 다르게 한 것.**
+
+1. `FILE_SAVE_FAIL_FLASH_MS` 는 `constants-editor.js` 가 아니라 `constants.js` 의 `FILE_SAVE_FAIL` 옆에 두었다 — 그 문구가 거기 있다. §2.6 표를 고쳤다.
+2. 툴팁 리터럴을 일곱 더 옮겼다(§2.6 표 끝 행). `TIP_PANEL_COLLAPSE` 를 만들고 보니 같은 버튼의 반대 문장(`Expand the panel`)이 삼항식에 남아 있었다. 그런 꼴(삼항식·도우미 인자)을 따로 찾아 다섯 줄(상수 일곱)을 옮겼다. 정규식이 못 잡는 꼴이라 TC-FR2-5 는 그 다섯 줄을 고정하지 않는다.
+3. `RUN_DECAY_SLACK_MS`·`RUN_RECENT_SEC` 는 `constants.js` 의 Run 목록 구역에 두었다.
+
+**남긴 것.** `CLAUDE_ACCT_POLL_MS`(D-FR2-11) · 서술자 표·`diag.js` 의 툴팁(D-FR2-13) · `cm-lsp` `unsubscribe`(D-FR2-9) · 150~198자 줄 58줄(D-FR2-10). 위임자 표를 걷는 일은 다음 리팩토링이다.
