@@ -1325,6 +1325,16 @@
 | `D-FEL-2` | View 의 `build()`(루트 만들기)와 행 만들기를 이름으로 가른다(`buildRow`) | 하위가 `build` 를 덮으면 `mount` 가 루트 대신 행을 만든다 | 채택 |
 | `D-FEL-3` | `GitListTab.mount(el)` 은 `View.mount(host)` 를 덮어 "받은 칸이 곧 루트" 로 쓴다 | git 패널이 탭마다 칸을 주고 탭이 그 안을 채운다. 수명 이름의 통일(`mount(host)`)은 단계 5 가 git 탭 여섯과 함께 정한다 | 채택 |
 
+## [`REFACTOR3_FE_SETTINGS_SRS`](./REFACTOR3_FE_SETTINGS_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-FES-1` | 값의 읽기·쓰기는 `SETTINGS_ACCESS` 에 남기고 `FormRow` 는 그것을 부른다 | 저장 파이프라인·키 집합 검사·`_settingsBody` 를 건드리지 않는다. 행 배선이 한 자리로 모이는 이득은 그대로다 | 채택 |
+| `D-FES-2` | `FormRow.paint` 에 포커스 가드를 새로 더하지 않는다 | 숫자 행의 쓰기가 포커스된 입력란을 덮을 수 있다는 분석은 정적 추정이다. 가드를 더하면 동작이 바뀐다. 실측 뒤 따로 고친다(§6 찾은 것) | 채택 |
+| `D-FES-3` | 섹션은 `core/` 의 `View`, 나열은 `Controller` 가 한다 | `FE_OBJECT_MODEL.md` §3: 화면 부품은 View, App 의 주제별 조정자는 Controller. 설정 섹션은 자기 패널 DOM 이 있는 화면 부품이고, 무엇을 언제 부를지는 조정이다 | 채택 |
+| `D-FES-4` | 결합이 약한 행부터(8a→8e) 하나씩 옮긴다 | 8a 의 행들은 설정 밖에서 부르는 곳이 없다. 서버 자원 패널은 설정 밖(`app-edges*.js`·`state-registry.js`)이 부르므로 위임자와 함께 뒤에 옮긴다 | 채택 |
+| `D-FES-5` | 섹션은 탭마다 하나다. 한 탭을 여러 파일이 배선하던 것(display: `initModal` 9개 + `app-mobile.js:150` + `app-slots.js:662`)은 그 섹션으로 모은다. 다만 설정 밖 주제의 일(슬롯 방향 등)이 섞여 … | 탭 하나의 배선이 한 파일에 있어야 "이 탭에서 무엇이 도는가" 가 보인다 | 채택 |
+
 ## [`REFACTOR3_GO_STRUCT_SRS`](./REFACTOR3_GO_STRUCT_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -1950,4 +1960,4 @@
 
 ---
 
-결정 **1172건** · 문서 **151개**.
+결정 **1177건** · 문서 **152개**.
