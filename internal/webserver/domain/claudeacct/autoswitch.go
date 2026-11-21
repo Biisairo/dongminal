@@ -72,14 +72,37 @@ func DefaultAutoSettings() AutoSettings {
 
 func inRange(v, lo, hi float64) bool { return v >= lo && v <= hi }
 
+// AutoRange 는 숫자 칸 하나의 범위다 (양 끝 포함).
+type AutoRange struct {
+	Min float64 `json:"min"`
+	Max float64 `json:"max"`
+}
+
+func (r AutoRange) has(v float64) bool { return inRange(v, r.Min, r.Max) }
+
+// AutoRanges 는 FR-CAC-70 의 숫자 칸 범위다. 키는 AutoSettings 의 JSON 이름이다.
+//
+// REFACTOR3_FE_REST1_SRS FR-FR1-12 (FC-11): **범위의 원천은 이 표 하나다.** Validate 가 이것으로
+// 판정하고, 응답(AutoView.Ranges)이 이것을 실어 설정 화면이 칸의 min·max 를 세운다 — 종전에는
+// 화면(`CACCT_AUTO_FIELDS`)과 여기에 같은 숫자가 따로 적혀 있었다.
+var AutoRanges = map[string]AutoRange{
+	"threshold":       {thresholdMin, thresholdMax},
+	"weeklyThreshold": {thresholdMin, thresholdMax},
+	"intervalSeconds": {15, 3600},
+	"cooldownSeconds": {0, 86400},
+	"hysteresisPct":   {0, 50},
+	"unhealthyTicks":  {1, 100},
+}
+
 // Validate 는 FR-CAC-70 의 범위를 본다.
 func (s AutoSettings) Validate() error {
-	ok := inRange(s.Threshold, thresholdMin, thresholdMax) &&
-		(s.WeeklyThreshold == nil || inRange(*s.WeeklyThreshold, thresholdMin, thresholdMax)) &&
-		s.IntervalSeconds >= 15 && s.IntervalSeconds <= 3600 &&
-		s.CooldownSeconds >= 0 && s.CooldownSeconds <= 86400 &&
-		inRange(s.HysteresisPct, 0, 50) &&
-		s.UnhealthyTicks >= 1 && s.UnhealthyTicks <= 100
+	r := AutoRanges
+	ok := r["threshold"].has(s.Threshold) &&
+		(s.WeeklyThreshold == nil || r["weeklyThreshold"].has(*s.WeeklyThreshold)) &&
+		r["intervalSeconds"].has(float64(s.IntervalSeconds)) &&
+		r["cooldownSeconds"].has(float64(s.CooldownSeconds)) &&
+		r["hysteresisPct"].has(s.HysteresisPct) &&
+		r["unhealthyTicks"].has(float64(s.UnhealthyTicks))
 	switch s.Strategy {
 	case AutoStrategyBest, AutoStrategyConsumeFirst, AutoStrategyPriorityConsumeFirst:
 	default:
@@ -130,6 +153,8 @@ type AutoStateView struct {
 type AutoView struct {
 	Settings AutoSettings  `json:"settings"`
 	State    AutoStateView `json:"state"`
+	// Ranges 는 숫자 칸의 범위다 (REFACTOR3_FE_REST1_SRS FR-FR1-12) — 화면이 칸의 min·max 로 쓴다.
+	Ranges map[string]AutoRange `json:"ranges"`
 }
 
 // Auto 는 자동 전환기다 (묶음 G). 꺼져 있어도 Tick 은 알림 판정을 위해 돈다.
@@ -236,7 +261,7 @@ func (a *Auto) View() AutoView {
 	if len(s.Models) == 0 {
 		s.Models = nil
 	}
-	return AutoView{Settings: s, State: AutoStateView{Status: status, LastSwitch: a.file.State.LastSwitch, Quarantined: q, NextTickAt: a.nextTickAt}}
+	return AutoView{Settings: s, State: AutoStateView{Status: status, LastSwitch: a.file.State.LastSwitch, Quarantined: q, NextTickAt: a.nextTickAt}, Ranges: AutoRanges}
 }
 
 // Put 은 settings 의 일부 키를 고친다 (FR-CAC-76). null 은 weeklyThreshold·models 를 지운다.

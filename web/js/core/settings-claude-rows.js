@@ -7,14 +7,17 @@
  * 로드 순서 계약: `activity-list.js`·`claude-accounts-view.js`·`claude-accounts-controller.js`·`claude-maps.js` 뒤.
  */
 
-/** FR-CAC-70·94a: 자동 전환의 숫자 칸. `required` 가 아니면 비울 수 있다(비우면 지운다). */
+/**
+ * FR-CAC-70·94a: 자동 전환의 숫자 칸. `required` 가 아니면 비울 수 있다(비우면 지운다).
+ * 범위는 여기 없다 — 서버 응답의 `ranges` 가 준다(`cacctAutoRange`, REFACTOR3_FE_REST1_SRS FR-FR1-13).
+ */
 const CACCT_AUTO_FIELDS=[
-  {key:'threshold',label:'cacct.set.auto_threshold',min:50,max:100,required:true},
-  {key:'weeklyThreshold',label:'cacct.set.auto_weekly',min:50,max:100,required:false},
-  {key:'intervalSeconds',label:'cacct.set.auto_interval',min:15,max:3600,required:true},
-  {key:'cooldownSeconds',label:'cacct.set.auto_cooldown',min:0,max:86400,required:true},
-  {key:'hysteresisPct',label:'cacct.set.auto_hysteresis',min:0,max:50,required:true},
-  {key:'unhealthyTicks',label:'cacct.set.auto_unhealthy',min:1,max:100,required:true},
+  {key:'threshold',label:'cacct.set.auto_threshold',required:true},
+  {key:'weeklyThreshold',label:'cacct.set.auto_weekly',required:false},
+  {key:'intervalSeconds',label:'cacct.set.auto_interval',required:true},
+  {key:'cooldownSeconds',label:'cacct.set.auto_cooldown',required:true},
+  {key:'hysteresisPct',label:'cacct.set.auto_hysteresis',required:true},
+  {key:'unhealthyTicks',label:'cacct.set.auto_unhealthy',required:true},
 ];
 /** FR-CAC-70: 전략과 그 문구. */
 const CACCT_STRATEGIES=[
@@ -98,6 +101,17 @@ function cacctFolderRows(folders,accounts){
     return {path:k,depth,overrides:depth>0,accountId:folders[k].accountId,
       name:a?(a.alias||a.email):t('cacct.hist.deleted'),color:a?claudeAcctColorOf(a):''};
   });
+}
+
+/**
+ * REFACTOR3_FE_REST1_SRS FR-FR1-13 (FC-11): 칸 하나의 범위 — 서버 응답(`GET·PUT /autoswitch` 의 `ranges`)의 것.
+ *   이전 동작: `CACCT_AUTO_FIELDS` 의 min·max(Go `Validate` 와 두 벌)
+ *   새  동작: 응답의 값. 받지 못하면 null 이고 칸에 범위를 세우지 않는다(D-FR1-9)
+ *   이유:     범위의 원천은 서버다 — 범위 밖 값은 서버가 400 으로 거절한다
+ */
+function cacctAutoRange(ranges,key){
+  const r=ranges&&ranges[key];
+  return r&&typeof r.min==='number'&&typeof r.max==='number'?{min:r.min,max:r.max}:null;
 }
 
 /** FR-CAC-94a: 자동 전환 설정 → 칸 값. */

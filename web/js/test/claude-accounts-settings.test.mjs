@@ -109,6 +109,23 @@ test('FR-CAC-94: 폴더 연결 — 경로 순, 하위 연결은 들여 쓰고 �
 
 // ── 자동 전환 (FR-CAC-70·94a) ──
 
+// REFACTOR3_FE_REST1_SRS FR-FR1-13 (FC-11): 칸의 범위는 서버 응답(`ranges`)이 준다.
+//   이전 동작: `CACCT_AUTO_FIELDS` 가 min·max 를 따로 적었다(Go `Validate` 와 두 벌)
+//   새  동작: 응답의 `ranges[key]` 로 세우고, 못 받으면 세우지 않는다 — 판정은 서버의 400 이다
+test('TC-FR1-8: 칸의 범위는 응답의 ranges 에서 오고, 화면 표에는 없다', () => {
+  const ctx = loadSet();
+  for (const f of ctx.CACCT_AUTO_FIELDS) {
+    assert.equal('min' in f, false, f.key);
+    assert.equal('max' in f, false, f.key);
+  }
+  const ranges = { intervalSeconds: { min: 15, max: 3600 } };
+  assert.deepEqual(plain(ctx.cacctAutoRange(ranges, 'intervalSeconds')), { min: 15, max: 3600 });
+  assert.equal(ctx.cacctAutoRange(ranges, 'threshold'), null);
+  assert.equal(ctx.cacctAutoRange(undefined, 'threshold'), null);
+  assert.equal(ctx.cacctAutoRange({ threshold: { min: 'x', max: 1 } }, 'threshold'), null);
+});
+
+
 test('FR-CAC-94a: 자동 전환 칸 → 바뀐 키만 담은 PUT 본문', () => {
   const { cacctAutoBody, CACCT_AUTO_FIELDS } = loadSet();
   assert.deepEqual(plain(CACCT_AUTO_FIELDS.map((f) => f.key)),

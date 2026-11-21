@@ -172,7 +172,9 @@ class ClaudeSection extends SettingsSection {
     for(const fd of CACCT_AUTO_FIELDS){
       const lab=box.appendChild(domEl('label','cacct-set-field',t(fd.label)));
       const inp=lab.appendChild(domEl('input','ds-num'));
-      inp.type='number'; inp.min=String(fd.min); inp.max=String(fd.max); inp.value=form[fd.key];
+      inp.type='number'; inp.value=form[fd.key];
+      const rg=cacctAutoRange(a.ranges,fd.key);
+      if(rg){inp.min=String(rg.min); inp.max=String(rg.max)}
       inputs[fd.key]=inp;
     }
     const sl=box.appendChild(domEl('label','cacct-set-field',t('cacct.set.auto_strategy')));
