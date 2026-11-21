@@ -34,6 +34,7 @@ const CASES = [
   ['core/app.js', '  async init(){'],
   ['core/tool-cmd.js', '  _execRemote(action, args){'],
   ['core/mobile-controller.js', '  initMobileKeybar('],
+  ['core/ws-sync-controller.js', '  _applyRemoteWorkspace('],
 ];
 
 for (const [file, head] of CASES) {

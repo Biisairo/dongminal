@@ -179,6 +179,62 @@ function findTabWhere(windows,pred){
 }
 
 /**
+ * 적용기(`_applyRemoteWorkspace`)의 순수 판정 (REFACTOR3_FE_REST3_SRS FR-FR3-1).
+ *
+ * TOOL_LIST_UNKNOWN_SRS FR-TLU-5~8: `known` 이 거짓이면 **도구 목록을
+ * 모르는 것**이지 도구가 없는 것이 아니다 (SRS §2.2).
+ *
+ * 데몬에 다시 붙는 짧은 창에 `/api/state` 는 빈 목록을 준다. 그것을 사실로
+ * 받으면 차례로 살아 있는 도구 전부, 그것을 담은 pane, pane 이
+ * 없어진 창을 지운다 — 다음 스냅숏이 전부 되살리고, 되살아난 도구가 새 소켓을
+ * 연다. 실측된 "10개 동시 종료 → 10개 순차 재연결"이 그 사이클이다.
+ *
+ * 분기를 조건문으로 흩뿌리는 대신 **살아 있음의 판정 하나**(`live`)로 모은다
+ * (D-4). 모를 때 그 판정은 "어떤 도구도 죽었다고 말할 수 없다"이며, 그것을
+ * 딛는 두 곳 — 죽은 도구 청소와 `clean` — 이 함께 아무 일도 하지 않는다.
+ * 서버가 **알려 준** 도구(`ids`)도 모르면 없는 것이며, 만들 것도 없다.
+ */
+function wsLiveTools(serverPanes,known){
+  const k=known!==false;
+  const ids=k?(serverPanes||[]).map(p=>p.id):[];
+  return {ids,live:k?new Set(ids):TOOLS_ALL_LIVE};
+}
+
+/** 핀 목록의 비교 키. 핀이 바뀌었는지는 이 문자열로 본다 (FR-OPT-4-3). */
+function wsPinsKey(git){ return JSON.stringify((git&&git.pinned)||[]) }
+
+/**
+ * 창마다 포커스 칸, 칸마다 보는 탭 (`flatten` 은 레이아웃 → 칸 배열).
+ *
+ * UX_BATCH12_SRS FR-VTL-1: pane 마다 보이는 탭도 이 브라우저의 것이다. 지키지 않으면
+ * 다른 브라우저의 저장이 이 화면의 탭을 그 브라우저가 보던 탭으로 바꾼다(사용자 보고 2026-11-16).
+ */
+function wsViewOf(windows,flatten){
+  const focus=new Map();
+  const tabs=new Map();
+  for(const s of windows){
+    if(s.focusedPane) focus.set(s.id, s.focusedPane);
+    if(s.layout) for(const pn of flatten(s.layout)) if(pn.activeTab) tabs.set(pn.id, pn.activeTab);
+  }
+  return {focus,tabs};
+}
+
+/**
+ * `wsViewOf` 가 집은 칸·탭을 받은 창에 되얹는다 — **`windows` 를 제자리에서 고친다.**
+ * 받은 창에 그 칸·탭이 없으면 받은 값을 둔다 (FR-VTL-2).
+ */
+function wsViewRestore(windows,view,flatten){
+  for(const s of windows){
+    const rid=view.focus.get(s.id);
+    if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
+    if(s.layout) for(const pn of flatten(s.layout)){
+      const tid=view.tabs.get(pn.id);
+      if(tid&&(pn.tabs||[]).some(tab=>tab.id===tid)) pn.activeTab=tid;
+    }
+  }
+}
+
+/**
  * OPTIMISTIC_LAYOUT_SRS FR-OPL-1~8: **원격이 본 적 없는 로컬 레이아웃 변경을
  * 원격 스냅샷에 되얹는다.**
  *

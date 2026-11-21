@@ -288,24 +288,14 @@ class WsSyncController extends Controller {
   }
 
   /**
-   * TOOL_LIST_UNKNOWN_SRS FR-TLU-5~8: `toolsKnown` 이 거짓이면 **도구 목록을
-   * 모르는 것**이지 도구가 없는 것이 아니다 (SRS §2.2).
+   * 원격 스냅샷 `sv` 를 이 화면의 워크스페이스로 받아들인다. SSE 경로(`_onWorkspaceChanged`)와 409 채택
+   * (`_saveAdoptRemote`)이 함께 지나는 목이다. 단계의 순서가 규칙이다 (REFACTOR3_FE_REST3_SRS FR-FR3-3) —
+   * 기억을 갈기 전에 집고, 교체 전에 병합하고, 되쓰기는 그리기 앞이다.
    *
-   * 데몬에 다시 붙는 짧은 창에 `/api/state` 는 빈 목록을 준다. 그것을 사실로
-   * 받으면 아래 세 줄이 차례로 살아 있는 도구 전부, 그것을 담은 pane, pane 이
-   * 없어진 창을 지운다 — 다음 스냅숏이 전부 되살리고, 되살아난 도구가 새 소켓을
-   * 연다. 실측된 "10개 동시 종료 → 10개 순차 재연결"이 그 사이클이다.
-   *
-   * 분기를 조건문으로 흩뿌리는 대신 **살아 있음의 판정 하나**(`live`)로 모은다
-   * (D-4). 모를 때 그 판정은 "어떤 도구도 죽었다고 말할 수 없다"이며, 그것을
-   * 딛는 두 곳 — 죽은 도구 청소와 `clean` — 이 함께 아무 일도 하지 않는다.
-   */
-  /**
    * 전경 이름은 여기서 얹지 않는다 — `_onWorkspaceChanged` 가 연 `fg` 비행 안에서 얹는다
    * (FR-OPT-4-5).
    */
   _applyRemoteWorkspace(sv, serverPanes, toolsKnown){
-    const known=toolsKnown!==false;
     /**
      * FR-OPL-10: 병합의 근거는 **이 채택 이전의** 기억이다. 아래 `_wsMarkSaved`
      * 가 그것을 갈아끼우므로 여기서 집어 둔다.
@@ -316,114 +306,19 @@ class WsSyncController extends Controller {
      */
     const seenBefore=this.app._wsSeen();
     // FR-OPT-4-3: 핀 목록이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
-    const pinsBefore=JSON.stringify((this.app.ws.git&&this.app.ws.git.pinned)||[]);
+    const pinsBefore=wsPinsKey(this.app.ws.git);
     // FR-WSC-12: 이 스냅샷에 실린 창이 곧 **원격이 아는 창**이다. 아래에서
     // 마이그레이션·재조정이 `sv.windows` 를 고치므로 그 전에 적어 둔다.
     this.app._wsMarkSaved(sv.windows);
+    const {ids,live}=wsLiveTools(serverPanes,toolsKnown);
+    this._reapDeadTools(ids,live);
     // FR-EDT-42·103: 마이그레이션과 재조정이 창을 고쳤으면 그 결과를 서버에
     // 되쓴다 — 되쓰지 않으면 다음 동기화가 같은 일을 되풀이한다.
-    let edChanged=false;
-    // 서버가 **알려 준** 도구들. 모르면 알려 준 것이 없는 것이며, 만들 것도 없다.
-    const serverIds=known?(serverPanes||[]).map(p=>p.id):[];
-    // FR-TLU-5·6: 살아 있음의 판정. 모를 때 전부 참인 이유는 §2.2 다 — 빈 목록을
-    // 사실로 받으면 도구·pane·창이 차례로 지워진다.
-    const live=known?new Set(serverIds):TOOLS_ALL_LIVE;
-    // FR-OPT-4-11 (D-OPT-2): 인스턴스는 그려질 때 선다 — 여기서는 id 만 적는다.
-    for(const id of serverIds) this.app.toolIds.add(id);
-    // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
-    // 같은 규약으로 알람도 함께 거둔다.
-    //
-    // FR-TLU-10: 비교는 **`slotBase(key)`** 로 한다. 칸 1 이상의 인스턴스는
-    // 키가 `id@1` 이므로 순수 toolId 집합과 직접 대면 언제나 "없는 도구"가 되고,
-    // 살아 있는 칸 도구가 `workspace_changed` 마다 파괴된다. `_slotReap` 이 같은
-    // 판정을 이미 이렇게 한다 (slot-ops.js, FR-SVS-60 과 같은 자리).
-    let attnDropped=false;
-    for(const [key,p] of Array.from(this.app.tools.entries())){
-      const id=this.app.slotBase(key);
-      if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.app.tools.delete(key); if(this.app._attnDrop(id)) attnDropped=true }
-    }
-    for(const id of Array.from(this.app.toolIds)){
-      if(live.has(id)) continue;
-      this.app.toolIds.delete(id); this.app._toolsBoot.delete(id);
-      if(this.app._attnDrop(id)) attnDropped=true;
-    }
-    if(attnDropped) this.app._attnRefresh();
-    // FR-OPT-11-1 (FEC-17): 첫 로드와 같은 한 벌이다.
-    if(this.app._normalizeIncomingWorkspace(sv,live)) edChanged=true;
-    // FR-EDT-20·43: **재조정보다 목록이 먼저다.** 목록은 서버 권위이고
-    // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
-    // 갱신하지 않으면 재조정이 낡은 `editors` 를 딛어, 다른 브라우저가(또는
-    // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
-    if(this.app.editors&&sv.editors) this.app._edPatchList(sv.editors.list);
-    if(this.app._edReconcile(sv.windows)) edChanged=true;
-    // 재조정이 같은 루트의 창을 새 id 로 만들었을 수 있다 — 그때 활성 창을
-    // **루트로** 다시 찾는다. 아래 폴백보다 먼저여야 한다: 폴백은 id 가 없으면
-    // 일반 창을 고르므로, 여기서 잇지 않으면 방금 연 Repo 창을 잃는다.
-    this.app._edKeepActive(sv);
-    // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (첫 로드와 같은 한 자리).
-    this.app._fallbackActiveWindow(sv);
-    // Preserve per-window viewport state: activeWindow and each window's
-    // focusedPane. Remote structural changes (splits/tabs) are applied
-    // but this window stays on its own window/pane.
-    const localActive=this.app.ws.activeWindow;
-    const localFocus=new Map();
-    // UX_BATCH12_SRS FR-VTL-1: pane 마다 보이는 탭도 이 브라우저의 것이다. 지키지 않으면
-    // 다른 브라우저의 저장이 이 화면의 탭을 그 브라우저가 보던 탭으로 바꾼다(사용자 보고 2026-11-16).
-    const localTabs=new Map();
-    for(const s of this.app.ws.windows){
-      if(s.focusedPane) localFocus.set(s.id, s.focusedPane);
-      if(s.layout) for(const pn of this.app.flattenPanes(s.layout)) if(pn.activeTab) localTabs.set(pn.id, pn.activeTab);
-    }
-    // UX_REVISION_SRS FR-GRR-2: 활성 리포도 **이 브라우저가 보고 있는 것**이다
-    // (FR-GIT-29 로 Git 창에 붙어 있다). activeWindow·focusedPane 과 같은 범주인데
-    // 보존 목록에서 빠져 있어, 리포를 전환한 직후 워크스페이스 동기화가 오면
-    // 이전 리포로 되돌아갔다 — 그 화면이 무엇을 가리키는지가 조용히 바뀐다.
-    const localGit=this.app.gitWindow();
-    const localRepo=(localGit&&localGit.git&&localGit.git.repo)||null;
-    /**
-     * OPTIMISTIC_LAYOUT_SRS FR-OPL-1·13: **아직 나가지 못한 로컬 레이아웃을
-     * 되얹는다.**
-     *
-     * 아래 `this.app.ws=sv` 한 줄이 레이아웃을 통째로 갈아끼운다. 방금 연 git 뷰
-     * 탭은 `save()` 가 디바운스로 뒤따르는 동안 로컬 배열에만 있으므로 그
-     * 한 줄에 지워졌다 — `11 §5` 가 flaky 아홉 중 다섯을 이 자리로 매핑했다.
-     *
-     * 자리가 여기인 이유 (FR-OPL-13): `clean`·마이그레이션·재조정보다 **뒤**여야
-     * 되얹은 탭이 도구 판정에 걸리지 않고, `this.app.ws=sv` 보다 **앞**이어야
-     * 뒤따르는 `render()` 가 탭이 없는 화면을 한 번 지나지 않는다.
-     *
-     * 판정의 근거는 **이 채택 이전의** 기억이다 (`seenBefore`, FR-OPL-10).
-     */
-    // FR-OPL-14: 판정의 목록은 위에서 스냅샷으로 갈아 끼운 것이다(FR-EDT-20·43).
-    const edWant=new Set(this.app.edOn()?this.app.edRoots():[]);
-    if(mergeUnseenLayout(this.app.ws.windows,sv.windows,seenBefore,this.app.edOn()?(r=>edWant.has(r)):null)){
-      // FR-OPL-9 (= FR-WSC-13): 화면에만 남기면 다음 새로고침에서 사라진다.
-      edChanged=true;
-      // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
-      // 했을 수 있으므로 다시 본다. 아래 `localActive` 복원이 있으나 그것은
-      // 로컬 활성 창이 살아 있을 때만 돈다.
-      this.app._fallbackActiveWindow(sv);
-    }
+    let edChanged=this._reconcileIncoming(sv,live);
+    const view=this._viewKeep();
+    if(this._mergeUnseen(sv,seenBefore)) edChanged=true;
     this.app.ws=sv;
-    if(localActive && this.app.ws.windows.some(s=>s.id===localActive)){
-      this.app._activateWindow(localActive);
-    }
-    // Restore each window's focusedPane if the pane still exists.
-    for(const s of this.app.ws.windows){
-      const rid=localFocus.get(s.id);
-      if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
-      // FR-VTL-2: 보던 탭이 받은 pane 에 없으면 받은 값을 쓴다.
-      if(s.layout) for(const pn of this.app.flattenPanes(s.layout)){
-        const tid=localTabs.get(pn.id);
-        if(tid&&(pn.tabs||[]).some(tab=>tab.id===tid)) pn.activeTab=tid;
-      }
-    }
-    // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
-    // 그대로 쓴다 — 복원은 그 경로다.
-    if(localRepo){
-      const gw=this.app.gitWindow();
-      if(gw){ if(!gw.git) gw.git={}; gw.git.repo=localRepo }
-    }
+    this._viewRestore(view);
     // FR-RSW-5 · FR-UXB-8: 옛 판의 브라우저가 옮긴 키를 계속 실어 보낼 수 있다.
     if(this.app._stripDeviceKeys()) edChanged=true;
     const a=this.app.aw();
@@ -438,7 +333,115 @@ class WsSyncController extends Controller {
     this.app._slotTabsToWs();
     if(edChanged) this.app.save();
     this.app.render();
-    if(JSON.stringify((this.app.ws.git&&this.app.ws.git.pinned)||[])!==pinsBefore) this.app.gitReposKick();
+    if(wsPinsKey(this.app.ws.git)!==pinsBefore) this.app.gitReposKick();
+  }
+
+  /**
+   * 서버가 **알려 준** 도구 id 를 적고, 살아 있지 않은 도구를 거둔다 (`live` 는 `wsLiveTools` 의 판정).
+   *
+   * FR-OPT-4-11 (D-OPT-2): 인스턴스는 그려질 때 선다 — 여기서는 id 만 적는다.
+   *
+   * FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
+   * 같은 규약으로 알람도 함께 거둔다.
+   *
+   * FR-TLU-10: 비교는 **`slotBase(key)`** 로 한다. 칸 1 이상의 인스턴스는
+   * 키가 `id@1` 이므로 순수 toolId 집합과 직접 대면 언제나 "없는 도구"가 되고,
+   * 살아 있는 칸 도구가 `workspace_changed` 마다 파괴된다. `_slotReap` 이 같은
+   * 판정을 이미 이렇게 한다 (slot-ops.js, FR-SVS-60 과 같은 자리).
+   */
+  _reapDeadTools(ids,live){
+    for(const id of ids) this.app.toolIds.add(id);
+    let attnDropped=false;
+    for(const [key,p] of Array.from(this.app.tools.entries())){
+      const id=this.app.slotBase(key);
+      if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.app.tools.delete(key); if(this.app._attnDrop(id)) attnDropped=true }
+    }
+    for(const id of Array.from(this.app.toolIds)){
+      if(live.has(id)) continue;
+      this.app.toolIds.delete(id); this.app._toolsBoot.delete(id);
+      if(this.app._attnDrop(id)) attnDropped=true;
+    }
+    if(attnDropped) this.app._attnRefresh();
+  }
+
+  /** 받은 스냅샷을 이 화면의 규약에 맞춘다. 창을 고쳤으면 참 — 되쓰기의 근거다. */
+  _reconcileIncoming(sv,live){
+    let changed=false;
+    // FR-OPT-11-1 (FEC-17): 첫 로드와 같은 한 벌이다.
+    if(this.app._normalizeIncomingWorkspace(sv,live)) changed=true;
+    // FR-EDT-20·43: **재조정보다 목록이 먼저다.** 목록은 서버 권위이고
+    // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
+    // 갱신하지 않으면 재조정이 낡은 `editors` 를 딛어, 다른 브라우저가(또는
+    // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
+    if(this.app.editors&&sv.editors) this.app._edPatchList(sv.editors.list);
+    if(this.app._edReconcile(sv.windows)) changed=true;
+    // 재조정이 같은 루트의 창을 새 id 로 만들었을 수 있다 — 그때 활성 창을
+    // **루트로** 다시 찾는다. 아래 폴백보다 먼저여야 한다: 폴백은 id 가 없으면
+    // 일반 창을 고르므로, 여기서 잇지 않으면 방금 연 Repo 창을 잃는다.
+    this.app._edKeepActive(sv);
+    // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (첫 로드와 같은 한 자리).
+    this.app._fallbackActiveWindow(sv);
+    return changed;
+  }
+
+  /**
+   * 이 브라우저가 보는 자리를 집는다 — 교체(`this.app.ws=sv`) 전의 워크스페이스에서.
+   *
+   * Preserve per-window viewport state: activeWindow and each window's
+   * focusedPane. Remote structural changes (splits/tabs) are applied
+   * but this window stays on its own window/pane.
+   *
+   * UX_REVISION_SRS FR-GRR-2: 활성 리포도 **이 브라우저가 보고 있는 것**이다
+   * (FR-GIT-29 로 Git 창에 붙어 있다). activeWindow·focusedPane 과 같은 범주인데
+   * 보존 목록에서 빠져 있어, 리포를 전환한 직후 워크스페이스 동기화가 오면
+   * 이전 리포로 되돌아갔다 — 그 화면이 무엇을 가리키는지가 조용히 바뀐다.
+   */
+  _viewKeep(){
+    const active=this.app.ws.activeWindow;
+    const {focus,tabs}=wsViewOf(this.app.ws.windows,n=>this.app.flattenPanes(n));
+    const localGit=this.app.gitWindow();
+    const repo=(localGit&&localGit.git&&localGit.git.repo)||null;
+    return {active,focus,tabs,repo};
+  }
+
+  /**
+   * OPTIMISTIC_LAYOUT_SRS FR-OPL-1·13: **아직 나가지 못한 로컬 레이아웃을
+   * 되얹는다.** 되얹었으면 참.
+   *
+   * 교체 한 줄(`this.app.ws=sv`)이 레이아웃을 통째로 갈아끼운다. 방금 연 git 뷰
+   * 탭은 `save()` 가 디바운스로 뒤따르는 동안 로컬 배열에만 있으므로 그
+   * 한 줄에 지워졌다 — `11 §5` 가 flaky 아홉 중 다섯을 이 자리로 매핑했다.
+   *
+   * 자리가 여기인 이유 (FR-OPL-13): `clean`·마이그레이션·재조정보다 **뒤**여야
+   * 되얹은 탭이 도구 판정에 걸리지 않고, 교체보다 **앞**이어야
+   * 뒤따르는 `render()` 가 탭이 없는 화면을 한 번 지나지 않는다.
+   *
+   * 판정의 근거는 **이 채택 이전의** 기억이다 (`seenBefore`, FR-OPL-10).
+   */
+  _mergeUnseen(sv,seenBefore){
+    // FR-OPL-14: 판정의 목록은 위에서 스냅샷으로 갈아 끼운 것이다(FR-EDT-20·43).
+    const edWant=new Set(this.app.edOn()?this.app.edRoots():[]);
+    if(!mergeUnseenLayout(this.app.ws.windows,sv.windows,seenBefore,this.app.edOn()?(r=>edWant.has(r)):null)) return false;
+    // FR-OPL-9 (= FR-WSC-13): 화면에만 남기면 다음 새로고침에서 사라진다.
+    // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
+    // 했을 수 있으므로 다시 본다. `_viewRestore` 의 활성 창 복원이 있으나 그것은
+    // 로컬 활성 창이 살아 있을 때만 돈다.
+    this.app._fallbackActiveWindow(sv);
+    return true;
+  }
+
+  /** `_viewKeep` 이 집은 시선을 교체된 워크스페이스에 되얹는다. */
+  _viewRestore(view){
+    if(view.active && this.app.ws.windows.some(s=>s.id===view.active)){
+      this.app._activateWindow(view.active);
+    }
+    wsViewRestore(this.app.ws.windows,view,n=>this.app.flattenPanes(n));
+    // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
+    // 그대로 쓴다 — 복원은 그 경로다.
+    if(view.repo){
+      const gw=this.app.gitWindow();
+      if(gw){ if(!gw.git) gw.git={}; gw.git.repo=view.repo }
+    }
   }
 }
 

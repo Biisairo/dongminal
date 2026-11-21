@@ -211,6 +211,47 @@ test('TC-FR3-11: 로컬 활성 창이 받은 쪽에 없으면 바꾸지 않고, 
   assert.ok(!same.log.includes('gitReposKick'));
 });
 
+test('TC-FR3-27(FC-07): wsLiveTools — 알면 받은 id 와 그 집합, 모르면 빈 목록과 모두 살아 있음', () => {
+  const ctx = syncCtx();
+  const k = ctx.wsLiveTools([{ id: 'a' }, { id: 'b' }], true);
+  assert.deepEqual(plain(k.ids), ['a', 'b']);
+  assert.equal(k.live.has('a') && !k.live.has('c'), true);
+  assert.deepEqual(plain(ctx.wsLiveTools(null, undefined).ids), [], '알림이 없으면 아는 것이다 — 빈 목록');
+  const u = ctx.wsLiveTools([{ id: 'a' }], false);
+  assert.deepEqual(plain(u.ids), []);
+  assert.equal(u.live, TOOLS_ALL_LIVE);
+});
+
+test('TC-FR3-27(FC-07): wsPinsKey — 없으면 빈 목록의 키', () => {
+  const ctx = syncCtx();
+  assert.equal(ctx.wsPinsKey(null), '[]');
+  assert.equal(ctx.wsPinsKey({}), '[]');
+  assert.equal(ctx.wsPinsKey({ pinned: ['a', 'b'] }), '["a","b"]');
+});
+
+test('TC-FR3-27(FC-07): wsViewOf·wsViewRestore — 집은 칸·탭은 받은 쪽에 있을 때만 되얹는다', () => {
+  const ctx = syncCtx();
+  const flat = (n) => ctx.panesOf(n);
+  const view = ctx.wsViewOf([
+    { id: 'A', focusedPane: 'p2', layout: { type: 'split', children: [pane('p1', ['x', 'y'], 'y'), pane('p2', ['z'])] } },
+    { id: 'B' },
+    { id: 'C', focusedPane: 'q', layout: pane('q', [], null) },
+  ], flat);
+  assert.deepEqual(plain([...view.focus]), [['A', 'p2'], ['C', 'q']]);
+  assert.deepEqual(plain([...view.tabs]), [['p1', 'y'], ['p2', 'z']]);
+  const got = [
+    { id: 'A', focusedPane: 'p1', layout: { type: 'split', children: [pane('p1', ['x'], 'x'), pane('p2', ['z', 'w'], 'w')] } },
+    { id: 'C', focusedPane: 'r', layout: pane('r', ['t']) },
+    { id: 'D' },
+  ];
+  ctx.wsViewRestore(got, view, flat);
+  assert.equal(got[0].focusedPane, 'p2');
+  assert.equal(got[0].layout.children[0].activeTab, 'x', '보던 탭 y 가 없으면 받은 탭');
+  assert.equal(got[0].layout.children[1].activeTab, 'z');
+  assert.equal(got[1].focusedPane, 'r', '보던 칸 q 가 없으면 받은 칸');
+  assert.deepEqual(plain(got[2]), { id: 'D' });
+});
+
 // ── FC-09: save · _saveAdoptRemote ────────────────────────────────────────────
 
 const res = (status, etag, data) => ({

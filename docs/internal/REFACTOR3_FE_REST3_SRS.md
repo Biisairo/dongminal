@@ -52,7 +52,7 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 
 | ID | 요구 |
 |---|---|
-| FR-FR3-1 | `ws-sync-controller.js` 머리(클래스 앞)에 순수 판정 넷을 둔다: `wsLiveTools(serverPanes, known)` → `{ids, live}`(알면 받은 id 와 그 집합, 모르면 `[]` 와 `TOOLS_ALL_LIVE`) · `wsPinsKey(git)`(`git.pinned` 의 JSON, 없으면 `[]`) · `wsViewOf(windows, flatten)` → `{focus, tabs}`(창 id → 포커스 칸, 칸 id → 보는 탭) · `wsViewRestore(windows, view, flatten)`(받은 창에 그 칸·탭이 있을 때만 되얹는다 — 인자 `windows` 를 고친다) |
+| FR-FR3-1 | `core/layout-tree.js` 의 `mergeUnseenLayout` 앞에 적용기의 순수 판정 넷을 둔다(D-FR3-8): `wsLiveTools(serverPanes, known)` → `{ids, live}`(알면 받은 id 와 그 집합, 모르면 `[]` 와 `TOOLS_ALL_LIVE`) · `wsPinsKey(git)`(`git.pinned` 의 JSON, 없으면 `[]`) · `wsViewOf(windows, flatten)` → `{focus, tabs}`(창 id → 포커스 칸, 칸 id → 보는 탭) · `wsViewRestore(windows, view, flatten)`(받은 창에 그 칸·탭이 있을 때만 되얹는다 — 인자 `windows` 를 고친다) |
 | FR-FR3-2 | `WsSyncController` 에 단계 메서드를 둔다: `_reapDeadTools(ids, live)`(받은 id 적기, 죽은 인스턴스·id·부팅 표시·알람 거두기, 거뒀으면 알람 다시 그리기) · `_reconcileIncoming(sv, live)`(정규화 → 목록 → 재조정 → 활성 잇기 → 폴백, 바꿨으면 참) · `_viewKeep()`(로컬 시선 집기) · `_mergeUnseen(sv, seenBefore)`(병합, 일어났으면 폴백 한 번 더, 일어났으면 참) · `_viewRestore(view)`(활성 창·칸·탭·리포 되얹기) |
 | FR-FR3-3 | `_applyRemoteWorkspace(sv, serverPanes, toolsKnown)` 는 서명을 그대로 두고 위 단계를 지금 순서대로 잇는다. 주석(결정 기록)은 해당 단계로 옮긴다. 코드 줄(주석·빈 줄 제외)은 50 이하다 |
 
@@ -80,6 +80,7 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 | D-FR3-5 | `wsPinsKey` 는 적용기만 쓴다. `_adoptRemote` 의 핀 비교(내 것 ↔ 받은 것)는 그 자리에 둔다 | `app.js` 가 뒤에 싣는 파일의 함수를 부르게 하면 단위 시험이 그 파일까지 실어야 한다. 비교식 하나를 공유하려고 로드 의존을 늘리지 않는다 |
 | D-FR3-6 | `_savePut` 을 `await` 하는 데서 생기는 마이크로태스크 한 칸은 동작 변경으로 보지 않는다 | `apiPut` 은 지금처럼 같은 틱에 나간다(async 함수는 첫 `await` 까지 동기로 돈다). 늘어나는 것은 응답 뒤의 마이크로태스크 한 칸이며 타이머·요청·화면 어디에도 드러나지 않는다. 같은 본문 건너뛰기는 고리 안에 남겨 동기 종료를 지킨다(INV-R3-2) |
 | D-FR3-7 | `app-cmd-split.test.mjs` 의 "합치면 33개" 는 나누기 전 이름(`SYNC`)으로 센다. 새 단계 메서드는 따로 적는다 | 그 시험의 뜻은 `app-cmd.js` 를 둘로 나눌 때 메서드를 잃지 않았는가다. 단계 메서드는 그 뒤에 생긴 것이다 |
+| D-FR3-8 | 적용기의 순수 판정 넷은 `ws-sync-controller.js` 가 아니라 `core/layout-tree.js` 에 둔다 | `ws-sync-controller.js` 는 471줄이다. 판정과 그 결정 주석(FR-TLU-5~8·FR-VTL-1)을 같은 파일에 두면 530줄이 되어 크기 게이트(500줄 초과 12 → 13)를 깬다. `layout-tree.js` 는 창 배열·레이아웃의 순수 함수 자리이고 적용기가 이미 거기서 `mergeUnseenLayout`·`findPane`·`firstPane` 을 받는다. `index.html` 에서 `ws-sync-controller.js` 보다 앞에 실린다 |
 
 ## 4. 검증
 

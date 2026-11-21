@@ -15,9 +15,11 @@ const methods = (f) => [...readFileSync(join(JS, f), 'utf8').matchAll(/^ {2}(?:a
 
 const SYNC = ['_restoreBegin', '_restoreLive', '_restoreNote', '_restoreVoid', '_restoreEnd', '_subscribeCommands',
   '_wsDefer', '_onWorkspaceChanged', '_onToolForeground', '_fgMap', '_fgApply', '_fgRepaint', '_applyRemoteWorkspace'];
+// 나눈 뒤에 생긴 적용기의 단계 (REFACTOR3_FE_REST3_SRS FR-FR3-2, D-FR3-7). 아래 33 은 나누기 전 이름으로 센다.
+const SYNC_STEPS = ['_reapDeadTools', '_reconcileIncoming', '_viewKeep', '_mergeUnseen', '_viewRestore'];
 
 test('워크스페이스 동기화 메서드는 ws-sync-controller.js 에 있다', () => {
-  assert.deepEqual(methods('core/ws-sync-controller.js').filter((n) => n !== 'constructor').sort(), [...SYNC].sort());
+  assert.deepEqual(methods('core/ws-sync-controller.js').filter((n) => n !== 'constructor').sort(), [...SYNC, ...SYNC_STEPS].sort());
 });
 
 test('tool-cmd.js 에는 원격 명령만 남고, 합치면 33개다', () => {
