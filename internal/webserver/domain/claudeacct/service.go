@@ -390,16 +390,28 @@ func (s *Service) SyncActiveFromLive() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	_, changed, err := s.syncActiveFrom(st)
+	return changed, err
+}
+
+// syncActiveFrom 은 이미 읽은 st 로 판정하는 SyncActiveFromLive 다 (GD-23). 고쳤으면 고친 뒤의
+// 상태를, 아니면(쓰지 못한 것 포함) st 를 그대로 준다.
+func (s *Service) syncActiveFrom(st State) (State, bool, error) {
 	id := s.liveAccountID(st)
 	if id == "" || id == st.ActiveID {
-		return false, nil
+		return st, false, nil
 	}
 	changed := false
-	err = s.Store.Update(func(st *State) error {
-		if id := s.liveAccountID(*st); id != "" && id != st.ActiveID {
-			st.ActiveID, changed = id, true
+	next := st
+	err := s.Store.Update(func(cur *State) error {
+		if id := s.liveAccountID(*cur); id != "" && id != cur.ActiveID {
+			cur.ActiveID, changed = id, true
 		}
+		next = *cur
 		return nil
 	})
-	return changed, err
+	if err != nil {
+		return st, changed, err
+	}
+	return next, changed, nil
 }

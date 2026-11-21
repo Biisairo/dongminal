@@ -148,9 +148,12 @@ func OpenStore(dir string) *Store { return &Store{dir: dir, LockTimeout: 10 * ti
 // Dir 은 저장소 폴더다.
 func (s *Store) Dir() string { return s.dir }
 
+// readStoreFile 은 accounts.json 읽기다. 시험이 회차당 읽기 수를 세는 이음매다 (GD-23).
+var readStoreFile = os.ReadFile
+
 func (s *Store) load() (State, error) {
 	st := State{SchemaVersion: schemaVersion}
-	b, err := os.ReadFile(filepath.Join(s.dir, accountsFile))
+	b, err := readStoreFile(filepath.Join(s.dir, accountsFile))
 	if errors.Is(err, os.ErrNotExist) {
 		return st, nil
 	}
