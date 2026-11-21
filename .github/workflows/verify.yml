@@ -296,6 +296,11 @@ jobs:
       - name: 모서리
         run: node scripts/check-radius.mjs
 
+      # REFACTOR3_FE_REST4_SRS FR-FR4-17 (PROD3 FU-10) — 착수 시 간격 리터럴이 870개 · 값 스무 가지였다.
+      # 단 여덟(`--sp-1`~`--sp-8`)과 사유가 적힌 예외 표 밖의 px 를 잡는다.
+      - name: 간격
+        run: node scripts/check-spacing.mjs
+
       # `UX-16` — 착수 시 44선언 · 28값 · 1~9999 였다. `.ed-find` 9997 ·
       # `.tc-copy` 9999 가 요점이다: **위에 있어야 한다는 뜻을 값으로 말할 방법이
       # 없어서 큰 수를 골랐다.** 리터럴을 0 으로 재고(FR-TOK-31), 층에 대한
