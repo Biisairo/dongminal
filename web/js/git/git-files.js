@@ -1,26 +1,27 @@
 /**
- * GitPanel — 파일에 하는 일 (SPLIT_REFACTOR_SRS 묶음 B).
+ * GitFiles — Git 패널의 파일 작업 부품 (SPLIT_REFACTOR_SRS 묶음 B · REFACTOR3_FE_GITPANEL_SRS 7f).
  *
- * 선택(`_sel`·`_range`·`_bulk`·행 클릭의 `_select`)과 그 선택에 가하는 동작 — 스테이지·언스테이지·
+ * 선택한 것(`_selected`·`_rowTargets`·`_bulk`)에 가하는 동작 — 스테이지·언스테이지·
  * discard(`_discard`)·충돌 해결(`_resolveSide`)·ignore·되돌리기가 여기 산다.
- * `_run` 이 그 전부의 단일 통로이며, `_op` 가 무엇을 보낼지 정한다.
+ * `_run` 이 그 전부의 단일 통로이며, `_op` 가 무엇을 보낼지 정한다. 소유 필드는 없다.
  *
- * 무엇이 보이는지는 panel-changes.js, 응답을 어떻게 읽는지는 panel-write.js 다.
+ * 무엇이 보이는지는 git-changes.js·git-change-rows.js, 행을 고르는 일은 git-selection.js,
+ * 응답을 어떻게 읽는지는 git-write.js 다.
  */
-Object.assign(GitPanel.prototype, {
+class GitFiles extends GitPart {
   // FR-GIT-277: untracked 경로들. Clean 의 대상 목록과 비활성 판정이 같은 값을
   // 딛는다 — 두 벌로 두면 한쪽만 고쳐진다.
   untrackedPaths(){
-    const s=this.statusOf();
+    const s=this.p.statusOf();
     return ((s&&s.untracked)||[]).map(e=>e.path);
-  },
+  }
 
   // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다.
   async uncommittedReset(){
-    if(this._writing){this.busyNote();return}
-    const res=await this.post(GIT_API.uncommittedReset,{repo:this.repo});
+    if(this.p._writing){this.p.busyNote();return}
+    const res=await this.p.post(GIT_API.uncommittedReset,{repo:this.p.repo});
     this._after(res,[]);
-  },
+  }
 
   // **파괴적이다** (FR-GIT-277). 파괴적 확인과 recovery hint 는 GitMenu 가 이미
   // 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
@@ -29,17 +30,17 @@ Object.assign(GitPanel.prototype, {
   // 지금의 untracked 와 다르면 409 로 거절한다 (FR-GIT-277 개정) — 여기서 먼저
   // 대조하는 것은 요청 없이 사유를 보이기 위해서다.
   async uncommittedClean(paths){
-    if(this._writing){this.busyNote();return}
+    if(this.p._writing){this.p.busyNote();return}
     const now=this.untrackedPaths();
     const shown=Array.isArray(paths)?paths:[];
     if(now.length!==shown.length||now.some(p=>shown.indexOf(p)<0)){
       Toast.show(GIT_UNC_CLEAN_CHANGED,'err',TOAST_ERR_MS);
       return;
     }
-    const res=await this.post(GIT_API.uncommittedClean,
-      {repo:this.repo,confirm:true,paths:shown});
+    const res=await this.p.post(GIT_API.uncommittedClean,
+      {repo:this.p.repo,confirm:true,paths:shown});
     this._after(res,[]);
-  },
+  }
 
   /**
    * FR-GIT-273: 경로를 `.gitignore` 에 덧붙인다. **git 실행이 아니라 파일 쓰기다.**
@@ -49,19 +50,19 @@ Object.assign(GitPanel.prototype, {
    */
   async ignorePath(target){
     if(!target||!target.path) return;
-    if(this._writing){this.busyNote();return}
-    const res=await this.post(GIT_API.ignore,{repo:this.repo,paths:[target.path]});
+    if(this.p._writing){this.p.busyNote();return}
+    const res=await this.p.post(GIT_API.ignore,{repo:this.p.repo,paths:[target.path]});
     if(!res.ok){
-      this._note={msg:GIT_IGNORE_FAIL+': '+this.writeError(res)};
-      this._paint();
+      this.p._note={msg:GIT_IGNORE_FAIL+': '+this.p.writeError(res)};
+      this.p._paint();
       return;
     }
     const d=res.data||{};
     this._after(res,[]);
     // 이미 있던 줄은 `skipped` 로 온다 — 그 사실을 보이지 않으면 사용자는 아무 일도
     // 아니었던 것을 성공으로 읽는다 (V200).
-    if(!(d.added||[]).length){this._note={msg:GIT_IGNORE_DUP+': '+target.path};this._paint()}
-  },
+    if(!(d.added||[]).length){this.p._note={msg:GIT_IGNORE_DUP+': '+target.path};this.p._paint()}
+  }
 
   // FR-GIT-275: path 필터를 채워 History 탭을 연다. **새 조회를 만들지 않는다** —
   // 필터는 FR-GIT-129 로 이미 있다.
@@ -71,9 +72,9 @@ Object.assign(GitPanel.prototype, {
     // 그 뒤 첫 paint 의 `_adopt` → `reset` 이 방금 채운 필터를 지운다. 열어 둔 뒤에
     // 채우면 두 경우 모두 성립한다 — 이미 받아들였으면 그대로, 아니면 filterPath 가
     // 스스로 받아들인다.
-    this.openView('history');
-    this._history().filterPath(target.path);
-  },
+    this.p.openView('history');
+    this.p._history().filterPath(target.path);
+  }
 
   /**
    * FR-GIT-274: 워킹 트리가 아니라 `HEAD:<path>` 의 내용을 연다.
@@ -82,30 +83,30 @@ Object.assign(GitPanel.prototype, {
    * (FR-GIT-179·185). 조회는 서버가 diff 의 `cat-file` 경로를 그대로 쓴다.
    */
   async openFileAtHead(target){
-    if(!target||!target.path||!this.repo) return;
-    const q=new URLSearchParams({repo:this.repo,path:target.path});
+    if(!target||!target.path||!this.p.repo) return;
+    const q=new URLSearchParams({repo:this.p.repo,path:target.path});
     const res=await gitFetch(GIT_API.fileHead,Object.fromEntries(q));
     const d=res.data;
     if(!res.ok||!d||!d.openPath){
       // 사유를 그 자리에 보인다 — 빈 편집기를 열면 사용자는 파일이 비었다고 읽는다.
-      this._note={msg:GIT_HEAD_OPEN_FAIL+((d&&d.message)?': '+d.message:'')};
-      this._paint();
+      this.p._note={msg:GIT_HEAD_OPEN_FAIL+((d&&d.message)?': '+d.message:'')};
+      this.p._paint();
       return;
     }
-    this._note=null;
+    this.p._note=null;
     this.app.gitOpenFileHead(d.openPath,target.path);
-  },
+  }
 
   // 워킹 트리에 남은 변경의 개수. History 의 미커밋 변경 행(FR-GIT-127)과
   // checkout 의 dirty 판정(FR-GIT-157)이 같은 값을 딛는다.
   dirtyCount(){
-    const s=this._status&&this._status.status; if(!s) return 0;
+    const s=this.p._status&&this.p._status.status; if(!s) return 0;
     let n=0;
     for(const g of GIT_GROUPS) n+=gitGroupEntries(s,g.key).length;
     return n;
-  },
+  }
 
-  isDirty(){return this.dirtyCount()>0},
+  isDirty(){return this.dirtyCount()>0}
 
   /**
    * FR-GIT-138: 커밋 상세의 파일을 Diff 탭에 `commit-parent` 축으로 보인다.
@@ -116,38 +117,32 @@ Object.assign(GitPanel.prototype, {
    */
   showCommitDiff(f){
     if(!f||!f.oid) return;
-    this.commitFile=f;
-    this.openView('diff');
-    this._paint();
-  },
-
-  // Diff 탭이 보일 대상. 커밋 축이 있으면 그것이 먼저다 — Changes 탭의 미리보기는
-  // previewFile 만 본다 (§3.2).
-  _diffTarget(){return this.commitFile||this.previewFile},
-
-  _selKey(group,path){return group+'\x00'+path},
+    this.p.commitFile=f;
+    this.p.openView('diff');
+    this.p._paint();
+  }
 
   // FR-CMG-2: 화면이 보이는 묶음과 **같은 묶음**이다 — 대상을 모으는 자리가
   // 그리는 자리와 다른 목록을 보면 일괄의 범위가 화면과 어긋난다.
   _group(key){
-    return gitGroupEntries(this._status&&this._status.status,key);
-  },
+    return gitGroupEntries(this.p._status&&this.p._status.status,key);
+  }
 
   // 대상 하나의 기술. 출신(`untracked`)을 함께 싣는다 — 워킹 그룹은 두 출신을
   // 담으므로 그룹 이름만으로는 폐기가 어느 명령인지 말할 수 없다 (FR-CMG-4).
   _target(group,e){
     return {group,path:e.path,origPath:e.origPath||'',untracked:!!e.untracked};
-  },
+  }
 
   // 선택은 status 에 남아 있는 것만 뜻한다 — 사라진 경로의 선택은 저절로 잊힌다.
   _selected(){
     const out=[];
     for(const g of GIT_GROUPS)
       for(const e of this._group(g.key))
-        if(this._sel.has(this._selKey(g.key,e.path)))
+        if(this.p._sel.has(this.p._selKey(g.key,e.path)))
           out.push(this._target(g.key,e));
     return out;
-  },
+  }
 
   // rename 은 index 에서 (원본 삭제 + 대상 추가) 두 경로다 (FR-GIT-36). 대상만
   // 되돌리면 원본의 삭제가 index 에 남아 **반쪽만 언스테이지된다** — 짝을 함께
@@ -159,14 +154,14 @@ Object.assign(GitPanel.prototype, {
       if(act==='unstage'&&i.origPath) out.push(i.origPath);
     }
     return out;
-  },
+  }
 
   // 동작이 뜻을 갖는 대상만 남긴다 — staged 행을 stage 하거나 untracked 행을
   // unstage 하는 것은 아무 일도 하지 않는다.
   _fit(act,items){
     if(act==='unstage') return items.filter(i=>!i.untracked);
     return items.filter(i=>i.group!=='staged');
-  },
+  }
 
   /**
    * FR-GIT-208: 행 인라인 버튼의 대상.
@@ -177,29 +172,16 @@ Object.assign(GitPanel.prototype, {
    */
   _rowTargets(act,group,path,origPath,untracked){
     const one=[{group,path,origPath:origPath||'',untracked:!!untracked}];
-    if(!this._sel.has(this._selKey(group,path))) return this._fit(act,one);
+    if(!this.p._sel.has(this.p._selKey(group,path))) return this._fit(act,one);
     const all=this._fit(act,this._selected());
     return all.length?all:this._fit(act,one);
-  },
-
-  // Shift 는 화면에 보이는 순서대로 범위를 고른다 (FR-GIT-69) — 그룹 경계를
-  // 넘어도 목록의 순서가 그대로 기준이다.
-  _range(group,path){
-    const el=this._els.get('changes'); if(!el) return;
-    const rows=Array.from(el.querySelectorAll('.git-file'));
-    const at=r=>rows.findIndex(x=>x.dataset.group===r.group&&x.dataset.path===r.path);
-    const a=at(this._anchor),b=at({group,path});
-    if(a<0||b<0){this._sel.add(this._selKey(group,path));return}
-    const lo=Math.min(a,b),hi=Math.max(a,b);
-    for(let i=lo;i<=hi;i++)
-      this._sel.add(this._selKey(rows[i].dataset.group,rows[i].dataset.path));
-  },
+  }
 
   // 그룹 일괄은 그려진 행이 아니라 그룹 **전체**다 (FR-GIT-66·67) — 목록이
   // 잘려 보이는 것과 대상 범위는 별개다.
   _bulk(group,act){
     this._run(act,this._group(group).map(e=>this._target(group,e)));
-  },
+  }
 
   /**
    * FR-WBR-80·81: 트리 보기의 폴더 행 하나에 걸리는 일괄.
@@ -216,23 +198,23 @@ Object.assign(GitPanel.prototype, {
     this._run(act,this._group(group)
       .filter(e=>e.path.startsWith(pre))
       .map(e=>this._target(group,e)));
-  },
+  }
 
   // 쓰기 한 번의 단일 경로다. 충돌 stage 의 뜻 알림과 discard 의 파괴적 확인이
   // 여기서 갈린다.
   async _run(act,items){
-    if(!items.length||!this.repo) return;
+    if(!items.length||!this.p.repo) return;
     // FR-GIT-236: Open File 은 쓰기가 아니므로 진행 중인 쓰기에 막히지 않는다.
     // 우클릭 메뉴도 이 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
     if(act==='openFile'){
       // UX_BATCH12_SRS FR-RTB-3: 한 파일은 미리보기다. 여럿은 미리보기가 서로를 갈아 끼우므로 고정한다.
       const preview=items.length===1;
-      for(const i of items) this.app.gitOpenFile(this.absPath(i),{preview});
+      for(const i of items) this.app.gitOpenFile(this.p.absPath(i),{preview});
       return;
     }
     if(act==='discard'){this._discard(items);return}
     if(act==='ours'||act==='theirs'){
-      if(this._writing){this.busyNote();return}
+      if(this.p._writing){this.p.busyNote();return}
       this._resolveSide(act,items);return;
     }
     // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 실행 **전에** 그 뜻을
@@ -248,22 +230,22 @@ Object.assign(GitPanel.prototype, {
     }
     const url=act==='stage'?GIT_API.stage:GIT_API.unstage;
     // F-4.2: 연타는 버리지 않고 큐로 차례로 보낸다. 버려진 항목(null)은 뒷정리가 없다.
-    const res=await this.wqPost(url,{repo:this.repo,paths:this._paths(act,items)});
+    const res=await this.p.wqPost(url,{repo:this.p.repo,paths:this._paths(act,items)});
     if(res) this._after(res,items);
-  },
+  }
 
   /**
    * 진행 중인 조작. preflight 가 이미 안다 — 두 번 묻지 않는다.
    * 모르면 빈 문자열이고, 그때 툴팁은 양쪽을 다 밝힌다 (FR-GIT-224).
    */
   _op(){
-    const pf=this._commit()._pf;
+    const pf=this.p._commit()._pf;
     for(const b of (pf&&pf.blocks)||[]){
       const op=GIT_OP_BY_BLOCK[b.code];
       if(op) return op;
     }
     return '';
-  },
+  }
 
   /**
    * 충돌 파일을 한쪽으로 받아 해결한다 (FR-GIT-224).
@@ -275,7 +257,7 @@ Object.assign(GitPanel.prototype, {
   async _resolveSide(side,items){
     const paths=items.filter(i=>i.group==='conflicts').map(i=>i.path);
     if(!paths.length) return;
-    const repo=this.repo;
+    const repo=this.p.repo;
     const label=(GIT_SIDE_TITLE[this._op()]||GIT_SIDE_TITLE[''])[side];
     await GitDialog.confirm({
       action:GIT_ACT_RESOLVE_SIDE,
@@ -284,7 +266,7 @@ Object.assign(GitPanel.prototype, {
       hint:{note:label+'. '+GIT_RESOLVE_SIDE_NOTE,
         command:'git checkout -m -- '+paths.map(gitShQuote).join(' ')},
       run:async()=>{
-        const res=await this.post(GIT_API.resolve,{repo,side,paths,confirm:true});
+        const res=await this.p.post(GIT_API.resolve,{repo,side,paths,confirm:true});
         this._after(res,items);
         if(res.ok) return {ok:true};
         // REPO_FIX 01 §7.4: 경로별 결과가 오면 **어느 경로가 왜** 실패했는지 보인다.
@@ -292,10 +274,10 @@ Object.assign(GitPanel.prototype, {
         const tail=failed.length
           ? failed.map(x=>x.path+': '+(x.error||'')).join('\n')
           : ((res.data&&res.data.message)||'');
-        return {ok:false,reason:this.writeReason(res),stderrTail:tail};
+        return {ok:false,reason:this.p.writeReason(res),stderrTail:tail};
       },
     });
-  },
+  }
 
   // discard 는 파괴적이다 (FR-GIT-89). 판정은 서버의 목록이 하고(GitConfirm),
   // 확인을 거치며, 실행 요청에는 confirm 을 함께 보낸다 — 서버도 그것을
@@ -307,7 +289,7 @@ Object.assign(GitPanel.prototype, {
     const untracked=items.filter(i=>i.untracked).map(i=>i.path);
     const targets=tracked.concat(untracked);
     if(!targets.length) return;
-    const repo=this.repo;
+    const repo=this.p.repo;
     await GitDialog.confirm({
       action:GIT_ACT_DISCARD,title:GIT_DISCARD_TITLE,targets,
       // FR-CMG-7: 두 무리를 **나눠** 보인다. 지울 것이 없으면 그 무리를 적지
@@ -328,151 +310,30 @@ Object.assign(GitPanel.prototype, {
         command:'git stash push -u -- '+targets.map(gitShQuote).join(' '),
       },
       run:async()=>{
-        const res=await this.wqPost(GIT_API.discard,{repo,tracked,untracked,confirm:true});
+        const res=await this.p.wqPost(GIT_API.discard,{repo,tracked,untracked,confirm:true});
         if(!res) return {ok:false,reason:GIT_WQ_DROPPED,stderrTail:''};
         this._after(res,items);
         if(res.ok) return {ok:true};
         // 사유와 stderr tail 은 다이얼로그 안에서 보인다 (FR-GIT-96·175).
-        return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
+        return {ok:false,reason:this.p.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
       },
     });
-  },
+  }
 
   // 쓰기 응답 하나의 처리. 성공이면 안내를 지우고 처리한 대상을 선택에서 뺀다.
   _after(res,items){
     if(res.ok){
-      this._note=null;
-      for(const i of items) this._sel.delete(this._selKey(i.group,i.path));
+      this.p._note=null;
+      for(const i of items) this.p._sel.delete(this.p._selKey(i.group,i.path));
       // F-4.3: 그 경로의 Diff 가 열려 있으면 hunk 쓰기와 같은 재적재를 한다. Diff 는 탭마다
       // 패널이므로(UX_BATCH12_SRS FR-RTB-7) 같은 저장소의 패널 전부를 본다.
-      for(const p of this.obs.panels){
+      for(const p of this.p.obs.panels){
         const f=p._diffTarget();
         if(f&&!p.commitFile&&items.some(i=>i.path===f.path)) p._diffInvalidate();
       }
-      this.adopt(res.data);
+      this.p.adopt(res.data);
       return;
     }
-    this.applyWriteFail(res);
-  },
-
-  // ── 선택 → diff (`_select`·`_openDiff`·`openView`, 옛 panel-diff.js · REFACTOR3_FE_GITPANEL_SRS 7c) ──
-
-  /**
-   * FR-GIT-52·188: 행 클릭 하나가 **선택과 미리보기를 함께** 정한다.
-   *
-   * - 클릭: 선택을 그 행 하나로 바꾼다. 앵커도 그 행이다.
-   * - `Cmd`/`Ctrl` + 클릭: 그 행을 토글한다.
-   * - `Shift` + 클릭: 앵커부터 그 행까지 범위로 **바꾼다** (더하지 않는다) —
-   *   더하면 앵커를 옮길 때마다 선택이 눈덩이처럼 불어난다.
-   *
-   * 어느 경우든 미리보기는 방금 누른 행이다. 그것이 포커스 행이다.
-   */
-  /**
-   * FR-RTU-51 / D-RTU-8 (개정 — 사용자 지시 2026-09-08: "vsc 의 패턴을 똑같이"):
-   * **비교의 왼쪽이 아예 없는 행만 편집기로 연다.**
-   *
-   *   이전 규칙: `untracked` 인가 — 그룹의 성질로 갈랐다
-   *   새   규칙: 그 행의 **축에서 왼쪽이 실재하는가** — 항목의 상태로 가른다
-   *   이유:     같은 파일이 상태에 따라 두 그림을 갖는다. 새 파일을 스테이지한 뒤
-   *             고치면 `Changes` 행의 축(index↔worktree)에는 양쪽이 다 있으므로
-   *             diff 가 뜻을 갖고, 다시 스테이지하거나 되돌리면 한쪽이 사라져
-   *             편집기가 맞다. VS Code 가 그렇게 가른다
-   *
-   * 왼쪽이 없는 자리는 둘뿐이다:
-   *   - 워킹 그룹의 새 파일 (`untracked`) — index 에 그 경로가 없다
-   *   - staged 그룹의 추가 (`A`) — HEAD 에 그 경로가 없다
-   *
-   * 삭제는 여기 오지 않는다 — 없는 것은 **오른쪽**이고, 사라진 내용을 보여 주는
-   * 것이 그 행의 뜻이다.
-   */
-  _noBaseline(group,e){
-    if(!e) return false;
-    if(e.untracked) return true;
-    return group==='staged'&&(e.xy||'').charAt(0)===GIT_ST_ADDED;
-  },
-
-  /**
-   * 그 행을 편집기로 연다. 디렉터리 항목(중첩 저장소·서브모듈)은 열 파일이 없어
-   * 여기 오지 않는다 — 그쪽은 사유와 진입점을 보인다 (GIT_DIR_ENTRY_SRS FR-DIR-21).
-   */
-  _openInEditor(e){
-    if(!this.repo||!e||!e.path||e.dir) return false;
-    const abs=this.absPath(e);
-    // 한 번 클릭이므로 미리보기다 (FR-RTU-40) — 목록을 훑어도 탭이 쌓이지 않는다.
-    this.app.edOpenFile(abs,{preview:true});
-    return true;
-  },
-
-  _select(group,e,ev){
-    const key=this._selKey(group,e.path);
-    const multi=!!(ev&&(ev.metaKey||ev.ctrlKey));
-    const range=!!(ev&&ev.shiftKey&&this._anchor);
-    if(range){
-      this._sel.clear();
-      this._range(group,e.path);
-    }else if(multi){
-      if(this._sel.has(key)) this._sel.delete(key); else this._sel.add(key);
-      this._anchor={group,path:e.path};
-    }else{
-      this._sel.clear(); this._sel.add(key);
-      this._anchor={group,path:e.path};
-    }
-    // 워킹 트리 파일을 골랐다 — 커밋 축의 대상은 놓는다.
-    this.commitFile=null;
-    this.previewFile={
-      repo:this.repo,group,axis:GIT_GROUP_AXIS[group],
-      path:e.path,origPath:e.origPath||'',
-      // GIT_DIR_ENTRY_SRS FR-DIR-21: 이 대상이 디렉터리인가, 그리고 어느
-      // 종류인가. diff 를 부르는 대신 사유를 보이는 판단이 이 둘에 걸린다.
-      dir:!!e.dir,sub:e.sub||'',
-      // FR-CMG-3: 출신은 그룹이 아니라 항목이 안다 — 워킹 그룹에는 둘이 함께 있다.
-      untracked:!!e.untracked,
-    };
-    const i=this._diffIndex(this._fileList());
-    if(i>=0) this._diffPos=i;
-    this._paint();
-    // UX_BATCH12 FR-FHL-4: Diff 탭이 포커스면 대상이 바뀐 것이다 — 하이라이트를 맞춘다.
-    this.app.focusHighlightSync();
-  },
-
-  _openDiff(group,e){
-    this._select(group,e);
-    this.openView('diff');
-  },
-
-  /**
-   * 뷰 하나를 화면에 올린다. History 의 미커밋 변경 행이 Changes 를 여는 것과
-   * 파일 클릭이 Diff 를 여는 것이 같은 경로다.
-   *
-   * **표면이 둘이다** (REPO_TAB_UNIFY_SRS FR-RTU-73).
-   *
-   *   Repo 창(`this.root` 있음)  본문에 그 뷰의 탭을 연다. 없으면 만든다
-   *   옛 Git 창(`root` 없음)     고정 탭 7개 중 하나를 활성화한다 (FR-GIT-28)
-   *
-   * Changes 는 Repo 창에서 **사이드에만** 있으므로(FR-RTU-32) 탭으로 열지 않고
-   * 사이드를 그쪽으로 돌린다 — 그러지 않으면 "Changes 를 열었는데 아무 일도
-   * 없다" 가 된다.
-   */
-  openView(view){
-    const app=this.app;
-    if(this.root){
-      const w=app.edWindowFor(this.root); if(!w) return;
-      if(view===REPO_SIDE_CHANGES){ app.edSetSide(w,REPO_SIDE_CHANGES); return }
-      // UX_BATCH12_SRS FR-RTB-2·3·7: Diff 는 대상을 든 탭이다 — 지금 칸에 미리보기로 연다.
-      // 대상이 없으면(진입점 아이콘) 아래 옛 길이 창의 Diff 탭으로 간다.
-      const f=view==='diff'&&this._diffTarget();
-      if(f){app.gitDiffOpen(this.root,f,{preview:true,commit:!!this.commitFile});return}
-      const rid=app.edEnsurePane(w); if(!rid) return;
-      app.addTab(rid,TAB_TYPE_GIT,{gitView:view,windowId:w.id});
-      // FR-RTU-83: 모바일은 사이드(Changes)에 서서 이 부름을 낸다. 본문의 칸을
-      // 가리키지 않으면 diff 탭은 생기고 화면은 Changes 그대로다.
-      app.mobileShowPane(rid,{render:true});
-      return;
-    }
-    const w=app.gitWindow(); if(!w||!w.layout) return;
-    for(const pn of app.flattenPanes(w.layout)){
-      const target=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView===view);
-      if(target){app.switchTab(pn.id,target.id);return}
-    }
-  },
-});
+    this.p.applyWriteFail(res);
+  }
+}

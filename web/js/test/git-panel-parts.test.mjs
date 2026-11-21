@@ -19,7 +19,8 @@ const read = (f) => readFileSync(join(JS, f), 'utf8');
 
 /**
  * field: 패널이 드는 이름 · cls: 부품 클래스 · gone: 사라진 mixin · owned: 부품 소유 필드
- * exposed: e2e 가 읽어 패널에 접근자를 둔 소유 필드(FR-FEP-5) · delegates: 패널 위임자와 그 시험 인자
+ * exposed: e2e 가 읽어 패널에 접근자를 둔 소유 필드(FR-FEP-5) · exposedRW: e2e 가 써서 읽기·쓰기 접근자를 둔 것
+ * delegates: 패널 위임자와 그 시험 인자 · statics: 패널 클래스의 정적 위임자
  */
 const PARTS = [
   { field: 'blame', cls: 'GitBlame', gone: ['git/panel-blame.js'],
@@ -51,13 +52,31 @@ const PARTS = [
       ['postJob', ['/u', { a: 1 }, () => 1]], ['writeReason', [{ data: {} }]], ['writeError', [{ data: {} }]],
       ['adopt', [{ status: {} }]], ['_paintOp', [{ id: 'el' }, { operation: null }]], ['runOperation', ['abort']],
       ['_paintNote', [{ id: 'el' }]]] },
+  { field: 'changes', cls: 'GitChanges', gone: ['git/panel-changes.js'], owned: ['_fileView', '_initBusy', '_initErr'],
+    exposedRW: ['_fileView'],
+    delegates: [['_renderChanges', [{ id: 'el' }]], ['_paint', []], ['_wireHead', [{ id: 'el' }]], ['_paintHeadIn', [{ id: 'el' }]],
+      ['paintHeads', []], ['_treeMode', []]],
+    statics: [['headHTML', [{ remote: false }]]] },
+  { field: 'changeRows', cls: 'GitChangeRows', gone: [], owned: ['_io'],
+    delegates: [['_paintGroup', [{ id: 'el' }, { key: 'working' }, []]], ['_actCols', [['stage'], [['stage']]]], ['_actGap', []],
+      ['_toggleGroup', ['working']], ['_watchMore', [{ id: 'files' }]], ['revealRow', ['working', 'a.txt']]] },
+  { field: 'files', cls: 'GitFiles', gone: ['git/panel-files.js'], owned: [],
+    delegates: [['untrackedPaths', []], ['uncommittedReset', []], ['uncommittedClean', [['a.txt']]], ['ignorePath', [{ path: 'a.txt' }]],
+      ['openFileHistory', [{ path: 'a.txt' }]], ['openFileAtHead', [{ path: 'a.txt' }]], ['dirtyCount', []], ['isDirty', []],
+      ['showCommitDiff', [{ oid: 'o1' }]], ['_target', ['working', { path: 'a.txt' }]], ['_selected', []],
+      ['_rowTargets', ['stage', 'working', 'a.txt', '', false]], ['_bulk', ['working', 'stage']],
+      ['_dirBulk', ['working', 'd', 'stage']], ['_run', ['stage', []]], ['_op', []]] },
+  { field: 'selection', cls: 'GitSelection', gone: ['git/panel-dir-entry.js'], owned: [],
+    delegates: [['_diffTarget', []], ['_selKey', ['working', 'a.txt']], ['_noBaseline', ['working', { path: 'a.txt' }]],
+      ['_openInEditor', [{ path: 'a.txt' }]], ['_select', ['working', { path: 'a.txt' }, null]], ['_openDiff', ['working', { path: 'a.txt' }]],
+      ['openView', ['diff']], ['_dirEntryNote', [{ sub: '' }]], ['_dirEntryActs', [{ path: 'd' }]]] },
 ];
 
 /** 생성자 밖 참조가 없어 지운 필드 (FR-FEP-6). */
 const DEAD = ['_hunkBarWidget', '_hunkBarSubs'];
 
 /** 하위 단계가 끝난 뒤 남는 `Object.assign(GitPanel.prototype` 의 수 (TC-FEP-2). 처음은 12 다. */
-const ASSIGNS_LEFT = 5;
+const ASSIGNS_LEFT = 2;
 
 function setup() {
   const ctx = load([...BASE, ...GITPANEL], {
@@ -96,6 +115,16 @@ test('TC-FEP-1 위임자는 부품 메서드를 같은 인자로 부르고 값�
   }
 });
 
+test('TC-FEP-1 정적 위임자는 부품 클래스의 정적 메서드를 부른다', () => {
+  const { ctx } = setup();
+  for (const s of PARTS) {
+    for (const [name, args] of s.statics || []) {
+      assert.equal(typeof ctx.GitPanel[name], 'function', `GitPanel.${name} 이 없다`);
+      assert.equal(ctx.GitPanel[name](...args), ctx[s.cls][name](...args));
+    }
+  }
+});
+
 test('TC-FEP-1 패널 destroy 가 부품을 해제한다 (FR-FEP-1)', () => {
   const { panel } = setup();
   panel.detach = () => {};
@@ -120,15 +149,21 @@ test('TC-FEP-3 부품 소유 필드가 패널 원형·생성자에 없고 패널
   const panelSrc = readdirSync(GIT).filter((f) => /^panel/.test(f)).map((f) => [f, readFileSync(join(GIT, f), 'utf8')]);
   for (const s of PARTS) {
     const exposed = s.exposed || [];
+    const rw = s.exposedRW || [];
     for (const k of s.owned) {
       assert.ok(!Object.hasOwn(panel, k), `${k} 가 패널 생성자에 있다`);
       for (const [f, src] of panelSrc) assert.ok(!src.includes('this.' + k), `${f} 가 ${k} 를 읽는다`);
-      if (!exposed.includes(k)) { assert.ok(!(k in proto), `${k} 가 패널 원형에 있다`); continue }
+      if (!exposed.includes(k) && !rw.includes(k)) { assert.ok(!(k in proto), `${k} 가 패널 원형에 있다`); continue }
       const d = Object.getOwnPropertyDescriptor(proto, k);
-      assert.ok(d && d.get && !d.set, `${k} 는 패널의 읽기 접근자여야 한다`);
+      if (rw.includes(k)) assert.ok(d && d.get && d.set, `${k} 는 패널의 읽기·쓰기 접근자여야 한다`);
+      else assert.ok(d && d.get && !d.set, `${k} 는 패널의 읽기 접근자여야 한다`);
       const v = { mark: k };
       panel[s.field][k] = v;
       assert.equal(panel[k], v, `${k} 접근자가 부품의 값을 읽지 않는다`);
+      if (!rw.includes(k)) continue;
+      const w = { mark: 'w' + k };
+      panel[k] = w;
+      assert.equal(panel[s.field][k], w, `${k} 접근자가 부품에 쓰지 않는다`);
     }
   }
   const all = readdirSync(GIT).map((f) => readFileSync(join(GIT, f), 'utf8')).join('\n');

@@ -189,6 +189,7 @@ Object.assign(GitPanel.prototype, {
     // 것으로 세었다 — 그 판정을 여기서 한 번 더 지나 바로잡는다.
     this.obs.resettle();
     this.blame.dispose(); this.hunks.dispose(); this.diffPane.dispose(); this.poll.dispose(); this.write.dispose();
+    this.changes.dispose(); this.changeRows.dispose(); this.files.dispose(); this.selection.dispose();
   },
 
   detach(){

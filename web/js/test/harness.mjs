@@ -67,9 +67,9 @@ export const GITVIEW = ['git/git-view.js'];
  * Git 패널 한 벌 — index.html 의 순서다 (REFACTOR3_FE_GITPANEL_SRS FR-FEP-9). `BASE` 뒤에 싣는다. 부품 기반
  * (`git-part.js`)이 `panel.js` 앞이고, 부품 파일은 옛 mixin 자리에 선다.
  */
-export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/panel-life.js', 'git/panel-changes.js',
-  'git/panel-views.js', 'git/git-write.js', 'git/panel-files.js', 'git/git-diff-pane.js',
-  'git/git-blame.js', 'git/git-hunks.js', 'git/panel-dir-entry.js', 'git/git-poll.js'];
+export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/panel-life.js', 'git/git-changes.js',
+  'git/git-change-rows.js', 'git/panel-views.js', 'git/git-write.js', 'git/git-files.js', 'git/git-selection.js',
+  'git/git-diff-pane.js', 'git/git-blame.js', 'git/git-hunks.js', 'git/git-poll.js'];
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');

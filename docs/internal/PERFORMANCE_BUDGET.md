@@ -117,10 +117,10 @@
 | `web/js/git/history-detail.js` | `_paintDetail` | `sel` | 1 | 가드 | `sel.dataset.for` — 커밋과 부모 수가 그대로면 채우지 않는다 |
 | `web/js/git/history-refs.js` | `_paintRefs` | `box` | 1 | 가드 | 뼈대는 한 번, 그룹별 행은 `reconcileList` 를 지난다 (FR-PRF-10) |
 | `web/js/git/history.js` | `_paintRev` | `box` | 2 | 가드 | 하나는 리비전이 없을 때의 비우기, 하나는 `box.dataset.sig` 뒤 |
-| `web/js/git/panel-changes.js` | `_paintGroup` | `rows` | 1 | 가드 | 접힌 그룹을 비운다 — 이미 비어 있으면 변이가 없다. 펼친 쪽은 `reconcileList` 다 |
-| `web/js/git/panel-changes.js` | `_paintHead` | `badges` | 1 | 가드 | 배지 줄이 `paintIfChanged` 를 지난다 (FR-PRF-10) |
-| `web/js/git/panel-changes.js` | `_renderChanges` | `el` | 1 | 가드 | `el.dataset.built` — 뷰를 처음 세울 때만 |
-| `web/js/git/panel-changes.js` | `_renderInit` | `el` | 1 | 사용자 | 뷰 세우기 |
+| `web/js/git/git-change-rows.js` | `_paintGroup` | `rows` | 1 | 가드 | 접힌 그룹을 비운다 — 이미 비어 있으면 변이가 없다. 펼친 쪽은 `reconcileList` 다 |
+| `web/js/git/git-changes.js` | `_paintHead` | `badges` | 1 | 가드 | 배지 줄이 `paintIfChanged` 를 지난다 (FR-PRF-10) |
+| `web/js/git/git-changes.js` | `_renderChanges` | `el` | 1 | 가드 | `el.dataset.built` — 뷰를 처음 세울 때만 |
+| `web/js/git/git-changes.js` | `_renderInit` | `el` | 1 | 사용자 | 뷰 세우기 |
 | `web/js/git/git-blame.js` | `_drawBlame` | `rows` | 1 | 가드 | `box.dataset.sig` — 같은 파일을 다시 열어도 다시 그리지 않는다. 한 번의 비용은 §2-5-2 가 잡는다 |
 | `web/js/git/git-hunks.js` | `_hunkBarPaint` | `el` | 1 | 가드 | `el.dataset.sig` |
 | `web/js/git/panel-life.js` | `_render` | `el` | 1 | 사용자 | 뷰 전환 |

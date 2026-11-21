@@ -15,10 +15,7 @@
  * **호출해 그 반환값을 복사**하기 때문이다 — 옮기면 통로가 값으로 굳는다.
  *
  *   panel-life.js     리포 전환 · 뷰 루트 · 파괴 · 소실 복구
- *   panel-changes.js  Changes 탭 — 목록 · 트리 · 그룹 · 머리
  *   panel-views.js    뷰 지연 생성 · 상태 접근 · 브랜치/태그 파사드
- *   panel-files.js    파일 작업 · 선택(→ diff) · 스테이징 · discard
- *   panel-dir-entry.js 디렉터리 항목의 사유 · 진입점
  *
  * 부품 클래스(`GitPart` 하위, REFACTOR3_FE_GITPANEL_SRS)는 혼자 쓰는 필드까지 갖고 생성자가 만들어 든다.
  * 바깥·다른 파일이 부르는 부품 메서드는 아래 위임자가 잇는다.
@@ -28,6 +25,10 @@
  *   git-diff-pane.js  Diff 탭 · Diff 탭 전용 패널의 몫 · 보기 설정 (`this.diffPane`)
  *   git-poll.js       접기 설정 · 폴링 · 상태 적용 (`this.poll`)
  *   git-write.js      쓰기 한 번의 전과 후 — 후처리 훅 · 결과 해석 · 오퍼레이션 (`this.write`)
+ *   git-changes.js    Changes 탭 — 골격 · 칠하기 · 머리 · git init (`this.changes`)
+ *   git-change-rows.js Changes 탭의 그룹 · 트리 · 행 (`this.changeRows`)
+ *   git-files.js      파일 작업 · 스테이징 · discard (`this.files`)
+ *   git-selection.js  선택(→ diff) · 뷰 열기 · 디렉터리 항목의 사유와 진입점 (`this.selection`)
  *
  * 관측(`GitObserver`)은 observer.js, Diff 편집기(`GitDiffView`)는 diff-view.js 다.
  */
@@ -57,7 +58,6 @@ class GitPanel {
     this._collapsed=new Set();    // 접힌 그룹. 뷰의 성질이라 리포 전환에도 남는다
     this._dirCollapsed=new Set(); // 접힌 트리 디렉터리 (group:path)
     this._shown=new Map();        // 그룹별로 그린 행 수 (FR-GIT-42)
-    this._fileView=null;          // 'flat' | 'tree'
     this.previewFile=null;        // {repo,group,axis,path,origPath}. 미리보기와 Diff 탭이 같이 쓴다
     this._diffView=null;          // Diff 탭의 GitDiffView
     this._diffKey=null;           // 그 뷰에 이미 보인 대상 (재요청 방지)
@@ -97,11 +97,20 @@ class GitPanel {
     this.diffPane=new GitDiffPane(this);
     this.poll=new GitPoll(this);
     this.write=new GitWrite(this);
+    this.changes=new GitChanges(this);
+    this.changeRows=new GitChangeRows(this);
+    this.files=new GitFiles(this);
+    this.selection=new GitSelection(this);
   }
+
+  // 머리 골격은 패널 인스턴스 없이도 필요하다 (History). 주인은 `GitChanges` 다.
+  static headHTML(opts){ return GitChanges.headHTML(opts) }
 
   // e2e 가 툴바의 자리를 읽는다 (FR-FEP-5). 주인은 `GitHunks` 다.
   get _hunkBarEd(){ return this.hunks._hunkBarEd }
   get _hunkBarPos(){ return this.hunks._hunkBarPos }
+  // e2e 가 보기 취향을 바꿔 넣는다 (FR-FEP-5). 주인은 `GitChanges` 다.
+  get _fileView(){ return this.changes._fileView } set _fileView(v){ this.changes._fileView=v }
 
   // ── 부품 위임자 (FR-FEP-4) — 패널 바깥·다른 파일이 부르는 이름 ──
   openBlame(target){ return this.blame.openBlame(target) }
@@ -173,6 +182,43 @@ class GitPanel {
   _paintOp(el,s){ return this.write._paintOp(el,s) }
   runOperation(action){ return this.write.runOperation(action) }
   _paintNote(el){ return this.write._paintNote(el) }
+  _renderChanges(el){ return this.changes._renderChanges(el) }
+  _paint(){ return this.changes._paint() }
+  _wireHead(el){ return this.changes._wireHead(el) }
+  _paintHeadIn(el){ return this.changes._paintHeadIn(el) }
+  paintHeads(){ return this.changes.paintHeads() }
+  _treeMode(){ return this.changes._treeMode() }
+  _paintGroup(el,g,entries){ return this.changeRows._paintGroup(el,g,entries) }
+  _actCols(have,cols){ return this.changeRows._actCols(have,cols) }
+  _actGap(){ return this.changeRows._actGap() }
+  _toggleGroup(key){ return this.changeRows._toggleGroup(key) }
+  _watchMore(files){ return this.changeRows._watchMore(files) }
+  revealRow(group,path){ return this.changeRows.revealRow(group,path) }
+  untrackedPaths(){ return this.files.untrackedPaths() }
+  uncommittedReset(){ return this.files.uncommittedReset() }
+  uncommittedClean(paths){ return this.files.uncommittedClean(paths) }
+  ignorePath(target){ return this.files.ignorePath(target) }
+  openFileHistory(target){ return this.files.openFileHistory(target) }
+  openFileAtHead(target){ return this.files.openFileAtHead(target) }
+  dirtyCount(){ return this.files.dirtyCount() }
+  isDirty(){ return this.files.isDirty() }
+  showCommitDiff(f){ return this.files.showCommitDiff(f) }
+  _target(group,e){ return this.files._target(group,e) }
+  _selected(){ return this.files._selected() }
+  _rowTargets(act,group,path,origPath,untracked){ return this.files._rowTargets(act,group,path,origPath,untracked) }
+  _bulk(group,act){ return this.files._bulk(group,act) }
+  _dirBulk(group,path,act){ return this.files._dirBulk(group,path,act) }
+  _run(act,items){ return this.files._run(act,items) }
+  _op(){ return this.files._op() }
+  _diffTarget(){ return this.selection._diffTarget() }
+  _selKey(group,path){ return this.selection._selKey(group,path) }
+  _noBaseline(group,e){ return this.selection._noBaseline(group,e) }
+  _openInEditor(e){ return this.selection._openInEditor(e) }
+  _select(group,e,ev){ return this.selection._select(group,e,ev) }
+  _openDiff(group,e){ return this.selection._openDiff(group,e) }
+  openView(view){ return this.selection.openView(view) }
+  _dirEntryNote(f){ return this.selection._dirEntryNote(f) }
+  _dirEntryActs(f){ return this.selection._dirEntryActs(f) }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //

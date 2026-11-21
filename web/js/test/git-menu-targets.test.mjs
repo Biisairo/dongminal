@@ -112,10 +112,15 @@ const EXPECT = {
 };
 
 function patch(w) {
-  // panel-files.js 의 Clean 을 실제로 쓴다 — 대상 대조가 그 안에 있다.
-  const pf = load(['core/constants-api.js', 'git/panel-files.js'], { globals: {
-    GitPanel: class {}, Toast: w.ctx.Toast, TOAST_ERR_MS: 0, GIT_UNC_CLEAN_CHANGED: 'changed' } });
-  w.panel.uncommittedClean = pf.GitPanel.prototype.uncommittedClean;
+  // `GitFiles`(git-files.js)의 Clean 을 실제로 쓴다 — 대상 대조가 그 안에 있다.
+  const pf = load(['core/base/component.js', 'core/constants-api.js', 'git/git-part.js', 'git/git-files.js'], {
+    expose: ['GitFiles'],
+    globals: { Toast: w.ctx.Toast, TOAST_ERR_MS: 0, GIT_UNC_CLEAN_CHANGED: 'changed' } });
+  const files = new pf.GitFiles(w.panel);
+  // 대조와 뒷정리는 패널 대역의 것을 본다 — 부품 안의 부름이 그 대역을 지나지 않는다.
+  files.untrackedPaths = () => w.panel.untrackedPaths();
+  files._after = () => {};
+  w.panel.uncommittedClean = (paths) => files.uncommittedClean(paths);
 }
 
 async function runItem(kind, id, target, mutating) {
