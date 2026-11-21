@@ -75,7 +75,6 @@ Object.assign(GitPanel.prototype, {
   _branches(){return this._viewOf('branches')},
   _console(){return this._viewOf('console')},
   _worktrees(){return this._viewOf('worktrees')},
-  _submodules(){return this._viewOf('submodules')},
   _stash(){return this._viewOf('stash')},
 
   _renderView(key,el){

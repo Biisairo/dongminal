@@ -20,18 +20,18 @@ Object.assign(RunsPanel.prototype, {
     paintIfChanged(el, sig, () => {
       el.textContent = '';
       if (!tree) return;
-      el.appendChild(runDiv('run-tree-h', t('runs.tree_title', {ref: tree.tree})));
-      if (!members.length) { el.appendChild(runDiv('run-tree-empty', t('runs.tree_empty'))); return }
+      el.appendChild(domEl('div', 'run-tree-h', t('runs.tree_title', {ref: tree.tree})));
+      if (!members.length) { el.appendChild(domEl('div', 'run-tree-empty', t('runs.tree_empty'))); return }
       const lay = runTreeLayout(nodes);
-      const svg = runSvg('svg', { class: 'run-tree-svg', viewBox: `0 0 ${lay.w} ${lay.h}` });
+      const svg = svgEl('svg', { class: 'run-tree-svg', viewBox: `0 0 ${lay.w} ${lay.h}` });
       svg.dataset.w = lay.w;
       svg.dataset.h = lay.h;
-      const edges = runSvg('g', { class: 'run-tree-edges' });
-      for (const [p, c] of lay.edges) edges.appendChild(runSvg('path', { class: 'run-tree-edge', d: runTreeEdgePath(lay.pos[p], lay.pos[c]) }));
+      const edges = svgEl('g', { class: 'run-tree-edges' });
+      for (const [p, c] of lay.edges) edges.appendChild(svgEl('path', { class: 'run-tree-edge', d: runTreeEdgePath(lay.pos[p], lay.pos[c]) }));
       svg.appendChild(edges);
       nodes.forEach((n, i) => svg.appendChild(this._runTreeNodeEl(n, lay.pos[i])));
       // FR-ITC-11: 높이가 고정된 보기 영역. 줌·패닝은 viewBox 만 바꾼다 (`_runTreeCam`).
-      const wrap = runDiv('run-tree-wrap');
+      const wrap = domEl('div', 'run-tree-wrap');
       wrap.appendChild(svg);
       wrap.appendChild(this._runTreeHud(nodes, lay));
       el.appendChild(wrap);
@@ -94,25 +94,25 @@ Object.assign(RunsPanel.prototype, {
    * 보기 상자는 테두리만이라 노드를 가리지 않는다.
    */
   _runTreeHud(nodes, lay) {
-    const hud = runDiv('run-tree-hud');
-    const mini = runSvg('svg', { class: 'run-tree-mini', viewBox: `0 0 ${lay.w} ${lay.h}` });
-    for (const [p, c] of lay.edges) mini.appendChild(runSvg('path', { class: 'run-tree-mini-edge', d: runTreeEdgePath(lay.pos[p], lay.pos[c]) }));
+    const hud = domEl('div', 'run-tree-hud');
+    const mini = svgEl('svg', { class: 'run-tree-mini', viewBox: `0 0 ${lay.w} ${lay.h}` });
+    for (const [p, c] of lay.edges) mini.appendChild(svgEl('path', { class: 'run-tree-mini-edge', d: runTreeEdgePath(lay.pos[p], lay.pos[c]) }));
     nodes.forEach((n, i) => {
       const kind = runNodeKind(n.state);
-      mini.appendChild(runSvg('rect', {
+      mini.appendChild(svgEl('rect', {
         class: 'run-tree-mini-node state-' + (n.state || 'starting') + (kind === 'active' ? '' : ' ' + kind),
         x: lay.pos[i].x - lay.pos[i].w / 2, y: lay.pos[i].y, width: lay.pos[i].w, height: lay.pos[i].h,
       }));
     });
-    mini.appendChild(runSvg('rect', { class: 'run-tree-mini-view' }));
+    mini.appendChild(svgEl('rect', { class: 'run-tree-mini-view' }));
     hud.appendChild(mini);
-    const gauge = runDiv('run-tree-gauge');
+    const gauge = domEl('div', 'run-tree-gauge');
     const zoom = document.createElement('input');
     zoom.type = 'range';
     zoom.className = 'run-tree-zoom';
     zoom.title = t('runs.tree_zoom');
     gauge.appendChild(zoom);
-    gauge.appendChild(runDiv('run-tree-pct'));
+    gauge.appendChild(domEl('div', 'run-tree-pct'));
     gauge.appendChild(UIKit.button({ label: t('runs.tree_fit'), title: t('runs.tree_fit_title'), size: 'sm', cls: 'run-tree-fit' }));
     hud.appendChild(gauge);
     return hud;
@@ -197,18 +197,18 @@ Object.assign(RunsPanel.prototype, {
     const active = kind === 'active';
     const cls = 'run-tree-node ' + (n.coord ? 'coord' : 'state-' + (n.state || 'starting')) + (n.leaf ? ' leaf' : '')
       + (active ? '' : ' inactive ' + kind);
-    const g = runSvg('g', active ? { class: cls, role: 'button', tabindex: '0' } : { class: cls });
+    const g = svgEl('g', active ? { class: cls, role: 'button', tabindex: '0' } : { class: cls });
     g.dataset.member = n.id;
     g.dataset.depth = String(p.depth);
     const x = p.x - p.w / 2;
-    const tip = runSvg('title');
+    const tip = svgEl('title');
     tip.textContent = [runTreeIssueNumber(n.issue), n.title, n.coord ? n.agent : n.role, n.state, active ? t('runs.tree_jump') : '']
       .filter(Boolean).join(' · ');
     g.appendChild(tip);
-    g.appendChild(runSvg('rect', { class: 'run-tree-box', x, y: p.y, width: p.w, height: p.h, rx: 5 }));
+    g.appendChild(svgEl('rect', { class: 'run-tree-box', x, y: p.y, width: p.w, height: p.h, rx: 5 }));
 
     const tx = x + RUN_TREE_PAD_IN;
-    const head = runSvg('text', { x: tx, y: p.y + (kind === 'ended' ? 19 : 20) });
+    const head = svgEl('text', { x: tx, y: p.y + (kind === 'ended' ? 19 : 20) });
     const num = runTreeIssueNumber(n.issue);
     if (num) head.appendChild(runTreeSpan('run-tree-issue', num));
     if (n.title) {
@@ -220,10 +220,10 @@ Object.assign(RunsPanel.prototype, {
     }
     if (head.childNodes.length) g.appendChild(head);
     if (kind === 'ended') return g;
-    const role = runSvg('text', { class: 'run-tree-role', x: tx, y: p.y + 37 });
+    const role = svgEl('text', { class: 'run-tree-role', x: tx, y: p.y + 37 });
     role.textContent = runTreeClip((n.coord ? n.agent : n.role) || '', RUN_TREE_TEXT_UNITS);
     g.appendChild(role);
-    const foot = runSvg('text', { x: tx, y: p.y + 54 });
+    const foot = svgEl('text', { x: tx, y: p.y + 54 });
     foot.appendChild(runTreeSpan('run-tree-state', n.state || ''));
     if (active && n.contextRatio) foot.appendChild(runTreeSpan('run-tree-ctx', Math.round(n.contextRatio * 100) + '%', '8'));
     if (n.leaf) foot.appendChild(runTreeSpan('run-tree-leaf', t('runs.tree_leaf'), '8'));
@@ -367,8 +367,9 @@ function runTreeEdgePath(p, c) {
   return `M${p.x},${y1} V${my} H${c.x} V${y2}`;
 }
 
+/** SVG 글자 조각 하나 — `svgEl` 위에 선택 속성 `dx` 와 글자를 더한다. */
 function runTreeSpan(cls, text, dx) {
-  const s = runSvg('tspan', { class: cls });
+  const s = svgEl('tspan', { class: cls });
   if (dx) s.setAttribute('dx', dx);
   s.textContent = text;
   return s;

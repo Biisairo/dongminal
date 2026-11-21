@@ -30,11 +30,11 @@ Object.assign(App.prototype, {
   },
 
   _chatViewBuild(key,tab){
-    const root=chatEl('div','chat-view');
-    const head=chatEl('div','chat-head');
-    const title=chatEl('span','chat-title');
-    const kind=chatEl('span','chat-kind ui-badge');
-    const purpose=chatEl('span','chat-purpose');
+    const root=domEl('div','chat-view');
+    const head=domEl('div','chat-head');
+    const title=domEl('span','chat-title');
+    const kind=domEl('span','chat-kind ui-badge');
+    const purpose=domEl('span','chat-purpose');
     const v={key,tabId:tab.id,roomId:tab.roomId,root,title,kind,purpose,drawn:[],peopleSig:''};
     // EDGE_MESH_SRS FR-EGM-56: 개인채팅 상대 노드가 간선이 아닌 온라인 망 이웃이면 간선 초대를 보낸다.
     v.invite=UIKit.button({label:t('edge.invite_send'),kind:'ghost',size:'sm',cls:'chat-edge-invite',
@@ -42,15 +42,15 @@ Object.assign(App.prototype, {
     v.invite.hidden=true;
     head.append(title,kind,purpose,v.invite,UIKit.button({icon:'more-horizontal',title:'Room actions',kind:'ghost',size:'sm',cls:'chat-more',
       onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._chatViewMenu(v,{x:r.left,y:r.bottom})}}));
-    const main=chatEl('div','chat-main');
+    const main=domEl('div','chat-main');
     v.log=document.createElement('div');
     v.log.className='chat-log ui-scroll';
     v.people=document.createElement('div');
     v.people.className='chat-people ui-scroll';
     main.append(v.log,v.people);
-    const foot=chatEl('div','chat-foot');
-    v.note=chatEl('div','chat-note');
-    v.input=chatEl('textarea','chat-input');
+    const foot=domEl('div','chat-foot');
+    v.note=domEl('div','chat-note');
+    v.input=domEl('textarea','chat-input');
     v.input.rows=2;
     v.input.placeholder=t('chat.input_ph');
     v.input.addEventListener('keydown',e=>this._chatViewKey(v,e));
@@ -122,11 +122,11 @@ Object.assign(App.prototype, {
     const sig=JSON.stringify([people.map(p=>[p.id,p.label,p.kind,p.online]),[...sel]]);
     if(sig===v.peopleSig) return;
     v.peopleSig=sig;
-    const els=[chatEl('div','chat-sub-h',t('chat.people'))];
+    const els=[domEl('div','chat-sub-h',t('chat.people'))];
     for(const p of people){
-      const row=chatEl('div','chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':'')+(sel.has(p.id)?' sel':''));
+      const row=domEl('div','chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':'')+(sel.has(p.id)?' sel':''));
       row.title=p.label+' · '+chatShortId(p.id);
-      row.append(chatEl('span','chat-row-name',p.label),chatEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)));
+      row.append(domEl('span','chat-row-name',p.label),domEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)));
       row.addEventListener('click',e=>{
         if(this._chatPeoplePick(v,p.id,e)) return;
         if(p.id!==meId&&p.online) this._chatPersonMenu(p,{x:e.clientX,y:e.clientY});
@@ -152,13 +152,13 @@ Object.assign(App.prototype, {
 
   _chatMsgEl(m,meId){
     const mine=m.from&&m.from===meId;
-    const d=chatEl('div','chat-msg'+(mine?' mine':'')+(m.fromKind==='user'?' human':''));
-    const who=chatEl('div','chat-msg-who');
-    const name=chatEl('span','chat-msg-name',m.fromLabel||chatShortId(m.from));
+    const d=domEl('div','chat-msg'+(mine?' mine':'')+(m.fromKind==='user'?' human':''));
+    const who=domEl('div','chat-msg-who');
+    const name=domEl('span','chat-msg-name',m.fromLabel||chatShortId(m.from));
     if(!mine) name.addEventListener('contextmenu',e=>this._chatAuthorCtx(m,e));
     who.append(name,
-      chatEl('span','chat-msg-meta',(m.fromKind==='user'?t('chat.human')+' · ':'')+chatShortId(m.from)+' · '+chatClock(m.at)));
-    d.append(who,chatEl('div','chat-msg-text',m.text||''));
+      domEl('span','chat-msg-meta',(m.fromKind==='user'?t('chat.human')+' · ':'')+chatShortId(m.from)+' · '+chatClock(m.at)));
+    d.append(who,domEl('div','chat-msg-text',m.text||''));
     return d;
   },
 });

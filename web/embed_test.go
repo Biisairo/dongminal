@@ -37,3 +37,14 @@ func TestVendorDirsEmbedded(t *testing.T) {
 		t.Fatalf("vendor 의 디렉터리 자산 = %v, want [codemirror]", dirs)
 	}
 }
+
+// TestBaseClassesEmbedded 는 한 단계 더 깊은 기반 클래스 디렉터리가 바이너리에 실리는지 확인한다 (REFACTOR3_FE_BASE_SRS
+// FR-FEB-16). 빠지면 index.html 이 싣는 스크립트가 404 가 되고 앱이 서지 않는다.
+func TestBaseClassesEmbedded(t *testing.T) {
+	for _, n := range []string{"js/core/base/component.js", "js/core/base/view.js", "js/core/base/controller.js",
+		"js/core/base/escape-stack.js", "js/core/base/scroll-memo.js", "js/core/base/badge.js"} {
+		if _, err := fs.ReadFile(FS(), n); err != nil {
+			t.Fatalf("%s 임베드 안 됨: %v", n, err)
+		}
+	}
+}

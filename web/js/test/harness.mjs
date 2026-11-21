@@ -34,6 +34,13 @@ export const HELPERS = ['core/path.js', 'core/helpers.js', 'core/theme-vars.js',
  */
 export const TERM_PANE = ['ui/term-socket.js', 'ui/term-pane.js', 'ui/term-input.js', 'ui/term-clip.js', 'ui/term-touch.js'];
 
+/**
+ * 프론트 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_BASE_SRS FR-FEB-16). `extends` 는 로드 시점에
+ * 부모를 읽으므로 `component.js` 가 맨 앞이다.
+ */
+export const BASE = ['core/base/component.js', 'core/base/view.js', 'core/base/controller.js',
+  'core/base/escape-stack.js', 'core/base/scroll-memo.js', 'core/base/badge.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 

@@ -153,7 +153,7 @@ for (const f of cssFiles) {
 //
 // 한 자리는 **클래스 목록 하나**다. 두 모양이 있다:
 //   HTML/템플릿   <div class="a b c">   → class 속성의 값
-//   JS            className='a b' · classList.add('a') · runDiv('a b')
+//   JS            className='a b' · classList.add('a') · domEl('div','a b')
 // 둘 다 "공백으로 갈린 이름들" 이므로 같은 방법으로 읽는다.
 const markup = walk(ROOT, ['.js', '.html', '.mjs']).filter((f) => !f.includes('/test/'));
 /** 이름 -> [클래스 목록 문자열] */
@@ -190,8 +190,10 @@ for (const f of markup) {
   for (const m of src.matchAll(/\bclassList\.add\(([^)]*)\)/g)) {
     addSite([...m[1].matchAll(/(["'])([^"']*)\1/g)].map((q) => q[2]).join(' '));
   }
-  // ③ 이 저장소의 관용 — `runDiv('a b')` 처럼 클래스 목록 하나를 받는 만들개.
-  for (const m of src.matchAll(/\b(?:runDiv|div|el)\(\s*(["'])([\w\s-]+)\1\s*\)/g)) addSite(m[2]);
+  // ③ 이 저장소의 관용 — 클래스 목록 하나를 받는 만들개. `div('a b')` · `el('a b')` 와 `domEl('div','a b')`
+  // (REFACTOR3_FE_BASE_SRS FR-FEB-1 — 옛 `runDiv('a b')` 가 이리로 옮겼다).
+  for (const m of src.matchAll(/\b(?:div|el)\(\s*(["'])([\w\s-]+)\1\s*\)/g)) addSite(m[2]);
+  for (const m of src.matchAll(/\bdomEl\(\s*(["'])[\w-]+\1\s*,\s*(["'])([\w\s-]+)\2\s*\)/g)) addSite(m[3]);
   // ④ id 를 가진 태그의 클래스 (`<div id="attn-center" class="…">`, 순서 무관)
   for (const m of src.matchAll(/<[a-zA-Z][\w-]*\b[^>]*>/g)) {
     const tag = m[0];

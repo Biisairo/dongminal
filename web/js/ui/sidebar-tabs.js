@@ -462,9 +462,10 @@ const SidebarTabs={
     for(const d of SB_TAB_DEFS){
       const g=bar.querySelector('.sb-tab[data-panel="'+d.id+'"] .sb-tab-badge');
       if(!g) continue;
-      const n=d.badge?d.badge(app):0;
-      g.hidden=!(n>0);
-      if(n>0) g.textContent=String(n);
+      // REFACTOR3_FE_BASE_SRS FR-FEB-15: 배지 판정은 작업 패널과 같은 `badgeOf` 다.
+      const bd=badgeOf(d.badge?d.badge(app):0);
+      g.hidden=!bd.shown;
+      if(bd.shown) g.textContent=bd.text;
     }
     // UX_AUDIT_FIX_SRS FR-UXF-98: 배지가 서고 지면 라벨 자리가 바뀐다 — 다시 잰다.
     UIKit.tabsFitWatch(bar); UIKit.tabsFit(bar);

@@ -228,7 +228,7 @@ Object.assign(App.prototype, {
   },
 
   _cacctAccountRow(list,r,ids){
-    const row=actEl(list,'div','cacct-set-row');
+    const row=list.appendChild(domEl('div','cacct-set-row'));
     row.dataset.id=r.id;
     row.draggable=true;
     row.addEventListener('dragstart',e=>{this._cacctDrag=r.id;e.dataTransfer.effectAllowed='move'});
@@ -240,20 +240,20 @@ Object.assign(App.prototype, {
       this._cacctDrag=null;
       if(ids2) this._cacctDo('POST','/api/claude-accounts/order',{ids:ids2},t('cacct.set.save'));
     });
-    const head=actEl(row,'div','cacct-set-head');
-    actEl(head,'span','cacct-set-grip','⠿').title=t('cacct.set.drag');
-    actEl(head,'span','cacct-dot').style.background='var(--'+r.color+')';
-    actEl(head,'span','cacct-set-name',r.name);
-    actEl(head,'span','cacct-set-meta',[r.email,r.org].filter(Boolean).join(' · '));
-    if(r.status) actEl(head,'span','cacct-st',r.status);
-    actEl(head,'span','cacct-set-login'+(r.login.warn?' warn':''),r.login.text);
-    const f=actEl(row,'div','cacct-set-fields');
-    const pick=actEl(f,'div','cacct-swatches');
+    const head=row.appendChild(domEl('div','cacct-set-head'));
+    head.appendChild(domEl('span','cacct-set-grip','⠿')).title=t('cacct.set.drag');
+    head.appendChild(domEl('span','cacct-dot')).style.background='var(--'+r.color+')';
+    head.appendChild(domEl('span','cacct-set-name',r.name));
+    head.appendChild(domEl('span','cacct-set-meta',[r.email,r.org].filter(Boolean).join(' · ')));
+    if(r.status) head.appendChild(domEl('span','cacct-st',r.status));
+    head.appendChild(domEl('span','cacct-set-login'+(r.login.warn?' warn':''),r.login.text));
+    const f=row.appendChild(domEl('div','cacct-set-fields'));
+    const pick=f.appendChild(domEl('div','cacct-swatches'));
     pick.setAttribute('role','radiogroup');
     pick.setAttribute('aria-label',t('cacct.set.color'));
     let curName='';
     for(const sw of cacctColorSwatches(r.color)){
-      const b=actEl(pick,'button','cacct-swatch'+(sw.selected?' on':''));
+      const b=pick.appendChild(domEl('button','cacct-swatch'+(sw.selected?' on':'')));
       b.type='button';
       b.dataset.color=sw.color;
       b.title=sw.name;
@@ -264,11 +264,11 @@ Object.assign(App.prototype, {
       if(!sw.selected) b.addEventListener('click',()=>this._cacctItem(r.id,'color',sw.color));
       if(sw.selected) curName=sw.name;
     }
-    const nm=actEl(pick,'span','cacct-swatch-name',curName);
+    const nm=pick.appendChild(domEl('span','cacct-swatch-name',curName));
     nm.style.color='var(--'+r.color+')';
     const field=(key,label,cls,type,value,ph)=>{
-      const lab=actEl(f,'label','cacct-set-field',label);
-      const inp=actEl(lab,'input',cls);
+      const lab=f.appendChild(domEl('label','cacct-set-field',label));
+      const inp=lab.appendChild(domEl('input',cls));
       inp.type=type; inp.value=value; if(ph) inp.placeholder=ph;
       inp.addEventListener('change',()=>this._cacctItem(r.id,key,inp.value));
       return inp;
@@ -278,38 +278,38 @@ Object.assign(App.prototype, {
     th.min='50'; th.max='100';
     const pr=field('priority',t('cacct.set.priority'),'ds-num','number',r.priority,'');
     pr.min='0'; pr.max='1000';
-    const dl=actEl(f,'label','sbx-flag');
-    const dis=actEl(dl,'input','ui-switch');
+    const dl=f.appendChild(domEl('label','sbx-flag'));
+    const dis=dl.appendChild(domEl('input','ui-switch'));
     dis.type='checkbox'; dis.checked=r.disabled;
     dis.addEventListener('change',()=>this._cacctItem(r.id,'disabled',dis.checked));
-    actEl(dl,'span','',t('cacct.set.disabled'));
+    dl.appendChild(domEl('span','',t('cacct.set.disabled')));
     f.appendChild(UIKit.button({label:t('cacct.set.remove'),kind:'danger',size:'sm',cls:'cacct-set-remove',
       onClick:()=>this._cacctAsk(t('cacct.set.remove_title'),t('cacct.set.remove_body',{name:r.name}),t('cacct.set.remove'),
         ()=>this._cacctDo('POST','/api/claude-accounts/remove',{id:r.id},t('cacct.set.remove')))}));
-    if(r.warnings) actEl(row,'div','cacct-set-warn',r.warnings);
+    if(r.warnings) row.appendChild(domEl('div','cacct-set-warn',r.warnings));
   },
 
   _cacctAutoEl(root,a){
-    actEl(root,'div','ds-sec',t('cacct.set.sec_auto'));
+    root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_auto')));
     if(!a) return;
     const form=cacctAutoForm(a.settings);
-    actEl(root,'div','ds-hint',claudeAcctAutoView({enabled:a.settings&&a.settings.enabled,status:a.state&&a.state.status}).text);
-    const box=actEl(root,'div','cacct-set-auto');
-    const en=actEl(actEl(box,'label','sbx-flag'),'input','ui-switch');
+    root.appendChild(domEl('div','ds-hint',claudeAcctAutoView({enabled:a.settings&&a.settings.enabled,status:a.state&&a.state.status}).text));
+    const box=root.appendChild(domEl('div','cacct-set-auto'));
+    const en=box.appendChild(domEl('label','sbx-flag')).appendChild(domEl('input','ui-switch'));
     en.type='checkbox'; en.checked=form.enabled;
     en.parentNode.appendChild(document.createTextNode(t('cacct.set.auto_enabled')));
     const inputs={};
     for(const fd of CACCT_AUTO_FIELDS){
-      const lab=actEl(box,'label','cacct-set-field',t(fd.label));
-      const inp=actEl(lab,'input','ds-num');
+      const lab=box.appendChild(domEl('label','cacct-set-field',t(fd.label)));
+      const inp=lab.appendChild(domEl('input','ds-num'));
       inp.type='number'; inp.min=String(fd.min); inp.max=String(fd.max); inp.value=form[fd.key];
       inputs[fd.key]=inp;
     }
-    const sl=actEl(box,'label','cacct-set-field',t('cacct.set.auto_strategy'));
-    const st=actEl(sl,'select','sbs-select');
-    for(const s of CACCT_STRATEGIES){const o=actEl(st,'option','',t(s.label));o.value=s.id;o.selected=s.id===form.strategy}
-    const ml=actEl(box,'label','cacct-set-field',t('cacct.set.auto_models'));
-    const models=actEl(ml,'input','sbx-input');
+    const sl=box.appendChild(domEl('label','cacct-set-field',t('cacct.set.auto_strategy')));
+    const st=sl.appendChild(domEl('select','sbs-select'));
+    for(const s of CACCT_STRATEGIES){const o=st.appendChild(domEl('option','',t(s.label)));o.value=s.id;o.selected=s.id===form.strategy}
+    const ml=box.appendChild(domEl('label','cacct-set-field',t('cacct.set.auto_models')));
+    const models=ml.appendChild(domEl('input','sbx-input'));
     models.value=form.models; models.placeholder=t('cacct.set.auto_models_ph');
     box.appendChild(UIKit.button({label:t('cacct.set.save'),size:'sm',cls:'cacct-set-auto-save',onClick:async()=>{
       const f2={enabled:en.checked,strategy:st.value,models:models.value};
@@ -323,30 +323,30 @@ Object.assign(App.prototype, {
   },
 
   _cacctFoldersEl(root,s){
-    actEl(root,'div','ds-sec',t('cacct.set.sec_folders'));
+    root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_folders')));
     const rows=cacctFolderRows(s.folders,s.accounts);
-    const list=actEl(root,'div','cacct-set-folders');
-    if(!rows.length) actEl(list,'div','ds-hint',t('cacct.set.folders_none'));
+    const list=root.appendChild(domEl('div','cacct-set-folders'));
+    if(!rows.length) list.appendChild(domEl('div','ds-hint',t('cacct.set.folders_none')));
     for(const r of rows){
-      const row=actEl(list,'div','cacct-set-folder');
-      const name=actEl(row,'div','cacct-set-fname');
+      const row=list.appendChild(domEl('div','cacct-set-folder'));
+      const name=row.appendChild(domEl('div','cacct-set-fname'));
       name.style.paddingLeft=(r.depth*16)+'px';
       name.appendChild(UIKit.icon('folder',{size:'sm'}));
-      const path=actEl(name,'span','cacct-set-path',r.path);
+      const path=name.appendChild(domEl('span','cacct-set-path',r.path));
       path.title=r.path;
-      if(r.overrides) actEl(name,'span','cacct-set-over',t('cacct.set.overrides'));
-      const chip=actEl(row,'span','cacct-chip',r.name);
+      if(r.overrides) name.appendChild(domEl('span','cacct-set-over',t('cacct.set.overrides')));
+      const chip=row.appendChild(domEl('span','cacct-chip',r.name));
       if(r.color) chip.style.setProperty('--cacct-c','var(--'+r.color+')');
       row.appendChild(UIKit.button({label:t('cacct.set.unlink'),kind:'ghost',size:'sm',cls:'cacct-set-unlink',
         onClick:()=>this._cacctDo('PUT','/api/claude-accounts/mappings',{folder:r.path,accountId:''},t('cacct.set.unlink'))}));
     }
     if(!s.accounts.length) return;
-    const add=actEl(root,'div','set-row cacct-set-link');
-    const path=actEl(add,'input','sbx-input');
+    const add=root.appendChild(domEl('div','set-row cacct-set-link'));
+    const path=add.appendChild(domEl('input','sbx-input'));
     path.placeholder=t('cacct.set.folder_ph'); path.spellcheck=false;
     if(typeof PathSuggest==='function') new PathSuggest(path,v=>this._edPathCandidates(v,[]));
-    const sel=actEl(add,'select','sbs-select');
-    for(const a of s.accounts){const o=actEl(sel,'option','',a.alias||a.email);o.value=a.id}
+    const sel=add.appendChild(domEl('select','sbs-select'));
+    for(const a of s.accounts){const o=sel.appendChild(domEl('option','',a.alias||a.email));o.value=a.id}
     add.appendChild(UIKit.button({label:t('cacct.set.link'),size:'sm',cls:'cacct-set-link-btn',onClick:()=>{
       const p=path.value.trim();
       if(p) this._cacctDo('PUT','/api/claude-accounts/mappings',{folder:p,accountId:sel.value},t('cacct.set.link'));
@@ -354,13 +354,13 @@ Object.assign(App.prototype, {
   },
 
   _cacctUnclaimedEl(root,s){
-    actEl(root,'div','ds-sec',t('cacct.set.sec_unclaimed'));
-    actEl(root,'div','ds-hint',t('cacct.set.unclaimed_hint'));
+    root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_unclaimed')));
+    root.appendChild(domEl('div','ds-hint',t('cacct.set.unclaimed_hint')));
     const rows=cacctUnclaimedRows(s.unclaimed);
-    if(!rows.length) actEl(root,'div','ds-hint',t('cacct.set.unclaimed_none'));
+    if(!rows.length) root.appendChild(domEl('div','ds-hint',t('cacct.set.unclaimed_none')));
     for(const r of rows){
-      const row=actEl(root,'div','ds-row cacct-set-unclaimed');
-      actEl(row,'span','',r.text);
+      const row=root.appendChild(domEl('div','ds-row cacct-set-unclaimed'));
+      row.appendChild(domEl('span','',r.text));
       row.appendChild(UIKit.button({label:t('cacct.set.remove'),kind:'ghost',size:'sm',cls:'cacct-set-unclaimed-remove',
         onClick:()=>this._cacctAsk(t('cacct.set.unclaimed_remove_title'),t('cacct.set.unclaimed_remove_body',{fp:r.fp}),t('cacct.set.remove'),
           ()=>this._cacctDo('POST','/api/claude-accounts/unclaimed/remove',{name:r.name},t('cacct.set.remove')))}));
@@ -369,8 +369,8 @@ Object.assign(App.prototype, {
 
   /** FR-CAC-111: 전환 기록은 단추로 대화상자를 연다. */
   _cacctHistoryEl(root){
-    actEl(root,'div','ds-sec',t('cacct.set.sec_history'));
-    const row=actEl(root,'div','ds-row');
+    root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_history')));
+    const row=root.appendChild(domEl('div','ds-row'));
     row.appendChild(UIKit.button({label:t('cacct.hist.open'),size:'sm',cls:'cacct-history-btn',onClick:()=>this._claudeAcctHistory()}));
   },
 
@@ -382,14 +382,14 @@ Object.assign(App.prototype, {
     this._cacctStale=false;
     this._cacctWireEditing(root);
     root.replaceChildren();
-    if(s.off){ actEl(root,'div','ds-hint',t('cacct.set.unavailable')); return }
-    actEl(root,'div','ds-sec',t('cacct.set.sec_accounts'));
-    const add=actEl(root,'div','ds-row');
+    if(s.off){ root.appendChild(domEl('div','ds-hint',t('cacct.set.unavailable'))); return }
+    root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_accounts')));
+    const add=root.appendChild(domEl('div','ds-row'));
     add.appendChild(UIKit.button({label:t('cacct.set.add'),size:'sm',cls:'cacct-set-add',onClick:()=>this._cacctAdd()}));
-    actEl(root,'div','ds-hint',t('cacct.set.add_hint'));
+    root.appendChild(domEl('div','ds-hint',t('cacct.set.add_hint')));
     const rows=cacctSetRows(s.accounts);
-    const list=actEl(root,'div','cacct-set-list');
-    if(!rows.length) actEl(list,'div','ds-hint',t('cacct.set.none'));
+    const list=root.appendChild(domEl('div','cacct-set-list'));
+    if(!rows.length) list.appendChild(domEl('div','ds-hint',t('cacct.set.none')));
     const ids=rows.map(r=>r.id);
     for(const r of rows) this._cacctAccountRow(list,r,ids);
     this._cacctAutoEl(root,s.auto);

@@ -67,11 +67,10 @@ Object.assign(App.prototype, {
   /** FR-ASV-31: 서브에이전트 머리 — (↳) · 종류 · 상태. */
   _agSubHeadEl(v){
     const head=document.createElement('div');head.className='ag-sub-head';
-    const span=(cls,text)=>{const e=document.createElement('span');e.className=cls;e.textContent=text;head.appendChild(e);return e};
     // UX_AUDIT_FIX_SRS FR-UXF-100: 화살표·상태 기호는 아이콘이다(이전 `↳`·`●` 글자).
-    span('ag-sub-arrow','').appendChild(UIKit.icon('corner-down-right',{size:'sm'}));
-    span('ag-sub-type',v.type);
-    span('ag-sub-state '+v.state,agentStateText(v.state,v.tool)).prepend(agentStateIcon(v.state),' ');
+    head.appendChild(domEl('span','ag-sub-arrow','')).appendChild(UIKit.icon('corner-down-right',{size:'sm'}));
+    head.appendChild(domEl('span','ag-sub-type',v.type));
+    head.appendChild(domEl('span','ag-sub-state '+v.state,agentStateText(v.state,v.tool))).prepend(agentStateIcon(v.state),' ');
     return head;
   },
 

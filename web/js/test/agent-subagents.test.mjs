@@ -10,7 +10,7 @@ import { load, plain } from './harness.mjs';
  *   TC-SAU-8  재조정 근거와 SSE·복원 (FR-SAU-24·25)
  */
 function loadAgents(globals = {}) {
-  return load(['core/app-agents.js', 'core/app-agents-sub.js'], {
+  return load(['core/helpers.js', 'core/app-agents.js', 'core/app-agents-sub.js'], {
     globals: {
       App: class {}, ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done' },
       AGENT_STATE_ICON: { working: 'dot', done: 'check' }, AGENT_STATE_LABEL: {}, UIKit: { icon: (n) => ({ className: 'ui-icon', icon: n, children: [] }) }, ...globals,

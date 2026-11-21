@@ -357,6 +357,7 @@ class EdLspSocket {
   }
 
   subscribe(fn) { this._subs.add(fn) }
+  // 이 저장소에서 부르는 곳은 없지만 `lsp-client` 의 Transport 계약이다 — 라이브러리가 연결을 끊을 때 부른다.
   unsubscribe(fn) { this._subs.delete(fn) }
 
   close() {

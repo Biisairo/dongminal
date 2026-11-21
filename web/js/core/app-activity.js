@@ -161,13 +161,6 @@ function actUsageSumView(accounts,lines,open){
   return {name:l.name||l.label,color:l.color||'',cells:l.cells,open};
 }
 
-/** 바닥의 작은 원소 하나를 부모 끝에 붙인다. */
-function actEl(parent,tag,cls,text){
-  const e=document.createElement(tag);e.className=cls;
-  if(text!==undefined) e.textContent=text;
-  parent.appendChild(e);return e;
-}
-
 Object.assign(App.prototype, {
 
   /**
@@ -257,10 +250,11 @@ Object.assign(App.prototype, {
       b.setAttribute('aria-selected',tb.key===cur?'true':'false');
       b.title=tb.tip;
       const n=b.querySelector('.ag-tab-n');   // 킷의 탭은 배지 자리를 늘 만든다 (UIKit.tab)
-      if(n){ n.hidden=!tb.n; n.textContent=tb.n?String(tb.n):'' }
-      // FR-PCH-81: 수가 없으면 알람 점이다. UI_POLISH_SRS FR-UIP-7: 0 은 말하지 않는다.
+      // FR-PCH-81: 수가 없으면 알람 점이다. UI_POLISH_SRS FR-UIP-7: 0 은 말하지 않는다. 판정은 사이드바와 같은 `badgeOf` 다(FR-FEB-15).
+      const bd=badgeOf(tb.n,{dot:tb.dot});
+      if(n){ n.hidden=!bd.shown; n.textContent=bd.text }
       const dot=b.querySelector('.ag-tab-dot');
-      if(!tb.n&&tb.dot){ if(!dot) actEl(b,'span','ag-tab-dot') }else if(dot) dot.remove();
+      if(bd.dot){ if(!dot) b.appendChild(domEl('span','ag-tab-dot')) }else if(dot) dot.remove();
     }
   },
 
@@ -325,9 +319,9 @@ Object.assign(App.prototype, {
       if(!view.sum.open) return foot;
     }
     if(view.accounts.length){
-      const head=actEl(foot,'div','act-usage-head');
-      actEl(head,'span','act-usage-name',t('cacct.title'));
-      actEl(head,'span','cacct-auto'+(view.auto.on?' on':''),view.auto.text);
+      const head=foot.appendChild(domEl('div','act-usage-head'));
+      head.appendChild(domEl('span','act-usage-name',t('cacct.title')));
+      head.appendChild(domEl('span','cacct-auto'+(view.auto.on?' on':''),view.auto.text));
       // UX_AUDIT_FIX_SRS FR-UXF-100: 메뉴를 여는 꺾쇠는 라벨 뒤의 아이콘이다(이전 카탈로그 글자 `▾`).
       if(view.next) head.appendChild(UIKit.button({label:t('cacct.smart.menu'),kind:'ghost',size:'sm',cls:'cacct-smart',
         onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._claudeAcctSmartMenu({x:r.left,y:r.bottom})}}))
@@ -338,13 +332,13 @@ Object.assign(App.prototype, {
     // 계정을 모르는 보고는 이름 칸이 빈 마지막 줄이다.
     const lines=(view.acctSl||[]).slice();
     if(view.sl) lines.push(view.sl);
-    if(lines.length) actEl(foot,'div','act-usage-sl-h',lines[0].label);
+    if(lines.length) foot.appendChild(domEl('div','act-usage-sl-h',lines[0].label));
     for(const l of lines){
-      const row=actEl(foot,'div','act-usage-sl'+(l.key?' cacct-sl':'')+(l.asOf?' stale':''));
+      const row=foot.appendChild(domEl('div','act-usage-sl'+(l.key?' cacct-sl':'')+(l.asOf?' stale':'')));
       row.title='Rate limits reported by the Claude Code statusLine'+(l.asOf?' · '+l.asOf:'');
-      const who=actEl(row,'span','cacct-who');
-      if(l.color) actEl(who,'span','cacct-dot').style.background='var(--'+l.color+')';
-      if(l.name) actEl(who,'span','cacct-name',l.name);
+      const who=row.appendChild(domEl('span','cacct-who'));
+      if(l.color) who.appendChild(domEl('span','cacct-dot')).style.background='var(--'+l.color+')';
+      if(l.name) who.appendChild(domEl('span','cacct-name',l.name));
       this._actCellsEl(row,l.cells);
     }
     return foot;
@@ -357,9 +351,9 @@ Object.assign(App.prototype, {
     b.setAttribute('aria-expanded',String(v.open));
     b.title=v.open?TIP_USAGE_SUM_CLOSE:TIP_USAGE_SUM_OPEN;
     b.addEventListener('click',e=>{e.stopPropagation();PrefStore.local.setBool(STORE_KEYS.activityUsageOpen,!v.open);this.agentsRender()});
-    const who=actEl(b,'span','cacct-who');
-    if(v.color) actEl(who,'span','cacct-dot').style.background='var(--'+v.color+')';
-    actEl(who,'span','cacct-name',v.name);
+    const who=b.appendChild(domEl('span','cacct-who'));
+    if(v.color) who.appendChild(domEl('span','cacct-dot')).style.background='var(--'+v.color+')';
+    who.appendChild(domEl('span','cacct-name',v.name));
     this._actCellsEl(b,v.cells);
     b.appendChild(UIKit.icon(v.open?'chevron-down':'chevron-up'));
     return b;
@@ -367,29 +361,29 @@ Object.assign(App.prototype, {
 
   /** D-CAC-37: 세션·주간 두 칸 — 칸 앞에 작은 창 이름. 값이 없는 칸도 자리를 지켜 열이 맞는다. */
   _actCellsEl(parent,cells){
-    const box=actEl(parent,'span','cacct-cells');
+    const box=parent.appendChild(domEl('span','cacct-cells'));
     for(const c of cells){
-      const el=actEl(box,'span','cacct-cell'+(c&&(c.level==='warn'||c.level==='critical')?' lv-'+c.level:''));
+      const el=box.appendChild(domEl('span','cacct-cell'+(c&&(c.level==='warn'||c.level==='critical')?' lv-'+c.level:'')));
       if(!c) continue;
       el.title=c.title;
-      actEl(el,'span','cacct-cell-label',c.label);
-      actEl(el,'span','cacct-cell-pct',c.pct);
-      if(c.left) actEl(el,'span','cacct-cell-left',c.left);
-      actEl(actEl(el,'span','cacct-cell-bar'),'span','cacct-cell-fill').style.width=c.fill+'%';
+      el.appendChild(domEl('span','cacct-cell-label',c.label));
+      el.appendChild(domEl('span','cacct-cell-pct',c.pct));
+      if(c.left) el.appendChild(domEl('span','cacct-cell-left',c.left));
+      el.appendChild(domEl('span','cacct-cell-bar')).appendChild(domEl('span','cacct-cell-fill')).style.width=c.fill+'%';
     }
     return box;
   },
 
   /** FR-ASV-41: 창 블록 — 이름과 사용률 / 막대 / 남은 시간. */
   _actUsageWinEl(parent,w){
-    const win=actEl(parent,'div','act-usage-win'+(w.level==='warn'||w.level==='critical'?' lv-'+w.level:''));
+    const win=parent.appendChild(domEl('div','act-usage-win'+(w.level==='warn'||w.level==='critical'?' lv-'+w.level:'')));
     win.title=w.title;
-    const top=actEl(win,'div','act-usage-top');
-    actEl(top,'span','act-usage-label',w.label);
-    actEl(top,'span','act-usage-used',w.used);
-    const track=actEl(win,'div','act-usage-track');
-    actEl(track,'div','act-usage-fill').style.width=w.fill+'%';
-    if(w.reset) actEl(win,'div','act-usage-reset',w.reset);
+    const top=win.appendChild(domEl('div','act-usage-top'));
+    top.appendChild(domEl('span','act-usage-label',w.label));
+    top.appendChild(domEl('span','act-usage-used',w.used));
+    const track=win.appendChild(domEl('div','act-usage-track'));
+    track.appendChild(domEl('div','act-usage-fill')).style.width=w.fill+'%';
+    if(w.reset) win.appendChild(domEl('div','act-usage-reset',w.reset));
     return win;
   },
 

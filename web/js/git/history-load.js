@@ -196,12 +196,6 @@ Object.assign(GitHistory.prototype, {
     return !!this._loadedSig&&!!sig&&this._loadedSig!==sig;
   },
 
-  // ref 를 바꾼 쓰기 뒤에 사이드바를 다시 채운다 (FR-GIT-160). 목록은 _adopt 에서만
-  // 받으므로 이것이 없으면 checkout 한 브랜치가 사이드바에 나타나지 않는다.
-  reloadRefs(){
-    if(this._el&&this.panel.repo===this._repo) this._loadRefs();
-  },
-
   /**
    * FR-GIT-267: 비교 기준으로 표시한 커밋을 바에 적는다. 표시가 보이지 않으면
    * 사용자는 자기가 무엇을 골랐는지 모른 채 Compare with 를 연다.

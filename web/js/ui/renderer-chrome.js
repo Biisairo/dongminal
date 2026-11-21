@@ -97,10 +97,6 @@ Object.assign(Renderer.prototype, {
     return [name,tab!==name?tab:''].filter(Boolean);
   },
 
-  _rWinTitle(w,slot){
-    return this._rWinTitleParts(w,slot).join(TITLE_SEP);
-  },
-
   /** FR-UXF-2: 제목을 칠한다 — 구분점은 흐린 글자(`.tt-sep`), `title` 은 전체 문자열이다. */
   _rPaintTitle(el,parts){
     el.replaceChildren();

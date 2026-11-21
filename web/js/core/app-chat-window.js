@@ -119,7 +119,7 @@ Object.assign(App.prototype, {
     const host=document.getElementById('chat-list');
     if(!host||this.sbTab!==CHAT_TAB_ID) return;
     const items=this._chatItems();
-    if(!items.length) items.push({id:'empty',el:chatEl('div','ui-empty chat-none',t('chat.empty'))});
+    if(!items.length) items.push({id:'empty',el:domEl('div','ui-empty chat-none',t('chat.empty'))});
     reconcileList(host,items,{key:it=>it.id,sig:it=>it.el.outerHTML,build:it=>it.el});
   },
 });

@@ -47,7 +47,7 @@ function memStore() {
 
 function loadFoot(globals = {}) {
   const local = memStore();
-  const ctx = load(['core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
+  const ctx = load(['core/helpers.js', 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
     expose: ['ACTIVITY_SECTIONS'],
     globals: {
       App: class {},

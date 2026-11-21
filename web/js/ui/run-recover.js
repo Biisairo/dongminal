@@ -59,7 +59,7 @@ Object.assign(RunsPanel.prototype, {
     const sum = root.querySelector('.run-summary');
     if (!sum) return;
     let bar = root.querySelector('.run-recover-bar');
-    if (!bar) { bar = runDiv('run-recover-bar'); sum.after(bar) }
+    if (!bar) { bar = domEl('div', 'run-recover-bar'); sum.after(bar) }
     const show = d.state === 'open' && runRecoverAny(d);
     paintIfChanged(bar, show ? d.runId : '', () => {
       bar.textContent = '';
@@ -110,12 +110,12 @@ Object.assign(RunsPanel.prototype, {
   _runTreeRecoverEl(n, p) {
     const x = p.x + p.w / 2 - RUN_TREE_RECOVER_W - RUN_TREE_RECOVER_PAD;
     const y = p.y + RUN_TREE_RECOVER_PAD;
-    const g = runSvg('g', { class: 'run-tree-recover', role: 'button', tabindex: '0' });
-    const tip = runSvg('title');
+    const g = svgEl('g', { class: 'run-tree-recover', role: 'button', tabindex: '0' });
+    const tip = svgEl('title');
     tip.textContent = TIP_RUNS_RECOVER_ONE;
     g.appendChild(tip);
-    g.appendChild(runSvg('rect', { x, y, width: RUN_TREE_RECOVER_W, height: RUN_TREE_RECOVER_H, rx: 3 }));
-    const label = runSvg('text', { x: x + RUN_TREE_RECOVER_W / 2, y: y + 12, 'text-anchor': 'middle' });
+    g.appendChild(svgEl('rect', { x, y, width: RUN_TREE_RECOVER_W, height: RUN_TREE_RECOVER_H, rx: 3 }));
+    const label = svgEl('text', { x: x + RUN_TREE_RECOVER_W / 2, y: y + 12, 'text-anchor': 'middle' });
     label.textContent = t('runs.recover');
     g.appendChild(label);
     const go = e => { e.stopPropagation(); this._runRecover(n.runId, n, false) };

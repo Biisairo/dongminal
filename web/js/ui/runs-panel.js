@@ -56,12 +56,6 @@ const RUN_GRAPH_PAD_COORD = 16;
 const RUN_FIT_MIN = 0.5;
 const RUN_FIT_MAX = 1.5;
 
-function runSvg(tag, attrs) {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  if (attrs) for (const k in attrs) el.setAttribute(k, attrs[k]);
-  return el;
-}
-
 /**
  * FR-FIT-1~4: svg 를 감싼 칸의 폭에 맞춘다.
  *
@@ -83,13 +77,6 @@ function runFitSvg(wrap, svg) {
   const scale = Math.min(RUN_FIT_MAX, Math.max(RUN_FIT_MIN, avail / w));
   svg.setAttribute('width', Math.round(w * scale));
   svg.setAttribute('height', Math.round(h * scale));
-}
-
-function runDiv(cls, text) {
-  const el = document.createElement('div');
-  el.className = cls;
-  if (text !== undefined) el.textContent = text;
-  return el;
 }
 
 /**
@@ -178,43 +165,42 @@ Object.assign(RunsPanel.prototype, {
   _runsRow(rv) {
     const members = rv.members || [];
     const cnt = runMemberCounts(members);
-    const row = runDiv('runs-row');
+    const row = domEl('div', 'runs-row');
     row.dataset.runid = rv.id;
     row.title = t('runs.row_title');
 
-    row.appendChild(runDiv('runs-short', rv.short || ''));
-    row.appendChild(runDiv('runs-obj', rv.objective || ''));
+    row.appendChild(domEl('div', 'runs-short', rv.short || ''));
+    row.appendChild(domEl('div', 'runs-obj', rv.objective || ''));
 
-    const st = runDiv('runs-state st-' + (rv.state || ''), rv.state || '');
+    const st = domEl('div', 'runs-state st-' + (rv.state || ''), rv.state || '');
     row.appendChild(st);
 
-    row.appendChild(runDiv('runs-members', cnt.headless
+    row.appendChild(domEl('div', 'runs-members', cnt.headless
       ? t('runs.members_active_headless', { a: cnt.active, n: cnt.total, h: cnt.headless })
       : t('runs.members_active', { a: cnt.active, n: cnt.total })));
 
     // FR-RVZ-3: 격리가 none 이면 표시하지 않는다 — 없는 것이 기본값이므로
     // 적어 두면 목록에서 눈에 띄는 것이 전부 같아진다.
-    if (rv.isolation && rv.isolation !== 'none') row.appendChild(runDiv('runs-iso', rv.isolation));
+    if (rv.isolation && rv.isolation !== 'none') row.appendChild(domEl('div', 'runs-iso', rv.isolation));
 
     // FR-RVZ-3 / V-RVZ-6: 컨텍스트 경고. critical 이 하나라도 있으면 그것이 이긴다.
     // 빈 contextLevel 은 "모른다" 이므로 배지를 달지 않는다 (FR-CBG-5).
     const lv = members.some(m => m.contextLevel === 'critical') ? 'critical'
       : members.some(m => m.contextLevel === 'warn') ? 'warn' : '';
     // UX_AUDIT_FIX_SRS FR-UXF-100: 경고 표식은 아이콘이다(이전 글자 `⚠`).
-    if (lv) row.appendChild(runDiv('runs-ctx lv-' + lv, ' ' + lv)).prepend(UIKit.icon('triangle-alert', { size: 'sm' }));
+    if (lv) row.appendChild(domEl('div', 'runs-ctx lv-' + lv, ' ' + lv)).prepend(UIKit.icon('triangle-alert', { size: 'sm' }));
 
     const ago = this._runAgo(runLastActivity(rv));
-    row.appendChild(runDiv('runs-ago', ago ? t('runs.ago', { ago }) : ''));
+    row.appendChild(domEl('div', 'runs-ago', ago ? t('runs.ago', { ago }) : ''));
 
     // FR-DEL-6: 실패는 그 행에 남는다. 삭제 목표보다 앞에 두어 오른쪽 끝이
     // 흔들리지 않는다 (FR-BGK-10 과 같은 자리).
     if (this._runsDelErr && this._runsDelErr.runId === rv.id) {
-      row.appendChild(runDiv('runs-err-inline', this._runsDelErr.msg));
+      row.appendChild(domEl('div', 'runs-err-inline', this._runsDelErr.msg));
     }
     const pending = this._runsPending === rv.id;
     const confirming = this._runsConfirm === rv.id;
-    if (pending) row.appendChild(runDiv('runs-deleting',
-      this._runsPendingKind === 'close' ? t('runs.closing') : t('runs.deleting')));
+    if (pending) row.appendChild(domEl('div', 'runs-deleting', this._runsPendingKind === 'close' ? t('runs.closing') : t('runs.deleting')));
     else if (confirming) row.appendChild(this._runsConfirmEl(rv));
     else {
       /**
@@ -264,7 +250,7 @@ Object.assign(RunsPanel.prototype, {
   // FR-DEL-4: 확인은 행 안에서 한다 — 모달 위의 모달은 Escape 처리와 포커스
   // 관리를 복잡하게 만든다 (FR-BGK-4 와 같은 판단).
   _runsConfirmEl(rv) {
-    const wrap = runDiv('runs-confirm');
+    const wrap = domEl('div', 'runs-confirm');
     const closing = this._runsConfirmKind === 'close';
     wrap.dataset.kind = closing ? 'close' : 'delete';
     // 삭제는 되돌릴 수 없다 (FR-DEL-7). 무엇이 함께 사라지는지 적는다.
@@ -273,7 +259,7 @@ Object.assign(RunsPanel.prototype, {
     // 문구가 그것을 말한다. 말하지 않으면 사용자는 안전한 쪽을 고를 수 없다.
     const open = rv.state === 'open';
     // R-d: 아직 보고하지 않은 멤버가 있으면 그 수를 밝힌다 — 종료는 그들을 기다리지 않는다.
-    wrap.appendChild(runDiv('runs-q', closing
+    wrap.appendChild(domEl('div', 'runs-q', closing
       ? (rv.unreported ? t('runs.q_close_unreported', { n: rv.unreported }) : t('runs.q_close'))
       : (open ? t('runs.q_delete_open') : t('runs.q_delete'))));
     const yes = UIKit.button({ label: t('core.yes'), title: closing ? TIP_RUNS_CLOSE_YES : TIP_RUNS_YES,
@@ -394,21 +380,21 @@ Object.assign(RunsPanel.prototype, {
   },
 
   _runBuildRoot() {
-    const root = runDiv('run-view ui-scroll');
-    root.appendChild(runDiv('run-miss'));
-    const body = runDiv('run-body');
-    body.appendChild(runDiv('run-summary'));
+    const root = domEl('div', 'run-view ui-scroll');
+    root.appendChild(domEl('div', 'run-miss'));
+    const body = domEl('div', 'run-body');
+    body.appendChild(domEl('div', 'run-summary'));
     // ISSUE_AGENT_TREE_SRS FR-ITD-1: 트리 표지가 있는 Run 이면 「이슈 트리」 가 여기 선다.
-    body.appendChild(runDiv('run-tree'));
-    const wrap = runDiv('run-graph-wrap ui-scroll');
-    const svg = runSvg('svg', { class: 'run-graph' });
-    svg.appendChild(runSvg('defs'));
-    svg.appendChild(runSvg('g', { class: 'run-edges' }));
-    svg.appendChild(runSvg('g', { class: 'run-nodes' }));
+    body.appendChild(domEl('div', 'run-tree'));
+    const wrap = domEl('div', 'run-graph-wrap ui-scroll');
+    const svg = svgEl('svg', { class: 'run-graph' });
+    svg.appendChild(svgEl('defs'));
+    svg.appendChild(svgEl('g', { class: 'run-edges' }));
+    svg.appendChild(svgEl('g', { class: 'run-nodes' }));
     wrap.appendChild(svg);
     body.appendChild(wrap);
-    body.appendChild(runDiv('run-cards'));
-    body.appendChild(runDiv('run-timeline'));
+    body.appendChild(domEl('div', 'run-cards'));
+    body.appendChild(domEl('div', 'run-timeline'));
     root.appendChild(body);
     return root;
   },

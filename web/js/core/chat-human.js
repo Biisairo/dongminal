@@ -130,14 +130,14 @@ Object.assign(App.prototype, {
    * 시각을 보인다. 맞으면 닫고 고르기를 지운다.
    */
   async _chatCmdAsk(op,body,what){
-    const box=chatEl('div','chat-create chat-cmd');
-    const title=chatEl('div','chat-create-title',t('chat.cmd_title'));
-    const code=chatEl('input','sbx-input chat-cmd-code');
+    const box=domEl('div','chat-create chat-cmd');
+    const title=domEl('div','chat-create-title',t('chat.cmd_title'));
+    const code=domEl('input','sbx-input chat-cmd-code');
     code.autocomplete='one-time-code';
     code.maxLength=CHAT_CODE_MAX;
-    const note=chatEl('div','chat-note chat-cmd-note');
+    const note=domEl('div','chat-note chat-cmd-note');
     note.hidden=true;
-    box.append(title,chatEl('div','chat-cmd-what',what),UIKit.field({label:t('chat.cmd_code'),control:code}),chatEl('div','chat-cmd-hint',t('chat.cmd_hint')),note);
+    box.append(title,domEl('div','chat-cmd-what',what),UIKit.field({label:t('chat.cmd_code'),control:code}),domEl('div','chat-cmd-hint',t('chat.cmd_hint')),note);
     let finish=()=>{},busy=false;
     const say=text=>{ note.textContent=text; note.hidden=false };
     const submit=async()=>{

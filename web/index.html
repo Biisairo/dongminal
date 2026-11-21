@@ -975,6 +975,14 @@
 <script src="js/core/layout-tree.js?v=__ASSETV__"></script>
 <script src="js/core/git-status-helpers.js?v=__ASSETV__"></script>
 <script src="js/core/git-path.js?v=__ASSETV__"></script>
+<!-- 프론트 기반 클래스 (REFACTOR3_FE_BASE_SRS FR-FEB-16). timer-hub·event-bus·helpers 뒤, 쓰는 첫 파일 앞이다.
+     `extends` 는 로드 시점에 부모를 읽으므로 component → view → controller 순서가 계약이다. -->
+<script src="js/core/base/component.js?v=__ASSETV__"></script>
+<script src="js/core/base/view.js?v=__ASSETV__"></script>
+<script src="js/core/base/controller.js?v=__ASSETV__"></script>
+<script src="js/core/base/escape-stack.js?v=__ASSETV__"></script>
+<script src="js/core/base/scroll-memo.js?v=__ASSETV__"></script>
+<script src="js/core/base/badge.js?v=__ASSETV__"></script>
 <script src="js/ui/repaint.js?v=__ASSETV__"></script>
 <!-- 공통 UI 키트 (UI_KIT_SRS). repaint.js 뒤·sidebar-tabs.js 앞이어야 한다 —
      뒤의 것들이 이 팩토리로 버튼·탭을 만든다 (FR-UIK-20). -->

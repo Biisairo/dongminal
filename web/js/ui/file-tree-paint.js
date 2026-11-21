@@ -816,10 +816,6 @@ Object.assign(FileTree.prototype, {
 
   _pad(el,depth){ el.style.paddingLeft=(GIT_TREE_PAD0+depth*GIT_TREE_INDENT)+'px' },
 
-  _span(cls,text){
-    const s=document.createElement('span'); s.className=cls; s.textContent=text; return s;
-  },
-
   _el(it){
     if(it.t==='more'){
       /**
@@ -857,7 +853,7 @@ Object.assign(FileTree.prototype, {
     if(it.t==='operr'){
       const d=document.createElement('div'); d.className='ed-op-err';
       this._pad(d,it.depth);
-      d.appendChild(this._span('ed-op-err-msg',it.msg));
+      d.appendChild(domEl('span','ed-op-err-msg',it.msg));
       // §3A-3: 사용자가 닫을 수 있다 — 다음 조작을 시작하지 않아도 걷을 길이 있다.
       d.appendChild(UIKit.button({icon:'x',title:EDITOR_TREE_ERR_CLOSE,kind:'ghost',size:'sm',cls:'ed-op-err-x'}));
       return d;
@@ -891,11 +887,11 @@ Object.assign(FileTree.prototype, {
     this._pad(d,it.depth);
     d.title=it.err?(it.path+' — '+EDITOR_TREE_ERR+' ('+it.err+')')
       :(it.stale?it.path+' — '+EDITOR_TREE_STALE:it.path);
-    const tw=d.appendChild(this._span('ed-tw',it.kind==='dir'&&it.busy?EDITOR_TREE_TW_BUSY:''));   // UX_AUDIT_FIX_SRS FR-UXF-100: 꺾쇠는 아이콘, 열림은 `data-open`
+    const tw=d.appendChild(domEl('span','ed-tw',it.kind==='dir'&&it.busy?EDITOR_TREE_TW_BUSY:''));   // UX_AUDIT_FIX_SRS FR-UXF-100: 꺾쇠는 아이콘, 열림은 `data-open`
     if(it.kind==='dir'&&!it.busy) UIKit.caret(tw,it.open);
-    d.appendChild(this._span('ed-name',it.name)); if(it.chip) d.appendChild(claudeAcctChipEl(it.chip));
+    d.appendChild(domEl('span','ed-name',it.name)); if(it.chip) d.appendChild(claudeAcctChipEl(it.chip));
     if(it.stale) d.appendChild(UIKit.icon('triangle-alert',{size:'sm',cls:'ed-stale-mark'}));   // REPO_FIX 04 §3A-2 → FR-UXF-100: 이전 CSS `::after` 의 `⚠`
-    if(it.kind==='link') d.appendChild(this._span('ed-mark',it.linkDir?EDITOR_TREE_LINK_DIR_SUFFIX:'')).prepend(UIKit.icon(EDITOR_TREE_LINK,{size:'sm'}));
+    if(it.kind==='link') d.appendChild(domEl('span','ed-mark',it.linkDir?EDITOR_TREE_LINK_DIR_SUFFIX:'')).prepend(UIKit.icon(EDITOR_TREE_LINK,{size:'sm'}));
     return d;
   },
 
@@ -910,7 +906,7 @@ Object.assign(FileTree.prototype, {
     const d=document.createElement('div');
     d.className='ed-row ed-edit'+(it.mode==='rename'?' ed-edit-rename':' ed-edit-new');
     this._pad(d,it.depth);
-    const tw=d.appendChild(this._span('ed-tw',''));
+    const tw=d.appendChild(domEl('span','ed-tw',''));
     if(it.isDir) UIKit.caret(tw,false);
     const i=document.createElement('input');
     i.className='ed-input'; i.type='text'; i.value=it.init; i.spellcheck=false; i.oninput=()=>this._askName(i.value); // F-k

@@ -40,7 +40,7 @@ function fillEn(k, p) {
 
 function loadActivity(globals = {}) {
   const local = memStore();
-  const ctx = load(['core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js'], {
+  const ctx = load(['core/helpers.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js'], {
     expose: ['ACTIVITY_SECTIONS'],
     globals: {
       App: class {},

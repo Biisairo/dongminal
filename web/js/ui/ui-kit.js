@@ -180,10 +180,13 @@ const UIKit = {
   },
 
   // 폭이 바뀔 때 다시 잰다. 관측은 오래 사는 원소(`host`)에 한 번만 건다.
+  // REFACTOR3_FE_BASE_SRS FR-FEB-3: 끊는 함수를 돌려준다. 이미 걸린 호스트면 아무것도 끊지 않는 함수다 — 관측의 주인은 처음 건 쪽이다.
   tabsFitWatch(host, sel) {
-    if (!host || host._fitRo || typeof ResizeObserver !== 'function') return;
-    host._fitRo = new ResizeObserver(() => UIKit.tabsFit(host, sel));
-    host._fitRo.observe(host);
+    if (!host || host._fitRo || typeof ResizeObserver !== 'function') return () => {};
+    const ro = new ResizeObserver(() => UIKit.tabsFit(host, sel));
+    host._fitRo = ro;
+    ro.observe(host);
+    return () => { ro.disconnect(); if (host._fitRo === ro) delete host._fitRo };
   },
 
   /**
@@ -211,7 +214,7 @@ const UIKit = {
   roving(container, spec) {
     // renderer 의 재포커스가 **키보드로 들어온** 포커스를 빼앗지 않는 표식.
     container.classList.add('kb-nav');
-    container.addEventListener('keydown', (e) => {
+    const onKey = (e) => {
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       // 인라인 입력(이름 변경)의 키는 그 입력의 것이다 — `Enter` 가 확정이 아니라
       // 활성화가 되고 `Backspace` 가 글자가 아니라 **행을 지운다** (FR-EXR-55 와
@@ -240,7 +243,10 @@ const UIKit = {
       }
       e.preventDefault();
       if (to && to !== cur) { if (!spec.keepTabStops) UIKit.rove(items, to); to.focus() }
-    });
+    };
+    container.addEventListener('keydown', onKey);
+    // FR-FEB-3: 리스너를 떼는 함수를 돌려준다.
+    return () => container.removeEventListener('keydown', onKey);
   },
 
   /**
@@ -726,8 +732,6 @@ const UIKit = {
     const r = this._menuReturnTo; this._menuReturnTo = null;
     if (hadFocus && r && r.isConnected && typeof r.focus === 'function') r.focus();
   },
-
-  menuOpen() { return !!this._menu },
 
   // FR-UIK-27: 설정 행 하나. `.ds-row` 의 구조와 1:1 이다.
   field(spec) {

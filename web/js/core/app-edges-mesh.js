@@ -19,7 +19,6 @@ const MESH_ITER=300;
 /** 이름 줄과 표시 줄의 노드 중심에서의 거리. */
 const MESH_LABEL_DY=20;
 const MESH_MARK_DY=32;
-const SVG_NS='http://www.w3.org/2000/svg';
 
 /**
  * 노드 자리 `Map<fp,{x,y}>`. 나(`self`)는 가운데에 고정하고, 나머지는 지문 순서로 원 위에 둔 뒤
@@ -99,12 +98,6 @@ function meshDirectPeer(room,meId,mesh){
   return meshNodeAction(n)==='invite'?n:null;
 }
 
-function meshSvg(tag,attrs){
-  const e=document.createElementNS(SVG_NS,tag);
-  for(const [k,v] of Object.entries(attrs||{})) e.setAttribute(k,String(v));
-  return e;
-}
-
 Object.assign(App.prototype, {
   /** 망 그림과 그 아래의 할 일을 그린다. 패널이 없는 화면에서는 아무것도 하지 않는다. */
   _egMeshPaint(){
@@ -124,29 +117,29 @@ Object.assign(App.prototype, {
     const edges=new Map((v.edges||[]).map(e=>[e.fp,e]));
     if(this._egMeshSel&&!mesh.nodes.some(n=>n.fp===this._egMeshSel)) this._egMeshSel=null;
     const pos=meshLayout(mesh.nodes,mesh.links||[],MESH_W,MESH_H);
-    const svg=meshSvg('svg',{viewBox:'0 0 '+MESH_W+' '+MESH_H,class:'eg-mesh-svg',role:'group','aria-label':t('edge.mesh_label')});
+    const svg=svgEl('svg',{viewBox:'0 0 '+MESH_W+' '+MESH_H,class:'eg-mesh-svg',role:'group','aria-label':t('edge.mesh_label')});
     const self=mesh.nodes.find(n=>n.self);
     const online=new Map(mesh.nodes.map(n=>[n.fp,n.online]));
     for(const [p,q] of mesh.links||[]){
       const a=pos.get(p),b=pos.get(q);
       if(!a||!b) continue;
       const mine=self&&(p===self.fp||q===self.fp);
-      svg.appendChild(meshSvg('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,
+      svg.appendChild(svgEl('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,
         class:'eg-mesh-link'+(mine?' mine':'')+(online.get(p)&&online.get(q)?'':' off')}));
     }
     for(const n of mesh.nodes){
       const at=pos.get(n.fp);
-      const g=meshSvg('g',{class:'eg-mesh-node'+(n.self?' self':'')+(n.online?'':' off')+(this._egMeshSel===n.fp?' sel':''),
+      const g=svgEl('g',{class:'eg-mesh-node'+(n.self?' self':'')+(n.online?'':' off')+(this._egMeshSel===n.fp?' sel':''),
         transform:'translate('+at.x+','+at.y+')',tabindex:0,role:'button','data-fp':n.fp});
       const handle=edgeHandle(n);
       const marks=meshNodeMarks(edges.get(n.fp)).map(k=>t(k));
       g.setAttribute('aria-label',[handle,n.self?t('edge.mesh_me'):t(n.online?'edge.online':'edge.offline'),...marks].join(' · '));
-      g.appendChild(meshSvg('circle',{r:MESH_NODE_R}));
-      const label=meshSvg('text',{y:MESH_LABEL_DY,'text-anchor':'middle',class:'eg-mesh-name'});
+      g.appendChild(svgEl('circle',{r:MESH_NODE_R}));
+      const label=svgEl('text',{y:MESH_LABEL_DY,'text-anchor':'middle',class:'eg-mesh-name'});
       label.textContent=handle;
       g.appendChild(label);
       if(marks.length){
-        const mark=meshSvg('text',{y:MESH_MARK_DY,'text-anchor':'middle',class:'eg-mesh-mark'});
+        const mark=svgEl('text',{y:MESH_MARK_DY,'text-anchor':'middle',class:'eg-mesh-mark'});
         mark.textContent=marks.join(' · ');
         g.appendChild(mark);
       }

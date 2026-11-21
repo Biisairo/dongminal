@@ -377,13 +377,9 @@ Object.assign(GitPanel.prototype, {
   _missingBlock(){
     const repo=this._missing||'';
     const box=document.createElement('div'); box.className='git-missing';
-    const add=(cls,text)=>{
-      const d=document.createElement('div'); d.className=cls; d.textContent=text;
-      box.appendChild(d); return d;
-    };
-    add('git-missing-title',GIT_ERR_REPO_MISSING);
-    add('git-missing-path',repo);
-    add('git-missing-reason',GIT_RMS_REASON_PREFIX+GIT_RMS_CODE);
+    box.appendChild(domEl('div','git-missing-title',GIT_ERR_REPO_MISSING));
+    box.appendChild(domEl('div','git-missing-path',repo));
+    box.appendChild(domEl('div','git-missing-reason',GIT_RMS_REASON_PREFIX+GIT_RMS_CODE));
     const acts=document.createElement('div'); acts.className='git-missing-acts';
     // FR-RMS-10: 핀되지 않은 리포에 핀 제거를 보이지 않는다 — 없는 핀을 지우는
     // 버튼은 거짓말이다.
@@ -395,7 +391,7 @@ Object.assign(GitPanel.prototype, {
     acts.appendChild(UIKit.button({label:GIT_RMS_RECHECK,title:GIT_TIP_MISSING_RECHECK,size:'sm',
       cls:'git-missing-recheck',onClick:()=>this.refresh()}));
     box.appendChild(acts);
-    add('git-missing-auto',GIT_RMS_AUTO_NOTE);
+    box.appendChild(domEl('div','git-missing-auto',GIT_RMS_AUTO_NOTE));
     return box;
   },
 

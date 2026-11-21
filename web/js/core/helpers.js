@@ -1,5 +1,5 @@
 /**
- * Remote Terminal — 작은 공용 도구 (HTML 이스케이프·오류 문구·상태줄·Run 짧은 id·가시 폴링)
+ * Remote Terminal — 작은 공용 도구 (HTML 이스케이프·원소 만들기·오류 문구·상태줄·Run 짧은 id·가시 폴링)
  *
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-6 (FEC-24): 주제가 열하나로 불어 갈랐다 — 경로(path.js)·테마
  * 변수(theme-vars.js)·단축키(shortcuts.js)·설정 상태(settings-state.js)·레이아웃 트리와 탭 이름
@@ -22,6 +22,22 @@ function escHtml(s){
   return String(s==null?'':s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// REFACTOR3_FE_BASE_SRS FR-FEB-1: 원소 하나를 만든다. 파일마다 따로 있던 생성 헬퍼(actEl·chatEl·runDiv·_span …)를 모은
+// 한 벌이다. 클래스는 늘 대입하고(빈 글자도), 글자는 주었을 때만 적는다 — 종전 헬퍼들과 같은 결과다.
+function domEl(tag,cls,text){
+  const e=document.createElement(tag);
+  e.className=cls;
+  if(text!==undefined) e.textContent=text;
+  return e;
+}
+
+// FR-FEB-1: SVG 원소 하나. 속성 값은 글자로 적힌다(runSvg·meshSvg 를 모은 것).
+function svgEl(tag,attrs){
+  const e=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  if(attrs) for(const k of Object.keys(attrs)) e.setAttribute(k,String(attrs[k]));
+  return e;
 }
 
 // FR-OPT-11-5 (FEC-28): 오류 문구는 앞말 + ' — ' + 사유다. 사유가 Error 면 그 message 다.

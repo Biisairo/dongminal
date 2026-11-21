@@ -362,7 +362,7 @@ Object.assign(Renderer.prototype, {
    */
   /** CHAT_WINDOW_SRS FR-CW-4: 칸 없는 채팅 창의 안내. 그릴 때마다 같은 원소를 쓴다. */
   _rChatEmpty(){
-    if(!this._chatEmptyEl) this._chatEmptyEl=chatEl('div','ui-empty ui-empty-center chat-window-empty');
+    if(!this._chatEmptyEl) this._chatEmptyEl=domEl('div','ui-empty ui-empty-center chat-window-empty');
     this._chatEmptyEl.textContent=t('chat.window_empty');
     return this._chatEmptyEl;
   },

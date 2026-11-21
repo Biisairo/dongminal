@@ -5,7 +5,7 @@
  * 패널이 열린 동안에는 등록부(`state-registry.js` 의 `claude.accounts`)가 주기로 다시 받는다.
  * 사용률의 등급과 남은 시간은 서버가 셈한 값만 쓴다 (D-ASV-10).
  *
- * 로드 순서 계약: `app.js` 뒤, `app-activity.js` 뒤 (`limitBarView`·`actEl` 을 부른다).
+ * 로드 순서 계약: `app.js` 뒤, `app-activity.js` 뒤 (`limitBarView` 를 부른다).
  */
 
 /** FR-CAC-98: 서버가 주는 색 키. 밖의 값은 첫 색으로 그린다. */
@@ -395,12 +395,12 @@ Object.assign(App.prototype, {
     const rows=claudeAcctHistoryRows(r.data&&r.data.entries,this._claudeAccts);
     const body=document.createElement('div');
     body.className='cacct-hist ui-scroll-sm';
-    if(!rows.length) actEl(body,'p','cacct-hist-empty',t('cacct.hist.empty'));
+    if(!rows.length) body.appendChild(domEl('p','cacct-hist-empty',t('cacct.hist.empty')));
     for(const x of rows){
-      const row=actEl(body,'div','cacct-hist-row');
-      actEl(row,'span','cacct-hist-time',x.time);
-      actEl(row,'span','cacct-hist-move',x.from+' → '+x.to);
-      actEl(row,'span','cacct-hist-meta',x.trigger+' · '+x.by);
+      const row=body.appendChild(domEl('div','cacct-hist-row'));
+      row.appendChild(domEl('span','cacct-hist-time',x.time));
+      row.appendChild(domEl('span','cacct-hist-move',x.from+' → '+x.to));
+      row.appendChild(domEl('span','cacct-hist-meta',x.trigger+' · '+x.by));
     }
     const m=UIKit.modal({title:t('cacct.hist.title'),cls:'cacct-history',width:'min(520px,92vw)',body,actions:[{label:t('core.close')}]});
     document.body.appendChild(m.el);
@@ -427,18 +427,18 @@ Object.assign(App.prototype, {
     const box=document.createElement('div');
     box.className='cacct'+(v.active?' active':'')+(v.wide?' wide':'')+(v.pop?' pop':'');
     box.dataset.id=v.id;
-    const bar=actEl(box,'div','cacct-bar');
+    const bar=box.appendChild(domEl('div','cacct-bar'));
     bar.style.background='var(--'+v.color+')';
     bar.addEventListener('click',e=>{e.stopPropagation();this._claudeAcctFoldToggle(v.id)});
     box.addEventListener('click',()=>this._claudeAcctPopToggle(v.id));
-    const head=actEl(box,'div','cacct-head');
+    const head=box.appendChild(domEl('div','cacct-head'));
     head.title=v.title;
-    const who=actEl(head,'span','cacct-who');
-    actEl(who,'span','cacct-dot').style.background='var(--'+v.color+')';
-    actEl(who,'span','cacct-name',v.name);
-    if(v.active) actEl(who,'span','cacct-active',t('cacct.active'));
-    if(v.status) actEl(who,'span','cacct-st',v.status).title=v.status;
-    if(v.age) actEl(who,'span','cacct-age',v.age);
+    const who=head.appendChild(domEl('span','cacct-who'));
+    who.appendChild(domEl('span','cacct-dot')).style.background='var(--'+v.color+')';
+    who.appendChild(domEl('span','cacct-name',v.name));
+    if(v.active) who.appendChild(domEl('span','cacct-active',t('cacct.active')));
+    if(v.status) who.appendChild(domEl('span','cacct-st',v.status)).title=v.status;
+    if(v.age) who.appendChild(domEl('span','cacct-age',v.age));
     if(!v.wide) this._actCellsEl(head,v.mini);
     if(v.wide) for(const b of v.bars) this._actUsageWinEl(box,b);
     const m=v.more;
@@ -448,37 +448,37 @@ Object.assign(App.prototype, {
     more.style.visibility='hidden';
     more.addEventListener('click',e=>e.stopPropagation());
     TIMERS.frame(()=>this._claudeAcctPopPlaceEl(box,more),{owner:this,label:'cacct-pop'});
-    const ph=actEl(more,'div','cacct-pop-head');
-    const top=actEl(ph,'div','cacct-pop-top');
-    actEl(top,'span','cacct-dot').style.background='var(--'+v.color+')';
-    actEl(top,'span','cacct-pop-name',v.name);
-    if(v.active) actEl(top,'span','cacct-active',t('cacct.active'));
-    if(v.title&&v.title!==v.name) actEl(ph,'div','cacct-pop-title',v.title);
-    if(m.status) actEl(ph,'div','cacct-pop-st',m.status);
-    const usage=actEl(more,'div','cacct-pop-sec');
+    const ph=more.appendChild(domEl('div','cacct-pop-head'));
+    const top=ph.appendChild(domEl('div','cacct-pop-top'));
+    top.appendChild(domEl('span','cacct-dot')).style.background='var(--'+v.color+')';
+    top.appendChild(domEl('span','cacct-pop-name',v.name));
+    if(v.active) top.appendChild(domEl('span','cacct-active',t('cacct.active')));
+    if(v.title&&v.title!==v.name) ph.appendChild(domEl('div','cacct-pop-title',v.title));
+    if(m.status) ph.appendChild(domEl('div','cacct-pop-st',m.status));
+    const usage=more.appendChild(domEl('div','cacct-pop-sec'));
     for(const b of v.bars) this._actUsageWinEl(usage,b);
     for(const b of m.scoped) this._actUsageWinEl(usage,b);
-    if(m.pace) actEl(usage,'div','cacct-pace'+(m.pace.warn?' warn':''),m.pace.text);
+    if(m.pace) usage.appendChild(domEl('div','cacct-pace'+(m.pace.warn?' warn':''),m.pace.text));
     if(m.spend||m.login){
-      const info=actEl(more,'div','cacct-pop-sec');
-      if(m.spend) actEl(info,'div','cacct-spend',m.spend);
-      if(m.login) actEl(info,'div','cacct-login'+(m.login.warn?' warn':''),m.login.text);
+      const info=more.appendChild(domEl('div','cacct-pop-sec'));
+      if(m.spend) info.appendChild(domEl('div','cacct-spend',m.spend));
+      if(m.login) info.appendChild(domEl('div','cacct-login'+(m.login.warn?' warn':''),m.login.text));
     }
     if(m.resets.length||m.resetsUnknown){
-      const sec=actEl(more,'div','cacct-pop-sec cacct-resets');
-      const rh=actEl(sec,'div','cacct-resets-h',t('cacct.rs.title'));
-      if(m.resetsAge) actEl(rh,'span','cacct-resets-age',m.resetsAge);
-      if(m.resetsUnknown) actEl(sec,'div','cacct-resets-unknown',t('cacct.rs.unknown'));
+      const sec=more.appendChild(domEl('div','cacct-pop-sec cacct-resets'));
+      const rh=sec.appendChild(domEl('div','cacct-resets-h',t('cacct.rs.title')));
+      if(m.resetsAge) rh.appendChild(domEl('span','cacct-resets-age',m.resetsAge));
+      if(m.resetsUnknown) sec.appendChild(domEl('div','cacct-resets-unknown',t('cacct.rs.unknown')));
       for(const it of m.resets){
-        const row=actEl(sec,'div','cacct-rs');
-        const txt=actEl(row,'div','cacct-rs-txt');
-        actEl(txt,'span','cacct-rs-name',it.name);
-        if(it.detail) actEl(txt,'span','cacct-rs-detail',it.detail);
+        const row=sec.appendChild(domEl('div','cacct-rs'));
+        const txt=row.appendChild(domEl('div','cacct-rs-txt'));
+        txt.appendChild(domEl('span','cacct-rs-name',it.name));
+        if(it.detail) txt.appendChild(domEl('span','cacct-rs-detail',it.detail));
         if(it.usable) row.appendChild(UIKit.button({label:t('cacct.rs.use'),size:'sm',cls:'cacct-rs-use',
           onClick:e=>{e.stopPropagation();this._claudeAcctResetAsk(v,it)}}));
       }
     }
-    const acts=actEl(more,'div','cacct-acts');
+    const acts=more.appendChild(domEl('div','cacct-acts'));
     acts.appendChild(UIKit.button({label:t('cacct.refresh'),kind:'ghost',size:'sm',cls:'cacct-refresh',
       onClick:e=>{e.stopPropagation();this._claudeAcctRefresh(v.id)}}));
     if(m.canSwitch) acts.appendChild(UIKit.button({label:t('cacct.switch'),kind:'primary',size:'sm',cls:'cacct-switch',

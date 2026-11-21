@@ -18,14 +18,6 @@ const CHAT_DOWN_KEYS=Object.freeze({
 /** 노드 지문은 화면에 앞 16자리를 보인다 (`app-edges.js` 의 EDGE_FP_SHOWN 과 같다). */
 const CHAT_FP_SHOWN=16;
 
-/** 칸 하나짜리 원소. */
-function chatEl(tag,cls,text){
-  const e=document.createElement(tag);
-  e.className=cls;
-  if(text!==undefined) e.textContent=text;
-  return e;
-}
-
 Object.assign(App.prototype, {
   _chatS(){
     if(!this._chatStore) this._chatStore=new ChatStore();
@@ -72,15 +64,15 @@ Object.assign(App.prototype, {
   _chatItems(){
     const c=this._chat;
     if(!c) return [];
-    if(c.down) return [{t:'row',sec:'chats',id:'down',el:chatEl('div','ui-empty chat-down',t(CHAT_DOWN_KEYS[c.down]||'chat.unavailable'))}];
+    if(c.down) return [{t:'row',sec:'chats',id:'down',el:domEl('div','ui-empty chat-down',t(CHAT_DOWN_KEYS[c.down]||'chat.unavailable'))}];
     const me=this._chatMe(),meId=me&&me.id;
     const out=[{t:'row',sec:'chats',id:'act',el:this._chatActEl()},
-      {t:'row',sec:'chats',id:'h-rooms',el:chatEl('div','chat-sub-h',t('chat.rooms'))}];
+      {t:'row',sec:'chats',id:'h-rooms',el:domEl('div','chat-sub-h',t('chat.rooms'))}];
     const rooms=this._chatRooms().slice().sort((a,b)=>(b.joined?1:0)-(a.joined?1:0)||chatRoomTitle(a,meId).localeCompare(chatRoomTitle(b,meId)));
     this._chatRoomOrder=rooms.map(r=>r.id);
-    if(!rooms.length) out.push({t:'row',sec:'chats',id:'no-rooms',el:chatEl('div','ui-empty chat-none',t('chat.no_rooms'))});
+    if(!rooms.length) out.push({t:'row',sec:'chats',id:'no-rooms',el:domEl('div','ui-empty chat-none',t('chat.no_rooms'))});
     for(const r of rooms) out.push({t:'row',sec:'chats',id:'room:'+r.id,el:this._chatRoomRowEl(r,meId)});
-    out.push({t:'row',sec:'chats',id:'h-online',el:chatEl('div','chat-sub-h',t('chat.online'))});
+    out.push({t:'row',sec:'chats',id:'h-online',el:domEl('div','chat-sub-h',t('chat.online'))});
     const on=c.online||{};
     for(const n of on.nodes||[]){
       out.push({t:'row',sec:'chats',id:'node:'+n.fp,el:this._chatNodeEl(n)});
@@ -92,7 +84,7 @@ Object.assign(App.prototype, {
   },
 
   _chatActEl(){
-    const d=chatEl('div','chat-act');
+    const d=domEl('div','chat-act');
     d.appendChild(UIKit.button({icon:'plus',label:t('chat.new_group'),kind:'ghost',size:'sm',cls:'chat-new',
       title:'Create a group chat',onClick:e=>{e.stopPropagation();this._chatCreateAsk()}}));
     return d;
@@ -100,15 +92,15 @@ Object.assign(App.prototype, {
 
   _chatRoomRowEl(r,meId){
     const sel=this._chatRoomsSel&&this._chatRoomsSel.sel.has(r.id);
-    const row=chatEl('div','chat-row chat-room'+(r.joined?' joined':'')+(sel?' sel':''));
+    const row=domEl('div','chat-row chat-room'+(r.joined?' joined':'')+(sel?' sel':''));
     row.dataset.room=r.id;
     const title=chatRoomTitle(r,meId);
     row.title=title;
     row.appendChild(UIKit.icon(r.kind==='direct'?'message-square':'list',{cls:'chat-row-icon'}));
-    row.appendChild(chatEl('span','chat-row-name',title));
-    row.appendChild(chatEl('span','chat-row-sub',t('chat.members',{n:r.members})));
+    row.appendChild(domEl('span','chat-row-name',title));
+    row.appendChild(domEl('span','chat-row-sub',t('chat.members',{n:r.members})));
     const n=this._chatS().unread(r.id);
-    if(n) row.appendChild(chatEl('span','chat-row-n ui-badge',String(n)));
+    if(n) row.appendChild(domEl('span','chat-row-n ui-badge',String(n)));
     // CHAT_WINDOW_SRS FR-CW-23 (D-22): 들어간 방의 행에는 `⋯` 가 선다 — 나가기가 여기서도 된다.
     if(r.joined) row.appendChild(UIKit.button({icon:'more-horizontal',kind:'ghost',size:'sm',cls:'chat-row-more',
       title:'More actions for this room',onClick:e=>{e.stopPropagation();const b=e.currentTarget.getBoundingClientRect();this._chatRoomMenu(r.id,{x:b.left,y:b.bottom})}}));
@@ -118,19 +110,19 @@ Object.assign(App.prototype, {
   },
 
   _chatNodeEl(n){
-    const d=chatEl('div','chat-node'+(n.online?'':' off'));
-    d.appendChild(chatEl('span','chat-node-name',n.name||'?'));
-    d.appendChild(chatEl('span','chat-node-fp',String(n.fp||'').slice(0,CHAT_FP_SHOWN)));
+    const d=domEl('div','chat-node'+(n.online?'':' off'));
+    d.appendChild(domEl('span','chat-node-name',n.name||'?'));
+    d.appendChild(domEl('span','chat-node-fp',String(n.fp||'').slice(0,CHAT_FP_SHOWN)));
     d.title=n.online?'Online':'Disconnected';
     return d;
   },
 
   /** FR-PCH-84: 참가자를 누르면 메뉴에서 개인채팅을 연다. 나에게는 걸 수 없다. */
   _chatPersonEl(p,meId){
-    const row=chatEl('div','chat-row chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':''));
+    const row=domEl('div','chat-row chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':''));
     row.title=p.label+' · '+chatShortId(p.id);
-    row.appendChild(chatEl('span','chat-row-name',p.label));
-    row.appendChild(chatEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)+(p.id===meId?' · '+t('chat.me'):'')));
+    row.appendChild(domEl('span','chat-row-name',p.label));
+    row.appendChild(domEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)+(p.id===meId?' · '+t('chat.me'):'')));
     if(p.id!==meId&&p.online) row.addEventListener('click',e=>this._chatPersonMenu(p,{x:e.clientX,y:e.clientY}));
     return row;
   },
@@ -179,10 +171,10 @@ Object.assign(App.prototype, {
   // `_chatOpenTab` 은 app-chat-window.js 다 — 탭은 채팅 창에만 선다 (CHAT_WINDOW_SRS FR-CW-12).
 
   async _chatCreateAsk(){
-    const body=chatEl('div','chat-create');
-    const title=chatEl('div','chat-create-title',t('chat.new_group'));
-    const name=chatEl('input','sbx-input chat-create-name');
-    const purpose=chatEl('input','sbx-input chat-create-purpose');
+    const body=domEl('div','chat-create');
+    const title=domEl('div','chat-create-title',t('chat.new_group'));
+    const name=domEl('input','sbx-input chat-create-name');
+    const purpose=domEl('input','sbx-input chat-create-purpose');
     body.append(title,UIKit.field({label:t('chat.name'),control:name}),UIKit.field({label:t('chat.purpose'),control:purpose}));
     const ok=await UIKit.ask({body,labelledBy:title,label:t('chat.new_group'),focus:name,escValue:false,actions:[
       {label:t('chat.create'),kind:'primary',cls:'confirm-ok',tip:TIP_CHAT_CREATE,value:true,default:true},

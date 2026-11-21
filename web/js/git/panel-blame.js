@@ -110,9 +110,8 @@ Object.assign(GitPanel.prototype, {
     el.dataset.line=String(ln.line);
     el.dataset.oid=ln.oid;
     const mk=(cls,text,title)=>{
-      const s=document.createElement('span'); s.className=cls; s.textContent=text;
+      const s=el.appendChild(domEl('span',cls,text));
       if(title) s.title=title;
-      el.appendChild(s);
     };
     // 미커밋 줄은 커밋 자리를 비운다 — 해시를 그리면 사용자는 없는 커밋을 열려고 한다.
     mk('git-blame-oid',c.uncommitted?'\u2013':ln.oid.slice(0,7),

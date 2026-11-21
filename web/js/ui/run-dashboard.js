@@ -1,8 +1,8 @@
 /**
  * Run 대시보드 — 요약·그래프(노드·호)·카드·타임라인과 표기 (FR-RVZ-10~13).
  * `runs-panel.js` 의 증강 분할이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-4 · FEU-23) — 목록·확인·탭은
- * 그쪽에 남고, 계약은 `RunsPanel` 한 클래스에 남는다. 치수 상수(`RUN_*`)와 `runSvg`·`runDiv` 는
- * `runs-panel.js` 가 갖는다.
+ * 그쪽에 남고, 계약은 `RunsPanel` 한 클래스에 남는다. 치수 상수(`RUN_*`)는 `runs-panel.js` 가, 원소를 만드는
+ * `domEl`·`svgEl` 은 `core/helpers.js` 가 갖는다.
  */
 Object.assign(RunsPanel.prototype, {
   // ── 대시보드 (FR-RVZ-10~13) ──
@@ -69,7 +69,7 @@ Object.assign(RunsPanel.prototype, {
     ].filter(p => p[1]);
     paintIfChanged(el, parts.map(p => p[1]).join('|'), () => {
       el.innerHTML = '';
-      for (const [cls, text] of parts) el.appendChild(runDiv('run-sum-' + cls, text));
+      for (const [cls, text] of parts) el.appendChild(domEl('div', 'run-sum-' + cls, text));
     });
   },
 
@@ -135,12 +135,12 @@ Object.assign(RunsPanel.prototype, {
     const sfx = 'r' + (++this._runDefsSeq);
     svg.dataset.mk = sfx;
     for (const kind of ['msg', 'recent', 'succ']) {
-      const mk = runSvg('marker', {
+      const mk = svgEl('marker', {
         id: 'rm-' + sfx + '-' + kind, class: 'run-mk run-mk-' + kind,
         viewBox: '0 0 8 8', refX: '7', refY: '4',
         markerWidth: '6', markerHeight: '6', orient: 'auto',
       });
-      mk.appendChild(runSvg('path', { d: 'M0,0 L8,4 L0,8 z' }));
+      mk.appendChild(svgEl('path', { d: 'M0,0 L8,4 L0,8 z' }));
       defs.appendChild(mk);
     }
   },
@@ -200,7 +200,7 @@ Object.assign(RunsPanel.prototype, {
       d = `M${x1},${RUN_ROW_Y + RUN_NODE_H} Q${(x1 + x2) / 2},${dip} ${x2},${RUN_ROW_Y + RUN_NODE_H}`;
       mk = it.recent ? 'recent' : 'msg';
     }
-    const p = runSvg('path', { class: cls.join(' '), d, 'marker-end': `url(#rm-${sfx}-${mk})` });
+    const p = svgEl('path', { class: cls.join(' '), d, 'marker-end': `url(#rm-${sfx}-${mk})` });
     if (it.kind !== 'succ') {
       // 굵기 = 건수의 로그 스케일. 선형이면 한 쌍이 나머지를 전부 눌러 버린다.
       // 상한은 승계 화살표(CSS 5)보다 낮게 둔다 — 겹치면 "굵은 화살표"가
@@ -208,7 +208,7 @@ Object.assign(RunsPanel.prototype, {
       p.setAttribute('stroke-width', String(Math.min(4, 1 + 0.6 * Math.log2(1 + it.count))));
       // count 는 **보관된 메시지** 기준이다 — Run 당 최근 500건 상한(FR-RVZ-14)에
       // 걸려 잘려 나간 건은 빠진다. "총 통신 횟수" 로 읽히면 안 된다.
-      const title = runSvg('title');
+      const title = svgEl('title');
       title.textContent = tn('runs.archived_msgs', it.count);
       p.appendChild(title);
     }
@@ -247,21 +247,21 @@ Object.assign(RunsPanel.prototype, {
     // V-RVZ-5: 헤드리스는 점선 테두리다. 상태가 succeeded 일 때도 점선이지만
     // 클래스가 다르므로 둘을 섞어 세지 않는다.
     if (m.headless) cls.push('headless');
-    const g = runSvg('g', { class: cls.join(' ') });
+    const g = svgEl('g', { class: cls.join(' ') });
     g.dataset.node = m.id;
 
-    const title = runSvg('title');
+    const title = svgEl('title');
     title.textContent = m.coord ? t('runs.coordinator')
       : [m.role, m.agent, m.state, m.headless ? t('runs.headless') : ''].filter(Boolean).join(' · ');
     g.appendChild(title);
 
-    g.appendChild(runSvg('rect', {
+    g.appendChild(svgEl('rect', {
       class: 'run-node-box', x, y, width: RUN_NODE_W, height: RUN_NODE_H, rx: 5,
     }));
-    const role = runSvg('text', { class: 'run-node-role', x: cx, y: y + 21, 'text-anchor': 'middle' });
+    const role = svgEl('text', { class: 'run-node-role', x: cx, y: y + 21, 'text-anchor': 'middle' });
     role.textContent = m.role || (m.coord ? t('runs.coordinator') : t('runs.no_role_paren'));
     g.appendChild(role);
-    const sub = runSvg('text', { class: 'run-node-sub', x: cx, y: y + 36, 'text-anchor': 'middle' });
+    const sub = svgEl('text', { class: 'run-node-sub', x: cx, y: y + 36, 'text-anchor': 'middle' });
     sub.textContent = m.coord ? '' : [m.agent, m.state].filter(Boolean).join(' · ');
     g.appendChild(sub);
 
@@ -275,16 +275,16 @@ Object.assign(RunsPanel.prototype, {
      */
     if (m.contextLevel) {
       const gw = RUN_NODE_W - 16;
-      g.appendChild(runSvg('rect', {
+      g.appendChild(svgEl('rect', {
         class: 'run-gauge-bg', x: x + 8, y: y + RUN_NODE_H - 9, width: gw, height: 4, rx: 2,
       }));
-      g.appendChild(runSvg('rect', {
+      g.appendChild(svgEl('rect', {
         class: 'run-gauge lv-' + m.contextLevel, x: x + 8, y: y + RUN_NODE_H - 9,
         width: Math.max(2, Math.round(gw * Math.min(1, m.contextRatio || 0))), height: 4, rx: 2,
       }));
       // FR-RCX-4: 게이지 옆에 **숫자**도 적는다. 4px 막대만으로는 "얼마나" 를
       // 읽을 수 없다 — 접수한 말("run 의 context 표기")이 그것이다.
-      const pct = runSvg('text', {
+      const pct = svgEl('text', {
         class: 'run-node-ctx lv-' + m.contextLevel, x: cx, y: y + RUN_NODE_H - 13,
         'text-anchor': 'middle',
       });
@@ -312,16 +312,16 @@ Object.assign(RunsPanel.prototype, {
   },
 
   _runCardEl(m, runId) {
-    const card = runDiv('run-card state-' + (m.state || 'starting'));
+    const card = domEl('div', 'run-card state-' + (m.state || 'starting'));
     card.dataset.member = m.id;
     // RUN_INACTIVE_NODE_SRS FR-RIN-11: 잃은 멤버는 눈에 띄게 남기되 누를 수 없고 맥락을 싣지 않는다.
     const lost = runNodeKind(m.state) === 'lost';
     if (lost) card.classList.add('inactive', 'lost');
     if (m.headless) card.classList.add('headless');
     if (m.coord) card.classList.add('coord');
-    card.appendChild(runDiv('run-card-role', '[' + (m.coord ? t('runs.coordinator') : (m.role || t('runs.no_role'))) + ']'));
-    if (m.agent) card.appendChild(runDiv('run-card-agent', m.agent));
-    card.appendChild(runDiv('run-card-state', m.state || ''));
+    card.appendChild(domEl('div', 'run-card-role', '[' + (m.coord ? t('runs.coordinator') : (m.role || t('runs.no_role'))) + ']'));
+    if (m.agent) card.appendChild(domEl('div', 'run-card-agent', m.agent));
+    card.appendChild(domEl('div', 'run-card-state', m.state || ''));
     if (m.contextLevel && !lost) {
       const pct = Math.round((m.contextRatio || 0) * 100);
       /**
@@ -339,13 +339,13 @@ Object.assign(RunsPanel.prototype, {
       const text = measured
         ? `${this._runTokens(m.contextTokens)} / ${this._runTokens(m.contextLimit)} · ${pct}%`
         : `ctx ~${pct}%`;
-      const ctx = runDiv('run-card-ctx lv-' + m.contextLevel, text);
+      const ctx = domEl('div', 'run-card-ctx lv-' + m.contextLevel, text);
       if (m.contextLevel !== 'ok') ctx.append(' ', UIKit.icon('triangle-alert', { size: 'sm' }));   // UX_AUDIT_FIX_SRS FR-UXF-100: 이전 글자 `⚠`
       card.appendChild(ctx);
     }
-    if (m.compactCount) card.appendChild(runDiv('run-card-compact', tn('runs.compact_count', m.compactCount)));
-    if (m.worktree && m.worktree.branch) card.appendChild(runDiv('run-card-wt', 'wt: ' + m.worktree.branch));
-    if (m.headless) card.appendChild(runDiv('run-card-headless', t('runs.headless_paren')));
+    if (m.compactCount) card.appendChild(domEl('div', 'run-card-compact', tn('runs.compact_count', m.compactCount)));
+    if (m.worktree && m.worktree.branch) card.appendChild(domEl('div', 'run-card-wt', 'wt: ' + m.worktree.branch));
+    if (m.headless) card.appendChild(domEl('div', 'run-card-headless', t('runs.headless_paren')));
     if (lost) {
       card.title = t('runs.card_lost_title');
     } else {
@@ -371,7 +371,7 @@ Object.assign(RunsPanel.prototype, {
     // 자리이고, 사유가 그 뒤에 붙으면 카드마다 끝이 흔들린다 (FR-BGK-10 과
     // 같은 자리, `runs-err-inline` 이 삭제 목표 앞에 서는 것과 같은 규약).
     if (this._runDetachErr === m.id && this._runDetachMsg) {
-      card.appendChild(runDiv('run-card-err', this._runDetachMsg));
+      card.appendChild(domEl('div', 'run-card-err', this._runDetachMsg));
     }
     // R-g: 뗄 수 있는지는 서버의 답이다. 이전에는 화면이 `m.tabId` 로 골랐다.
     if (actionOk(m, RUN_ACTION_DETACH)) card.appendChild(this._runDetachBtn(m));
@@ -461,10 +461,10 @@ Object.assign(RunsPanel.prototype, {
       key: it => (it.at || 0) + ':' + (it.kind || '') + ':' + (it.memberId || ''),
       sig: it => (it.kind || '') + ':' + (it.text || ''),
       build: it => {
-        const row = runDiv('run-tl-row');
-        row.appendChild(runDiv('run-tl-at', this._runClock(it.at)));
-        row.appendChild(runDiv('run-tl-kind k-' + (it.kind || ''), it.kind || ''));
-        row.appendChild(runDiv('run-tl-text', it.text || ''));
+        const row = domEl('div', 'run-tl-row');
+        row.appendChild(domEl('div', 'run-tl-at', this._runClock(it.at)));
+        row.appendChild(domEl('div', 'run-tl-kind k-' + (it.kind || ''), it.kind || ''));
+        row.appendChild(domEl('div', 'run-tl-text', it.text || ''));
         return row;
       },
     });
