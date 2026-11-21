@@ -306,30 +306,12 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) || !s.toolIOReady(w) {
 		return
 	}
-	var body struct {
-		RunID string `json:"runId"`
-		Role  string `json:"role"`
-		Agent string `json:"agent"`
-		Brief string `json:"brief"`
-		ID    string `json:"id"`
-		// Headless 는 --at 의 배타적 대안이다 (FR-HLM-1). 참이면 서버가 Tool 을
-		// 새로 만든다 — 지목할 탭이 없기 때문이다.
-		Headless bool `json:"headless"`
-		// Cwd 는 조정자의 작업 디렉터리다. 헤드리스 멤버의 cwd 는 **서버가
-		// 확정한다** (FR-HLM-2) — 격리 Run 이면 멤버의 worktree, 아니면 이 값이다.
-		// 헤드리스 멤버에게는 cd 를 대신 쳐 줄 사람이 없다.
-		Cwd string `json:"cwd"`
-		// Assign 은 트리 Run 멤버의 배정이다 (ISSUE_TREE_OPS_SRS FR-ITA-1).
-		Assign *run.Assignment `json:"assign"`
-	}
+	var body memberAddReq
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	// FR-HLM-1: 정확히 하나여야 한다. 서버도 같은 검사를 하는 이유는 dmctl 만이
-	// 이 종단의 호출자가 아니기 때문이다.
-	if body.Headless == (body.ID != "") {
-		writeRunError(w, fmt.Errorf(
-			"%w: --at <탭 uuid> 와 --headless 중 정확히 하나가 필요하다", run.ErrInvalidArgument), nil)
+	if err := memberAddArgsError(body); err != nil {
+		writeRunError(w, err, nil)
 		return
 	}
 	toolID := ""
@@ -352,9 +334,9 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Headless {
-		cwd := body.Cwd
-		if mi.Worktree != nil && mi.Worktree.Path != "" {
-			cwd = mi.Worktree.Path
+		cwd, isolated := worktreePath(mi.Worktree)
+		if !isolated {
+			cwd = body.Cwd
 		}
 		if toolID, err = s.createHeadlessTool(cwd, ""); err != nil {
 			s.rollbackMember(r.Context(), mi)
@@ -362,17 +344,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	m, err := s.Runs.AddMember(body.RunID, run.MemberSpec{
-		ID:       mi.ID,
-		Role:     body.Role,
-		Agent:    body.Agent,
-		Brief:    body.Brief,
-		ToolID:   toolID,
-		TabID:    s.tabIDOfTool(toolID),
-		Worktree: mi.Worktree,
-		Headless: body.Headless,
-		Assign:   body.Assign,
-	})
+	m, err := s.Runs.AddMember(body.RunID, memberAddSpec(body, mi, toolID, s.tabIDOfTool(toolID)))
 	if err != nil {
 		s.rollbackMemberAdd(r.Context(), mi, body.Headless, toolID)
 		writeRunError(w, err, s.nodeTakenExtra(err))
@@ -385,6 +357,49 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		s.broadcastRunChanged(rec) // FR-RLV-2
 	}
 	writeJSON(w, view)
+}
+
+// memberAddReq 는 `POST /api/runs/members` 의 본문이다.
+type memberAddReq struct {
+	RunID string `json:"runId"`
+	Role  string `json:"role"`
+	Agent string `json:"agent"`
+	Brief string `json:"brief"`
+	ID    string `json:"id"`
+	// Headless 는 --at 의 배타적 대안이다 (FR-HLM-1). 참이면 서버가 Tool 을
+	// 새로 만든다 — 지목할 탭이 없기 때문이다.
+	Headless bool `json:"headless"`
+	// Cwd 는 조정자의 작업 디렉터리다. 헤드리스 멤버의 cwd 는 **서버가
+	// 확정한다** (FR-HLM-2) — 격리 Run 이면 멤버의 worktree, 아니면 이 값이다.
+	// 헤드리스 멤버에게는 cd 를 대신 쳐 줄 사람이 없다.
+	Cwd string `json:"cwd"`
+	// Assign 은 트리 Run 멤버의 배정이다 (ISSUE_TREE_OPS_SRS FR-ITA-1).
+	Assign *run.Assignment `json:"assign"`
+}
+
+// memberAddArgsError 는 --at 과 --headless 가 정확히 하나인지 본다 (FR-HLM-1). 서버도
+// 같은 검사를 하는 이유는 dmctl 만이 이 종단의 호출자가 아니기 때문이다.
+func memberAddArgsError(body memberAddReq) error {
+	if body.Headless == (body.ID != "") {
+		return fmt.Errorf(
+			"%w: --at <탭 uuid> 와 --headless 중 정확히 하나가 필요하다", run.ErrInvalidArgument)
+	}
+	return nil
+}
+
+// memberAddSpec 은 등록할 멤버의 명세다.
+func memberAddSpec(body memberAddReq, mi *memberIsolation, toolID, tabID string) run.MemberSpec {
+	return run.MemberSpec{
+		ID:       mi.ID,
+		Role:     body.Role,
+		Agent:    body.Agent,
+		Brief:    body.Brief,
+		ToolID:   toolID,
+		TabID:    tabID,
+		Worktree: mi.Worktree,
+		Headless: body.Headless,
+		Assign:   body.Assign,
+	}
 }
 
 // rollbackMemberAdd 는 등록에 실패한 멤버의 보상 삭제다 — 도구를 만들고 멤버 등록에

@@ -137,12 +137,6 @@ func (s *Server) apiRunsTree(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "ref required", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
-	type treeRun struct {
-		ID         string `json:"id"`
-		Short      string `json:"short"`
-		WindowID   string `json:"windowId,omitempty"`
-		TreeBranch bool   `json:"treeBranch,omitempty"`
-	}
 	var runs []treeRun
 	var nodes []treeNode
 	// successor 는 승계 사슬을 끝으로 잇는다 — 사슬은 한 노드다 (FR-ITC-2).
@@ -152,34 +146,68 @@ func (s *Server) apiRunsTree(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		runs = append(runs, treeRun{ID: rec.ID, Short: rec.Short, WindowID: rec.WindowID, TreeBranch: rec.TreeBranch})
-		raw := map[string]run.Member{}
-		// started 는 노드가 선 시각이다 — 승계자는 사슬 첫 멤버의 시각을 잇는다(전임자가
-		// 기록에서 앞에 있다). 그래야 승계가 형제 순서를 바꾸지 않는다.
-		started := map[string]int64{}
-		seq := map[string]int{}
-		for i, m := range rec.Members {
-			raw[m.ID] = m
-			started[m.ID], seq[m.ID] = m.CreatedAt, i
-			if at, ok := started[m.SucceededFrom]; ok {
-				started[m.ID], seq[m.ID] = at, seq[m.SucceededFrom]
-			}
-			if m.SucceededBy != "" {
-				successor[m.ID] = m.SucceededBy
-			}
-		}
-		for _, gm := range s.graphMembers(rec) {
-			m := raw[gm.ID]
-			if m.SucceededBy != "" {
-				continue
-			}
-			n := treeNode{graphMember: gm, RunID: rec.ID, EndedAt: m.ReportedAt, createdAt: started[m.ID], seq: seq[m.ID]}
-			n.Recoverable = rec.State == run.Open && s.recoverable(memberTarget(m))
-			if a := m.Assign; a != nil {
-				n.Issue, n.Title, n.parentID = a.Issue, a.Title, a.Parent
-			}
-			nodes = append(nodes, n)
+		nodes = append(nodes, s.treeNodesOf(rec, successor)...)
+	}
+	nodes = linkTree(nodes, successor)
+	if runs == nil {
+		runs = []treeRun{}
+	}
+	writeJSON(w, map[string]any{"tree": ref, "runs": runs, "nodes": nodes})
+}
+
+// treeRun 은 트리에 든 Run 하나의 요약이다.
+type treeRun struct {
+	ID         string `json:"id"`
+	Short      string `json:"short"`
+	WindowID   string `json:"windowId,omitempty"`
+	TreeBranch bool   `json:"treeBranch,omitempty"`
+}
+
+// treeNodesOf 는 Run 하나의 노드다 — 승계 사슬은 끝 멤버 하나로 선다. 사슬의 이음은
+// successor 에 더한다.
+func (s *Server) treeNodesOf(rec run.Record, successor map[string]string) []treeNode {
+	raw := map[string]run.Member{}
+	for _, m := range rec.Members {
+		raw[m.ID] = m
+		if m.SucceededBy != "" {
+			successor[m.ID] = m.SucceededBy
 		}
 	}
+	started, seq := treeChainOrder(rec.Members)
+	var nodes []treeNode
+	for _, gm := range s.graphMembers(rec) {
+		m := raw[gm.ID]
+		if m.SucceededBy != "" {
+			continue
+		}
+		n := treeNode{graphMember: gm, RunID: rec.ID, EndedAt: m.ReportedAt, createdAt: started[m.ID], seq: seq[m.ID]}
+		n.Recoverable = rec.State == run.Open && s.recoverable(memberTarget(m))
+		if a := m.Assign; a != nil {
+			n.Issue, n.Title, n.parentID = a.Issue, a.Title, a.Parent
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes
+}
+
+// treeChainOrder 는 멤버마다 노드가 선 시각과 기록 안의 자리다.
+//
+// started 는 노드가 선 시각이다 — 승계자는 사슬 첫 멤버의 시각을 잇는다(전임자가
+// 기록에서 앞에 있다). 그래야 승계가 형제 순서를 바꾸지 않는다.
+func treeChainOrder(members []run.Member) (started map[string]int64, seq map[string]int) {
+	started, seq = map[string]int64{}, map[string]int{}
+	for i, m := range members {
+		started[m.ID], seq[m.ID] = m.CreatedAt, i
+		if at, ok := started[m.SucceededFrom]; ok {
+			started[m.ID], seq[m.ID] = at, seq[m.SucceededFrom]
+		}
+	}
+	return started, seq
+}
+
+// linkTree 는 노드의 부모·잎을 정하고 깊이 우선으로 늘어놓는다. 배정 부모는 승계 사슬의
+// 끝으로 옮겨 잇고, 배정이 없으면 사슬 이름으로 부모를 고른다 (FR-ITC-1·FR-ITD-2·3).
+func linkTree(nodes []treeNode, successor map[string]string) []treeNode {
 	end := func(id string) string {
 		for seen := map[string]bool{}; successor[id] != "" && !seen[id]; id = successor[id] {
 			seen[id] = true
@@ -210,11 +238,7 @@ func (s *Server) apiRunsTree(w http.ResponseWriter, r *http.Request) {
 	for i := range nodes {
 		nodes[i].Leaf = !treeEnded(nodes[i].State) && !hasOpenChild[nodes[i].Role]
 	}
-	nodes = treeDepthFirst(nodes)
-	if runs == nil {
-		runs = []treeRun{}
-	}
-	writeJSON(w, map[string]any{"tree": ref, "runs": runs, "nodes": nodes})
+	return treeDepthFirst(nodes)
 }
 
 // treeDepthFirst 는 노드를 깊이 우선으로 늘어놓는다. 같은 부모의 자식은 등록 순서다
