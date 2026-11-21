@@ -1286,6 +1286,18 @@
 | `D-FED-4` | 설정 모달은 무엇을 다시 칠하고 읽을지 모른다. App 이 훅으로 준다 | `core/` 의 화면 부품이 App 내부 이름을 줄줄이 부르면 단계 9 에서 다시 끊어야 한다 | 채택 |
 | `D-FED-5` | 설정 모달의 Esc 는 버블로 남긴다 | 모바일 상세 화면의 Esc 는 문서 캡처에서 먼저 목록으로 물러서고 전파를 끊는다. 캡처로 옮기면 등록 순서상 설정 닫기가 먼저 돈다 | 채택 |
 
+## [`REFACTOR3_FE_GITVIEW_SRS`](./REFACTOR3_FE_GITVIEW_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-FEV-1` | **세대 가드 정책:** 겹은 둘이다. ① 저장소 교체는 `_syncRepo()` 한 자리에서 `_repo` 로 판정한다 ② 응답 짝은 `ticket`/`stale` 한 벌이다 — 패널 세대(저장소가 바뀌었는가)는 언제나 보고, 같은 종류의 겹친 요청… | 세 종류는 사실 두 질문이었다: "저장소가 바뀌었는가"(패널 토큰)와 "내 뒤에 같은 요청이 또 나갔는가"(일련번호·`gitLoadTicket`). 일련번호와 `gitLoadTicket` 은 같은 질문의 두 구현이다. 채널을 모든 요청에 강제하지 않는… | 채택 |
+| `D-FEV-2` | `superseded` 와 `stale` 을 따로 둔다 | FR-GRF-24: 겹친 요청에 밀린 응답은 잠금을 건드리지 않고, 낡은 저장소의 응답은 잠금을 놓은 뒤 버린다. 하나로 합치면 이 순서를 지킬 수 없다 | 채택 |
+| `D-FEV-3` | `GitListTab` 은 `GitView` 를 상속하고 `ListView` 를 부품으로 든다 | `FE_OBJECT_MODEL.md` 는 §3 표에서 `GitListTab` 을 `ListView` 아래에, §6 단계 5 에서 `GitView` 아래에 두었다(문서 안의 어긋남). 공용 `gitLoadList` 가 세대 가드를 뷰에서 찾으므로 `Gi… | 채택 |
+| `D-FEV-4` | `GitRemote` 는 `GitView` 하위가 아니다. 설계 §3 의 `GitRemote` 자리에는 원격 목록 `GitRemoteList` 가 온다 | `GitRemote` 는 자기 루트가 없고(파일 머리 주석) 칸을 부를 때마다 받는다(`bind(el)`·`paint(el)`). 저장소가 바뀔 때도 `detachRepo()` 로 작업을 놓을 뿐 다시 받지 않는다. 탭 뷰의 수명이 아니다 | 채택 |
+| `D-FEV-5` | `GitConsole` 은 `_syncRepo()` 를 쓰지 않는다. 저장소가 바뀌면 지금처럼 패널(`_repoSwitchView`)이 `reset()` 을 부른다 | Console 은 `_repo` 를 들지 않고 받을 때마다 `panel.repo` 를 읽는다. `paint()` 에서 교체를 판정하게 바꾸면 비우는 시점이 "탭을 칠할 때" 로 늦어진다 | 채택 |
+| `D-FEV-6` | 수명 이름은 git 뷰의 `mount(el)`·`paint()`·`unmount()` 를 그대로 둔다. 설계의 `render()` 로 바꾸지 않는다 | 패널 셋(`panel-views.js`·`panel-life.js`)과 서술자 표가 이 이름을 부르고, `GitCommit.paint(st)` 는 인자를 받는다. 이름만 바꾸면 위임자가 생길 뿐 얻는 것이 없다. `GitView` 는 `View.mou… | 채택 |
+| `D-FEV-7` | `GitCommit._ask` 의 짝 판정에 패널 세대가 더해진다 | 지금은 일련번호와 `this._repo!==repo` 만 본다. `stale(t)` 는 패널 세대도 보므로 저장소가 바뀐 직후 칠하기 전에 온 답도 버린다. 더 엄격해질 뿐 보이는 차이는 없다(INV-V3) | 채택 |
+
 ## [`REFACTOR3_FE_LIST_SRS`](./REFACTOR3_FE_LIST_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -1919,4 +1931,4 @@
 
 ---
 
-결정 **1156건** · 문서 **148개**.
+결정 **1163건** · 문서 **149개**.
