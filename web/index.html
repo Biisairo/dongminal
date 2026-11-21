@@ -990,6 +990,8 @@
 <!-- 대화상자 기반과 킷 모달 (REFACTOR3_FE_DIALOG_SRS FR-FED-11). `View` 뒤 — `extends` 는 로드 시점에 부모를 읽는다. -->
 <script src="js/ui/dialog.js?v=__ASSETV__"></script>
 <script src="js/ui/kit-modal.js?v=__ASSETV__"></script>
+<!-- 목록 기반 (REFACTOR3_FE_LIST_SRS FR-FEL-6). repaint.js(reconcileList) 뒤, SidebarList·GitListTab 앞. -->
+<script src="js/ui/list-view.js?v=__ASSETV__"></script>
 <!-- 패널과 탭 줄 (REFACTOR3_FE_BASE_SRS FR-FEB-20~25). ui-kit.js 뒤 — `extends` 는 로드 시점에 부모를 읽으므로
      Panel·TabBar 가 하위보다 먼저다. 작업 패널 쪽 둘은 core/ 에 있지만 같은 계층이라 여기서 함께 싣는다. -->
 <script src="js/ui/panel.js?v=__ASSETV__"></script>
@@ -1108,7 +1110,7 @@
 <script src="js/git/console.js?v=__ASSETV__"></script>
 <!-- Worktrees·Submodules 탭의 공통 골격 (DRIFT_RECLAIM_SRS FR-DRC-7).
      두 탭보다 앞이어야 한다 — 둘 다 이 클래스를 상속한다. -->
-<script src="js/git/list-tab.js?v=__ASSETV__"></script>
+<script src="js/git/git-list-tab.js?v=__ASSETV__"></script>
 <script src="js/git/worktrees.js?v=__ASSETV__"></script>
 <script src="js/git/submodules.js?v=__ASSETV__"></script>
 <script src="js/git/remote.js?v=__ASSETV__"></script>

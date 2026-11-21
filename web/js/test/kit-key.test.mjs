@@ -202,9 +202,9 @@ test('TC-CMP-10b: 알림 열넷이 킷 클래스를 단다 (FR-CMP-52 · FR-CMP-
     for (const h of hits) if (!new RegExp(tok('ui-notice')).test(h)) bad.push(`.${n}: class="${h}"`);
   }
   // 접두사로 만드는 둘 — 목록 탭의 골격 한 자리가 둘을 다 만든다.
-  const lt = readFileSync('web/js/git/list-tab.js', 'utf8');
+  const lt = readFileSync('web/js/git/git-list-tab.js', 'utf8');
   const suffix = [...lt.matchAll(/'<div class="([^"']*)'\+p\+'-note">'/g)].map((m) => m[1]);
-  if (suffix.length !== 1) bad.push(`list-tab.js: p+'-note' 를 만드는 자리가 ${suffix.length}개다`);
+  if (suffix.length !== 1) bad.push(`git-list-tab.js: p+'-note' 를 만드는 자리가 ${suffix.length}개다`);
   else if (!new RegExp(tok('ui-notice')).test(suffix[0])) bad.push(`${NOTICE_PREFIXED.join('·')}: class="${suffix[0]}'+p+'-note"`);
   // 역으로 — `ui-notice` 는 알림 컨테이너에만 붙는다. 안의 버튼·글자에 붙으면
   // 킷의 여백·글자·색이 버튼 치수를 덮는다 (FEU-3).

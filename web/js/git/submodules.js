@@ -44,9 +44,9 @@ class GitSubmodules extends GitListTab {
   _paintHead(){
     // update 는 common 칸 잡이다 — 칸이 찼는지는 서버의 1층 답이다 (GR-1b).
     const upd=actionState(this.panel.actionOf(GIT_ACTION.submoduleUpdate),false).enabled;
-    for(const b of this._el.querySelectorAll('.git-sub-bulk'))
+    for(const b of this.el.querySelectorAll('.git-sub-bulk'))
       b.disabled=!this._list.length||this._busy||(b.dataset.act==='update'&&!upd);
-    const c=this._el.querySelector('.git-sub-cancel');
+    const c=this.el.querySelector('.git-sub-cancel');
     if(c){ c.hidden=!this._job; c.disabled=!!this._canceling; }
   }
 
@@ -59,11 +59,11 @@ class GitSubmodules extends GitListTab {
 
   _emptyText(){return GIT_SUB_EMPTY}
 
-  _sigParts(e){
+  sigParts(e){
     return [e.path,e.oid||'',e.state||'',e.describe||'',this._busy?1:0];
   }
 
-  _rowEl(e){
+  buildRow(e){
     const d=document.createElement('div');
     d.className='git-sub-row';
     d.dataset.path=e.path; d.dataset.state=e.state||'';
@@ -184,7 +184,7 @@ class GitSubmodules extends GitListTab {
    */
   async _run(url,body,okMsg,failMsg){
     this._busy=true;
-    if(this._el) this._paintList();
+    if(this.el) this._paintList();
     const res=await this.panel.post(url,body);
     this._busy=false;
     if(res.ok){
@@ -197,7 +197,7 @@ class GitSubmodules extends GitListTab {
     }
     const d=(res&&res.data)||{};
     this._note={kind:'fail',msg:failMsg};
-    if(this._el){this._paintNote();this._paintList()}
+    if(this.el){this._paintNote();this._paintList()}
     // 사유와 stderr tail 은 다이얼로그 안에서 보인다 (FR-GIT-96·175).
     return {ok:false,reason:this.panel.writeReason(res),stderrTail:d.message||''};
   }
@@ -215,20 +215,20 @@ class GitSubmodules extends GitListTab {
    */
   async _runJob(url,body,okMsg,failMsg){
     this._busy=true;
-    if(this._el) this._paintList();
+    if(this.el) this._paintList();
     const res=await gitPost(url,body);
     const job=res.ok&&res.data&&res.data.job;
     if(!job||!job.id){
       this._busy=false;
       const d=(res&&res.data)||{};
       this._note={kind:'fail',msg:failMsg};
-      if(this._el){this._paintNote();this._paintList()}
+      if(this.el){this._paintNote();this._paintList()}
       return {ok:false,reason:this.panel.writeReason({data:d}),stderrTail:d.message||''};
     }
     this._job=job; this._jobOk=okMsg; this._jobFail=failMsg;
     this._lines=0; this._seq=0; this._retries=0; this._canceling=false;
     this._note={kind:'run',msg:GIT_SUB_UPDATING};
-    if(this._el){this._paintNote();this._paintHead()}
+    if(this.el){this._paintNote();this._paintHead()}
     this._openStream();
     return {ok:true};
   }
@@ -251,7 +251,7 @@ class GitSubmodules extends GitListTab {
       this._lines++; this._retries=0;
       // 진행은 줄 수로 말한다 — 서브모듈 탭에 로그 상자는 없다. 원문은 Console 에 남는다.
       this._note={kind:'run',msg:GIT_SUB_UPDATING+' ('+this._lines+')'};
-      if(this._el) this._paintNote();
+      if(this.el) this._paintNote();
     });
     es.addEventListener('done',ev=>{
       if(this._stream!==es) return;
@@ -291,7 +291,7 @@ class GitSubmodules extends GitListTab {
     this._load();
     this.panel.signal('submodule');
     this.panel.collect();
-    if(this._el){this._paintNote();this._paintHead()}
+    if(this.el){this._paintNote();this._paintHead()}
   }
 
   async _cancel(){
@@ -303,11 +303,11 @@ class GitSubmodules extends GitListTab {
     });
     if(!ok||!this._job||this._job.id!==job.id) return;
     this._canceling=true;
-    if(this._el) this._paintHead();
+    if(this.el) this._paintHead();
     const r=await apiPost(GIT_API.jobCancel,{id:job.id});
     if(r.ok) return; // 끝은 스트림의 done 으로 온다
     this._canceling=false;
-    if(this._el) this._paintHead();
+    if(this.el) this._paintHead();
   }
 }
 

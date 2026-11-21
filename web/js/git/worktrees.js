@@ -30,7 +30,7 @@ class GitWorktrees extends GitListTab {
 
   // 만들기는 1층 답이다 (GR-1b) — status 가 바뀔 때마다 패널이 부른다.
   _paintHead(){
-    const add=this._el&&this._el.querySelector('.git-wt-add');
+    const add=this.el&&this.el.querySelector('.git-wt-add');
     if(!add) return;
     const s=actionState(this.panel.actionOf(GIT_ACTION.worktreeCreate),false);
     add.disabled=!s.enabled;
@@ -39,7 +39,7 @@ class GitWorktrees extends GitListTab {
 
   _emptyText(){return GIT_WT_EMPTY}
 
-  _sigParts(e){
+  sigParts(e){
     return [e.path,e.branch||'',e.detached?1:0,e.owner||'',e.main?1:0,
       this._canOpen(e)?1:0,this._isPinned(e.path)?1:0];
   }
@@ -59,13 +59,13 @@ class GitWorktrees extends GitListTab {
   /**
    * FR-GIT-249 (FR-RPT-8): 핀 목록이 **도착하는 자리**에서 불린다 — 판정을 그리기에
    * 업으면 상태 관측이 같은 회차에 버튼이 낡은 채로 남는다 (FR-GIT-227). 행의
-   * `_sig` 가 핀 여부를 읽으므로 바뀐 행만 다시 만들어진다.
+   * `sig` 가 핀 여부를 읽으므로 바뀐 행만 다시 만들어진다.
    */
   notifyPins(){
-    if(this._el&&this.panel.repo===this._repo) this._paintList();
+    if(this.el&&this.panel.repo===this._repo) this._paintList();
   }
 
-  _rowEl(e){
+  buildRow(e){
     const d=document.createElement('div');
     d.className='git-wt-row'+(e.main?' main':'');
     d.dataset.path=e.path; d.dataset.own=e.owner||'';
@@ -148,7 +148,7 @@ class GitWorktrees extends GitListTab {
                 :(await this.app.gitPin(e.path)).ok;
     this._note=ok?{kind:off?'unpinned':'pinned',msg:(off?GIT_WT_UNPINNED:GIT_WT_PINNED)+e.path}
                  :{kind:'fail',msg:off?GIT_WT_UNPIN_FAIL:GIT_WT_PIN_FAIL};
-    if(!this._el) return;
+    if(!this.el) return;
     this._paintNote();
     this._paintList();
   }

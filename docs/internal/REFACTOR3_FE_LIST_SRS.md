@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 P3a 단계 4 — 목록 기반 클래스 `ListView` — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: `ListView`·`SidebarList`·`GitListTab` 구현과 시험
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `docs/internal/refactor/FE_OBJECT_MODEL.md` §2 행 3·§6 단계 4)
 - 사용자 결정(2026-11-21, `FE_OBJECT_MODEL.md` §7): 자체 클래스 계층, 클래스 하나 = 파일 하나. 진행은 묻지 않고 끝까지 한다.
@@ -48,7 +47,7 @@
 | FR-FEL-1 | `ListView extends View`(`ui/list-view.js`): `key(item)` 의 기본은 `item.key`, `sigParts(item)` 의 기본은 `[key]`, `sig(item)` 는 `sigParts` 를 `RPT_SEP` 로 잇는다(하위는 `sig` 를 통째로 덮을 수 있다), `buildRow(item)` 은 행 요소를 만든다. `reconcile(box, items)` 는 이 셋으로 `reconcileList` 를 부르고 그 값을 돌려준다 |
 | FR-FEL-2 | `bindKeys(box, spec)` 는 상자마다 한 번만 `UIKit.roving` 을 걸고 해제를 인스턴스 수명에 쌓는다 |
 | FR-FEL-3 | `SidebarList extends ListView`: 생성자가 `(app, def)` 를 받는다. 지금 객체의 일 전부(그리기·빈 안내·편집 중 멈춤·포커스 되돌리기·서명·행 만들기·탭 받기·끌어 옮기기·확정·순회)를 인스턴스 메서드로 한다. 서명은 지금 `_sig` 의 바이트 그대로다 |
-| FR-FEL-4 | `SidebarList.of(app, def)` 는 `app` 과 `def.id` 별로 인스턴스 하나를 만들어 둔다. 정적 입구는 그 인스턴스에 맡긴다. `entries(app, d)` 와 `defByDragType(type)` 는 인스턴스가 필요 없어 정적으로 남는다 |
+| FR-FEL-4 | `SidebarList.of(app, def)` 는 `app` 과 `def.id` 별로 인스턴스 하나를 만들어 둔다(클래스의 `WeakMap` — App 에 필드를 얹지 않는다, FR-FMB-40). 정적 입구는 그 인스턴스에 맡긴다. `entries(app, d)` 와 `defByDragType(type)` 는 인스턴스가 필요 없어 정적으로 남는다 |
 | FR-FEL-5 | `GitListTab extends ListView`(`git/git-list-tab.js`): `mount(el)` 은 패널이 준 칸을 `adopt` 하고 지금처럼 골격을 채운다. `unmount()` 는 `el` 을 비운다. `_paintList` 는 `reconcile` 을 지난다 |
 | FR-FEL-6 | `index.html` 은 `ui/list-view.js` 를 `ui/kit-modal.js` 뒤(`ui/panel.js` 앞)에 싣는다. `git/git-list-tab.js` 는 지금 `list-tab.js` 자리에 싣는다. `harness.mjs` 의 `DIALOG` 뒤에 `LIST`(`ui/list-view.js`)를 둔다 |
 
@@ -78,4 +77,4 @@
 
 | 커밋 | 요점 |
 |---|---|
-| (구현 커밋) | |
+| (이 커밋) | `ui/list-view.js` `ListView` · `ui/sidebar-list.js` 클래스(서술자별 인스턴스, 정적 입구 다섯과 `entries`·`defByDragType`·`_listOf`) · `git/git-list-tab.js`(`mv`, `el`·`key`·`sigParts`·`buildRow`) · `worktrees.js`·`submodules.js` 훅 이름. **SRS 와 다른 점:** ① `dragClear(def)` 는 인스턴스가 필요 없어 정적으로 남겼다 ② 키 배선의 해제가 이제 인스턴스 수명에 쌓인다 — 사이드바 목록 인스턴스는 버려지지 않으므로 보이는 차이는 없다 ③ 공용 `gitLoadList`(`view-util.js`)가 루트를 `_el` 로만 읽어 받은 목록을 칠하지 않던 것을 e2e(worktrees·submodules 12건)가 잡았다 — `gitViewMounted` 가 `el`·`_el` 을 모두 본다(단계 5 가 하나로 모은다). e2e: 관련 18 spec 270건 중 `sidebar-actions` TC-SBA-1 하나만 실패 — HEAD 에서도 실패한다(원래부터 있던 실패) |

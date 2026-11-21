@@ -19,19 +19,19 @@
  *   _mountHead()  머리의 배선. mount 당 한 번
  *   _paintHead()  머리의 상태 반영 (비활성 등). paint 마다
  *   _emptyText()  목록이 비었을 때의 한 줄
- *   _key(e)·_sig(e)·_rowEl(e)   행의 정체·서명·마크업
+ *   key(e)·sigParts(e)·buildRow(e)   행의 정체·서명의 필드·마크업 (ListView, REFACTOR3_FE_LIST_SRS FR-FEL-5)
  *   _load()       목록 질의
  *
  * `prefix` 는 CSS 클래스의 접두사다 (`git-wt` · `git-sub`). 마크업과 스타일이
  * 그것 하나로 이어진다 — 골격이 클래스 이름을 만들므로 `-head`·`-note`·`-list`·
  * `-empty` 의 규칙이 탭마다 갈릴 수 없다.
  */
-class GitListTab {
+class GitListTab extends ListView {
   constructor(panel, prefix){
+    super();
     this.panel=panel;
     this.app=panel.app;
     this.prefix=prefix;
-    this._el=null;
     this._repo=undefined;
     this.reset();
   }
@@ -45,9 +45,10 @@ class GitListTab {
 
   // ── 골격 ──
 
+  // D-FEL-3: 패널이 준 칸이 곧 루트다 — 그 칸의 주인은 패널이므로 `adopt` 한다.
   mount(el){
     if(!el) return;
-    this._el=el;
+    this.adopt(el);
     const p=this.prefix;
     el.innerHTML=
       '<div class="'+p+'-head">'+this._headHTML()+
@@ -67,23 +68,23 @@ class GitListTab {
   }
 
   unmount(){
-    this._el=null;
+    this.el=null;
     this._repo=undefined;
   }
 
   // ── 칠하기 ──
 
   paint(){
-    if(!this._el) return;
+    if(!this.el) return;
     if(this.panel.repo!==this._repo) this._adopt();
-    if(!this._el) return;
+    if(!this.el) return;
     this._paintNote();
     this._paintList();
   }
 
   // FR-GIT-238: 새로고침이 부르는 공개 진입점. 목록만 다시 받는다.
   reload(){
-    if(!this._el||this.panel.repo!==this._repo) return;
+    if(!this.el||this.panel.repo!==this._repo) return;
     return this._load();
   }
 
@@ -95,7 +96,7 @@ class GitListTab {
   }
 
   _paintNote(){
-    gitPaintNote(this._el,this.prefix,this._note);
+    gitPaintNote(this.el,this.prefix,this._note);
   }
 
   /**
@@ -105,28 +106,13 @@ class GitListTab {
    */
   _paintList(){
     const p=this.prefix;
-    const box=this._el.querySelector('.'+p+'-list');
-    const empty=this._el.querySelector('.'+p+'-empty');
+    const box=this.el.querySelector('.'+p+'-list');
+    const empty=this.el.querySelector('.'+p+'-empty');
     const msg=this._err||(this._list.length?'':(this._loading?GIT_LOADING_HINT:this._emptyText()));
     empty.textContent=msg;
     empty.classList.toggle('vis',!!msg);
     this._paintHead();
-    reconcileList(box,this._err?[]:this._list,{
-      key:e=>this._key(e),
-      sig:e=>this._sig(e),
-      build:e=>this._rowEl(e),
-    });
-  }
-
-  /**
-   * 행의 서명. **구분자를 반드시 지난다** — 필드를 그냥 이어 붙이면 경계가 없어
-   * 서로 다른 행이 같은 서명을 낼 수 있고, 그 행은 바뀌어도 다시 그려지지 않는다.
-   * 하위는 `_sigParts` 만 정하고 이 규칙은 건드리지 않는다. 값에 나타나지 않는
-   * 제어문자를 쓰는 이유이며, 소스에는 이스케이프로 적는다 (보이지 않는 바이트를
-   * 소스에 두면 diff 와 검색이 그것을 놓친다).
-   */
-  _sig(e){
-    return this._sigParts(e).join(RPT_SEP);
+    this.reconcile(box,this._err?[]:this._list);
   }
 
   // ── 하위가 채우는 자리 ──
@@ -135,8 +121,6 @@ class GitListTab {
   _mountHead(_el){}
   _paintHead(){}
   _emptyText(){return ''}
-  _key(e){return e.path}
-  _sigParts(e){return [e.path]}
-  _rowEl(_e){return document.createElement('div')}
+  key(e){return e.path}
   _load(){}
 }

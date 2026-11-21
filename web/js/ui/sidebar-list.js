@@ -15,9 +15,33 @@
 // 서 있고, 그것을 갈아치우는 것은 이 SRS 의 일이 아니다. 공통 클래스(`.sbl-*`)를
 // **함께** 붙여 공통 스타일이 설 자리를 만든다 (FR-BLP-7).
 //
-// 로드 순서 계약: repaint.js(reconcileList) **뒤**, renderer.js **앞**.
+// 로드 순서 계약: repaint.js(reconcileList)·list-view.js(ListView) **뒤**, renderer.js **앞**.
 
-const SidebarList = {
+//
+// REFACTOR3_FE_LIST_SRS FR-FEL-3·4: 탭 서술자 하나에 인스턴스 하나다(`SidebarList.of`). 다른 파일이 부르는 정적 입구
+// (`paint`·`dragAt`·`dragClear`·`commit`·`cycle`)는 그 인스턴스에 맡긴다.
+class SidebarList extends ListView {
+  constructor(app, def) {
+    super();
+    this.app = app;
+    this.def = def;
+  }
+
+  /** `app` 과 `def.id` 마다 하나. App 이 부품을 직접 들게 되면(단계 9) 그쪽으로 옮긴다. */
+  static of(app, def) {
+    let m = SidebarList._byApp.get(app);
+    if (!m) { m = new Map(); SidebarList._byApp.set(app, m) }
+    let v = m.get(def.id);
+    if (!v || v.def !== def) { v = new SidebarList(app, def); m.set(def.id, v) }
+    return v;
+  }
+
+  static paint(app, def) { if (def && def.list) SidebarList.of(app, def).paint() }
+  static dragClear(def) { SidebarList._listOf(def).forEach(x => x.classList.remove('drag-above', 'drag-below', 'drag-out')) }
+  static dragAt(app, def, x, y) { SidebarList.of(app, def).dragAt(x, y) }
+  static commit(app, def, dr) { if (def && def.list) SidebarList.of(app, def).commit(dr) }
+  static cycle(app, def, step) { if (def && def.list) SidebarList.of(app, def).cycle(step) }
+
   /**
    * EDITOR_TAB_SRS FR-EDT-2·6·14: 목록의 항목 = `items(app)` **뒤에** `fixed(app)`.
    *
@@ -25,32 +49,31 @@ const SidebarList = {
    * 자리로 포함된다(FR-EDT-6) — 제외하면 키만으로는 그 항목에 갈 수 없다.
    * 그리기와 순회가 **같은 함수**를 지나야 둘이 어긋나지 않는다.
    */
-  entries(app, d) {
+  static entries(app, d) {
     const base = (d.items ? d.items(app) : null) || [];
     if (!d.fixed) return base;
     return base.concat(d.fixed(app) || []);
-  },
+  }
 
   /**
    * 탭 서술자 하나의 목록을 그린다. `def.list` 가 없으면 아무 일도 하지 않는다 —
    * 목록이 없는 탭도 있을 수 있다 (FR-BLP-2 의 "탭 하나 = 서술자 하나").
    */
-  paint(app, def) {
-    const d = def && def.list;
-    if (!d) return;
-    this._paintInto(app, def, d.containerId, (d.items ? d.items(app) : null) || [], true);
+  paint() {
+    const app = this.app, d = this.def.list;
+    this._paintInto(d.containerId, (d.items ? d.items(app) : null) || [], true);
     // FR-EDT-14: 고정 항목(root 행)은 **패널의 최하단**에 산다 — 목록의 끝이
     // 아니다. 목록이 길어 스크롤이 생겨도 그 아래에 그대로 남아야 하므로 컨테이너를
     // 따로 쓴다. 순회(cycle)는 여전히 `entries()` 하나를 지나므로 둘의 순서가
     // 어긋나지 않는다.
     if (d.fixedContainerId)
-      this._paintInto(app, def, d.fixedContainerId, (d.fixed ? d.fixed(app) : null) || [], false);
-  },
+      this._paintInto(d.fixedContainerId, (d.fixed ? d.fixed(app) : null) || [], false);
+  }
 
   // `main` 은 "빈 안내와 ready 게이트를 지는 쪽" 이다. 고정 항목은 없을 수 있고
   // 그때는 비어 있는 것이 정상이라 안내를 그리지 않는다.
-  _paintInto(app, def, containerId, source, main) {
-    const d = def.list;
+  _paintInto(containerId, source, main) {
+    const app = this.app, def = this.def, d = def.list;
     const el = document.getElementById(containerId);
     if (!el) return;
     // FR-BLP-7: 컨테이너의 생김새(남은 높이 전부 + 세로 스크롤)도 공통이다.
@@ -81,30 +104,26 @@ const SidebarList = {
     // 지우고, 그 blur 가 다시 그리기를 불러 removeChild 가 던진다. 확정이 끝나면 rename 이 그린다.
     //   이전: 편집 중 에이전트 알람이 바뀌면 이름 바꾸기가 사라지고 그리기가 예외로 멈췄다
     if (el.querySelector('.rename-input')) return;
-    this._bindKeys(app, def, el);
+    this._bindKeys(el);
     // 다시 만들어질 행이 포커스를 쥐고 있으면 그 키를 기억해 둔다 (아래 `_rove`).
     const ae = document.activeElement;
     const held = ae && el.contains(ae) && ae.classList.contains('sbl-item') ? ae.dataset[RPT_KEY] : null;
     // FR-RPT-3 / FR-BLP-14: 목록을 비우고 다시 만들지 않는다. 이 함수는 폴링과
     // SSE 로도 불리므로, 요소를 새로 만들면 끌고 있던 항목이 DOM 에서 빠진다.
-    reconcileList(el, items, {
-      key: r => r.key,
-      sig: r => this._sig(r),
-      build: r => this._build(app, def, r),
-    });
-    this._rove(def, held);
-  },
+    this.reconcile(el, items);
+    this._rove(held);
+  }
 
   // 서술자의 컨테이너 둘(목록·고정)에 걸친 행 전부, 보이는 순서. 키 이동은 이
   // 순서를 따른다 — `entries()` 가 순회에 쓰는 순서와 같다 (FR-EDT-6).
-  _rows(d) {
-    const out = [];
+  _rows() {
+    const d = this.def.list, out = [];
     for (const id of [d.containerId, d.fixedContainerId]) {
       const el = id && document.getElementById(id);
       if (el) for (const c of el.children) if (c.classList.contains('sbl-item')) out.push(c);
     }
     return out;
-  },
+  }
 
   /**
    * FR-A11Y-16 / D-A11Y-11·12: 키보드 계약은 `UIKit.roving` 이 갖는다. 컨테이너마다
@@ -114,19 +133,17 @@ const SidebarList = {
    * 창을 고르면 터미널이 포커스를 받는 것과 같아야 한다. 이미 활성인 행은
    * 그리기를 부르지 않으므로 표명하지 않는다.
    */
-  _bindKeys(app, def, el) {
-    if (el._kbNav) return;
-    el._kbNav = true;
-    const d = def.list;
-    UIKit.roving(el, {
-      items: () => this._rows(d),
+  _bindKeys(el) {
+    const app = this.app;
+    this.bindKeys(el, {
+      items: () => this._rows(),
       activate: row => {
         if (!row.classList.contains('active')) app.focusHandoff = true;
         row.click();
       },
       remove: row => { const x = row.querySelector('.sbl-x'); if (x) x.click() },
     });
-  },
+  }
 
   /**
    * `Tab` 에 닿는 행은 하나다 — 포커스가 목록 안에 있으면 그 행, 아니면 활성 행.
@@ -136,13 +153,13 @@ const SidebarList = {
    * 떨어지고, 넘긴 포커스(`focusHandoff`)는 그 뒤 렌더가 가져간다.
    */
   // 키가 같은 지금 행의 이름 요소. 행이 다시 만들어졌으면 이것이 살아 있는 쪽이다.
-  _liveName(list, key) {
-    const row = this._rows(list).find(r => r.dataset[RPT_KEY] === key);
+  _liveName(key) {
+    const row = this._rows().find(r => r.dataset[RPT_KEY] === key);
     return row ? row.querySelector('.sbl-name') : null;
-  },
+  }
 
-  _rove(def, held) {
-    const rows = this._rows(def.list);
+  _rove(held) {
+    const rows = this._rows();
     if (!rows.length) return;
     let ae = document.activeElement;
     if (held != null && (!ae || !ae.isConnected || ae === document.body)) {
@@ -151,21 +168,21 @@ const SidebarList = {
     }
     const cur = rows.includes(ae) ? ae : rows.find(r => r.classList.contains('active'));
     UIKit.rove(rows, cur);
-  },
+  }
 
   // 행의 **보이는 값 전부**다 (FR-RPT-2). 서술자가 row() 에 담은 것과 1:1 이므로
   // 목록마다 따로 쓸 필요가 없다 — 그것이 블루프린트로 내린 이득의 절반이다.
-  _sig(r) {
+  sig(r) {
     const b = r.badge, c = r.chip;
     return [r.name || '', r.title || '', r.cls || '', r.dotCls || '',
       r.active ? 1 : 0, r.attn ? 1 : 0, r.work ? 1 : 0, r.removable ? 1 : 0,
       b ? ((b.icon || '') + b.text + '' + (b.cls || '') + '' + (b.title || '')) : '',
       c ? (c.text + '\x02' + c.color) : '',
     ].join('');
-  },
+  }
 
-  _build(app, def, r) {
-    const d = def.list;
+  buildRow(r) {
+    const app = this.app, d = this.def.list;
     const el = document.createElement('div');
     // PANEL_SURFACE_SRS FR-RAL-7: 레일에는 숫자를 넣을 자리가 없으므로 배지는
     // **점의 색**으로 축약된다. 그 판정은 행의 클래스여야 CSS 가 딛을 수 있다.
@@ -239,16 +256,16 @@ const SidebarList = {
       //   이전: 떨어진 요소에 편집칸을 붙여 그룹 이름을 고칠 수 없었다
       name.addEventListener('dblclick', e => {
         e.stopPropagation();
-        const live = name.isConnected ? name : this._liveName(d, el.dataset[RPT_KEY]);
+        const live = name.isConnected ? name : this._liveName(el.dataset[RPT_KEY]);
         if (live) r.onRename(app, live);
       });
     }
     // FR-EDT-15: 고정 항목은 재배치의 출발점도 **대상**도 아니다. 리스너를 아예
     // 달지 않으면 둘 다 성립한다 — 대상은 dragover 가 정하기 때문이다.
-    if (d.reorder && !r.fixed) this._bindDrag(app, def, el, r);
-    if (d.tabDrop) this._bindTabDrop(app, def, el, r);
+    if (d.reorder && !r.fixed) this._bindDrag(el, r);
+    if (d.tabDrop) this._bindTabDrop(el, r);
     return el;
-  },
+  }
 
   /**
    * FR-MOV-1·7: 항목이 **탭을 받는다.**
@@ -259,8 +276,8 @@ const SidebarList = {
    *
    * 받을지 말지는 서술자가 정한다 — 창 목록만 탭을 받고, 리포 목록은 받지 않는다.
    */
-  _bindTabDrop(app, def, el, r) {
-    const d = def.list;
+  _bindTabDrop(el, r) {
+    const app = this.app, d = this.def.list;
     const list = document.getElementById(d.containerId);
     const clear = () => list && list.querySelectorAll('.sbl-item').forEach(x =>
       x.classList.remove('drop-into'));
@@ -280,7 +297,7 @@ const SidebarList = {
       clear(); app.drag = null;
       d.tabDrop.drop(app, r, dr);
     });
-  },
+  }
 
   /**
    * FR-BLP-10·13: 재배치 제스처. 두 목록이 **같은 규약**을 쓴다 —
@@ -289,8 +306,8 @@ const SidebarList = {
    * 항목 밖에서 놓는 경우는 문서 전역 drop 이 받는다 (input-binding.js). 그쪽도
    * 여기 `commit` 을 부르므로 경로가 갈라지지 않는다.
    */
-  _bindDrag(app, def, el, r) {
-    const d = def.list;
+  _bindDrag(el, r) {
+    const app = this.app, d = this.def.list;
     el.draggable = true;
     el.addEventListener('dragstart', e => {
       // FR-RAL-9: 레일에서는 재배치를 하지 않는다 — 40px 폭에서 위/아래 절반을
@@ -303,14 +320,14 @@ const SidebarList = {
     });
     // 끄는 동안의 자리(`dragAt`)와 놓기는 문서가 받는다 (input-binding.js) — 포인터가 행 밖·패널 밖이어도 따라온다.
     el.addEventListener('dragend', () => {
-      app.drag = null; el.classList.remove('dragging', 'drop-into'); this.dragClear(def);
+      app.drag = null; el.classList.remove('dragging', 'drop-into'); SidebarList.dragClear(this.def);
     });
-  },
+  }
 
-  dragClear(def) {
+  static _listOf(def) {
     const list = document.getElementById(def.list.containerId);
-    if (list) list.querySelectorAll('.sbl-item').forEach(x => x.classList.remove('drag-above', 'drag-below', 'drag-out'));
-  },
+    return list ? list.querySelectorAll('.sbl-item') : [];
+  }
 
   /**
    * ISSUE_AGENT_TREE_SRS FR-WGR-24 (개정 2026-11-20): 놓을 자리는 **포인터 높이**로 고른다.
@@ -319,11 +336,11 @@ const SidebarList = {
    * 첫 행 앞, 끝 아래로 나가면 맨 뒤(`dr.end`)다. 서술자가 가로 위치로 "담는 곳 밖" 을 가를 수 있다(`outside`).
    *   이전: 행의 dragover 만 자리를 바꿔, 패널 밖에서 놓으면 마지막으로 지나간 행 기준이었고 그룹 밖 띠는 들여쓰기 22px 였다
    */
-  dragAt(app, def, x, y) {
-    const d = def.list, dr = app.drag;
+  dragAt(x, y) {
+    const app = this.app, def = this.def, d = def.list, dr = app.drag;
     const list = document.getElementById(d.containerId);
     if (!list || !dr) return;
-    this.dragClear(def);
+    SidebarList.dragClear(def);
     const rows = [...list.querySelectorAll('.sbl-item')].filter(x => x.offsetParent !== null);
     if (!rows.length) return;
     let el = rows.find(x => y < x.getBoundingClientRect().bottom);
@@ -335,7 +352,7 @@ const SidebarList = {
     dr.out = dr.end || !!(d.reorder.outside && d.reorder.outside(app, dr.target, el, x, before));
     el.classList.add(before ? 'drag-above' : 'drag-below');
     if (dr.out) el.classList.add('drag-out');
-  },
+  }
 
   /**
    * FR-BLP-10~12: 재배치를 확정한다.
@@ -345,9 +362,9 @@ const SidebarList = {
    * 남지 않는다. 이 순서가 A15 의 딜레이를 없앤다: 지금까지 핀 목록은 서버 왕복이
    * 끝나고도 다시 그려지지 않아 폴링(3초)을 기다렸다.
    */
-  commit(app, def, dr) {
-    const d = def && def.list;
-    if (!d || !d.reorder) return;
+  commit(dr) {
+    const app = this.app, d = this.def.list;
+    if (!d.reorder) return;
     // 제 행에 놓는 것은 아무 일도 아니다 — 그룹 밖·맨 뒤(FR-WGR-24)일 때만 뜻이 있다(그룹의 끝 창을 바로 아래로 빼기).
     if (!dr || dr.done || !dr.src || !dr.target || (dr.src === dr.target && !dr.out)) return;
     dr.done = true;
@@ -355,9 +372,9 @@ const SidebarList = {
     // 쓰고 핀은 서버를 지난다 (FR-GIT-223). 두 목록의 구조가 같고 타깃만 다르다.
     if (!d.reorder.apply(app, dr)) return;
     // 바뀐 것은 이 목록의 순서뿐이다 — 전체를 다시 그리면 터미널이 재부착된다.
-    this.paint(app, def);
+    this.paint();
     if (d.reorder.commit) d.reorder.commit(app, dr);
-  },
+  }
 
   /**
    * UX_REVISION_SRS FR-BLP-15~18: 목록 순회. **두 목록이 같은 규약을 쓴다.**
@@ -373,11 +390,11 @@ const SidebarList = {
    * ②가 한쪽에만 있었다 — 핀이 하나인데 그 리포를 보고 있지 않으면 Git 쪽은
    * 아무 일도 하지 않았다. 창 쪽이라면 그 하나로 들어갔을 상황이다.
    */
-  cycle(app, def, step) {
-    const d = def && def.list;
-    const c = d && d.cycle;
+  cycle(step) {
+    const app = this.app, d = this.def.list;
+    const c = d.cycle;
     if (!c) return;
-    let arr = this.entries(app, d);
+    let arr = SidebarList.entries(app, d);
     // 순회 대상이 목록보다 좁을 수 있다 — Git 은 저장소가 아닌 핀을 뺀다
     // (FR-GIT-11: 목록에서도 클릭 리스너가 붙지 않는 항목이다).
     if (c.filter) arr = arr.filter(c.filter);
@@ -387,11 +404,13 @@ const SidebarList = {
     if (i < 0) { c.open(app, arr[0]); return }
     if (arr.length < 2) return;
     c.open(app, arr[(i + step + arr.length) % arr.length]);
-  },
+  }
 
   // 서술자 배열 전체에서 이 드래그 타입을 가진 탭을 찾는다. 문서 전역 drop 이
   // 쓴다 — 그쪽은 어느 탭의 드래그인지 타입 문자열로만 안다.
-  defByDragType(type) {
+  static defByDragType(type) {
     return SB_TAB_DEFS.find(d => d.list && d.list.reorder && d.list.reorder.type === type) || null;
-  },
-};
+  }
+}
+// App 을 키로 든다 — App 에 필드를 얹으면 계층 경계(FR-FMB-40)를 넘는다.
+SidebarList._byApp = new WeakMap();

@@ -19,7 +19,7 @@
  * 정규화한 루트라 보낸 값과 다를 수 있고, 그것으로 비교하면 목록이 영원히 실패로
  * 남는다 — `gitEchoOk` 가 그 함정을 안다.
  *
- * @param view  `_repo`·`_loading`·`_err`·`_list`·`_el`·`panel` 을 가진 뷰
+ * @param view  `_repo`·`_loading`·`_err`·`_list`·`panel` 과 루트(`el` 또는 `_el`)를 가진 뷰
  * @param spec  {url, key, failMsg} — 종단, 응답에서 배열을 꺼낼 키, 실패 문구
  */
 /**
@@ -61,14 +61,17 @@ async function gitLoadList(view, spec){
   if(res.stale) return;
   if(!res.ok){
     view._err=spec.failMsg;
-    if(view._el) view.paint();
+    if(gitViewMounted(view)) view.paint();
     return;
   }
   const d=res.data;
   view._err=null;
   view._list=Array.isArray(d[spec.key])?d[spec.key]:[];
-  if(view._el) view.paint();
+  if(gitViewMounted(view)) view.paint();
 }
+
+// REFACTOR3_FE_LIST_SRS: `ListView` 하위(`GitListTab`)는 루트를 `el` 에, 나머지 뷰는 아직 `_el` 에 든다. 단계 5(GitView)가 하나로 모은다.
+function gitViewMounted(view){ return !!(view.el||view._el) }
 
 /**
  * 뷰 머리의 사유 상자를 칠한다.

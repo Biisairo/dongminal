@@ -54,6 +54,9 @@ export const PANELS = ['ui/panel.js', 'ui/tab-bar.js', 'ui/sidebar-tab-bar.js', 
  */
 export const DIALOG = ['ui/dialog.js', 'ui/kit-modal.js'];
 
+/** 목록 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_LIST_SRS FR-FEL-6). `BASE`·`ui/repaint.js` 뒤에 싣는다. */
+export const LIST = ['ui/list-view.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 
