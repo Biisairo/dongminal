@@ -92,7 +92,7 @@ test.describe('묶음 PIS·제거 — 브라우저 signature 폴링 (FR-PIS-1~4)
 
   /**
    * FR-PIS-3: 지운 것은 **폴링**이고 지문 자체가 아니다. `_lastSig` 는 status
-   * 응답이 실어 오며(`panel-poll.js:384`) 확인창·히스토리·다이얼로그가 그것을 딛는다.
+   * 응답이 실어 오며(`git-poll.js` `_applyStatus`) 확인창·히스토리·다이얼로그가 그것을 딛는다.
    */
   test('PIS3 (V-2): status 응답이 `_lastSig` 를 채운다', async ({ page }) => {
     await waitForInit(page);

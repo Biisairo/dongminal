@@ -357,7 +357,7 @@ Object.assign(App.prototype, {
      * GIT_LIVE_TRIGGERS_SRS FR-GLW-1~3: 가시성·포커스 복귀의 계기.
      *
      * **여기가 앱당 한 벌인 자리다** — 이 함수는 부팅에서 한 번 돈다 (app.js).
-     * 종전에는 같은 리스너가 `panel-poll.js` 의 `init()` 에 있었고 가드가
+     * 종전에는 같은 리스너가 `panel-poll.js`(지금 `git-poll.js`) 의 `init()` 에 있었고 가드가
      * 관측기의 것이라 부팅 때 활성이던 관측기 하나에만 결선됐다 (SRS §2.1).
      *
      * **문서에 리스너를 새로 달지 않는다** (FR-GLW-2 · FR-BUS-8). `EventBus` 가
@@ -407,7 +407,7 @@ Object.assign(App.prototype, {
    * 한 건이면 족하다.
    *
    * `signal()` 은 종전대로 **포커스 패널 하나**에만 준다. 그 값을 딛는 것이 상태바
-   * chip 과 사이드바 배지이고(panel-poll 의 `signal` 주석), 관측기 전부에 주면
+   * chip 과 사이드바 배지이고(git-poll 의 `signal` 주석), 관측기 전부에 주면
    * 보이지 않는 표면까지 복귀 신호마다 요청을 하나씩 낸다 (NFR-GLW-2).
    */
   _gitLifecycle(kind){
@@ -935,7 +935,7 @@ Object.defineProperty(App.prototype,'gitPanel',{
    *
    * 활성 창이 Repo 창이면 그 루트의 것이고, 아니면 옛 Git 창의 자리('')다.
    * 터미널 창에 서 있을 때도 유효한 패널을 주어야 한다 — 상태바 chip 과
-   * 사이드바 배지가 창을 보지 않을 때도 이 값을 딛는다 (panel-poll 의 signal
+   * 사이드바 배지가 창을 보지 않을 때도 이 값을 딛는다 (git-poll 의 signal
    * 주석과 같은 근거).
    */
   get(){ return this.gitPanelAt(this._gitRootOfActive(),this.slotFocused()) },

@@ -170,7 +170,7 @@ Object.assign(GitPanel.prototype, {
    */
   fetchRefs(repo,opts){
     const o=opts||{};
-    const round=this._refsRound;
+    const round=this.poll.refsRound();
     if(!round) return gitFetch(GIT_API.refs,{repo},{stale:o.stale,echo:{repo},signal:o.signal});
     if(!round.has(repo)) round.set(repo,gitFetch(GIT_API.refs,{repo},{echo:{repo}}));
     return round.get(repo).then(res=>

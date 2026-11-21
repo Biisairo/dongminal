@@ -14,7 +14,7 @@ import { tmpPath, realPath } from './osenv';
  * ## 이 검사가 알아낸 것 — 감사의 전제가 절반만 참이다
  *
  * 감사는 *"폴링 회차마다 목록 전면 교체"* 라 적었다. 실측은 다르다:
- * `panel-poll.js` 의 `_obsSig` 가드가 **관측이 지난 회차와 같으면 `paintAll()`
+ * `git-poll.js` 의 `_obsSig` 가드가 **관측이 지난 회차와 같으면 `paintAll()`
  * 자체를 부르지 않는다.** 그 아래에 있는 자리들은 값이 그대로인 회차에 애초에
  * 그려지지 않는다 — 원격 목록만 예외였다 (`reloadRemotesIfOpen` 은 그 가드 밖의
  * `_reloadViews` 에 있다).

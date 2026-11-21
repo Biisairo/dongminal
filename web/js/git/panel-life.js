@@ -188,7 +188,7 @@ Object.assign(GitPanel.prototype, {
     // 재정착은 아직 자신이 목록에 있으므로, 이 패널이 마지막이었을 때에도 남은
     // 것으로 세었다 — 그 판정을 여기서 한 번 더 지나 바로잡는다.
     this.obs.resettle();
-    this.blame.dispose(); this.hunks.dispose(); this.diffPane.dispose();
+    this.blame.dispose(); this.hunks.dispose(); this.diffPane.dispose(); this.poll.dispose();
   },
 
   detach(){

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { fakeClock, load } from './harness.mjs';
+import { BASE, fakeClock, load } from './harness.mjs';
 
 /**
  * Git 패널의 관측 두 가지 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-1·4-7 후속, Ofix2).
@@ -21,11 +21,13 @@ function setup(answer) {
     const r = answer(u);
     return new Promise((resolve) => waits.push(() => resolve(r)));
   };
-  const ctx = load(['core/constants-api.js', 'git/api.js', 'git/status-hub.js', 'git/panel-poll.js', 'git/panel-write.js'], {
+  // 폴링은 부품(`GitPoll`, REFACTOR3_FE_GITPANEL_SRS 7d)이고 쓰기는 아직 패널 원형의 것이다.
+  const ctx = load([...BASE, 'core/constants-api.js', 'git/api.js', 'git/status-hub.js', 'git/git-part.js', 'git/git-poll.js',
+    'git/panel-write.js'], {
     clock,
-    expose: ['GitStatusHub'],
+    expose: ['GitStatusHub', 'GitPoll'],
     globals: {
-      GitPanel: class {},
+      GitPanel: class { collect() { return this.poll.collect() } },
       GIT_STATUS_FETCH_TIMEOUT_MS: 20000,
       GIT_STATUS_HUB_TTL_MS: 500,
       apiGet,
@@ -38,8 +40,9 @@ function setup(answer) {
   Object.assign(p, {
     app, repo: '/r', _seq: 0, _busy: false, _again: false, _writeGen: 0,
     obs: { paintAll() {} }, token: () => ({ repo: '/r' }),
-    _applyStatus: (tok, r) => applied.push(r),
   });
+  p.poll = new ctx.GitPoll(p);
+  p.poll._applyStatus = (tok, r) => applied.push(r);
   const flush = async () => { while (waits.length) waits.shift()(); await clock.advance(0) };
   // 나중에 떠난 요청의 답부터 도착시킨다.
   const flushReverse = async () => { while (waits.length) { waits.pop()(); await clock.advance(0) } };

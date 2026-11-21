@@ -188,7 +188,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     //
     // **그 주기는 안전망과 다른 값이다.** 소실이 확정되면 주기는 고정
     // `GIT_REPO_MISSING_POLL_MS`(30초)이고 사용자 설정을 보지 않는다
-    // (`panel-poll.js` 의 `_cadence`, FR-RMS-26). 그러므로 아래에서 안전망을
+    // (`git-poll.js` 의 `_cadence`, FR-RMS-26). 그러므로 아래에서 안전망을
     // 줄이는 것은 **소실로 들어가는 쪽**만 줄인다 — 이 검사가 지키려는 복구
     // 대기는 그대로 30초다.
     test.setTimeout(120_000);
@@ -269,7 +269,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
      * **진입만 빠르게 한다 — 재는 값은 건드리지 않는다.**
      *
      * 이 검사가 재는 것은 *소실이 확정된 뒤*의 주기이고, 그 값은 안전망과
-     * 무관한 고정 `GIT_REPO_MISSING_POLL_MS` 다 (`panel-poll.js` 의 `_cadence`:
+     * 무관한 고정 `GIT_REPO_MISSING_POLL_MS` 다 (`git-poll.js` 의 `_cadence`:
      * `if(this._missing) return st>0 ? GIT_REPO_MISSING_POLL_MS : 0`).
      * 안전망을 700ms 로 두어도 `st>0` 은 그대로이므로 아래 단정이 보는 주기는
      * 30초 그대로다. 줄어드는 것은 소실로 **들어가는** 30초뿐이다.

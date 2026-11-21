@@ -20,7 +20,6 @@
  *   panel-write.js    쓰기 한 번의 전과 후 — 후처리 훅 · 결과 해석 · 오퍼레이션
  *   panel-files.js    파일 작업 · 선택(→ diff) · 스테이징 · discard
  *   panel-dir-entry.js 디렉터리 항목의 사유 · 진입점
- *   panel-poll.js     접기 설정 · 폴링 · 상태 적용
  *
  * 부품 클래스(`GitPart` 하위, REFACTOR3_FE_GITPANEL_SRS)는 혼자 쓰는 필드까지 갖고 생성자가 만들어 든다.
  * 바깥·다른 파일이 부르는 부품 메서드는 아래 위임자가 잇는다.
@@ -28,6 +27,7 @@
  *   git-blame.js      Blame (`this.blame`)
  *   git-hunks.js      부분 스테이징 · hover 툴바 (`this.hunks`)
  *   git-diff-pane.js  Diff 탭 · Diff 탭 전용 패널의 몫 · 보기 설정 (`this.diffPane`)
+ *   git-poll.js       접기 설정 · 폴링 · 상태 적용 (`this.poll`)
  *
  * 관측(`GitObserver`)은 observer.js, Diff 편집기(`GitDiffView`)는 diff-view.js 다.
  */
@@ -95,6 +95,7 @@ class GitPanel {
     this.blame=new GitBlame(this);
     this.hunks=new GitHunks(this);
     this.diffPane=new GitDiffPane(this);
+    this.poll=new GitPoll(this);
   }
 
   // e2e 가 툴바의 자리를 읽는다 (FR-FEP-5). 주인은 `GitHunks` 다.
@@ -126,6 +127,26 @@ class GitPanel {
   diffViewRestore(){ return this.diffPane.diffViewRestore() }
   diffTabViewState(){ return this.diffPane.diffTabViewState() }
   diffTabViewApply(vs){ return this.diffPane.diffTabViewApply(vs) }
+  _foldPref(){ return this.poll._foldPref() }
+  _setFold(on){ return this.poll._setFold(on) }
+  absPath(target){ return this.poll.absPath(target) }
+  repoTop(){ return this.poll.repoTop() }
+  openFileDiff(target){ return this.poll.openFileDiff(target) }
+  copyText(text){ return this.poll.copyText(text) }
+  refresh(){ return this.poll.refresh() }
+  _reloadViews(withConsole){ return this.poll._reloadViews(withConsole) }
+  _staleTake(key,before){ return this.poll._staleTake(key,before) }
+  _inRefsRound(fn){ return this.poll._inRefsRound(fn) }
+  _reloadStaleViews(sig){ return this.poll._reloadStaleViews(sig) }
+  init(){ return this.poll.init() }
+  signal(kind){ return this.poll.signal(kind) }
+  _pollOk(){ return this.poll._pollOk() }
+  _cadence(st){ return this.poll._cadence(st) }
+  _applyCadence(){ return this.poll._applyCadence() }
+  _watchdog(){ return this.poll._watchdog() }
+  _reschedule(){ return this.poll._reschedule() }
+  _stop(){ return this.poll._stop() }
+  collect(){ return this.poll.collect() }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //

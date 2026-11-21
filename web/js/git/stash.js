@@ -149,7 +149,7 @@ class GitStash extends GitView {
    *   이전 동작: `box.innerHTML=''` 후 전부 다시 만들었다
    *   새  동작: `reconcileList` 를 지난다
    *   이유:     이 뷰는 **바깥 계기로** 다시 그려진다 — 관측 회차마다
-   *             `_reloadViews`(panel-poll.js:157)가 `reload()` 를 부른다.
+   *             `_reloadViews`(git-poll.js)가 `reload()` 를 부른다.
    *             전면 교체는 hover·선택·글자 선택·우클릭 앵커를 그때마다
    *             끊었다 (FR-RPT-1~7 이 금하는 그것이다)
    *

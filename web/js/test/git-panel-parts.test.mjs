@@ -36,13 +36,19 @@ const PARTS = [
     delegates: [['_renderDiff', [{ id: 'el' }]], ['_diffInvalidate', []], ['_fileList', []], ['_diffIndex', [[1, 2]]],
       ['_diffMove', [1]], ['reloadDiff', [true]], ['_destroyViews', []], ['diffTabApply', [{ path: 'a.txt' }]],
       ['diffViewKeep', []], ['diffViewRestore', []], ['diffTabViewState', []], ['diffTabViewApply', [{ top: 1 }]]] },
+  { field: 'poll', cls: 'GitPoll', gone: ['git/panel-poll.js'], owned: ['_fold', '_refsRound'],
+    delegates: [['_foldPref', []], ['_setFold', [true]], ['absPath', [{ path: 'a.txt' }]], ['repoTop', []],
+      ['openFileDiff', [{ path: 'a.txt' }]], ['copyText', ['t']], ['refresh', []], ['_reloadViews', [true]],
+      ['_staleTake', ['history', '/r']], ['_inRefsRound', [() => 1]], ['_reloadStaleViews', ['sig']], ['init', []],
+      ['signal', ['write']], ['_pollOk', []], ['_cadence', [1000]], ['_applyCadence', []], ['_watchdog', []],
+      ['_reschedule', []], ['_stop', []], ['collect', []]] },
 ];
 
 /** 생성자 밖 참조가 없어 지운 필드 (FR-FEP-6). */
 const DEAD = ['_hunkBarWidget', '_hunkBarSubs'];
 
 /** 하위 단계가 끝난 뒤 남는 `Object.assign(GitPanel.prototype` 의 수 (TC-FEP-2). 처음은 12 다. */
-const ASSIGNS_LEFT = 8;
+const ASSIGNS_LEFT = 7;
 
 function setup() {
   const ctx = load([...BASE, ...GITPANEL], {

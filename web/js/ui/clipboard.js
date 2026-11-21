@@ -9,7 +9,7 @@
  * **옮긴 이유는 이름이다.** 그 파일의 이름이 터미널을 말하고 있어서, 뒤따른 네
  * 자리가 3단을 못 보고 각자 1단이나 2단만 다시 만들었다:
  *
- *   git/panel-poll.js  1·2단      git/git-dialog.js 2단만
+ *   git/git-poll.js    1·2단      git/git-dialog.js 2단만
  *   git/git-confirm.js 2단만      core/app-tool.js 1단만  ← 조용히 실패했다
  *
  * 마지막 자리가 결함이었다 — `navigator.clipboard` 는 secure context 밖에서

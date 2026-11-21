@@ -53,9 +53,12 @@ const CONST_GIT_JS = [
 const CONST_API_JS = join(WEB, 'core', 'constants-api.js');
 const GIT_API_JS = join(WEB, 'git', 'api.js');
 const EVENT_BUS_JS = join(WEB, 'core', 'event-bus.js');
-const PANEL_POLL_JS = join(WEB, 'git', 'panel-poll.js');
+// REFACTOR3_FE_GITPANEL_SRS 7d: 폴링 계층은 패널 부품 `GitPoll` 이다. 부품 기반(`Component` → `GitPart`)을 앞에 싣는다.
+const COMPONENT_JS = join(WEB, 'core', 'base', 'component.js');
+const GIT_PART_JS = join(WEB, 'git', 'git-part.js');
+const GIT_POLL_JS = join(WEB, 'git', 'git-poll.js');
 // OPTIMIZE_REFACTOR_SRS FR-OPT-4-7: collect 가 `unchanged` 답을 채우는 함수
-// (`gitStatusMerge`)가 여기 산다. index.html 에서도 panel-poll 앞이다.
+// (`gitStatusMerge`)가 여기 산다. index.html 에서도 git-poll 앞이다.
 const STATUS_HUB_JS = join(WEB, 'git', 'status-hub.js');
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,18 +201,18 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
 // T-5·T-6·T-7·T-11 — 주기·백오프·잠금 (GIT_REPO_MISSING_SRS FR-RMS-22·28·29,
 // FR-GIT-23)
 //
-// `GitObserver`(= panel-poll 의 폴링 계층)는 다섯 축을 전부 자체 구현해 둔
+// `GitObserver`(= git-poll 의 폴링 계층)는 다섯 축을 전부 자체 구현해 둔
 // 유일한 자리다. SRS 단계 6 이 이것을 흡수하며, 그때 아래 넷이 한 줄도 흔들리면
 // 안 된다.
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function loadPanelPoll(page: Page) {
-  await page.setContent('<!doctype html><title>panel-poll</title>');
+  await page.setContent('<!doctype html><title>git-poll</title>');
   await page.addScriptTag({ path: TIMER_HUB_JS });
   await page.addScriptTag({ path: CONST_API_JS });
   for (const p of CONST_GIT_JS) await page.addScriptTag({ path: p });
   await page.evaluate(() => {
-    // panel-poll.js 는 GitPanel.prototype 에 얹는다. 폴링 계층이 딛는 것만 세운다.
+    // git-poll.js 는 패널 부품(`GitPoll`)이다. 패널 대역은 폴링 계층이 딛는 것과 위임자만 세운다.
     // `_applyStatus` 는 **덮지 않는다** — 실패가 `_fail()` 을 지나 `_failStreak`
     // 를 올리고 백오프를 다시 거는 그 경로가 곧 T-5·T-7 의 실질이기 때문이다.
     // 대신 그것이 부르는 관측자(`obs`)와 이웃 파일의 메서드만 세운다.
@@ -258,6 +261,13 @@ async function loadPanelPoll(page: Page) {
       _leaveMissing() {}
       _viewFp() { return '' }
       _paint() {}
+      // 실물 `GitPanel` 의 위임자 (FR-FEP-4). 부품은 아래에서 세운다.
+      poll: any = null;
+      _pollOk() { return this.poll._pollOk() }
+      _cadence(st: number) { return this.poll._cadence(st) }
+      _applyCadence() { return this.poll._applyCadence() }
+      _reschedule() { return this.poll._reschedule() }
+      collect() { return this.poll.collect() }
     };
     // 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — 전역이 그 자리다.
     (window as any).gitStatusInterval = 1000;
@@ -266,9 +276,14 @@ async function loadPanelPoll(page: Page) {
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: GIT_API_JS });
   await page.addScriptTag({ path: STATUS_HUB_JS });
-  await page.addScriptTag({ path: PANEL_POLL_JS });
+  await page.addScriptTag({ path: COMPONENT_JS });
+  await page.addScriptTag({ path: GIT_PART_JS });
+  await page.addScriptTag({ path: GIT_POLL_JS });
   await page.evaluate(() => {
     const p = new (window as any).GitPanel();
+    // 클래식 스크립트의 `class` 는 window 의 속성이 아니다 — 이름으로 읽는다.
+    const GitPoll = (window as any).eval('GitPoll');
+    p.poll = new GitPoll(p);
     p.obs.panels.add(p);   // 실물의 `GitPanel` 생성자가 하는 일 (`obs.attach`)
     (window as any).__p = p;
   });
