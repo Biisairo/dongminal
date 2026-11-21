@@ -284,6 +284,8 @@
 |---|---|---|
 | P1 | `08922b9b` | `REFACTOR3_DEFECTS_SRS` — §1 의 ✔ 결함 아홉. GH-F3 은 git 디코더의 의도된 설계라 P2 로, GH-F5 는 설계 검토라 P5 로, DM-F3~F5 는 실제로 일어나지 않아 P2(DM-1)로 넘겼다 |
 | P2 | `56dffed0` · `d94b16bd` · `a0372852` · `994d9805` (합침 `cef773f3`) | `REFACTOR3_DEDUP_GO_SRS` — GA 오류 응답·디코더 · GB `dmctl` · GC 공유·데몬 · GD 도메인. 남긴 것과 이유는 그 SRS §6 |
+| P3a 0~2 | `6a30fc80` · `d8b92b63` | `REFACTOR3_FE_BASE_SRS` — `core/base/`(Component·View·Controller 외), Panel·TabBar 계층과 두 패널·서랍·탭 줄. FU-20 의 사용자 보고 차이는 실측으로 재현하지 못했다(판정 결과 차이 0, 경로·시점만 달라 `TabBar.fit` 으로 모음) — 사용자에게 화면·조작을 묻는다 |
+| P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---
 

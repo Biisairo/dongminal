@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 Go P4·P5·P6 — 상수, 큰 파일·함수, 성능 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 SH·SD·SC 의 구현과 검증 전부.
+> **남은 것**: FR-RGS-1(80줄 넘는 처리기 20개를 파싱·판정·렌더로 — 판정 순수 함수 단위 시험, 나눌 때마다 httpapi PASS 1049 기준선과 대조). 나머지는 닫혔다(§6).
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `docs/internal/refactor/PROD3.md` §2.1·§2.3·§2.4·§2.5·§2.6·§2.8·§3 의 Go 항목)
 - 사용자 결정(2026-11-21): 목록 전부를 진행한다. 묶음마다 커밋한다. 전체 시험은 마지막에 한 번.
@@ -73,8 +73,26 @@ P2 가 Go 의 같은 규칙 여러 벌을 한 벌로 모았다. 이 문서는 �
 
 ## 4. 동작 변경 기록
 
-구현이 와이어·출력을 바꾸면 여기에 이전/새/이유를 적는다.
+| FR | 이전 | 새 | 이유 |
+|---|---|---|---|
+| FR-RGS-7 | `/api/runs/*` 미분류 실패의 `X-Error-Code`·`error`·`detail`·`Answer.Why` 가 오류 문자열 그대로 | 모두 `internal_error`, 전문은 로그로만 | 아래 계층 문구에 경로·내부 상태가 들어 있다. 자유 문구는 헤더 값으로도 안전하지 않다. **와이어 변경** |
+| FR-RGS-4 (GH-18) | 접근 목록 PUT 응답의 ETag 를 잠금 안에서 계산 | 잠금 밖에서 계산(그 사이 다른 PUT 이 끼면 그 뒤 값의 태그) | DNS 조회를 잠금 밖으로. 태그는 여전히 지금 설정의 올바른 값 |
+| FR-RGS-41 | `dongminal health` HTTP 확인·config bind ping 시한 3초, `otp status` 도우미 시한 2초 | 2초 · 3초 | "떠 있나" 시한을 목적 둘로, 도우미는 `humancmd.DefaultTimeout` 하나로 |
+| FR-RGS-44 (DM-20) | `rename-tab` 확인 100ms 간격 | 100ms 에서 두 배씩, 마지막은 창 끝 | `/api/state` 요청 42 → 15 이하. 늦게 선 반영을 알아차리는 시점이 창 끝(1.5초)까지 늦어질 수 있다 |
+| FR-RGS-20 (GD-8) | 자동 전환이 켜진 회차마다 `ps` | 1분 동안 직전 결과 | fork 6 → 2. 켜진 동안 새로 띄운 cswap 을 늦으면 1분 뒤에 안다 |
+| FR-RGS-20 (GD-9) | 행마다 `usage.json` 쓰기 | 회차 끝에 한 번 | 쓰기 3 → 1. 회차 도중 프로세스가 죽으면 그 회차 갱신을 잃고 다음 회차가 다시 조회한다 |
+| FR-RGS-20 (GD-23) | 전환 직후 다시 읽기 실패와 무관하게 `pruneNotified` | 실패하면 그 회차의 알림 판정을 건너뜀 | 읽기 2 → 1. 방금 쓴 파일이라 실제로는 거의 없다 |
 
 ## 5. 검증
 
 묶음마다 `gofmt -l` 0 · `go vet ./...` · 바뀐 패키지 `go test -race` · `go test ./...` · `make gates`. 성능 항목은 INV-S4 의 측정을 시험·벤치마크로 남긴다. 새 시험은 고치기 전 코드에서 실패한다(측정 시험은 옛 수치를 기록으로 남긴다).
+
+## 6. 구현 기록 (2026-11-21)
+
+| 묶음 | 커밋 | 요점 |
+|---|---|---|
+| SH | `b429a39a` · `8ae39a5e` · `ec9c31a3` · `acb5cae9` · `6cb999d1` | 검색 버퍼 되쓰기(2.66 MB → 0.11 MB/op), 세기·DNS 를 잠금 밖으로(DNS 시한 3초), fs 상한 표 `fs_limits.go`, 옛 이름 `paned` 은 와이어 문구라 두고 이유를 적음, runs 미분류 → `internal_error`, `EntityName` 은 생산자(`entityNameAnswer`)를 주석으로 이음, 파일 셋 분할, `Server` 필드 44개를 하위 구조체로(`settingsMu` → access·sandbox 각자의 `putMu`, PASS 1049 이름 목록 diff 0). **FR-RGS-8 결론: 바꾸지 않는다** — DAEMON_SPLIT_SRS FR-14 가 요구하고, `ping` 은 처리 중이면 건너뛰어 무응답 데몬을 찾는 수단이 이 시한뿐이며, 옛 데몬은 요청을 읽기 루프에서 처리해 한 호출이 막히면 뒤 호출도 막힌다(`callWithin` 주석). **FR-RGS-1 은 남음** |
+| SD | `8c2cc91d` · `7d7891f8` · `cd12d4cb` | 큰 파일 넷 분할, `observe` 판정 순수 함수 셋, `decide` 를 `autoTrigger`·`inCooldown`·`switchFirst` 로, `watchPhase` 삭제, 시간 값 이름(클라이언트 시한은 `pollTimeout` 에서 파생), 회차 성능(§4 표), 텔레그램 `b.tabs` 수거(`SetToolGoneObserver`). **SRS 와 다르게 한 것:** GD-6·7·11 은 측정 뒤 바꾸지 않았다 — GD-11 `run.Store.save` 직렬화 몫은 Run 10/50/200 에서 2%/9%/36%(저장 1회 42.6/64.2/88.0 ms), 나머지는 세대 회전·쓰기라 증분 직렬화로 줄지 않고 무효화 누락은 데이터 손실이다(Run 200 이 실제로 쌓이는 환경이면 다시 본다). GD-6 MkdirAll 은 `Roots` 42 µs 의 6.6% 이고 빼면 FR-NOT-1·2 가 깨진다. GD-7 을 한 번으로 줄이면 상한 넘는 블롭을 끝까지 받아 FR-GIT-48 을 어긴다 |
+| SC | `d60365c6` · `f0849a42` · `fdf4bdba` · `44ba911f` · `c2389f95` | `shared/apipath`(상수 61, 리터럴 92곳, 서버 라우트 대조 시험), 시간 예산 `budgets.go`, 도우미 소켓 고정 경로 이유, 정지 대기 `lsof` 25 → 3, `rename-tab` 42 → 15, chatsock hello 전 연결 정리, 파일 분할(procinfo 는 `_darwin` 접미사를 쓰지 않음 — 가짜 실행기 시험을 위해), `check-commands-docs.sh` 가 명령 표 `dmctlCommands` 를 읽게 고침. **DM-27 은 바꾸지 않음** — 상한 뒤 줄 세우면 클라이언트 시한(5+3초)을 넘어 연결이 끊긴다(GH-F5 와 엮임) |
+
+합친 뒤(`1af24478`): `gofmt` 0 · `go vet` · `go test ./...` · `make gates` · `npm run -s unit`(1190) 통과. `gitapi` `TestWorktreeCreateInputAnswer` 가 한 번 임시 폴더 정리(`directory not empty`)에서 졌고 단독 3회는 통과했다 — 흔들리는 시험으로 기록한다.
