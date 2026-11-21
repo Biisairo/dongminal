@@ -10,7 +10,7 @@
  * 그 자리다. 다만 **여는 키는**
  * 다른 둘과 같은 체계로 온다 (FR-EKB-5): 셋이 나란히 설정에 보여야 한다.
  */
-Object.assign(App.prototype, {
+class EditorSearch extends Controller {
 
   // 검색이 걸릴 루트. I-3 대로 **현재 Editor 창의 루트**다 (FR-EKB-4) —
   // 터미널 창에는 검색할 루트가 없으므로 아무 일도 일어나지 않는다.
@@ -19,10 +19,10 @@ Object.assign(App.prototype, {
   // 처음에 그것을 읽어 이 함수가 언제나 빈 문자열을 냈고, 두 단축키가 통째로
   // 죽어 있었다. "터미널 창에서는 빈 문자열"만 보던 검사는 그것을 통과시킨다.
   _edSearchRoot(){
-    const s=this.ws.windows.find(w=>w.id===this.ws.activeWindow);
-    if(!this.isEditorWin(s)) return '';
-    return this.edRootOf(s)||'';
-  },
+    const s=this.app.ws.windows.find(w=>w.id===this.app.ws.activeWindow);
+    if(!this.app.isEditorWin(s)) return '';
+    return this.app.edRootOf(s)||'';
+  }
 
   // FR-EFP-13 의 판정. `_edActiveEditor` 와 가르는 이유는 위의 주석이다.
   //
@@ -31,10 +31,10 @@ Object.assign(App.prototype, {
   // **터미널 검색**이 가져간다 — diff 위에서 `Mod+F` 를 누르면 터미널 찾기 줄이
   // 떴다 (실측). 접수 5번의 절반이 이 한 줄이다.
   _edFindReady(){
-    const v=this._edActiveEditor();
+    const v=this.app._edActiveEditor();
     if(v&&v._view) return true;
     return !!this._edActiveDiff();
-  },
+  }
 
   /**
    * FR-UXB-44: 지금 화면에서 보이는 Diff 뷰. 없으면 null 이다.
@@ -46,14 +46,14 @@ Object.assign(App.prototype, {
    */
   _edActiveDiff(){
     // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 는 그 탭의 패널이 든다.
-    const p=this.gitDiffPanelActive()||this.gitPanel;
+    const p=this.app.gitDiffPanelActive()||this.app.gitPanel;
     const d=p&&p._diffView;
     if(!d||!d._cm||!d.el) return null;
     return d.el.offsetParent!==null?d:null;
-  },
+  }
 
-  _edQuickOpen(){ this._edPanelOpen('find') },
-  _edSearchOpen(){ this._edPanelOpen('grep') },
+  _edQuickOpen(){ this._edPanelOpen('find') }
+  _edSearchOpen(){ this._edPanelOpen('grep') }
 
   /**
    * EDITOR_FIND_PANEL_SRS FR-EFP-25 가 FR-EKB-3 을 개정했다 — 파일 내 검색은
@@ -68,21 +68,21 @@ Object.assign(App.prototype, {
    * 주는 일이며, 그 판단은 패널을 소유한 편집기가 한다 (`findOpen`).
    */
   _edFindInFile(){
-    const v=this._edActiveEditor();
+    const v=this.app._edActiveEditor();
     if(v&&v.findOpen){ v.findOpen(); return }
     // FR-UXB-44: 편집기 탭이 아니면 Diff 탭이다. 패널도 규약도 같은 한 벌이며
     // (`ED_FIND_MIXIN`), 다른 것은 어느 편집기의 모델을 찾느냐뿐이다.
     const d=this._edActiveDiff();
     if(d) d.findOpen();
-  },
+  }
 
   // UX_BATCH13_SRS FR-EGL-4: 줄 이동 패널. 고르는 길은 `_edFindInFile` 과 같다.
   _edGotoLine(){
-    const v=this._edActiveEditor();
+    const v=this.app._edActiveEditor();
     if(v&&v.gotoOpen){ v.gotoOpen(); return }
     const d=this._edActiveDiff();
     if(d) d.gotoOpen();
-  },
+  }
 
   /**
    * FR-ERS-20·21·24: 지금 편집기에서 고른 **한 줄 안의** 글자. 없으면 빈 문자열이다.
@@ -91,23 +91,23 @@ Object.assign(App.prototype, {
    * 여러 줄일 수도 있고 그 셋 다 종전처럼 빈 칸으로 연다.
    */
   _edSelectionSeed(){
-    const v=this._edActiveEditor();
+    const v=this.app._edActiveEditor();
     const eng=v&&v._findEngine?v._findEngine():null;
     return (eng&&eng.selText())||'';
-  },
+  }
 
   // 활성 Editor 창에서 지금 보이는 편집기. `fileEditors` 는 탭 id 로 열려 있고
   // 활성 탭은 pane 이 안다.
   _edActiveEditor(){
-    const s=this.ws.windows.find(w=>w.id===this.ws.activeWindow);
-    if(!this.isEditorWin(s)) return null;
-    const p=findPane(s.layout,s.focusedPane||this.focused)
+    const s=this.app.ws.windows.find(w=>w.id===this.app.ws.activeWindow);
+    if(!this.app.isEditorWin(s)) return null;
+    const p=findPane(s.layout,s.focusedPane||this.app.focused)
       ||((s.layout&&s.layout.type==='pane')?s.layout:null);
     // 편집기 인스턴스는 칸마다 선다 (FR-WSL-20) — 포커스 칸의 것을 찾는다.
-    const tid=p&&this.paneTab(p);
+    const tid=p&&this.app.paneTab(p);
     if(!tid) return null;
-    return this.editorAny(tid);
-  },
+    return this.app.editorAny(tid);
+  }
 
   /**
    * FR-EKB-1·5: 편집기 검색 세 키의 **단일 판정 자리**. 편집기 안(file-editor.js)
@@ -127,11 +127,11 @@ Object.assign(App.prototype, {
       // 돌려준다 (FR-EKB-4 · FR-LSP-40b) — 삼키면 그 조합이 죽은 키가 된다.
       if(!this._edKeyGate(action)) return false;
       e.preventDefault(); e.stopImmediatePropagation();
-      this[fn]();
+      this.app[fn]();
       return true;
     }
     return false;
-  },
+  }
 
   /**
    * 이 액션이 지금 뜻을 갖는가.
@@ -147,17 +147,17 @@ Object.assign(App.prototype, {
    *    일부다. 아니면 false 를 돌려 그 키가 터미널로 내려간다 (FR-EKB-4).
    */
   _edKeyGate(action){
-    if(ED_LSP_ACTIONS[action]) return this._edFindReady()&&!!this._edSearchRoot();
+    if(ED_LSP_ACTIONS[action]) return this._edFindReady()&&!!this.app._edSearchRoot();
     if(action==='edFindInFile'||action==='edGotoLine') return this._edFindReady();   // UX_BATCH13_SRS FR-EGL-3
-    if(action==='edSaveAll') return this.isEditorWin(this.aw());
-    return !!this._edSearchRoot();
-  },
+    if(action==='edSaveAll') return this.app.isEditorWin(this.app.aw());
+    return !!this.app._edSearchRoot();
+  }
 
   _edPanelOpen(mode){
-    const root=this._edSearchRoot();
+    const root=this.app._edSearchRoot();
     if(!root) return;
     this._edPanel(mode,root);
-  },
+  }
 
   // 패널은 하나다. 모드가 바뀌면 내용만 갈아 끼운다 — 둘을 동시에 띄우면
   // 어느 쪽이 Enter 를 받는지 모호해진다.
@@ -202,7 +202,7 @@ Object.assign(App.prototype, {
     // 패널을 **돌려준다.** 부르는 쪽이 항목을 직접 채우는 경우가 있다 —
     // 참조·정의 목록은 이미 손에 있는 자리들을 그린다 (FR-LSP-25).
     return p;
-  },
+  }
 
   _edPanelClose(){
     const p=this._edPanelEl;
@@ -213,14 +213,14 @@ Object.assign(App.prototype, {
     // 막는다 — 닫은 패널을 **같은 키로 다시 열 수 없게 된다.**
     const q=p.querySelector('.ed-find-q');
     if(q&&q.blur) q.blur();
-  },
+  }
 
   _edPanelWire(p){
     const q=p.querySelector('.ed-find-q');
     // 입력마다 부르지 않는다 — 한 글자에 저장소 전체를 훑는 요청이 나간다.
     q.addEventListener('input',()=>{
       TIMERS.cancel(p._t);
-      p._t=this.timers.after(ED_SEARCH_DEBOUNCE_MS,()=>this._edPanelQuery(p),{owner:'app',label:'ed-search'});
+      p._t=this.app.timers.after(ED_SEARCH_DEBOUNCE_MS,()=>this._edPanelQuery(p),{owner:'app',label:'ed-search'});
     });
     q.addEventListener('keydown',e=>{
       // 패널 안의 키는 밖으로 내보내지 않는다 — 앱 단축키가 끼어들면
@@ -241,7 +241,7 @@ Object.assign(App.prototype, {
       p._sel=parseInt(row.dataset.i,10)||0;
       this._edPanelPick(p);
     });
-  },
+  }
 
   async _edPanelQuery(p){
     // EDITOR_LSP_SRS FR-LSP-25: 참조·정의 목록은 **이미 받은 항목**을 그린다 —
@@ -265,7 +265,7 @@ Object.assign(App.prototype, {
     p._items=(p._mode==='find'?d.files:d.matches)||[];
     p._sel=0;
     this._edPanelPaint(p,d);
-  },
+  }
 
   _edPanelPaint(p,d){
     const list=p.querySelector('.ed-find-list');
@@ -285,20 +285,20 @@ Object.assign(App.prototype, {
           escHtml(it.text)+'</span></div>'
     ).join('');
     this._edPanelMark(p);
-  },
+  }
 
   _edPanelMove(p,d){
     if(!p._items.length) return;
     p._sel=(p._sel+d+p._items.length)%p._items.length;
     this._edPanelMark(p);
-  },
+  }
 
   _edPanelMark(p){
     const rows=p.querySelectorAll('.ed-find-row');
     rows.forEach((r,i)=>r.classList.toggle('sel',i===p._sel));
     const cur=rows[p._sel];
     if(cur&&cur.scrollIntoView) cur.scrollIntoView({block:'nearest'});
-  },
+  }
 
   // FR-EQO-7 · FR-EGS-10: 고른 것을 연다. grep 결과는 그 **줄로** 연다.
   _edPanelPick(p){
@@ -307,6 +307,10 @@ Object.assign(App.prototype, {
     this._edPanelClose();
     const abs=pathJoin(p._root,it.path);
     // `find` 만 파일 자체를 열고, 나머지(grep·refs·defs)는 **그 줄로** 연다.
-    this.edOpenFile(abs,p._mode==='find'?undefined:{line:it.line,col:it.col});
-  },
-});
+    this.app.edOpenFile(abs,p._mode==='find'?undefined:{line:it.line,col:it.col});
+  }
+}
+
+// 바깥이 부르는 이름 — 단축키·부팅(`app.js`)·모바일·LSP·상태바 인코딩·`ui/`·`git/`·계약.
+Controller.delegate(App,'editor.search',['_edSearchRoot','_edActiveDiff','_edQuickOpen','_edSearchOpen','_edFindInFile','_edGotoLine',
+  '_edActiveEditor','edTrySearchKey']);

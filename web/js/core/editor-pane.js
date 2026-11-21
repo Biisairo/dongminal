@@ -334,5 +334,5 @@ class EditorPane extends Controller {
 // 바깥이 부르는 이름 — Git(`_edAfterGitSignal`·`_edGitHold`)·레이아웃(`_edMigrateSideWidth`)·모바일·상태 동기화·`ui/`·`git/`·
 // e2e·계약.
 Controller.delegate(App,'editor.pane',['_edKeepActive','edPinTabFor','edSideTabs','edSideOf','edSetSide','edSideWidth','edSetSideWidth',
-  '_edMigrateSideWidth','_edLinkedWindow','edEnsurePane','edDirtyUnder','edRetargetTabs','edCloseTabsUnder','_edAfterGitSignal',
+  '_edMigrateSideWidth','edEnsurePane','edDirtyUnder','edRetargetTabs','edCloseTabsUnder','_edAfterGitSignal',
   '_edGitHold']);

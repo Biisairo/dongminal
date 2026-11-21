@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * UX_BATCH12_SRS TC-EXM-6 (FR-EXM-6·7) — 탐색기 클립보드가 경로 목록을 담고,
@@ -12,7 +12,9 @@ const RENAME = '/api/fs/rename';
 
 function setup(fail = () => '') {
   const written = [];
-  const ctx = load(['core/path.js', 'ui/repaint.js', 'ui/file-tree-paint.js', 'ui/file-tree-edit.js', 'ui/file-tree-xfer.js', 'core/app-editor-file.js'], {
+  const ctx = load([...BASE, 'core/path.js', 'ui/repaint.js', 'ui/file-tree-paint.js', 'ui/file-tree-edit.js', 'ui/file-tree-xfer.js',
+    'core/editor-file.js'], {
+    expose: ['EditorFile'],
     globals: {
       TermClipboard: { write: async (s) => { written.push(s); return true } },
       Toast: { show: () => {} },
@@ -28,6 +30,7 @@ function setup(fail = () => '') {
   let inflight = 0;
   let maxInflight = 0;
   const app = Object.create(ctx.App.prototype);
+  app.editor = { file: new ctx.EditorFile(app) };
   app.edFs = async (url, body) => {
     inflight++; maxInflight = Math.max(maxInflight, inflight);
     calls.push({ url, body });

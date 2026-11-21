@@ -119,6 +119,12 @@ const ISSUES = {
     plainNow: [],
     mixins: 6,
   },
+  '9k-2': {
+    ctl: ['core/editor-doc.js', 'core/editor-file.js', 'core/editor-search.js', 'core/editor-doc-render.js'],
+    gone: ['core/app-editor-doc.js', 'core/app-editor-file.js', 'core/app-edsearch.js', 'core/app-docrender.js'],
+    plainNow: [],
+    mixins: 2,
+  },
 };
 
 // ── 9a: 간선 · 업데이트 · 설정 잔여(폴링 포함) · 얇은 셸(LSP·Run) ──────────────────────
@@ -1485,7 +1491,7 @@ const DELEGATES_9K1 = {
     'edDirtyDiffRepaint', 'edPollDocStamps', '_edOnGitChanged', 'edStore', 'edTree', '_edTreeFor', 'edActiveTree', 'edRefreshTreesFor',
     '_edVisibleTrees'],
   'editor.pane': ['_edKeepActive', 'edPinTabFor', 'edSideTabs', 'edSideOf', 'edSetSide', 'edSideWidth', 'edSetSideWidth',
-    '_edMigrateSideWidth', '_edLinkedWindow', 'edEnsurePane', 'edDirtyUnder', 'edRetargetTabs', 'edCloseTabsUnder', '_edAfterGitSignal',
+    '_edMigrateSideWidth', 'edEnsurePane', 'edDirtyUnder', 'edRetargetTabs', 'edCloseTabsUnder', '_edAfterGitSignal',
     '_edGitHold'],
   'editor.section': ['_initEditorSection', '_edTermCwd', '_edPathCandidates', 'edRemove', 'edReorder', 'edMutate', 'edRefresh'],
   'editor.sync': ['_edLoad', '_edPatchList', 'edMirror', '_edApplyLinked', '_edReconcile', '_edWinDirty', 'edAnyDirty', '_edWinSaveDirty',
@@ -1498,6 +1504,8 @@ class App9k {
   slotKey(id, slot) { return slot ? id + '@' + slot : id }
   slotBase(key) { return String(key).split('@')[0] }
   _gitRescheduleAll() {}
+  _findEditorTab() { return null }
+  mobileShowPane() {}
 }
 
 function load9k1(globals = {}) {
@@ -1659,4 +1667,127 @@ test('TC-FEA-3(9k-1): 옮긴 묶음의 계약 이름이 App 원형에서 함수�
   for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
   for (const n of ['_edAfterGitSignal', '_edOnGitChanged', '_edMigrateSideWidth', '_edGitHold'])
     assert.equal(typeof ctx.App.prototype[n], 'function', n);
+});
+
+// ── 9k-2: 편집기 — 문서 · 파일 조작 · 찾기 · 문서 렌더 배선 ─────────────────────────────────────
+
+const CLASSES_9K2 = ['EditorDoc', 'EditorFile', 'EditorDocRender', 'EditorSearch'];
+const PARTS_9K2 = { doc: 'EditorDoc', file: 'EditorFile', docRender: 'EditorDocRender', search: 'EditorSearch' };
+
+const DELEGATES_9K2 = {
+  'editor.doc': ['edDocAt', 'edDocLoad', 'edDocRefresh', 'edDocDirtySync', 'edDocReopen', 'edDocConvertUtf8', 'edDocSave', 'edDocWrite',
+    'edConfirmConflict', 'edDocLeaveConfirm', 'edDocMove'],
+  'editor.file': ['edOpenFile', 'edClipSet', 'edClipGet', 'edFs', 'edFsActions', '_edConfirm', 'edConfirmDelete'],
+  'editor.search': ['_edSearchRoot', '_edActiveDiff', '_edQuickOpen', '_edSearchOpen', '_edFindInFile', '_edGotoLine', '_edActiveEditor',
+    'edTrySearchKey'],
+  'editor.docRender': ['docRenderMount', 'docRenderRootOf', '_docRenderOpen', 'docRenderToSource'],
+};
+
+test('TC-FEA-1(9k-2): 부품은 Controller·Component 하위이고 app 을 들며, 편집기 뿌리가 부품 아홉을 든다', () => {
+  const ctx = load9k1();
+  const app = new ctx.App();
+  const editor = new ctx.EditorController(app);
+  const parts = Object.keys(PARTS_9K2).map((k) => editor[k]);
+  assert.deepEqual(parts.map((o) => o.constructor.name), CLASSES_9K2);
+  for (const o of parts) {
+    assert.ok(o instanceof ctx.Controller, o.constructor.name);
+    assert.equal(o.app, app, o.constructor.name);
+  }
+  assert.deepEqual(Object.keys(editor).filter((k) => editor[k] instanceof ctx.Controller),
+    ['sync', 'open', 'pane', 'watch', 'section', 'doc', 'file', 'docRender', 'search']);
+});
+
+test('TC-FEA-1(9k-2): 위임자는 부품 메서드를 같은 인자로 부르고 값을 돌려준다 — 파일 열기만 부르던 _edLinkedWindow 는 걷었다', () => {
+  const ctx = load9k1();
+  const app = new ctx.App();
+  app.editor = { doc: {}, file: {}, search: {}, docRender: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9K2)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9K2)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9K2).flat().map((n) => [n, 1, 'x']));
+  assert.equal(ctx.App.prototype._edLinkedWindow, undefined);
+});
+
+test('TC-FEA-1(9k-2): 묶음 하나만 닿는 필드는 부품이 든다 — 클립보드·찾기 패널 (§2.2 SH-4)', () => {
+  const ctx = load9k1();
+  const app = controllers(ctx, new ctx.App());
+  app.edClipSet('/r', ['/r/a'], true);
+  assert.deepEqual(plain(app.edClipGet()), { root: '/r', paths: ['/r/a'], move: true });
+  assert.equal(app.editor.file._edClip, app.edClipGet());
+  assert.equal('_edClip' in app, false);
+  assert.match(read('core/editor-search.js'), /this\._edPanelEl=p;/);
+  assert.match(read('core/editor-file.js'), /this\.app\.editor\.open\._edReveal/);
+  assert.match(read('core/editor-file.js'), /this\.app\.edFocusHandoff\(\)/);
+});
+
+test('TC-FEA-1(9k-2): 편집기 키는 App 의 이름으로 부른다 — 다른 부품(저장 전부)에 닿는다', () => {
+  const ctx = load9k1({ ED_APP_ACTIONS: { edSaveAll: '_edSaveAll' }, ED_LSP_ACTIONS: {}, shortcuts: { edSaveAll: 's' },
+    matchShortcut: (e, k) => e.key === k });
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app.aw = () => ({ type: 'editor' });
+  app.editor.sync._edSaveAll = () => log.push('saveAll');
+  const e = { key: 's', preventDefault: () => log.push('pd'), stopImmediatePropagation: () => {} };
+  assert.equal(app.edTrySearchKey(e), true);
+  assert.deepEqual(log, ['pd', 'saveAll']);
+});
+
+test('TC-FEA-2(9k-2): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9k-2'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9k-2): 갈아 끼운 _edDocs·aw·paneTabSet·setFocusState·render·save·edOpenFile·fileEditors·ws·_edConfirm 를 부품 경로가 부른다', () => {
+  const ctx = load9k1({ findTabWhere: (wins, fn) => {
+    for (const w of wins) for (const t of w.tabs) if (fn(t)) return { win: w, pane: w, tab: t };
+    return null;
+  }, pathUnder: (r, p) => p.startsWith(r + '/'), pathBase: (p) => p.split('/').pop(), josa: (x) => x,
+  EDITOR_DEL_FILE: 'del %s', EDITOR_DEL_PERMANENT: 'perm', EDITOR_DEL_OK: 'ok' });
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app._edDocs = new Map([['/a/x', { views: new Set() }]]);
+  assert.deepEqual(plain(app.edDocMove('/a', '/b').moved), [['/a/x', '/b/x']]);
+  assert.ok(app._edDocs.has('/b/x'));
+  const pane = { id: 'p', tabs: [{ id: 't', render: true, filePath: '/f' }] };
+  app.ws = { windows: [pane], activeWindow: 'w' };
+  app.aw = () => { log.push('aw'); return { id: 'w', layout: pane } };
+  app.paneTabSet = (p, id) => log.push('tab:' + id);
+  app.setFocusState = (id) => log.push('focus:' + id);
+  app.render = () => log.push('render');
+  app.save = () => log.push('save');
+  app._docRenderOpen('/f');
+  app.edOpenFile = (p) => log.push('open:' + p);
+  app.docRenderToSource({ filePath: '/f' });
+  app.fileEditors = new Map([['x', { render: true, filePath: '/f', onDocBuf: (b) => log.push('buf:' + b) }]]);
+  app.editor.docRender._docRenderNotifyBuf('/f', 'B');
+  app.ws = { windows: [{ id: 'w', type: 'editor', editor: { root: '/r' } }], activeWindow: 'w' };
+  assert.equal(app._edSearchRoot(), '/r');
+  app._edConfirm = (lines) => { log.push('confirm:' + lines.join('|')); return 'asked' };
+  assert.equal(app.edConfirmDelete('/r/a.txt', false, 0, [], ''), 'asked');
+  assert.deepEqual(log, ['aw', 'tab:t', 'focus:p', 'render', 'save', 'open:/f', 'buf:B', 'confirm:del a.txt|perm']);
+});
+
+test('TC-FEA-3(9k-2): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9k-2'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9k-2): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9k1();
+  const contract = contractNames();
+  const names = Object.values(DELEGATES_9K2).flat().filter((x) => contract.has(x));
+  assert.ok(names.length > 0);
+  for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
 });

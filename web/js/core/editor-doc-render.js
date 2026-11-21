@@ -7,13 +7,13 @@
  * 분할과 이동을 **새로 쓰지 않는다** (FR-DRV-8). `moveTabToPane`·
  * `splitPaneWithTab` 이 이미 그 규칙을 갖고 있으며, 두 벌이 되면 한쪽만 고쳐진다.
  */
-Object.assign(App.prototype, {
+class EditorDocRender extends Controller {
 
   // FR-DRV-1: 확장자가 정한다. 표는 `constants-docrender.js` 한 자리다.
   _docRenderKind(path) {
     const m = String(path || '').toLowerCase().match(/(\.[^./\\]+)$/);
     return (m && DOC_RENDER_EXTS[m[1]]) || '';
-  },
+  }
 
   /**
    * `FileEditor` 가 편집기를 세운 직후에 불린다. 하는 일은 둘이다.
@@ -26,7 +26,7 @@ Object.assign(App.prototype, {
    */
   docRenderMount(view) {
     if (!view || !view.el || !view.filePath) return;
-    const d = this.edDocAt(view.filePath);
+    const d = this.app.edDocAt(view.filePath);
     if (d && d.buf) this._docRenderNotifyBuf(view.filePath, d.buf);
     this._docRenderBindScroll(view);
     if (!this._docRenderKind(view.filePath)) return;
@@ -38,11 +38,11 @@ Object.assign(App.prototype, {
     b.title = DOC_RENDER_BTN_TITLE;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
-      this._docRenderOpen(view.filePath, view.name);
+      this.app._docRenderOpen(view.filePath, view.name);
     });
     view.el.appendChild(b);
     this._docRenderPlace(view, b);
-  },
+  }
 
   /**
    * UX_AUDIT_FIX_SRS FR-UXF-6: 단추는 오른쪽 아래, 미니맵·스크롤바 앞에 선다. 그 폭은 문서와 설정에 따라
@@ -60,7 +60,7 @@ Object.assign(App.prototype, {
     view._docRenderRo = new ResizeObserver(place);
     view._docRenderRo.observe(sc);
     place();
-  },
+  }
 
   /**
    * FR-DRV-44: 소스를 스크롤하면 렌더가 따라간다.
@@ -83,7 +83,7 @@ Object.assign(App.prototype, {
       // `if(...) return` 으로 걸렀다 — 그 관용구가 `coalesce` 다 (FR-SCH-15).
       TIMERS.frame(() => this._docRenderSync(view), {owner:view, coalesce:'doc-scroll'});
     }, { passive: true });
-  },
+  }
 
   _docRenderSync(view) {
     const cm = view._view;
@@ -103,10 +103,10 @@ Object.assign(App.prototype, {
      */
     if (view._docRenderLine === line) return;
     view._docRenderLine = line;
-    for (const v of this.fileEditors.values()) {
+    for (const v of this.app.fileEditors.values()) {
       if (v && v.render && v.filePath === view.filePath && v.syncToLine) v.syncToLine(line);
     }
-  },
+  }
 
   /**
    * 이 경로를 품은 Editor 루트. 루트가 겹쳐 있을 때 **가장 긴 것**이 답이다 —
@@ -118,7 +118,7 @@ Object.assign(App.prototype, {
    */
   docRenderRootOf(path) {
     let best = '';
-    for (const w of this.edWindows()) {
+    for (const w of this.app.edWindows()) {
       const r = w.editor && w.editor.root;
       if (!r) continue;
       // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 어떤 루트도 걸리지 않아
@@ -127,14 +127,14 @@ Object.assign(App.prototype, {
       if (pathUnder(r, path) && r.length > best.length) best = r;
     }
     return best;
-  },
+  }
 
   _docRenderNotifyBuf(path, buf) {
-    if (!this.fileEditors) return;
-    for (const v of this.fileEditors.values()) {
+    if (!this.app.fileEditors) return;
+    for (const v of this.app.fileEditors.values()) {
       if (v && v.render && v.filePath === path && v.onDocBuf) v.onDocBuf(buf);
     }
-  },
+  }
 
   /**
    * FR-DRV-5·7·8: 렌더 탭을 **옆 칸**에 연다.
@@ -144,19 +144,19 @@ Object.assign(App.prototype, {
    * 옮기는** 순서인 것은 두 이동 함수가 "이미 있는 탭" 을 대상으로 삼기 때문이다.
    */
   _docRenderOpen(filePath, name) {
-    const s = this.aw();
+    const s = this.app.aw();
     if (!s || !s.layout || !filePath) return;
     const ex = this._findRenderTab(filePath);
     if (ex) {
-      this.paneTabSet(ex.pane, ex.tab.id);
-      this.setFocusState(ex.pane.id, s);
+      this.app.paneTabSet(ex.pane, ex.tab.id);
+      this.app.setFocusState(ex.pane.id, s);
       // FR-RTU-83: 모바일 순회가 그 칸을 가리켜야 렌더 탭이 화면에 온다.
-      this.mobileShowPane(ex.pane.id);
-      this.render();
-      this.save();
+      this.app.mobileShowPane(ex.pane.id);
+      this.app.render();
+      this.app.save();
       return;
     }
-    const src = findPane(s.layout, this.focused) || this.flattenPanes(s.layout)[0];
+    const src = findPane(s.layout, this.app.focused) || this.app.flattenPanes(s.layout)[0];
     if (!src) return;
     const id = newEntityId();
     // FR-DRV-9 / D-1: **새 탭 타입을 만들지 않는다.** `render` 하나가 갈림길이며,
@@ -167,14 +167,14 @@ Object.assign(App.prototype, {
     });
     const sib = this._paneSiblingOf(src.id);
     // 두 함수가 각자 `save`·`render` 를 한다 — 여기서 다시 부르지 않는다.
-    if (sib) this.moveTabToPane(src.id, id, sib.id, null, false);
-    else this.splitPaneWithTab(src.id, id, src.id, 'right');
+    if (sib) this.app.moveTabToPane(src.id, id, sib.id, null, false);
+    else this.app.splitPaneWithTab(src.id, id, src.id, 'right');
     // FR-RTU-83: **옆 칸은 모바일 화면에 없다.** 나눈 뒤의 칸 id 는 여기서 만든
     // 것이 아니므로 탭을 다시 찾아 그 자리를 가리킨다 — 순회에서 `옆 칸` 은 다음
     // 자리이고, 그리로 가지 않으면 미리보기는 열리고도 보이지 않는다.
     const put = this._findRenderTab(filePath);
-    if (put) this.mobileShowPane(put.pane.id, {render:true});
-  },
+    if (put) this.app.mobileShowPane(put.pane.id, {render:true});
+  }
 
   /**
    * FR-DRV-6: 렌더 탭에서 소스로 돌아간다. **렌더 탭을 닫지 않는다** — 사용자가
@@ -183,23 +183,23 @@ Object.assign(App.prototype, {
   docRenderToSource(view) {
     if (!view || !view.filePath) return;
     // `_findEditorTab` 은 소스 탭만 찾는다 (FR-DRV-10).
-    const ex = this._findEditorTab(view.filePath);
+    const ex = this.app._findEditorTab(view.filePath);
     if (ex) {
-      this._activateWindow(ex.win.id);
-      this.paneTabSet(ex.pane, ex.tab.id);
-      this.setFocusState(ex.pane.id, ex.win);
-      this.render();
-      this.save();
+      this.app._activateWindow(ex.win.id);
+      this.app.paneTabSet(ex.pane, ex.tab.id);
+      this.app.setFocusState(ex.pane.id, ex.win);
+      this.app.render();
+      this.app.save();
       return;
     }
-    this.edOpenFile(view.filePath, {});
-  },
+    this.app.edOpenFile(view.filePath, {});
+  }
 
   // 렌더 탭 찾기. `_findEditorTab` 과 **갈라져 있는 것이 요점이다** (FR-DRV-10) —
   // 한 함수가 둘 다 찾으면 탐색기에서 연 파일이 렌더로 열린다.
   _findRenderTab(filePath) {
-    return findTabWhere(this.ws.windows, tab => tab.render && tab.filePath === filePath);
-  },
+    return findTabWhere(this.app.ws.windows, tab => tab.render && tab.filePath === filePath);
+  }
 
   /**
    * 이 칸의 옆 칸. 같은 분할 안의 **다음** 형제이고, 없으면 이전 형제다.
@@ -208,7 +208,7 @@ Object.assign(App.prototype, {
    * 화면에서 바로 옆에 보이는 칸이고, `flattenPanes` 의 순서가 그 순서다.
    */
   _paneSiblingOf(rid) {
-    const s = this.aw();
+    const s = this.app.aw();
     if (!s || !s.layout) return null;
     const path = findPath(s.layout, rid);
     if (!path || path.length < 2) return null;
@@ -219,6 +219,9 @@ Object.assign(App.prototype, {
     if (i < 0) return null;
     const next = kids[i + 1] || kids[i - 1];
     if (!next) return null;
-    return this.flattenPanes(next)[0] || null;
-  },
-});
+    return this.app.flattenPanes(next)[0] || null;
+  }
+}
+
+// 바깥이 부르는 이름 — 편집기 뷰·문서 렌더 뷰(`ui/`)·계약.
+Controller.delegate(App,'editor.docRender',['docRenderMount','docRenderRootOf','_docRenderOpen','docRenderToSource']);

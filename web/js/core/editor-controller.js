@@ -10,7 +10,7 @@
  *
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  *
- * App 은 이것을 `editor` 로 든다(REFACTOR3_FE_APPCTL_SRS 9k-1, 옛 `app-editor.js`). **나머지는 부품으로 갈라져
+ * App 은 이것을 `editor` 로 든다(REFACTOR3_FE_APPCTL_SRS 9k-1·9k-2, 옛 `app-editor.js`). **나머지는 부품으로 갈라져
  * 나갔다.** 고칠 자리를 파일 이름이 말한다:
  *
  *   editor-sync.js      `.sync`     서버 목록 동기 · 창 재조정 · dirty 판정
@@ -18,7 +18,10 @@
  *   editor-pane.js      `.pane`     칸과 사이드 · 탭 이동 · git 폴링
  *   editor-watch.js     `.watch`    보이는 디렉터리의 서버 감시
  *   editor-section.js   `.section`  사이드바 Editor 섹션 — 목록의 변경
- *   app-editor-file.js              파일 조작 · 클립보드 · 삭제 확인
+ *   editor-file.js      `.file`     파일 조작 · 클립보드 · 삭제 확인
+ *   editor-doc.js       `.doc`      문서 — 로드·refresh·경로 이동·dirty·저장
+ *   editor-search.js    `.search`   파일 찾기·전체 내용 찾기·코드 탐색 키
+ *   editor-doc-render.js `.docRender` 문서 렌더 뷰의 배선
  *
  * 목록(`editors`)·끔(`_edOff`)·문서와 트리의 등록부(`_edDocs`·`edStores`·`_edTrees`)는 App 에 남고 쓰기는 이 묶음만
  * 한다(§2.2 A/9k).
@@ -31,6 +34,10 @@ class EditorController extends Controller {
     this.pane=new EditorPane(app);
     this.watch=new EditorWatch(app);
     this.section=new EditorSection(app);
+    this.doc=new EditorDoc(app);
+    this.file=new EditorFile(app);
+    this.docRender=new EditorDocRender(app);
+    this.search=new EditorSearch(app);
   }
 
   /**

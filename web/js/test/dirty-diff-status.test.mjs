@@ -40,7 +40,7 @@ function setup() {
     edRoots: () => ['/r'],
     edDocAt: () => null,
     gitStatusHub: () => hub,
-    // app-editor-pane.js 의 gitSignal 감싸개와 같은 일 — 열린 문서 전부를 refresh 한다.
+    // 편집기 후속(`_edAfterGitSignal`, editor-pane.js)과 같은 일 — 열린 문서 전부를 refresh 한다.
     gitSignal() { for (const d of docs.values()) d.dd.refresh() },
   };
   const dd = new ctx.EdDirtyDiff(app, '/r/a.txt');

@@ -1,16 +1,16 @@
 /**
  * 편집기 문서 — 로드·refresh·경로 이동·dirty (REPO_FIX 03 §3A-5·3A-7)
  *
- * 레지스트리(`_edDocs`)와 문서의 자리는 `app-editor-open.js` 의 `edDoc`·`edDocDrop`
+ * 레지스트리(`_edDocs`)와 문서의 자리는 `editor-open.js` 의 `edDoc`·`edDocDrop`
  * 이다. 여기 있는 것은 **디스크 내용을 문서에 넣는 일** 전부다 — 첫 뷰가 무엇이든
  * (FileEditor·DocRender) 문서가 버퍼(`EdBuffer`, `d.buf`)를 만들고, 외부 변경은 문서
  * 단위로 한 번 읽어 모든 뷰에 알린다. 비동기 응답은 적용 직전 토큰으로 재확인한다
  * (`doc-token.js`). CODEMIRROR_MIGRATION_SRS §11.1.
  */
-Object.assign(App.prototype, {
+class EditorDoc extends Controller {
 
   // 그 경로의 문서 — 만들지 않는다. 계층 밖(ui/)이 레지스트리를 보는 유일한 길이다.
-  edDocAt(filePath){ return (this._edDocs&&this._edDocs.get(filePath))||null },
+  edDocAt(filePath){ return (this.app._edDocs&&this.app._edDocs.get(filePath))||null }
 
   /**
    * 문서의 버퍼. 없으면 디스크에서 `decode=1` 로 읽어 만든다(한 문서에 한 번 —
@@ -18,7 +18,7 @@ Object.assign(App.prototype, {
    * 누가 버퍼를 만들었으면 만들지 않는다 (#9).
    */
   edDocLoad(filePath){
-    const d=this.edDoc(filePath);
+    const d=this.app.edDoc(filePath);
     if(d.buf) return Promise.resolve(d.buf);
     if(d.loading) return d.loading;
     const tok=docTokenOf(d,filePath);
@@ -27,13 +27,13 @@ Object.assign(App.prototype, {
         await loadCodeMirror();
         const r=await this._edDocRead(filePath,d.encoding);
         if(!r.ok) throw new Error('HTTP '+r.status);
-        if(!docTokenValid(tok,this._edDocs)) return d.buf||null;
+        if(!docTokenValid(tok,this.app._edDocs)) return d.buf||null;
         this._edDocCreate(d,r);
         return d.buf;
       }finally{ d.loading=null }
     })();
     return d.loading;
-  },
+  }
 
   // 파일 읽기 — 언제나 판별·변환(`decode=1`). 문서의 인코딩이 정해졌으면 그것으로
   // 강제한다(refresh·live-reload 가 인코딩을 유지한다, §3A-1).
@@ -41,7 +41,7 @@ Object.assign(App.prototype, {
     const query={path:filePath,decode:'1'};
     if(enc) query.encoding=enc;
     return apiGet('/api/file/read',{query,parse:false});
-  },
+  }
 
   // 응답 헤더의 표식·인코딩을 문서에 옮긴다.
   _edDocMeta(d,r){
@@ -58,7 +58,7 @@ Object.assign(App.prototype, {
     d.actions=null;
     const acts=h.get('X-File-Actions');
     if(acts){try{d.actions=JSON.parse(acts)}catch{d.actions=null}}
-  },
+  }
 
   // 버퍼는 문서마다 하나이고 경로로 찾는 전역 등록소가 없다 — 고아가 생길 자리가 없다.
   _edDocCreate(d,r){
@@ -70,7 +70,7 @@ Object.assign(App.prototype, {
     d.dirty=false;
     // 버퍼를 직접 그리지 않는 뷰(DocRender)에 알린다.
     for(const v of d.views) if(v&&v.onDocBuf) v.onDocBuf(d.buf);
-  },
+  }
 
   /**
    * 문서 단위 refresh — 디스크를 한 번 읽어 모델을 갱신하고 모든 뷰에 알린다
@@ -84,15 +84,15 @@ Object.assign(App.prototype, {
    *   이유:     #3 #46
    */
   edDocRefresh(filePath){
-    const d=this._edDocs&&this._edDocs.get(filePath);
+    const d=this.app._edDocs&&this.app._edDocs.get(filePath);
     if(!d||!d.buf||d.dirty||d.loading) return Promise.resolve(false);
     const tok=docTokenOf(d,filePath);
     return this._edDocRead(filePath,d.encoding).then(r=>{
-      if(!r.ok||!docTokenValid(tok,this._edDocs)) return false;
+      if(!r.ok||!docTokenValid(tok,this.app._edDocs)) return false;
       this._edDocReplace(d,r);
       return true;
     }).catch(e=>{console.error('[edDoc] refresh error:',e);return false});
-  },
+  }
 
   // 디스크 내용을 문서에 넣는다. 내용이 같으면 버퍼가 넣지 않는다 — 넣으면 커서와
   // undo 를 버린다(FR-LSP-26b). 칸마다의 시선(커서·스크롤)은 버퍼가 남긴다(FR-ELR-30·31).
@@ -105,14 +105,14 @@ Object.assign(App.prototype, {
     d.gen++;
     d.savedDoc=d.buf.doc;
     this.edDocDirtySync(d);
-  },
+  }
 
   // dirty 는 **버퍼**의 변화에서 잰다 — 편집기 뷰가 없는(DocRender 만 연) 문서도,
   // undo 도 같은 길이다.
   _edDocWatch(d){
     if(d.bufSub) d.bufSub();
     d.bufSub=d.buf?d.buf.onChange(()=>this.edDocDirtySync(d)):null;
-  },
+  }
 
   /**
    * §3A-7 (E-6.3) · CODEMIRROR_MIGRATION_SRS FR-CMR-16: dirty = 지금 내용 ≠ 저장 시점 내용.
@@ -123,7 +123,7 @@ Object.assign(App.prototype, {
     if(now===d.dirty) return;
     d.dirty=now;
     for(const v of d.views) if(v&&v._updateTabLabel) v._updateTabLabel();
-  },
+  }
 
   /**
    * §3A-2: 다른 인코딩으로 다시 열기 — 디스크에서 그 인코딩으로 다시 디코드한다.
@@ -137,16 +137,16 @@ Object.assign(App.prototype, {
     const tok=docTokenOf(d,filePath);
     const r=await this._edDocRead(filePath,enc);
     if(r.status===422){this._edDocNote(d,t('editor.enc_undecodable',{enc:ENC_LABEL[enc]||enc}));return false}
-    if(!r.ok||!docTokenValid(tok,this._edDocs)) return false;
+    if(!r.ok||!docTokenValid(tok,this.app._edDocs)) return false;
     this._edDocMeta(d,r);
     d.buf.replace(r.text);
     d.gen++;
     d.savedDoc=d.buf.doc;
     this.edDocDirtySync(d);
     for(const v of d.views) if(v&&v.onDocReadOnly) v.onDocReadOnly(d.decodable===false);
-    this.updateStatusBar();
+    this.app.updateStatusBar();
     return true;
-  },
+  }
 
   /**
    * §3A-2: UTF-8 로 변환해 저장 — 문서 내용을 `utf-8`·BOM 없음으로 쓴다(경합 검사는
@@ -163,9 +163,9 @@ Object.assign(App.prototype, {
     d.encoding='utf-8'; d.bom=false;
     const ok=await this._edDocSaveOnce(filePath,d,ui,{force:true,convertFrom:prev.encoding});
     if(!ok){d.encoding=prev.encoding;d.bom=prev.bom}
-    this.updateStatusBar();
+    this.app.updateStatusBar();
     return ok;
-  },
+  }
 
   /**
    * 문서 저장 — 편집기 탭과 git Diff 뷰가 같은 길을 탄다 (REPO_FIX 05 §3A-3 F-2.2).
@@ -196,7 +196,7 @@ Object.assign(App.prototype, {
     d.savePromise=p;
     p.finally(()=>{if(d.savePromise===p)d.savePromise=null});
     return p;
-  },
+  }
 
   // 저장 하나. **성공 여부를 돌려준다** (FR-EXC-12). `force` 는 dirty 가 아니어도
   // 쓴다 — UTF-8 로 변환해 저장이 그 길이다(03 §3A-2).
@@ -234,14 +234,14 @@ Object.assign(App.prototype, {
         this.edDocDirtySync(d);
       }
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
-      this.gitSignal('write');
+      this.app.gitSignal('write');
       return true;
     }catch(e){
       console.error('[edDoc] save error:',e);
       if(ui) ui._noteSaveFailed(null);
       return false;
     }
-  },
+  }
 
   // 쓰기 한 번. 표식이 비면 필드를 싣지 않는다 — 서버의 관대함(FR-EXC-6a)을
   // 부르는 것이 곧 "검사하지 말라" 이므로, 그 뜻을 한 자리에 모아 둔다.
@@ -254,7 +254,7 @@ Object.assign(App.prototype, {
     if(d&&d.encoding){body.encoding=d.encoding;body.bom=!!d.bom}
     if(convertFrom) body.convertFrom=convertFrom;
     return apiPost('/api/file/write',body);
-  },
+  }
 
   /**
    * FR-EXC-9: 경합의 확인창. 참이면 덮어쓴다. 편집기 탭과 Diff 뷰가 함께 쓴다.
@@ -290,20 +290,20 @@ Object.assign(App.prototype, {
       });
       document.body.appendChild(m.el);
     });
-  },
+  }
 
   /**
    * REPO_FIX 05 §3A-3 (F-2.4): dirty 문서의 마지막 뷰가 다른 대상으로 옮겨 가려 한다 —
    * 저장('save')·버리기(true)·취소(false).
    */
   edDocLeaveConfirm(){
-    return this._confirmClose(DOC_LEAVE_MSG,{saveBtn:true,saveLabel:DOC_LEAVE_SAVE,okLabel:DOC_LEAVE_DISCARD});
-  },
+    return this.app._confirmClose(DOC_LEAVE_MSG,{saveBtn:true,saveLabel:DOC_LEAVE_SAVE,okLabel:DOC_LEAVE_DISCARD});
+  }
 
   // 문서를 보는 편집기 하나에 알림을 띄운다.
   _edDocNote(d,text,action){
     for(const v of d.views) if(v&&v._view&&v.note){v.note(text,action?FE_NOTE_ACTION_MS:0,action);return}
-  },
+  }
 
   _edEncConfirm(msg){
     return new Promise(resolve=>{
@@ -322,7 +322,7 @@ Object.assign(App.prototype, {
       });
       document.body.appendChild(m.el);
     });
-  },
+  }
 
   /**
    * §3A-5 (E-5): 이름변경·이동의 **유일한** 문서 API — 04 탐색기와 탭 재지정이
@@ -338,17 +338,17 @@ Object.assign(App.prototype, {
    */
   edDocMove(from,to){
     const out={moved:[],conflicts:[]};
-    if(!this._edDocs||!from||!to||from===to) return out;
+    if(!this.app._edDocs||!from||!to||from===to) return out;
     const moves=[];
-    for(const [p,d] of this._edDocs){
+    for(const [p,d] of this.app._edDocs){
       if(p===from||pathUnder(from,p)) moves.push([p,to+p.slice(from.length),d]);
     }
     for(const [p,np,d] of moves){
-      if(this._edDocs.has(np)){out.conflicts.push(np);continue}
+      if(this.app._edDocs.has(np)){out.conflicts.push(np);continue}
       if(d.buf) d.gen++;
       if(d.dd){d.dd.dispose();d.dd=null}
-      this._edDocs.delete(p);
-      this._edDocs.set(np,d);
+      this.app._edDocs.delete(p);
+      this.app._edDocs.set(np,d);
       for(const v of d.views){
         if(!v) continue;
         v.filePath=np;
@@ -357,5 +357,9 @@ Object.assign(App.prototype, {
       out.moved.push([p,np]);
     }
     return out;
-  },
-});
+  }
+}
+
+// 바깥이 부르는 이름 — 편집기 뷰·Diff 문서·문서 렌더·상태바 인코딩·LSP·`ui/`·`git/`·e2e.
+Controller.delegate(App,'editor.doc',['edDocAt','edDocLoad','edDocRefresh','edDocDirtySync','edDocReopen','edDocConvertUtf8','edDocSave',
+  'edDocWrite','edConfirmConflict','edDocLeaveConfirm','edDocMove']);

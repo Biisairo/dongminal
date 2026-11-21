@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { loadCM } from './cm-harness.mjs';
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * EDITOR_LIVE_RELOAD_SRS 묶음 F — 디스크 내용을 문서에 넣는 일(`edDocRefresh`·`_edDocReplace`).
@@ -14,17 +14,18 @@ const CM = await loadCM();
 const PATH = '/r/a.md';
 
 function setup() {
-  const ctx = load(['ui/cm-buffer.js', 'core/doc-token.js', 'core/app-editor-doc.js'], {
+  const ctx = load([...BASE, 'ui/cm-buffer.js', 'core/doc-token.js', 'core/editor-doc.js'], {
     globals: { CM, App: class {}, FILE_STAMP_HEADER: 'X-File-Stamp' },
-    expose: ['EdBuffer'],
+    expose: ['EdBuffer', 'EditorDoc'],
   });
   const a = new ctx.App();
+  a.editor = { doc: new ctx.EditorDoc(a) };
   const d = { gen: 0, views: new Set(), dirty: false, buf: null, stamp: '', loading: null };
   a._edDocs = new Map([[PATH, d]]);
   let next = null;
-  a._edDocRead = async () => next;
+  a.editor.doc._edDocRead = async () => next;
   const res = (text, stamp) => ({ ok: true, text, headers: { get: (k) => (k === 'X-File-Stamp' ? stamp : null) } });
-  a._edDocCreate(d, res('old\n', 's1'));
+  a.editor.doc._edDocCreate(d, res('old\n', 's1'));
   return { a, d, serve: (text, stamp) => { next = res(text, stamp) } };
 }
 

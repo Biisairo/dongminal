@@ -12,7 +12,7 @@ import { BASE, DIALOG, load } from './harness.mjs';
 const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => readFileSync(join(JS, f), 'utf8');
 
-for (const f of ['core/tool-controller.js', 'core/app-editor-file.js']) {
+for (const f of ['core/tool-controller.js', 'core/editor-file.js']) {
   test(f + ' 에 손으로 짠 모달 골격이 없다', () => {
     const s = read(f);
     assert.doesNotMatch(s, /UIKit\.dialogOpen\(/, 'dialogOpen 을 직접 부른다');
