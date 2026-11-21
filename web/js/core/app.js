@@ -487,72 +487,16 @@ class App {
         if(hold>0) await this.timers.sleep(hold,{owner:'app',label:'hold'});
         this._savePending=false;
         try{
-          // activeWindow and focusedPane are per-window; strip them so
-          // remote windows aren't forced to switch views (multi-window sync).
-          // REPO_FIX 03 §3A-7: 탭의 `dirty` 는 파생이다 — 싣지 않는다(옛 저장본의
-          // 값은 읽혀도 쓰이지 않는다: 라벨이 `tabDirty` 로 파생한다).
-          //
-          // 서버는 schemaVersion 미달 저장을 거부한다 (FR-EM-2a). 어떤 경로로
-          // this.ws 가 만들어졌든 PUT 은 항상 현재 버전을 실어 보낸다.
-          //
           // OPTIMIZE_REFACTOR_SRS FR-OPT-5-1 (FEC-2): 직렬화는 **한 번**이다. 이
           // 문자열이 그대로 본문이고, 아래 같은 본문 판정의 키다.
-          const body=JSON.stringify(Object.assign({},this.ws,{schemaVersion:WS_SCHEMA_VERSION}),(k,v)=>{
-            if(k==='activeWindow'||k==='focusedPane'||k==='dirty') return undefined;
-            return v;
-          });
-          /**
-           * FR-OPT-5-1 (FEC-1): **마지막으로 성공한 본문과 같으면 보내지 않는다.**
-           *
-           * 포커스·창 전환은 벗겨 내는 키만 바꾸므로 본문이 그대로다. 보내면 서버가
-           * 쓰지는 않아도 왕복이 남는다. 그 뒤에 원격 판을 채택했으면(ETag 가
-           * 바뀌었으면) 서버의 판이 우리 기억과 다를 수 있으므로 판정하지 않는다.
-           */
-          const last=this._wsLastSent;
-          if(last&&last.body===body&&last.etag===this.wsETag) continue;
-          const seen=this._wsIdsOf(this.ws.windows);
-          const headers={};
-          if(this.wsETag) headers['If-Match']=this.wsETag;
-          const res=await apiPut('/api/workspace',body,{headers});
-          // STATE_FILE_DURABILITY_SRS FR-SFD-20: **428 은 409 와 같이 다룬다.**
-          //
-          // 428 은 "조건을 아예 보내지 않았다" 이고 409 는 "조건이 어긋났다" 인데,
-          // 우리가 **할 일은 같다** — 남이 무엇을 바꿨는지 모르므로 재조회부터
-          // 다시 하고 이 저장은 포기한다 (FR-WSC-1 / I-1). 밀어붙이면 그것이 곧
-          // 남의 변경을 지우는 일이다.
-          if(res.status===409||res.status===428){
-            /**
-             * WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-1: **이 저장을 포기한다.**
-             *
-             * 종전에는 원격의 `git`·`editors` 만 채택하고 `windows` 는 우리 것을
-             * 그대로 다시 밀어붙였다 (`continue`). 그것이 **다른 화면이 만든 창을
-             * 지우는 경로**였다 — 재현으로 확정했다 (그 SRS §2.5):
-             *
-             *   A 가 창 추가 → 서버 2 | B 가 저장 → 서버 1  (A 의 창이 사라진다)
-             *
-             * 우리는 우리가 무엇을 바꾸려 했는지는 알지만 **남이 무엇을 바꿨는지는
-             * 모른다.** 그 상태에서 우리 본문을 밀어붙이는 일은 남의 변경을 지우는
-             * 일이다. 그래서 원격이 이긴다 (I-1 / D-1) — 남의 창이 사라지는 것은
-             * 되돌릴 수 없고, 내 폭 조정이 사라지는 것은 다시 하면 된다.
-             */
-            await this._saveAdoptRemote();
-            // **재시도하지 않는다** (FR-WSC-1). 사용자가 그 사이 새로 조작했으면
-            // 그것은 다음 저장으로 나간다 (FR-WSC-5) — 포기하는 것은 이번 본문이며
-            // 사용자의 다음 의도가 아니다.
-            break;
-          }
-          if(res.ok){
-            const et=this._etagOf(res);
-            if(et) this.wsETag=et;
-            // FR-WSC-12: 이 본문이 서버에 남았다 — 여기 실린 창은 이제 원격이
-            // 아는 창이다.
-            this._wsSavedIds=seen.windows;
-            this._wsSavedTabs=seen.tabs;
-            this._wsLastSent={body,etag:this.wsETag};
-            // FR-WSC-6: 성공하면 연속 충돌 수를 되돌린다.
-            this._saveConflicts=0;
-            this._saveHoldUntil=0;
-          }
+          const body=wsSaveBody(this.ws);
+          // FR-OPT-5-1 (FEC-1): 같은 본문 판정은 `await` 앞이어야 한다 — 그래야 아래
+          // 비행이 동기로 끝나 `_saveChain` 을 붙들지 않는다 (REFACTOR3_FE_REST3_SRS INV-R3-2).
+          if(wsSaveSame(this._wsLastSent,body,this.wsETag)) continue;
+          // **재시도하지 않는다** (FR-WSC-1). 사용자가 그 사이 새로 조작했으면
+          // 그것은 다음 저장으로 나간다 (FR-WSC-5) — 포기하는 것은 이번 본문이며
+          // 사용자의 다음 의도가 아니다.
+          if(await this._savePut(body)) break;
         }catch(err){console.warn('[save] PUT failed',err)}
       }
       this._saveChain=null;
@@ -564,6 +508,54 @@ class App {
     const chain=run();
     if(this._saveInflight) this._saveChain=chain;
     return chain;
+  }
+
+  /**
+   * 본문 하나를 PUT 한다. 충돌(409·428)이면 원격을 채택하고 참을 돌려준다 — 그때 비행은 멈춘다.
+   * 창·탭 기억은 **직렬화 시점의 것**을 떠 두고 성공한 뒤에 적는다.
+   */
+  async _savePut(body){
+    const seen=this._wsIdsOf(this.ws.windows);
+    const headers={};
+    if(this.wsETag) headers['If-Match']=this.wsETag;
+    const res=await apiPut('/api/workspace',body,{headers});
+    // STATE_FILE_DURABILITY_SRS FR-SFD-20: **428 은 409 와 같이 다룬다.**
+    //
+    // 428 은 "조건을 아예 보내지 않았다" 이고 409 는 "조건이 어긋났다" 인데,
+    // 우리가 **할 일은 같다** — 남이 무엇을 바꿨는지 모르므로 재조회부터
+    // 다시 하고 이 저장은 포기한다 (FR-WSC-1 / I-1). 밀어붙이면 그것이 곧
+    // 남의 변경을 지우는 일이다.
+    if(res.status===409||res.status===428){
+      /**
+       * WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-1: **이 저장을 포기한다.**
+       *
+       * 종전에는 원격의 `git`·`editors` 만 채택하고 `windows` 는 우리 것을
+       * 그대로 다시 밀어붙였다 (`continue`). 그것이 **다른 화면이 만든 창을
+       * 지우는 경로**였다 — 재현으로 확정했다 (그 SRS §2.5):
+       *
+       *   A 가 창 추가 → 서버 2 | B 가 저장 → 서버 1  (A 의 창이 사라진다)
+       *
+       * 우리는 우리가 무엇을 바꾸려 했는지는 알지만 **남이 무엇을 바꿨는지는
+       * 모른다.** 그 상태에서 우리 본문을 밀어붙이는 일은 남의 변경을 지우는
+       * 일이다. 그래서 원격이 이긴다 (I-1 / D-1) — 남의 창이 사라지는 것은
+       * 되돌릴 수 없고, 내 폭 조정이 사라지는 것은 다시 하면 된다.
+       */
+      await this._saveAdoptRemote();
+      return true;
+    }
+    if(res.ok){
+      const et=this._etagOf(res);
+      if(et) this.wsETag=et;
+      // FR-WSC-12: 이 본문이 서버에 남았다 — 여기 실린 창은 이제 원격이
+      // 아는 창이다.
+      this._wsSavedIds=seen.windows;
+      this._wsSavedTabs=seen.tabs;
+      this._wsLastSent={body,etag:this.wsETag};
+      // FR-WSC-6: 성공하면 연속 충돌 수를 되돌린다.
+      this._saveConflicts=0;
+      this._saveHoldUntil=0;
+    }
+    return false;
   }
 
   /**
@@ -579,79 +571,77 @@ class App {
       const gr=await apiGet('/api/workspace');
       if(gr.ok){
         this.wsETag=this._etagOf(gr);
-        // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
-        // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 채택한다.
-        //
-        // 단, git.drafts 와 git.favorites 는 클라이언트가 주인이다
-        // (O6·O13) — 통째로 채택하면 방금 입력한 커밋 메시지와 방금 고정한
-        // 즐겨찾기가 재시도에서 사라진다 (FR-GIT-75·149).
-        const rem=gr.data;
-        if(rem&&rem.git){
-          const mine=this.ws.git||{};
-          this.ws.git=rem.git;
-          for(const k of ['drafts','favorites'])
-            if(mine[k]) this.ws.git[k]=Object.assign({},rem.git[k]||{},mine[k]);
-          // FR-OPT-4-3: 핀이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
-          if(JSON.stringify(mine.pinned||[])!==JSON.stringify(rem.git.pinned||[])) this.gitReposKick();
-        }
-        // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
-        // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버
-        // 값을 통째로 쓴다. 목록이 바뀌었으면 창도 따라와야 한다.
-        if(rem&&rem.editors&&this.edOn()){
-          this.ws.editors=rem.editors;
-          // WORKBENCH_REVIEW_SRS FR-WBR-30: **목록만** 갈아끼운다.
-          //
-          //   이전 동작: `_edApplyServer({home,list})` 를 직접 불렀다 —
-          //             `notes` 가 빠져 이 경로를 한 번 지나면 메모장
-          //             행과 창이 사라졌다 (FR-NOT-11 이 없으면 지운다)
-          //   새  동작: `_edPatchList` 하나로 간다
-          //   이유:     그 함수가 있는 이유가 바로 이것이다 — "아는 값은
-          //             그대로, 목록만". 여기가 그 규약을 우회한 넷째
-          //             자리였다
-          this._edPatchList(rem.editors.list);
-          this._edReconcile();
-        }
-        /**
-         * FR-WSC-2: **창까지 채택한다.** 위의 둘(git·editors)만 받고
-         * `windows` 를 우리 것으로 두었던 것이 §2.5 의 손실이었다.
-         *
-         * 적용기는 이미 있는 것을 쓴다 (D-2) — 낡은 모양의 마이그레이션,
-         * 편집기 탭 정리, Editor 창 재조정이 그 안에 있다. 두 번째
-         * 적용기를 만들면 그 둘이 갈라진다.
-         *
-         * 도구 목록은 **모른다고 말한다** (세 번째 인자 `false`).
-         * `/api/workspace` 는 도구를 싣지 않으므로 안다고 하면 빈 목록이
-         * 사실이 되어 살아 있는 도구·pane·창이 차례로 지워진다
-         * (FR-TLU-5·6 이 그 함정을 적고 있다).
-         */
-        if(rem&&rem.windows){
-          /**
-           * FR-WSC-12·14: **원격이 본 적 없는 창은 지우지 않는다** (§2.9).
-           *
-           * OPTIMISTIC_LAYOUT_SRS FR-OPL-11 로 개정: 그 병합을 여기서
-           * 하지 않는다.
-           *
-           *   이전 동작: 이 자리가 `_wsSavedIds` 로 미관측 창을 가려
-           *             `rem.windows` 에 얹은 뒤 적용기를 불렀다
-           *   새  동작: **적용기가 한다.** 여기는 부르기만 한다
-           *   이유:     같은 판정이 SSE 채택 경로(`_onWorkspaceChanged`)
-           *             에는 없었고, 흔들림이 오는 자리는 그쪽이었다
-           *             (`11 §5` 의 3·4·5·6·7). 판정이 두 벌이면 한쪽만
-           *             고쳐진다 — 적용기는 두 경로가 반드시 지나는 목이다.
-           *             그리고 적용기의 것은 **탭까지** 본다
-           *
-           * 저장 예약(`FR-WSC-13`)도 적용기가 한다 — 병합이 일어났는지를
-           * 아는 자리가 거기다 (FR-OPL-9).
-           */
-          this._applyRemoteWorkspace(rem,[],false);
-        }
+        this._adoptRemote(gr.data);
       }
     }catch(e){ ErrorLog.push('workspace',(e&&e.message)||e) }
-    // FR-WSC-7: 다음 저장을 잠시 미룬다 — 두 화면이 서로 밀어내는 동안
-    // 그 사이를 벌린다. 저장을 잃지는 않는다 (FR-WSC-9): 대기 중인
-    // 것이 있으면 이 지연 뒤에 나간다.
-    this._saveHoldUntil=Date.now()+Math.min(
-      WS_SAVE_BACKOFF_MS*conflicts,WS_SAVE_BACKOFF_MAX_MS);
+    this._saveBackoff(conflicts);
+  }
+
+  /** 409 채택의 본문 — git → editors → 창 순서다. */
+  _adoptRemote(rem){
+    // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
+    // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 채택한다.
+    if(rem&&rem.git){
+      const mine=this.ws.git||{};
+      this.ws.git=wsGitAdopt(mine,rem.git);
+      // FR-OPT-4-3: 핀이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
+      if(JSON.stringify(mine.pinned||[])!==JSON.stringify(rem.git.pinned||[])) this.gitReposKick();
+    }
+    // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
+    // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버
+    // 값을 통째로 쓴다. 목록이 바뀌었으면 창도 따라와야 한다.
+    if(rem&&rem.editors&&this.edOn()){
+      this.ws.editors=rem.editors;
+      // WORKBENCH_REVIEW_SRS FR-WBR-30: **목록만** 갈아끼운다.
+      //
+      //   이전 동작: `_edApplyServer({home,list})` 를 직접 불렀다 —
+      //             `notes` 가 빠져 이 경로를 한 번 지나면 메모장
+      //             행과 창이 사라졌다 (FR-NOT-11 이 없으면 지운다)
+      //   새  동작: `_edPatchList` 하나로 간다
+      //   이유:     그 함수가 있는 이유가 바로 이것이다 — "아는 값은
+      //             그대로, 목록만". 여기가 그 규약을 우회한 넷째
+      //             자리였다
+      this._edPatchList(rem.editors.list);
+      this._edReconcile();
+    }
+    /**
+     * FR-WSC-2: **창까지 채택한다.** 위의 둘(git·editors)만 받고
+     * `windows` 를 우리 것으로 두었던 것이 §2.5 의 손실이었다.
+     *
+     * 적용기는 이미 있는 것을 쓴다 (D-2) — 낡은 모양의 마이그레이션,
+     * 편집기 탭 정리, Editor 창 재조정이 그 안에 있다. 두 번째
+     * 적용기를 만들면 그 둘이 갈라진다.
+     *
+     * 도구 목록은 **모른다고 말한다** (세 번째 인자 `false`).
+     * `/api/workspace` 는 도구를 싣지 않으므로 안다고 하면 빈 목록이
+     * 사실이 되어 살아 있는 도구·pane·창이 차례로 지워진다
+     * (FR-TLU-5·6 이 그 함정을 적고 있다).
+     *
+     * FR-WSC-12·14: **원격이 본 적 없는 창은 지우지 않는다** (§2.9).
+     *
+     * OPTIMISTIC_LAYOUT_SRS FR-OPL-11 로 개정: 그 병합을 여기서
+     * 하지 않는다.
+     *
+     *   이전 동작: 이 자리가 `_wsSavedIds` 로 미관측 창을 가려
+     *             `rem.windows` 에 얹은 뒤 적용기를 불렀다
+     *   새  동작: **적용기가 한다.** 여기는 부르기만 한다
+     *   이유:     같은 판정이 SSE 채택 경로(`_onWorkspaceChanged`)
+     *             에는 없었고, 흔들림이 오는 자리는 그쪽이었다
+     *             (`11 §5` 의 3·4·5·6·7). 판정이 두 벌이면 한쪽만
+     *             고쳐진다 — 적용기는 두 경로가 반드시 지나는 목이다.
+     *             그리고 적용기의 것은 **탭까지** 본다
+     *
+     * 저장 예약(`FR-WSC-13`)도 적용기가 한다 — 병합이 일어났는지를
+     * 아는 자리가 거기다 (FR-OPL-9).
+     */
+    if(rem&&rem.windows) this._applyRemoteWorkspace(rem,[],false);
+  }
+
+  // FR-WSC-7: 다음 저장을 잠시 미룬다 — 두 화면이 서로 밀어내는 동안
+  // 그 사이를 벌린다. 저장을 잃지는 않는다 (FR-WSC-9): 대기 중인
+  // 것이 있으면 이 지연 뒤에 나간다.
+  _saveBackoff(conflicts){
+    this._saveHoldUntil=Date.now()+wsSaveHoldMs(conflicts);
     // FR-WSC-8: 잦으면 그 사실을 남긴다.
     if(conflicts>=WS_SAVE_CONFLICT_WARN){
       console.warn('[save] workspace 저장 충돌이 '+conflicts+
@@ -758,6 +748,49 @@ class App {
   _runViewsRestore(){ if(this._runs) this._runs._runViewsRefresh() }
   _onRunMemberActivity(args){ if(this._runs) this._runs._onMemberActivity(args) }
 }
+
+// ── 저장의 순수 판정 (REFACTOR3_FE_REST3_SRS FR-FR3-4) ──
+
+/**
+ * PUT 본문. activeWindow and focusedPane are per-window; strip them so
+ * remote windows aren't forced to switch views (multi-window sync).
+ * REPO_FIX 03 §3A-7: 탭의 `dirty` 는 파생이다 — 싣지 않는다(옛 저장본의
+ * 값은 읽혀도 쓰이지 않는다: 라벨이 `tabDirty` 로 파생한다).
+ *
+ * 서버는 schemaVersion 미달 저장을 거부한다 (FR-EM-2a). 어떤 경로로
+ * 워크스페이스가 만들어졌든 PUT 은 항상 현재 버전을 실어 보낸다.
+ */
+function wsSaveBody(ws){
+  return JSON.stringify(Object.assign({},ws,{schemaVersion:WS_SCHEMA_VERSION}),(k,v)=>{
+    if(k==='activeWindow'||k==='focusedPane'||k==='dirty') return undefined;
+    return v;
+  });
+}
+
+/**
+ * FR-OPT-5-1 (FEC-1): **마지막으로 성공한 본문과 같으면 보내지 않는다.**
+ *
+ * 포커스·창 전환은 벗겨 내는 키만 바꾸므로 본문이 그대로다. 보내면 서버가
+ * 쓰지는 않아도 왕복이 남는다. 그 뒤에 원격 판을 채택했으면(ETag 가
+ * 바뀌었으면) 서버의 판이 우리 기억과 다를 수 있으므로 판정하지 않는다.
+ */
+function wsSaveSame(last,body,etag){ return !!(last&&last.body===body&&last.etag===etag) }
+
+/**
+ * 409 채택의 git 병합 — **`remGit` 을 제자리에서 고쳐** 돌려준다(채택한 git 은 받은 객체 그대로다).
+ *
+ * git.drafts 와 git.favorites 는 클라이언트가 주인이다
+ * (O6·O13) — 통째로 채택하면 방금 입력한 커밋 메시지와 방금 고정한
+ * 즐겨찾기가 재시도에서 사라진다 (FR-GIT-75·149).
+ */
+function wsGitAdopt(mine,remGit){
+  for(const k of ['drafts','favorites'])
+    if(mine[k]) remGit[k]=Object.assign({},remGit[k]||{},mine[k]);
+  return remGit;
+}
+
+// FR-WSC-7: 연속 충돌 수에 비례하되 상한이 있다.
+function wsSaveHoldMs(conflicts){ return Math.min(WS_SAVE_BACKOFF_MS*conflicts,WS_SAVE_BACKOFF_MAX_MS) }
 
 // 바깥이 부르는 이름 — 형제 `app-*.js`(설정·명령·편집기)·`ui/file-editor.js`·`ui/diff-view.js`·e2e 계약(`app-testing.js`).
 Controller.delegate(App,(app,n,a)=>app._lspClient()[n](...a),['_lspRefresh','_lspGotoDef','_lspFindRefs','_lspRootOfPath','lspClickDef',

@@ -494,3 +494,36 @@ test('TC-FR3-26: 연속 충돌 수는 비행을 넘어 늘고, 미루기는 그�
   assert.match(warns[0], /4번 이어졌다/);
   await drain();
 });
+
+test('TC-FR3-27(FC-09): wsSaveBody — 창별 키·dirty 를 벗기고 현재 스키마 판을 싣는다. 원본은 고치지 않는다', () => {
+  const { ctx } = saveRig();
+  const ws = { schemaVersion: 1, activeWindow: 'W', windows: [{ id: 'W', focusedPane: 'p', layout: { tabs: [{ id: 't', dirty: true }] } }] };
+  assert.equal(ctx.wsSaveBody(ws), '{"schemaVersion":2,"windows":[{"id":"W","layout":{"tabs":[{"id":"t"}]}}]}');
+  assert.equal(ws.schemaVersion, 1);
+  assert.equal(ws.activeWindow, 'W');
+});
+
+test('TC-FR3-27(FC-09): wsSaveSame — 기억이 없거나 본문·ETag 가 하나라도 다르면 거짓', () => {
+  const { ctx } = saveRig();
+  assert.equal(ctx.wsSaveSame(undefined, 'b', '1'), false);
+  assert.equal(ctx.wsSaveSame(null, 'b', '1'), false);
+  assert.equal(ctx.wsSaveSame({ body: 'b', etag: '1' }, 'b', '1'), true);
+  assert.equal(ctx.wsSaveSame({ body: 'b', etag: '1' }, 'c', '1'), false);
+  assert.equal(ctx.wsSaveSame({ body: 'b', etag: '1' }, 'b', '2'), false);
+  assert.equal(ctx.wsSaveSame({ body: 'b', etag: null }, 'b', null), true);
+});
+
+test('TC-FR3-27(FC-09): wsGitAdopt — 받은 객체에 내 drafts·favorites 를 얹는다(내 키가 이긴다)', () => {
+  const { ctx } = saveRig();
+  const rem = { pinned: ['x'], drafts: { a: 'r', b: 'r' } };
+  const out = ctx.wsGitAdopt({ pinned: ['y'], drafts: { a: 'm' }, favorites: { f: 1 }, other: 1 }, rem);
+  assert.equal(out, rem);
+  assert.deepEqual(plain(out), { pinned: ['x'], drafts: { a: 'm', b: 'r' }, favorites: { f: 1 } });
+  const bare = { pinned: [] };
+  assert.deepEqual(plain(ctx.wsGitAdopt({}, bare)), { pinned: [] });
+});
+
+test('TC-FR3-27(FC-09): wsSaveHoldMs — 200·n, 상한 2000', () => {
+  const { ctx } = saveRig();
+  assert.deepEqual([1, 2, 9, 10, 11, 100].map((n) => ctx.wsSaveHoldMs(n)), [200, 400, 1800, 2000, 2000, 2000]);
+});
