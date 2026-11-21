@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R3 — 큰 함수·클래스 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: R3b(FC-05 `delWindow` · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) 요구·구현. R3a(FC-07·09)는 구현을 마쳤다(§6)
+> **남은 것**: R3b(FC-05 `delWindow` · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) 구현. 요구는 §2.3~2.7 에 이어 썼다(실측 HEAD `7adaeb18`). R3a(FC-07·09)는 구현을 마쳤다(§6)
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `refactor/PROD3.md` §2.5 FC-05·07·09·12 · FU-12·13·14·15·16, §7.1 「P3 FE 나머지 — 정리」 의 하위 묶음 R3)
 - 사용자 결정: 진행은 묻지 않고 끝까지 한다(`REFACTOR_PROD3_HANDOFF_2.md` §8). 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -18,7 +18,7 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 |---|---|---|---|
 | FC-07 | `core/ws-sync-controller.js:307` `_applyRemoteWorkspace` | 136줄(주석 포함). 도구 거두기·정규화·재조정·로컬 시선 집기·병합·교체·시선 되얹기·되쓰기 판정을 한 함수가 한다 | 순수 판정 넷과 단계 메서드 다섯으로 나눈다(§2.1) |
 | FC-09 | `core/app.js:478` `save` · `:573` `_saveAdoptRemote` | 90줄 · 88줄. 직렬화·같은 본문 판정·PUT·충돌 갈래·성공 기록, 그리고 git 병합·editors·창 채택·백오프를 각각 한 함수가 한다 | 순수 판정 넷과 메서드 넷으로 나눈다(§2.2) |
-| FC-05 · FC-12 · FU-12 · FU-13 · FU-14·15·16 | PROD3 §2.5 | — | **R3b** — 이 문서에 이어 쓴다 |
+| FC-05 · FC-12 · FU-12 · FU-13 · FU-14·15·16 | PROD3 §2.1·§2.5 | 큰 함수 다섯(100~180줄)·인라인 `style` 45곳·671줄 클래스·킷의 끌기와 HUD | **R3b** — 단계·순수 판정·클래스로 나눈다(§2.3~2.7) |
 
 ### 1.2 정의
 
@@ -44,7 +44,8 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 | INV-R3-2 | 같은 본문 건너뛰기는 지금처럼 `await` 없이 끝난다 — 비행이 동기로 닫혀 `_saveChain` 을 붙들지 않는다(TC-FR3-16) |
 | INV-R3-3 | 적용기는 앱 표면을 `this.app.X` 로 부른다. 시험이 App 인스턴스에 갈아 끼운 이름을 컨트롤러 경로도 본다(HANDOFF_4 §4, TC-FEA-2) |
 | INV-R3-4 | 위임자를 더하지 않는다. 새 메서드는 컨트롤러 안·App 안에서만 불린다(HANDOFF_4 §4) |
-| INV-R3-5 | 계층·로드 순서·크기(`check-file-size` 기준선)·킷·i18n 게이트를 지킨다. `index.html` 의 스크립트 목록은 바꾸지 않는다 |
+| INV-R3-5 | 계층·로드 순서·크기(`check-file-size` 기준선)·킷·i18n 게이트를 지킨다. `index.html` 의 스크립트 목록은 바꾸지 않는다. 단 R3b 는 FR-FR3-13·15 가 정한 새 파일 셋(`git/remote-view.js`·`ui/size-hud.js`·`ui/size-drag.js`)만 더한다 |
+| INV-R3-6 | (R3b) 화면이 그대로다 — 테마 미리보기의 모든 요소의 계산된 스타일이 나누기 전과 같다(TC-FR3-35). e2e 가 만지는 이름(`GitRemote` 의 `_busy`·`_busyKey`·`_paint`, `#ui-size-hud`·`.ui-size-box`, `UIKit.drag`·`UIKit.grid`)은 그대로 산다 |
 
 ## 2. 요구사항
 
@@ -65,9 +66,56 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 | FR-FR3-6 | `_saveAdoptRemote` 는 연속 충돌 수 세기 → 조회 → ETag → `_adoptRemote(rem)` → `_saveBackoff(conflicts)` 다. `_adoptRemote` 는 git → editors → 창 순서로 채택한다. `_saveBackoff` 는 미룰 시각과 잦음 경고를 적는다 |
 | FR-FR3-7 | `save`·`_saveAdoptRemote` 의 코드 줄은 각각 50 이하다. `method-size.test.mjs` 가 고정한다 |
 
-### 2.3 R3b
+### 2.3 FC-05 — 창 닫기 (R3b)
 
-다음 에이전트가 이어 쓴다. 대상: FC-05 `delWindow`(`core/layout-*.js`) · FC-12 테마 미리보기 인라인 `style` · FU-12 `GitRemote` 안 나누기 · FU-13 `UIKit` drag·HUD · FU-14·15·16(`buildLaneGraph`·`_buildChanges`·`_rowEl`·`_applyStatus` 외).
+실측(HEAD `7adaeb18`, acorn): `core/layout-controller.js:201` `delWindow` 108줄. 편집 확인 → 프로세스 확인 → 도구 처리(되돌리기 유예 / 배경 / 죽이기) → 배열에서 빼기 → 되돌리기 열기 → 슬롯 정리 → 다음 활성 창 → 포커스 → 그리기·저장을 한 함수가 한다.
+
+| ID | 요구 |
+|---|---|
+| FR-FR3-8 | `LayoutController` 에 단계 메서드 넷을 둔다: `_delWinDirtyOk(s,opts)`(편집 확인 — 계속하면 참) · `_delWinAsk(pids,opts)`(busy 판정과 프로세스 확인 — 취소면 `null`, 아니면 `{asked, keep}`) · `_delWinTools(pids,asked,keep)`(묻지 않은 닫기는 앞 유예를 최종으로 하고 전부 배경으로, 물은 닫기는 `keep` 만 배경·나머지 죽이기) · `_delWinAfter(sid,i)`(빈 워크스페이스·다음 활성 창·포커스·그리기·저장) |
+| FR-FR3-9 | `delWindow(sid,opts)` 는 서명을 그대로 두고 위 단계를 지금 순서대로 잇는다. 배열에서 빼기·`_winUndoArm`·`_slotOnWindowGone` 은 `delWindow` 에 남는다. 코드 줄은 50 이하다. 새 메서드는 위임자 표에 넣지 않는다(INV-R3-4) |
+
+### 2.4 FC-12 — 테마 미리보기 (R3b)
+
+실측: `core/settings-theme.js:179` `_renderPreview` 90줄. 마크업 문자열에 인라인 `style=` 45곳이 팔레트 값을 보간한다(`${u.accent}` 등). 사용자 정의 테마의 값은 `sanitizeCustomTheme` 이 걸러 XSS 는 막혀 있다(FC-F1).
+
+| ID | 요구 |
+|---|---|
+| FR-FR3-10 | 미리보기 마크업은 **보간이 없는 고정 문자열**(`THEME_PREVIEW_HTML`)이다. 인라인 `style=` 은 0 이다. 모양은 `web/style.css` 의 `.pv-*` 규칙이 갖는다 |
+| FR-FR3-11 | 색은 순수 함수 `themePreviewVars(u,c,ah)` 가 낸 맵(`'--pv-…'` 이름 → 값)을 `pv.style.setProperty` 로 세운다. CSS 는 `var(--pv-…)` 로 읽는다. 하드코딩 색은 없다. 글자 크기 6px·모서리 2px 는 `.theme-preview-panel` 의 자기 눈금(`--pv-fs-2xs`·`--pv-radius`)으로 둔다 — 지금의 `--pv-fs-*` 와 같은 근거다 |
+| FR-FR3-12 | `_renderPreview` 의 코드 줄은 50 이하다. 접근성 속성(`role=img`·`aria-label`)과 견본의 `title`(색 이름)은 그대로다 |
+
+### 2.5 FU-12 — 원격 잡 표시기 (R3b)
+
+실측: `git/remote.js:30` `GitRemote` 671줄(메서드 40), 파일 704줄(500줄 초과 목록). `GitJobs`(`jobs.js`)가 칸마다 `GitRemote` 하나를 세우고 `bind`·`bindHead`·`paint`·`paintHead`·`detachRepo`·`notifyStatus`·`adoptJobs`·`_launch`·`_attach`·`awaitJob`·`dismiss`·`holds` 와 필드 `_busy`·`_busyKey`·`_job`·`_done` 을 쓴다. e2e(`git-head-mobile`)는 `views.index._busy`·`_busyKey` 를 쓰고 `_paint()` 를 부른다.
+
+| ID | 요구 |
+|---|---|
+| FR-FR3-13 | 표시를 `git/remote-view.js` 의 `GitRemoteView` 로 옮긴다: `bind(el)`·`bindHead(head)`·`paintHead(head)`·`paintJob(el)`(옛 `_paintJob`)·`_box`·`_logCollapsed`·`_state`·`_paintFail`·`_paintLog`·`_termCmd`·`_copyLog`. 뷰는 `this.r`(그 `GitRemote`)의 상태를 읽고, 동작(`cancel`·`dismiss`·`_click`·`_opts`·`_fix`)과 다시 그리기(`_paint`)는 `this.r.X()` 로 부른다 |
+| FR-FR3-14 | `GitRemote` 는 상태·실행·스트림·잡 수명을 갖는다. 생성자에서 `this.view=new GitRemoteView(this)` 를 세운다. `paint(el)`(충돌 판정 → `view.paintJob`)·`_paint()`·`busy()` 는 `GitRemote` 에 남는다. `GitJobs` 는 `bind`·`bindHead`·`paintHead` 를 `v.view.X` 로 부른다. 필드 이름(`_busy`·`_logOpen` 등)은 바꾸지 않는다. `remote.js` 는 500줄 아래가 된다 |
+
+### 2.6 FU-13 — 킷의 끌기·HUD (R3b)
+
+실측: `ui/ui-kit.js` 685줄. `drag`(:523, 41줄)와 HUD(`_hudEl`·`_hud`·`_hudHide` :565~619, 상수 `UIK_HUD_EDGE_*`·`uikClamp` :21~24)가 남았다. `_hud*` 를 부르는 곳은 `drag` 뿐이다. 바깥은 `UIKit.drag` 10곳을 쓴다.
+
+| ID | 요구 |
+|---|---|
+| FR-FR3-15 | HUD 를 `ui/size-hud.js` 의 `SizeHud`(정적 `el()`·`show(axis,px,py,sides)`·`hide()`)로, 끌기를 `ui/size-drag.js` 의 `SizeDrag`(정적 `bind(handle,opts)`)로 옮긴다. 상수 `UIK_HUD_EDGE_X_PX`·`UIK_HUD_EDGE_Y_PX` 와 `uikClamp` 는 `size-hud.js` 로 간다. `UIKit.drag` 는 `SizeDrag.bind` 에 맡기는 입구로 남는다(`UIKit.menu`→`Menu` 와 같은 꼴). `UIKit._hudEl`·`_hud`·`_hudHide` 는 없어진다 |
+| FR-FR3-16 | 로드 순서는 `ui-kit.js` 바로 뒤 `size-hud.js` → `size-drag.js` 다(`index.html`). 단위 시험 하네스에 묶음 상수 `HANDLE` 을 더한다: BASE → repaint → ui-kit → HANDLE → DIALOG → LIST → MENU. `PERFORMANCE_BUDGET.md` §2-5 등록부의 `ui-kit.js \| _hud \| b` 행은 `size-hud.js \| show \| b` 가 된다. 타이머 주인 이름(`'ui-kit'`)·합치기 키(`'size-hud'`)는 그대로다 |
+
+### 2.7 FU-14·15·16 — Git 의 큰 함수 넷 (R3b)
+
+실측: `git/lanes.js:42` `buildLaneGraph` 180줄 · `git/git-changes.js:165` `_buildChanges` 121 · `git/git-change-rows.js:203` `_rowEl` 107 · `git/git-poll.js:514` `_applyStatus` 120. 파일은 `git-changes.js` 469 · `git-change-rows.js` 456 줄이다(500줄 경계).
+
+| ID | 요구 |
+|---|---|
+| FR-FR3-17 | `buildLaneGraph(commits)` 는 서명과 결과를 그대로 두고 셋으로 나눈다: 순수 `laneParentRows(commits)`(부모 → 행 번호, 창 밖·위쪽 부모는 `n`) · 걸음 상태와 R1~R4 의 동작을 갖는 클래스 `LaneWalk`(`take`·`heldAt`·`availColor`·`connect`·`follow`·`run`) · 순수 `laneRows(commits, walk)`(행 모양 조립과 `maxLanes`). `// @ts-check` 가 지난다 |
+| FR-FR3-18 | `_buildChanges(el)` 는 순수 `gitChangesHTML(boxes)`(골격 문자열)와 `_wireChangesBar(el)`(부분 노트·lock·진행 중 작업 단추)·`_groupEl(g)`(그룹 하나의 요소)로 나눈다. 배선 순서는 그대로다 |
+| FR-FR3-19 | `_rowEl(group,e,depth)` 는 순수 `gitRowTitle(e,partial,dirTitle)`(행 `title`)·`gitRowActTitle(a,e,op)`(동작 단추 `title`, 막힘 사유 전)와 `_rowActBtn(group,e,a)`·`_rowWire(d,group,e)`(클릭·더블클릭·메뉴)로 나눈다 |
+| FR-FR3-20 | `_applyStatus(tok,r,d)` 는 순수 `gitStatusVerdict(r,d,repo)`(`net`·`error`·`drop`·`not_repo`·`ok`)와 `_applyNetFail()`·`_adoptObs(d)`(실패 누적·관측 시각·주기·`_status`·`_lastSig`·뷰 따라가기·오류 표식 풀기)·`_paintObs(d)`(관측 근거 → 칠하기·배지·상태바·충돌 판정·대화상자 알림)로 나눈다. 세대 검사가 맨 앞이고 순서는 그대로다 |
+| FR-FR3-21 | 위 넷과 FC-05·FC-12 의 함수는 `method-size.test.mjs` 의 상한(코드 50줄)에 든다. 새 순수 함수에는 단위 시험이 있다(TC-FR3-38~41) |
+
+**남기는 것.** 100줄 남짓의 나머지(`ui/version-watch.js:30` 익명 126 · `ui/renderer-pane-wire.js:12` `_makeTab` 109 · `ui/file-tree.js:35` constructor 104 · `core/settings-theme.js:78` `_renderThemePanel` 100)는 이 묶음에서 다루지 않는다(D-FR3-14).
 
 ## 3. 결정
 
@@ -81,6 +129,13 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 | D-FR3-6 | `_savePut` 을 `await` 하는 데서 생기는 마이크로태스크 한 칸은 동작 변경으로 보지 않는다 | `apiPut` 은 지금처럼 같은 틱에 나간다(async 함수는 첫 `await` 까지 동기로 돈다). 늘어나는 것은 응답 뒤의 마이크로태스크 한 칸이며 타이머·요청·화면 어디에도 드러나지 않는다. 같은 본문 건너뛰기는 고리 안에 남겨 동기 종료를 지킨다(INV-R3-2) |
 | D-FR3-7 | `app-cmd-split.test.mjs` 의 "합치면 33개" 는 나누기 전 이름(`SYNC`)으로 센다. 새 단계 메서드는 따로 적는다 | 그 시험의 뜻은 `app-cmd.js` 를 둘로 나눌 때 메서드를 잃지 않았는가다. 단계 메서드는 그 뒤에 생긴 것이다 |
 | D-FR3-8 | 적용기의 순수 판정 넷은 `ws-sync-controller.js` 가 아니라 `core/layout-tree.js` 에 둔다 | `ws-sync-controller.js` 는 471줄이다. 판정과 그 결정 주석(FR-TLU-5~8·FR-VTL-1)을 같은 파일에 두면 530줄이 되어 크기 게이트(500줄 초과 12 → 13)를 깬다. `layout-tree.js` 는 창 배열·레이아웃의 순수 함수 자리이고 적용기가 이미 거기서 `mergeUnseenLayout`·`findPane`·`firstPane` 을 받는다. `index.html` 에서 `ws-sync-controller.js` 보다 앞에 실린다 |
+| D-FR3-9 | (FC-05) 단계는 `LayoutController` 메서드다. 순수 함수로 뺄 판정이 없다 | 모든 단계가 확인창·도구·워크스페이스를 만진다. busy 집합 계산 두 줄은 `_delWinAsk` 안에 둔다 — 따로 빼면 이름이 본문보다 길다 |
+| D-FR3-10 | (FC-12) 미리보기는 DOM API 로 하나씩 세우지 않고, **보간 없는 고정 마크업 + CSS 변수**로 그린다 | 위험은 값이 마크업에 섞이는 데 있었다. 고정 문자열에는 값이 들어갈 자리가 없고, 값은 `setProperty` 로만 들어가 마크업이 될 수 없다. 같은 안전을 DOM API 로 얻으려면 요소 60여 개를 손으로 세워야 해 그림의 구조가 읽히지 않는다 |
+| D-FR3-11 | (FC-12) 색 변수 이름은 리터럴 맵(`'--pv-bg':u.bg` 꼴)으로 적는다. 반복문으로 이름을 조립하지 않는다 | `check-css-vars.mjs` 는 `'--x':` 와 `setProperty('--x'` 리터럴로 세워진 이름을 센다. 조립한 이름은 그 검사에 안 보여 CSS 가 읽는 `var(--pv-…)` 가 "세워지지 않는다" 로 잡힌다 |
+| D-FR3-12 | (FU-12) 나누는 금은 "상태·수명 / 칠하기" 다. `_logOpen` 은 상태 쪽에 둔다 | `_logOpen` 은 사용자의 뜻이지만 잡 수명(`_launch`·`_attach`·`detachRepo`)이 되돌린다. 뷰가 가지면 수명이 뷰를 만져야 한다. e2e 가 `_busy`·`_busyKey`·`_paint` 를 표시기에서 쓰므로 그 셋도 `GitRemote` 에 남긴다. 뷰는 `GitPart` 를 상속하지 않는다 — 패널 부품이 아니라 표시기 하나의 칠하기이고, `GitRemote` 도 `GitPart` 가 아니다 |
+| D-FR3-13 | (FU-13) `SizeHud`·`SizeDrag` 는 정적 메서드만 가진 클래스다. `View`·`Component` 를 상속하지 않는다 | HUD 는 문서에 하나뿐인 겹이고 지우지 않는다(D-10). 끌기는 핸들에 수신기를 거는 함수 하나다. 해제할 것이 없으므로 기반 클래스의 수명이 필요 없다. `UIKit.grid`·`cellSize`·`cellFit` 은 호출처가 `sides` 를 계산할 때 쓰는 입구라 `UIKit` 에 남긴다 |
+| D-FR3-14 | 100줄 남짓의 나머지 넷은 남긴다 | 브리프가 "시간이 되면" 으로 둔 것이다. 넷 다 이 묶음의 파일과 겹치지 않고(`_renderThemePanel` 만 같은 파일) 동작을 고정하는 시험이 없다 — 나누려면 R3a 처럼 고정 시험부터 세워야 한다 |
+| D-FR3-15 | (FU-14·15·16) 순수 함수는 그 클래스와 같은 파일, 클래스 앞에 둔다 | `git-changes.js`·`git-change-rows.js` 가 500줄 경계에 있지만 나눈 뒤 줄 수는 늘지 않는다(본문이 옮겨갈 뿐). 새 파일은 로드 순서·하네스를 바꾼다(D-FR3-4 와 같은 판단) |
 
 ## 4. 검증
 
@@ -116,6 +171,18 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 | TC-FR3-28 | 단위(`method-size.test.mjs`): `_applyRemoteWorkspace`·`save`·`_saveAdoptRemote` 코드 50줄 이하. `app-cmd-split.test.mjs`·`app-cmd-fg.test.mjs` 의 서명·이름 고정이 지난다 |
 | TC-FR3-29 | e2e(기존): `workspace-resync`·`workspace-save-conflict`·`optimistic-layout`·`tool-list-unknown`·`reconnect-storm`·`sse-resilience`·`boot-reuse`·`tab-names`·`slot-view-state`·`editor-tab`·`notes-live-explorer`·`event-timer-hub-contract`·`layout` 이 HEAD 와 같은 결과다 |
 | TC-FR3-30 | 게이트: `make gates`·`npm run -s typecheck`·eslint(원래 2건 밖 새 경고 0) |
+| TC-FR3-31 | 단위(`del-window.test.mjs`, 나누기 전에 GREEN): `delWindow` 의 순서 — 편집 확인(취소·저장 실패면 멈춤, `force` 면 묻지 않음) → busy 조회 → 프로세스 확인(취소면 멈춤) → 도구 처리 → 배열에서 빼기 → 되돌리기 열기 → 슬롯 정리 → 활성 창 → 포커스 → 그리기 → 저장 |
+| TC-FR3-32 | 묻지 않은 닫기: 앞 유예를 최종으로 하고 모든 도구를 배경으로 보낸 뒤 `_bgRefresh` 한 번, `_winUndoArm` 을 부른다. 물은 닫기: `background` 면 busy 만 배경·나머지 죽이기, 아니면 전부 죽이기. `keepTool` 이면 묻지 않고 busy 만 배경. 되돌리기는 열지 않는다 |
+| TC-FR3-33 | 마지막 창이면 새 창을 만들고 그리기만 한다(저장 없음). 활성 창을 닫았는데 일반 창이 없으면 새 창 → 그리기 → 저장. 다음 창이 있으면 그리로 간다. 포커스는 남은 포커스 칸, 없으면 첫 칸 |
+| TC-FR3-34 | 단위(`theme-preview.test.mjs`): `THEME_PREVIEW_HTML` 에 `style=`·`${` 가 없다. `themePreviewVars` 는 받은 팔레트 값을 이름마다 그대로 싣고, CSS 가 읽는 `var(--pv-…)` 이름이 전부 그 맵에 있다(색 변수에 한해) |
+| TC-FR3-35 | 임시 e2e(`e2e/zz-tmp-pv.spec.ts`, 같은 명령에서 지운다): 테마 셋(기본 어둠·밝음·사용자 정의)에서 `#theme-preview` 안 모든 요소의 계산된 스타일(색·배경·테두리·글자 크기·굵기·간격·모서리·크기)이 나누기 전과 같다 |
+| TC-FR3-36 | 단위(`git-job-outcome`·`git-job-labels`·`git-view` 개정): 상태 글자와 접기 판정은 `GitRemoteView` 에서 같은 답을 낸다. `remote-view.js` 도 클래스 하나다. `GitRemote` 원형에 표시 메서드가 없다 |
+| TC-FR3-37 | 단위(`kit-handle.test.mjs`): `UIKit.drag` 는 `SizeDrag.bind` 에 맡긴다. `SizeHud.show` 는 상자 둘의 글자(px·칸·%)와 정렬 클래스, 화면 가장자리 자르기를 지금처럼 한다. `UIKit` 에 `_hud*` 가 없다 |
+| TC-FR3-38 | 단위(`lanes.test.mjs` 더함): `laneParentRows` 의 창 밖·위쪽 부모는 `n`. 나눈 뒤 기존 레인 시험 전부가 그대로 지난다 |
+| TC-FR3-39 | 단위(`git-parts-pure.test.mjs`): `gitChangesHTML` 의 골격 순서(커밋 → 머리 → 잡 → 진행 중 작업 → 부분 노트 → 목록) · `gitRowTitle`(이름 바꿈·점수·일부 스테이지·디렉터리) · `gitRowActTitle`(ours/theirs 는 진행 중 조작으로, 새 파일 폐기는 삭제 문구로) |
+| TC-FR3-40 | 단위(같은 파일): `gitStatusVerdict` — 상태 0 은 `net`, 실패는 `error`, 요청값이 다르거나 본문이 없으면 `drop`, `isRepo:false` 는 `not_repo`, 나머지 `ok` |
+| TC-FR3-41 | 단위(`method-size.test.mjs`): `delWindow`·`_renderPreview`·`buildLaneGraph`·`_buildChanges`·`_rowEl`·`_applyStatus` 코드 50줄 이하 |
+| TC-FR3-42 | e2e(기존, 이슈마다 `grep -rl` 로 고른다): FC-05 창 닫기·되돌리기·슬롯 · FC-12 `theme-seed`·설정 · FU-12 원격 잡·머리 · FU-13 `handle-size-hud`·폭 핸들 · FU-14~16 Git 변경 목록·히스토리 그래프·폴링. HEAD 와 같은 결과다 |
 
 ## 5. 동작 변경 기록
 
