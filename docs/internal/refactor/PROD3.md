@@ -40,7 +40,7 @@
 | **GD-F3** | 중복 조회 | `domain/claudeacct/engine.go:271-289` `FetchNow` | 최소 간격 검사를 `e.busy` 잠금 **밖**에서 하고, 잠금을 얻은 뒤 다시 보지 않는다. 새로고침이 겹치면 두 번 조회한다 | 잠금을 얻은 뒤 다시 검사한다 | S | ✔ |
 | **DM-F1** | 오류 삼킴 | `internal/helper/runtimebin/edit.go:44` | `dmctl edit` 이 응답 상태를 버려서 서버가 400/500 을 줘도 exit 0 이다 | `dmctlHTTPResult` 를 쓴다 | S | ✔메인 |
 | **DM-F2** | 정화 누락 | `internal/daemon/chatsock/chatsock.go:539` `clean` | Cf(bidi 재정렬·zero-width)를 지우지 않는다. 같은 규칙의 다른 7벌은 지운다(DM-10). 결과는 이름·붙여넣기로 터미널에 찍힌다 | 공용 정화 함수로 바꾼다 | S | ✔메인 |
-| FC-F2 | 표시 오류 | `core/app-layout.js:362`·`:386` · `core/app-chat-window.js:58-64` | 모바일 서랍을 닫는 두 경로가 상단바를 다시 그리지 않는다. ☰/✕ 아이콘이 낡을 수 있다 | FC-01 의 `closeDrawer()` 로 모은다 | S | ? (화면 확인 필요) |
+| FC-F2 | 표시 오류 | `core/app-layout.js:362`·`:386` · `core/app-chat-window.js:58-64` | 모바일 서랍을 닫는 두 경로가 상단바를 다시 그리지 않는다. ☰/✕ 아이콘이 낡을 수 있다 | FC-01 의 `closeDrawer()` 로 모은다 — **처리함** (P1 FR-RD3-80 · P3a 2 `DrawerSheet`: 닫기 다섯 곳이 한 길로 상단바를 다시 그린다) | S | ? (화면 확인 필요) |
 | GH-F5 | 가용성 | `toolclient/client.go:622-672` `callWithin` | RPC 한 번이 5초를 넘으면 데몬 연결 전체를 끊고 다시 맞춘다. 느린 정상 호출이 연결을 흔들 수 있다 | 시한 초과는 그 호출만 실패시키고, 생존은 heartbeat 로 판정하도록 검토한다 | M | ? (빈도 미실측) |
 | DM-F3 | 응답 해석 | `runtimebin/detach.go:157-175` | `Delivered` 가 없으면 0 으로 읽어 exit 1 이다. `dmctlDelivery` 는 "없으면 모른다" 로 읽는다. 규칙이 두 벌이다 | `dmctlDelivery` 로 통일한다 | S | ? |
 | DM-F4 | 인코딩 | `runtimebin/dmctl_whoami.go:29` | `toolId` 를 이스케이프하지 않는다 | `url.QueryEscape` | S | ? (UUID 면 실해 없음) |
@@ -81,11 +81,11 @@
 | **DM-7** | `shared/humancmd` ↔ `shared/chatwire` (`OpKill`·`OpKick`), `"hello"`·`"msg"` | IPC 상수가 여러 벌이다. 값이 어긋나면 `applyCmdLocked` 가 **조용히** 아무것도 하지 않는다 | 한 벌로, 어긋나면 실패하는 시험 | S |
 | DM-6·8·9·10 | `edgenode`↔`edgemesh` `helloWait` · 형제 소켓 경로 3벌 · 이름 축약 4벌(지문 12·16자, 근거 없음) · Cf 정화 7벌 | 같은 규칙의 여러 벌 | shared 한 벌 | S |
 | DM-17 | `shared/sandbox/runtime.go:119-181` | 같은 명령을 문자열·인자 배열로 두 번 적는다. OS 분기 3벌 | OS 표 하나에서 파생 | S |
-| FC-01·02 | `core/app-mobile*.js`·`app-settings.js:437` | `_toggleDrawer(false); _rTopbar()` 쌍 5곳 복사. 서랍 상태가 필드·`body` 클래스·`#sidebar.open` 세 곳에서 따로 바뀐다 | `closeDrawer()`·`_setDrawer(open)` | S |
+| FC-01·02 | `core/app-mobile*.js`·`app-settings.js:437` | `_toggleDrawer(false); _rTopbar()` 쌍 5곳 복사. 서랍 상태가 필드·`body` 클래스·`#sidebar.open` 세 곳에서 따로 바뀐다 | `closeDrawer()`·`_setDrawer(open)` — **처리함** (§7.1 P3a 2: 서랍 상태는 `DrawerSheet` 한 자리, 닫기 경로는 모두 `_toggleDrawer(false)` → `DrawerSheet.setOpen`) | S |
 | FC-03 | `core/theme-vars.js:18-31` ↔ `core/contrast.js:55-60` | 색 거리 두 벌(제곱 RGB / redmean). `pickAccent2` 가 둘을 섞는다 | 한 메트릭. **알림색이 일부 테마에서 바뀌는 동작 변경**이다(§6) | M |
 | FC-11 | `core/app-settings-claude.js:12-17` ↔ `claudeacct/autoswitch.go:73-78` | 자동 전환 범위가 JS·Go 두 벌, 대조 게이트 없음 | PROD2 §7a ② — 서버가 원천 | M |
-| FC-13·14 | `#settings-btn` click 리스너 3개 · document Escape 처리기 4곳 | 실행 순서에 기댄다(주석으로만) | 열기 함수 하나 · `ui-kit` Escape 스택 | S~M |
-| FU-1 | `app-activity.js:165` `actEl`·`app-chat.js:22` `chatEl`·`runs-panel.js:59·88` 외 7곳 | DOM 생성 헬퍼 10개. SVG 둘(`runSvg`·`meshSvg`)은 본문이 같다 | `core/helpers.js` 에 `domEl`·`svgEl` (계층 규칙상 ui-kit 이 아니라 core) | S |
+| FC-13·14 | `#settings-btn` click 리스너 3개 · document Escape 처리기 4곳 | 실행 순서에 기댄다(주석으로만) | 열기 함수 하나 · `ui-kit` Escape 스택 — **처리함** (§7.1 P3a 6, `REFACTOR3_FE_ESC_SRS`) | S~M |
+| FU-1 | `app-activity.js:165` `actEl`·`app-chat.js:22` `chatEl`·`runs-panel.js:59·88` 외 7곳 | DOM 생성 헬퍼 10개. SVG 둘(`runSvg`·`meshSvg`)은 본문이 같다 | `core/helpers.js` 에 `domEl`·`svgEl` (계층 규칙상 ui-kit 이 아니라 core) — **처리함** (§7.1 P3a 0~2) | S |
 | FU-18 | `style-runs.css:253` ↔ `style.css:2176` | `.bg-row` 두 파일 분산 | 한 파일로 | S |
 
 ### 2.3. 상수 분리 (분류 3)
@@ -107,7 +107,7 @@
 |---|---|---|---|---|
 | GD-17 | `hub/gitwatch.go:706-787` `observe` | 잠금 3번, `need` 조건 4개, 전이가 함수 안에 묻혔다 | `need`·전이를 순수 함수로 떼고 시험 | M |
 | GD-21 | `hub/gitwatch.go:354` `watchPhase` | 운영 호출 0(시험만) | 지운다 | S |
-| FU-2~6 | `renderer-chrome.js:100` `_rWinTitle` · `history-load.js:201` `reloadRefs` · `panel-views.js:78` `_submodules` · `ui-kit.js:730` `menuOpen` · `cm-lsp.js:360` `unsubscribe` | 호출처 0 인 함수(뒤 둘은 `?`) | 확인 후 지운다 | S |
+| FU-2~6 | `renderer-chrome.js:100` `_rWinTitle` · `history-load.js:201` `reloadRefs` · `panel-views.js:78` `_submodules` · `ui-kit.js:730` `menuOpen` · `cm-lsp.js:360` `unsubscribe` | 호출처 0 인 함수(뒤 둘은 `?`) | 확인 후 지운다 — **넷 처리함** (§7.1 P3a 0~2. `_rWinTitle` 은 `_rWinTitleParts` 로 살아 있어 죽은 것이 아니었다). `cm-lsp.js` `unsubscribe` 는 남음 | S |
 | FU-17 | `git/panel-changes.js:661-665` | 서브모듈 stage 금지를 화면만 판정한다(SERVER_DRIVEN 목록 밖의 C 부류) | 정책 결정 먼저(§6) | S |
 | FC-15 | `core/app-agents.js:248-253` | `filter` 4번, `reconcileList` 3번 | 구역 표를 한 번 순회 | S |
 | DM-24 | `ctl/cli/options.go:293-460` | `take`·`unknownFlag` 블록 6번 | 공통 적용기 | S |
@@ -117,11 +117,11 @@
 | ID | 자리 | 크기 | 제안 | 규모 · 위험 |
 |---|---|---|---|---|
 | FC-04 | `core/app-settings.js` `initModal` | 135줄, 파일 500(게이트 경계) | `app-settings-modal.js` — **처리함** (§7.1 P3a 3·8: 열기·닫기·탭은 `SettingsModal`, `_init*` 나열은 `SettingsController` 의 표 하나. `initModal` 은 한 줄, `app-settings.js` 386줄) | M · L |
-| FC-05 | `core/app-layout.js` | 975줄·메서드 44(저장소 최대), `delWindow` 108줄 | 창 / 탭 열기 / 탭 닫기 / 분할 / 사이드바 | M · M |
+| FC-05 | `core/app-layout.js` | 975줄·메서드 44(저장소 최대), `delWindow` 108줄 | 창 / 탭 열기 / 탭 닫기 / 분할 / 사이드바 — **파일은 처리함** (P3a 9: `layout-*.js` 아홉). `delWindow` 108줄은 남음 | M · M |
 | FC-06·08 | `app-tool.js` `_pickSandbox` 155 · `app-statusbar.js` `updateStatusBar` 122 | 빌더 분리 | S · L |
 | FC-07·09 | `app-ws-sync.js` `_applyRemoteWorkspace` 136 · `app.js` `save` 90·`_saveAdoptRemote` 88 | **먼저 순서·충돌을 시험으로 고정** | M · **H** |
-| FU-12 | `git/remote.js` `GitRemote` | 약 680줄 클래스 | 실행·스트림 / 표시 | M · M |
-| FU-13 | `ui/ui-kit.js` `UIKit` | 930줄 | modal·menu·drag·HUD 내부 모듈 | M · M |
+| FU-12 | `git/remote.js` `GitRemote` | 약 680줄 클래스 | 실행·스트림 / 표시 — **파일 분할은 처리함** (P3a 5: `remote-list`·`remote-add`·`remote-opts`). `GitRemote` 안 나누기(671줄)는 남음 | M · M |
+| FU-13 | `ui/ui-kit.js` `UIKit` | 930줄 | modal·menu·drag·HUD 내부 모듈 — **modal·menu 처리함** (P3a 3·6, 930 → 695줄). drag·HUD 는 남음 | M · M |
 | FU-14·15·16 | `lanes.js` `buildLaneGraph` ~180 · `panel-changes` `_buildChanges` 126·`_rowEl` 108 · `panel-poll` `_applyStatus` 120 · 100줄 안팎 6곳 | 분류(순수)와 그리기 | M · M |
 | FU-11 | `web/style.css` 2,492줄 | CSS 는 크기 게이트가 없다(`check-file-size` 가 `web/js` 만) | 기준선 + 영역별 분할 | M · L |
 | GH-13·14 | 80줄 넘는 함수 14개(표본; `apiRunSucceed` 131·`handleCommandSSE` 131·`handleCommandPost` 121·`apiGitStatus` 113) · `handlers_files.go` 749·`access.go` 744·`toolclient/client.go` 685 | 파싱·판정·렌더 / 주제별 파일 | M · M |
@@ -140,7 +140,7 @@
 
 | ID | 자리 | 현상 | 제안 | 규모 |
 |---|---|---|---|---|
-| **FU-20** | `web/js/ui/sidebar-tabs.js`(사이드바 탭 줄) ↔ `web/js/core/app-agents.js`(작업 패널 탭 줄) | **사용자 추가 요청(2026-11-21).** 두 패널 상단 탭의 동작이 아직 하나 다르다 — 글자(라벨) 표시 여부를 패널마다 따로 판정한다. 지금은 두 패널이 `UIKit.tabsFit`·`tabsFitWatch` 를 각자 부르고, 탭 정의·배지·스크롤 자리·직행 키도 각자 들고 있다(사이드바 `SB_TAB_DEFS`, 작업 패널 `_actTabsEl`·`_actTabsPaint`) | 패널 탭 줄을 **공통 패널 객체 하나**(탭 정의·라벨 판정·배지·스크롤 자리·직행 토글)로 만들고, 두 패널은 그것을 상속해 쓴다. 라벨 표시 규칙은 그 한 자리에서 정한다. **결정(2026-11-21): 글자 표시 규칙은 지금처럼 패널별**(자기 탭 줄에 라벨이 다 들어가면 보인다)이고, 그 판정·배선을 공통 패널 객체 한 자리로 옮긴다. 두 패널의 다른 동작은 그 한 자리를 지나며 사라져야 한다 — 구현 때 두 패널의 판정 시점(배지 변화·폭 변화·다시 그리기·모바일)을 나란히 대조해 실제 차이를 찾아 적는다 | M |
+| **FU-20** | `web/js/ui/sidebar-tabs.js`(사이드바 탭 줄) ↔ `web/js/core/app-agents.js`(작업 패널 탭 줄) | **사용자 추가 요청(2026-11-21).** 두 패널 상단 탭의 동작이 아직 하나 다르다 — 글자(라벨) 표시 여부를 패널마다 따로 판정한다. 지금은 두 패널이 `UIKit.tabsFit`·`tabsFitWatch` 를 각자 부르고, 탭 정의·배지·스크롤 자리·직행 키도 각자 들고 있다(사이드바 `SB_TAB_DEFS`, 작업 패널 `_actTabsEl`·`_actTabsPaint`) | 패널 탭 줄을 **공통 패널 객체 하나**(탭 정의·라벨 판정·배지·스크롤 자리·직행 토글)로 만들고, 두 패널은 그것을 상속해 쓴다. 라벨 표시 규칙은 그 한 자리에서 정한다. **결정(2026-11-21): 글자 표시 규칙은 지금처럼 패널별**(자기 탭 줄에 라벨이 다 들어가면 보인다)이고, 그 판정·배선을 공통 패널 객체 한 자리로 옮긴다. 두 패널의 다른 동작은 그 한 자리를 지나며 사라져야 한다 — 구현 때 두 패널의 판정 시점(배지 변화·폭 변화·다시 그리기·모바일)을 나란히 대조해 실제 차이를 찾아 적는다 — **처리함 (구조)** (§7.1 P3a 2: 판정은 `TabBar.fit` 한 자리. 사용자 보고 차이는 재현하지 못해 화면·조작을 묻는다) | M |
 | GD-4 | `claudeacct/engine.go:609-650` ↔ `autoswitch.go:370-407` | 두 `Run` 의 wake 채널·ctx·타이머 루프가 같다 | 공용 루프에 `Tick` 주입 | M |
 | GH-2·3 · DM-1·2 | (§2.2) | 오류 렌더러·디코더·종료 코드 변환 | 각각 한 타입으로 | M |
 
@@ -149,8 +149,8 @@
 | ID | 자리 | 현상 |
 |---|---|---|
 | FC-16 · DOC-16 | `core/app-statusbar.js:258` `_bgModalToggle` | 모달 시절 이름. 인자를 넘기는 곳이 없어 `open===false` 분기가 죽었다 → `_bgPanelOpen` |
-| FC-17 | `app-layout.js:2-5`·`app-git.js:2-5` | 머리 주석의 메서드 수가 낡았다(21→44, 23→48) |
-| FC-18 | `app-settings.js:130` | 500줄 게이트를 맞추려고 짜낸 198자 한 줄 |
+| FC-17 | `app-layout.js:2-5`·`app-git.js:2-5` | 머리 주석의 메서드 수가 낡았다(21→44, 23→48) — **대상 소멸** (P3a 9 에서 두 파일이 컨트롤러로 나뉘었다) |
+| FC-18 | `app-settings.js:130` | 500줄 게이트를 맞추려고 짜낸 198자 한 줄 — **원 자리 소멸** (P3a 8). 같은 종류(150자 넘는 줄)는 남았다 |
 | GH-9 | `httpapi/httperr.go:69-79` | 주석의 코드 이름 `body_too_big` — 실제는 `body_too_large`(`SAFETY_CORRECTNESS_SRS:205-218` 도 같은 오기) |
 | GH-23 | `toolclient/client.go` | 오류 문구의 옛 데몬 이름 `paned` |
 | GD-19 | `hub/gitwatch.go:836` | 주석 "500ms 마다" — 실제 `GitWatchInterval` 1000ms |
@@ -292,6 +292,7 @@
 | P3a 7 | `2f29a3a8`…(이 커밋) | `REFACTOR3_FE_GITPANEL_SRS` — `GitPanel` 의 mixin 열하나(`Object.assign(GitPanel.prototype, …)` 12) → `GitPart` 아래 부품 열하나(`GitBlame`·`GitHunks`·`GitDiffPane`·`GitPoll`·`GitWrite`·`GitChanges`·`GitChangeRows`·`GitFiles`·`GitSelection`·`GitViews`·`GitViewRoots`), 혼자 쓰는 필드는 부품이 갖고 공용 필드·관측 접근자·리포 전환·수명은 패널 본문(`panel.js` 435줄). 바깥·다른 부품이 부르는 이름은 패널의 한 줄 위임자로 남긴다(단계 9 에서 부르는 쪽과 함께 걷는다). 500줄 초과 17 → 16 |
 | P3a 8 | `9afbb9fe`…(이 커밋) | `REFACTOR3_FE_SETTINGS_SRS` — FC-04. 설정 탭 열일곱을 `SettingsSection`(View) 하위 하나씩으로, 체크·숫자 14행을 `FormRow` 선언으로(8a), 폴링·statusbar·notify·레인지(8b), 서버 자원 패널 일곱(패널 상태를 섹션 필드로, claude 는 순수 함수 파일로 먼저 나눔, 8c), theme·shortcuts·키바(terminal)·presets·backup(8d). `initModal` 의 `_init*` 나열과 `input-binding.js` 의 설정 init 은 `SettingsController`(`Controller`)의 표 `SETTINGS_INIT` 하나로, 열기·탭 훅은 그 `onOpen`·`onTab` 으로 모았다(8e). App 은 `settings` 하나를 들고, 설정 밖·e2e·단위 시험이 부르는 이름은 한 줄 위임자로 남긴다(단계 9 에서 부르는 쪽과 함께 걷는다). 동작 변경 없음 |
 | P3a 9 | `b0e3b411`…(이 커밋) | `REFACTOR3_FE_APPCTL_SRS` — App mixin(`Object.assign(App.prototype, …)` 57파일·메서드 835)을 하위 이슈 열하나(9a~9k)로 주제별 `Controller` 와 그 부품(클래스 하나 = 파일 하나)으로 옮겼다 — 간선·업데이트·설정 · 알림·Claude 계정·상태바 · 채팅·활동·모바일 · git · 상태 동기화 · 포커스 · 슬롯 · 레이아웃 · 도구 · 편집기 · Repo 창. 공유 상태의 주인과 쓰기 입구는 9e 가 정했다(App 이 공용 상태의 주인, 쓰기 모음 `focused`·`focusHandoff`·`_edGitHeld`). 바깥·e2e·계약이 부르는 이름은 컨트롤러 파일 끝의 위임자 표(`Controller.delegate`)로 남는다. `Object.assign(App.prototype` 57 → 0, 500줄 초과 16 → 12. 동작 변경 없음 |
+| P3 FE 나머지 — 정리 | (이 커밋) | P3a 가 흡수한 ID 에 「처리함」 표시(실측 HEAD `c96988c7`): FC-F2·01·02·04·13·14 · FU-1·20 · FU-2~6 넷 · FC-05·FU-12·13 일부 · FC-17·18 대상 소멸. 남은 것을 하위 묶음 넷으로 나눈다 — **R1 동작 변경·서버 원천**(FC-03 redmean · FU-17 서브모듈 stage 서버 거부 · FC-11 자동 전환 범위 서버 원천 · FC-21 ping·stats) · **R2 JS 작은 정리**(FC-06·08·10·15·16·18·19·20·22 · FU-19 · `cm-lsp` `unsubscribe` · `UIKit.tabsFitWatch`) · **R3 큰 함수·클래스**(FC-05 `delWindow` · FC-07·09 시험 고정 먼저 · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) · **R4 CSS**(FU-8·9·18 · FU-11 CSS 크기 게이트 · FU-10 간격 토큰) |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---
