@@ -191,7 +191,7 @@ FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름�
 
 **구현 중 정한 것 (2026-11-17)**
 
-- 텔레그램·Claude 계정 API 도 쓰는 공용 도우미는 dmctl 공용 해석기와 같이 중립 이름으로 바꾼다. `peerFail` → `codeFail`, `peerReadJSON` → `readJSONBody`, `peerBodyLimit` → `jsonBodyLimit`, dmctl `printPeerRefusal` → `printRefusal`.
+- 텔레그램·Claude 계정 API 도 쓰는 공용 도우미는 dmctl 공용 해석기와 같이 중립 이름으로 바꾼다. `peerFail` → `codeFail`, `peerReadJSON` → `readJSONBody`, `peerBodyLimit` → `jsonBodyLimit`, dmctl `printPeerRefusal` → `printCodeRefusal`(`runtimebin/httpexit.go`).
 - 스냅숏 조각 이름도 상태 키를 따라 `peers` → `edges` 다(`/api/snapshot?parts=…,edges`).
 - 화면의 `pn-*` 중 간선 패널만 쓰는 id·클래스를 `eg-*` 로 바꾼다. 간선 패널과 Claude 계정 설정이 같이 쓰는 `pn-row` 는 중립 이름 `set-row` 로 바꾼다(D-PDM-18). 판(pane) 클래스 `pn-tab`·`pn-body` 등은 무관하다. e2e 레이아웃 기준선(`e2e/baseline/ui-layout.*.json`)의 선택자 키도 같이 바꾼다.
 - 설정 탭 이름은 다른 탭처럼 번역하지 않고 "Edges" 하나다. 패널 안의 문구는 ko "간선", en "edge" 다. "해제"는 "끊기"로 바꾼다.

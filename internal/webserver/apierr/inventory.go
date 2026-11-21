@@ -94,13 +94,13 @@ var Unmapped = []Exemption{
 		"handlers_git_operation.go 가 write.OperationArgs 의 모든 실패를 실행 전에 " +
 			"bad_request 로 정한다. 오류값을 보지 않는다"},
 	{write.ErrIgnorePath,
-		"handlers_git_ignore.go:95 가 write.IgnorePattern 의 모든 실패를 실행 전에 " +
+		"handlers_git_ignore.go 가 write.IgnorePattern 의 모든 실패를 실행 전에 " +
 			"unsafe_ignore_path 로 정한다. 오류값을 보지 않는다"},
 	{write.ErrUncommittedNoHead,
-		"gitResetBlocked 가 status.Initial 로 실행 전에 판정한다 (no_head). " +
+		"resetAnswer 가 status.Initial 로 실행 전에 판정한다 (no_head). " +
 			"domain 의 guard 는 두 번째 방어선이다"},
 	{write.ErrNothingToClean,
-		"gitCleanBlocked 가 status.Untracked 로 실행 전에 판정한다 " +
+		"cleanAnswer 가 status.Untracked 로 실행 전에 판정한다 " +
 			"(nothing_to_clean). domain 의 guard 는 두 번째 방어선이다"},
 	{write.ErrReplayTarget,
 		"apiGitReplay 가 record_missing 과 저장소 일치를 실행 전에 확인한다. " +

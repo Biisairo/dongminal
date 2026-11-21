@@ -298,7 +298,7 @@
 | FR-STR-23 | 겨누는 명령 넷이 그것을 지난다 — `health.go` · `window.go` · `stop.go` · `migrate.go`. `RunStart` 은 이미 같은 일을 하므로 **몸통을 옮기고** `--host` 플래그만 덧댄다 | 필수 |
 | FR-STR-24 | `health` 의 host 고정이 사라진다. `health.go:33-36` 의 주석이 적은 근거(*"`localhost` 가 `::1` 로 먼저 풀려 실패했다"*)는 **과교정**이며, `DialHost` 가 그 문제를 이미 푼다. 그 주석을 이전/새/이유로 고친다 | 필수 |
 | FR-STR-25 | **이것은 동작 변경이다.** `server.json` 에 포트를 적어 둔 사용자에게 `stop` 의 대상이 바뀐다 — **그것이 옳다.** 지금은 남의 프로세스를 죽인다 (§2.3) | 필수 |
-| FR-STR-26 | `dmctl`(`helper/runtimebin`)은 **`cli` 를 import 할 수 없다** (축 경계 — `check-pkg-axis.sh`). 그쪽은 `dmenv.BaseURL` 까지만 지나고 파일 계층은 **범위 밖**이다. 그 사실을 `runtimebin` 머리말에 사유로 적는다 (D-STR-3) | 필수 |
+| FR-STR-26 | `dmctl`(`helper/runtimebin`)은 **`cli` 를 import 할 수 없다** (축 경계 — `check-pkg-axis.sh`). 그쪽은 `dmenv.BaseURL` 까지만 지나고 파일 계층은 **범위 밖**이다. 그 사실을 `runtimebin` 머리말에 사유로 적는다 (D-STR-3). **2026-11-22 갱신**: `serverconf` 가 `shared` 로 가서 `runtimebin` 도 파일 계층을 지난다 — `cli` import 금지는 그대로다 | 필수 |
 | FR-STR-27 | **게이트 2**: `scripts/check-server-target.sh` — ① `internal/**`·`cmd/**` 에 host+":"+port 꼴 접합이 없다 ② 겨누는 명령의 파일이 `ResolveTarget` 을 지난다. 물음은 하나다: *"겨누는 자리가 한 규칙을 지나는가"* | 필수 |
 
 ### 3.3 묶음 C — 홈
@@ -344,7 +344,7 @@
 |---|---|---|
 | **D-STR-1** | 클립보드 헬퍼를 **새로 만들지 않고 `term-clipboard.js` 에서 꺼낸다** | 그 파일의 3단은 `EXPLORER_TRANSFER_IGNORE_SRS` 묶음 F 가 설계하고 D-12·D-13 이 근거를 적은 것이다. 새로 만들면 **여섯 번째 사본**이 되고, 이 문서가 고치려는 바로 그 모양이다 (D-CMP-4 와 같은 규약) |
 | **D-STR-2** | `TermClipboard` 라는 **이름을 남긴다** — OSC 52 어댑터로 | `window.TermClipboard` 를 e2e 와 `term-pane.js` 가 부른다. 이름을 지우면 계약이 바뀌고, 이 묶음은 **자리만 옮긴다** (FR-STR-1). 이름이 터미널을 말하는 것이 옳아진다 — 그 파일에 남는 것이 실제로 터미널의 일(OSC 52)이기 때문이다 |
-| **D-STR-3** | `dmctl` 의 **파일 계층은 범위 밖**이다 | `helper/runtimebin` 은 `ctl/cli` 를 import 할 수 없다 (프로세스 축 경계, `check-pkg-axis.sh`). 계층을 주려면 `serverconf` 를 `shared` 로 옮겨야 하고 그것은 패키지 구조 변경이다 — 이 묶음의 범위를 넘는다. **`dmenv.BaseURL` 까지는 지나게** 해서 주소 조립만이라도 한 벌로 만들고, 남은 결손을 머리말에 사유로 적는다 |
+| **D-STR-3** | `dmctl` 의 **파일 계층은 범위 밖**이다 | `helper/runtimebin` 은 `ctl/cli` 를 import 할 수 없다 (프로세스 축 경계, `check-pkg-axis.sh`). 계층을 주려면 `serverconf` 를 `shared` 로 옮겨야 하고 그것은 패키지 구조 변경이다 — 이 묶음의 범위를 넘는다. **`dmenv.BaseURL` 까지는 지나게** 해서 주소 조립만이라도 한 벌로 만들고, 남은 결손을 머리말에 사유로 적는다. **(2026-11-22 갱신, PROD3 DOC-20)** 전제가 충족됐다 — `serverconf` 는 `internal/shared/serverconf` 에 있고, `runtimebin` 은 `shared/*`·`helper/toolline` 만 import 하면서 주소 파일·`server.json` 계층을 그것으로 지난다(`runtimebin/http.go`). 이 결정이 남긴 결손은 없어졌다 |
 | **D-STR-4** | `git-worktrees/` 는 `Backup: **true**` | **초안은 `false` 였고, 소비자를 읽자 뒤집혔다.** 초안의 근거는 *"worktree 의 `.git` 은 절대 경로라 다른 기계에서 풀면 깨진 것이 복원된다"* 였고 그 사실 자체는 옳다. 틀린 것은 **`Backup` 이 한 가지 뜻이라는 가정**이다 — `backup.go` 에게는 "zip 에 담는가" 이지만 `uninstall.go` 의 `uninstallPlan` 은 `e.Backup && !purge` 로 걸러서 **"보존하는가"** 로 읽는다. false 로 두면 맨 `dongminal uninstall` 이 사용자가 Git 창에서 만든 worktree 를 **커밋하지 않은 작업과 함께** 지운다.<br><br>뜻이 둘인 필드에서는 **되돌릴 수 없는 쪽**을 따른다. zip 의 대가는 bounded 다 — 같은 기계 복원은 그대로 되고, 다른 기계에서는 `.git` 파일이 가리키는 곳이 없는 디렉터리가 하나 생길 뿐 **조용한 손실이 아니다.**<br><br>감사는 이것을 *"사용자 결정 대상"* 으로 남겼는데, 물어야 할 것은 **목록에 넣을지**가 아니라 **worktree 백업을 제대로 만들지**이고 그것은 이 묶음이 아니다. 필드가 두 물음을 겸하는 것 자체도 결함이며, 가르는 일은 `uninstall`·`backup` 의 계약 변경이라 여기 넣지 않는다 (§6-10) |
 | **D-STR-5** | 모듈 크기 기준선을 **지금 값(26 / 1,586)으로 다시 잡고**, 같은 변경에서 최대 파일만 내린다 | 22 / 1,336 으로 되돌리려면 네 파일을 추가로 500 아래로 갈라야 하고 그것은 L 공수다. 감사 D2 가 권한 순서가 *"게이트를 먼저 세우고 기준선을 정하는 순서"* 이며, **재는 것이 없는 상태가 수치보다 나쁘다** — 9일 만에 되돌아온 것이 그 증거다. 게이트가 서면 다음 되돌림은 커밋에서 막힌다 |
 | **D-STR-6** | `reconcileList` 이주는 **B6 이다** | `refactor/README.md` §4.1 항목 6 이 그 이주를 **성능 항목으로 등록하고 측정 방법까지 못박았다**(`MutationObserver` 로 60초간 변이 수). 이주 없이는 측정할 수 없고 측정 없이 이주하면 §4 의 *"각 항목의 전후를 그 표의 측정 열로 잰다"* 가 깨진다 — **같은 변경이어야 한다.** 더구나 `innerHTML=''` 54자리 중 폴링 경로인 것을 가르는 일은 자리마다 판단이 필요해 파싱으로 파생되지 않는다 (FR-STR-2 를 만족하지 못한다). B5 는 이 행을 **열지 않는다** |
@@ -419,7 +419,7 @@
 | S-2 | `ui/term-pane.js:61` `navigator.clipboard.readText` | **읽기**다. 브라우저가 주지 않는 것에는 폴백이 없다 (FR-STR-18) | 읽기에 다른 통로가 생기면 |
 | S-3 | `web/js/i18n/*.js` (모듈 크기) | **데이터**다. 키가 늘면 줄이 늘고 분할이 뜻을 갖지 않는다 | 카탈로그가 JSON 으로 나가면 |
 | S-4 | `web/vendor/**` · `web/js/test/**` (모듈 크기) | 우리 코드가 아니거나 검사 코드다 | — |
-| S-5 | `helper/runtimebin` 의 파일 계층 결손 | **축 경계**가 `ctl/cli` import 를 막는다 (D-STR-3) | `serverconf` 가 `shared` 로 가면 |
+| S-5 | `helper/runtimebin` 의 파일 계층 결손 | **축 경계**가 `ctl/cli` import 를 막는다 (D-STR-3) | `serverconf` 가 `shared` 로 가면 — **풀렸다**(D-STR-3 갱신) |
 | S-6 | ~~`verify-too-large.bin` 을 예외로~~ | **철회.** 표에 `Ephemeral` 로 **넣었다** — `defer os.Remove` 는 정상 경로만 덮고 `verify` 가 죽으면 홈에 남는다. 예외로 두면 그때 아무도 거두지 않는다 | — |
 | S-7 | 테스트 픽스처의 홈 경로 (`*_test.go`) | 검사가 만드는 가짜 홈이다 | — |
 | (구현 중 추가) | | | |
