@@ -1367,23 +1367,76 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
    예외로 둔 것과 같은 논리이고, 미리보기가 읽히는 글자를 갖게 되면 이 셋은
    `--fs-*` 로 돌아온다. */
 .theme-preview-panel{
+  --pv-fs-2xs:6px;
   --pv-fs-xs:7px;
   --pv-fs-sm:8px;
   --pv-fs-md:9px;
+  --pv-radius:2px;
   flex:1;border:1px solid var(--border);border-radius:var(--radius-md);
   overflow:hidden;display:flex;flex-direction:column;
 }
-.pv-sidebar{width:40px;display:flex;flex-direction:column;padding:6px 4px;gap:6px}
-.pv-dot{width:6px;height:6px;border-radius:50%}
-.pv-main{flex:1;display:flex;flex-direction:column}
-.pv-topbar{height:16px;display:flex;align-items:center;padding:0 6px;gap:4px;font-size:var(--pv-fs-sm);border-bottom:1px solid inherit}
+/* REFACTOR3_FE_REST3_SRS FR-FR3-10·11 (FC-12): 색은 `themePreviewVars`(settings-theme.js)가 이 패널에 세운
+   `--pv-*` 변수다 — 마크업에는 인라인 style 이 없다. */
+.pv-root{display:flex;height:100%}
+.pv-sidebar{width:40px;display:flex;flex-direction:column;padding:6px 4px;gap:6px;background:var(--pv-sidebar-bg);border-right:1px solid var(--pv-border)}
+.pv-sb-head{font-size:var(--pv-fs-2xs);color:var(--pv-text-muted);padding:4px 2px;letter-spacing:.05em}
+.pv-sb-row{display:flex;align-items:center;gap:3px;padding:2px 4px}
+.pv-sb-row.pv-on{background:var(--pv-accent-hl)}
+.pv-sb-name{font-size:var(--pv-fs-xs);color:var(--pv-text-bright)}
+.pv-sb-name.pv-b{font-weight:600}
+.pv-sb-name.pv-plain{color:var(--pv-text)}
+.pv-sb-x{font-size:var(--pv-fs-xs);color:var(--pv-danger);margin-left:auto}
+.pv-sb-x.pv-faint{opacity:.4}
+.pv-dot{width:6px;height:6px;border-radius:50%;background:var(--pv-accent)}
+.pv-dot.pv-dim{background:var(--pv-text-dim)}
+.pv-main{flex:1;display:flex;flex-direction:column;background:var(--pv-bg)}
+.pv-topbar{height:16px;display:flex;align-items:center;padding:0 6px;gap:4px;font-size:var(--pv-fs-sm);background:var(--pv-sidebar-bg);border-bottom:1px solid var(--pv-border)}
+.pv-c-text{color:var(--pv-text)}
+.pv-c-accent{color:var(--pv-accent)}
+.pv-grow{flex:1}
+.pv-btn{color:var(--pv-text-muted);font-size:var(--pv-fs-xs);border:1px solid var(--pv-accent-border);border-radius:var(--pv-radius);padding:0 3px}
+.pv-btn.pv-btn-on{color:var(--pv-accent)}
 .pv-split{display:flex;flex:1}
 .pv-split-left,.pv-split-right{flex:1;display:flex;flex-direction:column}
-.pv-tabs{display:flex;height:18px;gap:0}
-.pv-tab{font-size:var(--pv-fs-sm);padding:2px 8px;display:flex;align-items:center;white-space:nowrap}
-.pv-term{flex:1;padding:6px 8px;font-family:var(--mono);font-size:var(--pv-fs-md);line-height:1.6}
+.pv-split-left{border:2px solid var(--pv-accent)}
+.pv-split-right{border:1px solid var(--pv-border)}
+.pv-gutter{width:3px;background:var(--pv-border)}
+.pv-tabs{display:flex;height:18px;gap:0;background:var(--pv-sidebar-bg);border-bottom:1px solid var(--pv-border)}
+.pv-tab{font-size:var(--pv-fs-sm);padding:2px 8px;display:flex;align-items:center;white-space:nowrap;color:var(--pv-text-muted)}
+.pv-tab.pv-tab-r{border-right:1px solid var(--pv-border)}
+.pv-tab.pv-tab-l{border-left:1px solid var(--pv-border)}
+.pv-tab.pv-tab-on{color:var(--pv-text-bright);background:var(--pv-accent-hl);border-bottom:1px solid var(--pv-accent)}
+.pv-x{color:var(--pv-danger)}
+.pv-term{flex:1;padding:6px 8px;font-family:var(--mono);font-size:var(--pv-fs-md);line-height:1.6;background:var(--pv-t-bg);color:var(--pv-t-fg)}
+.pv-t-fg{color:var(--pv-t-fg)}
+.pv-t-red{color:var(--pv-t-red)}
+.pv-t-green{color:var(--pv-t-green)}
+.pv-t-yellow{color:var(--pv-t-yellow)}
+.pv-t-blue{color:var(--pv-t-blue)}
+.pv-t-cyan{color:var(--pv-t-cyan)}
+.pv-sel{background:var(--pv-t-sel-bg);color:var(--pv-t-sel-fg)}
+.pv-cur{background:var(--pv-t-cursor);color:var(--pv-t-cursor-accent)}
 .pv-sw{display:inline-block;width:14px;height:8px;border-radius:var(--radius-pill);vertical-align:middle}
-.pv-status{height:14px;display:flex;align-items:center;padding:0 6px;font-size:var(--pv-fs-xs);border-top:1px solid inherit}
+.pv-sw-black{background:var(--pv-t-black)}
+.pv-sw-red{background:var(--pv-t-red)}
+.pv-sw-green{background:var(--pv-t-green)}
+.pv-sw-yellow{background:var(--pv-t-yellow)}
+.pv-sw-blue{background:var(--pv-t-blue)}
+.pv-sw-magenta{background:var(--pv-t-magenta)}
+.pv-sw-cyan{background:var(--pv-t-cyan)}
+.pv-sw-white{background:var(--pv-t-white)}
+.pv-sw-bright-black{background:var(--pv-t-bright-black)}
+.pv-sw-bright-red{background:var(--pv-t-bright-red)}
+.pv-sw-bright-green{background:var(--pv-t-bright-green)}
+.pv-sw-bright-yellow{background:var(--pv-t-bright-yellow)}
+.pv-sw-bright-blue{background:var(--pv-t-bright-blue)}
+.pv-sw-bright-magenta{background:var(--pv-t-bright-magenta)}
+.pv-sw-bright-cyan{background:var(--pv-t-bright-cyan)}
+.pv-sw-bright-white{background:var(--pv-t-bright-white)}
+.pv-status{height:14px;display:flex;align-items:center;padding:0 6px;font-size:var(--pv-fs-xs);background:var(--pv-sidebar-bg);border-top:1px solid var(--pv-border)}
+.pv-st-info{color:var(--pv-text-muted);margin-left:4px}
+.pv-st-err{margin-left:auto;color:var(--pv-danger);font-size:var(--pv-fs-xs)}
+.pv-st-ok{margin-left:4px;color:var(--pv-text);font-size:var(--pv-fs-xs)}
 
 /* ── Custom editor ── */
 #custom-editor{margin-top:12px;border-top:1px solid var(--border);padding-top:12px}

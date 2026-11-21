@@ -8,6 +8,102 @@
  * `_settingsApply` 가 설정창이 서기 전에 부른다. `main.js`·e2e 가 부르는 이름(`_showCustomEditor`·
  * `_hideCustomEditor`·`themeSlots`·`setThemeSlots`)은 App 의 위임자가 이 섹션에 잇는다(FR-FES-9).
  */
+/**
+ * REFACTOR3_FE_REST3_SRS FR-FR3-11 (FC-12): 미리보기가 읽는 색 변수. 이름은 리터럴이다 — `check-css-vars.mjs` 가
+ * 세워지는 이름을 리터럴로 센다(D-FR3-11). `u` 는 대비 파생을 얹은 UI 팔레트, `c` 는 터미널 팔레트, `ah` 는 강조 바탕이다.
+ */
+function themePreviewVars(u,c,ah){
+  return {
+    '--pv-bg':u.bg, '--pv-sidebar-bg':u.sidebarBg, '--pv-border':u.border, '--pv-accent':u.accent, '--pv-accent-hl':ah,
+    '--pv-accent-border':u.accentBorder, '--pv-text':u.text, '--pv-text-bright':u.textBright, '--pv-text-muted':u.textMuted,
+    '--pv-text-dim':u.textDim, '--pv-danger':u.danger,
+    '--pv-t-bg':c.background, '--pv-t-fg':c.foreground, '--pv-t-sel-bg':c.selectionBackground,
+    '--pv-t-sel-fg':c.selectionForeground, '--pv-t-cursor':c.cursor, '--pv-t-cursor-accent':c.cursorAccent,
+    '--pv-t-black':c.black, '--pv-t-red':c.red, '--pv-t-green':c.green, '--pv-t-yellow':c.yellow, '--pv-t-blue':c.blue,
+    '--pv-t-magenta':c.magenta, '--pv-t-cyan':c.cyan, '--pv-t-white':c.white, '--pv-t-bright-black':c.brightBlack,
+    '--pv-t-bright-red':c.brightRed, '--pv-t-bright-green':c.brightGreen, '--pv-t-bright-yellow':c.brightYellow,
+    '--pv-t-bright-blue':c.brightBlue, '--pv-t-bright-magenta':c.brightMagenta, '--pv-t-bright-cyan':c.brightCyan,
+    '--pv-t-bright-white':c.brightWhite,
+  };
+}
+
+/** 견본 한 줄 — 칠 하나에 색 이름을 `title` 로 단다. 이름은 팔레트 키(상수)다. */
+function themePreviewSwatches(...names){
+  return names.map(n=>'<span class="pv-sw pv-sw-'+n.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())+'" title="'+n+'"></span>').join(' ');
+}
+
+/**
+ * 미리보기의 골격 — 앱을 줄인 그림 (FR-FR3-10). 싣는 때 한 번 만드는 고정 문자열이고 팔레트 값이 들어가지 않는다.
+ * 색은 `themePreviewVars` 가 세운 변수를 `.pv-*` 규칙이 읽는다(`style.css`). ANSI 16색은 **글자가 아니라 칠**로
+ * 보인다. 종전의 `● Bk`(검정 위의 검정, 1.05:1)는 읽으라는 글이 아니었는데 글자로 서 있었다 — 색 표본은 견본이다.
+ */
+const THEME_PREVIEW_HTML=`
+    <div class="pv-root">
+      <div class="pv-sidebar">
+        <div class="pv-sb-head">SESSIONS</div>
+        <div class="pv-sb-row">
+          <div class="pv-dot"></div>
+          <span class="pv-sb-name">Main</span>
+          <span class="pv-sb-x">×</span>
+        </div>
+        <div class="pv-sb-row pv-on">
+          <div class="pv-dot"></div>
+          <span class="pv-sb-name pv-b">Work</span>
+          <span class="pv-sb-x">×</span>
+        </div>
+        <div class="pv-sb-row">
+          <div class="pv-dot pv-dim"></div>
+          <span class="pv-sb-name pv-plain">Test</span>
+          <span class="pv-sb-x pv-faint">×</span>
+        </div>
+      </div>
+      <div class="pv-main">
+        <div class="pv-topbar">
+          <span class="pv-c-text">Work</span>
+          <span class="pv-grow"></span>
+          <span class="pv-btn">Split H</span>
+          <span class="pv-btn pv-btn-on">Split V</span>
+        </div>
+        <div class="pv-split">
+          <div class="pv-split-left">
+            <div class="pv-tabs">
+              <div class="pv-tab pv-tab-r">Shell <span class="pv-x">×</span></div>
+              <div class="pv-tab pv-tab-on">vim <span class="pv-x">×</span></div>
+            </div>
+            <div class="pv-term">
+              <span class="pv-t-green">$</span> <span class="pv-t-cyan">echo</span> <span class="pv-t-yellow">"palette"</span><br>
+              <span class="pv-sel">selected text here █</span><br>
+              ${themePreviewSwatches('red','green','yellow','blue')}<br>
+              ${themePreviewSwatches('magenta','cyan','white','brightBlack')}<br>
+              ${themePreviewSwatches('brightRed','brightGreen','brightYellow','brightBlue')}<br>
+              ${themePreviewSwatches('brightMagenta','brightCyan','brightWhite','black')}
+            </div>
+          </div>
+          <div class="pv-gutter"></div>
+          <div class="pv-split-right">
+            <div class="pv-tabs">
+              <div class="pv-tab pv-tab-on">htop <span class="pv-x">×</span></div>
+              <div class="pv-tab pv-tab-l">Shell <span class="pv-x">×</span></div>
+            </div>
+            <div class="pv-term">
+              <span class="pv-t-cyan">PID</span> <span class="pv-t-green">CPU</span> <span class="pv-t-yellow">MEM</span> <span class="pv-t-blue">CMD</span><br>
+              <span class="pv-t-fg"> 1  </span><span class="pv-t-green">  2% </span><span
+                class="pv-t-yellow">  1% </span><span class="pv-t-fg">bash</span><br>
+              <span class="pv-t-fg"> 42 </span><span class="pv-t-red"> 99% </span><span class="pv-t-red"> 45% </span><span class="pv-t-fg">node</span><br>
+              <br>
+              <span class="pv-t-fg">cursor: </span><span class="pv-cur"> █ </span>
+            </div>
+          </div>
+        </div>
+        <div class="pv-status">
+          <span class="pv-c-accent">●</span>
+          <span class="pv-st-info">2 windows · 3 panes</span>
+          <span class="pv-st-err">ERR</span>
+          <span class="pv-st-ok">OK</span>
+        </div>
+      </div>
+    </div>`;
+
 class ThemeSection extends SettingsSection {
   constructor(app){ super(app,'theme') }
 
@@ -188,83 +284,16 @@ class ThemeSection extends SettingsSection {
      */
     const aa=deriveContrastTokens(theme.ui,theme.mode,pickAttnColor(theme),tr);
     const u=Object.assign({},theme.ui,{text:aa.text,textBright:aa.textBright,textMuted:aa.textMuted});
-    const ah=hexToRgba(u.accent,.08);
-    const c=tr; // shorthand
-    // ANSI 16색은 **글자가 아니라 칠**로 보인다. 종전의 `● Bk`(검정 위의 검정,
-    // 1.05:1)는 읽으라는 글이 아니었는데 글자로 서 있었다 — 색 표본은 견본이다.
-    const sw=(...names)=>names.map(n=>'<span class="pv-sw" style="background:'+c[n]+'" title="'+n+'"></span>').join(' ');
     // `G7-1` 첫 판: 미리보기는 테마의 **그림**이다 — 6~9px 의 팔레트 리터럴 글자는
     // 읽으라고 있는 글이 아니라 색의 표본이다. 이미지로 선언하면 안의 글자가
     // 접근성 트리에서 표현용이 되고, axe 의 대비 규칙도 그림 안을 읽지 않는다.
     const pv=document.getElementById('theme-preview');
     pv.setAttribute('role','img');
     pv.setAttribute('aria-label',TIP_THEME_PREVIEW+(customTheme?'Custom':currentThemeName));
-    pv.innerHTML=`
-    <div style="display:flex;height:100%">
-      <div class="pv-sidebar" style="background:${u.sidebarBg};border-right:1px solid ${u.border}">
-        <div style="font-size:6px;color:${u.textMuted};padding:4px 2px;letter-spacing:.05em">SESSIONS</div>
-        <div style="display:flex;align-items:center;gap:3px;padding:2px 4px">
-          <div class="pv-dot" style="background:${u.accent}"></div>
-          <span style="font-size:7px;color:${u.textBright}">Main</span>
-          <span style="font-size:7px;color:${u.danger};margin-left:auto">×</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:3px;padding:2px 4px;background:${ah}">
-          <div class="pv-dot" style="background:${u.accent}"></div>
-          <span style="font-size:7px;color:${u.textBright};font-weight:600">Work</span>
-          <span style="font-size:7px;color:${u.danger};margin-left:auto">×</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:3px;padding:2px 4px">
-          <div class="pv-dot" style="background:${u.textDim}"></div>
-          <span style="font-size:7px;color:${u.text}">Test</span>
-          <span style="font-size:7px;color:${u.danger};margin-left:auto;opacity:.4">×</span>
-        </div>
-      </div>
-      <div class="pv-main" style="background:${u.bg}">
-        <div class="pv-topbar" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
-          <span style="color:${u.text}">Work</span>
-          <span style="flex:1"></span>
-          <span style="color:${u.textMuted};font-size:7px;border:1px solid ${u.accentBorder};border-radius:2px;padding:0 3px">Split H</span>
-          <span style="color:${u.accent};font-size:7px;border:1px solid ${u.accentBorder};border-radius:2px;padding:0 3px">Split V</span>
-        </div>
-        <div class="pv-split">
-          <div class="pv-split-left" style="border:2px solid ${u.accent}">
-            <div class="pv-tabs" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
-              <div class="pv-tab" style="color:${u.textMuted};border-right:1px solid ${u.border}">Shell <span style="color:${u.danger}">×</span></div>
-              <div class="pv-tab" style="color:${u.textBright};background:${ah};border-bottom:1px solid ${u.accent}">vim <span style="color:${u.danger}">×</span></div>
-            </div>
-            <div class="pv-term" style="background:${c.background};color:${c.foreground}">
-              <span style="color:${c.green}">$</span> <span style="color:${c.cyan}">echo</span> <span style="color:${c.yellow}">"palette"</span><br>
-              <span style="background:${c.selectionBackground};color:${c.selectionForeground}">selected text here █</span><br>
-              ${sw('red','green','yellow','blue')}<br>
-              ${sw('magenta','cyan','white','brightBlack')}<br>
-              ${sw('brightRed','brightGreen','brightYellow','brightBlue')}<br>
-              ${sw('brightMagenta','brightCyan','brightWhite','black')}
-            </div>
-          </div>
-          <div style="width:3px;background:${u.border}"></div>
-          <div class="pv-split-right" style="border:1px solid ${u.border}">
-            <div class="pv-tabs" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
-              <div class="pv-tab" style="color:${u.textBright};background:${ah};border-bottom:1px solid ${u.accent}">htop <span style="color:${u.danger}">×</span></div>
-              <div class="pv-tab" style="color:${u.textMuted};border-left:1px solid ${u.border}">Shell <span style="color:${u.danger}">×</span></div>
-            </div>
-            <div class="pv-term" style="background:${c.background};color:${c.foreground}">
-              <span style="color:${c.cyan}">PID</span> <span style="color:${c.green}">CPU</span> <span style="color:${c.yellow}">MEM</span> <span style="color:${c.blue}">CMD</span><br>
-              <span style="color:${c.foreground}"> 1  </span><span style="color:${c.green}">  2% </span><span
-                style="color:${c.yellow}">  1% </span><span style="color:${c.foreground}">bash</span><br>
-              <span style="color:${c.foreground}"> 42 </span><span style="color:${c.red}"> 99% </span><span style="color:${c.red}"> 45% </span><span style="color:${c.foreground}">node</span><br>
-              <br>
-              <span style="color:${c.foreground}">cursor: </span><span style="background:${c.cursor};color:${c.cursorAccent}"> █ </span>
-            </div>
-          </div>
-        </div>
-        <div class="pv-status" style="background:${u.sidebarBg};border-top:1px solid ${u.border}">
-          <span style="color:${u.accent}">●</span>
-          <span style="color:${u.textMuted};margin-left:4px">2 windows · 3 panes</span>
-          <span style="margin-left:auto;color:${u.danger};font-size:7px">ERR</span>
-          <span style="margin-left:4px;color:${u.text};font-size:7px">OK</span>
-        </div>
-      </div>
-    </div>`;
+    // REFACTOR3_FE_REST3_SRS FR-FR3-10·11 (FC-12): 색은 변수로만 들어간다 — 마크업에는 값이 들어갈 자리가 없다.
+    const vars=themePreviewVars(u,tr,hexToRgba(u.accent,.08));
+    for(const [k,v] of Object.entries(vars)) pv.style.setProperty(k,v);
+    pv.innerHTML=THEME_PREVIEW_HTML;
   }
 
   _hideCustomEditor(){
