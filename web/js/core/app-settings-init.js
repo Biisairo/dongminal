@@ -118,7 +118,6 @@ Object.assign(App.prototype, {
    */
   _keybarApply(){
     if(this.modKbd){ this._mkbRender(); this.mkbRefresh() }
-    const sec=SettingsSection.of(this,'terminal');
-    if(sec) sec._keybarPaint();
+    this._sectionCall('terminal','_keybarPaint',[]);
   },
 });

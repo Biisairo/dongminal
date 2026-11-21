@@ -7,6 +7,7 @@
  * **패널은 갈라져 나갔다.** 고칠 자리를 파일 이름이 말한다:
  *
  *   app-settings-init.js      개별 설정의 즉시 반영 (설정창 없이도 돈다 — 테마 고르기·키바 얹기 포함)
+ *   settings-controller.js    설정 탭들의 조정자 `SettingsController` (세우는 순서 · 열기·탭 훅)
  *   settings-section.js       설정 탭 하나 = `SettingsSection` 하위 하나 (`settings-display.js` 등)
  *   settings-row.js           단순한 행 `FormRow` (체크·숫자)
  *   settings-theme.js         테마 목록 · 미리보기 · 사용자 정의 편집 (`ThemeSection`)
@@ -171,7 +172,7 @@ Object.assign(App.prototype, {
    * 누른다** — 탭별 재조회와 모바일 상세 화면이 그 리스너 안에 있다.
    */
   _openSettings(tab){
-    if(this._settingsModal) this._settingsModal.open();
+    if(this.settings&&this.settings.modal) this.settings.modal.open();
     if(!tab) return;
     const tabEl=document.querySelector('#modal .mtab[data-tab="'+tab+'"]');
     if(tabEl) tabEl.click();
@@ -255,12 +256,12 @@ Object.assign(App.prototype, {
 
   /**
    * OPTIMIZE_REFACTOR_SRS FR-OPT-1-12 (FEC-26): 설정창의 행을 **지금 값으로** 칠한다.
-   * 계기는 셋이다 — 부팅(`initModal`) · 값을 얹은 뒤(`_settingsApply`) · 설정창을 열 때
+   * 계기는 셋이다 — 부팅(`SettingsController.init`) · 값을 얹은 뒤(`_settingsApply`) · 설정창을 열 때
    * (FR-LVC-3). 행은 섹션이 `FormRow` 로 선언한다(REFACTOR3_FE_SETTINGS_SRS FR-FES-2) —
    * 포커스를 쥔 입력란을 건너뛰는지도 행마다 정해져 있다(`guard`).
    */
   _paintSettingControls(){
-    for(const s of SettingsSection.all(this)) s.paint();
+    if(this.settings) this.settings.paint();
   },
 
   /**
@@ -341,64 +342,16 @@ Object.assign(App.prototype, {
       }
     };
     input.addEventListener('input',apply);
-    this._settingsSearchReset=()=>{input.value='';apply()};   // 열 때 비운다(`_settingsOnOpen`)
+    this._settingsSearchReset=()=>{input.value='';apply()};   // 열 때 비운다(`SettingsController.onOpen`)
   },
 
-  /** 설정창을 열 때 (`SettingsModal` 의 `onOpen`). 열 때마다 현재 값을 다시 칠한다. */
-  _settingsOnOpen(modal){
-    for(const tab of ['theme','shortcuts','presets']){
-      const s=SettingsSection.of(this,tab);
-      if(s) s.onOpen();
-    }
-    // FR-LVC-3 · FR-WBR-10 · FR-MMT-6 · FR-UXB-43 · FR-FSS-21: 열 때마다 현재 값을 다시
-    // 칠한다 — 다른 화면에서 바뀐 값이 이 모달에 옛 상태로 남아 있으면 사용자가
-    // 그것을 켜진 줄로 읽는다. 숫자 입력란도 확정하지 않은 글자(`999` 를 치고 `Esc`)를
-    // 여기서 맞춘다. 포커스는 다음 프레임에 오므로 여기서는 전부 칠해진다.
-    const display=SettingsSection.of(this,'display');
-    if(display) display.onOpen();
-    this._paintSettingControls();
-    this._labelSettingsRows();
-    const claude=SettingsSection.of(this,'claude');
-    if(claude) claude.onOpen();
-    // Auto-close drawer when opening settings on mobile
-    if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
-    // REFACTOR3_FE_ESC_SRS FR-FEE-9: 종전 `#settings-btn` 클릭 리스너 셋의 일을 그 실행 순서대로 — 검색 비우기 →
-    // 프로필 읽기 → 모바일 머리와 목록 화면. 목록 화면은 열기·패널 칠하기 뒤여야 한다.
-    if(this._settingsSearchReset) this._settingsSearchReset();
-    const profile=SettingsSection.of(this,'profile');
-    if(profile) profile.onOpen();
-    this._settingsMobileOnOpen(modal);
-  },
-
-  /** 탭을 골랐을 때 (`SettingsModal` 의 `onTab`). 고른 탭의 DOM 은 이미 바뀌었다. */
-  _settingsOnTab(tab){
-    // 탭별 재조회(sandbox·access·profile·edges·telegram·server·claude)·code 탭의 관측·프리셋 목록은 그 섹션의 `onTab` 이다.
-    const sec=SettingsSection.of(this,tab);
-    if(sec) sec.onTab();
-  },
-
+  /**
+   * 설정 탭들을 세운다 — `SettingsController` 하나가 든다(REFACTOR3_FE_SETTINGS_SRS FR-FES-6·7). 세우는 순서와
+   * 그 사이에 도는 다른 init(`initSaveButtons`·`initStatusBar`·`initMobile`·`initMobileKeybar`·`initAttn`)은
+   * 컨트롤러의 표 `SETTINGS_INIT` 이 말한다.
+   */
   initModal(){
-    SettingsSection.start(this,new ThemeSection(this));   // FR-STF-2: 시스템 모드 구독
-    const modal=document.getElementById('modal');
-    // REFACTOR3_FE_DIALOG_SRS FR-FED-10: 열기·닫기·탭 고르기는 `SettingsModal` 이 진다. 여기서 만들어야
-    // `_initSettingsMobile` 의 탭 리스너가 그 뒤에 붙어 뒤에 돈다.
-    this._settingsModal=new SettingsModal({onOpen:()=>this._settingsOnOpen(modal),onTab:n=>this._settingsOnTab(n)}).init();
-    this._bindSettingsSearch(modal);
-    // REFACTOR3_FE_SETTINGS_SRS 8a: 탭 하나 = 섹션 하나. 8e 의 `SettingsController` 가 들 때까지 섹션은
-    // `SettingsSection` 의 정적 등록부가 든다 (§6).
-    SettingsSection.start(this,new ShortcutsSection(this));
-    SettingsSection.start(this,new DisplaySection(this));
-    SettingsSection.start(this,new TerminalSection(this));   // 모바일 키바 구역은 init 끝에서 (옛 `_initKeybarSettings` 자리)
-    SettingsSection.start(this,new CodeSection(this));
-    this._paintSettingControls();
-    SettingsSection.start(this,new BackupSection(this));
-    SettingsSection.start(this,new SandboxSection(this));
-    SettingsSection.start(this,new AccessSection(this));
-    SettingsSection.start(this,new EdgesSection(this));
-    SettingsSection.start(this,new ProfileSection(this));
-    SettingsSection.start(this,new TelegramSection(this));
-    SettingsSection.start(this,new ServerSection(this));
-    SettingsSection.start(this,new ClaudeSection(this));
+    this.settings=new SettingsController(this).init();
   },
 
   // ── 설정 섹션 위임자 (REFACTOR3_FE_SETTINGS_SRS FR-FES-9) ──
@@ -427,7 +380,7 @@ Object.assign(App.prototype, {
   _savePreset(...a){ return this._sectionCall('presets','_savePreset',a) },
 
   _sectionCall(tab,name,args){
-    const s=SettingsSection.of(this,tab);
+    const s=this.settings?this.settings.section(tab):null;
     return s?s[name](...args):undefined;
   },
 });

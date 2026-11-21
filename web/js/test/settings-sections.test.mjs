@@ -33,7 +33,8 @@ function setup(access, els) {
   const ctx = load([...BASE, ...SETTINGS], {
     expose: ['SettingsSection', 'FormRow', 'View', 'DisplaySection', 'TerminalSection', 'CodeSection', 'PollingSection',
       'StatusbarSection', 'NotifySection', 'ProfileSection', 'ServerSection', 'SandboxSection', 'TelegramSection',
-      'AccessSection', 'EdgesSection', 'ClaudeSection', 'ThemeSection', 'ShortcutsSection', 'PresetsSection', 'BackupSection'],
+      'AccessSection', 'EdgesSection', 'ClaudeSection', 'ThemeSection', 'ShortcutsSection', 'PresetsSection', 'BackupSection',
+      'SettingsController'],
     globals: {
       TIMERS: { disposeOwner() {} },
       SETTINGS_ACCESS: access,
@@ -72,14 +73,20 @@ test('TC-FES-1: SettingsSection 은 View 하위이고 #panel-<tab> 을 adopt 하
   assert.equal(s.disposed, true);
 });
 
-test('TC-FES-1: 섹션은 앱별로 등록되고 of·all 로 찾는다 (8e 전까지의 자리)', () => {
+test('TC-FES-1: 섹션은 컨트롤러가 든다 — start 가 등록하고 init 을 부르며 section·all 로 찾는다 (8e)', () => {
   const { ctx } = setup({}, {});
-  const a = fakeApp([]), b = fakeApp([]);
-  const s = ctx.SettingsSection.start(a, new ctx.SettingsSection(a, 'display'));
-  assert.equal(ctx.SettingsSection.of(a, 'display'), s);
-  assert.equal(ctx.SettingsSection.of(b, 'display'), null);
-  assert.deepEqual(plain(ctx.SettingsSection.all(a).map((x) => x.tab)), ['display']);
-  assert.equal(ctx.SettingsSection.all(b).length, 0);
+  const a = fakeApp([]);
+  const ca = new ctx.SettingsController(a), cb = new ctx.SettingsController(fakeApp([]));
+  const sec = new ctx.SettingsSection(a, 'display');
+  let inits = 0;
+  sec.init = () => { inits++ };
+  assert.equal(ca.start(sec), sec);
+  assert.equal(inits, 1);
+  assert.equal(ca.section('display'), sec);
+  assert.equal(cb.section('display'), null);
+  assert.deepEqual(plain(ca.all().map((x) => x.tab)), ['display']);
+  assert.equal(cb.all().length, 0);
+  assert.equal(ctx.SettingsSection.start, undefined, '정적 등록부가 남았다');
 });
 
 // ── TC-FES-2 FormRow ─────────────────────────────────────────────────────
@@ -174,7 +181,7 @@ const MOVED = [
       ['issueTreeCtxPct', 'ds-treemigpct', 'number']] },
   { cls: 'CodeSection', tab: 'code', gone: ['_initWordWrap', '_initMinimap', '_initLSP'],
     rows: [['editorWordWrap', 'ds-wordwrap', 'check'], ['editorMinimap', 'ds-minimap', 'check']] },
-  // 8b — 특이 행은 섹션 메서드다(FR-FES-4). `initPollingSettings` 는 8e 까지 섹션을 세우는 입구로 남는다.
+  // 8b — 특이 행은 섹션 메서드다(FR-FES-4). 섹션을 세우던 입구(`initPollingSettings` 등)는 8e 에서 컨트롤러로 갔다(TC-FES-4).
   { cls: 'PollingSection', tab: 'polling', gone: ['_pollPaintRows'], rows: [] },
   { cls: 'StatusbarSection', tab: 'statusbar', gone: ['_renderStatusBarSettings'], rows: [] },
   { cls: 'NotifySection', tab: 'notify', gone: ['initUpdateSettings'], rows: [] },
@@ -293,7 +300,7 @@ test('TC-FES-3: 옮긴 _init* 가 App 원형에 없고 위임자는 남는다', 
 test('TC-FES-3(8c): 위임자는 그 탭의 섹션에 인자와 답을 그대로 잇고, 섹션이 없으면 아무것도 하지 않는다', () => {
   const ctx = load([...BASE, ...SETTINGS, 'core/app-settings.js'], {
     globals: { App: function App() {}, TIMERS: { disposeOwner() {} } },
-    expose: ['SettingsSection'],
+    expose: ['SettingsController'],
   });
   const bare = new ctx.App();
   for (const [name] of ROUTES) assert.doesNotThrow(() => bare[name]('x'), name);
@@ -304,7 +311,8 @@ test('TC-FES-3(8c): 위임자는 그 탭의 섹션에 인자와 답을 그대로
     if (!tabs.has(tab)) tabs.set(tab, { tab, init() {} });
     tabs.get(tab)[meth] = (...a) => { seen.push([meth, ...a]); return meth + ':ok' };
   }
-  for (const sec of tabs.values()) ctx.SettingsSection.start(app, sec);
+  app.settings = new ctx.SettingsController(app);
+  for (const sec of tabs.values()) app.settings.start(sec);
   for (const [name, , meth] of ROUTES) assert.equal(app[name]('a', 2), meth + ':ok', name);
   assert.deepEqual(plain(seen), ROUTES.map(([, , meth]) => [meth, 'a', 2]));
 });
@@ -480,4 +488,89 @@ test('8d: BackupSection — 파일 이름·저장된 키만 담기·봉투 검�
   assert.equal(s._bkParse('{"kind":"x","version":1,"server":{}}').err, 'backup.not_ours');
   assert.equal(s._bkParse('{"kind":"dongminal-settings","version":9,"server":{}}').err, 'backup.newer_version');
   assert.deepEqual(plain(s._bkParse('{"kind":"dongminal-settings","version":1,"server":{"a":1}}').env.server), { a: 1 });
+});
+
+// ── TC-FES-4 SettingsController (8e) ─────────────────────────────────────
+
+/**
+ * 옛 부팅 배선의 순서 (df15f347). `initModal` 의 나열 다음에 `ui/input-binding.js` 21~30행이 돌았다.
+ *
+ *   initModal            _initThemeFollow · SettingsModal · _bindSettingsSearch · [shortcuts: 8d 에 init 없이 등록] ·
+ *                        display · terminal(+ 키바 구역, 옛 `_initKeybarSettings`) · code · _paintSettingControls ·
+ *                        _initBackup · sandbox · access · edges · profile · telegram · server · claude
+ *   input-binding.js     initSaveButtons · initStatusBar(끝에서 statusbar) · initPresets(presets) · initMobile ·
+ *                        initMobileKeybar · initAttn(안에서 notify) · initPollingSettings(polling)
+ *
+ * notify 는 `initAttn` 의 배지·바깥 클릭 리스너 뒤, 권한 묻기·해제 입구 리스너 앞이었다. 그 넷은 `document`·배지에
+ * 걸리고 notify 는 자기 스위치 셋에 건다 — 같은 대상이 없어 `initAttn` 뒤로 옮겨도 도는 순서가 바뀌지 않는다.
+ */
+const BOOT_ORDER = ['theme', 'modal', 'search', 'shortcuts', 'display', 'terminal', 'code', 'paint', 'backup',
+  'sandbox', 'access', 'edges', 'profile', 'telegram', 'server', 'claude', 'initSaveButtons', 'initStatusBar',
+  'statusbar', 'presets', 'initMobile', 'initMobileKeybar', 'initAttn', 'notify', 'polling'];
+
+const SECTION_CLASSES = ['ThemeSection', 'ShortcutsSection', 'DisplaySection', 'TerminalSection', 'CodeSection',
+  'BackupSection', 'SandboxSection', 'AccessSection', 'EdgesSection', 'ProfileSection', 'TelegramSection',
+  'ServerSection', 'ClaudeSection', 'StatusbarSection', 'PresetsSection', 'NotifySection', 'PollingSection'];
+
+function loadController() {
+  return load([...BASE, ...SETTINGS], {
+    expose: ['SettingsController', 'SettingsSection', 'Controller', ...SECTION_CLASSES],
+    globals: { TIMERS: { disposeOwner() {} } },
+  });
+}
+
+test('TC-FES-4: SettingsController 는 Controller 하위이고 옛 부팅 순서대로 섹션과 그 사이의 init 을 세운다', () => {
+  const ctx = loadController();
+  const log = [];
+  for (const c of SECTION_CLASSES) ctx[c].prototype.init = function () { log.push(this.tab) };
+  ctx.SettingsModal = class { constructor(h) { this.h = h } init() { log.push('modal'); return this } };
+  ctx.document = { getElementById: (id) => (id === 'modal' ? { id } : null) };
+  const app = { _bindSettingsSearch: (m) => log.push(m.id === 'modal' ? 'search' : 'search?'), _paintSettingControls: () => log.push('paint') };
+  for (const n of ['initSaveButtons', 'initStatusBar', 'initMobile', 'initMobileKeybar', 'initAttn']) app[n] = () => log.push(n);
+  const c = new ctx.SettingsController(app);
+  assert.ok(c instanceof ctx.Controller);
+  assert.equal(c.init(), c);
+  assert.deepEqual(log, BOOT_ORDER);
+  assert.deepEqual(plain(c.all().map((s) => s.tab)), BOOT_ORDER.filter((x) => c.section(x)));
+  assert.ok(c.section('theme') instanceof ctx.ThemeSection);
+  assert.ok(c.section('theme') instanceof ctx.SettingsSection);
+  assert.equal(c.section('nope'), null);
+  assert.equal(typeof c.modal.h.onOpen, 'function');
+});
+
+test('TC-FES-4: initModal 은 컨트롤러를 만드는 한 줄이고 _init 호출이 없다 — 설정 init 은 input-binding 에 하나뿐이다', () => {
+  const src = readFileSync(join(JS_ROOT, 'core/app-settings.js'), 'utf8');
+  const body = src.match(/^ {2}initModal\(\)\{\n([\s\S]*?)\n {2}\},/m);
+  assert.ok(body, 'initModal 을 찾지 못했다');
+  const lines = body[1].split('\n').filter((l) => l.trim() && !l.trim().startsWith('//'));
+  assert.deepEqual(lines.map((l) => l.trim()), ['this.settings=new SettingsController(this).init();']);
+  const bind = readFileSync(join(JS_ROOT, 'ui/input-binding.js'), 'utf8');
+  for (const n of ['initSaveButtons', 'initStatusBar', 'initPresets', 'initMobile', 'initMobileKeybar', 'initAttn', 'initPollingSettings']) {
+    assert.ok(!new RegExp('this\\.app\\.' + n + '\\(').test(bind), 'input-binding 이 직접 부른다: ' + n);
+  }
+  assert.match(bind, /this\.app\.initModal\(\)/);
+  const names = appMixinNames();
+  for (const n of ['_settingsOnOpen', '_settingsOnTab', 'initPresets', 'initPollingSettings']) assert.ok(!names.has(n), 'App 원형에 남았다: ' + n);
+});
+
+test('TC-FES-4: 열 때는 theme → shortcuts → presets → display → 칠하기 → 라벨 → claude → 서랍 → 검색 비우기 → profile → 모바일, 다른 섹션은 부르지 않는다', () => {
+  const ctx = loadController();
+  const log = [];
+  const app = {
+    isMobile: true, drawerOpen: true,
+    _paintSettingControls: () => log.push('paint'), _labelSettingsRows: () => log.push('label'),
+    _toggleDrawer: (v) => log.push('drawer:' + v), _settingsSearchReset: () => log.push('search'),
+    _settingsMobileOnOpen: (m) => log.push('mobile:' + m),
+  };
+  const c = new ctx.SettingsController(app);
+  for (const tab of ['code', 'profile', 'claude', 'display', 'presets', 'shortcuts', 'theme', 'sandbox']) {
+    c.start({ tab, init() {}, onOpen: () => log.push(tab), onTab: () => log.push('tab:' + tab) });
+  }
+  c.onOpen('M');
+  assert.deepEqual(log, ['theme', 'shortcuts', 'presets', 'display', 'paint', 'label', 'claude', 'drawer:false', 'search',
+    'profile', 'mobile:M']);
+  log.length = 0;
+  c.onTab('sandbox');
+  c.onTab('nope');
+  assert.deepEqual(log, ['tab:sandbox']);
 });

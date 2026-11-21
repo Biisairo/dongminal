@@ -37,8 +37,7 @@ Object.assign(App.prototype, {
     // (GIT_REMAINING §1.3 이 전수 조사한 그 부류의 결함이다).
     this._bgConfirm=null; this._bgPending=null; this._bgError=null;
     this._startStatsPoll();
-    // Settings ▸ Status Bar 의 스위치들 (REFACTOR3_FE_SETTINGS_SRS 8b).
-    SettingsSection.start(this,new StatusbarSection(this));
+    // Settings ▸ Status Bar 의 스위치들은 이 뒤에 `SettingsController` 가 세운다 (REFACTOR3_FE_SETTINGS_SRS 8e).
   },
   _startStatsPoll(){
     if(this._statsPoll) this._statsPoll.stop();

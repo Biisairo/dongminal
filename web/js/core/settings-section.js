@@ -6,38 +6,16 @@
  * `paint()`(칠하기 한 자리 — 기본은 선언한 행을 칠한다). 저장·적용은 `this.app` 을 거쳐 부른다 — e2e·단위 시험이
  * App 인스턴스의 메서드를 갈아 끼운다.
  *
- * 섹션은 8e 의 `SettingsController` 가 들 때까지 이 클래스의 정적 `WeakMap` 이 앱별로 든다(§6 8a) — App 에 필드를
- * 새로 얹지 않는다(INV-S5).
+ * 섹션을 드는 것은 `SettingsController`(`settings-controller.js`)다 — 세우기(`start`)·찾기(`section(tab)`)와
+ * 열기·탭 훅의 순서가 그쪽에 있다(FR-FES-6·7).
  */
 class SettingsSection extends View {
-  static _byApp=new WeakMap();
-
   constructor(app,tab){
     super();
     this.app=app;
     this.tab=tab;
     this.rows=[];
     this.adopt(document.getElementById('panel-'+tab));
-  }
-
-  /** 섹션을 앱에 등록하고 `init()` 을 부른다. */
-  static start(app,section){
-    let m=SettingsSection._byApp.get(app);
-    if(!m) SettingsSection._byApp.set(app,m=new Map());
-    m.set(section.tab,section);
-    section.init();
-    return section;
-  }
-
-  static of(app,tab){
-    const m=SettingsSection._byApp.get(app);
-    return (m&&m.get(tab))||null;
-  }
-
-  /** 등록한 순서다. */
-  static all(app){
-    const m=SettingsSection._byApp.get(app);
-    return m?[...m.values()]:[];
   }
 
   /** `FormRow` 선언 배열을 행으로 세우고 리스너를 건다. 요소가 없는 행도 남는다(칠하기가 건너뛴다). */

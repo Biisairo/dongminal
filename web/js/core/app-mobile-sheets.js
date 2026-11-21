@@ -44,7 +44,7 @@ Object.assign(App.prototype, {
    *
    * 패널을 고르는 진실은 `SettingsModal.select` 한 자리다 — 여기서는 그 뒤에 **화면만**
    * 바꾼다. 탭 누르기 리스너가 그것보다 늦게 붙으므로 늘 그 뒤에 돈다. 열 때의 목록 화면은
-   * `_settingsOnOpen` 이 `_settingsMobileOnOpen` 으로 부른다(REFACTOR3_FE_ESC_SRS FR-FEE-9).
+   * `SettingsController.onOpen` 이 `_settingsMobileOnOpen` 으로 부른다(REFACTOR3_FE_ESC_SRS FR-FEE-9).
    *
    * FR-MUX-23: 상세의 Escape 는 목록으로 물러선다. 상세로 갈 때 EscapeStack 캡처 층에 넣으므로 그보다
    * 먼저 연 설정 닫기보다 먼저 돈다(FR-FEE-6). 서랍·Activity 의 Esc(FR-MUX-14)는 두 패널이 진다(FR-FEE-5).

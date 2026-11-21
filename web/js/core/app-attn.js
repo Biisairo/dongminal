@@ -443,8 +443,8 @@ Object.assign(App.prototype, {
       if(center.contains(e.target)||(badge&&badge.contains(e.target))) return;
       this._attnCenterClose();
     });
-    // Settings ▸ Notify 의 스위치 둘과 판 확인은 `NotifySection` 이 배선한다 (REFACTOR3_FE_SETTINGS_SRS 8b).
-    SettingsSection.start(this,new NotifySection(this));
+    // Settings ▸ Notify 의 스위치 둘과 판 확인은 `NotifySection` 이 배선한다 — 이 init 뒤에 `SettingsController` 가
+    // 세운다 (REFACTOR3_FE_SETTINGS_SRS 8e).
     // 데스크톱 알림 권한은 사용자 제스처가 필요하므로, 켜져 있고 아직 미결정이면
     // 첫 상호작용에서 한 번 요청한다 (브라우저 정책 충족) — FR-PAN-13a.
     //

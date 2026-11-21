@@ -78,10 +78,7 @@ const POLL_SETTINGS=[
 const POLL_BY_KEY=Object.fromEntries(POLL_SETTINGS.map(s=>[s.key,s]));
 
 Object.assign(App.prototype, {
-  // FR-PIS-20: `Polling` 탭의 행은 `PollingSection` 이 표에서 만든다 (REFACTOR3_FE_SETTINGS_SRS 8b).
-  initPollingSettings(){
-    SettingsSection.start(this,new PollingSection(this));
-  },
+  // FR-PIS-20: `Polling` 탭의 행은 `PollingSection` 이 표에서 만든다 (REFACTOR3_FE_SETTINGS_SRS 8b·8e).
 
   /**
    * FR-PIS-17 / D-9: `agentsPollMs` 의 이사. **한 번이고 조용하다.**
@@ -100,8 +97,7 @@ Object.assign(App.prototype, {
     if(v===agentsPollInterval) return;
     agentsPollInterval=v;
     TIMERS.refreshChanged();
-    const sec=SettingsSection.of(this,'polling');
-    if(sec) sec.paint();
+    this._sectionCall('polling','paint',[]);
     this.saveSettings();
   },
 });

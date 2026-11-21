@@ -18,16 +18,9 @@ class InputBinding {
     this._bindSidebarHandle(sbEl,contentEl);
     this._bindKeys();
     this._bindSearch();
+    // REFACTOR3_FE_SETTINGS_SRS 8e: 설정 탭들과 그 사이의 init(저장 단추·상태바·모바일·키바·주의)을 옛 순서대로
+    // 세운다 — 순서는 `SettingsController` 의 표 `SETTINGS_INIT` 하나다.
     this.app.initModal();
-    this.app.initSaveButtons(); // UX_AUDIT_FIX_SRS FR-UXF-72: 설정 패널들이 선 뒤다
-    this.app.initStatusBar();
-    this.app.initPresets();
-    this.app.initMobile();
-    this.app.initMobileKeybar();
-    this.app.initAttn();
-    // POLL_INTERVAL_SETTINGS_SRS FR-PIS-20: `Polling` 탭의 행을 표에서 만든다.
-    // 옛 `_initAgentsSettings` 가 있던 자리이며, 그 드롭다운이 이 탭으로 옮겼다.
-    this.app.initPollingSettings();
   }
 
 

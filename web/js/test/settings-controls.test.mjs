@@ -33,20 +33,21 @@ function setup() {
       issueTreeMigration: undefined, issueTreeCtxPct: undefined, focusEdgeLevel: 0, attnEdgeLevel: 5,
       UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10,
     },
-    expose: ['SettingsSection', 'DisplaySection', 'TerminalSection', 'CodeSection'],
+    expose: ['SettingsController', 'DisplaySection', 'TerminalSection', 'CodeSection'],
   });
   ctx.document.getElementById = (id) => els[id] || null;
   ctx.document.activeElement = null;
   const app = new ctx.App();
   app._slotDirPaint = () => {};
-  for (const C of ['DisplaySection', 'TerminalSection', 'CodeSection']) ctx.SettingsSection.start(app, new ctx[C](app));
+  app.settings = new ctx.SettingsController(app);
+  for (const C of ['DisplaySection', 'TerminalSection', 'CodeSection']) app.settings.start(new ctx[C](app));
   return { ctx, els, app };
 }
 
 test('FEC-26: 컨트롤이 섹션의 행 선언에 한 번씩 있고, 포커스 가드는 탭 폭 하나다', () => {
-  const { ctx, app } = setup();
+  const { app } = setup();
   const got = {}, guarded = [];
-  for (const s of ctx.SettingsSection.all(app)) {
+  for (const s of app.settings.all()) {
     for (const r of s.rows) {
       assert.equal(got[r.decl.id], undefined, '두 번 선언됐다: ' + r.decl.id);
       got[r.decl.id] = r.decl.kind;

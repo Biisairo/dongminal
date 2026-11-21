@@ -79,7 +79,8 @@ export const SETTINGS = ['core/settings-section.js', 'core/settings-row.js', 'co
   'core/settings-terminal.js', 'core/settings-code.js', 'core/settings-polling.js', 'core/settings-statusbar.js',
   'core/settings-notify.js', 'core/settings-theme.js', 'core/settings-shortcuts.js', 'core/settings-sandbox.js',
   'core/settings-access.js', 'core/settings-edges.js', 'core/settings-profile.js', 'core/settings-telegram.js',
-  'core/settings-server.js', 'core/settings-claude.js', 'core/settings-backup.js', 'core/settings-presets.js'];
+  'core/settings-server.js', 'core/settings-claude.js', 'core/settings-backup.js', 'core/settings-presets.js',
+  'core/settings-controller.js'];
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');

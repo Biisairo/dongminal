@@ -7,10 +7,6 @@
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 Object.assign(App.prototype, {
-  // Settings ▸ Presets 섹션을 세운다 (REFACTOR3_FE_SETTINGS_SRS 8d).
-  initPresets(){
-    SettingsSection.start(this,new PresetsSection(this));
-  },
   async _loadPreset(idx){
     const preset=layoutPresets[idx];if(!preset)return;
     // Create new window with preset layout
