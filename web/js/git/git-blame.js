@@ -148,7 +148,7 @@ class GitBlame extends GitPart {
     this.p._paint();
   }
 
-  // 리포 전환 — blame 은 파일에 붙은 것이다 (panel-life `_repoSwitchView`).
+  // 리포 전환 — blame 은 파일에 붙은 것이다 (`GitPanel._repoSwitchView`).
   reset(){
     this._blameKey=null; this._blameData=null; this._blameErr=null;
   }

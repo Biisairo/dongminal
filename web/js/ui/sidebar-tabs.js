@@ -231,7 +231,7 @@ const SB_TAB_DEFS=[
            * `+` 는 새 기호가 아니다 — 잘린 그룹 머리글(`git-group-count`,
            * FR-GDT-24)과 편집기 검색(`app-edsearch.js`)이 이미 같은 표기를 쓴다.
            * **잘렸다는 사실이 개수의 뜻을 바꾸므로 그 설명이 낡음보다 앞선다**
-           * (`panel-changes.js` 가 같은 순서를 쓴다).
+           * (`git-changes.js` 가 같은 순서를 쓴다).
            */
           badge:(b&&b.total>0)?{
             text:String(b.total)+(b.outputTruncated?'+':''),

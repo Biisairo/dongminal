@@ -1,9 +1,11 @@
 /**
- * GitPanel — 뷰 지연 생성과 하위 모듈 위임 (SPLIT_REFACTOR_SRS 묶음 B).
+ * GitViews — Git 패널의 뷰 부품: 뷰 지연 생성 · 상태 접근 · 브랜치/태그 파사드 (SPLIT_REFACTOR_SRS 묶음 B ·
+ * REFACTOR3_FE_GITPANEL_SRS 7g). 마지막으로 본 ref 목록(`_knownRefs`)을 소유한다. 뷰 인스턴스 필드
+ * (`_historyView` 등)는 여러 부품과 e2e 가 함께 읽으므로 패널의 것이다.
  *
  * History·Branches·Stash·Console·Worktrees·커밋·원격은 각자 클래스이고, 이 파일은
  * **그것들을 언제 만들고 무엇을 넘기는지**만 안다. Git 창을 열지 않은 브라우저는
- * 아무것도 만들지 않는다.
+ * 아무것도 만들지 않는다. 뷰와 하위 모듈이 받는 것은 패널(`this.p`)이다.
  *
  * 뒤쪽 한 줄짜리들(`branchMerge`·`tagPush` 등)은 파사드다 — 메뉴와 다이얼로그가
  * 패널 하나만 알면 되도록, 하위 모듈의 정적 메서드를 여기서 받는다.
@@ -24,12 +26,26 @@ const GIT_VIEW_KINDS={
   submodules:{make:p=>new GitSubmodules(p)},
 };
 
-Object.assign(GitPanel.prototype, {
+class GitViews extends GitPart {
+  constructor(panel){
+    super(panel);
+    /**
+     * BRANCH_MENU_UNIFY_SRS FR-BMU-16h: **마지막으로 본 ref 목록.**
+     *
+     * `/api/git/refs` 를 부르는 자리가 둘이고(Branches 뷰 · History 뷰) 각자
+     * 자기 사본을 들고 있었다. 그래서 메뉴의 짝 판정이 **Branches 탭을 한 번도
+     * 열지 않으면** 빈 목록을 보고 "추적하는 로컬이 없다" 고 답했다 — 실제로는
+     * 있는데도. 진입점 셋이 같은 대답을 해야 하므로(FR-BMU-17) 목록도 한 자리에
+     * 둔다. 받는 쪽이 둘인 것은 그대로다.
+     */
+    this._knownRefs=[];
+  }
+
   // 커밋 영역은 지연 생성한다 — Git 창을 열지 않은 브라우저 창은 만들지 않는다.
   _commit(){
-    if(!this._commitView) this._commitView=new GitCommit(this);
-    return this._commitView;
-  },
+    if(!this.p._commitView) this.p._commitView=new GitCommit(this.p);
+    return this.p._commitView;
+  }
 
   // ── 원격 작업 (FR-GIT-98~112) ──
 
@@ -37,30 +53,30 @@ Object.assign(GitPanel.prototype, {
   // 골격보다 오래 산다. REPO_FIX 01 §6.4: 잡은 원격만이 아니고 칸이 둘이다 —
   // `GitJobs` 가 두 칸의 표시기를 하나로 묶는다.
   _remote(){
-    if(!this._remoteView) this._remoteView=new GitJobs(this);
-    return this._remoteView;
-  },
+    if(!this.p._remoteView) this.p._remoteView=new GitJobs(this.p);
+    return this.p._remoteView;
+  }
 
   // 상태바 폴링이 받은 진행 중 작업 목록 (FR-GIT-101·112). 같은 리포의 작업이면
   // 원격 버튼이 막히고 출력이 이어진다.
   adoptJobs(jobs){
     // FR-SVS-44: 원격 작업은 리포의 사실이므로 **모든 칸**이 같은 진행을 본다.
-    for(const p of this.obs.panels){
+    for(const p of this.p.obs.panels){
       // UX_BATCH12_SRS FR-RTB-7: Diff 탭 패널에는 작업 표시가 없다. 그 패널에도 작업을
       // 붙이면 Changes 의 작업 표시가 끝나지 않았다(실측: e2e git-view-refresh G1).
       if(p.diffTabId) continue;
       if(!p._remoteView&&!(jobs||[]).length) continue;
       p._remote().adoptJobs(jobs);
     }
-  },
+  }
 
   // 그룹 하나를 펼친다. pull 이 충돌로 끝나면 충돌 그룹이 접혀 있어서는 안 된다
   // (FR-GIT-111).
   expandGroup(key){
-    if(!this._collapsed.has(key)) return;
-    this._collapsed.delete(key);
-    this._paint();
-  },
+    if(!this.p._collapsed.has(key)) return;
+    this.p._collapsed.delete(key);
+    this.p._paint();
+  }
 
   // ── 목록 뷰: History(FR-GIT-113~139) · Branches(FR-GIT-147~160) · Stash(FR-GIT-161~170) ·
   //    Console(FR-GIT-218) · Worktrees(FR-GIT-240~244) · Submodules(FR-SUB-6~11) ──
@@ -68,46 +84,47 @@ Object.assign(GitPanel.prototype, {
 
   _viewOf(key){
     const f=GIT_VIEW_FIELD_BY_KEY[key];
-    if(!this[f]) this[f]=GIT_VIEW_KINDS[key].make(this);
-    return this[f];
-  },
-  _history(){return this._viewOf('history')},
-  _branches(){return this._viewOf('branches')},
-  _console(){return this._viewOf('console')},
-  _worktrees(){return this._viewOf('worktrees')},
-  _stash(){return this._viewOf('stash')},
+    if(!this.p[f]) this.p[f]=GIT_VIEW_KINDS[key].make(this.p);
+    return this.p[f];
+  }
+
+  _history(){return this._viewOf('history')}
+  _branches(){return this._viewOf('branches')}
+  _console(){return this._viewOf('console')}
+  _worktrees(){return this._viewOf('worktrees')}
+  _stash(){return this._viewOf('stash')}
 
   _renderView(key,el){
     const v=this._viewOf(key);
-    if(!this.repo){
+    if(!this.p.repo){
       el.dataset.built=''; el.innerHTML='';
       // 골격을 버렸으므로 뷰도 자기 DOM 을 놓아야 한다.
       v.unmount();
-      this._emptyHint(el,this._errMsg||GIT_NO_REPO_HINT);
+      this._emptyHint(el,this.p._errMsg||GIT_NO_REPO_HINT);
       return;
     }
     if(el.dataset.built!=='1'){v.mount(el);el.dataset.built='1'}
     v.paint();
     const after=GIT_VIEW_KINDS[key].afterPaint;
-    if(after) after(this,el);
-  },
+    if(after) after(this.p,el);
+  }
 
   // 저장소가 없을 때의 안내 한 줄.
   _emptyHint(el,text){
     const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
     d.textContent=text;
     el.appendChild(d);
-  },
+  }
 
   // 마지막 유효 status. Branches 의 현재 브랜치와 Stash 의 "담을 것이 있는지" 가
   // 같은 값을 딛는다 (FR-GIT-152·167).
-  statusOf(){return (this._status&&this._status.status)||null},
+  statusOf(){return (this.p._status&&this.p._status.status)||null}
 
   // 서버의 1층 답 하나 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-4). status 응답에 실려 온다.
   actionOf(id){
-    const a=this._status&&this._status.actions;
+    const a=this.p._status&&this.p._status.actions;
     return (a&&a[id])||null;
-  },
+  }
 
   /**
    * FR-GVR-8: "Changes 밖의 뷰가 낡았는가" 의 근거.
@@ -123,45 +140,48 @@ Object.assign(GitPanel.prototype, {
     return [(d&&d.signature&&d.signature.value)||'',
       st.oid||'',st.branch||'',st.upstream||'',
       st.ahead||0,st.behind||0].join(RPT_SEP);
-  },
+  }
 
   // 지금 HEAD 가 가리키는 이름. detached 면 커밋 해시다 — 둘을 같게 보면 detached
   // 로 옮겨 간 것을 목록이 알아채지 못한다.
   headName(){
     const s=this.statusOf(); if(!s) return null;
     return s.detached?('#'+(s.oid||'')):(s.branch||'');
-  },
+  }
 
   // ── 브랜치·태그 쓰기 (GIT_MENUS branch·tag 가 부른다) ──
   // 실행은 git-branches.js 에 있다 — 메뉴는 History 의 refs 사이드바에서도 열리므로
   // Branches 탭 인스턴스에 묶여 있으면 그쪽에서 쓸 수 없다.
 
-  checkoutRef(ref,o){return GitBranches.checkout(this,ref,o||{})},
-  checkoutRemote(short){return GitBranches.checkoutRemote(this,short)},
+  checkoutRef(ref,o){return GitBranches.checkout(this.p,ref,o||{})}
+  checkoutRemote(short){return GitBranches.checkoutRemote(this.p,short)}
 
   // 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268).
   // 여기도 포워더뿐이다 — 실행은 git-branches.js 에 있다.
-  branchRename(target){return GitBranches.rename(this,target)},
-  branchDelete(target,names){return GitBranches.del(this,target,names)},
-  branchDeleteTargets(target){return GitBranches.targetsOf(this,target)},
-  branchMerge(ref){return GitBranches.merge(this,ref)},
-  branchRebase(ref){return GitBranches.rebase(this,ref)},
-  branchSetUpstream(target){return GitBranches.setUpstream(this,target)},
-  branchUnsetUpstream(target){return GitBranches.unsetUpstream(this,target)},
-  branchPush(target){return GitBranches.push(this,target)},
-  branchFetchInto(target){return GitBranches.fetchInto(this,target)},
-  branchDeleteRemote(target){return GitBranches.deleteRemote(this,target)},
+  branchRename(target){return GitBranches.rename(this.p,target)}
+  branchDelete(target,names){return GitBranches.del(this.p,target,names)}
+  branchDeleteTargets(target){return GitBranches.targetsOf(this.p,target)}
+  branchMerge(ref){return GitBranches.merge(this.p,ref)}
+  branchRebase(ref){return GitBranches.rebase(this.p,ref)}
+  branchSetUpstream(target){return GitBranches.setUpstream(this.p,target)}
+  branchUnsetUpstream(target){return GitBranches.unsetUpstream(this.p,target)}
+  branchPush(target){return GitBranches.push(this.p,target)}
+  branchFetchInto(target){return GitBranches.fetchInto(this.p,target)}
+  branchDeleteRemote(target){return GitBranches.deleteRemote(this.p,target)}
+
   // BRANCH_MENU_UNIFY_SRS FR-BMU-10: 로컬과 원격을 한 번에.
-  branchDeleteBoth(target,names){return GitBranches.delBoth(this,target,names)},
+  branchDeleteBoth(target,names){return GitBranches.delBoth(this.p,target,names)}
+
   // FR-BMU-16e: 메뉴가 짝과 그 사유를 묻는다 — 판정은 한 자리에 있다.
-  branchDeletePair(target){return GitBranches.pairOf(this,target)},
+  branchDeletePair(target){return GitBranches.pairOf(this.p,target)}
+
   /**
    * FR-BMU-16h: ref 목록을 받는 자리. 부르는 쪽은 둘이다 (Branches · History).
    *
    * **덮어쓴다.** 둘은 같은 종단(`/api/git/refs`)을 보므로 나중 것이 더 새롭고,
    * 합치려 들면 사라진 ref 가 살아남는다.
    */
-  adoptRefs(refs){this._knownRefs=Array.isArray(refs)?refs:[]},
+  adoptRefs(refs){this._knownRefs=Array.isArray(refs)?refs:[]}
 
   /**
    * OPTIMIZE_REFACTOR_SRS FR-OPT-4-9 (FEU-6): `/api/git/refs` 를 받는 한 자리. 회차
@@ -170,29 +190,29 @@ Object.assign(GitPanel.prototype, {
    */
   fetchRefs(repo,opts){
     const o=opts||{};
-    const round=this.poll.refsRound();
+    const round=this.p.poll.refsRound();
     if(!round) return gitFetch(GIT_API.refs,{repo},{stale:o.stale,echo:{repo},signal:o.signal});
     if(!round.has(repo)) round.set(repo,gitFetch(GIT_API.refs,{repo},{echo:{repo}}));
     return round.get(repo).then(res=>
       (o.stale&&o.stale())?{ok:false,data:null,stale:true,status:res.status}:res);
-  },
+  }
 
   // FR-GIT-255: 머지·리베이스의 충돌은 실패가 아니라 진행 중 상태다 — 사유를
   // Changes 탭 머리에 남기고 화면을 그리로 보낸다 (FR-GIT-111 과 같은 경로).
-  branchNote(msg){this._note={msg,partial:false,changed:[]};this._paint()},
+  branchNote(msg){this.p._note={msg,partial:false,changed:[]};this.p._paint()}
 
   // FR-GIT-249: 핀 목록이 바뀌었을 수 있다. 그것을 읽는 목록에만 넘긴다 — 판정을
   // 다시 그리기에 업지 않기 위한 통지 경로다 (FR-RPT-8, GitDialog.notify 와 같은 규약).
   notifyPins(){
     // FR-RMS-10: 소실 안내의 `핀 제거` 는 핀 여부를 딛는다. 핀이 바깥에서 바뀌면
     // 버튼이 따라와야 한다 — 안 그러면 방금 핀한 리포에 진입점이 없다 (FR-RPT-8).
-    if(this._missing) this.obs.paintAllViews();
-    for(const p of this.obs.panels) if(p._worktreesView) p._worktreesView.notifyPins();
-  },
+    if(this.p._missing) this.p.obs.paintAllViews();
+    for(const p of this.p.obs.panels) if(p._worktreesView) p._worktreesView.notifyPins();
+  }
 
   // FR-GIT-141: 커밋 우클릭의 "여기서 브랜치 생성". 18단계의 생성 다이얼로그에
   // 시작점만 고정해 넘긴다 — 이름 검증도 그것이 이미 안다 (FR-GIT-158·159).
-  createBranchFrom(oid){return GitBranches.create(this,{startRef:oid||''})},
+  createBranchFrom(oid){return GitBranches.create(this.p,{startRef:oid||''})}
 
   // ── 태그 쓰기 (GIT_MENUS tag·commit 이 부른다, FR-GIT-260~262) ──
   // 실행은 git/tag.js 에 있다 — 브랜치와 같은 이유로 static 이다: 태그 메뉴는
@@ -200,10 +220,9 @@ Object.assign(GitPanel.prototype, {
   //
   // 삭제가 둘인 것은 로컬과 원격이 **다른 항목**이기 때문이다 (FR-GIT-261).
 
-  createTag(oid){return GitTag.create(this,{ref:oid||''})},
-  tagDelete(name){return GitTag.deleteLocal(this,name)},
-  tagDeleteRemote(name){return GitTag.deleteRemote(this,name)},
-  tagPush(name){return GitTag.push(this,name,false)},
-  tagPushAll(){return GitTag.push(this,'',true)},
-
-});
+  createTag(oid){return GitTag.create(this.p,{ref:oid||''})}
+  tagDelete(name){return GitTag.deleteLocal(this.p,name)}
+  tagDeleteRemote(name){return GitTag.deleteRemote(this.p,name)}
+  tagPush(name){return GitTag.push(this.p,name,false)}
+  tagPushAll(){return GitTag.push(this.p,'',true)}
+}

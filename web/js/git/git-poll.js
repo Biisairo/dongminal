@@ -202,7 +202,7 @@ class GitPoll extends GitPart {
     finally{ if(!prev) this._refsRound=null }
   }
 
-  // 회차 안이면 그 회차의 표, 아니면 null 이다 (panel-views `fetchRefs`).
+  // 회차 안이면 그 회차의 표, 아니면 null 이다 (git-views `fetchRefs`).
   refsRound(){ return this._refsRound||null }
 
   // FR-GVR-8a: 관측보다 낡은 뷰만 다시 받는다. 지금은 History 만 자기 목록의

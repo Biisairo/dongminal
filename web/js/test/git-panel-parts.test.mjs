@@ -70,13 +70,34 @@ const PARTS = [
     delegates: [['_diffTarget', []], ['_selKey', ['working', 'a.txt']], ['_noBaseline', ['working', { path: 'a.txt' }]],
       ['_openInEditor', [{ path: 'a.txt' }]], ['_select', ['working', { path: 'a.txt' }, null]], ['_openDiff', ['working', { path: 'a.txt' }]],
       ['openView', ['diff']], ['_dirEntryNote', [{ sub: '' }]], ['_dirEntryActs', [{ path: 'd' }]]] },
+  { field: 'views', cls: 'GitViews', gone: ['git/panel-views.js'], owned: ['_knownRefs'], exposed: ['_knownRefs'],
+    delegates: [
+      ['_commit', []], ['_remote', []], ['adoptJobs', [[]]], ['expandGroup', ['working']], ['_history', []],
+      ['_branches', []], ['_console', []], ['_worktrees', []], ['_stash', []],
+      ['_renderView', ['history', { id: 'el' }]], ['_emptyHint', [{ id: 'el' }, 't']], ['statusOf', []],
+      ['actionOf', ['a']], ['_viewFp', [{ status: {} }]], ['headName', []],
+      ['checkoutRef', ['main', { force: true }]], ['checkoutRemote', ['origin/x']],
+      ['branchRename', [{ short: 'x' }]], ['branchDelete', [{ short: 'x' }, ['x']]],
+      ['branchDeleteTargets', [{ short: 'x' }]], ['branchMerge', ['x']], ['branchRebase', ['x']],
+      ['branchSetUpstream', [{ short: 'x' }]], ['branchUnsetUpstream', [{ short: 'x' }]],
+      ['branchPush', [{ short: 'x' }]], ['branchFetchInto', [{ short: 'x' }]],
+      ['branchDeleteRemote', [{ short: 'x' }]], ['branchDeleteBoth', [{ short: 'x' }, ['x']]],
+      ['branchDeletePair', [{ short: 'x' }]], ['adoptRefs', [[{ short: 'x' }]]],
+      ['fetchRefs', ['/r', { stale: null }]], ['branchNote', ['m']], ['notifyPins', []],
+      ['createBranchFrom', ['o1']], ['createTag', ['o1']], ['tagDelete', ['v1']], ['tagDeleteRemote', ['v1']],
+      ['tagPush', ['v1']], ['tagPushAll', []]] },
+  { field: 'viewRoots', cls: 'GitViewRoots', gone: ['git/panel-life.js'], owned: [],
+    delegates: [['elFor', ['history']], ['viewDirty', ['diff', true]], ['viewSave', ['diff']], ['dropView', ['diff']], ['_render', ['changes']], ['_paintStaleIn', [{ id: 'el' }]], ['paintStale', []], ['_enterMissing', []], ['_enterMissingView', []], ['_leaveMissing', []], ['_paintAllViews', []]] },
 ];
+
+/** 옛 `panel-life.js` 중 패널 클래스 본문으로 온 것 (FR-FEP-7). */
+const BODY = ['setRepo', '_repoSwitchView', 'destroy', 'detach', 'token', 'isStale'];
 
 /** 생성자 밖 참조가 없어 지운 필드 (FR-FEP-6). */
 const DEAD = ['_hunkBarWidget', '_hunkBarSubs'];
 
 /** 하위 단계가 끝난 뒤 남는 `Object.assign(GitPanel.prototype` 의 수 (TC-FEP-2). 처음은 12 다. */
-const ASSIGNS_LEFT = 2;
+const ASSIGNS_LEFT = 0;
 
 function setup() {
   const ctx = load([...BASE, ...GITPANEL], {
@@ -170,5 +191,15 @@ test('TC-FEP-3 부품 소유 필드가 패널 원형·생성자에 없고 패널
   for (const k of DEAD) {
     assert.ok(!Object.hasOwn(panel, k), `죽은 필드 ${k} 가 남았다`);
     assert.ok(!all.includes(k), `죽은 필드 ${k} 가 소스에 남았다`);
+  }
+});
+
+test('TC-FEP-2 life 의 수명 메서드는 GitPanel 클래스 본문에 있다 (FR-FEP-7)', () => {
+  const { ctx } = setup();
+  const src = read('git/panel.js');
+  const body = src.slice(src.indexOf('class GitPanel {'));
+  for (const m of BODY) {
+    assert.ok(Object.hasOwn(ctx.GitPanel.prototype, m), `${m} 가 패널 원형에 없다`);
+    assert.match(body, new RegExp('\\n  (async )?' + m + '\\('), `${m} 가 클래스 본문에 없다`);
   }
 });

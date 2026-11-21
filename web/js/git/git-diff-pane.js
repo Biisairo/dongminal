@@ -3,9 +3,9 @@
  *
  * Diff 탭·Changes 미리보기의 `GitDiffView`, Diff 탭 전용 패널의 몫(옛 `panel-diff-tab.js`), 보기 설정
  * (side-by-side·공백 무시, 옛 `panel-poll.js` 앞쪽)이 여기 산다. 행 선택에서 diff 로 가는 길(`_select`·
- * `_openDiff`·`openView`)은 `panel-files.js` 로 갔다. blame 은 `git-blame.js`, 부분 스테이징
+ * `_openDiff`·`openView`)은 `git-selection.js` 로 갔다. blame 은 `git-blame.js`, 부분 스테이징
  * (`_paintHunks`·`_hunkBar*`·`_hunkAct`, FR-GIT-278·279)은 `git-hunks.js`, 디렉터리 항목의 사유·진입점
- * (`_dirEntryNote`·`_dirEntryActs`)은 `panel-dir-entry.js` 다 (FR-OPT-12-4).
+ * (`_dirEntryNote`·`_dirEntryActs`)은 `git-selection.js` 다 (FR-OPT-12-4).
  *
  * 조각은 서버가 만든 diff 에서 온다 — 이 파일이 만들지 않는다. **화면에 그리지도
  * 않는다** (DIFF_HUNK_BAR_SRS): diff 를 그리는 것은 편집기(CodeMirror merge) 하나이고, 여기가 얹는

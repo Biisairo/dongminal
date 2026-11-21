@@ -132,7 +132,7 @@ Object.assign(Renderer.prototype, {
    * FR-PDR-3: 이 자리에 남아 있는 **옛 탭의 위젯**을 거둔다.
    *
    * `vis` 만 걷고 자리에 두면 되돌아올 때 옮기지 않아도 되지만, 그 클래스로
-   * 숨겨진다는 보장이 위젯마다 다르다 — Git 뷰는 자기 수명 관리(`panel-life`)가
+   * 숨겨진다는 보장이 위젯마다 다르다 — Git 뷰는 자기 수명 관리(`GitPanel` 의 `detach`·`destroy`)가
    * 따로 `vis` 를 만지고, 종전에는 `.pn-body` 가 매번 새로 만들어져 옛 뷰가
    * 저절로 문서에서 떨어졌다. 그 전제를 없애자 숨지 않은 뷰가 **본문 위를 덮어
    * 클릭을 가로챘다** (e2e: `.git-view.git-submodules` 가 Branches 의 행을 가림).

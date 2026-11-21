@@ -172,7 +172,7 @@ const GIT_ST_CLASS={M:'mod',A:'add',D:'del',R:'ren',C:'cpy','?':'new',U:'conf'};
 const GIT_ST_ADDED='A';
 /**
  * 아이콘이 **없는** 동작의 글자 라벨. `GIT_ACT_ICON` 이 있는 것은 이 표를 지나지
- * 않는다 (`panel-changes.js` 의 갈래) — `ours`·`theirs` 는 어휘이지 아이콘이
+ * 않는다 (`git-change-rows.js` 의 갈래) — `ours`·`theirs` 는 어휘이지 아이콘이
  * 아니므로 그 둘만 남는다 (FR-GLY-8).
  *
  * 종전에는 `openFile:'↗' stage:'+' unstage:'−' discard:'↺'` 도 여기 있었다.

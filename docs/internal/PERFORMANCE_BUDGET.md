@@ -123,10 +123,10 @@
 | `web/js/git/git-changes.js` | `_renderInit` | `el` | 1 | 사용자 | 뷰 세우기 |
 | `web/js/git/git-blame.js` | `_drawBlame` | `rows` | 1 | 가드 | `box.dataset.sig` — 같은 파일을 다시 열어도 다시 그리지 않는다. 한 번의 비용은 §2-5-2 가 잡는다 |
 | `web/js/git/git-hunks.js` | `_hunkBarPaint` | `el` | 1 | 가드 | `el.dataset.sig` |
-| `web/js/git/panel-life.js` | `_render` | `el` | 1 | 사용자 | 뷰 전환 |
-| `web/js/git/panel-life.js` | `_renderBody` | `el` | 1 | 사용자 | 뷰 전환 |
-| `web/js/git/panel-life.js` | `_renderMissing` | `el` | 1 | 사용자 | 리포 소실 — 상태 전이 한 번 |
-| `web/js/git/panel-views.js` | `_renderView` | `el` | 1 | 가드 | `el.dataset.built` (목록 뷰 여섯의 한 골격 — OPTIMIZE_REFACTOR_SRS FR-OPT-12-2) |
+| `web/js/git/git-view-roots.js` | `_render` | `el` | 1 | 사용자 | 뷰 전환 |
+| `web/js/git/git-view-roots.js` | `_renderBody` | `el` | 1 | 사용자 | 뷰 전환 |
+| `web/js/git/git-view-roots.js` | `_renderMissing` | `el` | 1 | 사용자 | 리포 소실 — 상태 전이 한 번 |
+| `web/js/git/git-views.js` | `_renderView` | `el` | 1 | 가드 | `el.dataset.built` (목록 뷰 여섯의 한 골격 — OPTIMIZE_REFACTOR_SRS FR-OPT-12-2) |
 | `web/js/git/git-write.js` | `_paintNote` | `ul` | 1 | 사용자 | 사용자가 연 부분 스테이지 대화상자 |
 | `web/js/git/remote.js` | `_paintFail` | `opts` | 1 | 가드 | `opts.dataset.opts` |
 | `web/js/git/remote.js` | `_paintLog` | `log` | 1 | 가드 | `log.dataset.job` — job 이 바뀔 때만 |

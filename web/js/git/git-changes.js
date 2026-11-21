@@ -185,7 +185,7 @@ class GitChanges extends GitPart {
         '<button class="ui-btn ui-btn-lg ui-btn-danger git-op-act" data-act="'+GIT_OP_ABORT+'" hidden></button>'+
       '</div>'+
       // FR-GRF-11: 낡음 배너는 **여기 없다.** 뷰 공통으로 옮겼다
-      // (`panel-life.js` `_paintStaleIn`) — 이 골격에만 있던 탓에 History·
+      // (`git-view-roots.js` `_paintStaleIn`) — 이 골격에만 있던 탓에 History·
       // Branches·Stash·Console 을 보는 동안에는 실패가 화면에 한 톨도 나타나지
       // 않았다 (`11 GP-4`). 자리는 같다: 머리 바로 아래.
       '<div class="ui-notice ui-notice-attn git-partial-note">'+

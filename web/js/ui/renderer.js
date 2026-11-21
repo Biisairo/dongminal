@@ -80,7 +80,7 @@ class Renderer {
 
   /**
    * `#area` 전용 배치. 그 자리에는 레이아웃 말고도 남의 보관물이 온다 — Git 패널이
-   * 창을 닫을 때 자기 뷰를 여기로 물린다 (`panel-life` 의 `detach`). `_place` 로
+   * 창을 닫을 때 자기 뷰를 여기로 물린다 (`GitPanel` 의 `detach`). `_place` 로
    * 쓸면 그것까지 지우므로, **레이아웃 요소만** 대상으로 삼는다.
    */
   _placeLayout(parent,list){

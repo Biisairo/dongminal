@@ -289,6 +289,7 @@
 | P3a 4 | (이 커밋) | `REFACTOR3_FE_LIST_SRS` — `ListView` 아래 `SidebarList`(객체 → 서술자별 인스턴스)·`GitListTab`(`git-list-tab.js`). 나머지 `reconcileList` 호출 약 20곳은 각 부품의 단계(5·7·9)에서 |
 | P3a 5 | `d60b5e44` | `REFACTOR3_FE_GITVIEW_SRS` — `GitView`(`git/git-view.js`) 아래 Stash·Branches·History·Console·Commit·RemoteList·GitListTab. 세대 가드 세 종류를 `ticket`/`superseded`/`stale` 한 벌로, 루트는 모두 `el`(`gitViewMounted` 삭제), `GitListTab` 은 `ListView` 를 부품(`rows`)으로. `remote.js` 를 클래스마다 넷으로(FU-12 의 파일 분할, `GitRemote` 안 나누기는 단계 7) |
 | P3a 6 | (이 커밋) | `REFACTOR3_FE_ESC_SRS` — FC-13·14. `EscapeStack` 두 층(캡처·버블, 연 순서, 맨 위 하나, 죽은 항목은 건너뜀), `Menu`(`ui/menu.js`, `ui-kit.js` 817 → 696), 대화상자·모바일 시트·설정 상세·계정 팝오버·파일 트리 끌기의 Esc 를 항목으로, `#settings-btn` 리스너 넷 → `SettingsModal.open()` 하나 |
+| P3a 7 | `2f29a3a8`…(이 커밋) | `REFACTOR3_FE_GITPANEL_SRS` — `GitPanel` 의 mixin 열하나(`Object.assign(GitPanel.prototype, …)` 12) → `GitPart` 아래 부품 열하나(`GitBlame`·`GitHunks`·`GitDiffPane`·`GitPoll`·`GitWrite`·`GitChanges`·`GitChangeRows`·`GitFiles`·`GitSelection`·`GitViews`·`GitViewRoots`), 혼자 쓰는 필드는 부품이 갖고 공용 필드·관측 접근자·리포 전환·수명은 패널 본문(`panel.js` 435줄). 바깥·다른 부품이 부르는 이름은 패널의 한 줄 위임자로 남긴다(단계 9 에서 부르는 쪽과 함께 걷는다). 500줄 초과 17 → 16 |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---

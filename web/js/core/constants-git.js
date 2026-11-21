@@ -68,7 +68,7 @@ const GIT_STALE_VIEWS=['history','branches','stash','worktrees','submodules'];
 //
 // **`Diff` 도 여기 없다** (FR-RTU-21 개정). 다른 여섯과 성질이 다르기 때문이다:
 // 나머지는 이 줄이 유일한 진입점이지만 Diff 는 **변경 목록의 파일을 누르면 이미
-// 열리고**(panel-changes 의 행 클릭), 커밋 축도 `showCommitDiff` 가 스스로 연다.
+// 열리고**(git-change-rows 의 행 클릭), 커밋 축도 `showCommitDiff` 가 스스로 연다.
 // 게다가 대상 없이 누르면 경로도 축도 빈 `0/0` 껍데기가 열렸다 — 다른 여섯은
 // 대상 없이도 자기 내용을 가진다.
 /**

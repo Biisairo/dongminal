@@ -257,7 +257,7 @@ async function loadPanelPoll(page: Page) {
       };
       token() { return 'tok' }
       isStale() { return false }
-      // 이웃 파일(panel-life·panel-views)의 것. 폴링 계층은 부르기만 한다.
+      // 이웃 부품(git-view-roots·git-views)·패널 본문의 것. 폴링 계층은 부르기만 한다.
       _leaveMissing() {}
       _viewFp() { return '' }
       _paint() {}

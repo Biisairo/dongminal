@@ -7,18 +7,14 @@
  *
  * 활성 리포가 바뀌면 진행 중인 응답은 전부 버린다 (FR-GIT-16). 세대 카운터
  * 하나로 판정한다 — 나중에 비동기 경로를 하나씩 훑어 가드를 덧붙이는 상황을
- * 만들지 않으려고 처음부터 둔다.
+ * 만들지 않으려고 처음부터 둔다. 판정은 이 클래스의 `token`/`isStale` 이다.
  *
- * **메서드는 이 파일에 없다.** 클래스 본문에는 `constructor` 와 접근자, 부품 위임자만 남고, 나머지
- * 는 주제별 파일이 `Object.assign(GitPanel.prototype, …)` 로 얹는다
- * (SPLIT_REFACTOR_SRS 묶음 B). 접근자가 여기 남은 이유는 `Object.assign` 이 getter 를
- * **호출해 그 반환값을 복사**하기 때문이다 — 옮기면 통로가 값으로 굳는다.
+ * 클래스 본문에는 생성자·접근자·리포 전환과 수명(옛 `panel-life.js`)·부품 위임자가 있다. 접근자가
+ * 클래스 본문에 있는 이유는 `Object.assign` 이 getter 를 **호출해 그 반환값을 복사**하기 때문이다 —
+ * 원형에 얹으면 통로가 값으로 굳는다 (REFACTOR3_FE_GITPANEL_SRS INV-P3).
  *
- *   panel-life.js     리포 전환 · 뷰 루트 · 파괴 · 소실 복구
- *   panel-views.js    뷰 지연 생성 · 상태 접근 · 브랜치/태그 파사드
- *
- * 부품 클래스(`GitPart` 하위, REFACTOR3_FE_GITPANEL_SRS)는 혼자 쓰는 필드까지 갖고 생성자가 만들어 든다.
- * 바깥·다른 파일이 부르는 부품 메서드는 아래 위임자가 잇는다.
+ * 나머지는 부품 클래스(`GitPart` 하위, REFACTOR3_FE_GITPANEL_SRS)다. 부품은 혼자 쓰는 필드까지 갖고
+ * 생성자가 만들어 든다. 바깥·다른 부품이 부르는 부품 메서드는 아래 위임자가 잇는다.
  *
  *   git-blame.js      Blame (`this.blame`)
  *   git-hunks.js      부분 스테이징 · hover 툴바 (`this.hunks`)
@@ -29,6 +25,8 @@
  *   git-change-rows.js Changes 탭의 그룹 · 트리 · 행 (`this.changeRows`)
  *   git-files.js      파일 작업 · 스테이징 · discard (`this.files`)
  *   git-selection.js  선택(→ diff) · 뷰 열기 · 디렉터리 항목의 사유와 진입점 (`this.selection`)
+ *   git-views.js      뷰 지연 생성 · 상태 접근 · 브랜치/태그 파사드 (`this.views`)
+ *   git-view-roots.js 뷰 루트 · 그리기 분기 · 낡음 배너 · 소실 안내와 복구 (`this.viewRoots`)
  *
  * 관측(`GitObserver`)은 observer.js, Diff 편집기(`GitDiffView`)는 diff-view.js 다.
  */
@@ -69,16 +67,6 @@ class GitPanel {
     this._sel=new Set();          // 다중 선택 (FR-GIT-69). group\0path
     this._anchor=null;            // Shift 범위 선택의 기준 행
     this._note=null;              // 쓰기 실패·부분 적용 안내 (FR-GIT-73)
-    /**
-     * BRANCH_MENU_UNIFY_SRS FR-BMU-16h: **마지막으로 본 ref 목록.**
-     *
-     * `/api/git/refs` 를 부르는 자리가 둘이고(Branches 뷰 · History 뷰) 각자
-     * 자기 사본을 들고 있었다. 그래서 메뉴의 짝 판정이 **Branches 탭을 한 번도
-     * 열지 않으면** 빈 목록을 보고 "추적하는 로컬이 없다" 고 답했다 — 실제로는
-     * 있는데도. 진입점 셋이 같은 대답을 해야 하므로(FR-BMU-17) 목록도 한 자리에
-     * 둔다. 받는 쪽이 둘인 것은 그대로다.
-     */
-    this._knownRefs=[];
     this._commitView=null;        // 커밋 영역 (FR-GIT-74~85)
     this._historyView=null;       // History 탭 (FR-GIT-113~139)
     this._branchesView=null;      // Branches 탭 (FR-GIT-147~160)
@@ -101,6 +89,8 @@ class GitPanel {
     this.changeRows=new GitChangeRows(this);
     this.files=new GitFiles(this);
     this.selection=new GitSelection(this);
+    this.views=new GitViews(this);
+    this.viewRoots=new GitViewRoots(this);
   }
 
   // 머리 골격은 패널 인스턴스 없이도 필요하다 (History). 주인은 `GitChanges` 다.
@@ -111,6 +101,8 @@ class GitPanel {
   get _hunkBarPos(){ return this.hunks._hunkBarPos }
   // e2e 가 보기 취향을 바꿔 넣는다 (FR-FEP-5). 주인은 `GitChanges` 다.
   get _fileView(){ return this.changes._fileView } set _fileView(v){ this.changes._fileView=v }
+  // 브랜치 메뉴의 짝 판정(branches-ops.js)이 읽는다 (FR-FEP-5). 주인은 `GitViews` 다.
+  get _knownRefs(){ return this.views._knownRefs }
 
   // ── 부품 위임자 (FR-FEP-4) — 패널 바깥·다른 파일이 부르는 이름 ──
   openBlame(target){ return this.blame.openBlame(target) }
@@ -219,6 +211,56 @@ class GitPanel {
   openView(view){ return this.selection.openView(view) }
   _dirEntryNote(f){ return this.selection._dirEntryNote(f) }
   _dirEntryActs(f){ return this.selection._dirEntryActs(f) }
+  _commit(){ return this.views._commit() }
+  _remote(){ return this.views._remote() }
+  adoptJobs(jobs){ return this.views.adoptJobs(jobs) }
+  expandGroup(key){ return this.views.expandGroup(key) }
+  _history(){ return this.views._history() }
+  _branches(){ return this.views._branches() }
+  _console(){ return this.views._console() }
+  _worktrees(){ return this.views._worktrees() }
+  _stash(){ return this.views._stash() }
+  _renderView(key,el){ return this.views._renderView(key,el) }
+  _emptyHint(el,text){ return this.views._emptyHint(el,text) }
+  statusOf(){ return this.views.statusOf() }
+  actionOf(id){ return this.views.actionOf(id) }
+  _viewFp(d){ return this.views._viewFp(d) }
+  headName(){ return this.views.headName() }
+  checkoutRef(ref,o){ return this.views.checkoutRef(ref,o) }
+  checkoutRemote(short){ return this.views.checkoutRemote(short) }
+  branchRename(target){ return this.views.branchRename(target) }
+  branchDelete(target,names){ return this.views.branchDelete(target,names) }
+  branchDeleteTargets(target){ return this.views.branchDeleteTargets(target) }
+  branchMerge(ref){ return this.views.branchMerge(ref) }
+  branchRebase(ref){ return this.views.branchRebase(ref) }
+  branchSetUpstream(target){ return this.views.branchSetUpstream(target) }
+  branchUnsetUpstream(target){ return this.views.branchUnsetUpstream(target) }
+  branchPush(target){ return this.views.branchPush(target) }
+  branchFetchInto(target){ return this.views.branchFetchInto(target) }
+  branchDeleteRemote(target){ return this.views.branchDeleteRemote(target) }
+  branchDeleteBoth(target,names){ return this.views.branchDeleteBoth(target,names) }
+  branchDeletePair(target){ return this.views.branchDeletePair(target) }
+  adoptRefs(refs){ return this.views.adoptRefs(refs) }
+  fetchRefs(repo,opts){ return this.views.fetchRefs(repo,opts) }
+  branchNote(msg){ return this.views.branchNote(msg) }
+  notifyPins(){ return this.views.notifyPins() }
+  createBranchFrom(oid){ return this.views.createBranchFrom(oid) }
+  createTag(oid){ return this.views.createTag(oid) }
+  tagDelete(name){ return this.views.tagDelete(name) }
+  tagDeleteRemote(name){ return this.views.tagDeleteRemote(name) }
+  tagPush(name){ return this.views.tagPush(name) }
+  tagPushAll(){ return this.views.tagPushAll() }
+  elFor(view){ return this.viewRoots.elFor(view) }
+  viewDirty(view,closing){ return this.viewRoots.viewDirty(view,closing) }
+  viewSave(view){ return this.viewRoots.viewSave(view) }
+  dropView(view){ return this.viewRoots.dropView(view) }
+  _render(view){ return this.viewRoots._render(view) }
+  _paintStaleIn(el){ return this.viewRoots._paintStaleIn(el) }
+  paintStale(){ return this.viewRoots.paintStale() }
+  _enterMissing(){ return this.viewRoots._enterMissing() }
+  _enterMissingView(){ return this.viewRoots._enterMissingView() }
+  _leaveMissing(){ return this.viewRoots._leaveMissing() }
+  _paintAllViews(){ return this.viewRoots._paintAllViews() }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //
@@ -268,5 +310,126 @@ class GitPanel {
     const w=this.app.gitWindow();
     return (w&&w.git&&w.git.repo)||null;
   }
-}
 
+  // ── 리포 전환과 수명 (옛 panel-life.js) — 이 패널이 지금 무엇을 보고 있으며 그것이 유효한가 ──
+
+  setRepo(path){
+    // FR-RTU-60: Repo 창의 패널은 저장소가 **고정**이다 (창의 루트가 그것이다) —
+    // 갈아탈 대상이 없으므로 전환도 없다. 그 값은 `repo` getter 가 준다.
+    if(this.root) return;
+    const w=this.app.gitWindow(); if(!w) return;
+    if(!w.git) w.git={repo:null};
+    if(w.git.repo===path) return;
+    w.git.repo=path;
+    this._gen++;
+    // 이전 리포의 목록이 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다
+    // (FR-GIT-16). 화면을 "불러오는 중" 으로 되돌린다.
+    this._status=null; this._lastSig=null; this._lastViewFp=null; this._staleNote=false;
+    // 소실과 실패 누적은 **리포에 붙은 것**이다 — 새 리포로 넘겨 오면 남의 사실이
+    // 된다 (FR-RMS-6·22).
+    this._missing=null; this._failStreak=0;
+    // 관측을 버렸으므로 근거도 버린다 — 새 리포의 첫 관측은 무조건 그린다.
+    this._obsSig=null;
+    GitMenu.close();
+    if(path) this._errMsg=null;
+    // 진행 중인 요청의 소유권을 끊는다 — 그 응답은 가드에 걸려 버려지고, 새 리포는
+    // 앞선 요청이 끝나기를 기다리지 않는다.
+    this._seq++; this._busy=false; this._again=false;
+    // F-4.2: 앞 저장소를 향해 줄 선 stage/unstage/discard 는 보내지 않는다.
+    this.obs.wqDrop();
+    if(this._sigT){TIMERS.cancel(this._sigT);this._sigT=null}
+    // FR-SVS-34: 활성 리포는 창의 것이므로 **모든 칸이 같은 리포를 본다.** 그래서
+    // 리포에 붙은 시선은 칸마다 되돌아간다 — 한 칸만 되돌리면 다른 칸이 이전
+    // 리포의 선택·diff 를 새 리포의 헤더와 함께 보인다.
+    for(const p of this.obs.panels) p._repoSwitchView(path);
+    // 마지막 관측을 버렸으므로 chip 도 사라져야 한다 (FR-GIT-59).
+    this.app.updateStatusBar();
+    // 상단의 창 이름은 활성 리포에서 온다 — 같은 창에서 리포만 바뀌면 render 가
+    // 돌지 않으므로(아래 주석의 조기 반환) 여기서 직접 고쳐 그린다.
+    this.app.renderer._rTopbar();
+    this._stop(); this._reschedule();
+    // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
+    // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
+    // "같은 창에서 리포만 바꾼" 경우가 새로고침에서 사라진다.
+    this.app.save();
+  }
+
+  /**
+   * 리포가 바뀔 때 **이 칸의** 시선을 되돌린다 (FR-SVS-34).
+   *
+   * `setRepo` 에서 뽑아낸 것이며 동작은 그대로다 — 달라진 것은 칸마다 한 번씩
+   * 돈다는 것뿐이다. 이전 리포의 목록이 새 리포의 헤더와 함께 보이는 순간이
+   * 어느 칸에도 있어서는 안 된다 (FR-GIT-16).
+   */
+  _repoSwitchView(path){
+    this._shown.clear(); this.previewFile=null;
+    // FR-OPT-4-9: 낡음 표식은 앞 리포의 것이다 — 새 리포는 각 뷰의 `_adopt` 가 받는다.
+    if(this._staleViews) this._staleViews.clear();
+    // 선택과 쓰기 안내는 리포에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을
+    // 가리킨다.
+    this._sel.clear(); this._anchor=null; this._note=null;
+    // 원격 작업은 리포에 붙은 것이다 — 이전 리포의 출력이 새 리포의 헤더와 함께
+    // 보이는 순간이 있어서는 안 된다. 작업 자체는 서버에서 계속 돈다.
+    if(this._remoteView) this._remoteView.detachRepo();
+    // 앞 리포의 실행 기록이 새 리포의 이력에 섞이면 이력이 아니라 잡음이다
+    // (FR-GIT-218).
+    if(this._consoleView) this._consoleView.reset();
+    // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
+    this._diffKey=null; this._diffPos=0; this.commitFile=null;
+    this._hunkKey=null; this._hunks=null;
+    // 앞 리포의 조각을 가리키던 툴바가 새 리포의 diff 위에 남아서는 안 된다.
+    this._hunkBarHide();
+    // blame 은 파일에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을 가리킨다.
+    this._blameOn=false; this.blame.reset();
+    if(this._diffView) this._diffView.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
+    for(const v of GIT_VIEWS) if(this._els.has(v.key)) this._render(v.key);
+  }
+
+  // Git 창이 사라졌을 때 루트를 area 로 되돌린다. 인스턴스는 살아 있다 —
+  // 창은 다시 열릴 수 있다.
+  /**
+   * FR-SVS-46: 이 칸이 사라진다. `detach` 는 루트를 `#area` 로 되돌려 **다시
+   * 열릴 수 있게** 두지만, 이쪽은 되돌아올 자리가 없으므로 DOM 까지 버린다.
+   * 편집기는 DOM 을 떼는 것으로 풀리지 않으므로 `_destroyViews` 를 지나야 한다
+   * (FR-GIT-56).
+   */
+  destroy(){
+    this.detach();
+    for(const el of this._els.values()) if(el.parentNode) el.parentNode.removeChild(el);
+    this._els.clear();
+    this.obs.detach(this);
+    // UX_BATCH6_SRS FR-GLV-4: 목록에서 빠진 **뒤에** 다시 세운다. `detach()` 안의
+    // 재정착은 아직 자신이 목록에 있으므로, 이 패널이 마지막이었을 때에도 남은
+    // 것으로 세었다 — 그 판정을 여기서 한 번 더 지나 바로잡는다.
+    this.obs.resettle();
+    this.blame.dispose(); this.hunks.dispose(); this.diffPane.dispose(); this.poll.dispose(); this.write.dispose();
+    this.changes.dispose(); this.changeRows.dispose(); this.files.dispose(); this.selection.dispose();
+    this.views.dispose(); this.viewRoots.dispose();
+  }
+
+  detach(){
+    this._stop(); GitMenu.close(); this._destroyViews();
+    // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
+    // 남아 있어서는 안 된다 (FR-GIT-83).
+    this._commit().unmount();
+    // REFACTOR_STABILIZATION_SRS FR-RST-20: **게터를 부르지 않는다.**
+    //
+    // `this._history()` 류는 없으면 만든다. 그래서 종전 코드는 창을 닫을 때
+    // 한 번도 열지 않은 뷰 여섯 개를 새로 만든 뒤 언마운트했다 — `git-views.js`
+    // 가 표방한 지연 생성("Git 창을 열지 않은 브라우저는 아무것도 만들지 않는다")을
+    // 창을 닫는 경로가 깨뜨리고 있었다.
+    //
+    // 목록에 `_submodulesView` 가 빠져 있던 것도 여기서 함께 고친다 — 창을 닫아도
+    // Submodules 뷰가 언마운트되지 않았다.
+    for(const f of GIT_PANEL_VIEW_FIELDS) if(this[f]) this[f].unmount();
+    const area=document.getElementById('area');
+    for(const el of this._els.values()){
+      el.classList.remove('vis');
+      if(area) area.appendChild(el);
+    }
+  }
+
+  // ── stale 가드 (FR-GIT-16) ──
+  token(){return {gen:this._gen,repo:this.repo}}
+  isStale(tok){return !tok||tok.gen!==this._gen||tok.repo!==this.repo}
+}

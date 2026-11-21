@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { BASE, load } from './harness.mjs';
 
 /**
- * `web/js/git/git-modal-base.js`(+ `ui/dialog.js`, REFACTOR3_FE_DIALOG_SRS) · `panel-views.js` — Git 모달 골격과 목록 뷰 서술자
+ * `web/js/git/git-modal-base.js`(+ `ui/dialog.js`, REFACTOR3_FE_DIALOG_SRS) · `git-views.js` — Git 모달 골격과 목록 뷰 서술자
  * (OPTIMIZE_REFACTOR_SRS FR-OPT-12-2 · FEU-12 · FEU-13).
  *
  * 재는 것: ① `GitConfirm`·`GitDialog` 가 생명주기·실행 상태기계를 한 벌(`GitModalBase`)에서
@@ -68,12 +68,12 @@ test('사유 없는 실패는 기본 문구다', async () => {
 });
 
 test('목록 뷰 여섯은 서술자 한 표에서 선다 — 키가 GIT_VIEWS 의 필드 표와 같다', () => {
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants-git.js', 'git/panel-views.js'], {
-    expose: ['GIT_VIEW_KINDS', 'GIT_VIEW_FIELD_BY_KEY'],
-    globals: { GitPanel: function GitPanel() {} },
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants-git.js', 'core/base/component.js', 'git/git-part.js',
+    'git/git-views.js'], {
+    expose: ['GIT_VIEW_KINDS', 'GIT_VIEW_FIELD_BY_KEY', 'GitViews'],
   });
   assert.deepEqual(Object.keys(ctx.GIT_VIEW_KINDS).sort(), Object.keys(ctx.GIT_VIEW_FIELD_BY_KEY).sort());
-  const proto = ctx.GitPanel.prototype;
+  const proto = ctx.GitViews.prototype;
   for (const k of ['History', 'Branches', 'Console', 'Worktrees', 'Submodules', 'Stash']) {
     assert.ok(!('_render' + k in proto), `_render${k} 가 남았다`);
   }

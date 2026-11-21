@@ -13,7 +13,8 @@ import { load, plain } from './harness.mjs';
  * 계산을 따른다. 항목은 메뉴 정의에서 열거한다 — 새 파괴적 항목이 표에 없으면
  * 이 검사가 실패한다.
  */
-const FILES = ['core/constants-api.js', 'git/menu-items.js', 'git/menu.js', 'git/branches-ops.js', 'git/panel-views.js'];
+const FILES = ['core/base/component.js', 'core/constants-api.js', 'git/menu-items.js', 'git/menu.js', 'git/branches-ops.js',
+  'git/git-part.js', 'git/git-views.js'];
 const SRC = FILES.map((f) =>
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', f), 'utf8')).join('\n');
 
@@ -29,6 +30,7 @@ function world() {
   consts.GIT_REF_KIND_LOCAL = LOCAL; consts.GIT_REF_KIND_REMOTE = REMOTE; consts.GIT_BR_PREFIX_SEP = '/';
   const dialog = { onConfirm: null, shown: [] };
   const ctx = load(FILES, {
+    expose: ['GitViews'],
     globals: {
       ...consts,
       t: (k) => k,
@@ -76,6 +78,11 @@ function world() {
     stashDrop: rec('stashDrop'),
     uncommittedClean: undefined,
   });
+  // 브랜치·태그 파사드는 `GitViews` 부품의 것이다 (REFACTOR3_FE_GITPANEL_SRS 7g) — 패널 위임자처럼 잇는다.
+  const views = new ctx.GitViews(panel);
+  for (const k of Object.getOwnPropertyNames(ctx.GitViews.prototype)) {
+    if (k !== 'constructor' && !(k in panel)) panel[k] = (...a) => views[k](...a);
+  }
   ctx.app = { gitPanel: panel };
   return { ctx, panel, state, log, dialog };
 }
