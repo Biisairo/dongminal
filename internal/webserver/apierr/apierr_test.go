@@ -114,6 +114,7 @@ func TestNoDuplicateCodeValue(t *testing.T) {
 	add("CodeNothingToStash", CodeNothingToStash)
 	add("CodeUntrackedOnly", CodeUntrackedOnly)
 	add("CodeStashKept", CodeStashKept)
+	add("CodeSubmoduleInnerOnly", CodeSubmoduleInnerOnly)
 	add("CodeStaleObservation", CodeStaleObservation)
 	add("CodePatchEmpty", CodePatchEmpty)
 	add("CodeOperationMismatch", CodeOperationMismatch)

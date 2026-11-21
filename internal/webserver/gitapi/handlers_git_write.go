@@ -72,11 +72,29 @@ type gitUndoReq struct {
 }
 
 // POST /api/git/stage — 경로들을 index 에 올린다 (FR-GIT-64·66·68·69).
+//
+// REFACTOR3_FE_REST1_SRS FR-FR1-7 (사용자 결정 Q3): 실행 전 status 로 `stageAnswer` 를 본다.
+//
+//	이전 동작: 안쪽만 바뀐 서브모듈만 담는 요청도 `git add` 를 돌리고 200 — 아무것도 담기지 않았다
+//	새  동작: 409 submodule_inner_only 로 거절한다. 행 답(rowActions)과 같은 함수다
+//	이유:     화면만 막으면 화면을 거치지 않은 요청이 판정을 받지 않는다 (FR-SDA-9)
 func (s *GitServer) apiGitStage(w http.ResponseWriter, r *http.Request) {
-	s.gitStageRoute(w, r, func(ctx context.Context, root string, paths write.Paths) error {
-		_, err := write.Stage(s.Git.Service(), ctx, root, paths)
+	var req gitPathsReq
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	before := t.snapshot()
+	if t.stop() {
+		return
+	}
+	if a := stageAnswer(before, req.Paths); !a.OK {
+		t.rejectAnswer(a, map[string]any{"status": before})
+		return
+	}
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Stage(s.Git.Service(), ctx, t.root, write.Paths(req.Paths))
 		return err
 	})
+	t.ok(nil)
 }
 
 // POST /api/git/unstage — 경로들을 index 에서 내린다 (FR-GIT-65·67).

@@ -344,7 +344,7 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | POST | `/api/git/init` | 그 자리를 저장소로 만든다 |
 | POST | `/api/git/repos/pin` · `/api/git/repos/unpin` | 핀을 더하고 뺀다 |
 | POST | `/api/git/repos/reorder` | 핀 순서. **서버가 권위**다 |
-| GET | `/api/git/status` | 변경 목록. 응답의 `mark` 는 관측 식별자다. `?ifMark=<mark>` 를 주면 그 값이 지금 관측과 같을 때 목록 없이 `{repo, requested, isRepo, rootMatch, requestedResolved, mark, unchanged:true, actions}` 만 답한다. `actions` 는 저장소 단위 동작(`git.fetch`·`git.pull`·`git.push`·`git.write`·`git.commit` 등)마다 지금 할 수 있는지(`{ok, why, args}`)이며, 진행 중인 작업에 따라 바뀌므로 `unchanged` 에도 실린다 |
+| GET | `/api/git/status` | 변경 목록. 응답의 `mark` 는 관측 식별자다. `?ifMark=<mark>` 를 주면 그 값이 지금 관측과 같을 때 목록 없이 `{repo, requested, isRepo, rootMatch, requestedResolved, mark, unchanged:true, actions}` 만 답한다. `actions` 는 저장소 단위 동작(`git.fetch`·`git.pull`·`git.push`·`git.write`·`git.commit` 등)마다 지금 할 수 있는지(`{ok, why, args}`)이며, 진행 중인 작업에 따라 바뀌므로 `unchanged` 에도 실린다. 목록을 싣는 응답은 `rowActions` 도 싣는다 — 서브모듈 행마다 `{"<path>": {"git.stage": {ok, why}}}` 이고, 행이 없으면 빈 객체다 |
 | GET | `/api/git/signature` | 저장소의 변화 서명 — 바뀌었을 때만 알리기 위한 값 |
 | GET | `/api/git/policy` | 이 저장소에서 허용되는 동작 |
 | GET | `/api/git/preflight` | 그 동작이 지금 가능한가 (사전 점검) |
@@ -355,7 +355,7 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| POST | `/api/git/stage` · `/api/git/unstage` | 스테이지에 올리고 내린다 |
+| POST | `/api/git/stage` · `/api/git/unstage` | 스테이지에 올리고 내린다. stage 하려는 경로가 모두 서브모듈 안에서만 바뀐 서브모듈이면 담을 것이 없으므로 실행하지 않고 409 `submodule_inner_only` 로 답한다(다른 경로가 섞이면 실행한다) |
 | POST | `/api/git/patch` | **부분 스테이징.** 화면이 본 내용과 디스크가 어긋나면 거절한다 |
 | GET | `/api/git/hunks` | 변경 덩어리 목록 |
 | POST | `/api/git/discard` | 변경을 버린다 |

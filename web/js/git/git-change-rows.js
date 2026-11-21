@@ -246,18 +246,17 @@ class GitChangeRows extends GitPart {
         ? (GIT_SIDE_TITLE[this.p._op()]||GIT_SIDE_TITLE[''])[a]
         : ((e.untracked&&GIT_ACT_TITLE_UNTRACKED[a])||GIT_ACT_TITLE[a]);
       /**
-       * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-12·13 (D-2a): 담을 몫이 없으면 끈다.
+       * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-12·13 (D-2a): 담을 몫이 없으면 끈다 — 안쪽만 더러운
+       * 서브모듈(상태 B)에서 `git add` 는 index 에 올릴 것이 없다.
        *
-       * 안쪽만 더러운 서브모듈(상태 B)에서 `git add` 는 index 에 올릴 것이 없다 —
-       * 요청은 200 으로 돌아오고 화면은 그대로다. 툴팁으로만 알린 판은 모자랐다:
-       * 사용자는 툴팁을 열기 전에 버튼을 먼저 누르고, 아무 일도 일어나지 않는
-       * 것을 고장으로 읽는다 (접수: "여전히 staging 조차 되지 않는다").
+       * REFACTOR3_FE_REST1_SRS FR-FR1-9 (FU-17, 사용자 결정 Q3):
+       *   이전 동작: 화면이 `gitSubParts(e.sub)` 로 판정했고 서버는 그 요청을 200 으로 받았다
+       *   새  동작: 서버의 행 답(`rowActions`)이 끈다. 서버도 같은 함수로 409 거절한다
+       *   이유:     판정이 한 벌이다 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-3·6)
        */
-      let off=false;
-      if(a==='stage'){
-        const sp=gitSubParts(e.sub);
-        if(sp.inner&&!sp.commit){off=true; title=GIT_TIP_SUB_STAGE_OFF}
-      }
+      const offTitle=a==='stage'?this._stageOff(e):'';
+      const off=!!offTitle;
+      if(off) title=offTitle;
       // `ours`·`theirs` 는 어휘이지 아이콘이 아니다 (FR-GLY-8) — 정사각이 아니다.
       const b=UIKit.button(GIT_ACT_ICON[a]
         ?{icon:GIT_ACT_ICON[a],title,kind:'ghost',size:'lg',cls:'git-file-act',dataset:{act:a},disabled:off}
@@ -362,6 +361,14 @@ class GitChangeRows extends GitPart {
    * 성분이 하나도 없으면(`S...`) 종전 문장 그대로다: 그 행이 왜 목록에 있는지
    * 알지 못하며, 모르는 것에 대해 말하지 않는다 (FR-SDN-7).
    */
+  /** FR-FR1-9: 행의 Stage 가 꺼졌으면 그 사유(영어 툴팁), 켜져 있으면 ''. 답이 없는 행은 켜진다. */
+  _stageOff(e){
+    const a=this.p.rowActionOf(e.path,GIT_ACTION.stage);
+    if(!a) return '';
+    const s=actionState(a,false);
+    return s.enabled?'':(GIT_STAGE_WHY_TITLE[a.why]||s.why);
+  }
+
   _dirTitle(e){
     if(!e.sub) return GIT_DIR_ENTRY_TITLE_NESTED;
     const p=gitSubParts(e.sub);

@@ -556,6 +556,9 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 		// "관측이 같은가" 를 이것으로만 판정한다(탐색기 폴링 재칠 생략, 05 F-6.1).
 		"mark":    mark,
 		"actions": actions,
+		// REFACTOR3_FE_REST1_SRS FR-FR1-8: 행 답. status 에서 판정하므로 관측(mark) 안의
+		// 사실이다 — `unchanged` 응답은 싣지 않고 화면이 앞 응답의 것을 이어 쓴다.
+		"rowActions": rowActions(obs.Status),
 	})
 }
 

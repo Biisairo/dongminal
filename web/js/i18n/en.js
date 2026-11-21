@@ -1701,5 +1701,6 @@ I18N.register('en', {
   'why.no_head': 'There is no commit to reset to',
   'why.nothing_to_clean': 'No untracked files to clean',
   'why.nothing_to_stash': 'No changes to stash',
+  'why.submodule_inner_only': 'Nothing here for this repository to stage — commit inside the submodule first',
   'why.untracked_only': 'Only untracked files ({count}) — turn on include untracked',
 });

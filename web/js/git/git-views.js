@@ -126,6 +126,14 @@ class GitViews extends GitPart {
     return (a&&a[id])||null;
   }
 
+  // 변경 행 하나의 답 (REFACTOR3_FE_REST1_SRS FR-FR1-8·9). 서버는 판정이 거짓일 수 있는 행에만
+  // 싣는다 — 없으면 null 이고 행 단위 판정이 없다 (D-FR1-5).
+  rowActionOf(path,id){
+    const r=this.p._status&&this.p._status.rowActions;
+    const a=r&&r[path];
+    return (a&&a[id])||null;
+  }
+
   /**
    * FR-GVR-8: "Changes 밖의 뷰가 낡았는가" 의 근거.
    *

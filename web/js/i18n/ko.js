@@ -1721,5 +1721,6 @@ I18N.register('ko', {
   'why.no_head': '커밋이 없어 HEAD 로 되돌릴 수 없습니다',
   'why.nothing_to_clean': '지울 추적되지 않는 파일이 없습니다',
   'why.nothing_to_stash': '저장할 변경이 없습니다',
+  'why.submodule_inner_only': '서브모듈 안에서만 바뀌어 이 저장소가 스테이지할 것이 없습니다 — 서브모듈 안에서 먼저 커밋하세요',
   'why.untracked_only': '추적되지 않는 파일 {count}개뿐입니다 — untracked 포함을 켜세요',
 });

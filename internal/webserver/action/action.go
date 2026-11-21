@@ -49,6 +49,10 @@ const WhyLoading = "loading"
 const (
 	GitStashCreate = "git.stash.create"
 
+	// GitStage 는 변경 행의 Stage 다. 서브모듈 행마다 status 응답의 rowActions 로 싣는다
+	// (REFACTOR3_FE_REST1_SRS FR-FR1-8).
+	GitStage = "git.stage"
+
 	// 1층 — 작업 칸 (SERVER_DRIVEN_ACTIONS_SRS GR-1b)
 	GitFetch           = "git.fetch"
 	GitPull            = "git.pull"

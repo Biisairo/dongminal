@@ -150,6 +150,11 @@ gitlink 몫이 실제로 스테이지되기 때문이다. 그래서 **버튼은 
 **FR-SDN-12** (D-2a) 상태 B(`!commit && inner`)의 행에서 `Stage` 는 **비활성**이다.
 판정은 다른 자리와 같은 `gitSubParts` 하나를 딛는다 (FR-SDN-2).
 
+> **개정 (2026-11-21, `REFACTOR3_FE_REST1_SRS` FR-FR1-6~9 · 사용자 결정 Q3).** 이 판정은 서버로
+> 옮겼다. 서버가 `FileEntry.SubmoduleInnerOnly` 로 판정해 status 응답의 `rowActions` 로 내려 주고,
+> 같은 판정으로 `POST /api/git/stage` 를 409 `submodule_inner_only` 로 거절한다. 화면은 그 답으로
+> 버튼을 끈다. 문구(`gitSubParts`)는 그대로 화면이 고른다.
+
 **FR-SDN-13** 꺼진 `Stage` 의 `title` 은 사유를 말한다 — 이 저장소가 담을 변경이
 없다는 것과, 서브모듈 안에서 먼저 커밋해야 한다는 것.
 

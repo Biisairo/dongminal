@@ -348,6 +348,12 @@ const GIT_TIP_SEARCH_REPO='Search the whole repository, not just the commits alr
 const GIT_TIP_CON_REPLAY='Run this git command again';
 const GIT_TIP_RM_REMOVE='Remove this remote (git remote remove)';
 const GIT_TIP_JOB_FOLD='Expand or collapse the operation log';
-const GIT_TIP_SUB_STAGE_OFF='Nothing here for this repository to stage — commit inside the submodule first';
+/**
+ * REFACTOR3_FE_REST1_SRS FR-FR1-9 (D-FR1-7): 행의 Stage 가 꺼진 사유 → 툴팁(영어, FR-TIP-2).
+ * 판정은 서버의 행 답(`rowActions`)이 한다. 표에 없는 사유는 카탈로그 문구(`why.<code>`)다.
+ */
+const GIT_STAGE_WHY_TITLE=Object.freeze({
+  submodule_inner_only:'Nothing here for this repository to stage — commit inside the submodule first',
+});
 // `GIT_WRITE_ERR` 는 `constants-git-actions.js` 로 옮겼다 — 그 표를 채우는
 // 세 문장이 전부 그 파일에 있고, 선언과 채움은 같은 파일이어야 한다.

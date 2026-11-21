@@ -109,6 +109,44 @@ func stashCreateAnswer(st query.Status, includeUntracked bool) action.Answer {
 	return action.Deny(http.StatusConflict, apierr.CodeNothingToStash, nil)
 }
 
+// stageAnswer 는 경로들을 stage 할 수 있는가다 (REFACTOR3_FE_REST1_SRS FR-FR1-6 · D-FR1-3).
+// 경로가 **모두** 안쪽만 바뀐 서브모듈이면 index 에 올릴 것이 없다 — 409 submodule_inner_only.
+// 섞인 요청(그룹 일괄·선택)은 담을 것이 있으므로 허용한다. 행 답(rowActions)과 `stage` 의
+// 거절이 이 함수 하나를 부른다 (FR-SDA-3).
+func stageAnswer(st query.Status, paths []string) action.Answer {
+	if len(paths) == 0 {
+		return action.Allow()
+	}
+	inner := map[string]bool{}
+	for _, g := range [][]query.FileEntry{st.Staged, st.Changes, st.Conflicts} {
+		for _, e := range g {
+			if e.SubmoduleInnerOnly() {
+				inner[e.Path] = true
+			}
+		}
+	}
+	for _, p := range paths {
+		if !inner[strings.TrimSuffix(p, "/")] {
+			return action.Allow()
+		}
+	}
+	return action.Deny(http.StatusConflict, apierr.CodeSubmoduleInnerOnly, nil)
+}
+
+// rowActions 는 변경 목록 행의 답이다 (FR-FR1-8 · D-FR1-5). 판정이 거짓일 수 있는 행 —
+// 서브모듈 행 — 에만 싣는다. 싣지 않은 행에는 행 단위 판정이 없다.
+func rowActions(st query.Status) map[string]map[string]action.Answer {
+	out := map[string]map[string]action.Answer{}
+	for _, g := range [][]query.FileEntry{st.Staged, st.Changes, st.Conflicts} {
+		for _, e := range g {
+			if e.Dir && e.Sub != "" {
+				out[e.Path] = map[string]action.Answer{action.GitStage: stageAnswer(st, []string{e.Path})}
+			}
+		}
+	}
+	return out
+}
+
 // slotReader 는 칸을 쥔 잡을 묻는 자리다 — jobs.Exclusion 이 답한다.
 type slotReader interface {
 	IndexBusy(top string) (string, bool)

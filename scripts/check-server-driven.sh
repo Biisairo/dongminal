@@ -42,6 +42,7 @@ REMOVED=(
   SANDBOX_WORK_LABEL SANDBOX_WORK_PICKS SANDBOX_WORK_TITLE  # K-i
   SANDBOX_PROFILE_SCRATCH  # K-i: 기본 프로파일 이름 (→ X-Sandbox-Only-Default)
   runShortId RUN_SHORT_ID_LEN  # K-l: Run 짧은 id 를 화면이 자르던 규칙 (→ short·runShort)
+  GIT_TIP_SUB_STAGE_OFF  # REFACTOR3_FE_REST1_SRS FU-17: 서브모듈 Stage 를 화면이 끄던 문구 (→ rowActions)
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

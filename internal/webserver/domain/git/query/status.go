@@ -96,6 +96,9 @@ const (
 	statusNoChange    = '.'
 	statusSubNone     = "N..." // 서브모듈이 아니라는 표시. 실을 정보가 없다
 	statusSubIsSub    = "S"    // sub 필드의 첫 글자. gitlink 임을 뜻한다 (FR-DIR-1)
+	statusSubCommit   = 'C'    // sub 필드 둘째 글자: 기록된 커밋과 다르다
+	statusSubModified = 'M'    // 셋째 글자: 서브모듈 안에 추적 변경이 있다
+	statusSubUntrack  = 'U'    // 넷째 글자: 서브모듈 안에 추적되지 않는 파일이 있다
 	statusOrdFields   = 8      // 1 레코드: XY sub mH mI mW hH hI path
 	statusRenFields   = 9      // 2 레코드: + <X><score>
 	statusUnmerFields = 10     // u 레코드: XY sub m1 m2 m3 mW h1 h2 h3 path
@@ -255,6 +258,17 @@ func newTracked(xy, sub, path string) FileEntry {
 		e.Dir = strings.HasPrefix(sub, statusSubIsSub)
 	}
 	return e
+}
+
+// SubmoduleInnerOnly 는 이 항목이 **안쪽만 바뀐 서브모듈**인가다 (REFACTOR3_FE_REST1_SRS
+// FR-FR1-4 · SUBMODULE_DIRTY_NOTICE_SRS 상태 B). 기록된 커밋은 그대로이고 서브모듈 안에만
+// 변경이 있으므로 `git add` 가 index 에 올릴 것이 없다 — git 은 아무것도 하지 않고 성공한다.
+func (e FileEntry) SubmoduleInnerOnly() bool {
+	s := e.Sub
+	if len(s) != len(statusSubNone) || !strings.HasPrefix(s, statusSubIsSub) {
+		return false
+	}
+	return s[1] != statusSubCommit && (s[2] == statusSubModified || s[3] == statusSubUntrack)
 }
 
 // newUntracked 는 ? 레코드 하나를 만든다.

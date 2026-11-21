@@ -29,7 +29,7 @@ const GIT_ACTION=Object.freeze({
   tagPush:'git.tag.push',tagDeleteRemote:'git.tag.delete_remote',
   write:'git.write',commit:'git.commit',lockRemove:'git.lock.remove',
   worktreeCreate:'git.worktree.create',worktreeRemove:'git.worktree.remove',
-  submoduleUpdate:'git.submodule.update',stashCreate:'git.stash.create',
+  submoduleUpdate:'git.submodule.update',stashCreate:'git.stash.create',stage:'git.stage',
   stashNew:'git.stash.new',uncommittedReset:'git.uncommitted.reset',uncommittedClean:'git.uncommitted.clean',
   commitCherryPick:'git.commit.cherry_pick',commitRevert:'git.commit.revert',
   commitReset:'git.commit.reset',commitDrop:'git.commit.drop',

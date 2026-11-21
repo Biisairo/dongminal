@@ -62,7 +62,10 @@ const (
 	// 다르다 — 옵션을 켜면 담긴다.
 	CodeUntrackedOnly = "untracked_only"
 	CodeStashKept     = "stash_kept"
-	CodeStashMoved    = "stash_moved"
+	// CodeSubmoduleInnerOnly 는 stage 하려는 경로가 모두 안쪽만 바뀐 서브모듈이라 index 에
+	// 올릴 것이 없다는 것이다 (REFACTOR3_FE_REST1_SRS FR-FR1-5). 서브모듈 안에서 먼저 커밋해야 한다.
+	CodeSubmoduleInnerOnly = "submodule_inner_only"
+	CodeStashMoved         = "stash_moved"
 
 	// ── 부분 스테이징 ──
 	CodeStaleObservation = "stale_observation"

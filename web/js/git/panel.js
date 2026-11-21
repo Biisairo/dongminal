@@ -224,6 +224,7 @@ class GitPanel {
   _emptyHint(el,text){ return this.views._emptyHint(el,text) }
   statusOf(){ return this.views.statusOf() }
   actionOf(id){ return this.views.actionOf(id) }
+  rowActionOf(path,id){ return this.views.rowActionOf(path,id) }
   _viewFp(d){ return this.views._viewFp(d) }
   headName(){ return this.views.headName() }
   checkoutRef(ref,o){ return this.views.checkoutRef(ref,o) }

@@ -6,6 +6,7 @@ import "dongminal/internal/webserver/apierr"
 // 더한다 — 판정 시험이 MayGive 로 확인하고, 게이트가 이 목록의 문구를 확인한다.
 var Catalog = Table{
 	GitStashCreate: {apierr.CodeJobBusy, apierr.CodeNothingToStash, apierr.CodeUntrackedOnly},
+	GitStage:       {apierr.CodeSubmoduleInnerOnly},
 
 	GitFetch:           {apierr.CodeJobBusy},
 	GitPull:            {apierr.CodeJobBusy},

@@ -108,9 +108,10 @@ var CodeDoc = map[string]Doc{
 	CodeJobNotFound:     {"그 작업을 찾지 못했습니다.", "이미 끝난 작업입니다."},
 
 	// ── stash ──
-	CodeNothingToStash: {"치워 둘 변경이 없습니다.", "변경이 있는지 먼저 확인하세요."},
-	CodeUntrackedOnly:  {"추적되지 않는 파일만 있어 그대로는 치워 둘 것이 없습니다.", "`includeUntracked` 를 켜고 다시 보내세요. 본문의 args.count 가 그 파일 수입니다."},
-	CodeStashKept:      {"적용은 됐지만 stash 를 지우지 못했습니다 — 충돌이 남았습니다.", "충돌을 해결한 뒤 stash 를 직접 지우세요. 그때까지 내용은 보존됩니다."},
+	CodeNothingToStash:     {"치워 둘 변경이 없습니다.", "변경이 있는지 먼저 확인하세요."},
+	CodeUntrackedOnly:      {"추적되지 않는 파일만 있어 그대로는 치워 둘 것이 없습니다.", "`includeUntracked` 를 켜고 다시 보내세요. 본문의 args.count 가 그 파일 수입니다."},
+	CodeSubmoduleInnerOnly: {"서브모듈 안에서만 바뀌어 이 저장소가 스테이지할 것이 없습니다.", "서브모듈 안에서 먼저 커밋한 뒤 다시 스테이지하세요."},
+	CodeStashKept:          {"적용은 됐지만 stash 를 지우지 못했습니다 — 충돌이 남았습니다.", "충돌을 해결한 뒤 stash 를 직접 지우세요. 그때까지 내용은 보존됩니다."},
 
 	// ── 부분 스테이징 ──
 	CodeStaleObservation: {"화면이 본 내용과 디스크의 지금이 어긋납니다.", "새로고침해 다시 고른 뒤 적용하세요. 이 거절이 엉뚱한 줄에 패치가 붙는 것을 막았습니다."},
