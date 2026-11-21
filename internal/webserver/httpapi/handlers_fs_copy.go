@@ -96,8 +96,8 @@ func (s *Server) apiFSCopy(w http.ResponseWriter, r *http.Request) {
 		fsRejectAnswer(w, fsTooMany(s.limits.fsCopy))
 		return
 	}
-	s.fsOps.Lock()
-	defer s.fsOps.Unlock()
+	s.fs.ops.Lock()
+	defer s.fs.ops.Unlock()
 	if st, err = os.Lstat(src); err != nil {
 		fsFailErr(w, fsFromOS(err))
 		return

@@ -65,13 +65,13 @@ func TestApplyReport_SubagentAndRecords(t *testing.T) {
 	applyReport(t, s, agentrec.MethodUsage, map[string]any{"toolId": "t1", "usage": map[string]any{"effort": "high"}})
 	applyReport(t, s, agentrec.MethodSubagents, map[string]any{"toolId": "t1", "tasks": []map[string]any{{"id": "a1"}}})
 	now := time.Now()
-	if acts := s.subActs.list("t1", now); acts["a1"].AgentType != "Explore" {
+	if acts := s.agents.subActs.list("t1", now); acts["a1"].AgentType != "Explore" {
 		t.Fatalf("subActs=%v", acts)
 	}
-	if u, ok := s.usage.get("t1"); !ok || u.Effort == nil || *u.Effort != "high" || u.ObservedAt == 0 {
+	if u, ok := s.agents.usage.get("t1"); !ok || u.Effort == nil || *u.Effort != "high" || u.ObservedAt == 0 {
 		t.Fatalf("usage=%+v", u)
 	}
-	if tasks, ok := s.subagents.get("t1", now); !ok || len(tasks) != 1 {
+	if tasks, ok := s.agents.subagents.get("t1", now); !ok || len(tasks) != 1 {
 		t.Fatalf("subagents=%v", tasks)
 	}
 	for _, key := range []string{"usage/t1", "subagents/t1", "subagentActs/t1"} {
@@ -99,7 +99,7 @@ func TestApplyReport_IgnoresBad(t *testing.T) {
 	if tr.Activity("t1") != nil {
 		t.Fatal("깨진 보고가 활동을 바꿨다")
 	}
-	if _, ok := s.usage.get(""); ok {
+	if _, ok := s.agents.usage.get(""); ok {
 		t.Fatal("toolId 없는 사용량이 들어갔다")
 	}
 }

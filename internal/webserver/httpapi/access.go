@@ -88,6 +88,7 @@ type accessView struct {
 }
 
 type accessStore struct {
+	putMu    sync.Mutex // PUT 직렬화. mu 보다 바깥 잠금이다
 	mu       sync.Mutex
 	path     string
 	cfg      accessConfig

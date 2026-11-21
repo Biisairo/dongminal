@@ -128,7 +128,7 @@ func (m *missTracker) size() int {
 // throttleMiss 는 되풀이된 미스만 MissDelay 만큼 늦춘다. ctx 가 끝나면 즉시
 // 돌아온다 (FR-RCS-9b) — 서버 종료가 지연에 발목잡히지 않는다.
 func (s *Server) throttleMiss(ctx context.Context, toolID string) {
-	if !s.misses.repeat(toolID, time.Now()) {
+	if !s.conn.misses.repeat(toolID, time.Now()) {
 		return
 	}
 	t := time.NewTimer(MissDelay)
@@ -158,20 +158,20 @@ func (s *Server) throttleMiss(ctx context.Context, toolID string) {
 // true 는 "붙잡았다" 이고 false 는 "임계 이하이거나 자리가 없다" 이다. 어느
 // 쪽이든 호출자의 다음 동작은 같다 — 이 값은 로그와 검사를 위한 것이다.
 func (s *Server) holdMiss(ctx context.Context, toolID string, conn *toolhub.SafeConn) bool {
-	if s.misses.count(toolID, time.Now()) < MissHoldAfter {
+	if s.conn.misses.count(toolID, time.Now()) < MissHoldAfter {
 		return false
 	}
 	// FR-CNR-4: 상한을 넘으면 붙잡지 않고 종전 동작으로 내려간다. 먼저 늘린 뒤
 	// 넘었으면 되돌린다 — 검사와 증가 사이의 창을 없애는 것이 두 연산을 나누는
 	// 것보다 싸다.
-	if n := s.holds.Add(1); n > MissHoldLimit {
-		s.holds.Add(-1)
+	if n := s.conn.holds.Add(1); n > MissHoldLimit {
+		s.conn.holds.Add(-1)
 		return false
 	}
-	defer s.holds.Add(-1)
+	defer s.conn.holds.Add(-1)
 
 	// FR-CNR-7: 이 방어가 언제 몇 개를 붙잡았는지가 §2.1 의 지표와 함께 읽혀야 한다.
-	dmlog.Infof(nil, "ws hold tool=%s held=%d", toolID, s.holds.Load())
+	dmlog.Infof(nil, "ws hold tool=%s held=%d", toolID, s.conn.holds.Load())
 	t := time.NewTimer(MissHoldMax)
 	defer t.Stop()
 	select {
@@ -179,7 +179,7 @@ func (s *Server) holdMiss(ctx context.Context, toolID string, conn *toolhub.Safe
 	case <-ctx.Done():
 	case <-connGone(conn):
 	}
-	dmlog.Infof(nil, "ws hold released tool=%s held=%d", toolID, s.holds.Load()-1)
+	dmlog.Infof(nil, "ws hold released tool=%s held=%d", toolID, s.conn.holds.Load()-1)
 	return true
 }
 

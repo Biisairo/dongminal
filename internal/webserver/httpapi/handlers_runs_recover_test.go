@@ -95,14 +95,14 @@ func newRecoverFixture(t *testing.T) *recoverFixture {
 	}
 	f := &recoverFixture{s: s, store: store, io: io, member: map[string]string{},
 		shell: map[string]toolhub.ShellState{}, probed: map[string][]int{}, reg: t.TempDir()}
-	s.recoverProbe = func(toolID string, pids []int) toolhub.ShellState {
+	s.runAux.recoverProbe = func(toolID string, pids []int) toolhub.ShellState {
 		f.probed[toolID] = pids
 		if st, ok := f.shell[toolID]; ok {
 			return st
 		}
 		return toolhub.ShellIdle
 	}
-	s.recoverDirs = func() []string { return []string{f.reg} }
+	s.runAux.recoverDirs = func() []string { return []string{f.reg} }
 	f.runID = startRun(t, s)
 	for role, tool := range map[string]string{"c": "tool-c", "d": "tool-d", "e": "tool-e"} {
 		code, out := postRun(t, s, "/api/runs/members",
@@ -335,7 +335,7 @@ func TestApiRunRecover_NoDoubleResume(t *testing.T) {
 func TestApiRunRecover_RunWideUnknownHasNoForceHint(t *testing.T) {
 	f := newRecoverFixture(t)
 	calls := 0
-	f.s.recoverDirs = func() []string { calls++; return []string{f.reg} }
+	f.s.runAux.recoverDirs = func() []string { calls++; return []string{f.reg} }
 	f.shell["tool-c"] = toolhub.ShellUnknown
 	_, out := postRun(t, f.s, "/api/runs/recover", `{"runId":`+testpath.JSONQuote(f.runID)+`}`)
 	if got := resultsByTool(t, out)["tool-c"]; got["reason"] != reasonUnknown || got["needsForce"] != nil {

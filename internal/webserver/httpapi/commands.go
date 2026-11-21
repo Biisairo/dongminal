@@ -90,12 +90,12 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	var sub *hub.CmdSub
 	if presence {
 		// presence 구독도 goroutine 하나다 — 방송 구독과 같은 상한을 따로 센다.
-		if s.presenceSubs.Add(1) > hub.SubCap {
-			s.presenceSubs.Add(-1)
+		if s.conn.presenceSubs.Add(1) > hub.SubCap {
+			s.conn.presenceSubs.Add(-1)
 			reject()
 			return
 		}
-		defer s.presenceSubs.Add(-1)
+		defer s.conn.presenceSubs.Add(-1)
 	} else {
 		sub = s.Commands.Add()
 		if sub == nil {
@@ -133,9 +133,9 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	}
 	// EDITOR_LIVE_RELOAD_SRS FR-ELR-52: 파일 감시 등록도 같은 구독이 쥔다. 칸 구독(presence)은
 	// 방송을 받지 않으므로 `fs_changed` 에 반응할 수 없다 — 임대를 쥐지 않는다.
-	if cid != "" && s.fsWatch != nil && !presence {
-		ep := s.fsWatch.Attach(cid)
-		defer s.fsWatch.Detach(cid, ep)
+	if cid != "" && s.fs.watch != nil && !presence {
+		ep := s.fs.watch.Attach(cid)
+		defer s.fs.watch.Detach(cid, ep)
 	}
 
 	// UPDATE_NOTICE_SRS FR-UPD-2 ② — **새로고침과 재연결이 여기 하나로 온다.**

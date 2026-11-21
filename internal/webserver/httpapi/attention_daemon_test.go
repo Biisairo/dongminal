@@ -116,7 +116,7 @@ func TestAttnDaemon_ReportPushNotJudged(t *testing.T) {
 		}
 	}
 	applyReport(t, s, agentrec.MethodActivity, map[string]any{"toolId": "t1", "agentId": "a1", "agentType": "Explore", "state": activity.Working})
-	if acts := s.subActs.list("t1", time.Now()); acts["a1"].AgentType != "Explore" {
+	if acts := s.agents.subActs.list("t1", time.Now()); acts["a1"].AgentType != "Explore" {
 		t.Fatalf("서브에이전트 활동은 서버가 그대로 맡는다: %v", acts)
 	}
 }

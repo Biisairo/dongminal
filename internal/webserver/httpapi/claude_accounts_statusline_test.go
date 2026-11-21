@@ -51,13 +51,13 @@ func TestClaudeStatusLinePerAccount(t *testing.T) {
 		t.Fatal("unregistered email is masked")
 	}
 	// 계정을 실은 보고는 에이전트 단위 값(기존 한 줄)에 들어가지 않는다.
-	if got := e.srv.rateLimits.view(time.Now()); len(got) != 0 {
+	if got := e.srv.agents.rateLimits.view(time.Now()); len(got) != 0 {
 		t.Fatalf("agent-level: %+v", got)
 	}
 	if code := postUsage(t, e.srv, slBody("", 9)); code != http.StatusOK {
 		t.Fatal(code)
 	}
-	if got := e.srv.rateLimits.view(time.Now()); len(got) != 1 {
+	if got := e.srv.agents.rateLimits.view(time.Now()); len(got) != 1 {
 		t.Fatalf("no-account report keeps the old path: %+v", got)
 	}
 	// 판단 연결: 엔진이 그 계정의 statusLine 값을 본다.

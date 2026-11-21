@@ -410,9 +410,9 @@ func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {
 		// 2026-09-14). 여기 `s.Entries.Notes()` 와 견주어 `fsErrBadRequest` 를
 		// 내던 자리가 있었다 — `EXPLORER_ROOT_KEYS_SRS` FR-EXR-33. 메모장은 다른
 		// 루트와 같다.
-		s.fsOps.Lock()
+		s.fs.ops.Lock()
 		err := os.Mkdir(target, 0o755)
-		s.fsOps.Unlock()
+		s.fs.ops.Unlock()
 		if err != nil {
 			fsFailErr(w, fsFromOS(err))
 			return
@@ -420,9 +420,9 @@ func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {
 		fsOK(w)
 		return
 	}
-	s.fsOps.Lock()
+	s.fs.ops.Lock()
 	f, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
-	s.fsOps.Unlock()
+	s.fs.ops.Unlock()
 	if err != nil {
 		fsFailErr(w, fsFromOS(err))
 		return

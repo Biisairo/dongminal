@@ -86,11 +86,11 @@ func TestApiToolsActivity_CarriesSubagents(t *testing.T) {
 // TC-SAU-5: 기한이 지나면 없다 (FR-SAU-12).
 func TestApiToolsActivity_SubagentsExpire(t *testing.T) {
 	s := activityUsageServer(t)
-	s.subagents.put("p1", []statusline.Subagent{{ID: strPtr("x")}}, time.Now().Add(-subagentStale-time.Second))
+	s.agents.subagents.put("p1", []statusline.Subagent{{ID: strPtr("x")}}, time.Now().Add(-subagentStale-time.Second))
 	if got, ok := activitySubagents(t, s); ok {
 		t.Fatalf("기한이 지난 목록이 나갔다: %v", got)
 	}
-	s.subagents.put("p1", []statusline.Subagent{{ID: strPtr("x")}}, time.Now().Add(-subagentStale+time.Second))
+	s.agents.subagents.put("p1", []statusline.Subagent{{ID: strPtr("x")}}, time.Now().Add(-subagentStale+time.Second))
 	if _, ok := activitySubagents(t, s); !ok {
 		t.Fatal("기한 안의 목록이 나가지 않았다")
 	}

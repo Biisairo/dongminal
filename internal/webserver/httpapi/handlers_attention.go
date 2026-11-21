@@ -95,7 +95,7 @@ func (s *Server) apiToolAttentionClearAll(w http.ResponseWriter, r *http.Request
 // (FR-AAP-4). Each entry carries the card usage summary when one is observed (FR-ACU-1).
 func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
 	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-21: 계정 한도. 없으면 빈 배열이다.
-	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": s.activityEntries(), "limits": s.rateLimits.view(time.Now())})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": s.activityEntries(), "limits": s.agents.rateLimits.view(time.Now())})
 }
 
 // apiToolActivitySet records what an agent in a tool is currently doing. Used by
@@ -170,7 +170,7 @@ func (s *Server) reportActivity(toolID, state, tool, detail string, turnKnown bo
 	detail = agentrec.Sanitize(detail, agentrec.DetailMax)
 	s.attention().ReportActivity(toolID, state, tool, detail, turnKnown)
 	if state == activity.Ended {
-		s.subActs.dropTool(toolID) // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-12
+		s.agents.subActs.dropTool(toolID) // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-12
 		s.putRecord(toolipc.RecordSubagentActs, toolID, nil)
 	}
 	s.activityChanged.Notify()

@@ -23,10 +23,10 @@ func TestAccessPut_LookupOutsideSettingsLock(t *testing.T) {
 	looked, held := 0, 0
 	srv.Access.lookupHost = func(string) ([]string, error) {
 		looked++
-		if !srv.settingsMu.TryLock() {
+		if !srv.Access.putMu.TryLock() {
 			held++
 		} else {
-			srv.settingsMu.Unlock()
+			srv.Access.putMu.Unlock()
 		}
 		return []string{"10.0.0.9"}, nil
 	}

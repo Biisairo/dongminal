@@ -66,7 +66,7 @@ func loggingMiddlewareFor(srv *Server, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		if srv != nil {
-			srv.lastReq.Store(start.UnixNano())
+			srv.conn.lastReq.Store(start.UnixNano())
 		}
 		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rw, r)

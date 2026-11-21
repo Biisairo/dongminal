@@ -133,11 +133,11 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// accessSave 는 지문 검사와 저장을 설정 잠금 하나로 묶는다 (UX_BATCH12 FR-LIV-2). 실패면
+// accessSave 는 지문 검사와 저장을 접근 목록 PUT 잠금 하나로 묶는다 (UX_BATCH12 FR-LIV-2). 실패면
 // 응답을 쓰고 false 다.
 func (s *Server) accessSave(w http.ResponseWriter, r *http.Request, cfg accessConfig) bool {
-	s.settingsMu.Lock()
-	defer s.settingsMu.Unlock()
+	s.Access.putMu.Lock()
+	defer s.Access.putMu.Unlock()
 	if cur := settingsTag(s.Access.config()); settingsStale(r, cur) {
 		w.Header().Set("ETag", cur)
 		httpErr(w, "stale revision", http.StatusConflict, apierr.CodeStaleRev)

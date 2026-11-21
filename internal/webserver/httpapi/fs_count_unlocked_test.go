@@ -47,10 +47,10 @@ func TestFSCountRunsOutsideOpsLock(t *testing.T) {
 			orig := fsCount
 			fsCount = func(p string, max int) (int, error) {
 				counted++
-				if !s.fsOps.TryLock() {
+				if !s.fs.ops.TryLock() {
 					heldWhileCounting++
 				} else {
-					s.fsOps.Unlock()
+					s.fs.ops.Unlock()
 				}
 				return orig(p, max)
 			}

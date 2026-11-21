@@ -124,7 +124,7 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	}
 	// REFACTOR3_DEFECTS_SRS FR-RD3-20: 표식 검사부터 새 표식까지 같은 경로는 한 번에 하나다.
 	//	이전: 검사와 쓰기 사이에 잠금이 없어, 같은 표식의 저장 여럿이 다 통과하고 뒤가 앞을 덮었다
-	defer s.fileWrites.lock(target)()
+	defer s.fs.writes.lock(target)()
 	// EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-5·7: 우리가 읽은 뒤 디스크가 바뀌었으면
 	// 덮지 않는다. 종전에는 **마지막에 저장한 쪽이 이겼다.**
 	//

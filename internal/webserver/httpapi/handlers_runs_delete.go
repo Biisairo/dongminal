@@ -143,7 +143,7 @@ func (s *Server) StartRunReaper(stop <-chan struct{}) {
 // (AGENT_RECORD_DAEMON_SRS FR-ARD-2·5).
 func (s *Server) reapTick() {
 	s.reapRuns()
-	s.usage.prune(s.toolNotDead)
-	s.subagents.prune(s.toolNotDead)
-	s.subActs.prune(s.toolNotDead)
+	s.agents.usage.prune(s.toolNotDead)
+	s.agents.subagents.prune(s.toolNotDead)
+	s.agents.subActs.prune(s.toolNotDead)
 }

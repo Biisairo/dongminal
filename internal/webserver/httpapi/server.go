@@ -7,7 +7,6 @@ package httpapi
 import (
 	"dongminal/internal/webserver/gitapi"
 
-	"dongminal/internal/webserver/fswatch"
 	"dongminal/internal/webserver/hub"
 
 	"context"
@@ -31,7 +30,6 @@ import (
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/serverconf"
-	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -96,17 +94,8 @@ type Server struct {
 	// 루트 가드가 이것을 읽는다 (FR-EDT-113). Work 가 nil 이면 그 종단만 실패한다.
 	Entries *wsentry.Store
 
-	// usage 는 도구별 statusLine 사용량이다 (ISSUE_AGENT_TREE_SRS FR-SLP-10). 메모리에만 둔다.
-	usage usageStore
-	// subagents 는 도구별 서브에이전트 목록이다 (SUBAGENT_USAGE_SRS FR-SAU-10). 메모리에만 둔다.
-	subagents subagentStore
-	// subActs 는 도구별 서브에이전트 활동(훅)이다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-10). 메모리에만 둔다.
-	subActs subagentActivityStore
-	// rateLimits 는 에이전트별 마지막 계정 한도다 (FR-ASV-20). 도구가 죽어도 남는다.
-	rateLimits rateLimitStore
-	// migrationUnknownTold 는 「맥락 사용률을 모른다」 를 이미 알린 도구다 (ISSUE_TREE_OPS_SRS
-	// FR-ITM-13). 도구마다 한 번만 알린다.
-	migrationUnknownTold sync.Map
+	// agents 는 도구·에이전트별 메모리 상태다 (server_state.go).
+	agents agentState
 
 	// git 은 /api/git/* 을 소유한다. **Git 이 nil 이어도 이 자리는 만들어진다** —
 	// `UserWorktrees` 만 있는 배선에서도 Worktrees 탭이 답해야 하기 때문이다.
@@ -119,10 +108,6 @@ type Server struct {
 	// `GitServer.Watch` 가 nil 이라 표명이 무해하게 지나간다.
 	gitWatch *hub.GitWatcher
 
-	// fsWatch 는 화면에 보이는 디렉터리를 감시해 `fs_changed` 를 방송한다
-	// (EDITOR_LIVE_RELOAD_SRS 묶음 W). 임대는 SSE 구독이 쥔다 (FR-ELR-52).
-	fsWatch *fswatch.Manager
-
 	// Access 는 접속 허용 목록이다 (ACCESS_ALLOWLIST_SRS). nil 이 아니면 게이트가
 	// 모든 표면 앞에 선다. `--expose` 뒤에 아무 제어가 없던 자리를 여기가 메운다.
 	Access *accessStore
@@ -132,8 +117,9 @@ type Server struct {
 	edgeKick chan struct{}
 	// handle 은 이 기기의 `이름#번호` 를 기억한다 (PROFILE_NAME_SRS NFR-PFN-3).
 	handle handleCache
-	// settingsMu 는 설정 PUT 의 지문 검사와 저장을 한 덩이로 묶는다 (UX_BATCH12 FR-LIV-2).
-	settingsMu sync.Mutex
+	// sandbox 는 샌드박스 정의 PUT 의 잠금이다. 접근 목록 PUT 의 잠금은 `Access` 가 따로
+	// 쥔다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-3) — 종전에는 한 잠금이 둘을 함께 잠갔다.
+	sandbox sandboxState
 
 	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.
@@ -150,38 +136,14 @@ type Server struct {
 	tg *telegramWire
 	// ca 는 Claude 다중 계정이다 (CLAUDE_ACCOUNTS_SRS). DataDir 이 없으면 nil 이다.
 	ca *claudeAcctWire
-	// recoverProbe·recoverDirs 는 Run 복구의 셸 판정과 설정 폴더 목록을 바꿔 끼우는 자리다
-	// (RUN_RECOVERY_SRS). 비면 데몬·계정 서비스에 묻는다. 시험만 채운다.
-	recoverProbe func(toolID string, pids []int) toolhub.ShellState
-	recoverDirs  func() []string
-	// recoverHeld 는 재개줄을 막 넣은 도구다 (FR-RRC-18). 제로값이 빈 표다.
-	recoverHeld recoverHolds
+	// runAux 는 Run 표면의 서버 쪽 보조 상태다 — 복구·통지 (server_state.go).
+	// 주입된 저장소 `Runs` 와 다른 것이다.
+	runAux runAux
 
 	started time.Time
 
-	// misses 는 "없는 도구를 향한 WebSocket 요청"의 되풀이를 센다
-	// (RECONNECT_STORM_SRS FR-RCS-9). 제로값이 곧 빈 추적기라 New 가 세우지 않는다.
-	misses missTracker
-
-	// holds 는 지금 **붙잡고 있는** 미스 연결의 수다
-	// (CONNECTIVITY_RESILIENCE_SRS FR-CNR-2·4). 소켓을 닫지 않는 것이 재연결의
-	// 고리를 끊는 유일한 수단이므로(D-2), 그 대가인 열린 연결 수에 상한이 있어야
-	// 한다.
-	holds atomic.Int64
-
-	// lastReq·lastWS 는 마지막 요청·WS 연결의 단조 시각(나노초)이다
-	// (FR-CNR-8·11). **핫패스 필터로 로그에서 빠지는 요청도 여기는 갱신한다** —
-	// 로그에 안 남는 것과 오지 않은 것은 다르며, 그 차이가 진단의 전부다.
-	lastReq atomic.Int64
-	lastWS  atomic.Int64
-
-	// wsOpen 은 지금 붙어 있는 WebSocket 수다 (FR-CNR-8). 붙잡힌 연결도 여기
-	// 포함된다 — 그것이 자원을 쓰고 있다는 사실이 진단에 실려야 한다.
-	wsOpen atomic.Int64
-
-	// presenceSubs 는 지금 열린 칸 SSE(`presence=1`) 수다 (FR-OPT-4-12). 방송
-	// 구독이 아니어서 허브의 상한(04-secops P1-4)에 잡히지 않으므로 여기서 센다.
-	presenceSubs atomic.Int64
+	// conn 은 연결 진단의 계수다 (CONNECTIVITY_RESILIENCE_SRS, server_state.go).
+	conn connStats
 
 	// assetVer 는 지금 서빙하는 자산의 판이다
 	// (ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-1·3). 서빙하는 `index.html` 의
@@ -201,22 +163,11 @@ type Server struct {
 	// 채우고 시험만이 서버 하나의 값을 낮춘다.
 	limits serverLimits
 
-	// HOT_REBIND_SRS 묶음 R. bind 는 Run 이 세운다 — Run 밖에서 만든 서버는 nil 이고
-	// 리바인드가 bind_unavailable 이다. bindListen·bindGrace 는 시험이 바꾼다.
-	bind       *rebinder
-	bindListen func(network, addr string) (net.Listener, error)
-	bindGrace  time.Duration
-	carry      *carryStore
+	// rebind 는 실행 중 리바인드의 상태다 (HOT_REBIND_SRS 묶음 R, server_state.go).
+	rebind rebindState
 
-	// fsOps 는 탐색기의 파일 조작을 직렬화한다 (FR-EDT-115). 잡는 구간은
-	// **실제 파일 조작**뿐이다 — 본문 읽기와 경로 판정은 밖에서 한다.
-	fsOps sync.Mutex
-	// fileWrites 는 편집기 저장의 표식 검사~쓰기를 경로마다 한 번에 하나로 묶는다 (REFACTOR3_DEFECTS_SRS FR-RD3-20).
-	fileWrites pathLocks
-
-	// contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7). 서버
-	// 수명이지 프로세스 수명이 아니다.
-	contextNotices contextNoticeLog
+	// fs 는 탐색기의 파일 조작 잠금·감시다 (server_state.go).
+	fs fsState
 
 	// waitInFlight 는 지금 붙잡힌 활동 대기 수다 (FR-STA-9). 서버 하나의 것이다
 	// (OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 · HTTP-9).
@@ -291,9 +242,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		started: time.Now(),
 		limits:  defaultLimits(),
 
-		bindListen: net.Listen,
-		bindGrace:  defaultBindGrace,
-		carry:      newCarryStore(),
+		rebind: rebindState{listen: net.Listen, grace: defaultBindGrace, carry: newCarryStore()},
 	}
 	// REQUEST_GATE_SRS FR-RQG-6: 허용 호스트 집합은 `access.self` 를 읽으므로
 	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.
@@ -337,7 +286,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		srv.gitWatch.SetOnBaseline(deps.OnGitBaseline)
 		srv.applyGitWorktree()
 	}
-	srv.fsWatch = newFSWatch(cmds, srv.gitWatch)
+	srv.fs.watch = newFSWatch(cmds, srv.gitWatch)
 	srv.git = &gitapi.GitServer{
 		Git:       deps.Git,
 		Exclusion: deps.GitExclusion,
@@ -450,7 +399,7 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 
 	// HOT_REBIND_SRS FR-HRB-10: 리슨에 성공한 뒤에 주소 파일을 쓴다. 헬퍼는 그것으로
 	// 서버를 찾는다. 정상 종료 때 자기가 쓴 내용이면 지운다.
-	ln, err := s.bindListen("tcp", addr)
+	ln, err := s.rebind.listen("tcp", addr)
 	if err != nil {
 		return err
 	}
@@ -459,7 +408,7 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	// 묶음 R: 리스너는 rebinder 가 쥔다 — 실행 중에 갈아 끼울 수 있다.
 	b := &rebinder{srv: srv, home: s.cfg.DataDir, errCh: make(chan error, 1), conns: newConnSet(),
 		host: host, port: port, ln: ln, grace: map[string]graceEntry{}}
-	s.bind = b
+	s.rebind.bind = b
 	if err := serverconf.WriteAddr(s.cfg.DataDir, b.addr()); err != nil {
 		dmlog.Warnf(nil, "주소 파일을 쓰지 못했습니다: %v", err)
 	}

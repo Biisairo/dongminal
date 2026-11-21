@@ -231,7 +231,7 @@ func (s *Server) notifyContextAlert(m run.Member, level string) {
 	if s.Runs == nil || s.ToolIO == nil {
 		return
 	}
-	if !s.contextNotices.claim(m.ID, level) {
+	if !s.runAux.contextNotices.claim(m.ID, level) {
 		return
 	}
 	rec, ok := s.Runs.Get(m.RunID)

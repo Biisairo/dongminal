@@ -66,7 +66,7 @@ func (s *Server) apiDiag(w http.ResponseWriter, r *http.Request) {
 		Gate:       diagGate{Access: accessDenies.Load(), Request: requestDenies.Load()},
 		Version:    s.cfg.Version,
 		LogLevel:   logLevelName(),
-		WS:         s.wsOpen.Load(),
+		WS:         s.conn.wsOpen.Load(),
 	}
 	if !s.started.IsZero() {
 		out.Uptime = int64(time.Since(s.started).Seconds())

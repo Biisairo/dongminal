@@ -103,7 +103,7 @@ func (b *rebinder) movedFrom(r *http.Request) (string, bool) {
 // (FR-HRB-23 ⑧). API 와 WebSocket 은 그대로 서빙한다.
 func (s *Server) graceRedirect(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if b := s.bind; b != nil && r.Method == http.MethodGet && r.URL.Path == "/" {
+		if b := s.rebind.bind; b != nil && r.Method == http.MethodGet && r.URL.Path == "/" {
 			if port, moved := b.movedFrom(r); moved {
 				name := r.Host
 				if h, _, err := net.SplitHostPort(r.Host); err == nil {
@@ -141,7 +141,7 @@ func viewOf(host, port string) bindView {
 func (s *Server) apiServerBindGet(w http.ResponseWriter, r *http.Request) {
 	conf := serverconf.Resolve(serverconf.Inputs{Home: s.cfg.DataDir})
 	host, port := conf.Host.Value, conf.Port.Value
-	if b := s.bind; b != nil {
+	if b := s.rebind.bind; b != nil {
 		b.mu.Lock()
 		host, port = b.host, b.port
 		b.mu.Unlock()
@@ -160,7 +160,7 @@ func (s *Server) apiServerBind(w http.ResponseWriter, r *http.Request) {
 		codeFail(w, http.StatusForbidden, apierr.CodeBindLocalOnly, "bind is local only")
 		return
 	}
-	b := s.bind
+	b := s.rebind.bind
 	if b == nil {
 		codeFail(w, http.StatusServiceUnavailable, apierr.CodeBindUnavailable, "rebind unavailable")
 		return
@@ -255,7 +255,7 @@ func (s *Server) movePort(b *rebinder, host, port string) (int, string) {
 	}
 	b.mu.Unlock()
 
-	ln, err := s.bindListen("tcp", net.JoinHostPort(host, port))
+	ln, err := s.rebind.listen("tcp", net.JoinHostPort(host, port))
 	if err != nil {
 		dmlog.Infof(nil, "[bind] %s 에 리슨하지 못했습니다: %v", net.JoinHostPort(host, port), err)
 		return http.StatusConflict, apierr.CodeBindPortInUse
@@ -284,7 +284,7 @@ func (s *Server) movePort(b *rebinder, host, port string) (int, string) {
 	b.serve(ln)
 
 	s.Commands.Broadcast(sse.Payload("server_moving", map[string]any{"port": port}))
-	time.AfterFunc(s.bindGrace, func() {
+	time.AfterFunc(s.rebind.grace, func() {
 		b.mu.Lock()
 		defer b.mu.Unlock()
 		if g, in := b.grace[oldPort]; in && g.ln == old {
@@ -303,7 +303,7 @@ func (s *Server) swapHost(b *rebinder, host string) (int, string) {
 	b.mu.Unlock()
 
 	_ = old.Close()
-	ln, err := s.bindListen("tcp", net.JoinHostPort(host, port))
+	ln, err := s.rebind.listen("tcp", net.JoinHostPort(host, port))
 	if err == nil {
 		if serr := saveBind(b.home, host, port); serr != nil {
 			_ = ln.Close()
@@ -313,7 +313,7 @@ func (s *Server) swapHost(b *rebinder, host string) (int, string) {
 	}
 	if err != nil {
 		dmlog.Warnf(nil, "[bind] %s 로 다시 리슨하지 못했습니다: %v", net.JoinHostPort(host, port), err)
-		back, berr := s.bindListen("tcp", net.JoinHostPort(oldHost, port))
+		back, berr := s.rebind.listen("tcp", net.JoinHostPort(oldHost, port))
 		if berr != nil {
 			dmlog.Errorf(nil, "[bind] 옛 바인드 %s 로도 돌아가지 못했습니다: %v", net.JoinHostPort(oldHost, port), berr)
 			return http.StatusInternalServerError, apierr.CodeBindRebindFailed

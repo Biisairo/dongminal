@@ -123,8 +123,8 @@ func (s *Server) fsRenameTo(w http.ResponseWriter, req fsRenameReq, fromRoot, fr
 // 프로세스와의 경합은 남으며, 그것까지 닫으려면 플랫폼별 시스템 콜이 필요하다
 // (D-26, §6 비목표의 cross-platform 보류).
 func (s *Server) fsRenameNoReplace(from, to string) error {
-	s.fsOps.Lock()
-	defer s.fsOps.Unlock()
+	s.fs.ops.Lock()
+	defer s.fs.ops.Unlock()
 
 	st, err := os.Lstat(from)
 	if err != nil {
@@ -201,8 +201,8 @@ func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
 		fsRejectAnswer(w, a)
 		return
 	}
-	s.fsOps.Lock()
-	defer s.fsOps.Unlock()
+	s.fs.ops.Lock()
+	defer s.fs.ops.Unlock()
 	if _, err := os.Lstat(target); err != nil {
 		fsRejectAnswer(w, fsErrAnswer(fsFromOS(err)))
 		return
