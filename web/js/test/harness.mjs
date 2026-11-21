@@ -76,7 +76,8 @@ export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/git-changes.js'
  * 섹션보다 먼저다.
  */
 export const SETTINGS = ['core/settings-section.js', 'core/settings-row.js', 'core/settings-display.js',
-  'core/settings-terminal.js', 'core/settings-code.js'];
+  'core/settings-terminal.js', 'core/settings-code.js', 'core/settings-polling.js', 'core/settings-statusbar.js',
+  'core/settings-notify.js'];
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');

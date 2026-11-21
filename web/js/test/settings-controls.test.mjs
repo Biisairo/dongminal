@@ -30,7 +30,8 @@ function setup() {
       fgTabNames: true, claudeFullscreen: true, confirmLeave: false, editorWordWrap: false, editorMinimap: true,
       tabFixedWidth: false, tabWidthPx: 160, uiFontSize: undefined, termFontSize: undefined,
       claudeScrollSpeed: undefined, migrationHook: undefined, migrationHookCtxPct: undefined,
-      issueTreeMigration: undefined, issueTreeCtxPct: undefined,
+      issueTreeMigration: undefined, issueTreeCtxPct: undefined, focusEdgeLevel: 0, attnEdgeLevel: 5,
+      UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10,
     },
     expose: ['SettingsSection', 'DisplaySection', 'TerminalSection', 'CodeSection'],
   });

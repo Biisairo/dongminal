@@ -429,7 +429,7 @@ Object.assign(App.prototype, {
     osc.stop(now+.2);
   },
 
-  // notification center 배지/팝오버 이벤트 바인딩 + 설정 토글
+  // notification center 배지/팝오버 이벤트 바인딩 + 설정 섹션(Notify)
   // (FR-PAN-14/16 · UIUX_OVERHAUL_SRS FR-ACT-8 로 개정)
   initAttn(){
     const badge=document.getElementById('attn-badge');
@@ -443,23 +443,8 @@ Object.assign(App.prototype, {
       if(center.contains(e.target)||(badge&&badge.contains(e.target))) return;
       this._attnCenterClose();
     });
-    const dt=document.getElementById('attn-desktop');
-    if(dt){
-      dt.checked=this.attnDesktop;
-      dt.addEventListener('change',()=>{
-        if(dt.checked&&typeof Notification!=='undefined'&&Notification.permission==='default'){
-          Notification.requestPermission().then(p=>{if(p!=='granted'){dt.checked=false;this.attnDesktop=false}});
-        }
-        this.attnDesktop=dt.checked;
-      });
-    }
-    // TLS-1: 동작할 수 없는 환경이면 **끄고 사유를 말한다.**
-    this._attnSecurityNotice();
-    const sd=document.getElementById('attn-sound');
-    if(sd){
-      sd.checked=this.attnSound;
-      sd.addEventListener('change',()=>{this.attnSound=sd.checked});
-    }
+    // Settings ▸ Notify 의 스위치 둘과 판 확인은 `NotifySection` 이 배선한다 (REFACTOR3_FE_SETTINGS_SRS 8b).
+    SettingsSection.start(this,new NotifySection(this));
     // 데스크톱 알림 권한은 사용자 제스처가 필요하므로, 켜져 있고 아직 미결정이면
     // 첫 상호작용에서 한 번 요청한다 (브라우저 정책 충족) — FR-PAN-13a.
     //

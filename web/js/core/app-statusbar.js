@@ -37,7 +37,8 @@ Object.assign(App.prototype, {
     // (GIT_REMAINING §1.3 이 전수 조사한 그 부류의 결함이다).
     this._bgConfirm=null; this._bgPending=null; this._bgError=null;
     this._startStatsPoll();
-    this._renderStatusBarSettings();
+    // Settings ▸ Status Bar 의 스위치들 (REFACTOR3_FE_SETTINGS_SRS 8b).
+    SettingsSection.start(this,new StatusbarSection(this));
   },
   _startStatsPoll(){
     if(this._statsPoll) this._statsPoll.stop();
@@ -453,32 +454,5 @@ Object.assign(App.prototype, {
       if(!r.data||!f||f.id!==p.id) return;
       this.cwd=r.data.cwd; this.updateStatusBar();
     });
-  },
-  _renderStatusBarSettings(){
-    const el=document.getElementById('sb-settings');if(!el)return;
-    el.innerHTML='';
-    /**
-     * POLL_INTERVAL_SETTINGS_SRS FR-PIS-22: **`갱신 주기` 행이 여기서 빠졌다.**
-     *
-     * `Polling` 탭으로 옮겼다 (D-2) — 같은 값의 손잡이가 두 자리에 있으면 어느
-     * 쪽이 진실인지 화면이 말하지 않는다. 이 패널에 남는 것은 **무엇을 보일지**
-     * 뿐이고, **얼마나 자주 물을지**는 주기의 것이다.
-     *
-     * `_startStatsPoll` 을 다시 부르던 자리도 함께 사라졌다: 주기를 함수로 주므로
-     * (FR-PIS-13) 재무장 한 줄이 그 일을 하고, 그쪽은 **발화하지 않는다**.
-     */
-    // Item toggles
-    for(const[k,v]of Object.entries(STATUS_ITEMS)){
-      const row=document.createElement('div');row.className='sbs-row';row.dataset.item=k;
-      const label=document.createElement('span');label.textContent=v.label;
-      // FR-CMP-20·21: 알약은 킷의 것이다. 종전에는 입력을 숨기고(`opacity:0`)
-      // 형제 `<span class="slider">` 가 알약을 그렸다 — 그 대역이 있으면 킷의
-      // `:checked` 파생이 닿지 않는다. 입력이 스스로 그리므로 대역을 걷는다.
-      const inp=document.createElement('input');
-      inp.type='checkbox'; inp.className='ui-switch'; inp.checked=!!statusBar[k];
-      inp.addEventListener('change',()=>{statusBar[k]=inp.checked;this.saveSettings();this.updateStatusBar()});
-      row.appendChild(label);row.appendChild(inp);
-      el.appendChild(row);
-    }
   },
 });

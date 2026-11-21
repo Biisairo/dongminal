@@ -108,14 +108,13 @@ const SETTINGS_ACCESS={
   }},
   // FR-UFE-12·13 / FR-AED-9: 범위 판정은 표가 한다 (`settingValue`) — 종전에는
   // 같은 모양의 `if` 가 두 줄 걸러 두 번 적혀 있었다.
+  // 레인지 행을 칠하는 것은 `_paintSettingControls` 다 (`DisplaySection.paint`).
   focusEdgeLevel:{get:()=>focusEdgeLevel,set(v){
     focusEdgeLevel=v;
-    this._focusEdgePaintRow();
     this._paintFocusEdge();
   }},
   attnEdgeLevel:{get:()=>attnEdgeLevel,set(v){
     attnEdgeLevel=v;
-    this._attnEdgePaintRow();
     this._paintAttnEdge();
     this._attnRefresh();
   }},
@@ -241,8 +240,8 @@ Object.assign(App.prototype, {
      */
     TIMERS.refreshChanged();
     // 화면의 드롭다운도 같은 값을 보여야 한다 — 다른 창에서 바뀐 값이 SSE 로
-    // 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다 (FR-SYN).
-    if(this._pollPaintRows) this._pollPaintRows();
+    // 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다 (FR-SYN). 위의
+    // `_paintSettingControls` 가 `PollingSection.paint` 로 칠한다.
     /**
      * FR-PIS-17 / D-9: `agentsPollMs` 의 이사는 **부팅에서만** 한다.
      *
@@ -354,9 +353,6 @@ Object.assign(App.prototype, {
     for(const s of SettingsSection.all(this)) s.onOpen();
     this._paintSettingControls();
     this._labelSettingsRows();
-    // FR-UFE-14: 같은 근거로 이 행도 열 때마다 다시 칠한다 — 체크박스와 세기가
-    // 함께 움직이므로 한 함수가 둘을 맡는다.
-    this._focusEdgePaintRow();
     this._cacctOnSettingsOpen(modal);
     // Auto-close drawer when opening settings on mobile
     if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
@@ -394,8 +390,6 @@ Object.assign(App.prototype, {
     SettingsSection.start(this,new DisplaySection(this));
     SettingsSection.start(this,new TerminalSection(this));
     this._initKeybarSettings();
-    this._initFocusEdge();
-    this._initAttnEdge();
     SettingsSection.start(this,new CodeSection(this));
     this._paintSettingControls();
     this._initBackup();

@@ -29,7 +29,8 @@ function elem(id, extra) {
 function setup(access, els) {
   const doc = { activeElement: null, getElementById: (id) => els[id] || null };
   const ctx = load([...BASE, ...SETTINGS], {
-    expose: ['SettingsSection', 'FormRow', 'View', 'DisplaySection', 'TerminalSection', 'CodeSection'],
+    expose: ['SettingsSection', 'FormRow', 'View', 'DisplaySection', 'TerminalSection', 'CodeSection', 'PollingSection',
+      'StatusbarSection', 'NotifySection'],
     globals: {
       TIMERS: { disposeOwner() {} },
       SETTINGS_ACCESS: access,
@@ -41,12 +42,14 @@ function setup(access, els) {
   return { ctx, doc };
 }
 
-/** 부른 순서를 남기는 가짜 앱. */
+/** 부른 순서를 남기는 가짜 앱. 섹션이 주인인 타이머는 `app.timers` 로 간다. */
 function fakeApp(log) {
   return {
     saveSettings: () => log.push('save'),
     _saveSettingsSoon: (k) => log.push('soon:' + k),
     _saveSettingsNow: (k) => log.push('now:' + k),
+    _attnSecurityNotice: () => log.push('tls'),
+    timers: { after: (ms) => { log.push('after:' + ms); return { stop: () => log.push('stop') } }, disposeOwner() {} },
   };
 }
 
@@ -153,7 +156,9 @@ test('TC-FES-2: 행의 리스너는 섹션이 주인이다 — dispose 가 뗀�
 const MOVED = [
   { cls: 'DisplaySection', tab: 'display',
     gone: ['_initTabWidth', '_initUiFontScale', '_initFgNames', '_initConfirmLeave', '_initLocale', '_initPanelLayout',
-      '_initNumSetting', '_paintNumSettings'],
+      '_initNumSetting', '_paintNumSettings',
+      // 8b
+      '_initFocusEdge', '_initAttnEdge', '_focusEdgePaintRow', '_attnEdgePaintRow', '_focusEdgePreview', '_attnEdgePreview'],
     rows: [['tabFixedWidth', 'ds-tabfix', 'check'], ['tabWidthPx', 'ds-tabw', 'number'], ['uiFontSize', 'ds-uifs', 'number'],
       ['fgTabNames', 'ds-fgnames', 'check'], ['confirmLeave', 'ds-confirmleave', 'check']] },
   { cls: 'TerminalSection', tab: 'terminal',
@@ -164,6 +169,10 @@ const MOVED = [
       ['issueTreeCtxPct', 'ds-treemigpct', 'number']] },
   { cls: 'CodeSection', tab: 'code', gone: ['_initWordWrap', '_initMinimap', '_initLSP'],
     rows: [['editorWordWrap', 'ds-wordwrap', 'check'], ['editorMinimap', 'ds-minimap', 'check']] },
+  // 8b — 특이 행은 섹션 메서드다(FR-FES-4). `initPollingSettings` 는 8e 까지 섹션을 세우는 입구로 남는다.
+  { cls: 'PollingSection', tab: 'polling', gone: ['_pollPaintRows'], rows: [] },
+  { cls: 'StatusbarSection', tab: 'statusbar', gone: ['_renderStatusBarSettings'], rows: [] },
+  { cls: 'NotifySection', tab: 'notify', gone: ['initUpdateSettings'], rows: [] },
 ];
 
 /** FR-FES-9 의 위임자 가운데 이 단계까지 옮긴 파일에 있는 것. */
@@ -173,7 +182,8 @@ const DELEGATES = ['saveSettings', '_settingsApply', '_settingsRestore', '_onSet
 
 function appProto() {
   const ctx = load(['core/app-settings.js', 'core/app-settings-init.js', 'core/app-dock.js', 'core/app-lsp.js',
-    'core/lsp-client.js'], { globals: { App: function App() {} }, expose: ['LspClient'] });
+    'core/lsp-client.js', 'core/app-polling.js', 'core/app-statusbar.js', 'core/app-update.js', 'core/app-attn.js'],
+  { globals: { App: function App() {}, t: (k) => k, tn: (k) => k }, expose: ['LspClient'] });
   return ctx;
 }
 
@@ -199,6 +209,7 @@ test('TC-FES-3: 섹션이 init 에서 선언한 행이 표와 같다', () => {
   ctx.I18N = { locale: 'ko', resolve: (v) => v };
   ctx.applyTabWidth = () => {};
   ctx.applyUiFontScale = () => {};
+  Object.assign(ctx, { focusEdgeLevel: 0, attnEdgeLevel: 0, UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10 });
   for (const m of MOVED) {
     const s = new ctx[m.cls]({ ...fakeApp([]), _slotDirPaint() {}, displayMode: 'auto', mobileBreakpoint: 768 });
     s.init();
@@ -211,4 +222,123 @@ test('TC-FES-3: 옮긴 _init* 가 App 원형에 없고 위임자는 남는다', 
   for (const m of MOVED) for (const n of m.gone) assert.equal(ctx.App.prototype[n], undefined, n);
   assert.equal(ctx.LspClient.prototype._initLSP, undefined, 'LspClient._initLSP');
   for (const n of DELEGATES) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+});
+
+// ── 8b 특이 행 (FR-FES-4) ────────────────────────────────────────────────
+
+/** `documentElement` 의 클래스를 세는 대역. */
+function rootClasses() {
+  const on = new Set();
+  return { on, classList: { add: (c) => on.add(c), remove: (c) => on.delete(c) } };
+}
+
+function edgeSetup() {
+  const fill = {};
+  const range = (id) => elem(id, { style: { setProperty: (k, v) => { fill[id] = v } } });
+  const els = { 'ds-focusedge': range('ds-focusedge'), 'ds-focusedge-val': elem('ds-focusedge-val'),
+    'ds-attnedge': range('ds-attnedge'), 'ds-attnedge-val': elem('ds-attnedge-val') };
+  const { ctx, doc } = setup({}, els);
+  doc.documentElement = rootClasses();
+  Object.assign(ctx, { focusEdgeLevel: 0, attnEdgeLevel: 4, UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10,
+    UFE_LEVEL_OFF_LABEL: 'off', UFE_PREVIEW_CLASS: 'ufe-p', ATTN_EDGE_PREVIEW_CLASS: 'ae-p', UFE_PREVIEW_MS: 900,
+    ATTN_EDGE_PREVIEW_MS: 800 });
+  return { ctx, doc, els, fill };
+}
+
+test('TC-FES-2(범위): 레인지 두 행은 값·채움·라벨을 칠하고 0 은 「끔」 이다', () => {
+  const { ctx, els, fill } = edgeSetup();
+  const s = new ctx.DisplaySection(fakeApp([]));
+  s.paint();
+  assert.equal(els['ds-focusedge'].value, 0);
+  assert.equal(fill['ds-focusedge'], '0%');
+  assert.equal(els['ds-focusedge-val'].textContent, 'off');
+  assert.equal(els['ds-attnedge'].value, 4);
+  assert.equal(fill['ds-attnedge'], '40%');
+  assert.equal(els['ds-attnedge-val'].textContent, '4');
+});
+
+test('TC-FES-2(범위): 포커스 가장자리 input 은 값·두 행·화면·미리보기·미룬 저장, change 는 곧바로 저장', () => {
+  const { ctx, doc, els } = edgeSetup();
+  const log = [];
+  const app = { ...fakeApp(log), _paintFocusEdge: () => log.push('paintFocus') };
+  const s = new ctx.DisplaySection(app);
+  s._initFocusEdge();
+  assert.equal(els['ds-focusedge'].max, 10);
+  els['ds-focusedge'].value = '3';
+  els['ds-focusedge'].fire('input');
+  assert.equal(ctx.focusEdgeLevel, 3);
+  assert.equal(els['ds-focusedge-val'].textContent, '3');
+  assert.equal(els['ds-attnedge-val'].textContent, '4', '주의 행도 함께 칠한다');
+  assert.ok(doc.documentElement.on.has('ufe-p'));
+  els['ds-focusedge'].fire('change');
+  assert.deepEqual(log, ['paintFocus', 'after:900', 'soon:ufe', 'now:ufe']);
+});
+
+test('TC-FES-2(범위): 주의 가장자리 input 은 화면·미리보기·주의 다시 보기·미룬 저장, 0 이면 미리보기를 끈다', () => {
+  const { ctx, doc, els } = edgeSetup();
+  const log = [];
+  const app = { ...fakeApp(log), _paintAttnEdge: () => log.push('paintAttn'), _attnRefresh: () => log.push('refresh') };
+  const s = new ctx.DisplaySection(app);
+  s._initAttnEdge();
+  els['ds-attnedge'].value = '6';
+  els['ds-attnedge'].fire('input');
+  assert.equal(ctx.attnEdgeLevel, 6);
+  assert.ok(doc.documentElement.on.has('ae-p'));
+  els['ds-attnedge'].value = '0';
+  els['ds-attnedge'].fire('input');
+  assert.equal(els['ds-attnedge-val'].textContent, 'off');
+  assert.ok(!doc.documentElement.on.has('ae-p'));
+  els['ds-attnedge'].fire('change');
+  assert.deepEqual(log, ['paintAttn', 'after:800', 'refresh', 'soon:ae', 'paintAttn', 'stop', 'refresh', 'soon:ae', 'now:ae']);
+});
+
+test('8b: PollingSection 은 표에서 행을 한 번 만들고, 고르면 값·저장·타이머 재무장, paint 는 표의 값을 칠한다', () => {
+  const box = elem('poll-settings');
+  const made = [];
+  box.appendChild = (c) => { made.push(c); return c };
+  const { ctx } = setup({}, { 'poll-settings': box });
+  let v = 2000;
+  const log = [];
+  ctx.POLL_SETTINGS = [{ key: 'k', id: 'pi-k', label: 'L', hint: 'H', get: () => v, set: (x) => { v = x; log.push('set:' + x) },
+    opts: [[1000, 'a'], [2000, 'b']] }];
+  ctx.SETTINGS_BY_KEY.k = { def: 2000 };
+  ctx.settingValue = (raw) => raw;
+  ctx.TIMERS = { disposeOwner() {}, refreshChanged: () => log.push('refresh') };
+  ctx.document.createElement = (tag) => elem('', { tag, children: [], appendChild(c) { this.children.push(c); return c } });
+  const els = {};
+  ctx.document.getElementById = (id) => (id === 'poll-settings' ? box : els[id] || null);
+  const s = new ctx.PollingSection(fakeApp(log));
+  s.init();
+  const sel = made[0].children[1];
+  els['pi-k'] = sel;
+  assert.equal(sel.id, 'pi-k');
+  assert.equal(sel.children.length, 2);
+  assert.equal(box.dataset.built, '1');
+  s.init();
+  assert.equal(made.length, 2, '두 번 만들지 않는다 (행 + 안내)');
+  s.paint();
+  assert.equal(sel.value, '2000');
+  sel.value = '1000';
+  sel.fire('change');
+  assert.deepEqual(log, ['set:1000', 'save', 'refresh']);
+});
+
+test('8b: NotifySection 은 데스크톱·소리 토글과 판 확인을 배선하고 TLS 안내를 그 사이에 부른다', () => {
+  const dt = elem('attn-desktop'), sd = elem('attn-sound'), up = elem('ds-update-check');
+  const { ctx } = setup({}, { 'attn-desktop': dt, 'attn-sound': sd, 'ds-update-check': up });
+  const log = [];
+  const app = { ...fakeApp(log), attnDesktop: true, attnSound: false };
+  const s = new ctx.NotifySection(app);
+  s.init();
+  assert.equal(dt.checked, true);
+  assert.equal(sd.checked, false);
+  assert.deepEqual(log, ['tls']);
+  sd.checked = true;
+  sd.fire('change');
+  assert.equal(app.attnSound, true);
+  ctx.Notification = { permission: 'granted' };
+  dt.checked = false;
+  dt.fire('change');
+  assert.equal(app.attnDesktop, false);
+  assert.equal(up.listeners.change.length, 1);
 });

@@ -1,7 +1,7 @@
 /**
  * Dongminal — 개별 설정의 **초기화와 즉시 반영** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
  *
- * 설정 하나하나가 화면에 붙는 자리다 — 탭 제목 · 포커스/주의 가장자리 · 열린
+ * 설정 하나하나가 화면에 붙는 자리다 — 탭 제목 · 열린
  * 편집기·터미널에 값 얹기. 행의 배선은 설정 섹션으로 옮겼다(`settings-display.js`·
  * `settings-terminal.js`·`settings-code.js`, REFACTOR3_FE_SETTINGS_SRS 8a).
  *
@@ -40,112 +40,6 @@ Object.assign(App.prototype, {
   /** 거울을 쓴다. 되읽어 같아야 참이다 — 사생활 모드에서는 거짓이다. */
   _localeMirror(v){
     return PrefStore.local.set(I18N_STORAGE_KEY,v)&&PrefStore.local.get(I18N_STORAGE_KEY)===v;
-  },
-
-  /**
-   * UNFOCUSED_EDGE_SRS FR-UFE-10·11: Settings ▸ Display 의 `포커스 잃은 창 표시`.
-   *
-   * 바꾼 값은 **그 자리에서** 화면에 닿는다 (`_paintFocusEdge`). 저장만 하고
-   * 다음 로드로 미루면 사용자는 스위치가 듣지 않는 것으로 읽는다 —
-   * `fgTabNames` 가 `_fgRepaint` 를 부르는 것과 같은 이유다.
-   */
-  /**
-   * UNFOCUSED_EDGE_SRS FR-UFE-10·11·16: Settings ▸ Display 의 `포커스 잃은 창 표시`.
-   *
-   * 손잡이가 하나다 (D-4a): 0 이 곧 끔이므로 스위치를 따로 두지 않는다.
-   * 바꾼 값은 **그 자리에서** 화면에 닿는다 — 저장만 하고 다음 로드로 미루면
-   * 사용자는 손잡이가 듣지 않는 것으로 읽는다 (`fgTabNames` 와 같은 이유).
-   */
-  _initFocusEdge(){
-    const sl=document.getElementById('ds-focusedge');
-    if(!sl) return;
-    sl.max=UFE_LEVEL_MAX;
-    this._focusEdgePaintRow();
-    // FR-UFE-16: 움직이는 대로 화면이 따라야 고른 것을 볼 수 있다. 저장은 멎은
-    // 뒤 한 번이다 — `tabWidthPx` 와 같은 근거(한 번의 드래그가 수십 번의 PUT).
-    sl.addEventListener('input',()=>{
-      focusEdgeLevel=Number(sl.value);
-      this._focusEdgePaintRow();
-      this._attnEdgePaintRow();
-      this._paintFocusEdge();
-      this._focusEdgePreview();
-      this._saveSettingsSoon('ufe');
-    });
-    // 손을 떼는 순간이 값이 정해지는 순간이다 — 그때는 기다리지 않고 보낸다.
-    // `tabWidthPx` 가 `blur` 에서 하는 것과 같은 자리다: 디바운스는 드래그 **중**의
-    // PUT 폭주를 막으려는 것이지, 정해진 값을 늦추려는 것이 아니다.
-    sl.addEventListener('change',()=>this._saveSettingsNow('ufe'));
-  },
-
-  /**
-   * ALERT_MOBILE_CONTEXT_SRS FR-AED-8·10·12: 알림 가장자리의 세기.
-   *
-   * 손잡이도 규약도 포커스 표시와 같다 (FR-UFE-16 의 근거 그대로: 움직이는 대로
-   * 화면이 따라야 고른 것을 볼 수 있고, 저장은 멎은 뒤 한 번이다). 다른 것은
-   * **미리보기의 이유**다 — 저쪽은 창이 포커스를 가진 동안 보이지 않아서이고,
-   * 이쪽은 알림이 없는 동안 보이지 않아서다.
-   */
-  _initAttnEdge(){
-    const sl=document.getElementById('ds-attnedge');
-    if(!sl) return;
-    sl.max=ATTN_EDGE_LEVEL_MAX;
-    this._attnEdgePaintRow();
-    sl.addEventListener('input',()=>{
-      attnEdgeLevel=Number(sl.value);
-      this._attnEdgePaintRow();
-      this._paintAttnEdge();
-      this._attnEdgePreview();
-      // 세기를 0 으로 내리면 지금 켜져 있던 띠도 그 자리에서 꺼져야 한다.
-      this._attnRefresh();
-      this._saveSettingsSoon('ae');
-    });
-    sl.addEventListener('change',()=>this._saveSettingsNow('ae'));
-  },
-
-  // FR-AED-11: 0 은 숫자가 아니라 상태다 — `끔` 이라 적는다.
-  _attnEdgePaintRow(){
-    const sl=document.getElementById('ds-attnedge');
-    const out=document.getElementById('ds-attnedge-val');
-    if(!sl) return;
-    sl.value=attnEdgeLevel;
-    sl.style.setProperty('--fill',(attnEdgeLevel/ATTN_EDGE_LEVEL_MAX*100)+'%');
-    if(out) out.textContent=attnEdgeLevel?String(attnEdgeLevel):UFE_LEVEL_OFF_LABEL;
-  },
-
-  // FR-AED-12: 고르는 동안 보인다. 알림이 없어도 — 없을 때가 대부분이다.
-  _attnEdgePreview(){
-    const ds=document.documentElement;
-    TIMERS.cancel(this._aePreviewTimer);
-    if(!attnEdgeLevel){ds.classList.remove(ATTN_EDGE_PREVIEW_CLASS);return}
-    ds.classList.add(ATTN_EDGE_PREVIEW_CLASS);
-    this._aePreviewTimer=this.timers.after(ATTN_EDGE_PREVIEW_MS,
-      ()=>ds.classList.remove(ATTN_EDGE_PREVIEW_CLASS),{owner:'app',label:'ae-preview'});
-  },
-
-  // FR-UFE-14·15 / FR-SCT-8: 레인지와 그 값 표시, 채움 비율을 함께 되돌린다.
-  // 0 은 숫자가 아니라 상태이므로 `끔` 이라 적는다 (SETTINGS_CONTROLS_SRS D-7).
-  _focusEdgePaintRow(){
-    const sl=document.getElementById('ds-focusedge');
-    const out=document.getElementById('ds-focusedge-val');
-    if(!sl) return;
-    sl.value=focusEdgeLevel;
-    sl.style.setProperty('--fill',(focusEdgeLevel/UFE_LEVEL_MAX*100)+'%');
-    if(out) out.textContent=focusEdgeLevel?String(focusEdgeLevel):UFE_LEVEL_OFF_LABEL;
-  },
-
-  /**
-   * FR-UFE-18 / D-8d: 고르는 동안 보인다.
-   *
-   * 이 표시는 포커스를 잃었을 때만 뜨는데, 레인지를 만지는 동안 창은 **반드시**
-   * 포커스를 가지고 있다. 미리보기가 없으면 사용자는 눈을 감고 값을 고른다.
-   * 0 에서는 보여 줄 것이 없으므로 켜지 않는다.
-   */
-  _focusEdgePreview(){
-    const ds=document.documentElement;
-    TIMERS.cancel(this._ufePreviewTimer);
-    if(!focusEdgeLevel){ds.classList.remove(UFE_PREVIEW_CLASS);return}
-    ds.classList.add(UFE_PREVIEW_CLASS);
-    this._ufePreviewTimer=this.timers.after(UFE_PREVIEW_MS,()=>ds.classList.remove(UFE_PREVIEW_CLASS),{owner:'app',label:'ufe-preview'});
   },
 
   /**

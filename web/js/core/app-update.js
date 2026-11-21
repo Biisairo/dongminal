@@ -56,26 +56,5 @@ Object.assign(App.prototype, {
       if(u.link) el.href=u.link; else el.removeAttribute('href');
     }
   },
-
-  /**
-   * FR-UPD-15: 설정 페이지의 체크박스. **이 값만 `/api/settings` 가 아니라
-   * `/api/update` 로 간다** (D-UPD-2) — 서버가 읽어야 하는 값이고, 설정 블롭은
-   * 서버가 해석하지 않는다 (D-CFG-1).
-   *
-   * 판 확인이 없는 서버(503)에서는 행을 감춘다. 누를 수 없는 것을 보여 주는
-   * 것은 고장으로 읽힌다.
-   */
-  initUpdateSettings(){
-    const cb=document.getElementById('ds-update-check');
-    if(!cb) return;
-    cb.addEventListener('change',()=>{
-      const on=cb.checked;
-      apiPut('/api/update',{enabled:on}).then(r=>{
-        if(r.ok&&r.data){ this._update=r.data; this._updateRender(); return }
-        // 서버가 받지 못했다. 화면만 바뀐 채로 두면 껐다고 믿게 된다 —
-        // 그것이 §1.2 가 막으려는 거짓말이다.
-        cb.checked=!on;
-      });
-    });
-  },
+  // FR-UPD-15: 설정 페이지의 체크박스는 `NotifySection` 이 배선한다 (REFACTOR3_FE_SETTINGS_SRS 8b).
 });
