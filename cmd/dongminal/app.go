@@ -48,7 +48,7 @@ type app struct {
 
 // buildApp 은 조립이다 — 로그 계층·헬퍼 설치·데몬 연결·의존 배선·서버·해석층
 // 되살림. 여기서 돌아오면 요청을 받을 수 있는 상태이며 아직 아무것도 돌지 않는다.
-func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
+func buildApp(gitCtx context.Context, home, host, port string) (*app, error) {
 	os.Setenv(dmenv.EnvHome, home)
 	// 바인드는 환경변수로 넘기지 않는다 — 헬퍼(dmctl/edit/…)는 주소 파일로 서버를
 	// 찾는다 (HOT_REBIND_SRS FR-HRB-11·12). 셸이 옛 값을 물려받지 않게 한다.
@@ -77,7 +77,7 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 		return nil, err
 	}
 	a.panedClient = pc
-	a.bd, err = buildDepsWithHub(cfg, a.panedClient, gitRoot)
+	a.bd, err = buildDepsWithHub(cfg, a.panedClient, gitCtx)
 	if err != nil {
 		a.panedClient.Close()
 		return nil, err
@@ -376,9 +376,9 @@ func (a *app) shutdown() {
 // --foreground` 의 실체이며, 배경 모드는 자기 자신을 이 형태로 재실행한다.
 func serve(home, host, port string) int {
 	// REPO_FIX 01 §8: git 의 서버 수명. 조립 전에 만들어 Store·잡이 파생하게 한다.
-	gitRoot, cancelGit := context.WithCancel(context.Background())
+	gitCtx, cancelGit := context.WithCancel(context.Background())
 	defer cancelGit()
-	a, err := buildApp(gitRoot, home, host, port)
+	a, err := buildApp(gitCtx, home, host, port)
 	if err != nil {
 		switch {
 		case errors.Is(err, workspace.ErrSchemaTooOld):

@@ -333,24 +333,23 @@ func AgentPluginDir(binDir string) string { return filepath.Join(binDir, "agent-
 // AgentMemoryDir 는 주입 메모리(CLAUDE.md) 폴더다. claude shim 이 그 내용을 시스템 프롬프트로 붙인다 (FR-AMI-2).
 func AgentMemoryDir(binDir string) string { return filepath.Join(binDir, "agent-memory") }
 
-// installAgentPlugin은 임베드된 플러그인(스킬 + 매니페스트)을 전개하고, 그 안에
-// SessionStart 훅을 생성한다 (FR-INJ-1, FR-CTX-2).
+// unpackAgentPlugin 은 임베드된 플러그인(스킬 + 매니페스트)을 전개한다 (FR-INJ-1, FR-CTX-2).
 //
 // 이 플러그인은 사용자의 ~/.claude 에 설치되지 않는다. dongminal 이 띄운 PTY 의
 // claude shim(FR-CAC-83)과 omp 래퍼만 --plugin-dir 로 참조하므로, 주입 범위가 그 세션으로 한정된다.
 //
-// 전개 뒤에는 임베드 트리에 없는 것을 지운다. 설치 트리는 임베드 트리의
-// **거울**이어야 한다 — 삭제된 스킬 자산이 남아 있으면 그 경로를 그대로 쓰는
-// 옛 세션이 사라진 스크립트를 실행한다 (실측 2026-08-25: b3dc910 에서 지운
-// build_prompt.py 가 설치 트리에 남아 있었다).
 // 훅 쓰기는 이 자리를 떠났다 — 그 형식은 claude 의 것이므로 어댑터가 든다
-// (FR-AAC-6). 남은 둘은 **자산 관리**이며 어느 에이전트의 것도 아니다.
+// (FR-AAC-6). 남은 둘(전개·가지치기)은 **자산 관리**이며 어느 에이전트의 것도 아니다.
 func unpackAgentPlugin(binDir string) error {
 	return unpackEmbedded(agentPluginFS, "agentplugin", AgentPluginDir(binDir))
 }
 
 // pruneAgentPlugin 은 설치 트리를 임베드 트리의 거울로 되돌린다. 어댑터가 쓴
 // 훅은 `generatedPluginPaths` 가 지킨다.
+//
+// 설치 트리는 임베드 트리의 **거울**이어야 한다 — 삭제된 스킬 자산이 남아 있으면 그
+// 경로를 그대로 쓰는 옛 세션이 사라진 스크립트를 실행한다 (실측 2026-08-25: b3dc910
+// 에서 지운 build_prompt.py 가 설치 트리에 남아 있었다).
 func pruneAgentPlugin(binDir string) error {
 	return pruneToEmbedded(agentPluginFS, "agentplugin", AgentPluginDir(binDir), generatedPluginPaths)
 }

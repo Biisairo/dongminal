@@ -13,6 +13,7 @@ import (
 
 	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/apipath"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/statusline"
 )
@@ -101,7 +102,7 @@ func statuslineProjectDir(raw []byte) string {
 // 데만 쓴다 — 하위 명령은 이 프로세스의 환경을 그대로 물려받는다.
 func runStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]string) int {
 	raw, _ := io.ReadAll(stdin)
-	if tool := env["DONGMINAL_TOOL_ID"]; tool != "" {
+	if tool := env[dmenv.EnvToolID]; tool != "" {
 		if u := statusline.FromInput(raw); u != nil {
 			body := map[string]any{"toolId": tool, "usage": u}
 			if acc := statuslineAccount(env); acc != nil {
@@ -117,7 +118,7 @@ func runStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]str
 // 하위 명령이 없으면 아무것도 출력하지 않는다 — Claude Code 는 줄이 없는 행을 기본 모양으로 그린다.
 func runSubagentStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]string) int {
 	raw, _ := io.ReadAll(stdin)
-	if tool := env["DONGMINAL_TOOL_ID"]; tool != "" {
+	if tool := env[dmenv.EnvToolID]; tool != "" {
 		if tasks, ok := statusline.SubagentsFromInput(raw); ok {
 			_, _, _ = postReport(agentrec.MethodSubagents, apipath.ToolsSubagents, map[string]any{"toolId": tool, "tasks": tasks}, slReportBudget)
 		}
@@ -163,7 +164,7 @@ func runDmctlSubagentStatusline(stdin io.Reader, stdout, stderr io.Writer) int {
 // statuslineEnv 는 두 프록시가 설정을 찾고 보고 대상을 정하는 데 쓰는 환경 값이다.
 func statuslineEnv() map[string]string {
 	env := map[string]string{}
-	for _, k := range []string{"HOME", "USERPROFILE", "CLAUDE_CONFIG_DIR", "DONGMINAL_TOOL_ID"} {
+	for _, k := range []string{"HOME", "USERPROFILE", "CLAUDE_CONFIG_DIR", dmenv.EnvToolID} {
 		env[k] = os.Getenv(k)
 	}
 	if env["HOME"] == "" {

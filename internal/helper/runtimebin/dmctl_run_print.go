@@ -52,7 +52,7 @@ type runMember struct {
 	SucceededFrom string  `json:"succeededFrom"`
 }
 
-// memberContext 는 멤버 행에 붙는 컨텍스트 조각이다 (FR-CBG-13).
+// contextCell 은 멤버 행에 붙는 컨텍스트 조각이다 (FR-CBG-13).
 //
 // **추정임이 드러나야 한다** (NFR-CBG-3). 그래서 숫자에는 언제나 ~ 가 붙고,
 // 모르는 것은 0% 가 아니라 — 로 나온다 — 관측되지 않는 에이전트가 여유로워
