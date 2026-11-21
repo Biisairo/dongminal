@@ -135,38 +135,11 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) {
 		return
 	}
-	var body struct {
-		ToolID string `json:"toolId"`
-		// Bytes 는 포인터다. 재지 못한 것과 0 바이트를 구분해야 하고, 그 구분이
-		// 곧 "모른다" 와 "괜찮다" 의 구분이다 (FR-CBG-5).
-		Bytes     *int64 `json:"bytes"`
-		SessionID string `json:"sessionId"`
-		Compacted bool   `json:"compacted"`
-		// UX_BATCH6_SRS FR-CTX-1·5: 실측 토큰과 그것을 낸 모델. Bytes 와 같은
-		// 규약으로 포인터다 — 재지 못한 것과 0 을 가른다.
-		Tokens *int64 `json:"tokens"`
-		Model  string `json:"model"`
-		// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-23: 보고자. 모델 이름의 뜻은
-		// 에이전트마다 다르므로 창 크기를 물으려면 누가 보고했는지 알아야 한다.
-		// 비어 있으면 창을 모르는 것으로 둔다 — 폴백이 이미 있다 (FR-CTX-6·7).
-		Agent string `json:"agent"`
-		// TranscriptPath 는 그 세션의 기록이 있는 로컬 파일의 경로다. 훅이 실어
-		// 보내므로 **필드를 남기되 쓰지 않는다** (AGENT_GUI_REMOVAL_SRS FR-AGR-9).
-		TranscriptPath string `json:"transcriptPath"`
-	}
+	var body contextReq
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	obs := run.ContextObservation{
-		SessionID: body.SessionID, Compacted: body.Compacted,
-		Model: body.Model, Agent: body.Agent,
-	}
-	if body.Bytes != nil && *body.Bytes >= 0 {
-		obs.Bytes, obs.HasBytes = *body.Bytes, true
-	}
-	if body.Tokens != nil && *body.Tokens >= 0 {
-		obs.Tokens, obs.HasTokens = *body.Tokens, true
-	}
+	obs := contextObservation(body)
 	// FR-OPT-8-3 (HTTP-3): 열린 Run 이 없으면 멤버도 조정자도 없다 — PID 사슬 해석
 	// (darwin 에서 lsof·ps fork)을 건너뛴다. 해석 우선 규약(스푸핑 방지)은 앉을
 	// 자리가 있을 때만 의미가 있다.
@@ -196,9 +169,51 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 	if entered != "" {
 		s.notifyContextAlert(m, entered)
 	}
-	// FR-RCX-6·7: 멤버가 아니라 **조정자 자리**에 앉은 관측은 멤버 id 가 없다.
-	// 빈 문자열을 내는 대신 그 사실을 말한다 — 받는 쪽이 "멤버를 못 찾았다" 와
-	// 구분할 수 있어야 한다.
+	writeJSON(w, contextResponse(m, entered))
+}
+
+// contextReq 는 `POST /api/runs/context` 의 본문이다.
+type contextReq struct {
+	ToolID string `json:"toolId"`
+	// Bytes 는 포인터다. 재지 못한 것과 0 바이트를 구분해야 하고, 그 구분이
+	// 곧 "모른다" 와 "괜찮다" 의 구분이다 (FR-CBG-5).
+	Bytes     *int64 `json:"bytes"`
+	SessionID string `json:"sessionId"`
+	Compacted bool   `json:"compacted"`
+	// UX_BATCH6_SRS FR-CTX-1·5: 실측 토큰과 그것을 낸 모델. Bytes 와 같은
+	// 규약으로 포인터다 — 재지 못한 것과 0 을 가른다.
+	Tokens *int64 `json:"tokens"`
+	Model  string `json:"model"`
+	// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-23: 보고자. 모델 이름의 뜻은
+	// 에이전트마다 다르므로 창 크기를 물으려면 누가 보고했는지 알아야 한다.
+	// 비어 있으면 창을 모르는 것으로 둔다 — 폴백이 이미 있다 (FR-CTX-6·7).
+	Agent string `json:"agent"`
+	// TranscriptPath 는 그 세션의 기록이 있는 로컬 파일의 경로다. 훅이 실어
+	// 보내므로 **필드를 남기되 쓰지 않는다** (AGENT_GUI_REMOVAL_SRS FR-AGR-9).
+	TranscriptPath string `json:"transcriptPath"`
+}
+
+// contextObservation 은 본문을 관측으로 옮긴다. 음수 바이트·토큰은 재지 못한 것으로 본다.
+func contextObservation(body contextReq) run.ContextObservation {
+	obs := run.ContextObservation{
+		SessionID: body.SessionID, Compacted: body.Compacted,
+		Model: body.Model, Agent: body.Agent,
+	}
+	if body.Bytes != nil && *body.Bytes >= 0 {
+		obs.Bytes, obs.HasBytes = *body.Bytes, true
+	}
+	if body.Tokens != nil && *body.Tokens >= 0 {
+		obs.Tokens, obs.HasTokens = *body.Tokens, true
+	}
+	return obs
+}
+
+// contextResponse 는 관측의 답이다.
+//
+// FR-RCX-6·7: 멤버가 아니라 **조정자 자리**에 앉은 관측은 멤버 id 가 없다.
+// 빈 문자열을 내는 대신 그 사실을 말한다 — 받는 쪽이 "멤버를 못 찾았다" 와
+// 구분할 수 있어야 한다.
+func contextResponse(m run.Member, entered string) map[string]any {
 	out := map[string]any{
 		"observed": true, "level": m.ContextLevel,
 		"ratio": m.ContextRatio, "compactCount": m.CompactCount, "entered": entered,
@@ -212,7 +227,7 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 	} else {
 		out["memberId"] = m.ID
 	}
-	writeJSON(w, out)
+	return out
 }
 
 // notifyContextAlert 는 등급 전이를 조정자에게 한 번 알린다 (FR-CBG-6).
@@ -281,35 +296,21 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) || !s.toolIOReady(w) {
 		return
 	}
-	var body struct {
-		MemberID  string `json:"memberId"`
-		At        string `json:"at"`
-		Headless  bool   `json:"headless"`
-		TimeoutMs int    `json:"timeoutMs"`
-		ToolID    string `json:"toolId"`
-		// ISSUE_TREE_OPS_SRS FR-ITB-1: 자기 승계. 발신 도구가 그 멤버여야 하고, 요약을
-		// 직접 싣는다 — 청하지도 기다리지도 않는다(청하면 Bash 를 도는 자기에게 간다).
-		Self    bool   `json:"self"`
-		Summary string `json:"summary"`
-	}
+	var body succeedReq
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	if body.Self {
-		caller := s.callerToolID(r, body.ToolID)
-		own, isMember := s.Runs.MemberByTool(caller)
-		if !isMember || (body.MemberID != "" && body.MemberID != own.ID) {
-			writeRunError(w, run.ErrSenderNotMember, nil)
+		own, isMember := s.Runs.MemberByTool(s.callerToolID(r, body.ToolID))
+		id, err := selfSucceedMember(body.MemberID, own, isMember)
+		if err != nil {
+			writeRunError(w, err, nil)
 			return
 		}
-		body.MemberID = own.ID
+		body.MemberID = id
 	}
-	if strings.TrimSpace(body.MemberID) == "" {
-		writeRunError(w, fmt.Errorf("%w: --member 는 필수다", run.ErrInvalidArgument), nil)
-		return
-	}
-	if body.Headless && body.At != "" {
-		writeRunError(w, fmt.Errorf("%w: --at 과 --headless 는 함께 쓸 수 없다", run.ErrInvalidArgument), nil)
+	if err := succeedArgsError(body); err != nil {
+		writeRunError(w, err, nil)
 		return
 	}
 	rec, prev, ok := s.runMember(w, body.MemberID)
@@ -320,33 +321,9 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, run.ErrRunClosed, nil)
 		return
 	}
-	// 새 멤버가 들어앉을 도구를 확정한다 — 탭이 지목됐으면 그것을, --headless
-	// 면 여기서 만든다 (FR-HLM-1 의 배타는 위에서 이미 걸렀다).
-	//
-	// **cwd 는 전임자의 자리다.** 승계는 worktree 를 새로 만들지 않고 물려받으므로
-	// (FR-CBG-11) 격리 Run 이면 전임자의 트리가 그대로 새 멤버의 작업 위치다.
-	// 격리가 없으면 전임자의 도구가 실제로 서 있던 디렉터리를 쓴다 — 헤드리스
-	// 멤버에게는 cd 를 대신 쳐 줄 사람이 없고(FR-HLM-2), 잇는 일이 놓인 자리가
-	// 곧 그 일을 이어받을 자리다. 전임자의 도구가 이미 죽었으면 빈 값이 되어
-	// 서버 기본 cwd 로 떨어진다.
-	toolID := ""
-	if body.Headless {
-		cwd := ""
-		if prev.Worktree != nil && prev.Worktree.Path != "" {
-			cwd = prev.Worktree.Path
-		} else if s.Tools != nil {
-			cwd = s.Tools.Cwd(prev.ToolID)
-		}
-		var err error
-		if toolID, err = s.createHeadlessTool(cwd, ""); err != nil {
-			writeToolIOError(w, http.StatusInternalServerError, "헤드리스 도구 생성 실패: "+err.Error())
-			return
-		}
-	} else {
-		var resolved bool
-		if toolID, resolved = s.resolveToolID(w, body.At); !resolved {
-			return
-		}
+	toolID, ok := s.succeedTool(w, body, prev)
+	if !ok {
+		return
 	}
 
 	// 1) 인수인계를 청한다. 이전 멤버가 이미 죽었으면 청할 곳이 없으므로
@@ -364,7 +341,77 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		dmlog.Infof(nil, "[run] succeed 중단 — 요청이 끊겼다 run=%s member=%s", rec.Short, prev.ID)
 		return
 	}
+	s.completeSucceed(w, body, rec, prev, toolID, summary, asked)
+}
 
+// succeedReq 는 `POST /api/runs/succeed` 의 본문이다.
+type succeedReq struct {
+	MemberID  string `json:"memberId"`
+	At        string `json:"at"`
+	Headless  bool   `json:"headless"`
+	TimeoutMs int    `json:"timeoutMs"`
+	ToolID    string `json:"toolId"`
+	// ISSUE_TREE_OPS_SRS FR-ITB-1: 자기 승계. 발신 도구가 그 멤버여야 하고, 요약을
+	// 직접 싣는다 — 청하지도 기다리지도 않는다(청하면 Bash 를 도는 자기에게 간다).
+	Self    bool   `json:"self"`
+	Summary string `json:"summary"`
+}
+
+// selfSucceedMember 는 자기 승계의 대상 멤버다. 발신 도구가 멤버가 아니거나 다른 멤버를
+// 지목했으면 거절이다 (FR-ITB-1).
+func selfSucceedMember(requested string, own run.Member, isMember bool) (string, error) {
+	if !isMember || (requested != "" && requested != own.ID) {
+		return "", run.ErrSenderNotMember
+	}
+	return own.ID, nil
+}
+
+// succeedArgsError 는 승계 인자의 모양을 본다 — 멤버는 필수이고 --at 과 --headless 는 배타다.
+func succeedArgsError(body succeedReq) error {
+	if strings.TrimSpace(body.MemberID) == "" {
+		return fmt.Errorf("%w: --member 는 필수다", run.ErrInvalidArgument)
+	}
+	if body.Headless && body.At != "" {
+		return fmt.Errorf("%w: --at 과 --headless 는 함께 쓸 수 없다", run.ErrInvalidArgument)
+	}
+	return nil
+}
+
+// succeedTool 은 새 멤버가 들어앉을 도구를 확정한다 — 탭이 지목됐으면 그것을, --headless
+// 면 여기서 만든다 (FR-HLM-1 의 배타는 앞에서 이미 걸렀다). 거절했으면 답을 쓰고 ok 가 거짓이다.
+//
+// **cwd 는 전임자의 자리다.** 승계는 worktree 를 새로 만들지 않고 물려받으므로
+// (FR-CBG-11) 격리 Run 이면 전임자의 트리가 그대로 새 멤버의 작업 위치다.
+// 격리가 없으면 전임자의 도구가 실제로 서 있던 디렉터리를 쓴다 — 헤드리스
+// 멤버에게는 cd 를 대신 쳐 줄 사람이 없고(FR-HLM-2), 잇는 일이 놓인 자리가
+// 곧 그 일을 이어받을 자리다. 전임자의 도구가 이미 죽었으면 빈 값이 되어
+// 서버 기본 cwd 로 떨어진다.
+func (s *Server) succeedTool(w http.ResponseWriter, body succeedReq, prev run.Member) (toolID string, ok bool) {
+	if !body.Headless {
+		return s.resolveToolID(w, body.At)
+	}
+	cwd, isolated := worktreePath(prev.Worktree)
+	if !isolated && s.Tools != nil {
+		cwd = s.Tools.Cwd(prev.ToolID)
+	}
+	toolID, err := s.createHeadlessTool(cwd, "")
+	if err != nil {
+		writeToolIOError(w, http.StatusInternalServerError, "헤드리스 도구 생성 실패: "+err.Error())
+		return "", false
+	}
+	return toolID, true
+}
+
+// worktreePath 는 멤버 작업 트리의 경로다. 격리가 없으면 거짓이다.
+func worktreePath(wt *run.Worktree) (string, bool) {
+	if wt != nil && wt.Path != "" {
+		return wt.Path, true
+	}
+	return "", false
+}
+
+// completeSucceed 는 사슬을 잇고 답한다 (FR-CBG-9 의 3~5단계).
+func (s *Server) completeSucceed(w http.ResponseWriter, body succeedReq, rec run.Record, prev run.Member, toolID, summary string, asked bool) {
 	// 2) 사슬을 잇는다. worktree 는 물려받고 새로 만들지 않는다.
 	prevAfter, next, err := s.Runs.Succeed(run.SucceedSpec{
 		PrevMemberID: prev.ID,
@@ -400,14 +447,19 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 	dmlog.Infof(nil, "[run] succeed run=%s prev=%s next=%s role=%s tool=%s tab=%s summary=%v worktree=%v",
 		rec.Short, prevAfter.ID, next.ID, next.Role, next.ToolID, next.TabID,
 		prevAfter.HandoffSummary != "", next.Worktree != nil)
-	writeJSON(w, map[string]any{
+	writeJSON(w, succeedResponse(view, prevAfter))
+}
+
+// succeedResponse 는 승계의 답이다.
+func succeedResponse(view memberView, prevAfter run.Member) map[string]any {
+	return map[string]any{
 		"member":       view,
 		"prevMemberId": prevAfter.ID,
 		"prevState":    prevAfter.State,
 		// hasSummary 는 조정자가 "인수인계가 실제로 있었나" 를 산문에서 읽지
 		// 않아도 알게 한다. 없는 것은 없다고 말한다.
 		"hasSummary": prevAfter.HandoffSummary != "",
-	})
+	}
 }
 
 // requestHandoff 는 이전 멤버에게 인수인계 요약을 청하고 기다린다 (FR-CBG-9 의

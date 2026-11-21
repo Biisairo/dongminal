@@ -120,27 +120,8 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	q := r.URL.Query()
-	skip, ok := gitCountParam(w, q, "skip")
+	req, ok := gitLogParams(w, r.URL.Query(), requested)
 	if !ok {
-		return
-	}
-	limit, ok := gitCountParam(w, q, "limit")
-	if !ok {
-		return
-	}
-	reflog, ok := gitBoolParam(w, q, "reflog")
-	if !ok {
-		return
-	}
-	req := gitLogRequested{
-		Repo: requested, Ref: q.Get("ref"), Skip: skip, Limit: limit, Order: q.Get("order"),
-		Author: q.Get("author"), Since: q.Get("since"), Until: q.Get("until"),
-		Path: q.Get("path"), Grep: q.Get("grep"), Reflog: reflog, Stop: q.Get("stop"),
-	}
-	// 뒷장(skip)은 목록의 머리가 아니다 — 증분의 기준이 없다.
-	if req.Stop != "" && req.Skip > 0 {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "stop 은 skip 과 함께 쓸 수 없다")
 		return
 	}
 	commits, err := query.Log(s.Git.Service(), r.Context(), query.LogQuery{
@@ -168,12 +149,7 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	// GIT_EMPTY_REPO_OBSERVE_SRS FR-GEO-1~4: 판정이 필요할 때만 묻는다. 거부된
 	// 요청(400)이면 관측하지 않는다 — H-L2 가 지키는 "거부했는데 실행했다" 의 선이다.
 	initial := func() bool {
-		rejected := false
-		if err != nil {
-			code, _ := gitErrorCode(err)
-			rejected = code == http.StatusBadRequest
-		}
-		return s.gitInitial(r.Context(), root, rejected)
+		return s.gitInitial(r.Context(), root, gitLogRejected(err))
 	}
 	if err != nil {
 		if initial() {
@@ -203,6 +179,47 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 		Signature: sig.Value,
 		Tail:      tail,
 	})
+}
+
+// gitLogParams 는 log 의 질의 인자를 읽는다. 거절했으면 답을 쓰고 ok 가 거짓이다.
+func gitLogParams(w http.ResponseWriter, q url.Values, requested string) (gitLogRequested, bool) {
+	skip, ok := gitCountParam(w, q, "skip")
+	if !ok {
+		return gitLogRequested{}, false
+	}
+	limit, ok := gitCountParam(w, q, "limit")
+	if !ok {
+		return gitLogRequested{}, false
+	}
+	reflog, ok := gitBoolParam(w, q, "reflog")
+	if !ok {
+		return gitLogRequested{}, false
+	}
+	req := gitLogRequested{
+		Repo: requested, Ref: q.Get("ref"), Skip: skip, Limit: limit, Order: q.Get("order"),
+		Author: q.Get("author"), Since: q.Get("since"), Until: q.Get("until"),
+		Path: q.Get("path"), Grep: q.Get("grep"), Reflog: reflog, Stop: q.Get("stop"),
+	}
+	if gitLogStopWithSkip(req) {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "stop 은 skip 과 함께 쓸 수 없다")
+		return gitLogRequested{}, false
+	}
+	return req, true
+}
+
+// gitLogStopWithSkip 은 증분(stop)을 뒷장(skip)에 청했는가다. 뒷장은 목록의 머리가
+// 아니므로 증분의 기준이 없다.
+func gitLogStopWithSkip(req gitLogRequested) bool {
+	return req.Stop != "" && req.Skip > 0
+}
+
+// gitLogRejected 는 log 실패가 인자 거부(400)인가다. 거부면 빈 저장소를 관측하지 않는다.
+func gitLogRejected(err error) bool {
+	if err == nil {
+		return false
+	}
+	code, _ := gitErrorCode(err)
+	return code == http.StatusBadRequest
 }
 
 // gitCommitRequested 의 식별자는 (리포, 커밋 해시, 비교 부모) 다 (FR-GIT-145).

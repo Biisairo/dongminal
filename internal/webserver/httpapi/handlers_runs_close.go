@@ -6,6 +6,7 @@ import (
 
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/domain/worktree"
 )
 
 // apiRunClose implements POST /api/runs/close (FR-RUN-10/11).
@@ -26,16 +27,7 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) {
 		return
 	}
-	var body struct {
-		RunID string `json:"runId"`
-		Force bool   `json:"force"`
-		// KeepWorktrees 는 전부 보존한다 (FR-WKT-8). 보존도 **보고**된다 —
-		// 조용히 남는 자원이 없어야 한다 (FR-WKT-12).
-		KeepWorktrees bool `json:"keepWorktrees"`
-		// KeepTools 는 헤드리스 멤버의 도구를 종료하지 않는다 (FR-HLM-4).
-		// 보존한 도구는 이후 run status 의 고아 목록에 남는다 (FR-HLM-5).
-		KeepTools bool `json:"keepTools"`
-	}
+	var body runCloseReq
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
@@ -72,32 +64,13 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	//             지울 것이 없다 — 자리가 사라진다.
 	s.markWorkspaceRunExcept(rec, "", "", closedTabIDs(closed))
 	trees := s.cleanupWorktrees(cctx, rec, body.KeepWorktrees)
-	residue := 0
-	for _, t := range trees {
-		if !t.Removed {
-			residue++
-		}
-	}
+	residue := worktreeResidue(trees)
 	// 고아 판정이 closeHeadlessTools 뒤에 오는 것은 순서가 아니라 **의미**다 —
 	// 앞서 세면 방금 거둔 도구까지 고아로 보고된다 (FR-HLM-5).
 	dmlog.Infof(nil, "[run] close id=%s members=%d force=%v sweep=%v worktrees=%d residue=%d keepTools=%v",
 		rec.ID, len(rec.Members), body.Force, sweep, len(trees), residue, body.KeepTools)
 	orphans := s.orphanHeadless(rec)
-	// UX_REVISION_SRS FR-DEL-12: 끝난 Run 은 목록에 남지 않는다. 정리는 위에서
-	// 이미 끝났으므로 여기서는 레코드만 지우고 방송한다 — purgeRun 을 부르면
-	// 같은 정리를 두 번 돌게 된다.
-	//
-	// FR-DEL-9a: 남긴 것이 있으면 지우지 않는다. 잔여 worktree 도, `--keep-tools`
-	// 로 살려 둔 헤드리스 도구도, 그것이 남아 있다는 사실을 아는 자리는 레코드
-	// 하나뿐이다 (FR-WKT-12 · FR-HLM-5). 지우면 아무도 모르는 자원이 된다.
-	if residue > 0 || len(kept) > 0 {
-		dmlog.Infof(nil, "[run] close 뒤 레코드 보존 id=%s residue=%d keptTools=%d",
-			rec.ID, residue, len(kept))
-	} else if _, err := s.Runs.Delete(rec.ID); err != nil {
-		dmlog.Errorf(nil, "[run] close 뒤 레코드 삭제 실패 id=%s: %v", rec.ID, err)
-	} else {
-		s.broadcastRunChanged(rec)
-	}
+	s.retireClosedRun(rec, residue, len(kept))
 	writeJSON(w, map[string]any{
 		"id": rec.ID, "short": rec.Short, "state": rec.State,
 		"closedAt": rec.ClosedAt, "windowId": rec.WindowID, "cleanup": cleanup,
@@ -106,6 +79,54 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 		// FR-RUN-9: 무엇을 닫았는가. `cleanup` 은 **대상**이고 이쪽은 **결과**다.
 		"closedTabs": closed,
 	})
+}
+
+// runCloseReq 는 `POST /api/runs/close` 의 본문이다.
+type runCloseReq struct {
+	RunID string `json:"runId"`
+	Force bool   `json:"force"`
+	// KeepWorktrees 는 전부 보존한다 (FR-WKT-8). 보존도 **보고**된다 —
+	// 조용히 남는 자원이 없어야 한다 (FR-WKT-12).
+	KeepWorktrees bool `json:"keepWorktrees"`
+	// KeepTools 는 헤드리스 멤버의 도구를 종료하지 않는다 (FR-HLM-4).
+	// 보존한 도구는 이후 run status 의 고아 목록에 남는다 (FR-HLM-5).
+	KeepTools bool `json:"keepTools"`
+}
+
+// worktreeResidue 는 지우지 못한(또는 지우지 않은) worktree 수다.
+func worktreeResidue(trees []worktree.Result) int {
+	residue := 0
+	for _, t := range trees {
+		if !t.Removed {
+			residue++
+		}
+	}
+	return residue
+}
+
+// keepRunRecord 는 닫은 Run 의 레코드를 남길지다.
+//
+// FR-DEL-9a: 남긴 것이 있으면 지우지 않는다. 잔여 worktree 도, `--keep-tools`
+// 로 살려 둔 헤드리스 도구도, 그것이 남아 있다는 사실을 아는 자리는 레코드
+// 하나뿐이다 (FR-WKT-12 · FR-HLM-5). 지우면 아무도 모르는 자원이 된다.
+func keepRunRecord(residue, keptTools int) bool {
+	return residue > 0 || keptTools > 0
+}
+
+// retireClosedRun 은 닫은 Run 의 레코드를 지우고 방송한다. 남길 것이 있으면 지우지 않는다.
+//
+// UX_REVISION_SRS FR-DEL-12: 끝난 Run 은 목록에 남지 않는다. 정리는 이미
+// 끝났으므로 여기서는 레코드만 지우고 방송한다 — purgeRun 을 부르면
+// 같은 정리를 두 번 돌게 된다.
+func (s *Server) retireClosedRun(rec run.Record, residue, keptTools int) {
+	if keepRunRecord(residue, keptTools) {
+		dmlog.Infof(nil, "[run] close 뒤 레코드 보존 id=%s residue=%d keptTools=%d",
+			rec.ID, residue, keptTools)
+	} else if _, err := s.Runs.Delete(rec.ID); err != nil {
+		dmlog.Errorf(nil, "[run] close 뒤 레코드 삭제 실패 id=%s: %v", rec.ID, err)
+	} else {
+		s.broadcastRunChanged(rec)
+	}
 }
 
 // unreportedExtra 는 close 거부의 부가 정보다 — 아직 보고하지 않은 멤버가 있으면

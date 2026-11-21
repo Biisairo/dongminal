@@ -253,30 +253,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	if deps.Worktrees != nil {
 		runWorktreeRoot = deps.Worktrees.Root()
 	}
-	// FR-EDT-116(D-17): RepoRoot 를 주입한다 — 이렇게 해야 httpapi 가 gitapi 를
-	// import 하지 않고도 "Editor 루트가 저장소의 루트인가"를 판정한다. Git 이
-	// 없으면 그 연동만 서지 않고 Editor 목록 자체는 그대로 돈다.
-	var repoRoot wsentry.RepoRootFn
-	if deps.Git != nil {
-		repoRoot = deps.Git.RepoRoot
-	}
-	// FR-NOT-1: 메모 루트는 `worktrees`·`git-worktrees` 와 같은 규약으로
-	// $DONGMINAL_HOME 아래에 선다. DataDir 이 비면 자리가 없다는 뜻이므로
-	// NotesDir 도 비고, 그것이 곧 FR-NOT-11 의 "메모장 표면이 없다" 이다.
-	notesDir := ""
-	if cfg.DataDir != "" {
-		notesDir = filepath.Join(cfg.DataDir, dmenv.NotesDir)
-	}
-	// FR-EXT-9b: 플러그인 선언의 자리. 칸 이름은 `ext` 가 정한다 — 여기서 따로
-	// 적으면 탐색기가 보는 곳과 조달이 쓰는 곳이 갈린다.
-	pluginsDir := ""
-	if cfg.DataDir != "" {
-		pluginsDir = ext.PluginsDir(ext.RootIn(cfg.DataDir))
-	}
-	srv.Entries = &wsentry.Store{
-		Work: deps.Work, Commands: cmds, RepoRoot: repoRoot,
-		NotesDir: notesDir, PluginsDir: pluginsDir,
-	}
+	srv.Entries = newEntryStore(cfg.DataDir, deps, cmds)
 	// GIT_PUSH_OBSERVE_SRS: signature 감시자. 저장소 계층이 없으면 서지 않는다 —
 	// 감시할 대상이 없고, 그때 `GitServer.Watch` 는 nil 이라 표명이 무해하게
 	// 지나간다.
@@ -287,13 +264,50 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		srv.applyGitWorktree()
 	}
 	srv.fs.watch = newFSWatch(cmds, srv.gitWatch)
-	srv.git = &gitapi.GitServer{
+	srv.git = newGitServer(deps, cmds, srv.gitWatch, runWorktreeRoot)
+	return srv, nil
+}
+
+// newEntryStore 는 Editor·메모·플러그인 목록의 저장소를 세운다.
+func newEntryStore(dataDir string, deps Deps, cmds hub.CommandBroker) *wsentry.Store {
+	// FR-EDT-116(D-17): RepoRoot 를 주입한다 — 이렇게 해야 httpapi 가 gitapi 를
+	// import 하지 않고도 "Editor 루트가 저장소의 루트인가"를 판정한다. Git 이
+	// 없으면 그 연동만 서지 않고 Editor 목록 자체는 그대로 돈다.
+	var repoRoot wsentry.RepoRootFn
+	if deps.Git != nil {
+		repoRoot = deps.Git.RepoRoot
+	}
+	notesDir, pluginsDir := dataDirLayout(dataDir)
+	return &wsentry.Store{
+		Work: deps.Work, Commands: cmds, RepoRoot: repoRoot,
+		NotesDir: notesDir, PluginsDir: pluginsDir,
+	}
+}
+
+// dataDirLayout 은 데이터 디렉터리 아래 메모·플러그인 자리다. dataDir 이 비면 둘 다 빈다.
+//
+// FR-NOT-1: 메모 루트는 `worktrees`·`git-worktrees` 와 같은 규약으로
+// $DONGMINAL_HOME 아래에 선다. DataDir 이 비면 자리가 없다는 뜻이므로
+// NotesDir 도 비고, 그것이 곧 FR-NOT-11 의 "메모장 표면이 없다" 이다.
+//
+// FR-EXT-9b: 플러그인 선언의 자리. 칸 이름은 `ext` 가 정한다 — 여기서 따로
+// 적으면 탐색기가 보는 곳과 조달이 쓰는 곳이 갈린다.
+func dataDirLayout(dataDir string) (notesDir, pluginsDir string) {
+	if dataDir == "" {
+		return "", ""
+	}
+	return filepath.Join(dataDir, dmenv.NotesDir), ext.PluginsDir(ext.RootIn(dataDir))
+}
+
+// newGitServer 는 `/api/git/*` 처리기를 세운다.
+func newGitServer(deps Deps, cmds hub.CommandBroker, watch *hub.GitWatcher, runWorktreeRoot string) *gitapi.GitServer {
+	return &gitapi.GitServer{
 		Git:       deps.Git,
 		Exclusion: deps.GitExclusion,
 		Work:      deps.Work,
 		Commands:  cmds,
 		Tools:     deps.Tools,
-		Watch:     srv.gitWatch,
+		Watch:     watch,
 		// UX_BATCH5_SRS FR-SUB-1: 서브모듈 Manager 는 **Git 이 있을 때만** 선다.
 		// 저장소가 없는 배선에서는 물을 대상이 없고, nil 이면 그 표면이 503 이다
 		// (UserWorktrees 와 같은 규약).
@@ -312,7 +326,6 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		// `RepoGuard` 를 주입하지 않는다 — nil 이면 제한하지 않는다는 규약이
 		// 이미 있으므로(gitapi.go 의 필드 주석) 새 갈래를 만들지 않는다.
 	}
-	return srv, nil
 }
 
 // Handler returns the top-level http.Handler.
