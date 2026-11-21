@@ -313,7 +313,7 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
 });
 
 test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
-  test('T11 (V-SBT-26·27·28): 직행 키는 탭으로 가고 토글하지 않는다', async ({ page }) => {
+  test('T11 (V-SBT-26·27·28): 직행 키는 탭으로 가고, 같은 탭이면 패널을 접는다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
     // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
@@ -332,11 +332,15 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     await expect.poll(() => activeTab(page)).toBe('repo');
     expect(await activeWinType(page)).toBe('editor');
 
-    // V-SBT-27: 같은 키를 다시 눌러도 **아무 일도 없다** (토글이 아니다).
+    // UX_AUDIT_FIX_SRS FR-UXF-122 (D-41) 로 개정: 이전 같은 키를 다시 눌러도 아무 일도 없었다(V-SBT-27, 토글 아님) /
+    // 지금 패널을 레일로 접는다(탭·창은 그대로) / 이유 작업 패널의 직행 키와 같은 토글로 맞췄다.
+    const collapsed = () => page.evaluate(() => document.documentElement.classList.contains('sb-collapsed'));
     await page.keyboard.press('Control+Shift+Digit2');
-    await page.waitForTimeout(300);
+    await expect.poll(collapsed).toBe(true);
     expect(await activeTab(page)).toBe('repo');
     expect(await activeWinType(page)).toBe('editor');
+    await page.keyboard.press('Control+Shift+Digit2');
+    await expect.poll(collapsed).toBe(false);
   });
 
   test('T12 (V-SBT-29): 등록된 탭 수를 넘는 번호 키는 아무 일도 하지 않는다', async ({ page }) => {

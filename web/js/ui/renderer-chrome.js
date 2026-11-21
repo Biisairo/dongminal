@@ -339,6 +339,10 @@ Object.assign(Renderer.prototype, {
       const b=document.createElement('div'); b.className='ed-side-body'; return b;
     });
     const kids=[bar];
+    // UX_AUDIT_FIX_SRS FR-UXF-121 (D-41): 안쪽 탭을 바꾸면 그 뷰를 문서에서 떼었다 붙인다 — 그때 스크롤이 0 이 된다.
+    // 바뀌는 순간에만 떼기 전 자리를 적고, 붙인 뒤 되돌린다(두 패널의 탭과 같은 규칙).
+    const turned=body.dataset.side!==active;
+    if(turned) UIKit.scrollSave(body);
     if(active===REPO_SIDE_CHANGES){
       // FR-RTU-32: Changes 는 **사이드에만** 있다. 본문 탭이 되지 않으므로 그
       // 뷰의 DOM 을 여기로 가져온다 — 뷰를 만드는 자리는 패널 하나다.
@@ -356,6 +360,7 @@ Object.assign(Renderer.prototype, {
     }
     kids.push(body);
     this._place(el,kids);
+    if(turned){ body.dataset.side=active; UIKit.scrollRestore(body) }
     return el;
   },
 

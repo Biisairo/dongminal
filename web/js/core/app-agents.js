@@ -217,7 +217,7 @@ Object.assign(App.prototype, {
       sig:it=>{
         // FR-AGG-14: 머리도 항목이다 — 값이 바뀌는 항목이므로 근거를 준다.
         if(it.t==='group') return [it.win.name||'',it.attn,it.folded?1:0].join('\u0001');
-        if(it.t==='tabs') return JSON.stringify([it.cur,it.tabs]); // PEER_CHAT_SRS FR-PCH-80·81
+        if(it.t==='tabs') return 'tabs'; // UX_AUDIT_FIX_SRS FR-UXF-123: 줄은 한 번 만들고 `_actTabsPaint` 가 고친다
         // 구역의 행은 **그려질 마크업 전부**가 근거다 (FR-RPT-2) — 그 행이 무엇을
         // 보이는지 이 파일은 모르고, 알 필요도 없다.
         if(it.t==='row') return it.el.outerHTML;
@@ -236,7 +236,7 @@ Object.assign(App.prototype, {
       },
       build:it=>it.t==='head'?this._agHeadEl()
         :it.t==='group'?this._agGroupEl(it.win,it.attn,it.folded)
-        :it.t==='tabs'?this._actTabsEl(it.cur,it.tabs)
+        :it.t==='tabs'?this._actTabsEl(it.tabs)
         :it.t==='secempty'?this._actSecEmptyEl(it.sec)
         :it.t==='row'?it.el
         :it.t==='foot'?this._actUsageFootEl(it.view)
@@ -246,6 +246,8 @@ Object.assign(App.prototype, {
     // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40 (D-ASV-12): Usage 바닥도 스크롤 몸통 밖에 그린다.
     const inHead=it=>it.t==='tabs'||it.t==='head';
     reconcileList(headHost,items.filter(it=>it.t==='tabs').concat(items.filter(it=>it.t==='head')),opts);
+    const tabsIt=items.find(it=>it.t==='tabs');
+    if(tabsIt) this._actTabsPaint(headHost.querySelector('.ag-tabs'),tabsIt.cur,tabsIt.tabs);
     UIKit.tabsFitWatch(headHost,'.ag-tabs'); UIKit.tabsFit(headHost,'.ag-tabs');  // UX_AUDIT_FIX_SRS FR-UXF-98
     reconcileList(body,items.filter(it=>!inHead(it)&&it.t!=='foot'),opts);
     reconcileList(footHost,items.filter(it=>it.t==='foot'),opts);

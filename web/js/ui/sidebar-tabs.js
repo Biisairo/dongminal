@@ -379,12 +379,17 @@ const SidebarTabs={
       this.setTab(app,'windows',{silent:true});
   },
 
-  // FR-SBT-26·27·29: n 은 1-based 이며 **서술자 배열의 인덱스**다 — 숨은 탭이 있어도
-  // 번호가 밀리지 않는다. 토글이 아니므로 이미 그 탭이면 아무 일도 하지 않는다.
+  // FR-SBT-26·29: n 은 1-based 이며 **서술자 배열의 인덱스**다 — 숨은 탭이 있어도 번호가 밀리지 않는다.
+  // UX_AUDIT_FIX_SRS FR-UXF-122 (D-41): 작업 패널의 직행 키와 같은 토글이다 — 펼친 채 지금 보는 탭이면 접고, 그 밖에는
+  // 그 탭을 고르고 접혀 있으면 편다. 모바일(서랍)은 접기가 없어 고르기만 한다 (FR-SBC-20).
+  //   이전: 토글이 아니어서 이미 그 탭이면 아무 일도 하지 않았다 (FR-SBT-27)
   jumpTo(app,n){
     const d=SB_TAB_DEFS[n-1];
-    if(!d||!this.def(app,d.id)||app.sbTab===d.id) return;
-    this.setTab(app,d.id);
+    if(!d||!this.def(app,d.id)) return;
+    const desk=!app.isMobile, folded=desk&&app.sidebarCollapsed();
+    if(desk&&!folded&&app.sbTab===d.id){app.setSidebarCollapsed(true);return}
+    if(app.sbTab!==d.id) this.setTab(app,d.id);
+    if(folded) app.setSidebarCollapsed(false);
   },
 
   /**
@@ -450,13 +455,14 @@ const SidebarTabs={
     return b;
   },
 
-  // FR-SBT-12·13: 배지는 **비활성 탭에서만** 보인다. 0·null 이면 배지가 없다.
+  // FR-SBT-13: 0·null 이면 배지가 없다. UX_AUDIT_FIX_SRS FR-UXF-120 (D-41): 고른 탭에도 보인다 — 작업 패널과 같은 규칙이다.
+  //   이전: 비활성 탭에서만 보였다 (FR-SBT-12)
   updateBadges(app){
     const bar=document.getElementById('sb-tabs'); if(!bar) return;
     for(const d of SB_TAB_DEFS){
       const g=bar.querySelector('.sb-tab[data-panel="'+d.id+'"] .sb-tab-badge');
       if(!g) continue;
-      const n=(d.badge&&app.sbTab!==d.id)?d.badge(app):0;
+      const n=d.badge?d.badge(app):0;
       g.hidden=!(n>0);
       if(n>0) g.textContent=String(n);
     }
@@ -473,12 +479,6 @@ const SidebarTabs={
     const d=SB_TAB_DEFS.find(x=>x.id===id);
     return d?document.getElementById(d.panelId):null;
   },
-  saveScroll(id){
-    const p=this.panelOf(id); if(!p) return;
-    for(const el of p.querySelectorAll('*')) if(el.scrollTop) el.__sbTop=el.scrollTop;
-  },
-  restoreScroll(id){
-    const p=this.panelOf(id); if(!p) return;
-    for(const el of p.querySelectorAll('*')) if(el.__sbTop) el.scrollTop=el.__sbTop;
-  },
+  saveScroll(id){ UIKit.scrollSave(this.panelOf(id)) },
+  restoreScroll(id){ UIKit.scrollRestore(this.panelOf(id)) },
 };

@@ -25,7 +25,8 @@ function rig() {
     globals: {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended' },
-      PrefStore: { session: { setBool() {} }, local: { setJson() {} } },
+      // UX_AUDIT_FIX_SRS FR-UXF-122 로 개정: actPanelOpen 이 지금 탭(`_actTab` → `local.get`)을 읽는다.
+      PrefStore: { session: { setBool() {} }, local: { setJson() {}, get() { return null }, set() {} } },
       STORE_KEYS: {},
       RunsPanel: class {},
     },

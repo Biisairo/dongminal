@@ -151,6 +151,17 @@ const UIKit = {
   },
 
   /**
+   * UX_AUDIT_FIX_SRS FR-UXF-121 (D-41): 감췄다 보이거나 떼었다 붙이는 영역의 스크롤 자리. 값은 요소에 둔다 — 그 안에 스크롤
+   * 컨테이너가 몇 개인지 부르는 쪽이 알 필요가 없다. 0 으로 돌아온 자리도 적는다(옛 값으로 되돌아가지 않는다).
+   */
+  scrollSave(root) {
+    if (root) for (const el of root.querySelectorAll('*')) if (el.scrollTop || el.__uiTop) el.__uiTop = el.scrollTop;
+  },
+  scrollRestore(root) {
+    if (root) for (const el of root.querySelectorAll('*')) if (el.__uiTop) el.scrollTop = el.__uiTop;
+  },
+
+  /**
    * UX_AUDIT_FIX_SRS FR-UXF-98·99 (D-35): 패널 탭 줄은 라벨이 **다 들어가면** 아이콘 + 라벨(`labeled`), 하나라도 잘리면 아이콘만이다.
    * 라벨을 세운 상태에서 재므로 같은 폭에서는 늘 같은 답이다. `sel` 을 주면 `host` 안의 탭 줄을 찾는다(다시 그려지는 줄).
    */
