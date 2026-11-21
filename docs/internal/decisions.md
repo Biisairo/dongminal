@@ -1286,6 +1286,14 @@
 | `D-FED-4` | 설정 모달은 무엇을 다시 칠하고 읽을지 모른다. App 이 훅으로 준다 | `core/` 의 화면 부품이 App 내부 이름을 줄줄이 부르면 단계 9 에서 다시 끊어야 한다 | 채택 |
 | `D-FED-5` | 설정 모달의 Esc 는 버블로 남긴다 | 모바일 상세 화면의 Esc 는 문서 캡처에서 먼저 목록으로 물러서고 전파를 끊는다. 캡처로 옮기면 등록 순서상 설정 닫기가 먼저 돈다 | 채택 |
 
+## [`REFACTOR3_FE_LIST_SRS`](./REFACTOR3_FE_LIST_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-FEL-1` | `SidebarList` 는 정적 입구를 남기고 인스턴스에 맡긴다 | 부르는 자리(`renderer-chrome.js`·`input-binding.js`·`app-layout.js`)는 단계 9 에서 App 이 부품을 들 때 바꾼다(INV-F2 와 같은 규약) | 채택 |
+| `D-FEL-2` | View 의 `build()`(루트 만들기)와 행 만들기를 이름으로 가른다(`buildRow`) | 하위가 `build` 를 덮으면 `mount` 가 루트 대신 행을 만든다 | 채택 |
+| `D-FEL-3` | `GitListTab.mount(el)` 은 `View.mount(host)` 를 덮어 "받은 칸이 곧 루트" 로 쓴다 | git 패널이 탭마다 칸을 주고 탭이 그 안을 채운다. 수명 이름의 통일(`mount(host)`)은 단계 5 가 git 탭 여섯과 함께 정한다 | 채택 |
+
 ## [`REFACTOR3_GO_STRUCT_SRS`](./REFACTOR3_GO_STRUCT_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -1911,4 +1919,4 @@
 
 ---
 
-결정 **1153건** · 문서 **147개**.
+결정 **1156건** · 문서 **148개**.
