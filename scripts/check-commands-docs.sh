@@ -20,7 +20,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
 dmctl 서브커맨드 문서 대조
 
-  코드: dmctl.go 의 `case "..."` 와 dmctlSimpleActions 의 키
+  코드: dmctl.go 의 명령 표 dmctlCommands 의 키
   문서: commands.md 표의 `| `dmctl <이름>` ...` 첫 칸
 
   둘의 집합이 같아야 한다. `help`/`-h`/`--help` 는 뺀다 — 명령이 아니라 출구다.
@@ -31,11 +31,9 @@ fi
 # ── 코드 쪽 ────────────────────────────────────────────────
 code=$(
   {
-    # `case "a", "b":` 한 줄에 여럿이 온다.
-    grep -oE '^\s*case "[^"]+"(, "[^"]+")*:' "$SRC" | grep -oE '"[^"]+"' | tr -d '"'
-    # 표의 키.
-    sed -n '/^var dmctlSimpleActions = map\[string\]string{/,/^}/p' "$SRC" \
-      | sed -nE 's/^[[:space:]]*"([^"]+)".*/\1/p'
+    # 명령 표 한 벌의 키 (REFACTOR3_GO_STRUCT_SRS FR-RGS-43).
+    sed -n '/^var dmctlCommands = map\[string\]dmctlCommand{/,/^}/p' "$SRC" \
+      | sed -nE 's/^[[:space:]]*"([^"]+)":.*/\1/p'
   } | grep -vE '^(-h|--help|help)$' | LC_ALL=C sort -u
 )
 

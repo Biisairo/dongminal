@@ -142,7 +142,7 @@ func TestOpenURL_ListedInDmctlHelp(t *testing.T) {
 // dmctl 서브커맨드로도 닿아야 한다.
 func TestOpenURL_ReachableAsDmctlSubcommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	rc, handled := runDmctlSpecial("open-url", []string{"--help"}, &stdout, &stderr)
+	rc, handled := dmctlRaw("open-url", []string{"--help"}, &stdout, &stderr)
 	if !handled {
 		t.Fatal("dmctl open-url 이 디스패치되지 않는다")
 	}

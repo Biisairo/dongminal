@@ -212,10 +212,10 @@ func TestDmctlDispatch_StatusAndWait(t *testing.T) {
 	ts, _ := statusStub(t, `{"toolId":"p1","live":true,"state":"idle","status":"ready"}`)
 	pointDmctlAtServer(t, ts, "p1")
 
-	if _, handled := runDmctlSpecial("status", nil, io.Discard, io.Discard); !handled {
+	if _, handled := dmctlRaw("status", nil, io.Discard, io.Discard); !handled {
 		t.Fatalf("`dmctl status` must be dispatched")
 	}
-	if _, handled := runDmctlSpecial("wait", []string{"--for", "ready"}, io.Discard, io.Discard); !handled {
+	if _, handled := dmctlRaw("wait", []string{"--for", "ready"}, io.Discard, io.Discard); !handled {
 		t.Fatalf("`dmctl wait` must be dispatched")
 	}
 }

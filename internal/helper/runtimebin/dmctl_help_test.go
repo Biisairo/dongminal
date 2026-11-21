@@ -2,6 +2,7 @@ package runtimebin
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -15,8 +16,10 @@ import (
 func TestDmctl_HelpFlagNeverPosts(t *testing.T) {
 	cmds := []string{"split-h", "split-v", "focus", "rename-tab", "rename-window", "close-tab", "close-window",
 		"open-editor", "open-url", "send-input", "msg"}
-	for cmd := range dmctlSimpleActions {
-		cmds = append(cmds, cmd)
+	for cmd, c := range dmctlCommands {
+		if c.action != "" {
+			cmds = append(cmds, cmd)
+		}
 	}
 	for _, cmd := range cmds {
 		for _, flag := range []string{"--help", "-h"} {
@@ -41,4 +44,13 @@ func TestDmctl_HelpFlagNeverPosts(t *testing.T) {
 			})
 		}
 	}
+}
+
+// dmctlRaw 는 cmd 가 플래그 파서를 지나지 않는 명령이면 그것을 돌린다. 아니면 handled 가 거짓이다.
+func dmctlRaw(cmd string, rest []string, stdout, stderr io.Writer) (rc int, handled bool) {
+	c := dmctlCommands[cmd]
+	if c.raw == nil {
+		return 0, false
+	}
+	return c.raw(cmd, rest, stdout, stderr), true
 }
