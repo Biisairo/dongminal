@@ -41,37 +41,42 @@
 
 ## 3. 클래스 계층
 
+**결정(사용자, 2026-11-21): 이 구조로 0~9 단계를 전부 진행한다.** 화면 부품은 모두 `View` 의 파생이고, App 의 주제별 일은 모두 `Controller` 의 파생이며, 둘 다 `Component` 에서 나온다.
+
 ```
-Component                    core/base/component.js     mount(host)·render()·dispose() · own·listen·observe · 타이머 주인
-├─ Panel                     ui/panel.js                open/close/toggle · 열림 기준은 DOM 하나 · persistKey · onClose · EscapeStack
-│   ├─ SidebarPanel          ui/sidebar-panel.js
-│   ├─ ActivityPanel         core/activity-panel.js
-│   └─ DrawerSheet           ui/drawer-sheet.js
-├─ TabBar                    ui/tab-bar.js              서술자 · 한 번 만들기 · paint · 라벨 맞춤(패널별 규칙) · roving · onSelect · 배지
-│   ├─ SidebarTabBar         ui/sidebar-tab-bar.js      onEnter/onLeave · 직행 키 · visible
-│   └─ ActivityTabBar        core/activity-tab-bar.js   점 배지 · 보이는 구역만
-├─ ListView                  ui/list-view.js            items·key·sig·build·빈 문구·roving·행 동작 (reconcileList 를 감싼다)
-│   ├─ SidebarList           ui/sidebar-list.js
-│   └─ GitListTab            git/git-list-tab.js        (GitWorktrees·GitSubmodules 가 하위)
-├─ Dialog                    ui/dialog.js               overlay·box·head·body·foot · _show/_exec/_close · EscapeStack
-│   ├─ ConfirmDialog         git/git-confirm.js         (이름 GitConfirm 유지)
-│   ├─ FormDialog            git/git-dialog.js          (이름 GitDialog 유지)
-│   └─ SettingsModal         core/settings-modal.js
-├─ Menu                      ui/menu.js                 └─ GitMenu(데이터 층) git/git-menu.js
-├─ GitView                   git/git-view.js            GitObserver 구독 · 저장소가 바뀌면 _adopt · reset · _load · paint
-│   └─ GitStash·GitBranches·GitHistory·GitRemote·GitConsole·GitCommit
-└─ Controller                core/base/controller.js    App 주제별 컨트롤러의 바탕(앱 참조·수명·이벤트)
+Component                    core/base/component.js     수명 주기(dispose) · own·listen·observe · 타이머·이벤트 주인
+├─ View                      core/base/view.js          자기 DOM 요소(el) · mount(host)·render() — 화면 부품은 모두 여기서
+│   ├─ Panel                 ui/panel.js                open/close/toggle · 열림 기준은 DOM 하나 · persistKey · onClose · EscapeStack
+│   │   ├─ SidebarPanel      ui/sidebar-panel.js
+│   │   ├─ ActivityPanel     core/activity-panel.js
+│   │   └─ DrawerSheet       ui/drawer-sheet.js
+│   ├─ TabBar                ui/tab-bar.js              서술자 · 한 번 만들기 · paint · 라벨 맞춤(패널별 규칙) · roving · onSelect · 배지
+│   │   ├─ SidebarTabBar     ui/sidebar-tab-bar.js      onEnter/onLeave · 직행 키 · visible
+│   │   └─ ActivityTabBar    core/activity-tab-bar.js   점 배지 · 보이는 구역만
+│   ├─ ListView              ui/list-view.js            items·key·sig·build·빈 문구·roving·행 동작 (reconcileList 를 감싼다)
+│   │   ├─ SidebarList       ui/sidebar-list.js
+│   │   └─ GitListTab        git/git-list-tab.js        (GitWorktrees·GitSubmodules 가 하위)
+│   ├─ Dialog                ui/dialog.js               overlay·box·head·body·foot · _show/_exec/_close · EscapeStack
+│   │   ├─ GitConfirm        git/git-confirm.js         (확인창 — 이름 유지)
+│   │   ├─ GitDialog         git/git-dialog.js          (옵션 폼 — 이름 유지)
+│   │   └─ SettingsModal     core/settings-modal.js
+│   ├─ Menu                  ui/menu.js                 └─ GitMenu(데이터 층) git/git-menu.js
+│   └─ GitView               git/git-view.js            GitObserver 구독 · 저장소가 바뀌면 _adopt · reset · _load · paint
+│       └─ GitStash·GitBranches·GitHistory·GitRemote·GitConsole·GitCommit
+└─ Controller                core/base/controller.js    화면 없는 조정자 · 앱 참조 · 수명
     └─ LayoutController·SlotController·MobileController·ActivityController·SettingsController …
 
-함수·값 모델(상속 아님): EscapeStack · ScrollMemo · Badge · domEl/svgEl
+App                          core/app.js                부품을 만들어 들고 서로 잇는 조립자
+클래스가 아닌 것             EscapeStack(static 등록부) · ScrollMemo · Badge 값 계산 · domEl/svgEl · 상수
+UIKit                        ui/ui-kit.js               만들기 함수(tab·modal·menu …)는 해당 클래스가 흡수하고, UIKit 은 기존 호출처·e2e 를 위한 얇은 입구로 남는다
 ```
 
-상속 깊이는 셋까지로 제한한다.
+상속 깊이는 `Component` 아래 넷까지로 제한한다(`Component → View → TabBar → SidebarTabBar`).
 
 ## 4. 파일 배치 — 클래스 하나 = 파일 하나
 
 ```
-web/js/core/base/   component.js · controller.js · escape-stack.js · scroll-memo.js · badge.js
+web/js/core/base/   component.js · view.js · controller.js · escape-stack.js · scroll-memo.js · badge.js
 web/js/ui/          panel.js · tab-bar.js · list-view.js · dialog.js · menu.js
                     sidebar-panel.js · sidebar-tab-bar.js · sidebar-list.js · drawer-sheet.js
 web/js/core/        activity-panel.js · activity-tab-bar.js · settings-modal.js · <주제>-controller.js
@@ -96,7 +101,7 @@ web/js/git/         git-view.js · git-list-tab.js · git-dialog.js · git-confi
 | 단계 | 내용 | 위험 |
 |---|---|---|
 | 0 | 선행 정리: `domEl`·`svgEl`(FU-1) · 죽은 함수(FU-2~6) · `tabsFitWatch`·`roving` 해제 경로 | L |
-| 1 | `Component`·`Controller`·`EscapeStack`·`ScrollMemo`·`Badge` 를 **더하기만** 한다. 단위 시험 먼저 | L |
+| 1 | `Component`·`View`·`Controller`·`EscapeStack`·`ScrollMemo`·`Badge` 를 **더하기만** 한다. 단위 시험 먼저 | L |
 | 2 | `Panel`·`TabBar` → 두 패널(FU-20, 사용자 요청). DOM id·클래스·직행 키는 그대로. 라벨 판정 규칙은 패널별로 두고, 판정 시점은 한 자리에서 정한다. 두 패널의 판정 시점 차이를 먼저 표로 적는다 | M |
 | 3 | `Dialog` — `GitModalBase` 를 일반화한다. `GitConfirm`·`GitDialog` 는 이름을 유지하고 상속만 바꾼다. 손으로 짠 모달을 옮긴다 | M |
 | 4 | `ListView` — `SidebarList`·`GitListTab` 를 옮긴다 | M |
@@ -108,7 +113,7 @@ web/js/git/         git-view.js · git-list-tab.js · git-dialog.js · git-confi
 
 단계마다 SRS(IEEE 29148) → RED → 구현 → 간단 시험. 전체 e2e 는 사용자 결정대로 모든 묶음이 끝난 뒤에 돌린다.
 
-## 7. 확인할 결정
+## 7. 결정 (사용자 확인 2026-11-21 — 전부 채택)
 
 1. 외부 프레임워크 없이 **자체 클래스 계층**을 세운다. App 은 조립자로 남고, 옮긴 mixin 은 한동안 위임자로 남는다.
 2. 클래스 하나 = 파일 하나. 기반은 `core/base/` 에 둔다.
