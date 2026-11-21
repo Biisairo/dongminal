@@ -8,7 +8,7 @@
  * 여기서 나가는 것은 숫자 넷뿐이다.
  *
  * `core` 에 사는 이유는 부르는 쪽이 둘이기 때문이다 — 편집기의 변경 표시
- * (`ui/file-editor-diff.js`)와 Diff 탭의 hover 툴바(`git/panel-diff.js`). 어느
+ * (`ui/file-editor-diff.js`)와 Diff 탭의 hover 툴바(`git/git-hunks.js`). 어느
  * 한쪽에 두면 다른 쪽이 남의 내부를 딛고, 두 벌을 만들면 좌표 규약이 갈린다.
  *
  * 서버가 정한 규약이 둘 있고 이 파일 전체가 그 위에 선다

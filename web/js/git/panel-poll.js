@@ -1,8 +1,8 @@
 /**
- * GitPanel — 보기 설정과 폴링 (SPLIT_REFACTOR_SRS 묶음 B).
+ * GitPanel — 접기 설정과 폴링 (SPLIT_REFACTOR_SRS 묶음 B).
  *
- * 앞쪽은 **기기에 남는 취향**이다 — 파일 목록의 크기·방향, side-by-side, 공백 무시,
- * 변경 없는 구간 접기. 뒤쪽은 **관측을 받아 오는 일**이다 — `collect` 가
+ * 앞쪽은 **기기에 남는 취향**이다 — 변경 없는 구간 접기. side-by-side·공백 무시는
+ * `git-diff-pane.js` 로 갔다 (REFACTOR3_FE_GITPANEL_SRS 7c). 뒤쪽은 **관측을 받아 오는 일**이다 — `collect` 가
  * `/api/git/status` 를 한 벌만 내보내고(single-flight 는 GitObserver 가 쥔다),
  * `_applyStatus` 가 그 응답을 패널의 상태로 바꾸며, `_cadence` 가 실패 누적에 따라
  * 주기를 늦춘다 (FR-RMS-22).
@@ -16,34 +16,6 @@ Object.assign(GitPanel.prototype, {
    * EDITOR_GIT_UX_SRS 묶음 D(FR-CSZ-1~8). 나눌 두 칸이 사라졌으므로(인라인
    * diff 미리보기가 본문 탭으로 갔다) 그 사이의 손잡이도 대상이 없다.
    */
-
-  // 보기 모드와 공백무시는 기기별 취향이라 localStorage 에 남는다 (§3.3).
-  _sideBySidePref(){
-    // UX_AUDIT_FIX_SRS FR-UXF-8 (D-2): 저장값이 없으면 모바일은 통합, 데스크톱은 나란히로 시작한다.
-    //   이전: 기기와 상관없이 나란히 — 좁은 폭에서 한 쪽만 보여 선택과 화면이 어긋났다 (진단 M7).
-    if(this._sideBy==null) this._sideBy=PrefStore.local.bool(GIT_DIFF_SIDE_KEY,!this.app.isMobile);
-    return this._sideBy;
-  },
-
-  _ignoreWsPref(){
-    // 기본은 공백을 무시하지 않는다 — git 과 같은 판정이다 (FR-GIT-50).
-    if(this._ignWs==null) this._ignWs=PrefStore.local.bool(GIT_DIFF_WS_KEY,false);
-    return this._ignWs;
-  },
-
-  _toggleSideBySide(){
-    this._sideBy=!this._sideBySidePref();
-    PrefStore.local.setBool(GIT_DIFF_SIDE_KEY,this._sideBy);
-    this._diff().setSideBySide(this._sideBy);
-    this._paint();
-  },
-
-  _setIgnoreWs(on){
-    this._ignWs=!!on;
-    PrefStore.local.setBool(GIT_DIFF_WS_KEY,this._ignWs);
-    if(this._diffView) this._diffView.setIgnoreWhitespace(this._ignWs);
-    this._paint();
-  },
 
   // FR-DOR-2·4: 변경 없는 구간의 접기. **기본은 꺼짐**이다 — 접으면 개요 눈금이
   // 접힌 좌표계 위에 서서 실제 파일의 줄 위치와 어긋난다.

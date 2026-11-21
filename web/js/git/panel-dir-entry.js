@@ -1,6 +1,6 @@
 /**
  * GitPanel — 디렉터리 항목(서브모듈·중첩 저장소) 자리의 사유와 진입점 (GIT_DIR_ENTRY_SRS FR-DIR-21·22 ·
- * SUBMODULE_DIRTY_NOTICE_SRS). `panel-diff.js` 의 증강 분할이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-4 ·
+ * SUBMODULE_DIRTY_NOTICE_SRS). 옛 `panel-diff.js` 의 증강 분할이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-4 ·
  * FEU-22) — `_showTarget` 이 diff 대신 이 둘을 그린다.
  */
 Object.assign(GitPanel.prototype, {

@@ -31,13 +31,18 @@ const PARTS = [
     delegates: [['_paintHunks', [{ id: 'el' }, { path: 'a.txt' }]], ['_hunkText', []], ['_hunkNote', [{ id: 'note' }, 'text']],
       ['_hunkBarWire', [{ id: 'ed' }]], ['_hunkBarDispose', []], ['_hunkBarHide', []], ['_hunkBarPaint', []],
       ['_hunkAct', ['stage']], ['_diffChanged', []]] },
+  { field: 'diffPane', cls: 'GitDiffPane', gone: ['git/panel-diff.js', 'git/panel-diff-tab.js'],
+    owned: ['_diffAsking', '_diffShown', '_diffStale', '_diffDirtyShown', '_dtKey', '_dtPendingView', '_sideBy', '_ignWs'],
+    delegates: [['_renderDiff', [{ id: 'el' }]], ['_diffInvalidate', []], ['_fileList', []], ['_diffIndex', [[1, 2]]],
+      ['_diffMove', [1]], ['reloadDiff', [true]], ['_destroyViews', []], ['diffTabApply', [{ path: 'a.txt' }]],
+      ['diffViewKeep', []], ['diffViewRestore', []], ['diffTabViewState', []], ['diffTabViewApply', [{ top: 1 }]]] },
 ];
 
 /** 생성자 밖 참조가 없어 지운 필드 (FR-FEP-6). */
 const DEAD = ['_hunkBarWidget', '_hunkBarSubs'];
 
 /** 하위 단계가 끝난 뒤 남는 `Object.assign(GitPanel.prototype` 의 수 (TC-FEP-2). 처음은 12 다. */
-const ASSIGNS_LEFT = 10;
+const ASSIGNS_LEFT = 8;
 
 function setup() {
   const ctx = load([...BASE, ...GITPANEL], {

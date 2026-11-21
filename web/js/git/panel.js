@@ -18,16 +18,16 @@
  *   panel-changes.js  Changes 탭 — 목록 · 트리 · 그룹 · 머리
  *   panel-views.js    뷰 지연 생성 · 상태 접근 · 브랜치/태그 파사드
  *   panel-write.js    쓰기 한 번의 전과 후 — 후처리 훅 · 결과 해석 · 오퍼레이션
- *   panel-files.js    파일 작업 · 선택 · 스테이징 · discard
- *   panel-diff.js     선택 → diff · blame · hunk · 미리보기
+ *   panel-files.js    파일 작업 · 선택(→ diff) · 스테이징 · discard
  *   panel-dir-entry.js 디렉터리 항목의 사유 · 진입점
- *   panel-poll.js     보기 설정 · 폴링 · 상태 적용
+ *   panel-poll.js     접기 설정 · 폴링 · 상태 적용
  *
  * 부품 클래스(`GitPart` 하위, REFACTOR3_FE_GITPANEL_SRS)는 혼자 쓰는 필드까지 갖고 생성자가 만들어 든다.
  * 바깥·다른 파일이 부르는 부품 메서드는 아래 위임자가 잇는다.
  *
  *   git-blame.js      Blame (`this.blame`)
  *   git-hunks.js      부분 스테이징 · hover 툴바 (`this.hunks`)
+ *   git-diff-pane.js  Diff 탭 · Diff 탭 전용 패널의 몫 · 보기 설정 (`this.diffPane`)
  *
  * 관측(`GitObserver`)은 observer.js, Diff 편집기(`GitDiffView`)는 diff-view.js 다.
  */
@@ -66,8 +66,6 @@ class GitPanel {
     this._hunkKey=null;
     this._hunks=null;             // {diffId,list,note} 또는 {err}
     this._diffPos=0;              // 목록에서 사라진 대상을 클램프할 기준 (FR-GIT-53)
-    this._sideBy=null;            // FR-GIT-51 의 보기 모드
-    this._ignWs=null;             // FR-GIT-50 의 공백무시 토글
     this._sel=new Set();          // 다중 선택 (FR-GIT-69). group\0path
     this._anchor=null;            // Shift 범위 선택의 기준 행
     this._note=null;              // 쓰기 실패·부분 적용 안내 (FR-GIT-73)
@@ -96,6 +94,7 @@ class GitPanel {
     // 부품 (REFACTOR3_FE_GITPANEL_SRS FR-FEP-3). 혼자 쓰는 필드는 부품이 갖는다.
     this.blame=new GitBlame(this);
     this.hunks=new GitHunks(this);
+    this.diffPane=new GitDiffPane(this);
   }
 
   // e2e 가 툴바의 자리를 읽는다 (FR-FEP-5). 주인은 `GitHunks` 다.
@@ -115,6 +114,18 @@ class GitPanel {
   _hunkBarPaint(){ return this.hunks._hunkBarPaint() }
   _hunkAct(kind){ return this.hunks._hunkAct(kind) }
   _diffChanged(){ return this.hunks._diffChanged() }
+  _renderDiff(el){ return this.diffPane._renderDiff(el) }
+  _diffInvalidate(){ return this.diffPane._diffInvalidate() }
+  _fileList(){ return this.diffPane._fileList() }
+  _diffIndex(list){ return this.diffPane._diffIndex(list) }
+  _diffMove(delta){ return this.diffPane._diffMove(delta) }
+  reloadDiff(user){ return this.diffPane.reloadDiff(user) }
+  _destroyViews(){ return this.diffPane._destroyViews() }
+  diffTabApply(dt){ return this.diffPane.diffTabApply(dt) }
+  diffViewKeep(){ return this.diffPane.diffViewKeep() }
+  diffViewRestore(){ return this.diffPane.diffViewRestore() }
+  diffTabViewState(){ return this.diffPane.diffTabViewState() }
+  diffTabViewApply(vs){ return this.diffPane.diffTabViewApply(vs) }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //
