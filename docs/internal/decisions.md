@@ -1426,6 +1426,9 @@
 |---|---|---|---|
 | `D-RGS-1` | 묶음 셋은 서로 다른 작업 트리에서 구현해 합친다 | 패키지가 겹치지 않는다. FR-RGS-40 의 서버 라우트 상수 사용은 SC 가 상수 패키지만 세우고, `httpapi` 쪽 적용은 SH 와 겹치므로 **합친 뒤 메인이 한다** | 채택 |
 | `D-RGS-2` | 위험이 큰 항목(GH-15 Server 구조체, GD-11 run.Store 저장)은 먼저 측정·설계를 적고, 동작 불변을 시험으로 지킬 수 있을 때만 바꾼다 | 1차 감사 §7.3 의 교훈 — 근거 없이 바꾸면 회귀를 굳힌다 | 채택 |
+| `D-RGS-3` | FR-RGS-1 의 대상은 `internal/webserver` 에서 다시 잰 HTTP 계층(`httpapi`·`gitapi`)의 80줄 넘는 함수 14개다(`go/ast` 로 선언 줄부터 닫는 줄까지). `deniedPageHTML`(96줄)은 나누… | `deniedPageHTML` 은 판정이 없는 HTML 문자열 하나다. `domain` 셋은 처리기가 아니고 SD 묶음의 패키지다(FR-RGS-21·22 범위 밖) | 채택 |
+| `D-RGS-4` | 잠금과 `defer` 는 처리기 본문에 남기고, 뗀 함수는 그 안에서 부른다 — `apiFileWrite` 의 경로 잠금, `apiServerBind` 의 `busy`, `apiGitWorktreeRemove` 의 `LockTop`. SSE 구독 해제… | 잠금 범위와 해제 순서가 그대로여야 동작 불변이다(FR-RD3-20 · FR-XDF-9) | 채택 |
+| `D-RGS-5` | 익명 본문 구조체는 같은 필드·태그의 이름 있는 타입으로 옮긴다(`commandPostReq`·`succeedReq`·`contextReq`·`runCloseReq`·`memberAddReq`·`bindReq`). 응답 `map` 은 렌더 함수로 옮긴… | 디코드 결과와 `json.Marshal` 바이트가 같다. `encoding/json` 은 `map` 키를 정렬하므로 만드는 자리가 바뀌어도 응답 바이트가 같다 | 채택 |
 
 ## [`RELOAD_CONTINUITY_SRS`](./RELOAD_CONTINUITY_SRS.md)
 
@@ -2045,4 +2048,4 @@
 
 ---
 
-결정 **1237건** · 문서 **157개**.
+결정 **1240건** · 문서 **157개**.

@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 Go P4·P5·P6 — 상수, 큰 파일·함수, 성능 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: FR-RGS-1(80줄 넘는 처리기 20개를 파싱·판정·렌더로 — 판정 순수 함수 단위 시험, 나눌 때마다 httpapi PASS 1049 기준선과 대조). 나머지는 닫혔다(§6).
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `docs/internal/refactor/PROD3.md` §2.1·§2.3·§2.4·§2.5·§2.6·§2.8·§3 의 Go 항목)
 - 사용자 결정(2026-11-21): 목록 전부를 진행한다. 묶음마다 커밋한다. 전체 시험은 마지막에 한 번.
@@ -35,7 +34,7 @@ P2 가 Go 의 같은 규칙 여러 벌을 한 벌로 모았다. 이 문서는 �
 
 | ID | 요구 | 근거 |
 |---|---|---|
-| FR-RGS-1 | 80줄을 넘는 처리기(`apiRunSucceed`·`handleCommandSSE`·`handleCommandPost`·`apiGitStatus`·`server.New`·`apiFileWrite` 외 표본 14)는 파싱·판정·렌더로 나눈다. 판정 함수는 순수하게 두고 단위 시험을 붙인다 | GH-13 |
+| FR-RGS-1 | 80줄을 넘는 처리기(`apiRunSucceed`·`handleCommandSSE`·`handleCommandPost`·`apiGitStatus`·`server.New`·`apiFileWrite` 외 표본 14)는 파싱·판정·렌더로 나눈다. 판정 함수는 순수하게 두고 단위 시험을 붙인다. **결과**: 다시 잰 HTTP 계층 14개를 모두 80줄 아래로 나눴다(D-RGS-3~5, §6). 판정·렌더 순수 함수에 표 주도 시험 30개(httpapi 23 · gitapi 7) | GH-13 |
 | FR-RGS-2 | `handlers_files.go`(749)·`access.go`(744)·`toolclient/client.go`(685)는 주제별 파일로 나눈다(예: 읽기·쓰기 / 업로드 / 표식 · 저장소 / 정규화·매처 / HTTP · 연결 감시 / RPC / 재동기) | GH-14 |
 | FR-RGS-3 | `httpapi.Server` 의 필드(44개)·잠금(5개)을 도메인별 하위 구조체(fs·access·sandbox·runs 등)와 각자의 잠금으로 묶는다. `settingsMu` 하나가 access 와 sandbox 를 함께 잠그던 것을 가른다 | GH-15 |
 | FR-RGS-4 | 성능: 검색 워크가 파일마다 64 KiB `bufio` 를 새로 만들지 않는다(GH-16). 서버 전역 `fsOps` 가 세기(최대 1만 항목) 구간을 잡지 않는다 — 세기는 잠금 밖에서, 쓰기 직전에 다시 확인한다(GH-17). 접근 목록 저장의 DNS 조회는 잠금 밖에서 하고 시한을 둔다(GH-18) | GH-16·17·18 |
@@ -70,6 +69,9 @@ P2 가 Go 의 같은 규칙 여러 벌을 한 벌로 모았다. 이 문서는 �
 |---|---|---|
 | D-RGS-1 | 묶음 셋은 서로 다른 작업 트리에서 구현해 합친다 | 패키지가 겹치지 않는다. FR-RGS-40 의 서버 라우트 상수 사용은 SC 가 상수 패키지만 세우고, `httpapi` 쪽 적용은 SH 와 겹치므로 **합친 뒤 메인이 한다** |
 | D-RGS-2 | 위험이 큰 항목(GH-15 Server 구조체, GD-11 run.Store 저장)은 먼저 측정·설계를 적고, 동작 불변을 시험으로 지킬 수 있을 때만 바꾼다 | 1차 감사 §7.3 의 교훈 — 근거 없이 바꾸면 회귀를 굳힌다 |
+| D-RGS-3 | FR-RGS-1 의 대상은 `internal/webserver` 에서 다시 잰 HTTP 계층(`httpapi`·`gitapi`)의 80줄 넘는 함수 14개다(`go/ast` 로 선언 줄부터 닫는 줄까지). `deniedPageHTML`(96줄)은 나누지 않는다. `domain` 의 셋(`claudeacct.Service.Switch` 106·`run.TreePreamble` 101·`run.Store.Succeed` 86)은 범위 밖이다 | `deniedPageHTML` 은 판정이 없는 HTML 문자열 하나다. `domain` 셋은 처리기가 아니고 SD 묶음의 패키지다(FR-RGS-21·22 범위 밖) |
+| D-RGS-4 | 잠금과 `defer` 는 처리기 본문에 남기고, 뗀 함수는 그 안에서 부른다 — `apiFileWrite` 의 경로 잠금, `apiServerBind` 의 `busy`, `apiGitWorktreeRemove` 의 `LockTop`. SSE 구독 해제는 건 역순으로 푸는 함수 하나로 모은다 | 잠금 범위와 해제 순서가 그대로여야 동작 불변이다(FR-RD3-20 · FR-XDF-9) |
+| D-RGS-5 | 익명 본문 구조체는 같은 필드·태그의 이름 있는 타입으로 옮긴다(`commandPostReq`·`succeedReq`·`contextReq`·`runCloseReq`·`memberAddReq`·`bindReq`). 응답 `map` 은 렌더 함수로 옮긴다 | 디코드 결과와 `json.Marshal` 바이트가 같다. `encoding/json` 은 `map` 키를 정렬하므로 만드는 자리가 바뀌어도 응답 바이트가 같다 |
 
 ## 4. 동작 변경 기록
 
@@ -94,5 +96,6 @@ P2 가 Go 의 같은 규칙 여러 벌을 한 벌로 모았다. 이 문서는 �
 | SH | `b429a39a` · `8ae39a5e` · `ec9c31a3` · `acb5cae9` · `6cb999d1` | 검색 버퍼 되쓰기(2.66 MB → 0.11 MB/op), 세기·DNS 를 잠금 밖으로(DNS 시한 3초), fs 상한 표 `fs_limits.go`, 옛 이름 `paned` 은 와이어 문구라 두고 이유를 적음, runs 미분류 → `internal_error`, `EntityName` 은 생산자(`entityNameAnswer`)를 주석으로 이음, 파일 셋 분할, `Server` 필드 44개를 하위 구조체로(`settingsMu` → access·sandbox 각자의 `putMu`, PASS 1049 이름 목록 diff 0). **FR-RGS-8 결론: 바꾸지 않는다** — DAEMON_SPLIT_SRS FR-14 가 요구하고, `ping` 은 처리 중이면 건너뛰어 무응답 데몬을 찾는 수단이 이 시한뿐이며, 옛 데몬은 요청을 읽기 루프에서 처리해 한 호출이 막히면 뒤 호출도 막힌다(`callWithin` 주석). **FR-RGS-1 은 남음** |
 | SD | `8c2cc91d` · `7d7891f8` · `cd12d4cb` | 큰 파일 넷 분할, `observe` 판정 순수 함수 셋, `decide` 를 `autoTrigger`·`inCooldown`·`switchFirst` 로, `watchPhase` 삭제, 시간 값 이름(클라이언트 시한은 `pollTimeout` 에서 파생), 회차 성능(§4 표), 텔레그램 `b.tabs` 수거(`SetToolGoneObserver`). **SRS 와 다르게 한 것:** GD-6·7·11 은 측정 뒤 바꾸지 않았다 — GD-11 `run.Store.save` 직렬화 몫은 Run 10/50/200 에서 2%/9%/36%(저장 1회 42.6/64.2/88.0 ms), 나머지는 세대 회전·쓰기라 증분 직렬화로 줄지 않고 무효화 누락은 데이터 손실이다(Run 200 이 실제로 쌓이는 환경이면 다시 본다). GD-6 MkdirAll 은 `Roots` 42 µs 의 6.6% 이고 빼면 FR-NOT-1·2 가 깨진다. GD-7 을 한 번으로 줄이면 상한 넘는 블롭을 끝까지 받아 FR-GIT-48 을 어긴다 |
 | SC | `d60365c6` · `f0849a42` · `fdf4bdba` · `44ba911f` · `c2389f95` | `shared/apipath`(상수 61, 리터럴 92곳, 서버 라우트 대조 시험), 시간 예산 `budgets.go`, 도우미 소켓 고정 경로 이유, 정지 대기 `lsof` 25 → 3, `rename-tab` 42 → 15, chatsock hello 전 연결 정리, 파일 분할(procinfo 는 `_darwin` 접미사를 쓰지 않음 — 가짜 실행기 시험을 위해), `check-commands-docs.sh` 가 명령 표 `dmctlCommands` 를 읽게 고침. **DM-27 은 바꾸지 않음** — 상한 뒤 줄 세우면 클라이언트 시한(5+3초)을 넘어 연결이 끊긴다(GH-F5 와 엮임) |
+| SH FR-RGS-1 (2026-11-22) | `37e36bcd` · `6cc3e9cd` · `66a37fda` | 처리기 14개를 파싱·판정·렌더로 나눴다(전 → 후 줄 수): `apiRunSucceed` 132 → 51 · `handleCommandSSE` 132 → 54 · `handleCommandPost` 122 → 53 · `apiGitStatus` 117 → 46 · `New` 107 → 60 · `apiFileWrite` 96 → 13 · `relayOutput` 92 → 64 · `apiGitLog` 89 → 65 · `apiRunsTree` 88 → 26 · `apiGitWorktreeRemove` 88 → 74 · `apiRunClose` 85 → 57 · `apiRunMemberAdd` 84 → 56 · `apiRunContext` 83 → 40 · `apiServerBind` 81 → 41. 새로 만든 함수도 모두 80줄 아래다. 판정 순수 함수의 예는 `sseSubPlanFor`·`commandLocField`·`stampConflict`·`bindTarget`·`succeedArgsError`·`linkTree`·`keepRunRecord`·`gitStatusUnchanged`·`gitLogStopWithSkip`·`listedWorktreeBranch`·`relayJoinable` 이다. 시험 파일은 여섯이다(`httpapi/*_verdict_test.go` 다섯 · `gitapi/split_verdict_test.go`). httpapi PASS 이름 대조: 기준선 1049 → 1072, **빠진 이름 0**(더해진 23은 새 시험). 남긴 것은 D-RGS-3 에 적었다 |
 
 합친 뒤(`1af24478`): `gofmt` 0 · `go vet` · `go test ./...` · `make gates` · `npm run -s unit`(1190) 통과. `gitapi` `TestWorktreeCreateInputAnswer` 가 한 번 임시 폴더 정리(`directory not empty`)에서 졌고 단독 3회는 통과했다 — 흔들리는 시험으로 기록한다.
