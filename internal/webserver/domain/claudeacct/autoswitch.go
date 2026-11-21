@@ -143,7 +143,7 @@ type Auto struct {
 	status     string
 	nextTickAt int64
 	busy       sync.Mutex
-	wake       chan struct{}
+	wake       waker
 }
 
 func (a *Auto) path() string { return filepath.Join(a.Eng.Svc.Dir, autoswitchFile) }
@@ -367,44 +367,10 @@ func (a *Auto) jitter() float64 {
 }
 
 // Wake 는 기다리던 Run 을 바로 깨운다.
-func (a *Auto) Wake() {
-	a.mu.Lock()
-	ch := a.wake
-	a.mu.Unlock()
-	if ch == nil {
-		return
-	}
-	select {
-	case ch <- struct{}{}:
-	default:
-	}
-}
+func (a *Auto) Wake() { a.wake.wake() }
 
-// Run 은 stop 이 닫힐 때까지 판단한다 (FR-CAC-73).
-func (a *Auto) Run(stop <-chan struct{}) {
-	a.mu.Lock()
-	a.wake = make(chan struct{}, 1)
-	ch := a.wake
-	a.mu.Unlock()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		<-stop
-		cancel()
-	}()
-	for {
-		d := a.Tick(ctx)
-		t := time.NewTimer(d)
-		select {
-		case <-stop:
-			t.Stop()
-			return
-		case <-ch:
-			t.Stop()
-		case <-t.C:
-		}
-	}
-}
+// Run 은 stop 이 닫힐 때까지 판단한다 (FR-CAC-73). 기다림은 Tick 이 준 그대로다(하한 없음).
+func (a *Auto) Run(stop <-chan struct{}) { a.wake.loop(stop, 0, a.Tick) }
 
 // tickOutcome 은 한 번의 판단 결과다.
 type tickOutcome int

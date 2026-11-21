@@ -314,19 +314,21 @@ func RunnerFor(svc *core.Service) Runner {
 // **환경이 특히 중요한 자리다.** `submodule update --init` 은 원격에 닿으므로,
 // `GIT_TERMINAL_PROMPT=0` 이 없으면 private 서브모듈에서 자격증명 프롬프트가 뜨고
 // 프로세스가 opTimeout 까지 매달린다 — GUI askpass 면 보이지 않는 창을 기다린다.
+//
+// 뒤의 개행만 다듬는다 — 파싱이 줄 단위이므로 끝의 빈 줄은 뜻이 없다.
+// **앞은 손대지 않는다** (위 FR-SUB-2). 실행·결합·감싸기는 worktree 와 같은 한
+// 자리(core.ExecUnguardedText)다 (FR-OPT-7-2 · REFACTOR3_DEDUP_GO_SRS FR-RDG-61):
+// 성공은 stdout 만, 실패는 stdout 다음 stderr.
 func runGit(ctx context.Context, svc *core.Service, dir string, args ...string) (string, error) {
-	out, err := svc.ExecUnguarded(ctx, dir, core.UnguardedSpec{
+	return svc.ExecUnguardedText(ctx, dir, core.UnguardedSpec{
 		Argv:    args,
 		Timeout: opTimeout,
 		Reason:  UnguardedReason,
-	})
-	if errors.Is(err, core.ErrGitMissing) {
-		return "", fmt.Errorf("%w: git 을 찾을 수 없다: %w", ErrFailed, err)
-	}
-	// 뒤의 개행만 다듬는다 — 파싱이 줄 단위이므로 끝의 빈 줄은 뜻이 없다.
-	// **앞은 손대지 않는다** (위 FR-SUB-2). 결합·감싸기는 worktree 와 같은 한
-	// 자리다 (FR-OPT-7-2): 성공은 stdout 만, 실패는 stdout 다음 stderr.
-	return core.UnguardedText(args, out, err, trimTrailingNewlines)
+	}, gitMissing, trimTrailingNewlines)
+}
+
+func gitMissing(err error) error {
+	return fmt.Errorf("%w: git 을 찾을 수 없다: %w", ErrFailed, err)
 }
 
 func trimTrailingNewlines(s string) string { return strings.TrimRight(s, "\r\n") }

@@ -90,7 +90,7 @@ type Engine struct {
 	// lastSwitchAt 은 dongminal 이 마지막으로 전환한 시각이다 (FR-CAC-78 의 60초).
 	lastSwitchAt int64
 	busy         sync.Mutex
-	wake         chan struct{}
+	wake         waker
 }
 
 func (e *Engine) path() string { return filepath.Join(e.Svc.Dir, usageFile) }
@@ -610,45 +610,12 @@ func (e *Engine) refreshPinned(ctx context.Context, a Account, force bool) (Cred
 }
 
 // Wake 는 기다리던 Run 을 바로 깨운다(계정 추가·전환 뒤).
-func (e *Engine) Wake() {
-	e.mu.Lock()
-	ch := e.wake
-	e.mu.Unlock()
-	if ch == nil {
-		return
-	}
-	select {
-	case ch <- struct{}{}:
-	default:
-	}
-}
+func (e *Engine) Wake() { e.wake.wake() }
 
 // Run 은 stop 이 닫힐 때까지 조회한다. 등록된 계정이 없으면 아무것도 부르지 않는다 (FR-CAC-50).
+// 회차 사이는 최소 1초다.
 func (e *Engine) Run(stop <-chan struct{}) {
-	e.mu.Lock()
-	e.wake = make(chan struct{}, 1)
-	ch := e.wake
-	e.mu.Unlock()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		<-stop
-		cancel()
-	}()
-	for {
-		next := e.Tick(ctx)
-		d := time.Until(next)
-		if d < time.Second {
-			d = time.Second
-		}
-		t := time.NewTimer(d)
-		select {
-		case <-stop:
-			t.Stop()
-			return
-		case <-ch:
-			t.Stop()
-		case <-t.C:
-		}
-	}
+	e.wake.loop(stop, time.Second, func(ctx context.Context) time.Duration {
+		return time.Until(e.Tick(ctx))
+	})
 }

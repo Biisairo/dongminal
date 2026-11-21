@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -154,4 +155,18 @@ func UnguardedText(argv []string, out Output, err error, trim func(string) strin
 		return trim(out.Stdout + out.Stderr), fmt.Errorf("git %s: %w", strings.Join(argv, " "), err)
 	}
 	return trim(out.Stdout), nil
+}
+
+// ExecUnguardedText 는 ExecUnguarded 와 UnguardedText 를 잇는다 — worktree 와
+// submodule 의 runGit 이 이것 하나다 (REFACTOR3_DEDUP_GO_SRS FR-RDG-61). 도메인마다
+// 다른 것만 인자다: git 부재(ErrGitMissing)를 도메인 sentinel 로 바꾸는 missing
+// (그때 텍스트는 비운다)과 다듬기 trim(FR-SUB-2).
+//
+// 이 진입점도 ExecUnguarded 와 같은 호출처 게이트(FR-GXU-12)의 대상이다.
+func (s *Service) ExecUnguardedText(ctx context.Context, dir string, spec UnguardedSpec, missing func(error) error, trim func(string) string) (string, error) {
+	out, err := s.ExecUnguarded(ctx, dir, spec)
+	if errors.Is(err, ErrGitMissing) {
+		return "", missing(err)
+	}
+	return UnguardedText(spec.Argv, out, err, trim)
 }

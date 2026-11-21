@@ -94,44 +94,44 @@ type rootsMemo struct {
 
 // Home 은 정규화된 홈 디렉터리다. 저장하지 않고 매번 파생한다 (FR-EDT-17).
 func (s *Store) Home() (string, error) {
-	fn := s.HomeFn
-	if fn == nil {
-		fn = os.UserHomeDir
-	}
-	h, err := fn()
+	h, err := s.home()
 	if err != nil {
 		return "", err
 	}
 	return NormalizePath(h), nil
 }
 
+// home 은 정규화 전의 홈이다 — HomeFn, 비면 os.UserHomeDir (FR-RDG-63).
+func (s *Store) home() (string, error) {
+	if s.HomeFn == nil {
+		return os.UserHomeDir()
+	}
+	return s.HomeFn()
+}
+
+// ensureRoot 는 Notes·Plugins 의 "없으면 만든다" 다 (FR-RDG-63). 자리가 비었으면
+// ErrUnavailable, 만들 수 없으면 그 오류다 — Roots 에서는 그 행 하나가 빠진다 (FR-NOT-11).
+func ensureRoot(dir string) (string, error) {
+	if dir == "" {
+		return "", ErrUnavailable
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return NormalizePath(dir), nil
+}
+
 // Notes 는 정규화된 메모 루트다 (FR-NOT-1·2). 홈과 같이 저장하지 않고 매번
 // 파생하며, **없으면 만든다** — 메모장 행을 눌렀을 때 비로소 만드는 것이 아니라
 // 경로를 묻는 자리가 곧 보장하는 자리다. 그래야 목록 조회 하나만으로 창·탐색기·
 // 파일 조작이 전부 설 수 있다.
-func (s *Store) Notes() (string, error) {
-	if s.NotesDir == "" {
-		return "", ErrUnavailable
-	}
-	if err := os.MkdirAll(s.NotesDir, 0o755); err != nil {
-		return "", err
-	}
-	return NormalizePath(s.NotesDir), nil
-}
+func (s *Store) Notes() (string, error) { return ensureRoot(s.NotesDir) }
 
 // Plugins 는 플러그인 선언들의 루트다 (FR-EXT-9b).
 //
 // 메모 루트와 같은 규약이다 — 얻지 못하는 것은 응답의 실패가 아니라 그 행 하나가
 // 없는 것이다 (FR-NOT-11 과 같은 근거).
-func (s *Store) Plugins() (string, error) {
-	if s.PluginsDir == "" {
-		return "", ErrUnavailable
-	}
-	if err := os.MkdirAll(s.PluginsDir, 0o755); err != nil {
-		return "", err
-	}
-	return NormalizePath(s.PluginsDir), nil
-}
+func (s *Store) Plugins() (string, error) { return ensureRoot(s.PluginsDir) }
 
 // Read 는 저장된 두 목록을 준다.
 func (s *Store) Read() (Lists, error) {
@@ -168,11 +168,7 @@ func (s *Store) List() (string, []string, error) {
 // 가드(FR-EDT-113)·다른 루트 삭제 가드(FR-EDT-114)가 어긋나지 않는다. 메모·플러그인
 // 자리도 매번 보장한다 — 디렉터리가 있으면 stat 하나다. 준 목록은 **정규화된** 사본이다.
 func (s *Store) Roots() ([]string, error) {
-	homeFn := s.HomeFn
-	if homeFn == nil {
-		homeFn = os.UserHomeDir
-	}
-	home, err := homeFn()
+	home, err := s.home()
 	if err != nil {
 		return nil, err
 	}
@@ -183,14 +179,10 @@ func (s *Store) Roots() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var notes, plugins string
-	if ensureDir(s.NotesDir) {
-		notes = NormalizePath(s.NotesDir)
-	}
+	// 만들 수 없는 자리는 빈 값으로 빠진다 (FR-NOT-11).
+	notes, _ := ensureRoot(s.NotesDir)
 	// FR-EXT-9b: 선언을 편집기로 열려면 루트 가드를 지나야 한다.
-	if ensureDir(s.PluginsDir) {
-		plugins = NormalizePath(s.PluginsDir)
-	}
+	plugins, _ := ensureRoot(s.PluginsDir)
 	out := append(make([]string, 0, len(editors)+3), FixedRoots(NormalizePath(home), notes, plugins)...)
 	for _, e := range editors {
 		out = append(out, NormalizePath(e))
@@ -226,12 +218,6 @@ func (s *Store) editorsAt() ([]string, error) {
 	}
 	s.rootsMemo = &rootsMemo{rev: rev, editors: l.Editors}
 	return l.Editors, nil
-}
-
-// ensureDir 는 Notes·Plugins 의 "없으면 만든다" 다. 자리가 비었거나 만들 수 없으면
-// false — 그 행 하나가 빠진다 (FR-NOT-11).
-func ensureDir(dir string) bool {
-	return dir != "" && os.MkdirAll(dir, 0o755) == nil
 }
 
 // EditorAdd 는 Editor 행을 더한다 (FR-EDT-23~25·33).

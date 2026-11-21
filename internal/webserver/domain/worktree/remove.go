@@ -49,23 +49,8 @@ type Result struct {
 // 오류를 반환하지 않고 Result 로 답하는 이유는, 정리가 **여러 건의 부분 성공**
 // 이기 때문이다 — 하나가 남았다고 나머지를 포기하면 잔여물만 늘어난다.
 func (m *Manager) Remove(ctx context.Context, s RemoveSpec) Result {
-	res := Result{Path: s.Path, Branch: s.Branch}
-	if err := m.checkPath(s.Path); err != nil {
-		res.Residue, res.Detail = ResidueUnsafePath, err.Error()
-		return res
-	}
-	if s.Repo != "" && filepath.Clean(s.Path) == filepath.Clean(s.Repo) {
-		res.Residue, res.Detail = ResidueUnsafePath, "저장소 자신은 제거하지 않는다"
-		return res
-	}
-	if s.Keep {
-		res.Residue = ResidueKept
-		return res
-	}
-
-	release, err := m.lock(ctx, s.LockKey, s.Repo)
-	if err != nil {
-		res.Residue, res.Detail, res.Err = ResidueRemoveFailed, err.Error(), err
+	res, release, ok := m.prepareRemove(ctx, s, m.checkPath, true)
+	if !ok {
 		return res
 	}
 	defer release()
@@ -77,19 +62,8 @@ func (m *Manager) Remove(ctx context.Context, s RemoveSpec) Result {
 // 아닌 항목으로 있어야 한다. 등록 확인은 repoLock 을 쥔 뒤에 한다. Force 면 dirty
 // 판정을 건너뛰고 `--force` 로 지운다 — 사람이 다시 확인한 뒤에만 오는 요청이다.
 func (m *Manager) RemoveListed(ctx context.Context, s RemoveSpec) Result {
-	res := Result{Path: s.Path, Branch: s.Branch}
-	if err := checkAbsPath(s.Path); err != nil {
-		res.Residue, res.Detail = ResidueUnsafePath, err.Error()
-		return res
-	}
-	if s.Repo != "" && filepath.Clean(s.Path) == filepath.Clean(s.Repo) {
-		res.Residue, res.Detail = ResidueUnsafePath, "저장소 자신은 제거하지 않는다"
-		return res
-	}
-
-	release, err := m.lock(ctx, s.LockKey, s.Repo)
-	if err != nil {
-		res.Residue, res.Detail, res.Err = ResidueRemoveFailed, err.Error(), err
+	res, release, ok := m.prepareRemove(ctx, s, checkAbsPath, false)
+	if !ok {
 		return res
 	}
 	defer release()
@@ -119,13 +93,42 @@ func (m *Manager) RemoveListed(ctx context.Context, s RemoveSpec) Result {
 	return m.removeLocked(ctx, s, s.Force, res)
 }
 
+// prepareRemove 는 Remove·RemoveListed 의 같은 전처리다 (REFACTOR3_DEDUP_GO_SRS
+// FR-RDG-60): 경로 인가(checkPath — 둘이 다른 것은 이것뿐이다), 저장소 자신의 거절,
+// honorKeep 이면 Keep 보존, 그리고 repoLock. ok 가 false 면 res 가 결말이고, true 면
+// 호출자가 release 를 부른다.
+func (m *Manager) prepareRemove(ctx context.Context, s RemoveSpec, checkPath func(string) error, honorKeep bool) (res Result, release func(), ok bool) {
+	res = Result{Path: s.Path, Branch: s.Branch}
+	if err := checkPath(s.Path); err != nil {
+		res.Residue, res.Detail = ResidueUnsafePath, err.Error()
+		return res, nil, false
+	}
+	if s.Repo != "" && filepath.Clean(s.Path) == filepath.Clean(s.Repo) {
+		res.Residue, res.Detail = ResidueUnsafePath, "저장소 자신은 제거하지 않는다"
+		return res, nil, false
+	}
+	if honorKeep && s.Keep {
+		res.Residue = ResidueKept
+		return res, nil, false
+	}
+	release, err := m.lock(ctx, s.LockKey, s.Repo)
+	if err != nil {
+		res.Residue, res.Detail, res.Err = ResidueRemoveFailed, err.Error(), err
+		return res, nil, false
+	}
+	return res, release, true
+}
+
 // removeLocked 는 인가가 끝나고 repoLock 을 쥔 뒤의 정리 흐름이다 (FR-WKT-8).
 // force 면 dirty 판정을 건너뛰고 `--force` 로 지운다.
 func (m *Manager) removeLocked(ctx context.Context, s RemoveSpec, force bool, res Result) Result {
 	// FR-ITX-49: 경로도 브랜치도 없으면 이미 정리됐다 — 병합 판정은 없는 브랜치에서 실패하고,
 	// 그 실패를 「병합되지 않았다」로 읽으면 기록이 영영 남는다. 브랜치가 남아 있으면 아래 판정을 한다.
-	if _, err := os.Stat(s.Path); errors.Is(err, os.ErrNotExist) && !m.branchExists(ctx, s) {
-		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
+	// 경로 유무는 한 번만 본다 — 아래 판정은 읽기 전용 git 이고 repoLock 을 쥐고 있다.
+	_, statErr := os.Stat(s.Path)
+	missing := errors.Is(statErr, os.ErrNotExist)
+	if missing && !m.branchExists(ctx, s) {
+		m.prune(ctx, s.Repo)
 		res.Removed = true
 		return res
 	}
@@ -135,9 +138,9 @@ func (m *Manager) removeLocked(ctx context.Context, s RemoveSpec, force bool, re
 			return res
 		}
 	}
-	if _, err := os.Stat(s.Path); errors.Is(err, os.ErrNotExist) {
+	if missing {
 		// 경로가 이미 없다 — 등록만 남았을 수 있으므로 정리하고 성공으로 본다.
-		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
+		m.prune(ctx, s.Repo)
 		res.Removed = true
 		m.deleteBranch(ctx, s, &res)
 		return res
@@ -156,8 +159,7 @@ func (m *Manager) removeLocked(ctx context.Context, s RemoveSpec, force bool, re
 	if err := m.removeWithRetry(ctx, s, force); err != nil {
 		// 조회·제거 실패를 "사라졌다"의 증거로 쓰지 않는다 — prune 뒤 실제로
 		// 사라졌는지 재확인하고, 아니면 잔여물로 보고한다.
-		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
-		if !m.gone(ctx, s.Repo, s.Path) {
+		if !m.pruneAndCheckGone(ctx, s.Repo, s.Path) {
 			res.Residue, res.Detail = ResidueRemoveFailed, err.Error()
 			return res
 		}
@@ -249,6 +251,19 @@ func (m *Manager) isDirty(ctx context.Context, path string) (bool, error) {
 		return false, err
 	}
 	return strings.TrimSpace(out) != "", nil
+}
+
+// prune 은 디스크에서 사라진 worktree 의 등록을 걷는다. 실패는 무시한다 — 뒤의
+// 판정(gone)이나 다음 정리가 그 결과를 다시 본다. 호출자는 repoLock(repo) 를 쥐고 있다.
+func (m *Manager) prune(ctx context.Context, repo string) {
+	_, _ = m.git(ctx, repo, "worktree", "prune")
+}
+
+// pruneAndCheckGone 은 prune 뒤 path 가 정말 사라졌는가다 (REFACTOR3_DEDUP_GO_SRS
+// FR-RDG-60). 호출자는 repoLock(repo) 를 쥐고 있다.
+func (m *Manager) pruneAndCheckGone(ctx context.Context, repo, path string) bool {
+	m.prune(ctx, repo)
+	return m.gone(ctx, repo, path)
 }
 
 // gone confirms the path is no longer a registered worktree AND no longer on
