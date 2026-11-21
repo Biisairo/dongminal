@@ -292,6 +292,27 @@ func TestCallsAndDelivery(t *testing.T) {
 	}
 }
 
+// REFACTOR3_GO_STRUCT_SRS FR-RGS-44 · DM-28: hello 를 보내기 전의 연결도 Close 가 닫는다.
+// 종전에는 helloWait(5초)가 지나서야 닫혔다.
+func TestCloseClosesPreHelloConn(t *testing.T) {
+	h := newHarness(t)
+	cl := h.dial()
+	eventually(t, "연결 받음", func() bool {
+		h.srv.mu.Lock()
+		defer h.srv.mu.Unlock()
+		return len(h.srv.pending) == 1
+	})
+	h.srv.Close()
+	select {
+	case _, ok := <-cl.in:
+		if ok {
+			t.Fatal("닫히기 전에 프레임이 왔다")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close 뒤 1초 안에 hello 전 연결이 닫히지 않았다")
+	}
+}
+
 // FR-PCH-43: 연결이 끊기면 바로 모든 방에서 퇴장한다.
 func TestDisconnectUnregisters(t *testing.T) {
 	h := newHarness(t)

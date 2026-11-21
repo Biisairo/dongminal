@@ -67,10 +67,20 @@ const (
 	stopPoll  = 50 * time.Millisecond
 )
 
-// portFree 는 포트가 비기를 stopGrace 까지 기다린다.
-func portFree(port string) bool {
-	return pollwait.Until(context.Background(), stopGrace, stopPoll,
-		func() bool { return len(pidsOnPort(port)) == 0 }) == nil
+// pidsGone 은 pids 가 모두 사라지기를 stopGrace 까지 기다린다.
+//
+// 대기는 대상 pid 의 생존(신호 0, fork 없음)만 본다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-44 ·
+// DM-19). 종전에는 간격마다 포트를 다시 보았고, darwin 의 포트 관측은 `lsof` fork 라
+// 정지 한 번에 수십 번 fork 했다. 포트는 대기가 끝난 뒤에 본다 — 판정의 근거는 그대로 포트다.
+func pidsGone(proc platform.Process, pids []int) bool {
+	return pollwait.Until(context.Background(), stopGrace, stopPoll, func() bool {
+		for _, p := range pids {
+			if proc.Alive(p) {
+				return false
+			}
+		}
+		return true
+	}) == nil
 }
 
 // killPort는 포트를 점유한 프로세스를 TERM → (최대 1초) → KILL 로 종료한다.
@@ -83,11 +93,14 @@ func killPort(port string, w io.Writer, label string) bool {
 	fmt.Fprintf(w, "%s (포트 %s) 정지 중...\n", label, port)
 	proc := procCtl()
 	signalPIDs(pids, proc.Terminate)
-	if !portFree(port) {
-		fmt.Fprintf(w, "강제 종료...\n")
-		signalPIDs(pidsOnPort(port), proc.Kill)
-		portFree(port)
+	pidsGone(proc, pids)
+	left := pidsOnPort(port)
+	if len(left) == 0 {
+		return true
 	}
+	fmt.Fprintf(w, "강제 종료...\n")
+	signalPIDs(left, proc.Kill)
+	pidsGone(proc, left)
 	return len(pidsOnPort(port)) == 0
 }
 

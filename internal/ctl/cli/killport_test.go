@@ -82,3 +82,32 @@ func TestKillPortTable(t *testing.T) {
 		})
 	}
 }
+
+// TestKillPortListenerLookups 는 정지 한 번이 포트 관측(darwin 은 `lsof` fork)을
+// 몇 번 하는지 잰다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-44 · DM-19). 가장 나쁜 경우 —
+// TERM 에 죽지 않고 KILL 에 죽는다.
+//
+//	이전: 대기 중 간격마다 포트를 다시 보았다 — 25회 (TERM 대기 1초 / 50ms 마다 + 처음·KILL 직전·KILL 뒤 첫 확인·끝)
+//	지금: 대기는 대상 pid 의 생존만 본다 — 처음·TERM 대기 뒤·끝 3회
+func TestKillPortListenerLookups(t *testing.T) {
+	f := &fakeProc{alive: true, dieOnKill: true}
+	withProc(t, f)
+	lookups := 0
+	orig := pidsOnPort
+	pidsOnPort = func(string) []int {
+		lookups++
+		if f.alive {
+			return []int{111}
+		}
+		return nil
+	}
+	t.Cleanup(func() { pidsOnPort = orig })
+
+	var out bytes.Buffer
+	if !killPort("54321", &out, "테스트") {
+		t.Fatal("KILL 에 죽었는데 실패로 답했다")
+	}
+	if lookups > 3 {
+		t.Fatalf("포트 관측 %d회, want ≤ 3", lookups)
+	}
+}

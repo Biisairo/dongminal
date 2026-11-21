@@ -64,9 +64,11 @@ type Options struct {
 type Server struct {
 	o Options
 
-	mu       sync.Mutex
-	ln       net.Listener
-	byPID    map[string]*conn
+	mu    sync.Mutex
+	ln    net.Listener
+	byPID map[string]*conn
+	// pending 은 hello 를 기다리는 연결이다. Close 가 이것도 닫는다 (FR-RGS-44 · DM-28).
+	pending  map[net.Conn]struct{}
 	sessions map[string][]*conn
 	closed   bool
 	user     chat.Participant
@@ -94,7 +96,7 @@ func New(o Options) *Server {
 	if o.MaxAgents <= 0 {
 		o.MaxAgents = chat.MaxParticipants - 1
 	}
-	return &Server{o: o, byPID: map[string]*conn{}, sessions: map[string][]*conn{}}
+	return &Server{o: o, byPID: map[string]*conn{}, pending: map[net.Conn]struct{}{}, sessions: map[string][]*conn{}}
 }
 
 // Listen 은 path 에 채팅 소켓을 연다. 폴더는 0700 이다.
@@ -131,7 +133,7 @@ func (s *Server) Serve() {
 	}
 }
 
-// Close 는 리스너와 모든 연결을 닫는다. 연결의 참가자는 퇴장한다.
+// Close 는 리스너와 모든 연결(hello 전 연결 포함)을 닫는다. 연결의 참가자는 퇴장한다.
 func (s *Server) Close() {
 	s.mu.Lock()
 	s.closed = true
@@ -140,12 +142,19 @@ func (s *Server) Close() {
 	for _, c := range s.byPID {
 		conns = append(conns, c)
 	}
+	pending := make([]net.Conn, 0, len(s.pending))
+	for nc := range s.pending {
+		pending = append(pending, nc)
+	}
 	s.mu.Unlock()
 	if ln != nil {
 		ln.Close()
 	}
 	for _, c := range conns {
 		c.close()
+	}
+	for _, nc := range pending {
+		nc.Close()
 	}
 }
 
@@ -216,6 +225,11 @@ func (s *Server) UserCall(op string, args json.RawMessage) (json.RawMessage, *ch
 }
 
 func (s *Server) serve(nc net.Conn) {
+	if !s.track(nc) {
+		nc.Close()
+		return
+	}
+	defer s.untrack(nc)
 	sc := chatwire.NewScanner(nc)
 	_ = nc.SetReadDeadline(time.Now().Add(helloWait))
 	if !sc.Scan() {
@@ -261,6 +275,23 @@ func (s *Server) serve(nc net.Conn) {
 	}
 }
 
+// track 은 hello 전 연결을 pending 에 넣는다. 이미 닫힌 서버면 거짓이다.
+func (s *Server) track(nc net.Conn) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return false
+	}
+	s.pending[nc] = struct{}{}
+	return true
+}
+
+func (s *Server) untrack(nc net.Conn) {
+	s.mu.Lock()
+	delete(s.pending, nc)
+	s.mu.Unlock()
+}
+
 func refuse(nc net.Conn, code, msg string) {
 	if b, err := chatwire.Encode(chatwire.Frame{T: chatwire.TypeError, Error: &chatwire.Error{Code: code, Message: msg}}); err == nil {
 		_ = nc.SetWriteDeadline(time.Now().Add(writeWait))
@@ -284,6 +315,7 @@ func (s *Server) admit(nc net.Conn, h chatwire.Frame) (*conn, error) {
 	c := &conn{c: nc, pid: p.ID, session: h.Session, tool: h.Tool,
 		out: make(chan []byte, outQueue), done: make(chan struct{}), asks: map[uint64]chan chatwire.Frame{}}
 	s.byPID[p.ID] = c
+	delete(s.pending, nc)
 	s.sessions[h.Session] = append(s.sessions[h.Session], c)
 	c.push(chatwire.Frame{T: chatwire.TypeHello, ID: p.ID, Label: p.Label})
 	return c, nil

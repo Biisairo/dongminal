@@ -67,7 +67,7 @@ const (
 	chatUnreadWait = 700 * time.Millisecond
 )
 
-// FR-TND-12: rename-tab 의 확인 창 · 확인 간격. 시험이 줄인다.
+// FR-TND-12: rename-tab 의 확인 창 · 첫 확인 간격(두 배씩 는다, FR-RGS-44). 시험이 줄인다.
 var (
 	renameConfirmWindow   = 1500 * time.Millisecond
 	renameConfirmInterval = 100 * time.Millisecond
