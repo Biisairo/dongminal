@@ -280,10 +280,12 @@ Object.assign(FileTree.prototype, {
    * 때문이다 (FR-FTR-20). 행은 reconcile 로 다시 만들어지므로 컨테이너에만 건다.
    */
   _initDnd(){
+    this._dragEsc={phase:'bubble',propagate:true,active:()=>!!(this._drag||this._dropDir),close:()=>endDrag()};
     this.list.addEventListener('dragstart',e=>{
       const row=e.target.closest('.ed-row[data-path]');
       if(!row||row.classList.contains('ed-edit')){e.preventDefault();return}
       this._drag=row.dataset.path;
+      EscapeStack.push(this._dragEsc);   // REFACTOR3_FE_ESC_SRS FR-FEE-8
       /**
        * FR-EMS-24 (U-5): 끌기 시작한 행이 **선택 밖이면** 집합을 그 하나로
        * 되돌린다. 고르지 않은 것을 끌었는데 고른 것이 따라가면 그것이 놀람이다.
@@ -331,6 +333,7 @@ Object.assign(FileTree.prototype, {
       const entries=ext?FileTree._dropEntries(e):null;
       const files=ext?[...((e.dataTransfer&&e.dataTransfer.files)||[])]:null;
       this._drag=''; this._dropClear();
+      EscapeStack.remove(this._dragEsc);
       // 바깥에서 온 파일이 먼저다 — 내부 이동과 겹치는 자리가 없다.
       if(ext){
         this._dropUpload(dir,entries,files);
@@ -348,10 +351,14 @@ Object.assign(FileTree.prototype, {
     });
     // §3A-5 (T-7.4): 드래그가 어떻게 끝나든(놓기·Esc·밖에 놓기·창 blur) 상태를 반드시
     // 해제한다 — 남은 상태가 이후 다른 드롭에서 파일을 옮기지 않게.
-    const endDrag=()=>{ if(!this._drag&&!this._dropDir) return; this._drag=''; this._dropClear(); this._paintAll() };
+    // Esc 는 EscapeStack 버블 층 항목이 준다 — 전파는 끊지 않는다(REFACTOR3_FE_ESC_SRS FR-FEE-8).
+    const endDrag=()=>{
+      EscapeStack.remove(this._dragEsc);
+      if(!this._drag&&!this._dropDir) return;
+      this._drag=''; this._dropClear(); this._paintAll();
+    };
     this.el.addEventListener('dragend',endDrag);
     window.addEventListener('blur',endDrag);
-    document.addEventListener('keydown',e=>{ if(e.key==='Escape') endDrag() });
   },
 
   /**
@@ -399,6 +406,7 @@ Object.assign(FileTree.prototype, {
   _markDrop(dir){
     if(this._dropDir===dir) return;
     this._dropDir=dir;
+    if(dir) EscapeStack.push(this._dragEsc);   // 바깥에서 온 끌기도 Esc 로 푼다(FR-FEE-8)
     for(const el of this.list.querySelectorAll('.ed-drop')) el.classList.remove('ed-drop');
     this.head.classList.toggle('ed-drop-root',dir===this.root);
     this.list.classList.toggle('ed-drop-root',dir===this.root);

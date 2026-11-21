@@ -5,8 +5,8 @@
  * 탭 줄의 tablist 속성, 고른 탭의 `active`·`aria-selected`·패널 `hidden`. 열 때·탭을 고를 때 무엇을 다시 칠하고
  * 읽을지는 모른다 — App 이 훅 `onOpen()`·`onTab(name)` 으로 준다(D-FED-4).
  *
- * Esc 는 **버블**이다(D-FED-5). 모바일 상세 화면의 Esc(FR-MUX-23)는 문서 캡처에서 먼저 목록으로 물러서고
- * 전파를 끊는다 — 캡처로 옮기면 등록 순서상 이 닫기가 먼저 돈다.
+ * Esc 는 **버블**이고 전파를 끊지 않는다(D-FED-5). 모바일 상세 화면의 Esc(FR-MUX-23)는 상세로 갈 때 위에 넣는
+ * 캡처 항목이 먼저 받는다 — 순서는 `EscapeStack` 의 연 순서다(REFACTOR3_FE_ESC_SRS D-FEE-2).
  */
 class SettingsModal extends Dialog {
   constructor(hooks){
@@ -69,12 +69,7 @@ class SettingsModal extends Dialog {
     this._detach();
   }
 
-  // 전파는 끊지 않는다 — 종전 설정 모달의 Esc 와 같다.
-  _onKey(e){
-    if(e.key!=='Escape') return;
-    e.preventDefault();
-    this.close();
-  }
+  _escape(){ this.close() }
 
   /** `.active` 와 `aria-selected` 가 **같은 것을 말해야** 한다 — 갈라지면 화면과 접근성 트리가 다른 탭을 가리킨다(`TC-A11Y-8b`). */
   select(tab){

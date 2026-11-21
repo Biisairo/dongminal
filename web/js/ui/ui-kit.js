@@ -16,9 +16,8 @@
  *
  * 로드 순서 계약: repaint.js **뒤**, sidebar-tabs.js **앞** (FR-UIK-20).
  */
-// OPTIMIZE_REFACTOR_SRS FR-OPT-12-6 (FEU-19): 화면 가장자리 여백. 메뉴는 창 안쪽 4px 에 머물고,
-// 리사이즈 HUD 는 가운데 정렬된 자기 크기의 반쯤(가로 48 · 세로 28)을 남긴다.
-const UIK_MENU_EDGE_PX = 4;
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-6 (FEU-19): 화면 가장자리 여백. 리사이즈 HUD 는 가운데 정렬된 자기 크기의
+// 반쯤(가로 48 · 세로 28)을 남긴다. 메뉴의 것은 `ui/menu.js` 에 있다.
 const UIK_HUD_EDGE_X_PX = 48;
 const UIK_HUD_EDGE_Y_PX = 28;
 /** `v` 를 [lo, hi] 로 자른다 — 가장자리 여백을 지키는 한 자리. */
@@ -316,10 +315,9 @@ const UIKit = {
    * 저장하면 `.acl-confirm` 이 그 위에 뜬다. `Tab` 트랩은 **맨 위 것**만 걸려야
    * 하고, 닫을 때 포커스는 **그 아래 것**으로 돌아가야 한다.
    *
-   * `Escape` 는 이 스택을 본다: `modal()` 의 Escape 리스너는 **캡처**이고 맨 위가
-   * 자기일 때만 닫고 `stopPropagation()` 한다. 설정 모달의 것은 **버블**이라 안쪽
-   * 킷 모달이 먼저 먹는다 (`TC-A11Y-9`). 킷 모달끼리 겹치면 리스너가 같은 노드에
-   * 등록 순서로 돌므로 스택 없이는 바깥이 먼저 닫혔다 (FR-OPT-16-4).
+   * `Escape` 는 이 스택이 아니라 `EscapeStack` 이 맨 위 하나에만 준다 — 대화상자는
+   * 열 때 그 스택에 넣는다(REFACTOR3_FE_ESC_SRS FR-FEE-4). 킷 모달은 **캡처** 층이고
+   * 설정 모달은 **버블** 층이라, 안쪽 킷 모달이 먼저 먹는다 (`TC-A11Y-9`·FR-OPT-16-4).
    *
    * ## 왜 `Tab` 을 캡처에서 잡나
    *
@@ -481,139 +479,19 @@ const UIKit = {
   },
 
   /**
-   * FR-UIK-26: 드롭다운·컨텍스트 메뉴 — **한 벌**이다 (CONTEXT_MENU_UNIFY_SRS).
-   *
-   * `GitMenu` 가 갖던 것이 여기로 왔다 (FR-CMU-1~4): ↑↓ 이동(비활성 건너뜀,
-   * 끝에서 감김) · Enter 실행 · Home/End · 비활성의 **사유가 `title`** · `cur` ·
-   * `role=menu`/`menuitem`. 닫힘은 `Esc`·바깥 `mousedown`·스크롤·리사이즈.
-   * 한 번에 하나만 열린다. 활성 항목이 포커스를 갖고(D-CMU-2) 닫으면 연 자리로
-   * 돌아간다.
-   *
-   * items: {id, label, icon, key, onClick, disabled:boolean|string, danger, cur, title}
-   *        — `key` 는 단축키 동작 이름이다. 바인딩이 있으면 끝에 키캡이 선다 (UX_AUDIT_FIX_SRS FR-UXF-84)
-   *        | {sep:true} | {el:<HTMLElement>} | {label, static:true}
-   * opts:  {at, align, cls, itemCls, sepCls, flipGap} — `itemCls`·`sepCls` 는 옛
-   *        이름을 함께 붙이는 자리다 (D-5, `GitMenu` 의 `.git-menu-item`).
+   * FR-UIK-26: 드롭다운·컨텍스트 메뉴. 본체는 `Menu`(`ui/menu.js`)다 (REFACTOR3_FE_ESC_SRS FR-FEE-3) —
+   * 세 이름은 기존 호출처를 위한 입구로 남는다. `menu()` 는 메뉴 요소를 돌려준다.
    */
   menu(items, opts) {
-    const o = opts || {};
-    this.closeMenu();
-    const m = document.createElement('div');
-    // MOBILE_UX_OVERHAUL_SRS FR-MUX-53: 모바일 메뉴는 화면을 넘으면 스스로 구른다 — 그 표면의 스크롤바는 킷의 것이다.
-    m.className = 'ui-menu ui-scroll-sm' + (o.cls ? ' ' + o.cls : '');
-    m.setAttribute('role', 'menu');
-    const returnTo = document.activeElement;
-    for (const it of (items || [])) {
-      if (!it) continue;
-      if (it.sep) {
-        const d = document.createElement('div');
-        d.className = ['ui-menu-sep', o.sepCls || ''].filter(Boolean).join(' ');
-        d.setAttribute('role', 'separator');
-        m.appendChild(d); continue;
-      }
-      if (it.el) { m.appendChild(it.el); continue }
-      if (it.label != null && it.static) {
-        const d = document.createElement('div'); d.className = 'ui-menu-label'; d.textContent = it.label; m.appendChild(d); continue;
-      }
-      // FR-CMU-1: 문자열 disabled 는 사유다 — 색만으로는 사용자가 고장으로 읽는다.
-      const why = typeof it.disabled === 'string' ? it.disabled : '';
-      const off = !!it.disabled;
-      const d = document.createElement('div');
-      d.className = ['ui-menu-item', o.itemCls || '', off ? 'disabled' : '', it.danger ? 'danger' : '', it.cur ? 'cur' : ''].filter(Boolean).join(' ');
-      d.setAttribute('role', 'menuitem');
-      d.tabIndex = -1;
-      if (it.id != null) d.dataset.id = it.id;
-      if (it.icon) d.appendChild(this.icon(it.icon, { size: 'sm' }));
-      const l = document.createElement('span');
-      l.textContent = it.label || '';
-      d.appendChild(l);
-      const combo = it.key && typeof shortcuts === 'object' ? shortcuts[it.key] : '';
-      if (combo) {
-        const k = document.createElement('span');
-        k.className = 'ui-menu-key';
-        k.textContent = displayKey(combo);
-        d.appendChild(k);
-      }
-      if (why) d.title = why; else if (it.title) d.title = it.title;
-      if (off) d.setAttribute('aria-disabled', 'true');
-      if (!off && it.onClick) d.addEventListener('click', () => { UIKit.closeMenu(); it.onClick() });
-      m.appendChild(d);
-    }
-    document.body.appendChild(m);
-    // 자리는 붙인 뒤에 잡는다 — 크기를 알아야 화면 밖으로 나가지 않게 밀 수 있다.
-    const at = o.at || { x: 0, y: 0 };
-    const r = m.getBoundingClientRect();
-    let x = at.x, y = at.y;
-    if (o.align === 'right') x = at.x - r.width;
-    const edge = UIK_MENU_EDGE_PX;
-    if (x + r.width > innerWidth - edge) x = innerWidth - r.width - edge;
-    if (y + r.height > innerHeight - edge) y = Math.max(edge, at.y - r.height - (o.flipGap || 0));
-    m.style.left = Math.max(edge, x) + 'px';
-    m.style.top = Math.max(edge, y) + 'px';
-    this._menu = m;
-    this._menuReturnTo = returnTo;
-    /**
-     * FR-CMU-2: 키 이동. 활성 가능한 항목만 돌고, 처음에는 아무것도 활성이
-     * 아니다 — 첫 ↓ 가 첫 항목이다 (`GitMenu` N2 의 계약 그대로).
-     */
-    const live = () => [...m.querySelectorAll('.ui-menu-item:not(.disabled)')];
-    const mark = el => {
-      for (const x of m.querySelectorAll('.ui-menu-item')) x.classList.toggle('active', x === el);
-      if (el) el.focus();
-    };
-    this._menuOff = e => {
-      if (e.type === 'mousedown') { if (!m.contains(e.target)) UIKit.closeMenu(); return }
-      if (e.type !== 'keydown') { UIKit.closeMenu(); return }
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); UIKit.closeMenu(); return }
-      const list = live(); if (!list.length) return;
-      const cur = list.indexOf(m.querySelector('.ui-menu-item.active'));
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
-        e.preventDefault(); e.stopPropagation();
-        const next = e.key === 'Home' ? 0 : e.key === 'End' ? list.length - 1
-          : e.key === 'ArrowDown' ? (cur + 1) % list.length : (cur <= 0 ? list.length - 1 : cur - 1);
-        mark(list[next]); return;
-      }
-      if (e.key === 'Enter' || e.key === ' ') {
-        const el = list[cur]; if (!el) return;
-        e.preventDefault(); e.stopPropagation();
-        el.click();
-      }
-    };
-    window.addEventListener('scroll', UIKit._menuOff, true);   // FR-CMU-3
-    window.addEventListener('resize', UIKit._menuOff, true);
-    /**
-     * `Esc` 는 **즉시** 걸고, 바깥 `mousedown` 만 다음 태스크로 미룬다.
-     *
-     * 미루는 이유는 하나뿐이다 — 이 메뉴를 연 그 클릭의 `mousedown` 이 아직
-     * 전파 중이면 메뉴가 뜨자마자 자기 자신을 닫는다. 그 사유는 키에는 없다:
-     * `Esc` 로 메뉴를 여는 길이 없으므로 방금의 키가 이 리스너를 깨울 수 없다
-     * (전파 중에 같은 노드·같은 단계에 더한 리스너는 그 이벤트에 불리지 않는다).
-     *
-     * 둘을 함께 미뤘더니 **메뉴가 뜬 뒤 한 태스크 동안 `Esc` 가 죽어 있었다.**
-     * 그 사이의 `Esc` 는 아무 일도 하지 않고, 한 번 놓친 키는 다시 오지 않으므로
-     * 메뉴가 열린 채로 남는다 — e2e 가 그 창을 실제로 맞았고(H14 · F9), 빠르게
-     * 누르는 사용자도 같은 창을 맞는다.
-     */
-    document.addEventListener('keydown', UIKit._menuOff, true);
-    TIMERS.defer(() => {
-      document.addEventListener('mousedown', UIKit._menuOff, true);
-    }, { label: 'ui-menu-open' });
-    return m;
+    return Menu.open(items, opts).el;
   },
 
   closeMenu() {
-    if (!this._menu) return;
-    document.removeEventListener('mousedown', this._menuOff, true);
-    document.removeEventListener('keydown', this._menuOff, true);
-    window.removeEventListener('scroll', this._menuOff, true);
-    window.removeEventListener('resize', this._menuOff, true);
-    const hadFocus = this._menu.contains(document.activeElement);
-    if (this._menu.parentNode) this._menu.parentNode.removeChild(this._menu);
-    this._menu = null;
-    this._menuOff = null;
-    // D-CMU-2: 키로 옮겨 온 포커스는 연 자리로 돌려준다.
-    const r = this._menuReturnTo; this._menuReturnTo = null;
-    if (hadFocus && r && r.isConnected && typeof r.focus === 'function') r.focus();
+    Menu.close();
+  },
+
+  get _menu() {
+    return Menu._cur ? Menu._cur.el : null;
   },
 
   // FR-UIK-27: 설정 행 하나. `.ds-row` 의 구조와 1:1 이다.

@@ -344,7 +344,7 @@ test('FR-FEB-23: Panel — 열림은 루트의 클래스 하나, 바뀔 때만 �
   assert.equal(json([ids.sidebar.classList.contains('open'), session.get('pk'), log]), json([true, '1', ['open']]));
   assert.equal(p.open(), false, '같은 값');
   assert.equal(ctx.EscapeStack._items.includes(p), true);
-  ctx.EscapeStack.handle({ key: 'Escape', preventDefault() {} });
+  ctx.EscapeStack.handle({ key: 'Escape', preventDefault() {}, stopPropagation() {} });
   assert.equal(json([p.isOpen(), session.get('pk'), log]), json([false, '0', ['open', 'close']]));
   assert.equal(ctx.EscapeStack._items.includes(p), false);
   const q = new P({ rootId: 'agents-panel' });
@@ -352,10 +352,16 @@ test('FR-FEB-23: Panel — 열림은 루트의 클래스 하나, 바뀔 때만 �
   assert.equal(json([q.isOpen(), ctx.EscapeStack._items.includes(q)]), json([true, false]));
 });
 
-test('FR-FEB-24: 두 패널과 서랍은 이 단계에서 EscapeStack 에 등록하지 않는다 — 기존 Esc 처리기와 두 번 반응하지 않는다', () => {
+test('FR-FEE-5: 서랍과 작업 패널은 EscapeStack 버블 층이고 모바일에서만 살아 있다 — 사이드바는 등록하지 않는다', () => {
   const { ctx, app } = setup();
   const d = new ctx.DrawerSheet(app);
-  assert.equal(json([app.sbPanel().escapable, app.actPanel().escapable, d.escapable]), json([false, false, false]));
+  const a = app.actPanel();
+  assert.equal(json([app.sbPanel().escapable, a.escapable, d.escapable]), json([false, true, true]));
+  assert.equal(json([a.phase, d.phase]), json(['bubble', 'bubble']));
+  app.isMobile = false;
+  assert.equal(json([a.active(), d.active()]), json([false, false]));
+  app.isMobile = true;
+  assert.equal(json([a.active(), d.active()]), json([true, true]));
 });
 
 test('FR-FEB-24: SidebarPanel — 접힘 표식은 documentElement 하나, 저장은 접힘일 때만 "1"', () => {

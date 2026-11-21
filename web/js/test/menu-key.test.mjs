@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, MENU, load } from './harness.mjs';
 
 /**
  * UX_AUDIT_FIX_SRS TC-UXF-84 (FR-UXF-84): 메뉴 항목의 `key` 는 단축키 동작 이름이다.
@@ -28,12 +28,12 @@ function setup(binds) {
     createElement: el, body, activeElement: null,
     addEventListener() {}, removeEventListener() {},
   };
-  const ctx = load(['ui/ui-kit.js'], {
+  const ctx = load([...BASE, 'ui/ui-kit.js', ...MENU], {
     expose: ['UIKit'],
     globals: {
       document, innerWidth: 1000, innerHeight: 1000,
       addEventListener() {}, removeEventListener() {},
-      TIMERS: { defer() {} },
+      TIMERS: { defer() {}, disposeOwner() {} },
       shortcuts: binds,
       displayKey: (s) => s.replace(/Key/g, '').replace(/Ctrl/g, '⌃').replace(/Shift/g, '⇧'),
     },

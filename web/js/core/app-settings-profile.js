@@ -79,10 +79,13 @@ Object.assign(App.prototype, {
       st.classList.toggle('err',!ok);
       st.textContent=ok?t('html.profile_fp_copied'):t('html.profile_fp_copy_fail');
     });
-    // SETTINGS_TAB_ORDER_SRS FR-STO-2: 처음 열리는 탭이 Profile 이다 — 탭을 누르지 않아도 읽는다.
-    const open=document.getElementById('settings-btn');
-    if(open) open.addEventListener('click',()=>{
-      if(document.querySelector('#modal .mtab.active[data-tab="profile"]')) this._loadProfilePanel();
-    });
+  },
+
+  /**
+   * SETTINGS_TAB_ORDER_SRS FR-STO-2: 처음 열리는 탭이 Profile 이다 — 탭을 누르지 않아도 읽는다.
+   * 설정을 열 때 `_settingsOnOpen` 이 부른다(REFACTOR3_FE_ESC_SRS FR-FEE-9).
+   */
+  _profileOnSettingsOpen(){
+    if(document.querySelector('#modal .mtab.active[data-tab="profile"]')) this._loadProfilePanel();
   },
 });

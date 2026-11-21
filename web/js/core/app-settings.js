@@ -175,13 +175,11 @@ Object.assign(App.prototype, {
   /**
    * SANDBOX_PICK_COPY_SRS FR-SPK-7: 설정 화면을 특정 탭으로 연다.
    *
-   * **버튼과 탭을 실제로 누른다.** 여는 절차(패널 다시 칠하기·모바일 드로어
-   * 닫기·탭별 재조회)가 그 리스너 안에 있으므로, 여기서 클래스만 바꾸면 그
-   * 절차가 통째로 빠진 반쯤 열린 화면이 된다.
+   * 여는 절차는 `SettingsModal.open()` 한 자리다(REFACTOR3_FE_ESC_SRS FR-FEE-9). 탭은 탭 요소를 **실제로
+   * 누른다** — 탭별 재조회와 모바일 상세 화면이 그 리스너 안에 있다.
    */
   _openSettings(tab){
-    const btn=document.getElementById('settings-btn');
-    if(btn) btn.click();
+    if(this._settingsModal) this._settingsModal.open();
     if(!tab) return;
     const tabEl=document.querySelector('#modal .mtab[data-tab="'+tab+'"]');
     if(tabEl) tabEl.click();
@@ -359,7 +357,7 @@ Object.assign(App.prototype, {
       }
     };
     input.addEventListener('input',apply);
-    document.getElementById('settings-btn').addEventListener('click',()=>{input.value='';apply()});
+    this._settingsSearchReset=()=>{input.value='';apply()};   // 열 때 비운다(`_settingsOnOpen`)
   },
 
   /** 설정창을 열 때 (`SettingsModal` 의 `onOpen`). 열 때마다 현재 값을 다시 칠한다. */
@@ -385,6 +383,11 @@ Object.assign(App.prototype, {
     this._cacctOnSettingsOpen(modal);
     // Auto-close drawer when opening settings on mobile
     if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
+    // REFACTOR3_FE_ESC_SRS FR-FEE-9: 종전 `#settings-btn` 클릭 리스너 셋의 일을 그 실행 순서대로 — 검색 비우기 →
+    // 프로필 읽기 → 모바일 머리와 목록 화면. 목록 화면은 열기·패널 칠하기 뒤여야 한다.
+    if(this._settingsSearchReset) this._settingsSearchReset();
+    this._profileOnSettingsOpen();
+    this._settingsMobileOnOpen(modal);
   },
 
   /** 탭을 골랐을 때 (`SettingsModal` 의 `onTab`). 고른 탭의 DOM 은 이미 바뀌었다. */
@@ -413,7 +416,7 @@ Object.assign(App.prototype, {
     this._initThemeFollow();   // FR-STF-2
     const modal=document.getElementById('modal');
     // REFACTOR3_FE_DIALOG_SRS FR-FED-10: 열기·닫기·탭 고르기는 `SettingsModal` 이 진다. 여기서 만들어야
-    // `_initSettingsMobile` 의 리스너가 그 뒤에 붙어 뒤에 돈다.
+    // `_initSettingsMobile` 의 탭 리스너가 그 뒤에 붙어 뒤에 돈다.
     this._settingsModal=new SettingsModal({onOpen:()=>this._settingsOnOpen(modal),onTab:n=>this._settingsOnTab(n)}).init();
     this._bindSettingsSearch(modal);
     this._initTabWidth();

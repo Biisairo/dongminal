@@ -35,48 +35,42 @@ Object.assign(App.prototype, {
 
   _initMobileSheets(){
     this._initLongPress();
-    this._initSheetEscape();
     this._initSettingsMobile();
-  },
-
-  // FR-MUX-14: 서랍·Activity 는 Escape 로 닫힌다. 설정은 자기 Escape 를 갖는다(목록↔상세).
-  _initSheetEscape(){
-    document.addEventListener('keydown',e=>{
-      if(e.key!=='Escape'||!this.isMobile) return;
-      const ov=document.getElementById('modal-overlay');
-      if(ov&&ov.classList.contains('open')) return;
-      if(this.drawerOpen){e.preventDefault();this._toggleDrawer(false);return}
-      const ag=document.getElementById('agents-panel');
-      if(ag&&ag.classList.contains('open')){e.preventDefault();this.setAgentsPanelOpen(false)}
-    });
   },
 
   /**
    * FR-MUX-20~24: 모바일 설정의 두 화면 — `list`(섹션 목록)와 `detail`(고른 섹션의 패널).
    * `#modal[data-mview]` 에 적고 CSS 가 그린다. 데스크톱에서는 값이 있어도 걸리는 규칙이 없다.
    *
-   * 패널을 고르는 진실은 `initModal` 의 탭 리스너 한 자리다 — 여기서는 그 뒤에 **화면만**
-   * 바꾼다. 열기·탭 누르기 리스너가 `initModal` 의 것보다 늦게 붙으므로 늘 그 뒤에 돈다.
+   * 패널을 고르는 진실은 `SettingsModal.select` 한 자리다 — 여기서는 그 뒤에 **화면만**
+   * 바꾼다. 탭 누르기 리스너가 그것보다 늦게 붙으므로 늘 그 뒤에 돈다. 열 때의 목록 화면은
+   * `_settingsOnOpen` 이 `_settingsMobileOnOpen` 으로 부른다(REFACTOR3_FE_ESC_SRS FR-FEE-9).
+   *
+   * FR-MUX-23: 상세의 Escape 는 목록으로 물러선다. 상세로 갈 때 EscapeStack 캡처 층에 넣으므로 그보다
+   * 먼저 연 설정 닫기보다 먼저 돈다(FR-FEE-6). 서랍·Activity 의 Esc(FR-MUX-14)는 두 패널이 진다(FR-FEE-5).
    */
   _initSettingsMobile(){
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
     if(!overlay||!modal) return;
-    document.getElementById('settings-btn').addEventListener('click',()=>{
-      if(this.isMobile) this._settingsMobileHead(modal);
-      this._settingsView(modal,'list');
-    });
     modal.querySelectorAll('.mtab').forEach(tab=>tab.addEventListener('click',()=>this._settingsView(modal,'detail')));
-    // FR-MUX-23: 상세의 Escape 는 목록으로 물러선다. 캡처 단계라 `initModal` 의 닫기보다 먼저 돈다.
-    document.addEventListener('keydown',e=>{
-      if(e.key!=='Escape'||!this.isMobile||!overlay.classList.contains('open')||modal.dataset.mview!=='detail') return;
-      e.preventDefault();e.stopImmediatePropagation();
-      this._settingsView(modal,'list');
-    },true);
+    this._settingsDetailEsc={
+      active:()=>this.isMobile&&overlay.classList.contains('open')&&modal.dataset.mview==='detail',
+      close:()=>this._settingsView(modal,'list'),
+    };
     // FR-MUX-13: 닫는 길이 셋이다(닫기·바깥·Escape) — 열림 표식 하나를 지켜본다.
     if(this._settingsOverlayMo) this._settingsOverlayMo.disconnect();
-    this._settingsOverlayMo=new MutationObserver(()=>this.mobileChromeSync());
+    this._settingsOverlayMo=new MutationObserver(()=>{
+      this.mobileChromeSync();
+      if(!overlay.classList.contains('open')) EscapeStack.remove(this._settingsDetailEsc);   // FR-FEE-6
+    });
     this._settingsOverlayMo.observe(overlay,{attributes:true,attributeFilter:['class']});
+  },
+
+  /** 설정을 열 때 — 모바일 머리를 세우고 목록 화면으로 간다. 열기·패널 칠하기 뒤에 부른다(FR-FEE-9). */
+  _settingsMobileOnOpen(modal){
+    if(this.isMobile) this._settingsMobileHead(modal);
+    this._settingsView(modal,'list');
   },
 
   /**
@@ -104,6 +98,8 @@ Object.assign(App.prototype, {
     if(sec) sec.textContent=cur?cur.textContent.trim():'';
     const body=modal.querySelector('.modal-body');
     if(view==='detail'&&this.isMobile&&body) body.scrollTop=0;
+    const esc=this._settingsDetailEsc;
+    if(esc){ if(view==='detail'&&this.isMobile) EscapeStack.push(esc); else EscapeStack.remove(esc) }   // FR-FEE-6
   },
 
   /**

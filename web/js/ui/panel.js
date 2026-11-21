@@ -6,7 +6,8 @@
  *
  *   setOpen(v)  바뀌었을 때만 표식 → 영속(`persist`) → EscapeStack → `onOpen`/`onClose` → 탭 줄 다시 재기. 바뀌었으면 참
  *   persist     `persistKey` 가 있으면 `PrefStore.session` 에 `'1'`/`'0'` 으로 적는다. 다른 꼴은 하위가 덮는다
- *   escapable   참이면 열 때 `EscapeStack` 에 넣고 닫을 때 뺀다. 등록 여부는 하위가 정한다
+ *   escapable   참이면 열 때 `EscapeStack` 에 넣고 닫을 때 뺀다. 등록 여부는 하위가 정한다. 항목은 패널 자신이다 —
+ *               층은 `phase`(기본 캡처), 살아 있는지는 하위가 `active()` 로 말한다(REFACTOR3_FE_ESC_SRS FR-FEE-5)
  *   tabs        하위가 드는 `TabBar`. 열고 닫으면 라벨 자리가 바뀌므로 같은 길(`fit`)로 다시 잰다 (FR-FEB-26)
  *
  * 루트는 `rootId` 의 요소를 처음 쓸 때 받는다(`adopt`, D-FEB-3).
@@ -19,6 +20,7 @@ class Panel extends View {
     this.openClass=o.openClass||'open';
     this.persistKey=o.persistKey||null;
     this.escapable=!!o.escapable;
+    this.phase=o.phase||'capture';
     this.tabs=null;
   }
 

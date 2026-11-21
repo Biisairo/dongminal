@@ -171,7 +171,7 @@ test('TC-FEB-12: Esc 는 맨 위 하나만 닫고, 뺀 항목은 닫지 않는�
   EscapeStack.push(c);
   EscapeStack.remove(c);
   let prevented = 0;
-  const ev = (key) => ({ key, preventDefault: () => { prevented++ } });
+  const ev = (key) => ({ key, preventDefault: () => { prevented++ }, stopPropagation() {} });
   assert.equal(EscapeStack.handle(ev('Enter')), false);
   assert.equal(EscapeStack.handle(ev('Escape')), true);
   assert.equal(json(log), json(['b']));
@@ -190,9 +190,9 @@ test('TC-FEB-12: 같은 항목을 다시 넣으면 맨 위로 올라가고 하�
   EscapeStack.push(a);
   EscapeStack.push(b);
   EscapeStack.push(a);
-  EscapeStack.handle({ key: 'Escape', preventDefault() {} });
-  EscapeStack.handle({ key: 'Escape', preventDefault() {} });
-  assert.equal(EscapeStack.handle({ key: 'Escape', preventDefault() {} }), false);
+  EscapeStack.handle({ key: 'Escape', preventDefault() {}, stopPropagation() {} });
+  EscapeStack.handle({ key: 'Escape', preventDefault() {}, stopPropagation() {} });
+  assert.equal(EscapeStack.handle({ key: 'Escape', preventDefault() {}, stopPropagation() {} }), false);
   assert.equal(json(log), json(['a', 'b']));
 });
 

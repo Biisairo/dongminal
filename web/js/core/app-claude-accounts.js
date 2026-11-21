@@ -299,29 +299,34 @@ Object.assign(App.prototype, {
     this.agentsRender();
   },
 
-  /** FR-CAC-91: 요약 오버레이. 한 번에 하나이고 기억하지 않는다. 바깥 누름·Esc 는 `_claudeAcctPopDismiss` 가 닫는다. */
+  /**
+   * FR-CAC-91: 요약 오버레이. 한 번에 하나이고 기억하지 않는다. 바깥 누름은 `_claudeAcctPopDismiss` 가, Esc 는
+   * EscapeStack 캡처 층 항목이 닫는다(REFACTOR3_FE_ESC_SRS FR-FEE-7).
+   */
   _claudeAcctPopToggle(id){
     const opening=this._claudeAcctPopId!==id;
     this._claudeAcctPopId=opening?id:null;
     if(opening&&!this._claudeAcctPopWired){
       this._claudeAcctPopWired=true;
-      const h=e=>this._claudeAcctPopDismiss(e);
-      document.addEventListener('pointerdown',h,true);
-      document.addEventListener('keydown',h,true);
+      document.addEventListener('pointerdown',e=>this._claudeAcctPopDismiss(e),true);
     }
+    if(!this._claudeAcctPopEsc) this._claudeAcctPopEsc={active:()=>!!this._claudeAcctPopId,close:()=>this._claudeAcctPopClose()};
+    if(opening) EscapeStack.push(this._claudeAcctPopEsc); else EscapeStack.remove(this._claudeAcctPopEsc);
     this.agentsRender();
   },
 
   /** 칸 누름은 칸의 처리기(`_claudeAcctPopToggle`)가 맡는다 — 여기서 닫으면 같은 칸이 다시 연다. */
   _claudeAcctPopDismiss(e){
     if(!this._claudeAcctPopId) return;
-    if(e.type==='keydown'){ if(e.key!=='Escape') return }
-    else if(e.target&&e.target.closest&&e.target.closest('.cacct-pop,.cacct')) return;
+    if(e.target&&e.target.closest&&e.target.closest('.cacct-pop,.cacct')) return;
+    this._claudeAcctPopClose();
+  },
+
+  _claudeAcctPopClose(){
+    if(this._claudeAcctPopEsc) EscapeStack.remove(this._claudeAcctPopEsc);
     this._claudeAcctPopId=null;
     this.agentsRender();
   },
-
-
 
   /** FR-CAC-62·63: 확인을 받은 뒤의 사용. 결과는 언제나 알리고, 목록을 다시 받는다. */
   async _claudeAcctReset(id,item){

@@ -193,7 +193,7 @@ class GitDialog extends GitModalBase {
   }
 
   _onKey(e){
-    if(e.key!=='Enter'&&e.key!=='Escape') return;
+    if(e.key!=='Enter') return;
     // FR-PDA-2·5: **버튼에 포커스가 있으면 그 버튼의 것이다.** 흘려보내
     // 브라우저가 그것을 누르게 한다 — 그래야 취소에 포커스를 두고 누른
     // `Enter` 가 취소가 된다. 종전에는 이 구분 없이 무조건 가로채서 취소에
@@ -205,10 +205,12 @@ class GitDialog extends GitModalBase {
     e.preventDefault(); e.stopPropagation();
     // 실행 중에는 버튼이 disable 이다 — 키도 같이 막는다 (FR-GIT-174).
     if(this.busy) return;
-    if(e.key==='Escape'){this._cancel();return}
     if(this.choices.length){this._pick(this.def);return}
     this._run();
   }
+
+  // Esc 는 `EscapeStack` 이 여기로 준다(REFACTOR3_FE_ESC_SRS FR-FEE-4). 실행 중에는 막는다(FR-GIT-174).
+  _escape(){ if(!this.busy) this._cancel() }
 
   _fieldsEl(host){
     for(const f of this.fields) host.appendChild(this._fieldEl(f));

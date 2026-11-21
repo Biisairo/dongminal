@@ -81,7 +81,7 @@ function env(ids) {
 
 function loadDialog(e, extra = [], expose = []) {
   return load([...BASE, 'ui/dialog.js', ...extra], {
-    expose: ['Dialog', ...expose],
+    expose: ['Dialog', 'EscapeStack', ...expose],
     globals: { document: e.document, UIKit: e.UIKit, TIMERS: e.TIMERS, ClipboardWriter: { write() {} } },
   });
 }
@@ -125,33 +125,37 @@ test('TC-FED-2 _close 는 한 번만 돌고, 닫으면 키 수신기와 오버�
   const ctx = loadDialog(e);
   const d = new (probeClass(ctx, e))();
   const p = d._show();
-  assert.equal(e.keys.length, 1);
+  // 자기 키 수신기 하나 + EscapeStack 이 처음 넣을 때 거는 둘(REFACTOR3_FE_ESC_SRS FR-FEE-2)
+  assert.equal(e.keys.length, 3);
   assert.equal(e.keys[0].cap, true, '기본은 캡처다');
   const ov = d.ov;
   d._close(false);
   d._close(true);
   assert.equal(await p, false);
   assert.equal(e.log.filter((x) => x === 'release').length, 1);
-  assert.equal(e.keys.length, 0, '키 수신기가 남았다');
+  assert.equal(e.keys.length, 2, '키 수신기가 남았다');
+  assert.equal(ctx.EscapeStack._items.length, 0, 'Esc 항목이 남았다');
   assert.equal(ov.parentNode, null, '오버레이가 남았다');
   assert.equal(d.ov, null);
 });
 
-test('TC-FED-3 키는 스택 맨 위(또는 빈 스택)일 때만 받는다 — 기본 Esc 는 _dismiss', () => {
+test('TC-FED-3 키는 스택 맨 위(또는 빈 스택)일 때만 받는다 — Esc 는 EscapeStack 을 지나 _escape → _dismiss', () => {
   const e = env();
   const ctx = loadDialog(e);
   const d = new (probeClass(ctx, e))();
   let dismissed = 0;
+  const got = [];
   d._dismiss = () => { dismissed++ };
+  d._onKey = (k) => got.push(k.key);
   d._show();
   e.stack.push({ box: el('div') });
-  const k1 = key('Escape');
-  e.keys[0].fn(k1);
-  assert.equal(dismissed, 0, '위에 다른 대화상자가 있는데 받았다');
-  assert.ok(!k1.stopped);
+  e.keys[0].fn(key('Enter'));
+  assert.deepEqual(got, [], '위에 다른 대화상자가 있는데 받았다');
   e.stack.pop();
+  e.keys[0].fn(key('Enter'));
+  assert.deepEqual(got, ['Enter']);
   const k2 = key('Escape');
-  e.keys[0].fn(k2);
+  assert.equal(ctx.EscapeStack.handle(k2, 'capture'), true);
   assert.equal(dismissed, 1);
   assert.ok(k2.prevented && k2.stopped);
   assert.equal(d.isTop(), true);
@@ -180,7 +184,7 @@ test('TC-FED-5 UIKit.modal 은 KitModal 에 맡긴다 — 닫는 길이 여럿�
 
   const e = env();
   const ctx = load([...BASE, 'ui/ui-kit.js', ...DIALOG], {
-    expose: ['UIKit', 'KitModal', 'Dialog'],
+    expose: ['UIKit', 'KitModal', 'Dialog', 'EscapeStack'],
     globals: { document: e.document, TIMERS: e.TIMERS },
   });
   assert.ok(ctx.KitModal.prototype instanceof ctx.Dialog);
@@ -189,12 +193,12 @@ test('TC-FED-5 UIKit.modal 은 KitModal 에 맡긴다 — 닫는 길이 여럿�
   let closed = 0;
   const m = ctx.UIKit.modal({ head: false, body: el('p'), actions: [{ label: 'ok', value: 7 }], onClose: () => { closed++ } });
   for (const k of ['el', 'box', 'body', 'foot', 'close', 'defBtn']) assert.ok(m[k], k + ' 가 없다');
-  assert.equal(e.keys.length, 1);
+  assert.equal(e.keys.length, 3, '자기 키 수신기 하나 + EscapeStack 의 둘');
   m.el.listeners.mousedown({ target: m.el });
   m.close(3);
   e.keys.forEach((k) => k.fn(key('Escape')));
   assert.equal(closed, 1);
-  assert.equal(e.keys.length, 0);
+  assert.equal(e.keys.length, 2, '남는 것은 EscapeStack 의 둘뿐이다');
 });
 
 function settingsDom() {
@@ -253,14 +257,16 @@ test('TC-FED-6 SettingsModal — 탭 줄 속성, 열기·닫기 길 셋, 두 번
   assert.ok(!sm.isOpen(), '바깥 클릭으로 닫히지 않았다');
 
   d.ids['settings-btn'].listeners.click();
-  const esc = e.keys.filter((k) => !k.cap);
-  assert.equal(esc.length, 1, 'Esc 는 버블 하나다');
-  assert.equal(e.keys.length, 1);
+  const S = ctx.EscapeStack;
+  assert.equal(S._items.length, 1);
+  assert.equal(S._items[0].phase, 'bubble', 'Esc 는 버블 층이다');
   const k = key('Escape');
-  esc[0].fn(k);
+  assert.equal(S.handle(k, 'capture'), false);
+  assert.equal(S.handle(k, 'bubble'), true);
   assert.ok(!sm.isOpen());
   assert.ok(k.prevented);
-  assert.equal(e.keys.length, 0, '닫힌 뒤에도 Esc 수신기가 남았다');
+  assert.ok(!k.stopped, '전파를 끊었다');
+  assert.equal(S._items.length, 0, '닫힌 뒤에도 Esc 항목이 남았다');
   assert.equal(calls.open, 3);
 });
 

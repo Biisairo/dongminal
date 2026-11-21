@@ -95,7 +95,7 @@ class KitModal extends Dialog {
     return {el:ov,box,body,foot,close,defBtn};
   }
 
-  _dismiss(){ this.close() }
+  _escape(){ this.close() }
 
   /** 닫는 길 셋과 `close(v)` 가 여기로 온다. `onClose` 는 한 번만 부른다. */
   close(v){

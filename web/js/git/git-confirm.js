@@ -248,8 +248,8 @@ class GitConfirm extends GitModalBase {
    * 실행 중에는 두 버튼이 `disabled` 라 브라우저가 click 을 합성하지 않는다 —
    * 새 가드 없이 FR-GIT-174 가 그대로 선다 (FR-PDA-6).
    */
-  // 키는 `Dialog._onKey`(Esc → 여기)가 받는다. 실행 중에는 취소하지 않는다(FR-GIT-174).
-  _dismiss(){ if(!this.busy) this._cancel() }
+  // Esc 는 `EscapeStack` 이 여기로 준다(REFACTOR3_FE_ESC_SRS FR-FEE-4). 실행 중에는 취소하지 않는다(FR-GIT-174).
+  _escape(){ if(!this.busy) this._cancel() }
 
   _paint(){
     const b=this.box; if(!b) return;

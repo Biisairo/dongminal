@@ -48,7 +48,7 @@ function memStore() {
 function loadFoot(globals = {}) {
   const local = memStore();
   const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
-    expose: ['ACTIVITY_SECTIONS'],
+    expose: ['ACTIVITY_SECTIONS', 'EscapeStack'],
     globals: {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
@@ -289,7 +289,9 @@ test('FR-CAC-91: 오버레이는 한 번에 하나 — 같은 칸은 닫고, 다
   assert.deepEqual(pops(), [true, false], '오버레이 안은 닫지 않는다');
   app._claudeAcctPopDismiss(at('.cacct'));
   assert.deepEqual(pops(), [true, false], '칸 누름은 칸의 처리기가 맡는다');
-  app._claudeAcctPopDismiss({ type: 'keydown', key: 'a' });
+  // REFACTOR3_FE_ESC_SRS FR-FEE-7: Esc 는 EscapeStack 캡처 층 항목이 닫는다.
+  const esc = (key) => ctx.EscapeStack.handle({ key, preventDefault() {}, stopPropagation() {} }, 'capture');
+  assert.equal(esc('a'), false);
   assert.deepEqual(pops(), [true, false]);
   const n = rendered;
   app._claudeAcctPopDismiss(at('.elsewhere'));
@@ -297,9 +299,11 @@ test('FR-CAC-91: 오버레이는 한 번에 하나 — 같은 칸은 닫고, 다
   assert.equal(rendered, n + 1);
   app._claudeAcctPopDismiss(at('.elsewhere'));
   assert.equal(rendered, n + 1, '열린 것이 없으면 다시 그리지 않는다');
+  assert.equal(ctx.EscapeStack._items.length, 0, '바깥 누름으로 닫았는데 Esc 항목이 남았다');
   app._claudeAcctPopToggle('b');
-  app._claudeAcctPopDismiss({ type: 'keydown', key: 'Escape' });
+  assert.equal(esc('Escape'), true);
   assert.deepEqual(pops(), [false, false]);
+  assert.equal(ctx.EscapeStack._items.length, 0);
 });
 
 test('FR-CAC-93: statusLine 줄은 꼭 한 줄 — 오래되면 글자 대신 흐림과 툴팁, 활성 카드는 바탕 대신 표식', () => {

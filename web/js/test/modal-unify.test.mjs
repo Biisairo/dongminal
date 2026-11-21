@@ -51,10 +51,12 @@ test('UIKit.modal 의 Escape 는 preventDefault·stopPropagation 을 하고 닫�
   keys.length = 0;
   let closed = 0;
   ctx.UIKit.modal({ head: false, onClose: () => { closed++ } });
-  assert.equal(keys.length, 1);
-  assert.equal(keys[0].cap, true, 'Escape 는 캡처에서 잡는다');
+  // REFACTOR3_FE_ESC_SRS FR-FEE-4: Esc 는 EscapeStack 의 캡처 층이 받는다 — 모달의 키 수신기는 다른 키의 것이다.
+  const cap = keys.filter((k) => k.cap === true);
+  assert.equal(cap.length, 2, '모달의 키 수신기 + EscapeStack 캡처 층');
   let prevented = 0, stopped = 0;
-  keys[0].fn({ key: 'Escape', preventDefault: () => { prevented++ }, stopPropagation: () => { stopped++ } });
+  const e = { key: 'Escape', preventDefault: () => { prevented++ }, stopPropagation: () => { stopped++ } };
+  for (const k of cap) k.fn(e);
   assert.equal(closed, 1);
   assert.equal(stopped, 1, '전파를 끊지 않았다');
   assert.equal(prevented, 1, '기본 동작을 막지 않았다');

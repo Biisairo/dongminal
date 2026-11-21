@@ -7,11 +7,11 @@
  *
  * 바뀐 뒤에는 하단 크롬(`mobileChromeSync`, MOBILE_UX_OVERHAUL_SRS FR-MUX-13)과 상단바(REFACTOR3_DEFECTS_SRS FR-RD3-80)를
  * 다시 그린다. 상단바는 렌더러의 것이라 생성자가 `opts.onChange` 로 받는다. `opts.tabs` 는 사이드바의 탭 줄이다.
- * 모바일 시트의 Esc 는 `app-mobile-sheets.js` 의 처리기가 맡으므로 EscapeStack 에 등록하지 않는다(FC-14 는 단계 6).
+ * Esc 로 닫힌다 — EscapeStack 버블 층이고 모바일에서만 살아 있다(REFACTOR3_FE_ESC_SRS FR-FEE-5).
  */
 class DrawerSheet extends Panel {
   constructor(app,opts){
-    super({rootId:'sidebar'});
+    super({rootId:'sidebar',escapable:true,phase:'bubble'});
     this.app=app;
     const o=opts||{};
     this._onChange=o.onChange||null;
@@ -23,6 +23,8 @@ class DrawerSheet extends Panel {
     document.body.classList.toggle('drawer-open',v);
     this.app.drawerOpen=v;
   }
+
+  active(){ return !!this.app.isMobile }
 
   onOpen(){ this.changed() }
   onClose(){ this.changed() }

@@ -3,7 +3,8 @@
  * 설정 모달(`SettingsModal`)이 이것의 하위다.
  *
  * 세 골격이 각자 적던 것을 한 벌로 둔다: 접근성 계약(`UIKit.dialogOpen`) 걸기·풀기, 키는 대화상자 스택의 맨 위만
- * 받기(FR-OPT-16-4), 한 번만 닫기, 실행 상태기계, 앞으로 가져오기, 복사.
+ * 받기(FR-OPT-16-4), 한 번만 닫기, 실행 상태기계, 앞으로 가져오기, 복사. Esc 는 `EscapeStack` 이 맨 위 하나에만
+ * 준다(REFACTOR3_FE_ESC_SRS FR-FEE-4).
  *
  * 수명이 둘이다(D-FED-3). `_attach`/`_detach` 는 **한 번 여는 동안**의 것이고 `dispose` 는 인스턴스의 끝이다 —
  * 설정 모달은 한 인스턴스를 여러 번 연다.
@@ -12,7 +13,8 @@
  *   `_build()`        골격 DOM (`this.ov`·`this.box`). 붙이는 것까지 한다
  *   `_paint()`        본문 칠하기 · `_focus()` 기본 포커스 · `_beforePaint()` 첫 칠하기 앞의 일(선택)
  *   `_nameEl()`       이름을 주는 요소(선택) · `_result(v)` 닫을 때 돌려줄 값(기본: boolean)
- *   `_onKey(e)`       키(선택). 기본은 Esc → `_dismiss()`
+ *   `_onKey(e)`       Esc 말고 다른 키(선택). 대화상자 스택의 맨 위일 때만 온다
+ *   `_escape()`       Esc(선택). 기본은 `_dismiss()` — 닫지 않으면 스택에 남는다
  */
 class Dialog extends View {
   constructor(opts){
@@ -21,7 +23,7 @@ class Dialog extends View {
     this.box=null;
     this.busy=false;
     this.err=null;
-    /** 키 수신 단계. 거짓이면 버블이다(설정 모달, D-FED-5). */
+    /** Esc 의 층. 거짓이면 버블이고 전파를 끊지 않는다(설정 모달, D-FED-5). */
     this._escCapture=true;
     this._openOff=[];
     this._resolve=null;
@@ -39,6 +41,13 @@ class Dialog extends View {
     const cap=this._escCapture;
     document.addEventListener('keydown',onKey,cap);
     this._openOff.push(()=>document.removeEventListener('keydown',onKey,cap));
+    // FR-FEE-4: 닫지 않은 Esc(실행 중)는 항목을 그 자리에 되돌린다 — 끝난 뒤의 Esc 가 닫는다.
+    const esc={phase:cap?'capture':'bubble',propagate:!cap,close:()=>{
+      this._escape();
+      if(this._openOff.length) EscapeStack.push(esc);
+    }};
+    EscapeStack.push(esc);
+    this._openOff.push(()=>EscapeStack.remove(esc));
     this._openOff.push(UIKit.dialogOpen(this.box,spec));
   }
 
@@ -49,11 +58,9 @@ class Dialog extends View {
     for(let i=off.length-1;i>=0;i--) off[i]();
   }
 
-  _onKey(e){
-    if(e.key!=='Escape') return;
-    e.preventDefault(); e.stopPropagation();
-    this._dismiss();
-  }
+  _onKey(){}
+
+  _escape(){ this._dismiss() }
 
   _dismiss(){ this._close() }
 

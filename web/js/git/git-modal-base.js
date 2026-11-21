@@ -9,7 +9,8 @@
  *   `_build()`        골격 DOM (`this.ov`·`this.box`)
  *   `_paint()`        본문 칠하기 — 공통 조각은 `_paintChanged`·`_paintErr`·`_paintActions`
  *   `_focus()`        기본 포커스 (FR-PDA-1·5)
- *   `_onKey(e)`       키 — 대화상자 스택의 맨 위일 때만 온다
+ *   `_onKey(e)`       Esc 말고 다른 키 — 대화상자 스택의 맨 위일 때만 온다
+ *   `_escape()`       Esc — `EscapeStack` 이 준다(REFACTOR3_FE_ESC_SRS FR-FEE-4)
  *
  * 한 번에 하나라는 규약(`_cur`)은 하위 클래스마다 따로 선다 — 확인과 다이얼로그는 서로를 막지 않는다.
  */
