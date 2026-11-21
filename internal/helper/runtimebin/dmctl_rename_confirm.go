@@ -16,12 +16,7 @@ import (
 //	이유:     `renameTab` 은 결과를 기다리지 않는 방송이고, 409 를 받은 저장은 다시
 //	          시도하지 않는다(FR-WSC-1). 이슈 트리의 사슬 이름이 그 틈으로 사라졌다
 
-// FR-TND-12: 확인 창 · 확인 간격 · 전송 상한. 앞의 둘은 시험이 줄인다.
-var (
-	renameConfirmWindow   = 1500 * time.Millisecond
-	renameConfirmInterval = 100 * time.Millisecond
-)
-
+// FR-TND-12: 전송 상한. 확인 창·간격은 budgets.go 에 있다.
 const renameMaxSends = 3
 
 // renameWant 는 반영의 조건이다 (FR-TND-11).

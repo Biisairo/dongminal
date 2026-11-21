@@ -64,7 +64,7 @@ func runningServer(home string) (string, bool) {
 		return "", false
 	}
 	u := dmenv.BaseURL(h, p)
-	return u, ping(u+apipath.Ping, healthPingTimeout)
+	return u, ping(u+apipath.Ping, aliveProbeTimeout)
 }
 
 func runConfigSet(home, key, value string, stdout, stderr io.Writer) int {
@@ -144,7 +144,7 @@ func exposeWord(on bool) string {
 
 // runConfigGet 은 지금 바인드와 server.json 의 값을 함께 보인다 (FR-HRB-42).
 func runConfigGet(home string, stdout io.Writer) int {
-	if h, p, ok := serverconf.ReadAddr(home); ok && ping(dmenv.BaseURL(h, p)+apipath.Ping, healthPingTimeout) {
+	if h, p, ok := serverconf.ReadAddr(home); ok && ping(dmenv.BaseURL(h, p)+apipath.Ping, aliveProbeTimeout) {
 		fmt.Fprintf(stdout, "지금 바인드: %s (%s)\n", net.JoinHostPort(h, p), exposeWord(dmenv.IsExposedHost(h)))
 	} else {
 		fmt.Fprintln(stdout, "지금 바인드: 서버가 돌고 있지 않습니다")

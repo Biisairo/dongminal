@@ -35,12 +35,6 @@ const (
 	envClaudeSession = "CLAUDE_CODE_SESSION_ID"
 	// inboxMax 는 안 읽은 글함의 상한이다 (D-PCH-27).
 	inboxMax = 200
-	// chatDialWait 는 채팅 소켓 연결 시한이다.
-	chatDialWait = time.Second
-	// chatCallWait 는 데몬의 답을 기다리는 시한이다.
-	chatCallWait = 5 * time.Second
-	// chatTabWait 는 탭 이름을 서버에 묻는 시한이다.
-	chatTabWait = time.Second
 	// mcpProtocol 은 클라이언트가 판을 말하지 않을 때 답하는 MCP 판이다.
 	mcpProtocol = "2025-06-18"
 )

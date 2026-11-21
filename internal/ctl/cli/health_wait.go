@@ -67,7 +67,7 @@ func fetchHealth(url string, timeout time.Duration) (healthState, bool) {
 func waitDaemonConnected(url string, tries int, interval time.Duration) (healthState, bool) {
 	var last healthState
 	err := pollwait.Until(context.Background(), time.Duration(tries)*interval, interval, func() bool {
-		st, ok := fetchHealth(url, localPingTimeout)
+		st, ok := fetchHealth(url, aliveProbeTimeout)
 		if ok {
 			last = st
 		}

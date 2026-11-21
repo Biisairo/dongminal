@@ -10,7 +10,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/termtext"
@@ -38,10 +37,6 @@ const dmctlEdgeHelp = `dmctl edge — 노드 간 통신의 간선 맺기
 
   상대에 닿지 못하면 사유 코드(edge_unreachable 등)를 내고 1 로 끝난다.
 `
-
-// edgeCallBudget 은 상대를 부르는 로컬 API(add·remove)의 예산이다. 서버의 원격
-// 요청 시한(15초)보다 길어야 상대의 답을 받기 전에 끊지 않는다 (리뷰 C-1).
-const edgeCallBudget = 20 * time.Second
 
 func runDmctlEdges(args []string, stdout, stderr io.Writer) int {
 	asJSON := false

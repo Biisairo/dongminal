@@ -96,9 +96,6 @@ func fetchCtxAdvice(tool string) ctxAdvice {
 	return adv
 }
 
-// chatUnreadWait 는 채팅 소켓에 안 읽은 수를 묻는 예산이다.
-const chatUnreadWait = 700 * time.Millisecond
-
 // chatUnreadText 는 그 세션의 안 읽은 글 수 알림이다. 방 이름은 싣지 않는다 — 망에서 온
 // 값을 훅 맥락에 넣지 않는다 (§3.10). 없거나 묻지 못하면 빈 값이다.
 func chatUnreadText(home, session string) string {

@@ -24,6 +24,13 @@ const (
 	// MaxLine 은 도우미 소켓 한 줄의 상한이다.
 	MaxLine = 64 << 10
 	// SocketPath 는 도우미 소켓이다. root 가 만들고 설치한 사용자에게 넘긴다.
+	//
+	// 다른 소켓처럼 home 에서 파생하지 않고 절대 경로로 고정한다 (REFACTOR3_GO_STRUCT_SRS
+	// FR-RGS-42). 도우미는 macOS LaunchDaemon 으로 도는 root 프로세스 하나이고
+	// (`privhelper`, 다른 OS 는 아직 없다), 인스턴스 home 을 모른다. 그리고 home 은 사용자가
+	// 쓸 수 있는 자리라 같은 계정의 에이전트가 소켓을 바꿔 끼울 수 있다 — root 만 쓰는
+	// `/var/run` 이어야 서명 경계가 선다. 플랫폼 transport 의 `Endpoint(home)` 은 이 둘을
+	// 만족하지 않는다.
 	SocketPath = "/var/run/com.dongminal.helper.sock"
 	signDomain = "dmhuman1"
 	maxID      = 128

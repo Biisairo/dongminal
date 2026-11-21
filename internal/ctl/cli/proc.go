@@ -135,17 +135,13 @@ func daemonOurs(home string) (int, bool) {
 		return pid, false
 	}
 	transport := platform.Current().IPC
-	conn, err := transport.Dial(transport.Endpoint(home), daemonProbeTimeout)
+	conn, err := transport.Dial(transport.Endpoint(home), aliveProbeTimeout)
 	if err != nil {
 		return pid, false
 	}
 	conn.Close()
 	return pid, true
 }
-
-// daemonProbeTimeout 은 "거기 우리 데몬이 있는가" 를 묻는 시도의 상한이다.
-// 로컬 종단이므로 답은 즉시 오거나 오지 않는다 (ipc 의 dialProbeTimeout 과 같은 뜻).
-const daemonProbeTimeout = 2 * time.Second
 
 // stopDaemon은 dongminald 를 TERM → 1초 → KILL 로 종료하고 pidfile·소켓을
 // 지운다. 이미 죽어 있으면 잔여물만 치운다. 반환값은 "정지 상태로 끝났는가"

@@ -131,7 +131,7 @@ func RunRollback(o RollbackOpts, stdout, stderr io.Writer) int {
 	// 상대가 있다는 사실**만으로 충분하다 — 그것이 우리 데몬이든 아니든, 그 홈을
 	// 누군가 쓰고 있다.
 	transport := platform.Current().IPC
-	if conn, err := transport.Dial(transport.Endpoint(home), daemonProbeTimeout); err == nil {
+	if conn, err := transport.Dial(transport.Endpoint(home), aliveProbeTimeout); err == nil {
 		conn.Close()
 		fmt.Fprintln(stderr, "이 홈에서 dongminald 가 돌고 있습니다.")
 		fmt.Fprintln(stderr, "되돌리기 전에 `dongminal stop --all` 로 내려 주세요 (터미널 세션을 잃습니다).")

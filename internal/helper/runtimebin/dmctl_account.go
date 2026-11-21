@@ -42,9 +42,6 @@ const dmctlAccountHelp = `dmctl account — Claude 다중 계정
   새로 시작하는 Claude Code 세션부터 새 계정을 쓴다. 실행 중인 세션은 건드리지 않는다.
 `
 
-// accountCallBudget 은 전환의 예산이다. 전환은 Claude Code 의 락 셋을 각각 최대 9초 기다린다.
-const accountCallBudget = 40 * time.Second
-
 // accountSchemaVersion 은 `--json` 출력의 형식 판이다 (FR-CAC-103).
 const accountSchemaVersion = 1
 

@@ -8,7 +8,13 @@ import (
 	"dongminal/internal/shared/platform"
 )
 
-// Client 는 데몬 쪽의 도우미 클라이언트다. 연결 하나에 요청 하나다.
+// DefaultTimeout 은 도우미 소켓 왕복 한 번(연결·쓰기·읽기)의 상한이다. 도우미는 로컬
+// 프로세스라 답은 즉시 오거나 오지 않는다. 데몬의 주기 확인과 `dongminal otp status` 가
+// 같은 값을 쓴다 — 종전에는 3초와 2초 두 벌이었다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-41).
+const DefaultTimeout = 3 * time.Second
+
+// Client 는 데몬 쪽의 도우미 클라이언트다. 연결 하나에 요청 하나다. Timeout 이 0 이면
+// DefaultTimeout 이다.
 type Client struct {
 	Path    string
 	Timeout time.Duration
@@ -50,7 +56,7 @@ func (c Client) Sign(code string, r Request) (Signed, error) {
 func (c Client) roundTrip(req Frame) (Frame, error) {
 	wait := c.Timeout
 	if wait <= 0 {
-		wait = 3 * time.Second
+		wait = DefaultTimeout
 	}
 	conn, err := platform.Current().IPC.Dial(c.Path, wait)
 	if err != nil {

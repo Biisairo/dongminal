@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/apipath"
@@ -24,9 +23,6 @@ import (
 // (`context_window.used_percentage` 등)을 넘긴다. 이 명령은 그 자리에 서서 값을 서버에
 // 남기고, 같은 입력을 원래 등록된 statusLine 명령(하위 명령)에 그대로 넘긴다. 하위
 // 명령이 무엇이든 그 코드와 설정은 고치지 않는다.
-
-// slReportBudget 은 서버 보고의 시한이다 (NFR-SLP-1). 넘기면 버리고 표시로 간다.
-const slReportBudget = 100 * time.Millisecond
 
 // slSelf 는 dongminal 자신의 statusLine·subagentStatusLine 명령이다 — 하위 명령으로 고르면 재귀다.
 var slSelf = regexp.MustCompile(`dmctl["']?\s+(subagent-)?statusline\b`)

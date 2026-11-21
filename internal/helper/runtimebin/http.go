@@ -75,13 +75,7 @@ func currentPort() string {
 // 따로 부르면 심는 이름(toolhub)과 읽는 이름이 갈라져도 아무 데서도 걸리지 않는다.
 func selfToolID() string { return os.Getenv(dmenv.EnvToolID) }
 
-var httpClient = &http.Client{Timeout: 10 * time.Second}
-
-// hookBudget 은 에이전트 훅이 부르는 보고(activity·context·attention)의 예산이다
-// (OPTIMIZE_REFACTOR_SRS FR-OPT-8-5 · SHR-10). 훅은 에이전트 턴의 핫패스이고 결과를
-// 기다릴 까닭이 없다 — 서버가 받아 놓고 멈추면(데드락·GC 정지·과부하) 공용 10초가
-// 턴마다 그대로 실린다. 서버가 없을 때는 연결 거절로 곧 돌아오므로 근거가 아니다.
-const hookBudget = 2 * time.Second
+var httpClient = &http.Client{Timeout: httpDefaultBudget}
 
 // clientWithin 은 한 요청에 예산을 주는 클라이언트다 (M8 D-A-1). 서버가 요청을
 // 붙잡는 종단(`wait`·`succeed`·`preamble`·`close`)은 공용 10초 클라이언트로 부르면

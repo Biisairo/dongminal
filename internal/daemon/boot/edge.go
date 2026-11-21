@@ -84,7 +84,7 @@ func startChat(home string, n *edgenode.Node, tools chatsock.Tools, ps *ipc.Pane
 			}
 		},
 	})
-	helper := humancmd.Client{Path: humancmd.SocketPath, Timeout: helperWait}
+	helper := humancmd.Client{Path: humancmd.SocketPath}
 	cs := chatsock.New(chatsock.Options{Chat: s, Tools: tools, Name: name, OnUser: ps.PushChatMsg, Helper: helper})
 	cs.StartUser()
 	ps.SetChat(cs)
@@ -103,10 +103,9 @@ func startChat(home string, n *edgenode.Node, tools chatsock.Tools, ps *ipc.Pane
 	}
 }
 
-// 도우미를 묻는 간격과 한 번의 시한, 키를 비우기까지의 연속 실패 수다 (PEER_CHAT_SRS §3.12·§3.12a R-7).
+// 도우미를 묻는 간격과 키를 비우기까지의 연속 실패 수다 (PEER_CHAT_SRS §3.12·§3.12a R-7).
 const (
 	helperEvery = 30 * time.Second
-	helperWait  = 3 * time.Second
 	helperDrop  = 3
 )
 

@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/chatwire"
@@ -22,9 +21,6 @@ import (
 // `claude` 를 치면 이것이 먼저 돈다. 훅 인자와 계정 프로필을 넣고 진짜 claude 를 실행한다.
 
 const claudeConfigDirEnv = "CLAUDE_CONFIG_DIR"
-
-// shimBudget 은 실행 준비 API 의 예산이다. 변수인 것은 시험이 시간 초과를 재기 위해서다.
-var shimBudget = 3 * time.Second
 
 // shimExec 는 진짜 claude 를 실행하고 종료 코드를 돌려준다. POSIX 는 돌아오지 않는다.
 var shimExec = execShim
@@ -83,9 +79,6 @@ func shimHookArgs(cmd, home string) []string {
 	}
 	return out
 }
-
-// shimChatDialWait 는 채팅 소켓이 열려 있는지 보는 시한이다.
-const shimChatDialWait = 300 * time.Millisecond
 
 // shimChatArgs 는 채팅 MCP 주입 인자다 (PEER_CHAT_SRS FR-PCH-50, §3.10). 데몬의 채팅 소켓에
 // 붙을 때만 붙인다 — 옛 데몬·꺼진 데몬에서는 주입하지 않는다 (NFR-PCH-5). `=` 꼴

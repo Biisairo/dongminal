@@ -91,7 +91,7 @@ func fail(stderr io.Writer, err error) int {
 }
 
 func status(stdout io.Writer) int {
-	info, err := humancmd.Client{Path: humancmd.SocketPath, Timeout: 2 * time.Second}.Info()
+	info, err := humancmd.Client{Path: humancmd.SocketPath}.Info()
 	if err != nil {
 		fmt.Fprintln(stdout, "도우미가 없거나 닿지 않는다")
 		return 1
