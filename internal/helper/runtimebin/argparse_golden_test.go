@@ -20,6 +20,10 @@ import (
 // 파서 결과는 **기본값이 아닌 필드만** 찍는다(setFields). 구조체 전체를 찍던 동안에는
 // 플래그 하나를 더할 때마다 그 파서의 모든 줄에 빈 필드가 끼어 골든이 수십 줄씩
 // 바뀌었다(REFACTOR PROD2 #4). 이제는 그 플래그를 실제로 쓰는 줄만 바뀐다.
+//
+// 골든 갱신 (REFACTOR3_DEDUP_GO_SRS FR-RDG-24 · §5). 이전: dmctl 파서의 모르는 인자 줄이
+// `unknown flag: X`. 새: `unknown argument: X`. 이유: 모르는 인자 문구를 하나로 모았다.
+// 바뀐 줄은 그 문구뿐이다.
 
 var updateArgGolden = flag.Bool("update-arg-golden", false, "rewrite testdata/argparse.golden")
 

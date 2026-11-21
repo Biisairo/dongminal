@@ -3,6 +3,7 @@ package runtimebin
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -45,17 +46,9 @@ const fpShown = 16
 
 func runDmctlEdges(args []string, stdout, stderr io.Writer) int {
 	asJSON := false
-	for _, a := range args {
-		switch a {
-		case "-h", "--help":
-			fmt.Fprint(stdout, dmctlEdgesHelp)
-			return 0
-		case "--json":
-			asJSON = true
-		default:
-			fmt.Fprintf(stderr, "dmctl edges: 모르는 인자 %q\n", a)
-			return 2
-		}
+	spec := argSpec{help: dmctlEdgesHelp, bools: map[string]*bool{"--json": &asJSON}}
+	if code, proceed := spec.run("dmctl edges", args, stdout, stderr); !proceed {
+		return code
 	}
 	raw, rc := edgeAPI("GET", "/api/edges", nil, stderr)
 	if rc != 0 {
@@ -192,7 +185,7 @@ func parseSubArgs(args []string, allowed, bools []string) (subArgs, error) {
 			continue
 		}
 		if !slices.Contains(allowed, name) {
-			return out, fmt.Errorf("모르는 플래그 %s", a)
+			return out, errors.New(unknownArg(a))
 		}
 		if !inline {
 			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
@@ -338,19 +331,8 @@ func edgeAPI(method, path string, body map[string]any, stderr io.Writer) ([]byte
 	} else {
 		status, raw, err = httpPostJSONWithin(baseURL()+path, body, edgeCallBudget)
 	}
-	return apiResultWith(status, raw, err, stderr, printRefusal)
-}
-
-func printRefusal(w io.Writer, status int, raw []byte) {
-	var e struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	}
-	if json.Unmarshal(raw, &e) == nil && e.Code != "" {
-		fmt.Fprintf(w, "dmctl: %s: %s\n", clean(e.Code), clean(e.Message))
-		return
-	}
-	fmt.Fprintf(w, "dmctl: status %d: %s\n", status, clean(string(raw)))
+	raw, code, _ := httpExit(status, raw, err, stderr, codeRule())
+	return raw, code
 }
 
 // printEdgeJSON 은 응답을 한 줄 JSON 으로 낸다. JSON 문자열은 C1 제어 문자(U+0080~009F)를

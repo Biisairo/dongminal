@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"dongminal/internal/helper/toolline"
@@ -13,20 +14,13 @@ import (
 // `/api/whoami` JSON → toolline.Line 단일 행 또는 --json 시 그대로 stdout.
 func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 	jsonOut := false
-	for _, a := range args {
-		switch a {
-		case "-h", "--help":
-			fmt.Fprint(stdout, dmctlWhoAmIHelp)
-			return 0
-		case "--json":
-			jsonOut = true
-		default:
-			fmt.Fprintf(stderr, "who-am-i: unknown argument: %s\n", a)
-			return 2
-		}
+	spec := argSpec{help: dmctlWhoAmIHelp, bools: map[string]*bool{"--json": &jsonOut}}
+	if code, proceed := spec.run("who-am-i", args, stdout, stderr); !proceed {
+		return code
 	}
 
-	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + selfToolID())
+	// FR-RDG-26 (DM-F4): toolId 는 질의 문자열로 이스케이프한다.
+	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + url.QueryEscape(selfToolID()))
 	if _, code := apiResult("/api/whoami", status, body, err, stderr); code != 0 {
 		return code
 	}

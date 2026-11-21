@@ -47,46 +47,20 @@ func runDmctlRead(cmd string, args []string, stdout, stderr io.Writer) int {
 		bytesN = readScreenDefaultBytes
 	}
 	target := ""
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, dmctlReadHelp)
-			return 0
-		case a == "--at" || a == "-l", a == "--bytes":
-			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "%s: flag %s requires value\n", cmd, a)
-				return 2
-			}
-			if a == "--bytes" {
-				n, err := strconv.Atoi(args[i+1])
-				if err != nil || n < 0 {
-					fmt.Fprintf(stderr, "%s: --bytes 는 0 이상의 정수여야 한다: %s\n", cmd, args[i+1])
-					return 2
-				}
-				bytesN = n
-			} else {
-				target = args[i+1]
-			}
-			i += 2
-			continue
-		case strings.HasPrefix(a, "--at="):
-			target = a[len("--at="):]
-		case strings.HasPrefix(a, "-l="):
-			target = a[len("-l="):]
-		case strings.HasPrefix(a, "--bytes="):
-			n, err := strconv.Atoi(a[len("--bytes="):])
-			if err != nil || n < 0 {
-				fmt.Fprintf(stderr, "%s: --bytes 는 0 이상의 정수여야 한다: %s\n", cmd, a[len("--bytes="):])
-				return 2
-			}
-			bytesN = n
-		default:
-			fmt.Fprintf(stderr, "%s: unknown argument: %s\n", cmd, a)
-			return 2
+	setBytes := func(v string) error {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return fmt.Errorf("--bytes 는 0 이상의 정수여야 한다: %s", v)
 		}
-		i++
+		bytesN = n
+		return nil
+	}
+	spec := argSpec{
+		help: dmctlReadHelp,
+		vals: map[string]func(string) error{"--at": setStr(&target), "-l": setStr(&target), "--bytes": setBytes},
+	}
+	if code, proceed := spec.run(cmd, args, stdout, stderr); !proceed {
+		return code
 	}
 	if target == "" {
 		target = selfToolID()
@@ -175,7 +149,7 @@ func runDmctlSendInput(args []string, stdin io.Reader, stdout, stderr io.Writer)
 			i = len(args)
 			continue
 		case a != "-" && strings.HasPrefix(a, "-"):
-			fmt.Fprintf(stderr, "send-input: unknown flag: %s\n", a)
+			fmt.Fprintf(stderr, "send-input: %s\n", unknownArg(a))
 			return 2
 		default:
 			positional = append(positional, a)
@@ -262,7 +236,7 @@ func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			i = len(args)
 			continue
 		case a != "-" && strings.HasPrefix(a, "-"):
-			fmt.Fprintf(stderr, "msg: unknown flag: %s\n", a)
+			fmt.Fprintf(stderr, "msg: %s\n", unknownArg(a))
 			return 2
 		default:
 			positional = append(positional, a)
@@ -365,36 +339,4 @@ func readBody(positional []string, stdin io.Reader, stderr io.Writer, cmd string
 		return "", 2
 	}
 	return text, 0
-}
-
-// apiResult 는 HTTP 결과 하나를 dmctl 의 종료 코드로 옮긴다 (FR-OPT-9-2 · SHR-16):
-// 전송 오류는 `dmctl: <err>`, 비2xx 는 printAPIError, 성공이면 본문과 0.
-func apiResult(path string, status int, body []byte, err error, stderr io.Writer) ([]byte, int) {
-	return apiResultWith(status, body, err, stderr, func(w io.Writer, st int, b []byte) { printAPIError(w, st, path, b) })
-}
-
-// apiResultWith 는 apiResult 에서 비2xx 의 렌더러만 바꾼 것이다 — 종단마다 거부를
-// 풀어 보이는 방식이 다르다 (run 의 미보고 목록 등).
-func apiResultWith(status int, body []byte, err error, stderr io.Writer, refuse func(w io.Writer, status int, body []byte)) ([]byte, int) {
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return nil, 1
-	}
-	if status < 200 || status >= 300 {
-		refuse(stderr, status, body)
-		return nil, 1
-	}
-	return body, 0
-}
-
-// printAPIError renders the {"error": …} body servers send, falling back to raw.
-func printAPIError(stderr io.Writer, status int, path string, body []byte) {
-	var e struct {
-		Error string `json:"error"`
-	}
-	if err := json.Unmarshal(body, &e); err == nil && e.Error != "" {
-		fmt.Fprintf(stderr, "dmctl: %s\n", e.Error)
-		return
-	}
-	fmt.Fprintf(stderr, "dmctl: %s returned status %d: %s\n", path, status, body)
 }

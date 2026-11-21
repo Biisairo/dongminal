@@ -100,7 +100,7 @@ func runDetach(args []string, stdout, stderr io.Writer) int {
 				return 2
 			}
 		default:
-			fmt.Fprintf(stderr, "detach: unknown argument: %s\n", a)
+			fmt.Fprintf(stderr, "detach: %s\n", unknownArg(a))
 			fmt.Fprint(stderr, detachHelp)
 			return 2
 		}
@@ -157,23 +157,24 @@ func detachRestore(id, at string, stdout, stderr io.Writer) int {
 func detachPost(action string, args map[string]any, stdout, stderr io.Writer) int {
 	status, body, err := httpPostJSON(baseURL()+"/api/commands",
 		map[string]any{"action": action, "args": args})
-	if err != nil {
-		fmt.Fprintf(stderr, "detach: %v\n", err)
-		return 1
+	if _, code, ok := httpExit(status, body, err, stderr, detachRule(true)); !ok {
+		return code
 	}
-	if status < 200 || status >= 300 {
-		fmt.Fprintf(stderr, "detach: 서버 오류 %d: %s\n", status, string(body))
-		return 1
-	}
-	var resp struct {
-		Delivered int `json:"delivered"`
-	}
-	json.Unmarshal(body, &resp)
-	if resp.Delivered == 0 {
-		fmt.Fprintln(stderr, "detach: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요")
-		return 1
-	}
-	return 0
+	// REFACTOR3_DEDUP_GO_SRS FR-RDG-26 (DM-F3). 이전: 본문을 풀지 못하거나 `delivered` 가
+	// 없어도 0 으로 읽어 "브라우저 없음" 으로 1. 새: dmctlDelivery 의 규칙 — 모르면 0.
+	// 이유: 같은 종단(`/api/commands`)의 배달 판정이 두 벌이었다.
+	return dmctlDelivery("detach", body, stderr)
+}
+
+// detachRule 은 detach 의 응답 해석이다. withBody 면 거절 줄에 서버 본문을 싣는다.
+func detachRule(withBody bool) exitRule {
+	return exitRule{prefix: "detach", refuse: refuseWith(func(w io.Writer, status int, body []byte) {
+		if withBody {
+			fmt.Fprintf(w, "detach: 서버 오류 %d: %s\n", status, string(body))
+			return
+		}
+		fmt.Fprintf(w, "detach: 서버 오류 %d\n", status)
+	})}
 }
 
 /**
@@ -189,13 +190,8 @@ func detachRun(cmdline, cwd string, stdout, stderr io.Writer) int {
 		body["cwd"] = cwd
 	}
 	status, raw, err := httpPostJSON(baseURL()+"/api/tools/headless", body)
-	if err != nil {
-		fmt.Fprintf(stderr, "detach: %v\n", err)
-		return 1
-	}
-	if status < 200 || status >= 300 {
-		fmt.Fprintf(stderr, "detach: 서버 오류 %d: %s\n", status, string(raw))
-		return 1
+	if _, code, ok := httpExit(status, raw, err, stderr, detachRule(true)); !ok {
+		return code
 	}
 	var resp struct {
 		ToolID string `json:"toolId"`
@@ -208,13 +204,8 @@ func detachRun(cmdline, cwd string, stdout, stderr io.Writer) int {
 
 func detachList(stdout, stderr io.Writer) int {
 	status, body, err := httpGet(baseURL() + "/api/tools/background")
-	if err != nil {
-		fmt.Fprintf(stderr, "detach: %v\n", err)
-		return 1
-	}
-	if status < 200 || status >= 300 {
-		fmt.Fprintf(stderr, "detach: 서버 오류 %d\n", status)
-		return 1
+	if _, code, ok := httpExit(status, body, err, stderr, detachRule(false)); !ok {
+		return code
 	}
 	var resp struct {
 		Background []struct {

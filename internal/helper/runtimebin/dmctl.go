@@ -2,6 +2,7 @@ package runtimebin
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -468,7 +469,7 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 		if e.kind == argNeedsValue {
 			return p, fmt.Errorf("flag %s requires value", e.arg)
 		}
-		return p, fmt.Errorf("unknown flag: %s", e.arg)
+		return p, errors.New(unknownArg(e.arg))
 	}
 	if len(positional) > 0 {
 		p.positional = positional[0]
@@ -479,33 +480,26 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 	return p, nil
 }
 
-// dmctlHTTPResult 는 POST 한 번의 결과를 dmctl 의 종료 코드로 옮긴다
-// (DRIFT_RECLAIM_SRS FR-DRC-11).
-//
-// 같은 열두 줄이 세 자리에 있었다 (`dmctlPost` · `dmctlSend` · `dmctlNotify`).
-// 그중 한 줄이 이 도구의 규약이다 — **서버가 준 본문이 개행으로 끝나지 않으면
-// 하나 붙인다.** 셸에서 다음 프롬프트가 같은 줄에 붙으면 사용자는 출력이 잘린 것으로
-// 읽는다. 세 벌로 두면 새 종단이 그 규약을 빠뜨려도 아무것도 알려주지 않는다.
+// dmctlHTTPResult 는 `/api/commands` 계열 POST 한 번의 결과를 dmctl 의 종료 코드로
+// 옮긴다 (DRIFT_RECLAIM_SRS FR-DRC-11). 판정은 httpExit 의 것이고(FR-RDG-20), 이 계열의
+// 규칙은 commandRule 이다 — 400 미만이 성공이고, 거절은 서버 본문을 그대로 싣는다.
 //
 // echo 는 **성공** 본문을 stdout 으로 되실을지다. notify 는 되싣지 않는다 — 훅에서
 // 불리므로 성공을 조용히 지나야 한다.
-func dmctlHTTPResult(prefix string, status int, resp []byte, err error, echo bool, stdout, stderr io.Writer) int {
-	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", prefix, err)
-		return 1
-	}
-	if status >= 400 {
-		stderr.Write(resp)
-		if len(resp) == 0 || resp[len(resp)-1] != '\n' {
-			fmt.Fprintln(stderr)
-		}
-		return 1
+func dmctlHTTPResult(rule exitRule, status int, resp []byte, err error, echo bool, stdout, stderr io.Writer) int {
+	if _, code, ok := httpExit(status, resp, err, stderr, rule); !ok {
+		return code
 	}
 	if echo {
 		stdout.Write(resp)
 		fmt.Fprintln(stdout)
 	}
 	return 0
+}
+
+// commandRule 은 dmctlHTTPResult 를 쓰는 종단의 규칙이다. prefix 는 연결 실패 줄의 머리다.
+func commandRule(prefix string) exitRule {
+	return exitRule{prefix: prefix, ok: below400, refuse: refuseWith(rawRefusal)}
 }
 
 func dmctlPost(action string, args map[string]any, stdout, stderr io.Writer) int {
@@ -525,10 +519,10 @@ func dmctlPostRawCapture(action string, args any, stdout, stderr io.Writer, out 
 	if out != nil {
 		*out = resp
 	}
-	if code := dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr); code != 0 {
+	if code := dmctlHTTPResult(commandRule("dmctl"), status, resp, err, true, stdout, stderr); code != 0 {
 		return code
 	}
-	return dmctlDelivery(resp, stderr)
+	return dmctlDelivery("dmctl", resp, stderr)
 }
 
 // dmctlDelivery 는 `/api/commands` 응답의 **배달 사실**을 종료 코드로 옮긴다
@@ -542,8 +536,8 @@ func dmctlPostRawCapture(action string, args any, stdout, stderr io.Writer, out 
 //	          "만들어졌다" 로 읽는다. 같은 종단의 `detach` 는 이미 이렇게 판정한다
 //
 // 판정은 필드가 **있을 때만**이다 — 그 필드를 모르는 응답을 0 으로 읽어 실패로
-// 만들지 않는다. 모른다와 없다는 다르다.
-func dmctlDelivery(resp []byte, stderr io.Writer) int {
+// 만들지 않는다. 모른다와 없다는 다르다. prefix 는 문구의 머리다(`detach` 도 이것을 쓴다).
+func dmctlDelivery(prefix string, resp []byte, stderr io.Writer) int {
 	var got struct {
 		Delivered *int  `json:"delivered"`
 		TimedOut  *bool `json:"timedOut"`
@@ -552,11 +546,11 @@ func dmctlDelivery(resp []byte, stderr io.Writer) int {
 		return 0
 	}
 	if *got.Delivered == 0 {
-		fmt.Fprintln(stderr, "dmctl: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요")
+		fmt.Fprintln(stderr, prefix+": 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요")
 		return 1
 	}
 	if got.TimedOut != nil && *got.TimedOut {
-		fmt.Fprintln(stderr, "dmctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요")
+		fmt.Fprintln(stderr, prefix+": 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요")
 		return 1
 	}
 	return 0

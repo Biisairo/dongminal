@@ -193,7 +193,8 @@ func accountAPI(method, path string, body map[string]any, stderr io.Writer) ([]b
 	} else {
 		status, raw, err = httpJSONWithin(method, baseURL()+path, body, accountCallBudget)
 	}
-	return apiResultWith(status, raw, err, stderr, printRefusal)
+	raw, code, _ := httpExit(status, raw, err, stderr, codeRule())
+	return raw, code
 }
 
 func loadAccounts(stderr io.Writer) (accountsOut, []byte, int) {
@@ -215,8 +216,11 @@ func accountList(pa subArgs, stdout, stderr io.Writer) int {
 		return rc
 	}
 	if pa.bools["json"] {
+		// FR-RDG-26 (DM-F5): 본문이 객체가 아니면(null) 빈 객체에서 시작한다 — 이전에는 nil 맵에 써서 panic 했다.
 		var m map[string]any
-		_ = json.Unmarshal(raw, &m)
+		if json.Unmarshal(raw, &m) != nil || m == nil {
+			m = map[string]any{}
+		}
 		m["schemaVersion"] = accountSchemaVersion
 		b, _ := json.Marshal(m)
 		fmt.Fprintln(stdout, clean(string(b)))

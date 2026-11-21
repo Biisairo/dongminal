@@ -1,7 +1,6 @@
 package runtimebin
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"time"
@@ -62,25 +61,36 @@ func runDelete(path string, stderr io.Writer) ([]byte, int) {
 }
 
 func runResult(path string, status int, raw []byte, err error, stderr io.Writer) ([]byte, int) {
-	return apiResultWith(status, raw, err, stderr, func(w io.Writer, st int, b []byte) { printRunRefusal(w, st, path, b) })
+	raw, code, _ := httpExit(status, raw, err, stderr, runRule(path))
+	return raw, code
+}
+
+// runRule 은 runs 의 `{error,detail,…}` 방언 종단이다.
+func runRule(path string) exitRule {
+	return exitRule{prefix: "dmctl", refuse: refuseWith(func(w io.Writer, st int, b []byte) { printRunRefusal(w, st, path, b) })}
 }
 
 // printRunRefusal renders the enumerated reason plus any list the server
 // attached (close 의 미보고 멤버 등) — 거부를 뭉뚱그리지 않는다.
 func printRunRefusal(stderr io.Writer, status int, path string, raw []byte) {
 	var body struct {
-		Error      string      `json:"error"`
-		Detail     string      `json:"detail"`
-		Unreported []runMember `json:"unreported"`
+		Error      string
+		Detail     string
+		Unreported []runMember
 		// ISSUE_AGENT_TREE_SRS FR-ITU-5: tree_open 의 그 Run 과 멈춤 여부.
-		RunID string `json:"runId"`
-		Stale *bool  `json:"stale"`
+		RunID string
+		Stale *bool
 		// ISSUE_TREE_OPS_SRS FR-ITB-4: node_taken 의 그 이슈를 쥔 멤버.
-		MemberID string `json:"memberId"`
-		State    string `json:"state"`
-		Hint     string `json:"hint"`
+		MemberID string
+		State    string
+		Hint     string
 	}
-	if err := json.Unmarshal(raw, &body); err != nil || body.Error == "" {
+	r, ok := parseRefusal(raw)
+	ok = ok && takeField(r.Error, &body.Error) && takeField(r.Detail, &body.Detail) &&
+		takeField(r.Unreported, &body.Unreported) && takeField(r.RunID, &body.RunID) &&
+		takeField(r.Stale, &body.Stale) && takeField(r.MemberID, &body.MemberID) &&
+		takeField(r.State, &body.State) && takeField(r.Hint, &body.Hint)
+	if !ok || body.Error == "" {
 		printAPIError(stderr, status, path, raw)
 		return
 	}
