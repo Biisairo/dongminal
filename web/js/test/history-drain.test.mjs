@@ -29,8 +29,10 @@ function history(obsSig) {
   });
   const h = Object.create(ctx.GitHistory.prototype);
   Object.assign(h, {
-    _repo: 'r', _el: {}, _commits: [], _filters: {}, _order: '', _grep: '', _reflog: false, _ref: '',
+    _repo: 'r', el: {}, _commits: [], _filters: {}, _order: '', _grep: '', _reflog: false, _ref: '',
     _paintBar() {}, _paintFoot() {}, paint() {}, _rebuild() {},
+    // 세대 가드(GitView.ticket·stale) 대역 — 이 시험은 낡은 응답을 다루지 않는다.
+    ticket() { return {} }, stale() { return false },
   });
   h.panel = { repo: 'r', _lastSig: obsSig, token: () => 1, isStale: () => false };
   h.repoSig = 'NEW';

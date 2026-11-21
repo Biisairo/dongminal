@@ -287,6 +287,7 @@
 | P3a 0~2 | `6a30fc80` · `d8b92b63` | `REFACTOR3_FE_BASE_SRS` — `core/base/`(Component·View·Controller 외), Panel·TabBar 계층과 두 패널·서랍·탭 줄. FU-20 의 사용자 보고 차이는 실측으로 재현하지 못했다(판정 결과 차이 0, 경로·시점만 달라 `TabBar.fit` 으로 모음) — 사용자에게 화면·조작을 묻는다 |
 | P3a 3 | (이 커밋) | `REFACTOR3_FE_DIALOG_SRS` — `Dialog` 아래 `KitModal`(`UIKit.modal` 본체)·`GitModalBase`→`GitConfirm`·`GitDialog`·`SettingsModal`. FC-04 의 열기·닫기·탭 고르기 부분(`initModal` 135 → 8줄, 나머지 `_init*` 나열은 단계 8), FU-13 의 모달 부분(`ui-kit.js` 934 → 817). git 모달 키는 맨 위일 때만 |
 | P3a 4 | (이 커밋) | `REFACTOR3_FE_LIST_SRS` — `ListView` 아래 `SidebarList`(객체 → 서술자별 인스턴스)·`GitListTab`(`git-list-tab.js`). 나머지 `reconcileList` 호출 약 20곳은 각 부품의 단계(5·7·9)에서 |
+| P3a 5 | (이 커밋) | `REFACTOR3_FE_GITVIEW_SRS` — `GitView`(`git/git-view.js`) 아래 Stash·Branches·History·Console·Commit·RemoteList·GitListTab. 세대 가드 세 종류를 `ticket`/`superseded`/`stale` 한 벌로, 루트는 모두 `el`(`gitViewMounted` 삭제), `GitListTab` 은 `ListView` 를 부품(`rows`)으로. `remote.js` 를 클래스마다 넷으로(FU-12 의 파일 분할, `GitRemote` 안 나누기는 단계 7) |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---

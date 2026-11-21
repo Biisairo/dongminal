@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, GITVIEW, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-4-8 후속 — Console 증분 커서의 세대.
@@ -11,7 +11,7 @@ import { load } from './harness.mjs';
  */
 function setup(answers) {
   const sent = [];
-  const ctx = load(['core/constants-api.js', 'git/api.js', 'git/console.js'], {
+  const ctx = load([...BASE, 'core/constants-api.js', 'git/api.js', ...GITVIEW, 'git/console.js'], {
     expose: ['GitConsole'],
     globals: {
       GIT_CON_LIMIT: 500,

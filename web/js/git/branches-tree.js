@@ -27,7 +27,7 @@ Object.assign(GitBranches.prototype, {
    * 개수·펼침은 껍데기를 되쓴다.
    */
   _paintTree(){
-    const box=this._el&&this._el.querySelector('.git-br-tree');
+    const box=this.el&&this.el.querySelector('.git-br-tree');
     if(!box) return;
     const q=this._q.trim().toLowerCase();
     const searching=!!q;

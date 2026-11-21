@@ -13,12 +13,9 @@
  * - **담을 것이 없으면 생성이 비활성이고 사유가 보인다** (FR-GIT-167). 사유 없이
  *   꺼진 버튼은 사용자가 해소할 수 없다.
  */
-class GitStash {
+class GitStash extends GitView {
   constructor(panel){
-    this.panel=panel;
-    this.app=panel.app;
-    this._el=null;
-    this._repo=undefined;
+    super(panel);
     this.reset();
   }
 
@@ -53,9 +50,7 @@ class GitStash {
 
   // ── 골격 ──
 
-  mount(el){
-    if(!el) return;
-    this._el=el;
+  _build(el){
     el.innerHTML=
       '<div class="git-stash-bar">'+
         '<button class="ui-btn ui-btn-sm git-stash-new"></button>'+
@@ -89,22 +84,16 @@ class GitStash {
     el.querySelector('.git-stash-note-close').addEventListener('click',()=>{
       this._note=null; this._paintNote();
     });
-    this._repo=undefined;
-  }
-
-  unmount(){
-    this._el=null;
-    this._repo=undefined;
   }
 
   // ── 칠하기 ──
 
   paint(){
-    if(!this._el) return;
-    if(this.panel.repo!==this._repo) this._adopt();
+    if(!this.el) return;
+    const same=this.panel.repo===this._repo;
+    if(!this._syncRepo()) return;
     // FR-GRF-23: 빈 목록이 굳지 않는다 (branches.js 의 같은 자리와 한 쌍).
-    else if(this._repo&&!this._loading&&this._loadedFor!==this._repo) this._load();
-    if(!this._el) return;
+    if(same&&this._repo&&!this._loading&&this._loadedFor!==this._repo) this._load();
     this._paintBar();
     this._paintNote();
     this._paintList();
@@ -114,15 +103,8 @@ class GitStash {
   // 폴링이 새 status 를 얻을 때마다 불린다. 목록에 영향을 주는 것은 "담을 것이
   // 있는지" 하나뿐이다 (FR-GIT-167) — 목록 자체는 stash 조작으로만 바뀐다.
   paintStatus(){
-    if(!this._el||this.panel.repo!==this._repo) return;
+    if(!this.el||this.panel.repo!==this._repo) return;
     this._paintBar();
-  }
-
-  _adopt(){
-    this._repo=this.panel.repo;
-    this.reset();
-    if(!this._repo) return;
-    this._load();
   }
 
   /**
@@ -133,7 +115,7 @@ class GitStash {
   _state(){return actionState(this.panel.actionOf(GIT_ACTION.stashNew),false)}
 
   _paintBar(){
-    const el=this._el;
+    const el=this.el;
     const st=this._state();
     const why=st.why;
     const btn=el.querySelector('.git-stash-new');
@@ -157,7 +139,7 @@ class GitStash {
   }
 
   _paintNote(){
-    gitPaintNote(this._el,'git-stash',this._note);
+    gitPaintNote(this.el,'git-stash',this._note);
   }
 
 
@@ -174,7 +156,7 @@ class GitStash {
    * 안내문도 같은 목록의 한 항목이다 (FR-GRF-20).
    */
   _paintList(){
-    const box=this._el.querySelector('.git-stash-list');
+    const box=this.el.querySelector('.git-stash-list');
     const list=this._err?[]:this.visible();
     let note=null;
     if(this._err) note=this._err;
@@ -249,7 +231,7 @@ class GitStash {
 
   // FR-GRF-17: 미리보기 목록도 같은 규약이다. 머리글은 값 하나라 그대로 되쓴다.
   _paintPreview(){
-    const el=this._el.querySelector('.git-stash-preview');
+    const el=this.el.querySelector('.git-stash-preview');
     const head=el.querySelector('.git-stash-preview-head');
     const box=el.querySelector('.git-stash-files');
     const sel=this._sel;
@@ -290,40 +272,37 @@ class GitStash {
 
   // ── 질의 ──
 
-  // 다른 네 뷰(History·Branches·Console·Worktrees)와 같은 이름의 진입점이다.
-  // 바깥에서 `_load()` 를 직접 부르면 뷰마다 부르는 이름이 갈린다.
-  reload(){return this._load()}
+  // `reload()` 는 GitView 의 것이다 — 다른 뷰와 같은 이름의 진입점이다.
 
   async _load(){
     const repo=this._repo; if(!repo) return;
-    const tok=this.panel.token();
-    // FR-GRF-31: 앞선 조회를 끊는다 (branches.js 의 같은 자리와 한 쌍).
-    const ticket=gitLoadTicket(this);
+    // FR-GRF-31: 앞선 조회를 끊는다 (branches.js 의 같은 자리와 한 쌍). FR-FEV-6: 표 한 벌.
+    const tk=this.ticket('load');
     this._loading=true;
     const res=await gitFetch(GIT_API.stash,{repo},
-      {stale:()=>this.panel.isStale(tok),echo:{repo},signal:ticket.signal});
-    if(gitLoadTaken(this,ticket)) return;
+      {stale:()=>this.stale(tk),echo:{repo},signal:tk.signal});
+    if(this.superseded(tk)) return;
     // FR-GRF-24: 낡은 응답이 잠금을 쥔 채 나가지 않는다.
     this._loading=false;
     if(res.stale) return;
     this._loadedFor=repo;
     if(!res.ok){
       this._err=GIT_STASH_LOAD_FAIL;
-      if(this._el) this.paint();
+      if(this.el) this.paint();
       return;
     }
     this._err=null;
     this._list=Array.isArray(res.data.stashes)?res.data.stashes:[];
-    if(this._el) this.paint();
+    if(this.el) this.paint();
   }
 
   async _loadFiles(oid){
     const repo=this._repo; if(!repo) return;
-    const tok=this.panel.token();
+    const tk=this.ticket();
     // 뒤늦게 온 다른 stash 의 응답을 자기 것으로 읽지 않는다 — 선택이 바뀐 것은
     // stale 이고, oid 가 어긋난 것은 echo 가 잡는다.
     const res=await gitFetch(GIT_API.stashShow,{repo,oid},
-      {stale:()=>this.panel.isStale(tok)||this._sel!==oid,echo:{repo,oid}});
+      {stale:()=>this.stale(tk)||this._sel!==oid,echo:{repo,oid}});
     if(res.stale) return;
     if(!res.ok){
       const d=res.data||{};
@@ -333,7 +312,7 @@ class GitStash {
         if(Array.isArray(d.stashes)) this._list=d.stashes;
         this._sel=null; this._files=null; this._filesFor=null;
         this._filesErr=GIT_STASH_GONE;
-        if(this._el) this.paint();
+        if(this.el) this.paint();
         return;
       }
       this._filesErr=GIT_STASH_PREVIEW_FAIL;
@@ -370,7 +349,7 @@ class GitStash {
     }else{
       this._note={kind:(d.error||'fail'),msg:this.panel.writeError(res)};
     }
-    if(this._el) this.paint();
+    if(this.el) this.paint();
   }
 
   // stash 생성 다이얼로그 (FR-GIT-166).

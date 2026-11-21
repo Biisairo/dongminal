@@ -78,3 +78,4 @@
 | 커밋 | 요점 |
 |---|---|
 | (이 커밋) | `ui/list-view.js` `ListView` · `ui/sidebar-list.js` 클래스(서술자별 인스턴스, 정적 입구 다섯과 `entries`·`defByDragType`·`_listOf`) · `git/git-list-tab.js`(`mv`, `el`·`key`·`sigParts`·`buildRow`) · `worktrees.js`·`submodules.js` 훅 이름. **SRS 와 다른 점:** ① `dragClear(def)` 는 인스턴스가 필요 없어 정적으로 남겼다 ② 키 배선의 해제가 이제 인스턴스 수명에 쌓인다 — 사이드바 목록 인스턴스는 버려지지 않으므로 보이는 차이는 없다 ③ 공용 `gitLoadList`(`view-util.js`)가 루트를 `_el` 로만 읽어 받은 목록을 칠하지 않던 것을 e2e(worktrees·submodules 12건)가 잡았다 — `gitViewMounted` 가 `el`·`_el` 을 모두 본다(단계 5 가 하나로 모은다). e2e: 관련 18 spec 270건 중 `sidebar-actions` TC-SBA-1 하나만 실패 — HEAD 에서도 실패한다(원래부터 있던 실패) |
+| (단계 5) | `REFACTOR3_FE_GITVIEW_SRS` D-FEV-3 이 FR-FEL-5 의 상속을 바꾼다 — `GitListTab` 은 `GitView` 를 상속하고 `ListView` 인스턴스를 부품(`rows`)으로 든다. 훅 이름(`key`·`sigParts`·`buildRow`)과 서명 바이트는 그대로다. TC-FEL-4 는 원형 사슬을 `GitView` 로 보고, 지워진 `gitViewMounted` 의 시험을 뺐다 |

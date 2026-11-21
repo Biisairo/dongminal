@@ -4,11 +4,11 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { BASE, LIST, load } from './harness.mjs';
+import { BASE, GITVIEW, LIST, load } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_LIST_SRS — 목록 기반 클래스 `ListView` 와 그 하위.
- *   TC-FEL-1·2 ListView · TC-FEL-3 SidebarList · TC-FEL-4 GitListTab
+ *   TC-FEL-1·2 ListView · TC-FEL-3 SidebarList · TC-FEL-4 GitListTab(단계 5 부터 GitView 하위, ListView 는 부품)
  */
 const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => readFileSync(join(JS, f), 'utf8');
@@ -90,13 +90,17 @@ test('TC-FEL-3 SidebarList 는 ListView 의 하위이고 (app, def) 마다 인�
   assert.equal(a.sig(r), want);
 });
 
+// D-FEV-3 (REFACTOR3_FE_GITVIEW_SRS): GitListTab 은 이제 GitView 를 상속하고 ListView 를 부품(`rows`)으로 든다.
 test('TC-FEL-4 GitListTab 계층 — 받은 칸이 루트이고 dispose 는 그 칸을 떼지 않는다', () => {
-  const { ctx } = setup(GIT_LIST, ['GitListTab', 'GitWorktrees', 'GitSubmodules'], { GIT_NOTE_CLOSE: 'x', GIT_TIP_NOTE_CLOSE: 'x' });
+  const { ctx } = setup([...GITVIEW, ...GIT_LIST], ['GitListTab', 'GitWorktrees', 'GitSubmodules', 'GitView'],
+    { GIT_NOTE_CLOSE: 'x', GIT_TIP_NOTE_CLOSE: 'x' });
   for (const C of [ctx.GitListTab, ctx.GitWorktrees, ctx.GitSubmodules]) {
     assert.ok(C === ctx.GitListTab || C.prototype instanceof ctx.GitListTab, C.name);
-    assert.ok(C.prototype instanceof ctx.ListView, C.name);
+    assert.ok(C.prototype instanceof ctx.GitView, C.name);
+    assert.ok(C.prototype instanceof ctx.View, C.name);
   }
   const t = new ctx.GitListTab({ app: {} }, 'p');
+  assert.ok(t.rows instanceof ctx.ListView);
   t._mountHead = () => {};
   const host = el('div');
   host.querySelector = () => ({ addEventListener() {} });
@@ -112,12 +116,4 @@ test('TC-FEL-4 GitListTab 계층 — 받은 칸이 루트이고 dispose 는 그 
   for (const f of GIT_LIST) {
     assert.doesNotMatch(read(f), /this\._el\b|_rowEl|_sigParts/, f);
   }
-});
-
-// 구현 중 e2e 가 잡은 것: 공용 `gitLoadList` 가 루트를 `_el` 로만 읽어, 받은 목록을 칠하지 않았다.
-test('TC-FEL-4 gitLoadList 는 ListView 하위(el)와 옛 뷰(_el)를 모두 붙은 것으로 본다', () => {
-  const { ctx } = setup(['git/view-util.js'], ['gitViewMounted']);
-  assert.equal(ctx.gitViewMounted({ el: {} }), true);
-  assert.equal(ctx.gitViewMounted({ _el: {} }), true);
-  assert.equal(ctx.gitViewMounted({ el: null }), false);
 });

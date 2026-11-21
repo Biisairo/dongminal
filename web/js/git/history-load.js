@@ -36,7 +36,7 @@ Object.assign(GitHistory.prototype, {
     return r.data;
   },
 
-  // 응답이 내 요청의 짝인지 본다 (FR-GIT-133·145). isStale 과 두 겹이다 — 세대만
+  // 응답이 내 요청의 짝인지 본다 (FR-GIT-133·145). 표의 낡음(`stale`)과 두 겹이다 — 세대만
   // 보면 같은 리포에서 필터를 바꿨을 때 뒤늦게 온 이전 응답을 자기 것으로 읽는다.
   _sameReq(got,sent){
     for(const k of Object.keys(sent))
@@ -77,7 +77,7 @@ Object.assign(GitHistory.prototype, {
     if(stale) this._staleTried=sig;
     const full=this._againFull;
     this._again=false; this._againFull=false;
-    if(!this._el||this.panel.repo!==this._repo) return;
+    if(!this.el||this.panel.repo!==this._repo) return;
     if(full) return this._reload();
     return this._load(false,true);
   },
@@ -85,7 +85,8 @@ Object.assign(GitHistory.prototype, {
   // `full` 은 증분(FR-OPT-4-8)이 이어지지 않아 전량으로 돌아가는 한 번이다.
   async _doLoad(more,keep,full){
     const repo=this._repo; if(!repo) return;
-    const tok=this.panel.token();
+    // D-FEV-1: 채널 없는 표 — 겹친 로드는 `_loadP` 가 줄 세운다. 서로 이기게 하지 않는다.
+    const tk=this.ticket();
     const pol=await GitConfirm.policy();
     const sent={
       repo,ref:this._ref||'',
@@ -134,7 +135,7 @@ Object.assign(GitHistory.prototype, {
     let d=null;
     try{ d=await this._get(GIT_API.log,sent) }
     finally{ this._loading=false }
-    if(this.panel.isStale(tok)) return;
+    if(this.stale(tk)) return;
     if(!d||!d.requested||!this._sameReq(d.requested,sent)){
       // FR-GIT-132: 사유를 보이고 **이미 로드된 목록을 지우지 않는다.**
       this._err=GIT_HIST_LOAD_FAIL; this.paint(); return;
@@ -204,17 +205,17 @@ Object.assign(GitHistory.prototype, {
    * (FR-GIT-132), 같은 뜻의 자리를 두 벌로 만들면 한쪽만 고쳐진다.
    */
   noteCompareMark(label){
-    if(!this._el) return;
+    if(!this.el) return;
     this._note=label?GIT_CO_COMPARE_MARKED.replace('%s',label):'';
     this._paintBar();
   },
 
   async _loadRefs(){
     const repo=this._repo; if(!repo) return;
-    const tok=this.panel.token();
+    const tk=this.ticket();
     // FR-OPT-4-9: Branches 와 같은 회차면 요청 하나를 나눠 쓴다.
     const res=await this.panel.fetchRefs(repo);
-    if(this.panel.isStale(tok)) return;
+    if(this.stale(tk)) return;
     const d=res.ok?res.data:null;
     if(!d||!d.requested||d.requested.repo!==repo) return;
     this._refs=Array.isArray(d.refs)?d.refs:[];
@@ -243,13 +244,13 @@ Object.assign(GitHistory.prototype, {
 
   async _loadDetail(){
     const repo=this._repo,oid=this._open; if(!repo||!oid) return;
-    const tok=this.panel.token();
+    const tk=this.ticket();
     const sent={repo,oid,parent:this._parentIdx};
     this._detail=null; this._detailErr=null;
     this._ver++; this._paintRows();
     const d=await this._get(GIT_API.commit,sent);
     // FR-GIT-145: 리포가 바뀌었거나 대상이 바뀌었으면 버린다.
-    if(this.panel.isStale(tok)) return;
+    if(this.stale(tk)) return;
     if(this._open!==oid||this._parentIdx!==sent.parent) return;
     if(!d||!d.requested||!this._sameReq(d.requested,sent)){
       this._detailErr=GIT_HIST_DETAIL_FAIL;
@@ -273,7 +274,7 @@ Object.assign(GitHistory.prototype, {
   //   새 동작: 자동은 이미 불러온 만큼 다시 받고 상세를 둔다. 새로고침만 맨 위로 간다
   //   이유: signature 가 index 를 보므로 stage 한 번에도 보던 자리를 잃었다 (재현·H22)
   reload(keep){
-    if(!this._el||this.panel.repo!==this._repo) return;
+    if(!this.el||this.panel.repo!==this._repo) return;
     return Promise.all([this._loadRefs(),keep?this._load(false,true):this._reload()]);
   },
 
@@ -332,10 +333,10 @@ Object.assign(GitHistory.prototype, {
    * 보내지 않으므로, 글자를 지웠다 같은 말로 되돌아와도 왕복이 생기지 않는다.
    */
   async _expand(){
-    if(!this._el||!this._repo) return;
+    if(!this.el||!this._repo) return;
     const q=this._q.trim();
     await this._revLookup(q);
-    if(!this._el||this._q.trim()!==q) return;
+    if(!this.el||this._q.trim()!==q) return;
     /**
      * **리비전으로 해석된 말은 넓히지 않는다.**
      *
@@ -359,7 +360,7 @@ Object.assign(GitHistory.prototype, {
     try{ await this._reload() }
     finally{
       this._expanding=false;
-      if(this._el) this._paintFoot();
+      if(this.el) this._paintFoot();
     }
   },
 
@@ -372,9 +373,9 @@ Object.assign(GitHistory.prototype, {
    */
   async _revLookup(q){
     if(!q||!this._repo){this._rev=null;this._paintRev();return}
-    const tok=this.panel.token();
+    const tk=this.ticket();
     const d=await this._get(GIT_API.log,{repo:this._repo,ref:q,limit:1});
-    if(this.panel.isStale(tok)||!this._el) return;
+    if(this.stale(tk)||!this.el) return;
     // 늦게 온 응답이 지금 치고 있는 말을 덮지 않는다.
     if(this._q.trim()!==q) return;
     const c=(d&&Array.isArray(d.commits)&&d.commits.length)?d.commits[0]:null;
@@ -412,14 +413,14 @@ Object.assign(GitHistory.prototype, {
    */
   async _jumpTo(oid){
     if(!oid||!this._repo) return;
-    const tok=this.panel.token();
+    const tk=this.ticket();
     this._note=GIT_JUMP_SEARCHING; this._err=null; this._paintBar();
     // 상한을 둔다 — 없는 것을 끝없이 받아 오지 않는다.
     for(let p=0;p<GIT_JUMP_MAX_PAGES;p++){
       if(this._commits.some(c=>c.oid===oid)) break;
       if(this._end||this._err) break;
       await this._load(true);
-      if(this.panel.isStale(tok)) return;
+      if(this.stale(tk)) return;
     }
     const i=this._view.findIndex(c=>c.oid===oid);
     if(i<0){this._note=GIT_JUMP_NOT_FOUND;this._paintBar();return}

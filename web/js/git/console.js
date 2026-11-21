@@ -9,16 +9,15 @@
  * 기록은 M1 부터 Recorder 가 담고 있었다 (FR-GIT-5). 이 클래스는 그것을 읽어
  * 그린다 — 상한도 판정도 새로 만들지 않는다.
  */
-class GitConsole {
+// D-FEV-5: 저장소는 들지 않는다 — 받을 때마다 `panel.repo` 를 읽고, 바뀌면 패널이 `reset()` 을 부른다.
+class GitConsole extends GitView {
   constructor(panel){
-    this.panel=panel;
-    this._el=null;
+    super(panel);
     this._recs=[];
     this._reads=false;     // 폴링까지 볼지 (기본은 쓰기·실패만)
     this._q='';            // 텍스트 검색 (FR-GIT-281)
     this._open=new Set();  // 펼친 행의 seq
     this._err='';
-    this._seq=0;           // 요청 일련번호. stale 응답을 버린다 (FR-GIT-54)
     this._after=0;         // 마지막으로 받은 전역 Seq. 증분 조회의 커서다 (FR-OPT-4-8)
     this._epoch='';        // 그 커서의 세대. 서버가 다시 뜨면 바뀐다
     this._timer=null;
@@ -26,9 +25,7 @@ class GitConsole {
 
   // ── 골격 ──
 
-  mount(el){
-    if(!el) return;
-    this._el=el;
+  _build(el){
     el.innerHTML=
       '<div class="git-con-bar">'+
         '<label class="git-con-reads"><input type="checkbox"><span></span></label>'+
@@ -57,12 +54,13 @@ class GitConsole {
 
   unmount(){
     this._stop();
-    this._el=null; this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch='';
+    super.unmount();
+    this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch='';
   }
 
   // 탭이 활성일 때만 받는다 — 열지 않은 탭이 500칸 버퍼를 미리 받아 둘 이유가 없다.
   paint(){
-    if(!this._el) return;
+    if(!this.el) return;
     this._paintList();
     this._start();
   }
@@ -70,12 +68,12 @@ class GitConsole {
   // 리포가 바뀌면 앞 리포의 기록은 버린다 — 남으면 이력이 아니라 잡음이다.
   reset(){
     this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch='';
-    this._seq++;
-    if(this._el) this._paintList();
+    this.dropTicket('records');   // FR-FEV-6: 진행 중 응답을 버린다 (FR-GIT-54)
+    if(this.el) this._paintList();
   }
 
   _start(){
-    if(this._timer||!this._el) return;
+    if(this._timer||!this.el) return;
     // `vis` 만 보면 **떠난 탭에서도 계속 받는다.** 탭을 바꾸면 `_rLayout` 이
     // 그 본문을 통째로 버리는데, 요소에 붙은 클래스는 그대로 남기 때문이다 —
     // 요소가 문서에 붙어 있는지까지 봐야 "보이는가" 가 된다.
@@ -83,7 +81,7 @@ class GitConsole {
     // 이 판정이 다섯 폴링 중 가장 정확했고, FR-RST-23 이 그것을 `when` 으로
     // 받아 나머지에도 같은 규약을 준다.
     this._timer=visiblePoll(()=>gitConsoleInterval,()=>this.reload(),{
-      when:()=>!!this._el&&this._el.isConnected&&this._el.classList.contains('vis'),
+      when:()=>!!this.el&&this.el.isConnected&&this.el.classList.contains('vis'),
     });
   }
 
@@ -94,8 +92,8 @@ class GitConsole {
   async reload(){
     const repo=this.panel.repo;
     if(!repo){this.reset();return}
-    const seq=++this._seq;
-    const tok=this.panel.token();
+    // FR-GIT-54 · FR-FEV-6: 뒤에 나간 요청이 이긴다 — 표가 일련번호와 패널 세대를 함께 본다.
+    const tk=this.ticket('records');
     // OPTIMIZE_REFACTOR_SRS FR-OPT-4-8 (DOM-27): 받은 것 뒤만 묻는다.
     //   이전 동작: 주기마다 기록 최대 500건 전부를 받았다
     //   새  동작: `after=<lastSeq>` 로 그 뒤의 것만 받아 앞에 붙인다. `gap` 이면 전량이다
@@ -109,7 +107,7 @@ class GitConsole {
     const d=r.data;
     // 세대·리포·일련번호 셋을 다 본다 (FR-GIT-54) — 같은 세대 안에서도 응답
     // 순서가 뒤바뀔 수 있다.
-    if(seq!==this._seq||this.panel.isStale(tok)) return;
+    if(this.stale(tk)) return;
     if(!r.ok||!d||!Array.isArray(d.records)){
       this._err=GIT_CON_FAIL; this._paintList(); return;
     }
@@ -155,9 +153,9 @@ class GitConsole {
    * (FR-RPT-5) 그때 다시 그리는 것은 옳다.
    */
   _paintList(){
-    if(!this._el) return;
-    const list=this._el.querySelector('.git-con-list');
-    const cnt=this._el.querySelector('.git-con-count');
+    if(!this.el) return;
+    const list=this.el.querySelector('.git-con-list');
+    const cnt=this.el.querySelector('.git-con-count');
     if(!list) return;
     const recs=this._visible();
     if(cnt) cnt.textContent=recs.length?String(recs.length):'';

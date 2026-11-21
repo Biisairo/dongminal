@@ -19,20 +19,23 @@
  *   _mountHead()  머리의 배선. mount 당 한 번
  *   _paintHead()  머리의 상태 반영 (비활성 등). paint 마다
  *   _emptyText()  목록이 비었을 때의 한 줄
- *   key(e)·sigParts(e)·buildRow(e)   행의 정체·서명의 필드·마크업 (ListView, REFACTOR3_FE_LIST_SRS FR-FEL-5)
+ *   key(e)·sigParts(e)·buildRow(e)   행의 정체·서명의 필드·마크업 (행 부품 `rows` 가 부른다, REFACTOR3_FE_GITVIEW_SRS FR-FEV-9)
  *   _load()       목록 질의
  *
  * `prefix` 는 CSS 클래스의 접두사다 (`git-wt` · `git-sub`). 마크업과 스타일이
  * 그것 하나로 이어진다 — 골격이 클래스 이름을 만들므로 `-head`·`-note`·`-list`·
  * `-empty` 의 규칙이 탭마다 갈릴 수 없다.
  */
-class GitListTab extends ListView {
+class GitListTab extends GitView {
   constructor(panel, prefix){
-    super();
-    this.panel=panel;
-    this.app=panel.app;
+    super(panel);
     this.prefix=prefix;
-    this._repo=undefined;
+    // FR-FEV-9 (D-FEV-3): 행 그리기는 부품이 한다 — 훅은 이 탭의 같은 이름 메서드에 맡긴다.
+    this.rows=new ListView();
+    this.rows.key=e=>this.key(e);
+    this.rows.sigParts=e=>this.sigParts(e);
+    this.rows.buildRow=e=>this.buildRow(e);
+    this.own(()=>this.rows.dispose());
     this.reset();
   }
 
@@ -45,10 +48,8 @@ class GitListTab extends ListView {
 
   // ── 골격 ──
 
-  // D-FEL-3: 패널이 준 칸이 곧 루트다 — 그 칸의 주인은 패널이므로 `adopt` 한다.
-  mount(el){
-    if(!el) return;
-    this.adopt(el);
+  // D-FEV-6: 패널이 준 칸이 곧 루트다 (GitView.mount).
+  _build(el){
     const p=this.prefix;
     el.innerHTML=
       '<div class="'+p+'-head">'+this._headHTML()+
@@ -64,20 +65,13 @@ class GitListTab extends ListView {
     close.textContent=GIT_NOTE_CLOSE; close.title=GIT_TIP_NOTE_CLOSE;
     close.addEventListener('click',()=>{this._note=null; this._paintNote()});
     this._mountHead(el);
-    this._repo=undefined;
-  }
-
-  unmount(){
-    this.el=null;
-    this._repo=undefined;
   }
 
   // ── 칠하기 ──
 
   paint(){
     if(!this.el) return;
-    if(this.panel.repo!==this._repo) this._adopt();
-    if(!this.el) return;
+    if(!this._syncRepo()) return;
     this._paintNote();
     this._paintList();
   }
@@ -86,13 +80,6 @@ class GitListTab extends ListView {
   reload(){
     if(!this.el||this.panel.repo!==this._repo) return;
     return this._load();
-  }
-
-  _adopt(){
-    this._repo=this.panel.repo;
-    this.reset();
-    if(!this._repo) return;
-    this._load();
   }
 
   _paintNote(){
@@ -112,15 +99,16 @@ class GitListTab extends ListView {
     empty.textContent=msg;
     empty.classList.toggle('vis',!!msg);
     this._paintHead();
-    this.reconcile(box,this._err?[]:this._list);
+    this.rows.reconcile(box,this._err?[]:this._list);
   }
 
   // ── 하위가 채우는 자리 ──
 
   _headHTML(){return ''}
-  _mountHead(_el){}
+  _mountHead(_root){}
   _paintHead(){}
   _emptyText(){return ''}
   key(e){return e.path}
-  _load(){}
+  sigParts(e){return [this.key(e)]}
+  buildRow(_e){return document.createElement('div')}
 }

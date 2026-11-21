@@ -28,7 +28,7 @@ Object.assign(GitHistory.prototype, {
    * 지우므로(규약), 머리글을 목록 밖에 두면 회차마다 사라진다.
    */
   _paintRefs(){
-    const box=this._el.querySelector('.git-refs');
+    const box=this.el.querySelector('.git-refs');
     if(!box.dataset.built){
       box.dataset.built='1';
       box.innerHTML='';

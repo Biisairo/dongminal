@@ -41,7 +41,7 @@ Object.assign(GitHistory.prototype, {
     if(this._layoutT) return;
     this._layoutT=TIMERS.frame(()=>{
       this._layoutT=null;
-      if(!this._el||!this._list) return;
+      if(!this.el||!this._list) return;
       if(!this._list.clientHeight){
         if(n<GIT_HIST_LAYOUT_FRAMES) this._awaitLayout(n+1);
         return;
@@ -109,7 +109,7 @@ Object.assign(GitHistory.prototype, {
     this._spTop.style.height=offset(first)+'px';
     this._spBot.style.height=Math.max(0,total-offset(last))+'px';
     // 목록이 비었으면 사실을 알린다 — 빈 화면은 실패와 구분되지 않는다.
-    let empty=this._el.querySelector('.git-hist-empty');
+    let empty=this.el.querySelector('.git-hist-empty');
     const showEmpty=!items.length&&!this._loading&&!this._err;
     if(showEmpty){
       if(!empty){

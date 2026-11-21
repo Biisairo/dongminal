@@ -57,6 +57,9 @@ export const DIALOG = ['ui/dialog.js', 'ui/kit-modal.js'];
 /** 목록 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_LIST_SRS FR-FEL-6). `BASE`·`ui/repaint.js` 뒤에 싣는다. */
 export const LIST = ['ui/list-view.js'];
 
+/** Git 탭 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_GITVIEW_SRS FR-FEV-11). `LIST` 뒤, git 뷰들 앞에 싣는다. */
+export const GITVIEW = ['git/git-view.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 

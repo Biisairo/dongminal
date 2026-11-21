@@ -24,12 +24,10 @@
  *   history-detail.js   인라인 커밋 상세 (FR-GIT-135~139)
  *   history-load.js     질의 · 검색 (FR-GIT-129) · jump (FR-GIT-131)
  */
-class GitHistory {
+// `_repo` 는 화면에 채워 둔 리포다. 바뀌면 전부 되돌린다 (FR-GIT-133 · GitView._syncRepo).
+class GitHistory extends GitView {
   constructor(panel){
-    this.panel=panel;
-    this.app=panel.app;
-    this._el=null;
-    this._repo=undefined; // 화면에 채워 둔 리포. 바뀌면 전부 되돌린다 (FR-GIT-133)
+    super(panel);
     this.reset();
   }
 
@@ -106,7 +104,7 @@ class GitHistory {
   // 테마 전환 훅 (theme-vars.js applyThemeObj). 살아 있는 목록의 색을 다시 계산한다.
   static applyTheme(){
     const h=window.app&&app.gitPanel&&app.gitPanel._historyView;
-    if(!h||!h._el) return;
+    if(!h||!h.el) return;
     h._pal=null; h._ver++; h._paintRows();
   }
 
@@ -114,9 +112,7 @@ class GitHistory {
 
   // 골격은 History 루트가 다시 만들어질 때마다 한 번 세운다. 리스너도 그때 한 번만
   // 붙는다 — paint 는 칠하기만 한다.
-  mount(el){
-    if(!el) return;
-    this._el=el;
+  _build(el){
     el.innerHTML=
       // FR-GHM-3: Changes 와 **같은 머리**다. 마크업도 배선도 GitPanel 이 한 자리에서
       // 만든다 — History 가 자기 것을 만들면 두 탭의 머리가 갈린다.
@@ -194,23 +190,20 @@ class GitHistory {
     // 상세는 노드 하나를 계속 쓴다 — 행 창을 다시 그릴 때마다 새로 만들면 안쪽
     // 스크롤과 부모 선택이 매 스크롤마다 초기화된다.
     this._detailEl=this._buildDetail();
-    // 골격이 새로 세워졌으므로 다음 paint 가 리포 상태를 다시 채운다.
-    this._repo=undefined;
   }
 
   unmount(){
     this._stopLayout();
     if(this._ro){this._ro.disconnect();this._ro=null}
-    this._el=null; this._list=null; this._detailEl=null;
-    this._repo=undefined;
+    this._list=null; this._detailEl=null;
+    super.unmount();
   }
 
   // ── 칠하기 ──
 
   paint(){
-    if(!this._el) return;
-    if(this.panel.repo!==this._repo) this._adopt();
-    if(!this._el) return;
+    if(!this.el) return;
+    if(!this._syncRepo()) return;
     // FR-DSP-1d: 뷰가 관측보다 늦게 서면 여기가 그 관측을 처음 읽는 자리다.
     this._syncStatus();
     this._paintBar();
@@ -225,12 +218,12 @@ class GitHistory {
    * 매초 흔들린다.
    */
   paintStatus(){
-    if(!this._el||this.panel.repo!==this._repo) return;
+    if(!this.el||this.panel.repo!==this._repo) return;
     if(!this._syncStatus()) return;
     // FR-GIT-248: 사이드바의 HEAD 표식도 같은 관측에서 파생한다. 이 경로는 refs 를
     // 다시 받지 않으므로(`_paintRefs` 의 뼈대가 그대로다) 표식만 고친다 —
     // 창 밖에서 체크아웃한 경우가 이 자리다.
-    this._paintRefSel(this._el.querySelector('.git-refs'));
+    this._paintRefSel(this.el.querySelector('.git-refs'));
     this._paintRows();
   }
 
@@ -270,7 +263,7 @@ class GitHistory {
   }
 
   _paintBar(){
-    const el=this._el;
+    const el=this.el;
     // 입력값은 사용자가 치는 중일 수 있다 — 리포가 바뀔 때만 되돌린다.
     if(this._barRepo!==this._repo){
       this._barRepo=this._repo;
@@ -312,7 +305,7 @@ class GitHistory {
    * 간다 — `Go` 가 하던 일이 이 줄로 옮겨 왔다 (D-12).
    */
   _paintRev(){
-    const box=this._el&&this._el.querySelector('.git-hist-rev'); if(!box) return;
+    const box=this.el&&this.el.querySelector('.git-hist-rev'); if(!box) return;
     const c=this._rev;
     box.classList.toggle('vis',!!c);
     if(!c){box.innerHTML='';box.onclick=null;return}
@@ -384,7 +377,7 @@ class GitHistory {
   }
 
   _paintFoot(){
-    const el=this._el;
+    const el=this.el;
     const n=el.querySelector('.git-hist-loaded');
     n.dataset.n=String(this._commits.length);
     n.textContent=GIT_HIST_LOADED_N.replace('%n',String(this._commits.length));

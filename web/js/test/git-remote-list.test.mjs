@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, GITVIEW, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-1-5 (FEU-1 · FEU-2) — 원격 목록의 적재는 `gitLoadList`
@@ -11,7 +11,7 @@ import { load } from './harness.mjs';
  * 새 조회는 앞선 조회를 끊는다 (FR-GRF-31).
  */
 const calls = [];
-const ctx = load(['core/constants-api.js', 'git/view-util.js', 'git/remote.js'], {
+const ctx = load([...BASE, 'core/constants-api.js', 'git/view-util.js', ...GITVIEW, 'git/remote-list.js'], {
   globals: {
     gitFetch: (url, params, opts) => new Promise((resolve) => calls.push({ url, params, opts, resolve })),
     GIT_RM_LOAD_FAIL: 'load-fail',

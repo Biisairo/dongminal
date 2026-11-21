@@ -12,13 +12,11 @@
  * 옵션(sign-off / no-verify / commit all)은 기억하지 않는다 (FR-GIT-79) —
  * no-verify 가 기억되면 훅이 조용히 계속 꺼진다.
  */
-class GitCommit {
+// `_repo` 는 화면에 채워 둔 리포다. 바뀌면 `_reset` 이 전부 되돌린다 (GitView._syncRepo · FR-FEV-8).
+class GitCommit extends GitView {
   constructor(panel){
-    this.panel=panel;
-    this.app=panel.app;
-    this._el=null;
+    super(panel);
     this._msg=null;
-    this._repo=null;      // 화면에 채워 둔 리포. 바뀌면 전부 되돌린다
     this._pf=null;        // /api/git/preflight 의 응답 (template·gpgSign·warnings)
     this._pfRepo=null;
     this._st=null;        // 마지막 status. 비활성 사유 판정이 딛는다 (FR-GIT-84)
@@ -30,7 +28,7 @@ class GitCommit {
     this._menuOpen=false;
     this._blocks=null;    // 409 preflight_blocked 의 blocks (FR-GIT-88)
     this._answer=null;    // 서버의 커밋 답 (SERVER_DRIVEN_ACTIONS_SRS GR-3)
-    this._askedKey=null; this._askT=null; this._askSeq=0; this._asking=false;
+    this._askedKey=null; this._askT=null; this._asking=false;
     this._err=null;
     this._busy=false;
     this._saveT=null;     // draft 디바운스
@@ -43,9 +41,7 @@ class GitCommit {
 
   // 골격은 `.git-commit` 이 다시 만들어질 때마다 한 번 세운다. 리스너도 그때
   // 한 번만 붙는다 — paint 는 칠하기만 한다.
-  mount(el){
-    if(!el) return;
-    this._el=el;
+  _build(el){
     el.innerHTML=
       // 입력창은 폭을 다 쓰고, 옵션과 실행은 그 아래 한 줄에 **왼쪽으로 모아**
       // 선다 (FR-GIT-213). 옆에 세우면 입력창 높이에 따라 둘 사이 간격이 계속
@@ -100,22 +96,24 @@ class GitCommit {
       this._menuOpen=!this._menuOpen; this._paint();
     });
     this._bindResize(el.querySelector('.git-commit-resize'));
-    // 골격이 새로 세워졌으므로 다음 paint 가 리포 상태를 다시 채워야 한다.
-    this._repo=null;
   }
 
   // 리포가 없어 `.git-commit` 자체가 사라진 경우. 인스턴스는 살아 있다 — 리포는
   // 다시 선택될 수 있다.
   unmount(){
-    this._el=null; this._msg=null; this._repo=null;
+    this._msg=null;
+    super.unmount();
     this._undoHide();
   }
 
+  // FR-FEV-8: 저장소 교체는 `_reset` 이 받는다.
+  _adopt(){ this._reset(this.panel.repo) }
+
   paint(st){
-    if(!this._el||!this._msg) return;
+    if(!this.el||!this._msg) return;
     this._st=st;
+    this._syncRepo();
     const repo=this.panel.repo;
-    if(repo!==this._repo) this._reset(repo);
     // REPO_FIX 05 F-7.1: HEAD 가 바뀐 관측이면 preflight 를 다시 받는다 — detached 경고와
     // 진행 중 작업 차단이 현재 HEAD 를 따른다 (FR-GIT-87).
     const hk=st?[st.oid||'',st.branch||'',st.detached?1:0].join(RPT_SEP):'';
@@ -231,7 +229,7 @@ class GitCommit {
   // ── 칠하기 ──
 
   _paint(){
-    const el=this._el; if(!el) return;
+    const el=this.el; if(!el) return;
     const pf=this._pfRepo===this._repo?this._pf:null;
     this._msg.disabled=!this._repo;
     const gpg=el.querySelector('.git-commit-gpg');
@@ -309,10 +307,11 @@ class GitCommit {
   }
 
   async _ask(){
-    const repo=this._repo, id=GIT_ACTION.commit, seq=++this._askSeq;
+    // D-FEV-7: 표는 패널 세대도 본다 — 저장소가 바뀐 직후 칠하기 전에 온 답도 버린다.
+    const repo=this._repo, id=GIT_ACTION.commit, tk=this.ticket('ask');
     const res=await gitFetch(GIT_API.actions,{repo,action:id,message:this._msg.value,
       amend:this._amend?'1':'0',all:this._opts.all?'1':'0',signoff:this._opts.signoff?'1':'0'},
-      {stale:()=>seq!==this._askSeq||this._repo!==repo,echo:{repo,action:id}});
+      {stale:()=>this.stale(tk)||this._repo!==repo,echo:{repo,action:id}});
     if(res.stale) return;
     // 뒤에 물을 것이 걸려 있으면 그 답이 올 때까지 다시 묻는 중이다.
     this._asking=!!this._askT;
@@ -328,7 +327,7 @@ class GitCommit {
   // 차단 사유는 **무엇이 왜 막혔고 어떻게 푸는지**를 함께 보인다 (FR-GIT-88).
   // Fix 는 복사할 수 있다 — 옮겨 적게 하지 않는다.
   _paintBlocks(){
-    const box=this._el.querySelector('.git-preflight');
+    const box=this.el.querySelector('.git-preflight');
     const blocks=this._blocks||[];
     box.classList.toggle('vis',!!blocks.length);
     const sig=blocks.map(b=>b&&b.code).join(',');

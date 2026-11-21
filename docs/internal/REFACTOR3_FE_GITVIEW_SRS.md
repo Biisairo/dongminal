@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 P3a 단계 5 — Git 탭 기반 클래스 `GitView` — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: `GitView`·세대 가드 한 벌·일곱 뷰 이주·`remote.js` 파일 분할 구현과 시험
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `docs/internal/refactor/FE_OBJECT_MODEL.md` §2 행 7·§3·§6 단계 5)
 - 사용자 결정(2026-11-21, `FE_OBJECT_MODEL.md` §7): 자체 클래스 계층, 클래스 하나 = 파일 하나. 진행은 묻지 않고 끝까지 한다. 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -94,4 +93,6 @@ Git 창의 탭 뷰는 모두 같은 수명을 따른다. 패널이 칸을 주면
 
 ## 6. 구현 기록
 
-(구현 커밋에서 채운다.)
+| 커밋 | 요점 |
+|---|---|
+| (이 커밋) | `git/git-view.js` `GitView`(수명·`_syncRepo`·표 `ticket`/`superseded`/`stale`/`dropTicket`) · 일곱 뷰 이주(`mount` → `_build`, `_el` → `el`) · `GitListTab` 의 행 부품 `rows` · `gitLoadList` 가 뷰의 표를 쓴다(`gitLoadTicket`·`gitLoadTaken`·`gitViewMounted` 삭제) · `remote.js` 를 `remote-opts.js`·`remote-list.js`·`remote-add.js` 로 나눔 · 단위 시험 `git-view.test.mjs`(TC-FEV-1~6). **SRS 와 다른 점:** ① `GitSubmodules` 의 작업 스트림 커서 `_seq` 를 `_after` 로 이름만 바꿨다 — 세대 가드가 아니지만 TC-FEV-5 의 `_seq\b` 검사에 걸린다(`GitConsole._after` 와 같은 뜻) ② `GitHistory.filterPath` 의 저장소 교체는 `_adopt` 를 지나지 않는다 — 걸러지지 않은 목록을 먼저 받지 않으려고 `_load` 없이 refs 만 받는 다른 경로라 그대로 두었다 ③ 같은 일을 하던 `reload`(Stash·Branches·RemoteList)와 `_adopt`(Stash·RemoteList·GitListTab)는 `GitView` 의 기본으로 대신했다. `GitBranches`·`GitHistory` 는 `_adopt` 를 덮는다(데이터셋·HEAD·refs) ④ 표 변수 이름은 `tk` 다 — `t` 는 i18n 함수를 가린다는 린트(`local/no-shadow-i18n`)에 걸린다. e2e: 관련 31 spec 371건 중 2건 실패 — `git-ui-metrics` V80·`sidebar-actions` TC-SBA-1, 둘 다 HEAD 에서도 실패한다 |

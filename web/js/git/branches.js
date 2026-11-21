@@ -21,12 +21,10 @@
  *   branches-ops.js       쓰기 동작 27 (전부 static — 위 문단이 그 이유다)
  *   branches-dialogs.js   생성 · 이름 변경 · 업스트림 다이얼로그
  */
-class GitBranches {
+// `_repo` 는 화면에 채워 둔 리포다. 바뀌면 전부 되돌린다 (FR-GIT-16 · GitView._syncRepo).
+class GitBranches extends GitView {
   constructor(panel){
-    this.panel=panel;
-    this.app=panel.app;
-    this._el=null;
-    this._repo=undefined; // 화면에 채워 둔 리포. 바뀌면 전부 되돌린다 (FR-GIT-16)
+    super(panel);
     this.reset();
   }
 
@@ -71,9 +69,7 @@ class GitBranches {
 
   // 골격은 루트가 다시 만들어질 때 한 번 세운다. 리스너도 그때 한 번만 붙는다 —
   // paint 는 칠하기만 한다.
-  mount(el){
-    if(!el) return;
-    this._el=el;
+  _build(el){
     el.innerHTML=
       '<div class="git-br-bar">'+
         '<input class="git-br-search" type="text">'+
@@ -101,17 +97,14 @@ class GitBranches {
     el.querySelector('.git-br-retry').addEventListener('click',()=>{
       this._err=null; this._load();
     });
-    this._el.dataset.repo='';
+    el.dataset.repo='';
     // FR-GIT-269: 원격 목록은 자기 상태를 스스로 든다 — 골격 자리만 내준다.
     this._remotes().mount(el.querySelector('.git-br-remotes'));
-    // 골격이 새로 세워졌으므로 다음 paint 가 리포 상태를 다시 채운다.
-    this._repo=undefined;
   }
 
   unmount(){
     if(this._remotesView) this._remotesView.unmount();
-    this._el=null;
-    this._repo=undefined;
+    super.unmount();
   }
 
   // FR-GIT-269: 원격 목록 (remote.js 가 소유한다). 지연 생성이며, 목록을 다시
@@ -131,8 +124,9 @@ class GitBranches {
   // ── 칠하기 ──
 
   paint(){
-    if(!this._el) return;
-    if(this.panel.repo!==this._repo) this._adopt();
+    if(!this.el) return;
+    const same=this.panel.repo===this._repo;
+    if(!this._syncRepo()) return;
     /**
      * FR-GRF-23 (flaky `git-branches` B6): **빈 목록이 굳지 않는다.**
      *
@@ -145,8 +139,7 @@ class GitBranches {
      *
      * 실패도 "받은 적 있음" 이므로 실패가 되풀이되지 않는다.
      */
-    else if(this._repo&&!this._loading&&this._loadedFor!==this._repo) this._load();
-    if(!this._el) return;
+    if(same&&this._repo&&!this._loading&&this._loadedFor!==this._repo) this._load();
     this._paintBar();
     this._paintTree();
     this._remotes().paint();
@@ -159,29 +152,28 @@ class GitBranches {
    * 창 밖에서(터미널의 `git checkout`) 옮겨 간 것도 이 경로로 들어온다.
    */
   paintStatus(){
-    if(!this._el||this.panel.repo!==this._repo) return;
+    if(!this.el||this.panel.repo!==this._repo) return;
     const h=this.panel.headName();
     if(h===this._head) return;
     this._head=h;
     this._load();
   }
 
-  // ref 를 바꾼 쓰기 뒤에 `GitPanel.afterRefWrite` 가 부른다 (FR-GIT-160). status
-  // 하나로는 어느 브랜치가 생겼는지 사라졌는지 알 수 없으므로 목록을 다시 받는다.
-  reload(){return this._load()}
+  // `reload()`(GitView)는 ref 를 바꾼 쓰기 뒤에 `GitPanel.afterRefWrite` 가 부른다 (FR-GIT-160).
+  // status 하나로는 어느 브랜치가 생겼는지 사라졌는지 알 수 없으므로 목록을 다시 받는다.
 
   _adopt(){
     this._repo=this.panel.repo;
     this.reset();
-    if(!this._el) return;
-    this._el.dataset.repo=this._repo||'';
+    if(!this.el) return;
+    this.el.dataset.repo=this._repo||'';
     if(!this._repo) return;
     this._head=this.panel.headName();
     this._load();
   }
 
   _paintBar(){
-    const el=this._el;
+    const el=this.el;
     // 입력값은 사용자가 치는 중일 수 있다 — 리포가 바뀔 때만 되돌린다.
     if(this._barRepo!==this._repo){
       this._barRepo=this._repo;
@@ -197,12 +189,11 @@ class GitBranches {
 
   async _load(){
     const repo=this._repo; if(!repo) return;
-    const tok=this.panel.token();
-    // FR-GRF-31: 앞선 조회를 끊는다. 표는 잠금의 임자도 가른다.
-    const ticket=gitLoadTicket(this);
+    // FR-GRF-31: 앞선 조회를 끊는다. 표는 잠금의 임자도 가른다 (FR-FEV-6).
+    const tk=this.ticket('load');
     this._loading=true;
-    const res=await this.panel.fetchRefs(repo,{stale:()=>this.panel.isStale(tok),signal:ticket.signal});
-    if(gitLoadTaken(this,ticket)) return;
+    const res=await this.panel.fetchRefs(repo,{stale:()=>this.stale(tk),signal:tk.signal});
+    if(this.superseded(tk)) return;
     // FR-GRF-24: 낡은 응답은 **그 값을 쓰지 않는 것**이지 잠금을 영원히 쥐는
     // 것이 아니다. 종전에는 여기서 `_loading=true` 인 채로 빠져나갔고, 그러면
     // 위 `paint()` 의 재조회도 함께 막혔다.
@@ -212,14 +203,14 @@ class GitBranches {
     if(!res.ok){
       // 사유를 보이고 **이미 받은 목록을 지우지 않는다.**
       this._err=GIT_BR_LOAD_FAIL;
-      if(this._el) this.paint();
+      if(this.el) this.paint();
       return;
     }
     const d=res.data;
     this._err=null;
     this._refs=Array.isArray(d.refs)?d.refs:[];
     this.panel.adoptRefs(this._refs);   // FR-BMU-16h
-    if(this._el) this.paint();
+    if(this.el) this.paint();
   }
 }
 
