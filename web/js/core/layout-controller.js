@@ -197,86 +197,108 @@ class LayoutController extends Controller {
    *
    * `opts.keepTool` 은 그 답이 "백그라운드로 보내기" 일 때다 — 도는 도구를 죽이지
    * 않고 배경으로 옮긴다.
+   *
+   * REFACTOR3_FE_REST3_SRS FR-FR3-8·9 (FC-05): 확인 둘 → 도구 처리 → 빼기 → 되돌리기 → 슬롯 → 다음 창의 순서다.
    */
   async delWindow(sid,opts={}){
     const i=this.app.ws.windows.findIndex(s=>s.id===sid);
     if(i<0) return;
     // FR-WSL-6: 슬롯 정리는 창을 실제로 지우기 **전에** 예약해 두지 않는다 —
     // 아래 확인 대화에서 취소될 수 있기 때문이다. 지운 뒤에 부른다 (아래).
-
     const s=this.app.ws.windows[i];
-    /**
-     * UX_BATCH8_SRS FR-CLG-1·3·4: **저장하지 않은 편집을 먼저 묻는다.**
-     *
-     *   이전 동작: 실행 중인 프로세스만 물었다. 편집기가 dirty 여도 창이 그대로
-     *             사라지고, 그 순간 탭 id 가 없어져 편집기와 모델이 함께 버려진다
-     *   새  동작: 탭 닫기와 같은 팝업을 같은 문구로 띄운다 (`app-layout` 의 dirty
-     *             가드와 한 벌이다)
-     *   이유:     접수 — "수정된 파일 닫을 때 저장하고닫기/그냥닫기/취소 팝업".
-     *             그 팝업은 탭 닫기에 이미 있었고 이 길에만 없었다
-     *
-     * 프로세스 확인보다 **앞에** 선다 (FR-CLG-4). 여기서 취소하면 창이 남으므로
-     * 도구를 어떻게 할지 물을 일 자체가 없다. 워크스페이스는 답을 받은 뒤에야
-     * 바뀐다 (NFR-2) — 이 위의 `findIndex` 는 읽기일 뿐이다.
-     */
-    if(this.app._edWinDirty&&this.app._edWinDirty(s)&&!opts.force){
-      const r=await this.app._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
-      if(!r) return;
-      // FR-EXC-13a: 하나라도 저장하지 못했으면 창을 닫지 않는다 — 탭 하나의
-      // 경합으로 창 전체의 편집을 잃을 수는 없다.
-      if(r==='save'&&!await this.app._edWinSaveDirty(s)) return;
-    }
+    if(!await this._delWinDirtyOk(s,opts)) return;
     const pids=allPids(s.layout);
+    const ans=await this._delWinAsk(pids,opts);
+    if(!ans) return;
+    this._delWinTools(pids,ans.asked,ans.keep);
+    this.app.ws.windows.splice(i,1);
+    if(!ans.asked) this._winUndoArm(s,i,pids);
+    // FR-WSL-6: 실제로 지워진 뒤에 슬롯을 정리한다 — 위의 확인 대화에서
+    // 취소되면 여기 도달하지 않는다.
+    this.app._slotOnWindowGone(sid);
+    await this._delWinAfter(sid,i);
+  }
+
+  /**
+   * UX_BATCH8_SRS FR-CLG-1·3·4: **저장하지 않은 편집을 먼저 묻는다.** 계속하면 참이다.
+   *
+   *   이전 동작: 실행 중인 프로세스만 물었다. 편집기가 dirty 여도 창이 그대로
+   *             사라지고, 그 순간 탭 id 가 없어져 편집기와 모델이 함께 버려진다
+   *   새  동작: 탭 닫기와 같은 팝업을 같은 문구로 띄운다 (`app-layout` 의 dirty
+   *             가드와 한 벌이다)
+   *   이유:     접수 — "수정된 파일 닫을 때 저장하고닫기/그냥닫기/취소 팝업".
+   *             그 팝업은 탭 닫기에 이미 있었고 이 길에만 없었다
+   *
+   * 프로세스 확인보다 **앞에** 선다 (FR-CLG-4). 여기서 취소하면 창이 남으므로
+   * 도구를 어떻게 할지 물을 일 자체가 없다. 워크스페이스는 답을 받은 뒤에야
+   * 바뀐다 (NFR-2) — `delWindow` 의 `findIndex` 는 읽기일 뿐이다.
+   */
+  async _delWinDirtyOk(s,opts){
+    if(!(this.app._edWinDirty&&this.app._edWinDirty(s)&&!opts.force)) return true;
+    const r=await this.app._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
+    if(!r) return false;
+    // FR-EXC-13a: 하나라도 저장하지 못했으면 창을 닫지 않는다 — 탭 하나의
+    // 경합으로 창 전체의 편집을 잃을 수는 없다.
+    if(r==='save'&&!await this.app._edWinSaveDirty(s)) return false;
+    return true;
+  }
+
+  /**
+   * 프로세스 확인. 취소면 `null`, 아니면 `{asked, keep}` — `asked` 는 busy 인 도구가 있었는가(확인창이 뜨는
+   * 사유), `keep` 은 배경으로 살릴 pid 집합이다.
+   *
+   * FR-BG-4/4a: 일괄 전환 대상은 busy 인 도구만이다. 확인창이 뜨는 사유가
+   * "실행 중인 프로세스"이고, 한가하면 그냥 종료한다는 FR-BG-1 의 기본과
+   * 일관되어야 한다 — 한가한 셸까지 보존하면 백그라운드가 쓰레기로 찬다.
+   */
+  async _delWinAsk(pids,opts){
     const busyMap=await this.app._toolsBusy(pids);
-    const busyChecks=pids.map(pid=>!!busyMap[pid]);
-    // FR-BG-4/4a: 일괄 전환 대상은 busy 인 도구만이다. 확인창이 뜨는 사유가
-    // "실행 중인 프로세스"이고, 한가하면 그냥 종료한다는 FR-BG-1 의 기본과
-    // 일관되어야 한다 — 한가한 셸까지 보존하면 백그라운드가 쓰레기로 찬다.
-    let keep=new Set();
+    const busy=pids.filter(pid=>!!busyMap[pid]);
+    const keep=new Set();
     // FR-M9-4: 답을 이미 받은 요청은 묻지 않는다. `keepTool` 이면 그 답이
     // "백그라운드" 이므로 busy 인 도구를 살린다 — 확인창의 `background` 와 같은 집합이다.
-    const asked0=busyChecks.some(Boolean);
-    if(asked0&&!opts.force){
+    const asked=busy.length>0;
+    if(asked&&!opts.force){
       const r=await this.app._confirmClose(t('core.q_close_window'),
         {bgBtn:true,bgLabel:t('core.bg_running_only')});
-      if(!r) return;
-      if(r==='background'){
-        for(let i=0;i<pids.length;i++) if(busyChecks[i]) keep.add(pids[i]);
-      }
-    }else if(asked0&&opts.keepTool){
-      for(let i=0;i<pids.length;i++) if(busyChecks[i]) keep.add(pids[i]);
+      if(!r) return null;
+      if(r==='background') for(const pid of busy) keep.add(pid);
+    }else if(asked&&opts.keepTool){
+      for(const pid of busy) keep.add(pid);
     }
-    /**
-     * WINDOW_CLOSE_UNDO_SRS FR-WCU-1·3·5 (`UX-2`): **묻지 않은 닫기는 되돌릴 수 있다.**
-     *
-     *   이전 동작: 한가한 창은 곧바로 `_kill` — 확인도 되돌리기도 없었다
-     *   새  동작: 확인창이 뜨지 않은 창의 도구는 죽이지 않고 **백그라운드**로
-     *             보낸 뒤 유예(`WINDOW_CLOSE_UNDO_MS`)를 연다. Undo 가 되돌리고,
-     *             만료가 죽인다 (`_winUndoFinal`)
-     *   이유:     `×` 는 hover 에서만 보이는 16px 이고 `Delete` 키 길도 생겼다
-     *             (FR-A11Y-16). 확인창 대신 Undo 인 이유는 한가한 셸을 닫는 일이
-     *             거의 언제나 뜻한 일이어서다 — 되돌릴 수 있으면 묻지 않아도 된다
-     *
-     * 확인을 **지난** 닫기는 종전대로 최종이다 (D-WCU-2) — 안전망은 길마다 하나.
-     */
-    // 확인을 **지난** 닫기는 최종이다 (D-WCU-2). `--force`·`--background` 로 답을
-    // 미리 준 것도 같다 — 사용자의 결정은 그 명령을 친 순간에 있었다 (FR-M9-4).
-    const asked=asked0;
+    return {asked,keep};
+  }
+
+  /**
+   * WINDOW_CLOSE_UNDO_SRS FR-WCU-1·3·5 (`UX-2`): **묻지 않은 닫기는 되돌릴 수 있다.**
+   *
+   *   이전 동작: 한가한 창은 곧바로 `_kill` — 확인도 되돌리기도 없었다
+   *   새  동작: 확인창이 뜨지 않은 창의 도구는 죽이지 않고 **백그라운드**로
+   *             보낸 뒤 유예(`WINDOW_CLOSE_UNDO_MS`)를 연다. Undo 가 되돌리고,
+   *             만료가 죽인다 (`_winUndoFinal`)
+   *   이유:     `×` 는 hover 에서만 보이는 16px 이고 `Delete` 키 길도 생겼다
+   *             (FR-A11Y-16). 확인창 대신 Undo 인 이유는 한가한 셸을 닫는 일이
+   *             거의 언제나 뜻한 일이어서다 — 되돌릴 수 있으면 묻지 않아도 된다
+   *
+   * 확인을 **지난** 닫기는 종전대로 최종이다 (D-WCU-2) — 안전망은 길마다 하나.
+   * `--force`·`--background` 로 답을 미리 준 것도 같다 — 사용자의 결정은 그 명령을
+   * 친 순간에 있었다 (FR-M9-4).
+   */
+  _delWinTools(pids,asked,keep){
     if(!asked){
       this._winUndoFinal();
       for(const pid of pids) this.app._setToolBackground(pid,true);
       this.app._bgRefresh();
-    }else{
-      for(const pid of keep) this.app._setToolBackground(pid,true);
-      if(keep.size) this.app._bgRefresh();
-      // FR-BG-4b: backgroundCapable 이 아닌 도구는 전환 대상이 아니라 종료된다.
-      for(const pid of pids) if(!keep.has(pid)) this.app._kill(pid);
+      return;
     }
-    this.app.ws.windows.splice(i,1);
-    if(!asked) this._winUndoArm(s,i,pids);
-    // FR-WSL-6: 실제로 지워진 뒤에 슬롯을 정리한다 — 위의 확인 대화에서
-    // 취소되면 여기 도달하지 않는다.
-    this.app._slotOnWindowGone(sid);
+    for(const pid of keep) this.app._setToolBackground(pid,true);
+    if(keep.size) this.app._bgRefresh();
+    // FR-BG-4b: backgroundCapable 이 아닌 도구는 전환 대상이 아니라 종료된다.
+    for(const pid of pids) if(!keep.has(pid)) this.app._kill(pid);
+  }
+
+  // 창을 뺀 뒤 — 빈 워크스페이스·다음 활성 창·포커스·그리기·저장.
+  async _delWinAfter(sid,i){
     if(!this.app.ws.windows.length){await this.app._mkWindow();this.app.render();return}
     if(this.app.ws.activeWindow===sid){
       // UX_REVISION_SRS FR-CLS-1: 다음 활성 창은 **일반 창**이다. 인덱스로만
@@ -286,15 +308,14 @@ class LayoutController extends Controller {
       // Git 창 자신을 닫은 경우는 `_gitCloseWindow` 가 이미 복귀 대상으로
       // 옮겨 놓았다 (FR-CLS-3). 그 경로도 여기 규칙과 같은 곳으로 간다.
       const next=this._nextActiveWindow(i);
-      if(next){
-        this.app._activateWindow(next.id);
-      }else{
+      if(!next){
         // FR-CLS-2: 일반 창이 남지 않았다. Git 창만 남기고 사용자를 그 안에
         // 가두지 않는다 — 새 창을 만들고 그리로 간다.
         await this.app._mkWindow();
         this.app.render(); this.app.save();
         return;
       }
+      this.app._activateWindow(next.id);
     }
     const a=this.app.aw();
     if(a&&a.layout){

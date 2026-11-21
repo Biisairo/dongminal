@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
  * 나누기 전 → 뒤 (2026-09-26, 코드 줄): addTab 106→6 · closeTab 82→37 · save 78→43 ·
  * init 68→29 · _execRemote 116→8 · initMobileKeybar 144→14.
  * REFACTOR3_FE_REST3_SRS (2026-11-21): _applyRemoteWorkspace 66→22 · save 43→23 · _saveAdoptRemote 30→10.
+ * REFACTOR3_FE_REST3_SRS R3b (TC-FR3-41): delWindow 56→13.
  */
 const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MAX = 50;
@@ -37,6 +38,7 @@ const CASES = [
   ['core/mobile-controller.js', '  initMobileKeybar('],
   ['core/ws-sync-controller.js', '  _applyRemoteWorkspace('],
   ['core/app.js', '  async _saveAdoptRemote('],
+  ['core/layout-controller.js', '  async delWindow('],
 ];
 
 for (const [file, head] of CASES) {
