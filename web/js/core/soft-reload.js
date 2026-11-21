@@ -9,8 +9,10 @@
  *
  * 여기 있는 것은 **부르는 순서뿐이다.** 복원 경로 다섯은 이미 SSE 의 `onopen` 이
  * 쓰고 있고(§2.1), 두 벌로 만들면 한쪽만 고쳐진다 (D-1).
+ *
+ * `WsSyncController` 의 부품 `.reload` 다(REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-reload.js`).
  */
-Object.assign(App.prototype, {
+class SoftReload extends Controller {
   /**
    * FR-SRL-1: 정해진 순서로 다시 가져온다. **워크스페이스가 가장 먼저다** —
    * 창·탭·도구의 구성이 나머지 전부의 전제이기 때문이다.
@@ -31,12 +33,12 @@ Object.assign(App.prototype, {
       // ① 구독이 죽어 있으면 되살린다. 이것이 먼저인 이유는, 죽은 채로 두면
       //    지금 받아 온 것이 **다음 변화부터 다시 낡기** 때문이다 (§2.2).
       this._softStep('sse',()=>{
-        const es=this._sse;
-        if(!es||es.readyState===2){ if(this._sseKick) this._sseKick() }
+        const es=this.app._sse;
+        if(!es||es.readyState===2){ if(this.app._sseKick) this.app._sseKick() }
       });
       // ② 워크스페이스. 인자 없이 부르면 rev 비교를 건너뛰고 무조건 받아 온다
-      //    (`app-ws-sync.js` 의 `typeof rev==='number'`).
-      await this._softStepAsync('workspace',()=>this._onWorkspaceChanged());
+      //    (`ws-sync-controller.js` 의 `typeof rev==='number'`).
+      await this._softStepAsync('workspace',()=>this.app._onWorkspaceChanged());
       // ③ 워크스페이스에 없는 것들. SSE 는 **변화**만 나르므로 합류 시점의
       //    사실은 이 복원으로만 온다.
       //    **다섯을 손으로 나열하지 않는다** (EVENT_TIMER_HUB_SRS FR-HUB-3).
@@ -47,12 +49,12 @@ Object.assign(App.prototype, {
       //
       //    이제 등록부에 `softreload` 를 재검증 계기로 적은 상태가 전부 돈다.
       //    새 상태를 더해도 이 파일은 바뀌지 않는다.
-      this._softStep('states',()=>this.bus.publish('softreload',{}));
+      this._softStep('states',()=>this.app.bus.publish('softreload',{}));
       // ④ 목록과 패널.
-      await this._softStepAsync('editors',()=>this._edLoad&&this._edLoad());
-      this._softStep('gitRepos',()=>this.gitReposRefresh&&this.gitReposRefresh());
+      await this._softStepAsync('editors',()=>this.app._edLoad&&this.app._edLoad());
+      this._softStep('gitRepos',()=>this.app.gitReposRefresh&&this.app.gitReposRefresh());
       this._softStep('gitPanel',()=>{
-        const p=this.gitPanel;
+        const p=this.app.gitPanel;
         if(p&&typeof p.refresh==='function') p.refresh();
       });
       // WORKBENCH_REVIEW_SRS FR-WBR-95: 살아 있는 트리 뷰는 `_edTrees` 에 있다.
@@ -68,7 +70,7 @@ Object.assign(App.prototype, {
       // 같은 루트를 보는 칸이 여럿이어도 요청은 한 벌이다 — `_busy` 가 store 로
       // 위임하므로 둘째 호출이 그 자리에서 돌아간다 (FR-SVS-20).
       this._softStep('trees',()=>{
-        for(const tree of (this._edTrees?this._edTrees.values():[])){
+        for(const tree of (this.app._edTrees?this.app._edTrees.values():[])){
           if(tree&&typeof tree.refresh==='function') tree.refresh();
         }
       });
@@ -76,7 +78,7 @@ Object.assign(App.prototype, {
       //    부르는 기능이므로, 살아 보이는 연결도 믿지 않는다.
       this._softStep('terminals',()=>this._softReconnectTools());
       // ⑥ 다시 그린다.
-      this._softStep('render',()=>this.render&&this.render());
+      this._softStep('render',()=>this.app.render&&this.app.render());
     }finally{
       this._softReloading=false;
       this._softReloadPaint(false);
@@ -85,16 +87,16 @@ Object.assign(App.prototype, {
       BootScreen.done();
     }
     return true;
-  },
+  }
 
   // FR-SRL-4: 한 갈래의 실패를 삼키되 삼킨 사실은 남긴다.
   _softStep(name,fn){
     try{ fn() }catch(err){ console.error('[reload] '+name,err) }
-  },
+  }
 
   async _softStepAsync(name,fn){
     try{ await fn() }catch(err){ console.error('[reload] '+name,err) }
-  },
+  }
 
   /**
    * FR-SRL-5·7: 모든 터미널을 다시 붙인다.
@@ -104,11 +106,11 @@ Object.assign(App.prototype, {
    */
   _softReconnectTools(){
     let n=0;
-    for(const p of (this.tools?this.tools.values():[])){
+    for(const p of (this.app.tools?this.app.tools.values():[])){
       if(p&&typeof p.reconnectNow==='function'&&p.reconnectNow()) n++;
     }
     return n;
-  },
+  }
 
   // FR-SRL-11: 도는 동안 그 사실을 보인다. 표시가 없으면 사용자는 눌린 줄 모르고
   // 다시 누른다.
@@ -118,7 +120,7 @@ Object.assign(App.prototype, {
     b.classList.toggle('busy',!!busy);
     b.disabled=!!busy;
     b.title=busy?RELOAD_BUSY_TITLE:RELOAD_TITLE;
-  },
+  }
 
   /**
    * FR-SRL-8: 버튼을 배선한다.
@@ -133,6 +135,9 @@ Object.assign(App.prototype, {
     const b=document.getElementById(RELOAD_BTN_ID);
     if(!b) return;
     b.title=RELOAD_TITLE;
-    b.addEventListener('click',()=>this.softReload());
-  },
-});
+    b.addEventListener('click',()=>this.app.softReload());
+  }
+}
+
+// 부팅·단축키·에이전트 패널·Git 뷰와 시험이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'wsSync.reload',['softReload','_initSoftReload']);

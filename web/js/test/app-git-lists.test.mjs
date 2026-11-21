@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, GIT, controllers, load } from './harness.mjs';
+import { BASE, GIT, WS_SYNC, controllers, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3·4-4 후속 (Ofix2) — 목록 두 개의 순서.
@@ -13,7 +13,7 @@ function setup() {
   const waits = [];
   const hold = (path, r) => new Promise((resolve) => waits.push({ path, go: () => resolve(r) }));
   const answers = {};
-  const ctx = load([...BASE, 'core/constants-api.js', 'core/event-bus.js', 'core/app-cmd.js', 'core/app-ws-sync.js', 'core/statusbar-controller.js',
+  const ctx = load([...BASE, 'core/constants-api.js', 'core/event-bus.js', 'core/app-cmd.js', ...WS_SYNC, 'core/statusbar-controller.js',
     'core/statusbar-enc.js', ...GIT], {
     expose: ['EventBus', 'StatusBarController'],
     globals: {
@@ -26,7 +26,7 @@ function setup() {
   const a = new ctx.App();
   a.bus = new ctx.EventBus(a, {});
   a.statusbar = new ctx.StatusBarController(a);   // REFACTOR3_FE_APPCTL_SRS 9b
-  controllers(ctx, a);                             // 9d: git
+  controllers(ctx, a);                             // 9d: git · 9f: wsSync
   a.gitPanels = new Map([['/r', { repo: '/r' }]]);
   const adopted = [];
   Object.defineProperty(a, 'gitPanel', { value: { adoptJobs: (j) => adopted.push(j) } });

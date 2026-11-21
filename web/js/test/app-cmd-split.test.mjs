@@ -5,8 +5,8 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 /**
- * REFACTOR PROD2 §8 (R-ACS-1~3): `app-cmd.js` 는 원격 명령, `app-ws-sync.js` 는 워크스페이스
- * 동기화다. 메서드는 두 파일에 겹치지 않고, 둘을 합치면 나누기 전의 33개와 같다.
+ * REFACTOR PROD2 §8 (R-ACS-1~3): `app-cmd.js` 는 원격 명령, `ws-sync-controller.js`(옛 `app-ws-sync.js`,
+ * REFACTOR3_FE_APPCTL_SRS 9f) 는 워크스페이스 동기화다. 메서드는 두 파일에 겹치지 않고, 둘을 합치면 나누기 전의 33개와 같다.
  */
 const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'return']);
@@ -16,8 +16,8 @@ const methods = (f) => [...readFileSync(join(JS, f), 'utf8').matchAll(/^ {2}(?:a
 const SYNC = ['_restoreBegin', '_restoreLive', '_restoreNote', '_restoreVoid', '_restoreEnd', '_subscribeCommands',
   '_wsDefer', '_onWorkspaceChanged', '_onToolForeground', '_fgMap', '_fgApply', '_fgRepaint', '_applyRemoteWorkspace'];
 
-test('워크스페이스 동기화 메서드는 app-ws-sync.js 에 있다', () => {
-  assert.deepEqual(methods('core/app-ws-sync.js').sort(), [...SYNC].sort());
+test('워크스페이스 동기화 메서드는 ws-sync-controller.js 에 있다', () => {
+  assert.deepEqual(methods('core/ws-sync-controller.js').filter((n) => n !== 'constructor').sort(), [...SYNC].sort());
 });
 
 test('app-cmd.js 에는 원격 명령만 남고, 합치면 33개다', () => {
@@ -28,7 +28,7 @@ test('app-cmd.js 에는 원격 명령만 남고, 합치면 33개다', () => {
   assert.equal(cmd.length + SYNC.length, 33);
 });
 
-test('index.html 은 app-ws-sync.js 를 app-cmd.js 바로 뒤에 싣는다', () => {
+test('index.html 은 ws-sync-controller.js 를 app-cmd.js 뒤에 싣는다', () => {
   const html = readFileSync(join(JS, '..', 'index.html'), 'utf8');
-  assert.match(html, /js\/core\/app-cmd\.js\?v=__ASSETV__"><\/script>\n<script src="js\/core\/app-ws-sync\.js\?v=__ASSETV__"><\/script>/);
+  assert.match(html, /js\/core\/app-cmd\.js\?v=__ASSETV__"><\/script>\n(?:<!--[\s\S]*?-->\n)?<script src="js\/core\/ws-sync-controller\.js\?v=__ASSETV__"><\/script>/);
 });

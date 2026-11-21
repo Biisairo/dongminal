@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, GIT, PANELS, SETTINGS, controllers, load, plain } from './harness.mjs';
+import { BASE, GIT, PANELS, SETTINGS, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -73,6 +73,12 @@ const ISSUES = {
     gone: ['core/app-git.js'],
     plainNow: [],
     mixins: 29,
+  },
+  '9f': {
+    ctl: ['core/ws-sync-controller.js', 'core/soft-reload.js'],
+    gone: ['core/app-ws-sync.js', 'core/app-reload.js'],
+    plainNow: [],
+    mixins: 27,
   },
 };
 
@@ -656,5 +662,140 @@ test('TC-FEA-3(9d): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
   for (const n of Object.values(DELEGATES_9D).flat().filter((x) => contract.has(x)))
     assert.equal(typeof ctx.App.prototype[n], 'function', n);
   for (const n of ['gitPanelAt', 'gitSignal', 'gitPin', 'gitUnpin', 'gitReposRefresh', '_onGitChanged', 'plainWindows'])
+    assert.ok(contract.has(n), '계약에 없다: ' + n);
+});
+
+// ── 9f: 상태 동기화·재로드 ─────────────────────────────────────────────────────────
+
+const CLASSES_9F = ['WsSyncController', 'SoftReload'];
+
+const DELEGATES_9F = {
+  wsSync: ['_restoreBegin', '_restoreLive', '_restoreNote', '_restoreVoid', '_restoreEnd', '_subscribeCommands',
+    '_onWorkspaceChanged', '_onToolForeground', '_fgMap', '_fgApply', '_fgRepaint', '_applyRemoteWorkspace'],
+  'wsSync.reload': ['softReload', '_initSoftReload'],
+};
+
+function load9f(globals = {}) {
+  return load([...BASE, ...WS_SYNC], {
+    expose: [...CLASSES_9F, 'Controller', 'Component'],
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      document: { getElementById: () => null, querySelector: () => null },
+      BootScreen: { show() {}, done() {} }, BOOT_STEP_RELOAD: 'reload', RELOAD_BTN_ID: 'reload-btn',
+      RELOAD_TITLE: 'r', RELOAD_BUSY_TITLE: 'b',
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9f): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9f();
+  const app = new ctx.App();
+  for (const c of CLASSES_9F) {
+    const o = new ctx[c](app);
+    assert.ok(o instanceof ctx.Controller, c);
+    assert.ok(o instanceof ctx.Component, c);
+    assert.equal(o.app, app, c);
+  }
+  assert.ok(new ctx.WsSyncController(app).reload instanceof ctx.SoftReload);
+});
+
+test('TC-FEA-1(9f): App 생성자가 컨트롤러를 만든다', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  assert.ok(ctor.includes('this.wsSync=new WsSyncController(this);'));
+});
+
+test('TC-FEA-1(9f): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9f();
+  const app = new ctx.App();
+  app.wsSync = { reload: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9F)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9F)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9F).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-1(9f): _sse 접근자 넷은 App 원형에 남아 버스를 읽고 _sseSeen 은 버스에 쓴다', () => {
+  const ctx = load9f();
+  const app = new ctx.App();
+  assert.equal(app._sse, null);
+  assert.equal(app._sseGen, 0);
+  app.bus = { _es: 'es', gen: () => 3, lastSeen: () => 7, _seen: 0 };
+  assert.equal(app._sse, 'es');
+  assert.equal(app._cmdES, 'es');
+  assert.equal(app._sseGen, 3);
+  assert.equal(app._sseSeen, 7);
+  app._sseSeen = 9;
+  assert.equal(app.bus._seen, 9);
+});
+
+test('TC-FEA-1(9f): 저장 경로가 함께 쓰는 필드는 App 에 남는다 — 저장 중 알림의 유예가 App 에 적힌다', async () => {
+  const ctx = load9f();
+  const app = controllers(ctx, new ctx.App());
+  app._saveInflight = true;
+  await app._onWorkspaceChanged(5);
+  assert.equal(app._wsApplyPending, true);
+  assert.equal(app._wsDeferRev, 5);
+  assert.equal(Object.hasOwn(app.wsSync, '_wsApplyPending'), false);
+  assert.doesNotMatch(read('core/ws-sync-controller.js'), /(?<![\w$.])this\.(wsETag|_wsDeferRev|_wsApplyPending|_saveInflight|_wsApplyInflight|_sseKick|fgNames)\b/);
+});
+
+test('TC-FEA-2(9f): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9f'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9f): 갈아 끼운 _onWorkspaceChanged·gitReposRefresh·render·softReload·_fgMap·_restore* 를 컨트롤러 경로가 부른다', async () => {
+  let click = null;
+  const ctx = load9f({
+    document: {
+      getElementById: (id) => (id === 'reload-btn' ? { classList: { toggle() {} }, addEventListener: (t, fn) => { click = fn } } : null),
+      querySelector: () => null,
+    },
+  });
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app.bus = { publish: () => log.push('publish') };
+  app._onWorkspaceChanged = async () => { log.push('ws') };
+  app.gitReposRefresh = () => log.push('repos');
+  app.render = () => log.push('render');
+  assert.equal(await app.wsSync.reload.softReload(), true);
+  app.softReload = () => log.push('soft');
+  app._initSoftReload();
+  click();
+  const map = new Map();
+  app._fgMap = () => map;
+  app._restoreNote = (k, id) => log.push('note:' + k + ':' + id);
+  app.ws = { windows: [] };
+  app.renderer = { _rPaintTitles() {} };
+  app.wsSync._onToolForeground({ toolId: 't1', name: 'vim' });
+  assert.equal(map.get('t1'), 'vim');
+  assert.deepEqual(log, ['ws', 'publish', 'repos', 'render', 'soft', 'note:fg:t1']);
+});
+
+test('TC-FEA-3(9f): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9f'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9f): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9f();
+  const contract = contractNames();
+  for (const n of Object.values(DELEGATES_9F).flat().filter((x) => contract.has(x)))
+    assert.equal(typeof ctx.App.prototype[n], 'function', n);
+  for (const n of ['_onWorkspaceChanged', '_applyRemoteWorkspace', '_subscribeCommands', '_fgApply', '_restoreBegin'])
     assert.ok(contract.has(n), '계약에 없다: ' + n);
 });

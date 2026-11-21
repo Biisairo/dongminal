@@ -32,8 +32,12 @@ const WEB = join(process.cwd(), 'web', 'js');
 // 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
 const API_JS = join(WEB, 'core', 'api.js');
 const APP_CMD_JS = join(WEB, 'core', 'app-cmd.js');
-// SSE 배선(`_subscribeCommands`)과 `_sse` 껍데기는 `app-ws-sync.js` 에 있다 (REFACTOR PROD2 §8).
-const APP_WS_SYNC_JS = join(WEB, 'core', 'app-ws-sync.js');
+// SSE 배선(`_subscribeCommands`)과 `_sse` 껍데기는 `ws-sync-controller.js` 에 있다 (REFACTOR PROD2 §8).
+// REFACTOR3_FE_APPCTL_SRS 9f: 그 본체는 `WsSyncController`(부품 `SoftReload`)이고 App 원형에는 위임자가 선다.
+// 기반(`Component` → `Controller`)을 앞에 싣고, 대역을 만든 뒤 `wsSync` 를 세운다.
+const APP_WS_SYNC_JS = join(WEB, 'core', 'ws-sync-controller.js');
+const SOFT_RELOAD_JS = join(WEB, 'core', 'soft-reload.js');
+const BASE_CONTROLLER_JS = join(WEB, 'core', 'base', 'controller.js');
 const HELPERS_JS = join(WEB, 'core', 'helpers.js');
 const TIMER_HUB_JS = join(WEB, 'core', 'timer-hub.js');
 /**
@@ -74,7 +78,7 @@ async function loadRestoreProtocol(page: Page) {
   await page.setContent('<!doctype html><title>restore-protocol</title>');
   await page.addScriptTag({ path: EVENT_BUS_JS });
   await page.evaluate(() => {
-    // app-cmd.js · app-ws-sync.js 는 App.prototype 에 메서드를 얹는다. 껍데기만 세운다 —
+    // app-cmd.js 는 App.prototype 에 메서드를, ws-sync-controller.js 는 위임자를 얹는다. 껍데기만 세운다 —
     // `_fgApply` 가 만지는 것은 `_fgMap()` 이 돌려주는 Map 하나뿐이다.
     (window as any).App = class {
       clientId = 'test-client';
@@ -101,10 +105,14 @@ async function loadRestoreProtocol(page: Page) {
     };
   });
   await page.addScriptTag({ path: API_JS });
+  await page.addScriptTag({ path: COMPONENT_JS });
+  await page.addScriptTag({ path: BASE_CONTROLLER_JS });
   await page.addScriptTag({ path: APP_CMD_JS });
   await page.addScriptTag({ path: APP_WS_SYNC_JS });
+  await page.addScriptTag({ path: SOFT_RELOAD_JS });
+  await page.addScriptTag({ content: 'window.__wsSyncOf = (a) => { a.wsSync = new WsSyncController(a); return a; };' });
   await page.evaluate(() => {
-    (window as any).__app = new (window as any).App();
+    (window as any).__app = (window as any).__wsSyncOf(new (window as any).App());
   });
 }
 
@@ -520,7 +528,7 @@ test.describe('T-10 — 숨김 정지와 복귀 갱신 (FR-RST-23 · FR-STAT-17)
 // ─────────────────────────────────────────────────────────────────────────────
 // T-12 — 소프트리로드가 다섯 상태를 전부 재검증한다 (SRS §2.4)
 //
-// **지금 코드에 없는 검사다.** `app-reload.js` 는 다섯 상태를 손으로 나열하고
+// **지금 코드에 없는 검사다.** `app-reload.js`(지금 `soft-reload.js`) 는 다섯 상태를 손으로 나열하고
 // 각 줄에 `&&` 가드를 달고 있어, 이름이 하나 바뀌면 그 상태만 조용히 빠진다 —
 // `w.editor.refresh()` 가 정확히 그렇게 삼켜졌다 (FR-WBR-95).
 //

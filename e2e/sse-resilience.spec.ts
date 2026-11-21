@@ -17,8 +17,13 @@ import { test, expect } from './fixtures';
 // 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
 const API_JS = join(process.cwd(), 'web', 'js', 'core', 'api.js');
 const APP_CMD_JS = join(process.cwd(), 'web', 'js', 'core', 'app-cmd.js');
-// SSE 배선(`_subscribeCommands`)과 `_sse` 껍데기는 `app-ws-sync.js` 에 있다 (REFACTOR PROD2 §8).
-const APP_WS_SYNC_JS = join(process.cwd(), 'web', 'js', 'core', 'app-ws-sync.js');
+// SSE 배선(`_subscribeCommands`)과 `_sse` 껍데기는 `ws-sync-controller.js` 에 있다 (REFACTOR PROD2 §8).
+// REFACTOR3_FE_APPCTL_SRS 9f: 그 본체는 `WsSyncController`(부품 `SoftReload`)이고 App 원형에는 위임자가 선다.
+// 기반(`Component` → `Controller`)을 앞에 싣고, 대역을 만든 뒤 `wsSync` 를 세운다.
+const APP_WS_SYNC_JS = join(process.cwd(), 'web', 'js', 'core', 'ws-sync-controller.js');
+const SOFT_RELOAD_JS = join(process.cwd(), 'web', 'js', 'core', 'soft-reload.js');
+const BASE_CONTROLLER_JS = join(process.cwd(), 'web', 'js', 'core', 'base', 'controller.js');
+const BASE_COMPONENT_JS = join(process.cwd(), 'web', 'js', 'core', 'base', 'component.js');
 const TIMER_HUB_JS = join(process.cwd(), 'web', 'js', 'core', 'timer-hub.js');
 const EVENT_BUS_JS = join(process.cwd(), 'web', 'js', 'core', 'event-bus.js');
 // `_subscribeCommands` 가 다섯 상태의 배선을 등록부에 넘긴다 (FR-HUB-3).
@@ -65,7 +70,7 @@ async function loadAppCmd(page: Page) {
       }
     }
     (window as any).EventSource = FakeES;
-    // app-cmd.js · app-ws-sync.js 는 App.prototype 에 메서드를 얹는다. 껍데기만 세운다.
+    // app-cmd.js 는 App.prototype 에 메서드를, ws-sync-controller.js 는 위임자를 얹는다. 껍데기만 세운다.
     // onopen 이 부르는 스냅샷 복원 다섯은 다른 파일에 있으므로 여기서 무해하게 막는다.
     (window as any).App = class {
       clientId = 'test-client';
@@ -85,10 +90,14 @@ async function loadAppCmd(page: Page) {
     };
   });
   await page.addScriptTag({ path: API_JS });
+  await page.addScriptTag({ path: BASE_COMPONENT_JS });
+  await page.addScriptTag({ path: BASE_CONTROLLER_JS });
   await page.addScriptTag({ path: APP_CMD_JS });
   await page.addScriptTag({ path: APP_WS_SYNC_JS });
+  await page.addScriptTag({ path: SOFT_RELOAD_JS });
+  await page.addScriptTag({ content: 'window.__wsSyncOf = (a) => { a.wsSync = new WsSyncController(a); return a; };' });
   await page.evaluate(() => {
-    const a = new (window as any).App();
+    const a = (window as any).__wsSyncOf(new (window as any).App());
     (window as any).__app = a;
     a._subscribeCommands();
   });

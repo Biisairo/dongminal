@@ -1150,8 +1150,10 @@
 <script src="js/core/app.js?v=__ASSETV__"></script>
 <script src="js/core/app-window-state.js?v=__ASSETV__"></script>
 <script src="js/core/app-cmd.js?v=__ASSETV__"></script>
-<script src="js/core/app-ws-sync.js?v=__ASSETV__"></script>
-<script src="js/core/app-reload.js?v=__ASSETV__"></script>
+<!-- 워크스페이스 동기화·SSE 배선과 내부 새로고침 (REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`·`app-reload.js`).
+     끝에서 App 원형에 위임자와 `_sse` 접근자 넷을 둔다. -->
+<script src="js/core/ws-sync-controller.js?v=__ASSETV__"></script>
+<script src="js/core/soft-reload.js?v=__ASSETV__"></script>
 <script src="js/core/app-tool.js?v=__ASSETV__"></script>
 <script src="js/core/app-layout.js?v=__ASSETV__"></script>
 <!-- 미리보기 탭 (UX_BATCH12_SRS FR-RTB). `app-layout.js` 뒤 — prototype 확장이다. -->

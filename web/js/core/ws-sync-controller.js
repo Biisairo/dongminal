@@ -4,9 +4,17 @@
  * `app-cmd.js` 에서 옮겨 왔다. 본문은 수정하지 않았다 (R-ACS-3). 여기 있는 것은
  * 서버 워크스페이스와 맞추는 일이다 — SSE 구독 배선, `workspace_changed` 적용,
  * 전경 이름, 복원 비행 껍데기. `dmctl` 원격 명령의 실행은 `app-cmd.js` 에 있다.
+ * App 은 이것을 `wsSync` 로 든다(REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`). 부품 — 내부 새로고침
+ * `SoftReload`(`soft-reload.js`) `.reload`. 저장 경로(`app.js` `save`)가 함께 쓰는 `wsETag`·`_wsDeferRev`·
+ * `_wsApplyPending`·`_saveInflight` 와 `_wsApplyInflight`·`_sseKick`·`fgNames` 는 App 에 남는다(§2.2).
  * `app-cmd.js` 다음, main.js 이전에 로드된다.
  */
-Object.assign(App.prototype, {
+class WsSyncController extends Controller {
+  constructor(app){
+    super(app);
+    this.reload=new SoftReload(app);
+  }
+
   /**
    * FR-RSF-1: 복원 비행(飛行) 규약 — 요청이 떠난 시점부터 응답을 적용할 때까지.
    *
@@ -32,12 +40,12 @@ Object.assign(App.prototype, {
   // 버스로 옮긴 값어치는 **적용 범위**다. 종전에는 이 방어가 셋에만 있었고
   // `background` 와 `focus` 는 같은 경쟁에 열려 있었다 (SRS §2.5). 소유자가
   // 하나가 되면 다섯 전부가 같은 규약을 받는다.
-  _restoreBegin(key){ return this.bus.beginSnapshot(key) },
-  _restoreLive(key,flight){ return this.bus.isLive(key,flight) },
-  _restoreNote(key,id){ this.bus.noteTouched(key,id) },
+  _restoreBegin(key){ return this.app.bus.beginSnapshot(key) }
+  _restoreLive(key,flight){ return this.app.bus.isLive(key,flight) }
+  _restoreNote(key,id){ this.app.bus.noteTouched(key,id) }
   // FR-RSF-5: 전체 초기화는 만진 id 로 표현되지 않는다. 그 비행은 통째로 버린다.
-  _restoreVoid(key){ this.bus.voidSnapshot(key) },
-  _restoreEnd(key,flight){ this.bus.endSnapshot(key,flight) },
+  _restoreVoid(key){ this.app.bus.voidSnapshot(key) }
+  _restoreEnd(key,flight){ this.app.bus.endSnapshot(key,flight) }
 
   /**
    * 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → `_execRemote` 재사용.
@@ -56,7 +64,7 @@ Object.assign(App.prototype, {
    * 한다. 버스는 "구독자가 있으면 지명을 보지 않는다" 로 그것을 지킨다.
    */
   _subscribeCommands(){
-    const bus=this.bus;
+    const bus=this.app.bus;
 
     // ── 라우팅 (FR-BUS-4) — 종전 13분기 if-체인 ──
     //
@@ -71,7 +79,7 @@ Object.assign(App.prototype, {
       if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v),()=>bus.alive()&&bus.gen()===gen);
     },{owner:'app'});
 
-    bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});
+    bus.subscribe('workspace_changed',a=>this.app._onWorkspaceChanged(a&&a.rev),{owner:'app'});
 
     /**
      * FR-M9-10 (D-M9-8): **끊겼던 동안의 삭제는 다시 붙어도 오지 않는다.**
@@ -101,15 +109,15 @@ Object.assign(App.prototype, {
      * 이름을 고치는 중에 워크스페이스가 다시 그려져 편집하던 행이 사라졌다.
      * `_gen` 은 `connect()` 마다 오르므로 첫 연결이 1 이다 (`event-bus.js`).
      */
-    bus.subscribe('sse:open',(a)=>{ if(a&&a.gen>1) this._onWorkspaceChanged() },{owner:'app'});
+    bus.subscribe('sse:open',(a)=>{ if(a&&a.gen>1) this.app._onWorkspaceChanged() },{owner:'app'});
 
     // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
     // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
-    bus.subscribe('run_changed',a=>this._onRunChanged(a),{owner:'app'});
+    bus.subscribe('run_changed',a=>this.app._onRunChanged(a),{owner:'app'});
     // RUN_VIEW_LIVE_SRS FR-RLV-5: 멤버의 상태 변화는 서버가 `run_changed` 로 알리지 못한다.
-    bus.subscribe('tool_activity',a=>this._onRunMemberActivity(a),{owner:'app'});
+    bus.subscribe('tool_activity',a=>this.app._onRunMemberActivity(a),{owner:'app'});
     // CLAUDE_ACCOUNTS_SRS FR-CAC-100a: 계정 알림은 상태가 아니라 사건이다 — 등록부가 아니라 여기서 받는다.
-    bus.subscribe('claude_account_alert',a=>this._onClaudeAccountAlert(a),{owner:'app'});
+    bus.subscribe('claude_account_alert',a=>this.app._onClaudeAccountAlert(a),{owner:'app'});
 
     /**
      * ── 다섯 상태는 **등록부에서 파생된다** (FR-HUB-3) ──
@@ -122,11 +130,11 @@ Object.assign(App.prototype, {
      * 한 곳(`state-registry.js`)이 정하고 여기는 그것을 부르기만 한다 — 새 상태를
      * 더할 때 이 파일은 바뀌지 않는다.
      */
-    wireStateRegistry(this);
+    wireStateRegistry(this.app);
 
     // 구독자가 없는 action 은 여기로 온다. 서버가 지명한 실행자만 수행하며
     // (FR-SXE-3), 지명이 없으면 게이팅하지 않는다 (FR-SXE-5 의 열화 경로).
-    bus.setFallback((action,args)=>this._execRemote(action,args));
+    bus.setFallback((action,args)=>this.app._execRemote(action,args));
 
     // FR-RCS-6 · FR-RLC-26: 잠에서 깬 기기와 되돌아온 네트워크는 백오프를 기다릴
     // 이유가 없다. 원격(Tailscale) 사용에서 끊김의 대부분이 이 둘이므로, 즉시
@@ -136,12 +144,12 @@ Object.assign(App.prototype, {
 
     // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이 구독
     // 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
-    bus.connect('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
+    bus.connect('/api/commands/sse?clientId='+encodeURIComponent(this.app.clientId));
 
     // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
     // 붙는다 — 사용자가 부른 것이므로 기다릴 이유가 없다.
-    this._sseKick=()=>bus.reconnect();
-  },
+    this.app._sseKick=()=>bus.reconnect();
+  }
 
   /**
    * FR-WSC-15: 유예한 알림의 **rev 를 기억한다.** 무엇을 미뤘는지 모르면 비행이
@@ -152,10 +160,10 @@ Object.assign(App.prototype, {
    * 모르는 것을 낡았다고 단정하면 그 손실이 그대로 돌아온다.
    */
   _wsDefer(rev){
-    this._wsApplyPending=true;
+    this.app._wsApplyPending=true;
     const r=(typeof rev==='number')?rev:Infinity;
-    if(this._wsDeferRev===undefined||r>this._wsDeferRev) this._wsDeferRev=r;
-  },
+    if(this.app._wsDeferRev===undefined||r>this.app._wsDeferRev) this.app._wsDeferRev=r;
+  }
 
   async _onWorkspaceChanged(rev){
     // While a local save is in flight, the SSE we just received is almost
@@ -165,21 +173,21 @@ Object.assign(App.prototype, {
     //
     // **"거의 확실히" 는 언제나가 아니다** (WORKSPACE_SAVE_CONFLICT_SRS §2.10).
     // 그래서 유예는 rev 를 남기고, 비행의 끝이 그 rev 로 판정한다 (FR-WSC-15·16).
-    if(this._saveInflight){ this._wsDefer(rev); return }
-    if(this._wsApplyInflight){ this._wsDefer(rev); return }
-    const cur=this.wsETag?parseInt(this.wsETag,10):-1;
+    if(this.app._saveInflight){ this._wsDefer(rev); return }
+    if(this.app._wsApplyInflight){ this._wsDefer(rev); return }
+    const cur=this.app.wsETag?parseInt(this.app.wsETag,10):-1;
     if(typeof rev==='number' && rev<=cur) return;
-    this._wsApplyInflight=true;
+    this.app._wsApplyInflight=true;
     try{
       do{
-        this._wsApplyPending=false;
+        this.app._wsApplyPending=false;
         // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 전경 이름의 복원이 이 요청에 있다 (FR-RSF-3 의
         // 경로 개정). 그래서 여기서 `fg` 비행을 연다 — 응답을 기다리는 사이 SSE 가 만진
         // id 는 이 스냅샷이 덮지 않는다.
-        const fgT=this._restoreBegin('fg');
+        const fgT=this.app._restoreBegin('fg');
         const r=await apiGet('/api/state');
-        if(!r.ok){ this._restoreEnd('fg',fgT); break }
-        const et=this._etagOf(r);
+        if(!r.ok){ this.app._restoreEnd('fg',fgT); break }
+        const et=this.app._etagOf(r);
         const st=r.data;
         const sv=st&&st.workspace;
         const sp=(st&&st.tools)||[];
@@ -188,8 +196,8 @@ Object.assign(App.prototype, {
         const known=!(st&&st.toolsKnown===false);
         // 창이 없거나 워크스페이스가 낡은 스냅샷이어도 도구 목록은 응답 시점의 것이다 —
         // 이름은 아래 두 갈래보다 먼저 얹는다.
-        if(known&&this._restoreLive('fg',fgT)) this._fgApply(sp,fgT);
-        this._restoreEnd('fg',fgT);
+        if(known&&this.app._restoreLive('fg',fgT)) this.app._fgApply(sp,fgT);
+        this.app._restoreEnd('fg',fgT);
         if(!sv||!sv.windows) break;
         // UX_REVISION_SRS FR-GRR-4: **낡은 스냅샷을 적용하지 않는다.**
         //
@@ -198,15 +206,15 @@ Object.assign(App.prototype, {
         // 되고, 그것을 적용하면 방금 만든 것이 사라진다 — Git 창을 연 직후가 그
         // 창구다 (`openGitWindow` 는 로컬 배열에만 넣고 저장은 뒤따른다).
         // 적용 **직전에** 다시 본다. `gitReposRefresh` 의 세대 검사와 같은 정신이다.
-        const now=this.wsETag?parseInt(this.wsETag,10):-1;
+        const now=this.app.wsETag?parseInt(this.app.wsETag,10):-1;
         const got=et?parseInt(et,10):-1;
         if(got>=0&&now>=0&&got<now) continue;
-        this._applyRemoteWorkspace(sv, sp, known);
-        if(et) this.wsETag=et;
-      }while(this._wsApplyPending);
+        this.app._applyRemoteWorkspace(sv, sp, known);
+        if(et) this.app.wsETag=et;
+      }while(this.app._wsApplyPending);
     }catch(err){console.error('[ws] sync',err)}
-    finally{this._wsApplyInflight=false}
-  },
+    finally{this.app._wsApplyInflight=false}
+  }
 
   // ── 전경 프로세스 이름 (CONVENIENCE_SRS 묶음 N) ──
 
@@ -214,13 +222,13 @@ Object.assign(App.prototype, {
   // 프로그램이 끝난 것이며 탭 이름은 기본값으로 돌아간다 (FR-TAN-12).
   _onToolForeground({toolId,name}={}){
     if(!toolId) return;
-    this._restoreNote('fg',toolId);
-    const m=this._fgMap();
+    this.app._restoreNote('fg',toolId);
+    const m=this.app._fgMap();
     if(name) m.set(toolId,name); else m.delete(toolId);
     this._fgRepaint(toolId);
-  },
+  }
 
-  _fgMap(){ return this.fgNames||(this.fgNames=new Map()) },
+  _fgMap(){ return this.app.fgNames||(this.app.fgNames=new Map()) }
 
   // `/api/state` 의 도구 목록(`fgName` 포함)을 런타임 Map 에 반영한다. 목록에
   // 없는 도구의 이름은 지운다 — 죽은 도구의 이름이 남으면 안 된다.
@@ -233,7 +241,7 @@ Object.assign(App.prototype, {
   // `fg` 비행을 연다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-5, 종전 `_fgRestore`). SSE 는
   // **변화**만 나르므로 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
   _fgApply(tools,touched){
-    const m=this._fgMap();
+    const m=this.app._fgMap();
     const seen=new Set();
     let changed=false;
     for(const p of tools||[]){
@@ -250,7 +258,7 @@ Object.assign(App.prototype, {
       if(!seen.has(id)){m.delete(id);changed=true}
     }
     if(changed) this._fgRepaint();
-  },
+  }
 
   /**
    * 탭 라벨만 제자리에서 고쳐 쓴다. `render()` 를 부르지 않는 이유는 FR-RPT-3
@@ -260,24 +268,24 @@ Object.assign(App.prototype, {
    * toolId 를 주면 그 도구의 탭만, 안 주면 전부 (설정 토글 — FR-TAN-20).
    */
   _fgRepaint(toolId){
-    for(const s of this.ws.windows){
+    for(const s of this.app.ws.windows){
       if(!s||!s.layout) continue;
-      for(const pn of this.flattenPanes(s.layout)){
+      for(const pn of this.app.flattenPanes(s.layout)){
         for(const tab of (pn.tabs||[])){
           if(toolId&&tab.toolId!==toolId) continue;
           if(!toolId&&!tab.toolId) continue;
           const el=document.querySelector('.pn-tab[data-tab-id="'+CSS.escape(tab.id)+'"] .pn-tab-label');
-          if(el) el.textContent=this.renderer._tabDisplayName(tab);
+          if(el) el.textContent=this.app.renderer._tabDisplayName(tab);
         }
       }
     }
     // ISSUE_TREE_OPS_SRS FR-ITW-4: 제목의 탭 이름도 전경 이름을 따른다.
-    this.renderer._rPaintTitles();
+    this.app.renderer._rPaintTitles();
     // FR-NAM-5·6: 도구 이름을 부르는 다른 표면도 따라간다. 열려 있을 때만 그린다 —
     // 닫힌 것을 그리면 되살아난다. 둘 다 reconcile 이라 값이 그대로면 DOM 은
     // 손대지 않는다 (FR-RPT-3).
-    if(this.agentsRender) this.agentsRender();
-  },
+    if(this.app.agentsRender) this.app.agentsRender();
+  }
 
   /**
    * TOOL_LIST_UNKNOWN_SRS FR-TLU-5~8: `toolsKnown` 이 거짓이면 **도구 목록을
@@ -306,12 +314,12 @@ Object.assign(App.prototype, {
      * 같은 모양이 된다 — 다른 화면이 닫은 탭을 이 화면이 되살려 영영 닫히지
      * 않는다 (V-OPL-3e 가 그것을 잡았다).
      */
-    const seenBefore=this._wsSeen();
+    const seenBefore=this.app._wsSeen();
     // FR-OPT-4-3: 핀 목록이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
-    const pinsBefore=JSON.stringify((this.ws.git&&this.ws.git.pinned)||[]);
+    const pinsBefore=JSON.stringify((this.app.ws.git&&this.app.ws.git.pinned)||[]);
     // FR-WSC-12: 이 스냅샷에 실린 창이 곧 **원격이 아는 창**이다. 아래에서
     // 마이그레이션·재조정이 `sv.windows` 를 고치므로 그 전에 적어 둔다.
-    this._wsMarkSaved(sv.windows);
+    this.app._wsMarkSaved(sv.windows);
     // FR-EDT-42·103: 마이그레이션과 재조정이 창을 고쳤으면 그 결과를 서버에
     // 되쓴다 — 되쓰지 않으면 다음 동기화가 같은 일을 되풀이한다.
     let edChanged=false;
@@ -321,7 +329,7 @@ Object.assign(App.prototype, {
     // 사실로 받으면 도구·pane·창이 차례로 지워진다.
     const live=known?new Set(serverIds):TOOLS_ALL_LIVE;
     // FR-OPT-4-11 (D-OPT-2): 인스턴스는 그려질 때 선다 — 여기서는 id 만 적는다.
-    for(const id of serverIds) this.toolIds.add(id);
+    for(const id of serverIds) this.app.toolIds.add(id);
     // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
     // 같은 규약으로 알람도 함께 거둔다.
     //
@@ -330,82 +338,82 @@ Object.assign(App.prototype, {
     // 살아 있는 칸 도구가 `workspace_changed` 마다 파괴된다. `_slotReap` 이 같은
     // 판정을 이미 이렇게 한다 (app-slots.js, FR-SVS-60 과 같은 자리).
     let attnDropped=false;
-    for(const [key,p] of Array.from(this.tools.entries())){
-      const id=this.slotBase(key);
-      if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.tools.delete(key); if(this._attnDrop(id)) attnDropped=true }
+    for(const [key,p] of Array.from(this.app.tools.entries())){
+      const id=this.app.slotBase(key);
+      if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.app.tools.delete(key); if(this.app._attnDrop(id)) attnDropped=true }
     }
-    for(const id of Array.from(this.toolIds)){
+    for(const id of Array.from(this.app.toolIds)){
       if(live.has(id)) continue;
-      this.toolIds.delete(id); this._toolsBoot.delete(id);
-      if(this._attnDrop(id)) attnDropped=true;
+      this.app.toolIds.delete(id); this.app._toolsBoot.delete(id);
+      if(this.app._attnDrop(id)) attnDropped=true;
     }
-    if(attnDropped) this._attnRefresh();
+    if(attnDropped) this.app._attnRefresh();
     // FR-OPT-11-1 (FEC-17): 첫 로드와 같은 한 벌이다.
-    if(this._normalizeIncomingWorkspace(sv,live)) edChanged=true;
+    if(this.app._normalizeIncomingWorkspace(sv,live)) edChanged=true;
     // FR-EDT-20·43: **재조정보다 목록이 먼저다.** 목록은 서버 권위이고
     // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
     // 갱신하지 않으면 재조정이 낡은 `editors` 를 딛어, 다른 브라우저가(또는
     // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
-    if(this.editors&&sv.editors) this._edPatchList(sv.editors.list);
-    if(this._edReconcile(sv.windows)) edChanged=true;
+    if(this.app.editors&&sv.editors) this.app._edPatchList(sv.editors.list);
+    if(this.app._edReconcile(sv.windows)) edChanged=true;
     // 재조정이 같은 루트의 창을 새 id 로 만들었을 수 있다 — 그때 활성 창을
     // **루트로** 다시 찾는다. 아래 폴백보다 먼저여야 한다: 폴백은 id 가 없으면
     // 일반 창을 고르므로, 여기서 잇지 않으면 방금 연 Repo 창을 잃는다.
-    this._edKeepActive(sv);
+    this.app._edKeepActive(sv);
     // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (첫 로드와 같은 한 자리).
-    this._fallbackActiveWindow(sv);
+    this.app._fallbackActiveWindow(sv);
     // Preserve per-window viewport state: activeWindow and each window's
     // focusedPane. Remote structural changes (splits/tabs) are applied
     // but this window stays on its own window/pane.
-    const localActive=this.ws.activeWindow;
+    const localActive=this.app.ws.activeWindow;
     const localFocus=new Map();
     // UX_BATCH12_SRS FR-VTL-1: pane 마다 보이는 탭도 이 브라우저의 것이다. 지키지 않으면
     // 다른 브라우저의 저장이 이 화면의 탭을 그 브라우저가 보던 탭으로 바꾼다(사용자 보고 2026-11-16).
     const localTabs=new Map();
-    for(const s of this.ws.windows){
+    for(const s of this.app.ws.windows){
       if(s.focusedPane) localFocus.set(s.id, s.focusedPane);
-      if(s.layout) for(const pn of this.flattenPanes(s.layout)) if(pn.activeTab) localTabs.set(pn.id, pn.activeTab);
+      if(s.layout) for(const pn of this.app.flattenPanes(s.layout)) if(pn.activeTab) localTabs.set(pn.id, pn.activeTab);
     }
     // UX_REVISION_SRS FR-GRR-2: 활성 리포도 **이 브라우저가 보고 있는 것**이다
     // (FR-GIT-29 로 Git 창에 붙어 있다). activeWindow·focusedPane 과 같은 범주인데
     // 보존 목록에서 빠져 있어, 리포를 전환한 직후 워크스페이스 동기화가 오면
     // 이전 리포로 되돌아갔다 — 그 화면이 무엇을 가리키는지가 조용히 바뀐다.
-    const localGit=this.gitWindow();
+    const localGit=this.app.gitWindow();
     const localRepo=(localGit&&localGit.git&&localGit.git.repo)||null;
     /**
      * OPTIMISTIC_LAYOUT_SRS FR-OPL-1·13: **아직 나가지 못한 로컬 레이아웃을
      * 되얹는다.**
      *
-     * 아래 `this.ws=sv` 한 줄이 레이아웃을 통째로 갈아끼운다. 방금 연 git 뷰
+     * 아래 `this.app.ws=sv` 한 줄이 레이아웃을 통째로 갈아끼운다. 방금 연 git 뷰
      * 탭은 `save()` 가 디바운스로 뒤따르는 동안 로컬 배열에만 있으므로 그
      * 한 줄에 지워졌다 — `11 §5` 가 flaky 아홉 중 다섯을 이 자리로 매핑했다.
      *
      * 자리가 여기인 이유 (FR-OPL-13): `clean`·마이그레이션·재조정보다 **뒤**여야
-     * 되얹은 탭이 도구 판정에 걸리지 않고, `this.ws=sv` 보다 **앞**이어야
+     * 되얹은 탭이 도구 판정에 걸리지 않고, `this.app.ws=sv` 보다 **앞**이어야
      * 뒤따르는 `render()` 가 탭이 없는 화면을 한 번 지나지 않는다.
      *
      * 판정의 근거는 **이 채택 이전의** 기억이다 (`seenBefore`, FR-OPL-10).
      */
     // FR-OPL-14: 판정의 목록은 위에서 스냅샷으로 갈아 끼운 것이다(FR-EDT-20·43).
-    const edWant=new Set(this.edOn()?this.edRoots():[]);
-    if(mergeUnseenLayout(this.ws.windows,sv.windows,seenBefore,this.edOn()?(r=>edWant.has(r)):null)){
+    const edWant=new Set(this.app.edOn()?this.app.edRoots():[]);
+    if(mergeUnseenLayout(this.app.ws.windows,sv.windows,seenBefore,this.app.edOn()?(r=>edWant.has(r)):null)){
       // FR-OPL-9 (= FR-WSC-13): 화면에만 남기면 다음 새로고침에서 사라진다.
       edChanged=true;
       // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
       // 했을 수 있으므로 다시 본다. 아래 `localActive` 복원이 있으나 그것은
       // 로컬 활성 창이 살아 있을 때만 돈다.
-      this._fallbackActiveWindow(sv);
+      this.app._fallbackActiveWindow(sv);
     }
-    this.ws=sv;
-    if(localActive && this.ws.windows.some(s=>s.id===localActive)){
-      this._activateWindow(localActive);
+    this.app.ws=sv;
+    if(localActive && this.app.ws.windows.some(s=>s.id===localActive)){
+      this.app._activateWindow(localActive);
     }
     // Restore each window's focusedPane if the pane still exists.
-    for(const s of this.ws.windows){
+    for(const s of this.app.ws.windows){
       const rid=localFocus.get(s.id);
       if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
       // FR-VTL-2: 보던 탭이 받은 pane 에 없으면 받은 값을 쓴다.
-      if(s.layout) for(const pn of this.flattenPanes(s.layout)){
+      if(s.layout) for(const pn of this.app.flattenPanes(s.layout)){
         const tid=localTabs.get(pn.id);
         if(tid&&(pn.tabs||[]).some(tab=>tab.id===tid)) pn.activeTab=tid;
       }
@@ -413,31 +421,35 @@ Object.assign(App.prototype, {
     // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
     // 그대로 쓴다 — 복원은 그 경로다.
     if(localRepo){
-      const gw=this.gitWindow();
+      const gw=this.app.gitWindow();
       if(gw){ if(!gw.git) gw.git={}; gw.git.repo=localRepo }
     }
     // FR-RSW-5 · FR-UXB-8: 옛 판의 브라우저가 옮긴 키를 계속 실어 보낼 수 있다.
-    if(this._stripDeviceKeys()) edChanged=true;
-    const a=this.aw();
+    if(this.app._stripDeviceKeys()) edChanged=true;
+    const a=this.app.aw();
     if(a&&a.layout){
       const saved=a.focusedPane;
       const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
-      if(f) this.setFocusState(f.id, a);
+      if(f) this.app.setFocusState(f.id, a);
     }
     // FR-SVS-7·14: 칸별 시선은 `activeWindow`·`focusedPane` 과 같은 범주다 —
     // 구조 변경은 받아들이면서 보는 자리는 로컬이 이긴다. 맵은 `_slots` 에
     // 있으므로 살아남고, 포커스 칸의 시선을 새 워크스페이스에 다시 얹는다.
-    this._slotTabsToWs();
-    if(edChanged) this.save();
-    this.render();
-    if(JSON.stringify((this.ws.git&&this.ws.git.pinned)||[])!==pinsBefore) this.gitReposKick();
-  },
-});
+    this.app._slotTabsToWs();
+    if(edChanged) this.app.save();
+    this.app.render();
+    if(JSON.stringify((this.app.ws.git&&this.app.ws.git.pinned)||[])!==pinsBefore) this.app.gitReposKick();
+  }
+}
+
+// 바깥(부팅·저장·상태 등록부·알림·에이전트·도구·창 소유)과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'wsSync',['_restoreBegin','_restoreLive','_restoreNote','_restoreVoid','_restoreEnd','_subscribeCommands',
+  '_onWorkspaceChanged','_onToolForeground','_fgMap','_fgApply','_fgRepaint','_applyRemoteWorkspace']);
 
 /**
  * SSE 의 내부 상태를 붙잡던 이름들 (FR-HUB-7).
  *
- * 채널은 `EventBus` 로 갔지만 이 이름들은 남는다 — `app-reload.js` 의 소프트리로드
+ * 채널은 `EventBus` 로 갔지만 이 이름들은 남는다 — `soft-reload.js` 의 소프트리로드
  * 1단계가 `_sse.readyState` 로 생존을 보고, e2e 여섯이 `_sse`·`_cmdES`·`_sseGen`·
  * `_sseSeen` 을 직접 만진다 (`version-autoreload` 는 `_sseSeen` 에 **쓴다** —
  * 침묵을 흉내내는 유일한 방법이다).
@@ -448,12 +460,12 @@ Object.assign(App.prototype, {
  */
 Object.defineProperties(App.prototype,{
   // 종전 코드에서 `_sse` 와 `_cmdES` 는 같은 EventSource 를 가리켰다.
-  _sse:   {get(){ return this.bus?this.bus._es:null }, configurable:true},
-  _cmdES: {get(){ return this.bus?this.bus._es:null }, configurable:true},
-  _sseGen:{get(){ return this.bus?this.bus.gen():0 }, configurable:true},
+  _sse:   {get(){ const app=this; return app.bus?app.bus._es:null }, configurable:true},
+  _cmdES: {get(){ const app=this; return app.bus?app.bus._es:null }, configurable:true},
+  _sseGen:{get(){ const app=this; return app.bus?app.bus.gen():0 }, configurable:true},
   _sseSeen:{
-    get(){ return this.bus?this.bus.lastSeen():0 },
-    set(v){ if(this.bus) this.bus._seen=v },
+    get(){ const app=this; return app.bus?app.bus.lastSeen():0 },
+    set(v){ const app=this; if(app.bus) app.bus._seen=v },
     configurable:true,
   },
 });
