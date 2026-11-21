@@ -3,6 +3,8 @@ package httpapi
 import (
 	"net/http"
 
+	"dongminal/internal/shared/dmlog"
+
 	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
@@ -49,9 +51,12 @@ func memberActions(m run.Member) map[string]action.Answer {
 }
 
 // runErrAnswer 는 Run 표면의 sentinel 을 답으로 옮긴다. 코드와 상태는 `apierr.Runs` 표다.
+// 표에 없는 실패는 고정 코드(`internal_error`)이고 전문은 로그로만 간다
+// (REFACTOR3_GO_STRUCT_SRS FR-RGS-7) — `Why` 는 사유 **코드**다.
 func runErrAnswer(err error) action.Answer {
 	if status, code, ok := apierr.Runs.Lookup(err); ok {
 		return action.Deny(status, code, nil)
 	}
-	return action.Deny(http.StatusInternalServerError, err.Error(), nil)
+	dmlog.Infof(nil, "runs 미분류 실패: %v", err)
+	return action.Deny(http.StatusInternalServerError, apierr.CodeInternal, nil)
 }

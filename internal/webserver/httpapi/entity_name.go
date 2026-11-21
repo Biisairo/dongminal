@@ -27,7 +27,10 @@ var entityNameCommands = map[string]bool{
 	"renameTab": true, "renameWindow": true, "newGroup": true, "renameGroup": true,
 }
 
-// entityNameAnswer 는 이름 하나의 길이 판정이다.
+// entityNameAnswer 는 이름 하나의 길이 판정이고, `action.EntityName` 의 생산자다
+// (REFACTOR3_GO_STRUCT_SRS FR-RGS-7). 이 답은 동작 표(`actions`)에 싣지 않는다 — 화면은
+// `/api/meta` 의 상한으로 미리 자르고, 답은 `/api/commands` 의 거절(`rejectCommandAnswer`)로만
+// 나간다. 카탈로그 항목은 그 거절 사유를 게이트·시험이 확인하는 자리다.
 func entityNameAnswer(name string) action.Answer {
 	if len(utf16.Encode([]rune(name))) > entityNameMax {
 		return action.Deny(http.StatusBadRequest, apierr.CodeNameTooLong, map[string]any{"max": entityNameMax})
