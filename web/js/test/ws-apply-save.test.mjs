@@ -46,7 +46,7 @@ function host(ctx, over = {}) {
     _wsMarkSaved(w) { log.push('_wsMarkSaved'); h.args.marked = w.map((s) => s.id) },
     _attnDrop(id) { log.push('_attnDrop:' + id); return ret.attnDrop },
     _attnRefresh() { log.push('_attnRefresh') },
-    _normalizeIncomingWorkspace(sv, live) { log.push('_normalizeIncomingWorkspace'); h.args.live = live; return ret.normalize },
+    _normalizeIncomingWorkspace(_sv, live) { log.push('_normalizeIncomingWorkspace'); h.args.live = live; return ret.normalize },
     _edPatchList(list) { log.push('_edPatchList'); h.args.list = list },
     _edReconcile(w) { log.push('_edReconcile'); h.args.reconcile = w; return ret.reconcile },
     _edKeepActive(sv) { log.push('_edKeepActive'); h.args.keep = sv },
@@ -154,7 +154,7 @@ test('TC-FR3-7: 받은 스냅샷에 editors 가 있고 앱에 편집기가 있�
   assert.deepEqual(a.log.slice(2, 5), ['_normalizeIncomingWorkspace', '_edPatchList', '_edReconcile']);
   assert.deepEqual(plain(a.args.list), ['L']);
   assert.ok(!apply({}, (hh) => { hh.editors = {} }).h.log.includes('_edPatchList'));
-  assert.ok(!apply({}, (hh, sv) => { sv.editors = { list: [] } }).h.log.includes('_edPatchList'));
+  assert.ok(!apply({}, (_hh, sv) => { sv.editors = { list: [] } }).h.log.includes('_edPatchList'));
 });
 
 test('TC-FR3-8: 되쓰기는 정규화·재조정·병합·기기 키 벗기기 중 하나라도 바꿨을 때 한 번, 그리기 앞이다', () => {
@@ -282,7 +282,7 @@ function saveRig() {
     wsETag: '5', _wsSavedIds: new Set(), _wsSavedTabs: new Set(),
     timers: {
       sleep: (ms) => { sleeps.push(ms); log.push('sleep:' + ms); return Promise.resolve() },
-      defer: (fn, o) => { log.push('defer:' + o.label) },
+      defer: (_fn, o) => { log.push('defer:' + o.label) },
     },
     _saveFlushDeferred() { log.push('flush') },
     gitReposKick() { log.push('gitReposKick') },
