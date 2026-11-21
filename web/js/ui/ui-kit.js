@@ -178,16 +178,6 @@ const UIKit = {
     bar.classList.toggle('labeled', ok && seen > 0);
   },
 
-  // 폭이 바뀔 때 다시 잰다. 관측은 오래 사는 원소(`host`)에 한 번만 건다.
-  // REFACTOR3_FE_BASE_SRS FR-FEB-3: 끊는 함수를 돌려준다. 이미 걸린 호스트면 아무것도 끊지 않는 함수다 — 관측의 주인은 처음 건 쪽이다.
-  tabsFitWatch(host, sel) {
-    if (!host || host._fitRo || typeof ResizeObserver !== 'function') return () => {};
-    const ro = new ResizeObserver(() => UIKit.tabsFit(host, sel));
-    host._fitRo = ro;
-    ro.observe(host);
-    return () => { ro.disconnect(); if (host._fitRo === ro) delete host._fitRo };
-  },
-
   /**
    * ACCESSIBILITY_BASELINE_SRS FR-A11Y-16 (`UX-4`) — **목록·탭 줄의 키보드 계약이
    * 한 자리에 있다** (roving tabindex, D-A11Y-11).

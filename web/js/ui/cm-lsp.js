@@ -357,7 +357,8 @@ class EdLspSocket {
   }
 
   subscribe(fn) { this._subs.add(fn) }
-  // 이 저장소에서 부르는 곳은 없지만 `lsp-client` 의 Transport 계약이다 — 라이브러리가 연결을 끊을 때 부른다.
+  // `lsp-client` 의 Transport 계약이다. 이 저장소의 코드는 부르지 않지만 번들 `vendor/codemirror/cm.js` 의 `LSPClient` 가
+  // `connect`(앞 transport)·`disconnect` 에서 부른다 — 지우면 끊는 순간 TypeError 다 (REFACTOR3_FE_REST2_SRS D-FR2-9).
   unsubscribe(fn) { this._subs.delete(fn) }
 
   close() {

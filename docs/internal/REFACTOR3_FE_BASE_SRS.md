@@ -42,6 +42,8 @@
 | FR-FEB-2 | 호출처가 없는 함수 `_rWinTitle`(renderer-chrome.js) · `reloadRefs`(history-load.js) · `menuOpen`(ui-kit.js) · `_submodules`(panel-views.js)를 지운다. 지우기 전에 동적 호출(`this[…]`·문자열 키)이 없음을 확인한다. `cm-lsp.js` 의 `unsubscribe` 는 라이브러리 계약이면 남기고 이유를 주석에 적는다 |
 | FR-FEB-3 | `UIKit.tabsFitWatch` 와 `UIKit.roving` 은 해제 함수를 돌려준다. 같은 호스트에 두 번 걸지 않는 규약은 그대로다 |
 
+> **개정 (2026-11-21, `REFACTOR3_FE_REST2_SRS` FR-FR2-8).** `UIKit.tabsFitWatch` 를 지웠다. 단계 2 뒤 앱 안 호출이 0 이었다 — 탭 줄의 폭 관측은 `TabBar` 가 직접 건다(FR-FEB-26). FR-FEB-3 은 `UIKit.roving` 에만 남는다. TC-FEB-2 의 `tabsFitWatch` 시험 둘도 지웠다(`kit-dispose.test.mjs` 는 그것이 없음을 본다).
+
 ### 2.2 단계 1 — 기반 클래스 (`web/js/core/base/`, 클래스 하나 = 파일 하나)
 
 | ID | 요구 |

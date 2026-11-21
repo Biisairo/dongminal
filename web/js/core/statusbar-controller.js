@@ -274,14 +274,13 @@ class StatusBarController extends Controller {
   /**
    * FR-BGU-6/7 (**UIUX_OVERHAUL_SRS FR-ACT-2 로 개정**): 진입점은 이제 **패널**을
    * 연다. 중앙 차단 모달이 사라졌다 — 되돌릴 것이 없는 조회가 백드롭으로 앱
-   * 전체를 막을 이유가 없다 (§3.3 원칙 4).
+   * 전체를 막을 이유가 없다 (§3.3 원칙 4). 부르는 자리는 `app.js` 의 `bgToggle`(단축키) 하나다.
    *
-   * 이름은 그대로 둔다. 부르는 자리는 `app.js` 의 `bgToggle`(단축키) 하나이고,
-   * 이름을 바꾸는 것은 이 변경이 아니다. `open===false` 는 "닫아라" 가 아니라 **"내 일은 끝났다"**
-   * 로 남는다 — 패널은 조회이므로 남의 동작이 닫지 않는다.
+   * REFACTOR3_FE_REST2_SRS FR-FR2-7 (FC-16): 이름이 `_bgModalToggle(open)` 이었다.
+   *   이전: `open===false` 면 아무것도 하지 않았다 — 패널은 조회이므로 남의 동작이 닫지 않는다
+   *   새:   인자가 없다. 그 인자를 넘기는 곳이 없어 분기가 죽어 있었다
    */
-  _bgModalToggle(open){
-    if(open===false) return;                 // 조회는 남의 동작에 닫히지 않는다
+  _bgPanelOpen(){
     this._bgConfirm=null; this._bgError=null;
     this.app.actPanelOpen('bg');
   }
@@ -483,5 +482,5 @@ class StatusBarController extends Controller {
 
 // 바깥(부팅 표 `SETTINGS_INIT`·상태 등록부·설정 ▸ 상태바·편집기·포커스·도구·활동·모바일·`ui/`)과 계약이 App 에서 부르는
 // 이름 (FR-FEA-4).
-Controller.delegate(App,'statusbar',['initStatusBar','_startStatsPoll','_pollStats','updateStatusBar','_bgModalToggle',
+Controller.delegate(App,'statusbar',['initStatusBar','_startStatsPoll','_pollStats','updateStatusBar',
   '_bgPanelPaint','_bgRow','_shortCwd','_fmtMemSize','updateCwd']);

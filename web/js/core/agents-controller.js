@@ -239,14 +239,16 @@ class AgentsController extends Controller {
     };
     // PANEL_TEMPLATE_SRS FR-PNT-1·2: 머리(탭 줄 → 끝 단추)는 몸통 스크롤 밖의 `#agents-head` 다.
     // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40 (D-ASV-12): Usage 바닥도 스크롤 몸통 밖에 그린다.
-    const inHead=it=>it.t==='tabs'||it.t==='head';
-    reconcileList(headHost,items.filter(it=>it.t==='tabs').concat(items.filter(it=>it.t==='head')),opts);
-    const tabsIt=items.find(it=>it.t==='tabs');
+    // REFACTOR3_FE_REST2_SRS FR-FR2-6 (FC-15): 항목을 한 번 훑어 구역으로 가른다. 머리는 탭 줄 뒤에 끝 단추다.
+    const zone={tabs:[],head:[],body:[],foot:[]};
+    for(const it of items) zone[it.t==='tabs'||it.t==='head'||it.t==='foot'?it.t:'body'].push(it);
+    reconcileList(headHost,zone.tabs.concat(zone.head),opts);
+    const tabsIt=zone.tabs[0];
     // UX_AUDIT_FIX_SRS FR-UXF-98: 라벨 맞춤은 탭 줄이 그리면서 한다 (REFACTOR3_FE_BASE_SRS FR-FEB-26 — 사이드바와 같은 길).
     //   이전: 여기서 `#agents-head` 에 관측을 걸고 직접 쟀다 — 사이드바는 `#sb-tabs` 에 걸어, 두 패널의 재는 대상과 시점이 갈렸다
     if(tabsIt) this.list._actTabsPaint(headHost.querySelector('.ag-tabs'),tabsIt.cur,tabsIt.tabs);
-    reconcileList(body,items.filter(it=>!inHead(it)&&it.t!=='foot'),opts);
-    reconcileList(footHost,items.filter(it=>it.t==='foot'),opts);
+    reconcileList(body,zone.body,opts);
+    reconcileList(footHost,zone.foot,opts);
   }
 
   /**

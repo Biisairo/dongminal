@@ -337,7 +337,7 @@ const DELEGATES_9B = {
   claude: ['_claudeAcctRestore', '_onClaudeAccountsChanged', '_onClaudeAccountAlert', '_claudeAcctFold', '_claudeAcctSmartMenu',
     '_claudeAcctHistory', '_claudeAcctEl'],
   'claude.maps': ['claudeTabTint', 'claudeOnCwd', 'claudeRepoChip', 'claudeFolderChip', 'claudeTabMenuItem', 'claudeFolderMenu'],
-  statusbar: ['initStatusBar', '_startStatsPoll', '_pollStats', 'updateStatusBar', '_bgModalToggle', '_bgPanelPaint', '_bgRow',
+  statusbar: ['initStatusBar', '_startStatsPoll', '_pollStats', 'updateStatusBar', '_bgPanelPaint', '_bgRow',
     '_shortCwd', '_fmtMemSize', 'updateCwd'],
 };
 
@@ -390,6 +390,29 @@ test('TC-FEA-1(9b): 위임자는 컨트롤러 메서드를 같은 인자로 부�
   }
   for (const names of Object.values(DELEGATES_9B)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
   assert.deepEqual(plain(seen), Object.values(DELEGATES_9B).flat().map((n) => [n, 1, 'x']));
+});
+
+/**
+ * REFACTOR3_FE_REST2_SRS FR-FR2-7 · TC-FR2-3 (FC-16): 모달 시절 이름 `_bgModalToggle(open)` → `_bgPanelOpen()`.
+ *   이전: `open===false` 면 아무것도 하지 않았다 — 그 인자를 넘기는 곳이 없었다
+ *   새:   인자가 없다. 단축키 `bgToggle` 이 컨트롤러를 직접 부르고 App 위임자는 없다
+ */
+test('TC-FR2-3: _bgPanelOpen 이 Background 구역을 열고 옛 이름은 남지 않는다', () => {
+  const ctx = load9b();
+  const app = new ctx.App();
+  const opened = [];
+  app.actPanelOpen = (sec) => opened.push(sec);
+  const sb = new ctx.StatusBarController(app);
+  sb._bgConfirm = 'x'; sb._bgError = 'e';
+  sb._bgPanelOpen();
+  assert.deepEqual(opened, ['bg']);
+  assert.equal(sb._bgConfirm, null);
+  assert.equal(sb._bgError, null);
+  assert.equal(typeof app._bgPanelOpen, 'undefined', 'App 위임자를 두지 않는다');
+  // 정의·호출·위임자 이름으로 남지 않는다 (개정 주석의 옛 이름은 기록이다).
+  const old = /\._bgModalToggle|^\s*_bgModalToggle\s*\(|'_bgModalToggle'/m;
+  for (const f of ['core/statusbar-controller.js', 'core/app.js']) assert.ok(!old.test(read(f)), f);
+  assert.ok(read('core/app.js').includes('bgToggle:()=>this.statusbar._bgPanelOpen()'));
 });
 
 test('TC-FEA-2(9b): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {

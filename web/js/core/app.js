@@ -409,7 +409,7 @@ class App {
       slotNext:()=>this.slotNav(1),
       // FR-PSC-3: 버튼 클릭과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
-      bgToggle:()=>this._bgModalToggle(),
+      bgToggle:()=>this.statusbar._bgPanelOpen(),
       runsToggle:()=>this._runsModalToggle(),
       // FR-SBC-7a: 손잡이 드래그와 같은 함수다 (input-binding).
       sidebarToggle:()=>this._toggleSidebar(),
