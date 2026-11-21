@@ -13,15 +13,16 @@ class TerminalSection extends SettingsSection {
   constructor(app){ super(app,'terminal') }
 
   init(){
+    // REFACTOR3_FE_FIX_SRS FR-FFX-7: 숫자 행은 포커스 가드를 갖는다 — 다른 창의 방송이 치는 중인 글자를 덮었다(실측).
     this.bindRows([
       {key:'claudeFullscreen',id:'ds-claudefs',kind:'check'},
       // FONT_SIZE_SETTING_SRS FR-FSS-11·12: 터미널만 움직인다.
-      {key:'termFontSize',id:'ds-termfs',kind:'number'},
-      {key:'claudeScrollSpeed',id:'ds-scrollspeed',kind:'number'},
+      {key:'termFontSize',id:'ds-termfs',kind:'number',guard:true},
+      {key:'claudeScrollSpeed',id:'ds-scrollspeed',kind:'number',guard:true},
       {key:'migrationHook',id:'ds-mighook',kind:'check'},
-      {key:'migrationHookCtxPct',id:'ds-mighookpct',kind:'number'},
+      {key:'migrationHookCtxPct',id:'ds-mighookpct',kind:'number',guard:true},
       {key:'issueTreeMigration',id:'ds-treemig',kind:'check'},
-      {key:'issueTreeCtxPct',id:'ds-treemigpct',kind:'number'},
+      {key:'issueTreeCtxPct',id:'ds-treemigpct',kind:'number',guard:true},
     ]);
     this.paint();
     this._initTermGpu();

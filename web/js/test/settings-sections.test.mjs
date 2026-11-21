@@ -588,3 +588,44 @@ test('TC-FES-4: 열 때는 theme → shortcuts → presets → display → 칠�
   c.onTab('nope');
   assert.deepEqual(log, ['tab:sandbox']);
 });
+
+// ── REFACTOR3_FE_FIX_SRS FX-2 ─────────────────────────────────────────────
+
+test('TC-FFX-4: StatusbarSection.paint 는 스위치를 지금 statusBar 로 칠한다 — 열 때·방송 뒤의 칠하기 길이다', () => {
+  const host = elem('sb-settings', { innerHTML: '', kids: [], appendChild(c) { this.kids.push(c); return c } });
+  const { ctx, doc } = setup({}, { 'sb-settings': host });
+  doc.createElement = () => elem('', { kids: [], appendChild(c) { this.kids.push(c); return c } });
+  ctx.STATUS_ITEMS = { connection: { label: 'c' }, hostname: { label: 'h' } };
+  ctx.statusBar = { connection: true, hostname: false };
+  const s = new ctx.StatusbarSection(fakeApp([]));
+  s.init();
+  const sw = (k) => host.kids.find((r) => r.dataset.item === k).kids[1];
+  assert.equal(sw('connection').checked, true);
+  assert.equal(sw('hostname').checked, false);
+  ctx.statusBar.connection = false; ctx.statusBar.hostname = true;
+  s.paint();
+  assert.equal(sw('connection').checked, false);
+  assert.equal(sw('hostname').checked, true);
+});
+
+test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는다 (FR-FFX-7)', () => {
+  const access = new Proxy({}, { get: () => ({ get: () => 0, set() {} }) });
+  const { ctx } = setup(access, {});
+  ctx.TermGpu = { enabled: () => false, setEnabled() {} };
+  ctx.I18N = { locale: 'ko', resolve: (v) => v };
+  ctx.applyTabWidth = () => {};
+  ctx.applyUiFontScale = () => {};
+  Object.assign(ctx, { focusEdgeLevel: 0, attnEdgeLevel: 0, UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10 });
+  const app = { ...fakeApp([]), _slotDirPaint() {}, displayMode: 'auto', mobileBreakpoint: 768 };
+  const rows = [];
+  for (const cls of ['DisplaySection', 'TerminalSection']) {
+    const s = new ctx[cls](app);
+    s.init();
+    rows.push(...s.rows);
+  }
+  const guarded = rows.filter((r) => r.decl.kind === 'number').map((r) => [r.decl.key, !!r.decl.guard]);
+  assert.deepEqual(plain(guarded.sort()), [
+    ['claudeScrollSpeed', true], ['issueTreeCtxPct', true], ['migrationHookCtxPct', true],
+    ['tabWidthPx', true], ['termFontSize', true], ['uiFontSize', true]]);
+});
+

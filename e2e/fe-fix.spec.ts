@@ -71,3 +71,63 @@ test.describe('FX-1 작업 중의 툴팁·접근 이름', () => {
     await expect(agTab).not.toHaveAttribute('aria-label');
   });
 });
+
+// ── FX-2 설정 행 다시 칠하기 · 포커스 가드 ─────────────────────────────
+
+test.describe('FX-2 설정 — 칠하기·가드', () => {
+  // 설정은 서버에 산다 — 이 묶음이 바꾼 것을 다음 스펙에 흘리지 않는다.
+  let original: unknown = null;
+  test.beforeEach(async ({ request }) => { original = await (await request.get('/api/settings')).json(); });
+  test.afterEach(async ({ request }) => { if (original) await request.put('/api/settings', { data: original }); });
+
+  const openTab = async (page: Page, tab: string) => {
+    await page.click('#settings-btn');
+    await expect(page.locator('#modal-overlay.open')).toBeVisible({ timeout: 10000 });
+    await page.click(`.mtab[data-tab="${tab}"]`);
+    await expect(page.locator(`#panel-${tab}`)).toBeVisible();
+  };
+  /** 다른 클라이언트가 statusBar 값 하나를 뒤집는다. 뒤집은 값을 돌려준다. */
+  const flipStatus = async (request: any, key: string) => {
+    const blob = await (await request.get('/api/settings')).json();
+    const want = !(blob.statusBar && blob.statusBar[key]);
+    blob.statusBar = { ...(blob.statusBar || {}), [key]: want };
+    await request.put('/api/settings', { data: blob });
+    return want;
+  };
+
+  test('TC-FFX-5: statusbar 스위치는 다른 클라이언트의 변경을 따라오고, 닫힌 동안 바뀐 값도 다시 열면 보인다', async ({ page, request }) => {
+    await waitForInit(page);
+    await openTab(page, 'statusbar');
+    const sw = page.locator('#panel-statusbar .sbs-row[data-item="hostname"] input');
+    const want = await flipStatus(request, 'hostname');
+    await expect.poll(() => sw.isChecked(), { timeout: 10000 }).toBe(want);
+    await page.click('#modal-close');
+    const want2 = await flipStatus(request, 'hostname');
+    await expect.poll(() => page.evaluate('statusBar.hostname'), { timeout: 10000 }).toBe(want2);
+    await page.click('#settings-btn');
+    await expect(sw).toBeVisible();
+    expect(await sw.isChecked()).toBe(want2);
+  });
+
+  // 실측(HEAD 3dfb1c17): 다섯 모두 치는 중인 글자가 쓰이는 값(자른 값)으로 바뀌었다. 탭 폭 행(가드)만 남았다.
+  for (const [tab, id] of [['display', 'ds-uifs'], ['terminal', 'ds-termfs'], ['terminal', 'ds-scrollspeed'],
+    ['terminal', 'ds-mighookpct'], ['terminal', 'ds-treemigpct']]) {
+    test(`TC-FFX-6: 입력 중인 숫자 칸(${id})을 다른 클라이언트의 설정 방송이 덮지 않는다`, async ({ page, request }) => {
+      await waitForInit(page);
+      await openTab(page, tab);
+      const inp = page.locator('#' + id);
+      await inp.click();
+      await inp.press('ControlOrMeta+a');
+      const put = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/settings' && r.request().method() === 'PUT');
+      await inp.pressSequentially('9999');
+      await put;
+      const want = await flipStatus(request, 'hostname');
+      await expect.poll(() => page.evaluate('statusBar.hostname'), { timeout: 10000 }).toBe(want);
+      await expect(inp).toBeFocused();
+      expect(await inp.inputValue()).toBe('9999');
+      // 포커스가 떠나면 쓰이는 값으로 고쳐진다(지금 그대로).
+      await inp.blur();
+      await expect(inp).not.toHaveValue('9999');
+    });
+  }
+});

@@ -44,7 +44,7 @@ function setup() {
   return { ctx, els, app };
 }
 
-test('FEC-26: 컨트롤이 섹션의 행 선언에 한 번씩 있고, 포커스 가드는 탭 폭 하나다', () => {
+test('FEC-26: 컨트롤이 섹션의 행 선언에 한 번씩 있고, 포커스 가드는 숫자 행 모두다', () => {
   const { app } = setup();
   const got = {}, guarded = [];
   for (const s of app.settings.all()) {
@@ -55,7 +55,8 @@ test('FEC-26: 컨트롤이 섹션의 행 선언에 한 번씩 있고, 포커스 
     }
   }
   assert.deepEqual(plain(got), CTLS);
-  assert.deepEqual(plain(guarded), ['ds-tabw']);
+  // REFACTOR3_FE_FIX_SRS FR-FFX-7 개정 — 이전: 탭 폭 하나(`ds-tabw`) / 새: 숫자 행 여섯 / 이유: 다섯이 입력 중 방송에 덮였다(실측)
+  assert.deepEqual(plain(guarded.sort()), ['ds-mighookpct', 'ds-scrollspeed', 'ds-tabw', 'ds-termfs', 'ds-treemigpct', 'ds-uifs']);
 });
 
 test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중인 탭 폭은 덮지 않는다', () => {

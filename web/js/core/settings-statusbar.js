@@ -1,13 +1,19 @@
 /**
  * StatusbarSection — Settings ▸ Status Bar (REFACTOR3_FE_SETTINGS_SRS 8b). 상태바에 **무엇을 보일지**의 스위치들이다.
  *
- * 행은 `STATUS_ITEMS` 표에서 만든다. 한 번 만들고 다시 칠하지 않는다 — 설정을 열 때·다른 창의 변경을 받을 때도
- * 그대로다(§6 「찾은 것」, 동작을 바꾸지 않으므로 `paint()` 를 두지 않는다).
+ * 행은 `STATUS_ITEMS` 표에서 한 번 만든다. 스위치는 `paint()` 가 지금 값으로 칠한다 — 설정을 열 때·다른 창의 변경을
+ * 받을 때(`SettingsController.paint`) 다른 섹션과 같다(REFACTOR3_FE_FIX_SRS FR-FFX-6).
+ *   이전: 만든 값에 머물러, 다른 기기에서 끈 항목이 켜진 채 보였다
+ *   새:   열 때·방송 뒤에 다시 칠한다
  */
 class StatusbarSection extends SettingsSection {
   constructor(app){ super(app,'statusbar') }
 
   init(){ this._render() }
+
+  paint(){
+    for(const [k,inp] of this._sw||[]) inp.checked=!!statusBar[k];
+  }
 
   _render(){
     const el=document.getElementById('sb-settings');if(!el)return;
@@ -24,6 +30,7 @@ class StatusbarSection extends SettingsSection {
      */
     // Item toggles
     const app=this.app;
+    this._sw=new Map();
     for(const[k,v]of Object.entries(STATUS_ITEMS)){
       const row=document.createElement('div');row.className='sbs-row';row.dataset.item=k;
       const label=document.createElement('span');label.textContent=v.label;
@@ -32,6 +39,7 @@ class StatusbarSection extends SettingsSection {
       // `:checked` 파생이 닿지 않는다. 입력이 스스로 그리므로 대역을 걷는다.
       const inp=document.createElement('input');
       inp.type='checkbox'; inp.className='ui-switch'; inp.checked=!!statusBar[k];
+      this._sw.set(k,inp);
       this.listen(inp,'change',()=>{statusBar[k]=inp.checked;app.saveSettings();app.updateStatusBar()});
       row.appendChild(label);row.appendChild(inp);
       el.appendChild(row);
