@@ -170,7 +170,7 @@ const SidebarList = {
     // PANEL_SURFACE_SRS FR-RAL-7: 레일에는 숫자를 넣을 자리가 없으므로 배지는
     // **점의 색**으로 축약된다. 그 판정은 행의 클래스여야 CSS 가 딛을 수 있다.
     el.className = ['sbl-item', d.itemClass, r.cls, r.active ? 'active' : '', r.attn ? 'attn' : '',
-      r.badge ? 'has-badge' : '']
+      r.badge ? 'has-badge' : '', r.work ? WORK_ROW_CLASS : '']
       .filter(Boolean).join(' ');
     if (r.dataset) for (const k in r.dataset) if (r.dataset[k] != null) el.dataset[k] = r.dataset[k];
     // FR-A11Y-16: 행은 `option` 이다. `Tab` 에 닿는 하나는 `_rove` 가 정한다 —
@@ -195,8 +195,6 @@ const SidebarList = {
     name.className = ['sbl-name', d.nameClass].filter(Boolean).join(' ');
     name.textContent = r.name || '';
     el.appendChild(name);
-    // UX_AUDIT_FIX_SRS FR-UXF-62: 작업 중 표식은 이름 뒤다.
-    if (r.work) workDotSync(el, true, null);
 
     // CLAUDE_ACCOUNTS_SRS FR-CAC-96: 계정 칩.
     if (r.chip) el.appendChild(claudeAcctChipEl(r.chip));

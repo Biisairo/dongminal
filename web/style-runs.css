@@ -104,7 +104,7 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 /* UX_BATCH12_SRS FR-RMM-1·2: 미니맵은 트리를 줄인 것이다. 테두리는 화면 px 로 그려 작은 노드도 보인다. */
 .run-view .run-tree-mini-edge{fill:none;stroke:var(--border-strong);stroke-width:1;vector-effect:non-scaling-stroke}
 .run-view .run-tree-mini-node{fill:var(--text-muted);stroke:var(--text-muted);stroke-width:1;vector-effect:non-scaling-stroke}
-.run-view .run-tree-mini-node.state-working{fill:var(--accent);stroke:var(--accent)}
+.run-view .run-tree-mini-node.state-working{fill:var(--accent2);stroke:var(--accent2)}
 .run-view .run-tree-mini-node.state-waiting{fill:var(--attn);stroke:var(--attn)}
 .run-view .run-tree-mini-node.state-done{fill:var(--run-ok);stroke:var(--run-ok)}
 .run-view .run-tree-mini-node.state-failed{fill:var(--danger);stroke:var(--danger)}
@@ -120,7 +120,7 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 .run-view .run-tree-node:focus-visible{outline:1px solid var(--focus-ring)}
 .run-view .run-tree-box{fill:var(--sidebar-bg);stroke:var(--border);stroke-width:1.5}
 .run-view .run-tree-node:hover .run-tree-box{fill:var(--accent-subtle)}
-.run-view .run-tree-node.state-working .run-tree-box{stroke:var(--accent);stroke-width:2}
+.run-view .run-tree-node.state-working .run-tree-box{stroke:var(--accent2);stroke-width:2}
 .run-view .run-tree-node.state-waiting .run-tree-box{stroke:var(--attn);stroke-width:2}
 .run-view .run-tree-node.state-waiting-children .run-tree-box{stroke:var(--text-muted)}
 .run-view .run-tree-node.state-done .run-tree-box{stroke:var(--run-ok)}
@@ -171,7 +171,7 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 .run-view .run-node .run-node-role{fill:var(--text-bright);font-size:var(--fs-md);font-family:inherit}
 .run-view .run-node .run-node-sub{fill:var(--text-muted);font-size:var(--fs-sm);font-family:inherit}
 .run-view .run-node.coord .run-node-box{stroke:var(--accent-border)}
-.run-view .run-node.state-working .run-node-box{stroke:var(--accent);stroke-width:2}
+.run-view .run-node.state-working .run-node-box{stroke:var(--accent2);stroke-width:2}
 .run-view .run-node.state-waiting .run-node-box{stroke:var(--attn);stroke-width:2}
 .run-view .run-node.state-done .run-node-box{stroke:var(--run-ok)}
 .run-view .run-node.state-failed .run-node-box{stroke:var(--danger);stroke-width:2}
@@ -213,7 +213,7 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
   background:var(--sidebar-bg);border:1px solid var(--border);border-left-width:3px;border-radius:var(--radius-sm);
 }
 .run-view .run-card:hover{background:var(--accent-subtle)}
-.run-view .run-card.state-working{border-left-color:var(--accent)}
+.run-view .run-card.state-working{border-left-color:var(--accent2)}
 .run-view .run-card.coord{border-left-color:var(--accent-border)}
 .run-view .run-card.state-waiting{border-left-color:var(--attn)}
 .run-view .run-card.state-done{border-left-color:var(--run-ok)}

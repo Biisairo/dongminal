@@ -1,12 +1,15 @@
 /**
  * Dongminal — 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64, 진단 X6·O2, 사용자 결정 D-18).
  *
- * 도구의 활동 보고가 `working` 이면 칸의 탭·사이드바 창 행·작업 패널의 에이전트 탭이 같은 점을 가진다.
+ * 도구의 활동 보고가 `working` 이면 칸의 탭·사이드바 창 행·작업 패널의 에이전트 탭이 표식을 가진다.
+ * 사이드바 창 행은 점 대신 선택 점을 두르는 링이다 (FR-UXF-129, D-44).
  * 주의(`_attn`) 표식이 있는 자리에는 점을 두지 않는다 — 사람이 손대야 하는 것이 앞선다.
  *
  * 로드 순서 계약: app-attn.js · app-agents.js 뒤 — prototype 확장이다.
  */
 const WORK_DOT_CLASS='work-dot';
+// FR-UXF-129 (D-44): 사이드바 창 행은 점 대신 이 클래스로 선택 점에 링을 두른다.
+const WORK_ROW_CLASS='working';
 
 /** FR-UXF-60: `el` 의 직계 자식 표식을 `on` 에 맞춘다. 새로 둘 때는 `before` 앞(없으면 끝)이다. */
 function workDotSync(el,on,before){
@@ -48,7 +51,7 @@ Object.assign(App.prototype, {
   /** FR-UXF-61: 탭에 점을 두는가. */
   tabWorkDot(toolId){ return this.toolWorking(toolId)&&!this.attnHas(toolId) },
 
-  /** FR-UXF-62: 창 행에 점을 두는가. */
+  /** FR-UXF-62·129: 창 행의 선택 점에 링을 두는가. */
   windowWorkDot(s){ return this.windowWorking(s)&&!this.windowHasAttn(s) },
 
   /** FR-UXF-64: 작업 중 모임이 바뀌었을 때만 표식을 고친다. */
@@ -66,8 +69,7 @@ Object.assign(App.prototype, {
     });
     document.querySelectorAll('#windows .si[data-sid]').forEach(el=>{
       const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
-      const name=el.querySelector('.sbl-name');
-      workDotSync(el,!!s&&this.windowWorkDot(s),name?name.nextSibling:null);
+      el.classList.toggle(WORK_ROW_CLASS,!!s&&this.windowWorkDot(s));
     });
   },
 });

@@ -1084,6 +1084,7 @@ I18N.register('ko', {
   'html.theme_term_fg': '글자',
   'html.theme_term_select': '선택',
   'html.theme_ui_accent': '강조',
+  'html.theme_ui_accent2': '강조 2',
   'html.theme_ui_accent_bd': '강조 경계',
   'html.theme_ui_bg': '배경',
   'html.theme_ui_border': '경계',

@@ -127,7 +127,7 @@
   --ed-thumb:rgba(121,121,121,0.4);--ed-thumb-hover:rgba(100,100,100,0.7);--ed-thumb-active:rgba(191,191,191,0.4);
   --ed-slider:rgba(121,121,121,0.3);--ed-slider-hover:rgba(100,100,100,0.45);--ed-slider-active:rgba(191,191,191,0.3);
   --bg:#1a1b26;--sidebar-bg:#16161e;--border:#292e42;
-  --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#8b95bf;
+  --accent:#7aa2f7;--accent2:#9ece6a;--text:#a9b1d6;--text-muted:#8b95bf;
   --text-bright:#c0caf5;--text-dim:#606889;--danger:#f7768e;
   --accent-border:#3d59a1;
   /* DESIGN_TOKENS_SRS FR-TOK-2·2a·4: 글자 토큰은 파생이다 — `applyThemeObj` 가
@@ -774,13 +774,13 @@ body.tabfix .pn-tab .pn-tab-label{
    (하한 40px 의 근거, D-3). */
 body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .pn-tab:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-2px}
-/* UX_AUDIT_FIX_SRS FR-UXF-60~62 (X6·O2, D-18): 작업 중 표식 — 모바일 작업 단추의 `.m-act-dot` 과 같은 점.
-   맥동하지 않는다(조용한 계기판의 램프). 주의가 있는 자리에는 JS 가 두지 않는다. */
-.work-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+/* UX_AUDIT_FIX_SRS FR-UXF-60·61·128 (X6·O2, D-18·D-43): 작업 중 표식 — 모바일 작업 단추의 `.m-act-dot` 과 같은 점.
+   맥동하지 않는다(조용한 계기판의 램프). 주의가 있는 자리에는 JS 가 두지 않는다. 색은 실행 중 색 `--accent2` 다. */
+.work-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent2)}
 .pn-tab>.work-dot{margin-right:6px}
-/* 레일의 행은 두 줄 이름이 폭을 다 채운다 — 표식은 왼쪽 점(`.sbl-dot`) 아래, 글자가 없는 왼쪽 아래 귀퉁이에 얹는다. */
-html.sb-collapsed body:not(.mobile) .sbl-item:has(>.work-dot){position:relative}
-html.sb-collapsed body:not(.mobile) .sbl-item>.work-dot{position:absolute;left:2px;bottom:3px}
+/* FR-UXF-129 (D-44): 사이드바 창 행은 점을 따로 두지 않고 선택 점을 링으로 두른다 — 패널 배경의 틈, 그 바깥 `--accent2` 띠.
+   그림자라 행의 자리를 바꾸지 않는다. 이전: 이름 뒤 `.work-dot`, 레일에서는 선택 점 아래에 얹혀 같은 색으로 겹쳤다. */
+.sbl-item.working:not(.attn) .sbl-dot{box-shadow:0 0 0 1.5px var(--sidebar-bg),0 0 0 3px var(--accent2)}
 .pn-tab:hover{background:var(--accent-hover);color:var(--text)}
 .pn-tab.active{color:var(--text-bright);background:var(--accent-subtle)}
 .pn-tab-x{font-size:var(--fs-sm);color:var(--text-hint);opacity:0;cursor:pointer}
@@ -1000,8 +1000,12 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
    종전 `--accent-text` 는 "지금 어디" 의 색을 상태에 빌려 쓴 것이었다 —
    그래서 포커스된 칸과 일하는 에이전트가 같은 색으로 경쟁했다.
    `.waiting` 이 이미 `--attn-text`(yellow) 를 쓰고 있었으므로 이 줄만
-   옮기면 네 상태가 한 사상표 위에 선다. */
-:is(.ag-state,.ag-dot).working{color:var(--term-green)}
+   옮기면 네 상태가 한 사상표 위에 선다.
+   UX_AUDIT_FIX_SRS FR-UXF-128 (D-43) 개정
+     이전 동작: `--term-green` — 테마가 바뀌어도 초록이었고, 작업 점·Run 노드(`--accent`)와 갈렸다
+     새  동작: 실행 중 색 `--accent2` (테마 슬롯). 포커스(`--accent`)와는 여전히 다르다
+     이유:     실행 중을 뜻하는 자리를 한 색으로 모은다 (사용자 결정 D-43) */
+:is(.ag-state,.ag-dot).working{color:var(--accent2)}
 :is(.ag-state,.ag-dot).done{color:var(--text-bright)}
 :is(.ag-state,.ag-dot).waiting{color:var(--attn-text)}
 :is(.ag-state,.ag-dot).idle{color:var(--text)}
@@ -1029,7 +1033,7 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 .ag-sub-type,.ag-sub-state{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-sub-type{flex:0 0 auto;max-width:50%;color:var(--text)}
 .ag-sub-state{flex:1 1 auto}
-.ag-sub-state.working{color:var(--term-green)}
+.ag-sub-state.working{color:var(--accent2)}
 .ag-sub-state.waiting{color:var(--attn-text)}
 .ag-sub .ag-usage{margin-top:1px;padding-left:14px}
 .ag-sub .ag-usage-bar{flex-basis:40px}
@@ -2048,7 +2052,7 @@ body.mobile .ds-row>span:first-child{min-width:5em}
 body.mobile :is(.display-settings,.ui-modal,.git-view,.ed-side) :is(select,.ui-input,.ui-select,input:not([type]),input[type=text],input[type=search],input[type=number]){min-height:var(--touch-min);font-size:var(--fs-xl)}
 /* ── MOBILE_UX_OVERHAUL_SRS 2차 (FR-MUX-70~79) ── */
 /* FR-MUX-74·75: 상단바 Activity 단추. 작업 중이면 상태 점과 수 — 점은 맥동하지 않는다(조용한 계기판의 램프). */
-#m-act-btn .m-act-dot{display:none;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+#m-act-btn .m-act-dot{display:none;width:6px;height:6px;border-radius:50%;background:var(--accent2)}
 #m-act-btn .m-act-n{font-size:var(--fs-sm);font-variant-numeric:tabular-nums;color:var(--text-bright)}
 #m-act-btn .m-act-n:empty{display:none}
 body.mobile #m-act-btn.working{width:auto;padding:0 10px 0 8px;gap:5px}

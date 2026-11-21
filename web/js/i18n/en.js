@@ -1060,6 +1060,7 @@ I18N.register('en', {
   'html.theme_term_fg': 'FG',
   'html.theme_term_select': 'Select',
   'html.theme_ui_accent': 'Accent',
+  'html.theme_ui_accent2': 'Accent 2',
   'html.theme_ui_accent_bd': 'Accent Bd',
   'html.theme_ui_bg': 'Background',
   'html.theme_ui_border': 'Border',

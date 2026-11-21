@@ -29,12 +29,13 @@ import { fileURLToPath } from 'node:url';
 
 import { load } from '../web/js/test/harness.mjs';
 
-const ctx = load(['core/contrast.js', 'ui/themes.js'], {
-  // `themes.js` 끝줄이 `TOPTS.theme` 에 대입한다.
-  globals: { TOPTS: {} },
-  expose: ['CONTRAST_FLOORS', 'THEMES'],
+const ctx = load(['core/contrast.js', 'ui/themes.js', 'core/theme-vars.js'], {
+  // `themes.js` 끝줄이 `TOPTS.theme` 에 대입한다. `theme-vars.js` 는 라벨에 `t` 를 부른다.
+  globals: { TOPTS: {}, t: (k) => k },
+  expose: ['CONTRAST_FLOORS', 'THEMES', 'ACCENT2_MIN_DISTANCE', 'pickAttnColor'],
 });
-const { CONTRAST_FLOORS, THEMES, contrastRatio, deriveContrastTokens, deriveAccountColors } = ctx;
+const { CONTRAST_FLOORS, THEMES, ACCENT2_MIN_DISTANCE, contrastRatio, colorDistance, deriveContrastTokens, deriveAccountColors,
+  pickAttnColor } = ctx;
 
 /** 토큰 → 바닥. `ACCESSIBILITY_BASELINE_SRS` FR-A11Y-6·7 이 근거다. */
 const CHECK = [
@@ -170,6 +171,19 @@ for (const name of names) {
       if (got < CONTRAST_FLOORS.ui - 1e-9) {
         bad.push(`  ${name} / ${k}(${color}) on --${bgName}: ${got.toFixed(2)} < ${CONTRAST_FLOORS.ui}`);
       }
+    }
+  }
+  // UX_AUDIT_FIX_SRS FR-UXF-125 (D-42): 실행 중 색은 명시값이고, 배경에 3:1, 선택·알림·위험 색과 구분된다.
+  const a2 = t.ui.accent2;
+  if (!/^#[0-9a-fA-F]{6}$/.test(a2 || '')) bad.push(`  ${name} / ui.accent2 명시값이 없다`);
+  else {
+    for (const [bgName, bg] of [['bg', t.ui.bg], ['sidebarBg', t.ui.sidebarBg]]) {
+      const got = contrastRatio(a2, bg);
+      if (got < CONTRAST_FLOORS.ui - 1e-9) bad.push(`  ${name} / accent2(${a2}) on --${bgName}: ${got.toFixed(2)} < ${CONTRAST_FLOORS.ui}`);
+    }
+    for (const [k, c] of [['accent', t.ui.accent], ['attn', pickAttnColor(t)], ['danger', t.ui.danger]]) {
+      const got = colorDistance(a2, c);
+      if (got < ACCENT2_MIN_DISTANCE) bad.push(`  ${name} / accent2(${a2}) ~ ${k}(${c}): 구분 거리 ${got.toFixed(0)} < ${ACCENT2_MIN_DISTANCE}`);
     }
   }
   for (const [name_, floor] of CSS_TOKENS) {

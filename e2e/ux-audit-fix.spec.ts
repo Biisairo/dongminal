@@ -558,6 +558,17 @@ const reportAct = (page: Page, toolId: string, state: string) => page.evaluate(
 const quietActivity = (page: Page) => page.route('**/api/tools/activity', (route) => route.fulfill({
   status: 200, contentType: 'application/json', body: JSON.stringify({ activities: [], limits: [] }) }));
 
+/** CSS 변수의 계산된 색을 `rgb(r, g, b)` 로. */
+const rgbVar = (page: Page, name: string) => page.evaluate((n) => {
+  const probe = document.createElement('span');
+  probe.style.color = `var(${n})`;
+  document.body.appendChild(probe);
+  const c = getComputedStyle(probe).color;
+  probe.remove();
+  return c;
+}, name);
+const shadowOf = (loc: ReturnType<Page['locator']>) => loc.evaluate((e) => getComputedStyle(e).boxShadow);
+
 test.describe('4묶음 — 작업 중 표식', () => {
   test('TC-UXF-60: 작업 중인 탭에는 점이 서고, 끝나면 걷히며, 주의가 있으면 점이 없다', async ({ page }) => {
     await waitForInit(page);
@@ -578,20 +589,37 @@ test.describe('4묶음 — 작업 중 표식', () => {
     await expect(tab.locator('.work-dot')).toHaveCount(0);
   });
 
-  test('TC-UXF-61: 작업 중인 도구가 있는 창의 사이드바 행에 점이 있다 (레일에서도)', async ({ page }) => {
+  // UX_AUDIT_FIX_SRS FR-UXF-129 (D-44) 개정
+  //   이전 동작: 작업 중인 창의 행 이름 뒤에 `.work-dot`, 레일에서는 선택 점 아래 귀퉁이
+  //   새  동작: `.work-dot` 은 없고 선택 점을 두르는 `--accent2` 링이다 (TC-UXF-129)
+  //   이유:     레일에서 두 점이 같은 색으로 겹쳐 구분이 안 됐다
+  test('TC-UXF-61·129: 작업 중인 도구가 있는 창의 사이드바 행은 선택 점에 링이 선다 (레일에서도)', async ({ page }) => {
     await waitForInit(page);
     await quietActivity(page);
     const id = (await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid'))!;
     const sid: string = await page.evaluate(() => (window as any).app.ws.activeWindow);
     const row = page.locator(`#sidebar .sbl-item[data-sid="${sid}"]`);
-    await expect(row.locator('.work-dot')).toHaveCount(0);
+    const dot = row.locator('.sbl-dot');
+    const a2 = await rgbVar(page, '--accent2');
+    const h0 = (await row.boundingBox())!.height;
+    await expect.poll(() => shadowOf(dot)).not.toContain(a2);
     await reportAct(page, id, 'working');
-    await expect(row.locator('.work-dot')).toHaveCount(1);
+    await expect.poll(() => shadowOf(dot)).toContain(a2);
+    await expect(row.locator('.work-dot')).toHaveCount(0);
+    expect((await row.boundingBox())!.height).toBe(h0);
+    // 선택 점의 색은 그대로 accent 다
+    expect(await dot.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(await rgbVar(page, '--accent'));
     await page.locator('#sb-acts .sb-collapse').click();
     await expect.poll(async () => (await rectOf(page, '#sidebar')).width).toBe(40);
-    await expect(row.locator('.work-dot')).toBeVisible();
-    await reportAct(page, id, 'done');
+    await expect.poll(() => shadowOf(dot)).toContain(a2);
     await expect(row.locator('.work-dot')).toHaveCount(0);
+    await page.evaluate((t) => (window as any).app.testing.onToolAttention({ toolId: t, reason: 'done' }), id);
+    await expect(row).toHaveClass(/\battn\b/);
+    await expect.poll(() => shadowOf(dot)).not.toContain(a2);
+    await page.evaluate((t) => (window as any).app.testing.attnClear(t), id);
+    await expect.poll(() => shadowOf(dot)).toContain(a2);
+    await reportAct(page, id, 'done');
+    await expect.poll(() => shadowOf(dot)).not.toContain(a2);
   });
 
   test('TC-UXF-62: 작업 패널 에이전트 탭의 배지는 작업 중인 수다', async ({ page }) => {
@@ -611,6 +639,67 @@ test.describe('4묶음 — 작업 중 표식', () => {
     await expect(badge).toHaveText('1');
     await reportAct(page, pid1, 'idle');
     await expect(badge).toBeHidden();
+  });
+
+  test('TC-UXF-128·130: 실행 중 색은 어디서나 --accent2 다 (테마 둘에서)', async ({ page }) => {
+    await waitForInit(page);
+    await quietActivity(page);
+    const id = (await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid'))!;
+    await reportAct(page, id, 'working');
+    const tabDot = page.locator('#area .pn.focused .pn-tab.active .work-dot');
+    await expect(tabDot).toHaveCount(1);
+    for (const name of ['Tokyo Night', 'GitHub Light']) {
+      await page.evaluate(`customTheme=null;applyThemeObj(THEMES[${JSON.stringify(name)}])`);
+      const a2 = await rgbVar(page, '--accent2');
+      expect(a2, name).not.toBe(await rgbVar(page, '--accent'));
+      expect(await tabDot.evaluate((e) => getComputedStyle(e).backgroundColor), name).toBe(a2);
+      const got = await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.innerHTML = '<div id="m-act-btn-probe"><span class="ag-state working">x</span><span class="ag-dot working">x</span>'
+          + '<span class="ag-sub-state working">x</span></div>'
+          + '<div class="run-view"><svg><circle class="run-tree-mini-node state-working" r="2"></circle>'
+          + '<g class="run-tree-node state-working"><rect class="run-tree-box"></rect></g>'
+          + '<g class="run-node state-working"><rect class="run-node-box"></rect></g></svg>'
+          + '<div class="run-card state-working">x</div></div>';
+        document.body.appendChild(host);
+        const cs = (sel: string) => getComputedStyle(host.querySelector(sel)!);
+        const out = {
+          agState: cs('.ag-state').color, agDot: cs('.ag-dot').color, agSub: cs('.ag-sub-state').color,
+          miniFill: cs('.run-tree-mini-node').fill, miniStroke: cs('.run-tree-mini-node').stroke,
+          treeBox: cs('.run-tree-node .run-tree-box').stroke, nodeBox: cs('.run-node .run-node-box').stroke,
+          card: cs('.run-card').borderLeftColor,
+        };
+        host.remove();
+        return out;
+      });
+      for (const [k, v] of Object.entries(got)) expect(v, `${name} ${k}`).toBe(a2);
+    }
+    // 모바일 작업 단추의 점은 규칙 문자열로 본다 — 단추는 모바일에서만 만들어진다
+    const rule = await page.evaluate(() => {
+      for (const sh of Array.from(document.styleSheets)) {
+        for (const r of Array.from(sh.cssRules) as CSSStyleRule[]) {
+          if (r.selectorText === '#m-act-btn .m-act-dot') return r.style.background || r.style.backgroundColor;
+        }
+      }
+      return null;
+    });
+    expect(rule).toContain('var(--accent2)');
+  });
+
+  test('TC-UXF-127: accent2 가 없는 사용자 정의 테마는 파생값을 쓰고, 편집기에서 바꾸면 그 값이 된다', async ({ page }) => {
+    await waitForInit(page);
+    // 전역 lexical 이름(`THEMES`·`customTheme`)은 window 속성이 아니다 — 문자열로 평가한다.
+    const derived: string = await page.evaluate("(()=>{const b=JSON.parse(JSON.stringify(THEMES['Tokyo Night']));"
+      + 'delete b.ui.accent2;customTheme=b;applyThemeObj(b);return pickAccent2(b)})()');
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim()))
+      .toBe(derived);
+    await openSettingsTab(page, 'theme', false);
+    await page.click('#custom-toggle');
+    const inp = page.locator('#ce-ui .ce-item').filter({ has: page.locator('label', { hasText: /^강조 2$/ }) }).locator('input[type="color"]');
+    await expect(inp).toHaveValue(derived);
+    await inp.evaluate((e: HTMLInputElement) => { e.value = '#123456'; e.dispatchEvent(new Event('input', { bubbles: true })); });
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim()))
+      .toBe('#123456');
   });
 });
 

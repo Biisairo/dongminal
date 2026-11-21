@@ -230,6 +230,8 @@ Object.assign(App.prototype, {
   _showCustomEditor(){
     const base=getCurrentTheme();
     customTheme=JSON.parse(JSON.stringify(base));
+    // UX_AUDIT_FIX_SRS FR-UXF-127: 이 슬롯 전에 저장한 테마는 accent2 가 없다 — 입력이 지금 쓰는 파생값을 보인다.
+    if(!customTheme.ui.accent2) customTheme.ui.accent2=pickAccent2(customTheme);
     document.getElementById('custom-toggle').classList.add('active');
     document.getElementById('custom-editor').hidden=false;
     // UI colors

@@ -46,6 +46,20 @@ const CONTRAST_FLOORS = {
 };
 
 /**
+ * UX_AUDIT_FIX_SRS FR-UXF-125 (D-42): `accent2` 가 accent·알림색·danger 와 떨어져야 하는 구분 거리.
+ * 54종 실측에서 이 값 아래는 링과 선택 점이 한 색처럼 읽혔다.
+ */
+const ACCENT2_MIN_DISTANCE = 120;
+
+/** FR-UXF-125: redmean 가중 RGB 거리 (0~약 765). 읽지 못하는 색은 0 이다. */
+function colorDistance(a,b){
+  const x=hexRgb(a), y=hexRgb(b);
+  if(!x||!y) return 0;
+  const rm=(x.r+y.r)/2;
+  return Math.sqrt((2+rm/256)*(x.r-y.r)**2+4*(x.g-y.g)**2+(2+(255-rm)/256)*(x.b-y.b)**2);
+}
+
+/**
  * FR-TOK-12 — 섞는 비율의 눈금. 이분 탐색을 쓰지 않는다: **결정론과 재현이
  * 정밀도보다 중요하고**, 최대 오차는 한 눈금이다.
  */

@@ -7,7 +7,7 @@
 
 // ── Theme helpers ──
 
-const UI_LABELS={bg:t('html.theme_ui_bg'),sidebarBg:t('html.theme_ui_sidebar'),border:t('html.theme_ui_border'),accent:t('html.theme_ui_accent'),text:t('html.theme_ui_text'),textMuted:t('html.theme_ui_muted'),textBright:t('html.theme_ui_bright'),textDim:t('html.theme_ui_dim'),danger:t('html.theme_ui_danger'),accentBorder:t('html.theme_ui_accent_bd')};
+const UI_LABELS={bg:t('html.theme_ui_bg'),sidebarBg:t('html.theme_ui_sidebar'),border:t('html.theme_ui_border'),accent:t('html.theme_ui_accent'),accent2:t('html.theme_ui_accent2'),text:t('html.theme_ui_text'),textMuted:t('html.theme_ui_muted'),textBright:t('html.theme_ui_bright'),textDim:t('html.theme_ui_dim'),danger:t('html.theme_ui_danger'),accentBorder:t('html.theme_ui_accent_bd')};
 // UX_AUDIT_FIX_SRS §3.5.1: ANSI 색 이름은 영어로 남는다.
 const TERM_ANSI_LABELS={black:'Black',red:'Red',green:'Green',yellow:'Yellow',blue:'Blue',magenta:'Magenta',cyan:'Cyan',white:'White',brightBlack:'BrBlk',brightRed:'BrRed',brightGreen:'BrGrn',brightYellow:'BrYlw',brightBlue:'BrBlu',brightMagenta:'BrMag',brightCyan:'BrCyn',brightWhite:'BrWht'};
 const TERM_LABELS={background:t('html.theme_term_bg'),foreground:t('html.theme_term_fg'),cursor:t('html.theme_term_cursor'),selectionBackground:t('html.theme_term_select'),...TERM_ANSI_LABELS};
@@ -30,6 +30,21 @@ function pickAttnColor(theme){
   let best=cands[0],bestD=-1;
   for(const c of cands){const rgb=hexRgb(c);if(!rgb)continue;const d=(rgb.r-acc.r)**2+(rgb.g-acc.g)**2+(rgb.b-acc.b)**2;if(d>bestD){bestD=d;best=c}}
   return best;
+}
+
+// UX_AUDIT_FIX_SRS FR-UXF-126 (D-42): `accent2`(실행 중 색)의 파생. 내장 테마는 명시값을 가지므로
+// 이 규칙은 값이 없는 사용자 정의 테마에만 닿는다. 후보 중 배경 대비 3:1 을 넘는 색에서
+// accent·알림색·danger 와의 최소 거리가 가장 큰 것 — 넘는 것이 없으면 대비 조건 없이 고른다.
+const ACCENT2_KEYS=['blue','magenta','cyan','green','yellow','brightBlue','brightMagenta','brightCyan','brightGreen','brightYellow'];
+function pickAccent2(theme){
+  const ui=theme.ui, T=theme.terminal||{};
+  const cands=ACCENT2_KEYS.map(k=>T[k]).filter(c=>hexRgb(c));
+  if(!cands.length) return ui.accent;
+  const avoid=[ui.accent,pickAttnColor(theme),ui.danger].filter(Boolean);
+  const score=c=>Math.min(...avoid.map(x=>colorDistance(c,x)));
+  const readable=cands.filter(c=>[ui.bg,ui.sidebarBg].every(bg=>!bg||contrastRatio(c,bg)>=CONTRAST_FLOORS.ui));
+  const pool=readable.length?readable:cands;
+  return pool.reduce((best,c)=>score(c)>score(best)?c:best);
 }
 
 // `hexRgb`·`mixHex` 는 **`core/contrast.js` 로 옮겼다** (DESIGN_TOKENS_SRS
@@ -86,6 +101,8 @@ function themeVarsOf(theme){
     '--bg-alt':aa.bgAlt,
     '--border':ui.border,
     '--accent':ui.accent,
+    // FR-UXF-124·127: 실행 중 색. 명시값은 그대로 쓴다 — 대비를 끌어올리지 않는다 (D-42).
+    '--accent2':ui.accent2||pickAccent2(theme),
     // 글자 넷은 파생이다 (FR-TOK-2·2a). `--text-dim` 은 글자 토큰이 아니라 **경계·채움**용이고
     // (FR-TOK-3 / D-TOK-2), 팔레트 dim 을 text 쪽으로 끌어올린 값이다 (FR-ELS-57).
     '--text':aa.text,
