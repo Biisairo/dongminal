@@ -399,14 +399,6 @@ I18N.register('en', {
   'err.workspace_unavailable': 'The workspace layer is not up yet.',
 
   // ── git ──
-  'git.add_repo_dup': 'Already in the list',
-  'git.add_repo_fail': 'Could not add the repo',
-  'git.add_repo_here': 'Current terminal: %s',
-  'git.add_repo_no_term': 'The current terminal is not a repository (%s) — enter a path yourself',
-  'git.add_repo_no_tool': 'Could not get the current terminal\'s path — enter a path yourself',
-  'git.add_repo_prompt': 'Repo path (absolute)',
-  'git.add_repo_run': 'Add',
-  'git.add_repo_title': 'Add repo',
   'git.axis.commit_parent': 'commit ↔ parent',
   'git.axis.index_head': 'index ↔ HEAD',
   'git.axis.worktree_head': 'worktree ↔ HEAD',

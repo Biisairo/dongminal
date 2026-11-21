@@ -425,14 +425,6 @@ I18N.register('ko', {
   'err.workspace_unavailable': '워크스페이스 계층이 아직 서지 않았습니다.',
 
   // ── git ──
-  'git.add_repo_dup': '이미 목록에 있습니다',
-  'git.add_repo_fail': '리포를 추가하지 못했습니다',
-  'git.add_repo_here': '지금 터미널: %s',
-  'git.add_repo_no_term': '지금 터미널은 저장소가 아닙니다 (%s) — 경로를 직접 넣으세요',
-  'git.add_repo_no_tool': '지금 터미널의 경로를 얻지 못했습니다 — 경로를 직접 넣으세요',
-  'git.add_repo_prompt': '리포 경로 (절대경로)',
-  'git.add_repo_run': '추가',
-  'git.add_repo_title': '리포 추가',
   'git.axis.commit_parent': '커밋 ↔ 부모',
   'git.axis.index_head': '스테이지 ↔ HEAD',
   'git.axis.worktree_head': '작업 트리 ↔ HEAD',

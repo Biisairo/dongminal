@@ -88,7 +88,8 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
    *
    * `+ Add` 가 둘이 아니라 하나다 — 진입점은 `#repo-add` 이고 종단은
    * `/api/editors/add` 뿐이며, 그것이 연동으로 핀까지 함께 만든다. git 전용
-   * 핀 다이얼로그(`#git-add-repo-dlg`·`.gar-path`)는 진입점이 없다.
+   * 핀 다이얼로그(`#git-add-repo-dlg`·`.gar-path`)는 진입점이 없었고, 그 코드(`_gitAddRepo`)는 지웠다
+   * (REFACTOR3_FE_FIX_SRS FX-4).
    *
    * 그 하나가 하는 일은 `editor-tab.spec.ts` 가 검증한다 (V-EDT-3·11·12).
    */

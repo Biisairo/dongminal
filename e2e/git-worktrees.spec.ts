@@ -407,7 +407,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
      *
      * 그래서 `pin` → `term` → `open` → `remove` 다. 재는 것은 그대로 넷이다.
      */
-    // 핀 추가 — 기존 _gitAddRepo 경로(e2e/git-branches.spec.ts:177 과 같은 필드).
+    // 핀 추가 — Worktrees 행의 `pin` 동작.
     await row.locator('.git-wt-act[data-act="pin"]').click();
     await expect.poll(async () => {
       const d = await (await request.get('/api/workspace')).json();

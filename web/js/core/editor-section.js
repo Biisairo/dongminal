@@ -16,7 +16,7 @@ class EditorSection extends Controller {
   }
 
   // FR-EDT-28: `+ Add` 는 지금 터미널의 cwd 를 미리 채운다. 얻지 못하면 빈 칸으로
-  // 연다 (`_gitRepoAt` 와 같은 규약).
+  // 연다.
   async _edTermCwd(){
     const tool=this.app._gitTermToolId();
     if(!tool) return '';

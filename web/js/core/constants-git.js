@@ -115,22 +115,10 @@ const GIT_NO_REPO_HINT=t('git.no_repo_hint');
 // `gitBadgeStaleMs()` 가 한다.
 const GIT_BADGE_STALE_FACTOR=4;
 
-// FR-GIT-12 · FR-FLW-5~10: 리포 추가. follow 행이 하던 일(핀하지 않은 리포로 가는
-// 한 번의 클릭)을 이 다이얼로그가 대신하므로 **지금 터미널의 리포가 미리 채워진다.**
 // FR-FLW-11: 핀이 하나도 없을 때. follow 행이 늘 한 줄을 채우고 있었으므로 이
 // 섹션은 빈 적이 없었다 — 이제는 있고, 빈 자리는 고장처럼 보인다.
 const GIT_REPOS_NONE=t('git.repos_none');
-const GIT_ADD_REPO_TITLE=t('git.add_repo_title');
-const GIT_ADD_REPO_RUN=t('git.add_repo_run');
-const GIT_ADD_REPO_PROMPT=t('git.add_repo_prompt');
-const GIT_ADD_REPO_HERE=t('git.add_repo_here');
-const GIT_ADD_REPO_NO_TERM=t('git.add_repo_no_term');
-// FR-ETR-34: 위와 다른 경우다. 저쪽은 "터미널은 있는데 저장소가 아니다" 이고
-// 이쪽은 "딛을 터미널이 없다" 이므로 사용자가 할 일이 다르다.
-const GIT_ADD_REPO_NO_TOOL=t('git.add_repo_no_tool');
 // FR-ETR-31~33: `/api/cwd` 와 `/api/git/repo-at` 이 함께 쓰는 어휘. 서버의 상수와
 // 짝이며(gitCwdSourceTool), 문자열을 여러 곳에 흩뿌리면 한쪽만 바뀐다.
 const GIT_CWD_SOURCE_TOOL='tool';
-const GIT_ADD_REPO_DUP=t('git.add_repo_dup');
-const GIT_ADD_REPO_FAIL=t('git.add_repo_fail');
 const GIT_PIN_FAIL_LABEL=t('git.pin_fail_label');
