@@ -30,7 +30,7 @@
 
 | ID | 종류 | 자리 | 현상 | 제안 | 규모 | 확인 |
 |---|---|---|---|---|---|---|
-| **FC-F1** | 보안(저장형 XSS) | `web/js/core/app-settings-theme.js` `_renderPreview` · 서버 `internal/shared/settingsschema/schema.go:199-202` | 저장된 `customTheme` 의 값(`u.sidebarBg`·`u.border`·터미널 팔레트)을 검증 없이 `innerHTML` 템플릿의 `style="…"` 에 넣는다. 서버는 `object` 인지만 본다. 따옴표가 든 값은 속성을 벗어나 마크업을 주입한다. 설정은 다른 기기로 방송된다 | 색은 `hexRgb` 를 통과한 것만 쓴다. 미리보기는 DOM API·`style.setProperty` 로 그린다. 서버도 `customTheme` 의 키별 값을 검증한다 | S~M | ✔메인 (공격 가능성은 설정 PUT 접근 제어에 달림 `?`) |
+| **FC-F1** | 보안(저장형 XSS) | `web/js/core/settings-theme.js` `_renderPreview` · 서버 `internal/shared/settingsschema/schema.go:199-202` | 저장된 `customTheme` 의 값(`u.sidebarBg`·`u.border`·터미널 팔레트)을 검증 없이 `innerHTML` 템플릿의 `style="…"` 에 넣는다. 서버는 `object` 인지만 본다. 따옴표가 든 값은 속성을 벗어나 마크업을 주입한다. 설정은 다른 기기로 방송된다 | 색은 `hexRgb` 를 통과한 것만 쓴다. 미리보기는 DOM API·`style.setProperty` 로 그린다. 서버도 `customTheme` 의 키별 값을 검증한다 | S~M | ✔메인 (공격 가능성은 설정 PUT 접근 제어에 달림 `?`) |
 | **GD-F1** | 데이터 레이스 | `internal/webserver/domain/run/store_write.go:366` `ReapTargets` | Record 를 **얕게** 복사해 돌려준다. `Members`·`Worktree` 포인터가 저장소와 공유되고, 잠금 밖의 `reapRuns→cleanupWorktrees` 가 읽는 동안 `MarkWorktrees`·`mutateMember` 가 그 자리를 쓴다. 1차 H-1 의 `cloneRun` 처방이 이 경로에 닿지 않았다 | `cloneRun(r)` 로 복사한다. 이 경로를 치는 `-race` 시험을 더한다 | S | ✔메인 (재현은 안 함) |
 | **GH-F4** | 레이스(덮어쓰기) | `internal/webserver/httpapi/handlers_files.go` `apiFileWrite` (스탬프 검사 :580 → 원자 쓰기) | 스탬프 검사와 쓰기 사이에 잠금이 없다(파일에 `Lock` 0건). 두 저장이 같은 스탬프를 보면 뒤의 쓰기가 앞을 덮는다. FR-EXC-5 가 막으려던 경우다 | 경로별 잠금으로 검사부터 쓰기까지 감싼다 | M | ✔메인 |
 | **GH-F1** | 오류 계약 | `httpapi/handlers_toolio.go` `decodeJSONBody`·`writeToolIOError` (호출 49곳, 표본) · `handlers_lsp.go` | 1 MiB 를 넘는 본문이 `X-Error-Code: too_large` 로 나간다. 공개 계약(`features.md` 용량 표 「JSON 본문 → `body_too_large`」)과 다르다. 1차 H-4 가 `httperr` 쪽만 고친 재발이다 | 읽기 실패의 코드를 `bodyReadCode` 로 낸다. 시험을 더한다 | S | ✔메인 |
@@ -151,12 +151,12 @@
 | FC-16 · DOC-16 | `core/app-statusbar.js:258` `_bgModalToggle` | 모달 시절 이름. 인자를 넘기는 곳이 없어 `open===false` 분기가 죽었다 → `_bgPanelOpen` — **처리함 (R2, `854590b2`)**: 단축키가 컨트롤러를 직접 부른다, 위임자 없음 |
 | FC-17 | `app-layout.js:2-5`·`app-git.js:2-5` | 머리 주석의 메서드 수가 낡았다(21→44, 23→48) — **대상 소멸** (P3a 9 에서 두 파일이 컨트롤러로 나뉘었다) |
 | FC-18 | `app-settings.js:130` | 500줄 게이트를 맞추려고 짜낸 198자 한 줄 — **원 자리 소멸** (P3a 8). 같은 종류(150자 넘는 줄)는 남았다 — **처리함 (R2, `7cd0bb29`)**: 198자 넘는 17줄을 나누고 단위 시험이 고정한다. 150~198자 58줄은 남김 |
-| GH-9 | `httpapi/httperr.go:69-79` | 주석의 코드 이름 `body_too_big` — 실제는 `body_too_large`(`SAFETY_CORRECTNESS_SRS:205-218` 도 같은 오기) |
-| GH-23 | `toolclient/client.go` | 오류 문구의 옛 데몬 이름 `paned` |
-| GD-19 | `hub/gitwatch.go:836` | 주석 "500ms 마다" — 실제 `GitWatchInterval` 1000ms |
-| GD-22 | `hub/gitwatch.go:620` | `Watching()` 만 nil 가드가 없다 |
-| DM-25·26 | `cmd/dongminal/app.go:51` 외 | `gitRoot context.Context` 라는 이름 · 주석이 다른 함수 위에 붙음 |
-| DOC-13·14·17 | `apierr/inventory.go:97-104` · 코드 주석의 `파일:줄` 참조 | 없어진 함수 이름(`gitResetBlocked`), 파일 길이를 넘는 줄 참조 5개(35개 중), `app-agents.js:166` 의 낡은 주석 |
+| GH-9 | `httpapi/httperr.go:69-79` | 주석의 코드 이름 `body_too_big` — 실제는 `body_too_large`(`SAFETY_CORRECTNESS_SRS:205-218` 도 같은 오기) — **처리함**: 주석은 P1 `08922b9b`, SRS 는 P7 `0b8ad169` |
+| GH-23 | `toolclient/client.go` | 오류 문구의 옛 데몬 이름 `paned` — **처리함 (유지 결정, SH `b429a39a`)**: 와이어에 나가는 문구라 두고 이유를 `toolclient/client_rpc.go` 주석에 적었다(`REFACTOR3_GO_STRUCT_SRS` FR-RGS-6) |
+| GD-19 | `hub/gitwatch.go:836` | 주석 "500ms 마다" — 실제 `GitWatchInterval` 1000ms — **처리함 (SD `7d7891f8`)**: 주석이 `GitWatchInterval` 을 이름으로 가리킨다 |
+| GD-22 | `hub/gitwatch.go:620` | `Watching()` 만 nil 가드가 없다 — **처리함 (SD `7d7891f8`)**: `gitwatch_lease.go` `Watching()` 이 nil 수신자에서 0 을 돌려준다 |
+| DM-25·26 | `cmd/dongminal/app.go:51` 외 | `gitRoot context.Context` 라는 이름 · 주석이 다른 함수 위에 붙음 — **처리함 (SC `44ba911f`)**: `gitCtx` 로, 엇붙은 주석 넷(`copyExecutable`·`unpackAgentPlugin`·`contextCell`·`pidsOnPort`)을 제자리로 |
+| DOC-13·14·17 | `apierr/inventory.go:97-104` · 코드 주석의 `파일:줄` 참조 | 없어진 함수 이름(`gitResetBlocked`), 파일 길이를 넘는 줄 참조 5개(35개 중), `app-agents.js:166` 의 낡은 주석 — **처리함 (P7 `0b8ad169` · `7362d88a` · `000e3f85`, 게이트 `289a4d41`)**: `inventory.go` 는 `resetAnswer`·`cleanAnswer` 로, 주석의 옛 파일 이름·낡은 줄 번호는 지금 이름과 함수·규칙 이름으로, 엇붙은 주석은 `agents-controller.js` 에서 고쳤다. `WORKSPACE_IDENTITY`·`PERFORMANCE_HARDENING` 의 표와 감사 기록은 시점 기록이라 고치지 않음(D-P7-2·3) |
 
 ---
 
@@ -191,7 +191,7 @@
 
 | ID | 자리 | 내용 |
 |---|---|---|
-| DOC-6 | `UX_AUDIT_FIX_SRS` FR-UXF-85 | "사이드바 창 행 메뉴" 에 키캡을 단다고 적었지만 그 메뉴가 **없다**(`sidebar-list.js`·`sidebar-tabs.js` 에 `contextmenu` 0곳). 만들지, 범위 밖으로 둘지 결정 필요 |
+| DOC-6 | `UX_AUDIT_FIX_SRS` FR-UXF-85 | "사이드바 창 행 메뉴" 에 키캡을 단다고 적었지만 그 메뉴가 **없다**(`sidebar-list.js`·`sidebar-tabs.js` 에 `contextmenu` 0곳). 만들지, 범위 밖으로 둘지 결정 필요 — **처리함 (P7 `0b8ad169`)**: Q5 결정대로 FR 에서 「사이드바 창 행 메뉴」 를 지웠다 |
 | GH-11 | `httpapi/handlers_runs_actions.go` `runErrAnswer` · `handlers_runs.go:174` | `action.Answer.Why` 는 사유 **코드**인데 미분류 실패는 `err.Error()` 자유 문구가 들어간다 |
 | GH-12 | `action/action.go:118` `EntityName` | 카탈로그 42개 ID 가운데 이것만 생산자가 없다 |
 | GH-24 | `httpapi/access_denied.go:53` | 403 HTML 화면에 `X-Error-Code` 가 없다. FR-ERR-7 이 HTML 을 빼는지 확인 못 함 `?` |
@@ -205,28 +205,28 @@
 
 | ID | 자리 | 내용 |
 |---|---|---|
-| DOC-1 | `UIUX_OVERHAUL_SRS:852·867` FR-SEM-1 | "working = `--term-green`" — D-43 으로 `--accent2` |
-| DOC-2 | `scripts/check-i18n-html.mjs:16-19` | "설정 탭 열둘과 모달 제목은 `lang="en"`" — 실제 5곳 |
-| DOC-3 | `docs/external/shortcuts.md:6` | "저장소·Editor 행" — Editor 탭은 합쳐졌다. 채팅 탭에서 순회 키가 아무 일도 안 한다는 말이 없다 |
-| DOC-4 | `DESIGN_TOKENS_SRS:430` `--z-sticky` 표 · `style-git.css:391-395` | 없어진 `.git-files-bar` 를 센다. **죽은 CSS 규칙 둘**(`.git-files-bar`·`.git-files-spacer`)이 남았다 |
-| DOC-5 | `architecture.md:329·483-494` · `sidebar-tabs.js:1` | 탭 이름 `Windows·Git·Editor` — 실제 `windows·repo·chat`. `_rLists` 자리는 `renderer-chrome.js` |
-| DOC-7 | `UX_AUDIT_FIX_SRS:4·546·568·607` | 「남은 것」 이 이미 끝난 7묶음을 적고, §3.12~3.14 상태가 "스펙" 인데 구현됐다 |
-| DOC-8 | `UIUX_OVERHAUL_SRS:4` | 「남은 것: M6(FR-CHR)」 — 다음 날 커밋으로 처리된 것으로 보인다. FR 단위 대조 필요 `?` |
-| DOC-9 | `CHAT_WINDOW_SRS` FR-CW-24·TC-CW-11 | "180px 미만이면 아이콘만" — FR-UXF-98(D-35)로 대체됐다는 표시가 없다 |
-| DOC-10·11 | `docs/external/features.md:295` vs `:337`, `:340` vs `:338` | 같은 문서 안에서 서로 뒤집는다(라벨 폭 규칙, 카드 순서 — 철회된 FR-UXF-12 를 그대로 적음) |
-| DOC-12 | `CHANGELOG.md [Unreleased]` | 서로 뒤집는 항목 4쌍(실행 중 색, 카드 자리, 모바일 상태바, Activity 새로고침 단추). 릴리스 전에 최종 동작 기준으로 합쳐야 한다 |
-| DOC-18 | `SERVER_DRIVEN_ACTIONS_SRS` FR-SDA-70~73 | 동작 이름이 실제 ID(`sandbox.runtime.start`·`term.upload`·`file.convert_utf8`)와 다르다 |
-| DOC-19 | `refactor/SERVER_DRIVEN_INVENTORY.md` F-A3·F-A6·F-B2 | 이미 처리된 항목을 미처리로 적는다(GH-10 · FU-7) |
-| DOC-20 | `STRUCTURE_CLEANUP_SRS` D-STR-3 · `refactor/README.md:295` · `refactor/HANDOFF.md:343` | "dmctl 3계층" — 전제 충족(§0.1) |
-| GH-9 | `SAFETY_CORRECTNESS_SRS:205-218` | `body_too_big` 오기 |
+| DOC-1 | `UIUX_OVERHAUL_SRS:852·867` FR-SEM-1 | "working = `--term-green`" — D-43 으로 `--accent2` — **처리함 (P7 `0b8ad169`)** |
+| DOC-2 | `scripts/check-i18n-html.mjs:16-19` | "설정 탭 열둘과 모달 제목은 `lang="en"`" — 실제 5곳 — **처리함 (P7 `000e3f85`)** |
+| DOC-3 | `docs/external/shortcuts.md:6` | "저장소·Editor 행" — Editor 탭은 합쳐졌다. 채팅 탭에서 순회 키가 아무 일도 안 한다는 말이 없다 — **처리함 (P7 `000e3f85`)** |
+| DOC-4 | `DESIGN_TOKENS_SRS:430` `--z-sticky` 표 · `style-git.css:391-395` | 없어진 `.git-files-bar` 를 센다. **죽은 CSS 규칙 둘**(`.git-files-bar`·`.git-files-spacer`)이 남았다 — **처리함 (`c9ea6550`)**: 두 규칙을 지우고(쓰는 요소 0, 화면 불변) 표에서 뺐다(`--z-sticky` 4 → 3, 계 43 → 42) |
+| DOC-5 | `architecture.md:329·483-494` · `sidebar-tabs.js:1` | 탭 이름 `Windows·Git·Editor` — 실제 `windows·repo·chat`. `_rLists` 자리는 `renderer-chrome.js` — **처리함 (P7 `000e3f85`)** |
+| DOC-7 | `UX_AUDIT_FIX_SRS:4·546·568·607` | 「남은 것」 이 이미 끝난 7묶음을 적고, §3.12~3.14 상태가 "스펙" 인데 구현됐다 — **처리함 (P7 `0b8ad169`, 게이트 `4910afc9`)** |
+| DOC-8 | `UIUX_OVERHAUL_SRS:4` | 「남은 것: M6(FR-CHR)」 — 다음 날 커밋으로 처리된 것으로 보인다. FR 단위 대조 필요 `?` — **처리함 (P7 `0b8ad169`)**: M6 구현 커밋을 머리에 적고 구현완료로 |
+| DOC-9 | `CHAT_WINDOW_SRS` FR-CW-24·TC-CW-11 | "180px 미만이면 아이콘만" — FR-UXF-98(D-35)로 대체됐다는 표시가 없다 — **처리함 (P7 `0b8ad169`)** |
+| DOC-10·11 | `docs/external/features.md:295` vs `:337`, `:340` vs `:338` | 같은 문서 안에서 서로 뒤집는다(라벨 폭 규칙, 카드 순서 — 철회된 FR-UXF-12 를 그대로 적음) — **처리함 (P7 `000e3f85`)** |
+| DOC-12 | `CHANGELOG.md [Unreleased]` | 서로 뒤집는 항목 4쌍(실행 중 색, 카드 자리, 모바일 상태바, Activity 새로고침 단추). 릴리스 전에 최종 동작 기준으로 합쳐야 한다 — **처리함 (`d6a6bee6`)**: 뒤집힌 앞 항목을 지우거나 최종 문장 하나로 합쳤다 |
+| DOC-18 | `SERVER_DRIVEN_ACTIONS_SRS` FR-SDA-70~73 | 동작 이름이 실제 ID(`sandbox.runtime.start`·`term.upload`·`file.convert_utf8`)와 다르다 — **처리함 (P7 `0b8ad169`)** |
+| DOC-19 | `refactor/SERVER_DRIVEN_INVENTORY.md` F-A3·F-A6·F-B2 | 이미 처리된 항목을 미처리로 적는다(GH-10 · FU-7) — **처리함 (P7 `0b8ad169`)** |
+| DOC-20 | `STRUCTURE_CLEANUP_SRS` D-STR-3 · `refactor/README.md:295` · `refactor/HANDOFF.md:343` | "dmctl 3계층" — 전제 충족(§0.1) — **처리함 (P7 `0b8ad169`)**: `STRUCTURE_CLEANUP_SRS` 에 전제 충족을 적었다. `refactor/README.md`·`HANDOFF.md` 는 지난 인계 기록이라 고치지 않음 |
+| GH-9 | `SAFETY_CORRECTNESS_SRS:205-218` | `body_too_big` 오기 — **처리함 (P7 `0b8ad169`)** |
 
 ### 4.3. 게이트의 사각지대 (문서 쪽 어긋남이 새는 길)
 
-- `check-srs-progress.sh` 는 「남은 것」 줄이 **있는지만** 본다. `승인·구현완료` 는 아무것도 확인하지 않는다(DOC-7·8).
-- 절 안의 `> 상태: 스펙` 을 보는 검사가 없다(DOC-7).
+- `check-srs-progress.sh` 는 「남은 것」 줄이 **있는지만** 본다. `승인·구현완료` 는 아무것도 확인하지 않는다(DOC-7·8). — **처리함 (P7 `4910afc9`)**: 머리가 `승인·구현완료` 인데 절 상태 줄이 `스펙` 이면 실패한다.
+- 절 안의 `> 상태: 스펙` 을 보는 검사가 없다(DOC-7). — **처리함 (P7 `4910afc9`)**: 위와 같은 검사.
 - 뒤 SRS·결정이 앞 FR 을 뒤집어도 앞 문서에 표시가 남지 않는다(DOC-1·9).
 - `features.md` 본문과 `CHANGELOG` 의 자기 모순을 보는 검사가 없다(DOC-10~12).
-- 코드 주석의 `파일:줄`·함수 이름 참조를 보는 검사가 없다(DOC-13·14).
+- 코드 주석의 `파일:줄`·함수 이름 참조를 보는 검사가 없다(DOC-13·14). — **처리함 (P7 `289a4d41`)**: `check-code-refs.mjs` 가 주석의 파일 이름과 줄 번호를 잰다. 함수 이름 참조와 줄이 가리키는 내용은 재지 않는다.
 - CSS 파일 크기 기준선이 없다(FU-11). — **처리함 (R4a, `8e87010d`)**: `check-file-size.mjs` 가 CSS 도 기준선(`FE_MODULE_BOUNDARY_SRS` §7.1a)과 견준다.
 
 ---
@@ -286,7 +286,7 @@
 | P1 | `08922b9b` | `REFACTOR3_DEFECTS_SRS` — §1 의 ✔ 결함 아홉. GH-F3 은 git 디코더의 의도된 설계라 P2 로, GH-F5 는 설계 검토라 P5 로, DM-F3~F5 는 실제로 일어나지 않아 P2(DM-1)로 넘겼다 |
 | P2 | `56dffed0` · `d94b16bd` · `a0372852` · `994d9805` (합침 `cef773f3`) | `REFACTOR3_DEDUP_GO_SRS` — GA 오류 응답·디코더 · GB `dmctl` · GC 공유·데몬 · GD 도메인. 남긴 것과 이유는 그 SRS §6 |
 | P3a 0~2 | `6a30fc80` · `d8b92b63` | `REFACTOR3_FE_BASE_SRS` — `core/base/`(Component·View·Controller 외), Panel·TabBar 계층과 두 패널·서랍·탭 줄. FU-20 의 사용자 보고 차이는 실측으로 재현하지 못했다(판정 결과 차이 0, 경로·시점만 달라 `TabBar.fit` 으로 모음) — 사용자에게 화면·조작을 묻는다 |
-| P3a 3 | (이 커밋) | `REFACTOR3_FE_DIALOG_SRS` — `Dialog` 아래 `KitModal`(`UIKit.modal` 본체)·`GitModalBase`→`GitConfirm`·`GitDialog`·`SettingsModal`. FC-04 의 열기·닫기·탭 고르기 부분(`initModal` 135 → 8줄, 나머지 `_init*` 나열은 단계 8), FU-13 의 모달 부분(`ui-kit.js` 934 → 817). git 모달 키는 맨 위일 때만 |
+| P3a 3 | (이 커밋) | `REFACTOR3_FE_DIALOG_SRS` — `Dialog` 아래 `KitModal`(`UIKit.modal` 본체)·`GitModalBase`→`GitConfirm`·`GitDialog`·`SettingsModal`. FC-04 의 열기·닫기·탭 고르기 부분(`initModal` 135 → 8줄(단계 8 에서 한 줄), 나머지 `_init*` 나열은 단계 8), FU-13 의 모달 부분(`ui-kit.js` 934 → 817). git 모달 키는 맨 위일 때만 |
 | P3a 4 | (이 커밋) | `REFACTOR3_FE_LIST_SRS` — `ListView` 아래 `SidebarList`(객체 → 서술자별 인스턴스)·`GitListTab`(`git-list-tab.js`). 나머지 `reconcileList` 호출 약 20곳은 각 부품의 단계(5·7·9)에서 |
 | P3a 5 | `d60b5e44` | `REFACTOR3_FE_GITVIEW_SRS` — `GitView`(`git/git-view.js`) 아래 Stash·Branches·History·Console·Commit·RemoteList·GitListTab. 세대 가드 세 종류를 `ticket`/`superseded`/`stale` 한 벌로, 루트는 모두 `el`(`gitViewMounted` 삭제), `GitListTab` 은 `ListView` 를 부품(`rows`)으로. `remote.js` 를 클래스마다 넷으로(FU-12 의 파일 분할, `GitRemote` 안 나누기는 단계 7) |
 | P3a 6 | (이 커밋) | `REFACTOR3_FE_ESC_SRS` — FC-13·14. `EscapeStack` 두 층(캡처·버블, 연 순서, 맨 위 하나, 죽은 항목은 건너뜀), `Menu`(`ui/menu.js`, `ui-kit.js` 817 → 696), 대화상자·모바일 시트·설정 상세·계정 팝오버·파일 트리 끌기의 Esc 를 항목으로, `#settings-btn` 리스너 넷 → `SettingsModal.open()` 하나 |
@@ -301,6 +301,7 @@
 | R4a | `0cd6527c`·`fb874af4`·`abb8a5df`·`3f3df12a`·`8e87010d`…(이 커밋) | `REFACTOR3_FE_REST4_SRS` — 화면 불변. FU-18 `.bg-row` 바탕 규칙을 `style-runs.css` 로 · FU-8 레일 상태를 패널 루트의 `data-rail` 표식 하나로(`Panel.railSync`, 첫 프레임은 `index.html`, 특이도 대조로 루트 둘·탭 배지 하나를 맞춤) · FU-9 죽은 클래스 둘을 걷고 숨김 목록 대조 시험 · FU-11 CSS 크기 게이트와 `style.css` 를 연속 구간 여덟으로. 화면 34개의 계산된 스타일 해시를 HEAD 와 견주어 차이 0(글자 폭 흔들림 2요소 제외). 남은 것: R4b FU-10 간격 토큰 |
 | R4b | `8f809850`·`92c59b26`·`6d46d4e1`·`d05e001a`·`0efcb302`…(이 커밋) | `REFACTOR3_FE_REST4_SRS` — FU-10 간격 토큰. `--sp-1`~`--sp-8`(2·4·6·8·10·12·16·24px), 간격 리터럴 870개 가운데 822개를 토큰으로(그중 105개는 ±2px 안의 단으로 붙여 값이 바뀜 — 사용자 결정 Q8), 예외 20(레일·근거 주석·±2px 밖·함수 안). 게이트 `check-spacing.mjs`. 41화면 계산된 스타일 비교에서 차이는 사상표의 쌍과 그 기하 귀결뿐. 전량 e2e 실패 2는 원래 실패 |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
+| P7 | `ead3f7be`·`7362d88a`·`289a4d41`·`0b8ad169`·`000e3f85`·`4910afc9` (합침 `9171f2b7`) · `c9ea6550`·`d6a6bee6`…(이 커밋) | 문서 동기화와 게이트 — 문서는 코드 기준(Q6). 설정 대조 시험이 옮긴 파일을 읽는다 · 주석의 옛 파일 이름·낡은 줄 번호(DOC-13·14·17) · 게이트 `check-code-refs.mjs` · 낡은 SRS 본문(DOC-1·6·7·8·9·13·18·19·20 · GH-9) · 살아 있는 문서(DOC-2·3·5·10·11·17) · 게이트 `check-srs-progress.sh` 의 절 상태 검사(DOC-7) · 죽은 CSS 규칙 둘과 디자인 토큰 표(DOC-4) · CHANGELOG 의 뒤집는 네 쌍(DOC-12) · 색인(`docs/internal/README.md`) 상태 · 이 문서의 처리함 표시. DOC-15·16 은 R4a·R2, GD-19·22 는 SD, GH-23 은 SH(유지), DM-25·26 은 SC 가 이미 처리했다. 지난 인계서·감사·SRS 구현 기록과 `WORKSPACE_IDENTITY`·`PERFORMANCE_HARDENING` 의 표는 시점 기록이라 고치지 않음(D-P7-2·3). 동작 변경 없음 |
 
 ---
 
