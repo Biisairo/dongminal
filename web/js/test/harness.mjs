@@ -49,6 +49,12 @@ export const PANELS = ['ui/panel.js', 'ui/tab-bar.js', 'ui/sidebar-tab-bar.js', 
   'core/activity-tab-bar.js', 'core/activity-panel.js'];
 
 /**
+ * 핸들의 크기 HUD 와 끌기 — index.html 의 순서다 (REFACTOR3_FE_REST3_SRS FR-FR3-16). `ui/ui-kit.js` 바로 뒤, `DIALOG` 앞에
+ * 싣는다. 묶음 순서: BASE → repaint → ui-kit → HANDLE → DIALOG → LIST → MENU.
+ */
+export const HANDLE = ['ui/size-hud.js', 'ui/size-drag.js'];
+
+/**
  * 대화상자 기반 클래스와 킷 모달 — index.html 의 순서다 (REFACTOR3_FE_DIALOG_SRS FR-FED-11). `BASE` 뒤,
  * `ui/ui-kit.js` 뒤에 싣는다. git 모달·설정 모달은 이 뒤에 각자 싣는다.
  */

@@ -135,7 +135,7 @@
 | `web/js/ui/file-editor.js` | `_createEditor` | `this.el` | 1 | 사용자 | 편집기를 세울 때 한 번 |
 | `web/js/ui/run-dashboard.js` | `_runPaintSummary` | `el` | 1 | 가드 | `paintIfChanged` 안이다 |
 | `web/js/ui/sidebar-list.js` | `_paintInto` | `el` | 2 | 가드 | 빈 상태의 비우기 둘. 목록은 `reconcileList` 를 지난다 |
-| `web/js/ui/ui-kit.js` | `_hud` | `b` | 1 | 사용자 | 분할 드래그 중의 크기 HUD — 사용자의 손이 계기다 |
+| `web/js/ui/size-hud.js` | `show` | `b` | 1 | 사용자 | 분할 드래그 중의 크기 HUD — 사용자의 손이 계기다 |
 
 #### 2-5-2. 그 밖의 셀 수 있는 예산
 

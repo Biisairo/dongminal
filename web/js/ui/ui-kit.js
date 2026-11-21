@@ -16,13 +16,6 @@
  *
  * 로드 순서 계약: repaint.js **뒤**, sidebar-tabs.js **앞** (FR-UIK-20).
  */
-// OPTIMIZE_REFACTOR_SRS FR-OPT-12-6 (FEU-19): 화면 가장자리 여백. 리사이즈 HUD 는 가운데 정렬된 자기 크기의
-// 반쯤(가로 48 · 세로 28)을 남긴다. 메뉴의 것은 `ui/menu.js` 에 있다.
-const UIK_HUD_EDGE_X_PX = 48;
-const UIK_HUD_EDGE_Y_PX = 28;
-/** `v` 를 [lo, hi] 로 자른다 — 가장자리 여백을 지키는 한 자리. */
-function uikClamp(v, lo, hi) { return Math.min(Math.max(v, lo), hi) }
-
 const UIKit = {
   /**
    * FR-UIK-23 / FR-GLY-2: 스프라이트의 심볼 하나를 참조하는 `<svg>`.
@@ -507,107 +500,11 @@ const UIKit = {
   // ── 핸들 (FR-HSZ-1~11) ──────────────────────────────────────────────
 
   /**
-   * FR-HSZ-1: 크기 조절 핸들 하나의 제스처.
-   *
-   * 여섯 자리가 각자 `mousedown`→`mousemove`→`mouseup` 을 쓰고 있었고 여섯 중
-   * 어느 것도 끄는 동안 수치를 보이지 않았다. 골격을 여기 두면 표시를 붙일
-   * 자리도 하나다 (D-11).
-   *
-   * 부르는 쪽이 주는 것은 **무엇이 바뀌는가**뿐이다:
-   *   axis   'x' | 'y'
-   *   start(e)      → 이 제스처의 상태(px 기준값 등). 반환값이 ctx 다
-   *   move(ctx,e)   → 실제로 크기를 바꾼다
-   *   end(ctx,e)    → 확정(저장·fit)
-   *   sides(ctx,e)  → [{px,cell,pct}, {px,cell,pct}] — HUD 두 벌 (FR-HSZ-3·4)
+   * FR-HSZ-1: 크기 조절 핸들 하나의 제스처. 본체는 `SizeDrag`(`ui/size-drag.js`)이고 끄는 동안의 크기 표시는
+   * `SizeHud`(`ui/size-hud.js`)다 (REFACTOR3_FE_REST3_SRS FR-FR3-15) — 이 이름은 기존 호출처를 위한 입구로 남는다.
    */
   drag(handle, opts) {
-    if (!handle) return;
-    const o = opts || {};
-    handle.addEventListener('mousedown', e => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      let ctx = o.start ? o.start(e) : {};
-      if (ctx === false) return;
-      if (!ctx || typeof ctx !== 'object') ctx = {};
-      // FR-HSZ-1: **시작 좌표는 골격의 것이다.** 여섯 자리가 저마다
-      // `const sx=e.clientX` 를 다시 적을 이유가 없고, `sides` 도 그 값을
-      // 기준으로 변화량을 낸다.
-      ctx.sx0 = e.clientX;
-      ctx.sy0 = e.clientY;
-      // 좌표는 **누적 상태**로 든다. `TIMERS.frame` 의 coalesce 는 먼저 잡힌
-      // 예약이 이기므로(timer-hub §frame), 콜백이 클로저의 옛 좌표를 읽으면
-      // HUD 가 한 프레임 전 자리에 멎는다.
-      let pt = { x: e.clientX, y: e.clientY };
-      let frame = null;
-      const paint = () => {
-        if (!o.sides) return;
-        // FR-HSZ-7: 프레임당 1회 (초당 수십 번의 레이아웃 읽기를 만들지 않는다).
-        frame = TIMERS.frame(() => {
-          frame = null;
-          UIKit._hud(o.axis, pt.x, pt.y, o.sides(ctx, pt));
-        }, { owner: 'ui-kit', coalesce: 'size-hud' });
-      };
-      const mv = ev => { pt = { x: ev.clientX, y: ev.clientY }; if (o.move) o.move(ctx, ev); paint() };
-      const up = ev => {
-        document.removeEventListener('mousemove', mv);
-        document.removeEventListener('mouseup', up);
-        if (frame) { TIMERS.cancel(frame); frame = null }
-        UIKit._hudHide();
-        if (o.end) o.end(ctx, ev);
-      };
-      document.addEventListener('mousemove', mv);
-      document.addEventListener('mouseup', up);
-      paint();
-    });
-  },
-
-  // FR-HSZ-2·8: 문서에 하나뿐인 겹. 만들고 지우지 않는다 (D-10).
-  _hudEl() {
-    let el = document.getElementById('ui-size-hud');
-    if (el) return el;
-    el = document.createElement('div');
-    el.id = 'ui-size-hud';
-    el.innerHTML = '<div class="ui-size-box"></div><div class="ui-size-box"></div>';
-    document.body.appendChild(el);
-    return el;
-  },
-
-  _hud(axis, px, py, sides) {
-    if (!sides || sides.length !== 2) return;
-    const el = this._hudEl();
-    const boxes = el.querySelectorAll('.ui-size-box');
-    const gapX = 62, gapY = 40;
-    for (let i = 0; i < 2; i++) {
-      const s = sides[i] || {};
-      const b = boxes[i];
-      // FR-HSZ-4: px → (터미널이면) C×R → % 를 **세로로** 쌓는다.
-      // FR-HSZ-5: 터미널이 아닌 칸에는 그 줄이 없다 — 없는 값을 0 으로 적지 않는다.
-      b.innerHTML = '';
-      const n = document.createElement('b');
-      n.textContent = s.px == null ? '' : Math.round(s.px) + 'px';
-      b.appendChild(n);
-      if (s.cell) { const c = document.createElement('i'); c.textContent = s.cell; b.appendChild(c) }
-      if (s.pct != null) { const p = document.createElement('i'); p.textContent = Math.round(s.pct) + '%'; b.appendChild(p) }
-      const sign = i === 0 ? -1 : 1;
-      // FR-HSZ-4b: 핸들에 **붙는 변**을 가지런히 한다 — 왼쪽 상자는 오른쪽
-      // 정렬, 오른쪽 상자는 왼쪽 정렬. 세로 핸들에서는 붙는 변이 상하이므로
-      // 좌우 정렬에 뜻이 없다 (가운데로 둔다).
-      b.classList.toggle('to-r', axis !== 'y' && i === 0);
-      b.classList.toggle('to-l', axis !== 'y' && i === 1);
-      let x = axis === 'y' ? px : px + sign * gapX;
-      let y = axis === 'y' ? py + sign * gapY : py;
-      // 화면 밖으로 나가면 안쪽으로 민다.
-      x = uikClamp(x, UIK_HUD_EDGE_X_PX, innerWidth - UIK_HUD_EDGE_X_PX);
-      y = uikClamp(y, UIK_HUD_EDGE_Y_PX, innerHeight - UIK_HUD_EDGE_Y_PX);
-      b.style.left = x + 'px';
-      b.style.top = y + 'px';
-    }
-    el.classList.add('on');
-  },
-
-  _hudHide() {
-    const el = document.getElementById('ui-size-hud');
-    if (el) el.classList.remove('on');
+    SizeDrag.bind(handle, opts);
   },
 
   /**
