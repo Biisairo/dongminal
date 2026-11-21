@@ -1,162 +1,32 @@
 /**
- * Dongminal — 설정창의 **Claude 계정** 패널 (CLAUDE_ACCOUNTS_SRS FR-CAC-94·94a·34a·88b).
+ * ClaudeSection — 설정창의 **Claude 계정** 패널 (CLAUDE_ACCOUNTS_SRS FR-CAC-94·94a·34a·88b · REFACTOR3_FE_SETTINGS_SRS 8c).
  *
  * 탭을 열 때 목록·자동 전환·매핑·보관 목록·기록을 다시 받고, 열린 동안 `claude_accounts_changed` 를 받으면
- * 다시 받는다. 저장은 칸마다 한다 — 응답이 오면 다시 받아 서버 값으로 그린다.
+ * 다시 받는다. 저장은 칸마다 한다 — 응답이 오면 다시 받아 서버 값으로 그린다. 값 → 줄·본문의 순수 함수는
+ * `settings-claude-rows.js` 에 있다.
  *
- * 로드 순서 계약: `app-activity.js`·`app-claude-accounts.js`·`app-claude-accounts-map.js` 뒤.
+ * 패널 상태(`_cacctSet`·`_cacctDirty`·`_cacctStale`·`_cacctDrag`·`_cacctFocusWired`)는 이 섹션이 든다. 설정 밖
+ * (`app-claude-accounts.js`)이 부르는 `_cacctPanelShown`·`_cacctRefreshSoft` 는 App 에 위임자가 있다.
  */
+class ClaudeSection extends SettingsSection {
+  constructor(app){ super(app,'claude') }
 
-/** FR-CAC-70·94a: 자동 전환의 숫자 칸. `required` 가 아니면 비울 수 있다(비우면 지운다). */
-const CACCT_AUTO_FIELDS=[
-  {key:'threshold',label:'cacct.set.auto_threshold',min:50,max:100,required:true},
-  {key:'weeklyThreshold',label:'cacct.set.auto_weekly',min:50,max:100,required:false},
-  {key:'intervalSeconds',label:'cacct.set.auto_interval',min:15,max:3600,required:true},
-  {key:'cooldownSeconds',label:'cacct.set.auto_cooldown',min:0,max:86400,required:true},
-  {key:'hysteresisPct',label:'cacct.set.auto_hysteresis',min:0,max:50,required:true},
-  {key:'unhealthyTicks',label:'cacct.set.auto_unhealthy',min:1,max:100,required:true},
-];
-/** FR-CAC-70: 전략과 그 문구. */
-const CACCT_STRATEGIES=[
-  {id:'best',label:'cacct.set.st_best'},
-  {id:'consume-first',label:'cacct.set.st_consume_first'},
-  {id:'priority-consume-first',label:'cacct.set.st_priority_consume_first'},
-];
-const CACCT_COLORS=['acct-1','acct-2','acct-3','acct-4','acct-5','acct-6','acct-7','acct-8'];
-
-/** FR-CAC-94a·98: 색 견본 8개 — 번호 순서의 색 이름과 고른 색. */
-function cacctColorSwatches(cur){
-  return CACCT_COLORS.map(c=>({color:c,name:t('cacct.color.'+c.replace('-','_')),selected:c===cur}));
-}
-
-function cacctNum(v){
-  const s=String(v==null?'':v).trim();
-  return /^-?\d+(\.\d+)?$/.test(s)?Number(s):null;
-}
-
-function cacctSame(a,b){ return JSON.stringify(a==null?null:a)===JSON.stringify(b==null?null:b) }
-
-/** FR-CAC-94a: 계정 줄의 값. */
-function cacctSetRows(accounts){
-  return (Array.isArray(accounts)?accounts:[]).map(a=>{
-    const u=a.usage||{};
-    const w=Array.isArray(a.profileWarnings)?a.profileWarnings:[];
-    return {
-      id:a.id,name:a.alias||a.email,email:a.email,org:a.organizationName||'',
-      color:claudeAcctColorOf(a),alias:a.alias||'',
-      threshold:typeof a.threshold==='number'?String(a.threshold):'',
-      priority:String(a.priority||0),disabled:!!a.disabled,
-      login:u.loginExpiresAt>0
-        ?{text:t('cacct.login_expires',{d:claudeAcctDate(u.loginExpiresAt*1000)}),warn:!!u.loginExpiringSoon}
-        :{text:t('cacct.set.login_unknown'),warn:false},
-      status:u.status&&u.status!=='ok'?t('cacct.st.'+u.status):'',
-      warnings:w.length?t('cacct.set.warn_links',{names:w.join(', ')}):'',
-    };
-  });
-}
-
-/** FR-CAC-94a: 칸 하나의 `PUT /item` 본문. 보낼 수 없는 값이면 null — 화면은 서버 값으로 되돌린다. */
-function cacctItemPatch(id,field,v){
-  if(field==='alias') return {id,alias:String(v||'').trim()};
-  if(field==='disabled') return {id,disabled:!!v};
-  if(field==='color') return {id,color:String(v)};
-  if(field==='threshold'){
-    if(String(v||'').trim()==='') return {id,clearThreshold:true};
-    const n=cacctNum(v);
-    return n===null?null:{id,threshold:n};
-  }
-  if(field==='priority'){
-    const s=String(v||'').trim();
-    return /^-?\d+$/.test(s)?{id,priority:Number(s)}:null;
-  }
-  return null;
-}
-
-/** FR-CAC-13: 끌어 놓은 뒤의 순서. 바뀌지 않으면 null. */
-function cacctReorder(ids,src,target,before){
-  if(src===target||!ids.includes(src)||!ids.includes(target)) return null;
-  const out=ids.filter(x=>x!==src);
-  out.splice(out.indexOf(target)+(before?0:1),0,src);
-  return out;
-}
-
-function cacctSegs(p){ return claudeAcctFold(p).split(pathSep(p)) }
-
-/** 경로 조각 순 — `/r` 의 하위가 `/r-x` 보다 앞에 온다. */
-function cacctPathCmp(a,b){
-  const x=cacctSegs(a),y=cacctSegs(b);
-  for(let i=0;i<Math.min(x.length,y.length);i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1;
-  return x.length-y.length;
-}
-
-/** FR-CAC-94: 폴더 연결 트리. 다른 연결의 하위면 그 깊이만큼 들여 쓰고 덮어씀을 표시한다. */
-function cacctFolderRows(folders,accounts){
-  const keys=Object.keys(folders||{}).sort(cacctPathCmp);
-  return keys.map(k=>{
-    const depth=keys.filter(o=>o!==k&&claudeAcctUnder(claudeAcctFold(k),claudeAcctFold(o))).length;
-    const a=claudeAcctById(accounts,folders[k].accountId);
-    return {path:k,depth,overrides:depth>0,accountId:folders[k].accountId,
-      name:a?(a.alias||a.email):t('cacct.hist.deleted'),color:a?claudeAcctColorOf(a):''};
-  });
-}
-
-/** FR-CAC-94a: 자동 전환 설정 → 칸 값. */
-function cacctAutoForm(s){
-  const v=s||{};
-  const out={enabled:!!v.enabled};
-  for(const f of CACCT_AUTO_FIELDS) out[f.key]=typeof v[f.key]==='number'?String(v[f.key]):'';
-  out.strategy=v.strategy||'best';
-  out.models=Array.isArray(v.models)?v.models.join(', '):(v.models==='all'?'all':'');
-  return out;
-}
-
-function cacctModels(v){
-  const s=String(v||'').trim();
-  if(!s) return null;
-  if(s==='all') return 'all';
-  return s.split(',').map(x=>x.trim()).filter(Boolean);
-}
-
-/** FR-CAC-94a: 칸 값 → 바뀐 키만 담은 `PUT /autoswitch` 본문. 숫자가 아닌 칸이 있으면 `bad` 문구. */
-function cacctAutoBody(prev,form){
-  const p=prev||{},body={};
-  if(!!form.enabled!==!!p.enabled) body.enabled=!!form.enabled;
-  for(const f of CACCT_AUTO_FIELDS){
-    const raw=String(form[f.key]==null?'':form[f.key]).trim();
-    let v=null;
-    if(raw||f.required){
-      v=cacctNum(raw);
-      if(v===null) return {body:null,bad:t('cacct.set.auto_bad',{field:t(f.label)})};
-    }
-    if(!cacctSame(v,p[f.key])) body[f.key]=v;
-  }
-  if(form.strategy&&form.strategy!==p.strategy) body.strategy=form.strategy;
-  const m=cacctModels(form.models);
-  if(!cacctSame(m,p.models)) body.models=m;
-  return {body,bad:''};
-}
-
-/** FR-CAC-34a: 보관 목록 줄. */
-function cacctUnclaimedRows(entries){
-  return (Array.isArray(entries)?entries:[]).map(e=>({name:e.name,fp:e.fingerprint,
-    text:t('cacct.set.unclaimed_row',{t:claudeAcctDate(e.at*1000)+' '+limitClock(e.at*1000),fp:e.fingerprint})}));
-}
-
-Object.assign(App.prototype, {
   _cacctPanelShown(){
     const panel=document.getElementById('panel-claude');
     const overlay=document.getElementById('modal-overlay');
     return !!(panel&&!panel.hidden&&overlay&&overlay.classList.contains('open'));
-  },
+  }
 
   /**
    * FR-CAC-94a: 설정창을 열 때. 탭은 닫을 때 고른 채로 남는다 — 탭 클릭만 다시 읽으면 닫은 사이
    * 다른 곳(Explorer·탭 메뉴)에서 바꾼 폴더 연결이 옛 값으로 보인다.
    */
-  _cacctOnSettingsOpen(modal){
-    const tab=modal.querySelector('.mtab.active');
+  onOpen(){
+    const tab=document.querySelector('#modal .mtab.active');
     if(tab&&tab.dataset.tab==='claude') this._loadClaudePanel();
-  },
+  }
+
+  onTab(){ return this._loadClaudePanel() }
 
   /** FR-CAC-94a: 입력 중인가 — 구역 안의 입력 칸에 포커스가 있거나, 다시 그린 뒤 입력한 것이 있다. */
   _cacctEditing(){
@@ -164,23 +34,23 @@ Object.assign(App.prototype, {
     if(!root) return false;
     const f=document.activeElement;
     return !!this._cacctDirty||!!(f&&root.contains(f)&&/^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName));
-  },
+  }
 
   /** FR-CAC-94a: 변경 신호로 다시 받기. 입력 중이면 미루고, 포커스가 구역을 떠날 때 다시 본다. */
   _cacctRefreshSoft(){
     if(!this._cacctEditing()) return this._loadClaudePanel();
     this._cacctStale=true;
-  },
+  }
 
   /** 구역 뿌리는 한 번만 세워지므로 듣개도 한 번만 단다. */
   _cacctWireEditing(root){
     if(this._cacctFocusWired===root) return;
     this._cacctFocusWired=root;
-    root.addEventListener('input',()=>{this._cacctDirty=true});
-    root.addEventListener('focusout',()=>TIMERS.defer(()=>{
+    this.listen(root,'input',()=>{this._cacctDirty=true});
+    this.listen(root,'focusout',()=>TIMERS.defer(()=>{
       if(this._cacctStale&&!this._cacctEditing()&&this._cacctPanelShown()) this._loadClaudePanel();
     },{label:'cacct-stale'}));
-  },
+  }
 
   /** FR-CAC-94a: 탭을 열 때 다섯 가지를 다시 받는다. 503 이면 계정 기능이 없는 서버다. */
   async _loadClaudePanel(){
@@ -196,7 +66,7 @@ Object.assign(App.prototype, {
     };
     this._cacctPaint();
     return list;
-  },
+  }
 
   /** 동작 하나. 실패는 알리고, 끝나면 패널을 다시 받는다 (실패해도 — 칸을 서버 값으로 되돌린다). */
   async _cacctDo(method,path,body,what){
@@ -204,19 +74,19 @@ Object.assign(App.prototype, {
     if(!r.ok) Toast.show(apiErrText(r,what),'err');
     await this._loadClaudePanel();
     return r;
-  },
+  }
 
   async _cacctAdd(){
     const r=await this._cacctDo('POST','/api/claude-accounts/add',{},t('cacct.set.add'));
     if(r.ok) Toast.show(t(r.data&&r.data.created?'cacct.set.added':'cacct.set.updated'),'ok');
     return r;
-  },
+  }
 
   _cacctItem(id,field,v){
     const body=cacctItemPatch(id,field,v);
     if(!body){ this._cacctPaint(); return Promise.resolve(null) }
     return this._cacctDo('PUT','/api/claude-accounts/item',body,t('cacct.set.save'));
-  },
+  }
 
   /** FR-CAC-12: 확인 대화상자에서 "삭제" 를 골라야 보낸다. */
   _cacctAsk(title,text,okLabel,run){
@@ -225,7 +95,7 @@ Object.assign(App.prototype, {
     const m=UIKit.modal({title,cls:'cacct-set-confirm',width:'min(420px,90vw)',body,
       actions:[{label:t('core.cancel')},{label:okLabel,kind:'danger',onClick:run}]});
     document.body.appendChild(m.el);
-  },
+  }
 
   _cacctAccountRow(list,r,ids){
     const row=list.appendChild(domEl('div','cacct-set-row'));
@@ -287,7 +157,7 @@ Object.assign(App.prototype, {
       onClick:()=>this._cacctAsk(t('cacct.set.remove_title'),t('cacct.set.remove_body',{name:r.name}),t('cacct.set.remove'),
         ()=>this._cacctDo('POST','/api/claude-accounts/remove',{id:r.id},t('cacct.set.remove')))}));
     if(r.warnings) row.appendChild(domEl('div','cacct-set-warn',r.warnings));
-  },
+  }
 
   _cacctAutoEl(root,a){
     root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_auto')));
@@ -320,7 +190,7 @@ Object.assign(App.prototype, {
       const r=await this._cacctDo('PUT','/api/claude-accounts/autoswitch',body,t('cacct.set.sec_auto'));
       if(r.ok) Toast.show(t('cacct.set.auto_saved'),'ok');
     }}));
-  },
+  }
 
   _cacctFoldersEl(root,s){
     root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_folders')));
@@ -344,14 +214,14 @@ Object.assign(App.prototype, {
     const add=root.appendChild(domEl('div','set-row cacct-set-link'));
     const path=add.appendChild(domEl('input','sbx-input'));
     path.placeholder=t('cacct.set.folder_ph'); path.spellcheck=false;
-    if(typeof PathSuggest==='function') new PathSuggest(path,v=>this._edPathCandidates(v,[]));
+    if(typeof PathSuggest==='function') new PathSuggest(path,v=>this.app._edPathCandidates(v,[]));
     const sel=add.appendChild(domEl('select','sbs-select'));
     for(const a of s.accounts){const o=sel.appendChild(domEl('option','',a.alias||a.email));o.value=a.id}
     add.appendChild(UIKit.button({label:t('cacct.set.link'),size:'sm',cls:'cacct-set-link-btn',onClick:()=>{
       const p=path.value.trim();
       if(p) this._cacctDo('PUT','/api/claude-accounts/mappings',{folder:p,accountId:sel.value},t('cacct.set.link'));
     }}));
-  },
+  }
 
   _cacctUnclaimedEl(root,s){
     root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_unclaimed')));
@@ -365,14 +235,14 @@ Object.assign(App.prototype, {
         onClick:()=>this._cacctAsk(t('cacct.set.unclaimed_remove_title'),t('cacct.set.unclaimed_remove_body',{fp:r.fp}),t('cacct.set.remove'),
           ()=>this._cacctDo('POST','/api/claude-accounts/unclaimed/remove',{name:r.name},t('cacct.set.remove')))}));
     }
-  },
+  }
 
   /** FR-CAC-111: 전환 기록은 단추로 대화상자를 연다. */
   _cacctHistoryEl(root){
     root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_history')));
     const row=root.appendChild(domEl('div','ds-row'));
-    row.appendChild(UIKit.button({label:t('cacct.hist.open'),size:'sm',cls:'cacct-history-btn',onClick:()=>this._claudeAcctHistory()}));
-  },
+    row.appendChild(UIKit.button({label:t('cacct.hist.open'),size:'sm',cls:'cacct-history-btn',onClick:()=>this.app._claudeAcctHistory()}));
+  }
 
   _cacctPaint(){
     const root=document.getElementById('cacct-set');
@@ -396,5 +266,5 @@ Object.assign(App.prototype, {
     this._cacctFoldersEl(root,s);
     this._cacctUnclaimedEl(root,s);
     this._cacctHistoryEl(root);
-  },
-});
+  }
+}

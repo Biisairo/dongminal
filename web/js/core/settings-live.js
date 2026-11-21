@@ -74,18 +74,5 @@ Object.assign(App.prototype, {
     box.append(msg,btn);
     p.prepend(box);
   },
-
-  _onAccessChanged(){
-    if(!this._liveOpen('access')) return;
-    return apiGet('/api/access').then(r=>{
-      if(r.ok) this._liveChanged('access',r,this._aclCollect(),()=>this._loadAccessPanel());
-    });
-  },
-
-  _onSandboxChanged(){
-    if(!this._liveOpen('sandbox')) return;
-    return apiGet('/api/sandbox/config').then(r=>{
-      if(r.ok) this._liveChanged('sandbox',r,this._sbxCollect(),()=>this._loadSandboxPanel());
-    });
-  },
+  // 방송을 받는 `_onAccessChanged`·`_onSandboxChanged` 는 그 섹션에 있다 (REFACTOR3_FE_SETTINGS_SRS 8c).
 });

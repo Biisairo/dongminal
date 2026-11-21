@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * PROFILE_NAME_SRS FR-PFN-10~13·20 — 프로필 패널.
@@ -24,7 +24,8 @@ function setup({ get, put, open = false } = {}) {
   els['pf-fp'].replaceChildren = (...kids) => { els['pf-fp'].textContent = kids.map((k) => k.textContent).join('') };
   const puts = [];
   let gets = 0;
-  const ctx = load(['core/settings-live.js', 'core/app-edges.js', 'core/app-settings-profile.js'], {
+  const ctx = load([...BASE, 'core/settings-section.js', 'core/settings-live.js', 'core/app-edges.js', 'core/settings-profile.js'], {
+    expose: ['ProfileSection'],
     globals: {
       App: function App() {},
       t: (k) => k,
@@ -41,12 +42,14 @@ function setup({ get, put, open = false } = {}) {
   app._applyPageTitle = () => { titles++ };
   const notices = [];
   app._liveNotice = (k, reload) => { if (reload) notices.push(k) };
-  return { ctx, app, els, puts, titles: () => titles, gets: () => gets, notices };
+  // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `ProfileSection` 이다. 저장·알림은 App 을 거친다.
+  const sec = new ctx.ProfileSection(app);
+  return { ctx, app, sec, els, puts, titles: () => titles, gets: () => gets, notices };
 }
 
 test('패널을 열면 이름·번호·지문을 그리고 탭 제목 이름을 맞춘다', async () => {
-  const { ctx, app, els, titles } = setup();
-  await app._loadProfilePanel();
+  const { sec, ctx, els, titles } = setup();
+  await sec._loadProfilePanel();
   assert.equal(els['pf-name'].value, '동민');
   assert.equal(els['pf-tag'].textContent, '#0427');
   assert.equal(els['pf-fp'].textContent, PROFILE.fingerprint);
@@ -55,11 +58,11 @@ test('패널을 열면 이름·번호·지문을 그리고 탭 제목 이름을 
 });
 
 test('저장은 이름만 If-Match 와 함께 보내고, 성공하면 탭 제목을 바꾼다', async () => {
-  const { ctx, app, els, puts, titles } = setup();
-  await app._loadProfilePanel();
+  const { sec, ctx, els, puts, titles } = setup();
+  await sec._loadProfilePanel();
   const before = titles();
   els['pf-name'].value = '  새이름 ';
-  await app._profileSave();
+  await sec._profileSave();
   assert.equal(puts.length, 1);
   assert.equal(puts[0][0], '/api/profile');
   assert.deepEqual(JSON.parse(JSON.stringify(puts[0][1])), { name: '새이름' });
@@ -69,11 +72,11 @@ test('저장은 이름만 If-Match 와 함께 보내고, 성공하면 탭 제목
 });
 
 test('거절된 저장은 이름과 탭 제목을 바꾸지 않는다', async () => {
-  const { ctx, app, els, titles } = setup({ put: { ok: false, status: 400, data: null, headers: { get: () => '' } } });
-  await app._loadProfilePanel();
+  const { sec, ctx, els, titles } = setup({ put: { ok: false, status: 400, data: null, headers: { get: () => '' } } });
+  await sec._loadProfilePanel();
   const before = titles();
   els['pf-name'].value = '동 민';
-  await app._profileSave();
+  await sec._profileSave();
   assert.equal(ctx.profileName, '동민');
   assert.equal(titles(), before);
 });
@@ -82,28 +85,28 @@ const edgesRead = (tag) => ({ ok: true, status: 200, data: { node: { name: '동�
 
 test('열린 패널은 고치던 값이 없으면 방송 뒤 다시 읽는다 (FR-PFN-14)', async () => {
   let name = '동민';
-  const { app, els, gets, notices } = setup({ open: true, get: () => ({ ok: true, status: 200, data: { ...PROFILE, name }, headers: { get: () => name === '동민' ? 'E1' : 'E9' } }) });
-  await app._loadProfilePanel();
+  const { sec, els, gets, notices } = setup({ open: true, get: () => ({ ok: true, status: 200, data: { ...PROFILE, name }, headers: { get: () => name === '동민' ? 'E1' : 'E9' } }) });
+  await sec._loadProfilePanel();
   name = '다른창';
-  await app._pfFollow(edgesRead('E9'));
+  await sec._pfFollow(edgesRead('E9'));
   assert.equal(gets(), 2);
   assert.equal(els['pf-name'].value, '다른창');
   assert.equal(notices.length, 0);
 });
 
 test('같은 지문의 방송은 아무것도 하지 않는다', async () => {
-  const { app, gets, notices } = setup({ open: true });
-  await app._loadProfilePanel();
-  await app._pfFollow(edgesRead('E1'));
+  const { sec, gets, notices } = setup({ open: true });
+  await sec._loadProfilePanel();
+  await sec._pfFollow(edgesRead('E1'));
   assert.equal(gets(), 1);
   assert.equal(notices.length, 0);
 });
 
 test('고치던 값이 있으면 덮지 않고 안내한다', async () => {
-  const { app, els, gets, notices } = setup({ open: true });
-  await app._loadProfilePanel();
+  const { sec, els, gets, notices } = setup({ open: true });
+  await sec._loadProfilePanel();
   els['pf-name'].value = '고치는중';
-  await app._pfFollow(edgesRead('E9'));
+  await sec._pfFollow(edgesRead('E9'));
   assert.equal(gets(), 1);
   assert.equal(els['pf-name'].value, '고치는중');
   assert.deepEqual(notices, ['profile']);
@@ -111,15 +114,15 @@ test('고치던 값이 있으면 덮지 않고 안내한다', async () => {
 
 test('저장 중에 온 방송은 안내하지 않는다', async () => {
   let release;
-  const { app, els, notices } = setup({
+  const { sec, els, notices } = setup({
     open: true,
     put: (body) => new Promise(res => { release = () => res({ ok: true, status: 200, data: { ...PROFILE, name: body.name }, headers: { get: () => 'E9' } }) }),
   });
-  await app._loadProfilePanel();
+  await sec._loadProfilePanel();
   els['pf-name'].value = '새이름';
-  const saving = app._profileSave();
+  const saving = sec._profileSave();
   await new Promise(r => setTimeout(r, 0));
-  await app._pfFollow(edgesRead('E9'));
+  await sec._pfFollow(edgesRead('E9'));
   release();
   await saving;
   assert.equal(notices.length, 0);
@@ -127,8 +130,8 @@ test('저장 중에 온 방송은 안내하지 않는다', async () => {
 });
 
 test('닫힌 패널은 방송을 따라가지 않는다', async () => {
-  const { app, gets } = setup({ open: false });
-  await app._loadProfilePanel();
-  await app._pfFollow(edgesRead('E9'));
+  const { sec, gets } = setup({ open: false });
+  await sec._loadProfilePanel();
+  await sec._pfFollow(edgesRead('E9'));
   assert.equal(gets(), 1);
 });

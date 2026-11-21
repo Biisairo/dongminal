@@ -24,7 +24,7 @@ function fillEn(k, p) {
 
 function loadSet() {
   return load([...BASE, ...PANELS, 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js',
-    'core/app-claude-accounts-map.js', 'core/app-settings-claude.js'], {
+    'core/app-claude-accounts-map.js', 'core/settings-claude-rows.js'], {
     expose: ['CACCT_AUTO_FIELDS'],
     globals: {
       App: class {}, t: (k, p) => fillEn(k, p),

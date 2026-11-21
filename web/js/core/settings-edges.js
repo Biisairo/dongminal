@@ -6,13 +6,19 @@
  * 노드 설정 칸은 탭을 열 때와 저장한 뒤에만 채운다. 방송마다 채우면 고치던 값이 덮인다.
  *
  * 초대 코드는 **만든 응답에만** 있다 (FR-PNW-95, I-3). 그 코드는 이 창의 메모리에만 둔다.
+ *
+ * REFACTOR3_FE_SETTINGS_SRS 8c: 초대 코드(`_egInvite`)와 남은 시간 타이머는 이 섹션이 든다. 읽은 값 `_edges` 는
+ * 설정 밖(`app-edges.js`·망 그림·채팅)이 읽으므로 App 에 남는다(FR-FES-5). 망 그림·받은 초대(`app-edges-mesh.js`)는
+ * App 의 것이고, `app-edges.js` 가 부르는 `_edgesPaint`·`_egNodePaint`·`_egNodeCollect` 는 App 에 위임자가 있다.
  */
 
 /** 초대의 남은 시간을 다시 그리는 주기. */
 const EDGE_REMAIN_TICK_MS=1000;
 
-Object.assign(App.prototype, {
-  _egNodePaint(v=this._edges){
+class EdgesSection extends SettingsSection {
+  constructor(app){ super(app,'edges') }
+
+  _egNodePaint(v=this.app._edges){
     const n=v&&v.node;
     if(!n) return;
     document.getElementById('eg-enabled').checked=!!n.enabled;
@@ -21,7 +27,7 @@ Object.assign(App.prototype, {
     document.getElementById('eg-port').value=n.port?String(n.port):'';
     document.getElementById('eg-bind').value=n.bind||'';
     document.getElementById('eg-advertise').value=n.advertise||'';
-  },
+  }
 
   _egNodeCollect(){
     return {
@@ -30,11 +36,11 @@ Object.assign(App.prototype, {
       bind:document.getElementById('eg-bind').value.trim(),
       advertise:document.getElementById('eg-advertise').value.trim(),
     };
-  },
+  }
 
   /** `app-edges.js` 가 다시 읽을 때마다 부른다. 패널이 없는 화면에서는 아무것도 하지 않는다. */
   _edgesPaint(){
-    const v=this._edges;
+    const v=this.app._edges;
     if(!v||!document.getElementById('panel-edges')) return;
     const n=v.node||{};
     const st=document.getElementById('eg-port-state');
@@ -44,9 +50,9 @@ Object.assign(App.prototype, {
     document.getElementById('eg-fp').textContent=edgeFp16(n.fingerprint);
     this._egInvitePaint();
     this._egEdgesPaint(v.edges||[]);
-    this._egMeshPaint();
-    this._egInvitesPaint();
-  },
+    this.app._egMeshPaint();
+    this.app._egInvitesPaint();
+  }
 
   /** 고치던 줄(열린 입력 칸이 있는 줄)은 그대로 두고 나머지만 새로 만든다. force 면 전부 새로 만든다. */
   _egKeepEditing(box,key,open,force){
@@ -57,12 +63,12 @@ Object.assign(App.prototype, {
       }
     }
     return keep;
-  },
+  }
 
   _egInvitePaint(){
     const box=document.getElementById('eg-inv-box');
     if(!box) return;
-    const inv=this._edges&&this._edges.invite;
+    const inv=this.app._edges&&this.app._edges.invite;
     const now=Date.now();
     const left=inv?edgeRemain(inv.expires,now):'';
     const mine=this._egInvite;
@@ -73,7 +79,7 @@ Object.assign(App.prototype, {
     box.hidden=!codeOk;
     document.getElementById('eg-inv-code').value=codeOk?this._egInvite.code:'';
     document.getElementById('eg-inv-remain').textContent=left||t('edge.inv_none');
-  },
+  }
 
   _egEdgesPaint(edges,force){
     const box=document.getElementById('eg-edges');
@@ -85,7 +91,7 @@ Object.assign(App.prototype, {
       none.textContent=t('edge.edges_none');
       box.appendChild(none);
     }
-  },
+  }
 
   _egEdgeRow(p){
     const row=document.createElement('div');
@@ -114,14 +120,14 @@ Object.assign(App.prototype, {
       if(addr.hidden){ editing(true);addr.focus();return }
       statusRun(st,{ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         const r=await apiPut('/api/edges/address',{fp:p.fp,addr:addr.value.trim(),port:parseInt(port.value,10)||0});
-        if(r.ok){ editing(false); await this._edgesRestore() }
+        if(r.ok){ editing(false); await this.app._edgesRestore() }
         return r;
       });
     });
     // M-7: 고치기를 그만두면 이 줄도 다시 방송을 따른다.
     cancel.addEventListener('click',()=>{
       addr.value=p.addr;port.value=p.port?String(p.port):'';editing(false);
-      if(this._edges) this._egEdgesPaint(this._edges.edges||[]);
+      if(this.app._edges) this._egEdgesPaint(this.app._edges.edges||[]);
     });
     const del=UIKit.button({label:t('edge.remove'),kind:'ghost',size:'sm',cls:'eg-remove'});
     del.addEventListener('click',()=>this._egRemoveConfirm(p));
@@ -132,10 +138,10 @@ Object.assign(App.prototype, {
     mark.textContent=marks.join(' · ');
     mark.hidden=!marks.length;
     const notify=UIKit.button({label:t('edge.notify'),kind:'ghost',size:'sm',cls:'eg-notify',
-      title:'Send my name, node port and address to this edge',onClick:()=>this._egNotify(p)});
+      title:'Send my name, node port and address to this edge',onClick:()=>this.app._egNotify(p)});
     row.append(who,mark,addr,port,edit,cancel,notify,del);
     return row;
-  },
+  }
 
   // 끊으면 다시 간선을 맺어야 한다 — 한 걸음 확인을 받는다 (CONFIRM_ONE_STAGE_SRS, FR-EPR-71).
   _egRemoveConfirm(p){
@@ -153,61 +159,61 @@ Object.assign(App.prototype, {
       ],
     });
     document.body.appendChild(m.el);
-  },
+  }
 
   /** 간선을 끊는다. 상대에게 알리지 못했으면 그 사실을 알린다 (FR-EPR-71). */
   async _egRemove(p){
     const r=await apiPost('/api/edges/remove',{fp:p.fp});
     if(r.ok&&r.data&&r.data.notified===false) Toast.show(t('edge.remove_unnotified'),'',0);
     return r;
-  },
+  }
 
   async _loadEdgesPanel(){
     let v=null,got=null;
     await statusRun(document.getElementById('eg-node-status'),{fail:t('edge.read_fail')},async()=>{
       const r=await apiGet('/api/edges');
-      if(r.ok&&r.data){ v=r.data; got=r; await this._edgesRestore(Promise.resolve(r)) }
+      if(r.ok&&r.data){ v=r.data; got=r; await this.app._edgesRestore(Promise.resolve(r)) }
       return r;
     });
     // 방송의 다시 읽기가 이 읽기를 밀어내면 `_edges` 가 아직 비어 있을 수 있다 — 이 읽기의
     // 값으로 그린다. 더 새 값은 그 다시 읽기가 목록에 그린다.
-    v=v||this._edges;
+    v=v||this.app._edges;
     if(!v) return;
     this._egNodePaint(v);
-    if(got) this._liveMark('edges',got,this._egNodeCollect());
+    if(got) this.app._liveMark('edges',got,this._egNodeCollect());
     // 탭을 열면 고치던 줄도 버리고 지금 값으로 그린다.
     this._egEdgesPaint(v.edges||[],true);
-  },
+  }
 
   _egInviteShown(){
     const panel=document.getElementById('panel-edges');
     const overlay=document.getElementById('modal-overlay');
-    return !!(panel&&!panel.hidden&&overlay&&overlay.classList.contains('open')&&this._edges&&this._edges.invite);
-  },
+    return !!(panel&&!panel.hidden&&overlay&&overlay.classList.contains('open')&&this.app._edges&&this.app._edges.invite);
+  }
 
-  _initEdgesPanel(){
+  init(){
     const save=document.getElementById('eg-save');
     if(!save) return;
-    save.addEventListener('click',()=>statusRun(document.getElementById('eg-node-status'),
+    this.listen(save,'click',()=>statusRun(document.getElementById('eg-node-status'),
       {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
-        const r=await apiPut('/api/edges/node',this._egNodeCollect(),this._liveOpts('edges'));
-        if(this._liveStale('edges',r,()=>this._loadEdgesPanel())) return r;
-        if(r.ok&&r.data){ this._edges=r.data; this._egNodePaint(); this._edgesPaint(); this._liveMark('edges',r,this._egNodeCollect()) }
+        const r=await apiPut('/api/edges/node',this._egNodeCollect(),this.app._liveOpts('edges'));
+        if(this.app._liveStale('edges',r,()=>this._loadEdgesPanel())) return r;
+        if(r.ok&&r.data){ this.app._edges=r.data; this._egNodePaint(); this._edgesPaint(); this.app._liveMark('edges',r,this._egNodeCollect()) }
         return r;
       }));
     const invSt=document.getElementById('eg-inv-status');
-    document.getElementById('eg-inv-make').addEventListener('click',()=>statusRun(invSt,{fail:t('edge.inv_fail')},async()=>{
+    this.listen(document.getElementById('eg-inv-make'),'click',()=>statusRun(invSt,{fail:t('edge.inv_fail')},async()=>{
       const addr=document.getElementById('eg-inv-addr').value.trim();
       const r=await apiPost('/api/edges/invite',addr?{addr}:{});
       if(r.ok&&r.data){
         this._egInvite={code:r.data.code,expires:r.data.expires};
-        if(this._edges) this._edges.invite={expires:r.data.expires};
+        if(this.app._edges) this.app._edges.invite={expires:r.data.expires};
         this._egInvitePaint();
       }
       return r;
     }));
-    document.getElementById('eg-inv-copy').addEventListener('click',async()=>{
+    this.listen(document.getElementById('eg-inv-copy'),'click',async()=>{
       const code=document.getElementById('eg-inv-code').value;
       if(!code) return;
       const ok=await ClipboardWriter.write(code);
@@ -215,7 +221,7 @@ Object.assign(App.prototype, {
       invSt.textContent=ok?t('edge.copied'):t('edge.copy_fail');
     });
     const addSt=document.getElementById('eg-add-status');
-    document.getElementById('eg-add').addEventListener('click',()=>statusRun(addSt,{fail:t('edge.add_fail')},async()=>{
+    this.listen(document.getElementById('eg-add'),'click',()=>statusRun(addSt,{fail:t('edge.add_fail')},async()=>{
       const code=document.getElementById('eg-add-code').value.trim();
       const r=await apiPost('/api/edges/add',{code});
       if(!r.ok||!r.data) return r;
@@ -223,11 +229,13 @@ Object.assign(App.prototype, {
       addSt.textContent=t('edge.add_ok',{name:edgeHandle(r.data)});
       return r;
     }));
-    this.timers.every({
-      id:'edges.invite', owner:'edges', whenHidden:'pause',
+    this.app.timers.every({
+      id:'edges.invite', owner:this, whenHidden:'pause',
       every:()=>EDGE_REMAIN_TICK_MS,
       when:()=>this._egInviteShown(),
       run:()=>this._egInvitePaint(),
     });
-  },
-});
+  }
+
+  onTab(){ return this._loadEdgesPanel() }
+}

@@ -5,8 +5,13 @@
  *
  * 기본 마운트는 손으로 적기에 실수하기 쉬운 값이다 — 경로 두 개와 두 개의
  * 표식이 한 항목을 이룬다. 그래서 파일을 직접 고치게 두지 않고 여기서 다룬다.
+ *
+ * REFACTOR3_FE_SETTINGS_SRS 8c: 방송을 받는 `_onSandboxChanged`(옛 `settings-live.js`)도 이 섹션에 있다. App 의
+ * 위임자 `_onSandboxChanged`·`_sbxCollect`(저장 단추 판정)가 이리로 잇는다.
  */
-Object.assign(App.prototype, {
+class SandboxSection extends SettingsSection {
+  constructor(app){ super(app,'sandbox') }
+
   _sbxMountRow(m={}){
     const row=document.createElement('div');row.className='sbx-mount';
     const mk=(cls,ph,val)=>{
@@ -29,7 +34,7 @@ Object.assign(App.prototype, {
     del.addEventListener('click',()=>row.remove());
     row.append(host,cont,ro,sc,del);
     return row;
-  },
+  }
 
   _sbxCollect(){
     const mounts=[];
@@ -50,7 +55,7 @@ Object.assign(App.prototype, {
       cfg.dev=ports.length?{image,ports}:{image};
     }
     return cfg;
-  },
+  }
 
   async _loadSandboxPanel(){
     const box=document.getElementById('sbx-mounts');
@@ -65,28 +70,39 @@ Object.assign(App.prototype, {
       document.getElementById('sbx-image').value=(cfg.dev&&cfg.dev.image)||'';
       document.getElementById('sbx-ports').value=(cfg.dev&&cfg.dev.ports||[]).join(', ');
       for(const m of cfg.mounts||[]) box.appendChild(this._sbxMountRow(m));
-      this._liveMark('sandbox',r,this._sbxCollect());
+      this.app._liveMark('sandbox',r,this._sbxCollect());
       return r;
     });
-  },
+  }
 
-  _initSandboxPanel(){
+  init(){
     const add=document.getElementById('sbx-mount-add');
     const save=document.getElementById('sbx-save');
     if(!add||!save) return;
-    add.addEventListener('click',()=>
+    this.listen(add,'click',()=>
       document.getElementById('sbx-mounts').appendChild(this._sbxMountRow()));
-    save.addEventListener('click',async()=>{
+    this.listen(save,'click',async()=>{
       // 거부 사유가 그대로 온다 — 무엇이 잘못됐는지 모르면 고칠 수 없다.
       await statusRun(document.getElementById('sbx-status'),
         {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},
         async()=>{
           // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
           const cfg=this._sbxCollect();
-          const r=await apiPut('/api/sandbox/config',cfg,this._liveOpts('sandbox'));
-          if(!this._liveStale('sandbox',r,()=>this._loadSandboxPanel())&&r.ok) this._liveMark('sandbox',r,cfg);
+          const r=await apiPut('/api/sandbox/config',cfg,this.app._liveOpts('sandbox'));
+          if(!this.app._liveStale('sandbox',r,()=>this._loadSandboxPanel())&&r.ok) this.app._liveMark('sandbox',r,cfg);
           return r;
         });
     });
-  },
-});
+  }
+
+  // 샌드박스 정의는 파일이 진실이다. 탭을 고를 때마다 다시 읽어야 바깥에서
+  // 고친 것과 어긋나지 않는다.
+  onTab(){ return this._loadSandboxPanel() }
+
+  _onSandboxChanged(){
+    if(!this.app._liveOpen('sandbox')) return;
+    return apiGet('/api/sandbox/config').then(r=>{
+      if(r.ok) this.app._liveChanged('sandbox',r,this._sbxCollect(),()=>this._loadSandboxPanel());
+    });
+  }
+}

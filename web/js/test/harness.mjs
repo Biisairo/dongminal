@@ -77,7 +77,8 @@ export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/git-changes.js'
  */
 export const SETTINGS = ['core/settings-section.js', 'core/settings-row.js', 'core/settings-display.js',
   'core/settings-terminal.js', 'core/settings-code.js', 'core/settings-polling.js', 'core/settings-statusbar.js',
-  'core/settings-notify.js'];
+  'core/settings-notify.js', 'core/settings-sandbox.js', 'core/settings-access.js', 'core/settings-edges.js',
+  'core/settings-profile.js', 'core/settings-telegram.js', 'core/settings-server.js', 'core/settings-claude.js'];
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');

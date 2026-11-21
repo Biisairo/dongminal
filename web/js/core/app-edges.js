@@ -2,7 +2,7 @@
  * Dongminal — 간선 상태와 그 알림 (PEER_NETWORK_SRS FR-PNW-81, EDGE_PAIRING_SRS FR-EPR-5·23).
  *
  * 서버가 `edges_changed` 를 밀면 `GET /api/edges` 를 다시 읽는다 — 주기로 묻지 않는다.
- * 설정의 Edges 패널(`app-settings-edges.js`)은 여기서 읽은 `_edges` 를 그린다.
+ * 설정의 Edges 패널(`settings-edges.js`)은 여기서 읽은 `_edges` 를 그린다.
  *
  * 로드 순서 계약: `app.js` 뒤, `state-registry.js` 뒤.
  */

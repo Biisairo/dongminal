@@ -4,8 +4,13 @@
  * 누가 이 서버에 닿을 수 있는가 (`ACCESS_ALLOWLIST_SRS`). 주소 판정(v4·CIDR)이
  * 여기 함께 있는 이유는 **저장 전에 "지금 나를 잠그는가" 를 물어야** 하기
  * 때문이다 (FR-ACL-24) — 그 판정과 그 확인은 같은 한 가지 일이다.
+ *
+ * REFACTOR3_FE_SETTINGS_SRS 8c: 방송을 받는 `_onAccessChanged`(옛 `settings-live.js`)도 이 섹션에 있다. App 의
+ * 위임자 `_onAccessChanged`·`_aclCollect`(저장 단추 판정)가 이리로 잇는다.
  */
-Object.assign(App.prototype, {
+class AccessSection extends SettingsSection {
+  constructor(app){ super(app,'access') }
+
   /**
    * ACCESS_ALLOWLIST_SRS 묶음 E — 접속 허용 목록 패널.
    *
@@ -41,7 +46,7 @@ Object.assign(App.prototype, {
     del.addEventListener('click',()=>row.remove());
     row.append(on,val,st,del);
     return row;
-  },
+  }
 
   _aclRowsIn(sel){
     const out=[];
@@ -56,7 +61,7 @@ Object.assign(App.prototype, {
       });
     }
     return out;
-  },
+  }
 
   // FR-ACL-36: `PUT` 은 전체 교체다 — 두 목록을 **함께** 보낸다. 한쪽만 보내면
   // 다른 쪽이 지워진다.
@@ -66,11 +71,11 @@ Object.assign(App.prototype, {
       entries:this._aclRowsIn('#acl-list'),
       hosts:this._aclRowsIn('#acl-host-list'),
     };
-  },
+  }
 
   _aclHostRow(e){
     return this._aclRow(e,{placeholder:'macmini-office',plain:true});
-  },
+  }
 
   async _loadAccessPanel(){
     const box=document.getElementById('acl-list');
@@ -95,10 +100,10 @@ Object.assign(App.prototype, {
       const hnow=document.getElementById('acl-host-now');
       if(hnow) hnow.textContent=v.host||t('core.unknown_paren');
       if(hostBox) for(const e of (v.hosts||[])) hostBox.appendChild(this._aclHostRow(e));
-      this._liveMark('access',r,this._aclCollect());
+      this.app._liveMark('access',r,this._aclCollect());
       return r;
     });
-  },
+  }
 
   async _aclSave(cfg){
     // 거부 사유가 그대로 온다 — 어느 줄이 잘못됐는지 모르면 고칠 수 없다.
@@ -107,23 +112,23 @@ Object.assign(App.prototype, {
     await statusRun(document.getElementById('acl-status'),
       {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
-        const r=await apiPut('/api/access',cfg,this._liveOpts('access'));
-        if(this._liveStale('access',r,()=>this._loadAccessPanel())) return r;
-        if(r.ok){ this._liveMark('access',r,cfg); await this._loadAccessPanel() }
+        const r=await apiPut('/api/access',cfg,this.app._liveOpts('access'));
+        if(this.app._liveStale('access',r,()=>this._loadAccessPanel())) return r;
+        if(r.ok){ this.app._liveMark('access',r,cfg); await this._loadAccessPanel() }
         return r;
       });
-  },
+  }
 
-  _initAccessPanel(){
+  init(){
     const add=document.getElementById('acl-add');
     const save=document.getElementById('acl-save');
     if(!add||!save) return;
-    add.addEventListener('click',()=>
+    this.listen(add,'click',()=>
       document.getElementById('acl-list').appendChild(this._aclRow()));
     const hostAdd=document.getElementById('acl-host-add');
-    if(hostAdd) hostAdd.addEventListener('click',()=>
+    if(hostAdd) this.listen(hostAdd,'click',()=>
       document.getElementById('acl-host-list').appendChild(this._aclHostRow()));
-    save.addEventListener('click',async()=>{
+    this.listen(save,'click',async()=>{
       const cfg=this._aclCollect();
       // 잠기는지는 서버가 게이트와 같은 판정기로 답한다 (SERVER_DRIVEN_ACTIONS_SRS X-d). 묻기가
       // 실패하면 저장으로 간다 — 잘못된 값이면 PUT 이 같은 사유를 보인다.
@@ -174,5 +179,16 @@ Object.assign(App.prototype, {
       });
       document.body.appendChild(m.el);
     });
-  },
-});
+  }
+
+  // 허용 목록도 파일이 진실이다. 게다가 해석 상태는 관측값이라 캐시할
+  // 수 없다 — 탭을 고를 때마다 서버에 묻는다.
+  onTab(){ return this._loadAccessPanel() }
+
+  _onAccessChanged(){
+    if(!this.app._liveOpen('access')) return;
+    return apiGet('/api/access').then(r=>{
+      if(r.ok) this.app._liveChanged('access',r,this._aclCollect(),()=>this._loadAccessPanel());
+    });
+  }
+}

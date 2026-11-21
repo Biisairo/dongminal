@@ -15,7 +15,7 @@ declare const OpenUrl: { handle: (url: string) => void };
 // 중첩은 실제 경로로 잡는다 (`03` 이 미확인으로 남긴 항목): 설정 모달의 Access
 // 탭에서 자기 주소를 자르는 목록을 저장하면 `.acl-confirm`(`UIKit.modal`)이 설정
 // 모달 **위에** 뜬다 — 이 저장소에서 확인된 유일한 결정적 중첩이다
-// (`app-settings-access.js:225`).
+// (`settings-access.js` 의 `init`).
 
 /** 설정 모달을 연다. 연 컨트롤이 `#settings-btn` 인 것이 복귀의 기준이다. */
 async function openSettings(page: Page) {

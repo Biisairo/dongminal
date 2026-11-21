@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { BASE, SETTINGS, load, plain } from './harness.mjs';
@@ -30,7 +32,8 @@ function setup(access, els) {
   const doc = { activeElement: null, getElementById: (id) => els[id] || null };
   const ctx = load([...BASE, ...SETTINGS], {
     expose: ['SettingsSection', 'FormRow', 'View', 'DisplaySection', 'TerminalSection', 'CodeSection', 'PollingSection',
-      'StatusbarSection', 'NotifySection'],
+      'StatusbarSection', 'NotifySection', 'ProfileSection', 'ServerSection', 'SandboxSection', 'TelegramSection',
+      'AccessSection', 'EdgesSection', 'ClaudeSection'],
     globals: {
       TIMERS: { disposeOwner() {} },
       SETTINGS_ACCESS: access,
@@ -173,18 +176,62 @@ const MOVED = [
   { cls: 'PollingSection', tab: 'polling', gone: ['_pollPaintRows'], rows: [] },
   { cls: 'StatusbarSection', tab: 'statusbar', gone: ['_renderStatusBarSettings'], rows: [] },
   { cls: 'NotifySection', tab: 'notify', gone: ['initUpdateSettings'], rows: [] },
+  // 8c — 서버 자원 패널. 설정 밖·저장 단추 판정이 부르는 이름은 위임자로 남는다(`DELEGATES`).
+  { cls: 'ProfileSection', tab: 'profile', rows: [],
+    gone: ['_pfPaint', '_pfApply', '_loadProfilePanel', '_profileSave', '_initProfilePanel', '_profileOnSettingsOpen'] },
+  { cls: 'ServerSection', tab: 'server', rows: [],
+    gone: ['_srvPaint', '_loadServerPanel', '_srvChanges', '_srvApply', '_serverMoveTo', '_initServerPanel'] },
+  { cls: 'SandboxSection', tab: 'sandbox', rows: [], gone: ['_sbxMountRow', '_loadSandboxPanel', '_initSandboxPanel'] },
+  { cls: 'TelegramSection', tab: 'telegram', rows: [],
+    gone: ['_tgPaint', '_tgPairPaint', '_tgApply', '_tgPairShown', '_initTelegramPanel'] },
+  { cls: 'AccessSection', tab: 'access', rows: [],
+    gone: ['_aclRow', '_aclRowsIn', '_aclHostRow', '_loadAccessPanel', '_aclSave', '_initAccessPanel'] },
+  { cls: 'EdgesSection', tab: 'edges', rows: [],
+    gone: ['_egKeepEditing', '_egInvitePaint', '_egEdgesPaint', '_egEdgeRow', '_egRemoveConfirm', '_egRemove',
+      '_loadEdgesPanel', '_egInviteShown', '_initEdgesPanel'] },
+  { cls: 'ClaudeSection', tab: 'claude', rows: [],
+    gone: ['_cacctOnSettingsOpen', '_cacctEditing', '_cacctWireEditing', '_loadClaudePanel', '_cacctDo', '_cacctAdd',
+      '_cacctItem', '_cacctAsk', '_cacctAccountRow', '_cacctAutoEl', '_cacctFoldersEl', '_cacctUnclaimedEl',
+      '_cacctHistoryEl', '_cacctPaint'] },
 ];
 
-/** FR-FES-9 의 위임자 가운데 이 단계까지 옮긴 파일에 있는 것. */
+/** FR-FES-9 의 위임자 가운데 이 단계까지 옮긴 파일에 있는 것 + 설정 밖·저장 단추 판정이 부르는 이름(8c). */
 const DELEGATES = ['saveSettings', '_settingsApply', '_settingsRestore', '_onSettingsChanged', '_openSettings',
   '_saveSettingsSoon', '_saveSettingsNow', '_paintSettingControls', '_edApplyWordWrap', '_edApplyMinimap',
-  '_edApplyFontSize', '_termApplyFontSize'];
+  '_edApplyFontSize', '_termApplyFontSize',
+  // 8c
+  '_onAccessChanged', '_onSandboxChanged', '_onServerMoving', '_edgesPaint', '_egNodePaint', '_egMeshPaint',
+  '_egInvitesPaint', '_egNotify', '_cacctPanelShown', '_cacctRefreshSoft', '_loadTelegramPanel', '_tgRead',
+  '_pfCollect', '_pfFollow', '_sbxCollect', '_aclCollect', '_egNodeCollect'];
 
-function appProto() {
-  const ctx = load(['core/app-settings.js', 'core/app-settings-init.js', 'core/app-dock.js', 'core/app-lsp.js',
-    'core/lsp-client.js', 'core/app-polling.js', 'core/app-statusbar.js', 'core/app-update.js', 'core/app-attn.js'],
-  { globals: { App: function App() {}, t: (k) => k, tn: (k) => k }, expose: ['LspClient'] });
-  return ctx;
+/** 8c 의 위임자 → 섹션 탭과 섹션 메서드. 위임자는 인자를 그대로 넘기고 답을 그대로 돌려준다. */
+const ROUTES = [
+  ['_onAccessChanged', 'access', '_onAccessChanged'], ['_onSandboxChanged', 'sandbox', '_onSandboxChanged'],
+  ['_onServerMoving', 'server', '_onServerMoving'], ['_edgesPaint', 'edges', '_edgesPaint'],
+  ['_egNodePaint', 'edges', '_egNodePaint'], ['_egNodeCollect', 'edges', '_egNodeCollect'],
+  ['_cacctPanelShown', 'claude', '_cacctPanelShown'], ['_cacctRefreshSoft', 'claude', '_cacctRefreshSoft'],
+  ['_loadTelegramPanel', 'telegram', '_loadTelegramPanel'], ['_tgRead', 'telegram', '_tgRead'],
+  ['_pfCollect', 'profile', '_pfCollect'], ['_pfFollow', 'profile', '_pfFollow'], ['_sbxCollect', 'sandbox', '_sbxCollect'],
+  ['_aclCollect', 'access', '_aclCollect'],
+];
+
+const JS_ROOT = new URL('..', import.meta.url).pathname;
+
+/** App 원형에 메서드를 얹는 파일들(`Object.assign(App.prototype`)에서 정의된 이름. 섹션 파일은 클래스라 빠진다. */
+function appMixinNames() {
+  const out = new Set();
+  const walk = (d) => {
+    for (const n of readdirSync(d)) {
+      const f = join(d, n);
+      if (statSync(f).isDirectory()) { if (n !== 'test' && n !== 'vendor') walk(f); continue }
+      if (!n.endsWith('.js')) continue;
+      const src = readFileSync(f, 'utf8');
+      if (!src.includes('Object.assign(App.prototype')) continue;
+      for (const m of src.matchAll(/^ {2}(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/gm)) out.add(m[1]);
+    }
+  };
+  walk(JS_ROOT);
+  return out;
 }
 
 test('TC-FES-3: 옮긴 섹션의 원형 사슬에 SettingsSection·View 가 있고 탭 이름이 맞다', () => {
@@ -218,10 +265,29 @@ test('TC-FES-3: 섹션이 init 에서 선언한 행이 표와 같다', () => {
 });
 
 test('TC-FES-3: 옮긴 _init* 가 App 원형에 없고 위임자는 남는다', () => {
-  const ctx = appProto();
-  for (const m of MOVED) for (const n of m.gone) assert.equal(ctx.App.prototype[n], undefined, n);
-  assert.equal(ctx.LspClient.prototype._initLSP, undefined, 'LspClient._initLSP');
-  for (const n of DELEGATES) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+  const names = appMixinNames();
+  for (const m of MOVED) for (const n of m.gone) assert.ok(!names.has(n), 'App 원형에 남았다: ' + n);
+  assert.doesNotMatch(readFileSync(join(JS_ROOT, 'core/lsp-client.js'), 'utf8'), /^ {2}_initLSP\(/m, 'LspClient._initLSP');
+  for (const n of DELEGATES) assert.ok(names.has(n), '위임자가 없다: ' + n);
+});
+
+test('TC-FES-3(8c): 위임자는 그 탭의 섹션에 인자와 답을 그대로 잇고, 섹션이 없으면 아무것도 하지 않는다', () => {
+  const ctx = load([...BASE, ...SETTINGS, 'core/app-settings.js'], {
+    globals: { App: function App() {}, TIMERS: { disposeOwner() {} } },
+    expose: ['SettingsSection'],
+  });
+  const bare = new ctx.App();
+  for (const [name] of ROUTES) assert.doesNotThrow(() => bare[name]('x'), name);
+  const app = new ctx.App();
+  const seen = [];
+  const tabs = new Map();
+  for (const [, tab, meth] of ROUTES) {
+    if (!tabs.has(tab)) tabs.set(tab, { tab, init() {} });
+    tabs.get(tab)[meth] = (...a) => { seen.push([meth, ...a]); return meth + ':ok' };
+  }
+  for (const sec of tabs.values()) ctx.SettingsSection.start(app, sec);
+  for (const [name, , meth] of ROUTES) assert.equal(app[name]('a', 2), meth + ':ok', name);
+  assert.deepEqual(plain(seen), ROUTES.map(([, , meth]) => [meth, 'a', 2]));
 });
 
 // ── 8b 특이 행 (FR-FES-4) ────────────────────────────────────────────────

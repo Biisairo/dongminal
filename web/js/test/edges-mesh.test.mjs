@@ -17,7 +17,7 @@ function setup() {
   const posts = [];
   let next = { ok: true, status: 200, data: { edges: [] } };
   let postResult = { ok: true, status: 200, data: {} };
-  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js', 'core/app-settings-edges.js', 'core/app-edges-mesh.js'], {
+  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js', 'core/app-edges-mesh.js'], {
     expose: ['meshLayout', 'meshNodeAction', 'meshNodeMarks', 'meshDirectPeer', 'MESH_W', 'MESH_H'],
     globals: {
       App: function App() {},

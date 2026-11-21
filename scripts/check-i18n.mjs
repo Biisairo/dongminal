@@ -99,7 +99,7 @@ const DYNAMIC_PREFIXES = [
   { prefix: 'usage.win.', why: "app-activity.js 가 서버 한도의 창 이름으로 `'usage.win.' + name` 을 조립한다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-41)" },
   { prefix: 'usage.dur.', why: "app-activity.js 가 남은 시간의 단위(d·h·m)로 `'usage.dur.' + unit` 을 조립한다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-41)" },
   { prefix: 'usage.sl.', why: "app-activity.js 가 statusLine 창 이름으로 `'usage.sl.' + name` 을 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-93)" },
-  { prefix: 'cacct.color.', why: "app-settings-claude.js 가 팔레트 키로 `'cacct.color.' + acct_N` 을 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-94a·98)" },
+  { prefix: 'cacct.color.', why: "settings-claude-rows.js 가 팔레트 키로 `'cacct.color.' + acct_N` 을 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-94a·98)" },
   { prefix: 'cacct.st.', why: "app-claude-accounts.js 가 서버의 계정 상태로 `'cacct.st.' + status` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-56)" },
   { prefix: 'cacct.rs.r.', why: "app-claude-accounts.js 가 서버의 초기화 결과로 `'cacct.rs.r.' + result` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-63)" },
   { prefix: 'cacct.wd.', why: "app-claude-accounts.js 가 요일 번호(0~6)로 `'cacct.wd.' + day` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-91)" },

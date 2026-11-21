@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * TELEGRAM_BRIDGE_SRS FR-TGB-1·3·10 — 설정창 Telegram 패널.
@@ -29,7 +29,8 @@ function setup() {
     calls.push([method, path, body]);
     return replies[method + ' ' + path] || { ok: true, status: 200, data: null };
   };
-  const ctx = load(['core/app-edges.js', 'core/app-settings-telegram.js'], {
+  const ctx = load([...BASE, 'core/settings-section.js', 'core/app-edges.js', 'core/settings-telegram.js', 'core/app-settings.js'], {
+    expose: ['SettingsSection', 'TelegramSection'],
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),
@@ -43,7 +44,8 @@ function setup() {
   });
   const app = new ctx.App();
   app.timers = { every: () => ({ stop() {} }) };
-  app._initTelegramPanel();
+  // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `TelegramSection` 이다. `_loadTelegramPanel`·`_tgRead` 는 App 의 위임자다.
+  ctx.SettingsSection.start(app, new ctx.TelegramSection(app));
   return { app, dom, calls, replies };
 }
 

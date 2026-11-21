@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /** vm 안에서 만든 값은 원형이 달라 그대로 견주면 틀린다. */
 const plain = (x) => JSON.parse(JSON.stringify(x));
@@ -105,7 +105,8 @@ function setupPanel({ confirm = true } = {}) {
     calls.push([method, path, body]);
     return replies[method + ' ' + path] || { ok: true, status: 200, data: null };
   };
-  const ctx = load(['core/server-move.js', 'core/app-settings-server.js'], {
+  const ctx = load([...BASE, 'core/settings-section.js', 'core/server-move.js', 'core/settings-server.js'], {
+    expose: ['ServerSection'],
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),
@@ -116,18 +117,19 @@ function setupPanel({ confirm = true } = {}) {
       UIKit: { ask: async () => confirm },
     },
   });
-  const app = new ctx.App();
-  app._serverMoveTo = (port) => moved.push(port);
-  app._initServerPanel();
-  return { app, dom, calls, replies, moved };
+  // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `ServerSection` 이다. App 의 `_onServerMoving` 은 이리로 잇는 위임자다.
+  const srv = new ctx.ServerSection(new ctx.App());
+  srv._serverMoveTo = (port) => moved.push(port);
+  srv.init();
+  return { srv, dom, calls, replies, moved };
 }
 
 const bindView = (o) => ({ host: '127.0.0.1', port: '58146', expose: false, url: 'http://127.0.0.1:58146', local: true, source: { host: 'default', port: 'file' }, ...o });
 
 test('Server 구역은 지금 바인드와 출처를 보이고 입력 칸을 채운다', async () => {
-  const { app, dom, replies } = setupPanel();
+  const { srv, dom, replies } = setupPanel();
   replies['GET /api/server/bind'] = { ok: true, status: 200, data: bindView() };
-  await app._loadServerPanel();
+  await srv._loadServerPanel();
   assert.equal(dom['srv-now'].textContent, '127.0.0.1:58146');
   assert.match(dom['srv-source'].textContent, /srv\.src_file/);
   assert.equal(dom['srv-port'].value, '58146');
@@ -136,17 +138,17 @@ test('Server 구역은 지금 바인드와 출처를 보이고 입력 칸을 채
 });
 
 test('루프백이 아닌 화면에서는 적용을 끄고 사유를 보인다', async () => {
-  const { app, dom, replies } = setupPanel();
+  const { srv, dom, replies } = setupPanel();
   replies['GET /api/server/bind'] = { ok: true, status: 200, data: bindView({ local: false }) };
-  await app._loadServerPanel();
+  await srv._loadServerPanel();
   assert.equal(dom['srv-apply'].disabled, true);
   assert.equal(dom['srv-local'].hidden, false);
 });
 
 test('적용: 확인을 거쳐 바뀐 값만 보내고, 포트가 바뀌면 새 주소로 간다', async () => {
-  const { app, dom, calls, replies, moved } = setupPanel();
+  const { srv, dom, calls, replies, moved } = setupPanel();
   replies['GET /api/server/bind'] = { ok: true, status: 200, data: bindView() };
-  await app._loadServerPanel();
+  await srv._loadServerPanel();
   dom['srv-port'].value = '9100';
   replies['POST /api/server/bind'] = { ok: true, status: 200, data: bindView({ port: '9100' }) };
   await dom['srv-apply'].fire('click');
@@ -155,9 +157,9 @@ test('적용: 확인을 거쳐 바뀐 값만 보내고, 포트가 바뀌면 새 
 });
 
 test('적용: expose 만 바꾸면 이사하지 않고 새 값을 칠한다', async () => {
-  const { app, dom, calls, replies, moved } = setupPanel();
+  const { srv, dom, calls, replies, moved } = setupPanel();
   replies['GET /api/server/bind'] = { ok: true, status: 200, data: bindView() };
-  await app._loadServerPanel();
+  await srv._loadServerPanel();
   dom['srv-expose'].checked = true;
   replies['POST /api/server/bind'] = { ok: true, status: 200, data: bindView({ host: '0.0.0.0', expose: true, warning: 'W' }) };
   await dom['srv-apply'].fire('click');
@@ -167,9 +169,9 @@ test('적용: expose 만 바꾸면 이사하지 않고 새 값을 칠한다', as
 });
 
 test('적용: 확인에서 물리면 보내지 않는다. 바뀐 것이 없어도 보내지 않는다', async () => {
-  const { app, dom, calls, replies } = setupPanel({ confirm: false });
+  const { srv, dom, calls, replies } = setupPanel({ confirm: false });
   replies['GET /api/server/bind'] = { ok: true, status: 200, data: bindView() };
-  await app._loadServerPanel();
+  await srv._loadServerPanel();
   const n = calls.length;
   await dom['srv-apply'].fire('click');
   dom['srv-port'].value = '9100';
@@ -178,8 +180,8 @@ test('적용: 확인에서 물리면 보내지 않는다. 바뀐 것이 없어�
 });
 
 test('server_moving 은 한 번만 이사한다', () => {
-  const { app, moved } = setupPanel();
-  app._onServerMoving({ port: '9100' });
-  app._onServerMoving({ port: '9100' });
+  const { srv, moved } = setupPanel();
+  srv._onServerMoving({ port: '9100' });
+  srv._onServerMoving({ port: '9100' });
   assert.deepEqual(moved, ['9100']);
 });

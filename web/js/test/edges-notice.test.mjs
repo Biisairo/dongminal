@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * EDGE_PAIRING_SRS FR-EPR-5·23·32·70·71 — 간선 상태의 화면 쪽 규칙 (TC-EPR-10).
@@ -19,8 +19,9 @@ function setup(extra = {}) {
   let next = { ok: true, status: 200, data: { edges: [] } };
   let postResult = { ok: true, status: 200, data: {} };
   const after = [];
-  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js', 'core/app-settings-edges.js'], {
-    expose: ['edgeFp16', 'edgeRemain', 'edgeWho', 'edgeHandle'],
+  const ctx = load([...BASE, 'core/settings-section.js', 'core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js',
+    'core/settings-edges.js'], {
+    expose: ['edgeFp16', 'edgeRemain', 'edgeWho', 'edgeHandle', 'EdgesSection'],
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),
@@ -50,8 +51,10 @@ function setup(extra = {}) {
   app._edgesPaint = () => {};
   app._titles = 0;
   app._applyPageTitle = () => { app._titles++ };
+  // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `EdgesSection` 이다. 읽기·지문·알림은 App 을 거친다.
+  const sec = new ctx.EdgesSection(app);
   return {
-    ctx, app, shown, posts, after,
+    ctx, app, sec, shown, posts, after,
     setNext: (v) => { next = v },
     setPost: (v) => { postResult = v },
   };
@@ -119,14 +122,14 @@ test('상대가 지운 removed 방송만 "끊겼습니다" 알림을 띄운다',
 });
 
 test('끊기는 지문으로 보내고, 상대에게 알리지 못했으면 알린다', async () => {
-  const { app, shown, posts, setPost } = setup();
+  const { sec, shown, posts, setPost } = setup();
   setPost({ ok: true, status: 200, data: { fp: 'f3', name: 'node-d', notified: false } });
-  await app._egRemove({ fp: 'f3', name: 'node-d' });
+  await sec._egRemove({ fp: 'f3', name: 'node-d' });
   assert.equal(JSON.stringify(posts), JSON.stringify([['/api/edges/remove', { fp: 'f3' }]]));
   assert.equal(shown.length, 1);
   assert.match(shown[0].text, /^edge\.remove_unnotified/);
   setPost({ ok: true, status: 200, data: { fp: 'f4', name: 'node-e', notified: true } });
-  await app._egRemove({ fp: 'f4', name: 'node-e' });
+  await sec._egRemove({ fp: 'f4', name: 'node-e' });
   assert.equal(shown.length, 1, '알렸는데 미통지 알림을 띄웠다');
 });
 
@@ -136,13 +139,13 @@ test('끊기는 지문으로 보내고, 상대에게 알리지 못했으면 알�
  */
 test('탭을 여는 읽기가 밀려도 노드 칸은 그 값으로 채운다', async () => {
   const data = { node: { name: 'office', port: 58147 }, edges: [{ name: 'b', fp: 'f' }] };
-  const { app } = setup({ apiGet: async () => ({ ok: true, status: 200, data }) });
+  const { app, sec } = setup({ apiGet: async () => ({ ok: true, status: 200, data }) });
   app._restoreLive = () => false; // 방송의 다시 읽기가 뒤에 시작했다
   const painted = {};
-  app._egNodePaint = (v) => { painted.node = v };
-  app._egEdgesPaint = (p, force) => { painted.edges = [p, force] };
-  app._egNodeCollect = () => ({}); // 폼 DOM 은 이 시험의 대상이 아니다 (UX_BATCH12 FR-LIV-6 의 기준값)
-  await app._loadEdgesPanel();
+  sec._egNodePaint = (v) => { painted.node = v };
+  sec._egEdgesPaint = (p, force) => { painted.edges = [p, force] };
+  sec._egNodeCollect = () => ({}); // 폼 DOM 은 이 시험의 대상이 아니다 (UX_BATCH12 FR-LIV-6 의 기준값)
+  await sec._loadEdgesPanel();
   assert.equal(painted.node, data);
   assert.deepEqual(painted.edges, [data.edges, true]);
 });

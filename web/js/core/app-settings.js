@@ -11,12 +11,12 @@
  *   settings-row.js           단순한 행 `FormRow` (체크·숫자)
  *   app-settings-theme.js     테마 목록 · 미리보기 · 사용자 정의 편집
  *   app-settings-keys.js      단축키 목록 · 녹화
- *   app-settings-sandbox.js   샌드박스 패널
- *   app-settings-access.js    접속 허용 목록(ACL) 패널
- *   app-settings-edges.js     간선(Edges) 패널
- *   app-settings-profile.js   프로필(이름#번호) 패널
- *   app-settings-telegram.js  Telegram 브리지 패널 · app-settings-server.js  Server(바인드) 패널
- *   app-settings-claude.js    Claude 계정 패널
+ *   settings-sandbox.js       샌드박스 패널 (`SandboxSection`)
+ *   settings-access.js        접속 허용 목록(ACL) 패널 (`AccessSection`)
+ *   settings-edges.js         간선(Edges) 패널 (`EdgesSection`)
+ *   settings-profile.js       프로필(이름#번호) 패널 (`ProfileSection`)
+ *   settings-telegram.js      Telegram 브리지 패널 · settings-server.js  Server(바인드) 패널
+ *   settings-claude.js        Claude 계정 패널 (`ClaudeSection`, 순수 함수는 settings-claude-rows.js)
  */
 /**
  * 설정 하나를 **읽고 얹는 방법** (CONFIG_MANAGEMENT_SRS FR-CFG-5).
@@ -350,30 +350,26 @@ Object.assign(App.prototype, {
     // 칠한다 — 다른 화면에서 바뀐 값이 이 모달에 옛 상태로 남아 있으면 사용자가
     // 그것을 켜진 줄로 읽는다. 숫자 입력란도 확정하지 않은 글자(`999` 를 치고 `Esc`)를
     // 여기서 맞춘다. 포커스는 다음 프레임에 오므로 여기서는 전부 칠해진다.
-    for(const s of SettingsSection.all(this)) s.onOpen();
+    const display=SettingsSection.of(this,'display');
+    if(display) display.onOpen();
     this._paintSettingControls();
     this._labelSettingsRows();
-    this._cacctOnSettingsOpen(modal);
+    const claude=SettingsSection.of(this,'claude');
+    if(claude) claude.onOpen();
     // Auto-close drawer when opening settings on mobile
     if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
     // REFACTOR3_FE_ESC_SRS FR-FEE-9: 종전 `#settings-btn` 클릭 리스너 셋의 일을 그 실행 순서대로 — 검색 비우기 →
     // 프로필 읽기 → 모바일 머리와 목록 화면. 목록 화면은 열기·패널 칠하기 뒤여야 한다.
     if(this._settingsSearchReset) this._settingsSearchReset();
-    this._profileOnSettingsOpen();
+    const profile=SettingsSection.of(this,'profile');
+    if(profile) profile.onOpen();
     this._settingsMobileOnOpen(modal);
   },
 
   /** 탭을 골랐을 때 (`SettingsModal` 의 `onTab`). 고른 탭의 DOM 은 이미 바뀌었다. */
   _settingsOnTab(tab){
     if(tab==='presets')this._renderPresets();
-    // 샌드박스 정의는 파일이 진실이다. 열 때마다 다시 읽어야 바깥에서
-    // 고친 것과 어긋나지 않는다.
-    if(tab==='sandbox')this._loadSandboxPanel();
-    // 허용 목록도 파일이 진실이다. 게다가 해석 상태는 관측값이라 캐시할
-    // 수 없다 — 열 때마다 서버에 묻는다.
-    if(tab==='access')this._loadAccessPanel();
-    const load={profile:'_loadProfilePanel',edges:'_loadEdgesPanel',telegram:'_loadTelegramPanel',server:'_loadServerPanel',claude:'_loadClaudePanel'}[tab];
-    if(load)this[load]();
+    // 탭별 재조회(sandbox·access·profile·edges·telegram·server·claude)와 code 탭의 관측은 그 섹션의 `onTab` 이다.
     const sec=SettingsSection.of(this,tab);
     if(sec) sec.onTab();
   },
@@ -393,11 +389,35 @@ Object.assign(App.prototype, {
     SettingsSection.start(this,new CodeSection(this));
     this._paintSettingControls();
     this._initBackup();
-    this._initSandboxPanel();
-    this._initAccessPanel();
-    this._initEdgesPanel();
-    this._initProfilePanel();
-    this._initTelegramPanel();
-    this._initServerPanel();
+    SettingsSection.start(this,new SandboxSection(this));
+    SettingsSection.start(this,new AccessSection(this));
+    SettingsSection.start(this,new EdgesSection(this));
+    SettingsSection.start(this,new ProfileSection(this));
+    SettingsSection.start(this,new TelegramSection(this));
+    SettingsSection.start(this,new ServerSection(this));
+    SettingsSection.start(this,new ClaudeSection(this));
+  },
+
+  // ── 설정 섹션 위임자 (REFACTOR3_FE_SETTINGS_SRS FR-FES-9) ──
+  // 설정 밖(`app-edges.js`·`state-registry.js`·`app-claude-accounts.js`)·저장 단추 판정(`settings-save-state.js`)·
+  // 단위 시험이 App 에서 부르는 이름이다. 섹션이 아직 없으면(`initModal` 전) 아무것도 하지 않는다.
+  _onAccessChanged(...a){ return this._sectionCall('access','_onAccessChanged',a) },
+  _onSandboxChanged(...a){ return this._sectionCall('sandbox','_onSandboxChanged',a) },
+  _onServerMoving(...a){ return this._sectionCall('server','_onServerMoving',a) },
+  _edgesPaint(...a){ return this._sectionCall('edges','_edgesPaint',a) },
+  _egNodePaint(...a){ return this._sectionCall('edges','_egNodePaint',a) },
+  _egNodeCollect(...a){ return this._sectionCall('edges','_egNodeCollect',a) },
+  _cacctPanelShown(...a){ return this._sectionCall('claude','_cacctPanelShown',a) },
+  _cacctRefreshSoft(...a){ return this._sectionCall('claude','_cacctRefreshSoft',a) },
+  _loadTelegramPanel(...a){ return this._sectionCall('telegram','_loadTelegramPanel',a) },
+  _tgRead(...a){ return this._sectionCall('telegram','_tgRead',a) },
+  _pfCollect(...a){ return this._sectionCall('profile','_pfCollect',a) },
+  _pfFollow(...a){ return this._sectionCall('profile','_pfFollow',a) },
+  _sbxCollect(...a){ return this._sectionCall('sandbox','_sbxCollect',a) },
+  _aclCollect(...a){ return this._sectionCall('access','_aclCollect',a) },
+
+  _sectionCall(tab,name,args){
+    const s=SettingsSection.of(this,tab);
+    return s?s[name](...args):undefined;
   },
 });

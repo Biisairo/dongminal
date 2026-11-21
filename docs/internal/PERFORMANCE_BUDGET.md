@@ -100,11 +100,11 @@
 | `web/js/core/app-edsearch.js` | `_edPanelQuery` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 사용자가 친 검색어 |
 | `web/js/core/app-mobile.js` | `_mkbRender` | `bar` | 1 | 사용자 | 키바 배선(`InputBinding.bind()` 에서 한 번)과 설정 `keybar` 가 바뀔 때 (UX_AUDIT_FIX_SRS FR-UXF-93) |
 | `web/js/core/app-presets.js` | `_renderPresets` | `el` | 1 | 사용자 | 프리셋 목록을 열 때 |
-| `web/js/core/app-settings-access.js` | `_loadAccessPanel` | `box` | 1 | 사용자 | 설정 탭 전환 |
-| `web/js/core/app-settings-access.js` | `_loadAccessPanel` | `hostBox` | 1 | 사용자 | 같은 자리 |
+| `web/js/core/settings-access.js` | `_loadAccessPanel` | `box` | 1 | 사용자 | 설정 탭 전환 |
+| `web/js/core/settings-access.js` | `_loadAccessPanel` | `hostBox` | 1 | 사용자 | 같은 자리 |
 | `web/js/core/app-settings-keybar.js` | `_keybarPaint` | `list` | 1 | 사용자 | 설정 `keybar` 가 바뀔 때 — 이 화면의 손짓이거나 다른 기기의 저장 방송 (FR-UXF-95) |
 | `web/js/core/app-settings-keys.js` | `_renderShortcutList` | `el` | 1 | 사용자 | 설정 탭 전환 |
-| `web/js/core/app-settings-sandbox.js` | `_loadSandboxPanel` | `box` | 1 | 사용자 | 설정 탭 전환 |
+| `web/js/core/settings-sandbox.js` | `_loadSandboxPanel` | `box` | 1 | 사용자 | 설정 탭 전환 |
 | `web/js/core/app-settings-theme.js` | `_renderThemePanel` | `list` | 1 | 사용자 | 설정 탭 전환 |
 | `web/js/core/app-settings-theme.js` | `_showCustomEditor` | `termDiv` | 1 | 사용자 | 사용자가 연 편집기 |
 | `web/js/core/app-settings-theme.js` | `_showCustomEditor` | `uiDiv` | 1 | 사용자 | 같은 자리 |

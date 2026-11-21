@@ -182,7 +182,7 @@ class App {
     // FR-SRL-8·9: 내부 새로고침의 진입점 둘. 배선은 `_subscribeCommands` **뒤**
     // 여야 한다 — 그것이 `_sseKick` 을 세운다.
     this._initSoftReload();
-    // FR-WSL-50·81: 슬롯 토글 버튼과 방향 설정. 다른 `_init*` 과 같은 자리다.
+    // FR-WSL-50: 슬롯 토글 버튼. 다른 `_init*` 과 같은 자리다 (방향 설정은 `DisplaySection`).
     this._initSlots();
   }
 
