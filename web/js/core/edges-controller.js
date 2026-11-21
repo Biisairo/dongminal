@@ -37,7 +37,7 @@ function edgeWho(p){
 function edgeRemain(expires,now){
   const ms=Date.parse(expires)-now;
   if(!(ms>0)) return '';
-  const s=Math.ceil(ms/1000);
+  const s=Math.ceil(ms/MS_PER_SEC);
   return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
 }
 
@@ -158,11 +158,11 @@ class EdgesController extends Controller {
     const els=[who];
     const act=meshNodeAction(n);
     if(act==='invite') els.push(UIKit.button({label:t('edge.invite_send'),kind:'ghost',size:'sm',cls:'eg-mesh-invite',
-      title:'Send an edge invite to this node',onClick:()=>this._egInviteSend(n)}));
+      title:TIP_EDGE_INVITE_SEND,onClick:()=>this._egInviteSend(n)}));
     if(act==='notify'){
       const e=(v.edges||[]).find(x=>x.fp===n.fp);
       if(e) els.push(UIKit.button({label:t('edge.notify'),kind:'ghost',size:'sm',cls:'eg-mesh-notify',
-        title:'Send my name, node port and address to this edge',onClick:()=>this._egNotify(e)}));
+        title:TIP_EDGE_NOTIFY,onClick:()=>this._egNotify(e)}));
     }
     if(!act&&!n.self){
       const none=document.createElement('span');
@@ -195,9 +195,9 @@ class EdgesController extends Controller {
       who.title=edgeFp16(inv.from);
       row.append(who,
         UIKit.button({label:t('edge.invite_accept'),kind:'ghost',size:'sm',cls:'eg-invite-accept',
-          title:'Make an edge with this node',onClick:()=>this._egInviteAccept(inv)}),
+          title:TIP_EDGE_INVITE_ACCEPT,onClick:()=>this._egInviteAccept(inv)}),
         UIKit.button({label:t('edge.invite_reject'),kind:'ghost',size:'sm',cls:'eg-invite-reject',
-          title:'Discard this invite',onClick:()=>this._egInviteReject(inv)}));
+          title:TIP_EDGE_INVITE_REJECT,onClick:()=>this._egInviteReject(inv)}));
       return row;
     }));
   }

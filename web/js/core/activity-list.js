@@ -73,8 +73,6 @@ const ACTIVITY_SECTIONS=[
  *   이유:     계정을 구분하는 값(계정 묶음)과 구분하지 못하는 값(statusLine)을 섞지 않는다
  */
 
-/** FR-ASV-42: 관측이 이보다 오래되면 `as of HH:MM` 을 보인다. */
-const LIMIT_STALE_MS=10*60*1000;
 /** FR-ASV-41: i18n 이름이 있는 창. 나머지는 `limitWindowLabel` 이 사람이 읽는 꼴로 쓴다. */
 const LIMIT_WINDOW_KEYS=Object.freeze(['five_hour','seven_day','seven_day_opus','seven_day_sonnet']);
 /** FR-CAC-93: statusLine 줄에서 짧은 이름을 갖는 창. */
@@ -130,7 +128,7 @@ function limitClock(ms){
 function limitBarView(id,label,pct,resetsAt,resetsInSec,level){
   const n=Math.round(pct);
   // 툴팁은 영어다 (FR-TIP-2) — 이름은 화면 문구를 그대로 쓰고, 나머지 낱말만 영어로 둔다.
-  const title=[label,n+'% used',typeof resetsAt==='number'&&resetsAt>0?'resets at '+limitClock(resetsAt*1000):'']
+  const title=[label,n+'% used',typeof resetsAt==='number'&&resetsAt>0?'resets at '+limitClock(resetsAt*MS_PER_SEC):'']
     .filter(Boolean).join(' · ');
   return {id,label,used:t('usage.used',{n}),fill:Math.min(100,Math.max(0,pct)),level:level||'',
     reset:typeof resetsInSec==='number'?limitResetText(resetsInSec):'',title};
@@ -281,7 +279,7 @@ class ActivityList extends Controller {
     if(lines.length) foot.appendChild(domEl('div','act-usage-sl-h',lines[0].label));
     for(const l of lines){
       const row=foot.appendChild(domEl('div','act-usage-sl'+(l.key?' cacct-sl':'')+(l.asOf?' stale':'')));
-      row.title='Rate limits reported by the Claude Code statusLine'+(l.asOf?' · '+l.asOf:'');
+      row.title=TIP_LIMIT_STATUSLINE+(l.asOf?' · '+l.asOf:'');
       const who=row.appendChild(domEl('span','cacct-who'));
       if(l.color) who.appendChild(domEl('span','cacct-dot')).style.background='var(--'+l.color+')';
       if(l.name) who.appendChild(domEl('span','cacct-name',l.name));

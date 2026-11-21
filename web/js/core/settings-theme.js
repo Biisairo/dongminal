@@ -44,7 +44,7 @@ class ThemeSection extends SettingsSection {
       for(let h=0;h<360;h+=SEED_SWATCH_STEP){
         const b=document.createElement('button');
         b.type='button'; b.className='ui-btn ui-btn-icon seed-swatch'; b.dataset.hue=String(h);
-        b.setAttribute('aria-label','Hue '+h+'°'); b.title='Hue '+h+'°';
+        b.setAttribute('aria-label',TIP_THEME_HUE+h+'°'); b.title=TIP_THEME_HUE+h+'°';
         b.addEventListener('click',()=>{const o=oklchOf(getCurrentTheme().ui.accent);seedColor=hexOfOklch(o.L,o.C,h);this._seedChanged(true)});
         box.appendChild(b);
       }

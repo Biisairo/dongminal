@@ -26,6 +26,10 @@
   if(!/[?&]diag=1(&|$)/.test(location.search)) return;
 
   const MAX=600;
+  // 붙을 대상(소켓·스크롤 칸·렌더러)이 늦게 서므로 이 주기로 다시 걸어 본다.
+  const HOOK_RETRY_MS=1000;
+  // 첫 환경 기록. 부팅이 끝난 뒤의 값을 적으려고 조금 미룬다.
+  const ENV_DELAY_MS=800;
   const lines=[];
   let paused=false;
 
@@ -63,7 +67,7 @@
   const t0=Date.now();
   function put(s){
     if(paused) return;
-    lines.push(((Date.now()-t0)/1000).toFixed(2)+' '+s);
+    lines.push(((Date.now()-t0)/MS_PER_SEC).toFixed(2)+' '+s);
     if(lines.length>MAX) lines.splice(0,lines.length-MAX);
     logEl.textContent=lines.slice(-60).join('\n');
     logEl.scrollTop=logEl.scrollHeight;
@@ -100,7 +104,7 @@
     if(!a||!a.gitPanels||!a.gitPanels.size) return 'git: no panels';
     const out=[];
     for(const p of a.gitPanels.values()){
-      const age=p._lastObsAt?Math.round((Date.now()-p._lastObsAt)/1000)+'s':'never';
+      const age=p._lastObsAt?Math.round((Date.now()-p._lastObsAt)/MS_PER_SEC)+'s':'never';
       out.push((p.repo||'-')+' obs='+age+' poll='+(p._pollOn?p._pollSt:'off'));
     }
     return 'git: '+out.join(' | ');
@@ -193,7 +197,7 @@
     };
     p.__diagSpied=true;
   };
-  setInterval(hookSend,1000);
+  setInterval(hookSend,HOOK_RETRY_MS);
 
   // ── 스크롤 결과 ──
   const watchScroll=()=>{
@@ -202,7 +206,7 @@
     try{p.term.onScroll(()=>put('term.onScroll '+scrollState()))}catch{}
     p.__diagScroll=true;
   };
-  setInterval(watchScroll,1000);
+  setInterval(watchScroll,HOOK_RETRY_MS);
 
   /**
    * M9-B2: **떨어져 있는 동안**의 `ydisp` 를 본다.
@@ -266,7 +270,7 @@
     };
     r.__diagGrab=true;
   };
-  setInterval(hookRenderer,1000);
+  setInterval(hookRenderer,HOOK_RETRY_MS);
 
   /**
    * OBSERVABILITY_SRS FR-OBS-18: 잡히지 않은 오류를 여기서 본다.
@@ -354,5 +358,5 @@
     }else put('HUB bus 없음');
   };
 
-  setTimeout(env,800);
+  setTimeout(env,ENV_DELAY_MS);
 })();

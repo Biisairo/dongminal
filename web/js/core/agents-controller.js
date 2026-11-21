@@ -315,7 +315,7 @@ class AgentsController extends Controller {
       // FR-TIP-2: 툴팁은 영어다. 종전에는 한국어였고, 이 패널을 재는 시험이
       // 없어서 드러나지 않았다 — FR-ACT-1 이 주의 구역을 여기로 옮기면서
       // `tooltips.spec.ts` C10 이 패널 전체를 보게 됐다.
-      title:folded?'Expand this window group':'Collapse this window group',
+      title:folded?TIP_AG_GROUP_EXPAND:TIP_AG_GROUP_COLLAPSE,
       kind:'ghost',size:'sm',cls:'ag-group-fold',
       onClick:e=>{e.stopPropagation();this._agFoldToggle(win.id)},
     }));
@@ -373,7 +373,7 @@ class AgentsController extends Controller {
     };
     // UX_BATCH12_SRS FR-ACF-5: 닫기가 아니라 접기다. 레일에서는 같은 단추가 펼친다.
     const open=this.agentsPanelOpen();
-    mkBtn('ag-collapse',open?(this.app.isMobile?'Close the panel':'Collapse the panel'):'Expand the panel',this._agCollapseIcon());   // FR-MUX-17
+    mkBtn('ag-collapse',open?(this.app.isMobile?TIP_PANEL_CLOSE:TIP_PANEL_COLLAPSE):TIP_PANEL_EXPAND,this._agCollapseIcon());   // FR-MUX-17
     head.querySelector('.ag-collapse').addEventListener('click',e=>{e.stopPropagation();this.app.agentsToggle()});
     return head;
   }

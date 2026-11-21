@@ -33,7 +33,7 @@ function setup() {
     expose: ['SettingsController', 'TelegramSection'],
     globals: {
       App: function App() {},
-      t: (k, p) => k + (p ? JSON.stringify(p) : ''),
+      t: (k, p) => k + (p ? JSON.stringify(p) : ''), MS_PER_SEC: 1000, TG_PAIR_TICK_MS: 2000,
       document: { getElementById: (id) => dom[id] || null, activeElement: null },
       statusRun: async (_el, _msgs, fn) => fn(),
       apiGet: async (p) => reply('GET', p),

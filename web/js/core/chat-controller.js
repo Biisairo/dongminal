@@ -98,7 +98,7 @@ class ChatController extends Controller {
   _chatActEl(){
     const d=domEl('div','chat-act');
     d.appendChild(UIKit.button({icon:'plus',label:t('chat.new_group'),kind:'ghost',size:'sm',cls:'chat-new',
-      title:'Create a group chat',onClick:e=>{e.stopPropagation();this._chatCreateAsk()}}));
+      title:TIP_CHAT_NEW_GROUP,onClick:e=>{e.stopPropagation();this._chatCreateAsk()}}));
     return d;
   }
 
@@ -115,7 +115,7 @@ class ChatController extends Controller {
     if(n) row.appendChild(domEl('span','chat-row-n ui-badge',String(n)));
     // CHAT_WINDOW_SRS FR-CW-23 (D-22): 들어간 방의 행에는 `⋯` 가 선다 — 나가기가 여기서도 된다.
     if(r.joined) row.appendChild(UIKit.button({icon:'more-horizontal',kind:'ghost',size:'sm',cls:'chat-row-more',
-      title:'More actions for this room',onClick:e=>{e.stopPropagation();const b=e.currentTarget.getBoundingClientRect();this.human._chatRoomMenu(r.id,{x:b.left,y:b.bottom})}}));
+      title:TIP_CHAT_ROOM_MORE,onClick:e=>{e.stopPropagation();const b=e.currentTarget.getBoundingClientRect();this.human._chatRoomMenu(r.id,{x:b.left,y:b.bottom})}}));
     row.addEventListener('click',e=>{ if(!this.human._chatRoomPick(r.id,e)) this._chatOpenRoom(r.id) });
     row.addEventListener('contextmenu',e=>this.human._chatRoomCtx(r.id,e));
     return row;

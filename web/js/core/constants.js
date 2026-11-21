@@ -46,6 +46,8 @@ const CLICK_TO_FOCUS_HINT=t('core.click_to_focus_hint');
 const THEME_FOLLOW_KEY='dm.themeFollow';
 // THEME_SEED_COLOR_SRS FR-SEED-12: 메인색을 껐다 다시 켤 때 돌아올 색 (이 브라우저에서만).
 const SEED_LAST_KEY='dm.seedLast';
+// REFACTOR3_FE_REST2_SRS FR-FR2-13 (FC-19): 초 ↔ 밀리초. 서버 시각(Unix 초)과 `Date.now()` 를 잇는 자리가 쓴다.
+const MS_PER_SEC=1000;
 // 걷힘 애니메이션. 화면이 이미 준비된 뒤의 시간이므로 짧다. `#boot` 의 페이드
 // (`--dur-base`, .15s)가 끝난 뒤에 떼므로 그보다 짧아지면 안 된다.
 const BOOT_FADE_MS=180;
@@ -701,6 +703,24 @@ const TIP_MOBILE_ACTIVITY_WORKING='Work — {n} working';
 const TIP_USAGE_SUM_OPEN='Show usage of every account';
 const TIP_USAGE_SUM_CLOSE='Hide usage details';
 const TIP_SETTINGS_BACK='Back to settings sections';
+// REFACTOR3_FE_REST2_SRS FR-FR2-15 (FC-22): 코드에 박혀 있던 툴팁.
+const TIP_EDGE_INVITE_SEND='Send an edge invite to this node';
+const TIP_EDGE_NOTIFY='Send my name, node port and address to this edge';
+const TIP_EDGE_INVITE_ACCEPT='Make an edge with this node';
+const TIP_EDGE_INVITE_REJECT='Discard this invite';
+const TIP_LIMIT_STATUSLINE='Rate limits reported by the Claude Code statusLine';
+const TIP_CHAT_NEW_GROUP='Create a group chat';
+const TIP_CHAT_ROOM_MORE='More actions for this room';
+const TIP_CHAT_ROOM_ACTIONS='Room actions';
+const TIP_PANEL_COLLAPSE='Collapse the panel';
+const TIP_PANEL_EXPAND='Expand the panel';
+const TIP_PANEL_CLOSE='Close the panel';
+const TIP_AG_GROUP_EXPAND='Expand this window group';
+const TIP_AG_GROUP_COLLAPSE='Collapse this window group';
+const TIP_KEYBAR_UP='Move up';
+const TIP_KEYBAR_DOWN='Move down';
+const TIP_KEYBAR_DEL='Delete macro';
+const TIP_THEME_HUE='Hue ';
 
 // ── 컨테이너 런타임의 상태 (UX_BATCH5_SRS 묶음 B / FR-SRT-1~8) ──
 //
@@ -734,6 +754,24 @@ const SBX_RT_DOCS='https://docs.docker.com/get-started/get-docker/';
 // FEU-8: `run_changed` 가 몰려 와도 목록(`/api/runs`) 재조회는 이 창 안에서 한 번이다.
 // 멤버 메시지 하나마다 이벤트가 오므로 합치지 않으면 이벤트 수만큼 겹쳐 나간다.
 const RUN_LIST_COALESCE_MS=250;
+// FR-RVZ-12: "최근 통신" 의 경계. 서버 시각은 Unix **초**다 (run/store.go 의 now()).
+//
+// 경계를 닫힌 구간(<=)으로 두는 이유는 브라우저 시계와 서버 시계를 비교하기
+// 때문이다 — 해상도가 1초라 열린 구간이면 경계에서 강조가 깜빡인다.
+const RUN_RECENT_SEC=30;
+// 강조가 꺼질 시각 뒤에 다시 그리는 여유. 경계가 닫힌 구간이라 딱 그 시각에 그리면 아직 강조 중이다.
+const RUN_DECAY_SLACK_MS=50;
+
+// ── 한 화면이 쓰는 주기 (REFACTOR3_FE_REST2_SRS FR-FR2-14) ──
+
+/** ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-42: 관측이 이보다 오래되면 `as of HH:MM` 을 보인다 (`activity-list.js`). */
+const LIMIT_STALE_MS=10*60*MS_PER_SEC;
+/** 텔레그램 등록 코드의 남은 시간과 등록 여부를 다시 보는 주기 (`settings-telegram.js`). */
+const TG_PAIR_TICK_MS=2000;
+/** 간선 초대의 남은 시간을 다시 그리는 주기 (`settings-edges.js`). */
+const EDGE_REMAIN_TICK_MS=1000;
+/** 검색창이 열린 채 대상이 바뀌면 이만큼 뒤에 첫 결과로 다시 찾는다 (`tool-search.js`). */
+const SEARCH_FIRST_DELAY_MS=50;
 
 // ── 파일 전송 (FILE_TRANSFER_SRS §3.3) ──
 
@@ -794,6 +832,8 @@ const VER_HELD_GO=t('core.ver_held_go');
 // 로드맵 `FUI-05`: 저장 실패는 사유와 함께 알린다 — 테두리만으로는 무엇이
 // 잘못됐는지 말하지 못한다.
 const FILE_SAVE_FAIL=t('core.file_save_fail');
+// 저장 실패의 붉은 테두리(`.fe-save-failed`)가 머무는 시간.
+const FILE_SAVE_FAIL_FLASH_MS=500;
 // REPO_FIX 03 §3A-1: 어느 인코딩으로도 풀리지 않아 읽기 전용으로 연 문서.
 const FILE_UNDECODABLE_NOTE=t('core.file_undecodable');
 

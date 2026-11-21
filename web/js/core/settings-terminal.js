@@ -112,8 +112,8 @@ class TerminalSection extends SettingsSection {
       const sw=document.createElement('input');
       sw.type='checkbox';sw.className='ui-switch kbc-on';sw.checked=on;sw.setAttribute('aria-label',name.textContent);
       const btn=(act,icon,title,disabled)=>UIKit.button({icon,title,kind:'ghost',size:'sm',cls:'kbc-'+act,dataset:{act},disabled});
-      row.append(lab,name,sw,btn('up','arrow-up','Move up',i===0),btn('down','arrow-down','Move down',i===rows.length-1));
-      if(k.macro) row.appendChild(btn('del','trash','Delete macro',false));
+      row.append(lab,name,sw,btn('up','arrow-up',TIP_KEYBAR_UP,i===0),btn('down','arrow-down',TIP_KEYBAR_DOWN,i===rows.length-1));
+      if(k.macro) row.appendChild(btn('del','trash',TIP_KEYBAR_DEL,false));
       list.appendChild(row);
     });
   }

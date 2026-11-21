@@ -29,7 +29,7 @@ class ToolSearch extends Controller {
   _searchOpen(){return !document.getElementById('search-bar').hidden}
   researchIfOpen(){
     if(!this._searchOpen())return;
-    this.app.timers.after(50,()=>this.doSearch('next'),{owner:'app',label:'search-first'});
+    this.app.timers.after(SEARCH_FIRST_DELAY_MS,()=>this.doSearch('next'),{owner:'app',label:'search-first'});
   }
   focusedTerminal(){
     if(!this.app.focused)return null;

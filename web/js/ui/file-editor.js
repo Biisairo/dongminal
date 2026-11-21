@@ -608,7 +608,7 @@ class FileEditor {
   _noteSaveFailed(r) {
     // 색은 JS 가 들지 않는다 — 클래스만 토글하고 값은 CSS 가 갖는다 (FR-WRD-14).
     this.el.classList.add('fe-save-failed');
-    TIMERS.after(500, () => { this.el.classList.remove('fe-save-failed'); }, {owner:this,label:'flash'});
+    TIMERS.after(FILE_SAVE_FAIL_FLASH_MS, () => { this.el.classList.remove('fe-save-failed'); }, {owner:this,label:'flash'});
     let why = '';
     if (r) why = (r.text || '').trim().split('\n')[0].slice(0, 200);
     this.note(why ? FILE_SAVE_FAIL + ': ' + why : FILE_SAVE_FAIL);

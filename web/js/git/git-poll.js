@@ -423,7 +423,7 @@ class GitPoll extends GitPart {
     if(!ask&&this.p._pollOn) return false;   // 걸 것도 물을 것도 없다
     // FR-GLR-6 (FR-GOR-7): 관측기는 **루트마다** 서므로 `repo` 만으로는 어느
     // 표면이 멎었는지 특정되지 않는다 — 같은 문자열이 여럿이다 (SRS §2.4).
-    console.warn('[git] 관측이 멈춰 있어 되살립니다 — age='+(age===Infinity?'never':Math.round(age/1000)+'s')
+    console.warn('[git] 관측이 멈춰 있어 되살립니다 — age='+(age===Infinity?'never':Math.round(age/MS_PER_SEC)+'s')
       +' poll='+(this.p._pollOn?'on':'off')+' repo='+this.p.repo+' root='+(this.p.root||'-'));
     this.p._obsSig=null; this.p._lastViewFp=null;                    // FR-GLR-4
     /**

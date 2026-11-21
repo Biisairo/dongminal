@@ -26,12 +26,6 @@ const RUN_GONE_TEXT = t('runs.gone');
 // 모달의 머리·빈 안내가 사라지면서 이 자리도 함께 나갔다 (FR-ACT-1).
 // 조정자는 멤버가 아니므로 uuid 가 없다. 서버가 쓰는 것과 같은 문자열이다.
 const RUN_COORD = 'coordinator';
-// FR-RVZ-12: "최근 통신" 의 경계. 서버 시각은 Unix **초**다 (run/store.go 의 now()).
-//
-// 경계를 닫힌 구간(<=)으로 두는 이유는 브라우저 시계와 서버 시계를 비교하기
-// 때문이다 — 해상도가 1초라 열린 구간이면 경계에서 강조가 깜빡인다.
-const RUN_RECENT_SEC = 30;
-
 // 계층형 고정 배치의 치수. 전부 viewBox 좌표다 — 뷰포트 크기와 무관하므로
 // 같은 Run 은 어떤 창에서도 같은 모양으로 그려진다 (FR-RVZ-11).
 const RUN_NODE_W = 112;

@@ -24,7 +24,7 @@ function setup(extra = {}) {
     expose: ['edgeFp16', 'edgeRemain', 'edgeWho', 'edgeHandle', 'EdgesSection', 'EdgesController', 'SettingsLive'],
     globals: {
       App: function App() {},
-      t: (k, p) => k + (p ? JSON.stringify(p) : ''),
+      t: (k, p) => k + (p ? JSON.stringify(p) : ''), MS_PER_SEC: 1000, EDGE_REMAIN_TICK_MS: 1000,
       apiGet: async () => next,
       apiPost: async (path, body) => { posts.push([path, body]); return postResult },
       statusRun: async (_el, _opts, fn) => fn(),

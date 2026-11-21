@@ -54,6 +54,9 @@ function loadFoot(globals = {}) {
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
       // FR-TIP-2: Activity 탭의 영어 툴팁 (constants.js).
       TIP_USAGE_SUM_OPEN: 'Show usage', TIP_USAGE_SUM_CLOSE: 'Hide usage',
+      TIP_LIMIT_STATUSLINE: 'Rate limits reported by the Claude Code statusLine',
+      // REFACTOR3_FE_REST2_SRS FR-FR2-13·14: 시간 이름 (constants.js).
+      MS_PER_SEC: 1000, LIMIT_STALE_MS: 10 * 60 * 1000,
       TIP_ACT_AGENTS: 'Show running agents', TIP_ACT_BG: 'Show background tools', TIP_ACT_RUNS: 'Show runs', TIP_ACT_CHATS: 'Show chat rooms',
       AGENT_STATE_ICON: { working: '●', done: '✓', waiting: '…', idle: '○' },
       PrefStore: { local },

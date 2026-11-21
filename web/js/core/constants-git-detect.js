@@ -97,6 +97,6 @@ const GIT_REPO_MISSING_POLL_MS=30000;
  */
 const GIT_FAIL_BACKOFF_MAX_MS=300000;
 // 안내에 실을 재확인 주기 (초). 상수에서 파생한다 — 두 곳에 적으면 갈린다.
-const GIT_RMS_AUTO_NOTE=t('git.rms_auto_note',{sec:GIT_REPO_MISSING_POLL_MS/1000});
+const GIT_RMS_AUTO_NOTE=t('git.rms_auto_note',{sec:GIT_REPO_MISSING_POLL_MS/MS_PER_SEC});
 // 주기는 설정으로 덮을 수 있다 (FR-GIT-23). 주기 변수 다섯은 settings-defaults.js
 // 에 있다 — 초기값이 표의 기본값이기 때문이다 (FR-OPT-11-4).

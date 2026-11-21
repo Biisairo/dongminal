@@ -26,7 +26,7 @@ function loadSet() {
   return load([...BASE, ...PANELS, 'core/path.js', ...AGENTS, 'core/claude-accounts-view.js', 'core/claude-accounts-controller.js', 'core/claude-maps.js', 'core/settings-claude-rows.js'], {
     expose: ['CACCT_AUTO_FIELDS'],
     globals: {
-      App: class {}, t: (k, p) => fillEn(k, p),
+      App: class {}, t: (k, p) => fillEn(k, p), MS_PER_SEC: 1000,
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
       AGENT_STATE_ICON: { working: 'dot', done: 'check', waiting: 'more-horizontal', idle: 'circle' },
       PrefStore: { local: { json: (k, d) => d, setJson: () => true } },

@@ -34,14 +34,14 @@ function claudeAcctMoney(n,cur){
 function claudeAcctPace(p){
   if(!p||typeof p.expectedPct!=='number') return null;
   let text=t('cacct.pace_expected',{n:p.expectedPct});
-  if(!p.willLastToReset&&p.projectedExhaustionAt>0) text+=' · '+t('cacct.pace_runout',{t:claudeAcctDay(p.projectedExhaustionAt*1000)});
+  if(!p.willLastToReset&&p.projectedExhaustionAt>0) text+=' · '+t('cacct.pace_runout',{t:claudeAcctDay(p.projectedExhaustionAt*MS_PER_SEC)});
   else if(p.willLastToReset) text+=' · '+t('cacct.pace_lasts');
   return {text,warn:!!p.aheadOfPace};
 }
 
 /** FR-CAC-91: 초기화 시각 — 오늘이면 `14:30`, 아니면 `수 18:00`. `resetsAt` 은 서버가 준 unix 초다. */
 function claudeAcctResetClock(resetsAt){
-  const ms=resetsAt*1000;
+  const ms=resetsAt*MS_PER_SEC;
   return new Date(ms).toDateString()===new Date(Date.now()).toDateString()?limitClock(ms):claudeAcctDay(ms);
 }
 
@@ -70,7 +70,7 @@ function claudeAcctResets(rs){
   const j=rs.juniperTide;
   if(j&&j.eligible){
     out.push({key:'juniper',program:'juniper_tide',grantId:'',name:t('cacct.rs.juniper'),
-      detail:j.available?t('cacct.rs.usable'):j.nextAvailableAt>0?t('cacct.rs.next',{t:claudeAcctDay(j.nextAvailableAt*1000)}):'',
+      detail:j.available?t('cacct.rs.usable'):j.nextAvailableAt>0?t('cacct.rs.next',{t:claudeAcctDay(j.nextAvailableAt*MS_PER_SEC)}):'',
       usable:!!j.available,confirm:claudeAcctResetConfirm(['five_hour'],'','',false)});
   }
   const c=rs.cedarEmber;
@@ -78,7 +78,7 @@ function claudeAcctResets(rs){
     for(const g of Array.isArray(c.grants)?c.grants:[]){
       if(!(g.resetsLeft>0)) continue;
       const left=t('cacct.rs.left',{n:g.resetsLeft,m:g.resetsTotal});
-      const ends=g.endsAt>0?t('cacct.rs.until',{d:claudeAcctDate(g.endsAt*1000)}):'';
+      const ends=g.endsAt>0?t('cacct.rs.until',{d:claudeAcctDate(g.endsAt*MS_PER_SEC)}):'';
       const usable=!!g.usableNow&&!g.paused;
       const detail=[left,ends,g.paused?t('cacct.rs.paused'):usable?t('cacct.rs.usable'):''].filter(Boolean).join(' · ');
       out.push({key:'g:'+g.id,program:'cedar_ember',grantId:g.id,name:g.label||g.id,detail,usable,
@@ -98,7 +98,7 @@ function claudeAcctView(a,pop,wide){
   let status='';
   if(u.status&&u.status!=='ok'){
     status=t('cacct.st.'+u.status);
-    if(u.backoffUntil>0) status+=' · '+t('cacct.retry_at',{t:limitClock(u.backoffUntil*1000)});
+    if(u.backoffUntil>0) status+=' · '+t('cacct.retry_at',{t:limitClock(u.backoffUntil*MS_PER_SEC)});
   }
   const headStatus=CLAUDE_ACCT_ACTION_STATES.includes(u.status)?status:'';
   const bars=[];
@@ -113,9 +113,9 @@ function claudeAcctView(a,pop,wide){
       scoped:(Array.isArray(w.scoped)?w.scoped:[]).map(s=>claudeAcctBar(a.id+':scoped:'+s.name,s.name,s)),
       pace:claudeAcctPace(u.pace&&u.pace.sevenDay),
       spend:sp?t('cacct.spend',{used:claudeAcctMoney(sp.used,sp.currency),limit:claudeAcctMoney(sp.limit,sp.currency)}):'',
-      login:u.loginExpiresAt>0?{text:t('cacct.login_expires',{d:claudeAcctDate(u.loginExpiresAt*1000)}),warn:!!u.loginExpiringSoon}:null,
+      login:u.loginExpiresAt>0?{text:t('cacct.login_expires',{d:claudeAcctDate(u.loginExpiresAt*MS_PER_SEC)}),warn:!!u.loginExpiringSoon}:null,
       resets:claudeAcctResets(u.resets),
-      resetsAge:u.resets&&u.resets.fetchedAt>0?t('cacct.age_min',{n:Math.max(1,Math.floor((Date.now()/1000-u.resets.fetchedAt)/60))}):'',
+      resetsAge:u.resets&&u.resets.fetchedAt>0?t('cacct.age_min',{n:Math.max(1,Math.floor((Date.now()/MS_PER_SEC-u.resets.fetchedAt)/60))}):'',
       resetsUnknown:!u.resets,
       canSwitch:!a.active,
     };
@@ -179,7 +179,7 @@ function claudeAcctName(accounts,id){
 /** FR-CAC-110a·111: 기록 한 줄의 값. 서버는 계정 ID 만 주고 이름은 화면이 찾는다. */
 function claudeAcctHistoryRows(entries,accounts){
   return (Array.isArray(entries)?entries:[]).map(e=>({
-    time:claudeAcctDate(e.at*1000)+' '+limitClock(e.at*1000),
+    time:claudeAcctDate(e.at*MS_PER_SEC)+' '+limitClock(e.at*MS_PER_SEC),
     from:claudeAcctName(accounts,e.from),
     to:claudeAcctName(accounts,e.to),
     trigger:t(claudeAcctKey('cacct.trig.',e.trigger)),
@@ -195,7 +195,7 @@ function claudeAcctAlertText(a){
     name:a.name||'',from:a.from||'',to:a.to||'',
     trigger:a.trigger?t(claudeAcctKey('cacct.trig.',a.trigger)):'',
     window:a.window?limitWindowLabel(a.window):'',
-    d:a.expiresAt>0?claudeAcctDate(a.expiresAt*1000):'',
+    d:a.expiresAt>0?claudeAcctDate(a.expiresAt*MS_PER_SEC):'',
   });
   if(a.resetAvailable) s+=' · '+t('cacct.alert.reset_available');
   return s;

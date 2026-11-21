@@ -12,9 +12,6 @@
  * 것이고(REFACTOR3_FE_APPCTL_SRS 9a), 그것이 부르는 `_edgesPaint`·`_egNodePaint`·`_egNodeCollect` 는 App 에 위임자가 있다.
  */
 
-/** 초대의 남은 시간을 다시 그리는 주기. */
-const EDGE_REMAIN_TICK_MS=1000;
-
 class EdgesSection extends SettingsSection {
   constructor(app){ super(app,'edges') }
 
@@ -138,7 +135,7 @@ class EdgesSection extends SettingsSection {
     mark.textContent=marks.join(' · ');
     mark.hidden=!marks.length;
     const notify=UIKit.button({label:t('edge.notify'),kind:'ghost',size:'sm',cls:'eg-notify',
-      title:'Send my name, node port and address to this edge',onClick:()=>this.app._egNotify(p)});
+      title:TIP_EDGE_NOTIFY,onClick:()=>this.app._egNotify(p)});
     row.append(who,mark,addr,port,edit,cancel,notify,del);
     return row;
   }

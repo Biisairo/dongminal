@@ -38,7 +38,7 @@ Object.assign(RunsPanel.prototype, {
   // 아니다 (V-RVZ-4 는 요청 건수를 센다).
   _runScheduleDecay(v, d) {
     if (v.decay) { TIMERS.cancel(v.decay); v.decay = null }
-    const now = Date.now() / 1000;
+    const now = Date.now() / MS_PER_SEC;
     let soonest = Infinity;
     for (const e of d.edges || []) {
       // 경계가 닫힌 구간(<=)이므로 left === 0 도 아직 강조 중이다 — 여기서
@@ -47,7 +47,7 @@ Object.assign(RunsPanel.prototype, {
       if (left >= 0 && left < soonest) soonest = left;
     }
     if (soonest === Infinity) return;
-    v.decay = TIMERS.after(Math.ceil(soonest * 1000) + 50, () => {
+    v.decay = TIMERS.after(Math.ceil(soonest * MS_PER_SEC) + RUN_DECAY_SLACK_MS, () => {
       v.decay = null;
       if (this._runViewMap().get(v.key) === v) this._runPaint(v);
     }, {owner:this,label:'run-decay'});
@@ -150,7 +150,7 @@ Object.assign(RunsPanel.prototype, {
   _runPaintEdges(root, d, members, at) {
     const g = root.querySelector('.run-edges');
     const sfx = root.querySelector('.run-graph').dataset.mk;
-    const now = Date.now() / 1000;
+    const now = Date.now() / MS_PER_SEC;
     const rowIdx = new Map(); members.forEach((m, i) => rowIdx.set(m.id, i));
     const items = [];
 
@@ -485,7 +485,7 @@ Object.assign(RunsPanel.prototype, {
   // 서버 시각은 Unix **초**다 (run/store.go 의 now()).
   _runAgo(ts) {
     if (!ts) return '';
-    const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+    const s = Math.max(0, Math.floor(Date.now() / MS_PER_SEC - ts));
     if (s < 60) return tn('core.dur_sec', s);
     if (s < 3600) return tn('core.dur_min', Math.floor(s / 60));
     if (s < 86400) return tn('core.dur_hour', Math.floor(s / 3600));
@@ -494,7 +494,7 @@ Object.assign(RunsPanel.prototype, {
 
   _runClock(ts) {
     if (!ts) return '';
-    const d = new Date(ts * 1000);
+    const d = new Date(ts * MS_PER_SEC);
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   },
 });

@@ -9,9 +9,6 @@
  * 판정(`settings-save-state.js`)이 읽으므로 App 에 남는다(FR-FES-5).
  */
 
-/** 등록 코드의 남은 시간과 등록 여부를 다시 보는 주기. */
-const TG_PAIR_TICK_MS=2000;
-
 class TelegramSection extends SettingsSection {
   constructor(app){ super(app,'telegram') }
 

@@ -50,7 +50,7 @@ function cacctSetRows(accounts){
       threshold:typeof a.threshold==='number'?String(a.threshold):'',
       priority:String(a.priority||0),disabled:!!a.disabled,
       login:u.loginExpiresAt>0
-        ?{text:t('cacct.login_expires',{d:claudeAcctDate(u.loginExpiresAt*1000)}),warn:!!u.loginExpiringSoon}
+        ?{text:t('cacct.login_expires',{d:claudeAcctDate(u.loginExpiresAt*MS_PER_SEC)}),warn:!!u.loginExpiringSoon}
         :{text:t('cacct.set.login_unknown'),warn:false},
       status:u.status&&u.status!=='ok'?t('cacct.st.'+u.status):'',
       warnings:w.length?t('cacct.set.warn_links',{names:w.join(', ')}):'',
@@ -153,5 +153,5 @@ function cacctAutoBody(prev,form){
 /** FR-CAC-34a: 보관 목록 줄. */
 function cacctUnclaimedRows(entries){
   return (Array.isArray(entries)?entries:[]).map(e=>({name:e.name,fp:e.fingerprint,
-    text:t('cacct.set.unclaimed_row',{t:claudeAcctDate(e.at*1000)+' '+limitClock(e.at*1000),fp:e.fingerprint})}));
+    text:t('cacct.set.unclaimed_row',{t:claudeAcctDate(e.at*MS_PER_SEC)+' '+limitClock(e.at*MS_PER_SEC),fp:e.fingerprint})}));
 }
