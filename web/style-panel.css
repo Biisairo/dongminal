@@ -30,7 +30,7 @@
 .ui-panel-tabs:not(.labeled) .ui-tab-label{display:none}
 .ui-panel-tab .ui-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ui-panel-tab .ui-tab-icon{display:inline-flex;flex:0 0 auto}
-.ui-panel-acts{display:flex;align-items:center;flex:0 0 auto;gap:2px;padding:0 4px}
+.ui-panel-acts{display:flex;align-items:center;flex:0 0 auto;gap:var(--sp-1);padding:0 var(--sp-2)}
 body:not(.mobile) .ui-panel-act-mobile{display:none}
 /* UX_AUDIT_FIX_SRS FR-UXF-30: 데스크톱에서만 서는 끝 단추 (메인 패널의 접기). */
 body.mobile .ui-panel-act-desktop{display:none}
@@ -42,7 +42,7 @@ body:not(.mobile) .ui-panel-acts:not(:has(>:not(.ui-panel-act-mobile))){display:
 /* FR-PNT-6: 두 패널의 탭이 같다 — 높이·바탕·글자·hover·활성. */
 .ui-panel-tab{
   position:relative;flex:1 1 0;min-width:0;height:100%;
-  display:flex;align-items:center;justify-content:center;gap:4px;padding:0 3px;
+  display:flex;align-items:center;justify-content:center;gap:var(--sp-2);padding:0 var(--sp-2);
   background:transparent;border:none;border-bottom:2px solid transparent;border-radius:0;
   color:var(--text-muted);font-family:inherit;font-size:var(--fs-sm);font-weight:600;
   cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast);
@@ -61,7 +61,7 @@ body:not(.mobile) .ui-panel-acts:not(:has(>:not(.ui-panel-act-mobile))){display:
 .ui-panel[data-rail] :is(.ui-panel-tabs,.ui-panel-acts){
   flex-direction:column;flex:0 0 auto;
 }
-.ui-panel[data-rail] .ui-panel-acts{padding:4px 0}
+.ui-panel[data-rail] .ui-panel-acts{padding:var(--sp-2) 0}
 /* UX_AUDIT_FIX_SRS FR-UXF-31 개정 (D-38): 레일의 끝 단추(접기·펼치기)는 **맨 위**다. 이전: 탭 아래(FR-PNT-8) — 탭 수에 따라 자리가 내려갔다. */
 .ui-panel[data-rail]>.ui-panel-head>.ui-panel-acts{order:-1}
 .ui-panel[data-rail] .ui-panel-tab{

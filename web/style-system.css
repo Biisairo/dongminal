@@ -22,13 +22,13 @@
   color:var(--text-muted);font-size:var(--fs-lg);
 }
 .fe-error{color:var(--danger-text);padding:20px;text-align:center}
-.fe-error-path{font-family:var(--mono);font-size:var(--fs-md);color:var(--text-muted);margin-top:8px;word-break:break-all}
+.fe-error-path{font-family:var(--mono);font-size:var(--fs-md);color:var(--text-muted);margin-top:var(--sp-4);word-break:break-all}
 
 /* ── 백그라운드 도구 진입점·모달 (FR-BGU-2..8) ── */
 /* FR-SBR-1: 폭이 모자라면 다음 줄로 넘긴다. 줄 수는 내용과 폭이 정한다 (D-2).
    overflow:hidden 은 FR-SBR-5 의 클리핑 담당이다 — 가로로 잘라내는 역할이 아니다
    (줄바꿈이 넘칠 것을 남기지 않는다). */
-#sb-items{display:flex;flex-wrap:wrap;align-items:center;gap:2px;
+#sb-items{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1);
   flex:1;min-width:0;overflow:hidden}
 /* UIUX_OVERHAUL_SRS FR-CHR-15·16 (D-7): **`#bg-btn` 이 없어졌다.** 하이라이트
    규칙(`.on`, FR-SBR-10 · FR-SEM-1 의 magenta)과 모바일 여백도 함께 간다 —
@@ -36,17 +36,17 @@
    `.ag-state` 와 `.bg-row` 가 패널 안에서 그대로 말한다. */
 
 /* ── 샌드박스 설정 (FR-SBX-43) ── */
-.sbx-input{flex:1 1 auto;min-width:0;padding:4px 6px;font-size:var(--fs-md);
+.sbx-input{flex:1 1 auto;min-width:0;padding:var(--sp-2) var(--sp-3);font-size:var(--fs-md);
   background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-bright)}
 .sbx-input:focus{outline:none;border-color:var(--accent)}
 .sbx-input:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
-.sbx-mounts{display:flex;flex-direction:column;gap:6px;margin:0 0 10px}
-.sbx-mount{display:flex;align-items:center;gap:6px}
-.sbx-mount input[type=text]{flex:1 1 0;min-width:0;padding:3px 6px;font-size:var(--fs-sm);
+.sbx-mounts{display:flex;flex-direction:column;gap:var(--sp-3);margin:0 0 var(--sp-5)}
+.sbx-mount{display:flex;align-items:center;gap:var(--sp-3)}
+.sbx-mount input[type=text]{flex:1 1 0;min-width:0;padding:var(--sp-2) var(--sp-3);font-size:var(--fs-sm);
   background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-bright)}
 .sbx-mount input[type=text]:focus{outline:none;border-color:var(--accent)}
 .sbx-mount input[type=text]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
-.sbx-flag{display:flex;align-items:center;gap:3px;flex:0 0 auto;
+.sbx-flag{display:flex;align-items:center;gap:var(--sp-2);flex:0 0 auto;
   font-size:var(--fs-sm);color:var(--text-hint);cursor:pointer;white-space:nowrap}
 .sbx-status{font-size:var(--fs-sm);color:var(--text-hint)}
 /* UIUX_OVERHAUL_SRS FR-SEM-1: **실패는 red 다.** `--accent-text` 는 "지금 어디"
@@ -56,12 +56,12 @@
 
 
 /* ── 접속 허용 목록 (ACCESS_ALLOWLIST_SRS FR-ACL-22) ── */
-.acl-row{display:flex;align-items:center;gap:6px}
+.acl-row{display:flex;align-items:center;gap:var(--sp-3)}
 /* UX_BATCH12 FR-LIV-4: 열린 설정 패널이 다른 곳의 변경을 알린다. */
-.settings-stale{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 8px;
+.settings-stale{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:var(--sp-4);padding:var(--sp-3) var(--sp-4);
   border:1px solid var(--attn-text);border-radius:var(--radius-sm);color:var(--attn-text);font-size:var(--fs-sm)}
 .settings-stale span{flex:1}
-.acl-row input[type=text]{min-width:0;padding:3px 6px;font-size:var(--fs-sm);
+.acl-row input[type=text]{min-width:0;padding:var(--sp-2) var(--sp-3);font-size:var(--fs-sm);
   background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-bright)}
 .acl-row input[type=text]:focus{outline:none;border-color:var(--accent)}
 .acl-row input[type=text]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
@@ -72,8 +72,8 @@
 .acl-state.err{color:var(--danger-text)}
 
 /* ── 짝 (PEER_NETWORK_SRS FR-PNW-80) ── */
-.set-row{display:flex;align-items:center;gap:6px}
-.eg-item{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:4px 0 4px 10px;
+.set-row{display:flex;align-items:center;gap:var(--sp-3)}
+.eg-item{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2) var(--sp-4);padding:var(--sp-2) 0 var(--sp-2) var(--sp-5);
   border-left:2px solid var(--border)}
 .eg-who{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-size:var(--fs-md);color:var(--text-bright)}
 .eg-fp{font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-hint)}
@@ -84,7 +84,7 @@
 #pf-fp .fp-g{display:inline-block;margin-right:.5em}
 #pf-fp .fp-g:last-child{margin-right:0}
 #pf-fp .fp-g.key{color:var(--text-bright)}
-.eg-fp-big{display:block;margin-top:8px;font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
+.eg-fp-big{display:block;margin-top:var(--sp-4);font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
 .eg-item .sbx-input{flex:0 1 160px}
 /* ── 망 그림·받은 초대 (EDGE_MESH_SRS FR-EGM-50~55) ──
    상태는 색만으로 말하지 않는다: 온라인은 채운 점, 연결 끊김은 빈 점, 내 간선은 굵은 선이다. */
@@ -103,7 +103,7 @@
 .eg-mesh-name{fill:var(--text-bright);font-size:var(--fs-sm)}
 .eg-mesh-node.off .eg-mesh-name{fill:var(--text-hint)}
 .eg-mesh-mark{fill:var(--attn-text);font-size:var(--fs-xs)}
-.eg-mesh-act{margin-top:6px}
+.eg-mesh-act{margin-top:var(--sp-3)}
 
 /* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
    FR-BTS-7: 색은 테마의 것이다 — head 인라인이 선주입한 변수를 그대로 쓰므로,
@@ -155,13 +155,13 @@
 /* 진행 바는 비율을 말하지 않는다 (마크업 주석 참조) — 채우지 않고 흐른다.
    2px 로는 브랜드색이 트랙에 묻혀 **움직이는지조차 보이지 않았다**(실측) — 흐름이
    보이지 않는 진행 바는 그냥 선이다. */
-.boot-bar{margin-top:24px;position:relative;width:150px;height:3px;border-radius:var(--radius-pill);
+.boot-bar{margin-top:var(--sp-8);position:relative;width:150px;height:3px;border-radius:var(--radius-pill);
   background:var(--border);overflow:hidden}
 .boot-bar i{position:absolute;top:0;bottom:0;left:0;width:46%;border-radius:var(--radius-pill);
   background:linear-gradient(90deg,transparent,var(--boot-brand),var(--boot-brand-lit),transparent);
   animation:boot-flow 1.25s ease-in-out infinite}
 /* 문구가 길이를 오갈 때 아래 여백이 출렁이지 않도록 높이를 잡아 둔다. */
-#boot-step{margin-top:12px;font-size:var(--fs-sm);letter-spacing:.02em;min-height:14px}
+#boot-step{margin-top:var(--sp-6);font-size:var(--fs-sm);letter-spacing:.02em;min-height:14px}
 @keyframes boot-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes boot-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 /* PERFORMANCE_HARDENING_SRS FR-PRF-33 (`AUDIT-design.md` 10-1).
@@ -334,8 +334,8 @@ html.attn-edge-on #focus-edge{opacity:0}
    모달이 아니라 배너다 — 사용자의 편집을 막지 않으면서 사실만 남긴다. */
 .ver-held{
   position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
-  display:flex;align-items:center;gap:10px;
-  padding:8px 12px;border-radius:var(--radius-md);z-index:var(--z-popover);
+  display:flex;align-items:center;gap:var(--sp-5);
+  padding:var(--sp-4) var(--sp-6);border-radius:var(--radius-md);z-index:var(--z-popover);
   background:var(--bg-alt);color:var(--text-bright);
   border:1px solid var(--border);
   box-shadow:var(--shadow-1);

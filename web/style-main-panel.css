@@ -12,7 +12,7 @@ body:not(.mobile) #sidebar{
 /* UX_REVISION_SRS FR-BLP-7: 목록 컨테이너. 탭이 한 번에 하나만 보이므로 목록은
    **패널의 남은 높이 전부**를 쓴다 (FR-SBT-3). min-height:0 은 필수다 — flex
    자식이 내용 높이 아래로 줄지 않으면 스크롤 대신 사이드바 밖으로 밀린다. */
-.sbl-list{flex:1 1 auto;min-height:0;overflow-y:auto;margin-bottom:6px}
+.sbl-list{flex:1 1 auto;min-height:0;overflow-y:auto;margin-bottom:var(--sp-3)}
 
 /* ── 사이드바 리스트의 행 (UX_REVISION_SRS FR-BLP-7) ──
    두 목록은 **같은 것**이므로 생김새도 한 자리에서 정한다. `.si`·`.git-repo` 는
@@ -20,7 +20,7 @@ body:not(.mobile) #sidebar{
    (x 의 hover 배경이 서로 달랐고 gap 도 달랐다).
    기준은 WINDOWS 목록의 값이다. */
 .sbl-list{--sbl-hit:30px}
-.sbl-item{display:flex;align-items:center;gap:8px;height:var(--row);padding:0 10px;font-size:var(--fs-md);cursor:pointer;transition:background var(--dur-fast)}
+.sbl-item{display:flex;align-items:center;gap:var(--sp-4);height:var(--row);padding:0 var(--sp-5);font-size:var(--fs-md);cursor:pointer;transition:background var(--dur-fast)}
 .sbl-item:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 .sbl-item:hover{background:var(--accent-hover)}
 .sbl-item.active{background:var(--accent-active)}
@@ -31,7 +31,7 @@ body:not(.mobile) #sidebar{
 .rename-input{
   font:inherit;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
   border:1px solid var(--accent-border);border-radius:var(--radius-sm);
-  padding:0 3px;outline:none;width:100%;height:100%;box-sizing:border-box;
+  padding:0 var(--sp-2);outline:none;width:100%;height:100%;box-sizing:border-box;
   min-width:40px;max-width:120px;
 }
 /* 행 높이를 꽉 채우는 입력이라 바깥으로 그리면 이웃 행에 잘린다. */
@@ -48,7 +48,7 @@ body:not(.mobile) #sidebar{
 /* 배지는 창 목록에 아직 없지만 자리는 공통이다 — 다음 탭이 그냥 쓴다. */
 /* UI_POLISH_SRS FR-UIP-6: 개수는 글자다 (`.ui-count` 와 같은 값). */
 .sbl-badge{
-  flex-shrink:0;min-width:16px;padding:0 4px;text-align:right;
+  flex-shrink:0;min-width:16px;padding:0 var(--sp-2);text-align:right;
   font-size:var(--fs-sm);color:var(--text-muted);font-variant-numeric:tabular-nums;
 }
 /* 샌드박스 창 표식. accent 는 알람·활성이 쓰는 색이므로 섞지 않는다 — 격리
@@ -66,29 +66,29 @@ body:not(.mobile) #sidebar{
 /* 샌드박스 프로파일 선택. 등급이 이름 옆에 붙어, 무엇을 고르는지가 고르는
    자리에서 보인다 (FR-SBX-25). */
 .confirm-btns.sbx-pick{flex-wrap:wrap}
-.sbx-workdir{display:flex;align-items:center;gap:8px;margin:0 0 14px}
+.sbx-workdir{display:flex;align-items:center;gap:var(--sp-4);margin:0 0 var(--sp-6)}
 .sbx-workdir label{color:var(--text-hint);font-size:var(--fs-sm);flex:0 0 auto}
-.sbx-workdir input{flex:1 1 auto;min-width:0;padding:4px 6px;font-size:var(--fs-md);
+.sbx-workdir input{flex:1 1 auto;min-width:0;padding:var(--sp-2) var(--sp-3);font-size:var(--fs-md);
   background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-bright)}
 .sbx-workdir input:focus{outline:none;border-color:var(--accent)}
 .sbx-workdir input:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .sbx-now{flex:0 0 auto}
 .sbx-now:hover{color:var(--accent-text);border-color:var(--accent)}
-.sbx-recent{display:flex;flex-wrap:wrap;gap:4px;margin:-8px 0 14px}
+.sbx-recent{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin:-8px 0 var(--sp-6)}
 .sbx-recent-item{max-width:220px;overflow:hidden;text-overflow:ellipsis}
 .sbx-recent-item:hover{color:var(--accent-text);border-color:var(--accent)}
-.sbx-grade{margin-left:6px;padding:0 5px;border-radius:var(--radius-lg);font-size:var(--fs-sm);
+.sbx-grade{margin-left:var(--sp-3);padding:0 var(--sp-3);border-radius:var(--radius-lg);font-size:var(--fs-sm);
   background:var(--accent-subtle);color:var(--text-hint)}
 .sbx-grade.iso{color:var(--accent-text)}
 /* SANDBOX_PICK_COPY_SRS FR-SPK-5: 고른 폴더가 어떻게 되는지. 등급 배지와 같은
    모양이되 색을 나눈다 — 마운트는 호스트로 이어지고(주의), 복사는 이어지지
    않는다(중립). 두 사실이 같은 색이면 배지를 읽을 이유가 없다. */
-.sbx-work{margin-left:4px;padding:0 5px;border-radius:var(--radius-lg);font-size:var(--fs-sm);
+.sbx-work{margin-left:var(--sp-2);padding:0 var(--sp-3);border-radius:var(--radius-lg);font-size:var(--fs-sm);
   background:var(--accent-subtle);color:var(--text-hint)}
 .sbx-work-mount{color:var(--attn-text)}
 /* UX_BATCH6_SRS FR-SBM-1: 작업 방식을 고르는 줄. 작업 폴더 입력 바로 아래에
    두는 이유는 그 둘이 한 물음이기 때문이다 — "어느 폴더를, 어떻게". */
-.sbx-work-pick{display:flex;align-items:center;gap:6px;margin:-8px 0 10px}
+.sbx-work-pick{display:flex;align-items:center;gap:var(--sp-3);margin:-8px 0 var(--sp-5)}
 .sbx-work-pick label{color:var(--text-hint);font-size:var(--fs-sm);flex:0 0 auto}
 .sbx-work-opt:hover{color:var(--text-bright);border-color:var(--accent)}
 .sbx-work-opt.on{color:var(--text-bright);border-color:var(--accent);
@@ -96,26 +96,26 @@ body:not(.mobile) #sidebar{
 .sbx-work-opt.sbx-work-mount.on{color:var(--attn-text);border-color:var(--attn)}
 /* FR-SBM-5: 고른 것의 결과. 등급 배지와 **다른 자리**다 — 배지는 프로파일의
    성질이고 이 줄은 이번 선택의 결과다. 비어 있으면 자리를 차지하지 않는다. */
-.sbx-work-warn{display:none;margin:-4px 0 10px;font-size:var(--fs-sm);color:var(--attn-text)}
+.sbx-work-warn{display:none;margin:-4px 0 var(--sp-5);font-size:var(--fs-sm);color:var(--attn-text)}
 .sbx-work-warn.vis{display:block}
 /* NFR-SPK-2: 복사가 도는 동안의 표시. 모달이 아니라 배너다 — 진행은 끝나면
    스스로 사라져야 하고, 그동안 사용자가 다른 창을 보는 것을 막을 이유가 없다. */
 /* `UX-8`: 자리는 `.toast-host` 가 정한다. 남는 것은 모양뿐이다 — 진행은 성공·실패와
    다른 표면색을 갖는다(`--bg-alt`). */
-.sbx-progress{padding:8px 14px;color:var(--text-bright);background:var(--bg-alt)}
+.sbx-progress{padding:var(--sp-4) var(--sp-6);color:var(--text-bright);background:var(--bg-alt)}
 /* FR-SPK-7: 고를 것이 하나뿐일 때 늘리는 길. */
-.sbx-hint{margin:10px 0 0;font-size:var(--fs-sm);color:var(--text-hint)}
-.sbx-settings{margin-left:8px}
+.sbx-hint{margin:var(--sp-5) 0 0;font-size:var(--fs-sm);color:var(--text-hint)}
+.sbx-settings{margin-left:var(--sp-4)}
 .sbx-settings:hover{color:var(--accent-text);border-color:var(--accent)}
 
 /* UX_BATCH5_SRS 묶음 B — 런타임 상태 모달 (FR-SRT-6·7·8).
    껍데기는 `.confirm-box` 그대로다: 새 껍데기를 만들면 닫기·Esc·겹침 규약이 두
    벌이 된다. 여기 있는 것은 안쪽 줄들의 배치뿐이다. */
 .sbx-rt{max-width:520px}
-.sbx-rt-msg{margin:0 0 10px;font-size:var(--fs-md);color:var(--text);line-height:1.5}
+.sbx-rt-msg{margin:0 0 var(--sp-5);font-size:var(--fs-md);color:var(--text);line-height:1.5}
 /* 명령과 복사 버튼은 한 줄이다 — 떨어뜨리면 무엇을 복사하는지가 흐려진다. */
-.sbx-rt-cmdrow{display:flex;align-items:center;gap:6px;margin:0 0 10px}
-.sbx-rt-cmd{flex:1 1 auto;min-width:0;padding:6px 8px;font-size:var(--fs-sm);
+.sbx-rt-cmdrow{display:flex;align-items:center;gap:var(--sp-3);margin:0 0 var(--sp-5)}
+.sbx-rt-cmd{flex:1 1 auto;min-width:0;padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);
   font-family:var(--mono);color:var(--text-bright);background:var(--bg);
   border:1px solid var(--border);border-radius:var(--radius-sm);
   overflow-x:auto;white-space:pre}
@@ -123,10 +123,10 @@ body:not(.mobile) #sidebar{
 .sbx-rt-copy:hover{color:var(--accent-text);border-color:var(--accent)}
 /* 설치 뒤 재시작이 필요하다는 사실은 안내보다 약하되 사라지면 안 된다 — 이것이
    없으면 사용자는 설치하고도 같은 모달을 다시 본다. */
-.sbx-rt-restart{margin:0 0 6px;font-size:var(--fs-sm);color:var(--attn-text)}
-.sbx-rt-docs{margin:0 0 10px;font-size:var(--fs-sm);color:var(--text-hint);word-break:break-all}
+.sbx-rt-restart{margin:0 0 var(--sp-3);font-size:var(--fs-sm);color:var(--attn-text)}
+.sbx-rt-docs{margin:0 0 var(--sp-5);font-size:var(--fs-sm);color:var(--text-hint);word-break:break-all}
 /* 진행과 사유가 같은 자리에 산다. 닫히지 않으므로 읽을 시간이 있다. */
-.sbx-rt-note{margin:0 0 10px;
+.sbx-rt-note{margin:0 0 var(--sp-5);
   background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
   max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
 
@@ -139,12 +139,12 @@ body:not(.mobile) #sidebar{
 /* UX_AUDIT_FIX_SRS FR-UXF-9: 이전 기울임꼴 / 지금 흐린 글자 / 이유 기울임은 글꼴 문제로 읽혔다(진단 M9). 뜻은 툴팁이 말한다. */
 
 #add-window,#add-preset,#add-group,#repo-add{
-  margin:0 8px 4px;padding:4px 8px;min-height:30px;
+  margin:0 var(--sp-4) var(--sp-2);padding:var(--sp-2) var(--sp-4);min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);
   color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer;text-align:left;
   /* UI_KIT_SRS: 아이콘이 라벨 앞에 서면서 행이 flex 가 된다. 이름은 왼쪽에
      남아야 한다 — 목록의 행들과 같은 축이다. */
-  display:flex;align-items:center;gap:6px;justify-content:flex-start;
+  display:flex;align-items:center;gap:var(--sp-3);justify-content:flex-start;
 }
 #add-window:hover,#add-preset:hover,#add-group:hover,#repo-add:hover{background:var(--accent-hover);color:var(--accent-text)}
 /* 샌드박스 창 열기. `+ New` 안쪽 오른쪽에 앉는 작은 박스다 — 별개의 동작이
@@ -163,16 +163,16 @@ body:not(.mobile) #sidebar{
 #add-sandbox-window:hover{color:var(--accent-text);border-color:var(--accent);background:var(--accent-hover)}
 /* UX_REVISION_SRS FR-BLP-5·9: 패널의 액션 버튼 행. 두 패널이 같은 골격을 쓰므로
    여백도 한 자리에서 정한다 — 한쪽만 고치면 "구조가 같다" 가 깨진다. */
-.sb-actions{display:flex;flex-direction:column;flex:0 0 auto;margin-bottom:6px}
+.sb-actions{display:flex;flex-direction:column;flex:0 0 auto;margin-bottom:var(--sp-3)}
 /* UX_AUDIT_FIX_SRS FR-UXF-96 (D-32 개정): `창` 패널의 단추(`새 창`·`샌드박스`·`그룹`, 기본 프리셋이 있으면 `프리셋`)는 데스크톱·모바일 모두 한 줄이다.
    넘치면 줄을 넘기지 않고 각 단추가 줄어 라벨을 말줄임한다.
      이전 동작: `새 창·샌드박스` 와 `그룹` 이 두 줄이었다(7묶음 처음에는 모바일만 한 줄로 바꿨다) */
-#sb-panel-windows .sb-actions{flex-direction:row;gap:6px;margin:0 8px 6px}
+#sb-panel-windows .sb-actions{flex-direction:row;gap:var(--sp-3);margin:0 var(--sp-4) var(--sp-3)}
 #sb-panel-windows .sb-actions>button{flex:1 1 0;min-width:0;margin:0}
 #sb-panel-windows .sb-actions .ui-btn-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 한 줄에서는 `새 창` 이 좁아 안쪽 `샌드박스` 가 라벨을 덮는다 — 흐름에 넣어 단추의 오른쪽 구획(높이 전체)으로 세운다.
    음수 여백은 `새 창` 의 안쪽 여백을 되돌린다(데스크톱 4px 8px, 모바일 8px). */
-#sb-panel-windows #add-window{flex:2 1 0;padding-right:8px}
+#sb-panel-windows #add-window{flex:2 1 0;padding-right:var(--sp-4)}
 #sb-panel-windows #add-sandbox-window{position:static;transform:none;flex:0 0 auto;align-self:stretch;min-height:0;
   margin:-4px -8px -4px auto;border-width:0 0 0 1px;border-radius:0 var(--radius-sm) var(--radius-sm) 0}
 body.mobile #sb-panel-windows #add-sandbox-window{margin:-8px -8px -8px auto}
@@ -277,7 +277,7 @@ body.mobile #sb-panel-windows #add-sandbox-window{margin:-8px -8px -8px auto}
    자연 높이로 줄어드는 순간에도 `⟳`·`⚙` 는 바닥이어야 하고(FR-RAL-8),
    접었다는 이유로 버튼이 화면을 가로질러 옮겨 다녀서는 안 된다 (FR-SBC-15). */
 #sidebar[data-rail] #sb-bottom{
-  flex-direction:column;gap:4px;margin:auto 4px 8px;
+  flex-direction:column;gap:var(--sp-2);margin:auto var(--sp-2) var(--sp-4);
 }
 
 /* UX_AUDIT_FIX_SRS FR-UXF-98 (D-35): 펼친 탭은 아이콘을 늘 보이고, 라벨은 탭 줄에 다 들어갈 때만 선다(`labeled`, style-panel.css).

@@ -24,7 +24,7 @@
 /* FR-SBT-12·13: 배지는 **비활성 탭에서만** 보인다 — 활성 탭은 목록에 그 정보가
    이미 있다. 색은 테마 변수에서 온다 (NFR-SBT-3). */
 .sb-tab-badge{
-  flex-shrink:0;min-width:14px;padding:0 4px;border-radius:var(--radius-pill);
+  flex-shrink:0;min-width:14px;padding:0 var(--sp-2);border-radius:var(--radius-pill);
   font-size:var(--fs-xs);font-weight:700;line-height:14px;text-align:center;
   background:var(--accent-subtle);color:var(--accent-text);
 }
@@ -51,12 +51,12 @@
    생김새는 목록마다의 고유 클래스(`.si`·`.git-repo`)가 여전히 정하고, 여기는
    **두 목록이 공유하는 것을 쓸 자리**다. 지금 공유하는 것은 드래그 표식 하나다. */
 .sbl-item.dragging{opacity:.35}
-.sb-panel{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding-top:8px}
+.sb-panel{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding-top:var(--sp-4)}
 /* FR-LAY-2: 같은 근거. */
 
 /* FR-SBT-16·17 → PANEL_TEMPLATE_SRS FR-PNT-1·5·12 로 개정: 머리 고정·터치 높이는 패널 템플릿이 정한다.
    닫기 `✕` 는 머리의 끝 단추 자리다 — 이전에는 우상단에 겹쳐 서서 탭 줄이 덮었다(눌리지 않았다). */
-body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:var(--fs-sm);line-height:18px;border-radius:var(--radius-pill)}
+body.mobile .sb-tab-badge{min-width:18px;padding:0 var(--sp-3);font-size:var(--fs-sm);line-height:18px;border-radius:var(--radius-pill)}
 
 /* CHAT_WINDOW_SRS FR-CW-21: 메인 패널 `채팅` 탭의 목록. 스크롤은 목록 하나다(`.sbl-list` 와 같은 규약). */
 .chat-list{flex:1 1 auto;min-height:0;overflow-y:auto}

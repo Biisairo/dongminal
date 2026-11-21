@@ -5,7 +5,7 @@
 /* ── Top bar ── */
 #topbar{
   height:32px;min-height:32px;display:flex;align-items:center;
-  background:var(--sidebar-bg);border-bottom:1px solid var(--border-strong);padding:0 8px;gap:6px;
+  background:var(--sidebar-bg);border-bottom:1px solid var(--border-strong);padding:0 var(--sp-4);gap:var(--sp-3);
 }
 #window-name{font-size:var(--fs-md);color:var(--text-muted)}
 /* UX_AUDIT_FIX_SRS FR-UXF-2: 제목의 구분점은 흐린 글자다 — 상단바와 칸 머리글이 같다. */
@@ -51,25 +51,25 @@
 #attn-badge,#attn-badge:hover{position:relative;color:var(--attn-text);border-color:var(--attn-subtle)}
 #attn-badge::before{content:'';position:absolute;inset:-1px;border:1px solid var(--attn);border-radius:inherit;
   pointer-events:none;animation:attn-pulse-fade 2s ease-in-out infinite}
-#attn-badge .attn-count{margin-left:4px;font-size:var(--fs-sm);font-weight:600}
+#attn-badge .attn-count{margin-left:var(--sp-2);font-size:var(--fs-sm);font-weight:600}
 #attn-center{
   display:none;position:fixed;z-index:var(--z-popover);
   min-width:200px;max-width:320px;max-height:60vh;overflow-y:auto;
   background:var(--sidebar-bg);border:1px solid var(--attn);border-radius:var(--radius-md);
-  box-shadow:var(--shadow-1);padding:4px;
+  box-shadow:var(--shadow-1);padding:var(--sp-2);
 }
 #attn-center.open{display:block}
 /* MOBILE_UX_OVERHAUL_SRS FR-MUX-57: 모바일에서 알림 센터는 화면 폭을 쓴다 (오른쪽 끝은 `_positionAttnCenter` 가 준다). */
 body.mobile #attn-center{left:8px;right:8px !important;width:auto;min-width:0;max-width:none;max-height:70dvh;overflow-y:auto}
-.attn-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.attn-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);padding:var(--sp-3) var(--sp-5) var(--sp-4);border-bottom:1px solid var(--border);margin-bottom:var(--sp-2)}
 .attn-head .attn-title{font-size:var(--fs-sm);color:var(--text-muted)}
 .attn-clear-all:hover{background:var(--attn-subtle)}
 /* FR-AEV-15: 이름 · 사유 · 내용 세 칸. 내용은 길 수 있으므로(codex 의
    last-assistant-message 는 문단으로 온다) **줄이 늘지 않고 잘린다** — 항목 높이가
    내용에 따라 들쭉날쭉하면 목록으로 읽히지 않는다. */
 .attn-item{
-  display:flex;align-items:center;gap:8px;
-  padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:var(--fs-md);color:var(--text);
+  display:flex;align-items:center;gap:var(--sp-4);
+  padding:var(--sp-3) var(--sp-5);border-radius:var(--radius-sm);cursor:pointer;font-size:var(--fs-md);color:var(--text);
   /* flex 자식이 줄어들 수 있어야 생략이 선다 — min-width:auto 가 기본이라
      긴 내용이 상자를 밀어낸다. */
   min-width:0;
@@ -109,7 +109,7 @@ body.mobile #attn-center{left:8px;right:8px !important;width:auto;min-width:0;ma
    FR-STB-25: 칸이 여럿이면 토프바가 비고(FR-STB-12) 이 자리가 창 이름을
    이어받는다 — 같은 일을 하므로 `#window-name` 과 같은 토큰을 쓴다. 옛
    `var(--fg)` 는 어디에도 정의된 적이 없어 상속색으로 떨어지고 있었다. */
-.slot-head{flex:0 0 auto;padding:2px 8px;font-size:var(--fs-sm);line-height:1.6;
+.slot-head{flex:0 0 auto;padding:var(--sp-1) var(--sp-4);font-size:var(--fs-sm);line-height:1.6;
   color:var(--text-muted);background:var(--sidebar-bg);
   border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;user-select:none}
@@ -134,7 +134,7 @@ body.mobile #attn-center{left:8px;right:8px !important;width:auto;min-width:0;ma
    섞이지 않는다 (§7 R-3). **FR-CHR-10 (D-6) 이 이 자리를 확정했다** — 칸 `±` 는
    창 **밖**을 쪼개므로 전역이고, 그래서 탭줄이 아니라 상단바에 산다. */
 /* FR-GAP-2: 간격은 키트의 토큰이다 — 한 덩어리로 읽히는 것과 맞붙는 것은 다르다. */
-.slot-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin:0 2px}
+.slot-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin:0 var(--sp-1)}
 /* UX_BATCH12_SRS FR-RTR-13: 뒤로·앞으로. 슬롯 묶음과 간격·구분선으로 갈린다 (사용자 결정). */
 .nav-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin-right:var(--ui-gap);padding-right:var(--ui-gap);border-right:1px solid var(--border)}
 .nav-ctl[hidden]{display:none}
@@ -207,7 +207,7 @@ body.mobile .pn-split{display:none}
 .pn-act{width:24px}
 .pn-act:hover:not(:disabled){color:var(--accent-text)}
 .pn-tab{
-  display:flex;align-items:center;padding:0 10px;gap:4px;
+  display:flex;align-items:center;padding:0 var(--sp-5);gap:var(--sp-2);
   font-size:var(--fs-md);color:var(--text-muted);cursor:pointer;
   border-right:1px solid var(--border-weak);white-space:nowrap;flex-shrink:0;
 }
@@ -232,7 +232,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 /* UX_AUDIT_FIX_SRS FR-UXF-60·61·128 (X6·O2, D-18·D-43): 작업 중 표식 — 모바일 작업 단추의 `.m-act-dot` 과 같은 점.
    맥동하지 않는다(조용한 계기판의 램프). 주의가 있는 자리에는 JS 가 두지 않는다. 색은 실행 중 색 `--accent2` 다. */
 .work-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent2)}
-.pn-tab>.work-dot{margin-right:6px}
+.pn-tab>.work-dot{margin-right:var(--sp-3)}
 /* FR-UXF-129 (D-44): 사이드바 창 행은 점을 따로 두지 않고 선택 점을 링으로 두른다 — 패널 배경의 틈, 그 바깥 `--accent2` 띠.
    그림자라 행의 자리를 바꾸지 않는다. 이전: 이름 뒤 `.work-dot`, 레일에서는 선택 점 아래에 얹혀 같은 색으로 겹쳤다. */
 .sbl-item.working:not(.attn) .sbl-dot{box-shadow:0 0 0 1.5px var(--sidebar-bg),0 0 0 3px var(--accent2)}

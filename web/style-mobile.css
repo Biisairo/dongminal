@@ -25,7 +25,7 @@ body.mobile #mobile-keybar.mobile-only:not([hidden]){display:flex !important}
 /* ── Mobile topbar buttons ──
    `.mtbtn` 의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost` 가 갖는다 (§7.1). 모바일
    44px 는 아래 `body.mobile .ui-btn`/`.ui-btn-icon` 의 하한이 준다. */
-.m-pane-nav{display:inline-flex;align-items:center;gap:2px;margin-left:4px}
+.m-pane-nav{display:inline-flex;align-items:center;gap:var(--sp-1);margin-left:var(--sp-2)}
 #m-pane-indicator{font-size:var(--fs-sm);color:var(--text-muted);min-width:32px;text-align:center;font-variant-numeric:tabular-nums}
 
 /* ── Mobile mode layout ── */
@@ -58,14 +58,14 @@ body.mobile #content{width:100%}
 body.mobile{padding-bottom:calc(var(--m-kb-h) + env(safe-area-inset-bottom, 0px))}
 
 /* mobile topbar tighter spacing */
-body.mobile #topbar{padding:0 4px;gap:2px}
+body.mobile #topbar{padding:0 var(--sp-2);gap:var(--sp-1)}
 body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:35%;color:var(--text-bright)}
 
 /* mobile keybar (M4) */
 #mobile-keybar{
   position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom, 0px);
   height:var(--m-kb-h);background:var(--sidebar-bg);border-top:1px solid var(--border-strong);
-  display:none;align-items:center;gap:4px;padding:4px 6px;
+  display:none;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);
   overflow-x:auto;overflow-y:hidden;z-index:var(--z-overlay);
   -webkit-overflow-scrolling:touch;
 }
@@ -99,7 +99,7 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
 /* long-press key tooltip popup */
 #mkb-tip{
   position:fixed;transform:translate(-50%,-100%);
-  padding:6px 10px;background:var(--sidebar-bg);border:1px solid var(--accent-border);
+  padding:var(--sp-3) var(--sp-5);background:var(--sidebar-bg);border:1px solid var(--accent-border);
   border-radius:var(--radius-md);color:var(--text-bright);font-size:var(--fs-md);pointer-events:none;
   z-index:var(--z-popover);white-space:nowrap;
   box-shadow:var(--shadow-1);
@@ -151,10 +151,10 @@ body.mobile .sbl-x{opacity:1;width:var(--touch-min);height:var(--touch-min);font
 body.mobile .pn-tabs{
   height:calc(var(--touch-min) + 1px);min-height:calc(var(--touch-min) + 1px);
 }
-body.mobile .pn-tab{padding:0 14px;font-size:var(--fs-lg)}
+body.mobile .pn-tab{padding:0 var(--sp-6);font-size:var(--fs-lg)}
 /* FR-GHM-12: Git 창의 고정 탭은 일곱이고 늘거나 줄지 않는다 (FR-GIT-28) — 390px
    폭에서 일곱이 다 들어가려면 일반 탭의 여백을 쓸 수 없다 */
-body.mobile .pn-tab[data-git-view]{padding:0 6px;font-size:var(--fs-md)}
+body.mobile .pn-tab[data-git-view]{padding:0 var(--sp-3);font-size:var(--fs-md)}
 /* §6 E-4 — 폭은 면제다. `×` 는 탭 **안에** 있는 컨트롤이라 44 로 넓히면
    탭 자신의 가운데가 그 위로 들어온다: 실측으로 `history` 탭의 중심 x=130 이
    `×`[128..172] 안이었고, **탭을 누르면 탭이 닫혔다.** 세로는 줄 높이만큼
@@ -174,10 +174,10 @@ body.mobile .pn-tab-add{width:var(--touch-min);font-size:var(--fs-xl)}
 /* 이것들은 `#id` 로 `min-height` 를 따로 들고 있어 `.ui-btn` 의 하한이 닿지
    않는다 — 같은 자리에서 함께 올린다. */
 body.mobile #add-window,body.mobile #add-preset,body.mobile #add-group,body.mobile #settings-btn,
-body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(--touch-min)}
+body.mobile #soft-reload-btn{padding:var(--sp-4);font-size:var(--fs-md);min-height:var(--touch-min)}
 /* MOBILE_UX_OVERHAUL_SRS FR-MUX-56: 서랍의 남은 작은 단추 — 저장소 `+ 추가` 와 `새 창` 안의 `Box`. */
 body.mobile #repo-add{min-height:var(--touch-min);font-size:var(--fs-md)}
-body.mobile #add-sandbox-window{min-height:var(--touch-min);padding:0 12px;display:inline-flex;align-items:center}
+body.mobile #add-sandbox-window{min-height:var(--touch-min);padding:0 var(--sp-6);display:inline-flex;align-items:center}
 
 /* ── MOBILE_UX_OVERHAUL_SRS ──
    하단 크롬의 자리는 `App.mobileChromeSync` 가 body 에 적는다:
@@ -193,7 +193,7 @@ body.mobile #status-bar{display:none}
 /* FR-MUX-51: 길게 눌러 메뉴를 여는 자리에서 iOS 의 글자 선택·콜아웃이 먼저 뜨지 않게 한다. */
 body.mobile :is(.pn-tab,.git-file,.git-dir,.ed-row,.git-hist-row,.sbl-item){-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 /* FR-UXF-91: 창 이름 앞의 연결 점. 색은 상태바의 `.sb-dot` 과 같다. */
-body.mobile #topbar .m-conn-dot.mobile-only{display:inline-block !important;flex:0 0 auto;width:8px;height:8px;margin:0 2px 0 4px;border-radius:50%;background:var(--danger)}
+body.mobile #topbar .m-conn-dot.mobile-only{display:inline-block !important;flex:0 0 auto;width:8px;height:8px;margin:0 var(--sp-1) 0 var(--sp-2);border-radius:50%;background:var(--danger)}
 body.mobile #topbar .m-conn-dot.ok{background:var(--term-green)}
 /* FR-UXF-92: 새 판 — ☰ 위의 점과 서랍 바닥의 링크(배지와 같은 모양). */
 body.mobile #m-drawer-toggle{position:relative}
@@ -214,16 +214,16 @@ body.mobile #modal{
   border:none;border-radius:0;
   padding-top:env(safe-area-inset-top, 0px);padding-bottom:env(safe-area-inset-bottom, 0px);
 }
-body.mobile .modal-header{padding:4px 6px 4px 14px;gap:4px;min-height:calc(var(--touch-min) + 8px)}
-body.mobile .modal-body{padding:14px}
+body.mobile .modal-header{padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-6);gap:var(--sp-2);min-height:calc(var(--touch-min) + 8px)}
+body.mobile .modal-body{padding:var(--sp-6)}
 body.mobile #modal[data-mview="list"] .modal-body{display:none}
-body.mobile #modal[data-mview="list"] .modal-search{display:block;flex:0 0 auto;margin:10px 12px 4px;width:auto}
+body.mobile #modal[data-mview="list"] .modal-search{display:block;flex:0 0 auto;margin:var(--sp-5) var(--sp-6) var(--sp-2);width:auto}
 body.mobile #modal[data-mview="list"] .modal-tabs{
   flex:1 1 auto;min-height:0;flex-direction:column;flex-wrap:nowrap;
-  overflow-y:auto;padding:0 0 12px;border-bottom:none;
+  overflow-y:auto;padding:0 0 var(--sp-6);border-bottom:none;
 }
 body.mobile #modal[data-mview="list"] .mtab{
-  justify-content:space-between;width:100%;height:auto;min-height:48px;padding:0 16px;
+  justify-content:space-between;width:100%;height:auto;min-height:48px;padding:0 var(--sp-7);
   border-bottom:1px solid var(--border);font-size:var(--fs-lg);color:var(--text);
 }
 /* UX_AUDIT_FIX_SRS FR-UXF-100: 행 끝 꺾쇠는 스프라이트와 같은 경로의 마스크다(이전 글자 `›`). */
@@ -232,26 +232,26 @@ body.mobile #modal[data-mview="list"] .mtab::after{
   -webkit-mask:var(--ui-chev-right) center/contain no-repeat;mask:var(--ui-chev-right) center/contain no-repeat;
 }
 body.mobile #modal[data-mview="list"] .mtab-grp:not([hidden]){
-  display:block;padding:18px 16px 6px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);
+  display:block;padding:var(--sp-7) var(--sp-7) var(--sp-3);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);
 }
 body.mobile #modal[data-mview="detail"] :is(.modal-tabs,.modal-search,.modal-title){display:none}
 body.mobile #modal[data-mview="detail"] .modal-back{display:inline-flex}
 /* FR-MUX-54: 모바일 알림은 화면 폭을 쓰고 줄을 바꾼다 — 말줄임으로 잘린 알림은 읽을 수 없다. */
 body.mobile .toast-host{left:12px;right:12px;align-items:stretch}
-body.mobile .toast{max-width:none;white-space:normal;overflow-wrap:anywhere;padding:10px 14px;font-size:var(--fs-lg)}
+body.mobile .toast{max-width:none;white-space:normal;overflow-wrap:anywhere;padding:var(--sp-5) var(--sp-6);font-size:var(--fs-lg)}
 body.mobile :is(.git-undo-toast,.win-undo-toast){font-size:var(--fs-lg)}
 /* FR-MUX-55: 대화상자·Git 사이드의 체크박스·라디오와 그 줄은 손가락이 닿는 크기다. */
 body.mobile :is(.git-dialog,.ed-side,.git-view) :is(input[type=checkbox]:not(.ui-switch),input[type=radio]){width:20px;height:20px}
 body.mobile :is(.git-dialog,.ed-side,.git-view) label:has(>:is(input[type=checkbox],input[type=radio])){min-height:40px}
 /* FR-MUX-44: 찾기 막대 — 입력칸이 남는 폭을 받고 줄어들 수 있어 닫기(×)가 화면 밖으로
    밀리지 않는다. 입력 글자는 `--fs-xl` — 16px 아래면 iOS 가 포커스 때 화면을 확대한다. */
-body.mobile .search-bar{gap:2px;padding:4px 4px 4px 8px}
+body.mobile .search-bar{gap:var(--sp-1);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4)}
 body.mobile .search-bar input{flex:1 1 80px;min-width:0;min-height:var(--touch-min);font-size:var(--fs-xl)}
 body.mobile .search-bar button{min-width:32px;height:var(--touch-min)}
 body.mobile #search-count{min-width:0}
 /* FR-MUX-25: 좁은 폭에서 긴 값(지문 등)이 라벨을 한 글자 폭까지 누르지 않는다 — 라벨에
    하한을 주고, 손잡이가 들어가지 않으면 다음 줄로 내린다. */
-body.mobile .ds-row{flex-wrap:wrap;row-gap:8px}
+body.mobile .ds-row{flex-wrap:wrap;row-gap:var(--sp-4)}
 body.mobile .ds-row>span:first-child{min-width:5em}
 /* FR-MUX-26: 설정·대화상자의 선택 상자와 입력칸도 터치 하한을 지킨다. */
 body.mobile :is(.display-settings,.ui-modal,.git-view,.ed-side) :is(select,.ui-input,.ui-select,input:not([type]),input[type=text],input[type=search],input[type=number]){min-height:var(--touch-min);font-size:var(--fs-xl)}
@@ -260,7 +260,7 @@ body.mobile :is(.display-settings,.ui-modal,.git-view,.ed-side) :is(select,.ui-i
 #m-act-btn .m-act-dot{display:none;width:6px;height:6px;border-radius:50%;background:var(--accent2)}
 #m-act-btn .m-act-n{font-size:var(--fs-sm);font-variant-numeric:tabular-nums;color:var(--text-bright)}
 #m-act-btn .m-act-n:empty{display:none}
-body.mobile #m-act-btn.working{width:auto;padding:0 10px 0 8px;gap:5px}
+body.mobile #m-act-btn.working{width:auto;padding:0 var(--sp-5) 0 var(--sp-4);gap:var(--sp-3)}
 #m-act-btn.working .m-act-dot{display:block}
 /* FR-MUX-77: Repo 세그먼트 — 칸 순회 자리에 선다. 지금 자리는 글자색과 밑줄로만 말한다. */
 body.mobile .m-repo-seg.mobile-only:not([hidden]){display:inline-flex !important}
@@ -268,7 +268,7 @@ body.mobile .m-repo-seg.mobile-only:not([hidden]){display:inline-flex !important
 /* 412px 에 창 이름과 세그먼트가 함께 서지 못한다(실측: Editor 칸이 잘렸다). 세그먼트가 서 있으면 창 이름을 감춘다 —
    저장소 이름은 Changes 머리(`.git-head-repo`)와 편집기 탭이 말한다. */
 body.mobile #topbar:has(>.m-repo-seg:not([hidden])) #window-name{display:none}
-.m-seg-btn{gap:4px;padding:0 9px;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;
+.m-seg-btn{gap:var(--sp-2);padding:0 var(--sp-4);border:none;border-bottom:2px solid transparent;border-radius:0;background:none;
   font-size:var(--fs-md);color:var(--text-muted)}
 .m-seg-btn[aria-pressed="true"]{color:var(--text-bright);border-bottom-color:var(--accent)}
 .m-seg-btn:disabled{opacity:.4}
@@ -279,7 +279,7 @@ body.mobile #topbar:has(>.m-repo-seg:not([hidden])) #window-name{display:none}
 body.mobile .ed-side-tabs{display:none}
 /* FR-MUX-70~72: 사용량 요약 한 줄 — 누르면 펼치고 접는다. 펼치면 요약 아래에 전체가 선다. */
 /* 외형은 킷(`.ui-btn-ghost`)이 갖고, 자리와 글자만 여기 것이다 — 바닥 안에서는 줄 전체를 쓰는 행이다. */
-.act-usage-foot .act-usage-sum{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;
+.act-usage-foot .act-usage-sum{display:flex;align-items:center;justify-content:flex-start;gap:var(--sp-4);width:100%;
   min-height:var(--touch-min);margin:-8px 0 0;padding:0;border:none;border-radius:0;color:var(--text-muted);font-size:var(--fs-sm);text-align:left}
 .act-usage-sum .cacct-name{font-weight:600}
 .act-usage-sum>.ui-icon{flex-shrink:0;color:var(--text-hint)}

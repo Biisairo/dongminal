@@ -49,7 +49,7 @@ body:not(.mobile) #agents-handle{display:block}
 #agents-panel[data-rail] .ag-group{padding:0;height:0;overflow:hidden;pointer-events:none}
 /* UX_AUDIT_FIX_SRS FR-UXF-25: 레일의 카드는 이름 한 칸이다 — 상태 기호는 카드의 상태 띠가 대신한다. */
 #agents-panel[data-rail] .ag-dot{display:none}
-#agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row,.chat-row){padding:6px 3px;display:block}
+#agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row,.chat-row){padding:var(--sp-3) 3px;display:block}
 /* FR-RAL-2 와 같다: 이름은 두 줄까지, 넘치면 둘째 줄 끝에 `…`. */
 #agents-panel[data-rail] :is(.ag-loc,.bg-name,.runs-short,.chat-row-name){
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
@@ -82,12 +82,12 @@ body:not(.mobile) #agents-handle{display:block}
 .ag-tab-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--attn)}
 /* FR-CPY-2: 빈 구역은 사실만 말하지 않는다 — 모달·팝오버 시절의 그 문구 그대로다. */
 .ag-sec-empty{font-size:var(--fs-md);color:var(--text-muted)}
-.ag-sec-empty-h{margin-top:4px;color:var(--text-hint);font-family:var(--mono);font-size:var(--fs-sm)}
+.ag-sec-empty-h{margin-top:var(--sp-2);color:var(--text-hint);font-family:var(--mono);font-size:var(--fs-sm)}
 /* PEER_CHAT_SRS FR-PCH-83: Chats 탭 — 방 목록과 온라인 목록. 망에서 온 문자열은 글자로만 들어온다. */
-.chat-act{display:flex;padding:6px 8px;border-bottom:1px solid var(--border-weak)}
-.chat-sub-h{padding:6px 10px 3px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
-.chat-down,.chat-none{padding:8px 10px}
-.chat-row{display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer;font-size:var(--fs-md);color:var(--text)}
+.chat-act{display:flex;padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border-weak)}
+.chat-sub-h{padding:var(--sp-3) var(--sp-5) var(--sp-2);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
+.chat-down,.chat-none{padding:var(--sp-4) var(--sp-5)}
+.chat-row{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);cursor:pointer;font-size:var(--fs-md);color:var(--text)}
 .chat-row:hover{background:var(--accent-hover)}
 :is(.chat-row,.chat-people .chat-person).sel{background:var(--accent-subtle);box-shadow:inset 2px 0 0 var(--accent-border)}
 .chat-room.joined .chat-row-name{color:var(--text-bright);font-weight:600}
@@ -95,49 +95,49 @@ body:not(.mobile) #agents-handle{display:block}
 .chat-row-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chat-row-sub{flex:none;font-size:var(--fs-sm);color:var(--text-hint);font-family:var(--mono)}
 .chat-row-n{flex:none}
-.chat-node{display:flex;align-items:baseline;gap:6px;padding:4px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
+.chat-node{display:flex;align-items:baseline;gap:var(--sp-3);padding:var(--sp-2) var(--sp-5);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
 .chat-node-fp{font-family:var(--mono);font-size:var(--fs-sm);font-weight:400;color:var(--text-hint)}
 .chat-person{padding-left:20px}
 :is(.chat-node,.chat-person).off{opacity:.5}
 .chat-person.human .chat-row-name{color:var(--accent-text)}
 /* PEER_CHAT_SRS FR-PCH-84: 채팅 탭 — 위 머리, 가운데 대화와 오른쪽 참가자, 아래 입력칸. */
 .chat-view{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;background:var(--bg)}
-.chat-head{display:flex;align-items:baseline;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border)}
+.chat-head{display:flex;align-items:baseline;gap:var(--sp-4);padding:var(--sp-3) var(--sp-5);border-bottom:1px solid var(--border)}
 .chat-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-bright)}
 .chat-kind{flex:none}
 .chat-purpose{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-md);color:var(--text-muted)}
 .chat-more{flex:none;align-self:center}
 .chat-main{flex:1;min-height:0;display:flex}
-.chat-log{flex:1;min-width:0;overflow-y:auto;padding:8px 10px}
+.chat-log{flex:1;min-width:0;overflow-y:auto;padding:var(--sp-4) var(--sp-5)}
 .chat-people{flex:0 0 180px;overflow-y:auto;border-left:1px solid var(--border)}
-.chat-people .chat-person{display:flex;flex-direction:column;padding:4px 10px;cursor:pointer;font-size:var(--fs-md)}
+.chat-people .chat-person{display:flex;flex-direction:column;padding:var(--sp-2) var(--sp-5);cursor:pointer;font-size:var(--fs-md)}
 .chat-people .chat-person:hover{background:var(--accent-hover)}
-.chat-msg{padding:4px 0}
-.chat-msg-who{display:flex;align-items:baseline;gap:6px}
+.chat-msg{padding:var(--sp-2) 0}
+.chat-msg-who{display:flex;align-items:baseline;gap:var(--sp-3)}
 .chat-msg-name{font-size:var(--fs-md);font-weight:600;color:var(--text-bright)}
 .chat-msg.human .chat-msg-name{color:var(--accent-text)}
 .chat-msg-meta{font-size:var(--fs-sm);color:var(--text-hint);font-family:var(--mono)}
 .chat-msg-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--fs-md);color:var(--text)}
 .chat-msg.mine .chat-msg-text{color:var(--text-bright)}
-.chat-foot{border-top:1px solid var(--border);padding:6px 10px}
-.chat-note{padding-bottom:4px;font-size:var(--fs-sm);color:var(--attn-text)}
-.chat-input{width:100%;box-sizing:border-box;resize:vertical;min-height:36px;padding:6px 8px;
+.chat-foot{border-top:1px solid var(--border);padding:var(--sp-3) var(--sp-5)}
+.chat-note{padding-bottom:var(--sp-2);font-size:var(--fs-sm);color:var(--attn-text)}
+.chat-input{width:100%;box-sizing:border-box;resize:vertical;min-height:36px;padding:var(--sp-3) var(--sp-4);
   background:var(--bg-alt);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font:inherit;font-size:var(--fs-md)}
 .chat-input:focus{outline:none;border-color:var(--accent-border)}
 .chat-input:focus-visible{outline:1px solid var(--focus-ring)}
 .chat-input:disabled{opacity:.5}
-.chat-create{display:flex;flex-direction:column;gap:8px;min-width:320px}
+.chat-create{display:flex;flex-direction:column;gap:var(--sp-4);min-width:320px}
 .chat-cmd-what{font-size:var(--fs-md);color:var(--text-bright);overflow-wrap:anywhere}
 .chat-cmd-hint{font-size:var(--fs-sm);color:var(--text-hint)}
 .chat-create-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-bright)}
-.ag-group{display:flex;align-items:center;gap:4px;padding:5px 8px 5px 16px;cursor:pointer;background:transparent;border-bottom:1px solid var(--border-weak);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
+.ag-group{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-7);cursor:pointer;background:transparent;border-bottom:1px solid var(--border-weak);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
 /* UX_AUDIT_FIX_SRS FR-UXF-26: 모바일 그룹 머리는 터치 하한 한 줄이고 사이드바 행처럼 들여 쓴다 (이전 52px·왼쪽 16px). */
-body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
+body.mobile .ag-group{height:var(--touch-min);padding:0 var(--sp-4) 0 var(--sp-2)}
 .ag-group:hover{color:var(--accent-text);background:var(--accent-hover)}
 .ag-group-fold{flex:none}
 .ag-group-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-group.attn .ag-group-name{color:var(--attn-text)}
-.ag-card{padding:8px 10px;border-bottom:1px solid var(--border-weak);cursor:pointer;transition:background var(--dur-fast)}
+.ag-card{padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-weak);cursor:pointer;transition:background var(--dur-fast)}
 .ag-card:hover{background:var(--accent-hover)}
 .ag-card.focused{background:var(--accent-active)}
 .ag-card.dragging{opacity:.35}
@@ -145,8 +145,8 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 .ag-card.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
 /* UX_AUDIT_FIX_SRS FR-UXF-25: 카드의 줄 — 첫 줄 상태 기호 · 탭 이름(주인공), 둘째 줄 상태·도구 · detail(보조).
    이전: 탭 이름이 작은 흐린 글자(`--fs-sm`·`--text-muted`)였다. */
-.ag-line{display:flex;align-items:baseline;gap:6px;min-width:0}
-.ag-line-what{margin-top:2px}
+.ag-line{display:flex;align-items:baseline;gap:var(--sp-3);min-width:0}
+.ag-line-what{margin-top:var(--sp-1)}
 .ag-dot{flex:none;display:inline-flex;align-items:center;align-self:center;color:var(--text-muted)}
 .ag-loc{flex:1 1 auto;min-width:0;font-size:var(--fs-md);font-weight:600;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* UIUX_OVERHAUL_SRS FR-ACT-6: 항목은 패널 폭 안에서 잘린다.
@@ -178,7 +178,7 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
    좁아지면 모델·effort 만 말줄임으로 준다. 등급 색은 Run 화면의 `lv-*` 와 같다.
    ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-30: 모델·effort 가 왼쪽, 막대와 백분율이 오른쪽 끝이다 —
    모델이 없어도 막대는 오른쪽에 붙는다. */
-.ag-usage{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
+.ag-usage{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
 .ag-usage-bar{flex:0 0 56px;margin-left:auto;height:4px;border-radius:var(--radius-pill);background:var(--border-weak);overflow:hidden}
 .ag-usage-fill{height:100%;background:var(--text-muted)}
 .ag-usage-pct{flex-shrink:0;font-variant-numeric:tabular-nums}
@@ -189,15 +189,15 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 .ag-usage.lv-critical .ag-usage-pct{color:var(--danger-text)}
 /* SUBAGENT_USAGE_SRS FR-SAU-20~22 · ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-31·34: 서브에이전트의 머리와
    사용량 줄. 막대·백분율은 줄지 않고 글자가 말줄임으로 준다 (NFR-SAU-2 · NFR-ASV-3). */
-.ag-sub{margin-top:2px;min-width:0}
-.ag-sub-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
+.ag-sub{margin-top:var(--sp-1);min-width:0}
+.ag-sub-head{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
 .ag-sub-arrow{flex-shrink:0;display:inline-flex}
 .ag-sub-type,.ag-sub-state{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-sub-type{flex:0 0 auto;max-width:50%;color:var(--text)}
 .ag-sub-state{flex:1 1 auto}
 .ag-sub-state.working{color:var(--accent2)}
 .ag-sub-state.waiting{color:var(--attn-text)}
-.ag-sub .ag-usage{margin-top:1px;padding-left:14px}
+.ag-sub .ag-usage{margin-top:1px;padding-left:var(--sp-6)}
 .ag-sub .ag-usage-bar{flex-basis:40px}
 .ag-sub.done{opacity:.6}
 .ag-sub.done .ag-sub-state{color:var(--text-dim)}
@@ -206,18 +206,18 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 /* ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40~42 (D-ASV-11): Usage 바닥 — 패널 맨 아래에 붙는다.
    바닥은 스크롤 몸통 밖의 `#agents-foot` 에 선다 (D-ASV-12).
    창 블록의 모양은 Claude Code `/usage`·CodexBar 를 따른다 — 이름과 사용률 / 둥근 막대 / 남은 시간. */
-.act-usage-foot{padding:8px 12px 10px;
+.act-usage-foot{padding:var(--sp-4) var(--sp-6) var(--sp-5);
   background:var(--sidebar-bg);border-top:1px solid var(--border);min-width:0}
-.act-usage-head{display:flex;align-items:baseline;gap:6px;margin-bottom:2px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);min-width:0}
-.act-usage-head:not(:first-child){margin-top:8px}
+.act-usage-head{display:flex;align-items:baseline;gap:var(--sp-3);margin-bottom:var(--sp-1);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);min-width:0}
+.act-usage-head:not(:first-child){margin-top:var(--sp-4)}
 .act-usage-name{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.act-usage-win{margin-top:6px;min-width:0}
-.act-usage-top{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-sm);min-width:0}
+.act-usage-win{margin-top:var(--sp-3);min-width:0}
+.act-usage-top{display:flex;align-items:baseline;gap:var(--sp-4);font-size:var(--fs-sm);min-width:0}
 .act-usage-label{flex:1 1 auto;min-width:0;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .act-usage-used{flex-shrink:0;color:var(--text-muted);font-variant-numeric:tabular-nums}
-.act-usage-track{height:6px;margin-top:4px;border-radius:var(--radius-pill);background:var(--border-weak);overflow:hidden}
+.act-usage-track{height:6px;margin-top:var(--sp-2);border-radius:var(--radius-pill);background:var(--border-weak);overflow:hidden}
 .act-usage-fill{height:100%;border-radius:var(--radius-pill);background:var(--accent)}
-.act-usage-reset{margin-top:3px;font-size:var(--fs-sm);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-usage-reset{margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .act-usage-win.lv-warn .act-usage-fill{background:var(--attn)}
 .act-usage-win.lv-warn :is(.act-usage-used,.act-usage-reset){color:var(--attn-text)}
 .act-usage-win.lv-critical .act-usage-fill{background:var(--danger)}
@@ -228,30 +228,30 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 .act-usage-head .cacct-auto.on{color:var(--text-muted)}
 .act-usage-head .cacct-smart,.act-usage-head .cacct-history-btn{flex-shrink:0}
 /* FR-CAC-111: 전환 기록 팝업 — 줄마다 시각 · 이동 · 트리거와 주체. */
-.cacct-hist{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto;font-size:var(--fs-sm)}
-.cacct-hist-row{display:flex;flex-wrap:wrap;gap:2px 10px;min-width:0}
+.cacct-hist{display:flex;flex-direction:column;gap:var(--sp-3);max-height:60vh;overflow:auto;font-size:var(--fs-sm)}
+.cacct-hist-row{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-5);min-width:0}
 .cacct-hist-time{color:var(--text-hint);font-variant-numeric:tabular-nums}
 .cacct-hist-move{color:var(--text-bright);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cacct-hist-meta{color:var(--text-muted)}
 .cacct-hist-empty{color:var(--text-muted)}
-.cacct{position:relative;margin:0 -12px;padding:5px 12px 5px 44px;min-width:0;border-bottom:1px solid var(--border-weak);cursor:pointer}
+.cacct{position:relative;margin:0 -12px;padding:var(--sp-3) var(--sp-6) var(--sp-3) 44px;min-width:0;border-bottom:1px solid var(--border-weak);cursor:pointer}
 .cacct:first-of-type{border-top:1px solid var(--border-weak)}
 .cacct:hover{background:var(--accent-hover)}
 /* FR-CAC-91: 활성은 바탕 대신 "사용 중" 표식, 오버레이가 열린 칸은 안쪽 테두리 — 바탕을 칠하면 색 바의 마우스 강조가 묻힌다. */
 .cacct.pop{box-shadow:inset 0 0 0 1px var(--border-strong)}
-.cacct.wide{padding-bottom:7px}
-.cacct.wide .act-usage-win{margin-top:4px}
+.cacct.wide{padding-bottom:var(--sp-4)}
+.cacct.wide .act-usage-win{margin-top:var(--sp-2)}
 /* FR-CAC-91: 왼쪽 계정 색 바 — 누르는 폭 40px 는 칸 여백(44px) 안에 깔린다. 누르면 넓은/좁은 모양. */
 /* MOBILE_UX_OVERHAUL_SRS FR-MUX-80: 보이는 것은 3px 단색 막대뿐이다 (이전: 4px 진한 띠 + 36px 번짐). 누르는 폭은 그대로다. */
 .cacct-bar{position:absolute;left:0;top:0;bottom:0;width:40px;cursor:pointer;
   -webkit-mask-image:linear-gradient(90deg,#000 3px,transparent 3px);mask-image:linear-gradient(90deg,#000 3px,transparent 3px)}
 .cacct-bar:hover{-webkit-mask-image:linear-gradient(90deg,#000 4px,transparent 4px);mask-image:linear-gradient(90deg,#000 4px,transparent 4px)}
-.cacct-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);min-width:0}
-.cacct-who{display:flex;flex-wrap:wrap;align-items:center;gap:2px 5px;flex:1 1 0;min-width:0}
+.cacct-head{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);min-width:0}
+.cacct-who{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-3);flex:1 1 0;min-width:0}
 /* D-CAC-37: 좁은 카드·statusLine 줄이 같은 열을 쓴다 — 이름 칸 + 세션·주간 고정 폭 칸(앞에 작은 창 이름). */
 .act-usage-foot{--cacct-cell-w:76px}
-.cacct-cells{display:grid;grid-template-columns:repeat(2,minmax(0,var(--cacct-cell-w)));gap:6px;flex:0 1 auto;min-width:0}
-.cacct-cell{position:relative;display:flex;align-items:baseline;gap:4px;padding-bottom:3px;min-width:0;overflow:hidden;
+.cacct-cells{display:grid;grid-template-columns:repeat(2,minmax(0,var(--cacct-cell-w)));gap:var(--sp-3);flex:0 1 auto;min-width:0}
+.cacct-cell{position:relative;display:flex;align-items:baseline;gap:var(--sp-2);padding-bottom:var(--sp-2);min-width:0;overflow:hidden;
   font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-muted)}
 .cacct-cell-label{flex-shrink:0;font-size:var(--fs-sm);color:var(--text-hint)}
 /* 좁으면 남은 시간만 말줄임한다 — 칸이 글자를 자르면 이웃 칸과 붙어 겹쳐 읽혔다. */
@@ -266,44 +266,44 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 /* FR-CAC-91: 요약 오버레이 — Activity 패널 바깥 옆에 뜬다. 자리는 JS 가 셈한다 (claudeAcctPopPlace). */
 .cacct-pop{position:fixed;left:0;top:0;width:280px;z-index:var(--z-popover);max-height:70vh;overflow-y:auto;
   cursor:default;background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:var(--radius-md);box-shadow:var(--shadow-2);font-size:var(--fs-sm)}
-.cacct-pop>*{padding:8px 12px}
+.cacct-pop>*{padding:var(--sp-4) var(--sp-6)}
 .cacct-pop>*+*{border-top:1px solid var(--border-weak)}
-.cacct-pop-top{display:flex;align-items:center;gap:6px;min-width:0}
+.cacct-pop-top{display:flex;align-items:center;gap:var(--sp-3);min-width:0}
 .cacct-pop-name{flex:1 1 auto;min-width:0;font-weight:600;color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cacct-pop-title,.cacct-pop-st{margin-top:2px;padding-left:14px;color:var(--text-hint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cacct-pop-title,.cacct-pop-st{margin-top:var(--sp-1);padding-left:var(--sp-6);color:var(--text-hint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cacct-pop-st{color:var(--text-muted)}
 .cacct-pop-sec>.act-usage-win:first-child{margin-top:0}
-.cacct-pop-sec>.act-usage-win+.act-usage-win{margin-top:8px}
+.cacct-pop-sec>.act-usage-win+.act-usage-win{margin-top:var(--sp-4)}
 .cacct-dot{flex-shrink:0;width:8px;height:8px;border-radius:50%}
 /* CLAUDE_ACCOUNTS_SRS FR-CAC-95: 탭 틴트는 배경색 위의 층이다 — 활성 배경색과 알람 링이 그대로 보인다 */
 .pn-tab.cacct-tint{background-image:linear-gradient(var(--cacct-tint),var(--cacct-tint))}
 /* FR-CAC-94: 설정의 Claude 계정 패널 */
-.cacct-set-row{border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;margin:4px 0}
-.cacct-set-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cacct-set-row{border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-4);margin:var(--sp-2) 0}
+.cacct-set-head{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap}
 .cacct-set-grip{cursor:grab;color:var(--text-hint)}
 .cacct-set-name{font-weight:600}
 .cacct-set-meta,.cacct-set-login,.cacct-set-over{color:var(--text-hint);font-size:var(--fs-sm)}
 .cacct-set-login.warn,.cacct-set-warn{color:var(--attn-text)}
-.cacct-set-fields,.cacct-set-auto{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
-.cacct-swatches{display:inline-flex;align-items:center;gap:5px}
+.cacct-set-fields,.cacct-set-auto{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;margin-top:var(--sp-3)}
+.cacct-swatches{display:inline-flex;align-items:center;gap:var(--sp-3)}
 .cacct-swatch{width:16px;height:16px;padding:0;border:0;border-radius:50%;cursor:pointer;box-shadow:0 0 0 1px var(--border)}
 .cacct-swatch:hover{box-shadow:0 0 0 2px var(--border-strong)}
 .cacct-swatch.on{box-shadow:0 0 0 2px var(--sidebar-bg),0 0 0 4px var(--text-bright);cursor:default}
 .cacct-swatch:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.cacct-swatch-name{min-width:3em;margin-left:4px;font-size:var(--fs-sm);font-weight:600}
-.cacct-set-field{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-sm)}
-.cacct-set-warn{font-size:var(--fs-sm);margin-top:4px}
-.cacct-set-folders{display:flex;flex-direction:column;gap:2px}
+.cacct-swatch-name{min-width:3em;margin-left:var(--sp-2);font-size:var(--fs-sm);font-weight:600}
+.cacct-set-field{display:inline-flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm)}
+.cacct-set-warn{font-size:var(--fs-sm);margin-top:var(--sp-2)}
+.cacct-set-folders{display:flex;flex-direction:column;gap:var(--sp-1)}
 /* FR-CAC-94a: 폴더 연결 줄 — 이름 칸만 들여 쓰고, 계정 칩과 해제는 열로 맞춘다. */
-.cacct-set-folder{display:grid;grid-template-columns:minmax(0,1fr) 10em auto;align-items:center;gap:8px;padding:3px 6px;border-radius:var(--radius-sm)}
+.cacct-set-folder{display:grid;grid-template-columns:minmax(0,1fr) 10em auto;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 .cacct-set-folder:hover{background:var(--accent-hover)}
-.cacct-set-fname{display:flex;align-items:center;gap:6px;min-width:0}
+.cacct-set-fname{display:flex;align-items:center;gap:var(--sp-3);min-width:0}
 .cacct-set-fname>.ui-icon{flex-shrink:0;color:var(--text-hint)}
 .cacct-set-folder .cacct-chip{margin-left:0;justify-self:start;max-width:100%}
 .cacct-set-fname .cacct-set-over{flex-shrink:0;white-space:nowrap}
 .cacct-set-path{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
 /* FR-CAC-96·97·98: 계정 칩. 테두리·바탕은 계정 색, 글자는 본문 색 */
-.cacct-chip{flex-shrink:0;max-width:10em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:6px;padding:0 5px;
+.cacct-chip{flex-shrink:0;max-width:10em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:var(--sp-3);padding:0 var(--sp-3);
   border:1px solid var(--cacct-c);border-radius:var(--radius-sm);background:color-mix(in srgb,var(--cacct-c) 18%,transparent);
   color:var(--text);font-size:var(--fs-sm);line-height:1.5}
 .cacct-name{flex:0 1 auto;min-width:0;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -314,40 +314,40 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
      이전 동작: 줄지도 넘기지도 않아 좁은 패널에서 카드 밖으로 넘쳐 칸과 겹쳤다 */
 .cacct-st{flex-shrink:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--attn-text)}
 .cacct-age{flex-shrink:0;color:var(--text-hint)}
-.cacct-pace,.cacct-spend,.cacct-login{margin-top:4px;font-size:var(--fs-sm);color:var(--text-muted)}
+.cacct-pace,.cacct-spend,.cacct-login{margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--text-muted)}
 .cacct-pop-sec>.cacct-spend:first-child,.cacct-pop-sec>.cacct-login:first-child{margin-top:0}
 .cacct-pace.warn,.cacct-login.warn{color:var(--attn-text)}
-.cacct-acts{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.cacct-acts{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3)}
 /* FR-CAC-65: 제한 초기화 칸 — 줄마다 이름 · 상태 · (쓸 수 있으면) 버튼. */
 .cacct-resets{min-width:0}
-.cacct-resets-h{display:flex;gap:6px;font-size:var(--fs-sm);color:var(--text-hint)}
+.cacct-resets-h{display:flex;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--text-hint)}
 .cacct-resets-age{margin-left:auto}
-.cacct-resets-unknown{margin-top:4px;font-size:var(--fs-sm);color:var(--text-muted)}
-.cacct-rs{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:var(--fs-sm);min-width:0}
+.cacct-resets-unknown{margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--text-muted)}
+.cacct-rs{display:flex;align-items:center;gap:var(--sp-4);margin-top:var(--sp-3);font-size:var(--fs-sm);min-width:0}
 .cacct-rs-txt{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}
 .cacct-rs-use{flex-shrink:0}
 .cacct-rs-name{color:var(--text-bright);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cacct-rs-detail{color:var(--text-hint);min-width:0}
 /* FR-CAC-93 · D-CAC-37: statusLine 구역 — 점선 + 머리 한 줄로 시작하고, 바탕을 한 단계 다르게, 색 바 없이 흐리게.
    줄은 좁은 카드와 같은 열(이름 칸 + 세션·주간 칸)이고 꼭 한 줄이라 높이가 오르내리지 않는다. */
-.act-usage-sl-h,.act-usage-sl{margin:0 -12px;padding-left:44px;padding-right:12px;background:color-mix(in srgb,var(--text) 4%,transparent)}
-.act-usage-sl-h{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:3px;padding-bottom:1px;font-size:var(--fs-sm);line-height:1.2;color:var(--text-hint)}
+.act-usage-sl-h,.act-usage-sl{margin:0 -12px;padding-left:44px;padding-right:var(--sp-6);background:color-mix(in srgb,var(--text) 4%,transparent)}
+.act-usage-sl-h{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-4);padding-top:var(--sp-2);padding-bottom:1px;font-size:var(--fs-sm);line-height:1.2;color:var(--text-hint)}
 .act-usage-sl-h::after{content:'';flex:1 1 auto;border-top:1px dashed var(--border)}
 .act-usage-sl-h:first-child{margin-top:0}
-.act-usage-sl{display:flex;align-items:center;gap:6px;overflow:hidden;padding-top:2px;padding-bottom:3px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0;white-space:nowrap}
-.act-usage-sl:last-child{padding-bottom:6px;margin-bottom:-10px}
+.act-usage-sl{display:flex;align-items:center;gap:var(--sp-3);overflow:hidden;padding-top:var(--sp-1);padding-bottom:var(--sp-2);font-size:var(--fs-sm);color:var(--text-muted);min-width:0;white-space:nowrap}
+.act-usage-sl:last-child{padding-bottom:var(--sp-3);margin-bottom:-10px}
 .act-usage-sl .cacct-name{color:var(--text-muted)}
 .act-usage-sl.stale{opacity:.5}
 /* 좁은 패널(바닥 안쪽 폭 300px 미만 ≈ 패널 324px 미만): 이름 줄 아래로 칸 줄을 내리고, 색 바 여백을 줄이고, 머리 줄을 두 줄로 나눈다. 안쪽 폭 150px 미만이면 칸을 한 줄에 하나씩 쌓는다. */
 .act-usage-foot{container-type:inline-size}
 @container (max-width:299px){
-  .act-usage-head{flex-wrap:wrap;align-items:center;row-gap:2px}
+  .act-usage-head{flex-wrap:wrap;align-items:center;row-gap:var(--sp-1)}
   .act-usage-name{flex-basis:100%}
   .act-usage-head .cacct-auto{margin-left:0;flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
   .act-usage-head .cacct-smart{margin-left:auto}
-  .cacct,.act-usage-sl-h,.act-usage-sl{padding-left:16px}
+  .cacct,.act-usage-sl-h,.act-usage-sl{padding-left:var(--sp-7)}
   .cacct-bar{width:12px}
-  .cacct-head,.act-usage-sl{flex-wrap:wrap;row-gap:2px}
+  .cacct-head,.act-usage-sl{flex-wrap:wrap;row-gap:var(--sp-1)}
   .cacct-who{flex:1 1 100%}
   .act-usage-sl .cacct-who:empty{display:none}
   .cacct-cells{flex:1 1 100%;grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -357,7 +357,7 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 }
 .act-usage-sum .cacct-who{flex-wrap:nowrap}
 @container (max-width:149px){
-  .cacct-cells,.act-usage-sum .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:3px}
+  .cacct-cells,.act-usage-sum .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-2)}
 }
 
 .pn-body{flex:1;position:relative;overflow:hidden}
