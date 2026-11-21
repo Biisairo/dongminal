@@ -72,7 +72,7 @@ test('옛 localStorage 키를 부팅에서 지운다 (FR-UXB-4)', () => {
 });
 
 test('이식 표의 slotDir 는 탭별 칸에 선다 (FR-UXB-5)', () => {
-  const src = read('core/app-backup.js');
+  const src = read('core/settings-backup.js');
   const row = src.match(/\{\s*store:\s*'(\w+)'\s*,\s*key:\s*'slotDir'\s*\}/);
   assert.ok(row, 'BACKUP_KEYS 에 slotDir 행이 있어야 한다');
   assert.equal(row[1], 'session', 'displayMode·mobileBreakpoint 와 같은 칸이다');

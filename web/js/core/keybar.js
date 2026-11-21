@@ -1,7 +1,7 @@
 /**
  * Remote Terminal — 모바일 키바의 구성과 매크로 (UX_AUDIT_FIX_SRS §3.11.2, FR-UXF-93·94, D-31)
  *
- * 순수 함수만 둔다. 키바는 app-mobile.js 가, 설정 구역은 app-settings-keybar.js 가 그린다.
+ * 순수 함수만 둔다. 키바는 app-mobile.js 가, 설정 구역은 settings-terminal.js(`TerminalSection`) 가 그린다.
  * 구성 값은 설정 키 `keybar` 다: `{order:[id…], off:[id…], macros:[{id,label,key,ctrl,alt,shift}…]}`.
  * constants.js(`MKB_KEYS`) 뒤에 로드된다.
  */

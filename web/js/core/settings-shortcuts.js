@@ -1,10 +1,16 @@
 /**
- * Dongminal — 설정창의 **단축키 패널** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
+ * ShortcutsSection — Settings ▸ Shortcuts (REFACTOR3_FE_SETTINGS_SRS 8d, 옛 `app-settings-keys.js`).
  *
- * 목록을 그리고, 한 줄을 눌러 새 조합을 **녹화**한다. 녹화 중에는 그 키가
- * 화면의 다른 곳으로 새지 않아야 하므로 취소 경로가 짝으로 있다.
+ * 목록을 그리고, 한 줄을 누르면 새 조합의 **녹화**에 들어간다. 녹화 자체(키를 받아 적기)는 입력 바인딩의
+ * 일이다(`ui/input-binding.js`, §1.3) — 녹화 중인 동작 이름은 그쪽이 읽으므로 App 의 `recording` 에 둔다.
+ * 녹화 중에는 그 키가 화면의 다른 곳으로 새지 않아야 하므로 취소 경로가 짝으로 있다.
  */
-Object.assign(App.prototype, {
+class ShortcutsSection extends SettingsSection {
+  constructor(app){ super(app,'shortcuts') }
+
+  /** 설정을 열 때 — 목록을 지금 값으로 다시 그린다. */
+  onOpen(){ this._renderShortcutList() }
+
   _renderShortcutList(){
     const el=document.getElementById('sc-list');if(!el)return;
     el.innerHTML='';
@@ -48,10 +54,10 @@ Object.assign(App.prototype, {
         // Click → record mode
         btn.addEventListener('click',()=>{
           this._cancelRecording();
-          this.recording=k;btn.textContent=t('keys.press_key');btn.classList.add('recording');
+          this.app.recording=k;btn.textContent=t('keys.press_key');btn.classList.add('recording');
         });
         const rst=UIKit.button({icon:'undo',title:SHORTCUT_RESET_TITLE,kind:'ghost',size:'sm'});
-        rst.addEventListener('click',()=>{shortcuts[k]=SHORTCUT_DEFAULTS[k];this.saveSettings();btn.textContent=displayKey(shortcuts[k]);I18N.applyShortcuts(document)});
+        rst.addEventListener('click',()=>{shortcuts[k]=SHORTCUT_DEFAULTS[k];this.app.saveSettings();btn.textContent=displayKey(shortcuts[k]);I18N.applyShortcuts(document)});
         row.appendChild(label);
         const btns=document.createElement('div');btns.className='sc-btns';
         btns.appendChild(btn);btns.appendChild(rst);
@@ -59,12 +65,12 @@ Object.assign(App.prototype, {
         el.appendChild(row);
       }
     }
-  },
+  }
 
   _cancelRecording(){
-    if(!this.recording)return;
+    if(!this.app.recording)return;
     const btn=document.querySelector('.sc-key.recording');
     if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
-    this.recording=null;
-  },
-});
+    this.app.recording=null;
+  }
+}

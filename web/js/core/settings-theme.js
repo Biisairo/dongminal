@@ -1,38 +1,34 @@
 /**
- * Dongminal — 설정창의 **테마 패널** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
+ * ThemeSection — Settings ▸ Theme (REFACTOR3_FE_SETTINGS_SRS 8d, 옛 `app-settings-theme.js`).
  *
  * 테마 목록 · 미리보기 · 사용자 정의 편집기 · 색 입력. 테마가 자기 파일을 갖는
  * 이유는 44개 테마의 목록과 **그것을 고치는 편집기**가 함께 있어야 하기 때문이다.
+ *
+ * 어느 테마를 적용할지 정하는 `_applyThemeChoice` 는 App 에 남는다(`app-settings-init.js`) — 부팅의
+ * `_settingsApply` 가 설정창이 서기 전에 부른다. `main.js`·e2e 가 부르는 이름(`_showCustomEditor`·
+ * `_hideCustomEditor`·`themeSlots`·`setThemeSlots`)은 App 의 위임자가 이 섹션에 잇는다(FR-FES-9).
  */
-Object.assign(App.prototype, {
-  /**
-   * SYSTEM_THEME_FOLLOW_SRS FR-STF-2·4·7: 세 이름 중 **무엇을 적용할지** 정하는
-   * 자리 하나. 추종이 켜져 있으면 시스템 모드의 슬롯, 아니면 사용자 정의 →
-   * `currentThemeName` 순이다 (기존 규약: 사용자 정의가 이름을 이긴다).
-   */
-  _applyThemeChoice(){
-    if(themeFollowSystem){
-      const name=systemColorMode()==='dark'?themeNameDark:themeNameLight;
-      const theme=THEMES[name]; if(theme){currentThemeName=name;applyThemeObj(theme);return}
-    }
-    applyThemeObj(customTheme||THEMES[currentThemeName]);
-  },
+class ThemeSection extends SettingsSection {
+  constructor(app){ super(app,'theme') }
 
-  /** FR-STF-2: 시스템 모드가 바뀌면 그 자리에서 다시 고른다 — 새로고침이 없다. */
-  _initThemeFollow(){
+  /** SYSTEM_THEME_FOLLOW_SRS FR-STF-2: 시스템 모드가 바뀌면 그 자리에서 다시 고른다 — 새로고침이 없다. */
+  init(){
     if(typeof matchMedia!=='function') return;
     const mq=matchMedia('(prefers-color-scheme: dark)');
-    const on=()=>{if(themeFollowSystem){this._applyThemeChoice();this._renderThemePanel()}};
-    if(mq.addEventListener) mq.addEventListener('change',on); else if(mq.addListener) mq.addListener(on);
-  },
+    const on=()=>{if(themeFollowSystem){this.app._applyThemeChoice();this._renderThemePanel()}};
+    if(mq.addEventListener) this.listen(mq,'change',on); else if(mq.addListener) mq.addListener(on);
+  }
+
+  /** 설정을 열 때 — 목록·메인색 행·미리보기를 지금 값으로 다시 그린다. */
+  onOpen(){ this._renderThemePanel() }
 
   /** e2e 계약 — 슬롯을 읽고 세운다 (APP_TESTING_CONTRACT). */
-  themeSlots(){return {dark:themeNameDark,light:themeNameLight}},
+  themeSlots(){return {dark:themeNameDark,light:themeNameLight}}
   setThemeSlots(s){
     if(s&&THEMES[s.dark]) themeNameDark=s.dark;
     if(s&&THEMES[s.light]) themeNameLight=s.light;
-    this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
-  },
+    this.app._applyThemeChoice(); this._renderThemePanel(); this.app.saveSettings();
+  }
 
   /**
    * THEME_SEED_COLOR_SRS FR-SEED-12: 메인색 행 — 스위치·색 입력·견본 8개. 견본은 색상 0°·45°·…를
@@ -52,32 +48,32 @@ Object.assign(App.prototype, {
         b.addEventListener('click',()=>{const o=oklchOf(getCurrentTheme().ui.accent);seedColor=hexOfOklch(o.L,o.C,h);this._seedChanged(true)});
         box.appendChild(b);
       }
-      sw.addEventListener('change',()=>{
+      this.listen(sw,'change',()=>{
         seedColor=sw.checked?(PrefStore.local.get(SEED_LAST_KEY)||getCurrentTheme().ui.accent):'';
         this._seedChanged(true);
       });
       // 끄는 동안은 화면만 따라가고 놓을 때 저장한다 (FR-SEED-10, 편집기 FEC-5 와 같다).
-      inp.addEventListener('input',()=>{seedColor=inp.value.toLowerCase();this._seedChanged(false)});
-      inp.addEventListener('change',()=>this._saveSettingsNow('seed-color'));
+      this.listen(inp,'input',()=>{seedColor=inp.value.toLowerCase();this._seedChanged(false)});
+      this.listen(inp,'change',()=>this.app._saveSettingsNow('seed-color'));
     }
     for(const b of box.children){
       b.disabled=!on;
       b.style.background=hexOfOklch(a0.L,a0.C,Number(b.dataset.hue));
     }
-  },
+  }
 
   /** FR-SEED-10·11: 메인색이 바뀌었다 — 다시 적용하고, 패널·편집기 안내를 고친다. */
   _seedChanged(save){
     if(seedColor) PrefStore.local.set(SEED_LAST_KEY,seedColor);
-    this._applyThemeChoice(); this._renderThemePanel(); this._paintSeedHint();
-    if(save) this.saveSettings(); else this._saveSettingsSoon('seed-color');
-  },
+    this.app._applyThemeChoice(); this._renderThemePanel(); this._paintSeedHint();
+    if(save) this.app.saveSettings(); else this.app._saveSettingsSoon('seed-color');
+  }
 
   /** FR-SEED-11: 편집기는 원본을 고친다 — 메인색이 켜져 있으면 그 사실을 알린다. */
   _paintSeedHint(){
     const hint=document.querySelector('#custom-editor .seed-hint');
     if(hint) hint.hidden=!seedColor;
-  },
+  }
 
   _renderThemePanel(){
     this._renderSeedRow();
@@ -89,14 +85,14 @@ Object.assign(App.prototype, {
       cb.checked=themeFollowSystem;
       if(!cb._bound){
         cb._bound=true;
-        cb.addEventListener('change',()=>{
+        this.listen(cb,'change',()=>{
           themeFollowSystem=cb.checked;
           // FR-STF-4: 켜는 순간 지금 테마가 자기 모드의 슬롯에 들어간다.
           if(themeFollowSystem&&!customTheme){
             const theme=THEMES[currentThemeName];
             if(theme&&theme.mode==='light') themeNameLight=currentThemeName; else if(theme) themeNameDark=currentThemeName;
           }
-          this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
+          this.app._applyThemeChoice(); this._renderThemePanel(); this.app.saveSettings();
         });
       }
       // FR-STF-7: 사용자 정의가 있는데 추종이 켜져 있으면 그것은 적용되지 않는다.
@@ -163,12 +159,12 @@ Object.assign(App.prototype, {
           // 시스템 모드와 같은 쪽이면 즉시 적용되고, 아니면 저장만 된다.
           if(themeFollowSystem){
             if(theme.mode==='light') themeNameLight=name; else themeNameDark=name;
-            this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
+            this.app._applyThemeChoice(); this._renderThemePanel(); this.app.saveSettings();
             return;
           }
           currentThemeName=name; customTheme=null;
           applyThemeObj(theme); this._renderThemePanel(); this._hideCustomEditor();
-          this.saveSettings();
+          this.app.saveSettings();
         });
         grp.appendChild(item);
       }
@@ -178,7 +174,7 @@ Object.assign(App.prototype, {
     const items=[...list.querySelectorAll('.tl-item')];
     UIKit.rove(items,items.find(i=>i.classList.contains('active')));
     this._renderPreview();
-  },
+  }
 
   _renderPreview(){
     const theme=getAppliedTheme();   // THEME_SEED_COLOR_SRS FR-SEED-9a
@@ -268,12 +264,12 @@ Object.assign(App.prototype, {
         </div>
       </div>
     </div>`;
-  },
+  }
 
   _hideCustomEditor(){
     document.getElementById('custom-editor').hidden=true;
     document.getElementById('custom-toggle').classList.remove('active');
-  },
+  }
 
   _showCustomEditor(){
     const base=getCurrentTheme();
@@ -293,7 +289,7 @@ Object.assign(App.prototype, {
     for(const [key,label] of Object.entries(TERM_LABELS)){
       termDiv.appendChild(this._colorInput(key,label,'terminal'));
     }
-  },
+  }
 
   /**
    * 색 입력 하나. `section` 은 `customTheme` 의 칸 이름이다 (`ui`·`terminal`).
@@ -316,12 +312,12 @@ Object.assign(App.prototype, {
       customTheme[section][key]=inp.value;
       applyThemeObj(customTheme);
       this._renderPreview();
-      this._saveSettingsSoon('theme-color');
+      this.app._saveSettingsSoon('theme-color');
     });
     inp.addEventListener('change',()=>{
-      if(customTheme) this._saveSettingsNow('theme-color');
+      if(customTheme) this.app._saveSettingsNow('theme-color');
     });
     item.appendChild(lbl); item.appendChild(inp);
     return item;
-  },
-});
+  }
+}

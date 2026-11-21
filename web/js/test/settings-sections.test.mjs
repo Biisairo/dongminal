@@ -33,7 +33,7 @@ function setup(access, els) {
   const ctx = load([...BASE, ...SETTINGS], {
     expose: ['SettingsSection', 'FormRow', 'View', 'DisplaySection', 'TerminalSection', 'CodeSection', 'PollingSection',
       'StatusbarSection', 'NotifySection', 'ProfileSection', 'ServerSection', 'SandboxSection', 'TelegramSection',
-      'AccessSection', 'EdgesSection', 'ClaudeSection'],
+      'AccessSection', 'EdgesSection', 'ClaudeSection', 'ThemeSection', 'ShortcutsSection', 'PresetsSection', 'BackupSection'],
     globals: {
       TIMERS: { disposeOwner() {} },
       SETTINGS_ACCESS: access,
@@ -165,7 +165,9 @@ const MOVED = [
     rows: [['tabFixedWidth', 'ds-tabfix', 'check'], ['tabWidthPx', 'ds-tabw', 'number'], ['uiFontSize', 'ds-uifs', 'number'],
       ['fgTabNames', 'ds-fgnames', 'check'], ['confirmLeave', 'ds-confirmleave', 'check']] },
   { cls: 'TerminalSection', tab: 'terminal',
-    gone: ['_initClaudeFullscreen', '_initTermGpu', '_initTermFontSize', '_initClaudeScrollSpeed', '_initMigrationSettings'],
+    gone: ['_initClaudeFullscreen', '_initTermGpu', '_initTermFontSize', '_initClaudeScrollSpeed', '_initMigrationSettings',
+      // 8d — 모바일 키바 구역
+      '_initKeybarSettings', '_keybarDraft', '_keybarSet', '_keybarPaint'],
     rows: [['claudeFullscreen', 'ds-claudefs', 'check'], ['termFontSize', 'ds-termfs', 'number'],
       ['claudeScrollSpeed', 'ds-scrollspeed', 'number'], ['migrationHook', 'ds-mighook', 'check'],
       ['migrationHookCtxPct', 'ds-mighookpct', 'number'], ['issueTreeMigration', 'ds-treemig', 'check'],
@@ -193,6 +195,16 @@ const MOVED = [
     gone: ['_cacctOnSettingsOpen', '_cacctEditing', '_cacctWireEditing', '_loadClaudePanel', '_cacctDo', '_cacctAdd',
       '_cacctItem', '_cacctAsk', '_cacctAccountRow', '_cacctAutoEl', '_cacctFoldersEl', '_cacctUnclaimedEl',
       '_cacctHistoryEl', '_cacctPaint'] },
+  // 8d — 테마·단축키·프리셋·백업. 키바는 `TerminalSection` 이다(위). `init: false` 는 그 탭의 요소가 없으면 init 이 설 수 없는 섹션이다.
+  { cls: 'ThemeSection', tab: 'theme', rows: [],
+    gone: ['_initThemeFollow', '_renderSeedRow', '_seedChanged', '_paintSeedHint', '_renderThemePanel', '_renderPreview',
+      '_colorInput'] },
+  { cls: 'ShortcutsSection', tab: 'shortcuts', rows: [], gone: ['_renderShortcutList', '_cancelRecording'] },
+  { cls: 'PresetsSection', tab: 'presets', rows: [], init: false,
+    gone: ['_presetSource', '_deletePreset', '_renamePreset', '_describeLayout', '_presetMsg'] },
+  { cls: 'BackupSection', tab: 'backup', rows: [],
+    gone: ['_bkStore', '_bkCollect', '_bkFileName', '_bkMsg', '_bkExport', '_bkParse', '_bkPreview', '_bkCancel', '_bkApply',
+      '_bkReset', '_bkRevList', '_bkRevert', '_initBackup'] },
 ];
 
 /** FR-FES-9 의 위임자 가운데 이 단계까지 옮긴 파일에 있는 것 + 설정 밖·저장 단추 판정이 부르는 이름(8c). */
@@ -202,7 +214,10 @@ const DELEGATES = ['saveSettings', '_settingsApply', '_settingsRestore', '_onSet
   // 8c
   '_onAccessChanged', '_onSandboxChanged', '_onServerMoving', '_edgesPaint', '_egNodePaint', '_egMeshPaint',
   '_egInvitesPaint', '_egNotify', '_cacctPanelShown', '_cacctRefreshSoft', '_loadTelegramPanel', '_tgRead',
-  '_pfCollect', '_pfFollow', '_sbxCollect', '_aclCollect', '_egNodeCollect'];
+  '_pfCollect', '_pfFollow', '_sbxCollect', '_aclCollect', '_egNodeCollect',
+  // 8d — 위임자와, 설정창이 서기 전(부팅의 `_settingsApply`·`main.js`)에도 도는 App 메서드
+  'themeSlots', 'setThemeSlots', '_showCustomEditor', '_hideCustomEditor', '_renderPresets', '_savePreset',
+  '_applyThemeChoice', '_keybarApply', '_presetButtonPaint', '_loadPreset'];
 
 /** 8c 의 위임자 → 섹션 탭과 섹션 메서드. 위임자는 인자를 그대로 넘기고 답을 그대로 돌려준다. */
 const ROUTES = [
@@ -213,6 +228,10 @@ const ROUTES = [
   ['_loadTelegramPanel', 'telegram', '_loadTelegramPanel'], ['_tgRead', 'telegram', '_tgRead'],
   ['_pfCollect', 'profile', '_pfCollect'], ['_pfFollow', 'profile', '_pfFollow'], ['_sbxCollect', 'sandbox', '_sbxCollect'],
   ['_aclCollect', 'access', '_aclCollect'],
+  // 8d
+  ['themeSlots', 'theme', 'themeSlots'], ['setThemeSlots', 'theme', 'setThemeSlots'],
+  ['_showCustomEditor', 'theme', '_showCustomEditor'], ['_hideCustomEditor', 'theme', '_hideCustomEditor'],
+  ['_renderPresets', 'presets', '_renderPresets'], ['_savePreset', 'presets', '_savePreset'],
 ];
 
 const JS_ROOT = new URL('..', import.meta.url).pathname;
@@ -259,7 +278,7 @@ test('TC-FES-3: 섹션이 init 에서 선언한 행이 표와 같다', () => {
   Object.assign(ctx, { focusEdgeLevel: 0, attnEdgeLevel: 0, UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10 });
   for (const m of MOVED) {
     const s = new ctx[m.cls]({ ...fakeApp([]), _slotDirPaint() {}, displayMode: 'auto', mobileBreakpoint: 768 });
-    s.init();
+    if (m.init !== false) s.init();
     assert.deepEqual(plain(s.rows.map((r) => [r.decl.key, r.decl.id, r.decl.kind])), m.rows, m.cls);
   }
 });
@@ -407,4 +426,58 @@ test('8b: NotifySection 은 데스크톱·소리 토글과 판 확인을 배선�
   dt.fire('change');
   assert.equal(app.attnDesktop, false);
   assert.equal(up.listeners.change.length, 1);
+});
+
+// ── 8d 테마·단축키·키바·프리셋·백업 (FR-FES-4) ────────────────────────────
+
+test('8d: ThemeSection 의 init 은 시스템 모드 구독을 걸고, 섹션이 그 주인이다', () => {
+  const { ctx } = setup({}, {});
+  const mq = elem('mq');
+  ctx.matchMedia = (q) => { assert.equal(q, '(prefers-color-scheme: dark)'); return mq };
+  const s = new ctx.ThemeSection(fakeApp([]));
+  s.init();
+  assert.equal(mq.listeners.change.length, 1);
+  s.dispose();
+  assert.equal(mq.listeners.change.length, 0);
+});
+
+test('8d: 키바 구역의 손짓은 구성을 바꾸고 App 의 적용(this=app)과 저장을 부른다', () => {
+  const { ctx } = setup({}, {});
+  const log = [];
+  const app = { ...fakeApp(log), _keybarApply() { log.push('apply:' + (this === app)) } };
+  ctx.keybarCfg = { order: ['a'] };
+  const s = new ctx.TerminalSection(app);
+  const next = { order: ['b'] };
+  s._keybarSet(next);
+  assert.equal(ctx.keybarCfg, next);
+  assert.deepEqual(log, ['apply:true', 'save']);
+});
+
+test('8d: 프리셋의 원본 창은 App 의 창 목록을 그때 묻는다 — e2e 가 갈아 끼운 `plainWindows` 가 닿는다', () => {
+  const { ctx } = setup({}, {});
+  const w1 = { id: 'w1' }, w2 = { id: 'w2' }, ed = { id: 'e' };
+  const app = { ...fakeApp([]), aw: () => ed, isKindWin: (w) => w === ed, plainWindows: () => [w1, w2], _lastPlainWindow: 'w2' };
+  const s = new ctx.PresetsSection(app);
+  assert.equal(s._presetSource(), w2);
+  app.plainWindows = () => [];
+  assert.equal(s._presetSource(), null);
+  app.aw = () => w1;
+  assert.equal(s._presetSource(), w1, '활성 창이 일반 창이면 그 창이다');
+  assert.equal(s._describeLayout(null), '');
+});
+
+test('8d: BackupSection — 파일 이름·저장된 키만 담기·봉투 검사', () => {
+  const { ctx } = setup({}, {});
+  const store = { local: { attnSound: '1' }, session: { slotDir: 'h' } };
+  ctx.PrefStore = {
+    local: { get: (k) => store.local[k] ?? null }, session: { get: (k) => store.session[k] ?? null },
+  };
+  ctx.t = (k) => k;
+  const s = new ctx.BackupSection(fakeApp([]));
+  assert.equal(s._bkFileName(new Date(2026, 0, 2, 3, 4, 5)), 'dongminal-settings-20260102-030405.json');
+  assert.deepEqual(plain(s._bkCollect()), { local: { attnSound: '1' }, session: { slotDir: 'h' } });
+  assert.equal(s._bkParse('{').err, 'backup.not_json');
+  assert.equal(s._bkParse('{"kind":"x","version":1,"server":{}}').err, 'backup.not_ours');
+  assert.equal(s._bkParse('{"kind":"dongminal-settings","version":9,"server":{}}').err, 'backup.newer_version');
+  assert.deepEqual(plain(s._bkParse('{"kind":"dongminal-settings","version":1,"server":{"a":1}}').env.server), { a: 1 });
 });

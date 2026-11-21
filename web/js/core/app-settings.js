@@ -6,11 +6,12 @@
  *
  * **패널은 갈라져 나갔다.** 고칠 자리를 파일 이름이 말한다:
  *
- *   app-settings-init.js      개별 설정의 즉시 반영 (설정창 없이도 돈다)
+ *   app-settings-init.js      개별 설정의 즉시 반영 (설정창 없이도 돈다 — 테마 고르기·키바 얹기 포함)
  *   settings-section.js       설정 탭 하나 = `SettingsSection` 하위 하나 (`settings-display.js` 등)
  *   settings-row.js           단순한 행 `FormRow` (체크·숫자)
- *   app-settings-theme.js     테마 목록 · 미리보기 · 사용자 정의 편집
- *   app-settings-keys.js      단축키 목록 · 녹화
+ *   settings-theme.js         테마 목록 · 미리보기 · 사용자 정의 편집 (`ThemeSection`)
+ *   settings-shortcuts.js     단축키 목록 (`ShortcutsSection`, 녹화는 ui/input-binding.js)
+ *   settings-presets.js       레이아웃 프리셋 목록 (`PresetsSection`) · settings-backup.js  백업 (`BackupSection`)
  *   settings-sandbox.js       샌드박스 패널 (`SandboxSection`)
  *   settings-access.js        접속 허용 목록(ACL) 패널 (`AccessSection`)
  *   settings-edges.js         간선(Edges) 패널 (`EdgesSection`)
@@ -345,7 +346,10 @@ Object.assign(App.prototype, {
 
   /** 설정창을 열 때 (`SettingsModal` 의 `onOpen`). 열 때마다 현재 값을 다시 칠한다. */
   _settingsOnOpen(modal){
-    this._renderThemePanel();this._renderShortcutList();this._renderPresets();
+    for(const tab of ['theme','shortcuts','presets']){
+      const s=SettingsSection.of(this,tab);
+      if(s) s.onOpen();
+    }
     // FR-LVC-3 · FR-WBR-10 · FR-MMT-6 · FR-UXB-43 · FR-FSS-21: 열 때마다 현재 값을 다시
     // 칠한다 — 다른 화면에서 바뀐 값이 이 모달에 옛 상태로 남아 있으면 사용자가
     // 그것을 켜진 줄로 읽는다. 숫자 입력란도 확정하지 않은 글자(`999` 를 치고 `Esc`)를
@@ -368,14 +372,13 @@ Object.assign(App.prototype, {
 
   /** 탭을 골랐을 때 (`SettingsModal` 의 `onTab`). 고른 탭의 DOM 은 이미 바뀌었다. */
   _settingsOnTab(tab){
-    if(tab==='presets')this._renderPresets();
-    // 탭별 재조회(sandbox·access·profile·edges·telegram·server·claude)와 code 탭의 관측은 그 섹션의 `onTab` 이다.
+    // 탭별 재조회(sandbox·access·profile·edges·telegram·server·claude)·code 탭의 관측·프리셋 목록은 그 섹션의 `onTab` 이다.
     const sec=SettingsSection.of(this,tab);
     if(sec) sec.onTab();
   },
 
   initModal(){
-    this._initThemeFollow();   // FR-STF-2
+    SettingsSection.start(this,new ThemeSection(this));   // FR-STF-2: 시스템 모드 구독
     const modal=document.getElementById('modal');
     // REFACTOR3_FE_DIALOG_SRS FR-FED-10: 열기·닫기·탭 고르기는 `SettingsModal` 이 진다. 여기서 만들어야
     // `_initSettingsMobile` 의 탭 리스너가 그 뒤에 붙어 뒤에 돈다.
@@ -383,12 +386,12 @@ Object.assign(App.prototype, {
     this._bindSettingsSearch(modal);
     // REFACTOR3_FE_SETTINGS_SRS 8a: 탭 하나 = 섹션 하나. 8e 의 `SettingsController` 가 들 때까지 섹션은
     // `SettingsSection` 의 정적 등록부가 든다 (§6).
+    SettingsSection.start(this,new ShortcutsSection(this));
     SettingsSection.start(this,new DisplaySection(this));
-    SettingsSection.start(this,new TerminalSection(this));
-    this._initKeybarSettings();
+    SettingsSection.start(this,new TerminalSection(this));   // 모바일 키바 구역은 init 끝에서 (옛 `_initKeybarSettings` 자리)
     SettingsSection.start(this,new CodeSection(this));
     this._paintSettingControls();
-    this._initBackup();
+    SettingsSection.start(this,new BackupSection(this));
     SettingsSection.start(this,new SandboxSection(this));
     SettingsSection.start(this,new AccessSection(this));
     SettingsSection.start(this,new EdgesSection(this));
@@ -399,7 +402,7 @@ Object.assign(App.prototype, {
   },
 
   // ── 설정 섹션 위임자 (REFACTOR3_FE_SETTINGS_SRS FR-FES-9) ──
-  // 설정 밖(`app-edges.js`·`state-registry.js`·`app-claude-accounts.js`)·저장 단추 판정(`settings-save-state.js`)·
+  // 설정 밖(`app-edges.js`·`state-registry.js`·`app-claude-accounts.js`·`main.js`)·저장 단추 판정(`settings-save-state.js`)·
   // 단위 시험이 App 에서 부르는 이름이다. 섹션이 아직 없으면(`initModal` 전) 아무것도 하지 않는다.
   _onAccessChanged(...a){ return this._sectionCall('access','_onAccessChanged',a) },
   _onSandboxChanged(...a){ return this._sectionCall('sandbox','_onSandboxChanged',a) },
@@ -415,6 +418,13 @@ Object.assign(App.prototype, {
   _pfFollow(...a){ return this._sectionCall('profile','_pfFollow',a) },
   _sbxCollect(...a){ return this._sectionCall('sandbox','_sbxCollect',a) },
   _aclCollect(...a){ return this._sectionCall('access','_aclCollect',a) },
+  // 8d — `main.js`(사용자 정의 편집기 단추)·e2e 계약(`app-testing.js`)
+  themeSlots(...a){ return this._sectionCall('theme','themeSlots',a) },
+  setThemeSlots(...a){ return this._sectionCall('theme','setThemeSlots',a) },
+  _showCustomEditor(...a){ return this._sectionCall('theme','_showCustomEditor',a) },
+  _hideCustomEditor(...a){ return this._sectionCall('theme','_hideCustomEditor',a) },
+  _renderPresets(...a){ return this._sectionCall('presets','_renderPresets',a) },
+  _savePreset(...a){ return this._sectionCall('presets','_savePreset',a) },
 
   _sectionCall(tab,name,args){
     const s=SettingsSection.of(this,tab);

@@ -98,5 +98,27 @@ Object.assign(App.prototype, {
     for(const p of this.tools.values()) if(p&&p.applyFontSize) p.applyFontSize();
   },
 
-  // ── Modal & Theme ──
+  /**
+   * SYSTEM_THEME_FOLLOW_SRS FR-STF-2·4·7: 세 이름 중 **무엇을 적용할지** 정하는
+   * 자리 하나. 추종이 켜져 있으면 시스템 모드의 슬롯, 아니면 사용자 정의 →
+   * `currentThemeName` 순이다 (기존 규약: 사용자 정의가 이름을 이긴다).
+   * 테마 패널(`ThemeSection`)도 이것을 부른다.
+   */
+  _applyThemeChoice(){
+    if(themeFollowSystem){
+      const name=systemColorMode()==='dark'?themeNameDark:themeNameLight;
+      const theme=THEMES[name]; if(theme){currentThemeName=name;applyThemeObj(theme);return}
+    }
+    applyThemeObj(customTheme||THEMES[currentThemeName]);
+  },
+
+  /**
+   * UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바 구성을 얹는다. 키바는 세워진 뒤에만 다시 그린다 — 부팅의 설정 얹기가
+   * `initMobileKeybar` 보다 먼저 올 수 있다. 설정 구역(Terminal ▸ 모바일 키바)은 섹션이 있으면 그것이 칠한다.
+   */
+  _keybarApply(){
+    if(this.modKbd){ this._mkbRender(); this.mkbRefresh() }
+    const sec=SettingsSection.of(this,'terminal');
+    if(sec) sec._keybarPaint();
+  },
 });

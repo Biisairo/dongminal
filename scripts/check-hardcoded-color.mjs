@@ -67,7 +67,7 @@ const SKIP_FILES = [
 /** 줄 단위 예외 — 그 파일의 그 모양만 지나간다. */
 const SKIP_LINES = [
   { file: 'web/js/core/theme-vars.js', re: /rgba\(\$\{/, why: '`hexToRgba` — 리터럴이 아니라 생성자다' },
-  { file: 'web/js/core/app-settings-theme.js', re: /inp\.value\s*=/, why: '`<input type="color">` 의 빈 값 자리표 — 화면에 칠해지지 않는다' },
+  { file: 'web/js/core/settings-theme.js', re: /inp\.value\s*=/, why: '`<input type="color">` 의 빈 값 자리표 — 화면에 칠해지지 않는다' },
 ];
 
 /**

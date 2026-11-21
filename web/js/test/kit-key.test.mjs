@@ -57,7 +57,7 @@ test('TC-CMP-1b: 키캡은 한 벌이다 — 죽은 `kbd` 규칙이 없다 (FR-C
 });
 
 test('TC-CMP-1c: .sc-key 는 .ui-key 를 병기하고 ui-btn 은 달지 않는다 (FR-CMP-11 / D-KIT-1)', () => {
-  const src = readFileSync('web/js/core/app-settings-keys.js', 'utf8');
+  const src = readFileSync('web/js/core/settings-shortcuts.js', 'utf8');
   const m = src.match(/createElement\('button'\);\s*\w+\.className\s*=\s*'([^']*)'/);
   assert.ok(m, '`.sc-key` 를 만드는 자리를 찾지 못했다');
   const cls = m[1].split(/\s+/);

@@ -1,5 +1,6 @@
 /**
- * Dongminal — 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS)
+ * BackupSection — Settings ▸ Backup (REFACTOR3_FE_SETTINGS_SRS 8d, 옛 `app-backup.js`).
+ * 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS) · 기본값으로 되돌리기 · 창 배치 되돌리기.
  *
  * **Settings 창에서 설정 가능한 값 전부를 파일 하나로 옮긴다.**
  *
@@ -28,10 +29,12 @@ const BACKUP_KEYS=[
 const BACKUP_KIND='dongminal-settings';
 const BACKUP_VERSION=1;
 
-Object.assign(App.prototype, {
+class BackupSection extends SettingsSection {
+  constructor(app){ super(app,'backup') }
+
   _bkStore(name){
     return name==='session'?PrefStore.session:PrefStore.local;
-  },
+  }
 
   // FR-SPT-5 / D-6: **저장된 키만** 담는다. 없는 키를 기본값으로 채우면 나중에
   // 기본값이 바뀌어도 옛 값이 따라온다 — "정한 적 없음" 은 그대로 옮겨져야 한다.
@@ -42,21 +45,21 @@ Object.assign(App.prototype, {
       if(v!==null) out[store][key]=v;
     }
     return out;
-  },
+  }
 
   // FR-SPT-6: 지역 시각을 이름에 박는다 — 여러 번 내보내도 서로 덮지 않는다.
   _bkFileName(d){
     const p=n=>String(n).padStart(2,'0');
     return `dongminal-settings-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`
       +`-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.json`;
-  },
+  }
 
   _bkMsg(text,kind){
     const el=document.getElementById('bk-msg');
     if(!el) return;
     el.textContent=text||'';
     el.className='bk-msg'+(text?(' '+(kind||'ok')):'');
-  },
+  }
 
   /**
    * FR-SPT-4·5. 블롭 계층은 키를 세지 않고 통째로 담는다 (FR-SPT-2) — 서버가
@@ -85,7 +88,7 @@ Object.assign(App.prototype, {
     TIMERS.defer(()=>URL.revokeObjectURL(url),{label:'revoke-url'});
     this._bkMsg(t('backup.exported',{name:a.download}),'ok');
     return true;
-  },
+  }
 
   /**
    * FR-SPT-9: 하나라도 어긋나면 **아무것도 바꾸지 않고** 거부한다.
@@ -105,7 +108,7 @@ Object.assign(App.prototype, {
     if(v>BACKUP_VERSION) return {err:t('backup.newer_version',{v:env.version})};
     if(!env.server||typeof env.server!=='object'||Array.isArray(env.server)) return {err:t('backup.no_content')};
     return {env};
-  },
+  }
 
   // FR-SPT-10: 무엇이 덮이는지 알리고 확인을 받는다. 되돌릴 수 없는 교체다.
   _bkPreview(env){
@@ -127,13 +130,13 @@ Object.assign(App.prototype, {
     if(el) el.textContent=lines.join('\n');
     const box=document.getElementById('bk-confirm');
     if(box) box.hidden=false;
-  },
+  }
 
   _bkCancel(){
     const box=document.getElementById('bk-confirm');
     if(box) box.hidden=true;
     this._bkPending=null;
-  },
+  }
 
   /**
    * FR-SPT-11: 전체 교체.
@@ -169,7 +172,7 @@ Object.assign(App.prototype, {
     BootScreen.show(BOOT_STEP_BACKUP);
     location.reload();
     return true;
-  },
+  }
 
   /**
    * FUI-24: 설정 전부를 기본값으로 되돌린다.
@@ -198,7 +201,7 @@ Object.assign(App.prototype, {
     BootScreen.show(BOOT_STEP_BACKUP);
     location.reload();
     return true;
-  },
+  }
 
   /**
    * M5 `G4-7`: 되돌릴 수 있는 창 배치의 판을 보인다.
@@ -243,7 +246,7 @@ Object.assign(App.prototype, {
       row.append(when,size,btn);
       box.appendChild(row);
     }
-  },
+  }
 
   /**
    * 판 하나로 되돌린다.
@@ -261,15 +264,15 @@ Object.assign(App.prototype, {
     window.__dmReloading=true;
     BootScreen.show(BOOT_STEP_BACKUP);
     location.reload();
-  },
+  }
 
-  _initBackup(){
+  init(){
     const ex=document.getElementById('bk-export');
     if(!ex) return;
-    ex.addEventListener('click',()=>this._bkExport());
+    this.listen(ex,'click',()=>this._bkExport());
     const file=document.getElementById('bk-file');
-    document.getElementById('bk-import').addEventListener('click',()=>file.click());
-    file.addEventListener('change',async()=>{
+    this.listen(document.getElementById('bk-import'),'click',()=>file.click());
+    this.listen(file,'change',async()=>{
       const f=file.files&&file.files[0];
       // 같은 파일을 다시 고를 수 있게 비운다 — 값이 같으면 change 가 오지 않는다.
       file.value='';
@@ -281,27 +284,27 @@ Object.assign(App.prototype, {
       this._bkPending=env;
       this._bkPreview(env);
     });
-    document.getElementById('bk-apply').addEventListener('click',()=>this._bkApply());
-    document.getElementById('bk-cancel').addEventListener('click',()=>{this._bkCancel();this._bkMsg('')});
+    this.listen(document.getElementById('bk-apply'),'click',()=>this._bkApply());
+    this.listen(document.getElementById('bk-cancel'),'click',()=>{this._bkCancel();this._bkMsg('')});
 
     // M5 `G4-7` — 창 배치 되돌리기.
     const revBtn=document.getElementById('bk-revlist');
-    if(revBtn) revBtn.addEventListener('click',()=>this._bkRevList());
+    if(revBtn) this.listen(revBtn,'click',()=>this._bkRevList());
 
     // FUI-24 — 기본값으로 되돌리기. 되돌릴 수 없으므로 한 단계를 더 둔다.
     const reset=document.getElementById('bk-reset');
     const rc=document.getElementById('bk-reset-confirm');
     if(reset&&rc){
-      reset.addEventListener('click',()=>{
+      this.listen(reset,'click',()=>{
         this._bkCancel();
         this._bkMsg('');
         rc.hidden=false;
       });
-      document.getElementById('bk-reset-apply').addEventListener('click',()=>{
+      this.listen(document.getElementById('bk-reset-apply'),'click',()=>{
         rc.hidden=true;
         this._bkReset();
       });
-      document.getElementById('bk-reset-cancel').addEventListener('click',()=>{rc.hidden=true});
+      this.listen(document.getElementById('bk-reset-cancel'),'click',()=>{rc.hidden=true});
     }
-  },
-});
+  }
+}

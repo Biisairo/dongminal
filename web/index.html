@@ -357,7 +357,7 @@
     </div>
     <div class="modal-body ui-scroll">
       <div class="mpanel" id="panel-theme" hidden>
-        <!-- THEME_SEED_COLOR_SRS FR-SEED-12: 메인색. 견본은 app-settings-theme.js 가 그린다. -->
+        <!-- THEME_SEED_COLOR_SRS FR-SEED-12: 메인색. 견본은 settings-theme.js 가 그린다. -->
         <div class="display-settings">
           <div class="ds-row" id="theme-seed-row">
             <span data-i18n="html.theme_seed"></span>
@@ -565,7 +565,7 @@
             <input type="checkbox" class="ui-switch" id="ds-termgpu">
           </div>
           <div class="ds-hint" data-i18n="html.term_gpu_hint"></div>
-          <!-- UX_AUDIT_FIX_SRS FR-UXF-95 (D-31): 모바일 키바 구성. 행은 app-settings-keybar.js 가 그린다. -->
+          <!-- UX_AUDIT_FIX_SRS FR-UXF-95 (D-31): 모바일 키바 구성. 행은 settings-terminal.js 가 그린다. -->
           <div class="ds-sec" data-i18n="html.dssec_keybar"></div>
           <div id="ds-keybar" class="kbc">
             <div class="kbc-list"></div>
@@ -1237,9 +1237,8 @@
 <script src="js/core/settings-polling.js?v=__ASSETV__"></script>
 <script src="js/core/settings-statusbar.js?v=__ASSETV__"></script>
 <script src="js/core/settings-notify.js?v=__ASSETV__"></script>
-<script src="js/core/app-settings-keybar.js?v=__ASSETV__"></script>
-<script src="js/core/app-settings-theme.js?v=__ASSETV__"></script>
-<script src="js/core/app-settings-keys.js?v=__ASSETV__"></script>
+<script src="js/core/settings-theme.js?v=__ASSETV__"></script>
+<script src="js/core/settings-shortcuts.js?v=__ASSETV__"></script>
 <script src="js/core/settings-live.js?v=__ASSETV__"></script>
 <script src="js/core/settings-save-state.js?v=__ASSETV__"></script>
 <script src="js/core/settings-sandbox.js?v=__ASSETV__"></script>
@@ -1252,12 +1251,13 @@
 <script src="js/core/settings-server.js?v=__ASSETV__"></script>
 <script src="js/core/settings-claude-rows.js?v=__ASSETV__"></script>
 <script src="js/core/settings-claude.js?v=__ASSETV__"></script>
-<!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
-<script src="js/core/app-backup.js?v=__ASSETV__"></script>
+<!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). 섹션이므로 settings-section.js 뒤다. -->
+<script src="js/core/settings-backup.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar-enc.js?v=__ASSETV__"></script>
 <script src="js/core/app-update.js?v=__ASSETV__"></script>
 <script src="js/core/app-presets.js?v=__ASSETV__"></script>
+<script src="js/core/settings-presets.js?v=__ASSETV__"></script>
 <script src="js/core/app-dnd.js?v=__ASSETV__"></script>
 <script src="js/core/window-order.js?v=__ASSETV__"></script>
 <script src="js/core/app-groups.js?v=__ASSETV__"></script>
