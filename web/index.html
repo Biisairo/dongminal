@@ -249,7 +249,7 @@
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost" id="m-search-btn" title="Find in this pane" aria-label="Find in this pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
       <!-- WINDOW_SLOTS_SRS FR-WSL-50: 창 **밖**을 쪼갠다 — 창 **안**을 쪼개는
            Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
-           리스너는 app-slots.js 가 붙인다. -->
+           리스너는 slot-ops.js 가 붙인다. -->
       <!-- UX_BATCH12_SRS FR-RTR-13·14: 뒤로·앞으로. Repo 창일 때만 선다. 슬롯 버튼의 왼쪽이며
            구분선으로 묶음이 갈린다. 갈 곳이 없으면 비활성이다. 칠하기는 renderer-chrome.js 다. -->
       <span class="nav-ctl desktop-only" id="nav-ctl" hidden>
@@ -1162,7 +1162,10 @@
 <script src="js/core/app-diff-tab.js?v=__ASSETV__"></script>
 <!-- 패널 좌우 도킹 (PANEL_DOCK_SRS). `app-layout.js` 뒤 — prototype 확장이다. -->
 <script src="js/core/app-dock.js?v=__ASSETV__"></script>
-<script src="js/core/app-slots.js?v=__ASSETV__"></script>
+<!-- 창 슬롯 — 상태와 부품 `SlotOps`(조작) (REFACTOR3_FE_APPCTL_SRS 9h, 옛 `app-slots.js`). 끝에서 App 원형에 위임자와 접근자
+     `slots`·`slotDir` 를 둔다. -->
+<script src="js/core/slots-controller.js?v=__ASSETV__"></script>
+<script src="js/core/slot-ops.js?v=__ASSETV__"></script>
 <!-- 포커스와 그 부품 둘 — 하이라이트·창 소유권 (REFACTOR3_FE_APPCTL_SRS 9g, 옛 `app-focus*.js`). 끝에서 App 원형에 위임자를 둔다. -->
 <script src="js/core/focus-controller.js?v=__ASSETV__"></script>
 <script src="js/core/focus-highlight.js?v=__ASSETV__"></script>

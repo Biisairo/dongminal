@@ -22,7 +22,7 @@ import { join } from 'node:path';
 const JS_ROOT = new URL('../', import.meta.url).pathname;
 
 /** 슬롯 파생의 **단일 출처**. 여기서만 리터럴 첨자를 써도 된다. */
-const SOURCE_OF_TRUTH = 'core/app-slots.js';
+const SOURCE_OF_TRUTH = 'core/slots-controller.js';   // 옛 `app-slots.js` 의 앞쪽 (REFACTOR3_FE_APPCTL_SRS 9h)
 
 function jsFiles() {
   const out = [];
@@ -54,7 +54,7 @@ test('slotKey 를 리터럴 첨자로 부르는 자리가 없다 (FR-SAF-24)', (
 test('슬롯 전체를 도는 자리는 SLOT_MAX 에서 파생한다 (FR-SAF-17)', () => {
   const src = readFileSync(join(JS_ROOT, SOURCE_OF_TRUTH), 'utf8');
   assert.ok(/slotKeysOf\s*\(/.test(src),
-    'app-slots.js 에 slotKeysOf 가 없다 — 파생을 담을 자리가 있어야 한다');
+    'slots-controller.js 에 slotKeysOf 가 없다 — 파생을 담을 자리가 있어야 한다');
   // 그 함수의 본문이 SLOT_MAX 를 딛는지 본다.
   const at = src.indexOf('slotKeysOf');
   const body = src.slice(at, at + 400);

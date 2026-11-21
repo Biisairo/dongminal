@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, SLOTS, controllers, load } from './harness.mjs';
 
 /**
  * REPO_FIX 03 §3A-6 (E-4) — 편집기 조회의 두 헬퍼.
@@ -10,8 +10,8 @@ import { load } from './harness.mjs';
  * 잡아 닫기 확인·이름변경 추적·줄 이동이 조용히 빠졌다 (#5, N6).
  */
 function app(focused) {
-  const ctx = load(['core/app-slots.js'], { globals: { App: class {} } });
-  const a = Object.create(ctx.App.prototype);
+  const ctx = load([...BASE, ...SLOTS], { globals: { App: class {} } });
+  const a = controllers(ctx, Object.create(ctx.App.prototype));   // REFACTOR3_FE_APPCTL_SRS 9h: 조회는 `slot` 의 것
   a._slots = { windows: [{}, {}, {}, {}], focused };
   a.fileEditors = new Map();
   return a;

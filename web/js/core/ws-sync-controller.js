@@ -336,7 +336,7 @@ class WsSyncController extends Controller {
     // FR-TLU-10: 비교는 **`slotBase(key)`** 로 한다. 칸 1 이상의 인스턴스는
     // 키가 `id@1` 이므로 순수 toolId 집합과 직접 대면 언제나 "없는 도구"가 되고,
     // 살아 있는 칸 도구가 `workspace_changed` 마다 파괴된다. `_slotReap` 이 같은
-    // 판정을 이미 이렇게 한다 (app-slots.js, FR-SVS-60 과 같은 자리).
+    // 판정을 이미 이렇게 한다 (slot-ops.js, FR-SVS-60 과 같은 자리).
     let attnDropped=false;
     for(const [key,p] of Array.from(this.app.tools.entries())){
       const id=this.app.slotBase(key);

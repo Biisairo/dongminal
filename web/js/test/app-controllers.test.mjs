@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, FOCUS, GIT, PANELS, SETTINGS, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { BASE, FOCUS, GIT, PANELS, SETTINGS, SLOTS, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -85,6 +85,12 @@ const ISSUES = {
     gone: ['core/app-focus.js', 'core/app-focus-hl.js', 'core/app-focus-owner.js'],
     plainNow: [],
     mixins: 24,
+  },
+  '9h': {
+    ctl: ['core/slots-controller.js', 'core/slot-ops.js'],
+    gone: ['core/app-slots.js'],
+    plainNow: [],
+    mixins: 23,
   },
 };
 
@@ -927,4 +933,124 @@ test('TC-FEA-3(9g): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
     assert.equal(typeof ctx.App.prototype[n], 'function', n);
   for (const n of ['_navPlace', '_navCounts', 'resizeCheck'])
     assert.ok(contract.has(n), '계약에 없다: ' + n);
+});
+
+// ── 9h: 슬롯 ────────────────────────────────────────────────────────────────────
+
+const CLASSES_9H = ['SlotsController', 'SlotOps'];
+
+const DELEGATES_9H = {
+  slot: ['slotCount', 'slotFocused', 'slotKey', 'slotKeysOf', 'editorsOf', 'editorAny', 'editorsDrop', '_slotOf', 'slotBase',
+    'paneTab', 'paneTabSet', '_slotTabsToWs', 'slotWindow', 'windowVisible', '_slotIdentity', '_slotsRestore'],
+  'slot.ops': ['slotAdd', 'slotRemove', 'slotFocusTo', 'slotNav', 'slotRenderFlush', 'slotOpen', '_slotClaimAll', '_slotOnSwitch',
+    '_slotOnWindowGone', 'slotNavigate', '_initSlots', '_slotDirPaint', 'slotHandleBind', 'slotApplySizes'],
+};
+
+function load9h(globals = {}) {
+  return load([...BASE, ...SLOTS], {
+    expose: [...CLASSES_9H, 'Controller', 'Component'],
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      document: { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] },
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9h): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9h();
+  const app = new ctx.App();
+  for (const c of CLASSES_9H) {
+    const o = new ctx[c](app);
+    assert.ok(o instanceof ctx.Controller, c);
+    assert.ok(o instanceof ctx.Component, c);
+    assert.equal(o.app, app, c);
+  }
+  const slot = new ctx.SlotsController(app);
+  assert.ok(slot.ops instanceof ctx.SlotOps);
+  assert.deepEqual(plain(slot._slotIds), []);
+  assert.deepEqual(plain(slot._slotSse), []);
+});
+
+test('TC-FEA-1(9h): App 생성자가 컨트롤러를 만들고 칸 신원·구독은 App 에서 빠진다 (§2.2 C/9h)', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  assert.ok(ctor.includes('this.slot=new SlotsController(this);'));
+  assert.doesNotMatch(ctor, /this\._slotIds=|this\._slotSse=/);
+  assert.ok(ctor.includes('this._slots=null;'));
+});
+
+test('TC-FEA-1(9h): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9h();
+  const app = new ctx.App();
+  app.slot = { ops: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9H)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9H)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9H).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-1(9h): 접근자 slots·slotDir 는 App 원형에 남는다 — slotDir 를 쓰면 App 의 render 가 돈다', () => {
+  const store = new Map();
+  const ctx = load9h({ PrefStore: { session: { get: (k) => store.get(k), set: (k, v) => store.set(k, v) } } });
+  const app = new ctx.App();
+  assert.equal(app.slots, null);
+  app._slots = { windows: ['a'], focused: 0 };
+  assert.equal(app.slots, app._slots);
+  assert.equal(app.slotDir, 'horizontal');
+  let n = 0;
+  app.render = () => n++;
+  app.slotDir = 'vertical';
+  assert.equal(app.slotDir, 'vertical');
+  assert.equal(n, 1);
+});
+
+test('TC-FEA-2(9h): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9h'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9h): 갈아 끼운 slotFocused·_slotIdentity·slotWindow·slotRenderFlush 를 컨트롤러 경로가 부른다', () => {
+  let up = null;
+  const ctx = load9h({ addEventListener: (t, fn) => { up = fn } });
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app._slots = { windows: ['w1', 'w2'], focused: 1, tabs: [{}, {}] };
+  app.fileEditors = new Map([['t@1', 'e1'], ['t', 'e0']]);
+  app.slotFocused = () => { log.push('focused'); return 1 };
+  assert.equal(app.editorAny('t'), 'e1');
+  app._slotIdentity = (i) => { log.push('id:' + i); return 'c' + i };
+  assert.deepEqual(plain(app.slot._slotIdentities()), ['c0', 'c1']);
+  app.slotWindow = (i) => { log.push('win:' + i); return null };
+  assert.equal(app._slotTabsToWs(), false);
+  app.timers = { defer: (fn) => fn() };
+  app.slotRenderFlush = () => log.push('flush');
+  app.slot.ops._slotRenderArm();
+  up();
+  assert.deepEqual(log, ['focused', 'id:0', 'id:1', 'focused', 'win:1', 'flush']);
+});
+
+test('TC-FEA-3(9h): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9h'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9h): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9h();
+  const contract = contractNames();
+  const names = Object.values(DELEGATES_9H).flat().filter((x) => contract.has(x));
+  assert.ok(names.length > 0);
+  for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
 });
