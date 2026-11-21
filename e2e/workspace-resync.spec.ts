@@ -62,13 +62,13 @@ test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다',
   test('TC-M9-10a: 재연결이 rev 없는 재수신을 부른다 (FR-M9-10, D-M9-8)', async ({ browser }) => {
     const A = await newClient(browser);
 
-    // `_onWorkspaceChanged` 의 인자를 붙잡는다. **rev 가 없어야 한다** — 무엇을
+    // `_onWorkspaceChanged` 의 인자를 붙잡는다 — 계약(`app.testing.onWorkspaceChanged`)의 읽기·쓰기로 갈아 끼운다. **rev 가 없어야 한다** — 무엇을
     // 놓쳤는지 모르므로 "낡았다" 로 걸러지면 안 된다 (FR-WSC-17).
     await A.page.evaluate(() => {
       const w = window as any;
       w.__resync = [];
-      const orig = w.app._onWorkspaceChanged.bind(w.app);
-      w.app._onWorkspaceChanged = function (rev) {
+      const orig = w.app.testing.onWorkspaceChanged;
+      w.app.testing.onWorkspaceChanged = function (rev) {
         w.__resync.push(rev === undefined ? 'no-rev' : rev);
         return orig(rev);
       };
@@ -98,11 +98,11 @@ test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다',
       w.__resyncEarly = [];
       // `app` 이 서기 **전에** 건다 — 최초 `sse:open` 은 부팅 중에 난다.
       const iv = setInterval(() => {
-        if (!w.app || !w.app._onWorkspaceChanged || w.__hooked) return;
+        if (!w.app || !w.app.testing.onWorkspaceChanged || w.__hooked) return;
         w.__hooked = true;
         clearInterval(iv);
-        const orig = w.app._onWorkspaceChanged.bind(w.app);
-        w.app._onWorkspaceChanged = function (rev) {
+        const orig = w.app.testing.onWorkspaceChanged;
+        w.app.testing.onWorkspaceChanged = function (rev) {
           w.__resyncEarly.push(rev === undefined ? 'no-rev' : rev);
           return orig(rev);
         };
@@ -127,8 +127,8 @@ test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다',
     await A.page.evaluate(() => {
       const w = window as any;
       w.__resync = [];
-      const orig = w.app._onWorkspaceChanged.bind(w.app);
-      w.app._onWorkspaceChanged = function (rev) {
+      const orig = w.app.testing.onWorkspaceChanged;
+      w.app.testing.onWorkspaceChanged = function (rev) {
         w.__resync.push(rev === undefined ? 'no-rev' : rev);
         return orig(rev);
       };

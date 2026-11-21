@@ -44,12 +44,15 @@ fi
 # `app._` 가 아니다).
 ALLOW=()
 
-# 세 꼴을 전부 잡는다. 처음 판은 첫 줄뿐이었고, 나머지 둘로 **352곳이 새어**
+# 네 꼴을 전부 잡는다. 처음 판은 첫 줄뿐이었고, 나머지 둘로 **352곳이 새어**
 # 나갔다 (FE_MODULE_BOUNDARY_SRS §4.4a). 게이트가 재던 것이 실제와 달랐다:
 #
 #   app._x          직접
 #   app?._x         옵셔널 체이닝 — `\bapp\._` 는 `?.` 를 넘지 못한다
 #   const a=window.app; a._x   별칭 — 수신자 이름이 `app` 이 아니다
+#   w.app._x        창의 별칭 — `const w=window as any` 뒤의 `w.app`. 넷째 꼴로 7곳이 새어 나갔다
+#                   (REFACTOR3_FE_FIX_SRS FR-FFX-14). 그래서 `.app._` 앞의 수신자를 가리지 않는다 —
+#                   e2e 에서 `.app` 은 모두 `window.app` 이다(D-FFX-10)
 #
 # 별칭은 **선언을 읽어** 찾는다. RHS 가 정확히 `window.app`/`(window as any).app`
 # 인 것만 별칭으로 본다 — `const p=app.gitPanel` 의 `p` 는 App 이 아니다.
@@ -57,7 +60,7 @@ files=$(ls e2e/*.ts e2e/*.mts scripts/shots/*.ts 2>/dev/null || true)
 hits=$(
   for f in $files; do
     grep -nE '(^|[^A-Za-z0-9_$.])(app)\s*(\?\.|\.)_[A-Za-z0-9_]' "$f" | sed "s|^|$f:|"
-    grep -nE '\)\s*\.\s*app\s*(\?\.|\.)_[A-Za-z0-9_]' "$f" | sed "s|^|$f:|"
+    grep -nE '\.\s*app\s*(\?\.|\.)_[A-Za-z0-9_]' "$f" | sed "s|^|$f:|"
     for a in $(grep -oE '(const|let|var)[[:space:]]+[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]*(:[[:space:]]*any)?[[:space:]]*=[[:space:]]*(\([[:space:]]*window[[:space:]]+as[[:space:]]+any[[:space:]]*\)|window)\.app[[:space:]]*[;,)]' "$f" \
               | sed -E 's/^(const|let|var)[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*).*/\2/' | sort -u); do
       [ "$a" = app ] && continue

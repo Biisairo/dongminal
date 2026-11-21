@@ -74,7 +74,7 @@ test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
   test('B3 (FR-GIT-112 철회): 상태바에 원격 작업 chip 의 자리가 없다', async ({ page }) => {
     await waitForInit(page);
     await expect(page.locator('#sb-items .sb-git-job')).toHaveCount(0);
-    const has = await page.evaluate(() => typeof (window as any).app.testing.gitJobChip);
-    expect(has, '_gitJobChip 이 되살아났다').toBe('undefined');
+    // REFACTOR3_FE_FIX_SRS FR-FFX-15: 계약의 `gitJobChip` 으로 재던 "이름이 없다" 는 단위 시험이 App 원형에서 본다
+    // (`app-state-owners.test.mjs`) — 계약에서 걷은 이름을 계약으로 재면 늘 undefined 라 공회전한다.
   });
 });

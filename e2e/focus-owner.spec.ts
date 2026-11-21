@@ -221,10 +221,23 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     await A.ctx.close();
   });
 
+  // REFACTOR3_FE_FIX_SRS FR-FFX-15 (D-FFX-11) 개정
+  //   이전: 계약의 `focusCh` 가 거짓인지 봤다 — App 에 없는 이름이라 늘 undefined 였다(공회전)
+  //   새:   포커스 채널(`dongminal-focus`)을 여는 생성이 없는지 생성자를 세어 본다
   test('TC-XDF-9: BroadcastChannel 경로가 없다 (FR-XDF-5)', async ({ browser }) => {
-    const A = await newClient(browser);
-    expect(await A.page.evaluate(() => !!(window as any).app.testing.focusCh)).toBe(false);
-    await A.ctx.close();
+    const ctx = await browser.newContext();
+    await ctx.addInitScript(() => {
+      const w = window as any;
+      w.__bcNames = [];
+      const BC = w.BroadcastChannel;
+      if (BC) w.BroadcastChannel = class extends BC { constructor(n: string) { super(n); w.__bcNames.push(n) } };
+      sessionStorage.setItem('displayMode', 'desktop');
+    });
+    const page = await ctx.newPage();
+    await waitForInit(page);
+    await claim(page);
+    expect(await page.evaluate(() => (window as any).__bcNames)).not.toContain('dongminal-focus');
+    await ctx.close();
   });
 
   test('TC-XDF-10: dim 과 리사이즈 권한이 같은 상태를 읽는다 (FR-XDF-4)', async ({ browser }) => {

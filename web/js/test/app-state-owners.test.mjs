@@ -141,7 +141,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·위임자·필드�
   const read = (rel) => readFileSync(join(root, rel), 'utf8');
   const contract = [...read('core/app-testing.js').match(/const APP_TESTING_NAMES = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)]
     .map((m) => m[1]);
-  assert.equal(contract.length, 150);
+  assert.equal(contract.length, 148);
   const appFiles = ['core/app.js', ...readdirSync(join(root, 'core')).map((n) => 'core/' + n),
     ...readdirSync(join(root, 'ui')).map((n) => 'ui/' + n)]
     .filter((f) => f.endsWith('.js') && (f === 'core/app.js' || /Object\.(assign|defineProperties)\(App\.prototype/.test(read(f))));
@@ -162,6 +162,8 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·위임자·필드�
     if (sec) for (const m of sec[1].matchAll(/'([^']+)'/g)) names.add(m[1]);
     for (const m of src.matchAll(/\bthis\.app\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) names.add(m[1]);   // 컨트롤러가 App 에 쓰는 필드
   }
-  // 계약에 남은 없는 이름 둘 — `_gitJobChip` 은 e2e 가 없음을 본다(`git-statusbar.spec.ts`), `_focusCh` 는 쓰는 곳이 없다.
-  assert.deepEqual(contract.filter((n) => !names.has(n)), ['_gitJobChip', '_focusCh']);
+  // REFACTOR3_FE_FIX_SRS FR-FFX-15: 계약의 모든 이름이 App 에 있다 — 알려진 예외(`_gitJobChip`·`_focusCh`)를 걷었다.
+  assert.deepEqual(contract.filter((n) => !names.has(n)), []);
+  // 둘은 되살아나지 않는다 — 상태바의 원격 작업 chip(U-19 ①)과 BroadcastChannel 포커스 경로(FR-XDF-5).
+  for (const gone of ['_gitJobChip', '_focusCh']) assert.ok(!names.has(gone) && !contract.includes(gone), gone);
 });
