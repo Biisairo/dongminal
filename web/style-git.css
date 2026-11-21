@@ -282,7 +282,7 @@ body.mobile .git-head-remote{gap:var(--sp-1)}
 
      **여기서 쌓임 순서를 올리지 않는다** (DESIGN_TOKENS_SRS §3.4 / `UX-16`).
      종전에는 `z-index:5` 를 이 상자에 걸어 메뉴를 형제들 위로 들어올렸는데,
-     그러면 메뉴의 층이 **상자의 층에 갇힌다** — 실측: `.git-files-bar` 가
+     그러면 메뉴의 층이 **상자의 층에 갇힌다** — 실측: `.git-files-bar`(지금은 없어진 줄) 가
      `--z-sticky` 로 가자 상자(`--z-raised`)보다 위가 되어 메뉴의 클릭이 먹지
      않았다(`git-commit.spec.ts` E12 가 `.git-head intercepts pointer events` 로
      잡았다).
@@ -388,12 +388,6 @@ body.mobile .git-head-remote{gap:var(--sp-1)}
 .git-files{
   flex:1 1 auto;min-width:0;min-height:0;overflow-y:auto;
 }
-.git-files-bar{
-  position:sticky;top:0;z-index:var(--z-sticky);display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-4); /* FR-UIP-4 */
-  background:var(--bg);border-bottom:1px solid var(--border);
-}
-/* 켜진 보기 모드의 외형은 `_paintMode` 가 붙이는 `ui-btn-primary` 다 (§7.5) */
-.git-files-spacer{flex:1 1 auto}
 /* FR-GIT-69: 선택이 있을 때만 보인다 — 없을 때 자리를 차지할 이유가 없다 */
 /* FR-GIT-212: 그룹을 선으로 나눈다. 첫 그룹 위에는 없다 — 목록의 시작이지
    경계가 아니다.

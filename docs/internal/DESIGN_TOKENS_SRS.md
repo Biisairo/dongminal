@@ -428,14 +428,15 @@ FR-TOK-22 가 지목한 바로 그 ±1 이 사라진다.
 | 층 | 값 | 선언 (종전 값) | 계 |
 |---|---|---|---|
 | `--z-raised` | 100 | `.sh`1 · `.git-head`1 · `.slot-handle`5 · `.fe-render`6 · `.fe-dd-peek`6 · `.fe-offer`11 · `.fe-find`12 · `.git-hunk-bar`12 · `.fe-note`13 · `.pn-drop-indicator`15 | 10 |
-| `--z-sticky` | 200 | `.git-files-bar`1 · `.tl-section`1 · `body.mobile #sb-tabs`1 · `.search-bar`10 | 4 |
+| `--z-sticky` | 200 | `.tl-section`1 · `body.mobile #sb-tabs`1 · `.search-bar`10 | 3 |
 | `--z-overlay` | 300 | `.tp.dragover::after`20 · `.tp-overlay`25 · `.pn-dimmed .pn-body::after`30 · `.pn.attn::after`35 · `#drawer-backdrop`40 · `body.mobile #sidebar`50 · `#mobile-keybar`60 | 7 |
 | `--z-modal` | 400 | `#modal-overlay`100 · `.ui-modal`200 · `.confirm-overlay`200 · `.bg-modal`200 · `.runs-modal`200 · `.gc-modal`300 · `.git-dialog`300 · `.ed-find`9997 · `#boot`1000 | 9 |
 | `--z-popover` | 500 | `.git-commit-menu`20 · `.sbx-progress`60 · `.ver-held`60 · `#mkb-tip`70 · `#attn-center`200 · `.git-undo-toast`400 · `.toast-host`420 · `#ui-size-hud`450 · `.ui-menu`3000 · `.git-menu`3000 · `.tc-copy`9999 | 11 |
 | `--z-edge` | 600 | `#focus-edge`500 · `#attn-edge`501 | 2 |
 | `--z-under` | −1 | `.pn-tab.attn::before` · `.sb-tab[data-panel="windows"] .sb-tab-badge::before` — **신설** (2026-10-01) | +2 |
 | — | — | `.git-commit`5 — **선언이 사라졌다** (아래) | −1 |
-| | | | **43** |
+| — | — | `.git-files-bar`1 — **규칙이 없어졌다** (PROD3 DOC-4: 쓰는 요소가 없어 지웠다. 보기 전환은 FR-UXF-23 으로 브랜치 줄 끝에 선다) | −1 |
+| | | | **42** |
 
 간격 100 은 여유지 의미가 아니다 — 그 사이에 값을 적을 일이 없고, 게이트가
 리터럴을 막는다.
@@ -502,12 +503,12 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 `.git-changes-body` 가 메뉴를 가려 클릭이 먹지 않았다).
 
 그 방식의 대가가 실측으로 드러났다: **메뉴의 층이 상자의 층에 갇힌다.**
-`.git-files-bar` 가 `--z-sticky`(200, 그 규칙은 진짜 `position:sticky` 다)로 가자
+`.git-files-bar`(지금은 없어진 줄) 가 `--z-sticky`(200, 그 규칙은 진짜 `position:sticky` 였다)로 가자
 상자(`--z-raised` 100)보다 위가 되어 메뉴의 클릭이 다시 먹지 않았다.
 
 그래서 `position:relative` 만 남기고 **층은 메뉴가 자기 것을 쓴다**
 (`.git-commit-menu` → `--z-popover` 500). 상자는 쌓임 문맥을 만들지 않으므로 그
-500 이 `.git-view` 문맥에서 실제로 효력을 갖고, `.git-files-bar`(200)·
+500 이 `.git-view` 문맥에서 실제로 효력을 갖고, `.git-files-bar`(200, 지금은 없어진 줄)·
 `.git-head`(100)·목록 행(0)을 전부 넘는다.
 
 **이것이 층 체계가 있는 이유다**: 팝오버는 팝오버 층에 있으면 되고, 그것을 담은
