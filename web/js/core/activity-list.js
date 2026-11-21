@@ -47,13 +47,15 @@
  *   empty()     비었을 때의 한 줄 · `hint()` 가 있으면 그 아래 한 줄 더
  *   icon        탭의 아이콘. 레일에서는 이것만 선다 (FR-PCH-82)
  *   tip         탭의 툴팁. 영어다 (FR-TIP-2)
+ *   badgeWork   참이면 배지의 수가 작업 중인 수다 — 툴팁·접근 이름이 그 수를 말한다 (REFACTOR3_FE_FIX_SRS FR-FFX-4)
  */
 const ACTIVITY_SECTIONS=[
   {key:'agents', icon:'bot', title:()=>t('panel.sec_agents'), tip:()=>TIP_ACT_AGENTS, empty:()=>t('attn.no_active_agents'),
    items:app=>app._agWindowItems(),
    // FR-PCH-81: Agents 는 알람 점이다. 접힌 창도 그룹 머리가 알람 수를 갖는다.
    // UX_AUDIT_FIX_SRS FR-UXF-63: 배지는 작업 중인 수다. 주의가 있으면 종전대로 점이고 수는 말하지 않는다.
-   badge:(app,its)=>{const dot=its.some(i=>i.t==='group'&&i.attn>0);return {n:dot||!app.workingToolIds?0:app.workingToolIds().size,dot}}},
+   badge:(app,its)=>{const dot=its.some(i=>i.t==='group'&&i.attn>0);return {n:dot||!app.workingToolIds?0:app.workingToolIds().size,dot}},
+   badgeWork:true},
   {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), tip:()=>TIP_ACT_BG, empty:()=>t('bg.empty'),
    items:app=>app._actBgRows()},
   {key:'runs', icon:'workflow', title:()=>t('runs.title'), tip:()=>TIP_ACT_RUNS, empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
@@ -178,7 +180,9 @@ class ActivityList extends Controller {
       const shown=sec.key===cur;
       const its=(shown||!sec.shownOnly)?(sec.items(this.app)||[]):[];
       const b=sec.badge?sec.badge(this.app,its):{n:its.length};
-      tabs.push({key:sec.key,icon:sec.icon,title:sec.title(),tip:sec.tip(),n:b.n||0,dot:!!b.dot});
+      // REFACTOR3_FE_FIX_SRS FR-FFX-4: 배지가 작업 중인 수인 구역은 그 수를 이름으로도 말한다.
+      tabs.push({key:sec.key,icon:sec.icon,title:sec.title(),tip:sec.tip(),n:b.n||0,dot:!!b.dot,
+        work:sec.badgeWork&&!b.dot?(b.n||0):0});
       if(shown) body=its.length?its:[{t:'secempty',sec}];
     }
     const out=[{t:'tabs',cur,tabs}].concat(body);

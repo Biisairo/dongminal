@@ -52,9 +52,13 @@ class ActivityTabBar extends TabBar {
     this.paint();
   }
 
+  // REFACTOR3_FE_FIX_SRS FR-FFX-4 (D-FFX-4): 작업 중인 수가 있으면 툴팁과 접근 이름이 같은 영어 문장이다.
   paintTab(b,d){
     const v=this._view.get(d.id);
-    if(v) b.title=v.tip;
+    if(!v) return;
+    const work=v.work?TIP_WORKING_COUNT.replace('{n}',String(v.work)):'';
+    b.title=v.tip+work;
+    if(work) b.setAttribute('aria-label',b.title); else b.removeAttribute('aria-label');
   }
 
   // FR-PCH-81: 수가 없으면 알람 점이다. UI_POLISH_SRS FR-UIP-7: 0 은 말하지 않는다.

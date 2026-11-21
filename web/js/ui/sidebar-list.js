@@ -239,6 +239,8 @@ class SidebarList extends ListView {
       el.appendChild(x);
     }
 
+    if (r.work) workLabelSync(el, true);   // REFACTOR3_FE_FIX_SRS FR-FFX-2
+
     // 열기는 항목 자신이다. × 를 눌렀을 때 열리지 않도록 대상을 가른다 — 창
     // 목록이 쓰던 판정을 그대로 옮겼다.
     if (r.onOpen) {

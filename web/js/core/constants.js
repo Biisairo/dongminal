@@ -699,6 +699,9 @@ const TIP_SIDEBAR_CLOSE='Close the sidebar';
 const TIP_MOBILE_ACTIVITY='Work — everything that is running';
 // MOBILE_UX_OVERHAUL_SRS FR-MUX-75: 작업 중인 에이전트가 있으면 단추의 이름이 그 수를 말한다.
 const TIP_MOBILE_ACTIVITY_WORKING='Work — {n} working';
+// REFACTOR3_FE_FIX_SRS FR-FFX-1·4 (P8-2): 작업 중 점은 `aria-hidden` 이다 — 툴팁과 접근 이름이 대신 말한다.
+const TIP_WORKING_SUFFIX=' — working';
+const TIP_WORKING_COUNT=' — {n} working';
 // FR-MUX-72: 모바일 사용량 요약 줄. 펼침·접힘에 따라 이름이 바뀐다.
 const TIP_USAGE_SUM_OPEN='Show usage of every account';
 const TIP_USAGE_SUM_CLOSE='Hide usage details';

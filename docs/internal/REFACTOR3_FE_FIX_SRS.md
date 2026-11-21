@@ -139,4 +139,5 @@
 
 | 커밋 | 요점 |
 |---|---|
-| (이 SRS) | 이 문서 |
+| `777e8629` | 이 문서 |
+| FX-1 | `workLabelSync`(`core/tool-work.js`) — 칸 탭(`_rTabs`)·창 행(`SidebarList.buildRow`)·표식만 고치는 길(`_workRefresh`)이 부른다. Agents 탭은 구역 서술자의 `badgeWork` 와 `ActivityTabBar.paintTab`. 상수 `TIP_WORKING_SUFFIX`·`TIP_WORKING_COUNT`(`constants.js`). 시험 `work-dot.test.mjs` TC-FFX-1(옛 코드에서 RED) · e2e `fe-fix.spec.ts` TC-FFX-2·3(옛 코드에서 RED). `panel-tabbar.test.mjs` 의 가짜 원소에 `removeAttribute` 를 더했다 |

@@ -23,6 +23,22 @@ function workDotSync(el,on,before){
   el.insertBefore(d,before||null);
 }
 
+/**
+ * REFACTOR3_FE_FIX_SRS FR-FFX-1~3 (P8-2): 작업 중이면 툴팁 첫 줄 끝과 접근 이름이 `working` 을 말한다.
+ * 첫 줄인 이유는 둘째 줄이 계정 틴트이기 때문이다(D-FFX-3). 이름은 `aria-hidden` 이 아닌 자식의 글자다.
+ * 작업 중이 아니면 덧붙인 것을 걷고 `aria-label` 을 지운다(D-FFX-2). 멱등이다.
+ */
+function workLabelSync(el,on){
+  const lines=String(el.title||'').split('\n');
+  if(lines[0].endsWith(TIP_WORKING_SUFFIX)) lines[0]=lines[0].slice(0,-TIP_WORKING_SUFFIX.length);
+  if(on) lines[0]+=TIP_WORKING_SUFFIX;
+  el.title=lines.join('\n');
+  if(!on){ el.removeAttribute('aria-label'); return }
+  const name=Array.from(el.children).filter(c=>c.getAttribute('aria-hidden')!=='true')
+    .map(c=>(c.textContent||'').trim()).filter(Boolean).join(' ');
+  el.setAttribute('aria-label',name+TIP_WORKING_SUFFIX);
+}
+
 class ToolWork extends Controller {
   /** FR-UXF-60: 도구가 작업 중인가. */
   toolWorking(toolId){
@@ -66,11 +82,15 @@ class ToolWork extends Controller {
   /** 전체 render() 없이 표식만 고친다 — `_attnRefresh` 와 같은 이유(포커스 플리커). */
   _workRefresh(){
     document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(el=>{
-      workDotSync(el,this.tabWorkDot(el.dataset.toolid),el.querySelector('.pn-tab-label'));
+      const on=this.tabWorkDot(el.dataset.toolid);
+      workDotSync(el,on,el.querySelector('.pn-tab-label'));
+      workLabelSync(el,on);
     });
     document.querySelectorAll('#windows .si[data-sid]').forEach(el=>{
       const s=this.app.ws.windows.find(x=>x.id===el.dataset.sid);
-      el.classList.toggle(WORK_ROW_CLASS,!!s&&this.windowWorkDot(s));
+      const on=!!s&&this.windowWorkDot(s);
+      el.classList.toggle(WORK_ROW_CLASS,on);
+      workLabelSync(el,on);
     });
   }
 }

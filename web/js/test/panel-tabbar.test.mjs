@@ -44,6 +44,7 @@ function el(tag, cls) {
     appendChild(c) { c.parentNode = this; this.children.push(c); return c },
     remove() { if (this.parentNode) { const a = this.parentNode.children; a.splice(a.indexOf(this), 1); this.parentNode = null } },
     setAttribute(k, v) { this.attrs[k] = String(v) },
+    removeAttribute(k) { delete this.attrs[k] },
     toggleAttribute(k, on) { if (on) this.attrs[k] = ''; else delete this.attrs[k]; return on },
     hasAttribute(k) { return k in this.attrs },
     addEventListener(t, fn) { this.listeners[t] = fn },

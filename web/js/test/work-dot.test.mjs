@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { AGENTS, BASE, TOOL, controllers, load } from './harness.mjs';
@@ -42,4 +43,62 @@ test('FR-UXF-61: 주의가 있는 탭에는 작업 중 점을 두지 않는다',
   assert.equal(app.tabWorkDot('b'), false);
   assert.equal(app.tabWorkDot('c'), false);
   assert.equal(app.tabWorkDot(undefined), false);
+});
+
+/**
+ * REFACTOR3_FE_FIX_SRS TC-FFX-1 (FR-FFX-1~3): 작업 중이면 툴팁 첫 줄 끝과 접근 이름이 `working` 을 말한다.
+ */
+function fakeEl(title, kids) {
+  const attrs = {};
+  return {
+    title,
+    children: kids.map(([text, hidden]) => ({ textContent: text, getAttribute: (k) => (k === 'aria-hidden' && hidden ? 'true' : null) })),
+    attrs,
+    setAttribute(k, v) { attrs[k] = String(v) },
+    removeAttribute(k) { delete attrs[k] },
+    getAttribute(k) { return k in attrs ? attrs[k] : null },
+  };
+}
+
+// FR-FFX-5: 문구는 상수다 — `constants.js` 의 값을 그대로 쓴다.
+const WORKING_SUFFIX = readFileSync(new URL('../core/constants.js', import.meta.url), 'utf8')
+  .match(/^const TIP_WORKING_SUFFIX='([^']*)';$/m)?.[1];
+
+function labelCtx() {
+  return load([...BASE, ...AGENTS, ...TOOL], {
+    expose: ['workLabelSync'],
+    globals: { App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, ACTIVITY_STATE, TIP_WORKING_SUFFIX: WORKING_SUFFIX },
+  });
+}
+
+test('TC-FFX-1: 접미사 상수는 ` — working` 이다', () => {
+  assert.equal(WORKING_SUFFIX, ' — working');
+});
+
+test('TC-FFX-1: 켜면 첫 줄 끝에 붙고 접근 이름은 보이는 글자 + 접미사, 둘째 줄은 그대로다', () => {
+  const ctx = labelCtx();
+  const el = fakeEl('claude\nwork@x', [['', true], ['claude', false], ['', true]]);
+  ctx.workLabelSync(el, true);
+  assert.equal(el.title, 'claude — working\nwork@x');
+  assert.equal(el.getAttribute('aria-label'), 'claude — working');
+});
+
+test('TC-FFX-1: 두 번 불러도 한 번이고, 끄면 원래 툴팁으로 돌아가며 aria-label 이 없다', () => {
+  const ctx = labelCtx();
+  const el = fakeEl('mywin', [['', true], ['mywin', false], [' dev', false]]);
+  ctx.workLabelSync(el, true);
+  ctx.workLabelSync(el, true);
+  assert.equal(el.title, 'mywin — working');
+  assert.equal(el.getAttribute('aria-label'), 'mywin dev — working');
+  ctx.workLabelSync(el, false);
+  assert.equal(el.title, 'mywin');
+  assert.equal(el.getAttribute('aria-label'), null);
+});
+
+test('TC-FFX-1: 작업 중이 아니면 툴팁도 접근 이름도 건드리지 않는다', () => {
+  const ctx = labelCtx();
+  const el = fakeEl('plain', [['plain', false]]);
+  ctx.workLabelSync(el, false);
+  assert.equal(el.title, 'plain');
+  assert.equal(el.getAttribute('aria-label'), null);
 });
