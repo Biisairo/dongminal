@@ -146,13 +146,14 @@ internal/
     gittest/             #   테스트 전용 — git 저장소 픽스처 한 벌 (M8 D-A-20). 제품 코드는 import 하지 않는다
 web/                     # 프론트엔드 자산 + embed.FS()
   style*.css             # <link> 순서 = 캐스케이드 순서. 목록: grep 'rel="stylesheet"' web/index.html
-  js/core/               #   App 클래스 (app.js + 주제별 app-*.js — 수: ls web/js/core/app-*.js | wc -l) + helpers·main
+  js/core/               #   App 클래스 (app.js + 주제별 컨트롤러 *-controller.js 와 그 부품 — 수: ls web/js/core/*-controller.js | wc -l) + helpers·main
+                         #     base/ — Component·View·Controller 기반 클래스 (REFACTOR3_FE_BASE_SRS)
                          #     constants*.js — 주제별 상수 (로드 순서 = index.html 의 순서. 목록: ls web/js/core/constants*.js)
   js/ui/                 #   themes·renderer·term-pane·clipboard·file-editor 등
                          #     file-tree{,-store,-paint,-edit,-xfer}.js — 탐색기 5파일
   js/git/                #   git 패널. api.js — gitFetch/gitPost (stale·echo 가드 소유)
                          #     observer(관측 하나) · panel(칸마다 하나) · diff-view(CodeMirror merge)
-                         #     panel-{life,changes,views,write,files,diff,poll}.js — 주제별 증강
+                         #     git-{poll,changes,views,write,files,selection,…}.js — GitPanel 의 부품 (GitPart 하위, 목록은 panel.js 머리 주석)
                          #     status-hub.js — GitStatusHub: root 별 status 한 벌 (탐색기·dirty-diff 공유, FR-OPT-4-1)
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
 scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기 · check-*.sh — 게이트
@@ -192,16 +193,25 @@ GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열
 `handlers_snapshot.go`(`GET /api/snapshot`, FR-OPT-4-5)다.
 
 **프론트엔드는 번들러가 없다.** `index.html` 이 `<script>` 로 원본을 순서대로 로드하므로
-**로드 순서가 곧 의존성**이다. `app-*.js` 는 `Object.assign(App.prototype, …)` 로 클래스를
-확장하므로 `app.js` 뒤, `main.js` 앞이어야 한다. `app.js` 본체에 남은 접근자 11개는
-`Object.assign` 이 getter 를 값으로 복사하기 때문에 옮길 수 없다.
+**로드 순서가 곧 의존성**이다. 기반 클래스(`core/base/` 의 `Component`·`View`·`Controller`)가
+맨 앞이고, `app.js` 뒤에 주제별 컨트롤러가, 맨 끝에 `main.js` 가 온다.
 
-**같은 규약이 셋에 있다** (`SPLIT_REFACTOR_SRS`). `App`·`GitPanel`·`FileTree` 가
-각각 본체 + 주제별 증강 파일로 갈렸고, 세 클래스 모두 접근자를 본체에 남겼다
-(`GitPanel` 23개는 관측(`GitObserver`)으로 가는 통로이고, `FileTree` 9개는
-`FileTreeStore` 로 가는 통로다 — 그것이 접근자여야 하는 이유는 값이 아니라 **자리**를
-빌려 오기 때문이다). `static` 은 prototype 이 아니라 클래스 자체에 얹는다
-(`GitPanel.headHTML`, `FileTree._asUploadItems` 등 5개).
+**`App` 의 주제별 일은 컨트롤러가 맡는다** (`REFACTOR3_FE_APPCTL_SRS`). 컨트롤러는
+`Controller` 하위(`*-controller.js`)이고 App 은 그것을 필드로 든다(`app.layout`·`app.tool`·
+`app.git` 등). 컨트롤러가 크면 부품으로 다시 나눈다(`app.layout.tabOps`·`app.tool.cmd` 등).
+바깥이 App 에서 부르던 이름은 컨트롤러 파일 끝의 `Controller.delegate(App, …)` 위임자 표가
+잇는다 — 새 위임자를 `app.js` 에 더하지 않는다. 옛 `app-*.js`(`Object.assign(App.prototype, …)`
+로 원형을 넓히던 mixin)는 남아 있지 않다. 예외는 e2e 계약 `app-testing.js` 하나다.
+
+**`GitPanel` 도 부품으로 나뉘었다** (`REFACTOR3_FE_GITPANEL_SRS`). 부품은 `GitPart` 하위이고
+패널이 필드로 든다(`this.poll`·`this.changes`·`this.views` 등 — 목록은 `git/panel.js` 머리 주석).
+본체에는 생성자·접근자·리포 전환과 수명·부품 위임자만 있다. 접근자가 본체에 있는 이유는
+`Object.assign` 이 getter 를 값으로 복사하기 때문이다 — 접근자는 값이 아니라 **자리**를 빌려 온다.
+
+**`FileTree` 는 아직 원형 확장이다** (`SPLIT_REFACTOR_SRS`). 본체 + 주제별 파일
+(`file-tree-{paint,edit,xfer,keys,marquee,download}.js`)이 `Object.assign(FileTree.prototype, …)` 로
+얹는다. `FileTreeStore` 로 가는 통로인 접근자는 같은 이유로 본체에 남는다. `static` 은
+prototype 이 아니라 클래스 자체에 얹는다(`FileTree._asUploadItems` 등).
 
 **CSS 도 같은 문제를 다르게 푼다.** `style.css` 는 여럿으로 갈렸고 `<link>` 순서가
 원본의 선언 순서다 — 캐스케이드는 순서가 곧 의미라서, 파일을 옮기는 것과 순서를
@@ -336,14 +346,14 @@ DONGMINAL_PORT=<서버 포트>   # main() 이 setenv, 자식 PTY 가 상속
 DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 ```
 
-## 편집기 — Editor 탭과 Editor 창 (`EDITOR_TAB_SRS`)
+## 편집기 — 저장소 탭의 행과 Editor 창 (`EDITOR_TAB_SRS` · `REPO_TAB_UNIFY_SRS`)
 
 **편집기는 일반 창에 열리지 않는다.** 경로마다 하나씩 서는 **Editor 창**에만 산다
 (FR-EDT-94). 그 창은 좌측에 파일 탐색기를, 우측에 편집기 영역을 갖는다.
 
 ```
-사이드바 탭:  Windows · Git · Editor
-Editor 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~`]   ← 최하단 고정, 삭제 불가
+사이드바 탭:  창(windows) · 저장소(repo) · 채팅(chat)
+저장소 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~` · 메모장]   ← 최하단 고정, 삭제 불가
 행 하나  =  창 하나 (`WINDOW_TYPE_EDITOR`, `editor.root`)
 ```
 
@@ -354,12 +364,12 @@ Editor 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~`]   ← 
 (`cmdActions` 의 `single`)의 자리를 대신한다.
 
 **`layout` 이 없는 Editor 창은 살아남는다.** 로드·SSE 동기화의 창 필터가
-`s.layout || s.type === 'editor'` 다 (`app.js`·`app-cmd.js`). 갓 만든 Editor 창은
+`s.layout || isEditorWin(s) || isChatWin(s)` 다 (`layout-window-state.js`). 갓 만든 Editor 창은
 탐색기만 있고 pane 이 **없는** 것이 정상 상태이기 때문이다 (FR-EDT-55).
 
 **분할은 드래그드롭뿐이다** (FR-EDT-50·51). 단축키·버튼 분할이 없으므로 빈 pane 이
 생길 경로가 없고, pane 은 언제나 탭을 하나 이상 갖는다. 탭은 **같은 Editor 창
-안에서만** 옮겨진다 — 게이트는 창 경계를 넘는 두 자리(`app-dnd.js` 의
+안에서만** 옮겨진다 — 게이트는 창 경계를 넘는 두 자리(`layout-dnd.js` 의
 `moveTabToWindow` 출발·도착)에만 있다. 창 **안**의 이동(`moveTabToPane`)과 드롭
 분할(`splitPaneWithTab`)에 조건을 더하면 유일한 분할 수단이 함께 막힌다.
 
@@ -393,7 +403,7 @@ Editor 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~`]   ← 
 
 과거의 code-server 통합(`internal/server/codeserver.go`, `/cs/<id>/` 리버스 프록시, `CodeServerManager`)은 `8dc0a3f` 에서 이 내장 편집기로 대체되며 제거됐다.
 
-## 창 슬롯 (`web/js/core/app-slots.js`, `WINDOW_SLOTS_SRS`)
+## 창 슬롯 (`web/js/core/slots-controller.js`·`slot-ops.js`, `WINDOW_SLOTS_SRS`)
 
 콘텐츠 영역(`#area`)은 창을 하나만 그렸다. Git 창과 Editor 창은 별개의 **창**이므로
 (`WINDOW_TYPE_GIT`·`WINDOW_TYPE_EDITOR`) 터미널과 나란히 놓을 방법이 없었고, 그래서
@@ -434,7 +444,7 @@ Git 도 같다. `GitObserver`(`git/panel.js`) 가 **앱에 하나**로 폴링·`
 편집하고 한쪽 저장이 다른 쪽 저장을 덮었다.
 
 활성 탭을 읽는 자리는 `paneTab(pn,slot)` 하나, 쓰는 자리는 `paneTabSet(pn,tid,slot)`
-하나다 (`app-slots.js`). `pn.activeTab` 을 직접 읽거나 쓰면 그 자리만 칸을 모르는
+하나다 (`slots-controller.js`). `pn.activeTab` 을 직접 읽거나 쓰면 그 자리만 칸을 모르는
 채로 남고, 어긋남은 두 칸이 같은 창을 볼 때만 드러난다. 오버라이드가 없는 pane 은
 `pn.activeTab` 을 따르므로 **단일 슬롯 모드의 동작은 이전과 완전히 같다**.
 
@@ -465,7 +475,7 @@ Git 도 같다. `GitObserver`(`git/panel.js`) 가 **앱에 하나**로 폴링·`
 POST 두 개가 경합해 승자가 네트워크 순서로 정해진다 — 실측으로 드러난 결함이다.
 
 **3. 슬롯 사이 이동에 새 키를 만들지 않았다.** `paneNavigate` 는 갈 칸이 없으면 조용히
-끝나는 함수였고(`app-layout.js:533`), 그 **세 탈출 지점 모두**가 이제 슬롯 경계 넘침으로
+끝나는 함수였고(`layout-tab-ops.js` 의 `paneNavigate`), 그 **세 탈출 지점 모두**가 이제 슬롯 경계 넘침으로
 흐른다. 특히 `path.length<2` — 분할이 없는 창(Git 창)이 타는 자리다. 여기를 빠뜨리면
 터미널 창에서는 넘어가는데 Git 창에서는 안 넘어간다.
 
@@ -490,8 +500,8 @@ POST 두 개가 경합해 승자가 네트워크 순서로 정해진다 — 실�
 
 ## 사이드바 탭 (`web/js/ui/sidebar-tabs.js`)
 
-좌측 사이드바는 `Windows`·`Git`·`Editor` 세 목록을 세로로 쌓지 않고 **탭으로
-가른다** (`GIT_SIDEBAR_TABS_SRS`, `EDITOR_TAB_SRS`). 한 번에 하나만 보이고, 보이는
+좌측 사이드바는 `창`(windows)·`저장소`(repo)·`채팅`(chat) 세 목록을 세로로 쌓지 않고 **탭으로
+가른다** (`GIT_SIDEBAR_TABS_SRS`, `REPO_TAB_UNIFY_SRS` — 옛 Git·Editor 두 탭을 하나로, `CHAT_WINDOW_SRS`). 한 번에 하나만 보이고, 보이는
 쪽이 사이드바의 남은 높이 전부를 쓴다.
 
 **새 탭을 더하는 비용은 서술자 1개다** (FR-SBT-21). `sidebar-tabs.js` 의
@@ -501,11 +511,11 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 
 | 파생되는 것 | 어디서 |
 |---|---|
-| 탭 버튼과 순서 | `SidebarTabs.paint` — `index.html` 의 `#sb-tabs` 는 비어 있다 |
-| 목록 렌더 호출 | `renderer.js` 의 `_rLists` 가 `list` 를 가진 서술자를 **순회**한다. 예전에는 탭 id 두 개가 하드코딩돼 있었고, 셋째 탭이 그것을 드러냈다 |
+| 탭 버튼과 순서 | `SidebarTabBar`(`sidebar-tab-bar.js`, `TabBar` 하위)가 만든다 — `SidebarTabs.paint` 는 위임자다. `index.html` 의 `#sb-tabs` 는 비어 있다 |
+| 목록 렌더 호출 | `renderer-chrome.js` 의 `_rLists` 가 `list` 를 가진 서술자를 **순회**한다. 예전에는 탭 id 두 개가 하드코딩돼 있었고, 셋째 탭이 그것을 드러냈다 |
 | 직행 키 `Ctrl+Shift+{n}` | 배열 인덱스. `SHORTCUT_DEFAULTS`·`SHORTCUT_LABELS`·`shortcuts` 를 로드 시점에 함께 채운다 |
 | `executeAction` 의 `sidebarTab{n}` | `app.js` 가 배열을 돌며 만든다 |
-| 설정 화면의 단축키 목록 | `app-settings.js` 의 `사이드바 탭` 그룹 |
+| 설정 화면의 단축키 목록 | `settings-shortcuts.js` 의 `사이드바 탭` 그룹 |
 
 서술자의 훅은 `app` 을 인자로 받는다 — 배열이 모듈 수준 상수여야 단축키 등록이 App
 인스턴스보다 먼저 돌 수 있기 때문이다 (로드 순서상 `sidebar-tabs.js` 는 `app.js`
@@ -514,7 +524,7 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 `onActivate`·`cycle` 이 이 탭을 **조작**으로 만든다. 탭을 고르면 콘텐츠 창이 따라
 바뀌고(FR-SBT-22), 창이 바뀌면 탭이 따라온다(FR-SBT-14). 두 방향이 서로를 부르므로
 `sbBusy` 가 재진입을 한 번에 끊는다. 순회 키(`Ctrl+Shift+[ ]`)는 새 키를 만들지 않고
-**활성 탭의 `cycle`** 로 디스패치된다 (`app-layout.js` 의 `_cycleActive`).
+**활성 탭의 `cycle`** 로 디스패치된다 (`layout-tab-ops.js` 의 `_cycleActive`). 목록이 없는 탭(채팅)에서는 아무 일도 하지 않는다.
 
 ## 에이전트 접합면과 Run
 
@@ -1074,7 +1084,7 @@ HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱�
 
 ### 클라이언트 낙관적 UI (성능 재개선 턴)
 
-`web/js/core/app-layout.js` 의 `split`, `closeTab`, `addTab` 은 레이아웃 mutation + `render()` 를 **즉시** 실행하고 `_kill`, `save` 를 await 하지 않고 fire-and-forget. `save()` 는 내부 직렬화 큐로 ETag 경쟁을 방지하고 coalescing 수행.
+`web/js/core/layout-tab-ops.js`·`layout-tab-add.js` 의 `split`, `closeTab`, `addTab` 은 레이아웃 mutation + `render()` 를 **즉시** 실행하고 `_kill`, `save` 를 await 하지 않고 fire-and-forget. `save()` 는 내부 직렬화 큐로 ETag 경쟁을 방지하고 coalescing 수행.
 
 또한 `/api/tools` POST 에 `cwdTool=<refToolId>` 쿼리 지원 → 클라이언트가 `/api/cwd` 사전 조회할 필요 없음 (RT 1 건 제거).
 

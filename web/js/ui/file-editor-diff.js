@@ -467,13 +467,13 @@ class EdDirtyDiff{
     });
     if(!res.ok){
       // 사유를 사람의 말로 옮기는 자리는 `GIT_WRITE_ERR` 하나다 — 두 벌을 두면
-      // 한쪽만 고쳐진다 (constants-git.js:1330 의 근거와 같다).
+      // 한쪽만 고쳐진다 (`constants-git-actions.js` `GIT_WRITE_ERR` 의 근거와 같다).
       const code=(res.data||{}).error;
       return {ok:false,msg:GIT_WRITE_ERR[code]||ED_DD_STAGE_FAIL};
     }
     // FR-EDD-48: 방금 index 가 바뀌었다 — 화면과 기준이 함께 따라와야 한다.
     // 기준은 gitSignal 이 다시 받는다 — 열린 문서 전부의 refresh 에 이 문서도 든다
-    // (app-editor-pane.js). 여기서 한 번 더 부르면 같은 요청쌍이 두 번 나갔다 (FEU-4).
+    // (`editor-pane.js` `_edAfterGitSignal`). 여기서 한 번 더 부르면 같은 요청쌍이 두 번 나갔다 (FEU-4).
     if(this.app&&this.app.gitSignal) this.app.gitSignal('patch');
     return {ok:true,wide:co.wide};
   }

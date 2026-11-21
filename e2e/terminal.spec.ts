@@ -5,7 +5,7 @@ test.describe('Terminal features', () => {
   test('search opens and closes', async ({ page }) => {
     await waitForInit(page);
     await page.keyboard.press('Control+f');
-    // 제품은 `[hidden]` **속성**으로 숨긴다 (app-search.js `_searchOpen`).
+    // 제품은 `[hidden]` **속성**으로 숨긴다 (`tool-search.js` `_searchOpen`).
     // 숨김의 어휘는 하나다 (FR-LAY-30) — 클래스를 재면 영영 맞지 않는다.
     await expect(page.locator('#search-bar')).toBeVisible();
 

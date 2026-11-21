@@ -10,9 +10,9 @@ import { TMP, tmpPath, realPath, cssPath, appJoin } from './osenv';
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
 //
-// 구현 전에 쓰는 RED 다 — web/ 은 아직 손대지 않았다. 관용구는 기존 파일들을
+// 구현 전에 쓰는 RED 다 — web/ 은 아직 손대지 않았다. 관용구는 당시 파일들을
 // 그대로 따른다: waitForInit·openGit·fx·rows 는 e2e/git-changes.spec.ts 와
-// e2e/git-ui-revision.spec.ts, 모바일 폭 전환은 e2e/git-confirm.spec.ts, 테마
+// e2e/git-ui-revision.spec.ts(지금은 없다), 모바일 폭 전환은 e2e/git-confirm.spec.ts, 테마
 // 전환은 e2e/git-history.spec.ts(H4/V47), hover 생존은 e2e/git-repaint.spec.ts
 // (P2/V106)를 본으로 삼았다.
 //
@@ -207,7 +207,7 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     // 플랫 보기로 고정한다 — 트리는 행 순서가 디렉터리로 묶여 헷갈린다(V86 과 같은 이유).
     await changes(page).locator('.git-files-mode[data-mode="flat"]').click();
 
-    // 다중 선택 방법은 e2e/git-ui-revision.spec.ts:726 V86(FR-GIT-208)을 그대로
+    // 다중 선택 방법은 옛 git-ui-revision.spec.ts 의 V86(FR-GIT-208)을 그대로
     // 물려받는다: 첫 행 평클릭 + 나머지 ControlOrMeta 클릭.
     const changesRows = rows(page, 'working');
     const n = await changesRows.count();
@@ -266,8 +266,8 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
   }
 
   // THEMES 는 고전 스크립트의 const 라 window 프로퍼티가 아니다 — 문자열 평가로
-  // 페이지의 전역 스코프에서 읽는다(e2e/git-ui-revision.spec.ts:541 의 선례와 같은
-  // 함정). 테마는 설정으로 영속하므로(같은 선례:557) 앞선 테스트가 남긴 테마에
+  // 페이지의 전역 스코프에서 읽는다(옛 git-ui-revision.spec.ts 의 선례와 같은
+  // 함정). 테마는 설정으로 영속하므로(같은 선례) 앞선 테스트가 남긴 테마에
   // 기대면 전량 실행에서만 깨진다 — 실제로 GitHub Light(text===textBright) 가
   // 남아 있을 때 이 파일의 V135/V136 이 정확히 그렇게 깨졌다. 그래서 여기서부터는
   // **테스트가 테마를 스스로 정한다**(applyThemeName) — 어느 테마가 남아 있었든
@@ -346,7 +346,7 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
     expect(dir2, '테마를 바꾼 뒤에도 디렉터리·파일명 색이 같다').not.toBe(name2);
 
     // 테마는 설정으로 영속한다 — 뒤 테스트에 흘리지 않게 기본값으로 되돌린다
-    // (e2e/git-ui-revision.spec.ts:557 과 같은 정리).
+    // (옛 git-ui-revision.spec.ts 와 같은 정리).
     await applyThemeName(page, 'Tokyo Night');
   });
 
@@ -375,7 +375,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     await waitFiles(page, 3);
 
     // History·Branches·Console 뷰는 그 탭을 처음 열 때 지연 생성된다
-    // (panel.js:659·680·700) — 한 번도 안 연 탭은 새로고침 대상이 아니다(보인 적
+    // (`git-views.js` 의 뷰 서술자 `make`) — 한 번도 안 연 탭은 새로고침 대상이 아니다(보인 적
     // 없는 것은 낡을 수 없다, "보이지 않는 섹션을 위해 요청을 살 이유가 없다"는
     // FR-STAT-17 의 원칙과 같다). 셋 다 마운트시킨 뒤 Changes 로 돌아온다 — 그래야
     // "지금 보고 있는 탭과 무관하게 다시 받는다"까지 함께 검증된다.

@@ -122,7 +122,7 @@ GR 은 판정의 재료가 셋으로 갈린다. 단계마다 커밋한다: **GR-
 | GR-1j 문구 | `why.job_busy` 를 더한다 |
 | GR-2a 겹친 판정 | 상태 사실을 보는 동작은 index 칸(GR-1a)을 먼저 보고, 비었으면 상태 사실을 본다. 실행 종단의 순서(잠금 획득 → 실행 전 상태 판정)와 같다. `git.stash.create`(M)도 같은 순서로 바꾸고, 낼 수 있는 사유에 `job_busy` 를 더한다 |
 | GR-2b `git.stash.new` | stash 탭의 "새로" 와 커밋 안 된 행의 Stash 는 같은 생성 대화상자를 연다(FR-GIT-277). 그래서 동작 ID 하나 `git.stash.new` 로 둔다(FR-SDA-20 의 `git.uncommitted.stash` 는 이것과 같다). 판정은 `stashCreateAnswer(status, includeUntracked=true)` — 옵션을 켜면 담길 것이 있는가이다. untracked 만 있어도 열리고, 그다음은 대화상자가 M-9 로 묻는다 |
-| GR-2c reset·clean | `git.uncommitted.reset` 은 커밋이 없으면 409 `no_head`(FR-SDA-25), `git.uncommitted.clean` 은 untracked 가 없으면 409 `nothing_to_clean`. 판정 함수는 지금의 `gitResetBlocked`·`gitCleanBlocked` 를 답을 내는 함수로 바꾼 것이고, 실행 종단도 그 답으로 거절한다(`message` 없음) |
+| GR-2c reset·clean | `git.uncommitted.reset` 은 커밋이 없으면 409 `no_head`(FR-SDA-25), `git.uncommitted.clean` 은 untracked 가 없으면 409 `nothing_to_clean`. 판정 함수는 당시의 `gitResetBlocked`·`gitCleanBlocked` 를 답을 내는 함수(지금 `resetAnswer`·`cleanAnswer`)로 바꾼 것이고, 실행 종단도 그 답으로 거절한다(`message` 없음) |
 | GR-2d 싣는 자리 | 셋 다 1층(status 응답의 `actions`)이다. 같은 응답의 `status` 에서 판정하므로 따로 묻지 않는다 |
 | GR-2e 화면에서 없애는 것 | `stash.js` 의 `_why` 계산, 메뉴 항목의 `dirtyCount()`·`untrackedPaths().length` 판정. 메뉴 항목은 `busy:` 에 이 동작 ID 를 둔다. Clean 의 확인 목록(`targets`)은 화면이 그대로 만든다 — 판정이 아니라 보여 줄 목록이다 |
 | GR-2f 문구 | `why.no_head`·`why.nothing_to_clean` 을 더한다 |
@@ -260,10 +260,10 @@ GV-c 동작 표:
 
 | ID | 요구 | 출처 | 우선 |
 |---|---|---|---|
-| FR-SDA-70 | 샌드박스 런타임 상태 응답에 `actions.start` 를 싣는다. missing 을 포함해 서버가 판정하고, 시작 요청도 같은 판정으로 거절한다 | F-A6 | 필수 |
-| FR-SDA-71 | 터미널 드롭 업로드는 도구 상태의 `actions.upload` 로 판정한다(도구 출처·cwd). `/api/upload` 도 같은 판정으로 거절한다 | F-A8 | 필수 |
+| FR-SDA-70 | 샌드박스 런타임 상태 응답에 `actions["sandbox.runtime.start"]` 를 싣는다. missing 을 포함해 서버가 판정하고, 시작 요청도 같은 판정으로 거절한다 | F-A6 | 필수 |
+| FR-SDA-71 | 터미널 드롭 업로드는 `/api/cwd` 응답의 `actions["term.upload"]` 로 판정한다(도구 출처·cwd). `/api/upload` 도 같은 판정으로 거절한다 | F-A8 | 필수 |
 | FR-SDA-72 | 접근 제어 저장 전 잠김 경고는 `POST /api/access/check {value}` 의 답으로 한다. 판정은 서버의 `allowed`·`isSelf` 와 같은 함수다. 화면의 `_aclV4`·`_aclCidrHas`·`_aclCoversYou` 는 없앤다 | F-A9 | 필수 |
-| FR-SDA-73 | "UTF-8 로 변환" 은 문서 응답의 `actions.convertUtf8` 로 판정한다. 저장 요청도 같은 판정으로 거절한다 | F-A10 | 필수 |
+| FR-SDA-73 | "UTF-8 로 변환" 은 문서 응답(읽기 헤더 `X-File-Actions`·저장 응답 `actions`)의 `file.convert_utf8` 로 판정한다. 저장 요청도 같은 판정으로 거절한다 | F-A10 | 필수 |
 
 #### 3.7a 묶음 X 설계 세부
 

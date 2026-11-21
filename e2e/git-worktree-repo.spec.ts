@@ -67,7 +67,7 @@ test.afterAll(() => {
 });
 
 // 사용자가 `+ Add` 로 하는 일 그대로다 — 사이드바 버튼이 부르는 종단이 이것이다
-// (`app-editor.js:919` `_edAdd`).
+// (`editor-section.js` `_edAdd`).
 async function addRepo(request: APIRequestContext, path: string) {
   const r = await request.post('/api/editors/add', { data: { path } });
   expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
@@ -101,7 +101,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
     await waitForInit(page);
 
     // 응답은 두 목록을 함께 준다 — Editor 목록은 `list`, 핀은 `pinned` 다
-    // (`handlers_fs.go:702`).
+    // (`handlers_editors.go` `apiEditorsAdd`).
     const lists = await addRepo(request, wtPath);
     // 저장소로 판정됐다면 핀이 함께 선다 (FR-EDT-31·33) — 이 대칭이 판정의 결과다.
     expect(lists.list, 'Editor 목록에 워크트리가 없다').toContain(wtPath);

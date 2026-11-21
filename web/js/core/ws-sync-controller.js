@@ -1,9 +1,9 @@
 /**
  * Remote Terminal — App 워크스페이스 동기화 · SSE 배선 (REFACTOR PROD2 §8)
  *
- * `app-cmd.js` 에서 옮겨 왔다. 본문은 수정하지 않았다 (R-ACS-3). 여기 있는 것은
+ * 옛 `app-cmd.js` 에서 옮겨 왔다. 본문은 수정하지 않았다 (R-ACS-3). 여기 있는 것은
  * 서버 워크스페이스와 맞추는 일이다 — SSE 구독 배선, `workspace_changed` 적용,
- * 전경 이름, 복원 비행 껍데기. `dmctl` 원격 명령의 실행은 `app-cmd.js` 에 있다.
+ * 전경 이름, 복원 비행 껍데기. `dmctl` 원격 명령의 실행은 `tool-cmd.js` 에 있다.
  * App 은 이것을 `wsSync` 로 든다(REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`). 부품 — 내부 새로고침
  * `SoftReload`(`soft-reload.js`) `.reload`. 저장 경로(`app.js` `save`)가 함께 쓰는 `wsETag`·`_wsDeferRev`·
  * `_wsApplyPending`·`_saveInflight` 와 `_wsApplyInflight`·`_sseKick`·`fgNames` 는 App 에 남는다(§2.2).
@@ -126,7 +126,7 @@ class WsSyncController extends Controller {
      * `tool_foreground`·`tools_background_changed`·`window_focus` 구독 여섯과,
      * `sse:open` 에 이어 붙은 복원 다섯.
      *
-     * 같은 목록이 `app-reload.js` 에 또 있었고 그 둘이 어긋날 수 있었다. 이제
+     * 같은 목록이 옛 `app-reload.js` 에 또 있었고 그 둘이 어긋날 수 있었다. 이제
      * 한 곳(`state-registry.js`)이 정하고 여기는 그것을 부르기만 한다 — 새 상태를
      * 더할 때 이 파일은 바뀌지 않는다.
      */

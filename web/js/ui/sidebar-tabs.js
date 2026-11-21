@@ -1,4 +1,4 @@
-// 사이드바 상단 탭 — Windows / Git (GIT_SIDEBAR_TABS_SRS 묶음 T).
+// 사이드바 상단 탭 — windows(창) / repo(저장소) / chat(채팅) (GIT_SIDEBAR_TABS_SRS 묶음 T · REPO_TAB_UNIFY_SRS · CHAT_WINDOW_SRS).
 //
 // 탭은 서술자의 배열로 정의된다 (FR-SBT-18/19). 배열 순서가 표시 순서이자 직행 키
 // 번호이며, 새 탭을 더하는 비용은 서술자 1개다 (FR-SBT-21) — index.html·단축키 맵·
@@ -229,7 +229,7 @@ const SB_TAB_DEFS=[
            *   이유:     틀린 수를 확정적으로 말하는 것이 모르는 것보다 나쁘다
            *
            * `+` 는 새 기호가 아니다 — 잘린 그룹 머리글(`git-group-count`,
-           * FR-GDT-24)과 편집기 검색(`app-edsearch.js`)이 이미 같은 표기를 쓴다.
+           * FR-GDT-24)과 편집기 검색(`editor-search.js`)이 이미 같은 표기를 쓴다.
            * **잘렸다는 사실이 개수의 뜻을 바꾸므로 그 설명이 낡음보다 앞선다**
            * (`git-changes.js` 가 같은 순서를 쓴다).
            */

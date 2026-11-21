@@ -133,7 +133,7 @@ class EventBus {
    *             가로챈다** (FR-BUS-5). 그러므로 토픽 이름이 서버 `action` 과
    *             겹치면 그 토픽을 구독하는 순간 같은 이름의 **명령이 죽는다** —
    *             `_fallback` 에 닿지 않는다. 서버는 `{"action":"focus"}` 를
-   *             보내고 그것이 pane 포커스를 옮긴다 (`app-cmd.js` `_execRemote`).
+   *             보내고 그것이 pane 포커스를 옮긴다 (`tool-cmd.js` `_execRemote`).
    *             구독자가 하나도 없던 동안에는 드러나지 않던 지뢰이며, 첫 구독이
    *             그것을 밟았다 (TC-SXE-7 실패)
    */

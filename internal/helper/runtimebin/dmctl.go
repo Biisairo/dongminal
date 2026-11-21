@@ -189,7 +189,7 @@ func runDmctlSplit(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) in
 // 셸 프롬프트가 없어 detach 를 칠 수 없고, 바로 그 탭이 창을 띄우는 탭이다.
 // dmctl 로 닫는 쪽에는 그 창에 답할 손이 없으므로, **답을 미리 싣는다.**
 //
-//	--force      → `force:true`     그냥 닫는다 (app-cmd.js 가 이미 받는 길, FR-RUN-6)
+//	--force      → `force:true`     그냥 닫는다 (tool-cmd.js 가 이미 받는 길, FR-RUN-6)
 //	--background → `keepTool:true`  도구를 살리고 탭만 지운다 (`detachTab` 과 같은 길, FR-BG-2)
 //
 // `--background` 도 `force` 를 함께 싣는다 — 답을 준 요청이 확인창을 만나면 그

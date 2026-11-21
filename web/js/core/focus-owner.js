@@ -7,7 +7,7 @@
  *   나가는 길   `_focusClaim` — 주장을 POST 한다 (fire-and-forget)
  *   들어오는 길 `_onWindowFocus` — `window_focus` SSE 가 **전체 맵**을 싣는다
  *
- * `app-focus.js`(지금 `focus-controller.js`) 에서 갈라져 나왔다 (FR-STR-40). 그 파일의 머리 주석이 이미
+ * 옛 `app-focus.js`(지금 `focus-controller.js`) 에서 갈라져 나왔다 (FR-STR-40). 그 파일의 머리 주석이 이미
  * *"Ownership transport lives in `_focusClaim` (out) and the `window_focus` SSE
  * branch (in)"* 로 이 경계를 적고 있었다 — 가른 것이 아니라 **적혀 있던 선을
  * 그은 것**이다.

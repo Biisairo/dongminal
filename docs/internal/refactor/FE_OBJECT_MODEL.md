@@ -24,10 +24,10 @@
 |---|---|---|---|---|---|
 | 1 | 패널 열림·닫힘 | `app-agents.js:104` `setAgentsPanelOpen` · `app-mobile.js:19` `_toggleDrawer` · `app-mobile-sheets.js:44` · `app-settings.js:437` · `'open'` 토글 6파일 | 열림 판정·Esc 닫기·모바일 시트 연동이 같다. 상태가 필드·body 클래스·DOM 클래스 세 곳에 따로 있다 | `Panel` → `SidebarPanel`·`ActivityPanel`·`DrawerSheet` | M |
 | 2 | 탭 줄 | `sidebar-tabs.js` `SidebarTabs` ↔ `app-activity.js` `_actTab*` | 서술자·단추를 한 번 만들기·활성/배지 그리기·라벨 맞춤·직행 키가 같다. 영속 키·스크롤 보관 방식(요소 vs Map)·점 배지·`onEnter/onLeave` 가 다르다 | `TabBar` → `SidebarTabBar`·`ActivityTabBar` | M |
-| 3 | 목록 | `repaint.js:66` `reconcileList` 와 호출 약 20곳 · `sidebar-list.js` 서술자 · `git/list-tab.js` | 키·서명·빌드·빈 줄이 같다. 서명 규약·빈 문구·키보드 배선이 다르다 | `ListView` → `SidebarList`·`GitListTab` | M |
-| 4 | 대화상자·확인창 | `UIKit.modal` 19곳 · `UIKit.dialogOpen` 2곳 · `GitModalBase` 하위 2 · 손으로 짠 것(`term-pane.js:600`·`app-claude-accounts.js:427`) | 여는 순서·포커스 복귀·닫는 길 셋·실행 상태기계가 같다 | `Dialog` → `ConfirmDialog`(=`GitConfirm`)·`FormDialog`(=`GitDialog`)·`SettingsModal` | M |
+| 3 | 목록 | `repaint.js:66` `reconcileList` 와 호출 약 20곳 · `sidebar-list.js` 서술자 · `git/list-tab.js` | 키·서명·빌드·빈 줄이 같다. 서명 규약·빈 문구·키보드 배선이 다르다 | `ListView` → `SidebarList` (`GitListTab` 은 `GitView` 하위이고 `ListView` 를 부품으로 든다 — D-FEV-3) | M |
+| 4 | 대화상자·확인창 | `UIKit.modal` 19곳 · `UIKit.dialogOpen` 2곳 · `GitModalBase` 하위 2 · 손으로 짠 것(`term-pane.js:600`·`app-claude-accounts.js:427` — **둘 다 대화상자가 아니다**: 연결 상태 오버레이·계정 팝오버. `REFACTOR3_FE_DIALOG_SRS` §6) | 여는 순서·포커스 복귀·닫는 길 셋·실행 상태기계가 같다 | `Dialog` → `ConfirmDialog`(=`GitConfirm`)·`FormDialog`(=`GitDialog`)·`SettingsModal` | M |
 | 5 | 메뉴 | `UIKit.menu` 13곳 · `git/menu.js` `GitMenu`(선언형) | 열기·화살표·Esc 가 같다. GitMenu 는 데이터 층이다 | `Menu`(GitMenu 는 그 위의 데이터 층, 합치지 않는다) | M |
-| 6 | 설정 섹션·행 | `core/app-settings*.js` 14파일 · `settings-schema.js` | 선언(schema)은 있고, 그리기·저장 배선이 파일마다 다르다 `?` | `SettingsSection` → 섹션별 · `FormRow` | H |
+| 6 | 설정 섹션·행 | `core/app-settings*.js` 12파일(처음 14 로 셌다 — 정정) · `settings-schema.js` | 선언(schema)은 있고, 그리기·저장 배선이 파일마다 다르다 `?` | `SettingsSection` → 섹션별 · `FormRow` | H |
 | 7 | git 탭 뷰(폴링) | `list-tab.js`·`stash.js`·`branches.js`·`history.js`·`remote.js`·`console.js`·`commit.js` 의 `mount/unmount` · `_adopt` 5곳 · 저장소 가드 12곳 | 마운트·언마운트·저장소가 바뀌면 다시 받기·세대 가드가 같다. 세대 가드가 세 종류다 | `GitView` → 탭 여섯(`GitListTab` 은 그 하위) | M |
 | 8 | 툴바·머리 단추 | `list-tab.js:50`·`stash.js:57` 의 문자열 조립 | 버튼 모양·툴팁 | `Toolbar`(얇은 층) | L |
 | 9 | 배지·점 | `sidebar-tabs.js` `updateBadges` · `app-activity.js:256` · `UIKit.tab` · `git-badge` | 0 은 숨김·수 또는 점·잘림 `+` | `Badge` 값 모델(상속 아님) | L |
@@ -55,22 +55,28 @@ Component                    core/base/component.js     수명 주기(dispose) �
 │   │   ├─ SidebarTabBar     ui/sidebar-tab-bar.js      onEnter/onLeave · 직행 키 · visible
 │   │   └─ ActivityTabBar    core/activity-tab-bar.js   점 배지 · 보이는 구역만
 │   ├─ ListView              ui/list-view.js            items·key·sig·build·빈 문구·roving·행 동작 (reconcileList 를 감싼다)
-│   │   ├─ SidebarList       ui/sidebar-list.js
-│   │   └─ GitListTab        git/git-list-tab.js        (GitWorktrees·GitSubmodules 가 하위)
+│   │   └─ SidebarList       ui/sidebar-list.js
 │   ├─ Dialog                ui/dialog.js               overlay·box·head·body·foot · _show/_exec/_close · EscapeStack
-│   │   ├─ GitConfirm        git/git-confirm.js         (확인창 — 이름 유지)
-│   │   ├─ GitDialog         git/git-dialog.js          (옵션 폼 — 이름 유지)
+│   │   ├─ GitModalBase      git/git-modal-base.js      ├─ GitConfirm git/git-confirm.js (확인창) · GitDialog git/git-dialog.js (옵션 폼)
+│   │   ├─ KitModal          ui/kit-modal.js            (UIKit.modal 의 몸체)
 │   │   └─ SettingsModal     core/settings-modal.js
-│   ├─ Menu                  ui/menu.js                 └─ GitMenu(데이터 층) git/git-menu.js
+│   ├─ SettingsSection       core/settings-section.js   └─ 설정 탭마다 하나 (ThemeSection·ShortcutsSection … core/settings-*.js)
+│   ├─ Menu                  ui/menu.js                 (GitMenu 는 상속하지 않는 데이터 층 — git/menu.js · 항목 git/menu-items.js)
 │   └─ GitView               git/git-view.js            GitObserver 구독 · 저장소가 바뀌면 _adopt · reset · _load · paint
-│       └─ GitStash·GitBranches·GitHistory·GitRemote·GitConsole·GitCommit
-└─ Controller                core/base/controller.js    화면 없는 조정자 · 앱 참조 · 수명
-    └─ LayoutController·SlotController·MobileController·ActivityController·SettingsController …
+│       ├─ GitStash·GitBranches·GitHistory·GitRemoteList·GitConsole·GitCommit
+│       └─ GitListTab        git/git-list-tab.js        (GitWorktrees·GitSubmodules 가 하위)
+├─ GitPart                   git/git-part.js            GitPanel 의 부품 — GitPoll·GitChanges·GitViews·GitWrite … (목록은 git/panel.js 머리 주석)
+└─ Controller                core/base/controller.js    화면 없는 조정자 · 앱 참조 · 수명 · 위임자 표(Controller.delegate)
+    └─ LayoutController·SlotsController·ToolController·EditorController·MobileController·SettingsController … (core/*-controller.js 와 그 부품)
 
 App                          core/app.js                부품을 만들어 들고 서로 잇는 조립자
 클래스가 아닌 것             EscapeStack(static 등록부) · ScrollMemo · Badge 값 계산 · domEl/svgEl · 상수
 UIKit                        ui/ui-kit.js               만들기 함수(tab·modal·menu …)는 해당 클래스가 흡수하고, UIKit 은 기존 호출처·e2e 를 위한 얇은 입구로 남는다
 ```
+
+> **코드 기준으로 고침 (2026-11-22, PROD3 P7).** 이전 그림은 `GitListTab` 을 `ListView` 아래에, 원격 탭을 `GitRemote` 로 적었다.
+> 실제로는 `GitListTab` 이 `GitView` 하위이고(D-FEV-3), 원격 탭은 `GitRemoteList`(`git/remote-list.js`)다(D-FEV-4).
+> `GitConfirm`·`GitDialog` 는 `GitModalBase` 를 거쳐 `Dialog` 를 잇는다. `GitPart`·`SettingsSection`·`KitModal` 을 더했다.
 
 상속 깊이는 `Component` 아래 넷까지로 제한한다(`Component → View → TabBar → SidebarTabBar`).
 
@@ -105,7 +111,7 @@ web/js/git/         git-view.js · git-list-tab.js · git-dialog.js · git-confi
 | 1 | `Component`·`View`·`Controller`·`EscapeStack`·`ScrollMemo`·`Badge` 를 **더하기만** 한다. 단위 시험 먼저 | L |
 | 2 | `Panel`·`TabBar` → 두 패널(FU-20, 사용자 요청). DOM id·클래스·직행 키는 그대로. 라벨 판정 규칙은 패널별로 두고, 판정 시점은 한 자리에서 정한다. 두 패널의 판정 시점 차이를 먼저 표로 적는다 | M |
 | 3 | `Dialog` — `GitModalBase` 를 일반화한다. `GitConfirm`·`GitDialog` 는 이름을 유지하고 상속만 바꾼다. 손으로 짠 모달을 옮긴다 | M |
-| 4 | `ListView` — `SidebarList`·`GitListTab` 를 옮긴다 | M |
+| 4 | `ListView` — `SidebarList`·`GitListTab` 를 옮긴다(`GitListTab` 은 단계 5 에서 `GitView` 하위로 — D-FEV-3) | M |
 | 5 | `GitView` — git 탭 여섯. 세대 가드 정책을 먼저 하나로 정한다 | M |
 | 6 | `Menu`·`EscapeStack` 으로 Esc 처리 15파일을 모은다(FC-13·14) | M |
 | 7 | git 패널 mixin → 클래스(`GitChanges` 외) | H |

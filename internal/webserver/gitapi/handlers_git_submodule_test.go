@@ -192,7 +192,7 @@ func TestAPIGitSubmoduleWrites_UnsafePathIsBadRequest(t *testing.T) {
 }
 
 // 성공의 판정은 HTTP 200 이 아니라 본문의 `ok` 다 (FR-GIT-73) — 화면이 그것으로
-// 분기한다 (`panel-write.js:166`). `repo` 는 해석된 루트다.
+// 분기한다 (`git-write.js` 의 `d.ok`). `repo` 는 해석된 루트다.
 //
 // 서브모듈이 없는 저장소에서도 두 조작은 성공이다: 대상이 없다는 것은 실패가 아니다.
 func TestAPIGitSubmoduleWrites_OKCarriesResolvedRepo(t *testing.T) {
@@ -219,7 +219,7 @@ func TestAPIGitSubmoduleWrites_OKCarriesResolvedRepo(t *testing.T) {
 			t.Fatalf("%s: repo=%v, want 해석된 루트 %s", path, out["repo"], repo)
 		}
 		// FR-DRC-4 이후 `requested` 가 실린다 — 화면의 stale 판정 근거다
-		// (`panel-write.js:185`).
+		// (`git-write.js` 의 `requested`).
 		if out["requested"] != sub {
 			t.Fatalf("%s: requested=%v, want %s", path, out["requested"], sub)
 		}

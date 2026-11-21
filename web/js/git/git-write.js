@@ -129,7 +129,7 @@ class GitWrite extends GitPart {
   // ── 묶음 F — stash·파일·미커밋 행 (FR-GIT-272~275·277) ──
   // 실행은 도메인별 클래스에 있다 — 여기 있는 것은 메뉴가 부르는 한 줄뿐이다.
 
-  // FR-GIT-272: Branch from stash. 다이얼로그는 git-stash.js 가 안다.
+  // FR-GIT-272: Branch from stash. 다이얼로그는 `stash-dialogs.js` 가 안다.
   stashBranch(s){return new GitStashBranch(this.p,s)._show()}
 
   // FR-GIT-277: 미커밋 행의 Stash. 생성 다이얼로그를 그대로 다시 쓴다.

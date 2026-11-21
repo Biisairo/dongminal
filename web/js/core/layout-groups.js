@@ -272,7 +272,7 @@ function _orderSpec(a){
   return s;
 }
 
-// 바깥이 부르는 이름 — 원격 명령 표(`app-cmd.js`)·사이드바(`ui/`)·e2e.
+// 바깥이 부르는 이름 — 원격 명령 표(`tool-cmd.js`)·사이드바(`ui/`)·e2e.
 Controller.delegate(App,'layout.groups',['windowGroups','newGroup','deleteGroup','moveWindowTo','moveTabTo','wgFoldToggle',
   'sidebarWindowEntries','sidebarReorder','wgEdgeGroup','addGroupInteractive','groupHasAttn','_remoteNewGroup',
   '_remoteRenameGroup','_remoteDeleteGroup','_remoteMoveWindow','_remoteMoveGroup','_remoteMoveTab']);

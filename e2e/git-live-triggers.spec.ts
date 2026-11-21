@@ -102,7 +102,7 @@ test.describe('GIT_LIVE_TRIGGERS — 복귀 계기는 앱당 한 벌이고 전�
 test.describe('GIT_LIVE_TRIGGERS — 워치독에 주기가 있다', () => {
   /**
    * 렌더 훅을 끊는다. `gitWatchdogAll` 의 종전 유일한 호출처가 `render()` 이므로
-   * (renderer.js:155), 그것을 끊으면 남는 계기는 주기뿐이다 — 이 묶음이 재려는
+   * (당시 `renderer.js`), 그것을 끊으면 남는 계기는 주기뿐이다 — 이 묶음이 재려는
    * 것이 정확히 그것이다.
    */
   const CUT_RENDER = `window.app.render = () => {};`;

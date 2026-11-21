@@ -205,7 +205,7 @@ func TestMigrationCommand_GuardsTheFourSymptoms(t *testing.T) {
 	}
 	symptoms := []struct{ name, needle string }{
 		// ② 포커스 칸에 탭이 섰다. `--at` 없이 부르면 **포커스 칸**이다 —
-		// 부르는 쪽의 칸이 아니다 (`app-cmd.js` 의 `rid=this.focused`).
+		// 부르는 쪽의 칸이 아니다 (`tool-cmd.js` 의 `rid=this.app.focused`).
 		{"자기 칸에 연다", "dmctl new-tab -n --at"},
 		{"--at 없으면 포커스 칸이라는 사실", "포커스 칸"},
 		// ④ 엉뚱한 탭이 닫혔다. 식별자가 둘이고 쓰는 자리가 다르다.

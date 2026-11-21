@@ -154,7 +154,7 @@ test.describe('누르면 칸이 옮겨간다 (FR-SMK-10·11)', () => {
   });
 
   // `deferRender` 경로는 `render()` 를 미루고 `_slotPaintFocus()` 만 돈다
-  // (pane 을 눌러 칸을 옮길 때가 그렇다 — `renderer-pane.js:590`). 그 자리에서
+  // (pane 을 눌러 칸을 옮길 때가 그렇다 — `renderer-pane-wire.js`·`renderer-layout.js` 의 `deferRender:true`). 그 자리에서
   // 마커를 칠하지 않으면 포커스를 말하는 두 자리가 서로 다른 말을 한다.
   test('TC-SMK-17: 화면 쪽에서 칸을 옮겨도 마커가 따라간다 (deferRender)', async ({ page }) => {
     await waitForInit(page);

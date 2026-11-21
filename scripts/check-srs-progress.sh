@@ -25,11 +25,17 @@
 #
 # 그러면 둘 중 하나가 된다 — 라벨을 고치거나, 남은 일을 적거나. 둘 다 지금보다 낫다.
 #
+# **반대쪽도 하나 묻는다** (PROD3 §4.3 · DOC-7). 문서 머리가 `승인·구현완료` 인데 절 안에
+# `> 상태: **스펙` 줄이 남아 있으면 둘 중 하나가 틀렸다 — 절을 구현한 뒤 절의 상태 줄을
+# 고치지 않은 것이다(UX_AUDIT_FIX_SRS §3.12~3.14 가 그랬다). 이것도 파싱으로 답할 수 있다.
+#
 # 사용: scripts/check-srs-progress.sh
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 INPROGRESS='승인·구현중'
+DONE='승인·구현완료'
+SECTION_SPEC='^> 상태: \*\*스펙'
 MARK='^> \*\*남은 것\*\*: '
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -43,17 +49,24 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 
   라벨이 참인지는 묻지 않는다 — 코드를 읽어야 아는 일이고 파싱이 답할 수 없다.
   묻는 것은 **근거를 적었는가** 까지다 (DOC_SYNC_SRS D-DSY-2).
+
+  상태가 ${DONE} 인 SRS 는 절 안에 '> 상태: **스펙' 줄을 남기지 않는다 (PROD3 §4.3).
 USAGE
   exit 0
 fi
 
 fail=0
 bare=()
+stale=()
 total=0
 inprog=0
 
 for f in docs/internal/*_SRS.md; do
   total=$((total + 1))
+  if grep -q "^> \*\*문서 상태\*\*: ${DONE}\$" "$f"; then
+    while IFS= read -r hit; do stale+=("$f:$hit"); done < <(grep -n "$SECTION_SPEC" "$f" | cut -d: -f1)
+    continue
+  fi
   grep -q "^> \*\*문서 상태\*\*: ${INPROGRESS}\$" "$f" || continue
   inprog=$((inprog + 1))
   # 상태 줄 **바로 아래 열 줄** 안에 있어야 한다. 문서 끝에 적어 두면 읽는 사람이
@@ -81,7 +94,15 @@ if ((${#bare[@]})); then
   fail=1
 fi
 
+if ((${#stale[@]})); then
+  echo "\"${DONE}\" 인데 절 안에 \"> 상태: **스펙\" 이 남았습니다 (${#stale[@]}곳):"
+  printf '  %s\n' "${stale[@]}"
+  echo
+  echo "  절을 구현했다면 그 절의 상태 줄을 고치고, 아니라면 문서 상태를 되돌리세요(${INPROGRESS})."
+  fail=1
+fi
+
 if [[ $fail -eq 0 ]]; then
-  echo "srs-progress ok (SRS ${total}개 · \"${INPROGRESS}\" ${inprog}개 전부 근거가 있습니다)"
+  echo "srs-progress ok (SRS ${total}개 · \"${INPROGRESS}\" ${inprog}개 전부 근거가 있습니다 · \"${DONE}\" 의 절에 남은 \"스펙\" 0)"
 fi
 exit $fail

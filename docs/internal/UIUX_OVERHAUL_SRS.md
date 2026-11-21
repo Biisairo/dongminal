@@ -1,8 +1,9 @@
 # SRS: UI/UX 전면 개편 — 자리·구분·디자인 (IEEE 29148)
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: M6(FR-CHR) — R-1 의 e2e 셀렉터 전수 조사가 선행한다.
-> M1(FR-TYP)·M2(FR-SEM)·M3(FR-HIE)·M4(FR-CPY)·M5(FR-ACT) 는 구현됐다
+> **문서 상태**: 승인·구현완료
+> M1(FR-TYP)·M2(FR-SEM)·M3(FR-HIE)·M4(FR-CPY)·M5(FR-ACT)·M6(FR-CHR) 가 구현됐다. M6 은
+> `cad8b43d`·`266d928e`·`0f36da87`·`40222d29`(FR-CHR-1~5) → D-6 `fd361827`(FR-CHR-8~13) → D-7 `5072ee16`(FR-CHR-14~18).
+> 뒤 SRS 가 고친 자리(예: `#agents-toggle` 을 없앤 UX_BATCH12_SRS FR-ACF-7, 실행 중 색 D-43)는 그 문서가 정본이다
 
 - 접수: 2026-09-21 (사용자 지시 — *"이 프로젝트가 터미널이라는 것과, 테마색을
   사용한다 등등에 맞춰 ui 를 전면 개편"* · *"버튼의 위치, 사용 플로우 등을
@@ -849,7 +850,8 @@ mono 노드 둘이다. 마크업 어휘는 하나다 — `.mono` 클래스.
 
 | 뜻 | 토큰 | 쓰는 자리 |
 |---|---|---|
-| 정상 · 성공 · 추가 · 실행중 | `--term-green` | 창·탭 점, 에이전트 working, git add, 연결됨 |
+| 정상 · 성공 · 추가 · 실행중 | `--term-green` | 창·탭 점, git add, 연결됨 |
+| 에이전트 실행 중 | `--accent2` | 에이전트 working(작업 점·모바일 작업 단추의 점·상태 글리프·Run 노드). D-43 으로 개정 — 이전: `--term-green` |
 | 주의 · 대기 · 미저장 | `--term-yellow` (= `--attn`) | attention 배지, dirty 표식, 응답 대기 |
 | 위험 · 실패 · 삭제 | `--term-red` (= `--danger`) | 삭제, 실패, 충돌, 연결 끊김 |
 | 현재 · 선택 · 포커스 | `--term-blue` (= `--accent`) | 선택 행, 포커스 링, 활성 탭 |
@@ -864,7 +866,7 @@ mono 노드 둘이다. 마크업 어휘는 하나다 — `.mono` 클래스.
 
 | 자리 | 종전 | 새 | 뜻 |
 |---|---|---|---|
-| `.ag-state.working` | `--accent-text` | `--term-green` | 실행중 |
+| `.ag-state.working` | `--accent-text` | `--accent2` (D-43 으로 개정 — 이전: `--term-green`) | 실행중 |
 | ~~`#bg-btn.on`~~ | `--accent` | `--term-magenta` | 백그라운드 — **자리가 없어졌다** (D-7 / FR-CHR-16). 판정은 살아 있다: *"눈 밖에서 도는 것은 magenta"* 를 `.bg-row` 가 패널 안에서 그대로 쓴다 |
 | `.sbx-status.err` · `.acl-state.err` | `--accent-text` | `--danger-text` | **실패** |
 

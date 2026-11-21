@@ -97,7 +97,7 @@ class GitController extends Controller {
 
   // GIT 섹션 배선. 진입점은 정적 요소이므로 리스너는 여기서 한 번만 붙인다.
   _initGitSection(){
-    // FR-RTU-5: `+ Add` 는 Repo 탭 하나이고 그 배선은 app-editor.js 가 든다 —
+    // FR-RTU-5: `+ Add` 는 Repo 탭 하나이고 그 배선은 `editor-section.js` 가 든다 —
     // 두 목록이 한 종단(`/api/editors/add`)으로 함께 바뀌므로 진입점도 하나다.
     // 옛 `#git-add-repo` 는 사라졌다.
     this.sync._startGitReposPoll();

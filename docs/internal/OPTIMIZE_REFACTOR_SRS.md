@@ -262,7 +262,7 @@ e2e 요청 타임라인으로 잰다.
 
 - **FR-OPT-8-1** SSE 작성기를 하나로 모은다: 쓰기 시한, 쌓인 이벤트를 합쳐 한 번에 Flush, payload 빌더 한 벌. 큐 상한은 버스트 실측으로 정한다. (HTTP-10 · HTTP-M2 · IPC-12 · IPC-20 · HTTP-15)
 - **FR-OPT-8-2** 요청 경로 캐시: access 매처 스냅샷(설정이 바뀔 때만 다시 만든다), settings 뷰 캐시, `wsentry.Roots` 캐시(workspace rev 로 무효화), 라우팅 인덱스(접두 맵). (HTTP-4 · HTTP-26 · DOM-25 · HTTP-25)
-  - *개정 메모 (2026-09-26, Ofix3·Ofix4):* `wsentry.Roots` 가 rev 로 기억하는 것은 workspace.json 의 **파싱 결과(editors.list)뿐**이다. 정규화(`NormalizePath` — EvalSymlinks)와 메모·플러그인 자리 보장(`ensureDir`)은 **호출마다** 한다 — 요청 경로가 요청 시점에 정규화되므로(`fsRootOf`) 루트도 같은 시점의 파일시스템을 따라야 루트 가드(FR-EDT-113)·다른 루트 삭제 가드(FR-EDT-114)가 어긋나지 않는다(`wsentry.go` `rootsMemo`).
+  - *개정 메모 (2026-09-26, Ofix3·Ofix4):* `wsentry.Roots` 가 rev 로 기억하는 것은 workspace.json 의 **파싱 결과(editors.list)뿐**이다. 정규화(`NormalizePath` — EvalSymlinks)와 메모·플러그인 자리 보장(`ensureRoot`)은 **호출마다** 한다 — 요청 경로가 요청 시점에 정규화되므로(`fsRootOf`) 루트도 같은 시점의 파일시스템을 따라야 루트 가드(FR-EDT-113)·다른 루트 삭제 가드(FR-EDT-114)가 어긋나지 않는다(`wsentry.go` `rootsMemo`).
 - **FR-OPT-8-3** fork 일괄화: BackgroundList 의 cwd 와 ActivitySnapshot 의 busy 를 한 번의 lsof·pgrep 으로 조회한다. `/api/runs/context` 는 비멤버를 빠른 경로로 처리한다. (SHR-8 · SHR-28 · HTTP-3)
 - **FR-OPT-8-4** 서버 내부 폴링 대기(100 ms·250 ms·50 ms)를 조건 변수 또는 채널 대기로 바꾼다. (HTTP-31)
 - **FR-OPT-8-5** 훅 보고 경로: dmctl 은 훅 한 번에 HTTP 한 번만 부르고, 전사본 꼬리를 스트리밍으로 읽는다. fire-and-forget 시한은 짧게 한다. list-workspace 의 이중 호출을 없앤다. (SHR-9 · SHR-10 · SHR-31)

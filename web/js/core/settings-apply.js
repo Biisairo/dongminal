@@ -171,8 +171,8 @@ class SettingsApply extends Controller {
   /**
    * 열려 있는 편집기 전부에 지금 값을 얹는다.
    *
-   * 살아 있는 인스턴스의 목록은 `app.fileEditors` 다 (`renderer.js:533` 이 만들고
-   * `app-layout.js:428` 이 거둔다). diff 뷰 안의 편집기는
+   * 살아 있는 인스턴스의 목록은 `app.fileEditors` 다 (`renderer-pane.js` 가 만들고
+   * 탭이 사라지면 `renderer-layout.js`·`slot-ops.js` 등이 거둔다). diff 뷰 안의 편집기는
    * 여기 없다 — 그쪽은 `_diffApplyOptions` 가 맡는다.
    */
   _edApplyWordWrap(){

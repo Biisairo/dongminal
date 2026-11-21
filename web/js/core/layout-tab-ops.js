@@ -401,7 +401,7 @@ class LayoutTabOps extends Controller {
   }
 }
 
-// 바깥이 부르는 이름 — `app.js`(단축키)·`app-cmd.js`·`app-dnd.js`·`app-dock.js`·편집기·채팅·`ui/`·e2e·계약.
+// 바깥이 부르는 이름 — `app.js`(단축키)·`tool-cmd.js`·`layout-dnd.js`·`layout-dock.js`·편집기·채팅·`ui/`·e2e·계약.
 Controller.delegate(App,'layout.tabOps',['closeTab','switchTab','split','switchTabPrev','switchTabNext','switchWindowPrev',
   'switchWindowNext','paneNavigate','addTabFocused','closeTabFocused','closeWindowActive','sidebarCollapsed','setSidebarCollapsed',
   'sbPanel','_toggleSidebar','sbRail','termIn']);

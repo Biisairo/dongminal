@@ -234,7 +234,7 @@ test.describe('FR-BGR-7: location 미지정 복귀는 조용히 무효가 되지
     await detach(page, request, toolId);
 
     // 포커스를 존재하지 않는 Pane 으로 만든다 — delWindow 의 else 분기가
-    // this.focused=null 로 두는 상태(app.js:1180)와 같은 계열이다.
+    // focused 를 비우는 상태(`layout-controller.js` `delWindow` → `focusClear`)와 같은 계열이다.
     await page.evaluate(() => { (window as any).app.focused = 'rZZZ' });
 
     const r = await request.post('/api/commands', {

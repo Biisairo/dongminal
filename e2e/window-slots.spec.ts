@@ -25,7 +25,7 @@ const slotDirOf = (page) => page.evaluate(() => (window as any).app.slotDir);
 const setSlotDir = (page, d: string) => page.evaluate((v) => ((window as any).app.slotDir = v), d);
 
 // 새 일반 창을 만들고 그 id 를 준다. _mkWindow 는 생성한 엔터티 id 를 돌려준다
-// (app-layout.js, FR-RCR-6/7).
+// (`layout-controller.js`, FR-RCR-6/7).
 //
 // **포커스 칸이 이 창을 받는다** (FR-WSL-54) — 창을 만드는 것도 "여는 경로" 다.
 const addWindow = (page) =>

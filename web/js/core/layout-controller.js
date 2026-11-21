@@ -420,6 +420,6 @@ class LayoutController extends Controller {
   }
 }
 
-// 바깥이 부르는 이름 — `app.js`(부팅의 복원·창 단축키)·`app-cmd.js`·`app-dnd.js`·`app-presets.js`·편집기·`ui/`·e2e·계약.
+// 바깥이 부르는 이름 — `app.js`(부팅의 복원·창 단축키)·`tool-cmd.js`·`layout-dnd.js`·`layout-window-state.js`(프리셋)·편집기·`ui/`·e2e·계약.
 Controller.delegate(App,'layout',['_restoreReturn','_tabToManual','_tabToAuto','renameTab','_mkWindow','addWindow','delWindow',
   'switchWindow']);

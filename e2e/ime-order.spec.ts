@@ -16,7 +16,7 @@ import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
 
-// 전송을 가로채 순서를 본다. 패턴은 ux-batch6.spec.ts 의 것과 같다.
+// 전송을 가로채 순서를 본다. 패턴은 옛 ux-batch6.spec.ts(지금은 없다)의 것과 같다.
 async function termReady(page: Page) {
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 25000 });
   await page.evaluate(() => {

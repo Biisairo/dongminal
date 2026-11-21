@@ -375,8 +375,8 @@ func (t *gitWrite) ok(extra map[string]any) {
 // okPlain 은 status 없이 답하는 성공이다 (FR-DRC-2).
 //
 // `ok` 와 같은 세 필드(`ok`·`repo`·`requested`)를 싣는다. `ok` 가 **클라이언트의
-// 성공 판정**이고 (`panel-write.js:166` 의 `!!(r&&r.ok&&d&&d.ok)`), `requested` 는
-// 늦게 온 남의 응답을 자기 것으로 읽지 않게 하는 대조 근거다 (`:185`).
+// 성공 판정**이고 (`git-write.js` — "이 표면의 성공 판정은 `d.ok` 다"), `requested` 는
+// 늦게 온 남의 응답을 자기 것으로 읽지 않게 하는 대조 근거다 (같은 파일의 `requested`).
 //
 // `status` 를 싣지 않으므로 화면의 `adopt` 는 이 응답에서 그냥 되돌아간다 — 그것이
 // 맞다: 여기 담을 실행 후 status 가 없다.

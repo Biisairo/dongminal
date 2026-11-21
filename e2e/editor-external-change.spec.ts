@@ -50,7 +50,7 @@ async function openFile(page: Page, saved: string, rel: string) {
 }
 
 // 이미 열린 파일을 **다시 여는** 것이 지금 있는 갱신 경로다 (SRS §2.2,
-// `app-layout.js:480` → `editor.refresh()`). 가짜 호출이 아니라 이 길로 잰다.
+// 이미 열린 탭을 찾으면 `editor.refresh()`). 가짜 호출이 아니라 이 길로 잰다.
 async function reopen(page: Page, saved: string, rel: string) {
   await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }),
     saved + '/' + rel);

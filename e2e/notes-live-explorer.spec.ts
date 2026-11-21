@@ -203,7 +203,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
    * WORKBENCH_REVIEW_SRS 묶음 S (FR-WBR-40~42 / D-WBR-9).
    *
    * 루트가 `edRoots()` 에서 빠지면 재조정이 그 창을 **통째로 splice** 하고
-   * (`app-editor.js`), 그 순간 탭 id 가 사라져 렌더러의 회수기가 편집기를
+   * (당시 `app-editor.js`, 지금 `editor-sync.js`), 그 순간 탭 id 가 사라져 렌더러의 회수기가 편집기를
    * 파괴하며 `edDocDrop` 이 모델까지 dispose 한다 — **저장하지 않은 편집이
    * 묻지도 알리지도 않고 사라진다.** 탭을 닫을 때는 이미 묻고 있다.
    *

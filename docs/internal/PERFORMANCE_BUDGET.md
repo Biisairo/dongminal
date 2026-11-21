@@ -108,7 +108,7 @@
 | `web/js/core/settings-theme.js` | `_renderThemePanel` | `list` | 1 | 사용자 | 설정 탭 전환 |
 | `web/js/core/settings-theme.js` | `_showCustomEditor` | `termDiv` | 1 | 사용자 | 사용자가 연 편집기 |
 | `web/js/core/settings-theme.js` | `_showCustomEditor` | `uiDiv` | 1 | 사용자 | 같은 자리 |
-| `web/js/core/settings-statusbar.js` | `_render` | `el` | 1 | 사용자 | 설정 탭 전환 |
+| `web/js/core/settings-statusbar.js` | `_render` | `el` | 1 | 사용자 | 부팅 때 한 번 — 섹션의 `init` |
 | `web/js/git/commit.js` | `_paintBlocks` | `box` | 1 | 가드 | `box.dataset.sig` — 막힘 코드 목록이 그대로면 그리지 않는다 |
 | `web/js/git/git-confirm.js` | `_paint` | `ul` | 1 | 사용자 | 사용자가 연 확인창 |
 | `web/js/git/console.js` | `_drawList` | `list` | 1 | 가드 | `paintIfChanged` 안이다 (FR-RPT-1) |
@@ -147,7 +147,7 @@
 | blame 이 한 번에 그리는 행 | **`GIT_BLAME_MAX_ROWS`(2,000) 이하** — 행마다 6노드다 | `e2e/git-diff.spec.ts` BL3 |
 | 만든 관측자를 잡지 않는 자리 | **0** (착수 시 9자리 중 1) | `scripts/check-observer.mjs` |
 | 레이아웃을 애니메이션하는 `@keyframes` | **0** (착수 시 13개 중 1) | `scripts/check-css-animation.mjs` |
-| 상태바 한 회차의 **직렬** 왕복 | **2** (`ping` → `stats` ∥ `git/jobs`) | `e2e/perf-statusbar.spec.ts` S1 |
+| 상태바 한 회차의 **직렬** 왕복 | **1** (`ping` ∥ `stats` — 잡 수는 `stats?jobs=1` 에 실린다. 이전 2: `ping` → `stats`, PROD3 FC-21) | `e2e/perf-statusbar.spec.ts` S1 |
 | 같은 `.gz` 자산 N회 요청의 파일 읽기 | **1** | `TestStatic_PrecompressedReadsFileOnce` |
 | 없는 경로 1,000회 뒤 `etags` 항목 | **0** | `TestStatic_ETagDoesNotCacheMisses` |
 | 핀 목록의 `RepoRoot` 동시 진행 | **2 이상 · `gitObserveMax`(4) 이하** | `TestGitPinnedEntries_RunsInParallel` |

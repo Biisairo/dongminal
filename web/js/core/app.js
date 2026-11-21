@@ -795,7 +795,7 @@ function wsSaveHoldMs(conflicts){ return Math.min(WS_SAVE_BACKOFF_MS*conflicts,W
 // 바깥이 부르는 이름 — 형제 `app-*.js`(설정·명령·편집기)·`ui/file-editor.js`·`ui/diff-view.js`·e2e 계약(`app-testing.js`).
 Controller.delegate(App,(app,n,a)=>app._lspClient()[n](...a),['_lspRefresh','_lspGotoDef','_lspFindRefs','_lspRootOfPath','lspClickDef',
   'lspExtFor','lspOfferFor','lspOfferInstall','lspOfferPending','lspOfferReopen']);
-// 바깥이 부르는 이름 — `app-layout.js`·`renderer.js`·`ws-sync-controller.js`·`slot-ops.js` 와 e2e. `_runsPanel` 을 부를 때 찾는다
+// 바깥이 부르는 이름 — `layout-*.js`·`renderer.js`·`ws-sync-controller.js`·`slot-ops.js` 와 e2e. `_runsPanel` 을 부를 때 찾는다
 // (e2e 가 갈아 끼운다). UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): `#runs-btn` 은 없어졌고 Run 구역으로 직행하는 길은
 // `Ctrl+Shift+O` 다(PANEL_SHORTCUTS_SRS FR-PSC-2).
 Controller.delegate(App,(app,n,a)=>app._runsPanel()[n](...a),['_runsModalToggle','_findRunTab','runViewEl','_runDisposeView','_onRunChanged',

@@ -24,7 +24,7 @@ func TestSchemaAndAccessKeysMatch(t *testing.T) {
 	}
 	schemaKeys := settingsschema.Keys(specs)
 
-	src, err := os.ReadFile("../../../web/js/core/app-settings.js")
+	src, err := os.ReadFile("../../../web/js/core/settings-table.js")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestSchemaAndAccessKeysMatch(t *testing.T) {
 // 이름에 `_` 가 없는 이유: `FE-4` 가 디렉터리를 넘는 이름을 승격했다
 // (FE_MODULE_BOUNDARY_SRS FR-FMB-40). `ui/` 가 저장 실패를 알리려 이것을 부른다.
 func TestSaveSettingsDerivesFromTable(t *testing.T) {
-	src, err := os.ReadFile("../../../web/js/core/app-settings.js")
+	src, err := os.ReadFile("../../../web/js/core/settings-apply.js")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestSaveSettingsDerivesFromTable(t *testing.T) {
 	if save := between(string(syncSrc), "saveSettings(){", "\n  },"); !strings.Contains(save, "this.app._settingsBody()") {
 		t.Fatal("saveSettings 가 _settingsBody 로 본문을 짓지 않는다")
 	}
-	body := between(s, "_settingsBody(){", "\n  },")
+	body := between(s, "_settingsBody(){", "\n  }\n")
 	if body == "" {
 		t.Fatal("_settingsBody 를 찾지 못했다")
 	}

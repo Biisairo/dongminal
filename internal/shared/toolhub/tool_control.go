@@ -140,7 +140,7 @@ func (p *Tool) Resize(cols, rows uint16) error {
 		return err
 	}
 	// 바뀌지 않았으면 말하지 않는다 — `resendWindowSizes` 가 창 전환마다 같은
-	// 값을 보내므로(`app-focus.js`), 여기서 거르지 않으면 전환마다 모든
+	// 값을 보내므로(`focus-owner.js`), 여기서 거르지 않으면 전환마다 모든
 	// 브라우저가 같은 프레임을 받는다. `SetForegroundNotifier` 와 같은 규약이다.
 	if changed {
 		p.notifySize(cols, rows)

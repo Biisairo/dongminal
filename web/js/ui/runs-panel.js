@@ -1,7 +1,7 @@
 /**
  * Run 시각화의 소유자 (APP_STATE_EXTRACT_SRS 묶음 A).
  *
- * `app-runs.js` 에 있던 상태 열하나와 메서드 서른셋이 여기로 왔다. 그 상태는
+ * 옛 `app-runs.js` 에 있던 상태 열하나와 메서드 서른셋이 여기로 왔다. 그 상태는
  * **전부 이 주제 안에서만** 쓰이는데 `App` 의 필드로 살고 있었고, 그래서 누가
  * 그것을 소유하는지 코드가 말하지 않았다.
  *
@@ -323,7 +323,7 @@ Object.assign(RunsPanel.prototype, {
 
   // ── 탭 (FR-RVZ-6~9) ──
 
-  // FR-RVZ-7: 같은 Run 의 탭 찾기. app-layout.js 의 _findEditorTab 과 같은 모양이며,
+  // FR-RVZ-7: 같은 Run 의 탭 찾기. `layout-tab-add.js` 의 `_findEditorTab` 과 같은 모양이며,
   // addTab 의 run 분기가 App 의 위임자(`app.js`)로 이것을 부른다.
   _findRunTab(runId) {
     return findTabWhere(this.app.ws.windows, tab => tab.type === 'run' && tab.runId === runId);

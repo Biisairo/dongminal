@@ -32,7 +32,7 @@ const STATE_REGISTRY_JS = join(process.cwd(), 'web', 'js', 'core', 'state-regist
 
 // EVENT_TIMER_HUB_SRS 묶음 B: 채널은 `EventBus` 로 갔다. **재는 것은 바뀌지
 // 않는다** — FR-RCS-6 "포기하지 않는다" 는 그대로이고, 그 계약을 지키는 자리만
-// `app-cmd.js` 에서 버스로 옮겼다. 최상위 `class` 는 전역 객체의 프로퍼티가
+// 옛 `app-cmd.js` 에서 버스로 옮겼다. 최상위 `class` 는 전역 객체의 프로퍼티가
 // 아니므로 이름으로 직접 조회한다.
 declare const TimerHub: any;
 declare const EventBus: any;

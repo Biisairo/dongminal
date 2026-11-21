@@ -69,10 +69,10 @@
 |---|---|---|---|---|---|
 | F-A1 | D | 폴더를 자기 하위로 옮기기 막음 `pathUnder`(✔ `file-tree-edit.js:208`, 일괄 이동 `:409`) | `fsCopyGuardSelf`(✔ `handlers_fs_mutate.go:68-74`) | 부분 — 화면은 경로 글자, 서버는 심볼릭 링크를 푼 뒤 비교. **화면 주석이 낡았다**(✔ "서버의 rename 은 이것을 성공시킨다") | 트리 이동 |
 | F-A2 | D·S | 루트는 지우기·이름 바꾸기 대상에서 뺌(`file-tree-edit.js:258`·`:29`) | `fsDeletable`(`handlers_fs_mutate.go:198`) — 루트·홈·파일 시스템 루트 거절 | 부분 — 홈 폴더 거절은 서버만 | 삭제 메뉴·확인창 |
-| F-A3 | D | 삭제 확인창이 항목을 **2000** 까지 셈(✔ `constants-editor.js:549`) | **10000** 넘으면 거절(✔ `handlers_fs_mutate.go:181-188`) | **다르다** — "2000개 이상" 을 확인했는데 서버가 거절할 수 있다. 주석의 "서버에 세는 종단이 없다" 도 지금은 반만 맞다 | 삭제 확인창 |
+| F-A3 | D | 삭제 확인창이 항목을 **2000** 까지 셈(✔ `constants-editor.js:549`) | **10000** 넘으면 거절(✔ `handlers_fs_mutate.go:181-188`) | **다르다** — "2000개 이상" 을 확인했는데 서버가 거절할 수 있다. 주석의 "서버에 세는 종단이 없다" 도 지금은 반만 맞다 | 삭제 확인창 — **처리됨**: 지울 수 있는지와 항목 수를 서버가 답한다(`edFsActions`, SERVER_DRIVEN_ACTIONS_SRS F-g). 화면은 세지 않는다 |
 | F-A4 | D | Run 닫기 버튼은 `open` 일 때만(`runs-panel.js:188`·`:226`) | `run_closed`(`handlers_runs_close.go:132-135`) — 화면은 늘 `force:true` 를 보낸다 | 부분 | Run 행 |
 | F-A5 | D | 떼기 버튼은 `m.tabId` 가 있을 때만(`run-dashboard.js:377`) | `member_not_attached`(`handlers_runs_headless.go:206`) | 같다 | 멤버 카드 |
-| F-A6 | D·C | 샌드박스 런타임 시작: `!missing && startTryable`(`app-tool.js:142`) | `StartTryable`(`runtime.go:53`·`:88`), 시작 처리기는 missing 을 안 봄 | 부분 | 런타임 Start |
+| F-A6 | D·C | 샌드박스 런타임 시작: `!missing && startTryable`(`app-tool.js:142`) | `StartTryable`(`runtime.go:53`·`:88`), 시작 처리기는 missing 을 안 봄 | 부분 | 런타임 Start — **처리됨**: `sandbox.runtime.start` 를 서버가 판정한다(FR-SDA-70, `sandboxStartAnswer`) |
 | F-A7 | O | `work=none` 이면 작업 모드·폴더를 버림(`app-tool.js:300-302`) | `place.go:139`·`sandbox.go:281` 도 버림 | 같다 | 프로파일 고르기 |
 | F-A8 | C | 터미널 드롭 업로드는 `source==='tool'` 이고 cwd 를 알 때만(`term-pane.js:709`) | `/api/upload` 는 아무 `dir` 이나 받음(`handlers_files.go:183`) | 화면만 | 드롭 업로드 |
 | F-A9 | D | 접근 제어 저장 전 "내가 잠기는가" — IPv4 CIDR·호스트 판정을 화면이 다시 구현(✔ `app-settings-access.js:76-122`) | `allowed`·`isSelf`·`validateAccessValue`(`access.go:223`·`:378`·`:400`) | **다르다** — 화면은 IPv4 만, 판단 못 하면 "잠긴다" 로 봄. 서버는 netip·자기·별칭 | 저장 전 경고 |
@@ -84,7 +84,7 @@
 | # | 부류 | 화면 | 서버 | 차이 |
 |---|---|---|---|---|
 | F-B1 | C | 만들기·이름 바꾸기 이름에 `/` 금지, `\` 는 안 봄(`file-tree-edit.js:48`) | 이름 규칙 없음 — 루트·경로 가드만(`handlers_fs.go:384`) | **서버가 `a/b` 를 받는다**(폴더 `a` 가 있으면) |
-| F-B2 | C | 이름 길이 64 `ENTITY_NAME_MAX`(`constants.js:484`) | 없음 | 화면만 |
+| F-B2 | C | 이름 길이 64 `ENTITY_NAME_MAX`(`constants.js:484`) | 없음 | 화면만 — **처리됨**: 서버도 64 를 넘는 이름을 거절한다(`httpapi/entity_name.go`, `name_too_long`) |
 | F-B3 | D | 루트 추가 경로 비지 않음(`app-editor-section.js:43`) | `wsentry.go:48-50` | 서버가 더 엄격 |
 | F-B4 | D | 문서 링크가 루트 안인지 `docInsideRoot`(`doc-render.js:156`) | `fsRoot` 가드 | 목적이 같다 |
 
