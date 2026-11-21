@@ -110,7 +110,7 @@
 | `web/js/core/app-settings-theme.js` | `_showCustomEditor` | `uiDiv` | 1 | 사용자 | 같은 자리 |
 | `web/js/core/app-statusbar.js` | `_renderStatusBarSettings` | `el` | 1 | 사용자 | 설정 탭 전환 |
 | `web/js/git/commit.js` | `_paintBlocks` | `box` | 1 | 가드 | `box.dataset.sig` — 막힘 코드 목록이 그대로면 그리지 않는다 |
-| `web/js/git/confirm.js` | `_paint` | `ul` | 1 | 사용자 | 사용자가 연 확인창 |
+| `web/js/git/git-confirm.js` | `_paint` | `ul` | 1 | 사용자 | 사용자가 연 확인창 |
 | `web/js/git/console.js` | `_drawList` | `list` | 1 | 가드 | `paintIfChanged` 안이다 (FR-RPT-1) |
 | `web/js/git/diff-view.js` | `clear` | `this._host` | 1 | 사용자 | 이름이 곧 계기다 — 비우라고 부른다 |
 | `web/js/git/history-detail.js` | `_paintDetail` | `ps` | 1 | 가드 | 부모 줄이 `paintIfChanged` 를 지난다 (FR-PRF-10) |

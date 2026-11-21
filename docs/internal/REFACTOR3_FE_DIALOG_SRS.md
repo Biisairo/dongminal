@@ -1,6 +1,6 @@
 # SRS: 리팩토링 3차 P3a 단계 3 — 대화상자 기반 클래스 `Dialog` — IEEE 29148
 
-> **문서 상태**: 승인·구현중
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `docs/internal/refactor/FE_OBJECT_MODEL.md` §2 행 4·§6 단계 3 · `PROD3.md` FC-04·FU-13 일부)
 - 사용자 결정(2026-11-21, `FE_OBJECT_MODEL.md` §7): 자체 클래스 계층을 쓴다. 클래스 하나 = 파일 하나. e2e 가 이름으로 쓰는 `GitConfirm`·`GitDialog`·`UIKit` 은 이름을 유지한다. 진행은 묻지 않고 끝까지 한다(인계서 `REFACTOR_PROD3_HANDOFF_2.md`).
@@ -90,6 +90,8 @@
 |---|---|---|
 | `GitConfirm`·`GitDialog` 의 키 수신기는 대화상자 스택을 보지 않았다. 그 위에 킷 모달이 떠 있을 때 Esc 를 누르면, 먼저 달린 git 수신기가 같은 노드에서 먼저 돌아 git 창까지 닫혔다(`stopPropagation` 은 같은 노드의 수신기를 막지 못한다) | 맨 위 대화상자만 키를 받는다 | 킷 모달끼리는 이미 이 규칙이었다(FR-OPT-16-4). 세 골격이 한 규칙을 쓴다 |
 | 설정 모달의 Esc 는 열려 있으면 언제나 닫았다 | 설정 모달이 스택 맨 위일 때만 닫는다 | 같은 규칙. 지금 설정 위에 뜨는 킷 모달은 캡처에서 전파를 끊으므로 보이는 차이는 없다 |
+| 설정이 열린 채 `#settings-btn` 을 다시 누르면(코드의 `_openSettings`) 접근성 계약을 한 번 더 걸었다 — 대화상자 스택에 같은 상자가 둘 쌓이고, 앞의 해제 함수를 잃어 닫아도 하나가 남았다. 흐림 관측도 하나 더 걸렸다 | 이미 열려 있으면 `open()` 은 아무것도 하지 않는다(다시 칠하기도 하지 않는다). 탭 고르기는 그대로 돈다 | 열기·닫기를 한 자리(`SettingsModal`)에서 하며 드러났다. 사람이 누르는 길은 오버레이가 덮어 닿지 않는다 |
+| 설정 모달의 Esc 수신기는 늘 달려 있고 열림을 보았다 | 열 때 달고 닫을 때 뗀다 | `Dialog` 의 한 번 여는 동안의 수명(D-FED-3) |
 
 ## 6. 문서 어긋남 (P7 에서 코드 기준으로 고친다)
 
@@ -99,4 +101,4 @@
 
 | 커밋 | 요점 |
 |---|---|
-| (구현 커밋) | |
+| (이 커밋) | `ui/dialog.js` `Dialog` · `ui/kit-modal.js` `KitModal`(`UIKit.modal` 은 한 줄 입구, `ui-kit.js` 934 → 817줄) · `git/git-modal-base.js`(칠하기 셋만) · `git/git-confirm.js`·`git/git-dialog.js`(`mv`, 키는 `_dismiss`·`_onKey`) · `core/settings-modal.js` `SettingsModal`(`initModal` 의 열기·닫기·탭 고르기·tablist 속성, `app-settings.js` 500 → 445줄). App 훅은 `_settingsOnOpen`·`_settingsOnTab`. **SRS 와 다른 점:** ① `Dialog` 의 이름 훅은 `_nameEl()` 이다 — `GitDialog` 에 이미 `_labelEl(text)` 가 있다 ② 설정 모달의 Esc 는 `preventDefault` 만 하고 전파는 끊지 않는다(종전과 같다) ③ 닫을 때 푸는 순서는 거꾸로다(흐림 관측 → 대화상자) — 둘은 서로 기대지 않는다 |

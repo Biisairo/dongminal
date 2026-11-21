@@ -14,7 +14,7 @@
  *
  *   core/app-git.js    fetch 6 · isStale 0 · echo 0
  *   git/commit-ops.js  fetch 2 · isStale 0 · echo 0
- *   git/confirm.js     fetch 1 · isStale 0 · echo 0
+ *   git/git-confirm.js fetch 1 · isStale 0 · echo 0
  *   git/tag.js         fetch 1 · isStale 0 · echo 1
  *
  * 이것은 정리가 아니라 **버그 부류 하나의 제거**다.

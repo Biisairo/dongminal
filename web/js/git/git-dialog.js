@@ -190,23 +190,24 @@ class GitDialog extends GitModalBase {
       this.box.querySelector('.git-dialog-cancel').addEventListener('click',()=>this._cancel());
       this.box.querySelector('.git-dialog-go').addEventListener('click',()=>this._run());
     }
-    this._listenKeys(e=>{
-      if(e.key!=='Enter'&&e.key!=='Escape') return;
-      // FR-PDA-2·5: **버튼에 포커스가 있으면 그 버튼의 것이다.** 흘려보내
-      // 브라우저가 그것을 누르게 한다 — 그래야 취소에 포커스를 두고 누른
-      // `Enter` 가 취소가 된다. 종전에는 이 구분 없이 무조건 가로채서 취소에
-      // 포커스가 있어도 **실행됐다.**
-      //
-      // 여기 남는 `Enter` 는 필드(텍스트 입력)에서 온 것이다. 그 자리에는
-      // 브라우저 기본 동작이 없으므로 다이얼로그가 목적 버튼으로 보낸다.
-      if(e.key==='Enter'&&e.target&&e.target.closest&&e.target.closest('button')) return;
-      e.preventDefault(); e.stopPropagation();
-      // 실행 중에는 버튼이 disable 이다 — 키도 같이 막는다 (FR-GIT-174).
-      if(this.busy) return;
-      if(e.key==='Escape'){this._cancel();return}
-      if(this.choices.length){this._pick(this.def);return}
-      this._run();
-    });
+  }
+
+  _onKey(e){
+    if(e.key!=='Enter'&&e.key!=='Escape') return;
+    // FR-PDA-2·5: **버튼에 포커스가 있으면 그 버튼의 것이다.** 흘려보내
+    // 브라우저가 그것을 누르게 한다 — 그래야 취소에 포커스를 두고 누른
+    // `Enter` 가 취소가 된다. 종전에는 이 구분 없이 무조건 가로채서 취소에
+    // 포커스가 있어도 **실행됐다.**
+    //
+    // 여기 남는 `Enter` 는 필드(텍스트 입력)에서 온 것이다. 그 자리에는
+    // 브라우저 기본 동작이 없으므로 다이얼로그가 목적 버튼으로 보낸다.
+    if(e.key==='Enter'&&e.target&&e.target.closest&&e.target.closest('button')) return;
+    e.preventDefault(); e.stopPropagation();
+    // 실행 중에는 버튼이 disable 이다 — 키도 같이 막는다 (FR-GIT-174).
+    if(this.busy) return;
+    if(e.key==='Escape'){this._cancel();return}
+    if(this.choices.length){this._pick(this.def);return}
+    this._run();
   }
 
   _fieldsEl(host){

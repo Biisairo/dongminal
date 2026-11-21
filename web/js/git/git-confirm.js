@@ -232,26 +232,24 @@ class GitConfirm extends GitModalBase {
       keepTabStops:true,
       items:()=>[...acts.querySelectorAll('.ui-btn')].filter(b=>!b.disabled),
     });
-    /**
-     * FR-PDA-2: `Enter` 는 **가로채지 않는다.** 포커스된 버튼의 click 합성이라는
-     * 브라우저 기본 동작이 곧 이 규약이다 — 기본 포커스가 실행이므로 창이 뜨자마자
-     * 누른 `Enter` 는 실행이고, `Tab` 으로 취소에 옮긴 뒤의 `Enter` 는 취소다.
-     *
-     *   이전 동작: capture 로 잡아 `preventDefault` 하고 언제나 취소했다
-     *   새  동작: 흘려보낸다. `Escape` 만 여기서 잡는다
-     *   이유:     가로채면 포커스가 취소에 있어도 실행이 되어 **보이는 것과
-     *             일어나는 일이 달라진다** — 이 요구가 고치려는 문제를 다른
-     *             자리에 새로 만드는 것이다 (POPUP_DEFAULT_ACTION_SRS D-1)
-     *
-     * 실행 중에는 두 버튼이 `disabled` 라 브라우저가 click 을 합성하지 않는다 —
-     * 새 가드 없이 FR-GIT-174 가 그대로 선다 (FR-PDA-6).
-     */
-    this._listenKeys(e=>{
-      if(e.key!=='Escape') return;
-      e.preventDefault(); e.stopPropagation();
-      if(!this.busy) this._cancel();
-    });
   }
+
+  /**
+   * FR-PDA-2: `Enter` 는 **가로채지 않는다.** 포커스된 버튼의 click 합성이라는
+   * 브라우저 기본 동작이 곧 이 규약이다 — 기본 포커스가 실행이므로 창이 뜨자마자
+   * 누른 `Enter` 는 실행이고, `Tab` 으로 취소에 옮긴 뒤의 `Enter` 는 취소다.
+   *
+   *   이전 동작: capture 로 잡아 `preventDefault` 하고 언제나 취소했다
+   *   새  동작: 흘려보낸다. `Escape` 만 여기서 잡는다
+   *   이유:     가로채면 포커스가 취소에 있어도 실행이 되어 **보이는 것과
+   *             일어나는 일이 달라진다** — 이 요구가 고치려는 문제를 다른
+   *             자리에 새로 만드는 것이다 (POPUP_DEFAULT_ACTION_SRS D-1)
+   *
+   * 실행 중에는 두 버튼이 `disabled` 라 브라우저가 click 을 합성하지 않는다 —
+   * 새 가드 없이 FR-GIT-174 가 그대로 선다 (FR-PDA-6).
+   */
+  // 키는 `Dialog._onKey`(Esc → 여기)가 받는다. 실행 중에는 취소하지 않는다(FR-GIT-174).
+  _dismiss(){ if(!this.busy) this._cancel() }
 
   _paint(){
     const b=this.box; if(!b) return;

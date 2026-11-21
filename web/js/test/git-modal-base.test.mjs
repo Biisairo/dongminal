@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
- * `web/js/git/modal-base.js` · `panel-views.js` — Git 모달 골격과 목록 뷰 서술자
+ * `web/js/git/git-modal-base.js`(+ `ui/dialog.js`, REFACTOR3_FE_DIALOG_SRS) · `panel-views.js` — Git 모달 골격과 목록 뷰 서술자
  * (OPTIMIZE_REFACTOR_SRS FR-OPT-12-2 · FEU-12 · FEU-13).
  *
  * 재는 것: ① `GitConfirm`·`GitDialog` 가 생명주기·실행 상태기계를 한 벌(`GitModalBase`)에서
@@ -12,7 +12,7 @@ import { load } from './harness.mjs';
  * ③ 목록 뷰 여섯이 서술자 한 표에서 서고 그 키가 `GIT_VIEWS` 의 필드 표와 같다.
  */
 function modals() {
-  return load(['git/modal-base.js', 'git/confirm.js', 'git/dialog.js'], {
+  return load([...BASE, 'ui/dialog.js', 'git/git-modal-base.js', 'git/git-confirm.js', 'git/git-dialog.js'], {
     expose: ['GitModalBase', 'GitConfirm', 'GitDialog'],
     globals: { GIT_CONFIRM_FAIL: 'failed' },
   });

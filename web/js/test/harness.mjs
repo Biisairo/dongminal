@@ -48,6 +48,12 @@ export const BASE = ['core/base/component.js', 'core/base/view.js', 'core/base/c
 export const PANELS = ['ui/panel.js', 'ui/tab-bar.js', 'ui/sidebar-tab-bar.js', 'ui/sidebar-panel.js', 'ui/drawer-sheet.js',
   'core/activity-tab-bar.js', 'core/activity-panel.js'];
 
+/**
+ * 대화상자 기반 클래스와 킷 모달 — index.html 의 순서다 (REFACTOR3_FE_DIALOG_SRS FR-FED-11). `BASE` 뒤,
+ * `ui/ui-kit.js` 뒤에 싣는다. git 모달·설정 모달은 이 뒤에 각자 싣는다.
+ */
+export const DIALOG = ['ui/dialog.js', 'ui/kit-modal.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 

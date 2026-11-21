@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { load } from './harness.mjs';
+import { BASE, DIALOG, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-5 (FEC-27): 확인·알림 상자는 `UIKit.ask`(→ `UIKit.modal`)를
@@ -45,7 +45,7 @@ test('UIKit.modal 의 Escape 는 preventDefault·stopPropagation 을 하고 닫�
     addEventListener: (t, fn, cap) => { if (t === 'keydown') keys.push({ fn, cap }) },
     removeEventListener: () => {},
   };
-  const ctx = load(['ui/ui-kit.js'], { expose: ['UIKit'], globals: { document } });
+  const ctx = load([...BASE, 'ui/ui-kit.js', ...DIALOG], { expose: ['UIKit'], globals: { document, TIMERS: { disposeOwner() {} } } });
   ctx.UIKit.dialogOpen = () => () => {};
   // UX_AUDIT_FIX_SRS FR-UXF-4: 킷은 실릴 때 입력 방식 수신기를 하나 단다 — 모달이 다는 것만 센다.
   keys.length = 0;
@@ -87,8 +87,8 @@ test('겹친 UIKit.modal 의 Escape 는 가장 안쪽만 닫는다', () => {
     addEventListener: (t, fn, cap) => { if (t === 'keydown' && cap) keys.push(fn) },
     removeEventListener: (t, fn, cap) => { if (t === 'keydown' && cap) keys = keys.filter((f) => f !== fn) },
   };
-  const TIMERS = { frame() {} };
-  const ctx = load(['ui/ui-kit.js'], { expose: ['UIKit'], globals: { document, TIMERS } });
+  const TIMERS = { frame() {}, disposeOwner() {} };
+  const ctx = load([...BASE, 'ui/ui-kit.js', ...DIALOG], { expose: ['UIKit'], globals: { document, TIMERS } });
   const closed = [];
   ctx.UIKit.modal({ head: false, onClose: () => { closed.push('outer') } });
   ctx.UIKit.modal({ head: false, onClose: () => { closed.push('inner') } });

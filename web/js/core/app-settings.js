@@ -362,115 +362,60 @@ Object.assign(App.prototype, {
     document.getElementById('settings-btn').addEventListener('click',()=>{input.value='';apply()});
   },
 
+  /** 설정창을 열 때 (`SettingsModal` 의 `onOpen`). 열 때마다 현재 값을 다시 칠한다. */
+  _settingsOnOpen(modal){
+    this._renderThemePanel();this._renderShortcutList();this._renderPresets();
+    const dsMode=document.getElementById('ds-mode');
+    const dsBp=document.getElementById('ds-bp');
+    if(dsMode) dsMode.value=this.displayMode;
+    if(dsBp) dsBp.value=this.mobileBreakpoint;
+    // FR-LVC-3 · FR-WBR-10 · FR-MMT-6 · FR-UXB-43: 열 때마다 현재 값을 다시
+    // 칠한다 — 다른 화면에서 바뀐 값이 이 모달에 옛 상태로 남아 있으면 사용자가
+    // 그것을 켜진 줄로 읽는다. 포커스는 다음 프레임에 오므로 여기서는 전부 칠해진다.
+    this._paintSettingControls();
+    // FR-WSL-81: 슬롯 방향 세그먼트. 열 때마다 현재 값을 다시 칠한다.
+    this._slotDirPaint();
+    this._labelSettingsRows();
+    // FONT_SIZE_SETTING_SRS FR-FSS-21 · AGENT_RENDER_ENV_SRS FR-ARE-10: 숫자
+    // 입력 셋도 열 때마다 다시 칠한다 (FR-LVC-3 과 같은 근거).
+    this._paintNumSettings();
+    // FR-UFE-14: 같은 근거로 이 행도 열 때마다 다시 칠한다 — 체크박스와 세기가
+    // 함께 움직이므로 한 함수가 둘을 맡는다.
+    this._focusEdgePaintRow();
+    this._cacctOnSettingsOpen(modal);
+    // Auto-close drawer when opening settings on mobile
+    if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
+  },
+
+  /** 탭을 골랐을 때 (`SettingsModal` 의 `onTab`). 고른 탭의 DOM 은 이미 바뀌었다. */
+  _settingsOnTab(tab){
+    if(tab==='presets')this._renderPresets();
+    // 샌드박스 정의는 파일이 진실이다. 열 때마다 다시 읽어야 바깥에서
+    // 고친 것과 어긋나지 않는다.
+    if(tab==='sandbox')this._loadSandboxPanel();
+    // 허용 목록도 파일이 진실이다. 게다가 해석 상태는 관측값이라 캐시할
+    // 수 없다 — 열 때마다 서버에 묻는다.
+    if(tab==='access')this._loadAccessPanel();
+    const load={profile:'_loadProfilePanel',edges:'_loadEdgesPanel',telegram:'_loadTelegramPanel',server:'_loadServerPanel',claude:'_loadClaudePanel'}[tab];
+    if(load)this[load]();
+    // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
+    // 같은 근거로 열 때마다 다시 읽는다.
+    if(tab==='code'){
+      this._lspRefresh();
+      // 토글은 기기별 값이라 다른 탭에서 바뀔 일이 없지만, 열 때마다 다시
+      // 칠하는 것이 이 모달의 규약이다 (FR-LVC-3 와 같은 근거).
+      const dcb=document.getElementById('lsp-diag');
+      if(dcb) dcb.checked=lspDiagOn;
+    }
+  },
+
   initModal(){
     this._initThemeFollow();   // FR-STF-2
-    const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
-    /**
-     * ACCESSIBILITY_BASELINE_SRS FR-A11Y-18 (`UX-3`): 탭 줄이 **tablist** 다.
-     *
-     * 속성을 `index.html` 에 손으로 적지 않는다 — 탭이 열하나이고 하나를 빠뜨리면
-     * 그 탭만 조용히 접근성 트리 밖으로 나간다. `data-tab` 에서 파생하면 탭을
-     * 더하는 사람이 아무것도 기억하지 않아도 된다 (FR-A11Y-13 과 같은 규약).
-     */
-    const tabs=[...modal.querySelectorAll('.mtab')];
-    modal.querySelector('.modal-tabs').setAttribute('role','tablist');
-    for(const tab of tabs){
-      const id='panel-'+tab.dataset.tab;
-      tab.setAttribute('role','tab');
-      tab.setAttribute('aria-controls',id);
-      tab.setAttribute('aria-selected',String(tab.classList.contains('active')));
-      const pn=document.getElementById(id);
-      if(pn){
-        pn.setAttribute('role','tabpanel');
-        if(!tab.id)tab.id='mtab-'+tab.dataset.tab;
-        pn.setAttribute('aria-labelledby',tab.id);
-      }
-    }
-    /**
-     * 닫는 길이 셋(닫기 버튼·바깥 클릭·Esc)이므로 **닫는 일도 한 자리**여야 한다.
-     * 종전에는 세 자리가 각자 `classList.remove('open')` 을 불렀고, 그래서
-     * 포커스 복귀를 더하면 세 곳에 같은 줄을 적어야 했다 — 그중 하나를 빠뜨리는
-     * 것이 `UX-3` 가 보고한 부류의 결함이다.
-     */
-    let releaseDlg=null;
-    let releaseFade=null;
-    const closeSettings=()=>{
-      if(!overlay.classList.contains('open'))return;
-      overlay.classList.remove('open');
-      if(releaseDlg){releaseDlg();releaseDlg=null}
-      // 관찰자를 끊는다 — 안 끊으면 모달을 열 때마다 하나씩 는다 (fadeWatch 의 주석).
-      if(releaseFade){releaseFade();releaseFade=null}
-    };
-    document.getElementById('settings-btn').addEventListener('click',()=>{
-      overlay.classList.add('open');
-      // 연 컨트롤을 **명시로** 든다. `document.activeElement` 에 맡기면 키보드로
-      // 연 경우와 클릭으로 연 경우가 갈린다 (클릭 뒤 포커스가 버튼에 남지 않는
-      // 브라우저가 있다).
-      releaseDlg=UIKit.dialogOpen(modal,{
-        labelledBy:'.modal-title',
-        returnTo:document.getElementById('settings-btn'),
-      });
-      // FR-CMP-84: 탭마다 내용 높이가 달라 넘치는 탭과 안 넘치는 탭이 섞인다.
-      // 넘친 쪽만 흐려 **잘린 것이 있음**을 알린다.
-      releaseFade=UIKit.fadeWatch(modal.querySelector('.modal-body'));
-      this._renderThemePanel();this._renderShortcutList();this._renderPresets();
-      const dsMode=document.getElementById('ds-mode');
-      const dsBp=document.getElementById('ds-bp');
-      if(dsMode) dsMode.value=this.displayMode;
-      if(dsBp) dsBp.value=this.mobileBreakpoint;
-      // FR-LVC-3 · FR-WBR-10 · FR-MMT-6 · FR-UXB-43: 열 때마다 현재 값을 다시
-      // 칠한다 — 다른 화면에서 바뀐 값이 이 모달에 옛 상태로 남아 있으면 사용자가
-      // 그것을 켜진 줄로 읽는다. 포커스는 다음 프레임에 오므로 여기서는 전부 칠해진다.
-      this._paintSettingControls();
-      // FR-WSL-81: 슬롯 방향 세그먼트. 열 때마다 현재 값을 다시 칠한다.
-      this._slotDirPaint();
-      this._labelSettingsRows();
-      // FONT_SIZE_SETTING_SRS FR-FSS-21 · AGENT_RENDER_ENV_SRS FR-ARE-10: 숫자
-      // 입력 셋도 열 때마다 다시 칠한다 (FR-LVC-3 과 같은 근거).
-      this._paintNumSettings();
-      // FR-UFE-14: 같은 근거로 이 행도 열 때마다 다시 칠한다 — 체크박스와 세기가
-      // 함께 움직이므로 한 함수가 둘을 맡는다.
-      this._focusEdgePaintRow();
-      this._cacctOnSettingsOpen(modal);
-      // Auto-close drawer when opening settings on mobile
-      if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
-    });
-    document.getElementById('modal-close').addEventListener('click',closeSettings);
-    overlay.addEventListener('click',e=>{if(e.target===overlay)closeSettings()});
-    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open')){e.preventDefault();closeSettings()}});
+    // REFACTOR3_FE_DIALOG_SRS FR-FED-10: 열기·닫기·탭 고르기는 `SettingsModal` 이 진다. 여기서 만들어야
+    // `_initSettingsMobile` 의 리스너가 그 뒤에 붙어 뒤에 돈다.
+    this._settingsModal=new SettingsModal({onOpen:()=>this._settingsOnOpen(modal),onTab:n=>this._settingsOnTab(n)}).init();
     this._bindSettingsSearch(modal);
-    modal.querySelectorAll('.mtab').forEach(tab=>{
-      tab.addEventListener('click',()=>{
-        modal.querySelectorAll('.mtab').forEach(tabEl=>{
-          tabEl.classList.remove('active');
-          // `aria-selected` 와 `.active` 가 **같은 것을 말해야** 한다 — 갈라지면
-          // 화면과 접근성 트리가 다른 탭을 가리킨다 (`TC-A11Y-8b` 가 짝을 본다).
-          tabEl.setAttribute('aria-selected','false');
-        });
-        tab.classList.add('active');
-        tab.setAttribute('aria-selected','true');
-        modal.querySelectorAll('.mpanel').forEach(p=>{p.hidden=p.id!=='panel-'+tab.dataset.tab});
-        if(tab.dataset.tab==='presets')this._renderPresets();
-        // 샌드박스 정의는 파일이 진실이다. 열 때마다 다시 읽어야 바깥에서
-        // 고친 것과 어긋나지 않는다.
-        if(tab.dataset.tab==='sandbox')this._loadSandboxPanel();
-        // 허용 목록도 파일이 진실이다. 게다가 해석 상태는 관측값이라 캐시할
-        // 수 없다 — 열 때마다 서버에 묻는다.
-        if(tab.dataset.tab==='access')this._loadAccessPanel();
-        const load={profile:'_loadProfilePanel',edges:'_loadEdgesPanel',telegram:'_loadTelegramPanel',server:'_loadServerPanel',claude:'_loadClaudePanel'}[tab.dataset.tab];
-        if(load)this[load]();
-        // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
-        // 같은 근거로 열 때마다 다시 읽는다.
-        if(tab.dataset.tab==='code'){
-          this._lspRefresh();
-          // 토글은 기기별 값이라 다른 탭에서 바뀔 일이 없지만, 열 때마다 다시
-          // 칠하는 것이 이 모달의 규약이다 (FR-LVC-3 와 같은 근거).
-          const dcb=document.getElementById('lsp-diag');
-          if(dcb) dcb.checked=lspDiagOn;
-        }
-      });
-    });
     this._initTabWidth();
     this._initUiFontScale();
     this._initFgNames();
