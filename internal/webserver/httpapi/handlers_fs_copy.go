@@ -82,17 +82,24 @@ func (s *Server) apiFSCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// **먼저 세고** 나서 복사한다 (FR-WBR-66) — 세다 멈추면 절반만 복사된 트리가
-	// 남는다. 삭제와 같은 규약이다 (FR-EDT-118). 세는 것부터 만드는 것까지가 한
-	// 조작이다 — 그 구간만 잠근다.
-	s.fsOps.Lock()
-	defer s.fsOps.Unlock()
-	n, err := fsCountEntries(src, s.limits.fsCopy)
+	// 남는다. 삭제와 같은 규약이다 (FR-EDT-118).
+	//
+	// 세기는 잠금 **밖**이다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-4) — 최대 1만 항목을
+	// 걷는 동안 다른 루트의 mkdir·이름 바꾸기가 기다리지 않는다. 잠근 뒤 원본이
+	// 아직 있는지 다시 본다 — 그 사이 사라졌으면 처음부터 없던 것과 같은 답이다.
+	n, err := fsCount(src, s.limits.fsCopy)
 	if err != nil {
 		fsFailErr(w, fsFromOS(err))
 		return
 	}
 	if n > s.limits.fsCopy {
 		fsRejectAnswer(w, fsTooMany(s.limits.fsCopy))
+		return
+	}
+	s.fsOps.Lock()
+	defer s.fsOps.Unlock()
+	if st, err = os.Lstat(src); err != nil {
+		fsFailErr(w, fsFromOS(err))
 		return
 	}
 

@@ -112,7 +112,7 @@ func (s *Server) fsDeleteAnswer(root string, targets []string, max int) (action.
 		if a := s.fsProtectAnswer(root, target); !a.OK {
 			return a, 0
 		}
-		n, err := fsCountEntries(target, max)
+		n, err := fsCount(target, max)
 		if err != nil {
 			return fsErrAnswer(err), 0
 		}

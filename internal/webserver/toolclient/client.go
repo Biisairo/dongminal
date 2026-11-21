@@ -30,6 +30,9 @@ const (
 	// toolDialTimeout 은 데몬 종단에 붙는 시도의 상한이다. 로컬 종단이므로
 	// 응답은 즉시 오거나 오지 않는다.
 	toolDialTimeout = 2 * time.Second
+	// toolReconnectBackoff 는 연결이 끊긴 뒤 첫 재접속 시도까지의 대기다. 실패마다
+	// 두 배로 늘어 toolMaxBackoff 에서 멈춘다 (FR-13).
+	toolReconnectBackoff = time.Second
 	// toolMaxBackoff caps the reconnect backoff (FR-13).
 	toolMaxBackoff = 30 * time.Second
 	// toolRespawnEvery: respawn dongminald after this many consecutive
@@ -208,7 +211,7 @@ func dialToolClient(sockPath string, spawnDaemon func() error, beat heartbeat) (
 		subbers:     map[string]map[chan OutChunk]chan struct{}{},
 	}
 	if err := pc.connect(); err != nil {
-		return nil, fmt.Errorf("dial paned: %w", err)
+		return nil, fmt.Errorf("dial dongminald: %w", err)
 	}
 	go pc.supervise()
 	return pc, nil
@@ -315,7 +318,7 @@ func (pc *ToolClient) supervise() {
 			return
 		}
 		dmlog.Warnf(nil, "toolclient: connection lost, reconnecting...")
-		backoff := time.Second
+		backoff := toolReconnectBackoff
 		fails := 0
 		for {
 			if pc.stopped.Load() {
@@ -619,6 +622,9 @@ func callWithinT[R any](pc *ToolClient, method string, params any, within time.D
 
 // callWithin 은 시한을 따로 받는 call 이다 — 데몬 쪽에서 유예를 기다리는
 // `terminate` 처럼 기본 시한보다 오래 걸리는 것이 정상인 호출의 자리.
+//
+// 오류 문구의 `paned` 는 데몬의 옛 이름이지만 **바꾸지 않는다** (REFACTOR3_GO_STRUCT_SRS
+// FR-RGS-6) — 이 문구는 toolio·chat·WS 오류 본문에 그대로 실려 나가는 와이어다.
 func (pc *ToolClient) callWithin(method string, params any, within time.Duration) (json.RawMessage, error) {
 	pc.mu.Lock()
 	if pc.enc == nil {

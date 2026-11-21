@@ -229,12 +229,10 @@ type Server struct {
 // serverLimits 는 서버 하나의 상한·유예다. const 가 아닌 것은 테스트가 낮춰
 // 잡기 위해서다 — 실제 값으로 픽스처를 만들면 테스트가 파일시스템을 만든다.
 type serverLimits struct {
-	// fsList·fsDelete·fsCopy — FS_LIST_MAX·FS_DELETE_MAX (FR-EDT-65·118), 복사는
-	// 같은 규약이다 (FR-WBR-66): 먼저 세고, 넘으면 시작하지 않는다.
-	fsList   int
-	fsDelete int
-	fsCopy   int
-	// uploadMaxBytes 는 업로드 본문의 상한이다 (FR-FTR-5, D-6).
+	// fsList·fsDelete·fsCopy·uploadMaxBytes 의 기본값과 근거는 `fs_limits.go` 의 표다.
+	fsList         int
+	fsDelete       int
+	fsCopy         int
 	uploadMaxBytes int64
 	// toolKillGrace 는 SIGTERM 과 SIGKILL 사이의 유예다 (FR-BGK-7).
 	toolKillGrace time.Duration
@@ -246,10 +244,10 @@ type serverLimits struct {
 
 func defaultLimits() serverLimits {
 	return serverLimits{
-		fsList:         10000,
-		fsDelete:       10000,
-		fsCopy:         10000,
-		uploadMaxBytes: 512 << 20,
+		fsList:         fsListMax,
+		fsDelete:       fsDeleteMax,
+		fsCopy:         fsCopyMax,
+		uploadMaxBytes: fsUploadMaxBytes,
 		toolKillGrace:  3 * time.Second,
 
 		waitMaxConcurrent: 32,

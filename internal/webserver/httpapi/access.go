@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
@@ -36,6 +37,10 @@ import (
 // DefaultAccessRefresh 는 호스트명 해석과 인터페이스 수집의 주기다. 요청 경로는
 // 이 결과만 읽는다 (FR-ACL-15).
 const DefaultAccessRefresh = 60 * time.Second
+
+// accessLookupTimeout 은 호스트명 하나를 해석하는 시한이다 (REFACTOR3_GO_STRUCT_SRS
+// FR-RGS-4). 답하지 않는 리졸버에 갱신이 무기한 묶이지 않게 한다.
+const accessLookupTimeout = 3 * time.Second
 
 // accessEntry 는 허용 목록의 한 줄이다. 이것이 디스크에 저장되는 모양이다. 옛 파일의 `label` 은
 // 판정에 쓰이지 않던 메모라 읽을 때 버린다 (PROFILE_NAME_SRS FR-PFN-33).
@@ -107,7 +112,7 @@ func newAccessStore(path string) *accessStore {
 		path:           path,
 		resolved:       map[string][]netip.Addr{},
 		resErr:         map[string]string{},
-		lookupHost:     net.LookupHost,
+		lookupHost:     timedLookup(net.DefaultResolver, accessLookupTimeout),
 		interfaceAddrs: localInterfaceAddrs,
 	}
 	s.rebuildLocked()
@@ -130,6 +135,15 @@ func newAccessStore(path string) *accessStore {
 	return s
 }
 
+// timedLookup 은 시한을 둔 호스트명 해석이다.
+func timedLookup(r *net.Resolver, within time.Duration) func(string) ([]string, error) {
+	return func(host string) ([]string, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), within)
+		defer cancel()
+		return r.LookupHost(ctx, host)
+	}
+}
+
 func (s *accessStore) config() accessConfig {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -145,10 +159,22 @@ func (s *accessStore) config() accessConfig {
 // 실패의 사유는 내부 사정이라 감춘다 (04-secops SEC-17).
 var errAccessSaveFailed = errors.New("허용 목록을 저장하지 못했습니다")
 
-// setConfig 는 목록 전체를 교체한다. **하나라도 유효하지 않으면 아무것도
-// 저장하지 않는다** (FR-ACL-18) — 부분 저장은 사용자가 건 규칙과 실제 규칙을
-// 어긋나게 만든다.
+// setConfig 는 목록 전체를 교체하고 새 호스트명을 곧바로 해석한다.
 func (s *accessStore) setConfig(cfg accessConfig) error {
+	if err := s.save(cfg); err != nil {
+		return err
+	}
+	// 새로 들어온 호스트명이 곧바로 상태를 갖게 한다. 이것이 없으면 저장 직후
+	// 화면이 "해석 안 됨" 으로 보인다.
+	s.refresh()
+	return nil
+}
+
+// save 는 목록 전체를 교체한다. 해석(refresh)은 하지 않는다 — 설정 PUT 잠금 안에서
+// DNS 를 기다리지 않도록 호출자가 잠금 밖에서 부른다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-4).
+// **하나라도 유효하지 않으면 아무것도 저장하지 않는다** (FR-ACL-18) — 부분 저장은
+// 사용자가 건 규칙과 실제 규칙을 어긋나게 만든다.
+func (s *accessStore) save(cfg accessConfig) error {
 	norm, err := normalizeAccessConfig(cfg)
 	if err != nil {
 		return err
@@ -185,9 +211,6 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 		s.restore(prev)
 		return errAccessSaveFailed
 	}
-	// 새로 들어온 호스트명이 곧바로 상태를 갖게 한다. 이것이 없으면 저장 직후
-	// 화면이 "해석 안 됨" 으로 보인다.
-	s.refresh()
 	return nil
 }
 
@@ -672,24 +695,12 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "invalid json", http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
-	s.settingsMu.Lock()
-	defer s.settingsMu.Unlock()
-	if cur := settingsTag(s.Access.config()); settingsStale(r, cur) {
-		w.Header().Set("ETag", cur)
-		httpErr(w, "stale revision", http.StatusConflict, apierr.CodeStaleRev)
+	if !s.accessSave(w, r, cfg) {
 		return
 	}
-	if err := s.Access.setConfig(cfg); err != nil {
-		if errors.Is(err, errAccessSaveFailed) {
-			fail(w, http.StatusInternalServerError, err.Error(), nil)
-			return
-		}
-		// **검증 실패의 사유는 그대로 보인다.** 어느 줄이 잘못됐는지 모르면 사용자가
-		// 고칠 수 없다 — `app-settings.js` 의 `_aclSave` 가 이 본문을 그대로 띄운다.
-		// 그 문구는 사용자가 방금 보낸 값과 우리가 쓴 설명뿐이다.
-		fail(w, http.StatusBadRequest, err.Error(), nil)
-		return
-	}
+	// 해석은 설정 잠금 **밖**이다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-4) — 느린 DNS 가 다른
+	// 설정 PUT 을 세우지 않는다. 응답·알림보다는 앞이라 저장 직후의 GET 이 해석 결과를 본다.
+	s.Access.refresh()
 	// 저장이 끝난 **뒤에** 알린다 — 받은 창이 곧바로 GET 하므로, 먼저 알리면
 	// 그 GET 이 옛 값을 읽을 수 있다 (settings 와 같은 규약).
 	if s.Commands != nil {
@@ -697,6 +708,30 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("ETag", settingsTag(s.Access.config()))
 	w.WriteHeader(http.StatusOK)
+}
+
+// accessSave 는 지문 검사와 저장을 설정 잠금 하나로 묶는다 (UX_BATCH12 FR-LIV-2). 실패면
+// 응답을 쓰고 false 다.
+func (s *Server) accessSave(w http.ResponseWriter, r *http.Request, cfg accessConfig) bool {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+	if cur := settingsTag(s.Access.config()); settingsStale(r, cur) {
+		w.Header().Set("ETag", cur)
+		httpErr(w, "stale revision", http.StatusConflict, apierr.CodeStaleRev)
+		return false
+	}
+	if err := s.Access.save(cfg); err != nil {
+		if errors.Is(err, errAccessSaveFailed) {
+			fail(w, http.StatusInternalServerError, err.Error(), nil)
+			return false
+		}
+		// **검증 실패의 사유는 그대로 보인다.** 어느 줄이 잘못됐는지 모르면 사용자가
+		// 고칠 수 없다 — `app-settings.js` 의 `_aclSave` 가 이 본문을 그대로 띄운다.
+		// 그 문구는 사용자가 방금 보낸 값과 우리가 쓴 설명뿐이다.
+		fail(w, http.StatusBadRequest, err.Error(), nil)
+		return false
+	}
+	return true
 }
 
 // apiAccessCheck 는 저장 전 잠김 경고의 답이다 (X-d). 본문은 PUT 과 같고, 검증 실패도 같은 400 이다.
