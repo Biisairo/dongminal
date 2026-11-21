@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/chatwire"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
@@ -144,7 +145,7 @@ func claudeLaunchDir() (dir, reason string) {
 		return "", "현재 폴더를 알 수 없음"
 	}
 	body["cwd"] = cwd
-	status, b, err := httpJSONWithin(http.MethodPost, baseURL()+"/api/claude-accounts/launch", body, shimBudget)
+	status, b, err := httpJSONWithin(http.MethodPost, baseURL()+apipath.ClaudeAccountsLaunch, body, shimBudget)
 	if err != nil {
 		if connRefused(err) {
 			return "", ""

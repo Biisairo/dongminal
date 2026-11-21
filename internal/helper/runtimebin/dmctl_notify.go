@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"dongminal/internal/shared/agentrec"
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/dmenv"
 )
 
@@ -38,7 +39,7 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	body := map[string]any{"toolId": toolID, "reason": sanitizeNotifyLabel(label)}
-	status, resp, err := postReport(agentrec.MethodNotify, "/api/tools/attention/set", body, hookBudget)
+	status, resp, err := postReport(agentrec.MethodNotify, apipath.ToolsAttentionSet, body, hookBudget)
 	// Report codex activity on every notify attempt, even if the attention
 	// POST itself fails. Best-effort and silent — never affects exit status.
 	reportNotifyActivity(label, args, toolID)

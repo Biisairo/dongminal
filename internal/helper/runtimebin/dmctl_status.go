@@ -7,6 +7,7 @@ package runtimebin
 
 import (
 	"cmp"
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/runwait"
 	"dongminal/internal/shared/statusline"
 	"encoding/json"
@@ -156,7 +157,7 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 	}
 	q := url.Values{}
 	q.Set("id", f.target)
-	body, code := statusGet(baseURL()+"/api/tools/activity/get?"+q.Encode(), "/api/tools/activity/get", 0, stderr)
+	body, code := statusGet(baseURL()+apipath.ToolsActivityGet+"?"+q.Encode(), apipath.ToolsActivityGet, 0, stderr)
 	if code != 0 {
 		return code
 	}
@@ -317,8 +318,8 @@ func runDmctlWait(args []string, stdout, stderr io.Writer) int {
 		q.Set("timeoutMs", strconv.FormatInt(f.timeoutMS, 10))
 	}
 	// 서버가 요청을 붙잡으므로 클라이언트 타임아웃은 서버 상한보다 넉넉해야 한다.
-	body, code := statusGet(baseURL()+"/api/tools/activity/wait?"+q.Encode(),
-		"/api/tools/activity/wait", waitBudget(f.timeoutMS), stderr)
+	body, code := statusGet(baseURL()+apipath.ToolsActivityWait+"?"+q.Encode(),
+		apipath.ToolsActivityWait, waitBudget(f.timeoutMS), stderr)
 	if code != 0 {
 		return code
 	}

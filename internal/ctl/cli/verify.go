@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/webserver/domain/git/core"
 )
@@ -182,7 +183,7 @@ func at(p string) func(*verifySession) string {
 
 func gitAt(endpoint string) func(*verifySession) string {
 	return func(s *verifySession) string {
-		return "/api/git/" + endpoint + "?repo=" + url.QueryEscape(s.repo)
+		return apipath.GitPrefix + endpoint + "?repo=" + url.QueryEscape(s.repo)
 	}
 }
 
@@ -203,23 +204,23 @@ func verifyChecks() []verifyCheck {
 			}
 			return "", nil
 		}},
-		{Section: "기동 표면", Name: "/api/ping", Run: wantStatus(http.StatusOK, at("/api/ping"))},
+		{Section: "기동 표면", Name: apipath.Ping, Run: wantStatus(http.StatusOK, at(apipath.Ping))},
 
 		// ── 도구 — PTY + IPC 왕복 ──
 		{Section: "도구 — PTY + IPC 왕복", Name: "도구 생성", Run: (*verifySession).createTool},
 		{Section: "도구 — PTY + IPC 왕복", Name: "/api/state 에 도구가 보인다", Need: needTool, Run: (*verifySession).toolInState},
 		{Section: "도구 — PTY + IPC 왕복", Name: "busy 조회", Need: needTool, Run: func(s *verifySession) (string, error) {
-			return wantStatus(http.StatusOK, at("/api/tools/"+s.toolID+"/busy"))(s)
+			return wantStatus(http.StatusOK, at(apipath.ToolsPrefix+s.toolID+"/busy"))(s)
 		}},
 		{Section: "도구 — PTY + IPC 왕복", Name: "도구 출력 조회", Need: needTool, Run: func(s *verifySession) (string, error) {
-			return wantStatus(http.StatusOK, at("/api/tools/output?id="+url.QueryEscape(s.toolID)+"&bytes=1024"))(s)
+			return wantStatus(http.StatusOK, at(apipath.ToolsOutput+"?id="+url.QueryEscape(s.toolID)+"&bytes=1024"))(s)
 		}},
 		{Section: "도구 — PTY + IPC 왕복", Name: "입력→출력 왕복", Need: needTool, Run: (*verifySession).roundTrip},
 
 		// ── 워크스페이스·설정 ──
-		{Section: "워크스페이스·설정", Name: "/api/workspace", Run: wantStatus(http.StatusOK, at("/api/workspace"))},
-		{Section: "워크스페이스·설정", Name: "/api/stats", Run: wantStatus(http.StatusOK, at("/api/stats"))},
-		{Section: "워크스페이스·설정", Name: "/api/settings", Run: wantStatus(http.StatusOK, at("/api/settings"))},
+		{Section: "워크스페이스·설정", Name: apipath.Workspace, Run: wantStatus(http.StatusOK, at(apipath.Workspace))},
+		{Section: "워크스페이스·설정", Name: apipath.Stats, Run: wantStatus(http.StatusOK, at(apipath.Stats))},
+		{Section: "워크스페이스·설정", Name: apipath.Settings, Run: wantStatus(http.StatusOK, at(apipath.Settings))},
 	}
 
 	// ── git 읽기 표면 ──
@@ -242,9 +243,9 @@ func verifyChecks() []verifyCheck {
 		})
 	}
 	checks = append(checks,
-		verifyCheck{Section: "git 읽기 표면", Name: "git policy", Run: wantStatus(http.StatusOK, at("/api/git/policy"))},
-		verifyCheck{Section: "git 읽기 표면", Name: "git jobs", Run: wantStatus(http.StatusOK, at("/api/git/jobs"))},
-		verifyCheck{Section: "git 읽기 표면", Name: "없는 git 경로 404", Run: wantStatus(http.StatusNotFound, at("/api/git/no-such-endpoint"))},
+		verifyCheck{Section: "git 읽기 표면", Name: "git policy", Run: wantStatus(http.StatusOK, at(apipath.GitPolicy))},
+		verifyCheck{Section: "git 읽기 표면", Name: "git jobs", Run: wantStatus(http.StatusOK, at(apipath.GitJobs))},
+		verifyCheck{Section: "git 읽기 표면", Name: "없는 git 경로 404", Run: wantStatus(http.StatusNotFound, at(apipath.GitPrefix+"no-such-endpoint"))},
 
 		// ── 정적 자산 ──
 		verifyCheck{Section: "정적 자산", Name: "index.html 의 script 전량 200", Run: (*verifySession).staticAssets},
@@ -258,7 +259,7 @@ func verifyChecks() []verifyCheck {
 		// B·W·G·O 가 폐기되며 그 경계가 사라졌으므로(2026-09-20) 이 검사가 물을
 		// 사실이 없어졌다. 남겨 두면 언제나 실패한다 — 바로 아래 "노출 ACL
 		// 게이트" 와 같은 경위다.
-		verifyCheck{Section: "경계", Name: "상대경로 400", Run: wantStatus(http.StatusBadRequest, at("/api/file/read?path=relative.txt"))},
+		verifyCheck{Section: "경계", Name: "상대경로 400", Run: wantStatus(http.StatusBadRequest, at(apipath.FileRead+"?path=relative.txt"))},
 		verifyCheck{Section: "경계", Name: "읽기 상한 초과 413", Run: (*verifySession).fileOverLimitIs413},
 		verifyCheck{Section: "경계", Name: "정적 응답의 보안 헤더", Run: (*verifySession).staticSecurityHeaders},
 		// 여기 "노출 ACL 게이트" 가 있었다 — 허용 목록 없이 `--expose` 하면 기동이
@@ -299,7 +300,7 @@ func (s *verifySession) body(path string) (string, error) {
 // createTool 은 도구를 만든다. cwd·cols·rows 는 쿼리 파라미터로 간다 (바디 아님).
 // cols·rows 에 0 을 주면 Windows 의 CreatePseudoConsole 이 E_INVALIDARG 로 실패한다.
 func (s *verifySession) createTool() (string, error) {
-	q := fmt.Sprintf("/api/tools?cwd=%s&cols=%d&rows=%d", url.QueryEscape(s.repo), verifyCols, verifyRows)
+	q := fmt.Sprintf(apipath.Tools+"?cwd=%s&cols=%d&rows=%d", url.QueryEscape(s.repo), verifyCols, verifyRows)
 	resp, err := s.http.Post(s.base+q, "application/json", nil)
 	if err != nil {
 		return "", err
@@ -321,7 +322,7 @@ func (s *verifySession) createTool() (string, error) {
 }
 
 func (s *verifySession) toolInState() (string, error) {
-	body, err := s.body("/api/state")
+	body, err := s.body(apipath.State)
 	if err != nil {
 		return "", err
 	}
@@ -340,7 +341,7 @@ func (s *verifySession) roundTrip() (string, error) {
 	}
 	body := fmt.Sprintf(`{"id":%s,"text":%s,"execute":true}`,
 		jsonQuote(s.toolID), jsonQuote("echo "+verifyMarker))
-	resp, err := s.http.Post(s.base+"/api/tools/input", "application/json", strings.NewReader(body))
+	resp, err := s.http.Post(s.base+apipath.ToolsInput, "application/json", strings.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -371,7 +372,7 @@ func (s *verifySession) roundTrip() (string, error) {
 }
 
 func (s *verifySession) toolOutput() (string, error) {
-	return s.body("/api/tools/output?id=" + url.QueryEscape(s.toolID) + "&strip=1")
+	return s.body(apipath.ToolsOutput + "?id=" + url.QueryEscape(s.toolID) + "&strip=1")
 }
 
 // waitToolQuiet 는 셸이 무언가를 그리고 **조용해질 때까지** 기다린다 (waitQuiet).

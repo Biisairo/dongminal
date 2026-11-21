@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"dongminal/internal/helper/toolline"
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/workspace"
 )
 
@@ -34,21 +35,18 @@ func parseListWorkspaceFlags(args []string, stdout, stderr io.Writer) (f listWor
 	return f, code, proceed
 }
 
-// statePath 는 워크스페이스 상태 종단이다.
-const statePath = "/api/state"
-
 // fetchState 는 `/api/state` 한 번을 v 로 읽는다 — 이 읽기의 유일한 자리다 (FR-RDG-22).
 // 실패는 stderr 에 한 벌의 문구로 내고 1 이다. 조용해야 하는 자리는 io.Discard 를 준다.
 func fetchState(v any, stderr io.Writer) int {
-	status, body, err := httpGet(baseURL() + statePath)
+	status, body, err := httpGet(baseURL() + apipath.State)
 	body, code, ok := httpExit(status, body, err, stderr, exitRule{prefix: "dmctl", refuse: refuseWith(func(w io.Writer, st int, b []byte) {
-		fmt.Fprintf(w, "dmctl: %s returned status %d: %s\n", statePath, st, b)
+		fmt.Fprintf(w, "dmctl: %s returned status %d: %s\n", apipath.State, st, b)
 	})})
 	if !ok {
 		return code
 	}
 	if err := json.Unmarshal(body, v); err != nil {
-		fmt.Fprintf(stderr, "dmctl: invalid %s response: %v\n", statePath, err)
+		fmt.Fprintf(stderr, "dmctl: invalid %s response: %v\n", apipath.State, err)
 		return 1
 	}
 	return 0
@@ -267,7 +265,7 @@ const (
 // 못하면 기본으로 간다 — 이름 하나 때문에 목록 조회가 실패하면 안 된다.
 // null 도 값이 없는 것이다 (서버 parseFgTabNames 와 같은 표).
 func fgTabNamesEnabled() bool {
-	status, body, err := httpGet(baseURL() + "/api/settings")
+	status, body, err := httpGet(baseURL() + apipath.Settings)
 	if err != nil || status < 200 || status >= 300 {
 		return true
 	}

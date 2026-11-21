@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/chatwire"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
@@ -77,7 +78,7 @@ func chatTabName(tool string) string {
 	if tool == "" {
 		return ""
 	}
-	status, body, err := httpGetWithin(baseURL()+"/api/whoami?toolId="+url.QueryEscape(tool), chatTabWait)
+	status, body, err := httpGetWithin(baseURL()+apipath.Whoami+"?toolId="+url.QueryEscape(tool), chatTabWait)
 	if err != nil || status != http.StatusOK {
 		return ""
 	}

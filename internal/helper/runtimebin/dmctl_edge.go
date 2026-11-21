@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/termtext"
 )
 
@@ -48,7 +49,7 @@ func runDmctlEdges(args []string, stdout, stderr io.Writer) int {
 	if code, proceed := spec.run("dmctl edges", args, stdout, stderr); !proceed {
 		return code
 	}
-	raw, rc := edgeAPI("GET", "/api/edges", nil, stderr)
+	raw, rc := edgeAPI("GET", apipath.Edges, nil, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -250,7 +251,7 @@ var edgeSubs = map[string]subSpec{
 }
 
 func edgeInvite(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := edgeAPI("POST", "/api/edges/invite", map[string]any{"addr": pa.flags["addr"]}, stderr)
+	raw, rc := edgeAPI("POST", apipath.EdgesInvite, map[string]any{"addr": pa.flags["addr"]}, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -266,7 +267,7 @@ func edgeInvite(pa subArgs, stdout, stderr io.Writer) int {
 }
 
 func edgeAdd(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := edgeAPI("POST", "/api/edges/add", map[string]any{"code": pa.pos[0]}, stderr)
+	raw, rc := edgeAPI("POST", apipath.EdgesAdd, map[string]any{"code": pa.pos[0]}, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -280,7 +281,7 @@ func edgeAdd(pa subArgs, stdout, stderr io.Writer) int {
 }
 
 func edgeRemove(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := edgeAPI("POST", "/api/edges/remove", map[string]any{"fp": pa.pos[0]}, stderr)
+	raw, rc := edgeAPI("POST", apipath.EdgesRemove, map[string]any{"fp": pa.pos[0]}, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -299,7 +300,7 @@ func edgeRemove(pa subArgs, stdout, stderr io.Writer) int {
 
 // edgeNotify 는 간선 하나에 내 직접 정보를 지금 알린다 (EDGE_MESH_SRS FR-EGM-62).
 func edgeNotify(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := edgeAPI("POST", "/api/edges/notify", map[string]any{"fp": pa.pos[0]}, stderr)
+	raw, rc := edgeAPI("POST", apipath.EdgesNotify, map[string]any{"fp": pa.pos[0]}, stderr)
 	if rc != 0 {
 		return rc
 	}

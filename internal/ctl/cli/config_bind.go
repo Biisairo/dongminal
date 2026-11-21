@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/serverconf"
 )
@@ -63,7 +64,7 @@ func runningServer(home string) (string, bool) {
 		return "", false
 	}
 	u := dmenv.BaseURL(h, p)
-	return u, ping(u+"/api/ping", healthPingTimeout)
+	return u, ping(u+apipath.Ping, healthPingTimeout)
 }
 
 func runConfigSet(home, key, value string, stdout, stderr io.Writer) int {
@@ -103,7 +104,7 @@ func callBind(url string, body map[string]any, stdout, stderr io.Writer) int {
 		return 1
 	}
 	c := &http.Client{Timeout: bindCallTimeout}
-	resp, err := c.Post(url+"/api/server/bind", "application/json", bytes.NewReader(raw))
+	resp, err := c.Post(url+apipath.ServerBind, "application/json", bytes.NewReader(raw))
 	if err != nil {
 		fmt.Fprintf(stderr, "서버에 닿지 못했습니다: %v\n", err)
 		return 1
@@ -143,7 +144,7 @@ func exposeWord(on bool) string {
 
 // runConfigGet 은 지금 바인드와 server.json 의 값을 함께 보인다 (FR-HRB-42).
 func runConfigGet(home string, stdout io.Writer) int {
-	if h, p, ok := serverconf.ReadAddr(home); ok && ping(dmenv.BaseURL(h, p)+"/api/ping", healthPingTimeout) {
+	if h, p, ok := serverconf.ReadAddr(home); ok && ping(dmenv.BaseURL(h, p)+apipath.Ping, healthPingTimeout) {
 		fmt.Fprintf(stdout, "지금 바인드: %s (%s)\n", net.JoinHostPort(h, p), exposeWord(dmenv.IsExposedHost(h)))
 	} else {
 		fmt.Fprintln(stdout, "지금 바인드: 서버가 돌고 있지 않습니다")

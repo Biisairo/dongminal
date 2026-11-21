@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // CLAUDE_ACCOUNTS_SRS FR-CAC-102·103 — Claude 다중 계정의 dmctl 명령.
@@ -198,7 +200,7 @@ func accountAPI(method, path string, body map[string]any, stderr io.Writer) ([]b
 }
 
 func loadAccounts(stderr io.Writer) (accountsOut, []byte, int) {
-	raw, rc := accountAPI("GET", "/api/claude-accounts", nil, stderr)
+	raw, rc := accountAPI("GET", apipath.ClaudeAccounts, nil, stderr)
 	if rc != 0 {
 		return accountsOut{}, nil, rc
 	}
@@ -241,7 +243,7 @@ func accountList(pa subArgs, stdout, stderr io.Writer) int {
 }
 
 func accountAdd(_ subArgs, stdout, stderr io.Writer) int {
-	raw, rc := accountAPI("POST", "/api/claude-accounts/add", map[string]any{}, stderr)
+	raw, rc := accountAPI("POST", apipath.ClaudeAccountsAdd, map[string]any{}, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -291,7 +293,7 @@ func accountSwitch(pa subArgs, stdout, stderr io.Writer) int {
 		}
 		body = map[string]any{"id": a.ID, "by": "dmctl"}
 	}
-	raw, rc := accountAPI("POST", "/api/claude-accounts/switch", body, stderr)
+	raw, rc := accountAPI("POST", apipath.ClaudeAccountsSwitch, body, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -443,7 +445,7 @@ func accountUsageCmd(pa subArgs, stdout, stderr io.Writer) int {
 	code := 0
 	if pa.bools["refresh"] {
 		for _, a := range rows {
-			if _, rc := accountAPI("POST", "/api/claude-accounts/refresh", map[string]any{"id": a.ID}, stderr); rc != 0 {
+			if _, rc := accountAPI("POST", apipath.ClaudeAccountsRefresh, map[string]any{"id": a.ID}, stderr); rc != 0 {
 				code = 1
 			}
 		}
@@ -603,7 +605,7 @@ func accountReset(pa subArgs, stdout, stderr io.Writer) int {
 	if grant != "" {
 		body["grantId"] = grant
 	}
-	raw, rc := accountAPI("POST", "/api/claude-accounts/reset", body, stderr)
+	raw, rc := accountAPI("POST", apipath.ClaudeAccountsReset, body, stderr)
 	if rc != 0 {
 		return rc
 	}

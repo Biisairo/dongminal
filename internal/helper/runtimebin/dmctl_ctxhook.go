@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/chatwire"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
@@ -87,7 +88,7 @@ func runDmctlCtxHook(args []string, stdin io.Reader, stdout, stderr io.Writer) i
 // fetchCtxAdvice 는 서버의 판정이다. 묻지 못하면 빈 판정이다.
 func fetchCtxAdvice(tool string) ctxAdvice {
 	var adv ctxAdvice
-	status, body, err := httpGetWithin(baseURL()+"/api/tools/migration-advice?id="+url.QueryEscape(tool), hookBudget)
+	status, body, err := httpGetWithin(baseURL()+apipath.ToolsMigrationAdvice+"?id="+url.QueryEscape(tool), hookBudget)
 	if err != nil || status != http.StatusOK {
 		return adv
 	}

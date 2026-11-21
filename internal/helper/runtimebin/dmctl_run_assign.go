@@ -6,6 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // ISSUE_TREE_OPS_SRS 묶음 A — 트리 노드의 배정 (FR-ITA-1·4).
@@ -87,7 +89,7 @@ func runSubAssign(f runFlags, stdout, stderr io.Writer) int {
 		}
 		body["ctxPct"] = n
 	}
-	raw, code := runPost("/api/runs/assign", body, stderr)
+	raw, code := runPost(apipath.RunsAssign, body, stderr)
 	if code != 0 {
 		return code
 	}
@@ -113,7 +115,7 @@ func runSubCoordinate(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run coordinate: --to <toolId> 는 필수다")
 		return 2
 	}
-	raw, code := runPost("/api/runs/coordinate", map[string]any{"to": f.to, "toolId": selfToolID()}, stderr)
+	raw, code := runPost(apipath.RunsCoordinate, map[string]any{"to": f.to, "toolId": selfToolID()}, stderr)
 	if code != 0 {
 		return code
 	}

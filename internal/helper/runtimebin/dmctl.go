@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/serverconf"
 )
@@ -515,7 +516,7 @@ func dmctlPostRaw(action string, args any, stdout, stderr io.Writer) int {
 // dmctlPostRawCapture 는 dmctlPostRaw 와 같고, 응답 본문을 out 에 남긴다(nil 이면 버린다).
 func dmctlPostRawCapture(action string, args any, stdout, stderr io.Writer, out *[]byte) int {
 	body := map[string]any{"action": action, "args": args}
-	status, resp, err := httpPostJSON(baseURL()+"/api/commands", body)
+	status, resp, err := httpPostJSON(baseURL()+apipath.Commands, body)
 	if out != nil {
 		*out = resp
 	}

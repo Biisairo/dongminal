@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // `run delete` · `run graph` — 웹 UI 에는 있고 CLI 에는 없던 둘 (M8_UNIFIED_SRS D-A-6,
@@ -20,7 +22,7 @@ func runSubDelete(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run delete: --run 은 필수다")
 		return 2
 	}
-	raw, code := runDelete("/api/runs/"+url.PathEscape(f.run), stderr)
+	raw, code := runDelete(apipath.RunsPrefix+url.PathEscape(f.run), stderr)
 	if code != 0 {
 		return code
 	}
@@ -62,7 +64,7 @@ func runSubGraph(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run graph: --run 은 필수다")
 		return 2
 	}
-	raw, code := runGet("/api/runs/"+url.PathEscape(f.run)+"/graph", stderr)
+	raw, code := runGet(apipath.RunsPrefix+url.PathEscape(f.run)+"/graph", stderr)
 	if code != 0 {
 		return code
 	}
@@ -144,7 +146,7 @@ func runSubTree(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run tree: --ref <owner/repo#N> 은 필수다")
 		return 2
 	}
-	raw, code := runGet("/api/runs/tree?ref="+url.QueryEscape(f.ref), stderr)
+	raw, code := runGet(apipath.RunsTree+"?ref="+url.QueryEscape(f.ref), stderr)
 	if code != 0 {
 		return code
 	}

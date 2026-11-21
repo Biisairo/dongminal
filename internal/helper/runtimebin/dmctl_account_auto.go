@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // CLAUDE_ACCOUNTS_SRS FR-CAC-31a·76·102·110a — 스마트 전환의 결과 문구, 자동 전환, 전환 기록.
@@ -83,7 +85,7 @@ func accountName(v accountsOut, id string) string {
 func accountAuto(pa subArgs, stdout, stderr io.Writer) int {
 	switch pa.pos[0] {
 	case "on", "off":
-		raw, rc := accountAPI("PUT", "/api/claude-accounts/autoswitch", map[string]any{"enabled": pa.pos[0] == "on"}, stderr)
+		raw, rc := accountAPI("PUT", apipath.ClaudeAccountsAutoswitch, map[string]any{"enabled": pa.pos[0] == "on"}, stderr)
 		if rc != 0 {
 			return rc
 		}
@@ -99,7 +101,7 @@ func accountAuto(pa subArgs, stdout, stderr io.Writer) int {
 }
 
 func accountAutoStatus(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := accountAPI("GET", "/api/claude-accounts/autoswitch", nil, stderr)
+	raw, rc := accountAPI("GET", apipath.ClaudeAccountsAutoswitch, nil, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -161,7 +163,7 @@ func accountHistory(pa subArgs, stdout, stderr io.Writer) int {
 	if rc != 0 {
 		return rc
 	}
-	raw, rc := accountAPI("GET", "/api/claude-accounts/history?limit="+strconv.Itoa(limit), nil, stderr)
+	raw, rc := accountAPI("GET", apipath.ClaudeAccountsHistory+"?limit="+strconv.Itoa(limit), nil, stderr)
 	if rc != 0 {
 		return rc
 	}

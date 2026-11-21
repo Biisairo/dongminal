@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // dmctl agent-context 는 SKILL_INJECTION_SRS 묶음 D 의 전부다.
@@ -93,7 +95,7 @@ func noteSessionIdentity(agent string, stdin io.Reader) {
 	if ev.Transcript != "" {
 		body["transcriptPath"] = ev.Transcript
 	}
-	httpPostJSONWithin(baseURL()+contextObservePath, body, hookBudget)
+	httpPostJSONWithin(baseURL()+apipath.RunsContext, body, hookBudget)
 }
 
 // runDmctlAgentContext always exits 0: it runs as a SessionStart hook, where a

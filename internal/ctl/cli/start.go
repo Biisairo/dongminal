@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/pollwait"
 	"fmt"
 	"io"
@@ -386,7 +387,7 @@ const daemonReadyTries = 10
 func waitReady(url string, tries int, interval time.Duration) bool {
 	// tries×interval 이 상한이다 (M8 D-A-15) — 세는 것은 횟수가 아니라 시간이다.
 	return pollwait.Until(context.Background(), time.Duration(tries)*interval, interval,
-		func() bool { return ping(url+"/api/ping", readyPingTimeout) }) == nil
+		func() bool { return ping(url+apipath.Ping, readyPingTimeout) }) == nil
 }
 
 // withEnv는 base 에서 kv 의 키와 drop 의 키를 걷어내고 kv 의 새 값을 붙인다

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // 묶음 P — 동료 명부의 CLI 절반 (ORCHESTRATION_V2_SRS FR-PAT-5).
@@ -30,7 +32,7 @@ func runSubTeam(f runFlags, stdout, stderr io.Writer) int {
 	if id := selfToolID(); id != "" {
 		q.Set("toolId", id)
 	}
-	path := "/api/runs/team"
+	path := apipath.RunsTeam
 	if len(q) > 0 {
 		path += "?" + q.Encode()
 	}

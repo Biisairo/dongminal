@@ -7,11 +7,11 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // CLAUDE_ACCOUNTS_SRS FR-CAC-102 — 탭 지정·폴더 연결 (묶음 H).
-
-const accountMappingsPath = "/api/claude-accounts/mappings"
 
 type accountMappings struct {
 	Folders map[string]struct {
@@ -58,7 +58,7 @@ func accountPin(pa subArgs, stdout, stderr io.Writer) int {
 		}
 		id, label = a.ID, a.label()
 	}
-	if _, rc := accountAPI("PUT", accountMappingsPath, map[string]any{"toolId": tool, "accountId": id}, stderr); rc != 0 {
+	if _, rc := accountAPI("PUT", apipath.ClaudeAccountsMappings, map[string]any{"toolId": tool, "accountId": id}, stderr); rc != 0 {
 		return rc
 	}
 	if unpin {
@@ -100,7 +100,7 @@ func accountMap(pa subArgs, stdout, stderr io.Writer) int {
 	if rc != 0 {
 		return rc
 	}
-	if _, rc := accountAPI("PUT", accountMappingsPath, map[string]any{"folder": dir, "accountId": a.ID}, stderr); rc != 0 {
+	if _, rc := accountAPI("PUT", apipath.ClaudeAccountsMappings, map[string]any{"folder": dir, "accountId": a.ID}, stderr); rc != 0 {
 		return rc
 	}
 	fmt.Fprintf(stdout, "폴더 연결: %s → %s\n다음 claude 실행부터 적용됩니다.\n", clean(dir), clean(a.label()))
@@ -120,7 +120,7 @@ func accountUnmap(pa subArgs, stdout, stderr io.Writer) int {
 	if rc != 0 {
 		return rc
 	}
-	if _, rc := accountAPI("PUT", accountMappingsPath, map[string]any{"folder": dir, "accountId": ""}, stderr); rc != 0 {
+	if _, rc := accountAPI("PUT", apipath.ClaudeAccountsMappings, map[string]any{"folder": dir, "accountId": ""}, stderr); rc != 0 {
 		return rc
 	}
 	fmt.Fprintf(stdout, "폴더 연결을 풀었습니다: %s\n", clean(dir))
@@ -132,7 +132,7 @@ func accountMaps(_ subArgs, stdout, stderr io.Writer) int {
 	if rc != 0 {
 		return rc
 	}
-	raw, rc := accountAPI("GET", accountMappingsPath, nil, stderr)
+	raw, rc := accountAPI("GET", apipath.ClaudeAccountsMappings, nil, stderr)
 	if rc != 0 {
 		return rc
 	}

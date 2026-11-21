@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/editorlimit"
 )
 
@@ -36,7 +37,7 @@ import (
 // 한쪽 러너에서만 빨개진다.
 func (s *verifySession) registerRepo() (string, error) {
 	body := strings.NewReader(`{"path":` + strconv.Quote(s.repo) + `}`)
-	resp, err := s.http.Post(s.base+"/api/editors/add", "application/json", body)
+	resp, err := s.http.Post(s.base+apipath.EditorsAdd, "application/json", body)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +65,7 @@ func (s *verifySession) fileOverLimitIs413() (string, error) {
 	f.Close()
 	defer os.Remove(p)
 
-	code, err := s.status("/api/file/read?path=" + url.QueryEscape(p))
+	code, err := s.status(apipath.FileRead + "?path=" + url.QueryEscape(p))
 	if err != nil {
 		return "", err
 	}
