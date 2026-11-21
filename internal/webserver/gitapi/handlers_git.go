@@ -11,6 +11,7 @@ import (
 
 	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/textenc"
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
@@ -450,36 +451,8 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	/*
-		API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1: **"저장소가 아니다" 는 답이다.**
-
-			이전 동작 — 404 not_a_git_repo
-			새 동작   — 200 {"isRepo":false, …}
-			이유     — 경로는 있고 서버는 답을 안다. 그것을 부재로 적으면 노트
-			           폴더처럼 git 이 아닌 루트를 보는 동안 브라우저 오류
-			           콘솔에 정상 동작이 영구히 쌓인다 (SRS §1.1)
-
-		재시도를 멈추는 성질은 그대로다 — 신호가 상태 코드에서 `isRepo` 로
-		옮겨졌을 뿐이며, 그것이 `FR-DSP-1a` 가 지키려던 것이다 (FR-ANA-4).
-
-		`requested` 를 싣는 이유는 클라이언트의 세대 검사가 그것으로 응답의
-		임자를 가리기 때문이다. 없으면 이 200 이 조용히 버려진다.
-
-		**감시에는 넣지 않는다** (FR-ANA-6) — 답할 수 없는 저장소다. 소실은 여기
-		오지 않는다. 그것은 부재가 사실이므로 404 로 남는다 (FR-ANA-3).
-	*/
 	if notRepo {
-		gitJSON(w, http.StatusOK, map[string]any{
-			"repo":              "",
-			"requested":         requested,
-			"requestedResolved": wsentry.NormalizePath(requested),
-			"isRepo":            false,
-			"rootMatch":         false,
-			"cached":            false,
-			"status":            nil,
-			// REPO_FIX 04 §3A-0 X5: 비저장소는 관측이 없다 — 빈 식별자다.
-			"mark": "",
-		})
+		gitJSON(w, http.StatusOK, gitStatusNotRepoBody(requested))
 		return
 	}
 	obs, cached, err := s.Git.Status(r.Context(), root)
@@ -505,61 +478,116 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	// 링크를 푼 값이다 (실측: `/tmp/…` 로 물으면 `/private/tmp/…` 가 돌아온다).
 	// 클라이언트가 이 둘을 문자열로 비교하던 동안 macOS 의 `/tmp` 아래 Editor 는
 	// 색이 영구히 꺼졌다 (§2.5).
-	resolved := wsentry.NormalizePath(requested)
-	mark := store.Mark(obs)
+	v := gitStatusView{root: root, requested: requested, resolved: wsentry.NormalizePath(requested), mark: store.Mark(obs)}
 	// SERVER_DRIVEN_ACTIONS_SRS GR-1c: 잡 상태는 mark 밖이므로 두 갈래 모두 싣는다.
-	actions, err := s.repoActions(r.Context(), root, obs.Status)
+	v.actions, err = s.repoActions(r.Context(), root, obs.Status)
 	if err != nil {
 		gitError(w, err)
 		return
 	}
-	/*
-		OPTIMIZE_REFACTOR_SRS FR-OPT-4-7 (HTTP-7 · IPC-30): **가진 관측이면 목록을 싣지 않는다.**
-
-			이전 동작 — mark 가 같아도 파일 목록 전체를 다시 보냈다
-			새 동작   — `ifMark` 가 현재 mark 와 같으면 식별자와 `unchanged:true` 만 답한다
-			이유     — 안전망·push 후속·재연결 요청의 대부분은 변화가 없다
-
-		헤더(If-None-Match)를 쓰지 않는 이유는 브라우저의 자동 재검증이 끼어들지 않게
-		하기 위해서다. 옛 서버는 이 인자를 모르므로 전량으로 답한다 — 호환된다.
-		관심 표명은 위에서 이미 했다: 생략된 응답도 "보고 있다" 는 말이다.
-	*/
-	if im := r.URL.Query().Get("ifMark"); im != "" && im == mark {
-		gitJSON(w, http.StatusOK, map[string]any{
-			"repo":              root,
-			"requested":         requested,
-			"isRepo":            true,
-			"rootMatch":         resolved == root,
-			"requestedResolved": resolved,
-			"mark":              mark,
-			"unchanged":         true,
-			"actions":           actions,
-		})
+	if gitStatusUnchanged(r.URL.Query().Get("ifMark"), v.mark) {
+		gitJSON(w, http.StatusOK, gitStatusUnchangedBody(v))
 		return
 	}
-	gitJSON(w, http.StatusOK, map[string]any{
-		"repo":      root,
-		"requested": requested,
+	gitJSON(w, http.StatusOK, gitStatusBody(v, obs, cached))
+}
+
+// gitStatusView 는 status 답의 두 갈래(전량·생략)가 함께 싣는 값이다.
+type gitStatusView struct {
+	root, requested, resolved, mark string
+	actions                         map[string]action.Answer
+}
+
+/*
+gitStatusNotRepoBody 는 저장소가 아닌 경로의 답이다.
+
+API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1: **"저장소가 아니다" 는 답이다.**
+
+	이전 동작 — 404 not_a_git_repo
+	새 동작   — 200 {"isRepo":false, …}
+	이유     — 경로는 있고 서버는 답을 안다. 그것을 부재로 적으면 노트
+	           폴더처럼 git 이 아닌 루트를 보는 동안 브라우저 오류
+	           콘솔에 정상 동작이 영구히 쌓인다 (SRS §1.1)
+
+재시도를 멈추는 성질은 그대로다 — 신호가 상태 코드에서 `isRepo` 로
+옮겨졌을 뿐이며, 그것이 `FR-DSP-1a` 가 지키려던 것이다 (FR-ANA-4).
+
+`requested` 를 싣는 이유는 클라이언트의 세대 검사가 그것으로 응답의
+임자를 가리기 때문이다. 없으면 이 200 이 조용히 버려진다.
+
+**감시에는 넣지 않는다** (FR-ANA-6) — 답할 수 없는 저장소다. 소실은 여기
+오지 않는다. 그것은 부재가 사실이므로 404 로 남는다 (FR-ANA-3).
+*/
+func gitStatusNotRepoBody(requested string) map[string]any {
+	return map[string]any{
+		"repo":              "",
+		"requested":         requested,
+		"requestedResolved": wsentry.NormalizePath(requested),
+		"isRepo":            false,
+		"rootMatch":         false,
+		"cached":            false,
+		"status":            nil,
+		// REPO_FIX 04 §3A-0 X5: 비저장소는 관측이 없다 — 빈 식별자다.
+		"mark": "",
+	}
+}
+
+/*
+gitStatusUnchanged 는 클라이언트가 이미 가진 관측인가다.
+
+OPTIMIZE_REFACTOR_SRS FR-OPT-4-7 (HTTP-7 · IPC-30): **가진 관측이면 목록을 싣지 않는다.**
+
+	이전 동작 — mark 가 같아도 파일 목록 전체를 다시 보냈다
+	새 동작   — `ifMark` 가 현재 mark 와 같으면 식별자와 `unchanged:true` 만 답한다
+	이유     — 안전망·push 후속·재연결 요청의 대부분은 변화가 없다
+
+헤더(If-None-Match)를 쓰지 않는 이유는 브라우저의 자동 재검증이 끼어들지 않게
+하기 위해서다. 옛 서버는 이 인자를 모르므로 전량으로 답한다 — 호환된다.
+관심 표명은 앞에서 이미 했다: 생략된 응답도 "보고 있다" 는 말이다.
+*/
+func gitStatusUnchanged(ifMark, mark string) bool {
+	return ifMark != "" && ifMark == mark
+}
+
+// gitStatusUnchangedBody 는 목록을 뺀 답이다.
+func gitStatusUnchangedBody(v gitStatusView) map[string]any {
+	return map[string]any{
+		"repo":              v.root,
+		"requested":         v.requested,
+		"isRepo":            true,
+		"rootMatch":         v.resolved == v.root,
+		"requestedResolved": v.resolved,
+		"mark":              v.mark,
+		"unchanged":         true,
+		"actions":           v.actions,
+	}
+}
+
+// gitStatusBody 는 전량 답이다.
+func gitStatusBody(v gitStatusView, obs store.Observation, cached bool) map[string]any {
+	return map[string]any{
+		"repo":      v.root,
+		"requested": v.requested,
 		// FR-ANA-1: 두 갈래가 같은 어휘로 답한다. 한쪽에만 있으면 클라이언트가
 		// `undefined` 와 `false` 를 가려야 한다.
 		"isRepo": true,
 		// 요청 경로가 이 저장소의 **루트**인가. 탐색기가 색의 기준을 정하는 값이다.
-		"rootMatch": resolved == root,
+		"rootMatch": v.resolved == v.root,
 		// 루트가 아닐 때 저장소 루트로부터의 접두를 계산할 근거다 (FR-DIR-41).
 		// 클라이언트는 심볼릭 링크를 풀 수 없으므로 정규화된 값을 함께 준다.
-		"requestedResolved": resolved,
+		"requestedResolved": v.resolved,
 		"cached":            cached,
 		"observedAtUnixMs":  obs.ObservedAtUnixMs,
 		"signature":         obs.Signature,
 		"status":            obs.Status,
 		// REPO_FIX 04 §3A-0 X5: 관측 식별자 — git_changed 의 mark 와 같은 함수다. 화면은
 		// "관측이 같은가" 를 이것으로만 판정한다(탐색기 폴링 재칠 생략, 05 F-6.1).
-		"mark":    mark,
-		"actions": actions,
+		"mark":    v.mark,
+		"actions": v.actions,
 		// REFACTOR3_FE_REST1_SRS FR-FR1-8: 행 답. status 에서 판정하므로 관측(mark) 안의
 		// 사실이다 — `unchanged` 응답은 싣지 않고 화면이 앞 응답의 것을 이어 쓴다.
 		"rowActions": rowActions(obs.Status),
-	})
+	}
 }
 
 // GET /api/git/signature?repo=<abs> — 감지용 경량 시그니처 (FR-GIT-19).

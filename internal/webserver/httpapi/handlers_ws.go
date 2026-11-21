@@ -334,35 +334,7 @@ func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolhub.
 		// FR-TRS-16: 이미 보낸 구간은 잘라낸다. 기준점(sent)은 보낸 만큼 전진한다.
 		frame := trimOverlap(chunk.Data, chunk.End, sent)
 		sent = advanceSent(chunk, sent)
-		joined := false
-	drain:
-		for {
-			select {
-			case next, ok := <-outputCh:
-				if !ok {
-					pendingClosed = true
-					break drain
-				}
-				if next.Size != nil || outputGap(next, sent) {
-					pending = &next
-					break drain
-				}
-				d := trimOverlap(next.Data, next.End, sent)
-				if len(frame)+len(d) > relayCoalesceMax {
-					pending = &next
-					break drain
-				}
-				if !joined && len(d) > 0 {
-					buf = append(buf[:0], frame...)
-					frame, joined = buf, true
-				}
-				frame = append(frame, d...)
-				buf = frame[:0]
-				sent = advanceSent(next, sent)
-			default:
-				break drain
-			}
-		}
+		frame, buf, sent, pending, pendingClosed = coalesceOutput(outputCh, frame, buf, sent)
 		if len(frame) == 0 {
 			continue
 		}
@@ -371,6 +343,43 @@ func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolhub.
 			return
 		}
 	}
+}
+
+// coalesceOutput 은 채널에 이미 쌓인 연속 출력을 frame 뒤에 relayCoalesceMax 까지 붙인다
+// (FR-OPT-2-7). 붙이지 못한 조각은 pending 으로, 채널이 닫혔으면 closed 로 돌려준다.
+// buf 는 프레임을 합칠 때 다시 쓰는 버퍼다.
+func coalesceOutput(outputCh <-chan toolhub.OutChunk, frame, buf []byte, sent int64) (_, _ []byte, _ int64, pending *toolhub.OutChunk, closed bool) {
+	joined := false
+	for {
+		select {
+		case next, ok := <-outputCh:
+			if !ok {
+				return frame, buf, sent, nil, true
+			}
+			if !relayJoinable(next, sent) {
+				return frame, buf, sent, &next, false
+			}
+			d := trimOverlap(next.Data, next.End, sent)
+			if len(frame)+len(d) > relayCoalesceMax {
+				return frame, buf, sent, &next, false
+			}
+			if !joined && len(d) > 0 {
+				buf = append(buf[:0], frame...)
+				frame, joined = buf, true
+			}
+			frame = append(frame, d...)
+			buf = frame[:0]
+			sent = advanceSent(next, sent)
+		default:
+			return frame, buf, sent, nil, false
+		}
+	}
+}
+
+// relayJoinable 은 조각을 앞 프레임에 이어 붙일 수 있는가다. 크기 조각과 구멍 난 조각은
+// 따로 다룬다.
+func relayJoinable(c toolhub.OutChunk, sent int64) bool {
+	return c.Size == nil && !outputGap(c, sent)
 }
 
 // outputGap 은 조각의 시작이 이미 보낸 끝보다 뒤인가다 (FR-OPT-1-2). End=0(옛 데몬)은

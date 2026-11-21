@@ -307,22 +307,11 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	target := filepath.Clean(req.Path)
-	var branch string
-	found := false
-	for _, e := range entries {
-		if e.Path == target {
-			found, branch = true, e.Branch
-			break
-		}
-	}
+	branch, found := listedWorktreeBranch(entries, target, req.DeleteBranch)
 	if !found {
 		t.rejectWith(http.StatusNotFound, gitErrNotFound,
 			"이 저장소의 worktree 가 아니다: "+req.Path)
 		return
-	}
-	if !req.DeleteBranch {
-		// 브랜치를 함께 지우는 것은 별도 선택이며 기본이 아니다 (FR-GIT-243).
-		branch = ""
 	}
 
 	// 밖에서 지운 worktree 도 키가 나온다 (§5.1 — 존재하는 조상까지 푼다).
@@ -367,10 +356,30 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 	// `ok` 는 "요청을 처리했다" 이고 `removed` 는 "실제로 지웠다" 다 — 둘은 다르다.
 	// 지우지 않은 경우(dirty)도 정상 처리이며 사유는 `residue` 가 싣는다. 그래서
 	// 이 자리는 `rejectBody` 가 아니라 `okPlain` 이다.
-	t.okPlain(map[string]any{
+	t.okPlain(worktreeRemoveBody(res))
+}
+
+// listedWorktreeBranch 는 목록에서 target 을 찾아 함께 지울 브랜치를 정한다. 목록에 없으면
+// found 가 거짓이다. 브랜치를 함께 지우는 것은 별도 선택이며 기본이 아니다 (FR-GIT-243).
+func listedWorktreeBranch(entries []worktree.Entry, target string, deleteBranch bool) (branch string, found bool) {
+	for _, e := range entries {
+		if e.Path == target {
+			found, branch = true, e.Branch
+			break
+		}
+	}
+	if !found || !deleteBranch {
+		return "", found
+	}
+	return branch, true
+}
+
+// worktreeRemoveBody 는 제거의 답이다.
+func worktreeRemoveBody(res worktree.Result) map[string]any {
+	return map[string]any{
 		"path": res.Path, "branch": res.Branch,
 		"removed": res.Removed, "residue": res.Residue, "detail": res.Detail,
-	})
+	}
 }
 
 // gitJobKind 는 진행 중인 잡의 kind 다. 허브가 없거나 이미 치워졌으면 빈 문자열이다.
