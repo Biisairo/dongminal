@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R3 — 큰 함수·클래스 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: R3a FC-07 · FC-09 구현 · R3b(FC-05 `delWindow` · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) 요구·구현
+> **남은 것**: R3b(FC-05 `delWindow` · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) 요구·구현. R3a(FC-07·09)는 구현을 마쳤다(§6)
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `refactor/PROD3.md` §2.5 FC-05·07·09·12 · FU-12·13·14·15·16, §7.1 「P3 FE 나머지 — 정리」 의 하위 묶음 R3)
 - 사용자 결정: 진행은 묻지 않고 끝까지 한다(`REFACTOR_PROD3_HANDOFF_2.md` §8). 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -125,3 +125,15 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 
 | 커밋 | 요점 |
 |---|---|
+| `af16d851` | 이 SRS |
+| `0d4af0dc` | 시험 고정 — `ws-apply-save.test.mjs` TC-FR3-1~26. 나누기 전 코드에서 GREEN 을 확인하고 커밋했다(D-FR3-1) |
+| `94d73ccd` | FC-07 — `layout-tree.js` 에 `wsLiveTools`·`wsPinsKey`·`wsViewOf`·`wsViewRestore`(D-FR3-8), `WsSyncController` 에 `_reapDeadTools`·`_reconcileIncoming`·`_viewKeep`·`_mergeUnseen`·`_viewRestore`. `_applyRemoteWorkspace` 136 → 40줄(코드 66 → 22). 시험 TC-FR3-27(FC-07 셋)·`method-size.test.mjs`·`app-cmd-split.test.mjs`(D-FR3-7) |
+| `18aa0a35` | FC-09 — `app.js` 의 `class App` 뒤에 `wsSaveBody`·`wsSaveSame`·`wsGitAdopt`·`wsSaveHoldMs`, App 에 `_savePut`·`_adoptRemote`·`_saveBackoff`. `save` 90 → 34줄(코드 43 → 23), `_saveAdoptRemote` 88 → 14줄(코드 30 → 10). 시험 TC-FR3-27(FC-09 넷)·`method-size.test.mjs` |
+
+**SRS 와 다르게 한 것.**
+
+1. 적용기의 순수 판정 넷은 처음 정한 `ws-sync-controller.js` 머리가 아니라 `core/layout-tree.js` 에 두었다. 같은 파일에 두면 530줄이 되어 크기 게이트가 깨졌다. FR-FR3-1 을 고치고 D-FR3-8 을 더했다.
+
+**시험 결과.** 단위 1426 통과. `make gates`·`typecheck` 통과. eslint 는 원래 2건(`theme-vars.js:86` · `claude-accounts-foot.test.mjs:728`)뿐이다. e2e(TC-FR3-29 의 13 spec, 165건)는 FC-07·FC-09 두 번 모두 실패 0 이다. `slot-view-state` TC-SVS-13·56 은 첫 회차(FC-07)에 실패했으나, 재시도 없이 나누기 전 코드(`0d4af0dc`)로 돌려도 같은 둘이 실패했다(HANDOFF_4 §4 의 흔들림). `tab-names` V-NAM-1·2·5 는 FC-09 회차에 재시도로 통과했고, 단독 2회 반복에서 34/34 통과했다.
+
+**남긴 것.** R3b 전부(§2.3). 저장 기계를 컨트롤러로 옮기는 일과 위임자 제거(§1.3).
