@@ -7,7 +7,7 @@
  * `TimerHub` 와 `EventBus` 둘뿐이다 (INV-1·2).
  *
  * **이 파일이 생기기 전의 모양** (SRS §2.3): 같은 다섯이 세 곳에 손으로 나열돼
- * 있었다 — `app-cmd.js` 의 `onopen` 한 줄, `app-reload.js` 의 `_softStep` 다섯
+ * 있었다 — 옛 `app-cmd.js` 의 `onopen` 한 줄, 옛 `app-reload.js` 의 `_softStep` 다섯
  * 줄, `onmessage` 의 if-체인. 새 상태를 더하면 셋을 다 고쳐야 했고, 하나를
  * 빠뜨리면 조용히 안 갱신됐다. 그 빠뜨림이 실제로 일어났다 — `w.editor.refresh()`
  * 가 `typeof` 가드에 삼켜져 탐색기만 낡은 채 남았다 (FR-WBR-95).
@@ -86,7 +86,7 @@ const STATE_REGISTRY=[
     /**
      * ACTIVITY_RUNS_REFRESH_SRS FR-ARR-1~3 — 멤버 상태·생존은 서버가 물을 때 계산하므로
      * `run_changed` 로 오지 않는다. 패널이 열린 동안 활동 주기로 다시 받는다.
-     * `run_changed` 구독은 대시보드도 다시 받으므로 `app-ws-sync.js` 에 남는다 (D-ARR-3).
+     * `run_changed` 구독은 대시보드도 다시 받으므로 `ws-sync-controller.js` 에 남는다 (D-ARR-3).
      * FR-ARR-6: 새로고침하면 패널이 열린 채로 복원되어 「열 때 받기」를 거치지 않는다 — 구독이 열릴 때 받는다.
      */
     id:'run.list',
@@ -363,5 +363,5 @@ function stateFetch(src,path){
   return (src&&typeof src.then==='function')?src:apiGet(path);
 }
 
-// 재검증 계기가 `softreload` 인 상태들. `app-reload.js` 가 이것을 순회한다.
+// 재검증 계기가 `softreload` 인 상태들. `soft-reload.js` 가 이것을 순회한다.
 function stateRegistryIds(){ return STATE_REGISTRY.map(d=>d.id) }

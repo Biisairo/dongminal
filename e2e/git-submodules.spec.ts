@@ -293,7 +293,7 @@ test.describe('묶음 D — Submodules 탭', () => {
    *
    * 뷰 집합이 다섯 자리에 손으로 열거돼 있었고 여덟 번째 탭인 이 탭이 그중 넷에서
    * 빠져 있었다. 그 결과 **탭을 닫아도 언마운트되지 않았다** — `dropView` 의 맵에
-   * `submodules` 가 없었기 때문이다 (`panel-life.js`).
+   * `submodules` 가 없었기 때문이다 (옛 `panel-life.js`, 지금 `git-view-roots.js`).
    */
   test('D10 (V-RST-4): 탭을 닫으면 Submodules 뷰가 언마운트된다', async ({ page }) => {
     await waitForInit(page);
@@ -318,7 +318,7 @@ test.describe('묶음 D — Submodules 탭', () => {
    *
    * 종전 코드는 창을 닫을 때 `this._history()` 류를 여섯 번 불렀고, 그 게터들은
    * 없으면 생성하므로 한 번도 열지 않은 뷰가 그 자리에서 태어났다 —
-   * `panel-views.js` 가 표방한 지연 생성이 창을 닫는 경로에서 깨졌다.
+   * 옛 `panel-views.js`(지금 `git-views.js`)가 표방한 지연 생성이 창을 닫는 경로에서 깨졌다.
    */
   test('D11 (V-RST-5): 창을 닫아도 열지 않은 뷰는 만들어지지 않는다', async ({ page }) => {
     await waitForInit(page);

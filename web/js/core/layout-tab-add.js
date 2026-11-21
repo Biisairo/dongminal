@@ -196,5 +196,5 @@ class LayoutTabAdd extends Controller {
   }
 }
 
-// 바깥이 부르는 이름 — `app-cmd.js`·`app-tab-reopen.js`·채팅·편집기·`git/`·계약.
+// 바깥이 부르는 이름 — `tool-cmd.js`·`layout-tab-reopen.js`·채팅·편집기·`git/`·계약.
 Controller.delegate(App,'layout.tabAdd',['findGitViewTab','_findEditorTab','addTab','_revealTab','_pushTab']);

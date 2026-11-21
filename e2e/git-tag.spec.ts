@@ -15,15 +15,15 @@ import { tmpPath, realPath } from './osenv';
 // 를 본다.
 //
 // 아래 선택자는 구현 소스를 직접 읽어 확인한 것이다(추측이 아니다):
-//   태그 행       Branches 탭의 `.git-br-row[data-kind="tag"]` (branches.js:227-228).
-//                 우클릭이 `GitMenu.open('tag', ref, ev)` 를 연다(branches.js:266-269).
+//   태그 행       Branches 탭의 `.git-br-row[data-kind="tag"]` (`branches-tree.js`).
+//                 우클릭이 `GitMenu.open('tag', ref, ev)` 를 연다(`branches-tree.js`).
 //   메뉴          `.git-menu` / 항목은 `.git-menu-item[data-id]` (menu.js:_pick 경로).
 //                 **확인은 항목이 구현하지 않는다** — `destructive:true` 인 항목은
 //                 GitConfirm 확인을 프레임워크가 거친다(menu.js:_pick).
 //   생성 다이얼로그 GitDialog.open({id:'git-tag-create',ns:'gtc'}) → 컨테이너는
 //                 `#git-tag-create`, 상자 `.gtc-box`, 필드 `.gtc-name`·`.gtc-ref`·
 //                 `.gtc-kind`(라디오)·`.gtc-msg`, 실행 `.gtc-go`, 사유 `.gtc-why`
-//                 (dialog.js:150-172 의 ns 치환 규약). **일반 GitDialog 라 1클릭이면
+//                 (`git-dialog.js` 의 ns 치환 규약). **일반 GitDialog 라 1클릭이면
 //                 실행된다**(GitConfirm 을 지나지 않는다).
 //   파괴적 확인    `#git-confirm .gc-box`/`.gc-go`/`.gc-cancel` — `tag_delete` 와
 //                 `remote_ref_delete` 는 서버의 파괴적 목록(/api/git/policy)에 있으므로

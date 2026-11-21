@@ -158,14 +158,14 @@ class GitViews extends GitPart {
   }
 
   // ── 브랜치·태그 쓰기 (GIT_MENUS branch·tag 가 부른다) ──
-  // 실행은 git-branches.js 에 있다 — 메뉴는 History 의 refs 사이드바에서도 열리므로
+  // 실행은 `branches-ops.js` 에 있다 — 메뉴는 History 의 refs 사이드바에서도 열리므로
   // Branches 탭 인스턴스에 묶여 있으면 그쪽에서 쓸 수 없다.
 
   checkoutRef(ref,o){return GitBranches.checkout(this.p,ref,o||{})}
   checkoutRemote(short){return GitBranches.checkoutRemote(this.p,short)}
 
   // 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268).
-  // 여기도 포워더뿐이다 — 실행은 git-branches.js 에 있다.
+  // 여기도 포워더뿐이다 — 실행은 `branches-ops.js` 에 있다.
   branchRename(target){return GitBranches.rename(this.p,target)}
   branchDelete(target,names){return GitBranches.del(this.p,target,names)}
   branchDeleteTargets(target){return GitBranches.targetsOf(this.p,target)}

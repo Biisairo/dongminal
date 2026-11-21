@@ -12,7 +12,7 @@ import (
 )
 
 // TestToolForegroundPayload는 tool_foreground 의 와이어 모양을 고정한다.
-// 브라우저(app-cmd.js)가 이 키들을 그대로 읽으므로 이름이 바뀌면 조용히 깨진다.
+// 브라우저(ws-sync-controller.js `_onToolForeground`)가 이 키들을 그대로 읽으므로 이름이 바뀌면 조용히 깨진다.
 func TestToolForegroundPayload(t *testing.T) {
 	p := toolForegroundPayload("t1", "vim")
 	if !bytes.Contains(p, []byte(`"action":"tool_foreground"`)) ||

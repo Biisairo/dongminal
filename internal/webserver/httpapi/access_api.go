@@ -149,7 +149,7 @@ func (s *Server) accessSave(w http.ResponseWriter, r *http.Request, cfg accessCo
 			return false
 		}
 		// **검증 실패의 사유는 그대로 보인다.** 어느 줄이 잘못됐는지 모르면 사용자가
-		// 고칠 수 없다 — `app-settings.js` 의 `_aclSave` 가 이 본문을 그대로 띄운다.
+		// 고칠 수 없다 — `settings-access.js` 의 `_aclSave` 가 이 본문을 그대로 띄운다.
 		// 그 문구는 사용자가 방금 보낸 값과 우리가 쓴 설명뿐이다.
 		fail(w, http.StatusBadRequest, err.Error(), nil)
 		return false

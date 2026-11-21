@@ -9,9 +9,9 @@ import (
 
 // TLS-2: 노출 판정이 **한 벌**이다.
 //
-// 종전에는 두 벌이었다 — `start.go:154`·`main.go:573` 은 `0.0.0.0`/`::` 만 노출로
+// 종전에는 두 벌이었다 — 당시 `start.go`·`main.go` 의 두 자리는 `0.0.0.0`/`::` 만 노출로
 // 보아 `DONGMINAL_HOST=192.168.1.5` 를 `local-only` 로 **거짓 표시**했고,
-// `start.go:53` 의 ACL 게이트는 `host != DefaultHost` 로 보아 `::1` 바인드를
+// `start.go` 의 ACL 게이트는 `host != DefaultHost` 로 보아 `::1` 바인드를
 // **ACL 로 막았다**. 같은 물음에 두 답이 나오던 자리다.
 func TestIsExposedHost(t *testing.T) {
 	for _, tc := range []struct {

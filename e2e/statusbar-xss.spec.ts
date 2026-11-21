@@ -12,7 +12,7 @@ import { test, expect, waitForInit } from './fixtures';
  * 소스다. 그리고 이 UI 는 터미널·파일·git 쓰기·설정(ACL 포함) API 에 닿으므로
  * **XSS 가 원격 코드 실행에 준한다.**
  *
- * 싱크는 `app-statusbar.js` 의 `push('cwd', …)` 이고, 그 파일에 이스케이프
+ * 싱크는 `statusbar-controller.js`(당시 `app-statusbar.js`)의 `push('cwd', …)` 이고, 그 파일에 이스케이프
  * 호출이 0건이었다. 막는 자리는 값의 출처가 아니라 **싱크**다 — 출처를 세다
  * 보면 하나를 빠뜨리게 되고, 그 하나가 전부다.
  */

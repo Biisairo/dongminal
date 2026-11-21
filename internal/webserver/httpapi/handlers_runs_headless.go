@@ -26,7 +26,7 @@ import (
 
 // 화면이 없으므로 크기는 리사이즈 대상이 아니다 (FR-HLM-2). 고정값이 필요한
 // 이유가 그것이고, 값은 브라우저가 새 도구를 만들 때 쓰는 것과 같다
-// (web/js/core/app-tool.js `_newTool`) — toolhub 의 기본과 한 수다 (M8 D-A-17).
+// (web/js/core/tool-life.js `_newTool`) — toolhub 의 기본과 한 수다 (M8 D-A-17).
 const (
 	headlessCols = toolhub.DefaultCols
 	headlessRows = toolhub.DefaultRows
@@ -326,7 +326,7 @@ func (s *Server) orphanHeadless(rec run.Record) []map[string]any {
 // 만들면 탭이 둘이 되거나 복귀가 왕복 지연에 매인다.
 //
 // 비동기여야 한다. 브라우저는 백그라운드 해제를 **기다린 뒤에** 탭을 만들므로
-// (web/js/core/app-tool.js `_restoreTool`), 여기서 탭을 기다리면 서로가 서로를
+// (web/js/core/tool-life.js `_restoreTool`), 여기서 탭을 기다리면 서로가 서로를
 // 기다린다.
 func (s *Server) reconcileMemberTab(toolID string) {
 	if s.Runs == nil {

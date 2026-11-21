@@ -2,7 +2,7 @@
  * 설정 저장 파이프라인 — 비행 하나·디바운스·자기 에코 무시
  * (OPTIMIZE_REFACTOR_SRS FR-OPT-5-2 · APP_STATE_EXTRACT_SRS FR-ASE-9 · §2.3a).
  *
- * 이 가족의 상태 다섯은 `App` 이 아니라 여기 있다. 본문은 `app-settings.js`·
+ * 이 가족의 상태 다섯은 `App` 이 아니라 여기 있다. 본문은 옛 `app-settings.js`·
  * `app-settings-init.js` 에서 구간 이동했고 편집은 앱으로 나가는 자리(`this.app.`)뿐이다.
  * `_settingsAcceptRemote` 는 `_settingsRestore` 안에 있던 에코 판정 두 줄이다.
  *

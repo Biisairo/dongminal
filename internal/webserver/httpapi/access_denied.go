@@ -55,7 +55,7 @@ func writeDeniedPage(w http.ResponseWriter, ip string) {
 }
 
 // deniedPageHTML 은 부트 화면의 톤을 그대로 딛는다 — 같은 바탕색·같은 로고·같은
-// 여백 리듬이다 (`web/index.html` 의 `#boot`, `web/style.css:1292~`).
+// 여백 리듬이다 (`web/index.html` 의 `#boot` 와 그 CSS 규칙).
 //
 // 다른 것은 하나다: **흐르는 진행 바가 없다.** 이 화면은 기다리는 화면이 아니다.
 func deniedPageHTML(ip string) string {

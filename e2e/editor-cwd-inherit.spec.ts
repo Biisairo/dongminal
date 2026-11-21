@@ -99,7 +99,7 @@ async function expectCwd(request, toolId: string, want: string, msg: string) {
 
 // 편집기 탭을 root 에디터 창(FR-EDT-13)에 열고, 그 창을 활성 창으로, 그
 // 탭이 있는 pane 을 포커스로 만든다 — `edOpenFile` 이 이 셋을 함께 보장한다
-// (`app-editor.js` FR-EDT-94·102).
+// (`editor-file.js` FR-EDT-94·102).
 async function openInEditorWindow(page, filePath: string, name: string) {
   await page.evaluate(async ({ fp, nm }) => {
     const a = (window as any).app;

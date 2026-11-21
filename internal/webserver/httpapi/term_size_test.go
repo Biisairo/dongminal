@@ -143,7 +143,7 @@ func readSize(t *testing.T, ws *websocket.Conn, who string) (cols, rows uint16) 
 
 // V-M9-3a: 같은 크기를 다시 보내면 통보하지 않는다.
 //
-// `resendWindowSizes` 가 **창 전환마다** 같은 값을 보내므로(`app-focus.js`),
+// `resendWindowSizes` 가 **창 전환마다** 같은 값을 보내므로(`focus-owner.js`),
 // 거르지 않으면 전환마다 모든 클라이언트가 같은 프레임을 받는다.
 func TestHandleWS_SizeUnchangedIsSilent(t *testing.T) {
 	pm, pmHub := daemonPairAt(t, toolTempDir(t))

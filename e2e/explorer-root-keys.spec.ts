@@ -427,7 +427,7 @@ test.describe('묶음 E — 탭 바 여백 더블클릭 (FR-EXR-40~43)', () => {
 
       const idle = '#area .pn:not(.focused)';
       const before = await page.locator(`${idle} .pn-tab`).count();
-      // pane 의 신원은 `data-paneid` 다 (renderer.js:823).
+      // pane 의 신원은 `data-paneid` 다 (`renderer-pane.js`).
       const idleId = await page.locator(idle).getAttribute('data-paneid');
       expect(idleId).toBeTruthy();
       await dblBlankTabs(page, idle);

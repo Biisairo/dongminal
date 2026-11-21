@@ -38,7 +38,7 @@ const HANGUL = /[가-힣ㄱ-ㆎ]/;
  *
  * 보이지 않는 것은 재지 않는다 — 접힌 패널이나 아직 안 뜬 모달의 버튼은 사용자가
  * 호버할 수 없고, 그것까지 세면 시험이 무엇을 재는지 흐려진다 (치수 시험
- * `git-ui-revision.spec.ts` 의 `vis` 와 같은 규약).
+ * 옛 `git-ui-revision.spec.ts` 의 `vis` 와 같은 규약).
  */
 async function scan(page: Page) {
   return page.evaluate(() => {
@@ -255,7 +255,7 @@ test.describe('묶음 C — 상태바가 여는 표면', () => {
       const id = a.tools && a.tools.size ? [...a.tools.keys()][0] : null;
       if (!id) return false;
       a.testing.attn.set(id, { reason: 'e2e' });
-      // 배지를 세우는 것은 `_attnRefresh` 다 (app-attn.js:250).
+      // 배지를 세우는 것은 `_attnRefresh` 다 (`attn-controller.js`).
       a.testing.attnRefresh();
       return true;
     });
@@ -306,7 +306,7 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     await waitForInit(page);
     const opened = await page.evaluate(() => {
       const tc = (window as any).TermClipboard;
-      // 여는 이름은 `prompt` 다 (term-clipboard.js:138) — 클립보드가 막힌 환경에서
+      // 여는 이름은 `prompt` 다 (`term-clipboard.js`) — 클립보드가 막힌 환경에서
       // 손으로 복사하도록 띄우는 창이다.
       if (!tc || typeof tc.prompt !== 'function') return false;
       tc.prompt('e2e copy text');

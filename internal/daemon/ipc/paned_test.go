@@ -23,8 +23,8 @@ import (
 // toolTempDir 는 ToolManager 의 데이터 디렉터리를 내주되, **비동기 기록이 멎은
 // 뒤에** 정리되도록 한다.
 //
-// ToolManager.Create/Delete 는 `go m.SaveAll()` 로 tools.json 을 비동기 기록한다
-// (toolhub/tool.go:928·1008). 그 쓰기가 t.TempDir() 정리보다 늦으면 정리가
+// ToolManager.Create/Delete 는 `saveAsync`(고루틴 안의 `m.SaveAll()`)로 tools.json 을 비동기 기록한다
+// (toolhub/manager.go). 그 쓰기가 t.TempDir() 정리보다 늦으면 정리가
 // `directory not empty` 로 실패하고, **본문이 통과한 뒤에 테스트가 깨진다.**
 // 전량 병렬 실행에서만 드러난다 (2026-08-28 관측).
 //

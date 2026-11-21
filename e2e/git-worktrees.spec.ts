@@ -26,7 +26,7 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
 //   생성 다이얼로그     GitDialog.open({id:'git-wt-create',ns:'gwc',...}) → 컨테이너는
 //                      `#git-wt-create`, 상자는 `.gwc-box`, 필드는 `.gwc-name`·
 //                      `.gwc-ref`·`.gwc-newbranch`(체크박스), 실행은 `.gwc-go`,
-//                      검증 실패 메시지는 `.gwc-why` (dialog.js:150-172 의 ns 치환 규약).
+//                      검증 실패 메시지는 `.gwc-why` (`git-dialog.js` 의 ns 치환 규약).
 //                      **일반 GitDialog 라 1클릭이면 실행된다** (GitConfirm 을 지나지 않는다).
 //   제거 확인          GitDialog.confirm(...) = GitConfirm.open(...) 이므로 기존
 //                      #git-confirm .gc-box/.gc-go/.gc-err 그대로다(worktrees.js:229-236,
@@ -34,7 +34,7 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
 //                      한 걸음이며 `.gc-go` 한 번이 실행이다**(CONFIRM_ONE_STAGE_SRS
 //                      FR-COS-1·2 — 걸음 수는 GitConfirm 이 정한다).
 //   목록 재계기        폴링이 없다(worktrees.js:_load 는 mount 시 1회 + reload() 뿐).
-//                      유일한 재계기는 I3 새로고침이며 panel.js:1396 이 이미 마운트된
+//                      유일한 재계기는 I3 새로고침이며 `git-poll.js` `refresh` 가 이미 마운트된
 //                      _worktreesView.reload() 를 부른다 — 새로고침 단추는 UX_AUDIT_FIX_SRS
 //                      FR-UXF-27 로 없어졌으므로 `app.gitPanel.refresh()` 를 직접 부른다.
 //   제거 실패          200 으로 온다(removed:false + residue). 4xx 가 아니다.
@@ -251,7 +251,7 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
       .toMatch(/[\\/]git-worktrees[\\/][^\\/]+-[0-9a-f]{8}[\\/]v147-made$/);
     expect(existsSync(path), '만들어진 경로가 실제로 없다').toBe(true);
 
-    // "화면에 보인다" — 안내 자리(worktrees.js:305 GIT_WT_CREATED+path)에도 뜬다.
+    // "화면에 보인다" — 안내 자리(`worktrees.js` 의 GIT_WT_CREATED+path)에도 뜬다.
     await expect(wt(page).locator('.git-wt-note.vis .git-wt-note-msg'), '생성 경로 안내가 안 보인다')
       .toContainText(path);
   });
@@ -364,7 +364,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 5000 });
     await page.locator('#git-confirm .gc-go').click();
     // 성공은 확인 상자를 닫는다 — 사유를 남기고 열려 있는 것은 실패의 표현이다
-    // (dialog.js:348 `if(res&&res.ok){this._close(true);return}`). 열린 채로
+    // (`ui/dialog.js` `_exec` 의 `if(res&&res.ok){this._close(true);return}`). 열린 채로
     // 남으면 클라이언트가 성공을 실패로 오인했다는 뜻이다.
     await expect(page.locator('#git-confirm'), '성공했는데 확인 상자가 안 닫혔다').toHaveCount(0, { timeout: 10000 });
     await expect.poll(() => existsSync(wtPath), { timeout: 15000 }).toBe(false);
@@ -484,7 +484,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
   test('V152 (FR-GIT-245 · RPT-1·3): 새로고침 뒤에도 바뀌지 않은 Worktrees 행의 표식이 남는다', async ({ page, request }) => {
     const repo = await wtRepo(request, 'v152');
     await waitForInit(page);
-    await openWorktrees(page, repo); // 한 번 마운트해야 reload() 대상이 된다(panel.js:1396).
+    await openWorktrees(page, repo); // 한 번 마운트해야 reload() 대상이 된다(`git-poll.js` `refresh`).
 
     await expect.poll(() => wtRows(page).count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1);
 

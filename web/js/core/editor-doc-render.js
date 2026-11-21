@@ -113,7 +113,7 @@ class EditorDocRender extends Controller {
    * 짧은 쪽을 고르면 `/` 로 시작하는 참조가 엉뚱한 저장소를 가리킨다.
    *
    * `lsp-client.js` 의 `_lspRootOfPath` 와 같은 계산이다. 지금 한 벌로 접지 않는 것은
-   * 그 파일이 다른 작업의 손에 있기 때문이며, 자리가 안정되면 `app-editor.js` 로
+   * 그 파일이 다른 작업의 손에 있기 때문이며, 자리가 안정되면 `editor-controller.js` 로
    * 함께 옮기는 것이 옳다.
    */
   docRenderRootOf(path) {

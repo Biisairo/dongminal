@@ -2,7 +2,7 @@
  * PresetsSection — Settings ▸ Presets (REFACTOR3_FE_SETTINGS_SRS 8d, 옛 `app-presets.js` 의 패널 부분).
  *
  * 목록·저장·이름 바꾸기·지우기 확인·기본 프리셋 별. 프리셋을 **불러오는** `_loadPreset`(창을 만든다)과 사이드바의
- * 기본 프리셋 단추 칠하기 `_presetButtonPaint`(부팅에서 설정창보다 먼저 돈다)는 App 에 남는다(`app-presets.js`).
+ * 기본 프리셋 단추 칠하기 `_presetButtonPaint`(부팅에서 설정창보다 먼저 돈다)는 App 에 남는다(위임자, 본체는 `layout-window-state.js`).
  * e2e 계약(`_renderPresets`·`_savePreset`)은 App 의 위임자가 이 섹션에 잇는다(FR-FES-9).
  */
 class PresetsSection extends SettingsSection {

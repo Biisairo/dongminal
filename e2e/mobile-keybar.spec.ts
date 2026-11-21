@@ -328,7 +328,7 @@ test.describe('Mobile RFC §7.2 verification automation (SRS REQ-D1..D4)', () =>
     await ctrl.click({ delay: 0 });
     await expect(ctrl).toHaveClass(/locked/);
 
-    // 3rd tap → back to off (lock → false per app.js:2244)
+    // 3rd tap → back to off (lock → false per mobile-controller.js modKbd toggle)
     await ctrl.click();
     await expect(ctrl).not.toHaveClass(/sticky/);
     await expect(ctrl).not.toHaveClass(/locked/);

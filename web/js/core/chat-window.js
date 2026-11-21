@@ -126,5 +126,5 @@ class ChatWindow extends Controller {
   }
 }
 
-// `ui/sidebar-tab-chat.js`·창 정규화(`app-window-state.js`)·시험이 App 에서 부르는 이름 (FR-FEA-4).
+// `ui/sidebar-tab-chat.js`·창 정규화(`layout-window-state.js`)·시험이 App 에서 부르는 이름 (FR-FEA-4).
 Controller.delegate(App,'chat.window',['chatWindowOpen','_chatNormalize','_chatRepaint','chatPanelRender']);

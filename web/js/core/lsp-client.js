@@ -7,7 +7,7 @@
  * 볼 수 있어야 비로소 "왜 F12 가 아무 일도 안 하는가" 를 설명할 수 있다 (D-9).
  *
  * APP_STATE_EXTRACT_SRS FR-ASE-7: 이 가족의 상태와 메서드는 `App` 이 아니라 `LspClient`
- * 가 갖는다. 본문은 `app-lsp.js` 에서 구간 이동했고 편집은 앱으로 나가는 자리
+ * 가 갖는다. 본문은 옛 `app-lsp.js` 에서 구간 이동했고 편집은 앱으로 나가는 자리
  * (`this.app.`)뿐이다. 바깥이 부르는 이름은 `app.js` 의 위임자가 지킨다
  * (REFACTOR3_FE_APPCTL_SRS 9a).
  */

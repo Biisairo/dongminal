@@ -159,7 +159,7 @@ test.describe('워크스페이스 저장 충돌', () => {
 
     await blind(B);
     // `addWindow()` 는 id 를 돌려주지 않는다 — 그 안의 `_mkWindow` 가 만든 엔터티
-    // id 가 필요하므로 같은 경로를 직접 탄다 (app-layout.js, FR-RCR-6/7).
+    // id 가 필요하므로 같은 경로를 직접 탄다 (`layout-controller.js`, FR-RCR-6/7).
     const newWin: string = await A.evaluate(async () => {
       const a = (window as any).app;
       const r = await a.testing.mkWindow({});

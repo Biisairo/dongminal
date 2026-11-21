@@ -80,7 +80,7 @@ func (s *Server) closeRunTabs(ctx context.Context, rec run.Record, keep bool) []
 	s.waitToolsIdle(ctx, ids)
 
 	// ② 탭을 닫는다. 좌표가 아니라 uuid 를 싣는다 — 브라우저의 `closeTab` 이
-	//    `location` 을 그렇게 해석한다 (app-cmd.js `_resolveLocation`).
+	//    `location` 을 그렇게 해석한다 (tool-cmd.js `_resolveLocation`).
 	//
 	// `closed` 는 **방송 결과**다 (M8_UNIFIED_SRS D-A-3, 10-func-backend FBE-04).
 	// 종전에는 반환값을 버리고 `true` 를 고정했다 — 브라우저가 없으면 아무 데도

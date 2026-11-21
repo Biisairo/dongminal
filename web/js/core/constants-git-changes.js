@@ -117,7 +117,7 @@ const GIT_FILE_VIEW_TITLE={
 // 어긋난다. 들여쓰기 단위(12)는 두 트리가 같다.
 const GIT_TREE_INDENT=12;
 const GIT_TREE_PAD0=6;
-// 우클릭 메뉴는 GIT_MENUS.file 이다 (FR-GIT-41·146, git-menu.js).
+// 우클릭 메뉴는 GIT_MENUS.file 이다 (FR-GIT-41·146, `git/menu-items.js`).
 
 // 그룹별 일괄 동작. tracked / untracked 구분은 그룹이 이미 하고 있으므로 그룹별
 // 일괄이 곧 FR-GIT-68 이다. conflicts 는 일괄이 없다: 충돌 stage 는 "해결됨 표시"

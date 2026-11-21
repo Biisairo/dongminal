@@ -55,7 +55,7 @@ const REMOTE_ACTIONS=Object.freeze({
   paneDown:(app,a)=>app.tool.cmd._remoteViaAction('paneDown',a),
   paneLeft:(app,a)=>app.tool.cmd._remoteViaAction('paneLeft',a),
   paneRight:(app,a)=>app.tool.cmd._remoteViaAction('paneRight',a),
-  // ISSUE_AGENT_TREE_SRS 묶음 G·O (`app-groups.js`).
+  // ISSUE_AGENT_TREE_SRS 묶음 G·O (`layout-groups.js`).
   newGroup:(app,a)=>app._remoteNewGroup(a),
   renameGroup:(app,a)=>app._remoteRenameGroup(a),
   deleteGroup:(app,a)=>app._remoteDeleteGroup(a),

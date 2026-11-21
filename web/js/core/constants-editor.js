@@ -597,7 +597,7 @@ const ED_DD_DEBOUNCE_MS=180;
 const ED_DD_ADD='add';
 const ED_DD_MOD='mod';
 const ED_DD_DEL='del';
-// FR-EDD-23: 색은 탐색기 트리의 규약 그대로다 (`style-editor.css:175~177`) —
+// FR-EDD-23: 색은 탐색기 트리의 규약 그대로다 (`style-editor.css` 의 탐색기 트리 변경 색 규칙) —
 // 같은 창의 두 표면이 같은 사실에 다른 색을 쓰면 그중 하나는 거짓말이 된다.
 const ED_DD_COLOR_VAR={
   [ED_DD_ADD]:'--git-st-add',

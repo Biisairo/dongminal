@@ -7,7 +7,7 @@ import { load } from './harness.mjs';
  *
  * **재는 것은 "세 단으로 내려가는가" 하나다.**
  *
- * 사본 넷이 각자 1단이나 2단에서 멈춰 있었고, 그중 `app-tool.js` 는 1단만 있어
+ * 사본 넷이 각자 1단이나 2단에서 멈춰 있었고, 그중 옛 `app-tool.js` 는 1단만 있어
  * secure context 밖에서 **버튼이 조용히 아무 일도 안 했다** — `navigator.clipboard`
  * 가 아예 없어 호출이 던지고 빈 `catch{}` 가 삼켰기 때문이다.
  *

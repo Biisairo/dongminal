@@ -115,7 +115,7 @@ var cmdActions = map[string]cmdSpec{
 	//
 	// 지우는 셋(`closeTab`·`closeWindow`·`detachTab`)이 여기 드는 이유는 **시선
 	// 부작용** 때문이다. 나머지는 `workspace_changed` 로 트리만 따라가며, 그 경로는
-	// 이미 로컬 `activeWindow` 를 보존한다 (`app-cmd.js`).
+	// 이미 로컬 `activeWindow` 를 보존한다 (`ws-sync-controller.js`).
 	"focus":       {single: true},
 	"closeTab":    {single: true},
 	"closeWindow": {single: true},
@@ -268,7 +268,7 @@ func (s *CmdSub) Close() { s.once.Do(func() { close(s.done) }) }
 // 것만으로 서버 메모리를 정할 수 있다.
 //
 // 64 는 사람이 여는 창·탭 수보다 한참 크다 — 화면 하나가 칸마다 구독을 열어도
-// (`app-slots.js`) 그 사이가 넓다.
+// (`slots-controller.js`) 그 사이가 넓다.
 const SubCap = 64
 
 // Add 는 구독 하나를 등록한다. 상한을 넘으면 **nil** 이며, 호출자는 그것을 503

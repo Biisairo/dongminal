@@ -142,7 +142,7 @@ const NOTICE = ['git-job-note', 'git-stale-note', 'git-partial-note', 'git-diff-
   // UX_AUDIT_FIX_SRS FR-UXF-28: 작업 목록 갱신 실패 안내.
   'ag-stale'];
 /**
- * 접두사로 만드는 안내 띠 (`list-tab.js` 의 `p+'-note'`). 이름이 마크업에 글자
+ * 접두사로 만드는 안내 띠 (`git-list-tab.js` 의 `p+'-note'`). 이름이 마크업에 글자
  * 그대로 나오지 않으므로 만드는 자리 하나를 따로 본다.
  */
 const NOTICE_PREFIXED = ['git-wt-note', 'git-sub-note'];

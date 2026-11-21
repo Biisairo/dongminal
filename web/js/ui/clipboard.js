@@ -10,7 +10,7 @@
  * 자리가 3단을 못 보고 각자 1단이나 2단만 다시 만들었다:
  *
  *   git/git-poll.js    1·2단      git/git-dialog.js 2단만
- *   git/git-confirm.js 2단만      core/app-tool.js 1단만  ← 조용히 실패했다
+ *   git/git-confirm.js 2단만      core/app-tool.js 1단만  ← 조용히 실패했다 (옛 이름, 지금 tool-life.js)
  *
  * 마지막 자리가 결함이었다 — `navigator.clipboard` 는 secure context 밖에서
  * **아예 없으므로** `writeText` 호출이 `TypeError` 로 던지고 빈 `catch{}` 가

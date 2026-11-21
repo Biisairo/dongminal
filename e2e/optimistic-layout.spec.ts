@@ -77,7 +77,7 @@ function revOf(res: any): number {
  * **표식이 값에서 rev 로 바뀌었다** (2026-09-22). 종전에는 방금 실어 보낸
  * `sidebarWidth` 가 `app.ws` 에 나타나기를 기다렸는데, `UX_BATCH10_SRS`
  * FR-UXB-6·8 이 그 키를 `sessionStorage` 로 옮기면서 **채택하는 쪽이 그것을
- * 지우게** 됐다 (`app-cmd.js` 의 `delete this.ws.sidebarWidth`). 값은 영영 오지
+ * 지우게** 됐다 (지금 `layout-window-state.js` 의 `delete this.app.ws.sidebarWidth`). 값은 영영 오지
  * 않고 스무 초를 기다리다 죽는다 — 이 파일의 셋이 그렇게 빨갰다.
  *
  * 재는 것은 처음부터 *"그 rev 를 채택했는가"* 였다. `wsETag` 가 바로 그 수이고,

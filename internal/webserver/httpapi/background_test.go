@@ -12,8 +12,8 @@ import (
 // toolTempDir 는 t.TempDir() 을 내주되, **비동기 기록이 멎은 뒤에** 정리되도록
 // 한다.
 //
-// ToolManager.Create/Delete 는 `go m.SaveAll()` 로 tools.json 을 비동기 기록한다
-// (tool.go:928·1008). SaveAll 은 dirty 를 내리지 않으므로 **이미 뜬 goroutine 은
+// ToolManager.Create/Delete 는 `saveAsync`(고루틴 안의 `m.SaveAll()`)로 tools.json 을 비동기 기록한다
+// (toolhub/manager.go). SaveAll 은 dirty 를 내리지 않으므로 **이미 뜬 goroutine 은
 // 반드시 쓴다** — 동기 SaveAll 을 한 번 더 불러도 그것들을 무력화하지 못한다.
 // 그 쓰기가 TempDir 정리보다 늦으면 정리가 `directory not empty` 로 실패하고,
 // **본문이 통과한 뒤에 테스트가 깨진다.** 전량 병렬 실행에서만 드러나며
@@ -175,7 +175,7 @@ func TestSaveAll_ExcludesBackgroundTools(t *testing.T) {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
 	m.SetBackground(bg.ID, true)
-	// Create 가 도구마다 띄운 `go m.SaveAll()`(tool.go:928)을 먼저 배수한다.
+	// Create 가 도구마다 띄운 비동기 저장(`saveAsync`, toolhub/manager.go)을 먼저 배수한다.
 	// 그것들이 아래 동기 SaveAll **뒤에** 착지하면 그 시점의 상태를 덮어쓰고,
 	// os.WriteFile 은 원자적이지 않아 m2 의 읽기와 겹치면 부분 파일을 읽는다.
 	// 둘 다 본문 통과 뒤가 아니라 **단정 실패**로 나타난다.
@@ -234,7 +234,7 @@ func TestSaveAll_KeepsOwnedBackgroundTools(t *testing.T) {
 	m.SetOwnedTools(func() map[string]struct{} {
 		return map[string]struct{}{owned.ID: {}}
 	})
-	// Create 가 도구마다 띄운 `go m.SaveAll()`(tool.go:928)을 먼저 배수한다.
+	// Create 가 도구마다 띄운 비동기 저장(`saveAsync`, toolhub/manager.go)을 먼저 배수한다.
 	// 그것들이 아래 동기 SaveAll **뒤에** 착지하면 그 시점의 상태를 덮어쓰고,
 	// os.WriteFile 은 원자적이지 않아 m2 의 읽기와 겹치면 부분 파일을 읽는다.
 	// 둘 다 본문 통과 뒤가 아니라 **단정 실패**로 나타난다.

@@ -18,8 +18,8 @@
 #
 # **마크업을 넣어야 하는 자리는 문자열로 잇지 말고 DOM 으로 세운다** —
 # `document.createElement` + `appendChild`. 그 자리들은 이미 그렇게 고쳤다
-# (`app-agents.js` 의 아이콘 버튼, `app-settings.js` 의 색 점,
-# `app-tool.js` 의 확인창).
+# (당시 이름으로 `app-agents.js` 의 아이콘 버튼, `app-settings.js` 의 색 점,
+# `app-tool.js` 의 확인창 — 지금 `agents-controller.js`·`settings-*.js`·`tool-life.js`).
 #
 # 사용: scripts/check-html.sh
 set -uo pipefail
