@@ -44,6 +44,10 @@ func setStr(p *string) func(string) error {
 	}
 }
 
+// unknownArg 는 모르는 인자의 유일한 문구다 (REFACTOR3_DEDUP_GO_SRS FR-RDG-24 · TC-RDG-22).
+// 이전에는 여럿이었다(`unknown argument:` · `unknown flag:` · `모르는 인자` · `모르는 플래그`).
+func unknownArg(a string) string { return "unknown argument: " + a }
+
 func isHelpArg(a string) bool { return a == "-h" || a == "--help" }
 
 // parse 는 인자를 앞에서부터 읽는다. help 가 참이면 도움말 인자를 만나 멈췄다.
@@ -108,7 +112,7 @@ func (s argSpec) run(prefix string, args []string, stdout, stderr io.Writer) (co
 	case argInvalid:
 		fmt.Fprintf(stderr, "%s: %v\n", prefix, e.err)
 	default:
-		fmt.Fprintf(stderr, "%s: unknown argument: %s\n", prefix, e.arg)
+		fmt.Fprintf(stderr, "%s: %s\n", prefix, unknownArg(e.arg))
 	}
 	return 2, false
 }

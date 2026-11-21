@@ -86,7 +86,7 @@ func TestShortCodeOf(t *testing.T) {
 		{"550e8400-e29b-41d4-a716-446655440000", "550e8400"},
 	}
 	for _, c := range cases {
-		if got := shortCodeOf(c.in); got != c.want {
+		if got := ShortCode(c.in); got != c.want {
 			t.Errorf("shortCodeOf(%q)=%q want %q", c.in, got, c.want)
 		}
 	}

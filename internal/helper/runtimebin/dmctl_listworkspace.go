@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"dongminal/internal/helper/toolline"
+	"dongminal/internal/shared/workspace"
 )
 
 // dmctlListWorkspace implements `dmctl list-workspace`. /api/state 호출 후 workspace
@@ -33,35 +34,39 @@ func parseListWorkspaceFlags(args []string, stdout, stderr io.Writer) (f listWor
 	return f, code, proceed
 }
 
-// fetchListWorkspaceRows 는 `/api/state` 를 읽어 행으로 만든다.
+// statePath 는 워크스페이스 상태 종단이다.
+const statePath = "/api/state"
+
+// fetchState 는 `/api/state` 한 번을 v 로 읽는다 — 이 읽기의 유일한 자리다 (FR-RDG-22).
+// 실패는 stderr 에 한 벌의 문구로 내고 1 이다. 조용해야 하는 자리는 io.Discard 를 준다.
+func fetchState(v any, stderr io.Writer) int {
+	status, body, err := httpGet(baseURL() + statePath)
+	body, code, ok := httpExit(status, body, err, stderr, exitRule{prefix: "dmctl", refuse: refuseWith(func(w io.Writer, st int, b []byte) {
+		fmt.Fprintf(w, "dmctl: %s returned status %d: %s\n", statePath, st, b)
+	})})
+	if !ok {
+		return code
+	}
+	if err := json.Unmarshal(body, v); err != nil {
+		fmt.Fprintf(stderr, "dmctl: invalid %s response: %v\n", statePath, err)
+		return 1
+	}
+	return 0
+}
+
 // fetchWorkspaceTree 는 /api/state 의 워크스페이스 트리만 읽는다 (list-groups).
 func fetchWorkspaceTree(stderr io.Writer) (*wsTree, int) {
-	status, body, err := httpGet(baseURL() + "/api/state")
-	body, code := apiResultWith(status, body, err, stderr, func(w io.Writer, st int, b []byte) {
-		fmt.Fprintf(w, "dmctl: /api/state returned status %d: %s\n", st, b)
-	})
-	if code != 0 {
-		return nil, code
-	}
 	var state struct {
 		Workspace *wsTree `json:"workspace"`
 	}
-	if err := json.Unmarshal(body, &state); err != nil {
-		fmt.Fprintf(stderr, "dmctl: invalid /api/state response: %v\n", err)
-		return nil, 1
+	if code := fetchState(&state, stderr); code != 0 {
+		return nil, code
 	}
 	return state.Workspace, 0
 }
 
+// fetchListWorkspaceRows 는 `/api/state` 를 읽어 행으로 만든다.
 func fetchListWorkspaceRows(stderr io.Writer) ([]listWorkspaceRow, int) {
-	status, body, err := httpGet(baseURL() + "/api/state")
-	body, code := apiResultWith(status, body, err, stderr, func(w io.Writer, st int, b []byte) {
-		fmt.Fprintf(w, "dmctl: /api/state returned status %d: %s\n", st, b)
-	})
-	if code != 0 {
-		return nil, code
-	}
-
 	var state struct {
 		Tools     []toolEntry `json:"tools"`
 		Workspace *wsTree     `json:"workspace"`
@@ -70,9 +75,8 @@ func fetchListWorkspaceRows(stderr io.Writer) ([]listWorkspaceRow, int) {
 		// `/api/settings` 를 묻는다.
 		FgTabNames *bool `json:"fgTabNames"`
 	}
-	if err := json.Unmarshal(body, &state); err != nil {
-		fmt.Fprintf(stderr, "dmctl: invalid /api/state response: %v\n", err)
-		return nil, 1
+	if code := fetchState(&state, stderr); code != 0 {
+		return nil, code
 	}
 
 	shellPids := make(map[string]int, len(state.Tools))
@@ -192,70 +196,17 @@ type toolEntry struct {
 	FgName string `json:"fgName"`
 }
 
-type wsTree struct {
-	ActiveWindow string     `json:"activeWindow"`
-	Windows      []wsWindow `json:"windows"`
-	// ISSUE_AGENT_TREE_SRS FR-WGR-2: 그룹 목록. 그룹을 안 쓰면 없다.
-	WindowGroups []wsGroup `json:"windowGroups"`
-}
-
-type wsWindow struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	FocusedPane string    `json:"focusedPane"`
-	Layout      *wsLayout `json:"layout"`
-	// Type 이 있으면(git·editor) 그룹·순서 목록 밖이다 (FR-WGR-7).
-	Type    string `json:"type"`
-	GroupID string `json:"groupId"`
-}
-
-type wsGroup struct {
-	ID   string       `json:"id"`
-	Name string       `json:"name"`
-	Tree *wsGroupTree `json:"tree,omitempty"`
-}
-
-// wsGroupTree 는 이슈 트리의 격리 단위 표지다 (FR-WGR-8).
-type wsGroupTree struct {
-	Repo string `json:"repo"`
-	Root int    `json:"root"`
-}
-
-// wsLayout·wsTab 은 workspace.WsLayout 의 dmctl 판이다. 갈라 둔 이유는
-// `type`·`nameSource` 두 필드다 — 표시 이름 규칙(FR-TAN-1/3)만 그것을 읽고,
-// 공유 워크스페이스 모델은 읽을 일이 없다. 이 파일이 이미 wsTree·wsWindow 를
-// 자기 것으로 들고 있는 것과 같은 결이며, 그 덕에 `shared/workspace` 를
-// 건드리지 않는다.
-type wsLayout struct {
-	Type      string      `json:"type"`
-	ID        string      `json:"id"`
-	Tabs      []wsTab     `json:"tabs"`
-	ActiveTab string      `json:"activeTab"`
-	Children  []*wsLayout `json:"children"`
-}
-
-type wsTab struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	ToolID string `json:"toolId"`
-	// Type·NameSource 는 표시 이름 규칙이 읽는다 (FR-TAN-3/1).
-	Type       string `json:"type"`
-	NameSource string `json:"nameSource"`
-}
-
-// collectPanes 는 workspace.CollectPanes 와 같은 순회다 (pane 을 트리 순서대로).
-func collectPanes(n *wsLayout, out *[]*wsLayout) {
-	if n == nil {
-		return
-	}
-	if n.Type == "pane" {
-		*out = append(*out, n)
-		return
-	}
-	for _, c := range n.Children {
-		collectPanes(c, out)
-	}
-}
+// 워크스페이스의 모양과 순회는 `shared/workspace` 의 것이다 (REFACTOR3_DEDUP_GO_SRS
+// FR-RDG-23 · Q4). 같은 순회·같은 JSON 모양이 두 벌이던 것을 합쳤다. 별칭은 이 패키지의
+// 짧은 이름을 남기려는 것뿐이다.
+type (
+	wsTree      = workspace.WsState
+	wsWindow    = workspace.WsWindow
+	wsGroup     = workspace.WsGroup
+	wsGroupTree = workspace.WsGroupTree
+	wsLayout    = workspace.WsLayout
+	wsTab       = workspace.WsTab
+)
 
 // tabNameSource 는 web/js/core/layout-tree.js 의 같은 이름 함수와 **같은 규칙**이다
 // (FR-TAN-1/3/4). 두 곳이 갈라지면 에이전트가 화면과 다른 것을 보게 된다
@@ -454,7 +405,7 @@ func buildListWorkspaceRows(ws *wsTree, shellPids map[string]int, sizes map[stri
 	for si, sess := range ws.Windows {
 		wp := pos[sess.ID]
 		var regions []*wsLayout
-		collectPanes(sess.Layout, &regions)
+		workspace.CollectPanes(sess.Layout, &regions)
 		for pi, rg := range regions {
 			for ti, tab := range rg.Tabs {
 				focused := sess.ID == ws.ActiveWindow &&
@@ -464,7 +415,7 @@ func buildListWorkspaceRows(ws *wsTree, shellPids map[string]int, sizes map[stri
 				out = append(out, listWorkspaceRow{
 					Label:      fmt.Sprintf("W%d.P%d.T%d", si+1, pi+1, ti+1),
 					UUID:       tab.ID,
-					Short:      shortCode(tab.ID),
+					Short:      workspace.ShortCode(tab.ID),
 					ToolID:     tab.ToolID,
 					ShellPID:   shellPids[tab.ToolID],
 					SizeCols:   sz[0],
@@ -495,11 +446,4 @@ func MatchFold(s, substr string) bool {
 		return true
 	}
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
-}
-
-func shortCode(uuid string) string {
-	if len(uuid) >= 8 {
-		return uuid[:8]
-	}
-	return uuid
 }

@@ -286,6 +286,19 @@ type MigrateOpts struct {
 	DryRun bool
 }
 
+// takeOr 는 하위 명령이 모르는 인자를 Common 에 넘긴다. Common 도 모르면 그 명령의
+// unknownFlag 다 — 여섯 파서에 같은 블록이 있던 것을 모았다 (REFACTOR3_DEDUP_GO_SRS FR-RDG-25).
+func (c *Common) takeOr(action string, args []string, i *int) error {
+	ok, err := c.take(args, i)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return unknownFlag(action, args[*i])
+	}
+	return nil
+}
+
 func unknownFlag(action, a string) error {
 	return fmt.Errorf("알 수 없는 옵션: %s\n\n%s", a, Usage(action))
 }
@@ -309,12 +322,8 @@ func ParseStart(args []string) (StartOpts, error) {
 		case "-h", "--help":
 			return StartOpts{}, ErrHelp
 		default:
-			ok, err := o.Common.take(args, &i)
-			if err != nil {
+			if err := o.Common.takeOr("start", args, &i); err != nil {
 				return StartOpts{}, err
-			}
-			if !ok {
-				return StartOpts{}, unknownFlag("start", args[i])
 			}
 		}
 	}
@@ -333,12 +342,8 @@ func ParseStop(args []string) (StopOpts, error) {
 		case "-h", "--help":
 			return StopOpts{}, ErrHelp
 		default:
-			ok, err := o.Common.take(args, &i)
-			if err != nil {
+			if err := o.Common.takeOr("stop", args, &i); err != nil {
 				return StopOpts{}, err
-			}
-			if !ok {
-				return StopOpts{}, unknownFlag("stop", args[i])
 			}
 		}
 	}
@@ -365,12 +370,8 @@ func ParseDoctor(args []string) (DoctorOpts, error) {
 		case "-h", "--help":
 			return DoctorOpts{}, ErrHelp
 		default:
-			ok, err := o.Common.take(args, &i)
-			if err != nil {
+			if err := o.Common.takeOr("doctor", args, &i); err != nil {
 				return DoctorOpts{}, err
-			}
-			if !ok {
-				return DoctorOpts{}, unknownFlag("doctor", args[i])
 			}
 		}
 	}
@@ -415,12 +416,8 @@ func ParseHealth(args []string) (HealthOpts, error) {
 		case "--daemon":
 			o.DaemonOnly = true
 		default:
-			ok, err := o.Common.take(args, &i)
-			if err != nil {
+			if err := o.Common.takeOr("health", args, &i); err != nil {
 				return HealthOpts{}, err
-			}
-			if !ok {
-				return HealthOpts{}, unknownFlag("health", args[i])
 			}
 		}
 	}
@@ -434,12 +431,8 @@ func ParseWindow(args []string) (WindowOpts, error) {
 		case "-h", "--help":
 			return WindowOpts{}, ErrHelp
 		default:
-			ok, err := o.Common.take(args, &i)
-			if err != nil {
+			if err := o.Common.takeOr("window", args, &i); err != nil {
 				return WindowOpts{}, err
-			}
-			if !ok {
-				return WindowOpts{}, unknownFlag("window", args[i])
 			}
 		}
 	}
@@ -455,12 +448,8 @@ func ParseMigrate(args []string) (MigrateOpts, error) {
 		case "-h", "--help":
 			return MigrateOpts{}, ErrHelp
 		default:
-			ok, err := o.Common.take(args, &i)
-			if err != nil {
+			if err := o.Common.takeOr("migrate", args, &i); err != nil {
 				return MigrateOpts{}, err
-			}
-			if !ok {
-				return MigrateOpts{}, unknownFlag("migrate", args[i])
 			}
 		}
 	}

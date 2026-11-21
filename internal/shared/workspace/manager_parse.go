@@ -30,9 +30,13 @@ type WsTab struct {
 	// RunID는 이 탭의 도구를 소유한 Run (FR-EM-17 접합면). 비어 있으면
 	// 어느 Run 에도 속하지 않는다 — 사람이 직접 만든 도구의 정상 상태다.
 	RunID string `json:"runId,omitempty"`
+	// Type·NameSource 는 dmctl 의 표시 이름 규칙이 읽는다 (CONVENIENCE_SRS FR-TAN-1/3).
+	// 서버는 읽지 않는다 (REFACTOR3_DEDUP_GO_SRS FR-RDG-23 — dmctl 의 두 벌을 여기로 합쳤다).
+	Type       string `json:"type,omitempty"`
+	NameSource string `json:"nameSource,omitempty"`
 }
 
-type wsWindow struct {
+type WsWindow struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
 	Layout      *WsLayout `json:"layout"`
@@ -44,6 +48,23 @@ type wsWindow struct {
 	// Window 이며, 그 의미가 이 필드가 없던 파일의 의미와 같다 — 그래서
 	// schemaVersion 을 올리지 않는다 (SANDBOX_WINDOW_SRS FR-SBX-18/19).
 	Sandbox string `json:"sandbox,omitempty"`
+	// Type 이 있으면(git·editor) 그룹·순서 목록 밖이다 (ISSUE_AGENT_TREE_SRS FR-WGR-7).
+	// GroupID 는 이 Window 가 든 그룹이다. 둘 다 dmctl 이 읽고 서버는 읽지 않는다.
+	Type    string `json:"type,omitempty"`
+	GroupID string `json:"groupId,omitempty"`
+}
+
+// WsGroup 은 Window 그룹이다 (ISSUE_AGENT_TREE_SRS FR-WGR-2). 그룹을 안 쓰면 없다.
+type WsGroup struct {
+	ID   string       `json:"id"`
+	Name string       `json:"name"`
+	Tree *WsGroupTree `json:"tree,omitempty"`
+}
+
+// WsGroupTree 는 이슈 트리의 격리 단위 표지다 (FR-WGR-8).
+type WsGroupTree struct {
+	Repo string `json:"repo"`
+	Root int    `json:"root"`
 }
 
 // WindowInfo 는 Window 하나의 배치 정보다. 대응 컨테이너를 만들 자리(Sandbox)와
@@ -53,10 +74,11 @@ type WindowInfo struct {
 	Sandbox string
 }
 
-type wsState struct {
+type WsState struct {
 	SchemaVersion int        `json:"schemaVersion"`
-	Windows       []wsWindow `json:"windows"`
+	Windows       []WsWindow `json:"windows"`
 	ActiveWindow  string     `json:"activeWindow"`
+	WindowGroups  []WsGroup  `json:"windowGroups,omitempty"`
 }
 
 func emptyIndex() *index {
@@ -77,11 +99,11 @@ func emptyIndex() *index {
 //
 // 빈 blob 은 (nil, nil) 이다 — 오류가 아니라 "상태가 아직 없다" 이며, 호출자의
 // 빈 결과 경로로 간다.
-func decodeState(blob []byte) (*wsState, error) {
+func decodeState(blob []byte) (*WsState, error) {
 	if len(blob) == 0 {
 		return nil, nil
 	}
-	var s wsState
+	var s WsState
 	if err := json.Unmarshal(blob, &s); err != nil {
 		return nil, err
 	}
@@ -145,7 +167,7 @@ func buildIndex(blob []byte) (*index, error) {
 					WindowUUID: sess.ID,
 					PaneUUID:   rg.ID,
 					TabUUID:    tab.ID,
-					ShortCode:  shortCodeOf(tab.ID),
+					ShortCode:  ShortCode(tab.ID),
 				})
 				ix.labels[tab.ToolID] = label
 				ix.labelToID[label] = tab.ToolID
@@ -159,10 +181,10 @@ func buildIndex(blob []byte) (*index, error) {
 	return ix, nil
 }
 
-// shortCodeOf returns the leading 8 hex chars of a canonical UUID, used as a
+// ShortCode returns the leading 8 hex chars of a canonical UUID, used as a
 // log-readability alias (NFR-UID-4). Falls back to the raw string when the
 // input is shorter than 8 chars or empty.
-func shortCodeOf(uuid string) string {
+func ShortCode(uuid string) string {
 	if len(uuid) >= 8 {
 		return uuid[:8]
 	}

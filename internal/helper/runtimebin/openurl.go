@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os/exec"
 	"strings"
 
@@ -52,16 +53,22 @@ func openURLWith(args []string, stdout, stderr io.Writer, openLocal func(string)
 		"action": "openUrl",
 		"args":   map[string]any{"url": target},
 	})
-	switch {
-	case err != nil:
+	fallback := func(io.Writer, error) int { return openHere(target, stderr, openLocal) }
+	body, code, ok := httpExit(status, body, err, stderr, exitRule{
 		// FR-VUO-4: 서버에 닿지 못해도 열기 요청은 소실되지 않는다.
-		return openHere(target, stderr, openLocal)
-	case status == 400:
-		// 서버가 거절한 URL 은 열어서는 안 되는 것이다 (FR-VUO-18).
-		fmt.Fprintf(stderr, "open-url: %s\n", strings.TrimSpace(string(body)))
-		return 1
-	case status != 200:
-		return openHere(target, stderr, openLocal)
+		onErr: fallback,
+		ok:    func(s int) bool { return s == http.StatusOK },
+		refuse: func(w io.Writer, s int, b []byte) int {
+			if s != http.StatusBadRequest {
+				return fallback(w, nil)
+			}
+			// 서버가 거절한 URL 은 열어서는 안 되는 것이다 (FR-VUO-18).
+			fmt.Fprintf(w, "open-url: %s\n", strings.TrimSpace(string(b)))
+			return 1
+		},
+	})
+	if !ok {
+		return code
 	}
 
 	var resp struct {

@@ -1,11 +1,11 @@
 package runtimebin
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"time"
+
+	"dongminal/internal/shared/workspace"
 )
 
 // TAB_NAME_DELIVERY_SRS 묶음 C: rename 은 반영을 확인하고, 반영되지 않으면 다시 보낸다.
@@ -69,14 +69,10 @@ func waitRenameApplied(want renameWant) (applied, known bool) {
 
 // renameApplied 는 `/api/state` 한 번으로 판정한다. 조회 실패는 미반영이다 (FR-TND-15).
 func renameApplied(want renameWant) (applied, known bool) {
-	status, body, err := httpGet(baseURL() + "/api/state")
-	if err != nil || status != http.StatusOK {
-		return false, true
-	}
 	var state struct {
 		Workspace *wsTree `json:"workspace"`
 	}
-	if json.Unmarshal(body, &state) != nil {
+	if fetchState(&state, io.Discard) != 0 {
 		return false, true
 	}
 	if state.Workspace == nil {
@@ -84,7 +80,7 @@ func renameApplied(want renameWant) (applied, known bool) {
 	}
 	for _, w := range state.Workspace.Windows {
 		var panes []*wsLayout
-		collectPanes(w.Layout, &panes)
+		workspace.CollectPanes(w.Layout, &panes)
 		for _, p := range panes {
 			for _, t := range p.Tabs {
 				if t.ID == want.tabID {

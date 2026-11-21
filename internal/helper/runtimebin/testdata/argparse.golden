@@ -439,19 +439,19 @@ dmctl ["--help"]
   stdout=""
   stderr=""
 dmctl ["--json"]
-  err=unknown flag: --json p={}
+  err=unknown argument: --json p={}
   stdout=""
   stderr=""
 dmctl ["--json" "-h" "--bogus"]
-  err=unknown flag: --json p={}
+  err=unknown argument: --json p={}
   stdout=""
   stderr=""
 dmctl ["--bogus" "-h"]
-  err=unknown flag: --bogus p={}
+  err=unknown argument: --bogus p={}
   stdout=""
   stderr=""
 dmctl ["--json=1"]
-  err=unknown flag: --json=1 p={}
+  err=unknown argument: --json=1 p={}
   stdout=""
   stderr=""
 dmctl ["="]
@@ -459,7 +459,7 @@ dmctl ["="]
   stdout=""
   stderr=""
 dmctl ["-"]
-  err=unknown flag: - p={}
+  err=unknown argument: - p={}
   stdout=""
   stderr=""
 dmctl ["x"]
@@ -479,7 +479,7 @@ dmctl ["--at" "1.2"]
   stdout=""
   stderr=""
 dmctl ["--at="]
-  err=unknown flag: --at= p={}
+  err=unknown argument: --at= p={}
   stdout=""
   stderr=""
 dmctl ["--at=1"]
@@ -487,7 +487,7 @@ dmctl ["--at=1"]
   stdout=""
   stderr=""
 dmctl ["-l="]
-  err=unknown flag: -l= p={}
+  err=unknown argument: -l= p={}
   stdout=""
   stderr=""
 dmctl ["-l=2"]
@@ -499,7 +499,7 @@ dmctl ["--name"]
   stdout=""
   stderr=""
 dmctl ["--name="]
-  err=unknown flag: --name= p={}
+  err=unknown argument: --name= p={}
   stdout=""
   stderr=""
 dmctl ["--name=n"]
@@ -515,7 +515,7 @@ dmctl ["--sandbox" "p" "--workdir" "w" "--cwd" "c"]
   stdout=""
   stderr=""
 dmctl ["--sandbox=" "x"]
-  err=unknown flag: --sandbox= p={}
+  err=unknown argument: --sandbox= p={}
   stdout=""
   stderr=""
 dmctl ["--sandbox=p" "--workdir=w" "--cwd=c"]
@@ -523,11 +523,11 @@ dmctl ["--sandbox=p" "--workdir=w" "--cwd=c"]
   stdout=""
   stderr=""
 dmctl ["--workdir="]
-  err=unknown flag: --workdir= p={}
+  err=unknown argument: --workdir= p={}
   stdout=""
   stderr=""
 dmctl ["--cwd="]
-  err=unknown flag: --cwd= p={}
+  err=unknown argument: --cwd= p={}
   stdout=""
   stderr=""
 dmctl ["--no-focus" "-n" "--auto" "--force" "--background"]
@@ -535,7 +535,7 @@ dmctl ["--no-focus" "-n" "--auto" "--force" "--background"]
   stdout=""
   stderr=""
 dmctl ["--no-focus=1"]
-  err=unknown flag: --no-focus=1 p={}
+  err=unknown argument: --no-focus=1 p={}
   stdout=""
   stderr=""
 dmctl ["a" "--" "--at" "b"]
@@ -547,10 +547,10 @@ dmctl ["-h" "a"]
   stdout=""
   stderr=""
 dmctl ["a" "--bogus"]
-  err=unknown flag: --bogus p={}
+  err=unknown argument: --bogus p={}
   stdout=""
   stderr=""
 dmctl ["-5"]
-  err=unknown flag: -5 p={}
+  err=unknown argument: -5 p={}
   stdout=""
   stderr=""

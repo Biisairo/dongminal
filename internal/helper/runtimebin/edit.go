@@ -42,10 +42,11 @@ func runEdit(args []string, stdout, stderr io.Writer) int {
 		"args":   map[string]any{"name": name, "filePath": abs},
 	}
 	status, resp, err := httpPostJSON(url_, body)
-	if err != nil {
-		fmt.Fprintf(stderr, "edit: 서버 연결 실패 (port=%s)\n", currentPort())
+	rule := commandRule("edit")
+	rule.onErr = func(w io.Writer, _ error) int {
+		fmt.Fprintf(w, "edit: 서버 연결 실패 (port=%s)\n", currentPort())
 		return 1
 	}
 	// REFACTOR3_DEFECTS_SRS FR-RD3-60: 4xx·5xx 는 실패다 — 이전에는 상태를 버리고 0 을 돌려주었다.
-	return dmctlHTTPResult("edit", status, resp, nil, true, stdout, stderr)
+	return dmctlHTTPResult(rule, status, resp, err, true, stdout, stderr)
 }
