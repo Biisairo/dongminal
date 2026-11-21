@@ -381,6 +381,8 @@ FNV 로 바꾼 실험이 **한 톨도 줄이지 못했다** — `h.Write([]byte(
 | FR-PRF-37 | 회차 겹침 가드를 **더하지 않는다** — `TimerHub` 의 `overlap:'drop'` 기본값이 이미 막는다 (`timer-hub.js:148`) | 필수 |
 | FR-PRF-38 | **측정**: 한 회차의 **직렬 왕복 수**가 3 → 2 다. 벽시계는 기록만 한다 (FR-PRF-3) | 필수 |
 
+> **개정 (2026-11-21, `REFACTOR3_FE_REST1_SRS` FR-FR1-14 · D-FR1-10).** FR-PRF-36 의 "①은 홀로 앞에 남는다" 를 거둔다. ping 과 stats 를 함께 보내고(회차당 직렬 왕복 1), 지연은 그대로 ping 한 번의 왕복만 잰다. `e2e/perf-statusbar.spec.ts` S1 은 "stats 가 ping 응답을 기다리지 않는다" 를 단정한다.
+
 ### 3.3 묶음 P-C — Go HTTP (§4.1 항목 1·7·13·15)
 
 | ID | 요구 | 등급 |

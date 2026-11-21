@@ -14,12 +14,14 @@ import { test, expect, waitForInit } from './fixtures';
  *
  *   이전: ping → stats → git/jobs   세 왕복이 줄을 선다 (3r)
  *   다음: ping → (stats ∥ git/jobs)  뒤의 둘이 겹친다 (2r)
- *   지금: ping → stats?jobs=1        뒤의 둘이 한 요청이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-4)
+ *   그다음: ping → stats?jobs=1      뒤의 둘이 한 요청이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-4)
+ *   지금: ping ∥ stats?jobs=1        둘을 함께 보낸다 (REFACTOR3_FE_REST1_SRS FR-FR1-14, 1r)
  *
- * `ping` 은 **겹치지 않아야 한다** — 그 왕복은 지연 측정 자체가 목적이라 다른
- * 요청과 같은 줄에 서면 측정이 오염된다 (FR-PRF-36). 그래서 이 검사는 겹침을
- * 요구하면서 동시에 **ping 이 겹치지 않음**도 단정한다. 한쪽만 보면 "전부
- * 겹치게" 도 통과하고 그것은 다른 결함이다.
+ * REFACTOR3_FE_REST1_SRS D-FR1-10:
+ *   이전 동작: ping 은 겹치지 않아야 했다 — 응답을 받은 뒤에야 stats 를 보냈다
+ *   새  동작: stats 는 ping 응답을 기다리지 않는다. 지연(`_latency`)은 그대로 ping 의 왕복만 잰다
+ *             (단위 시험 `statusbar-poll.test.mjs` 가 고정한다)
+ *   이유:     두 요청은 따로 간다. 회차 대기가 RTT 두 번에서 한 번으로 준다
  */
 
 type Entry = { name: string; start: number; end: number };
@@ -38,9 +40,9 @@ async function timings(page: Page) {
   });
 }
 
-const overlaps = (a: Entry, b: Entry) => a.start < b.end && b.start < a.end;
+const overlaps = (a: Entry, b: Entry) => a.start <= b.end && b.start <= a.end;
 
-test('S1 (FR-PRF-36~38 · TC-PRF-13 · FR-OPT-4-4): 상태바 회차는 ping 과 stats 둘이고 ping 은 겹치지 않는다', async ({ page }) => {
+test('S1 (FR-PRF-36~38 · TC-PRF-13 · FR-OPT-4-4 · FR-FR1-14): 상태바 회차는 ping 과 stats 둘이고 stats 는 ping 응답을 기다리지 않는다', async ({ page }) => {
   await waitForInit(page);
   await page.evaluate(() => performance.clearResourceTimings());
 
@@ -57,7 +59,7 @@ test('S1 (FR-PRF-36~38 · TC-PRF-13 · FR-OPT-4-4): 상태바 회차는 ping 과
   // Git 패널이 없으면 작업 목록을 묻지 않는다 — 틱에도 따로도.
   expect(jobs.length, JSON.stringify(all)).toBe(0);
 
-  // ping 은 stats 와 겹치지 않는다 — 지연 측정은 홀로 선다.
-  const dirty = pings.filter((p) => stats.some((o) => overlaps(p, o)));
-  expect(dirty.length, `ping ${JSON.stringify(pings)}`).toBe(0);
+  // 회차마다 stats 는 ping 응답이 오기 **전에** 떠난다 — 직렬이면 ping 의 끝 뒤에 시작한다.
+  const serial = pings.filter((p) => !stats.some((o) => overlaps(p, o)));
+  expect(serial.length, `ping ${JSON.stringify(pings)} stats ${JSON.stringify(stats)}`).toBe(0);
 });
