@@ -69,6 +69,21 @@ test('TC-FR4-2: 백그라운드 행의 바탕 규칙은 style-runs.css 에만 �
   assert.deepEqual(where.filter((w) => !w.startsWith('web/style-runs.css:')), [], '바탕 규칙이 다른 파일에도 있다');
 });
 
+// REFACTOR3_FE_REST4_SRS FU-8 (TC-FR4-4): 레일 상태는 패널 루트의 표식 `data-rail` 하나다.
+// 이전: 규칙마다 `html.sb-collapsed body:not(.mobile) …` · `body:not(.mobile) #agents-panel:not(.open) …` 를 다시 적었다.
+test('TC-FR4-4: CSS 에 옛 레일 상태 선택자가 없고, 첫 프레임의 표식이 index.html 에 있다', () => {
+  const old = rules().filter((r) => /html\.sb-collapsed\b|#agents-panel:not\(\.open\)/.test(r.sel)).map((r) => `${r.file}: ${r.sel}`);
+  assert.deepEqual(old, [], '옛 레일 상태 선택자가 남았다');
+  assert.ok(rules().filter((r) => r.sel.includes('[data-rail]')).length >= 20, '레일 표식 규칙을 못 읽었다');
+  const html = readFileSync('web/index.html', 'utf8');
+  assert.match(html, /<div id="agents-panel" class="ui-panel"[^>]* data-rail>/, '#agents-panel 은 처음부터 레일이다');
+  const at = html.indexOf('<div id="sidebar"');
+  const boot = html.slice(at, html.indexOf('</script>', at));
+  assert.match(boot, /classList\.contains\('sb-collapsed'\)\)document\.getElementById\('sidebar'\)\.setAttribute\('data-rail',''\)/,
+    '#sidebar 여는 태그 뒤에서 접힘을 보고 표식을 붙인다');
+  assert.ok(html.indexOf('<div id="sb-head"', at) > html.indexOf('</script>', at), '표식은 사이드바 내용보다 먼저 선다');
+});
+
 test('FEU-29: git 뷰 툴바 여섯이 골격 한 규칙을 나눈다', () => {
   const BARS = ['.git-diff-bar', '.git-img-bar', '.git-con-bar', '.git-br-bar', '.git-hist-bar', '.git-stash-bar'];
   const all = rules();

@@ -20,7 +20,8 @@ function classList() {
 }
 
 function rig() {
-  const els = { 'agents-panel': { classList: classList() }, 'agents-handle': { classList: classList() } };
+  // REFACTOR3_FE_REST4_SRS FR-FR4-3: 작업 패널은 열림이 바뀌면 레일 표식(`data-rail`)을 다시 세운다.
+  const els = { 'agents-panel': { classList: classList(), toggleAttribute() {} }, 'agents-handle': { classList: classList() } };
   // `_runsListRestore` 는 `app.js` 본문이다 (REFACTOR3_FE_APPCTL_SRS 9a — 옛 `app-runs.js`). 생성자는 돌리지 않는다.
   const ctx = load([...BASE, ...PANELS, 'core/app.js', ...AGENTS], {
     globals: {

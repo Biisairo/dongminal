@@ -9,6 +9,8 @@
  *   escapable   참이면 열 때 `EscapeStack` 에 넣고 닫을 때 뺀다. 등록 여부는 하위가 정한다. 항목은 패널 자신이다 —
  *               층은 `phase`(기본 캡처), 살아 있는지는 하위가 `active()` 로 말한다(REFACTOR3_FE_ESC_SRS FR-FEE-5)
  *   tabs        하위가 드는 `TabBar`. 열고 닫으면 라벨 자리가 바뀌므로 같은 길(`fit`)로 다시 잰다 (FR-FEB-26)
+ *   rail        참이면 데스크톱에서 닫힘이 레일이다. 레일 표식 `data-rail` 은 `railSync` 한 자리가 세운다
+ *               (REFACTOR3_FE_REST4_SRS FR-FR4-3)
  *
  * 루트는 `rootId` 의 요소를 처음 쓸 때 받는다(`adopt`, D-FEB-3).
  */
@@ -21,6 +23,7 @@ class Panel extends View {
     this.persistKey=o.persistKey||null;
     this.escapable=!!o.escapable;
     this.phase=o.phase||'capture';
+    this.rail=!!o.rail;
     this.tabs=null;
   }
 
@@ -45,6 +48,7 @@ class Panel extends View {
     const e=this.stateEl();
     if(!e||this.isOpen()===v) return false;
     this.mark(e,v);
+    this.railSync();
     this.persist(v);
     if(this.escapable){ if(v) EscapeStack.push(this); else EscapeStack.remove(this) }
     if(v) this.onOpen(); else this.onClose();
@@ -57,6 +61,17 @@ class Panel extends View {
   toggle(){ return this.setOpen(!this.isOpen()) }
 
   mark(e,v){ e.classList.toggle(this.openClass,v) }
+
+  /**
+   * REFACTOR3_FE_REST4_SRS FR-FR4-3·4: 레일 표식을 세우는 유일한 자리. 레일 = 레일을 갖는 패널이 닫혀 있고 데스크톱이다.
+   * 데스크톱 판정은 `body.mobile` 클래스다 — CSS 가 보던 `body:not(.mobile)` 과 같은 것을 본다(D-FR4-5).
+   * 부르는 곳: 열림이 바뀐 뒤(`setOpen`), `body.mobile` 을 바꾼 뒤(`applyMobileMode`), 부팅 때 저장 값으로 연 뒤.
+   */
+  railSync(){
+    const e=this.root();
+    if(!e||!this.rail) return;
+    e.toggleAttribute('data-rail',!this.isOpen()&&!document.body.classList.contains('mobile'));
+  }
 
   persist(v){ if(this.persistKey) PrefStore.session.setBool(this.persistKey,v) }
 

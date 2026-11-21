@@ -457,10 +457,15 @@ body.mobile #sb-panel-windows #add-sandbox-window{margin:-8px -8px -8px auto}
    D-2: 자리는 `html` 이다. index.html 의 인라인 스크립트가 첫 프레임에 붙이며
    (FR-SBC-5) 그때 `body` 는 아직 없다.
 
-   FR-SBC-20: `body:not(.mobile)` 로 한정한다. 모바일에서 사이드바는 드로어이고
+   FR-SBC-20: 모바일에서는 걸리지 않는다. 모바일에서 사이드바는 드로어이고
    (§2.4) 여는 손잡이를 `#m-drawer-toggle` 이 이미 갖고 있다 — 두 규약이 겹치면
-   드로어를 연 채 접힌 상태가 된다. 규칙마다 되돌리는 대신 아예 걸리지 않게 한다. */
-html.sb-collapsed body:not(.mobile) #sidebar{
+   드로어를 연 채 접힌 상태가 된다. 규칙마다 되돌리는 대신 아예 걸리지 않게 한다.
+
+   REFACTOR3_FE_REST4_SRS FU-8: 규칙이 보는 것은 접힘 클래스가 아니라 **레일 표식** `#sidebar[data-rail]` 이다.
+   이전: 규칙마다 `html.sb-collapsed body:not(.mobile)` 를 다시 적었다.
+   표식은 접힘과 `body.mobile` 에서 파생하고 `Panel.railSync` 한 자리가 세운다 — 접힘 클래스(D-1·D-2)는 그대로 저장·첫 프레임의
+   기준이다. 루트 규칙의 `.ui-panel` 은 특이도다 — `body:not(.mobile) #sidebar` 의 폭을 덮어야 한다 (D-FR4-8). */
+#sidebar.ui-panel[data-rail]{
   width:var(--sb-rail-w);min-width:var(--sb-rail-w);
 }
 /* FR-SBC-16: 레일의 폭은 고정이다. 핸들이 남으면 접힌 사이드바를 끌어 펼칠 수
@@ -469,7 +474,7 @@ html.sb-collapsed body:not(.mobile) #sidebar{
    종전에는 감췄고(끌어서 펼칠 수 있는 것처럼 보인다는 이유), 그때는 펼치는 버튼이
    탑바에 있었다. 지금은 손잡이가 그 일을 하므로 감추면 길이 사라진다.
    레일의 폭은 여전히 고정이다: 끌어도 임계를 넘기 전에는 아무것도 바뀌지 않는다. */
-html.sb-collapsed body:not(.mobile) #sb-handle{background:var(--border-strong)}
+#sidebar[data-rail]+#sb-handle{background:var(--border-strong)}
 /* ── 레일의 목록 (PANEL_SURFACE_SRS FR-RAL-1~9 · FR-SBC-11 개정) ──
 
    종전에는 `.sb-panel` 을 통째로 감췄다 — 40px 에서 목록은 읽히지 않는다는
@@ -480,14 +485,14 @@ html.sb-collapsed body:not(.mobile) #sb-handle{background:var(--border-strong)}
 
    목록은 펼침과 **같은 DOM**이므로 활성·알람 표시가 두 벌이 되지 않고
    (FR-RAL-4), 레일 전용 데이터도 생기지 않는다 (FR-RAL-6). */
-html.sb-collapsed body:not(.mobile) .sb-actions{display:none}
-html.sb-collapsed body:not(.mobile) .sbl-badge,
-html.sb-collapsed body:not(.mobile) .sbl-x,
-html.sb-collapsed body:not(.mobile) .sbl-none,
-html.sb-collapsed body:not(.mobile) .ed-entries-none{display:none}
+#sidebar[data-rail] .sb-actions{display:none}
+#sidebar[data-rail] .sbl-badge,
+#sidebar[data-rail] .sbl-x,
+#sidebar[data-rail] .sbl-none,
+#sidebar[data-rail] .ed-entries-none{display:none}
 /* 여백이 3px 이어야 점(5px)과 글자가 40px 안에 함께 든다 — 펼침의 10px 로는
    글자에 7px 밖에 남지 않는다. */
-html.sb-collapsed body:not(.mobile) .sbl-item{padding:0 3px;gap:3px}
+#sidebar[data-rail] .sbl-item{padding:0 3px;gap:3px}
 /* FR-RAL-2 (개정, 2026-09-08 접수): **첫 글자가 아니라 이름이다.**
 
      이전 동작: 레일에는 이름의 첫 글자 하나만 남았다 — `창`·`메` 로는 어느
@@ -502,7 +507,7 @@ html.sb-collapsed body:not(.mobile) .sbl-item{padding:0 3px;gap:3px}
 
    `title` 은 그대로 전체 이름이다 (FR-RAL-3) — 두 줄에도 안 들어가는 이름이
    있고, 그때 닿는 유일한 길이 그것이다. */
-html.sb-collapsed body:not(.mobile) .sbl-name{
+#sidebar[data-rail] .sbl-name{
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
   white-space:normal;overflow-wrap:anywhere;overflow:hidden;
   font-size:var(--sb-rail-fs);line-height:1.15;text-align:center;
@@ -512,17 +517,19 @@ html.sb-collapsed body:not(.mobile) .sbl-name{
    한 점을 다투면 급한 쪽이 가려진다. */
 /* UX_BATCH12_SRS FR-RGT-1: 그룹 머리는 뺀다 — 그 점은 테두리로 그린 삼각형이라 배경을 칠하면
    파란 사각형이 된다. 그룹의 창 수는 펼친 패널의 배지가 말한다. */
-html.sb-collapsed body:not(.mobile) .sbl-item.has-badge:not(.attn):not(.si-group) .sbl-dot{
+#sidebar[data-rail] .sbl-item.has-badge:not(.attn):not(.si-group) .sbl-dot{
   background:var(--accent);
 }
 
 /* FR-SBC-12: 탭 바가 눕는다. 밑줄은 바깥 가장자리의 띠가 된다 — 세로 목록에서 아래 테두리는
    탭 사이의 구분선처럼 읽힌다. 눕는 머리·탭 높이·띠는 패널 템플릿이 정한다 (PANEL_TEMPLATE_SRS FR-PNT-8). */
-html.sb-collapsed body:not(.mobile) .sb-tab-label{display:none}
-html.sb-collapsed body:not(.mobile) .sb-tab-icon{display:block;font-size:var(--fs-lg);line-height:1}
+#sidebar[data-rail] .sb-tab-label{display:none}
+#sidebar[data-rail] .sb-tab-icon{display:block;font-size:var(--fs-lg);line-height:1}
 /* FR-SBC-14: 배지 규약(비활성 탭에서만·0 이면 없음)은 그대로이고 **자리만** 옮긴다 —
-   레일에 나란히 놓을 폭이 없다. */
-html.sb-collapsed body:not(.mobile) .sb-tab-badge{
+   레일에 나란히 놓을 폭이 없다.
+   이 규칙만 `#sidebar` 가 아니라 `.ui-panel` 로 고른다 — 창 탭 배지의 `position`(style-sidebar.css, 숨쉬는 테두리의 자리)이
+   이겨 온 특이도를 지킨다 (REFACTOR3_FE_REST4_SRS D-FR4-8). */
+.ui-panel[data-rail] .sb-tab-badge{
   position:absolute;top:2px;right:2px;min-width:12px;padding:0 3px;
   font-size:var(--fs-xs);line-height:12px;border-radius:var(--radius-md);
 }
@@ -533,7 +540,7 @@ html.sb-collapsed body:not(.mobile) .sb-tab-badge{
    남으므로(FR-RAL-1) 미는 힘은 살아 있다. 그래도 남겨 둔다: 목록이 비어 패널이
    자연 높이로 줄어드는 순간에도 `⟳`·`⚙` 는 바닥이어야 하고(FR-RAL-8),
    접었다는 이유로 버튼이 화면을 가로질러 옮겨 다녀서는 안 된다 (FR-SBC-15). */
-html.sb-collapsed body:not(.mobile) #sb-bottom{
+#sidebar[data-rail] #sb-bottom{
   flex-direction:column;gap:4px;margin:auto 4px 8px;
 }
 
@@ -866,30 +873,32 @@ html[data-ag-side="left"] body:not(.mobile) #agents-panel{border-left:none;borde
    데스크톱에서 `.open` 이 없으면 숨지 않고 사이드바 레일 폭으로 접힌다. 펼침과 **같은 DOM** 이고
    (FR-RAL-4 와 같은 규약) 40px 에 들어가지 않는 것만 숨긴다. 남는 것은 구역 아이콘·수와
    항목 이름(두 줄)이다. 경계선은 `#agents-panel` 의 좌우 규칙을 그대로 받는다 (FR-ACF-11).
-   모바일은 `body:not(.mobile)` 밖이라 종전대로 숨는다 (FR-ACF-10). */
+   모바일은 레일 표식이 서지 않아 종전대로 숨는다 (FR-ACF-10).
+   REFACTOR3_FE_REST4_SRS FU-8: 규칙이 보는 것은 레일 표식 `#agents-panel[data-rail]` 이다(`Panel.railSync`).
+   이전: 규칙마다 `body:not(.mobile) #agents-panel:not(.open)` 를 다시 적었다. 루트 규칙의 `.ui-panel` 은 특이도다 (D-FR4-8). */
 body:not(.mobile) #agents-handle{display:block}
-body:not(.mobile) #agents-panel:not(.open){
+#agents-panel.ui-panel[data-rail]{
   display:flex;width:var(--sb-rail-w);min-width:var(--sb-rail-w);overflow-x:hidden;
 }
-body:not(.mobile) #agents-panel:not(.open) :is(.ag-title,.ag-refresh,.ag-tab-name,
+#agents-panel[data-rail] :is(.ag-title,.ag-refresh,.ag-tab-name,
   .ag-sec-empty,.chat-row-sub,.chat-act,.chat-sub-h,.chat-none,.chat-node,.chat-person,.chat-down,.act-usage-foot,.ag-state,.ag-detail,.ag-usage,.ag-sub,
   .bg-row > :not(.bg-name),.runs-row > :not(.runs-short)){display:none}
 /* PEER_CHAT_SRS FR-PCH-82: 레일에서는 탭 넷이 아이콘으로 세로로 선다 — 눕는 머리·탭의 높이·활성 띠는
    패널 템플릿이 정한다 (PANEL_TEMPLATE_SRS FR-PNT-8). */
-body:not(.mobile) #agents-panel:not(.open) .ag-tab-icon{font-size:var(--fs-lg)}
+#agents-panel[data-rail] .ag-tab-icon{font-size:var(--fs-lg)}
 /* FR-SBC-14 와 같다: 배지는 자리만 아이콘의 귀퉁이로 옮긴다. */
-body:not(.mobile) #agents-panel:not(.open) .ag-tab-n{
+#agents-panel[data-rail] .ag-tab-n{
   position:absolute;top:2px;right:2px;min-width:12px;padding:0 3px;
   font-size:var(--fs-xs);line-height:12px;border-radius:var(--radius-md);
 }
-body:not(.mobile) #agents-panel:not(.open) .ag-tab-dot{position:absolute;top:4px;right:6px}
+#agents-panel[data-rail] .ag-tab-dot{position:absolute;top:4px;right:6px}
 /* 창 그룹 머리는 구분선만 남는다 — 이름도 알람 수도 40px 에 들지 않는다. */
-body:not(.mobile) #agents-panel:not(.open) .ag-group{padding:0;height:0;overflow:hidden;pointer-events:none}
+#agents-panel[data-rail] .ag-group{padding:0;height:0;overflow:hidden;pointer-events:none}
 /* UX_AUDIT_FIX_SRS FR-UXF-25: 레일의 카드는 이름 한 칸이다 — 상태 기호는 카드의 상태 띠가 대신한다. */
-body:not(.mobile) #agents-panel:not(.open) .ag-dot{display:none}
-body:not(.mobile) #agents-panel:not(.open) :is(.ag-card,.bg-row,.runs-row,.chat-row){padding:6px 3px;display:block}
+#agents-panel[data-rail] .ag-dot{display:none}
+#agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row,.chat-row){padding:6px 3px;display:block}
 /* FR-RAL-2 와 같다: 이름은 두 줄까지, 넘치면 둘째 줄 끝에 `…`. */
-body:not(.mobile) #agents-panel:not(.open) :is(.ag-loc,.bg-name,.runs-short,.chat-row-name){
+#agents-panel[data-rail] :is(.ag-loc,.bg-name,.runs-short,.chat-row-name){
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
   white-space:normal;overflow-wrap:anywhere;overflow:hidden;
   font-size:var(--sb-rail-fs);line-height:1.15;text-align:center;

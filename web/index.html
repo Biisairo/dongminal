@@ -161,6 +161,10 @@
   <!-- PANEL_TEMPLATE_SRS FR-PNT-1·2·20: 패널 템플릿 — 머리(`ui-panel-head` = 탭 줄 + 끝 단추) · 몸통 · 바닥.
        Activity(`#agents-panel`)와 같은 골격이다. 모바일 시트는 `data-sheet` 쪽에서 들어온다. -->
   <div id="sidebar" class="ui-scroll ui-panel" data-sheet="left">
+    <!-- REFACTOR3_FE_REST4_SRS FR-FR4-5 (D-FR4-6): 레일 표식 `data-rail` 을 첫 페인트 전에 세운다. 머리 스크립트가
+         접힘(`html.sb-collapsed`)을 붙일 때 이 요소는 아직 없다. 이 시점에 `body.mobile` 은 없으므로 접힘이 곧 레일이다.
+         이후는 `Panel.railSync` 한 자리가 맡는다. -->
+    <script>if(document.documentElement.classList.contains('sb-collapsed'))document.getElementById('sidebar').setAttribute('data-rail','')</script>
     <div id="sb-head" class="ui-panel-head">
       <!-- GIT_SIDEBAR_TABS_SRS FR-SBT-1·18·21: 탭 버튼은 서술자 배열에서 그린다
            (sidebar-tabs.js). 여기 비워 두는 것이 "새 탭 = 서술자 1개" 를 지키는
@@ -297,8 +301,9 @@
   </div>
   <div id="agents-handle" class="ui-resize-handle"></div>
   <!-- PANEL_TEMPLATE_SRS FR-PNT-1~4: 메인 패널과 같은 골격. 머리(탭 줄 + 새로고침·접기)는 몸통 스크롤 밖이다.
-       `ag-head` 는 끌어서 좌우 자리를 바꾸는 손잡이다 (PANEL_DOCK_SRS FR-PDK-30). -->
-  <div id="agents-panel" class="ui-panel" data-sheet="right"><div id="agents-head" class="ui-panel-head ag-head" draggable="true"></div><div id="agents-body" class="ui-scroll"></div><div id="agents-foot"></div></div>
+       `ag-head` 는 끌어서 좌우 자리를 바꾸는 손잡이다 (PANEL_DOCK_SRS FR-PDK-30).
+       `data-rail`: 첫 페인트의 레일 표식이다 — 처음에는 닫혀 있고 `body.mobile` 이 없다 (REFACTOR3_FE_REST4_SRS FR-FR4-5). -->
+  <div id="agents-panel" class="ui-panel" data-sheet="right" data-rail><div id="agents-head" class="ui-panel-head ag-head" draggable="true"></div><div id="agents-body" class="ui-scroll"></div><div id="agents-foot"></div></div>
   <div id="mobile-keybar" class="mobile-only"></div>
 </div>
 

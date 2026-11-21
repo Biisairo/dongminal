@@ -8,7 +8,7 @@
  */
 class SidebarPanel extends Panel {
   constructor(app){
-    super({rootId:'sidebar'});
+    super({rootId:'sidebar',rail:true});
     this.app=app;
     this.tabs=new SidebarTabBar(app);
   }

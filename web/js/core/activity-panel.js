@@ -8,7 +8,7 @@
  */
 class ActivityPanel extends Panel {
   constructor(app){
-    super({rootId:'agents-panel',persistKey:STORE_KEYS.agentsPanelOpen,escapable:true,phase:'bubble'});
+    super({rootId:'agents-panel',persistKey:STORE_KEYS.agentsPanelOpen,escapable:true,phase:'bubble',rail:true});
     this.app=app;
     this.tabs=new ActivityTabBar(app);
   }

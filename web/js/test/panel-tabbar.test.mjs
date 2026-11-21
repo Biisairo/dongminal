@@ -44,6 +44,8 @@ function el(tag, cls) {
     appendChild(c) { c.parentNode = this; this.children.push(c); return c },
     remove() { if (this.parentNode) { const a = this.parentNode.children; a.splice(a.indexOf(this), 1); this.parentNode = null } },
     setAttribute(k, v) { this.attrs[k] = String(v) },
+    toggleAttribute(k, on) { if (on) this.attrs[k] = ''; else delete this.attrs[k]; return on },
+    hasAttribute(k) { return k in this.attrs },
     addEventListener(t, fn) { this.listeners[t] = fn },
     querySelector(sel) { return descendants(this).find((x) => matches(x, sel)) || null },
     querySelectorAll(sel) { return descendants(this).filter((x) => matches(x, sel)) },
@@ -389,6 +391,56 @@ test('FR-FEB-24: ActivityPanel — 손잡이·영속·재조회·다시 그리�
   assert.equal(json([p.isOpen(), ids['agents-handle'].classList.contains('open'), session.get('agentsPanelOpen')]), json([false, false, '0']), '보던 구역 → 닫는다');
   p.show();
   assert.equal(p.isOpen(), true, '구역 없이 → 토글');
+});
+
+// ── REFACTOR3_FE_REST4_SRS TC-FR4-3 레일 표식 ──────────────────────────────
+
+test('TC-FR4-3: 레일 표식은 레일을 갖는 패널이 닫혀 있고 데스크톱일 때만 선다 — 열림이 바뀔 때 다시 선다', () => {
+  const { app, ids } = setup();
+  const rail = () => ['data-rail' in ids.sidebar.attrs, 'data-rail' in ids['agents-panel'].attrs];
+  assert.equal(json([app.sbPanel().rail, app.actPanel().rail]), json([true, true]));
+  app.setSidebarCollapsed(true);
+  assert.equal(json(rail()), json([true, false]), '사이드바 접힘 → 레일');
+  app.setAgentsPanelOpen(true);
+  assert.equal(json(rail()), json([true, false]), '작업 패널 펼침 → 레일 아님');
+  app.setAgentsPanelOpen(false);
+  assert.equal(json(rail()), json([true, true]), '작업 패널 닫힘 → 레일');
+  app.setSidebarCollapsed(false);
+  assert.equal(json(rail()), json([false, true]), '사이드바 펼침 → 레일 아님');
+});
+
+test('TC-FR4-3: 모바일 진입·이탈에 두 패널의 표식이 함께 다시 선다 — 모바일에서는 닫혀 있어도 레일이 아니다', () => {
+  const { app, ids, document } = setup();
+  const rail = () => ['data-rail' in ids.sidebar.attrs, 'data-rail' in ids['agents-panel'].attrs];
+  app.setSidebarCollapsed(true);
+  app.setAgentsPanelOpen(true);
+  app.setAgentsPanelOpen(false);
+  assert.equal(json(rail()), json([true, true]));
+  app.isMobile = true;
+  app.applyMobileMode();
+  assert.ok(document.body.classList.contains('mobile'));
+  assert.equal(json(rail()), json([false, false]), '모바일 진입 → 둘 다 레일 아님');
+  app.setAgentsPanelOpen(true);
+  app.setAgentsPanelOpen(false);
+  assert.equal(json(rail()), json([false, false]), '모바일에서 닫아도 레일 아님');
+  app.isMobile = false;
+  app.applyMobileMode();
+  assert.equal(json(rail()), json([true, true]), '모바일 이탈 → 다시 레일');
+});
+
+test('TC-FR4-3: 서랍(DrawerSheet)은 레일을 갖지 않는다 — #sidebar 를 열고 닫아도 표식을 건드리지 않는다', () => {
+  const { ctx, app, ids } = setup();
+  app.setSidebarCollapsed(true);
+  assert.equal('data-rail' in ids.sidebar.attrs, true);
+  const d = new ctx.DrawerSheet(app);
+  assert.equal(d.rail, false);
+  d.open();
+  assert.equal(json([ids.sidebar.classList.contains('open'), 'data-rail' in ids.sidebar.attrs]), json([true, true]));
+  d.close();
+  app.setSidebarCollapsed(false);
+  d.open();
+  d.close();
+  assert.equal('data-rail' in ids.sidebar.attrs, false);
 });
 
 // ── TC-FEB-22 DrawerSheet ─────────────────────────────────────────────────

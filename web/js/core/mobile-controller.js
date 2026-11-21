@@ -18,6 +18,7 @@ class MobileController extends Controller {
     const mob=this.app.isMobile;
     const was=document.body.classList.contains('mobile');
     document.body.classList.toggle('mobile', mob);
+    this.app.sbPanel().railSync(); this.app.actPanel().railSync();   // REFACTOR3_FE_REST4_SRS FR-FR4-4
     if(was!==mob){
       this.app.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
       if(this.app._edApplyWordWrap) this.app._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43

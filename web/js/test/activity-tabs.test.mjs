@@ -42,7 +42,8 @@ test('탭은 같은 폭이고 고른 탭도 넓어지지 않는다', () => {
 // 소제목·빈 문구·노드 줄·참가자 줄·연결 끊김 문구를 숨긴다.
 test('레일의 Chats 는 방 줄만 보인다', () => {
   const css = read('style.css');
-  const hide = (css.match(/#agents-panel:not\(\.open\) :is\(([\s\S]*?)\)\{display:none\}/) || [])[1] || '';
+  // REFACTOR3_FE_REST4_SRS FU-8 로 개정: 이전 — `#agents-panel:not(.open)` / 지금 — 레일 표식 `#agents-panel[data-rail]` / 이유 — 레일 상태를 표식 하나로.
+  const hide = (css.match(/#agents-panel\[data-rail\] :is\(([\s\S]*?)\)\{display:none\}/) || [])[1] || '';
   for (const cls of ['.chat-sub-h', '.chat-none', '.chat-node', '.chat-person', '.chat-down']) {
     assert.ok(hide.includes(cls), `레일에서 ${cls} 를 숨기지 않는다`);
   }
