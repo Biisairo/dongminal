@@ -199,7 +199,7 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 | `18aa0a35` | FC-09 — `app.js` 의 `class App` 뒤에 `wsSaveBody`·`wsSaveSame`·`wsGitAdopt`·`wsSaveHoldMs`, App 에 `_savePut`·`_adoptRemote`·`_saveBackoff`. `save` 90 → 34줄(코드 43 → 23), `_saveAdoptRemote` 88 → 14줄(코드 30 → 10). 시험 TC-FR3-27(FC-09 넷)·`method-size.test.mjs` |
 | `7a0390a1` | R3b 요구 — §2.3~2.7 · D-FR3-9~15 · TC-FR3-31~42 |
 | `61f2e97b` | FC-05 시험 고정 — `del-window.test.mjs` TC-FR3-31~33. 나누기 전 코드에서 GREEN |
-| `4a418d40` | FC-05 — `LayoutController` 에 `_delWinDirtyOk`·`_delWinAsk`·`_delWinTools`·`_delWinAfter`. `delWindow` 108 → 26줄(코드 56 → 13) |
+| `4a418d40` | FC-05 — `LayoutController` 에 `_delWinDirtyOk`·`_delWinAsk`·`_delWinTools`·`_delWinAfter`. `delWindow` 108 → 18줄(코드 56 → 13) |
 | `26bafe55` | FC-12 — `settings-theme.js` 에 `themePreviewVars`·`themePreviewSwatches`·`THEME_PREVIEW_HTML`, `style.css` 의 `.pv-*` 규칙과 눈금 `--pv-fs-2xs`·`--pv-radius`. 인라인 `style=` 45 → 0, `_renderPreview` 코드 77 → 11. 시험 `theme-preview.test.mjs`(TC-FR3-34). 임시 e2e(TC-FR3-35)로 테마 넷(Tokyo Night·Dracula·GitHub Light·사용자 정의)의 86개 요소 계산된 스타일이 같고, 이름 있는 테마 셋은 스크린샷도 바이트까지 같다(사용자 정의의 스크린샷은 HEAD 끼리도 흔들린다) |
 | `ccb4da87` | FU-12 — `git/remote-view.js` `GitRemoteView`(241줄). `remote.js` 704 → 482줄, 500줄 초과 12 → 11(`FE_MODULE_BOUNDARY_SRS` 기준선 갱신). `GitJobs` 가 `v.view.bind`·`bindHead`·`paintHead` 를 부른다. `PERFORMANCE_BUDGET.md` §2-5 두 행의 파일명. 시험 `git-job-outcome`(TC-FR3-36)·`git-job-labels`·`git-view` |
 | `ed802920` | FU-13 — `ui/size-hud.js` `SizeHud` · `ui/size-drag.js` `SizeDrag`, `UIKit.drag` 는 입구. `ui-kit.js` 685 → 582줄. `index.html`·하네스 `HANDLE`·`PERFORMANCE_BUDGET.md` §2-5 한 행. 시험 `kit-handle.test.mjs`(TC-FR3-37) |
