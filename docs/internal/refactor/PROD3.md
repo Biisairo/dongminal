@@ -82,8 +82,8 @@
 | DM-6·8·9·10 | `edgenode`↔`edgemesh` `helloWait` · 형제 소켓 경로 3벌 · 이름 축약 4벌(지문 12·16자, 근거 없음) · Cf 정화 7벌 | 같은 규칙의 여러 벌 | shared 한 벌 | S |
 | DM-17 | `shared/sandbox/runtime.go:119-181` | 같은 명령을 문자열·인자 배열로 두 번 적는다. OS 분기 3벌 | OS 표 하나에서 파생 | S |
 | FC-01·02 | `core/app-mobile*.js`·`app-settings.js:437` | `_toggleDrawer(false); _rTopbar()` 쌍 5곳 복사. 서랍 상태가 필드·`body` 클래스·`#sidebar.open` 세 곳에서 따로 바뀐다 | `closeDrawer()`·`_setDrawer(open)` — **처리함** (§7.1 P3a 2: 서랍 상태는 `DrawerSheet` 한 자리, 닫기 경로는 모두 `_toggleDrawer(false)` → `DrawerSheet.setOpen`) | S |
-| FC-03 | `core/theme-vars.js:18-31` ↔ `core/contrast.js:55-60` | 색 거리 두 벌(제곱 RGB / redmean). `pickAccent2` 가 둘을 섞는다 | 한 메트릭. **알림색이 일부 테마에서 바뀌는 동작 변경**이다(§6) | M |
-| FC-11 | `core/app-settings-claude.js:12-17` ↔ `claudeacct/autoswitch.go:73-78` | 자동 전환 범위가 JS·Go 두 벌, 대조 게이트 없음 | PROD2 §7a ② — 서버가 원천 | M |
+| FC-03 | `core/theme-vars.js:18-31` ↔ `core/contrast.js:55-60` | 색 거리 두 벌(제곱 RGB / redmean). `pickAccent2` 가 둘을 섞는다 | 한 메트릭. **알림색이 일부 테마에서 바뀌는 동작 변경**이다(§6) — **처리함 (R1, `8ab87528`)**: redmean 하나, Ayu Mirage 알림색·실행 중 색이 바뀐다 | M |
+| FC-11 | `core/app-settings-claude.js:12-17` ↔ `claudeacct/autoswitch.go:73-78` | 자동 전환 범위가 JS·Go 두 벌, 대조 게이트 없음 | PROD2 §7a ② — 서버가 원천 — **처리함 (R1, `a51da4bb`)**: autoswitch 응답의 `ranges`. 계정 행 칸은 남음 | M |
 | FC-13·14 | `#settings-btn` click 리스너 3개 · document Escape 처리기 4곳 | 실행 순서에 기댄다(주석으로만) | 열기 함수 하나 · `ui-kit` Escape 스택 — **처리함** (§7.1 P3a 6, `REFACTOR3_FE_ESC_SRS`) | S~M |
 | FU-1 | `app-activity.js:165` `actEl`·`app-chat.js:22` `chatEl`·`runs-panel.js:59·88` 외 7곳 | DOM 생성 헬퍼 10개. SVG 둘(`runSvg`·`meshSvg`)은 본문이 같다 | `core/helpers.js` 에 `domEl`·`svgEl` (계층 규칙상 ui-kit 이 아니라 core) — **처리함** (§7.1 P3a 0~2) | S |
 | FU-18 | `style-runs.css:253` ↔ `style.css:2176` | `.bg-row` 두 파일 분산 | 한 파일로 | S |
@@ -108,7 +108,7 @@
 | GD-17 | `hub/gitwatch.go:706-787` `observe` | 잠금 3번, `need` 조건 4개, 전이가 함수 안에 묻혔다 | `need`·전이를 순수 함수로 떼고 시험 | M |
 | GD-21 | `hub/gitwatch.go:354` `watchPhase` | 운영 호출 0(시험만) | 지운다 | S |
 | FU-2~6 | `renderer-chrome.js:100` `_rWinTitle` · `history-load.js:201` `reloadRefs` · `panel-views.js:78` `_submodules` · `ui-kit.js:730` `menuOpen` · `cm-lsp.js:360` `unsubscribe` | 호출처 0 인 함수(뒤 둘은 `?`) | 확인 후 지운다 — **넷 처리함** (§7.1 P3a 0~2. `_rWinTitle` 은 `_rWinTitleParts` 로 살아 있어 죽은 것이 아니었다). `cm-lsp.js` `unsubscribe` 는 남음 | S |
-| FU-17 | `git/panel-changes.js:661-665` | 서브모듈 stage 금지를 화면만 판정한다(SERVER_DRIVEN 목록 밖의 C 부류) | 정책 결정 먼저(§6) | S |
+| FU-17 | `git/panel-changes.js:661-665` | 서브모듈 stage 금지를 화면만 판정한다(SERVER_DRIVEN 목록 밖의 C 부류) | 정책 결정 먼저(§6) — **처리함 (R1, `19f60b6a`)**: 서버 판정·409 `submodule_inner_only`·행 답 `rowActions` | S |
 | FC-15 | `core/app-agents.js:248-253` | `filter` 4번, `reconcileList` 3번 | 구역 표를 한 번 순회 | S |
 | DM-24 | `ctl/cli/options.go:293-460` | `take`·`unknownFlag` 블록 6번 | 공통 적용기 | S |
 
@@ -178,7 +178,7 @@
 | 10 | GD-12 | `telegram` `b.tabs` | 넣기만 하고 지우지 않는다 | 도구 N개 생성·종료 뒤 맵 크기 | S |
 | 11 | DM-19 | `ctl/cli/proc.go` 정지 대기 | 정지 한 번에 `lsof` 최대 약 20회(darwin) | `stop` 1회의 자식 프로세스 수 | S |
 | 12 | DM-20 | `dmctl rename-tab` 확인 | `/api/state` 를 최대 약 15회 GET, 매번 전체 디코딩 | 1회의 요청 수 | S |
-| 13 | FC-21 | `app-statusbar.js` `_pollStats` | ping → stats 직렬 2왕복 | 회차당 왕복 | S |
+| 13 | FC-21 | `app-statusbar.js` `_pollStats` | ping → stats 직렬 2왕복 — **처리함 (R1, `85668248`)**: 함께 보낸다, 회차당 1왕복 | 회차당 왕복 | S |
 | 14 | DM-27·28 | `daemon/ipc/paned.go:203` `MethodTerminate` · `chatsock.Serve` | `goSlow` 상한 우회로 고루틴이 요청 수만큼 · hello 전 연결은 `Close` 에서 안 닫힘(5초 상한) | 동시 terminate N건의 고루틴 수 | S |
 
 ---
@@ -293,6 +293,7 @@
 | P3a 8 | `9afbb9fe`…(이 커밋) | `REFACTOR3_FE_SETTINGS_SRS` — FC-04. 설정 탭 열일곱을 `SettingsSection`(View) 하위 하나씩으로, 체크·숫자 14행을 `FormRow` 선언으로(8a), 폴링·statusbar·notify·레인지(8b), 서버 자원 패널 일곱(패널 상태를 섹션 필드로, claude 는 순수 함수 파일로 먼저 나눔, 8c), theme·shortcuts·키바(terminal)·presets·backup(8d). `initModal` 의 `_init*` 나열과 `input-binding.js` 의 설정 init 은 `SettingsController`(`Controller`)의 표 `SETTINGS_INIT` 하나로, 열기·탭 훅은 그 `onOpen`·`onTab` 으로 모았다(8e). App 은 `settings` 하나를 들고, 설정 밖·e2e·단위 시험이 부르는 이름은 한 줄 위임자로 남긴다(단계 9 에서 부르는 쪽과 함께 걷는다). 동작 변경 없음 |
 | P3a 9 | `b0e3b411`…(이 커밋) | `REFACTOR3_FE_APPCTL_SRS` — App mixin(`Object.assign(App.prototype, …)` 57파일·메서드 835)을 하위 이슈 열하나(9a~9k)로 주제별 `Controller` 와 그 부품(클래스 하나 = 파일 하나)으로 옮겼다 — 간선·업데이트·설정 · 알림·Claude 계정·상태바 · 채팅·활동·모바일 · git · 상태 동기화 · 포커스 · 슬롯 · 레이아웃 · 도구 · 편집기 · Repo 창. 공유 상태의 주인과 쓰기 입구는 9e 가 정했다(App 이 공용 상태의 주인, 쓰기 모음 `focused`·`focusHandoff`·`_edGitHeld`). 바깥·e2e·계약이 부르는 이름은 컨트롤러 파일 끝의 위임자 표(`Controller.delegate`)로 남는다. `Object.assign(App.prototype` 57 → 0, 500줄 초과 16 → 12. 동작 변경 없음 |
 | P3 FE 나머지 — 정리 | (이 커밋) | P3a 가 흡수한 ID 에 「처리함」 표시(실측 HEAD `c96988c7`): FC-F2·01·02·04·13·14 · FU-1·20 · FU-2~6 넷 · FC-05·FU-12·13 일부 · FC-17·18 대상 소멸. 남은 것을 하위 묶음 넷으로 나눈다 — **R1 동작 변경·서버 원천**(FC-03 redmean · FU-17 서브모듈 stage 서버 거부 · FC-11 자동 전환 범위 서버 원천 · FC-21 ping·stats) · **R2 JS 작은 정리**(FC-06·08·10·15·16·18·19·20·22 · FU-19 · `cm-lsp` `unsubscribe` · `UIKit.tabsFitWatch`) · **R3 큰 함수·클래스**(FC-05 `delWindow` · FC-07·09 시험 고정 먼저 · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) · **R4 CSS**(FU-8·9·18 · FU-11 CSS 크기 게이트 · FU-10 간격 토큰) |
+| R1 | `32b9e597`·`8ab87528`·`19f60b6a`·`a51da4bb`·`85668248`…(이 커밋) | `REFACTOR3_FE_REST1_SRS` — FC-03 알림색 거리 redmean(Ayu Mirage 알림색 `#dfbfff`→`#95e6cb`, 실행 중 색 `#6dcbfa`→`#dfbfff`, 메인색 조합 432개 중 알림색 31·실행 중 색 29 바뀜) · FU-17 서브모듈 안쪽만 바뀐 경로만 담는 stage 를 서버가 409 `submodule_inner_only` 로 거절, 화면은 status 의 `rowActions` 로 끈다 · FC-11 자동 전환 칸 범위를 `autoswitch` 응답의 `ranges` 로 · FC-21 ping·stats 를 함께. 남은 것: 계정 행 칸의 범위 두 벌 |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---

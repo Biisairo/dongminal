@@ -1,8 +1,6 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R1 — 동작 변경·서버 원천 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-
-> **남은 것**: FR-FR1-1~14 의 구현과 §6 구현 기록. 이슈마다 커밋한다(FC-03 → FU-17 → FC-11 → FC-21).
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `refactor/PROD3.md` §2 FC-03·FC-11·FU-17, §3 행 13 FC-21, §7.1 「P3 FE 나머지 — 정리」 의 하위 묶음 R1)
 - 사용자 결정(2026-11-21, `PROD3.md` §6): **Q1** 색 거리는 redmean 하나로 통일한다. 바뀌는 테마와 이전/새 색을 SRS 에 적는다. **Q3** 서브모듈 stage 금지는 서버도 막고 server-driven 으로 옮긴다. 진행은 묻지 않고 끝까지 한다. 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -130,6 +128,20 @@ R1 은 하위 이슈 넷이다. 앞의 셋은 같은 사실을 두 벌로 판정
 
 | 커밋 | 요점 |
 |---|---|
+| `32b9e597` | 이 SRS |
+| `8ab87528` | FC-03 — `pickAttnColor` 가 `colorDistance` 로 고른다. Ayu Mirage `ui.accent2` `#6dcbfa` → `#dfbfff`. 시험 `accent2.test.mjs`(TC-FR1-1 둘)·`seed-color.test.mjs`(TC-FR1-2). `check-contrast` 54종·조합 432개 통과 |
+| `19f60b6a` | FU-17 — `query.FileEntry.SubmoduleInnerOnly` · `apierr.CodeSubmoduleInnerOnly`(409, `errors.md` 재생성) · `action.GitStage` · `gitapi.stageAnswer`·`rowActions` · `apiGitStage` 가 `snapshot` 뒤 `rejectAnswer`(unstage 는 `gitStageRoute` 그대로) · status 전량 응답의 `rowActions` · 화면 `GitViews.rowActionOf`(패널 위임자) · `GitChangeRows._stageOff` · `GIT_STAGE_WHY_TITLE` · `GIT_ACTION.stage` · `why.submodule_inner_only` · `check-server-driven.sh` 에 `GIT_TIP_SUB_STAGE_OFF`. 시험 `status_submodule_test.go`·`handlers_git_stage_sub_test.go`(가짜 git 셋 + 실제 git 하나)·`git-stage-sub.test.mjs` |
+| `a51da4bb` | FC-11 — `claudeacct.AutoRange`·`AutoRanges`, `Validate` 가 그 표로, `AutoView.Ranges`(`ranges`). 화면 `cacctAutoRange`, `CACCT_AUTO_FIELDS` 의 min·max 삭제. 시험 `autoswitch_ranges_test.go`·`claude-accounts-settings.test.mjs`(TC-FR1-8) |
+| `85668248` | FC-21 — `_pollStats` 가 ping·stats 를 함께 보내고 `Promise.all` 뒤 종전 순서로 처리. 시험 `statusbar-poll.test.mjs`(TC-FR1-9 여섯), e2e `perf-statusbar.spec.ts` S1 을 새 규칙으로 |
+
+**SRS 와 다르게 한 것.**
+
+1. `stageAnswer` 는 요청 경로 끝의 `/` 하나를 떼고 대 본다. FR-FR1-6 은 적지 않았다. 화면은 끝 슬래시 없이 보내지만 디렉터리 항목의 경로 문법(FR-DIR-2)을 따르는 요청이 와도 같은 답을 내게 했다.
+2. TC-FR1-5 의 "커밋 몫이 생기면 `{ok:true}`" 는 실제 git 시험이 아니라 가짜 git 시험(`TestStatusRowActions_Submodule` 의 상태 C 행)이 본다.
+3. e2e `perf-statusbar.spec.ts` S1 은 종전에 "ping 은 stats 와 겹치지 않는다" 를 단정했다. FR-FR1-14 와 반대이므로 "stats 는 ping 응답을 기다리지 않는다" 로 바꿨다(옛 코드에서 실패하는 것을 확인했다). `PERFORMANCE_HARDENING_SRS` FR-PRF-36 아래에 개정 줄을 달았다.
+4. `SUBMODULE_DIRTY_NOTICE_SRS` FR-SDN-12 아래에 판정이 서버로 옮겨졌다는 개정 줄을 달았다.
+
+**남긴 것.** 계정 행의 숫자 칸(계정별 한도 50~100 · 우선순위 0~1000 · 별칭 24자)은 화면(`settings-claude.js` `_cacctAccountRow`)과 Go(`store.go`)에 따로 적힌 채 남는다(§1.3). 같은 방식(`GET /api/claude-accounts` 에 범위를 싣는다)으로 옮길 수 있다.
 
 ## 7. 부록 — 메인색 변환에서 바뀌는 색 (TC-FR1-2 의 조합, 실측)
 
