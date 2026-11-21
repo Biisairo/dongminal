@@ -68,7 +68,7 @@ export const GITVIEW = ['git/git-view.js'];
  * (`git-part.js`)이 `panel.js` 앞이고, 부품 파일은 옛 mixin 자리에 선다.
  */
 export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/panel-life.js', 'git/panel-changes.js',
-  'git/panel-views.js', 'git/panel-write.js', 'git/panel-files.js', 'git/git-diff-pane.js',
+  'git/panel-views.js', 'git/git-write.js', 'git/panel-files.js', 'git/git-diff-pane.js',
   'git/git-blame.js', 'git/git-hunks.js', 'git/panel-dir-entry.js', 'git/git-poll.js'];
 
 const HERE = dirname(fileURLToPath(import.meta.url));

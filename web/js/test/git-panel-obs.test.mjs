@@ -21,13 +21,13 @@ function setup(answer) {
     const r = answer(u);
     return new Promise((resolve) => waits.push(() => resolve(r)));
   };
-  // 폴링은 부품(`GitPoll`, REFACTOR3_FE_GITPANEL_SRS 7d)이고 쓰기는 아직 패널 원형의 것이다.
+  // 폴링(`GitPoll`, 7d)·쓰기(`GitWrite`, 7e)는 부품이다 (REFACTOR3_FE_GITPANEL_SRS).
   const ctx = load([...BASE, 'core/constants-api.js', 'git/api.js', 'git/status-hub.js', 'git/git-part.js', 'git/git-poll.js',
-    'git/panel-write.js'], {
+    'git/git-write.js'], {
     clock,
-    expose: ['GitStatusHub', 'GitPoll'],
+    expose: ['GitStatusHub', 'GitPoll', 'GitWrite'],
     globals: {
-      GitPanel: class { collect() { return this.poll.collect() } },
+      GitPanel: class { collect() { return this.poll.collect() } adopt(d) { return this.write.adopt(d) } },
       GIT_STATUS_FETCH_TIMEOUT_MS: 20000,
       GIT_STATUS_HUB_TTL_MS: 500,
       apiGet,
@@ -42,6 +42,7 @@ function setup(answer) {
     obs: { paintAll() {} }, token: () => ({ repo: '/r' }),
   });
   p.poll = new ctx.GitPoll(p);
+  p.write = new ctx.GitWrite(p);
   p.poll._applyStatus = (tok, r) => applied.push(r);
   const flush = async () => { while (waits.length) waits.shift()(); await clock.advance(0) };
   // 나중에 떠난 요청의 답부터 도착시킨다.

@@ -1,5 +1,6 @@
 /**
- * GitPanel — 쓰기 한 번의 전과 후 (SPLIT_REFACTOR_SRS 묶음 B).
+ * GitWrite — Git 패널의 쓰기 부품: 쓰기 한 번의 전과 후 (SPLIT_REFACTOR_SRS 묶음 B · REFACTOR3_FE_GITPANEL_SRS 7e).
+ * 오퍼레이션 정책(`_opActs`·`_opActsP`)을 소유한다. 안내 줄(`_note`)·관측 상태는 패널의 것이다.
  *
  * 두 구간이 한 파일에 있다. 원본에서 이 둘은 떨어져 있었지만 **같은 한 번의 쓰기**를
  * 말한다:
@@ -12,7 +13,7 @@
  * 화면에 도달하는 것이 이 파일의 책임이다.
  */
 // 원본 panel.js 1203~1320
-Object.assign(GitPanel.prototype, {
+class GitWrite extends GitPart {
   /**
    * 커밋 동작 하나의 뒷정리 (묶음 D, FR-GIT-263~266).
    *
@@ -23,18 +24,18 @@ Object.assign(GitPanel.prototype, {
    * 커밋 목록 자체가 바뀌므로 refs 만이 아니라 History 를 다시 받는다.
    */
   afterCommitOp(res){
-    if(res&&res.ok){this._note=null; this.adopt(res.data)}
+    if(res&&res.ok){this.p._note=null; this.adopt(res.data)}
     // 실패도 status 를 싣고 온다 — `applyWriteFail` 이 그것을 반영하므로 충돌로
     // 멈춘 cherry-pick 의 진행 중 상태가 Changes 탭에 그대로 나타난다.
     else this.applyWriteFail(res||{});
-    if(this._historyView) this._historyView.reload();
-    if(this._branchesView) this._branchesView.reload();
-  },
+    if(this.p._historyView) this.p._historyView.reload();
+    if(this.p._branchesView) this.p._branchesView.reload();
+  }
 
   // FR-GIT-267: 비교 기준의 표시. History 가 그것을 보이는 자리를 안다.
   noteCompareMark(label){
-    if(this._historyView) this._historyView.noteCompareMark(label);
-  },
+    if(this.p._historyView) this.p._historyView.noteCompareMark(label);
+  }
 
   /**
    * ref 를 바꾼 쓰기 하나의 뒷정리 (FR-GIT-160·170).
@@ -50,11 +51,11 @@ Object.assign(GitPanel.prototype, {
   afterRefWrite(d){
     this.adopt(d);
     // FR-OPT-4-9: 두 뷰가 refs 를 하나로 받는다.
-    this._inRefsRound(()=>{
-      if(this._branchesView) this._branchesView.reload();
-      if(this._historyView) this._historyView.reload();
+    this.p._inRefsRound(()=>{
+      if(this.p._branchesView) this.p._branchesView.reload();
+      if(this.p._historyView) this.p._historyView.reload();
     });
-  },
+  }
 
   /**
    * 원격 작업 하나의 뒷정리 (GIT_VIEW_REFRESH_SRS FR-GVR-1~4).
@@ -79,13 +80,13 @@ Object.assign(GitPanel.prototype, {
    * 여기서 또 받으면 한 조작에 두 번 받는다 (D-2 철회).
    */
   afterRemoteJob(){
-    if(this._consoleView) this._consoleView.reload();
-  },
+    if(this.p._consoleView) this.p._consoleView.reload();
+  }
 
   // 잡이 칸을 쥐거나 놓았다 — 행마다 답을 싣는 목록은 다시 받는다 (GR-1h · FR-SDA-22).
   afterJobSlots(){
-    if(this._worktreesView) this._worktreesView._load();
-  },
+    if(this.p._worktreesView) this.p._worktreesView._load();
+  }
 
   // ── stash 쓰기 (GIT_MENUS stash 가 부른다) ──
   //
@@ -94,22 +95,22 @@ Object.assign(GitPanel.prototype, {
 
   async stashApply(oid,withIndex){
     const res=await this.post(GIT_API.stashApply,
-      {repo:this.repo,oid,withIndex:!!withIndex});
+      {repo:this.p.repo,oid,withIndex:!!withIndex});
     this.afterStashWrite(res);
-  },
+  }
 
   async stashPop(oid){
-    const res=await this.post(GIT_API.stashPop,{repo:this.repo,oid});
+    const res=await this.post(GIT_API.stashPop,{repo:this.p.repo,oid});
     this.afterStashWrite(res);
-  },
+  }
 
   // drop 은 파괴적이다 (FR-GIT-89·168). 파괴적 확인과 recovery hint 는 GitMenu 가
   // 이미 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
   async stashDrop(oid){
     const res=await this.post(GIT_API.stashDrop,
-      {repo:this.repo,oid,confirm:true});
+      {repo:this.p.repo,oid,confirm:true});
     this.afterStashWrite(res);
-  },
+  }
 
   /**
    * stash 쓰기 하나의 뒷정리 (FR-GIT-165·170).
@@ -122,17 +123,17 @@ Object.assign(GitPanel.prototype, {
     if(d.status) this.adopt(d);
     // 실패 사유는 Stash 탭이 보인다 — Changes 탭의 안내로 보내면 사용자가 조작한
     // 자리에서 결과를 읽을 수 없다.
-    this._stash().adoptWrite(res);
-  },
+    this.p._stash().adoptWrite(res);
+  }
 
   // ── 묶음 F — stash·파일·미커밋 행 (FR-GIT-272~275·277) ──
   // 실행은 도메인별 클래스에 있다 — 여기 있는 것은 메뉴가 부르는 한 줄뿐이다.
 
   // FR-GIT-272: Branch from stash. 다이얼로그는 git-stash.js 가 안다.
-  stashBranch(s){return new GitStashBranch(this,s)._show()},
+  stashBranch(s){return new GitStashBranch(this.p,s)._show()}
 
   // FR-GIT-277: 미커밋 행의 Stash. 생성 다이얼로그를 그대로 다시 쓴다.
-  stashCreate(){return new GitStashCreate(this)._show()},
+  stashCreate(){return new GitStashCreate(this.p)._show()}
 
   /**
    * stash 쓰기이면서 **ref 도 바꾸는** 것의 뒷정리 (FR-GIT-160·170).
@@ -143,18 +144,15 @@ Object.assign(GitPanel.prototype, {
   afterStashRefWrite(res){
     this.afterStashWrite(res);
     if(!res||!res.ok) return;
-    this._inRefsRound(()=>{
-      if(this._branchesView) this._branchesView.reload();
+    this.p._inRefsRound(()=>{
+      if(this.p._branchesView) this.p._branchesView.reload();
       // FR-GVR-20: `afterRefWrite` 와 같은 근거 — 새 브랜치는 커밋 행의 배지에도
       // 나타나야 하고, 그 배지는 목록을 다시 받아야 갱신된다.
-      if(this._historyView) this._historyView.reload();
+      if(this.p._historyView) this.p._historyView.reload();
     });
-  },
+  }
 
-});
-
-// 원본 panel.js 1599~1738
-Object.assign(GitPanel.prototype, {
+  // 원본 panel.js 1599~1738
   // FR-GIT-73 · §7.1 I2: 실패를 조용히 넘기지 않는다. 부분 적용이면 무엇이
   // 바뀌었는지까지 보인다 — git 이 주지 않는 원자성을 흉내 내지 않는다.
   applyWriteFail(res){
@@ -163,19 +161,19 @@ Object.assign(GitPanel.prototype, {
     // 이 응답에서만 선다. 파일이 이미 없으면(mtime 없음) 지울 것이 없다.
     const lock=(d.error==='index_locked'&&d.lock)?d.lock:null;
     const msg=this.writeError(res)+(lock&&lock.mtimeUnixMs==null?' — '+GIT_LOCK_GONE:'');
-    this._note={msg,partial:!!d.partial,changed:d.changed||[],
-      lock:(lock&&lock.mtimeUnixMs!=null)?lock:null,lockRepo:this.repo};
-    if(d.status) this.adopt(d); else this._paint();
-  },
+    this.p._note={msg,partial:!!d.partial,changed:d.changed||[],
+      lock:(lock&&lock.mtimeUnixMs!=null)?lock:null,lockRepo:this.p.repo};
+    if(d.status) this.adopt(d); else this.p._paint();
+  }
 
   // §7.2: 확인 뒤에만 지운다. 원래 동작은 다시 시도하지 않는다 — 사용자가 lock 이
   // 정말 남은 것인지 본 뒤 스스로 다시 누른다.
   //
   // lock 을 주면 그것을(잡 결과의 lock), 아니면 안내 줄의 lock 을 지운다.
   async removeIndexLock(given){
-    const n=this._note, lock=given||(n&&n.lockRepo===this.repo?n.lock:null);
+    const n=this.p._note, lock=given||(n&&n.lockRepo===this.p.repo?n.lock:null);
     if(!lock||lock.mtimeUnixMs==null) return;
-    const repo=this.repo;
+    const repo=this.p.repo;
     const ok=await GitConfirm.open({
       action:GIT_ACT_INDEX_LOCK_REMOVE,title:GIT_LOCK_TITLE,targets:[lock.path],
       hint:{note:GIT_LOCK_NOTE.replace('{when}',GitHistory.relTime(lock.mtimeUnixMs))},
@@ -186,11 +184,11 @@ Object.assign(GitPanel.prototype, {
         return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
       },
     });
-    if(!ok||repo!==this.repo) return;
+    if(!ok||repo!==this.p.repo) return;
     // 관측이 같으면 refresh 는 다시 그리지 않는다 — 안내 줄은 여기서 걷는다.
-    this._note=null; this._paint();
-    this.refresh();
-  },
+    this.p._note=null; this.p._paint();
+    this.p.refresh();
+  }
 
   // POST 한 번. ok 는 **서버가 ok:true 를 준 것**이다 — 200 이지만 본문이 없는
   // 응답을 성공으로 읽지 않는다.
@@ -205,44 +203,44 @@ Object.assign(GitPanel.prototype, {
   // (SERVER_DRIVEN_ACTIONS_SRS GR-1e). 이전: 화면의 예외 목록으로 보내기 전에 막았다.
   async post(url,body,opts){
     this.bumpWrite();
-    this._writing=true;
+    this.p._writing=true;
     // 망 실패·파싱 실패를 접는 일은 `gitPost` 가 한다 (api.js) — 두 벌로 두면
     // 한쪽만 고쳐진다. 여기 남는 것은 **패널 고유의 관심사** 둘이다.
     const res=await gitPost(url,body,GIT_WRITE_UNBOUNDED.has(url)?{timeout:0}:undefined);
-    this._writing=false;
+    this.p._writing=false;
     // 모든 쓰기가 이 한 곳을 지난다 — 방금 실행한 명령이 Console 의 맨 위에
     // 있어야 한다 (FR-GIT-218).
-    if(this._consoleView) this._consoleView.reload();
+    if(this.p._consoleView) this.p._consoleView.reload();
     const job=res.ok&&res.data&&res.data.job;
     if(job&&job.id){
-      const requested=this.repo;
-      const done=this._remote().follow(job).then(jb=>this._jobRes(jb,requested));
+      const requested=this.p.repo;
+      const done=this.p._remote().follow(job).then(jb=>this._jobRes(jb,requested));
       if(opts&&opts.detach) return {ok:true,code:res.status,data:res.data,started:true,done};
       return done;
     }
     // **이 표면의 성공 판정은 `d.ok` 다** — HTTP 200 만으로는 성공이 아니다.
     // 부분 적용도 200 으로 오기 때문이다 (FR-GIT-73).
     return {ok:!!(res.ok&&res.data&&res.data.ok),code:res.status,data:res.data};
-  },
+  }
 
   // REPO_FIX 05 §3A-5 (F-4.1): 쓰기 세대 경계 — 동기 쓰기 시작·잡 시작·잡 완료.
-  bumpWrite(){ this._writeGen++ },
+  bumpWrite(){ this.p._writeGen++ }
 
   /**
    * F-4.2: stage/unstage/discard 를 저장소 단위 큐로 보낸다. 결과(또는 버려졌으면 null)를
    * 돌려준다. 깊이 상한을 넘으면 그 요청을 버리고 사유를 보인다.
    */
   wqPost(url,body){
-    const q=this.obs._wq;
-    if(q.length>=GIT_WQ_MAX){this._note={msg:GIT_WQ_FULL}; this._paint(); return Promise.resolve(null)}
+    const q=this.p.obs._wq;
+    if(q.length>=GIT_WQ_MAX){this.p._note={msg:GIT_WQ_FULL}; this.p._paint(); return Promise.resolve(null)}
     return new Promise(resolve=>{
-      q.push({panel:this,url,body,resolve});
-      this.obs.wqPump();
+      q.push({panel:this.p,url,body,resolve});
+      this.p.obs.wqPump();
     });
-  },
+  }
 
   // 큐 밖의 동기 쓰기가 다른 쓰기에 막혔다 — 무음으로 버리지 않고 사유를 보인다 (§3A-5).
-  busyNote(){ this._note={msg:GIT_WRITE_ERR.repo_busy}; this._paint() },
+  busyNote(){ this.p._note={msg:GIT_WRITE_ERR.repo_busy}; this.p._paint() }
 
   // 잡을 여는 쓰기를 다이얼로그·메뉴에서 보낸다 (§6.4). 잡이 시작되면 곧바로
   // `{ok:true, started:true}` 로 돌아오고 — 다이얼로그는 닫는다 — 끝나면 settle 이
@@ -251,7 +249,7 @@ Object.assign(GitPanel.prototype, {
     const res=await this.post(url,body,{detach:true});
     if(res.started) res.done.then(settle);
     return res;
-  },
+  }
 
   // 끝난 잡을 동기 응답의 모양으로 편다. 결과를 모르면(재부착 전에 저장소가 바뀜)
   // 실패다 — 이긴 것으로 읽으면 입력을 비운다.
@@ -268,7 +266,7 @@ Object.assign(GitPanel.prototype, {
       if(jb.lock) data.lock=jb.lock;
     }
     return {ok,code:ok?200:409,data};
-  },
+  }
 
   // 표에 없는 코드가 서버 판정의 사유면 그 문구를 쓴다 — 답을 거치지 않은 거절도
   // 같은 문장으로 읽힌다 (SERVER_DRIVEN_ACTIONS_SRS M-10).
@@ -277,12 +275,12 @@ Object.assign(GitPanel.prototype, {
     if(GIT_WRITE_ERR[d.error]) return GIT_WRITE_ERR[d.error];
     if(d.error&&I18N.has('why.'+d.error)) return t('why.'+d.error,d.args);
     return GIT_WRITE_FAIL;
-  },
+  }
 
   writeError(res){
     const m=(res.data&&res.data.message)||'';
     return this.writeReason(res)+(m?': '+m:'');
-  },
+  }
 
   // 응답에 실린 **실행 후** status 로 화면을 즉시 갱신한다 (FR-GIT-71) — 폴링
   // 주기를 기다리지 않는다.
@@ -290,21 +288,21 @@ Object.assign(GitPanel.prototype, {
   // signature 는 쓰기 응답에 없으므로 _lastSig 를 그대로 둔다. 다음 signature
   // 폴링이 차이를 보고 한 번 더 재조회하는 것은 해롭지 않다.
   adopt(d){
-    if(!d||!d.status||d.requested!==this.repo) return;
+    if(!d||!d.status||d.requested!==this.p.repo) return;
     // mark 는 옛 관측의 것이다 — 남기면 다음 collect 가 그 값을 `ifMark` 로 실어, 서버의
     // 관측이 아직 그 mark 면 이 본문 위에 틀린 `unchanged` 를 받는다 (FR-OPT-4-7).
-    this._status=Object.assign({},this._status||{},
+    this.p._status=Object.assign({},this.p._status||{},
       {requested:d.requested,repo:d.repo,status:d.status,mark:''});
-    this._errMsg=null; this._staleNote=false;
+    this.p._errMsg=null; this.p._staleNote=false;
     // 사용자가 부른 쓰기의 응답이다 — 화면은 반드시 바뀐다 (FR-RPT-5). 쓰기 응답에는
     // 관측 식별자(mark)가 없으므로 근거를 비운다 — 다음 관측이 새 mark 로 선다 (F-6.1).
-    this._obsSig=null;
+    this.p._obsSig=null;
     // FR-SVS-44: 쓰기의 **결과는 관측**이다 — 조작이 어느 칸에서 시작됐는지는
     // 결과에 영향을 주지 않으므로 모든 칸이 함께 바뀐다.
-    this.obs.paintAll();
+    this.p.obs.paintAll();
     this.app.gitReposRefresh();
     this.app.updateStatusBar();
-  },
+  }
 
   /**
    * 진행 중 작업 줄 (FR-GIT-252).
@@ -329,7 +327,7 @@ Object.assign(GitPanel.prototype, {
     // 숨김의 어휘는 `[hidden]` 이다 (FR-LAY-30) — 옛 `.vis` 규칙은 이름에 매여 있었다.
     for(const b of box.querySelectorAll('.git-op-act'))
       b.hidden=acts.indexOf(b.dataset.act)<0;
-  },
+  }
 
   // 정책은 한 번만 받아 들고 있는다. 받으면 그때 다시 그린다 — 판정을 그리기에
   // 업지 않는다 (FR-RPT-8).
@@ -339,11 +337,11 @@ Object.assign(GitPanel.prototype, {
       this._opActsP=GitConfirm.policy().then(p=>{
         this._opActs=(p&&p.operations)||{};
         this._opActsP=null;
-        this._paint();
+        this.p._paint();
       });
     }
     return [];
-  },
+  }
 
   /**
    * 출구 하나를 실행한다 (FR-GIT-252).
@@ -353,7 +351,7 @@ Object.assign(GitPanel.prototype, {
    * 클라이언트만 막으면 API 직접 호출이 우회한다.
    */
   runOperation(action){
-    const op=(this.statusOf()||{}).operation||{};
+    const op=(this.p.statusOf()||{}).operation||{};
     const kind=op.kind||''; if(!kind) return;
     if(action!==GIT_OP_ABORT) return this._runOp(kind,action,false);
     return GitDialog.confirm({
@@ -368,22 +366,22 @@ Object.assign(GitPanel.prototype, {
           stderrTail:(res.data&&res.data.message)||''};
       },
     });
-  },
+  }
 
   async _runOp(kind,action,confirm){
     const after=r=>{
-      if(r.ok){this._note=null; this.adopt(r.data)}
+      if(r.ok){this.p._note=null; this.adopt(r.data)}
       else this.applyWriteFail(r);
     };
     const res=await this.postJob(GIT_API.operation,
-      {repo:this.repo,kind,action,confirm:!!confirm},after);
+      {repo:this.p.repo,kind,action,confirm:!!confirm},after);
     if(!res.started) after(res);
     return res;
-  },
+  }
 
   _paintNote(el){
     const box=el.querySelector('.git-partial-note'); if(!box) return;
-    const n=this._note;
+    const n=this.p._note;
     box.classList.toggle('vis',!!n);
     box.querySelector('.git-partial-msg').textContent=
       n?(n.partial?n.msg+' — '+GIT_PARTIAL_NOTE:n.msg):'';
@@ -391,16 +389,16 @@ Object.assign(GitPanel.prototype, {
     if(lockBtn){
       lockBtn.classList.toggle('vis',!!(n&&n.lock));
       // 잡이 돌면 그 잡이 lock 의 주인일 수 있다 — 서버의 1층 답 (GR-1b).
-      lockBtn.disabled=!actionState(this.actionOf(GIT_ACTION.lockRemove),false).enabled;
+      lockBtn.disabled=!actionState(this.p.actionOf(GIT_ACTION.lockRemove),false).enabled;
     }
     const ul=box.querySelector('.git-partial-list'); ul.innerHTML='';
     for(const p of (n&&n.changed)||[]){
       const li=document.createElement('li'); li.className='git-partial-path';
       li.textContent=p; ul.appendChild(li);
     }
-  },
+  }
 
   // ── 선택과 이동 (FR-GIT-52) ──
 
-});
+}
 

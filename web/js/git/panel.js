@@ -17,7 +17,6 @@
  *   panel-life.js     리포 전환 · 뷰 루트 · 파괴 · 소실 복구
  *   panel-changes.js  Changes 탭 — 목록 · 트리 · 그룹 · 머리
  *   panel-views.js    뷰 지연 생성 · 상태 접근 · 브랜치/태그 파사드
- *   panel-write.js    쓰기 한 번의 전과 후 — 후처리 훅 · 결과 해석 · 오퍼레이션
  *   panel-files.js    파일 작업 · 선택(→ diff) · 스테이징 · discard
  *   panel-dir-entry.js 디렉터리 항목의 사유 · 진입점
  *
@@ -28,6 +27,7 @@
  *   git-hunks.js      부분 스테이징 · hover 툴바 (`this.hunks`)
  *   git-diff-pane.js  Diff 탭 · Diff 탭 전용 패널의 몫 · 보기 설정 (`this.diffPane`)
  *   git-poll.js       접기 설정 · 폴링 · 상태 적용 (`this.poll`)
+ *   git-write.js      쓰기 한 번의 전과 후 — 후처리 훅 · 결과 해석 · 오퍼레이션 (`this.write`)
  *
  * 관측(`GitObserver`)은 observer.js, Diff 편집기(`GitDiffView`)는 diff-view.js 다.
  */
@@ -96,6 +96,7 @@ class GitPanel {
     this.hunks=new GitHunks(this);
     this.diffPane=new GitDiffPane(this);
     this.poll=new GitPoll(this);
+    this.write=new GitWrite(this);
   }
 
   // e2e 가 툴바의 자리를 읽는다 (FR-FEP-5). 주인은 `GitHunks` 다.
@@ -147,6 +148,31 @@ class GitPanel {
   _reschedule(){ return this.poll._reschedule() }
   _stop(){ return this.poll._stop() }
   collect(){ return this.poll.collect() }
+  afterCommitOp(res){ return this.write.afterCommitOp(res) }
+  noteCompareMark(label){ return this.write.noteCompareMark(label) }
+  afterRefWrite(d){ return this.write.afterRefWrite(d) }
+  afterRemoteJob(){ return this.write.afterRemoteJob() }
+  afterJobSlots(){ return this.write.afterJobSlots() }
+  stashApply(oid,withIndex){ return this.write.stashApply(oid,withIndex) }
+  stashPop(oid){ return this.write.stashPop(oid) }
+  stashDrop(oid){ return this.write.stashDrop(oid) }
+  afterStashWrite(res){ return this.write.afterStashWrite(res) }
+  stashBranch(s){ return this.write.stashBranch(s) }
+  stashCreate(){ return this.write.stashCreate() }
+  afterStashRefWrite(res){ return this.write.afterStashRefWrite(res) }
+  applyWriteFail(res){ return this.write.applyWriteFail(res) }
+  removeIndexLock(given){ return this.write.removeIndexLock(given) }
+  post(url,body,opts){ return this.write.post(url,body,opts) }
+  bumpWrite(){ return this.write.bumpWrite() }
+  wqPost(url,body){ return this.write.wqPost(url,body) }
+  busyNote(){ return this.write.busyNote() }
+  postJob(url,body,settle){ return this.write.postJob(url,body,settle) }
+  writeReason(res){ return this.write.writeReason(res) }
+  writeError(res){ return this.write.writeError(res) }
+  adopt(d){ return this.write.adopt(d) }
+  _paintOp(el,s){ return this.write._paintOp(el,s) }
+  runOperation(action){ return this.write.runOperation(action) }
+  _paintNote(el){ return this.write._paintNote(el) }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //

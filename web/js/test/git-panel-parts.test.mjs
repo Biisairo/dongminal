@@ -42,13 +42,22 @@ const PARTS = [
       ['_staleTake', ['history', '/r']], ['_inRefsRound', [() => 1]], ['_reloadStaleViews', ['sig']], ['init', []],
       ['signal', ['write']], ['_pollOk', []], ['_cadence', [1000]], ['_applyCadence', []], ['_watchdog', []],
       ['_reschedule', []], ['_stop', []], ['collect', []]] },
+  { field: 'write', cls: 'GitWrite', gone: ['git/panel-write.js'], owned: ['_opActs', '_opActsP'],
+    delegates: [['afterCommitOp', [{ ok: true }]], ['noteCompareMark', ['l']], ['afterRefWrite', [{ status: {} }]],
+      ['afterRemoteJob', []], ['afterJobSlots', []], ['stashApply', ['o1', true]], ['stashPop', ['o1']], ['stashDrop', ['o1']],
+      ['afterStashWrite', [{ ok: true }]], ['stashBranch', [{ oid: 'o1' }]], ['stashCreate', []],
+      ['afterStashRefWrite', [{ ok: true }]], ['applyWriteFail', [{ data: {} }]], ['removeIndexLock', [{ path: 'l' }]],
+      ['post', ['/u', { a: 1 }, { detach: true }]], ['bumpWrite', []], ['wqPost', ['/u', { a: 1 }]], ['busyNote', []],
+      ['postJob', ['/u', { a: 1 }, () => 1]], ['writeReason', [{ data: {} }]], ['writeError', [{ data: {} }]],
+      ['adopt', [{ status: {} }]], ['_paintOp', [{ id: 'el' }, { operation: null }]], ['runOperation', ['abort']],
+      ['_paintNote', [{ id: 'el' }]]] },
 ];
 
 /** 생성자 밖 참조가 없어 지운 필드 (FR-FEP-6). */
 const DEAD = ['_hunkBarWidget', '_hunkBarSubs'];
 
 /** 하위 단계가 끝난 뒤 남는 `Object.assign(GitPanel.prototype` 의 수 (TC-FEP-2). 처음은 12 다. */
-const ASSIGNS_LEFT = 7;
+const ASSIGNS_LEFT = 5;
 
 function setup() {
   const ctx = load([...BASE, ...GITPANEL], {
