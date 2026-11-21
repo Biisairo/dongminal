@@ -1349,6 +1349,26 @@
 | `D-FR1-9` | 범위를 받지 못하면 칸에 `min`·`max` 를 세우지 않는다. 화면에 기본값 사본을 두지 않는다 | 사본을 두면 두 벌이 그대로 남는다. 칸의 `min`·`max` 는 입력 보조일 뿐이고(저장 본문은 숫자인지만 본다), 범위 밖 값은 서버가 400 으로 거절하고 화면은 오류를 보인 뒤 서버 값으로 되돌린다(`_cacctDo`). 범위를 못 받는 것은… | 채택 |
 | `D-FR1-10` | ping·stats 를 함께 보내고 `_latency` 는 ping 의 왕복만 잰다(권장안) | 측정 정의는 그대로다. 종전 주석(FR-PRF-36~38)이 걱정한 오염은 같은 줄에 서는 것이다. 브라우저는 두 요청을 따로 보내고(HTTP/1.1 은 연결 여럿, HTTP/2 는 다중화), 서버의 stats 계산은 ping 처리기를 막지 않는다. … | 채택 |
 
+## [`REFACTOR3_FE_REST2_SRS`](./REFACTOR3_FE_REST2_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-FR2-1` | `_pickSandbox` 의 판정(방식 합치기·기본 선택·누른 결과)은 클래스 밖 순수 함수로 뺀다. DOM 빌더는 컨트롤러 메서드로 둔다 | 판정은 DOM 없이 단위 시험으로 고정할 수 있다. 빌더는 `this._sbxRecent()`·`this.app._openSettings` 를 쓰므로 메서드여야 한다. 새 메서드는 위임자 표에 넣지 않는다 — 바깥이 부르지 않는다 | 채택 |
+| `D-FR2-2` | `updateStatusBar` 의 빌더는 `StatusBarController` 메서드(`_sbItems`·`_sbUptimeEl`)다. 위임자를 더하지 않는다 | 시험이 덮어쓰는 이름은 `updateStatusBar` 뿐이다(HANDOFF_4 §4). 빌더는 컨트롤러 안에서만 불린다 | 채택 |
+| `D-FR2-3` | FC-06·08 의 회귀 시험은 기존 e2e(`sandbox-pick`·`sandbox-window`·`sandbox-runtime` · `statusbar-xss`·`git-statusbar`·`status-bar-reflow`·`editor-enc… | 단위 하네스의 원소 대역은 레이아웃도 전파도 없다. DOM 결과의 동일성은 실제 브라우저가 더 정확히 본다 | 채택 |
+| `D-FR2-4` | `agentsWidthOk` 은 지운다 | 운영·시험 호출이 0 이다. Activity 폭의 접기는 `input-binding.js:59` 가 `AGENTS_W_MIN_PX`·`AGENTS_W_MAX_PX` 로 직접 한다 | 채택 |
+| `D-FR2-5` | 서버 상한(`ENTITY_NAME_MAX`·`serverMeta`)과 그 함수 셋은 새 파일 `core/server-meta.js` 로 간다 | 부르는 곳이 열여섯 파일에 흩어져 "쓰는 쪽" 하나가 없다. 둘 다 부팅 때 서버 답으로 채워지는 **상태**라 상수 파일에 둘 이유도 없다. 파일 하나 = 주제 하나(`GET /api/meta` 의 답) | 채택 |
+| `D-FR2-6` | `clampSidebarWidth`·`sidebarWidthStore` 는 `ui/input-binding.js` 로 간다. 상수(`SIDEBAR_W_*`·`SIDEBAR_W_KEY`)는 `constants.js` 에 남는다 | 부르는 곳이 손잡이 하나다. 상수는 `index.html` 첫 페인트 스크립트의 주석과 `check-preinject.mjs` 가 `constants.js` 에서 찾는다 | 채택 |
+| `D-FR2-7` | FC-15 는 훑기를 한 번으로 줄이고 `reconcileList` 세 번은 남긴다 | 받는 곳이 셋이다. 탭 줄 칠하기(`_actTabsPaint`)가 머리를 그린 뒤·몸통 전에 서야 하므로 표 순회로 셋을 묶으면 그 순서가 조건문으로 숨는다 | 채택 |
+| `D-FR2-8` | `_bgModalToggle` 의 새 이름은 `_bgPanelOpen` 이고 위임자를 두지 않는다 | 이름을 지키던 주석(:263)의 이유는 "이 변경의 범위가 아니다" 였다 — e2e·계약·시험 덮어쓰기는 부르지 않는다(`grep -rn _bgModalToggle e2e web docs` 에서 운영 호출은 `app.js:412` 하나, 시험은 위임자… | 채택 |
+| `D-FR2-9` | `cm-lsp.js` `unsubscribe` 는 지우지 않는다 | 호출처 0 이 아니다. 번들 `vendor/codemirror/cm.js` 의 `LSPClient` 가 `connect` 에서 앞 transport 를, `disconnect` 에서 지금 transport 를 `transport.unsubscribe(… | 채택 |
+| `D-FR2-10` | 긴 줄의 기준은 198 코드포인트다. 150~198 은 이번에 손대지 않는다 | PROD3 FC-18 이 문제 삼은 줄(198자)이 기준이다. 150자 넘는 줄 75줄은 대부분 긴 문장의 주석·`t()` 인자·SVG 경로다 — 나누면 grep 으로 찾기 어려워진다 | 채택 |
+| `D-FR2-11` | `CLAUDE_ACCT_POLL_MS=30*1000` 은 `state-registry.js` 에 그대로 둔다 | 그 자리의 주석이 이유를 적었다: 등록부만 싣는 페이지(`e2e/sse-resilience.spec.ts`·`state-registry.test.mjs`)에서도 정의돼야 한다. 그 페이지는 `constants.js` 를 싣지 않으므로 `MS_PER_S… | 채택 |
+| `D-FR2-12` | `min(520px,92vw)` 는 `ui-modal-lg`(`90vw`)로 합친다 | `.ui-modal-box` 의 `max-width:90vw` 가 이미 92vw 를 90vw 로 누른다. 계산된 폭은 같다(INV-R2-2) | 채택 |
+| `D-FR2-13` | 서술자 표의 `title` 과 `diag.js` 의 리터럴은 남긴다. `diag.js` 의 지연은 파일 머리의 이름(`MAX` 와 같은 자리)으로 둔다 | 서술자 표는 이름·아이콘·툴팁을 한 항목으로 선언한다 — 툴팁만 떼면 한 탭의 정의가 두 자리로 갈린다. 상수 파일의 표(`GIT_VIEWS`·`REPO_SIDE`)는 이미 규약 안이다. `diag.js` 는 `?diag=1` 일 때만 도는 자체 완결… | 채택 |
+| `D-FR2-14` | `KitModal` 의 `width` 선택지를 지운다 | 아홉 호출이 모두 클래스로 가면 쓰는 곳이 없다. 남기면 다음 사람이 다시 JS 로 폭을 박는다 | 채택 |
+| `D-FR2-15` | 새 툴팁 상수는 `constants.js` 의 `TIP_*` 줄 끝에 더한다. git 쪽 `GIT_TIP_*` 는 건드리지 않는다 | 대상 열두 줄이 모두 git 밖(간선·채팅·Activity·레이아웃·테마)이다 | 채택 |
+
 ## [`REFACTOR3_FE_SETTINGS_SRS`](./REFACTOR3_FE_SETTINGS_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -1984,4 +2004,4 @@
 
 ---
 
-결정 **1191건** · 문서 **154개**.
+결정 **1206건** · 문서 **155개**.
