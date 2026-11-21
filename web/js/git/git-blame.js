@@ -1,20 +1,20 @@
 /**
- * GitPanel — Blame (FR-GIT-276 · F-5.2). `panel-diff.js` 의 증강 분할이다
- * (OPTIMIZE_REFACTOR_SRS FR-OPT-12-4 · FEU-22) — 계약은 `GitPanel` 한 클래스에 남고 주제만 옮겼다.
+ * GitBlame — Git 패널의 Blame 부품 (FR-GIT-276 · F-5.2 · REFACTOR3_FE_GITPANEL_SRS 7a). 조회 결과 넷
+ * (`_blameKey`·`_blameData`·`_blameErr`·`_blameAll`)을 소유한다. 켜짐(`_blameOn`)은 diff 와 hunk 도 보므로 패널에 있다.
  */
-Object.assign(GitPanel.prototype, {
+class GitBlame extends GitPart {
   // ── Blame (FR-GIT-276) ──
   //
   // Diff 탭의 모드다 (D8). 대상은 **지금 diff 가 보는 파일**을 따른다 — 별도
   // 대상을 들면 ‹ › 로 파일을 옮겼을 때 blame 만 앞 파일에 남는다.
 
   _blameTarget(){
-    if(!this._blameOn) return null;
-    const cf=this.commitFile;
+    if(!this.p._blameOn) return null;
+    const cf=this.p.commitFile;
     if(cf&&cf.path) return {path:cf.path,rev:cf.oid||''};
-    const f=this._diffTarget();
+    const f=this.p._diffTarget();
     return f&&f.path?{path:f.path,rev:''}:null;
-  },
+  }
 
   _paintBlame(el){
     const box=el.querySelector('.git-blame'); if(!box) return;
@@ -29,7 +29,7 @@ Object.assign(GitPanel.prototype, {
     }
     // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 스크롤이 매초
     // 초기화된다 (_paintHunks 와 같은 규약).
-    const key=[this.repo||'',target.rev,target.path].join(RPT_SEP);
+    const key=[this.p.repo||'',target.rev,target.path].join(RPT_SEP);
     if(this._blameKey!==key){
       this._blameKey=key; this._blameData=null; this._blameErr=null;
       // FR-PRF-18: "전체 보기" 는 **그 파일에 대한 선택**이다 — 다른 파일로 옮기면
@@ -38,25 +38,25 @@ Object.assign(GitPanel.prototype, {
       this._loadBlame(target,key);
     }
     this._drawBlame(box);
-  },
+  }
 
   async _loadBlame(target,key){
-    const tok=this.token();
+    const tok=this.p.token();
     // FR-GRF-6: 조회에는 시한이 있다 (gitFetch 의 기본).
-    const r=await gitFetch(GIT_API.blame,{repo:this.repo||'',rev:target.rev,path:target.path});
+    const r=await gitFetch(GIT_API.blame,{repo:this.p.repo||'',rev:target.rev,path:target.path});
     const d=r.data;
-    if(this.isStale(tok)||this._blameKey!==key) return;
+    if(this.p.isStale(tok)||this._blameKey!==key) return;
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
     // 있다 (FR-GIT-54).
     const q=(d&&d.requested)||{};
     if(!r.ok||!d||q.path!==target.path||q.rev!==target.rev){
       // 거부 사유는 **누른 자리**에 보인다 — 서버가 준 문구가 있으면 그것을 쓴다.
       this._blameErr=(d&&d.message)||GIT_BLAME_FAIL;
-      this._paint(); return;
+      this.p._paint(); return;
     }
     this._blameData={lines:d.lines||[],commits:d.commits||{}};
-    this._paint();
-  },
+    this.p._paint();
+  }
 
   /**
    * FR-PRF-18: 행 수에 **상한**이 있다.
@@ -87,14 +87,14 @@ Object.assign(GitPanel.prototype, {
     // F-5.2: 조회 실패는 다시 시도할 수 있다 — 사유 옆에 길을 둔다.
     if(this._blameErr){
       note.appendChild(UIKit.button({label:GIT_BLAME_RETRY,size:'sm',cls:'git-blame-retry',
-        onClick:()=>{this._blameKey=null;this._paint()}}));
+        onClick:()=>{this._blameKey=null;this.p._paint()}}));
     }
     rows.innerHTML='';
     if(!d||!all) return;
     if(cut){
       note.textContent=GIT_BLAME_CUT.replace('%r',String(all)).replace('%n',String(shown));
       note.appendChild(UIKit.button({label:GIT_BLAME_SHOW_ALL,size:'sm',cls:'git-blame-all',
-        onClick:()=>{this._blameAll=true;this._paint()}}));
+        onClick:()=>{this._blameAll=true;this.p._paint()}}));
     }
     const frag=document.createDocumentFragment();
     for(let i=0;i<shown;i++){
@@ -102,7 +102,7 @@ Object.assign(GitPanel.prototype, {
       frag.appendChild(this._blameRow(ln,d.commits[ln.oid]||{}));
     }
     rows.appendChild(frag);
-  },
+  }
 
   _blameRow(ln,c){
     const el=document.createElement('div');
@@ -124,20 +124,20 @@ Object.assign(GitPanel.prototype, {
     mk('git-blame-num',String(ln.line),'');
     mk('git-blame-text',ln.text,'');
     return el;
-  },
+  }
 
   // FR-GIT-276: 파일 메뉴의 진입점. Diff 탭을 열고 그 파일을 blame 으로 본다.
   openBlame(target){
     if(!target||!target.path) return;
     // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 는 탭마다 패널이다 — 그 탭의 패널이 blame 모드를 든다.
-    if(this.root){
-      this._select(target.group,{path:target.path,origPath:target.origPath||''});
-      this.app.gitDiffOpen(this.root,this._diffTarget(),{preview:true,blame:true});
+    if(this.p.root){
+      this.p._select(target.group,{path:target.path,origPath:target.origPath||''});
+      this.app.gitDiffOpen(this.p.root,this.p._diffTarget(),{preview:true,blame:true});
       return;
     }
-    this._blameOn=true;
-    this._openDiff(target.group,{path:target.path,origPath:target.origPath||''});
-  },
+    this.p._blameOn=true;
+    this.p._openDiff(target.group,{path:target.path,origPath:target.origPath||''});
+  }
 
   // F-5.2: 작업 트리 파일의 Blame 을 다시 받게 한다 — 저장·git_changed·새로고침이 부른다.
   // 커밋 축(rev 있음)의 blame 은 낡지 않는다.
@@ -145,6 +145,11 @@ Object.assign(GitPanel.prototype, {
     const target=this._blameTarget();
     if(!target||target.rev) return;
     this._blameKey=null;
-    this._paint();
-  },
-});
+    this.p._paint();
+  }
+
+  // 리포 전환 — blame 은 파일에 붙은 것이다 (panel-life `_repoSwitchView`).
+  reset(){
+    this._blameKey=null; this._blameData=null; this._blameErr=null;
+  }
+}

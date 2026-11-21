@@ -76,7 +76,7 @@ Object.assign(GitPanel.prototype, {
     // 앞 리포의 조각을 가리키던 툴바가 새 리포의 diff 위에 남아서는 안 된다.
     this._hunkBarHide();
     // blame 은 파일에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을 가리킨다.
-    this._blameOn=false; this._blameKey=null; this._blameData=null; this._blameErr=null;
+    this._blameOn=false; this.blame.reset();
     if(this._diffView) this._diffView.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
     for(const v of GIT_VIEWS) if(this._els.has(v.key)) this._render(v.key);
   },
@@ -188,6 +188,7 @@ Object.assign(GitPanel.prototype, {
     // 재정착은 아직 자신이 목록에 있으므로, 이 패널이 마지막이었을 때에도 남은
     // 것으로 세었다 — 그 판정을 여기서 한 번 더 지나 바로잡는다.
     this.obs.resettle();
+    this.blame.dispose();
   },
 
   detach(){

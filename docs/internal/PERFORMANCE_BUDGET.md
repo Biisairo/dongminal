@@ -121,7 +121,7 @@
 | `web/js/git/panel-changes.js` | `_paintHead` | `badges` | 1 | 가드 | 배지 줄이 `paintIfChanged` 를 지난다 (FR-PRF-10) |
 | `web/js/git/panel-changes.js` | `_renderChanges` | `el` | 1 | 가드 | `el.dataset.built` — 뷰를 처음 세울 때만 |
 | `web/js/git/panel-changes.js` | `_renderInit` | `el` | 1 | 사용자 | 뷰 세우기 |
-| `web/js/git/panel-blame.js` | `_drawBlame` | `rows` | 1 | 가드 | `box.dataset.sig` — 같은 파일을 다시 열어도 다시 그리지 않는다. 한 번의 비용은 §2-5-2 가 잡는다 |
+| `web/js/git/git-blame.js` | `_drawBlame` | `rows` | 1 | 가드 | `box.dataset.sig` — 같은 파일을 다시 열어도 다시 그리지 않는다. 한 번의 비용은 §2-5-2 가 잡는다 |
 | `web/js/git/panel-hunks.js` | `_hunkBarPaint` | `el` | 1 | 가드 | `el.dataset.sig` |
 | `web/js/git/panel-life.js` | `_render` | `el` | 1 | 사용자 | 뷰 전환 |
 | `web/js/git/panel-life.js` | `_renderBody` | `el` | 1 | 사용자 | 뷰 전환 |

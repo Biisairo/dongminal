@@ -9,8 +9,8 @@
  * 하나로 판정한다 — 나중에 비동기 경로를 하나씩 훑어 가드를 덧붙이는 상황을
  * 만들지 않으려고 처음부터 둔다.
  *
- * **메서드는 이 파일에 없다.** 클래스 본문에는 `constructor` 와 접근자만 남고, 나머지
- * 187개는 주제별 파일이 `Object.assign(GitPanel.prototype, …)` 로 얹는다
+ * **메서드는 이 파일에 없다.** 클래스 본문에는 `constructor` 와 접근자, 부품 위임자만 남고, 나머지
+ * 는 주제별 파일이 `Object.assign(GitPanel.prototype, …)` 로 얹는다
  * (SPLIT_REFACTOR_SRS 묶음 B). 접근자가 여기 남은 이유는 `Object.assign` 이 getter 를
  * **호출해 그 반환값을 복사**하기 때문이다 — 옮기면 통로가 값으로 굳는다.
  *
@@ -22,6 +22,11 @@
  *   panel-diff.js     선택 → diff · blame · hunk · 미리보기
  *   panel-dir-entry.js 디렉터리 항목의 사유 · 진입점
  *   panel-poll.js     보기 설정 · 폴링 · 상태 적용
+ *
+ * 부품 클래스(`GitPart` 하위, REFACTOR3_FE_GITPANEL_SRS)는 혼자 쓰는 필드까지 갖고 생성자가 만들어 든다.
+ * 바깥·다른 파일이 부르는 부품 메서드는 아래 위임자가 잇는다.
+ *
+ *   git-blame.js      Blame (`this.blame`)
  *
  * 관측(`GitObserver`)은 observer.js, Diff 편집기(`GitDiffView`)는 diff-view.js 다.
  */
@@ -97,7 +102,14 @@ class GitPanel {
     // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
     // 선택되지 않는다.
     this.commitFile=null;
+    // 부품 (REFACTOR3_FE_GITPANEL_SRS FR-FEP-3). 혼자 쓰는 필드는 부품이 갖는다.
+    this.blame=new GitBlame(this);
   }
+
+  // ── 부품 위임자 (FR-FEP-4) — 패널 바깥·다른 파일이 부르는 이름 ──
+  openBlame(target){ return this.blame.openBlame(target) }
+  blameStale(){ return this.blame.blameStale() }
+  _paintBlame(el){ return this.blame._paintBlame(el) }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //

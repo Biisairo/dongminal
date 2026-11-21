@@ -105,3 +105,4 @@
 
 | 하위 단계 | 커밋 | 요점 |
 |---|---|---|
+| 7a | (이 커밋) | `GitPart`(`git-part.js`, `panel.js` 앞)·`GitBlame`(`git-blame.js`, `panel-blame.js` 를 `git mv`) — 메서드 7, 위임자 3(`openBlame`·`blameStale`·`_paintBlame`), 소유 필드 `_blameKey`·`_blameData`·`_blameErr`·`_blameAll`. `_blameOn` 은 diff·hunk·`app-diff-tab.js` 가 함께 쓰므로 패널에 남는다(SRS 의 "넷" 이 이 넷이다). life 의 되돌림은 `this.blame.reset()`(옛 줄과 같이 `_blameAll` 은 두지 않는다), 해제는 `destroy` 끝에서 `this.blame.dispose()`. 하네스에 `GITPANEL` 묶음을 새로 둔다(옛 묶음 상수가 없었다). 단위 `git-panel-parts.test.mjs` 5. e2e 6 spec 72 통과 |

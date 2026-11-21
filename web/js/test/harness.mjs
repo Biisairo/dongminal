@@ -63,6 +63,14 @@ export const MENU = ['ui/menu.js'];
 /** Git 탭 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_GITVIEW_SRS FR-FEV-11). `LIST` 뒤, git 뷰들 앞에 싣는다. */
 export const GITVIEW = ['git/git-view.js'];
 
+/**
+ * Git 패널 한 벌 — index.html 의 순서다 (REFACTOR3_FE_GITPANEL_SRS FR-FEP-9). `BASE` 뒤에 싣는다. 부품 기반
+ * (`git-part.js`)이 `panel.js` 앞이고, 부품 파일은 옛 mixin 자리에 선다.
+ */
+export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/panel-life.js', 'git/panel-changes.js',
+  'git/panel-views.js', 'git/panel-write.js', 'git/panel-files.js', 'git/panel-diff.js', 'git/panel-diff-tab.js',
+  'git/git-blame.js', 'git/panel-hunks.js', 'git/panel-dir-entry.js', 'git/panel-poll.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 
