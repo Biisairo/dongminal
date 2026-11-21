@@ -11,10 +11,9 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
+
+	"dongminal/internal/shared/termtext"
 )
 
 // 보내는 쪽의 시간 한도 (FR-PNW-44)와 응답 상한.
@@ -52,17 +51,7 @@ const RemoteMessageMax = 512
 
 // cleanMessage 는 상대가 보낸 오류 문장에서 제어 문자를 지우고 길이를 묶는다.
 func cleanMessage(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
-			continue
-		}
-		if b.Len()+utf8.RuneLen(r) > RemoteMessageMax {
-			break
-		}
-		b.WriteRune(r)
-	}
-	return b.String()
+	return termtext.Cut(termtext.Strip(s), RemoteMessageMax)
 }
 
 func (e *RemoteError) Error() string {

@@ -6,8 +6,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
-	"path/filepath"
 
+	"dongminal/internal/shared/humancmd"
 	"dongminal/internal/shared/platform"
 )
 
@@ -41,9 +41,11 @@ const (
 	OpSend   = "send"
 	// OpState 는 사람 화면의 한 번 읽기다: 나·온라인 목록·방 목록 (§3.11).
 	OpState = "state"
-	// OpKill·OpKick 은 사람 명령이다. 사람 참가자만 부른다 (§3.12).
-	OpKill = "kill"
-	OpKick = "kick"
+	// OpKill·OpKick 은 사람 명령이다. 사람 참가자만 부른다 (§3.12). 이 op 는 서명한 명령
+	// 본문의 종류로 그대로 건네지므로 humancmd 의 이름을 가리킨다 — 어긋나면 받는 노드가
+	// 조용히 아무것도 하지 않는다.
+	OpKill = humancmd.OpKill
+	OpKick = humancmd.OpKick
 )
 
 // 채팅 핵심(`chat`)의 코드 밖에서 이 와이어가 더하는 오류 코드.
@@ -59,7 +61,7 @@ const (
 
 // SocketPath 는 home 인스턴스의 채팅 소켓 경로다.
 func SocketPath(home string) string {
-	return filepath.Join(filepath.Dir(platform.Current().IPC.Endpoint(home)), SocketFile)
+	return platform.SiblingSocket(home, SocketFile)
 }
 
 // Frame 은 채팅 소켓의 프레임 하나다. 종류에 따라 쓰는 필드가 다르다(§3.10 표).

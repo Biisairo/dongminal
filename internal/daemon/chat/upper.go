@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/edgemesh"
+	"dongminal/internal/shared/termtext"
 )
 
 // 채팅은 간선 연결 위에 얹힌 위층이다 (EDGE_MESH_SRS FR-EGM-40). 연결·다시 걸기·생존 확인은
@@ -202,7 +203,7 @@ func validState(st stateBody) bool {
 		}
 	}
 	for _, p := range st.Parts {
-		if len(p.Rooms) > maxPartRooms || !validID(p.ID) || !boundTo(p.ID, st.Node) || !validText(p.Label, maxLabel) {
+		if len(p.Rooms) > maxPartRooms || !validID(p.ID) || !boundTo(p.ID, st.Node) || !termtext.Line(p.Label, maxLabel) {
 			return false
 		}
 	}
@@ -244,11 +245,4 @@ func (s *Service) acceptMsgLocked(fr frame) ([]pending, bool) {
 		}
 	}
 	return s.localDeliveriesLocked(b, label, kind), true
-}
-
-func short(fp string) string {
-	if len(fp) > 12 {
-		return fp[:12]
-	}
-	return fp
 }

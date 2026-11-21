@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,14 +54,10 @@ var (
 )
 
 // NodeSocketPath 는 home 의 노드 소켓 경로다. 데몬 IPC 종단과 같은 폴더(0700)에 둔다.
-func NodeSocketPath(home string) string { return socketPath(home, NodeSocketFile) }
+func NodeSocketPath(home string) string { return platform.SiblingSocket(home, NodeSocketFile) }
 
 // DialSocketPath 는 home 의 발신 소켓 경로다.
-func DialSocketPath(home string) string { return socketPath(home, DialSocketFile) }
-
-func socketPath(home, name string) string {
-	return filepath.Join(filepath.Dir(platform.Current().IPC.Endpoint(home)), name)
-}
+func DialSocketPath(home string) string { return platform.SiblingSocket(home, DialSocketFile) }
 
 func preamble(addr string) string { return preambleTag + addr + "\n" }
 

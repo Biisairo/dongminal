@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/serverconf"
-	"dongminal/internal/shared/updatecheck"
 )
 
 func noEnv(string) string { return "" }
@@ -61,7 +61,7 @@ func TestUpdateNoticeSilentWhenAlreadyDecided(t *testing.T) {
 func TestUpdateNoticeSilentUnderKillSwitch(t *testing.T) {
 	home := t.TempDir()
 	env := func(k string) string {
-		if k == updatecheck.EnvNoCheck {
+		if k == dmenv.EnvNoCheck {
 			return "1"
 		}
 		return ""

@@ -6,11 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"time"
-	"unicode"
 	"unicode/utf8"
 
 	"dongminal/internal/shared/edge"
 	"dongminal/internal/shared/edgemesh"
+	"dongminal/internal/shared/termtext"
 )
 
 // 프레임 종류다 (§3.9). 기록 서명은 프레임이 아니지만 같은 서명 방식을 쓴다.
@@ -122,32 +122,19 @@ func openRecord(r signedRecord) (recordBody, bool) {
 	}
 	switch b.Kind {
 	case KindGroup:
-		ok = validText(b.Name, maxName) && b.Name != "" && b.Peer == ""
+		ok = termtext.Line(b.Name, maxName) && b.Name != "" && b.Peer == ""
 	case KindDirect:
 		ok = b.Owner != b.Peer && boundTo(b.Owner, b.Creator) && boundTo(b.Peer, b.PeerNode)
 	default:
 		ok = false
 	}
-	return b, ok && validText(b.Purpose, maxPurpose) && validID(b.Owner) && validID(b.Peer)
+	return b, ok && termtext.Line(b.Purpose, maxPurpose) && validID(b.Owner) && validID(b.Peer)
 }
 
 func randomHex(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
-}
-
-// validText 는 화면·터미널에 찍을 한 줄 문자열인지 본다. 제어 문자를 받지 않는다.
-func validText(s string, max int) bool {
-	if len(s) > max || !utf8.ValidString(s) {
-		return false
-	}
-	for _, r := range s {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
-			return false
-		}
-	}
-	return true
 }
 
 // validBody 는 글 본문인지 본다. 줄바꿈과 탭만 받고 다른 제어 문자는 받지 않는다 — 본문은
@@ -160,7 +147,7 @@ func validBody(s string) bool {
 		if r == '\n' || r == '\t' {
 			continue
 		}
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+		if termtext.Hidden(r) {
 			return false
 		}
 	}

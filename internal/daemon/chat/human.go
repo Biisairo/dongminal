@@ -11,6 +11,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/edge"
 	"dongminal/internal/shared/humancmd"
+	"dongminal/internal/shared/termtext"
 )
 
 // PEER_CHAT_SRS §3.12 — 사람 명령(강제 삭제·강퇴). 도우미가 서명한 묶음을 `cmd` 프레임으로 퍼뜨리고,
@@ -260,7 +261,7 @@ func (s *Service) pinLocked(fp string) func() {
 	case e.HelperKey != "":
 		if s.warned[fp] != key {
 			s.warned[fp] = key
-			dmlog.Warnf(nil, "chat: 간선 상대 %s 의 도우미 키가 고정한 값과 다르다 — 그 노드의 사람 명령을 받지 않는다. 다시 고정하려면 간선을 다시 맺는다", short(fp))
+			dmlog.Warnf(nil, "chat: 간선 상대 %s 의 도우미 키가 고정한 값과 다르다 — 그 노드의 사람 명령을 받지 않는다. 다시 고정하려면 간선을 다시 맺는다", termtext.Cut(fp, termtext.FPShort))
 		}
 		return nil
 	}

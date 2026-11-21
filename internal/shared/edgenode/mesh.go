@@ -16,8 +16,6 @@ import (
 // 간선 계층 배선과 그 연산 (EDGE_MESH_SRS).
 
 const (
-	// helloWait 는 바뀐 직접 정보를 간선 하나에 다 쓰기까지 기다리는 상한이다 (FR-EGM-23).
-	helloWait = 2 * time.Second
 	// maxInvites 는 받은 간선 초대의 상한이다 (FR-EGM-34).
 	maxInvites = 16
 	// maxRejected 는 거절한 초대 id 를 기억하는 상한이다. 만료되면 잊는다.
@@ -113,7 +111,7 @@ func (n *Node) announceChange(before, after edge.Config) {
 	if after.Enabled {
 		h.Addr, h.Port = after.Advertise, after.Port
 	}
-	n.mesh.HelloAll(h, helloWait)
+	n.mesh.HelloAll(h, edgemesh.HelloWait)
 	n.changed(Change{})
 }
 

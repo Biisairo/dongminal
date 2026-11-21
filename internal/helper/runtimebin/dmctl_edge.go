@@ -10,7 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
+
+	"dongminal/internal/shared/termtext"
 )
 
 // PEER_NETWORK_SRS FR-PNW-73·74, PEER_DAEMON_SRS FR-PDM-70, EDGE_PAIRING_SRS FR-EPR-60 — 노드 간
@@ -39,9 +40,6 @@ const dmctlEdgeHelp = `dmctl edge — 노드 간 통신의 간선 맺기
 // edgeCallBudget 은 상대를 부르는 로컬 API(add·remove)의 예산이다. 서버의 원격
 // 요청 시한(15초)보다 길어야 상대의 답을 받기 전에 끊지 않는다 (리뷰 C-1).
 const edgeCallBudget = 20 * time.Second
-
-// fpShown 은 화면에 보이는 지문 길이다 (FR-PNW-80).
-const fpShown = 16
 
 func runDmctlEdges(args []string, stdout, stderr io.Writer) int {
 	asJSON := false
@@ -95,12 +93,8 @@ type edgesOut struct {
 	} `json:"invite"`
 }
 
-func shortFP(fp string) string {
-	if len(fp) > fpShown {
-		return fp[:fpShown]
-	}
-	return fp
-}
+// shortFP 는 화면에 보이는 지문이다 (FR-PNW-80).
+func shortFP(fp string) string { return termtext.Cut(fp, termtext.FPShown) }
 
 // handle 은 `이름#번호` 다. 번호가 없으면(구버전 서버) 이름만이다 (PROFILE_NAME_SRS FR-PFN-23).
 func handle(name, tag string) string {
@@ -367,11 +361,4 @@ func printEdgeJSON(w io.Writer, raw []byte) {
 // clean 은 상대 노드가 보낸 글자에서 제어 문자를 지운다 — 터미널에 찍히기 때문이다.
 //
 // 서식 문자(Cf: bidi 재정렬·zero-width)도 지운다. 이 출력은 사람과 로컬 에이전트가 읽는다.
-func clean(s string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
-			return -1
-		}
-		return r
-	}, s)
-}
+func clean(s string) string { return termtext.Strip(s) }

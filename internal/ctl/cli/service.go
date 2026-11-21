@@ -198,7 +198,7 @@ func launchdPlist(exe, home string, conf serverconf.Resolved) string {
   <key>EnvironmentVariables</key>
   <dict>
     <key>` + dmenv.EnvHome + `</key><string>` + xmlEsc(home) + `</string>
-    <key>` + serverconf.EnvLogLevel + `</key><string>` + xmlEsc(conf.LogLevel.Value) + `</string>
+    <key>` + dmenv.EnvLogLevel + `</key><string>` + xmlEsc(conf.LogLevel.Value) + `</string>
   </dict>
   <key>StandardOutPath</key><string>` + xmlEsc(conf.LogFile.Value) + `</string>
   <key>StandardErrorPath</key><string>` + xmlEsc(conf.LogFile.Value) + `</string>
@@ -229,7 +229,7 @@ Wants=network-online.target
 Type=simple
 ExecStart=` + exe + ` start --foreground
 Environment=` + dmenv.EnvHome + `=` + home + `
-Environment=` + serverconf.EnvLogLevel + `=` + conf.LogLevel.Value + `
+Environment=` + dmenv.EnvLogLevel + `=` + conf.LogLevel.Value + `
 # 감독의 본체. 종료 코드를 가리지 않는 이유는, 우리가 "정상 종료" 로 세는 것이
 # 사용자가 직접 내린 경우뿐이고 그때는 systemctl 로 내리기 때문입니다.
 Restart=always

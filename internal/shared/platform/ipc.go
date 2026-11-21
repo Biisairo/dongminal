@@ -28,6 +28,12 @@ type IPC interface {
 // 내보낸다.
 const SocketFileName = "paned.sock"
 
+// SiblingSocket 은 home 의 IPC 종단과 같은 폴더(0700)에 사는 소켓 name 의 경로다. 보고·채팅·
+// 노드 소켓이 이것으로 자리를 얻는다.
+func SiblingSocket(home, name string) string {
+	return filepath.Join(filepath.Dir(Current().IPC.Endpoint(home)), name)
+}
+
 // unixSocketIPC 는 유닉스 도메인 소켓 종단이다.
 //
 // Windows 에서도 같은 전송을 쓴다. AF_UNIX 는 Windows 10 1803 부터 지원되고,

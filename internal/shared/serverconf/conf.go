@@ -138,8 +138,8 @@ func Resolve(in Inputs) Resolved {
 			r.BindEnv = append(r.BindEnv, k)
 		}
 	}
-	r.LogLevel = pick(in.FlagLogLevel, []envRef{{EnvLogLevel, getenv(EnvLogLevel)}}, f.LogLevel, DefaultLogLevel)
-	r.LogFile = pick(in.FlagLogFile, []envRef{{EnvLogFile, getenv(EnvLogFile)}}, f.LogFile, in.DefaultLogFile)
+	r.LogLevel = pick(in.FlagLogLevel, []envRef{{dmenv.EnvLogLevel, getenv(dmenv.EnvLogLevel)}}, f.LogLevel, DefaultLogLevel)
+	r.LogFile = pick(in.FlagLogFile, []envRef{{dmenv.EnvLogFile, getenv(dmenv.EnvLogFile)}}, f.LogFile, in.DefaultLogFile)
 
 	r.UpdateCheck = DefaultUpdateCheck
 	if f.updateCheck != nil {
@@ -163,15 +163,10 @@ func (r Resolved) BindEnvWarning() string {
 		strings.Join(r.BindEnv, "·"), FileName)
 }
 
-// EnvLogLevel·EnvLogFile 은 로그 계층의 환경변수다.
-//
 // EnvPort 는 DONGMINAL_ 접두어가 붙기 전부터 읽던 포트 변수다. 이제 바인드를
 // 정하지 않는다 (FR-HRB-1). `ctl/cli` 의 같은 이름이 이것을 가리킨다 (SHR-30).
-const (
-	EnvLogLevel = "DONGMINAL_LOG_LEVEL"
-	EnvLogFile  = "DONGMINAL_LOG"
-	EnvPort     = "PORT"
-)
+// 로그 계층의 환경변수 이름은 dmenv 에 있다 (REFACTOR3_DEDUP_GO_SRS FR-RDG-45).
+const EnvPort = "PORT"
 
 type envRef struct{ name, val string }
 

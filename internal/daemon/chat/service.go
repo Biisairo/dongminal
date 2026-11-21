@@ -9,6 +9,7 @@ import (
 
 	"dongminal/internal/shared/edge"
 	"dongminal/internal/shared/edgemesh"
+	"dongminal/internal/shared/termtext"
 )
 
 // 참가자와 방의 종류다.
@@ -276,7 +277,7 @@ func (s *Service) Unregister(pid string) {
 
 // Create 는 단체채팅 방을 만들고 pid 를 넣는다 (FR-PCH-10·11).
 func (s *Service) Create(pid, name, purpose string) (RoomInfo, error) {
-	if name == "" || !validText(name, maxName) || !validText(purpose, maxPurpose) {
+	if name == "" || !termtext.Line(name, maxName) || !termtext.Line(purpose, maxPurpose) {
 		return RoomInfo{}, fail(CodeBadRequest, "name 또는 purpose")
 	}
 	s.mu.Lock()
@@ -301,7 +302,7 @@ func (s *Service) Create(pid, name, purpose string) (RoomInfo, error) {
 // Direct 는 pid 와 온라인 참가자 peer 의 개인채팅을 만든다. 상대는 따로 수락하지 않고
 // 들어간다 (FR-PCH-14·15·17).
 func (s *Service) Direct(pid, peer, purpose string) (RoomInfo, error) {
-	if !validText(purpose, maxPurpose) || !validID(peer) {
+	if !termtext.Line(purpose, maxPurpose) || !validID(peer) {
 		return RoomInfo{}, fail(CodeBadRequest, "purpose 또는 participant")
 	}
 	s.mu.Lock()

@@ -15,6 +15,7 @@ import (
 
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/termtext"
 )
 
 const (
@@ -27,8 +28,9 @@ const (
 	// 다시 걸기 간격의 처음과 끝이다 (FR-EGM-3).
 	redialMin = time.Second
 	redialMax = 60 * time.Second
-	// helloWait 는 hello 를 다 쓰기까지 간선 하나를 기다리는 상한이다 (FR-EGM-23).
-	helloWait = 2 * time.Second
+	// HelloWait 는 hello 를 다 쓰기까지 간선 하나를 기다리는 상한이다 (FR-EGM-23). 노드가
+	// 바뀐 직접 정보를 모든 간선에 알릴 때도 이 값을 쓴다.
+	HelloWait = 2 * time.Second
 )
 
 var pingLine = []byte(`{"t":"ping"}` + "\n")
@@ -496,7 +498,7 @@ func (m *Mesh) pingAll(now time.Time) {
 	}
 	m.mu.Unlock()
 	for _, l := range dead {
-		dmlog.Infof(nil, "edge link: %s 에서 %s 동안 받은 것이 없어 끊는다", short(l.fp), m.deadAfter)
+		dmlog.Infof(nil, "edge link: %s 에서 %s 동안 받은 것이 없어 끊는다", termtext.Cut(l.fp, termtext.FPShort), m.deadAfter)
 		m.detach(l)
 	}
 }
@@ -587,7 +589,7 @@ func (m *Mesh) dial(ctx context.Context, e edge.Edge) error {
 	switch {
 	case errors.As(err, &re) && re.Code == edge.CodeNotEdge:
 		// 지문을 고정한 상대의 서버가 낸 답이라 믿는다 (EDGE_PAIRING_SRS D-EPR-3).
-		dmlog.Infof(nil, "edge link: %s 가 이 노드를 간선으로 알지 않는다 — 간선을 지운다", short(e.Fingerprint))
+		dmlog.Infof(nil, "edge link: %s 가 이 노드를 간선으로 알지 않는다 — 간선을 지운다", termtext.Cut(e.Fingerprint, termtext.FPShort))
 		if m.opts.OnNotEdge != nil {
 			m.opts.OnNotEdge(e.Fingerprint)
 		}
@@ -694,7 +696,7 @@ func (m *Mesh) Notify(ctx context.Context, fp string) error {
 }
 
 func waitDone(ctx context.Context, done <-chan struct{}) error {
-	t := time.NewTimer(helloWait)
+	t := time.NewTimer(HelloWait)
 	defer t.Stop()
 	select {
 	case <-done:
@@ -704,13 +706,6 @@ func waitDone(ctx context.Context, done <-chan struct{}) error {
 	case <-ctx.Done():
 		return ErrUnreachable
 	}
-}
-
-func short(fp string) string {
-	if len(fp) > 12 {
-		return fp[:12]
-	}
-	return fp
 }
 
 func sortedKeys[V any](m map[string]V) []string {

@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"unicode"
 	"unicode/utf8"
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/termtext"
 )
 
 // 노드 설정의 기본값과 상한 (FR-PNW-2·3).
@@ -103,15 +103,7 @@ func nameRune(r rune) bool {
 
 // ValidDisplayName 은 표시 이름 규칙이다: 비지 않고, 64바이트 안이며, 제어 문자가 없다.
 func ValidDisplayName(name string) bool {
-	if name == "" || len(name) > DisplayNameMax || !utf8.ValidString(name) {
-		return false
-	}
-	for _, r := range name {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
-			return false
-		}
-	}
-	return true
+	return name != "" && termtext.Line(name, DisplayNameMax)
 }
 
 // DisplayName 은 상대가 알린 이름이다. 규칙에 맞지 않으면 거절하지 않고 DefaultName 으로

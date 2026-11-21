@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 	"unicode"
-	"unicode/utf8"
 
 	"dongminal/internal/daemon/chat"
 	"dongminal/internal/shared/chatwire"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/termtext"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 	// userTab 은 사람 참가자의 표시 이름 뒤쪽이다 (FR-PCH-46).
 	userTab = "User"
 	// fpShown 은 온라인 목록에 보이는 지문 앞자리 수다.
-	fpShown = 12
+	fpShown = termtext.FPShort
 	// helloWait 는 첫 프레임을 기다리는 시한이다.
 	helloWait = 5 * time.Second
 	// writeWait 는 프레임 하나를 쓰는 시한이다.
@@ -181,7 +181,7 @@ func (s *Server) StartUser() chat.Participant {
 		if s.o.Name != nil {
 			name = clean(s.o.Name())
 		}
-		s.user = s.o.Chat.Register(truncBytes(name+"/"+userTab, maxLabel), chat.KindUser)
+		s.user = s.o.Chat.Register(termtext.Cut(name+"/"+userTab, maxLabel), chat.KindUser)
 	}
 	return s.user
 }
@@ -303,7 +303,7 @@ func (s *Server) label(tab, tool string) string {
 	if s.o.Name != nil {
 		name = clean(s.o.Name())
 	}
-	return truncBytes(name+"/"+tab, maxLabel)
+	return termtext.Cut(name+"/"+tab, maxLabel)
 }
 
 func (s *Server) drop(c *conn) {
@@ -414,7 +414,7 @@ func roomOf(r chat.RoomInfo) chatwire.Room {
 func onlineOf(v chat.OnlineView) chatwire.Online {
 	out := chatwire.Online{Nodes: []chatwire.Node{}, Participants: membersOf(v.Participants)}
 	for _, n := range v.Nodes {
-		out.Nodes = append(out.Nodes, chatwire.Node{FP: truncBytes(n.FP, fpShown), Name: n.Name, Online: n.Online, Self: n.Self})
+		out.Nodes = append(out.Nodes, chatwire.Node{FP: termtext.Cut(n.FP, fpShown), Name: n.Name, Online: n.Online, Self: n.Self})
 	}
 	return out
 }
@@ -422,7 +422,7 @@ func onlineOf(v chat.OnlineView) chatwire.Online {
 func membersOf(ms []chat.Member) []chatwire.Member {
 	out := []chatwire.Member{}
 	for _, m := range ms {
-		out = append(out, chatwire.Member{ID: m.ID, Label: m.Label, Kind: m.Kind, Node: truncBytes(m.Node, fpShown), Online: m.Online})
+		out = append(out, chatwire.Member{ID: m.ID, Label: m.Label, Kind: m.Kind, Node: termtext.Cut(m.Node, fpShown), Online: m.Online})
 	}
 	return out
 }
@@ -537,9 +537,10 @@ func (c *conn) answer(f chatwire.Frame) {
 
 // clean 은 제어 문자와 서식 문자(Cf — bidi 재정렬·zero-width)를 지운다. 표시 이름과 붙여넣기는
 // 터미널에 찍힌다 (REFACTOR3_DEFECTS_SRS FR-RD3-70 — 이전: Cf 를 남겨 다른 일곱 자리와 달랐다).
+// U+FFFD 도 지우는 것은 이 자리만의 규칙이다 — 잘못된 UTF-8 바이트를 대체 글자로 남기지 않고 버린다.
 func clean(s string) string {
 	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || r == unicode.ReplacementChar {
+		if termtext.Hidden(r) || r == unicode.ReplacementChar {
 			return -1
 		}
 		return r
@@ -552,15 +553,4 @@ func truncRunes(s string, n int) string {
 		return s
 	}
 	return string(r[:n])
-}
-
-func truncBytes(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	cut := n
-	for cut > 0 && !utf8.RuneStart(s[cut]) {
-		cut--
-	}
-	return s[:cut]
 }
