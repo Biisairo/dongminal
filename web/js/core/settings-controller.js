@@ -4,6 +4,10 @@
  * 탭 하나는 `SettingsSection` 하위 하나다. 이 컨트롤러가 섹션을 들고(`section(tab)`·`all()`), 부팅 때 세우고,
  * 설정을 열 때·탭을 고를 때 섹션의 `onOpen`·`onTab` 을 부른다. App 은 이것 하나를 `settings` 로 든다(FR-FES-7).
  *
+ * REFACTOR3_FE_APPCTL_SRS 9a: App 생성자가 만든다 — 값의 길(`SettingsApply`)은 설정창보다 먼저 돈다. 부품 셋을
+ * 든다: `apply`(저장·적용·복원과 즉시 반영) · `live`(패널의 실시간 갱신) · `saveState`(저장 단추). 설정창은
+ * `initModal`(→ `init`)이 세운다. 열기·검색·라벨도 여기다.
+ *
  * 무엇을 어떤 순서로 세우는지는 표 `SETTINGS_INIT` 하나다. 열 때의 순서는 `onOpen` 의 본문이 말한다(INV-S3).
  * 모바일 두 화면과 검색은 섹션이 모른다 — 이 컨트롤러가 App 의 것을 부른다(§1.3).
  */
@@ -32,6 +36,9 @@ class SettingsController extends Controller {
     super(app);
     this._sections=new Map();
     this.modal=null;
+    this.apply=new SettingsApply(app);
+    this.live=new SettingsLive(app);
+    this.saveState=new SettingsSaveState(app);
   }
 
   /** 표의 순서대로 세운다. 한 번만 부른다. */
@@ -56,7 +63,14 @@ class SettingsController extends Controller {
   /** 세운 순서다. */
   all(){ return [...this._sections.values()] }
 
-  /** 칠하기 한 자리 — 섹션마다 `paint()`. */
+  /**
+   * 칠하기 한 자리 — 섹션마다 `paint()`. App 의 `_paintSettingControls` 가 이것이다.
+   *
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-1-12 (FEC-26): 설정창의 행을 **지금 값으로** 칠한다.
+   * 계기는 셋이다 — 부팅(`init`) · 값을 얹은 뒤(`_settingsApply`) · 설정창을 열 때
+   * (FR-LVC-3). 행은 섹션이 `FormRow` 로 선언한다(REFACTOR3_FE_SETTINGS_SRS FR-FES-2) —
+   * 포커스를 쥔 입력란을 건너뛰는지도 행마다 정해져 있다(`guard`).
+   */
   paint(){
     for(const s of this._sections.values()) s.paint();
   }
@@ -68,7 +82,7 @@ class SettingsController extends Controller {
   _initModal(){
     const modal=document.getElementById('modal');
     this.modal=new SettingsModal({onOpen:()=>this.onOpen(modal),onTab:n=>this.onTab(n)}).init();
-    this.app._bindSettingsSearch(modal);
+    this._bindSettingsSearch(modal);
   }
 
   /**
@@ -88,10 +102,10 @@ class SettingsController extends Controller {
     this._hook('presets','onOpen');
     this._hook('display','onOpen');
     app._paintSettingControls();
-    app._labelSettingsRows();
+    this._labelSettingsRows();
     this._hook('claude','onOpen');
     if(app.isMobile&&app.drawerOpen) app._toggleDrawer(false);
-    if(app._settingsSearchReset) app._settingsSearchReset();
+    if(this._settingsSearchReset) this._settingsSearchReset();
     this._hook('profile','onOpen');
     app._settingsMobileOnOpen(modal);
   }
@@ -106,4 +120,107 @@ class SettingsController extends Controller {
     const s=this.section(tab);
     if(s) s[name]();
   }
+
+  /**
+   * SANDBOX_PICK_COPY_SRS FR-SPK-7: 설정 화면을 특정 탭으로 연다.
+   *
+   * 여는 절차는 `SettingsModal.open()` 한 자리다(REFACTOR3_FE_ESC_SRS FR-FEE-9). 탭은 탭 요소를 **실제로
+   * 누른다** — 탭별 재조회와 모바일 상세 화면이 그 리스너 안에 있다.
+   */
+  _openSettings(tab){
+    if(this.modal) this.modal.open();
+    if(!tab) return;
+    const tabEl=document.querySelector('#modal .mtab[data-tab="'+tab+'"]');
+    if(tabEl) tabEl.click();
+  }
+
+  /**
+   * ACCESSIBILITY_BASELINE_SRS FR-A11Y-13 (`G7-1` 첫 판): 설정 컨트롤의 **이름을
+   * 구조에서 파생**한다.
+   *
+   * 첫 판이 올린 것: `<input>` 18개 중 17개·`<select>` 6개에 이름이 없고
+   * `label[for]` 는 0개였다 — 이름이 없는 게 아니라 **연결 기제가 없었다.** 관용구는
+   * 한결같다: `.ds-row`/`.sbs-row` 의 첫 자식 `<span>` 이 이름이고 그 뒤에 컨트롤
+   * 하나가 선다. 그러므로 손으로 스물셋을 적지 않고 그 구조에서 `aria-labelledby`
+   * 를 세운다 — 행을 더하는 사람이 아무것도 기억하지 않아도 된다 (`.mtab` 의
+   * tablist 와 같은 규약). 컨트롤이 둘 이상인 행은 건드리지 않는다 — 어느 것의
+   * 이름인지 구조가 말하지 않는다.
+   *
+   * 열 때마다 돈다 — 상태바·주기 행은 다시 그려질 수 있다. 멱등이다.
+   */
+  _labelSettingsRows(){
+    const modal=document.getElementById('modal'); if(!modal) return;
+    let n=0;
+    for(const row of modal.querySelectorAll('.ds-row,.sbs-row')){
+      const lab=row.firstElementChild;
+      if(!lab||lab.tagName!=='SPAN'||lab.className||!(lab.textContent||'').trim()) continue;
+      const ctls=row.querySelectorAll('input:not([type=hidden]),select,textarea,[role=switch]');
+      if(ctls.length!==1) continue;
+      const c=ctls[0];
+      if(c.hasAttribute('aria-label')||c.hasAttribute('aria-labelledby')) continue;
+      if(!lab.id) lab.id='ds-lbl-'+(c.id||String(++n));
+      c.setAttribute('aria-labelledby',lab.id);
+    }
+  }
+
+  /**
+   * UI_POLISH_SRS FR-UIP-23: 설정 검색. 탭 이름(영어 툴팁도, FR-UXF-40)이나 그 탭 안의 글(항목 라벨·설명)에
+   * 입력이 들어 있는 탭만 목록에 남긴다. 선택지(`<option>`)의 글은 보지 않는다 —
+   * 언어·테마 이름 같은 값이 거의 모든 낱말에 걸린다.
+   * 고른 탭이 걸러지면 남은 첫 탭으로 옮긴다. 모달을 열 때마다 비운다.
+   */
+  _bindSettingsSearch(modal){
+    const input=document.getElementById('modal-search'); if(!input) return;
+    const textOf=root=>{
+      const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>
+        n.parentElement&&n.parentElement.closest('option,select,script,style')
+          ?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+      let out='';
+      for(let n=w.nextNode();n;n=w.nextNode()) out+=' '+n.nodeValue;
+      return out.toLowerCase();
+    };
+    const apply=()=>{
+      const q=input.value.trim().toLowerCase();
+      const tabs=[...modal.querySelectorAll('.mtab')];
+      for(const tab of tabs){
+        const pn=document.getElementById('panel-'+tab.dataset.tab);
+        tab.hidden=!!q&&!((tab.textContent+' '+tab.title).toLowerCase().includes(q)||(pn&&textOf(pn).includes(q)));
+      }
+      for(const g of modal.querySelectorAll('.mtab-grp')) g.hidden=!!q; // FR-STO-4: 거른 목록에 묶음 이름은 없다
+      const cur=modal.querySelector('.mtab.active');
+      if(cur&&cur.hidden&&!(this.app.isMobile&&modal.dataset.mview==='list')){   // MOBILE_UX_OVERHAUL_SRS FR-MUX-21: 모바일 목록에서는 상세로 넘기지 않는다
+        const first=tabs.find(x=>!x.hidden);
+        if(first) first.click();
+      }
+    };
+    input.addEventListener('input',apply);
+    this._settingsSearchReset=()=>{input.value='';apply()};   // 열 때 비운다(`SettingsController.onOpen`)
+  }
+
+  /** 섹션 위임자의 길 — 그 탭의 섹션이 없으면(`init` 전) 아무것도 하지 않는다. */
+  _sectionCall(tab,name,args){
+    const s=this.section(tab);
+    return s?s[name](...args):undefined;
+  }
 }
+
+/**
+ * 섹션 위임자 — App 이름 → 그 섹션의 탭 (REFACTOR3_FE_SETTINGS_SRS FR-FES-9). 설정 밖(`EdgesController`·
+ * `state-registry.js`·Claude 계정·`main.js`)·저장 단추 판정(`settings-save-state.js`)·e2e 계약이 App 에서 부른다.
+ * 섹션이 아직 없으면(`initModal` 전) 아무것도 하지 않는다.
+ */
+const SETTINGS_SECTION_DELEGATES={
+  access:['_onAccessChanged','_aclCollect'], sandbox:['_onSandboxChanged','_sbxCollect'], server:['_onServerMoving'],
+  edges:['_edgesPaint','_egNodePaint','_egNodeCollect'], claude:['_cacctPanelShown','_cacctRefreshSoft'],
+  telegram:['_loadTelegramPanel','_tgRead'], profile:['_pfCollect','_pfFollow'],
+  // 8d — `main.js`(사용자 정의 편집기 단추)·e2e 계약(`app-testing.js`)
+  theme:['themeSlots','setThemeSlots','_showCustomEditor','_hideCustomEditor'], presets:['_renderPresets','_savePreset'],
+};
+for(const [tab,names] of Object.entries(SETTINGS_SECTION_DELEGATES)){
+  Controller.delegate(App,(app,name,args)=>app.settings._sectionCall(tab,name,args),names);
+}
+// 바깥(`ui/input-binding.js`·`main.js`·다른 묶음·설정 섹션)과 계약이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'settings',['_openSettings']);
+// `initModal` 은 설정창과 탭들을 세운다(`init`, 한 번 — 세우는 순서는 `SETTINGS_INIT`). `_paintSettingControls` 는 `paint` 다.
+Controller.delegate(App,app=>{ app.settings.init() },['initModal']);
+Controller.delegate(App,app=>app.settings.paint(),['_paintSettingControls']);

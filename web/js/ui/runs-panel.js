@@ -14,10 +14,10 @@
  * 때문이다. 클래스 본문으로 옮기면 메서드 서른셋에서 끝의 쉼표를 떼야 하고, 그
  * 편집이 diff 를 덮어 "옮기기만 했다" 를 증명할 수 없게 된다.
  *
- * 바깥이 부르는 이름 여섯은 `app-runs.js` 에 위임 껍데기로 남아 있다 — 호출부를
+ * 바깥이 부르는 이름 여섯은 `app.js` 에 위임자로 남아 있다(REFACTOR3_FE_APPCTL_SRS 9a, 옛 `app-runs.js`) — 호출부를
  * 한 글자도 바꾸지 않기 위해서다.
  *
- * 로드 순서 계약: `app-runs.js` **앞**. (`js/ui/` 는 `js/core/app*.js` 보다 먼저 실린다)
+ * 로드 순서 계약: `app.js` **앞**. (`js/ui/` 는 `js/core/app*.js` 보다 먼저 실린다)
  */
 
 // 대시보드가 다루는 문자열. 한 자리에 모아 둔다 — e2e 가 같은 값을 본다.
@@ -330,8 +330,7 @@ Object.assign(RunsPanel.prototype, {
   // ── 탭 (FR-RVZ-6~9) ──
 
   // FR-RVZ-7: 같은 Run 의 탭 찾기. app-layout.js 의 _findEditorTab 과 같은 모양이며,
-  // addTab 의 run 분기가 이것을 부른다. app-runs.js 는 app-layout.js 뒤에 로드되므로
-  // 호출 시점에는 이미 프로토타입에 있다.
+  // addTab 의 run 분기가 App 의 위임자(`app.js`)로 이것을 부른다.
   _findRunTab(runId) {
     return findTabWhere(this.app.ws.windows, tab => tab.type === 'run' && tab.runId === runId);
   },

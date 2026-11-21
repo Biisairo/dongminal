@@ -1,15 +1,15 @@
 /**
  * Dongminal — 설정창의 **Edges 패널** (PEER_NETWORK_SRS FR-PNW-80, EDGE_PAIRING_SRS FR-EPR-70·71).
  *
- * 구역은 셋이다: 이 노드 · 초대(만들기와 붙여 넣기) · 간선. 목록은 `app-edges.js` 가 읽은
+ * 구역은 셋이다: 이 노드 · 초대(만들기와 붙여 넣기) · 간선. 목록은 `EdgesController`(`edges-controller.js`)가 읽은
  * `_edges` 를 그린다 — 방송(`edges_changed`)이 오면 그쪽이 다시 읽고 여기를 부른다.
  * 노드 설정 칸은 탭을 열 때와 저장한 뒤에만 채운다. 방송마다 채우면 고치던 값이 덮인다.
  *
  * 초대 코드는 **만든 응답에만** 있다 (FR-PNW-95, I-3). 그 코드는 이 창의 메모리에만 둔다.
  *
  * REFACTOR3_FE_SETTINGS_SRS 8c: 초대 코드(`_egInvite`)와 남은 시간 타이머는 이 섹션이 든다. 읽은 값 `_edges` 는
- * 설정 밖(`app-edges.js`·망 그림·채팅)이 읽으므로 App 에 남는다(FR-FES-5). 망 그림·받은 초대(`app-edges-mesh.js`)는
- * App 의 것이고, `app-edges.js` 가 부르는 `_edgesPaint`·`_egNodePaint`·`_egNodeCollect` 는 App 에 위임자가 있다.
+ * 설정 밖(`EdgesController`·채팅)이 읽으므로 App 에 남는다(FR-FES-5). 망 그림·받은 초대는 `EdgesController` 의
+ * 것이고(REFACTOR3_FE_APPCTL_SRS 9a), 그것이 부르는 `_edgesPaint`·`_egNodePaint`·`_egNodeCollect` 는 App 에 위임자가 있다.
  */
 
 /** 초대의 남은 시간을 다시 그리는 주기. */
@@ -38,7 +38,7 @@ class EdgesSection extends SettingsSection {
     };
   }
 
-  /** `app-edges.js` 가 다시 읽을 때마다 부른다. 패널이 없는 화면에서는 아무것도 하지 않는다. */
+  /** `EdgesController` 가 다시 읽을 때마다 부른다. 패널이 없는 화면에서는 아무것도 하지 않는다. */
   _edgesPaint(){
     const v=this.app._edges;
     if(!v||!document.getElementById('panel-edges')) return;

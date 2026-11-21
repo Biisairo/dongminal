@@ -1,109 +1,85 @@
 /**
- * Dongminal — 설정 ▸ Edges 의 망 그림과 받은 간선 초대 (EDGE_MESH_SRS FR-EGM-50~56).
+ * Dongminal — 간선 상태와 그 알림 (PEER_NETWORK_SRS FR-PNW-81, EDGE_PAIRING_SRS FR-EPR-5·23).
  *
- * 망 그림은 `GET /api/edges` 의 `mesh {nodes, links}` 를 SVG 로 그린다. 나는 가운데에 고정하고
- * 나머지는 힘 배치로 놓는다 — 처음 자리를 지문 순서로 정하고 정해진 횟수만 계산하므로 같은 망은
- * 늘 같은 그림이다. 노드를 누르면 그림 아래에 할 수 있는 일(초대 보내기·알리기)이 나온다.
+ * 서버가 `edges_changed` 를 밀면 `GET /api/edges` 를 다시 읽는다 — 주기로 묻지 않는다.
+ * 설정의 Edges 패널(`settings-edges.js`)은 여기서 읽은 `_edges` 를 그린다.
  *
- * 망에서 온 문자열(이름)은 `textContent` 로만 그린다.
+ * `EdgesController` 가 읽기·알림과 설정 ▸ Edges 의 망 그림·받은 초대(EDGE_MESH_SRS FR-EGM-50~56)를 진다. App 은 이것을
+ * `edges` 로 든다(REFACTOR3_FE_APPCTL_SRS 9a). 읽은 `_edges` 는 App 에 남는다 — 설정 섹션·채팅이 읽는다(FR-FEA-2).
+ * 망 그림의 순수 함수(`meshLayout` 등)는 `edges-mesh.js` 다.
  *
- * 로드 순서 계약: `settings-edges.js` 뒤. 프로토타입 확장이다.
+ * 로드 순서 계약: `app.js` 뒤, `state-registry.js` 뒤.
  */
 
-/** 그림의 크기(viewBox)와 노드 반지름, 가장자리 여백, 힘 배치 계산 횟수. */
-const MESH_W=360;
-const MESH_H=240;
-const MESH_NODE_R=7;
-const MESH_MARGIN=36;
-const MESH_ITER=300;
-/** 이름 줄과 표시 줄의 노드 중심에서의 거리. */
-const MESH_LABEL_DY=20;
-const MESH_MARK_DY=32;
+/** FR-EPR-32: 화면에 보이는 지문의 길이. */
+const EDGE_FP_SHOWN=16;
 
-/**
- * 노드 자리 `Map<fp,{x,y}>`. 나(`self`)는 가운데에 고정하고, 나머지는 지문 순서로 원 위에 둔 뒤
- * 힘 배치(이어진 노드는 당기고 모든 노드는 민다)를 MESH_ITER 번 계산한다.
- */
-function meshLayout(nodes,links,w,h){
-  const cx=w/2,cy=h/2;
-  const self=nodes.find(n=>n.self);
-  const others=nodes.filter(n=>!n.self).map(n=>n.fp).sort();
-  const pos=new Map();
-  if(self) pos.set(self.fp,{x:cx,y:cy});
-  const r=Math.max(1,Math.min(w,h)/2-MESH_MARGIN);
-  others.forEach((fp,i)=>{
-    const a=2*Math.PI*i/others.length-Math.PI/2;
-    pos.set(fp,{x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)});
-  });
-  const ids=[...pos.keys()];
-  const k=Math.sqrt(w*h/Math.max(1,ids.length))*0.6;
-  const lo=Math.min(MESH_MARGIN,w/2),hiX=Math.max(w-MESH_MARGIN,w/2),hiY=Math.max(h-MESH_MARGIN,h/2);
-  for(let it=0;it<MESH_ITER;it++){
-    const temp=(1-it/MESH_ITER)*k*0.5;
-    const disp=new Map(ids.map(id=>[id,{x:0,y:0}]));
-    for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
-      const a=pos.get(ids[i]),b=pos.get(ids[j]);
-      let dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
-      if(d<0.01){ dx=0.01*(j-i);dy=0.01;d=Math.hypot(dx,dy) }
-      const f=k*k/d;
-      disp.get(ids[i]).x+=dx/d*f;disp.get(ids[i]).y+=dy/d*f;
-      disp.get(ids[j]).x-=dx/d*f;disp.get(ids[j]).y-=dy/d*f;
-    }
-    for(const [p,q] of links){
-      const a=pos.get(p),b=pos.get(q);
-      if(!a||!b) continue;
-      const dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy)||0.01;
-      const f=d*d/k;
-      disp.get(p).x-=dx/d*f;disp.get(p).y-=dy/d*f;
-      disp.get(q).x+=dx/d*f;disp.get(q).y+=dy/d*f;
-    }
-    for(const id of ids){
-      if(self&&id===self.fp) continue;
-      const p=pos.get(id),v=disp.get(id),len=Math.hypot(v.x,v.y);
-      if(!len) continue;
-      const step=Math.min(len,temp);
-      p.x=Math.min(hiX,Math.max(lo,p.x+v.x/len*step));
-      p.y=Math.min(hiY,Math.max(lo,p.y+v.y/len*step));
-    }
-  }
-  for(const p of pos.values()){ p.x=Math.round(p.x);p.y=Math.round(p.y) }
-  return pos;
-}
+function edgeFp16(fp){ return String(fp||'').slice(0,EDGE_FP_SHOWN) }
 
-/** 노드를 골랐을 때 할 일: 간선 상대는 'notify', 온라인 망 이웃은 'invite', 그 밖은 '' (FR-EGM-53). */
-function meshNodeAction(n){
-  if(!n||n.self) return '';
-  if(n.edge) return 'notify';
-  return n.online?'invite':'';
-}
-
-/** 간선 상대의 표시 문구 키 — 알림 대기·옛 판 (FR-EGM-52·54). */
-function meshNodeMarks(e){
-  const out=[];
-  if(e&&e.pending) out.push('edge.pending');
-  if(e&&e.outdated) out.push('edge.outdated');
+/** UX_AUDIT_FIX_SRS FR-UXF-53: 지문의 4자 묶음. 앞 `EDGE_FP_SHOWN` 자가 강조(`key`)다. 이어 붙이면 원문이다. */
+const EDGE_FP_GROUP=4;
+function edgeFpGroups(fp){
+  const s=String(fp||''),out=[];
+  for(let i=0;i<s.length;i+=EDGE_FP_GROUP) out.push({text:s.slice(i,i+EDGE_FP_GROUP),key:i<EDGE_FP_SHOWN});
   return out;
 }
 
-/**
- * 개인채팅 방의 상대 노드가 초대를 보낼 수 있는 망 이웃이면 그 노드, 아니면 null 이다 (FR-EGM-56).
- * 참가자 id 의 앞 64자는 그 노드의 지문 전체다 (PEER_CHAT_SRS §3.9).
- */
-function meshDirectPeer(room,meId,mesh){
-  if(!room||room.kind!=='direct'||!mesh||!Array.isArray(mesh.nodes)) return null;
-  const other=(room.people||[]).find(p=>p.id!==meId);
-  if(!other) return null;
-  const fp=String(other.id).slice(0,64);
-  const n=mesh.nodes.find(x=>x.fp===fp);
-  return meshNodeAction(n)==='invite'?n:null;
+/** PROFILE_NAME_SRS FR-PFN-6: `이름#번호`. 번호는 서버가 준 값이고, 없으면 이름만이다. */
+function edgeHandle(p){ return p.tag?p.name+'#'+p.tag:p.name }
+
+/** FR-EPR-32 · PROFILE_NAME_SRS FR-PFN-22: 간선 한 줄 — `이름#번호 · 주소:포트`. 주소를 모르면 `-` 다. */
+function edgeWho(p){
+  const addr=!p.addr?'-':(String(p.addr).includes(':')?'['+p.addr+']':p.addr)+':'+p.port;
+  return edgeHandle(p)+' · '+addr;
 }
 
-Object.assign(App.prototype, {
+/** 만료까지 남은 시간 `m:ss`. 지났거나 읽을 수 없으면 빈 값이다. */
+function edgeRemain(expires,now){
+  const ms=Date.parse(expires)-now;
+  if(!(ms>0)) return '';
+  const s=Math.ceil(ms/1000);
+  return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+}
+
+class EdgesController extends Controller {
+  _edgesRestore(src){
+    const flight=this.app._restoreBegin('edges');
+    return stateFetch(src,'/api/edges').then(r=>{
+      if(!this.app._restoreLive('edges',flight)) return;
+      // 503 은 노드 계층이 없는 서버다.
+      if(r.ok&&r.data){
+        this.app._edges=r.data;
+        // PROFILE_NAME_SRS FR-PFN-20: 탭 제목의 이름은 노드 이름이다. 이름을 바꾸면 방송이 다시 읽힌다.
+        if(r.data.node&&r.data.node.name!==profileName){ profileName=r.data.node.name; this.app._applyPageTitle() }
+        if(this.app._pfFollow) this.app._pfFollow(r);
+        this.app._edgesPaint();
+        // EDGE_MESH_SRS FR-EGM-56: 개인채팅의 초대 버튼은 망 그림을 따른다.
+        if(this.app._chatViewsPaint) this.app._chatViewsPaint();
+        // UX_BATCH12 FR-LIV-4: 노드 설정 폼은 목록과 따로 — 지문이 바뀌었을 때만 따라간다.
+        const v=r.data;
+        if(this.app._liveOpen('edges')) this.app._liveChanged('edges',r,this.app._egNodeCollect(),()=>{
+          this.app._egNodePaint(v); this.app._liveMark('edges',r,this.app._egNodeCollect());
+        });
+      }
+      this.app._restoreEnd('edges',flight);
+    });
+  }
+
+  _onEdgesChanged(a){
+    const paired=a&&a.paired, removed=a&&a.removed;
+    if(paired) Toast.show(t('edge.paired_notice',{name:edgeHandle(paired)}),'ok',0);
+    // FR-EPR-23: 상대가 지운 간선만 알린다. 이쪽에서 끊은 것은 끊기 단계에서 이미 보였다.
+    if(removed&&a.byPeer) Toast.show(t('edge.removed_notice',{name:edgeHandle(removed)}),'',0);
+    // EDGE_MESH_SRS FR-EGM-55: 망 이웃이 보낸 간선 초대를 받았다. 맺기·거절은 Edges 에서 한다.
+    if(a&&a.invited) Toast.show(t('edge.invited_notice',{name:edgeHandle(a.invited)}),'',0);
+    return this.app._edgesRestore();
+  }
+
   /** 망 그림과 그 아래의 할 일을 그린다. 패널이 없는 화면에서는 아무것도 하지 않는다. */
   _egMeshPaint(){
     const box=document.getElementById('eg-mesh');
     if(!box) return;
-    const v=this._edges||{};
+    const v=this.app._edges||{};
     const mesh=v.mesh;
     if(!mesh||!Array.isArray(mesh.nodes)){
       const none=document.createElement('span');
@@ -153,20 +129,20 @@ Object.assign(App.prototype, {
     }
     box.replaceChildren(svg);
     this._egMeshActPaint();
-  },
+  }
 
   _egMeshSelect(fp){
     this._egMeshSel=this._egMeshSel===fp?null:fp;
     this._egMeshPaint();
     const g=document.querySelector('#eg-mesh .eg-mesh-node[data-fp="'+fp+'"]');
     if(g) g.focus();
-  },
+  }
 
   /** 고른 노드의 이름·상태와 할 일 버튼 (FR-EGM-53). */
   _egMeshActPaint(){
     const bar=document.getElementById('eg-mesh-act');
     if(!bar) return;
-    const v=this._edges||{};
+    const v=this.app._edges||{};
     const n=v.mesh&&(v.mesh.nodes||[]).find(x=>x.fp===this._egMeshSel);
     if(!n){
       const hint=document.createElement('span');
@@ -195,13 +171,13 @@ Object.assign(App.prototype, {
       els.push(none);
     }
     bar.replaceChildren(...els);
-  },
+  }
 
   /** 받은 간선 초대 줄 (FR-EGM-55). */
   _egInvitesPaint(){
     const box=document.getElementById('eg-invites');
     if(!box) return;
-    const list=(this._edges&&this._edges.invites)||[];
+    const list=(this.app._edges&&this.app._edges.invites)||[];
     if(!list.length){
       const none=document.createElement('span');
       none.className='sbx-status';
@@ -224,7 +200,7 @@ Object.assign(App.prototype, {
           title:'Discard this invite',onClick:()=>this._egInviteReject(inv)}));
       return row;
     }));
-  },
+  }
 
   /** 망 이웃 n 에게 간선 초대를 보낸다 (FR-EGM-53·56). */
   async _egInviteSend(n){
@@ -232,27 +208,30 @@ Object.assign(App.prototype, {
     if(r.ok) Toast.show(t('edge.invite_sent',{name:edgeHandle(n)}),'ok');
     else Toast.show(apiErrText(r,t('edge.invite_send_fail')),'err');
     return r;
-  },
+  }
 
   /** 간선 p 에 내 직접 정보를 지금 알린다 (FR-EGM-54). */
   async _egNotify(p){
     const r=await apiPost('/api/edges/notify',{fp:p.fp});
     if(r.ok) Toast.show(t('edge.notified',{name:edgeHandle(p)}),'ok');
     else Toast.show(apiErrText(r,t('edge.notify_fail')),'err');
-    await this._edgesRestore();
+    await this.app._edgesRestore();
     return r;
-  },
+  }
 
   async _egInviteAccept(inv){
     const r=await apiPost('/api/edges/invite/accept',{id:inv.id});
     if(!r.ok) Toast.show(apiErrText(r,t('edge.add_fail')),'err');
-    await this._edgesRestore();
+    await this.app._edgesRestore();
     return r;
-  },
+  }
 
   async _egInviteReject(inv){
     const r=await apiPost('/api/edges/invite/reject',{id:inv.id});
-    await this._edgesRestore();
+    await this.app._edgesRestore();
     return r;
-  },
-});
+  }
+}
+
+// 바깥(`state-registry.js`·`settings-edges.js`·`ui/chat-view.js`)이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'edges',['_edgesRestore','_onEdgesChanged','_egMeshPaint','_egInvitesPaint','_egInviteSend','_egNotify']);

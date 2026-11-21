@@ -29,7 +29,7 @@ function setup() {
     calls.push([method, path, body]);
     return replies[method + ' ' + path] || { ok: true, status: 200, data: null };
   };
-  const ctx = load([...BASE, ...SETTINGS, 'core/app-edges.js', 'core/app-settings.js'], {
+  const ctx = load([...BASE, ...SETTINGS, 'core/edges-controller.js'], {
     expose: ['SettingsController', 'TelegramSection'],
     globals: {
       App: function App() {},
@@ -44,6 +44,8 @@ function setup() {
   });
   const app = new ctx.App();
   app.timers = { every: () => ({ stop() {} }) };
+  // 저장 단추 판정(`SettingsSaveState`)은 이 시험의 대상이 아니다 — 대역의 원소에 classList 가 없다.
+  app._saveBtnsPaint = () => {};
   // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `TelegramSection` 이다. `_loadTelegramPanel`·`_tgRead` 는 App 의 위임자다.
   app.settings = new ctx.SettingsController(app);
   app.settings.start(new ctx.TelegramSection(app));

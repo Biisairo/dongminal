@@ -9,8 +9,11 @@
  * 얹으면 28,800배의 낭비다. 대신 읽는 계기가 셋이다 — 구독이 열릴 때
  * (`STATE_REGISTRY` 의 `revalidateOn`), 값이 바뀌어 `update_changed` 가 올 때,
  * 그리고 사용자가 토글을 바꿀 때.
+ *
+ * App 은 `UpdateController` 를 `update` 로 든다(REFACTOR3_FE_APPCTL_SRS 9a). 읽은 값 `_update` 는 App 에 남는다 —
+ * 설정의 판 확인 토글(`settings-notify.js`)이 쓴다(FR-FEA-2).
  */
-Object.assign(App.prototype, {
+class UpdateController extends Controller {
   /**
    * `STATE_REGISTRY` 의 `update` 가 부른다. **캐시를 읽을 뿐 확인을 걸지
    * 않는다** — 확인을 거는 것은 서버의 SSE 연결 훅이다 (FR-UPD-2 ②).
@@ -18,14 +21,14 @@ Object.assign(App.prototype, {
    * 503 은 판 확인이 없는 서버다. 그때는 배지도 토글도 없다 — 종전의 서버다.
    */
   _updateRestore(src){
-    const flight=this._restoreBegin('update');
+    const flight=this.app._restoreBegin('update');
     return stateFetch(src,'/api/update').then(r=>{
-      if(!this._restoreLive('update',flight)) return;
-      this._update=r.ok?r.data:null;
+      if(!this.app._restoreLive('update',flight)) return;
+      this.app._update=r.ok?r.data:null;
       this._updateRender();
-      this._restoreEnd('update',flight);
+      this.app._restoreEnd('update',flight);
     });
-  },
+  }
 
   /**
    * FR-UPD-9: **새 판이 있을 때만** 보인다. 최신이거나, 확인에 실패했거나,
@@ -33,7 +36,7 @@ Object.assign(App.prototype, {
    * (FR-UPD-9b) — 서버가 `newer` 하나로 그 판정을 이미 끝내 놓는다.
    */
   _updateRender(){
-    const u=this._update;
+    const u=this.app._update;
     // 판 확인이 없는 서버(503)에서는 설정 행 자체를 감춘다. 누를 수 없는 것을
     // 보여 주는 것은 고장으로 읽힌다.
     const cb=document.getElementById('ds-update-check');
@@ -55,6 +58,9 @@ Object.assign(App.prototype, {
       el.title=t('update.badge_title',{version:u.latest});
       if(u.link) el.href=u.link; else el.removeAttribute('href');
     }
-  },
+  }
   // FR-UPD-15: 설정 페이지의 체크박스는 `NotifySection` 이 배선한다 (REFACTOR3_FE_SETTINGS_SRS 8b).
-});
+}
+
+// `state-registry.js`·`settings-notify.js` 가 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'update',['_updateRestore','_updateRender']);

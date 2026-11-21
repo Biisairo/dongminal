@@ -24,8 +24,8 @@ function setup({ get, put, open = false } = {}) {
   els['pf-fp'].replaceChildren = (...kids) => { els['pf-fp'].textContent = kids.map((k) => k.textContent).join('') };
   const puts = [];
   let gets = 0;
-  const ctx = load([...BASE, 'core/settings-section.js', 'core/settings-live.js', 'core/app-edges.js', 'core/settings-profile.js'], {
-    expose: ['ProfileSection'],
+  const ctx = load([...BASE, 'core/settings-section.js', 'core/settings-live.js', 'core/edges-controller.js', 'core/settings-profile.js'], {
+    expose: ['ProfileSection', 'SettingsLive', 'EdgesController'],
     globals: {
       App: function App() {},
       t: (k) => k,
@@ -38,6 +38,9 @@ function setup({ get, put, open = false } = {}) {
     },
   });
   const app = new ctx.App();
+  // REFACTOR3_FE_APPCTL_SRS 9a: 패널의 기준은 `SettingsLive`, 간선 읽기는 `EdgesController` 다.
+  app.settings = { live: new ctx.SettingsLive(app) };
+  app.edges = new ctx.EdgesController(app);
   let titles = 0;
   app._applyPageTitle = () => { titles++ };
   const notices = [];

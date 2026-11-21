@@ -36,7 +36,7 @@ function setup(access, els) {
       'AccessSection', 'EdgesSection', 'ClaudeSection', 'ThemeSection', 'ShortcutsSection', 'PresetsSection', 'BackupSection',
       'SettingsController'],
     globals: {
-      TIMERS: { disposeOwner() {} },
+      App: function App() {}, TIMERS: { disposeOwner() {} },
       SETTINGS_ACCESS: access,
       SETTINGS_BY_KEY: { n: { def: 7 }, w: { def: 160 }, c: { def: false } },
       clampSetting: (_k, v) => Math.min(20, Math.max(1, Number(v) || 7)),
@@ -243,7 +243,10 @@ const ROUTES = [
 
 const JS_ROOT = new URL('..', import.meta.url).pathname;
 
-/** App 원형에 메서드를 얹는 파일들(`Object.assign(App.prototype`)에서 정의된 이름. 섹션 파일은 클래스라 빠진다. */
+/**
+ * App 원형에 메서드를 얹는 파일들(`Object.assign(App.prototype`)에서 정의된 이름과 위임자 표(`Controller.delegate(App`,
+ * 섹션 위임자 표 `SETTINGS_SECTION_DELEGATES` — REFACTOR3_FE_APPCTL_SRS 9a)의 이름. 섹션 파일은 클래스라 빠진다.
+ */
 function appMixinNames() {
   const out = new Set();
   const walk = (d) => {
@@ -252,6 +255,11 @@ function appMixinNames() {
       if (statSync(f).isDirectory()) { if (n !== 'test' && n !== 'vendor') walk(f); continue }
       if (!n.endsWith('.js')) continue;
       const src = readFileSync(f, 'utf8');
+      for (const t of src.matchAll(/Controller\.delegate\(App,[\s\S]*?\[([\s\S]*?)\]\);/g)) {
+        for (const m of t[1].matchAll(/'([^']+)'/g)) out.add(m[1]);
+      }
+      const sec = src.match(/const SETTINGS_SECTION_DELEGATES=\{([\s\S]*?)\};/);
+      if (sec) for (const m of sec[1].matchAll(/'([^']+)'/g)) out.add(m[1]);
       if (!src.includes('Object.assign(App.prototype')) continue;
       for (const m of src.matchAll(/^ {2}(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/gm)) out.add(m[1]);
     }
@@ -298,12 +306,14 @@ test('TC-FES-3: 옮긴 _init* 가 App 원형에 없고 위임자는 남는다', 
 });
 
 test('TC-FES-3(8c): 위임자는 그 탭의 섹션에 인자와 답을 그대로 잇고, 섹션이 없으면 아무것도 하지 않는다', () => {
-  const ctx = load([...BASE, ...SETTINGS, 'core/app-settings.js'], {
+  const ctx = load([...BASE, ...SETTINGS], {
     globals: { App: function App() {}, TIMERS: { disposeOwner() {} } },
     expose: ['SettingsController'],
   });
+  // REFACTOR3_FE_APPCTL_SRS 9a: 컨트롤러는 App 생성자가 만든다 — 섹션을 세우기(`initModal`) 전이 「섹션이 없음」 이다.
   const bare = new ctx.App();
-  for (const [name] of ROUTES) assert.doesNotThrow(() => bare[name]('x'), name);
+  bare.settings = new ctx.SettingsController(bare);
+  for (const [name] of ROUTES) assert.equal(bare[name]('x'), undefined, name);
   const app = new ctx.App();
   const seen = [];
   const tabs = new Map();
@@ -515,7 +525,7 @@ const SECTION_CLASSES = ['ThemeSection', 'ShortcutsSection', 'DisplaySection', '
 function loadController() {
   return load([...BASE, ...SETTINGS], {
     expose: ['SettingsController', 'SettingsSection', 'Controller', ...SECTION_CLASSES],
-    globals: { TIMERS: { disposeOwner() {} } },
+    globals: { App: function App() {}, TIMERS: { disposeOwner() {} } },
   });
 }
 
@@ -525,9 +535,11 @@ test('TC-FES-4: SettingsController 는 Controller 하위이고 옛 부팅 순서
   for (const c of SECTION_CLASSES) ctx[c].prototype.init = function () { log.push(this.tab) };
   ctx.SettingsModal = class { constructor(h) { this.h = h } init() { log.push('modal'); return this } };
   ctx.document = { getElementById: (id) => (id === 'modal' ? { id } : null) };
-  const app = { _bindSettingsSearch: (m) => log.push(m.id === 'modal' ? 'search' : 'search?'), _paintSettingControls: () => log.push('paint') };
+  const app = { _paintSettingControls: () => log.push('paint') };
   for (const n of ['initSaveButtons', 'initStatusBar', 'initMobile', 'initMobileKeybar', 'initAttn']) app[n] = () => log.push(n);
   const c = new ctx.SettingsController(app);
+  // REFACTOR3_FE_APPCTL_SRS 9a: 검색 배선은 컨트롤러의 것이다.
+  c._bindSettingsSearch = (m) => log.push(m.id === 'modal' ? 'search' : 'search?');
   assert.ok(c instanceof ctx.Controller);
   assert.equal(c.init(), c);
   assert.deepEqual(log, BOOT_ORDER);
@@ -538,12 +550,11 @@ test('TC-FES-4: SettingsController 는 Controller 하위이고 옛 부팅 순서
   assert.equal(typeof c.modal.h.onOpen, 'function');
 });
 
-test('TC-FES-4: initModal 은 컨트롤러를 만드는 한 줄이고 _init 호출이 없다 — 설정 init 은 input-binding 에 하나뿐이다', () => {
-  const src = readFileSync(join(JS_ROOT, 'core/app-settings.js'), 'utf8');
-  const body = src.match(/^ {2}initModal\(\)\{\n([\s\S]*?)\n {2}\},/m);
-  assert.ok(body, 'initModal 을 찾지 못했다');
-  const lines = body[1].split('\n').filter((l) => l.trim() && !l.trim().startsWith('//'));
-  assert.deepEqual(lines.map((l) => l.trim()), ['this.settings=new SettingsController(this).init();']);
+test('TC-FES-4: initModal 은 컨트롤러의 init 하나이고 _init 호출이 없다 — 설정 init 은 input-binding 에 하나뿐이다', () => {
+  // REFACTOR3_FE_APPCTL_SRS 9a: 컨트롤러는 App 생성자가 만들고, `initModal` 은 그 `init` 을 부르는 위임자다.
+  const src = readFileSync(join(JS_ROOT, 'core/settings-controller.js'), 'utf8');
+  assert.match(src, /^Controller\.delegate\(App,app=>\{ app\.settings\.init\(\) \},\['initModal'\]\);$/m);
+  assert.match(readFileSync(join(JS_ROOT, 'core/app.js'), 'utf8'), /^ {4}this\.settings=new SettingsController\(this\);$/m);
   const bind = readFileSync(join(JS_ROOT, 'ui/input-binding.js'), 'utf8');
   for (const n of ['initSaveButtons', 'initStatusBar', 'initPresets', 'initMobile', 'initMobileKeybar', 'initAttn', 'initPollingSettings']) {
     assert.ok(!new RegExp('this\\.app\\.' + n + '\\(').test(bind), 'input-binding 이 직접 부른다: ' + n);
@@ -558,11 +569,14 @@ test('TC-FES-4: 열 때는 theme → shortcuts → presets → display → 칠�
   const log = [];
   const app = {
     isMobile: true, drawerOpen: true,
-    _paintSettingControls: () => log.push('paint'), _labelSettingsRows: () => log.push('label'),
-    _toggleDrawer: (v) => log.push('drawer:' + v), _settingsSearchReset: () => log.push('search'),
+    _paintSettingControls: () => log.push('paint'),
+    _toggleDrawer: (v) => log.push('drawer:' + v),
     _settingsMobileOnOpen: (m) => log.push('mobile:' + m),
   };
   const c = new ctx.SettingsController(app);
+  // REFACTOR3_FE_APPCTL_SRS 9a: 라벨과 검색 비우기는 컨트롤러의 것이다.
+  c._labelSettingsRows = () => log.push('label');
+  c._settingsSearchReset = () => log.push('search');
   for (const tab of ['code', 'profile', 'claude', 'display', 'presets', 'shortcuts', 'theme', 'sandbox']) {
     c.start({ tab, init() {}, onOpen: () => log.push(tab), onTab: () => log.push('tab:' + tab) });
   }

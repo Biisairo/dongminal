@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-5-2 — 설정 저장 파이프라인의 남은 두 갈래.
@@ -12,9 +12,10 @@ import { load } from './harness.mjs';
 function setup() {
   const calls = { put: [], get: 0 };
   let putImpl = async () => ({ ok: true });
-  const ctx = load(['core/state-registry.js', 'core/settings-sync.js', 'core/app-settings.js'], {
+  const ctx = load([...BASE, 'core/state-registry.js', 'core/settings-sync.js', 'core/settings-apply.js'], {
+    expose: ['SettingsApply'],
     globals: {
-      App: function App() {},
+      App: function App() {}, TIMERS: { disposeOwner() {} },
       SETTINGS_SCHEMA: [],
       SETTINGS_SAVE_FAIL: 'fail',
       apiPut: (path, body) => { calls.put.push(path); return putImpl(path, body) },
@@ -22,6 +23,8 @@ function setup() {
     },
   });
   const app = new ctx.App();
+  // REFACTOR3_FE_APPCTL_SRS 9a: 저장·복원은 `SettingsApply`(`settings.apply`) 다.
+  app.settings = { apply: new ctx.SettingsApply(app) };
   app.clientId = 'c-self';
   app._restoreBegin = () => 1;
   app._restoreLive = () => true;

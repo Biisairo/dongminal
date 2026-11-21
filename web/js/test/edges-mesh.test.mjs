@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * EDGE_MESH_SRS FR-EGM-50~56 — Edges 의 망 그림·간선 줄 표시·받은 초대의 화면 쪽 규칙 (TC-EGM-14).
@@ -17,8 +17,8 @@ function setup() {
   const posts = [];
   let next = { ok: true, status: 200, data: { edges: [] } };
   let postResult = { ok: true, status: 200, data: {} };
-  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js', 'core/app-edges-mesh.js'], {
-    expose: ['meshLayout', 'meshNodeAction', 'meshNodeMarks', 'meshDirectPeer', 'MESH_W', 'MESH_H'],
+  const ctx = load([...BASE, 'core/state-registry.js', 'core/settings-live.js', 'core/edges-controller.js', 'core/edges-mesh.js'], {
+    expose: ['meshLayout', 'meshNodeAction', 'meshNodeMarks', 'meshDirectPeer', 'MESH_W', 'MESH_H', 'EdgesController', 'SettingsLive'],
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),
@@ -31,6 +31,9 @@ function setup() {
     },
   });
   const app = new ctx.App();
+  // REFACTOR3_FE_APPCTL_SRS 9a: 간선 읽기·망 그림·초대는 `EdgesController` 다.
+  app.edges = new ctx.EdgesController(app);
+  app.settings = { live: new ctx.SettingsLive(app) };
   app._liveOpen = () => false;
   app._restoreBegin = () => 1;
   app._restoreLive = () => true;
@@ -101,8 +104,8 @@ test('초대 보내기·맺기·거절 (FR-EGM-53·55)', async () => {
   const { app, posts } = setup();
   app._edgesRestore = async () => {};
   await app._egInviteSend({ fp: B, name: 'b', tag: '0003' });
-  await app._egInviteAccept({ id: 'i1', from: B, name: 'b', tag: '0003' });
-  await app._egInviteReject({ id: 'i2', from: C, name: 'c', tag: '0004' });
+  await app.edges._egInviteAccept({ id: 'i1', from: B, name: 'b', tag: '0003' });
+  await app.edges._egInviteReject({ id: 'i2', from: C, name: 'c', tag: '0004' });
   assert.equal(JSON.stringify(posts), JSON.stringify([
     ['/api/edges/invite/send', { to: B }],
     ['/api/edges/invite/accept', { id: 'i1' }],

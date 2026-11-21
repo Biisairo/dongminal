@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * UX_AUDIT_FIX_SRS FR-UXF-70~72 (TC-UXF-70) — 설정 행 저장 단추는 저장할 변경이 있을 때만 활성이다.
@@ -17,13 +17,16 @@ function btn() {
 function setup() {
   const ids = ['pf-save', 'acl-save', 'eg-save', 'sbx-save', 'tg-token-save', 'tg-silence-save', 'tg-token', 'tg-silence'];
   const dom = Object.fromEntries(ids.map((id) => [id, { ...btn(), value: '' }]));
-  const ctx = load(['core/settings-live.js', 'core/settings-save-state.js'], {
+  const ctx = load([...BASE, 'core/settings-live.js', 'core/settings-save-state.js'], {
+    expose: ['SettingsLive', 'SettingsSaveState'],
     globals: {
-      App: function App() {},
+      App: function App() {}, TIMERS: { disposeOwner() {} },
       document: { getElementById: (id) => dom[id] || null, querySelector: () => null },
     },
   });
   const app = new ctx.App();
+  // REFACTOR3_FE_APPCTL_SRS 9a: 기준과 단추는 `SettingsController` 의 부품이다.
+  app.settings = { live: new ctx.SettingsLive(app), saveState: new ctx.SettingsSaveState(app) };
   app._pfForm = { name: 'a' };
   app._pfCollect = () => app._pfForm;
   app._aclCollect = () => ({});

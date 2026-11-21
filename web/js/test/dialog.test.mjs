@@ -283,7 +283,7 @@ test('TC-FED-6 SettingsModal.select 는 탭·aria·패널을 함께 고치고 on
 });
 
 test('TC-FED-7 옮긴 골격이 옛 자리에 남지 않았다', () => {
-  const s = read('core/app-settings.js');
+  const s = read('core/settings-controller.js');   // `_openSettings` 의 자리 (REFACTOR3_FE_APPCTL_SRS 9a)
   assert.doesNotMatch(s, /UIKit\.dialogOpen\(/);
   assert.doesNotMatch(s, /classList\.remove\('open'\)/);
   assert.doesNotMatch(read('git/git-modal-base.js'), /removeEventListener\('keydown'/);

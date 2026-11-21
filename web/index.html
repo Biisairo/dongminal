@@ -208,7 +208,7 @@
     <div id="sb-bottom">
       <button id="soft-reload-btn" class="ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost" title="Reload the app without a full page refresh" aria-label="Reload the app"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-rotate-ccw"/></svg></button>
       <button id="settings-btn" class="ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost" title="Settings" aria-label="Settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-settings"/></svg></button>
-      <!-- UX_AUDIT_FIX_SRS FR-UXF-92 (D-30): 모바일의 새 판 링크 — 상태바 배지와 같은 글자·주소. 채우기는 app-update.js 다. -->
+      <!-- UX_AUDIT_FIX_SRS FR-UXF-92 (D-30): 모바일의 새 판 링크 — 상태바 배지와 같은 글자·주소. 채우기는 update-controller.js 다. -->
       <a id="m-update-link" class="sb-update mobile-only" hidden target="_blank" rel="noopener noreferrer"></a>
     </div>
   </div>
@@ -291,7 +291,7 @@
       <!-- UPDATE_NOTICE_SRS FR-UPD-9: 새 판이 있을 때만 보인다. 최신이거나
            확인에 실패했거나 꺼져 있으면 아무것도 보이지 않는다.
            `#bg-btn` 과 같은 규약으로 **정적 요소**다 — 지표 재생성 주기에
-           종속되면 안 된다 (FR-BGU-4). 내용은 app-update.js 가 채운다. -->
+           종속되면 안 된다 (FR-BGU-4). 내용은 update-controller.js 가 채운다. -->
       <a id="update-badge" class="sb-update" hidden target="_blank" rel="noopener noreferrer"></a>
     </div>
   </div>
@@ -1204,29 +1204,25 @@
 <script src="js/core/app-editor-file.js?v=__ASSETV__"></script>
 <script src="js/core/app-editor-section.js?v=__ASSETV__"></script>
 <script src="js/core/app-docrender.js?v=__ASSETV__"></script>
-<!-- 코드 탐색 (APP_STATE_EXTRACT_SRS FR-ASE-7). 본체 `LspClient` 와 그 증강이 먼저,
-     바깥이 부르는 이름을 지키는 `app-lsp.js` 가 그 뒤다. -->
+<!-- 코드 탐색 (APP_STATE_EXTRACT_SRS FR-ASE-7). 본체 `LspClient` 와 그 증강. 바깥이 부르는 이름은 `app.js` 의
+     위임자다 (REFACTOR3_FE_APPCTL_SRS 9a). -->
 <script src="js/core/lsp-client.js?v=__ASSETV__"></script>
 <script src="js/core/lsp-paths.js?v=__ASSETV__"></script>
-<script src="js/core/app-lsp.js?v=__ASSETV__"></script>
 <script src="js/core/app-edsearch.js?v=__ASSETV__"></script>
-<!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
-<script src="js/core/app-runs.js?v=__ASSETV__"></script>
 <script src="js/core/app-search.js?v=__ASSETV__"></script>
 <script src="js/core/app-mobile.js?v=__ASSETV__"></script>
 <script src="js/core/app-mobile-sheets.js?v=__ASSETV__"></script>
 <script src="js/core/app-mobile-nav.js?v=__ASSETV__"></script>
-<!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 app-settings.js
-     **앞**이어야 한다 — 그쪽 `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
-<script src="js/core/app-polling.js?v=__ASSETV__"></script>
-<!-- 설정 저장 파이프라인 (APP_STATE_EXTRACT_SRS FR-ASE-9). `app-settings.js` 의 껍데기가 부른다. -->
+<!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 settings-table.js
+     **앞**이어야 한다 — `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
+<script src="js/core/poll-settings.js?v=__ASSETV__"></script>
+<!-- 설정 저장 파이프라인 (APP_STATE_EXTRACT_SRS FR-ASE-9). `SettingsApply` 가 부른다. -->
 <script src="js/core/settings-sync.js?v=__ASSETV__"></script>
 <script src="js/core/settings-modal.js?v=__ASSETV__"></script>
-<script src="js/core/app-settings.js?v=__ASSETV__"></script>
-<!-- 설정창의 패널들 (FE_MODULE_BOUNDARY_SRS FR-FMB-10). 전부 App.prototype 증강이라
-     app.js 뒤이기만 하면 되고, 서로를 로드 시점에 참조하지 않는다.
-     `app-settings.js` 뒤인 이유는 그것이 이 묶음의 주제를 말하는 파일이기 때문이다. -->
-<script src="js/core/app-settings-init.js?v=__ASSETV__"></script>
+<script src="js/core/settings-table.js?v=__ASSETV__"></script>
+<!-- 설정 값의 길 (FE_MODULE_BOUNDARY_SRS FR-FMB-10 · REFACTOR3_FE_APPCTL_SRS 9a). `SettingsController` 의 부품이다 —
+     컨트롤러가 만들 때 읽으므로 `settings-controller.js` 앞이기만 하면 된다. 표(`settings-table.js`) 뒤에 둔다. -->
+<script src="js/core/settings-apply.js?v=__ASSETV__"></script>
 <!-- 설정 섹션 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). 탭 하나가 `SettingsSection` 하위 하나다. `extends` 가 로드
      시점에 부모를 읽으므로 섹션 기반과 행이 섹션보다 먼저다. -->
 <script src="js/core/settings-section.js?v=__ASSETV__"></script>
@@ -1243,9 +1239,9 @@
 <script src="js/core/settings-save-state.js?v=__ASSETV__"></script>
 <script src="js/core/settings-sandbox.js?v=__ASSETV__"></script>
 <script src="js/core/settings-access.js?v=__ASSETV__"></script>
-<script src="js/core/app-edges.js?v=__ASSETV__"></script>
+<script src="js/core/edges-controller.js?v=__ASSETV__"></script>
 <script src="js/core/settings-edges.js?v=__ASSETV__"></script>
-<script src="js/core/app-edges-mesh.js?v=__ASSETV__"></script>
+<script src="js/core/edges-mesh.js?v=__ASSETV__"></script>
 <script src="js/core/settings-profile.js?v=__ASSETV__"></script>
 <script src="js/core/settings-telegram.js?v=__ASSETV__"></script>
 <script src="js/core/settings-server.js?v=__ASSETV__"></script>
@@ -1255,7 +1251,7 @@
 <script src="js/core/settings-backup.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar-enc.js?v=__ASSETV__"></script>
-<script src="js/core/app-update.js?v=__ASSETV__"></script>
+<script src="js/core/update-controller.js?v=__ASSETV__"></script>
 <script src="js/core/app-presets.js?v=__ASSETV__"></script>
 <script src="js/core/settings-presets.js?v=__ASSETV__"></script>
 <!-- 설정 탭들의 조정자 (REFACTOR3_FE_SETTINGS_SRS 8e). 섹션 클래스를 로드 시점에 표로 읽으므로 섹션 파일 전부의 뒤다. -->

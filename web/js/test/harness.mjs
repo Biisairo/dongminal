@@ -73,11 +73,14 @@ export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/git-changes.js'
 
 /**
  * 설정 섹션 한 벌 — index.html 의 순서다 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). `BASE` 뒤에 싣는다. 섹션 기반과 행이
- * 섹션보다 먼저다.
+ * 섹션보다 먼저다. 컨트롤러의 부품(`settings-apply.js`·`settings-live.js`·`settings-save-state.js`, REFACTOR3_FE_APPCTL_SRS
+ * 9a)도 싣는다 — 이 셋은 끝에서 App 원형에 위임자를 두므로 `App` 전역이 있어야 한다. 값의 표(`settings-table.js`)는
+ * 싣지 않는다 — 시험이 `SETTINGS_ACCESS` 를 준다.
  */
-export const SETTINGS = ['core/settings-section.js', 'core/settings-row.js', 'core/settings-display.js',
+export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', 'core/settings-row.js', 'core/settings-display.js',
   'core/settings-terminal.js', 'core/settings-code.js', 'core/settings-polling.js', 'core/settings-statusbar.js',
-  'core/settings-notify.js', 'core/settings-theme.js', 'core/settings-shortcuts.js', 'core/settings-sandbox.js',
+  'core/settings-notify.js', 'core/settings-theme.js', 'core/settings-shortcuts.js', 'core/settings-live.js',
+  'core/settings-save-state.js', 'core/settings-sandbox.js',
   'core/settings-access.js', 'core/settings-edges.js', 'core/settings-profile.js', 'core/settings-telegram.js',
   'core/settings-server.js', 'core/settings-claude.js', 'core/settings-backup.js', 'core/settings-presets.js',
   'core/settings-controller.js'];

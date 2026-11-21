@@ -15,7 +15,7 @@ const CHAT_DOWN_KEYS=Object.freeze({
   chat_daemon_restart:'chat.need_restart',
 });
 
-/** 노드 지문은 화면에 앞 16자리를 보인다 (`app-edges.js` 의 EDGE_FP_SHOWN 과 같다). */
+/** 노드 지문은 화면에 앞 16자리를 보인다 (`edges-controller.js` 의 EDGE_FP_SHOWN 과 같다). */
 const CHAT_FP_SHOWN=16;
 
 Object.assign(App.prototype, {

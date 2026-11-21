@@ -21,7 +21,7 @@ const CTLS = {
 function setup() {
   const els = {};
   for (const id of Object.keys(CTLS)) els[id] = { checked: false, value: '', addEventListener() {}, removeEventListener() {} };
-  const ctx = load(['core/settings-schema.js', ...BASE, ...SETTINGS, 'core/app-settings.js'], {
+  const ctx = load(['core/settings-schema.js', ...BASE, ...SETTINGS, 'core/settings-table.js'], {
     globals: {
       App: function App() {}, TIMERS: { disposeOwner() {} },
       TermGpu: { enabled: () => false, setEnabled() {} }, I18N: { locale: 'ko', resolve: (v) => v },

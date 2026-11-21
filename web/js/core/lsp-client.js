@@ -8,7 +8,8 @@
  *
  * APP_STATE_EXTRACT_SRS FR-ASE-7: 이 가족의 상태와 메서드는 `App` 이 아니라 `LspClient`
  * 가 갖는다. 본문은 `app-lsp.js` 에서 구간 이동했고 편집은 앱으로 나가는 자리
- * (`this.app.`)뿐이다. 바깥이 부르는 이름은 `app-lsp.js` 의 위임 껍데기가 지킨다.
+ * (`this.app.`)뿐이다. 바깥이 부르는 이름은 `app.js` 의 위임자가 지킨다
+ * (REFACTOR3_FE_APPCTL_SRS 9a).
  */
 class LspClient {
   constructor(app){ this.app=app }

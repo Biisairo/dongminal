@@ -65,6 +65,11 @@ class App {
     // 사이드바 탭 (GIT_SIDEBAR_TABS_SRS §3.9.2). 활성 탭은 클라이언트의 것이다 (D-1).
     this.sbTab=SidebarTabs.restore();
     this.sbBusy=false; // FR-SBT-14 ↔ 22 의 재진입 가드
+    // 주제별 조정자 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). 생성자에서 선다 — 부팅의 `_settingsApply`(`main.js`)가
+    // 설정창(`initModal`)보다 먼저 오고, 간선·판 확인의 복원은 구독이 열리자마자 온다.
+    this.settings=new SettingsController(this);
+    this.edges=new EdgesController(this);
+    this.update=new UpdateController(this);
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }
@@ -719,4 +724,36 @@ class App {
 
 
   _bind(){ this.inputBinding.bind() }
+
+  // ── 코드 탐색·Run 시각화 (위임) — 본체는 `lsp-client.js`·`lsp-paths.js` 의 `LspClient` 와 `ui/runs-panel.js` 의
+  // `RunsPanel` 이다 (APP_STATE_EXTRACT_SRS FR-ASE-7·묶음 A, REFACTOR3_FE_APPCTL_SRS 9a 에서 옛 `app-lsp.js`·`app-runs.js`).
+
+  // 코드 탐색을 한 번도 쓰지 않은 브라우저는 만들지 않는다 (`_runsPanel` 과 같은 규약).
+  _lspClient(){
+    if(!this._lsp) this._lsp=new LspClient(this);
+    return this._lsp;
+  }
+
+  // Run 을 한 번도 열지 않은 브라우저는 만들지 않는다 (`gitObs` 와 같은 규약).
+  _runsPanel(){
+    if(!this._runs) this._runs=new RunsPanel(this);
+    return this._runs;
+  }
+
+  // 상태 등록부 `run.list` 의 복원 (ACTIVITY_RUNS_REFRESH_SRS FR-ARR-3).
+  _runsListRestore(){ return this._runsPanel()._runsRefresh() }
+  // 상태 등록부 `run.views` 의 조건과 복원 (RUN_VIEW_LIVE_SRS FR-RLV-7). Run 탭을 한 번도
+  // 열지 않은 브라우저에는 `RunsPanel` 을 만들지 않는다.
+  _runViewsOpen(){ return !!this._runs&&this._runs._runViewMap().size>0 }
+  _runViewsRestore(){ if(this._runs) this._runs._runViewsRefresh() }
+  _onRunMemberActivity(args){ if(this._runs) this._runs._onMemberActivity(args) }
 }
+
+// 바깥이 부르는 이름 — 형제 `app-*.js`(설정·명령·편집기)·`ui/file-editor.js`·`ui/diff-view.js`·e2e 계약(`app-testing.js`).
+Controller.delegate(App,(app,n,a)=>app._lspClient()[n](...a),['_lspRefresh','_lspGotoDef','_lspFindRefs','_lspRootOfPath','lspClickDef',
+  'lspExtFor','lspOfferFor','lspOfferInstall','lspOfferPending','lspOfferReopen']);
+// 바깥이 부르는 이름 — `app-layout.js`·`renderer.js`·`app-ws-sync.js`·`app-slots.js` 와 e2e. `_runsPanel` 을 부를 때 찾는다
+// (e2e 가 갈아 끼운다). UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): `#runs-btn` 은 없어졌고 Run 구역으로 직행하는 길은
+// `Ctrl+Shift+O` 다(PANEL_SHORTCUTS_SRS FR-PSC-2).
+Controller.delegate(App,(app,n,a)=>app._runsPanel()[n](...a),['_runsModalToggle','_findRunTab','runViewEl','_runDisposeView','_onRunChanged',
+  '_runPaint']);

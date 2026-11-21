@@ -1,5 +1,5 @@
 /**
- * PollingSection — Settings ▸ Polling (REFACTOR3_FE_SETTINGS_SRS 8b). 주기 표 `POLL_SETTINGS`(`app-polling.js`)를 감싼다.
+ * PollingSection — Settings ▸ Polling (REFACTOR3_FE_SETTINGS_SRS 8b). 주기 표 `POLL_SETTINGS`(`poll-settings.js`)를 감싼다.
  *
  * POLL_INTERVAL_SETTINGS_SRS FR-PIS-20·24: 행을 **여기서** 만드는 이유는 표가 진실이기 때문이다 (FR-PIS-6).
  * index.html 에 손으로 다섯을 적으면 주기를 더할 때 고칠 자리가 둘이 된다. 골격은 다른 탭과 같은 `.ds-row` 이고

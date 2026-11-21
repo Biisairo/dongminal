@@ -63,7 +63,7 @@ test('V-ARE-9: Settings ▸ Terminal 의 스크롤 속도가 기본 3 이고, �
       { timeout: 10000 }).toBe(12);
 
     // 앞 저장의 **왕복이 끝나기를 기다린다.** 설정을 저장하면 방송이 돌아
-    // `_settingsRestore` 가 값을 다시 얹는데(app-settings.js — *"방송은 다시
+    // `_settingsRestore` 가 값을 다시 얹는데(settings-apply.js — *"방송은 다시
     // 받으라는 신호"*), 그 스냅샷이 다음 입력보다 늦게 닿으면 입력란을 옛 값으로
     // 덮는다. 기존 설정 전반의 성질이며(`tabWidthPx` 도 같다) 사람의 입력
     // 속도에서는 드러나지 않는다 — 연달아 치는 것은 검사뿐이다.

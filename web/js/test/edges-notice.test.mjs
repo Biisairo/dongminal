@@ -19,9 +19,9 @@ function setup(extra = {}) {
   let next = { ok: true, status: 200, data: { edges: [] } };
   let postResult = { ok: true, status: 200, data: {} };
   const after = [];
-  const ctx = load([...BASE, 'core/settings-section.js', 'core/state-registry.js', 'core/settings-live.js', 'core/app-edges.js',
+  const ctx = load([...BASE, 'core/settings-section.js', 'core/state-registry.js', 'core/settings-live.js', 'core/edges-controller.js',
     'core/settings-edges.js'], {
-    expose: ['edgeFp16', 'edgeRemain', 'edgeWho', 'edgeHandle', 'EdgesSection'],
+    expose: ['edgeFp16', 'edgeRemain', 'edgeWho', 'edgeHandle', 'EdgesSection', 'EdgesController', 'SettingsLive'],
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),
@@ -43,6 +43,9 @@ function setup(extra = {}) {
     },
   });
   const app = new ctx.App();
+  // REFACTOR3_FE_APPCTL_SRS 9a: 간선 읽기·알림은 `EdgesController`, 패널의 기준은 `SettingsLive` 다.
+  app.edges = new ctx.EdgesController(app);
+  app.settings = { live: new ctx.SettingsLive(app) };
   app._liveOpen = () => false; // 설정 패널이 열려 있지 않다 (UX_BATCH12 FR-LIV-4)
   app.timers = { after: (...a) => { after.push(a); return { stop() {} } }, cancel() {} };
   app._restoreBegin = () => 1;

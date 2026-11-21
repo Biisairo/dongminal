@@ -97,7 +97,7 @@ test('FR-OPT-11-4: 검증기는 표 위의 것만 남는다 (pollValue·clampTab
 });
 
 test('FR-OPT-11-4: 주기 선택지의 최소·최대가 표의 min·max 와 같다', () => {
-  const c = load(['core/settings-schema.js', 'core/app-polling.js'], {
+  const c = load(['core/settings-schema.js', 'core/poll-settings.js'], {
     expose: ['POLL_SETTINGS', 'SETTINGS_BY_KEY'],
     globals: { App: function App() {}, t: (k) => k, tn: (k, n) => k + n },
   });

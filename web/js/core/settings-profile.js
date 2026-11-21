@@ -4,7 +4,7 @@
  * 이 기기의 이름을 정하는 유일한 자리다. `#번호` 와 지문은 서버가 노드 신원에서 계산해
  * 주며 바꿀 수 없다. 이름 규칙의 판정은 서버가 한다 — 거절 사유를 상태 줄에 그대로 보인다.
  *
- * REFACTOR3_FE_SETTINGS_SRS 8c: 패널 상태(`_pfSaving`)는 이 섹션이 든다. 설정 밖(`app-edges.js`)과 저장 단추
+ * REFACTOR3_FE_SETTINGS_SRS 8c: 패널 상태(`_pfSaving`)는 이 섹션이 든다. 설정 밖(`edges-controller.js`)과 저장 단추
  * 판정이 부르는 `_pfFollow`·`_pfCollect` 는 App 에 위임자가 있다.
  */
 class ProfileSection extends SettingsSection {

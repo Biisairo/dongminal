@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * UX_AUDIT_FIX_SRS TC-UXF-51 의 unit 부분 (FR-UXF-53, D-17).
@@ -9,7 +9,7 @@ import { load } from './harness.mjs';
  * 지문은 4자 묶음으로 보이고, 앞 16자(`EDGE_FP_SHOWN`)가 강조다. 묶음은 글자를 바꾸지 않는다 —
  * 이어 붙이면 원문이다.
  */
-const ctx = () => load(['core/app-edges.js'], {
+const ctx = () => load([...BASE, 'core/edges-controller.js'], {
   expose: ['edgeFpGroups'],
   globals: { App: function App() {} },
 });

@@ -462,8 +462,7 @@ Object.assign(App.prototype, {
 
   // FR-RVZ-6: 네 번째 탭 타입. editor 와 같은 비-PTY 경로다 — 도구를 만들지
   // 않고 탭 레코드만 넣는다. editor 가 filePath 를 요구하듯 run 은 opts.runId 를
-  // 요구한다. _findRunTab 은 app-runs.js 에 있다 (그 파일이 이 파일 뒤에
-  // 로드되므로 호출 시점에는 프로토타입에 있다).
+  // 요구한다. _findRunTab 은 `app.js` 의 위임자다 (본체는 `RunsPanel`).
   _addRunTab(s, pn, opts) {
     if (!opts.runId) { console.warn('[addTab] run tab requires runId'); return }
     // FR-RVZ-7: 같은 Run 의 탭이 이미 있으면 새로 만들지 않고 그리로 옮긴다

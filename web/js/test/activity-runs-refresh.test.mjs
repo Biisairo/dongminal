@@ -21,18 +21,21 @@ function classList() {
 
 function rig() {
   const els = { 'agents-panel': { classList: classList() }, 'agents-handle': { classList: classList() } };
-  const ctx = load([...BASE, ...PANELS, 'core/app-runs.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js'], {
+  // `_runsListRestore` 는 `app.js` 본문이다 (REFACTOR3_FE_APPCTL_SRS 9a — 옛 `app-runs.js`). 생성자는 돌리지 않는다.
+  const ctx = load([...BASE, ...PANELS, 'core/app.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js'], {
     globals: {
-      App: class {},
+      TIMERS: { disposeOwner() {} },
       ACTIVITY_STATE: { ENDED: 'ended' },
       // UX_AUDIT_FIX_SRS FR-UXF-122 로 개정: actPanelOpen 이 지금 탭(`_actTab` → `local.get`)을 읽는다.
       PrefStore: { session: { setBool() {} }, local: { setJson() {}, get() { return null }, set() {} } },
       STORE_KEYS: {},
       RunsPanel: class {},
     },
+    expose: ['App'],
   });
   ctx.document.getElementById = (id) => els[id] || null;
-  const app = new ctx.App();
+  // `isMobile` 은 App 의 접근자다 — 시험이 값을 바꿔 넣으므로 인스턴스 속성으로 가린다.
+  const app = Object.create(ctx.App.prototype, { isMobile: { value: false, writable: true } });
   app.tools = new Map();
   app.refreshes = 0;
   app._actRefresh = () => { app.refreshes++ };

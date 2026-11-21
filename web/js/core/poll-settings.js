@@ -14,7 +14,10 @@
  * 키·범위·기본값은 여기 없다 — `SETTINGS_SCHEMA` 가 갖는다 (FR-CFG-1 · FR-OPT-11-4).
  * 선택지의 최소·최대가 표의 min·max 와 같은지는 `settings-source.test.mjs` 가 본다.
  *
- * 로드 순서 계약: settings-schema.js **뒤**, app-settings.js **앞**(`_settingsApply`
+ * 옛 `agentsPollMs` 의 이사(`_pollMigrateAgents`)는 `SettingsApply`(`settings-apply.js`)다
+ * (REFACTOR3_FE_APPCTL_SRS 9a). 여기는 표뿐이다.
+ *
+ * 로드 순서 계약: settings-schema.js **뒤**, settings-table.js **앞**(`_settingsApply`
  * 가 이 표를 지난다).
  */
 
@@ -76,28 +79,3 @@ const POLL_SETTINGS=[
 ];
 
 const POLL_BY_KEY=Object.fromEntries(POLL_SETTINGS.map(s=>[s.key,s]));
-
-Object.assign(App.prototype, {
-  // FR-PIS-20: `Polling` 탭의 행은 `PollingSection` 이 표에서 만든다 (REFACTOR3_FE_SETTINGS_SRS 8b·8e).
-
-  /**
-   * FR-PIS-17 / D-9: `agentsPollMs` 의 이사. **한 번이고 조용하다.**
-   *
-   * 서버에 값이 있으면 서버가 이긴다 — 여러 기기가 각자 옛 값을 들고 있을 때
-   * 마지막에 뜬 기기가 남의 설정을 덮으면 안 된다. 어느 쪽이든 로컬의 옛 값은
-   * 지운다: 남겨 두면 다음 부팅이 같은 판단을 다시 하고, 그 사이에 서버 값이
-   * 바뀌었다면 그때는 덮는다.
-   */
-  _pollMigrateAgents(saved){
-    const old=PrefStore.local.get(STORE_KEYS.legacyAgentsPollMs);
-    if(old===null) return;
-    PrefStore.local.remove(STORE_KEYS.legacyAgentsPollMs);
-    if(saved&&saved.agentsPollInterval!==undefined) return;
-    const v=settingValue(parseInt(old,10),SETTINGS_BY_KEY.agentsPollInterval);
-    if(v===agentsPollInterval) return;
-    agentsPollInterval=v;
-    TIMERS.refreshChanged();
-    this._sectionCall('polling','paint',[]);
-    this.saveSettings();
-  },
-});

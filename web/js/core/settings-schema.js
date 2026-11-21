@@ -20,7 +20,7 @@
  * 산출물로 만든다 — 그러면 게이트 밖에서 여기를 고친 사람이 조용히 되돌려진다.
  *
  * 값을 **읽고 얹는 방법**은 여기 없다. 전역 변수를 직접 만지므로 JSON 에 담을 수
- * 없고, `app-settings.js` 의 `SETTINGS_ACCESS` 가 그것을 진다 (FR-CFG-5).
+ * 없고, `settings-table.js` 의 `SETTINGS_ACCESS` 가 그것을 진다 (FR-CFG-5).
  * 두 표의 키 집합이 같은지는 검사가 강제한다.
  *
  * 로드 순서: 가장 앞쪽 — i18n 카탈로그 뒤, settings-defaults.js·constants*.js 앞.

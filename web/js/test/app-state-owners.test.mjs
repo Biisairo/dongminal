@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * APP_STATE_EXTRACT_SRS 묶음 E (FR-OPT-16-1) — App 필드 가족을 소유 클래스로 옮긴다.
@@ -26,23 +26,25 @@ const LSP_METHODS = ['_lspConn', '_lspConnNote', '_lspConnOf', '_lspDismissed',
 const LSP_SHELLS = ['_lspRefresh', '_lspGotoDef', '_lspFindRefs',
   '_lspRootOfPath', 'lspClickDef', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall', 'lspOfferPending', 'lspOfferReopen'];
 
+// REFACTOR3_FE_APPCTL_SRS 9a: 껍데기와 지연 생성은 `app.js` 본문이다(옛 `app-lsp.js`). 생성자는 돌리지 않는다.
 function loadLsp() {
   const store = { bool: (_k, d) => d, remove() {}, json: () => null, setJson() {}, setBool() {} };
-  return load(['core/lsp-client.js', 'core/lsp-paths.js', 'core/app-lsp.js'], {
-    expose: ['LspClient'],
-    globals: { App: class {}, PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {} },
+  return load([...BASE, 'core/app.js', 'core/lsp-client.js', 'core/lsp-paths.js'], {
+    expose: ['LspClient', 'App'],
+    globals: { PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, TIMERS: { disposeOwner() {} } },
   });
 }
 
 test('FR-ASE-7: LspClient 가 LSP 메서드 30개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
   const ctx = loadLsp();
   assert.deepEqual(ownNames(ctx.LspClient.prototype), [...LSP_METHODS].sort());
-  assert.deepEqual(ownNames(ctx.App.prototype), [...LSP_SHELLS, '_lspClient'].sort());
+  const left = ownNames(ctx.App.prototype).filter((n) => /lsp/i.test(n));
+  assert.deepEqual(left, [...LSP_SHELLS, '_lspClient'].sort());
 });
 
 test('FR-ASE-7: 껍데기는 같은 LspClient 에 위임한다', () => {
   const ctx = loadLsp();
-  const app = new ctx.App();
+  const app = Object.create(ctx.App.prototype);
   const seen = [];
   app._lspClient()._lspRootOfPath = (p) => { seen.push(p); return '/r' };
   assert.equal(app._lspRootOfPath('/r/a.go'), '/r');
@@ -85,14 +87,15 @@ test('FR-ASE-8 · A-6: app 에 갈아 끼운 gitReposRefresh 를 가족 안의 g
 // ── FR-ASE-9 · 설정 저장 ──
 
 const SYNC_METHODS = ['saveSettings', '_settingsLocalPending', '_saveSettingsSoon', '_saveSettingsNow', '_settingsAcceptRemote'];
-const SYNC_SHELLS = ['saveSettings', '_settingsLocalPending', '_saveSettingsSoon', '_saveSettingsNow', '_settingsSync'];
+// REFACTOR3_FE_APPCTL_SRS 9a: 지연 생성 `_settingsSync` 는 `SettingsApply`(`settings.apply`) 로 옮겼다.
+const SYNC_SHELLS = ['saveSettings', '_settingsLocalPending', '_saveSettingsSoon', '_saveSettingsNow'];
 
 function loadSync() {
   const puts = [];
-  const ctx = load(['core/state-registry.js', 'core/settings-sync.js', 'core/app-settings.js', 'core/app-settings-init.js'], {
-    expose: ['SettingsSync'],
+  const ctx = load([...BASE, 'core/state-registry.js', 'core/settings-sync.js', 'core/settings-apply.js'], {
+    expose: ['SettingsSync', 'SettingsApply'],
     globals: {
-      App: function App() {}, SETTINGS_SCHEMA: [], SETTINGS_SAVE_FAIL: 'fail',
+      App: function App() {}, SETTINGS_SCHEMA: [], SETTINGS_SAVE_FAIL: 'fail', TIMERS: { disposeOwner() {} },
       apiPut: async (path, body) => { puts.push(body); return { ok: true } },
     },
   });
@@ -109,14 +112,52 @@ test('FR-ASE-9: SettingsSync 가 저장 파이프라인을 갖고 App 에는 껍
 test('FR-ASE-9 · A-6: 에코 판정은 app 에 갈아 끼운 _settingsApply 를 부르고 보낸 본문은 얹지 않는다', async () => {
   const { ctx, puts } = loadSync();
   const app = new ctx.App();
+  app.settings = { apply: new ctx.SettingsApply(app) };
   app.clientId = 'c';
   const applied = [];
   app._settingsApply = (d) => applied.push(d);
   await app.saveSettings();
-  const sync = app._settingsSync();
+  const sync = app.settings.apply._settingsSync();
   assert.equal(sync.app, app);
   sync._settingsAcceptRemote({ ok: true, text: puts[0], data: {} });
   assert.equal(applied.length, 0, '자기 에코를 얹었다');
   sync._settingsAcceptRemote({ ok: true, text: '{"x":1}', data: { x: 1 } });
   assert.equal(applied.length, 1);
+});
+
+// ── REFACTOR3_FE_APPCTL_SRS TC-FEA-3 · 계약 이름 ──
+
+/**
+ * 계약(`app-testing.js`)의 이름은 App 인스턴스에서 그대로 읽힌다 — mixin 을 컨트롤러로 옮겨도 App 에 메서드
+ * (본문·mixin·위임자 표)나 필드(`this.X=`)로 남는다. 위임자 표는 App 과 컨트롤러 파일을 실어서 원형으로 읽는다.
+ */
+test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·위임자·필드다', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const root = new URL('..', import.meta.url).pathname;
+  const read = (rel) => readFileSync(join(root, rel), 'utf8');
+  const contract = [...read('core/app-testing.js').match(/const APP_TESTING_NAMES = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)]
+    .map((m) => m[1]);
+  assert.equal(contract.length, 150);
+  const appFiles = ['core/app.js', ...readdirSync(join(root, 'core')).map((n) => 'core/' + n),
+    ...readdirSync(join(root, 'ui')).map((n) => 'ui/' + n)]
+    .filter((f) => f.endsWith('.js') && (f === 'core/app.js' || /Object\.(assign|defineProperties)\(App\.prototype/.test(read(f))));
+  const names = new Set();
+  for (const f of appFiles) {
+    const src = read(f);
+    for (const m of src.matchAll(/^ {2}(?:async\s+|get\s+|set\s+)?([A-Za-z_$][\w$]*)\s*\(/gm)) names.add(m[1]);
+    for (const m of src.matchAll(/\bthis\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) names.add(m[1]);
+    for (const m of src.matchAll(/^ {2}([A-Za-z_$][\w$]*)\s*:\s*\{/gm)) names.add(m[1]);   // `Object.defineProperties` 접근자
+  }
+  const ctl = ['core/edges-controller.js', 'core/update-controller.js', 'core/settings-apply.js', 'core/settings-live.js',
+    'core/settings-save-state.js', 'core/settings-controller.js'];
+  const settings = ['core/settings-section.js', 'core/settings-row.js', 'core/settings-display.js', 'core/settings-terminal.js',
+    'core/settings-code.js', 'core/settings-polling.js', 'core/settings-statusbar.js', 'core/settings-notify.js',
+    'core/settings-theme.js', 'core/settings-shortcuts.js', 'core/settings-sandbox.js', 'core/settings-access.js',
+    'core/settings-edges.js', 'core/settings-profile.js', 'core/settings-telegram.js', 'core/settings-server.js',
+    'core/settings-claude.js', 'core/settings-backup.js', 'core/settings-presets.js'];
+  const ctx = load([...BASE, 'core/app.js', ...settings, ...ctl], { expose: ['App'], globals: { TIMERS: { disposeOwner() {} } } });
+  for (const n of Object.getOwnPropertyNames(ctx.App.prototype)) names.add(n);
+  // 계약에 남은 없는 이름 둘 — `_gitJobChip` 은 e2e 가 없음을 본다(`git-statusbar.spec.ts`), `_focusCh` 는 쓰는 곳이 없다.
+  assert.deepEqual(contract.filter((n) => !names.has(n)), ['_gitJobChip', '_focusCh']);
 });

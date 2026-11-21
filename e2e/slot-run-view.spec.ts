@@ -174,7 +174,7 @@ test.describe('Run 뷰의 칸 다중화', () => {
       const app = (window as any).app;
       app.closeTab(p, t);
       app.render();
-      // 회수는 run 변경 수신에서 스스로 맞춘다 (app-runs.js 의 규약).
+      // 회수는 run 변경 수신에서 스스로 맞춘다 (`RunsPanel` 의 규약).
       app.testing.onRunChanged({ runId: 'zzzz' });
     }, [paneId, tabId] as const);
 
