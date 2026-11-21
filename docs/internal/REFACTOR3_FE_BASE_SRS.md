@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 P3a 단계 0~2 — 프론트 기반 클래스와 두 패널 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 단계 0·1·2 의 구현과 검증 전부.
+> **남은 것**: 단계 2(FR-FEB-20~26)의 구현과 검증. 단계 0·1 은 `6a30fc80` 에서 닫혔다.
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `docs/internal/refactor/FE_OBJECT_MODEL.md` 단계 0~2 · `PROD3.md` P3a·FU-20)
 - 사용자 결정(2026-11-21): 외부 프레임워크 없이 자체 클래스 계층을 세운다. 화면 부품은 모두 `View` 의 파생, App 의 주제별 일은 `Controller` 의 파생, 둘 다 `Component` 에서 나온다. 클래스 하나 = 파일 하나. FU-20 의 라벨 표시 규칙은 지금처럼 패널별이다.
@@ -47,13 +47,13 @@
 
 | ID | 요구 |
 |---|---|
-| FR-FEB-10 | `Component`(`component.js`): `own(disposer)` 는 해제 함수를 쌓는다. `listen(target, type, fn, opts)` 는 리스너를 달고 해제를 쌓는다. `observe(observer, target, opts)` 는 Resize·MutationObserver 를 걸고 해제를 쌓는다. `after(ms, fn)`·`every(ms, fn)` 은 `TimerHub` 에 이 인스턴스를 주인으로 넘긴다. `on(topic, fn)` 은 `EventBus` 에 주인으로 넘긴다. `dispose()` 는 쌓인 해제를 거꾸로 부르고, `TimerHub.disposeOwner(this)`·`EventBus.disposeOwner(this)` 를 부르고, `disposed` 를 참으로 둔다. 두 번 불러도 안전하다 |
+| FR-FEB-10 | `Component`(`component.js`): `own(disposer)` 는 해제 함수를 쌓는다. `listen(target, type, fn, opts)` 는 리스너를 달고 해제를 쌓는다. `observe(observer, target, opts)` 는 Resize·MutationObserver 를 걸고 해제를 쌓는다. `after(ms, fn)`·`every(ms, fn)` 은 `TimerHub` 에 이 인스턴스를 주인으로 넘긴다. `on(topic, fn)` 은 `EventBus` 에 주인으로 넘긴다. `dispose()` 는 쌓인 해제를 거꾸로 부르고, 시간 허브(`TIMERS`/`app.timers`)와 이벤트 버스(`app.bus`) 인스턴스의 `disposeOwner(this)` 를 부르고, `disposed` 를 참으로 둔다. 두 번 불러도 안전하다 |
 | FR-FEB-11 | `View extends Component`(`view.js`): `el` 은 자기 루트 요소다. `mount(host)` 는 처음 한 번 `build()` 로 `el` 을 만들고(이미 있는 DOM 을 쓰는 하위는 `adopt(el)`), `host` 에 붙이고, `render()` 를 부른다. `render()` 는 하위가 덮어쓴다. `dispose()` 는 상위 정리 뒤 `el` 을 떼되, `adopt` 한 요소는 떼지 않는다(그 요소의 주인은 `index.html` 이다) |
 | FR-FEB-12 | `Controller extends Component`(`controller.js`): 생성자 인자로 `app` 을 받아 `this.app` 에 둔다. 화면 요소를 갖지 않는다 |
 | FR-FEB-13 | `EscapeStack`(`escape-stack.js`, 정적): `push(entry)`/`remove(entry)`, Esc 를 받으면 맨 위 항목 하나의 `close()` 만 부른다. 이 단계에서는 단계 2 의 패널만 등록한다. 기존 Esc 처리기는 건드리지 않는다 |
 | FR-FEB-14 | `ScrollMemo`(`scroll-memo.js`): 키별로 스크롤 자리를 적고 되돌린다. 값은 요소에 적는 기존 규약(`UIKit.scrollSave/Restore`, FR-SBT-11)을 쓴다 |
 | FR-FEB-15 | `badgeOf(n, opts)`(`badge.js`, 함수): `{shown, text, dot}` 를 돌려준다. 0·null 이면 숨김, 점 지원(FR-PCH-81)은 옵션이다. 두 패널의 배지 판정이 이것을 쓴다 |
-| FR-FEB-16 | `index.html` 은 `core/base/*` 를 `timer-hub.js`·`event-bus.js`·`helpers.js` 뒤, 그것을 쓰는 첫 파일 앞에 싣는다. 순서는 `component.js` → `view.js` → `controller.js` → 나머지다. `harness.mjs` 에 같은 순서의 묶음 상수 `BASE` 를 둔다 |
+| FR-FEB-16 | `index.html` 은 `core/base/*` 를 `timer-hub.js`·`event-bus.js`·helpers 묶음(`git-path.js` 까지 — `helpers-split.test.mjs` 가 그 묶음 안의 순서를 고정한다) 뒤, 그것을 쓰는 첫 파일(`repaint.js`) 앞에 싣는다. `web/embed.go` 의 go:embed 패턴은 한 단계 아래만 담으므로 `js/core/base/*.js` 를 더한다(`TestBaseClassesEmbedded`). 순서는 `component.js` → `view.js` → `controller.js` → 나머지다. `harness.mjs` 에 같은 순서의 묶음 상수 `BASE` 를 둔다 |
 
 ### 2.3 단계 2 — 패널과 탭 줄
 
@@ -98,3 +98,9 @@
 | 단계 | 이전 | 새 | 이유 |
 |---|---|---|---|
 | 2 | (FR-FEB-26 의 표가 차이를 찾으면 여기에 적는다) | 두 패널이 같은 사건에서 같은 라벨 판정 경로를 부른다 | FU-20 — 사용자가 "두 패널 상단 탭의 동작이 하나 다르다"고 했다 |
+
+## 6. 구현 기록
+
+| 단계 | 커밋 | 요점 |
+|---|---|---|
+| 0·1 | `6a30fc80` | `domEl`·`svgEl` 로 헬퍼 여덟을 지웠다(`runTreeSpan`·`mk` 는 합성 헬퍼라 본문만 `svgEl`/`domEl` 을 쓴다). 죽은 함수 넷 삭제(`cm-lsp` `unsubscribe` 는 라이브러리 Transport 계약이라 남기고 주석). `tabsFitWatch`·`roving` 은 해제 함수를 돌려준다. `core/base/` 여섯 파일. `badgeOf` 는 두 탭 줄의 배지 판정에 이미 쓰인다. 단위 1178 · 게이트 · typecheck · e2e 78건(activity·sidebar-tabs·panel-tabs-unify·run-tree·git-repo-missing·claude-accounts·git-diff) 통과. **단계 2 에 넘긴 것:** `EscapeStack` 은 버블 단계에서 받고 `stopPropagation` 을 하지 않는다 — 패널을 등록할 때 기존 Esc 처리기와의 순서를 정한다 |
