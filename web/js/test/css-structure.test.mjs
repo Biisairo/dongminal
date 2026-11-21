@@ -84,6 +84,30 @@ test('TC-FR4-4: CSS 에 옛 레일 상태 선택자가 없고, 첫 프레임의 
   assert.ok(html.indexOf('<div id="sb-head"', at) > html.indexOf('</script>', at), '표식은 사이드바 내용보다 먼저 선다');
 });
 
+// REFACTOR3_FE_REST4_SRS FU-9 (TC-FR4-5): 레일 숨김 목록의 클래스는 화면에 실제로 있다 — 죽은 선택자가 다시 쌓이지 않는다.
+// 이전: Activity 레일 숨김 목록에 웹 어디에도 없는 `.ag-title`·`.ag-refresh` 가 남아 있었다 (PROD3 DOC-15).
+function jsFiles(dir, out = []) {
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) { if (e !== 'test') jsFiles(p, out); continue; }
+    if (e.endsWith('.js')) out.push(p);
+  }
+  return out;
+}
+
+test('TC-FR4-5: 레일 숨김 목록의 클래스는 모두 JS·HTML 에 있다', () => {
+  const hide = rules().filter((r) => r.sel.includes('[data-rail]') && /(^|;)\s*display\s*:\s*none\b/.test(r.decls));
+  const names = new Set();
+  for (const r of hide) {
+    // 표식 뒤가 레일 안에서 숨기는 것이다. 표식 앞(`#sidebar`·`.ui-panel`)은 패널 자신이다.
+    for (const part of r.sel.split('[data-rail]').slice(1)) for (const m of part.matchAll(/\.([a-zA-Z][\w-]*)/g)) names.add(m[1]);
+  }
+  assert.ok(names.size >= 10, `레일 숨김 목록을 못 읽었다 (${names.size}개) — 검사가 공회전한다`);
+  const src = [readFileSync('web/index.html', 'utf8'), ...jsFiles('web/js').map((f) => readFileSync(f, 'utf8'))].join('\n');
+  const dead = [...names].filter((n) => !new RegExp(`(^|[^\\w-])${n}(?![\\w-])`).test(src)).sort();
+  assert.deepEqual(dead, [], '레일 숨김 목록에 화면에 없는 클래스가 있다');
+});
+
 test('FEU-29: git 뷰 툴바 여섯이 골격 한 규칙을 나눈다', () => {
   const BARS = ['.git-diff-bar', '.git-img-bar', '.git-con-bar', '.git-br-bar', '.git-hist-bar', '.git-stash-bar'];
   const all = rules();

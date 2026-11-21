@@ -880,7 +880,9 @@ body:not(.mobile) #agents-handle{display:block}
 #agents-panel.ui-panel[data-rail]{
   display:flex;width:var(--sb-rail-w);min-width:var(--sb-rail-w);overflow-x:hidden;
 }
-#agents-panel[data-rail] :is(.ag-title,.ag-refresh,.ag-tab-name,
+/* REFACTOR3_FE_REST4_SRS FU-9: 숨김 목록의 클래스는 화면에 실제로 있어야 한다 — `css-structure.test.mjs` TC-FR4-5 가 JS·HTML 과 대조한다.
+   이전: 웹 어디에도 없는 `.ag-title`·`.ag-refresh` 가 목록에 남아 있었다 (PROD3 DOC-15). */
+#agents-panel[data-rail] :is(.ag-tab-name,
   .ag-sec-empty,.chat-row-sub,.chat-act,.chat-sub-h,.chat-none,.chat-node,.chat-person,.chat-down,.act-usage-foot,.ag-state,.ag-detail,.ag-usage,.ag-sub,
   .bg-row > :not(.bg-name),.runs-row > :not(.runs-short)){display:none}
 /* PEER_CHAT_SRS FR-PCH-82: 레일에서는 탭 넷이 아이콘으로 세로로 선다 — 눕는 머리·탭의 높이·활성 띠는
