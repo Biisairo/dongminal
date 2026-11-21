@@ -66,7 +66,7 @@ class GitSync extends Controller {
     // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기도 같은 방송을 듣는다 (IPC-8). 숨은 동안의
     // 것은 복귀 틱(`_edTick`)이 갚는다 — 탐색기의 주기 status 는 안전망뿐이다.
     if(typeof document!=='undefined'&&document.hidden){
-      (this.app._edGitHeld||(this.app._edGitHeld=new Map())).set(repo,a.mark||'');
+      this.app._edGitHold(repo,a.mark||'');
       return;
     }
     this.app._edOnGitChanged(repo,a.mark||'');

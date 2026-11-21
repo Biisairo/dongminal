@@ -4,7 +4,7 @@
  * 창·문서·탐색기 트리의 생성 자리. 셋이 한 파일인 이유는 **여는 한 번**이 셋을
  * 함께 세우기 때문이다 — 창을 열면 문서 스토어가 서고 그 위에 트리가 붙는다.
  */
-Object.assign(App.prototype, {
+class EditorOpen extends Controller {
   /**
    * FR-EDT-103·104: 일반 창에 남은 `type==='editor'` 탭을 제거한다.
    *
@@ -16,13 +16,13 @@ Object.assign(App.prototype, {
    * 파일 자체는 디스크에 그대로 있다.
    */
   _migrateEditorTabs(list){
-    if(!this.edOn()) return 0;
-    const ws=list||this.ws.windows;
+    if(!this.app.edOn()) return 0;
+    const ws=list||this.app.ws.windows;
     if(!Array.isArray(ws)) return 0;
     let n=0;
     for(const s of ws){
       if(!s||!s.layout) continue;
-      if(this.isEditorWin(s)||this.isGitWin(s)) continue;
+      if(this.app.isEditorWin(s)||this.app.isGitWin(s)) continue;
       const panes=panesOf(s.layout);
       for(const p of panes){
         const before=(p.tabs||[]).length;
@@ -35,22 +35,22 @@ Object.assign(App.prototype, {
       for(const p of panes) if(!p.tabs.length) s.layout=doRemove(s.layout,p.id);
     }
     return n;
-  },
+  }
 
   // ── 탭 ↔ 창 (FR-EDT-7·9) ──
 
   // FR-EDT-7: Editor 탭을 고르면 마지막으로 활성이었던 Editor 창으로 간다.
   // 그런 창이 없으면 root 에디터 창이다 (`gitBackTarget` 과 같은 모양).
   edActivateTarget(){
-    const wins=this.edWindows();
-    return wins.find(s=>s.id===this._lastEditorWindow)
-      ||this.edWindowFor(this._edHome())||wins[0]||null;
-  },
+    const wins=this.app.edWindows();
+    return wins.find(s=>s.id===this.app._lastEditorWindow)
+      ||this.app.edWindowFor(this.app._edHome())||wins[0]||null;
+  }
 
   edOpenWindow(root){
-    const w=this.edWindowFor(root);
-    if(w) this.switchWindow(w.id);
-  },
+    const w=this.app.edWindowFor(root);
+    if(w) this.app.switchWindow(w.id);
+  }
 
   // ── 탐색기 (FR-EDT-57~68) ──
 
@@ -76,8 +76,8 @@ Object.assign(App.prototype, {
    * 파일을 각자 편집하고 한쪽 저장이 다른 쪽 저장에 덮였다.
    */
   edDoc(filePath){
-    if(!this._edDocs) this._edDocs=new Map();
-    let d=this._edDocs.get(filePath);
+    if(!this.app._edDocs) this.app._edDocs=new Map();
+    let d=this.app._edDocs.get(filePath);
     if(!d){
       // `model` 은 첫 뷰가 내용을 받아 온 뒤에 채운다 — 문서의 자리를 먼저 잡아야
       // 두 번째 뷰가 "이미 누가 열어 두었다" 를 알 수 있다.
@@ -93,10 +93,10 @@ Object.assign(App.prototype, {
       d={buf:null,bufSub:null,dirty:false,stamp:'',dd:null,views:new Set(),
         gen:0,savedDoc:null,encoding:'',bom:false,decodable:true,
         loading:null,savePromise:null,saveQueued:null};
-      this._edDocs.set(filePath,d);
+      this.app._edDocs.set(filePath,d);
     }
     return d;
-  },
+  }
 
   /**
    * REPO_FIX 03 §3A-7 (E-6): 탭의 dirty 는 **파생**이다. 편집기 탭은 그 파일 문서의
@@ -110,22 +110,22 @@ Object.assign(App.prototype, {
   tabDirty(win,tab){
     if(!tab) return false;
     if(tab.type===TAB_TYPE_EDITOR){
-      const d=this._edDocs&&this._edDocs.get(tab.filePath);
+      const d=this.app._edDocs&&this.app._edDocs.get(tab.filePath);
       if(d) return !!d.dirty;
-      const v=this.editorAny(tab.id);
+      const v=this.app.editorAny(tab.id);
       return !!(v&&v._dirty);
     }
-    if(tab.type===TAB_TYPE_GIT&&win&&this.isEditorWin(win)){
-      return this._gitViewDirty(this.edRootOf(win),tab.gitView,false,tab.id);
+    if(tab.type===TAB_TYPE_GIT&&win&&this.app.isEditorWin(win)){
+      return this.app._gitViewDirty(this.app.edRootOf(win),tab.gitView,false,tab.id);
     }
     return false;
-  },
+  }
 
   // FR-SVS-55: 그 파일을 보는 칸이 하나도 남지 않으면 문서를 거둔다. 칸이 줄어도
   // 다른 칸이 보고 있으면 내용은 남는다 — 편집 중이던 것이 칸 정리로 사라지면
   // 그것이 결함이다.
   edDocDrop(filePath,view){
-    const d=this._edDocs&&this._edDocs.get(filePath);
+    const d=this.app._edDocs&&this.app._edDocs.get(filePath);
     if(!d) return;
     d.views.delete(view);
     if(d.views.size) return;
@@ -133,8 +133,8 @@ Object.assign(App.prototype, {
     if(d.dd){d.dd.dispose();d.dd=null}
     if(d.bufSub){d.bufSub();d.bufSub=null}
     if(d.buf) d.buf.dispose();
-    this._edDocs.delete(filePath);
-  },
+    this.app._edDocs.delete(filePath);
+  }
 
   /**
    * EDITOR_DIRTY_DIFF_SRS FR-EDD-5: 이 파일의 변경 표시. 문서마다 하나이므로
@@ -146,16 +146,16 @@ Object.assign(App.prototype, {
   edDirtyDiff(filePath){
     if(typeof EdDirtyDiff!=='function') return null;
     const d=this.edDoc(filePath);
-    if(!d.dd) d.dd=new EdDirtyDiff(this,filePath);
+    if(!d.dd) d.dd=new EdDirtyDiff(this.app,filePath);
     return d.dd;
-  },
+  }
 
   // FR-EDD-23b: 테마가 바뀌면 색을 다시 읽어 칠한다. 계기는 `FileEditor.applyTheme`
   // 하나이며 여기는 그것이 부르는 자리다.
   edDirtyDiffRepaint(){
-    if(!this._edDocs) return;
-    for(const d of this._edDocs.values()) if(d.dd) d.dd.recompute();
-  },
+    if(!this.app._edDocs) return;
+    for(const d of this.app._edDocs.values()) if(d.dd) d.dd.recompute();
+  }
 
   // ── 열어 둔 파일의 실시간 반영 (EDITOR_LIVE_RELOAD_SRS 묶음 P·R) ──
 
@@ -171,21 +171,21 @@ Object.assign(App.prototype, {
    */
   _edVisibleDocPaths(){
     const seen=new Set();
-    for(const s of (this.ws&&this.ws.windows)||[]){
-      if(!s||!s.layout||!this.isEditorWin(s)) continue;
+    for(const s of (this.app.ws&&this.app.ws.windows)||[]){
+      if(!s||!s.layout||!this.app.isEditorWin(s)) continue;
       // FR-ELR-11a: 보이지 않는 창은 묻지 않는다 (FR-STAT-17). 돌아오면 그 틱의
       // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
-      if(!this.windowVisible(s.id)) continue;
+      if(!this.app.windowVisible(s.id)) continue;
       for(const n of panesOf(s.layout)) for(const tab of (n.tabs||[])){
         if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath) seen.add(tab.filePath);
         // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
         // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
         if(tab&&tab.type===TAB_TYPE_GIT&&tab.gitView==='diff')
-          for(const p of this._gitDiffDocPaths(this.edRootOf(s))) seen.add(p);
+          for(const p of this.app._gitDiffDocPaths(this.app.edRootOf(s))) seen.add(p);
       }
     }
     return seen;
-  },
+  }
 
   /**
    * FR-ELR-11~13·20: 지금 물어야 할 파일들.
@@ -197,10 +197,10 @@ Object.assign(App.prototype, {
    *   `!stamp`  견줄 기준이 없다. 표식을 주지 않는 옛 서버에서 열린 문서다
    */
   _edLiveDocs(){
-    if(!this._edDocs||!this._edDocs.size) return [];
+    if(!this.app._edDocs||!this.app._edDocs.size) return [];
     const seen=this._edVisibleDocPaths();
     const out=[];
-    for(const [path,d] of this._edDocs){
+    for(const [path,d] of this.app._edDocs){
       if(!d||d.dirty||!d.buf||!d.stamp) continue;
       if(!seen.has(path)) continue;
       out.push(path);
@@ -208,7 +208,7 @@ Object.assign(App.prototype, {
     // FR-ELR-6: 서버의 상한으로 먼저 자른다. 넘겨 보내면 요청 전체가
     // 거절되므로 관측이 통째로 멎는다 — 일부만 보는 편이 낫다 (FR-FSL-5 와 같다).
     return capToServer(out,serverMeta.fileStampsMax);
-  },
+  }
 
   /**
    * FR-ELR-10·21: 열어 둔 파일들이 바뀌었는지 **한 번에** 묻고, 달라진 것만 다시
@@ -226,7 +226,7 @@ Object.assign(App.prototype, {
     if(!paths) return;
     const r=await apiPost(FS_STAMPS_API,{trees:[],paths});
     this._edDocStampsEnd(paths,r);
-  },
+  }
 
   // 물을 파일이 있으면 그 목록을 내고 busy 를 쥔다. 없으면 null.
   _edDocStampsBegin(){
@@ -235,7 +235,7 @@ Object.assign(App.prototype, {
     if(!paths.length) return null;
     this._edStampsBusy=true;
     return paths;
-  },
+  }
 
   _edDocStampsEnd(paths,r){
     this._edStampsBusy=false;
@@ -256,14 +256,14 @@ Object.assign(App.prototype, {
       // "없다·볼 수 없다" 이고, 밖에서 지워진 파일의 탭은 그대로 둔다
       // (FR-EXC-10·10b).
       if(typeof now!=='string') continue;
-      const d=this._edDocs&&this._edDocs.get(p);
+      const d=this.app._edDocs&&this.app._edDocs.get(p);
       // 물은 시점과 답이 온 시점 사이에 사용자가 한 글자 칠 수 있다 (FR-ELR-23).
       if(!d||d.dirty||!d.stamp||d.stamp===now) continue;
       // REPO_FIX 03 E-7.1: 뷰가 아니라 **문서**의 refresh — 첫 뷰가 무엇이든 소스가
       // 갱신되고 모든 뷰가 알림을 받는다. 시선은 칸마다 지켜진다 (FR-ELR-30).
-      this.edDocRefresh(p);
+      this.app.edDocRefresh(p);
     }
-  },
+  }
 
   /**
    * OPTIMIZE_REFACTOR_SRS FR-OPT-4-2 (IPC-8): 겹 스탬프와 파일 표식을 **요청 하나**로
@@ -286,7 +286,7 @@ Object.assign(App.prototype, {
     const r=await apiPost(FS_STAMPS_API,{trees,paths:paths||[]});
     if(paths) this._edDocStampsEnd(paths,r);
     await Promise.all(owners.map((st,i)=>st.stampEnd(trees[i].dirs,r)));
-  },
+  }
 
   /**
    * OPTIMIZE_REFACTOR_SRS FR-OPT-4-1 (IPC-8 · FEC-12): **탐색기도 `git_changed` 를 듣는다.**
@@ -303,7 +303,7 @@ Object.assign(App.prototype, {
    */
   _edOnGitChanged(repo,mark){
     const hit=new Map();
-    for(const tree of this._edVisibleTrees()){
+    for(const tree of this.app._edVisibleTrees()){
       const st=tree.store;
       if(!st||hit.has(st)) continue;
       if(st.root!==repo&&st.gitRepo!==repo) continue;
@@ -314,7 +314,7 @@ Object.assign(App.prototype, {
     // `now` 가 캐시를 넘는다 — 방송 전의 관측을 나눠 받지 않는다.
     for(const tree of hit.values()) tree.pollGit({now:true});
     this.edStampTick([...hit.keys()]);
-  },
+  }
 
   /**
    * FR-SVS-20: 탐색기의 **관측**은 루트마다 하나다. 창이 아니라 루트가 단위인
@@ -322,11 +322,11 @@ Object.assign(App.prototype, {
    * 때문이다 (D-5). 마지막 뷰가 떠날 때 store 가 스스로 이 맵에서 빠진다.
    */
   edStore(root){
-    if(!this.edStores) this.edStores=new Map();
-    let st=this.edStores.get(root);
-    if(!st){st=new FileTreeStore(this,root);this.edStores.set(root,st)}
+    if(!this.app.edStores) this.app.edStores=new Map();
+    let st=this.app.edStores.get(root);
+    if(!st){st=new FileTreeStore(this.app,root);this.app.edStores.set(root,st)}
     return st;
-  },
+  }
 
   /**
    * FR-SVS-21·24: 탐색기의 **시선**은 칸마다 하나다. 키가 `slotKey` 를 지나므로
@@ -337,14 +337,14 @@ Object.assign(App.prototype, {
    * 것이 접수된 결함의 절반이었다.
    */
   edTree(s,slot){
-    if(!this._edTrees) this._edTrees=new Map();
+    if(!this.app._edTrees) this.app._edTrees=new Map();
     // 회수의 주 자리는 `_edReapTrees`(재조정)다. 여기서 한 번 더 부르는 것은
     // 재조정을 지나지 않는 경로로 창이 사라졌을 때의 그물이다.
-    this._edReapTrees();
-    const key=this.slotKey(s.id,slot||0);
-    let tree=this._edTrees.get(key);
-    if(tree&&tree.root!==this.edRootOf(s)){tree.destroy();tree=null}
-    if(!tree){tree=new FileTree(this,s);this._edTrees.set(key,tree)}
+    this.app.editor.sync._edReapTrees();
+    const key=this.app.slotKey(s.id,slot||0);
+    let tree=this.app._edTrees.get(key);
+    if(tree&&tree.root!==this.app.edRootOf(s)){tree.destroy();tree=null}
+    if(!tree){tree=new FileTree(this.app,s);this.app._edTrees.set(key,tree)}
     // FR-DSP-1c: 트리가 없던 동안 열린 파일을 이제 드러낸다. 한 번만이다 —
     // 지운 뒤에 부르므로 다음 render 가 같은 일을 되풀이하지 않는다.
     if(this._edReveal&&this._edReveal.has(s.id)){
@@ -360,7 +360,7 @@ Object.assign(App.prototype, {
     // FR-DIR-32: 활성화는 사용자가 방금 한 일이다 — 백오프를 넘겨 곧바로 묻는다.
     if(this._edLastActive!==s.id){this._edLastActive=s.id;tree.pollGit({now:true});tree.pollStamp()}
     return tree;
-  },
+  }
 
   // FR-EDT-76: 폴링의 대상은 **활성 Editor 창 하나**다. 비활성 창의 트리는 살아
   // 있어도 git 을 부르지 않는다 (FR-GIT-24 와 같은 근거).
@@ -369,26 +369,26 @@ Object.assign(App.prototype, {
    * 사용자가 있는 칸에만 일어난다 — 다른 칸의 펼침을 앱이 임의로 바꾸지 않는다.
    */
   _edTreeFor(w){
-    if(!w||!this._edTrees) return null;
-    return this._edTrees.get(this.slotKey(w.id,this.slotFocused()))
-      ||this._edTrees.get(w.id)||null;
-  },
+    if(!w||!this.app._edTrees) return null;
+    return this.app._edTrees.get(this.app.slotKey(w.id,this.app.slotFocused()))
+      ||this.app._edTrees.get(w.id)||null;
+  }
 
   // 관측이 루트마다 하나이므로 **어느 칸의 뷰를 통해 불러도** 요청은 한 벌이고
   // 결과는 모든 칸에 칠해진다 (FR-SVS-20·22). 포커스 칸의 것을 고르고, 없으면
   // 그 창을 보는 아무 칸의 것을 쓴다.
   edActiveTree(){
-    const s=this.aw();
-    if(!this.isEditorWin(s)||!this._edTrees) return null;
+    const s=this.app.aw();
+    if(!this.app.isEditorWin(s)||!this.app._edTrees) return null;
     // FR-RTU-12·14: 사이드가 `Changes` 면 탐색기는 화면에 없다 — `_edVisibleTrees`
     // 와 같은 게이트다. 이 자리가 빠지면 즉시 신호(`gitSignal`)마다 보이지도
     // 않는 트리의 status 가 한 건 더 나가 디바운스가 무의미해진다 (V5 실측).
-    if(this.edSideOf(s)!==REPO_SIDE_EXPLORER) return null;
-    const mine=this._edTrees.get(this.slotKey(s.id,this.slotFocused()));
+    if(this.app.edSideOf(s)!==REPO_SIDE_EXPLORER) return null;
+    const mine=this.app._edTrees.get(this.app.slotKey(s.id,this.app.slotFocused()));
     if(mine) return mine;
-    for(const[key,tree] of this._edTrees) if(this.slotBase(key)===s.id) return tree;
+    for(const[key,tree] of this.app._edTrees) if(this.app.slotBase(key)===s.id) return tree;
     return null;
-  },
+  }
 
   /**
    * SLOT_VIEW_STATE_SRS FR-SVS-39b: **화면에 있는 탐색기 전부.**
@@ -412,20 +412,20 @@ Object.assign(App.prototype, {
    * 트리가 이미 그 폴더를 펼쳐 두었을 때만 요청을 낸다.
    */
   edRefreshTreesFor(root,dir){
-    if(!this._edTrees||!root||!dir) return;
-    for(const tree of this._edTrees.values()){
+    if(!this.app._edTrees||!root||!dir) return;
+    for(const tree of this.app._edTrees.values()){
       if(!tree||tree.root!==root) continue;
       tree.load(dir);
     }
-  },
+  }
 
   _edVisibleTrees(){
-    if(!this._edTrees) return [];
+    if(!this.app._edTrees) return [];
     const out=[];
-    for(const [key,tree] of this._edTrees){
+    for(const [key,tree] of this.app._edTrees){
       if(!tree) continue;
-      const id=this.slotBase(key);
-      if(!this.windowVisible(id)) continue;
+      const id=this.app.slotBase(key);
+      if(!this.app.windowVisible(id)) continue;
       /**
        * REPO_TAB_UNIFY_SRS FR-RTU-12·14: **사이드가 Explorer 일 때만** 묻는다.
        *
@@ -436,10 +436,15 @@ Object.assign(App.prototype, {
        * 실측: 이 게이트가 없으면 `Changes` 사이드에서도 3초마다 status·stamp 가
        * 나가 "폴링을 껐는데 status 가 온다" 가 됐다 (V18).
        */
-      const w=this.ws.windows.find(x=>x&&x.id===id);
-      if(this.isEditorWin(w)&&this.edSideOf(w)!==REPO_SIDE_EXPLORER) continue;
+      const w=this.app.ws.windows.find(x=>x&&x.id===id);
+      if(this.app.isEditorWin(w)&&this.app.edSideOf(w)!==REPO_SIDE_EXPLORER) continue;
       out.push(tree);
     }
     return out;
-  },
-});
+  }
+}
+
+// 바깥이 부르는 이름 — Git(`_edOnGitChanged`)·레이아웃·포커스·LSP·`ui/`·`git/`·e2e·계약.
+Controller.delegate(App,'editor.open',['_migrateEditorTabs','edActivateTarget','edOpenWindow','edDoc','tabDirty','edDocDrop',
+  'edDirtyDiff','edDirtyDiffRepaint','edPollDocStamps','_edOnGitChanged','edStore','edTree','_edTreeFor','edActiveTree',
+  'edRefreshTreesFor','_edVisibleTrees']);

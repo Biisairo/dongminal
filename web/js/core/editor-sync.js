@@ -5,7 +5,7 @@
  * 세우거나 지운다(`_edReconcile`). dirty 판정이 함께 있는 이유는 **지우기 전에
  * 물어야** 하기 때문이다 — 재조정이 그 답을 딛는다.
  */
-Object.assign(App.prototype, {
+class EditorSync extends Controller {
   /**
    * FR-EDT-29·120: 목록을 받는다. 실패하면 `_edOff` 로 보고 탭 자체를 숨긴다.
    *
@@ -17,11 +17,11 @@ Object.assign(App.prototype, {
     const res=await apiGet(EDITORS_API);
     const d=res.ok?res.data:null;
     if(!d||typeof d.home!=='string'||!d.home){
-      this._edOff=true;this.editors=null;return false;
+      this.app._edOff=true;this.app.editors=null;return false;
     }
     this._edApplyServer(d);
     return true;
-  },
+  }
 
   /**
    * FR-EDT-20·30: 서버가 준 값만 반영한다. 배열이 아니거나 문자열이 아닌 항목은
@@ -40,8 +40,8 @@ Object.assign(App.prototype, {
    */
   _edApplyServer(d){
     if(!d||typeof d.home!=='string'||!d.home) return;
-    this._edOff=false;
-    this.editors={
+    this.app._edOff=false;
+    this.app.editors={
       home:d.home,
       // FR-NOT-11: 없으면 빈 문자열이다 — 그때 사라지는 것은 메모장 행 하나이고
       // 나머지 표면은 그대로 선다.
@@ -53,7 +53,7 @@ Object.assign(App.prototype, {
       list:(Array.isArray(d.list)?d.list:[]).filter(p=>typeof p==='string'&&p),
     };
     this.edMirror();
-  },
+  }
 
   /**
    * NOTES_LIVE_EXPLORER_SRS FR-NOT-13: **목록만** 갈아끼운다.
@@ -74,18 +74,18 @@ Object.assign(App.prototype, {
    * `notes` 가 없어 충돌 한 번에 메모장이 사라졌다. 지금은 그 자리도 여기로 온다.
    */
   _edPatchList(list){
-    if(!this.editors) return;
-    this._edApplyServer(Object.assign({},this.editors,{list}));
-  },
+    if(!this.app.editors) return;
+    this._edApplyServer(Object.assign({},this.app.editors,{list}));
+  }
 
   // 목록은 workspace.json 최상위 `editors.list` 에 산다 (FR-EDT-19). 서버가
   // 확정한 값을 로컬 사본에도 반영해 둔다 — 다음 `save()` 의 PUT 이 방금 만든
   // 행을 지우지 않게 (`_gitPinsApply` 와 같은 규약).
   edMirror(){
-    if(!this.editors) return;
-    if(!this.ws.editors) this.ws.editors={};
-    this.ws.editors.list=this.editors.list.slice();
-  },
+    if(!this.app.editors) return;
+    if(!this.app.ws.editors) this.app.ws.editors={};
+    this.app.ws.editors.list=this.app.editors.list.slice();
+  }
 
   /**
    * FR-EDT-39: 연동으로 두 목록이 **함께** 바뀌었을 때, 응답에 실려 온 쪽을
@@ -96,22 +96,22 @@ Object.assign(App.prototype, {
    * 언핀하면 유령 행과 유령 창이 남는다.
    */
   _edApplyLinked(d){
-    if(!this.editors||!d||!Array.isArray(d.editors)) return;
+    if(!this.app.editors||!d||!Array.isArray(d.editors)) return;
     this._edPatchList(d.editors);
     // 목록이 바뀌는 모든 경로는 `_edAfterChange` 하나를 지난다 — 재조정·저장·
     // 사라진 창에서의 이탈이 거기 모여 있다. 여기서 따로 부르면 그 셋 중
     // 하나가 빠진다.
-    this._edAfterChange();
-  },
+    this.app.editor.section._edAfterChange();
+  }
 
   // ── 창의 재조정 (FR-EDT-42·43 / D-14) ──
 
   _edMkWindow(root){
     // FR-EDT-42(2)·55: `layout:null` 로 태어난다. pane 이 **없는** 것이지 빈
     // pane 이 있는 것이 아니다. 이 창이 살아남는 근거는 FR-EDT-49 의 필터다.
-    return {id:newEntityId(),name:this.edName(root),type:WINDOW_TYPE_EDITOR,
+    return {id:newEntityId(),name:this.app.edName(root),type:WINDOW_TYPE_EDITOR,
       editor:{root},layout:null};
-  },
+  }
 
   /**
    * FR-EDT-42: 창의 생성·소멸은 **멱등한 재조정**이다.
@@ -125,16 +125,16 @@ Object.assign(App.prototype, {
    * 바뀐 창 수를 돌려준다. 저장은 호출자가 한다 (`_migrateGitWindow` 와 같은 규약).
    */
   _edReconcile(list){
-    if(!this.edOn()) return 0;
+    if(!this.app.edOn()) return 0;
     this.edMirror();
-    const ws=list||this.ws.windows;
+    const ws=list||this.app.ws.windows;
     if(!Array.isArray(ws)) return 0;
-    const want=this.edRoots();
+    const want=this.app.edRoots();
     const wantSet=new Set(want);
     const keep=new Map(),drop=new Set();
     for(const s of ws){
-      if(!this.isEditorWin(s)) continue;
-      const root=this.edRootOf(s);
+      if(!this.app.isEditorWin(s)) continue;
+      const root=this.app.edRootOf(s);
       // ③ 집합에 없는 루트의 창은 지운다.
       if(!root||!wantSet.has(root)){drop.add(s);continue}
       const cur=keep.get(root);
@@ -174,14 +174,14 @@ Object.assign(App.prototype, {
       n++;
     }
     // 이름은 루트에서 파생된다 — 홈이 바뀌면 root 창의 이름도 따라간다 (FR-EDT-17).
-    for(const[root,s] of keep){const nm=this.edName(root);if(s.name!==nm){s.name=nm;n++}}
+    for(const[root,s] of keep){const nm=this.app.edName(root);if(s.name!==nm){s.name=nm;n++}}
     this._edReapTrees(ws);
     // REPO_TAB_UNIFY_SRS FR-RTU-63: Git 패널도 창의 것이다 — 탐색기와 같은
     // 자리에서 거둔다. 재조정은 창이 사라지는 것을 아는 유일한 자리이므로,
     // 여기서 빠지면 볼 사람이 없는 패널이 편집기를 든 채 남는다.
-    this._gitPanelReap();
+    this.app._gitPanelReap();
     return n;
-  },
+  }
 
   /**
    * FR-WBR-40: 이 Editor 창 안에 **저장하지 않은 편집**이 있는가.
@@ -196,24 +196,24 @@ Object.assign(App.prototype, {
     // 근거다. 편집기가 하나도 없는 창이어도 Diff 가 dirty 일 수 있으므로,
     // fileEditors 를 보기 **전에** 묻는다.
     if(this._edWinGitDirty(s)) return true;
-    if(!this.fileEditors) return false;
+    if(!this.app.fileEditors) return false;
     const ids=new Set();
-    for(const pn of this.flattenPanes(s.layout))
+    for(const pn of this.app.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[])) if(tab&&tab.type===TAB_TYPE_EDITOR) ids.add(tab.id);
     if(!ids.size) return false;
-    for(const[k,v] of this.fileEditors)
-      if(v&&v._dirty&&ids.has(this.slotBase(k))) return true;
+    for(const[k,v] of this.app.fileEditors)
+      if(v&&v._dirty&&ids.has(this.app.slotBase(k))) return true;
     return false;
-  },
+  }
 
   // 이 창의 git 뷰 탭 중 저장하지 않은 편집을 든 것이 있는가 (FR-RTU-103).
   _edWinGitDirty(s){
-    const root=this.edRootOf(s);
-    for(const pn of this.flattenPanes(s.layout))
+    const root=this.app.edRootOf(s);
+    for(const pn of this.app.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[]))
-        if(tab&&tab.type===TAB_TYPE_GIT&&this._gitViewDirty(root,tab.gitView,true,tab.id)) return true;
+        if(tab&&tab.type===TAB_TYPE_GIT&&this.app._gitViewDirty(root,tab.gitView,true,tab.id)) return true;
     return false;
-  },
+  }
 
   /**
    * UX_BATCH8_SRS FR-CLG-5: **이 앱 어딘가에 저장하지 않은 편집이 있는가.**
@@ -227,11 +227,11 @@ Object.assign(App.prototype, {
    */
   edAnyDirty(){
     // REPO_FIX 05 §3A-3: git Diff 뷰만 연 문서도 편집을 든다 — 문서를 먼저 본다.
-    if(this._edDocs) for(const d of this._edDocs.values()) if(d&&d.dirty) return true;
-    if(!this.fileEditors) return false;
-    for(const v of this.fileEditors.values()) if(v&&v._dirty) return true;
+    if(this.app._edDocs) for(const d of this.app._edDocs.values()) if(d&&d.dirty) return true;
+    if(!this.app.fileEditors) return false;
+    for(const v of this.app.fileEditors.values()) if(v&&v._dirty) return true;
     return false;
-  },
+  }
 
   /**
    * FR-CLG-2: 이 창의 dirty 편집기를 **모두** 저장한다.
@@ -257,24 +257,24 @@ Object.assign(App.prototype, {
     if(!s||!s.layout) return true;
     // FR-RTU-103: Diff 의 편집도 함께 저장한다 — `_edWinDirty` 가 그것을 세었으므로
     // 여기서 빠뜨리면 "저장하고 닫기" 가 일부만 저장한다.
-    const root=this.edRootOf(s);
+    const root=this.app.edRootOf(s);
     let ok=true;
-    for(const pn of this.flattenPanes(s.layout))
+    for(const pn of this.app.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[]))
-        if(tab&&tab.type===TAB_TYPE_GIT&&!await this._gitViewSave(root,tab.gitView,tab.id)) ok=false;
-    if(!this.fileEditors) return ok;
+        if(tab&&tab.type===TAB_TYPE_GIT&&!await this.app._gitViewSave(root,tab.gitView,tab.id)) ok=false;
+    if(!this.app.fileEditors) return ok;
     const ids=new Set();
-    for(const pn of this.flattenPanes(s.layout))
+    for(const pn of this.app.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[])) if(tab&&tab.type===TAB_TYPE_EDITOR) ids.add(tab.id);
     const done=new Set();
-    for(const[k,v] of this.fileEditors){
-      const base=this.slotBase(k);
+    for(const[k,v] of this.app.fileEditors){
+      const base=this.app.slotBase(k);
       if(!v||!v._dirty||!ids.has(base)||done.has(base)) continue;
       done.add(base);
       if(!await v.save()) ok=false;
     }
     return ok;
-  },
+  }
 
   /**
    * `12-func-ui.md FUI-07`: **이 창의 저장하지 않은 편집을 전부 저장한다.**
@@ -287,24 +287,24 @@ Object.assign(App.prototype, {
    * 그것이 없으면 여러 파일 중 하나가 막혔을 때 사용자가 그 사실을 모른다.
    */
   async _edSaveAll(){
-    const s=this.aw();
-    if(!this.isEditorWin(s)) return;
+    const s=this.app.aw();
+    if(!this.app.isEditorWin(s)) return;
     if(!this._edWinDirty(s)){ Toast.show(ED_SAVE_ALL_NONE,'ok'); return }
     const ok=await this._edWinSaveDirty(s);
     Toast.show(ok?ED_SAVE_ALL_OK:ED_SAVE_ALL_PARTIAL,ok?'ok':'err');
-  },
+  }
 
   // FR-WBR-41: 미룬 사실을 알린다. 창 이름을 밝힌다 — 개수만 말하면 어느 것을
   // 정리해야 하는지 알 수 없다 (FR-EDT-84 와 같은 근거).
   _edNotifyHeld(held){
     const names=held.map(s=>s&&s.name).filter(Boolean);
-    if(!names.length||!this._notify) return;
+    if(!names.length||!this.app._notify) return;
     const key=names.slice().sort().join('\u0001');
     // 재조정은 되풀이해 불린다 — 같은 창을 두고 매번 알리면 그것이 소음이다.
     if(this._edHeldKey===key) return;
     this._edHeldKey=key;
-    this._notify(EDITOR_HELD_DIRTY.replace('%s',names.join(', ')));
-  },
+    this.app._notify(EDITOR_HELD_DIRTY.replace('%s',names.join(', ')));
+  }
 
   /**
    * 사라진 창의 탐색기를 거둔다.
@@ -316,19 +316,23 @@ Object.assign(App.prototype, {
    * 유일한 자리이므로 여기가 맞다.
    */
   _edReapTrees(ws){
-    if(!this._edTrees||!this._edTrees.size) return;
-    const alive=new Set((ws||this.ws.windows||[]).map(s=>s&&s.id).filter(Boolean));
-    const n=this.slotCount();
-    for(const[key,tree] of this._edTrees){
+    if(!this.app._edTrees||!this.app._edTrees.size) return;
+    const alive=new Set((ws||this.app.ws.windows||[]).map(s=>s&&s.id).filter(Boolean));
+    const n=this.app.slotCount();
+    for(const[key,tree] of this.app._edTrees){
       // FR-SVS-24: 키는 복합키다 — 창 id 와 칸을 갈라 본다.
-      const id=this.slotBase(key);
+      const id=this.app.slotBase(key);
       // FR-SVS-23: 창이 사라졌거나 그 칸 자체가 사라졌으면 시선을 거둔다.
-      if(alive.has(id)&&this._slotOf(key)<n) continue;
+      if(alive.has(id)&&this.app._slotOf(key)<n) continue;
       tree.destroy();
-      this._edTrees.delete(key);
-      if(this._edLastActive===id&&!this._edTrees.has(id)) this._edLastActive=null;
+      this.app._edTrees.delete(key);
+      if(this.app.editor.open._edLastActive===id&&!this.app._edTrees.has(id)) this.app.editor.open._edLastActive=null;
     }
-  },
+  }
 
   // ── 편집기 탭 마이그레이션 (FR-EDT-103~106 / D-19) ──
-});
+}
+
+// 바깥이 부르는 이름 — 부팅(`app.js`)·상태 동기화·재로드·Git·레이아웃·`ui/`·e2e·계약.
+Controller.delegate(App,'editor.sync',['_edLoad','_edPatchList','edMirror','_edApplyLinked','_edReconcile','_edWinDirty','edAnyDirty',
+  '_edWinSaveDirty','_edSaveAll']);

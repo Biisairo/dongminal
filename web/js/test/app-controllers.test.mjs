@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, FOCUS, GIT, LAYOUT, PANELS, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -110,6 +110,14 @@ const ISSUES = {
     gone: ['core/app-tool.js', 'core/app-cmd.js', 'core/app-work.js', 'core/app-search.js'],
     plainNow: [],
     mixins: 12,
+  },
+  '9k-1': {
+    ctl: ['core/editor-controller.js', 'core/editor-open.js', 'core/editor-pane.js', 'core/editor-section.js', 'core/editor-sync.js',
+      'core/editor-watch.js'],
+    gone: ['core/app-editor.js', 'core/app-editor-open.js', 'core/app-editor-pane.js', 'core/app-editor-section.js',
+      'core/app-editor-sync.js', 'core/app-editor-watch.js'],
+    plainNow: [],
+    mixins: 6,
   },
 };
 
@@ -659,11 +667,11 @@ test('FR-FEA-5(9d): gitSignal 은 허브 무효화 → 포커스 패널 신호 �
   app._edAfterGitSignal = (k) => log.push('editor:' + k);
   app.gitSignal('write');
   assert.deepEqual(log, ['invalidate', 'panel:write', 'editor:write']);
-  assert.doesNotMatch(read('core/app-editor-pane.js'), /App\.prototype\.gitSignal/);
+  for (const f of EDITOR) assert.doesNotMatch(read(f), /App\.prototype\.gitSignal/, f);
 });
 
 test('FR-FEA-5(9d): 편집기 후속은 활성 트리를 즉시 묻고 열린 문서의 기준을 다시 받는다', () => {
-  const ctx = load([...BASE, ...GIT, 'core/app-editor-pane.js'], {
+  const ctx = load([...BASE, ...GIT, ...EDITOR], {
     globals: { App: function App() {}, TIMERS: { disposeOwner() {} } },
   });
   const app = controllers(ctx, new ctx.App());
@@ -1463,4 +1471,192 @@ test('TC-FEA-3(9j): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
   const names = Object.values(DELEGATES_9J).flat().filter((x) => contract.has(x));
   assert.ok(names.length > 0);
   for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+});
+
+// ── 9k-1: 편집기 — 창의 정체 · 열기 · 칸과 사이드 · 섹션 · 서버 동기 · 감시 ─────────────────────────────
+
+const CLASSES_9K1 = ['EditorController', 'EditorOpen', 'EditorPane', 'EditorSection', 'EditorSync', 'EditorWatch'];
+const PARTS_9K1 = { open: 'EditorOpen', pane: 'EditorPane', section: 'EditorSection', sync: 'EditorSync', watch: 'EditorWatch' };
+
+const DELEGATES_9K1 = {
+  editor: ['isEditorWin', 'edWindows', 'edRootOf', 'edWindowFor', 'edOn', '_edHome', 'edNotes', 'edBase', 'edName', 'edEntries', 'edFixed',
+    'edRoots', 'edFocusHandoff'],
+  'editor.open': ['_migrateEditorTabs', 'edActivateTarget', 'edOpenWindow', 'edDoc', 'tabDirty', 'edDocDrop', 'edDirtyDiff',
+    'edDirtyDiffRepaint', 'edPollDocStamps', '_edOnGitChanged', 'edStore', 'edTree', '_edTreeFor', 'edActiveTree', 'edRefreshTreesFor',
+    '_edVisibleTrees'],
+  'editor.pane': ['_edKeepActive', 'edPinTabFor', 'edSideTabs', 'edSideOf', 'edSetSide', 'edSideWidth', 'edSetSideWidth',
+    '_edMigrateSideWidth', '_edLinkedWindow', 'edEnsurePane', 'edDirtyUnder', 'edRetargetTabs', 'edCloseTabsUnder', '_edAfterGitSignal',
+    '_edGitHold'],
+  'editor.section': ['_initEditorSection', '_edTermCwd', '_edPathCandidates', 'edRemove', 'edReorder', 'edMutate', 'edRefresh'],
+  'editor.sync': ['_edLoad', '_edPatchList', 'edMirror', '_edApplyLinked', '_edReconcile', '_edWinDirty', 'edAnyDirty', '_edWinSaveDirty',
+    '_edSaveAll'],
+  'editor.watch': ['edWatchSync', '_edWatchRestore', '_onFsChanged'],
+};
+
+/** 편집기 묶음이 부르는 다른 묶음의 이름 — App 원형의 대역이다(시험 파일에 `app.X =` 를 늘리지 않는다). */
+class App9k {
+  slotKey(id, slot) { return slot ? id + '@' + slot : id }
+  slotBase(key) { return String(key).split('@')[0] }
+  _gitRescheduleAll() {}
+}
+
+function load9k1(globals = {}) {
+  return load([...BASE, ...EDITOR], {
+    expose: ['EditorController', 'Controller', 'Component'],
+    globals: {
+      App: class App extends App9k {}, TIMERS: { disposeOwner() {}, frame() {}, after() { return { stop() {} } } },
+      WINDOW_TYPE_EDITOR: 'editor', TAB_TYPE_EDITOR: 'editor', TAB_TYPE_TERMINAL: 'terminal',
+      REPO_SIDE_EXPLORER: 'explorer', REPO_SIDE_DEFAULT: 'explorer', REPO_SIDE_TABS: [{ id: 'explorer' }, { id: 'git' }],
+      panesOf: (l) => (l ? [l] : []),
+      document: { hidden: false, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] },
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9k-1): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9k1();
+  const app = new ctx.App();
+  const editor = new ctx.EditorController(app);
+  const all = [editor, ...Object.keys(PARTS_9K1).map((k) => editor[k])];
+  assert.deepEqual(all.map((o) => o.constructor.name), CLASSES_9K1);
+  for (const o of all) {
+    assert.ok(o instanceof ctx.Controller, o.constructor.name);
+    assert.ok(o instanceof ctx.Component, o.constructor.name);
+    assert.equal(o.app, app, o.constructor.name);
+  }
+});
+
+test('TC-FEA-1(9k-1): App 생성자가 컨트롤러를 만든다 — 목록·끔·돌아갈 창은 App 에 남는다 (§2.2 A/9k)', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  assert.ok(ctor.includes('this.editor=new EditorController(this);'));
+  for (const f of ['this.editors=null;', 'this._edOff=false;', 'this._lastEditorWindow=null;']) assert.ok(ctor.includes(f), f);
+});
+
+test('TC-FEA-1(9k-1): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9k1();
+  const app = new ctx.App();
+  app.editor = { open: {}, pane: {}, section: {}, sync: {}, watch: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9K1)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9K1)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9K1).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-1(9k-1): 묶음 하나만 닿는 필드는 부품이 든다 — 감시·문서 스탬프·알림 키 (§2.2 SH-4)', async () => {
+  const puts = [];
+  const ctx = load9k1({ apiPut: async (path, body) => { puts.push(body.dirs); return { ok: true, status: 200 } },
+    FS_WATCH_API: '/w', serverMeta: {}, capToServer: (l) => l, EDITOR_HELD_DIRTY: 'held %s' });
+  const app = controllers(ctx, new ctx.App());
+  app.editor.open._edVisibleDocPaths = () => new Set(['/r/a.txt']);
+  await app._edWatchRestore();
+  assert.deepEqual(plain(puts), [['/r']]);
+  assert.equal(app.editor.watch._edWatchLive, true);
+  assert.equal(app.editor.watch._edWatchKey, '/r');
+  app.editor.open._edDocStampsEnd([], { ok: false, status: 404 });
+  assert.equal(app.editor.open._edStampsOff, true);
+  assert.equal(app.editor.open._edStampsBusy, false);
+  const notes = [];
+  ctx.App.prototype._notify = (m) => notes.push(m);
+  app.editor.sync._edNotifyHeld([{ name: 'a' }]);
+  app.editor.sync._edNotifyHeld([{ name: 'a' }]);
+  assert.deepEqual(notes, ['held a']);
+  assert.equal(app.editor.sync._edHeldKey, 'a');
+  for (const k of ['_edWatchLive', '_edWatchKey', '_edWatchBusy', '_edStampsOff', '_edStampsBusy', '_edHeldKey']) assert.equal(k in app, false, k);
+  for (const f of walk(join(JS_ROOT, 'core'), (n) => n.endsWith('.js'))) {
+    if (f.endsWith('/editor-open.js')) continue;
+    assert.doesNotMatch(readFileSync(f, 'utf8'), /(?<![\w$.])this\._edReveal\b/, f);
+  }
+});
+
+test('TC-FEA-1(9k-1): 숨은 동안의 git 방송은 편집기 칸 부품이 쌓고 복귀 틱이 갚는다 (§2.2 M/9k _edGitHeld)', () => {
+  const ctx = load9k1();
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app.editor.open._edOnGitChanged = (repo, mark) => log.push(repo + ':' + mark);
+  app.editor.open._edVisibleTrees = () => [];
+  app.editor.open.edStampTick = () => log.push('stamp');
+  app.editor.watch.edWatchSync = () => log.push('watch');
+  app._edGitHold('/r', 'm1');
+  app._edGitHold('/r', 'm2');
+  assert.equal(app.editor.pane._edGitHeld.get('/r'), 'm2');
+  assert.equal('_edGitHeld' in app, false);
+  app.editor.pane._edTick();
+  app.editor.pane._edTick();
+  assert.deepEqual(log, ['/r:m2', 'stamp', 'watch', 'stamp', 'watch']);
+  const sync = read('core/git-sync.js');
+  assert.doesNotMatch(sync, /_edGitHeld/);
+  assert.match(sync, /this\.app\._edGitHold\(repo,a\.mark\|\|''\)/);
+});
+
+test('TC-FEA-1(9k-1): focusHandoff 의 쓰기는 편집기 뿌리 메서드 하나다 (§2.2 SH-2)', () => {
+  const ctx = load9k1();
+  const app = controllers(ctx, new ctx.App());
+  app.focusHandoff = false;
+  app.edFocusHandoff();
+  assert.equal(app.focusHandoff, true);
+  const writers = walk(join(JS_ROOT, 'core'), (n) => n.endsWith('.js'))
+    .filter((f) => /\bfocusHandoff\s*=(?!=)/.test(readFileSync(f, 'utf8'))).map((f) => f.slice(JS_ROOT.length));
+  assert.deepEqual(writers, ['core/editor-controller.js']);
+});
+
+test('TC-FEA-2(9k-1): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9k-1'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9k-1): 갈아 끼운 aw·slotFocused·render·save·edActiveTree·_edDocs·plainWindows·toolIds·fileEditors·ws 를 부품 경로가 부른다', async () => {
+  const ctx = load9k1({ apiGet: async () => ({ ok: true, data: { source: 'tool', cwd: '/c' } }), GIT_CWD_SOURCE_TOOL: 'tool',
+    PATH_SUGGEST_TERM_MAX: 4, CWD_API: '/api/cwd' });
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app.aw = () => { log.push('aw'); return { id: 'w', type: 'editor', editor: { side: 'explorer' } } };
+  app.slotFocused = () => { log.push('slot'); return 0 };
+  const tree = { pollGit: (o) => log.push('poll:' + o.now), pollStamp() {} };
+  app._edTrees = new Map([['w', tree]]);
+  assert.equal(app.edActiveTree(), tree);
+  app.render = () => log.push('render');
+  app.save = () => log.push('save');
+  app.edSetSide({ id: 'w', type: 'editor', editor: { side: 'git' } }, 'explorer');
+  app.edActiveTree = () => { log.push('tree'); return null };
+  app._edDocs = new Map([['a', { dd: { refresh: () => log.push('dd') } }]]);
+  app._edAfterGitSignal();
+  app.plainWindows = () => { log.push('plain'); return [{ layout: { tabs: [{ type: 'terminal', toolId: 't' }] } }] };
+  app.toolIds = new Set(['t']);
+  assert.deepEqual(plain(await app.editor.section._edTermCwds('/h')), ['/h', '/c']);
+  app._edDocs = null;
+  app.fileEditors = new Map([['x', { _dirty: true }]]);
+  assert.equal(app.edAnyDirty(), true);
+  app.ws = { windows: [{ editor: { explorerWidth: 1 } }], repoSideWidth: 2 };
+  assert.equal(app._edMigrateSideWidth(), true);
+  assert.deepEqual(plain(app.ws), { windows: [{ editor: {} }] });
+  assert.deepEqual(log, ['aw', 'slot', 'render', 'slot', 'poll:true', 'save', 'tree', 'dd', 'plain']);
+});
+
+test('TC-FEA-3(9k-1): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9k-1'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9k-1): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9k1();
+  const contract = contractNames();
+  const names = Object.values(DELEGATES_9K1).flat().filter((x) => contract.has(x));
+  assert.ok(names.length > 0);
+  for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+  for (const n of ['_edAfterGitSignal', '_edOnGitChanged', '_edMigrateSideWidth', '_edGitHold'])
+    assert.equal(typeof ctx.App.prototype[n], 'function', n);
 });

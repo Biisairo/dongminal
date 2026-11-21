@@ -78,6 +78,7 @@ class App {
     this.slot=new SlotsController(this);
     this.layout=new LayoutController(this);
     this.tool=new ToolController(this);
+    this.editor=new EditorController(this);
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }

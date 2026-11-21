@@ -172,7 +172,7 @@ test('FEC-21: 트리 순회는 panesOf 한 벌이다 — 손으로 쓴 walk 가 
   assert.match(app, /flattenPanes\([^)]*\)\{\s*return panesOf\(/, 'flattenPanes 가 panesOf 에 위임하지 않는다');
   assert.match(app, /_collectPanes\([^)]*\)\{\s*out\.push\(\.\.\.panesOf\(/, '_collectPanes 가 panesOf 에 위임하지 않는다');
   for (const rel of ['core/app.js', 'core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js', 'core/tool-cmd.js', 'core/ws-sync-controller.js', 'core/app-docrender.js',
-    'core/statusbar-controller.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/app-editor-open.js', 'ui/runs-panel.js', 'ui/renderer-layout.js']) {
+    'core/statusbar-controller.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/editor-open.js', 'ui/runs-panel.js', 'ui/renderer-layout.js']) {
     const src = code(read(rel));
     assert.doesNotMatch(src, /const walk\s*=/, rel + ' 에 손으로 쓴 트리 순회가 남아 있다');
     assert.doesNotMatch(src, /this\._collectPanes\(/, rel + ' 가 _collectPanes 를 부른다 (panesOf 를 쓴다)');

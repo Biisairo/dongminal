@@ -1207,20 +1207,19 @@
 <script src="js/core/git-controller.js?v=__ASSETV__"></script>
 <script src="js/core/git-surfaces.js?v=__ASSETV__"></script>
 <script src="js/core/git-sync.js?v=__ASSETV__"></script>
-<!-- Editor 탭·창 (EDITOR_TAB_SRS). app.js 뒤 main.js 앞 — prototype 확장이다. -->
-<script src="js/core/app-editor.js?v=__ASSETV__"></script>
-<!-- Editor 의 나머지 다섯 (FE_MODULE_BOUNDARY_SRS FR-FMB-20). 전부 App.prototype
-     증강이다. 저장 뒤 색 갱신(`_edAfterGitSignal`, FR-EDT-78)은 `GitController.gitSignal` 이
-     부른다 — 로드 시점에 원형을 감싸지 않으므로 순서 제약이 없다. -->
-<script src="js/core/app-editor-sync.js?v=__ASSETV__"></script>
+<!-- Editor 탭·창 (EDITOR_TAB_SRS). 편집기와 그 부품 — 서버 동기·열기·칸과 사이드·감시·섹션 (REFACTOR3_FE_APPCTL_SRS 9k-1,
+     옛 `app-editor*.js`). 끝에서 App 원형에 위임자를 둔다. 저장 뒤 색 갱신(`_edAfterGitSignal`, FR-EDT-78)은
+     `GitController.gitSignal` 이 부른다 — 로드 시점에 원형을 감싸지 않으므로 순서 제약이 없다. -->
+<script src="js/core/editor-controller.js?v=__ASSETV__"></script>
+<script src="js/core/editor-sync.js?v=__ASSETV__"></script>
 <script src="js/core/doc-token.js?v=__ASSETV__"></script>
-<script src="js/core/app-editor-open.js?v=__ASSETV__"></script>
+<script src="js/core/editor-open.js?v=__ASSETV__"></script>
 <script src="js/core/app-editor-doc.js?v=__ASSETV__"></script>
-<script src="js/core/app-editor-pane.js?v=__ASSETV__"></script>
-<!-- 보이는 디렉터리의 서버 감시 (EDITOR_LIVE_RELOAD_SRS 묶음 C). prototype 확장이다. -->
-<script src="js/core/app-editor-watch.js?v=__ASSETV__"></script>
+<script src="js/core/editor-pane.js?v=__ASSETV__"></script>
+<!-- 보이는 디렉터리의 서버 감시 (EDITOR_LIVE_RELOAD_SRS 묶음 C). -->
+<script src="js/core/editor-watch.js?v=__ASSETV__"></script>
 <script src="js/core/app-editor-file.js?v=__ASSETV__"></script>
-<script src="js/core/app-editor-section.js?v=__ASSETV__"></script>
+<script src="js/core/editor-section.js?v=__ASSETV__"></script>
 <script src="js/core/app-docrender.js?v=__ASSETV__"></script>
 <!-- 코드 탐색 (APP_STATE_EXTRACT_SRS FR-ASE-7). 본체 `LspClient` 와 그 증강. 바깥이 부르는 이름은 `app.js` 의
      위임자다 (REFACTOR3_FE_APPCTL_SRS 9a). -->

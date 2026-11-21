@@ -4,7 +4,7 @@
  * 어느 칸에 무엇이 서는가 — 사이드 폭 · 핀 · 탭의 이동과 닫힘 · git 폴링의 시작.
  * `_edAfterGitSignal` 이 저장을 색 갱신의 계기로 잇는다 (FR-EDT-78) — `GitController.gitSignal` 이 부른다.
  */
-Object.assign(App.prototype, {
+class EditorPane extends Controller {
   /**
    * FR-EDT-77 (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-1): 틱의 주기는 `gitReposInterval`
    * 이고, 그 틱이 묻는 것은 **스탬프**다. git status 는 `git_changed` 가 본줄이고
@@ -23,28 +23,36 @@ Object.assign(App.prototype, {
    * FR-FSL-14: 대상도 같다. 화면에 없는 창의 탐색기는 둘 다 묻지 않는다.
    */
   _edStartGitPoll(){
-    if(this._edGitPoll) this._edGitPoll.stop();
+    if(this.app._edGitPoll) this.app._edGitPoll.stop();
     // FR-RST-23: 종전에는 숨김만 보고 **복귀 시 갱신이 없었다** — 돌아온 화면이
     // 한 주기 동안 낡은 채였다. 공용 규약이 그것을 함께 준다.
-    this._edGitPoll=visiblePoll(()=>gitReposInterval,()=>this._edTick());
-  },
+    this.app._edGitPoll=visiblePoll(()=>gitReposInterval,()=>this._edTick());
+  }
+
+  /**
+   * 숨은 동안 온 `git_changed` 를 쌓는다 — 복귀 틱(`_edTick`)이 갚는다(OPTIMIZE_REFACTOR_SRS FR-OPT-4-1).
+   * `GitSync._onGitChanged` 가 부른다. 쌓는 자리와 갚는 자리가 이 부품 하나다(REFACTOR3_FE_APPCTL_SRS §2.2 M/9k).
+   */
+  _edGitHold(repo,mark){
+    (this._edGitHeld||(this._edGitHeld=new Map())).set(repo,mark);
+  }
 
   _edTick(){
     const held=this._edGitHeld;
-    if(held){ this._edGitHeld=null; for(const [repo,mark] of held) this._edOnGitChanged(repo,mark) }
+    if(held){ this._edGitHeld=null; for(const [repo,mark] of held) this.app._edOnGitChanged(repo,mark) }
     // 관측은 루트마다 하나다 (FR-SVS-20) — 같은 루트를 보는 칸이 넷이어도 한 번이다.
     const stores=new Map();
-    for(const tree of this._edVisibleTrees()) if(tree.store&&!stores.has(tree.store)) stores.set(tree.store,tree);
+    for(const tree of this.app._edVisibleTrees()) if(tree.store&&!stores.has(tree.store)) stores.set(tree.store,tree);
     for(const tree of stores.values()){ if(tree.gitDue()) tree.pollGit(); else tree.paintGitCached() }
     // EDITOR_LIVE_RELOAD_SRS FR-ELR-10: **열어 둔 파일의 내용도 같은 틱이다.**
     // 트리와 갈라 두면 사용자는 "목록은 바뀌었는데 열어 둔 내용은 그대로인"
     // 중간 상태를 본다 — 위 주석이 색과 목록에 대해 적은 것과 같은 근거다.
     // 창 단위가 아니라 앱 단위로 한 번인 이유는 문서가 **파일마다 하나**이기
     // 때문이다 (FR-SVS-50) — 창마다 부르면 같은 파일을 두 번 묻는다.
-    this.edStampTick([...stores.keys()]);
+    this.app.editor.open.edStampTick([...stores.keys()]);
     // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 감시 집합의 안전망 — 다른 계기가 놓친 변화를 맞춘다.
-    this.edWatchSync();
-  },
+    this.app.edWatchSync();
+  }
 
   /**
    * REPO_TAB_UNIFY_SRS: **Repo 창의 신원은 id 가 아니라 루트다.**
@@ -60,11 +68,11 @@ Object.assign(App.prototype, {
    */
   _edKeepActive(sv){
     if(!sv||!Array.isArray(sv.windows)) return;
-    const cur=this.ws.windows.find(s=>s&&s.id===this.ws.activeWindow);
-    if(!this.isEditorWin(cur)) return;
-    const root=this.edRootOf(cur);
+    const cur=this.app.ws.windows.find(s=>s&&s.id===this.app.ws.activeWindow);
+    if(!this.app.isEditorWin(cur)) return;
+    const root=this.app.edRootOf(cur);
     if(!root) return;
-    const next=sv.windows.find(s=>this.isEditorWin(s)&&this.edRootOf(s)===root);
+    const next=sv.windows.find(s=>this.app.isEditorWin(s)&&this.app.edRootOf(s)===root);
     if(!next) return;
     sv.activeWindow=next.id;
     /**
@@ -74,8 +82,8 @@ Object.assign(App.prototype, {
      * 엉뚱한 일반 창을 고른다. 실측: 새로고침 뒤 Changes 사이드가 사라졌다
      * (V33·FR-GIT-76).
      */
-    this._persistActiveWindow(next.id,next);
-  },
+    this.app._persistActiveWindow(next.id,next);
+  }
 
   /**
    * FR-RTU-42(④): 그 파일의 탭을 고정한다.
@@ -88,11 +96,11 @@ Object.assign(App.prototype, {
     if(!filePath) return;
     // UX_BATCH12_SRS FR-RTB-4·6: 같은 파일이 칸마다 열릴 수 있다 — 고정 대상은 앞선
     // 클릭이 미리보기를 세운 **지금 칸**의 탭이다.
-    const w=this._edLinkedWindow(filePath)||this.edWindowFor(this._edHome());
-    const rid=w&&w.layout&&this.edEnsurePane(w);
-    const found=(rid&&this._findEditorTabIn(w,findPane(w.layout,rid),filePath))||this._findEditorTab(filePath);
-    if(found) this.pinPreviewTab(found.tab);
-  },
+    const w=this._edLinkedWindow(filePath)||this.app.edWindowFor(this.app._edHome());
+    const rid=w&&w.layout&&this.app.edEnsurePane(w);
+    const found=(rid&&this.app._findEditorTabIn(w,findPane(w.layout,rid),filePath))||this.app._findEditorTab(filePath);
+    if(found) this.app.pinPreviewTab(found.tab);
+  }
 
   // ── 사이드의 활성 탭 (REPO_TAB_UNIFY_SRS FR-RTU-12·13) ──
 
@@ -110,15 +118,15 @@ Object.assign(App.prototype, {
    * 뜻을 갖는다 — 고정 행 셋은 그렇게 되지 않는다.
    */
   edSideFixed(s){
-    const root=this.edRootOf(s);
-    return !!root&&this.edFixed().some(e=>e.path===root);
-  },
+    const root=this.app.edRootOf(s);
+    return !!root&&this.app.edFixed().some(e=>e.path===root);
+  }
 
   // 그 창에서 **설 수 있는** 탭. 화면과 판정이 같은 자리에서 온다 — 둘로 나뉘면
   // 한쪽만 고쳐진다.
   edSideTabs(s){
     return this.edSideFixed(s)?REPO_SIDE_TABS.filter(d=>d.id===REPO_SIDE_EXPLORER):REPO_SIDE_TABS;
-  },
+  }
 
   edSideOf(s){
     const tabs=this.edSideTabs(s);
@@ -126,26 +134,26 @@ Object.assign(App.prototype, {
     if(tabs.some(d=>d.id===v)) return v;
     // 기본은 Changes 지만(FR-DSP-1) 그것이 설 수 없는 창에서는 남은 하나다.
     return tabs.some(d=>d.id===REPO_SIDE_DEFAULT)?REPO_SIDE_DEFAULT:tabs[0].id;
-  },
+  }
 
   edSetSide(s,id){
     if(!s||!this.edSideTabs(s).some(d=>d.id===id)) return;
     if(!s.editor) s.editor={};
     if(s.editor.side===id) return;
     s.editor.side=id;
-    this.render();
+    this.app.render();
     // FR-DIR-32 와 같은 근거: 사이드를 Explorer 로 돌린 것은 사용자가 방금 한
     // 일이다. 그동안 게이트에 막혀 쉰 트리는 낡았으므로 곧바로 묻는다.
     if(id===REPO_SIDE_EXPLORER){
-      const tree=this._edTreeFor(s);
+      const tree=this.app._edTreeFor(s);
       if(tree){ tree.pollGit({now:true}); tree.pollStamp() }
     }
     // FR-RTU-62: 사이드 탭 전환은 **관측 조건의 계기**다. Changes 를 떠나면 그
     // 표면이 화면에서 사라지므로(본문에 git 뷰 탭이 없다면) 폴링도 멎어야 한다 —
     // 조건은 `_applyCadence` 가 불릴 때만 검사되고, 부르는 자리가 여기다.
-    this._gitRescheduleAll();
-    this.save();
-  },
+    this.app._gitRescheduleAll();
+    this.app.save();
+  }
 
   // ── 사이드 폭 (REPO_SIDE_WIDTH_SRS FR-RSW-1~5) ──
 
@@ -166,12 +174,12 @@ Object.assign(App.prototype, {
     const w=parseInt(PrefStore.session.get(REPO_SIDE_W_KEY),10);
     if(!Number.isFinite(w)) return REPO_SIDE_W_DEFAULT;
     return Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,w));
-  },
+  }
 
   edSetSideWidth(w){
     const v=Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,Math.round(w)));
     PrefStore.session.set(REPO_SIDE_W_KEY,v);
-  },
+  }
 
   /**
    * FR-RSW-5 · FR-UXB-8: 워크스페이스에서 **폭을 걷어낸다.**
@@ -188,20 +196,20 @@ Object.assign(App.prototype, {
    */
   _edMigrateSideWidth(){
     let changed=false;
-    for(const s of (this.ws.windows||[])){
+    for(const s of (this.app.ws.windows||[])){
       if(!s||!s.editor||!('explorerWidth' in s.editor)) continue;
       delete s.editor.explorerWidth;
       changed=true;
     }
-    if('repoSideWidth' in this.ws){ delete this.ws.repoSideWidth; changed=true }
+    if('repoSideWidth' in this.app.ws){ delete this.app.ws.repoSideWidth; changed=true }
     return changed;
-  },
+  }
 
   // ── 파일 열기 라우팅 (FR-EDT-94~102) ──
 
   // 경로가 루트 아래인가. 루트 자신도 포함이다. `startsWith(root)` 만으로는
   // `/a/bc` 가 `/a/b` 아래로 잡히므로 구분자까지 함께 본다.
-  _edUnder(root,p){ return pathUnder(root,p) },
+  _edUnder(root,p){ return pathUnder(root,p) }
 
   /**
    * FR-EDT-95: **연결된 Editor** 는 그 절대경로를 자기 루트 아래에 포함하는 창이다.
@@ -212,16 +220,16 @@ Object.assign(App.prototype, {
    */
   _edLinkedWindow(p){
     let best=null,blen=-1;
-    for(const s of this.edWindows()){
-      const root=this.edRootOf(s);
+    for(const s of this.app.edWindows()){
+      const root=this.app.edRootOf(s);
       if(!this._edUnder(root,p)) continue;
       if(root.length>blen){best=s;blen=root.length}
     }
     return best;
-  },
+  }
 
   // FR-EDT-100: 대상 창의 `focusedPane` → `firstPane` → 없으면 새로 만든다.
-  // `this.focused` 를 쓰지 않는다 — 대상 창이 비활성일 수 있다 (`_gitPaneOf`).
+  // `this.app.focused` 를 쓰지 않는다 — 대상 창이 비활성일 수 있다 (`_gitPaneOf`).
   edEnsurePane(w){
     if(!w) return null;
     if(w.layout){
@@ -233,7 +241,7 @@ Object.assign(App.prototype, {
     w.layout={type:'pane',id:rid,tabs:[],activeTab:null};
     w.focusedPane=rid;
     return rid;
-  },
+  }
 
   // 경로 아래의 편집기 탭 — 자신과 하위 전부다. 이름 변경·삭제가 폴더면 그
   // 아래의 탭이 전부 대상이므로 판정을 여기 하나에 둔다 (FR-EDT-90·91).
@@ -243,7 +251,7 @@ Object.assign(App.prototype, {
     // 구분자는 그 경로의 것을 쓴다 — `/` 로 굳히면 Windows 에서 어떤 탭도
     // 그 폴더 아래로 잡히지 않아, 폴더를 지우거나 옮겨도 탭이 그대로 남는다.
     const pre=p==='/'?'/':p+pathSep(p);
-    for(const s of this.ws.windows){
+    for(const s of this.app.ws.windows){
       if(!s||!s.layout) continue;
       for(const pn of panesOf(s.layout)){
         for(const tab of pn.tabs||[]){
@@ -253,15 +261,15 @@ Object.assign(App.prototype, {
       }
     }
     return out;
-  },
+  }
 
   // FR-EDT-84: 확인창이 밝혀야 할 사실. 이름만 준다 — 개수만 보이면 사용자가
   // 무엇을 잃는지 모른다 (GitConfirm 의 영향 범위와 같은 근거).
   edDirtyUnder(p){
     return this._edTabsUnder(p)
-      .filter(x=>{const e=this.editorAny(x.tab.id);return !!(e&&e._dirty)})
+      .filter(x=>{const e=this.app.editorAny(x.tab.id);return !!(e&&e._dirty)})
       .map(x=>x.tab.name);
-  },
+  }
 
   /**
    * FR-EDT-90: 이름 변경·이동을 열린 탭이 따라간다. **탭은 닫히지 않는다.**
@@ -275,7 +283,7 @@ Object.assign(App.prototype, {
     // 탭 경로만 바꾸면 LSP·DocRender·재열기가 옛 경로를 가리킨다 (#10).
     // REPO_FIX 04 §3A-5 (T-9.1): 대상 경로에 이미 열린 문서가 있어 옮기지 못한 것은
     // 그 탭을 옛 경로에 남긴다 — 호출자가 사유를 보인다.
-    const moved=this.edDocMove(from,to);
+    const moved=this.app.edDocMove(from,to);
     const conflicts=new Set(moved.conflicts);
     const list=this._edTabsUnder(from);
     if(!list.length) return {count:0,conflicts:moved.conflicts};
@@ -284,12 +292,12 @@ Object.assign(App.prototype, {
       if(conflicts.has(np)) continue;
       tab.filePath=np;
       tab.name=pathBase(np)||tab.name;
-      for(const ed of this.editorsOf(tab.id)){ed.filePath=np;ed.name=tab.name}
+      for(const ed of this.app.editorsOf(tab.id)){ed.filePath=np;ed.name=tab.name}
     }
-    this.render();
-    this.save();
+    this.app.render();
+    this.app.save();
     return {count:list.length,conflicts:moved.conflicts};
-  },
+  }
 
   /**
    * FR-EDT-91: 삭제되면 그 탭을 닫는다. 폴더면 그 아래 전부.
@@ -300,9 +308,9 @@ Object.assign(App.prototype, {
    */
   async edCloseTabsUnder(p){
     const list=this._edTabsUnder(p);
-    for(const x of list) await this.closeTab(x.pane.id,x.tab.id,x.win.id,{force:true});
+    for(const x of list) await this.app.closeTab(x.pane.id,x.tab.id,x.win.id,{force:true});
     return list.length;
-  },
+  }
 
   /**
    * FR-EDT-78: 파일 저장은 색의 즉시 갱신 계기다.
@@ -314,11 +322,17 @@ Object.assign(App.prototype, {
    * 로드 시점에 원형의 `gitSignal` 을 감쌌다).
    */
   _edAfterGitSignal(){
-    const tree=this.edActiveTree();
+    const tree=this.app.edActiveTree();
     // FR-DIR-32: 저장·커밋 같은 즉시 신호도 백오프를 넘긴다.
     if(tree) tree.pollGit({now:true});
     // EDITOR_DIRTY_DIFF_SRS FR-EDD-50·51: 편집기의 기준도 이 신호로 따라온다.
     // 편집기는 자기 주기의 폴링을 갖지 않으므로(D-5) 이 자리가 그 유일한 계기다.
-    if(this._edDocs) for(const d of this._edDocs.values()) if(d.dd) d.dd.refresh();
-  },
-});
+    if(this.app._edDocs) for(const d of this.app._edDocs.values()) if(d.dd) d.dd.refresh();
+  }
+}
+
+// 바깥이 부르는 이름 — Git(`_edAfterGitSignal`·`_edGitHold`)·레이아웃(`_edMigrateSideWidth`)·모바일·상태 동기화·`ui/`·`git/`·
+// e2e·계약.
+Controller.delegate(App,'editor.pane',['_edKeepActive','edPinTabFor','edSideTabs','edSideOf','edSetSide','edSideWidth','edSetSideWidth',
+  '_edMigrateSideWidth','_edLinkedWindow','edEnsurePane','edDirtyUnder','edRetargetTabs','edCloseTabsUnder','_edAfterGitSignal',
+  '_edGitHold']);

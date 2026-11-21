@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * EDITOR_LIVE_RELOAD_SRS 묶음 C (FR-ELR-65~70) — 감시 등록과 `fs_changed` 에 대한 반응.
@@ -27,7 +27,8 @@ function fakeTimers() {
 function app(opts = {}) {
   const timers = fakeTimers();
   const puts = [];
-  const ctx = load(['core/app-editor-watch.js'], {
+  const ctx = load([...BASE, 'core/editor-watch.js'], {
+    expose: ['EditorWatch'],
     globals: {
       App: class {},
       TIMERS: timers,
@@ -48,12 +49,13 @@ function app(opts = {}) {
   };
   a._edDocs = new Map();
   const ticks = [];
-  a._edTick = () => { ticks.push(1) };
+  a.editor = { pane: { _edTick: () => { ticks.push(1) } }, open: {} };
+  a.editor.watch = new ctx.EditorWatch(a);
   const polls = [];
   const store = { kids: new Map([['/r', {}], ['/r/sub', {}]]), stampDirs: () => ['/r', '/r/sub'], pollStamp: () => { polls.push(1) } };
   const tree = { store, _edit: null };
   a._edVisibleTrees = () => [tree];
-  a._edVisibleDocPaths = () => new Set(['/r/a.txt', '/x/y/b.md']);
+  a.editor.open._edVisibleDocPaths = () => new Set(['/r/a.txt', '/x/y/b.md']);
   return { ctx, a, timers, puts, refreshed, ticks, polls, tree, releaseRefresh: () => release && release(true) };
 }
 
@@ -133,7 +135,7 @@ test('FR-ELR-68: 이름을 고치는 중이면 미룬다', () => {
 
 test('FR-ELR-65: 등록 집합은 열린 파일의 부모와 탐색기 겹의 합이다', () => {
   const { a } = app();
-  assert.deepEqual([...a._edWatchDirs()], ['/r', '/r/sub', '/x/y']);
+  assert.deepEqual([...a.editor.watch._edWatchDirs()], ['/r', '/r/sub', '/x/y']);
 });
 
 const settle = () => new Promise((r) => setImmediate(r));
@@ -159,7 +161,7 @@ test('FR-ELR-66: 집합이 같으면 다시 보내지 않고, 바뀌면 보낸�
   timers.flush();
   await settle();
   assert.equal(puts.length, 1, '같은 집합');
-  a._edVisibleDocPaths = () => new Set(['/q/z.txt']);
+  a.editor.open._edVisibleDocPaths = () => new Set(['/q/z.txt']);
   a.edWatchSync();
   a.edWatchSync();
   timers.flush();
@@ -177,7 +179,7 @@ test('FR-ELR-66: SSE 가 다시 열리면 같은 집합이라도 다시 보낸�
 test('FR-ELR-66: 404 면 등록을 멈춘다', async () => {
   const { a, puts, timers } = app({ putReply: { ok: false, status: 404 } });
   await a._edWatchRestore();
-  a._edVisibleDocPaths = () => new Set(['/q/z.txt']);
+  a.editor.open._edVisibleDocPaths = () => new Set(['/q/z.txt']);
   a.edWatchSync();
   timers.flush();
   await settle();
