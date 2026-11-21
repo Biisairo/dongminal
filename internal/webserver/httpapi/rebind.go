@@ -165,14 +165,11 @@ func (s *Server) apiServerBind(w http.ResponseWriter, r *http.Request) {
 		codeFail(w, http.StatusServiceUnavailable, apierr.CodeBindUnavailable, "rebind unavailable")
 		return
 	}
-	var in struct {
-		Port   *int  `json:"port"`
-		Expose *bool `json:"expose"`
-	}
+	var in bindReq
 	if !readJSONBody(w, r, &in) {
 		return
 	}
-	if in.Port != nil && (*in.Port < bindPortMin || *in.Port > bindPortMax) {
+	if !bindPortValid(in.Port) {
 		codeFail(w, http.StatusBadRequest, apierr.CodeBindPortInvalid, "port out of range")
 		return
 	}
@@ -192,7 +189,29 @@ func (s *Server) apiServerBind(w http.ResponseWriter, r *http.Request) {
 		b.mu.Unlock()
 	}()
 
-	newHost, newPort := curHost, curPort
+	newHost, newPort := bindTarget(curHost, curPort, in)
+	if newHost == curHost && newPort == curPort {
+		httpresp.JSON(w, http.StatusOK, viewOf(curHost, curPort))
+		return
+	}
+	s.applyBind(w, b, curHost, curPort, newHost, newPort)
+}
+
+// bindReq 는 `POST /api/server/bind` 의 본문이다. 빈 필드는 그대로 둔다는 뜻이다.
+type bindReq struct {
+	Port   *int  `json:"port"`
+	Expose *bool `json:"expose"`
+}
+
+// bindPortValid 는 포트가 없거나 범위 안인가다.
+func bindPortValid(port *int) bool {
+	return port == nil || (*port >= bindPortMin && *port <= bindPortMax)
+}
+
+// bindTarget 은 지금 바인드와 요청으로 새 바인드를 정한다. expose 를 끄면 노출 주소일
+// 때만 기본 주소로 돌린다.
+func bindTarget(curHost, curPort string, in bindReq) (newHost, newPort string) {
+	newHost, newPort = curHost, curPort
 	if in.Expose != nil {
 		switch {
 		case *in.Expose:
@@ -204,11 +223,19 @@ func (s *Server) apiServerBind(w http.ResponseWriter, r *http.Request) {
 	if in.Port != nil {
 		newPort = strconv.Itoa(*in.Port)
 	}
-	if newHost == curHost && newPort == curPort {
-		httpresp.JSON(w, http.StatusOK, viewOf(curHost, curPort))
-		return
-	}
+	return newHost, newPort
+}
 
+// bindReason 은 바꾼 까닭의 로그 이름이다 — 포트가 같으면 노출만 바뀌었다.
+func bindReason(curPort, newPort string) string {
+	if newPort == curPort {
+		return "expose"
+	}
+	return "port"
+}
+
+// applyBind 는 새 바인드로 옮기고 답한다. 부르는 쪽이 b.busy 를 쥔 채로 부른다.
+func (s *Server) applyBind(w http.ResponseWriter, b *rebinder, curHost, curPort, newHost, newPort string) {
 	var status int
 	var code string
 	if newPort != curPort {
@@ -225,11 +252,7 @@ func (s *Server) apiServerBind(w http.ResponseWriter, r *http.Request) {
 		b.revokeExposure()
 	}
 	view := viewOf(newHost, newPort)
-	reason := "port"
-	if newPort == curPort {
-		reason = "expose"
-	}
-	dmlog.Infof(nil, "[bind] %s → %s (%s)", net.JoinHostPort(curHost, curPort), net.JoinHostPort(newHost, newPort), reason)
+	dmlog.Infof(nil, "[bind] %s → %s (%s)", net.JoinHostPort(curHost, curPort), net.JoinHostPort(newHost, newPort), bindReason(curPort, newPort))
 	if view.Expose && !dmenv.IsExposedHost(curHost) {
 		view.Warning = exposeWarning
 		dmlog.Warnf(nil, "[bind] %s", exposeWarning)

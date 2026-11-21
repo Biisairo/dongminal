@@ -94,6 +94,21 @@ type fileWriteReq struct {
 }
 
 func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
+	req, target, ok := s.parseFileWrite(w, r)
+	if !ok {
+		return
+	}
+	// REFACTOR3_DEFECTS_SRS FR-RD3-20: 표식 검사부터 새 표식까지 같은 경로는 한 번에 하나다.
+	//	이전: 검사와 쓰기 사이에 잠금이 없어, 같은 표식의 저장 여럿이 다 통과하고 뒤가 앞을 덮었다
+	defer s.fs.writes.lock(target)()
+	if !admitFileWrite(w, req, target) {
+		return
+	}
+	s.commitFileWrite(w, req, target)
+}
+
+// parseFileWrite 는 본문을 읽고 대상 경로를 정한다. 거절했으면 답을 쓰고 ok 가 거짓이다.
+func (s *Server) parseFileWrite(w http.ResponseWriter, r *http.Request) (req fileWriteReq, target string, ok bool) {
 	// OPTIMIZE_REFACTOR_SRS FR-OPT-15-2: 읽을 수 있는 파일은 저장할 수 있어야 한다.
 	//	이전 동작: 본문 상한이 `httpreq.DefaultLimit`(1 MiB) — 1~10 MiB 파일은 열리고
 	//	          고쳐지지만 저장이 413 이었다
@@ -101,40 +116,36 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	body, err := httpreq.Read(w, r, editorlimit.BodyMaxBytes(fileReadMaxBytes))
 	if err != nil {
 		httpErr(w, "read body", httpreq.Status(err), apierr.BodyReadCode(err))
-		return
+		return req, "", false
 	}
-	var req fileWriteReq
 	if err := json.Unmarshal(body, &req); err != nil {
 		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
-		return
+		return req, "", false
 	}
 	// FILE_API_BOUNDARY_SRS FR-FAB-1: 허용 루트 아래여야 한다.
 	//
 	// 종전에는 `IsAbs` 하나만 봤고, 그래서 `~/.ssh/authorized_keys` 를 요청 하나로
 	// 덮을 수 있었다 — 응답을 읽을 필요조차 없다.
-	target, ok := s.fileGuard(w, req.Path)
+	target, ok = s.fileGuard(w, req.Path)
 	if !ok {
-		return
+		return req, "", false
 	}
 	// REPO_FIX 03 §3A-4: 심링크는 따라가 **대상**에 쓴다 — 링크는 그대로 남는다.
 	target = writeTarget(target)
 	if req.Encoding != "" && !textenc.Valid(req.Encoding) {
 		httpErr(w, "unknown encoding: "+req.Encoding, http.StatusBadRequest, apierr.CodeBadRequest)
-		return
+		return req, "", false
 	}
-	// REFACTOR3_DEFECTS_SRS FR-RD3-20: 표식 검사부터 새 표식까지 같은 경로는 한 번에 하나다.
-	//	이전: 검사와 쓰기 사이에 잠금이 없어, 같은 표식의 저장 여럿이 다 통과하고 뒤가 앞을 덮었다
-	defer s.fs.writes.lock(target)()
+	return req, target, true
+}
+
+// admitFileWrite 는 디스크의 지금 상태로 저장을 받을지 본다. 경로 잠금 안에서 부른다.
+func admitFileWrite(w http.ResponseWriter, req fileWriteReq, target string) bool {
 	// EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-5·7: 우리가 읽은 뒤 디스크가 바뀌었으면
 	// 덮지 않는다. 종전에는 **마지막에 저장한 쪽이 이겼다.**
-	//
-	// 파일이 없을 때는 검사하지 않는다 — 삭제는 경합이 아니라 부재이고, 그때의
-	// 저장은 새로 만드는 것이다 (FR-EXC-10a).
-	if req.Stamp != "" {
-		if cur := stampOfPath(target); cur != "" && cur != req.Stamp {
-			httpErr(w, "file changed on disk", http.StatusConflict, apierr.CodeFileChanged)
-			return
-		}
+	if req.Stamp != "" && stampConflict(req.Stamp, stampOfPath(target)) {
+		httpErr(w, "file changed on disk", http.StatusConflict, apierr.CodeFileChanged)
+		return false
 	}
 	// X-e: 변환은 디스크의 바이트로 판정한다. 파일이 없거나 읽지 못하면 판정하지 않는다 —
 	// 일반 저장과 같은 길이다.
@@ -142,10 +153,23 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		if raw, err := os.ReadFile(target); err == nil {
 			if a := convertUTF8Answer(raw, req.ConvertFrom); !a.OK {
 				httpErr(w, a.Why, a.Status, a.Why)
-				return
+				return false
 			}
 		}
 	}
+	return true
+}
+
+// stampConflict 는 클라이언트가 든 표식(want)과 디스크의 표식(cur)이 어긋나는가다.
+//
+// 파일이 없을 때(cur 가 빔)는 경합이 아니다 — 삭제는 경합이 아니라 부재이고, 그때의
+// 저장은 새로 만드는 것이다 (FR-EXC-10a).
+func stampConflict(want, cur string) bool {
+	return cur != "" && cur != want
+}
+
+// commitFileWrite 는 인코딩·상한을 지나 원자적으로 쓰고 새 표식으로 답한다. 경로 잠금 안에서 부른다.
+func (s *Server) commitFileWrite(w http.ResponseWriter, req fileWriteReq, target string) {
 	data, perm, un, err := fileWriteBytes(target, req)
 	if err != nil {
 		httpErr(w, "encode failed: "+err.Error(), http.StatusBadRequest, apierr.CodeBadRequest)
@@ -175,12 +199,8 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.LSP != nil {
-		typ := lsp.WatchCreated
-		if existed {
-			typ = lsp.WatchChanged
-		}
 		// FR-CMR-110: 그 경로가 루트 아래인 통로에 알린다. 통로의 줄에 넣을 뿐 기다리지 않는다.
-		s.LSP.NotifyFiles([]lsp.FileEvent{{Path: target, Type: typ}})
+		s.LSP.NotifyFiles([]lsp.FileEvent{{Path: target, Type: lspWatchType(existed)}})
 	}
 	// FR-EXC-11: **새 표식을 함께 준다.** 없으면 클라이언트가 든 표식이 방금 쓴
 	// 내용보다 낡아서, 다음 저장이 제 손으로 만든 변경에 걸려 409 가 된다 —
@@ -188,6 +208,14 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	// X-e: 방금 쓴 바이트의 답을 함께 준다 — 변환 뒤 메뉴가 낡지 않는다.
 	httpresp.JSON(w, http.StatusOK, map[string]any{"ok": true, "stamp": stampOfPath(target),
 		"actions": fileActions(data, req.Encoding)})
+}
+
+// lspWatchType 은 저장 하나를 LSP 변경 종류로 옮긴다 (FR-CMR-110).
+func lspWatchType(existed bool) int {
+	if existed {
+		return lsp.WatchChanged
+	}
+	return lsp.WatchCreated
 }
 
 // fileReadDecoded 는 §3A-1 의 판별·변환 읽기다. `encoding=` 이 있으면 그것으로 엄격
