@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, GIT, PANELS, SETTINGS, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { BASE, FOCUS, GIT, PANELS, SETTINGS, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -79,6 +79,12 @@ const ISSUES = {
     gone: ['core/app-ws-sync.js', 'core/app-reload.js'],
     plainNow: [],
     mixins: 27,
+  },
+  '9g': {
+    ctl: ['core/focus-controller.js', 'core/focus-highlight.js', 'core/focus-owner.js'],
+    gone: ['core/app-focus.js', 'core/app-focus-hl.js', 'core/app-focus-owner.js'],
+    plainNow: [],
+    mixins: 24,
   },
 };
 
@@ -797,5 +803,128 @@ test('TC-FEA-3(9f): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
   for (const n of Object.values(DELEGATES_9F).flat().filter((x) => contract.has(x)))
     assert.equal(typeof ctx.App.prototype[n], 'function', n);
   for (const n of ['_onWorkspaceChanged', '_applyRemoteWorkspace', '_subscribeCommands', '_fgApply', '_restoreBegin'])
+    assert.ok(contract.has(n), '계약에 없다: ' + n);
+});
+
+// ── 9g: 포커스·창 소유 ──────────────────────────────────────────────────────────
+
+const CLASSES_9G = ['FocusController', 'FocusHighlight', 'FocusOwner'];
+
+const DELEGATES_9G = {
+  focus: ['setFocusState', 'focusClear', '_navPlace', '_navNote', 'navJump', '_navRetab', 'navCan', 'navBack', 'navForward',
+    '_navCounts', 'setFocus', '_initFocusSync', '_paintFocusEdge', '_paintAttnEdge'],
+  'focus.hl': ['attnFocusSync', 'focusHighlightSync'],
+  'focus.owner': ['_focusWindow', '_onWindowFocus', '_focusRestore', 'resizeCheck', 'applyFocusOverlay', 'resendWindowSizes'],
+};
+
+function load9g(globals = {}) {
+  return load([...BASE, ...FOCUS], {
+    expose: [...CLASSES_9G, 'Controller', 'Component'],
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k, apiPost: () => {},
+      document: { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] },
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9g): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9g();
+  const app = new ctx.App();
+  for (const c of CLASSES_9G) {
+    const o = new ctx[c](app);
+    assert.ok(o instanceof ctx.Controller, c);
+    assert.ok(o instanceof ctx.Component, c);
+    assert.equal(o.app, app, c);
+  }
+  const focus = new ctx.FocusController(app);
+  assert.ok(focus.hl instanceof ctx.FocusHighlight);
+  assert.ok(focus.owner instanceof ctx.FocusOwner);
+});
+
+test('TC-FEA-1(9g): App 생성자가 컨트롤러를 만든다', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  assert.ok(ctor.includes('this.focus=new FocusController(this);'));
+});
+
+test('TC-FEA-1(9g): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9g();
+  const app = new ctx.App();
+  app.focus = { hl: {}, owner: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9G)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9G)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9G).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-1(9g): focused 의 쓰기는 포커스 묶음 하나다 — 레이아웃의 null 대입은 focusClear 를 부른다 (§2.2 SH-2)', () => {
+  const ctx = load9g();
+  const app = controllers(ctx, new ctx.App());
+  app.focused = 'p1';
+  app.focusClear();
+  assert.equal(app.focused, null);
+  assert.equal(Object.hasOwn(app.focus, 'focused'), false);
+  const layout = read('core/app-layout.js');
+  assert.doesNotMatch(layout, /this\.focused\s*=(?!=)/);
+  assert.equal(layout.match(/this\.focusClear\(\)/g).length, 2);
+  for (const f of walk(JS_ROOT, (n) => n.endsWith('.js')).filter((x) => !x.includes('/test/') && !x.endsWith('/core/app.js')
+    && !x.endsWith('/core/focus-controller.js')))
+    assert.doesNotMatch(readFileSync(f, 'utf8'), /\b(?:this|app|this\.app)\.focused\s*=(?!=)/, f);
+});
+
+test('TC-FEA-2(9g): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9g'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9g): 갈아 끼운 setFocusState·updateStatusBar·save·_agFocusedTool·_attnClear·slotFocused 를 컨트롤러 경로가 부른다', () => {
+  const ctx = load9g();
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app.ws = { activeWindow: 'w1', windows: [] };
+  app._windowFocusOwner = {};
+  app._slotIdentity = () => 'me';
+  for (const n of ['clearAllSearchDecorations', 'researchIfOpen', 'updateCwd', '_gitTermToolId']) app[n] = () => {};
+  app.renderer = { _rPaintTitles() {} };
+  app.setFocusState = (rid) => log.push('state:' + rid);
+  app.updateStatusBar = () => log.push('status');
+  app.save = () => log.push('save');
+  app.slotFocused = () => { log.push('slot'); return 0 };
+  app.setFocus('p2');
+  assert.equal(app.prevFocus, 'p2');
+  app._attn = new Map([['b', {}]]);
+  let cur = 'a';
+  app._agFocusedTool = () => cur;
+  app._attnClear = (id) => log.push('clear:' + id);
+  app.attnFocusSync();
+  cur = 'b';
+  app.attnFocusSync();
+  assert.deepEqual(log, ['slot', 'state:p2', 'status', 'save', 'clear:b']);
+});
+
+test('TC-FEA-3(9g): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9g'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9g): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9g();
+  const contract = contractNames();
+  for (const n of Object.values(DELEGATES_9G).flat().filter((x) => contract.has(x)))
+    assert.equal(typeof ctx.App.prototype[n], 'function', n);
+  for (const n of ['_navPlace', '_navCounts', 'resizeCheck'])
     assert.ok(contract.has(n), '계약에 없다: ' + n);
 });

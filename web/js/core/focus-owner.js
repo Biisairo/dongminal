@@ -7,12 +7,13 @@
  *   나가는 길   `_focusClaim` — 주장을 POST 한다 (fire-and-forget)
  *   들어오는 길 `_onWindowFocus` — `window_focus` SSE 가 **전체 맵**을 싣는다
  *
- * `app-focus.js` 에서 갈라져 나왔다 (FR-STR-40). 그 파일의 머리 주석이 이미
+ * `app-focus.js`(지금 `focus-controller.js`) 에서 갈라져 나왔다 (FR-STR-40). 그 파일의 머리 주석이 이미
  * *"Ownership transport lives in `_focusClaim` (out) and the `window_focus` SSE
  * branch (in)"* 로 이 경계를 적고 있었다 — 가른 것이 아니라 **적혀 있던 선을
  * 그은 것**이다.
  *
- * 로드 순서 계약: `app.js` 뒤, `app-focus.js` 뒤.
+ * `FocusController` 의 부품 `.owner` 다(REFACTOR3_FE_APPCTL_SRS 9g, 옛 `app-focus-owner.js`).
+ * 로드 순서 계약: `app.js` 뒤.
  */
 
 /** 소유권 맵 둘이 같은가 (FR-UXB-27b). 값이 문자열이라 얕은 비교로 충분하다. */
@@ -22,7 +23,7 @@ function ownersEq(a,b){
   return k.every(n=>x[n]===y[n]);
 }
 
-Object.assign(App.prototype, {
+class FocusOwner extends Controller {
 
   // _focusWindow is the SINGLE entry point for claiming window ownership.
   // Applies the claim locally, posts it to the server (which broadcasts the
@@ -32,18 +33,18 @@ Object.assign(App.prototype, {
   // 자리가 한 글자도 바뀌지 않아야 한다.
   _focusWindow(windowId,slot){
     if(!windowId) return;
-    const si=(slot==null)?this.slotFocused():slot;
-    const cid=this._slotIdentity(si);
+    const si=(slot==null)?this.app.slotFocused():slot;
+    const cid=this.app._slotIdentity(si);
     let changed=false;
     // Release other windows this SLOT owns (one slot → one window).
-    for(const sid of Object.keys(this._windowFocusOwner)){
-      if(sid!==windowId&&this._windowFocusOwner[sid]===cid){
-        delete this._windowFocusOwner[sid];
+    for(const sid of Object.keys(this.app._windowFocusOwner)){
+      if(sid!==windowId&&this.app._windowFocusOwner[sid]===cid){
+        delete this.app._windowFocusOwner[sid];
         changed=true;
       }
     }
-    if(this._windowFocusOwner[windowId]!==cid){
-      this._windowFocusOwner[windowId]=cid;
+    if(this.app._windowFocusOwner[windowId]!==cid){
+      this.app._windowFocusOwner[windowId]=cid;
       changed=true;
     }
     // Only post if ownership actually changes — otherwise every click on an
@@ -51,9 +52,9 @@ Object.assign(App.prototype, {
     if(changed) this._focusClaim(windowId,cid);
     // Send resize immediately (before render) so PTY matches this window's
     // size by the time the user sees the panes. Only if OS-focused.
-    if(this.windowFocused) this.resendWindowSizes(windowId,si);
+    if(this.app.windowFocused) this.resendWindowSizes(windowId,si);
     this.applyFocusOverlay();
-  },
+  }
 
   /**
    * FR-UXB-24: 이 창이 쥐어야 할 것을 **전부** 되찾는다.
@@ -62,9 +63,9 @@ Object.assign(App.prototype, {
    * 부르지 않으면 칸 여럿의 재주장이 한 자리에서만 온전해진다 (실제로 그랬다).
    */
   _focusReclaim(){
-    if(this._slots) this._slotClaimAll();
-    else if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow,0);
-  },
+    if(this.app._slots) this.app._slotClaimAll();
+    else if(this.app.ws.activeWindow) this._focusWindow(this.app.ws.activeWindow,0);
+  }
 
   /**
    * FR-UXB-26·27: 돌아왔다. 화면과 관측을 함께 깨운다.
@@ -73,16 +74,16 @@ Object.assign(App.prototype, {
    * 답을 기다려 그리면 사용자는 돌아온 뒤에도 한 왕복만큼 옛 화면을 본다.
    */
   _onLifeResume(){
-    this.render();
+    this.app.render();
     TIMERS.revalidate();
-  },
+  }
 
   // _focusClaim posts ownership to the server (FR-XDF-7). The server answers by
   // broadcasting the full owner map, which is what actually converges every
   // client — this POST is fire-and-forget.
   _focusClaim(windowId,clientId){
-    apiPost('/api/focus/claim',{clientId:clientId||this.clientId,windowId});
-  },
+    apiPost('/api/focus/claim',{clientId:clientId||this.app.clientId,windowId});
+  }
 
   // _focusRestore aligns local state with the server on SSE connect
   // (FR-XDF-11), then RE-CLAIMS if this client holds OS focus (FR-XDF-12).
@@ -116,32 +117,32 @@ Object.assign(App.prototype, {
    */
   _onWindowFocus(a){
     const next=(a&&a.owners)||{};
-    const same=ownersEq(this._windowFocusOwner,next);
-    this._windowFocusOwner=next;
+    const same=ownersEq(this.app._windowFocusOwner,next);
+    this.app._windowFocusOwner=next;
     this.applyFocusOverlay();   // FR-UXB-25: dim 은 판정과 무관하게 늘 따라간다
     // FR-UXB-27a: 그리기와 되살림이 함께다 — 여긴 `focus` 도 `visibilitychange`
     // 도 오지 않으므로 다른 계기가 이 둘을 대신해 주지 않는다.
     if(!same) this._onLifeResume();
-  },
+  }
 
   /**
    * 합류·복귀 시의 스냅샷. `state-registry` 의 `merge:'latest'` — 추월만 막는다.
    */
   _focusRestore(src){
-    const flight=this._restoreBegin('focus');
+    const flight=this.app._restoreBegin('focus');
     return stateFetch(src,'/api/focus').then(res=>{
       const j=res.ok?res.data:null;
       if(!j) return;
-      if(!this._restoreLive('focus',flight)) return;
-      this._restoreEnd('focus',flight);
-      this._windowFocusOwner=j.owners||{};
+      if(!this.app._restoreLive('focus',flight)) return;
+      this.app._restoreEnd('focus',flight);
+      this.app._windowFocusOwner=j.owners||{};
       this.applyFocusOverlay();
       // FR-WSL-12: 슬롯이 둘이면 둘 다 재주장한다 — 각 슬롯의 구독이 따로 끊기고
       // 따로 해제되므로, 하나만 되찾으면 다른 칸이 영영 dim 된 채로 남는다.
       // (FR-UXB-24 가 그 규약을 포커스 복귀에도 세우면서 자리가 하나가 됐다.)
-      if(this.windowFocused) this._focusReclaim();
+      if(this.app.windowFocused) this._focusReclaim();
     }).catch(()=>{});
-  },
+  }
 
   // resizeCheck returns true if this window is allowed to send resize for
   // a given pane (has OS focus + owns the pane's window or it's unowned).
@@ -150,13 +151,13 @@ Object.assign(App.prototype, {
   // toolId 가 같으므로, 슬롯을 묻지 않으면 두 인스턴스가 모두 허가를 받아 서로
   // 다른 크기를 PTY 에 보낸다 — 크기는 하나뿐이다.
   resizeCheck(toolId,slot){
-    if(!this.windowFocused) return false;
+    if(!this.app.windowFocused) return false;
     const sid=this._toolWindowId(toolId);
     if(!sid) return true; // pane not in any window yet → allow
-    const owner=this._windowFocusOwner[sid];
+    const owner=this.app._windowFocusOwner[sid];
     if(!owner) return true;
-    return owner===this._slotIdentity(slot||0);
-  },
+    return owner===this.app._slotIdentity(slot||0);
+  }
 
   // applyFocusOverlay syncs the DOM: panes whose window is owned by
   // another window get the dimmed overlay (pn-dimmed class).
@@ -174,25 +175,25 @@ Object.assign(App.prototype, {
     for(const pn of document.querySelectorAll('.pn')){
       const slotEl=pn.closest?pn.closest('.slot'):null;
       const slot=slotEl?(parseInt(slotEl.dataset.slot,10)||0):0;
-      const mine=this._slotIdentity(slot);
+      const mine=this.app._slotIdentity(slot);
       let dim=false;
       for(const tabEl of pn.querySelectorAll('.pn-tab[data-toolid]')){
         const sid=this._toolWindowId(tabEl.dataset.toolid);
         if(!sid) continue;
-        const owner=this._windowFocusOwner[sid];
+        const owner=this.app._windowFocusOwner[sid];
         if(owner&&owner!==mine){dim=true;break}
       }
       if(pn.classList.contains('pn-dimmed')&&!dim) freed=true;
       pn.classList.toggle('pn-dimmed',dim);
     }
     return freed;
-  },
+  }
 
   // _toolWindowId returns the window id containing a pane (by walking the
   // workspace layout tree). Returns null if the pane is not in any window.
   _toolWindowId(toolId){
     if(!toolId) return null;
-    for(const s of this.ws.windows){
+    for(const s of this.app.ws.windows){
       if(!s||!s.layout) continue;
       let found=null;
       const walk=n=>{
@@ -206,18 +207,18 @@ Object.assign(App.prototype, {
       if(found) return found;
     }
     return null;
-  },
+  }
 
   // resendWindowSizes sends resize for every pane in a window.
   // Sends even for hidden panes (they retain last-visible dimensions) so the
   // PTY is sized correctly BEFORE render, avoiding a one-frame glitch.
   resendWindowSizes(windowId,slot){
     if(!windowId) return;
-    const si=(slot==null)?this.slotFocused():slot;
+    const si=(slot==null)?this.app.slotFocused():slot;
     // Don't send resize if another slot/client owns this window.
-    const owner=this._windowFocusOwner[windowId];
-    if(owner&&owner!==this._slotIdentity(si)) return;
-    const s=this.ws.windows.find(x=>x.id===windowId);
+    const owner=this.app._windowFocusOwner[windowId];
+    if(owner&&owner!==this.app._slotIdentity(si)) return;
+    const s=this.app.ws.windows.find(x=>x.id===windowId);
     if(!s||!s.layout) return;
     const toolIds=new Set();
     const walk=n=>{
@@ -229,7 +230,7 @@ Object.assign(App.prototype, {
     };
     walk(s.layout);
     for(const pid of toolIds){
-      const p=this.tools.get(this.slotKey(pid,si));
+      const p=this.app.tools.get(this.app.slotKey(pid,si));
       // Send resize even if pane is hidden — the dimensions were set when
       // it was last visible and are still valid. This avoids a visible
       // glitch where the PTY renders at the wrong size for one frame.
@@ -244,5 +245,9 @@ Object.assign(App.prototype, {
       new DataView(m.buffer).setUint16(3,sz.rows,false);
       p._send(m);
     }
-  },
-});
+  }
+}
+
+// 레이아웃·슬롯·도구·상태 등록부와 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'focus.owner',['_focusWindow','_onWindowFocus','_focusRestore','resizeCheck','applyFocusOverlay',
+  'resendWindowSizes']);

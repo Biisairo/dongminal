@@ -294,7 +294,7 @@ Object.assign(App.prototype, {
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
       this.setFocusState(next, a);
-    } else this.focused=null;
+    } else this.focusClear();
     // Render first, save in background (matches split/addTab/closeTab).
     this._focusWindow(this.ws.activeWindow);
     this.render();
@@ -381,7 +381,7 @@ Object.assign(App.prototype, {
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
       this.setFocusState(next, a);
-    } else this.focused=null;
+    } else this.focusClear();
     this.mPaneIdx=0;
     if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
     this._focusWindow(sid);

@@ -77,6 +77,7 @@ class App {
     this.mobile=new MobileController(this);
     this.git=new GitController(this);
     this.wsSync=new WsSyncController(this);
+    this.focus=new FocusController(this);
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }

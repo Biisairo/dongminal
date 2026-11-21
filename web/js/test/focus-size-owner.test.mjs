@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, FOCUS, controllers, load } from './harness.mjs';
 
 /**
- * `web/js/core/app-focus-owner.js` — 크기를 정할 자격 (FOCUS_INITIAL_RESTORE_SRS).
+ * `web/js/core/focus-owner.js`(옛 `app-focus-owner.js`) — 크기를 정할 자격 (FOCUS_INITIAL_RESTORE_SRS).
  *
  * 초기 코드(`854ada6f`)의 판정이다: **OS 포커스가 먼저**이고, 그다음에 주인을 묻는다.
  * 주인이 없으면 포커스 있는 화면의 것이다.
@@ -14,11 +14,11 @@ import { load } from './harness.mjs';
  * 걷히면서 그 이유도 사라졌다. 포커스 없는 주인이 PTY 를 흔들 이유가 없다.
  */
 function app(opts = {}) {
-  const ctx = load(['core/app-focus-owner.js'], {
+  const ctx = load([...BASE, ...FOCUS], {
     globals: { App: function App() {}, apiPost: () => {}, apiGet: () => Promise.resolve({ ok: false }) },
     expose: ['App'],
   });
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());   // REFACTOR3_FE_APPCTL_SRS 9g: 창 소유권은 `focus.owner`
   a.windowFocused = opts.focused !== false;
   a._windowFocusOwner = opts.owners || {};
   a.clientId = 'me';

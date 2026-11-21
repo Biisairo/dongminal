@@ -3,7 +3,7 @@
  *
  * Repo 창의 탭(편집기·Diff·git 뷰)을 닫으면 그 자리·레코드·커서·스크롤을 목록에 적는다.
  * 목록은 브라우저 메모리에만 있다 (FR-RTR-2). 뒤로·앞으로가 닫힌 자리를 만나면 이 목록으로
- * 다시 연다 (FR-RTR-7, `app-focus.js` 의 `_navGo`).
+ * 다시 연다 (FR-RTR-7, `focus-controller.js` 의 `_navGo`).
  */
 Object.assign(App.prototype, {
   // FR-RTR-1·2: 닫히는 탭을 적는다. `closeTab` 이 확인을 지난 뒤, 인스턴스를 놓기 전에 부른다.

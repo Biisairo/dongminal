@@ -4,22 +4,32 @@
  * class App 본문에서 옮겨온 메서드들. 본문은 수정하지 않았다 (FR-APP-3).
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  *
- * **창 소유권은 이 파일에 없다** — `app-focus-owner.js` 가 갖는다 (FR-STR-40 이
+ * **창 소유권은 이 파일에 없다** — `focus-owner.js` 가 갖는다 (FR-STR-40 이
  * 이 파일을 500줄 위로 밀었고, 가른 자리가 이미 있던 경계와 같다). 여기 남은
  * 것은 *이 화면 안의* 포커스다: 이력·이동·가장자리·복귀의 계기.
+ *
+ * App 은 이것을 `focus` 로 든다(REFACTOR3_FE_APPCTL_SRS 9g, 옛 `app-focus.js`). 부품 둘 — 포커스 탭 하이라이트
+ * `FocusHighlight`(`focus-highlight.js`) `.hl` · 창 소유권 `FocusOwner`(`focus-owner.js`) `.owner`.
+ * `focused`·`windowFocused`·`_windowFocusOwner`·`prevFocus` 는 App 에 남고 쓰기는 이 묶음만 한다(§2.2 A/9g).
  */
-Object.assign(App.prototype, {
+class FocusController extends Controller {
+  constructor(app){
+    super(app);
+    this.hl=new FocusHighlight(app);
+    this.owner=new FocusOwner(app);
+  }
+
   // setFocusState is the single entry point for the focus invariant
-  // (this.focused === active window.focusedPane). It accepts an optional
+  // (this.app.focused === active window.focusedPane). It accepts an optional
   // window reference; when omitted, the active window is used. When the
   // mutated window is not the active one, only its focusedPane is updated
-  // (this.focused unchanged). REG-2~8 회귀 클래스 차단용 단일 진입점.
+  // (this.app.focused unchanged). REG-2~8 회귀 클래스 차단용 단일 진입점.
   setFocusState(rid, sess){
-    const target = sess || this.aw();
-    const moved = !!rid && this.focused !== rid;
+    const target = sess || this.app.aw();
+    const moved = !!rid && this.app.focused !== rid;
     if(target) target.focusedPane = rid;
-    if(!sess || (target && target.id === this.ws.activeWindow)){
-      this.focused = rid;
+    if(!sess || (target && target.id === this.app.ws.activeWindow)){
+      this.app.focused = rid;
       /**
        * REPO_TAB_UNIFY_SRS FR-RTU-80: **포커스가 옮겨 갔으면 모바일도 그 자리로.**
        *
@@ -37,20 +47,26 @@ Object.assign(App.prototype, {
        * `mobileShowPane` 을 직접 부른다 (`edOpenFile`·`openView`·
        * `_docRenderOpen`). 여기는 그 함수의 **포커스 경로**일 뿐이다.
        */
-      if(moved && this.isMobile && this.mobileOnSide&&this.mobileOnSide()){
-        this.mobileShowPane(rid);
+      if(moved && this.app.isMobile && this.app.mobileOnSide&&this.app.mobileOnSide()){
+        this.app.mobileShowPane(rid);
       }
       // ATTENTION_FIRING_SRS FR-ATA-1: 포커스는 더 이상 해제가 아니다. 여기
       // 있던 `_attnClearFocused()` 가 "사용자가 보기 전에 알람이 사라진다" 의
       // 마지막 고리였다 — 해제는 `_attnNoteInteraction` 한 자리에서만 온다.
     }
-    this.agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
+    this.app.agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
     this._persistFocusedPanes();
     // M9_SRS FR-M9-24: **보던 자리의 기록은 여기 한 자리에서 난다.** 창 전환도
     // 탭 전환도 칸 포커스도 전부 이 함수를 지난다 — 진입점마다 적으면 한쪽만
     // 고쳐진다 (이 저장소가 반복해 겪은 형태다).
     this._navNote();
-  },
+  }
+
+  /**
+   * 포커스할 pane 이 없다 — 활성 창에 분할 트리가 없을 때 창을 닫거나 옮긴 쪽이 부른다.
+   * `focused` 의 쓰기를 이 묶음에 모은다(REFACTOR3_FE_APPCTL_SRS §2.2 SH-2).
+   */
+  focusClear(){ this.app.focused=null }
 
   // ── 보던 자리 오가기 (M9_SRS FR-M9-24 · D-M9-17) ──────────
 
@@ -62,13 +78,13 @@ Object.assign(App.prototype, {
    * 안의 점프는 `_lspBack`(FR-LSP-27)이 자기 스택으로 갖고 있고 성격이 다르다.
    */
   _navPlace(){
-    const s=this.aw(); if(!s||!s.layout) return null;
-    const rid=this.focused; if(!rid) return null;
+    const s=this.app.aw(); if(!s||!s.layout) return null;
+    const rid=this.app.focused; if(!rid) return null;
     const pn=findPane(s.layout,rid); if(!pn) return null;
-    return {win:s.id,pane:rid,tab:this.paneTab(pn,this.slotFocused())||null};
-  },
+    return {win:s.id,pane:rid,tab:this.app.paneTab(pn,this.app.slotFocused())||null};
+  }
 
-  _navSame(a,b){ return !!a&&!!b&&a.win===b.win&&a.pane===b.pane&&a.tab===b.tab },
+  _navSame(a,b){ return !!a&&!!b&&a.win===b.win&&a.pane===b.pane&&a.tab===b.tab }
 
   /**
    * 자리가 바뀌었으면 **앞 자리를** 기록에 넣는다.
@@ -78,12 +94,12 @@ Object.assign(App.prototype, {
    */
   _navNote(){
     if(this._navMoving) return;
-    const p=this._navPlace();
+    const p=this.app._navPlace();
     if(!p||this._navSame(p,this._navCur)) return;
     if(this._navCur) this._navPush(this._navHere());
     this._navCur=p;
     this._navPaint();
-  },
+  }
 
   _navPush(e){
     const back=this._navBack=this._navBack||[];
@@ -94,7 +110,7 @@ Object.assign(App.prototype, {
     while(back.length>FOCUS_NAV_MAX) back.shift();
     // 새 자리로 간 순간 앞길은 사라진다 — 브라우저 히스토리와 같은 규약이다.
     this._navFwd=[];
-  },
+  }
 
   /**
    * 지금 자리를 기록에 넣을 모양으로. 점프로 온 자리(`jump`)면 **지금 커서**를 싣는다 —
@@ -106,13 +122,13 @@ Object.assign(App.prototype, {
     if(!c||!c.jump) return c;
     const pos=this._navCursor(c.tab);
     return pos==null?{win:c.win,pane:c.pane,tab:c.tab}:{win:c.win,pane:c.pane,tab:c.tab,pos};
-  },
+  }
 
   // 그 탭 편집기의 커서(문서 안 offset). 편집기 탭이 아니면 null — 커서가 없는 자리다.
   _navCursor(tabId){
-    const ed=this.editorAny(tabId);
+    const ed=this.app.editorAny(tabId);
     return ed&&ed.cursorAt?ed.cursorAt():null;
-  },
+  }
 
   /**
    * UX_BATCH12_SRS FR-RTR-8: 파일 안의 큰 점프(검색 결과 줄·정의 이동·참조 고르기) **직전에** 부른다.
@@ -121,21 +137,21 @@ Object.assign(App.prototype, {
    */
   navJump(){
     if(this._navMoving) return;
-    const p=this._navPlace();
+    const p=this.app._navPlace();
     const pos=p&&this._navCursor(p.tab);
     if(pos==null) return;
     this._navPush({...p,pos});
     this._navCur={...p,jump:true};
     this._navPaint();
-  },
+  }
 
   /** 그 자리가 아직 있는가. 창·칸·탭 셋 다 있어야 갈 수 있다. */
   _navAlive(p){
     if(!p) return false;
-    const s=this.ws.windows.find(x=>x&&x.id===p.win); if(!s||!s.layout) return false;
+    const s=this.app.ws.windows.find(x=>x&&x.id===p.win); if(!s||!s.layout) return false;
     const pn=findPane(s.layout,p.pane); if(!pn) return false;
     return !p.tab||(pn.tabs||[]).some(tab=>tab&&tab.id===p.tab);
-  },
+  }
 
   /**
    * 그 자리로 간다. 창이 다르면 창부터 옮기고, 그 다음 칸·탭이다 —
@@ -145,16 +161,16 @@ Object.assign(App.prototype, {
     this._navMoving=true;
     try{
       // UX_BATCH12_SRS FR-RTR-7: 닫힌 탭의 자리면 닫은 탭 목록으로 다시 열고 그리로 간다.
-      if(!this._navAlive(p)) p=this.tabReopenAt(p)||p;
-      if(this.ws.activeWindow!==p.win) this.switchWindow(p.win);
-      if(p.tab) this.switchTab(p.pane,p.tab);
-      else this.setFocusState(p.pane);
+      if(!this._navAlive(p)) p=this.app.tabReopenAt(p)||p;
+      if(this.app.ws.activeWindow!==p.win) this.app.switchWindow(p.win);
+      if(p.tab) this.app.switchTab(p.pane,p.tab);
+      else this.app.setFocusState(p.pane);
       // FR-RTR-8·9: 커서를 실은 자리(점프)면 그 커서로 간다. 없으면 커서를 움직이지 않는다.
       if(p.pos!=null) this._navCursorGo(p.tab,p.pos);
-      this._navCur=this._navPlace()||p;
+      this._navCur=this.app._navPlace()||p;
       if(p.pos!=null) this._navCur.jump=true;
     } finally { this._navMoving=false }
-  },
+  }
 
   /**
    * 뒤로·앞으로. `d` 는 -1(뒤로)·+1(앞으로)다.
@@ -179,70 +195,70 @@ Object.assign(App.prototype, {
       return true;
     }
     return false;
-  },
+  }
 
   _navCursorGo(tabId,pos){
-    const ed=this.editorAny(tabId);
+    const ed=this.app.editorAny(tabId);
     if(ed&&ed.viewApply) ed.viewApply({anchor:pos,head:pos,len:-1});
-  },
+  }
 
   // 건너뛰지 않고 갈 수 있는 자리인가 — 열린 자리이거나 다시 열 수 있는 자리다 (FR-RTR-7·14).
-  _navReachable(p){ return this._navAlive(p)||this.tabReopenCan(p) },
+  _navReachable(p){ return this._navAlive(p)||this.app.tabReopenCan(p) }
 
   // 다시 연 탭은 새 id 다 — 기록의 옛 id 를 바꿔 그 자리로 다시 갈 수 있게 한다.
   _navRetab(from,to){
     if(from===to) return;
     for(const p of [...(this._navBack||[]),...(this._navFwd||[]),this._navCur]) if(p&&p.tab===from) p.tab=to;
-  },
+  }
 
   // FR-RTR-14: 그 쪽으로 갈 수 있는 자리가 기록에 하나라도 있는가. 버튼의 활성 판정이다.
   navCan(d){
     const list=(d<0?this._navBack:this._navFwd)||[];
     return list.some(p=>this._navReachable(p));
-  },
+  }
 
   // 기록이 바뀌었다 — 버튼을 다시 칠한다. 렌더를 지나지 않는 이동(포커스만)도 있다.
-  _navPaint(){ if(this.renderer&&this.renderer._rNavButtons) this.renderer._rNavButtons() },
+  _navPaint(){ if(this.app.renderer&&this.app.renderer._rNavButtons) this.app.renderer._rNavButtons() }
 
-  navBack(){ return this._navMove(-1) },
-  navForward(){ return this._navMove(1) },
+  navBack(){ return this._navMove(-1) }
+  navForward(){ return this._navMove(1) }
 
   /** 두 더미의 길이. 검사가 "돌아갔다" 와 "새로 갔다" 를 가르는 근거다. */
   _navCounts(){
     return {back:(this._navBack||[]).length,fwd:(this._navFwd||[]).length};
-  },
+  }
 
   // Persist per-window focusedPane map to sessionStorage so a refresh
   // restores the same view (multi-window: each window owns its viewport).
   _persistFocusedPanes(){
     const map={};
-    for(const s of this.ws.windows){
+    for(const s of this.app.ws.windows){
       if(s.focusedPane) map[s.id]=s.focusedPane;
     }
     PrefStore.session.setJson(STORE_KEYS.focusedPanes,map);
-  },
+  }
 
   setFocus(rid){
     // Claim window ownership on every click — even if focus doesn't change,
     // the user is asserting "I want this window" (multi-window).
-    this._focusWindow(this.ws.activeWindow);
-    if(this.focused===rid) return;
-    this.clearAllSearchDecorations();
-    this.setFocusState(rid);
-    this.prevFocus=rid;
+    this.app._focusWindow(this.app.ws.activeWindow);
+    if(this.app.focused===rid) return;
+    this.app.clearAllSearchDecorations();
+    this.app.setFocusState(rid);
+    this.app.prevFocus=rid;
     document.querySelectorAll('.pn').forEach(el=>{
       el.classList.toggle('focused',el.dataset.paneid===rid);
     });
-    this.researchIfOpen();
-    this.updateCwd();
+    this.app.researchIfOpen();
+    this.app.updateCwd();
     // FR-FLW-3: 목록은 핀에서만 오므로 포커스와 무관하다 — 여기서 새로 조회하지
     // 않는다. `+ Add` 가 딛는 마지막 터미널만 갱신한다 (D-FLW-6).
-    this._gitTermToolId();
-    this.updateStatusBar();
+    this.app._gitTermToolId();
+    this.app.updateStatusBar();
     // ISSUE_TREE_OPS_SRS FR-ITW-4: 제목에 포커스 탭 이름이 있으므로 포커스를 따라간다.
-    this.renderer._rPaintTitles();
-    this.save();
-  },
+    this.app.renderer._rPaintTitles();
+    this.app.save();
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   //  Window Focus Ownership (multi-window)
@@ -279,18 +295,18 @@ Object.assign(App.prototype, {
   // _focusClaim (out) and the `window_focus` SSE branch (in).
   _initFocusSync(){
     window.addEventListener('focus',()=>{
-      this.windowFocused=true;
+      this.app.windowFocused=true;
       this._paintFocusEdge();
       this._paintAttnEdge();
       // UX_BATCH10_SRS FR-UXB-24: **모든 칸**을 되찾는다. 칸마다 신원이 다르므로
       // (FR-WSL-10) 포커스 칸 하나만 주장하면 나머지 칸은 dim 인 채로 남는다 —
       // 접수된 "포커스를 다시 가져오지 못한다" 의 절반이 이것이었다.
-      this._focusReclaim();
+      this.owner._focusReclaim();
     });
     // FOCUS_INITIAL_RESTORE_SRS: blur 는 소유권을 놓지 않는다 — 초기 문서(FR-XDF-2·9)
     // 그대로다. 되찾기의 계기는 포커스이고(위), 비는 계기는 구독 끊김뿐이다.
     window.addEventListener('blur',()=>{
-      this.windowFocused=false;
+      this.app.windowFocused=false;
       this._paintFocusEdge();
     });
     /**
@@ -301,12 +317,12 @@ Object.assign(App.prototype, {
      * 달지 않는 것은 FR-BUS-8 의 규약이다.
      */
     for(const topic of [LIFE_FOCUS,LIFE_VISIBLE])
-      this.bus.subscribe(topic,()=>this._onLifeResume(),{owner:'focus:resume'});
+      this.app.bus.subscribe(topic,()=>this.owner._onLifeResume(),{owner:'focus:resume'});
     // FR-UFE-8: 첫 화면도 실제 상태를 말한다 — 배경 탭에서 연 창은 이벤트가 한
     // 번도 오지 않으므로, 여기서 한 번 칠하지 않으면 포커스가 없는 채로 포커스
     // 있는 얼굴을 하고 있다. (`windowFocused` 의 초기값은 `document.hasFocus()`)
     this._paintFocusEdge();
-  },
+  }
 
   /**
    * UNFOCUSED_EDGE_SRS FR-UFE-6·7: 가장자리 표시의 유일한 스위치.
@@ -323,8 +339,8 @@ Object.assign(App.prototype, {
     ds.style.setProperty('--ufe-alpha',a);
     ds.style.setProperty('--ufe-alpha-mid',+(a*UFE_ALPHA_MID_RATIO).toFixed(4));
     // 0 은 곧 끔이다 (D-4a) — 스위치를 따로 묻지 않는다.
-    ds.classList.toggle(WIN_UNFOCUSED_CLASS, focusEdgeLevel>0 && !this.windowFocused);
-  },
+    ds.classList.toggle(WIN_UNFOCUSED_CLASS, focusEdgeLevel>0 && !this.app.windowFocused);
+  }
 
   /**
    * ALERT_MOBILE_CONTEXT_SRS FR-AED-13: 알림 가장자리의 세기.
@@ -338,4 +354,8 @@ Object.assign(App.prototype, {
     document.documentElement.style.setProperty('--ae-alpha',
       attnEdgeLevel*ATTN_EDGE_ALPHA_PER_LEVEL);
   }
-});
+}
+
+// 바깥(렌더러·레이아웃·슬롯·편집기·명령·동기화)과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'focus',['setFocusState','focusClear','_navPlace','_navNote','navJump','_navRetab','navCan','navBack',
+  'navForward','_navCounts','setFocus','_initFocusSync','_paintFocusEdge','_paintAttnEdge']);
