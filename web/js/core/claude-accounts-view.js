@@ -5,7 +5,7 @@
  * `ClaudeAccountsController`(`claude-accounts-controller.js`)가 한다 — REFACTOR3_FE_APPCTL_SRS 9b 에서 그 파일이
  * 500줄을 넘지 않도록 갈랐다.
  *
- * 로드 순서 계약: `app-activity.js` 뒤 (`limitBarView`·`limitClock`·`limitCell` 을 부른다), `claude-accounts-controller.js` 앞.
+ * 로드 순서 계약: `activity-list.js` 뒤 (`limitBarView`·`limitClock`·`limitCell` 을 부른다), `claude-accounts-controller.js` 앞.
  */
 
 /** FR-CAC-98: 서버가 주는 색 키. 밖의 값은 첫 색으로 그린다. */

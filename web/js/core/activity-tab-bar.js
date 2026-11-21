@@ -1,7 +1,7 @@
 /**
  * ActivityTabBar — 작업 패널 머리의 탭 줄 (REFACTOR3_FE_BASE_SRS FR-FEB-22 · PEER_CHAT_SRS FR-PCH-80~82).
  *
- * 서술자는 `ACTIVITY_SECTIONS`(app-activity.js)이고 영속 키는 `STORE_KEYS.activityTab` 이다. 줄은 이 클래스가 만들고
+ * 서술자는 `ACTIVITY_SECTIONS`(activity-list.js)이고 영속 키는 `STORE_KEYS.activityTab` 이다. 줄은 이 클래스가 만들고
  * (`build`), `agentsRender` 의 재조정이 그 요소를 `#agents-head` 에 둔다. 구역 목록은 고정이므로 단추는 한 번 만든다(FR-UXF-123).
  *
  * 사이드바 탭 줄과 다른 것:

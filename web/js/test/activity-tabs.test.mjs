@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const web = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (p) => readFileSync(join(web, p), 'utf8');
 
-const icons = () => Object.fromEntries([...read('js/core/app-activity.js')
+const icons = () => Object.fromEntries([...read('js/core/activity-list.js')
   .matchAll(/\{key:'(\w+)', icon:'([\w-]+)'/g)].map((m) => [m[1], m[2]]));
 
 test('탭마다 뜻에 맞는 아이콘이다', () => {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { AGENTS, BASE, controllers, load, plain } from './harness.mjs';
 
 /**
  * SUBAGENT_USAGE_SRS — 카드의 서브에이전트 줄 (TC-SAU-7 · 8).
@@ -10,7 +10,7 @@ import { load, plain } from './harness.mjs';
  *   TC-SAU-8  재조정 근거와 SSE·복원 (FR-SAU-24·25)
  */
 function loadAgents(globals = {}) {
-  return load(['core/helpers.js', 'core/app-agents.js', 'core/app-agents-sub.js'], {
+  return load([...BASE, 'core/helpers.js', ...AGENTS], {
     globals: {
       App: class {}, ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done' },
       AGENT_STATE_ICON: { working: 'dot', done: 'check' }, AGENT_STATE_LABEL: {}, UIKit: { icon: (n) => ({ className: 'ui-icon', icon: n, children: [] }) }, ...globals,
@@ -57,9 +57,9 @@ test('FR-SAU-22: running 이 아닌 줄은 done 이다', () => {
 
 test('FR-SAU-20·22 · FR-ASV-34: 줄은 머리(화살표·종류·상태)와 사용량 줄(모델 → 막대 → 백분율)이고, 흐림·등급 클래스가 붙는다', () => {
   const ctx = loadAgents();
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   const kinds = (row) => row.children.map((c) => c.className.split(' ')[0]);
-  const row = app._agSubagentEl(ctx.agentSubagentView(RUN));
+  const row = app.agents.sub._agSubagentEl(ctx.agentSubagentView(RUN));
   assert.deepEqual(plain(kinds(row)), ['ag-sub-head', 'ag-usage']);
   assert.deepEqual(plain(kinds(row.children[0])), ['ag-sub-arrow', 'ag-sub-type', 'ag-sub-state']);
   assert.deepEqual(plain(kinds(row.children[1])), ['ag-usage-model', 'ag-usage-bar', 'ag-usage-pct']);
@@ -70,11 +70,11 @@ test('FR-SAU-20·22 · FR-ASV-34: 줄은 머리(화살표·종류·상태)와 �
   assert.equal(row.children[1].children[1].children[0].style.width, '1.925%');
   assert.equal(row.children[1].children[2].textContent, '2%');
 
-  const done = app._agSubagentEl(ctx.agentSubagentView({ ...RUN, status: 'completed', ctxLevel: 'critical' }));
+  const done = app.agents.sub._agSubagentEl(ctx.agentSubagentView({ ...RUN, status: 'completed', ctxLevel: 'critical' }));
   assert.equal(done.className, 'ag-sub done');
   assert.equal(done.children[1].className, 'ag-usage lv-critical');
 
-  const bare = app._agSubagentEl(ctx.agentSubagentView({ id: 'x', status: 'running' }));
+  const bare = app.agents.sub._agSubagentEl(ctx.agentSubagentView({ id: 'x', status: 'running' }));
   assert.deepEqual(plain(kinds(bare)), ['ag-sub-head']);
 });
 
@@ -98,7 +98,7 @@ test('FR-SAU-24: 근거는 그려지는 값으로 바뀐다', () => {
 });
 
 function stubApp(ctx) {
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app._activity = new Map();
   app._restoreNote = () => {};
   app.agentsRender = () => {};

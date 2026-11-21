@@ -72,6 +72,9 @@ class App {
     this.attn=new AttnController(this);
     this.claude=new ClaudeAccountsController(this);
     this.statusbar=new StatusBarController(this);
+    this.chat=new ChatController(this);
+    this.agents=new AgentsController(this);
+    this.mobile=new MobileController(this);
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }

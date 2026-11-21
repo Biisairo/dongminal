@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, PANELS, load } from './harness.mjs';
+import { AGENTS, BASE, PANELS, controllers, load } from './harness.mjs';
 
 /**
  * ACTIVITY_RUNS_REFRESH_SRS — 패널을 여는 경로와 Runs 목록 재조회 (TC-ARR-2~4).
@@ -22,7 +22,7 @@ function classList() {
 function rig() {
   const els = { 'agents-panel': { classList: classList() }, 'agents-handle': { classList: classList() } };
   // `_runsListRestore` 는 `app.js` 본문이다 (REFACTOR3_FE_APPCTL_SRS 9a — 옛 `app-runs.js`). 생성자는 돌리지 않는다.
-  const ctx = load([...BASE, ...PANELS, 'core/app.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js'], {
+  const ctx = load([...BASE, ...PANELS, 'core/app.js', ...AGENTS], {
     globals: {
       TIMERS: { disposeOwner() {} },
       ACTIVITY_STATE: { ENDED: 'ended' },
@@ -35,7 +35,7 @@ function rig() {
   });
   ctx.document.getElementById = (id) => els[id] || null;
   // `isMobile` 은 App 의 접근자다 — 시험이 값을 바꿔 넣으므로 인스턴스 속성으로 가린다.
-  const app = Object.create(ctx.App.prototype, { isMobile: { value: false, writable: true } });
+  const app = controllers(ctx, Object.create(ctx.App.prototype, { isMobile: { value: false, writable: true } }));
   app.tools = new Map();
   app.refreshes = 0;
   app._actRefresh = () => { app.refreshes++ };

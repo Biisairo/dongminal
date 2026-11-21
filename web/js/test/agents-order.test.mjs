@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { AGENTS, BASE, controllers, load, plain } from './harness.mjs';
 
 /**
  * UX_AUDIT_FIX_SRS §3.14 (FR-UXF-110~112, D-37): 에이전트 구역의 순서는 창 순서 · 생성 순서 · 끌어 놓은 순서뿐이다.
  * 상태로 자리를 옮기지 않고, 그리기가 저장된 순서를 지우지 않는다.
  */
 function setup({ windows, where, order = [] }) {
-  const ctx = load(['core/app-agents.js', 'core/app-agents-sub.js'], {
+  const ctx = load([...BASE, ...AGENTS], {
     globals: {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
@@ -17,7 +17,7 @@ function setup({ windows, where, order = [] }) {
       STORE_KEYS: { agentsGroupFold: 'f' },
     },
   });
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app.ws = { windows: windows.map((id) => ({ id })), agentsOrder: order.slice() };
   app._activity = new Map();
   app.findToolLocation = (id) => (where[id] ? { win: { id: where[id] }, tab: { name: id } } : null);

@@ -63,17 +63,18 @@ test('TC-RD3-80: 서랍을 닫으면 상단바를 다시 그린다', () => {
   // 이유 — 서랍 상태가 세 자리에서 따로 바뀌었다(FC-02). 그래서 열린 서랍은 `#sidebar` 의 표식으로 준다.
   const open = new Set(['open']);
   const sidebar = { classList: { contains: (k) => open.has(k), toggle: (k, on) => { if (on) open.add(k); else open.delete(k) } } };
-  const c = load([...BASE, ...PANELS, 'core/app-mobile.js'], {
+  const c = load([...BASE, ...PANELS, 'core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'], {
     globals: {
-      App: class {},
+      App: class {}, TIMERS: { disposeOwner() {} },
       document: { body: { classList: cls }, getElementById: (id) => (id === 'sidebar' ? sidebar : null) },
     },
-    expose: ['App'],
+    expose: ['App', 'MobileController'],
   });
   let drawn = 0;
   const app = Object.assign(Object.create(c.App.prototype), {
     isMobile: true, drawerOpen: true, mobileChromeSync() {}, renderer: { _rTopbar: () => { drawn++ } },
   });
+  app.mobile = new c.MobileController(app);   // REFACTOR3_FE_APPCTL_SRS 9c
   app._toggleDrawer(false);
   assert.equal(app.drawerOpen, false);
   assert.equal(drawn, 1);

@@ -157,6 +157,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·위임자·필드�
     }
     const sec = src.match(/const SETTINGS_SECTION_DELEGATES=\{([\s\S]*?)\};/);
     if (sec) for (const m of sec[1].matchAll(/'([^']+)'/g)) names.add(m[1]);
+    for (const m of src.matchAll(/\bthis\.app\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) names.add(m[1]);   // 컨트롤러가 App 에 쓰는 필드
   }
   // 계약에 남은 없는 이름 둘 — `_gitJobChip` 은 e2e 가 없음을 본다(`git-statusbar.spec.ts`), `_focusCh` 는 쓰는 곳이 없다.
   assert.deepEqual(contract.filter((n) => !names.has(n)), ['_gitJobChip', '_focusCh']);

@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, SETTINGS, load, plain } from './harness.mjs';
+import { BASE, PANELS, SETTINGS, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -59,6 +59,14 @@ const ISSUES = {
       'core/app-claude-accounts-map.js', 'core/app-statusbar.js', 'core/app-statusbar-enc.js'],
     plainNow: [],
     mixins: 40,
+  },
+  '9c': {
+    ctl: ['core/chat-controller.js', 'core/chat-window.js', 'core/chat-human.js', 'core/chat-views.js', 'core/agents-controller.js',
+      'core/agents-sub.js', 'core/activity-list.js', 'core/mobile-controller.js', 'core/mobile-nav.js', 'core/mobile-sheets.js'],
+    gone: ['core/app-chat.js', 'core/app-chat-window.js', 'ui/chat-view.js', 'core/app-agents.js', 'core/app-agents-sub.js',
+      'core/app-activity.js', 'core/app-mobile.js', 'core/app-mobile-nav.js', 'core/app-mobile-sheets.js'],
+    plainNow: ['core/chat-human.js'],
+    mixins: 30,
   },
 };
 
@@ -365,6 +373,137 @@ test('TC-FEA-3(9b): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
   const contract = contractNames();
   const names = ['_isToolFocusedActive', '_onToolAttention', '_attnRestore', '_attnClear', 'jumpToTool', '_attnRefresh', '_attnBeep',
     '_onClaudeAccountsChanged', 'updateStatusBar'];
+  for (const n of names) {
+    assert.ok(contract.has(n), '계약에 없다: ' + n);
+    assert.equal(typeof ctx.App.prototype[n], 'function', n);
+  }
+});
+
+// ── 9c: 채팅 · 활동·에이전트 · 모바일 ───────────────────────────────────────────────────
+
+const CLASSES_9C = ['ChatController', 'ChatWindow', 'ChatHuman', 'ChatViews', 'AgentsController', 'AgentsSub', 'ActivityList',
+  'MobileController', 'MobileNav', 'MobileSheets'];
+
+const DELEGATES_9C = {
+  chat: ['_chatRestore', '_onChatChanged', '_onChatMessage', 'chatUnreadTotal', '_chatItems', '_addChatTab'],
+  'chat.window': ['chatWindowOpen', '_chatNormalize', '_chatRepaint', 'chatPanelRender'],
+  'chat.views': ['chatViewEl', '_chatViewsPaint'],
+  agents: ['_onToolActivity', '_activityRestore', 'agentsToggle', 'setAgentsPanelOpen', 'agentsPanelOpen', '_agentsPanelShown',
+    'reorderAgents', '_pruneAgentOrder', '_agentOrderSync', 'agentsRender', '_agWindowItems', '_agFolded'],
+  'agents.sub': ['_onToolSubagentActivity'],
+  'agents.list': ['actPanel', '_actTabSelect', 'actPanelOpen', '_actRefresh', '_actBgRows', '_actCellsEl', '_actUsageWinEl',
+    '_actRunsRows'],
+  mobile: ['applyMobileMode', '_toggleDrawer', 'mobileSideSlots', 'mobileOnSide', 'mobileShowPane', 'mobilePaneCount', 'initMobile',
+    'initMobileKeybar', 'mTopPaint', '_mkbRender', '_scheduleFit', '_scheduleMobileFit', '_mobileVvApply', '_kbSuppressAll',
+    'mkbRefresh'],
+  'mobile.nav': ['actSheetLeave', 'mobileActSync', 'mobileRepoSegSync'],
+  'mobile.sheets': ['mobileChromeSync', '_settingsMobileOnOpen'],
+};
+
+const FILES_9C = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js',
+  'core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js', 'core/mobile-controller.js', 'core/mobile-sheets.js',
+  'core/mobile-nav.js'];
+
+function load9c(globals = {}) {
+  return load([...BASE, ...PANELS, ...FILES_9C], {
+    expose: [...CLASSES_9C, 'Controller', 'Component'],
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      document: { getElementById: () => null, querySelector: () => null },
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9c): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9c();
+  const app = new ctx.App();
+  for (const c of CLASSES_9C) {
+    const o = new ctx[c](app);
+    assert.ok(o instanceof ctx.Controller, c);
+    assert.ok(o instanceof ctx.Component, c);
+    assert.equal(o.app, app, c);
+  }
+  const chat = new ctx.ChatController(app);
+  assert.ok(chat.window instanceof ctx.ChatWindow);
+  assert.ok(chat.human instanceof ctx.ChatHuman);
+  assert.ok(chat.views instanceof ctx.ChatViews);
+  const agents = new ctx.AgentsController(app);
+  assert.ok(agents.sub instanceof ctx.AgentsSub);
+  assert.ok(agents.list instanceof ctx.ActivityList);
+  const mobile = new ctx.MobileController(app);
+  assert.ok(mobile.nav instanceof ctx.MobileNav);
+  assert.ok(mobile.sheets instanceof ctx.MobileSheets);
+});
+
+test('TC-FEA-1(9c): App 생성자가 컨트롤러를 만든다', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  for (const line of ['this.chat=new ChatController(this);', 'this.agents=new AgentsController(this);',
+    'this.mobile=new MobileController(this);']) assert.ok(ctor.includes(line), line);
+});
+
+test('TC-FEA-1(9c): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9c();
+  const app = new ctx.App();
+  app.chat = { window: {}, views: {} };
+  app.agents = { sub: {}, list: {} };
+  app.mobile = { nav: {}, sheets: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9C)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9C)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9C).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-2(9c): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9c'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9c): 갈아 끼운 _chatRepaint·_chatViewsPaint·_runsPanel·_activityRestore·mobileChromeSync 를 컨트롤러 경로가 부른다', () => {
+  const ctx = load9c();
+  const app = new ctx.App();
+  app.chat = new ctx.ChatController(app);
+  app.agents = new ctx.AgentsController(app);
+  app.mobile = new ctx.MobileController(app);
+  const log = [];
+  app.chat._chatS = () => ({ add: () => true });
+  app.chat.views._chatRoomShown = () => false;
+  app._chatRepaint = () => log.push('chatRepaint');
+  app._chatViewsPaint = (room) => log.push('views:' + room);
+  app.chat._onChatMessage({ msg: { room: 'r1' } });
+  app._bgRefresh = () => log.push('bg');
+  app._runsPanel = () => ({ _runsRefresh: () => log.push('runs') });
+  app._activityRestore = () => log.push('activity');
+  app.agents.list._actRefresh();
+  Object.defineProperty(app, 'isMobile', { value: false });
+  app.mobile.drawerSheet = () => ({ close: () => false });
+  app.mobileChromeSync = () => log.push('chrome');
+  app.mobile._toggleDrawer();
+  assert.deepEqual(log, ['chatRepaint', 'views:r1', 'bg', 'runs', 'activity', 'chrome']);
+});
+
+test('TC-FEA-3(9c): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9c'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9c): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9c();
+  const contract = contractNames();
+  const names = ['_onToolActivity', '_activityRestore', 'agentsToggle', '_scheduleMobileFit', '_mobileVvApply'];
   for (const n of names) {
     assert.ok(contract.has(n), '계약에 없다: ' + n);
     assert.equal(typeof ctx.App.prototype[n], 'function', n);

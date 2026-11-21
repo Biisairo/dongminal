@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { BASE, CHAT, controllers, load, plain } from './harness.mjs';
 
 /**
  * PEER_CHAT_SRS §3.12 — 사람 명령 화면 (TC-PCH-13 일부, FR-PCH-86·87).
@@ -13,7 +13,7 @@ import { load, plain } from './harness.mjs';
  */
 
 function loadHuman(menus) {
-  return load(['core/chat-store.js', 'core/app-chat.js', 'core/chat-human.js'], {
+  return load([...BASE, ...CHAT], {
     expose: ['chatPick', 'chatCtxTargets', 'chatCmdText'],
     globals: {
       App: class {},
@@ -70,24 +70,24 @@ test('FR-PCH-87: 확인 창은 할 일과 대상 전체를 말한다', () => {
 test('FR-PCH-86·78: 도우미가 없으면 강제 삭제·강퇴 메뉴가 없다', () => {
   const menus = [];
   const ctx = loadHuman(menus);
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app.agentsRender = () => {};
   app._chat = { helper: false, me: { id: 'me' }, rooms: [{ id: 'r1', kind: 'group', name: 'ops', people: [] }] };
-  app._chatRoomCtx('r1', ev({}));
-  app._chatPersonCtx({ roomId: 'r1', sel: new Set(), people: [] }, { id: 'p1', label: 'x' }, ev({}));
+  app.chat.human._chatRoomCtx('r1', ev({}));
+  app.chat.human._chatPersonCtx({ roomId: 'r1', sel: new Set(), people: [] }, { id: 'p1', label: 'x' }, ev({}));
   assert.equal(menus.length, 0);
   app._chat.helper = true;
-  app._chatRoomCtx('r1', ev({}));
-  app._chatPersonCtx({ roomId: 'r1', sel: new Set() }, { id: 'p1', label: 'x' }, ev({}));
+  app.chat.human._chatRoomCtx('r1', ev({}));
+  app.chat.human._chatPersonCtx({ roomId: 'r1', sel: new Set() }, { id: 'p1', label: 'x' }, ev({}));
   assert.deepEqual(plain(menus), [['kill'], ['kick']]);
 });
 
 test('FR-PCH-86: 내 사람 참가자는 강퇴 대상이 아니다', () => {
   const menus = [];
   const ctx = loadHuman(menus);
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app._chat = { helper: true, me: { id: 'me' }, rooms: [] };
-  app._chatPersonCtx({ roomId: 'r1', sel: new Set() }, { id: 'me', label: 'User' }, ev({}));
+  app.chat.human._chatPersonCtx({ roomId: 'r1', sel: new Set() }, { id: 'me', label: 'User' }, ev({}));
   assert.equal(menus.length, 0);
-  assert.deepEqual(plain(app._chatKickTargets({ roomId: 'r1', sel: new Set(['me', 'p1']), order: ['me', 'p1'] }, 'p1')), [{ room: 'r1', participant: 'p1' }]);
+  assert.deepEqual(plain(app.chat.human._chatKickTargets({ roomId: 'r1', sel: new Set(['me', 'p1']), order: ['me', 'p1'] }, 'p1')), [{ room: 'r1', participant: 'p1' }]);
 });

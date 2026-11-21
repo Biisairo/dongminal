@@ -33,7 +33,7 @@ const CASES = [
   ['core/app.js', '  save(){'],
   ['core/app.js', '  async init(){'],
   ['core/app-cmd.js', '  _execRemote(action, args){'],
-  ['core/app-mobile.js', '  initMobileKeybar('],
+  ['core/mobile-controller.js', '  initMobileKeybar('],
 ];
 
 for (const [file, head] of CASES) {

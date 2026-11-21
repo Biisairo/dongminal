@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain, HELPERS } from './harness.mjs';
+import { BASE, CHAT, HELPERS, controllers, load, plain } from './harness.mjs';
 
 /**
  * CHAT_WINDOW_SRS — 채팅 창 (TC-CW-3~6).
@@ -13,11 +13,10 @@ import { load, plain, HELPERS } from './harness.mjs';
  *   FR-CW-5   창 목록(plainWindows)에 채팅 창이 없다
  */
 function world() {
-  const ctx = load(['core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS,
-    'core/chat-store.js', 'core/app-layout.js', 'core/app-git.js', 'core/app-chat-window.js'], {
+  const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS, ...CHAT, 'core/app-layout.js', 'core/app-git.js'], {
     globals: { App: function App() {}, ErrorLog: { push() {} }, crypto: { randomUUID: (() => { let n = 0; return () => 'id' + (++n) })() } },
   });
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
   a.isEditorWin = (s) => !!(s && s.type === 'editor');
   a.edOn = () => true;
   a.paneTabSet = (p, id) => { p.activeTab = id };
@@ -88,20 +87,20 @@ test('TC-CW-6: 창 목록(plainWindows)에 채팅 창이 없다', () => {
 test('FR-CW-3·12: 방을 열면 채팅 창이 생기고 칸이 생긴다. 같은 방은 한 탭이다', () => {
   const { a } = world();
   a.ws = { windows: [{ id: 'P', layout: pane('p', [term('x')]) }], activeWindow: 'P' };
-  a._chatRoom = () => ({ id: 'r1', kind: 'group', name: 'ops' });
-  a._chatMe = () => ({ id: 'me' });
+  a.chat._chatRoom = () => ({ id: 'r1', kind: 'group', name: 'ops' });
+  a.chat._chatMe = () => ({ id: 'me' });
   let revealed = 0;
   a.switchWindow = (id) => { a.ws.activeWindow = id };
   a._revealTab = () => { revealed++ };
   a.setFocusState = () => {};
   a.render = () => {};
   a.save = () => {};
-  a._chatOpenTab('r1');
-  const C = a.chatWindow();
+  a.chat.window._chatOpenTab('r1');
+  const C = a.chat.window.chatWindow();
   assert.ok(C);
   assert.equal(a.ws.activeWindow, C.id);
   assert.deepEqual(plain(C.layout.tabs.map((x) => [x.type, x.roomId, x.name])), [['chat', 'r1', '#ops']]);
-  a._chatOpenTab('r1');
+  a.chat.window._chatOpenTab('r1');
   assert.equal(revealed, 1);
   assert.equal(C.layout.tabs.length, 1);
   assert.equal(a.ws.windows.filter((s) => s.type === 'chat').length, 1);

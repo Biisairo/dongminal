@@ -5,7 +5,10 @@
  * 고르기는 Chats 의 방 목록과 채팅 탭마다의 참가자 목록에 따로 있고 화면 메모리에만 둔다.
  * 코드는 매번 받는다 — 도우미가 묶음 전체에 서명 하나를 붙인다 (FR-PCH-71).
  *
- * 로드 순서 계약: `chat-view.js` 뒤. 프로토타입 확장이다.
+ * `ChatHuman` 은 `ChatController` 의 부품이다(`chat.human`, REFACTOR3_FE_APPCTL_SRS 9c). 고르기 상태(`_chatRoomsSel`)와
+ * 방 순서(`_chatRoomOrder`)는 뿌리가 든다.
+ *
+ * 로드 순서 계약: `chat-views.js` 뒤.
  */
 
 /**
@@ -39,46 +42,46 @@ function chatCmdText(op,names){
   return t(op==='kill'?'chat.kill_what':'chat.kick_what',{n:names.length,list:names.join(', ')});
 }
 
-Object.assign(App.prototype, {
-  _chatHelper(){ return !!(this._chat&&this._chat.helper) },
+class ChatHuman extends Controller {
+  _chatHelper(){ return !!(this.app._chat&&this.app._chat.helper) }
 
   _chatRoomSel(){
-    if(!this._chatRoomsSel) this._chatRoomsSel={sel:new Set(),anchor:null};
-    return this._chatRoomsSel;
-  },
+    if(!this.app.chat._chatRoomsSel) this.app.chat._chatRoomsSel={sel:new Set(),anchor:null};
+    return this.app.chat._chatRoomsSel;
+  }
 
   /** Chats 방 줄의 클릭. 고르기로 처리했으면 참이다. */
   _chatRoomPick(id,e){
     if(!this._chatHelper()) return false;
     const s=this._chatRoomSel(),had=s.sel.size>0;
-    const r=chatPick(s.sel,s.anchor,this._chatRoomOrder||[],id,e);
+    const r=chatPick(s.sel,s.anchor,this.app.chat._chatRoomOrder||[],id,e);
     s.anchor=r.anchor;
-    if((r.handled||had)&&this._chatRepaint) this._chatRepaint();
+    if((r.handled||had)&&this.app._chatRepaint) this.app._chatRepaint();
     return r.handled;
-  },
+  }
 
   /** FR-PCH-86: Chats 방 줄 우클릭 → 강제 삭제. */
   _chatRoomCtx(id,e){
-    const r=this._chatRoom(id);
+    const r=this.app.chat._chatRoom(id);
     if(!this._chatHelper()&&!(r&&r.joined)) return;
     e.preventDefault();
     this._chatRoomMenu(id,{x:e.clientX,y:e.clientY});
-  },
+  }
 
   /**
    * CHAT_WINDOW_SRS FR-CW-23·30 (D-22): 방 행의 메뉴 — 나가기(들어간 방), 도우미가 있으면 강제 삭제.
    * 강제 삭제의 대상은 종전대로 고른 방들이다(FR-PCH-86).
    */
   _chatRoomMenu(id,at){
-    const r=this._chatRoom(id),items=[];
-    if(r&&r.joined) items.push({id:'leave',icon:'x',label:t('chat.leave'),onClick:()=>this._chatLeave(id)});
+    const r=this.app.chat._chatRoom(id),items=[];
+    if(r&&r.joined) items.push({id:'leave',icon:'x',label:t('chat.leave'),onClick:()=>this.app.chat._chatLeave(id)});
     if(this._chatHelper()){
-      const ids=chatCtxTargets(this._chatRoomSel().sel,id,this._chatRoomOrder||[id]);
+      const ids=chatCtxTargets(this._chatRoomSel().sel,id,this.app.chat._chatRoomOrder||[id]);
       if(items.length) items.push({sep:true});
       items.push({id:'kill',icon:'trash',label:t('chat.kill'),danger:true,onClick:()=>this._chatKillAsk(ids)});
     }
     if(items.length) UIKit.menu(items,{at,cls:'chat-menu'});
-  },
+  }
 
   /** 채팅 탭 참가자 줄의 클릭. 고르기로 처리했으면 참이다. */
   _chatPeoplePick(v,id,e){
@@ -87,15 +90,15 @@ Object.assign(App.prototype, {
     const had=v.sel.size>0;
     const r=chatPick(v.sel,v.anchor,v.order||[],id,e);
     v.anchor=r.anchor;
-    if(r.handled||had) this._chatViewPaint(v);
+    if(r.handled||had) this.app.chat.views._chatViewPaint(v);
     return r.handled;
-  },
+  }
 
   /** 강퇴 대상: 고르기 규칙을 따르되 내 사람 참가자는 뺀다. */
   _chatKickTargets(v,pid){
-    const me=this._chatMe(),meId=me&&me.id;
+    const me=this.app.chat._chatMe(),meId=me&&me.id;
     return chatCtxTargets(v.sel||new Set(),pid,v.order||[pid]).filter(id=>id!==meId).map(id=>({room:v.roomId,participant:id}));
-  },
+  }
 
   /** FR-PCH-86: 참가자 줄 우클릭 → 강퇴. */
   _chatPersonCtx(v,p,e){
@@ -104,26 +107,26 @@ Object.assign(App.prototype, {
     if(!kicks.length) return;
     e.preventDefault();
     UIKit.menu([{id:'kick',icon:'minus',label:t('chat.kick'),danger:true,onClick:()=>this._chatKickAsk(kicks)}],{at:{x:e.clientX,y:e.clientY},cls:'chat-menu'});
-  },
+  }
 
   /** FR-PCH-86: 대화 속 보낸 이 이름 우클릭 → 그 참가자 하나 강퇴. */
   _chatAuthorCtx(m,e){
     this._chatPersonCtx({roomId:m.room},{id:m.from},e);
-  },
+  }
 
   _chatKillAsk(ids){
-    const me=this._chatMe(),meId=me&&me.id;
-    const names=ids.map(id=>{ const r=this._chatRoom(id); return '#'+(r?chatRoomTitle(r,meId):chatShortId(id)) });
+    const me=this.app.chat._chatMe(),meId=me&&me.id;
+    const names=ids.map(id=>{ const r=this.app.chat._chatRoom(id); return '#'+(r?chatRoomTitle(r,meId):chatShortId(id)) });
     return this._chatCmdAsk('kill',{rooms:ids},chatCmdText('kill',names));
-  },
+  }
 
   _chatKickAsk(kicks){
     const names=kicks.map(k=>{
-      const r=this._chatRoom(k.room),p=r&&(r.people||[]).find(x=>x.id===k.participant);
+      const r=this.app.chat._chatRoom(k.room),p=r&&(r.people||[]).find(x=>x.id===k.participant);
       return (p?p.label+' ':'')+chatShortId(k.participant);
     });
     return this._chatCmdAsk('kick',{kicks},chatCmdText('kick',names));
-  },
+  }
 
   /**
    * FR-PCH-87: 확인 창. 틀린 코드는 창을 닫지 않고 그 자리에 다시 넣게 하고, 잠겼으면 풀리는
@@ -162,11 +165,11 @@ Object.assign(App.prototype, {
       ]});
     if(ok!==true) return false;
     this._chatRoomSel().sel.clear();
-    for(const v of this._chatViewMap().values()) if(v.sel) v.sel.clear();
-    await this._chatRestore();
+    for(const v of this.app.chat.views._chatViewMap().values()) if(v.sel) v.sel.clear();
+    await this.app._chatRestore();
     return true;
-  },
-});
+  }
+}
 
 /** 코드 칸의 글자 상한 — 복구 코드 `xxxxx-xxxxx` 의 길이다. */
 const CHAT_CODE_MAX=11;

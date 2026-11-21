@@ -2,11 +2,12 @@
  * Remote Terminal — App 모바일 시트 (MOBILE_UX_OVERHAUL_SRS)
  *
  * 모바일의 전체 높이 시트(서랍·Activity·설정)가 하단 크롬과 맞물리는 규칙, 설정의
- * 목록 → 상세, 길게 누르기 → 컨텍스트 메뉴. `app-mobile.js` 의 `initMobile` 이
+ * 목록 → 상세, 길게 누르기 → 컨텍스트 메뉴. `MobileController` 의 `initMobile` 이
  * `_initMobileSheets` 를 부른다 — 그 시점에는 설정 모달(`initModal`)이 이미 서 있다.
- * app-mobile.js 뒤, main.js 앞에 로드된다.
+ * `MobileSheets` 는 `MobileController` 의 부품이다(`mobile.sheets`, REFACTOR3_FE_APPCTL_SRS 9c).
+ * mobile-controller.js 뒤, main.js 앞에 로드된다.
  */
-Object.assign(App.prototype, {
+class MobileSheets extends Controller {
   /**
    * MOBILE_UX_OVERHAUL_SRS FR-MUX-2·3·13: 하단 크롬(키바·상태바)이 설 자리를 정한다.
    *
@@ -19,24 +20,24 @@ Object.assign(App.prototype, {
    */
   mobileChromeSync(){
     const b=document.body;
-    const mob=this.isMobile;
+    const mob=this.app.isMobile;
     const ov=document.getElementById('modal-overlay');
     const ag=document.getElementById('agents-panel');
-    const sheet=mob&&(!!this.drawerOpen||!!(ag&&ag.classList.contains('open'))||!!(ov&&ov.classList.contains('open')));
-    const noKb=mob&&(sheet||!this.focusedTerminal());
+    const sheet=mob&&(!!this.app.drawerOpen||!!(ag&&ag.classList.contains('open'))||!!(ov&&ov.classList.contains('open')));
+    const noKb=mob&&(sheet||!this.app.focusedTerminal());
     const changed=b.classList.contains('m-no-kb')!==noKb;
     b.classList.toggle('m-sheet',sheet);
     b.classList.toggle('m-no-kb',noKb);
     if(!changed) return;
     // 키보드가 올라와 있으면 그 보정(padding-bottom)이 키바 높이를 품고 있다 — 다시 잰다.
-    this._mKbH=null;
-    if(window.visualViewport) this._mobileVvApply(); else this._scheduleFit();
-  },
+    this.app._mKbH=null;
+    if(window.visualViewport) this.app._mobileVvApply(); else this.app._scheduleFit();
+  }
 
   _initMobileSheets(){
     this._initLongPress();
     this._initSettingsMobile();
-  },
+  }
 
   /**
    * FR-MUX-20~24: 모바일 설정의 두 화면 — `list`(섹션 목록)와 `detail`(고른 섹션의 패널).
@@ -55,23 +56,23 @@ Object.assign(App.prototype, {
     if(!overlay||!modal) return;
     modal.querySelectorAll('.mtab').forEach(tab=>tab.addEventListener('click',()=>this._settingsView(modal,'detail')));
     this._settingsDetailEsc={
-      active:()=>this.isMobile&&overlay.classList.contains('open')&&modal.dataset.mview==='detail',
+      active:()=>this.app.isMobile&&overlay.classList.contains('open')&&modal.dataset.mview==='detail',
       close:()=>this._settingsView(modal,'list'),
     };
     // FR-MUX-13: 닫는 길이 셋이다(닫기·바깥·Escape) — 열림 표식 하나를 지켜본다.
     if(this._settingsOverlayMo) this._settingsOverlayMo.disconnect();
     this._settingsOverlayMo=new MutationObserver(()=>{
-      this.mobileChromeSync();
+      this.app.mobileChromeSync();
       if(!overlay.classList.contains('open')) EscapeStack.remove(this._settingsDetailEsc);   // FR-FEE-6
     });
     this._settingsOverlayMo.observe(overlay,{attributes:true,attributeFilter:['class']});
-  },
+  }
 
   /** 설정을 열 때 — 모바일 머리를 세우고 목록 화면으로 간다. 열기·패널 칠하기 뒤에 부른다(FR-FEE-9). */
   _settingsMobileOnOpen(modal){
-    if(this.isMobile) this._settingsMobileHead(modal);
+    if(this.app.isMobile) this._settingsMobileHead(modal);
     this._settingsView(modal,'list');
-  },
+  }
 
   /**
    * FR-MUX-22: 상세의 머리 — 뒤로 단추와 섹션 이름. **모바일에서 처음 열 때** 만든다 — 데스크톱
@@ -89,7 +90,7 @@ Object.assign(App.prototype, {
     const sec=document.createElement('span');
     sec.className='modal-section';
     modal.querySelector('.modal-header').prepend(back,sec);
-  },
+  }
 
   _settingsView(modal,view){
     modal.dataset.mview=view;
@@ -97,10 +98,10 @@ Object.assign(App.prototype, {
     const cur=modal.querySelector('.mtab.active');
     if(sec) sec.textContent=cur?cur.textContent.trim():'';
     const body=modal.querySelector('.modal-body');
-    if(view==='detail'&&this.isMobile&&body) body.scrollTop=0;
+    if(view==='detail'&&this.app.isMobile&&body) body.scrollTop=0;
     const esc=this._settingsDetailEsc;
-    if(esc){ if(view==='detail'&&this.isMobile) EscapeStack.push(esc); else EscapeStack.remove(esc) }   // FR-FEE-6
-  },
+    if(esc){ if(view==='detail'&&this.app.isMobile) EscapeStack.push(esc); else EscapeStack.remove(esc) }   // FR-FEE-6
+  }
 
   /**
    * MOBILE_UX_OVERHAUL_SRS FR-MUX-50~52: 길게 누르면 그 자리에 `contextmenu` 를 보낸다.
@@ -116,7 +117,7 @@ Object.assign(App.prototype, {
     const cancel=()=>{if(timer){TIMERS.cancel(timer);timer=null}};
     document.addEventListener('touchstart',e=>{
       cancel();fired=false;start=null;
-      if(!this.isMobile||e.touches.length!==1) return;
+      if(!this.app.isMobile||e.touches.length!==1) return;
       const tg=e.target;
       if(!(tg instanceof Element)||tg.closest(MOBILE_LONG_PRESS_SKIP)) return;
       const p=e.touches[0];
@@ -141,5 +142,8 @@ Object.assign(App.prototype, {
       if(fired){e.preventDefault();e.stopPropagation();return}
       cancel();
     },{capture:true});
-  },
-});
+  }
+}
+
+// 활동 패널·설정·`ui/`(서랍·렌더러)와 시험이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'mobile.sheets',['mobileChromeSync','_settingsMobileOnOpen']);

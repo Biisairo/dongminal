@@ -4,7 +4,7 @@
  * DOM 을 모르는 순수 함수와 표다. 패널의 배선과 그리기는 `ClaudeSection`(`settings-claude.js`)이 한다
  * (REFACTOR3_FE_SETTINGS_SRS 8c — 400줄이던 파일을 둘로 나눴다).
  *
- * 로드 순서 계약: `app-activity.js`·`claude-accounts-view.js`·`claude-accounts-controller.js`·`claude-maps.js` 뒤.
+ * 로드 순서 계약: `activity-list.js`·`claude-accounts-view.js`·`claude-accounts-controller.js`·`claude-maps.js` 뒤.
  */
 
 /** FR-CAC-70·94a: 자동 전환의 숫자 칸. `required` 가 아니면 비울 수 있다(비우면 지운다). */

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, PANELS, load, plain } from './harness.mjs';
+import { AGENTS, BASE, PANELS, controllers, load, plain } from './harness.mjs';
 
 /**
  * CLAUDE_ACCOUNTS_SRS TC-CAC-21 — Activity 하단(Usage foot)의 계정 묶음과 statusLine 한 줄 (FR-CAC-90~93).
@@ -47,7 +47,7 @@ function memStore() {
 
 function loadFoot(globals = {}) {
   const local = memStore();
-  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/claude-accounts-view.js', 'core/claude-accounts-controller.js', 'core/claude-maps.js'], {
+  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/path.js', ...AGENTS, 'core/claude-accounts-view.js', 'core/claude-accounts-controller.js', 'core/claude-maps.js'], {
     expose: ['ACTIVITY_SECTIONS', 'EscapeStack', 'ClaudeAccountsController'],
     globals: {
       App: class {},
@@ -201,7 +201,7 @@ test('FR-CAC-93: 값이 없으면 statusLine 줄을 그리지 않는다', () => 
 // ── 바닥의 조립 (FR-CAC-90) ──
 
 function footApp(ctx) {
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
   app._bg = []; app._runsPanel = () => ({});
   app._agWindowItems = () => [];
@@ -223,26 +223,26 @@ const SL = [{ agent: 'claude', observedAt: Date.now(), windows: [{ name: 'five_h
 
 test('FR-CAC-90: 계정도 statusLine 도 없으면 바닥이 없다', () => {
   const app = footApp(loadFoot());
-  assert.equal(app._actItems().some((i) => i.t === 'foot'), false);
+  assert.equal(app.agents.list._actItems().some((i) => i.t === 'foot'), false);
 });
 
 test('FR-CAC-90: 계정이 없으면 statusLine 줄만, 있으면 계정 묶음 + statusLine 줄', () => {
   const app = footApp(loadFoot());
   app._limits = SL;
-  let foot = app._actItems().at(-1);
+  let foot = app.agents.list._actItems().at(-1);
   assert.equal(foot.t, 'foot');
   assert.equal(foot.view.accounts.length, 0);
   assert.ok(foot.view.sl);
 
   app._claudeAccts = [ACC_A, ACC_B];
-  foot = app._actItems().at(-1);
+  foot = app.agents.list._actItems().at(-1);
   assert.deepEqual(plain(foot.view.accounts.map((a) => a.id)), ['a', 'b']);
   assert.equal(foot.view.next, true);
   assert.ok(foot.view.sl);
 
   app._limits = [];
   app._claudeAccts = [ACC_A];
-  foot = app._actItems().at(-1);
+  foot = app.agents.list._actItems().at(-1);
   assert.equal(foot.view.sl, null);
   assert.equal(foot.view.next, false, '전환할 다른 계정이 없으면 다음 계정 버튼이 없다');
 });
@@ -253,7 +253,7 @@ test('FR-CAC-91: 모양 기본값은 활성 계정만 넓게이고, 바꾼 모�
   let rendered = 0;
   app.agentsRender = () => { rendered++ };
   app._claudeAccts = [ACC_A, ACC_B];
-  const wide = () => plain(app._actItems().at(-1).view.accounts.map((a) => a.wide));
+  const wide = () => plain(app.agents.list._actItems().at(-1).view.accounts.map((a) => a.wide));
   assert.deepEqual(wide(), [true, false]);
   app.claude._claudeAcctFoldToggle('b');
   assert.equal(rendered, 1);
@@ -274,7 +274,7 @@ test('FR-CAC-91: 오버레이는 한 번에 하나 — 같은 칸은 닫고, 다
   let rendered = 0;
   app.agentsRender = () => { rendered++ };
   app._claudeAccts = [ACC_A, ACC_B];
-  const pops = () => plain(app._actItems().at(-1).view.accounts.map((a) => a.pop));
+  const pops = () => plain(app.agents.list._actItems().at(-1).view.accounts.map((a) => a.pop));
   assert.deepEqual(pops(), [false, false]);
   app.claude._claudeAcctPopToggle('a');
   assert.deepEqual(pops(), [true, false]);
@@ -319,7 +319,7 @@ test('FR-CAC-93: statusLine 줄은 꼭 한 줄 — 오래되면 글자 대신 �
     { name: 'x***@', windows: { fiveHour: { pct: 34, level: '' } }, observedAt: NOW, ageSeconds: 600, stale: true },
     { name: 'y***@', windows: { fiveHour: { pct: 5, level: '' } }, observedAt: NOW, ageSeconds: 10, stale: false },
   ];
-  const foot = app._actUsageFootEl(app._actItems().at(-1).view);
+  const foot = app.agents.list._actUsageFootEl(app.agents.list._actItems().at(-1).view);
   const rows = foot.children.filter((c) => c.className.split(' ')[0] === 'act-usage-sl');
   assert.equal(rows.length, 2);
   assert.equal(rows[0].className, 'act-usage-sl cacct-sl stale');
@@ -335,7 +335,7 @@ test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusL
   const app = footApp(ctx);
   app._claudeAccts = [ACC_A, ACC_B];
   app._limits = SL;
-  const foot = app._actUsageFootEl(app._actItems().at(-1).view);
+  const foot = app.agents.list._actUsageFootEl(app.agents.list._actItems().at(-1).view);
   // UX_AUDIT_FIX_SRS FR-UXF-73 으로 개정: 이전 — 데스크톱 바닥의 첫 원소는 계정 머리 줄이었다 / 지금 — 요약 줄
   // (`act-usage-sum`)이 맨 앞이고 저장값이 없으면 펼친 채다 / 이유 — 진단 D17·X8, 사용자 결정 D-25.
   assert.ok(foot.children[0].className.split(' ').includes('act-usage-sum'));
@@ -388,7 +388,7 @@ test('FR-CAC-91: 오버레이에는 요약과 동작 버튼이 있고, 활성 �
   const ctx = loadFoot();
   const app = footApp(ctx);
   app._claudeAccts = [ACC_A, { ...ACC_B, usage: { windows: { fiveHour: { pct: 1, level: '' } } } }];
-  const render = (id) => { app._claudeAcctPopId = id; return app._actUsageFootEl(app._actItems().at(-1).view).children.filter((c) => c.className.split(' ')[0] === 'cacct') };
+  const render = (id) => { app._claudeAcctPopId = id; return app.agents.list._actUsageFootEl(app.agents.list._actItems().at(-1).view).children.filter((c) => c.className.split(' ')[0] === 'cacct') };
   let foot = render('a');
   const a = foot[0];
   assert.equal(a.className, 'cacct active wide pop');
@@ -426,7 +426,7 @@ test('FR-CAC-91: 오버레이에는 요약과 동작 버튼이 있고, 활성 �
 // ── 데이터 (FR-CAC-122) ──
 
 function restoreApp(ctx) {
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
   app._restoreBegin = () => new Set();
   app._restoreLive = () => true;
@@ -568,7 +568,7 @@ test('FR-CAC-65: 초기화 칸 원소 — 쓸 수 있는 줄에만 버튼', () =
   const app = footApp(ctx);
   app._claudeAcctPopId = 'a';
   app._claudeAccts = [withResets(RESETS)];
-  const box = firstAcct(app._actUsageFootEl(app._actItems().at(-1).view));
+  const box = firstAcct(app.agents.list._actUsageFootEl(app.agents.list._actItems().at(-1).view));
   const sec = find(box, 'cacct-resets');
   assert.ok(sec);
   const rows = sec.children.filter((c) => c.className.split(' ')[0] === 'cacct-rs');
@@ -616,11 +616,11 @@ test('FR-CAC-65 · D-CAC-36: 초기화 칸 머리에 조회 시각, 조회한 �
   const app = footApp(ctx);
   app._claudeAcctPopId = 'a';
   app._claudeAccts = [withResets(RESETS)];
-  let sec = find(firstAcct(app._actUsageFootEl(app._actItems().at(-1).view)), 'cacct-resets');
+  let sec = find(firstAcct(app.agents.list._actUsageFootEl(app.agents.list._actItems().at(-1).view)), 'cacct-resets');
   assert.ok(find(sec, 'cacct-resets-age'), '조회 시각');
   assert.equal(find(sec, 'cacct-resets-unknown'), null);
   app._claudeAccts = [ACC_A];
-  sec = find(firstAcct(app._actUsageFootEl(app._actItems().at(-1).view)), 'cacct-resets');
+  sec = find(firstAcct(app.agents.list._actUsageFootEl(app.agents.list._actItems().at(-1).view)), 'cacct-resets');
   assert.equal(find(sec, 'cacct-resets-unknown').textContent, 'Press Refresh to check');
   assert.equal(sec.children.filter((c) => c.className.split(' ')[0] === 'cacct-rs').length, 0);
 });
@@ -650,7 +650,7 @@ test('FR-CAC-92: 자동 전환 표식은 목록 응답의 요약에서 온다', 
   const app = footApp(ctx);
   app._claudeAccts = [ACC_A, ACC_B];
   app._claudeAcctAuto = { enabled: true, status: 'on' };
-  assert.deepEqual(plain(app._actItems().at(-1).view.auto), { text: 'Auto-switch on', on: true });
+  assert.deepEqual(plain(app.agents.list._actItems().at(-1).view.auto), { text: 'Auto-switch on', on: true });
 
   const reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [ACC_A], autoswitch: { enabled: true, status: 'unmanaged' } } };
   const r = restoreApp(loadFoot({ stateFetch: () => Promise.resolve(reply) }));
@@ -739,7 +739,7 @@ test('FR-CAC-93 · FR-MUX-81: statusLine 줄은 등록되지 않은 계정의 �
   const app = footApp(ctx);
   app._claudeAccts = [a];
   app._claudeAcctOtherSl = [];
-  const v = app._actItems().at(-1).view;
+  const v = app.agents.list._actItems().at(-1).view;
   assert.deepEqual(plain(v.acctSl.map((l) => l.key)), [], '등록 계정(a)의 statusLine 은 줄이 되지 않는다');
 
   const reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [a], otherStatusLines: [{ name: 'x***@', ...SLV(1, 1) }] } };

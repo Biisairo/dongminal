@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, PANELS, load, plain } from './harness.mjs';
+import { AGENTS, BASE, PANELS, controllers, load, plain } from './harness.mjs';
 
 /**
  * ACTIVITY_STATE_SUBAGENT_SRS 묶음 V — 서브에이전트 두 보기·사용량 줄 배치·Usage 구역.
@@ -40,7 +40,7 @@ function fillEn(k, p) {
 
 function loadActivity(globals = {}) {
   const local = memStore();
-  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/claude-accounts-view.js', 'core/claude-accounts-controller.js', 'core/claude-maps.js'], {
+  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', ...AGENTS, 'core/claude-accounts-view.js', 'core/claude-accounts-controller.js', 'core/claude-maps.js'], {
     expose: ['ACTIVITY_SECTIONS', 'ClaudeAccountsController'],
     globals: {
       App: class {},
@@ -71,8 +71,8 @@ const kinds = (row) => row.children.map((c) => c.className.split(' ')[0]);
 
 test('FR-ASV-30: 사용량 줄은 모델·effort 가 왼쪽, 막대와 백분율이 오른쪽이다', () => {
   const ctx = loadActivity();
-  const app = new ctx.App();
-  const row = app._agUsageEl(ctx.agentUsageView({ ctxPct: 55.4, ctxLevel: 'ok', model: 'Opus 5.5', effort: 'high' }));
+  const app = controllers(ctx, new ctx.App());
+  const row = app.agents._agUsageEl(ctx.agentUsageView({ ctxPct: 55.4, ctxLevel: 'ok', model: 'Opus 5.5', effort: 'high' }));
   assert.deepEqual(plain(kinds(row)), ['ag-usage-model', 'ag-usage-bar', 'ag-usage-pct']);
   assert.equal(row.children[0].textContent, 'Opus 5.5·high');
   assert.equal(row.children[2].textContent, '55%');
@@ -100,8 +100,8 @@ test('FR-ASV-35: 상태가 done 이면 흐리다 — 훅 상태가 statusLine �
 
 test('FR-ASV-34: 목록형 줄은 머리(↳·종류·상태) 한 줄과 사용량 줄이다', () => {
   const ctx = loadActivity();
-  const app = new ctx.App();
-  const row = app._agSubagentEl(ctx.agentSubagentView(SUB));
+  const app = controllers(ctx, new ctx.App());
+  const row = app.agents.sub._agSubagentEl(ctx.agentSubagentView(SUB));
   assert.equal(row.className, 'ag-sub');
   assert.deepEqual(plain(kinds(row)), ['ag-sub-head', 'ag-usage']);
   assert.deepEqual(plain(kinds(row.children[0])), ['ag-sub-arrow', 'ag-sub-type', 'ag-sub-state']);
@@ -113,7 +113,7 @@ test('FR-ASV-34: 목록형 줄은 머리(↳·종류·상태) 한 줄과 사용�
   assert.deepEqual(plain(kinds(row.children[1])), ['ag-usage-model', 'ag-usage-bar', 'ag-usage-pct']);
   assert.match(row.title, /Find parseClaudeHook/);
 
-  const bare = app._agSubagentEl(ctx.agentSubagentView({ id: 'x', status: 'completed' }));
+  const bare = app.agents.sub._agSubagentEl(ctx.agentSubagentView({ id: 'x', status: 'completed' }));
   assert.equal(bare.className, 'ag-sub done');
   assert.deepEqual(plain(kinds(bare)), ['ag-sub-head']);
 });
@@ -121,7 +121,7 @@ test('FR-ASV-34: 목록형 줄은 머리(↳·종류·상태) 한 줄과 사용�
 // ── TC-ASV-12 ──
 
 function stubPanelApp(ctx, subagents) {
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app._activity = new Map([['t1', { state: 'working', subagents }]]);
   app.ws = { windows: [{ id: 'w1', name: 'W' }] };
   app._agentOrderSync = () => ['t1'];
@@ -202,23 +202,23 @@ test('FR-ASV-41: 창 이름은 도구들의 이름이고, 모르는 이름은 �
 test('FR-ASV-40·43: Usage 는 구역이 아니라 맨 끝의 바닥이고, 한도가 없으면 없다', () => {
   const ctx = loadActivity();
   assert.equal(ctx.ACTIVITY_SECTIONS.some((s) => s.key === 'usage'), false);
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
   app._bg = []; app._runsPanel = () => ({});
   app._agWindowItems = () => [];
   app.chatUnreadTotal = () => 0;
   app._agFolded = () => new Set();
   app._limits = [];
-  assert.equal(app._actItems().some((i) => i.t === 'foot'), false);
+  assert.equal(app.agents.list._actItems().some((i) => i.t === 'foot'), false);
   app._limits = [{ agent: 'claude', observedAt: Date.now(), windows: [{ name: 'five_hour', usedPct: 1, level: '' }] }];
-  const items = app._actItems();
+  const items = app.agents.list._actItems();
   assert.equal(items.at(-1).t, 'foot');
 });
 
 test('FR-ASV-21·44: 복원이 limits 를 담는다', async () => {
   const limits = [{ agent: 'claude', observedAt: 1, windows: [] }];
   const ctx = loadActivity({ stateFetch: () => Promise.resolve({ ok: true, data: { activities: [], limits } }) });
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app._activity = new Map();
   app._restoreBegin = () => new Set();
   app._restoreLive = () => true;

@@ -85,6 +85,32 @@ export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', '
   'core/settings-server.js', 'core/settings-claude.js', 'core/settings-backup.js', 'core/settings-presets.js',
   'core/settings-controller.js'];
 
+/**
+ * App 컨트롤러 묶음 — index.html 의 순서다 (REFACTOR3_FE_APPCTL_SRS 9c). `BASE` 뒤에 싣는다. 뿌리가 부품을 생성자에서
+ * 만들므로 한 묶음의 파일은 함께 싣는다. 끝에서 App 원형에 위임자를 두므로 `App` 전역이 있어야 한다.
+ */
+export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js'];
+export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
+export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
+
+/** App 필드 → 뿌리 컨트롤러 클래스. App 생성자가 세우는 것과 같다 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). */
+const APP_CONTROLLERS = { settings: 'SettingsController', edges: 'EdgesController', update: 'UpdateController',
+  attn: 'AttnController', claude: 'ClaudeAccountsController', statusbar: 'StatusBarController', chat: 'ChatController',
+  agents: 'AgentsController', mobile: 'MobileController' };
+
+/**
+ * 실은 파일에 있는 뿌리 컨트롤러를 앱에 세운다 — App 생성자의 몫을 시험이 대신한다. 이미 있는 필드는 두고, 싣지 않은
+ * 클래스는 건너뛴다. 클래스는 `expose` 하지 않아도 된다(같은 컨텍스트의 렉시컬 이름을 읽는다).
+ */
+export function controllers(ctx, app) {
+  for (const [field, cls] of Object.entries(APP_CONTROLLERS)) {
+    if (app[field]) continue;
+    const C = vm.runInContext('typeof ' + cls + ' === "function" ? ' + cls + ' : null', ctx);
+    if (C) app[field] = new C(app);
+  }
+  return app;
+}
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 

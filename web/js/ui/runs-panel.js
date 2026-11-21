@@ -22,7 +22,7 @@
 
 // 대시보드가 다루는 문자열. 한 자리에 모아 둔다 — e2e 가 같은 값을 본다.
 const RUN_GONE_TEXT = t('runs.gone');
-// 빈 목록의 두 줄은 이제 구역이 갖는다 (`app-activity.js` 의 `ACTIVITY_SECTIONS`) —
+// 빈 목록의 두 줄은 이제 구역이 갖는다 (`activity-list.js` 의 `ACTIVITY_SECTIONS`) —
 // 모달의 머리·빈 안내가 사라지면서 이 자리도 함께 나갔다 (FR-ACT-1).
 // 조정자는 멤버가 아니므로 uuid 가 없다. 서버가 쓰는 것과 같은 문자열이다.
 const RUN_COORD = 'coordinator';

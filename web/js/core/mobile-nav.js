@@ -5,9 +5,11 @@
  * DOM 이 종전과 같아야 계산값 기준선(UI_LAYOUT_DEFAULTS_SRS V-LAY-1)이 재는 대상이 바뀌지 않는다.
  * 한 번 서면 남고, 데스크톱에서는 `.mobile-only` 가 감춘다.
  *
- * 로드 순서 계약: app-mobile-sheets.js 뒤, main.js 앞.
+ * `MobileNav` 는 `MobileController` 의 부품이다(`mobile.nav`, REFACTOR3_FE_APPCTL_SRS 9c).
+ *
+ * 로드 순서 계약: mobile-sheets.js 뒤, main.js 앞.
  */
-Object.assign(App.prototype, {
+class MobileNav extends Controller {
   /**
    * PANEL_TEMPLATE_SRS FR-PNT-15~17: 모바일 Activity 시트에서 **다른 화면으로 이동한 뒤** 시트를 닫는 한 자리.
    *
@@ -15,12 +17,12 @@ Object.assign(App.prototype, {
    * 접기·확인·취소처럼 패널 안에서 끝나는 누름은 부르지 않으므로 시트가 남는다 (FR-PNT-16). 데스크톱 패널은
    * 화면을 덮지 않으므로 그대로 둔다.
    *
-   * 부르는 자리: 에이전트 카드(`app-agents.js`), Background 행(`statusbar-controller.js`), Runs 행(`runs-panel.js`),
-   * 채팅 탭 열기(`app-chat.js` `_chatOpenTab`).
+   * 부르는 자리: 에이전트 카드(`agents-controller.js`), Background 행(`statusbar-controller.js`), Runs 행(`runs-panel.js`),
+   * 채팅 탭 열기(`chat-window.js` `_chatOpenTab`).
    */
   actSheetLeave(){
-    if(this.isMobile&&this.agentsPanelOpen()) this.setAgentsPanelOpen(false);
-  },
+    if(this.app.isMobile&&this.app.agentsPanelOpen()) this.app.setAgentsPanelOpen(false);
+  }
 
   /**
    * FR-MUX-74·75: Activity 단추의 수. `agentsRender` 가 맨 앞에서 부른다 — 모바일에서 패널이 닫혀
@@ -28,16 +30,16 @@ Object.assign(App.prototype, {
    * 수는 카드가 그려지는 에이전트(창에 자리가 있는 것)만 센다.
    */
   mobileActSync(){
-    if(!this.isMobile) return;
+    if(!this.app.isMobile) return;
     const btn=document.getElementById('m-act-btn')||this._mActBtnEl();
     if(!btn) return;
-    const n=this.workingToolIds().size;   // UX_AUDIT_FIX_SRS FR-UXF-63 과 같은 판정
+    const n=this.app.workingToolIds().size;   // UX_AUDIT_FIX_SRS FR-UXF-63 과 같은 판정
     const num=btn.querySelector('.m-act-n');
     if(num) num.textContent=n?String(n):'';
     btn.classList.toggle('working',n>0);
     const label=n?TIP_MOBILE_ACTIVITY_WORKING.replace('{n}',String(n)):TIP_MOBILE_ACTIVITY;
     btn.title=label;btn.setAttribute('aria-label',label);
-  },
+  }
 
   _mActBtnEl(){
     const menu=document.getElementById('m-drawer-toggle');
@@ -50,57 +52,57 @@ Object.assign(App.prototype, {
     const num=document.createElement('span');num.className='m-act-n';num.setAttribute('aria-hidden','true');
     b.append(dot,num);
     b.addEventListener('click',()=>{
-      if(this.drawerOpen) this._toggleDrawer(false);
-      this.actPanelOpen();
+      if(this.app.drawerOpen) this.app._toggleDrawer(false);
+      this.app.actPanelOpen();
     });
     menu.before(b);
     return b;
-  },
+  }
 
   /** FR-MUX-78: 지금 자리의 세그먼트 — 사이드 자리면 그 사이드 탭, 아니면 편집기. */
   mobileRepoSegCur(){
-    return this.mobileOnSide()?this.edSideOf(this.aw()):REPO_SEG_EDITOR.id;
-  },
+    return this.app.mobileOnSide()?this.app.edSideOf(this.app.aw()):REPO_SEG_EDITOR.id;
+  }
 
   /**
    * FR-MUX-78: 세그먼트를 누른 일. 사이드 탭이면 사이드 자리로 가서 그 탭으로 바꾼다. 편집기면 포커스
    * 칸의 자리로 간다 — 이미 편집기 자리이고 칸이 여럿이면 다음 칸이다 (칸 순회가 하던 일을 잃지 않는다).
    */
   mobileRepoSegGo(key){
-    const s=this.aw();
+    const s=this.app.aw();
     if(!s) return;
     if(key!==REPO_SEG_EDITOR.id){
-      this.mPaneIdx=0;
-      if(this.edSideOf(s)!==key) this.edSetSide(s,key);   // 다시 그린다
-      else this.render();
+      this.app.mPaneIdx=0;
+      if(this.app.edSideOf(s)!==key) this.app.edSetSide(s,key);   // 다시 그린다
+      else this.app.render();
       return;
     }
-    const regs=s.layout?this.flattenPanes(s.layout):[];
+    const regs=s.layout?this.app.flattenPanes(s.layout):[];
     if(!regs.length) return;
-    const off=this.mobileSideSlots();
-    let i=regs.findIndex(p=>p&&p.id===this.focused);
-    if(!this.mobileOnSide()&&regs.length>1) i=(this.mPaneIdx-off+1)%regs.length;
+    const off=this.app.mobileSideSlots();
+    let i=regs.findIndex(p=>p&&p.id===this.app.focused);
+    if(!this.app.mobileOnSide()&&regs.length>1) i=(this.app.mPaneIdx-off+1)%regs.length;
     if(i<0) i=0;
-    this.mPaneIdx=i+off;
-    this.setFocusState(regs[i].id);
-    this.save();
-    this.render();
-  },
+    this.app.mPaneIdx=i+off;
+    this.app.setFocusState(regs[i].id);
+    this.app.save();
+    this.app.render();
+  }
 
   /**
    * FR-MUX-77·79: 세그먼트를 칠한다. 모바일 Repo 창에서만 서고, 칸 순회(`.m-pane-nav`)는 그동안
    * 감춘다(`_rPaneIndicator`). 그 창에 설 수 없는 사이드 탭은 세그먼트에도 없다.
    */
   mobileRepoSegSync(){
-    const on=this.mobileSideSlots()>0;
+    const on=this.app.mobileSideSlots()>0;
     const seg=document.getElementById('m-repo-seg')||(on?this._mRepoSegEl():null);
     if(!seg) return;
     seg.hidden=!on;
     if(!on) return;
-    const s=this.aw(),cur=this.mobileRepoSegCur();
-    const allowed=new Set(this.edSideTabs(s).map(d=>d.id));
+    const s=this.app.aw(),cur=this.mobileRepoSegCur();
+    const allowed=new Set(this.app.edSideTabs(s).map(d=>d.id));
     let n=0;
-    if(s.layout) for(const p of this.flattenPanes(s.layout)) n+=(p&&p.tabs)?p.tabs.length:0;
+    if(s.layout) for(const p of this.app.flattenPanes(s.layout)) n+=(p&&p.tabs)?p.tabs.length:0;
     for(const b of seg.children){
       const k=b.dataset.seg;
       if(k===REPO_SEG_EDITOR.id){
@@ -110,7 +112,7 @@ Object.assign(App.prototype, {
       }else b.hidden=!allowed.has(k);
       b.setAttribute('aria-pressed',String(k===cur));
     }
-  },
+  }
 
   _mRepoSegEl(){
     const nav=document.querySelector('#topbar .m-pane-nav');
@@ -133,5 +135,8 @@ Object.assign(App.prototype, {
     }
     nav.after(seg);
     return seg;
-  },
-});
+  }
+}
+
+// 활동·채팅 창·상태바·`ui/`가 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'mobile.nav',['actSheetLeave','mobileActSync','mobileRepoSegSync']);

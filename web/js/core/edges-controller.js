@@ -233,5 +233,5 @@ class EdgesController extends Controller {
   }
 }
 
-// 바깥(`state-registry.js`·`settings-edges.js`·`ui/chat-view.js`)이 App 에서 부르는 이름 (FR-FEA-4).
+// 바깥(`state-registry.js`·`settings-edges.js`·`chat-views.js`)이 App 에서 부르는 이름 (FR-FEA-4).
 Controller.delegate(App,'edges',['_edgesRestore','_onEdgesChanged','_egMeshPaint','_egInvitesPaint','_egInviteSend','_egNotify']);

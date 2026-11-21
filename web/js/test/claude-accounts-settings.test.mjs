@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, PANELS, load, plain } from './harness.mjs';
+import { AGENTS, BASE, PANELS, load, plain } from './harness.mjs';
 
 /**
  * CLAUDE_ACCOUNTS_SRS TC-CAC-30 (JS) — 설정 "Claude 계정" 구역의 뷰 모델 (FR-CAC-94·94a·34a·88b).
@@ -23,8 +23,7 @@ function fillEn(k, p) {
 }
 
 function loadSet() {
-  return load([...BASE, ...PANELS, 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/claude-accounts-view.js',
-    'core/claude-accounts-controller.js', 'core/claude-maps.js', 'core/settings-claude-rows.js'], {
+  return load([...BASE, ...PANELS, 'core/path.js', ...AGENTS, 'core/claude-accounts-view.js', 'core/claude-accounts-controller.js', 'core/claude-maps.js', 'core/settings-claude-rows.js'], {
     expose: ['CACCT_AUTO_FIELDS'],
     globals: {
       App: class {}, t: (k, p) => fillEn(k, p),

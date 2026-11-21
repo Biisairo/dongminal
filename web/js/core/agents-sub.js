@@ -1,10 +1,12 @@
 /**
  * Remote Terminal — 활동 패널의 서브에이전트 (ACTIVITY_STATE_SUBAGENT_SRS 묶음 V)
  *
- * 에이전트 카드(`app-agents.js`)에서 서브에이전트를 그리는 부분이다. 보기는 카드 안의
+ * 에이전트 카드(`agents-controller.js`)에서 서브에이전트를 그리는 부분이다. 보기는 카드 안의
  * 목록 하나다 (UX_BATCH12_SRS FR-SVL-1 — 폴더형 하위 카드는 없어졌다).
  *
- * 로드 순서 계약: `app-agents.js` 뒤. 서로 부르는 이름은 **호출 시점**에만 있으면 된다.
+ * `AgentsSub` 는 `AgentsController` 의 부품이다(`agents.sub`, REFACTOR3_FE_APPCTL_SRS 9c).
+ *
+ * 로드 순서 계약: `agents-controller.js` 뒤. 서로 부르는 이름은 **호출 시점**에만 있으면 된다.
  */
 
 /**
@@ -47,22 +49,22 @@ function agentStateIcon(state){
 /** UX_BATCH12_SRS FR-SVL-3: 없어진 보기 전환이 남긴 브라우저 값의 키. 읽지 않고 지우기만 한다. */
 const AGENT_SUB_VIEW_KEY='agentsSubView';
 
-Object.assign(App.prototype, {
+class AgentsSub extends Controller {
   /**
    * ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-36: SSE tool_subagent_activity — 그 서브에이전트의
    * 상태·도구·내용만 바꾼다. 사용량·모델은 다음 복원이 채운다. main 항목이 없으면 버린다.
    */
   _onToolSubagentActivity({toolId,agentId,agentType,state,tool,detail}={}){
-    const info=toolId&&agentId&&this._activity.get(toolId);
+    const info=toolId&&agentId&&this.app._activity.get(toolId);
     if(!info) return;
     const list=Array.isArray(info.subagents)?info.subagents.slice():[];
     const i=list.findIndex(x=>x.id===agentId);
     const upd={state,tool:tool||'',detail:detail||''};
     if(i>=0) list[i]={...list[i],...upd};
     else list.push({id:agentId,agentType:agentType||'',...upd});
-    this._activity.set(toolId,{...info,subagents:list});
-    this.agentsRender();
-  },
+    this.app._activity.set(toolId,{...info,subagents:list});
+    this.app.agentsRender();
+  }
 
   /** FR-ASV-31: 서브에이전트 머리 — (↳) · 종류 · 상태. */
   _agSubHeadEl(v){
@@ -72,13 +74,13 @@ Object.assign(App.prototype, {
     head.appendChild(domEl('span','ag-sub-type',v.type));
     head.appendChild(domEl('span','ag-sub-state '+v.state,agentStateText(v.state,v.tool))).prepend(agentStateIcon(v.state),' ');
     return head;
-  },
+  }
 
   /** FR-ASV-31: 서브에이전트의 사용량 줄. 그릴 값이 없으면 null 이다. */
   _agSubUsageEl(v){
     if(!v.label&&v.pct===null) return null;
-    return this._agUsageEl({pct:v.pct,fill:v.fill,level:v.level,label:v.label,title:v.title});
-  },
+    return this.app.agents._agUsageEl({pct:v.pct,fill:v.fill,level:v.level,label:v.label,title:v.title});
+  }
 
   /** FR-ASV-34: 목록형 — 카드 안에서 머리 한 줄과 사용량 줄. 내용은 툴팁으로만 보인다. */
   _agSubagentEl(v){
@@ -89,5 +91,8 @@ Object.assign(App.prototype, {
     const u=this._agSubUsageEl(v);
     if(u) row.appendChild(u);
     return row;
-  },
-});
+  }
+}
+
+// 상태 등록부가 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'agents.sub',['_onToolSubagentActivity']);

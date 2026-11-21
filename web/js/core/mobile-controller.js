@@ -1,32 +1,41 @@
 /**
  * Remote Terminal — App 모바일 (PACKAGE_RESTRUCTURE_SRS FR-APP-2)
  *
- * class App 본문에서 옮겨온 메서드 7개. 본문은 수정하지 않았다 (FR-APP-3).
+ * `MobileController` 가 모바일 모드·서랍·칸 순회·키바·맞춤을 진다. App 은 이것을 `mobile` 로 든다
+ * (REFACTOR3_FE_APPCTL_SRS 9c). 부품 둘 — 상단바의 길 `MobileNav`(`mobile-nav.js`) `.nav` · 시트 `MobileSheets`
+ * (`mobile-sheets.js`) `.sheets`. 서랍(`DrawerSheet`)은 이 컨트롤러가 든다(`_drawer`). 칸 번호 `mPaneIdx`·키바 상태
+ * `modKbd`·`_mKbH`·`drawerOpen` 은 App 에 남는다 — 계약·e2e·렌더러가 읽는다.
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
-Object.assign(App.prototype, {
+class MobileController extends Controller {
+  constructor(app){
+    super(app);
+    this.nav=new MobileNav(app);
+    this.sheets=new MobileSheets(app);
+  }
+
   applyMobileMode(){
-    const mob=this.isMobile;
+    const mob=this.app.isMobile;
     const was=document.body.classList.contains('mobile');
     document.body.classList.toggle('mobile', mob);
     if(was!==mob){
-      this.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
-      if(this._edApplyWordWrap) this._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
+      this.app.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
+      if(this.app._edApplyWordWrap) this.app._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
       // REFACTOR3_FE_BASE_SRS FR-FEB-26: 모바일 진입·이탈은 두 탭 줄을 같은 길로 다시 잰다. 이전: 작업 패널은 닫혀 있으면 재지 않았다.
-      this.sbPanel().tabs.fit(); this.actPanel().tabs.fit();
+      this.app.sbPanel().tabs.fit(); this.app.actPanel().tabs.fit();
     }
     if(!mob){this.drawerSheet().close();document.body.classList.remove('keyboard-up')}
-  },
+  }
   /** 모바일 서랍 (REFACTOR3_FE_BASE_SRS FR-FEB-25). 필드·`body.drawer-open`·`#sidebar.open` 과 상단바를 `DrawerSheet` 가 함께 바꾼다. */
   drawerSheet(){
-    return this._drawer||(this._drawer=new DrawerSheet(this,{tabs:this.sbPanel?this.sbPanel().tabs:null,
-      onChange:()=>{if(this.renderer) this.renderer._rTopbar()}}));   // REFACTOR3_DEFECTS_SRS FR-RD3-80
-  },
+    return this._drawer||(this._drawer=new DrawerSheet(this.app,{tabs:this.app.sbPanel?this.app.sbPanel().tabs:null,
+      onChange:()=>{if(this.app.renderer) this.app.renderer._rTopbar()}}));   // REFACTOR3_DEFECTS_SRS FR-RD3-80
+  }
   _toggleDrawer(open){
     const d=this.drawerSheet();
-    if(!this.isMobile){ if(!d.close()) this.mobileChromeSync(); return }
+    if(!this.app.isMobile){ if(!d.close()) this.app.mobileChromeSync(); return }
     d.setOpen(open===undefined?!d.isOpen():open);
-  },
+  }
 
   /**
    * REPO_TAB_UNIFY_SRS FR-RTU-80: **모바일 순회의 첫 자리는 사이드다.**
@@ -39,26 +48,26 @@ Object.assign(App.prototype, {
    * 없으므로 종전과 한 글자도 다르지 않다.
    */
   mobileSideSlots(){
-    return (this.isMobile&&this.isEditorWin(this.aw()))?1:0;
-  },
+    return (this.app.isMobile&&this.app.isEditorWin(this.app.aw()))?1:0;
+  }
 
   // 지금 사이드 자리에 서 있는가. 그 자리에서는 본문의 pane 을 그리지 않는다.
   mobileOnSide(){
-    return this.mobileSideSlots()>0&&this.mPaneIdx===0;
-  },
+    return this.mobileSideSlots()>0&&this.app.mPaneIdx===0;
+  }
 
   _mobileCurrentPane(){
-    const s=this.aw(); if(!s||!s.layout) return null;
-    const regs=this.flattenPanes(s.layout);
+    const s=this.app.aw(); if(!s||!s.layout) return null;
+    const regs=this.app.flattenPanes(s.layout);
     if(!regs.length) return null;
     const off=this.mobileSideSlots();
     const n=regs.length+off;
-    if(this.mPaneIdx>=n) this.mPaneIdx=n-1;
-    if(this.mPaneIdx<0) this.mPaneIdx=0;
+    if(this.app.mPaneIdx>=n) this.app.mPaneIdx=n-1;
+    if(this.app.mPaneIdx<0) this.app.mPaneIdx=0;
     // 사이드 자리에는 pane 이 없다 — 부르는 쪽이 그 없음을 견딘다.
-    const i=this.mPaneIdx-off;
+    const i=this.app.mPaneIdx-off;
     return i>=0?regs[i]:null;
-  },
+  }
 
   /**
    * REPO_TAB_UNIFY_SRS FR-RTU-83 (2026-09-08 접수): **연 것은 보여야 한다.**
@@ -76,37 +85,37 @@ Object.assign(App.prototype, {
    * 바뀐 것이 있을 때만 `true` 이고, `opts.render` 면 그때만 다시 그린다.
    */
   mobileShowPane(rid,opts){
-    if(!rid||!this.isMobile) return false;
-    const s=this.aw(); if(!s||!s.layout) return false;
-    const i=this.flattenPanes(s.layout).findIndex(p=>p&&p.id===rid);
+    if(!rid||!this.app.isMobile) return false;
+    const s=this.app.aw(); if(!s||!s.layout) return false;
+    const i=this.app.flattenPanes(s.layout).findIndex(p=>p&&p.id===rid);
     if(i<0) return false;
     const idx=i+this.mobileSideSlots();
-    if(this.mPaneIdx===idx) return false;
-    this.mPaneIdx=idx;
-    if(opts&&opts.render) this.render();
+    if(this.app.mPaneIdx===idx) return false;
+    this.app.mPaneIdx=idx;
+    if(opts&&opts.render) this.app.render();
     return true;
-  },
+  }
 
   // FR-RTU-82: 계수는 **사이드를 포함한다** — pane 이 둘이면 `1/3` 이다.
   mobilePaneCount(){
-    const s=this.aw(); if(!s) return 0;
+    const s=this.app.aw(); if(!s) return 0;
     const off=this.mobileSideSlots();
     if(!s.layout) return off;
-    return this.flattenPanes(s.layout).length+off;
-  },
+    return this.app.flattenPanes(s.layout).length+off;
+  }
   navMobilePane(delta){
     const n=this.mobilePaneCount(); if(n<=1) return;
-    this.mPaneIdx = (this.mPaneIdx + delta + n) % n;
+    this.app.mPaneIdx = (this.app.mPaneIdx + delta + n) % n;
     const pn=this._mobileCurrentPane();
     // 사이드 자리에서는 포커스를 옮기지 않는다 — 사이드는 분할 트리 밖이라
     // 포커스의 대상이 아니고(FR-RTU-11), 옮기면 렌더의 포커스 동기화가 곧바로
     // 본문 자리로 되돌린다.
     if(pn){
-      this.setFocusState(pn.id);
-      this.save();
+      this.app.setFocusState(pn.id);
+      this.app.save();
     }
-    this.render();
-  },
+    this.app.render();
+  }
 
   // ── Mobile bindings ──
 
@@ -123,8 +132,8 @@ Object.assign(App.prototype, {
     // 검색, 편집기·diff 면 그 파일의 찾기 패널이다. 종전에는 늘 터미널 검색이라 편집기
     // 칸에서는 아무것도 찾지 않았다.
     if(srch) srch.addEventListener('click',()=>{
-      if(!this.focusedTerminal()&&(this._edActiveEditor()||this._edActiveDiff())){this._edFindInFile();return}
-      this.toggleSearch();
+      if(!this.app.focusedTerminal()&&(this.app._edActiveEditor()||this.app._edActiveDiff())){this.app._edFindInFile();return}
+      this.app.toggleSearch();
     });
     if(drwr) drwr.addEventListener('click',()=>this._toggleDrawer());
     if(bd) bd.addEventListener('click',()=>this._toggleDrawer(false));
@@ -140,18 +149,18 @@ Object.assign(App.prototype, {
       const acts=document.getElementById('sb-acts');
       if(acts) acts.appendChild(xb); else sb.insertBefore(xb, sb.firstChild);
       // MOBILE_UX_OVERHAUL_SRS FR-MUX-76: 서랍 머리의 Activity 단추(`#m-drawer-acts`, FUI-27)가 없다 —
-      // 상단바의 단추(`#m-act-btn`, app-mobile-nav.js)가 한 번에 연다. 같은 패널의 문은 하나다.
+      // 상단바의 단추(`#m-act-btn`, mobile-nav.js)가 한 번에 연다. 같은 패널의 문은 하나다.
     }
-    this._initMobileSheets();   // MOBILE_UX_OVERHAUL_SRS — app-mobile-sheets.js
+    this.sheets._initMobileSheets();   // MOBILE_UX_OVERHAUL_SRS — mobile-sheets.js
     // Auto-close drawer on window switch (mobile)
     // (handled in switchWindow via drawerOpen check)
     // Display 탭의 표시 모드·경계 폭은 `DisplaySection` 이 배선한다 (REFACTOR3_FE_SETTINGS_SRS D-FES-5).
-  },
+  }
 
   initMobileKeybar(){
     const bar=document.getElementById('mobile-keybar');
     if(!bar) return;
-    this.modKbd={ctrl:false,alt:false};
+    this.app.modKbd={ctrl:false,alt:false};
     this._mkbRender();
     // M9_SRS FR-M9-8 / D-M9-7: **가려진 키가 있다는 것을 보인다.**
     //
@@ -165,26 +174,26 @@ Object.assign(App.prototype, {
     // visualViewport tracking — keyboard up/down detection
     if(window.visualViewport){
       const vv=window.visualViewport;
-      const apply=()=>this._mobileVvApply();
+      const apply=()=>this.app._mobileVvApply();
       vv.addEventListener('resize', apply);
       vv.addEventListener('scroll', apply);
       apply();
     }
-  },
+  }
 
   // UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일은 상태바가 없다 — 연결은 창 이름 앞의 점, cwd 는 창 이름의 툴팁이다.
   // 상태바 갱신과 제목 칠하기(`_rPaintTitles` 가 `title` 을 덮는다)가 부른다.
   mTopPaint(){
-    if(!this.isMobile) return;
-    const ok=this._latency!==null&&this._latency!==undefined;
+    if(!this.app.isMobile) return;
+    const ok=this.app._latency!==null&&this.app._latency!==undefined;
     const dot=document.querySelector('#topbar .m-conn-dot');
     if(dot){
       dot.classList.toggle('ok',ok);dot.classList.toggle('err',!ok);
       dot.title=ok?'Connected':'Disconnected';dot.setAttribute('aria-label',dot.title);
     }
     const name=document.getElementById('window-name');
-    if(name) name.title=this._shortCwd(this.cwd||'~');
-  },
+    if(name) name.title=this.app._shortCwd(this.app.cwd||'~');
+  }
 
   // UX_AUDIT_FIX_SRS FR-UXF-93 (D-31): 키바는 설정 `keybar` 를 따른다. 설정이 바뀌면 다시 그리고(`_keybarApply`) sticky 표시를 다시 단다.
   _mkbRender(){
@@ -192,16 +201,16 @@ Object.assign(App.prototype, {
     if(!bar) return;
     bar.innerHTML='';
     for(const k of keybarResolve(keybarCfg)) bar.appendChild(this._mkbButton(k));
-  },
+  }
 
   // FR-MTI-15~17: sticky 수식은 TerminalTool 한 곳에서 읽는다 — 키바 경로와
   // 키보드 경로가 서로 다른 수식을 쓰면 어느 쪽도 신뢰할 수 없다.
   _mkbSend(s){
-    const p=this.focusedTerminal();
+    const p=this.app.focusedTerminal();
     if(!p) return;
     if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
     p._userInput(p._applyStickyMods(s));
-  },
+  }
 
   _mkbShowTip(text, btn){
     let tip=document.getElementById('mkb-tip');
@@ -210,9 +219,9 @@ Object.assign(App.prototype, {
     const r=btn.getBoundingClientRect();
     tip.style.left=(r.left+r.width/2)+'px';
     tip.style.top=(r.top-8)+'px';
-  },
+  }
 
-  _mkbHideTip(){const tip=document.getElementById('mkb-tip');if(tip)tip.remove()},
+  _mkbHideTip(){const tip=document.getElementById('mkb-tip');if(tip)tip.remove()}
 
   // 키 하나를 누른 효과. `st` 는 그 버튼의 두 번 탭 판정 상태다.
   _mkbActivate(k,st){
@@ -226,7 +235,7 @@ Object.assign(App.prototype, {
      * 쓰면 두 곳이 `inputmode` 의 진실을 다툰다.
      */
     if(k.act==='kb'){
-      const p=this.focusedTerminal();
+      const p=this.app.focusedTerminal();
       // 터미널이 아닌 것(편집기·git 입력)에 포커스가 있을 수 있다. 그쪽은
       // 이 규칙의 대상이 아니므로(FR-MKB-14) 종전대로 내리기만 한다.
       if(!p||!p._kbSuppressed){
@@ -240,7 +249,7 @@ Object.assign(App.prototype, {
     }
     // FR-MKB-10 / D-12: sticky 를 거치지 않는 날것의 바이트.
     if(k.raw!==undefined){
-      const p=this.focusedTerminal();
+      const p=this.app.focusedTerminal();
       if(!p) return;
       if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
       // UX_BATCH11_SRS FR-TCP-9: 선택이 있으면 `^C` 는 복사다 — 사용자 입력의 한 자리를 지난다.
@@ -251,14 +260,14 @@ Object.assign(App.prototype, {
       const now=Date.now();
       const dbl=(now-st.lastTap)<MKB_DOUBLE_TAP_MS;
       st.lastTap=now;
-      const cur=this.modKbd[k.mod];
-      if(dbl){this.modKbd[k.mod]=(cur==='lock')?false:'lock'}
-      else{this.modKbd[k.mod]=cur?false:true}
+      const cur=this.app.modKbd[k.mod];
+      if(dbl){this.app.modKbd[k.mod]=(cur==='lock')?false:'lock'}
+      else{this.app.modKbd[k.mod]=cur?false:true}
       this.mkbRefresh();
     }else{
       this._mkbSend(k.send);
     }
-  },
+  }
 
   // 버튼 하나를 세우고 터치·클릭을 배선한다. 판정 상태는 버튼마다 따로다.
   _mkbButton(k){
@@ -335,7 +344,7 @@ Object.assign(App.prototype, {
       activate();
     });
     return b;
-  },
+  }
 
   /**
    * FR-M9-8: 키바의 가려짐을 `data-overflow` 로 말한다 — `none`·`right`·`left`·`both`.
@@ -359,7 +368,7 @@ Object.assign(App.prototype, {
       this._mkbRO.observe(bar);
     }
     apply();
-  },
+  }
 
   // FR-MTI-12/20: 뷰포트 변화마다 fit 하면 PTY SIGWINCH 가 이벤트 수만큼 나가고
   // TUI 는 매번 프레임 전체를 다시 그린다 — 입력이 씹히는 원인이다. 프레임당
@@ -371,12 +380,12 @@ Object.assign(App.prototype, {
   // 수렴해 vv 경로가 스스로 비활성되므로, window resize 쪽도 반드시 묶여야 한다.
   _scheduleFit(){
     TIMERS.frame(()=>{
-      for(const p of this.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
+      for(const p of this.app.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
     },{owner:'app', coalesce:'fit'});
-  },
+  }
 
   // 이전 이름. 모바일 전용이 아니게 되었으므로 _scheduleFit 을 쓴다.
-  _scheduleMobileFit(){ this._scheduleFit() },
+  _scheduleMobileFit(){ this._scheduleFit() }
 
   _mobileVvApply(){
     const vv=window.visualViewport;
@@ -388,12 +397,12 @@ Object.assign(App.prototype, {
       const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--m-kb-h'));
       return isFinite(v)?v:38;
     };
-    if(!this.isMobile){
+    if(!this.app.isMobile){
       document.body.classList.remove('keyboard-up');
       document.body.style.paddingTop='';
       document.body.style.paddingBottom='';
       if(bar) bar.style.bottom='';
-      this._mKbH=null;this._mKbOff=null;
+      this.app._mKbH=null;this._mKbOff=null;
       this._scheduleFit();
       return;
     }
@@ -406,9 +415,9 @@ Object.assign(App.prototype, {
     const isUp=kbH > MOBILE_KB_UP_PX;
     // FR-MTI-13: 잡음 수준의 변화로는 레이아웃도 fit 도 건드리지 않는다.
     if(document.body.classList.contains('keyboard-up')===isUp
-       && typeof this._mKbH==='number' && Math.abs(kbH-this._mKbH)<MTI_KB_EPS_PX
+       && typeof this.app._mKbH==='number' && Math.abs(kbH-this.app._mKbH)<MTI_KB_EPS_PX
        && typeof this._mKbOff==='number' && Math.abs(off-this._mKbOff)<MTI_KB_EPS_PX) return;
-    this._mKbH=kbH;this._mKbOff=off;
+    this.app._mKbH=kbH;this._mKbOff=off;
     /**
      * FR-MKB-7 / D-11: **키보드가 내려가면 `inputmode` 를 되돌린다.**
      *
@@ -445,7 +454,7 @@ Object.assign(App.prototype, {
       document.body.style.paddingBottom = '';
     }
     this._scheduleFit();
-  },
+  }
 
   /**
    * FR-MKB-7: 열려 있는 터미널 전부의 `inputmode` 를 되돌린다.
@@ -454,13 +463,13 @@ Object.assign(App.prototype, {
    * 순간 키보드가 올라온다 — 속성은 요소마다이므로 대상도 요소 전부다.
    */
   _kbSuppressAll(){
-    for(const p of this.tools.values()) if(p._kbApply) p._kbApply();
+    for(const p of this.app.tools.values()) if(p._kbApply) p._kbApply();
     this.mkbRefresh();
-  },
+  }
 
   mkbRefresh(){
     document.querySelectorAll('#mobile-keybar .mkb-btn[data-mod]').forEach(b=>{
-      const m=b.dataset.mod, st=this.modKbd&&this.modKbd[m];
+      const m=b.dataset.mod, st=this.app.modKbd&&this.app.modKbd[m];
       b.classList.toggle('sticky', st===true);
       b.classList.toggle('locked', st==='lock');
     });
@@ -472,8 +481,13 @@ Object.assign(App.prototype, {
      */
     const kb=document.querySelector('#mobile-keybar .mkb-btn[data-act="kb"]');
     if(kb){
-      const p=this.focusedTerminal&&this.focusedTerminal();
+      const p=this.app.focusedTerminal&&this.app.focusedTerminal();
       kb.classList.toggle('sticky', !!(p&&p._kbSuppressed&&!p._kbSuppressed()));
     }
-  },
-});
+  }
+}
+
+// 바깥(부팅 표 `SETTINGS_INIT`·`main.js`·포커스·편집기·설정·상태바·`ui/`)과 계약이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'mobile',['applyMobileMode','_toggleDrawer','mobileSideSlots','mobileOnSide','mobileShowPane',
+  'mobilePaneCount','initMobile','initMobileKeybar','mTopPaint','_mkbRender','_scheduleFit','_scheduleMobileFit','_mobileVvApply',
+  '_kbSuppressAll','mkbRefresh']);

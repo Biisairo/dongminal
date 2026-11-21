@@ -166,7 +166,7 @@
            (sidebar-tabs.js). 여기 비워 두는 것이 "새 탭 = 서술자 1개" 를 지키는
            자리다 — 탭이 늘어도 이 파일을 다시 열지 않는다. -->
       <div id="sb-tabs" class="ui-panel-tabs"></div>
-      <!-- FR-PNT-3·12: 끝 단추. 모바일의 닫기(`#drawer-close`)를 app-mobile.js 가 여기 넣는다. -->
+      <!-- FR-PNT-3·12: 끝 단추. 모바일의 닫기(`#drawer-close`)를 mobile-controller.js 가 여기 넣는다. -->
       <div id="sb-acts" class="ui-panel-acts"></div>
     </div>
     <!-- UX_REVISION_SRS FR-BLP-5: 두 패널의 골격은 같다 — 액션 버튼 행이 먼저,
@@ -198,7 +198,7 @@
       <div id="repo-entries"></div>
       <div id="repo-root"></div>
     </div>
-    <!-- CHAT_WINDOW_SRS FR-CW-21: `채팅` 탭의 본문 — 새 그룹 대화 · 방 · 온라인. 그리기는 app-chat-window.js 다. -->
+    <!-- CHAT_WINDOW_SRS FR-CW-21: `채팅` 탭의 본문 — 새 그룹 대화 · 방 · 온라인. 그리기는 chat-window.js 다. -->
     <div class="sb-panel" id="sb-panel-chat" hidden>
       <div id="chat-list" class="chat-list ui-scroll"></div>
     </div>
@@ -220,7 +220,7 @@
   <div id="sb-handle" class="ui-resize-handle" title="Drag to resize — drag all the way in to collapse"></div>
   <div id="content">
     <div id="topbar">
-      <!-- UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일 연결 점. 칠하기는 app-mobile.js `mTopPaint` 다. -->
+      <!-- UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일 연결 점. 칠하기는 mobile-controller.js `mTopPaint` 다. -->
       <span class="m-conn-dot mobile-only" role="img" title="Disconnected" aria-label="Disconnected"></span>
       <span id="window-name"></span>
       <!-- SLOT_MARKER_SRS FR-SMK-1·2: 칸이 여럿이면 **이 자리는 빈다**
@@ -263,7 +263,7 @@
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" data-i18n-title="html.slot_add_title" data-i18n-shortcut="slotAdd" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </span>
       <!-- UX_BATCH12_SRS FR-ACF-7: Activity 단추(`#agents-toggle`)는 없다. 데스크톱은 패널의 레일이 그 길이다.
-           모바일은 ☰ 바로 앞의 `#m-act-btn` 이다 — 모바일에서 처음 필요할 때 app-mobile-nav.js 가
+           모바일은 ☰ 바로 앞의 `#m-act-btn` 이다 — 모바일에서 처음 필요할 때 mobile-nav.js 가
            만든다 (MOBILE_UX_OVERHAUL_SRS FR-MUX-74·76, 이전: 서랍의 `#m-drawer-acts`). -->
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg><span class="m-update-dot" hidden></span></button>
     </div>
@@ -1171,18 +1171,18 @@
 <script src="js/core/attn-center.js?v=__ASSETV__"></script>
 <!-- 한 컴퓨터에서 한 번 (ATTENTION_FIRING_SRS 묶음 D). `AttnController` 의 부품이다. -->
 <script src="js/core/attn-claim.js?v=__ASSETV__"></script>
-<script src="js/core/app-agents.js?v=__ASSETV__"></script>
-<script src="js/core/app-agents-sub.js?v=__ASSETV__"></script>
-<script src="js/core/app-activity.js?v=__ASSETV__"></script>
-<!-- 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64). `attn-controller.js`·`app-agents.js` 뒤 — prototype 확장이다. -->
+<script src="js/core/agents-controller.js?v=__ASSETV__"></script>
+<script src="js/core/agents-sub.js?v=__ASSETV__"></script>
+<script src="js/core/activity-list.js?v=__ASSETV__"></script>
+<!-- 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64). `attn-controller.js`·`agents-controller.js` 뒤 — prototype 확장이다. -->
 <script src="js/core/app-work.js?v=__ASSETV__"></script>
-<!-- 채팅 (PEER_CHAT_SRS §3.11). `app-activity.js` 뒤 — prototype 확장이다. -->
+<!-- 채팅 (PEER_CHAT_SRS §3.11). `ChatController` 와 그 부품 (REFACTOR3_FE_APPCTL_SRS 9c). `activity-list.js` 뒤. -->
 <script src="js/core/chat-store.js?v=__ASSETV__"></script>
-<script src="js/core/app-chat.js?v=__ASSETV__"></script>
-<script src="js/ui/chat-view.js?v=__ASSETV__"></script>
+<script src="js/core/chat-controller.js?v=__ASSETV__"></script>
+<script src="js/core/chat-views.js?v=__ASSETV__"></script>
 <script src="js/core/chat-human.js?v=__ASSETV__"></script>
-<!-- 채팅 창 (CHAT_WINDOW_SRS). `app-chat.js` 뒤 — prototype 확장이다. -->
-<script src="js/core/app-chat-window.js?v=__ASSETV__"></script>
+<!-- 채팅 창 (CHAT_WINDOW_SRS). `ChatController` 의 부품이다. -->
+<script src="js/core/chat-window.js?v=__ASSETV__"></script>
 <script src="js/core/claude-accounts-view.js?v=__ASSETV__"></script>
 <script src="js/core/claude-accounts-controller.js?v=__ASSETV__"></script>
 <script src="js/core/claude-maps.js?v=__ASSETV__"></script>
@@ -1211,9 +1211,9 @@
 <script src="js/core/lsp-paths.js?v=__ASSETV__"></script>
 <script src="js/core/app-edsearch.js?v=__ASSETV__"></script>
 <script src="js/core/app-search.js?v=__ASSETV__"></script>
-<script src="js/core/app-mobile.js?v=__ASSETV__"></script>
-<script src="js/core/app-mobile-sheets.js?v=__ASSETV__"></script>
-<script src="js/core/app-mobile-nav.js?v=__ASSETV__"></script>
+<script src="js/core/mobile-controller.js?v=__ASSETV__"></script>
+<script src="js/core/mobile-sheets.js?v=__ASSETV__"></script>
+<script src="js/core/mobile-nav.js?v=__ASSETV__"></script>
 <!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 settings-table.js
      **앞**이어야 한다 — `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
 <script src="js/core/poll-settings.js?v=__ASSETV__"></script>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, PANELS, load } from './harness.mjs';
+import { BASE, MOBILE, PANELS, controllers, load } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_BASE_SRS 단계 2 — 패널과 탭 줄.
@@ -120,7 +120,7 @@ function setup() {
     { key: 'bg', icon: 'terminal-bg', title: () => 'Background', tip: () => 'bg tip' },
     { key: 'runs', icon: 'workflow', title: () => 'Runs', tip: () => 'runs tip' },
   ];
-  const ctx = load([...BASE, ...PANELS, 'core/app-mobile.js'], {
+  const ctx = load([...BASE, ...PANELS, ...MOBILE], {
     expose: ['Panel', 'TabBar', 'SidebarTabBar', 'SidebarPanel', 'DrawerSheet', 'ActivityTabBar', 'ActivityPanel', 'EscapeStack'],
     globals: {
       document, UIKit, ResizeObserver: FakeRO, App: class {},
@@ -133,7 +133,7 @@ function setup() {
     },
   });
   /** 사이드바와 작업 패널 쪽을 함께 든 App 대역. */
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   Object.assign(app, {
     sbTab: 'a', sbBusy: false, isMobile: false, tools: new Map(), refreshes: 0, renders: 0,
     mobileChromeSync() {}, _actRefresh() { app.refreshes++ },

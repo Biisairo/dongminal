@@ -46,7 +46,7 @@ test('모든 키에 전체 이름이 있다', () => {
 });
 
 test('소스에 날 제어 문자가 없다', () => {
-  for (const f of ['core/constants.js', 'core/app-mobile.js']) {
+  for (const f of ['core/constants.js', 'core/mobile-controller.js']) {
     const lines = readFileSync(join(JS, f), 'utf8').split('\n');
     const bad = lines.map((l, i) => [i + 1, l]).filter(([, l]) => CTRL.test(l)).map(([n]) => n);
     assert.deepEqual(bad, [], f + ' 의 줄 ' + bad.join(','));

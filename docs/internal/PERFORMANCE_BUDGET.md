@@ -98,7 +98,7 @@
 | `web/js/core/app-edsearch.js` | `_edPanel` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 찾기 패널을 세울 때 한 번 |
 | `web/js/core/app-edsearch.js` | `_edPanelPaint` | `list` | 1 | 사용자 | 검색어가 비면 목록을 비운다 |
 | `web/js/core/app-edsearch.js` | `_edPanelQuery` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 사용자가 친 검색어 |
-| `web/js/core/app-mobile.js` | `_mkbRender` | `bar` | 1 | 사용자 | 키바 배선(`InputBinding.bind()` 에서 한 번)과 설정 `keybar` 가 바뀔 때 (UX_AUDIT_FIX_SRS FR-UXF-93) |
+| `web/js/core/mobile-controller.js` | `_mkbRender` | `bar` | 1 | 사용자 | 키바 배선(`InputBinding.bind()` 에서 한 번)과 설정 `keybar` 가 바뀔 때 (UX_AUDIT_FIX_SRS FR-UXF-93) |
 | `web/js/core/settings-presets.js` | `_renderPresets` | `el` | 1 | 사용자 | 프리셋 목록을 열 때 |
 | `web/js/core/settings-access.js` | `_loadAccessPanel` | `box` | 1 | 사용자 | 설정 탭 전환 |
 | `web/js/core/settings-access.js` | `_loadAccessPanel` | `hostBox` | 1 | 사용자 | 같은 자리 |

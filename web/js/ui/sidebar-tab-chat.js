@@ -1,6 +1,6 @@
 // 메인 패널의 `채팅` 탭 서술자 (CHAT_WINDOW_SRS FR-CW-20·22, 사용자 결정 D-7).
 //
-// 서술자만 둔다 — 그리기와 창 다루기는 `app-chat-window.js` 다. 이 파일은 `sidebar-tabs.js` **앞**에
+// 서술자만 둔다 — 그리기와 창 다루기는 `chat-window.js`(`ChatWindow`) 다. 이 파일은 `sidebar-tabs.js` **앞**에
 // 로드된다: 그 파일이 배열을 세우는 순간 직행 키(`Ctrl+Shift+Digit3`)를 파생하기 때문이다.
 
 const CHAT_TAB_ID='chat';
