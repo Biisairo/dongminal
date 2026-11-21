@@ -58,7 +58,7 @@
 | DM-16 | `shared/humancmd/humancmd.go:27` | 도우미 소켓이 절대 경로로 고정이다. 다른 소켓은 home 에서 파생한다 | 플랫폼 transport 에서 얻는다 | S |
 | GH-20 | `httpapi/handlers_fs_search.go:263` | rg JSON 줄 상한 `4<<20` 이 인라인이다 | 이름 있는 상수 | S |
 | FU-19 | `ui/open-url.js:74` | `min(520px,90vw)` 를 JS 문자열에 박았다 | CSS 클래스로 — **처리함 (R2, `324d7922`)**: 같은 꼴 9줄을 `ui-modal-sm·md·lg` 로, `KitModal` 의 `width` 삭제 | S |
-| FU-9 | `web/style.css:875-876` | Activity 레일 숨김 목록이 한 선택자에 클래스 28개다. 새 클래스를 빠뜨리면 레일에 글자가 샌다. 그 가운데 죽은 선택자가 섞였다(DOC-15) | 죽은 것을 걷고, 숨김 대상에 표식을 달거나 게이트로 대조한다 | M |
+| FU-9 | `web/style.css:875-876` | Activity 레일 숨김 목록이 한 선택자에 클래스 28개다. 새 클래스를 빠뜨리면 레일에 글자가 샌다. 그 가운데 죽은 선택자가 섞였다(DOC-15) | 죽은 것을 걷고, 숨김 대상에 표식을 달거나 게이트로 대조한다 — **처리함 (R4a, `3f3df12a`)**: `.ag-title`·`.ag-refresh` 를 걷고, 레일 숨김 목록(`[data-rail]` 의 `display:none`)의 클래스 25개를 JS·HTML 과 대조하는 시험 TC-FR4-5(`REFACTOR3_FE_REST4_SRS` D-FR4-9·10) | M |
 | FC-12 | `core/settings-theme.js`(옛 `app-settings-theme.js`) `_renderPreview` | 테마 미리보기의 인라인 `style` 27줄(px·색) | `.pv-*` 클래스로. FC-F1 과 함께 — **처리함 (R3b, `26bafe55`)**. 인라인 `style` 45곳 → 0. 골격은 팔레트 값이 섞이지 않는 고정 문자열(`THEME_PREVIEW_HTML`), 색은 `themePreviewVars` 의 `--pv-*` 변수. 계산된 스타일 그대로 | M |
 
 ### 2.2. 중복 로직 제거 (분류 2)
@@ -86,7 +86,7 @@
 | FC-11 | `core/app-settings-claude.js:12-17` ↔ `claudeacct/autoswitch.go:73-78` | 자동 전환 범위가 JS·Go 두 벌, 대조 게이트 없음 | PROD2 §7a ② — 서버가 원천 — **처리함 (R1, `a51da4bb`)**: autoswitch 응답의 `ranges`. 계정 행 칸은 남음 | M |
 | FC-13·14 | `#settings-btn` click 리스너 3개 · document Escape 처리기 4곳 | 실행 순서에 기댄다(주석으로만) | 열기 함수 하나 · `ui-kit` Escape 스택 — **처리함** (§7.1 P3a 6, `REFACTOR3_FE_ESC_SRS`) | S~M |
 | FU-1 | `app-activity.js:165` `actEl`·`app-chat.js:22` `chatEl`·`runs-panel.js:59·88` 외 7곳 | DOM 생성 헬퍼 10개. SVG 둘(`runSvg`·`meshSvg`)은 본문이 같다 | `core/helpers.js` 에 `domEl`·`svgEl` (계층 규칙상 ui-kit 이 아니라 core) — **처리함** (§7.1 P3a 0~2) | S |
-| FU-18 | `style-runs.css:253` ↔ `style.css:2176` | `.bg-row` 두 파일 분산 | 한 파일로 | S |
+| FU-18 | `style-runs.css:253` ↔ `style.css:2176` | `.bg-row` 두 파일 분산 | 한 파일로 — **처리함 (R4a, `fb874af4`)**: 바탕 규칙을 `style-runs.css` 의 bg-kill 절 앞으로. 계산된 스타일 그대로 | S |
 
 ### 2.3. 상수 분리 (분류 3)
 
@@ -123,7 +123,7 @@
 | FU-12 | `git/remote.js` `GitRemote` | 약 680줄 클래스 | 실행·스트림 / 표시 — **파일 분할은 처리함** (P3a 5: `remote-list`·`remote-add`·`remote-opts`). `GitRemote` 안 나누기는 **처리함 (R3b, `ccb4da87`)** — 칠하기는 `GitRemoteView`(`remote-view.js`), `remote.js` 704 → 482줄 | M · M |
 | FU-13 | `ui/ui-kit.js` `UIKit` | 930줄 | modal·menu·drag·HUD 내부 모듈 — **modal·menu 처리함** (P3a 3·6, 930 → 695줄). drag·HUD 도 **처리함 (R3b, `ed802920`)** — `SizeDrag`(`size-drag.js`)·`SizeHud`(`size-hud.js`), `ui-kit.js` 685 → 582줄 | M · M |
 | FU-14·15·16 | `lanes.js` `buildLaneGraph` ~180 · `git-changes.js`(옛 `panel-changes`) `_buildChanges` 126 · `git-change-rows.js` `_rowEl` 108 · `git-poll.js`(옛 `panel-poll`) `_applyStatus` 120 · 100줄 안팎 6곳 | 분류(순수)와 그리기 — **처리함 (R3b, `b40a3086` FU-14 · `47a00334` FU-15·16)**. 넷 다 순수 판정과 단계로(코드 121 → 5 · 73 → 22 · 60 → 28 · 32 → 9). 100줄 안팎 나머지 넷(`version-watch` 익명 · `_makeTab` · `file-tree` constructor · `_renderThemePanel`)은 **남김** — 고정 시험부터 세워야 한다(`REFACTOR3_FE_REST3_SRS` D-FR3-14) | M · M |
-| FU-11 | `web/style.css` 2,492줄 | CSS 는 크기 게이트가 없다(`check-file-size` 가 `web/js` 만) | 기준선 + 영역별 분할 | M · L |
+| FU-11 | `web/style.css` 2,492줄 | CSS 는 크기 게이트가 없다(`check-file-size` 가 `web/js` 만) | 기준선 + 영역별 분할 — **처리함 (R4a, `8e87010d`)**: `check-file-size.mjs` 가 `web/*.css` 도 잰다(`CSS 500줄초과=4 · 최대=824`). `style.css` 2,539줄을 원래 순서의 연속 구간 여덟(268~385줄)으로, `<link>` 순서가 캐스케이드를 지킨다. 계산된 스타일 그대로 | M · L |
 | GH-13·14 | 80줄 넘는 함수 14개(표본; `apiRunSucceed` 131·`handleCommandSSE` 131·`handleCommandPost` 121·`apiGitStatus` 113) · `handlers_files.go` 749·`access.go` 744·`toolclient/client.go` 685 | 파싱·판정·렌더 / 주제별 파일 | M · M |
 | GD-13~16·18 | `query/diff.go` 632 · `write/branch.go` 589 · `hub/gitwatch.go` 877 · `attn_tracker.go` 548 · `autoswitch.decide` 79줄 | 파일 분할(동작 불변) | M · M |
 | DM-18 | `shared/platform/procinfo.go` 627 | 빌드 태그 없이 darwin·linux 가 한 파일 | 플랫폼별 파일 | M · L |
@@ -134,7 +134,7 @@
 | ID | 자리 | 현상 | 제안 | 규모 |
 |---|---|---|---|---|
 | GH-15 | `httpapi/server.go:82-228` `Server` | 필드 44개, 잠금 5개. `settingsMu` 하나가 access 와 sandbox 를 함께 잠근다 | 도메인별 하위 구조체와 각자의 잠금 | L · 위험 H |
-| FU-8 | `style-panel.css`·`style.css` | 레일 상태 선택자 `:is(html.sb-collapsed body:not(.mobile) #sidebar, …)` 반복(style.css 14 · style-panel.css 6) | `data-rail` 속성 하나 | M |
+| FU-8 | `style-panel.css`·`style.css` | 레일 상태 선택자 `:is(html.sb-collapsed body:not(.mobile) #sidebar, …)` 반복(style.css 14 · style-panel.css 6) | `data-rail` 속성 하나 — **처리함 (R4a, `abb8a5df`)**: 패널 루트의 `data-rail`, `Panel.railSync` 한 자리가 세운다(열림·`body.mobile`·부팅 복원). 첫 프레임은 `index.html`. 선택자 22곳(style-panel.css 는 실제 8). 계산된 스타일 그대로 | M |
 
 ### 2.7. 비슷한 로직을 하나의 클래스로 (분류 7)
 
@@ -227,7 +227,7 @@
 - 뒤 SRS·결정이 앞 FR 을 뒤집어도 앞 문서에 표시가 남지 않는다(DOC-1·9).
 - `features.md` 본문과 `CHANGELOG` 의 자기 모순을 보는 검사가 없다(DOC-10~12).
 - 코드 주석의 `파일:줄`·함수 이름 참조를 보는 검사가 없다(DOC-13·14).
-- CSS 파일 크기 기준선이 없다(FU-11).
+- CSS 파일 크기 기준선이 없다(FU-11). — **처리함 (R4a, `8e87010d`)**: `check-file-size.mjs` 가 CSS 도 기준선(`FE_MODULE_BOUNDARY_SRS` §7.1a)과 견준다.
 
 ---
 
@@ -297,6 +297,7 @@
 | R2 | `903526b9`·`7cfe190b`·`49136bd7`·`854590b2`·`7cd0bb29`·`b3fe9935`·`324d7922`…(이 커밋) | `REFACTOR3_FE_REST2_SRS` — 동작 불변. FC-06·08 빌더 분리 · FC-10 상수 파일의 함수 9개(새 `core/server-meta.js`) · FC-15 한 번 훑기 · FC-16 `_bgPanelOpen` · `UIKit.tabsFitWatch` 삭제 · FC-18 198자 넘는 줄 17 · FC-19·20·22 `MS_PER_SEC`·주기 상수·`TIP_*` 열일곱 · FU-19 모달 폭 클래스. 남긴 것: `cm-lsp` `unsubscribe`(라이브러리가 부른다) · `CLAUDE_ACCT_POLL_MS` · 서술자 표·`diag.js` 툴팁 · 150~198자 줄 |
 | R3a | `af16d851`·`0d4af0dc`·`94d73ccd`·`18aa0a35`…(이 커밋) | `REFACTOR3_FE_REST3_SRS` — 동작 불변. FC-07·09: 나누기 전에 적용기·저장의 순서·충돌 26가지를 단위 시험으로 고정(처음부터 GREEN)한 뒤, 적용기 `_applyRemoteWorkspace` 를 순수 판정 넷(`wsLiveTools`·`wsPinsKey`·`wsViewOf`·`wsViewRestore`, 크기 게이트 때문에 `layout-tree.js`)과 단계 메서드 다섯으로, `save`·`_saveAdoptRemote` 를 순수 판정 넷(`wsSaveBody`·`wsSaveSame`·`wsGitAdopt`·`wsSaveHoldMs`)과 `_savePut`·`_adoptRemote`·`_saveBackoff` 로 나눴다. 위임자는 더하지 않았다. 남은 것: R3b(FC-05 `delWindow` · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) — 같은 SRS 에 이어 쓴다 |
 | R3b | `7a0390a1`·`61f2e97b`·`4a418d40`·`26bafe55`·`ccb4da87`·`ed802920`·`b40a3086`·`47a00334`…(이 커밋) | `REFACTOR3_FE_REST3_SRS` — 동작 불변. FC-05 `delWindow` 를 고정 시험 뒤 단계 넷으로 · FC-12 테마 미리보기 인라인 `style` 45곳 → `.pv-*` 규칙과 `--pv-*` 변수(계산된 스타일 비교로 확인) · FU-12 `GitRemote` 에서 칠하기를 `GitRemoteView` 로(500줄 초과 12 → 11) · FU-13 킷의 끌기·HUD 를 `SizeDrag`·`SizeHud` 로 · FU-14·15·16 `buildLaneGraph`·`_buildChanges`·`_rowEl`·`_applyStatus` 를 순수 판정과 단계로. 남긴 것: 100줄 안팎 함수 넷 |
+| R4a | `0cd6527c`·`fb874af4`·`abb8a5df`·`3f3df12a`·`8e87010d`…(이 커밋) | `REFACTOR3_FE_REST4_SRS` — 화면 불변. FU-18 `.bg-row` 바탕 규칙을 `style-runs.css` 로 · FU-8 레일 상태를 패널 루트의 `data-rail` 표식 하나로(`Panel.railSync`, 첫 프레임은 `index.html`, 특이도 대조로 루트 둘·탭 배지 하나를 맞춤) · FU-9 죽은 클래스 둘을 걷고 숨김 목록 대조 시험 · FU-11 CSS 크기 게이트와 `style.css` 를 연속 구간 여덟으로. 화면 34개의 계산된 스타일 해시를 HEAD 와 견주어 차이 0(글자 폭 흔들림 2요소 제외). 남은 것: R4b FU-10 간격 토큰 |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---

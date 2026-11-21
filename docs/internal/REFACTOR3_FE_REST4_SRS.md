@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R4 — CSS — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: R4a 구현(FU-18 · FU-8 · FU-9 · FU-11)과 R4b(FU-10 간격 토큰, §2.5). R4b 는 다음 에이전트가 §2.5·§3·§4 에 이어 쓴다.
+> **남은 것**: R4b(FU-10 간격 토큰, §2.5). R4a(FU-18 · FU-8 · FU-9 · FU-11)는 끝났다(§6). R4b 는 다음 에이전트가 §2.5·§3·§4 에 이어 쓴다.
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `refactor/PROD3.md` §2.1 FU-9 · §2.2 FU-18 · §2.3 FU-10 · §2.5 FU-11 · §2.6 FU-8 · §4.3 CSS 크기 줄, §7.1 「P3 FE 나머지 — 정리」 의 하위 묶음 R4)
 - 사용자 결정: 진행은 묻지 않고 끝까지 한다(`REFACTOR_PROD3_HANDOFF_2.md` §8). 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다. 범위를 줄이거나 동작을 바꿔야 하면 멈추고 묻는다.
@@ -74,7 +74,7 @@ R4 는 CSS 를 정리한다. R4a 는 화면을 한 픽셀도 바꾸지 않는다
 
 | ID | 요구 |
 |---|---|
-| FR-FR4-9 | Activity 레일 숨김 목록에서 `.ag-title`·`.ag-refresh` 를 지운다. `style.css` 의 낡은 주석(`.ag-title` 은 없다)도 정리한다 |
+| FR-FR4-9 | Activity 레일 숨김 목록에서 `.ag-title`·`.ag-refresh` 를 지운다. 머리 절의 주석("제목 `.ag-title` 은 없다")은 사실이므로 둔다 |
 | FR-FR4-10 | 단위 시험(D-FR4-10): 레일 숨김 목록(§1.2)의 선택자에서 클래스 이름을 모두 뽑아, 각각이 `web/js`(test 제외)·`web/index.html` 에 실제로 나오는지 본다. 없는 이름이 있으면 실패한다. 목록이 비면(선택자 꼴이 바뀌어 아무것도 못 읽으면) 실패한다 — 공회전하지 않는다 |
 
 ### 2.4 FU-11 — CSS 크기 게이트와 `style.css` 나누기
@@ -83,7 +83,7 @@ R4 는 CSS 를 정리한다. R4a 는 화면을 한 픽셀도 바꾸지 않는다
 |---|---|
 | FR-FR4-11 | `scripts/check-file-size.mjs` 가 `web/*.css`(vendor 제외)도 잰다. 지표는 JS 와 같은 둘 — 500줄 초과 파일 수와 최대 줄 수. 기준선은 `FE_MODULE_BOUNDARY_SRS` §7.1a 의 `CSS 500줄초과=N · 최대=M` 줄이 갖는다. 나빠지면 실패, 좋아지면 통과하고 갱신을 안내한다. JS 기준선 줄을 읽는 식은 CSS 줄과 섞이지 않는다. `make gates` 의 「모듈 크기」 단계가 이것을 돈다 |
 | FR-FR4-12 | `style.css` 를 원래 순서의 연속 구간으로 나눈다. 각 파일은 500줄 이하다. 첫 구간(토큰 `:root`·`[hidden]`·바탕)은 `style.css` 이름을 지킨다. 나머지 구간은 영역 이름의 새 파일이고, `index.html` 에서 `style.css` 바로 뒤에 원래 순서대로 실린다. 파일 하나를 이어 붙이면 나누기 전의 `style.css` 와 바이트까지 같다(구간 머리 주석 한 줄씩은 뺀다) |
-| FR-FR4-13 | CSS 파일 이름을 아는 자리를 함께 맞춘다 — `index.html` 의 `<link>` 순서, 이름으로 `style.css` 를 읽는 시험·게이트(`theme-preview`·`ux-scale`·`activity-tabs`·`text-dim` 시험 · `check-contrast`·`check-visibility`), `css-structure.test.mjs` 의 순서 검사. `web/embed.go` 는 `*.css` 를 싣고 서비스 워커·캐시 목록은 없다(확인만). 기준선은 나눈 뒤의 값이다 |
+| FR-FR4-13 | CSS 파일 이름을 아는 자리를 함께 맞춘다 — `index.html` 의 `<link>` 순서, 이름으로 `style.css` 를 읽는 시험·게이트(`theme-preview`·`ux-scale`·`activity-tabs`·`text-dim` 시험 · `check-contrast`·`check-visibility`), `css-structure.test.mjs` 의 순서 검사, `check-visibility.sh` 의 `style.css` 예외(나누기 전의 `style.css` 전체였으므로 조각 모두에 선다), 옮긴 규칙을 `style.css` 로 가리키던 코드 주석과 `architecture.md` 한 줄. `style.css` 머리 주석의 "여기 사는 것" 목록은 조각 목록으로 고친다. `web/embed.go` 는 `*.css` 를 싣고 서비스 워커·캐시 목록은 없다(확인만). 기준선은 나눈 뒤의 값이다 |
 
 ### 2.5 FU-10 — 간격 토큰 (R4b)
 
@@ -129,4 +129,25 @@ R4b 가 이어 쓴다. 착수 메모는 §6 끝에 있다.
 
 | 커밋 | 요점 |
 |---|---|
-| (이 커밋) | 이 SRS |
+| `0cd6527c` | 이 SRS |
+| `fb874af4` | FU-18 — `.bg-row`·`.bg-row:hover`·`.bg-name`·`.bg-cwd` 와 결정 주석을 `style.css` 에서 `style-runs.css` 의 bg-kill 절 앞으로. 사이 구간에 같은 요소를 고르는 규칙이 없다(`*` 는 움직임 줄이기의 `animation`·`transition` 뿐). 시험 `css-structure.test.mjs` TC-FR4-2(옛 코드에서 RED) |
+| `abb8a5df` | FU-8 — `Panel` 의 `rail` 선택·`railSync()`, `SidebarPanel`·`ActivityPanel` 은 `rail:true`. 부르는 곳은 `Panel.setOpen` · `MobileController.applyMobileMode` · `InputBinding` 의 부팅 복원. 첫 프레임: `#agents-panel` 의 정적 `data-rail`, `#sidebar` 여는 태그 뒤의 인라인 스크립트. CSS 선택자 22곳(`style.css` 14 · `style-panel.css` 8)을 표식으로. `LayoutController.sbRail` 주석. 시험 `panel-tabbar.test.mjs` TC-FR4-3 셋 · `css-structure.test.mjs` TC-FR4-4(옛 코드에서 RED). 대역 둘(`activity-runs-refresh`·`activity-tabs`)을 표식에 맞췄다 |
+| `3f3df12a` | FU-9 — 숨김 목록에서 `.ag-title`·`.ag-refresh` 를 걷었다. 시험 `css-structure.test.mjs` TC-FR4-5 — `[data-rail]` 규칙 가운데 `display:none` 인 것의 표식 뒤 클래스 25개를 `web/js`(test 제외)·`index.html` 과 대조한다. 옛 목록에서 RED |
+| `8e87010d` | FU-11 — `check-file-size.mjs` 가 `web/*.css` 도 잰다(기준선 `FE_MODULE_BOUNDARY_SRS` §7.1a `CSS 500줄초과=4 · 최대=824`). `style.css`(2,539줄) → `style.css` 268 · `style-main-panel` 289 · `style-workspace` 298 · `style-activity` 364 · `style-modal` 385 · `style-status` 272 · `style-mobile` 330 · `style-system` 343. 조각의 첫 줄(머리 주석)을 빼고 이어 붙이면 나누기 전과 바이트까지 같다(`style.css` 머리 주석의 목록만 고쳤다). `index.html` 의 `<link>` 일곱, `check-visibility.sh` 의 예외, 시험 셋(`activity-tabs`·`theme-preview` 이 읽는 파일, TC-FR4-7), 코드 주석 다섯·`architecture.md` 한 줄 |
+
+**화면 불변 확인(TC-FR4-1).** 임시 e2e `e2e/zz-tmp-r4a-styles.spec.ts`(명령마다 복사해 돌리고 같은 명령에서 지웠다)가 화면 34개에서 모든 요소(`body` 아래, `.xterm` 안쪽·`<script>` 제외, 요소당 `::before`·`::after` 포함)의 계산된 스타일 전체(사용자 정의 속성 포함, 속성 이름순)를 해시로 남긴다. 움직임 줄이기(`reducedMotion: reduce`)로 애니메이션을 멈췄다. HEAD(`2cc9e4b3`)에서 두 번 돌려 기준을 만들었고 둘의 차이는 4요소(모바일 Runs 시트·모바일 설정 화면의 Runs 행 `.runs-ago` 와 옆 단추 — 몇 분 전 글자 폭)였다. 결과: FU-18 0 · FU-8 0 · FU-9 4(같은 `.runs-ago` 와 옆 단추, 펼친 Runs 목록 — 레일 숨김 목록과 무관한 글자 폭 흔들림) · FU-11 0.
+
+FU-8 은 특이도 대조도 했다. 옛·새 선택자의 특이도와 같은 요소·같은 속성을 다투는 모든 규칙(요소의 클래스 조합은 34개 화면에서 모은 실제 DOM 으로 판정)을 견주어 이긴 쪽이 바뀌는 자리를 찾았다. 바뀌는 셋을 고쳤다 — 두 루트(`body:not(.mobile) #sidebar`·`#agents-panel` 의 폭 `(1,1,1)` 을 덮어야 하므로 `#sidebar.ui-panel[data-rail]`·`#agents-panel.ui-panel[data-rail]`)와 사이드바 탭 배지(`style-sidebar.css` 의 창 탭 배지 `position` 이 이겨 왔으므로 `.ui-panel[data-rail] .sb-tab-badge`). 남은 둘은 조상 문맥이 다른 거짓 양성이다(`#sb-bottom>button`·`#sb-panel-windows .sb-actions>button` 대 `.ui-panel-tab`).
+
+**SRS 와 다르게 한 것.**
+
+1. FR-FR4-9 의 "낡은 주석 정리" — 머리 절 주석("제목 `.ag-title` 은 없다")은 사실이라 두었다. 요구를 그에 맞게 고쳤다.
+2. FR-FR4-13 — 이름을 아는 자리가 둘 더 있었다. `check-visibility.sh` 는 `style.css` 전체를 `[hidden]` 되살림의 예외로 두고 있었으므로 조각 모두로 넓혔다(예외 범위는 그대로). 옮긴 규칙을 `style.css` 로 가리키던 코드 주석 다섯과 `architecture.md` 한 줄을 고쳤다.
+
+**시험 결과.** 단위 1469 통과. `make gates`·`typecheck` 통과. eslint 는 main 트리에서 원래 2건(`theme-vars.js:86` · `claude-accounts-foot.test.mjs:728`)뿐이다 — 도중에 다른 세션의 잠긴 작업 트리 `.claude/worktrees/agent-a660b0eacc2abadec` 가 생겨 같은 두 건이 한 번 더 세어진다. e2e 는 이슈마다 `grep -rl` 로 고른 spec 을 돌렸다 — FU-18 6 spec 56 통과 · FU-8 37 spec 426 통과, 실패 3(`kit-components` TC-CMP-19 · `sidebar-actions` TC-SBA-1 · `ui-kit-icons` V-GAP-1, 셋 다 원래 실패), 흔들림 1(`activity-rail` TC-ACF-1) · FU-9 4 spec 50 통과 · FU-11 46 spec 511 통과, 실패 3(위의 원래 실패 셋), 흔들림 2(`activity-rail` TC-ACF-1 · `claude-accounts` TC-CAC-27 — 뒤의 것은 단독 2회 반복에서 2/2 통과). 원래 실패·흔들림은 `REFACTOR_PROD3_HANDOFF_4.md` §4 목록에 있다.
+
+**남긴 것.** R4b(FU-10). `style.css` 밖의 500줄 넘는 CSS 넷(D-FR4-14). 연속 구간이라 조각의 이름은 영역의 대강이다 — `style-workspace.css` 끝에 사이드바 행의 알람 규칙(`.sbl-item.attn …`) 몇 줄이 남았다(옮기면 순서가 바뀐다).
+
+**R4b 착수 메모 (FU-10 간격 토큰).** 실측(R4a 뒤, `web/*.css` 주석 제외, 정규식 근사): `gap`·`row-gap`·`column-gap`·`padding*`·`margin*` 의 px 리터럴 **878개**(선언 664개). 속성별 padding 497 · gap 227 · margin 148 · row-gap 6. 값별 8px 177 · 6px 169 · 4px 152 · 10px 90 · 2px 62 · 12px 51 · 3px 51 · 14px 25 · 5px 24 · 16px 12, 음수(-8·-4·-10) 17. `gap` 만 보면 6px 69 · 8px 66 · 4px 45 · 2px 18 · 10px 10 · 3px 9. 파일별 코어 조각 합 433 · `style-git-views` 147 · `style-git` 101 · `style-editor` 80 · `style-runs` 47 · `style-kit` 43.
+- 토큰 단 후보: 2·4·6·8 이 네 단(합 560, 64%)이고 10·12 를 더하면 여섯 단(77%). 3·5·7·14 는 근거가 주석에 있는 것이 많다(예: 레일 `.sbl-item` 의 `padding:0 3px` — "점과 글자가 40px 안에"). 리터럴로 두고 예외 표에 적는 편이 낫다.
+- 위험: ① 킷 게이트(`check-kit-components.mjs`)가 킷 값을 밖에서 덮는지 본다 — 토큰 치환이 킷 규칙의 문자열을 바꾸면 그 대조를 함께 맞춰야 한다. ② `calc()` 안의 px(코어 36·킷 33·기타)와 단축형 섞임(`padding:0 3px` 같은 2값 이상 164선언)은 기계 치환이 틀리기 쉽다. ③ 터치 하한·`--row` 와 얽힌 값(44px 등)은 간격이 아니다. ④ 화면 불변 확인은 이 SRS 의 방식을 쓰되, `:root` 에 새 `--sp-*` 가 생기면 모든 요소의 계산된 스타일(상속된 사용자 정의 속성)이 달라지므로 비교에서 `--sp-*` 를 빼야 한다. ⑤ 게이트는 `check-radius.mjs`·`check-font-size.mjs` 꼴(리터럴이 남았는지 + 예외 표)을 따른다.
