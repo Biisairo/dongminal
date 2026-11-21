@@ -12,7 +12,7 @@ import { load, plain } from './harness.mjs';
  *
  * 커밋 목록은 위가 최신이다 (`git log` 순서). 부모는 언제나 아래에 있다.
  */
-const ctx = load(['git/lanes.js']);
+const ctx = load(['git/lanes.js'], { expose: ['LaneWalk'] });
 const { buildLaneGraph, clampLanes } = ctx;
 
 /** `A → B → C` 한 줄. */
@@ -139,4 +139,23 @@ test('clamp: 접힌 뒤 중복 선이 사라지고 오름차순으로 선다', (
     const cols = r.parentLanes.map(s => s.col);
     assert.deepEqual(plain(cols), [...cols].sort((a, b) => a - b), r.hash + ' 의 부모 선이 정렬되지 않았다');
   }
+});
+
+// REFACTOR3_FE_REST3_SRS FR-FR3-17 (FU-14, TC-FR3-38): 나눈 조각 — 부모 행 · 걸음 · 행 조립.
+test('TC-FR3-38: laneParentRows — 창 밖·자기 위·자기 자신의 부모는 n(목록 아래)이다', () => {
+  const rows = plain(ctx.laneParentRows([
+    { hash: 'A', parents: ['C', 'gone'] },
+    { hash: 'B', parents: ['A', 'B'] },
+    { hash: 'C' },
+  ]));
+  assert.deepEqual(rows, [[2, 3], [3, 3], []]);
+});
+
+test('TC-FR3-38: buildLaneGraph 는 LaneWalk 의 걸음을 laneRows 로 조립한 것과 같다', () => {
+  for (const g of [LINEAR, MERGE]) {
+    const walk = new ctx.LaneWalk(ctx.laneParentRows(g));
+    walk.run();
+    assert.deepEqual(plain(ctx.laneRows(g, walk)), plain(buildLaneGraph(g)));
+  }
+  assert.deepEqual(plain(buildLaneGraph([])), { rows: [], maxLanes: 0 });
 });

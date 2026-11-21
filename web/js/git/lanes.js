@@ -39,34 +39,62 @@
  */
 
 // commits: [{hash, parents:[hash]}] → {rows:[…], maxLanes}
+// REFACTOR3_FE_REST3_SRS FR-FR3-17 (FU-14): 부모 행 → 걸음(R1~R4) → 행 조립.
 function buildLaneGraph(commits){
-  const n=commits.length;
-  if(!n) return {rows:[],maxLanes:0};
+  if(!commits.length) return {rows:[],maxLanes:0};
+  const walk=new LaneWalk(laneParentRows(commits));
+  walk.run();
+  return laneRows(commits,walk);
+}
 
+/**
+ * 부모를 행 번호로 바꾼다. 로드된 창 밖의 부모는 **n**(목록 아래)이다 — 그쪽으로
+ * 가는 선은 목록 끝까지 내려가고 거기서 멈춘다. 자기보다 위에 있는 부모도 n 으로
+ * 둔다: 위상 정렬이 깨진 입력에서 걸음이 되돌아 돌지 않게 하는 바닥이다.
+ * @param {{hash:string,parents?:string[]}[]} commits
+ * @returns {number[][]}
+ */
+function laneParentRows(commits){
+  const n=commits.length;
   const rowOf=new Map();
   for(let i=0;i<n;i++) rowOf.set(commits[i].hash,i);
-  /**
-   * 부모를 행 번호로 바꾼다. 로드된 창 밖의 부모는 **n**(목록 아래)이다 — 그쪽으로
-   * 가는 선은 목록 끝까지 내려가고 거기서 멈춘다. 자기보다 위에 있는 부모도 n 으로
-   * 둔다: 위상 정렬이 깨진 입력에서 걸음이 되돌아 돌지 않게 하는 바닥이다.
-   */
-  const parentRows=commits.map((c,i)=>(c.parents||[]).map(h=>{
+  return commits.map((c,i)=>(c.parents||[]).map(h=>{
     const r=rowOf.has(h)?rowOf.get(h):n;
     return (r>i&&r<n)?r:n;
   }));
+}
 
-  const branchOf=new Array(n).fill(-1);   // 커밋 → 갈래 id
-  const dotCol=new Array(n).fill(0);      // 커밋 점의 열 (R2: 한 번 정하면 고정)
-  const isNewHead=new Array(n).fill(false);
-  const done=new Array(n).fill(0);        // 처리한 부모 수
-  const branchColor=[];                   // 갈래 id → 색 키
-  const colorEnd=[];                      // 색 키 → 그 색을 쓰던 갈래가 끝난 행
-
-  // 행마다 "다음 빈 열"과 이미 나간 자리. n 번째는 목록 아래의 가상 경계다.
-  const nextX=new Array(n+1).fill(0);
-  const taken=[]; for(let r=0;r<=n;r++) taken.push(new Map());
-  // gaps[r] = 행 r 과 r+1 사이를 지나는 선들
-  const gaps=[]; for(let r=0;r<=n;r++) gaps.push([]);
+/**
+ * 걸음 하나의 상태와 R1~R4 의 동작 (Git Graph 의 `determinePaths`·`determinePath`).
+ * 행 n 은 목록 아래의 가상 경계다.
+ */
+class LaneWalk {
+  /** @param {number[][]} parentRows */
+  constructor(parentRows){
+    const n=parentRows.length;
+    this.n=n;
+    this.parentRows=parentRows;
+    /** @type {number[]} 커밋 → 갈래 id */
+    this.branchOf=new Array(n).fill(-1);
+    /** @type {number[]} 커밋 점의 열 (R2: 한 번 정하면 고정) */
+    this.dotCol=new Array(n).fill(0);
+    /** @type {boolean[]} */
+    this.isNewHead=new Array(n).fill(false);
+    /** @type {number[]} 처리한 부모 수 */
+    this.done=new Array(n).fill(0);
+    /** @type {number[]} 갈래 id → 색 키 */
+    this.branchColor=[];
+    /** @type {number[]} 색 키 → 그 색을 쓰던 갈래가 끝난 행 */
+    this.colorEnd=[];
+    // 행마다 "다음 빈 열"과 이미 나간 자리.
+    /** @type {number[]} */
+    this.nextX=new Array(n+1).fill(0);
+    /** @type {Map<string,number>[]} */
+    this.taken=[]; for(let r=0;r<=n;r++) this.taken.push(new Map());
+    // gaps[r] = 행 r 과 r+1 사이를 지나는 선들
+    /** @type {{top:number,bottom:number,color:number}[][]} */
+    this.gaps=[]; for(let r=0;r<=n;r++) this.gaps.push([]);
+  }
 
   /**
    * R1: 행 r 에서 열 하나를 집는다.
@@ -74,65 +102,71 @@ function buildLaneGraph(commits){
    * 자리는 **(향하는 부모, 갈래)** 로 구분한다 — 같은 부모를 향하는 같은 갈래의 선은
    * 한 행에서 자리를 하나만 쓴다. 그래서 여러 머지가 같은 부모로 갈 때 선이 겹쳐
    * 그려지지 않고 하나로 합쳐진다 (Git Graph 의 `getPointConnectingTo`).
+   * @param {number} r @param {number} target @param {number} br
    */
-  const slot=(target,br)=>target+' '+br;
-  function take(r,target,br){
-    const k=slot(target,br);
-    const had=taken[r].get(k);
+  take(r,target,br){
+    const k=target+' '+br;
+    const had=this.taken[r].get(k);
     if(had!==undefined) return had;
-    const c=nextX[r]++;
-    taken[r].set(k,c);
+    const c=this.nextX[r]++;
+    this.taken[r].set(k,c);
     return c;
   }
-  function heldAt(r,target,br){ return taken[r].get(slot(target,br)) }
 
-  // R3: 색은 재사용되는 슬롯이다. 앞 갈래가 **끝난 뒤에야** 그 색을 다시 쓴다.
-  function availColor(start){
-    for(let i=0;i<colorEnd.length;i++) if(start>colorEnd[i]) return i;
-    colorEnd.push(0);
-    return colorEnd.length-1;
+  /** @param {number} r @param {number} target @param {number} br */
+  heldAt(r,target,br){ return this.taken[r].get(target+' '+br) }
+
+  /** R3: 색은 재사용되는 슬롯이다. 앞 갈래가 **끝난 뒤에야** 그 색을 다시 쓴다. @param {number} start */
+  availColor(start){
+    for(let i=0;i<this.colorEnd.length;i++) if(start>this.colorEnd[i]) return i;
+    this.colorEnd.push(0);
+    return this.colorEnd.length-1;
   }
 
   /**
    * R4: 머지가 이미 배치된 부모로 가는 선. 새 갈래·새 색을 만들지 않고 그 부모의
    * 갈래 자리를 따라 내려가 붙는다. 부모 행에서는 그 점이 이미 잡아 둔 자리를 다시
    * 쓰므로 선이 정확히 점에 닿는다.
+   * @param {number} start @param {number} pRow
    */
-  function connect(start,pRow){
-    const br=branchOf[pRow], color=branchColor[br];
-    let last=dotCol[start];
+  connect(start,pRow){
+    const n=this.n, br=this.branchOf[pRow], color=this.branchColor[br];
+    let last=this.dotCol[start];
     for(let r=start+1;r<=n;r++){
-      const had=heldAt(r,pRow,br);
-      const col=had!==undefined?had:take(r,pRow,br);
-      gaps[r-1].push({top:last,bottom:col,color});
+      const had=this.heldAt(r,pRow,br);
+      const col=had!==undefined?had:this.take(r,pRow,br);
+      this.gaps[r-1].push({top:last,bottom:col,color});
       last=col;
       // 자리가 이미 있었다는 것은 그 갈래의 선을 만났다는 뜻이다 — 거기서 합친다.
-      if(had!==undefined||r>=n){done[start]++;return}
+      if(had!==undefined||r>=n){this.done[start]++;return}
     }
   }
+
+  /** 정점 v 가 다음에 향할 부모 행. 없으면 -1. @param {number} v */
+  nextTarget(v){ return this.done[v]<this.parentRows[v].length?this.parentRows[v][this.done[v]]:-1 }
 
   /**
    * 갈래 하나를 걸어 내려간다. first-parent 를 만나면 그 커밋을 이 갈래에 넣고
    * 계속 걷는다 (R3) — 이미 다른 갈래에 있으면 거기서 멈춘다.
+   * @param {number} start
    */
-  function follow(start){
-    const br=branchColor.length;
-    const color=availColor(start);
-    branchColor.push(color);
-
+  follow(start){
+    const n=this.n, br=this.branchColor.length;
+    const color=this.availColor(start);
+    this.branchColor.push(color);
     let v=start;
     let last;
-    if(branchOf[start]===-1){
+    if(this.branchOf[start]===-1){
       // 아무 자식도 예약하지 않았다 — 이 커밋이 갈래를 시작한다 (FR-GIT-121).
-      isNewHead[start]=true;
-      const c=take(start,start,br);
-      branchOf[start]=br; dotCol[start]=c;
+      this.isNewHead[start]=true;
+      const c=this.take(start,start,br);
+      this.branchOf[start]=br; this.dotCol[start]=c;
       last=c;
     }else{
       // 머지의 두 번째 부모를 향해 새 갈래가 이 점에서 갈라져 나간다.
-      last=dotCol[start];
+      last=this.dotCol[start];
     }
-    let target=done[v]<parentRows[v].length?parentRows[v][done[v]]:-1;
+    let target=this.nextTarget(v);
     /**
      * 부모가 없으면 갈래는 이 행에서 끝난다 — 선을 아래로 내리지 않는다.
      *
@@ -142,43 +176,41 @@ function buildLaneGraph(commits){
      * `--all` 에서 뿌리가 중간에 오면 **아무 데도 닿지 않는 선이 아래로 늘어진다.**
      * 그것은 따르지 않는다.
      */
-    if(target<0){colorEnd[color]=start; return}
+    if(target<0){this.colorEnd[color]=start; return}
     let end=n;
-
     for(let r=start+1;r<=n;r++){
       if(r>=n){
         // 목록 아래로 이어지는 선이다. 아래 경계까지 그려 "여기서 끝이 아니다" 를
         // 보이고, 부모를 처리한 것으로 표시해 걸음이 다시 돌지 않게 한다.
         if(target>=0){
-          const col=take(n,target,br);
-          gaps[n-1].push({top:last,bottom:col,color});
-          done[v]++;
+          const col=this.take(n,target,br);
+          this.gaps[n-1].push({top:last,bottom:col,color});
+          this.done[v]++;
         }
         end=n;
         break;
       }
       let col;
       const atTarget=r===target;
-      if(atTarget&&branchOf[r]!==-1){
-        col=dotCol[r];                       // 이미 배치된 부모 — 그 점에 붙는다
+      if(atTarget&&this.branchOf[r]!==-1){
+        col=this.dotCol[r];                  // 이미 배치된 부모 — 그 점에 붙는다
       }else if(atTarget){
-        col=take(r,r,br);                    // 이 갈래가 부모를 데려간다
-        branchOf[r]=br; dotCol[r]=col;
+        col=this.take(r,r,br);               // 이 갈래가 부모를 데려간다
+        this.branchOf[r]=br; this.dotCol[r]=col;
       }else{
-        col=take(r,target,br);               // 지나가는 자리
+        col=this.take(r,target,br);          // 지나가는 자리
       }
-      gaps[r-1].push({top:last,bottom:col,color});
+      this.gaps[r-1].push({top:last,bottom:col,color});
       last=col;
-
       if(atTarget){
-        const parentWasPlaced=branchOf[r]!==br;
-        done[v]++;
+        const parentWasPlaced=this.branchOf[r]!==br;
+        this.done[v]++;
         v=r;
-        target=done[v]<parentRows[v].length?parentRows[v][done[v]]:-1;
+        target=this.nextTarget(v);
         if(target<0||parentWasPlaced){end=r;break}
       }
     }
-    colorEnd[color]=end;
+    this.colorEnd[color]=end;
   }
 
   /**
@@ -186,36 +218,44 @@ function buildLaneGraph(commits){
    * 정점에서 걸음을 시작한다. **같은 정점을 여러 번 부른다** — 머지의 부모마다
    * 한 번이다. 걸음마다 갈래를 배정하거나 부모 하나를 처리하므로 멈춘다.
    */
-  let i=0;
-  while(i<n){
-    if(done[i]<parentRows[i].length||branchOf[i]===-1){
-      const pIdx=done[i];
-      const pRow=pIdx<parentRows[i].length?parentRows[i][pIdx]:-1;
-      if(pRow>=0&&pRow<n&&parentRows[i].length>1&&branchOf[i]!==-1&&branchOf[pRow]!==-1)
-        connect(i,pRow);
-      else
-        follow(i);
-    }else i++;
+  run(){
+    const n=this.n, pr=this.parentRows;
+    let i=0;
+    while(i<n){
+      if(this.done[i]<pr[i].length||this.branchOf[i]===-1){
+        const pRow=this.nextTarget(i);
+        if(pRow>=0&&pRow<n&&pr[i].length>1&&this.branchOf[i]!==-1&&this.branchOf[pRow]!==-1)
+          this.connect(i,pRow);
+        else
+          this.follow(i);
+      }else i++;
+    }
   }
+}
 
+/**
+ * 걸음의 결과를 행 모양으로 조립한다 (파일 머리의 "행의 모양").
+ * @param {{hash:string}[]} commits @param {LaneWalk} walk
+ */
+function laneRows(commits,walk){
   const rows=[];
   let maxLanes=0;
-  for(let r=0;r<n;r++){
+  for(let r=0;r<walk.n;r++){
     const passThrough=[],parentLanes=[];
-    for(const s of gaps[r]){
+    for(const s of walk.gaps[r]){
       // 점의 열은 점 자신이 집은 것이다 — 거기서 시작하는 선은 그 점의 것뿐이다.
-      if(s.top===dotCol[r]) parentLanes.push({col:s.bottom,color:s.color});
+      if(s.top===walk.dotCol[r]) parentLanes.push({col:s.bottom,color:s.color});
       else passThrough.push({top:s.top,bottom:s.bottom,color:s.color});
     }
     passThrough.sort((a,b)=>a.top-b.top||a.bottom-b.bottom);
     parentLanes.sort((a,b)=>a.col-b.col);
     // 행의 폭은 위·아래 경계를 모두 담아야 한다 — 아래가 더 넓은 행에서 선이
     // 잘리면 그래프가 조용히 틀려 보인다.
-    const laneCount=Math.max(nextX[r],nextX[r+1]);
+    const laneCount=Math.max(walk.nextX[r],walk.nextX[r+1]);
     if(laneCount>maxLanes) maxLanes=laneCount;
-    rows.push({hash:commits[r].hash,lane:dotCol[r],
-               color:branchColor[branchOf[r]]||0,
-               passThrough,parentLanes,isNewHead:isNewHead[r],laneCount});
+    rows.push({hash:commits[r].hash,lane:walk.dotCol[r],
+               color:walk.branchColor[walk.branchOf[r]]||0,
+               passThrough,parentLanes,isNewHead:walk.isNewHead[r],laneCount});
   }
   return {rows,maxLanes};
 }
