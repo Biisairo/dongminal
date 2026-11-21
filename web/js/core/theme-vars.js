@@ -7,9 +7,18 @@
 
 // ── Theme helpers ──
 
-const UI_LABELS={bg:t('html.theme_ui_bg'),sidebarBg:t('html.theme_ui_sidebar'),border:t('html.theme_ui_border'),accent:t('html.theme_ui_accent'),accent2:t('html.theme_ui_accent2'),text:t('html.theme_ui_text'),textMuted:t('html.theme_ui_muted'),textBright:t('html.theme_ui_bright'),textDim:t('html.theme_ui_dim'),danger:t('html.theme_ui_danger'),accentBorder:t('html.theme_ui_accent_bd')};
+const UI_LABELS={
+  bg:t('html.theme_ui_bg'),sidebarBg:t('html.theme_ui_sidebar'),border:t('html.theme_ui_border'),
+  accent:t('html.theme_ui_accent'),accent2:t('html.theme_ui_accent2'),
+  text:t('html.theme_ui_text'),textMuted:t('html.theme_ui_muted'),textBright:t('html.theme_ui_bright'),textDim:t('html.theme_ui_dim'),
+  danger:t('html.theme_ui_danger'),accentBorder:t('html.theme_ui_accent_bd'),
+};
 // UX_AUDIT_FIX_SRS §3.5.1: ANSI 색 이름은 영어로 남는다.
-const TERM_ANSI_LABELS={black:'Black',red:'Red',green:'Green',yellow:'Yellow',blue:'Blue',magenta:'Magenta',cyan:'Cyan',white:'White',brightBlack:'BrBlk',brightRed:'BrRed',brightGreen:'BrGrn',brightYellow:'BrYlw',brightBlue:'BrBlu',brightMagenta:'BrMag',brightCyan:'BrCyn',brightWhite:'BrWht'};
+const TERM_ANSI_LABELS={
+  black:'Black',red:'Red',green:'Green',yellow:'Yellow',blue:'Blue',magenta:'Magenta',cyan:'Cyan',white:'White',
+  brightBlack:'BrBlk',brightRed:'BrRed',brightGreen:'BrGrn',brightYellow:'BrYlw',
+  brightBlue:'BrBlu',brightMagenta:'BrMag',brightCyan:'BrCyn',brightWhite:'BrWht',
+};
 const TERM_LABELS={background:t('html.theme_term_bg'),foreground:t('html.theme_term_fg'),cursor:t('html.theme_term_cursor'),selectionBackground:t('html.theme_term_select'),...TERM_ANSI_LABELS};
 
 function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`}

@@ -38,7 +38,11 @@ function edEditKeyWins(e,action,key,mac){
   return ED_EDIT_KEYS_NONMAC.some(k=>matchShortcut(e,k));
 }
 function fmtShortcut(e){const p=[];if(e.ctrlKey)p.push('Ctrl');if(e.altKey)p.push('Alt');if(e.metaKey)p.push('Meta');if(e.shiftKey)p.push('Shift');p.push(e.code);return p.join('+')}
-function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Slash/g,'/').replace(/Mod/g,'⌘/⌃').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
+function displayKey(s){
+  return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Slash/g,'/')
+    .replace(/Mod/g,'⌘/⌃').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧')
+    .replace(/Arrow/g,'');
+}
 
 // ── Shortcut state ──
 

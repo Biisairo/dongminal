@@ -55,16 +55,21 @@ const ED_FIND_MIXIN = {
      */
     p.innerHTML =
       '<div class="fe-find-line">'
-      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost fe-find-toggle" title="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-label="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-expanded="false">' + UIKit.iconHTML('chevron-right') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost fe-find-toggle"'
+      + ' title="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-label="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-expanded="false">'
+      + UIKit.iconHTML('chevron-right') + '</button>'
       + '<input class="fe-find-q" type="text" spellcheck="false" autocomplete="off"'
       + ' placeholder="' + ED_FIND_IN_PLACEHOLDER + '">'
       + '<span class="fe-find-count"></span>'
       + opt('case', ED_FIND_OPT_CASE, ED_FIND_OPT_CASE_TITLE)
       + opt('regex', ED_FIND_OPT_REGEX, ED_FIND_OPT_REGEX_TITLE)
       + opt('word', ED_FIND_OPT_WORD, ED_FIND_OPT_WORD_TITLE)
-      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-prev" title="' + ED_FIND_PREV_TITLE + '" aria-label="' + ED_FIND_PREV_TITLE + '">' + UIKit.iconHTML('arrow-up') + '</button>'
-      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-next" title="' + ED_FIND_NEXT_TITLE + '" aria-label="' + ED_FIND_NEXT_TITLE + '">' + UIKit.iconHTML('arrow-down') + '</button>'
-      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-close" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-prev"'
+      + ' title="' + ED_FIND_PREV_TITLE + '" aria-label="' + ED_FIND_PREV_TITLE + '">' + UIKit.iconHTML('arrow-up') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-next"'
+      + ' title="' + ED_FIND_NEXT_TITLE + '" aria-label="' + ED_FIND_NEXT_TITLE + '">' + UIKit.iconHTML('arrow-down') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-close"'
+      + ' title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>'
       + '</div>'
       + '<div class="fe-find-line fe-find-rep">'
       + '<input class="fe-find-r" type="text" spellcheck="false" autocomplete="off"'
@@ -218,7 +223,8 @@ const ED_FIND_MIXIN = {
       const g = document.createElement('div');
       g.className = 'fe-goto';
       g.innerHTML = '<input class="fe-goto-q" type="text" spellcheck="false" autocomplete="off">'
-        + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-goto-close" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
+        + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-goto-close"'
+        + ' title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
       const q = g.querySelector('.fe-goto-q');
       q.addEventListener('input', () => g.classList.remove('bad'));
       q.addEventListener('keydown', (e) => {

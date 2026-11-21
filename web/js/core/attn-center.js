@@ -73,7 +73,8 @@ class AttnCenter extends Controller {
   _attnCenterHeadEl(it){
     const head=document.createElement('div');
     head.className='attn-head';
-    head.innerHTML=`<span class="attn-title">${escHtml(it.title)}</span><button class="ui-btn ui-btn-sm ui-btn-attn attn-clear-all" title="${escHtml(TIP_ATTN_CLEAR_ALL)}">${escHtml(it.clear)}</button>`;
+    head.innerHTML=`<span class="attn-title">${escHtml(it.title)}</span>`+
+      `<button class="ui-btn ui-btn-sm ui-btn-attn attn-clear-all" title="${escHtml(TIP_ATTN_CLEAR_ALL)}">${escHtml(it.clear)}</button>`;
     head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this.app.attn._attnClearAll()});
     return head;
   }

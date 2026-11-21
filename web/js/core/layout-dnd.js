@@ -6,8 +6,21 @@
  */
 class LayoutDnd extends Controller {
   // ── Drag helpers ──
-  getDragZone(el,e){const rect=el.getBoundingClientRect();const x=e.clientX-rect.left;const y=e.clientY-rect.top;const w=rect.width,h=rect.height;if(x/w<0.25)return'left';if(x/w>0.75)return'right';if(y/h<0.25)return'top';if(y/h>0.75)return'bottom';return'center'}
-  showBodyDropIndicator(bodyEl,zone){let ind=bodyEl.querySelector('.pn-drop-indicator');if(!ind){ind=document.createElement('div');ind.className='pn-drop-indicator';bodyEl.appendChild(ind)}ind.dataset.zone=zone;ind.style.display=''}
+  getDragZone(el,e){
+    const rect=el.getBoundingClientRect();
+    const x=e.clientX-rect.left;const y=e.clientY-rect.top;
+    const w=rect.width,h=rect.height;
+    if(x/w<0.25)return'left';
+    if(x/w>0.75)return'right';
+    if(y/h<0.25)return'top';
+    if(y/h>0.75)return'bottom';
+    return'center';
+  }
+  showBodyDropIndicator(bodyEl,zone){
+    let ind=bodyEl.querySelector('.pn-drop-indicator');
+    if(!ind){ind=document.createElement('div');ind.className='pn-drop-indicator';bodyEl.appendChild(ind)}
+    ind.dataset.zone=zone;ind.style.display='';
+  }
   clearBodyDropIndicator(bodyEl){const ind=bodyEl?.querySelector('.pn-drop-indicator');if(ind)ind.style.display='none'}
 
   /**

@@ -249,7 +249,8 @@ class ThemeSection extends SettingsSection {
             </div>
             <div class="pv-term" style="background:${c.background};color:${c.foreground}">
               <span style="color:${c.cyan}">PID</span> <span style="color:${c.green}">CPU</span> <span style="color:${c.yellow}">MEM</span> <span style="color:${c.blue}">CMD</span><br>
-              <span style="color:${c.foreground}"> 1  </span><span style="color:${c.green}">  2% </span><span style="color:${c.yellow}">  1% </span><span style="color:${c.foreground}">bash</span><br>
+              <span style="color:${c.foreground}"> 1  </span><span style="color:${c.green}">  2% </span><span
+                style="color:${c.yellow}">  1% </span><span style="color:${c.foreground}">bash</span><br>
               <span style="color:${c.foreground}"> 42 </span><span style="color:${c.red}"> 99% </span><span style="color:${c.red}"> 45% </span><span style="color:${c.foreground}">node</span><br>
               <br>
               <span style="color:${c.foreground}">cursor: </span><span style="background:${c.cursor};color:${c.cursorAccent}"> █ </span>

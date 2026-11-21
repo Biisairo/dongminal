@@ -442,8 +442,20 @@ class AgentsController extends Controller {
     card.addEventListener('click',()=>{this.app.jumpToTool(toolId);if(this.app.actSheetLeave)this.app.actSheetLeave()});
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
     card.draggable=true;
-    card.addEventListener('dragstart',e=>{this.app.drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';TIMERS.defer(()=>card.classList.add('dragging'),{label:'drag-class'})});
-    card.addEventListener('dragover',e=>{const dr=this.app.drag;if(!dr||dr.type!=='agent')return;e.preventDefault();panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));const rect=card.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;card.classList.add(before?'drag-above':'drag-below');dr.targetPid=toolId;dr.before=before});
+    card.addEventListener('dragstart',e=>{
+      this.app.drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};
+      e.dataTransfer.effectAllowed='move';
+      TIMERS.defer(()=>card.classList.add('dragging'),{label:'drag-class'});
+    });
+    card.addEventListener('dragover',e=>{
+      const dr=this.app.drag;if(!dr||dr.type!=='agent')return;
+      e.preventDefault();
+      panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));
+      const rect=card.getBoundingClientRect();
+      const before=e.clientY<rect.top+rect.height/2;
+      card.classList.add(before?'drag-above':'drag-below');
+      dr.targetPid=toolId;dr.before=before;
+    });
     card.addEventListener('drop',e=>{const dr=this.app.drag;if(!dr||dr.type!=='agent')return;e.preventDefault();e.stopPropagation();this.reorderAgents(dr)});
     // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).
     card.addEventListener('dragend',()=>{this.app.drag=null;card.classList.remove('dragging');panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'))});

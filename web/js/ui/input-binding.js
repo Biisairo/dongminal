@@ -71,7 +71,10 @@ class InputBinding {
       save:w=>PrefStore.session.set(STORE_KEYS.agentsWidth,w),
     });
     // PANEL_LAYOUT_SRS FR-PLY-23: 다른 화면에서 온 비율은 범위를 벗어날 수 있다 — 버리지 않고 접는다.
-    {const aw=parseInt(PrefStore.session.get(STORE_KEYS.agentsWidth));if(Number.isFinite(aw))document.documentElement.style.setProperty('--ag-w',Math.max(AGENTS_W_MIN_PX,Math.min(AGENTS_W_MAX_PX,aw))+'px')}
+    {
+      const aw=parseInt(PrefStore.session.get(STORE_KEYS.agentsWidth));
+      if(Number.isFinite(aw)) document.documentElement.style.setProperty('--ag-w',Math.max(AGENTS_W_MIN_PX,Math.min(AGENTS_W_MAX_PX,aw))+'px');
+    }
   }
 
   // 문서 전역 DnD 수락 (FR-AAP-21 · FR-BLP-13 · FR-MOV-1).

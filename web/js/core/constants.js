@@ -132,7 +132,12 @@ const ACTIVITY_STATE=Object.freeze({WORKING:'working',WAITING:'waiting',DONE:'do
 // UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): 스프라이트 이름이다(이전 글자 `● ✓ … ○`). 작업 중의 점은 채워 그린다.
 const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'dot',[ACTIVITY_STATE.DONE]:'check',[ACTIVITY_STATE.WAITING]:'more-horizontal',[ACTIVITY_STATE.IDLE]:'circle'};
 // UX_AUDIT_FIX_SRS FR-UXF-40: 상태의 보이는 글자. 상태값(데이터)은 그대로다.
-const AGENT_STATE_LABEL={[ACTIVITY_STATE.WORKING]:t('activity.state_working'),[ACTIVITY_STATE.DONE]:t('activity.state_done'),[ACTIVITY_STATE.WAITING]:t('activity.state_waiting'),[ACTIVITY_STATE.IDLE]:t('activity.state_idle')};
+const AGENT_STATE_LABEL={
+  [ACTIVITY_STATE.WORKING]:t('activity.state_working'),
+  [ACTIVITY_STATE.DONE]:t('activity.state_done'),
+  [ACTIVITY_STATE.WAITING]:t('activity.state_waiting'),
+  [ACTIVITY_STATE.IDLE]:t('activity.state_idle'),
+};
 
 
 // 모바일 키바 제스처 상수 (USER_CHECKLIST_FIXES_SRS FR-MTB-2/4/5).
