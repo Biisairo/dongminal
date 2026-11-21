@@ -31,8 +31,9 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//    `pageTitle` 은 프로필 이름으로 옮겨 빠졌다 (PROFILE_NAME_SRS FR-PFN-30) = 32. 이미 쓰인 값은
 	//    Validate 가 unknown 으로 흘린다.
 	//    + UX_AUDIT_FIX_SRS FR-UXF-93 의 `keybar`(모바일 키바 구성) = 33
-	if len(specs) != 33 {
-		t.Fatalf("서술자 %d개, 기대 33개", len(specs))
+	//    + THEME_SEED_COLOR_SRS FR-SEED-1 의 `seedColor`(메인색) = 34
+	if len(specs) != 34 {
+		t.Fatalf("서술자 %d개, 기대 34개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
 	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontSize", "termFontSize"} {

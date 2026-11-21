@@ -32,10 +32,10 @@ import { load } from '../web/js/test/harness.mjs';
 const ctx = load(['core/contrast.js', 'ui/themes.js', 'core/theme-vars.js'], {
   // `themes.js` 끝줄이 `TOPTS.theme` 에 대입한다. `theme-vars.js` 는 라벨에 `t` 를 부른다.
   globals: { TOPTS: {}, t: (k) => k },
-  expose: ['CONTRAST_FLOORS', 'THEMES', 'ACCENT2_MIN_DISTANCE', 'pickAttnColor'],
+  expose: ['CONTRAST_FLOORS', 'THEMES', 'ACCENT2_MIN_DISTANCE', 'pickAttnColor', 'SEED_HARMONY_MAX'],
 });
 const { CONTRAST_FLOORS, THEMES, ACCENT2_MIN_DISTANCE, contrastRatio, colorDistance, deriveContrastTokens, deriveAccountColors,
-  pickAttnColor } = ctx;
+  pickAttnColor, pickAccent2, seedTheme, oklchOf, hexOfOklch, SEED_HARMONY_MAX } = ctx;
 
 /** 토큰 → 바닥. `ACCESSIBILITY_BASELINE_SRS` FR-A11Y-6·7 이 근거다. */
 const CHECK = [
@@ -219,6 +219,50 @@ for (const r of rows) {
   }
 }
 
+/**
+ * THEME_SEED_COLOR_SRS FR-SEED-14 (TC-SEED-7): 메인색 변환 결과도 같은 바닥을 넘는다.
+ * 견본 8 색상(0°·45°·…)을 각 테마에 맞춘 색으로 변환하고, 글자 토큰·구문 6색·`--accent2`(3:1)를
+ * 재고, ANSI 6색이 원래 색상에서 조화 한도(15°)보다 멀리 가지 않았는지 본다.
+ */
+const SEED_HUES = [0, 45, 90, 135, 180, 225, 270, 315];
+const hueGap = (a, b) => Math.abs(((b - a + 540) % 360) - 180);
+let seedCombos = 0;
+for (const name of names) {
+  const t = THEMES[name];
+  const a0 = oklchOf(t.ui.accent);
+  for (const h of SEED_HUES) {
+    const st = seedTheme(t, hexOfOklch(a0.L, Math.max(a0.C, 0.1), h));
+    const tag = `${name} @${h}°`;
+    const d = deriveContrastTokens(st.ui, st.mode, null, st.terminal);
+    const bgs = [['bg', st.ui.bg], ['sidebarBg', st.ui.sidebarBg], ['bg-alt', d.bgAlt]];
+    for (const [tok, floor] of CHECK) {
+      for (const [bgName, bg] of bgs) {
+        const got = contrastRatio(d[tok], bg);
+        if (got < floor - 1e-9) bad.push(`  ${tag} / ${tok} on --${bgName}: ${got.toFixed(2)} < ${floor}`);
+      }
+    }
+    for (const k of SYNTAX_TOKENS) {
+      const color = d.syntax && d.syntax[k];
+      for (const [bgName, bg] of bgs) {
+        const got = color ? contrastRatio(color, bg) : 0;
+        if (got < CONTRAST_FLOORS.strong - 1e-9) bad.push(`  ${tag} / --term-${k} on --${bgName}: ${got.toFixed(2)} < ${CONTRAST_FLOORS.strong}`);
+      }
+      for (const key of [k, 'bright' + k[0].toUpperCase() + k.slice(1)]) {
+        const o0 = t.terminal[key] && oklchOf(t.terminal[key]), o = st.terminal[key] && oklchOf(st.terminal[key]);
+        if (!o0 || !o || o0.C < 0.02) continue;
+        const g = hueGap(o0.h, o.h);
+        if (g > SEED_HARMONY_MAX + 2) bad.push(`  ${tag} / terminal.${key}: 색상이 ${g.toFixed(0)}° 벗어났다 > ${SEED_HARMONY_MAX}`);
+      }
+    }
+    const a2 = pickAccent2(st);
+    for (const [bgName, bg] of [['bg', st.ui.bg], ['sidebarBg', st.ui.sidebarBg]]) {
+      const got = contrastRatio(a2, bg);
+      if (got < CONTRAST_FLOORS.ui - 1e-9) bad.push(`  ${tag} / accent2(${a2}) on --${bgName}: ${got.toFixed(2)} < ${CONTRAST_FLOORS.ui}`);
+    }
+    seedCombos++;
+  }
+}
+
 if (bad.length) {
   console.error(`글자 대비가 바닥에 못 미친다 (${bad.length}건):`);
   for (const b of bad) console.error(b);
@@ -228,4 +272,4 @@ if (bad.length) {
   process.exit(1);
 }
 
-console.log(`contrast ok (테마 ${names.length}종 × 토큰 ${CHECK.length + CSS_TOKENS.length + SYNTAX_TOKENS.length}개 × 배경 3, 바닥 미달 0)`);
+console.log(`contrast ok (테마 ${names.length}종 × 토큰 ${CHECK.length + CSS_TOKENS.length + SYNTAX_TOKENS.length}개 × 배경 3, 메인색 조합 ${seedCombos}개, 바닥 미달 0)`);

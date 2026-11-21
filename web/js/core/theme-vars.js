@@ -32,9 +32,13 @@ function pickAttnColor(theme){
   return best;
 }
 
-// UX_AUDIT_FIX_SRS FR-UXF-126 (D-42): `accent2`(실행 중 색)의 파생. 내장 테마는 명시값을 가지므로
-// 이 규칙은 값이 없는 사용자 정의 테마에만 닿는다. 후보 중 배경 대비 3:1 을 넘는 색에서
-// accent·알림색·danger 와의 최소 거리가 가장 큰 것 — 넘는 것이 없으면 대비 조건 없이 고른다.
+// UX_AUDIT_FIX_SRS FR-UXF-126 (D-42): `accent2`(실행 중 색)의 파생. 명시값이 없는 테마(사용자 정의,
+// 메인색 변환 결과)에 닿는다. 후보 중 배경 대비 3:1 을 넘는 색에서 accent·알림색·danger 와의 최소
+// 거리가 가장 큰 것 — 넘는 것이 없으면 거리로 고른 색을 3:1 까지 끌어올린다.
+//   이전 동작: 넘는 것이 없으면 대비 조건 없이 고른 색 그대로
+//   새  동작: 그 색을 `liftContrast` 로 3:1 까지 (포커스 링과 같은 방식)
+//   이유:     메인색 변환 실측(THEME_SEED_COLOR_SRS FR-SEED-14)에서 Everforest Light 가 8 색상 모두
+//             2.5~2.95 였다 — 링이 보이지 않는다. 사용자가 직접 고른 값은 여전히 끌어올리지 않는다(D-42)
 const ACCENT2_KEYS=['blue','magenta','cyan','green','yellow','brightBlue','brightMagenta','brightCyan','brightGreen','brightYellow'];
 function pickAccent2(theme){
   const ui=theme.ui, T=theme.terminal||{};
@@ -44,8 +48,62 @@ function pickAccent2(theme){
   const score=c=>Math.min(...avoid.map(x=>colorDistance(c,x)));
   const readable=cands.filter(c=>[ui.bg,ui.sidebarBg].every(bg=>!bg||contrastRatio(c,bg)>=CONTRAST_FLOORS.ui));
   const pool=readable.length?readable:cands;
-  return pool.reduce((best,c)=>score(c)>score(best)?c:best);
+  const best=pool.reduce((b,c)=>score(c)>score(b)?c:b);
+  if(readable.length) return best;
+  return liftContrast(best,pickContrastAnchor(ui,theme.mode),[ui.bg,ui.sidebarBg].filter(Boolean),CONTRAST_FLOORS.ui).color;
 }
+
+// THEME_SEED_COLOR_SRS §1.3: 테마색은 메인색 방향으로 돌고, 의미색은 그쪽으로 조금만 당긴다.
+// 이 아래 채도는 색상이 정해지지 않는다 — 메인색이면 끔, 테마의 색이면 그대로 둔다 (A-1).
+const SEED_MIN_CHROMA=.02;
+// FR-SEED-6 / D-SEED-6: 의미색 조화 한도. Material Color Utilities `Blend.harmonize` 와 같은 값.
+const SEED_HARMONY_MAX=15;
+const SEED_THEME_UI_KEYS=['bg','sidebarBg','border','accent','text','textMuted','textBright','textDim','accentBorder'];
+const SEED_THEME_TERM_KEYS=['background','foreground','cursor','cursorAccent','selectionBackground','selectionForeground'];
+const SEED_MEANING_TERM_KEYS=['black','red','green','yellow','blue','magenta','cyan','white',
+  'brightBlack','brightRed','brightGreen','brightYellow','brightBlue','brightMagenta','brightCyan','brightWhite'];
+const SEED_HEX_RE=/^#[0-9a-fA-F]{6}$/;
+// FR-SEED-12: 견본의 색상 간격 — 0°·45°·…·315° 의 8개.
+const SEED_SWATCH_STEP=45;
+
+/** -180~180 으로 정규화한 `b-a`. */
+function hueDelta(a,b){return ((b-a+540)%360)-180}
+
+/** 색 하나의 색상을 `move(h)` 로 옮긴다. 밝기·채도는 두고 색역을 맞춘다. 알파는 보존한다 (FR-SEED-8). */
+function seedShift(val,move){
+  if(typeof val!=='string'||!/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return val;
+  const o=oklchOf(val.slice(0,7));
+  if(o.C<SEED_MIN_CHROMA) return val;
+  return hexOfOklch(o.L,o.C,(move(o.h)+360)%360)+val.slice(7);
+}
+
+/**
+ * FR-SEED-3~8: 메인색 변환. 원본을 바꾸지 않고 사본을 돌려준다. 끔·형식 밖·회색이면 같은 값의 사본이다.
+ * 새 accent 는 메인색의 색상에 원래 accent 의 밝기·채도(D-SEED-2). `accent2` 명시값은 버린다 —
+ * 원래 accent 에 맞춰 고른 값이라 새 accent 와 겹칠 수 있다 (A-2). `themeVarsOf` 가 다시 고른다.
+ */
+function seedTheme(theme,seed){
+  const out=JSON.parse(JSON.stringify(theme));
+  const s=SEED_HEX_RE.test(seed||'')&&oklchOf(seed);
+  const a0=s&&s.C>=SEED_MIN_CHROMA&&oklchOf(theme.ui.accent);
+  if(!a0) return out;
+  const D=hueDelta(a0.h,s.h);
+  for(const k of SEED_THEME_UI_KEYS) if(k in out.ui) out.ui[k]=seedShift(out.ui[k],h=>h+D);
+  out.ui.accent=hexOfOklch(a0.L,a0.C,s.h);
+  delete out.ui.accent2;
+  const ah=s.h;
+  const harmonize=h=>{const d=hueDelta(h,ah);return h+Math.sign(d)*Math.min(Math.abs(d)/2,SEED_HARMONY_MAX)};
+  out.ui.danger=seedShift(out.ui.danger,harmonize);
+  const T=out.terminal;
+  if(T){
+    for(const k of SEED_THEME_TERM_KEYS) if(k in T) T[k]=seedShift(T[k],h=>h+D);
+    for(const k of SEED_MEANING_TERM_KEYS) if(k in T) T[k]=seedShift(T[k],harmonize);
+  }
+  return out;
+}
+
+/** FR-SEED-9a: 지금 화면에 칠해진 테마 — 메인색 변환을 거친 결과다. */
+function getAppliedTheme(){return seedTheme(getCurrentTheme(),seedColor)}
 
 // `hexRgb`·`mixHex` 는 **`core/contrast.js` 로 옮겼다** (DESIGN_TOKENS_SRS
 // FR-TOK-14 / D-TOK-5). 게이트와 런타임이 같은 파생을 부르려면 그 계산이 의존 0
@@ -179,7 +237,9 @@ function searchDecorOf(vars){
     activeMatchBackground:hexToRgba(danger,.5),activeMatchBorder:danger};
 }
 
-function applyThemeObj(theme){
+function applyThemeObj(raw){
+  // THEME_SEED_COLOR_SRS FR-SEED-9: 화면·터미널·편집기·git 그래프가 모두 같은 변환 결과를 쓴다.
+  const theme=seedTheme(raw,seedColor);
   const ui=theme.ui;
   const vars=themeVarsOf(theme);
   searchDecor=searchDecorOf(vars);
@@ -191,8 +251,8 @@ function applyThemeObj(theme){
   PrefStore.local.setJson(THEME_VARS_KEY,vars);
   if(typeof themeFollowSystem!=='undefined'&&themeFollowSystem&&THEMES[themeNameDark]&&THEMES[themeNameLight]){
     PrefStore.local.set(THEME_FOLLOW_KEY,'1');
-    PrefStore.local.setJson(THEME_VARS_KEY+'.dark',themeVarsOf(THEMES[themeNameDark]));
-    PrefStore.local.setJson(THEME_VARS_KEY+'.light',themeVarsOf(THEMES[themeNameLight]));
+    PrefStore.local.setJson(THEME_VARS_KEY+'.dark',themeVarsOf(seedTheme(THEMES[themeNameDark],seedColor)));
+    PrefStore.local.setJson(THEME_VARS_KEY+'.light',themeVarsOf(seedTheme(THEMES[themeNameLight],seedColor)));
   }else PrefStore.local.remove(THEME_FOLLOW_KEY);
   TOPTS.theme=theme.terminal;
   document.getElementById('area').style.background=ui.bg;

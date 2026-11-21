@@ -54,6 +54,7 @@ const SETTINGS_SCHEMA = [
   {"key":"themeFollowSystem","type":"bool","def":false,"where":"Theme ▸ 시스템 추종"},
   {"key":"themeNameDark","type":"string","def":"Tokyo Night","where":"Theme ▸ 다크 슬롯"},
   {"key":"themeNameLight","type":"string","def":"GitHub Light","where":"Theme ▸ 라이트 슬롯"},
+  {"key":"seedColor","type":"string","def":"","where":"Theme ▸ 메인색"},
   {"key":"locale","type":"string","def":"ko","where":"Display ▸ 언어"},
   {"key":"migrationHook","type":"bool","def":false,"where":"Terminal ▸ 맥락 기준 migration 제안"},
   {"key":"migrationHookCtxPct","type":"int","def":50,"min":1,"max":100,"where":"Terminal ▸ migration 제안 기준(%)"},

@@ -45,12 +45,18 @@ test('TC-UXF-126: 배경 대비 3:1 미만 후보는 대비를 넘는 후보가 
   assert.equal(ctx.pickAccent2(t), '#ff79c6');
 });
 
-test('TC-UXF-126: 모든 후보가 대비 미달이면 대비 조건 없이 고른다', () => {
+// FR-UXF-126 개정(THEME_SEED_COLOR_SRS FR-SEED-14 실측)
+//   이전 동작: 모든 후보가 대비 미달이면 대비 조건 없이 고른 색 그대로
+//   새  동작: 그 색을 3:1 까지 끌어올린다 / 이유: Everforest Light 메인색 변환에서 링이 보이지 않았다
+test('TC-UXF-126: 모든 후보가 대비 미달이면 거리로 고른 색을 3:1 까지 끌어올린다', () => {
   const t = theme({}, { green: '#0a3a0a', blue: '#20243a' });
-  const want = ['#0a3a0a', '#20243a']
+  const raw = ['#0a3a0a', '#20243a']
     .map((c) => [c, Math.min(...[t.ui.accent, ctx.pickAttnColor(t), t.ui.danger].map((x) => ctx.colorDistance(c, x)))])
     .sort((a, b) => b[1] - a[1])[0][0];
-  assert.equal(ctx.pickAccent2(t), want);
+  const got = ctx.pickAccent2(t);
+  assert.notEqual(got, raw);
+  assert.ok(ctx.contrastRatio(got, BG) >= 3, `${got} ${ctx.contrastRatio(got, BG)}`);
+  assert.equal(got, ctx.liftContrast(raw, ctx.pickContrastAnchor(t.ui, t.mode), [BG, BG], 3).color);
 });
 
 test('TC-UXF-126: 후보가 없으면 accent 다', () => {

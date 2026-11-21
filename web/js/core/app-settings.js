@@ -127,11 +127,11 @@ const SETTINGS_ACCESS={
     this._paintAttnEdge();
     this._attnRefresh();
   }},
-  // SYSTEM_THEME_FOLLOW_SRS FR-STF-1: 얹는 것은 값뿐이다 — 어느 테마를 적용할지는
-  // `_settingsApply` 의 테마 갈래가 셋을 함께 보고 정한다 (`_applyThemeChoice`).
+  // SYSTEM_THEME_FOLLOW_SRS FR-STF-1·THEME_SEED_COLOR_SRS FR-SEED-1: 얹는 것은 값뿐이다 — 어느 테마를 어떻게 적용할지는 `_settingsApply` 가 정한다 (`_applyThemeChoice`).
   themeFollowSystem:{get:()=>themeFollowSystem,set(v){themeFollowSystem=!!v}},
   themeNameDark:{get:()=>themeNameDark,set(v){if(THEMES[v]) themeNameDark=v}},
   themeNameLight:{get:()=>themeNameLight,set(v){if(THEMES[v]) themeNameLight=v}},
+  seedColor:{get:()=>seedColor,set(v){seedColor=SEED_HEX_RE.test(v)?v.toLowerCase():''}},
   // FR-B-4 / D-B-1: 서버의 값이 활성 로케일과 다르면 거울(`localStorage`)을 고치고
   // 페이지를 다시 연다 — 상수 1,100여 개가 로드 시점에 읽었으므로 살아 있는
   // 재렌더는 없다. 거울을 쓰지 못하는 브라우저에서는 다시 열지 않는다(무한 재로드).

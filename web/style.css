@@ -1387,6 +1387,14 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 8px 0 4px}
 
 /* ── Custom editor ── */
 #custom-editor{margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
+/* THEME_SEED_COLOR_SRS FR-SEED-12: 메인색 행 — 견본 8개·색 입력·스위치. 꺼져 있으면 견본과 입력이 흐리다. */
+#theme-seed-row .seed-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.seed-swatches{display:flex;gap:4px}
+.ui-btn.seed-swatch{width:16px;min-width:16px;height:16px;padding:0;border:1px solid var(--border-strong);border-radius:var(--radius-pill);cursor:pointer}
+.ui-btn.seed-swatch:disabled,#theme-seed-row .seed-color:disabled{opacity:.4;cursor:default}
+.seed-swatch:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
+#theme-seed-row .seed-color{width:var(--ui-btn-h-sm);height:var(--ui-btn-h-sm);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px;cursor:pointer;background:transparent}
+#custom-editor .seed-hint{margin-bottom:8px}
 /* UI_POLISH_SRS FR-UIP-16: 키트의 기본 버튼이다 — 점선 상자는 "여기에 놓으세요" 의
    모양이라 누르는 버튼으로 읽히지 않았다. 켜진 상태는 세그먼트의 선택과 같은 말이다. */
 #custom-toggle.active{background:var(--accent-subtle);color:var(--text-bright);border-color:var(--border-strong)}

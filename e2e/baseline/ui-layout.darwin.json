@@ -1103,6 +1103,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "terminal|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "terminal|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -1155,6 +1182,15 @@
   "scrollsY": false
  },
  "terminal|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3794,6 +3830,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:changes|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:changes|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -3846,6 +3909,15 @@
   "scrollsY": false
  },
  "git:changes|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -6620,6 +6692,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:diff|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:diff|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -6672,6 +6771,15 @@
   "scrollsY": false
  },
  "git:diff|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -9620,6 +9728,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:history|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:history|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -9672,6 +9807,15 @@
   "scrollsY": false
  },
  "git:history|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -12596,6 +12740,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:branches|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:branches|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -12648,6 +12819,15 @@
   "scrollsY": false
  },
  "git:branches|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -15329,6 +15509,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:stash|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:stash|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -15381,6 +15588,15 @@
   "scrollsY": false
  },
  "git:stash|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -18011,6 +18227,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:console|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:console|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -18063,6 +18306,15 @@
   "scrollsY": false
  },
  "git:console|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -20768,6 +21020,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:worktrees|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:worktrees|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -20820,6 +21099,15 @@
   "scrollsY": false
  },
  "git:worktrees|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -23459,6 +23747,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:submodules|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:submodules|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -23511,6 +23826,15 @@
   "scrollsY": false
  },
  "git:submodules|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -25295,6 +25619,33 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "editor|span.seed-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|span.seed-swatches": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|input.seed-color": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "editor|input.ui-switch": {
   "display": "block",
   "overflowX": "visible",
@@ -25347,6 +25698,15 @@
   "scrollsY": false
  },
  "editor|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|div.ds-hint.seed-hint[hidden]": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",

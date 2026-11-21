@@ -285,6 +285,8 @@ var themeFollowSystem=false;
 var themeNameDark='Tokyo Night';
 var themeNameLight='GitHub Light';
 var customTheme=null; // {ui:{...}, terminal:{...}} or null
+// THEME_SEED_COLOR_SRS FR-SEED-1: 메인색. `#rrggbb` 또는 '' (끔). 테마 바깥의 설정이다.
+var seedColor='';
 
 // Set TOPTS initial theme now that THEMES is defined
 TOPTS.theme = THEMES['Tokyo Night'].terminal;

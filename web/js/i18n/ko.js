@@ -1084,6 +1084,8 @@ I18N.register('ko', {
   'html.theme_term_fg': '글자',
   'html.theme_term_select': '선택',
   'html.theme_ui_accent': '강조',
+  'html.theme_seed': '메인색',
+  'html.theme_seed_hint': '메인색이 적용 중입니다 — 화면 색은 이 값에서 계산됩니다',
   'html.theme_ui_accent2': '강조 2',
   'html.theme_ui_accent_bd': '강조 경계',
   'html.theme_ui_bg': '배경',

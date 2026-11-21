@@ -357,6 +357,17 @@
     </div>
     <div class="modal-body ui-scroll">
       <div class="mpanel" id="panel-theme" hidden>
+        <!-- THEME_SEED_COLOR_SRS FR-SEED-12: 메인색. 견본은 app-settings-theme.js 가 그린다. -->
+        <div class="display-settings">
+          <div class="ds-row" id="theme-seed-row">
+            <span data-i18n="html.theme_seed"></span>
+            <span class="seed-ctl">
+              <span class="seed-swatches"></span>
+              <input type="color" class="seed-color" title="Pick the main color" aria-label="Main color">
+              <input type="checkbox" class="ui-switch" id="ds-theme-seed" aria-label="Use a main color">
+            </span>
+          </div>
+        </div>
         <!-- SYSTEM_THEME_FOLLOW_SRS FR-STF-8: 추종 스위치. 이름은 `.ds-row` 구조에서 파생한다. -->
         <div class="display-settings">
           <div class="ds-row" id="theme-follow-row">
@@ -371,6 +382,7 @@
         </div>
         <button id="custom-toggle" class="ui-btn" title="Toggle the custom theme editor"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pencil"/></svg><span class="ui-btn-label" data-i18n="html.custom_toggle">Customize Current Theme</span></button>
         <div id="custom-editor" hidden>
+          <div class="ds-hint seed-hint" hidden data-i18n="html.theme_seed_hint"></div>
           <div class="ce-section"><div class="ce-title" data-i18n="html.ce_ui">UI Colors</div><div class="ce-colors" id="ce-ui"></div></div>
           <div class="ce-section"><div class="ce-title" data-i18n="html.ce_terminal">Terminal Colors</div><div class="ce-colors" id="ce-terminal"></div></div>
         </div>

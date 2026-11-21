@@ -78,6 +78,54 @@ function mixHex(a,b,ratio){
   return '#'+c('r')+c('g')+c('b');
 }
 
+/**
+ * THEME_SEED_COLOR_SRS §1.3: OKLCH (Björn Ottosson, 2020). 메인색 변환이 밝기·채도를 두고 색상만
+ * 옮기려면 지각 균일 공간이어야 한다 — HSL 의 색상 회전은 노랑·파랑의 밝기를 크게 바꾼다.
+ * 게이트(`check-contrast.mjs`)도 이 함수를 부른다 (D-TOK-5).
+ */
+const SRGB_TO_LIN=v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)};
+const LIN_TO_SRGB=v=>255*(v<=.0031308?12.92*v:1.055*Math.pow(v,1/2.4)-.055);
+// 색역 맞춤의 이분 횟수 — 채도 0.4 를 2^-16 까지 쪼갠다. 결정론이 정밀도보다 앞선다(FR-TOK-12 와 같은 까닭).
+const OKLCH_GAMUT_STEPS=16;
+
+/** `#rrggbb` → `{L,C,h}`. 무채색의 `h` 는 0 이다. 읽지 못하면 null. */
+function oklchOf(hex){
+  const c=hexRgb(hex);
+  if(!c) return null;
+  const r=SRGB_TO_LIN(c.r), g=SRGB_TO_LIN(c.g), b=SRGB_TO_LIN(c.b);
+  const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*b);
+  const m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*b);
+  const s=Math.cbrt(.0883024619*r+.2817188376*g+.6299787005*b);
+  const L=.2104542553*l+.793617785*m-.0040720468*s;
+  const A=1.9779984951*l-2.428592205*m+.4505937099*s;
+  const B=.0259040371*l+.7827717662*m-.808675766*s;
+  const C=Math.hypot(A,B);
+  return {L,C,h:C<1e-6?0:(Math.atan2(B,A)*180/Math.PI+360)%360};
+}
+
+/** OKLCH → 선형이 아닌 sRGB 0~255 세 값. 색역 밖이면 범위를 넘는 값이 나온다. */
+function oklchRgb(L,C,h){
+  const hr=h*Math.PI/180, A=C*Math.cos(hr), B=C*Math.sin(hr);
+  const l=(L+.3963377774*A+.2158037573*B)**3;
+  const m=(L-.1055613458*A-.0638541728*B)**3;
+  const s=(L-.0894841775*A-1.291485548*B)**3;
+  return [4.0767416621*l-3.3077115913*m+.2309699292*s,
+    -1.2684380046*l+2.6097574011*m-.3413193965*s,
+    -.0041960863*l-.7034186147*m+1.707614701*s].map(LIN_TO_SRGB);
+}
+
+/** `{L,C,h}` → `#rrggbb`. sRGB 밖이면 `L`·`h` 를 두고 `C` 를 줄인다 (색역 맞춤). */
+function hexOfOklch(L,C,h){
+  const inGamut=v=>v.every(x=>x>=-.5&&x<=255.5);
+  let rgb=oklchRgb(L,C,h);
+  if(!inGamut(rgb)){
+    let lo=0, hi=C;
+    for(let i=0;i<OKLCH_GAMUT_STEPS;i++){const mid=(lo+hi)/2; if(inGamut(oklchRgb(L,mid,h))) lo=mid; else hi=mid}
+    rgb=oklchRgb(L,lo,h);
+  }
+  return '#'+rgb.map(x=>Math.min(255,Math.max(0,Math.round(x))).toString(16).padStart(2,'0')).join('');
+}
+
 /** WCAG 2.1 상대휘도. 흑 0 · 백 1 이 정확히 나온다. */
 function relLuminance(hex){
   const c=hexRgb(hex);

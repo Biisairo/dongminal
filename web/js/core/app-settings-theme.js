@@ -34,7 +34,53 @@ Object.assign(App.prototype, {
     this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
   },
 
+  /**
+   * THEME_SEED_COLOR_SRS FR-SEED-12: 메인색 행 — 스위치·색 입력·견본 8개. 견본은 색상 0°·45°·…를
+   * **지금 테마에 맞춘** 색(원래 accent 의 밝기·채도, D-SEED-2)으로 칠한다. 단추는 한 번 만든다.
+   */
+  _renderSeedRow(){
+    const row=document.getElementById('theme-seed-row'); if(!row) return;
+    const sw=row.querySelector('#ds-theme-seed'), inp=row.querySelector('.seed-color'), box=row.querySelector('.seed-swatches');
+    const on=!!seedColor, a0=oklchOf(getCurrentTheme().ui.accent);
+    sw.checked=on; inp.disabled=!on;
+    inp.value=seedColor||getCurrentTheme().ui.accent;
+    if(!box.children.length){
+      for(let h=0;h<360;h+=SEED_SWATCH_STEP){
+        const b=document.createElement('button');
+        b.type='button'; b.className='ui-btn ui-btn-icon seed-swatch'; b.dataset.hue=String(h);
+        b.setAttribute('aria-label','Hue '+h+'°'); b.title='Hue '+h+'°';
+        b.addEventListener('click',()=>{const o=oklchOf(getCurrentTheme().ui.accent);seedColor=hexOfOklch(o.L,o.C,h);this._seedChanged(true)});
+        box.appendChild(b);
+      }
+      sw.addEventListener('change',()=>{
+        seedColor=sw.checked?(PrefStore.local.get(SEED_LAST_KEY)||getCurrentTheme().ui.accent):'';
+        this._seedChanged(true);
+      });
+      // 끄는 동안은 화면만 따라가고 놓을 때 저장한다 (FR-SEED-10, 편집기 FEC-5 와 같다).
+      inp.addEventListener('input',()=>{seedColor=inp.value.toLowerCase();this._seedChanged(false)});
+      inp.addEventListener('change',()=>this._saveSettingsNow('seed-color'));
+    }
+    for(const b of box.children){
+      b.disabled=!on;
+      b.style.background=hexOfOklch(a0.L,a0.C,Number(b.dataset.hue));
+    }
+  },
+
+  /** FR-SEED-10·11: 메인색이 바뀌었다 — 다시 적용하고, 패널·편집기 안내를 고친다. */
+  _seedChanged(save){
+    if(seedColor) PrefStore.local.set(SEED_LAST_KEY,seedColor);
+    this._applyThemeChoice(); this._renderThemePanel(); this._paintSeedHint();
+    if(save) this.saveSettings(); else this._saveSettingsSoon('seed-color');
+  },
+
+  /** FR-SEED-11: 편집기는 원본을 고친다 — 메인색이 켜져 있으면 그 사실을 알린다. */
+  _paintSeedHint(){
+    const hint=document.querySelector('#custom-editor .seed-hint');
+    if(hint) hint.hidden=!seedColor;
+  },
+
   _renderThemePanel(){
+    this._renderSeedRow();
     const list=document.getElementById('theme-list'); list.innerHTML='';
     // FR-STF-8: 스위치는 목록 위의 `.ds-row` 하나 — 이름은 구조에서 파생한다.
     const head=document.getElementById('theme-follow-row');
@@ -101,9 +147,11 @@ Object.assign(App.prototype, {
         const keys=['bg','accent','text','border','danger'];
         const dots=document.createElement('div');
         dots.className='tl-dots';
+        // FR-SEED-13: 점은 메인색 변환 결과다 — 고르기 전에 결과를 본다.
+        const shown=seedTheme(theme,seedColor);
         for(const k of keys){
           const dot=document.createElement('span');
-          dot.style.background=theme.ui[k];
+          dot.style.background=shown.ui[k];
           dots.appendChild(dot);
         }
         const label=document.createElement('span');
@@ -133,7 +181,7 @@ Object.assign(App.prototype, {
   },
 
   _renderPreview(){
-    const theme=getCurrentTheme();
+    const theme=getAppliedTheme();   // THEME_SEED_COLOR_SRS FR-SEED-9a
     const tr=theme.terminal;
     /**
      * `G7-1` 첫 판: 미리보기의 글자는 **화면이 실제로 쓸 값**이어야 한다.
@@ -234,6 +282,7 @@ Object.assign(App.prototype, {
     if(!customTheme.ui.accent2) customTheme.ui.accent2=pickAccent2(customTheme);
     document.getElementById('custom-toggle').classList.add('active');
     document.getElementById('custom-editor').hidden=false;
+    this._paintSeedHint();
     // UI colors
     const uiDiv=document.getElementById('ce-ui'); uiDiv.innerHTML='';
     for(const [key,label] of Object.entries(UI_LABELS)){
