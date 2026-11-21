@@ -44,6 +44,11 @@ const DefaultLimit int64 = 1 << 20
 // 창·탭·핀이 수백 개인 배치를 견딘다.
 const WorkspaceLimit int64 = 8 << 20
 
+// SmallLimit 은 작은 JSON 본문의 상한이다 — `{code,message}` 방언 종단·LSP·노드 포트
+// (FR-PNW-43 · REFACTOR3_DEDUP_GO_SRS FR-RDG-6). 형이 없는 상수라 길이(int)와 상한(int64)
+// 양쪽에 그대로 쓴다.
+const SmallLimit = 64 << 10
+
 // ErrTooLarge 는 본문이 상한을 넘었다는 뜻이다. 호출자는 이것을 413 으로 옮긴다.
 var ErrTooLarge = errors.New("본문이 상한을 넘었다")
 

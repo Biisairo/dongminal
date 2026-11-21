@@ -37,8 +37,8 @@ const (
 	proto = 1
 	// legacySpawnsFile 은 원격 기동 기록의 옛 파일이다. 노드가 설 때 지운다 (FR-PDM-64).
 	legacySpawnsFile = "peer-spawns.json"
-	// bodyLimit 은 노드 포트 요청 본문의 상한이다 (FR-PNW-43).
-	bodyLimit = 64 << 10
+	// bodyLimit 은 노드 포트 요청 본문의 상한이다 (FR-PNW-43 · REFACTOR3_DEDUP_GO_SRS FR-RDG-6).
+	bodyLimit = httpreq.SmallLimit
 )
 
 // 노드가 내는 일반 오류 코드. 값은 apierr 카탈로그의 것과 같다 — httpapi 시험이 지킨다.
@@ -51,9 +51,6 @@ const (
 	CodeStaleRev    = "stale_revision"
 	CodeSaveFailed  = "save_failed"
 )
-
-// codeHeader 는 오류 코드를 싣는 응답 헤더다. apierr.CodeHeader 와 같다.
-const codeHeader = "X-Error-Code"
 
 // Codes 는 노드가 낼 수 있는 코드 전부다. 상대가 보낸 코드는 이 안에 있을 때만 옮긴다.
 func Codes() []string {
@@ -221,22 +218,24 @@ func recoverHandler(h http.Handler) http.Handler {
 
 // writeFail 은 오류 하나다 — fs 방언 `{code,message}` (FR-PNW-42, I-7).
 func writeFail(w http.ResponseWriter, status int, code, msg string) {
-	w.Header().Set(codeHeader, code)
-	httpresp.JSON(w, status, map[string]string{"code": code, "message": msg})
+	httpresp.FailCode(w, status, code, msg)
 }
 
-// readBody 는 본문을 상한 안에서 읽는다. 실패하면 답하고 nil, 거짓이다.
-func readBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
-	raw, err := httpreq.Read(w, r, bodyLimit)
-	if err != nil {
+// readJSON 은 본문을 상한 안에서 읽어 v 에 푼다. 빈 본문은 `{}` 다. 실패하면 답하고 거짓이다.
+func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	switch fail, err := httpreq.DecodeJSON(w, r, v, bodyLimit, httpreq.EmptyAsObject); fail {
+	case httpreq.ReadFailed:
 		code := CodeBadRequest
 		if errors.Is(err, httpreq.ErrTooLarge) {
 			code = CodeBodyTooBig
 		}
 		writeFail(w, httpreq.Status(err), code, "read body")
-		return nil, false
+		return false
+	case httpreq.NotJSON:
+		writeFail(w, http.StatusBadRequest, CodeInvalidJSON, "invalid json")
+		return false
 	}
-	return raw, true
+	return true
 }
 
 // audit 는 짝맞춤 요청 한 줄이다. 본문·토큰은 남기지 않는다 (FR-PNW-94·95, FR-PDM-26).
@@ -265,12 +264,7 @@ func (n *Node) pair(w http.ResponseWriter, r *http.Request) {
 		writeFail(w, http.StatusTooManyRequests, edge.CodeRateLimited, "rate limited")
 		return
 	}
-	raw, ok := readBody(w, r)
-	if !ok {
-		return
-	}
-	if res := decode(raw, &in); res != nil {
-		writeFail(w, res.Status, res.Code, res.Message)
+	if !readJSON(w, r, &in) {
 		return
 	}
 	addr, port := "", 0

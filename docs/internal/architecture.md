@@ -111,7 +111,7 @@ internal/
     humancmd/            #   ②④  — 사람 명령의 와이어 — 도우미 소켓 프레임, 서명한 명령 본문(Ed25519), 데몬 쪽 클라이언트 (PEER_CHAT_SRS §3.12)
     edgerelay/           #   ②③  — 노드 포트의 바이트 통로 — 서버 노드 포트 → 데몬 node.sock, 데몬 → 서버 dial.sock (PEER_DAEMON_SRS 묶음 L)
     httpreq/             #   ②③  — 요청 본문을 읽는 한 자리 (표면별 크기 상한)
-    httpresp/            #   ②③  — 성공 JSON 응답을 쓰는 한 자리 (오류 방언 렌더러는 각자 둔다)
+    httpresp/            #   ②③  — JSON 응답·오류 응답(코드 헤더)을 쓰는 한 자리 (본문 모양은 방언 함수가 정한다)
     toolipc/             #   ②③  — paned 와이어 포맷만: wire.go(봉투·ProtocolVersion) · protocol.go(메서드·이벤트 이름, typed 인자·결과, hello.features) · files.go(데몬 지문 이름)
     outbuf/              #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
@@ -232,6 +232,13 @@ GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열
 `X-Error-Code` 헤더에 코드를 싣는다 — **본문은 한 바이트도 바뀌지 않는다.** 본문이
 공개 계약이고 헤더는 그 밖이라, 통일을 미루면서 코드를 얻는 유일한 길이다.
 카탈로그는 `docs/external/errors.md` 이며 `codes_doc.go` 에서 **생성**된다.
+
+**헤더를 세우는 문은 하나다** (REFACTOR3_DEDUP_GO_SRS FR-RDG-1·2). 헤더 이름은
+`httpresp.CodeHeader` 하나이고(`apierr.CodeHeader` 는 그 값을 가리킨다), 모든 방언 함수는
+본문만 만들어 `httpresp.Fail` 에 넘긴다 — 그 함수가 코드 헤더를 세우고 상태와 본문을 쓴다.
+`{code,message}` 방언은 `httpresp.FailCode` 하나다. `shared/edge`·`edgenode` 는
+`webserver` 를 가져올 수 없어 이 자리가 `shared` 에 있다. 요청 본문의 JSON 읽기는
+`httpreq.DecodeJSON` 하나가 하고 실패 종류만 돌려준다 — 답은 방언이 한다.
 
 ```
 domain sentinel 78개 ──▶ apierr.{Git,Runs,FS}.Lookup ──▶ (status, code)

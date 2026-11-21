@@ -13,22 +13,22 @@ import (
 type route = httproute.Route[*GitServer]
 
 var routes = []route{
-	httproute.Get("/api/git/repos", (*GitServer).apiGitRepos),
-	httproute.Get("/api/git/repo-at", (*GitServer).apiGitRepoAt),
+	httproute.Get("/api/git/repos", needGit((*GitServer).apiGitRepos)),
+	httproute.Get("/api/git/repo-at", needGit((*GitServer).apiGitRepoAt)),
 	// REPO_TAB_UNIFY_SRS FR-RTU-29: 저장소가 아닌 자리를 저장소로 만든다. 핀
 	// 추가와 같은 묶음에 두는 이유는 성공의 결과가 곧 핀이기 때문이다.
-	httproute.Post("/api/git/init", (*GitServer).apiGitInit),
-	httproute.Post("/api/git/repos/pin", (*GitServer).apiGitPin),
-	httproute.Post("/api/git/repos/unpin", (*GitServer).apiGitUnpin),
-	httproute.Post("/api/git/repos/reorder", (*GitServer).apiGitReorder),
+	httproute.Post("/api/git/init", needGit((*GitServer).apiGitInit)),
+	httproute.Post("/api/git/repos/pin", needGit((*GitServer).apiGitPin)),
+	httproute.Post("/api/git/repos/unpin", needGit((*GitServer).apiGitUnpin)),
+	httproute.Post("/api/git/repos/reorder", needGit((*GitServer).apiGitReorder)),
 	httproute.Get("/api/git/status", (*GitServer).apiGitStatus),
 	httproute.Get("/api/git/signature", (*GitServer).apiGitSignature),
 	httproute.Get("/api/git/diff-content", (*GitServer).apiGitDiffContent),
 	// M9_SRS FR-M9-21: diff 한쪽의 **원본 바이트** — `<img src>` 가 건다.
 	httproute.Get("/api/git/blob", (*GitServer).apiGitBlob),
 	httproute.Get("/api/git/preflight", (*GitServer).apiGitPreflight),
-	httproute.Get("/api/git/policy", (*GitServer).apiGitPolicy),
-	httproute.Get("/api/git/recovery", (*GitServer).apiGitRecovery),
+	httproute.Get("/api/git/policy", needGit((*GitServer).apiGitPolicy)),
+	httproute.Get("/api/git/recovery", needGit((*GitServer).apiGitRecovery)),
 	httproute.Post("/api/git/stage", (*GitServer).apiGitStage),
 	httproute.Post("/api/git/unstage", (*GitServer).apiGitUnstage),
 	httproute.Post("/api/git/discard", (*GitServer).apiGitDiscard),
@@ -47,8 +47,8 @@ var routes = []route{
 	httproute.Post("/api/git/pull", (*GitServer).apiGitPull),
 	httproute.Post("/api/git/push", (*GitServer).apiGitPush),
 	httproute.Post("/api/git/job/cancel", (*GitServer).apiGitJobCancel),
-	httproute.Get("/api/git/job/events", (*GitServer).apiGitJobEvents),
-	httproute.Get("/api/git/jobs", (*GitServer).apiGitJobs),
+	httproute.Get("/api/git/job/events", needGit((*GitServer).apiGitJobEvents)),
+	httproute.Get("/api/git/jobs", needGit((*GitServer).apiGitJobs)),
 	// 묶음 E — 원격 목록·Sync·Push preview (GIT_ACTIONS_SRS FR-GIT-269~271).
 	httproute.Get("/api/git/remotes", (*GitServer).apiGitRemotes),
 	httproute.Post("/api/git/remote/add", (*GitServer).apiGitRemoteAdd),
@@ -129,4 +129,21 @@ func (g *GitServer) Handle(w http.ResponseWriter, r *http.Request) bool {
 		defer lease.release()
 	}
 	return httproute.Dispatch(routes, g, w, r)
+}
+
+// needGit 은 처리기를 git 가용성 가드로 감싼다 (REFACTOR3_DEDUP_GO_SRS FR-RDG-8).
+//
+//	이전: 처리기 열 곳이 첫 줄에 각자 `if s.Git == nil { gitUnavailable(w); return }` 를 두었다
+//	새:   라우트 등록에서 한 번 감싼다. 503 응답은 같다
+//	이유: 가드를 처리기마다 복제하면 하나는 빠진다. 저장소를 해석하는 처리기는
+//	      `gitResolveRepoSoft` 가 같은 가드를 이미 지닌다 — 본문 검증이 가드보다 먼저인
+//	      순서가 지금의 동작이라 그쪽은 감싸지 않는다
+func needGit(h httproute.Handler[*GitServer]) httproute.Handler[*GitServer] {
+	return func(s *GitServer, w http.ResponseWriter, r *http.Request) {
+		if s.Git == nil {
+			gitUnavailable(w)
+			return
+		}
+		h(s, w, r)
+	}
 }

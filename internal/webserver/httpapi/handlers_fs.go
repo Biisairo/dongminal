@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -78,14 +77,13 @@ func fsJSON(w http.ResponseWriter, status int, body any) {
 //	          아니라 '옮기다 잊었다' 로 읽힌다"* — 정확히 그 상태였다
 //	새  동작: 여기 한 줄이 그 표면 전체를 세운다
 func fsFail(w http.ResponseWriter, code, msg string) {
-	fsFailBody(w, code, map[string]any{"code": code, "message": msg})
+	httpresp.FailCode(w, fsStatus(code), code, msg)
 }
 
 // fsFailBody 는 본문을 호출자가 만드는 실패다 — 답으로 거절할 때 `message` 없이
 // `args` 를 싣는다 (SERVER_DRIVEN_ACTIONS_SRS F-e). 헤더와 상태는 여기가 세운다.
 func fsFailBody(w http.ResponseWriter, code string, body map[string]any) {
-	w.Header().Set(apierr.CodeHeader, code)
-	fsJSON(w, fsStatus(code), body)
+	httpresp.Fail(w, fsStatus(code), code, body)
 }
 
 func fsFailErr(w http.ResponseWriter, err error) {
@@ -134,12 +132,11 @@ func fsOSMsg(code string) string {
 }
 
 func fsDecode(w http.ResponseWriter, r *http.Request, into any) bool {
-	body, err := httpreq.Read(w, r, 0)
-	if err != nil {
+	switch fail, err := httpreq.DecodeJSON(w, r, into, 0); fail {
+	case httpreq.ReadFailed:
 		fsFail(w, apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
 		return false
-	}
-	if err := json.Unmarshal(body, into); err != nil {
+	case httpreq.NotJSON:
 		fsFail(w, fsErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
 		return false
 	}

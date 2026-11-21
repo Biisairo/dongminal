@@ -55,11 +55,7 @@ func probeFile(f *os.File) (kind, mime string, head []byte, err error) {
 	switch {
 	case strings.HasPrefix(mime, "image/"):
 		return fileKindImage, mime, head, nil
-	// REPO_FIX 03 §3A-1: UTF-16 BOM 이면 NUL 이 있어도 텍스트다 — 판정은 read 가
-	// 한다. 이전: NUL 로 binary 가 되어 편집기가 열리지 않았다.
-	case textenc.HasUTF16BOM(head):
-		return fileKindText, mime, head, nil
-	case bytes.IndexByte(head, 0) >= 0:
+	case isBinary(head):
 		return fileKindBinary, mime, head, nil
 	default:
 		// **SVG 는 여기 남는다** — 그것이 편집할 수 있는 문서이기 때문이다
@@ -67,6 +63,26 @@ func probeFile(f *os.File) (kind, mime string, head []byte, err error) {
 		// 판정이 이미지로 갈리면 그 파일을 고칠 길이 사라진다.
 		return fileKindText, mime, head, nil
 	}
+}
+
+// isBinary 는 이진 판정 하나다 — 편집기(probe)와 검색이 같이 쓴다 (REFACTOR3_DEDUP_GO_SRS
+// FR-RDG-9). 앞 binaryProbeLen 바이트에 NUL 이 있으면 이진이다 — git 과 같은 판정이다
+// (FR-EGS-5).
+//
+// REPO_FIX 03 §3A-1: UTF-16 BOM 이면 NUL 이 있어도 텍스트다 — 판정은 read 가 한다.
+// 이전: NUL 로 binary 가 되어 편집기가 열리지 않았다.
+//
+//	이전: 검색은 따로 적힌 판정으로 UTF-16(BOM) 파일을 이진으로 보고 건너뛰었다
+//	새:   검색도 텍스트로 보고 바이트로 비교한다
+//	이유: Q2 — 편집기와 같은 규칙
+func isBinary(head []byte) bool {
+	if len(head) > binaryProbeLen {
+		head = head[:binaryProbeLen]
+	}
+	if textenc.HasUTF16BOM(head) {
+		return false
+	}
+	return bytes.IndexByte(head, 0) >= 0
 }
 
 // looksLikeSVG 는 판정을 `mimeprobe` 에 맡긴다.

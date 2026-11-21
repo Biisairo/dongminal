@@ -12,13 +12,15 @@ import (
 	"net/http"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/httpreq"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/lsp"
 )
 
 // lspMaxBody 는 상태·설치 요청 본문의 상한이다. 절대경로 표 몇 줄이 들어올 자리이며,
-// 상한이 없으면 아무 크기나 읽는 종단이 된다.
-const lspMaxBody = 64 << 10
+// 상한이 없으면 아무 크기나 읽는 종단이 된다. 값은 `httpreq` 의 이름 하나다
+// (REFACTOR3_DEDUP_GO_SRS FR-RDG-6).
+const lspMaxBody = httpreq.SmallLimit
 
 // lspReadBody 는 본문을 상한까지 읽는다. 실패하면 답하고 false 다.
 //
@@ -26,6 +28,9 @@ const lspMaxBody = 64 << 10
 // 종전에는 `LimitReader(r.Body, max)` 가 조용히 잘라, 상한을 넘은 본문이 잘린
 // JSON 이 되어 400 'bad request' 로 나갔다. 상한값과 이 표면이 `httpreq` 를
 // 지나지 않는다는 결정(`httpreq/body.go`)은 그대로다 — 바뀐 것은 초과의 보고뿐이다.
+//
+// `httpreq.DecodeJSON` 을 쓰지 않는다 (FR-RDG-5). 그 길은 `MaxBytesReader` 라 초과 때
+// 응답에 `Connection: close` 를 얹는다 — 이 종단의 응답 헤더가 바뀐다(INV-1).
 func lspReadBody(w http.ResponseWriter, r *http.Request, max int64) ([]byte, bool) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, max+1))
 	if err != nil {
@@ -124,28 +129,19 @@ func (s *Server) apiLSPPathsPut(w http.ResponseWriter, r *http.Request) {
 	}
 	var req lspPathsBody
 	if json.Unmarshal(body, &req) != nil {
-		lspFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "bad request")
+		writeToolIOErrorCode(w, http.StatusBadRequest, apierr.CodeBadRequest, "bad request")
 		return
 	}
 	out, err := s.LSP.SetPaths(req.Paths)
 	switch {
 	case errors.Is(err, lsp.ErrUnknownServer):
-		lspFail(w, http.StatusBadRequest, apierr.CodeBadRequest, err.Error())
+		writeToolIOErrorCode(w, http.StatusBadRequest, apierr.CodeBadRequest, err.Error())
 	case errors.Is(err, lsp.ErrPathNotAbsolute):
-		lspFail(w, http.StatusBadRequest, apierr.CodeAbsPathNeeded, err.Error())
+		writeToolIOErrorCode(w, http.StatusBadRequest, apierr.CodeAbsPathNeeded, err.Error())
 	case err != nil:
 		dmlog.Errorf(nil, "[lsp] 경로 표 저장 실패: %v", err)
-		lspFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, "경로 표를 저장하지 못했다")
+		writeToolIOErrorCode(w, http.StatusInternalServerError, apierr.CodeSaveFailed, "경로 표를 저장하지 못했다")
 	default:
 		writeJSON(w, lspPathsBody{Paths: out})
 	}
-}
-
-// lspFail 은 이 표면의 단문 방언(`{"error": 문구}`)에 코드를 헤더로 싣는다 —
-// 상태에서 코드를 고르면 path_must_be_absolute 가 bad_request 로 뭉개진다.
-func lspFail(w http.ResponseWriter, status int, code, msg string) {
-	w.Header().Set(apierr.CodeHeader, code)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }

@@ -1,10 +1,10 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"dongminal/internal/shared/httpreq"
+	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/webserver/apierr"
 )
 
@@ -31,10 +31,7 @@ func httpErr(w http.ResponseWriter, msg string, status int, code string) {
 	if code == "" {
 		code = apierr.CodeForStatus(status)
 	}
-	// 헤더를 **먼저** 세운다. `http.Error` 가 곧 WriteHeader 를 부르고, 그
-	// 뒤에 얹은 헤더는 나가지 않는다.
-	w.Header().Set(apierr.CodeHeader, code)
-	http.Error(w, msg, status)
+	httpresp.Fail(w, status, code, httpresp.Text(msg))
 }
 
 // readBodyHTTP 는 `httpErr` 방언 종단의 본문을 **상한 안에서** 읽어 디코드한다
@@ -53,12 +50,12 @@ func httpErr(w http.ResponseWriter, msg string, status int, code string) {
 //	if answered { return }
 //	if !ok || body.ToolID == "" { httpErr(...); return }
 func readBodyHTTP(w http.ResponseWriter, r *http.Request, body any) (ok, answered bool) {
-	raw, err := httpreq.Read(w, r, 0)
-	if err != nil {
+	fail, err := httpreq.DecodeJSON(w, r, body, 0)
+	if fail == httpreq.ReadFailed {
 		httpErr(w, "read body", httpreq.Status(err), apierr.BodyReadCode(err))
 		return false, true
 	}
-	return json.Unmarshal(raw, body) == nil, false
+	return fail == httpreq.NoFailure, false
 }
 
 // httpErrf 는 인자 순서 때문에 갈라 둔 형태다 — 문구가 여러 줄로 흐르는 자리에서

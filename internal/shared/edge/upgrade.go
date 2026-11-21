@@ -96,8 +96,7 @@ func AcceptUpgrade(w http.ResponseWriter, r *http.Request, proto string) (net.Co
 
 // upgradeFail 은 노드 포트의 오류 방언 `{code,message}` 로 답한다 (FR-PNW-42).
 func upgradeFail(w http.ResponseWriter, status int, code, msg string) {
-	w.Header().Set("X-Error-Code", code)
-	httpresp.JSON(w, status, map[string]string{"code": code, "message": msg})
+	httpresp.FailCode(w, status, code, msg)
 }
 
 func headerHasToken(h http.Header, key, token string) bool {

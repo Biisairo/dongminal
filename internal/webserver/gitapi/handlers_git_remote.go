@@ -315,10 +315,6 @@ func (s *GitServer) apiGitJobCancel(w http.ResponseWriter, r *http.Request) {
 // GET /api/git/jobs — 진행 중 작업 전부 (FR-GIT-112). Git 패널이 `git_jobs_changed`·
 // 구독 열림에 받는다 (FR-OPT-4-4).
 func (s *GitServer) apiGitJobs(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	gitJSON(w, http.StatusOK, map[string]any{"jobs": s.jobsHub().Active()})
 }
 
@@ -327,10 +323,6 @@ func (s *GitServer) apiGitJobs(w http.ResponseWriter, r *http.Request) {
 // after 는 재연결 지점이다. 보존된 줄을 먼저 흘려보내므로 끊긴 구간이 비지 않는다.
 // 구현 규약은 /api/commands/sse 를 따른다 — 두 스트림의 형태가 갈릴 이유가 없다.
 func (s *GitServer) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	if !sse.Supported(w) {
 		gitFail(w, http.StatusInternalServerError, gitErrFailed, "스트리밍을 지원하지 않는다")
 		return

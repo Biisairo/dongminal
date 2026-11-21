@@ -347,7 +347,7 @@ func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bo
 		defer f.Close()
 		br := bufio.NewReaderSize(f, grepReadBuf)
 		// 짧은 파일은 `Peek` 이 오류와 함께 있는 만큼을 준다 — 그것이 정상이다.
-		head, _ := br.Peek(8000)
+		head, _ := br.Peek(binaryProbeLen)
 		if isBinary(head) {
 			return true
 		}
@@ -422,16 +422,6 @@ func grepIndexFold(line []byte, needle string, buf *[]byte) int {
 	}
 	*buf = b
 	return bytes.Index(b, []byte(needle))
-}
-
-// isBinary 는 앞부분에 NUL 이 있으면 이진으로 본다 — git 과 같은 판정이다
-// (FR-EGS-5).
-func isBinary(blob []byte) bool {
-	head := blob
-	if len(head) > 8000 {
-		head = head[:8000]
-	}
-	return bytes.IndexByte(head, 0) >= 0
 }
 
 // clipLine 은 화면에 실을 수 있는 만큼만 남긴다. 압축된 번들 한 줄이 수 MB 다.

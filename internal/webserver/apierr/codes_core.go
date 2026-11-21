@@ -1,5 +1,7 @@
 package apierr
 
+import "dongminal/internal/shared/httpresp"
+
 // 핵심 표면의 와이어 코드 (ERROR_CONTRACT_SRS 묶음 C).
 //
 // git·fs·runs 표면은 이미 `apierr` 를 지나고 있었다. 남아 있던 것은 **핵심
@@ -12,8 +14,9 @@ package apierr
 // 공개 계약이고 헤더는 그 밖이라, 방언을 통일하지 않으면서 코드를 얻는 유일한
 // 길이다 (`architecture.md` 의 결정).
 
-// CodeHeader 는 오류 코드를 싣는 응답 헤더다.
-const CodeHeader = "X-Error-Code"
+// CodeHeader 는 오류 코드를 싣는 응답 헤더다. 이름은 `httpresp` 가 소유한다
+// (REFACTOR3_DEDUP_GO_SRS FR-RDG-1).
+const CodeHeader = httpresp.CodeHeader
 
 const (
 	// ── 상태에서 파생되는 기본값 ──

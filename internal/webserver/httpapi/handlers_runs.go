@@ -187,8 +187,7 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 		body[k] = v
 	}
 	// FR-ERR-7: 본문의 `error` 와 같은 값을 헤더로도 낸다.
-	w.Header().Set(apierr.CodeHeader, name)
-	httpresp.JSON(w, status, body)
+	httpresp.Fail(w, status, name, body)
 }
 
 // runMember 는 memberId 를 회원으로 옮기고, 없으면 이 표면의 오류로 답한다
