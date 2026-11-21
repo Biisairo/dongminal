@@ -43,7 +43,6 @@ func FreePort() (string, error) {
 // 죽이고(탭이 죽어 새 서버에 다시 붙지 못한다), 클라이언트의 재접속 시도가
 // 종료 확인 스냅샷에 걸리면 "포트를 비우지 못했다" 로 오판해 재시작을 중단한다.
 // 그 보장은 platform.ProcInfo 의 계약이다 (FR-XPI-1).
-// pidsOnPort 는 그 포트를 듣고 있는 pid 들이다.
 //
 // **이음매인 이유**(`TEST-3`): 실기로는 "포트를 잡은 프로세스가 TERM 에는 죽지
 // 않고 KILL 에는 죽는다" 를 만들 수 없다. 그 순서가 이 함수의 계약인데, 그것을
@@ -67,10 +66,20 @@ const (
 	stopPoll  = 50 * time.Millisecond
 )
 
-// portFree 는 포트가 비기를 stopGrace 까지 기다린다.
-func portFree(port string) bool {
-	return pollwait.Until(context.Background(), stopGrace, stopPoll,
-		func() bool { return len(pidsOnPort(port)) == 0 }) == nil
+// pidsGone 은 pids 가 모두 사라지기를 stopGrace 까지 기다린다.
+//
+// 대기는 대상 pid 의 생존(신호 0, fork 없음)만 본다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-44 ·
+// DM-19). 종전에는 간격마다 포트를 다시 보았고, darwin 의 포트 관측은 `lsof` fork 라
+// 정지 한 번에 수십 번 fork 했다. 포트는 대기가 끝난 뒤에 본다 — 판정의 근거는 그대로 포트다.
+func pidsGone(proc platform.Process, pids []int) bool {
+	return pollwait.Until(context.Background(), stopGrace, stopPoll, func() bool {
+		for _, p := range pids {
+			if proc.Alive(p) {
+				return false
+			}
+		}
+		return true
+	}) == nil
 }
 
 // killPort는 포트를 점유한 프로세스를 TERM → (최대 1초) → KILL 로 종료한다.
@@ -83,11 +92,14 @@ func killPort(port string, w io.Writer, label string) bool {
 	fmt.Fprintf(w, "%s (포트 %s) 정지 중...\n", label, port)
 	proc := procCtl()
 	signalPIDs(pids, proc.Terminate)
-	if !portFree(port) {
-		fmt.Fprintf(w, "강제 종료...\n")
-		signalPIDs(pidsOnPort(port), proc.Kill)
-		portFree(port)
+	pidsGone(proc, pids)
+	left := pidsOnPort(port)
+	if len(left) == 0 {
+		return true
 	}
+	fmt.Fprintf(w, "강제 종료...\n")
+	signalPIDs(left, proc.Kill)
+	pidsGone(proc, left)
 	return len(pidsOnPort(port)) == 0
 }
 
@@ -135,17 +147,13 @@ func daemonOurs(home string) (int, bool) {
 		return pid, false
 	}
 	transport := platform.Current().IPC
-	conn, err := transport.Dial(transport.Endpoint(home), daemonProbeTimeout)
+	conn, err := transport.Dial(transport.Endpoint(home), aliveProbeTimeout)
 	if err != nil {
 		return pid, false
 	}
 	conn.Close()
 	return pid, true
 }
-
-// daemonProbeTimeout 은 "거기 우리 데몬이 있는가" 를 묻는 시도의 상한이다.
-// 로컬 종단이므로 답은 즉시 오거나 오지 않는다 (ipc 의 dialProbeTimeout 과 같은 뜻).
-const daemonProbeTimeout = 2 * time.Second
 
 // stopDaemon은 dongminald 를 TERM → 1초 → KILL 로 종료하고 pidfile·소켓을
 // 지운다. 이미 죽어 있으면 잔여물만 치운다. 반환값은 "정지 상태로 끝났는가"

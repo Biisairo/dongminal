@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/platform"
 )
 
@@ -49,7 +50,7 @@ func openURLWith(args []string, stdout, stderr io.Writer, openLocal func(string)
 	}
 	target := args[0]
 
-	status, body, err := httpPostJSON(baseURL()+"/api/commands", map[string]any{
+	status, body, err := httpPostJSON(baseURL()+apipath.Commands, map[string]any{
 		"action": "openUrl",
 		"args":   map[string]any{"url": target},
 	})

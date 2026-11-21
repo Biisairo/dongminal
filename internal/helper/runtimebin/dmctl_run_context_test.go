@@ -236,10 +236,10 @@ func TestContextCell_UnknownStaysUnknown(t *testing.T) {
 // 예산으로 부른다. 종전에는 전 서브커맨드가 10초 공용 클라이언트였고, 승계는 정상
 // 경로(요약에 수십 초)에서 늘 "실패" 로 보고된 뒤 서버 쪽에서 성공해 있었다.
 func TestRunBudget_SucceedFollowsTimeout(t *testing.T) {
-	if got, want := succeedBudget(0), runwait.HandoffWaitDefault+runClientSlack; got != want {
+	if got, want := succeedBudget(0), runwait.HandoffWaitDefault+clientSlack; got != want {
 		t.Fatalf("기본 예산 = %s, want %s (서버 기본 + 여유)", got, want)
 	}
-	if got, want := succeedBudget(60_000), 60*time.Second+runClientSlack; got != want {
+	if got, want := succeedBudget(60_000), 60*time.Second+clientSlack; got != want {
 		t.Fatalf("--timeout-ms 60000 → %s, want %s", got, want)
 	}
 	if preambleBudget <= runwait.PreambleWait {
@@ -284,8 +284,8 @@ func TestDmctlRunSucceed_UsesLongBudget(t *testing.T) {
 	if code := runDmctlRun([]string{"succeed", "--member", "m-1", "--at", "tab-c", "--timeout-ms", "60000"}, &out, io.Discard); code != 0 {
 		t.Fatalf("exit = %d (%s)", code, out.String())
 	}
-	if len(seen) != 1 || seen[0] != 60*time.Second+runClientSlack {
-		t.Fatalf("succeed 의 예산 = %v, want %s", seen, 60*time.Second+runClientSlack)
+	if len(seen) != 1 || seen[0] != 60*time.Second+clientSlack {
+		t.Fatalf("succeed 의 예산 = %v, want %s", seen, 60*time.Second+clientSlack)
 	}
 }
 
@@ -333,10 +333,10 @@ func recordBudgets(seen *[]time.Duration) (restore func()) {
 // M8 D-A-24: `wait` 의 기본 예산은 서버 기본(`runwait.ActivityWaitDefault`) + 여유다 —
 // 사본이 아니다. 시한을 주면 그 시한 + 여유다.
 func TestRunBudget_WaitFollowsRunwait(t *testing.T) {
-	if got := waitBudget(0); got != runwait.ActivityWaitDefault+waitClientSlack {
-		t.Fatalf("기본 예산 %v, want %v", got, runwait.ActivityWaitDefault+waitClientSlack)
+	if got := waitBudget(0); got != runwait.ActivityWaitDefault+clientSlack {
+		t.Fatalf("기본 예산 %v, want %v", got, runwait.ActivityWaitDefault+clientSlack)
 	}
-	if got := waitBudget(60_000); got != 60*time.Second+waitClientSlack {
+	if got := waitBudget(60_000); got != 60*time.Second+clientSlack {
 		t.Fatalf("60초 시한의 예산 %v", got)
 	}
 }

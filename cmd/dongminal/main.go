@@ -178,7 +178,7 @@ func liveWindowUUIDs(ws []workspace.WindowInfo) []string {
 
 // buildDepsWithHub 는 데몬 허브(ToolClient)로 의존을 조립한다. 도구는 데몬에 있다
 // (DIRECT_MODE_REMOVAL_SRS). attention/activity 는 데몬의 출력 push 가 몬다.
-func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitRoot context.Context) (builtDeps, error) {
+func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitCtx context.Context) (builtDeps, error) {
 	cmdHub := hub.NewCommandHub()
 	// 배치는 데몬이 한다(boot.Run). 여기서는 회수만 맡는다 — 회수는 workspace 를
 	// 봐야 하고 그 주인은 웹서버 프로세스다 (FR-SBX-9).
@@ -193,7 +193,7 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitRoot conte
 	// FR-ATL-6: 종료 통지를 놓쳐도 죽은 도구의 알람이 복원되지 않게 한다.
 	attnTracker.SetLiveProbe(attnLiveProbe(toolHub))
 
-	bd, err := buildCommonDeps(cfg, toolHub, cmdHub, attnTracker, gitRoot)
+	bd, err := buildCommonDeps(cfg, toolHub, cmdHub, attnTracker, gitCtx)
 	if err != nil {
 		return bd, err
 	}
@@ -227,12 +227,12 @@ type gitDeps struct {
 // worktree 가 이것을 받아야 실행 환경과 기록을 함께 쓴다 (GIT_EXEC_UNIFY_SRS
 // FR-GXU-10). 종전에는 그것들이 git 을 각자 띄워 `core.Env()` 도 실행 기록도 지나지
 // 않았고, 그래서 Console 이 그 실행들을 보지 못했다.
-func newGitDeps(cfg httpapi.Config, gitRoot context.Context) gitDeps {
+func newGitDeps(cfg httpapi.Config, gitCtx context.Context) gitDeps {
 	svc := core.New()
 	return gitDeps{
 		// git 조회 앞의 single-flight + TTL 캐시 (GIT_SRS 묶음 C). 브라우저 창이
 		// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
-		store: store.NewStore(svc, store.WithRoot(gitRoot)),
+		store: store.NewStore(svc, store.WithRoot(gitCtx)),
 		// worktree 격리의 관리자 (묶음 W). 자기 영역은 $DONGMINAL_HOME/worktrees
 		// 아래뿐이고, 정리 대상은 Run 레코드가 정한다 (FR-WKT-9/10). 격리를 쓰지
 		// 않는 Run 은 이 객체를 건드리지 않는다.
@@ -281,16 +281,17 @@ func newLSPService(cfg httpapi.Config) *lsp.Service {
 // buildCommonDeps wires up the managers around the daemon hub.
 // toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
 // the tool adapters.
-// gitRoot 는 git 의 서버 수명 ctx 다 (REPO_FIX 01 §8) — Store flight·잡·동기 쓰기의
+//
+// gitCtx 는 git 의 서버 수명 ctx 다 (REPO_FIX 01 §8) — Store flight·잡·동기 쓰기의
 // 쓰기·사후 단계·완료 처리가 모두 이것에서 파생한다. 종료가 취소한다.
-func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker, gitRoot context.Context) (builtDeps, error) {
+func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker, gitCtx context.Context) (builtDeps, error) {
 	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: filepath.Join(cfg.DataDir, dmenv.WorkspaceFile)})
 	if err != nil {
 		return builtDeps{}, err
 	}
 	pa, resolver := newToolAdapters(toolHub)
 	runStore := newRunStore(cfg)
-	git := newGitDeps(cfg, gitRoot)
+	git := newGitDeps(cfg, gitCtx)
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
 	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")

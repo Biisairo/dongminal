@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/pollwait"
 	"encoding/json"
 	"net/http"
@@ -28,7 +29,7 @@ type healthState struct {
 // 기동을 막으면 갱신 중인 인스턴스가 통째로 못 뜬다 (FR-VHL-5 와 같은 정신).
 func fetchHealth(url string, timeout time.Duration) (healthState, bool) {
 	c := &http.Client{Timeout: timeout}
-	resp, err := c.Get(url + "/api/health")
+	resp, err := c.Get(url + apipath.Health)
 	if err != nil {
 		return healthState{}, false
 	}
@@ -66,7 +67,7 @@ func fetchHealth(url string, timeout time.Duration) (healthState, bool) {
 func waitDaemonConnected(url string, tries int, interval time.Duration) (healthState, bool) {
 	var last healthState
 	err := pollwait.Until(context.Background(), time.Duration(tries)*interval, interval, func() bool {
-		st, ok := fetchHealth(url, localPingTimeout)
+		st, ok := fetchHealth(url, aliveProbeTimeout)
 		if ok {
 			last = st
 		}

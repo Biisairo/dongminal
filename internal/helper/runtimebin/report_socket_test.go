@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/agentrec"
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/platform"
 )
 
@@ -187,7 +188,7 @@ func TestDmctlActivity_ViaSocketKeepsContextOnHTTP(t *testing.T) {
 	}
 	hits.mu.Lock()
 	defer hits.mu.Unlock()
-	if len(hits.paths) != 1 || hits.paths[0] != contextObservePath {
+	if len(hits.paths) != 1 || hits.paths[0] != apipath.RunsContext {
 		t.Fatalf("HTTP=%v, 맥락 관측 하나를 기대", hits.paths)
 	}
 }

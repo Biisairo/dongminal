@@ -9,6 +9,7 @@ import (
 
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/agentrec"
+	"dongminal/internal/shared/apipath"
 )
 
 // dmctlActivityHelp 는 등록부에서 **파생한다** (AGENT_ADAPTER_COMPLETION_SRS
@@ -70,7 +71,7 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 		reportMainActivity(adapter, rep, toolID)
 	}
 	if s := rep.Sub; s != nil {
-		postReport(agentrec.MethodActivity, activitySetPath, map[string]any{"toolId": toolID, "agent": adapter.ID,
+		postReport(agentrec.MethodActivity, apipath.ToolsActivitySet, map[string]any{"toolId": toolID, "agent": adapter.ID,
 			"agentId": s.AgentID, "agentType": s.AgentType, "state": s.State, "tool": s.Tool, "detail": s.Detail}, hookBudget)
 	}
 	reportContext(adapter, rep, toolID)
@@ -102,7 +103,7 @@ func reportMainActivity(adapter agentadapter.Adapter, rep agentadapter.Report, t
 		body["sessionId"] = rep.SessionID
 	}
 	addBridgeFields(body, rep)
-	postReport(agentrec.MethodActivity, activitySetPath, body, hookBudget)
+	postReport(agentrec.MethodActivity, apipath.ToolsActivitySet, body, hookBudget)
 }
 
 // addBridgeFields 는 브리지의 곁들이 값을 싣는다 (TELEGRAM_BRIDGE_SRS FR-TGB-80·81).
@@ -120,15 +121,6 @@ func addBridgeFields(body map[string]any, rep agentadapter.Report) {
 		body["inputOver"] = true
 	}
 }
-
-// activitySetPath 는 활동 보고의 HTTP 종단이다. 보고 소켓이 없을 때 간다 (FR-ARD-23).
-const activitySetPath = "/api/tools/activity/set"
-
-// contextObservePath 는 컨텍스트 관측의 수신 종단이다 (ORCHESTRATION_V2_SRS
-// 묶음 C). activity 와 **별도 종단**인 이유는 둘의 실패가 서로를 막으면 안 되기
-// 때문이다 (NFR-CBG-2) — 관측 층의 오류가 활동 보고를 삼키면 사람이 보는 패널이
-// 먼저 죽는다.
-const contextObservePath = "/api/runs/context"
 
 // reportContext 는 이 훅이 실어 온 컨텍스트 신호를 서버에 넘긴다 (FR-CBG-1~4).
 //
@@ -180,7 +172,7 @@ func reportContext(a agentadapter.Adapter, rep agentadapter.Report, toolID strin
 			body["model"] = u.Model
 		}
 	}
-	httpPostJSONWithin(baseURL()+contextObservePath, body, hookBudget)
+	httpPostJSONWithin(baseURL()+apipath.RunsContext, body, hookBudget)
 }
 
 // usageTailMax 는 뒤에서부터 읽을 상한이다 (NFR-CBG-1 의 개정).
@@ -300,7 +292,7 @@ func reportNotifyActivity(label string, args []string, toolID string) {
 				// (FR-ATN-12 — `done`·`waiting` 이 아닌 라벨은 무조건 알람).
 				// 여기서 id 를 실으면 `Signals.Working=false` 가 무조건 알람을
 				// 한 번 더 만들어 **같은 턴이 두 번 운다.**
-				postReport(agentrec.MethodActivity, activitySetPath,
+				postReport(agentrec.MethodActivity, apipath.ToolsActivitySet,
 					map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}, hookBudget)
 			}
 			return

@@ -16,12 +16,7 @@ import (
 //	이유:     `renameTab` 은 결과를 기다리지 않는 방송이고, 409 를 받은 저장은 다시
 //	          시도하지 않는다(FR-WSC-1). 이슈 트리의 사슬 이름이 그 틈으로 사라졌다
 
-// FR-TND-12: 확인 창 · 확인 간격 · 전송 상한. 앞의 둘은 시험이 줄인다.
-var (
-	renameConfirmWindow   = 1500 * time.Millisecond
-	renameConfirmInterval = 100 * time.Millisecond
-)
-
+// FR-TND-12: 전송 상한. 확인 창·간격은 budgets.go 에 있다.
 const renameMaxSends = 3
 
 // renameWant 는 반영의 조건이다 (FR-TND-11).
@@ -56,14 +51,22 @@ func dmctlRenameConfirmed(action string, args map[string]any, want renameWant, s
 
 // waitRenameApplied 는 확인 창 안에서 반영을 기다린다. known 이 거짓이면 판정할 수
 // 없는 서버다 (FR-TND-14).
+//
+// 간격은 renameConfirmInterval 에서 두 배씩 늘고, 마지막 확인은 창 끝에 맞춘다
+// (REFACTOR3_GO_STRUCT_SRS FR-RGS-44 · DM-20). 반영은 대개 첫 확인 안에 서므로 앞을
+// 촘촘히 보고 뒤를 성기게 본다 — 고정 간격은 전송마다 `/api/state` 를 약 16번 받아
+// 매번 도구 목록까지 디코딩했다.
 func waitRenameApplied(want renameWant) (applied, known bool) {
 	deadline := time.Now().Add(renameConfirmWindow)
+	gap := renameConfirmInterval
 	for {
 		applied, known = renameApplied(want)
-		if applied || !known || !time.Now().Before(deadline) {
+		left := time.Until(deadline)
+		if applied || !known || left <= 0 {
 			return applied, known
 		}
-		time.Sleep(renameConfirmInterval)
+		time.Sleep(min(gap, left))
+		gap *= 2
 	}
 }
 

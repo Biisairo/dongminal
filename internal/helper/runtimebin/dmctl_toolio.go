@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // 에이전트 접합면의 CLI 절반이다 (SKILL_INJECTION_SRS 묶음 A). MCP 폐지로 사라진
@@ -76,8 +78,8 @@ func runDmctlRead(cmd string, args []string, stdout, stderr io.Writer) int {
 	if strip {
 		q.Set("strip", "1")
 	}
-	status, body, err := httpGet(baseURL() + "/api/tools/output?" + q.Encode())
-	if _, code := apiResult("/api/tools/output", status, body, err, stderr); code != 0 {
+	status, body, err := httpGet(baseURL() + apipath.ToolsOutput + "?" + q.Encode())
+	if _, code := apiResult(apipath.ToolsOutput, status, body, err, stderr); code != 0 {
 		return code
 	}
 	var rec struct {
@@ -168,9 +170,9 @@ func runDmctlSendInput(args []string, stdin io.Reader, stdout, stderr io.Writer)
 		return code
 	}
 
-	status, body, err := httpPostJSON(baseURL()+"/api/tools/input",
+	status, body, err := httpPostJSON(baseURL()+apipath.ToolsInput,
 		map[string]any{"id": target, "text": text, "execute": execute})
-	if _, code := apiResult("/api/tools/input", status, body, err, stderr); code != 0 {
+	if _, code := apiResult(apipath.ToolsInput, status, body, err, stderr); code != 0 {
 		return code
 	}
 	mode := "타이핑만 (엔터 대기)"
@@ -254,9 +256,9 @@ func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if code != 0 {
 		return code
 	}
-	status, body, err := httpPostJSON(baseURL()+"/api/tools/message",
+	status, body, err := httpPostJSON(baseURL()+apipath.ToolsMessage,
 		map[string]any{"to": to, "from": from, "message": message})
-	if _, code := apiResult("/api/tools/message", status, body, err, stderr); code != 0 {
+	if _, code := apiResult(apipath.ToolsMessage, status, body, err, stderr); code != 0 {
 		return code
 	}
 	var rec struct {

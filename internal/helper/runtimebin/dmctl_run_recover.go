@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // runSubRecover 는 `dmctl run recover` 다 (RUN_RECOVERY_SRS FR-RRC-24). 판정과 재개는 서버가
@@ -31,7 +33,7 @@ func runSubRecover(f runFlags, stdout, stderr io.Writer) int {
 		body["force"] = true
 	}
 	// 요청이 닿지 않았거나 서버가 거절했으면 요청 오류다 — "재개한 대상 없음"(1)과 가른다.
-	raw, code := runPost("/api/runs/recover", body, stderr)
+	raw, code := runPost(apipath.RunsRecover, body, stderr)
 	if code != 0 {
 		return 2
 	}

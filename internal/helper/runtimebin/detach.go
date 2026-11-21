@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/dmenv"
 )
 
@@ -155,7 +156,7 @@ func detachRestore(id, at string, stdout, stderr io.Writer) int {
 }
 
 func detachPost(action string, args map[string]any, stdout, stderr io.Writer) int {
-	status, body, err := httpPostJSON(baseURL()+"/api/commands",
+	status, body, err := httpPostJSON(baseURL()+apipath.Commands,
 		map[string]any{"action": action, "args": args})
 	if _, code, ok := httpExit(status, body, err, stderr, detachRule(true)); !ok {
 		return code
@@ -189,7 +190,7 @@ func detachRun(cmdline, cwd string, stdout, stderr io.Writer) int {
 	if cwd != "" {
 		body["cwd"] = cwd
 	}
-	status, raw, err := httpPostJSON(baseURL()+"/api/tools/headless", body)
+	status, raw, err := httpPostJSON(baseURL()+apipath.ToolsHeadless, body)
 	if _, code, ok := httpExit(status, raw, err, stderr, detachRule(true)); !ok {
 		return code
 	}
@@ -203,7 +204,7 @@ func detachRun(cmdline, cwd string, stdout, stderr io.Writer) int {
 }
 
 func detachList(stdout, stderr io.Writer) int {
-	status, body, err := httpGet(baseURL() + "/api/tools/background")
+	status, body, err := httpGet(baseURL() + apipath.ToolsBackground)
 	if _, code, ok := httpExit(status, body, err, stderr, detachRule(false)); !ok {
 		return code
 	}

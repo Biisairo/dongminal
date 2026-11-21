@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"dongminal/internal/helper/toolline"
+	"dongminal/internal/shared/apipath"
 )
 
 // dmctlWhoAmI implements `dmctl who-am-i` (DMCTL_WHO_AM_I_SRS FR-DMC-WAI-1~3).
@@ -20,8 +21,8 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 	}
 
 	// FR-RDG-26 (DM-F4): toolId 는 질의 문자열로 이스케이프한다.
-	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + url.QueryEscape(selfToolID()))
-	if _, code := apiResult("/api/whoami", status, body, err, stderr); code != 0 {
+	status, body, err := httpGet(baseURL() + apipath.Whoami + "?toolId=" + url.QueryEscape(selfToolID()))
+	if _, code := apiResult(apipath.Whoami, status, body, err, stderr); code != 0 {
 		return code
 	}
 

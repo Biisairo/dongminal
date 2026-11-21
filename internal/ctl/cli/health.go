@@ -10,14 +10,19 @@ import (
 	"dongminal/internal/shared/runtime"
 )
 
-// healthPingTimeout 은 HTTP 생존 확인의 대기다. 사람이 결과를 기다리는 명령이므로
-// 짧다 — 떠 있으면 즉시 답하고, 떠 있지 않으면 재시도해도 답하지 않는다.
-const healthPingTimeout = 3 * time.Second
-
-// localPingTimeout 은 한 번 묻고 끝나는 로컬 조회(`/api/ping`·`/api/health`)의
-// 상한이다 (FR-OPT-10-2 · SHR-17). 로컬 종단이므로 답은 즉시 오거나 오지 않는다.
-// `migrate` 의 실행 중 확인·`window` 의 준비 확인·기동 뒤 헬스 조회가 쓴다.
-const localPingTimeout = 2 * time.Second
+// "떠 있나" 를 묻는 시한은 목적 둘이다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-41). 종전에는
+// HTTP·데몬 소켓·준비 대기가 1·2·3초를 따로 들고 있었다. 도우미 소켓은 셋째 목적이고
+// `humancmd.DefaultTimeout` 이 정한다.
+const (
+	// aliveProbeTimeout 은 한 번 묻고 끝나는 로컬 확인(HTTP ping·health, 데몬 소켓)의
+	// 상한이다 (FR-OPT-10-2 · SHR-17). 로컬 종단이므로 답은 즉시 오거나 오지 않는다 —
+	// 떠 있지 않으면 연결 거절로 곧 돌아오고, 시한은 멈춘 상대에만 걸린다. ipc 의
+	// dialProbeTimeout 과 같은 값이다.
+	aliveProbeTimeout = 2 * time.Second
+	// alivePollTimeout 은 되풀이하는 준비 대기에서 한 번의 상한이다. 되풀이하므로 한 번은
+	// 짧다 — 전체 상한은 부르는 쪽(readyTries×readyInterval)이 정한다.
+	alivePollTimeout = time.Second
+)
 
 // RunHealth는 `dongminal health` 다 (FR-ACT-9/10).
 func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
@@ -51,7 +56,7 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 	//   이유:     `DialHost` 가 그 이름 해석 문제를 이미 푼다 — 미지정 주소만
 	//             loopback 으로 바꾸고 나머지는 그대로 두드린다. 두 벌로 두면
 	//             한쪽만 고쳐진다.
-	if ping(tgt.URL+"/", healthPingTimeout) {
+	if ping(tgt.URL+"/", aliveProbeTimeout) {
 		fmt.Fprintf(stdout, "✅ dongminal HTTP :%s\n", port)
 	} else {
 		fmt.Fprintf(stdout, "❌ dongminal HTTP :%s — 응답 없음\n", port)

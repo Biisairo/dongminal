@@ -272,7 +272,7 @@ func TestDmctlRun_HelpAndDispatch(t *testing.T) {
 
 	ts, _ := runStub(t, map[string]string{"/api/runs": `{"runs":[]}`})
 	pointDmctlAtServer(t, ts, "tool-a")
-	if _, handled := runDmctlSpecial("run", []string{"list"}, io.Discard, io.Discard); !handled {
+	if _, handled := dmctlRaw("run", []string{"list"}, io.Discard, io.Discard); !handled {
 		t.Fatal("`dmctl run` 이 디스패치되지 않는다")
 	}
 }

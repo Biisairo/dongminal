@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/apipath"
 )
 
 // M9_SRS FR-M9-15 (D-A-10 — 분리는 **이동만**이다): `dmctl_run.go` 에서 옮겨 왔다.
@@ -75,7 +76,7 @@ func runSubStart(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run start: --base 는 격리 Run 에만 쓴다 (--isolation per-run|per-member)")
 		return 2
 	}
-	raw, code := runPost("/api/runs", body, stderr)
+	raw, code := runPost(apipath.Runs, body, stderr)
 	if code != 0 {
 		return code
 	}
@@ -146,7 +147,7 @@ func runSubMember(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 		body["cwd"] = wd
 	}
-	raw, code := runPost("/api/runs/members", body, stderr)
+	raw, code := runPost(apipath.RunsMembers, body, stderr)
 	if code != 0 {
 		return code
 	}
@@ -190,7 +191,7 @@ func runSubLaunch(f runFlags, stdout, stderr io.Writer) int {
 	q := url.Values{}
 	q.Set("member", f.member)
 	// 프리앰블은 늦은 인수인계를 서버가 기다려 준다 (FR-RUN-4) — 그 상한만큼의 예산이다.
-	raw, code := runGetWithin("/api/runs/preamble?"+q.Encode(), preambleBudget, stderr)
+	raw, code := runGetWithin(apipath.RunsPreamble+"?"+q.Encode(), preambleBudget, stderr)
 	if code != 0 {
 		return code
 	}
@@ -298,7 +299,7 @@ func runSubReport(f runFlags, stdout, stderr io.Writer) int {
 		}
 		body["files"] = parts
 	}
-	raw, code := runPost("/api/runs/report", body, stderr)
+	raw, code := runPost(apipath.RunsReport, body, stderr)
 	if code != 0 {
 		return code
 	}
@@ -313,7 +314,7 @@ func runSubReport(f runFlags, stdout, stderr io.Writer) int {
 }
 
 func runSubStatus(sub string, f runFlags, stdout, stderr io.Writer) int {
-	path := "/api/runs"
+	path := apipath.Runs
 	if sub == "status" && f.run != "" {
 		q := url.Values{}
 		q.Set("id", f.run)
@@ -360,7 +361,7 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 	}
 	// close 는 `/exit` 뒤 셸 복귀를 서버가 기다리고(FR-RUN-6) worktree 까지 거둔다 —
 	// 10초 공용 클라이언트로는 정상 경로가 끊긴다 (M8 D-A-1).
-	status, raw, err := httpPostJSONWithin(baseURL()+"/api/runs/close", map[string]any{
+	status, raw, err := httpPostJSONWithin(baseURL()+apipath.RunsClose, map[string]any{
 		"runId": f.run, "force": f.force, "keepWorktrees": f.keepTrees,
 		"keepTools": f.keepTools,
 	}, closeBudget)
@@ -371,7 +372,7 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "dmctl: run close 의 응답을 %s 안에 받지 못했다. 서버는 정리를 계속한다 — 결과는 `dmctl run status --run %s` 로 본다\n", closeBudget, f.run)
 		return 1
 	}
-	raw, code := runResult("/api/runs/close", status, raw, err, stderr)
+	raw, code := runResult(apipath.RunsClose, status, raw, err, stderr)
 	if code != 0 {
 		return code
 	}

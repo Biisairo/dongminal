@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/termtext"
 )
 
@@ -38,17 +38,13 @@ const dmctlEdgeHelp = `dmctl edge — 노드 간 통신의 간선 맺기
   상대에 닿지 못하면 사유 코드(edge_unreachable 등)를 내고 1 로 끝난다.
 `
 
-// edgeCallBudget 은 상대를 부르는 로컬 API(add·remove)의 예산이다. 서버의 원격
-// 요청 시한(15초)보다 길어야 상대의 답을 받기 전에 끊지 않는다 (리뷰 C-1).
-const edgeCallBudget = 20 * time.Second
-
 func runDmctlEdges(args []string, stdout, stderr io.Writer) int {
 	asJSON := false
 	spec := argSpec{help: dmctlEdgesHelp, bools: map[string]*bool{"--json": &asJSON}}
 	if code, proceed := spec.run("dmctl edges", args, stdout, stderr); !proceed {
 		return code
 	}
-	raw, rc := edgeAPI("GET", "/api/edges", nil, stderr)
+	raw, rc := edgeAPI("GET", apipath.Edges, nil, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -250,7 +246,7 @@ var edgeSubs = map[string]subSpec{
 }
 
 func edgeInvite(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := edgeAPI("POST", "/api/edges/invite", map[string]any{"addr": pa.flags["addr"]}, stderr)
+	raw, rc := edgeAPI("POST", apipath.EdgesInvite, map[string]any{"addr": pa.flags["addr"]}, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -266,7 +262,7 @@ func edgeInvite(pa subArgs, stdout, stderr io.Writer) int {
 }
 
 func edgeAdd(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := edgeAPI("POST", "/api/edges/add", map[string]any{"code": pa.pos[0]}, stderr)
+	raw, rc := edgeAPI("POST", apipath.EdgesAdd, map[string]any{"code": pa.pos[0]}, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -280,7 +276,7 @@ func edgeAdd(pa subArgs, stdout, stderr io.Writer) int {
 }
 
 func edgeRemove(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := edgeAPI("POST", "/api/edges/remove", map[string]any{"fp": pa.pos[0]}, stderr)
+	raw, rc := edgeAPI("POST", apipath.EdgesRemove, map[string]any{"fp": pa.pos[0]}, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -299,7 +295,7 @@ func edgeRemove(pa subArgs, stdout, stderr io.Writer) int {
 
 // edgeNotify 는 간선 하나에 내 직접 정보를 지금 알린다 (EDGE_MESH_SRS FR-EGM-62).
 func edgeNotify(pa subArgs, stdout, stderr io.Writer) int {
-	raw, rc := edgeAPI("POST", "/api/edges/notify", map[string]any{"fp": pa.pos[0]}, stderr)
+	raw, rc := edgeAPI("POST", apipath.EdgesNotify, map[string]any{"fp": pa.pos[0]}, stderr)
 	if rc != 0 {
 		return rc
 	}

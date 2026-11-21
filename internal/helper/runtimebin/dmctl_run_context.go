@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/platform"
 )
 
@@ -63,7 +64,7 @@ func runSubSucceed(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 		timeoutMs = ms
 	}
 	// 서버가 그 시한만큼 붙잡는다 — 클라이언트는 그보다 넉넉해야 한다 (M8 D-A-1).
-	raw, code := runPostWithin("/api/runs/succeed", body, succeedBudget(timeoutMs), stderr)
+	raw, code := runPostWithin(apipath.RunsSucceed, body, succeedBudget(timeoutMs), stderr)
 	if code != 0 {
 		return code
 	}
@@ -127,7 +128,7 @@ func runSubHandoff(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 	if f.member != "" {
 		body["memberId"] = f.member
 	}
-	raw, code := runPost("/api/runs/handoff", body, stderr)
+	raw, code := runPost(apipath.RunsHandoff, body, stderr)
 	if code != 0 {
 		return code
 	}
@@ -168,7 +169,7 @@ func runSubSucceedSelf(f runFlags, stdin io.Reader, stdout, stderr io.Writer) in
 		return 2
 	}
 	body := map[string]any{"self": true, "at": f.at, "summary": f.summary, "toolId": selfToolID()}
-	raw, code := runPost("/api/runs/succeed", body, stderr)
+	raw, code := runPost(apipath.RunsSucceed, body, stderr)
 	if code != 0 {
 		return code
 	}

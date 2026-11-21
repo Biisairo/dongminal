@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"dongminal/internal/shared/apipath"
 )
 
 const editHelp = `사용법:
@@ -36,7 +38,7 @@ func runEdit(args []string, stdout, stderr io.Writer) int {
 	}
 	name := filepath.Base(abs)
 
-	url_ := baseURL() + "/api/commands"
+	url_ := baseURL() + apipath.Commands
 	body := map[string]any{
 		"action": "openEditorTab",
 		"args":   map[string]any{"name": name, "filePath": abs},

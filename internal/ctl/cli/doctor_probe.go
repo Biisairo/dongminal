@@ -55,7 +55,7 @@ func doctorProbePlainCommand(r *checkReport, p platform.Platform, home string) {
 
 // doctorProbeTerminal 은 명세 하나로 터미널을 띄워 왕복시킨다.
 func doctorProbeTerminal(r *checkReport, p platform.Platform, label string, spec platform.ShellSpec, home string) bool {
-	env := append(os.Environ(), "TERM=xterm-256color", "DONGMINAL_HOME="+home)
+	env := append(os.Environ(), "TERM=xterm-256color", dmenv.EnvHome+"="+home)
 	env = append(env, spec.Env...)
 
 	term, err := p.PTY.Start(platform.ProcSpec{

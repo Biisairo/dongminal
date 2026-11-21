@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"io"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // Opener 는 URL 하나로 frameless window 를 여는 수단이다. 기본은
@@ -34,7 +36,7 @@ func RunWindow(o WindowOpts, open Opener, stdout, stderr io.Writer) int {
 
 	// FR-WIN-3: 죽은 서버에 창을 띄우면 사용자는 빈 화면에서 원인을 찾게 된다.
 	// 준비 확인은 한 번이다. 기다리지 않는 명령이므로 재시도가 없다 (D-5).
-	if !ping(url+"/api/ping", localPingTimeout) {
+	if !ping(url+apipath.Ping, aliveProbeTimeout) {
 		fmt.Fprintf(stderr, "❌ %s 에서 응답이 없습니다 — 서버가 떠 있지 않습니다\n", url)
 		fmt.Fprintln(stderr, "   먼저 띄웁니다: dongminal start")
 		return 1

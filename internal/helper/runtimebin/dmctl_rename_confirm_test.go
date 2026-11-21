@@ -39,6 +39,7 @@ func renameStateJSON(winName, tabID, tabName, nameSource string) string {
 // renameFake 는 POST 횟수를 세고, GET /api/state 에는 state(전송 횟수)를 답한다.
 type renameFake struct {
 	posts     atomic.Int32
+	gets      atomic.Int32
 	state     func(posts int32) string
 	postReply func(posts int32) string
 }
@@ -54,6 +55,7 @@ func (f *renameFake) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodGet && r.URL.Path == "/api/state" {
+		f.gets.Add(1)
 		w.Write([]byte(f.state(f.posts.Load())))
 		return
 	}
@@ -118,6 +120,30 @@ func TestRenameConfirm_GivesUpAfterLimit(t *testing.T) {
 	}
 	if !strings.Contains(stderr, renameTestTab) || !strings.Contains(stderr, "ccr#32›91 층") {
 		t.Fatalf("stderr 에 uuid 와 이름이 없다: %q", stderr)
+	}
+}
+
+// TestRenameConfirm_StateFetchesBounded 는 끝내 반영되지 않는 rename 한 번이 `/api/state`
+// 를 몇 번 받는지 잰다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-44 · DM-20). 창·간격은 운영과
+// 같은 비(1500ms / 100ms = 15)로 줄인다.
+//
+//	이전: 간격 고정 — 3번 보내 42회(잰 값)
+//	지금: 간격을 두 배씩 늘린다 — 전송마다 5회(0·1·3·7·15 간격 자리), 3번 보내 15회
+func TestRenameConfirm_StateFetchesBounded(t *testing.T) {
+	w, i := renameConfirmWindow, renameConfirmInterval
+	renameConfirmWindow, renameConfirmInterval = 150*time.Millisecond, 10*time.Millisecond
+	t.Cleanup(func() { renameConfirmWindow, renameConfirmInterval = w, i })
+	f := &renameFake{state: func(int32) string {
+		return renameStateJSON("W", renameTestTab, "Shell", "")
+	}}
+	cleanup := withDmctlServer(t, f.handler)
+	defer cleanup()
+	var out, errb bytes.Buffer
+	if rc := runDmctl([]string{"rename-tab", "--at", renameTestTab, "새 이름"}, &out, &errb); rc != 1 {
+		t.Fatalf("rc=%d want 1", rc)
+	}
+	if n, max := f.gets.Load(), int32(5*renameMaxSends); n > max {
+		t.Fatalf("/api/state %d회, want ≤ %d", n, max)
 	}
 }
 

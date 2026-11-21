@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/apipath"
 	"dongminal/internal/shared/chatwire"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
@@ -87,16 +88,13 @@ func runDmctlCtxHook(args []string, stdin io.Reader, stdout, stderr io.Writer) i
 // fetchCtxAdvice 는 서버의 판정이다. 묻지 못하면 빈 판정이다.
 func fetchCtxAdvice(tool string) ctxAdvice {
 	var adv ctxAdvice
-	status, body, err := httpGetWithin(baseURL()+"/api/tools/migration-advice?id="+url.QueryEscape(tool), hookBudget)
+	status, body, err := httpGetWithin(baseURL()+apipath.ToolsMigrationAdvice+"?id="+url.QueryEscape(tool), hookBudget)
 	if err != nil || status != http.StatusOK {
 		return adv
 	}
 	_ = json.Unmarshal(body, &adv)
 	return adv
 }
-
-// chatUnreadWait 는 채팅 소켓에 안 읽은 수를 묻는 예산이다.
-const chatUnreadWait = 700 * time.Millisecond
 
 // chatUnreadText 는 그 세션의 안 읽은 글 수 알림이다. 방 이름은 싣지 않는다 — 망에서 온
 // 값을 훅 맥락에 넣지 않는다 (§3.10). 없거나 묻지 못하면 빈 값이다.

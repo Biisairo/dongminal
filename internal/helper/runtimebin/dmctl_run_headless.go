@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // 묶음 H — 헤드리스 멤버의 CLI 절반 (ORCHESTRATION_V2_SRS §3.2.2).
@@ -24,7 +26,7 @@ func runSubAttach(f runFlags, stdout, stderr io.Writer) int {
 	if f.at != "" {
 		body["location"] = f.at
 	}
-	return runAttachPost("/api/runs/attach", body, "부착", stdout, stderr)
+	return runAttachPost(apipath.RunsAttach, body, "부착", stdout, stderr)
 }
 
 // runSubDetach implements `dmctl run detach --member <uuid>` (FR-HLM-7).
@@ -41,7 +43,7 @@ func runSubDetach(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run detach: --at 은 run attach 와 함께만 쓴다")
 		return 2
 	}
-	return runAttachPost("/api/runs/detach", map[string]any{"memberId": f.member}, "분리", stdout, stderr)
+	return runAttachPost(apipath.RunsDetach, map[string]any{"memberId": f.member}, "분리", stdout, stderr)
 }
 
 // memberToolID resolves a member uuid to its live toolId (FR-HLM-11).
@@ -58,7 +60,7 @@ func memberToolID(memberID string, stderr io.Writer) (string, int) {
 	q := url.Values{}
 	q.Set("member", memberID)
 	// 이 종단은 늦은 인수인계를 기다려 준다 (FR-RUN-4) — 그 상한만큼의 예산이다 (M8 D-A-1).
-	raw, code := runGetWithin("/api/runs/preamble?"+q.Encode(), preambleBudget, stderr)
+	raw, code := runGetWithin(apipath.RunsPreamble+"?"+q.Encode(), preambleBudget, stderr)
 	if code != 0 {
 		return "", code
 	}

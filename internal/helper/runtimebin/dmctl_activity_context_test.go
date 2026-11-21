@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"dongminal/internal/shared/apipath"
 )
 
 // contextCapture 는 dmctl 이 서버로 보낸 것을 **바이트 그대로** 붙든다.
@@ -57,7 +59,7 @@ func startCapture(t *testing.T, toolID string) *contextCapture {
 		raw, _ := io.ReadAll(r.Body)
 		cap.mu.Lock()
 		switch r.URL.Path {
-		case contextObservePath:
+		case apipath.RunsContext:
 			cap.context = append(cap.context, string(raw))
 		default:
 			cap.activity = append(cap.activity, string(raw))

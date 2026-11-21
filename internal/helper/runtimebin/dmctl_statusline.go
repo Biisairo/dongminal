@@ -10,9 +10,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"dongminal/internal/shared/agentrec"
+	"dongminal/internal/shared/apipath"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/statusline"
 )
@@ -23,9 +24,6 @@ import (
 // (`context_window.used_percentage` 등)을 넘긴다. 이 명령은 그 자리에 서서 값을 서버에
 // 남기고, 같은 입력을 원래 등록된 statusLine 명령(하위 명령)에 그대로 넘긴다. 하위
 // 명령이 무엇이든 그 코드와 설정은 고치지 않는다.
-
-// slReportBudget 은 서버 보고의 시한이다 (NFR-SLP-1). 넘기면 버리고 표시로 간다.
-const slReportBudget = 100 * time.Millisecond
 
 // slSelf 는 dongminal 자신의 statusLine·subagentStatusLine 명령이다 — 하위 명령으로 고르면 재귀다.
 var slSelf = regexp.MustCompile(`dmctl["']?\s+(subagent-)?statusline\b`)
@@ -104,13 +102,13 @@ func statuslineProjectDir(raw []byte) string {
 // 데만 쓴다 — 하위 명령은 이 프로세스의 환경을 그대로 물려받는다.
 func runStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]string) int {
 	raw, _ := io.ReadAll(stdin)
-	if tool := env["DONGMINAL_TOOL_ID"]; tool != "" {
+	if tool := env[dmenv.EnvToolID]; tool != "" {
 		if u := statusline.FromInput(raw); u != nil {
 			body := map[string]any{"toolId": tool, "usage": u}
 			if acc := statuslineAccount(env); acc != nil {
 				body["account"] = acc
 			}
-			_, _, _ = postReport(agentrec.MethodUsage, "/api/tools/usage", body, slReportBudget)
+			_, _, _ = postReport(agentrec.MethodUsage, apipath.ToolsUsage, body, slReportBudget)
 		}
 	}
 	return slPassThrough(raw, statuslineDownstream(statuslineProjectDir(raw), env, statusLineKey), stdout, stderr)
@@ -120,9 +118,9 @@ func runStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]str
 // 하위 명령이 없으면 아무것도 출력하지 않는다 — Claude Code 는 줄이 없는 행을 기본 모양으로 그린다.
 func runSubagentStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]string) int {
 	raw, _ := io.ReadAll(stdin)
-	if tool := env["DONGMINAL_TOOL_ID"]; tool != "" {
+	if tool := env[dmenv.EnvToolID]; tool != "" {
 		if tasks, ok := statusline.SubagentsFromInput(raw); ok {
-			_, _, _ = postReport(agentrec.MethodSubagents, "/api/tools/subagents", map[string]any{"toolId": tool, "tasks": tasks}, slReportBudget)
+			_, _, _ = postReport(agentrec.MethodSubagents, apipath.ToolsSubagents, map[string]any{"toolId": tool, "tasks": tasks}, slReportBudget)
 		}
 	}
 	return slPassThrough(raw, statuslineDownstream(statuslineProjectDir(raw), env, subagentStatusLineKey), stdout, stderr)
@@ -166,7 +164,7 @@ func runDmctlSubagentStatusline(stdin io.Reader, stdout, stderr io.Writer) int {
 // statuslineEnv 는 두 프록시가 설정을 찾고 보고 대상을 정하는 데 쓰는 환경 값이다.
 func statuslineEnv() map[string]string {
 	env := map[string]string{}
-	for _, k := range []string{"HOME", "USERPROFILE", "CLAUDE_CONFIG_DIR", "DONGMINAL_TOOL_ID"} {
+	for _, k := range []string{"HOME", "USERPROFILE", "CLAUDE_CONFIG_DIR", dmenv.EnvToolID} {
 		env[k] = os.Getenv(k)
 	}
 	if env["HOME"] == "" {

@@ -204,6 +204,12 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		// 유예를 기다리는 동안 이 연결의 다른 요청을 막지 않는다 — 응답은 id 로
 		// 짝지어지므로 순서가 바뀌어도 클라이언트는 제 응답을 찾는다. go 문의 인자는
 		// 부르는 고루틴에서 먼저 평가되므로 terminate 를 클로저 안에서 부른다.
+		//
+		// goSlow 의 상한을 태우지 않는다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-44 · DM-27 검토).
+		// 클라이언트는 이 요청을 `toolCallTimeout + 유예` 로 기다리고, 시한을 넘기면 연결
+		// 전체를 끊는다(toolclient.callWithin). 상한 뒤에 줄을 서면 앞의 create(샌드박스
+		// 배치는 수 초)나 다른 terminate 의 유예만큼 늦어져 그 시한을 넘을 수 있다. 이
+		// 고루틴은 유예 동안 자기만 하므로 상한이 지키는 것보다 줄이 깨는 것이 크다.
 		go func() { pc.enqueue(pc.terminate(req), false) }()
 		return
 	case toolipc.MethodWrite:
