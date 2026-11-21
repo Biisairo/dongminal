@@ -145,26 +145,7 @@ Object.assign(App.prototype, {
     this._initMobileSheets();   // MOBILE_UX_OVERHAUL_SRS — app-mobile-sheets.js
     // Auto-close drawer on window switch (mobile)
     // (handled in switchWindow via drawerOpen check)
-
-    // Display Settings panel sync
-    const dsMode=document.getElementById('ds-mode');
-    const dsBp=document.getElementById('ds-bp');
-    if(dsMode){
-      dsMode.value=this.displayMode;
-      dsMode.addEventListener('change',()=>{
-        this.displayMode=dsMode.value;
-        this.render();
-      });
-    }
-    if(dsBp){
-      dsBp.value=this.mobileBreakpoint;
-      dsBp.addEventListener('change',()=>{
-        let v=parseInt(dsBp.value,10);
-        if(!(v>=320&&v<=2000)){v=768;dsBp.value=v}
-        this.mobileBreakpoint=v;
-        this.render();
-      });
-    }
+    // Display 탭의 표시 모드·경계 폭은 `DisplaySection` 이 배선한다 (REFACTOR3_FE_SETTINGS_SRS D-FES-5).
   },
 
   initMobileKeybar(){

@@ -658,16 +658,7 @@ Object.assign(App.prototype, {
       const b=document.getElementById(id);
       if(b) b.addEventListener('click',()=>this.executeAction(action));
     }
-    // FR-WSL-81 / SETTINGS_CONTROLS_SRS FR-SCT-5: 값이 둘뿐이라 누를 때마다 뒤집는다.
-    const el=document.getElementById('ds-slotdir');
-    if(el){
-      const sw=el.querySelector('button');
-      if(sw) sw.addEventListener('click',()=>{
-        this.slotDir=this.slotDir==='vertical'?'horizontal':'vertical';
-        this._slotDirPaint();
-      });
-      this._slotDirPaint();
-    }
+    // FR-WSL-81: 방향 설정의 배선은 `DisplaySection` 이 한다 (REFACTOR3_FE_SETTINGS_SRS D-FES-5).
   },
 
   // FR-SCT-1·3: 지금 값은 컨테이너의 `data-v` 하나가 말한다 — 손잡이의 자리도,

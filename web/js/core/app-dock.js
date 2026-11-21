@@ -102,14 +102,4 @@ Object.assign(App.prototype, {
   resetLayout(){
     return PrefStore.local.remove(PLY_KEYS.saved);
   },
-
-  /** FR-PLY-12·13: Settings ▸ Display 의 「패널 레이아웃」 두 버튼. */
-  _initPanelLayout(){
-    const save=document.getElementById('ds-layout-save'), reset=document.getElementById('ds-layout-reset'),
-      out=document.getElementById('ds-layout-status');
-    if(!save||!reset||!out) return;
-    const fail=t('settings.layout_failed');
-    save.addEventListener('click',()=>{out.textContent=this.saveLayout()?t('settings.layout_saved'):fail});
-    reset.addEventListener('click',()=>{out.textContent=this.resetLayout()?t('settings.layout_cleared'):fail});
-  },
 });

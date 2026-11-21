@@ -1,50 +1,70 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { BASE, SETTINGS, load, plain } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-1-12 (FEC-26) — 설정 컨트롤을 칠하는 자리가 **하나**다.
  *
  * 종전에는 같은 `getElementById → checked/value = 전역` 이 세 곳(setter · 설정창
- * 열기 · `_init*`)에 있었다. 이제 컨트롤은 `SETTINGS_ACCESS` 항목의 `ctl` 로
- * 선언되고 `_paintSettingControls` 한 함수가 칠한다.
+ * 열기 · `_init*`)에 있었다. 이제 행은 설정 섹션이 `FormRow` 로 선언하고
+ * (REFACTOR3_FE_SETTINGS_SRS FR-FES-2) `_paintSettingControls` 가 섹션을 돌며 칠한다.
  */
-const ctx = load(['core/app-settings.js'], {
-  globals: { App: function App() {} },
-  expose: ['SETTINGS_ACCESS'],
-});
-
 const CTLS = {
-  'ds-fgnames': 'check', 'ds-claudefs': 'check', 'ds-confirmleave': 'check',
-  'ds-wordwrap': 'check', 'ds-minimap': 'check',
-  'ds-tabfix': 'check', 'ds-tabw': 'value',
+  'ds-tabfix': 'check', 'ds-tabw': 'number', 'ds-uifs': 'number', 'ds-fgnames': 'check', 'ds-confirmleave': 'check',
+  'ds-claudefs': 'check', 'ds-termfs': 'number', 'ds-scrollspeed': 'number',
   // ISSUE_TREE_OPS_SRS FR-ITM-1
-  'ds-mighook': 'check', 'ds-treemig': 'check',
+  'ds-mighook': 'check', 'ds-mighookpct': 'number', 'ds-treemig': 'check', 'ds-treemigpct': 'number',
+  'ds-wordwrap': 'check', 'ds-minimap': 'check',
 };
 
-test('FEC-26: 컨트롤이 서술자 표에 한 번씩 선언된다', () => {
-  const got = {};
-  for (const acc of Object.values(ctx.SETTINGS_ACCESS)) {
-    if (!acc.ctl) continue;
-    assert.equal(got[acc.ctl.id], undefined, '두 번 선언됐다: ' + acc.ctl.id);
-    got[acc.ctl.id] = acc.ctl.kind;
+function setup() {
+  const els = {};
+  for (const id of Object.keys(CTLS)) els[id] = { checked: false, value: '', addEventListener() {}, removeEventListener() {} };
+  const ctx = load(['core/settings-schema.js', ...BASE, ...SETTINGS, 'core/app-settings.js'], {
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} },
+      TermGpu: { enabled: () => false, setEnabled() {} }, I18N: { locale: 'ko', resolve: (v) => v },
+      applyTabWidth() {}, applyUiFontScale() {},
+      // 설정 전역 — 부팅 전의 값이다(`settings-state.js`). 숫자 넷은 블롭이 오기 전까지 비어 있다.
+      fgTabNames: true, claudeFullscreen: true, confirmLeave: false, editorWordWrap: false, editorMinimap: true,
+      tabFixedWidth: false, tabWidthPx: 160, uiFontSize: undefined, termFontSize: undefined,
+      claudeScrollSpeed: undefined, migrationHook: undefined, migrationHookCtxPct: undefined,
+      issueTreeMigration: undefined, issueTreeCtxPct: undefined,
+    },
+    expose: ['SettingsSection', 'DisplaySection', 'TerminalSection', 'CodeSection'],
+  });
+  ctx.document.getElementById = (id) => els[id] || null;
+  ctx.document.activeElement = null;
+  const app = new ctx.App();
+  app._slotDirPaint = () => {};
+  for (const C of ['DisplaySection', 'TerminalSection', 'CodeSection']) ctx.SettingsSection.start(app, new ctx[C](app));
+  return { ctx, els, app };
+}
+
+test('FEC-26: 컨트롤이 섹션의 행 선언에 한 번씩 있고, 포커스 가드는 탭 폭 하나다', () => {
+  const { ctx, app } = setup();
+  const got = {}, guarded = [];
+  for (const s of ctx.SettingsSection.all(app)) {
+    for (const r of s.rows) {
+      assert.equal(got[r.decl.id], undefined, '두 번 선언됐다: ' + r.decl.id);
+      got[r.decl.id] = r.decl.kind;
+      if (r.decl.guard) guarded.push(r.decl.id);
+    }
   }
   assert.deepEqual(plain(got), CTLS);
+  assert.deepEqual(plain(guarded), ['ds-tabw']);
 });
 
-test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중인 입력란은 덮지 않는다', () => {
-  const els = {};
-  for (const id of Object.keys(CTLS)) els[id] = { checked: false, value: '' };
-  ctx.document.getElementById = (id) => els[id] || null;
+test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중인 탭 폭은 덮지 않는다', () => {
+  const { ctx, els, app } = setup();
   Object.assign(ctx, {
     fgTabNames: true, claudeFullscreen: true, confirmLeave: false, editorWordWrap: true,
     editorMinimap: false, tabFixedWidth: true, tabWidthPx: 180,
-    migrationHook: false, issueTreeMigration: true,
+    migrationHook: false, issueTreeMigration: true, uiFontSize: 18,
   });
   ctx.document.activeElement = els['ds-tabw'];
   els['ds-tabw'].value = '99';
-  const app = new ctx.App();
   app._paintSettingControls();
   assert.equal(els['ds-fgnames'].checked, true);
   assert.equal(els['ds-claudefs'].checked, true);
@@ -52,6 +72,8 @@ test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중�
   assert.equal(els['ds-wordwrap'].checked, true);
   assert.equal(els['ds-minimap'].checked, false);
   assert.equal(els['ds-tabfix'].checked, true);
+  assert.equal(els['ds-uifs'].value, '18');
+  assert.equal(els['ds-termfs'].value, '14', '한 번도 실리지 않은 키는 표의 기본값');
   assert.equal(els['ds-tabw'].value, '99', '치는 중인 글자를 덮었다');
   ctx.document.activeElement = null;
   app._paintSettingControls();

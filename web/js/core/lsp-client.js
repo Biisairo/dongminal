@@ -16,22 +16,6 @@ class LspClient {
 
 Object.assign(LspClient.prototype, {
 
-  _initLSP(){
-    const hint=document.getElementById('lsp-hint');
-    if(hint) hint.textContent=LSP_PANEL_HINT;
-    // FR-LSP-36: 진단 토글. 라벨과 안내문도 상수에서 온다 — 화면에 문장을
-    // 박아 두면 그 문장이 두 자리에 살게 된다.
-    const lab=document.getElementById('lsp-diag-label');
-    if(lab) lab.textContent=LSP_DIAG_LABEL;
-    const dh=document.getElementById('lsp-diag-hint');
-    if(dh) dh.textContent=LSP_DIAG_HINT;
-    const cb=document.getElementById('lsp-diag');
-    if(cb){
-      cb.checked=lspDiagOn;
-      cb.addEventListener('change',()=>this._lspSetDiag(cb.checked));
-    }
-  },
-
   /**
    * FR-LSP-47: 상태는 캐시가 아니라 **관측**이다. 패널을 열 때마다 다시 읽는 이유가
    * 그것이다 — 사용자가 바깥에서 지운 서버를 우리가 있다고 우기면 안 된다.

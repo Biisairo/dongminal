@@ -1227,6 +1227,13 @@
      app.js 뒤이기만 하면 되고, 서로를 로드 시점에 참조하지 않는다.
      `app-settings.js` 뒤인 이유는 그것이 이 묶음의 주제를 말하는 파일이기 때문이다. -->
 <script src="js/core/app-settings-init.js?v=__ASSETV__"></script>
+<!-- 설정 섹션 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). 탭 하나가 `SettingsSection` 하위 하나다. `extends` 가 로드
+     시점에 부모를 읽으므로 섹션 기반과 행이 섹션보다 먼저다. -->
+<script src="js/core/settings-section.js?v=__ASSETV__"></script>
+<script src="js/core/settings-row.js?v=__ASSETV__"></script>
+<script src="js/core/settings-display.js?v=__ASSETV__"></script>
+<script src="js/core/settings-terminal.js?v=__ASSETV__"></script>
+<script src="js/core/settings-code.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-keybar.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-theme.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-keys.js?v=__ASSETV__"></script>

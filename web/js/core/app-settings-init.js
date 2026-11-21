@@ -1,9 +1,9 @@
 /**
  * Dongminal — 개별 설정의 **초기화와 즉시 반영** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
  *
- * 설정 하나하나가 화면에 붙는 자리다 — 탭 제목 · 탭 폭 · 전경 탭 이름 · 브라우저
- * 키 · 이탈 확인 · 포커스/주의 가장자리 · 줄바꿈. 저마다 `_init*` 하나로 리스너를
- * 걸고, 값이 바뀌면 그 자리에서 화면까지 따라간다.
+ * 설정 하나하나가 화면에 붙는 자리다 — 탭 제목 · 포커스/주의 가장자리 · 열린
+ * 편집기·터미널에 값 얹기. 행의 배선은 설정 섹션으로 옮겼다(`settings-display.js`·
+ * `settings-terminal.js`·`settings-code.js`, REFACTOR3_FE_SETTINGS_SRS 8a).
  *
  * **모달과 갈린 이유**: 이 메서드들은 설정창이 없어도 돈다 (부팅이 부른다).
  * 모달은 그것들을 **보여주는** 표면일 뿐이다.
@@ -25,90 +25,6 @@ Object.assign(App.prototype, {
   _saveSettingsNow(key){ return this._settingsSync()._saveSettingsNow(key) },
 
   /**
-   * TAB_WIDTH_SRS FR-TBW-1·2·10: Settings ▸ Display 의 `탭 너비 고정`과 그 폭.
-   *
-   * 값이 서버에 있는 이유는 다른 표시 설정과 같다 (FR-TBW-8) — 기기를 옮겨도
-   * 따라와야 하고, 브라우저 탭별 저장으로는 그것이 서지 않는다.
-   *
-   * 폭 입력은 `input` 마다 적용하되 저장은 미룬다 — 타이핑 한 글자마다 PUT 을
-   * 보내면 요청이 글자 수만큼 난다.
-   */
-  _initTabWidth(){
-    const cb=document.getElementById('ds-tabfix');
-    const num=document.getElementById('ds-tabw');
-    if(!cb||!num) return;
-    applyTabWidth();
-    cb.addEventListener('change',()=>{
-      tabFixedWidth=cb.checked;
-      applyTabWidth();
-      this.saveSettings();
-    });
-    num.addEventListener('input',()=>{
-      // FR-TBW-4: 자르는 것은 적용하는 값뿐이다 — 입력란의 글자를 그때그때
-      // 고쳐 쓰면 타이핑이 튄다 (`160` 을 지우고 `9` 를 치는 순간 `40` 이 된다).
-      tabWidthPx=clampSetting('tabWidthPx',num.value);
-      applyTabWidth();
-      this._saveSettingsSoon('tabw');
-    });
-    /**
-     * 포커스를 놓을 때 두 가지를 한다.
-     *
-     * ① 입력란을 실제로 쓰이는 값과 맞춘다 — 잘린 사실이 보여야 사용자가 왜 그
-     *    폭인지 안다 (FR-TBW-4).
-     * ② **곧바로 저장한다.** 디바운스는 타이핑 중 요청이 글자 수만큼 나는 것을
-     *    막는 장치이지 확정을 미루는 장치가 아니다 — 값을 바꾸고 바로 새로고침하면
-     *    500ms 가 지나지 않아 **입력이 통째로 날아갔다** (실측, W7). 포커스를
-     *    놓는 순간이 곧 확정이므로 그때 미룰 이유가 없다.
-     */
-    num.addEventListener('blur',()=>{
-      num.value=String(tabWidthPx);
-      this._saveSettingsNow('tabw');
-    });
-  },
-
-  // FR-TAN-19: Settings ▸ Display 의 `프로세스 이름을 탭 이름으로`. 기본은 켬.
-  //
-  // 값이 서버에 있는 이유는 FR-TAN-18 이다 — `dmctl list-workspace` 가 화면과
-  // 같은 이름을 내려면 표시 규칙에 진실이 하나여야 하고, 브라우저 탭별 저장
-  // (displayMode 가 쓰는 sessionStorage)으로는 그것이 서지 않는다.
-  _initFgNames(){
-    const cb=document.getElementById('ds-fgnames');
-    if(!cb) return;
-    cb.addEventListener('change',()=>{
-      fgTabNames=cb.checked;
-      // FR-TAN-20: 끄면 **즉시** 전 탭이 기본 이름(또는 수동 이름)으로 돌아간다.
-      // 켜면 이미 들고 있는 파생 이름이 그대로 다시 보인다 — 다음 조회를
-      // 기다릴 필요가 없다.
-      this._fgRepaint();
-      this.saveSettings();
-    });
-  },
-
-  /**
-   * AGENT_RENDER_ENV_SRS FR-ARE-3: Settings ▸ Terminal 의 `Claude Code 를
-   * fullscreen 으로 띄우기`.
-   *
-   * 값이 서버에 사는 이유는 `fgTabNames` 와 같다 — **쓰는 주체가 서버**이고
-   * (도구를 띄울 때 환경에 넣는다) 정하는 자리만 화면이다.
-   */
-  /** TERMINAL_GPU_RENDER_SRS FR-TGR-14·15: 기기별 값이다 — 서버 설정 블롭에 싣지 않는다. */
-  _initTermGpu(){
-    const cb=document.getElementById('ds-termgpu');
-    if(!cb) return;
-    cb.checked=TermGpu.enabled();
-    cb.addEventListener('change',()=>TermGpu.setEnabled(cb.checked,this));
-  },
-
-  _initClaudeFullscreen(){
-    const cb=document.getElementById('ds-claudefs');
-    if(!cb) return;
-    cb.addEventListener('change',()=>{
-      claudeFullscreen=cb.checked;
-      this.saveSettings();
-    });
-  },
-
-  /**
    * UX_REVISION_SRS FR-KEY-6 철회 (D-K2): **`_initBlockKeys` 가 사라졌다.**
    *
    *   이전 동작: Shortcuts 탭의 스위치로 브라우저 기본키 차단을 끌 수 있다
@@ -121,41 +37,9 @@ Object.assign(App.prototype, {
    * 마이그레이션이 필요 없다.
    */
 
-  /**
-   * FR-LVC-1·10: Settings ▸ Display 의 `떠날 때 확인`.
-   *
-   * 값이 서버에 있는 이유는 D-2 다 — 기기를 옮겨도 같은 판단이 서야 한다. 자리가 Display 인
-   * 이유는 D-3 이다 — 저쪽은 **키**를 다루고 이쪽은 떠남의 동작이다.
-   *
-   * 가드가 이 전역을 그때그때 읽으므로 리스너를 다시 걸 일이 없다 (FR-LVC-10).
-   */
-  /**
-   * M8_UNIFIED_SRS FR-B-4: Settings ▸ Display 의 `언어`. 저장이 끝난 뒤 페이지를
-   * 다시 연다 (D-B-1) — 저장 전에 열면 다음 부팅이 옛 값을 읽는다.
-   */
-  _initLocale(){
-    const sel=document.getElementById('ds-locale');
-    if(!sel) return;
-    sel.value=I18N.locale;
-    sel.addEventListener('change',async()=>{
-      uiLocale=I18N.resolve(sel.value);
-      const ok=await this.saveSettings();
-      if(ok&&uiLocale!==I18N.locale&&this._localeMirror(uiLocale)) location.reload();
-    });
-  },
-
   /** 거울을 쓴다. 되읽어 같아야 참이다 — 사생활 모드에서는 거짓이다. */
   _localeMirror(v){
     return PrefStore.local.set(I18N_STORAGE_KEY,v)&&PrefStore.local.get(I18N_STORAGE_KEY)===v;
-  },
-
-  _initConfirmLeave(){
-    const cb=document.getElementById('ds-confirmleave');
-    if(!cb) return;
-    cb.addEventListener('change',()=>{
-      confirmLeave=cb.checked;
-      this.saveSettings();
-    });
   },
 
   /**
@@ -265,23 +149,6 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * WORKBENCH_REVIEW_SRS FR-WBR-10·11: Settings ▸ Code 의 `줄 바꿈`.
-   *
-   * **이미 열려 있는 편집기에도 곧바로 반영한다** — 새로 여는 탭부터 듣게 하면
-   * 사용자는 설정이 고장난 것으로 읽는다. 옵션 갱신이지 편집기 재생성이 아니므로
-   * 편집 중인 내용과 커서를 잃지 않는다 (NFR-WBR-1).
-   */
-  _initWordWrap(){
-    const cb=document.getElementById('ds-wordwrap');
-    if(!cb) return;
-    cb.addEventListener('change',()=>{
-      editorWordWrap=cb.checked;
-      this._edApplyWordWrap();
-      this.saveSettings();
-    });
-  },
-
-  /**
    * 열려 있는 편집기 전부에 지금 값을 얹는다.
    *
    * 살아 있는 인스턴스의 목록은 `app.fileEditors` 다 (`renderer.js:533` 이 만들고
@@ -294,20 +161,6 @@ Object.assign(App.prototype, {
     // FR-UXB-40·41: diff 도 같은 설정을 딛는다 — 편집기만 따라가면 두 표면이
     // 서로 다른 글자로 선다.
     this._diffApplyOptions();
-  },
-
-  /**
-   * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-1·4: 미니맵 스위치. 줄바꿈과 **같은 모양**
-   * 이며, 그 사실이 이 함수가 짧은 이유다 — 새 규약을 만들지 않는다.
-   */
-  _initMinimap(){
-    const cb=document.getElementById('ds-minimap');
-    if(!cb) return;
-    cb.addEventListener('change',()=>{
-      editorMinimap=cb.checked;
-      this._edApplyMinimap();
-      this.saveSettings();
-    });
   },
 
   /** 열려 있는 편집기 전부에 지금 값을 얹는다 (`_edApplyWordWrap` 과 같은 근거). */
@@ -330,98 +183,6 @@ Object.assign(App.prototype, {
     for(const p of this.gitPanels.values()){
       if(p&&p._diffView&&p._diffView.applyTextOptions) p._diffView.applyTextOptions();
     }
-  },
-
-  /**
-   * 설정 숫자 입력란 하나 (FONT_SIZE_SETTING_SRS FR-FSS-1·11·19·20·21 ·
-   * AGENT_RENDER_ENV_SRS FR-ARE-10).
-   *
-   * 셋(UI 배율 · 터미널 글자 px · Claude 스크롤 속도)이 **같은 모양**이라 한
-   * 자리에 둔다. 다른 것은 키와 얹는 손뿐이고, 그 둘을 인자로 받는다 — 같은
-   * 40줄을 세 벌 적으면 한쪽만 고쳐지는 날이 온다.
-   *
-   * 규약은 `_initTabWidth` 에서 그대로 온다: 입력마다 얹되 저장은 미루고
-   * (타이핑 한 글자마다 PUT 을 보내지 않는다), **포커스를 놓을 때 곧바로
-   * 저장한다** — 디바운스는 요청 수를 줄이는 장치이지 확정을 미루는 장치가
-   * 아니다 (실측 W7: 값을 바꾸고 바로 새로고침하면 입력이 통째로 날아갔다).
-   */
-  _initNumSetting(id,key,apply){
-    const num=document.getElementById(id);
-    if(!num) return;
-    const read=()=>clampSetting(key,num.value);
-    const paint=()=>{num.value=String(SETTINGS_ACCESS[key].get()??SETTINGS_BY_KEY[key].def)};
-    paint();
-    // FR-FSS-21: 여는 자리가 목록을 들고 있으면 키를 두 벌 적게 된다 — 세운
-    // 쪽이 자기 칠하는 손을 맡긴다.
-    (this._numSettingPaints||(this._numSettingPaints=[])).push(paint);
-    num.addEventListener('input',()=>{
-      // FR-FSS-19: 자르는 것은 **적용하는 값뿐**이다 — 입력란의 글자를 그때그때
-      // 고쳐 쓰면 타이핑이 튄다 (`150` 을 지우고 `9` 를 치는 순간 80 이 된다).
-      apply.call(this,read());
-      this._saveSettingsSoon(id);
-    });
-    num.addEventListener('blur',()=>{
-      // 잘린 사실이 **보여야** 사용자가 왜 그 크기인지 안다 (FR-TBW-4 와 같은 근거).
-      num.value=String(read());
-      this._saveSettingsNow(id);
-    });
-  },
-
-  /**
-   * FR-FSS-21: 설정 창을 **열 때마다** 숫자 입력들이 현재 값으로 다시 칠해진다
-   * (FR-LVC-3 과 같은 근거).
-   *
-   * 방송이 올 때마다 `SETTINGS_ACCESS` 가 이미 칠하지만, 그 사이에 **확정하지
-   * 않은 글자**가 입력란에 남을 수 있다 — `999` 를 치고 `Esc` 로 닫은 경우가
-   * 그렇다. 적용된 값은 200 이고 입력란만 999 다. 여는 순간이 그것을 맞출 자리다.
-   */
-  _paintNumSettings(){
-    for(const paint of this._numSettingPaints||[]) paint();
-  },
-
-  /** FR-FSS-1: Settings ▸ Display 의 `UI 글자 크기`. */
-  _initUiFontScale(){
-    this._initNumSetting('ds-uifs','uiFontSize',function(v){
-      uiFontSize=v;
-      applyUiFontScale();
-      this._edApplyFontSize();
-    });
-    applyUiFontScale();
-  },
-
-  /** FR-FSS-11: Settings ▸ Terminal 의 `터미널 글자 크기`. */
-  _initTermFontSize(){
-    this._initNumSetting('ds-termfs','termFontSize',function(v){
-      termFontSize=v;
-      this._termApplyFontSize();
-    });
-  },
-
-  /**
-   * AGENT_RENDER_ENV_SRS FR-ARE-10·11: Settings ▸ Terminal 의 `스크롤 속도`.
-   *
-   * **얹을 화면이 없다.** 이 값은 도구를 띄울 때 서버가 환경변수로 넣는 것이라
-   * (FR-ARE-8), 브라우저가 할 일은 값을 들고 저장하는 것뿐이다 — 이미 떠 있는
-   * 터미널은 바뀌지 않는다 (FR-ARE-11, 환경은 프로세스 시작 시점의 것이다).
-   */
-  /**
-   * ISSUE_TREE_OPS_SRS FR-ITM-1: Settings ▸ Terminal 의 맥락 기준 migration 넷. 일반 훅과
-   * issue-tree 는 따로다(FR-ITM-2). 값은 서버가 훅 판정과 트리 프리앰블에 쓴다.
-   */
-  _initMigrationSettings(){
-    for(const [id,set] of [['ds-mighook',v=>{migrationHook=v}],['ds-treemig',v=>{issueTreeMigration=v}]]){
-      const cb=document.getElementById(id);
-      if(!cb) continue;
-      cb.addEventListener('change',()=>{ set(cb.checked); this.saveSettings() });
-    }
-    this._initNumSetting('ds-mighookpct','migrationHookCtxPct',function(v){ migrationHookCtxPct=v });
-    this._initNumSetting('ds-treemigpct','issueTreeCtxPct',function(v){ issueTreeCtxPct=v });
-  },
-
-  _initClaudeScrollSpeed(){
-    this._initNumSetting('ds-scrollspeed','claudeScrollSpeed',function(v){
-      claudeScrollSpeed=v;
-    });
   },
 
   /** FR-FSS-9: 열려 있는 편집기 전부 (`_edApplyMinimap` 과 같은 근거). */

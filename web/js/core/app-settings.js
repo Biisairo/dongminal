@@ -6,7 +6,9 @@
  *
  * **패널은 갈라져 나갔다.** 고칠 자리를 파일 이름이 말한다:
  *
- *   app-settings-init.js      개별 설정의 초기화와 즉시 반영 (설정창 없이도 돈다)
+ *   app-settings-init.js      개별 설정의 즉시 반영 (설정창 없이도 돈다)
+ *   settings-section.js       설정 탭 하나 = `SettingsSection` 하위 하나 (`settings-display.js` 등)
+ *   settings-row.js           단순한 행 `FormRow` (체크·숫자)
  *   app-settings-theme.js     테마 목록 · 미리보기 · 사용자 정의 편집
  *   app-settings-keys.js      단축키 목록 · 녹화
  *   app-settings-sandbox.js   샌드박스 패널
@@ -29,9 +31,9 @@
  * 창을 열어 보기 전까지 아무도 모른다.
  *
  *   get()   블롭에 실을 값. 없으면 그 키는 PUT 본문에서 빠진다 (FR-CFG-6)
- *   set(v)  값을 얹고 화면까지 따라가게 한다
- *   ctl     설정창의 컨트롤 `{id, kind:'check'|'value'}`. 칠하는 것은
- *           `_paintSettingControls` 한 자리다 (FR-OPT-1-12)
+ *   set(v)  값을 얹고 화면까지 따라가게 한다. 설정창의 입력란은 칠하지 않는다 — 행(`FormRow`)이
+ *           입력 중에도 이것을 부르므로, 여기서 칠하면 치는 글자가 튄다. 칠하는 것은
+ *           `_paintSettingControls` 한 자리다 (FR-OPT-1-12 · REFACTOR3_FE_SETTINGS_SRS FR-FES-2)
  */
 const SETTINGS_ACCESS={
   // 테마는 두 키가 한 쌍이라 얹는 자리가 `_settingsApply` 에 따로 있다 —
@@ -50,31 +52,31 @@ const SETTINGS_ACCESS={
   layoutPresets:{get:()=>layoutPresets,set(v){layoutPresets=v;this._presetButtonPaint()}},
   defaultPreset:{get:()=>defaultPreset,set(v){defaultPreset=v;this._presetButtonPaint()}},
   // FR-TAN-19
-  fgTabNames:{get:()=>fgTabNames,ctl:{id:'ds-fgnames',kind:'check'},set(v){
+  fgTabNames:{get:()=>fgTabNames,set(v){
     fgTabNames=v;
     if(this._fgRepaint) this._fgRepaint();
   }},
   // FR-ARE-3: 저장된 적 없으면 기본값(켬). 서버도 같은 기본값을 쓴다
   // (`agentRenderEnv`) — 두 자리가 어긋나면 화면과 실제가 갈린다.
-  claudeFullscreen:{get:()=>claudeFullscreen,ctl:{id:'ds-claudefs',kind:'check'},set(v){claudeFullscreen=v}},
-  confirmLeave:{get:()=>confirmLeave,ctl:{id:'ds-confirmleave',kind:'check'},set(v){confirmLeave=v}},   // FR-LVC-6: 저장된 적 없으면 기본값(끔).
+  claudeFullscreen:{get:()=>claudeFullscreen,set(v){claudeFullscreen=v}},
+  confirmLeave:{get:()=>confirmLeave,set(v){confirmLeave=v}},   // FR-LVC-6: 저장된 적 없으면 기본값(끔).
   // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
   // 이미 열려 있는 편집기에도 얹는다.
-  editorWordWrap:{get:()=>editorWordWrap,ctl:{id:'ds-wordwrap',kind:'check'},set(v){
+  editorWordWrap:{get:()=>editorWordWrap,set(v){
     editorWordWrap=v;
     if(this._edApplyWordWrap) this._edApplyWordWrap();
   }},
   // FR-MMT-4: 줄바꿈과 같은 근거로 열려 있는 편집기에도 얹는다.
-  editorMinimap:{get:()=>editorMinimap,ctl:{id:'ds-minimap',kind:'check'},set(v){
+  editorMinimap:{get:()=>editorMinimap,set(v){
     editorMinimap=v;
     if(this._edApplyMinimap) this._edApplyMinimap();
   }},
   // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
-  tabFixedWidth:{get:()=>tabFixedWidth,ctl:{id:'ds-tabfix',kind:'check'},set(v){
+  tabFixedWidth:{get:()=>tabFixedWidth,set(v){
     tabFixedWidth=v;
     applyTabWidth();
   }},
-  tabWidthPx:{get:()=>tabWidthPx,ctl:{id:'ds-tabw',kind:'value'},set(v){
+  tabWidthPx:{get:()=>tabWidthPx,set(v){
     tabWidthPx=clampSetting('tabWidthPx',v);
     applyTabWidth();
   }},
@@ -82,37 +84,27 @@ const SETTINGS_ACCESS={
   // 터미널은 여기 없다 — 그것이 이 스펙의 요점이다 (FR-FSS-17).
   uiFontSize:{get:()=>uiFontSize,set(v){
     uiFontSize=clampSetting('uiFontSize',v);
-    const el=document.getElementById('ds-uifs');
-    if(el) el.value=String(uiFontSize);
     applyUiFontScale();
     if(this._edApplyFontSize) this._edApplyFontSize();
   }},
   // FR-FSS-12·15: 터미널만 움직인다.
   termFontSize:{get:()=>termFontSize,set(v){
     termFontSize=clampSetting('termFontSize',v);
-    const el=document.getElementById('ds-termfs');
-    if(el) el.value=String(termFontSize);
     if(this._termApplyFontSize) this._termApplyFontSize();
   }},
   // AGENT_RENDER_ENV_SRS FR-ARE-8: 얹을 화면이 없다 — 값은 서버가 쓴다.
   // ISSUE_TREE_OPS_SRS FR-ITM-1·2: 두 쌍은 서로 영향을 주지 않는다. 얹을 화면이 없다.
-  migrationHook:{get:()=>migrationHook??SETTINGS_BY_KEY.migrationHook.def,ctl:{id:'ds-mighook',kind:'check'},set(v){migrationHook=v}},
+  migrationHook:{get:()=>migrationHook??SETTINGS_BY_KEY.migrationHook.def,set(v){migrationHook=v}},
   migrationHookCtxPct:{get:()=>migrationHookCtxPct,set(v){
     migrationHookCtxPct=clampSetting('migrationHookCtxPct',v);
-    const el=document.getElementById('ds-mighookpct');
-    if(el) el.value=String(migrationHookCtxPct);
   }},
-  issueTreeMigration:{get:()=>issueTreeMigration??SETTINGS_BY_KEY.issueTreeMigration.def,ctl:{id:'ds-treemig',kind:'check'},set(v){issueTreeMigration=v}},
+  issueTreeMigration:{get:()=>issueTreeMigration??SETTINGS_BY_KEY.issueTreeMigration.def,set(v){issueTreeMigration=v}},
   issueTreeCtxPct:{get:()=>issueTreeCtxPct,set(v){
     issueTreeCtxPct=clampSetting('issueTreeCtxPct',v);
-    const el=document.getElementById('ds-treemigpct');
-    if(el) el.value=String(issueTreeCtxPct);
   }},
   keybar:{get:()=>keybarCfg,set(v){keybarCfg=v;this._keybarApply()}},   // UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바·설정 구역을 곧바로 다시 그린다
   claudeScrollSpeed:{get:()=>claudeScrollSpeed,set(v){
     claudeScrollSpeed=clampSetting('claudeScrollSpeed',v);
-    const el=document.getElementById('ds-scrollspeed');
-    if(el) el.value=String(claudeScrollSpeed);
   }},
   // FR-UFE-12·13 / FR-AED-9: 범위 판정은 표가 한다 (`settingValue`) — 종전에는
   // 같은 모양의 `if` 가 두 줄 걸러 두 번 적혀 있었다.
@@ -262,21 +254,13 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * OPTIMIZE_REFACTOR_SRS FR-OPT-1-12 (FEC-26): `ctl` 을 선언한 컨트롤을 **지금 값으로**
-   * 칠한다. 계기는 셋이다 — 부팅(`initModal`) · 값을 얹은 뒤(`_settingsApply`) ·
-   * 설정창을 열 때 (FR-LVC-3). 종전에는 세 자리가 컨트롤을 각자 나열했다.
-   *
-   * 포커스를 쥔 입력란은 건너뛴다 — 저장의 메아리(`settings_changed`)가 치는 중인
-   * 글자를 덮지 않는다. 확정은 그 입력란의 `blur` 가 한다.
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-1-12 (FEC-26): 설정창의 행을 **지금 값으로** 칠한다.
+   * 계기는 셋이다 — 부팅(`initModal`) · 값을 얹은 뒤(`_settingsApply`) · 설정창을 열 때
+   * (FR-LVC-3). 행은 섹션이 `FormRow` 로 선언한다(REFACTOR3_FE_SETTINGS_SRS FR-FES-2) —
+   * 포커스를 쥔 입력란을 건너뛰는지도 행마다 정해져 있다(`guard`).
    */
   _paintSettingControls(){
-    for(const acc of Object.values(SETTINGS_ACCESS)){
-      if(!acc.ctl) continue;
-      const el=document.getElementById(acc.ctl.id);
-      if(!el) continue;
-      if(acc.ctl.kind==='check') el.checked=!!acc.get();
-      else if(el!==document.activeElement) el.value=String(acc.get());
-    }
+    for(const s of SettingsSection.all(this)) s.paint();
   },
 
   /**
@@ -363,20 +347,13 @@ Object.assign(App.prototype, {
   /** 설정창을 열 때 (`SettingsModal` 의 `onOpen`). 열 때마다 현재 값을 다시 칠한다. */
   _settingsOnOpen(modal){
     this._renderThemePanel();this._renderShortcutList();this._renderPresets();
-    const dsMode=document.getElementById('ds-mode');
-    const dsBp=document.getElementById('ds-bp');
-    if(dsMode) dsMode.value=this.displayMode;
-    if(dsBp) dsBp.value=this.mobileBreakpoint;
-    // FR-LVC-3 · FR-WBR-10 · FR-MMT-6 · FR-UXB-43: 열 때마다 현재 값을 다시
+    // FR-LVC-3 · FR-WBR-10 · FR-MMT-6 · FR-UXB-43 · FR-FSS-21: 열 때마다 현재 값을 다시
     // 칠한다 — 다른 화면에서 바뀐 값이 이 모달에 옛 상태로 남아 있으면 사용자가
-    // 그것을 켜진 줄로 읽는다. 포커스는 다음 프레임에 오므로 여기서는 전부 칠해진다.
+    // 그것을 켜진 줄로 읽는다. 숫자 입력란도 확정하지 않은 글자(`999` 를 치고 `Esc`)를
+    // 여기서 맞춘다. 포커스는 다음 프레임에 오므로 여기서는 전부 칠해진다.
+    for(const s of SettingsSection.all(this)) s.onOpen();
     this._paintSettingControls();
-    // FR-WSL-81: 슬롯 방향 세그먼트. 열 때마다 현재 값을 다시 칠한다.
-    this._slotDirPaint();
     this._labelSettingsRows();
-    // FONT_SIZE_SETTING_SRS FR-FSS-21 · AGENT_RENDER_ENV_SRS FR-ARE-10: 숫자
-    // 입력 셋도 열 때마다 다시 칠한다 (FR-LVC-3 과 같은 근거).
-    this._paintNumSettings();
     // FR-UFE-14: 같은 근거로 이 행도 열 때마다 다시 칠한다 — 체크박스와 세기가
     // 함께 움직이므로 한 함수가 둘을 맡는다.
     this._focusEdgePaintRow();
@@ -401,15 +378,8 @@ Object.assign(App.prototype, {
     if(tab==='access')this._loadAccessPanel();
     const load={profile:'_loadProfilePanel',edges:'_loadEdgesPanel',telegram:'_loadTelegramPanel',server:'_loadServerPanel',claude:'_loadClaudePanel'}[tab];
     if(load)this[load]();
-    // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
-    // 같은 근거로 열 때마다 다시 읽는다.
-    if(tab==='code'){
-      this._lspRefresh();
-      // 토글은 기기별 값이라 다른 탭에서 바뀔 일이 없지만, 열 때마다 다시
-      // 칠하는 것이 이 모달의 규약이다 (FR-LVC-3 와 같은 근거).
-      const dcb=document.getElementById('lsp-diag');
-      if(dcb) dcb.checked=lspDiagOn;
-    }
+    const sec=SettingsSection.of(this,tab);
+    if(sec) sec.onTab();
   },
 
   initModal(){
@@ -419,24 +389,15 @@ Object.assign(App.prototype, {
     // `_initSettingsMobile` 의 탭 리스너가 그 뒤에 붙어 뒤에 돈다.
     this._settingsModal=new SettingsModal({onOpen:()=>this._settingsOnOpen(modal),onTab:n=>this._settingsOnTab(n)}).init();
     this._bindSettingsSearch(modal);
-    this._initTabWidth();
-    this._initUiFontScale();
-    this._initFgNames();
-    this._initClaudeFullscreen();
-    this._initTermGpu();
-    this._initTermFontSize();
-    this._initClaudeScrollSpeed();
-    this._initMigrationSettings();this._initKeybarSettings();
-    this._initConfirmLeave();
+    // REFACTOR3_FE_SETTINGS_SRS 8a: 탭 하나 = 섹션 하나. 8e 의 `SettingsController` 가 들 때까지 섹션은
+    // `SettingsSection` 의 정적 등록부가 든다 (§6).
+    SettingsSection.start(this,new DisplaySection(this));
+    SettingsSection.start(this,new TerminalSection(this));
+    this._initKeybarSettings();
     this._initFocusEdge();
     this._initAttnEdge();
-    this._initWordWrap();
-    this._initMinimap();
-    // `_init*` 는 리스너만 건다. 첫 칠하기는 `ctl` 을 선언한 표가 한다 (FR-OPT-1-12).
+    SettingsSection.start(this,new CodeSection(this));
     this._paintSettingControls();
-    this._initLocale();
-    this._initPanelLayout();
-    this._initLSP();
     this._initBackup();
     this._initSandboxPanel();
     this._initAccessPanel();

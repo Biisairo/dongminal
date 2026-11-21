@@ -14,7 +14,6 @@ Object.assign(App.prototype, {
     return this._lsp;
   },
 
-  _initLSP() { return this._lspClient()._initLSP() },
   _lspRefresh() { return this._lspClient()._lspRefresh() },
   _lspGotoDef() { return this._lspClient()._lspGotoDef() },
   _lspFindRefs() { return this._lspClient()._lspFindRefs() },

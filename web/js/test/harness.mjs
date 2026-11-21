@@ -71,6 +71,13 @@ export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/git-changes.js'
   'git/git-change-rows.js', 'git/git-views.js', 'git/git-view-roots.js', 'git/git-write.js', 'git/git-files.js', 'git/git-selection.js',
   'git/git-diff-pane.js', 'git/git-blame.js', 'git/git-hunks.js', 'git/git-poll.js'];
 
+/**
+ * 설정 섹션 한 벌 — index.html 의 순서다 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). `BASE` 뒤에 싣는다. 섹션 기반과 행이
+ * 섹션보다 먼저다.
+ */
+export const SETTINGS = ['core/settings-section.js', 'core/settings-row.js', 'core/settings-display.js',
+  'core/settings-terminal.js', 'core/settings-code.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 
