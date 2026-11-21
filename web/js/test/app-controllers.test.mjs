@@ -52,6 +52,14 @@ const ISSUES = {
     plainNow: ['core/settings-live.js', 'core/settings-save-state.js'],
     mixins: 47,
   },
+  '9b': {
+    ctl: ['core/attn-controller.js', 'core/attn-center.js', 'core/attn-claim.js', 'core/claude-accounts-controller.js',
+      'core/claude-maps.js', 'core/statusbar-controller.js', 'core/statusbar-enc.js'],
+    gone: ['core/app-attn.js', 'core/app-attn-center.js', 'core/app-attn-claim.js', 'core/app-claude-accounts.js',
+      'core/app-claude-accounts-map.js', 'core/app-statusbar.js', 'core/app-statusbar-enc.js'],
+    plainNow: [],
+    mixins: 40,
+  },
 };
 
 // ── 9a: 간선 · 업데이트 · 설정 잔여(폴링 포함) · 얇은 셸(LSP·Run) ──────────────────────
@@ -243,5 +251,122 @@ test('TC-FEA-3(9a): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
   for (const n of ['_runsPanel', '_onRunChanged', '_lspRootOfPath']) {
     assert.ok(contract.has(n), '계약에 없다: ' + n);
     assert.equal(typeof app.prototype[n], 'function', n);
+  }
+});
+
+// ── 9b: 알림(attn) · Claude 계정 · 상태바 ──────────────────────────────────────────────
+
+const CLASSES_9B = ['AttnController', 'AttnCenter', 'AttnClaim', 'ClaudeAccountsController', 'ClaudeMaps', 'StatusBarController',
+  'StatusBarEnc'];
+
+const DELEGATES_9B = {
+  attn: ['attnHas', '_agFocusedTool', '_isToolFocusedActive', '_onToolAttention', 'attnUserIsWatching', '_onToolAttentionClear',
+    '_attnRestore', '_attnDrop', '_attnClear', 'windowHasAttn', '_attnNoteInteraction', 'jumpToTool', '_attnRefresh',
+    '_attnSecurityNotice', '_attnDetail', '_attnBeep', 'initAttn'],
+  claude: ['_claudeAcctRestore', '_onClaudeAccountsChanged', '_onClaudeAccountAlert', '_claudeAcctFold', '_claudeAcctSmartMenu',
+    '_claudeAcctHistory', '_claudeAcctEl'],
+  'claude.maps': ['claudeTabTint', 'claudeOnCwd', 'claudeRepoChip', 'claudeFolderChip', 'claudeTabMenuItem', 'claudeFolderMenu'],
+  statusbar: ['initStatusBar', '_startStatsPoll', '_pollStats', 'updateStatusBar', '_bgModalToggle', '_bgPanelPaint', '_bgRow',
+    '_shortCwd', '_fmtMemSize', 'updateCwd'],
+};
+
+function load9b(globals = {}) {
+  return load([...BASE, 'core/state-registry.js', 'core/attn-controller.js', 'core/attn-center.js', 'core/attn-claim.js',
+    'core/claude-accounts-controller.js', 'core/claude-maps.js', 'core/statusbar-controller.js', 'core/statusbar-enc.js'], {
+    expose: [...CLASSES_9B, 'Controller', 'Component'],
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      document: { getElementById: () => null, querySelector: () => null },
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9b): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9b();
+  const app = new ctx.App();
+  for (const c of CLASSES_9B) {
+    const o = new ctx[c](app);
+    assert.ok(o instanceof ctx.Controller, c);
+    assert.ok(o instanceof ctx.Component, c);
+    assert.equal(o.app, app, c);
+  }
+  const attn = new ctx.AttnController(app);
+  assert.ok(attn.center instanceof ctx.AttnCenter);
+  assert.ok(attn.claim instanceof ctx.AttnClaim);
+  assert.ok(new ctx.ClaudeAccountsController(app).maps instanceof ctx.ClaudeMaps);
+  assert.ok(new ctx.StatusBarController(app).enc instanceof ctx.StatusBarEnc);
+});
+
+test('TC-FEA-1(9b): App 생성자가 컨트롤러를 만든다', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  for (const line of ['this.attn=new AttnController(this);', 'this.claude=new ClaudeAccountsController(this);',
+    'this.statusbar=new StatusBarController(this);']) assert.ok(ctor.includes(line), line);
+  assert.ok(!ctor.includes('this._attnNotifs='), '알림 창 표는 AttnController 가 든다');
+});
+
+test('TC-FEA-1(9b): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9b();
+  const app = new ctx.App();
+  app.attn = {};
+  app.claude = { maps: {} };
+  app.statusbar = {};
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9B)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9B)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9B).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-2(9b): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9b'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9b): 갈아 끼운 _attnClear·_claudeAcctRestore·updateStatusBar 를 컨트롤러 경로가 부른다', () => {
+  const ctx = load9b({ statusBar: { cwd: true } });
+  const app = new ctx.App();
+  app.attn = new ctx.AttnController(app);
+  app.claude = new ctx.ClaudeAccountsController(app);
+  app.statusbar = new ctx.StatusBarController(app);
+  app._attn = new Map([['t1', { reason: 'x' }]]);
+  const log = [];
+  app._attnClear = (id, typed) => log.push('clear:' + id + ':' + typed);
+  const tab = { dataset: { toolid: 't1' } };
+  const pane = { querySelector: () => tab };
+  app.attn._attnNoteInteraction({ type: 'pointerdown', target: { closest: () => pane } });
+  app._claudeAcctRestore = () => { log.push('acctRestore'); return 'R' };
+  assert.equal(app.claude._onClaudeAccountsChanged(), 'R');
+  app.focusedTerminal = () => ({ id: 'p1', _cwd: '/w' });
+  app.updateStatusBar = () => log.push('status');
+  app.statusbar.updateCwd();
+  assert.deepEqual(log, ['clear:t1:false', 'acctRestore', 'status']);
+});
+
+test('TC-FEA-3(9b): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9b'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9b): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9b();
+  const contract = contractNames();
+  const names = ['_isToolFocusedActive', '_onToolAttention', '_attnRestore', '_attnClear', 'jumpToTool', '_attnRefresh', '_attnBeep',
+    '_onClaudeAccountsChanged', 'updateStatusBar'];
+  for (const n of names) {
+    assert.ok(contract.has(n), '계약에 없다: ' + n);
+    assert.equal(typeof ctx.App.prototype[n], 'function', n);
   }
 });

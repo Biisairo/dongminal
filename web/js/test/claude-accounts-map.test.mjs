@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { BASE, load, plain } from './harness.mjs';
 
 /**
  * CLAUDE_ACCOUNTS_SRS TC-CAC-22 — 탭 틴트·Repo 칩·Explorer 칩과 계정 메뉴 (FR-CAC-95~97·95a·85·36).
@@ -21,9 +21,9 @@ function fillEn(k, p) {
 }
 
 function loadMap() {
-  return load(['core/path.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
+  return load([...BASE, 'core/path.js', 'core/claude-accounts-view.js', 'core/claude-maps.js'], {
     expose: ['CLAUDE_ACCT_TINT_TAB', 'CLAUDE_ACCT_TINT_FOLDER'],
-    globals: { App: class {}, t: (k, p) => fillEn(k, p) },
+    globals: { App: class {}, t: (k, p) => fillEn(k, p), TIMERS: { disposeOwner() {} } },
   });
 }
 
@@ -189,17 +189,20 @@ test('FR-CAC-36: 전환 응답의 pinnedRunning 이면 안내 문구, 아니면 
 
 function mapApp(routes) {
   const calls = [];
-  const ctx = load(['core/path.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
+  const ctx = load([...BASE, 'core/path.js', 'core/claude-accounts-view.js', 'core/claude-maps.js'], {
     globals: {
       App: class {}, t: (k, p) => fillEn(k, p),
-      TIMERS: { defer: (fn) => fn() },
+      TIMERS: { defer: (fn) => fn(), disposeOwner() {} },
       apiGet: (path, o) => {
         calls.push(path + (o && o.query ? '?' + new URLSearchParams(o.query) : ''));
         return Promise.resolve(routes(path, o && o.query));
       },
     },
+    expose: ['ClaudeMaps'],
   });
   const app = new ctx.App();
+  // REFACTOR3_FE_APPCTL_SRS 9b: 연결 표 읽기·해석은 `ClaudeAccountsController` 의 부품 `ClaudeMaps` 다.
+  app.claude = { maps: new ctx.ClaudeMaps(app) };
   app.renders = 0;
   app.render = () => { app.renders++ };
   app._claudeAccts = ACCTS;
@@ -210,11 +213,11 @@ const drain = () => new Promise((r) => setImmediate(r));
 test('FR-CAC-95a: 매핑을 받으면 다시 칠하고, 503 이면 화면에 아무것도 붙이지 않는다', async () => {
   let reply = { ok: true, status: 200, data: MAPS };
   const { app } = mapApp(() => reply);
-  await app._claudeMapsLoad();
+  await app.claude.maps._claudeMapsLoad();
   assert.equal(app._claudeMaps, MAPS);
   assert.equal(app.renders, 1);
   reply = { ok: false, status: 503, data: null };
-  await app._claudeMapsLoad();
+  await app.claude.maps._claudeMapsLoad();
   assert.equal(app._claudeMaps, null);
   assert.equal(app.claudeTabTint({ type: 'terminal', toolId: 't1' }), null);
   assert.equal(app.claudeTabMenuItem({ type: 'terminal', toolId: 't1' }, {}), null);
@@ -223,15 +226,15 @@ test('FR-CAC-95a: 매핑을 받으면 다시 칠하고, 503 이면 화면에 아
 test('FR-CAC-95a: 경로는 서버에 한 번만 묻고, 답이 오면 다시 칠한다. 폴더 연결이 없으면 묻지 않는다', async () => {
   const { app, calls } = mapApp((path, q) => ({ ok: true, status: 200, data: { source: 'none', path: '/private' + q.cwd } }));
   app._claudeMaps = { folders: {}, tabs: {} };
-  assert.equal(app._claudeNorm('/var/r'), '');
+  assert.equal(app.claude.maps._claudeNorm('/var/r'), '');
   assert.equal(calls.length, 0);
   app._claudeMaps = { folders: { '/private/var/r': { accountId: 'b' } }, tabs: {} };
-  assert.equal(app._claudeNorm('/var/r'), '');
-  assert.equal(app._claudeNorm('/var/r'), '');
+  assert.equal(app.claude.maps._claudeNorm('/var/r'), '');
+  assert.equal(app.claude.maps._claudeNorm('/var/r'), '');
   await drain();
   assert.deepEqual(calls, ['/api/claude-accounts/resolve?cwd=%2Fvar%2Fr']);
   assert.equal(app.renders, 1);
-  assert.equal(app._claudeNorm('/var/r'), '/private/var/r');
+  assert.equal(app.claude.maps._claudeNorm('/var/r'), '/private/var/r');
   assert.equal(app.claudeRepoChip('/var/r').text, 'bob');
   assert.equal(app.claudeFolderChip('/var/r', '/var/r/x'), null);
 });

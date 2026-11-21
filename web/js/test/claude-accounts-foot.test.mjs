@@ -47,8 +47,8 @@ function memStore() {
 
 function loadFoot(globals = {}) {
   const local = memStore();
-  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js', 'core/app-claude-accounts-map.js'], {
-    expose: ['ACTIVITY_SECTIONS', 'EscapeStack'],
+  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/path.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/claude-accounts-view.js', 'core/claude-accounts-controller.js', 'core/claude-maps.js'], {
+    expose: ['ACTIVITY_SECTIONS', 'EscapeStack', 'ClaudeAccountsController'],
     globals: {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
@@ -57,7 +57,7 @@ function loadFoot(globals = {}) {
       TIP_ACT_AGENTS: 'Show running agents', TIP_ACT_BG: 'Show background tools', TIP_ACT_RUNS: 'Show runs', TIP_ACT_CHATS: 'Show chat rooms',
       AGENT_STATE_ICON: { working: '●', done: '✓', waiting: '…', idle: '○' },
       PrefStore: { local },
-      TIMERS: { frame: () => ({}) },
+      TIMERS: { frame: () => ({}), disposeOwner() {} },
       STORE_KEYS: { agentsGroupFold: 'agentsGroupFold', agentsSubView: 'agentsSubView', claudeAcctFold: 'claudeAcctFold', activityUsageOpen: 'activityUsageOpen' },
       UIKit: {
         iconHTML: (n) => '<i:' + n + '>',
@@ -202,6 +202,7 @@ test('FR-CAC-93: 값이 없으면 statusLine 줄을 그리지 않는다', () => 
 
 function footApp(ctx) {
   const app = new ctx.App();
+  app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
   app._bg = []; app._runsPanel = () => ({});
   app._agWindowItems = () => [];
   app.chatUnreadTotal = () => 0;
@@ -254,11 +255,11 @@ test('FR-CAC-91: 모양 기본값은 활성 계정만 넓게이고, 바꾼 모�
   app._claudeAccts = [ACC_A, ACC_B];
   const wide = () => plain(app._actItems().at(-1).view.accounts.map((a) => a.wide));
   assert.deepEqual(wide(), [true, false]);
-  app._claudeAcctFoldToggle('b');
+  app.claude._claudeAcctFoldToggle('b');
   assert.equal(rendered, 1);
   assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctFold')), { b: true });
   assert.deepEqual(wide(), [true, true]);
-  app._claudeAcctFoldToggle('a');
+  app.claude._claudeAcctFoldToggle('a');
   assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctFold')), { b: true, a: false });
   assert.deepEqual(wide(), [false, true]);
   // 기억한 값이 없는 계정은 활성 여부를 따른다.
@@ -275,32 +276,32 @@ test('FR-CAC-91: 오버레이는 한 번에 하나 — 같은 칸은 닫고, 다
   app._claudeAccts = [ACC_A, ACC_B];
   const pops = () => plain(app._actItems().at(-1).view.accounts.map((a) => a.pop));
   assert.deepEqual(pops(), [false, false]);
-  app._claudeAcctPopToggle('a');
+  app.claude._claudeAcctPopToggle('a');
   assert.deepEqual(pops(), [true, false]);
-  app._claudeAcctPopToggle('b');
+  app.claude._claudeAcctPopToggle('b');
   assert.deepEqual(pops(), [false, true]);
-  app._claudeAcctPopToggle('b');
+  app.claude._claudeAcctPopToggle('b');
   assert.deepEqual(pops(), [false, false]);
   assert.equal(ctx._local.m.has('claudeAcctFold'), false, '오버레이는 기억하지 않는다');
 
   const at = (sel) => ({ type: 'pointerdown', target: { closest: (q) => (q.split(',').includes(sel) ? {} : null) } });
-  app._claudeAcctPopToggle('a');
-  app._claudeAcctPopDismiss(at('.cacct-pop'));
+  app.claude._claudeAcctPopToggle('a');
+  app.claude._claudeAcctPopDismiss(at('.cacct-pop'));
   assert.deepEqual(pops(), [true, false], '오버레이 안은 닫지 않는다');
-  app._claudeAcctPopDismiss(at('.cacct'));
+  app.claude._claudeAcctPopDismiss(at('.cacct'));
   assert.deepEqual(pops(), [true, false], '칸 누름은 칸의 처리기가 맡는다');
   // REFACTOR3_FE_ESC_SRS FR-FEE-7: Esc 는 EscapeStack 캡처 층 항목이 닫는다.
   const esc = (key) => ctx.EscapeStack.handle({ key, preventDefault() {}, stopPropagation() {} }, 'capture');
   assert.equal(esc('a'), false);
   assert.deepEqual(pops(), [true, false]);
   const n = rendered;
-  app._claudeAcctPopDismiss(at('.elsewhere'));
+  app.claude._claudeAcctPopDismiss(at('.elsewhere'));
   assert.deepEqual(pops(), [false, false]);
   assert.equal(rendered, n + 1);
-  app._claudeAcctPopDismiss(at('.elsewhere'));
+  app.claude._claudeAcctPopDismiss(at('.elsewhere'));
   assert.equal(rendered, n + 1, '열린 것이 없으면 다시 그리지 않는다');
   assert.equal(ctx.EscapeStack._items.length, 0, '바깥 누름으로 닫았는데 Esc 항목이 남았다');
-  app._claudeAcctPopToggle('b');
+  app.claude._claudeAcctPopToggle('b');
   assert.equal(esc('Escape'), true);
   assert.deepEqual(pops(), [false, false]);
   assert.equal(ctx.EscapeStack._items.length, 0);
@@ -426,6 +427,7 @@ test('FR-CAC-91: 오버레이에는 요약과 동작 버튼이 있고, 활성 �
 
 function restoreApp(ctx) {
   const app = new ctx.App();
+  app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
   app._restoreBegin = () => new Set();
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
@@ -480,9 +482,9 @@ test('FR-CAC-91·92: 전환·다음 계정·새로 고침은 서버 종단을 �
   });
   const app = restoreApp(ctx);
   app._claudeAcctRestore = () => Promise.resolve();
-  await app._claudeAcctSwitch('b');
-  await app._claudeAcctSmart('next');
-  await app._claudeAcctRefresh('a');
+  await app.claude._claudeAcctSwitch('b');
+  await app.claude._claudeAcctSmart('next');
+  await app.claude._claudeAcctRefresh('a');
   assert.deepEqual(plain(calls), [
     ['/api/claude-accounts/switch', { id: 'b' }],
     ['/api/claude-accounts/switch', { strategy: 'next' }],
@@ -490,7 +492,7 @@ test('FR-CAC-91·92: 전환·다음 계정·새로 고침은 서버 종단을 �
   ]);
   assert.equal(toasts.length, 0);
   reply = { ok: false, status: 409, data: { code: 'claude_too_soon' } };
-  await app._claudeAcctRefresh('a');
+  await app.claude._claudeAcctRefresh('a');
   assert.deepEqual(plain(toasts), [['E409', 'err']]);
 });
 
@@ -586,11 +588,11 @@ test('FR-CAC-62·63: 사용은 확인 뒤에만 보내고, 결과를 알린다. 
   });
   const app = restoreApp(ctx);
   app._claudeAcctRestore = () => Promise.resolve();
-  await app._claudeAcctReset('a', { program: 'cedar_ember', grantId: 'g_1' });
+  await app.claude._claudeAcctReset('a', { program: 'cedar_ember', grantId: 'g_1' });
   reply = { ok: true, status: 200, data: { result: 'unconfirmed' } };
-  await app._claudeAcctReset('a', { program: 'juniper_tide', grantId: '' });
+  await app.claude._claudeAcctReset('a', { program: 'juniper_tide', grantId: '' });
   reply = { ok: false, status: 400, data: { code: 'claude_account_invalid' } };
-  await app._claudeAcctReset('a', { program: 'juniper_tide', grantId: '' });
+  await app.claude._claudeAcctReset('a', { program: 'juniper_tide', grantId: '' });
   assert.deepEqual(plain(calls), [
     ['/api/claude-accounts/reset', { id: 'a', program: 'cedar_ember', grantId: 'g_1' }],
     ['/api/claude-accounts/reset', { id: 'a', program: 'juniper_tide' }],
@@ -604,8 +606,8 @@ test('D-CAC-36: 오버레이를 열고 닫아도 서버에 묻지 않는다', as
   const ctx = loadFoot({ apiPost: (p, b) => { calls.push([p, b]); return Promise.resolve({ ok: true, status: 200, data: {} }) } });
   const app = footApp(ctx);
   app.agentsRender = () => {};
-  await app._claudeAcctPopToggle('a');
-  await app._claudeAcctPopToggle('a');
+  await app.claude._claudeAcctPopToggle('a');
+  await app.claude._claudeAcctPopToggle('a');
   assert.deepEqual(plain(calls), []);
 });
 
@@ -666,14 +668,14 @@ test('FR-CAC-31a·92: 스마트 전환 셋은 전략을 보내고, best 가 머�
   });
   const app = restoreApp(ctx);
   app._claudeAcctRestore = () => Promise.resolve();
-  for (const s of ['next', 'next-available', 'best']) await app._claudeAcctSmart(s);
+  for (const s of ['next', 'next-available', 'best']) await app.claude._claudeAcctSmart(s);
   assert.deepEqual(plain(calls.map((c) => c[1])), [{ strategy: 'next' }, { strategy: 'next-available' }, { strategy: 'best' }]);
   assert.equal(toasts.length, 0);
   reply = { ok: true, status: 200, data: { from: 'a', to: 'a', noop: true, reason: 'stay' } };
-  await app._claudeAcctSmart('best');
+  await app.claude._claudeAcctSmart('best');
   assert.deepEqual(plain(toasts), [['Already on the account with the most room', '']]);
   reply = { ok: false, status: 409, data: { code: 'claude_no_candidate' } };
-  await app._claudeAcctSmart('next-available');
+  await app.claude._claudeAcctSmart('next-available');
   assert.deepEqual(plain(toasts.at(-1)), ['E409', 'err']);
 });
 

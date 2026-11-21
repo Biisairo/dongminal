@@ -1166,15 +1166,15 @@
 <script src="js/core/app-tab-reopen.js?v=__ASSETV__"></script>
 <!-- 창 소유권 (UX_BATCH10_SRS 묶음 F). `app-focus.js` 뒤 — prototype 확장이다. -->
 <script src="js/core/app-focus-owner.js?v=__ASSETV__"></script>
-<script src="js/core/app-attn.js?v=__ASSETV__"></script>
-<!-- 주의 센터 팝오버 (FR-ACT-8). `app-attn.js` 뒤 — prototype 확장이다. -->
-<script src="js/core/app-attn-center.js?v=__ASSETV__"></script>
-<!-- 한 컴퓨터에서 한 번 (ATTENTION_FIRING_SRS 묶음 D). `app-attn.js` 뒤 — prototype 확장이다. -->
-<script src="js/core/app-attn-claim.js?v=__ASSETV__"></script>
+<script src="js/core/attn-controller.js?v=__ASSETV__"></script>
+<!-- 주의 센터 팝오버 (FR-ACT-8). `AttnController` 의 부품이다 (REFACTOR3_FE_APPCTL_SRS 9b). -->
+<script src="js/core/attn-center.js?v=__ASSETV__"></script>
+<!-- 한 컴퓨터에서 한 번 (ATTENTION_FIRING_SRS 묶음 D). `AttnController` 의 부품이다. -->
+<script src="js/core/attn-claim.js?v=__ASSETV__"></script>
 <script src="js/core/app-agents.js?v=__ASSETV__"></script>
 <script src="js/core/app-agents-sub.js?v=__ASSETV__"></script>
 <script src="js/core/app-activity.js?v=__ASSETV__"></script>
-<!-- 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64). `app-attn.js`·`app-agents.js` 뒤 — prototype 확장이다. -->
+<!-- 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64). `attn-controller.js`·`app-agents.js` 뒤 — prototype 확장이다. -->
 <script src="js/core/app-work.js?v=__ASSETV__"></script>
 <!-- 채팅 (PEER_CHAT_SRS §3.11). `app-activity.js` 뒤 — prototype 확장이다. -->
 <script src="js/core/chat-store.js?v=__ASSETV__"></script>
@@ -1183,8 +1183,9 @@
 <script src="js/core/chat-human.js?v=__ASSETV__"></script>
 <!-- 채팅 창 (CHAT_WINDOW_SRS). `app-chat.js` 뒤 — prototype 확장이다. -->
 <script src="js/core/app-chat-window.js?v=__ASSETV__"></script>
-<script src="js/core/app-claude-accounts.js?v=__ASSETV__"></script>
-<script src="js/core/app-claude-accounts-map.js?v=__ASSETV__"></script>
+<script src="js/core/claude-accounts-view.js?v=__ASSETV__"></script>
+<script src="js/core/claude-accounts-controller.js?v=__ASSETV__"></script>
+<script src="js/core/claude-maps.js?v=__ASSETV__"></script>
 <!-- Repo 목록 갱신 (APP_STATE_EXTRACT_SRS FR-ASE-8). `app-git.js` 의 껍데기가 부른다. -->
 <script src="js/core/git-repos-list.js?v=__ASSETV__"></script>
 <script src="js/core/app-git.js?v=__ASSETV__"></script>
@@ -1249,8 +1250,8 @@
 <script src="js/core/settings-claude.js?v=__ASSETV__"></script>
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). 섹션이므로 settings-section.js 뒤다. -->
 <script src="js/core/settings-backup.js?v=__ASSETV__"></script>
-<script src="js/core/app-statusbar.js?v=__ASSETV__"></script>
-<script src="js/core/app-statusbar-enc.js?v=__ASSETV__"></script>
+<script src="js/core/statusbar-controller.js?v=__ASSETV__"></script>
+<script src="js/core/statusbar-enc.js?v=__ASSETV__"></script>
 <script src="js/core/update-controller.js?v=__ASSETV__"></script>
 <script src="js/core/app-presets.js?v=__ASSETV__"></script>
 <script src="js/core/settings-presets.js?v=__ASSETV__"></script>

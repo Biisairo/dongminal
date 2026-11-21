@@ -1,18 +1,25 @@
 /**
  * Remote Terminal — App 상태바 (PACKAGE_RESTRUCTURE_SRS FR-APP-2)
  *
- * class App 본문에서 옮겨온 메서드 11개. 본문은 수정하지 않았다 (FR-APP-3).
+ * `StatusBarController` 가 상태바의 지표·Background 패널·cwd 를 진다. App 은 이것을 `statusbar` 로 든다
+ * (REFACTOR3_FE_APPCTL_SRS 9b). 부품 `StatusBarEnc`(`statusbar-enc.js`) `.enc` 가 인코딩·LSP 항목을 진다. 지표 `_stats`·
+ * 지연 `_latency` 는 App 에 남는다 — 계약·모바일이 읽는다.
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
-Object.assign(App.prototype, {
+class StatusBarController extends Controller {
+  constructor(app){
+    super(app);
+    this.enc=new StatusBarEnc(app);
+  }
+
   // ── Status Bar ──
   initStatusBar(){
-    this._stats={};this._latency=null;
+    this.app._stats={};this.app._latency=null;
     // FR-GIT-101a (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-4): 진행 중인 원격 작업 목록.
     // **표시용이 아니다** — 다른 브라우저 창이 띄운 작업도 같은 리포의 원격 버튼을
     // 막아야 한다(FR-GIT-101). 목록은 `git_jobs_changed` 가 밀고, 상태바 틱이 stats 에
     // 실어 안전망으로 받는다. Git 패널이 없으면 받지 않는다 — 쓸 곳이 없다.
-    this._gitJobs=[];
+    this.app._gitJobs=[];
     /**
      * UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): **`#bg-btn` 이 없어졌다.**
      *
@@ -38,13 +45,13 @@ Object.assign(App.prototype, {
     this._bgConfirm=null; this._bgPending=null; this._bgError=null;
     this._startStatsPoll();
     // Settings ▸ Status Bar 의 스위치들은 이 뒤에 `SettingsController` 가 세운다 (REFACTOR3_FE_SETTINGS_SRS 8e).
-  },
+  }
   _startStatsPoll(){
     if(this._statsPoll) this._statsPoll.stop();
     // FR-RST-23: 숨은 탭에서는 돌지 않고, 돌아오면 즉시 한 번 갚는다
     // (SYSTEM_STATS_SRS FR-STAT-17). 규약은 `visiblePoll` 하나가 갖는다.
     this._statsPoll=visiblePoll(()=>statsInterval,()=>this._pollStats(),{immediate:true});
-  },
+  }
   /**
    * FR-PRF-36~38 (`refactor/README.md` §4.1 항목 10).
    *
@@ -66,18 +73,18 @@ Object.assign(App.prototype, {
     const t0=performance.now();
     const ping=await apiGet('/api/ping');
     // 망 실패는 status 0 이다 — 그때 지연은 숫자가 아니라 "없음" 이다.
-    this._latency=ping.status?Math.round(performance.now()-t0):null;
+    this.app._latency=ping.status?Math.round(performance.now()-t0):null;
     // 통계는 따로 받는다 — ping 을 순수한 지연 측정으로 남겨 두려는 것이다.
     // git 작업 목록은 같은 요청에 싣는다 (FR-OPT-4-4 — 회차당 3r → 2r).
-    const jt=this._gitJobsBegin();
+    const jt=this.app._gitJobsBegin();
     const st=await apiGet('/api/stats',jt?{query:{jobs:'1'}}:undefined);
-    if(jt) this._gitJobsSettle(jt,st.ok&&st.data?st.data.jobs:null);
+    if(jt) this.app._gitJobsSettle(jt,st.ok&&st.data?st.data.jobs:null);
     if(st.ok&&st.data){
       delete st.data.jobs;
-      this._stats=st.data;
+      this.app._stats=st.data;
     }
-    this.updateStatusBar();
-  },
+    this.app.updateStatusBar();
+  }
   /**
    * FR-RPT-3: 지표를 통째로 다시 만들지 않는다.
    *
@@ -120,11 +127,11 @@ Object.assign(App.prototype, {
      * 넷이 같은 활동 패널을 열고, 단축키는 그 구역으로 스크롤한다.
      */
     if(statusBar.connection){
-      const ok=this._latency!==null;
+      const ok=this.app._latency!==null;
       push('connection',`<span class="sb-item"><span class="sb-dot ${e(ok?'ok':'err')}"></span>${e(ok?t('statusbar.connected'):t('statusbar.disconnected'))}</span>`);
     }
-    if(statusBar.latency&&this._latency!==null){
-      push('latency',`<span class="sb-item"><span class="mono">${e(this._latency)}ms</span></span>`);
+    if(statusBar.latency&&this.app._latency!==null){
+      push('latency',`<span class="sb-item"><span class="mono">${e(this.app._latency)}ms</span></span>`);
     }
     /**
      * UI_KIT_SRS FR-GLY-9: **이모지를 쓰지 않는다.** 종전에는 세 지표가
@@ -140,34 +147,34 @@ Object.assign(App.prototype, {
       if(loc)push('location',`<span class="sb-item" title="${e(t('statusbar.location_title',{loc}))}">${e(loc)}</span>`);
     }
     if(statusBar.cwd){
-      push('cwd',`<span class="sb-item" title="${e(t('statusbar.cwd'))}"><span class="mono sb-ref">${e(this._shortCwd(this.cwd||'~'))}</span></span>`);
+      push('cwd',`<span class="sb-item" title="${e(t('statusbar.cwd'))}"><span class="mono sb-ref">${e(this._shortCwd(this.app.cwd||'~'))}</span></span>`);
     }
-    if(statusBar.hostname&&this._stats.hostname){
-      push('hostname',`<span class="sb-item" title="${e(t('statusbar.hostname'))}"><span class="mono sb-ref">${e(this._stats.hostname)}</span></span>`);
+    if(statusBar.hostname&&this.app._stats.hostname){
+      push('hostname',`<span class="sb-item" title="${e(t('statusbar.hostname'))}"><span class="mono sb-ref">${e(this.app._stats.hostname)}</span></span>`);
     }
-    if(statusBar.cpu&&this._stats.cpu!==undefined){
-      push('cpu',`<span class="sb-item">CPU <span class="mono">${e(this._stats.cpu)}%</span></span>`);
+    if(statusBar.cpu&&this.app._stats.cpu!==undefined){
+      push('cpu',`<span class="sb-item">CPU <span class="mono">${e(this.app._stats.cpu)}%</span></span>`);
     }
-    if(statusBar.memory&&this._stats.memTotal){
-      const used=this._fmtMemSize(this._stats.memUsed);
-      const total=this._fmtMemSize(this._stats.memTotal);
+    if(statusBar.memory&&this.app._stats.memTotal){
+      const used=this._fmtMemSize(this.app._stats.memUsed);
+      const total=this._fmtMemSize(this.app._stats.memTotal);
       push('memory',`<span class="sb-item">MEM <span class="mono">${e(used)}/${e(total)}</span></span>`);
     }
-    if(statusBar.disk&&this._stats.diskPct){
-      push('disk',`<span class="sb-item">DISK <span class="mono">${e(this._stats.diskPct)}%</span></span>`);
+    if(statusBar.disk&&this.app._stats.diskPct){
+      push('disk',`<span class="sb-item">DISK <span class="mono">${e(this.app._stats.diskPct)}%</span></span>`);
     }
     if(statusBar.termsize){
-      const p=this.focusedTerminal();
+      const p=this.app.focusedTerminal();
       if(p&&p.term){
         push('termsize',`<span class="sb-item"><span class="mono">${e(p.term.cols)}×${e(p.term.rows)}</span></span>`);
       }
     }
     // REPO_FIX 03 §3A-2: 포커스 편집기 문서의 인코딩 — 눌러서 다시 열기·UTF-8 변환 저장.
     if(statusBar.encoding){
-      const h=this._sbEncHtml();
+      const h=this.enc._sbEncHtml();
       if(h) push('encoding',h);
     }
-    const lh=this._sbLspHtml(); if(lh) push('lsp-offer',lh);  // UX_AUDIT_FIX_SRS FR-UXF-83: 상황 표식이라 설정 항목이 아니다
+    const lh=this.enc._sbLspHtml(); if(lh) push('lsp-offer',lh);  // UX_AUDIT_FIX_SRS FR-UXF-83: 상황 표식이라 설정 항목이 아니다
     if(statusBar.uptime){
       // FR-TYP-3: 사람말과 기계값이 한 문자열로 섞여 있어 M1 이 이 줄만 남겼다 —
       // `'시스템 {v}'` 안에서는 `1d 21h` 를 꺼낼 수 없다. 템플릿을 **라벨만**으로
@@ -188,15 +195,15 @@ Object.assign(App.prototype, {
         const m=document.createElement('span'); m.className='mono'; m.textContent=v;
         el.appendChild(m);
       };
-      if(this._stats.sysUptime)seg('statusbar.uptime_sys',this._stats.sysUptime);
-      if(this._stats.srvUptime)seg('statusbar.uptime_srv',this._stats.srvUptime);
+      if(this.app._stats.sysUptime)seg('statusbar.uptime_sys',this.app._stats.sysUptime);
+      if(this.app._stats.srvUptime)seg('statusbar.uptime_srv',this.app._stats.srvUptime);
       if(el.childNodes.length>1)items.push({k:'uptime',el});
     }
     // **상태바에 git 표면은 없다.** 브랜치 chip 은 FR-FLW-12 가, 진행 중 원격 작업
     // chip 은 U-19 ①(FR-GIT-112 철회)이 없앴다 — 둘 다 사용자 판정이다.
     // 근거는 그려질 마크업 전부다 (FR-RPT-2). 문자열 지표는 그 문자열이고, chip 은
     // DOM 이므로 `outerHTML` 이다.
-    this._sbEncBind(bar);
+    this.enc._sbEncBind(bar);
     reconcileList(bar,items,{
       key:i=>i.k,
       sig:i=>i.html!==undefined?i.html:i.el.outerHTML,
@@ -209,8 +216,8 @@ Object.assign(App.prototype, {
     });
     // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일은 상태바 대신 상단바가 연결과 cwd 를 말한다.
     // 이전: 여기서 순위(FR-HIE-4)를 싣고 모바일 접힘을 다시 쟀다 — 모바일에 상태바가 없어 걷었다.
-    this.mTopPaint();
-  },
+    this.app.mTopPaint();
+  }
 
   /**
    * STATUS_BAR_REFLOW_SRS FR-SBR-7: 상태바가 줄을 늘리면 `#area` 가 그만큼 줄어
@@ -227,10 +234,10 @@ Object.assign(App.prototype, {
       if(h===null){h=nh;return}
       if(Math.abs(nh-h)<0.5)return;
       h=nh;
-      this._scheduleFit();
+      this.app._scheduleFit();
     });
     this._sbRo.observe(bar);
-  },
+  }
 
   /**
    * UIUX_OVERHAUL_SRS FR-CHR-16 (D-7): **`_updateBgBtn` 이 사라졌다.**
@@ -258,16 +265,16 @@ Object.assign(App.prototype, {
   _bgModalToggle(open){
     if(open===false) return;                 // 조회는 남의 동작에 닫히지 않는다
     this._bgConfirm=null; this._bgError=null;
-    this.actPanelOpen('bg');
-  },
+    this.app.actPanelOpen('bg');
+  }
 
   /** 패널이 열려 있으면 다시 그린다. 모달 시절 `_bgModalRender` 가 하던 일이다. */
   _bgPanelPaint(){
-    this.agentsRender();
-  },
+    this.app.agentsRender();
+  }
 
   // FR-BGK-1: 행 하나. 종료는 행 클릭(복귀)과 **다른 목표**다 — 겹치면 복귀하려다
-  // 죽인다. 확인·진행·오류는 this._bg* 에서 파생하므로 다시 그려도 살아남는다.
+  // 죽인다. 확인·진행·오류는 `_bg*` 필드에서 파생하므로 다시 그려도 살아남는다.
   _bgRow(b){
     const confirming=this._bgConfirm===b.toolId;
     const pending=this._bgPending===b.toolId;
@@ -278,7 +285,7 @@ Object.assign(App.prototype, {
     // FR-NAM-5: 백그라운드 도구에는 탭이 없다 — 파생 이름이 그 도구를 부르는
     // 유일한 이름이다. 서버가 준 name 은 fallback 으로만 쓴다.
     const name=document.createElement('span'); name.className='bg-name';
-    name.textContent=this._toolName(b.toolId,b.name);
+    name.textContent=this.app._toolName(b.toolId,b.name);
     const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
     row.appendChild(name); row.appendChild(cwd);
     // FR-BGK-12: Run 소속. 묶음 H 가 오기 전에는 필드가 없고, 그때는 아무것도 붙지 않는다.
@@ -314,21 +321,21 @@ Object.assign(App.prototype, {
       // FR-BGK-5: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
       // 취소와 복귀를 한 클릭에 겹치면 확인의 의미가 사라진다.
       if(this._bgConfirm){this._bgConfirmSet(null);return}
-      this._restoreTool(b.toolId);
-      if(this.actSheetLeave) this.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
+      this.app._restoreTool(b.toolId);
+      if(this.app.actSheetLeave) this.app.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
     });
     return row;
-  },
+  }
 
   // FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없다.
   _bgKillBtn(b){
     const btn=document.createElement('button');
     btn.className='ui-btn ui-btn-sm bg-kill'; btn.textContent=t('runs.close');
-    btn.title=t('bg.kill_title',{name:this._toolName(b.toolId,b.name)});
+    btn.title=t('bg.kill_title',{name:this.app._toolName(b.toolId,b.name)});
     btn.dataset.toolid=b.toolId;
     btn.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(b.toolId)});
     return btn;
-  },
+  }
 
   // FR-BGK-4: 확인은 행 안에서 한다. 모달 위의 모달은 Escape 처리와 포커스
   // 관리를 복잡하게 만든다.
@@ -343,7 +350,7 @@ Object.assign(App.prototype, {
     no.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(null)});
     wrap.appendChild(q); wrap.appendChild(yes); wrap.appendChild(no);
     return wrap;
-  },
+  }
 
   // FR-BGK-12 / FR-HLM-9: 헤드리스 멤버는 소속을 알리고 죽인다.
   //
@@ -353,7 +360,7 @@ Object.assign(App.prototype, {
   _bgRun(b){
     if(!b.runId) return null;
     return {short:b.runShort||'',role:b.role||''};
-  },
+  }
 
   _bgKillQuestion(b){
     const run=this._bgRun(b);
@@ -361,14 +368,14 @@ Object.assign(App.prototype, {
     return run.role
       ? t('bg.q_kill_member_role',{short:run.short,role:run.role})
       : t('bg.q_kill_member',{short:run.short});
-  },
+  }
 
   // FR-BGK-5: 확인은 한 번에 하나다. 다른 행의 종료를 누르면 앞의 확인은 취소된다.
   _bgConfirmSet(toolId){
     this._bgConfirm=toolId||null;
     this._bgError=null;
     this._bgPanelPaint();
-  },
+  }
 
   // FR-BGK-6~10: 종료는 POST /api/tools/kill 이다. 성공하면 목록만 다시 받는다 —
   // 모달은 열린 채로 남고(FR-BGK-8), "없음" 과 배지 소멸은 그 갱신이 따라온다
@@ -382,11 +389,11 @@ Object.assign(App.prototype, {
     if(!ok) msg=apiErrText(r,t('runs.close_fail'));
     this._bgPending=null;
     if(!ok) this._bgError={toolId,msg};
-    else await this._bgRefresh();
+    else await this.app._bgRefresh();
     // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
     // 목록 갱신이 실패한 회차에도 '종료 중…' 이 남지 않게 여기서 한 번 더 그린다.
     this._bgPanelPaint();
-  },
+  }
   /**
    * 상태바의 cwd 표기 (M6 `FE-21`).
    *
@@ -406,7 +413,7 @@ Object.assign(App.prototype, {
    */
   _shortCwd(cwd){
     const sep=pathSep(cwd);
-    const home=this._edHome?this._edHome():'';
+    const home=this.app._edHome?this.app._edHome():'';
     let short=cwd,athome=false;
     if(home&&pathUnder(home,cwd)){
       athome=true;
@@ -416,7 +423,7 @@ Object.assign(App.prototype, {
     const parts=short.split(sep);
     if(parts.length>4) short=(athome?'~':'…')+sep+'...'+sep+parts.slice(-3).join(sep);
     return short;
-  },
+  }
 
   /**
    * **시스템 메모리**의 표기 (M6 `FE-22`).
@@ -429,29 +436,34 @@ Object.assign(App.prototype, {
   _fmtMemSize(b){
     if(b<1073741824)return(b/1048576).toFixed(1)+'MB';
     return(b/1073741824).toFixed(1)+'GB';
-  },
+  }
   _locationLabel(){
-    const s=this.aw();if(!s||!s.layout||!this.focused)return null;
-    const sidx=this.ws.windows.findIndex(x=>x.id===this.ws.activeWindow);
+    const s=this.app.aw();if(!s||!s.layout||!this.app.focused)return null;
+    const sidx=this.app.ws.windows.findIndex(x=>x.id===this.app.ws.activeWindow);
     if(sidx<0)return null;
     const panes=panesOf(s.layout);
-    const pidx=panes.findIndex(r=>r.id===this.focused);
+    const pidx=panes.findIndex(r=>r.id===this.app.focused);
     if(pidx<0)return null;
     const pn=panes[pidx];
-    const tidx=pn.tabs.findIndex(tab=>tab.id===this.paneTab(pn));
+    const tidx=pn.tabs.findIndex(tab=>tab.id===this.app.paneTab(pn));
     if(tidx<0)return null;
     return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
-  },
+  }
   updateCwd(){   // FR-OPT-4-10 (FEC-3): OSC 777;Cwd 값(`_cwd`)이 있으면 그것, 없으면 포커스가 바뀐 때만 묻는다
-    const p=this.focusedTerminal();
+    const p=this.app.focusedTerminal();
     if(!p||!statusBar.cwd){this._cwdTool=null;return}
     const moved=p.id!==this._cwdTool; this._cwdTool=p.id;
-    if(p._cwd){if(this.cwd!==p._cwd){this.cwd=p._cwd;this.updateStatusBar()}return}
+    if(p._cwd){if(this.app.cwd!==p._cwd){this.app.cwd=p._cwd;this.app.updateStatusBar()}return}
     if(!moved) return;
     apiGet('/api/cwd',{query:{tool:p.id}}).then(r=>{
-      const f=this.focusedTerminal();   // 늦은 답이 옮겨 간 포커스의 위치를 덮지 않는다
+      const f=this.app.focusedTerminal();   // 늦은 답이 옮겨 간 포커스의 위치를 덮지 않는다
       if(!r.data||!f||f.id!==p.id) return;
-      this.cwd=r.data.cwd; this.updateStatusBar();
+      this.app.cwd=r.data.cwd; this.app.updateStatusBar();
     });
-  },
-});
+  }
+}
+
+// 바깥(부팅 표 `SETTINGS_INIT`·상태 등록부·설정 ▸ 상태바·편집기·포커스·도구·활동·모바일·`ui/`)과 계약이 App 에서 부르는
+// 이름 (FR-FEA-4).
+Controller.delegate(App,'statusbar',['initStatusBar','_startStatsPoll','_pollStats','updateStatusBar','_bgModalToggle',
+  '_bgPanelPaint','_bgRow','_shortCwd','_fmtMemSize','updateCwd']);

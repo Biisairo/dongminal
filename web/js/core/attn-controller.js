@@ -1,11 +1,20 @@
 /**
  * Remote Terminal — App 주의 알림 (PACKAGE_RESTRUCTURE_SRS FR-APP-2)
  *
- * class App 본문에서 옮겨온 메서드 20개. 본문은 수정하지 않았다 (FR-APP-3).
+ * `AttnController` 가 알림의 수명(받기·지우기·재무장·제목 배지·데스크톱 알림·소리)을 진다. App 은 이것을 `attn` 으로
+ * 든다(REFACTOR3_FE_APPCTL_SRS 9b). 부품 둘 — 주의 센터 팝오버 `AttnCenter`(`attn-center.js`) `.center` · 한 컴퓨터에서
+ * 한 번 `AttnClaim`(`attn-claim.js`) `.claim`. 주의 집합 `_attn` 은 App 에 남는다 — 포커스·제목·상태 등록부가 읽는다.
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
-Object.assign(App.prototype, {
-  attnHas(toolId){return this._attn.has(toolId)},
+class AttnController extends Controller {
+  constructor(app){
+    super(app);
+    this._attnNotifs={}; // toolId → Notification (재팝업 위해 직전 알림 보관)
+    this.center=new AttnCenter(app);
+    this.claim=new AttnClaim(app);
+  }
+
+  attnHas(toolId){return this.app._attn.has(toolId)}
 
   /**
    * UX_BATCH12 FR-FHL-8: 에이전트 카드가 하이라이트할 도구 — 포커스 칸이 보는 창의 포커스
@@ -13,11 +22,11 @@ Object.assign(App.prototype, {
    * FR-SVS-13)이라 같은 창을 두 칸에 띄우면 둘이 참이 된다 — 하이라이트는 하나여야 한다.
    */
   _agFocusedTool(){
-    const s=this.aw(); if(!s||!s.layout) return '';
-    const pn=findPane(s.layout,this.focused); if(!pn) return '';
-    const at=(pn.tabs||[]).find(tab=>tab.id===this.paneTab(pn));
+    const s=this.app.aw(); if(!s||!s.layout) return '';
+    const pn=findPane(s.layout,this.app.focused); if(!pn) return '';
+    const at=(pn.tabs||[]).find(tab=>tab.id===this.app.paneTab(pn));
     return (at&&at.toolId)||'';
-  },
+  }
 
   // 활성 창의 포커스 pane 에서 그 도구의 탭이 보이는지 (FR-PAN-9).
   //
@@ -26,18 +35,18 @@ Object.assign(App.prototype, {
   // pane 이지만, 그 pane 을 그리는 칸은 여럿일 수 있다.
   _isToolFocusedActive(toolId){
     if(!toolId) return false;
-    const s=this.aw(); if(!s||!s.layout) return false;
-    const pn=findPane(s.layout,this.focused); if(!pn) return false;
+    const s=this.app.aw(); if(!s||!s.layout) return false;
+    const pn=findPane(s.layout,this.app.focused); if(!pn) return false;
     const tabs=pn.tabs||[];
-    const n=this.slotCount();
+    const n=this.app.slotCount();
     for(let i=0;i<n;i++){
       // 그 칸이 이 창을 보고 있지 않으면 그 칸의 시선은 이 판정과 무관하다.
-      if(this._slots&&this.slotWindow(i)!==s) continue;
-      const at=tabs.find(tab=>tab.id===this.paneTab(pn,i));
+      if(this.app._slots&&this.app.slotWindow(i)!==s) continue;
+      const at=tabs.find(tab=>tab.id===this.app.paneTab(pn,i));
       if(at&&at.toolId===toolId) return true;
     }
     return false;
-  },
+  }
 
   /**
    * ATTENTION_FIRING_SRS FR-ATA-2·7: 알람은 **언제나** 선다. 포커스가 있다는
@@ -57,12 +66,12 @@ Object.assign(App.prototype, {
    */
   _onToolAttention({toolId,reason,seq}={}){
     if(!toolId) return;
-    this._restoreNote('attn',toolId);   // FR-RSF-4
-    this._attn.set(toolId,{reason});
-    this._attnRefresh();
-    // FR-ATD-2: 표식은 모든 창에. 배너·소리는 한 컴퓨터에서 한 번 (app-attn-claim.js).
-    this._attnAnnounce(reason,toolId,seq);
-  },
+    this.app._restoreNote('attn',toolId);   // FR-RSF-4
+    this.app._attn.set(toolId,{reason});
+    this.app._attnRefresh();
+    // FR-ATD-2: 표식은 모든 창에. 배너·소리는 한 컴퓨터에서 한 번 (attn-claim.js).
+    this.claim._attnAnnounce(reason,toolId,seq);
+  }
 
   /**
    * 브라우저 창이 OS 포커스를 가졌고(다른 앱이 위에 있지 않음) 그 도구가 포커스된
@@ -75,8 +84,8 @@ Object.assign(App.prototype, {
    */
   attnUserIsWatching(toolId){
     const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
-    return browserFocused&&this._isToolFocusedActive(toolId);
-  },
+    return browserFocused&&this.app._isToolFocusedActive(toolId);
+  }
 
   _onToolAttentionClear({toolId}={}){
     if(!toolId) return;
@@ -84,10 +93,10 @@ Object.assign(App.prototype, {
     // 서버발 해제도 서버에서는 주목이다 — 잠금이 섰다고 기록해 둔다. 그러지
     // 않으면 다른 브라우저가 해제한 도구를 여기서 만져도 잠금이 풀리지 않는다.
     this._attnNoteLock(toolId,false);
-    this._restoreNote('attn',toolId);   // FR-RSF-4
-    if(!this._attn.delete(toolId)) return;
-    this._attnRefresh();
-  },
+    this.app._restoreNote('attn',toolId);   // FR-RSF-4
+    if(!this.app._attn.delete(toolId)) return;
+    this.app._attnRefresh();
+  }
 
   /**
    * FR-PAN-12 · FR-ATL-8: 합류/재연결 시 현재 주의 집합을 복원한다.
@@ -106,21 +115,21 @@ Object.assign(App.prototype, {
    * 사용자가 거둔 알람이 되살아나는 쪽은 그대로였다 (RESTORE_FLIGHT_SRS §1.1).
    */
   _attnRestore(src){
-    const flight=this._restoreBegin('attn');
+    const flight=this.app._restoreBegin('attn');
     return stateFetch(src,'/api/tools/attention').then(res=>{
       const j=res.ok?res.data:null;
-      if(!this._restoreLive('attn',flight)) return;
+      if(!this.app._restoreLive('attn',flight)) return;
       if(!j||!Array.isArray(j.toolIds)) return;
       const live=new Set(j.toolIds);
-      for(const pid of live){if(!flight.has(pid)&&!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
-      for(const pid of Array.from(this._attn.keys())){if(!live.has(pid)&&!flight.has(pid))this._attnDrop(pid)}
-      this._restoreEnd('attn',flight);
-      this._attnRefresh();
+      for(const pid of live){if(!flight.has(pid)&&!this.app._attn.has(pid))this.app._attn.set(pid,{reason:'signaled'})}
+      for(const pid of Array.from(this.app._attn.keys())){if(!live.has(pid)&&!flight.has(pid))this._attnDrop(pid)}
+      this.app._restoreEnd('attn',flight);
+      this.app._attnRefresh();
       // FR-ATA-1: 복원도 포커스를 이유로 지우지 않는다. 개정 전에는 FR-ATL-10
       // 이 여기서 "보고 있으면 해제" 를 했으나, 그 규약 자체가 사라졌다 —
       // 해제는 실제 상호작용에서만 온다 (D-1).
     }).catch(()=>{});
-  },
+  }
 
   /**
    * FR-ATL-7·8: 알람을 **로컬에서만** 뗀다. 서버에 알리지 않는다 — 대상이 이미
@@ -130,9 +139,9 @@ Object.assign(App.prototype, {
   _attnDrop(toolId){
     if(!toolId) return false;
     this._attnCloseNotif(toolId);
-    this._restoreNote('attn',toolId);   // FR-RSF-4
-    return this._attn.delete(toolId);
-  },
+    this.app._restoreNote('attn',toolId);   // FR-RSF-4
+    return this.app._attn.delete(toolId);
+  }
 
   /**
    * FR-PAN-11: 로컬 즉시 제거 + 백엔드 해제(다른 브라우저로 전파).
@@ -143,13 +152,13 @@ Object.assign(App.prototype, {
    */
   _attnClear(toolId,typed){
     if(!toolId) return;
-    this._restoreNote('attn',toolId);   // FR-RSF-4 — 사용자 조작도 비행보다 새롭다
+    this.app._restoreNote('attn',toolId);   // FR-RSF-4 — 사용자 조작도 비행보다 새롭다
     this._attnCloseNotif(toolId);
-    this._attn.delete(toolId);
+    this.app._attn.delete(toolId);
     this._attnNoteLock(toolId,!!typed);
     apiPost('/api/tools/attention/clear',{toolId,typed:!!typed});
-    this._attnRefresh();
-  },
+    this.app._attnRefresh();
+  }
 
   /**
    * FR-ATF-8: 서버의 재무장 잠금이 **지금 서 있는지**를 기억한다. 이 한 칸이
@@ -162,7 +171,7 @@ Object.assign(App.prototype, {
   _attnNoteLock(toolId,unlocked){
     this._attnTyped=this._attnTyped||{};
     this._attnTyped[toolId]=!!unlocked;
-  },
+  }
 
   /**
    * FR-ATF-6: 알람이 없는 칸에서 키를 눌렀을 때 잠금만 푼다. 잠긴 적이 없거나
@@ -172,31 +181,31 @@ Object.assign(App.prototype, {
     if(!toolId||!this._attnTyped||this._attnTyped[toolId]!==false) return;
     this._attnTyped[toolId]=true;
     apiPost('/api/tools/attention/clear',{toolId,typed:true});
-  },
+  }
 
   // FR-PAN-17: 모든 알람 일괄 해제
   _attnClearAll(){
     apiPost('/api/tools/attention/clear-all');
     Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
     // FR-ATF-13: 서버는 이 한 번으로 전부를 잠근다 — 로컬 기록도 함께 세운다.
-    for(const id of this._attn.keys()) this._attnNoteLock(id,false);
-    this._restoreVoid('attn');   // FR-RSF-5: 전체 초기화는 id 로 표현되지 않는다
-    this._attn.clear();
-    this._attnCenterClose();
-    this._attnRefresh();
-  },
+    for(const id of this.app._attn.keys()) this._attnNoteLock(id,false);
+    this.app._restoreVoid('attn');   // FR-RSF-5: 전체 초기화는 id 로 표현되지 않는다
+    this.app._attn.clear();
+    this.center._attnCenterClose();
+    this.app._attnRefresh();
+  }
 
   // FR-PAN-16: 창 layout 안에 주의 상태 pane 이 있는지
   windowHasAttn(s){
-    if(!s||!s.layout||!this._attn.size) return false;
+    if(!s||!s.layout||!this.app._attn.size) return false;
     const walk=(node)=>{
       if(!node) return false;
-      if(node.type==='pane') return (node.tabs||[]).some(tab=>tab.toolId&&this._attn.has(tab.toolId));
+      if(node.type==='pane') return (node.tabs||[]).some(tab=>tab.toolId&&this.app._attn.has(tab.toolId));
       if(node.children) return node.children.some(walk);
       return false;
     };
     return walk(s.layout);
-  },
+  }
 
   /**
    * FR-ATA-3·4·5: **해제의 유일한 판정**이다. 분할 칸 안에서 일어난 사용자
@@ -215,9 +224,9 @@ Object.assign(App.prototype, {
     const toolId=at?at.dataset.toolid:null;
     if(!toolId) return;
     const typed=e.type==='keydown';
-    if(this._attn.has(toolId)) this._attnClear(toolId,typed);
+    if(this.app._attn.has(toolId)) this.app._attnClear(toolId,typed);
     else if(typed) this._attnRearm(toolId);
-  },
+  }
 
   /**
    * FR-PAN-16: 해당 pane 으로 포커스 이동.
@@ -232,10 +241,10 @@ Object.assign(App.prototype, {
    * 어디에도 없으면 해제. **클릭이 아무 일도 하지 않는 경우는 없다.**
    */
   jumpToTool(toolId){
-    const loc=this.findToolLocation(toolId);
+    const loc=this.app.findToolLocation(toolId);
     if(!loc){this._attnLand(toolId);return}
-    this._attnClear(toolId);
-    this._activateWindow(loc.win.id);
+    this.app._attnClear(toolId);
+    this.app._activateWindow(loc.win.id);
     /**
      * UX_BATCH6_SRS FR-RUN-1: **포커스 칸이 그 창을 받는다.**
      *
@@ -252,31 +261,31 @@ Object.assign(App.prototype, {
      *
      * 단일 슬롯에서는 `_slots` 가 없어 무동작이다 (FR-RUN-2).
      */
-    this._slotOnSwitch(loc.win.id);
+    this.app._slotOnSwitch(loc.win.id);
     // FR-SVS-12: 알람은 사용자를 부르는 것이고 사용자는 포커스 칸에 있다.
-    this.paneTabSet(loc.pane,loc.tab.id);
-    this.setFocusState(loc.pane.id, loc.win);
-    this._focusWindow(loc.win.id);
-    this.render();
-  },
+    this.app.paneTabSet(loc.pane,loc.tab.id);
+    this.app.setFocusState(loc.pane.id, loc.win);
+    this.app._focusWindow(loc.win.id);
+    this.app.render();
+  }
 
   /**
    * FR-ATJ-1·2·3: 탭이 없는 도구의 알람이 착지하는 자리. 판정은 여기 하나다 —
    * 알림 센터와 활동 카드가 둘 다 `jumpToTool` 을 지나므로 두 벌로 만들지 않는다.
    */
   _attnLand(toolId){
-    const bg=(this._bg||[]).some(b=>b&&b.toolId===toolId);
+    const bg=(this.app._bg||[]).some(b=>b&&b.toolId===toolId);
     // 백그라운드 도구는 되돌릴 자리가 있다 — ⏻ 모달의 복귀와 같은 경로다.
-    if(bg){this._restoreTool(toolId);return}
+    if(bg){this.app._restoreTool(toolId);return}
     // 어디에도 없으면 알람만 거둔다. 서버에도 알린다 — 다른 브라우저의 배지도
     // 같이 내려가야 한다.
-    this._attnClear(toolId);
-  },
+    this.app._attnClear(toolId);
+  }
 
   // FR-PAN-16: 제목 배지 + notification center 배지/팝오버 갱신
   _attnRefresh(){
-    const n=this._attn.size;
-    this._applyPageTitle(); // FR-PAN-13b · PAGE_TITLE_SRS FR-PGT-8
+    const n=this.app._attn.size;
+    this.app._applyPageTitle(); // FR-PAN-13b · PAGE_TITLE_SRS FR-PGT-8
     /**
      * ALERT_MOBILE_CONTEXT_SRS FR-AED-6 / D-1: 화면 가장자리의 점멸.
      *
@@ -292,44 +301,44 @@ Object.assign(App.prototype, {
     // UX_BATCH12_SRS FR-RGT-2: 그룹 머리는 `data-sid` 가 없다 — 그 안 창들로 판정한다(`groupRow` 와 같은 판정).
     document.querySelectorAll('#windows .si').forEach(el=>{
       const gid=el.dataset.groupId;
-      if(gid){el.classList.toggle('attn',this.groupHasAttn({windows:this.ws.windows.filter(w=>w.groupId===gid)}));return}
-      const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
+      if(gid){el.classList.toggle('attn',this.app.groupHasAttn({windows:this.app.ws.windows.filter(w=>w.groupId===gid)}));return}
+      const s=this.app.ws.windows.find(x=>x.id===el.dataset.sid);
       el.classList.toggle('attn', !!(s&&this.windowHasAttn(s)));
     });
     // GIT_SIDEBAR_TABS_SRS FR-SBT-13: 같은 사실을 사이드바 탭 배지도 보인다 —
     // Windows 탭이 비활성이면 목록의 `.si.attn` 이 보이지 않기 때문이다.
-    this._sbUpdateBadges();
+    this.app._sbUpdateBadges();
     // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
     // FR-ATV-1: 포커스 예외가 없다. 표식이 맥박을 얻은 뒤로 둘은 시간축에서
     // 갈라지므로, 같은 자리에 겹쳐도 서로를 가리지 않는다 (§2.4).
     document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(tabEl=>{
-      tabEl.classList.toggle('attn', this.attnHas(tabEl.dataset.toolid));
+      tabEl.classList.toggle('attn', this.app.attnHas(tabEl.dataset.toolid));
     });
     document.querySelectorAll('#area .pn[data-paneid]').forEach(pn=>{
       const at=pn.querySelector('.pn-tab.active[data-toolid]');
       const pid=at?at.dataset.toolid:null;
-      pn.classList.toggle('attn', !!(pid&&this.attnHas(pid)));
+      pn.classList.toggle('attn', !!(pid&&this.app.attnHas(pid)));
     });
     // UX_AUDIT_FIX_SRS FR-UXF-61·62: 주의가 서고 걷히면 작업 중 표식도 따라 바뀐다(주의가 앞선다).
-    if(this._workRefresh) this._workRefresh();
+    if(this.app._workRefresh) this.app._workRefresh();
     // 열린 센터는 배지보다 **먼저** 다시 그린다 — 마지막 알림이 떨어지면 그리기가 목록을
     // 비우고 닫는다. 배지가 먼저 닫으면 `.open` 이 사라져 옛 항목이 닫힌 센터에 남는다
     // (x 클릭의 두 번째 그리기가 그것을 치우고 있었다, FR-OPT-11-7 · FEC-32).
     const center=document.getElementById('attn-center');
-    if(center&&center.classList.contains('open')) this._attnCenterRender();
+    if(center&&center.classList.contains('open')) this.center._attnCenterRender();
     const badge=document.getElementById('attn-badge');
     if(badge){
       const cnt=badge.querySelector('.attn-count');
       if(cnt) cnt.textContent=String(n);
       badge.style.display=n?'':'none';
       // FR-ACT-8: 배지가 내려가면 띄워 둘 목록도 없다.
-      if(!n) this._attnCenterClose();
+      if(!n) this.center._attnCenterClose();
     }
-    this.agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
-  },
+    this.app.agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
+  }
 
   /**
-   * 주의 센터 팝오버(`#attn-center`)는 **제 파일에 산다** — `app-attn-center.js`.
+   * 주의 센터 팝오버(`#attn-center`)는 **제 파일에 산다** — `attn-center.js`.
    * 이 파일이 아는 것은 이름 셋뿐이다: `_attnCenterToggle`(배선) ·
    * `_attnCenterClose`(전체 해제·배지 소멸) · `_attnCenterRender`(갱신).
    */
@@ -354,7 +363,7 @@ Object.assign(App.prototype, {
   _attnSecurityNotice(){
     const box=document.getElementById('attn-insecure');
     const dt=document.getElementById('attn-desktop');
-    if(!this.attnDesktopBlocked){
+    if(!this.app.attnDesktopBlocked){
       if(box){box.hidden=true;box.textContent=''}
       if(dt) dt.disabled=false;
       return;
@@ -364,15 +373,15 @@ Object.assign(App.prototype, {
     if(!box) return;
     box.hidden=false;
     box.textContent=t('attn.insecure_note');
-  },
+  }
 
   _attnDesktopNotify(reason,toolId){
-    if(!this.attnDesktop) return;
+    if(!this.app.attnDesktop) return;
     // TLS-1: 막힌 환경에서는 시도조차 하지 않는다. `new Notification` 이
     // 예외를 던지고, 그 예외는 아래 try 가 삼켜 아무 흔적도 남지 않았다.
-    if(this.attnDesktopBlocked||Notification.permission!=='granted') return;
-    const loc=this.findToolLocation(toolId);
-    const where=loc?[loc.win&&loc.win.name,tabName(loc.tab,this.fgNames)].filter(Boolean).join(' · '):('pane '+toolId);
+    if(this.app.attnDesktopBlocked||Notification.permission!=='granted') return;
+    const loc=this.app.findToolLocation(toolId);
+    const where=loc?[loc.win&&loc.win.name,tabName(loc.tab,this.app.fgNames)].filter(Boolean).join(' · '):('pane '+toolId);
     const head=reason==='done'?t('attn.head_done'):reason==='waiting'?t('attn.head_waiting'):reason==='idle'?t('attn.head_idle'):t('attn.head_other');
     // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)
     // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.
@@ -381,7 +390,7 @@ Object.assign(App.prototype, {
     const detail=this._attnDetail(toolId);
     const body=[detail,where||('pane '+toolId)].filter(Boolean).join('\n');
     ErrorLog.quiet('notify',()=>{this._attnNotifs[toolId]=new Notification(head,{body})});
-  },
+  }
 
   /**
    * FR-AEV-15: **알람이 무엇에 대한 것인지.**
@@ -396,10 +405,10 @@ Object.assign(App.prototype, {
    * 활동은 그 알람을 낳은 바로 그 보고다. 전송 표면을 늘리지 않는 쪽을 고른다.
    */
   _attnDetail(toolId){
-    const a=this._activity&&this._activity.get(toolId);
+    const a=this.app._activity&&this.app._activity.get(toolId);
     const d=((a&&a.detail)||'').replace(/\s+/g,' ').trim();
     return d.length>ATTN_DETAIL_VIEW_MAX?d.slice(0,ATTN_DETAIL_VIEW_MAX)+'…':d;
-  },
+  }
 
   // 저장해 둔 데스크톱 알림 객체를 닫는다(있으면).
   _attnCloseNotif(toolId){
@@ -407,11 +416,11 @@ Object.assign(App.prototype, {
       ErrorLog.quiet('notify',()=>this._attnNotifs[toolId].close());
       delete this._attnNotifs[toolId];
     }
-  },
+  }
 
   // FR-PAN-13c: WebAudio 짧은 비프(외부 파일 없음). 설정 on 일 때만
   _attnBeep(){
-    if(!this.attnSound) return;
+    if(!this.app.attnSound) return;
     const Ctx=window.AudioContext||window['webkitAudioContext'];
     if(!Ctx) return;
     if(!this._audioCtx) this._audioCtx=new Ctx();
@@ -427,7 +436,7 @@ Object.assign(App.prototype, {
     gain.gain.setValueAtTime(.05,now);
     gain.gain.exponentialRampToValueAtTime(.0001,now+.18);
     osc.stop(now+.2);
-  },
+  }
 
   // notification center 배지/팝오버 이벤트 바인딩 + 설정 섹션(Notify)
   // (FR-PAN-14/16 · UIUX_OVERHAUL_SRS FR-ACT-8 로 개정)
@@ -435,13 +444,13 @@ Object.assign(App.prototype, {
     const badge=document.getElementById('attn-badge');
     if(badge&&!badge._bound){
       badge._bound=true;
-      badge.addEventListener('click',e=>{e.stopPropagation();this._attnCenterToggle()});
+      badge.addEventListener('click',e=>{e.stopPropagation();this.center._attnCenterToggle()});
     }
     document.addEventListener('click',e=>{
       const center=document.getElementById('attn-center');
       if(!center||!center.classList.contains('open')) return;
       if(center.contains(e.target)||(badge&&badge.contains(e.target))) return;
-      this._attnCenterClose();
+      this.center._attnCenterClose();
     });
     // Settings ▸ Notify 의 스위치 둘과 판 확인은 `NotifySection` 이 배선한다 — 이 init 뒤에 `SettingsController` 가
     // 세운다 (REFACTOR3_FE_SETTINGS_SRS 8e).
@@ -451,10 +460,10 @@ Object.assign(App.prototype, {
     // **막힌 환경에서는 묻지 않는다** (TLS-1). `requestPermission` 이 조용히
     // 거절되고, 사용자는 아무 일도 일어나지 않는 클릭을 한 번 더 한다.
     // capture 단계로 들어야 xterm 이 pointer/key 이벤트를 먼저 소비해도 누락되지 않는다.
-    if(!this.attnDesktopBlocked&&Notification.permission==='default'&&this.attnDesktop&&!this._attnPermAsked){
+    if(!this.app.attnDesktopBlocked&&Notification.permission==='default'&&this.app.attnDesktop&&!this._attnPermAsked){
       this._attnPermAsked=true;
       let asked=false;
-      const ask=()=>{if(asked)return;asked=true;ErrorLog.quiet('notify',()=>{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this.initAttn&&this._attnRefresh())})};
+      const ask=()=>{if(asked)return;asked=true;ErrorLog.quiet('notify',()=>{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this.initAttn&&this.app._attnRefresh())})};
       document.addEventListener('pointerdown',ask,{once:true,capture:true});
       document.addEventListener('keydown',ask,{once:true,capture:true});
     }
@@ -468,6 +477,11 @@ Object.assign(App.prototype, {
       document.addEventListener('pointerdown',e=>this._attnNoteInteraction(e),{capture:true});
       document.addEventListener('keydown',e=>this._attnNoteInteraction(e),{capture:true});
     }
-    this._attnRefresh();
-  },
-});
+    this.app._attnRefresh();
+  }
+}
+
+// 바깥(포커스·도구·작업·활동·상태 등록부·설정·클립보드·`ui/`)과 계약이 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'attn',['attnHas','_agFocusedTool','_isToolFocusedActive','_onToolAttention','attnUserIsWatching',
+  '_onToolAttentionClear','_attnRestore','_attnDrop','_attnClear','windowHasAttn','_attnNoteInteraction','jumpToTool',
+  '_attnRefresh','_attnSecurityNotice','_attnDetail','_attnBeep','initAttn']);

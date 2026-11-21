@@ -3,7 +3,10 @@
  *
  * 해석(FR-CAC-81)은 `GET /mappings` 와 계정 목록으로 화면이 셈한다. 경로는 서버가 정규화한 값으로 견준다 (D-CAC-30).
  *
- * 로드 순서 계약: `path.js`·`app-claude-accounts.js` 뒤 (`pathSep`·`pathJoin`·`CLAUDE_ACCT_COLOR_RE` 를 쓴다).
+ * `ClaudeMaps` 는 `ClaudeAccountsController` 의 부품이다(`claude.maps`, REFACTOR3_FE_APPCTL_SRS 9b). 연결 표 `_claudeMaps` 는
+ * App 에 남는다 — 시험이 갈아 끼운다.
+ *
+ * 로드 순서 계약: `path.js`·`claude-accounts-view.js` 뒤 (`pathSep`·`pathJoin`·`CLAUDE_ACCT_COLOR_RE` 를 쓴다).
  */
 
 /** FR-CAC-95 · D-CAC-9: 탭 지정은 진하게, 폴더 연결은 옅게. */
@@ -117,32 +120,32 @@ function claudeAcctUnlinkWhy(maps,accounts,norm){
 /** FR-CAC-36: 전환 응답의 `pinnedRunning` 안내. */
 function claudeAcctPinnedNotice(d){ return d&&d.pinnedRunning?t('cacct.pinned_running'):'' }
 
-Object.assign(App.prototype, {
+class ClaudeMaps extends Controller {
   /** FR-CAC-95a: 매핑을 다시 받는다. 503 은 계정 기능이 없는 서버다 — 화면에 아무것도 붙이지 않는다. */
   async _claudeMapsLoad(){
     const r=await apiGet('/api/claude-accounts/mappings');
-    if(r.ok&&r.data) this._claudeMaps=r.data;
-    else if(r.status===503) this._claudeMaps=null;
+    if(r.ok&&r.data) this.app._claudeMaps=r.data;
+    else if(r.status===503) this.app._claudeMaps=null;
     this._claudeMapsRepaint();
-  },
+  }
 
   /** 탭·사이드바(render)와 열린 Explorer 를 다시 칠한다. 둘 다 서명으로 걸러 바뀐 것만 고친다. */
   _claudeMapsRepaint(){
-    if(this.render) this.render();
-    if(this.edStores) for(const st of this.edStores.values()) st.paintAll();
-  },
+    if(this.app.render) this.app.render();
+    if(this.app.edStores) for(const st of this.app.edStores.values()) st.paintAll();
+  }
 
   _claudeRepaintSoon(){
     if(this._claudeRepaintArmed) return;
     this._claudeRepaintArmed=true;
     TIMERS.defer(()=>{this._claudeRepaintArmed=false;this._claudeMapsRepaint()},{label:'cacct-repaint'});
-  },
+  }
 
   /** 폴더 연결이 하나라도 있는가. 없으면 경로를 정규화할 까닭이 없다. */
   _claudeHasFolders(){
-    const f=this._claudeMaps&&this._claudeMaps.folders;
+    const f=this.app._claudeMaps&&this.app._claudeMaps.folders;
     return !!f&&Object.keys(f).length>0;
-  },
+  }
 
   /**
    * FR-CAC-95a · D-CAC-30: 서버가 정규화한 경로. 처음 보는 경로는 '' 를 돌려주고 한 번만 묻는다 —
@@ -158,11 +161,11 @@ Object.assign(App.prototype, {
       if(r.ok&&r.data&&r.data.path){m.set(p,r.data.path);this._claudeRepaintSoon()}
     });
     return '';
-  },
+  }
 
   /** FR-CAC-95a: 탭의 cwd — 터미널의 cwd 보고값, 없으면 도구마다 한 번 `/api/cwd` 를 묻는다. */
   _claudeTabCwd(toolId){
-    const p=this.tools&&this.tools.get(toolId);
+    const p=this.app.tools&&this.app.tools.get(toolId);
     if(p&&p._cwd) return p._cwd;
     if(!this._claudeHasFolders()) return '';
     if(!this._claudeToolCwd) this._claudeToolCwd=new Map();
@@ -173,75 +176,75 @@ Object.assign(App.prototype, {
       if(r.ok&&r.data&&r.data.cwd){m.set(toolId,r.data.cwd);this._claudeRepaintSoon()}
     });
     return '';
-  },
+  }
 
   /** FR-CAC-95: 탭 틴트의 값. 계정 기능이 없거나 터미널 탭이 아니면 null. */
   claudeTabTint(tab){
-    if(!this._claudeMaps||!tab||!tab.toolId) return null;
+    if(!this.app._claudeMaps||!tab||!tab.toolId) return null;
     const norm=this._claudeNorm(this._claudeTabCwd(tab.toolId));
-    return claudeAcctTabTint(claudeAcctResolve(this._claudeMaps,this._claudeAccts,tab.toolId,norm));
-  },
+    return claudeAcctTabTint(claudeAcctResolve(this.app._claudeMaps,this.app._claudeAccts,tab.toolId,norm));
+  }
 
   /** 터미널의 cwd 가 바뀌었다. 폴더 연결이 있을 때만 다시 칠한다. */
-  claudeOnCwd(){ if(this._claudeHasFolders()) this._claudeRepaintSoon() },
+  claudeOnCwd(){ if(this._claudeHasFolders()) this._claudeRepaintSoon() }
 
   /** FR-CAC-96 */
   claudeRepoChip(path){
-    if(!this._claudeMaps) return null;
-    return claudeAcctRepoChip(this._claudeMaps,this._claudeAccts,this._claudeNorm(path));
-  },
+    if(!this.app._claudeMaps) return null;
+    return claudeAcctRepoChip(this.app._claudeMaps,this.app._claudeAccts,this._claudeNorm(path));
+  }
 
-  _claudeFolderNorm(root,path){ return claudeAcctNormUnder(root,this._claudeNorm(root),path) },
+  _claudeFolderNorm(root,path){ return claudeAcctNormUnder(root,this._claudeNorm(root),path) }
 
   /** FR-CAC-97 */
   claudeFolderChip(root,path){
-    if(!this._claudeMaps) return null;
-    return claudeAcctFolderChip(this._claudeMaps,this._claudeAccts,this._claudeFolderNorm(root,path));
-  },
+    if(!this.app._claudeMaps) return null;
+    return claudeAcctFolderChip(this.app._claudeMaps,this.app._claudeAccts,this._claudeFolderNorm(root,path));
+  }
 
   async _claudeMapPut(body){
     const r=await apiPut('/api/claude-accounts/mappings',body);
     if(!r.ok){ Toast.show(apiErrText(r,t('cacct.map.save_failed')),'err'); return r }
-    this._claudeMaps=r.data;
+    this.app._claudeMaps=r.data;
     this._claudeMapsRepaint();
     return r;
-  },
+  }
 
   /**
    * FR-CAC-95a · D-CAC-31: 계정 고르기 메뉴를 같은 자리에 연다. 앞 메뉴의 항목 클릭 안에서 불리므로 다음 틱에
    * 연다 — 메뉴는 한 번에 하나라 앞 메뉴가 닫히며 새 메뉴를 함께 닫는다.
    */
   _claudePickMenu(cur,kind,at,pick){
-    const items=claudeAcctPickItems(this._claudeAccts,cur,kind).map(it=>
+    const items=claudeAcctPickItems(this.app._claudeAccts,cur,kind).map(it=>
       it.sep||it.static?it:{id:it.id,label:it.label,cur:it.cur,onClick:()=>pick(it.accountId)});
     TIMERS.defer(()=>UIKit.menu(items,{at,cls:'cacct-pick-menu'}),{label:'cacct-pick-menu'});
-  },
+  }
 
   /** FR-CAC-85: 탭 우클릭 메뉴의 항목. 계정 기능이 없는 서버면 항목이 없다. */
   claudeTabMenuItem(tab,at){
-    if(!this._claudeMaps) return null;
-    const why=claudeAcctTabMenuWhy(tab,this._claudeAccts);
+    if(!this.app._claudeMaps) return null;
+    const why=claudeAcctTabMenuWhy(tab,this.app._claudeAccts);
     return {id:'claudeAccount',label:t('cacct.map.tab_menu'),disabled:why||false,onClick:()=>{
-      const m=this._claudeMaps.tabs||{};
-      const cur=m[tab.toolId]&&claudeAcctById(this._claudeAccts,m[tab.toolId].accountId)?m[tab.toolId].accountId:'';
+      const m=this.app._claudeMaps.tabs||{};
+      const cur=m[tab.toolId]&&claudeAcctById(this.app._claudeAccts,m[tab.toolId].accountId)?m[tab.toolId].accountId:'';
       this._claudePickMenu(cur,'tab',at,id=>this._claudeMapPut({toolId:tab.toolId,accountId:id}));
     }};
-  },
+  }
 
   /** FR-CAC-97: Explorer 의 두 항목 `{link, unlinkWhy, unlink}`. 계정 기능이 없는 서버면 null. */
   claudeFolderMenu(root,path,at){
-    if(!this._claudeMaps) return null;
+    if(!this.app._claudeMaps) return null;
     const norm=this._claudeFolderNorm(root,path);
-    const direct=claudeAcctDirect(this._claudeMaps,this._claudeAccts,norm);
-    const none=(Array.isArray(this._claudeAccts)&&this._claudeAccts.length)?'':t('cacct.map.no_accounts');
+    const direct=claudeAcctDirect(this.app._claudeMaps,this.app._claudeAccts,norm);
+    const none=(Array.isArray(this.app._claudeAccts)&&this.app._claudeAccts.length)?'':t('cacct.map.no_accounts');
     return {
       linkWhy:none,
-      unlinkWhy:claudeAcctUnlinkWhy(this._claudeMaps,this._claudeAccts,norm),
+      unlinkWhy:claudeAcctUnlinkWhy(this.app._claudeMaps,this.app._claudeAccts,norm),
       link:()=>this._claudePickMenu(direct?direct.id:'','folder',at,id=>this._claudeMapPut({folder:path,accountId:id})),
       unlink:()=>this._claudeMapPut({folder:path,accountId:''}),
     };
-  },
-});
+  }
+}
 
 /** FR-CAC-96·97·98: 칩 원소. 색은 테마 토큰이고, 글자는 본문 색이라 표면 대비를 따른다. */
 function claudeAcctChipEl(c){
@@ -252,3 +255,7 @@ function claudeAcctChipEl(c){
   s.style.setProperty('--cacct-c','var(--'+c.color+')');
   return s;
 }
+
+// `ui/`(탭 틴트·탭 메뉴·Repo 칩·Explorer 칩·폴더 메뉴·cwd 알림)가 App 에서 부르는 이름 (FR-FEA-4).
+Controller.delegate(App,'claude.maps',['claudeTabTint','claudeOnCwd','claudeRepoChip','claudeFolderChip','claudeTabMenuItem',
+  'claudeFolderMenu']);

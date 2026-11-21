@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 // vm 컨텍스트에서 만든 배열은 이쪽과 realm 이 달라 엄격 비교가 프로토타입에서 갈린다.
 const plain = (v) => JSON.parse(JSON.stringify(v));
@@ -13,11 +13,20 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
  * 중복은 침묵보다 낫다. 번호가 없는 알람(옛 서버)은 청구 없이 낸다.
  */
 
+/** REFACTOR3_FE_APPCTL_SRS 9b: 청구는 `AttnController` 의 부품 `AttnClaim` 이다. 시험은 종전처럼 앱에서 부른다. */
+function claim(ctx, a) {
+  const c = new ctx.AttnClaim(a);
+  a.attn = { claim: c, _attnDesktopNotify: (...x) => a._attnDesktopNotify(...x) };
+  for (const n of ['_attnCanBanner', '_attnCanSound', '_attnAnnounce']) a[n] = (...x) => c[n](...x);
+  return a;
+}
+
 function setup({ desktop = true, blocked = false, permission = 'granted', sound = true, active = true, reply } = {}) {
   const posts = [];
-  const ctx = load(['core/app-attn-claim.js'], {
+  const ctx = load([...BASE, 'core/attn-claim.js'], {
+    expose: ['AttnClaim'],
     globals: {
-      App: function App() {},
+      App: function App() {}, TIMERS: { disposeOwner() {} },
       Notification: { permission },
       navigator: { userActivation: { hasBeenActive: active } },
       apiPost: async (path, body) => {
@@ -33,6 +42,7 @@ function setup({ desktop = true, blocked = false, permission = 'granted', sound 
   const fired = [];
   a._attnDesktopNotify = (reason, toolId) => fired.push(['banner', reason, toolId]);
   a._attnBeep = () => fired.push(['sound']);
+  claim(ctx, a);
   return { a, posts, fired };
 }
 
@@ -86,13 +96,14 @@ test('번호가 없는 알람은 청구 없이 낸다 (V-ATD-7 · FR-ATD-8)', as
 
 test('userActivation 이 없는 브라우저는 조작이 있었던 것으로 본다', async () => {
   const posts = [];
-  const ctx = load(['core/app-attn-claim.js'], {
+  const ctx = load([...BASE, 'core/attn-claim.js'], {
+    expose: ['AttnClaim'],
     globals: {
-      App: function App() {}, Notification: { permission: 'denied' }, navigator: {},
+      App: function App() {}, TIMERS: { disposeOwner() {} }, Notification: { permission: 'denied' }, navigator: {},
       apiPost: async (path, body) => { posts.push(body); return { ok: true, status: 200, data: { granted: [] } } },
     },
   });
-  const a = new ctx.App();
+  const a = claim(ctx, new ctx.App());
   a.attnDesktop = true; a.attnDesktopBlocked = false; a.attnSound = true;
   await a._attnAnnounce('done', 't1', 1);
   assert.deepEqual(plain(posts[0].kinds), ['sound']);

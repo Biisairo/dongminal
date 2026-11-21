@@ -9,28 +9,28 @@
  * BroadcastChannel 은 같은 출처끼리만 닿는다 (B18). 서버가 컴퓨터마다 처음 든 손
  * 하나를 승낙한다 (FR-ATD-4·5).
  *
- * **제 파일에 사는 이유.** `app-attn.js` 가 500줄 기준에 닿아 있다 (FR-STR-40).
+ * **제 파일에 사는 이유.** `attn-controller.js` 가 500줄 기준에 닿아 있다 (FR-STR-40).
  * 이 파일은 "낼지" 만 알고, 내는 일(`_attnDesktopNotify`·`_attnBeep`)과 알람의
- * 수명은 `app-attn.js` 의 것이다.
+ * 수명은 `AttnController` 의 것이다. `AttnClaim` 은 그 부품이다(`attn.claim`, REFACTOR3_FE_APPCTL_SRS 9b).
  *
- * 로드 순서 계약: `app.js` 뒤, `app-attn.js` 뒤.
+ * 로드 순서 계약: `app.js` 뒤, `attn-controller.js` 뒤.
  */
 
-Object.assign(App.prototype, {
+class AttnClaim extends Controller {
 
   // FR-ATD-3: 배너를 낼 수 있는가 — 켜져 있고, 막힌 환경이 아니며, 권한이 있다.
   _attnCanBanner(){
-    return !!this.attnDesktop&&!this.attnDesktopBlocked&&
+    return !!this.app.attnDesktop&&!this.app.attnDesktopBlocked&&
       typeof Notification!=='undefined'&&Notification.permission==='granted';
-  },
+  }
 
   // FR-ATD-3: 소리를 낼 수 있는가 — 켜져 있고, 이 창에서 사용자 조작이 있었다.
   // 브라우저는 조작이 없던 창의 소리를 막는다. 그 사실을 알 수 없으면 있었다고 본다.
   _attnCanSound(){
-    if(!this.attnSound) return false;
+    if(!this.app.attnSound) return false;
     const ua=typeof navigator!=='undefined'?navigator.userActivation:null;
     return ua?!!ua.hasBeenActive:true;
-  },
+  }
 
   /**
    * 알람 하나의 배너·소리를 낼지 정하고 낸다.
@@ -48,7 +48,7 @@ Object.assign(App.prototype, {
       const res=await apiPost('/api/tools/attention/claim',{seq,kinds});
       if(res&&res.ok&&res.data&&Array.isArray(res.data.granted)) granted=res.data.granted;
     }
-    if(granted.includes('banner')) this._attnDesktopNotify(reason,toolId); // FR-PAN-13a
-    if(granted.includes('sound')) this._attnBeep(); // FR-PAN-13c
-  },
-});
+    if(granted.includes('banner')) this.app.attn._attnDesktopNotify(reason,toolId); // FR-PAN-13a
+    if(granted.includes('sound')) this.app._attnBeep(); // FR-PAN-13c
+  }
+}

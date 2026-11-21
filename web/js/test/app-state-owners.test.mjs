@@ -129,7 +129,7 @@ test('FR-ASE-9 · A-6: 에코 판정은 app 에 갈아 끼운 _settingsApply 를
 
 /**
  * 계약(`app-testing.js`)의 이름은 App 인스턴스에서 그대로 읽힌다 — mixin 을 컨트롤러로 옮겨도 App 에 메서드
- * (본문·mixin·위임자 표)나 필드(`this.X=`)로 남는다. 위임자 표는 App 과 컨트롤러 파일을 실어서 원형으로 읽는다.
+ * (본문·mixin·위임자 표)나 필드(`this.X=`)로 남는다.
  */
 test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·위임자·필드다', async () => {
   const { readFileSync, readdirSync } = await import('node:fs');
@@ -149,15 +149,15 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·위임자·필드�
     for (const m of src.matchAll(/\bthis\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) names.add(m[1]);
     for (const m of src.matchAll(/^ {2}([A-Za-z_$][\w$]*)\s*:\s*\{/gm)) names.add(m[1]);   // `Object.defineProperties` 접근자
   }
-  const ctl = ['core/edges-controller.js', 'core/update-controller.js', 'core/settings-apply.js', 'core/settings-live.js',
-    'core/settings-save-state.js', 'core/settings-controller.js'];
-  const settings = ['core/settings-section.js', 'core/settings-row.js', 'core/settings-display.js', 'core/settings-terminal.js',
-    'core/settings-code.js', 'core/settings-polling.js', 'core/settings-statusbar.js', 'core/settings-notify.js',
-    'core/settings-theme.js', 'core/settings-shortcuts.js', 'core/settings-sandbox.js', 'core/settings-access.js',
-    'core/settings-edges.js', 'core/settings-profile.js', 'core/settings-telegram.js', 'core/settings-server.js',
-    'core/settings-claude.js', 'core/settings-backup.js', 'core/settings-presets.js'];
-  const ctx = load([...BASE, 'core/app.js', ...settings, ...ctl], { expose: ['App'], globals: { TIMERS: { disposeOwner() {} } } });
-  for (const n of Object.getOwnPropertyNames(ctx.App.prototype)) names.add(n);
+  // 위임자 표(`Controller.delegate(App, …, [...])`·섹션 위임자 표)의 이름 — 컨트롤러 파일마다 끝에 있다.
+  for (const f of readdirSync(join(root, 'core')).filter((n) => n.endsWith('.js')).map((n) => 'core/' + n)) {
+    const src = read(f);
+    for (const t of src.matchAll(/Controller\.delegate\(App,[\s\S]*?\[([\s\S]*?)\]\);/g)) {
+      for (const m of t[1].matchAll(/'([^']+)'/g)) names.add(m[1]);
+    }
+    const sec = src.match(/const SETTINGS_SECTION_DELEGATES=\{([\s\S]*?)\};/);
+    if (sec) for (const m of sec[1].matchAll(/'([^']+)'/g)) names.add(m[1]);
+  }
   // 계약에 남은 없는 이름 둘 — `_gitJobChip` 은 e2e 가 없음을 본다(`git-statusbar.spec.ts`), `_focusCh` 는 쓰는 곳이 없다.
   assert.deepEqual(contract.filter((n) => !names.has(n)), ['_gitJobChip', '_focusCh']);
 });

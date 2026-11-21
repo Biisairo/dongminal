@@ -15,7 +15,7 @@ Object.assign(App.prototype, {
    * 접기·확인·취소처럼 패널 안에서 끝나는 누름은 부르지 않으므로 시트가 남는다 (FR-PNT-16). 데스크톱 패널은
    * 화면을 덮지 않으므로 그대로 둔다.
    *
-   * 부르는 자리: 에이전트 카드(`app-agents.js`), Background 행(`app-statusbar.js`), Runs 행(`runs-panel.js`),
+   * 부르는 자리: 에이전트 카드(`app-agents.js`), Background 행(`statusbar-controller.js`), Runs 행(`runs-panel.js`),
    * 채팅 탭 열기(`app-chat.js` `_chatOpenTab`).
    */
   actSheetLeave(){

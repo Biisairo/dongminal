@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FEC-32 — 주의 센터의 그리기.
@@ -52,9 +52,10 @@ function makeDoc() {
 
 function setup() {
   const d = makeDoc();
-  const ctx = load(['ui/repaint.js', 'core/app-attn-center.js'], {
+  const ctx = load([...BASE, 'ui/repaint.js', 'core/attn-center.js'], {
+    expose: ['AttnCenter'],
     globals: {
-      App: function App() {}, document: d.doc, escHtml: (s) => s, t: (k, p) => k + (p ? JSON.stringify(p) : ''),
+      App: function App() {}, TIMERS: { disposeOwner() {} }, document: d.doc, escHtml: (s) => s, t: (k, p) => k + (p ? JSON.stringify(p) : ''),
       TIP_ATTN_CLEAR_ALL: '', TIP_ATTN_DISMISS: '', UIKit: { button: () => d.el('button') },
     },
   });
@@ -63,6 +64,10 @@ function setup() {
   a._toolName = (id) => id;
   a._details = {};
   a._attnDetail = (id) => a._details[id] || '';
+  // REFACTOR3_FE_APPCTL_SRS 9b: 센터는 `AttnController` 의 부품 `AttnCenter` 다. 시험은 종전처럼 앱에서 부른다.
+  const c = new ctx.AttnCenter(a);
+  a.attn = { center: c, _attnClearAll: () => {} };
+  for (const n of ['_positionAttnCenter', '_attnCenterToggle', '_attnCenterClose', '_attnCenterRender']) a[n] = (...x) => c[n](...x);
   return { a, ...d };
 }
 
@@ -74,7 +79,7 @@ test('x 한 번에 센터를 한 번 그린다', () => {
   let renders = 0;
   const orig = a._attnCenterRender;
   a._attnCenterRender = function () { renders++; return orig.call(this) };
-  // `_attnClear` 는 `_attnRefresh` 를 지나 열린 센터를 다시 그린다 (app-attn.js).
+  // `_attnClear` 는 `_attnRefresh` 를 지나 열린 센터를 다시 그린다 (`AttnController`).
   a._attnClear = function (id) { this._attn.delete(id); this._attnCenterRender() };
   a._attnCenterRender();
   renders = 0;
@@ -133,7 +138,7 @@ test('마지막 알림이 떨어지면 비우고 닫는다', () => {
   a._attn.set('tool-1', { reason: 'idle' });
   a._attnCenterRender();
   let closed = 0;
-  a._attnCenterClose = () => { closed++ };
+  a.attn.center._attnCenterClose = () => { closed++ };   // 센터 안의 닫기 (부품 `AttnCenter`)
   a._attn.clear();
   a._attnCenterRender();
   assert.equal(center.children.length, 0);

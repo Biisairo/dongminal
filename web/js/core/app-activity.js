@@ -62,7 +62,7 @@ const ACTIVITY_SECTIONS=[
  * ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40~43 (D-ASV-11): Usage 바닥 — 패널 맨 아래에 붙은 계정 한도.
  * 창 블록의 모양은 Claude Code `/usage` 와 CodexBar 를 따른다 — 이름 · `NN% used` · 막대 · `Resets in 2h 10m`.
  *
- * CLAUDE_ACCOUNTS_SRS FR-CAC-90·93 (D-CAC-6): 바닥은 등록 계정마다 묶음 하나(`app-claude-accounts.js`)와
+ * CLAUDE_ACCOUNTS_SRS FR-CAC-90·93 (D-CAC-6): 바닥은 등록 계정마다 묶음 하나(`claude-accounts-controller.js`)와
  * 맨 아래 statusLine 한 줄이다.
  *   이전 동작: statusLine `rate_limits` 를 창마다 막대 블록으로 그렸다
  *   새  동작: statusLine 값은 한 줄(`statusLine · 세션 34% · 주간 21% · 2시간 10분 후 초기화`)이고,

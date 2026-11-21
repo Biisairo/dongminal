@@ -40,8 +40,8 @@ function fillEn(k, p) {
 
 function loadActivity(globals = {}) {
   const local = memStore();
-  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/app-claude-accounts.js'], {
-    expose: ['ACTIVITY_SECTIONS'],
+  const ctx = load([...BASE, ...PANELS, 'core/helpers.js', 'core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js', 'core/claude-accounts-view.js', 'core/claude-accounts-controller.js', 'core/claude-maps.js'], {
+    expose: ['ACTIVITY_SECTIONS', 'ClaudeAccountsController'],
     globals: {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
@@ -203,6 +203,7 @@ test('FR-ASV-40·43: Usage 는 구역이 아니라 맨 끝의 바닥이고, 한�
   const ctx = loadActivity();
   assert.equal(ctx.ACTIVITY_SECTIONS.some((s) => s.key === 'usage'), false);
   const app = new ctx.App();
+  app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
   app._bg = []; app._runsPanel = () => ({});
   app._agWindowItems = () => [];
   app.chatUnreadTotal = () => 0;

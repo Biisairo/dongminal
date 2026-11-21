@@ -202,7 +202,7 @@ class FileEditor {
   /**
    * **파일 크기**의 표기 (M6 `FE-22`).
    *
-   * `app-statusbar` 의 `_fmtMemSize` 와 **합치지 마라.** 겉이 비슷하고 이름도
+   * `StatusBarController` 의 `_fmtMemSize` 와 **합치지 마라.** 겉이 비슷하고 이름도
    * 같았지만(`_fmtBytes`) 두 함수는 다른 값을 위한 것이다:
    *
    *   여기      파일 크기. **B·KB 가 뜻을 갖는다** — 수십 바이트짜리 파일이

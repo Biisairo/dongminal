@@ -7,17 +7,19 @@
  *             주의는 "나를 기다리는 것이 있나" 이고 나머지 셋은 "지금 뭐가
  *             돌고 있나" 다. 물음이 다르면 자리도 다르다
  *
+ * `AttnCenter` 는 `AttnController` 의 부품이다(`attn.center`, REFACTOR3_FE_APPCTL_SRS 9b).
+ *
  * 새로 짓지 않았다 — `e9849d4d`("조회는 한 자리에 모인다")가 지운 넷을 그
  * 커밋의 부모에서 그대로 회수했다. 행의 규칙(`.attn-item`)은 지운 적이 없다.
  *
- * **제 파일에 사는 이유.** 되받아 온 넷이 `app-attn.js` 를 500줄 위로 밀었다
+ * **제 파일에 사는 이유.** 되받아 온 넷이 `attn-controller.js`(옛 `app-attn.js`)를 500줄 위로 밀었다
  * (FR-STR-40). 가르는 자리가 표면의 경계와 같다 — 이 파일은 **띄우는 일**만
- * 알고, 알람의 수명(`_attn`·`_attnClear`·배지)은 `app-attn.js` 의 것이다.
+ * 알고, 알람의 수명(`_attn`·`_attnClear`·배지)은 `AttnController` 의 것이다.
  *
- * 로드 순서 계약: `app.js` 뒤, `app-attn.js` 뒤.
+ * 로드 순서 계약: `app.js` 뒤, `attn-controller.js` 뒤.
  */
 
-Object.assign(App.prototype, {
+class AttnCenter extends Controller {
 
   _positionAttnCenter(){
     const badge=document.getElementById('attn-badge');
@@ -27,19 +29,19 @@ Object.assign(App.prototype, {
     center.style.top=(r.bottom+4)+'px';
     center.style.left='';
     center.style.right=(window.innerWidth-r.right)+'px';
-  },
+  }
 
   _attnCenterToggle(){
     const center=document.getElementById('attn-center');
     if(!center) return;
     if(center.classList.contains('open')) this._attnCenterClose();
     else{this._positionAttnCenter();center.classList.add('open');this._attnCenterRender()}
-  },
+  }
 
   _attnCenterClose(){
     const center=document.getElementById('attn-center');
     if(center) center.classList.remove('open');
-  },
+  }
 
   /**
    * OPTIMIZE_REFACTOR_SRS FR-OPT-16-2 (FEC-32): 비우고 다시 만들지 않는다 (FR-RPT-3).
@@ -51,14 +53,14 @@ Object.assign(App.prototype, {
   _attnCenterRender(){
     const center=document.getElementById('attn-center');
     if(!center) return;
-    if(!this._attn.size){center.replaceChildren();this._attnCenterClose();return}
-    const items=[{head:true,title:t('attn.title',{n:this._attn.size}),clear:t('attn.clear_all')}];
-    for(const [toolId,info] of this._attn){
+    if(!this.app._attn.size){center.replaceChildren();this._attnCenterClose();return}
+    const items=[{head:true,title:t('attn.title',{n:this.app._attn.size}),clear:t('attn.clear_all')}];
+    for(const [toolId,info] of this.app._attn){
       // FR-NAM-6: 알림도 파생 이름을 쓴다 — 화면의 탭과 다른 이름을 부르면
       // 사용자가 어느 도구인지 못 찾는다.
-      items.push({toolId,name:this._toolName(toolId,toolId),
+      items.push({toolId,name:this.app._toolName(toolId,toolId),
         reason:info&&info.reason==='idle'?t('attn.reason_idle'):t('attn.reason_signal'),
-        detail:this._attnDetail(toolId)});
+        detail:this.app._attnDetail(toolId)});
     }
     reconcileList(center,items,{
       key:it=>it.head?'head':'item:'+it.toolId,
@@ -66,15 +68,15 @@ Object.assign(App.prototype, {
       sig:it=>it.head?rptKey(it.title,it.clear):rptKey(it.name,it.reason,it.detail),
       build:it=>it.head?this._attnCenterHeadEl(it):this._attnCenterItemEl(it),
     });
-  },
+  }
 
   _attnCenterHeadEl(it){
     const head=document.createElement('div');
     head.className='attn-head';
     head.innerHTML=`<span class="attn-title">${escHtml(it.title)}</span><button class="ui-btn ui-btn-sm ui-btn-attn attn-clear-all" title="${escHtml(TIP_ATTN_CLEAR_ALL)}">${escHtml(it.clear)}</button>`;
-    head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
+    head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this.app.attn._attnClearAll()});
     return head;
-  },
+  }
 
   _attnCenterItemEl(it){
     const toolId=it.toolId;
@@ -93,16 +95,15 @@ Object.assign(App.prototype, {
       d.title=it.detail;
       item.appendChild(d);
     }
-    item.addEventListener('click',()=>{this.jumpToTool(toolId);this._attnCenterClose()});
+    item.addEventListener('click',()=>{this.app.jumpToTool(toolId);this._attnCenterClose()});
     // 로드맵 M7 `FUI-22`: **하나만** 뗀다. 항목 클릭은 이동이고 "모두 제거" 는
     // 전부다 — 보고 넘기려는 알림 하나를 위해 그 둘 중 하나를 고르게 하지 않는다.
     // 서버에도 알린다(`_attnClear`) — 다른 브라우저의 배지도 함께 내려간다.
     // 다시 그리기는 `_attnClear` → `_attnRefresh` 가 한다(센터가 열려 있으면) — 여기서
     // 한 번 더 그리지 않는다 (FR-OPT-11-7 · FEC-32).
     const x=UIKit.button({icon:'x',title:TIP_ATTN_DISMISS,kind:'ghost',size:'sm',cls:'attn-x'});
-    x.addEventListener('click',e=>{e.stopPropagation();this._attnClear(toolId,false)});
+    x.addEventListener('click',e=>{e.stopPropagation();this.app._attnClear(toolId,false)});
     item.appendChild(x);
     return item;
-  },
-
-});
+  }
+}

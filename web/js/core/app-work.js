@@ -5,7 +5,7 @@
  * 사이드바 창 행은 점 대신 선택 점을 두르는 링이다 (FR-UXF-129, D-44).
  * 주의(`_attn`) 표식이 있는 자리에는 점을 두지 않는다 — 사람이 손대야 하는 것이 앞선다.
  *
- * 로드 순서 계약: app-attn.js · app-agents.js 뒤 — prototype 확장이다.
+ * 로드 순서 계약: attn-controller.js · app-agents.js 뒤 — prototype 확장이다.
  */
 const WORK_DOT_CLASS='work-dot';
 // FR-UXF-129 (D-44): 사이드바 창 행은 점 대신 이 클래스로 선택 점에 링을 두른다.

@@ -338,7 +338,7 @@ test('TC-FEE-3: GitConfirm 은 busy 면 취소하지 않는다', () => {
 // ── TC-FEE-4 소스 검사 ───────────────────────────────────────────────────
 
 test('TC-FEE-4: 옮긴 처리기 셋에 문서 keydown 리스너가 없다', () => {
-  for (const f of ['core/app-mobile-sheets.js', 'core/app-claude-accounts.js', 'ui/file-tree-xfer.js']) {
+  for (const f of ['core/app-mobile-sheets.js', 'core/claude-accounts-controller.js', 'ui/file-tree-xfer.js']) {
     assert.doesNotMatch(read(f), /document\.addEventListener\('keydown'/, f);
   }
 });

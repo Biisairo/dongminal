@@ -36,7 +36,6 @@ class App {
     this._wsSavedTabs=new Set();
     this.focused=null;
     this._attn=new Map(); // toolId → {reason} 주의 상태 집합 (FR-PAN-9/16)
-    this._attnNotifs={}; // toolId → Notification (재팝업 위해 직전 알림 보관)
     this._activity=new Map(); // toolId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
     this.kb=false;
     this.windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
@@ -70,6 +69,9 @@ class App {
     this.settings=new SettingsController(this);
     this.edges=new EdgesController(this);
     this.update=new UpdateController(this);
+    this.attn=new AttnController(this);
+    this.claude=new ClaudeAccountsController(this);
+    this.statusbar=new StatusBarController(this);
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }
