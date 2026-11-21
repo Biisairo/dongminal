@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, load } from './harness.mjs';
+import { BASE, GIT, controllers, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3·4-4 후속 (Ofix2) — 목록 두 개의 순서.
@@ -14,7 +14,7 @@ function setup() {
   const hold = (path, r) => new Promise((resolve) => waits.push({ path, go: () => resolve(r) }));
   const answers = {};
   const ctx = load([...BASE, 'core/constants-api.js', 'core/event-bus.js', 'core/app-cmd.js', 'core/app-ws-sync.js', 'core/statusbar-controller.js',
-    'core/statusbar-enc.js', 'core/app-git.js'], {
+    'core/statusbar-enc.js', ...GIT], {
     expose: ['EventBus', 'StatusBarController'],
     globals: {
       App: class {}, TIMERS: { disposeOwner() {} },
@@ -26,6 +26,7 @@ function setup() {
   const a = new ctx.App();
   a.bus = new ctx.EventBus(a, {});
   a.statusbar = new ctx.StatusBarController(a);   // REFACTOR3_FE_APPCTL_SRS 9b
+  controllers(ctx, a);                             // 9d: git
   a.gitPanels = new Map([['/r', { repo: '/r' }]]);
   const adopted = [];
   Object.defineProperty(a, 'gitPanel', { value: { adoptJobs: (j) => adopted.push(j) } });
@@ -92,17 +93,17 @@ test('아무것도 밀어내지 않은 틱의 실패는 다시 조회하지 않�
 // 요청이 둘 뜨면 서버 도착 순서가 뒤바뀔 수 있다.
 test('안전망 주기 폴은 gitReposKick 을 지나 비행 중인 갱신과 겹치지 않는다', async () => {
   let tickFn = null;
-  const ctx = load(['core/constants-api.js', 'core/git-repos-list.js', 'core/app-git.js'], {
+  const ctx = load([...BASE, 'core/constants-api.js', ...GIT], {
     globals: {
-      App: class {},
+      App: class {}, TIMERS: { disposeOwner() {} },
       visiblePoll: (_iv, fn) => { tickFn = fn; return { stop() {} }; },
       gitStatusInterval: 30000,
     },
   });
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
   const holds = [];
   a.gitReposRefresh = () => new Promise((r) => holds.push(r));
-  a._startGitReposPoll();
+  a.git.sync._startGitReposPoll();
   a.gitReposKick();
   tickFn();
   assert.equal(holds.length, 1, '주기 폴이 비행 중인 갱신 옆에 하나를 더 띄웠다');
@@ -134,21 +135,21 @@ test('Repo 탭의 onEnter·onLeave 는 목록 갱신을 합치는 줄로 보낸�
  * 목록을 다시 받게 한다. 겹친 알림은 비행 하나와 끝난 뒤 한 번으로 합친다.
  */
 test('Repo 탭이 숨어 있어도 git_changed 가 목록 갱신을 합쳐 부른다', async () => {
-  const ctx = load(['core/constants-api.js', 'core/git-repos-list.js', 'core/app-git.js'], {
-    globals: { App: class {}, visiblePoll: () => ({ stop() {} }), gitStatusInterval: 30000 },
+  const ctx = load([...BASE, 'core/constants-api.js', ...GIT], {
+    globals: { App: class {}, TIMERS: { disposeOwner() {} }, visiblePoll: () => ({ stop() {} }), gitStatusInterval: 30000 },
   });
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
   a.sbTab = 'windows';
   a.gitRepos = { pinned: [{ path: '/r', root: '/r' }] };
   const holds = [];
   a.gitReposRefresh = () => new Promise((r) => holds.push(r));
-  a._gitReposOnChanged('/r');
-  a._gitReposOnChanged('/r');
-  a._gitReposOnChanged('/r');
+  a.git.sync._gitReposOnChanged('/r');
+  a.git.sync._gitReposOnChanged('/r');
+  a.git.sync._gitReposOnChanged('/r');
   assert.equal(holds.length, 1, 'Repo 탭이 숨어 있다고 다시 받지 않았거나 겹쳐 받았다');
   holds[0]();
   await new Promise((r) => setImmediate(r));
   assert.equal(holds.length, 2, '비행 중에 온 알림은 끝난 뒤 한 번으로 합쳐야 한다');
-  a._gitReposOnChanged('/other');
+  a.git.sync._gitReposOnChanged('/other');
   assert.equal(holds.length, 2, '핀이 아닌 저장소의 알림은 무시한다');
 });

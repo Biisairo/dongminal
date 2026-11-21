@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, load } from './harness.mjs';
+import { BASE, GIT, controllers, load } from './harness.mjs';
 
 /**
  * APP_STATE_EXTRACT_SRS 묶음 E (FR-OPT-16-1) — App 필드 가족을 소유 클래스로 옮긴다.
@@ -56,32 +56,35 @@ test('FR-ASE-7: 껍데기는 같은 LspClient 에 위임한다', () => {
 // ── FR-ASE-8 · Repo 목록 ──
 
 const REPOS_METHODS = ['_startGitReposPoll', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposSigOf'];
+// REFACTOR3_FE_APPCTL_SRS 9d: 껍데기와 지연 생성은 `GitSync`(`git.sync`)로 옮겼다. App 에는 바깥이 부르는 위임자 둘이 남는다.
 const REPOS_SHELLS = ['_startGitReposPoll', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposList'];
+const REPOS_DELEGATES = ['gitReposKick', 'gitReposRefresh'];
 
 function loadRepos(globals = {}) {
-  return load(['core/constants-api.js', 'core/git-repos-list.js', 'core/app-git.js'], {
-    expose: ['GitReposList'],
-    globals: { App: class {}, visiblePoll: () => ({ stop() {} }), gitStatusInterval: 30000, ...globals },
+  return load([...BASE, 'core/constants-api.js', ...GIT], {
+    expose: ['GitReposList', 'GitSync'],
+    globals: { App: class {}, TIMERS: { disposeOwner() {} }, visiblePoll: () => ({ stop() {} }), gitStatusInterval: 30000, ...globals },
   });
 }
 
-test('FR-ASE-8: GitReposList 가 목록 갱신 메서드 다섯을 갖고 App 에는 껍데기 넷과 지연 생성이 남는다', () => {
+test('FR-ASE-8: GitReposList 가 목록 갱신 메서드 다섯을 갖고 GitSync 에 껍데기 넷과 지연 생성이, App 에 위임자 둘이 남는다', () => {
   const ctx = loadRepos();
   assert.deepEqual(ownNames(ctx.GitReposList.prototype), [...REPOS_METHODS].sort());
+  assert.deepEqual(ownNames(ctx.GitSync.prototype).filter((n) => /Repos/.test(n)), [...REPOS_SHELLS].sort());
   const left = ownNames(ctx.App.prototype).filter((n) => /Repos/.test(n));
-  assert.deepEqual(left, [...REPOS_SHELLS].sort());
+  assert.deepEqual(left, [...REPOS_DELEGATES].sort());
   assert.equal(ctx.App.prototype._gitReposSigOf, undefined, '내부 계산이 App 에 남았다');
 });
 
 test('FR-ASE-8 · A-6: app 에 갈아 끼운 gitReposRefresh 를 가족 안의 gitReposKick 이 부른다', async () => {
   const ctx = loadRepos();
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
   let n = 0;
   a.gitReposRefresh = async () => { n++ };
   a.gitReposKick();
   await new Promise((r) => setImmediate(r));
   assert.equal(n, 1);
-  assert.equal(a._reposList.app, a);
+  assert.equal(a.git.sync._reposList.app, a);
 });
 
 // ── FR-ASE-9 · 설정 저장 ──

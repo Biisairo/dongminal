@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, CHAT, HELPERS, controllers, load, plain } from './harness.mjs';
+import { BASE, CHAT, GIT, HELPERS, controllers, load, plain } from './harness.mjs';
 
 /**
  * CHAT_WINDOW_SRS — 채팅 창 (TC-CW-3~6).
@@ -13,7 +13,7 @@ import { BASE, CHAT, HELPERS, controllers, load, plain } from './harness.mjs';
  *   FR-CW-5   창 목록(plainWindows)에 채팅 창이 없다
  */
 function world() {
-  const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS, ...CHAT, 'core/app-layout.js', 'core/app-git.js'], {
+  const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS, ...CHAT, 'core/app-layout.js', ...GIT], {
     globals: { App: function App() {}, ErrorLog: { push() {} }, crypto: { randomUUID: (() => { let n = 0; return () => 'id' + (++n) })() } },
   });
   const a = controllers(ctx, new ctx.App());

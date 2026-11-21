@@ -2,7 +2,7 @@
  * Repo 목록(`/api/git/repos`)의 갱신 — 주기·합치기·세대·칠하기 가드·핀 임대
  * (APP_STATE_EXTRACT_SRS FR-ASE-8 · §2.3a).
  *
- * 이 가족의 상태 여섯은 `App` 이 아니라 여기 있다. 본문은 `app-git.js` 에서 구간
+ * 이 가족의 상태 여섯은 `App` 이 아니라 여기 있다. 본문은 옛 `app-git.js`(지금 `git-sync.js`)에서 구간
  * 이동했고 편집은 앱으로 나가는 자리(`this.app.`)뿐이다. 목록 그 자체(`gitRepos`)와
  * git 부재(`_gitOff`)는 렌더러·e2e 가 읽는 공유 상태라 `App` 에 남는다.
  *

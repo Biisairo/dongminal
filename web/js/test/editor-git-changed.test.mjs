@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { BASE, GIT, controllers, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기의 git 색은 `git_changed` 가 본줄이고 주기는
@@ -10,10 +10,10 @@ import { load } from './harness.mjs';
  * 영영)까지 색이 낡는다.
  */
 function app() {
-  const ctx = load(['core/app-git.js', 'core/app-editor-open.js', 'core/app-editor-pane.js'], {
-    globals: { App: class {} },
+  const ctx = load([...BASE, ...GIT, 'core/app-editor-open.js', 'core/app-editor-pane.js'], {
+    globals: { App: class {}, TIMERS: { disposeOwner() {} } },
   });
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
   const store = { root: '/r', gitRepo: '/r', gitMark: 'm1' };
   const polls = [];
   const tree = {

@@ -75,6 +75,7 @@ class App {
     this.chat=new ChatController(this);
     this.agents=new AgentsController(this);
     this.mobile=new MobileController(this);
+    this.git=new GitController(this);
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }

@@ -40,7 +40,7 @@ async function settled(page: Page) {
  * 아니라 되살리기다 (TC-GLR-1 과 같은 준비).
  *
  * **문턱은 둘이다** (M9_SRS FR-M9-16).
- *   `app.testing.gitWdAt` `gitWatchdogAll` 의 1초 검사 간격 (`app-git.js:70`)
+ *   `app.testing.gitWdAt` `gitWatchdogAll` 의 1초 검사 간격 (`git-surfaces.js` `gitWatchdogAll`)
  *   `p._wdTryAt`           되살리기 **시도**의 주기 문턱 30초 (`git-poll.js` `_watchdog`)
  * 종전에는 앞의 것만 열었다. 뒤의 것은 적재 중 첫 관측이 워치독 갈래로 들어온
  * 회차에 이미 닫혀 있고(`:432` 가 그때 찍는다), 그러면 `ask` 가 거짓이라

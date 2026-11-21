@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { BASE, PANELS, SETTINGS, load, plain } from './harness.mjs';
+import { BASE, GIT, PANELS, SETTINGS, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -67,6 +67,12 @@ const ISSUES = {
       'core/app-activity.js', 'core/app-mobile.js', 'core/app-mobile-nav.js', 'core/app-mobile-sheets.js'],
     plainNow: ['core/chat-human.js'],
     mixins: 30,
+  },
+  '9d': {
+    ctl: ['core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'],
+    gone: ['core/app-git.js'],
+    plainNow: [],
+    mixins: 29,
   },
 };
 
@@ -508,4 +514,147 @@ test('TC-FEA-3(9c): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
     assert.ok(contract.has(n), '계약에 없다: ' + n);
     assert.equal(typeof ctx.App.prototype[n], 'function', n);
   }
+});
+
+// ── 9d: git ──────────────────────────────────────────────────────────────────────
+
+const CLASSES_9D = ['GitController', 'GitSurfaces', 'GitSync'];
+
+const DELEGATES_9D = {
+  git: ['gitWindow', 'isGitWin', 'isChatWin', 'isKindWin', 'plainWindows', 'gitBackTarget', '_migrateGitWindow', 'openGitWindow',
+    '_initGitSection', 'gitSignal', 'gitStatusHub', 'gitOpenFile', 'gitOpenFileHead', 'gitOpenTerminal', 'gitBadgeFor', 'gitPinEntry',
+    '_gitTermToolId'],
+  'git.surfaces': ['gitObs', '_gitRescheduleAll', 'gitWatchdogAll', '_gitNotifyPinsAll', 'gitPanelAt', '_gitDropView',
+    '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSurfaceOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
+    '_gitRootOfActive'],
+  'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', '_gitObserveRestore', 'gitReposRefresh', 'gitPin', 'gitUnpin',
+    '_gitPinsApply', '_pollGitJobs', '_gitJobsBegin', '_gitJobsSettle'],
+};
+
+function load9d(globals = {}) {
+  return load([...BASE, ...GIT], {
+    expose: [...CLASSES_9D, 'Controller', 'Component'],
+    globals: {
+      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      document: { getElementById: () => null, querySelector: () => null },
+      ...globals,
+    },
+  });
+}
+
+test('TC-FEA-1(9d): 컨트롤러와 부품은 Controller·Component 하위이고 app 을 든다', () => {
+  const ctx = load9d();
+  const app = new ctx.App();
+  for (const c of CLASSES_9D) {
+    const o = new ctx[c](app);
+    assert.ok(o instanceof ctx.Controller, c);
+    assert.ok(o instanceof ctx.Component, c);
+    assert.equal(o.app, app, c);
+  }
+  const git = new ctx.GitController(app);
+  assert.ok(git.surfaces instanceof ctx.GitSurfaces);
+  assert.ok(git.sync instanceof ctx.GitSync);
+});
+
+test('TC-FEA-1(9d): App 생성자가 컨트롤러를 만든다', () => {
+  const src = read('core/app.js');
+  const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
+  assert.ok(ctor.includes('this.git=new GitController(this);'));
+});
+
+test('TC-FEA-1(9d): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9d();
+  const app = new ctx.App();
+  app.git = { surfaces: {}, sync: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9D)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9D)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9D).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-1(9d): gitPanel 접근자는 App 에 남아 포커스 칸의 지금 표면 패널을 준다', () => {
+  const ctx = load9d();
+  const app = new ctx.App();
+  app.git = { surfaces: { _gitRootOfActive: () => '/r', gitPanelAt: (root, slot) => 'p:' + root + ':' + slot } };
+  app.slotFocused = () => 2;
+  assert.equal(app.gitPanel, 'p:/r:2');
+});
+
+test('TC-FEA-2(9d): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9d'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9d): 갈아 끼운 plainWindows·gitReposRefresh·gitSignal·_gitObservers 를 컨트롤러 경로가 부른다', async () => {
+  const ctx = load9d();
+  const app = new ctx.App();
+  app.git = new ctx.GitController(app);
+  const log = [];
+  app._lastPlainWindow = 'w2';
+  app.plainWindows = () => { log.push('plain'); return [{ id: 'w1' }, { id: 'w2' }] };
+  assert.equal(app.git.gitBackTarget().id, 'w2');
+  app.gitReposRefresh = async () => { log.push('refresh') };
+  app.sbTab = 'repo';
+  app.gitReposKick();
+  await new Promise((r) => setImmediate(r));
+  app.gitSignal = (k) => log.push('signal:' + k);
+  app.gitPanels = new Map();
+  app.git._gitLifecycle('focus');
+  app._gitObservers = new Map([['/r', { any: () => ({ collect: () => log.push('collect') }) }]]);
+  app._gitOff = true;
+  app.git.sync._gitObserveRestore();
+  assert.deepEqual(log, ['plain', 'refresh', 'signal:focus', 'collect']);
+});
+
+test('FR-FEA-5(9d): gitSignal 은 허브 무효화 → 포커스 패널 신호 → 편집기 후속 순서다 — 로드 시점 감싸기가 없다', () => {
+  const ctx = load9d();
+  const app = new ctx.App();
+  app.git = new ctx.GitController(app);
+  const log = [];
+  app.git._gitHub = { invalidate: () => log.push('invalidate') };
+  Object.defineProperty(app, 'gitPanel', { value: { signal: (k) => log.push('panel:' + k) } });
+  app._edAfterGitSignal = (k) => log.push('editor:' + k);
+  app.gitSignal('write');
+  assert.deepEqual(log, ['invalidate', 'panel:write', 'editor:write']);
+  assert.doesNotMatch(read('core/app-editor-pane.js'), /App\.prototype\.gitSignal/);
+});
+
+test('FR-FEA-5(9d): 편집기 후속은 활성 트리를 즉시 묻고 열린 문서의 기준을 다시 받는다', () => {
+  const ctx = load([...BASE, ...GIT, 'core/app-editor-pane.js'], {
+    globals: { App: function App() {}, TIMERS: { disposeOwner() {} } },
+  });
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  app.git._gitHub = { invalidate: () => log.push('invalidate') };
+  Object.defineProperty(app, 'gitPanel', { value: null });
+  app.edActiveTree = () => ({ pollGit: (o) => log.push('tree:' + o.now) });
+  app._edDocs = new Map([['a', { dd: { refresh: () => log.push('dd') } }], ['b', {}]]);
+  app.gitSignal('save');
+  assert.deepEqual(log, ['invalidate', 'tree:true', 'dd']);
+});
+
+test('TC-FEA-3(9d): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9d'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9d): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9d();
+  const contract = contractNames();
+  for (const n of Object.values(DELEGATES_9D).flat().filter((x) => contract.has(x)))
+    assert.equal(typeof ctx.App.prototype[n], 'function', n);
+  for (const n of ['gitPanelAt', 'gitSignal', 'gitPin', 'gitUnpin', 'gitReposRefresh', '_onGitChanged', 'plainWindows'])
+    assert.ok(contract.has(n), '계약에 없다: ' + n);
 });

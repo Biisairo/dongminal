@@ -92,11 +92,12 @@ export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', '
 export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js'];
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
 export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
+export const GIT = ['core/git-repos-list.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
 
 /** App 필드 → 뿌리 컨트롤러 클래스. App 생성자가 세우는 것과 같다 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). */
 const APP_CONTROLLERS = { settings: 'SettingsController', edges: 'EdgesController', update: 'UpdateController',
   attn: 'AttnController', claude: 'ClaudeAccountsController', statusbar: 'StatusBarController', chat: 'ChatController',
-  agents: 'AgentsController', mobile: 'MobileController' };
+  agents: 'AgentsController', mobile: 'MobileController', git: 'GitController' };
 
 /**
  * 실은 파일에 있는 뿌리 컨트롤러를 앱에 세운다 — App 생성자의 몫을 시험이 대신한다. 이미 있는 필드는 두고, 싣지 않은

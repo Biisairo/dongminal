@@ -326,7 +326,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
  * (`11-git-polling.md §5`, 2026-09-12 정정). 목록·탭 바의 다시 그리기는 정상
  * 동작이 맞다. 그러나 **탭이 통째로 사라지던 것은 정상 동작이 아니었다** —
  * 원인은 관측이 아니라 워크스페이스 재채택이었고(git 관측은 `render()` 를
- * 부르지 않는다, `app-git.js:610`), `OPTIMISTIC_LAYOUT_SRS` 가 그것을 닫았다.
+ * 부르지 않는다, `git-sync.js` `_onGitChanged`), `OPTIMISTIC_LAYOUT_SRS` 가 그것을 닫았다.
  *
  * 남은 재시도가 견디는 것은 **행/탭의 교체**다: 눌러 보고, 그 뷰가 앞에 오지
  * 않았으면 다시 누른다. 스펙마다 이 재시도를 흩뿌리지 않도록 여기 한 자리에
@@ -486,7 +486,7 @@ export async function openGitTab(page: any) {
  * EDITOR_TAB_SRS FR-EDT-13·42: Editor 창(root 에디터 포함)이 이제 항상 최소
  * 하나 존재한다. `ws.windows` 를 그대로 세거나 인덱싱하는 스펙은 그 창까지
  * 세어 개수·순서가 밀린다. Git 창도 이미 같은 이유로 제외 대상이었다
- * (`app-git.js` `plainWindows`).
+ * (`git-controller.js` `plainWindows`).
  *
  * 앱 내부의 `plainWindows()` 를 재사용하지 않고 여기서 같은 조건을 독립적으로
  * 판정한다 — 구현이 필터를 잘못 짜면 검증 쪽도 같은 실수를 공유해 결함을

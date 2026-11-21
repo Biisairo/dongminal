@@ -480,7 +480,7 @@ Object.assign(FileTree.prototype, {
     if(r.status===0) return;
     if(!r.ok){
       // 503 은 git 자체가 없다는 답이다 — 그대로 두면 3초마다 영영 묻는다. Git
-      // 패널이 503 을 `_gitOff` 로 굳히는 것과 같은 관례다 (`app-git.js:264`).
+      // 패널이 503 을 `_gitOff` 로 굳히는 것과 같은 관례다 (`git-repos-list.js`).
       if(r.status===503){this._gitOff=true;this._setStatus(null);return}
       // 404(`not_repo`)를 비롯한 4xx 는 **지금은** 저장소가 아니라는 답일 뿐이다.
       if(r.status>=400&&r.status<500){this._gitBack(now);this._setStatus(null)}

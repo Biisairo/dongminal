@@ -2,8 +2,7 @@
  * Dongminal — Editor 창의 **칸과 사이드** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
  *
  * 어느 칸에 무엇이 서는가 — 사이드 폭 · 핀 · 탭의 이동과 닫힘 · git 폴링의 시작.
- * 마지막 IIFE 가 `gitSignal` 을 감싸 저장을 색 갱신의 계기로 잇는다 (FR-EDT-78);
- * `app-git.js` 뒤에 로드되므로 여기서 감쌀 수 있다.
+ * `_edAfterGitSignal` 이 저장을 색 갱신의 계기로 잇는다 (FR-EDT-78) — `GitController.gitSignal` 이 부른다.
  */
 Object.assign(App.prototype, {
   /**
@@ -304,31 +303,22 @@ Object.assign(App.prototype, {
     for(const x of list) await this.closeTab(x.pane.id,x.tab.id,x.win.id,{force:true});
     return list.length;
   },
-});
 
-
-/**
- * FR-EDT-78: 파일 저장은 색의 즉시 갱신 계기다.
- *
- * 그 신호의 진입점은 이미 하나 있고(`gitSignal`, FR-GIT-18) `FileEditor.save` 가
- * 그것을 부른다. 두 번째 진입점을 만들면 저장 경로마다 어느 쪽을 불러야 하는지가
- * 갈리므로, 있는 자리에 **이어 붙인다** — Git 패널의 동작은 그대로다.
- *
- * app-git.js 뒤에 로드되므로(index.html) 여기서 감쌀 수 있다.
- */
-(function(){
-  const base=App.prototype.gitSignal;
-  App.prototype.gitSignal=function(kind){
-    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 즉시 신호 **뒤의** 답이어야 한다 — 그 전에
-    // 떠난 요청과 캐시는 나눠 쓰지 않는다. 신호 뒤의 탐색기와 문서들은 한 요청을
-    // 나눠 쓴다 (FEU-5: 종전에는 문서마다 한 건).
-    this.gitStatusHub().invalidate();
-    base.call(this,kind);
+  /**
+   * FR-EDT-78: 파일 저장은 색의 즉시 갱신 계기다.
+   *
+   * 그 신호의 진입점은 이미 하나 있고(`gitSignal`, FR-GIT-18) `FileEditor.save` 가
+   * 그것을 부른다. 두 번째 진입점을 만들면 저장 경로마다 어느 쪽을 불러야 하는지가
+   * 갈리므로, 있는 자리의 **뒤에 잇는다** — Git 패널의 동작은 그대로다. `GitController.gitSignal` 이
+   * 허브 무효화와 패널 신호 뒤에 이것을 부른다 (REFACTOR3_FE_APPCTL_SRS FR-FEA-5 — 종전에는 이 파일이
+   * 로드 시점에 원형의 `gitSignal` 을 감쌌다).
+   */
+  _edAfterGitSignal(){
     const tree=this.edActiveTree();
     // FR-DIR-32: 저장·커밋 같은 즉시 신호도 백오프를 넘긴다.
     if(tree) tree.pollGit({now:true});
     // EDITOR_DIRTY_DIFF_SRS FR-EDD-50·51: 편집기의 기준도 이 신호로 따라온다.
     // 편집기는 자기 주기의 폴링을 갖지 않으므로(D-5) 이 자리가 그 유일한 계기다.
     if(this._edDocs) for(const d of this._edDocs.values()) if(d.dd) d.dd.refresh();
-  };
-})();
+  },
+});

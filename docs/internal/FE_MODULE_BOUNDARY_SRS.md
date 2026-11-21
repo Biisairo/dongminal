@@ -410,12 +410,14 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 코드가 아니거나 검사 코드이고, `i18n/ko.js`·`en.js` 는 **데이터**라 키가 늘면 줄이
 늘고 분할이 뜻을 갖지 않는다.
 
-    500줄초과=16 · 최대=971
+    500줄초과=15 · 최대=971
 
 | 지표 | §2.1 기준선 (2026-09-12) | §7.1 달성 (2026-09-13) | 게이트를 세운 순간 (2026-09-21) | **게이트 기준선 (2026-09-21)** |
 |---|---:|---:|---:|---:|
 | 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **18** |
 | 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,020** (`core/app-git.js`) |
+
+> 16 → 15 (2026-11-21, `REFACTOR3_FE_APPCTL_SRS` 9d). `core/app-git.js`(943)가 `GitController`(`git-controller.js`)와 부품 둘(`git-surfaces.js`·`git-sync.js`)로 갈렸다. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 
 > 17 → 16 · 975 → 971 (2026-11-21, `REFACTOR3_FE_GITPANEL_SRS` 7f). `git/panel-changes.js`(907)가 Changes 부품 둘(`git-changes.js` 469 · `git-change-rows.js` 449)로 갈렸다. 최대 파일 `ui/file-tree-paint.js` 는 그 사이 다른 변경으로 971 이 됐고, 기준선이 그것을 적지 않고 있었다.
 
