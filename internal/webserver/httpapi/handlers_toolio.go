@@ -10,7 +10,6 @@ package httpapi
 import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/apierr"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -215,12 +214,11 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, body any, limit ...i
 	}
 	// 종전에는 `json.NewDecoder(r.Body)` 로 **무제한** 스트림 디코드를 했다 —
 	// 본문 하나가 서버 메모리를 정했다 (REQUEST_GATE_SRS FR-RQG-14).
-	raw, err := httpreq.Read(w, r, lim)
-	if err != nil {
+	switch fail, err := httpreq.DecodeJSON(w, r, body, lim); fail {
+	case httpreq.ReadFailed:
 		writeToolIOErrorCode(w, httpreq.Status(err), apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
 		return false
-	}
-	if err := json.Unmarshal(raw, body); err != nil {
+	case httpreq.NotJSON:
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
 		return false
 	}
@@ -285,8 +283,5 @@ func writeToolIOError(w http.ResponseWriter, status int, msg string) {
 // writeToolIOErrorCode 는 상태보다 좁은 코드를 아는 자리의 같은 방언이다 — 본문 상한 초과가
 // 그렇다 (REFACTOR3_DEFECTS_SRS FR-RD3-31).
 func writeToolIOErrorCode(w http.ResponseWriter, status int, code, msg string) {
-	w.Header().Set(apierr.CodeHeader, code)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	httpresp.Fail(w, status, code, map[string]string{"error": msg})
 }

@@ -22,10 +22,6 @@ import (
 // 우리가 이름을 정하면 그 설정과 어긋난 저장소가 만들어진다.
 
 func (s *GitServer) apiGitInit(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	path, ok := gitDecodeAbsPath(w, r)
 	if !ok {
 		return

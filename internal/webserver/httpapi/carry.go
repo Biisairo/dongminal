@@ -19,7 +19,7 @@ import (
 const (
 	carryTTL       = 60 * time.Second
 	carryMax       = 16
-	carryBodyLimit = 1 << 20
+	carryBodyLimit = httpreq.DefaultLimit // REFACTOR3_DEDUP_GO_SRS FR-RDG-6
 	carryPrefix    = "/api/server/carry/"
 )
 

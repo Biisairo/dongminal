@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/httpresp"
 )
 
 // 노드 포트의 `http.Server` 시한. UI 리스너와 같은 근거다 (REQUEST_GATE_SRS FR-RQG-18).
@@ -139,9 +140,6 @@ func ClientFingerprint(r *http.Request) string {
 	return fp
 }
 
-// errCodeHeader 는 오류 코드를 싣는 응답 헤더다. apierr.CodeHeader 와 같다.
-const errCodeHeader = "X-Error-Code"
-
 // requireAdmission 은 요청마다 다시 거른다. 간선을 지운 뒤에도 열려 있던 keep-alive
 // 연결이 핸들러에 닿지 않게 한다 (FR-PNW-31). 거절은 403 `edge_not_edge` 본문이다 — 지문을
 // 고정한 상대가 그 답을 믿고 간선을 지운다 (EDGE_PAIRING_SRS FR-EPR-22·41).
@@ -151,10 +149,7 @@ func requireAdmission(admit func(fp, path string) bool, next http.Handler) http.
 		fp := ClientFingerprint(r)
 		if fp == "" || !admit(fp, r.URL.Path) {
 			w.Header().Set("Connection", "close")
-			w.Header().Set(errCodeHeader, CodeNotEdge)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusForbidden)
-			_, _ = w.Write(notEdge)
+			httpresp.Fail(w, http.StatusForbidden, CodeNotEdge, httpresp.Raw(notEdge))
 			return
 		}
 		next.ServeHTTP(w, r)

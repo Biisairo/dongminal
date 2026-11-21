@@ -100,11 +100,8 @@ func textFail(w http.ResponseWriter) failFn {
 // jsonFail 은 탐색기 표면의 형식이다 — /api/fs/* 의 코드 규약을 그대로 쓴다
 // (FR-EDT-117).
 func jsonFail(w http.ResponseWriter) failFn {
-	return func(status int, code, msg string) {
-		// FR-ERR-7: 본문의 코드와 같은 값을 헤더로도 낸다.
-		w.Header().Set(apierr.CodeHeader, code)
-		fsJSON(w, status, map[string]any{"code": code, "message": msg})
-	}
+	// FR-ERR-7: 본문의 코드와 같은 값을 헤더로도 낸다 — `FailCode` 가 둘을 함께 쓴다.
+	return func(status int, code, msg string) { httpresp.FailCode(w, status, code, msg) }
 }
 
 // uploadInto 는 multipart 의 `file` 하나를 dir 에 받는다. 두 표면이 공유한다 —
@@ -602,10 +599,7 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	}
 	if un != nil {
 		// §3A-2: 조용한 손실 금지 — 첫 위치를 싣고 아무것도 쓰지 않는다.
-		w.Header().Set(apierr.CodeHeader, apierr.CodeEncodingUnmappable)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(map[string]any{
+		httpresp.Fail(w, http.StatusUnprocessableEntity, apierr.CodeEncodingUnmappable, map[string]any{
 			"error": apierr.CodeEncodingUnmappable, "line": un.Line, "col": un.Col, "char": un.Char,
 		})
 		return

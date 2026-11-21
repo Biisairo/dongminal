@@ -2,7 +2,6 @@ package gitapi
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -449,12 +448,11 @@ func gitEntryStates(st query.Status) map[string]string {
 // gitDecodeBody 는 JSON 본문을 읽는다. 실패는 400 이며 사유를 그대로 준다 —
 // 클라이언트가 자기 요청의 어디가 틀렸는지 알아야 한다.
 func gitDecodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
-	body, err := httpreq.Read(w, r, 0)
-	if err != nil {
+	switch fail, err := httpreq.DecodeJSON(w, r, v, 0); fail {
+	case httpreq.ReadFailed:
 		gitFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
 		return false
-	}
-	if err := json.Unmarshal(body, v); err != nil {
+	case httpreq.NotJSON:
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
 		return false
 	}

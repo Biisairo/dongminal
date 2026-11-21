@@ -24,7 +24,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 
   본문과 상태는 바뀌지 않는다 — 코드는 X-Error-Code 헤더로 간다.
 
-  지나가는 것: httperr.go (계층 자신) · *_test.go
+  지나가는 것: shared/httpresp/fail.go (오류 응답의 한 문 — REFACTOR3_DEDUP_GO_SRS FR-RDG-2) · *_test.go
 USAGE
   exit 0
 fi
@@ -33,7 +33,7 @@ fi
 # `check-agent-names.sh` 가 같은 규칙을 쓴다. 재는 것은 실행 코드다.
 hits=$(
   grep -rn 'http\.Error(' --include='*.go' --exclude='*_test.go' internal 2>/dev/null \
-    | grep -v '^internal/webserver/httpapi/httperr\.go:' \
+    | grep -v '^internal/shared/httpresp/fail\.go:' \
     | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)'
 )
 
@@ -93,7 +93,7 @@ fi
 # resolve·commit·undo 의 모든 실패를 지난다.
 #
 # 재는 것은 **성공이 아닌 상태로 `gitJSON`/`fsJSON` 을 직접 부르는가** 다.
-# 렌더러 자신만 지나간다.
+# 렌더러는 이제 `httpresp.Fail` 을 지나므로 지나가는 자리가 없다 (REFACTOR3_DEDUP_GO_SRS FR-RDG-2).
 ok_status='http\.StatusOK|http\.StatusCreated|http\.StatusAccepted|http\.StatusNoContent|http\.StatusPartialContent'
 
 bypass=$(
@@ -101,9 +101,6 @@ bypass=$(
     --include='*.go' --exclude='*_test.go' \
     internal/webserver/gitapi internal/webserver/httpapi 2>/dev/null \
     | grep -vE "\b(gitJSON|fsJSON)\([[:alnum:]_.]+,[[:space:]]*($ok_status)" \
-    | grep -vE '^internal/webserver/gitapi/handlers_git\.go:[0-9]+:[[:space:]]*gitJSON\(w, status, body\)' \
-    | grep -vE '^internal/webserver/httpapi/handlers_fs\.go:[0-9]+:[[:space:]]*fsJSON\(w, fsStatus' \
-    | grep -vE '^internal/webserver/httpapi/handlers_files\.go:[0-9]+:[[:space:]]*fsJSON\(w, status' \
     | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true
 )
 

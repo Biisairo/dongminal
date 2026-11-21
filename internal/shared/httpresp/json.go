@@ -1,8 +1,9 @@
-// Package httpresp 는 성공 JSON 응답을 쓰는 한 자리다 (OPTIMIZE_REFACTOR_SRS FR-OPT-9-4).
+// Package httpresp 는 JSON 응답과 오류 응답을 쓰는 한 자리다 (OPTIMIZE_REFACTOR_SRS FR-OPT-9-4 ·
+// REFACTOR3_DEDUP_GO_SRS FR-RDG-2).
 //
-// 오류 본문은 여기서 렌더하지 않는다 — 방언이 넷이고 그것이 공개 계약이다
-// (`architecture.md` "오류 응답 — 방언 넷, 통일하지 않는다"). 방언 렌더러는 각자
-// 이것으로 헤더·상태·인코딩만 맡긴다.
+// 오류 본문의 **모양**은 여기서 정하지 않는다 — 방언이 여럿이고 그것이 공개 계약이다
+// (`architecture.md` "오류 응답 — 방언 넷, 통일하지 않는다"). 방언 함수는 본문을 만들고
+// 코드 헤더·상태·인코딩은 [Fail] 에 맡긴다.
 package httpresp
 
 import (

@@ -5,10 +5,7 @@ import (
 	"dongminal/internal/shared/diagtail"
 	"dongminal/internal/shared/fanout"
 	"dongminal/internal/shared/listorder"
-	"encoding/json"
 	"net/http"
-
-	"dongminal/internal/shared/httpreq"
 	"os"
 	"path/filepath"
 
@@ -59,8 +56,7 @@ func gitJSON(w http.ResponseWriter, code int, body any) {
 // 그래서 본문은 호출자가 만들고 **헤더는 여기가 세운다.** 헤더를 세우는 자리가
 // 하나면 다음에 생기는 열셋째도 빠질 수 없다.
 func gitErrJSON(w http.ResponseWriter, status int, name string, body map[string]any) {
-	w.Header().Set(apierr.CodeHeader, name)
-	gitJSON(w, status, body)
+	httpresp.Fail(w, status, name, body)
 }
 
 func gitFail(w http.ResponseWriter, code int, name, msg string) {
@@ -109,10 +105,6 @@ func gitTail(msg string) string { return diagtail.Cut(msg, gitMessageMax) }
 // 연 적 없는 핀은 영원히 배지가 없었다. 기본값은 그대로다 — 관측은 Git 탭을
 // 보고 있는 동안으로 묶인다 (D-1, FR-GOB-5).
 func (s *GitServer) apiGitRepos(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	// 핀 목록은 한 번 읽어 두 단계가 나눠 쓴다 (FR-OPT-7-4) — 단계마다
 	// workspace.json 을 다시 읽지 않는다.
 	pins, err := s.gitPinsRead()
@@ -181,10 +173,6 @@ func (s *GitServer) gitObservePins(ctx context.Context, pins []string, clientID 
 // 화면에 상주하지 않는다. `+ Add` 다이얼로그가 열릴 때 한 번 부르는 것이 전부이며,
 // 상주시키면 그것이 곧 follow 의 부활이다 (D-FLW-3).
 func (s *GitServer) apiGitRepoAt(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	cwd, source := s.gitToolCwd(r)
 	e := s.gitRepoAtEntry(r.Context(), cwd)
 	// FR-ETR-31: 이 값이 **누구의 것인지** 함께 싣는다. 폴백은 유지하되(D-10),
@@ -321,14 +309,8 @@ func gitDecodePath(w http.ResponseWriter, r *http.Request) (string, bool) {
 // gitDecodeRawPath 는 본문의 path 를 판정 없이 읽는다 — 값의 판정을 답 함수가 지는
 // 종단(저장소 추가, GV-c)이 쓴다.
 func gitDecodeRawPath(w http.ResponseWriter, r *http.Request) (string, bool) {
-	body, err := httpreq.Read(w, r, 0)
-	if err != nil {
-		gitFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
-		return "", false
-	}
 	var req gitPathReq
-	if err := json.Unmarshal(body, &req); err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
+	if !gitDecodeBody(w, r, &req) {
 		return "", false
 	}
 	return req.Path, true
@@ -357,10 +339,6 @@ func gitDecodeAbsPath(w http.ResponseWriter, r *http.Request) (string, bool) {
 
 // POST /api/git/repos/pin — 저장소를 재확인한 뒤 그 루트를 핀한다 (FR-GIT-12·62).
 func (s *GitServer) apiGitPin(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	path, ok := gitDecodeRawPath(w, r)
 	if !ok {
 		return
@@ -395,10 +373,6 @@ func (s *GitServer) apiGitPin(w http.ResponseWriter, r *http.Request) {
 // POST /api/git/repos/unpin — 저장된 값과 문자열이 정확히 같은 항목을 지운다.
 // rev-parse 를 하지 않는다 — 저장소가 아니게 된 핀도 지울 수 있어야 한다.
 func (s *GitServer) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	path, ok := gitDecodePath(w, r)
 	if !ok {
 		return
@@ -428,10 +402,6 @@ type gitReorderReq struct {
 // rev-parse 를 하지 않는다 — unpin 과 같은 이유다. 저장된 문자열 그대로를 옮기는
 // 것이고, 저장소가 아니게 된 핀도 자리를 옮길 수 있어야 한다.
 func (s *GitServer) apiGitReorder(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitReorderReq
 	if !gitDecodeBody(w, r, &req) {
 		return
