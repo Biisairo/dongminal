@@ -28,11 +28,10 @@ const (
 	EnvPort = serverconf.EnvPort
 	EnvHome = dmenv.EnvHome
 	EnvHost = dmenv.EnvHost
-	EnvLog  = serverconf.EnvLogFile
+	EnvLog  = dmenv.EnvLogFile
 
-	// EnvRestartRunner는 이 실행이 위임된 재시작 대리임을 알린다 — 대리가
-	// 다시 위임하지 않게 하는 표시다 (FR-ACT-3b).
-	EnvRestartRunner = "DONGMINAL_RESTART_RUNNER"
+	// EnvRestartRunner는 이 실행이 위임된 재시작 대리임을 알린다 (FR-ACT-3b).
+	EnvRestartRunner = dmenv.EnvRestartRunner
 	// EnvToolID는 도구의 셸에 심기는 도구 식별자다(toolhub.StartTool). 이
 	// 값이 있으면 지금 dongminal 도구 안에서 돌고 있다는 뜻이다 (FR-ACT-3a).
 	//

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/serverconf"
 )
 
@@ -102,7 +103,7 @@ func TestEnvKillSwitchWins(t *testing.T) {
 	p := newProbe(t, "v9.9.9")
 	c, ch := newChecker(t, p, Options{
 		Enabled: true,
-		Getenv:  func(k string) string { return map[string]string{EnvNoCheck: "1"}[k] },
+		Getenv:  func(k string) string { return map[string]string{dmenv.EnvNoCheck: "1"}[k] },
 	})
 	c.Start()
 	c.Trigger()

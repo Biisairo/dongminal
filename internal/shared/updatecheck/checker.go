@@ -17,17 +17,11 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/release"
 	"dongminal/internal/shared/serverconf"
 )
-
-// EnvNoCheck 는 확인을 통째로 막는 환경변수다 (FR-UPD-11).
-//
-// **다른 모든 계층을 이긴다.** 에어갭·CI 환경이 이 한 줄에 달려 있고, 검사의
-// 결정론성도 마찬가지다 — 기본이 켜짐이므로 이것이 없으면 검사가 진짜 그물로
-// 나간다.
-const EnvNoCheck = "DONGMINAL_NO_UPDATE_CHECK"
 
 // DefaultInterval 은 트리거 ③ 의 주기다 (FR-UPD-2).
 //
@@ -94,7 +88,7 @@ func New(opt Options) *Checker {
 	}
 	opt.Getenv = getenv
 	c := &Checker{opt: opt, enabled: opt.Enabled}
-	c.killed = getenv(EnvNoCheck) == "1"
+	c.killed = getenv(dmenv.EnvNoCheck) == "1"
 	c.snap = Snapshot{Enabled: c.effective(), Current: opt.Current}
 	return c
 }

@@ -276,9 +276,9 @@ func (m *Manager) ExecSpec(windowUUID, dockerPath string, p Profile, rs RunSpec,
 	// 안의 코드가 워크스페이스를 조작할 길이 열려 격리가 무너진다 (FR-SBX-17).
 	if p.Helper {
 		args = append(args,
-			"-e", "DONGMINAL_HOST="+HostGateway,
-			"-e", "DONGMINAL_PORT="+env.Port,
-			"-e", "DONGMINAL_TOOL_ID="+env.ToolID)
+			"-e", dmenv.EnvHost+"="+HostGateway,
+			"-e", dmenv.EnvPort+"="+env.Port,
+			"-e", dmenv.EnvToolID+"="+env.ToolID)
 	}
 	// 마운트가 있을 때만 작업 디렉터리를 지정한다. 없으면 이미지의 기본 자리이며,
 	// 호스트 경로를 넘기면 컨테이너 안에 없는 경로라 기동 자체가 실패한다

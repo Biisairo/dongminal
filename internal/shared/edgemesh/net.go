@@ -6,8 +6,8 @@ import (
 	"slices"
 	"sort"
 	"time"
-	"unicode"
-	"unicode/utf8"
+
+	"dongminal/internal/shared/termtext"
 )
 
 const (
@@ -139,20 +139,7 @@ func newer(st netBody, epoch int64, seq uint64) bool {
 }
 
 func validNet(st netBody) bool {
-	return len(st.Links) <= maxNodes && validText(st.Name, maxName)
-}
-
-// validText 는 화면·터미널에 찍을 한 줄 문자열인지 본다. 제어 문자를 받지 않는다.
-func validText(s string, max int) bool {
-	if len(s) > max || !utf8.ValidString(s) {
-		return false
-	}
-	for _, r := range s {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
-			return false
-		}
-	}
-	return true
+	return len(st.Links) <= maxNodes && termtext.Line(st.Name, maxName)
 }
 
 // evictLocked 는 닿지 않는 노드 가운데 가장 오래 소식이 없는 것을 잊고 그 마지막 번호를 남긴다.

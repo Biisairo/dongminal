@@ -21,7 +21,6 @@ import (
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/pollwait"
-	"dongminal/internal/shared/serverconf"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/core"
@@ -335,7 +334,7 @@ func main() {
 	// OBSERVABILITY_SRS FR-OBS-1·2: 로그 계층을 가장 먼저 세운다. 여기부터의
 	// 모든 줄이 수준·시각을 갖는다. 수준의 파일 계층(`server.json`)은 홈이
 	// 정해진 **뒤**에야 읽을 수 있으므로 `serve` 가 한 번 더 세운다.
-	dmlog.Init(dmlog.Options{Level: os.Getenv(serverconf.EnvLogLevel)})
+	dmlog.Init(dmlog.Options{Level: os.Getenv(dmenv.EnvLogLevel)})
 
 	// 데몬 진입점. `dongminal d` 이거나 argv[0] basename 이 dongminald 인
 	// 경우다 — 내부 진입점이므로 액션 목록에 없다 (FR-CLI-8). startDaemon()

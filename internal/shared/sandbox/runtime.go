@@ -4,6 +4,7 @@ import (
 	"context"
 	"dongminal/internal/shared/diagtail"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -108,44 +109,82 @@ func Probe(goos string, look func(string) (string, error), run execFn) RuntimeSt
 	return st
 }
 
-// StartCommand 는 그 OS 에서 데몬을 띄우는 명령과, **서버가 그것을 시도해도
-// 되는지**를 준다 (FR-SRT-3).
+// runtimeOS 는 OS 하나의 런타임 명령이다 (REFACTOR3_DEDUP_GO_SRS FR-RDG-46). 시작 명령은 인자
+// 배열 하나로 적고, 화면에 보일 문자열은 그것에서 만든다 — 둘을 따로 적으면 안내한 명령과
+// 서버가 실행하는 명령이 어긋난다.
 //
-// linux 가 false 인 이유는 권한이다 (D-5). `sudo systemctl start docker` 를 서버가
-// 부르면 비밀번호를 받을 길이 없어 무응답으로 멈춘다 — 사용자가 자기 셸에서 치는
-// 것이 유일하게 끝나는 길이다.
+// tryable 이 거짓인 OS 의 start 는 **사용자가 칠 것**이다. linux 가 그런 이유는 권한이다
+// (D-5). `sudo systemctl start docker` 를 서버가 부르면 비밀번호를 받을 길이 없어 무응답으로
+// 멈춘다 — 사용자가 자기 셸에서 치는 것이 유일하게 끝나는 길이다.
 //
-// 모르는 OS 도 false 다. 명령을 지어내는 것보다 아무것도 하지 않는 편이 낫다.
-func StartCommand(goos string) (cmd string, tryable bool) {
-	switch goos {
-	case "darwin":
-		return "open -a Docker", true
-	case "windows":
-		return `cmd /c start "" "Docker Desktop.exe"`, true
-	// **WSL 은 linux 로 다룬다.** `platform.OSKind` 가 그 둘을 가르는 것은
-	// 기록·표시를 위해서이고(FR-XWS-2), 여기서 알아야 하는 것은 "데몬을 어떻게
-	// 띄우는가" 하나다 — WSL 안의 docker 는 리눅스의 그것이다. 가르지 않으면
-	// WSL 사용자가 "모르는 운영체제" 갈래로 떨어져 명령을 하나도 못 받는다.
-	case "linux", "wsl":
-		return "sudo systemctl start docker", false
-	default:
-		// 칠 명령조차 주지 않으면 사용자가 이 창에서 할 수 있는 일이 없다.
-		return "docker 데몬을 시작하세요", false
+// install 은 **하나만** 준다 (FR-SRT-6). 셋을 다 보이면 자기 것이 아닌 둘은 고를 것이 아니라
+// 잡음이다. 실행하지 않으므로 문자열이다.
+type runtimeOS struct {
+	install string
+	start   []string
+	tryable bool
+}
+
+var runtimeTable = map[string]runtimeOS{
+	"darwin": {install: "brew install --cask docker", start: []string{"open", "-a", "Docker"}, tryable: true},
+	"windows": {install: "winget install Docker.DockerDesktop",
+		start: []string{"cmd", "/c", "start", "", "Docker Desktop.exe"}, tryable: true},
+	"linux": {install: "curl -fsSL https://get.docker.com | sh", start: []string{"sudo", "systemctl", "start", "docker"}},
+}
+
+// unknownStart 는 모르는 OS 의 안내다. 칠 명령조차 주지 않으면 사용자가 이 창에서 할 수 있는
+// 일이 없고, 명령을 지어내는 것보다 아무것도 하지 않는 편이 낫다.
+const unknownStart = "docker 데몬을 시작하세요"
+
+// runtimeFor 는 goos 의 표 한 줄이다.
+//
+// **WSL 은 linux 로 다룬다.** `platform.OSKind` 가 그 둘을 가르는 것은
+// 기록·표시를 위해서이고(FR-XWS-2), 여기서 알아야 하는 것은 "데몬을 어떻게
+// 띄우는가" 하나다 — WSL 안의 docker 는 리눅스의 그것이다. 가르지 않으면
+// WSL 사용자가 "모르는 운영체제" 갈래로 떨어져 명령을 하나도 못 받는다.
+func runtimeFor(goos string) (runtimeOS, bool) {
+	if goos == "wsl" {
+		goos = "linux"
 	}
+	r, ok := runtimeTable[goos]
+	return r, ok
+}
+
+// commandLine 은 인자 배열을 사람이 칠 한 줄로 적는다. 비었거나 공백이 든 인자는 따옴표로 감싼다.
+func commandLine(args []string) string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		if a == "" || strings.ContainsRune(a, ' ') {
+			a = `"` + a + `"`
+		}
+		out[i] = a
+	}
+	return strings.Join(out, " ")
+}
+
+// StartCommand 는 그 OS 에서 데몬을 띄우는 명령과, **서버가 그것을 시도해도
+// 되는지**를 준다 (FR-SRT-3). 모르는 OS 는 false 다.
+func StartCommand(goos string) (cmd string, tryable bool) {
+	r, ok := runtimeFor(goos)
+	if !ok {
+		return unknownStart, false
+	}
+	return commandLine(r.start), r.tryable
 }
 
 // StartRuntime 은 데몬 기동을 시도한다 (FR-SRT-3).
 //
 // 시도할 수 없는 OS 에서는 **아무것도 실행하지 않고** 명령만 돌려준다. 실패는
 // 사유와 함께 온다 — 삼키면 사용자는 눌러도 아무 일이 없는 것으로 읽는다.
+// 문자열을 셸에 넘기지 않는다 — 인자가 고정이므로 파싱할 것이 없다.
 func StartRuntime(goos string, run execFn) StartResult {
 	cmd, tryable := StartCommand(goos)
 	res := StartResult{Command: cmd}
 	if !tryable {
 		return res
 	}
-	name, args := splitCommand(goos)
-	out, err := run(name, args)
+	r, _ := runtimeFor(goos)
+	out, err := run(r.start[0], r.start[1:])
 	if err != nil {
 		res.Detail = tail(out, err)
 		return res
@@ -154,31 +193,11 @@ func StartRuntime(goos string, run execFn) StartResult {
 	return res
 }
 
-// splitCommand 는 StartCommand 의 문자열을 실행 인자로 옮긴다. 문자열을 셸에
-// 넘기지 않는 이유는 셸이 필요 없기 때문이다 — 인자가 고정이므로 파싱할 것이 없다.
-func splitCommand(goos string) (string, []string) {
-	if goos == "windows" {
-		return "cmd", []string{"/c", "start", "", "Docker Desktop.exe"}
-	}
-	return "open", []string{"-a", "Docker"}
-}
-
-// InstallCommand 는 그 OS 의 설치 명령이다 (FR-SRT-6).
-//
-// **하나만** 준다. 셋을 다 보이면 자기 것이 아닌 둘은 고를 것이 아니라 잡음이다.
-// 모르는 OS 에는 빈 문자열이며, 화면은 그때 명령 없이 안내만 보인다.
+// InstallCommand 는 그 OS 의 설치 명령이다 (FR-SRT-6). 모르는 OS 에는 빈 문자열이며, 화면은
+// 그때 명령 없이 안내만 보인다.
 func InstallCommand(goos string) string {
-	switch goos {
-	case "darwin":
-		return "brew install --cask docker"
-	// StartCommand 와 같은 이유로 WSL 을 함께 받는다.
-	case "linux", "wsl":
-		return "curl -fsSL https://get.docker.com | sh"
-	case "windows":
-		return "winget install Docker.DockerDesktop"
-	default:
-		return ""
-	}
+	r, _ := runtimeFor(goos)
+	return r.install
 }
 
 // CLIExec 는 Probe·StartRuntime 의 실제 인자다.

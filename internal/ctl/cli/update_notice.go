@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/serverconf"
-	"dongminal/internal/shared/updatecheck"
 )
 
 // announceUpdateCheck 는 **기본 켜짐을 정직하게 만드는 한 줄**이다
@@ -25,7 +25,7 @@ func announceUpdateCheck(home string, getenv func(string) string, stdout io.Writ
 	if home == "" {
 		return
 	}
-	if getenv != nil && getenv(updatecheck.EnvNoCheck) == "1" {
+	if getenv != nil && getenv(dmenv.EnvNoCheck) == "1" {
 		// 이미 막혀 있다. 하지도 않을 일을 알리는 것은 거짓이다.
 		return
 	}

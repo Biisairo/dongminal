@@ -9,10 +9,9 @@ import (
 	"net/http"
 	"slices"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"dongminal/internal/shared/edge"
+	"dongminal/internal/shared/termtext"
 )
 
 // 로컬 API 연산 (PEER_NETWORK_SRS FR-PNW-70, PEER_DAEMON_SRS FR-PDM-30).
@@ -429,17 +428,5 @@ func remoteCode(code string) string {
 
 // cleanRemoteText 는 제어 문자를 지우고 길이를 자른다. 이 문구는 터미널에 찍힌다.
 func cleanRemoteText(s string) string {
-	out := make([]rune, 0, len(s))
-	size := 0
-	for _, r := range s {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
-			continue
-		}
-		size += utf8.RuneLen(r)
-		if size > remoteTextMax {
-			break
-		}
-		out = append(out, r)
-	}
-	return string(out)
+	return termtext.Cut(termtext.Strip(s), remoteTextMax)
 }

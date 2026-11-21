@@ -128,6 +128,7 @@ internal/
     sandboxplace/        #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
     mimeprobe/           #   ②③  — 바이트 앞머리로 그림인지 (파일 종단·git 블롭 종단이 같은 한 벌, M9 FR-M9-21)
     diagtail/            #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
+    termtext/            #   ①②③ — 화면·터미널에 찍을 글자의 규칙 한 벌: 숨은 글자(제어·Cf) 판정·정화, 지문 줄이기 (REFACTOR3_DEDUP_GO_SRS FR-RDG-43·44)
     textenc/             #   ③   — 텍스트 인코딩 판별·엄격 디코드·재인코딩 (파일 종단·git diff 가 같은 한 벌, REPO_FIX 03)
     editorlimit/         #   ③④  — 편집기가 여는 한 파일의 상한 32 MiB (읽기·저장·LSP·git diff·verify 가 같은 한 벌, D-OPT-9)
     serverconf/          #   ③④  — 서버 기동값 네 계층 (플래그 > 환경 > server.json > 기본)

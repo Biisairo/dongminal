@@ -63,6 +63,21 @@ const (
 	// (CROSS_PLATFORM_SRS FR-XSH-3). POSIX 는 $SHELL 을 따른다.
 	EnvShell = "DONGMINAL_SHELL"
 
+	// EnvLogLevel·EnvLogFile 은 서버 로그 계층의 환경변수다 (serverconf 가 읽는다).
+	EnvLogLevel = "DONGMINAL_LOG_LEVEL"
+	EnvLogFile  = "DONGMINAL_LOG"
+
+	// EnvNoCheck 는 최신 판 확인을 통째로 막는다 (FR-UPD-11, updatecheck 가 읽는다).
+	//
+	// **다른 모든 계층을 이긴다.** 에어갭·CI 환경이 이 한 줄에 달려 있고, 검사의
+	// 결정론성도 마찬가지다 — 기본이 켜짐이므로 이것이 없으면 검사가 진짜 그물로
+	// 나간다.
+	EnvNoCheck = "DONGMINAL_NO_UPDATE_CHECK"
+
+	// EnvRestartRunner 는 이 실행이 위임된 재시작 대리임을 알린다 — 대리가
+	// 다시 위임하지 않게 하는 표시다 (FR-ACT-3b).
+	EnvRestartRunner = "DONGMINAL_RESTART_RUNNER"
+
 	// DefaultHomeDir 은 EnvHome 이 비었을 때 사용자 홈 아래에 잡는 이름이다.
 	// cli 의 기본값 계산과 데몬 진입점이 같은 값을 딛어야 한다 — 갈라지면 한쪽이
 	// 다른 인스턴스를 본다.

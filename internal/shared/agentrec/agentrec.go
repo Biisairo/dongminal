@@ -6,7 +6,6 @@ package agentrec
 import (
 	"encoding/json"
 	"maps"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -43,7 +42,7 @@ const (
 
 // SocketPath 는 home 인스턴스의 보고 소켓 경로다. 데몬과 dmctl 이 이 함수 하나로 찾는다.
 func SocketPath(home string) string {
-	return filepath.Join(filepath.Dir(platform.Current().IPC.Endpoint(home)), SocketFile)
+	return platform.SiblingSocket(home, SocketFile)
 }
 
 // KnownMethod 는 보고 소켓이 받는 메서드인가다.
