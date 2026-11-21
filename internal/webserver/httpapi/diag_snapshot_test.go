@@ -105,7 +105,7 @@ func TestDiagLastRequestUpdatedByFilteredPath(t *testing.T) {
 	s := &Server{}
 	h := loggingMiddlewareFor(s, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 
-	if s.lastReq.Load() != 0 {
+	if s.conn.lastReq.Load() != 0 {
 		t.Fatal("아직 요청이 없는데 lastReq 가 서 있다")
 	}
 	// 로그에서 걸러지는 경로다.
@@ -114,7 +114,7 @@ func TestDiagLastRequestUpdatedByFilteredPath(t *testing.T) {
 	}
 	h.ServeHTTP(httptest.NewRecorder(), apiTestRequest(http.MethodGet, "/api/ping", nil))
 
-	if s.lastReq.Load() == 0 {
+	if s.conn.lastReq.Load() == 0 {
 		t.Fatal("걸러지는 경로가 lastReq 를 갱신하지 않았다 — FR-CNR-11 위반")
 	}
 }
@@ -135,7 +135,7 @@ func TestDiagSnapshotNeverRequestedShowsDash(t *testing.T) {
 func TestDiagSnapshotReportsHolds(t *testing.T) {
 	buf := captureLog(t)
 	s := &Server{}
-	s.holds.Store(7)
+	s.conn.holds.Store(7)
 	s.logDiagSnapshot()
 	if !strings.Contains(buf.String(), "hold=7") {
 		t.Fatalf("hold 수가 실리지 않았다:\n%s", buf.String())
@@ -250,7 +250,7 @@ func TestDiagSnapshotQuietWhenNormal(t *testing.T) {
 func TestDiagSnapshotWarnsOnHolds(t *testing.T) {
 	buf := captureLog(t)
 	s := &Server{}
-	s.holds.Store(int64(diagWarn.Hold) + 1)
+	s.conn.holds.Store(int64(diagWarn.Hold) + 1)
 	s.logDiagSnapshot()
 	line := diagLine(t, buf.String())
 	if !strings.Contains(line, "hold") || !strings.Contains(line, "warn=") {

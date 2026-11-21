@@ -96,15 +96,15 @@ func (s *Server) apiToolUsage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) applyUsageReport(body agentrec.UsageReport) {
 	toolID := body.ToolID
 	u := toolUsage{Usage: body.Usage, ObservedAt: time.Now().UnixMilli()}
-	s.usage.put(toolID, u)
+	s.agents.usage.put(toolID, u)
 	s.putRecord(toolipc.RecordUsage, toolID, u)
 	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20: 계정 한도의 임자는 statusLine 을 보고하는 에이전트다.
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-78: 계정을 실은 보고는 계정별로 둔다. 에이전트 단위 값은 계정을 모르는 보고만이다.
 	if acc := body.Account; acc != nil && acc.Email != "" && s.ca != nil {
 		s.ca.sl.put(*acc, u.RateLimits, time.Now())
 	} else if agent, ok := agentadapter.StatusLineReporter(); ok && len(u.RateLimits) > 0 {
-		s.rateLimits.put(agent, u.RateLimits, time.Now())
-		s.putRecord(toolipc.RecordLimits, "", s.rateLimits.records())
+		s.agents.rateLimits.put(agent, u.RateLimits, time.Now())
+		s.putRecord(toolipc.RecordLimits, "", s.agents.rateLimits.records())
 	}
 	s.observeUsageContext(toolID, &u)
 }
@@ -134,7 +134,7 @@ func (s *Server) observeUsageContext(toolID string, u *toolUsage) {
 // toolUsageView 는 상태 응답에 얹을 `context`·`usage` 다. statusLine 값이 없으면
 // Run 기록의 transcript 값으로 `context` 만 채운다 (FR-SLP-11).
 func (s *Server) toolUsageView(toolID string) (*toolContext, *toolUsage) {
-	if u, ok := s.usage.get(toolID); ok {
+	if u, ok := s.agents.usage.get(toolID); ok {
 		c := &toolContext{Source: contextSourceStatusLine, ObservedAt: u.ObservedAt}
 		if cw := u.ContextWindow; cw != nil {
 			c.UsedPct = cw.UsedPct
@@ -222,10 +222,10 @@ func (s *Server) activityEntries() []activityEntry {
 	now := time.Now()
 	for _, a := range snap {
 		c, u := s.toolUsageView(a.ToolID)
-		subs, _ := s.subagents.get(a.ToolID, now)
-		s.subActs.dropStale(a.ToolID, now, a.State == activity.Working || a.State == activity.Waiting, runningSubagents(subs))
+		subs, _ := s.agents.subagents.get(a.ToolID, now)
+		s.agents.subActs.dropStale(a.ToolID, now, a.State == activity.Working || a.State == activity.Waiting, runningSubagents(subs))
 		out = append(out, activityEntry{ActivitySnap: a, Usage: cardUsageOf(c, u, p),
-			Subagents: cardSubagentsOf(subs, s.subActs.list(a.ToolID, now), p)})
+			Subagents: cardSubagentsOf(subs, s.agents.subActs.list(a.ToolID, now), p)})
 	}
 	return out
 }

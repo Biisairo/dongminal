@@ -87,7 +87,7 @@ func (s *Server) logDiagSnapshot() {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
-	ws, hold := s.wsCount(), s.holds.Load()
+	ws, hold := s.wsCount(), s.conn.holds.Load()
 	goroutines, allocMB := runtime.NumGoroutine(), mem.Alloc>>20
 
 	// FR-CNR-13: 경고는 **같은 줄**이다. 딴 줄로 빼면 시간축에서 둘을 다시 맞춰야
@@ -97,9 +97,9 @@ func (s *Server) logDiagSnapshot() {
 		warn = " warn=" + warn
 	}
 	dmlog.Infof(nil, "diag reqAge=%s wsAge=%s ws=%d tools=%d miss=%d hold=%d goroutines=%d allocMB=%d%s",
-		ageOf(s.lastReq.Load()), ageOf(s.lastWS.Load()),
+		ageOf(s.conn.lastReq.Load()), ageOf(s.conn.lastWS.Load()),
 		ws, s.toolCount(),
-		s.misses.size(), hold,
+		s.conn.misses.size(), hold,
 		goroutines, allocMB, warn)
 }
 
@@ -133,4 +133,4 @@ func (s *Server) toolCount() int {
 // wsCount 는 지금 붙어 있는 WS 수다. 서버가 직접 센다 — ToolHub 는 클라이언트를
 // 모르고(도구를 안다), 붙잡힌 연결(FR-CNR-2)은 도구가 없는 연결이라 어차피
 // 거기서 세지지 않는다.
-func (s *Server) wsCount() int { return int(s.wsOpen.Load()) }
+func (s *Server) wsCount() int { return int(s.conn.wsOpen.Load()) }

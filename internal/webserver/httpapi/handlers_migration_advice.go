@@ -131,7 +131,7 @@ func (s *Server) migrationVerdict(id string, conf migrationConf, out map[string]
 	ctx, _ := s.toolUsageView(id)
 	if ctx == nil || ctx.UsedPct == nil {
 		// FR-ITM-13: 모르는 사실은 도구마다 한 번만 알린다.
-		if _, told := s.migrationUnknownTold.LoadOrStore(id, true); told {
+		if _, told := s.agents.migrationUnknownTold.LoadOrStore(id, true); told {
 			return adviceOK
 		}
 		s.putRecord(toolipc.RecordMigrationTold, id, true)

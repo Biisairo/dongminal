@@ -170,19 +170,25 @@ func (s *Server) callerToolID(r *http.Request, claimed string) string {
 // 메시지 그 자체라는 계약은 그대로다 — 테이블이 `.Error()` 를 참조한다.
 //
 // 남는 것 둘: 이 패키지 자신의 sentinel 하나(`errIsolationUnavailable` — domain
-// 이 아니라 여기가 만든다)와, 미분류 실패의 기본값(코드 = 오류 문자열)이다.
+// 이 아니라 여기가 만든다)와, 미분류 실패의 기본값이다.
+//
+//	이전 동작: 미분류 실패는 코드·`detail` 이 오류 문자열 그대로였다 (`X-Error-Code` 포함)
+//	새  동작: 코드·`detail` 이 `internal_error` 이고 전문은 로그로만 간다
+//	이유:     아래 계층의 문구에는 경로·내부 상태가 든다 (fail.go 와 같은 근거,
+//	          REFACTOR3_GO_STRUCT_SRS FR-RGS-7)
 func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
-	status := http.StatusInternalServerError
-	name := err.Error()
+	status, name, detail := http.StatusInternalServerError, apierr.CodeInternal, apierr.CodeInternal
 	switch {
 	case errors.Is(err, errIsolationUnavailable):
-		status, name = http.StatusServiceUnavailable, errIsolationUnavailable.Error()
+		status, name, detail = http.StatusServiceUnavailable, errIsolationUnavailable.Error(), err.Error()
 	default:
 		if s, c, ok := apierr.Runs.Lookup(err); ok {
-			status, name = s, c
+			status, name, detail = s, c, err.Error()
+		} else {
+			dmlog.Infof(nil, "runs 미분류 실패: %v", err)
 		}
 	}
-	body := map[string]any{"error": name, "detail": err.Error()}
+	body := map[string]any{"error": name, "detail": detail}
 	for k, v := range extra {
 		body[k] = v
 	}

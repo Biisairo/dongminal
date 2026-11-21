@@ -73,7 +73,7 @@ func TestRecords_WritesGoToDaemon(t *testing.T) {
 func TestRecords_NoSinkStillMirrors(t *testing.T) {
 	s := activityUsageServer(t)
 	postUsage(t, s, `{"toolId":"p1","usage":{"effort":"high"}}`)
-	if u, ok := s.usage.get("p1"); !ok || u.Effort == nil || *u.Effort != "high" {
+	if u, ok := s.agents.usage.get("p1"); !ok || u.Effort == nil || *u.Effort != "high" {
 		t.Fatalf("거울에 반영되지 않았다: %+v", u)
 	}
 }
@@ -83,9 +83,9 @@ func TestRecords_ApplySnapshotReplacesMirror(t *testing.T) {
 	tr := hub.NewAttnTracker(fb, 0)
 	s := &Server{Deps: Deps{AttnTracker: tr, Commands: fb}, limits: defaultLimits()}
 	// 스냅샷 전 거울: 낡은 값과 스냅샷에 없는 도구.
-	s.usage.put("old", toolUsage{})
-	s.subagents.put("old", nil, time.Now())
-	s.migrationUnknownTold.Store("old", true)
+	s.agents.usage.put("old", toolUsage{})
+	s.agents.subagents.put("old", nil, time.Now())
+	s.agents.migrationUnknownTold.Store("old", true)
 	tr.SetActivity("old", activity.Working, "", "")
 	before := fb.count()
 
@@ -107,25 +107,25 @@ func TestRecords_ApplySnapshotReplacesMirror(t *testing.T) {
 	}
 	s.ApplyRecords(res)
 
-	if _, ok := s.usage.get("old"); ok {
+	if _, ok := s.agents.usage.get("old"); ok {
 		t.Error("스냅샷에 없는 사용량이 남았다")
 	}
-	if u, ok := s.usage.get("t1"); !ok || *u.Effort != "low" || u.ObservedAt != 5 {
+	if u, ok := s.agents.usage.get("t1"); !ok || *u.Effort != "low" || u.ObservedAt != 5 {
 		t.Errorf("usage=%+v", u)
 	}
-	if tasks, ok := s.subagents.get("t1", now); !ok || len(tasks) != 1 {
+	if tasks, ok := s.agents.subagents.get("t1", now); !ok || len(tasks) != 1 {
 		t.Errorf("subagents=%v", tasks)
 	}
-	if acts := s.subActs.list("t1", now); acts["a1"].AgentType != "Explore" {
+	if acts := s.agents.subActs.list("t1", now); acts["a1"].AgentType != "Explore" {
 		t.Errorf("subActs=%v", acts)
 	}
-	if _, told := s.migrationUnknownTold.Load("old"); told {
+	if _, told := s.agents.migrationUnknownTold.Load("old"); told {
 		t.Error("스냅샷에 없는 안내 표시가 남았다")
 	}
-	if _, told := s.migrationUnknownTold.Load("t1"); !told {
+	if _, told := s.agents.migrationUnknownTold.Load("t1"); !told {
 		t.Error("안내 표시가 반영되지 않았다")
 	}
-	if v := s.rateLimits.view(now); len(v) != 1 || v[0].Windows[0].Name != "five_hour" {
+	if v := s.agents.rateLimits.view(now); len(v) != 1 || v[0].Windows[0].Name != "five_hour" {
 		t.Errorf("limits=%+v", v)
 	}
 	if !tr.Attention("t1") || tr.Activity("old") != nil {

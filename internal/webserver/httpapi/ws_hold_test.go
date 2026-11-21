@@ -137,10 +137,10 @@ func TestHoldMissRespectsLimit(t *testing.T) {
 	}
 	// 붙잡기들이 자리를 잡을 시간을 준다.
 	deadline := time.Now().Add(2 * time.Second)
-	for s.holds.Load() < int64(MissHoldLimit) && time.Now().Before(deadline) {
+	for s.conn.holds.Load() < int64(MissHoldLimit) && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
-	if got := s.holds.Load(); got < int64(MissHoldLimit) {
+	if got := s.conn.holds.Load(); got < int64(MissHoldLimit) {
 		t.Fatalf("붙잡은 수 = %d, want %d", got, MissHoldLimit)
 	}
 
@@ -168,7 +168,7 @@ func TestHoldMissReleasesSlot(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	s.holdMiss(ctx, "tool-a", nil)
-	if got := s.holds.Load(); got != 0 {
+	if got := s.conn.holds.Load(); got != 0 {
 		t.Fatalf("붙잡기가 끝났는데 자리가 %d 남았다", got)
 	}
 }

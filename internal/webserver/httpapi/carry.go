@@ -89,7 +89,7 @@ func (s *Server) apiServerCarryPost(w http.ResponseWriter, r *http.Request) {
 		codeFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "body is not json")
 		return
 	}
-	token, ok := s.carry.put(raw)
+	token, ok := s.rebind.carry.put(raw)
 	if !ok {
 		codeFail(w, http.StatusServiceUnavailable, apierr.CodeBusy, "carry full")
 		return
@@ -99,7 +99,7 @@ func (s *Server) apiServerCarryPost(w http.ResponseWriter, r *http.Request) {
 
 // apiServerCarryGet 은 `GET /api/server/carry/<token>` 이다.
 func (s *Server) apiServerCarryGet(w http.ResponseWriter, r *http.Request) {
-	data, ok := s.carry.take(strings.TrimPrefix(r.URL.Path, carryPrefix))
+	data, ok := s.rebind.carry.take(strings.TrimPrefix(r.URL.Path, carryPrefix))
 	if !ok {
 		codeFail(w, http.StatusNotFound, apierr.CodeNotFound, "no such carry")
 		return

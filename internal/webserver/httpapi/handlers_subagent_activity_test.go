@@ -72,7 +72,7 @@ func TestSubagentActivity_ObservedSequenceEndsDone(t *testing.T) {
 	if a := s.toolActivity("p1"); a == nil || a.State != "done" {
 		t.Fatalf("main 의 마지막 상태가 done 이 아니다: %+v", a)
 	}
-	acts := s.subActs.list("p1", time.Now())
+	acts := s.agents.subActs.list("p1", time.Now())
 	if got := acts["a922"]; got.State != "done" || got.AgentType != "Explore" {
 		t.Fatalf("서브에이전트 활동=%+v", acts)
 	}
@@ -93,7 +93,7 @@ func TestSubagentActivity_DoesNotTouchMain(t *testing.T) {
 	if a := s.toolActivity("p1"); a.State != "done" {
 		t.Fatalf("main 이 바뀌었다: %+v", a)
 	}
-	if got := s.subActs.list("p1", time.Now())["a1"]; got.Detail != "/a.go" || got.Tool != "Read" {
+	if got := s.agents.subActs.list("p1", time.Now())["a1"]; got.Detail != "/a.go" || got.Tool != "Read" {
 		t.Fatalf("다듬기가 main 과 다르다: %+v", got)
 	}
 	for _, st := range []string{"idle", "ended", "bogus"} {
@@ -145,7 +145,7 @@ func TestSubagentActivity_MainEndedDrops(t *testing.T) {
 	s, _, _ := statusServer(t)
 	postActivitySet(t, s, map[string]any{"toolId": "p1", "agentId": "a1", "state": "working"})
 	postActivitySet(t, s, map[string]any{"toolId": "p1", "state": "ended"})
-	if got := s.subActs.list("p1", time.Now()); len(got) != 0 {
+	if got := s.agents.subActs.list("p1", time.Now()); len(got) != 0 {
 		t.Fatalf("남았다: %v", got)
 	}
 }
@@ -221,7 +221,7 @@ func pf(v float64) *float64 { return &v }
 // TC-ASV-10: 계정 한도는 도구 수거 뒤에도 남고, 창 순서·등급·남은 시간이 맞다 (FR-ASV-20·21).
 func TestRateLimits_ViewAndSurvivesPrune(t *testing.T) {
 	s := activityUsageServer(t)
-	if v := s.rateLimits.view(time.Now()); len(v) != 0 {
+	if v := s.agents.rateLimits.view(time.Now()); len(v) != 0 {
 		t.Fatalf("보고 전 limits=%v", v)
 	}
 	if code := postUsage(t, s, `{"toolId":"p1","usage":{"rateLimits":{
@@ -231,9 +231,9 @@ func TestRateLimits_ViewAndSurvivesPrune(t *testing.T) {
 "alpha":{"usedPct":69.9}}}}`); code != http.StatusOK {
 		t.Fatalf("code=%d", code)
 	}
-	s.usage.prune(func(string) bool { return false })
+	s.agents.usage.prune(func(string) bool { return false })
 	now := time.Unix(1794291091, 0)
-	v := s.rateLimits.view(now)
+	v := s.agents.rateLimits.view(now)
 	if len(v) != 1 || v[0].Agent != "claude" || v[0].ObservedAt == 0 {
 		t.Fatalf("limits=%+v", v)
 	}
@@ -257,7 +257,7 @@ func TestRateLimits_ViewAndSurvivesPrune(t *testing.T) {
 	if w[0].Level != "warn" || w[1].Level != "" || w[2].Level != "" || w[3].Level != "critical" {
 		t.Fatalf("등급=%q %q %q %q", w[0].Level, w[1].Level, w[2].Level, w[3].Level)
 	}
-	if late := s.rateLimits.view(time.Unix(1794298291+60, 0)); *late[0].Windows[0].ResetsInSec != 0 {
+	if late := s.agents.rateLimits.view(time.Unix(1794298291+60, 0)); *late[0].Windows[0].ResetsInSec != 0 {
 		t.Fatalf("지난 시각의 남은 시간=%v", *late[0].Windows[0].ResetsInSec)
 	}
 }
@@ -272,7 +272,7 @@ func TestRateLimits_NamesFromStatusLineInput(t *testing.T) {
 	if code := postUsage(t, s, string(blob)); code != http.StatusOK {
 		t.Fatalf("code=%d", code)
 	}
-	v := s.rateLimits.view(time.Now())
+	v := s.agents.rateLimits.view(time.Now())
 	if len(v) != 1 {
 		t.Fatalf("limits=%+v", v)
 	}
@@ -329,7 +329,7 @@ func TestSubagentActivity_HandbackOrderEndsDone(t *testing.T) {
 			for _, p := range append(append([]string{}, head...), tail...) {
 				replayHook(t, s, "p1", p)
 			}
-			if got := s.subActs.list("p1", time.Now())["a4d7"]; got.State != "done" {
+			if got := s.agents.subActs.list("p1", time.Now())["a4d7"]; got.State != "done" {
 				t.Fatalf("서브에이전트 활동=%+v", got)
 			}
 		})
@@ -376,7 +376,7 @@ func TestApiToolsActivity_DropsStaleSubagent(t *testing.T) {
 			t.Cleanup(toolhub.SetAttnBusyProbe(func(*toolhub.Tool) bool { return true }))
 			s, _, p := statusServer(t)
 			p.SetActivity(mainState, "", "")
-			s.subActs.put("p1", "old", subagentActivity{AgentType: "web-fetch", State: "working", Tool: "SubagentHandback"},
+			s.agents.subActs.put("p1", "old", subagentActivity{AgentType: "web-fetch", State: "working", Tool: "SubagentHandback"},
 				time.Now().Add(-agentrec.SubagentStaleKeep-time.Second))
 			got, ok := activitySubagents(t, s)
 			if mainState == "done" && ok {

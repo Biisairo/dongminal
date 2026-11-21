@@ -245,7 +245,7 @@ func (s *Server) apiToolStatus(w http.ResponseWriter, r *http.Request) {
 			st.Member = &toolMember{ID: m.ID, State: s.deriveMemberState(m)}
 		}
 	}
-	st.Limits = s.rateLimits.view(time.Now())
+	st.Limits = s.agents.rateLimits.view(time.Now())
 	writeJSON(w, st)
 }
 

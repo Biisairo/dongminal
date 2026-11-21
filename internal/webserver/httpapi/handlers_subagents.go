@@ -88,13 +88,13 @@ func (s *Server) apiToolSubagents(w http.ResponseWriter, r *http.Request) {
 // 함께 지난다 (AGENT_RECORD_DAEMON_SRS §3.2a).
 func (s *Server) applySubagentsReport(body agentrec.SubagentsReport) {
 	now := time.Now()
-	s.subagents.put(body.ToolID, body.Tasks, now)
+	s.agents.subagents.put(body.ToolID, body.Tasks, now)
 	s.putRecord(toolipc.RecordSubagents, body.ToolID, agentrec.SubagentList{Tasks: body.Tasks, ObservedAt: now.UnixMilli()})
 }
 
 // freshSubagents 는 상태 응답에 얹을 목록이다. 비었으면 nil 이다 (FR-SAU-15).
 func (s *Server) freshSubagents(toolID string) []statusline.Subagent {
-	tasks, ok := s.subagents.get(toolID, time.Now())
+	tasks, ok := s.agents.subagents.get(toolID, time.Now())
 	if !ok || len(tasks) == 0 {
 		return nil
 	}

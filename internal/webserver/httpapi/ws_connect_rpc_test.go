@@ -120,7 +120,7 @@ func TestWSDaemonMissReleasesSubscription(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: &subCountingHub{ToolClient: pc, d: d}})
 	// 임계 바로 앞까지 미스를 쌓아 이번 연결이 붙잡히게 한다.
 	for i := 1; i < MissHoldAfter; i++ {
-		srv.misses.count("nope", time.Now())
+		srv.conn.misses.count("nope", time.Now())
 	}
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()

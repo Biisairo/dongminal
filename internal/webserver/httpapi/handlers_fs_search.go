@@ -256,11 +256,15 @@ func grepWithRipgrep(ctx context.Context, rg, root, q string, limit int) ([]grep
 	return parseRipgrepJSON(out, root, limit)
 }
 
+// rgJSONLineMax 는 rg --json 이벤트 한 줄의 상한이다. 매치 줄 전문이 실리므로 압축된
+// 번들 한 줄이 그대로 들어온다 — 그보다 긴 줄에서 읽기를 멈추고 그때까지의 매치를 준다.
+const rgJSONLineMax = 4 << 20
+
 // parseRipgrepJSON 은 rg --json 의 줄 단위 이벤트에서 match 만 골라 담는다.
 func parseRipgrepJSON(out []byte, root string, limit int) ([]grepMatch, bool, error) {
 	matches := make([]grepMatch, 0, 32)
 	sc := bufio.NewScanner(bytes.NewReader(out))
-	sc.Buffer(make([]byte, 0, 64*1024), 4<<20)
+	sc.Buffer(make([]byte, 0, 64*1024), rgJSONLineMax)
 	for sc.Scan() {
 		var ev struct {
 			Type string `json:"type"`
@@ -334,6 +338,9 @@ func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bo
 	// 되쓰는 버퍼 둘. **줄마다 새로 잡으면 바이트는 줄어도 할당 수가 폭발한다** —
 	// 첫 판이 정확히 그랬다 (538 → 160,419 allocs/op, §8 의 기록).
 	var lower, long []byte
+	// 읽기 버퍼도 한 벌을 파일마다 Reset 으로 되쓴다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-4) —
+	// 파일마다 새로 잡으면 앞 8,000바이트만 보고 버리는 파일에도 64 KiB 가 나간다.
+	br := bufio.NewReaderSize(nil, grepReadBuf)
 
 	err := fsWalkFiles(ctx, root, func(p, rel string, d fs.DirEntry) bool {
 		info, ierr := d.Info()
@@ -345,7 +352,7 @@ func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bo
 			return true
 		}
 		defer f.Close()
-		br := bufio.NewReaderSize(f, grepReadBuf)
+		br.Reset(f)
 		// 짧은 파일은 `Peek` 이 오류와 함께 있는 만큼을 준다 — 그것이 정상이다.
 		head, _ := br.Peek(binaryProbeLen)
 		if isBinary(head) {

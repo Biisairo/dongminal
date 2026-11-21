@@ -36,13 +36,13 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	// FR-CNR-8: 붙어 있는 WS 수. upgrade 가 성공한 뒤부터 세고, 이 핸들러가
 	// 끝날 때 던다 — 붙잡힌 연결(FR-CNR-2)도 그동안 여기 잡혀 있어야 한다.
-	s.wsOpen.Add(1)
-	defer s.wsOpen.Add(-1)
+	s.conn.wsOpen.Add(1)
+	defer s.conn.wsOpen.Add(-1)
 
 	toolID := r.URL.Query().Get("tool")
 	// FR-CNR-8: WS 는 요청 로그와 다른 축이다 — HTTP 는 조용한데 WS 만 오는
 	// 구간(폭주)과 그 반대가 모두 있으므로 따로 새긴다.
-	s.lastWS.Store(time.Now().UnixNano())
+	s.conn.lastWS.Store(time.Now().UnixNano())
 	dmlog.Infof(nil, "ws connected addr=%s tool=%s", r.RemoteAddr, toolID)
 
 	cols, rows := toolhub.ParseSize(r)

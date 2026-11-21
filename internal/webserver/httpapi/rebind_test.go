@@ -55,7 +55,7 @@ func startBindServer(t *testing.T, prep func(*Server)) (*Server, string, string)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.bindGrace = 300 * time.Millisecond
+	s.rebind.grace = 300 * time.Millisecond
 	if prep != nil {
 		prep(s)
 	}
@@ -203,21 +203,21 @@ func TestRebindRejects(t *testing.T) {
 // TC-HRB-7 (FR-HRB-27): 진행 중이면 409 bind_busy.
 func TestRebindBusy(t *testing.T) {
 	s, _, p1 := startBindServer(t, nil)
-	s.bind.mu.Lock()
-	s.bind.busy = true
-	s.bind.mu.Unlock()
+	s.rebind.bind.mu.Lock()
+	s.rebind.bind.busy = true
+	s.rebind.bind.mu.Unlock()
 	code, c, _ := postBind(t, p1, `{"port":`+freeTCPPort(t)+`}`)
 	if code != http.StatusConflict || c != apierr.CodeBindBusy {
 		t.Errorf("응답 %d %q", code, c)
 	}
-	s.bind.mu.Lock()
-	s.bind.busy = false
-	s.bind.mu.Unlock()
+	s.rebind.bind.mu.Lock()
+	s.rebind.bind.busy = false
+	s.rebind.bind.mu.Unlock()
 }
 
 // 유예 중인 옛 포트로 되돌릴 수 있다.
 func TestRebindBackToGracePort(t *testing.T) {
-	_, _, p1 := startBindServer(t, func(s *Server) { s.bindGrace = 5 * time.Second })
+	_, _, p1 := startBindServer(t, func(s *Server) { s.rebind.grace = 5 * time.Second })
 	p2 := freeTCPPort(t)
 	if code, _, body := postBind(t, p1, `{"port":`+p2+`}`); code != http.StatusOK {
 		t.Fatalf("p2 로: %d %v", code, body)
@@ -253,7 +253,7 @@ func exposeListen(fail bool, asked *[]string) func(string, string) (net.Listener
 // TC-HRB-8 (FR-HRB-24·29): expose 만 바꾸면 같은 포트로 다시 리슨하고, 경고를 싣는다.
 func TestRebindExposeOnly(t *testing.T) {
 	var asked []string
-	_, home, p1 := startBindServer(t, func(s *Server) { s.bindListen = exposeListen(false, &asked) })
+	_, home, p1 := startBindServer(t, func(s *Server) { s.rebind.listen = exposeListen(false, &asked) })
 	code, _, body := postBind(t, p1, `{"expose":true}`)
 	if code != http.StatusOK || body["expose"] != true || body["port"] != p1 || body["host"] != "0.0.0.0" {
 		t.Fatalf("응답 %d %v", code, body)
@@ -278,7 +278,7 @@ func TestRebindExposeOnly(t *testing.T) {
 // TC-HRB-8: 새 호스트로 리슨하지 못하면 옛 호스트로 돌아가고 409 bind_rebind_failed.
 func TestRebindExposeFailureRollsBack(t *testing.T) {
 	var asked []string
-	_, home, p1 := startBindServer(t, func(s *Server) { s.bindListen = exposeListen(true, &asked) })
+	_, home, p1 := startBindServer(t, func(s *Server) { s.rebind.listen = exposeListen(true, &asked) })
 	code, c, _ := postBind(t, p1, `{"expose":true}`)
 	if code != http.StatusConflict || c != apierr.CodeBindRebindFailed {
 		t.Fatalf("응답 %d %q", code, c)
@@ -335,7 +335,7 @@ func TestCarry(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Unix(1000, 0)
-	s.carry.now = func() time.Time { return now }
+	s.rebind.carry.now = func() time.Time { return now }
 
 	w := carryPost(s, []byte(`{"theme":"dark"}`))
 	var tok struct{ Token string }
@@ -406,8 +406,8 @@ func TestConnSetRevokeRemote(t *testing.T) {
 func TestRebindUnexposeMoveClosesOldAtOnce(t *testing.T) {
 	var asked []string
 	s, _, p1 := startBindServer(t, func(s *Server) {
-		s.bindGrace = 5 * time.Second
-		s.bindListen = exposeListen(false, &asked)
+		s.rebind.grace = 5 * time.Second
+		s.rebind.listen = exposeListen(false, &asked)
 	})
 	if code, _, body := postBind(t, p1, `{"expose":true}`); code != http.StatusOK {
 		t.Fatalf("expose: %d %v", code, body)
@@ -419,9 +419,9 @@ func TestRebindUnexposeMoveClosesOldAtOnce(t *testing.T) {
 	if pingOK(p1) {
 		t.Error("노출된 옛 리스너가 유예로 남았다")
 	}
-	s.bind.mu.Lock()
-	n := len(s.bind.grace)
-	s.bind.mu.Unlock()
+	s.rebind.bind.mu.Lock()
+	n := len(s.rebind.bind.grace)
+	s.rebind.bind.mu.Unlock()
 	if n != 0 {
 		t.Errorf("유예 목록 = %d", n)
 	}
@@ -465,8 +465,8 @@ func TestServerBindGet(t *testing.T) {
 func TestRebindUnexposeClosesExposedGrace(t *testing.T) {
 	var asked []string
 	_, _, p1 := startBindServer(t, func(s *Server) {
-		s.bindGrace = 5 * time.Second
-		s.bindListen = exposeListen(false, &asked)
+		s.rebind.grace = 5 * time.Second
+		s.rebind.listen = exposeListen(false, &asked)
 	})
 	if code, _, body := postBind(t, p1, `{"expose":true}`); code != http.StatusOK {
 		t.Fatalf("expose: %d %v", code, body)

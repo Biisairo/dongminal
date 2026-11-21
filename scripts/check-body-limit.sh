@@ -33,7 +33,7 @@ fi
 # 편집마다 흔들린다. 사유 없는 예외는 받지 않는다 (FR-SAF-23).
 EXCEPTIONS=(
   'internal/shared/httpreq/body.go|r\.Body|본문을 읽는 한 자리 자신'
-  'internal/webserver/httpapi/handlers_files.go|http\.MaxBytesReader\(w, r\.Body, s\.limits\.uploadMaxBytes\)|업로드(512MiB) 상한은 실제 사고에서 배운 방어라 httpreq 를 지나지 않는다 (httpreq/body.go)'
+  'internal/webserver/httpapi/handlers_files_transfer.go|http\.MaxBytesReader\(w, r\.Body, s\.limits\.uploadMaxBytes\)|업로드(512MiB) 상한은 실제 사고에서 배운 방어라 httpreq 를 지나지 않는다 (httpreq/body.go)'
   'internal/webserver/httpapi/handlers_lsp.go|io\.LimitReader\(r\.Body, max\+1\)|LSP 상한은 실제 사고에서 배운 방어라 httpreq 를 지나지 않는다 — 초과는 lspReadBody 가 413 으로 답한다'
 )
 

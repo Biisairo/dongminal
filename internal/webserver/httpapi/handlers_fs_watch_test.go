@@ -42,7 +42,7 @@ func TestFSWatch_RegistersValidDirsAndDropsOthers(t *testing.T) {
 		t.Skip("Windows 는 파일 감시를 하지 않는다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-55, D-8)")
 	}
 	srv, _, _ := fsTestServer(t)
-	defer srv.fsWatch.Close()
+	defer srv.fs.watch.Close()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -55,7 +55,7 @@ func TestFSWatch_RegistersValidDirsAndDropsOthers(t *testing.T) {
 	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	srv.fsWatch.Attach("c1")
+	srv.fs.watch.Attach("c1")
 	code, out := watchReq(t, srv, map[string]any{
 		"clientId": "c1",
 		"dirs":     []string{root, sub, file, filepath.Join(root, "missing"), "relative/dir"},
@@ -76,7 +76,7 @@ func TestFSWatch_SymlinkKeepsClientSpelling(t *testing.T) {
 		t.Skip("Windows 는 파일 감시를 하지 않는다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-55, D-8)")
 	}
 	srv, _, _ := fsTestServer(t)
-	defer srv.fsWatch.Close()
+	defer srv.fs.watch.Close()
 	base, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +89,7 @@ func TestFSWatch_SymlinkKeepsClientSpelling(t *testing.T) {
 	if err := os.Symlink(real, link); err != nil {
 		t.Skip("symlink 불가:", err)
 	}
-	srv.fsWatch.Attach("c1")
+	srv.fs.watch.Attach("c1")
 	code, out := watchReq(t, srv, map[string]any{"clientId": "c1", "dirs": []string{link}})
 	if code != http.StatusOK {
 		t.Fatalf("code=%d %v", code, out)
@@ -101,8 +101,8 @@ func TestFSWatch_SymlinkKeepsClientSpelling(t *testing.T) {
 
 func TestFSWatch_TooManyDirsIs400(t *testing.T) {
 	srv, _, _ := fsTestServer(t)
-	defer srv.fsWatch.Close()
-	srv.fsWatch.Attach("c1")
+	defer srv.fs.watch.Close()
+	srv.fs.watch.Attach("c1")
 	dirs := make([]string, fsWatchDirsMax+1)
 	for i := range dirs {
 		dirs[i] = fmt.Sprintf("/d%d", i)
@@ -115,7 +115,7 @@ func TestFSWatch_TooManyDirsIs400(t *testing.T) {
 
 func TestFSWatch_UnattachedClientIs400(t *testing.T) {
 	srv, _, _ := fsTestServer(t)
-	defer srv.fsWatch.Close()
+	defer srv.fs.watch.Close()
 	root := t.TempDir()
 	for _, cid := range []string{"", "nobody"} {
 		code, _ := watchReq(t, srv, map[string]any{"clientId": cid, "dirs": []string{root}})

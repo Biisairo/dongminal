@@ -87,20 +87,20 @@ func (s *Server) ApplyRecords(res toolipc.RecordsResult) {
 		decodeRecord(toolipc.RecordLimits, "", raw, &limits)
 	}
 
-	s.usage.mu.Lock()
-	s.usage.m = usage
-	s.usage.mu.Unlock()
-	s.subagents.mu.Lock()
-	s.subagents.m = subs
-	s.subagents.mu.Unlock()
-	s.subActs.mu.Lock()
-	s.subActs.m = acts
-	s.subActs.mu.Unlock()
-	s.migrationUnknownTold.Clear()
+	s.agents.usage.mu.Lock()
+	s.agents.usage.m = usage
+	s.agents.usage.mu.Unlock()
+	s.agents.subagents.mu.Lock()
+	s.agents.subagents.m = subs
+	s.agents.subagents.mu.Unlock()
+	s.agents.subActs.mu.Lock()
+	s.agents.subActs.m = acts
+	s.agents.subActs.mu.Unlock()
+	s.agents.migrationUnknownTold.Clear()
 	for id := range told {
-		s.migrationUnknownTold.Store(id, true)
+		s.agents.migrationUnknownTold.Store(id, true)
 	}
-	s.rateLimits.replace(limits)
+	s.agents.rateLimits.replace(limits)
 	if s.AttnTracker != nil {
 		s.AttnTracker.RestoreAll(agents)
 	}

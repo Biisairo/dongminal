@@ -91,8 +91,8 @@ func (st *subagentActivityStore) prune(live func(toolID string) bool) int {
 func (s *Server) reportSubagentActivity(req agentrec.ActivityReport) {
 	toolID, agentID := req.ToolID, req.AgentID
 	a := agentrec.SubagentActivityOf(req)
-	s.subActs.put(toolID, agentID, a, time.Now())
-	s.putRecord(toolipc.RecordSubagentActs, toolID, s.subActs.byTool(toolID))
+	s.agents.subActs.put(toolID, agentID, a, time.Now())
+	s.putRecord(toolipc.RecordSubagentActs, toolID, s.agents.subActs.byTool(toolID))
 	if s.Commands != nil {
 		s.Commands.Broadcast(sse.Payload("tool_subagent_activity", map[string]any{"toolId": toolID, "agentId": agentID,
 			"agentType": a.AgentType, "state": a.State, "tool": a.Tool, "detail": a.Detail}))

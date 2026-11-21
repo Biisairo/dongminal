@@ -85,7 +85,8 @@ func TestDialectGolden(t *testing.T) {
 		{"fs 깨진 JSON", func(w http.ResponseWriter) { var v map[string]any; fsDecode(w, post("{"), &v) },
 			golden{400, jsonHeaders("bad_request"), "{\"code\":\"bad_request\",\"message\":\"본문이 JSON 이 아니다: unexpected end of JSON input\"}\n"}},
 		{"runs", func(w http.ResponseWriter) { writeRunError(w, errors.New("boom"), map[string]any{"memberId": "m"}) },
-			golden{500, jsonHeaders("boom"), "{\"detail\":\"boom\",\"error\":\"boom\",\"memberId\":\"m\"}\n"}},
+			// REFACTOR3_GO_STRUCT_SRS FR-RGS-7: 미분류 실패는 고정 코드다 — 전문은 로그로 간다.
+			golden{500, jsonHeaders("internal_error"), "{\"detail\":\"internal_error\",\"error\":\"internal_error\",\"memberId\":\"m\"}\n"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

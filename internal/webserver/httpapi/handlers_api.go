@@ -675,8 +675,8 @@ func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
 		failRead(w, err)
 		return
 	}
-	s.settingsMu.Lock()
-	defer s.settingsMu.Unlock()
+	s.sandbox.putMu.Lock()
+	defer s.sandbox.putMu.Unlock()
 	if cur := s.sandboxTag(); settingsStale(r, cur) {
 		w.Header().Set("ETag", cur)
 		httpErr(w, "stale revision", http.StatusConflict, apierr.CodeStaleRev)

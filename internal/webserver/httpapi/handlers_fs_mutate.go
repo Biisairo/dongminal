@@ -123,8 +123,8 @@ func (s *Server) fsRenameTo(w http.ResponseWriter, req fsRenameReq, fromRoot, fr
 // 프로세스와의 경합은 남으며, 그것까지 닫으려면 플랫폼별 시스템 콜이 필요하다
 // (D-26, §6 비목표의 cross-platform 보류).
 func (s *Server) fsRenameNoReplace(from, to string) error {
-	s.fsOps.Lock()
-	defer s.fsOps.Unlock()
+	s.fs.ops.Lock()
+	defer s.fs.ops.Unlock()
 
 	st, err := os.Lstat(from)
 	if err != nil {
@@ -193,12 +193,18 @@ func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 먼저 세고 나서 지운다. 세다가 중간에 멈추면 절반만 지워진 트리가 남는다
-	// (FR-EDT-118). 세는 것부터 지우는 것까지가 한 조작이다 — 그 구간만 잠근다.
-	// 판정은 메뉴의 답과 같은 함수다 (D-SDA-6).
-	s.fsOps.Lock()
-	defer s.fsOps.Unlock()
+	// (FR-EDT-118). 판정은 메뉴의 답과 같은 함수다 (D-SDA-6).
+	//
+	// 세기는 잠금 **밖**이다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-4). 잠근 뒤 대상이 아직
+	// 있는지 다시 본다 — 사라졌으면 세기가 실패했을 때와 같은 답이다.
 	if a, _ := s.fsDeleteAnswer(root, []string{target}, s.limits.fsDelete); !a.OK {
 		fsRejectAnswer(w, a)
+		return
+	}
+	s.fs.ops.Lock()
+	defer s.fs.ops.Unlock()
+	if _, err := os.Lstat(target); err != nil {
+		fsRejectAnswer(w, fsErrAnswer(fsFromOS(err)))
 		return
 	}
 	if err := os.RemoveAll(target); err != nil {
@@ -207,6 +213,10 @@ func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	fsOK(w)
 }
+
+// fsCount 는 복사·삭제가 부르는 세기다. var 인 것은 시험이 세는 순간의 잠금 상태를
+// 보기 위해서다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-4).
+var fsCount = fsCountEntries
 
 // fsCountEntries 는 target 자신을 포함해 재귀로 센다. 상한을 넘으면 max+1 에서
 // 멈추고 그 값을 준다 — 호출자는 "넘었다"만 알면 된다.

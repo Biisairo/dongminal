@@ -26,18 +26,6 @@ import (
 // 뒤에는 오류를 보낼 자리가 없다 — 그래서 상한 초과는 본문 0바이트의 400 이고,
 // 스트리밍이 시작된 뒤의 실패는 그 파일을 건너뛰는 것으로만 다룬다 (FR-ETR-15).
 
-// 상한. const 가 아닌 것은 테스트가 낮춰 잡기 위해서다 — 실제 값으로 픽스처를
-// 만들면 테스트가 파일 5만 개를 만든다 (fsListMax·uploadMaxBytes 와 같은 관례).
-var (
-	// FR-ETR-12: 항목 수 상한. 트리 전체를 걷는 비용의 상한이기도 하다.
-	zipMaxEntries = 50000
-	// FR-ETR-12: 압축 **전** 총 바이트의 상한.
-	zipMaxBytes int64 = 2 << 30
-	// FR-ETR-45 (`SEC-20`): 동시 요청 상한. 한 요청이 최대 2GiB 를 압축하며 CPU 와
-	// 디스크를 함께 쓰므로, 겹치면 서버가 그 시간 동안 다른 일을 못 한다.
-	zipMaxConcurrent int64 = 2
-)
-
 // zipInFlight 는 지금 흐르고 있는 zip 응답의 수다.
 var zipInFlight atomic.Int64
 

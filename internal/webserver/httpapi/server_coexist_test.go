@@ -62,13 +62,13 @@ func TestTwoServersCoexist_ContextNoticesAreIndependent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !a.contextNotices.claim("m1", "warn") {
+	if !a.runAux.contextNotices.claim("m1", "warn") {
 		t.Fatal("첫 통지가 거절됐다")
 	}
-	if a.contextNotices.claim("m1", "warn") {
+	if a.runAux.contextNotices.claim("m1", "warn") {
 		t.Fatal("같은 서버의 두 번째 통지가 통과했다")
 	}
-	if !b.contextNotices.claim("m1", "warn") {
+	if !b.runAux.contextNotices.claim("m1", "warn") {
 		t.Fatal("a 의 통지 기억이 b 에 샜다")
 	}
 }

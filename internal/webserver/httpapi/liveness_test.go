@@ -41,9 +41,9 @@ func TestReapTickKeepsRecordsWhileUnknown(t *testing.T) {
 	s, _, store, _ := runsServer(t, "tool-a")
 	rec := startRunFor(t, store, "조정자 죽음", "tool-gone")
 	now := time.Now()
-	s.usage.put("tool-gone", toolUsage{})
-	s.subagents.put("tool-gone", nil, now)
-	s.subActs.put("tool-gone", "x", subagentActivity{State: "working"}, now)
+	s.agents.usage.put("tool-gone", toolUsage{})
+	s.agents.subagents.put("tool-gone", nil, now)
+	s.agents.subActs.put("tool-gone", "x", subagentActivity{State: "working"}, now)
 
 	known := s.Tools
 	unknownTools(s)
@@ -51,13 +51,13 @@ func TestReapTickKeepsRecordsWhileUnknown(t *testing.T) {
 	if _, ok := store.Get(rec.ID); !ok {
 		t.Fatal("생존을 모르는 조정자의 Run 을 지웠다 (FR-ARD-5)")
 	}
-	if _, ok := s.usage.get("tool-gone"); !ok {
+	if _, ok := s.agents.usage.get("tool-gone"); !ok {
 		t.Fatal("생존을 모르는 도구의 사용량을 지웠다")
 	}
-	if _, ok := s.subagents.get("tool-gone", now); !ok {
+	if _, ok := s.agents.subagents.get("tool-gone", now); !ok {
 		t.Fatal("생존을 모르는 도구의 서브에이전트 목록을 지웠다")
 	}
-	if len(s.subActs.list("tool-gone", now)) != 1 {
+	if len(s.agents.subActs.list("tool-gone", now)) != 1 {
 		t.Fatal("생존을 모르는 도구의 서브에이전트 활동을 지웠다")
 	}
 
@@ -66,13 +66,13 @@ func TestReapTickKeepsRecordsWhileUnknown(t *testing.T) {
 	if _, ok := store.Get(rec.ID); ok {
 		t.Fatal("조정자가 확인된 죽음인 Run 이 남았다")
 	}
-	if _, ok := s.usage.get("tool-gone"); ok {
+	if _, ok := s.agents.usage.get("tool-gone"); ok {
 		t.Fatal("죽은 도구의 사용량이 남았다")
 	}
-	if _, ok := s.subagents.get("tool-gone", now); ok {
+	if _, ok := s.agents.subagents.get("tool-gone", now); ok {
 		t.Fatal("죽은 도구의 서브에이전트 목록이 남았다")
 	}
-	if len(s.subActs.list("tool-gone", now)) != 0 {
+	if len(s.agents.subActs.list("tool-gone", now)) != 0 {
 		t.Fatal("죽은 도구의 서브에이전트 활동이 남았다")
 	}
 }

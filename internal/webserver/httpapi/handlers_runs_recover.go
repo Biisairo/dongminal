@@ -173,8 +173,8 @@ func (s *Server) recoverable(t recoverTarget) bool {
 
 // shellState 는 데몬에 셸 판정을 묻는다 (FR-RRC-10).
 func (s *Server) shellState(toolID string, pids []int) toolhub.ShellState {
-	if s.recoverProbe != nil {
-		return s.recoverProbe(toolID, pids)
+	if s.runAux.recoverProbe != nil {
+		return s.runAux.recoverProbe(toolID, pids)
 	}
 	return s.Tools.ShellProbe(toolID, pids)
 }
@@ -182,8 +182,8 @@ func (s *Server) shellState(toolID string, pids []int) toolhub.ShellState {
 // agentConfigDirs 는 에이전트 설정 폴더 목록이다 — 기본 `~/.claude` 와 계정 프로필 폴더 전부
 // (FR-RRC-5). 세션 등록부를 찾는 자리다.
 func (s *Server) agentConfigDirs() []string {
-	if s.recoverDirs != nil {
-		return s.recoverDirs()
+	if s.runAux.recoverDirs != nil {
+		return s.runAux.recoverDirs()
 	}
 	if s.ca != nil {
 		return s.ca.svc.ConfigDirs()
@@ -206,7 +206,7 @@ func (s *Server) recoverOne(t recoverTarget, dirs []string, force, single bool) 
 		out.Outcome, out.Reason = recoverSkipped, why
 		return out
 	}
-	if !s.recoverHeld.take(t.toolID, time.Now()) {
+	if !s.runAux.recoverHeld.take(t.toolID, time.Now()) {
 		out.Outcome, out.Reason = recoverSkipped, reasonRecovering
 		return out
 	}
@@ -217,7 +217,7 @@ func (s *Server) recoverOne(t recoverTarget, dirs []string, force, single bool) 
 	}
 	why, needsForce := recoverDynamic(regOK, s.shellState(t.toolID, pids), force)
 	if why != "" {
-		s.recoverHeld.release(t.toolID)
+		s.runAux.recoverHeld.release(t.toolID)
 		out.Outcome, out.Reason, out.NeedsForce = recoverSkipped, why, needsForce && single
 		return out
 	}
@@ -230,7 +230,7 @@ func (s *Server) recoverOne(t recoverTarget, dirs []string, force, single bool) 
 		err = s.deliverToTool(t.toolID, line, true)
 	}
 	if err != nil {
-		s.recoverHeld.release(t.toolID)
+		s.runAux.recoverHeld.release(t.toolID)
 		out.Outcome, out.Reason = recoverFailed, err.Error()
 		return out
 	}

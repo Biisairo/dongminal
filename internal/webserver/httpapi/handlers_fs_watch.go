@@ -54,7 +54,7 @@ func (s *Server) apiFSWatch(w http.ResponseWriter, r *http.Request) {
 		}
 		dirs = append(dirs, fswatch.Dir{Path: d, Real: real})
 	}
-	watching, err := s.fsWatch.Set(req.ClientID, dirs)
+	watching, err := s.fs.watch.Set(req.ClientID, dirs)
 	if errors.Is(err, fswatch.ErrNotAttached) {
 		fsFail(w, fsErrBadRequest, "SSE 구독이 없는 clientId")
 		return
