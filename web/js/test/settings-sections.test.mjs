@@ -629,3 +629,57 @@ test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는�
     ['tabWidthPx', true], ['termFontSize', true], ['uiFontSize', true]]);
 });
 
+// ── REFACTOR3_FE_FIX_SRS FX-3 ─────────────────────────────────────────────
+
+/** 열기 순서의 나머지는 TC-FES-4 가 본다 — 여기는 다시 읽기만. */
+function rereadSetup(active, dirty) {
+  const ctx = loadController();
+  ctx.settingsPanelDirty = (_app, panel) => dirty.has(panel);
+  const app = { isMobile: false, _paintSettingControls() {}, _settingsMobileOnOpen() {} };
+  const c = new ctx.SettingsController(app);
+  c._labelSettingsRows = () => {};
+  c.modal = { current: () => active.tab };
+  const reads = [];
+  const pending = {};
+  for (const tab of ['access', 'sandbox', 'edges', 'telegram', 'server', 'profile', 'display']) {
+    c.start({ tab, init() {}, onOpen() {}, onTab: () => { reads.push(tab); return new Promise((r) => { pending[tab] = r }) } });
+  }
+  return { c, reads, pending };
+}
+
+test('TC-FFX-7: 열 때 고른 탭이 다섯 서버 패널 가운데 하나이고 수정이 없으면 그 섹션만 다시 읽는다', () => {
+  for (const tab of ['access', 'sandbox', 'edges', 'telegram', 'server']) {
+    const { c, reads } = rereadSetup({ tab }, new Set());
+    c.onOpen('M');
+    assert.deepEqual(reads, [tab], tab);
+  }
+  for (const tab of ['display', 'profile', null]) {
+    const { c, reads } = rereadSetup({ tab }, new Set());
+    c.onOpen('M');
+    assert.deepEqual(reads, [], String(tab));
+  }
+});
+
+test('TC-FFX-7: 저장하지 않은 수정이 있으면 열 때 다시 읽지 않는다 (FR-FFX-10)', () => {
+  const { c, reads } = rereadSetup({ tab: 'access' }, new Set(['panel-access']));
+  c.onOpen('M');
+  assert.deepEqual(reads, []);
+});
+
+test('TC-FFX-7: 읽기는 섹션마다 하나만 난다 — 비행 중의 열기·탭 누르기는 같은 약속이고, 끝나면 새로 읽는다 (FR-FFX-11)', async () => {
+  const { c, reads, pending } = rereadSetup({ tab: 'edges' }, new Set());
+  c.onOpen('M');
+  const p1 = c.onTab('edges');
+  c.onOpen('M');
+  const p2 = c.onTab('edges');
+  assert.equal(p1, p2);
+  assert.deepEqual(reads, ['edges']);
+  c.onTab('access');
+  assert.deepEqual(reads, ['edges', 'access'], '다른 섹션은 따로 난다');
+  pending.edges();
+  await p1;
+  c.onTab('edges');
+  assert.deepEqual(reads, ['edges', 'access', 'edges']);
+  c.onTab('display');
+  assert.deepEqual(reads, ['edges', 'access', 'edges', 'display'], '다섯 밖의 탭은 지금처럼 onTab 이다');
+});

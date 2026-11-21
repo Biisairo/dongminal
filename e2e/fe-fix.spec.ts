@@ -74,7 +74,7 @@ test.describe('FX-1 작업 중의 툴팁·접근 이름', () => {
 
 // ── FX-2 설정 행 다시 칠하기 · 포커스 가드 ─────────────────────────────
 
-test.describe('FX-2 설정 — 칠하기·가드', () => {
+test.describe('FX-2·3 설정 — 칠하기·가드·열 때 다시 읽기', () => {
   // 설정은 서버에 산다 — 이 묶음이 바꾼 것을 다음 스펙에 흘리지 않는다.
   let original: unknown = null;
   test.beforeEach(async ({ request }) => { original = await (await request.get('/api/settings')).json(); });
@@ -130,4 +130,31 @@ test.describe('FX-2 설정 — 칠하기·가드', () => {
       await expect(inp).not.toHaveValue('9999');
     });
   }
+
+  test('TC-FFX-8: access 탭을 고른 채 닫았다가 다시 열면 다른 클라이언트가 바꾼 목록을 읽는다 — 되풀이해도 읽기는 하나씩이다', async ({ page }) => {
+    await waitForInit(page);
+    const cur = await (await page.request.get('/api/access')).json();
+    const put = (entries: any[]) => page.request.put('/api/access', { data: { enabled: false, entries, hosts: [] } });
+    try {
+      await put([]);
+      await openTab(page, 'access');
+      const rows = page.locator('#acl-list .acl-row');
+      await expect(rows).toHaveCount(0);
+      await page.click('#modal-close');
+      await put([{ id: 'x', value: '10.9.9.9', enabled: true }]);
+      let inflight = 0, maxInflight = 0;
+      const isGet = (q: any) => new URL(q.url()).pathname === '/api/access' && q.method() === 'GET';
+      page.on('request', (q) => { if (isGet(q)) { inflight++; maxInflight = Math.max(maxInflight, inflight) } });
+      page.on('requestfinished', (q) => { if (isGet(q)) inflight-- });
+      page.on('requestfailed', (q) => { if (isGet(q)) inflight-- });
+      await page.click('#settings-btn');
+      await expect(rows).toHaveCount(1, { timeout: 10000 });
+      for (let i = 0; i < 4; i++) { await page.click('#modal-close'); await page.click('#settings-btn') }
+      await expect.poll(() => inflight, { timeout: 10000 }).toBe(0);
+      expect(maxInflight).toBe(1);
+      await expect(rows).toHaveCount(1);
+    } finally {
+      await page.request.put('/api/access', { data: { enabled: !!cur.enabled, entries: cur.entries || [], hosts: cur.hosts || [] } });
+    }
+  });
 });

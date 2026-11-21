@@ -31,10 +31,17 @@ const SETTINGS_INIT=[
   'initAttn', NotifySection, PollingSection,
 ];
 
+/**
+ * REFACTOR3_FE_FIX_SRS FR-FFX-9: 서버에서 값을 읽어 그리는 패널. 설정을 열 때 고른 탭이 이 가운데 하나면 다시 읽고,
+ * 읽기는 섹션마다 하나만 난다(`_reread`). profile·claude 도 열 때 다시 읽지만 자기 `onOpen` 이 한다(순서 계약 INV-S3).
+ */
+const SETTINGS_REREAD=['access','sandbox','edges','telegram','server'];
+
 class SettingsController extends Controller {
   constructor(app){
     super(app);
     this._sections=new Map();
+    this._reading=new Map();
     this.modal=null;
     this.apply=new SettingsApply(app);
     this.live=new SettingsLive(app);
@@ -107,14 +114,46 @@ class SettingsController extends Controller {
     if(app.isMobile&&app.drawerOpen) app._toggleDrawer(false);
     if(this._settingsSearchReset) this._settingsSearchReset();
     this._hook('profile','onOpen');
+    this._rereadOnOpen();
     app._settingsMobileOnOpen(modal);
   }
 
   /**
-   * 탭을 골랐을 때 (`SettingsModal` 의 `onTab`). 고른 탭의 DOM 은 이미 바뀌었다. 탭별 재조회(sandbox·access·
-   * profile·edges·telegram·server·claude)·code 탭의 관측·프리셋 목록은 그 섹션의 `onTab` 이다.
+   * REFACTOR3_FE_FIX_SRS FR-FFX-9·10: 고른 탭이 서버 패널이면 다시 읽는다 — 닫은 사이 다른 창·기기에서 바뀐 값이 옛 상태로
+   * 남지 않게. 고르지 않은 패널은 탭을 누를 때 읽으므로 묻지 않는다(D-FFX-7). 저장하지 않은 수정이 있으면 지우지 않는다.
+   *   이전: 다섯 패널은 탭을 누를 때만 읽었다 — 고른 채 닫았다 다시 열면 닫기 전에 읽은 값이 남았다
+   *   새:   열 때 고른 패널을 다시 읽는다
    */
-  onTab(tab){ this._hook(tab,'onTab') }
+  _rereadOnOpen(){
+    const tab=this.modal&&this.modal.current();
+    if(!SETTINGS_REREAD.includes(tab)) return;
+    const s=this.section(tab);
+    if(!s||(s.dirty?s.dirty():settingsPanelDirty(this.app,'panel-'+tab))) return;
+    this._reread(tab);
+  }
+
+  /**
+   * FR-FFX-11 (D-FFX-8): 서버 패널의 읽기는 섹션마다 하나만 난다. 읽는 중에 다시 부르면(열고 닫기 되풀이·탭 누르기) 새 요청을
+   * 내지 않고 그 약속을 돌려준다 — 겹친 요청이 없으니 늦게 온 옛 응답이 새 값을 덮을 일도 없다.
+   */
+  _reread(tab){
+    let p=this._reading.get(tab);
+    if(!p){
+      p=Promise.resolve(this.section(tab).onTab()).finally(()=>this._reading.delete(tab));
+      this._reading.set(tab,p);
+    }
+    return p;
+  }
+
+  /**
+   * 탭을 골랐을 때 (`SettingsModal` 의 `onTab`). 고른 탭의 DOM 은 이미 바뀌었다. 탭별 재조회(sandbox·access·
+   * profile·edges·telegram·server·claude)·code 탭의 관측·프리셋 목록은 그 섹션의 `onTab` 이다. 서버 패널 다섯은
+   * 열 때의 다시 읽기와 같은 비행 하나를 지난다(FR-FFX-11).
+   */
+  onTab(tab){
+    if(SETTINGS_REREAD.includes(tab)&&this.section(tab)) return this._reread(tab);
+    this._hook(tab,'onTab');
+  }
 
   _hook(tab,name){
     const s=this.section(tab);

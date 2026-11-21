@@ -51,6 +51,12 @@ class SettingsModal extends Dialog {
 
   isOpen(){ return this.ov.classList.contains('open') }
 
+  /** 고른 탭의 이름. 없으면 null. */
+  current(){
+    const tab=this.box.querySelector('.mtab.active');
+    return tab?tab.dataset.tab:null;
+  }
+
   open(){
     if(this.isOpen()) return;
     this.ov.classList.add('open');

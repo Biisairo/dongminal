@@ -32,6 +32,14 @@ const SETTINGS_SAVE_BTNS=[
   {btn:'tg-silence-save', panel:'panel-telegram', dirty:app=>tgSilenceDirty(app._tg,SETTINGS_SAVE_VAL('tg-silence'))},
 ];
 
+/**
+ * REFACTOR3_FE_FIX_SRS FR-FFX-10: 패널에 저장하지 않은 수정이 있는가 — 그 패널의 저장 단추 판정 하나라도 참이면 그렇다.
+ * 설정을 열 때 다시 읽을지 가른다(`SettingsController._rereadOnOpen`): 수정이 있으면 지우지 않는다.
+ */
+function settingsPanelDirty(app,panel){
+  return SETTINGS_SAVE_BTNS.some(d=>d.panel===panel&&!!d.dirty(app));
+}
+
 class SettingsSaveState extends Controller {
   /** FR-UXF-71·72: 모든 저장 단추를 다시 판정한다. */
   _saveBtnsPaint(){

@@ -86,4 +86,7 @@ class ServerSection extends SettingsSection {
   }
 
   onTab(){ return this._loadServerPanel() }
+
+  /** REFACTOR3_FE_FIX_SRS FR-FFX-10: 포트·노출을 바꾸고 적용하지 않았다 — 저장 단추가 없는 패널이라 판정이 여기 있다. */
+  dirty(){ return !!this._srvChanges() }
 }
