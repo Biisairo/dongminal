@@ -177,7 +177,7 @@ const THEMES={
   },
   'Ayu Mirage':{
     mode:'dark',
-    ui:{bg:'#1f2430',sidebarBg:'#1a1f29',border:'#33415e',accent:'#ffcc66',accent2:'#6dcbfa',text:'#cccac2',textMuted:'#707a8c',textBright:'#ffffff',textDim:'#33415e',danger:'#f28779',accentBorder:'#5c6773'},
+    ui:{bg:'#1f2430',sidebarBg:'#1a1f29',border:'#33415e',accent:'#ffcc66',accent2:'#dfbfff',text:'#cccac2',textMuted:'#707a8c',textBright:'#ffffff',textDim:'#33415e',danger:'#f28779',accentBorder:'#5c6773'},
     terminal:{background:'#1f2430',foreground:'#cccac2',cursor:'#ffcc66',cursorAccent:'#1f2430',selectionBackground:'#33415e',selectionForeground:'#cccac2',black:'#191e2a',red:'#ed8274',green:'#a6cc70',yellow:'#fad07b',blue:'#6dcbfa',magenta:'#cfbafa',cyan:'#90e1c6',white:'#c7c7c7',brightBlack:'#686868',brightRed:'#f28779',brightGreen:'#d5ff80',brightYellow:'#ffd173',brightBlue:'#73d0ff',brightMagenta:'#dfbfff',brightCyan:'#95e6cb',brightWhite:'#ffffff'},
   },
   'Oceanic Next':{

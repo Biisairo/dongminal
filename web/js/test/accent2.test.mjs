@@ -84,3 +84,40 @@ test('TC-UXF-124: 내장 54종 모두 --accent2 가 명시값이다', () => {
     assert.equal(ctx.themeVarsOf(ctx.THEMES[n])['--accent2'], a2, n);
   }
 });
+
+/**
+ * REFACTOR3_FE_REST1_SRS FR-FR1-1~3 (FC-03, 사용자 결정 Q1): 알림색도 redmean 거리로 고른다.
+ *   이전 동작: 알림색은 제곱 RGB 거리, 실행 중 색은 redmean — 한 계산에 두 거리가 섞였다
+ *   새  동작: 둘 다 `colorDistance`(redmean)
+ *   이유:     같은 "멀다" 를 쓴다. 내장 54종 중 Ayu Mirage 하나가 바뀐다(SRS §5)
+ */
+const ATTN_KEYS = (T) => [T.brightYellow || T.yellow, T.brightMagenta || T.magenta, T.brightCyan || T.cyan,
+  T.brightGreen || T.green].filter(Boolean);
+const argmax = (cands, d) => cands.reduce((b, c) => (d(c) > d(b) ? c : b));
+const sq = (a, b) => {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return x.reduce((s, v, i) => s + (v - y[i]) ** 2, 0);
+};
+
+test('TC-FR1-1: 알림색은 accent 와의 redmean 거리가 가장 큰 후보다', () => {
+  // 제곱 거리로는 자홍(157)이, redmean 으로는 청록(238)이 멀다 — Ayu Mirage 의 팔레트다
+  const t = theme({ accent: '#ffcc66' }, { yellow: '#ffd173', magenta: '#dfbfff', cyan: '#95e6cb', green: '#d5ff80' });
+  assert.equal(argmax(ATTN_KEYS(t.terminal), (c) => sq(c, '#ffcc66')), '#dfbfff');
+  assert.equal(ctx.pickAttnColor(t), '#95e6cb');
+  for (const [n, th] of Object.entries(ctx.THEMES)) {
+    const cands = ATTN_KEYS(th.terminal);
+    assert.equal(ctx.pickAttnColor(th), argmax(cands, (c) => ctx.colorDistance(c, th.ui.accent)), n);
+  }
+});
+
+test('TC-FR1-1: 내장 테마 중 Ayu Mirage 만 바뀐다 — 알림색 #95e6cb, 실행 중 색 #dfbfff', () => {
+  const ayu = ctx.THEMES['Ayu Mirage'];
+  assert.equal(ctx.pickAttnColor(ayu), '#95e6cb');
+  assert.equal(ctx.themeVarsOf(ayu)['--accent2'], '#dfbfff');
+  for (const [n, th] of Object.entries(ctx.THEMES)) {
+    if (n === 'Ayu Mirage') continue;
+    const old = argmax(ATTN_KEYS(th.terminal), (c) => sq(c, th.ui.accent));
+    assert.equal(ctx.pickAttnColor(th), old, n);
+  }
+});

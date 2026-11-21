@@ -133,3 +133,14 @@ test('TC-SEED-11: 변환 시간 기록 (실패 조건 아님)', () => {
   const per = (performance.now() - t0) / names.length;
   console.log(`seedTheme 평균 ${per.toFixed(3)}ms/테마`);
 });
+
+// REFACTOR3_FE_REST1_SRS FR-FR1-3 (FC-03): 메인색 변환 결과의 알림색·실행 중 색도 redmean 거리로 고른다.
+//   이전 동작: Nord 를 색상 135° 로 돌리면 알림색 #ddd18c, 실행 중 색 #ba8da3
+//   새  동작: 알림색 #ba8da3, 실행 중 색 #79a4bd / 이유: 거리 한 벌(SRS §7 부록의 한 줄)
+test('TC-FR1-2: 메인색 변환 결과의 알림색·실행 중 색은 redmean 거리로 고른다', () => {
+  const nord = THEMES.Nord;
+  const a0 = oklchOf(nord.ui.accent);
+  const out = seedTheme(nord, hexOfOklch(a0.L, Math.max(a0.C, 0.1), 135));
+  assert.equal(ctx.pickAttnColor(out), '#ba8da3');
+  assert.equal(pickAccent2(out), '#79a4bd');
+});

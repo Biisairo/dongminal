@@ -24,11 +24,15 @@ function pickAttnColor(theme){
   //   이유:     닿는 일이 드문 자리여도 색이 테마 밖으로 나가면 게이트가 재는
   //             면적이 줄고, 그 자리는 다음에 또 는다
   const fallback=T.brightYellow||T.yellow||(theme.ui&&theme.ui.accent);
-  const acc=hexRgb(theme.ui&&theme.ui.accent);
+  // REFACTOR3_FE_REST1_SRS FR-FR1-1 (FC-03, 사용자 결정 Q1): 거리는 `colorDistance`(redmean) 하나다.
+  //   이전 동작: 제곱 RGB 거리 — `pickAccent2` 는 redmean 이라 한 계산에 두 거리가 섞였다
+  //   새  동작: redmean. 내장 54종 중 Ayu Mirage 의 알림색이 #dfbfff → #95e6cb (SRS §5)
+  //   이유:     알림색과 실행 중 색이 같은 "멀다" 로 서로를 피한다
+  const acc=theme.ui&&theme.ui.accent;
   const cands=[T.brightYellow||T.yellow,T.brightMagenta||T.magenta,T.brightCyan||T.cyan,T.brightGreen||T.green].filter(Boolean);
-  if(!acc||!cands.length) return fallback;
+  if(!hexRgb(acc)||!cands.length) return fallback;
   let best=cands[0],bestD=-1;
-  for(const c of cands){const rgb=hexRgb(c);if(!rgb)continue;const d=(rgb.r-acc.r)**2+(rgb.g-acc.g)**2+(rgb.b-acc.b)**2;if(d>bestD){bestD=d;best=c}}
+  for(const c of cands){if(!hexRgb(c))continue;const d=colorDistance(c,acc);if(d>bestD){bestD=d;best=c}}
   return best;
 }
 
