@@ -1250,6 +1250,14 @@
 | `D-6` | — 봉쇄는 지연이지 거절이 아니다. |  | 채택 |
 | `D-7` | — 첫 미스는 늦추지 않는다 (FR-RCS-9a). |  | 채택 |
 
+## [`REFACTOR3_DEDUP_GO_SRS`](./REFACTOR3_DEDUP_GO_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-RDG-1` | 공통 렌더·디코드는 `shared/httpresp`·`shared/httpreq` 에 둔다. `apierr` 에 두지 않는다 | `shared/edge`·`edgenode` 는 `webserver` 를 가져올 수 없다(의존 방향). 그래서 지금 헤더 이름이 네 벌이다 | 채택 |
+| `D-RDG-2` | 방언은 합치지 않는다 | 공개 계약이고, 통일은 `G6-4` 로 기각됐다 | 채택 |
+| `D-RDG-3` | 묶음 넷은 서로 다른 작업 트리에서 구현해 합친다 | 패키지가 겹치지 않는다. 겹치는 자리(`shared/edgenode`)는 GA 가 렌더 자리만, GC 가 대기 시간·정화만 고친다 | 채택 |
+
 ## [`REFACTOR3_DEFECTS_SRS`](./REFACTOR3_DEFECTS_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -1877,4 +1885,4 @@
 
 ---
 
-결정 **1139건** · 문서 **143개**.
+결정 **1142건** · 문서 **144개**.
