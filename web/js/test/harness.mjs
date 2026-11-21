@@ -69,7 +69,7 @@ export const GITVIEW = ['git/git-view.js'];
  */
 export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/panel-life.js', 'git/panel-changes.js',
   'git/panel-views.js', 'git/panel-write.js', 'git/panel-files.js', 'git/panel-diff.js', 'git/panel-diff-tab.js',
-  'git/git-blame.js', 'git/panel-hunks.js', 'git/panel-dir-entry.js', 'git/panel-poll.js'];
+  'git/git-blame.js', 'git/git-hunks.js', 'git/panel-dir-entry.js', 'git/panel-poll.js'];
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');

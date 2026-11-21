@@ -27,6 +27,7 @@
  * 바깥·다른 파일이 부르는 부품 메서드는 아래 위임자가 잇는다.
  *
  *   git-blame.js      Blame (`this.blame`)
+ *   git-hunks.js      부분 스테이징 · hover 툴바 (`this.hunks`)
  *
  * 관측(`GitObserver`)은 observer.js, Diff 편집기(`GitDiffView`)는 diff-view.js 다.
  */
@@ -64,16 +65,6 @@ class GitPanel {
     // 만들지 않는다. _hunkKey 는 이미 받아 둔 대상, _hunks 는 그 관측이다.
     this._hunkKey=null;
     this._hunks=null;             // {diffId,list,note} 또는 {err}
-    // DIFF_HUNK_BAR_SRS: 줄 범위는 이제 **편집기의 선택**이다 (I-2) — 화면이
-    // 따로 들고 있던 `_hunkSel` 은 폐기됐다 (FR-DHB-2). 아래 일곱은 hover 툴바의
-    // 것이며 화면 상태가 아니라 **지금 마우스가 어디 있는가**다 (FR-DHB-11·21).
-    this._hunkBarEd=null;         // 툴바가 붙은 모디파이드 에디터
-    this._hunkBarWidget=null;     // 툴바 위젯 (하나)
-    this._hunkBarEl=null;         // 그 위젯의 DOM (하나, 재사용)
-    this._hunkBarPos=null;        // 위젯의 자리. null 이면 뜨지 않는다
-    this._hunkBarHunk=-1;         // 지금 가리키는 덩어리 번호
-    this._hunkBarSubs=null;       // 에디터 리스너들 (정리 대상)
-    this._hunkBarFocus=false;     // 그 에디터가 포커스를 갖고 있나 (FR-DHB-13)
     this._diffPos=0;              // 목록에서 사라진 대상을 클램프할 기준 (FR-GIT-53)
     this._sideBy=null;            // FR-GIT-51 의 보기 모드
     this._ignWs=null;             // FR-GIT-50 의 공백무시 토글
@@ -104,12 +95,26 @@ class GitPanel {
     this.commitFile=null;
     // 부품 (REFACTOR3_FE_GITPANEL_SRS FR-FEP-3). 혼자 쓰는 필드는 부품이 갖는다.
     this.blame=new GitBlame(this);
+    this.hunks=new GitHunks(this);
   }
+
+  // e2e 가 툴바의 자리를 읽는다 (FR-FEP-5). 주인은 `GitHunks` 다.
+  get _hunkBarEd(){ return this.hunks._hunkBarEd }
+  get _hunkBarPos(){ return this.hunks._hunkBarPos }
 
   // ── 부품 위임자 (FR-FEP-4) — 패널 바깥·다른 파일이 부르는 이름 ──
   openBlame(target){ return this.blame.openBlame(target) }
   blameStale(){ return this.blame.blameStale() }
   _paintBlame(el){ return this.blame._paintBlame(el) }
+  _paintHunks(el,f){ return this.hunks._paintHunks(el,f) }
+  _hunkText(){ return this.hunks._hunkText() }
+  _hunkNote(el,text){ return this.hunks._hunkNote(el,text) }
+  _hunkBarWire(ed){ return this.hunks._hunkBarWire(ed) }
+  _hunkBarDispose(){ return this.hunks._hunkBarDispose() }
+  _hunkBarHide(){ return this.hunks._hunkBarHide() }
+  _hunkBarPaint(){ return this.hunks._hunkBarPaint() }
+  _hunkAct(kind){ return this.hunks._hunkAct(kind) }
+  _diffChanged(){ return this.hunks._diffChanged() }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //

@@ -3,7 +3,7 @@
  *
  * 행 선택에서 diff 로 가는 길(`_select`·`_openDiff`·`_showTarget`)과 Diff 탭·Changes
  * 미리보기의 두 `GitDiffView` 가 여기 산다. blame 은 `git-blame.js`, 부분 스테이징
- * (`_paintHunks`·`_hunkBar*`·`_hunkAct`, FR-GIT-278·279)은 `panel-hunks.js`, 디렉터리 항목의 사유·진입점
+ * (`_paintHunks`·`_hunkBar*`·`_hunkAct`, FR-GIT-278·279)은 `git-hunks.js`, 디렉터리 항목의 사유·진입점
  * (`_dirEntryNote`·`_dirEntryActs`)은 `panel-dir-entry.js` 다 (FR-OPT-12-4).
  *
  * 조각은 서버가 만든 diff 에서 온다 — 이 파일이 만들지 않는다. **화면에 그리지도

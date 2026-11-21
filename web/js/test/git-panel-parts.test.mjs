@@ -19,16 +19,25 @@ const read = (f) => readFileSync(join(JS, f), 'utf8');
 
 /**
  * field: 패널이 드는 이름 · cls: 부품 클래스 · gone: 사라진 mixin · owned: 부품 소유 필드
- * delegates: 패널 위임자와 그 시험 인자
+ * exposed: e2e 가 읽어 패널에 접근자를 둔 소유 필드(FR-FEP-5) · delegates: 패널 위임자와 그 시험 인자
  */
 const PARTS = [
   { field: 'blame', cls: 'GitBlame', gone: ['git/panel-blame.js'],
     owned: ['_blameKey', '_blameData', '_blameErr', '_blameAll'],
     delegates: [['openBlame', [{ path: 'a.txt', group: 'working' }]], ['blameStale', []], ['_paintBlame', [{ id: 'el' }]]] },
+  { field: 'hunks', cls: 'GitHunks', gone: ['git/panel-hunks.js'],
+    owned: ['_hunkBarEd', '_hunkBarEl', '_hunkBarPos', '_hunkBarHunk', '_hunkBarFocus', '_hunkBarOff', '_hunkErr', '_hunkErrKey'],
+    exposed: ['_hunkBarEd', '_hunkBarPos'],
+    delegates: [['_paintHunks', [{ id: 'el' }, { path: 'a.txt' }]], ['_hunkText', []], ['_hunkNote', [{ id: 'note' }, 'text']],
+      ['_hunkBarWire', [{ id: 'ed' }]], ['_hunkBarDispose', []], ['_hunkBarHide', []], ['_hunkBarPaint', []],
+      ['_hunkAct', ['stage']], ['_diffChanged', []]] },
 ];
 
+/** 생성자 밖 참조가 없어 지운 필드 (FR-FEP-6). */
+const DEAD = ['_hunkBarWidget', '_hunkBarSubs'];
+
 /** 하위 단계가 끝난 뒤 남는 `Object.assign(GitPanel.prototype` 의 수 (TC-FEP-2). 처음은 12 다. */
-const ASSIGNS_LEFT = 11;
+const ASSIGNS_LEFT = 10;
 
 function setup() {
   const ctx = load([...BASE, ...GITPANEL], {
@@ -90,10 +99,21 @@ test('TC-FEP-3 부품 소유 필드가 패널 원형·생성자에 없고 패널
   const proto = Object.getPrototypeOf(panel);
   const panelSrc = readdirSync(GIT).filter((f) => /^panel/.test(f)).map((f) => [f, readFileSync(join(GIT, f), 'utf8')]);
   for (const s of PARTS) {
+    const exposed = s.exposed || [];
     for (const k of s.owned) {
       assert.ok(!Object.hasOwn(panel, k), `${k} 가 패널 생성자에 있다`);
-      assert.ok(!(k in proto), `${k} 가 패널 원형에 있다`);
       for (const [f, src] of panelSrc) assert.ok(!src.includes('this.' + k), `${f} 가 ${k} 를 읽는다`);
+      if (!exposed.includes(k)) { assert.ok(!(k in proto), `${k} 가 패널 원형에 있다`); continue }
+      const d = Object.getOwnPropertyDescriptor(proto, k);
+      assert.ok(d && d.get && !d.set, `${k} 는 패널의 읽기 접근자여야 한다`);
+      const v = { mark: k };
+      panel[s.field][k] = v;
+      assert.equal(panel[k], v, `${k} 접근자가 부품의 값을 읽지 않는다`);
     }
+  }
+  const all = readdirSync(GIT).map((f) => readFileSync(join(GIT, f), 'utf8')).join('\n');
+  for (const k of DEAD) {
+    assert.ok(!Object.hasOwn(panel, k), `죽은 필드 ${k} 가 남았다`);
+    assert.ok(!all.includes(k), `죽은 필드 ${k} 가 소스에 남았다`);
   }
 });

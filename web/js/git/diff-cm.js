@@ -4,7 +4,7 @@
  *   gitDiffIgnoreWs     앞뒤 공백 무시 diff — `diffConfig.override` 자리 (FR-CMR-53)
  *   gitDiffRulerItems   조각 → ruler 항목 (FR-CMR-57)
  *   gitDiffHunkBar      hunk 툴바를 커서 줄에 띄우는 tooltip 필드 (FR-CMR-55)
- *   gitDiffCursorHost   panel-hunks.js 가 편집기에 닿는 유일한 자리
+ *   gitDiffCursorHost   git-hunks.js 가 편집기에 닿는 유일한 자리
  */
 
 // 줄 번호(1-기반) → 그 줄의 시작 offset. 줄 수를 넘으면 문서 끝이다.
@@ -74,7 +74,7 @@ function gitDiffHunkBar() {
 }
 
 /**
- * panel-hunks.js 가 수정본 편집기에 닿는 자리 (§11.4). 엔진의 이벤트와 선택을 이 모양으로만 내보낸다:
+ * git-hunks.js 가 수정본 편집기에 닿는 자리 (§11.4). 엔진의 이벤트와 선택을 이 모양으로만 내보낸다:
  *
  *   sel()        `{s, e, empty}` — 선택의 줄 범위. 다음 줄 1열에서 끝나는 선택은 그 줄을 넣지 않는다 (FR-DHB-11a)
  *   hasFocus()   편집기가 포커스를 가졌는가
