@@ -23,9 +23,10 @@ function world() {
   a.ws = { activeWindow: 'w1', windows: [win] };
   a.aw = () => win;
   a.calls = [];
-  for (const m of ['paneTabSet', 'setFocusState', '_focusWindow', 'render', 'save', '_killTool', 'editorsDrop', '_gitRescheduleAll', '_tabReopenNote']) {
+  for (const m of ['paneTabSet', 'setFocusState', '_focusWindow', 'render', 'save', '_killTool', 'editorsDrop', '_gitRescheduleAll']) {
     a[m] = (...args) => { a.calls.push(m) };
   }
+  a.layout.reopen._tabReopenNote = () => { a.calls.push('_tabReopenNote') };
   a._isToolBusy = async () => false;
   a.paneTab = (pn) => pn.activeTab;
   return { a, pane };

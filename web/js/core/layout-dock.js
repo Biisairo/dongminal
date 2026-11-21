@@ -3,13 +3,15 @@
  *
  * 앱 패널(사이드바·Activity)과 Repo 사이드의 자리를 읽고, 바꾸고, 화면에 싣는다.
  * 계산은 `panel-dock.js` 의 순수 함수가 하고, 드래그 배선은 `input-binding.js` 가 한다.
+ * `LayoutController` 의 부품 `.dock` 이다(REFACTOR3_FE_APPCTL_SRS 9i-2, 옛 `app-dock.js`). 화면에 실린 자리 `_dockShown` 은
+ * 이 부품의 것이다(§2.2 SH-4).
  */
-Object.assign(App.prototype, {
+class LayoutDock extends Controller {
   /**
    * 노드를 옮기지 않고 flex `order` 로 놓는다 — 옮기면 스크롤·포커스·진행 중인
    * 드래그를 잃는다. 모바일 제외(FR-PDK-15)는 CSS 의 `body:not(.mobile)` 가 맡는다.
    */
-  panelDock(){return dockNormalize(PrefStore.session.json(STORE_KEYS.panelDock,null))},
+  panelDock(){return dockNormalize(PrefStore.session.json(STORE_KEYS.panelDock,null))}
 
   /**
    * FR-PDK-36: 바뀐 것이 없으면 아무것도 하지 않는다. 비교 대상은 **화면에 실린 값**이다.
@@ -22,16 +24,16 @@ Object.assign(App.prototype, {
     PrefStore.session.setJson(STORE_KEYS.panelDock,n);
     this.applyPanelDock();
     this._dockRefit();
-    this.agentsRender();   // UX_BATCH13_SRS FR-ACB-5: 접기 아이콘이 자리를 따른다
-  },
+    this.app.agentsRender();   // UX_BATCH13_SRS FR-ACB-5: 접기 아이콘이 자리를 따른다
+  }
 
   // FR-PDK-14: 자리가 바뀌면 보이는 터미널의 폭이 바뀐다.
   _dockRefit(){
-    for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
-  },
+    for(const p of this.app.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
+  }
 
   applyPanelDock(){
-    const s=this.panelDock(), o=dockOrders(s), de=document.documentElement, st=de.style;
+    const s=this.app.panelDock(), o=dockOrders(s), de=document.documentElement, st=de.style;
     this._dockShown=s;
     st.setProperty('--dock-sb-ord',String(o.sidebar.panel));
     st.setProperty('--dock-sb-h-ord',String(o.sidebar.handle));
@@ -39,9 +41,9 @@ Object.assign(App.prototype, {
     st.setProperty('--dock-ag-h-ord',String(o.activity.handle));
     de.dataset.sbSide=dockSideOf(s,'sidebar');
     de.dataset.agSide=dockSideOf(s,'activity');
-    de.dataset.repoSide=this.repoSideDock();
-    this.sbCollapsePaint();
-  },
+    de.dataset.repoSide=this.app.repoSideDock();
+    this.app.sbCollapsePaint();
+  }
 
   /**
    * UX_AUDIT_FIX_SRS FR-UXF-30: 메인 패널 머리의 접기 단추 — 작업 패널의 `.ag-collapse` 와 같은 규칙이다(아이콘은
@@ -54,16 +56,16 @@ Object.assign(App.prototype, {
     if(!b){
       // 킷은 이름 없는 단추를 거절한다(던진다) — 부팅 경로이므로 처음부터 이름을 준다.
       // UX_AUDIT_FIX_SRS D-38: 작업 패널의 접기(`ag-collapse`)와 같은 크기다. 이전 `size:'lg'` — 레일 맨 위에서 두 레일의 탭 선이 4px 어긋났다.
-      b=UIKit.button({icon:'chevron-left',title:'Collapse the panel',kind:'ghost',cls:'sb-collapse ui-panel-act-desktop',onClick:e=>{e.stopPropagation();this._toggleSidebar()}});
+      b=UIKit.button({icon:'chevron-left',title:'Collapse the panel',kind:'ghost',cls:'sb-collapse ui-panel-act-desktop',onClick:e=>{e.stopPropagation();this.app._toggleSidebar()}});
       acts.prepend(b);
     }
-    const open=!this.sidebarCollapsed();
+    const open=!this.app.sidebarCollapsed();
     const tip=open?'Collapse the panel':'Expand the panel';
     b.title=tip; b.setAttribute('aria-label',tip);
     b.replaceChildren(UIKit.icon(agCollapseIcon(open,document.documentElement.dataset.sbSide||'left',false)));
-  },
+  }
 
-  repoSideDock(){return repoSideNormalize(PrefStore.session.get(STORE_KEYS.repoSideDock))},
+  repoSideDock(){return repoSideNormalize(PrefStore.session.get(STORE_KEYS.repoSideDock))}
 
   setRepoSideDock(v){
     const n=repoSideNormalize(v);
@@ -71,7 +73,7 @@ Object.assign(App.prototype, {
     PrefStore.session.set(STORE_KEYS.repoSideDock,n);
     this.applyPanelDock();
     this._dockRefit();
-  },
+  }
 
   /**
    * PANEL_LAYOUT_SRS FR-PLY-11: 지금 탭의 배치. 폭은 저장된 탭 값을 먼저, 없으면 화면에
@@ -84,22 +86,26 @@ Object.assign(App.prototype, {
       const el=document.getElementById(id);
       return el&&shown?el.getBoundingClientRect().width:NaN;
     };
-    const open=this.agentsPanelOpen(), collapsed=this.sidebarCollapsed();
+    const open=this.app.agentsPanelOpen(), collapsed=this.app.sidebarCollapsed();
     return {
-      dock:this.panelDock(), repoSide:this.repoSideDock(),
+      dock:this.app.panelDock(), repoSide:this.app.repoSideDock(),
       sidebarPx:px(SIDEBAR_W_KEY,'sidebar',!collapsed), sidebarCollapsed:collapsed,
-      repoSidePx:this.edSideWidth(),
+      repoSidePx:this.app.edSideWidth(),
       activityPx:px(STORE_KEYS.agentsWidth,'agents-panel',open), activityOpen:open,
     };
-  },
+  }
 
   /** FR-PLY-12: 저장. 새 탭이 이 배치로 시작한다. */
   saveLayout(){
     return PrefStore.local.setJson(PLY_KEYS.saved,layoutCapture(this._layoutState(),window.innerWidth));
-  },
+  }
 
   /** FR-PLY-12: 기본값으로. 저장 레이아웃만 지운다 — 지금 탭의 화면은 그대로다. */
   resetLayout(){
     return PrefStore.local.remove(PLY_KEYS.saved);
-  },
-});
+  }
+}
+
+// 바깥이 부르는 이름 — 부팅·설정·`ui/`(드래그 배선)·사이드바 접기(`layout-tab-ops.js`)·e2e·계약.
+Controller.delegate(App,'layout.dock',['panelDock','setPanelDock','applyPanelDock','sbCollapsePaint','repoSideDock',
+  'setRepoSideDock','saveLayout','resetLayout']);

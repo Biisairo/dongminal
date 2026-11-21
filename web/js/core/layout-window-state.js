@@ -10,8 +10,10 @@
  * (`sessionStorage` 의 창 id · Repo 루트)을 여기서만 적는다. 창을 바꾸며 함께 하는
  * 일(칸 따라가기·포커스·소유권 주장·git 재예약)은 자리마다 다르므로 부르는 쪽에
  * 남는다 — 그 차이를 옵션으로 올리면 호출부마다 옵션 조합이 하나씩 생긴다.
+ *
+ * `LayoutController` 의 부품 `.winState` 다(REFACTOR3_FE_APPCTL_SRS 9i-2, 옛 `app-window-state.js` + `app-presets.js`).
  */
-Object.assign(App.prototype, {
+class LayoutWindowState extends Controller {
   /**
    * 받은 스냅숏의 창 목록을 제자리에서 정규화한다. `live` 는 살아 있는 도구 id 의
    * 판정이다 (FR-TLU-5·6 — 모를 때는 전부 참).
@@ -29,22 +31,22 @@ Object.assign(App.prototype, {
     // Editor 창은 pane 이 없고(FR-EDT-55) 그것이 정상이다 — `git pin` 하나에도
     // `workspace_changed` 가 오므로(§2.4) 예외가 없으면 다음 핀 한 번에 사라진다.
     // CHAT_WINDOW_SRS FR-CW-4: 칸이 없는 채팅 창도 남는다.
-    const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)||this.isChatWin(s)))};
+    const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.app.isEditorWin(s)||this.app.isChatWin(s)))};
     keep();
     // CHAT_WINDOW_SRS FR-CW-2·14: 채팅 창은 하나이고, 그 밖의 채팅 탭은 닫는다.
-    const chatFixed=this._chatNormalize?this._chatNormalize(sv.windows):0;
+    const chatFixed=this.app._chatNormalize?this.app._chatNormalize(sv.windows):0;
     // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
-    this._migrateGitWindow(sv.windows);
+    this.app._migrateGitWindow(sv.windows);
     // FR-EDT-103·104·106 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다 — 다른 브라우저가
     // 만든 것도. `clean()` 이 아니라 여기다: `clean` 은 편집기 탭을 보존하도록
     // 만들어져 있고 창 타입을 알지 못한다 (§2.9).
-    const migrated=!!this._migrateEditorTabs(sv.windows);
+    const migrated=!!this.app._migrateEditorTabs(sv.windows);
     // FR-EDT-105: 탭이 0이 된 pane 은 붕괴하고, layout 이 빈 **일반** 창은 사라진다.
     if(migrated||chatFixed) keep();
     // ISSUE_AGENT_TREE_SRS FR-WGR-6: 그룹 불변식은 창 목록이 정해진 뒤에 세운다.
-    this._groupsNormalizeWs(sv);
+    this.app.layout.groups._groupsNormalizeWs(sv);
     return migrated||!!chatFixed;
-  },
+  }
 
   /**
    * FR-EDT-45 (FR-CLS-1 과 같은 근거): 활성 창의 폴백은 Editor 창이 아니다.
@@ -54,8 +56,8 @@ Object.assign(App.prototype, {
    */
   _fallbackActiveWindow(ws){
     if(ws.windows.find(s=>s.id===ws.activeWindow)) return;
-    ws.activeWindow=(ws.windows.find(s=>!this.isEditorWin(s)&&!this.isChatWin(s))||ws.windows[0])?.id||null;
-  },
+    ws.activeWindow=(ws.windows.find(s=>!this.app.isEditorWin(s)&&!this.app.isChatWin(s))||ws.windows[0])?.id||null;
+  }
 
   /**
    * 기기·창의 것인 키를 동기화 상태에서 걷어낸다. 옮긴 키는 첫 진입과 원격 반영
@@ -65,28 +67,28 @@ Object.assign(App.prototype, {
    *   sidebarWidth                  창의 치수다 (FR-UXB-8, D-UXB-1)
    *   Repo 사이드 폭                창의 치수다 (FR-RSW-5, `_edMigrateSideWidth`)
    *
-   * 대상은 `this.ws` 다 — `_edMigrateSideWidth` 도 그것을 본다. 폭을 옮겼으면 참이다
+   * 대상은 `this.app.ws` 다 — `_edMigrateSideWidth` 도 그것을 본다. 폭을 옮겼으면 참이다
    * (저장은 부르는 쪽이 한다).
    */
   _stripDeviceKeys(){
-    delete this.ws.displayMode;
-    delete this.ws.mobileBreakpoint;
+    delete this.app.ws.displayMode;
+    delete this.app.ws.mobileBreakpoint;
     let moved=false;
-    if('sidebarWidth' in this.ws){ delete this.ws.sidebarWidth; moved=true }
-    return this._edMigrateSideWidth()||moved;
-  },
+    if('sidebarWidth' in this.app.ws){ delete this.app.ws.sidebarWidth; moved=true }
+    return this.app._edMigrateSideWidth()||moved;
+  }
 
   /**
    * FEC-18: 활성 창을 `id` 로 바꾼다. `rememberFocus` 면 **다른 창으로 떠날 때**
    * 떠나는 창의 포커스 pane 을 적는다 — 돌아왔을 때 그 자리로 간다.
    */
   _activateWindow(id,{rememberFocus=false}={}){
-    if(rememberFocus&&this.ws.activeWindow!==id){
-      const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
+    if(rememberFocus&&this.app.ws.activeWindow!==id){
+      const cur=this.app.aw(); if(cur) cur.focusedPane=this.app.focused;
     }
-    this.ws.activeWindow=id;
+    this.app.ws.activeWindow=id;
     this._persistActiveWindow(id);
-  },
+  }
 
   /**
    * 활성 창의 **탭별 기억**. 새로고침을 건너는 유일한 근거다 (`activeWindow` 는
@@ -95,12 +97,64 @@ Object.assign(App.prototype, {
    * D-RTU-18: 루트도 함께 적는다 — Repo 창은 재조정이 새 id 로 다시 세울 수 있고
    * 루트는 그대로다. 일반 창이면 지운다: 남겨 두면 새로고침이 옛 Repo 창으로 간다.
    *
-   * `win` 은 창이 아직 `this.ws` 에 없을 때(원격 스냅숏의 창) 넘긴다.
+   * `win` 은 창이 아직 `this.app.ws` 에 없을 때(원격 스냅숏의 창) 넘긴다.
    */
   _persistActiveWindow(id,win){
-    const w=win||this.ws.windows.find(s=>s&&s.id===id);
+    const w=win||this.app.ws.windows.find(s=>s&&s.id===id);
     PrefStore.session.set(STORE_KEYS.activeWindow,id);
-    if(this.isEditorWin(w)) PrefStore.session.set(ACTIVE_EDITOR_ROOT_KEY,this.edRootOf(w));
+    if(this.app.isEditorWin(w)) PrefStore.session.set(ACTIVE_EDITOR_ROOT_KEY,this.app.edRootOf(w));
     else PrefStore.session.remove(ACTIVE_EDITOR_ROOT_KEY);
-  },
-});
+  }
+
+  // ── 레이아웃 프리셋 (PACKAGE_RESTRUCTURE_SRS FR-APP-2, 옛 `app-presets.js`) ──
+  //
+  // 설정창의 프리셋 패널은 `settings-presets.js` 의 `PresetsSection` 이다 (REFACTOR3_FE_SETTINGS_SRS 8d). 여기 남는 것은
+  // 설정창 밖에서도 도는 둘이다 — 프리셋으로 창을 만드는 `_loadPreset`(사이드바 단추·패널의 불러오기)과 사이드바의
+  // 기본 프리셋 단추 칠하기(부팅과 설정 setter 가 설정창보다 먼저 부른다).
+
+  async _loadPreset(idx){
+    const preset=layoutPresets[idx];if(!preset)return;
+    // Create new window with preset layout
+    await this.app._mkWindow();
+    const s=this.app.aw();if(!s)return;
+    // Build layout from preset, creating panes as needed
+    const build=async(tpl)=>{
+      if(!tpl)return null;
+      if(tpl.type==='pane'){
+        const tabs=[];
+        for(let i=0;i<tpl.tabCount;i++){
+          const p=await this.app._newTool();
+          tabs.push({id:newEntityId(),name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id});
+        }
+        const rid=newEntityId();
+        return{type:'pane',id:rid,tabs,activeTab:tabs[0].id};
+      }
+      if(tpl.type==='split'){
+        const children=[];
+        for(const c of tpl.children){
+          const built=await build(c);
+          if(built)children.push(built);
+        }
+        return{type:'split',direction:tpl.direction,children,sizes:tpl.sizes?[...tpl.sizes]:null};
+      }
+      return null;
+    };
+    const built=await build(preset.layout);
+    // 프리셋이 빈 layout 을 담고 있어도 `_mkWindow` 가 만든 layout 을 덮어쓰지
+    // 않는다 — 덮어쓰면 창 필터(FR-EDT-49)가 그 일반 창을 지우고 도구만 남는다.
+    if(built) s.layout=built;
+    this.app.setFocusState(firstPane(s.layout)?.id||null, s);
+    await this.app.save();this.app.render();
+  }
+
+  // FR-OPT-1-12 (FEC-8): 사이드바의 기본 프리셋 버튼. 값을 얹는 자리(설정 setter)와
+  // 목록을 그리는 자리가 같은 손을 부른다 — 다른 창에서 바뀐 기본 프리셋도 따라온다.
+  _presetButtonPaint(){
+    const pbtn=document.getElementById('add-preset');
+    if(pbtn)pbtn.style.display=defaultPreset>=0&&layoutPresets[defaultPreset]?'':'none';
+  }
+}
+
+// 바깥이 부르는 이름 — 부팅(`app.js`)·상태 동기화·슬롯·포커스·편집기·설정 프리셋·e2e·계약.
+Controller.delegate(App,'layout.winState',['_normalizeIncomingWorkspace','_fallbackActiveWindow','_stripDeviceKeys',
+  '_activateWindow','_persistActiveWindow','_loadPreset','_presetButtonPaint']);

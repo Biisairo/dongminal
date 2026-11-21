@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { load, plain, HELPERS } from './harness.mjs';
+import { BASE, HELPERS, LAYOUT, controllers, load, plain } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-1 — 워크스페이스 정규화 한 벌(FEC-17) · 활성 창
@@ -26,15 +26,15 @@ function memStore() {
 
 function world() {
   const sessionStorage = memStore();
-  const ctx = load(['core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js',
-    ...HELPERS, 'core/app-window-state.js', 'core/window-order.js', 'core/app-groups.js'], {
+  const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js',
+    ...HELPERS, 'core/window-order.js', ...LAYOUT], {
     globals: {
       App: function App() {}, sessionStorage, ACTIVE_EDITOR_ROOT_KEY: 'activeEditorRoot',
       ErrorLog: { push() {} },
     },
     expose: ['findTabWhere'],
   });
-  const a = new ctx.App();
+  const a = controllers(ctx, new ctx.App());
   a.isEditorWin = (s) => !!(s && s.editor);
   a.isChatWin = (s) => !!(s && s.type === 'chat');
   a.edRootOf = (s) => (s && s.editor && s.editor.root) || '';
@@ -145,7 +145,7 @@ function jsFiles(dir, out = []) {
 
 test('FEC-18: 활성 창의 탭별 기억을 쓰는 자리는 _persistActiveWindow 하나다', () => {
   for (const rel of [...jsFiles('core'), ...jsFiles('ui'), ...jsFiles('git')]) {
-    if (rel === 'core/app-window-state.js') continue;
+    if (rel === 'core/layout-window-state.js') continue;
     const src = code(read(rel));
     assert.doesNotMatch(src, /setItem\(\s*'activeWindow'/, rel + ' 가 activeWindow 를 직접 적는다');
     assert.doesNotMatch(src, /(setItem|removeItem)\(\s*ACTIVE_EDITOR_ROOT_KEY/, rel + ' 가 Repo 루트를 직접 적는다');

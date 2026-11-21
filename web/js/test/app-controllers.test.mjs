@@ -98,6 +98,13 @@ const ISSUES = {
     plainNow: [],
     mixins: 22,
   },
+  '9i-2': {
+    ctl: ['core/layout-dock.js', 'core/layout-dnd.js', 'core/layout-groups.js', 'core/layout-window-state.js', 'core/layout-tab-reopen.js'],
+    gone: ['core/app-dock.js', 'core/app-dnd.js', 'core/app-groups.js', 'core/app-window-state.js', 'core/app-presets.js',
+      'core/app-tab-reopen.js'],
+    plainNow: [],
+    mixins: 16,
+  },
 };
 
 // ── 9a: 간선 · 업데이트 · 설정 잔여(폴링 포함) · 얇은 셸(LSP·Run) ──────────────────────
@@ -1179,6 +1186,153 @@ test('TC-FEA-3(9i-1): 옮긴 묶음의 계약 이름이 App 원형에서 함수�
   const ctx = load9i1();
   const contract = contractNames();
   const names = Object.values(DELEGATES_9I1).flat().filter((x) => contract.has(x));
+  assert.ok(names.length > 0);
+  for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+});
+
+// ── 9i-2: 레이아웃 나머지 — 도킹 · 끌어 놓기 · 창 그룹 · 창 상태와 프리셋 · 닫은 탭 다시 열기 ──────────────
+
+const CLASSES_9I2 = ['LayoutDock', 'LayoutDnd', 'LayoutGroups', 'LayoutWindowState', 'LayoutTabReopen'];
+const PARTS_9I2 = { dock: 'LayoutDock', dnd: 'LayoutDnd', groups: 'LayoutGroups', winState: 'LayoutWindowState', reopen: 'LayoutTabReopen' };
+
+const DELEGATES_9I2 = {
+  'layout.dock': ['panelDock', 'setPanelDock', 'applyPanelDock', 'sbCollapsePaint', 'repoSideDock', 'setRepoSideDock', 'saveLayout',
+    'resetLayout'],
+  'layout.dnd': ['getDragZone', 'showBodyDropIndicator', 'clearBodyDropIndicator', 'moveTabToPane', 'moveTabToWindow', 'splitPaneWithTab'],
+  'layout.groups': ['windowGroups', 'newGroup', 'deleteGroup', 'moveWindowTo', 'moveTabTo', 'wgFoldToggle', 'sidebarWindowEntries',
+    'sidebarReorder', 'wgEdgeGroup', 'addGroupInteractive', 'groupHasAttn', '_remoteNewGroup', '_remoteRenameGroup', '_remoteDeleteGroup',
+    '_remoteMoveWindow', '_remoteMoveGroup', '_remoteMoveTab'],
+  'layout.winState': ['_normalizeIncomingWorkspace', '_fallbackActiveWindow', '_stripDeviceKeys', '_activateWindow', '_persistActiveWindow',
+    '_loadPreset', '_presetButtonPaint'],
+  'layout.reopen': ['tabReopen', 'tabReopenCan', 'tabReopenAt'],
+};
+
+function load9i2(globals = {}) {
+  const store = new Map();
+  return load9i1({
+    PrefStore: { session: { get: (k) => store.get(k), set: (k, v) => store.set(k, v), remove: (k) => store.delete(k) } },
+    STORE_KEYS: { activeWindow: 'activeWindow' }, ACTIVE_EDITOR_ROOT_KEY: 'activeEditorRoot', TAB_REOPEN_MAX: 20,
+    newEntityId: (() => { let n = 0; return () => 'id' + (++n) })(), clampEntityName: (s) => s,
+    doRemove: () => null,
+    findPane: function find(node, id) {
+      if (!node) return null;
+      if (node.type === 'pane') return node.id === id ? node : null;
+      for (const c of node.children || []) { const r = find(c, id); if (r) return r }
+      return null;
+    },
+    ...globals,
+  });
+}
+
+test('TC-FEA-1(9i-2): 부품은 Controller·Component 하위이고 app 을 들며, 뿌리가 부품 다섯을 든다', () => {
+  const ctx = load9i2();
+  const app = new ctx.App();
+  for (const c of CLASSES_9I2) {
+    const o = partOf(ctx, c, app);
+    assert.ok(o instanceof ctx.Controller, c);
+    assert.ok(o instanceof ctx.Component, c);
+    assert.equal(o.app, app, c);
+  }
+  const layout = new ctx.LayoutController(app);
+  for (const [field, cls] of Object.entries(PARTS_9I2)) assert.equal(layout[field].constructor.name, cls, field);
+});
+
+/** 부품 클래스는 `expose` 하지 않는다 — 렉시컬 이름을 컨텍스트에서 읽는다. */
+function partOf(ctx, cls, app) {
+  const layout = new ctx.LayoutController(app);
+  const field = Object.keys(PARTS_9I2).find((k) => PARTS_9I2[k] === cls);
+  return layout[field];
+}
+
+test('TC-FEA-1(9i-2): 위임자는 부품 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+  const ctx = load9i2();
+  const app = new ctx.App();
+  app.layout = { dock: {}, dnd: {}, groups: {}, winState: {}, reopen: {} };
+  const seen = [];
+  for (const [path, names] of Object.entries(DELEGATES_9I2)) {
+    const target = path.split('.').reduce((o, k) => o[k], app);
+    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+  }
+  for (const names of Object.values(DELEGATES_9I2)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
+  assert.deepEqual(plain(seen), Object.values(DELEGATES_9I2).flat().map((n) => [n, 1, 'x']));
+});
+
+test('TC-FEA-1(9i-2): 묶음 하나만 닿는 필드는 부품이 든다 — 닫은 탭 목록·도킹·그룹 접기 (§2.2 SH-4)', () => {
+  const ctx = load9i2();
+  const app = controllers(ctx, new ctx.App());
+  Object.assign(app, { isEditorWin: () => true, editorAny: () => null });
+  const tab = { id: 't1', type: 'editor', filePath: '/a' };
+  app.layout.reopen._tabReopenNote({ id: 'w' }, { id: 'p', tabs: [tab] }, tab);
+  assert.equal(app.layout.reopen._tabClosed.length, 1);
+  for (const f of ['_tabClosed', '_dockShown', '_wgFold', '_wgSeenActive']) assert.equal(f in app, false, f);
+  const src = read('core/app.js');
+  for (const f of ['_tabClosed', '_dockShown', '_wgFold', '_wgSeenActive']) assert.doesNotMatch(src, new RegExp('this\\.' + f + '\\b'), f);
+});
+
+test('TC-FEA-1(9i-2): 탭 닫기는 닫은 탭 목록을 부품 경로로 적는다', () => {
+  const src = read('core/layout-tab-ops.js');
+  assert.match(src, /this\.app\.layout\.reopen\._tabReopenNote\(/);
+  assert.match(read('core/layout-controller.js'), /this\.groups\._groupsNormalizeWs\(/);
+});
+
+test('TC-FEA-2(9i-2): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
+  const force = new Set([...overridden(), ...contractNames()]);
+  for (const f of ISSUES['9i-2'].ctl) {
+    const bad = [...thisNames(read(f))].filter((n) => force.has(n));
+    assert.deepEqual(bad, [], f);
+  }
+});
+
+test('TC-FEA-2(9i-2): 갈아 끼운 aw·focused·setFocusState·paneTabSet·save·render·tools·slotFocused·gitPanels 를 부품 경로가 부른다', () => {
+  const ctx = load9i2();
+  const app = controllers(ctx, new ctx.App());
+  const log = [];
+  const p1 = { type: 'pane', id: 'p1', tabs: [{ id: 't1' }, { id: 't2' }], activeTab: 't1' };
+  const p2 = { type: 'pane', id: 'p2', tabs: [{ id: 't3' }], activeTab: 't3' };
+  const w1 = { id: 'w1', layout: { type: 'split', children: [p1, p2] } };
+  const w2 = { id: 'w2', layout: { type: 'pane', id: 'p9', tabs: [], activeTab: null } };
+  app.ws = { activeWindow: 'w1', windows: [w1, w2] };
+  app.focused = 'p1';
+  Object.assign(app, { isGitWin: () => false, isEditorWin: () => false, isChatWin: () => false, _gitDiffPanelOf: () => null });
+  app.aw = () => { log.push('aw'); return app.ws.windows.find((w) => w.id === app.ws.activeWindow) };
+  app.setFocusState = (id) => log.push('focus:' + id);
+  app.paneTabSet = (pn, id) => log.push('tab:' + id);
+  app.save = () => log.push('save');
+  app.render = () => log.push('render');
+  app.moveTabToPane('p1', 't1', 'p2');
+  assert.deepEqual(plain(p2.tabs.map((x) => x.id)), ['t3', 't1']);
+  assert.deepEqual(log.splice(0), ['tab:t1', 'focus:p2', 'save', 'render']);
+  assert.deepEqual(plain(app.newGroup('G')), { id: 'id1' });
+  assert.deepEqual(log.splice(0), ['save', 'render']);
+  app._activateWindow('w2', { rememberFocus: true });
+  assert.equal(w1.focusedPane, 'p1');
+  assert.equal(app.ws.activeWindow, 'w2');
+  assert.deepEqual(log.splice(0), ['aw']);
+  app.tools = new Map([['k', { el: { classList: { contains: () => true } }, doFit: () => log.push('fit') }]]);
+  app.layout.dock._dockRefit();
+  assert.deepEqual(log.splice(0), ['fit']);
+  const panel = { diffTabId: 'd1' };
+  app.gitPanels = new Map([['x', panel]]);
+  app.slotFocused = () => { log.push('slot'); return 0 };
+  assert.equal(app.layout.reopen._gitDiffPanelAny('d1'), panel);
+  assert.deepEqual(log.splice(0), ['slot']);
+});
+
+test('TC-FEA-3(9i-2): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 의 수가 준다', () => {
+  const issue = ISSUES['9i-2'];
+  for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
+  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
+  const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
+    .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
+  assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
+});
+
+test('TC-FEA-3(9i-2): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
+  const ctx = load9i2();
+  const contract = contractNames();
+  const names = Object.values(DELEGATES_9I2).flat().filter((x) => contract.has(x));
   assert.ok(names.length > 0);
   for (const n of names) assert.equal(typeof ctx.App.prototype[n], 'function', n);
 });

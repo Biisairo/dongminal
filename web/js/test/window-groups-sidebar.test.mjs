@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { BASE, LAYOUT, controllers, load, plain } from './harness.mjs';
 
 /**
  * ISSUE_AGENT_TREE_SRS FR-WGR-21·22·24 — 사이드바의 그룹 접기와 끌어 놓기.
@@ -13,15 +13,16 @@ import { load, plain } from './harness.mjs';
  */
 function setup(windows, groups, active) {
   const stored = {};
-  const ctx = load(['core/window-order.js', 'core/app-groups.js'], {
+  const ctx = load([...BASE, 'core/window-order.js', ...LAYOUT], {
     globals: {
-      App: function App() {},
+      App: function App() {}, TIMERS: { disposeOwner() {} },
+      TAB_TYPE_TERMINAL: 'terminal', TAB_TYPE_EDITOR: 'editor', TAB_TYPE_RUN: 'run', TAB_TYPE_CHAT: 'chat', TAB_TYPE_GIT: 'git',
       t: (k) => k,
       STORE_KEYS: { windowGroupFold: 'fold' },
       PrefStore: { local: { json: (k, d) => (k in stored ? stored[k] : d), setJson: (k, v) => { stored[k] = v } } },
     },
   });
-  const app = new ctx.App();
+  const app = controllers(ctx, new ctx.App());
   app.ws = { windows, windowGroups: groups, activeWindow: active };
   app.plainWindows = () => app.ws.windows.filter((w) => !w.type);
   app.render = () => {};

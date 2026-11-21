@@ -1148,7 +1148,6 @@
 <script src="js/ui/renderer-pane.js?v=__ASSETV__"></script>
 <script src="js/ui/renderer-pane-wire.js?v=__ASSETV__"></script>
 <script src="js/core/app.js?v=__ASSETV__"></script>
-<script src="js/core/app-window-state.js?v=__ASSETV__"></script>
 <script src="js/core/app-cmd.js?v=__ASSETV__"></script>
 <!-- 워크스페이스 동기화·SSE 배선과 내부 새로고침 (REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`·`app-reload.js`).
      끝에서 App 원형에 위임자와 `_sse` 접근자 넷을 둔다. -->
@@ -1159,12 +1158,18 @@
 <script src="js/core/layout-controller.js?v=__ASSETV__"></script>
 <script src="js/core/layout-tab-add.js?v=__ASSETV__"></script>
 <script src="js/core/layout-tab-ops.js?v=__ASSETV__"></script>
+<!-- 레이아웃의 부품 다섯 (REFACTOR3_FE_APPCTL_SRS 9i-2) — 받은 워크스페이스의 정규화·활성 창·프리셋(옛 `app-window-state.js`·
+     `app-presets.js`) · 패널 좌우 도킹(PANEL_DOCK_SRS, 옛 `app-dock.js`) · 닫은 탭 다시 열기(UX_BATCH12_SRS FR-RTR, 옛 `app-tab-reopen.js`) ·
+     끌어 놓기(옛 `app-dnd.js`) · 창 그룹(옛 `app-groups.js`). 끝에서 App 원형에 위임자를 둔다. -->
+<script src="js/core/layout-window-state.js?v=__ASSETV__"></script>
+<script src="js/core/layout-dock.js?v=__ASSETV__"></script>
+<script src="js/core/layout-tab-reopen.js?v=__ASSETV__"></script>
+<script src="js/core/layout-dnd.js?v=__ASSETV__"></script>
+<script src="js/core/layout-groups.js?v=__ASSETV__"></script>
 <!-- 미리보기 탭 (UX_BATCH12_SRS FR-RTB). `layout-tab-add.js` 뒤 — prototype 확장이다. -->
 <script src="js/core/app-preview.js?v=__ASSETV__"></script>
 <!-- Diff 탭 (UX_BATCH12_SRS FR-RTB-7). 탭마다 전용 GitPanel 이다. -->
 <script src="js/core/app-diff-tab.js?v=__ASSETV__"></script>
-<!-- 패널 좌우 도킹 (PANEL_DOCK_SRS). `layout-tab-ops.js` 뒤 — prototype 확장이다. -->
-<script src="js/core/app-dock.js?v=__ASSETV__"></script>
 <!-- 창 슬롯 — 상태와 부품 `SlotOps`(조작) (REFACTOR3_FE_APPCTL_SRS 9h, 옛 `app-slots.js`). 끝에서 App 원형에 위임자와 접근자
      `slots`·`slotDir` 를 둔다. -->
 <script src="js/core/slots-controller.js?v=__ASSETV__"></script>
@@ -1173,8 +1178,6 @@
 <script src="js/core/focus-controller.js?v=__ASSETV__"></script>
 <script src="js/core/focus-highlight.js?v=__ASSETV__"></script>
 <script src="js/core/focus-owner.js?v=__ASSETV__"></script>
-<!-- 닫은 탭 다시 열기 (UX_BATCH12_SRS FR-RTR). prototype 확장이다. -->
-<script src="js/core/app-tab-reopen.js?v=__ASSETV__"></script>
 <script src="js/core/attn-controller.js?v=__ASSETV__"></script>
 <!-- 주의 센터 팝오버 (FR-ACT-8). `AttnController` 의 부품이다 (REFACTOR3_FE_APPCTL_SRS 9b). -->
 <script src="js/core/attn-center.js?v=__ASSETV__"></script>
@@ -1264,13 +1267,10 @@
 <script src="js/core/statusbar-controller.js?v=__ASSETV__"></script>
 <script src="js/core/statusbar-enc.js?v=__ASSETV__"></script>
 <script src="js/core/update-controller.js?v=__ASSETV__"></script>
-<script src="js/core/app-presets.js?v=__ASSETV__"></script>
 <script src="js/core/settings-presets.js?v=__ASSETV__"></script>
 <!-- 설정 탭들의 조정자 (REFACTOR3_FE_SETTINGS_SRS 8e). 섹션 클래스를 로드 시점에 표로 읽으므로 섹션 파일 전부의 뒤다. -->
 <script src="js/core/settings-controller.js?v=__ASSETV__"></script>
-<script src="js/core/app-dnd.js?v=__ASSETV__"></script>
 <script src="js/core/window-order.js?v=__ASSETV__"></script>
-<script src="js/core/app-groups.js?v=__ASSETV__"></script>
 <!-- APP_TESTING_CONTRACT_SRS FR-ATC-1·7: e2e 가 보는 공개 계약.
      **App 의 모든 조각이 실린 뒤**에 온다 — 계약은 게터로 감싸므로 로드
      시점에 대상이 있을 필요는 없지만, 이 자리가 "그 위의 전부를 덮는다" 는

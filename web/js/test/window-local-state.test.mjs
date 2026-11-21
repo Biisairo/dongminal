@@ -45,8 +45,8 @@ test('워크스페이스가 두 폭을 들지 않는다 (FR-UXB-6·7·8)', () =>
     for (const key of ['sidebarWidth', 'repoSideWidth']) {
       // 걷어내는 자리는 마이그레이션이다 (FR-UXB-8) — 먼저 덜어낸 뒤 센다.
       const live = src
-        .replace(new RegExp(`delete\\s+this\\.ws\\.${key}`, 'g'), '')
-        .replace(new RegExp(`'${key}'\\s+in\\s+this\\.ws`, 'g'), '');
+        .replace(new RegExp(`delete\\s+this\\.(?:app\\.)?ws\\.${key}`, 'g'), '')
+        .replace(new RegExp(`'${key}'\\s+in\\s+this\\.(?:app\\.)?ws`, 'g'), '');
       const m = live.match(new RegExp(`(?:this\\.)?ws\\.${key}\\b`, 'g'));
       if (m) hits.push(`${rel}: ${m.join(' · ')}`);
     }

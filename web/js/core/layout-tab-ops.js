@@ -22,7 +22,7 @@ class LayoutTabOps extends Controller {
     if(!ask) return;
     opts=ask;
     // UX_BATCH12_SRS FR-RTR-2: 닫은 탭 목록에 적는다. 커서·스크롤을 읽으므로 인스턴스를 놓기 전이다.
-    this.app._tabReopenNote(s,pn,tab);
+    this.app.layout.reopen._tabReopenNote(s,pn,tab);
     if(gitTab) this.app._gitDropView(this.app.edRootOf(s),tab.gitView,tab.id);
     // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
     if(isEditor) this.app.editorsDrop(tab.id);

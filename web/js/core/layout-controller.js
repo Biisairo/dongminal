@@ -3,7 +3,9 @@
  *
  * 돌아갈 자리·탭 이름의 출처·창 더하기·지우기·닫기 되돌리기·창 전환. App 은 이것을 `layout` 으로 든다
  * (REFACTOR3_FE_APPCTL_SRS 9i-1, 옛 `app-layout.js` 의 앞쪽). 탭 더하기는 부품 `LayoutTabAdd`(`layout-tab-add.js`)
- * `.tabAdd`, 탭 닫기·전환·분할·사이드바는 부품 `LayoutTabOps`(`layout-tab-ops.js`) `.tabOps` 다.
+ * `.tabAdd`, 탭 닫기·전환·분할·사이드바는 부품 `LayoutTabOps`(`layout-tab-ops.js`) `.tabOps` 다. 9i-2 의 부품 다섯 —
+ * 도킹 `.dock`(`layout-dock.js`) · 끌어 놓기 `.dnd`(`layout-dnd.js`) · 창 그룹 `.groups`(`layout-groups.js`) · 받은 워크스페이스의
+ * 정규화·활성 창·프리셋 `.winState`(`layout-window-state.js`) · 닫은 탭 다시 열기 `.reopen`(`layout-tab-reopen.js`).
  * 돌아갈 창 `_lastPlainWindow`·`_lastEditorWindow`·`mPaneIdx` 는 App 에 남고 쓰기는 이 묶음만 한다(§2.2 A/9i).
  *
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
@@ -14,6 +16,11 @@ class LayoutController extends Controller {
     this._winUndo=null; // 닫은 창의 유예 하나 (WINDOW_CLOSE_UNDO_SRS FR-WCU-6)
     this.tabAdd=new LayoutTabAdd(app);
     this.tabOps=new LayoutTabOps(app);
+    this.dock=new LayoutDock(app);
+    this.dnd=new LayoutDnd(app);
+    this.groups=new LayoutGroups(app);
+    this.winState=new LayoutWindowState(app);
+    this.reopen=new LayoutTabReopen(app);
   }
 
   /**
@@ -345,7 +352,7 @@ class LayoutController extends Controller {
     const at=Math.min(u.index,this.app.ws.windows.length);
     this.app.ws.windows.splice(at,0,u.win);
     // FR-WGR-13: 되돌린 창은 원래 그룹으로 간다 — 그 사이 그룹이 지워졌으면 풀린다.
-    this.app._groupsNormalizeWs(this.app.ws);
+    this.groups._groupsNormalizeWs(this.app.ws);
     for(const pid of u.pids) this.app._setToolBackground(pid,false);
     this.app._bgRefresh();
     this.app._activateWindow(u.win.id);
