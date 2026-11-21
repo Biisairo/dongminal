@@ -1334,6 +1334,21 @@
 | `D-FEL-2` | View 의 `build()`(루트 만들기)와 행 만들기를 이름으로 가른다(`buildRow`) | 하위가 `build` 를 덮으면 `mount` 가 루트 대신 행을 만든다 | 채택 |
 | `D-FEL-3` | `GitListTab.mount(el)` 은 `View.mount(host)` 를 덮어 "받은 칸이 곧 루트" 로 쓴다 | git 패널이 탭마다 칸을 주고 탭이 그 안을 채운다. 수명 이름의 통일(`mount(host)`)은 단계 5 가 git 탭 여섯과 함께 정한다 | 채택 |
 
+## [`REFACTOR3_FE_REST1_SRS`](./REFACTOR3_FE_REST1_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-FR1-1` | 알림색의 거리는 `colorDistance`(redmean) 하나다. 후보와 폴백, 동점의 순서는 그대로 둔다 | 사용자 결정 Q1. 실행 중 색은 이미 redmean 으로 알림색과 떨어지도록 고른다(FR-UXF-125·126). 알림색만 제곱 거리로 고르면 두 판정이 서로 다른 "멀다" 를 쓴다. redmean 은 눈의 감도를 반영해 초록 차이에 무게를 더 준다 | 채택 |
+| `D-FR1-2` | Ayu Mirage 의 `ui.accent2` 명시값을 `#6dcbfa` 에서 `#dfbfff` 로 바꾼다 | 새 알림색 `#95e6cb` 와 옛 `accent2` 의 거리가 111 이라 구분 거리 게이트(120, FR-UXF-125)를 깬다. 내장 54종 중 49종의 명시값이 `pickAccent2` 가 고르는 값과 같다 — 명시값은 그 파생으로 정한 값이다… | 채택 |
+| `D-FR1-3` | 서버의 거절은 **요청 경로가 모두** 안쪽만 바뀐 서브모듈일 때만이다. 섞인 요청은 그대로 실행한다 | 그룹 일괄 Stage(`_bulk`)와 선택 Stage 는 그 서브모듈 행을 함께 보낸다. 경로 하나라도 걸리면 거절하면 서브모듈 안이 더러운 저장소에서 "모두 Stage" 가 막힌다. 그 서브모듈에 대한 `git add` 는 아무것도 하지 않으므로 … | 채택 |
+| `D-FR1-4` | 사유 코드는 새 `submodule_inner_only`(409)다 | 기존 코드 중 같은 뜻이 없다. `nothing_staged`(커밋, 400)·`nothing_to_stash`(stash)는 다른 동작의 말이다. 요청이 틀린 것이 아니라 저장소 상태 때문이므로 409 다(FR-SDA-3). 이름은 `untracke… | 채택 |
+| `D-FR1-5` | 행 답은 status 응답의 최상위 `rowActions`(경로 → 동작 → 답)로 싣는다. 서브모듈 행에만 싣고, 없는 행에는 행 단위 판정이 없다 | 도메인 `FileEntry` 는 관측을 그대로 옮기는 구조체이고(`SUBMODULE_DIRTY_NOTICE_SRS` D-1), 도메인 패키지는 `action` 을 들여오지 않는다. 행 답을 행마다 실으면 변경 수천 개의 응답에 `{"ok":true}`… | 채택 |
+| `D-FR1-6` | 사실은 도메인(`FileEntry.SubmoduleInnerOnly`), 답은 HTTP 계층(`gitapi.stageAnswer`)이다 | `SERVER_DRIVEN_ACTIONS_SRS` M-4 와 같은 나눔이다(`write.StashableCount` ↔ `stashCreateAnswer`) | 채택 |
+| `D-FR1-7` | 툴팁은 사유 코드 → 영어 문장 표(`GIT_STAGE_WHY_TITLE`)로 고른다 | 버튼 `title` 은 영어다(FR-TIP-2). 커밋 버튼(`GIT_COMMIT_WHY_TITLE`, GR-3f)과 같은 방식이다. 보이는 문장은 지금과 같다(INV-R1-4) | 채택 |
+| `D-FR1-8` | 자동 전환 범위는 기존 `autoswitch` 응답의 `ranges` 로 싣는다. 새 종단을 만들지 않는다 | 설정 패널은 그 응답을 이미 받아 칸을 그린다. 저장(`PUT`) 응답도 같은 모양이라 다시 받을 때도 범위가 따라온다 | 채택 |
+| `D-FR1-9` | 범위를 받지 못하면 칸에 `min`·`max` 를 세우지 않는다. 화면에 기본값 사본을 두지 않는다 | 사본을 두면 두 벌이 그대로 남는다. 칸의 `min`·`max` 는 입력 보조일 뿐이고(저장 본문은 숫자인지만 본다), 범위 밖 값은 서버가 400 으로 거절하고 화면은 오류를 보인 뒤 서버 값으로 되돌린다(`_cacctDo`). 범위를 못 받는 것은… | 채택 |
+| `D-FR1-10` | ping·stats 를 함께 보내고 `_latency` 는 ping 의 왕복만 잰다(권장안) | 측정 정의는 그대로다. 종전 주석(FR-PRF-36~38)이 걱정한 오염은 같은 줄에 서는 것이다. 브라우저는 두 요청을 따로 보내고(HTTP/1.1 은 연결 여럿, HTTP/2 는 다중화), 서버의 stats 계산은 ping 처리기를 막지 않는다. … | 채택 |
+
 ## [`REFACTOR3_FE_SETTINGS_SRS`](./REFACTOR3_FE_SETTINGS_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -1969,4 +1984,4 @@
 
 ---
 
-결정 **1181건** · 문서 **153개**.
+결정 **1191건** · 문서 **154개**.
