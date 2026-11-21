@@ -28,7 +28,7 @@ test('탭 아이콘은 모두 스프라이트에 있다', () => {
 // PANEL_TEMPLATE_SRS FR-PNT-6 으로 개정: 탭의 폭 규칙은 `.ag-tab` 이 아니라 패널 템플릿의 `.ui-panel-tab`(style-panel.css)이
 // 갖는다 — 메인 패널의 탭과 같은 규칙이다. Activity 의 탭은 그 클래스를 함께 단다.
 test('탭은 같은 폭이고 고른 탭도 넓어지지 않는다', () => {
-  const css = read('style.css');
+  const css = read('style-activity.css');   // REFACTOR3_FE_REST4_SRS FU-11: Activity 규칙은 style.css 에서 갈라진 조각에 있다
   const panel = read('style-panel.css');
   const rule = (sel) => (panel.match(new RegExp('\\n' + sel.replace(/[.]/g, '\\.') + '\\{([^}]*)\\}')) || [])[1] || '';
   assert.match(rule('.ui-panel-tab'), /flex:1 1 0/);
@@ -41,7 +41,7 @@ test('탭은 같은 폭이고 고른 탭도 넓어지지 않는다', () => {
 // FR-PCH-82 (개정): 레일에서 Chats 는 방 줄만 남는다. 글자가 40px 폭에 한 자씩 꺾이지 않게,
 // 소제목·빈 문구·노드 줄·참가자 줄·연결 끊김 문구를 숨긴다.
 test('레일의 Chats 는 방 줄만 보인다', () => {
-  const css = read('style.css');
+  const css = read('style-activity.css');   // REFACTOR3_FE_REST4_SRS FU-11: Activity 규칙은 style.css 에서 갈라진 조각에 있다
   // REFACTOR3_FE_REST4_SRS FU-8 로 개정: 이전 — `#agents-panel:not(.open)` / 지금 — 레일 표식 `#agents-panel[data-rail]` / 이유 — 레일 상태를 표식 하나로.
   const hide = (css.match(/#agents-panel\[data-rail\] :is\(([\s\S]*?)\)\{display:none\}/) || [])[1] || '';
   for (const cls of ['.chat-sub-h', '.chat-none', '.chat-node', '.chat-person', '.chat-down']) {
@@ -52,7 +52,7 @@ test('레일의 Chats 는 방 줄만 보인다', () => {
 
 // UI_KIT_SRS FR-UIK-5·FR-GLY-5: 아이콘만 있는 탭의 아이콘은 탭 높이에서 파생한다 (× --ui-icon-ratio).
 test('탭 아이콘은 탭 높이 × --ui-icon-ratio 다', () => {
-  const css = read('style.css');
+  const css = read('style-activity.css');   // REFACTOR3_FE_REST4_SRS FU-11: Activity 규칙은 style.css 에서 갈라진 조각에 있다
   const m = css.match(/\n\.ag-tab-icon>\.ui-icon\{([^}]*)\}/);
   assert.ok(m, '.ag-tab-icon>.ui-icon 규칙이 없다');
   assert.match(m[1], /width:calc\(var\(--ui-tab-h\) \* var\(--ui-icon-ratio\)\)/);

@@ -10,7 +10,8 @@ import { load } from './harness.mjs';
  * REFACTOR3_FE_REST3_SRS FR-FR3-10·11 (FC-12, TC-FR3-34) — 테마 미리보기는 값이 마크업에 섞이지 않는다.
  * 골격은 보간 없는 고정 문자열이고, 색은 `themePreviewVars` 의 변수로만 들어간다.
  */
-const CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../style.css'), 'utf8');
+// REFACTOR3_FE_REST4_SRS FU-11: 미리보기 규칙(`.pv-*`)은 style.css 에서 갈라진 조각 style-modal.css 에 있다.
+const CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../style-modal.css'), 'utf8');
 
 const ctx = load(['core/settings-theme.js'], {
   expose: ['THEME_PREVIEW_HTML'],

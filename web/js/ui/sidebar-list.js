@@ -206,7 +206,7 @@ class SidebarList extends ListView {
 
     // FR-RAL-2·6 (개정): 레일의 행은 점 하나와 **이름**이다 — 첫 글자를 따로 들던
     // `.sbl-initial` 을 걷었다. 한 글자는 구분에 쓰이지 않았고, 지금은 같은
-    // `.sbl-name` 이 레일에서 작은 글자로 접혀 선다 (`style.css`). 요소가 하나면
+    // `.sbl-name` 이 레일에서 작은 글자로 접혀 선다 (`style-main-panel.css`). 요소가 하나면
     // 레일 전용 데이터도, 두 값이 갈릴 자리도 없다.
     const name = document.createElement('span');
     name.className = ['sbl-name', d.nameClass].filter(Boolean).join(' ');

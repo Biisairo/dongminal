@@ -1,0 +1,343 @@
+/* 편집기 틀·백그라운드 진입점·샌드박스·접속·짝·망·부팅·움직임 줄이기·가장자리 표시 — style.css 를 원래 순서의 연속 구간으로 나눈 조각 (REFACTOR3_FE_REST4_SRS FU-11). 순서는 index.html 의 <link> 가 지킨다. */
+/* ── File Editor (CodeMirror) ── */
+.file-editor{
+  position:absolute;inset:0;display:none;
+  background:var(--bg);
+}
+.file-editor.vis{display:block}
+/* CODEMIRROR_MIGRATION_SRS FR-CMR-19: 설치 제안 띠(`.fe-offer`)가 서 있는 동안 편집기는 띠 아래에서 시작한다 —
+   띠는 겹쳐 서므로 그대로 두면 첫 줄들을 가린다. 높이는 띠가 실제로 먹은 값이다 (`--fe-offer-h`, FR-LSP-44a). */
+.file-editor:has(> .fe-offer) > .cm-editor{margin-top:var(--fe-offer-h,32px);height:calc(100% - var(--fe-offer-h,32px))}
+/* WORDING_COLOR_SRS FR-WRD-14·15: 저장 실패 플래시.
+     이전 동작: `file-editor.js` 가 인라인으로 `inset 0 0 0 2px #f44` 를 썼다 —
+               테마의 `danger` 는 `#8c4351`(Tokyo Night Light)~`#ff2c6d`(Panda)
+               까지 폭이 넓은데 `#f44` 는 그 어느 것도 아니었고, 인라인이라
+               색 게이트의 범위 밖이었다
+     새  동작: 클래스 하나를 토글한다. 색은 CSS 가 갖고 테마를 탄다
+     이유:     화면의 다른 모든 위험 표시(`var(--danger)` 86곳)와 색이 맞아야
+               한다. 두께·시간(2px·500ms)은 그대로다 */
+.file-editor.fe-save-failed{box-shadow:inset 0 0 0 2px var(--danger)}
+.fe-loading{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);font-size:var(--fs-lg);
+}
+.fe-error{color:var(--danger-text);padding:20px;text-align:center}
+.fe-error-path{font-family:var(--mono);font-size:var(--fs-md);color:var(--text-muted);margin-top:8px;word-break:break-all}
+
+/* ── 백그라운드 도구 진입점·모달 (FR-BGU-2..8) ── */
+/* FR-SBR-1: 폭이 모자라면 다음 줄로 넘긴다. 줄 수는 내용과 폭이 정한다 (D-2).
+   overflow:hidden 은 FR-SBR-5 의 클리핑 담당이다 — 가로로 잘라내는 역할이 아니다
+   (줄바꿈이 넘칠 것을 남기지 않는다). */
+#sb-items{display:flex;flex-wrap:wrap;align-items:center;gap:2px;
+  flex:1;min-width:0;overflow:hidden}
+/* UIUX_OVERHAUL_SRS FR-CHR-15·16 (D-7): **`#bg-btn` 이 없어졌다.** 하이라이트
+   규칙(`.on`, FR-SBR-10 · FR-SEM-1 의 magenta)과 모바일 여백도 함께 간다 —
+   진입점은 이제 수를 말하지 않는다. magenta 가 뜻하던 *"눈 밖에서 도는 것"* 은
+   `.ag-state` 와 `.bg-row` 가 패널 안에서 그대로 말한다. */
+
+/* ── 샌드박스 설정 (FR-SBX-43) ── */
+.sbx-input{flex:1 1 auto;min-width:0;padding:4px 6px;font-size:var(--fs-md);
+  background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-bright)}
+.sbx-input:focus{outline:none;border-color:var(--accent)}
+.sbx-input:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+.sbx-mounts{display:flex;flex-direction:column;gap:6px;margin:0 0 10px}
+.sbx-mount{display:flex;align-items:center;gap:6px}
+.sbx-mount input[type=text]{flex:1 1 0;min-width:0;padding:3px 6px;font-size:var(--fs-sm);
+  background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-bright)}
+.sbx-mount input[type=text]:focus{outline:none;border-color:var(--accent)}
+.sbx-mount input[type=text]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+.sbx-flag{display:flex;align-items:center;gap:3px;flex:0 0 auto;
+  font-size:var(--fs-sm);color:var(--text-hint);cursor:pointer;white-space:nowrap}
+.sbx-status{font-size:var(--fs-sm);color:var(--text-hint)}
+/* UIUX_OVERHAUL_SRS FR-SEM-1: **실패는 red 다.** `--accent-text` 는 "지금 어디"
+   의 색이고 실패를 말하지 않는다 — 같은 앱의 다른 실패 자리
+   (`.toast.err`·`.sb-dot.err`·`.bk-msg.err`)는 전부 danger 를 쓰고 있었다. */
+.sbx-status.err{color:var(--danger-text)}
+
+
+/* ── 접속 허용 목록 (ACCESS_ALLOWLIST_SRS FR-ACL-22) ── */
+.acl-row{display:flex;align-items:center;gap:6px}
+/* UX_BATCH12 FR-LIV-4: 열린 설정 패널이 다른 곳의 변경을 알린다. */
+.settings-stale{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 8px;
+  border:1px solid var(--attn-text);border-radius:var(--radius-sm);color:var(--attn-text);font-size:var(--fs-sm)}
+.settings-stale span{flex:1}
+.acl-row input[type=text]{min-width:0;padding:3px 6px;font-size:var(--fs-sm);
+  background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-bright)}
+.acl-row input[type=text]:focus{outline:none;border-color:var(--accent)}
+.acl-row input[type=text]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+.acl-value{flex:2 1 0}
+/* 해석 결과는 줄의 끝에서 조용히 있어야 한다 — 평소에는 배경이고, 실패했을 때만 눈에 든다. */
+.acl-state{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:var(--fs-sm);color:var(--text-hint)}
+.acl-state.err{color:var(--danger-text)}
+
+/* ── 짝 (PEER_NETWORK_SRS FR-PNW-80) ── */
+.set-row{display:flex;align-items:center;gap:6px}
+.eg-item{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:4px 0 4px 10px;
+  border-left:2px solid var(--border)}
+.eg-who{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-size:var(--fs-md);color:var(--text-bright)}
+.eg-fp{font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-hint)}
+/* 넓을 때 긴 읽기 전용 값은 줄어들 수 있다(묶음 단위로 꺾인다). 좁을 때는 위 컨테이너 규칙이 이긴다. */
+.display-settings .ds-row>.ds-wide{flex:0 1 auto;min-width:0}
+/* FR-UXF-53 (D7·M14, D-17): 4자 묶음. 틈은 여백이라 글자(복사되는 값)는 원문 그대로다.
+   묶음은 통째로 꺾이고, 앞 16자(`EDGE_FP_SHOWN`)는 간선 화면이 보이는 그 길이라 밝다. */
+#pf-fp .fp-g{display:inline-block;margin-right:.5em}
+#pf-fp .fp-g:last-child{margin-right:0}
+#pf-fp .fp-g.key{color:var(--text-bright)}
+.eg-fp-big{display:block;margin-top:8px;font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
+.eg-item .sbx-input{flex:0 1 160px}
+/* ── 망 그림·받은 초대 (EDGE_MESH_SRS FR-EGM-50~55) ──
+   상태는 색만으로 말하지 않는다: 온라인은 채운 점, 연결 끊김은 빈 점, 내 간선은 굵은 선이다. */
+.eg-mark{font-size:var(--fs-sm);color:var(--attn-text)}
+.eg-mesh{border:1px solid var(--border);border-radius:var(--radius-md)}
+.eg-mesh-svg{display:block;width:100%;max-height:280px}
+.eg-mesh-link{stroke:var(--text-hint);stroke-width:1}
+.eg-mesh-link.mine{stroke:var(--accent);stroke-width:2.5}
+.eg-mesh-link.off{stroke-dasharray:4 3}
+.eg-mesh-node{cursor:pointer;outline:none}
+.eg-mesh-node circle{fill:var(--accent);stroke:var(--accent);stroke-width:2}
+.eg-mesh-node.off circle{fill:none;stroke:var(--text-hint)}
+.eg-mesh-node.self circle{fill:var(--text-bright);stroke:var(--accent);stroke-width:3}
+.eg-mesh-node:focus-visible{outline:1px solid var(--focus-ring)}
+.eg-mesh-node.sel circle,.eg-mesh-node:focus-visible circle{stroke:var(--text-bright);stroke-width:4}
+.eg-mesh-name{fill:var(--text-bright);font-size:var(--fs-sm)}
+.eg-mesh-node.off .eg-mesh-name{fill:var(--text-hint)}
+.eg-mesh-mark{fill:var(--attn-text);font-size:var(--fs-xs)}
+.eg-mesh-act{margin-top:6px}
+
+/* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
+   FR-BTS-7: 색은 테마의 것이다 — head 인라인이 선주입한 변수를 그대로 쓰므로,
+   캐시가 있으면 사용자의 테마 색으로, 없으면 `:root` 기본값으로 그려진다 (D-2).
+   z-index 는 앱의 최상단(모달 200)보다 위여야 한다 — 부팅 중에는 그 무엇도 이
+   화면 위에 없다.
+   브랜드 색은 파비콘의 타일 그라데이션과 **같은 값**이다: 부팅 화면과 탭 아이콘이
+   같은 물건으로 보여야 한다. 그래서 팔레트가 아니라 여기 산다 — 테마를 바꿔도
+   아이콘은 바뀌지 않는다. */
+:root{
+  /* WORDING_COLOR_SRS FR-WRD-35: 브랜드 색이 **이 네 줄 하나**에서 온다.
+       이전 동작: 같은 값이 두 자리에 살았다 — `--boot-shadow:rgba(53,97,70,.34)`
+                 의 `53,97,70` 은 `#356146` 이고 그 `#356146` 이 `index.html` 의
+                 인라인 SVG 에도 따로 적혀 있었다. 로고 획 `#08110D` 는 어디에도
+                 이름이 없었다
+       새  동작: 넷이 이름을 얻고 SVG 가 `var()` 를 읽는다 (인라인 SVG 는 CSS
+                 변수를 상속받고, 그 `<svg>` 는 `<body>` 안이라 이 `:root` 가 닿는다)
+       이유:     브랜드 색을 바꿀 자리가 다섯이었고 그중 둘은 HTML 안이라 색
+                 게이트가 보지 못했다. 한쪽만 고치면 부팅 화면과 파비콘이 갈린다
+     **새 값은 없다** (FR-WRD-1) — 있던 값에 이름을 붙였을 뿐이다. */
+  --boot-brand:#4F8461;      /* 타일 밝은 쪽 */
+  --boot-brand-dk:#356146;   /* 타일 어두운 쪽 */
+  --boot-brand-lit:#6fae83;  /* 진행 바 하이라이트 */
+  --boot-brand-ink:#08110D;  /* 로고 획 */
+  /* 발광과 그림자는 위 둘의 **투명도**다 — 같은 값을 rgb 로 다시 적지 않는다. */
+  --boot-glow:color-mix(in srgb,var(--boot-brand) 9%,transparent);
+  --boot-shadow:color-mix(in srgb,var(--boot-brand-dk) 34%,transparent);
+}
+#boot{
+  position:fixed;inset:0;z-index:var(--z-modal);
+  display:flex;align-items:center;justify-content:center;
+  /* 바탕의 은은한 발광 — 로고가 화면에 놓인 것이 아니라 **떠 있게** 보인다.
+     넓게 깔면 **밝은 테마에서 얼룩이 된다**(실측): 흰 바탕은 옅은 색을 숨겨 주지
+     않는다. 좁고 옅게 둔다. */
+  background:radial-gradient(34% 30% at 50% 45%,var(--boot-glow),transparent 70%),var(--bg);
+  color:var(--text-muted);
+  transition:opacity var(--dur-base) ease;
+}
+/* FR-BTS-8·12: 걷히는 동안에는 입력을 아래로 흘려보낸다 — 화면은 이미 준비됐다. */
+#boot.gone{opacity:0;pointer-events:none}
+.boot-inner{display:flex;flex-direction:column;align-items:center;animation:boot-in .45s ease-out both}
+.boot-logo{
+  width:84px;height:84px;
+  /* 같은 이유로 그림자도 좁다 — 밝은 바탕에서 넓은 그림자는 탁한 회색 원이 된다. */
+  filter:drop-shadow(0 8px 18px var(--boot-shadow));
+  animation:boot-breathe 3.2s ease-in-out infinite;
+}
+.boot-name{margin-top:20px;font-size:var(--fs-lg);letter-spacing:.16em;color:var(--text-bright);opacity:.94}
+/* 진행 바는 비율을 말하지 않는다 (마크업 주석 참조) — 채우지 않고 흐른다.
+   2px 로는 브랜드색이 트랙에 묻혀 **움직이는지조차 보이지 않았다**(실측) — 흐름이
+   보이지 않는 진행 바는 그냥 선이다. */
+.boot-bar{margin-top:24px;position:relative;width:150px;height:3px;border-radius:var(--radius-pill);
+  background:var(--border);overflow:hidden}
+.boot-bar i{position:absolute;top:0;bottom:0;left:0;width:46%;border-radius:var(--radius-pill);
+  background:linear-gradient(90deg,transparent,var(--boot-brand),var(--boot-brand-lit),transparent);
+  animation:boot-flow 1.25s ease-in-out infinite}
+/* 문구가 길이를 오갈 때 아래 여백이 출렁이지 않도록 높이를 잡아 둔다. */
+#boot-step{margin-top:12px;font-size:var(--fs-sm);letter-spacing:.02em;min-height:14px}
+@keyframes boot-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes boot-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+/* PERFORMANCE_HARDENING_SRS FR-PRF-33 (`AUDIT-design.md` 10-1).
+
+     이전 동작: `left` 를 애니메이션했다 — 13개 키프레임 중 **유일하게 레이아웃을
+               유발하는 속성**이고, 그것을 **부팅 중에** 60fps 로 무한 반복했다
+     새  동작: `transform` 으로 옮겼다 — 합성만 돈다
+     이유:     `left` 변경은 매 프레임 레이아웃 → 페인트 → 합성을 전부 돈다.
+               스크립트 파싱과 워크스페이스 적재가 동시에 도는 가장 바쁜 순간이다
+
+   값은 기준이 바뀐 것을 옮긴 것이다 — `left` 는 **상자(150px)** 기준이고
+   `translateX` 는 **자기 폭(46% = 69px)** 기준이다: -45%→-98%, 103%→224%. */
+@keyframes boot-flow{0%{transform:translateX(-98%)}100%{transform:translateX(224%)}}
+/* 움직임을 줄이라고 한 사람에게는 흐름 대신 **선 하나**를 준다 — 진행 중이라는
+   사실은 남기되 눈을 끌지 않는다. */
+/* ── 움직임 줄이기 (`UX-12` / WCAG 2.3.3 · 2.2.2) ──────────────────────
+   착수 시 이 선언은 **세 자리**뿐이었고 `animation:` 19 · `transition:` 29 중
+   나머지는 요청을 받지 않았다 — 자리마다 손으로 적는 한 새 애니메이션은 항상
+   덮이지 않은 채로 들어온다.
+
+   그래서 **전역으로 받고**, 멎었을 때 모양이 깨지는 자리만 아래에서 따로 적는다.
+   `0s` 가 아니라 `.01ms` 인 것은 관용이다: 길이가 0 이면 일부 엔진이 애니메이션
+   자체를 걸지 않아 끝 상태가 적용되지 않는다. `iteration-count:1` 은 무한 반복을
+   끊는다 — 그것이 이 미디어 쿼리가 실제로 막으려는 것이다.
+
+   전환 **이벤트**에 기대는 코드가 없다는 것을 확인했다 (`transitionend`·
+   `animationend` 리스너 0). 있었다면 이 규칙이 그 코드를 굶겼을 것이다. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  /* 전역 규칙은 **멎게** 할 뿐 모양을 정하지 않는다. 아래 셋은 멎은 자리가
+     중간 프레임이라 따로 적는다. */
+  .boot-inner,.boot-logo{animation:none}
+    /* `left` 대신 `transform` 을 되돌린다 (FR-PRF-34) — **한쪽만 고치면** 움직임을
+     끈 사용자에게 막대가 마지막 프레임 자리에 남는다. */
+  .boot-bar i{animation:none;transform:none;width:100%;
+    background:linear-gradient(90deg,var(--boot-brand),var(--boot-brand-lit))}
+}
+
+
+/* ── 포커스를 잃은 창의 가장자리 표시 (UNFOCUSED_EDGE_SRS 묶음 UFE) ──
+   FR-UFE-3·4·5 / D-5: 네 변에서 안쪽으로 페이드아웃하고, 그 안쪽은 손대지 않는다.
+   색을 팔레트에서 고르지 않는 이유는 44개 테마 중 어디서도 대비를 보장할 수
+   없기 때문이다 — 아래 픽셀의 반대값은 무엇 위에 얹히든 반드시 갈린다.
+
+   **D-5a (2026-09-08 개정): 반전에 채도를 얹는다.**
+
+     이전 동작: 흰색 그라데이션 + `mix-blend-mode:difference`
+     새  동작: `backdrop-filter:invert(1) saturate(--ufe-sat)` + 마스크
+     이유:     접수한 말은 "보색으로 해달라고 했는데 그냥 흰색같아서" 다. 흰
+               소스의 difference 는 수학적으로 invert 와 **같고**, 어두운 테마
+               (`#1a1b26`)의 반전값은 `#e5e4d9` — 실제로 거의 흰색이다. 반전을
+               버리지 않고(고정색을 쓰지 않는다는 D-3·D-5 는 그대로다) 그 결과의
+               채도를 올리면 배경의 색기가 반대편에서 살아난다.
+
+   blur 를 쓰지 않는다 (D-6): 터미널은 1px 획의 텍스트라 약한 흐림에도 글자가
+   뭉개지고, 그것은 이 표시가 지켜야 할 조건(읽는 데 지장이 없을 것)과 부딪힌다. */
+:root{
+  /* 액자가 안쪽으로 스미는 거리 = 사다리꼴의 깊이. 조절 대상이 아니다 —
+     사용자가 고르는 것은 세기 하나뿐이라는 D-4a 가 그대로다. 두 표시가 같은
+     변수를 쓰는 이유는 액자의 **모양**이 같기 때문이다: 다른 것은 색과 움직임뿐이다. */
+  --edge-fade:64px;
+  /* D-5a: 반전 뒤에 얹는 채도. 조절 대상이 아니다 — 사용자가 고르는 것은 세기
+     하나뿐이라는 D-4a 가 그대로다.
+
+     **10 은 실측으로 고른 값이다.** UI 배경은 채도가 낮아(Dracula `#282a36` 은
+     s≈17%) 반전만으로는 밝은 회색이 나온다 — 그것이 "그냥 흰색같아서" 의 정체다.
+     같은 자리를 재면: 2.4 → s 24%, 10 → s 41%(h 55°, 배경 h≈230° 의 반대편).
+     화면에서 실제로 **색**으로 읽히는 것은 뒤쪽이다. */
+  --ufe-sat:10;
+  /* D-8b: `--ufe-alpha` 와 `--ufe-alpha-mid` 는 **여기 없다.** 사용자 값이므로
+     JS 가 세운다 (`_paintFocusEdge`) — 리터럴을 함께 두면 한쪽만 고쳐진다.
+     그 전에는 이 오버레이가 보이지도 않는다: 보이게 하는 클래스도 JS 가 붙인다. */
+}
+/* **액자 하나 — 전체에서 안쪽을 뺀 것.**
+ *
+ * 접수한 말 넷이 이 모양을 정했다:
+ *   ① "모서리쪽 색상 겹치면서 보색의보색으로 나오는거같은데"
+ *   ② "그냥 테두리를 따로따로 말고 한번에… 사각형으로말이야"
+ *   ③ "액자처럼 대각으로 모서리 잘라서 연결하듯이"
+ *   ④ "색상이 안쪽으로 들어갈수록 흐려지는거지?"
+ *
+ * ①의 정체는 **겹침**이다. 네 변을 각자의 요소로 두면 모서리에서 둘이 포개지고
+ * `invert` 가 두 번 걸려 그 자리만 원래 색으로 돌아간다.
+ *
+ * ③을 위해 각 변을 사다리꼴로 잘라(`clip-path`) 봤고, 거기서 사실 하나를 실측으로
+ * 확인했다 — **같은 요소의 `clip-path` 는 `mask-image` 를 무효로 만든다.** 페이드가
+ * 죽고 균일한 색만 남았다(상단 프로파일 y=0~60 이 같은 값, y=70 에서 뚝 끊김).
+ * 대각 자르기와 ④(안쪽으로 흐려짐)는 한 요소에서 공존하지 못한다.
+ *
+ * 그래서 겹을 **하나**로 두고 액자를 마스크로 만든다: 전체(L1)에서 안쪽(L2~L5 의
+ * 교집합)을 뺀다. 안쪽 사각형의 경계가 `--edge-fade` 에 걸쳐 부드러우므로 색은
+ * 안쪽으로 갈수록 옅어지고(④), 겹이 하나라 이음매도 이중 반전도 없다(①②).
+ *
+ * blur 는 쓰지 않는다 (D-6): 흐려지는 것은 **마스크의 알파**이지 화면의 픽셀이
+ * 아니다 — 터미널 글자는 한 번도 뭉개지지 않는다. */
+#focus-edge{
+  position:fixed;inset:0;z-index:var(--z-edge);pointer-events:none;
+  opacity:0;transition:opacity var(--dur-slow) ease;
+  /* 보이지 않는 동안에는 필터를 걸지 않는다 — `backdrop-filter` 는 그 아래가
+     다시 그려질 때마다(터미널은 늘 그렇다) 재합성을 부른다. */
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  -webkit-mask-image:
+    linear-gradient(#000 0 0),
+    linear-gradient(to bottom,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to top,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to right,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to left,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade));
+  mask-image:
+    linear-gradient(#000 0 0),
+    linear-gradient(to bottom,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to top,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to right,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to left,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade));
+  -webkit-mask-composite:xor,source-in,source-in,source-in;
+  mask-composite:exclude,intersect,intersect,intersect;
+}
+html.win-unfocused #focus-edge,
+/* FR-UFE-18 / D-8d: 세기를 고르는 동안에는 포커스가 있어도 보인다 — 그러지 않으면
+   슬라이더를 만지는 내내 아무것도 보이지 않아 눈을 감고 고르는 셈이 된다. */
+html.ufe-preview #focus-edge{
+  opacity:var(--ufe-alpha);
+  backdrop-filter:invert(1) saturate(var(--ufe-sat));
+  -webkit-backdrop-filter:invert(1) saturate(var(--ufe-sat));
+}
+
+#attn-edge{
+  position:fixed;inset:0;z-index:var(--z-edge);pointer-events:none;
+  display:none;opacity:var(--ae-alpha,0);
+}
+/* FR-AED-6: 알림이 하나라도 있으면 켜진다. 판정은 `_attnRefresh` 한 자리다.
+   FR-AED-12: 세기를 고르는 동안에는 알림이 없어도 보인다. */
+html.attn-edge-on #attn-edge,
+html.ae-preview #attn-edge{display:block}
+/* 색과 맥박만 다르다 — 액자의 모양은 위와 같은 마스크가 만든다. */
+#attn-edge i{
+  position:absolute;inset:0;display:block;background:var(--attn);
+  /* FR-AED-5 / D-8: 주기·곡선은 `attn-pulse-*` 여섯과 **같은 값**이다. */
+  animation:attn-edge-pulse 2s ease-in-out infinite;
+  -webkit-mask-image:
+    linear-gradient(#000 0 0),
+    linear-gradient(to bottom,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to top,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to right,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to left,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade));
+  mask-image:
+    linear-gradient(#000 0 0),
+    linear-gradient(to bottom,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to top,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to right,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to left,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade));
+  -webkit-mask-composite:xor,source-in,source-in,source-in;
+  mask-composite:exclude,intersect,intersect,intersect;
+}
+@keyframes attn-edge-pulse{0%,100%{opacity:1}50%{opacity:0}}
+/* FR-ATP-5 와 같은 근거: 움직임을 원하지 않는 사람에게는 정지한 띠가 남는다. */
+@media (prefers-reduced-motion:reduce){#attn-edge i{animation:none}}
+/* FR-AED-7 / D-2·D-7: **알림이 이긴다.** 가장자리의 뜻은 한 번에 하나여야 읽힌다.
+   클래스 하나가 정하므로 JS 가 두 겹을 각각 끄고 켜지 않는다. */
+html.attn-edge-on #focus-edge{opacity:0}
+
+/* 새 판 보류 알림 (RELOAD_CONTINUITY_SRS D-2 개정).
+   모달이 아니라 배너다 — 사용자의 편집을 막지 않으면서 사실만 남긴다. */
+.ver-held{
+  position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:var(--radius-md);z-index:var(--z-popover);
+  background:var(--bg-alt);color:var(--text-bright);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow-1);
+  font-size:var(--fs-md);max-width:min(560px,92vw);
+}

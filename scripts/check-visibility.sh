@@ -25,7 +25,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
 숨김 어휘 검사
 
-  1) `[hidden]` 에 display 를 선언하는 규칙이 style.css 의 한 자리뿐이다.
+  1) `[hidden]` 에 display 를 선언하는 규칙이 style.css(와 거기서 나눈 조각들)에만 있다.
   2) 숨김 어휘(.hidden·.off·.gone·.git-hidden)가 **display 를 다루는** 규칙에
      없다. `#boot.gone{opacity:0}` 처럼 전이(transition)인 것은 대상이 아니다 —
      `display:none` 으로 바꾸면 전이가 죽는다 (FR-LAY-6).
@@ -38,10 +38,13 @@ fi
 
 fail=0
 CANON='web/style.css'
+# REFACTOR3_FE_REST4_SRS FU-11: style.css 는 원래 순서의 연속 구간으로 나뉘었다. (1) 의 예외는 정본 파일만이 아니라
+# **나누기 전의 style.css 전체**였으므로 그 조각들에도 그대로 선다 — 나눈 것만으로 예외가 줄거나 늘지 않는다.
+CORE_RE='^web/(style|style-main-panel|style-workspace|style-activity|style-modal|style-status|style-mobile|style-system)\.css:'
 WORDS='hidden|off|gone|git-hidden'
 
 # (1) `[hidden]` 의 display 를 되돌려 적는 자리
-hits=$(grep -nE '\[hidden\][^{]*\{[^}]*display' web/*.css | grep -v "^$CANON:" || true)
+hits=$(grep -nE '\[hidden\][^{]*\{[^}]*display' web/*.css | grep -vE "$CORE_RE" || true)
 if [[ -n "$hits" ]]; then
   echo "✗ [hidden] 의 display 를 되돌려 적었다 — $CANON 의 한 자리가 !important 로 한다 (FR-LAY-1·2)" >&2
   echo "$hits" >&2

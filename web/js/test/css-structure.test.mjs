@@ -108,6 +108,21 @@ test('TC-FR4-5: 레일 숨김 목록의 클래스는 모두 JS·HTML 에 있다'
   assert.deepEqual(dead, [], '레일 숨김 목록에 화면에 없는 클래스가 있다');
 });
 
+// REFACTOR3_FE_REST4_SRS FU-11 (TC-FR4-7): style.css 는 원래 순서의 연속 구간으로 나뉘었다. **<link> 순서가 곧 캐스케이드다.**
+// 이전: style.css 한 파일이 2,545줄이었다.
+const CORE_PIECES = ['style.css', 'style-main-panel.css', 'style-workspace.css', 'style-activity.css',
+  'style-modal.css', 'style-status.css', 'style-mobile.css', 'style-system.css'];
+test('TC-FR4-7: 코어 조각은 style-kit 뒤·style-git 앞에 원래 순서로 실리고, 각각 500줄 이하다', () => {
+  const html = readFileSync('web/index.html', 'utf8');
+  const order = [...html.matchAll(/<link rel="stylesheet" href="(style[\w-]*\.css)/g)].map((m) => m[1]);
+  const at = order.indexOf('style.css');
+  assert.equal(order[at - 1], 'style-kit.css', `순서: ${order.join(' → ')}`);
+  assert.deepEqual(order.slice(at, at + CORE_PIECES.length), CORE_PIECES, `순서: ${order.join(' → ')}`);
+  assert.equal(order[at + CORE_PIECES.length], 'style-git.css', `순서: ${order.join(' → ')}`);
+  const long = CORE_PIECES.map((f) => [f, readFileSync(join('web', f), 'utf8').split('\n').length - 1]).filter(([, n]) => n > 500);
+  assert.deepEqual(long, [], '500줄을 넘는 코어 조각');
+});
+
 test('FEU-29: git 뷰 툴바 여섯이 골격 한 규칙을 나눈다', () => {
   const BARS = ['.git-diff-bar', '.git-img-bar', '.git-con-bar', '.git-br-bar', '.git-hist-bar', '.git-stash-bar'];
   const all = rules();

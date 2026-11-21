@@ -34,7 +34,7 @@ function themePreviewSwatches(...names){
 
 /**
  * 미리보기의 골격 — 앱을 줄인 그림 (FR-FR3-10). 싣는 때 한 번 만드는 고정 문자열이고 팔레트 값이 들어가지 않는다.
- * 색은 `themePreviewVars` 가 세운 변수를 `.pv-*` 규칙이 읽는다(`style.css`). ANSI 16색은 **글자가 아니라 칠**로
+ * 색은 `themePreviewVars` 가 세운 변수를 `.pv-*` 규칙이 읽는다(`style-modal.css`). ANSI 16색은 **글자가 아니라 칠**로
  * 보인다. 종전의 `● Bk`(검정 위의 검정, 1.05:1)는 읽으라는 글이 아니었는데 글자로 서 있었다 — 색 표본은 견본이다.
  */
 const THEME_PREVIEW_HTML=`

@@ -1,0 +1,272 @@
+/* 상태바·설정 항목·확인 대화·창 배치 되돌리기 — style.css 를 원래 순서의 연속 구간으로 나눈 조각 (REFACTOR3_FE_REST4_SRS FU-11). 순서는 index.html 의 <link> 가 지킨다. */
+/* ── Status Bar ── */
+/* FR-SBR-4: 높이는 내용이 정한다. 한 줄일 때는 종전과 같은 22px 이다. */
+.status-bar{
+  display:flex;align-items:center;gap:2px;
+  padding:2px 10px;flex-shrink:0;
+  background:var(--sidebar-bg);border-top:1px solid var(--border-strong);
+  font-size:var(--fs-sm);color:var(--text-muted);min-height:22px;
+}
+/* FR-LAY-4: 죽은 규칙이었다 — 이 클래스를 붙이는 자리가 하나도 없다. 지웠다. */
+/* FR-SBR-2: 눌리지 않는다. 폭이 모자라면 줄을 넘길 일이지 글자를 겹칠 일이 아니다.
+   FR-SBR-6: 한 줄보다 넓은 지표는 그 지표만 잘린다.
+   FR-SBR-5: 음수 마진 1px — 줄의 첫 항목 구분선만 컨테이너 밖으로 나가 잘린다 (D-5). */
+/* FR-TYP-4: **같은 줄에서 밑선이 맞아야 한다.** 한 항목 안에 글꼴이 둘 선다 —
+   라벨은 sans(`MEM`), 값은 mono(`18.5GB/32.0GB`). `align-items:center` 는 두
+   글꼴의 **상자 중심**을 맞추고 밑선은 맞추지 않아, 실측에서 밑선이 1px
+   어긋났다 (711.0 vs 712.03). `--mono-scale` 의 크기 보정은 제 일을 하고 있었고
+   남은 것이 이 축이었다.
+
+   점(`.sb-dot`)은 글자가 아니므로 이 정렬에서 빠진다 — 밑선에 맞추면 원이
+   글줄 위로 떠오른다. 제 상자의 중심으로 선다. */
+.sb-item{display:flex;align-items:baseline;gap:3px;padding:0 6px;line-height:16px;
+  flex-shrink:0;max-width:100%;white-space:nowrap;margin-left:-1px}
+.sb-item+.sb-item{border-left:1px solid var(--border-weak)}
+.sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;align-self:center}
+/* UPDATE_NOTICE_SRS FR-UPD-9: 새 판 배지. 지표들 오른쪽 끝에 홀로 선다 —
+   `.sb-item` 의 구분선 규약에 끼면 없을 때 빈 칸이 남는다. `hidden` 이 기본이며
+   보일 때만 자리를 차지한다. */
+.sb-update{margin-left:auto;flex-shrink:0;padding:0 8px;line-height:16px;white-space:nowrap;
+  border-radius:var(--radius-sm);background:var(--term-green);color:var(--sidebar-bg);
+  font-weight:600;text-decoration:none;cursor:pointer}
+.sb-update:hover{filter:brightness(1.1)}
+.sb-update[hidden]{display:none}
+/* UIUX_OVERHAUL_SRS FR-SEM-1: **정보·경로·참조는 cyan 이다.** 상태바의 경로와
+   호스트가 그 부류다 — 동작을 부르지 않고 "지금 어디/무엇" 을 가리킨다.
+   `--accent` 를 쓰지 않는 것이 요점이다 (원칙 3): accent 는 "지금 어디" 를
+   **고른 자리**의 색이고, 여기는 고른 것이 아니라 알려 주는 것이다.
+   6색은 `deriveContrastTokens` 가 테마마다 4.5:1 로 끌어올린다. */
+/* UIUX_OVERHAUL_SRS FR-CHR-11 (D-6): 활동 진입점(`.sb-act`)은 **상태바에 없다** —
+   넷이 상단바로 돌아갔다. 규칙을 남기면 다음에 이 이름을 다시 쓰는 손이 없던
+   배치를 물려받는다. */
+.sb-item .sb-ref{color:var(--term-cyan)}
+/* UX_AUDIT_FIX_SRS FR-UXF-83: 띠를 다시 여는 상황 표식 — 눌리는 것이다. */
+.sb-lsp-offer{cursor:pointer;color:var(--attn-text)}
+.sb-lsp-offer:hover{color:var(--text-bright)}
+.sb-dot.ok{background:var(--term-green)}
+.sb-dot.err{background:var(--danger)}
+.sb-sep{color:var(--border-weak);margin:0 2px}
+/* UIUX_OVERHAUL_SRS FR-HIE-4 의 모바일 접기(순위로 숨기기·눌러 펼치기·꺾쇠)는 걷었다 — 모바일에 상태바가 없다 (UX_AUDIT_FIX_SRS FR-UXF-90). */
+
+/* ── Status Bar Settings ── */
+.sbs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--border-weak)}
+.sbs-row span{color:var(--text);font-size:var(--fs-md)}
+.sbs-row>span{flex:1 1 auto;min-width:0;line-height:1.5;overflow-wrap:anywhere}
+.sbs-row>:not(span){flex:0 0 auto}
+.sbs-select{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-sm);padding:2px 6px;outline:none;font-family:inherit}
+.sbs-select:focus{border-color:var(--accent)}
+.sbs-select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+
+/* ── Presets ── */
+/* FR-UIK-13: 같은 근거로 자기 스크롤을 갖지 않는다. */
+.preset-list{display:flex;flex-direction:column;gap:4px}
+/* FUI-25: 인라인 삭제 확인 — 행 안에서 `×` 자리가 `삭제? 예 아니오` 로 바뀐다 */
+.preset-confirm{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
+.preset-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
+.preset-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-md);
+  transition:border-color var(--dur-base),background var(--dur-base);
+}
+.preset-item:hover{border-color:var(--accent-border);background:var(--accent-hover)}
+.preset-info{flex:1;min-width:0}
+.preset-name{color:var(--text-bright);font-size:var(--fs-md);font-weight:500}
+.preset-desc{color:var(--text-hint);font-size:var(--fs-sm);margin-top:2px}
+/* 행 동작의 외형은 `.ui-btn-ghost` 다 (DESIGN_TOKENS_SRS §7.2). 삭제만 hover 에서
+   위험색을 미리 보인다 (`.runs-del` 과 같은 규약). */
+.preset-del:hover{color:var(--danger-text);background:var(--danger-subtle)}
+/* 로드맵 M7 `UX-23`: 끌 수 있는 것은 **미리** 손 모양이다 — 탭·창 항목·탐색기 행.
+   `draggable` 은 JS 가 붙이므로 그 속성이 곧 선택자다. `cursor:grab` 은 이 셋뿐이다. */
+.pn-tab[draggable="true"],.sbl-item[draggable="true"],.ed-row[draggable="true"]{cursor:grab}
+.pn-tab[draggable="true"]:active,.sbl-item[draggable="true"]:active,.ed-row[draggable="true"]:active{cursor:grabbing}
+
+/* ── Confirm Dialog ──
+   오버레이·상자의 겉모습은 `.ui-modal`/`.ui-modal-box` (FR-TOK-40·42). 머리
+   없는 상자라 안쪽 여백만 자기 것이다 (FR-TOK-43). */
+.confirm-box{padding:20px 24px;min-width:280px}
+.confirm-msg{color:var(--text-bright);font-size:var(--fs-lg);margin-bottom:16px;line-height:1.5}
+/* 알림 본문은 런타임이 낸 오류를 그대로 싣는다 — 길고 개행이 있다. 자르면
+   원인이 잘리므로 스크롤시킨다. */
+.notify-msg{max-height:40vh;overflow:auto;white-space:pre-wrap;text-align:left}
+.confirm-btns{display:flex;gap:8px;justify-content:flex-end}
+/* FR-OPT-11-5 (FEC-27): 확인 상자는 `UIKit.ask` 로 서서 본문·버튼 줄이 `.ui-modal-body`·
+   `.ui-modal-foot` 안에 산다. 여백은 상자(`.confirm-box`)의 것이므로 둘은 여백·구분선을
+   더하지 않는다 — 종전 골격과 같은 모양이다. */
+.confirm-box>.confirm-body{padding:0;overflow:visible}
+.confirm-box>.confirm-btns{padding:0;border-top:0}
+/* 버튼의 형태와 역할 색은 키트 등급이다 (DESIGN_TOKENS_SRS §7.3) — 파괴적 닫기·
+   삭제는 `ui-btn-danger`, 저장·확인·실행은 `ui-btn-primary`, 나머지는 기본.
+   종전에는 `.confirm-ok` 가 어디서나 붉었다 — 오류 알림의 `확인` 과 런타임의
+   `실행` 까지. 이름이 아니라 뜻이 색을 고른다. */
+
+/* 외형은 `.ui-btn.ui-btn-lg` — 목록 아래 한 줄을 다 쓰는 배치만 여기 것이다 (D-TOK-11). */
+#preset-save{margin-top:8px;width:100%}
+/* 저장을 거절한 사유. 비어 있으면 자리를 차지하지 않는다. */
+.preset-msg{color:var(--danger-text);font-size:var(--fs-md);line-height:1.5}
+.preset-msg:empty{display:none}
+
+/* ── Display Settings ── */
+.display-settings{display:flex;flex-direction:column;gap:10px;container-type:inline-size}
+/* UX_AUDIT_FIX_SRS FR-UXF-50·51 (X9, D-16): 행 문법은 설정 본문의 **폭**이 정한다 — 화면 모드가 아니다.
+   좁으면 넓은 입력(글 입력·선택 상자·긴 읽기 전용 값 `.ds-wide`)이 라벨 아래 줄에서 남은 폭을 다 쓴다.
+   스위치·숫자·단추는 같은 줄 오른쪽에 남는다. 기준 440px 는 이 한 자리다 — 컨테이너 조건에는
+   사용자 정의 속성을 쓸 수 없다.
+     이전 동작: 모바일에서 넘칠 때만 입력이 다음 줄로 밀렸고(FR-MUX-25), 밀린 입력은 제 폭을 지켰다
+     새  동작: 넓은 입력이 있는 행은 좁으면 늘 두 줄이고 입력이 전체 폭이다
+     이유:     진단 X9·M13 — 모바일에서 입력이 잘렸다 */
+@container (max-width:439.98px){
+  .ds-row:has(>:is(input.ds-text,select,textarea,.ds-wide)){flex-wrap:wrap;row-gap:8px}
+  .ds-row:has(>:is(input.ds-text,select,textarea,.ds-wide))>span:first-child{flex:1 0 100%}
+  .display-settings .ds-row>:is(input.ds-text,select,textarea,.ds-wide){flex:1 1 0;width:auto;min-width:0}
+}
+/* SETTINGS_ITEM_LEGIBILITY_SRS 묶음 I — 한 항목은 왼쪽 세로선 하나를 공유한다.
+   FR-SIL-2: 아래 테두리를 걷는다. 모든 행을 같은 굵기로 나누면 **항목 사이와
+   그룹 사이가 구별되지 않는다**(§2.1) — 가로선은 그룹(`.ds-sec`)에만 남긴다. */
+/* SETTINGS_TAB_ORDER_SRS FR-STO-7: 한 항목은 카드 하나다 — 세로선(FR-SIL-3)을 배경으로 대신한다.
+     이전 동작: 항목마다 같은 왼쪽 세로선, 배경 없음
+     새  동작: 패널과 다른 배경의 둥근 카드, 카드 사이에 틈
+     이유:     세로선은 모든 항목에 같아서 항목 사이의 경계를 말하지 못했다 */
+.ds-row{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:10px 12px;background:var(--bg-alt);border-radius:var(--radius-md)}
+/* 설명이 붙는 행은 아래 모서리를 설명에게 넘긴다. */
+.ds-row:has(+.ds-hint){border-bottom-left-radius:0;border-bottom-right-radius:0}
+/* 저장 버튼·상태만 있는 행은 항목이 아니다 — 카드로 감싸지 않는다. */
+.ds-row:has(>.sbx-status:first-child){background:none;padding:2px 0}
+.ds-row span{color:var(--text);font-size:var(--fs-md)}
+/* FR-UIK-14: 라벨이 길면 **줄을 바꾼다.** 종전에는 줄지 않는 글자가 손잡이를
+   오른쪽으로 밀어 본문에 가로 막대를 세웠다. 손잡이 쪽은 줄지 않는다 — 줄어야
+   하는 것은 읽는 글자가 아니라 글자의 줄 수다. */
+.ds-row>span:first-child{flex:1 1 auto;min-width:0;line-height:1.5;overflow-wrap:anywhere}
+.ds-row>:not(span:first-child){flex:0 0 auto}
+.ds-num,.ds-text{
+  width:90px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--text);font-size:var(--fs-md);padding:3px 8px;font-family:inherit;outline:none;
+}
+.ds-text{width:200px}
+/* 브라우저 기본 스핀 버튼은 앱의 입력칸 모양과 맞지 않아 숨긴다. 키보드 ↑↓ 는 그대로다. */
+.ds-num{appearance:textfield;-moz-appearance:textfield}
+.ds-num::-webkit-inner-spin-button,.ds-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.ds-num:focus,.ds-text:focus{border-color:var(--accent)}
+.ds-num:focus-visible,.ds-text:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+.ds-hint{color:var(--text-hint);font-size:var(--fs-sm);line-height:1.5;margin-top:6px}
+/* FR-SIL-1·3: 설명은 **자기 항목에 붙는다.** 컨테이너의 `gap:10px` 을 되돌려
+   붙이고 같은 세로선을 잇는다. 인접 선택자인 것이 요점이다 — 앞에 행이 없는
+   `.ds-hint`(패널 전체를 설명하는 자리)는 종전 그대로 둔다. */
+.ds-row+.ds-hint{margin-top:-10px;padding:0 12px 10px;background:var(--bg-alt);border-radius:0 0 var(--radius-md) var(--radius-md)}
+/* 행 아래에 그 행의 목록(`.sbx-mounts`)과 설명이 오는 항목(Access)도 한 카드로 잇는다. */
+.ds-row:has(+.sbx-mounts){border-bottom-left-radius:0;border-bottom-right-radius:0}
+.ds-row+.sbx-mounts{margin:-10px 0 0;padding:0 12px 8px;background:var(--bg-alt)}
+.ds-row+.sbx-mounts+.ds-hint{margin-top:-10px;padding:0 12px 10px;background:var(--bg-alt);border-radius:0 0 var(--radius-md) var(--radius-md)}
+/* UX_AUDIT_FIX_SRS FR-UXF-95: 모바일 키바 구역은 카드 하나다 — 키가 열여덟이라 행마다 카드를 세우면 탭이 세 배로 길어진다. */
+.kbc{display:flex;flex-direction:column;gap:8px;padding:8px 12px;background:var(--bg-alt);border-radius:var(--radius-md)}
+.kbc-list{display:flex;flex-direction:column}
+.kbc-row{display:flex;align-items:center;gap:8px;padding:2px 0}
+.kbc-row+.kbc-row{border-top:1px solid var(--border-weak)}
+.kbc-label{flex:0 0 5em;color:var(--text-bright);font-size:var(--fs-md)}
+.kbc-name{flex:1 1 auto;min-width:0;color:var(--text-muted);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kbc-add{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:8px;border-top:1px solid var(--border)}
+.kbc-mod{display:inline-flex;align-items:center;gap:4px;color:var(--text);font-size:var(--fs-md)}
+.kbc-lbl{width:7em}
+.kbc-reset{align-self:flex-start}
+
+/* 묶음 S — 그룹의 이름. 선은 가르기만 하고 이름을 주지 않으므로(§2.3) 이름을
+   주는 자리를 따로 둔다. */
+/* FR-STO-8: 섹션 제목은 항목 라벨보다 밝고 굵다. 위 여백이 섹션 사이를 가른다. */
+.ds-sec{color:var(--text-bright);font-size:var(--fs-md);font-weight:600;margin-top:18px}
+.display-settings>.ds-sec:first-child{margin-top:0}
+/* `.ds-toggle` 의 외형은 `.ui-btn` 이다 (DESIGN_TOKENS_SRS §7.2). 이름은 기준선
+   JSON 이 키로 짚으므로 남는다 (FR-TOK-36 ②). */
+
+/* ── 세그먼트·레인지 (SETTINGS_CONTROLS_SRS 묶음 SCT) ──
+   `.ds-toggle`·`.ds-num` 이 이미 쓰는 언어를 그대로 잇는다: 바탕 `--bg`, 테두리
+   1px `--border`, 반경 4px, 손이 닿으면 `--accent`. 새 컨트롤이 그 언어 밖에
+   서면 같은 패널 안에서 어느 것이 누를 수 있는 것인지 매번 다시 배워야 한다. */
+
+/* FR-SCT-1·2·5: 값이 둘인 설정의 토글 스위치. 두 값의 이름은 **트랙 바깥 양쪽**에
+   두고, 지금 값은 손잡이의 자리와 켜진 이름이 함께 말한다 — 값이 적힌 버튼 하나는
+   "지금 무엇인가" 만 말하고 "무엇을 고를 수 있는가" 를 숨겼다. */
+.ds-switch{display:inline-flex;align-items:center;gap:8px}
+.ds-switch .ds-sw-lbl{font-size:var(--fs-sm);color:var(--text-hint);transition:color var(--dur-base)}
+.ds-switch[data-v="horizontal"] .ds-sw-lbl.l,
+.ds-switch[data-v="vertical"] .ds-sw-lbl.r{color:var(--text-bright)}
+.ds-switch button{
+  position:relative;flex:0 0 auto;width:34px;height:18px;padding:0;
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-pill);
+  cursor:pointer;transition:background var(--dur-base),border-color var(--dur-base);
+}
+.ds-switch button:hover{border-color:var(--accent)}
+.ds-switch button:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+.ds-switch button i{
+  position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
+  background:var(--accent);transition:transform var(--dur-base) ease;
+}
+/* 오른쪽 값(세로)일 때만 손잡이가 옮겨 앉는다 — 트랙 폭(34) - 손잡이(12) - 여백(2·2) */
+.ds-switch[data-v="vertical"] button{background:var(--accent-active);border-color:var(--accent-border)}
+.ds-switch[data-v="vertical"] button i{transform:translateX(16px)}
+
+/* FR-SCT-6~9: 정도를 고르는 컨트롤. 값 표시의 폭을 고정하는 이유는 `.ds-toggle`
+   과 같다 — 글자 수가 바뀔 때마다 행이 흔들린다. */
+.ds-range{display:inline-flex;align-items:center;gap:10px}
+.ds-range b{min-width:30px;text-align:right;font-weight:400;font-size:var(--fs-sm);color:var(--text-muted)}
+/* D-5: `accent-color` 를 쓰지 않는다 — 브라우저마다 트랙과 엄지의 크기·여백이
+   달라 같은 행의 다른 컨트롤과 높이가 어긋난다. 트랙을 직접 그린다.
+   D-6: 지나온 만큼을 칠하려면 현재 값이 필요한데 CSS 는 그것을 읽지 못한다 —
+   JS 가 `--fill` 로 넘긴다. */
+.ds-range input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:120px;height:14px;background:transparent;cursor:pointer;outline:none;margin:0;
+}
+.ds-range input[type=range]::-webkit-slider-runnable-track{
+  height:4px;border-radius:var(--radius-pill);
+  background:linear-gradient(to right,var(--accent) 0 var(--fill,0%),var(--border) var(--fill,0%));
+}
+.ds-range input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:12px;height:12px;margin-top:-4px;border-radius:var(--radius-sm);
+  background:var(--accent);border:1px solid var(--accent-border);
+}
+.ds-range input[type=range]::-moz-range-track{
+  height:4px;border-radius:var(--radius-pill);
+  background:linear-gradient(to right,var(--accent) 0 var(--fill,0%),var(--border) var(--fill,0%));
+}
+.ds-range input[type=range]::-moz-range-thumb{
+  width:12px;height:12px;border-radius:var(--radius-sm);
+  background:var(--accent);border:1px solid var(--accent-border);
+}
+.ds-range input[type=range]:hover::-webkit-slider-thumb{background:var(--text-bright)}
+.ds-range input[type=range]:hover::-moz-range-thumb{background:var(--text-bright)}
+.ds-range input[type=range]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:2px;border-radius:var(--radius-sm)}
+
+/* ── 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS FR-SPT-15·16) ── */
+.bk-confirm{
+  border:1px solid var(--accent-border);border-radius:var(--radius-sm);padding:10px;margin-top:10px;
+  display:flex;flex-direction:column;gap:10px;
+}
+/* FR-LAY-2: 되돌려 적을 것이 없다 — `[hidden]` 이 위에서 한 번에 한다. */
+.bk-summary{color:var(--text);font-size:var(--fs-sm);line-height:1.6;white-space:pre-line}
+.bk-actions{display:flex;gap:8px;justify-content:flex-end}
+.bk-danger{border-color:var(--danger);color:var(--danger-text)}
+.bk-danger:hover{border-color:var(--danger)}
+.bk-msg{font-size:var(--fs-sm);line-height:1.5;margin-top:8px}
+.bk-msg.ok{color:var(--text-hint)}
+.bk-msg.err{color:var(--danger-text)}
+
+/* ── 창 배치 되돌리기 (M5 `G4-7`) ── */
+/* FR-LAY-2: 되돌려 적을 것이 없다 — `[hidden]` 이 위에서 한 번에 한다. */
+.bk-revs{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.bk-rev{
+  display:flex;align-items:center;gap:8px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;
+  font-size:var(--fs-sm);color:var(--text-hint);
+}
+.bk-rev-when{flex:1 1 auto;color:var(--text)}
+.bk-rev-size{flex:0 0 auto;font-variant-numeric:tabular-nums}
+/* 설정 사이의 가로줄. 되돌릴 수 없는 동작을 그 위의 것들과 눈으로 가른다. */
+.ds-sep{border-top:1px solid var(--border);margin:14px 0 4px}
+
+/* 안내 중에서도 **이 환경에서는 동작하지 않는다**를 말하는 것 (TLS-1).
+   FR-LAY-2: 되돌려 적을 것이 없다 — `[hidden]` 이 위에서 한 번에 한다. */
+.ds-warn{border-left:2px solid var(--danger);padding-left:8px;white-space:pre-line}
+/* 켤 수 없는 스위치는 그렇게 보여야 한다. */
+.display-settings input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed}
+

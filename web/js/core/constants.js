@@ -64,7 +64,7 @@ const BOOT_STEP_BACKUP=t('core.boot_step_backup');
 // ── 포커스를 잃은 창의 가장자리 표시 (UNFOCUSED_EDGE_SRS 묶음 UFE) ──
 // D-8: 표시 여부는 `documentElement` 의 클래스 하나로 정한다 — 포커스는 초당
 // 여러 번 오갈 수 있고, 그때마다 DOM 을 짓고 허물 이유가 없다. 세기·깊이·전이
-// 시간은 CSS 변수(`--ufe-*`, style.css)에 산다: 그 값들을 읽는 것은 CSS 뿐이다.
+// 시간은 CSS 변수(`--ufe-*`, style-system.css)에 산다: 그 값들을 읽는 것은 CSS 뿐이다.
 const WIN_UNFOCUSED_CLASS='win-unfocused';
 /**
  * FR-UFE-10·12 / D-4a·D-8e: 가장자리 표시의 **세기 레벨**(0~10). 0 이 곧 끔이다.
@@ -98,7 +98,7 @@ const UFE_ALPHA_MID_RATIO=.27;
 const UFE_LEVEL_OFF_LABEL=t('core.ufe_level_off_label');
 // FR-UFE-18: 레인지에서 손을 뗀 뒤 미리보기를 유지하는 시간.
 const UFE_PREVIEW_MS=1400;
-// 미리보기 동안 붙는 클래스. style.css 가 같은 이름을 안다.
+// 미리보기 동안 붙는 클래스. style-system.css 가 같은 이름을 안다.
 const UFE_PREVIEW_CLASS='ufe-preview';
 
 /* ── 알림 가장자리 (ALERT_MOBILE_CONTEXT_SRS 묶음 AED) ──
@@ -114,7 +114,7 @@ const UFE_PREVIEW_CLASS='ufe-preview';
 const ATTN_EDGE_ALPHA_PER_LEVEL=.1;
 const ATTN_EDGE_PREVIEW_MS=1400;
 const ATTN_EDGE_PREVIEW_CLASS='ae-preview';
-// FR-AED-6: 알림이 있는 동안 documentElement 에 붙는 클래스. style.css 가 같은 이름을 안다.
+// FR-AED-6: 알림이 있는 동안 documentElement 에 붙는 클래스. style-system.css 가 같은 이름을 안다.
 const ATTN_EDGE_ON_CLASS='attn-edge-on';
 
 /**

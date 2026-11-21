@@ -1,0 +1,298 @@
+/* 상단바·터미널 영역·분할·칸·탭 줄 — style.css 를 원래 순서의 연속 구간으로 나눈 조각 (REFACTOR3_FE_REST4_SRS FU-11). 순서는 index.html 의 <link> 가 지킨다. */
+/* ── Content ── */
+#content{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+
+/* ── Top bar ── */
+#topbar{
+  height:32px;min-height:32px;display:flex;align-items:center;
+  background:var(--sidebar-bg);border-bottom:1px solid var(--border-strong);padding:0 8px;gap:6px;
+}
+#window-name{font-size:var(--fs-md);color:var(--text-muted)}
+/* UX_AUDIT_FIX_SRS FR-UXF-2: 제목의 구분점은 흐린 글자다 — 상단바와 칸 머리글이 같다. */
+.tt-sep{color:var(--text-hint)}
+
+/* SLOT_MARKER_SRS FR-SMK-1·4·5·6·20·21: 칸 마커.
+   `#window-name` 이 비는 자리에 선다 — 칸이 여럿일 때만 서므로 그 둘이 같은
+   픽셀을 두고 다투지 않는다 (FR-STB-12).
+   가로 균등이다. `data-slotdir` 을 **보지 않는다** — 세로 분할이어도 가로다
+   (D-2: 상단바 높이가 세로 축소판을 담지 못한다). */
+#slot-marker{
+  --slot-marker-size:10px;      /* FR-SMK-21 — 값은 이 한자리에 둔다 */
+  --slot-marker-gap:6px;
+  --slot-marker-hit:8px;        /* 과녁을 사각형 밖으로 넓히는 폭 (R-2) */
+  display:inline-flex;align-items:center;gap:var(--slot-marker-gap);margin:0 var(--ui-gap);
+}
+/* 킷의 버튼이되 **크기만** 다시 적는다 — 색·테두리·포커스 링은 킷의 것을 그대로
+   쓴다 (FR-SMK-20: 새 토큰을 만들지 않는다). 빈 사각형은 킷의 기본 그대로다. */
+.slot-marker-cell{
+  position:relative;
+  width:var(--slot-marker-size);height:var(--slot-marker-size);padding:0;
+}
+/* 사각형은 작고 과녁은 크다. 손잡이의 히트 영역(`.ui-resize-handle::before`)과 같은 수법이다. */
+.slot-marker-cell::before{
+  content:'';position:absolute;
+  left:calc(var(--slot-marker-hit) * -1);right:calc(var(--slot-marker-hit) * -1);
+  top:calc(var(--slot-marker-hit) * -1);bottom:calc(var(--slot-marker-hit) * -1);
+}
+/* FR-SMK-6: 포커스 칸은 **채운** 사각형이다. 색은 포커스의 언어를 그대로 쓴다 —
+   칸 머리글이 이미 `--accent` 다 (FR-STB-26). 둘이 다른 색이면 사용자는 그것을
+   다른 종류의 정보로 읽는다. */
+.slot-marker-cell[aria-current="true"]{background:var(--accent);border-color:var(--accent)}
+.spacer{flex:1}
+
+/* 주의 알림 배지 + 센터 팝오버 (FR-PAN-16).
+   UIUX_OVERHAUL_SRS FR-ACT-8 (D-7): **팝오버가 돌아왔다.** FR-ACT-1 이 이것을
+   활동 패널의 한 구역으로 접었는데, 거기 질문이 **둘**이었다 — 주의는 *"나를
+   기다리는 것이 있나"* 이고 나머지 셋은 *"지금 뭐가 돌고 있나"* 다. 자리를
+   계산해 띄우던 규칙이 그대로 돌아온다. 행(`.attn-item`)은 지운 적이 없다. */
+/* UX_BATCH11_SRS FR-APC-1·2: 맥박은 겹의 opacity 하나다 — 요소 자신의 색을 움직이면 맥박이 도는 동안
+   매 프레임 다시 그린다. 바탕에는 50% 의 모습(옅은 테두리)을 두고 겹이 진한 테두리를 얹는다.
+   `:hover` 도 같은 바탕이다 — 종전에는 애니메이션이 hover 의 테두리색을 늘 덮었다. */
+#attn-badge,#attn-badge:hover{position:relative;color:var(--attn-text);border-color:var(--attn-subtle)}
+#attn-badge::before{content:'';position:absolute;inset:-1px;border:1px solid var(--attn);border-radius:inherit;
+  pointer-events:none;animation:attn-pulse-fade 2s ease-in-out infinite}
+#attn-badge .attn-count{margin-left:4px;font-size:var(--fs-sm);font-weight:600}
+#attn-center{
+  display:none;position:fixed;z-index:var(--z-popover);
+  min-width:200px;max-width:320px;max-height:60vh;overflow-y:auto;
+  background:var(--sidebar-bg);border:1px solid var(--attn);border-radius:var(--radius-md);
+  box-shadow:var(--shadow-1);padding:4px;
+}
+#attn-center.open{display:block}
+/* MOBILE_UX_OVERHAUL_SRS FR-MUX-57: 모바일에서 알림 센터는 화면 폭을 쓴다 (오른쪽 끝은 `_positionAttnCenter` 가 준다). */
+body.mobile #attn-center{left:8px;right:8px !important;width:auto;min-width:0;max-width:none;max-height:70dvh;overflow-y:auto}
+.attn-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.attn-head .attn-title{font-size:var(--fs-sm);color:var(--text-muted)}
+.attn-clear-all:hover{background:var(--attn-subtle)}
+/* FR-AEV-15: 이름 · 사유 · 내용 세 칸. 내용은 길 수 있으므로(codex 의
+   last-assistant-message 는 문단으로 온다) **줄이 늘지 않고 잘린다** — 항목 높이가
+   내용에 따라 들쭉날쭉하면 목록으로 읽히지 않는다. */
+.attn-item{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:var(--fs-md);color:var(--text);
+  /* flex 자식이 줄어들 수 있어야 생략이 선다 — min-width:auto 가 기본이라
+     긴 내용이 상자를 밀어낸다. */
+  min-width:0;
+}
+.attn-item:hover{background:var(--attn-subtle)}
+/* FUI-22: 개별 해제. 세부 글자(`.attn-detail`)가 `margin-left:auto` 로 오른쪽에 서므로
+   × 는 그 뒤에 온다 — 항목 클릭(이동)과 겹치지 않게 `stopPropagation` 한다. */
+.attn-item .attn-x{flex:0 0 auto}
+.attn-item .attn-name{flex-shrink:0;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attn-item .attn-reason{flex-shrink:0;font-size:var(--fs-sm);color:var(--attn-text)}
+.attn-item .attn-detail{
+  flex:1 1 auto;min-width:0;margin-left:auto;text-align:right;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:var(--fs-sm);color:var(--text-muted);
+}
+/* `.tbtn` 의 외형은 `.ui-btn` 이 갖는다 (DESIGN_TOKENS_SRS §7.1 · FR-TOK-35).
+   이름은 기준선 JSON(`ui-layout.json`)이 키로 짚으므로 HTML 에 남는다 (②). */
+
+/* ── Terminal area ── */
+#area{flex:1;position:relative;overflow:hidden;background:var(--bg)}
+
+/* ── Split layout ── */
+.sp{display:flex;position:absolute;inset:0;overflow:hidden}
+
+/* WINDOW_SLOTS_SRS FR-WSL-30·D-8: 칸은 flex 아이템이다. 개수가 늘어도 누적
+   좌표를 계산할 일이 없고, 방향은 `flex-direction` 한 줄이 정한다.
+   **단일 슬롯 모드에서는 이 규칙들이 붙을 요소 자체가 없다** — `#area` 는 지금처럼
+   분할 트리를 직접 갖고, `.sp`·`.pn` 의 `inset:0` 가 `#area` 를 채운다 (D-4). */
+#area[data-slotdir]{display:flex}
+#area[data-slotdir="horizontal"]{flex-direction:row}
+#area[data-slotdir="vertical"]{flex-direction:column}
+.slot{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+/* 분할 트리가 붙는 자리. `inset:0` 의 기준이 되도록 relative 다. */
+.slot-body{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
+/* FR-WSL-35 / D-10: 칸의 이름표. 흐리게 하는 방식은 쓸 수 없다 — 그것은 이미
+   소유권 없음(`.pn-dimmed`)의 뜻이다. 그래서 이름을 적는다.
+   FR-STB-25: 칸이 여럿이면 토프바가 비고(FR-STB-12) 이 자리가 창 이름을
+   이어받는다 — 같은 일을 하므로 `#window-name` 과 같은 토큰을 쓴다. 옛
+   `var(--fg)` 는 어디에도 정의된 적이 없어 상속색으로 떨어지고 있었다. */
+.slot-head{flex:0 0 auto;padding:2px 8px;font-size:var(--fs-sm);line-height:1.6;
+  color:var(--text-muted);background:var(--sidebar-bg);
+  border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;user-select:none}
+/* FR-STB-26: 포커스의 언어는 종전대로 accent 다. */
+.slot-focused>.slot-head{color:var(--accent-text);
+  border-bottom-color:var(--accent);font-weight:600}
+.slot-empty>.slot-body{display:flex;align-items:center;justify-content:center}
+/* FR-B-6 (UX-11): 안내는 DOM 텍스트(`.slot-empty-hint`)다 — 접근성 트리에 잡히고 번역된다. */
+.slot-body>.slot-empty-hint{display:none}
+.slot-empty>.slot-body>.slot-empty-hint{display:block;opacity:.45;font-size:var(--fs-md)}
+/* FR-WSL-32: 칸 사이마다 하나씩. 생김새와 히트 확장은 `#sb-handle` 과 같고,
+   끄는 축만 방향을 따른다 — 창 안 분할의 `.sh` 가 이미 그렇게 갈라져 있다. */
+/* FR-STB-20·24: 슬롯 계층은 분할 손잡이(`.sh`, 3px·`--border`)와 **다른 색과
+   굵기**로 선다. 같은 색에 굵기만 1px 다르던 동안 두 계층은 구분되지 않았다. */
+.slot-handle{flex:0 0 8px;background:var(--slot-edge);z-index:var(--z-raised)}
+.slot-handle:hover{background:var(--accent)}
+#area[data-slotdir="horizontal"] .slot-handle{cursor:col-resize}
+#area[data-slotdir="vertical"] .slot-handle{cursor:row-resize}
+/* 히트 영역은 킷이 넓힌다 — 세로로 끄는 축만 방향을 뒤집는다 (FR-CMP-87). */
+#area[data-slotdir="vertical"] .slot-handle::before{inset:calc(var(--ui-resize-hit) * -1) 0}
+/* FR-WSL-50: 상단바의 `− Slot +`. 두 버튼이 한 덩어리로 읽혀야 창 안 분할과
+   섞이지 않는다 (§7 R-3). **FR-CHR-10 (D-6) 이 이 자리를 확정했다** — 칸 `±` 는
+   창 **밖**을 쪼개므로 전역이고, 그래서 탭줄이 아니라 상단바에 산다. */
+/* FR-GAP-2: 간격은 키트의 토큰이다 — 한 덩어리로 읽히는 것과 맞붙는 것은 다르다. */
+.slot-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin:0 2px}
+/* UX_BATCH12_SRS FR-RTR-13: 뒤로·앞으로. 슬롯 묶음과 간격·구분선으로 갈린다 (사용자 결정). */
+.nav-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin-right:var(--ui-gap);padding-right:var(--ui-gap);border-right:1px solid var(--border)}
+.nav-ctl[hidden]{display:none}
+/* `G7-1` 첫 판: 글자에 `opacity` 를 걸면 토큰이 바닥을 넘어도 화면은 넘지 못한다
+   (실측 `.slot-ctl-label` 3.84 · `#add-sandbox-window` 3.27 — 계산 게이트는
+   토큰만 보므로 못 잡는다). 흐림은 색으로 말한다 — 파생 토큰은 바닥을 받는다. */
+.slot-ctl-label{font-size:var(--fs-sm);color:var(--text-hint);user-select:none}
+/* FR-WSL-81: 설정의 두 칸짜리 세그먼트 토글. */
+.sp[data-d="horizontal"]{flex-direction:row}
+.sp[data-d="vertical"]{flex-direction:column}
+.sc{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
+/* SLOT_TITLE_BOUNDARY_SRS FR-STB-28: 분할 손잡이는 `--border` 다. FR-HIE-1 이
+   이것을 `--border-strong` 으로 올렸다가 되돌렸다 — 슬롯 손잡이(`--slot-edge`)와의
+   거리가 54종에서 평균 116·최소 73 에서 평균 57·최소 11 로 무너지고 41종이 옛
+   최소값 아래로 내려간다(실측). 두 계층을 가르는 것이 FR-STB-20 의 목적이다. */
+.sh{flex-shrink:0;background:var(--border);transition:background var(--dur-base);z-index:var(--z-raised)}
+.sh:hover{background:var(--accent)}
+.sp[data-d="horizontal"]>.sh{width:3px;cursor:col-resize}
+.sp[data-d="vertical"]>.sh{height:3px;cursor:row-resize}
+/* 히트 영역은 킷이 넓힌다 — 세로로 끄는 축만 방향을 뒤집는다 (FR-CMP-87). */
+.sp[data-d="vertical"]>.sh::before{inset:calc(var(--ui-resize-hit) * -1) 0}
+
+/* ── Pane (분할 칸) ── */
+/* UIUX_OVERHAUL_SRS FR-HIE-2: 포커스는 **한 변**으로 말한다.
+     이전 동작: `.pn` 이 4변을 2px accent 로 감쌌다 — 터미널 내용을 둘러싼 색
+               테두리가 내용과 대비를 다퉜고(§2.3), 그 자리를 늘 비워 두느라
+               칸마다 가로·세로 4px 을 잃었다
+     새  동작: 탭줄의 아랫변 하나가 그 일을 한다. `.pn` 의 빈 테두리를 걷는다
+     이유:     §3.3 원칙 3 — accent 는 "지금 어디" 에만이고 한 번 말하면 된다.
+               터미널 면적은 껍데기의 예산에서 나온다 (원칙 1)
+   두께는 `box-shadow` 로 준다 — `border-bottom` 을 키우면 포커스가 옮길 때마다
+   탭줄이 자라 그 아래 터미널이 다시 눕는다. */
+.pn{display:flex;flex-direction:column;position:absolute;inset:0}
+/* UI_POLISH_SRS FR-UIP-10: 표식은 **고를 칸이 둘 이상일 때만** 선다. 칸이 하나면
+   분할 컨테이너(`.sp`)가 없다 — 그 칸은 영역의 직속 자식이다.
+     이전 동작: 칸 수와 관계없이 포커스 칸의 탭줄에 accent 2px
+     새  동작: `.sp` 안의 칸에만
+     이유:     고를 칸이 하나면 표식이 전하는 정보가 없다 */
+.sp .pn.focused .pn-tabs{border-bottom-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+
+/* UIUX_OVERHAUL_SRS FR-CHR-2: 줄 자신은 **구르지 않는다.** 구르는 것은 안쪽
+   `.pn-tabs-scroll` 이고, 고정 구(`.pn-acts`)는 그 밖에서 오른쪽 끝을 지킨다.
+   포커스 표식(`box-shadow`)은 줄 전체의 것이므로 여기 남는다. */
+.pn-tabs{
+  height:28px;min-height:28px;display:flex;align-items:stretch;
+  background:var(--sidebar-bg);border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.pn-tabs-scroll{display:flex;align-items:stretch;overflow-x:auto;flex:1 1 auto;min-width:0}
+.pn-tabs-scroll::-webkit-scrollbar{height:0}
+/* UX-24: 넘친 쪽의 가장자리를 흐린다 — 렌더러가 `data-overflow` 를 세운다 (renderer.js
+   `_makePane`). 스크롤바를 감춘 대가로 "저 너머에 더 있다" 를 이것이 말한다.
+
+   **마스크가 고정 구에 닿지 않는다** — `mask-image` 는 자손까지 걸리므로 구를
+   스크롤러 안에 두면 그것까지 흐려진다 (FR-CHR-2 의 구조 근거). */
+.pn-tabs-scroll[data-overflow="right"]{mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
+.pn-tabs-scroll[data-overflow="left"]{mask-image:linear-gradient(to right,transparent,#000 28px)}
+.pn-tabs-scroll[data-overflow="both"]{mask-image:linear-gradient(to right,transparent,#000 28px,#000 calc(100% - 28px),transparent)}
+/* D-A11Y-11: 탭만 담는 tablist. */
+.pn-tablist{display:flex;align-items:stretch;flex-shrink:0}
+/* FR-CHR-2 의 고정 구. 탭이 넘쳐도 자리를 지킨다 — 근육기억이 문맥마다 깨지지
+   않는다는 것이 이 묶음의 요지다 (§3.3 원칙 2). */
+.pn-acts{display:flex;align-items:stretch;flex-shrink:0;
+  border-left:1px solid var(--border-weak)}
+/* FR-WSL-60 · `_splitInner` 의 첫 줄: 모바일에는 분할이 없다 — 그 자리를 두면
+   눌리지만 아무 일도 하지 않는 버튼이 된다 (FR-GIT-180 이 세운 규약).
+   FR-CHR-3 의 "자리를 지킨다" 는 **데스크톱의 규칙**이다: 모바일에는 자리를
+   견줄 이웃 자체가 없다 — 상단바가 pane 페이저를 들고 따로 선다 (FR-CHR-6). */
+body.mobile .pn-split{display:none}
+.pn-act{width:24px}
+.pn-act:hover:not(:disabled){color:var(--accent-text)}
+.pn-tab{
+  display:flex;align-items:center;padding:0 10px;gap:4px;
+  font-size:var(--fs-md);color:var(--text-muted);cursor:pointer;
+  border-right:1px solid var(--border-weak);white-space:nowrap;flex-shrink:0;
+}
+/* TAB_WIDTH_SRS FR-TBW-5·7: 켠 사람에게만 보이는 규칙이다 — 끈 상태(`body` 에
+   `.tabfix` 가 없을 때)의 폭·말줄임은 위 규칙 그대로다 (FR-TBW-9).
+
+   세 값을 다 박는 이유는 `flex` 안에서 `width` 만으로는 내용이 넘칠 때 늘어나기
+   때문이다. `flex-shrink:0` 은 위에서 이미 오므로 **자리가 모자라도 줄지 않고**
+   줄이 스크롤한다 (D-2 — VSCode 의 `fixed` 와 갈리는 자리). */
+body.tabfix .pn-tab{
+  width:var(--tab-w);min-width:var(--tab-w);max-width:var(--tab-w);
+}
+/* 고정 폭에서 이름이 길면 말줄임이다. `min-width:0` 이 없으면 flex 항목의 기본
+   최소 크기가 내용 폭이라 `overflow` 가 듣지 않는다. */
+body.tabfix .pn-tab .pn-tab-label{
+  flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+}
+/* 닫기는 줄어들지 않는다 — 폭이 좁아질수록 먼저 사라지면 안 되는 것이 이쪽이다
+   (하한 40px 의 근거, D-3). */
+body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
+.pn-tab:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-2px}
+/* UX_AUDIT_FIX_SRS FR-UXF-60·61·128 (X6·O2, D-18·D-43): 작업 중 표식 — 모바일 작업 단추의 `.m-act-dot` 과 같은 점.
+   맥동하지 않는다(조용한 계기판의 램프). 주의가 있는 자리에는 JS 가 두지 않는다. 색은 실행 중 색 `--accent2` 다. */
+.work-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent2)}
+.pn-tab>.work-dot{margin-right:6px}
+/* FR-UXF-129 (D-44): 사이드바 창 행은 점을 따로 두지 않고 선택 점을 링으로 두른다 — 패널 배경의 틈, 그 바깥 `--accent2` 띠.
+   그림자라 행의 자리를 바꾸지 않는다. 이전: 이름 뒤 `.work-dot`, 레일에서는 선택 점 아래에 얹혀 같은 색으로 겹쳤다. */
+.sbl-item.working:not(.attn) .sbl-dot{box-shadow:0 0 0 1.5px var(--sidebar-bg),0 0 0 3px var(--accent2)}
+.pn-tab:hover{background:var(--accent-hover);color:var(--text)}
+.pn-tab.active{color:var(--text-bright);background:var(--accent-subtle)}
+.pn-tab-x{font-size:var(--fs-sm);color:var(--text-hint);opacity:0;cursor:pointer}
+.pn-tab:hover .pn-tab-x{opacity:1}
+.pn-tab-x:hover{color:var(--danger-text)}
+.pn-tab-add{width:24px;font-size:var(--fs-lg)}
+.pn-tab-add:hover{color:var(--accent-text)}
+
+/* 주의 알림 강조 — 포커스(--accent)·위험(--danger)과 구분되는 테마색 --attn, 굵은 실선+글로우로 가시성 강화 (FR-PAN-10) */
+
+/* ATTENTION_PULSE_SRS FR-ATP-1: 표식은 2초 주기로 숨쉰다 — 1초에 걸쳐 사라지고
+   1초에 걸쳐 돌아온다. ease-in-out 이 양 끝을 느리게 만든다.
+   FR-ATP-3/D-1: 움직이는 것은 **요소가 아니라 표식을 그리는 속성**이다. 요소에
+   opacity 를 걸면 터미널 화면과 탭·창 이름이 함께 사라진다 (§2.2).
+   FR-ATP-4: 두께를 가진 표식은 색만 잃고 크기를 유지한다 — 글자가 흔들리면
+   알림이 아니라 방해다.
+   FR-ATP-7: 양 끝(0%·100%)의 모습이 개정 전의 정지 표식과 같다. */
+/* UX_BATCH11_SRS FR-APC-1·2: 맥박 일곱 자리가 이 하나를 쓴다. 표식은 겹에 살고, 50% 의 모습은 그
+   요소의 바탕이다 — 겹이 사라지면 바탕이 보인다. 배지 둘은 글자가 곧 내용이라 겹이 글자를 덮지
+   않는다 (D-2 · FR-APC-4). */
+@keyframes attn-pulse-fade{
+  0%,100%{opacity:1}
+  50%{opacity:0}
+}
+
+.pn-tab.attn{color:var(--attn-text);background:transparent;font-weight:600;position:relative;isolation:isolate}
+.pn-tab.attn::before{content:'';position:absolute;inset:0;z-index:var(--z-under);pointer-events:none;
+  background:var(--attn-subtle);box-shadow:inset 0 -3px 0 var(--attn);animation:attn-pulse-fade 2s ease-in-out infinite}
+/* ATTENTION_FIRING_SRS FR-ATV-3: 활성이면서 알람인 탭. 배경은 활성 색으로 두고
+   밑줄만 숨쉰다 — 배경까지 맥박에 실으면 반주기 동안 어느 탭이 열려 있는지
+   알 수 없게 된다. 알람이 활성 표시를 빼앗지 않는다. */
+.pn-tab.active.attn{color:var(--attn-text);background:var(--accent-subtle)}
+.pn-tab.active.attn::before{background:none}
+/* FR-ATP-8: 분할 칸의 링은 **자식 위에 뜬 겹**이다.
+   개정 전에는 2px 테두리 + 안쪽 2px 그림자였는데, 안쪽 그림자는 요소의 배경 층에
+   그려지고 자식(탭 줄·터미널)이 그 위를 덮는다. 덮이는 정도가 면마다 달라 실측
+   두께가 **위 2px · 왼쪽 3px · 아래 4px** 로 어긋나 모서리가 우그러져 보였다 (§2.4).
+   겹 하나로 그리면 어느 면에서나 같은 두께이고, 겹에는 내용이 없으므로 맥박을
+   opacity 로 줄 수 있다 (D-5). */
+/* FR-ATV-2: 링은 칸의 가장자리에 앉는다. 개정 전에는 포커스(2px `border`)와
+   알람이 같은 픽셀을 다퉈 알람이 있는 칸에서 포커스가 보이지 않았고(B5), 그래서
+   링을 테두리 **안쪽**으로 한 겹 물렸다. FR-HIE-2 가 그 테두리를 걷었으므로
+   다툴 픽셀이 없다 — 포커스는 탭줄에 있고 이 링은 가장자리를 홀로 쓴다. */
+.pn.attn::after{
+  content:'';position:absolute;inset:0;z-index:var(--z-overlay);pointer-events:none;
+  box-shadow:inset 0 0 0 3px var(--attn),0 0 12px -1px var(--attn-glow);
+  animation:attn-pulse-fade 2s ease-in-out infinite;
+}
+/* FR-PAN-16: 알람 표식. 공통 클래스로 쓴다 — 다음 목록도 `attn` 을 줄 수 있다. */
+/* 왼쪽 3px 바 하나로 알리는 자리들 — 사이드바 항목과 에이전트 카드가 같은 표식이다. */
+.sbl-item.attn,.ag-card.attn{position:relative}
+.sbl-item.attn::before,.ag-card.attn::before{content:'';position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-fade 2s ease-in-out infinite}
+/* 점은 사라지지 않고 평소 색으로 돌아간다 — 자리가 비면 목록이 흔들린다. */
+/* UX_BATCH12_SRS FR-RGT-1: 그룹 머리의 점은 테두리로 그린 삼각형이다 — 칠하면 사각형이 된다.
+   그룹의 알람은 행의 왼쪽 띠(`.sbl-item.attn::before`)가 말한다. */
+.sbl-item.attn:not(.si-group) .sbl-dot{background:var(--text-dim);position:relative}
+.sbl-item.attn:not(.si-group) .sbl-dot::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:var(--attn);box-shadow:0 0 6px var(--attn-glow);animation:attn-pulse-fade 2s ease-in-out infinite}
+
