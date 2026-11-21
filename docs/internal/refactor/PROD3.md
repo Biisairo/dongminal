@@ -59,7 +59,7 @@
 | GH-20 | `httpapi/handlers_fs_search.go:263` | rg JSON 줄 상한 `4<<20` 이 인라인이다 | 이름 있는 상수 | S |
 | FU-19 | `ui/open-url.js:74` | `min(520px,90vw)` 를 JS 문자열에 박았다 | CSS 클래스로 — **처리함 (R2, `324d7922`)**: 같은 꼴 9줄을 `ui-modal-sm·md·lg` 로, `KitModal` 의 `width` 삭제 | S |
 | FU-9 | `web/style.css:875-876` | Activity 레일 숨김 목록이 한 선택자에 클래스 28개다. 새 클래스를 빠뜨리면 레일에 글자가 샌다. 그 가운데 죽은 선택자가 섞였다(DOC-15) | 죽은 것을 걷고, 숨김 대상에 표식을 달거나 게이트로 대조한다 | M |
-| FC-12 | `core/app-settings-theme.js:206-267` | 테마 미리보기의 인라인 `style` 27줄(px·색) | `.pv-*` 클래스로. FC-F1 과 함께 | M |
+| FC-12 | `core/settings-theme.js`(옛 `app-settings-theme.js`) `_renderPreview` | 테마 미리보기의 인라인 `style` 27줄(px·색) | `.pv-*` 클래스로. FC-F1 과 함께 — **처리함 (R3b, `26bafe55`)**. 인라인 `style` 45곳 → 0. 골격은 팔레트 값이 섞이지 않는 고정 문자열(`THEME_PREVIEW_HTML`), 색은 `themePreviewVars` 의 `--pv-*` 변수. 계산된 스타일 그대로 | M |
 
 ### 2.2. 중복 로직 제거 (분류 2)
 
@@ -117,12 +117,12 @@
 | ID | 자리 | 크기 | 제안 | 규모 · 위험 |
 |---|---|---|---|---|
 | FC-04 | `core/app-settings.js` `initModal` | 135줄, 파일 500(게이트 경계) | `app-settings-modal.js` — **처리함** (§7.1 P3a 3·8: 열기·닫기·탭은 `SettingsModal`, `_init*` 나열은 `SettingsController` 의 표 하나. `initModal` 은 한 줄, `app-settings.js` 386줄) | M · L |
-| FC-05 | `core/app-layout.js` | 975줄·메서드 44(저장소 최대), `delWindow` 108줄 | 창 / 탭 열기 / 탭 닫기 / 분할 / 사이드바 — **파일은 처리함** (P3a 9: `layout-*.js` 아홉). `delWindow` 108줄은 남음 | M · M |
+| FC-05 | `core/app-layout.js` | 975줄·메서드 44(저장소 최대), `delWindow` 108줄 | 창 / 탭 열기 / 탭 닫기 / 분할 / 사이드바 — **파일은 처리함** (P3a 9: `layout-*.js` 아홉). `delWindow` 108줄은 **처리함 (R3b, `61f2e97b` 시험 고정 · `4a418d40`)** — 단계 메서드 넷, 코드 56 → 13 | M · M |
 | FC-06·08 | `app-tool.js` `_pickSandbox` 155 · `app-statusbar.js` `updateStatusBar` 122 | 빌더 분리 — **처리함 (R2, `7cfe190b`)**: 41줄·22줄, 순수 판정 셋은 단위 시험 | S · L |
 | FC-07·09 | `ws-sync-controller.js`(옛 `app-ws-sync.js`) `_applyRemoteWorkspace` 136 · `app.js` `save` 90·`_saveAdoptRemote` 88 | **먼저 순서·충돌을 시험으로 고정** — **처리함 (R3a, `0d4af0dc` 시험 고정 · `94d73ccd` FC-07 · `18aa0a35` FC-09)**. 시험 `ws-apply-save.test.mjs` 가 호출 순서·충돌 갈래 26가지를 나누기 전 동작으로 고정했다. 적용기는 순수 판정 넷(`layout-tree.js`)과 단계 메서드 다섯으로 136 → 40줄, 저장은 순수 판정 넷과 `_savePut`·`_adoptRemote`·`_saveBackoff` 로 `save` 90 → 34줄·`_saveAdoptRemote` 88 → 14줄 | M · **H** |
-| FU-12 | `git/remote.js` `GitRemote` | 약 680줄 클래스 | 실행·스트림 / 표시 — **파일 분할은 처리함** (P3a 5: `remote-list`·`remote-add`·`remote-opts`). `GitRemote` 안 나누기(671줄)는 남음 | M · M |
-| FU-13 | `ui/ui-kit.js` `UIKit` | 930줄 | modal·menu·drag·HUD 내부 모듈 — **modal·menu 처리함** (P3a 3·6, 930 → 695줄). drag·HUD 는 남음 | M · M |
-| FU-14·15·16 | `lanes.js` `buildLaneGraph` ~180 · `panel-changes` `_buildChanges` 126·`_rowEl` 108 · `panel-poll` `_applyStatus` 120 · 100줄 안팎 6곳 | 분류(순수)와 그리기 | M · M |
+| FU-12 | `git/remote.js` `GitRemote` | 약 680줄 클래스 | 실행·스트림 / 표시 — **파일 분할은 처리함** (P3a 5: `remote-list`·`remote-add`·`remote-opts`). `GitRemote` 안 나누기는 **처리함 (R3b, `ccb4da87`)** — 칠하기는 `GitRemoteView`(`remote-view.js`), `remote.js` 704 → 482줄 | M · M |
+| FU-13 | `ui/ui-kit.js` `UIKit` | 930줄 | modal·menu·drag·HUD 내부 모듈 — **modal·menu 처리함** (P3a 3·6, 930 → 695줄). drag·HUD 도 **처리함 (R3b, `ed802920`)** — `SizeDrag`(`size-drag.js`)·`SizeHud`(`size-hud.js`), `ui-kit.js` 685 → 582줄 | M · M |
+| FU-14·15·16 | `lanes.js` `buildLaneGraph` ~180 · `git-changes.js`(옛 `panel-changes`) `_buildChanges` 126 · `git-change-rows.js` `_rowEl` 108 · `git-poll.js`(옛 `panel-poll`) `_applyStatus` 120 · 100줄 안팎 6곳 | 분류(순수)와 그리기 — **처리함 (R3b, `b40a3086` FU-14 · `47a00334` FU-15·16)**. 넷 다 순수 판정과 단계로(코드 121 → 5 · 73 → 22 · 60 → 28 · 32 → 9). 100줄 안팎 나머지 넷(`version-watch` 익명 · `_makeTab` · `file-tree` constructor · `_renderThemePanel`)은 **남김** — 고정 시험부터 세워야 한다(`REFACTOR3_FE_REST3_SRS` D-FR3-14) | M · M |
 | FU-11 | `web/style.css` 2,492줄 | CSS 는 크기 게이트가 없다(`check-file-size` 가 `web/js` 만) | 기준선 + 영역별 분할 | M · L |
 | GH-13·14 | 80줄 넘는 함수 14개(표본; `apiRunSucceed` 131·`handleCommandSSE` 131·`handleCommandPost` 121·`apiGitStatus` 113) · `handlers_files.go` 749·`access.go` 744·`toolclient/client.go` 685 | 파싱·판정·렌더 / 주제별 파일 | M · M |
 | GD-13~16·18 | `query/diff.go` 632 · `write/branch.go` 589 · `hub/gitwatch.go` 877 · `attn_tracker.go` 548 · `autoswitch.decide` 79줄 | 파일 분할(동작 불변) | M · M |
@@ -296,6 +296,7 @@
 | R1 | `32b9e597`·`8ab87528`·`19f60b6a`·`a51da4bb`·`85668248`…(이 커밋) | `REFACTOR3_FE_REST1_SRS` — FC-03 알림색 거리 redmean(Ayu Mirage 알림색 `#dfbfff`→`#95e6cb`, 실행 중 색 `#6dcbfa`→`#dfbfff`, 메인색 조합 432개 중 알림색 31·실행 중 색 29 바뀜) · FU-17 서브모듈 안쪽만 바뀐 경로만 담는 stage 를 서버가 409 `submodule_inner_only` 로 거절, 화면은 status 의 `rowActions` 로 끈다 · FC-11 자동 전환 칸 범위를 `autoswitch` 응답의 `ranges` 로 · FC-21 ping·stats 를 함께. 남은 것: 계정 행 칸의 범위 두 벌 |
 | R2 | `903526b9`·`7cfe190b`·`49136bd7`·`854590b2`·`7cd0bb29`·`b3fe9935`·`324d7922`…(이 커밋) | `REFACTOR3_FE_REST2_SRS` — 동작 불변. FC-06·08 빌더 분리 · FC-10 상수 파일의 함수 9개(새 `core/server-meta.js`) · FC-15 한 번 훑기 · FC-16 `_bgPanelOpen` · `UIKit.tabsFitWatch` 삭제 · FC-18 198자 넘는 줄 17 · FC-19·20·22 `MS_PER_SEC`·주기 상수·`TIP_*` 열일곱 · FU-19 모달 폭 클래스. 남긴 것: `cm-lsp` `unsubscribe`(라이브러리가 부른다) · `CLAUDE_ACCT_POLL_MS` · 서술자 표·`diag.js` 툴팁 · 150~198자 줄 |
 | R3a | `af16d851`·`0d4af0dc`·`94d73ccd`·`18aa0a35`…(이 커밋) | `REFACTOR3_FE_REST3_SRS` — 동작 불변. FC-07·09: 나누기 전에 적용기·저장의 순서·충돌 26가지를 단위 시험으로 고정(처음부터 GREEN)한 뒤, 적용기 `_applyRemoteWorkspace` 를 순수 판정 넷(`wsLiveTools`·`wsPinsKey`·`wsViewOf`·`wsViewRestore`, 크기 게이트 때문에 `layout-tree.js`)과 단계 메서드 다섯으로, `save`·`_saveAdoptRemote` 를 순수 판정 넷(`wsSaveBody`·`wsSaveSame`·`wsGitAdopt`·`wsSaveHoldMs`)과 `_savePut`·`_adoptRemote`·`_saveBackoff` 로 나눴다. 위임자는 더하지 않았다. 남은 것: R3b(FC-05 `delWindow` · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) — 같은 SRS 에 이어 쓴다 |
+| R3b | `7a0390a1`·`61f2e97b`·`4a418d40`·`26bafe55`·`ccb4da87`·`ed802920`·`b40a3086`·`47a00334`…(이 커밋) | `REFACTOR3_FE_REST3_SRS` — 동작 불변. FC-05 `delWindow` 를 고정 시험 뒤 단계 넷으로 · FC-12 테마 미리보기 인라인 `style` 45곳 → `.pv-*` 규칙과 `--pv-*` 변수(계산된 스타일 비교로 확인) · FU-12 `GitRemote` 에서 칠하기를 `GitRemoteView` 로(500줄 초과 12 → 11) · FU-13 킷의 끌기·HUD 를 `SizeDrag`·`SizeHud` 로 · FU-14·15·16 `buildLaneGraph`·`_buildChanges`·`_rowEl`·`_applyStatus` 를 순수 판정과 단계로. 남긴 것: 100줄 안팎 함수 넷 |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---

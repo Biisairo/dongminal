@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R3 — 큰 함수·클래스 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: R3b(FC-05 `delWindow` · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) 구현. 요구는 §2.3~2.7 에 이어 썼다(실측 HEAD `7adaeb18`). R3a(FC-07·09)는 구현을 마쳤다(§6)
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-21 (프로덕션 리팩토링 3차 · `refactor/PROD3.md` §2.5 FC-05·07·09·12 · FU-12·13·14·15·16, §7.1 「P3 FE 나머지 — 정리」 의 하위 묶음 R3)
 - 사용자 결정: 진행은 묻지 않고 끝까지 한다(`REFACTOR_PROD3_HANDOFF_2.md` §8). 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -136,6 +135,8 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 | D-FR3-13 | (FU-13) `SizeHud`·`SizeDrag` 는 정적 메서드만 가진 클래스다. `View`·`Component` 를 상속하지 않는다 | HUD 는 문서에 하나뿐인 겹이고 지우지 않는다(D-10). 끌기는 핸들에 수신기를 거는 함수 하나다. 해제할 것이 없으므로 기반 클래스의 수명이 필요 없다. `UIKit.grid`·`cellSize`·`cellFit` 은 호출처가 `sides` 를 계산할 때 쓰는 입구라 `UIKit` 에 남긴다 |
 | D-FR3-14 | 100줄 남짓의 나머지 넷은 남긴다 | 브리프가 "시간이 되면" 으로 둔 것이다. 넷 다 이 묶음의 파일과 겹치지 않고(`_renderThemePanel` 만 같은 파일) 동작을 고정하는 시험이 없다 — 나누려면 R3a 처럼 고정 시험부터 세워야 한다 |
 | D-FR3-15 | (FU-14·15·16) 순수 함수는 그 클래스와 같은 파일, 클래스 앞에 둔다 | `git-changes.js`·`git-change-rows.js` 가 500줄 경계에 있지만 나눈 뒤 줄 수는 늘지 않는다(본문이 옮겨갈 뿐). 새 파일은 로드 순서·하네스를 바꾼다(D-FR3-4 와 같은 판단) |
+| D-FR3-16 | (FC-05) `delWindow` 가 단계 메서드를 `await` 하는 데서 생기는 마이크로태스크 몇 칸은 동작 변경으로 보지 않는다 | 편집이 깨끗할 때 종전에는 `_toolsBusy` 를 같은 동기 구간에서 불렀고, 지금은 `_delWinDirtyOk` 의 약속이 풀린 뒤에 부른다. 둘 다 사용자 입력 한 번 안의 일이고 타이머·요청·화면 순서는 그대로다(TC-FR3-31~33). D-FR3-6 과 같은 판단이다 |
+| D-FR3-17 | (FU-15) 행 동작 단추의 제목을 만들 때 진행 중 조작(`_op()`)은 `ours`·`theirs` 에서만 묻는다 | 종전에도 그 둘에서만 물었다. 순수 함수에 `op` 를 늘 넘기려고 단추마다 묻게 하면 행마다 preflight 막힘 목록을 다시 훑는다 — 횟수가 바뀌지 않게 부르는 쪽이 가린다 |
 
 ## 4. 검증
 
@@ -186,7 +187,7 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 
 ## 5. 동작 변경 기록
 
-없다. 자리와 이름만 바꾼다(INV-R3-1). D-FR3-6 의 마이크로태스크 한 칸은 드러나지 않는다.
+없다. 자리와 이름만 바꾼다(INV-R3-1·6). D-FR3-6·16 의 마이크로태스크는 드러나지 않는다.
 
 ## 6. 구현 기록
 
@@ -196,11 +197,23 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 | `0d4af0dc` | 시험 고정 — `ws-apply-save.test.mjs` TC-FR3-1~26. 나누기 전 코드에서 GREEN 을 확인하고 커밋했다(D-FR3-1) |
 | `94d73ccd` | FC-07 — `layout-tree.js` 에 `wsLiveTools`·`wsPinsKey`·`wsViewOf`·`wsViewRestore`(D-FR3-8), `WsSyncController` 에 `_reapDeadTools`·`_reconcileIncoming`·`_viewKeep`·`_mergeUnseen`·`_viewRestore`. `_applyRemoteWorkspace` 136 → 40줄(코드 66 → 22). 시험 TC-FR3-27(FC-07 셋)·`method-size.test.mjs`·`app-cmd-split.test.mjs`(D-FR3-7) |
 | `18aa0a35` | FC-09 — `app.js` 의 `class App` 뒤에 `wsSaveBody`·`wsSaveSame`·`wsGitAdopt`·`wsSaveHoldMs`, App 에 `_savePut`·`_adoptRemote`·`_saveBackoff`. `save` 90 → 34줄(코드 43 → 23), `_saveAdoptRemote` 88 → 14줄(코드 30 → 10). 시험 TC-FR3-27(FC-09 넷)·`method-size.test.mjs` |
+| `7a0390a1` | R3b 요구 — §2.3~2.7 · D-FR3-9~15 · TC-FR3-31~42 |
+| `61f2e97b` | FC-05 시험 고정 — `del-window.test.mjs` TC-FR3-31~33. 나누기 전 코드에서 GREEN |
+| `4a418d40` | FC-05 — `LayoutController` 에 `_delWinDirtyOk`·`_delWinAsk`·`_delWinTools`·`_delWinAfter`. `delWindow` 108 → 26줄(코드 56 → 13) |
+| `26bafe55` | FC-12 — `settings-theme.js` 에 `themePreviewVars`·`themePreviewSwatches`·`THEME_PREVIEW_HTML`, `style.css` 의 `.pv-*` 규칙과 눈금 `--pv-fs-2xs`·`--pv-radius`. 인라인 `style=` 45 → 0, `_renderPreview` 코드 77 → 11. 시험 `theme-preview.test.mjs`(TC-FR3-34). 임시 e2e(TC-FR3-35)로 테마 넷(Tokyo Night·Dracula·GitHub Light·사용자 정의)의 86개 요소 계산된 스타일이 같고, 이름 있는 테마 셋은 스크린샷도 바이트까지 같다(사용자 정의의 스크린샷은 HEAD 끼리도 흔들린다) |
+| `ccb4da87` | FU-12 — `git/remote-view.js` `GitRemoteView`(241줄). `remote.js` 704 → 482줄, 500줄 초과 12 → 11(`FE_MODULE_BOUNDARY_SRS` 기준선 갱신). `GitJobs` 가 `v.view.bind`·`bindHead`·`paintHead` 를 부른다. `PERFORMANCE_BUDGET.md` §2-5 두 행의 파일명. 시험 `git-job-outcome`(TC-FR3-36)·`git-job-labels`·`git-view` |
+| `ed802920` | FU-13 — `ui/size-hud.js` `SizeHud` · `ui/size-drag.js` `SizeDrag`, `UIKit.drag` 는 입구. `ui-kit.js` 685 → 582줄. `index.html`·하네스 `HANDLE`·`PERFORMANCE_BUDGET.md` §2-5 한 행. 시험 `kit-handle.test.mjs`(TC-FR3-37) |
+| `b40a3086` | FU-14 — `laneParentRows`·`LaneWalk`·`laneRows`. `buildLaneGraph` 코드 121 → 5. 시험 `lanes.test.mjs` 둘(TC-FR3-38). 무작위 DAG 2만 개(창 밖·위쪽·겹친 부모 포함)에서 옛 함수와 결과 JSON 이 같았다 |
+| `47a00334` | FU-15·16 — `gitChangesHTML`·`_wireChangesBar`·`_groupEl`(`_buildChanges` 코드 73 → 22) · `gitRowTitle`·`gitRowActTitle`·`_rowActBtn`·`_rowWire`(`_rowEl` 60 → 28) · `gitStatusVerdict`·`_applyNetFail`·`_adoptObs`·`_paintObs`(`_applyStatus` 32 → 9). 시험 `git-parts-pure.test.mjs`(TC-FR3-39·40)·`method-size.test.mjs`(TC-FR3-41) |
 
 **SRS 와 다르게 한 것.**
 
 1. 적용기의 순수 판정 넷은 처음 정한 `ws-sync-controller.js` 머리가 아니라 `core/layout-tree.js` 에 두었다. 같은 파일에 두면 530줄이 되어 크기 게이트가 깨졌다. FR-FR3-1 을 고치고 D-FR3-8 을 더했다.
+2. (R3b) `LaneWalk` 에 FR-FR3-17 의 목록 밖 메서드 `nextTarget(v)` 를 더했다 — `follow`·`run` 이 같은 식을 세 번 쓴다. `method-size.test.mjs` 는 TC-FR3-41 의 여섯에 `LaneWalk.follow` 를 더 지킨다.
+3. (R3b) 시험 파일 이름: TC-FR3-36 은 새 파일이 아니라 `git-job-outcome.test.mjs` 에 더했다. 미리보기 견본은 고정 문자열을 싣는 때 한 번 만드는 함수(`themePreviewSwatches`)로 세웠다 — 견본 `title` 을 리터럴로 적으면 `literal-sweep` 의 툴팁 리터럴 검사와 줄 길이 검사에 걸렸다. D-FR3-16·17 을 구현 중에 더했다.
 
 **시험 결과.** 단위 1426 통과. `make gates`·`typecheck` 통과. eslint 는 원래 2건(`theme-vars.js:86` · `claude-accounts-foot.test.mjs:728`)뿐이다. e2e(TC-FR3-29 의 13 spec, 165건)는 FC-07·FC-09 두 번 모두 실패 0 이다. `slot-view-state` TC-SVS-13·56 은 첫 회차(FC-07)에 실패했으나, 재시도 없이 나누기 전 코드(`0d4af0dc`)로 돌려도 같은 둘이 실패했다(HANDOFF_4 §4 의 흔들림). `tab-names` V-NAM-1·2·5 는 FC-09 회차에 재시도로 통과했고, 단독 2회 반복에서 34/34 통과했다.
 
-**남긴 것.** R3b 전부(§2.3). 저장 기계를 컨트롤러로 옮기는 일과 위임자 제거(§1.3).
+**R3b 시험 결과.** 단위 1462 통과. `make gates`·`typecheck` 통과. eslint 는 원래 2건뿐이다. e2e 는 이슈마다 `grep -rl` 로 고른 spec 을 돌렸다 — FC-05 14 spec 187 통과 · FC-12 9 spec 122 통과 · FU-12 14 spec 135 통과, 1 실패(`git-ui-metrics` V80, 원래 실패) · FU-13 13 spec 231 통과, 흔들림 1(`activity-rail` TC-ACF-1) · FU-14~16 59 spec 777 통과, 2 실패(`git-ui-metrics` V80 · `ui-kit-icons` V-GAP-1, 둘 다 원래 실패) · 흔들림 3(`slot-view-state` TC-SVS-3·13·50). 원래 실패·흔들림은 `REFACTOR_PROD3_HANDOFF_4.md` §4 목록에 있다.
+
+**남긴 것.** 저장 기계를 컨트롤러로 옮기는 일과 위임자 제거(§1.3). 100줄 남짓의 나머지 넷(`version-watch` 익명 126 · `_makeTab` 109 · `file-tree` constructor 104 · `_renderThemePanel` 100, D-FR3-14). `ui-kit.js`(582)·`git-poll.js`(718)는 여전히 500줄을 넘는다.
