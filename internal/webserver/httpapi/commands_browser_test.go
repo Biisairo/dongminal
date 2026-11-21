@@ -20,9 +20,9 @@ import (
 // OPTIMIZE_REFACTOR_SRS FR-OPT-11-2: _execRemote 의 if-체인이 표가 되어 대조가 양방향이 됐다
 // (web/js/test/remote-actions.test.mjs 가 같은 대조를 브라우저 쪽에서 한다).
 func TestAllowedCmdActions_CoversBrowserHandled(t *testing.T) {
-	src, err := os.ReadFile("../../../web/js/core/app-cmd.js")
+	src, err := os.ReadFile("../../../web/js/core/tool-cmd.js")
 	if err != nil {
-		t.Fatalf("app-cmd.js 읽기 실패: %v", err)
+		t.Fatalf("tool-cmd.js 읽기 실패: %v", err)
 	}
 	body := remoteActionsBody(t, string(src))
 
@@ -46,16 +46,16 @@ func TestAllowedCmdActions_CoversBrowserHandled(t *testing.T) {
 	}
 }
 
-// remoteActionsBody 는 app-cmd.js 에서 REMOTE_ACTIONS 표 본문만 잘라낸다.
+// remoteActionsBody 는 tool-cmd.js 에서 REMOTE_ACTIONS 표 본문만 잘라낸다.
 func remoteActionsBody(t *testing.T, src string) string {
 	t.Helper()
 	start := strings.Index(src, "const REMOTE_ACTIONS=Object.freeze({")
 	if start < 0 {
-		t.Fatal("app-cmd.js 에서 REMOTE_ACTIONS 를 찾지 못했다 — 테스트를 갱신하라")
+		t.Fatal("tool-cmd.js 에서 REMOTE_ACTIONS 를 찾지 못했다 — 테스트를 갱신하라")
 	}
 	end := strings.Index(src[start:], "\n});")
 	if end < 0 {
-		t.Fatal("app-cmd.js 에서 REMOTE_ACTIONS 의 끝 경계를 찾지 못했다 — 테스트를 갱신하라")
+		t.Fatal("tool-cmd.js 에서 REMOTE_ACTIONS 의 끝 경계를 찾지 못했다 — 테스트를 갱신하라")
 	}
 	return src[start : start+end]
 }
