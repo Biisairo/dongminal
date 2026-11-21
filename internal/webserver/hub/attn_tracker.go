@@ -44,6 +44,7 @@ type AttnTracker struct {
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
 	onActivity       func(id, state, tool, detail string)
+	onGone           func(id string)
 
 	// onChange 는 판정이 상태를 바꾼 뒤에 불린다 — 데몬에 그 상태를 쓴다
 	// (AGENT_RECORD_DAEMON_SRS FR-ARD-11). nil 이면 아무도 듣지 않는다.
@@ -88,7 +89,7 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 		nowFn:         func() int64 { return time.Now().UnixNano() },
 	}
 	b := attnBroadcastsOf(hub)
-	t.onAttention, t.onAttentionClear, t.onActivity = b.attention, b.attentionClear, b.activity
+	t.onAttention, t.onAttentionClear, t.onActivity, t.onGone = b.attention, b.attentionClear, b.activity, b.gone
 	return t
 }
 
@@ -107,12 +108,18 @@ func (t *AttnTracker) SetLiveProbe(f func(string) bool) {
 // exits or is deleted. Attention is released first — and broadcast only on the
 // edge (NFR-PAN-3) — so a browser holding the alarm hears about it; without
 // this the map grew without bound and dead tools kept their badge.
+//
+// 잊은 사실은 추적기가 그 도구를 몰랐어도 onGone 으로 알린다 (GD-12) — 이미 죽은 도구의
+// 삭제도 여기를 지난다.
 func (t *AttnTracker) Forget(toolID string) {
 	t.mu.Lock()
 	ps := t.tools[toolID]
 	delete(t.tools, toolID)
-	onClear := t.onAttentionClear
+	onClear, onGone := t.onAttentionClear, t.onGone
 	t.mu.Unlock()
+	if onGone != nil {
+		defer onGone(toolID)
+	}
 	if ps == nil {
 		return
 	}

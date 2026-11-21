@@ -55,6 +55,8 @@ type item struct {
 	ev                   *Event
 	attnTool, attnReason string
 	clearTool            string
+	// goneTool 은 사라진 도구다 — 그 탭의 직전 hook 을 잊는다 (GD-12).
+	goneTool string
 	// notice 는 탭과 무관한 글이다 (CLAUDE_ACCOUNTS_SRS FR-CAC-100a).
 	notice string
 }
@@ -99,10 +101,20 @@ func (b *Bridge) OnAttentionClear(toolID string) { b.enqueue(item{clearTool: too
 // OnNotice 는 탭과 무관한 글 한 통이다 (CLAUDE_ACCOUNTS_SRS FR-CAC-100a). 무음 규칙은 탭 입력 기준이라 쓰지 않는다.
 func (b *Bridge) OnNotice(text string) { b.enqueue(item{notice: text}) }
 
+// OnToolGone 은 도구가 끝났거나 지워진 것이다 (REFACTOR3_GO_STRUCT_SRS GD-12). 큐를 지나므로
+// 그 앞에 들어온 그 도구의 사건이 먼저 처리된다. 꺼져 있어도 받는다 — 켜 있던 동안 쌓인 것을 걷는다.
+//
+//	이전: b.tabs 는 넣기만 했다 — 도구 N 개를 만들고 지우면 N 개가 남았다
+func (b *Bridge) OnToolGone(toolID string) { b.push(item{goneTool: toolID}) }
+
 func (b *Bridge) enqueue(it item) {
 	if !b.st.Config().Enabled {
 		return
 	}
+	b.push(it)
+}
+
+func (b *Bridge) push(it item) {
 	select {
 	case b.q <- it:
 	default:
@@ -125,6 +137,12 @@ func (b *Bridge) Run(ctx context.Context) {
 
 // process 는 큐의 한 칸을 처리한다. 작업자만 부른다(시험은 직접 부른다).
 func (b *Bridge) process(it item) {
+	if it.goneTool != "" {
+		b.mu.Lock()
+		delete(b.tabs, it.goneTool)
+		b.mu.Unlock()
+		return
+	}
 	c, ok := b.active()
 	if !ok {
 		return

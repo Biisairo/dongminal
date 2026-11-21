@@ -42,6 +42,12 @@ func (r *tgRec) OnAttentionClear(toolID string) {
 	r.attn = append(r.attn, toolID+":clear")
 }
 
+func (r *tgRec) OnToolGone(toolID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.attn = append(r.attn, toolID+":gone")
+}
+
 func (r *tgRec) events() []telegram.Event {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -133,6 +139,7 @@ func TestTelegramHost(t *testing.T) {
 }
 
 // FR-TGB-50·58b: PC 알람과 그 해제는 브리지에도 간다 — 추적기의 방송 콜백 → CommandHub 관찰자 → 싱크.
+// REFACTOR3_GO_STRUCT_SRS GD-12: 도구를 잊은 것도 간다 — 브리지가 탭 상태를 걷는다.
 func TestTelegramWire_AttentionObserver(t *testing.T) {
 	m, mHub := daemonPairAt(t, "")
 	m.AdoptDetached("p1")
@@ -146,9 +153,10 @@ func TestTelegramWire_AttentionObserver(t *testing.T) {
 	s.wireTelegramAttention()
 	s.attention().SignalAttention("p1", "bell")
 	s.attention().Attend("p1", false)
+	s.attention().Forget("p1")
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
-	if len(rec.attn) != 2 || rec.attn[0] != "p1:bell" || rec.attn[1] != "p1:clear" {
+	if len(rec.attn) != 3 || rec.attn[0] != "p1:bell" || rec.attn[1] != "p1:clear" || rec.attn[2] != "p1:gone" {
 		t.Fatalf("attn=%v", rec.attn)
 	}
 }

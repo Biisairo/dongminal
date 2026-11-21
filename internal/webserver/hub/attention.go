@@ -19,12 +19,13 @@ func toolAttentionClearPayload(toolID string) []byte {
 	return sse.Payload("tool_attention_clear", map[string]any{"toolId": toolID})
 }
 
-// attnBroadcasts 는 주의·활동 전이를 방송으로 옮기는 콜백 세 벌이다. NewAttnTracker 가
-// 쓴다 (IPC-20).
+// attnBroadcasts 는 주의·활동 전이를 방송으로 옮기는 콜백 묶음이다. NewAttnTracker 가
+// 쓴다 (IPC-20). gone 은 방송하지 않고 관찰자에게만 넘긴다.
 type attnBroadcasts struct {
 	attention      func(id, reason string)
 	attentionClear func(id string)
 	activity       func(id, state, tool, detail string)
+	gone           func(id string)
 }
 
 func attnBroadcastsOf(hub CommandBroker) attnBroadcasts {
@@ -43,6 +44,11 @@ func attnBroadcastsOf(hub CommandBroker) attnBroadcasts {
 		},
 		activity: func(id, state, tool, detail string) {
 			hub.Broadcast(toolActivityPayload(id, state, tool, detail))
+		},
+		gone: func(id string) {
+			if o, ok := hub.(*CommandHub); ok {
+				o.observeToolGone(id)
+			}
 		},
 	}
 }
@@ -75,6 +81,22 @@ func (h *CommandHub) SetAttentionClearObserver(f func(id string)) {
 
 func (h *CommandHub) observeAttentionClear(id string) {
 	if f := h.attnClearObs.Load(); f != nil {
+		(*f)(id)
+	}
+}
+
+// SetToolGoneObserver 는 추적기가 도구를 잊을 때(종료·삭제, AttnTracker.Forget) 불릴 함수를
+// 단다. nil 이면 걷는다 (REFACTOR3_GO_STRUCT_SRS GD-12 — Telegram 브리지가 탭 상태를 걷는다).
+func (h *CommandHub) SetToolGoneObserver(f func(id string)) {
+	if f == nil {
+		h.goneObs.Store(nil)
+		return
+	}
+	h.goneObs.Store(&f)
+}
+
+func (h *CommandHub) observeToolGone(id string) {
+	if f := h.goneObs.Load(); f != nil {
 		(*f)(id)
 	}
 }

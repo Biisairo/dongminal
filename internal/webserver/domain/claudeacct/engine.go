@@ -91,9 +91,14 @@ type Engine struct {
 	unsettled map[string]string
 	// lastSwitchAt 은 dongminal 이 마지막으로 전환한 시각이다 (FR-CAC-78 의 60초).
 	lastSwitchAt int64
-	busy         sync.Mutex
-	wake         waker
+	// deferSave·dirty 는 회차 동안 미룬 usage.json 쓰기다 (GD-9). mu 가 지킨다.
+	deferSave, dirty bool
+	busy             sync.Mutex
+	wake             waker
 }
+
+// writeUsageFile 은 usage.json 쓰기다. 시험이 회차당 쓰기 수를 세는 이음매다 (GD-9).
+var writeUsageFile = platform.WriteFileAtomic
 
 func (e *Engine) path() string { return filepath.Join(e.Svc.Dir, usageFile) }
 
@@ -144,15 +149,45 @@ func (e *Engine) saveLocked() {
 	if err := os.MkdirAll(e.Svc.Dir, dirMode); err != nil {
 		return
 	}
-	if err := platform.WriteFileAtomic(e.path(), b, fileMode); err != nil {
+	if err := writeUsageFile(e.path(), b, fileMode); err != nil {
 		dmlog.Infof(nil, "claude-accounts: %s 를 쓰지 못했다: %v", usageFile, err)
+	}
+}
+
+// persistLocked 는 회차 중이면 쓰기를 회차 끝으로 미루고, 아니면 바로 쓴다.
+func (e *Engine) persistLocked() {
+	if e.deferSave {
+		e.dirty = true
+		return
+	}
+	e.saveLocked()
+}
+
+// beginRound 는 회차 동안 usage.json 쓰기를 미룬다 (REFACTOR3_GO_STRUCT_SRS GD-9). 돌려준
+// 함수가 회차 끝에 바뀐 행 전부를 한 번 쓴다. busy 를 쥔 회차(Tick·refreshStale)만 부른다.
+//
+//	이전: 조회한 계정마다 전 행을 직렬화하고 원자적으로 썼다(잠금 안)
+//	새:   회차 끝에 한 번 쓴다
+//	이유: 계정 n 개를 조회하는 회차가 같은 파일을 n 번 다시 썼다
+func (e *Engine) beginRound() func() {
+	e.mu.Lock()
+	e.deferSave = true
+	e.mu.Unlock()
+	return func() {
+		e.mu.Lock()
+		defer e.mu.Unlock()
+		e.deferSave = false
+		if e.dirty {
+			e.dirty = false
+			e.saveLocked()
+		}
 	}
 }
 
 func (e *Engine) setRow(id string, r Row) {
 	e.mu.Lock()
 	e.rows[id] = r
-	e.saveLocked()
+	e.persistLocked()
 	e.mu.Unlock()
 	if e.OnChange != nil {
 		e.OnChange()
@@ -193,13 +228,15 @@ func (e *Engine) liveIsAccount(a Account) bool {
 func (e *Engine) Tick(ctx context.Context) time.Time {
 	e.busy.Lock()
 	defer e.busy.Unlock()
-	if changed, _ := e.Svc.SyncActiveFromLive(); changed && e.OnChange != nil {
-		e.OnChange() // FR-CAC-34b
-	}
+	defer e.beginRound()()
+	// GD-23: accounts.json 은 회차에 한 번 읽는다 — 활성 맞추기도 그 값으로 판정한다.
 	st, err := e.Svc.Store.Load()
-	now := e.Now()
 	if err != nil {
-		return now.Add(idleWake)
+		return e.Now().Add(idleWake)
+	}
+	st, changed, _ := e.Svc.syncActiveFrom(st)
+	if changed && e.OnChange != nil {
+		e.OnChange() // FR-CAC-34b
 	}
 	e.dropRemoved(st)
 	first := true
@@ -211,13 +248,28 @@ func (e *Engine) Tick(ctx context.Context) time.Time {
 		if e.row(a.ID).dueAt() > e.Now().Unix() {
 			continue
 		}
-		if !first {
-			time.Sleep(e.stagger())
+		if !first && !e.pause(ctx) {
+			break
 		}
 		first = false
 		e.fetch(ctx, a, a.ID == st.ActiveID, false)
 	}
 	return e.nextWake()
+}
+
+// pause 는 계정 사이의 간격이다. ctx 가 끊기면 곧바로 거짓이다 (GD-10).
+//
+//	이전: time.Sleep — 종료 신호가 와도 남은 계정 수 × stagger 를 더 붙들었다
+//	새:   ctx 를 보고, 끊기면 회차를 그만둔다
+func (e *Engine) pause(ctx context.Context) bool {
+	t := time.NewTimer(e.stagger())
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
+	}
 }
 
 func (e *Engine) stagger() time.Duration {
@@ -238,7 +290,7 @@ func (e *Engine) dropRemoved(st State) {
 		}
 	}
 	if changed {
-		e.saveLocked()
+		e.persistLocked()
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"dongminal/internal/shared/dmlog"
 )
@@ -154,6 +153,7 @@ func headroomPtr(h float64, ok bool) *float64 {
 func (e *Engine) refreshStale(ctx context.Context, st State) {
 	e.busy.Lock()
 	defer e.busy.Unlock()
+	defer e.beginRound()()
 	first := true
 	for _, a := range st.Accounts {
 		if a.Disabled && a.ID != st.ActiveID {
@@ -167,8 +167,8 @@ func (e *Engine) refreshStale(ctx context.Context, st State) {
 		if r.AuthDeadFP != "" || r.BackoffUntil > now || (r.LastAttemptAt > 0 && now-r.LastAttemptAt < fetchNowMinGapS) {
 			continue
 		}
-		if !first {
-			time.Sleep(e.stagger())
+		if !first && !e.pause(ctx) {
+			return
 		}
 		first = false
 		e.fetch(ctx, a, a.ID == st.ActiveID, false)

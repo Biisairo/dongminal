@@ -11,11 +11,12 @@ import (
 	"dongminal/internal/webserver/domain/telegram"
 )
 
-// telegramSink 는 브리지가 받는 두 사건이다. 시험은 기록기를 꽂는다.
+// telegramSink 는 브리지가 받는 사건들이다. 시험은 기록기를 꽂는다.
 type telegramSink interface {
 	OnActivity(ev telegram.Event)
 	OnAttention(toolID, reason string)
 	OnAttentionClear(toolID string)
+	OnToolGone(toolID string)
 }
 
 // telegramWire 는 서버와 Telegram 브리지의 이음매다.
@@ -41,7 +42,8 @@ func (s *Server) initTelegram() {
 	s.wireTelegramAttention()
 }
 
-// wireTelegramAttention 은 PC 알람과 그 해제를 브리지에 넘긴다 (FR-TGB-50·58b).
+// wireTelegramAttention 은 PC 알람과 그 해제, 도구가 사라진 것을 브리지에 넘긴다 (FR-TGB-50·58b ·
+// REFACTOR3_GO_STRUCT_SRS GD-12).
 func (s *Server) wireTelegramAttention() {
 	if s.tg == nil {
 		return
@@ -49,9 +51,11 @@ func (s *Server) wireTelegramAttention() {
 	if h, ok := s.Commands.(interface {
 		SetAttentionObserver(func(id, reason string))
 		SetAttentionClearObserver(func(id string))
+		SetToolGoneObserver(func(id string))
 	}); ok {
 		h.SetAttentionObserver(s.tg.sink.OnAttention)
 		h.SetAttentionClearObserver(s.tg.sink.OnAttentionClear)
+		h.SetToolGoneObserver(s.tg.sink.OnToolGone)
 	}
 }
 

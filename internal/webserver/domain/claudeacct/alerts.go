@@ -96,12 +96,9 @@ func (a *Auto) pruneNotified() {
 }
 
 // evaluateAlerts 는 자동 전환이 꺼져 있어도 도는 알림 판정이다 (FR-CAC-100·100a).
-func (a *Auto) evaluateAlerts(s AutoSettings) {
+// st 는 회차가 읽은 accounts.json 이다 (GD-23).
+func (a *Auto) evaluateAlerts(st State, s AutoSettings) {
 	a.pruneNotified()
-	st, err := a.Eng.Svc.Store.Load()
-	if err != nil {
-		return
-	}
 	now := a.Now()
 	models := modelSet(s.Models)
 	for _, acc := range st.Accounts {

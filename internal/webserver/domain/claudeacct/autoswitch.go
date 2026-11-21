@@ -28,6 +28,10 @@ const (
 	autoSpentPct       = 3.0
 	autoHorizonRatio   = 2.0
 	autoRecoveryS      = 300
+
+	// cswapProbeTTL 은 회차가 cswap 감지(`ps`)를 다시 쓰는 기간이다 (GD-8). 회차 간격의
+	// 하한(15초)보다 길어 켜진 회차가 매번 fork 하지 않고, 감지는 그만큼 늦을 수 있다.
+	cswapProbeTTL = time.Minute
 )
 
 // 자동 전환 전략 (FR-CAC-70).
@@ -142,8 +146,11 @@ type Auto struct {
 	file       autoFile
 	status     string
 	nextTickAt int64
-	busy       sync.Mutex
-	wake       waker
+	// probeAt·probeHit 은 직전 cswap 감지의 시각과 결과다 (GD-8). mu 가 지킨다.
+	probeAt  time.Time
+	probeHit bool
+	busy     sync.Mutex
+	wake     waker
 }
 
 func (a *Auto) path() string { return filepath.Join(a.Eng.Svc.Dir, autoswitchFile) }
@@ -248,12 +255,13 @@ func (a *Auto) Put(raw []byte) (AutoView, error) {
 	if err := next.Validate(); err != nil {
 		return AutoView{}, err
 	}
-	if next.Enabled && !a.settings().Enabled && a.cswapRunning() {
+	if next.Enabled && !a.settings().Enabled && a.cswapRunning(true) {
 		return AutoView{}, ErrCswapRunning
 	}
 	a.mu.Lock()
 	if next.Enabled != a.file.Settings.Enabled {
 		a.file.State.Unhealthy = 0
+		a.probeAt = time.Time{}
 	}
 	a.file.Settings = next
 	a.saveLocked()
@@ -322,12 +330,37 @@ func applyAutoKey(s *AutoSettings, k string, v json.RawMessage) error {
 	return fmt.Errorf("%w: 모르는 키 %q", ErrInvalid, k)
 }
 
-func (a *Auto) cswapRunning() bool {
+// cswapRunning 은 cswap 자동 전환이 도는가다 (FR-CAC-75). 켜는 요청(fresh)은 늘 새로 묻고 기억에
+// 남기지 않는다. 회차는 cswapProbeTTL 안의 직전 회차 결과를 쓴다 (GD-8) — 켠 뒤 첫 회차는 새로
+// 묻는다. 감지 실패는 기억하지 않는다.
+//
+//	이전: 켜진 회차마다 `ps -axo args=` 를 fork 했다
+//	새:   회차는 cswapProbeTTL 동안 한 번
+func (a *Auto) cswapRunning(fresh bool) bool {
 	if a.Procs == nil {
 		return false
 	}
+	if fresh {
+		lines, err := a.Procs()
+		return err == nil && CswapAutoRunning(lines)
+	}
+	now := a.Now()
+	a.mu.Lock()
+	if !a.probeAt.IsZero() && now.Sub(a.probeAt) < cswapProbeTTL {
+		hit := a.probeHit
+		a.mu.Unlock()
+		return hit
+	}
+	a.mu.Unlock()
 	lines, err := a.Procs()
-	return err == nil && CswapAutoRunning(lines)
+	if err != nil {
+		return false
+	}
+	hit := CswapAutoRunning(lines)
+	a.mu.Lock()
+	a.probeAt, a.probeHit = now, hit
+	a.mu.Unlock()
+	return hit
 }
 
 // CswapAutoRunning 은 명령줄 목록에 `cswap auto` 가 있는지 본다 (FR-CAC-75). `--dry-run` 은 빼다.
@@ -386,7 +419,7 @@ const (
 func (a *Auto) Tick(ctx context.Context) time.Duration {
 	a.busy.Lock()
 	defer a.busy.Unlock()
-	if a.settings().Enabled && a.cswapRunning() {
+	if a.settings().Enabled && a.cswapRunning(false) {
 		a.mu.Lock()
 		a.file.Settings.Enabled = false
 		a.saveLocked()
@@ -400,11 +433,17 @@ func (a *Auto) Tick(ctx context.Context) time.Duration {
 	}
 	a.releaseQuarantine(st)
 	s := a.settings()
-	status, out, sleepTo := AutoOff, outIdle, int64(0)
+	status, out, sleepTo, switched := AutoOff, outIdle, int64(0), false
 	if s.Enabled {
-		status, out, sleepTo = a.decide(ctx, st, s)
+		status, out, sleepTo, switched = a.decide(ctx, st, s)
 	}
-	a.evaluateAlerts(s)
+	// GD-23: 회차의 accounts.json 은 한 번 읽는다. 전환했으면 활성이 바뀌었으므로 다시 읽는다.
+	if switched {
+		st, err = a.Eng.Svc.Store.Load()
+	}
+	if err == nil {
+		a.evaluateAlerts(st, s)
+	}
 	d := a.delay(st, s, out, sleepTo)
 	a.mu.Lock()
 	prev := a.status
@@ -545,11 +584,12 @@ func (a *Auto) escalate(acc Account, s AutoSettings, models map[string]bool) boo
 	return false
 }
 
-// decide 는 켜진 자동 전환의 판단이다 (FR-CAC-72). 상태, 결과, 소진 시 쉴 시각을 돌려준다.
-func (a *Auto) decide(ctx context.Context, st State, s AutoSettings) (string, tickOutcome, int64) {
+// decide 는 켜진 자동 전환의 판단이다 (FR-CAC-72). 상태, 결과, 소진 시 쉴 시각, 전환했는가를
+// 돌려준다. 계기는 autoTrigger·inCooldown(순수)이 정하고, 실행은 switchFirst 가 한다 (GD-18).
+func (a *Auto) decide(ctx context.Context, st State, s AutoSettings) (string, tickOutcome, int64, bool) {
 	i := st.Find(st.ActiveID)
 	if i < 0 || !a.Eng.liveIsAccount(st.Accounts[i]) {
-		return AutoUnmanaged, outIdle, 0
+		return AutoUnmanaged, outIdle, 0, false
 	}
 	models := modelSet(s.Models)
 	activeAcc := st.Accounts[i]
@@ -557,38 +597,26 @@ func (a *Auto) decide(ctx context.Context, st State, s AutoSettings) (string, ti
 		a.Eng.refreshStale(ctx, st)
 	}
 	active := a.view(activeAcc, s, models)
-	var trigger string
+	unhealthy := 0
 	if active.known {
 		a.setUnhealthy(0)
-		switch {
-		case active.over() && active.h <= 0:
-			trigger = TriggerAtLimit
-		case active.over():
-			trigger = TriggerProactive
-		case s.Strategy == AutoStrategyConsumeFirst:
-			trigger = TriggerConsumeFirst
-		case s.Strategy == AutoStrategyPriorityConsumeFirst:
-			trigger = TriggerPriority
-		default:
-			return AutoOn, outNoAction, 0
-		}
 	} else {
-		n := a.setUnhealthy(-1)
-		if n < s.UnhealthyTicks {
-			return AutoOn, outNoAction, 0
-		}
-		trigger = TriggerFailover
+		unhealthy = a.setUnhealthy(-1)
+	}
+	trigger := autoTrigger(active, s, unhealthy)
+	if trigger == "" {
+		return AutoOn, outNoAction, 0, false
 	}
 	now := a.Now().Unix()
 	a.mu.Lock()
 	last := a.file.State.LastSwitch
 	a.mu.Unlock()
-	if trigger != TriggerAtLimit && trigger != TriggerFailover && last != nil && now-last.At < int64(s.CooldownSeconds) {
-		return AutoOn, outNoAction, 0
+	if inCooldown(trigger, last, now, s.CooldownSeconds) {
+		return AutoOn, outNoAction, 0, false
 	}
 	cands := a.candidates(st, s, models)
 	if len(cands) == 0 {
-		return AutoOn, outBlocked, 0
+		return AutoOn, outBlocked, 0, false
 	}
 	ordered := a.rankWithBar(trigger, s, active, cands, last, now)
 	if len(ordered) == 0 {
@@ -597,10 +625,46 @@ func (a *Auto) decide(ctx context.Context, st State, s AutoSettings) (string, ti
 			exhausted = exhausted && c.known && c.h <= 0
 		}
 		if !exhausted || trigger == TriggerConsumeFirst || trigger == TriggerPriority {
-			return AutoOn, outBlocked, 0
+			return AutoOn, outBlocked, 0, false
 		}
-		return AutoExhausted, outExhausted, a.earliestRecovery(append(cands, active), now)
+		return AutoExhausted, outExhausted, a.earliestRecovery(append(cands, active), now), false
 	}
+	if a.switchFirst(ctx, ordered, trigger, activeAcc, active, now) {
+		return AutoOn, outNoAction, 0, true
+	}
+	return AutoOn, outBlocked, 0, false
+}
+
+// autoTrigger 는 활성 계정의 값으로 전환 계기를 고른다 (FR-CAC-72, 순수). 빈 값은 전환하지
+// 않는다는 뜻이다. 값을 모르면 연속 회수(unhealthy)가 문턱에 닿아야 failover 다.
+func autoTrigger(active acctView, s AutoSettings, unhealthy int) string {
+	if !active.known {
+		if unhealthy < s.UnhealthyTicks {
+			return ""
+		}
+		return TriggerFailover
+	}
+	switch {
+	case active.over() && active.h <= 0:
+		return TriggerAtLimit
+	case active.over():
+		return TriggerProactive
+	case s.Strategy == AutoStrategyConsumeFirst:
+		return TriggerConsumeFirst
+	case s.Strategy == AutoStrategyPriorityConsumeFirst:
+		return TriggerPriority
+	}
+	return ""
+}
+
+// inCooldown 은 마지막 전환 뒤 쿨다운 안이라 이 계기로 전환하지 않는가다 (순수). 소진·failover 는
+// 쿨다운을 보지 않는다.
+func inCooldown(trigger string, last *LastSwitch, now int64, cooldownS int) bool {
+	return trigger != TriggerAtLimit && trigger != TriggerFailover && last != nil && now-last.At < int64(cooldownS)
+}
+
+// switchFirst 는 순위대로 전환을 시도해 처음 성공한 것에서 멈춘다. 전환했으면 참이다.
+func (a *Auto) switchFirst(ctx context.Context, ordered []acctView, trigger string, activeAcc Account, active acctView, now int64) bool {
 	for _, c := range ordered {
 		if !a.freshen(ctx, c.acc) {
 			continue
@@ -622,9 +686,9 @@ func (a *Auto) decide(ctx context.Context, st State, s AutoSettings) (string, ti
 		a.notify(Alert{Kind: AlertAutoswitch, From: displayName(activeAcc), To: displayName(c.acc), Trigger: trigger})
 		a.Eng.Wake()
 		a.changed()
-		return AutoOn, outNoAction, 0
+		return true
 	}
-	return AutoOn, outBlocked, 0
+	return false
 }
 
 // candidates 는 후보다: 제외·활성·격리·영구 실패·고정 실행 중이 아닌 계정 (FR-CAC-72 5·87).
