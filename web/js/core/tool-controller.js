@@ -8,6 +8,34 @@
  *
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
+// SERVER_DRIVEN_ACTIONS_SRS K-i: 프로파일이 받는 방식(`workPicks`, 서버가 싣는다).
+const sbxPicksOf=p=>(p&&Array.isArray(p.workPicks))?p.workPicks:[];
+/** 고르는 줄은 프로파일들의 `workPicks` 를 방식으로 합친 것이다(서버 순서). 선택은 `{work, copies}` 그대로 든다. */
+function sbxWorkPicks(list){
+  const picks=[];
+  for(const p of list) for(const k of sbxPicksOf(p)) if(k&&!picks.some(x=>x.work===k.work)) picks.push(k);
+  return picks;
+}
+/**
+ * FR-SBM-2: 기본 선택은 **첫 프로파일의 방식**이다. 그것을 고를 수 없으면
+ * `copies` 인 선택으로 떨어진다 — 되돌아오는 통로가 없는 쪽이 안전한 기본이다.
+ */
+function sbxDefaultWork(list,picks){
+  const first=(list[0]&&list[0].work)||'';
+  return picks.find(x=>x.work===first)||picks.find(x=>x.copies)||picks[0]||null;
+}
+/**
+ * 프로파일 버튼을 누른 결과. FR-SPK-6 / FR-SBM-2: 고를 방식이 없는(`workPicks` 가 빈) 프로파일에서는
+ * 입력한 폴더가 버려지고 프로파일의 방식이 그대로 실린다. 고른 방식을 이 프로파일이 받지 않으면
+ * 프로파일의 방식으로 간다.
+ */
+function sbxPickResult(p,work,workdir){
+  const own=sbxPicksOf(p);
+  const k=own.find(x=>!!work&&x.work===work.work)||own.find(x=>x.work===p.work)||own[0]||null;
+  return k?{profile:p.name,work:k.work,copies:!!k.copies,workdir}
+    :{profile:p.name,work:p.work||'',copies:false,workdir:''};
+}
+
 class ToolController extends Controller {
   constructor(app){
     super(app);
@@ -226,88 +254,15 @@ class ToolController extends Controller {
     const msg=document.createElement('div');msg.className='confirm-msg';
     msg.textContent=t('sbx.profile_title');
     body.appendChild(msg);
-    let input=null;
-    // SANDBOX_PICK_COPY_SRS FR-SPK-3: 작업 폴더 입력은 **언제나** 보인다.
-    //
-    // 옛 조건(`list.some(p=>p.workspace)`)은 scratch 하나뿐인 환경에서 거짓이라
-    // 입력란이 아예 없었고, 그 위의 `mustAsk` 가 창 자체를 띄우지 않았다 —
-    // 사용자에게는 "설정창이 안 뜬다" 로 보였다 (§2.1 실측).
-    {
-      const wrap=document.createElement('div');wrap.className='sbx-workdir';
-      const label=document.createElement('label');label.textContent=SANDBOX_WORKDIR_LABEL;
-      input=document.createElement('input');
-      input.type='text';input.placeholder=SANDBOX_WORKDIR_PLACEHOLDER;
-      wrap.appendChild(label);wrap.appendChild(input);
-      // 지금 있는 자리는 입력란 바로 오른쪽에 둔다 — 가장 자주 고를 값이고,
-      // 입력란과 한 줄에 있어야 "여기에 넣는 것" 임이 보인다.
-      //
-      // **채워 두지는 않는다.** 기본은 마운트하지 않는 것이고, 넣는 것은
-      // 고르는 행위여야 한다 (FR-SBX-40).
-      if(here){
-        const now=document.createElement('button');
-        now.type='button';now.className='ui-btn ui-btn-sm sbx-now';now.textContent=t('sbx.here');now.title=here;
-        now.addEventListener('click',()=>{input.value=here;input.focus()});
-        wrap.appendChild(now);
-      }
-      body.appendChild(wrap);
-
-      // 최근에 연 자리는 아랫줄에 모은다. 경로를 매번 타이핑하게 하면 이
-      // 창은 절차만 늘리는 자리가 된다.
-      const recent=this._sbxRecent().filter(p=>p!==here);
-      if(recent.length){
-        const bar=document.createElement('div');bar.className='sbx-recent';
-        for(const path of recent){
-          const b=document.createElement('button');
-          b.type='button';b.className='ui-btn ui-btn-sm sbx-recent-item';b.textContent=path;b.title=path;
-          b.addEventListener('click',()=>{input.value=path;input.focus()});
-          bar.appendChild(b);
-        }
-        body.appendChild(bar);
-      }
-    }
-    /**
-     * UX_BATCH6_SRS FR-SBM-1·2: **작업 방식을 고르는 자리.**
-     *
-     *   이전 동작: 프로파일이 방식을 고정했고 버튼은 그것을 표기만 했다.
-     *             `sandbox.json` 에 dev 를 정의하지 않은 사용자에게는 마운트를
-     *             고를 길이 화면 어디에도 없었다 (SRS §2.3)
-     *   새  동작: 마운트·복사를 언제나 고른다. 프로파일이 정하는 것은 **기본
-     *             선택**뿐이다
-     *   이유:     접수 ② — "마운트가 없어도 마운트 선택 가능. 마운트가 없는
-     *             마운트 프로파일일 뿐"
-     *
-     * `none` 인 프로파일을 고르면 방식도 폴더도 **버려진다** (FR-SBM-2 / FR-SPK-6).
-     * 이 줄을 프로파일마다 잠그지 않는 이유는 순서다 — 방식을 고르는 것이
-     * 프로파일을 고르는 것보다 앞이고, 앞선 선택을 뒤의 선택이 되돌아가 잠그면
-     * 창이 손 밑에서 움직인다.
-     */
-    // SERVER_DRIVEN_ACTIONS_SRS K-i: 고르는 줄은 프로파일들의 `workPicks` 를 방식으로
-    // 합친 것이다(서버 순서). 선택(`work`)은 `{work, copies}` 그대로 든다.
-    const picksOf=p=>(p&&Array.isArray(p.workPicks))?p.workPicks:[];
-    const picks=[];
-    for(const p of list) for(const k of picksOf(p)) if(k&&!picks.some(x=>x.work===k.work)) picks.push(k);
-    let work=null;
-    const workBtns=new Map();
-    if(picks.length){
-      const wrap=document.createElement('div');wrap.className='sbx-work-pick';
-      const label=document.createElement('label');label.textContent=SANDBOX_WORK_PICK_LABEL;
-      wrap.appendChild(label);
-      for(const k of picks){
-        const b=document.createElement('button');
-        b.type='button';b.className='ui-btn ui-btn-sm sbx-work-opt sbx-work-'+k.work;b.dataset.work=k.work;
-        b.textContent=sandboxWorkLabel(k.work);b.title=sandboxWorkTitle(k.work);
-        b.addEventListener('click',()=>setWork(k));
-        workBtns.set(k.work,b);wrap.appendChild(b);
-      }
-      body.appendChild(wrap);
-    }
+    const input=this._sbxWorkdirRow(body,here);
+    const picks=sbxWorkPicks(list);
     // FR-SBM-5: 고른 것의 결과. 등급 배지와 **다른 자리**여야 한다 — 배지는
     // 프로파일의 것이고(FR-SBM-4) 이 줄은 이번 선택의 것이다.
     const warn=document.createElement('div');warn.className='sbx-work-warn';
-    body.appendChild(warn);
+    let work=null,workBtns=null;
     const syncWarn=()=>{
       // 돌아오는 통로가 있는 선택(`copies` 거짓)에 폴더가 있을 때다.
-      const on=!!work&&!work.copies&&!!(input&&input.value.trim());
+      const on=!!work&&!work.copies&&!!input.value.trim();
       warn.textContent=on?SANDBOX_MOUNT_WARN:'';
       warn.classList.toggle('vis',on);
     };
@@ -316,64 +271,141 @@ class ToolController extends Controller {
       for(const [key,b] of workBtns) b.classList.toggle('on',!!k&&key===k.work);
       syncWarn();
     };
-    if(input) input.addEventListener('input',syncWarn);
+    workBtns=this._sbxWorkRow(body,picks,setWork);
+    body.appendChild(warn);
+    input.addEventListener('input',syncWarn);
 
+    // 값은 누르는 순간의 입력이라 `value` 가 아니라 `done` 으로 닫는다.
     let done=null;
-    const actions=list.map(p=>{
-      // FR-SPK-5 (FR-SBM-1 로 개정): 방식은 이제 **위에서 고른다.** 프로파일이
-      // 정하는 것은 기본 선택뿐이므로 버튼에 표기를 겹치지 않는다 — 두 자리가
-      // 같은 것을 말하면 어느 쪽이 지금 값인지 알 수 없다.
-      const own=picksOf(p);
-      const tip=(p.image?p.image+String.fromCharCode(10):'')+
-        (p.isolated
-          ? t('sbx.isolated_note')
-          : t('sbx.not_isolated_note'))+
-        String.fromCharCode(10)+sandboxWorkTitle(p.work);
-      // FR-SPK-6 / FR-SBM-2: 고를 방식이 없는(`workPicks` 가 빈) 프로파일에서는 입력한
-      // 폴더가 버려지고 프로파일의 방식이 그대로 실린다. 고른 방식을 이 프로파일이
-      // 받지 않으면 프로파일의 방식으로 간다.
-      // 값은 누르는 순간의 입력이라 `value` 가 아니라 `done` 으로 닫는다.
-      return {label:p.name,kind:'primary',cls:'confirm-ok sbx-opt',tip,keepOpen:true,
-        onClick:()=>{
-          const k=own.find(x=>!!work&&x.work===work.work)||own.find(x=>x.work===p.work)||own[0]||null;
-          done(k?{profile:p.name,work:k.work,copies:!!k.copies,workdir:input?input.value.trim():''}
-            :{profile:p.name,work:p.work||'',copies:false,workdir:''});
-        }};
-    });
+    const actions=list.map(p=>this._sbxProfileAction(p,()=>done(sbxPickResult(p,work,input.value.trim()))));
     actions.push({label:t('core.cancel'),cls:'confirm-cancel',tip:TIP_SBX_CANCEL,value:null});
-    // FR-SPK-7: 고를 것이 scratch 하나뿐이면 늘리는 길을 안내한다. 이것이
-    // 없으면 사용자는 `sandbox.json` 이라는 자리가 있다는 것 자체를 모른다 —
-    // 접수한 말("프로파일 설정창이 안 뜬다")의 나머지 절반이 이쪽이다.
-    let hint=null;
-    if(onlyDefault){
-      hint=document.createElement('div');hint.className='sbx-hint';
-      hint.textContent=SANDBOX_DEV_HINT;
-      const open=document.createElement('button');
-      open.type='button';open.className='ui-btn ui-btn-sm sbx-settings';open.textContent=SANDBOX_DEV_SETTINGS;
-      open.title=TIP_SBX_SETTINGS;
-      // 선택창을 닫고 설정을 연다 — 두 창이 겹치면 어느 쪽이 살아 있는지
-      // 알 수 없다.
-      open.addEventListener('click',()=>{done(null);this.app._openSettings('sandbox')});
-      hint.appendChild(open);
-    }
-    // FR-SBM-2: 기본 선택은 **첫 프로파일의 방식**이다. 그것을 고를 수 없으면
-    // `copies` 인 선택으로 떨어진다 — 되돌아오는 통로가 없는 쪽이 안전한 기본이다.
-    const first=(list[0]&&list[0].work)||'';
-    setWork(picks.find(x=>x.work===first)||picks.find(x=>x.copies)||picks[0]||null);
+    const hint=onlyDefault?this._sbxDevHint(()=>done(null)):null;
+    setWork(sbxDefaultWork(list,picks));
     // FR-KIT-24·25: 이름은 머리(`.confirm-msg`)가 준다.
     return UIKit.ask({body,labelledBy:msg,label:t('sbx.profile_title'),footCls:'sbx-pick',
       actions,escValue:null,focus:input,onOpen:(m,fin)=>{
         done=fin;
-        // 등급 배지는 버튼 글자 옆에 선다 — 이름과 한 버튼이어야 무엇의 등급인지 읽힌다.
-        m.foot.querySelectorAll('.sbx-opt').forEach((b,i)=>{
-          const p=list[i];
-          const grade=document.createElement('span');
-          grade.className='sbx-grade'+(p.isolated?' iso':'');
-          grade.textContent=p.isolated?t('sbx.isolated'):t('sbx.not_isolated');
-          b.append(' ',grade);
-        });
+        this._sbxGradeBadges(m.foot,list);
         if(hint) m.body.appendChild(hint);
       }});
+  }
+
+  /**
+   * SANDBOX_PICK_COPY_SRS FR-SPK-3: 작업 폴더 입력은 **언제나** 보인다. 입력란을 돌려준다.
+   *
+   * 옛 조건(`list.some(p=>p.workspace)`)은 scratch 하나뿐인 환경에서 거짓이라
+   * 입력란이 아예 없었고, 그 위의 `mustAsk` 가 창 자체를 띄우지 않았다 —
+   * 사용자에게는 "설정창이 안 뜬다" 로 보였다 (§2.1 실측).
+   */
+  _sbxWorkdirRow(body,here){
+    const wrap=document.createElement('div');wrap.className='sbx-workdir';
+    const label=document.createElement('label');label.textContent=SANDBOX_WORKDIR_LABEL;
+    const input=document.createElement('input');
+    input.type='text';input.placeholder=SANDBOX_WORKDIR_PLACEHOLDER;
+    wrap.appendChild(label);wrap.appendChild(input);
+    // 지금 있는 자리는 입력란 바로 오른쪽에 둔다 — 가장 자주 고를 값이고,
+    // 입력란과 한 줄에 있어야 "여기에 넣는 것" 임이 보인다.
+    //
+    // **채워 두지는 않는다.** 기본은 마운트하지 않는 것이고, 넣는 것은
+    // 고르는 행위여야 한다 (FR-SBX-40).
+    if(here){
+      const now=document.createElement('button');
+      now.type='button';now.className='ui-btn ui-btn-sm sbx-now';now.textContent=t('sbx.here');now.title=here;
+      now.addEventListener('click',()=>{input.value=here;input.focus()});
+      wrap.appendChild(now);
+    }
+    body.appendChild(wrap);
+
+    // 최근에 연 자리는 아랫줄에 모은다. 경로를 매번 타이핑하게 하면 이
+    // 창은 절차만 늘리는 자리가 된다.
+    const recent=this._sbxRecent().filter(p=>p!==here);
+    if(recent.length){
+      const bar=document.createElement('div');bar.className='sbx-recent';
+      for(const path of recent){
+        const b=document.createElement('button');
+        b.type='button';b.className='ui-btn ui-btn-sm sbx-recent-item';b.textContent=path;b.title=path;
+        b.addEventListener('click',()=>{input.value=path;input.focus()});
+        bar.appendChild(b);
+      }
+      body.appendChild(bar);
+    }
+    return input;
+  }
+
+  /**
+   * UX_BATCH6_SRS FR-SBM-1·2: **작업 방식을 고르는 자리.** 방식 → 버튼의 표를 돌려준다.
+   *
+   *   이전 동작: 프로파일이 방식을 고정했고 버튼은 그것을 표기만 했다.
+   *             `sandbox.json` 에 dev 를 정의하지 않은 사용자에게는 마운트를
+   *             고를 길이 화면 어디에도 없었다 (SRS §2.3)
+   *   새  동작: 마운트·복사를 언제나 고른다. 프로파일이 정하는 것은 **기본
+   *             선택**뿐이다
+   *   이유:     접수 ② — "마운트가 없어도 마운트 선택 가능. 마운트가 없는
+   *             마운트 프로파일일 뿐"
+   *
+   * `none` 인 프로파일을 고르면 방식도 폴더도 **버려진다** (FR-SBM-2 / FR-SPK-6).
+   * 이 줄을 프로파일마다 잠그지 않는 이유는 순서다 — 방식을 고르는 것이
+   * 프로파일을 고르는 것보다 앞이고, 앞선 선택을 뒤의 선택이 되돌아가 잠그면
+   * 창이 손 밑에서 움직인다.
+   */
+  _sbxWorkRow(body,picks,setWork){
+    const workBtns=new Map();
+    if(!picks.length) return workBtns;
+    const wrap=document.createElement('div');wrap.className='sbx-work-pick';
+    const label=document.createElement('label');label.textContent=SANDBOX_WORK_PICK_LABEL;
+    wrap.appendChild(label);
+    for(const k of picks){
+      const b=document.createElement('button');
+      b.type='button';b.className='ui-btn ui-btn-sm sbx-work-opt sbx-work-'+k.work;b.dataset.work=k.work;
+      b.textContent=sandboxWorkLabel(k.work);b.title=sandboxWorkTitle(k.work);
+      b.addEventListener('click',()=>setWork(k));
+      workBtns.set(k.work,b);wrap.appendChild(b);
+    }
+    body.appendChild(wrap);
+    return workBtns;
+  }
+
+  /**
+   * 프로파일 하나의 버튼. FR-SPK-5 (FR-SBM-1 로 개정): 방식은 이제 **위에서 고른다.** 프로파일이
+   * 정하는 것은 기본 선택뿐이므로 버튼에 표기를 겹치지 않는다 — 두 자리가
+   * 같은 것을 말하면 어느 쪽이 지금 값인지 알 수 없다.
+   */
+  _sbxProfileAction(p,onClick){
+    const tip=(p.image?p.image+String.fromCharCode(10):'')+
+      (p.isolated
+        ? t('sbx.isolated_note')
+        : t('sbx.not_isolated_note'))+
+      String.fromCharCode(10)+sandboxWorkTitle(p.work);
+    return {label:p.name,kind:'primary',cls:'confirm-ok sbx-opt',tip,keepOpen:true,onClick};
+  }
+
+  /**
+   * FR-SPK-7: 고를 것이 scratch 하나뿐이면 늘리는 길을 안내한다. 이것이
+   * 없으면 사용자는 `sandbox.json` 이라는 자리가 있다는 것 자체를 모른다 —
+   * 접수한 말("프로파일 설정창이 안 뜬다")의 나머지 절반이 이쪽이다.
+   */
+  _sbxDevHint(close){
+    const hint=document.createElement('div');hint.className='sbx-hint';
+    hint.textContent=SANDBOX_DEV_HINT;
+    const open=document.createElement('button');
+    open.type='button';open.className='ui-btn ui-btn-sm sbx-settings';open.textContent=SANDBOX_DEV_SETTINGS;
+    open.title=TIP_SBX_SETTINGS;
+    // 선택창을 닫고 설정을 연다 — 두 창이 겹치면 어느 쪽이 살아 있는지
+    // 알 수 없다.
+    open.addEventListener('click',()=>{close();this.app._openSettings('sandbox')});
+    hint.appendChild(open);
+    return hint;
+  }
+
+  /** 등급 배지는 버튼 글자 옆에 선다 — 이름과 한 버튼이어야 무엇의 등급인지 읽힌다. */
+  _sbxGradeBadges(foot,list){
+    foot.querySelectorAll('.sbx-opt').forEach((b,i)=>{
+      const p=list[i];
+      const grade=document.createElement('span');
+      grade.className='sbx-grade'+(p.isolated?' iso':'');
+      grade.textContent=p.isolated?t('sbx.isolated'):t('sbx.not_isolated');
+      b.append(' ',grade);
+    });
   }
 
   /**

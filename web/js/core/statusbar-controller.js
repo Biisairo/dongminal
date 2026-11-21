@@ -104,6 +104,29 @@ class StatusBarController extends Controller {
    */
   updateStatusBar(){
     const bar=document.getElementById('sb-items');if(!bar)return;
+    const items=this._sbItems();
+    // **상태바에 git 표면은 없다.** 브랜치 chip 은 FR-FLW-12 가, 진행 중 원격 작업
+    // chip 은 U-19 ①(FR-GIT-112 철회)이 없앴다 — 둘 다 사용자 판정이다.
+    // 근거는 그려질 마크업 전부다 (FR-RPT-2). 문자열 지표는 그 문자열이고, chip 은
+    // DOM 이므로 `outerHTML` 이다.
+    this.enc._sbEncBind(bar);
+    reconcileList(bar,items,{
+      key:i=>i.k,
+      sig:i=>i.html!==undefined?i.html:i.el.outerHTML,
+      build:i=>{
+        if(i.el) return i.el;
+        const tpl=document.createElement('template');
+        tpl.innerHTML=i.html;
+        return tpl.content.firstElementChild;
+      },
+    });
+    // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일은 상태바 대신 상단바가 연결과 cwd 를 말한다.
+    // 이전: 여기서 순위(FR-HIE-4)를 싣고 모바일 접힘을 다시 쟀다 — 모바일에 상태바가 없어 걷었다.
+    this.app.mTopPaint();
+  }
+
+  /** 상태바 항목 — `{k, html}` 또는 `{k, el}`. 순서가 곧 화면의 순서다. */
+  _sbItems(){
     const items=[];
     const push=(k,html)=>items.push({k,html});
     // **값은 전부 이 함수를 지난다** (02-fe-arch 의 P0).
@@ -182,47 +205,36 @@ class StatusBarController extends Controller {
     }
     const lh=this.enc._sbLspHtml(); if(lh) push('lsp-offer',lh);  // UX_AUDIT_FIX_SRS FR-UXF-83: 상황 표식이라 설정 항목이 아니다
     if(statusBar.uptime){
-      // FR-TYP-3: 사람말과 기계값이 한 문자열로 섞여 있어 M1 이 이 줄만 남겼다 —
-      // `'시스템 {v}'` 안에서는 `1d 21h` 를 꺼낼 수 없다. 템플릿을 **라벨만**으로
-      // 가르고 값은 `.mono` 로 나른다. 이웃 지표(CPU·MEM·DISK)와 같은 모양이다.
-      //
-      // **조각을 문자열로 잇지 않는다** (02-fe-arch 의 P0): 마크업이 든 조각을
-      // `join` 하면 그 `${…}` 는 이스케이프로 시작하지 않고, 게이트는 예외를 두지
-      // 않는다. 여기는 DOM 으로 세운다 — `reconcileList` 가 `el` 을 받는다.
-      const el=document.createElement('span'); el.className='sb-item';
-      el.appendChild(document.createTextNode('↑ '));
-      const seg=(k,v)=>{
-        // `.sb-sep` 는 이 자리를 위해 있던 규칙이고 아무도 쓰지 않고 있었다.
-        if(el.childNodes.length>1){
-          const sep=document.createElement('span'); sep.className='sb-sep'; sep.textContent='│';
-          el.appendChild(sep);
-        }
-        el.appendChild(document.createTextNode(t(k)+' '));
-        const m=document.createElement('span'); m.className='mono'; m.textContent=v;
-        el.appendChild(m);
-      };
-      if(this.app._stats.sysUptime)seg('statusbar.uptime_sys',this.app._stats.sysUptime);
-      if(this.app._stats.srvUptime)seg('statusbar.uptime_srv',this.app._stats.srvUptime);
-      if(el.childNodes.length>1)items.push({k:'uptime',el});
+      const el=this._sbUptimeEl();
+      if(el) items.push({k:'uptime',el});
     }
-    // **상태바에 git 표면은 없다.** 브랜치 chip 은 FR-FLW-12 가, 진행 중 원격 작업
-    // chip 은 U-19 ①(FR-GIT-112 철회)이 없앴다 — 둘 다 사용자 판정이다.
-    // 근거는 그려질 마크업 전부다 (FR-RPT-2). 문자열 지표는 그 문자열이고, chip 은
-    // DOM 이므로 `outerHTML` 이다.
-    this.enc._sbEncBind(bar);
-    reconcileList(bar,items,{
-      key:i=>i.k,
-      sig:i=>i.html!==undefined?i.html:i.el.outerHTML,
-      build:i=>{
-        if(i.el) return i.el;
-        const tpl=document.createElement('template');
-        tpl.innerHTML=i.html;
-        return tpl.content.firstElementChild;
-      },
-    });
-    // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일은 상태바 대신 상단바가 연결과 cwd 를 말한다.
-    // 이전: 여기서 순위(FR-HIE-4)를 싣고 모바일 접힘을 다시 쟀다 — 모바일에 상태바가 없어 걷었다.
-    this.app.mTopPaint();
+    return items;
+  }
+
+  /** 업타임 지표(시스템·서버). 둘 다 없으면 `null`. */
+  _sbUptimeEl(){
+    // FR-TYP-3: 사람말과 기계값이 한 문자열로 섞여 있어 M1 이 이 줄만 남겼다 —
+    // `'시스템 {v}'` 안에서는 `1d 21h` 를 꺼낼 수 없다. 템플릿을 **라벨만**으로
+    // 가르고 값은 `.mono` 로 나른다. 이웃 지표(CPU·MEM·DISK)와 같은 모양이다.
+    //
+    // **조각을 문자열로 잇지 않는다** (02-fe-arch 의 P0): 마크업이 든 조각을
+    // `join` 하면 그 `${…}` 는 이스케이프로 시작하지 않고, 게이트는 예외를 두지
+    // 않는다. 여기는 DOM 으로 세운다 — `reconcileList` 가 `el` 을 받는다.
+    const el=document.createElement('span'); el.className='sb-item';
+    el.appendChild(document.createTextNode('↑ '));
+    const seg=(k,v)=>{
+      // `.sb-sep` 는 이 자리를 위해 있던 규칙이고 아무도 쓰지 않고 있었다.
+      if(el.childNodes.length>1){
+        const sep=document.createElement('span'); sep.className='sb-sep'; sep.textContent='│';
+        el.appendChild(sep);
+      }
+      el.appendChild(document.createTextNode(t(k)+' '));
+      const m=document.createElement('span'); m.className='mono'; m.textContent=v;
+      el.appendChild(m);
+    };
+    if(this.app._stats.sysUptime)seg('statusbar.uptime_sys',this.app._stats.sysUptime);
+    if(this.app._stats.srvUptime)seg('statusbar.uptime_srv',this.app._stats.srvUptime);
+    return el.childNodes.length>1?el:null;
   }
 
   /**
