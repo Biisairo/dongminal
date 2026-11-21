@@ -99,7 +99,7 @@
 | DM-11 | `dmenv` 머리말 vs `serverconf`·`updatecheck`·`ctl/cli/options.go`·`sandbox.go:279` | "이름은 여기 있다" 인데 밖에 넷, `sandbox` 는 문자열로 적는다 | `dmenv` 로 모은다 | S |
 | FC-10 | `core/constants.js` 939줄 | 상수 파일에 함수 9개 | 쓰는 쪽으로 옮긴다 — **처리함 (R2, `49136bd7`)**: 서버 상한은 새 `core/server-meta.js`, 사이드바 폭은 `input-binding.js`, 샌드박스 문구는 `tool-controller.js`, `agentsWidthOk` 은 호출 0 이라 삭제 | M |
 | FC-19·20·22 | `*1000` 환산·`after(50)` 류 · 타이밍 상수가 파일별 · 툴팁 리터럴 10곳(표본) | `constants*.js`·`TIP_*` 규약 밖 | 모은다 — **처리함 (R2, `b3fe9935`)**: 전수는 `REFACTOR3_FE_REST2_SRS` §2.6. `MS_PER_SEC`, 주기 상수 넷 → `constants.js`, 지연 이름 다섯, `TIP_*` 열일곱. 남김: `CLAUDE_ACCT_POLL_MS`(등록부만 싣는 페이지) · 서술자 표·`diag.js` 의 툴팁 | S |
-| FU-10 | `web/style*.css` | 간격 px 리터럴 **821건**(정규식 근사), 간격 토큰 0. `gap:6px` 68·`gap:8px` 63 | 간격 토큰 3~4단 → 치환 → 게이트 | L |
+| FU-10 | `web/style*.css` | 간격 px 리터럴 **821건**(정규식 근사), 간격 토큰 0. `gap:6px` 68·`gap:8px` 63 | 간격 토큰 3~4단 → 치환 → 게이트 — **처리함 (R4b, `92c59b26`·`6d46d4e1`·`d05e001a`·`0efcb302`)**: 토큰 여덟 단, 치환 822 · 붙이기 105 · 예외 20, 게이트 `check-spacing.mjs` (`REFACTOR3_FE_REST4_SRS` §2.5) | L |
 
 ### 2.4. 쓸데없이 복잡한 로직 단순화 (분류 4)
 
@@ -256,6 +256,7 @@
 | Q5 | DOC-6 FR-UXF-85 창 행 메뉴 | **결정(2026-11-21): FR 에서 「사이드바 창 행 메뉴」 를 지운다.** 메뉴는 만들지 않는다 |
 | Q6 | §4.2 문서 수정 | **결정(2026-11-21): 전부 코드 기준으로 고친다**(P7) |
 | Q7 | `UX_REMAINING` §7 받아들인 한계 다섯 | **결정(2026-11-21): 다시 본다.** P7 뒤에 하나씩 바꿀지 묻는다 |
+| Q8 | FU-10 간격 토큰의 단 수와 값 변화 | **결정(2026-11-22): 이번에 끝까지 한다.** 값마다 상수를 만들지 않고 어느 정도 공통화해 묶으며, 그 과정의 결과값 변화(골든 변경)는 어느 정도 인정한다. 적용: 여덟 단 · 허용 폭 ±2px · 넘는 값은 예외 표(`REFACTOR3_FE_REST4_SRS` D-FR4-15~18) |
 
 ---
 
@@ -298,6 +299,7 @@
 | R3a | `af16d851`·`0d4af0dc`·`94d73ccd`·`18aa0a35`…(이 커밋) | `REFACTOR3_FE_REST3_SRS` — 동작 불변. FC-07·09: 나누기 전에 적용기·저장의 순서·충돌 26가지를 단위 시험으로 고정(처음부터 GREEN)한 뒤, 적용기 `_applyRemoteWorkspace` 를 순수 판정 넷(`wsLiveTools`·`wsPinsKey`·`wsViewOf`·`wsViewRestore`, 크기 게이트 때문에 `layout-tree.js`)과 단계 메서드 다섯으로, `save`·`_saveAdoptRemote` 를 순수 판정 넷(`wsSaveBody`·`wsSaveSame`·`wsGitAdopt`·`wsSaveHoldMs`)과 `_savePut`·`_adoptRemote`·`_saveBackoff` 로 나눴다. 위임자는 더하지 않았다. 남은 것: R3b(FC-05 `delWindow` · FC-12 · FU-12 `GitRemote` · FU-13 drag·HUD · FU-14·15·16) — 같은 SRS 에 이어 쓴다 |
 | R3b | `7a0390a1`·`61f2e97b`·`4a418d40`·`26bafe55`·`ccb4da87`·`ed802920`·`b40a3086`·`47a00334`…(이 커밋) | `REFACTOR3_FE_REST3_SRS` — 동작 불변. FC-05 `delWindow` 를 고정 시험 뒤 단계 넷으로 · FC-12 테마 미리보기 인라인 `style` 45곳 → `.pv-*` 규칙과 `--pv-*` 변수(계산된 스타일 비교로 확인) · FU-12 `GitRemote` 에서 칠하기를 `GitRemoteView` 로(500줄 초과 12 → 11) · FU-13 킷의 끌기·HUD 를 `SizeDrag`·`SizeHud` 로 · FU-14·15·16 `buildLaneGraph`·`_buildChanges`·`_rowEl`·`_applyStatus` 를 순수 판정과 단계로. 남긴 것: 100줄 안팎 함수 넷 |
 | R4a | `0cd6527c`·`fb874af4`·`abb8a5df`·`3f3df12a`·`8e87010d`…(이 커밋) | `REFACTOR3_FE_REST4_SRS` — 화면 불변. FU-18 `.bg-row` 바탕 규칙을 `style-runs.css` 로 · FU-8 레일 상태를 패널 루트의 `data-rail` 표식 하나로(`Panel.railSync`, 첫 프레임은 `index.html`, 특이도 대조로 루트 둘·탭 배지 하나를 맞춤) · FU-9 죽은 클래스 둘을 걷고 숨김 목록 대조 시험 · FU-11 CSS 크기 게이트와 `style.css` 를 연속 구간 여덟으로. 화면 34개의 계산된 스타일 해시를 HEAD 와 견주어 차이 0(글자 폭 흔들림 2요소 제외). 남은 것: R4b FU-10 간격 토큰 |
+| R4b | `8f809850`·`92c59b26`·`6d46d4e1`·`d05e001a`·`0efcb302`…(이 커밋) | `REFACTOR3_FE_REST4_SRS` — FU-10 간격 토큰. `--sp-1`~`--sp-8`(2·4·6·8·10·12·16·24px), 간격 리터럴 870개 가운데 822개를 토큰으로(그중 105개는 ±2px 안의 단으로 붙여 값이 바뀜 — 사용자 결정 Q8), 예외 20(레일·근거 주석·±2px 밖·함수 안). 게이트 `check-spacing.mjs`. 41화면 계산된 스타일 비교에서 차이는 사상표의 쌍과 그 기하 귀결뿐. 전량 e2e 실패 2는 원래 실패 |
 | P4·P5·P6 (Go) | 합침 `b13406a3`·`9ab7c188`·`1af24478` | `REFACTOR3_GO_STRUCT_SRS` — SH·SD·SC. 남은 것: FR-RGS-1 |
 
 ---

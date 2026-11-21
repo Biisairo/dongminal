@@ -48,6 +48,7 @@
   아니다 (`helpers.js` 의 SLOT_EDGE_MIX 주석이 같은 이유를 적었다)
 - 편집기(CodeMirror) 테마 — `cm-setup.js` 의 `edCmTheme()` 가 CSS 변수에서 별도로 파생한다
 - 레이아웃 규약(사이드바 폭·분할 비율) — `UI_KIT_SRS` 비포함과 같다
+- 간격 토큰(`--sp-1`~`--sp-8`, `gap`·`padding`·`margin`) → `REFACTOR3_FE_REST4_SRS` §2.5 (PROD3 FU-10). 그 문서가 단·붙이기 규칙·예외 표를 갖고, 게이트는 `scripts/check-spacing.mjs` 다
 
 ### 1.3 정의
 
