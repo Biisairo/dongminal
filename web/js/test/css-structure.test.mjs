@@ -58,6 +58,17 @@ test('FEU-24: 옮긴 파일이 git 뷰 바로 뒤에서 읽힌다 — 캐스케�
   assert.ok(rules(['web/style-sidebar.css']).some((r) => /\.sb-tab\b/.test(r.sel)), '.sb-tab 이 style-sidebar.css 에 없다');
 });
 
+// REFACTOR3_FE_REST4_SRS FU-18 (TC-FR4-2): 백그라운드 행의 바탕 규칙은 `style-runs.css` 한 파일에 있다.
+// 이전: 바탕(`.bg-row`·`.bg-name`·`.bg-cwd`)은 style.css, 종료 단추는 style-runs.css 에 나뉘어 있었다.
+test('TC-FR4-2: 백그라운드 행의 바탕 규칙은 style-runs.css 에만 있다', () => {
+  const own = /^(\.bg-row|\.bg-row:hover|\.bg-name|\.bg-cwd)$/;
+  // 쉼표는 맨 위 층에서만 가른다 — 레일 규칙의 `:is(.ag-card,.bg-row,…)` 안쪽은 바탕 규칙이 아니다.
+  const top = (sel) => { const out = []; let d = 0, cur = ''; for (const c of sel) { if (c === '(') d++; if (c === ')') d--; if (c === ',' && !d) { out.push(cur.trim()); cur = ''; } else cur += c; } out.push(cur.trim()); return out; };
+  const where = rules().filter((r) => top(r.sel).some((s) => own.test(s))).map((r) => `${r.file}: ${r.sel}`);
+  assert.ok(where.length >= 4, `바탕 규칙을 못 찾았다:\n  ${where.join('\n  ')}`);
+  assert.deepEqual(where.filter((w) => !w.startsWith('web/style-runs.css:')), [], '바탕 규칙이 다른 파일에도 있다');
+});
+
 test('FEU-29: git 뷰 툴바 여섯이 골격 한 규칙을 나눈다', () => {
   const BARS = ['.git-diff-bar', '.git-img-bar', '.git-con-bar', '.git-br-bar', '.git-hist-bar', '.git-stash-bar'];
   const all = rules();

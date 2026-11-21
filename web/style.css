@@ -2219,23 +2219,6 @@ body.mobile #modal[data-mview="detail"] .modal-section{
    규칙(`.on`, FR-SBR-10 · FR-SEM-1 의 magenta)과 모바일 여백도 함께 간다 —
    진입점은 이제 수를 말하지 않는다. magenta 가 뜻하던 *"눈 밖에서 도는 것"* 은
    `.ag-state` 와 `.bg-row` 가 패널 안에서 그대로 말한다. */
-/* UIUX_OVERHAUL_SRS FR-ACT-1·2: 백그라운드 목록은 모달이 아니라 **활동 패널의
-   구역**이다. 상자(`.bg-box`)와 그 머리가 사라졌다 — 치수·백드롭·자기 머리글은
-   모달의 것이었고, 구역은 패널의 폭과 머리를 쓴다.
-
-   행의 규칙은 그대로 남되 `.bg-box` 라는 집을 잃는다: 클래스 이름이 이미
-   유일하므로 자손 선택자는 집이 있을 때만 뜻이 있었다. 좁은 칸에서는 행이
-   접힌다 (`.runs-row` 와 같은 근거 — FR-ACT-6). */
-.bg-row{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;
-  padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:var(--fs-md)}
-.bg-row:hover{background:var(--accent-subtle)}
-/* FR-TYP-1: 도구 이름은 전경 프로세스명(`python3`)이고 cwd 는 경로다 —
-   둘 다 기계가 준 값이다. FR-SEM-1: 경로는 참조이므로 cyan. */
-.bg-name{color:var(--text-bright);white-space:nowrap;font-family:var(--mono)}
-.bg-cwd{flex:1 1 100%;min-width:0;color:var(--term-cyan);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-family:var(--mono);font-size:calc(1em * var(--mono-scale))}
-
 
 /* ── 샌드박스 설정 (FR-SBX-43) ── */
 .sbx-input{flex:1 1 auto;min-width:0;padding:4px 6px;font-size:var(--fs-md);
