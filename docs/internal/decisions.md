@@ -1276,6 +1276,16 @@
 | `D-FEB-3` | `View.adopt(el)` 을 둔다 | 두 패널의 DOM 은 `index.html` 에 이미 있다. 새로 만들면 CSS·e2e·첫 페인트(`sb-collapsed` 선주입)가 깨진다 | 채택 |
 | `D-FEB-4` | 상속 깊이는 `Component` 아래 넷까지 | 읽는 사람이 따라갈 수 있는 한계 | 채택 |
 
+## [`REFACTOR3_FE_DIALOG_SRS`](./REFACTOR3_FE_DIALOG_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-FED-1` | `GitModalBase` 를 지우지 않고 `Dialog` 와 git 하위 사이의 얇은 층으로 남긴다 | git 문자열을 쓰는 칠하기 셋은 git 만의 것이다. 기존 단위 시험이 이 이름을 본다. 깊이는 넷으로 한계 안이다 | 채택 |
+| `D-FED-2` | 킷 모달은 `KitModal` 이라는 새 클래스로 둔다. `FE_OBJECT_MODEL` 의 `ConfirmDialog`·`FormDialog` 라는 이름은 쓰지 않는다 | 그 둘은 `GitConfirm`·`GitDialog` 의 다른 이름이었고, 사용자 결정 3 이 이름 유지를 정했다 | 채택 |
+| `D-FED-3` | 한 번 여는 동안의 해제(`_attach`/`_detach`)와 인스턴스 수명(`dispose`)을 나눈다 | 설정 모달은 한 인스턴스를 여러 번 연다. `dispose` 는 되돌릴 수 없다 | 채택 |
+| `D-FED-4` | 설정 모달은 무엇을 다시 칠하고 읽을지 모른다. App 이 훅으로 준다 | `core/` 의 화면 부품이 App 내부 이름을 줄줄이 부르면 단계 9 에서 다시 끊어야 한다 | 채택 |
+| `D-FED-5` | 설정 모달의 Esc 는 버블로 남긴다 | 모바일 상세 화면의 Esc 는 문서 캡처에서 먼저 목록으로 물러서고 전파를 끊는다. 캡처로 옮기면 등록 순서상 설정 닫기가 먼저 돈다 | 채택 |
+
 ## [`REFACTOR3_GO_STRUCT_SRS`](./REFACTOR3_GO_STRUCT_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -1901,4 +1911,4 @@
 
 ---
 
-결정 **1148건** · 문서 **146개**.
+결정 **1153건** · 문서 **147개**.
