@@ -7,21 +7,16 @@ import (
 	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 
-	"dongminal/internal/shared/httpreq"
 	"net/netip"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/platform"
-	"dongminal/internal/webserver/sse"
 )
 
 // 접속 허용 목록과 그 게이트 (ACCESS_ALLOWLIST_SRS).
@@ -33,6 +28,9 @@ import (
 // **저장소가 `settings.json` 이 아닌 이유.** 그 blob 은 "서버가 해석하지 않는다"
 // 가 규약이다 (handlers_settings.go 머리). 접근 제어는 서버가 해석해야 하는
 // 값이므로 파일을 나눈다.
+//
+// 이 파일은 저장소(`accessStore`)다. 검증·정규화는 `access_normalize.go`, 판정기는
+// `access_matcher.go`, 게이트와 종단은 `access_api.go` 에 있다.
 
 // DefaultAccessRefresh 는 호스트명 해석과 인터페이스 수집의 주기다. 요청 경로는
 // 이 결과만 읽는다 (FR-ACL-15).
@@ -214,32 +212,6 @@ func (s *accessStore) save(cfg accessConfig) error {
 	return nil
 }
 
-// normalizeAccessConfig 는 저장 전의 검증·정규화다. 저장(`setConfig`)과 잠김 묻기
-// (`checkSave`)가 같이 부른다 — 묻기가 통과한 값이 저장에서 거절되면 안 된다.
-func normalizeAccessConfig(cfg accessConfig) (accessConfig, error) {
-	entries := make([]accessEntry, 0, len(cfg.Entries))
-	for i, e := range cfg.Entries {
-		v := strings.TrimSpace(e.Value)
-		if err := validateAccessValue(v); err != nil {
-			return accessConfig{}, fmt.Errorf("entries[%d]: %w", i, err)
-		}
-		e.Value = v
-		entries = append(entries, e)
-	}
-	// FR-ACL-30: 축②도 같은 규약이다 — 하나라도 유효하지 않으면 아무것도 저장하지
-	// 않는다. 축①보다 좁게 받으므로(FR-ACL-29) 검증 함수를 따로 쓴다.
-	hosts := make([]accessEntry, 0, len(cfg.Hosts))
-	for i, e := range cfg.Hosts {
-		v, err := normalizeHostAlias(e.Value)
-		if err != nil {
-			return accessConfig{}, fmt.Errorf("hosts[%d]: %w", i, err)
-		}
-		e.Value = v
-		hosts = append(hosts, e)
-	}
-	return accessConfig{Enabled: cfg.Enabled, Entries: entries, Hosts: hosts}, nil
-}
-
 // restore 는 저장에 실패한 변경을 되돌린다 (FR-SAF-2).
 //
 // `refresh()` 를 부르지 않는다 — 되돌린 값은 이미 한 번 해석된 것이고, 실패한
@@ -249,75 +221,6 @@ func (s *accessStore) restore(prev accessConfig) {
 	s.cfg = prev
 	s.rebuildLocked()
 	s.mu.Unlock()
-}
-
-// validateAccessValue 는 IP 리터럴·CIDR·호스트명 셋 중 하나인지 본다 (FR-ACL-14).
-func validateAccessValue(v string) error {
-	if v == "" {
-		return fmt.Errorf("빈 값")
-	}
-	if _, err := netip.ParseAddr(v); err == nil {
-		return nil
-	}
-	if _, err := netip.ParsePrefix(v); err == nil {
-		return nil
-	}
-	if isHostname(v) {
-		return nil
-	}
-	return fmt.Errorf("%q 는 IP·CIDR·호스트명 중 어느 것도 아니다", v)
-}
-
-// normalizeHostAlias 는 축②의 값 하나를 검증하고 정규화한다 (FR-ACL-28·29·30).
-//
-// **와일드카드를 받지 않는다.** 축②는 DNS 리바인딩 방어의 화이트리스트이므로,
-// 넓힐 수 있는 문법을 UI 에 놓지 않는다 — 받으면 "어디까지 넓은 것을 막을지"
-// 라는 판정을 새로 만들어야 하고 그 판정이 곧 다음 구멍의 자리가 된다. 정말
-// 필요한 배치의 입구는 `--allowed-host`(`hostAllow.extra`) 로 남아 있다.
-//
-// IP·CIDR·포트·스킴도 거절이다 — 그것들은 축①(`Entries`)의 어휘다. 축①과 달리
-// `.local` 은 유효하다: 여기는 문자열 비교라 DNS 해석이 필요 없다 (FR-ACL-34).
-func normalizeHostAlias(raw string) (string, error) {
-	v := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(raw), "."))
-	if v == "" {
-		return "", fmt.Errorf("빈 값")
-	}
-	// 와일드카드를 **먼저** 가른다. `isHostname` 도 이것을 거절하지만, 그때의
-	// 사유는 "호스트명이 아니다" 라서 사용자가 왜 안 되는지 알 수 없다.
-	if strings.ContainsAny(v, "*?") {
-		return "", fmt.Errorf("%q — 와일드카드는 쓸 수 없다. 이 컴퓨터가 불리는 이름을 그대로 적는다", raw)
-	}
-	if !isHostname(v) {
-		return "", fmt.Errorf("%q 는 이름이 아니다 — IP·대역·포트·스킴은 위쪽 허용 목록이 담당한다", raw)
-	}
-	return v, nil
-}
-
-// isHostname 은 RFC 1123 라벨 규칙이다.
-//
-// **마지막 라벨이 숫자뿐이면 호스트명이 아니다.** 이 한 줄이 `10.0.0.300` 같은
-// 오타를 잡는다 — 그것은 IP 파싱에 실패하고, 이 규칙이 없으면 호스트명으로
-// 저장돼 영원히 해석되지 않는 항목이 된다.
-func isHostname(s string) bool {
-	if len(s) > 253 {
-		return false
-	}
-	labels := strings.Split(s, ".")
-	for _, label := range labels {
-		if label == "" || len(label) > 63 {
-			return false
-		}
-		for i, r := range label {
-			switch {
-			case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-			case r == '-' && i > 0 && i < len(label)-1:
-			default:
-				return false
-			}
-		}
-	}
-	last := labels[len(labels)-1]
-	return strings.TrimLeft(last, "0123456789") != ""
 }
 
 // refresh 는 호스트명 해석과 인터페이스 수집을 한 번 돈다. 요청 경로 **밖**에서만
@@ -391,133 +294,6 @@ func (s *accessStore) startRefresh(done <-chan struct{}, every time.Duration) {
 	}()
 }
 
-func isPlainHostname(v string) bool {
-	if _, err := netip.ParseAddr(v); err == nil {
-		return false
-	}
-	if _, err := netip.ParsePrefix(v); err == nil {
-		return false
-	}
-	return isHostname(v)
-}
-
-// isSelf 는 그 주소가 **이 기계의 것**인지 본다 (REQUEST_GATE_SRS FR-RQG-6).
-//
-// `allowed` 와 가르는 이유는 묻는 것이 다르기 때문이다. `allowed` 는 "이 출발지를
-// 들여보낼까" 이고 여기는 "이 이름이 나를 가리키나" 다 — 후자는 목록의 켜짐·꺼짐과
-// 무관하다. 한 함수로 묶으면 ACL 이 꺼져 있을 때 `allowed` 가 전부 참이 되므로
-// Host 판정이 통째로 무력해진다.
-func (s *accessStore) isSelf(addr netip.Addr) bool {
-	return s.match.Load().isSelf(addr.Unmap())
-}
-
-// hasHostAlias 는 그 이름이 축②의 활성 항목인지 본다 (FR-ACL-31).
-//
-// **축①(`Entries`)을 보지 않는다.** 이전에는 `hasHostname` 이 축①의 호스트명
-// 항목을 Host 로도 인정했고, 그 자리가 두 축을 섞어 사용자가 축②에 무엇을 적어야
-// 하는지 알 수 없게 만들었다 (U-18 · FR-ACL-32). 축①의 항목은 *들여보낼 타 기기*
-// 의 이름이므로 이 서버가 그 이름으로 불릴 일이 없다.
-//
-// **적용 토글과 무관하다** (FR-ACL-26) — Host 판정은 토글과 무관하게 항상 돈다.
-// **꺼진 항목은 세지 않는다** (FR-ACL-17 승계).
-func (s *accessStore) hasHostAlias(name string) bool {
-	if name == "" {
-		return false
-	}
-	_, ok := s.match.Load().aliases[strings.ToLower(name)]
-	return ok
-}
-
-// allowed 는 이 출발지를 들여보낼지의 판정 전부다.
-func (s *accessStore) allowed(addr netip.Addr) bool {
-	return s.match.Load().allowed(addr)
-}
-
-// allowed 는 판정기 하나의 판정이다. 게이트와 잠김 묻기(`checkSave`)가 같이 부른다.
-func (m *accessMatcher) allowed(addr netip.Addr) bool {
-	addr = addr.Unmap()
-	// FR-ACL-5: 자기 주소는 목록·토글과 무관하다. loopback 은 인터페이스 수집이
-	// 실패해도 남아야 하므로 목록 대조가 아니라 성질로 판정한다.
-	if m.isSelf(addr) {
-		return true
-	}
-	// FR-ACL-7: 꺼져 있으면 전부 통과 — 기존 동작 그대로다.
-	if !m.enabled {
-		return true
-	}
-	if _, ok := m.addrs[addr]; ok {
-		return true
-	}
-	for _, p := range m.prefixes {
-		if p.Contains(addr) {
-			return true
-		}
-	}
-	return false
-}
-
-// accessMatcher 는 판정에 필요한 것을 미리 파싱해 둔 불변 스냅샷이다 (HTTP-4).
-type accessMatcher struct {
-	enabled  bool
-	self     map[netip.Addr]struct{}
-	addrs    map[netip.Addr]struct{} // 켜진 IP 항목 + 켜진 호스트명의 해석 결과
-	prefixes []netip.Prefix          // 켜진 CIDR 항목
-	aliases  map[string]struct{}     // 켜진 축② 이름 (소문자, 끝 점 없음)
-}
-
-// isSelf 와 allowed 의 판정은 나뉘어 있다(위 isSelf 주석). 공유하는 것은 자기 집합
-// 조회뿐이다.
-func (m *accessMatcher) isSelf(addr netip.Addr) bool {
-	if addr.IsLoopback() {
-		return true
-	}
-	_, ok := m.self[addr]
-	return ok
-}
-
-// rebuildLocked 는 cfg·self·resolved 로 스냅샷을 새로 만든다. s.mu 를 쥔 채 부른다.
-func (s *accessStore) rebuildLocked() {
-	s.match.Store(buildMatcher(s.cfg, s.self, s.resolved))
-}
-
-// buildMatcher 는 설정 하나와 이 기계의 사실(자기 주소·해석 결과)로 판정기를 만든다.
-func buildMatcher(cfg accessConfig, self []netip.Addr, resolved map[string][]netip.Addr) *accessMatcher {
-	m := &accessMatcher{
-		enabled: cfg.Enabled,
-		self:    make(map[netip.Addr]struct{}, len(self)),
-		addrs:   map[netip.Addr]struct{}{},
-		aliases: map[string]struct{}{},
-	}
-	for _, a := range self {
-		m.self[a] = struct{}{}
-	}
-	for _, e := range cfg.Entries {
-		if !e.Enabled {
-			continue // FR-ACL-17
-		}
-		if a, err := netip.ParseAddr(e.Value); err == nil {
-			m.addrs[a.Unmap()] = struct{}{}
-			continue
-		}
-		if p, err := netip.ParsePrefix(e.Value); err == nil {
-			m.prefixes = append(m.prefixes, p)
-			continue
-		}
-		// FR-ACL-16: 해석되지 않은 호스트명은 아무도 통과시키지 않는다.
-		for _, a := range resolved[e.Value] {
-			m.addrs[a] = struct{}{}
-		}
-	}
-	// FR-ACL-31: 축②의 켜진 항목만. 손으로 고친 `access.json` 은 정규화를 지나지
-	// 않았을 수 있다 — 대소문자와 끝 점을 여기서 맞춘다.
-	for _, e := range cfg.Hosts {
-		if e.Enabled {
-			m.aliases[strings.ToLower(strings.TrimSuffix(e.Value, "."))] = struct{}{}
-		}
-	}
-	return m
-}
-
 // checkSave 는 저장하려는 목록이 출발지 `you` 를 잠그는지의 답이다 (SERVER_DRIVEN_ACTIONS_SRS
 // X-d). 게이트와 같은 판정기(`buildMatcher`·`allowed`)로 본다 — 자기 주소·IPv6·별칭이 같다.
 //
@@ -570,71 +346,6 @@ func (s *accessStore) view() accessView {
 	return v
 }
 
-// remoteIP 는 요청의 출발지다.
-//
-// **`X-Forwarded-For` 를 보지 않는다** (FR-ACL-6). 클라이언트가 쓸 수 있는 값을
-// 신뢰하면 목록이 헤더 한 줄로 무력화된다.
-func remoteIP(remoteAddr string) (netip.Addr, bool) {
-	host := remoteAddr
-	if h, _, err := net.SplitHostPort(remoteAddr); err == nil {
-		host = h
-	}
-	if i := strings.Index(host, "%"); i >= 0 {
-		host = host[:i] // zone 제거 (fe80::1%en0)
-	}
-	a, err := netip.ParseAddr(host)
-	if err != nil {
-		return netip.Addr{}, false
-	}
-	return a.Unmap(), true
-}
-
-// accessGate 는 목록에 없는 출발지를 끊는다.
-//
-// **`loggingMiddlewareFor` 안쪽, `recoverMiddleware` 바깥쪽에 선다** (FR-ACL-10).
-// 로깅 안쪽이어야 거절이 접근 로그에 남고, 그것이 "목록을 켰는데 접속이 안 된다"
-// 를 풀 유일한 근거다. mux 바깥이므로 정적 자산·/api/*·/ws 가 한 겹에 덮인다
-// (FR-ACL-11) — 핸들러마다 검사를 뿌리면 새 종단이 생길 때마다 빠뜨린다.
-func accessGate(store *accessStore, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if store == nil {
-			next.ServeHTTP(w, r)
-			return
-		}
-		addr, ok := remoteIP(r.RemoteAddr)
-		if ok && store.allowed(addr) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		if !ok && !store.match.Load().enabled {
-			// 출발지를 읽지 못했고 목록도 꺼져 있다 — 막을 근거가 없다.
-			next.ServeHTTP(w, r)
-			return
-		}
-		// FR-ACL-13: 출발지와 경로를 남긴다.
-		// FR-OBS-9: 거절도 요청 ID 를 든다 — 거절이야말로 사용자가 묻는 자리다.
-		countAccessDenied()
-		dmlog.Infof(r.Context(), "access denied addr=%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
-		// FR-ADP-1: 문서 요청이면 **화면**을 준다 — 평문 `forbidden` 은 사용자가
-		// 무엇을 해야 하는지 말하지 않는다. 그 밖(API·/ws)은 그대로 평문이다.
-		//
-		// FR-ACL-8 은 그대로다: 화면에 실리는 것은 **요청자 자신의 IP** 뿐이고
-		// 목록은 한 줄도 나가지 않는다.
-		if wantsDeniedPage(r) {
-			// **읽지 못했어도 빈칸으로 두지 않는다.** 이 화면의 목적이 "이 주소를
-			// 소유자에게 알린다" 이므로, 정규화에 실패했으면 원문이라도 준다 —
-			// 알릴 것이 없으면 화면이 있으나 마나다.
-			shown := r.RemoteAddr
-			if ok {
-				shown = addr.String()
-			}
-			writeDeniedPage(w, shown)
-			return
-		}
-		httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
-	})
-}
-
 func localInterfaceAddrs() ([]netip.Addr, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -657,123 +368,4 @@ func localInterfaceAddrs() ([]netip.Addr, error) {
 		}
 	}
 	return out, nil
-}
-
-// ── 종단 ──────────────────────────────────────────────
-
-func (s *Server) apiAccessGet(w http.ResponseWriter, r *http.Request) {
-	if s.Access == nil {
-		httpErr(w, "access store unavailable", http.StatusServiceUnavailable, apierr.CodeAccessUnready)
-		return
-	}
-	v := s.Access.view()
-	if addr, ok := remoteIP(r.RemoteAddr); ok {
-		v.You = addr.String()
-	}
-	// FR-ACL-35: 서버가 자기를 무엇으로 아는지(`hostname`)와 지금 어떤 이름으로
-	// 불렸는지(`host`)를 함께 준다. U-18 에서 사용자가 알 방법이 없던 둘이다.
-	if s.hosts != nil {
-		v.Hostname = s.hosts.hostname
-	}
-	v.Host = normalizeHost(r.Host)
-	w.Header().Set("ETag", settingsTag(s.Access.config()))
-	httpresp.JSON(w, http.StatusOK, v)
-}
-
-func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
-	if s.Access == nil {
-		httpErr(w, "access store unavailable", http.StatusServiceUnavailable, apierr.CodeAccessUnready)
-		return
-	}
-	body, err := httpreq.Read(w, r, 0)
-	if err != nil {
-		httpErr(w, "read body", httpreq.Status(err), apierr.BodyReadCode(err))
-		return
-	}
-	var cfg accessConfig
-	if err := json.Unmarshal(body, &cfg); err != nil {
-		httpErr(w, "invalid json", http.StatusBadRequest, apierr.CodeInvalidJSON)
-		return
-	}
-	if !s.accessSave(w, r, cfg) {
-		return
-	}
-	// 해석은 설정 잠금 **밖**이다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-4) — 느린 DNS 가 다른
-	// 설정 PUT 을 세우지 않는다. 응답·알림보다는 앞이라 저장 직후의 GET 이 해석 결과를 본다.
-	s.Access.refresh()
-	// 저장이 끝난 **뒤에** 알린다 — 받은 창이 곧바로 GET 하므로, 먼저 알리면
-	// 그 GET 이 옛 값을 읽을 수 있다 (settings 와 같은 규약).
-	if s.Commands != nil {
-		s.Commands.Broadcast(accessChangedPayload())
-	}
-	w.Header().Set("ETag", settingsTag(s.Access.config()))
-	w.WriteHeader(http.StatusOK)
-}
-
-// accessSave 는 지문 검사와 저장을 설정 잠금 하나로 묶는다 (UX_BATCH12 FR-LIV-2). 실패면
-// 응답을 쓰고 false 다.
-func (s *Server) accessSave(w http.ResponseWriter, r *http.Request, cfg accessConfig) bool {
-	s.settingsMu.Lock()
-	defer s.settingsMu.Unlock()
-	if cur := settingsTag(s.Access.config()); settingsStale(r, cur) {
-		w.Header().Set("ETag", cur)
-		httpErr(w, "stale revision", http.StatusConflict, apierr.CodeStaleRev)
-		return false
-	}
-	if err := s.Access.save(cfg); err != nil {
-		if errors.Is(err, errAccessSaveFailed) {
-			fail(w, http.StatusInternalServerError, err.Error(), nil)
-			return false
-		}
-		// **검증 실패의 사유는 그대로 보인다.** 어느 줄이 잘못됐는지 모르면 사용자가
-		// 고칠 수 없다 — `app-settings.js` 의 `_aclSave` 가 이 본문을 그대로 띄운다.
-		// 그 문구는 사용자가 방금 보낸 값과 우리가 쓴 설명뿐이다.
-		fail(w, http.StatusBadRequest, err.Error(), nil)
-		return false
-	}
-	return true
-}
-
-// apiAccessCheck 는 저장 전 잠김 경고의 답이다 (X-d). 본문은 PUT 과 같고, 검증 실패도 같은 400 이다.
-func (s *Server) apiAccessCheck(w http.ResponseWriter, r *http.Request) {
-	if s.Access == nil {
-		httpErr(w, "access store unavailable", http.StatusServiceUnavailable, apierr.CodeAccessUnready)
-		return
-	}
-	body, err := httpreq.Read(w, r, 0)
-	if err != nil {
-		httpErr(w, "read body", httpreq.Status(err), apierr.BodyReadCode(err))
-		return
-	}
-	var cfg accessConfig
-	if err := json.Unmarshal(body, &cfg); err != nil {
-		httpErr(w, "invalid json", http.StatusBadRequest, apierr.CodeInvalidJSON)
-		return
-	}
-	you, ok := remoteIP(r.RemoteAddr)
-	if !ok {
-		// 출발지를 모르면 잠길지도 모른다 — 경고하지 않는다(화면의 종전 규칙과 같다).
-		httpresp.JSON(w, http.StatusOK, map[string]any{"actions": map[string]action.Answer{action.AccessSave: action.Allow()}})
-		return
-	}
-	a, err := s.Access.checkSave(cfg, you)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error(), nil)
-		return
-	}
-	httpresp.JSON(w, http.StatusOK, map[string]any{"actions": map[string]action.Answer{action.AccessSave: a},
-		"you": you.Unmap().String()})
-}
-
-func accessChangedPayload() []byte {
-	return sse.Payload("access_changed", map[string]any{})
-}
-
-// StartAccessRefresh 는 허용 목록의 주기 갱신을 서버 수명에 건다. 다른 Start*
-// 와 같은 자리에서 불린다 (cmd/dongminal).
-func (s *Server) StartAccessRefresh(done <-chan struct{}) {
-	if s.Access == nil {
-		return
-	}
-	s.Access.startRefresh(done, DefaultAccessRefresh)
 }

@@ -182,8 +182,8 @@ docs/
 않는다.
 
 `httpapi` 안의 핸들러는 **무엇을 손볼 때 함께 봐야 하는가**로 갈라 뒀다.
-`handlers_files.go` 가 경로를 사용자 입력에서 받는 유일한 면이고(`safeResolve`·
-`uniquePath` 가 여기 있다), `handlers_attention.go` 는 같은 `AttnTracker` 상태를 읽는
+`handlers_files.go` 가 경로를 사용자 입력에서 받는 유일한 면의 가드이고(`safeResolve`·
+`uniquePath` 가 여기 있다 — 종단은 `handlers_files_{transfer,stamp,rw}.go`), `handlers_attention.go` 는 같은 `AttnTracker` 상태를 읽는
 종단 8개, `handlers_settings.go` 는 서버가 해석하지 않는 JSON blob 이다.
 `handlers_api.go` 에는 라우트 테이블(`apiRoutes`)과 디스패처(`handleAPI`), 그리고 아직
 제 파일로 나가지 않은 종단 — `/api/state`·도구 생성·busy(단건·일괄)·삭제·workspace
