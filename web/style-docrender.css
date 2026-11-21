@@ -14,8 +14,8 @@
 /* FR-LAY-4: 죽은 규칙이었다 — 기본이 이미 flex 이고 숨기는 CSS 가 없다. 지웠다. */
 
 .dr-bar{
-  flex:0 0 auto;display:flex;align-items:center;gap:8px;
-  padding:4px 8px;border-bottom:1px solid var(--border);
+  flex:0 0 auto;display:flex;align-items:center;gap:var(--sp-4);
+  padding:var(--sp-2) var(--sp-4);border-bottom:1px solid var(--border);
   background:var(--bg-alt);
 }
 .dr-source{flex:0 0 auto}
@@ -30,11 +30,11 @@
    자리였다. */
 .dr-body{
   flex:1 1 auto;min-height:0;overflow:auto;
-  padding:16px 20px 40px;line-height:1.7;font-size:var(--fs-lg);
+  padding:var(--sp-7) 20px 40px;line-height:1.7;font-size:var(--fs-lg);
   /* CODEMIRROR_MIGRATION_SRS FR-CMR-160: 모든 미리보기는 탭 폭을 따라간다 (사용자 결정). 종전의 읽기 폭
      제한(`max-width:52em`)은 넓은 탭에서 본문을 왼쪽에 멈춰 세웠다. */
 }
-.dr-body:has(.dr-svg-wrap),.dr-body:has(.dr-html-wrap){display:flex;padding:12px}
+.dr-body:has(.dr-svg-wrap),.dr-body:has(.dr-html-wrap){display:flex;padding:var(--sp-6)}
 .dr-note{color:var(--text-hint);font-size:var(--fs-md);font-style:italic}
 
 /* ── 본문 요소 ── */
@@ -55,7 +55,7 @@
 .dr-body ul,.dr-body ol{margin:.7em 0;padding-left:1.6em}
 .dr-body li{margin:.25em 0}
 .dr-body table{border-collapse:collapse;margin:1em 0;display:block;overflow-x:auto}
-.dr-body th,.dr-body td{border:1px solid var(--border-weak);padding:5px 10px;text-align:left}
+.dr-body th,.dr-body td{border:1px solid var(--border-weak);padding:var(--sp-3) var(--sp-5);text-align:left}
 .dr-body th{background:var(--bg-alt);font-weight:600}
 
 .dr-body code{
@@ -64,7 +64,7 @@
   font-family:var(--mono);
 }
 .dr-body pre{
-  margin:.9em 0;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);
+  margin:.9em 0;padding:var(--sp-5) var(--sp-6);border:1px solid var(--border);border-radius:var(--radius-md);
   overflow-x:auto;background:color-mix(in srgb,var(--text) 6%,var(--bg));
 }
 .dr-body pre code{padding:0;background:none;font-size:var(--fs-md);line-height:1.55}
@@ -114,7 +114,7 @@ body.mobile .fe-render{left:auto;right:12px;bottom:12px;background:var(--bg)}
  * 원본 비율을 지킨 채 탭에 맞춰 늘거나 준다 (FR-CMR-160). `.dr-body` 가 가로 flex 라 폭을 주지 않으면
  * 원본 폭에 머물고 왼쪽에 붙는다 — `.dr-html-wrap` 과 같은 자리다. */
 .dr-svg-wrap{
-  display:flex;flex-direction:column;align-items:center;gap:8px;
+  display:flex;flex-direction:column;align-items:center;gap:var(--sp-4);
   flex:1 1 auto;min-width:0;height:100%;min-height:0;
 }
 .dr-svg{
@@ -124,10 +124,10 @@ body.mobile .fe-render{left:auto;right:12px;bottom:12px;background:var(--bg)}
 
 /* ── HTML (FR-DRV-15·22) ── */
 /* `.dr-body` 가 가로 flex 라 폭을 주지 않으면 iframe 기본 폭(300px)으로 줄어든다. */
-.dr-html-wrap{display:flex;flex-direction:column;flex:1 1 auto;min-width:0;height:100%;min-height:0;gap:6px}
+.dr-html-wrap{display:flex;flex-direction:column;flex:1 1 auto;min-width:0;height:100%;min-height:0;gap:var(--sp-3)}
 /* 스크립트가 돌지 않는다는 사실. 이 줄이 없으면 빈 화면이 우리 버그로 읽힌다. */
 .dr-html-note{
-  flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  flex:0 0 auto;padding:var(--sp-2) var(--sp-4);border:1px solid var(--border);border-radius:var(--radius-sm);
   background:color-mix(in srgb,var(--text) 6%,var(--bg));
   color:var(--text-hint);font-size:var(--fs-sm);
 }
@@ -147,7 +147,7 @@ body.mobile .fe-render{left:auto;right:12px;bottom:12px;background:var(--bg)}
   font-family:var(--mono);
 }
 .dr-table th,.dr-table td{
-  border:1px solid var(--border-weak);padding:3px 8px;text-align:left;white-space:pre;
+  border:1px solid var(--border-weak);padding:var(--sp-2) var(--sp-4);text-align:left;white-space:pre;
   max-width:40em;overflow:hidden;text-overflow:ellipsis;
 }
 .dr-table th{background:var(--bg-alt);font-weight:600;position:sticky;top:0}

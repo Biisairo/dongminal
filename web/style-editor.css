@@ -17,7 +17,7 @@
    한쪽이 다른 종류의 항목으로 읽힌다. */
 .sbl-item.ed-root .sbl-name,
 .sbl-item.ed-notes .sbl-name{color:var(--text-bright)}
-.ed-entries-none{padding:4px 8px;font-size:var(--fs-sm);color:var(--text-hint)}
+.ed-entries-none{padding:var(--sp-2) var(--sp-4);font-size:var(--fs-sm);color:var(--text-hint)}
 
 /* FR-EDT-46: 창은 좌우 둘로 나뉜다. 탐색기는 분할 트리 **밖**의 고정 영역이며
    어떤 드롭으로도 쪼개지지 않는다 — 트리는 `.ed-area` 안에만 산다. */
@@ -47,7 +47,7 @@
    두고 wrap 을 켜면 좁을 때 줄이 늘 뿐 버튼이 작아지지 않는다.
    줄이 늘어도 `flex:0 0 auto` 라 목록의 스크롤에 밀리지 않는다 — FR-RTU-21 이
    요구한 것은 "고정 높이" 가 아니라 그 성질이다. */
-.ed-side-acts{display:flex;flex-wrap:wrap;flex:0 0 auto;gap:2px;padding:4px 8px; /* UI_POLISH_SRS FR-UIP-4 */
+.ed-side-acts{display:flex;flex-wrap:wrap;flex:0 0 auto;gap:var(--sp-1);padding:var(--sp-2) var(--sp-4); /* UI_POLISH_SRS FR-UIP-4 */
   border-bottom:1px solid var(--border)}
 /* 진입점 버튼의 외형·치수는 `.ui-btn.ui-btn-icon.ui-btn-ghost.ui-btn-lg` 다
    (DESIGN_TOKENS_SRS §7.4). 종전에는 `--git-hit`(30px)을 하한으로 들고 아이콘을
@@ -60,7 +60,7 @@
 .ed-side-acts{container-type:inline-size}
 .ed-side-act-label{display:none}
 @container (min-width:600px){
-  .ed-side-acts>.ed-side-act{width:auto;padding:0 8px;gap:6px}
+  .ed-side-acts>.ed-side-act{width:auto;padding:0 var(--sp-4);gap:var(--sp-3)}
   .ed-side-acts .ed-side-act-label{display:inline}
 }
 
@@ -83,7 +83,7 @@ html[data-repo-side="right"] body:not(.mobile) .ed-side{border-right:none;border
 /* FR-EDT-55: pane 이 **없는** 것이지 빈 pane 이 있는 것이 아니다. */
 .ed-empty{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  padding:0 16px;text-align:center;font-size:var(--fs-md);color:var(--text-hint);
+  padding:0 var(--sp-7);text-align:center;font-size:var(--fs-md);color:var(--text-hint);
 }
 /* FR-RTU-80: 모바일에서 사이드는 **순회의 한 자리**이며 그 자리를 전부 쓴다.
    종전 `max-width:40%` 는 사이드와 본문을 나란히 두려던 것이고, 390px 에서는
@@ -101,8 +101,8 @@ body.mobile .cm-minimap-gutter{display:none}
 /* FR-UXB-31: 높이는 **버튼이 정한다** — 머리는 그 버튼을 담는 줄이다. 26px 을
    적어 두면 버튼이 커질 때 잘린다. */
 .ed-head{
-  display:flex;align-items:center;gap:6px;flex:0 0 auto;
-  height:calc(var(--ui-btn-h) + 4px);padding:0 4px 0 8px;
+  display:flex;align-items:center;gap:var(--sp-3);flex:0 0 auto;
+  height:calc(var(--ui-btn-h) + 4px);padding:0 var(--sp-2) 0 var(--sp-4);
   border-bottom:1px solid var(--border);
 }
 /* FR-EXR-2·3: 머리는 누를 수 있고, 루트가 선택되면 그것을 보인다. 뿌리에는 행이
@@ -132,7 +132,7 @@ body.mobile .cm-minimap-gutter{display:none}
 .ed-tree:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 .ed-tree:focus-visible .ed-row.sel{outline:1px solid var(--focus-ring);outline-offset:-1px}
 .ed-row{
-  display:flex;align-items:center;gap:4px;
+  display:flex;align-items:center;gap:var(--sp-2);
   height:var(--row-dense);font-size:var(--fs-md);cursor:pointer;white-space:nowrap;
 }
 /* FR-A11Y-27: 손가락으로 짚는 행이다. 데스크톱의 조밀 단은 그대로 둔다 —
@@ -159,7 +159,7 @@ body.mobile .ed-row{height:var(--touch-min)}
 .ed-mark{flex:0 0 auto;display:inline-flex;align-items:center;font-size:var(--fs-sm);color:var(--text-muted)}
 /* FR-EDT-63: 조회 실패는 그 폴더 행에만 남는다 — 트리는 그대로 산다. */
 .ed-row.ed-err .ed-name{color:var(--danger-text);text-decoration:line-through}
-.ed-tree-err,.ed-more{font-size:var(--fs-sm);color:var(--text-hint);padding-top:2px;padding-bottom:2px}
+.ed-tree-err,.ed-more{font-size:var(--fs-sm);color:var(--text-hint);padding-top:var(--sp-1);padding-bottom:var(--sp-1)}
 
 /* FR-ETR-7: 무시된 항목은 흐려진다 (VS Code 의 표시와 같다). 폴더도 함께 —
    `node_modules` 가 그 예다.
@@ -199,7 +199,7 @@ body.mobile .ed-row{height:var(--touch-min)}
 /* FR-EDT-14: 고정 항목은 목록 **아래**, 패널의 맨 밑이다. 목록이 남은 높이를
    전부 먹으므로(`.sbl-list` 가 `flex:1 1 auto`) 이 블록은 자연히 바닥에 붙는다.
    구분선이 "목록의 끝" 과 "고정된 것" 을 가른다. */
-.sbl-fixed{flex:0 0 auto;border-top:1px solid var(--border);padding-top:4px}
+.sbl-fixed{flex:0 0 auto;border-top:1px solid var(--border);padding-top:var(--sp-2)}
 .sbl-fixed:empty{display:none}
 
 /* ── 파일 조작 (EDITOR_TAB_SRS 묶음 F · FR-EDT-79~92) ── */
@@ -208,7 +208,7 @@ body.mobile .ed-row{height:var(--touch-min)}
    어느 폴더 아래에 만드는지가 화면에서 사라진다. */
 .ed-edit{cursor:default}
 .ed-input{
-  flex:1 1 auto;min-width:0;height:18px;padding:0 4px;
+  flex:1 1 auto;min-width:0;height:18px;padding:0 var(--sp-2);
   font:inherit;font-size:var(--fs-md);
   background:var(--bg);color:var(--text-bright);
   border:1px solid var(--accent);border-radius:var(--radius-sm);outline:none;
@@ -225,8 +225,8 @@ body.mobile .ed-row{height:var(--touch-min)}
    보여 주지 못한 것이고 하나는 하지 못한 것이다. */
 .ed-op-err{
   font-size:var(--fs-sm);color:var(--danger-text);white-space:normal;
-  padding-top:2px;padding-bottom:2px;padding-right:6px;
-  display:flex;align-items:flex-start;gap:6px;
+  padding-top:var(--sp-1);padding-bottom:var(--sp-1);padding-right:var(--sp-3);
+  display:flex;align-items:flex-start;gap:var(--sp-3);
 }
 /* REPO_FIX 04 §3A-3: 실패 표시는 사용자가 닫는다. */
 .ed-op-err-msg{flex:1;min-width:0}
@@ -236,7 +236,7 @@ body.mobile .ed-row{height:var(--touch-min)}
 /* §3A-5 (T-7.4): 다시 그려져도 드래그 원본이 보인다. */
 .ed-row.ed-dragging{opacity:.55}
 /* FR-EDT-83: 삭제 확인창은 `_confirmClose` 의 껍데기를 그대로 쓴다 — 줄만 여럿이다. */
-.ed-confirm-line+.ed-confirm-line{margin-top:6px}
+.ed-confirm-line+.ed-confirm-line{margin-top:var(--sp-3)}
 
 /* ── Editor 찾기 패널 (EDITOR_GIT_UX_SRS 묶음 F·G) ──
    빠른 열기와 전체 검색이 같은 껍데기를 쓴다 — 키 조작이 완전히 같기 때문이다. */
@@ -252,18 +252,18 @@ body.mobile .ed-row{height:var(--touch-min)}
   border-radius:var(--radius-lg);box-shadow:var(--shadow-2);overflow:hidden;
 }
 .ed-find-q{
-  flex:0 0 auto;padding:10px 12px;border:none;outline:none;font-size:var(--fs-lg);
+  flex:0 0 auto;padding:var(--sp-5) var(--sp-6);border:none;outline:none;font-size:var(--fs-lg);
   background:transparent;color:var(--text-bright);border-bottom:1px solid var(--border);
 }
 /* 팝오버의 모서리 안쪽에 그린다 — 바깥으로 그리면 둥근 모서리에 잘린다. */
 .ed-find-q:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-2px}
 .ed-find-note{
-  flex:0 0 auto;padding:4px 12px;font-size:var(--fs-sm);color:var(--text-hint);
+  flex:0 0 auto;padding:var(--sp-2) var(--sp-6);font-size:var(--fs-sm);color:var(--text-hint);
   border-bottom:1px solid var(--border);
 }
 .ed-find-list{flex:1 1 auto;min-height:0;overflow-y:auto}
 .ed-find-row{
-  display:flex;align-items:baseline;gap:8px;padding:5px 12px;font-size:var(--fs-md);cursor:pointer;
+  display:flex;align-items:baseline;gap:var(--sp-4);padding:var(--sp-3) var(--sp-6);font-size:var(--fs-md);cursor:pointer;
 }
 .ed-find-row:hover{background:var(--border)}
 .ed-find-row.sel{background:var(--accent-active);color:var(--text-bright)}
@@ -285,7 +285,7 @@ body.mobile .ed-row{height:var(--touch-min)}
    첫 줄의 모양은 바뀌지 않는다. */
 .fe-find{
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);display:none;
-  flex-direction:column;gap:4px;padding:4px 6px;
+  flex-direction:column;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);
   background:var(--sidebar-bg);border:1px solid var(--border);
   border-radius:var(--radius-md);box-shadow:var(--shadow-1);
 }
@@ -298,24 +298,24 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 /* UX_BATCH13_SRS FR-EGL-4: 줄 이동 패널. 찾기 패널과 같은 자리·같은 껍데기다 (D-5). */
 .fe-goto{
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);display:none;
-  align-items:center;gap:4px;padding:4px 6px;
+  align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);
   background:var(--sidebar-bg);border:1px solid var(--border);
   border-radius:var(--radius-md);box-shadow:var(--shadow-1);
 }
 .fe-goto.vis{display:flex}
 .fe-goto-q{
-  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  width:200px;padding:var(--sp-2) var(--sp-3);border:1px solid var(--border);border-radius:var(--radius-sm);
   outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
 }
 .fe-goto-q:focus{border-color:var(--accent)}
 .fe-goto-q:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .fe-goto.bad .fe-goto-q{border-color:var(--danger)}
-.fe-find-line{display:flex;align-items:center;gap:4px}
+.fe-find-line{display:flex;align-items:center;gap:var(--sp-2)}
 /* 접힘이 기본이다 (D-1) — 열렸을 때만 선다. */
 .fe-find-rep{display:none}
 .fe-find.rep-open .fe-find-rep{display:flex}
 .fe-find-r{
-  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  width:200px;padding:var(--sp-2) var(--sp-3);border:1px solid var(--border);border-radius:var(--radius-sm);
   outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
 }
 .fe-find-r:focus{border-color:var(--accent)}
@@ -326,7 +326,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 .fe-find-toggle:hover{background:var(--border);color:var(--text-bright)}
 .fe-find-toggle:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .fe-find-q{
-  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  width:200px;padding:var(--sp-2) var(--sp-3);border:1px solid var(--border);border-radius:var(--radius-sm);
   outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
 }
 .fe-find-q:focus{border-color:var(--accent)}
@@ -341,7 +341,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 /* 이동·닫기 셋의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost.ui-btn-sm` 이다 (§7.4).
    옵션 토글은 켜진 상태(`.on`)를 갖는 글자 버튼이라 자기 것이다. */
 .fe-find-opt{
-  flex:0 0 auto;min-width:var(--ui-btn-h-sm);height:var(--ui-btn-h-sm);padding:0 4px;
+  flex:0 0 auto;min-width:var(--ui-btn-h-sm);height:var(--ui-btn-h-sm);padding:0 var(--sp-2);
   display:flex;align-items:center;justify-content:center;
   border:1px solid transparent;border-radius:var(--radius-sm);cursor:pointer;
   background:transparent;color:var(--text-muted);font-size:var(--fs-sm);line-height:1;
@@ -365,18 +365,18 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 
 /* ── 열 수 없는 형식 · 이미지 보기 (EDITOR_GIT_UX_SRS 묶음 V) ── */
 .fe-unsupported{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
-  height:100%;padding:24px;text-align:center;color:var(--text-muted);font-size:var(--fs-md);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-3);
+  height:100%;padding:var(--sp-8);text-align:center;color:var(--text-muted);font-size:var(--fs-md);
 }
 .fe-unsup-title{color:var(--attn-text);font-size:var(--fs-lg);font-weight:600}
 .fe-unsup-path{color:var(--text-bright);word-break:break-all;font-family:var(--mono);font-size:var(--fs-sm)}
 .fe-unsup-meta{color:var(--text-hint);font-size:var(--fs-sm)}
-.fe-unsup-hint{color:var(--text-hint);font-size:var(--fs-sm);margin-top:4px}
-.fe-unsup-dl{color:var(--accent-text);font-size:var(--fs-sm);margin-top:6px;text-decoration:underline}
+.fe-unsup-hint{color:var(--text-hint);font-size:var(--fs-sm);margin-top:var(--sp-2)}
+.fe-unsup-dl{color:var(--accent-text);font-size:var(--fs-sm);margin-top:var(--sp-3);text-decoration:underline}
 
 .fe-image{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-  height:100%;padding:12px;overflow:auto;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-4);
+  height:100%;padding:var(--sp-6);overflow:auto;background:var(--bg);
 }
 /* FR-EVW-4: 원본 비율을 지키고 칸보다 크면 줄여 맞춘다. */
 .fe-img{max-width:100%;max-height:calc(100% - 28px);object-fit:contain}
@@ -392,8 +392,8 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
    창을 둔 채 터미널을 계속 볼 수 있어야 한다. */
 .tc-copy{
   position:fixed;z-index:var(--z-popover);left:50%;top:50%;transform:translate(-50%,-50%);
-  display:flex;flex-direction:column;gap:6px;
-  width:min(560px,calc(100vw - 32px));padding:12px;
+  display:flex;flex-direction:column;gap:var(--sp-3);
+  width:min(560px,calc(100vw - 32px));padding:var(--sp-6);
   background:var(--sidebar-bg);border:1px solid var(--accent);
   border-radius:var(--radius-lg);box-shadow:var(--shadow-2);
   color:var(--text-bright);font-size:var(--fs-md);
@@ -404,26 +404,26 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
    iOS 는 readOnly 인 요소의 선택을 무시해 복사가 되지 않는다. */
 .tc-copy-text{
   width:100%;min-height:120px;max-height:40vh;resize:vertical;
-  padding:8px;border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:var(--sp-4);border:1px solid var(--border);border-radius:var(--radius-md);
   background:var(--bg);color:var(--text);
   font-family:var(--mono);font-size:var(--fs-md);line-height:1.4;
 }
-.tc-copy-row{display:flex;justify-content:flex-end;gap:6px}
+.tc-copy-row{display:flex;justify-content:flex-end;gap:var(--sp-3)}
 .tc-copy-row button{
-  border:none;border-radius:var(--radius-md);padding:6px 12px;font:inherit;font-weight:600;
+  border:none;border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-6);font:inherit;font-weight:600;
 }
 
 /* ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · FR-LSP-46) ──
    설정 ▸ Code 의 언어별 행. 한 줄에 다 담지 않는 이유는 경로가 길기 때문이다 —
    줄이 잘리면 "왜 저 서버가 쓰이는가" 를 읽을 수 없다 (FR-LSP-5). */
-.lsp-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.lsp-list{display:flex;flex-direction:column;gap:var(--sp-4);margin-top:var(--sp-5)}
 .lsp-row{
   display:grid;grid-template-columns:1fr auto;grid-template-areas:
     "head act" "state act" "path act" "msg msg";
-  gap:2px 10px;padding:8px 10px;
+  gap:var(--sp-1) var(--sp-5);padding:var(--sp-4) var(--sp-5);
   border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg);
 }
-.lsp-head{grid-area:head;display:flex;align-items:baseline;gap:8px;min-width:0}
+.lsp-head{grid-area:head;display:flex;align-items:baseline;gap:var(--sp-4);min-width:0}
 .lsp-name{color:var(--text-bright);font-size:var(--fs-md);font-weight:600}
 .lsp-id{color:var(--text-muted);font-size:var(--fs-sm);font-family:var(--mono)}
 .lsp-state{grid-area:state;font-size:var(--fs-sm);color:var(--text-hint)}
@@ -440,8 +440,8 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 .lsp-msg{grid-area:msg;font-size:var(--fs-sm);color:var(--text-hint);overflow-wrap:anywhere}
 .lsp-msg:empty{display:none}
 /* REPO_FIX 02 §3A-3: 서버별 실행 파일 경로 — 서버가 보관한다. */
-.lsp-paths{grid-column:1 / -1;display:flex;flex-direction:column;gap:4px;margin-top:4px}
-.lsp-pathrow{display:flex;align-items:center;gap:6px;min-width:0}
+.lsp-paths{grid-column:1 / -1;display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-2)}
+.lsp-pathrow{display:flex;align-items:center;gap:var(--sp-3);min-width:0}
 .lsp-pathid{color:var(--text-muted);font-size:var(--fs-sm);font-family:var(--mono);flex:none}
 .lsp-pathin{flex:1;min-width:0;font-family:var(--mono);font-size:var(--fs-sm)}
 
@@ -449,7 +449,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
    스스로 사라진다 — 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다. */
 .fe-note{
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);
-  max-width:min(520px,72%);padding:5px 10px;
+  max-width:min(520px,72%);padding:var(--sp-3) var(--sp-5);
   border:1px solid var(--border);border-radius:var(--radius-md);
   background:var(--sidebar-bg);color:var(--text-bright);
   font-size:var(--fs-sm);line-height:1.4;box-shadow:var(--shadow-1);
@@ -459,7 +459,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 .fe-note.vis{opacity:1}
 /* REPO_FIX 03 §3A-2: 버튼이 있는 알림은 눌러야 하므로 포인터를 받는다. */
 .fe-note.fe-note-act.vis{pointer-events:auto}
-.fe-note-btn{margin-left:8px}
+.fe-note-btn{margin-left:var(--sp-4)}
 /* 찾기 패널이 열려 있으면 그 아래로 내려 앉는다 — 같은 자리를 다투지 않는다. */
 .fe-find.vis ~ .fe-note,.fe-goto.vis ~ .fe-note{top:38px}
 
@@ -482,7 +482,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
    모양일 수 없다. 그래서 자리도 위쪽 가로 띠다. */
 .fe-offer{
   position:absolute;top:0;left:0;right:0;z-index:var(--z-raised);
-  display:flex;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:var(--sp-4);
   border-bottom:1px solid var(--border);
   background:var(--sidebar-bg)}
 .fe-offer-msg{flex:1 1 auto;min-width:0;color:var(--text);overflow-wrap:anywhere}
@@ -505,7 +505,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
    FR-EDD-24: 막대는 좁다. gutter 의 폭을 늘리지 않으므로 편집기가
    이미 잡아 둔 여백 안에 선다. */
 .fe-dd-add,.fe-dd-mod,.fe-dd-del{
-  width:3px!important;margin-left:3px;
+  width:3px!important;margin-left:var(--sp-2);
 }
 .fe-dd-add{background:var(--git-st-add)}
 .fe-dd-mod{background:var(--accent)}
@@ -513,7 +513,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
    둔다. 막대가 아니라 삼각형인 이유는 "이 줄이 바뀌었다" 가 아니라 "여기서
    무언가 사라졌다" 이기 때문이다. */
 .fe-dd-del{
-  background:none;width:0!important;margin-left:3px;
+  background:none;width:0!important;margin-left:var(--sp-2);
   border-left:3px solid transparent;border-right:3px solid transparent;
   border-top:4px solid var(--danger);
   height:0;
@@ -532,8 +532,8 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
   position:relative;z-index:var(--z-raised);
 }
 .fe-dd-peek-bar{
-  flex:0 0 auto;display:flex;align-items:center;gap:6px;
-  padding:2px 6px;border-bottom:1px solid var(--border);
+  flex:0 0 auto;display:flex;align-items:center;gap:var(--sp-3);
+  padding:var(--sp-1) var(--sp-3);border-bottom:1px solid var(--border);
 }
 /* 동작·닫기의 외형은 `.ui-btn.ui-btn-sm` 이다 (§7.4). 닫기를 오른쪽 끝으로 미는
    배치만 담는 쪽에 건다 (D-TOK-11). */
@@ -544,7 +544,7 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .fe-dd-peek-old{
-  flex:1 1 auto;min-height:0;margin:0;padding:2px 6px;overflow:auto;
+  flex:1 1 auto;min-height:0;margin:0;padding:var(--sp-1) var(--sp-3);overflow:auto;
   color:var(--text);font-family:var(--mono);
   font-size:var(--fs-md);line-height:1.5;white-space:pre;
 }
@@ -554,21 +554,21 @@ body.mobile :is(.fe-find-q,.fe-find-r,.fe-goto-q){flex:1 1 120px;width:auto;min-
 /* ── 저장의 경합 확인 (EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-9) ──
    상자·백드롭·버튼 줄은 `.ui-modal` 이 갖는다. 여기에는 어느 파일의 이야기인지를
    먼저 읽히게 하는 규칙만 둔다 — 경로만 길게 흐르면 무엇을 덮어쓰는지가 묻힌다. */
-.fe-conflict .ui-modal-body{display:flex;flex-direction:column;gap:8px}
+.fe-conflict .ui-modal-body{display:flex;flex-direction:column;gap:var(--sp-4)}
 .fe-conflict-path{color:var(--text-bright);font-size:var(--fs-lg);word-break:break-all}
 .fe-conflict-msg{color:var(--text-muted);font-size:var(--fs-md);line-height:1.5}
 
 /* UI_POLISH_SRS FR-UIP-19: 빈 편집 영역의 둘째 줄 — 다음 손짓의 키. */
-.ed-empty-keys{margin-top:8px;color:var(--text-hint)}
+.ed-empty-keys{margin-top:var(--sp-4);color:var(--text-hint)}
 
 /* UI_POLISH_SRS FR-UIP-21: 경로 후보 목록. 다이얼로그 본문이 스크롤하므로 떠 있지
    않고 입력 바로 아래 흐름에 선다 — 떠 있으면 본문의 overflow 에 잘린다. */
 .path-suggest{
-  max-height:160px;overflow-y:auto;margin-top:4px;padding:4px 0;
+  max-height:160px;overflow-y:auto;margin-top:var(--sp-2);padding:var(--sp-2) 0;
   border:1px solid var(--border);border-radius:var(--ui-radius);background:var(--sidebar-bg);
 }
 .path-suggest-item{
-  height:28px;line-height:28px;padding:0 8px;font-family:var(--mono);font-size:var(--fs-sm);
+  height:28px;line-height:28px;padding:0 var(--sp-4);font-family:var(--mono);font-size:var(--fs-sm);
   color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
 }
 .path-suggest-item:hover{background:var(--accent-hover)}

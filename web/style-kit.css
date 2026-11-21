@@ -84,7 +84,7 @@
 
 /* ── 버튼 (FR-UIK-3·4·5) ─────────────────────────────────────────────── */
 .ui-btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);
   height:var(--ui-btn-h);padding:0 var(--ui-btn-px);
   border:1px solid var(--border);border-radius:var(--ui-radius);
   background:transparent;color:var(--text-muted);
@@ -104,7 +104,7 @@
   width:calc(var(--ui-btn-h) * var(--ui-icon-ratio));
   height:calc(var(--ui-btn-h) * var(--ui-icon-ratio));
 }
-.ui-btn-sm{height:var(--ui-btn-h-sm);font-size:var(--fs-sm);padding:0 7px}
+.ui-btn-sm{height:var(--ui-btn-h-sm);font-size:var(--fs-sm);padding:0 var(--sp-4)}
 .ui-btn-sm.ui-btn-icon{width:var(--ui-btn-h-sm)}
 .ui-btn-sm.ui-btn-icon>.ui-icon{
   width:calc(var(--ui-btn-h-sm) * var(--ui-icon-ratio));
@@ -129,8 +129,8 @@
 
 /* ── 탭 (FR-UIK-6) ───────────────────────────────────────────────────── */
 .ui-tab{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;position:relative;
-  height:var(--ui-tab-h);padding:0 10px;flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);position:relative;
+  height:var(--ui-tab-h);padding:0 var(--sp-5);flex-shrink:0;
   border:0;background:transparent;color:var(--text-muted);
   font-family:inherit;font-size:var(--ui-font);line-height:1;cursor:pointer;
 }
@@ -193,7 +193,7 @@
 .ui-count{flex-shrink:0;color:var(--text-muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 /* UI_POLISH_SRS FR-UIP-19: 키캡. 글자 크기를 따라가는 작은 상자다. */
 .ui-kbd{
-  display:inline-block;min-width:calc(16px * var(--fs-scale));padding:0 4px;
+  display:inline-block;min-width:calc(16px * var(--fs-scale));padding:0 var(--sp-2);
   border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:var(--radius-sm);
   font:inherit;font-size:var(--fs-sm);line-height:1.5;color:var(--text);text-align:center;
 }
@@ -201,7 +201,7 @@
 /* 탭 배지도 한 글자는 원이다 (FR-CMP-81) — 모서리는 지름의 절반, 폭은 수가 바뀌어도 그대로다. */
 .ui-tab-badge{
   --ui-tab-badge-d:15px;
-  min-width:var(--ui-tab-badge-d);padding:0 4px;border-radius:calc(var(--ui-tab-badge-d) / 2);
+  min-width:var(--ui-tab-badge-d);padding:0 var(--sp-2);border-radius:calc(var(--ui-tab-badge-d) / 2);
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:var(--ui-tab-badge-d);text-align:center;
   font-variant-numeric:tabular-nums;
 }
@@ -243,7 +243,7 @@
 .ui-split>.ui-btn:last-child{
   border-top-left-radius:0;border-bottom-left-radius:0;
   /* 두 테두리가 겹치면 가운데가 2px 이 된다 — 하나를 걷고 1px 구분선만 남긴다. */
-  border-left:0;padding:0 6px;
+  border-left:0;padding:0 var(--sp-3);
 }
 /* FR-CMP-71: 더보기는 **주버튼의 등급을 따라간다.** 착수 시 비활성 `Commit`
    옆의 화살표가 강조색으로 채워져 부차 동작이 주 동작보다 시끄러웠다. */
@@ -261,13 +261,13 @@
 
    **주동작 버튼은 선택이다** (FR-CMP-62). 없는 동작을 지어내지 않는다. */
 .ui-empty{
-  padding:10px;
+  padding:var(--sp-5);
   font-size:var(--ui-font);line-height:1.5;color:var(--text-muted);
 }
 .ui-empty-center{
   position:absolute;inset:0;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:var(--ui-gap);padding:0 16px;text-align:center;
+  gap:var(--ui-gap);padding:0 var(--sp-7);text-align:center;
 }
 /* 주동작이 있을 때의 자리. 버튼은 `ui-btn-sm` 한 크기다 (FR-CMP-51 과 같은 규약). */
 .ui-empty-act{display:flex;align-items:center;gap:var(--ui-gap);margin-top:var(--ui-gap)}
@@ -290,7 +290,7 @@
    `aria-live` 를 갖지 않는다 (FR-CMP-53). 무엇이 읽혀야 하는지는 `FR-A11Y-19`
    가 셋으로 정했고, 컴포넌트가 그것을 넓히면 화면의 모든 안내가 읽힌다. */
 .ui-notice{
-  padding:6px 10px;
+  padding:var(--sp-3) var(--sp-5);
   font-size:var(--ui-font);line-height:1.4;color:var(--text-muted);
 }
 .ui-notice-attn{color:var(--attn-text);background:var(--attn-subtle)}
@@ -380,7 +380,7 @@ body.mobile .ui-switch{
    면이고, 키캡이 글 속에서 **물리적인 키처럼** 도드라지는 데 그 겹이 쓰인다. */
 .ui-key{
   display:inline-flex;align-items:center;justify-content:center;
-  height:var(--ui-btn-h-sm);padding:0 8px;
+  height:var(--ui-btn-h-sm);padding:0 var(--sp-4);
   border:1px solid var(--border);border-radius:var(--ui-radius);
   background:var(--sidebar-bg);color:var(--text-bright);
   font-family:inherit;font-size:var(--ui-font);line-height:1;white-space:nowrap;
@@ -410,32 +410,32 @@ body.mobile .ui-switch{
 .ui-modal-box.ui-modal-md{width:min(460px,90vw)}
 .ui-modal-box.ui-modal-lg{width:min(520px,90vw)}
 .ui-modal-head{
-  display:flex;align-items:center;gap:8px;flex:0 0 auto;
-  padding:10px 12px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:var(--sp-4);flex:0 0 auto;
+  padding:var(--sp-5) var(--sp-6);border-bottom:1px solid var(--border);
   color:var(--text-bright);font-size:var(--fs-lg);font-weight:500; /* UI_POLISH_SRS FR-UIP-15 */
 }
 .ui-modal-head .ui-modal-spacer{flex:1 1 auto}
-.ui-modal-body{flex:1 1 auto;min-height:0;overflow:auto;padding:14px}
+.ui-modal-body{flex:1 1 auto;min-height:0;overflow:auto;padding:var(--sp-6)}
 .ui-modal-foot{
-  display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;
-  padding:10px 12px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);flex:0 0 auto;
+  padding:var(--sp-5) var(--sp-6);border-top:1px solid var(--border);
 }
 
 /* ── 메뉴 (FR-UIK-8) ─────────────────────────────────────────────────── */
 .ui-menu{
-  position:fixed;z-index:var(--z-popover);min-width:160px;padding:3px;
+  position:fixed;z-index:var(--z-popover);min-width:160px;padding:var(--sp-2);
   background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:var(--radius-md);
   box-shadow:var(--shadow-2);font-size:var(--fs-md);color:var(--text);
   animation:ui-surface-in var(--dur-fast) ease-out;   /* UX_AUDIT_FIX_SRS FR-UXF-11 */
 }
 .ui-menu-item{
-  display:flex;align-items:center;gap:7px;
-  padding:5px 10px;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;
+  display:flex;align-items:center;gap:var(--sp-4);
+  padding:var(--sp-3) var(--sp-5);border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;
 }
 /* MOBILE_UX_OVERHAUL_SRS FR-MUX-53: 메뉴 항목도 터치 하한을 지킨다. 키운 만큼 길어진 메뉴는
    화면을 넘지 않고 스스로 구른다. */
 body.mobile .ui-menu{max-height:calc(100dvh - 16px);max-width:calc(100vw - 16px);overflow-y:auto}
-body.mobile .ui-menu-item{min-height:var(--touch-min);padding:0 14px;font-size:var(--fs-lg)}
+body.mobile .ui-menu-item{min-height:var(--touch-min);padding:0 var(--sp-6);font-size:var(--fs-lg)}
 .ui-menu-item:hover,.ui-menu-item.active{background:var(--accent-hover);color:var(--accent-text)}
 .ui-menu-item:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 /* FR-CMU-1: 비활성은 **사유를 보여야** 하므로 포인터를 막지 않는다 — `title` 은
@@ -445,26 +445,26 @@ body.mobile .ui-menu-item{min-height:var(--touch-min);padding:0 14px;font-size:v
 .ui-menu-item.danger{color:var(--danger-text)}
 .ui-menu-item.danger:hover{background:var(--danger-subtle);color:var(--danger-text)}
 /* UX_AUDIT_FIX_SRS FR-UXF-84: 항목 끝의 단축키 표기. 누르는 것이 아니라 읽는 것이라 `.ui-key` 상자가 아니다. */
-.ui-menu-key{margin-left:auto;padding-left:16px;font-size:var(--fs-sm);color:var(--text-hint)}
-.ui-menu-sep{height:1px;margin:3px 6px;background:var(--border)}
-.ui-menu-label{padding:5px 10px 3px;color:var(--text-hint);font-size:var(--fs-sm)}
+.ui-menu-key{margin-left:auto;padding-left:var(--sp-7);font-size:var(--fs-sm);color:var(--text-hint)}
+.ui-menu-sep{height:1px;margin:var(--sp-2) var(--sp-3);background:var(--border)}
+.ui-menu-label{padding:var(--sp-3) var(--sp-5) var(--sp-2);color:var(--text-hint);font-size:var(--fs-sm)}
 /* 메뉴 안에 앉는 컨트롤 무리 — 필터·옵션처럼 누르는 것이 아니라 채우는 것들. */
-.ui-menu-group{padding:4px 10px 6px;display:flex;flex-direction:column;gap:6px}
+.ui-menu-group{padding:var(--sp-2) var(--sp-5) var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-3)}
 
 /* ── 컨트롤 (FR-UIK-9) ───────────────────────────────────────────────── */
 .ui-field{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:6px 0;border-bottom:1px solid var(--border-weak);
+  display:flex;align-items:center;justify-content:space-between;gap:var(--sp-5);
+  padding:var(--sp-3) 0;border-bottom:1px solid var(--border-weak);
 }
 .ui-field-label{color:var(--text);font-size:var(--fs-md)}
 .ui-input,.ui-select{
   background:var(--bg);border:1px solid var(--border);border-radius:var(--ui-radius);
-  color:var(--text);font-family:inherit;font-size:var(--fs-md);padding:3px 8px;outline:none;
+  color:var(--text);font-family:inherit;font-size:var(--fs-md);padding:var(--sp-2) var(--sp-4);outline:none;
 }
 .ui-input:focus,.ui-select:focus{border-color:var(--accent)}
 .ui-input:focus-visible,.ui-select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .ui-input::placeholder{color:var(--text-hint)}
-.ui-hint{color:var(--text-hint);font-size:var(--fs-sm);line-height:1.5;margin-top:6px}
+.ui-hint{color:var(--text-hint);font-size:var(--fs-sm);line-height:1.5;margin-top:var(--sp-3)}
 
 /* ── 핸들의 크기 표시 (FR-HSZ-2·3·4·8) ────────────────────────────────
    문서에 **하나**뿐인 겹이다 (D-10). 끄는 동안만 보이고, 손을 가로채지 않는다. */
@@ -474,7 +474,7 @@ body.mobile .ui-menu-item{min-height:var(--touch-min);padding:0 14px;font-size:v
 #ui-size-hud.on{display:block}
 .ui-size-box{
   position:absolute;transform:translate(-50%,-50%);
-  padding:4px 8px;border:1px solid var(--accent-border);border-radius:var(--ui-radius);
+  padding:var(--sp-2) var(--sp-4);border:1px solid var(--accent-border);border-radius:var(--ui-radius);
   background:var(--sidebar-bg);color:var(--text-bright);
   font-family:inherit;font-size:var(--fs-sm);line-height:1.35;text-align:center;white-space:nowrap;
   box-shadow:var(--shadow-1);
