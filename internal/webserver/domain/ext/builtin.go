@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"dongminal/internal/shared/platform"
 )
 
 // builtinFS 는 동봉된 **선언들**이다 (FR-EXT-34).
@@ -77,7 +79,8 @@ func Deploy(root string) []error {
 	}
 
 	var errs []error
-	changed := false
+	// wrote·madeDirs 는 이번 기동에 쓴 선언과 만든 자리다. 기록이 실패하면 되돌린다.
+	var wrote, madeDirs []string
 	for _, m := range ms {
 		if _, ok := done[m.ID]; ok {
 			continue // 이미 폈다 — 고쳤든 지웠든 사용자의 것이다
@@ -88,19 +91,31 @@ func Deploy(root string) []error {
 			continue
 		}
 		dir := PluginDir(root, m.ID)
+		if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
+			madeDirs = append(madeDirs, dir)
+		}
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			errs = append(errs, fmt.Errorf("%s: 자리를 만들지 못했습니다: %w", m.ID, err))
 			continue
 		}
-		if err := os.WriteFile(filepath.Join(dir, ManifestName), blob, 0o644); err != nil {
+		file := filepath.Join(dir, ManifestName)
+		if err := os.WriteFile(file, blob, 0o644); err != nil {
 			errs = append(errs, fmt.Errorf("%s: 선언을 쓰지 못했습니다: %w", m.ID, err))
 			continue
 		}
+		wrote = append(wrote, file)
 		done[m.ID] = m.Version
-		changed = true
 	}
-	if changed {
+	if len(wrote) > 0 {
 		if err := writeDeployed(root, done); err != nil {
+			// 기록 없이 선언만 남으면 다음 기동이 그것을 "처음" 으로 보고 사용자 편집을
+			// 덮거나 지운 팩을 되살린다 (FR-ATF-27 / FR-EXT-36).
+			for _, f := range wrote {
+				_ = os.Remove(f)
+			}
+			for _, d := range madeDirs {
+				_ = os.Remove(d)
+			}
 			errs = append(errs, err)
 		}
 	}
@@ -132,5 +147,9 @@ func writeDeployed(root string, m map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(root, deployedName), append(blob, '\n'), 0o644)
+	return writeDeployedFile(filepath.Join(root, deployedName), append(blob, '\n'), 0o644)
 }
+
+// writeDeployedFile 은 전개 기록의 쓰기다. 깨진 기록은 매 기동 아무 팩도 펴지 않게
+// 하므로 원자 쓰기다 (FR-ATF-27). 검사가 실패를 끼워 넣는 자리다.
+var writeDeployedFile = platform.WriteFileAtomic

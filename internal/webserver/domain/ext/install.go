@@ -6,8 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	"sync"
 	"time"
+
+	"dongminal/internal/shared/diagtail"
 )
 
 // InstallTimeout 은 조달 하나의 시간 상한이다 (FR-EXT-18).
@@ -18,8 +20,15 @@ import (
 // 죽은 것으로 읽는다.
 const InstallTimeout = 10 * time.Minute
 
+// InstallWaitDelay 는 설치 명령이 취소된 뒤 파이프가 닫히기를 기다리는 상한이다 (FR-ATF-26).
+const InstallWaitDelay = 5 * time.Second
+
 // OutputTail 은 도구의 출력을 결과에 실을 때의 상한이다. 사용자가 읽을 부분은 대개
 // 마지막 오류 줄이다.
+//
+//	이전 동작: 바이트로 잘라 앞에 "…" 를 붙였다 — 한글 가운데서 잘리면 U+FFFD
+//	새  동작: diagtail.Of — 깨진 조각을 버리고, 출력이 비면 오류 문장을 싣는다
+//	이유:     FR-ATF-28 (AT-EXT-16)
 const OutputTail = 4000
 
 // ExecFunc 는 명령 하나를 돌린다. name 과 args 가 **분리된 채** 오므로 셸이 끼지
@@ -72,12 +81,19 @@ func NewInstaller(root string) *Installer {
 // execCombined 은 실제 실행이다. **셸을 거치지 않는다** — `exec.CommandContext` 에
 // 이름과 인자를 그대로 넘긴다 (FR-EXT-17).
 func execCombined(ctx context.Context, name string, args, env []string, dir string) ([]byte, error) {
+	return installCommand(ctx, name, args, env, dir).CombinedOutput()
+}
+
+// installCommand 는 설치 명령 하나다. 취소 뒤 InstallWaitDelay 가 지나면 출력 파이프를
+// 닫고 돌아온다 (FR-ATF-26) — 자식이 파이프를 쥔 채 남아도 시간 상한이 듣는다.
+func installCommand(ctx context.Context, name string, args, env []string, dir string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	cmd.WaitDelay = InstallWaitDelay
 	if len(env) > 0 {
 		cmd.Env = append(os.Environ(), env...)
 	}
-	return cmd.CombinedOutput()
+	return cmd
 }
 
 func (r *Installer) lookPath() func(string) (string, error) {
@@ -134,7 +150,7 @@ func (r *Installer) Install(ctx context.Context, m Manifest, runtimes []Manifest
 		if !ok {
 			return fail("%s: 이 플랫폼(%s)의 조달처가 선언에 없습니다", m.ID, CurrentTarget())
 		}
-		if err := FetchArchive(cctx, r.fetch(), t, PluginDir(r.Root, m.ID)); err != nil {
+		if err := FetchArchive(cctx, r.fetch(), t, PluginDir(r.Root, m.ID), CacheDir(r.Root)); err != nil {
 			return Outcome{Reason: fmt.Sprintf("%s 를 받지 못했습니다", m.ID), Detail: err.Error()}
 		}
 	case SourceNPM:
@@ -182,7 +198,15 @@ func (r *Installer) Install(ctx context.Context, m Manifest, runtimes []Manifest
 //
 // **있으면 아무것도 하지 않는다.** 호스트의 것도 인정하며(§2.5 ④ 와 같은 근거),
 // 그것이 대개의 개발 기계에서 우리가 아무것도 받지 않는 이유다.
+//
+// 같은 런타임의 조달은 직렬이다 (FR-ATF-21). 팩 단위 잠금만으로는 node 가 필요한
+// 팩 둘이 같은 옆 자리를 서로 지운다. 잠금을 얻은 뒤 다시 보아, 앞선 조달이 세운
+// 런타임을 또 받지 않는다.
 func (r *Installer) ensureRuntime(ctx context.Context, id string, runtimes []Manifest) Outcome {
+	if runtimeReadyIn(r.Root, r.lookPath(), runtimes, id, CurrentTarget()) {
+		return Outcome{OK: true}
+	}
+	defer runtimeLocks.lock(filepath.Join(r.Root, id))()
 	if runtimeReadyIn(r.Root, r.lookPath(), runtimes, id, CurrentTarget()) {
 		return Outcome{OK: true}
 	}
@@ -202,10 +226,35 @@ func (r *Installer) ensureRuntime(ctx context.Context, id string, runtimes []Man
 	if !ok {
 		return fail("%s: 이 플랫폼(%s)의 조달처가 선언에 없습니다", id, CurrentTarget())
 	}
-	if err := FetchArchive(ctx, r.fetch(), t, RuntimeDir(r.Root, rt)); err != nil {
+	if err := FetchArchive(ctx, r.fetch(), t, RuntimeDir(r.Root, rt), CacheDir(r.Root)); err != nil {
 		return Outcome{Reason: fmt.Sprintf("%s 를 받지 못했습니다", id), Detail: err.Error()}
 	}
 	return Outcome{OK: true}
+}
+
+// runtimeLocks 는 런타임 조달의 직렬 구간이다. 열쇠는 격리 칸과 런타임 id 다 (FR-ATF-21).
+var runtimeLocks keyedMutex
+
+// keyedMutex 는 열쇠마다 하나인 잠금이다. 열쇠는 런타임 수만큼이라 지우지 않는다.
+type keyedMutex struct {
+	mu sync.Mutex
+	m  map[string]*sync.Mutex
+}
+
+// lock 은 key 의 잠금을 얻고 푸는 함수를 돌려준다.
+func (k *keyedMutex) lock(key string) func() {
+	k.mu.Lock()
+	if k.m == nil {
+		k.m = map[string]*sync.Mutex{}
+	}
+	l, ok := k.m[key]
+	if !ok {
+		l = &sync.Mutex{}
+		k.m[key] = l
+	}
+	k.mu.Unlock()
+	l.Lock()
+	return l.Unlock
 }
 
 // installNPM 은 **그 런타임의 npm** 으로 받는다 (FR-EXT-12).
@@ -228,7 +277,7 @@ func (r *Installer) installNPM(ctx context.Context, m Manifest, runtimes []Manif
 	args = append(args, "--prefix", dir)
 	env := IsolatedEnvWithPath(r.Root, m, prepend, os.Getenv("PATH"))
 	out, err := r.exec()(ctx, name, args, env, dir)
-	detail := tailOf(string(out), OutputTail)
+	detail := diagtail.Of(string(out), err, OutputTail)
 	if err != nil {
 		return Outcome{Reason: fmt.Sprintf("%s 를 받지 못했습니다", m.ID), Detail: detail}, detail
 	}
@@ -280,7 +329,7 @@ func (r *Installer) installToolchain(ctx context.Context, m Manifest) (Outcome, 
 
 	env := IsolatedEnv(r.Root, m)
 	out, err := r.exec()(ctx, tool, m.Source.Args, env, dir)
-	detail := tailOf(string(out), OutputTail)
+	detail := diagtail.Of(string(out), err, OutputTail)
 
 	// FR-EXT-23: 부산물은 즉시 버린다. 실패했어도 버린다 — 실패한 빌드가 남긴
 	// 캐시도 §2.1 의 889 MB 와 같은 것이다.
@@ -301,14 +350,4 @@ func (r *Installer) pruneBuildCache() {
 	for _, sub := range []string{cacheGoMod, cacheGoBld} {
 		_ = os.RemoveAll(filepath.Join(cache, sub))
 	}
-}
-
-// tailOf 는 문자열의 끝쪽 n 바이트다. 도구의 출력에서 사용자가 읽을 부분은 대개
-// 마지막 오류 줄이다.
-func tailOf(s string, n int) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= n {
-		return s
-	}
-	return "…" + s[len(s)-n:]
 }

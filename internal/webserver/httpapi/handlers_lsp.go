@@ -117,8 +117,8 @@ func (s *Server) apiLSPPathsGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, lspPathsBody{Paths: p})
 }
 
-// apiLSPPathsPut 은 경로 표 전체를 바꾼다. 값이 바뀐 서술자의 세션·실패 기억은
-// 서비스가 무효화한다. 거부는 코드로 가른다 — 화면이 그 행에 사유를 보인다.
+// apiLSPPathsPut 은 경로 표 전체를 바꾼다. 값이 바뀐 서술자의 통로는 서비스가 닫는다.
+// 거부는 코드로 가른다 — 화면이 그 행에 사유를 보인다.
 func (s *Server) apiLSPPathsPut(w http.ResponseWriter, r *http.Request) {
 	if !s.lspReady(w) {
 		return

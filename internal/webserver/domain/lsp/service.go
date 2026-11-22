@@ -28,7 +28,7 @@ type Service struct {
 
 	// Start 는 언어 서버 프로세스를 세운다. 비면 실제 프로세스를 쓴다.
 	Start Starter
-	// Now 는 시계다. 비면 time.Now — 백오프·TTL 검사가 시간을 쥔다.
+	// Now 는 시계다. 비면 time.Now — idle 정리(Sweep)가 시간을 쥔다.
 	Now func() time.Time
 	// IdleAfter·MaxSessions 가 0 이면 이 패키지의 기본값을 쓴다.
 	IdleAfter   time.Duration
@@ -46,6 +46,9 @@ type Service struct {
 	// pathsFile 은 그 영속 자리(`<dataDir>/lsp-paths.json`)다.
 	paths     map[string]string
 	pathsFile string
+	// pathsMu 는 경로표의 저장과 메모리 갱신을 한 직렬 구간으로 묶는다 (FR-ATF-30).
+	// mu 와 따로 두어, 파일 쓰기 동안 통로 조회가 막히지 않게 한다.
+	pathsMu sync.Mutex
 }
 
 // NewService 는 플러그인 계층 위에 선 Service 다.
@@ -85,6 +88,8 @@ type pathsFileBody struct {
 
 // LoadPaths 는 영속된 경로 표를 읽는다. 파일이 없으면 빈 표다 — 첫 기동이다.
 func (s *Service) LoadPaths(file string) error {
+	s.pathsMu.Lock()
+	defer s.pathsMu.Unlock()
 	s.mu.Lock()
 	s.pathsFile = file
 	s.mu.Unlock()
@@ -139,6 +144,11 @@ func (s *Service) SetPaths(next map[string]string) (map[string]string, error) {
 		}
 		clean[k] = v
 	}
+	//	이전 동작: 파일 저장이 잠금 밖이었다 — 동시 PUT 이면 디스크와 메모리가 갈렸다
+	//	새  동작: 저장·갱신을 pathsMu 한 구간에서 한다
+	//	이유:     FR-ATF-30 (AT-LSP-2)
+	s.pathsMu.Lock()
+	defer s.pathsMu.Unlock()
 	s.mu.Lock()
 	file := s.pathsFile
 	s.mu.Unlock()

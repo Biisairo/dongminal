@@ -111,7 +111,7 @@ func TestFetchArchive_ExtractsAndStrips(t *testing.T) {
 	dest := filepath.Join(root, "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob), Strip: 1}
 
-	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
+	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest)); err != nil {
 		t.Fatalf("조달이 실패했다: %v", err)
 	}
 	if b, err := os.ReadFile(filepath.Join(dest, "README")); err != nil || string(b) != "hi" {
@@ -133,7 +133,7 @@ func TestFetchArchive_RejectsChecksumMismatch(t *testing.T) {
 	dest := filepath.Join(root, "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: hex64}
 
-	err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest)
+	err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest))
 	if err == nil {
 		t.Fatal("해시가 어긋났는데 통과했다 (FR-EXT-15)")
 	}
@@ -166,7 +166,7 @@ func TestFetchArchive_RejectsEscapingEntries(t *testing.T) {
 			blob := makeTarGz(t, c.entries)
 			dest := filepath.Join(root, "out")
 			tg := Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob)}
-			if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err == nil {
+			if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest)); err == nil {
 				t.Fatal("격리 칸을 벗어나는 엔트리가 통과했다 (FR-EXT-39)")
 			}
 			if _, err := os.Stat(filepath.Join(root, "escaped")); err == nil {
@@ -189,7 +189,7 @@ func TestFetchArchive_RejectsEscapingLinks(t *testing.T) {
 	})
 	dest := filepath.Join(root, "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob)}
-	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err == nil {
+	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest)); err == nil {
 		t.Fatal("칸 밖을 가리키는 링크가 통과했다 (FR-EXT-39)")
 	}
 }
@@ -201,7 +201,7 @@ func TestFetchArchive_Zip(t *testing.T) {
 	dest := filepath.Join(root, "out")
 	tg := Target{URL: "https://example.test/a.zip", SHA256: sum(blob), Strip: 1}
 
-	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
+	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest)); err != nil {
 		t.Fatalf("zip 이 풀리지 않았다: %v", err)
 	}
 	if b, err := os.ReadFile(filepath.Join(dest, "node.exe")); err != nil || string(b) != "MZ" {
@@ -214,7 +214,7 @@ func TestFetchArchive_FetchFailure(t *testing.T) {
 	root := t.TempDir()
 	dest := filepath.Join(root, "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: hex64}
-	err := FetchArchive(context.Background(), blobFetch(nil, errors.New("연결 실패")), tg, dest)
+	err := FetchArchive(context.Background(), blobFetch(nil, errors.New("연결 실패")), tg, dest, filepath.Dir(dest))
 	if err == nil {
 		t.Fatal("받지 못했는데 성공했다")
 	}
@@ -231,12 +231,12 @@ func TestFetchArchive_ReplacesPrevious(t *testing.T) {
 	dest := filepath.Join(root, "out")
 	old := makeTarGz(t, []tarEntry{{name: "old-file", body: "old"}})
 	if err := FetchArchive(context.Background(), blobFetch(old, nil),
-		Target{URL: "https://e.test/a.tar.gz", SHA256: sum(old)}, dest); err != nil {
+		Target{URL: "https://e.test/a.tar.gz", SHA256: sum(old)}, dest, filepath.Dir(dest)); err != nil {
 		t.Fatal(err)
 	}
 	next := makeTarGz(t, []tarEntry{{name: "new-file", body: "new"}})
 	if err := FetchArchive(context.Background(), blobFetch(next, nil),
-		Target{URL: "https://e.test/b.tar.gz", SHA256: sum(next)}, dest); err != nil {
+		Target{URL: "https://e.test/b.tar.gz", SHA256: sum(next)}, dest, filepath.Dir(dest)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dest, "old-file")); !errors.Is(err, os.ErrNotExist) {
@@ -252,7 +252,7 @@ func TestFetchArchive_Raw(t *testing.T) {
 	// Windows 의 실행 판정은 확장자를 본다 — 실제 매니페스트의 win32 bin 도 `.exe` 다.
 	tg := Target{URL: "https://example.test/marksman-macos", SHA256: sum(blob), Bin: "marksman" + exeSuffix(), Raw: true}
 
-	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
+	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest)); err != nil {
 		t.Fatalf("조달이 실패했다: %v", err)
 	}
 	exe := filepath.Join(dest, "marksman"+exeSuffix())
@@ -273,7 +273,7 @@ func TestFetchArchive_RawRejectsChecksumMismatch(t *testing.T) {
 	dest := filepath.Join(root, "out")
 	tg := Target{URL: "https://example.test/marksman-macos", SHA256: hex64, Bin: "marksman", Raw: true}
 
-	if err := FetchArchive(context.Background(), blobFetch([]byte("x"), nil), tg, dest); err == nil {
+	if err := FetchArchive(context.Background(), blobFetch([]byte("x"), nil), tg, dest, filepath.Dir(dest)); err == nil {
 		t.Fatal("해시가 어긋났는데 통과했다")
 	}
 	for _, p := range []string{dest, dest + ".new"} {
@@ -302,7 +302,7 @@ func TestFetchArchive_KeepsManifest(t *testing.T) {
 			blob = makeTarGz(t, []tarEntry{{name: "a", body: "bin", mode: 0o755}})
 			tg = Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob), Bin: "a"}
 		}
-		if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
+		if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest)); err != nil {
 			t.Fatalf("raw=%v: 조달이 실패했다: %v", raw, err)
 		}
 		if b, err := os.ReadFile(filepath.Join(dest, ManifestName)); err != nil || !bytes.Equal(b, manifest) {

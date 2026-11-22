@@ -1,0 +1,332 @@
+package ext
+
+import (
+	"archive/tar"
+	"context"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+	"unicode/utf8"
+
+	"dongminal/internal/shared/testpath"
+)
+
+// TC-ATF-22 (FR-ATF-22 / AT-EXT-3): 팩 id 는 `.new` 로 끝날 수 없다 — 조달의 옆 자리
+// (`<id>.new`)와 이름이 겹치면 `X` 의 조달이 팩 `X.new` 를 지운다.
+func TestParseManifest_RejectsStagingSuffixID(t *testing.T) {
+	for _, id := range []string{"x.new", "vscode.new"} {
+		js := strings.Replace(packJSON, `"id": "vscode-langservers-extracted"`, `"id": "`+id+`"`, 1)
+		if _, err := ParseManifest([]byte(js)); err == nil {
+			t.Fatalf("id=%q 가 통과했다", id)
+		}
+	}
+	js := strings.Replace(packJSON, `"id": "vscode-langservers-extracted"`, `"id": "x.newer"`, 1)
+	if _, err := ParseManifest([]byte(js)); err != nil {
+		t.Fatalf("id=x.newer 가 거절됐다: %v", err)
+	}
+}
+
+func fetchInto(t *testing.T, entries []tarEntry, strip int) (root, dest string, err error) {
+	t.Helper()
+	root = t.TempDir()
+	blob := makeTarGz(t, entries)
+	dest = filepath.Join(root, "out")
+	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob), Strip: strip}
+	err = FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest))
+	return root, dest, err
+}
+
+// TC-ATF-20 (FR-ATF-20 / AT-EXT-1): 두 홉 링크(`b→c/..`, `a→b/..`)는 링크 문자열만
+// 보면 칸 안이지만 따라가면 칸의 부모다. 그 뒤의 파일이 칸 밖에 쓰이지 않는다.
+func TestFetchArchive_RejectsTwoHopLinkEscape(t *testing.T) {
+	if !testpath.Symlinks() {
+		t.Skip("이 호스트에서 심링크를 만들 수 없다")
+	}
+	root, _, err := fetchInto(t, []tarEntry{
+		{name: "c/", typ: tar.TypeDir},
+		{name: "b", typ: tar.TypeSymlink, link: "c/.."},
+		{name: "a", typ: tar.TypeSymlink, link: "b/.."},
+		{name: "a/evil", body: "x"},
+	}, 0)
+	if err == nil {
+		t.Fatal("두 홉 링크 뒤의 파일이 통과했다 (FR-ATF-20)")
+	}
+	if _, e := os.Stat(filepath.Join(root, "evil")); e == nil {
+		t.Fatal("격리 칸 밖에 파일이 쓰였다")
+	}
+}
+
+// TC-ATF-20 (FR-ATF-20): 파일 엔트리가 앞서 놓인 링크를 거쳐 칸 밖을 덮지 않는다.
+func TestFetchArchive_FileDoesNotFollowEscapingLink(t *testing.T) {
+	if !testpath.Symlinks() {
+		t.Skip("이 호스트에서 심링크를 만들 수 없다")
+	}
+	root, _, err := fetchInto(t, []tarEntry{
+		{name: "c/", typ: tar.TypeDir},
+		{name: "b", typ: tar.TypeSymlink, link: "c/.."},
+		{name: "f", typ: tar.TypeSymlink, link: "b/../victim"},
+		{name: "f", body: "x"},
+	}, 0)
+	if _, e := os.Stat(filepath.Join(root, "victim")); e == nil {
+		t.Fatalf("링크를 따라 칸 밖에 파일이 쓰였다 (err=%v)", err)
+	}
+}
+
+// TC-ATF-20 (FR-ATF-20 / AT-EXT-8): tar 하드링크는 strip 을 적용한 칸 안 대상을 복사한다.
+func TestFetchArchive_HardlinkCopiesStrippedTarget(t *testing.T) {
+	_, dest, err := fetchInto(t, []tarEntry{
+		{name: "pkg/bin/real", body: "payload", mode: 0o755},
+		{name: "pkg/bin/alias", typ: tar.TypeLink, link: "pkg/bin/real"},
+	}, 1)
+	if err != nil {
+		t.Fatalf("조달이 실패했다: %v", err)
+	}
+	alias := filepath.Join(dest, "bin", "alias")
+	fi, err := os.Lstat(alias)
+	if err != nil {
+		t.Fatalf("하드링크가 놓이지 않았다: %v", err)
+	}
+	if !fi.Mode().IsRegular() {
+		t.Fatalf("하드링크가 보통 파일이 아니다: %v", fi.Mode())
+	}
+	if b, _ := os.ReadFile(alias); string(b) != "payload" {
+		t.Fatalf("하드링크 내용 = %q", b)
+	}
+}
+
+// TC-ATF-25 (FR-ATF-25 / AT-EXT-7): 해제 총량은 MaxArchiveBytes 의 ExtractRatio 배를
+// 넘지 못한다. 잘 눌린 아카이브는 크기 상한을 지나도 풀면 디스크를 채운다.
+func TestFetchArchive_ExtractTotalCap(t *testing.T) {
+	old := MaxArchiveBytes
+	MaxArchiveBytes = 4096
+	t.Cleanup(func() { MaxArchiveBytes = old })
+	limit := int(MaxArchiveBytes * ExtractRatio)
+
+	for _, format := range []string{"tar", "zip"} {
+		for _, c := range []struct {
+			size int
+			ok   bool
+		}{{limit, true}, {limit + 1, false}} {
+			entries := []tarEntry{{name: "a", body: strings.Repeat("0", c.size/2)}, {name: "b", body: strings.Repeat("0", c.size-c.size/2)}}
+			var blob []byte
+			if format == "zip" {
+				blob = makeZip(t, entries)
+			} else {
+				blob = makeTarGz(t, entries)
+			}
+			root := t.TempDir()
+			dest := filepath.Join(root, "out")
+			tg := Target{URL: "https://example.test/a." + format, SHA256: sum(blob)}
+			err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest))
+			if c.ok && err != nil {
+				t.Fatalf("%s: 상한과 같은 해제가 거절됐다: %v", format, err)
+			}
+			if !c.ok {
+				if !errors.Is(err, ErrExtractTooLarge) {
+					t.Fatalf("%s: err = %v, want ErrExtractTooLarge", format, err)
+				}
+				if _, e := os.Stat(dest); !errors.Is(e, os.ErrNotExist) {
+					t.Fatalf("%s: 실패한 조달이 자리를 남겼다", format)
+				}
+			}
+		}
+	}
+}
+
+// TC-ATF-20 (FR-ATF-20): 하드링크 대상도 칸 안이어야 한다.
+func TestFetchArchive_HardlinkRejectsEscapingTarget(t *testing.T) {
+	if _, _, err := fetchInto(t, []tarEntry{
+		{name: "alias", typ: tar.TypeLink, link: "../outside"},
+	}, 0); err == nil {
+		t.Fatal("칸 밖을 가리키는 하드링크가 통과했다")
+	}
+}
+
+// TC-ATF-23 (FR-ATF-23 / AT-EXT-4): 새 설치를 옮겨 넣지 못하면 옛 설치가 그대로 남고
+// 곁다리(옆 자리·비켜 둔 자리)도 남지 않는다.
+func TestFetchArchive_RenameFailureRestoresOld(t *testing.T) {
+	root := t.TempDir()
+	dest := filepath.Join(root, "out")
+	old := makeTarGz(t, []tarEntry{{name: "old-file", body: "old"}})
+	if err := FetchArchive(context.Background(), blobFetch(old, nil),
+		Target{URL: "https://e.test/a.tar.gz", SHA256: sum(old)}, dest, CacheDir(root)); err != nil {
+		t.Fatal(err)
+	}
+
+	real := renameDir
+	t.Cleanup(func() { renameDir = real })
+	renameDir = func(from, to string) error {
+		if strings.HasSuffix(from, stagingSuffix) {
+			return errors.New("주입한 실패")
+		}
+		return real(from, to)
+	}
+
+	next := makeTarGz(t, []tarEntry{{name: "new-file", body: "new"}})
+	if err := FetchArchive(context.Background(), blobFetch(next, nil),
+		Target{URL: "https://e.test/b.tar.gz", SHA256: sum(next)}, dest, CacheDir(root)); err == nil {
+		t.Fatal("옮겨 넣기가 실패했는데 성공했다")
+	}
+	if b, err := os.ReadFile(filepath.Join(dest, "old-file")); err != nil || string(b) != "old" {
+		t.Fatalf("옛 설치가 사라졌다: %v %q", err, b)
+	}
+	entries, _ := os.ReadDir(root)
+	for _, e := range entries {
+		if e.Name() != "out" && e.Name() != filepath.Base(CacheDir(root)) {
+			t.Fatalf("곁다리가 남았다: %s", e.Name())
+		}
+	}
+}
+
+// TC-ATF-21 (FR-ATF-21 / AT-EXT-2): 같은 런타임의 조달은 직렬이다. node 가 필요한 팩
+// 둘을 함께 조달해도 런타임은 한 번 받고, 서로의 옆 자리를 지우지 않는다.
+func TestEnsureRuntime_ConcurrentFetchesOnce(t *testing.T) {
+	root := t.TempDir()
+	node := mustParse(t, nodeRuntime)
+	tg, ok := node.Source.Targets[CurrentTarget()]
+	if !ok {
+		t.Skipf("이 타깃(%s)의 선언이 검사 매니페스트에 없다", CurrentTarget())
+	}
+	blob := makeTarGz(t, []tarEntry{
+		{name: "pkg/" + tg.Provides["node"], body: "#!/bin/sh\n", mode: 0o755},
+		{name: "pkg/" + tg.Provides["npm"], body: "#!/bin/sh\n", mode: 0o755},
+	})
+	node.Source.Targets[CurrentTarget()] = Target{URL: tg.URL, SHA256: sum(blob), Strip: 1, Provides: tg.Provides}
+
+	var mu sync.Mutex
+	fetched := 0
+	fetch := func(_ context.Context, _ string, w io.Writer) error {
+		mu.Lock()
+		fetched++
+		mu.Unlock()
+		// 다른 쪽이 같은 자리에 들어올 틈을 준다 — 잠금이 없으면 그 틈에 두 번째 조달이 들어온다.
+		time.Sleep(concurrentWindow)
+		_, err := w.Write(blob)
+		return err
+	}
+	outs := make([]Outcome, 2)
+	var wg sync.WaitGroup
+	for i := range outs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			inst := testInstaller(root, &recorder{}, nil, fetch)
+			outs[i] = inst.ensureRuntime(context.Background(), node.ID, []Manifest{node})
+		}()
+	}
+	wg.Wait()
+	for i, o := range outs {
+		if !o.OK {
+			t.Fatalf("조달 %d 이 실패했다: %+v", i, o)
+		}
+	}
+	if fetched != 1 {
+		t.Fatalf("런타임을 %d 번 받았다, want 1", fetched)
+	}
+}
+
+// TC-ATF-26 (FR-ATF-26 / AT-EXT-9): 설치 명령은 WaitDelay 를 갖는다. 없으면 자식이
+// 출력 파이프를 쥔 채 남을 때 취소해도 CombinedOutput 이 끝나지 않는다.
+func TestInstallCommand_HasWaitDelay(t *testing.T) {
+	cmd := installCommand(context.Background(), "tool", []string{"a"}, []string{"K=V"}, t.TempDir())
+	if cmd.WaitDelay <= 0 {
+		t.Fatalf("WaitDelay = %v, want > 0", cmd.WaitDelay)
+	}
+	if cmd.WaitDelay != InstallWaitDelay {
+		t.Fatalf("WaitDelay = %v, want %v", cmd.WaitDelay, InstallWaitDelay)
+	}
+}
+
+// TC-ATF-27 (FR-ATF-27 / AT-EXT-11·12): `deployed.json` 은 원자 쓰기로 남기고, 기록이
+// 실패하면 이번 기동에 쓴 선언을 되돌린다 — 다음 기동이 사용자 편집을 덮거나 지운 팩을
+// 되살리지 않는다.
+func TestDeploy_RecordFailureRevertsManifests(t *testing.T) {
+	root := t.TempDir()
+	real := writeDeployedFile
+	t.Cleanup(func() { writeDeployedFile = real })
+	var wrote []string
+	writeDeployedFile = func(p string, data []byte, perm os.FileMode) error {
+		wrote = append(wrote, p)
+		return errors.New("주입한 실패")
+	}
+	if errs := Deploy(root); len(errs) == 0 {
+		t.Fatal("기록이 실패했는데 오류가 없다")
+	}
+	if len(wrote) != 1 || wrote[0] != filepath.Join(root, deployedName) {
+		t.Fatalf("기록이 원자 쓰기를 지나지 않았다: %v", wrote)
+	}
+	ms, _ := Builtins()
+	for _, m := range ms {
+		if _, err := os.Stat(filepath.Join(PluginDir(root, m.ID), ManifestName)); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("%s: 기록 실패 뒤에도 선언이 남았다: %v", m.ID, err)
+		}
+	}
+
+	writeDeployedFile = real
+	if errs := Deploy(root); len(errs) != 0 {
+		t.Fatalf("다음 전개가 실패했다: %v", errs)
+	}
+	if got, _ := Load(root); len(got) != len(ms) {
+		t.Fatalf("다음 전개가 펴지 않았다: %d (기대 %d)", len(got), len(ms))
+	}
+}
+
+// TC-ATF-28 (FR-ATF-28 / AT-EXT-16): 도구 출력의 꼬리는 diagtail 로 자른다 — 한글
+// 가운데서 잘려 깨진 바이트가 남지 않는다.
+func TestInstall_DetailTailIsValidUTF8(t *testing.T) {
+	root := t.TempDir()
+	inst := testInstaller(root, &recorder{}, map[string]string{"go": "/usr/bin/go"}, nil)
+	long := strings.Repeat("가", OutputTail) // 3 바이트 글자라 끝에서 OutputTail 바이트는 글자 가운데다
+	inst.Exec = func(context.Context, string, []string, []string, string) ([]byte, error) {
+		return []byte(long), errors.New("exit 1")
+	}
+	out := inst.Install(context.Background(), mustParse(t, goPack), nil)
+	if out.OK {
+		t.Fatal("실패한 도구가 성공으로 보고됐다")
+	}
+	if !utf8.ValidString(out.Detail) {
+		t.Fatalf("Detail 이 깨진 UTF-8 이다: %q", out.Detail[:8])
+	}
+	if len(out.Detail) > OutputTail {
+		t.Fatalf("Detail 길이 = %d, want <= %d", len(out.Detail), OutputTail)
+	}
+}
+
+// concurrentWindow 는 동시 조달 검사가 두 번째 조달에 주는 틈이다.
+const concurrentWindow = 200 * time.Millisecond
+
+// TC-ATF-24 (FR-ATF-24 / AT-EXT-5): 다운로드 임시 파일은 `<root>/cache` 아래에 생기고
+// 끝나면 지워진다 — 격리 칸 밖(OS 임시 디렉터리)에 쓰지 않는다.
+func TestInstall_DownloadTempUnderCache(t *testing.T) {
+	if CurrentTarget() == "" {
+		t.Skip("이 빌드의 타깃 이름을 모른다")
+	}
+	root := t.TempDir()
+	blob := makeTarGz(t, []tarEntry{{name: "bin/thing" + exeSuffix(), body: "#!/bin/sh\n", mode: 0o755}})
+	js := `{"id":"thing","kind":"server","source":{"kind":"archive","targets":{"` +
+		CurrentTarget() + `":{"url":"https://e.test/a.tar.gz","sha256":"` + sum(blob) +
+		`","bin":"bin/thing` + exeSuffix() + `"}}},
+		"servers":[{"id":"thing","exe":"thing","langs":["x"],"exts":[".x"]}]}`
+	m := mustParse(t, js)
+	var during []os.DirEntry
+	inst := testInstaller(root, &recorder{}, nil, func(_ context.Context, _ string, w io.Writer) error {
+		during, _ = os.ReadDir(CacheDir(root))
+		_, err := w.Write(blob)
+		return err
+	})
+	if out := inst.Install(context.Background(), m, nil); !out.OK {
+		t.Fatalf("조달이 실패했다: %+v", out)
+	}
+	if len(during) != 1 {
+		t.Fatalf("받는 중 cache 의 항목 = %d, want 1", len(during))
+	}
+	after, _ := os.ReadDir(CacheDir(root))
+	if len(after) != 0 {
+		t.Fatalf("임시 파일이 남았다: %v", after)
+	}
+}

@@ -16,6 +16,7 @@ type Starter func(ctx context.Context, exe string, args []string, dir string) (i
 func StartProcess(ctx context.Context, exe string, args []string, dir string) (io.ReadWriteCloser, func(), error) {
 	cmd := exec.Command(exe, args...)
 	cmd.Dir = dir
+	ownGroup(cmd)
 	in, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, nil, err
@@ -30,10 +31,12 @@ func StartProcess(ctx context.Context, exe string, args []string, dir string) (i
 	stop := func() {
 		// stdin 을 닫는 것이 LSP 서버에게 "끝났다" 를 말하는 관용이다. 그래도
 		// 남으면 죽인다 — 안 죽이면 idle 정리가 아무것도 정리하지 않는다.
+		//
+		//	이전 동작: Process.Kill — 서버가 띄운 자식이 고아로 남았다
+		//	새  동작: Unix 는 프로세스 그룹 전체를 죽인다. Windows 는 그대로 Kill
+		//	이유:     FR-ATF-31 (AT-LSP-3)
 		_ = in.Close()
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
+		killGroup(cmd)
 		_ = cmd.Wait()
 	}
 	return rwPipes{r: out, w: in}, stop, nil

@@ -10,7 +10,7 @@ import (
 )
 
 // OPTIMIZE_REFACTOR_SRS FR-OPT-1-11 (DOM-34): 아카이브 다운로드에 크기 상한이
-// 있다. 상한이 시간(FetchTimeout)뿐이면 끝없이 흘러오는 응답이 10분 동안 임시
+// 있다. 상한이 시간뿐이면 끝없이 흘러오는 응답이 10분 동안 임시
 // 디스크를 채운다. 넘으면 **해시 대조 전에** 끊고 아무것도 남기지 않는다.
 func TestFetchArchive_RejectsOversize(t *testing.T) {
 	old := MaxArchiveBytes
@@ -28,7 +28,7 @@ func TestFetchArchive_RejectsOversize(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: hex64}
 
-	err := FetchArchive(context.Background(), chunks, tg, dest)
+	err := FetchArchive(context.Background(), chunks, tg, dest, filepath.Dir(dest))
 	if !errors.Is(err, ErrArchiveTooLarge) {
 		t.Fatalf("err = %v, want ErrArchiveTooLarge", err)
 	}
@@ -46,7 +46,7 @@ func TestFetchArchive_AtLimitPasses(t *testing.T) {
 
 	dest := filepath.Join(t.TempDir(), "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob)}
-	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
+	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest)); err != nil {
 		t.Fatalf("상한과 같은 아카이브가 거절됐다: %v", err)
 	}
 }
