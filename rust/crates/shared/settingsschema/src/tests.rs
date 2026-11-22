@@ -304,7 +304,6 @@ fn validate_corrupt_blob() {
 
 // `dongminal config validate` 가 이 문구를 그대로 낸다. go1.27.2 실측 문구다.
 #[test]
-#[ignore = "gocompat json 디코더: map 타입 이름(map[string]interface {}) 미재현 — 조정자에 보고"]
 fn validate_non_object_blob_type_name() {
     let specs = load().unwrap();
     assert_eq!(
