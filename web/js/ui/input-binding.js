@@ -247,7 +247,7 @@ class InputBinding {
         return ctx.side==='left'?[mine,content]:[content,mine];
       },
       end:(ctx)=>{
-        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
+        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.sizer.doFit();
         if(ctx.w) o.save(ctx.w);
       },
     });

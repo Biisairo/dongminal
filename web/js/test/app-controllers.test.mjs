@@ -1357,7 +1357,7 @@ test('TC-FEA-2(9i-2): 갈아 끼운 aw·focused·setFocusState·paneTabSet·save
   assert.equal(w1.focusedPane, 'p1');
   assert.equal(app.ws.activeWindow, 'w2');
   assert.deepEqual(log.splice(0), ['aw']);
-  app.tools = new Map([['k', { el: { classList: { contains: () => true } }, doFit: () => log.push('fit') }]]);
+  app.tools = new Map([['k', { el: { classList: { contains: () => true } }, sizer: { doFit: () => log.push('fit') } }]]);
   app.layout.dock._dockRefit();
   assert.deepEqual(log.splice(0), ['fit']);
   const panel = { diffTabId: 'd1' };

@@ -28,7 +28,7 @@ test.describe('묶음 SBX — 상태바는 터미널 출력을 그대로 그리�
     await page.evaluate((p) => {
       const app = (window as any).app;
       const pane = app.testing.focusedTerminal();
-      pane._onCwd(p);
+      pane.output._onCwd(p);
     }, payload);
 
     const bar = page.locator('#sb-items');

@@ -44,7 +44,7 @@ class TerminalTool {
     // FR-B-6 (UX-11): 드롭 안내는 DOM 텍스트다. `.dragover` 일 때만 CSS 가 보인다.
     const drop=document.createElement('div'); drop.className='tp-drop-hint'; drop.textContent=DROP_FILES_HINT;
     this.el.appendChild(drop);
-    this._wireDnd();
+    this.xfer._wireDnd();
     this._wireContextMenu();
   }
   _wireContextMenu(){
@@ -152,9 +152,9 @@ class TerminalTool {
   // FR-RCS-1: 최초 연결과 재연결이 **같은 판정**을 하도록 수신 처리를 한 곳에
   // 둔다. 두 벌로 두었던 것이 OP.EXIT 처리가 한쪽에만 들어가는 사고의 자리였다.
   _onOp(d){
-    if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
+    if(d[0]===OP.OUTPUT){ this.output._handleOutput(d.subarray(1)); }
     else if(d[0]===OP.SEQ){ this._onSeq(d.subarray(1)); }
-    else if(d[0]===OP.SIZE){ this._onSize(d.subarray(1)); }
+    else if(d[0]===OP.SIZE){ this.sizer._onSize(d.subarray(1)); }
     // FR-RPS-3: 페이로드 1 바이트 — 이 연결이 답장을 보낼 자격을 쥐었는가.
     else if(d[0]===OP.REPLY_SEAT){ this._replySeat=d[1]===1; }
     else if(d[0]===OP.TOOLID){ this.id=dec.decode(d.subarray(1)); this.el.dataset.toolid=this.id; }
@@ -168,7 +168,7 @@ class TerminalTool {
     this._exited=true;
     this._sock.clearHealthy();
     // FR-HIN-7: 도구가 끝났다 — 보낼 곳이 없다.
-    this._sock.takeHeld(); this._heldHide();
+    this._sock.takeHeld(); this.heldBar._heldHide();
     this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
     this.el.style.opacity='1'; this._reconnecting=false;
     /**
@@ -291,12 +291,12 @@ class TerminalTool {
   _wsOpened(viaRetry){
     this._onWsOpen();
     if(viaRetry||this._reconnecting) TIMERS.after(TERM_OVERLAY_HIDE_MS,()=>this._onWsReady(),{owner:this,label:'overlay-hide'});
-    else this._heldMaybeShow();
+    else this.heldBar._heldMaybeShow();
   }
   _onWsReady(){
     this._hideOverlay(); this.el.style.opacity='1'; this._reconnecting=false;
     if(this.term) this.term.scrollToBottom();
-    this._heldMaybeShow();
+    this.heldBar._heldMaybeShow();
   }
 
   _wsLost(kind){
@@ -364,7 +364,7 @@ class TerminalTool {
   _onAltMode(ps,on){
     if(ps.some(v=>v===1049||v===47||v===1047)){
       this._srvAlt=on;
-      if(!on&&this._widthDebt&&this._seqLive&&!this._followsPty()) this._refreshForWidth();
+      if(!on&&this._widthDebt&&this._seqLive&&!this.sizer._followsPty()) this.sizer._refreshForWidth();
     }
     return false;
   }

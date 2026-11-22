@@ -83,8 +83,8 @@ function seqFrame(OP, offset, flag) {
  */
 function countRefresh(p) {
   const calls = { n: 0 };
-  const real = p._refreshForWidth.bind(p);
-  p._refreshForWidth = () => { calls.n++; return real() };
+  const real = p.sizer._refreshForWidth.bind(p.sizer);
+  p.sizer._refreshForWidth = () => { calls.n++; return real() };
   return calls;
 }
 
@@ -92,7 +92,7 @@ function countRefresh(p) {
 
 test('비소유가 되어 폭이 바뀌어도 전량 재생을 걸지 않는다 (FR-OTR-1)', () => {
   const h = pane({ owner: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.release();
   const c = countRefresh(h.p);
 
@@ -106,13 +106,13 @@ test('비소유가 되어 폭이 바뀌어도 전량 재생을 걸지 않는다 
 
 test('되찾으면 미뤄 둔 재생을 건다 (FR-OTR-2)', () => {
   const h = pane({ owner: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.release();
   h.p._onOp(sizeFrame(h.OP, 44, 20));
   h.claim();
   const c = countRefresh(h.p);
 
-  h.p.ptySize();
+  h.p.sizer.ptySize();
 
   assert.equal(c.n, 1, '되찾았는데 재생이 없다 — 미룬 것을 갚지 않았다');
 });
@@ -125,7 +125,7 @@ test('되찾으면 미뤄 둔 재생을 건다 (FR-OTR-2)', () => {
  */
 test('되찾을 때 폭이 같아도 빚이 있으면 건다 (FR-OTR-2)', () => {
   const h = pane({ owner: true, ownWidth: 44 });
-  h.p.doFit();                          // 자기 폭 44 로 기록
+  h.p.sizer.doFit();                          // 자기 폭 44 로 기록
   h.live();                             // 되찾기는 라이브 구간에서 일어난다 (FR-OTR-8)
   h.release();
   h.p.term.cols = 151;                  // 상대가 151 로 잡았다가
@@ -133,7 +133,7 @@ test('되찾을 때 폭이 같아도 빚이 있으면 건다 (FR-OTR-2)', () => 
   h.claim();
   const c = countRefresh(h.p);
 
-  h.p.ptySize();                        // fit 하면 44 — 따라가던 값과 같다
+  h.p.sizer.ptySize();                        // fit 하면 44 — 따라가던 값과 같다
 
   assert.equal(c.n, 1, 'cols 가 같다는 이유로 미룬 재생이 사라졌다');
 });
@@ -142,21 +142,21 @@ test('되찾을 때 폭이 같아도 빚이 있으면 건다 (FR-OTR-2)', () => 
 
 test('전량 재생이 도착하면 빚이 갚아진다 (FR-OTR-3)', () => {
   const h = pane({ owner: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.release();
   h.p._onOp(sizeFrame(h.OP, 44, 20));       // 빚이 선다
   h.p._onOp(seqFrame(h.OP, 100, h.ctxFlags.FULL));  // 전량 재생 도착
   h.claim();
   const c = countRefresh(h.p);
 
-  h.p.ptySize();                             // fit → 151, 따라가던 44 와 다르다
+  h.p.sizer.ptySize();                             // fit → 151, 따라가던 44 와 다르다
 
   assert.equal(c.n, 1, '폭이 실제로 바뀌었으므로 한 번은 돌아야 한다');
 });
 
 test('델타 재개는 빚을 갚지 않는다 (NFR-OTR-2)', () => {
   const h = pane({ owner: true, ownWidth: 44 });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.release();
   h.p.term.cols = 151;
   h.p._onOp(sizeFrame(h.OP, 44, 20));   // 빚이 선다
@@ -164,7 +164,7 @@ test('델타 재개는 빚을 갚지 않는다 (NFR-OTR-2)', () => {
   h.claim();
   const c = countRefresh(h.p);
 
-  h.p.ptySize();                        // 폭은 같다 — 빚만이 근거다
+  h.p.sizer.ptySize();                        // 폭은 같다 — 빚만이 근거다
 
   assert.equal(c.n, 1, '델타가 빚을 갚아 버렸다 — 델타는 옛 폭의 그림을 못 고친다');
 });
@@ -173,11 +173,11 @@ test('델타 재개는 빚을 갚지 않는다 (NFR-OTR-2)', () => {
 
 test('소유자의 폭 변화는 종전대로 즉시 재생한다 (FR-OTR-4)', () => {
   const h = pane({ owner: true, ownWidth: 80 });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.p.term.cols = 151;                  // 상자가 바뀌어 다음 fit 이 80 을 낸다
   const c = countRefresh(h.p);
 
-  h.p.ptySize();
+  h.p.sizer.ptySize();
 
   assert.equal(c.n, 1, '소유자의 폭 변화까지 미루면 안 된다');
 });
@@ -192,15 +192,15 @@ test('소유자의 폭 변화는 종전대로 즉시 재생한다 (FR-OTR-4)', (
  */
 test('되찾을 때 ptySize 가 두 번 불려도 재생은 한 번이다 (FR-OTR-8)', () => {
   const h = pane({ owner: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.live();
   h.release();
   h.p._onOp(sizeFrame(h.OP, 44, 20));   // 따라가며 빚이 선다
   h.claim();
   const c = countRefresh(h.p);
 
-  h.p.ptySize();                        // ① _focusWindow → resendWindowSizes
-  h.p.ptySize();                        // ② render → _afterLayout → resendWindowSizes
+  h.p.sizer.ptySize();                        // ① _focusWindow → resendWindowSizes
+  h.p.sizer.ptySize();                        // ② render → _afterLayout → resendWindowSizes
 
   assert.equal(c.n, 1, '둘째 호출이 재생을 또 요청했다 — 첫째 재생을 끊는 헛재생이다');
 });
@@ -209,14 +209,14 @@ test('되찾을 때 ptySize 가 두 번 불려도 재생은 한 번이다 (FR-OT
 
 test('서버가 대체 화면이라 하면 xterm 이 normal 이어도 재생을 건너뛴다 (FR-OTR-6·9 — 실측의 상황)', () => {
   const h = pane({ owner: true, alt: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.live();
   h.release();
   h.p._onOp(sizeFrame(h.OP, 44, 20));
   h.claim();
   const c = countRefresh(h.p);
 
-  const s = h.p.ptySize();
+  const s = h.p.sizer.ptySize();
 
   assert.equal(c.n, 0, '대체 화면에서 1 MiB 재생을 걸었다 — 화면에 나오지도 않는 스크롤백이다');
   assert.equal(h.p._widthDebt, true, '빚을 버렸다 — 대체 화면을 벗어날 때 갚을 근거가 사라진다');
@@ -225,14 +225,14 @@ test('서버가 대체 화면이라 하면 xterm 이 normal 이어도 재생을 
 
 test('일반 화면에서 되찾으면 종전대로 재생한다 (FR-OTR-6 · V-OTR-12)', () => {
   const h = pane({ owner: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.live();
   h.release();
   h.p._onOp(sizeFrame(h.OP, 44, 20));
   h.claim();
   const c = countRefresh(h.p);
 
-  h.p.ptySize();
+  h.p.sizer.ptySize();
 
   assert.equal(c.n, 1, '일반 화면의 스크롤백은 새 폭으로 다시 파싱돼야 한다 (FR-M10-2)');
 });
@@ -241,12 +241,12 @@ test('일반 화면에서 되찾으면 종전대로 재생한다 (FR-OTR-6 · V-
 
 test('빚이 선 채로 대체 화면을 벗어나면 그때 갚는다 (FR-OTR-7)', () => {
   const h = pane({ owner: true, alt: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.live();
   h.release();
   h.p._onOp(sizeFrame(h.OP, 44, 20));
   h.claim();
-  h.p.ptySize();                        // 대체 화면 — 빚으로 둔다
+  h.p.sizer.ptySize();                        // 대체 화면 — 빚으로 둔다
   const c = countRefresh(h.p);
 
   h.altExit();
@@ -261,7 +261,7 @@ test('빚이 선 채로 대체 화면을 벗어나면 그때 갚는다 (FR-OTR-7
  */
 test('재생 진행 중의 버퍼 전환으로는 갚지 않는다 — 재생이 재생을 부르지 않는다 (FR-OTR-8)', () => {
   const h = pane({ owner: true, alt: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.p._widthDebt = true;
   // `_seqLive` 가 거짓 — 이 연결의 OpSeq 를 아직 받지 못했다. 재생이 흐르는 중이다.
   const c = countRefresh(h.p);
@@ -273,7 +273,7 @@ test('재생 진행 중의 버퍼 전환으로는 갚지 않는다 — 재생이
 
 test('PTY 를 따르는 중이면 대체 화면을 벗어나도 갚지 않는다 (FR-OTR-7)', () => {
   const h = pane({ owner: true, alt: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.live();
   h.release();
   h.p._onOp(sizeFrame(h.OP, 44, 20));   // 비소유로 따라가며 빚이 선다
@@ -286,7 +286,7 @@ test('PTY 를 따르는 중이면 대체 화면을 벗어나도 갚지 않는다
 
 test('빚이 없으면 대체 화면을 벗어나도 재생하지 않는다 (FR-OTR-7)', () => {
   const h = pane({ owner: true, alt: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.live();
   const c = countRefresh(h.p);
 
@@ -303,7 +303,7 @@ test('빚이 없으면 대체 화면을 벗어나도 재생하지 않는다 (FR-
  */
 test('라이브 구간의 대체 화면 진입을 따라가 다음 되찾기에서 건너뛴다 (FR-OTR-9)', () => {
   const h = pane({ owner: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.live();                             // 접속 때는 일반 화면이었다
   h.p._onAltMode([1049], true);         // 그 뒤 claude 가 대체 화면에 들어간다
   h.release();
@@ -311,14 +311,14 @@ test('라이브 구간의 대체 화면 진입을 따라가 다음 되찾기에�
   h.claim();
   const c = countRefresh(h.p);
 
-  h.p.ptySize();
+  h.p.sizer.ptySize();
 
   assert.equal(c.n, 0, '접속 뒤의 대체 화면 진입을 놓쳤다 — 1 MiB 재생이 되살아난다');
 });
 
 test('대체 화면과 무관한 CSI ? h/l 은 판정을 바꾸지 않는다 (FR-OTR-9)', () => {
   const h = pane({ owner: true, alt: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.live();
   h.p._onAltMode([25], false);          // 커서 감춤 — 대체 화면이 아니다
   h.p._onAltMode([2004], false);        // 괄호 붙여넣기 끔
@@ -327,7 +327,7 @@ test('대체 화면과 무관한 CSI ? h/l 은 판정을 바꾸지 않는다 (FR
   h.claim();
   const c = countRefresh(h.p);
 
-  h.p.ptySize();
+  h.p.sizer.ptySize();
 
   assert.equal(c.n, 0, '엉뚱한 모드 전환을 대체 화면 이탈로 읽었다');
 });
@@ -349,7 +349,7 @@ test('파서 훅은 xterm 의 처리를 가로채지 않는다 — false 를 돌
  */
 function hiddenReclaim() {
   const h = pane({ owner: true });
-  h.p.doFit();
+  h.p.sizer.doFit();
   h.release();
   h.p._onOp(sizeFrame(h.OP, 44, 20));
   h.hide();
@@ -362,9 +362,9 @@ test('숨은 칸은 되찾아도 재생을 걸지 않고 빚으로 둔다 (FR-OT
   const h = hiddenReclaim();
   const c = countRefresh(h.p);
 
-  const s = h.p.ptySize();
-  h.p.ptySize();
-  h.p.ptySize();
+  const s = h.p.sizer.ptySize();
+  h.p.sizer.ptySize();
+  h.p.sizer.ptySize();
 
   assert.equal(c.n, 0, '숨은 칸이 재생을 걸었다 — 부를 때마다 다시 건다');
   assert.equal(s.cols, 151, 'PTY 로 보내는 크기는 자기 폭이어야 한다 (FR-M10-1)');
@@ -373,13 +373,13 @@ test('숨은 칸은 되찾아도 재생을 걸지 않고 빚으로 둔다 (FR-OT
 
 test('숨었던 칸이 보이면 그때 한 번만 갚는다 (FR-OTR-10·5)', () => {
   const h = hiddenReclaim();
-  h.p.ptySize();
+  h.p.sizer.ptySize();
   const c = countRefresh(h.p);
 
   h.show();
-  h.p.doFit();          // render 의 _afterLayout 이 먼저 잰다
-  h.p.ptySize();
-  h.p.ptySize();
+  h.p.sizer.doFit();          // render 의 _afterLayout 이 먼저 잰다
+  h.p.sizer.ptySize();
+  h.p.sizer.ptySize();
 
   assert.equal(c.n, 1, '보인 뒤의 재생은 한 벌이어야 한다');
 });

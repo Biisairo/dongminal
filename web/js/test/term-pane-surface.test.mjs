@@ -8,30 +8,31 @@ import { CONSTANTS, load, fakeClock, TERM_PANE } from './harness.mjs';
  * (`TermTransfer`·`TermHeld`·`TermOutput`·`TermFit`)으로 옮긴 뒤에도 원형에서 같은 이름이 같은 종류로 읽히고, 인스턴스에
  * 갈아 끼운 메서드를 부품 안의 호출도 본다. 나누기 전 코드에서 GREEN 이다.
  *
- * e2e 가 인스턴스의 `_handleOutput`·`_doFlush`·`_onCwd`·`_uploadFiles` 를 감싸고, 단위 시험이 크기 판정
- * (`_refreshForWidth`·`_applyPtySize`·`_followsPty`)과 보류 배너(`_heldBanner`)를 갈아 끼운다.
+ * e2e 가 부품의 `_handleOutput`·`_doFlush`·`_onCwd`·`_uploadFiles` 를 감싸고, 단위 시험이 크기 판정
+ * (`_refreshForWidth`·`_applyPtySize`·`_followsPty`)과 보류 배너(`_heldBanner`)를 갈아 끼운다. 부품의 이름은 원형에
+ * 위임자로 두지 않는다 — 부르는 쪽이 `p.sizer.doFit()` 처럼 부품을 부른다 (REFACTOR3_FE_DELEG_SRS).
  */
 const PROTO = [
-  '_applyPtySize:function', '_applyStickyMods:function', '_blurInput:function', '_clipKey:function', '_copySelection:function',
-  '_dispatchWheel:function', '_doFlush:function', '_downloadFile:function', '_exitClose:function', '_exitNewShell:function',
-  '_exitSpot:function', '_flingStop:function', '_flushSendQueue:function', '_fmtSize:function', '_followsPty:function',
-  '_handleOutput:function', '_heldBanner:function', '_heldDiscard:function', '_heldHide:function', '_heldMaybeShow:function',
-  '_heldSend:function', '_hideOverlay:function', '_imeBusy:function', '_imeClose:function', '_imeFlush:function',
+  '_applyStickyMods:function', '_blurInput:function', '_clipKey:function', '_copySelection:function',
+  '_dispatchWheel:function', '_exitClose:function', '_exitNewShell:function',
+  '_exitSpot:function', '_flingStop:function', '_flushSendQueue:function', 
+  
+  '_hideOverlay:function', '_imeBusy:function', '_imeClose:function', '_imeFlush:function',
   '_imeGate:function', '_imeKeyInit:function', '_imePush:function', '_initTouchScroll:function', '_kbAllow:function',
   '_kbApply:function', '_kbSuppress:function', '_kbSuppressed:function', '_kbTextarea:function', '_loadAddons:function',
-  '_mappedKey:function', '_markExited:function', '_onAltMode:function', '_onBeforeInput:function', '_onCwd:function',
-  '_onEraseDisplay:function', '_onOp:function', '_onSeq:function', '_onSize:function', '_onTermData:function',
-  '_onWsOpen:function', '_onWsReady:function', '_oscCarryAt:function', '_redrawNudge:function', '_refreshForWidth:function',
+  '_mappedKey:function', '_markExited:function', '_onAltMode:function', '_onBeforeInput:function', 
+  '_onEraseDisplay:function', '_onOp:function', '_onSeq:function', '_onTermData:function',
+  '_onWsOpen:function', '_onWsReady:function', '_redrawNudge:function', 
   '_resetDecoderIfNoResume:function', '_retryDelay:getset', '_rowHeight:function', '_scheduleReconnect:function',
   '_send:function', '_sendDropCount:get', '_sendKey:function', '_sendQueue:getset', '_sendQueueMax:get',
   '_sendResize:function', '_sendText:function', '_sendUserFrame:function', '_showOverlay:function', '_toast:function',
   '_touchScrollBy:function', '_tsAck:function', '_tsEnd:function', '_tsFollow:function', '_tsInflightRoom:function',
   '_tsLines:function', '_tsLprMeasure:function', '_tsMouseMode:function', '_tsMove:function', '_tsOnWrite:function',
-  '_tsStart:function', '_tsTouch:function', '_tsUnfollow:function', '_uploadFiles:function', '_userInput:function',
-  '_wheelKick:function', '_wireContextMenu:function', '_wireDnd:function', '_wireIme:function', '_wireKeys:function',
+  '_tsStart:function', '_tsTouch:function', '_tsUnfollow:function', '_userInput:function',
+  '_wheelKick:function', '_wireContextMenu:function', '_wireIme:function', '_wireKeys:function',
   '_wireNativeSelect:function', '_wsLost:function', '_wsOpened:function', '_wsStopped:function', '_wsURL:function',
-  'applyFontSize:function', 'connect:function', 'destroy:function', 'doFit:function', 'focus:function', 'open:function',
-  'ptySize:function', 'reconnectNow:function', 'write:function', 'ws:getset',
+  'connect:function', 'destroy:function', 'focus:function', 'open:function',
+  'reconnectNow:function', 'write:function', 'ws:getset',
 ];
 
 function pane(globals = {}) {
@@ -45,6 +46,14 @@ function pane(globals = {}) {
   const p = new ctx.TerminalTool('t1', 'tool');
   return { ctx, p, clock };
 }
+
+/** 부품 → 그 부품이 가진 이름. 터미널 원형에는 없다 (REFACTOR3_FE_DELEG_SRS). */
+const PARTS = {
+  sizer: ['_followsPty', '_applyPtySize', '_onSize', 'doFit', 'applyFontSize', 'ptySize', '_refreshForWidth'],
+  heldBar: ['_heldMaybeShow', '_heldBanner', '_heldHide', '_heldSend', '_heldDiscard'],
+  output: ['_handleOutput', '_oscCarryAt', '_doFlush', '_onCwd'],
+  xfer: ['_wireDnd', '_downloadFile', '_uploadFiles', '_fmtSize'],
+};
 
 const calls = (p, name) => {
   const seen = [];
@@ -61,11 +70,21 @@ test('TC-FR5-50: TerminalTool 원형의 이름과 종류가 그대로다', () =>
   assert.deepEqual(got, PROTO);
 });
 
+test('TC-DLG-1: 부품의 이름은 부품 원형에 있고 터미널 원형에는 없다', () => {
+  const { ctx, p } = pane();
+  for (const [part, names] of Object.entries(PARTS)) {
+    for (const n of names) {
+      assert.equal(typeof Object.getPrototypeOf(p[part])[n], 'function', part + '.' + n);
+      assert.ok(!(n in ctx.TerminalTool.prototype), '위임자가 남았다: ' + n);
+    }
+  }
+});
+
 test('TC-FR5-50: 출력은 인스턴스의 `_doFlush` 를 미뤄 부른다', async () => {
   const { p, clock } = pane();
-  const seen = calls(p, '_doFlush');
-  p._handleOutput(new TextEncoder().encode('ab'));
-  p._handleOutput(new TextEncoder().encode('c'));
+  const seen = calls(p.output, '_doFlush');
+  p.output._handleOutput(new TextEncoder().encode('ab'));
+  p.output._handleOutput(new TextEncoder().encode('c'));
   assert.equal(seen.length, 0);
   await clock.advance(10);
   assert.equal(seen.length, 1, '두 청크가 한 번의 flush 로 모인다');
@@ -74,10 +93,10 @@ test('TC-FR5-50: 출력은 인스턴스의 `_doFlush` 를 미뤄 부른다', asy
 
 test('TC-FR5-50: flush 는 OSC 777 을 인스턴스의 `_onCwd`·`_downloadFile` 로 보내고 나머지를 쌓는다', () => {
   const { p } = pane();
-  const cwd = calls(p, '_onCwd');
-  const dl = calls(p, '_downloadFile');
+  const cwd = calls(p.output, '_onCwd');
+  const dl = calls(p.xfer, '_downloadFile');
   p._outputBuf = 'a\x1b]777;Cwd;/x\x07b\x1b]777;Download;/y\x07c';
-  p._doFlush();
+  p.output._doFlush();
   assert.deepEqual(cwd, [['/x']]);
   assert.deepEqual(dl, [['/y']]);
   assert.equal(p._buf.length, 1, '터미널이 아직 없으면 버퍼에 쌓인다');
@@ -86,9 +105,9 @@ test('TC-FR5-50: flush 는 OSC 777 을 인스턴스의 `_onCwd`·`_downloadFile`
 
 test('TC-FR5-50: 끝나지 않은 OSC 는 인스턴스의 `_oscCarryAt` 이 자른 자리에서 남긴다', () => {
   const { p } = pane();
-  p._oscCarryAt = () => 1;
+  p.output._oscCarryAt = () => 1;
   p._outputBuf = 'xyz';
-  p._doFlush();
+  p.output._doFlush();
   assert.equal(p._outputBuf, 'yz');
   assert.equal(new TextDecoder().decode(p._buf[0]), 'x');
   assert.ok(p._carryTimer, '보류분을 흘려보낼 타이머를 건다');
@@ -102,7 +121,7 @@ test('TC-FR5-50: `_onCwd` 는 포커스 터미널이면 상태바와 git 신호�
     focusedTerminal: () => p, cwd: '/old', updateStatusBar: () => { bar++ },
     gitSignal: (k) => { signals.push(k) },
   });
-  p._onCwd('/new');
+  p.output._onCwd('/new');
   assert.equal(p._cwd, '/new');
   assert.equal(ctx.app.cwd, '/new');
   assert.equal(bar, 1);
@@ -111,7 +130,7 @@ test('TC-FR5-50: `_onCwd` 는 포커스 터미널이면 상태바와 git 신호�
 
 test('TC-FR5-50: 크기 통보는 인스턴스의 `_applyPtySize` 를 부른다', () => {
   const { ctx, p } = pane();
-  const seen = calls(p, '_applyPtySize');
+  const seen = calls(p.sizer, '_applyPtySize');
   const d = new Uint8Array(5);
   d[0] = ctx.OP.SIZE;
   new DataView(d.buffer).setUint16(1, 80, false);
@@ -127,13 +146,13 @@ test('TC-FR5-50: `doFit` 은 인스턴스의 `_followsPty` 답으로 가른다',
   let fits = 0;
   p.term = { cols: 100, rows: 30 };
   p.fit = { fit: () => { fits++ } };
-  const applied = calls(p, '_applyPtySize');
-  p._followsPty = () => true;
-  p.doFit();
+  const applied = calls(p.sizer, '_applyPtySize');
+  p.sizer._followsPty = () => true;
+  p.sizer.doFit();
   assert.equal(fits, 0);
   assert.equal(applied.length, 1);
-  p._followsPty = () => false;
-  p.doFit();
+  p.sizer._followsPty = () => false;
+  p.sizer.doFit();
   assert.equal(fits, 1);
   assert.equal(p._ownCols, 100);
 });
@@ -142,9 +161,9 @@ test('TC-FR5-50: `ptySize` 는 폭이 바뀌면 인스턴스의 `doFit`·`_refre
   const { p } = pane();
   p.term = { cols: 100, rows: 30 };
   p.el = { classList: { contains: (c) => c === 'vis' } };
-  p.doFit = () => { p.term.cols = 120; p._ownCols = 120; p._ownRows = 30 };
-  const seen = calls(p, '_refreshForWidth');
-  assert.deepEqual(JSON.parse(JSON.stringify(p.ptySize())), { cols: 120, rows: 30 });
+  p.sizer.doFit = () => { p.term.cols = 120; p._ownCols = 120; p._ownRows = 30 };
+  const seen = calls(p.sizer, '_refreshForWidth');
+  assert.deepEqual(JSON.parse(JSON.stringify(p.sizer.ptySize())), { cols: 120, rows: 30 });
   assert.equal(seen.length, 1);
 });
 
@@ -152,25 +171,25 @@ test('TC-FR5-50: 글꼴 크기는 인스턴스의 `doFit` 으로 다시 잰다',
   const { ctx, p } = pane();
   ctx.termFontSizeNow = () => 17;
   p.term = { options: { fontSize: 13 } };
-  const seen = calls(p, 'doFit');
-  p.applyFontSize();
+  const seen = calls(p.sizer, 'doFit');
+  p.sizer.applyFontSize();
   assert.equal(p.term.options.fontSize, 17);
   assert.equal(seen.length, 1);
 });
 
 test('TC-FR5-50: 보류분이 있으면 인스턴스의 `_heldBanner` 를, 보내기는 `_sendUserFrame`·`_heldHide`·`focus` 를 부른다', () => {
   const { p } = pane();
-  const banner = calls(p, '_heldBanner');
-  p._heldMaybeShow();
+  const banner = calls(p.heldBar, '_heldBanner');
+  p.heldBar._heldMaybeShow();
   assert.equal(banner.length, 0);
   p._sock.held.push(new Uint8Array([0, 97]));
   p._sock.heldBytes = 1;
-  p._heldMaybeShow();
+  p.heldBar._heldMaybeShow();
   assert.equal(banner.length, 1);
   const sent = calls(p, '_sendUserFrame');
-  const hide = calls(p, '_heldHide');
+  const hide = calls(p.heldBar, '_heldHide');
   const focus = calls(p, 'focus');
-  p._heldSend();
+  p.heldBar._heldSend();
   assert.equal(sent.length, 1);
   assert.equal(hide.length, 1);
   assert.equal(focus.length, 1);
@@ -178,7 +197,7 @@ test('TC-FR5-50: 보류분이 있으면 인스턴스의 `_heldBanner` 를, 보�
 
 test('TC-FR5-50: 종료 통보는 인스턴스의 `_heldHide`·`_showOverlay` 를 부른다', () => {
   const { ctx, p } = pane();
-  const hide = calls(p, '_heldHide');
+  const hide = calls(p.heldBar, '_heldHide');
   const ov = calls(p, '_showOverlay');
   p._onOp(new Uint8Array([ctx.OP.EXIT]));
   assert.equal(p._exited, true);
@@ -189,8 +208,8 @@ test('TC-FR5-50: 종료 통보는 인스턴스의 `_heldHide`·`_showOverlay` �
 test('TC-FR5-50: 올리기는 cwd 가 없다는 답에 인스턴스의 `_toast` 로 알린다', async () => {
   const { p } = pane({ apiGet: () => Promise.resolve({ ok: false }) });
   const seen = calls(p, '_toast');
-  p._uploadFiles([]);
-  p._uploadFiles([{ name: 'a' }]);
+  p.xfer._uploadFiles([]);
+  p.xfer._uploadFiles([{ name: 'a' }]);
   await new Promise((r) => setImmediate(r));
   assert.equal(seen.length, 1);
   assert.equal(seen[0][1], 'err');
@@ -207,8 +226,8 @@ test('TC-FR5-50: 올리기는 파일마다 인스턴스의 `_toast` 와 `_fmtSiz
   const updates = [];
   p._toast = () => ({ update: (_text, kind) => { updates.push(kind) } });
   const sizes = [];
-  p._fmtSize = (b) => { sizes.push(b); return b + 'B' };
-  p._uploadFiles([{ file: { name: 'b.txt' }, relPath: 'd/b.txt' }, { name: 'c.txt' }]);
+  p.xfer._fmtSize = (b) => { sizes.push(b); return b + 'B' };
+  p.xfer._uploadFiles([{ file: { name: 'b.txt' }, relPath: 'd/b.txt' }, { name: 'c.txt' }]);
   for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));
   assert.equal(posted.length, 2);
   assert.deepEqual(posted[0].map((x) => x[0]), ['relPath', 'file'], 'relPath 를 file 보다 먼저 싣는다');

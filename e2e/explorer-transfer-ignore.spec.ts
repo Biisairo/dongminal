@@ -416,7 +416,7 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
       const a = (window as any).app;
       const pane = a.testing.focusedTerminal();
       if (!pane || !pane.term) throw new Error('터미널이 없다');
-      pane._handleOutput(new TextEncoder().encode('\x1b]52;c;' + p + '\x07'));
+      pane.output._handleOutput(new TextEncoder().encode('\x1b]52;c;' + p + '\x07'));
     }, payload);
   }
 
@@ -552,8 +552,8 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
     await B.page.evaluate(() => {
       const t = (window as any).app.testing.focusedTerminal();
       (window as any).__osc52 = 0;
-      const orig = t._handleOutput.bind(t);
-      t._handleOutput = (d: Uint8Array) => {
+      const orig = t.output._handleOutput.bind(t.output);
+      t.output._handleOutput = (d: Uint8Array) => {
         if (new TextDecoder().decode(d).includes('\x1b]52;')) (window as any).__osc52++;
         orig(d);
       };
@@ -568,13 +568,13 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
 
     // 사용자가 B 로 온다 — 포커스를 받고 되찾는다. 그리고 전량 재생을 받는다.
     await B.page.evaluate(() => { (document as any).hasFocus = () => true; window.dispatchEvent(new Event('focus')) });
-    await B.page.evaluate(() => (window as any).app.testing.focusedTerminal()._refreshForWidth());
+    await B.page.evaluate(() => (window as any).app.testing.focusedTerminal().sizer._refreshForWidth());
     await expect.poll(() => B.page.evaluate(() => (window as any).app.testing.focusedTerminal()._seqLive),
       { timeout: 15000 }).toBe(true);
 
     // 표지 — 이 브라우저에서 라이브로 도착한, 지금 쓰는 화면의 복사. 이것은 선다.
     await B.page.evaluate((m) => {
-      (window as any).app.testing.focusedTerminal()._handleOutput(new TextEncoder().encode('\x1b]52;c;' + m + '\x07'));
+      (window as any).app.testing.focusedTerminal().output._handleOutput(new TextEncoder().encode('\x1b]52;c;' + m + '\x07'));
     }, b64('marker'));
     await expect.poll(() => B.page.evaluate(() => (window as any).__prompts.length), { timeout: 10000 }).toBeGreaterThan(0);
     expect(await B.page.evaluate(() => (window as any).__prompts), 'A 의 복사가 재생으로 B 에서 다시 실행됐다')

@@ -22,7 +22,7 @@ class ActivityPanel extends Panel {
     const a=this.app, h=document.getElementById('agents-handle');
     if(h) h.classList.toggle('open',open);
     if(a.mobileChromeSync) a.mobileChromeSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-13
-    for(const p of a.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
+    for(const p of a.tools.values()) if(p.el.classList.contains('vis')) p.sizer.doFit();
     // ACTIVITY_RUNS_REFRESH_SRS FR-ARR-4: 핸들로 열어도 단축키로 열 때처럼 구역 목록을 다시 받는다.
     if(open) a._actRefresh();
     a.agentsRender();

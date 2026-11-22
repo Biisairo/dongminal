@@ -20,7 +20,7 @@ class TermOutput {
     this.pane._flushScheduled=true;
     // 프레임이 아니라 매크로태스크다 — 숨은 탭에서도 출력이 흘러야 한다.
     // `frame` 은 탭이 백그라운드면 멎는다.
-    TIMERS.defer(()=>this.pane._doFlush(),{owner:this.pane,label:'term-flush'});
+    TIMERS.defer(()=>this._doFlush(),{owner:this.pane,label:'term-flush'});
   }
 
   /**
@@ -49,21 +49,21 @@ class TermOutput {
     this.pane._flushScheduled=false;
     if(this.pane._carryTimer){TIMERS.cancel(this.pane._carryTimer);this.pane._carryTimer=null}
     let text=this.pane._outputBuf; this.pane._outputBuf='';
-    const cut=this.pane._oscCarryAt(text);
+    const cut=this._oscCarryAt(text);
     if(cut>=0){
       this.pane._outputBuf=text.slice(cut); text=text.slice(0,cut);
       // 다음 청크가 언제 올지는 모른다 — 사용자가 키를 누를 때까지 안 올 수도
       // 있다. 보류한 것이 프롬프트의 일부이면 화면이 멈춘 것으로 보이므로,
       // 짧은 시간 뒤에는 그냥 내보낸다.
-      this.pane._carryTimer=TIMERS.after(OSC_CARRY_MS,()=>{this.pane._carryTimer=null;this.pane._doFlush()},{owner:this.pane,label:'osc-carry'});
+      this.pane._carryTimer=TIMERS.after(OSC_CARRY_MS,()=>{this.pane._carryTimer=null;this._doFlush()},{owner:this.pane,label:'osc-carry'});
     }
     if(!text) return;
     const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
     let m;
     while((m=re.exec(text))!==null){
       const cmd=m[1],val=m[2];
-      if(cmd==='Download') this.pane._downloadFile(val);
-      else if(cmd==='Cwd') this.pane._onCwd(val);
+      if(cmd==='Download') this.pane.xfer._downloadFile(val);
+      else if(cmd==='Cwd') this._onCwd(val);
     }
     const clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
     if(this.pane.term) try{TermClipboard.feed(this.pane,clean)}catch{}   // FR-CPO-5: 쓰기마다 도착 판정을 싣는다
@@ -79,6 +79,3 @@ class TermOutput {
     if(app&&app.claudeOnCwd)app.claudeOnCwd();
   }
 }
-
-// 터미널 원형의 이름 — 앱·e2e·시험과 다른 부품이 `TerminalTool` 에서 부른다 (REFACTOR3_FE_REST5_SRS D-FR5-9).
-Controller.delegate(TerminalTool,'output',['_handleOutput','_oscCarryAt','_doFlush','_onCwd']);

@@ -145,7 +145,7 @@ Object.assign(Renderer.prototype, {
         if(p.el.classList.contains('vis')){
           if(!p._opened)p.open();
           p.syncGpu(true);
-          p.doFit();
+          p.sizer.doFit();
         }else p.syncGpu(false);
       }
       // FR-PDR-10: **옮겨진 것만** 되돌린다. 재사용된 pane 은 이 목록에 없고,

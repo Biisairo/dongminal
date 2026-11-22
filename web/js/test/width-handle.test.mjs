@@ -39,7 +39,7 @@ function world({ local = {}, session = {}, collapsed = false, agOpen = true, doc
   });
   const state = { collapsed, agOpen, fits: 0 };
   const app = {
-    actPanelOpen() {}, tools: new Map([['p', { el: { classList: { contains: () => true } }, doFit: () => { state.fits++ } }]]),
+    actPanelOpen() {}, tools: new Map([['p', { el: { classList: { contains: () => true } }, sizer: { doFit: () => { state.fits++ } } }]]),
     focusedTerminal: () => null,
     sidebarCollapsed: () => state.collapsed,
     setSidebarCollapsed: (v) => { state.collapsed = v },

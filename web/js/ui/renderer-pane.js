@@ -443,7 +443,7 @@ Object.assign(Renderer.prototype, {
       end:()=>{
         const nd=sp._node;
         if(nd){nd.sizes=[];for(const c of sp.children){if(c.classList.contains('sc'))nd.sizes.push(parseFloat(c.style.flex)||1)}this.app.save()}
-        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
+        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.sizer.doFit();
       },
     });
   },

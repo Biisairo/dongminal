@@ -29,7 +29,7 @@ class LayoutDock extends Controller {
 
   // FR-PDK-14: 자리가 바뀌면 보이는 터미널의 폭이 바뀐다.
   _dockRefit(){
-    for(const p of this.app.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
+    for(const p of this.app.tools.values()) if(p.el.classList.contains('vis')) p.sizer.doFit();
   }
 
   applyPanelDock(){

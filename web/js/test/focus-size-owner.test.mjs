@@ -32,7 +32,7 @@ function app(opts = {}) {
   const sent = [];
   a.tools = new Map([['t1@0', {
     term: {},
-    ptySize: () => ({ cols: 108, rows: 40 }),
+    sizer: { ptySize: () => ({ cols: 108, rows: 40 }) },
     _send: (m) => { sent.push(m) },
   }]]);
   return { a, sent };

@@ -381,7 +381,7 @@ class MobileController extends Controller {
   // 수렴해 vv 경로가 스스로 비활성되므로, window resize 쪽도 반드시 묶여야 한다.
   _scheduleFit(){
     TIMERS.frame(()=>{
-      for(const p of this.app.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
+      for(const p of this.app.tools.values()){if(p.el.classList.contains('vis'))p.sizer.doFit()}
     },{owner:'app', coalesce:'fit'});
   }
 

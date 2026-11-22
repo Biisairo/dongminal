@@ -31,7 +31,7 @@ test('SMT2 (FEC-3): OSC 로 받은 위치가 있으면 포커스가 바뀌어도
   const ids = await page.evaluate(() => {
     const app = (window as any).app;
     const a = app.testing.focusedTerminal();
-    a._onCwd('/tmp/dm-smt-a');
+    a.output._onCwd('/tmp/dm-smt-a');
     app.split('horizontal');
     return { a: a.id };
   });
@@ -55,7 +55,7 @@ test('SMT3 (FEC-M1): 포커스 아닌 터미널의 OSC 는 상태바의 위치�
   const other = await page.evaluate(() => {
     const app = (window as any).app;
     const a = app.testing.focusedTerminal();
-    a._onCwd('/tmp/dm-smt-focus');
+    a.output._onCwd('/tmp/dm-smt-focus');
     app.split('horizontal');
     return a.id;
   });
@@ -66,8 +66,8 @@ test('SMT3 (FEC-M1): 포커스 아닌 터미널의 OSC 는 상태바의 위치�
   const got = await page.evaluate((a) => {
     const app = (window as any).app;
     const f = app.testing.focusedTerminal();
-    f._onCwd('/tmp/dm-smt-mine');
-    app.tools.get(a)._onCwd('/tmp/dm-smt-bg');
+    f.output._onCwd('/tmp/dm-smt-mine');
+    app.tools.get(a).output._onCwd('/tmp/dm-smt-bg');
     return app.cwd;
   }, other);
   expect(got, '옆 칸 셸의 cd 가 상태바를 덮었다').toBe('/tmp/dm-smt-mine');

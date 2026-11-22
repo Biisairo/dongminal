@@ -228,7 +228,7 @@ class SettingsApply extends Controller {
    */
   _termApplyFontSize(){
     if(!this.app.tools) return;
-    for(const p of this.app.tools.values()) if(p&&p.applyFontSize) p.applyFontSize();
+    for(const p of this.app.tools.values()) if(p&&p.sizer.applyFontSize) p.sizer.applyFontSize();
   }
 
   /**

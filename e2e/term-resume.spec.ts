@@ -68,8 +68,8 @@ const countRx = (page: any) =>
     (window as any).__rx = 0;
     // 받은 조각의 앞부분 — 선을 넘었을 때 그것이 재생인지 새 출력인지 가르는 증거다.
     (window as any).__rxChunks = [];
-    const orig = pane._handleOutput.bind(pane);
-    pane._handleOutput = (d: any) => {
+    const orig = pane.output._handleOutput.bind(pane.output);
+    pane.output._handleOutput = (d: any) => {
       (window as any).__rx += d.length;
       (window as any).__rxChunks.push({ n: d.length, seq: pane._seq, head: new TextDecoder().decode(d.subarray(0, 120)) });
       orig(d);

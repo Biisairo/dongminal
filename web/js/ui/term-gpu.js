@@ -31,7 +31,7 @@ const TermGpu={
     for(const p of app.tools.values()){
       const vis=p.el.classList.contains('vis'), was=!!p._gpu;
       p.syncGpu(vis);
-      if(vis&&was!==!!p._gpu) p.doFit();
+      if(vis&&was!==!!p._gpu) p.sizer.doFit();
     }
   },
 
@@ -88,7 +88,7 @@ Object.assign(TerminalTool.prototype,{
   _gpuOnLoss(){
     this._gpuDetach();
     this._gpuLost=true;
-    this.doFit();
+    this.sizer.doFit();
     if(++TermGpu.losses>=TERM_GPU_LOSS_LIMIT) TermGpu._giveUp('webgl: context lost '+TermGpu.losses+' times');
   },
 

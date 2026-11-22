@@ -12,7 +12,7 @@ class ToolSearch extends Controller {
     if(!bar.hidden){this.closeSearch();return}
     bar.hidden=false;
     document.getElementById('search-input').focus();
-    for(const pane of this.app.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
+    for(const pane of this.app.tools.values())if(pane.el.classList.contains('vis'))pane.sizer.doFit();
   }
   closeSearch(){
     const bar=document.getElementById('search-bar');
@@ -21,7 +21,7 @@ class ToolSearch extends Controller {
     document.getElementById('search-count').textContent='';
     this.clearAllSearchDecorations();
     this.app.focusedTerminal()?.focus();
-    for(const pane of this.app.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
+    for(const pane of this.app.tools.values())if(pane.el.classList.contains('vis'))pane.sizer.doFit();
   }
   clearAllSearchDecorations(){
     for(const p of this.app.tools.values())if(p.search)p.search.clearDecorations();

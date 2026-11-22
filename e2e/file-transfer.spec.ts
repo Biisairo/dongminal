@@ -310,7 +310,7 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
       await new Promise<void>((res) => {
         const dt = new DataTransfer();
         dt.items.add(new File(['UP'], 'from-term.txt', { type: 'text/plain' }));
-        tool._uploadFiles(dt.files);
+        tool.xfer._uploadFiles(dt.files);
         setTimeout(res, 1500);
       });
       tool._send = orig;
@@ -339,7 +339,7 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
       await new Promise<void>((res) => {
         const dt = new DataTransfer();
         dt.items.add(new File(['UP'], 'nope.txt', { type: 'text/plain' }));
-        tool._uploadFiles(dt.files);
+        tool.xfer._uploadFiles(dt.files);
         setTimeout(res, 1500);
       });
     });
@@ -372,7 +372,7 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
       const tool = [...app.tools.values()][0];
       const dt = new DataTransfer();
       dt.items.add(new File(['UP'], 'toast.txt', { type: 'text/plain' }));
-      tool._uploadFiles(dt.files);
+      tool.xfer._uploadFiles(dt.files);
     });
 
     // FR-TXN-3: 진행 팝업이 같은 자리에서 성공 문구로 바뀐다.
@@ -394,7 +394,7 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
     await page.evaluate(async () => {
       const app = (window as any).app;
       const tool = [...app.tools.values()][0];
-      tool._uploadFiles([
+      tool.xfer._uploadFiles([
         { file: new File(['A\n'], 'a.txt', { type: 'text/plain' }), relPath: 'top/a.txt' },
         { file: new File(['B\n'], 'b.txt', { type: 'text/plain' }), relPath: 'top/sub/b.txt' },
       ]);
@@ -414,7 +414,7 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
     await page.evaluate(async () => {
       const app = (window as any).app;
       const tool = [...app.tools.values()][0];
-      tool._uploadFiles([
+      tool.xfer._uploadFiles([
         { file: new File(['D\n'], 'deep.txt', { type: 'text/plain' }), relPath: 'x/y/deep.txt' },
       ]);
     });
@@ -441,11 +441,11 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
       // 경로의 마지막 글자를 다음 청크로 넘긴다 — BEL 이 뒤 청크에 있다.
       const head = '\x1b]777;Download;' + t.slice(0, -1);
       const tail = t.slice(-1) + '\x07';
-      tool._handleOutput(enc.encode(head));
-      tool._doFlush();
+      tool.output._handleOutput(enc.encode(head));
+      tool.output._doFlush();
       const mid = tool._outputBuf;
-      tool._handleOutput(enc.encode(tail));
-      tool._doFlush();
+      tool.output._handleOutput(enc.encode(tail));
+      tool.output._doFlush();
       // 앞 조각을 보류했는가, 그리고 화면에 잔재가 남지 않았는가.
       return { mid, after: tool._outputBuf };
     }, target);

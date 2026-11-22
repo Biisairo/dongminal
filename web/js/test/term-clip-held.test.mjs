@@ -36,7 +36,7 @@ function pane() {
   p._showOverlay = (title) => { p.overlays.push(title) };
   p._hideOverlay = () => { p.overlays.push('-') };
   p.banners = 0;
-  p._heldBanner = () => { p.banners++ };
+  p.heldBar._heldBanner = () => { p.banners++ };
   let sel = '';
   p.term = {
     hasSelection: () => sel !== '',
@@ -164,7 +164,7 @@ test('FR-HIN-5 [보내기]는 담긴 순서대로 보내고 비운다 · [버리
   // FR-HIN-6: 배너가 떠 있는 동안 친 것은 곧바로 간다.
   p._userInput('x');
   assert.deepEqual(texts(opened[1]), ['x']);
-  p._heldSend();
+  p.heldBar._heldSend();
   assert.deepEqual(texts(opened[1]), ['x', 'echo ', 'hi\r']);
   assert.equal(p._sock.heldBytes, 0);
 
@@ -173,7 +173,7 @@ test('FR-HIN-5 [보내기]는 담긴 순서대로 보내고 비운다 · [버리
   await clock.advance(1000);
   openSock(opened[2]);
   await clock.advance(ctx.TERM_OVERLAY_HIDE_MS);
-  p._heldDiscard();
+  p.heldBar._heldDiscard();
   assert.deepEqual(texts(opened[2]), []);
   assert.equal(p._sock.heldBytes, 0);
 });

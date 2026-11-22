@@ -12,7 +12,7 @@ class TermHeld {
 
   // ── 끊긴 동안의 입력 (UX_BATCH11_SRS FR-HIN-4~8) ──
   // FR-HIN-4: 다시 붙었고 보류분이 있으면 배너를 세운다. 저절로 보내지 않는다.
-  _heldMaybeShow(){ if(this.pane._sock.heldBytes>0) this.pane._heldBanner() }
+  _heldMaybeShow(){ if(this.pane._sock.heldBytes>0) this._heldBanner() }
   _heldBanner(){
     let b=this.pane.el.querySelector('.tp-held');
     if(!b){
@@ -21,8 +21,8 @@ class TermHeld {
       const msg=document.createElement('div');msg.className='tp-held-msg';
       const pre=document.createElement('code');pre.className='tp-held-pre ui-scroll-sm';
       const acts=document.createElement('div');acts.className='tp-held-acts';
-      acts.appendChild(UIKit.button({label:t('term.held_send'),kind:'primary',size:'sm',onClick:()=>this.pane._heldSend()}));
-      acts.appendChild(UIKit.button({label:t('term.held_discard'),size:'sm',onClick:()=>this.pane._heldDiscard()}));
+      acts.appendChild(UIKit.button({label:t('term.held_send'),kind:'primary',size:'sm',onClick:()=>this._heldSend()}));
+      acts.appendChild(UIKit.button({label:t('term.held_discard'),size:'sm',onClick:()=>this._heldDiscard()}));
       b.append(msg,pre,acts);
       this.pane.el.appendChild(b);
     }
@@ -36,15 +36,12 @@ class TermHeld {
   // FR-HIN-5: 담긴 순서대로. 그 사이 다시 끊기면 다시 보류된다.
   _heldSend(){
     for(const m of this.pane._sock.takeHeld()) this.pane._sendUserFrame(m);
-    this.pane._heldHide();
+    this._heldHide();
     this.pane.focus();
   }
   _heldDiscard(){
     this.pane._sock.takeHeld();
-    this.pane._heldHide();
+    this._heldHide();
     this.pane.focus();
   }
 }
-
-// 터미널 원형의 이름 — 앱·e2e·시험과 다른 부품이 `TerminalTool` 에서 부른다 (REFACTOR3_FE_REST5_SRS D-FR5-9).
-Controller.delegate(TerminalTool,'heldBar',['_heldMaybeShow','_heldBanner','_heldHide','_heldSend','_heldDiscard']);

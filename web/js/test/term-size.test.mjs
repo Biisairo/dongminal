@@ -72,7 +72,7 @@ test('소유자는 통보를 따르지 않는다 — 그쪽의 진실은 자기 
 test('비소유자의 doFit 은 fit 하지 않고 PTY 크기를 지킨다', () => {
   const { p, OP } = pane({ owner: false });
   p._onOp(sizeFrame(OP, 44, 20));
-  p.doFit();
+  p.sizer.doFit();
   assert.equal(p.fitCalls, 0, 'fit 이 돌아 자기 폭으로 되돌렸다');
   assert.equal(p.term.cols, 44);
   assert.equal(p.term.rows, 20);
@@ -80,7 +80,7 @@ test('비소유자의 doFit 은 fit 하지 않고 PTY 크기를 지킨다', () =
 
 test('소유자의 doFit 은 종전과 같다', () => {
   const { p } = pane({ owner: true });
-  p.doFit();
+  p.sizer.doFit();
   assert.equal(p.fitCalls, 1);
 });
 
@@ -88,7 +88,7 @@ test('소유자의 doFit 은 종전과 같다', () => {
 
 test('크기를 받지 못한 비소유자는 종전대로 자기 fit 을 쓴다', () => {
   const { p } = pane({ owner: false });
-  p.doFit();
+  p.sizer.doFit();
   assert.equal(p.fitCalls, 1, '통보가 없었는데 fit 이 막혔다');
 });
 
@@ -96,7 +96,7 @@ test('0 은 쓰지 않는다 — term.resize(0,0) 은 화면을 잃는 일이다
   const { p, OP } = pane({ owner: false });
   p._onOp(sizeFrame(OP, 0, 0));
   assert.equal(p.term.cols, 151);
-  p.doFit();
+  p.sizer.doFit();
   assert.equal(p.fitCalls, 1, '모르는 값에 끌려 fit 이 막혔다');
 });
 

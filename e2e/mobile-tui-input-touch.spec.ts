@@ -235,8 +235,8 @@ test.describe('FR-MTI-12: 리사이즈 병합', () => {
       let fits = 0;
       for (const p of app.tools.values()) {
         if (!p.el.classList.contains('vis')) continue;
-        const orig = p.doFit.bind(p);
-        p.doFit = () => { fits++; return orig(); };
+        const orig = p.sizer.doFit.bind(p.sizer);
+        p.sizer.doFit = () => { fits++; return orig(); };
       }
       for (let i = 0; i < 20; i++) app.testing.scheduleMobileFit();
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

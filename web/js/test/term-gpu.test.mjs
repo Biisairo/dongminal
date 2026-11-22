@@ -60,7 +60,7 @@ function pane(ctx, id = 't1', vis = true) {
   p.term = { loadAddon(a) { p.loaded.push(a) } };
   p.el = { classList: { contains: (c) => c === 'vis' && p.vis } };
   p.fits = 0;
-  p.doFit = () => { p.fits++ };
+  p.sizer.doFit = () => { p.fits++ };
   p.vis = vis;
   ctx.app.tools.set(id, p);
   return p;
@@ -251,7 +251,7 @@ test('TC-TGR-12:_afterLayout 은 칸마다 syncGpu 를 doFit 보다 먼저 부�
     el: { classList: { contains: (c) => c === 'vis' && vis } },
     open() { this._opened = true; log.push(id + ':open') },
     syncGpu(v) { log.push(id + ':gpu:' + v) },
-    doFit() { log.push(id + ':fit') },
+    sizer: { doFit() { log.push(id + ':fit') } },
   });
   r.app = { tools: new Map([['a', mk('a', true)], ['h', mk('h', false)]]), windowFocused: false };
   r._moved = [];

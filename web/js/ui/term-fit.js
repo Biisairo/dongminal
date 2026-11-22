@@ -32,7 +32,7 @@ class TermFit {
    * 먹는다.
    */
   _applyPtySize(){
-    if(!this.pane.term||!this.pane._followsPty()) return;
+    if(!this.pane.term||!this._followsPty()) return;
     if(this.pane.term.cols===this.pane._ptyCols&&this.pane.term.rows===this.pane._ptyRows) return;
     const had=this.pane.term.cols;
     try{this.pane.term.resize(this.pane._ptyCols,this.pane._ptyRows)}catch{}
@@ -52,7 +52,7 @@ class TermFit {
     const cols=dv.getUint16(0,false), rows=dv.getUint16(2,false);
     if(!(cols>0&&rows>0)) return;
     this.pane._ptyCols=cols; this.pane._ptyRows=rows;
-    this.pane._applyPtySize();
+    this._applyPtySize();
   }
 
   /**
@@ -63,7 +63,7 @@ class TermFit {
    * 소유자의 동작은 종전과 완전히 같다.
    */
   doFit(){
-    if(this.pane._followsPty()){ this.pane._applyPtySize(); return }
+    if(this._followsPty()){ this._applyPtySize(); return }
     if(this.pane.fit)try{this.pane.fit.fit()}catch{}
     // FR-M10-1: 여기가 **자기 폭이 정해지는 유일한 자리**다. 소유자로서 잰 값만
     // 기록한다 — 비소유자의 경로는 위에서 이미 돌아갔다.
@@ -83,7 +83,7 @@ class TermFit {
     const px=termFontSizeNow();
     if(this.pane.term.options.fontSize===px) return;
     this.pane.term.options.fontSize=px;
-    this.pane.doFit();
+    this.doFit();
   }
 
   /**
@@ -102,13 +102,13 @@ class TermFit {
     if(!this.pane.term) return null;
     const had=this.pane.term.cols;
     const vis=!!(this.pane.el&&this.pane.el.classList.contains('vis'));
-    if(vis) this.pane.doFit();
+    if(vis) this.doFit();
     const cols=this.pane._ownCols>0?this.pane._ownCols:this.pane.term.cols;
     const rows=this.pane._ownRows>0?this.pane._ownRows:this.pane.term.rows;
     if(!(cols>0&&rows>0)) return null;
     // FR-OTR-2·8: 빚은 라이브일 때만 근거다. FR-OTR-6·9: 서버가 대체 화면이라 하면 앱의 재그리기에 맡긴다.
     // FR-OTR-10: 숨은 칸은 fit 하지 않아 `cols!==had` 가 풀리지 않는다 — 보일 때 갚는다.
-    if(cols!==had||(this.pane._widthDebt&&this.pane._seqLive)){ if(this.pane._srvAlt||!vis) this.pane._widthDebt=true; else this.pane._refreshForWidth() }
+    if(cols!==had||(this.pane._widthDebt&&this.pane._seqLive)){ if(this.pane._srvAlt||!vis) this.pane._widthDebt=true; else this._refreshForWidth() }
     return {cols,rows};
   }
 
@@ -142,6 +142,3 @@ class TermFit {
     return this.pane.reconnectNow({quiet:true});
   }
 }
-
-// 터미널 원형의 이름 — 앱·e2e·시험과 다른 부품이 `TerminalTool` 에서 부른다 (REFACTOR3_FE_REST5_SRS D-FR5-9).
-Controller.delegate(TerminalTool,'sizer',['_followsPty','_applyPtySize','_onSize','doFit','applyFontSize','ptySize','_refreshForWidth']);

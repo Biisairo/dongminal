@@ -32,6 +32,6 @@ class SidebarPanel extends Panel {
   refit(){
     const a=this.app;
     if(a.sbCollapsePaint) a.sbCollapsePaint();
-    for(const p of a.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
+    for(const p of a.tools.values()) if(p.el.classList.contains('vis')) p.sizer.doFit();
   }
 }

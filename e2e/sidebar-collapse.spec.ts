@@ -208,8 +208,8 @@ test.describe('묶음 SBC — 부수 효과 (FR-SBC-19·20)', () => {
       const app = (window as any).app;
       (window as any).__fits = 0;
       for (const p of app.tools.values()) {
-        const orig = p.doFit.bind(p);
-        p.doFit = () => { (window as any).__fits++; return orig() };
+        const orig = p.sizer.doFit.bind(p.sizer);
+        p.sizer.doFit = () => { (window as any).__fits++; return orig() };
       }
     });
 
@@ -229,8 +229,8 @@ test.describe('묶음 SBC — 부수 효과 (FR-SBC-19·20)', () => {
       const app = (window as any).app;
       (window as any).__fits = 0;
       for (const p of app.tools.values()) {
-        const orig = p.doFit.bind(p);
-        p.doFit = () => { (window as any).__fits++; return orig() };
+        const orig = p.sizer.doFit.bind(p.sizer);
+        p.sizer.doFit = () => { (window as any).__fits++; return orig() };
       }
       app.testing.setSidebarCollapsed(false);
     });

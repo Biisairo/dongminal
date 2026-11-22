@@ -424,7 +424,7 @@ Object.assign(Renderer.prototype, {
       },
       end:(ctx,ev)=>{
         this.app.edSetSideWidth(width(ctx,ev));
-        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
+        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.sizer.doFit();
       },
     });
   },

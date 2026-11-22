@@ -52,14 +52,14 @@ class TermTransfer {
       e.preventDefault();e.stopPropagation();
       this.pane.el.classList.remove('dragover');
       walkDrop(e,EDITOR_UPLOAD_MAX_ENTRIES).then(r=>{
-        if(!r){ if(hasFiles) this.pane._uploadFiles(e.dataTransfer.files); return }
+        if(!r){ if(hasFiles) this._uploadFiles(e.dataTransfer.files); return }
         // FR-TFD-14: 상한을 넘으면 **하나도** 올리지 않는다. 절반만 올라간
         // 폴더는 되돌릴 길이 없다.
         if(r.over){
           this.pane._toast(EDITOR_UPLOAD_TOO_MANY.replace('%n',EDITOR_UPLOAD_MAX_ENTRIES),'err',TOAST_ERR_MS);
           return;
         }
-        if(r.items.length) this.pane._uploadFiles(r.items);
+        if(r.items.length) this._uploadFiles(r.items);
       });
     });
   }
@@ -106,7 +106,7 @@ class TermTransfer {
             // 충돌 시 개명하므로(`c (1).txt`) 그 사실이 보여야 하고, 그렇다고
             // 마지막 조각만 보이면 어느 폴더의 것인지 알 수 없다.
             const at=rel?rel.replace(/[^/]*$/,'')+d.name:d.name;
-            if(toast)toast.update(TERM_UPLOAD_OK.replace('%s',at).replace('%z',this.pane._fmtSize(d.size)),'ok');
+            if(toast)toast.update(TERM_UPLOAD_OK.replace('%s',at).replace('%z',this._fmtSize(d.size)),'ok');
             uploadNext();
           }).catch(()=>{
             if(toast)toast.update(TERM_UPLOAD_FAIL.replace('%s',label),'err',TOAST_ERR_MS);
@@ -122,6 +122,3 @@ class TermTransfer {
     return(b/1048576).toFixed(1)+'MB';
   }
 }
-
-// 터미널 원형의 이름 — 앱·e2e·시험과 다른 부품이 `TerminalTool` 에서 부른다 (REFACTOR3_FE_REST5_SRS D-FR5-9).
-Controller.delegate(TerminalTool,'xfer',['_wireDnd','_downloadFile','_uploadFiles','_fmtSize']);

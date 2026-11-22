@@ -413,7 +413,7 @@ class SlotOps extends Controller {
       end:()=>{
         this.app.slot._slotsPersist();
         // 배분이 바뀌면 PTY 크기도 바뀐다 — 놓는 순간 한 번만 맞춘다.
-        for(const p of this.app.tools.values()){ if(p.el.classList.contains('vis')) p.doFit() }
+        for(const p of this.app.tools.values()){ if(p.el.classList.contains('vis')) p.sizer.doFit() }
       },
     });
   }
