@@ -480,7 +480,7 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
       const poll = await page.evaluate(() => {
         (window as any).gitStatusInterval = 600;
         const app = (window as any).app;
-        if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p._reschedule();
+        if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
         return 600;
       });
       // **예외 (`TEST-16`)**: 폴링 회차를 **여러 번 넘기는** 창이다 — 그동안

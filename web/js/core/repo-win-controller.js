@@ -73,7 +73,7 @@ class RepoWinController extends Controller {
     this.app.render();
     // FR-GIT-276: Blame 진입점은 그 탭의 패널을 blame 모드로 연다 — 모드는 패널의 상태다.
     const bp = opts.blame && this._gitDiffPanelOf(tab.id, this.app.slotFocused());
-    if (bp) { bp._blameOn = true; bp._paint() }
+    if (bp) { bp._blameOn = true; bp.changes._paint() }
     // FR-RTU-62: git 뷰 탭이 서는 것은 그 창에 git 표면이 서는 일이다.
     this.app._gitRescheduleAll();
     this.app.save();
@@ -139,7 +139,7 @@ class RepoWinController extends Controller {
       p = new GitPanel(this.app, root || '');
       p.diffTabId = tab.id;
       this.app.gitPanels.set(key, p);
-      p._reschedule();
+      p.poll._reschedule();
     }
     p.diffPane.diffTabApply(tab.diffTarget || null);
     return p;

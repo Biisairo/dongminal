@@ -43,8 +43,8 @@ const GIT_MENUS={
     // — 이름 검증도 종류 선택도 그것이 이미 안다.
     {id:'tag-from',busy:GIT_ACTION.write,label:GIT_TAG_CREATE_AT,
      run:target=>gitMenuPanel().createTag(target.oid)},
-    {id:'copy-hash',   label:t('git.menu.copy_hash'),run:target=>gitMenuPanel().copyText(target.oid)},
-    {id:'copy-subject',label:t('git.menu.copy_subject'),run:target=>gitMenuPanel().copyText(target.subject)},
+    {id:'copy-hash',   label:t('git.menu.copy_hash'),run:target=>gitMenuPanel().poll.copyText(target.oid)},
+    {id:'copy-subject',label:t('git.menu.copy_subject'),run:target=>gitMenuPanel().poll.copyText(target.subject)},
     {sep:true},
     // FR-GIT-144: detached 가 됨을 사전 경고하고, dirty 면 묶음 N 의 3선택을
     // 거친다 — 태그 메뉴와 같은 경로다. 판정을 두 벌로 만들지 않는다.
@@ -85,13 +85,13 @@ const GIT_MENUS={
   // 파일 (S1 목록 / History 상세 목록). 저장소를 바꾸는 항목이 하나도 없다
   // (FR-GIT-41) — 5단계의 GIT_CTX_ITEMS 를 그대로 옮긴 것이다.
   file:[
-    {id:'openChanges',label:t('git.menu.file_open_changes'),run:target=>gitMenuPanel().openFileDiff(target)},
+    {id:'openChanges',label:t('git.menu.file_open_changes'),run:target=>gitMenuPanel().poll.openFileDiff(target)},
     // FR-GIT-236: 행 인라인 동작과 같은 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
     {id:'openFile',   label:t('git.menu.file_open_file'),run:target=>gitMenuPanel()._run('openFile',[target])},
     // FR-GIT-274: 워킹 트리가 아니라 `HEAD:<path>` 의 내용이다. 여는 자리는
     // Open File 과 같다 — Git 창이 아닌 창이다 (FR-GIT-179·185).
     {id:'openFileHead',label:GIT_FILE_OPEN_HEAD,run:target=>gitMenuPanel().openFileAtHead(target)},
-    {id:'copyPath',   label:t('git.menu.file_copy_path'),run:target=>gitMenuPanel().copyText(gitMenuPanel().absPath(target))},
+    {id:'copyPath',   label:t('git.menu.file_copy_path'),run:target=>gitMenuPanel().poll.copyText(gitMenuPanel().poll.absPath(target))},
     {sep:true},
     // FR-GIT-275: path 필터가 이미 있으므로(FR-GIT-129) 그것을 채워 탭을 여는 것이
     // 전부다 — 새 조회를 만들지 않는다.
@@ -106,7 +106,7 @@ const GIT_MENUS={
   // 원격 ref 로 그냥 옮겨 가면 detached 가 되므로 같은 이름의 로컬을 만들며 추적을
   // 설정한다 (FR-GIT-156). 어느 쪽이 왜 막혔는지는 사유로 알린다.
   branch:[
-    {id:'copy-name',label:t('git.menu.copy_branch_name'),run:target=>gitMenuPanel().copyText(target.short)},
+    {id:'copy-name',label:t('git.menu.copy_branch_name'),run:target=>gitMenuPanel().poll.copyText(target.short)},
     {id:'checkout',act:GIT_ACTION.branchCheckout, label:'Checkout',
      run:target=>gitMenuPanel().checkoutRef(target.short,{})},
     {id:'checkout-local',act:GIT_ACTION.branchCheckoutLocal,label:GIT_BR_CHECKOUT_LOCAL,
@@ -217,7 +217,7 @@ const GIT_MENUS={
   // — 그 명령은 지우기 전 oid 를 싣는다 (FR-GIT-92·250.2).
   tag:[
     {id:'create',busy:GIT_ACTION.write,label:GIT_TAG_NEW,run:()=>gitMenuPanel().createTag('')},
-    {id:'copy-name',label:t('git.menu.copy_tag_name'),run:target=>gitMenuPanel().copyText(target.short)},
+    {id:'copy-name',label:t('git.menu.copy_tag_name'),run:target=>gitMenuPanel().poll.copyText(target.short)},
     // 태그는 브랜치가 아니므로 옮겨 가면 detached 다 — 사전 경고를 1단계 거친다
     // (FR-GIT-144 와 같은 규약).
     {id:'checkout',busy:GIT_ACTION.write, label:'Checkout (detached)',warn:true,
@@ -248,9 +248,9 @@ const GIT_MENUS={
   // stash (FR-GIT-162~164·168). drop 만 파괴적이며 확인은 프레임워크가 거친다 —
   // 항목이 확인 코드를 따로 쓰지 않는다.
   stash:[
-    {id:'apply',busy:GIT_ACTION.write,      label:GIT_STASH_APPLY,      run:target=>gitMenuPanel().stashApply(target.oid,false)},
-    {id:'apply-index',busy:GIT_ACTION.write,label:GIT_STASH_APPLY_INDEX,run:target=>gitMenuPanel().stashApply(target.oid,true)},
-    {id:'pop',busy:GIT_ACTION.write,        label:GIT_STASH_POP,        run:target=>gitMenuPanel().stashPop(target.oid)},
+    {id:'apply',busy:GIT_ACTION.write,      label:GIT_STASH_APPLY,      run:target=>gitMenuPanel().write.stashApply(target.oid,false)},
+    {id:'apply-index',busy:GIT_ACTION.write,label:GIT_STASH_APPLY_INDEX,run:target=>gitMenuPanel().write.stashApply(target.oid,true)},
+    {id:'pop',busy:GIT_ACTION.write,        label:GIT_STASH_POP,        run:target=>gitMenuPanel().write.stashPop(target.oid)},
     {sep:true},
     {id:'drop',busy:GIT_ACTION.write,label:GIT_STASH_DROP,destructive:true,
      action:GIT_ACT_STASH_DROP,title:GIT_STASH_DROP_TITLE,
@@ -259,13 +259,13 @@ const GIT_MENUS={
      // (FR-GIT-92·168). 서버도 실행 전에 같은 것을 HintLog 에 남긴다.
      hint:target=>({note:GIT_STASH_DROP_NOTE,
        command:'git stash store -m '+gitShQuote(target.message||'')+' '+(target.oid||'')}),
-     run:target=>gitMenuPanel().stashDrop(target.oid)},
+     run:target=>gitMenuPanel().write.stashDrop(target.oid)},
     {sep:true},
     // FR-GIT-272: 그 stash 를 새 브랜치에 적용하며 옮겨 간다. **파괴적이 아니다**
     // — git 은 적용이 끝난 뒤에만 stash 를 지운다.
-    {id:'branch-from',busy:GIT_ACTION.write,label:GIT_STASH_BRANCH,run:target=>gitMenuPanel().stashBranch(target)},
-    {id:'copy-name',  label:GIT_STASH_COPY_NAME,run:target=>gitMenuPanel().copyText(GitStash.ref(target.index))},
-    {id:'copy-hash',  label:GIT_STASH_COPY_HASH,run:target=>gitMenuPanel().copyText(target.oid)},
+    {id:'branch-from',busy:GIT_ACTION.write,label:GIT_STASH_BRANCH,run:target=>gitMenuPanel().write.stashBranch(target)},
+    {id:'copy-name',  label:GIT_STASH_COPY_NAME,run:target=>gitMenuPanel().poll.copyText(GitStash.ref(target.index))},
+    {id:'copy-hash',  label:GIT_STASH_COPY_HASH,run:target=>gitMenuPanel().poll.copyText(target.oid)},
   ],
   // 미커밋 변경 행 (FR-GIT-127·277).
   uncommitted:[
@@ -274,7 +274,7 @@ const GIT_MENUS={
     // FR-GIT-277: 생성 다이얼로그를 그대로 다시 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
     // 열 수 있는가는 서버의 1층 답이다 (SERVER_DRIVEN_ACTIONS_SRS GR-2b·e).
     {id:'stash',busy:GIT_ACTION.stashNew,label:GIT_UNC_STASH,
-     run:()=>gitMenuPanel().stashCreate()},
+     run:()=>gitMenuPanel().write.stashCreate()},
     // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다. 파괴적이
     // 아니므로 확인을 붙이지 않는다 (FR-GIT-97).
     {id:'reset',busy:GIT_ACTION.uncommittedReset,label:GIT_UNC_RESET,run:()=>gitMenuPanel().uncommittedReset()},

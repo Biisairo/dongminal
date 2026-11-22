@@ -331,10 +331,10 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     // 다른 계기(탭 전환·신호)가 그 한 번을 소모해 결함이 있어도 통과한다.
     await page.evaluate((needle) => {
       const p = (window as any).app.gitPanel;
-      const orig = p._paint.bind(p);
+      const orig = p.changes._paint.bind(p.changes);
       let left = 1;
-      p._paint = function () {
-        const st = this._status && this._status.status;
+      p.changes._paint = function () {
+        const st = p._status && p._status.status;
         if (left > 0 && st && JSON.stringify(st).includes(needle)) {
           left--;
           throw new Error('paint boom');

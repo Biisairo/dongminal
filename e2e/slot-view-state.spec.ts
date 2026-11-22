@@ -967,7 +967,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
       const a = (window as any).app;
       const r = a.testing.gitRootOfActive();
       const ps = [0, 1, 2, 3].map((i) => a.testing.gitPanelAt(r, i));
-      await Promise.all(ps.map((p: any) => p.collect()));
+      await Promise.all(ps.map((p: any) => p.poll.collect()));
     });
     expect(reqs - before).toBeLessThanOrEqual(2);
   });

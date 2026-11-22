@@ -185,21 +185,21 @@ class GitSubmodules extends GitListTab {
   async _run(url,body,okMsg,failMsg){
     this._busy=true;
     if(this.el) this._paintList();
-    const res=await this.panel.post(url,body);
+    const res=await this.panel.write.post(url,body);
     this._busy=false;
     if(res.ok){
       this._note={kind:'done',msg:okMsg};
       // 상태가 바뀌었다 — 목록과 Changes 를 함께 새로 받는다. 서브모듈이 옮겨지면
       // 부모의 gitlink 도 달라지므로 둘이 같은 회차에 갱신돼야 한다.
       this._load();
-      this.panel.signal('submodule');
+      this.panel.poll.signal('submodule');
       return {ok:true};
     }
     const d=(res&&res.data)||{};
     this._note={kind:'fail',msg:failMsg};
     if(this.el){this._paintNote();this._paintList()}
     // 사유와 stderr tail 은 다이얼로그 안에서 보인다 (FR-GIT-96·175).
-    return {ok:false,reason:this.panel.writeReason(res),stderrTail:d.message||''};
+    return {ok:false,reason:this.panel.write.writeReason(res),stderrTail:d.message||''};
   }
 
   // ── 작업 (M8 D-A-27, FBE-08) ──
@@ -223,7 +223,7 @@ class GitSubmodules extends GitListTab {
       const d=(res&&res.data)||{};
       this._note={kind:'fail',msg:failMsg};
       if(this.el){this._paintNote();this._paintList()}
-      return {ok:false,reason:this.panel.writeReason({data:d}),stderrTail:d.message||''};
+      return {ok:false,reason:this.panel.write.writeReason({data:d}),stderrTail:d.message||''};
     }
     this._job=job; this._jobOk=okMsg; this._jobFail=failMsg;
     this._lines=0; this._after=0; this._retries=0; this._canceling=false;
@@ -289,8 +289,8 @@ class GitSubmodules extends GitListTab {
     // 상태가 바뀌었다 — 목록과 Changes 를 함께 새로 받는다 (서버의 완료 훅이 관측
     // 캐시를 이미 버렸다).
     this._load();
-    this.panel.signal('submodule');
-    this.panel.collect();
+    this.panel.poll.signal('submodule');
+    this.panel.poll.collect();
     if(this.el){this._paintNote();this._paintHead()}
   }
 

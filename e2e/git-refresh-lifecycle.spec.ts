@@ -111,7 +111,7 @@ test.describe('FR-GRF 묶음 B — git 이 돌아온다', () => {
       const locked = await page.evaluate(() => {
         const p = (window as any).app.gitPanel;
         p._gitMissing = true;
-        return { missing: p._gitMissing, pollOk: p._pollOk() };
+        return { missing: p._gitMissing, pollOk: p.poll._pollOk() };
       });
       expect(locked.missing).toBe(true);
       expect(locked.pollOk, '_gitMissing 인데 폴링 조건이 참이다').toBe(false);

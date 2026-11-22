@@ -347,7 +347,7 @@ class GitStash extends GitView {
       this._note={kind:'stash_kept',
         msg:GIT_STASH_KEPT+(d.stashKeptReason?' — '+d.stashKeptReason:'')};
     }else{
-      this._note={kind:(d.error||'fail'),msg:this.panel.writeError(res)};
+      this._note={kind:(d.error||'fail'),msg:this.panel.write.writeError(res)};
     }
     if(this.el) this.paint();
   }

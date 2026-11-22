@@ -50,7 +50,7 @@ class GitSurfaces extends Controller {
    * 표면이 실제로 화면에 설 때 시작된다 (FR-RTU-62).
    */
   _gitRescheduleAll(){
-    if(this.app.gitPanels) for(const p of this.app.gitPanels.values()) p._reschedule();
+    if(this.app.gitPanels) for(const p of this.app.gitPanels.values()) p.poll._reschedule();
   }
 
   /**
@@ -122,7 +122,7 @@ class GitSurfaces extends Controller {
       // 사이 어딘가에서 `_stop` 이 한 번 걸린 뒤의 첫 렌더가 즉시 수집을 한 번
       // 더 일으킨다 — 주기 0(폴링 끔)에서 그 한 건이 그대로 드러났다 (V18 실측).
       // 표면이 바뀌는 계기는 `_gitRescheduleAll` 을 부르는 자리들이 든다.
-      p._reschedule();
+      p.poll._reschedule();
     }
     return p;
   }

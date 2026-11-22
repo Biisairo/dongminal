@@ -96,7 +96,7 @@ class SettingsApply extends Controller {
     // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23). 이 계층만 따로인
     // 이유는 백오프·소실 판정·활성 저장소 판정을 함께 쥐고 있어 주기만 떼어 올
     // 수 없기 때문이다 (FR-PIS-15).
-    if(this.app.gitPanel&&this.app.gitPanel._reschedule) this.app.gitPanel._reschedule();
+    if(this.app.gitPanel&&this.app.gitPanel.poll._reschedule) this.app.gitPanel.poll._reschedule();
     /**
      * FR-PIS-14 / D-8a: 나머지 주기는 **도는 타이머에 닿아야** 한다.
      *

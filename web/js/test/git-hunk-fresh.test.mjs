@@ -28,7 +28,7 @@ function panel() {
     _hunkKey: ['/r', 'unstaged', 'a.txt'].join('\u0001'),
     _hunks: { diffId: 'old', list: [{ index: 0, header: '@@' }], note: '' },
     _diffTarget() { return this.commitFile || this.previewFile },
-    post: async (url, body) => { posts.push([url, body]); return { ok: true, data: {} } },
+    write: { post: async (url, body) => { posts.push([url, body]); return { ok: true, data: {} } } },
   };
   const h = new ctx.GitHunks(panel);
   Object.assign(h, {

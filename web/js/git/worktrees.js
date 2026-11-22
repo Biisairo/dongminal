@@ -195,7 +195,7 @@ class GitWorktrees extends GitListTab {
   }
 
   async _runRemove(e,force){
-    const res=await this.panel.post(GIT_API.worktreesRemove,{
+    const res=await this.panel.write.post(GIT_API.worktreesRemove,{
       repo:this.panel.repo,path:e.path,
       // 서버는 이 값을 받지만 UI 는 늘 false 다 (FR-GIT-243) — API 를 좁히지 않는다.
       deleteBranch:false,confirm:true,force,
@@ -225,7 +225,7 @@ class GitWorktrees extends GitListTab {
       this._load();
       return {ok:true};
     }
-    return {ok:false,reason:this.panel.writeReason(res),
+    return {ok:false,reason:this.panel.write.writeReason(res),
       stderrTail:(d&&d.message)||''};
   }
 }
@@ -246,7 +246,7 @@ class GitWorktreeCreate {
     // 이름·대상·새 브랜치·이미 있는 자리는 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS GV-c).
     this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.worktreeCreate,
       params:v=>({name:(v.name||'').trim(),ref:(v.ref||'').trim(),newBranch:v.newBranch?'1':'0'}),
-      fail:res=>this.panel.writeReason(res)});
+      fail:res=>this.panel.write.writeReason(res)});
   }
 
   _show(){
@@ -265,7 +265,7 @@ class GitWorktreeCreate {
   }
 
   async _run(v){
-    const res=await this.panel.post(GIT_API.worktreesCreate,{
+    const res=await this.panel.write.post(GIT_API.worktreesCreate,{
       repo:this.repo,name:(v.name||'').trim(),ref:(v.ref||'').trim(),
       newBranch:!!v.newBranch,
     });
@@ -277,7 +277,7 @@ class GitWorktreeCreate {
     }
     // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
     // (FR-GIT-175).
-    return {ok:false,reason:this.panel.writeReason(res),
+    return {ok:false,reason:this.panel.write.writeReason(res),
       stderrTail:(d&&d.message)||''};
   }
 }

@@ -2,8 +2,8 @@
  * GitPoll — Git 패널의 폴링 부품: 접기 설정과 폴링 (SPLIT_REFACTOR_SRS 묶음 B · REFACTOR3_FE_GITPANEL_SRS 7d).
  * 접기 취향(`_fold`)을 소유한다. 새로고침·뷰 다시 받기·refs 회차는 `GitViewReload`(`git-view-reload.js`), 멈춘 관측의
  * 되살리기는 `GitWatchdog`(`git-watchdog.js`)다 (REFACTOR3_FE_REST5_SRS FR-FR5-21). 관측 상태는 패널의 접근자(관측기)이고, 타이머의
- * 주인은 종전대로 패널이다(`owner:this.p`). `collect`·`_pollOk` 는 패널의 위임자를 지나 부른다 — 패널
- * 인스턴스에서 그 둘을 덮는 자리(e2e)가 종전대로 듣는다.
+ * 주인은 종전대로 패널이다(`owner:this.p`). `collect`·`_pollOk` 는 이 부품 안에서 `this.X` 로, 밖에서 `panel.poll.X` 로 부른다 — 이 부품
+ * 인스턴스에서 그 둘을 덮는 자리(e2e)가 듣는다 (REFACTOR3_FE_DELEG_SRS).
  *
  * 앞쪽은 **기기에 남는 취향**이다 — 변경 없는 구간 접기. side-by-side·공백 무시는
  * `git-diff-pane.js` 로 갔다 (REFACTOR3_FE_GITPANEL_SRS 7c). 뒤쪽은 **관측을 받아 오는 일**이다 — `collect` 가
@@ -62,7 +62,7 @@ class GitPoll extends GitPart {
     this._fold=!!on;
     PrefStore.local.setBool(GIT_DIFF_FOLD_KEY,this._fold);
     if(this.p._diffView) this.p._diffView.setHideUnchanged(this._fold);
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   // ── 우클릭 (FR-GIT-41·146) ──
@@ -132,7 +132,7 @@ class GitPoll extends GitPart {
     if(kind==='write') for(const p of this.p.obs.panels) p.blame.blameStale();
     TIMERS.cancel(this.p._sigT);
     // 연속 신호가 status 를 연발하지 않게 하나로 합친다.
-    this.p._sigT=TIMERS.after(GIT_SIGNAL_DEBOUNCE_MS,()=>{this.p._sigT=null;this.p.collect()},
+    this.p._sigT=TIMERS.after(GIT_SIGNAL_DEBOUNCE_MS,()=>{this.p._sigT=null;this.collect()},
       {owner:this.p,label:'git-sig-debounce'});
   }
 
@@ -241,7 +241,7 @@ class GitPoll extends GitPart {
 
   // 조건이 참이 되면 즉시 1회 수집하고 주기를 건다 (FR-GIT-22).
   _reschedule(){
-    if(this._applyCadence()) this.p.collect();
+    if(this._applyCadence()) this.collect();
   }
 
   _stop(){
@@ -298,9 +298,9 @@ class GitPoll extends GitPart {
     // REPO_FIX 05 §3A-5 (F-4.1): 보낸 뒤 쓰기가 시작·끝났으면 이 관측은 쓰기 이전의 것일 수
     // 있다 — 적용하지 않고 한 번 더 받는다. 이전: 쓰기 전에 출발한 status 가 방금 쓴
     // 결과를 덮어 다음 폴링까지 되돌아간 화면을 보였다(#41).
-    if(this.p._writeGen!==wg){this.p.collect();return}
+    if(this.p._writeGen!==wg){this.collect();return}
     this._applyStatus(tok,r,d);
-    if(again) this.p.collect();
+    if(again) this.collect();
   }
 
   // REFACTOR3_FE_REST3_SRS FR-FR3-20 (FU-16): 세대 → 판정(순수) → 갈래. 성공은 받아들이기 → 칠하기 순서다.

@@ -4,7 +4,7 @@
  * REFACTOR3_FE_GITPANEL_SRS 7g FR-FEP-7). 소유 필드는 없다 — 루트 맵(`_els`)·소실(`_missing`)·뷰 필드는 패널의 것이다.
  * 리포 전환·파괴는 패널 본문(`panel.js`)에 있다.
  *
- * `_paint` 는 패널 위임자를 지난다 — e2e·시험이 패널 인스턴스에서 그것을 덮는다.
+ * `_paint` 는 `this.p.changes._paint()` 로 부른다 — e2e·시험이 그 부품 인스턴스에서 그것을 덮는다.
  */
 class GitViewRoots extends GitPart {
 
@@ -121,7 +121,7 @@ class GitViewRoots extends GitPart {
   }
 
   _renderBody(view,el){
-    if(view==='changes') return this.p._renderChanges(el);
+    if(view==='changes') return this.p.changes._renderChanges(el);
     if(view==='diff') return this.p.diffPane._renderDiff(el);
     if(GIT_VIEW_KINDS[view]) return this.p._renderView(view,el);
     el.innerHTML='';

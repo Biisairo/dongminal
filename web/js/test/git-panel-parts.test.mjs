@@ -126,7 +126,7 @@ test('TC-FEP-1 부품은 GitPart·Component 하위이고 패널이 든다', () =
 });
 
 /** 위임자를 걷은 부품 (REFACTOR3_FE_DELEG_SRS DL-3). 부르는 쪽이 `panel.<부품>.X` 를 부른다. */
-const WALKED = new Set(['blame', 'hunks', 'diffPane', 'watchdog', 'viewReload', 'viewRoots']);
+const WALKED = new Set(['blame', 'hunks', 'diffPane', 'watchdog', 'viewReload', 'viewRoots', 'poll', 'write', 'changes', 'changeRows']);
 
 test('TC-DLG-1 걷은 부품의 이름은 부품 원형에 있고 패널 원형에는 없다', () => {
   const { ctx, panel } = setup();

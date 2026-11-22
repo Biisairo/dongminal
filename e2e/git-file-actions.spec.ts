@@ -117,7 +117,7 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
       (window as any).__copied = [];
-      p.copyText = (t: string) => (window as any).__copied.push(t);
+      p.poll.copyText = (t: string) => (window as any).__copied.push(t);
     });
     await ctx(page, stashRow(page, 1));
     await item(page, 'copy-name').click();

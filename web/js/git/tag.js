@@ -41,10 +41,10 @@ class GitTag {
    */
   static async deleteLocal(panel,name){
     if(!panel||!panel.repo||!name) return;
-    const res=await panel.post(GIT_API.tagDelete,
+    const res=await panel.write.post(GIT_API.tagDelete,
       {repo:panel.repo,name,confirm:true});
-    if(res.ok){panel.afterRefWrite(res.data);return res}
-    panel.applyWriteFail(res);
+    if(res.ok){panel.write.afterRefWrite(res.data);return res}
+    panel.write.applyWriteFail(res);
     return res;
   }
 
@@ -136,7 +136,7 @@ class GitTagCreate {
     this._nameWhy=''; this._nameWhyKind='';
     this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.tagCreate,
       params:v=>({tagKind:v.kind===undefined?GIT_TAG_KIND_LIGHT:v.kind,message:(v.message||'').trim()}),
-      fail:res=>panel.writeReason(res),
+      fail:res=>panel.write.writeReason(res),
       onChange:(_s,d)=>{const r=this._merge();d.setWhy(r.kind,r.why)}});
   }
 
@@ -223,7 +223,7 @@ class GitTagCreate {
 
   async _run(v){
     const kind=v.kind===undefined?GIT_TAG_KIND_LIGHT:v.kind;
-    const res=await this.panel.post(GIT_API.tag,{
+    const res=await this.panel.write.post(GIT_API.tag,{
       repo:this.repo,
       name:(v.name||'').trim(),
       ref:(v.ref||'').trim(),
@@ -233,12 +233,12 @@ class GitTagCreate {
     });
     if(res.ok){
       // 조작 후 목록·상태를 갱신한다 (FR-GIT-160) — 태그도 refs 의 한 그룹이다.
-      this.panel.afterRefWrite(res.data);
+      this.panel.write.afterRefWrite(res.data);
       return {ok:true};
     }
     // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
     // (FR-GIT-175). signed 인데 서명 키가 없으면 git 의 사유가 그대로 여기 온다.
-    return {ok:false,reason:this.panel.writeReason(res),
+    return {ok:false,reason:this.panel.write.writeReason(res),
       stderrTail:(res.data&&res.data.message)||''};
   }
 }

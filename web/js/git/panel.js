@@ -97,66 +97,10 @@ class GitPanel {
     this.viewRoots=new GitViewRoots(this);
   }
 
-  // 머리 골격은 패널 인스턴스 없이도 필요하다 (History). 주인은 `GitChanges` 다.
-  static headHTML(opts){ return GitChanges.headHTML(opts) }
-
-  // e2e 가 보기 취향을 바꿔 넣는다 (FR-FEP-5). 주인은 `GitChanges` 다.
-  get _fileView(){ return this.changes._fileView } set _fileView(v){ this.changes._fileView=v }
   // 브랜치 메뉴의 짝 판정(branches-ops.js)이 읽는다 (FR-FEP-5). 주인은 `GitViews` 다.
   get _knownRefs(){ return this.views._knownRefs }
 
   // ── 부품 위임자 (FR-FEP-4) — 패널 바깥·다른 파일이 부르는 이름 ──
-  _foldPref(){ return this.poll._foldPref() }
-  _setFold(on){ return this.poll._setFold(on) }
-  absPath(target){ return this.poll.absPath(target) }
-  repoTop(){ return this.poll.repoTop() }
-  openFileDiff(target){ return this.poll.openFileDiff(target) }
-  copyText(text){ return this.poll.copyText(text) }
-  init(){ return this.poll.init() }
-  signal(kind){ return this.poll.signal(kind) }
-  _pollOk(){ return this.poll._pollOk() }
-  _cadence(st){ return this.poll._cadence(st) }
-  _applyCadence(){ return this.poll._applyCadence() }
-  _reschedule(){ return this.poll._reschedule() }
-  _stop(){ return this.poll._stop() }
-  collect(){ return this.poll.collect() }
-  afterCommitOp(res){ return this.write.afterCommitOp(res) }
-  noteCompareMark(label){ return this.write.noteCompareMark(label) }
-  afterRefWrite(d){ return this.write.afterRefWrite(d) }
-  afterRemoteJob(){ return this.write.afterRemoteJob() }
-  afterJobSlots(){ return this.write.afterJobSlots() }
-  stashApply(oid,withIndex){ return this.write.stashApply(oid,withIndex) }
-  stashPop(oid){ return this.write.stashPop(oid) }
-  stashDrop(oid){ return this.write.stashDrop(oid) }
-  afterStashWrite(res){ return this.write.afterStashWrite(res) }
-  stashBranch(s){ return this.write.stashBranch(s) }
-  stashCreate(){ return this.write.stashCreate() }
-  afterStashRefWrite(res){ return this.write.afterStashRefWrite(res) }
-  applyWriteFail(res){ return this.write.applyWriteFail(res) }
-  removeIndexLock(given){ return this.write.removeIndexLock(given) }
-  post(url,body,opts){ return this.write.post(url,body,opts) }
-  bumpWrite(){ return this.write.bumpWrite() }
-  wqPost(url,body){ return this.write.wqPost(url,body) }
-  busyNote(){ return this.write.busyNote() }
-  postJob(url,body,settle){ return this.write.postJob(url,body,settle) }
-  writeReason(res){ return this.write.writeReason(res) }
-  writeError(res){ return this.write.writeError(res) }
-  adopt(d){ return this.write.adopt(d) }
-  _paintOp(el,s){ return this.write._paintOp(el,s) }
-  runOperation(action){ return this.write.runOperation(action) }
-  _paintNote(el){ return this.write._paintNote(el) }
-  _renderChanges(el){ return this.changes._renderChanges(el) }
-  _paint(){ return this.changes._paint() }
-  _wireHead(el){ return this.changes._wireHead(el) }
-  _paintHeadIn(el){ return this.changes._paintHeadIn(el) }
-  paintHeads(){ return this.changes.paintHeads() }
-  _treeMode(){ return this.changes._treeMode() }
-  _paintGroup(el,g,entries){ return this.changeRows._paintGroup(el,g,entries) }
-  _actCols(have,cols){ return this.changeRows._actCols(have,cols) }
-  _actGap(){ return this.changeRows._actGap() }
-  _toggleGroup(key){ return this.changeRows._toggleGroup(key) }
-  _watchMore(files){ return this.changeRows._watchMore(files) }
-  revealRow(group,path){ return this.changeRows.revealRow(group,path) }
   untrackedPaths(){ return this.files.untrackedPaths() }
   uncommittedReset(){ return this.files.uncommittedReset() }
   uncommittedClean(paths){ return this.files.uncommittedClean(paths) }
@@ -308,7 +252,7 @@ class GitPanel {
     // 상단의 창 이름은 활성 리포에서 온다 — 같은 창에서 리포만 바뀌면 render 가
     // 돌지 않으므로(아래 주석의 조기 반환) 여기서 직접 고쳐 그린다.
     this.app.renderer._rTopbar();
-    this._stop(); this._reschedule();
+    this.poll._stop(); this.poll._reschedule();
     // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
     // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
     // "같은 창에서 리포만 바꾼" 경우가 새로고침에서 사라진다.
@@ -370,7 +314,7 @@ class GitPanel {
   }
 
   detach(){
-    this._stop(); GitMenu.close(); this.diffPane._destroyViews();
+    this.poll._stop(); GitMenu.close(); this.diffPane._destroyViews();
     // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
     // 남아 있어서는 안 된다 (FR-GIT-83).
     this._commit().unmount();

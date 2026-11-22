@@ -49,7 +49,7 @@ class GitViewReload extends GitPart {
       // 위 `finally` 가 지키는 것은 **잠금**이고, 여기가 지키는 것은 **관측**이다.
       try{ for(const p of this.p.obs.panels) jobs.push(...p.viewReload._reloadViews(true)) }
       catch(e){ console.error('[git] reloadViews',e) }
-      await Promise.allSettled([this.p.collect(),...jobs]);
+      await Promise.allSettled([this.p.poll.collect(),...jobs]);
     }finally{
       this.p._refreshing=false;
     }

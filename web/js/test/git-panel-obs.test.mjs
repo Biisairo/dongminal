@@ -27,7 +27,7 @@ function setup(answer) {
     clock,
     expose: ['GitStatusHub', 'GitPoll', 'GitWrite'],
     globals: {
-      GitPanel: class { collect() { return this.poll.collect() } adopt(d) { return this.write.adopt(d) } },
+      GitPanel: class {},
       GIT_STATUS_FETCH_TIMEOUT_MS: 20000,
       GIT_STATUS_HUB_TTL_MS: 500,
       apiGet,
@@ -58,8 +58,8 @@ const full = (mark, extra = {}) => ({
 test('adopt 는 옛 mark 를 버린다 — 다음 collect 가 옛 mark 로 ifMark 를 싣지 않는다', async () => {
   const { p, sent, flush } = setup(() => full('m2'));
   p._status = { requested: '/r', repo: '/r', mark: 'm1', status: { untracked: ['old'] } };
-  p.adopt({ requested: '/r', repo: '/r', status: { untracked: [] } });
-  const c = p.collect(); await flush(); await c;
+  p.write.adopt({ requested: '/r', repo: '/r', status: { untracked: [] } });
+  const c = p.poll.collect(); await flush(); await c;
   assert.equal(sent[0].searchParams.get('ifMark'), null, '쓰기 뒤 본문에 옛 mark 를 붙여 물었다');
 });
 
@@ -67,7 +67,7 @@ test('collect 의 feed 는 떠난 순서로 선다 — 먼저 떠난 ask 의 늦
   let n = 0;
   const { p, hub, flushReverse } = setup(() => full('m' + (++n)));
   const a = hub.ask('/r');
-  const c = p.collect();
+  const c = p.poll.collect();
   // 패널의 답(m2)이 먼저, ask 의 답(m1)이 나중에 온다.
   await flushReverse();
   await Promise.all([a, c]);
@@ -77,7 +77,7 @@ test('collect 의 feed 는 떠난 순서로 선다 — 먼저 떠난 ask 의 늦
 test('collect 는 떠날 때 번호를 받는다 — 먼저 떠난 패널의 늦은 feed 가 나중 ask 의 답을 덮지 않는다', async () => {
   let n = 0;
   const { p, hub, flushReverse } = setup(() => full('m' + (++n)));
-  const c = p.collect();
+  const c = p.poll.collect();
   const a = hub.ask('/r');
   // ask 의 답(m2)이 먼저, 패널의 답(m1)이 나중에 온다.
   await flushReverse();

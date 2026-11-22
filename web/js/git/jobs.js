@@ -188,7 +188,7 @@ class GitJobs {
     if(!jb||!jb.id) return;
     if(this._owned.delete(jb.id)) return;
     const r=jb.result||{};
-    if(r.status) this.panel.adopt({requested:this.panel.repo,repo:jb.repo,status:r.status});
+    if(r.status) this.panel.write.adopt({requested:this.panel.repo,repo:jb.repo,status:r.status});
     if(jb.kind==='commit'&&gitJobOutcome(jb)==='ok') this.panel._commit().adoptJobDone(jb);
   }
 

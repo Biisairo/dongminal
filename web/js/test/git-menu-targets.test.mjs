@@ -67,15 +67,19 @@ function world() {
     _status: { status: { oid: 'h1' } },
     get _knownRefs() { return state.refs },
     _branchesView: { selection: () => state.sel.slice(), clearSelection() {} },
-    post: async (url, body) => { log.push(['post', url, body]); return { ok: true, data: {} } },
-    postJob: async (url, body) => { log.push(['post', url, body]); return { ok: true, data: {} } },
+    write: {
+      post: async (url, body) => { log.push(['post', url, body]); return { ok: true, data: {} } },
+      postJob: async (url, body) => { log.push(['post', url, body]); return { ok: true, data: {} } },
+      afterRefWrite() {}, applyWriteFail() {},
+      stashDrop: rec('stashDrop'),
+    },
+    changes: { _paint() {} },
     _remote: () => ({
       run: async (kind, body) => { log.push(['remote', kind, body]); return { ok: true, data: { job: { id: 'j' } } } },
       awaitJob: async () => ({ exitCode: 0 }),
     }),
-    afterRefWrite() {}, applyWriteFail() {}, _after() {}, _paint() {}, isDirty: () => false,
+    _after() {}, isDirty: () => false,
     untrackedPaths: () => state.untracked.slice(),
-    stashDrop: rec('stashDrop'),
     uncommittedClean: undefined,
   });
   // 브랜치·태그 파사드는 `GitViews` 부품의 것이다 (REFACTOR3_FE_GITPANEL_SRS 7g) — 패널 위임자처럼 잇는다.

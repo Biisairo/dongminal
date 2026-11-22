@@ -163,7 +163,7 @@ class GitWrite extends GitPart {
     const msg=this.writeError(res)+(lock&&lock.mtimeUnixMs==null?' — '+GIT_LOCK_GONE:'');
     this.p._note={msg,partial:!!d.partial,changed:d.changed||[],
       lock:(lock&&lock.mtimeUnixMs!=null)?lock:null,lockRepo:this.p.repo};
-    if(d.status) this.adopt(d); else this.p._paint();
+    if(d.status) this.adopt(d); else this.p.changes._paint();
   }
 
   // §7.2: 확인 뒤에만 지운다. 원래 동작은 다시 시도하지 않는다 — 사용자가 lock 이
@@ -186,7 +186,7 @@ class GitWrite extends GitPart {
     });
     if(!ok||repo!==this.p.repo) return;
     // 관측이 같으면 refresh 는 다시 그리지 않는다 — 안내 줄은 여기서 걷는다.
-    this.p._note=null; this.p._paint();
+    this.p._note=null; this.p.changes._paint();
     this.p.viewReload.refresh();
   }
 
@@ -232,7 +232,7 @@ class GitWrite extends GitPart {
    */
   wqPost(url,body){
     const q=this.p.obs._wq;
-    if(q.length>=GIT_WQ_MAX){this.p._note={msg:GIT_WQ_FULL}; this.p._paint(); return Promise.resolve(null)}
+    if(q.length>=GIT_WQ_MAX){this.p._note={msg:GIT_WQ_FULL}; this.p.changes._paint(); return Promise.resolve(null)}
     return new Promise(resolve=>{
       q.push({panel:this.p,url,body,resolve});
       this.p.obs.wqPump();
@@ -240,7 +240,7 @@ class GitWrite extends GitPart {
   }
 
   // 큐 밖의 동기 쓰기가 다른 쓰기에 막혔다 — 무음으로 버리지 않고 사유를 보인다 (§3A-5).
-  busyNote(){ this.p._note={msg:GIT_WRITE_ERR.repo_busy}; this.p._paint() }
+  busyNote(){ this.p._note={msg:GIT_WRITE_ERR.repo_busy}; this.p.changes._paint() }
 
   // 잡을 여는 쓰기를 다이얼로그·메뉴에서 보낸다 (§6.4). 잡이 시작되면 곧바로
   // `{ok:true, started:true}` 로 돌아오고 — 다이얼로그는 닫는다 — 끝나면 settle 이
@@ -337,7 +337,7 @@ class GitWrite extends GitPart {
       this._opActsP=GitConfirm.policy().then(p=>{
         this._opActs=(p&&p.operations)||{};
         this._opActsP=null;
-        this.p._paint();
+        this.p.changes._paint();
       });
     }
     return [];

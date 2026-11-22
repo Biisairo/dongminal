@@ -18,8 +18,8 @@ class GitFiles extends GitPart {
 
   // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다.
   async uncommittedReset(){
-    if(this.p._writing){this.p.busyNote();return}
-    const res=await this.p.post(GIT_API.uncommittedReset,{repo:this.p.repo});
+    if(this.p._writing){this.p.write.busyNote();return}
+    const res=await this.p.write.post(GIT_API.uncommittedReset,{repo:this.p.repo});
     this._after(res,[]);
   }
 
@@ -30,14 +30,14 @@ class GitFiles extends GitPart {
   // 지금의 untracked 와 다르면 409 로 거절한다 (FR-GIT-277 개정) — 여기서 먼저
   // 대조하는 것은 요청 없이 사유를 보이기 위해서다.
   async uncommittedClean(paths){
-    if(this.p._writing){this.p.busyNote();return}
+    if(this.p._writing){this.p.write.busyNote();return}
     const now=this.untrackedPaths();
     const shown=Array.isArray(paths)?paths:[];
     if(now.length!==shown.length||now.some(p=>shown.indexOf(p)<0)){
       Toast.show(GIT_UNC_CLEAN_CHANGED,'err',TOAST_ERR_MS);
       return;
     }
-    const res=await this.p.post(GIT_API.uncommittedClean,
+    const res=await this.p.write.post(GIT_API.uncommittedClean,
       {repo:this.p.repo,confirm:true,paths:shown});
     this._after(res,[]);
   }
@@ -50,18 +50,18 @@ class GitFiles extends GitPart {
    */
   async ignorePath(target){
     if(!target||!target.path) return;
-    if(this.p._writing){this.p.busyNote();return}
-    const res=await this.p.post(GIT_API.ignore,{repo:this.p.repo,paths:[target.path]});
+    if(this.p._writing){this.p.write.busyNote();return}
+    const res=await this.p.write.post(GIT_API.ignore,{repo:this.p.repo,paths:[target.path]});
     if(!res.ok){
-      this.p._note={msg:GIT_IGNORE_FAIL+': '+this.p.writeError(res)};
-      this.p._paint();
+      this.p._note={msg:GIT_IGNORE_FAIL+': '+this.p.write.writeError(res)};
+      this.p.changes._paint();
       return;
     }
     const d=res.data||{};
     this._after(res,[]);
     // 이미 있던 줄은 `skipped` 로 온다 — 그 사실을 보이지 않으면 사용자는 아무 일도
     // 아니었던 것을 성공으로 읽는다 (V200).
-    if(!(d.added||[]).length){this.p._note={msg:GIT_IGNORE_DUP+': '+target.path};this.p._paint()}
+    if(!(d.added||[]).length){this.p._note={msg:GIT_IGNORE_DUP+': '+target.path};this.p.changes._paint()}
   }
 
   // FR-GIT-275: path 필터를 채워 History 탭을 연다. **새 조회를 만들지 않는다** —
@@ -90,7 +90,7 @@ class GitFiles extends GitPart {
     if(!res.ok||!d||!d.openPath){
       // 사유를 그 자리에 보인다 — 빈 편집기를 열면 사용자는 파일이 비었다고 읽는다.
       this.p._note={msg:GIT_HEAD_OPEN_FAIL+((d&&d.message)?': '+d.message:'')};
-      this.p._paint();
+      this.p.changes._paint();
       return;
     }
     this.p._note=null;
@@ -119,7 +119,7 @@ class GitFiles extends GitPart {
     if(!f||!f.oid) return;
     this.p.commitFile=f;
     this.p.openView('diff');
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   // FR-CMG-2: 화면이 보이는 묶음과 **같은 묶음**이다 — 대상을 모으는 자리가
@@ -209,12 +209,12 @@ class GitFiles extends GitPart {
     if(act==='openFile'){
       // UX_BATCH12_SRS FR-RTB-3: 한 파일은 미리보기다. 여럿은 미리보기가 서로를 갈아 끼우므로 고정한다.
       const preview=items.length===1;
-      for(const i of items) this.app.gitOpenFile(this.p.absPath(i),{preview});
+      for(const i of items) this.app.gitOpenFile(this.p.poll.absPath(i),{preview});
       return;
     }
     if(act==='discard'){this._discard(items);return}
     if(act==='ours'||act==='theirs'){
-      if(this.p._writing){this.p.busyNote();return}
+      if(this.p._writing){this.p.write.busyNote();return}
       this._resolveSide(act,items);return;
     }
     // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 실행 **전에** 그 뜻을
@@ -230,7 +230,7 @@ class GitFiles extends GitPart {
     }
     const url=act==='stage'?GIT_API.stage:GIT_API.unstage;
     // F-4.2: 연타는 버리지 않고 큐로 차례로 보낸다. 버려진 항목(null)은 뒷정리가 없다.
-    const res=await this.p.wqPost(url,{repo:this.p.repo,paths:this._paths(act,items)});
+    const res=await this.p.write.wqPost(url,{repo:this.p.repo,paths:this._paths(act,items)});
     if(res) this._after(res,items);
   }
 
@@ -266,7 +266,7 @@ class GitFiles extends GitPart {
       hint:{note:label+'. '+GIT_RESOLVE_SIDE_NOTE,
         command:'git checkout -m -- '+paths.map(gitShQuote).join(' ')},
       run:async()=>{
-        const res=await this.p.post(GIT_API.resolve,{repo,side,paths,confirm:true});
+        const res=await this.p.write.post(GIT_API.resolve,{repo,side,paths,confirm:true});
         this._after(res,items);
         if(res.ok) return {ok:true};
         // REPO_FIX 01 §7.4: 경로별 결과가 오면 **어느 경로가 왜** 실패했는지 보인다.
@@ -274,7 +274,7 @@ class GitFiles extends GitPart {
         const tail=failed.length
           ? failed.map(x=>x.path+': '+(x.error||'')).join('\n')
           : ((res.data&&res.data.message)||'');
-        return {ok:false,reason:this.p.writeReason(res),stderrTail:tail};
+        return {ok:false,reason:this.p.write.writeReason(res),stderrTail:tail};
       },
     });
   }
@@ -310,12 +310,12 @@ class GitFiles extends GitPart {
         command:'git stash push -u -- '+targets.map(gitShQuote).join(' '),
       },
       run:async()=>{
-        const res=await this.p.wqPost(GIT_API.discard,{repo,tracked,untracked,confirm:true});
+        const res=await this.p.write.wqPost(GIT_API.discard,{repo,tracked,untracked,confirm:true});
         if(!res) return {ok:false,reason:GIT_WQ_DROPPED,stderrTail:''};
         this._after(res,items);
         if(res.ok) return {ok:true};
         // 사유와 stderr tail 은 다이얼로그 안에서 보인다 (FR-GIT-96·175).
-        return {ok:false,reason:this.p.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
+        return {ok:false,reason:this.p.write.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
       },
     });
   }
@@ -331,9 +331,9 @@ class GitFiles extends GitPart {
         const f=p._diffTarget();
         if(f&&!p.commitFile&&items.some(i=>i.path===f.path)) p.diffPane._diffInvalidate();
       }
-      this.p.adopt(res.data);
+      this.p.write.adopt(res.data);
       return;
     }
-    this.p.applyWriteFail(res);
+    this.p.write.applyWriteFail(res);
   }
 }

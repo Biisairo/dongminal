@@ -347,7 +347,7 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await page.evaluate(() => {
       (window as any).gitStatusInterval = 600;
       const app = (window as any).app;
-      if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p._reschedule();
+      if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
     });
     // **예외 (`TEST-16`)**: 창을 여는 동안의 요청이 가라앉을 여유를 준다 —
     // 아래가 세는 것은 그 뒤의 증가분이다.
@@ -562,7 +562,7 @@ test.describe('증분 조회·회차 공유 (FR-OPT-4-8·4-9)', () => {
       const p = (window as any).app.gitPanel;
       const got: string[] = [];
       const hist0 = p._historyView._refs, br0 = p._branchesView._refs;
-      p.afterRefWrite(null);
+      p.write.afterRefWrite(null);
       await new Promise((r) => setTimeout(r, 1500));
       if (p._historyView._refs !== hist0) got.push('history');
       if (p._branchesView._refs !== br0) got.push('branches');
@@ -632,7 +632,7 @@ test('V-GLV-2 (FR-GLV-4): 칸을 줄여도 남은 패널의 관측이 산다', a
   const on = () => page.evaluate((r: string) => {
     const a = (window as any).app;
     const p = a.testing.gitPanelAt(r, 0);
-    return { pollOn: !!p._pollOn, ok: !!p._pollOk() };
+    return { pollOn: !!p._pollOn, ok: !!p.poll._pollOk() };
   }, repo);
   expect((await on()).pollOn, '전제가 깨졌다 — 처음부터 관측이 멎어 있다').toBe(true);
 

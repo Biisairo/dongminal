@@ -111,7 +111,7 @@ class GitRemoteList extends GitView {
         command:'git -C '+gitShQuote(repo)+' remote add '+r.name+' '+(r.url||'')},
     });
     if(!ok) return;
-    const res=await this.panel.post(GIT_API.remoteRemove,{repo,name:r.name});
+    const res=await this.panel.write.post(GIT_API.remoteRemove,{repo,name:r.name});
     if(!this.adoptWrite(res)) this._fail(GIT_RM_REMOVE_FAIL,res);
   }
 
@@ -122,7 +122,7 @@ class GitRemoteList extends GitView {
   adoptWrite(res){
     const d=(res&&res.data)||{};
     if(!res||!res.ok) return false;
-    if(d.status) this.panel.adopt(d);
+    if(d.status) this.panel.write.adopt(d);
     if(Array.isArray(d.remotes)) this._list=d.remotes;
     this._err=null;
     this.paint();
@@ -131,7 +131,7 @@ class GitRemoteList extends GitView {
 
   // 사유를 보이고 **이미 받은 목록을 지우지 않는다** (FR-GIT-132 과 같은 규약).
   _fail(base,res){
-    this._err=base+': '+this.panel.writeReason(res);
+    this._err=base+': '+this.panel.write.writeReason(res);
     this.paint();
   }
 

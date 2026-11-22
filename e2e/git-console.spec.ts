@@ -196,7 +196,7 @@ test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
     await openGit(page, repo);
     // 쓰기를 하나 만든다 — 스테이지는 파괴적이 아니므로 확인은 1단계다.
     await page.evaluate(async (r) => {
-      await (window as any).app.gitPanel.post('/api/git/stage',
+      await (window as any).app.gitPanel.write.post('/api/git/stage',
         { repo: r, paths: ['tracked.txt'] });
     }, repo);
     await clickGitView(page, 'console');
@@ -237,7 +237,7 @@ test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
     });
     await openGit(page, repo);
     await page.evaluate(async (r) => {
-      await (window as any).app.gitPanel.post('/api/git/stage', { repo: r, paths: ['tracked.txt'] });
+      await (window as any).app.gitPanel.write.post('/api/git/stage', { repo: r, paths: ['tracked.txt'] });
     }, repo);
     await clickGitView(page, 'console');
     await expect(rows(page).filter({ hasText: 'add' }).first()).toBeVisible({ timeout: 15000 });

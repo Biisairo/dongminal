@@ -130,7 +130,7 @@ test('W1 (F-4.1): 쓰기 전에 출발한 status 응답은 쓰기 결과를 덮�
       await w.__gate;
       return r;
     };
-    w.__col = w.app.gitPanel.collect();
+    w.__col = w.app.gitPanel.poll.collect();
   });
   await page.waitForFunction(() => (window as any).__held === true, undefined, { timeout: 10000 });
   await stageRow(page, 'a.txt');

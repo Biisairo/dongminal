@@ -81,7 +81,7 @@ class GitObserver {
     this._wqOn=true;
     while(this._wq.length){
       const it=this._wq.shift();
-      const res=await it.panel.post(it.url,it.body);
+      const res=await it.panel.write.post(it.url,it.body);
       it.resolve(res);
       if(!res.ok&&GIT_WQ_STOP.has(((res.data||{}).error)||'')) this.wqDrop();
     }
@@ -101,10 +101,10 @@ class GitObserver {
    *
    * 소유와 판정을 같은 자리에 둔다: 딸린 패널 중 하나라도 보고 있으면 돈다.
    */
-  pollOkAny(){ for(const p of this.panels) if(p._pollOk()) return true; return false }
+  pollOkAny(){ for(const p of this.panels) if(p.poll._pollOk()) return true; return false }
 
   // FR-SVS-32: 관측이 갱신되면 살아 있는 **모든** 패널이 칠한다.
-  paintAll(){ for(const p of this.panels) p._paint() }
+  paintAll(){ for(const p of this.panels) p.changes._paint() }
   paintAllViews(){ for(const p of this.panels) p.viewRoots._paintAllViews() }
   reloadViewsAll(){ for(const p of this.panels) p.viewReload._reloadViews() }
   reloadStaleViewsAll(sig){ for(const p of this.panels) p.viewReload._reloadStaleViews(sig) }
@@ -119,7 +119,7 @@ class GitObserver {
   tick(){
     const p=this.any();
     if(!p){ this.stopPolling(); return }
-    p.collect();
+    p.poll.collect();
   }
   stopPolling(){
     if(this._stPoll){this._stPoll.stop();this._stPoll=null}
@@ -144,8 +144,8 @@ class GitObserver {
    */
   resettle(){
     for(const p of this.panels){
-      if(!p._pollOk()) continue;
-      p._reschedule();
+      if(!p.poll._pollOk()) continue;
+      p.poll._reschedule();
       return;
     }
   }

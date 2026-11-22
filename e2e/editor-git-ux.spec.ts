@@ -51,7 +51,7 @@ test.describe('묶음 O — Diff 개요 눈금', () => {
     await openGit(page, fx('basic'));
     await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
     await expect(page.locator('#area .pn-body .git-diff-fold input')).not.toBeChecked();
-    expect(await page.evaluate(() => (window as any).app.gitPanel._foldPref())).toBe(false);
+    expect(await page.evaluate(() => (window as any).app.gitPanel.poll._foldPref())).toBe(false);
   });
 
   // V-DOR-3: 토글이 상태를 바꾸고 남는다 (FR-DOR-3·4).
@@ -67,7 +67,7 @@ test.describe('묶음 O — Diff 개요 눈금', () => {
     await box.check();
     const key = await page.evaluate(() => GIT_DIFF_FOLD_KEY);
     expect(await page.evaluate((k) => localStorage.getItem(k), key)).toBe('1');
-    expect(await page.evaluate(() => (window as any).app.gitPanel._foldPref())).toBe(true);
+    expect(await page.evaluate(() => (window as any).app.gitPanel.poll._foldPref())).toBe(true);
   });
 
   // FR-DOR-5: 두 뷰가 같은 상태를 쓴다. 갈리면 사용자가 어느 쪽을 보는지 모른다.
@@ -80,7 +80,7 @@ test.describe('묶음 O — Diff 개요 눈금', () => {
     const same = await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
       const views = [p._diffView, p._previewView].filter(Boolean);
-      return views.every((v: any) => v._fold === p._foldPref());
+      return views.every((v: any) => v._fold === p.poll._foldPref());
     });
     expect(same).toBe(true);
   });

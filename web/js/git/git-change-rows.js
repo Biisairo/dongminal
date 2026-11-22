@@ -82,7 +82,7 @@ class GitChangeRows extends GitPart {
     // (FR-GIT-227 / FR-RPT-3) — 목록을 비우고 다시 만들면 hover·더블클릭·우클릭이
     // 매 회차 끊긴다. 평평한 보기와 트리 보기가 같은 기술을 낸다.
     const items=[];
-    const drawn=this.p._treeMode()
+    const drawn=this.p.changes._treeMode()
       ?this._emitTree(items,g.key,entries,limit)
       :this._emitFlat(items,g.key,entries,limit);
     if(drawn<entries.length) items.push({t:'more',group:g.key,n:entries.length-drawn});
@@ -106,7 +106,7 @@ class GitChangeRows extends GitPart {
       this._stateChar(group,e),
       this.p._sel.has(this.p._selKey(group,e.path))?1:0,
       (this.p.previewFile&&this.p.previewFile.group===group&&this.p.previewFile.path===e.path)?1:0,
-      this.p._treeMode()?1:0,
+      this.p.changes._treeMode()?1:0,
       // ours·theirs 의 title 이 진행 중인 조작에 따라 뒤집힌다 (FR-GIT-224).
       this.p._op()||'',
     ].join(RPT_SEP);
@@ -207,7 +207,7 @@ class GitChangeRows extends GitPart {
     d.addEventListener('click',()=>{
       if(this.p._dirCollapsed.has(key)) this.p._dirCollapsed.delete(key);
       else this.p._dirCollapsed.add(key);
-      this.p._paint();
+      this.p.changes._paint();
     });
     return d;
   }
@@ -325,7 +325,7 @@ class GitChangeRows extends GitPart {
     // UX_BATCH12_SRS FR-RTB-6 ③ (D-RTU-23 개정): 더블클릭은 앞선 클릭이 연 탭을 고정한다.
     d.addEventListener('dblclick',ev=>{
       if(!this.p.root||ev.metaKey||ev.ctrlKey||ev.shiftKey) return;
-      if(this.p._noBaseline(group,e)){ if(!e.dir) this.app.edPinTabFor(this.p.absPath(e)); return }
+      if(this.p._noBaseline(group,e)){ if(!e.dir) this.app.edPinTabFor(this.p.poll.absPath(e)); return }
       this.app.gitDiffPin(this.p.root,this.p._diffTarget(),!!this.p.commitFile);
     });
     d.addEventListener('contextmenu',ev=>{
@@ -365,7 +365,7 @@ class GitChangeRows extends GitPart {
       return;
     }
     // 트리 보기는 디렉터리가 이미 행으로 갈려 있어 파일명만 남는다.
-    seg(this.p._treeMode()?e.path.split('/').pop():e.path);
+    seg(this.p.changes._treeMode()?e.path.split('/').pop():e.path);
     // GIT_DIR_ENTRY_SRS FR-DIR-20: 디렉터리 항목임을 접미 `/` 로 보인다.
     // **판정은 서버의 `dir` 에서 온다** (D-DIR-1) — 경로 문자열로 판정하면
     // 판정 자리가 둘이 된다. 그래서 서버는 경로에서 슬래시를 벗겨 보내고
@@ -437,7 +437,7 @@ class GitChangeRows extends GitPart {
 
   _toggleGroup(key){
     if(this.p._collapsed.has(key)) this.p._collapsed.delete(key); else this.p._collapsed.add(key);
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   // FR-GIT-42: 목록 끝이 보일 때마다 다음 덩어리를 이어 그린다. 골격을 다시 세우면 관측기도 새로 선다.
@@ -453,7 +453,7 @@ class GitChangeRows extends GitPart {
   _growGroup(key){
     if(!key) return;
     this.p._shown.set(key,(this.p._shown.get(key)||GIT_FILE_ROW_CHUNK)+GIT_FILE_ROW_CHUNK);
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   /**
@@ -462,18 +462,18 @@ class GitChangeRows extends GitPart {
    */
   revealRow(group,path){
     let paint=this.p._collapsed.delete(group);
-    if(this.p._treeMode()){
+    if(this.p.changes._treeMode()){
       const parts=path.split('/');
       for(let i=1;i<parts.length;i++) if(this.p._dirCollapsed.delete(group+':'+parts.slice(0,i).join('/'))) paint=true;
     }
     const n=this.p.diffPane._fileList().filter(e=>e.group===group).length;
-    if(paint) this.p._paint();
+    if(paint) this.p.changes._paint();
     const el=this.p._els.get('changes'); if(!el) return false;
     const q='.git-group[data-group="'+group+'"] .git-file[data-path="'+CSS.escape(path)+'"]';
     let row=el.querySelector(q);
     while(!row&&(this.p._shown.get(group)||GIT_FILE_ROW_CHUNK)<n){
       this.p._shown.set(group,(this.p._shown.get(group)||GIT_FILE_ROW_CHUNK)+GIT_FILE_ROW_CHUNK);
-      this.p._paint(); row=el.querySelector(q);
+      this.p.changes._paint(); row=el.querySelector(q);
     }
     if(!row||!row.offsetParent) return false;
     row.scrollIntoView({block:'nearest'});

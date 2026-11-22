@@ -757,8 +757,8 @@ export async function setSafetyNet(page: any, ms: number) {
   await page.evaluate((v: number) => {
     (window as any).gitStatusInterval = v;
     const app = (window as any).app;
-    if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p._reschedule();
-    if (app.gitPanel && app.gitPanel._reschedule) app.gitPanel._reschedule();
+    if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
+    if (app.gitPanel && app.gitPanel.poll._reschedule) app.gitPanel.poll._reschedule();
   }, ms);
 }
 

@@ -86,7 +86,7 @@ const CHG_ROW = (rel: string) => `#area .ed-side .git-changes .git-file.sel[data
 
 /** Diff 탭(LAST)과 파일 탭(DEEP)을 하나씩 고정으로 만든다. */
 async function twoTabs(page: Page) {
-  await page.evaluate((rel) => (window as any).app.gitPanel.openFileDiff({ group: 'working', path: rel }), LAST);
+  await page.evaluate((rel) => (window as any).app.gitPanel.poll.openFileDiff({ group: 'working', path: rel }), LAST);
   await expect.poll(() => tabId(page, 'diff', LAST)).not.toBe('');
   await page.evaluate((abs) => (window as any).app.edOpenFile(abs, { preview: false }), j(REPO, DEEP));
   await expect.poll(() => tabId(page, 'file', DEEP)).not.toBe('');
@@ -112,7 +112,7 @@ test.describe('FR-FHL-10 — 옮겨 간 하이라이트가 보이게 한다', ()
     await enter(page, request);
     const t = await twoTabs(page);
     await setSide(page, 'changes');
-    await page.evaluate(() => { const p = (window as any).app.gitPanel; p._shown.clear(); p._collapsed.add('working'); p._paint() });
+    await page.evaluate(() => { const p = (window as any).app.gitPanel; p._shown.clear(); p._collapsed.add('working'); p.changes._paint() });
     await go(page, t.diff);
     await expect.poll(() => visibleIn(page, CHG_ROW(LAST))).toBe(true);
   });
@@ -123,7 +123,7 @@ test.describe('FR-FHL-10 — 옮겨 간 하이라이트가 보이게 한다', ()
     await setSide(page, 'changes');
     await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
-      p._fileView = 'tree'; p._shown.clear(); p._dirCollapsed.add('working:zz'); p._paint();
+      p.changes._fileView = 'tree'; p._shown.clear(); p._dirCollapsed.add('working:zz'); p.changes._paint();
     });
     await go(page, t.diff);
     await expect.poll(() => visibleIn(page, CHG_ROW(LAST))).toBe(true);

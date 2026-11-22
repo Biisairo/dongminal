@@ -18,7 +18,7 @@
  * 내주고 칠하기는 패널이 한다.
  */
 const GIT_VIEW_KINDS={
-  history:{make:p=>new GitHistory(p),afterPaint:(p,el)=>p._paintHeadIn(el)},
+  history:{make:p=>new GitHistory(p),afterPaint:(p,el)=>p.changes._paintHeadIn(el)},
   branches:{make:p=>new GitBranches(p)},
   stash:{make:p=>new GitStash(p)},
   console:{make:p=>new GitConsole(p)},
@@ -75,7 +75,7 @@ class GitViews extends GitPart {
   expandGroup(key){
     if(!this.p._collapsed.has(key)) return;
     this.p._collapsed.delete(key);
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   // ── 목록 뷰: History(FR-GIT-113~139) · Branches(FR-GIT-147~160) · Stash(FR-GIT-161~170) ·
@@ -207,7 +207,7 @@ class GitViews extends GitPart {
 
   // FR-GIT-255: 머지·리베이스의 충돌은 실패가 아니라 진행 중 상태다 — 사유를
   // Changes 탭 머리에 남기고 화면을 그리로 보낸다 (FR-GIT-111 과 같은 경로).
-  branchNote(msg){this.p._note={msg,partial:false,changed:[]};this.p._paint()}
+  branchNote(msg){this.p._note={msg,partial:false,changed:[]};this.p.changes._paint()}
 
   // FR-GIT-249: 핀 목록이 바뀌었을 수 있다. 그것을 읽는 목록에만 넘긴다 — 판정을
   // 다시 그리기에 업지 않기 위한 통지 경로다 (FR-RPT-8, GitDialog.notify 와 같은 규약).

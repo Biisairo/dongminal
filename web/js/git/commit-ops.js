@@ -129,7 +129,7 @@ class GitCommitOps {
   static mark(panel,c){
     panel.compareMark={oid:c.oid,label:GitCommitOps.label(c)};
     // 표시가 보이지 않으면 사용자는 자기가 무엇을 골랐는지 모른다.
-    if(panel.noteCompareMark) panel.noteCompareMark(panel.compareMark.label);
+    if(panel.write.noteCompareMark) panel.write.noteCompareMark(panel.compareMark.label);
   }
 
   /**
@@ -148,7 +148,7 @@ class GitCommitOps {
     // 빈 입력은 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS GV-c).
     const answer=new GitInputAnswer({repo:panel.repo,id:GIT_ACTION.compare,
       params:v=>({rev:(v.rev||'').trim(),path:(v.path||'').trim()}),
-      fail:res=>panel.writeReason(res)});
+      fail:res=>panel.write.writeReason(res)});
     return GitDialog.open({
       id:'git-compare',ns:'gco',action:'compare',
       title:GIT_CO_COMPARE_TITLE,runLabel:GIT_CO_COMPARE_RUN,focus:'rev',
@@ -251,12 +251,12 @@ class GitCommitOps {
   // REPO_FIX 01 §5.2: cherry-pick·revert·drop 은 잡이다 — 시작되면 다이얼로그를
   // 닫고, 뒷정리는 잡이 끝날 때 한다.
   static async _send(panel,url,body){
-    const res=await panel.postJob(url,Object.assign({repo:panel.repo},body),
-      r=>panel.afterCommitOp(r));
+    const res=await panel.write.postJob(url,Object.assign({repo:panel.repo},body),
+      r=>panel.write.afterCommitOp(r));
     if(res.started) return {ok:true};
-    panel.afterCommitOp(res);
+    panel.write.afterCommitOp(res);
     if(res.ok) return {ok:true};
-    return {ok:false,reason:panel.writeReason(res),
+    return {ok:false,reason:panel.write.writeReason(res),
       stderrTail:(res.data&&res.data.message)||''};
   }
 }

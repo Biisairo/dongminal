@@ -92,7 +92,7 @@ const histSubjects = (page: Page) =>
 const pollOk = (page: Page, repo: string, slot = 1) =>
   page.evaluate(([r, n]) => {
     const a = (window as any).app;
-    return !!a.testing.gitPanelAt(r, n)._pollOk();
+    return !!a.testing.gitPanelAt(r, n).poll._pollOk();
   }, [repo, slot] as const);
 
 /**

@@ -119,7 +119,7 @@ class GitHistory extends GitView {
       // FR-GHM-3a (U-6, 2026-09-11): **원격 버튼은 싣지 않는다.** Changes 와
       // History 를 이제 함께 보므로 같은 버튼이 두 벌이었다 — 같은 일을 하는 자리가
       // 둘이면 어느 쪽을 눌렀는지가 결과와 무관해도 사용자는 그것을 모른다.
-      GitPanel.headHTML({remote:false})+
+      GitChanges.headHTML({remote:false})+
       /**
        * FR-HSU-1·9: 바에 남는 것은 **검색 입력 · 옵션 버튼 · `+ Branch`** 셋이다.
        * 정렬·필터 넷·reflog·Apply 는 드롭다운으로 들어갔고, `.git-hist-jump` 와
@@ -157,7 +157,7 @@ class GitHistory extends GitView {
         '<span class="git-hist-scope"></span>'+
         '<span class="git-hist-state"></span>'+
       '</div>';
-    this.panel._wireHead(el);
+    this.panel.changes._wireHead(el);
     this._list=el.querySelector('.git-hist-list');
     this._spTop=el.querySelector('.git-hist-sp-top');
     this._spBot=el.querySelector('.git-hist-sp-bot');
