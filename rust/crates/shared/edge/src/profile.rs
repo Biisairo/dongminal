@@ -23,7 +23,11 @@ pub fn tag(fp: &str) -> String {
 /// `이름#번호` 다. 번호를 낼 수 없으면 이름만이다.
 pub fn handle(name: &str, fp: &str) -> String {
     let t = tag(fp);
-    if t.is_empty() { name.to_string() } else { format!("{name}#{t}") }
+    if t.is_empty() {
+        name.to_string()
+    } else {
+        format!("{name}#{t}")
+    }
 }
 
 #[cfg(test)]
@@ -43,7 +47,12 @@ mod tests {
         for (fp, want) in cases {
             assert_eq!(tag(&fp), want, "{}", &fp[..8]);
         }
-        for bad in [String::new(), "abc".into(), format!("zzzzzzzz{}", "0".repeat(56)), "+0001a2b".into()] {
+        for bad in [
+            String::new(),
+            "abc".into(),
+            format!("zzzzzzzz{}", "0".repeat(56)),
+            "+0001a2b".into(),
+        ] {
             assert_eq!(tag(&bad), "", "{bad}");
         }
     }

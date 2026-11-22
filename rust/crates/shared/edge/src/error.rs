@@ -27,7 +27,9 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::InvalidName => f.write_str("이름은 영문·한글·숫자·`_`·`-` 1~32자(64바이트 이내)입니다"),
+            Error::InvalidName => {
+                f.write_str("이름은 영문·한글·숫자·`_`·`-` 1~32자(64바이트 이내)입니다")
+            }
             Error::InvalidPort => f.write_str("포트는 1~65535 입니다"),
             Error::InvalidBind => f.write_str("듣는 주소는 IP 주소여야 합니다"),
             Error::InvalidEdge => f.write_str("간선 항목의 이름·주소·포트·지문이 틀렸습니다"),

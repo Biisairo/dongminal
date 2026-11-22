@@ -17,7 +17,9 @@ pub(crate) fn parse_addr(s: &str) -> Option<(IpAddr, Option<&str>)> {
             if zone.is_empty() {
                 return None;
             }
-            base.parse::<Ipv6Addr>().ok().map(|ip| (IpAddr::V6(ip), Some(zone)))
+            base.parse::<Ipv6Addr>()
+                .ok()
+                .map(|ip| (IpAddr::V6(ip), Some(zone)))
         }
     }
 }
@@ -49,7 +51,10 @@ pub fn valid_port(p: i64) -> bool {
 }
 
 pub(crate) fn valid_fingerprint(fp: &str) -> bool {
-    fp.len() == FINGERPRINT_LEN && fp.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    fp.len() == FINGERPRINT_LEN
+        && fp
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 
 /// 출발지 주소의 상한 키다. IPv6 는 /64 하나를 한 출발지로 센다 — 한 망이 연결마다 주소를
@@ -70,7 +75,9 @@ pub fn addr_rate_key(host: &str) -> String {
 
 fn unmap(ip: IpAddr) -> IpAddr {
     match ip {
-        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(ip, |v4: Ipv4Addr| IpAddr::V4(v4)),
+        IpAddr::V6(v6) => v6
+            .to_ipv4_mapped()
+            .map_or(ip, |v4: Ipv4Addr| IpAddr::V4(v4)),
         v4 => v4,
     }
 }
@@ -81,14 +88,35 @@ mod tests {
 
     #[test]
     fn valid_addr_cases() {
-        for a in ["10.0.0.1", "::1", "fe80::1", "office", "office.example.com", "a-b.c-d", "host.local"] {
+        for a in [
+            "10.0.0.1",
+            "::1",
+            "fe80::1",
+            "office",
+            "office.example.com",
+            "a-b.c-d",
+            "host.local",
+        ] {
             assert!(valid_addr(a), "{a}");
         }
         let long_label = format!("{}.com", "a".repeat(64));
         let long_host = format!("{}aa", "a.".repeat(127));
         for a in [
-            "", "a b", "a/b", "a\x1b[31m", "fe80::1%eth0", "fe80::1%\x1b[2J", "한글.com", "-a.com", "a-.com",
-            "a..b", "a_b.com", "user@h", "h:80", &long_label, &long_host,
+            "",
+            "a b",
+            "a/b",
+            "a\x1b[31m",
+            "fe80::1%eth0",
+            "fe80::1%\x1b[2J",
+            "한글.com",
+            "-a.com",
+            "a-.com",
+            "a..b",
+            "a_b.com",
+            "user@h",
+            "h:80",
+            &long_label,
+            &long_host,
         ] {
             assert!(!valid_addr(a), "{a:?}");
         }

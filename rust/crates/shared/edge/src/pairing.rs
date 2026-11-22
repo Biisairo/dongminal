@@ -70,16 +70,25 @@ fn same_token(a: &str, b: &str) -> bool {
 
 impl Pairing {
     pub fn new(now: Clock) -> Self {
-        Self { now, state: Mutex::new(State::default()) }
+        Self {
+            now,
+            state: Mutex::new(State::default()),
+        }
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// 새 초대를 만든다. 이전 초대와 그 다시 시도 기억은 사라진다 (FR-PNW-20).
     pub fn new_invite(&self) -> (String, OffsetDateTime) {
-        let inv = Invite { token: random_hex(TOKEN_BYTES), expires: (self.now)() + INVITE_TTL, fp: String::new() };
+        let inv = Invite {
+            token: random_hex(TOKEN_BYTES),
+            expires: (self.now)() + INVITE_TTL,
+            fp: String::new(),
+        };
         let out = (inv.token.clone(), inv.expires);
         let mut st = self.lock();
         st.invite = Some(inv);
@@ -91,7 +100,11 @@ impl Pairing {
     /// 상한을 넘으면 가장 오래된 것을 버린다.
     pub fn new_bound_invite(&self, fp: &str) -> (String, OffsetDateTime) {
         let now = (self.now)();
-        let inv = Invite { token: random_hex(TOKEN_BYTES), expires: now + INVITE_TTL, fp: fp.to_string() };
+        let inv = Invite {
+            token: random_hex(TOKEN_BYTES),
+            expires: now + INVITE_TTL,
+            fp: fp.to_string(),
+        };
         let out = (inv.token.clone(), inv.expires);
         let mut st = self.lock();
         st.bound.retain(|b| now < b.expires);
@@ -111,7 +124,11 @@ impl Pairing {
     }
 
     fn live_invite(&self, st: &mut State) -> Option<Invite> {
-        if st.invite.as_ref().is_some_and(|i| (self.now)() >= i.expires) {
+        if st
+            .invite
+            .as_ref()
+            .is_some_and(|i| (self.now)() >= i.expires)
+        {
             st.invite = None;
         }
         st.invite.clone()
@@ -148,7 +165,11 @@ impl Pairing {
                 return Err(Error::BadToken);
             }
             let b = st.bound.remove(i);
-            st.used = Some(Redeemed { token: b.token, fp: fp.to_string(), expires: b.expires });
+            st.used = Some(Redeemed {
+                token: b.token,
+                fp: fp.to_string(),
+                expires: b.expires,
+            });
             return Ok(());
         }
         let Some(inv) = self.live_invite(&mut st) else {
@@ -158,7 +179,11 @@ impl Pairing {
             return Err(Error::BadToken);
         }
         st.invite = None;
-        st.used = Some(Redeemed { token: inv.token, fp: fp.to_string(), expires: inv.expires });
+        st.used = Some(Redeemed {
+            token: inv.token,
+            fp: fp.to_string(),
+            expires: inv.expires,
+        });
         Ok(())
     }
 }
@@ -186,9 +211,15 @@ pub fn decode_invite(s: &str) -> Result<InviteCode, Error> {
     let body = s.strip_prefix(INVITE_PREFIX).ok_or(Error::InvalidInvite)?;
     // Go 의 base64 디코더는 `\r`·`\n` 을 건너뛴다.
     let body: String = body.chars().filter(|c| !matches!(c, '\r' | '\n')).collect();
-    let raw = URL_SAFE_NO_PAD.decode(body).map_err(|_| Error::InvalidInvite)?;
+    let raw = URL_SAFE_NO_PAD
+        .decode(body)
+        .map_err(|_| Error::InvalidInvite)?;
     let c: InviteCode = dm_gocompat::json::unmarshal(&raw).map_err(|_| Error::InvalidInvite)?;
-    if !valid_addr(&c.addr) || !valid_port(c.port) || !valid_fingerprint(&c.fingerprint) || c.token.is_empty() {
+    if !valid_addr(&c.addr)
+        || !valid_port(c.port)
+        || !valid_fingerprint(&c.fingerprint)
+        || c.token.is_empty()
+    {
         return Err(Error::InvalidInvite);
     }
     Ok(c)
@@ -215,7 +246,11 @@ mod tests {
         assert!(!p.has_invite());
         let (token, expires) = p.new_invite();
         assert_eq!(token.len(), 32);
-        assert!(token.bytes().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+        assert!(
+            token
+                .bytes()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        );
         assert_eq!(expires, clk.now() + INVITE_TTL);
         assert_eq!(INVITE_TTL, Duration::from_secs(600));
         clk.advance(INVITE_TTL - Duration::from_secs(1));
@@ -324,10 +359,16 @@ mod tests {
         assert!(URL_SAFE_NO_PAD.decode(&code[INVITE_PREFIX.len()..]).is_ok());
         assert_eq!(decode_invite(&format!("  {code}\n")).unwrap(), inv);
         // Go json.Marshal 의 필드 순서와 같다.
-        let raw = URL_SAFE_NO_PAD.decode(&code[INVITE_PREFIX.len()..]).unwrap();
+        let raw = URL_SAFE_NO_PAD
+            .decode(&code[INVITE_PREFIX.len()..])
+            .unwrap();
         assert_eq!(
             String::from_utf8(raw).unwrap(),
-            format!(r#"{{"addr":"office.example","port":58147,"fp":"{}","token":"{}"}}"#, "ab".repeat(32), "0f".repeat(16))
+            format!(
+                r#"{{"addr":"office.example","port":58147,"fp":"{}","token":"{}"}}"#,
+                "ab".repeat(32),
+                "0f".repeat(16)
+            )
         );
     }
 
@@ -342,14 +383,24 @@ mod tests {
             "dmedge1:!!!".into(),
             format!(
                 "dmpeer1:{}",
-                URL_SAFE_NO_PAD.encode(format!(r#"{{"addr":"h","port":58147,"fp":"{fp}","token":"{tok}"}}"#))
+                URL_SAFE_NO_PAD.encode(format!(
+                    r#"{{"addr":"h","port":58147,"fp":"{fp}","token":"{tok}"}}"#
+                ))
             ),
             enc("{"),
             enc(&format!(r#"{{"port":58147,"fp":"{fp}","token":"{tok}"}}"#)),
-            enc(&format!(r#"{{"addr":"h","port":0,"fp":"{fp}","token":"{tok}"}}"#)),
-            enc(&format!(r#"{{"addr":"h","port":58147,"fp":"zz","token":"{tok}"}}"#)),
-            enc(&format!(r#"{{"addr":"h","port":58147,"fp":"{fp}","token":""}}"#)),
-            enc(&format!(r#"{{"addr":"h/x","port":58147,"fp":"{fp}","token":"{tok}"}}"#)),
+            enc(&format!(
+                r#"{{"addr":"h","port":0,"fp":"{fp}","token":"{tok}"}}"#
+            )),
+            enc(&format!(
+                r#"{{"addr":"h","port":58147,"fp":"zz","token":"{tok}"}}"#
+            )),
+            enc(&format!(
+                r#"{{"addr":"h","port":58147,"fp":"{fp}","token":""}}"#
+            )),
+            enc(&format!(
+                r#"{{"addr":"h/x","port":58147,"fp":"{fp}","token":"{tok}"}}"#
+            )),
         ];
         for c in bad {
             assert_eq!(decode_invite(&c), Err(Error::InvalidInvite), "{c}");

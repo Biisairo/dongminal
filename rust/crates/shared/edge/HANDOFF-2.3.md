@@ -28,9 +28,17 @@ TLS 는 rustls(ring)+rcgen, 인증서는 ECDSA P-256 PEM. 지문·edges.json 형
 | `error.rs` | `Error` enum, Display = Go 문구 | 초안 |
 | `config.rs` | `Edge`·`Config`(필드 순서 Go 와 같음, port 는 i64), `Store`(open·config·save·pin_helper·set_node·set_name·is_edge·resolve·can_add·add_edge·remove·set_address·apply_hello·set_pending_all·set_pending·path), `valid_name`·`default_name`·`display_name`·`valid_display_name`·`migrate_legacy_files`, `go_lower`·`equal_fold`, 깨진 파일 비켜 두기(`.bad-20060102T150405.000000000Z`). 끝에 `#[path = "config_tests.rs"] mod tests;` — **config_tests.rs 는 아직 없다** | 초안 |
 
+## 2차 세션에서 한 일 (wip 커밋)
+
+- `lib.rs` 작성(모듈 선언·재수출). 컴파일·clippy·fmt 통과, 초안 모듈 안 시험 18개 통과(격리 실행).
+- rand·rcgen·p256 API 는 컴파일로 확인됨(`rand::fill` 존재).
+- `config.rs` 끝의 `#[path = "config_tests.rs"] mod tests;` 는 **걷어 냈다**(빈 파일이 clippy 를 깨므로). 남은 일 2 에서 `config_tests.rs` 를 쓸 때 다시 붙인다.
+- 조정자 공지(토큰 소모로 포팅 일시 중지)로 여기서 멈췄다. 다음 세션은 남은 일 2 부터.
+
 ## 남은 일 (이 순서로)
 
-1. `lib.rs` 를 쓴다(모듈 선언·재수출). 컴파일·clippy 를 통과시킨다. rand 0.10 의 `rand::fill` 존재, `rcgen`·`p256` API 는 실제 소스(`~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/`)로 확인한다.
+
+1. ~~`lib.rs` 를 쓴다(모듈 선언·재수출). 컴파일·clippy 를 통과시킨다. rand 0.10 의 `rand::fill` 존재, `rcgen`·`p256` API 는 실제 소스(`~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/`)로 확인한다.~~ (끝남)
 2. `config_tests.rs`: Go `config_test.go`·`profile_test.go`(OpenStore 이하)·`pairing_simple_test.go`(TestLoadDropsLegacyPending·TestAddEdgeNamesMayRepeat·TestResolveByPrefix)·`mesh_store_test.go`(TestApplyHello·TestPendingPersists)·`migrate_test.go`·`edge_limit_test.go` 를 같은 입력·기대값으로 옮긴다. TestStoreSaveAndReload 는 Go json.Marshal 비교 → gocompat marshal 로 비교. 저장 파일이 Go `json.MarshalIndent(c,"","  ")` 바이트와 같은지 직접 확인하는 시험도 둔다(helperKey·pending omitempty).
 3. `identity.rs`: Go `identity.go` 포팅.
    - 생성: ECDSA P-256 키, 자기 서명, serial 128비트 난수(양수), Subject/Issuer CN=`dongminal node` 만, NotBefore=now-1h, NotAfter=NotBefore+87600h, KeyUsage DigitalSignature(critical), ExtKeyUsage serverAuth+clientAuth, BasicConstraints CA:FALSE. rcgen 은 기본 DN(`rcgen self signed cert`)을 비워야 한다.

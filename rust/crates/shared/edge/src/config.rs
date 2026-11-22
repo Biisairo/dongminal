@@ -66,7 +66,11 @@ pub fn valid_name(name: &str) -> Result<(), Error> {
     if name.is_empty() || name.chars().count() > NAME_MAX_LEN || name.len() > NAME_MAX_BYTES {
         return Err(Error::InvalidName);
     }
-    if name.chars().all(name_rune) { Ok(()) } else { Err(Error::InvalidName) }
+    if name.chars().all(name_rune) {
+        Ok(())
+    } else {
+        Err(Error::InvalidName)
+    }
 }
 
 fn name_rune(r: char) -> bool {
@@ -80,7 +84,11 @@ pub fn valid_display_name(name: &str) -> bool {
 
 /// 상대가 알린 이름이다. 규칙에 맞지 않으면 거절하지 않고 [`default_name`] 으로 고친다 (FR-EPR-8).
 pub fn display_name(name: &str) -> String {
-    if valid_display_name(name) { name.to_string() } else { default_name(name) }
+    if valid_display_name(name) {
+        name.to_string()
+    } else {
+        default_name(name)
+    }
 }
 
 /// hostname 을 FR-PFN-2 에 맞춘 이름이다. 허용하지 않는 글자는 `-` 로 바꾸고 길이 상한 안으로
@@ -94,7 +102,11 @@ pub fn default_name(hostname: &str) -> String {
         }
         out.push(r);
     }
-    if out.is_empty() { FALLBACK_NAME.to_string() } else { out }
+    if out.is_empty() {
+        FALLBACK_NAME.to_string()
+    } else {
+        out
+    }
 }
 
 fn default_config(hostname: &str) -> Config {
@@ -156,7 +168,9 @@ fn validate_edge(e: &Edge) -> Result<(), Error> {
 
 /// Go `strings.ToLower`: 글자마다 한 글자로 바꾼다(문맥 규칙 없음).
 pub(crate) fn go_lower(s: &str) -> String {
-    s.chars().map(|c| c.to_lowercase().next().unwrap_or(c)).collect()
+    s.chars()
+        .map(|c| c.to_lowercase().next().unwrap_or(c))
+        .collect()
 }
 
 /// Go `strings.EqualFold` 와 같이 글자마다 대소문자를 무시해 비교한다.
@@ -209,7 +223,10 @@ impl Store {
         let path = path.into();
         let def = default_config(hostname);
         let cfg = load(&path, &def).unwrap_or(def);
-        Self { path, cfg: Mutex::new(cfg) }
+        Self {
+            path,
+            cfg: Mutex::new(cfg),
+        }
     }
 
     pub fn path(&self) -> &Path {
@@ -217,7 +234,9 @@ impl Store {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, Config> {
-        self.cfg.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.cfg
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// 지금 값의 사본이다.
@@ -237,7 +256,11 @@ impl Store {
         validate(&c)?;
         let data = json::marshal_indent(&c, "", JSON_INDENT).map_err(|_| Error::SaveFailed)?;
         if let Err(e) = dm_shared_platform::write_file_atomic(&self.path, &data, FILE_MODE) {
-            dmlog::info(None, &format!("saveEdges: {}", dm_gocompat::oserr::go_error_string(&e)), &[]);
+            dmlog::info(
+                None,
+                &format!("saveEdges: {}", dm_gocompat::oserr::go_error_string(&e)),
+                &[],
+            );
             return Err(Error::SaveFailed);
         }
         *cur = c;
@@ -271,7 +294,11 @@ impl Store {
     /// 짝 fp 의 도우미 공개키를 고정한다. 이미 고정한 값은 바꾸지 않는다 (FR-PCH-74).
     pub fn pin_helper(&self, fp: &str, key: &str) -> Result<(), Error> {
         self.update(|c| {
-            for e in c.edges.iter_mut().filter(|e| e.fingerprint == fp && e.helper_key.is_empty()) {
+            for e in c
+                .edges
+                .iter_mut()
+                .filter(|e| e.fingerprint == fp && e.helper_key.is_empty())
+            {
                 e.helper_key = key.to_string();
             }
             Ok(())
@@ -333,7 +360,10 @@ impl Store {
             return Err(Error::EdgeNotFound);
         }
         let cfg = self.lock();
-        one(cfg.edges.iter().filter(|e| equal_fold(&e.name, name) && tag(&e.fingerprint) == num))
+        one(cfg
+            .edges
+            .iter()
+            .filter(|e| equal_fold(&e.name, name) && tag(&e.fingerprint) == num))
     }
 
     /// 지문 fp 의 간선을 더할 수 있는가다. 이미 있는 간선은 다시 맺을 수 있고, 새 간선은
@@ -362,7 +392,11 @@ impl Store {
     /// 지문이 fp 인 간선을 지운다.
     pub fn remove(&self, fp: &str) -> Result<(), Error> {
         self.update(|c| {
-            let i = c.edges.iter().position(|e| e.fingerprint == fp).ok_or(Error::EdgeNotFound)?;
+            let i = c
+                .edges
+                .iter()
+                .position(|e| e.fingerprint == fp)
+                .ok_or(Error::EdgeNotFound)?;
             c.edges.remove(i);
             Ok(())
         })
@@ -374,7 +408,11 @@ impl Store {
             return Err(Error::InvalidEdge);
         }
         self.update(|c| {
-            let e = c.edges.iter_mut().find(|e| e.fingerprint == fp).ok_or(Error::EdgeNotFound)?;
+            let e = c
+                .edges
+                .iter_mut()
+                .find(|e| e.fingerprint == fp)
+                .ok_or(Error::EdgeNotFound)?;
             e.addr = addr.to_string();
             e.port = port;
             Ok(())
@@ -384,7 +422,14 @@ impl Store {
     /// 간선 fp 가 보낸 직접 정보를 반영한다 (FR-EGM-21). 이름은 표시 이름 규칙으로 고쳐 쓴다.
     /// port 가 바를 때만 주소를 고친다 — addr 이 바르면 그 값, 아니면 지금 주소, 그것도 없으면
     /// 출발지 remote_host 다. 바뀐 것이 있으면 저장하고 참이다.
-    pub fn apply_hello(&self, fp: &str, name: &str, addr: &str, port: i64, remote_host: &str) -> Result<bool, Error> {
+    pub fn apply_hello(
+        &self,
+        fp: &str,
+        name: &str,
+        addr: &str,
+        port: i64,
+        remote_host: &str,
+    ) -> Result<bool, Error> {
         self.change(fp, |e| {
             if !name.is_empty() {
                 e.name = display_name(name);
@@ -429,7 +474,11 @@ fn one<'a>(mut it: impl Iterator<Item = &'a Edge>) -> Result<Edge, Error> {
 }
 
 fn can_add(edges: &[Edge], fp: &str) -> Result<(), Error> {
-    if edges.len() < MAX_EDGES || edges.iter().any(|e| e.fingerprint == fp) { Ok(()) } else { Err(Error::EdgeLimit) }
+    if edges.len() < MAX_EDGES || edges.iter().any(|e| e.fingerprint == fp) {
+        Ok(())
+    } else {
+        Err(Error::EdgeLimit)
+    }
 }
 
 fn load(path: &Path, def: &Config) -> Option<Config> {
@@ -440,7 +489,10 @@ fn load(path: &Path, def: &Config) -> Option<Config> {
                 let e = dm_gocompat::oserr::path_error("open", &path.to_string_lossy(), e);
                 dmlog::info(
                     None,
-                    &format!("loadEdges: {} — 노드 기능을 끈 채로 시작한다", dm_gocompat::oserr::go_error_string(&e)),
+                    &format!(
+                        "loadEdges: {} — 노드 기능을 끈 채로 시작한다",
+                        dm_gocompat::oserr::go_error_string(&e)
+                    ),
                     &[],
                 );
             }
@@ -469,7 +521,14 @@ fn load(path: &Path, def: &Config) -> Option<Config> {
             pending: e.pending,
         })
         .collect();
-    let c = Config { enabled: f.enabled, port: f.port, bind: f.bind, name: f.name, advertise: f.advertise, edges };
+    let c = Config {
+        enabled: f.enabled,
+        port: f.port,
+        bind: f.bind,
+        name: f.name,
+        advertise: f.advertise,
+        edges,
+    };
     let mut c = fill_defaults(c, def);
     if valid_name(&c.name).is_err() {
         c.name = default_name(&c.name);
@@ -487,7 +546,10 @@ fn move_broken(path: &Path, cause: &str) {
     match std::fs::rename(path, &bad) {
         Ok(()) => dmlog::warn(
             None,
-            &format!("loadEdges: {cause} — 깨진 파일을 {} 로 옮기고 노드 기능을 끈 채로 시작한다", bad.display()),
+            &format!(
+                "loadEdges: {cause} — 깨진 파일을 {} 로 옮기고 노드 기능을 끈 채로 시작한다",
+                bad.display()
+            ),
             &[],
         ),
         Err(e) => {
@@ -531,25 +593,34 @@ pub fn migrate_legacy_files(dir: &Path) -> io::Result<()> {
         if let Err(e) = std::fs::remove_file(&p)
             && e.kind() != io::ErrorKind::NotFound
         {
-            return Err(dm_gocompat::oserr::path_error("remove", &p.to_string_lossy(), e));
+            return Err(dm_gocompat::oserr::path_error(
+                "remove",
+                &p.to_string_lossy(),
+                e,
+            ));
         }
     }
     let cur = dir.join(dmenv::EDGES_FILE);
     match std::fs::metadata(&cur) {
         Ok(_) => return Ok(()),
         Err(e) if e.kind() != io::ErrorKind::NotFound => {
-            return Err(dm_gocompat::oserr::path_error("stat", &cur.to_string_lossy(), e));
+            return Err(dm_gocompat::oserr::path_error(
+                "stat",
+                &cur.to_string_lossy(),
+                e,
+            ));
         }
         Err(_) => {}
     }
     let legacy = dir.join(dmenv::LEGACY_PEERS_FILE);
     match std::fs::rename(&legacy, &cur) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(dm_gocompat::oserr::link_error("rename", &legacy.to_string_lossy(), &cur.to_string_lossy(), e)),
+        Err(e) => Err(dm_gocompat::oserr::link_error(
+            "rename",
+            &legacy.to_string_lossy(),
+            &cur.to_string_lossy(),
+            e,
+        )),
         Ok(()) => Ok(()),
     }
 }
-
-#[cfg(test)]
-#[path = "config_tests.rs"]
-mod tests;

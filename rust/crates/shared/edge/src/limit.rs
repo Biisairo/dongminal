@@ -32,7 +32,11 @@ impl RateLimiter {
     pub fn new(now: Clock) -> Self {
         Self {
             now,
-            state: Mutex::new(State { hits: HashMap::new(), last_sweep: OffsetDateTime::UNIX_EPOCH, sweeps: 0 }),
+            state: Mutex::new(State {
+                hits: HashMap::new(),
+                last_sweep: OffsetDateTime::UNIX_EPOCH,
+                sweeps: 0,
+            }),
         }
     }
 
@@ -40,7 +44,10 @@ impl RateLimiter {
     pub fn allow(&self, key: &str) -> bool {
         let now = (self.now)();
         let cut = now - RATE_WINDOW;
-        let mut st = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut st = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if st.hits.len() >= RATE_SWEEP_AT && now >= st.last_sweep + RATE_WINDOW {
             st.last_sweep = now;
             st.sweeps += 1;
