@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // REFACTOR3_DEDUP_GO_SRS FR-RDG-61: worktree·submodule 의 runGit 은 이 함수 하나다.
@@ -55,9 +56,31 @@ func TestExecUnguardedText(t *testing.T) {
 
 // FR-RDG-61: 새 진입점도 호출처 게이트(FR-GXU-12)의 대상이다.
 func TestUnguardedCallPatternCoversText(t *testing.T) {
-	for _, s := range []string{`svc.` + `ExecUnguarded(ctx`, `svc.` + `ExecUnguardedText(ctx`} {
+	for _, s := range []string{`svc.` + `ExecUnguarded(ctx`, `svc.` + `ExecUnguardedText(ctx`,
+		`svc.` + `UnguardedTextRunner(opTimeout`} {
 		if !unguardedCall.MatchString(s) {
 			t.Fatalf("게이트가 놓친다: %s", s)
 		}
+	}
+}
+
+// QUALITY_GO_SRS FR-QG-50 (PROD3 GD-3): worktree·submodule 의 감싸개는 이 실행기 하나다.
+// 마감·사유는 spec 으로, 위치 인자는 argv 로 간다. 결과는 ExecUnguardedText 와 같다.
+func TestUnguardedTextRunner(t *testing.T) {
+	var gotArgv []string
+	svc := New(WithWriteRunner(func(_ context.Context, _ string, argv []string, _ string) (Output, error) {
+		gotArgv = argv
+		return Output{Stdout: " a\n"}, nil
+	}))
+	run := svc.UnguardedTextRunner(time.Minute, "시험", func(err error) error { return err }, strings.TrimSpace)
+	got, err := run(context.Background(), absRepo, "status", "--porcelain")
+	if err != nil || got != "a" || strings.Join(gotArgv, " ") != "status --porcelain" {
+		t.Fatalf("= %q, %v, argv %v", got, err, gotArgv)
+	}
+	// 사유가 비면 ExecUnguarded 와 같이 거부한다.
+	var nilSvc *Service
+	if _, err := nilSvc.UnguardedTextRunner(0, "", func(err error) error { return err }, strings.TrimSpace)(
+		context.Background(), absRepo, "status"); !errors.Is(err, ErrUnsafeArgument) {
+		t.Fatalf("사유 없음 = %v", err)
 	}
 }

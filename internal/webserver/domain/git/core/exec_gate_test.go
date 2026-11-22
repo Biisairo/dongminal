@@ -32,7 +32,7 @@ var gitLookPath = regexp.MustCompile(`exec\.` + `LookPath\(` + gitLiteral + `\)`
 // unguardedCall 은 인가를 건너뛰는 진입점의 **호출**만 잡는다. 주석 안의 이름은
 // 괄호가 없으므로 걸리지 않는다. `ExecUnguardedText` 도 같은 진입점이다
 // (REFACTOR3_DEDUP_GO_SRS FR-RDG-61 — worktree·submodule 이 이것으로 부른다).
-var unguardedCall = regexp.MustCompile(`\.` + `ExecUnguarded(Text)?\(`)
+var unguardedCall = regexp.MustCompile(`\.` + `(ExecUnguarded(Text)?|UnguardedTextRunner)\(`)
 
 // envLiteral 은 실행 환경 규약을 지나는지 보는 표식이다. core 안에서는 `Env()`,
 // 밖에서는 `core.Env()` 이므로 접미만 본다.

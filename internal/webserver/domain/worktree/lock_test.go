@@ -163,10 +163,10 @@ func TestRunner_ReceivesCallerContext(t *testing.T) {
 	}
 }
 
-// runGit 은 core 의 분류를 %w 로 보존한다 — apierr·lock 판정이 sentinel 을 본다.
+// gitRunner 는 core 의 분류를 %w 로 보존한다 — apierr·lock 판정이 sentinel 을 본다.
 func TestRunGit_PreservesCoreSentinel(t *testing.T) {
 	gitPath(t)
-	_, err := runGit(context.Background(), nil, t.TempDir(), "status")
+	_, err := execGit(context.Background(), t.TempDir(), "status")
 	if !errors.Is(err, core.ErrNotRepo) {
 		t.Fatalf("= %v, want core.ErrNotRepo 보존", err)
 	}

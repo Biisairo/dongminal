@@ -43,7 +43,7 @@ func TestRunGit_PreservesCoreSentinel(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git 이 없다")
 	}
-	_, err := runGit(context.Background(), nil, t.TempDir(), "status")
+	_, err := ExecGit(context.Background(), t.TempDir(), "status")
 	if !errors.Is(err, core.ErrNotRepo) {
 		t.Fatalf("= %v, want core.ErrNotRepo 보존", err)
 	}

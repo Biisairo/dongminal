@@ -286,25 +286,23 @@ ExecGit 는 Service 없이 도는 기본 Runner 다. 기록이 남지 않을 뿐
 실패에서는 두 스트림을 모아 드는 것이 요점이다 — 서브모듈 조작의 진단은 stderr 로
 나오며, 그것을 버리면 "왜 실패했는가" 가 통째로 사라진다. 성공은 stdout 만이다.
 
-**출력의 앞을 다듬지 않는다.** `worktree.runGit` 는 `TrimSpace` 하지만 그것을
+**출력의 앞을 다듬지 않는다.** `worktree.gitRunner` 는 `TrimSpace` 하지만 그것을
 그대로 베끼면 안 된다 — `submodule status` 는 **첫 글자가 상태**이고(FR-SUB-2),
 `ok` 상태의 접두는 공백이다. 앞을 다듬으면 그 줄들의 첫 글자가 해시가 되어 전부
 버려진다. 실측으로 잡은 결함이며, Runner 를 주입한 단위 시험은 이것을 볼 수 없다
 — 그래서 `TestExecGitKeepsLeadingSpace` 가 이 경로 자신을 시험한다.
 */
 func ExecGit(ctx context.Context, dir string, args ...string) (string, error) {
-	return runGit(ctx, nil, dir, args...)
+	return gitRunner(nil)(ctx, dir, args...)
 }
 
 // RunnerFor 는 실행 기록을 core 와 공유하는 Runner 를 만든다 (FR-GXU-10).
 // 이것을 쓰지 않으면 이 패키지의 실행은 Console 에 보이지 않는다.
 func RunnerFor(svc *core.Service) Runner {
-	return func(ctx context.Context, dir string, args ...string) (string, error) {
-		return runGit(ctx, svc, dir, args...)
-	}
+	return gitRunner(svc)
 }
 
-// runGit 은 이 패키지의 유일한 git 실행이다 (GIT_EXEC_UNIFY_SRS FR-GXU-7).
+// gitRunner 는 이 패키지의 유일한 git 실행이다 (GIT_EXEC_UNIFY_SRS FR-GXU-7).
 //
 // **인가는 이 패키지가 진다** — `checkRepo`·`checkPath`·`--` 규약이 그것이며,
 // core 의 화이트리스트는 지나지 않는다 (패키지 주석의 D-9 근거). core 로 가는
@@ -317,14 +315,11 @@ func RunnerFor(svc *core.Service) Runner {
 //
 // 뒤의 개행만 다듬는다 — 파싱이 줄 단위이므로 끝의 빈 줄은 뜻이 없다.
 // **앞은 손대지 않는다** (위 FR-SUB-2). 실행·결합·감싸기는 worktree 와 같은 한
-// 자리(core.ExecUnguardedText)다 (FR-OPT-7-2 · REFACTOR3_DEDUP_GO_SRS FR-RDG-61):
-// 성공은 stdout 만, 실패는 stdout 다음 stderr.
-func runGit(ctx context.Context, svc *core.Service, dir string, args ...string) (string, error) {
-	return svc.ExecUnguardedText(ctx, dir, core.UnguardedSpec{
-		Argv:    args,
-		Timeout: opTimeout,
-		Reason:  UnguardedReason,
-	}, gitMissing, trimTrailingNewlines)
+// 자리(core.UnguardedTextRunner)다 (FR-OPT-7-2 · REFACTOR3_DEDUP_GO_SRS FR-RDG-61 ·
+// QUALITY_GO_SRS FR-QG-50): 성공은 stdout 만, 실패는 stdout 다음 stderr. svc 가 nil 이면
+// 기록 없이 돈다.
+func gitRunner(svc *core.Service) Runner {
+	return svc.UnguardedTextRunner(opTimeout, UnguardedReason, gitMissing, trimTrailingNewlines)
 }
 
 func gitMissing(err error) error {
