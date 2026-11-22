@@ -66,7 +66,7 @@ Component                    core/base/component.js     수명 주기(dispose) �
 │       ├─ GitStash·GitBranches·GitHistory·GitRemoteList·GitConsole·GitCommit
 │       └─ GitListTab        git/git-list-tab.js        (GitWorktrees·GitSubmodules 가 하위)
 ├─ GitPart                   git/git-part.js            GitPanel 의 부품 — GitPoll·GitChanges·GitViews·GitWrite … (목록은 git/panel.js 머리 주석)
-└─ Controller                core/base/controller.js    화면 없는 조정자 · 앱 참조 · 수명 · 위임자 표(Controller.delegate)
+└─ Controller                core/base/controller.js    화면 없는 조정자 · 앱 참조 · 수명
     └─ LayoutController·SlotsController·ToolController·EditorController·MobileController·SettingsController … (core/*-controller.js 와 그 부품)
 
 App                          core/app.js                부품을 만들어 들고 서로 잇는 조립자

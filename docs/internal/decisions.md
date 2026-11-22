@@ -1344,7 +1344,7 @@
 | `D-DLG-6` | 부품 사이의 호출(FileTree·TerminalTool·GitPanel 부품)도 소유 경로로 부른다 — `this.tree.loader.reload()` | D-FR5-8 은 부품끼리 원형을 지나야 갈아 끼운 것을 본다고 했다. 이제 시험이 소유 부품을 갈아 끼우므로 소유 경로가 그것을 본다 | 채택 |
 | `D-DLG-7` | 기계 변환(TypeScript 파서 codemod)으로 바꾸고, 수신자의 종류를 모르는 자리는 사람이 파일을 보고 정한다 | 이름 가운데 `split`·`save`·`paint`·`init`·`reload`·`refresh`·`load` 처럼 흔한 것이 있어 글자 바꾸기로는 문자열·다른 객체의 같은 이름을 건드린다. 수신자가 주인일 때만 바꾼다 | 채택 |
 | `D-DLG-8` | 게이트의 예외 표: `FileEditor.note`·`FileEditor.offer`(→ `notice`) · `GitRemote.run`(→ `router`, REST3 FU-12 의 공개 입구) · `DocRender.focus`(→ DOM 요소의… | 범위 밖의 것을 게이트가 막으면 게이트를 끄게 된다. 이름 단위로 적어 새 위반은 잡는다 | 채택 |
-| `D-DLG-9` | `Controller.delegate` 정적 메서드와 그 단위 시험을 지운다(예외 표가 비면) | 쓰는 곳이 없어진 코드다. 게이트가 같은 꼴의 재도입을 막는다. 이 작업 트리에서는 FileTree 표(DL-7)가 아직 써서 남긴다 — DL-7 을 합칠 때 지운다 | 채택 |
+| `D-DLG-9` | `Controller.delegate` 정적 메서드와 그 단위 시험을 지운다(예외 표가 비면) | 쓰는 곳이 없어진 코드다. 게이트가 같은 꼴의 재도입을 막는다. DL-7 을 합친 뒤 지웠다(§6) | 채택 |
 | `D-DLG-10` | 위임자를 지운 뒤 지연 생성 접근자 `_lspClient`·`_runsPanel` 을 `lspClient`·`runsPanel` 로 승격한다 | 옛 위임자(`lspClickDef` 등)는 공개 이름이었는데, `ui/`·`git/` 이 `app._lspClient()` 로 부르면 계층 경계 게이트(`check-layer.sh`, FR-FMB-40)가 막는다. 경계를 넘는 이름은 승격하는 것이 규… | 채택 |
 | `D-DLG-11` | 주인이 없을 수 있는 자리의 존재 확인(`if(app&&app.edDoc)`·`typeof app.attnUserIsWatching`)은 소유 경로의 첫 마디 뒤에 `?.` 를 넣는다(`app.editor?.doc.edDoc`). 부름 자체는 `?.`… | 그 확인은 앱이 덜 선 페이지(문서 렌더·편집기를 홀로 싣는 e2e 하네스·단위 시험의 대역)를 위한 것이다. 확인이 주인의 부재에서 던지면 가드가 뜻을 잃는다. 본 앱에서는 주인이 늘 있으므로 동작은 같다 | 채택 |
 | `D-DLG-12` | 단위 시험 하네스 `controllers()` 는 싣지 않은 뿌리 컨트롤러를 빈 주인(부품 필드 포함)으로 세운다 | 시험의 대역이 소유 경로(`app.git.plainWindows = …`)에 들어갈 자리가 있어야 한다. 실은 컨트롤러는 종전처럼 진짜로 선다 | 채택 |

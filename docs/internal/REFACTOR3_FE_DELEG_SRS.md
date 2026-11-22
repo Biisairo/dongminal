@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 위임자 걷기 — 컨트롤러·부품의 옛 이름을 부르는 쪽에서 새 경로로 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: DL-3(GitPanel)·DL-7(FileTree) — 다른 작업 트리에서 병렬 진행 중. 합친 뒤 D-DLG-9(`Controller.delegate` 삭제)와 게이트 기준선 제거(§6)
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-22. 리팩토링 3차의 마지막 구조 부채다. 근거: `REFACTOR3_FE_APPCTL_SRS` FR-FEA-4(위임자 표) · `REFACTOR3_FE_GITPANEL_SRS` FR-FEP-4·5(패널 본문의 위임자) · `REFACTOR3_FE_SETTINGS_SRS` FR-FES-9(섹션 위임자) · `REFACTOR3_FE_REST5_SRS` §1.3·D-FR5-8·D-FR5-9(FileTree·TerminalTool 부품 표) · `REFACTOR_PROD3_HANDOFF_4.md` §4("위임자 제거는 다음 리팩토링이다").
 - 사용자 결정: "알아서 끝까지". 큰 일은 범위를 줄이지 않고 하위 이슈로 나눈다. 하위 이슈 하나가 끝나면 커밋한다. 동작은 바꾸지 않는다.
@@ -110,7 +109,7 @@ P3a 단계 7·8·9 와 REST5 는 App·GitPanel·FileTree·TerminalTool 의 메�
 | D-DLG-6 | 부품 사이의 호출(FileTree·TerminalTool·GitPanel 부품)도 소유 경로로 부른다 — `this.tree.loader.reload()` | D-FR5-8 은 부품끼리 원형을 지나야 갈아 끼운 것을 본다고 했다. 이제 시험이 소유 부품을 갈아 끼우므로 소유 경로가 그것을 본다 |
 | D-DLG-7 | 기계 변환(TypeScript 파서 codemod)으로 바꾸고, 수신자의 종류를 모르는 자리는 사람이 파일을 보고 정한다 | 이름 가운데 `split`·`save`·`paint`·`init`·`reload`·`refresh`·`load` 처럼 흔한 것이 있어 글자 바꾸기로는 문자열·다른 객체의 같은 이름을 건드린다. 수신자가 주인일 때만 바꾼다 |
 | D-DLG-8 | 게이트의 예외 표: `FileEditor.note`·`FileEditor.offer`(→ `notice`) · `GitRemote.run`(→ `router`, REST3 FU-12 의 공개 입구) · `DocRender.focus`(→ DOM 요소의 `focus`, 부품이 아니다). 이 SRS 범위 밖(§1.4)의 전달 메서드다 | 범위 밖의 것을 게이트가 막으면 게이트를 끄게 된다. 이름 단위로 적어 새 위반은 잡는다 |
-| D-DLG-9 | `Controller.delegate` 정적 메서드와 그 단위 시험을 지운다(예외 표가 비면) | 쓰는 곳이 없어진 코드다. 게이트가 같은 꼴의 재도입을 막는다. 이 작업 트리에서는 FileTree 표(DL-7)가 아직 써서 남긴다 — DL-7 을 합칠 때 지운다 |
+| D-DLG-9 | `Controller.delegate` 정적 메서드와 그 단위 시험을 지운다(예외 표가 비면) | 쓰는 곳이 없어진 코드다. 게이트가 같은 꼴의 재도입을 막는다. DL-7 을 합친 뒤 지웠다(§6) |
 | D-DLG-10 | 위임자를 지운 뒤 지연 생성 접근자 `_lspClient`·`_runsPanel` 을 `lspClient`·`runsPanel` 로 승격한다 | 옛 위임자(`lspClickDef` 등)는 공개 이름이었는데, `ui/`·`git/` 이 `app._lspClient()` 로 부르면 계층 경계 게이트(`check-layer.sh`, FR-FMB-40)가 막는다. 경계를 넘는 이름은 승격하는 것이 규약이다. 계약 키 `runsPanel` 은 그대로다 |
 | D-DLG-11 | 주인이 없을 수 있는 자리의 존재 확인(`if(app&&app.edDoc)`·`typeof app.attnUserIsWatching`)은 소유 경로의 첫 마디 뒤에 `?.` 를 넣는다(`app.editor?.doc.edDoc`). 부름 자체는 `?.` 없이 쓴다 | 그 확인은 앱이 덜 선 페이지(문서 렌더·편집기를 홀로 싣는 e2e 하네스·단위 시험의 대역)를 위한 것이다. 확인이 주인의 부재에서 던지면 가드가 뜻을 잃는다. 본 앱에서는 주인이 늘 있으므로 동작은 같다 |
 | D-DLG-12 | 단위 시험 하네스 `controllers()` 는 싣지 않은 뿌리 컨트롤러를 빈 주인(부품 필드 포함)으로 세운다 | 시험의 대역이 소유 경로(`app.git.plainWindows = …`)에 들어갈 자리가 있어야 한다. 실은 컨트롤러는 종전처럼 진짜로 선다 |
@@ -141,13 +140,16 @@ P3a 단계 7·8·9 와 REST5 는 App·GitPanel·FileTree·TerminalTool 의 메�
 | DL-6 | `98a81965` | 채팅·활동·모바일·상태바·알림·계정 92. 홀로 실리는 `term-output.js`·`term-clipboard.js` 의 가드는 주인 부재를 견딘다 |
 | DL-5 | `7267abdc` | 도구·편집기·Repo 창·LSP·Run 154. `lspClient`·`runsPanel` 승격(D-DLG-10), 가드의 `?.`(D-DLG-11) |
 | DL-4 | `352958af` | 레이아웃·슬롯·포커스·동기화 147. 옛 위임자를 말하던 코드 주석을 지금 모양으로 |
-| DL-9 | `e6b2da61`…(이 커밋) | 게이트 `check-delegates.mjs`(+ 단위 시험 다섯, `make gates`·CI 연결) · 문서(`architecture.md`·`FE_OBJECT_MODEL.md`·PROD3 §7.1·CHANGELOG) |
+| DL-9 | `e6b2da61` · `4e37272d` | 게이트 `check-delegates.mjs`(+ 단위 시험 다섯, `make gates`·CI 연결) · 문서(`architecture.md`·`FE_OBJECT_MODEL.md`·PROD3 §7.1·CHANGELOG) |
 | DL-3 | `7c041bf7` · `584b0771` · `a8bf84df` | GitPanel 본문의 위임자 162(메서드 157 · 정적 `headHTML` · 접근자 `_hunkBarEd`·`_hunkBarPos`·`_fileView`·`_knownRefs`)를 세 묶음(43 · 53 · 66)으로 걷었다. 남긴 것 없음. 부르는 쪽은 `panel.<부품>.X`, 부품 안의 자기 이름은 `this.X`, 다른 부품은 `this.p.<부품>.X`, `_watchdog()` 은 `watchdog.run()`, `GitPanel.headHTML` 은 `GitChanges.headHTML` 이다. e2e 의 문자열 `evaluate`(`git-observe-revive`·`git-live-triggers`)도 옮겼다. 갈아 끼우는 시험은 부품 인스턴스를 갈아 끼운다(`git-polling` 의 `changes._paint`, `git-menu-targets` 의 `files`). `git-panel-parts` 의 위임자 단정은 TC-DLG-1·2 로 바꿨다. 관측 통로 24쌍은 범위 밖(§1.4)이라 남는다 |
 | DL-7 | `0f561034` | FileTree 위임자 96개와 `Controller.delegate(FileTree, …)` 표 8개를 지웠다. 부품 안의 호출 269곳을 바꿨다: 제 이름은 `this.X`, 다른 부품의 이름은 `this.tree.<부품>.X`, 탐색기 본체는 `this.<부품>.X` 로 부른다. 관측(`file-tree-store.js`)은 보는 탐색기의 `painter.paint`·`loader.reload` 를 부른다. 앱 코드 6파일(`editor-file`·`editor-open`·`editor-pane`·`focus-highlight`·`soft-reload`·`git/git-diff-pane`)은 `tree.loader.X`·`tree.selector.X` 를 부른다. e2e 7 spec 은 트리 핸들의 부품 경로를 부른다. 단위 시험: `file-tree-surface` 를 다시 썼다 — 원형 이름 25개, TC-DLG-1(부품 이름 96개가 부품 원형에만 있다), TC-DLG-2(부품 안·부품 사이·관측의 호출이 부품 인스턴스에 갈아 끼운 것을 본다). `explorer-clip`·`file-tree-mark` 는 부품 인스턴스를 갈아 끼우고, `file-tree-store`·`editor-git-changed`·`app-controllers`(2줄)의 가짜 트리는 부품 모양을 갖는다. 남긴 위임자는 없다 |
 
-**수.** 위임자 768 → 258(GitPanel 162 · FileTree 96, 병렬 진행 중). App 490 · TerminalTool 20 은 0.
+| 합침 | `ba8b72b1` · `a964d2d6` | DL-3·DL-7 작업 트리를 main 에 합쳤다. 충돌은 양쪽 변경을 모두 살렸다: 한 줄에 App 이름과 패널·트리 이름이 함께 있으면 둘 다 소유 경로로 (`this.app.repoWin.gitDiffOpen(this.p.root,this.p.selection._diffTarget(),…)`). DL-7 쪽은 패널·트리 쪽을 받고 App 쪽은 codemod 를 다시 돌려 옮겼다. DL-7 의 가짜 앱 하나(`file-tree-surface` 의 `edWatchSync`)는 소유 경로로 |
+| 정리 | `3eba528c` · (이 커밋) | D-DLG-9: `Controller.delegate` 정적 메서드와 TC-FEA-1 을 지웠다. 게이트의 병렬 진행 중 기준선(`PENDING`)을 지웠다 — 이제 `Controller.delegate(` 하나부터 잡는다(TC-DLG-4). 문서(`architecture.md`·`FE_OBJECT_MODEL.md`·README·PROD3 §7.1) |
 
-**남긴 위임자.** 없다(App·TerminalTool). 게이트 예외 넷(D-DLG-8)은 이 SRS 가 세는 위임자가 아니다.
+**수.** 위임자 768 → 0. App 490 · GitPanel 162 · FileTree 96 · TerminalTool 20.
+
+**남긴 위임자.** 없다. 게이트 예외 넷(D-DLG-8)은 이 SRS 가 세는 위임자가 아니다.
 
 ## 부록 A. 위임자 표 (HEAD `9a3d8e30`)
 

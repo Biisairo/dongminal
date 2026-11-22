@@ -208,7 +208,8 @@ App 원형에 위임자를 두지 않는다(`REFACTOR3_FE_DELEG_SRS`, 게이트 
 
 **`GitPanel` 도 부품으로 나뉘었다** (`REFACTOR3_FE_GITPANEL_SRS`). 부품은 `GitPart` 하위이고
 패널이 필드로 든다(`this.poll`·`this.changes`·`this.views` 등 — 목록은 `git/panel.js` 머리 주석).
-본체에는 생성자·접근자·리포 전환과 수명·부품 위임자만 있다. 접근자가 본체에 있는 이유는
+본체에는 생성자·접근자·리포 전환과 수명만 있다. 바깥은 `panel.<부품>.X`, 부품 안의 자기 이름은 `this.X`, 다른 부품은
+`this.p.<부품>.X` 로 부른다 — 패널에 위임자를 두지 않는다(`REFACTOR3_FE_DELEG_SRS`). 접근자가 본체에 있는 이유는
 `Object.assign` 이 getter 를 값으로 복사하기 때문이다 — 접근자는 값이 아니라 **자리**를 빌려 온다.
 
 **`FileTree` 도 부품으로 나뉘었다** (`REFACTOR3_FE_REST5_SRS` R5d — 종전에는 주제별 파일이
@@ -216,8 +217,9 @@ App 원형에 위임자를 두지 않는다(`REFACTOR3_FE_DELEG_SRS`, 게이트 
 선택·클릭·펼침(`FileTreeSelect`) · 항목·그리기(`FileTreePaint`) · 키(`FileTreeKeys`) · 사각형 선택(`FileTreeMarquee`) ·
 생성·이름 변경·삭제(`FileTreeEdit`) · 업로드·우클릭·끌어 놓기(`FileTreeXfer`) · 다운로드(`FileTreeDownload`) — 을 생성자가
 만들어 든다(`this.loader`·`this.painter` 등, 목록은 `ui/file-tree.js` 머리 주석). **상태는 인스턴스에 남는다** — 부품은
-`this.tree` 로 읽고 쓰고, 탐색기의 이름을 전부 `this.tree.X` 로 부른다. 부품 파일 끝의 위임자 표(`Controller.delegate`)가
-부품의 이름을 원형에 두므로 앱·렌더러·e2e·시험은 종전 이름 그대로 부르고 갈아 끼운다. `FileTreeStore` 로 가는 통로인
+`this.tree` 로 읽고 쓴다. 부품의 이름은 탐색기 원형에 없다 — 앱·렌더러·e2e·시험은 `tree.loader.reload()` 처럼
+부품을 부르고 부품 인스턴스를 갈아 끼운다. 부품 안의 자기 이름은 `this.X`, 다른 부품은 `this.tree.<부품>.X` 다
+(`REFACTOR3_FE_DELEG_SRS`). `FileTreeStore` 로 가는 통로인
 접근자와 정적 넷(`FileTree._asUploadItems` 등)은 클래스 본문에 있다.
 
 **CSS 도 같은 문제를 다르게 푼다.** `style.css` 는 여럿으로 갈렸고 `<link>` 순서가
