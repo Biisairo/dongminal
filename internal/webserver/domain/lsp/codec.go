@@ -20,6 +20,16 @@ import (
 // 고정값은 텍스트 상한이 32 MiB 가 되면 didOpen 한 프레임을 담지 못한다.
 var maxFrame = int(editorlimit.BodyMaxBytes(int64(MaxTextBytes)))
 
+// maxHeaderLine·maxHeaderBytes 는 헤더 한 줄(줄바꿈 포함)과 프레임 하나의 헤더 총량의
+// 상한이다 (FR-ATF-29). LSP 헤더는 Content-Length·Content-Type 두 줄이 전부라 넉넉하다.
+const (
+	maxHeaderLine  = 1024
+	maxHeaderBytes = 8 * maxHeaderLine
+)
+
+// ErrHeaderTooLarge 는 헤더가 상한을 넘었다는 뜻이다. 통로는 그 연결을 닫는다.
+var ErrHeaderTooLarge = errors.New("lsp: header too large")
+
 // LSP 의 전송은 HTTP 를 닮은 헤더와 본문이다:
 //
 //	Content-Length: 42\r\n
@@ -45,8 +55,9 @@ func writeFrame(w io.Writer, body []byte) error {
 // 프레임이 어긋나고, 그 증상은 "언어 서버가 답하지 않는다" 로 보인다.
 func readFrame(r *bufio.Reader) ([]byte, error) {
 	n := -1
+	left := maxHeaderBytes
 	for {
-		line, err := r.ReadString('\n')
+		line, err := readHeaderLine(r, &left)
 		if err != nil {
 			return nil, err
 		}
@@ -81,4 +92,28 @@ func readFrame(r *bufio.Reader) ([]byte, error) {
 		return nil, err
 	}
 	return body, nil
+}
+
+// readHeaderLine 은 헤더 한 줄을 줄바꿈까지 읽는다. 줄이 maxHeaderLine 을, 프레임의
+// 헤더 누적이 left 를 넘으면 ErrHeaderTooLarge 다.
+//
+//	이전 동작: 줄바꿈이 올 때까지 상한 없이 읽었다
+//	새  동작: 줄·총량 상한을 넘으면 오류 — 통로가 연결을 닫는다
+//	이유:     FR-ATF-29 (AT-LSP-1)
+func readHeaderLine(r *bufio.Reader, left *int) (string, error) {
+	var line []byte
+	for {
+		c, err := r.ReadByte()
+		if err != nil {
+			return "", err
+		}
+		line = append(line, c)
+		*left--
+		if len(line) > maxHeaderLine || *left < 0 {
+			return "", ErrHeaderTooLarge
+		}
+		if c == '\n' {
+			return string(line), nil
+		}
+	}
 }
