@@ -136,6 +136,17 @@ func (s *Service) evictLocked() bool {
 			pinned[r.body.Creator], pinned[r.body.PeerNode] = true, true
 		}
 	}
+	// 나간 개인채팅의 기록을 가진 노드도 잊지 않는다 — 잊으면 left 가 지워지고, 그 노드가 돌아와
+	// 방을 다시 말할 때 자동으로 들어간다 (FR-ATF-52).
+	for _, p := range s.parts {
+		for id := range p.left {
+			for fp, n := range s.nodes {
+				if _, ok := n.rooms[id]; ok {
+					pinned[fp] = true
+				}
+			}
+		}
+	}
 	victim := ""
 	var at time.Time
 	for fp, r := range s.nodes {

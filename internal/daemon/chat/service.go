@@ -499,7 +499,21 @@ func (s *Service) changedLocked() {
 			break
 		}
 	}
+	s.pruneLeftLocked()
 	s.announceLocked()
+}
+
+// pruneLeftLocked 는 어느 노드의 상태에도 생성 기록이 남지 않은 방을 left 에서 지운다
+// (FR-ATF-52). 닿지 않는 노드의 상태도 기록을 가진 것으로 친다 — 그 노드가 돌아와 방을 다시 말하면
+// 자동으로 들어가지 않아야 한다.
+func (s *Service) pruneLeftLocked() {
+	for _, p := range s.parts {
+		for id := range p.left {
+			if _, ok := s.recordLocked(id); !ok {
+				delete(p.left, id)
+			}
+		}
+	}
 }
 
 // announceLocked 는 자기 상태의 내용이 바뀌었을 때만 새 노드 상태 알림을 만들어 모든 연결로

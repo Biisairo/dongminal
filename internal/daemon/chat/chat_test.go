@@ -848,3 +848,57 @@ func TestChangedNotifies(t *testing.T) {
 	b.Register("b/y", KindAgent)
 	eventually(t, "남의 상태 알림", func() bool { return count() > before+1 })
 }
+
+func leftCount(s *testNode, pid string) int {
+	s.Service.mu.Lock()
+	defer s.Service.mu.Unlock()
+	return len(s.parts[pid].left)
+}
+
+// TC-ATF-52 (FR-ATF-52): 나간 개인채팅은 상대 노드 상태에 남아 있는 동안 다시 들어가지 않고,
+// 상대 노드 상태에서 사라지면 left 에서도 지운다.
+func TestLeftDirectForgottenWhenGone(t *testing.T) {
+	a := newTestNode(t, "a")
+	pa := a.Register("a/x", KindAgent)
+	f := newFakePeer(t, a)
+	owner := f.pid("o")
+	rec, err := newRecord(f.id, recordBody{Kind: KindDirect, Owner: owner, Peer: pa.ID, PeerNode: a.fp(), Created: time.Now(), Nonce: "n1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inRoom := []statePart{{ID: owner, Label: "f/o", Kind: KindAgent, Rooms: []string{rec.id()}}}
+	f.state(t, inRoom, []signedRecord{rec}, []string{a.fp()})
+	eventually(t, "자동으로 들어간다", func() bool { return roomVisible(a, pa.ID, rec.id()) })
+	if err := a.Leave(pa.ID, rec.id()); err != nil {
+		t.Fatal(err)
+	}
+	f.state(t, inRoom, []signedRecord{rec}, nil)
+	never(t, "방이 남은 동안 다시 들어간다", func() bool { return roomVisible(a, pa.ID, rec.id()) })
+	if leftCount(a, pa.ID) != 1 {
+		t.Fatal("방이 남은 동안 left 를 지웠다")
+	}
+	f.state(t, []statePart{{ID: owner, Label: "f/o", Kind: KindAgent}}, nil, nil)
+	eventually(t, "사라진 방을 left 에서 지운다", func() bool { return leftCount(a, pa.ID) == 0 })
+}
+
+// TC-ATF-52 (FR-ATF-52): 1:1 방을 만들고 나가기를 되풀이해도 left 가 쌓이지 않는다.
+func TestLeftDirectDoesNotGrow(t *testing.T) {
+	a, b := newTestNode(t, "a"), newTestNode(t, "b")
+	link(a, b)
+	pa := a.Register("a/x", KindAgent)
+	pb := b.Register("b/x", KindAgent)
+	eventually(t, "참가자를 본다", func() bool { return len(a.Online().Participants) == 2 })
+	for range 3 {
+		room, err := a.Direct(pa.ID, pb.ID, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "상대가 들어간다", func() bool { return roomVisible(b, pb.ID, room.ID) })
+		eventually(t, "A 가 상대의 참가를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
+		if err := b.Leave(pb.ID, room.ID); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "방이 사라진다", func() bool { return a.recordCount() == 0 })
+	}
+	eventually(t, "left 가 비워진다", func() bool { return leftCount(a, pa.ID) == 0 && leftCount(b, pb.ID) == 0 })
+}
