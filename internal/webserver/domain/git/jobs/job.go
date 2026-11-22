@@ -195,6 +195,8 @@ type jobState struct {
 	cancel    context.CancelFunc
 	finish    Finisher
 	canceled  bool
+	// finishing 은 finish 에 들었다는 뜻이다 — 그 뒤의 취소는 결과에 닿지 않는다 (D-ATF-3).
+	finishing bool
 	lines     []Line
 	stderr    []string
 	seq       uint64
@@ -385,10 +387,14 @@ func (j *Jobs) launch(repo string, keys Keys, kind string, spec core.WriteSpec, 
 
 // Cancel 은 프로세스를 끝낸다. **부분 적용 가능성은 호출자가 사용자에게 알린다**
 // (FR-GIT-102) — 원격에 절반이 올라간 뒤 끊길 수 있다.
+//
+//	이전 동작: finish(판정·완료 훅, 최대 15초) 중에도 true — 결과는 성공/실패로 남았다
+//	새  동작: finish 에 든 뒤에는 false (이미 끝나는 중)
+//	이유:     취소 응답과 결과가 어긋나지 않는다 (ATTIC_FIX_SRS FR-ATF-6, D-ATF-3)
 func (j *Jobs) Cancel(id string) bool {
 	j.mu.Lock()
 	st, ok := j.byID[id]
-	if !ok || st.job.Done {
+	if !ok || st.job.Done || st.finishing {
 		j.mu.Unlock()
 		return false
 	}
@@ -447,7 +453,7 @@ func (j *Jobs) Subscribe(id string, afterSeq uint64) (<-chan Line, func(), bool)
 		return nil, nil, false
 	}
 	sub := &jobSub{ch: make(chan Line, j.lineCap)}
-	for _, ln := range st.lines {
+	for _, ln := range j.visibleLines(st) {
 		if ln.Seq > afterSeq {
 			select {
 			case sub.ch <- ln:
