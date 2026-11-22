@@ -161,4 +161,5 @@
 
 | 커밋 | 요점 |
 |---|---|
-| (이 문서) | |
+| `2f141812` | 이 문서 |
+| QF-1 | `sidebar-actions.spec.ts` TC-SBA-1 을 한 줄 배치의 단정으로(FR-QFX-1). 반증: `#add-group` 을 공통 규칙(`style-main-panel.css`)에서 빼면 실패한다(높이·여백이 갈린다). 관련 e2e 5 spec(`grep -rl "add-group\|sb-actions"`) 105 통과 |
