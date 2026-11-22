@@ -137,6 +137,10 @@ func (m Manifest) validate() error {
 	if !validSegment(m.ID) {
 		return fmt.Errorf("id 가 경로 한 칸이 아닙니다: %q", m.ID)
 	}
+	// 조달의 옆 자리(`<id>.new`)와 겹치면 `X` 의 조달이 팩 `X.new` 를 지운다 (FR-ATF-22).
+	if strings.HasSuffix(m.ID, stagingSuffix) {
+		return fmt.Errorf("id 는 %q 로 끝날 수 없습니다: %q", stagingSuffix, m.ID)
+	}
 	switch m.Kind {
 	case KindServer:
 		if len(m.Servers) == 0 {

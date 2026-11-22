@@ -32,6 +32,10 @@ const FetchTimeout = 10 * time.Minute
 // 있도록 var 다.
 var MaxArchiveBytes int64 = 1 << 30
 
+// stagingSuffix 는 새 설치를 풀어 두는 옆 자리의 꼬리다. 팩 id 는 이것으로 끝날 수
+// 없다 (FR-ATF-22).
+const stagingSuffix = ".new"
+
 // ErrArchiveTooLarge 는 받는 중에 MaxArchiveBytes 를 넘었다는 뜻이다.
 var ErrArchiveTooLarge = errors.New("아카이브가 크기 상한을 넘었습니다")
 
@@ -110,7 +114,7 @@ func FetchArchive(ctx context.Context, fetch Fetch, t Target, dest string) error
 
 	// 옆에 풀고 통째로 갈아 끼운다 — 반쯤 풀린 상태가 보이는 창을 만들지 않고,
 	// 옛 판의 파일이 새 판에 섞이지도 않는다 (FR-EXT-24).
-	staging := dest + ".new"
+	staging := dest + stagingSuffix
 	_ = os.RemoveAll(staging)
 	if err := os.MkdirAll(staging, 0o755); err != nil {
 		return fmt.Errorf("풀 자리를 만들지 못했습니다: %w", err)
