@@ -16,7 +16,7 @@ const PICK = `
     return null;
   };
   const pn = find(s.layout, a.focused);
-  const tab = pn.tabs.find(t => t.id === a.paneTab(pn));
+  const tab = pn.tabs.find(t => t.id === a.slot.paneTab(pn));
   const pane = a.tools.get(tab.toolId);
 `;
 
@@ -160,11 +160,11 @@ test.describe('Pane DOM reconcile', () => {
     const calls = await page.evaluate(`(() => {
       for (let i = 0; i < 5; i++) window.app.render();
       const a = window.app;
-      const orig = a.switchTab;
+      const orig = a.layout.tabOps.switchTab;
       let n = 0;
-      a.switchTab = function (...args) { n++; return orig.apply(this, args) };
+      a.layout.tabOps.switchTab = function (...args) { n++; return orig.apply(this, args) };
       document.querySelector('#area .pn.focused .pn-tab').click();
-      a.switchTab = orig;
+      a.layout.tabOps.switchTab = orig;
       return n;
     })()`);
     expect(calls).toBe(1);
@@ -193,7 +193,7 @@ test.describe('Pane DOM reconcile', () => {
     await fillScrollback(page);
     await page.evaluate(`(() => {${PICK} window.__tp = pane.el; window.__term = pane })()`);
 
-    await page.evaluate('window.app.split("horizontal")');
+    await page.evaluate('window.app.layout.tabOps.split("horizontal")');
     await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
     await nextFrames(page);
 
@@ -260,9 +260,9 @@ test.describe('Pane DOM reconcile', () => {
     await waitForInit(page, { clearLocalStorage: true });
     await page.evaluate(`(() => {${PICK} window.__tp = pane.el })()`);
 
-    await page.evaluate('window.app.slotAdd()');
+    await page.evaluate('window.app.slot.ops.slotAdd()');
     await expect(page.locator('#area .slot')).toHaveCount(2, { timeout: 10000 });
-    await page.evaluate('window.app.slotFocusTo(0)');
+    await page.evaluate('window.app.slot.ops.slotFocusTo(0)');
     await expect(page.locator('#area .slot[data-slot="0"] .pn.focused')).toHaveCount(1, { timeout: 10000 });
 
     const r = await page.evaluate(`(() => {${PICK}
