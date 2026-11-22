@@ -54,7 +54,7 @@ type inviteState struct {
 func newInviteState() inviteState { return inviteState{seen: map[string]time.Time{}} }
 
 // SendInvite 는 망 이웃 to 에게 간선 초대 코드를 보낸다 (FR-EGM-32·33). 코드는 to 의 노드
-// 공개키로만 열린다. to 를 모르면 ErrUnknownNode 다.
+// 공개키로만 열린다. to 를 모르면 ErrUnknownNode, 초대 기억이 가득 찼으면 ErrInviteFull 이다.
 func (m *Mesh) SendInvite(to, code string, exp time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -72,7 +72,9 @@ func (m *Mesh) SendInvite(to, code string, exp time.Time) error {
 	if err != nil {
 		return err
 	}
-	m.rememberInviteLocked(id, exp)
+	if !m.rememberInviteLocked(id, exp) {
+		return ErrInviteFull
+	}
 	m.broadcastLocked(Encode(fr), nil)
 	return nil
 }
@@ -96,7 +98,9 @@ func (m *Mesh) acceptInviteLocked(fr Frame) (*Invite, bool) {
 	if !ok || !Verify(r.key, FrameInvite, fr.B, fr.S) {
 		return nil, false
 	}
-	m.rememberInviteLocked(b.ID, exp)
+	if !m.rememberInviteLocked(b.ID, exp) {
+		return nil, false
+	}
 	if b.To != m.id.Fingerprint {
 		return nil, true
 	}
@@ -116,26 +120,22 @@ func validInviteID(id string) bool {
 	return err == nil && len(raw) == inviteIDBytes
 }
 
-// rememberInviteLocked 는 본 초대 id 를 만료까지 기억한다. 넘치면 만료된 것, 그래도 넘치면 가장
-// 먼저 끝나는 것을 잊는다.
-func (m *Mesh) rememberInviteLocked(id string, exp time.Time) {
+// rememberInviteLocked 는 본 초대 id 를 만료까지 기억한다. 넘치면 만료된 것을 잊고, 그래도 넘치면
+// 기억하지 않고 거짓을 돌려준다 — 만료 전 항목을 밀어내면 옛 초대가 다시 뜬다 (FR-ATF-51).
+func (m *Mesh) rememberInviteLocked(id string, exp time.Time) bool {
 	if len(m.seen) >= maxSeenInvites {
 		now := m.now()
-		first := ""
 		for k, e := range m.seen {
 			if !e.After(now) {
 				delete(m.seen, k)
-				continue
-			}
-			if first == "" || e.Before(m.seen[first]) {
-				first = k
 			}
 		}
 		if len(m.seen) >= maxSeenInvites {
-			delete(m.seen, first)
+			return false
 		}
 	}
 	m.seen[id] = exp
+	return true
 }
 
 var errBadKey = errors.New("노드 키가 아니다")

@@ -506,6 +506,45 @@ func TestInviteReachesOnlyTarget(t *testing.T) {
 	}
 }
 
+// TC-ATF-51 (FR-ATF-51): 초대 기억이 만료 전 항목으로 가득 차면 새 초대를 보내지도 받지도 않는다.
+// 만료된 항목이 하나라도 있으면 그 자리를 쓴다.
+func TestInviteMemoryFullRejects(t *testing.T) {
+	a, c := newTestMesh(t, "a"), newTestMesh(t, "c")
+	connect(a, c)
+	eventually(t, "A 가 C 를 안다", func() bool { return online(a, c.fp()) })
+	fill := func(m *testMesh, exp time.Time) {
+		m.Mesh.mu.Lock()
+		defer m.Mesh.mu.Unlock()
+		for i := len(m.seen); i < maxSeenInvites; i++ {
+			m.seen[randomHex(inviteIDBytes)] = exp
+		}
+	}
+	code := edge.EncodeInvite(edge.InviteCode{Addr: "10.0.0.1", Port: 7001, Fingerprint: a.fp(), Token: "tok"})
+	exp := time.Now().Add(edge.InviteTTL)
+	fill(a, exp)
+	if err := a.SendInvite(c.fp(), code, exp); !errors.Is(err, ErrInviteFull) {
+		t.Fatalf("가득 찬 기억으로 보내기 = %v", err)
+	}
+	a.Mesh.mu.Lock()
+	clear(a.seen)
+	a.Mesh.mu.Unlock()
+	fill(c, exp)
+	if err := a.SendInvite(c.fp(), code, exp); err != nil {
+		t.Fatal(err)
+	}
+	never(t, "가득 찬 C 가 초대를 받는다", func() bool { return len(c.invites()) > 0 })
+	c.Mesh.mu.Lock()
+	for k := range c.seen {
+		c.seen[k] = time.Now().Add(-time.Second)
+		break
+	}
+	c.Mesh.mu.Unlock()
+	if err := a.SendInvite(c.fp(), code, exp); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "만료된 자리로 받는다", func() bool { return len(c.invites()) == 1 })
+}
+
 // FR-EGM-32: 상자는 받을 노드만 연다.
 func TestInviteBoxOnlyForRecipient(t *testing.T) {
 	a, b, c := newTestMesh(t, "a"), newTestMesh(t, "b"), newTestMesh(t, "c")

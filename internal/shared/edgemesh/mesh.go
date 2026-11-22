@@ -42,6 +42,8 @@ var (
 	ErrUnreachable = errors.New("상대에 닿지 못했다")
 	ErrNotEdge     = errors.New("간선이 아니다")
 	ErrUnknownNode = errors.New("모르는 노드다")
+	// ErrInviteFull 은 초대 기억이 만료 전 항목으로 가득 찼다는 뜻이다 (FR-ATF-51).
+	ErrInviteFull = errors.New("초대 기억이 가득 찼다")
 )
 
 // Hello 는 직접 정보다 (FR-EGM-20). Port 가 0 이면 주소를 싣지 않은 것이다.
