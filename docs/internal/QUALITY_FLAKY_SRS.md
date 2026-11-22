@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현중
 
-> **남은 것**: FL-6 · FL-7, 마지막 전량 e2e 의 재현·원인·고침, 마지막 전량 e2e.
+> **남은 것**: FL-7, 마지막 전량 e2e 의 재현·원인·고침, 마지막 전량 e2e.
 
 - 접수: 2026-11-22 (`QUALITY_FIX_SRS` 뒤. `REFACTOR_PROD3_HANDOFF_4.md` §4 「흔들림」 목록 · `PROD3.md` §7.1 「전체 시험」 행)
 - 사용자 지시: 흔들림으로 받아들여 온 시험의 **원인을 찾아 고친다.** 재시도·시한을 늘려 덮지 않는다. 원인이 시험의 기다림 조건이면 상태가 바뀐 것을 기다리게 고치고, 원인이 앱의 경합이면 앱을 고친다.
@@ -21,7 +21,7 @@
 | FL-3 | `e2e/tab-names.spec.ts` V-NAM-1·2·5 · V-TAN-2 (같은 원인으로 V-TAN-4·6·12·14·15 · V-NAM-4) | 시험 경합 + **앱 결함** | 시험은 진짜 전경 이름이 닿은 뒤에 흉내를 넣는다. 서버는 구독이 열릴 때 도구마다 지금의 전경 이름을 싣는다(§2.3) |
 | FL-4 | `e2e/settings.spec.ts:256` 「고치던 이름은 덮지 않고…」 · 「규칙에 맞지 않는 이름은 거절」 | **앱 결함** | 프로필 패널의 읽기를 하나로 묶고, 읽는 사이에 고친 이름을 덮지 않는다(§2.4) |
 | FL-5 | `e2e/ux-audit-fix.spec.ts` TC-UXF-1 · 「2묶음 두 모드」(TC-UXF-16) · `ux-audit-fix-7` TC-UXF-94 | 시험 경합(TC-UXF-1·16) · 재현 못 함(TC-UXF-94) | 기대값을 묻는 순간에 계산하고, 카드 안 배치는 한 번에 잰다. 공용 `waitForInit` 이 첫 구독의 재검증을 기다린다(§2.5) |
-| FL-6 | `editor-ops` O7 · `edges-settings` 간선 주소·망 그림 · `claude-accounts` TC-CAC-27 · `tab` 단축키 · `kit-components` TC-CMP-19 | (조사 중) | |
+| FL-6 | `editor-ops` O7 · `edges-settings` 간선 주소·망 그림 · `claude-accounts` TC-CAC-27 · `tab` 단축키 · `kit-components` TC-CMP-19 | 시험 경합(`tab` 단축키 — FL-2 와 같은 원인) · 재현 못 함(나머지 넷) | `tab.spec` 의 탭 클릭을 `selectTab` 으로(§2.6) |
 | FL-7 | 단위 `cm-sticky.test.mjs` · Go `gitapi` `TestWorktreeCreateInputAnswer` | (조사 중) | |
 
 ### 1.2 정의
@@ -111,6 +111,20 @@
 | FR-FLK-7 | 공용 `waitForInit` 은 저장이 멎은 뒤 구독이 열리고 첫 재검증의 활동 비행이 닫힐 때까지 기다린다(`app.testing.sse.readyState === 1` 이고 `app.testing.restoreLive('activity', null)`) |
 | FR-FLK-8 | TC-UXF-1 은 기대값을 묻는 순간에 계산해 화면의 글자·툴팁과 견준다. TC-UXF-16 은 카드 안 네 요소의 상자를 한 번에 잰다 |
 
+### 2.6 FL-6 — 나머지 다섯 (editor-ops · edges-settings · claude-accounts · tab · kit-components)
+
+**재현.** 다섯 spec 을 `PW_WORKERS=8 --repeat-each=3`(204회)로 돌린 회차에서 `tab.spec` 「keyboard shortcut switches tabs」 가 한 번 실패했다: 둘째 탭을 찾지 못했다.
+
+**원인 — `tab` 단축키(시험 경합).** FL-2 와 같다. 시험은 `first.click()` 으로 첫 탭을 누르는데, 이름이 `~` 가 된 뒤면 가운데가 닫기 단추라 탭이 닫히고 탭이 하나만 남는다. 같은 파일의 「tab switch by clicking another tab」 도 같은 클릭을 쓴다.
+
+**나머지 넷 — 재현 못 함.** 시도한 조건: ① 대상 다섯을 `PW_WORKERS=8 --repeat-each=10`(100회, O7·간선 주소·망 그림·TC-CAC-27·TC-CMP-19 를 줄 번호로 골라) ② 다섯 spec 전체를 `PW_WORKERS=6 --repeat-each=4`(272회) — 그동안 다른 두 샤드(3/8·4/8)를 `PW_WORKERS=4` 로 함께 돌려 부하를 줬다. 모두 0 실패. 코드에서 보이는 위험: O7 은 「목록 요청이 정확히 1건·2건」 을 500ms 뒤에 센다(근거가 있는 고정 대기 예외 `TEST-16`) — 파일 관측의 알림이 늦게 와서 한 번 더 읽으면 수가 늘 수 있다. 실패를 보지 못해 고치지 않았다. 마지막 전량 실행의 결과로 다시 본다.
+
+**부하 실험에서 함께 본 다른 실패(목록 밖).** 위 ② 의 부하로 돌린 두 샤드에서 셋이 실패했다 — `editor-cwd-inherit` V-CWD-2(`newWindow 가 탭을 만들지 않았다`) · `git-feedback` F-9.3(90초 시간 초과) · `explorer-copy` C5(메뉴 항목 클릭 20초 시간 초과). 이번 범위 밖이라 조사하지 않았다.
+
+| ID | 요구 |
+|---|---|
+| FR-FLK-9 | `tab.spec.ts` 의 탭 고르기(「tab switch by clicking another tab」·「keyboard shortcut switches tabs」)는 `selectTab` 을 쓴다(FR-FLK-2) |
+
 ## 3. 결정
 
 | ID | 결정 | 이유 |
@@ -136,6 +150,7 @@
 | TC-FLK-2 | e2e `slot-view-state.spec.ts` TC-SVS-3·13·50·55·56 을 `PW_WORKERS=8 --repeat-each=16` 으로 0 실패. `slot-view-state`·`a11y-keyboard` 전체를 `PW_WORKERS=6 --repeat-each=3` 으로 0 실패 |
 | TC-FLK-4 | 단위 `profile-panel.test.mjs` 넷 — 겹친 읽기는 하나 · 읽는 사이에 고친 이름은 남고 뒤의 방송이 안내 · 읽는 사이에 선 안내를 읽기가 거두지 않음(셋 다 옛 코드에서 RED) · 고치지 않았으면 읽은 값. e2e: 응답 400ms 지연 탐침이 고친 뒤 3/3(읽기 1번, 이름 남음, 안내 섬). `settings.spec.ts` `PW_WORKERS=8 --repeat-each=6` 0 실패, 설정 관련 5 spec 통과 |
 | TC-FLK-5 | 탐침(구독 1.5초 지연 · 활동 흉내 · 패널 열기 · 2.4초 관찰): 옛 `waitForInit` 에서 카드 0(2/2), 새 것에서 1(3/3). TC-UXF-16 `PW_WORKERS=8 --repeat-each=40` 0 실패. `ux-audit-fix`·`ux-audit-fix-7` `--repeat-each=3` 144 통과. 샤드 6/8 의 32 spec `PW_WORKERS=4` 249 통과(공용 기다림의 회귀) |
+| TC-FLK-6 | `tab.spec.ts` 포함 다섯 spec `PW_WORKERS=6 --repeat-each=4` 272 통과(다른 두 샤드를 함께 돌린 부하), 대상 줄 `PW_WORKERS=8 --repeat-each=10` 100 통과 |
 | TC-FLK-3 | Go `httpapi` `TestSSE_ForegroundOnConnect`(인사 뒤 도구마다 한 줄, 빈 이름 포함 — 옛 코드에서 RED) · `_UnknownList`(모르는 목록이면 없음) · `_PresenceSkips`(칸 구독이면 없음). e2e `tab-names.spec.ts` 전체 `PW_WORKERS=8 --repeat-each=10` 0 실패. 관련 e2e(재연결·새로고침·복원 비행·동기·skill-contract·version-autoreload 등 11 spec) 통과 |
 
 ## 5. 동작 변경 기록
@@ -145,6 +160,7 @@
 | FL-1 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-2 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-5 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
+| FL-6 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-4 | 설정을 열면 프로필을 두 번 읽었고, 늦게 온 답이 그 사이에 고친 이름을 지웠다 | 읽기는 한 번이고, 읽는 사이에 고친 이름은 남는다(다른 곳에서 바뀌었으면 안내가 선다) | 느린 망에서 사용자의 글자가 사라졌다(FR-FLK-6) |
 | FL-3 | 전경 이름은 바뀔 때의 방송뿐이었다. 부팅 조회와 구독 사이의 변화는 사라져, 새로 연 셸 탭이 폴더를 옮길 때까지 `Shell` 로 남을 수 있었다 | 구독이 열릴 때 서버가 도구마다 지금의 이름을 한 번 싣는다 | 부팅 조회와 구독 사이의 틈(FR-FLK-3, D-FLK-5) |
 
@@ -156,4 +172,5 @@
 | FL-2 | `fixtures.ts` 에 `selectTab` — 이름의 왼쪽 끝(x 1px)을 누르고 활성을 기다린다(FR-FLK-2). `slot-view-state` 의 `clickTabId` 와 `a11y-keyboard` TC-A11Y-6e 가 쓴다. 원인 계측: 캡처 단계의 클릭 기록이 `tgt=pn-tab-x` 였고 `switchTab` 이 불리지 않았다. 첫 고침(탭 자신의 왼쪽 여백 x 3px)은 TC-SVS-56 에서 16/16 실패 — 둘째 칸 첫 탭의 왼쪽 끝을 칸 경계 손잡이(`.slot-handle`)가 덮었다. 이름 쪽으로 옮긴 뒤 `PW_WORKERS=8 --repeat-each=16` 80 통과(HEAD 80회 중 43회 실패), 두 spec 전체 `PW_WORKERS=6 --repeat-each=3` 132 통과 |
 | FL-4 | `ProfileSection._loadProfilePanel` 은 단일 비행(`_pfReading`), 본문 `_pfRead` 는 요청 시점의 이름과 답이 왔을 때의 이름이 다르면 `_pfPaint(v,keepName)` 로 이름 칸을 두고 `_liveMark(k,r,{name: 읽은 값},keep)` 으로 안내를 둔다. `SettingsLive._liveMark` 에 넷째 인자 `keep`(FR-FLK-6). 시험 TC-FLK-4. 사용자 언어 CHANGELOG 「고침」 |
 | FL-5 | `fixtures.ts` `waitSseRevalidated` 를 `waitForInit` 끝에(FR-FLK-7). `ux-audit-fix.spec.ts` TC-UXF-1 은 `expect.poll` 로 그 순간의 규칙 값과 글자·툴팁을 견주고, TC-UXF-16 은 `card.evaluate` 한 번으로 넷을 잰다(FR-FLK-8). 시험 TC-FLK-5. TC-UXF-94 는 재현 못 함 |
+| FL-6 | `tab.spec.ts` 두 시험의 탭 클릭 셋을 `selectTab` 으로(FR-FLK-9). 나머지 넷은 재현 못 함(§2.6) |
 | FL-3 | 서버: `hub.ForegroundSnapshot` · `Server.foregroundOnConnect`(`commands.go`) — 인사를 flush 한 뒤 칸 구독이 아니면 `ListOK` 의 도구마다 `tool_foreground` 를 싣고 flush(FR-FLK-3). Go 시험 `commands_sse_fg_test.go` 셋(옛 코드에서 첫째 RED: 인사 한 줄뿐). 시험: `tab-names.spec.ts` 의 `fgSettled`(서버 값은 `page.request` 로 읽어 스냅숏 흉내를 지나지 않는다) — `pushForeground` 가 도구마다 처음 한 번 부르고, V-NAM-1·2·5·4 가 직접 부른다. 스냅숏 흉내는 `fgStub.has` 로 빈 이름도 덮는다. V-NAM-4 는 활동을 `POST /api/tools/activity/set` 에 `waiting` 으로(FR-FLK-5). 원인 2 의 계측: 실패 회차의 페이지 기록에 `tool_foreground` 가 없고 구독은 도구 생성 70ms 뒤에 열렸다. 고친 뒤 `PW_WORKERS=8 --repeat-each=10` 170 통과(시험만 고친 상태에서 160여 회 중 4회 「브라우저에 닿지 않았다」). 관련 e2e 11 spec 96 통과. 사용자 언어 CHANGELOG 「고침」 |

@@ -1,4 +1,4 @@
-import { test, expect, waitForInit , SPLIT_H} from './fixtures';
+import { test, expect, waitForInit , SPLIT_H, selectTab } from './fixtures';
 
 test.describe('Tab management', () => {
   test('tab can be closed via x button', async ({ page }) => {
@@ -52,12 +52,12 @@ test.describe('Tab management', () => {
     const first = page.locator('#area .pn.focused .pn-tab').first();
     const second = page.locator('#area .pn.focused .pn-tab').nth(1);
 
-    // Click second tab.
-    await second.click();
+    // Click second tab. 가운데가 아니라 이름을 누른다 — 이름이 `~` 인 탭의 가운데는 닫기 단추다 (QUALITY_FLAKY_SRS FR-FLK-2).
+    await selectTab(second);
     await expect(second).toHaveClass(/active/);
 
     // Click first tab.
-    await first.click();
+    await selectTab(first);
     await expect(first).toHaveClass(/active/);
   });
 
@@ -76,7 +76,7 @@ test.describe('Tab management', () => {
     const first = page.locator('#area .pn.focused .pn-tab').first();
     const second = page.locator('#area .pn.focused .pn-tab').nth(1);
 
-    await first.click();
+    await selectTab(first);
     await expect(first).toHaveClass(/active/);
 
     // Use evaluate to trigger tabNext/tabPrev directly (avoids browser tab-switch conflict).
