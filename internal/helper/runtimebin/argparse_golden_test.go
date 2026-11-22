@@ -79,6 +79,29 @@ var goldenParseCases = func() []goldenParseCase {
 		[]string{"--no-focus", "-n", "--auto", "--force", "--background"}, []string{"--no-focus=1"},
 		[]string{"a", "--", "--at", "b"}, []string{"-h", "a"}, []string{"a", "--bogus"}, []string{"-5"},
 	)
+	// QUALITY_GO_SRS FR-QG-53 (PROD3 DM-5): 손 루프 셋. 골든은 argSpec 으로 옮기기 전에 만들었다.
+	add("send-input", common...)
+	add("send-input",
+		[]string{"--at"}, []string{"--at", "t1", "hi"}, []string{"--at=t1", "a", "b"}, []string{"--at="},
+		[]string{"-l", "t1", "-x", "-"}, []string{"-l=t1", "--execute", "x"}, []string{"--execute=1"},
+		[]string{"a", "--", "--at", "b"}, []string{"-h", "a"}, []string{"a", "--bogus"}, []string{"-5"},
+		[]string{"--bogus", "-h"}, []string{"a", "-h"}, []string{"--at", "--execute"},
+	)
+	add("msg", common...)
+	add("msg",
+		[]string{"--to"}, []string{"--from"}, []string{"--to", "u1", "hi"}, []string{"--to=u1", "--from=u2", "a"},
+		[]string{"--to="}, []string{"--to", "u1", "-"}, []string{"--to", "u1", "--", "-x"}, []string{"-5"},
+		[]string{"--to", "u1", "-h"}, []string{"--to", "u1", "--bogus"}, []string{"--from", "--to"},
+	)
+	add("detach", common...)
+	add("detach",
+		[]string{"--run"}, []string{"--run", "npm test"}, []string{"--run=ls"}, []string{"--run="},
+		[]string{"--run", "ls", "--cwd", "/tmp"}, []string{"--cwd"}, []string{"--cwd=/tmp"}, []string{"--cwd="},
+		[]string{"--list"}, []string{"-l"}, []string{"--list=1"},
+		[]string{"--restore"}, []string{"--restore", "id1"}, []string{"-r", "id1", "--at", "t1"}, []string{"--restore=id1"},
+		[]string{"-r=id1"}, []string{"--at"}, []string{"--at", "t1"}, []string{"--at="}, []string{"--at=t1"},
+		[]string{"--at", ""}, []string{"--list", "--bogus"}, []string{"--bogus", "-h"}, []string{"-h", "--bogus"},
+	)
 	return cs
 }()
 
@@ -98,6 +121,15 @@ func renderParse(c goldenParseCase) string {
 	case "dmctl":
 		p, err := parseDmctlFlags(c.args)
 		res = fmt.Sprintf("err=%v p=%s", err, setFields(p))
+	case "send-input":
+		f, code, proceed := parseSendInputFlags(c.args, &out, &errw)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
+	case "msg":
+		f, code, proceed := parseMsgFlags(c.args, &out, &errw)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
+	case "detach":
+		f, code, proceed := parseDetachFlags(c.args, &out, &errw)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
 	}
 	stdout := out.String()
 	if len(stdout) > 40 {
