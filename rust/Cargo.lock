@@ -580,6 +580,7 @@ dependencies = [
  "hex",
  "rand",
  "serde",
+ "tempfile",
 ]
 
 [[package]]

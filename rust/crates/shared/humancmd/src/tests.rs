@@ -407,3 +407,110 @@ fn round_trip_line_limit_boundary() {
     assert!(round_trip(&mut Duplex::new(format!("{line}\n").as_bytes()), &req).is_err());
     assert!(round_trip(&mut Duplex::new(line.as_bytes()), &req).is_err());
 }
+
+// ── Client: 가짜 도우미 소켓 서버 ──
+
+/// 요청 한 줄을 받아 돌려주고 resp 를 쓴다. 받은 줄은 join 으로 꺼낸다.
+fn fake_helper(
+    resp: &'static [u8],
+) -> (tempfile::TempDir, Client, std::thread::JoinHandle<Vec<u8>>) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("h.sock");
+    let ln = dm_shared_platform::current().ipc.listen(&path).unwrap();
+    let h = std::thread::spawn(move || {
+        let mut conn = ln.accept().unwrap();
+        let mut got = Vec::new();
+        let mut b = [0u8; 1];
+        while conn.read(&mut b).unwrap() == 1 && b[0] != b'\n' {
+            got.push(b[0]);
+        }
+        conn.write_all(resp).unwrap();
+        got
+    });
+    let c = Client {
+        path,
+        timeout: std::time::Duration::from_secs(2),
+    };
+    (dir, c, h)
+}
+
+#[test]
+fn client_info() {
+    let (_d, c, h) = fake_helper(b"{\"t\":\"info\",\"key\":\"K\",\"lockedUntil\":7}\n");
+    assert_eq!(
+        c.info().unwrap(),
+        Info {
+            key: "K".into(),
+            locked_until: 7
+        }
+    );
+    assert_eq!(h.join().unwrap(), br#"{"t":"info"}"#);
+}
+
+#[test]
+fn client_info_without_key_is_no_helper() {
+    let (_d, c, h) = fake_helper(b"{\"t\":\"info\"}\n");
+    assert_eq!(c.info().unwrap_err().code, CODE_NO_HELPER);
+    h.join().unwrap();
+}
+
+#[test]
+fn client_sign_signed_error_and_other() {
+    let req = Request {
+        node: "n".into(),
+        op: OP_KILL.into(),
+        rooms: vec!["r".into()],
+        kicks: vec![],
+    };
+    let (_d, c, h) = fake_helper(b"{\"t\":\"signed\",\"b\":{\"x\":1},\"s\":\"S\"}\n");
+    let s = c.sign("123456", req.clone()).unwrap();
+    assert_eq!((s.b.0.as_slice(), s.s.as_str()), (&br#"{"x":1}"#[..], "S"));
+    assert_eq!(
+        h.join().unwrap(),
+        br#"{"t":"sign","code":"123456","req":{"node":"n","op":"kill","rooms":["r"]}}"#
+    );
+    let (_d, c, h) = fake_helper(b"{\"t\":\"error\",\"code\":\"locked\",\"until\":99}\n");
+    assert_eq!(
+        c.sign("1", req.clone()).unwrap_err(),
+        Error {
+            code: CODE_LOCKED.into(),
+            until: 99
+        }
+    );
+    h.join().unwrap();
+    let (_d, c, h) = fake_helper(b"{\"t\":\"info\",\"key\":\"K\"}\n");
+    assert_eq!(c.sign("1", req).unwrap_err().code, CODE_NO_HELPER);
+    h.join().unwrap();
+}
+
+#[test]
+fn client_unreachable_is_no_helper() {
+    let dir = tempfile::tempdir().unwrap();
+    let c = Client {
+        path: dir.path().join("none.sock"),
+        timeout: std::time::Duration::ZERO,
+    };
+    assert_eq!(c.info().unwrap_err().code, CODE_NO_HELPER);
+}
+
+// 도우미가 답하지 않으면 마감에서 끊고 no_helper 다.
+#[test]
+fn client_deadline() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("h.sock");
+    let ln = dm_shared_platform::current().ipc.listen(&path).unwrap();
+    let h = std::thread::spawn(move || {
+        let conn = ln.accept().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(600));
+        drop(conn);
+    });
+    let c = Client {
+        path,
+        timeout: std::time::Duration::from_millis(200),
+    };
+    let start = std::time::Instant::now();
+    assert_eq!(c.info().unwrap_err().code, CODE_NO_HELPER);
+    let took = start.elapsed();
+    assert!(took < std::time::Duration::from_millis(500), "{took:?}");
+    h.join().unwrap();
+}
