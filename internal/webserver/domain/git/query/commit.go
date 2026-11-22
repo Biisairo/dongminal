@@ -24,3 +24,19 @@ func LastCommitMessage(s *core.Service, ctx context.Context, repo string) (strin
 	}
 	return strings.TrimRight(out.Stdout, "\n"), nil
 }
+
+// headCommitFormat 은 HEAD 의 oid 와 메시지 전문이다. NUL 로 가른다 — 메시지에는
+// NUL 이 올 수 없다.
+const headCommitFormat = "--pretty=%H%x00%B"
+
+// HeadCommit 은 HEAD 커밋의 oid 와 메시지다 (ATTIC_FIX_SRS FR-ATF-2). undo 가
+// 되돌릴 커밋이 토큰을 받은 그 커밋인지 보는 읽기와 화면에 돌려줄 메시지 읽기가
+// 한 번이다. 메시지의 후행 개행은 LastCommitMessage 와 같이 버린다.
+func HeadCommit(s *core.Service, ctx context.Context, repo string) (oid, message string, err error) {
+	out, err := s.Exec(ctx, repo, "log", "-1", headCommitFormat)
+	if err != nil {
+		return "", "", err
+	}
+	oid, message, _ = strings.Cut(out.Stdout, "\x00")
+	return oid, strings.TrimRight(message, "\n"), nil
+}
