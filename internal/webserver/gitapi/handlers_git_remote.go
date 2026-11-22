@@ -239,12 +239,16 @@ func (t *gitWrite) launchJob(kind string, start func(*jobs.Jobs, jobs.Keys) (*jo
 		return
 	}
 	if a := slotsAnswer(t.s.exclusion(), keys, jobs.SlotsOf(kind)...); !a.OK {
-		t.rejectAnswer(a, nil)
+		t.rejectAnswer(a, t.applied)
 		return
 	}
 	jb, err := start(t.s.jobsHub(), keys)
 	if err != nil {
 		code, name := gitErrorCode(err)
+		if t.applied != nil {
+			t.rejectBody(code, name, gitTail(err.Error()), t.applied)
+			return
+		}
 		t.rejectWith(code, name, gitTail(err.Error()))
 		return
 	}

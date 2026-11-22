@@ -356,5 +356,9 @@ func (s *GitServer) apiGitBranchDeleteBoth(w http.ResponseWriter, r *http.Reques
 		_, plan, err = write.BranchDelete(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	t.startHintedJob("push", spec, map[string]any{"deleted": plan}, &hint)
+	//	이전 동작: 원격 잡 등록이 job_busy 면 로컬 삭제 결과가 응답에서 빠졌다
+	//	새  동작: 거절 응답에도 성공과 같은 모양의 `deleted` 를 싣는다
+	//	이유:     로컬은 이미 지워졌다 (ATTIC_FIX_SRS FR-ATF-75, AT-GAPI-5)
+	t.applied = map[string]any{"deleted": plan}
+	t.startHintedJob("push", spec, t.applied, &hint)
 }

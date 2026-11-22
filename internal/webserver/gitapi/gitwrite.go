@@ -60,6 +60,9 @@ type gitWrite struct {
 	after     query.Status
 	// stale 은 쓰기는 적용됐고 재조회가 실패해 after 가 없다는 뜻이다 (FR-ATF-74).
 	stale bool
+	// applied 는 잡 등록 전에 이미 적용된 쓰기의 결과다. 등록이 거절돼도 거절 응답에
+	// 싣는다 (FR-ATF-75).
+	applied map[string]any
 }
 
 // beginWrite 는 domain/git 이 실행하는 쓰기를 연다.
