@@ -261,6 +261,11 @@
   #theme-seed-row .seed-ctl{flex:1 1 0;justify-content:flex-start}
   #theme-seed-row .seed-swatches{display:grid;grid-template-columns:repeat(4,max-content)}
 }
+/* 색 입력도 견본과 같은 터치 하한을 받는다 — 데스크톱 크기(--ui-btn-h-sm, 22)가 모바일에 그대로 남아 있었다.
+     이전 동작: 모바일 색 입력이 22×22 였다
+     새  동작: 모바일 색 입력이 --touch-min(44) 정사각이다. 데스크톱은 그대로다
+     이유:     손가락으로 누르기 어려웠다 */
+body.mobile #theme-seed-row .seed-color{width:var(--touch-min);height:var(--touch-min);flex:0 0 auto}
 /* UI_POLISH_SRS FR-UIP-16: 키트의 기본 버튼이다 — 점선 상자는 "여기에 놓으세요" 의
    모양이라 누르는 버튼으로 읽히지 않았다. 켜진 상태는 세그먼트의 선택과 같은 말이다. */
 #custom-toggle.active{background:var(--accent-subtle);color:var(--text-bright);border-color:var(--border-strong)}

@@ -88,7 +88,7 @@ test.describe('메인색', () => {
     await expect(page.locator('#theme-preview .pv-dot').first()).toHaveCSS('background-color', rgb(applied));
   });
 
-  test('TC-SEED-12: 390px 모바일에서 견본·색 입력·스위치가 카드 안쪽에 들고, 견본은 터치 하한을 지킨다', async ({ page }) => {
+  test('TC-SEED-12: 390px 모바일에서 견본·색 입력·스위치가 카드 안쪽에 들고, 견본·색 입력은 터치 하한을 지킨다', async ({ page }) => {
     await waitForInit(page, { mode: 'mobile', viewport: { width: 390, height: 844 } });
     await page.click('#m-drawer-toggle');
     await openTheme(page);
@@ -97,14 +97,17 @@ test.describe('메인색', () => {
       const inner = r.right - parseFloat(getComputedStyle(row).paddingRight);
       const ctl = [...row.querySelectorAll<HTMLElement>('.seed-swatch, .seed-color, .ui-switch')];
       const sw = ctl.filter((e) => e.classList.contains('seed-swatch')).map((e) => e.getBoundingClientRect());
+      const color = row.querySelector<HTMLElement>('.seed-color')!.getBoundingClientRect();
       return {
         inner,
         right: Math.max(...ctl.map((e) => e.getBoundingClientRect().right)),
         minSide: Math.min(...sw.map((b) => Math.min(b.width, b.height))),
+        colorSide: Math.min(color.width, color.height),
         touch: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--touch-min')),
       };
     });
     expect(g.right).toBeLessThanOrEqual(g.inner + 0.5);
     expect(g.minSide).toBeGreaterThanOrEqual(g.touch - 0.5);
+    expect(g.colorSide).toBeGreaterThanOrEqual(g.touch - 0.5);
   });
 });
