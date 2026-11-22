@@ -96,7 +96,7 @@ for (const line of rows) {
   const [, label, value] = m;
   if (label === '동작' || label.startsWith('---')) continue;
   // 사이드바 탭 직행 키는 서술자에서 파생하므로 코드에 리터럴이 없다.
-  if (label.startsWith('사이드바 탭:')) continue;
+  if (label.startsWith('목록 패널 탭:')) continue;
   // **고정 키는 바꿀 수 없고, 그래서 `SHORTCUT_DEFAULTS` 에 없다.** 문서가
   // `(고정)` 이라 적는 것이 그 표시이며, 그 표시가 이 검사의 면제 사유다.
   if (value.includes('(고정)')) continue;

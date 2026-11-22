@@ -134,8 +134,8 @@ test.describe('축 B — 국제화', () => {
     await page.evaluate((id) => (window as any).app.layout.delWindow(id), win);
     const slot = page.locator('#area .slot[data-slot="1"].slot-empty');
     await expect(slot).toHaveCount(1, { timeout: 10000 });
-    await expect(slot.getByText('사이드바에서 창을 고르세요')).toBeVisible();
-    expect(await slot.ariaSnapshot()).toContain('사이드바에서 창을 고르세요');
+    await expect(slot.getByText('목록 패널에서 창을 고르세요')).toBeVisible();
+    expect(await slot.ariaSnapshot()).toContain('목록 패널에서 창을 고르세요');
   });
 
   // TC-B-4 — ② 드롭 안내
