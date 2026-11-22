@@ -209,7 +209,7 @@ FU-8 은 특이도 대조도 했다. 옛·새 선택자의 특이도와 같은 �
 
 **SRS 와 다르게 한 것.** 없다. 착수 메모의 실측(878개)은 정규식 근사였고, 블록을 읽어 다시 잰 값이 870개다(§2.5).
 
-**남긴 것.** JS·`index.html` 의 인라인 간격과 간격 밖의 길이(§1.3). 예외 20줄(부록 B) — 20px 여섯 곳은 단을 더하면 토큰이 되지만 사용자 결정의 6~8단 안에 두려고 남겼다.
+**남긴 것.** JS·`index.html` 의 인라인 간격과 간격 밖의 길이(§1.3). 예외 20줄(부록 B — 2026-11-22 정정 뒤 19줄) — 20px 여섯 곳은 단을 더하면 토큰이 되지만 사용자 결정의 6~8단 안에 두려고 남겼다.
 
 ## 부록 A. R4b 에서 값이 바뀌는 자리
 
@@ -233,15 +233,16 @@ FU-8 은 특이도 대조도 했다. 옛·새 선택자의 특이도와 같은 �
 
 ## 부록 B. R4b 예외 표 — 바꾸지 않는 간격 리터럴
 
-규칙(D-FR4-18)으로 늘 허용하는 것(`0` · `1px` 7개 · 음수 23개 · `env()` 의 `0px`)은 적지 않는다. 아래 20개는 게이트(`check-spacing.mjs`)가 같은 열쇠로 지닌다.
+규칙(D-FR4-18)으로 늘 허용하는 것(`0` · `1px` 7개 · 음수 23개 · `env()` 의 `0px`)은 적지 않는다. 아래 19개는 게이트(`check-spacing.mjs`)가 같은 열쇠로 지닌다.
+
+> 개정 (2026-11-22, 코드 기준 정정) — 이전: 20개. `#sidebar[data-rail] .sbl-item` 의 `padding`·`gap` 3px 두 줄과 작업 패널 레일 선택자의 `.chat-row` 가 있었고, 브랜치 트리 세 줄의 파일이 `style-git-views.css` 였다 / 새: 19개. `.sbl-item` 두 줄은 `--sp-1` 이 되어 빠졌고(`RAIL_CHAT_USAGE_SRS` D-RCU-4), 채팅 레일 줄은 `#sidebar[data-rail] .chat-row` 로 옮겨졌으며(D-RCU-1·3), 브랜치 트리 세 줄은 `style-git-tabs.css` 에 있다(`REFACTOR3_FE_REST5_SRS` FR-FR5-1) / 이유: 게이트의 예외 표가 실제 열쇠다.
 
 | 파일 | 선택자 | 속성 | 값 | 사유 |
 |---|---|---|---|---|
-| `style-main-panel.css` | `#sidebar[data-rail] .sbl-item` | `padding` | 3px | 레일 40px 안에 점(5px)과 글자가 함께 들어야 한다 — 그 자리의 주석이 계산이다 |
-| `style-main-panel.css` | `#sidebar[data-rail] .sbl-item` | `gap` | 3px | 위와 같다 |
 | `style-main-panel.css` | `.ui-panel[data-rail] .sb-tab-badge` | `padding` | 3px | 레일 아이콘 귀퉁이의 12px 배지. 레일 폭 안의 값이다 |
 | `style-activity.css` | `#agents-panel[data-rail] .ag-tab-n` | `padding` | 3px | 위와 같다(작업 패널 레일의 배지) |
-| `style-activity.css` | `#agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row,.chat-row)` | `padding` | 3px | 레일 40px 안의 이름 두 줄. 좌우 1px 이 글자 폭을 가른다 |
+| `style-activity.css` | `#agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row)` | `padding` | 3px | 레일 40px 안의 이름 두 줄. 좌우 1px 이 글자 폭을 가른다 |
+| `style-main-panel.css` | `#sidebar[data-rail] .chat-row` | `padding` | 3px | 위와 같다. 창 목록(`.sbl-item`)의 옛 여백 3px 을 따랐다 (`RAIL_CHAT_USAGE_SRS` FR-RCU-2) |
 | `style-main-panel.css` | `#add-sandbox-window` | `padding` | 5px | `#add-window` 의 `padding-right:60px` 와 주석의 실측(상자 48px + `right:5px`)으로 묶인 값 |
 | `style-main-panel.css` | `#add-window` | `padding-right` | 60px | ±2px 안에 단이 없다. 안쪽 상자의 자리를 비우는 값이다 |
 | `style-activity.css` | `.chat-person` | `padding-left` | 20px | ±2px 안에 단이 없다(들여쓰기) |
@@ -249,9 +250,9 @@ FU-8 은 특이도 대조도 했다. 옛·새 선택자의 특이도와 같은 �
 | `style-activity.css` | `.act-usage-sl-h,.act-usage-sl` | `padding-left` | 44px | 위와 같다(`.cacct` 와 같은 열) |
 | `style-docrender.css` | `.dr-body` | `padding` | 20px | ±2px 안에 단이 없다 |
 | `style-docrender.css` | `.dr-body` | `padding` | 40px | ±2px 안에 단이 없다(문서 끝 여백) |
-| `style-git-views.css` | `.git-br-pfx-head` | `padding-left` | 20px | ±2px 안에 단이 없다(브랜치 트리 들여쓰기) |
-| `style-git-views.css` | `.git-br-pfx-body>.git-br-row` | `padding-left` | 44px | 위와 같다 |
-| `style-git-views.css` | `.git-br-group-body>.git-br-row` | `padding-left` | 28px | 위와 같다 |
+| `style-git-tabs.css` | `.git-br-pfx-head` | `padding-left` | 20px | ±2px 안에 단이 없다(브랜치 트리 들여쓰기) |
+| `style-git-tabs.css` | `.git-br-pfx-body>.git-br-row` | `padding-left` | 44px | 위와 같다 |
+| `style-git-tabs.css` | `.git-br-group-body>.git-br-row` | `padding-left` | 28px | 위와 같다 |
 | `style-status.css` | `.confirm-box` | `padding` | 20px | ±2px 안에 단이 없다(같은 값의 24px 은 토큰이다) |
 | `style-system.css` | `.fe-error` | `padding` | 20px | ±2px 안에 단이 없다 |
 | `style-system.css` | `.boot-name` | `margin-top` | 20px | ±2px 안에 단이 없다 |

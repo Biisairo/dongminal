@@ -21,7 +21,7 @@ import { join } from 'path';
 
 const CSS_DIR = 'web';
 
-/** 예외 표 — SRS 부록 B 와 같은 스무 줄이다. 줄마다 사유를 적는다. */
+/** 예외 표 — REFACTOR3_FE_REST4_SRS 부록 B 와 같은 열쇠다. 줄마다 사유를 적는다. */
 const EXCEPT = [
   { f: 'style-main-panel.css', sel: '.ui-panel[data-rail] .sb-tab-badge', prop: 'padding', v: '3px', why: '레일 아이콘 귀퉁이의 12px 배지' },
   { f: 'style-activity.css', sel: '#agents-panel[data-rail] .ag-tab-n', prop: 'padding', v: '3px', why: '작업 패널 레일의 12px 배지' },
