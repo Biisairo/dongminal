@@ -72,10 +72,12 @@ fn quote_char_at(b: &[u8]) -> String {
     }
 }
 
+/// offset 은 Go 처럼 잘못된 글자의 끝이다.
 fn invalid_char(b: &[u8], pos: usize, where_: &str) -> SyntaxError {
+    let (_, n) = decode_rune(&b[pos..]);
     syntax(
         format!("invalid character {} {}", quote_char_at(&b[pos..]), where_),
-        pos,
+        pos + n,
     )
 }
 
@@ -106,7 +108,10 @@ fn invalid_escape(what: &[u8], pos: usize) -> SyntaxError {
     } else {
         format!("`{}`", String::from_utf8_lossy(what))
     };
-    syntax(format!("invalid {label} {quoted} in string"), pos)
+    syntax(
+        format!("invalid {label} {quoted} in string"),
+        pos + what.len(),
+    )
 }
 
 fn is_space(c: u8) -> bool {
@@ -119,6 +124,18 @@ pub(crate) struct Parser<'a> {
 
 /// 입력 전체가 JSON 값 하나인지 보고 값 트리를 만든다. 뒤에 공백 외 바이트가 있으면 오류다.
 pub(crate) fn parse_document(b: &[u8]) -> Result<Value<'_>, SyntaxError> {
+    parse_document_inner(b).map_err(|e| eof_at_len(e, b.len()))
+}
+
+/// Go 는 입력이 끊긴 오류의 offset 을 입력 길이로 둔다.
+fn eof_at_len(mut e: SyntaxError, len: usize) -> SyntaxError {
+    if e.msg == UNEXPECTED_END {
+        e.offset = len;
+    }
+    e
+}
+
+fn parse_document_inner(b: &[u8]) -> Result<Value<'_>, SyntaxError> {
     let p = Parser { b };
     let (v, end) = p.parse_first(0)?;
     let j = p.skip_ws(end);
@@ -130,7 +147,9 @@ pub(crate) fn parse_document(b: &[u8]) -> Result<Value<'_>, SyntaxError> {
 
 /// 입력 앞의 JSON 값 하나를 해석하고, 값이 끝난 위치를 함께 돌려준다(뒤의 바이트는 보지 않는다).
 pub(crate) fn parse_prefix(b: &[u8]) -> Result<(Value<'_>, usize), SyntaxError> {
-    Parser { b }.parse_first(0)
+    Parser { b }
+        .parse_first(0)
+        .map_err(|e| eof_at_len(e, b.len()))
 }
 
 impl<'a> Parser<'a> {
@@ -185,7 +204,7 @@ impl<'a> Parser<'a> {
             let (mut done, mut end) = match b[i] {
                 b'{' | b'[' => {
                     if stack.len() + 1 > MAX_NESTING_DEPTH {
-                        return Err(syntax("exceeded max depth".to_owned(), i));
+                        return Err(syntax("exceeded max depth".to_owned(), i + 1));
                     }
                     let open = b[i];
                     let start = i;

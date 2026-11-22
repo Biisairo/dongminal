@@ -30,6 +30,7 @@ mod scanner;
 use std::fmt;
 
 pub use decode::{Decoder, unmarshal};
+
 pub use encode::{Encoder, append_string, marshal, marshal_indent};
 pub use scanner::{SyntaxError, compact, indent, valid};
 
@@ -39,11 +40,53 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error {
     msg: String,
+    kind: Box<ErrorKind>,
+}
+
+/// Go 오류 타입의 구별(`errors.As`·`==` 로 가르던 것)과 그 필드. 값은 go1.27.2 실측과 같다.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorKind {
+    /// `*json.SyntaxError`. `offset` 은 잘못된 글자(또는 이스케이프)의 끝, 입력이 끊겼으면 입력 길이.
+    Syntax { offset: i64 },
+    /// `*json.UnmarshalTypeError`.
+    Type {
+        /// `.Value`: `string`·`number`·`number 1.5`·`bool`·`array`·`object`.
+        value: String,
+        /// `.Field`: 맨 위 값부터의 JSON 경로를 `.` 으로 이은 것(`inner.n`, `list.1.n`). 맨 위면 "".
+        field: String,
+        /// `.Struct`: 맨 위 구조체 이름(패키지 없이). 맨 위 값이면 "".
+        struct_name: String,
+        /// `.Type.String()` 에 해당하는 이름(근사, 모듈 문서 참고).
+        go_type: String,
+        /// `.Offset`: 스칼라는 값의 끝, 객체·배열은 여는 괄호 다음.
+        offset: i64,
+    },
+    /// `io.EOF` (Decoder 가 값을 하나도 읽지 못함).
+    Eof,
+    /// `io.ErrUnexpectedEOF` (Decoder 가 읽던 값이 끊김).
+    UnexpectedEof,
+    /// 그 밖(`json: unknown field`, 인코딩 오류 등).
+    Other,
 }
 
 impl Error {
     pub(crate) fn new(msg: String) -> Self {
-        Self { msg }
+        Self {
+            msg,
+            kind: Box::new(ErrorKind::Other),
+        }
+    }
+
+    pub(crate) fn with_kind(msg: String, kind: ErrorKind) -> Self {
+        Self {
+            msg,
+            kind: Box::new(kind),
+        }
+    }
+
+    /// Go 오류 타입의 종류와 필드.
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
     }
 }
 
@@ -57,7 +100,8 @@ impl std::error::Error for Error {}
 
 impl From<SyntaxError> for Error {
     fn from(e: SyntaxError) -> Self {
-        Self::new(e.msg)
+        let offset = i64::try_from(e.offset).unwrap_or(i64::MAX);
+        Self::with_kind(e.msg, ErrorKind::Syntax { offset })
     }
 }
 

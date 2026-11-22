@@ -324,6 +324,7 @@ dependencies = [
  "serde",
  "serde_json",
  "time",
+ "windows-sys",
 ]
 
 [[package]]
@@ -534,6 +535,7 @@ dependencies = [
  "dm-gocompat",
  "dm-shared-dmenv",
  "dm-shared-dmlog",
+ "libc",
  "serde_json",
  "tempfile",
  "windows-sys",

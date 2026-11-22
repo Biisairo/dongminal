@@ -1,7 +1,7 @@
 //! Go `os`·`syscall` 오류의 문구 (RUST_PORT_SRS FR-RSP-35).
 //!
 //! - errno 문구는 Go `syscall.Errno.Error()` 와 같다. unix 는 Go 의 표(소문자)를 쓴다.
-//!   Windows 는 std 의 FormatMessageW 결과에서 ` (os error N)` 꼬리를 뗀 값이다.
+//!   Windows 는 Go 처럼 FormatMessageW 를 영어(US)로 먼저 부른다(C-RSP-4 의 예외 자리).
 //! - [`path_error`]·[`link_error`]·[`syscall_error`] 는 Go `*os.PathError`·`*os.LinkError`·
 //!   `*os.SyscallError` 문구를 담은 `io::Error` 를 만든다. `ErrorKind` 는 원래 오류의 것을 지키고,
 //!   [`raw_os_error`] 로 원래 errno 를 꺼낼 수 있다.
@@ -17,6 +17,8 @@
     ),
 ))]
 mod errno_table;
+#[cfg(windows)]
+mod windows;
 
 use std::fmt;
 use std::io;
@@ -39,7 +41,12 @@ pub fn errno_string(code: i32) -> String {
             _ => format!("errno {code}"),
         }
     }
+    #[cfg(windows)]
+    {
+        windows::errno_string(code)
+    }
     #[cfg(not(any(
+        windows,
         all(
             target_os = "macos",
             any(target_arch = "aarch64", target_arch = "x86_64")
@@ -50,29 +57,11 @@ pub fn errno_string(code: i32) -> String {
         ),
     )))]
     {
-        std_os_message(code)
+        // 대상 플랫폼 밖: std 문구에서 ` (os error N)` 꼬리를 뗀다.
+        let full = io::Error::from_raw_os_error(code).to_string();
+        let tail = format!(" (os error {code})");
+        full.strip_suffix(&tail).unwrap_or(&full).to_owned()
     }
-}
-
-/// std 의 OS 오류 문구에서 ` (os error N)` 꼬리를 떼고, Go 처럼 끝의 `\r`·`\n` 을 지운다.
-#[cfg_attr(
-    any(
-        all(
-            target_os = "macos",
-            any(target_arch = "aarch64", target_arch = "x86_64")
-        ),
-        all(
-            target_os = "linux",
-            any(target_arch = "aarch64", target_arch = "x86_64")
-        ),
-    ),
-    allow(dead_code)
-)]
-fn std_os_message(code: i32) -> String {
-    let full = io::Error::from_raw_os_error(code).to_string();
-    let tail = format!(" (os error {code})");
-    let msg = full.strip_suffix(&tail).unwrap_or(&full);
-    msg.trim_end_matches(['\r', '\n']).to_owned()
 }
 
 /// Go `*os.PathError`: `op path: 문구`.
