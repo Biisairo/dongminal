@@ -3,6 +3,7 @@ package ext
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,6 +92,45 @@ func TestFetchArchive_HardlinkCopiesStrippedTarget(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(alias); string(b) != "payload" {
 		t.Fatalf("하드링크 내용 = %q", b)
+	}
+}
+
+// TC-ATF-25 (FR-ATF-25 / AT-EXT-7): 해제 총량은 MaxArchiveBytes 의 ExtractRatio 배를
+// 넘지 못한다. 잘 눌린 아카이브는 크기 상한을 지나도 풀면 디스크를 채운다.
+func TestFetchArchive_ExtractTotalCap(t *testing.T) {
+	old := MaxArchiveBytes
+	MaxArchiveBytes = 4096
+	t.Cleanup(func() { MaxArchiveBytes = old })
+	limit := int(MaxArchiveBytes * ExtractRatio)
+
+	for _, format := range []string{"tar", "zip"} {
+		for _, c := range []struct {
+			size int
+			ok   bool
+		}{{limit, true}, {limit + 1, false}} {
+			entries := []tarEntry{{name: "a", body: strings.Repeat("0", c.size/2)}, {name: "b", body: strings.Repeat("0", c.size-c.size/2)}}
+			var blob []byte
+			if format == "zip" {
+				blob = makeZip(t, entries)
+			} else {
+				blob = makeTarGz(t, entries)
+			}
+			root := t.TempDir()
+			dest := filepath.Join(root, "out")
+			tg := Target{URL: "https://example.test/a." + format, SHA256: sum(blob)}
+			err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest)
+			if c.ok && err != nil {
+				t.Fatalf("%s: 상한과 같은 해제가 거절됐다: %v", format, err)
+			}
+			if !c.ok {
+				if !errors.Is(err, ErrExtractTooLarge) {
+					t.Fatalf("%s: err = %v, want ErrExtractTooLarge", format, err)
+				}
+				if _, e := os.Stat(dest); !errors.Is(e, os.ErrNotExist) {
+					t.Fatalf("%s: 실패한 조달이 자리를 남겼다", format)
+				}
+			}
+		}
 	}
 }
 

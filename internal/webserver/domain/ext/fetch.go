@@ -32,6 +32,14 @@ const FetchTimeout = 10 * time.Minute
 // 있도록 var 다.
 var MaxArchiveBytes int64 = 1 << 30
 
+// ExtractRatio 는 해제 총량 상한을 MaxArchiveBytes 의 몇 배로 둘지다 (FR-ATF-25).
+// 다운로드 크기만 재면 잘 눌린 아카이브 하나가 풀면서 디스크를 채운다. 런타임
+// 배포본의 압축비는 이보다 낮다.
+const ExtractRatio = 4
+
+// ErrExtractTooLarge 는 풀어 놓은 총량이 MaxArchiveBytes*ExtractRatio 를 넘었다는 뜻이다.
+var ErrExtractTooLarge = errors.New("아카이브를 푼 총량이 상한을 넘었습니다")
+
 // stagingSuffix 는 새 설치를 풀어 두는 옆 자리의 꼬리다. 팩 id 는 이것으로 끝날 수
 // 없다 (FR-ATF-22).
 const stagingSuffix = ".new"
@@ -194,6 +202,8 @@ type unpacker struct {
 	dest string
 	// real 은 dest 의 실경로다. 비교의 기준이다.
 	real string
+	// left 는 해제할 수 있는 남은 바이트다 (FR-ATF-25).
+	left int64
 }
 
 func newUnpacker(dest string) (*unpacker, error) {
@@ -201,7 +211,7 @@ func newUnpacker(dest string) (*unpacker, error) {
 	if err != nil {
 		return nil, fmt.Errorf("풀 자리를 확인하지 못했습니다: %w", err)
 	}
-	return &unpacker{dest: dest, real: real}, nil
+	return &unpacker{dest: dest, real: real, left: MaxArchiveBytes * ExtractRatio}, nil
 }
 
 func (u *unpacker) inside(real string) bool {
@@ -246,7 +256,22 @@ func (u *unpacker) file(target string, r io.Reader, perm os.FileMode) error {
 			return err
 		}
 	}
-	return writeFile(target, r, perm)
+	return writeFile(target, &budgetReader{r: r, left: &u.left}, perm)
+}
+
+// budgetReader 는 해제 누적량을 남은 몫에서 깎고, 몫을 넘으면 ErrExtractTooLarge 다.
+type budgetReader struct {
+	r    io.Reader
+	left *int64
+}
+
+func (b *budgetReader) Read(p []byte) (int, error) {
+	n, err := b.r.Read(p)
+	*b.left -= int64(n)
+	if *b.left < 0 {
+		return n, ErrExtractTooLarge
+	}
+	return n, err
 }
 
 // symlink 는 상대 경로이고 해석 결과가 칸 안인 링크만 만든다. 아직 대상이 없는
