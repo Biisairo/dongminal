@@ -16,15 +16,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 )
-
-// FetchTimeout 은 아카이브 하나를 받는 시간 상한이다 (FR-EXT-18).
-//
-// 넉넉한 이유는 런타임이 100 MB 대이기 때문이다. 그래도 상한이 있어야 한다 —
-// 없으면 답하지 않는 네트워크에서 조달이 영영 끝나지 않고, 사용자는 버튼이 죽은
-// 것으로 읽는다.
-const FetchTimeout = 10 * time.Minute
 
 // MaxArchiveBytes 는 아카이브 하나의 크기 상한이다 (OPTIMIZE_REFACTOR_SRS
 // FR-OPT-1-11). 시간 상한만 있으면 끝없이 흘러오는 응답이 그 시간 동안 임시

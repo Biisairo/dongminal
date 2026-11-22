@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"dongminal/internal/shared/testpath"
 )
@@ -272,6 +273,27 @@ func TestDeploy_RecordFailureRevertsManifests(t *testing.T) {
 	}
 	if got, _ := Load(root); len(got) != len(ms) {
 		t.Fatalf("다음 전개가 펴지 않았다: %d (기대 %d)", len(got), len(ms))
+	}
+}
+
+// TC-ATF-28 (FR-ATF-28 / AT-EXT-16): 도구 출력의 꼬리는 diagtail 로 자른다 — 한글
+// 가운데서 잘려 깨진 바이트가 남지 않는다.
+func TestInstall_DetailTailIsValidUTF8(t *testing.T) {
+	root := t.TempDir()
+	inst := testInstaller(root, &recorder{}, map[string]string{"go": "/usr/bin/go"}, nil)
+	long := strings.Repeat("가", OutputTail) // 3 바이트 글자라 끝에서 OutputTail 바이트는 글자 가운데다
+	inst.Exec = func(context.Context, string, []string, []string, string) ([]byte, error) {
+		return []byte(long), errors.New("exit 1")
+	}
+	out := inst.Install(context.Background(), mustParse(t, goPack), nil)
+	if out.OK {
+		t.Fatal("실패한 도구가 성공으로 보고됐다")
+	}
+	if !utf8.ValidString(out.Detail) {
+		t.Fatalf("Detail 이 깨진 UTF-8 이다: %q", out.Detail[:8])
+	}
+	if len(out.Detail) > OutputTail {
+		t.Fatalf("Detail 길이 = %d, want <= %d", len(out.Detail), OutputTail)
 	}
 }
 

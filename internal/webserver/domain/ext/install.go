@@ -6,9 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
+
+	"dongminal/internal/shared/diagtail"
 )
 
 // InstallTimeout 은 조달 하나의 시간 상한이다 (FR-EXT-18).
@@ -24,6 +25,10 @@ const InstallWaitDelay = 5 * time.Second
 
 // OutputTail 은 도구의 출력을 결과에 실을 때의 상한이다. 사용자가 읽을 부분은 대개
 // 마지막 오류 줄이다.
+//
+//	이전 동작: 바이트로 잘라 앞에 "…" 를 붙였다 — 한글 가운데서 잘리면 U+FFFD
+//	새  동작: diagtail.Of — 깨진 조각을 버리고, 출력이 비면 오류 문장을 싣는다
+//	이유:     FR-ATF-28 (AT-EXT-16)
 const OutputTail = 4000
 
 // ExecFunc 는 명령 하나를 돌린다. name 과 args 가 **분리된 채** 오므로 셸이 끼지
@@ -272,7 +277,7 @@ func (r *Installer) installNPM(ctx context.Context, m Manifest, runtimes []Manif
 	args = append(args, "--prefix", dir)
 	env := IsolatedEnvWithPath(r.Root, m, prepend, os.Getenv("PATH"))
 	out, err := r.exec()(ctx, name, args, env, dir)
-	detail := tailOf(string(out), OutputTail)
+	detail := diagtail.Of(string(out), err, OutputTail)
 	if err != nil {
 		return Outcome{Reason: fmt.Sprintf("%s 를 받지 못했습니다", m.ID), Detail: detail}, detail
 	}
@@ -324,7 +329,7 @@ func (r *Installer) installToolchain(ctx context.Context, m Manifest) (Outcome, 
 
 	env := IsolatedEnv(r.Root, m)
 	out, err := r.exec()(ctx, tool, m.Source.Args, env, dir)
-	detail := tailOf(string(out), OutputTail)
+	detail := diagtail.Of(string(out), err, OutputTail)
 
 	// FR-EXT-23: 부산물은 즉시 버린다. 실패했어도 버린다 — 실패한 빌드가 남긴
 	// 캐시도 §2.1 의 889 MB 와 같은 것이다.
@@ -345,14 +350,4 @@ func (r *Installer) pruneBuildCache() {
 	for _, sub := range []string{cacheGoMod, cacheGoBld} {
 		_ = os.RemoveAll(filepath.Join(cache, sub))
 	}
-}
-
-// tailOf 는 문자열의 끝쪽 n 바이트다. 도구의 출력에서 사용자가 읽을 부분은 대개
-// 마지막 오류 줄이다.
-func tailOf(s string, n int) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= n {
-		return s
-	}
-	return "…" + s[len(s)-n:]
 }
