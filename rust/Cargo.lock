@@ -600,7 +600,11 @@ dependencies = [
 name = "dm-shared-settingsschema"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-web-assets",
+ "regex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
