@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,7 +34,7 @@ func fetchInto(t *testing.T, entries []tarEntry, strip int) (root, dest string, 
 	blob := makeTarGz(t, entries)
 	dest = filepath.Join(root, "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob), Strip: strip}
-	err = FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest)
+	err = FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest))
 	return root, dest, err
 }
 
@@ -118,7 +119,7 @@ func TestFetchArchive_ExtractTotalCap(t *testing.T) {
 			root := t.TempDir()
 			dest := filepath.Join(root, "out")
 			tg := Target{URL: "https://example.test/a." + format, SHA256: sum(blob)}
-			err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest)
+			err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest))
 			if c.ok && err != nil {
 				t.Fatalf("%s: 상한과 같은 해제가 거절됐다: %v", format, err)
 			}
@@ -140,5 +141,36 @@ func TestFetchArchive_HardlinkRejectsEscapingTarget(t *testing.T) {
 		{name: "alias", typ: tar.TypeLink, link: "../outside"},
 	}, 0); err == nil {
 		t.Fatal("칸 밖을 가리키는 하드링크가 통과했다")
+	}
+}
+
+// TC-ATF-24 (FR-ATF-24 / AT-EXT-5): 다운로드 임시 파일은 `<root>/cache` 아래에 생기고
+// 끝나면 지워진다 — 격리 칸 밖(OS 임시 디렉터리)에 쓰지 않는다.
+func TestInstall_DownloadTempUnderCache(t *testing.T) {
+	if CurrentTarget() == "" {
+		t.Skip("이 빌드의 타깃 이름을 모른다")
+	}
+	root := t.TempDir()
+	blob := makeTarGz(t, []tarEntry{{name: "bin/thing" + exeSuffix(), body: "#!/bin/sh\n", mode: 0o755}})
+	js := `{"id":"thing","kind":"server","source":{"kind":"archive","targets":{"` +
+		CurrentTarget() + `":{"url":"https://e.test/a.tar.gz","sha256":"` + sum(blob) +
+		`","bin":"bin/thing` + exeSuffix() + `"}}},
+		"servers":[{"id":"thing","exe":"thing","langs":["x"],"exts":[".x"]}]}`
+	m := mustParse(t, js)
+	var during []os.DirEntry
+	inst := testInstaller(root, &recorder{}, nil, func(_ context.Context, _ string, w io.Writer) error {
+		during, _ = os.ReadDir(CacheDir(root))
+		_, err := w.Write(blob)
+		return err
+	})
+	if out := inst.Install(context.Background(), m, nil); !out.OK {
+		t.Fatalf("조달이 실패했다: %+v", out)
+	}
+	if len(during) != 1 {
+		t.Fatalf("받는 중 cache 의 항목 = %d, want 1", len(during))
+	}
+	after, _ := os.ReadDir(CacheDir(root))
+	if len(after) != 0 {
+		t.Fatalf("임시 파일이 남았다: %v", after)
 	}
 }

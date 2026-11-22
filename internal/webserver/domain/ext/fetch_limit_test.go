@@ -28,7 +28,7 @@ func TestFetchArchive_RejectsOversize(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: hex64}
 
-	err := FetchArchive(context.Background(), chunks, tg, dest)
+	err := FetchArchive(context.Background(), chunks, tg, dest, filepath.Dir(dest))
 	if !errors.Is(err, ErrArchiveTooLarge) {
 		t.Fatalf("err = %v, want ErrArchiveTooLarge", err)
 	}
@@ -46,7 +46,7 @@ func TestFetchArchive_AtLimitPasses(t *testing.T) {
 
 	dest := filepath.Join(t.TempDir(), "out")
 	tg := Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob)}
-	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
+	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest, filepath.Dir(dest)); err != nil {
 		t.Fatalf("상한과 같은 아카이브가 거절됐다: %v", err)
 	}
 }

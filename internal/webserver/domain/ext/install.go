@@ -134,7 +134,7 @@ func (r *Installer) Install(ctx context.Context, m Manifest, runtimes []Manifest
 		if !ok {
 			return fail("%s: 이 플랫폼(%s)의 조달처가 선언에 없습니다", m.ID, CurrentTarget())
 		}
-		if err := FetchArchive(cctx, r.fetch(), t, PluginDir(r.Root, m.ID)); err != nil {
+		if err := FetchArchive(cctx, r.fetch(), t, PluginDir(r.Root, m.ID), CacheDir(r.Root)); err != nil {
 			return Outcome{Reason: fmt.Sprintf("%s 를 받지 못했습니다", m.ID), Detail: err.Error()}
 		}
 	case SourceNPM:
@@ -202,7 +202,7 @@ func (r *Installer) ensureRuntime(ctx context.Context, id string, runtimes []Man
 	if !ok {
 		return fail("%s: 이 플랫폼(%s)의 조달처가 선언에 없습니다", id, CurrentTarget())
 	}
-	if err := FetchArchive(ctx, r.fetch(), t, RuntimeDir(r.Root, rt)); err != nil {
+	if err := FetchArchive(ctx, r.fetch(), t, RuntimeDir(r.Root, rt), CacheDir(r.Root)); err != nil {
 		return Outcome{Reason: fmt.Sprintf("%s 를 받지 못했습니다", id), Detail: err.Error()}
 	}
 	return Outcome{OK: true}

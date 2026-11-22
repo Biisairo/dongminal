@@ -89,7 +89,13 @@ func HTTPFetch(ctx context.Context, url string, w io.Writer) error {
 // 순서가 규칙이다: **받고 → 해시를 대조하고 → 푼다.** 스트리밍으로 풀면서 검증하면
 // 어긋난 것을 알았을 때 이미 파일이 놓여 있다. 그리고 실패는 **아무것도 남기지
 // 않는다** — 반쯤 풀린 자리가 남으면 다음 탐색이 그것을 서버로 삼는다.
-func FetchArchive(ctx context.Context, fetch Fetch, t Target, dest string) error {
+//
+// 받은 것은 `tmpDir`(격리 칸의 cache)에 잠깐 둔다.
+//
+//	이전 동작: OS 임시 디렉터리에 받았다(최대 MaxArchiveBytes)
+//	새  동작: 호출자가 준 tmpDir 에 받는다
+//	이유:     FR-ATF-24 — 격리 칸 밖에 쓰지 않는다 (FR-EXT-20·22)
+func FetchArchive(ctx context.Context, fetch Fetch, t Target, dest, tmpDir string) error {
 	if fetch == nil {
 		return fmt.Errorf("조달을 실행할 수 없습니다")
 	}
@@ -97,7 +103,10 @@ func FetchArchive(ctx context.Context, fetch Fetch, t Target, dest string) error
 		return err
 	}
 
-	tmp, err := os.CreateTemp("", "dm-ext-*")
+	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		return fmt.Errorf("임시 자리를 만들지 못했습니다: %w", err)
+	}
+	tmp, err := os.CreateTemp(tmpDir, "dm-ext-*")
 	if err != nil {
 		return fmt.Errorf("임시 파일을 만들지 못했습니다: %w", err)
 	}
