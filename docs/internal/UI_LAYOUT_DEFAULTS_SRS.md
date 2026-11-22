@@ -998,3 +998,9 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
   `div.chat-list.ui-scroll`(열 화면 × 하나). 같은 회차의 다른 데스크톱 변경(셋째 사이드바 탭, 좁은 사이드바의 아이콘 탭, 작업 패널 탭 넷 → 셋)은
   기준선이 재는 키의 값을 바꾸지 않았다. 빠진 키 넷(`git:history` 의 행·배지)은 "기준선에만" 쪽의 흔들리는 키다(게이트 밖).
   **`linux`·`win32` 는 아직이다** — 푸시 뒤 `layout-baseline` 워크플로(사용자 실행).
+- 2026-11-22 (`QUALITY_FIX_SRS` QF-3 뒤, `QUALITY_FLAKY_SRS` §7 남은 것 1) `ui-layout.darwin.json` 을 **다시 떴다**(2793자리). V-LAY-1 이
+  「재지 않는 자리 60(지금에만 20 · 면제 40)」 으로 늘 실패하고 있었다. 읽기 회차의 값 대조는 먼저 초록이었다(`diffs` 0). 옛 파일과 새 파일을
+  키로 견주면 사라진 키 20 · 새 키 20 · 공통 키의 값 차이 0 이다. 바뀐 스무 키는 열 화면 × 둘 — 접기 단추 `button.sb-collapse…`·
+  `button.ag-collapse…` 가 `ui-btn-lg` 를 단 것(QF-3, 26 → 30px)이고, 옛 키와 새 키의 값도 한 자리도 다르지 않다. `R4b` 간격 토큰과
+  `REFACTOR3_FE_REST5_SRS`(CSS 조각·부품 분할)에서 온 차이는 없다. 뜬 뒤 두 회차 연속 초록, 드리프트 40 그대로다.
+  **`linux`·`win32` 는 아직이다** — 사용자가 푸시 뒤 `layout-baseline` 워크플로를 돌려 받은 두 파일로 덮는다.

@@ -214,6 +214,6 @@
 
 **남은 것.**
 
-1. 실패 — `ui-layout-defaults` V-LAY-1(샤드 8): 「재지 않는 자리」 가 기준선 40 에서 60 으로 늘었다. 늘어난 20 은 모두 `.sb-collapse`·`.ag-collapse` 가 `ui-btn-lg` 를 단 선택자다 — `QUALITY_FIX_SRS` QF-3(접기 단추 26 → 30px)이 클래스를 바꿨는데 레이아웃 기준선을 다시 만들지 않았다. 단독 실행에서도 늘 실패한다(흔들림이 아니다). 이 문서의 범위 밖이라 기준선을 고치지 않았다.
+1. 실패 — `ui-layout-defaults` V-LAY-1(샤드 8): 「재지 않는 자리」 가 기준선 40 에서 60 으로 늘었다. 늘어난 20 은 모두 `.sb-collapse`·`.ag-collapse` 가 `ui-btn-lg` 를 단 선택자다 — `QUALITY_FIX_SRS` QF-3(접기 단추 26 → 30px)이 클래스를 바꿨는데 레이아웃 기준선을 다시 만들지 않았다. 단독 실행에서도 늘 실패한다(흔들림이 아니다). 이 문서의 범위 밖이라 기준선을 고치지 않았다. → 2026-11-22 darwin 기준선을 다시 떠 닫았다(`UI_LAYOUT_DEFAULTS_SRS` §9 변경 기록). `linux`·`win32` 는 사용자가 `layout-baseline` 워크플로로 받는다.
 2. 흔들림 — `ux-audit-fix` TC-UXF-1(샤드 7): 첫 시도가 `page.goto: net::ERR_INVALID_HTTP_RESPONSE` 로 실패하고 재시도에 통과했다. FR-FLK-8 이 고친 기대값 경합과 다른 원인이다 — 그 워커의 첫 페이지 열기에서 서버가 HTTP 가 아닌 답을 냈다. 조사하지 않았다.
 3. 목록의 다른 항목(TC-ACF-1 · TC-SVS-3·13·50·55·56 · tab-names · settings 프로필 둘 · TC-UXF-16 · TC-UXF-94 · O7 · 간선 주소·망 그림 · TC-CAC-27 · `tab` 단축키 · TC-CMP-19)은 이 회차에서 모두 첫 시도에 통과했다.

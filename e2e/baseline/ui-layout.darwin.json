@@ -221,7 +221,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "terminal|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "terminal|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -917,7 +917,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "terminal|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "terminal|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -2018,7 +2018,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:changes|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "git:changes|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3644,7 +3644,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:changes|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "git:changes|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -4745,7 +4745,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:diff|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "git:diff|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -6506,7 +6506,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:diff|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "git:diff|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -7607,7 +7607,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:history|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "git:history|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -9542,7 +9542,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:history|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "git:history|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -10643,7 +10643,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:branches|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "git:branches|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -12554,7 +12554,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:branches|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "git:branches|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13655,7 +13655,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:stash|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "git:stash|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -15323,7 +15323,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:stash|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "git:stash|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -16424,7 +16424,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:console|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "git:console|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -18041,7 +18041,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:console|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "git:console|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -19142,7 +19142,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:worktrees|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "git:worktrees|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -20834,7 +20834,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:worktrees|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "git:worktrees|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -21935,7 +21935,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:submodules|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "git:submodules|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -23561,7 +23561,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:submodules|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "git:submodules|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -24662,7 +24662,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "editor|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-panel-act-desktop": {
+ "editor|button.sb-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg.ui-panel-act-desktop": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -25433,7 +25433,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "editor|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon": {
+ "editor|button.ag-collapse.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
