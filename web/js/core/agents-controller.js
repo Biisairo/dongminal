@@ -371,8 +371,9 @@ class AgentsController extends Controller {
       head.appendChild(b);
     };
     // UX_BATCH12_SRS FR-ACF-5: 닫기가 아니라 접기다. 레일에서는 같은 단추가 펼친다.
+    // QUALITY_FIX_SRS FR-QFX-3: 메인 패널의 접기(`sb-collapse`)와 같은 큰 단추(30px)다. 이전: 표준(26px).
     const open=this.agentsPanelOpen();
-    mkBtn('ag-collapse',open?(this.app.isMobile?TIP_PANEL_CLOSE:TIP_PANEL_COLLAPSE):TIP_PANEL_EXPAND,this._agCollapseIcon());   // FR-MUX-17
+    mkBtn('ui-btn-lg ag-collapse',open?(this.app.isMobile?TIP_PANEL_CLOSE:TIP_PANEL_COLLAPSE):TIP_PANEL_EXPAND,this._agCollapseIcon());   // FR-MUX-17
     head.querySelector('.ag-collapse').addEventListener('click',e=>{e.stopPropagation();this.app.agentsToggle()});
     return head;
   }

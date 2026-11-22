@@ -55,8 +55,10 @@ class LayoutDock extends Controller {
     let b=acts.querySelector('.sb-collapse');
     if(!b){
       // 킷은 이름 없는 단추를 거절한다(던진다) — 부팅 경로이므로 처음부터 이름을 준다.
-      // UX_AUDIT_FIX_SRS D-38: 작업 패널의 접기(`ag-collapse`)와 같은 크기다. 이전 `size:'lg'` — 레일 맨 위에서 두 레일의 탭 선이 4px 어긋났다.
-      b=UIKit.button({icon:'chevron-left',title:TIP_PANEL_COLLAPSE,kind:'ghost',cls:'sb-collapse ui-panel-act-desktop',onClick:e=>{e.stopPropagation();this.app._toggleSidebar()}});
+      // UX_AUDIT_FIX_SRS D-38: 작업 패널의 접기(`ag-collapse`)와 같은 크기다 — 다르면 레일 맨 위에서 두 레일의 탭 선이 어긋난다.
+      // QUALITY_FIX_SRS FR-QFX-3: 둘 다 큰 단추(30px)다 — 사이드바 단추의 하한(GIT_UI_REVISION FR-GIT-226).
+      //   이전: 표준(26px) — D-38 이 작은 쪽에 맞추며 하한을 깼다
+      b=UIKit.button({icon:'chevron-left',title:TIP_PANEL_COLLAPSE,kind:'ghost',size:'lg',cls:'sb-collapse ui-panel-act-desktop',onClick:e=>{e.stopPropagation();this.app._toggleSidebar()}});
       acts.prepend(b);
     }
     const open=!this.app.sidebarCollapsed();

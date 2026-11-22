@@ -158,5 +158,15 @@ test.describe('레일의 접기 단추 (FR-UXF-31 개정, D-38)', () => {
 
     await expect(page.locator('#agents-panel')).not.toHaveClass(/\bopen\b/);
     expect(await top(page, '#agents-panel .ag-collapse')).toBeLessThan(await top(page, '#agents-head .ag-tab'));
+
+    // QUALITY_FIX_SRS FR-QFX-3·4: 두 접기 단추는 같은 크기(키트 큰 단추, 30px)이고, 그래서 두 레일의 탭 선이 같다 —
+    // D-38 이 단추를 줄인 이유가 이 어긋남(4px)이었다. 크기는 FR-GIT-226 의 하한을 지킨다(`git-ui-metrics` V80).
+    const size = (sel: string) => page.locator(sel).first().evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      return [Math.round(r.width), Math.round(r.height)];
+    });
+    expect(await size('#sidebar .sb-collapse')).toEqual([30, 30]);
+    expect(await size('#agents-panel .ag-collapse')).toEqual([30, 30]);
+    expect(await top(page, '#sb-tabs .sb-tab')).toBe(await top(page, '#agents-head .ag-tab'));
   });
 });
