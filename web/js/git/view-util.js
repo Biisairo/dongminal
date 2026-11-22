@@ -63,3 +63,68 @@ function gitPaintNote(el, prefix, note){
   const msg=box.querySelector('.'+prefix+'-note-msg');
   if(msg) msg.textContent=(note&&note.msg)||'';
 }
+
+// ── diff 의 조각 (REFACTOR3_FE_REST5_SRS FR-FR5-21: `diff-view.js` 머리에서 옮겼다 — 여러 뷰가 부른다) ──
+
+/**
+ * recovery hint 의 명령에 넣을 경로를 감싼다 (FR-GIT-92). 저장소에는 공백·따옴표·
+ * 한글이 든 경로가 있고, 사용자가 그 명령을 **붙여 그대로 실행**하므로 셸이 읽는
+ * 형태여야 한다.
+ */
+/**
+ * `gitHunkSpan` 이 여기 있었다 (FR-GIT-278) — 조각 머리의 텍스트 한 조각을 만드는
+ * 함수였다. 하단 조각 목록이 폐기되면서(DIFF_HUNK_BAR_SRS FR-DHB-2) 부르는 자리가
+ * 없어졌다.
+ *
+ * **그 함수가 지킨 규약은 남는다**: 사용자의 파일 내용이 닿는 자리는 언제나
+ * `textContent` 다 (NFR-DHB-3). 새 코드에서 그 자리는 Diff 탭 머리의 안내
+ * 한 줄(`_hunkNote`)과 revert 확인 대화의 대상 라벨이다.
+ */
+
+function gitShQuote(p){
+  const s=String(p==null?'':p);
+  if(/^[A-Za-z0-9._\/@=+:,-]+$/.test(s)) return s;
+  return "'"+s.replace(/'/g,"'\\''")+"'";
+}
+
+/**
+ * 바이트 수를 사람이 읽는 한 조각으로 만든다. 나누는 단위는 상태바·전송량 표시와
+ * 같은 1024 계열이다 — 같은 화면 안에서 두 계산법이 섞이면 값이 어긋나 보인다.
+ */
+function gitFmtBytes(n){
+  const b=Number(n)||0;
+  if(b<1024) return b+' B';
+  if(b<1048576) return (b/1024).toFixed(1)+' KB';
+  if(b<1073741824) return (b/1048576).toFixed(1)+' MB';
+  return (b/1073741824).toFixed(1)+' GB';
+}
+
+/**
+ * 본문을 그리지 못하는 쪽의 메타 한 줄 (FR-GIT-46·47·48).
+ *
+ * LFS 포인터는 **가리키는 객체**의 oid·크기다 — 포인터 파일 자신의 134 B 는
+ * 사용자가 묻는 것이 아니다. 서버가 싣지 않은 값은 만들지 않는다.
+ */
+function gitBlobMeta(side){
+  const s=side||{};
+  if(s.kind===GIT_LFS_KIND){
+    const oid=s.lfsOid?GIT_LFS_OID_PREFIX+s.lfsOid.slice(0,GIT_LFS_OID_ABBREV)+'…':'';
+    const size=s.lfsSize?gitFmtBytes(s.lfsSize):'';
+    return [oid,size].filter(Boolean).join(GIT_META_SEP);
+  }
+  if(GIT_META_SIZED.has(s.kind)) return s.size?gitFmtBytes(s.size):'';
+  if(s.kind===GIT_SUBMODULE_KIND) return s.oid?s.oid.slice(0,GIT_COMMIT_ABBREV):'';
+  return '';
+}
+
+/**
+ * 양쪽 메타를 안내 아래 줄들로 만든다. 같으면 한 줄이다 — 같은 값을 두 번 보이면
+ * 사용자는 두 쪽이 다르다고 읽는다.
+ */
+function gitBlobMetaLines(orig,mod){
+  const a=gitBlobMeta(orig),b=gitBlobMeta(mod);
+  if(a&&b&&a!==b){
+    return [GIT_META_SIDE.orig+GIT_META_LABEL_SEP+a,GIT_META_SIDE.mod+GIT_META_LABEL_SEP+b];
+  }
+  return [a||b].filter(Boolean);
+}

@@ -1479,6 +1479,7 @@
 | `D-FR5-4` | (R5b) 팩토리 안의 이름 없는 클래스는 최상위로 올린다. 단 `EdLspWorkspace` 는 `extends CM.Workspace` 라 로드 때 정의할 수 없어 팩토리에 남기고, 부모가 없는 `EdLspFile` 만 올린다(팩토리 108 → 9… | 팩토리는 CM 이 늦게 실리기 때문에 있고, 클래스 본문은 메서드 안에서만 `CM` 을 읽는다. 클래스 정의는 로드 시점에 `CM` 이 필요 없다 — `extends` 절만 예외다 | 채택 |
 | `D-FR5-5` | (R5b) `check-i18n.mjs` 의 진단 오버레이 예외(`put` 호출의 인자)는 `this.put` 도 받는다 | 예외의 뜻은 "진단 로그 줄은 개발자 출력이다" 이고 호출 꼴이 아니다. `DiagOverlay` 가 되며 `put` 이 메서드가 됐다 | 채택 |
 | `D-FR5-6` | (R5b) 100줄 상한은 새 단위 시험 `fn-size.test.mjs` 가 모든 함수(주석 포함 줄 수)에 건다. 아직 남은 것은 시험 안의 남김 목록에 이유와 함께 둔다 | `method-size.test.mjs` 는 이름으로 찾은 함수의 코드 줄만 잰다. 즉시 실행 함수·팩토리처럼 이름이 없는 자리는 거기 들 수 없어 다시 불어도 보이지 않는다 | 채택 |
+| `D-FR5-7` | (R5c) e2e 가 파일을 홀로 싣는 하네스(`event-timer-hub-contract` 의 `git-part.js`+`git-poll.js`, `reconnect-storm` 의 `term-pane.js`·`term-input.js`·`ui-k… | 이 작업 트리는 `e2e/` 를 고치지 않는다. 하네스가 싣지 않는 파일의 클래스를 그 경로가 부르면 하네스가 `ReferenceError` 로 깨진다. 처음에는 받아들이기를 `GitStatusApply` 로 옮겼다가, 하네스가 `_fail()` 경로… | 채택 |
 
 ## [`REFACTOR3_FE_SETTINGS_SRS`](./REFACTOR3_FE_SETTINGS_SRS.md)
 
@@ -2118,4 +2119,4 @@
 
 ---
 
-결정 **1290건** · 문서 **161개**.
+결정 **1291건** · 문서 **161개**.
