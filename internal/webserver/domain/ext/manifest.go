@@ -86,7 +86,9 @@ type Target struct {
 // Source 는 조달 선언이다.
 type Source struct {
 	Kind SourceKind `json:"kind"`
-	// Packages 는 npm 의 패키지 명세들이다. 판이 박혀야 한다 (FR-EXT-37).
+	// Packages 는 npm 의 패키지 명세들이다. 동봉 팩은 판을 박아 둔다 (FR-EXT-37,
+	// TestBuiltins_VersionsArePinned 가 지킨다). 선언 검증(validate)은 판 고정을
+	// 요구하지 않는다 — 판 없는 명세도 받는다 (FR-ATF-72).
 	//
 	// **여럿인 것이 규칙이다.** 서버 하나가 다른 패키지를 함께 요구하는 일이
 	// 있다 — `typescript-language-server` 는 `typescript` 없이는 아무것도 모른다.

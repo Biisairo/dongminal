@@ -343,11 +343,11 @@ func (r *Installer) installToolchain(ctx context.Context, m Manifest) (Outcome, 
 
 // pruneBuildCache 는 빌드의 부산물을 지운다 (FR-EXT-23).
 //
+// 빌드 캐시(GOCACHE)만 지우고 모듈 캐시(GOMODCACHE)는 남긴다 (FR-ATF-70).
+// 이전에는 둘 다 지웠다. 받아 둔 모듈은 다음 조달이 다시 쓰므로 버리지 않는다.
+//
 // 실패는 삼킨다 (§2.5 ⑤) — 정리는 곁다리이므로 그 실패가 조달의 결과를 뒤집지
 // 않는다.
 func (r *Installer) pruneBuildCache() {
-	cache := CacheDir(r.Root)
-	for _, sub := range []string{cacheGoMod, cacheGoBld} {
-		_ = os.RemoveAll(filepath.Join(cache, sub))
-	}
+	_ = os.RemoveAll(filepath.Join(CacheDir(r.Root), cacheGoBld))
 }

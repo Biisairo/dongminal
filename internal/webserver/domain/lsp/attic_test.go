@@ -90,3 +90,57 @@ func TestReadFrame_HeaderAtLineCap(t *testing.T) {
 		t.Fatalf("readFrame = %q %v", got, err)
 	}
 }
+
+// TC-ATF-71 (FR-ATF-71 / AT-EXT-13): 파일에서 읽은 경로표의 상대경로는 무시한다
+// (SetPaths 와 같은 규칙). 절대경로 값은 그대로 남는다.
+func TestLoadPaths_IgnoresNonAbsolute(t *testing.T) {
+	abs := filepath.Join(t.TempDir(), "my-gopls")
+	file := filepath.Join(t.TempDir(), "lsp-paths.json")
+	data, err := json.Marshal(pathsFileBody{Paths: map[string]string{
+		"gopls/gopls":                           abs,
+		"typescript/typescript-language-server": "rel/tsls",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	svc := svcWith(t, nil, nil)
+	if err := svc.LoadPaths(file); err != nil {
+		t.Fatal(err)
+	}
+	got := svc.Paths()
+	if len(got) != 1 || got["gopls/gopls"] != abs {
+		t.Fatalf("Paths = %v, want 절대경로 하나만", got)
+	}
+}
+
+// TC-ATF-73 (FR-ATF-73 / AT-LSP-7): PUT 의 모르는 키(지금 없는 팩)는 오류 없이 버린다.
+// 아는 키는 저장되고, 버린 키는 메모리에도 파일에도 남지 않는다.
+func TestSetPaths_DropsUnknownKeys(t *testing.T) {
+	svc := svcWith(t, nil, nil)
+	file := filepath.Join(t.TempDir(), "lsp-paths.json")
+	if err := svc.LoadPaths(file); err != nil {
+		t.Fatal(err)
+	}
+	abs := filepath.Join(t.TempDir(), "my-gopls")
+	got, err := svc.SetPaths(map[string]string{"gopls/gopls": abs, "gone/gone": "/x"})
+	if err != nil {
+		t.Fatalf("SetPaths = %v", err)
+	}
+	if len(got) != 1 || got["gopls/gopls"] != abs {
+		t.Fatalf("Paths = %v, want 아는 키 하나만", got)
+	}
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var onDisk pathsFileBody
+	if err := json.Unmarshal(raw, &onDisk); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := onDisk.Paths["gone/gone"]; ok || onDisk.Paths["gopls/gopls"] != abs {
+		t.Fatalf("파일 = %s", raw)
+	}
+}

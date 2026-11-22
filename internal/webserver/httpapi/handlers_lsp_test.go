@@ -125,15 +125,14 @@ func TestLSPPaths_GetPut(t *testing.T) {
 	}
 }
 
-// 거부 코드: 모르는 서버 400 bad_request, 상대경로 400 path_must_be_absolute, 저장 실패
-// 500 save_failed.
+// 거부 코드: 상대경로 400 path_must_be_absolute, 저장 실패 500 save_failed.
+// 모르는 서버 키는 거부하지 않고 버린다(FR-ATF-73) — lsp 패키지의 TC-ATF-73 이 본다.
 func TestLSPPaths_PutErrors(t *testing.T) {
 	cases := []struct {
 		err    error
 		status int
 		code   string
 	}{
-		{lsp.ErrUnknownServer, 400, "bad_request"},
 		{lsp.ErrPathNotAbsolute, 400, "path_must_be_absolute"},
 		{lsp.ErrPathsSave, 500, "save_failed"},
 	}

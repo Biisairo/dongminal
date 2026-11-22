@@ -17,8 +17,10 @@ func TestPaths_SetValidatesPersistsAndStatusUsesIt(t *testing.T) {
 	if err := svc.LoadPaths(file); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.SetPaths(map[string]string{"nope/nope": "/x"}); !errors.Is(err, ErrUnknownServer) {
-		t.Fatalf("모르는 서술자 = %v", err)
+	// 이전: 모르는 서술자는 ErrUnknownServer 로 거부됐다.
+	// 새: 오류 없이 버린다. 이유: FR-ATF-73 (AT-LSP-7) — 지운 팩의 키가 남은 옛 표도 PUT 된다.
+	if got, err := svc.SetPaths(map[string]string{"nope/nope": "/x"}); err != nil || len(got) != 0 {
+		t.Fatalf("모르는 서술자 = %v %v", got, err)
 	}
 	if _, err := svc.SetPaths(map[string]string{"gopls/gopls": "rel/gopls"}); !errors.Is(err, ErrPathNotAbsolute) {
 		t.Fatalf("상대경로 = %v", err)
