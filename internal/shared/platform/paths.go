@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"dongminal/internal/shared/dmlog"
 )
 
 // Paths 는 경로 규약과 파일 설치의 OS 차이다 (FR-XPA-1).
@@ -324,8 +326,16 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 		_ = os.Remove(tmp)
 		return err
 	}
+	// rename 을 디스크에 닿게 한다(POSIX). 이미 바뀐 뒤라 실패해도 쓰기는 성공이다 — 실패를 알리면
+	// "실패하면 옛 내용 그대로" 라는 계약과 어긋난다 (FR-ATF-58).
+	if err := dirSync(filepath.Dir(path)); err != nil {
+		dmlog.Warnf(nil, "WriteFileAtomic: 디렉터리 fsync: %v", err)
+	}
 	return nil
 }
+
+// dirSync 는 WriteFileAtomic 이 rename 뒤 부르는 디렉터리 fsync 다. 시험이 바꾼다.
+var dirSync = syncDir
 
 // WriteFileIfChanged 는 설치물(셸 훅·에이전트 훅·shim)을 쓴다 (FR-OPT-5-5, SHR-12).
 //
