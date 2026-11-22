@@ -2,7 +2,10 @@
 //!
 //! **최신 릴리스가 무엇인가** 하나만 안다 (UPDATE_NOTICE_SRS FR-UPD-5).
 
+use std::fmt;
 use std::time::Duration;
+
+use serde::Deserialize;
 
 /// 릴리스가 사는 저장소다. 릴리스를 발행하는 곳과 같아야 한다.
 pub const REPO: &str = "Biisairo/dongminal";
@@ -12,6 +15,72 @@ pub const API: &str = "https://api.github.com/repos/Biisairo/dongminal/releases/
 
 /// 확인에 주는 시간이다.
 pub const TIMEOUT: Duration = Duration::from_secs(5);
+
+/// 응답 본문을 읽는 상한이다 (Go `io.LimitReader(res.Body, 1<<20)`).
+const BODY_LIMIT: usize = 1 << 20;
+
+/// Go `http.Client` 가 싣는 User-Agent. GitHub API 는 이것이 없으면 거절한다.
+const USER_AGENT: &str = "Go-http-client/1.1";
+
+/// NFR-UPD-4: 요청이 싣는 것은 이 한 줄뿐이다.
+const ACCEPT: &str = "application/vnd.github+json";
+
+/// 확인 실패. `Display` 는 Go `err.Error()` 의 문구다(전송 오류는 근사).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Error(String);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for Error {}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct LatestBody {
+    tag_name: String,
+    html_url: String,
+}
+
+/// 최신 태그와 그 릴리스 링크를 읽는다. `url` 이 비면 [`API`].
+pub async fn latest(url: &str) -> Result<(String, String), Error> {
+    let url = if url.is_empty() { API } else { url };
+    // reqwest 의 rustls-no-provider 는 프로세스 공통 암호 공급자를 요구한다. 이미 있으면 그대로 쓴다.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let transport =
+        |e: reqwest::Error| Error(format!("Get {}: {e}", dm_gocompat::strconv::quote(url)));
+    let client = reqwest::Client::builder()
+        .timeout(TIMEOUT)
+        .user_agent(USER_AGENT)
+        .build()
+        .map_err(transport)?;
+    let mut res = client
+        .get(url)
+        .header(reqwest::header::ACCEPT, ACCEPT)
+        .send()
+        .await
+        .map_err(transport)?;
+    if res.status() != reqwest::StatusCode::OK {
+        return Err(Error(format!("응답 {}", res.status().as_u16())));
+    }
+    let mut body = Vec::new();
+    while body.len() < BODY_LIMIT {
+        match res.chunk().await.map_err(transport)? {
+            Some(c) => body.extend_from_slice(&c),
+            None => break,
+        }
+    }
+    body.truncate(BODY_LIMIT);
+    let b: LatestBody = dm_gocompat::json::Decoder::new()
+        .decode(&body)
+        .map_err(|e| Error(e.to_string()))?;
+    if b.tag_name.is_empty() {
+        return Err(Error("태그가 비었습니다".into()));
+    }
+    Ok((b.tag_name, b.html_url))
+}
 
 /// a 가 b 보다 새로운가다. 문자열 비교가 아니다.
 pub fn newer(a: &str, b: &str) -> bool {
@@ -46,6 +115,9 @@ fn parts(v: &str) -> [i64; 3] {
     }
     out
 }
+
+#[cfg(test)]
+mod server_tests;
 
 #[cfg(test)]
 mod tests {

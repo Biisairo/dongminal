@@ -11,10 +11,12 @@ workspace = true
 
 [dependencies]
 bytes = { workspace = true }
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-dmlog = { path = "../dmlog" }
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
+serde = { workspace = true }
 
 [dev-dependencies]
 futures-util = { workspace = true }
