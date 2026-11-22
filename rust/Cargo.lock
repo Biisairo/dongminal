@@ -503,6 +503,7 @@ dependencies = [
  "dm-gocompat",
  "dm-shared-dmenv",
  "dm-shared-dmlog",
+ "libc",
  "serde_json",
  "tempfile",
  "windows-sys",
