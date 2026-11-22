@@ -48,6 +48,9 @@ const (
 	disabledRecheck = 3 * time.Second
 	backoffFirst    = time.Second
 	backoffMax      = time.Minute
+	// alarmRetryAfterMax 는 알림 재전송 전에 429 의 retry_after 를 지켜 기다리는 상한이다
+	// (ATTIC_FIX_SRS FR-ATF-76). 작업자 하나가 기다리므로 그동안 다른 사건이 큐에 쌓인다.
+	alarmRetryAfterMax = 30 * time.Second
 )
 
 // item 은 작업자 큐의 한 칸이다.
@@ -72,6 +75,8 @@ type Bridge struct {
 	now  func() time.Time
 	pair *Pairing
 	q    chan item
+	// sleep 은 알림 재전송 전의 기다림이다. 시험은 자지 않는 것으로 바꾼다.
+	sleep func(time.Duration)
 
 	mu   sync.Mutex
 	tabs map[string]*tabState
@@ -81,7 +86,7 @@ type Bridge struct {
 
 // NewBridge 는 브리지를 만든다. base 가 비면 Bot API 주소다.
 func NewBridge(st *Store, host Host, base string, now func() time.Time) *Bridge {
-	return &Bridge{st: st, host: host, base: base, now: now, pair: NewPairing(now),
+	return &Bridge{st: st, host: host, base: base, now: now, pair: NewPairing(now), sleep: time.Sleep,
 		q: make(chan item, queueSize), tabs: map[string]*tabState{}, buttons: map[string][]int64{}}
 }
 
