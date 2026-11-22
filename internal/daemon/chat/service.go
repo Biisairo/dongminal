@@ -321,6 +321,12 @@ func (s *Service) Direct(pid, peer, purpose string) (RoomInfo, error) {
 	if err := s.roomCapLocked(p); err != nil {
 		return RoomInfo{}, err
 	}
+	// 로컬 상대도 자동으로 들어가는 원격 상대와 같은 방 수 상한을 본다 (FR-ATF-56).
+	if q, ok := s.parts[peer]; ok {
+		if err := s.roomCapLocked(q); err != nil {
+			return RoomInfo{}, err
+		}
+	}
 	rec, err := newRecord(s.id, recordBody{Kind: KindDirect, Owner: pid, Peer: peer, PeerNode: peerNode, Purpose: purpose, Created: s.now(), Nonce: randomHex(16)})
 	if err != nil {
 		return RoomInfo{}, err

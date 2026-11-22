@@ -994,3 +994,20 @@ func TestClosedServiceDropsFrames(t *testing.T) {
 	})
 	eventually(t, "전달 고루틴이 끝난다", func() bool { return runtime.NumGoroutine() <= base })
 }
+
+// TC-ATF-56 (FR-ATF-56): 로컬 상대의 1:1 방도 상대의 방 수 상한을 본다.
+func TestDirectLocalPeerCapped(t *testing.T) {
+	a := newTestNode(t, "a")
+	pa := a.Register("a/x", KindAgent)
+	pb := a.Register("a/y", KindAgent)
+	for i := range maxPartRooms {
+		if _, err := a.Create(pb.ID, "r"+string(rune('a'+i%26))+string(rune('a'+i/26)), ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, err := a.Direct(pa.ID, pb.ID, "")
+	mustCode(t, err, CodeBadRequest)
+	if n := len(a.Rooms(pb.ID)); n != maxPartRooms {
+		t.Fatalf("상대의 방 = %d", n)
+	}
+}
