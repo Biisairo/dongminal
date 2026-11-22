@@ -316,7 +316,7 @@
 
 - **실행하지 않았다.** 빌드·`make gates`·e2e 를 돌리지 않았다(`go vet` 과 `go test -race ./internal/webserver/domain/run/...` 만 돌렸고, 둘 다 통과했다). 결함의 재현은 하나도 하지 않았다.
 - **심볼 도구를 쓰지 못했다.** Serena 는 프로젝트가 활성화되지 않아 실패했고, 조사는 grep·정독으로 참조를 셌다. 호출 수·죽은 코드 판정은 표본이다.
-- **정독하지 않은 곳:** Go 도메인 `ext`·`lsp`·`sysstat`·`git/store`·`git/jobs`·`telegram` 렌더 · `gitapi` 의 branch·write 핸들러 본문 · `edgemesh/mesh.go`·`daemon/chat/service.go`·`edge/config.go`·`runtime/install.go` · FE `app-git.js`·`app-slots.js`·`app-ws-sync.js` 본문.
+- **정독하지 않은 곳:** (2026-11-22 읽기 감사 → [`PROD3_ATTIC.md`](PROD3_ATTIC.md)) Go 도메인 `ext`·`lsp`·`sysstat`·`git/store`·`git/jobs`·`telegram` 렌더 · `gitapi` 의 branch·write 핸들러 본문 · `edgemesh/mesh.go`·`daemon/chat/service.go`·`edge/config.go`·`runtime/install.go` · FE `app-git.js`·`app-slots.js`·`app-ws-sync.js` 본문.
 - **문서 대조는 표본이다.** 바뀐 SRS 73개를 FR 단위로 모두 대조하지 않았다. `M8_UNIFIED`·`WORDING_COLOR`·`RELEASE`·`ISSUE_AGENT_TREE`·`CLAUDE_ACCOUNTS`·`PEER_CHAT` 의 미참조 FR 은 개별로 보지 않았다.
 - **XSS 는 표본이다**(템플릿 13곳 + 테마 미리보기). 전수 감사가 아니다.
 - **Windows·linux 쪽 동작은 이 기계에서 확인할 수 없다.**
