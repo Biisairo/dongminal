@@ -468,10 +468,10 @@ func gitEntryStates(st query.Status) map[string]string {
 func gitDecodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	switch fail, err := httpreq.DecodeJSON(w, r, v, 0); fail {
 	case httpreq.ReadFailed:
-		gitFail(w, httpreq.Status(err), apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
+		gitFail(w, httpreq.Status(err), apierr.BodyReadCode(err), httpreq.Message(r, "본문을 읽지 못했다", err))
 		return false
 	case httpreq.NotJSON:
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, httpreq.Message(r, "본문이 JSON 이 아니다", err))
 		return false
 	}
 	return true

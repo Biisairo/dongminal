@@ -134,10 +134,10 @@ func fsOSMsg(code string) string {
 func fsDecode(w http.ResponseWriter, r *http.Request, into any) bool {
 	switch fail, err := httpreq.DecodeJSON(w, r, into, 0); fail {
 	case httpreq.ReadFailed:
-		fsFail(w, apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
+		fsFail(w, apierr.BodyReadCode(err), httpreq.Message(r, "본문을 읽지 못했다", err))
 		return false
 	case httpreq.NotJSON:
-		fsFail(w, fsErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
+		fsFail(w, fsErrBadRequest, httpreq.Message(r, "본문이 JSON 이 아니다", err))
 		return false
 	}
 	return true

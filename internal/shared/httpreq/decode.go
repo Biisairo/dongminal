@@ -29,10 +29,9 @@ const EmptyAsObject Empty = 1
 // **답하지 않는다.** 실패 종류와 원인 오류를 돌려주고, 상태·코드·문구는 호출자가 자기
 // 방언으로 정한다. 읽기 실패의 상태는 [Status] 가 준다.
 //
-// 문구 규칙 (FR-RDG-7): 읽기 실패·JSON 아님의 본문 문구에 원인 오류의 문구를 싣는
-// 방언(toolio·fs·git)은 그대로 싣는다. 클라이언트가 자기 요청의 어디가 틀렸는지 알아야
-// 한다 — git 디코더의 기존 설계다. 고정 문구를 쓰는 방언(평문·`{code,message}`·노드
-// 포트)도 그대로다. 이 함수는 어느 쪽의 문구도 바꾸지 않는다.
+// 문구 규칙 (FR-RDG-7 → QUALITY_GO_SRS FR-QG-1): 원인을 싣는 방언(toolio·fs·git)은 원인
+// 오류의 문구가 아니라 [Message] 가 만든 말을 싣는다 — 고정 문구에 요청 자리만 잇는다.
+// 고정 문구를 쓰는 방언(`{code,message}`·노드 포트)은 그대로다.
 func DecodeJSON(w http.ResponseWriter, r *http.Request, v any, limit int64, empty ...Empty) (Failure, error) {
 	raw, err := Read(w, r, limit)
 	if err != nil {

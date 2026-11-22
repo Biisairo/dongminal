@@ -122,6 +122,8 @@
 
 | 이슈 | 이전 | 새 | 이유 |
 |---|---|---|---|
+| QG-1 | 디코드 실패 문구에 원인 오류 그대로(`… json: cannot unmarshal number into Go struct field fsDeleteReq.path of type string`). 읽기 실패도 원인 그대로 | 고정 문구 + 요청 자리(`본문이 JSON 이 아니다: path: number 값은 맞지 않다`). 문법 오류·상한 초과는 종전 문구 그대로(골든 불변). 그 밖의 읽기 실패는 고정 문구뿐. 전문은 `dmlog` | 내부 타입 이름 노출(GH-F3). D-QG-1 |
+| QG-1 | 핀 추가·빼기의 저장 실패 문구가 원인 오류(작업 공간 파일 해석 오류·경로) | `핀 목록을 저장하지 못했다`. 원인은 `dmlog` | D-QG-2 |
 
 ## 6. 구현 기록
 

@@ -72,7 +72,7 @@ func (s *Server) apiFileStamps(w http.ResponseWriter, r *http.Request) {
 	}
 	var req fileStampsReq
 	if err := json.Unmarshal(body, &req); err != nil {
-		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
+		httpErr(w, httpreq.Message(r, "invalid json", err), http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
 	if len(req.Paths) > fileStampsMax {
