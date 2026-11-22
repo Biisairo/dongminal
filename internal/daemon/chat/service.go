@@ -602,9 +602,11 @@ func (s *Service) ownStateLocked() stateBody {
 // reactLocked 는 개인채팅을 맞춘다. 바꾼 것이 있으면 참이다 (FR-PCH-15·16).
 func (s *Service) reactLocked() bool {
 	changed := false
+	// 도달 가능 집합은 간선 계층의 잠금을 잡으므로 반복 밖에서 한 번 얻는다 (FR-ATF-55).
+	reach := s.reachableLocked()
 	// 상대 노드가 만든 개인채팅에 이 노드의 참가자가 상대로 적혀 있으면 들어간다.
 	for _, r := range s.nodes {
-		if !s.reachableLocked()[r.st.Node] {
+		if !reach[r.st.Node] {
 			continue
 		}
 		for id, rm := range r.rooms {
@@ -631,7 +633,7 @@ func (s *Service) reactLocked() bool {
 			if p.ID == rm.body.Peer {
 				other, node = rm.body.Owner, rm.body.Creator
 			}
-			switch s.whereLocked(node, other, id) {
+			switch s.whereLocked(reach, node, other, id) {
 			case presentInRoom:
 				if !p.peerSeen[id] {
 					p.peerSeen[id] = true
@@ -657,8 +659,8 @@ const (
 )
 
 // whereLocked 는 노드 node 의 참가자 pid 가 방 roomID 에 들어 있는지다. 닿지 않는 노드의
-// 참가자는 모른다.
-func (s *Service) whereLocked(node, pid, roomID string) whereabouts {
+// 참가자는 모른다. reach 는 도달 가능 집합이다.
+func (s *Service) whereLocked(reach map[string]bool, node, pid, roomID string) whereabouts {
 	if node == s.id.Fingerprint {
 		if q, ok := s.parts[pid]; ok && q.rooms[roomID] {
 			return presentInRoom
@@ -666,7 +668,7 @@ func (s *Service) whereLocked(node, pid, roomID string) whereabouts {
 		return absent
 	}
 	r, ok := s.nodes[node]
-	if !ok || !s.reachableLocked()[node] {
+	if !ok || !reach[node] {
 		return unreachable
 	}
 	if partInRoom(r.st, pid, roomID) {
