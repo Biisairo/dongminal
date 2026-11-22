@@ -193,3 +193,25 @@
 | FL-6 | `tab.spec.ts` 두 시험의 탭 클릭 셋을 `selectTab` 으로(FR-FLK-9). 나머지 넷은 재현 못 함(§2.6) |
 | FL-7 | `cm-sticky.test.mjs` `stateOf` + 시험 하나(FR-FLK-10). `handlers_git_actions_input_test.go` `runInputCases` 의 잡 기다림과 워크트리 단정(FR-FLK-11). 시험 TC-FLK-7 |
 | FL-3 | 서버: `hub.ForegroundSnapshot` · `Server.foregroundOnConnect`(`commands.go`) — 인사를 flush 한 뒤 칸 구독이 아니면 `ListOK` 의 도구마다 `tool_foreground` 를 싣고 flush(FR-FLK-3). Go 시험 `commands_sse_fg_test.go` 셋(옛 코드에서 첫째 RED: 인사 한 줄뿐). 시험: `tab-names.spec.ts` 의 `fgSettled`(서버 값은 `page.request` 로 읽어 스냅숏 흉내를 지나지 않는다) — `pushForeground` 가 도구마다 처음 한 번 부르고, V-NAM-1·2·5·4 가 직접 부른다. 스냅숏 흉내는 `fgStub.has` 로 빈 이름도 덮는다. V-NAM-4 는 활동을 `POST /api/tools/activity/set` 에 `waiting` 으로(FR-FLK-5). 원인 2 의 계측: 실패 회차의 페이지 기록에 `tool_foreground` 가 없고 구독은 도구 생성 70ms 뒤에 열렸다. 고친 뒤 `PW_WORKERS=8 --repeat-each=10` 170 통과(시험만 고친 상태에서 160여 회 중 4회 「브라우저에 닿지 않았다」). 관련 e2e 11 spec 96 통과. 사용자 언어 CHANGELOG 「고침」 |
+
+## 7. 마지막 전량 e2e
+
+`make e2e`(8샤드, 동시 2 × 워커 1), HEAD `18b75f11`. 샤드마다 `test-results/s*/report.json` 의 수를 직접 셌다.
+
+| 샤드 | 통과 | 실패 | 흔들림 | 건너뜀 |
+|---|---|---|---|---|
+| 1 | 256 | 0 | 0 | 0 |
+| 2 | 319 | 0 | 0 | 0 |
+| 3 | 293 | 0 | 0 | 0 |
+| 4 | 265 | 0 | 0 | 3 |
+| 5 | 285 | 0 | 0 | 0 |
+| 6 | 249 | 0 | 0 | 0 |
+| 7 | 315 | 0 | 1 | 0 |
+| 8 | 321 | 1 | 0 | 0 |
+| 합 | 2303 | 1 | 1 | 3 |
+
+**남은 것.**
+
+1. 실패 — `ui-layout-defaults` V-LAY-1(샤드 8): 「재지 않는 자리」 가 기준선 40 에서 60 으로 늘었다. 늘어난 20 은 모두 `.sb-collapse`·`.ag-collapse` 가 `ui-btn-lg` 를 단 선택자다 — `QUALITY_FIX_SRS` QF-3(접기 단추 26 → 30px)이 클래스를 바꿨는데 레이아웃 기준선을 다시 만들지 않았다. 단독 실행에서도 늘 실패한다(흔들림이 아니다). 이 문서의 범위 밖이라 기준선을 고치지 않았다.
+2. 흔들림 — `ux-audit-fix` TC-UXF-1(샤드 7): 첫 시도가 `page.goto: net::ERR_INVALID_HTTP_RESPONSE` 로 실패하고 재시도에 통과했다. FR-FLK-8 이 고친 기대값 경합과 다른 원인이다 — 그 워커의 첫 페이지 열기에서 서버가 HTTP 가 아닌 답을 냈다. 조사하지 않았다.
+3. 목록의 다른 항목(TC-ACF-1 · TC-SVS-3·13·50·55·56 · tab-names · settings 프로필 둘 · TC-UXF-16 · TC-UXF-94 · O7 · 간선 주소·망 그림 · TC-CAC-27 · `tab` 단축키 · TC-CMP-19)은 이 회차에서 모두 첫 시도에 통과했다.
