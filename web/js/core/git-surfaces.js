@@ -50,7 +50,7 @@ class GitSurfaces extends Controller {
    * 표면이 실제로 화면에 설 때 시작된다 (FR-RTU-62).
    */
   _gitRescheduleAll(){
-    if(this.app.gitPanels) for(const p of this.app.gitPanels.values()) p._reschedule();
+    if(this.app.gitPanels) for(const p of this.app.gitPanels.values()) p.poll._reschedule();
   }
 
   /**
@@ -69,7 +69,7 @@ class GitSurfaces extends Controller {
     const now=Date.now();
     if(this.app._gitWdAt&&now-this.app._gitWdAt<GIT_WATCHDOG_CHECK_MS) return;
     this.app._gitWdAt=now;
-    for(const p of this.app.gitPanels.values()) p._watchdog();
+    for(const p of this.app.gitPanels.values()) p.watchdog.run();
   }
 
   /**
@@ -80,7 +80,7 @@ class GitSurfaces extends Controller {
    */
   _gitNotifyPinsAll(){
     if(!this.app.gitPanels) return;
-    for(const p of this.app.gitPanels.values()) if(p.notifyPins) p.notifyPins();
+    for(const p of this.app.gitPanels.values()) if(p.views.notifyPins) p.views.notifyPins();
   }
 
   // 패널이 하나도 남지 않은 관측기는 거둔다 — 타이머를 든 채 남으면 사라진 창의
@@ -122,7 +122,7 @@ class GitSurfaces extends Controller {
       // 사이 어딘가에서 `_stop` 이 한 번 걸린 뒤의 첫 렌더가 즉시 수집을 한 번
       // 더 일으킨다 — 주기 0(폴링 끔)에서 그 한 건이 그대로 드러났다 (V18 실측).
       // 표면이 바뀌는 계기는 `_gitRescheduleAll` 을 부르는 자리들이 든다.
-      p._reschedule();
+      p.poll._reschedule();
     }
     return p;
   }
@@ -140,7 +140,7 @@ class GitSurfaces extends Controller {
     if(tabId&&view==='diff'){this.app.repoWin._gitDiffPanelsDrop(tabId);return}
     for(const [key,p] of this.app.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
-      if(p.dropView) p.dropView(view);
+      if(p.viewRoots.dropView) p.viewRoots.dropView(view);
     }
   }
 
@@ -162,7 +162,7 @@ class GitSurfaces extends Controller {
     for(const [key,p] of this.app.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(!this._gitPanelOfTab(p,view,tabId)) continue;
-      if(p.viewDirty&&p.viewDirty(view,!!closing)) return true;
+      if(p.viewRoots.viewDirty&&p.viewRoots.viewDirty(view,!!closing)) return true;
     }
     return false;
   }
@@ -189,7 +189,7 @@ class GitSurfaces extends Controller {
     for(const [key,p] of this.app.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(!this._gitPanelOfTab(p,view,tabId)) continue;
-      if(p.viewSave&&!await p.viewSave(view)) ok=false;
+      if(p.viewRoots.viewSave&&!await p.viewRoots.viewSave(view)) ok=false;
     }
     return ok;
   }

@@ -359,7 +359,7 @@ test.describe('갱신', () => {
     await openGit(page, fx('basic'));
     await expect(changes(page)).toBeVisible({ timeout: 15000 });
     await page.route('**/api/git/status**', (route) => route.fulfill({ status: 500, body: 'boom' }));
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     const note = page.locator('#area .git-changes .git-stale-note.vis');
     await expect(note).toBeVisible({ timeout: 20000 });
     await expect(note.locator('.git-stale-reload')).toBeVisible();

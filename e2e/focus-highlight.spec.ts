@@ -21,7 +21,7 @@ const state = (page: Page) => page.evaluate(() => {
   const a = (window as any).app;
   const t = a.testing.edTree(a.testing.aw());
   return {
-    changes: a.gitPanel._selected().map((x: any) => x.path).sort(),
+    changes: a.gitPanel.files._selected().map((x: any) => x.path).sort(),
     sel: t ? t._sel : null,
     set: t ? [...t._selSet].sort() : [],
     open: t ? [...t._open] : [],
@@ -45,8 +45,8 @@ const go = (page: Page, tid: string) => page.evaluate((id) => {
 /** Changes 의 행 하나를 사용자가 고르듯 고른다. */
 const pickChange = (page: Page, rel: string, mods: any = undefined) => page.evaluate(([r, m]) => {
   const p = (window as any).app.gitPanel;
-  const e = p._fileList().find((x: any) => x.path === r);
-  p._select(e.group, e, m);
+  const e = p.diffPane._fileList().find((x: any) => x.path === r);
+  p.selection._select(e.group, e, m);
 }, [rel, mods] as const);
 
 async function setup(page: Page) {
@@ -88,7 +88,7 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
   test('TC-FHL-2: Diff 탭이면 Changes 는 대상 행 하나, Explorer 는 비고, ‹ › 이동도 따른다', async ({ page }) => {
     await setup(page);
     await pickChange(page, 'tracked.txt');
-    await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+    await page.evaluate(() => (window as any).app.gitPanel.selection.openView('diff'));
     const diff = await tabId(page, 'diff');
     const top = await tabId(page, 'file', TOP());
     await go(page, top);
@@ -109,7 +109,7 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
     await page.evaluate((id) => {
       const a = (window as any).app;
       const p = [...a.testing.gitPanels.values()].find((x: any) => x.diffTabId === id);
-      p._diffMove(1);
+      p.diffPane._diffMove(1);
     }, diff);
     await expect.poll(async () => (await state(page)).set).toEqual([]);
     await expect.poll(async () => (await state(page)).changes).not.toEqual(['tracked.txt']);

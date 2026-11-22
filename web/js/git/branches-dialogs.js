@@ -96,12 +96,12 @@ class GitBranchCreate {
     const name=(v.name||'').trim();
     // REPO_FIX 01 §5.2: 만들며 옮겨 가는 것은 checkout 잡이다 — 시작되면 닫는다.
     const settle=r=>{
-      if(r.ok) this.panel.afterRefWrite(r.data); else this.panel.applyWriteFail(r);
+      if(r.ok) this.panel.write.afterRefWrite(r.data); else this.panel.write.applyWriteFail(r);
     };
     const res=this.track
-      ? await this.panel.postJob(GIT_API.checkout,
+      ? await this.panel.write.postJob(GIT_API.checkout,
           {repo:this.repo,ref:'',create:name,track:this.track},settle)
-      : await this.panel.postJob(GIT_API.branch,{
+      : await this.panel.write.postJob(GIT_API.branch,{
           repo:this.repo,name,
           startRef:(v.startRef||'').trim(),
           checkout:!!v.checkout,
@@ -109,12 +109,12 @@ class GitBranchCreate {
     if(res.started) return {ok:true};
     if(res.ok){
       // 조작 후 목록·상태를 갱신한다 (FR-GIT-160).
-      this.panel.afterRefWrite(res.data);
+      this.panel.write.afterRefWrite(res.data);
       return {ok:true};
     }
     // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
     // (FR-GIT-175).
-    return {ok:false,reason:this.panel.writeReason(res),
+    return {ok:false,reason:this.panel.write.writeReason(res),
       stderrTail:(res.data&&res.data.message)||''};
   }
 }
@@ -146,16 +146,16 @@ class GitBranchRename extends GitBranchCreate {
   }
 
   async _run(v){
-    const res=await this.panel.post(GIT_API.branchRename,
+    const res=await this.panel.write.post(GIT_API.branchRename,
       {repo:this.repo,from:this.from,to:(v.name||'').trim()});
     if(res.ok){
       // 조작 후 목록·상태를 갱신한다 (FR-GIT-160) — 상태바의 브랜치 이름도 따라간다.
-      this.panel.afterRefWrite(res.data);
+      this.panel.write.afterRefWrite(res.data);
       return {ok:true};
     }
     // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
     // (FR-GIT-175).
-    return {ok:false,reason:this.panel.writeReason(res),
+    return {ok:false,reason:this.panel.write.writeReason(res),
       stderrTail:(res.data&&res.data.message)||''};
   }
 }
@@ -179,7 +179,7 @@ class GitBranchUpstream {
     this.value=target.upstream||'';
     this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.branchUpstreamSet,
       params:v=>({branch:this.branch,upstream:(v.upstream||'').trim()}),
-      fail:res=>panel.writeReason(res)});
+      fail:res=>panel.write.writeReason(res)});
   }
 
   _show(){
@@ -196,13 +196,13 @@ class GitBranchUpstream {
   }
 
   async _run(v){
-    const res=await this.panel.post(GIT_API.branchUpstream,
+    const res=await this.panel.write.post(GIT_API.branchUpstream,
       {repo:this.repo,branch:this.branch,upstream:(v.upstream||'').trim()});
     if(res.ok){
-      this.panel.afterRefWrite(res.data);
+      this.panel.write.afterRefWrite(res.data);
       return {ok:true};
     }
-    return {ok:false,reason:this.panel.writeReason(res),
+    return {ok:false,reason:this.panel.write.writeReason(res),
       stderrTail:(res.data&&res.data.message)||''};
   }
 }

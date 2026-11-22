@@ -632,7 +632,7 @@ test('TC-UIP-14: 칠해진 덩어리 안의 줄이면 툴바가 뜨고 덩어리
   await openDiff(page, 'working', 'f.txt');
   const painted = await page.evaluate(() => {
     const p = edT.diffPanel();
-    return p._hunkBarEd.paintedSpan(8);
+    return p.hunks._hunkBarEd.paintedSpan(8);
   });
   expect(painted, '화면이 7~9행을 한 덩어리로 칠한다는 전제가 깨졌다').toEqual({ s: 7, e: 9 });
   // 새 8행(`line 9`)은 git 으로는 문맥 줄이지만 화면에서는 칠해진 덩어리 안이다.

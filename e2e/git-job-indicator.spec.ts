@@ -57,7 +57,7 @@ test.describe('REPO_FIX 01 §6.4 — 잡 표시기', () => {
     await expect(indexBox(page).locator('.git-job-cancel')).toBeVisible();
     // 도는 동안 같은 저장소의 동기 쓰기는 보내지 않는다 — 안내가 선다.
     const blocked = await page.evaluate(async (r) => {
-      const res = await (window as any).app.gitPanel.post('/api/git/stage', { repo: r, paths: ['untracked.txt'] });
+      const res = await (window as any).app.gitPanel.write.post('/api/git/stage', { repo: r, paths: ['untracked.txt'] });
       return res.data && res.data.error;
     }, repo);
     expect(blocked).toBe('job_busy');

@@ -142,7 +142,7 @@ P3a 단계 7·8·9 와 REST5 는 App·GitPanel·FileTree·TerminalTool 의 메�
 | DL-5 | `7267abdc` | 도구·편집기·Repo 창·LSP·Run 154. `lspClient`·`runsPanel` 승격(D-DLG-10), 가드의 `?.`(D-DLG-11) |
 | DL-4 | `352958af` | 레이아웃·슬롯·포커스·동기화 147. 옛 위임자를 말하던 코드 주석을 지금 모양으로 |
 | DL-9 | `e6b2da61`…(이 커밋) | 게이트 `check-delegates.mjs`(+ 단위 시험 다섯, `make gates`·CI 연결) · 문서(`architecture.md`·`FE_OBJECT_MODEL.md`·PROD3 §7.1·CHANGELOG) |
-| DL-3 · DL-7 | — | 다른 작업 트리에서 병렬 진행 중. 게이트는 `GitPanel` 전달 157 · `FileTree` 표 8 을 기준선으로 둔다(수가 늘면 실패) |
+| DL-3 | `7c041bf7` · `584b0771` · `a8bf84df` | GitPanel 본문의 위임자 162(메서드 157 · 정적 `headHTML` · 접근자 `_hunkBarEd`·`_hunkBarPos`·`_fileView`·`_knownRefs`)를 세 묶음(43 · 53 · 66)으로 걷었다. 남긴 것 없음. 부르는 쪽은 `panel.<부품>.X`, 부품 안의 자기 이름은 `this.X`, 다른 부품은 `this.p.<부품>.X`, `_watchdog()` 은 `watchdog.run()`, `GitPanel.headHTML` 은 `GitChanges.headHTML` 이다. e2e 의 문자열 `evaluate`(`git-observe-revive`·`git-live-triggers`)도 옮겼다. 갈아 끼우는 시험은 부품 인스턴스를 갈아 끼운다(`git-polling` 의 `changes._paint`, `git-menu-targets` 의 `files`). `git-panel-parts` 의 위임자 단정은 TC-DLG-1·2 로 바꿨다. 관측 통로 24쌍은 범위 밖(§1.4)이라 남는다 |
 
 **수.** 위임자 768 → 258(GitPanel 162 · FileTree 96, 병렬 진행 중). App 490 · TerminalTool 20 은 0.
 

@@ -88,7 +88,7 @@ class GitDiffPane extends GitPart {
     }
     const bl=el.querySelector('.git-diff-blame');
     bl.textContent=GIT_BLAME_TOGGLE; bl.title=GIT_BLAME_TOGGLE_TITLE;
-    bl.addEventListener('click',()=>{this.p._blameOn=!this.p._blameOn; this.p._paint()});
+    bl.addEventListener('click',()=>{this.p._blameOn=!this.p._blameOn; this.p.changes._paint()});
     for(const b of el.querySelectorAll('.git-diff-mode>button')){
       b.textContent=GIT_DIFF_MODE_LABEL[b.dataset.mode]; b.title=GIT_DIFF_MODE_TITLE;
       b.addEventListener('click',()=>{
@@ -98,7 +98,7 @@ class GitDiffPane extends GitPart {
     el.querySelector('.git-diff-ws input')
       .addEventListener('change',ev=>this._setIgnoreWs(ev.target.checked));
     el.querySelector('.git-diff-fold input')
-      .addEventListener('change',ev=>this.p._setFold(ev.target.checked));
+      .addEventListener('change',ev=>this.p.poll._setFold(ev.target.checked));
     const more=el.querySelector('.git-diff-more'); more.appendChild(UIKit.icon('more-horizontal'));
     more.title=GIT_DIFF_MORE_TITLE; more.setAttribute('aria-label',GIT_DIFF_MORE_TITLE); more.addEventListener('click',()=>this._diffMoreMenu(more));
     el.dataset.built='1';
@@ -106,12 +106,12 @@ class GitDiffPane extends GitPart {
 
   // FR-UXF-81: 메뉴 항목은 데스크톱 단추와 같은 동작을 부른다. 켜진 것은 체크 표시다.
   _diffMoreMenu(btn){
-    const ws=this._ignoreWsPref(), fold=this.p._foldPref(), bl=!!this.p._blameOn, r=btn.getBoundingClientRect();
+    const ws=this._ignoreWsPref(), fold=this.p.poll._foldPref(), bl=!!this.p._blameOn, r=btn.getBoundingClientRect();
     const it=(id,label,on,fn)=>({id,label,cur:on,icon:on?'check':undefined,onClick:fn});
     UIKit.menu([
-      it('blame',GIT_BLAME_TOGGLE,bl,()=>{this.p._blameOn=!bl; this.p._paint()}),
+      it('blame',GIT_BLAME_TOGGLE,bl,()=>{this.p._blameOn=!bl; this.p.changes._paint()}),
       it('ws',GIT_DIFF_WS_LABEL,ws,()=>this._setIgnoreWs(!ws)),
-      it('fold',GIT_DIFF_FOLD_LABEL,fold,()=>this.p._setFold(!fold)),
+      it('fold',GIT_DIFF_FOLD_LABEL,fold,()=>this.p.poll._setFold(!fold)),
     ],{at:{x:r.right,y:r.bottom},align:'right',flipGap:r.height,cls:'git-diff-more-menu'});
   }
 
@@ -120,7 +120,7 @@ class GitDiffPane extends GitPart {
     // 커밋 축의 대상은 워킹 트리 목록에 없다 — ‹ › 와 n/m 과 "사라졌습니다" 는
     // 그 목록의 것이므로 커밋 축에서는 뜻이 없다 (FR-GIT-53).
     const cf=this.p.commitFile;
-    const f=this.p._diffTarget();
+    const f=this.p.selection._diffTarget();
     const i=cf?-1:this._diffIndex(list);
     if(i>=0) this.p._diffPos=i;
     // 목록이 비면 0/0 이고 ‹ › 는 disabled 다.
@@ -152,7 +152,7 @@ class GitDiffPane extends GitPart {
       b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on));
     }
     el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
-    el.querySelector('.git-diff-fold input').checked=this.p._foldPref();
+    el.querySelector('.git-diff-fold input').checked=this.p.poll._foldPref();
     const bl=el.querySelector('.git-diff-blame');
     bl.classList.toggle('on',!!this.p._blameOn); bl.setAttribute('aria-pressed',String(!!this.p._blameOn));
     // UX_BATCH6_SRS FR-GLV-1: 관측이 나른 재적재는 **같은 대상을 다시 받는
@@ -163,8 +163,8 @@ class GitDiffPane extends GitPart {
     // blame 모드에서는 hunk 조각이 뜻을 잃는다 — 부분 스테이징의 대상은 diff 다.
     // **force 를 넘기지 않는다** — 조각이 낡는 계기는 본문이 바뀐 것이고, 그것은
     // `onChanged` 가 `_hunkKey` 를 지워 알린다 (FR-GLV-1).
-    this.p._paintHunks(el,(cf||this.p._blameOn)?null:f);
-    this.p._paintBlame(el);
+    this.p.hunks._paintHunks(el,(cf||this.p._blameOn)?null:f);
+    this.p.blame._paintBlame(el);
   }
 
   // 쓰기 뒤 Diff 를 다시 받게 한다 — 조각 관측과 본문 둘 다 낡았다. hunk 쓰기와 파일
@@ -172,7 +172,7 @@ class GitDiffPane extends GitPart {
   _diffInvalidate(){
     this.p._hunkKey=null; this.p._hunks=null;
     // FR-DHB-44: 사라진 조각 위에 툴바가 남지 않는다 — 다시 hover 로만 뜬다.
-    this.p._hunkBarHide();
+    this.p.hunks._hunkBarHide();
     // Diff 편집기의 두 문서도 낡았다 — 같은 대상이라도 내용이 바뀌었다 (FR-GIT-71).
     this.p._diffKey=null;
   }
@@ -222,7 +222,7 @@ class GitDiffPane extends GitPart {
     const target=list[i];
     // FR-RTB-9: Diff 탭의 ‹ › 는 그 탭이 있는 칸의 미리보기로 연다 (`gitDiffStep`).
     if(this.p.diffTabId){this.app.repoWin.gitDiffStep(this.p,target);return}
-    this.p._select(target.group,{path:target.path,origPath:target.origPath,untracked:target.untracked});
+    this.p.selection._select(target.group,{path:target.path,origPath:target.origPath,untracked:target.untracked});
   }
 
   // 대상이 그대로면 다시 부르지 않는다 — status 폴링마다 diff 를 재요청하면
@@ -258,7 +258,7 @@ class GitDiffPane extends GitPart {
     // GIT_DIR_ENTRY_SRS FR-DIR-21: 디렉터리 항목에는 diff 를 부르지 않는다.
     // 서버가 줄 것이 없고(실측), 사용자가 알아야 할 것은 사유와 갈 길이다.
     if(f.dir){
-      view.clear(this.p._dirEntryNote(f),[f.path],this.p._dirEntryActs(f));
+      view.clear(this.p.selection._dirEntryNote(f),[f.path],this.p.selection._dirEntryActs(f));
       return;
     }
     view.show(f,this.p.token());
@@ -274,7 +274,7 @@ class GitDiffPane extends GitPart {
     this._diffAsking=false;
     if(ok&&r===true){view.clear('');this.p._diffKey=null}
     if(!ok) this._diffRestore(this._diffShown);
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   _diffRestore(f){
@@ -282,7 +282,7 @@ class GitDiffPane extends GitPart {
     this.p.commitFile=null;
     this.p.previewFile=f;
     this.p._sel.clear();
-    this.p._sel.add(this.p._selKey(f.group,f.path));
+    this.p._sel.add(this.p.selection._selKey(f.group,f.path));
     this.p._anchor={group:f.group,path:f.path};
   }
 
@@ -324,10 +324,10 @@ class GitDiffPane extends GitPart {
       inlineBreakpoint:GIT_DIFF_INLINE_BREAKPOINT,
       sideBySide:this._sideBySidePref(),
       ignoreWhitespace:this._ignoreWsPref(),
-      hideUnchanged:this.p._foldPref(),
+      hideUnchanged:this.p.poll._foldPref(),
       isStale:tok=>this.p.isStale(tok),
       // §3A-4: 작업 트리 쪽 문서의 경로는 패널이 안다(어휘적 저장소 최상위 기준).
-      absPath:target=>this.p.absPath(target),
+      absPath:target=>this.p.poll.absPath(target),
       // FR-RTU-53: 저장되지 않은 변경은 탭 이름에 `●` 로 선다 — 편집기 탭과
       // 같은 표시이며, 렌더가 공유 문서의 dirty 에서 파생한다 (`app.tabDirty`, F-2.5).
       onDirty:v=>this._setDiffDirty(v),
@@ -338,10 +338,10 @@ class GitDiffPane extends GitPart {
       onSaveIntent:()=>{if(this.p.diffTabId) this.app.repoWin.gitDiffTabPin(this.p.diffTabId)},
       // DIFF_HUNK_BAR_SRS D-4 / FR-DHB-10: 에디터가 서면 hover 툴바를 배선하고
       // 사라지면 걷는다. `GitDiffView` 는 관측을 모르므로 그 배선을 여기서 한다.
-      onEditor:ed=>{ this.p._hunkBarWire(ed); if(ed) this._diffTabViewPending() },
+      onEditor:ed=>{ this.p.hunks._hunkBarWire(ed); if(ed) this._diffTabViewPending() },
       // UX_BATCH6_SRS FR-GLV-1: 본문이 실제로 바뀐 회차다. 조각 관측은 이
       // 본문에서 파생되므로 그때만 낡는다 — 폴링마다 다시 받으면 요청이 배로 는다.
-      onChanged:()=>this.p._diffChanged(),
+      onChanged:()=>this.p.hunks._diffChanged(),
     });
     return this.p._diffView;
   }
@@ -350,8 +350,8 @@ class GitDiffPane extends GitPart {
   _setDiffDirty(v){
     // §3A-3 hunk 와 dirty: 사유 줄과 툴바가 dirty 를 따른다.
     const el=this.p._els.get('diff');
-    if(el&&el.dataset.built==='1') this.p._hunkNote(el.querySelector('.git-diff-hunk-note'),this.p._hunkText());
-    this.p._hunkBarPaint();
+    if(el&&el.dataset.built==='1') this.p.hunks._hunkNote(el.querySelector('.git-diff-hunk-note'),this.p.hunks._hunkText());
+    this.p.hunks._hunkBarPaint();
     if(!this.p.root) return;
     if(this.p.diffTabId) this._diffTabEdited(v);
     else{
@@ -366,8 +366,8 @@ class GitDiffPane extends GitPart {
   }
 
   _gitSaved(){
-    this.p.signal('write');
-    this.p.blameStale();
+    this.p.poll.signal('write');
+    this.p.blame.blameStale();
     // 탐색기의 색도 같은 사실을 딛는다 (FR-EDT-78).
     const tree=this.app.editor.open.edActiveTree&&this.app.editor.open.edActiveTree();
     if(tree&&tree.pollGit) tree.pollGit({now:true});
@@ -379,7 +379,7 @@ class GitDiffPane extends GitPart {
     // 리스너는 그 길에서 걷힌다 (FR-DHB-22). 여기서 한 번 더 부르는 것은 뷰가
     // 에디터를 세운 적 없는 경우의 몫이다 — 그때는 아무 일도 하지 않는다.
     this.p._diffView.destroy(); this.p._diffView=null;
-    this.p._hunkBarDispose();
+    this.p.hunks._hunkBarDispose();
     this.p._diffKey=null;
     this.p._hunkKey=null; this.p._hunks=null;
     // 골격이 버린 뷰의 DOM 을 들고 있다 — 다시 열릴 때 새 뷰로 세운다.
@@ -402,7 +402,7 @@ class GitDiffPane extends GitPart {
     this.p.previewFile=(f&&!f.commit)?f:null;
     const i=this._diffIndex(this._fileList());
     if(i>=0) this.p._diffPos=i;
-    if(this.p._els.get('diff')) this.p._paint();
+    if(this.p._els.get('diff')) this.p.changes._paint();
   }
 
   // UX_BATCH12_SRS FR-RTR-6: 닫는 Diff 탭의 커서·스크롤과, 다시 연 탭에 그것을 돌려 놓는 일.
@@ -451,13 +451,13 @@ class GitDiffPane extends GitPart {
     this._sideBy=!this._sideBySidePref();
     PrefStore.local.setBool(GIT_DIFF_SIDE_KEY,this._sideBy);
     this._diff().setSideBySide(this._sideBy);
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   _setIgnoreWs(on){
     this._ignWs=!!on;
     PrefStore.local.setBool(GIT_DIFF_WS_KEY,this._ignWs);
     if(this.p._diffView) this.p._diffView.setIgnoreWhitespace(this._ignWs);
-    this.p._paint();
+    this.p.changes._paint();
   }
 }

@@ -101,7 +101,7 @@ class GitController extends Controller {
     // 두 목록이 한 종단(`/api/editors/add`)으로 함께 바뀌므로 진입점도 하나다.
     // 옛 `#git-add-repo` 는 사라졌다.
     this.sync._startGitReposPoll();
-    this.app.gitPanel.init();
+    this.app.gitPanel.poll.init();
     /**
      * GIT_LIVE_TRIGGERS_SRS FR-GLW-1~3: 가시성·포커스 복귀의 계기.
      *
@@ -173,7 +173,7 @@ class GitController extends Controller {
   // 저장은 탐색기 색과 dirty-diff 기준의 즉시 갱신 계기다.
   gitSignal(kind){
     this.gitStatusHub().invalidate();
-    if(this.app.gitPanel) this.app.gitPanel.signal(kind);
+    if(this.app.gitPanel) this.app.gitPanel.poll.signal(kind);
     this.app.editor.pane._edAfterGitSignal(kind);
   }
 

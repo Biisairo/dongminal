@@ -219,7 +219,7 @@ test.describe('TC-RTB-7 — Changes 의 파일 열기는 한 파일이면 미리
     await page.evaluate((root) => {
       const a = (window as any).app;
       const p = [...a.testing.gitPanels.values()].find((x: any) => x.repo === root);
-      p._run('openFile', [{ group: 'working', path: 'a.txt' }, { group: 'working', path: 'b.txt' }]);
+      p.files._run('openFile', [{ group: 'working', path: 'a.txt' }, { group: 'working', path: 'b.txt' }]);
     }, REPO);
     await expect.poll(async () => (await panes(page)).list[0].tabs).toEqual([E('a.txt', false), E('b.txt', false)]);
   });

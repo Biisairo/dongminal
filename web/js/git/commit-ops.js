@@ -129,7 +129,7 @@ class GitCommitOps {
   static mark(panel,c){
     panel.compareMark={oid:c.oid,label:GitCommitOps.label(c)};
     // 표시가 보이지 않으면 사용자는 자기가 무엇을 골랐는지 모른다.
-    if(panel.noteCompareMark) panel.noteCompareMark(panel.compareMark.label);
+    if(panel.write.noteCompareMark) panel.write.noteCompareMark(panel.compareMark.label);
   }
 
   /**
@@ -142,13 +142,13 @@ class GitCommitOps {
    */
   static compare(panel,c){
     const mark=panel.compareMark||null;
-    const cur=panel._diffTarget&&panel._diffTarget();
+    const cur=panel.selection._diffTarget&&panel.selection._diffTarget();
     const lines=[GIT_CO_COMPARE_THIS.replace('%s',GitCommitOps.label(c))];
     if(mark) lines.push(GIT_CO_COMPARE_MARKED.replace('%s',mark.label));
     // 빈 입력은 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS GV-c).
     const answer=new GitInputAnswer({repo:panel.repo,id:GIT_ACTION.compare,
       params:v=>({rev:(v.rev||'').trim(),path:(v.path||'').trim()}),
-      fail:res=>panel.writeReason(res)});
+      fail:res=>panel.write.writeReason(res)});
     return GitDialog.open({
       id:'git-compare',ns:'gco',action:'compare',
       title:GIT_CO_COMPARE_TITLE,runLabel:GIT_CO_COMPARE_RUN,focus:'rev',
@@ -173,7 +173,7 @@ class GitCommitOps {
     const d=rr.data;
     if(!rr.ok||!d||!d.from||!d.to) return {ok:false,reason:GIT_CO_COMPARE_FAIL};
     // 이미 있는 축이다 (FR-GIT-138) — 새 조회도 새 축도 만들지 않는다.
-    panel.showCommitDiff({repo:panel.repo,axis:GIT_AXIS.COMMIT,
+    panel.files.showCommitDiff({repo:panel.repo,axis:GIT_AXIS.COMMIT,
       path,origPath:'',oid:d.to,parentOid:d.from});
     return {ok:true};
   }
@@ -236,7 +236,7 @@ class GitCommitOps {
   // 되돌아갈 자리는 **옮기기 전** HEAD 다 (FR-GIT-250.2). 모르면 명령을 지어내지
   // 않는다 — 다른 곳으로 가는 명령을 되살리기용으로 내미는 것이 더 나쁘다.
   static _restoreCmd(panel){
-    const oid=((panel.statusOf&&panel.statusOf())||{}).oid||'';
+    const oid=((panel.views.statusOf&&panel.views.statusOf())||{}).oid||'';
     return oid?'git -C '+gitShQuote(panel.repo||'')+' reset --hard '+oid:'';
   }
 
@@ -251,12 +251,12 @@ class GitCommitOps {
   // REPO_FIX 01 §5.2: cherry-pick·revert·drop 은 잡이다 — 시작되면 다이얼로그를
   // 닫고, 뒷정리는 잡이 끝날 때 한다.
   static async _send(panel,url,body){
-    const res=await panel.postJob(url,Object.assign({repo:panel.repo},body),
-      r=>panel.afterCommitOp(r));
+    const res=await panel.write.postJob(url,Object.assign({repo:panel.repo},body),
+      r=>panel.write.afterCommitOp(r));
     if(res.started) return {ok:true};
-    panel.afterCommitOp(res);
+    panel.write.afterCommitOp(res);
     if(res.ok) return {ok:true};
-    return {ok:false,reason:panel.writeReason(res),
+    return {ok:false,reason:panel.write.writeReason(res),
       stderrTail:(res.data&&res.data.message)||''};
   }
 }

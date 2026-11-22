@@ -1,6 +1,6 @@
 /**
  * GitWatchdog — 멈춘 관측을 되살리는 워치독 (UX_BATCH9_SRS FR-GLR · GIT_OBSERVE_REVIVE_SRS). 옛 자리는 `git-poll.js` 의
- * `_watchdog` 다 (REFACTOR3_FE_REST5_SRS FR-FR5-21). 패널의 `_watchdog()` 위임자가 `run()` 을 부른다. 주기 계산과 다시 걸기는
+ * `_watchdog` 다 (REFACTOR3_FE_REST5_SRS FR-FR5-21). 부르는 쪽은 `panel.watchdog.run()` 이다. 주기 계산과 다시 걸기는
  * 종전대로 폴링 부품(`this.p.poll`)의 `_cadence`·`_applyCadence` 다.
  */
 class GitWatchdog extends GitPart {
@@ -34,7 +34,7 @@ class GitWatchdog extends GitPart {
   run(){
     // FR-GLR-3: 되살리기도 같은 판정을 먼저 지난다 — 아무도 보지 않는 저장소를
     // 깨우지 않는다.
-    if(!this.p._pollOk()) return false;
+    if(!this.p.poll._pollOk()) return false;
     // REPO_FIX 05 F-6.2: 확정된 "저장소가 아니다" 는 폴링을 멈춘 상태다(FR-DSP-1a). 워치독이
     // 그것을 "멎은 관측" 으로 읽어 되살리면 그 판정이 무의미해진다 — 해제는 git init 성공·
     // 루트 변경·손으로 부른 관측(포커스·새로고침)뿐이다.
@@ -96,7 +96,7 @@ class GitWatchdog extends GitPart {
      * 이며(FR-GIT-22) 부르는 자리가 여럿이다.
      */
     this.p.poll._applyCadence();
-    if(ask){ this.p._wdTryAt=Date.now(); this.p.collect() }
+    if(ask){ this.p._wdTryAt=Date.now(); this.p.poll.collect() }
     return true;
   }
 }

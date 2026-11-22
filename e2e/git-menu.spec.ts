@@ -189,7 +189,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     await page.evaluate(() => {
       const w = window as any;
       w.__copied = [];
-      w.app.gitPanel.copyText = (t: string) => w.__copied.push(t);
+      w.app.gitPanel.poll.copyText = (t: string) => w.__copied.push(t);
     });
     const row = hist(page).locator('.git-hist-row[data-oid]').first();
     await expect(row).toBeVisible({ timeout: 15000 });

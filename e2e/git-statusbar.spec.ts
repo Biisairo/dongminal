@@ -40,7 +40,7 @@ test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
     // 관측이 도착할 시간을 준 뒤에 본다 — 도착 전에 세면 아무것도 없는 것이 당연하다.
     await expect
-      .poll(() => page.evaluate(() => !!(window as any).app.gitPanel.statusOf()), { timeout: 20000 })
+      .poll(() => page.evaluate(() => !!(window as any).app.gitPanel.views.statusOf()), { timeout: 20000 })
       .toBe(true);
     await page.evaluate(() => (window as any).app.testing.updateStatusBar());
 

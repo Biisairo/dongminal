@@ -253,18 +253,18 @@ class GitConsole extends GitView {
       run:async()=>{
         const res=await this._postReplay(rec);
         if(res.ok) return {ok:true};
-        return {ok:false,reason:this.panel.writeReason(res),
+        return {ok:false,reason:this.panel.write.writeReason(res),
           stderrTail:(res.data&&res.data.message)||''};
       },
     });
   }
 
   async _postReplay(rec){
-    const res=await this.panel.post(GIT_API.recordsReplay,
+    const res=await this.panel.write.post(GIT_API.recordsReplay,
       {repo:this.panel.repo,seq:rec.seq,confirm:!!rec.write});
     // 방금 실행한 것이 목록 맨 위에 있어야 한다 (FR-GIT-218) — panel.post 가 이미
     // reload 를 부르지만, 상태도 함께 갱신한다.
-    if(res.ok) this.panel.adopt(res.data);
+    if(res.ok) this.panel.write.adopt(res.data);
     return res;
   }
 

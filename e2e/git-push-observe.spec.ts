@@ -166,7 +166,7 @@ test('B-4 푸시가 끊겨도 안전망 폴링이 화면을 따라잡는다', as
     const app = (window as any).app;
     // 안전망을 1초로 줄이고 주기를 다시 건다 (FR-GIT-22: 참이 되면 즉시 1회).
     (window as any).gitStatusInterval = 1000;
-    for (const p of app.testing.gitPanels.values()) p._reschedule();
+    for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
     // 푸시를 끊는다 — 이제 화면을 살리는 것은 안전망뿐이다.
     app.bus.closeChannel('commands');
     try { app.testing.sse.close() } catch { /* 이미 닫힘 */ }

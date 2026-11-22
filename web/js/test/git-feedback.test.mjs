@@ -50,9 +50,9 @@ function menuWorld(answers) {
     },
   });
   ctx.app = { gitPanel: {
-    statusOf: () => ({}), branchDeletePair: () => ({ local: { short: 'f', isHead: false }, remote: 'o/f', why: '' }),
-    branchDeleteTargets: (t) => [t.short], untrackedPaths: () => ['u'], dirtyCount: () => 1,
-    actionOf: (id) => answers[id] || null,
+    views: { statusOf: () => ({}), branchDeletePair: () => ({ local: { short: 'f', isHead: false }, remote: 'o/f', why: '' }),
+    branchDeleteTargets: (t) => [t.short], actionOf: (id) => answers[id] || null },
+    files: { untrackedPaths: () => ['u'], dirtyCount: () => 1 },
   } };
   return ctx;
 }

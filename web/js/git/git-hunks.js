@@ -72,10 +72,10 @@ class GitHunks extends GitPart {
     // 있다 (FR-GIT-54). 짝이 맞지 않는 응답이 화면에 닿아서는 안 된다.
     const q=(d&&d.requested)||{};
     if(!r.ok||!d||q.repo!==f.repo||q.axis!==f.axis||q.path!==f.path){
-      this.p._hunks={err:GIT_HUNK_LOAD_FAIL}; this.p._paint(); return;
+      this.p._hunks={err:GIT_HUNK_LOAD_FAIL}; this.p.changes._paint(); return;
     }
     this.p._hunks={diffId:d.diffId||'',list:d.hunks||[],note:d.note||''};
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   // FR-DHB-5: 머리의 한 줄이 말하는 넷. 아무 문제가 없으면 빈 문자열이고, 그때
@@ -269,7 +269,7 @@ class GitHunks extends GitPart {
     const ed=this._hunkBarEd,el=this._hunkBarEl;
     if(!ed||!el) return;
     if(this._hunkBarPos){
-      const f=this.p.commitFile?null:this.p._diffTarget();
+      const f=this.p.commitFile?null:this.p.selection._diffTarget();
       const acts=(f&&GIT_HUNK_ACTS[f.axis])||[];
       // 붙을 동작이 없으면 뜨지 않는다 — 빈 상자는 무엇을 할 수 있는지 말하지
       // 않으면서 diff 를 가린다 (FR-DHB-15).
@@ -330,16 +330,16 @@ class GitHunks extends GitPart {
    * 거부되고, 그때 화면은 조각을 다시 받는다 — 낡은 번호로 다른 곳을 고치지 않는다.
    */
   async _hunkAct(op){
-    const f=this.p.commitFile?null:this.p._diffTarget();
+    const f=this.p.commitFile?null:this.p.selection._diffTarget();
     const h=this.p._hunks;
     const co=this._hunkBarCoords();
     if(!f||!h||!co||this._hunkBlocked()) return;
-    if(this.p._writing){this.p.busyNote();return}
+    if(this.p._writing){this.p.write.busyNote();return}
     const hunk=(h.list||[]).find(x=>x.index===co.hunk);
     const body={repo:f.repo,axis:f.axis,path:f.path,op,
       hunk:co.hunk,from:co.from,to:co.to,diffId:h.diffId};
     if(op===GIT_PATCH_REVERT){this._hunkRevert(body,f,hunk,co);return}
-    this._afterHunk(await this.p.post(GIT_API.patch,body));
+    this._afterHunk(await this.p.write.post(GIT_API.patch,body));
   }
 
   /**
@@ -362,10 +362,10 @@ class GitHunks extends GitPart {
       // O8 의 선례: stash 를 자동 생성하지 않는다 — 실행할 명령을 보여 준다.
       hint:{note:GIT_HUNK_REVERT_NOTE,command:'git stash push -- '+gitShQuote(f.path)},
       run:async()=>{
-        const res=await this.p.post(GIT_API.patch,Object.assign({confirm:true},body));
+        const res=await this.p.write.post(GIT_API.patch,Object.assign({confirm:true},body));
         this._afterHunk(res);
         if(res.ok) return {ok:true};
-        return {ok:false,reason:this.p.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
+        return {ok:false,reason:this.p.write.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
       },
     });
   }
@@ -381,13 +381,13 @@ class GitHunks extends GitPart {
     // **거부 사유는 누른 자리에 보인다** (FR-DHB-6). 그 자리가 이제 Diff 탭의
     // 머리다 — `applyWriteFail` 의 안내 줄은 Changes 사이드의 골격에만 있어
     // 조각을 누른 사람에게 닿지 않는다.
-    this._hunkErr=res.ok?null:this.p.writeError(res);
+    this._hunkErr=res.ok?null:this.p.write.writeError(res);
     // 사유는 **그 대상의 것**이다. 아래에서 목록을 다시 받으려고 키를 비우므로,
     // 어느 대상의 사유인지 따로 들고 있어야 다시 받는 그 회차에 지워지지 않는다.
     this._hunkErrKey=res.ok?null:this.p._hunkKey;
-    this.p._diffInvalidate();
-    if(res.ok){this.p._note=null; this.p.adopt(res.data); return}
-    this.p.applyWriteFail(res);
+    this.p.diffPane._diffInvalidate();
+    if(res.ok){this.p._note=null; this.p.write.adopt(res.data); return}
+    this.p.write.applyWriteFail(res);
   }
 
   /**
@@ -402,6 +402,6 @@ class GitHunks extends GitPart {
     this.p._hunkKey=null; this.p._hunks=null;
     this._hunkBarHide();
     const el=this.p._els.get('diff');
-    if(el&&el.dataset.built==='1') this._paintHunks(el,(this.p.commitFile||this.p._blameOn)?null:this.p._diffTarget());
+    if(el&&el.dataset.built==='1') this._paintHunks(el,(this.p.commitFile||this.p._blameOn)?null:this.p.selection._diffTarget());
   }
 }

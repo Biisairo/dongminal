@@ -24,7 +24,6 @@ function setup(rowActions) {
   });
   const panel = { app: {}, _status: { actions: {}, rowActions } };
   panel.views = new ctx.GitViews(panel);
-  panel.rowActionOf = (path, id) => panel.views.rowActionOf(path, id);
   return { ctx, rows: new ctx.GitChangeRows(panel) };
 }
 

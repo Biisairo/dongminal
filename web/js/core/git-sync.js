@@ -98,8 +98,8 @@ class GitSync extends Controller {
       if(!o.pollOkAny()) continue;
       o._gitMark=a.mark||'';
       // REPO_FIX 05 F-5.2: 작업 트리가 바뀌었다 — 작업 트리 Blame 도 다시 받는다.
-      for(const q of o.panels) q.blameStale();
-      p.collect();
+      for(const q of o.panels) q.blame.blameStale();
+      p.poll.collect();
     }
   }
 
@@ -115,7 +115,7 @@ class GitSync extends Controller {
     if(!this.app._gitObservers) return;
     for(const o of this.app._gitObservers.values()){
       const p=o.any();
-      if(p) p.collect();
+      if(p) p.poll.collect();
     }
   }
 
@@ -236,7 +236,7 @@ class GitSync extends Controller {
 
   _gitJobsAdopt(jobs){
     this.app._gitJobs=jobs;
-    if(this.app.gitPanel) this.app.gitPanel.adoptJobs(jobs);
+    if(this.app.gitPanel) this.app.gitPanel.views.adoptJobs(jobs);
   }
 
   // U-19 ①: `_gitJobSeen`·`_gitJobEnded`·`_gitJobChip` 은 **제거됐다.** 셋 다

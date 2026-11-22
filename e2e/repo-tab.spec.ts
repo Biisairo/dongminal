@@ -480,7 +480,7 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
       const poll = await page.evaluate(() => {
         (window as any).gitStatusInterval = 600;
         const app = (window as any).app;
-        if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p._reschedule();
+        if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
         return 600;
       });
       // **예외 (`TEST-16`)**: 폴링 회차를 **여러 번 넘기는** 창이다 — 그동안
@@ -877,7 +877,7 @@ test('V-DSP-5 (FR-DSP-1d): 첫 관측이 History 보다 먼저 와도 미커밋 
     await page.evaluate(() => {
       const a = (window as any).app;
       a.testing.edSetSide(a.testing.aw(), 'changes');
-      a.gitPanel.openView('history');
+      a.gitPanel.selection.openView('history');
     });
     await expect(page.locator('#area .pn-body .git-view.git-history .git-hist-row.uncommitted'))
       .toHaveCount(1, { timeout: 15000 });

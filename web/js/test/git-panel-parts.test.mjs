@@ -8,8 +8,8 @@ import { BASE, GITPANEL, load } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_GITPANEL_SRS — Git 패널 mixin 을 부품 클래스로.
- *   TC-FEP-1 부품 계층·패널이 드는 부품·위임자 · TC-FEP-2 옮긴 mixin 이 없고 `Object.assign` 이 준다
- *   TC-FEP-3 부품 소유 필드가 패널에 없다
+ *   TC-FEP-1 부품 계층·패널이 드는 부품 · TC-FEP-2 옮긴 mixin 이 없고 `Object.assign` 이 준다
+ *   TC-FEP-3 부품 소유 필드가 패널에 없다 · TC-DLG-1·2 위임자가 없고 부품 인스턴스에 갈아 끼운 것을 패널이 부른다 (REFACTOR3_FE_DELEG_SRS)
  *
  * 하위 단계마다 `PARTS` 에 한 줄을 더한다.
  */
@@ -19,8 +19,8 @@ const read = (f) => readFileSync(join(JS, f), 'utf8');
 
 /**
  * field: 패널이 드는 이름 · cls: 부품 클래스 · gone: 사라진 mixin · owned: 부품 소유 필드
- * exposed: e2e 가 읽어 패널에 접근자를 둔 소유 필드(FR-FEP-5) · exposedRW: e2e 가 써서 읽기·쓰기 접근자를 둔 것
- * delegates: 패널 위임자와 그 시험 인자 · statics: 패널 클래스의 정적 위임자
+ * exposed·exposedRW: e2e 가 읽고 쓰던 소유 필드 — 패널 접근자를 걷었고 e2e 가 `panel.<부품>.X` 로 닿는다
+ * delegates: 옛 패널 위임자였던 부품 이름(인자는 옛 시험의 것) · statics: 옛 패널 정적 위임자였던 부품 정적 메서드
  */
 const PARTS = [
   { field: 'blame', cls: 'GitBlame', gone: ['git/panel-blame.js'],
@@ -103,10 +103,10 @@ const DEAD = ['_hunkBarWidget', '_hunkBarSubs'];
 /** 하위 단계가 끝난 뒤 남는 `Object.assign(GitPanel.prototype` 의 수 (TC-FEP-2). 처음은 12 다. */
 const ASSIGNS_LEFT = 0;
 
-function setup() {
+function setup(globals = {}) {
   const ctx = load([...BASE, ...GITPANEL], {
     expose: ['GitPanel', 'GitPart', 'Component', ...PARTS.map((s) => s.cls)],
-    globals: { TIMERS: { disposeOwner() {} } },
+    globals: { TIMERS: { disposeOwner() {} }, ...globals },
   });
   const obs = { attach() {}, detach() {}, resettle() {} };
   const app = { git: { surfaces: { gitObs: () => obs } }, timers: { disposeOwner() {} } };
@@ -125,29 +125,42 @@ test('TC-FEP-1 부품은 GitPart·Component 하위이고 패널이 든다', () =
   }
 });
 
-test('TC-FEP-1 위임자는 부품 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
-  const { panel } = setup();
+test('TC-DLG-1 부품의 이름은 부품 원형에 있고 패널 원형에는 없다 (REFACTOR3_FE_DELEG_SRS DL-3)', () => {
+  const { ctx, panel } = setup();
+  const proto = Object.getPrototypeOf(panel);
   for (const s of PARTS) {
-    for (const [name, args] of s.delegates) {
-      const got = [];
-      const ret = { from: name };
-      panel[s.field][name] = (...a) => { got.push(a); return ret };
-      assert.ok(Object.hasOwn(Object.getPrototypeOf(panel), name), `${name} 위임자가 패널 원형에 없다`);
-      assert.equal(panel[name](...args), ret, `${name} 이 부품의 값을 돌려주지 않는다`);
-      assert.equal(got.length, 1, `${name} 이 부품을 부르지 않는다`);
-      assert.deepEqual(got[0], args);
+    for (const [name] of s.delegates) {
+      assert.equal(typeof Object.getPrototypeOf(panel[s.field])[name], 'function', `${s.field}.${name} 이 없다`);
+      assert.ok(!(name in proto), `위임자가 남았다: ${name}`);
+    }
+    for (const k of [...(s.exposed || []), ...(s.exposedRW || [])]) assert.ok(!(k in proto), `접근자가 남았다: ${k}`);
+    for (const [name, args] of s.statics || []) {
+      assert.equal(typeof ctx[s.cls][name], 'function', `${s.cls}.${name} 이 없다`);
+      assert.equal(typeof ctx[s.cls][name](...args), 'string');
+      assert.ok(!(name in ctx.GitPanel), `정적 위임자가 남았다: ${name}`);
     }
   }
+  assert.equal(typeof ctx.GitWatchdog.prototype.run, 'function');
+  assert.ok(!('_watchdog' in proto), '위임자가 남았다: _watchdog');
 });
 
-test('TC-FEP-1 정적 위임자는 부품 클래스의 정적 메서드를 부른다', () => {
-  const { ctx } = setup();
-  for (const s of PARTS) {
-    for (const [name, args] of s.statics || []) {
-      assert.equal(typeof ctx.GitPanel[name], 'function', `GitPanel.${name} 이 없다`);
-      assert.equal(ctx.GitPanel[name](...args), ctx[s.cls][name](...args));
-    }
-  }
+test('TC-DLG-2 부품 인스턴스에 갈아 끼운 메서드를 패널 본문이 부른다', () => {
+  const { panel } = setup({
+    GitMenu: { close() {} }, GIT_PANEL_VIEW_FIELDS: [], GIT_VIEWS: [{ key: 'changes' }],
+    GIT_PREVIEW_HINT: 'p', GIT_NO_REPO_HINT: 'n', document: { getElementById: () => null },
+  });
+  const seen = [];
+  panel.poll._stop = () => seen.push('poll._stop');
+  panel.diffPane._destroyViews = () => seen.push('diffPane._destroyViews');
+  panel.views._commit = () => ({ unmount: () => seen.push('views._commit().unmount') });
+  panel.detach();
+  assert.deepEqual(seen, ['poll._stop', 'diffPane._destroyViews', 'views._commit().unmount']);
+  seen.length = 0;
+  panel.hunks._hunkBarHide = () => seen.push('hunks._hunkBarHide');
+  panel.viewRoots._render = (k) => seen.push('viewRoots._render:' + k);
+  panel._els.set('changes', {});
+  panel._repoSwitchView('');
+  assert.deepEqual(seen, ['hunks._hunkBarHide', 'viewRoots._render:changes']);
 });
 
 test('TC-FEP-1 패널 destroy 가 부품을 해제한다 (FR-FEP-1)', () => {
@@ -173,22 +186,10 @@ test('TC-FEP-3 부품 소유 필드가 패널 원형·생성자에 없고 패널
   const proto = Object.getPrototypeOf(panel);
   const panelSrc = readdirSync(GIT).filter((f) => /^panel/.test(f)).map((f) => [f, readFileSync(join(GIT, f), 'utf8')]);
   for (const s of PARTS) {
-    const exposed = s.exposed || [];
-    const rw = s.exposedRW || [];
     for (const k of s.owned) {
       assert.ok(!Object.hasOwn(panel, k), `${k} 가 패널 생성자에 있다`);
       for (const [f, src] of panelSrc) assert.ok(!src.includes('this.' + k), `${f} 가 ${k} 를 읽는다`);
-      if (!exposed.includes(k) && !rw.includes(k)) { assert.ok(!(k in proto), `${k} 가 패널 원형에 있다`); continue }
-      const d = Object.getOwnPropertyDescriptor(proto, k);
-      if (rw.includes(k)) assert.ok(d && d.get && d.set, `${k} 는 패널의 읽기·쓰기 접근자여야 한다`);
-      else assert.ok(d && d.get && !d.set, `${k} 는 패널의 읽기 접근자여야 한다`);
-      const v = { mark: k };
-      panel[s.field][k] = v;
-      assert.equal(panel[k], v, `${k} 접근자가 부품의 값을 읽지 않는다`);
-      if (!rw.includes(k)) continue;
-      const w = { mark: 'w' + k };
-      panel[k] = w;
-      assert.equal(panel[s.field][k], w, `${k} 접근자가 부품에 쓰지 않는다`);
+      assert.ok(!(k in proto), `${k} 가 패널 원형에 있다`);
     }
   }
   const all = readdirSync(GIT).map((f) => readFileSync(join(GIT, f), 'utf8')).join('\n');

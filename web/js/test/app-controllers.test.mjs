@@ -730,7 +730,7 @@ test('TC-FEA-2(9d): 갈아 끼운 plainWindows·gitReposRefresh·gitSignal·_git
   app.git.gitSignal = (k) => log.push('signal:' + k);
   app.gitPanels = new Map();
   app.git._gitLifecycle('focus');
-  app._gitObservers = new Map([['/r', { any: () => ({ collect: () => log.push('collect') }) }]]);
+  app._gitObservers = new Map([['/r', { any: () => ({ poll: { collect: () => log.push('collect') } }) }]]);
   app._gitOff = true;
   app.git.sync._gitObserveRestore();
   assert.deepEqual(log, ['plain', 'refresh', 'signal:focus', 'collect']);
@@ -743,7 +743,7 @@ test('FR-FEA-5(9d): gitSignal 은 허브 무효화 → 포커스 패널 신호 �
   controllers(ctx, app);
   const log = [];
   app.git._gitHub = { invalidate: () => log.push('invalidate') };
-  Object.defineProperty(app, 'gitPanel', { value: { signal: (k) => log.push('panel:' + k) } });
+  Object.defineProperty(app, 'gitPanel', { value: { poll: { signal: (k) => log.push('panel:' + k) } } });
   app.editor.pane._edAfterGitSignal = (k) => log.push('editor:' + k);
   app.git.gitSignal('write');
   assert.deepEqual(log, ['invalidate', 'panel:write', 'editor:write']);
@@ -1860,7 +1860,7 @@ test('TC-DLG-1(DL-5): 9k-3 의 옛 위임자 이름은 App 원형에 없고 소�
 });
 
 test('TC-FEA-1(9k-3): Diff 탭 패널은 App 의 등록부(gitPanels)에 서고 App 을 든다 — 미리보기 고정은 편집기 뿌리로 포커스를 넘긴다', () => {
-  const ctx = load9k3({ GitPanel: class { constructor(app, root) { this.app = app; this.root = root } _reschedule() {} diffTabApply() {} } });
+  const ctx = load9k3({ GitPanel: class { constructor(app, root) { this.app = app; this.root = root } poll = { _reschedule() {} }; diffPane = { diffTabApply() {} } } });
   const app = controllers(ctx, new ctx.App());
   const p = app.repoWin.gitDiffPanelFor('/r', 0, { id: 't' });
   assert.equal(p.app, app);

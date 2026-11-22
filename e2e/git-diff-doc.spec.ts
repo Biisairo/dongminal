@@ -214,7 +214,7 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
     await expect(note).toContainText('저장한 뒤', { timeout: 10000 });
     const patches: string[] = [];
     page.on('request', (r) => { if (r.url().includes('/api/git/patch')) patches.push(r.url()) });
-    await page.evaluate(() => edT.diffPanel()._hunkAct('stage'));
+    await page.evaluate(() => edT.diffPanel().hunks._hunkAct('stage'));
     expect(patches.length).toBe(0);
   });
 

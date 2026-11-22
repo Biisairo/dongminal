@@ -290,19 +290,19 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     // History 를 둘러본 상태를 만든 뒤 그 reload 만 터지게 한다.
     await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
-      p._history().reload = () => { throw new Error('reload boom') };
+      p.views._history().reload = () => { throw new Error('reload boom') };
     });
 
     // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 단추를 눌러 disabled 가 풀리는지 봤다 / 지금 갱신 함수를 부르고
     // `_refreshing` 이 풀리는지 본다 / 이유 단추가 없다. 진입점(`refresh()`)은 남아 패널 열기·창 전환이 부른다.
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
     expect(await page.evaluate(() => (window as any).app.gitPanel._refreshing),
       '_refreshing 이 참으로 남았다').toBe(false);
 
     // 잠기지 않았음의 증명은 "두 번째 누름이 실제로 요청을 낸다" 다.
     const st = counter(page, '/api/git/status');
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await expect.poll(() => st.n, { timeout: 3000 }).toBeGreaterThanOrEqual(1);
   });
 
@@ -331,10 +331,10 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     // 다른 계기(탭 전환·신호)가 그 한 번을 소모해 결함이 있어도 통과한다.
     await page.evaluate((needle) => {
       const p = (window as any).app.gitPanel;
-      const orig = p._paint.bind(p);
+      const orig = p.changes._paint.bind(p.changes);
       let left = 1;
-      p._paint = function () {
-        const st = this._status && this._status.status;
+      p.changes._paint = function () {
+        const st = p._status && p._status.status;
         if (left > 0 && st && JSON.stringify(st).includes(needle)) {
           left--;
           throw new Error('paint boom');

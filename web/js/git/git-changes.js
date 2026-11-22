@@ -7,8 +7,8 @@
  * 폴링마다 DOM 을 다시 만들면 스크롤과 선택이 날아간다. 그룹·행은 `git-change-rows.js`,
  * 행을 **고르는** 일은 `git-selection.js`, 고른 것에 **하는** 일(스테이지·discard)은 `git-files.js` 다.
  *
- * `_paint` 안의 자기 부름도 패널 위임자를 지난다 — e2e·시험이 패널 인스턴스에서 그것을 덮는다.
- * `headHTML` 은 정적이다 — 머리 골격은 패널 인스턴스 없이도 필요하다(`GitPanel.headHTML` 이 잇는다).
+ * 부르는 쪽은 `panel.changes._paint()` 처럼 이 부품을 부른다 — e2e·시험도 이 부품 인스턴스에서 그것을 덮는다.
+ * `headHTML` 은 정적이다 — 머리 골격은 패널 인스턴스 없이도 필요하다(History 가 `GitChanges.headHTML` 을 부른다).
  */
 /**
  * Changes 탭의 골격 (REFACTOR3_FE_REST3_SRS FR-FR3-18, FU-15). `head` 는 머리 골격(`GitPanel.headHTML()`), `boxes` 는
@@ -81,7 +81,7 @@ class GitChanges extends GitPart {
     if(!this.p.repo){
       el.dataset.built=''; el.innerHTML='';
       // 골격을 버렸으므로 커밋 영역도 자기 DOM 을 놓아야 한다.
-      this.p._commit().unmount();
+      this.p.views._commit().unmount();
       const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
       d.textContent=this.p._errMsg||GIT_NO_REPO_HINT;
       el.appendChild(d);
@@ -104,7 +104,7 @@ class GitChanges extends GitPart {
    */
   _renderInit(el){
     el.dataset.built='';
-    this.p._commit().unmount();
+    this.p.views._commit().unmount();
     el.innerHTML='';
     const box=document.createElement('div'); box.className='git-init';
     const msg=document.createElement('div'); msg.className='git-init-msg';
@@ -135,7 +135,7 @@ class GitChanges extends GitPart {
       // F-6.3: 실패는 서버 사유로 말한다 — 확인창 안에서, 그리고 닫은 뒤 그 자리에.
       // 이전: 응답 모양을 그대로 돌려 사유가 비어 "동작이 실패했습니다" 만 보였다.
       run:async()=>{
-        const r=await this.p.post(GIT_API.init,{path:this.p.root});
+        const r=await this.p.write.post(GIT_API.init,{path:this.p.root});
         if(r.ok) return {ok:true};
         const why=(r.data&&r.data.message)||'';
         this._initErr=why||GIT_INIT_FAIL;
@@ -146,8 +146,8 @@ class GitChanges extends GitPart {
     if(res===true||(res&&res.ok)){
       // FR-RTU-28: 서버가 캐시를 이미 지웠다 — 곧바로 다시 물으면 참이 온다.
       this.p._notRepo=false; this.p._errMsg=null; this.p._failStreak=0;
-      this.p._applyCadence();
-      this.p.signal('init');
+      this.p.poll._applyCadence();
+      this.p.poll.signal('init');
       // 목록·핀이 함께 바뀌었다 (FR-RTU-27). 사이드바가 그것을 따라오게 한다.
       if(this.app.editor?.section.edRefresh) this.app.editor.section.edRefresh();
       if(this.app.git.sync.gitReposRefresh) this.app.git.sync.gitReposRefresh();
@@ -158,9 +158,9 @@ class GitChanges extends GitPart {
 
   _paint(){
     // 소실은 status 가 없는 상태다 — 아래의 칠하기는 전부 그것을 딛는다 (FR-RMS-19).
-    if(this.p._missing){this.p._paintAllViews();return}
+    if(this.p._missing){this.p.viewRoots._paintAllViews();return}
     const c=this.p._els.get('changes'); if(c) this._renderChanges(c);
-    const d=this.p._els.get('diff'); if(d) this.p._renderDiff(d);
+    const d=this.p._els.get('diff'); if(d) this.p.diffPane._renderDiff(d);
     // History 는 status 에서 미커밋 변경 행만 딛는다 (FR-GIT-127) — 목록 전체를
     // 폴링마다 다시 그리면 스크롤이 매초 흔들린다.
     if(this.p._historyView) this.p._historyView.paintStatus();
@@ -177,7 +177,7 @@ class GitChanges extends GitPart {
     if(this.p._submodulesView) this.p._submodulesView._paintHead();
     // FR-GRF-9: 낡음은 **모든 뷰**의 사실이다 — 위의 뷰별 칠하기와 달리
     // 무엇을 보고 있든 같은 것을 말한다.
-    this.p.paintStale();
+    this.p.viewRoots.paintStale();
   }
 
   /**
@@ -201,7 +201,7 @@ class GitChanges extends GitPart {
       b.appendChild(UIKit.icon(GIT_REMOTE_MORE,{size:'sm'}));
     // FR-GIT-282: 리포명 자체가 전환 자리다 — 헤더에 새 버튼을 더하지 않는다.
     head.querySelector('.git-head-repo').addEventListener('click',ev=>this._openRepoPicker(ev));
-    this.p._remote().bindHead(head);
+    this.p.views._remote().bindHead(head);
   }
 
   // 머리 하나를 칠한다 (FR-GHM-5·6). 머리가 없는 뷰에서는 아무것도 하지 않는다 —
@@ -209,7 +209,7 @@ class GitChanges extends GitPart {
   _paintHeadIn(el){
     const head=el&&el.querySelector('.git-head'); if(!head) return;
     this._paintHead(el,this.p._status&&this.p._status.status);
-    this.p._remote().paintHead(head);
+    this.p.views._remote().paintHead(head);
   }
 
   // 머리를 실은 뷰 전부. 목록을 따로 적지 않는다 — 머리가 있는 뷰가 곧 대상이다.
@@ -220,7 +220,7 @@ class GitChanges extends GitPart {
 
   // 골격을 세우고 배선한다 (FR-FR3-18). 순서: 골격 → 보기 전환 → 머리 → 잡 글자 → 노트·진행 중 작업 → 그룹 → 커밋 → 원격.
   _buildChanges(el){
-    el.innerHTML=gitChangesHTML(GitPanel.headHTML(),this.p._remote().boxesHTML());
+    el.innerHTML=gitChangesHTML(GitChanges.headHTML(),this.p.views._remote().boxesHTML());
     /**
      * UX_AUDIT_FIX_SRS FR-UXF-23: 보기 전환(폴더/목록)은 브랜치 줄의 끝에 선다. 원격 단추와는 세로 선으로 가른다.
      *   이전: 목록 위에 보기 전환만의 줄(`.git-files-bar`)이 따로 섰다
@@ -244,12 +244,12 @@ class GitChanges extends GitPart {
       b.title=GIT_FILE_VIEW_TITLE[b.dataset.mode]||'';
       b.addEventListener('click',()=>this._setFileView(b.dataset.mode));
     }
-    this.p._commit().mount(el.querySelector('.git-commit'));
+    this.p.views._commit().mount(el.querySelector('.git-commit'));
     // 원격 버튼과 작업 영역의 동작 (FR-GIT-98~112). 골격은 여기 있고 상태는
     // GitRemote 가 들고 있다 — 골격을 다시 세워도 진행 중 작업이 사라지지 않는다.
-    this.p._remote().bind(el);
+    this.p.views._remote().bind(el);
     // FR-GIT-42: 목록 끝이 보일 때마다 다음 덩어리를 이어 그린다 — 관측기는 행 부품이 든다.
-    this.p._watchMore(files);
+    this.p.changeRows._watchMore(files);
     el.dataset.built='1';
   }
 
@@ -258,14 +258,14 @@ class GitChanges extends GitPart {
     const partClose=el.querySelector('.git-partial-close');
     partClose.textContent=GIT_NOTE_CLOSE; partClose.title=GIT_TIP_NOTE_CLOSE;
     el.querySelector('.git-partial-close')
-      .addEventListener('click',()=>{this.p._note=null;this.p._paint()});
+      .addEventListener('click',()=>{this.p._note=null;this._paint()});
     const lockBtn=el.querySelector('.git-lock-remove');
     lockBtn.textContent=GIT_LOCK_REMOVE;
-    lockBtn.addEventListener('click',()=>this.p.removeIndexLock());
+    lockBtn.addEventListener('click',()=>this.p.write.removeIndexLock());
     for(const b of el.querySelectorAll('.git-op-act')){
       b.textContent=GIT_OP_ACT_LABEL[b.dataset.act]||'';
       b.title=GIT_OP_ACT_TITLE[b.dataset.act]||'';
-      b.addEventListener('click',()=>this.p.runOperation(b.dataset.act));
+      b.addEventListener('click',()=>this.p.write.runOperation(b.dataset.act));
     }
   }
 
@@ -277,7 +277,7 @@ class GitChanges extends GitPart {
       '<span class="git-group-spacer"></span></div>'+
       '<div class="git-group-rows"></div>';
     d.querySelector('.git-group-name').textContent=g.name;
-    d.querySelector('.git-group-head').addEventListener('click',()=>this.p._toggleGroup(g.key));
+    d.querySelector('.git-group-head').addEventListener('click',()=>this.p.changeRows._toggleGroup(g.key));
     // 그룹별 일괄 (FR-GIT-66·67·68 / FR-WBR-50·51·52). 그룹이 이미 tracked /
     // untracked 를 가르므로 그룹별 일괄이 곧 그 구분이다. 그리는 순서가 곧
     // 손에서의 거리이므로 `GIT_GROUP_BULK` 의 배열 순서를 그대로 따른다 —
@@ -287,15 +287,15 @@ class GitChanges extends GitPart {
     // 서고, 그것이 접수한 말의 "정렬이 안되었다" 다.
     const acts=document.createElement('span');
     acts.className='git-act-cols git-group-acts';
-    for(const c of this.p._actCols(GIT_GROUP_BULK[g.key]||[],GIT_BULK_COLS)){
-      if(!c.act){acts.appendChild(this.p._actGap());continue}
+    for(const c of this.p.changeRows._actCols(GIT_GROUP_BULK[g.key]||[],GIT_BULK_COLS)){
+      if(!c.act){acts.appendChild(this.p.changeRows._actGap());continue}
       // FR-WBR-52: 행 동작과 **같은 어휘**의 아이콘이다. FR-WBR-52a: 뜻이
       // 갈리는 자리는 툴팁이다 — 워킹 그룹의 폐기는 삭제를 포함한다.
       // 헤더 클릭은 접기다 — 일괄 버튼이 그것을 함께 일으키지 않는다.
       acts.appendChild(UIKit.button({icon:GIT_ACT_ICON[c.act],
         title:(GIT_BULK_TITLE_GROUP[g.key]||{})[c.act]||GIT_BULK_TITLE[c.act],
         kind:'ghost',size:'lg',cls:'git-group-bulk',dataset:{act:c.act},
-        onClick:ev=>{ev.stopPropagation();this.p._bulk(g.key,c.act)}}));
+        onClick:ev=>{ev.stopPropagation();this.p.files._bulk(g.key,c.act)}}));
     }
     d.querySelector('.git-group-head').appendChild(acts);
     return d;
@@ -305,20 +305,20 @@ class GitChanges extends GitPart {
     const s=this.p._status&&this.p._status.status;
     this._paintHeadIn(el);
     // FR-GRF-9: 낡음 배너는 뷰 공통이다 — 여기서는 이 뷰의 것만 칠한다.
-    this.p._paintStaleIn(el);
-    this.p._paintOp(el,s);
+    this.p.viewRoots._paintStaleIn(el);
+    this.p.write._paintOp(el,s);
     // FR-CMG-2: 워킹 그룹은 서버의 두 배열을 합친 것이다 — 판정은 한 자리다.
-    for(const g of GIT_GROUPS) this.p._paintGroup(el,g,gitGroupEntries(s,g.key));
+    for(const g of GIT_GROUPS) this.p.changeRows._paintGroup(el,g,gitGroupEntries(s,g.key));
     this._paintMode(el);
-    this.p._paintNote(el);
-    this.p._commit().paint(s||null);
-    this.p._remote().paint(el);
+    this.p.write._paintNote(el);
+    this.p.views._commit().paint(s||null);
+    this.p.views._remote().paint(el);
   }
 
   // 헤더 (FR-GIT-32·33·40)
   _paintHead(el,s){
     // F-3.3 (FR-RTU-24): 창 루트가 하위 폴더여도 이름은 그 저장소의 것이다.
-    const repo=this.p.repoTop();
+    const repo=this.p.poll.repoTop();
     const r=el.querySelector('.git-head-repo');
     r.textContent=pathBase(repo)||repo;
     r.title=repo;
@@ -438,7 +438,7 @@ class GitChanges extends GitPart {
   _setFileView(mode){
     this._fileView=mode==='tree'?'tree':'flat';
     PrefStore.local.set(GIT_FILE_VIEW_KEY,this._fileView);
-    this.p._paint();
+    this._paint();
   }
 
   _paintMode(el){

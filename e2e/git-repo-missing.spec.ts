@@ -349,7 +349,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     await page.waitForTimeout(6000);
     failing = false;
     // 사용자의 계기는 백오프를 기다리지 않는다 (V-RMS-19) — 이것으로 성공 하나를 만든다.
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
     const c = counter(page, '/api/git/status');
     await page.waitForTimeout(3000);
@@ -371,26 +371,26 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
       // 하나만 남았다. 재는 규약(백오프·상한·0·소실 고정)은 그대로다.
       // 기준 1000, 실패 없음
       p._missing = null; p._failStreak = 0;
-      out.base = p._cadence(1000);
+      out.base = p.poll._cadence(1000);
       // 연속 실패 2회 → 4배
       p._failStreak = 2;
-      out.backoff = p._cadence(1000);
+      out.backoff = p.poll._cadence(1000);
       // 상한을 넘지 않는다
       p._failStreak = 20;
-      out.capped = p._cadence(1000);
+      out.capped = p.poll._cadence(1000);
       // GIT_REFRESH_LIFECYCLE_SRS FR-GRF-30 (`GP-13`): 상한이 **기준 주기보다
       // 크다.** 종전에는 둘이 같아(30000) `min(30000*2ⁿ, 30000)` 이 늘 30000
       // 이었고, 그래서 기본 설정에서 백오프가 아무 일도 하지 않았다.
       p._failStreak = 1;
-      out.base30 = p._cadence(30000);
+      out.base30 = p.poll._cadence(30000);
       p._failStreak = 2;
-      out.step30 = p._cadence(30000);
+      out.step30 = p.poll._cadence(30000);
       // 기준 0 은 0 으로 남는다 (꺼 둔 계층을 되살리지 않는다)
-      out.off = p._cadence(0);
+      out.off = p.poll._cadence(0);
       // 소실은 고정 주기다 — 백오프로 점증하지 않는다
       p._missing = '/gone'; p._failStreak = 20;
-      out.missing = p._cadence(1000);
-      out.missingOff = p._cadence(0);
+      out.missing = p.poll._cadence(1000);
+      out.missingOff = p.poll._cadence(0);
       p._missing = null; p._failStreak = 0;
       return out;
     });

@@ -9,12 +9,12 @@
  * 하나로 판정한다 — 나중에 비동기 경로를 하나씩 훑어 가드를 덧붙이는 상황을
  * 만들지 않으려고 처음부터 둔다. 판정은 이 클래스의 `token`/`isStale` 이다.
  *
- * 클래스 본문에는 생성자·접근자·리포 전환과 수명(옛 `panel-life.js`)·부품 위임자가 있다. 접근자가
+ * 클래스 본문에는 생성자·접근자·리포 전환과 수명(옛 `panel-life.js`)이 있다. 접근자가
  * 클래스 본문에 있는 이유는 `Object.assign` 이 getter 를 **호출해 그 반환값을 복사**하기 때문이다 —
  * 원형에 얹으면 통로가 값으로 굳는다 (REFACTOR3_FE_GITPANEL_SRS INV-P3).
  *
  * 나머지는 부품 클래스(`GitPart` 하위, REFACTOR3_FE_GITPANEL_SRS)다. 부품은 혼자 쓰는 필드까지 갖고
- * 생성자가 만들어 든다. 바깥·다른 부품이 부르는 부품 메서드는 아래 위임자가 잇는다.
+ * 생성자가 만들어 든다. 바깥·다른 부품은 `panel.<부품>.X` 로 부품 메서드를 부른다 — 패널에 위임자를 두지 않는다 (REFACTOR3_FE_DELEG_SRS).
  *
  *   git-blame.js      Blame (`this.blame`)
  *   git-hunks.js      부분 스테이징 · hover 툴바 (`this.hunks`)
@@ -96,176 +96,6 @@ class GitPanel {
     this.views=new GitViews(this);
     this.viewRoots=new GitViewRoots(this);
   }
-
-  // 머리 골격은 패널 인스턴스 없이도 필요하다 (History). 주인은 `GitChanges` 다.
-  static headHTML(opts){ return GitChanges.headHTML(opts) }
-
-  // e2e 가 툴바의 자리를 읽는다 (FR-FEP-5). 주인은 `GitHunks` 다.
-  get _hunkBarEd(){ return this.hunks._hunkBarEd }
-  get _hunkBarPos(){ return this.hunks._hunkBarPos }
-  // e2e 가 보기 취향을 바꿔 넣는다 (FR-FEP-5). 주인은 `GitChanges` 다.
-  get _fileView(){ return this.changes._fileView } set _fileView(v){ this.changes._fileView=v }
-  // 브랜치 메뉴의 짝 판정(branches-ops.js)이 읽는다 (FR-FEP-5). 주인은 `GitViews` 다.
-  get _knownRefs(){ return this.views._knownRefs }
-
-  // ── 부품 위임자 (FR-FEP-4) — 패널 바깥·다른 파일이 부르는 이름 ──
-  openBlame(target){ return this.blame.openBlame(target) }
-  blameStale(){ return this.blame.blameStale() }
-  _paintBlame(el){ return this.blame._paintBlame(el) }
-  _paintHunks(el,f){ return this.hunks._paintHunks(el,f) }
-  _hunkText(){ return this.hunks._hunkText() }
-  _hunkNote(el,text){ return this.hunks._hunkNote(el,text) }
-  _hunkBarWire(ed){ return this.hunks._hunkBarWire(ed) }
-  _hunkBarDispose(){ return this.hunks._hunkBarDispose() }
-  _hunkBarHide(){ return this.hunks._hunkBarHide() }
-  _hunkBarPaint(){ return this.hunks._hunkBarPaint() }
-  _hunkAct(kind){ return this.hunks._hunkAct(kind) }
-  _diffChanged(){ return this.hunks._diffChanged() }
-  _renderDiff(el){ return this.diffPane._renderDiff(el) }
-  _diffInvalidate(){ return this.diffPane._diffInvalidate() }
-  _fileList(){ return this.diffPane._fileList() }
-  _diffIndex(list){ return this.diffPane._diffIndex(list) }
-  _diffMove(delta){ return this.diffPane._diffMove(delta) }
-  reloadDiff(user){ return this.diffPane.reloadDiff(user) }
-  _destroyViews(){ return this.diffPane._destroyViews() }
-  diffTabApply(dt){ return this.diffPane.diffTabApply(dt) }
-  diffViewKeep(){ return this.diffPane.diffViewKeep() }
-  diffViewRestore(){ return this.diffPane.diffViewRestore() }
-  diffTabViewState(){ return this.diffPane.diffTabViewState() }
-  diffTabViewApply(vs){ return this.diffPane.diffTabViewApply(vs) }
-  _foldPref(){ return this.poll._foldPref() }
-  _setFold(on){ return this.poll._setFold(on) }
-  absPath(target){ return this.poll.absPath(target) }
-  repoTop(){ return this.poll.repoTop() }
-  openFileDiff(target){ return this.poll.openFileDiff(target) }
-  copyText(text){ return this.poll.copyText(text) }
-  refresh(){ return this.viewReload.refresh() }
-  _reloadViews(withConsole){ return this.viewReload._reloadViews(withConsole) }
-  _staleTake(key,before){ return this.viewReload._staleTake(key,before) }
-  _inRefsRound(fn){ return this.viewReload._inRefsRound(fn) }
-  _reloadStaleViews(sig){ return this.viewReload._reloadStaleViews(sig) }
-  init(){ return this.poll.init() }
-  signal(kind){ return this.poll.signal(kind) }
-  _pollOk(){ return this.poll._pollOk() }
-  _cadence(st){ return this.poll._cadence(st) }
-  _applyCadence(){ return this.poll._applyCadence() }
-  _watchdog(){ return this.watchdog.run() }
-  _reschedule(){ return this.poll._reschedule() }
-  _stop(){ return this.poll._stop() }
-  collect(){ return this.poll.collect() }
-  afterCommitOp(res){ return this.write.afterCommitOp(res) }
-  noteCompareMark(label){ return this.write.noteCompareMark(label) }
-  afterRefWrite(d){ return this.write.afterRefWrite(d) }
-  afterRemoteJob(){ return this.write.afterRemoteJob() }
-  afterJobSlots(){ return this.write.afterJobSlots() }
-  stashApply(oid,withIndex){ return this.write.stashApply(oid,withIndex) }
-  stashPop(oid){ return this.write.stashPop(oid) }
-  stashDrop(oid){ return this.write.stashDrop(oid) }
-  afterStashWrite(res){ return this.write.afterStashWrite(res) }
-  stashBranch(s){ return this.write.stashBranch(s) }
-  stashCreate(){ return this.write.stashCreate() }
-  afterStashRefWrite(res){ return this.write.afterStashRefWrite(res) }
-  applyWriteFail(res){ return this.write.applyWriteFail(res) }
-  removeIndexLock(given){ return this.write.removeIndexLock(given) }
-  post(url,body,opts){ return this.write.post(url,body,opts) }
-  bumpWrite(){ return this.write.bumpWrite() }
-  wqPost(url,body){ return this.write.wqPost(url,body) }
-  busyNote(){ return this.write.busyNote() }
-  postJob(url,body,settle){ return this.write.postJob(url,body,settle) }
-  writeReason(res){ return this.write.writeReason(res) }
-  writeError(res){ return this.write.writeError(res) }
-  adopt(d){ return this.write.adopt(d) }
-  _paintOp(el,s){ return this.write._paintOp(el,s) }
-  runOperation(action){ return this.write.runOperation(action) }
-  _paintNote(el){ return this.write._paintNote(el) }
-  _renderChanges(el){ return this.changes._renderChanges(el) }
-  _paint(){ return this.changes._paint() }
-  _wireHead(el){ return this.changes._wireHead(el) }
-  _paintHeadIn(el){ return this.changes._paintHeadIn(el) }
-  paintHeads(){ return this.changes.paintHeads() }
-  _treeMode(){ return this.changes._treeMode() }
-  _paintGroup(el,g,entries){ return this.changeRows._paintGroup(el,g,entries) }
-  _actCols(have,cols){ return this.changeRows._actCols(have,cols) }
-  _actGap(){ return this.changeRows._actGap() }
-  _toggleGroup(key){ return this.changeRows._toggleGroup(key) }
-  _watchMore(files){ return this.changeRows._watchMore(files) }
-  revealRow(group,path){ return this.changeRows.revealRow(group,path) }
-  untrackedPaths(){ return this.files.untrackedPaths() }
-  uncommittedReset(){ return this.files.uncommittedReset() }
-  uncommittedClean(paths){ return this.files.uncommittedClean(paths) }
-  ignorePath(target){ return this.files.ignorePath(target) }
-  openFileHistory(target){ return this.files.openFileHistory(target) }
-  openFileAtHead(target){ return this.files.openFileAtHead(target) }
-  dirtyCount(){ return this.files.dirtyCount() }
-  isDirty(){ return this.files.isDirty() }
-  showCommitDiff(f){ return this.files.showCommitDiff(f) }
-  _target(group,e){ return this.files._target(group,e) }
-  _selected(){ return this.files._selected() }
-  _rowTargets(act,group,path,origPath,untracked){ return this.files._rowTargets(act,group,path,origPath,untracked) }
-  _bulk(group,act){ return this.files._bulk(group,act) }
-  _dirBulk(group,path,act){ return this.files._dirBulk(group,path,act) }
-  _run(act,items){ return this.files._run(act,items) }
-  _op(){ return this.files._op() }
-  _diffTarget(){ return this.selection._diffTarget() }
-  _selKey(group,path){ return this.selection._selKey(group,path) }
-  _noBaseline(group,e){ return this.selection._noBaseline(group,e) }
-  _openInEditor(e){ return this.selection._openInEditor(e) }
-  _select(group,e,ev){ return this.selection._select(group,e,ev) }
-  _openDiff(group,e){ return this.selection._openDiff(group,e) }
-  openView(view){ return this.selection.openView(view) }
-  _dirEntryNote(f){ return this.selection._dirEntryNote(f) }
-  _dirEntryActs(f){ return this.selection._dirEntryActs(f) }
-  _commit(){ return this.views._commit() }
-  _remote(){ return this.views._remote() }
-  adoptJobs(jobs){ return this.views.adoptJobs(jobs) }
-  expandGroup(key){ return this.views.expandGroup(key) }
-  _history(){ return this.views._history() }
-  _branches(){ return this.views._branches() }
-  _console(){ return this.views._console() }
-  _worktrees(){ return this.views._worktrees() }
-  _stash(){ return this.views._stash() }
-  _renderView(key,el){ return this.views._renderView(key,el) }
-  _emptyHint(el,text){ return this.views._emptyHint(el,text) }
-  statusOf(){ return this.views.statusOf() }
-  actionOf(id){ return this.views.actionOf(id) }
-  rowActionOf(path,id){ return this.views.rowActionOf(path,id) }
-  _viewFp(d){ return this.views._viewFp(d) }
-  headName(){ return this.views.headName() }
-  checkoutRef(ref,o){ return this.views.checkoutRef(ref,o) }
-  checkoutRemote(short){ return this.views.checkoutRemote(short) }
-  branchRename(target){ return this.views.branchRename(target) }
-  branchDelete(target,names){ return this.views.branchDelete(target,names) }
-  branchDeleteTargets(target){ return this.views.branchDeleteTargets(target) }
-  branchMerge(ref){ return this.views.branchMerge(ref) }
-  branchRebase(ref){ return this.views.branchRebase(ref) }
-  branchSetUpstream(target){ return this.views.branchSetUpstream(target) }
-  branchUnsetUpstream(target){ return this.views.branchUnsetUpstream(target) }
-  branchPush(target){ return this.views.branchPush(target) }
-  branchFetchInto(target){ return this.views.branchFetchInto(target) }
-  branchDeleteRemote(target){ return this.views.branchDeleteRemote(target) }
-  branchDeleteBoth(target,names){ return this.views.branchDeleteBoth(target,names) }
-  branchDeletePair(target){ return this.views.branchDeletePair(target) }
-  adoptRefs(refs){ return this.views.adoptRefs(refs) }
-  fetchRefs(repo,opts){ return this.views.fetchRefs(repo,opts) }
-  branchNote(msg){ return this.views.branchNote(msg) }
-  notifyPins(){ return this.views.notifyPins() }
-  createBranchFrom(oid){ return this.views.createBranchFrom(oid) }
-  createTag(oid){ return this.views.createTag(oid) }
-  tagDelete(name){ return this.views.tagDelete(name) }
-  tagDeleteRemote(name){ return this.views.tagDeleteRemote(name) }
-  tagPush(name){ return this.views.tagPush(name) }
-  tagPushAll(){ return this.views.tagPushAll() }
-  elFor(view){ return this.viewRoots.elFor(view) }
-  viewDirty(view,closing){ return this.viewRoots.viewDirty(view,closing) }
-  viewSave(view){ return this.viewRoots.viewSave(view) }
-  dropView(view){ return this.viewRoots.dropView(view) }
-  _render(view){ return this.viewRoots._render(view) }
-  _paintStaleIn(el){ return this.viewRoots._paintStaleIn(el) }
-  paintStale(){ return this.viewRoots.paintStale() }
-  _enterMissing(){ return this.viewRoots._enterMissing() }
-  _enterMissingView(){ return this.viewRoots._enterMissingView() }
-  _leaveMissing(){ return this.viewRoots._leaveMissing() }
-  _paintAllViews(){ return this.viewRoots._paintAllViews() }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //
@@ -352,7 +182,7 @@ class GitPanel {
     // 상단의 창 이름은 활성 리포에서 온다 — 같은 창에서 리포만 바뀌면 render 가
     // 돌지 않으므로(아래 주석의 조기 반환) 여기서 직접 고쳐 그린다.
     this.app.renderer._rTopbar();
-    this._stop(); this._reschedule();
+    this.poll._stop(); this.poll._reschedule();
     // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
     // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
     // "같은 창에서 리포만 바꾼" 경우가 새로고침에서 사라진다.
@@ -383,11 +213,11 @@ class GitPanel {
     this._diffKey=null; this._diffPos=0; this.commitFile=null;
     this._hunkKey=null; this._hunks=null;
     // 앞 리포의 조각을 가리키던 툴바가 새 리포의 diff 위에 남아서는 안 된다.
-    this._hunkBarHide();
+    this.hunks._hunkBarHide();
     // blame 은 파일에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을 가리킨다.
     this._blameOn=false; this.blame.reset();
     if(this._diffView) this._diffView.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
-    for(const v of GIT_VIEWS) if(this._els.has(v.key)) this._render(v.key);
+    for(const v of GIT_VIEWS) if(this._els.has(v.key)) this.viewRoots._render(v.key);
   }
 
   // Git 창이 사라졌을 때 루트를 area 로 되돌린다. 인스턴스는 살아 있다 —
@@ -414,10 +244,10 @@ class GitPanel {
   }
 
   detach(){
-    this._stop(); GitMenu.close(); this._destroyViews();
+    this.poll._stop(); GitMenu.close(); this.diffPane._destroyViews();
     // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
     // 남아 있어서는 안 된다 (FR-GIT-83).
-    this._commit().unmount();
+    this.views._commit().unmount();
     // REFACTOR_STABILIZATION_SRS FR-RST-20: **게터를 부르지 않는다.**
     //
     // `this._history()` 류는 없으면 만든다. 그래서 종전 코드는 창을 닫을 때

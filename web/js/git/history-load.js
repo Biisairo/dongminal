@@ -214,12 +214,12 @@ Object.assign(GitHistory.prototype, {
     const repo=this._repo; if(!repo) return;
     const tk=this.ticket();
     // FR-OPT-4-9: Branches 와 같은 회차면 요청 하나를 나눠 쓴다.
-    const res=await this.panel.fetchRefs(repo);
+    const res=await this.panel.views.fetchRefs(repo);
     if(this.stale(tk)) return;
     const d=res.ok?res.data:null;
     if(!d||!d.requested||d.requested.repo!==repo) return;
     this._refs=Array.isArray(d.refs)?d.refs:[];
-    this.panel.adoptRefs(this._refs);   // FR-BMU-16h
+    this.panel.views.adoptRefs(this._refs);   // FR-BMU-16h
     /**
      * REPO_FIX 05 F-8.1: 저장된 ref 필터가 목록에 없다(지워졌거나 이름이 바뀌었다) — 필터와
      * 저장값을 풀고 사유를 한 번 보인다. 이전: 없는 ref 로 계속 물어 로드 실패가 고착됐다(#36).

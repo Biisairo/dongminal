@@ -45,13 +45,13 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
   await switchToEditorRoot(page, root);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
   await page.locator('.ed-side-tab[data-side="changes"]').click();
-  await page.waitForFunction(() => !!(window as any).app.gitPanel?.statusOf(), undefined, { timeout: 15000 });
+  await page.waitForFunction(() => !!(window as any).app.gitPanel?.views.statusOf(), undefined, { timeout: 15000 });
 }
 
 test('F-9.1: Stash 후 checkout 이 거부되면 변경이 stash 에 남았다고 알린다', async ({ page, request }) => {
   const repo = makeRepo('fb1');
   await enter(page, request, repo);
-  await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.isDirty()), { timeout: 10000 }).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.files.isDirty()), { timeout: 10000 }).toBe(true);
   await page.route('**/api/git/checkout', async (route) => {
     await route.fulfill({ status: 409, contentType: 'application/json',
       body: JSON.stringify({ ok: false, error: 'git_failed', message: 'checkout-refused' }) });
@@ -61,7 +61,7 @@ test('F-9.1: Stash 후 checkout 이 거부되면 변경이 stash 에 남았다�
     const orig = w.GitDialog.open;
     w.GitDialog.open = (o: any) => (o && o.id === 'git-choice' ? Promise.resolve('stash') : orig.call(w.GitDialog, o));
   });
-  await page.evaluate(() => (window as any).app.gitPanel.checkoutRef('other', {}));
+  await page.evaluate(() => (window as any).app.gitPanel.views.checkoutRef('other', {}));
   await expect(page.locator('.toast, #toast').filter({ hasText: 'stash' }).first()).toBeVisible({ timeout: 10000 });
   expect(out(repo, 'stash', 'list')).not.toBe('');
 });
@@ -96,7 +96,7 @@ test('F-9.4: 결과를 모르는 done 은 성공으로 보이지 않는다', asy
   await enter(page, request, repo);
   await page.route('**/api/git/job/events**', async () => { /* 답하지 않는다 — 스트림이 열린 채 선다 */ });
   await page.evaluate((r: string) => {
-    const jobs = (window as any).app.gitPanel._remote();
+    const jobs = (window as any).app.gitPanel.views._remote();
     const v = jobs.views.index;
     v._attach({ id: 'gone-job', kind: 'commit', repo: r, argv: ['commit'] });
     v._finish({ id: 'gone-job', done: true });

@@ -58,7 +58,7 @@ class GitStashCreate {
     const res=await gitFetch(GIT_API.actions,{repo:this.repo,action:id,includeUntracked:includeUntracked?'1':'0'},
       {stale:()=>seq!==this._seq||!d.alive(),echo:{repo:this.repo,action:id}});
     if(res.stale) return;
-    const s=res.ok?actionState(res.data.actions[id],false):{enabled:false,why:this.panel.writeReason(res)};
+    const s=res.ok?actionState(res.data.actions[id],false):{enabled:false,why:this.panel.write.writeReason(res)};
     this._state=this._whyOf(s);
     d.setWhy(this._state.kind,this._state.why);
   }
@@ -66,7 +66,7 @@ class GitStashCreate {
   _whyOf(s){return s.enabled?{kind:'',why:''}:{kind:GIT_DIALOG_WHY,why:s.why}}
 
   async _run(v){
-    const res=await this.panel.post(GIT_API.stashPush,{
+    const res=await this.panel.write.post(GIT_API.stashPush,{
       repo:this.repo,
       message:(v.message||'').trim(),
       includeUntracked:!!v.includeUntracked,
@@ -74,11 +74,11 @@ class GitStashCreate {
     });
     // 조작 응답은 실행 후 목록과 status 를 함께 싣고 온다 (FR-GIT-170) — 실패
     // 응답도 그렇다.
-    this.panel.afterStashWrite(res);
+    this.panel.write.afterStashWrite(res);
     if(res.ok) return {ok:true};
     // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
     // (FR-GIT-175).
-    return {ok:false,reason:this.panel.writeReason(res),
+    return {ok:false,reason:this.panel.write.writeReason(res),
       stderrTail:(res.data&&res.data.message)||''};
   }
 }
@@ -99,7 +99,7 @@ class GitStashBranch {
     this.repo=panel.repo;
     this.stash=stash;
     this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.stashBranch,
-      params:v=>({name:(v.name||'').trim()}),fail:res=>panel.writeReason(res)});
+      params:v=>({name:(v.name||'').trim()}),fail:res=>panel.write.writeReason(res)});
   }
 
   _show(){
@@ -119,17 +119,17 @@ class GitStashBranch {
   }
 
   async _run(v){
-    const res=await this.panel.post(GIT_API.stashBranch,{
+    const res=await this.panel.write.post(GIT_API.stashBranch,{
       repo:this.repo,oid:this.stash.oid,name:(v.name||'').trim(),
     });
     // 조작 응답은 실행 후 목록과 status 를 함께 싣고 온다 (FR-GIT-170) — 실패
     // 응답도 그렇다. **ref 가 바뀌므로 refs 도 다시 받는다** (FR-GIT-160):
     // status 만으로는 새 브랜치가 생겼는지 알 수 없다.
-    this.panel.afterStashRefWrite(res);
+    this.panel.write.afterStashRefWrite(res);
     if(res.ok) return {ok:true};
     // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
     // (FR-GIT-175).
-    return {ok:false,reason:this.panel.writeReason(res),
+    return {ok:false,reason:this.panel.write.writeReason(res),
       stderrTail:(res.data&&res.data.message)||''};
   }
 }

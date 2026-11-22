@@ -119,7 +119,7 @@ class GitHistory extends GitView {
       // FR-GHM-3a (U-6, 2026-09-11): **원격 버튼은 싣지 않는다.** Changes 와
       // History 를 이제 함께 보므로 같은 버튼이 두 벌이었다 — 같은 일을 하는 자리가
       // 둘이면 어느 쪽을 눌렀는지가 결과와 무관해도 사용자는 그것을 모른다.
-      GitPanel.headHTML({remote:false})+
+      GitChanges.headHTML({remote:false})+
       /**
        * FR-HSU-1·9: 바에 남는 것은 **검색 입력 · 옵션 버튼 · `+ Branch`** 셋이다.
        * 정렬·필터 넷·reflog·Apply 는 드롭다운으로 들어갔고, `.git-hist-jump` 와
@@ -157,7 +157,7 @@ class GitHistory extends GitView {
         '<span class="git-hist-scope"></span>'+
         '<span class="git-hist-state"></span>'+
       '</div>';
-    this.panel._wireHead(el);
+    this.panel.changes._wireHead(el);
     this._list=el.querySelector('.git-hist-list');
     this._spTop=el.querySelector('.git-hist-sp-top');
     this._spBot=el.querySelector('.git-hist-sp-bot');
@@ -172,7 +172,7 @@ class GitHistory extends GitView {
     opts.addEventListener('click',ev=>this._openOpts(ev));
     // FR-HBB-4·6: 인자 없이 부르면 startRef 가 빈 값이고 서버가 HEAD 를 쓴다.
     // 커밋·ref 를 시작점으로 삼는 길은 우클릭 메뉴가 그대로 갖는다 (§2.3).
-    brb.addEventListener('click',()=>this.panel.createBranchFrom());
+    brb.addEventListener('click',()=>this.panel.views.createBranchFrom());
     el.querySelector('.git-hist-retry').addEventListener('click',()=>{this._err=null;this._reload()});
     el.querySelector('.git-hist-search').addEventListener('input',ev=>this._search(ev.target.value));
     el.querySelector('.git-hist-search').addEventListener('keydown',ev=>{
@@ -242,11 +242,11 @@ class GitHistory extends GitView {
    *             즉시 나가게 되어 그 순서가 뒤집혔다 (ubuntu 러너 실측)
    */
   _syncStatus(){
-    const n=this.panel.dirtyCount();
+    const n=this.panel.files.dirtyCount();
     // FR-GIT-233: HEAD 표식을 관측에서 파생하므로 HEAD 가 움직이면 행을 다시 그려야
     // 한다 — 미커밋 개수만 보면 체크아웃 직후의 표식이 낡은 채로 남는다.
-    const h=this.panel.headName();
-    const o=(this.panel.statusOf()||{}).oid||'';
+    const h=this.panel.views.headName();
+    const o=(this.panel.views.statusOf()||{}).oid||'';
     if(n===this._dirtyN&&h===this._headName&&o===this._headOid) return false;
     this._dirtyN=n; this._headName=h; this._headOid=o; this._ver++;
     return true;

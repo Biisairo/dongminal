@@ -638,7 +638,7 @@ test.describe('17단계 — 커밋 상세', () => {
     await expect(hist(page).locator('.git-hist-detail')).toBeVisible({ timeout: 15000 });
 
     // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 새로고침 단추를 눌렀다 / 지금 같은 갱신 함수를 부른다 / 이유 단추가 없다.
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0, { timeout: 15000 });
   });
 
@@ -739,7 +739,7 @@ test.describe('4차 검토 — 커밋 행의 ref 배지 (V121~V123)', () => {
 
     await target.dblclick();
     // 체크아웃이 실제로 일어났다.
-    await expect.poll(async () => page.evaluate(() => (window as any).app.gitPanel.headName()),
+    await expect.poll(async () => page.evaluate(() => (window as any).app.gitPanel.views.headName()),
       { timeout: 20000 }).toBe(name);
     // FR-GIT-233 (V125): 그 배지에 HEAD 표식이 서고, 이전 브랜치의 표식은 사라진다.
     // 목록이 다시 그려지므로 조회와 판정을 한 번의 evaluate 안에서 한다.
@@ -765,10 +765,10 @@ test.describe('4차 검토 — 커밋 행의 ref 배지 (V121~V123)', () => {
 
     const tag = badge(page, 'tag').first();
     if (await tag.count()) {
-      const before = await page.evaluate(() => (window as any).app.gitPanel.headName());
+      const before = await page.evaluate(() => (window as any).app.gitPanel.views.headName());
       await tag.dblclick();
       await page.waitForTimeout(500);
-      expect(await page.evaluate(() => (window as any).app.gitPanel.headName())).toBe(before);
+      expect(await page.evaluate(() => (window as any).app.gitPanel.views.headName())).toBe(before);
       await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
     }
   });
@@ -816,7 +816,7 @@ test.describe('5차 검토 — HEAD 판정의 근거 (V165~V167)', () => {
     badges(page).filter({ hasText: new RegExp('^' + name + '$') }).first();
   const refItem = (page: Page, name: string) =>
     hist(page).locator('.git-refs .git-ref[data-ref$="/' + name + '"]').first();
-  const headName = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.headName());
+  const headName = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.views.headName());
 
   test('H26 (V165 / FR-GIT-248): 떠나온 브랜치의 배지를 더블클릭하면 되돌아온다', async ({ page }) => {
     const repo = copyFx('with-remote', 'h248a');
@@ -868,7 +868,7 @@ test.describe('5차 검토 — HEAD 판정의 근거 (V165~V167)', () => {
 
     execFileSync('git', ['-C', repo, 'checkout', '-q', '--detach', 'HEAD']);
     await expect.poll(
-      () => page.evaluate(() => !!((window as any).app.gitPanel.statusOf() || {}).detached),
+      () => page.evaluate(() => !!((window as any).app.gitPanel.views.statusOf() || {}).detached),
       { timeout: 20000 }).toBe(true);
 
     await expect(hist(page).locator('.git-refs .git-ref.head')).toHaveCount(0, { timeout: 20000 });

@@ -51,7 +51,7 @@ class GitWrite extends GitPart {
   afterRefWrite(d){
     this.adopt(d);
     // FR-OPT-4-9: 두 뷰가 refs 를 하나로 받는다.
-    this.p._inRefsRound(()=>{
+    this.p.viewReload._inRefsRound(()=>{
       if(this.p._branchesView) this.p._branchesView.reload();
       if(this.p._historyView) this.p._historyView.reload();
     });
@@ -123,7 +123,7 @@ class GitWrite extends GitPart {
     if(d.status) this.adopt(d);
     // 실패 사유는 Stash 탭이 보인다 — Changes 탭의 안내로 보내면 사용자가 조작한
     // 자리에서 결과를 읽을 수 없다.
-    this.p._stash().adoptWrite(res);
+    this.p.views._stash().adoptWrite(res);
   }
 
   // ── 묶음 F — stash·파일·미커밋 행 (FR-GIT-272~275·277) ──
@@ -144,7 +144,7 @@ class GitWrite extends GitPart {
   afterStashRefWrite(res){
     this.afterStashWrite(res);
     if(!res||!res.ok) return;
-    this.p._inRefsRound(()=>{
+    this.p.viewReload._inRefsRound(()=>{
       if(this.p._branchesView) this.p._branchesView.reload();
       // FR-GVR-20: `afterRefWrite` 와 같은 근거 — 새 브랜치는 커밋 행의 배지에도
       // 나타나야 하고, 그 배지는 목록을 다시 받아야 갱신된다.
@@ -163,7 +163,7 @@ class GitWrite extends GitPart {
     const msg=this.writeError(res)+(lock&&lock.mtimeUnixMs==null?' — '+GIT_LOCK_GONE:'');
     this.p._note={msg,partial:!!d.partial,changed:d.changed||[],
       lock:(lock&&lock.mtimeUnixMs!=null)?lock:null,lockRepo:this.p.repo};
-    if(d.status) this.adopt(d); else this.p._paint();
+    if(d.status) this.adopt(d); else this.p.changes._paint();
   }
 
   // §7.2: 확인 뒤에만 지운다. 원래 동작은 다시 시도하지 않는다 — 사용자가 lock 이
@@ -186,8 +186,8 @@ class GitWrite extends GitPart {
     });
     if(!ok||repo!==this.p.repo) return;
     // 관측이 같으면 refresh 는 다시 그리지 않는다 — 안내 줄은 여기서 걷는다.
-    this.p._note=null; this.p._paint();
-    this.p.refresh();
+    this.p._note=null; this.p.changes._paint();
+    this.p.viewReload.refresh();
   }
 
   // POST 한 번. ok 는 **서버가 ok:true 를 준 것**이다 — 200 이지만 본문이 없는
@@ -214,7 +214,7 @@ class GitWrite extends GitPart {
     const job=res.ok&&res.data&&res.data.job;
     if(job&&job.id){
       const requested=this.p.repo;
-      const done=this.p._remote().follow(job).then(jb=>this._jobRes(jb,requested));
+      const done=this.p.views._remote().follow(job).then(jb=>this._jobRes(jb,requested));
       if(opts&&opts.detach) return {ok:true,code:res.status,data:res.data,started:true,done};
       return done;
     }
@@ -232,7 +232,7 @@ class GitWrite extends GitPart {
    */
   wqPost(url,body){
     const q=this.p.obs._wq;
-    if(q.length>=GIT_WQ_MAX){this.p._note={msg:GIT_WQ_FULL}; this.p._paint(); return Promise.resolve(null)}
+    if(q.length>=GIT_WQ_MAX){this.p._note={msg:GIT_WQ_FULL}; this.p.changes._paint(); return Promise.resolve(null)}
     return new Promise(resolve=>{
       q.push({panel:this.p,url,body,resolve});
       this.p.obs.wqPump();
@@ -240,7 +240,7 @@ class GitWrite extends GitPart {
   }
 
   // 큐 밖의 동기 쓰기가 다른 쓰기에 막혔다 — 무음으로 버리지 않고 사유를 보인다 (§3A-5).
-  busyNote(){ this.p._note={msg:GIT_WRITE_ERR.repo_busy}; this.p._paint() }
+  busyNote(){ this.p._note={msg:GIT_WRITE_ERR.repo_busy}; this.p.changes._paint() }
 
   // 잡을 여는 쓰기를 다이얼로그·메뉴에서 보낸다 (§6.4). 잡이 시작되면 곧바로
   // `{ok:true, started:true}` 로 돌아오고 — 다이얼로그는 닫는다 — 끝나면 settle 이
@@ -337,7 +337,7 @@ class GitWrite extends GitPart {
       this._opActsP=GitConfirm.policy().then(p=>{
         this._opActs=(p&&p.operations)||{};
         this._opActsP=null;
-        this.p._paint();
+        this.p.changes._paint();
       });
     }
     return [];
@@ -351,7 +351,7 @@ class GitWrite extends GitPart {
    * 클라이언트만 막으면 API 직접 호출이 우회한다.
    */
   runOperation(action){
-    const op=(this.p.statusOf()||{}).operation||{};
+    const op=(this.p.views.statusOf()||{}).operation||{};
     const kind=op.kind||''; if(!kind) return;
     if(action!==GIT_OP_ABORT) return this._runOp(kind,action,false);
     return GitDialog.confirm({
@@ -389,7 +389,7 @@ class GitWrite extends GitPart {
     if(lockBtn){
       lockBtn.classList.toggle('vis',!!(n&&n.lock));
       // 잡이 돌면 그 잡이 lock 의 주인일 수 있다 — 서버의 1층 답 (GR-1b).
-      lockBtn.disabled=!actionState(this.p.actionOf(GIT_ACTION.lockRemove),false).enabled;
+      lockBtn.disabled=!actionState(this.p.views.actionOf(GIT_ACTION.lockRemove),false).enabled;
     }
     const ul=box.querySelector('.git-partial-list'); ul.innerHTML='';
     for(const p of (n&&n.changed)||[]){

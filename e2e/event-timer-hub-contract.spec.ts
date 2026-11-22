@@ -236,7 +236,7 @@ async function loadPanelPoll(page: Page) {
         // 로 고정하면 T-11 이 "주기 0 이면 타이머를 걸지 않는다" 를 재는 동안
         // 조건 판정만 실물과 갈린다.
         panels: new Set<any>(),
-        pollOkAny(this: any) { for (const p of this.panels) if (p._pollOk()) return true; return false },
+        pollOkAny(this: any) { for (const p of this.panels) if (p.poll._pollOk()) return true; return false },
         tick(k: string) { this.ticks.push(k) },
         paintAll() { this.paints++ },
         paintAllViews() {},
@@ -266,17 +266,12 @@ async function loadPanelPoll(page: Page) {
       };
       token() { return 'tok' }
       isStale() { return false }
-      // 이웃 부품(git-view-roots·git-views)·패널 본문의 것. 폴링 계층은 부르기만 한다.
-      _leaveMissing() {}
-      _viewFp() { return '' }
-      _paint() {}
-      // 실물 `GitPanel` 의 위임자 (FR-FEP-4). 부품은 아래에서 세운다.
+      // 이웃 부품(git-view-roots·git-views·git-changes)의 것. 폴링 계층은 부르기만 한다.
+      viewRoots = { _leaveMissing() {} };
+      views = { _viewFp() { return '' } };
+      changes = { _paint() {} };
+      // 폴링 부품은 아래에서 세운다 — 부르는 쪽은 `p.poll.X` 다 (REFACTOR3_FE_DELEG_SRS).
       poll: any = null;
-      _pollOk() { return this.poll._pollOk() }
-      _cadence(st: number) { return this.poll._cadence(st) }
-      _applyCadence() { return this.poll._applyCadence() }
-      _reschedule() { return this.poll._reschedule() }
-      collect() { return this.poll.collect() }
     };
     // 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — 전역이 그 자리다.
     (window as any).gitStatusInterval = 1000;
@@ -313,7 +308,7 @@ test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-2
         // POLL_INTERVAL_SETTINGS_SRS FR-PIS-4: 인자와 반환이 **하나**가 됐다.
         // 종전에는 `(st,sig)` → `{st,sig}` 였고, signature 계층이 사라지면서
         // 실효 주기를 계산할 계층이 status 하나만 남았다.
-        out.push(p._cadence(1000));
+        out.push(p.poll._cadence(1000));
       }
       return out;
     });
@@ -342,13 +337,13 @@ test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-2
     const r = await page.evaluate(() => {
       const p = (window as any).__p;
       p._failStreak = 5;
-      const off = p._cadence(0);
-      const on = p._cadence(500);
+      const off = p.poll._cadence(0);
+      const on = p.poll._cadence(500);
 
       // 실제로 타이머가 걸리는지도 본다 — status 주기가 0 이면 그 계층은 없다.
       (window as any).gitStatusInterval = 0;
       p._failStreak = 0;
-      p._applyCadence();
+      p.poll._applyCadence();
       return { off, on, st: p._stPoll };
     });
 
@@ -367,18 +362,18 @@ test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-2
     const r = await page.evaluate(() => {
       const p = (window as any).__p;
       let collects = 0;
-      p.collect = () => { collects++ };
+      p.poll.collect = () => { collects++ };
 
       p._failStreak = 0;
-      p._applyCadence();               // 최초 등록
+      p.poll._applyCadence();               // 최초 등록
       const afterFirst = collects;
 
       p._failStreak = 3;               // 관측 결과로 주기가 바뀌었다
-      const changed = p._applyCadence();
+      const changed = p.poll._applyCadence();
       const afterCadence = collects;
 
       p._failStreak = 0;
-      p._reschedule();                 // 조건이 참이 됐다 → 여기서만 수집한다
+      p.poll._reschedule();                 // 조건이 참이 됐다 → 여기서만 수집한다
       return { afterFirst, changed, afterCadence, afterReschedule: collects };
     });
 
@@ -407,11 +402,11 @@ test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-2
         return base();
       };
 
-      await p.collect();
+      await p.poll.collect();
       const afterFail = { busy: p._busy, streak: p._failStreak, calls };
 
       // 잠금이 풀렸으므로 다음 수집이 실제로 나가야 한다.
-      await p.collect();
+      await p.poll.collect();
       return { afterFail, calls, streak: p._failStreak };
     });
 
@@ -435,9 +430,9 @@ test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-2
         return new Promise((res) => { release = () => res(null) });
       };
 
-      const first = p.collect();
+      const first = p.poll.collect();
       await new Promise((r) => setTimeout(r, 0));
-      p.collect();                       // 비행 중 — 버려지지 않아야 한다
+      p.poll.collect();                       // 비행 중 — 버려지지 않아야 한다
       const again = p._again;
       // 첫 요청을 실패로 끝낸다. 그러면 대기하던 한 번이 나간다.
       (window as any).fetch = () => Promise.reject(new Error('down'));

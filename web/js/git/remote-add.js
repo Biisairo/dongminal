@@ -14,7 +14,7 @@ class GitRemoteAdd {
     // 이름·URL·이미 있는 이름은 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS GV-c).
     this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.remoteAdd,
       params:v=>({name:(v.name||'').trim(),url:(v.url||'').trim()}),
-      fail:res=>this.panel.writeReason(res)||GIT_RM_ADD_FAIL});
+      fail:res=>this.panel.write.writeReason(res)||GIT_RM_ADD_FAIL});
   }
 
   _show(){
@@ -31,13 +31,13 @@ class GitRemoteAdd {
   }
 
   async _run(v){
-    const res=await this.panel.post(GIT_API.remoteAdd,{
+    const res=await this.panel.write.post(GIT_API.remoteAdd,{
       repo:this.repo,name:(v.name||'').trim(),url:(v.url||'').trim(),
     });
     if(this.list.adoptWrite(res)) return {ok:true};
     // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
     // (FR-GIT-175).
-    return {ok:false,reason:this.panel.writeReason(res)||GIT_RM_ADD_FAIL,
+    return {ok:false,reason:this.panel.write.writeReason(res)||GIT_RM_ADD_FAIL,
       stderrTail:(res.data&&res.data.message)||''};
   }
 }

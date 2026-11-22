@@ -111,7 +111,7 @@ class GitRemote {
     if(el&&el.dataset.built==='1') this.paint(el);
     // FR-GHM-6: 막힘은 리포의 사실이지 탭의 사실이 아니다 — Changes 만 고치면
     // History 에서 두 번째 push 를 띄울 수 있다.
-    this.panel.paintHeads();
+    this.panel.changes.paintHeads();
   }
 
   // ── 버튼 (FR-GIT-98·99) ──
@@ -183,7 +183,7 @@ class GitRemote {
    * 있으므로 단계 수를 이쪽에서 정하지 않는다 (FR-GIT-106).
    */
   async _forcePush(force,body){
-    const s=this.panel.statusOf()||{};
+    const s=this.panel.views.statusOf()||{};
     const b=body||{};
     const target=(b.remote&&b.branch)?(b.remote+'/'+b.branch)
       :(s.upstream||(s.branch||''));
@@ -264,7 +264,7 @@ class GitRemote {
     this._job=job;
     this._jobRepo=job.repo||this.panel.repo;
     // REPO_FIX 05 §3A-5: 잡 시작은 쓰기 세대 경계다.
-    this.panel.bumpWrite();
+    this.panel.write.bumpWrite();
     this._done=null; this._err=null; this._conflict=false;
     this._lines=[]; this._total=0; this._seq=0;
     this._logOpen=null;
@@ -272,8 +272,8 @@ class GitRemote {
     this._openStream();
     this._paint();
     // FR-SDA-22: 잡이 칸을 쥐었다 — 1층 답과 행 답이 바뀌었으므로 다시 받는다.
-    this.panel.collect();
-    this.panel.afterJobSlots();
+    this.panel.poll.collect();
+    this.panel.write.afterJobSlots();
   }
 
   /**
@@ -343,7 +343,7 @@ class GitRemote {
     this._done=jb;
     this._job=null;
     // §3A-5: 잡 완료(성공·실패·취소·결과 미상)도 쓰기 세대 경계다.
-    this.panel.bumpWrite();
+    this.panel.write.bumpWrite();
     // BRANCH_MENU_UNIFY_SRS FR-BMU-15a: 결과를 기다리는 쪽에 넘긴다. `run()` 의
     // `ok` 는 "띄웠다" 까지이고 **끝났는가와 이겼는가는 여기서 정해진다.**
     this._settleWaits(jb);
@@ -358,22 +358,22 @@ class GitRemote {
     const rs=jb.result&&jb.result.status;
     if((jb.exitCode||jb.err)&&rs&&rs.operation&&rs.operation.kind){
       this._conflict=true;
-      this.panel.expandGroup('conflicts');
+      this.panel.views.expandGroup('conflicts');
     }
     this.router.finished(jb);
     this._paint();
     // FR-GIT-107: 작업이 끝나면 ahead/behind 와 상태를 갱신한다 — 폴링 주기를
     // 기다리면 화면이 그만큼 거짓말을 한다.
-    this.panel.collect();
+    this.panel.poll.collect();
     // FR-GVR-1: 원격 작업이 낡게 만드는 것은 status 만이 아니다 — History 의 refs,
     // Branches 의 ahead/behind, Console 의 기록이 함께 낡는다. **어느 뷰가 무엇에
     // 걸리는지는 패널이 안다** (D-1). collect 를 기다리지 않는다 (FR-GVR-5) —
     // 서로 독립이며 기다리면 화면이 그만큼 늦는다.
-    this.panel.afterRemoteJob(jb.kind);
-    this.panel.afterJobSlots();
+    this.panel.write.afterRemoteJob(jb.kind);
+    this.panel.write.afterJobSlots();
     // F-9.4: 결과를 모르면 status 뿐 아니라 목록들(stash·refs)도 다시 받는다 — 무엇이
     // 일어났는지는 관측이 말한다. 성공 후처리(undo·draft 비우기)는 하지 않는다.
-    if(gitJobOutcome(jb)==='unknown') this.panel._reloadViews();
+    if(gitJobOutcome(jb)==='unknown') this.panel.viewReload._reloadViews();
   }
 
   /**
@@ -422,11 +422,11 @@ class GitRemote {
     const p=this._pending;
     if(!p||this.panel._status===p.status) return;
     this._pending=null;
-    const s=this.panel.statusOf();
+    const s=this.panel.views.statusOf();
     if(!s||!(s.conflicts||[]).length) return;
     this._conflict=true;
-    this.panel.expandGroup('conflicts');
-    this.panel.openView('changes');
+    this.panel.views.expandGroup('conflicts');
+    this.panel.selection.openView('changes');
   }
 
   /**

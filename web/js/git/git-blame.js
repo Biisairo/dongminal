@@ -12,7 +12,7 @@ class GitBlame extends GitPart {
     if(!this.p._blameOn) return null;
     const cf=this.p.commitFile;
     if(cf&&cf.path) return {path:cf.path,rev:cf.oid||''};
-    const f=this.p._diffTarget();
+    const f=this.p.selection._diffTarget();
     return f&&f.path?{path:f.path,rev:''}:null;
   }
 
@@ -52,10 +52,10 @@ class GitBlame extends GitPart {
     if(!r.ok||!d||q.path!==target.path||q.rev!==target.rev){
       // 거부 사유는 **누른 자리**에 보인다 — 서버가 준 문구가 있으면 그것을 쓴다.
       this._blameErr=(d&&d.message)||GIT_BLAME_FAIL;
-      this.p._paint(); return;
+      this.p.changes._paint(); return;
     }
     this._blameData={lines:d.lines||[],commits:d.commits||{}};
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   /**
@@ -87,14 +87,14 @@ class GitBlame extends GitPart {
     // F-5.2: 조회 실패는 다시 시도할 수 있다 — 사유 옆에 길을 둔다.
     if(this._blameErr){
       note.appendChild(UIKit.button({label:GIT_BLAME_RETRY,size:'sm',cls:'git-blame-retry',
-        onClick:()=>{this._blameKey=null;this.p._paint()}}));
+        onClick:()=>{this._blameKey=null;this.p.changes._paint()}}));
     }
     rows.innerHTML='';
     if(!d||!all) return;
     if(cut){
       note.textContent=GIT_BLAME_CUT.replace('%r',String(all)).replace('%n',String(shown));
       note.appendChild(UIKit.button({label:GIT_BLAME_SHOW_ALL,size:'sm',cls:'git-blame-all',
-        onClick:()=>{this._blameAll=true;this.p._paint()}}));
+        onClick:()=>{this._blameAll=true;this.p.changes._paint()}}));
     }
     const frag=document.createDocumentFragment();
     for(let i=0;i<shown;i++){
@@ -131,12 +131,12 @@ class GitBlame extends GitPart {
     if(!target||!target.path) return;
     // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 는 탭마다 패널이다 — 그 탭의 패널이 blame 모드를 든다.
     if(this.p.root){
-      this.p._select(target.group,{path:target.path,origPath:target.origPath||''});
-      this.app.repoWin.gitDiffOpen(this.p.root,this.p._diffTarget(),{preview:true,blame:true});
+      this.p.selection._select(target.group,{path:target.path,origPath:target.origPath||''});
+      this.app.repoWin.gitDiffOpen(this.p.root,this.p.selection._diffTarget(),{preview:true,blame:true});
       return;
     }
     this.p._blameOn=true;
-    this.p._openDiff(target.group,{path:target.path,origPath:target.origPath||''});
+    this.p.selection._openDiff(target.group,{path:target.path,origPath:target.origPath||''});
   }
 
   // F-5.2: 작업 트리 파일의 Blame 을 다시 받게 한다 — 저장·git_changed·새로고침이 부른다.
@@ -145,7 +145,7 @@ class GitBlame extends GitPart {
     const target=this._blameTarget();
     if(!target||target.rev) return;
     this._blameKey=null;
-    this.p._paint();
+    this.p.changes._paint();
   }
 
   // 리포 전환 — blame 은 파일에 붙은 것이다 (`GitPanel._repoSwitchView`).

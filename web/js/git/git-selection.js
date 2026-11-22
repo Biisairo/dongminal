@@ -68,7 +68,7 @@ class GitSelection extends GitPart {
    */
   _openInEditor(e){
     if(!this.p.repo||!e||!e.path||e.dir) return false;
-    const abs=this.p.absPath(e);
+    const abs=this.p.poll.absPath(e);
     // 한 번 클릭이므로 미리보기다 (FR-RTU-40) — 목록을 훑어도 탭이 쌓이지 않는다.
     this.app.editor.file.edOpenFile(abs,{preview:true});
     return true;
@@ -99,9 +99,9 @@ class GitSelection extends GitPart {
       // FR-CMG-3: 출신은 그룹이 아니라 항목이 안다 — 워킹 그룹에는 둘이 함께 있다.
       untracked:!!e.untracked,
     };
-    const i=this.p._diffIndex(this.p._fileList());
+    const i=this.p.diffPane._diffIndex(this.p.diffPane._fileList());
     if(i>=0) this.p._diffPos=i;
-    this.p._paint();
+    this.p.changes._paint();
     // UX_BATCH12 FR-FHL-4: Diff 탭이 포커스면 대상이 바뀐 것이다 — 하이라이트를 맞춘다.
     this.app.focus.hl.focusHighlightSync();
   }
@@ -178,7 +178,7 @@ class GitSelection extends GitPart {
     const app=this.app;
     if(!app||!f||!f.repo||!f.path) return [];
     // §3A-4: 어휘적 저장소 최상위 기준 — 창 루트가 하위 폴더여도 같은 항목을 가리킨다.
-    const abs=this.p.absPath(f);
+    const abs=this.p.poll.absPath(f);
     const has=(app.editor?.edEntries?app.editor.edEntries():[]).some(e=>e&&e.path===abs);
     const go=()=>{
       const w=app.editor.edWindowFor&&app.editor.edWindowFor(abs);

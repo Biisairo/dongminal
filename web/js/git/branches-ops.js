@@ -22,7 +22,7 @@ Object.assign(GitBranches, {
   async checkout(panel,ref,o){
     if(!panel||!panel.repo) return;
     const opts=Object.assign({repo:panel.repo,ref:ref||''},o||{});
-    if(!panel.isDirty()) return GitBranches._send(panel,opts);
+    if(!panel.files.isDirty()) return GitBranches._send(panel,opts);
     const pick=await GitDialog.open({
       id:'git-choice',ns:'gch',action:'checkout_dirty',
       title:GIT_DIRTY_TITLE,body:GIT_DIRTY_NOTE,
@@ -33,9 +33,9 @@ Object.assign(GitBranches, {
     if(pick!==GIT_DIRTY_OPT_STASH) return;
     // stash 후 진행. untracked 까지 담는다 — 담지 않으면 untracked 뿐인 저장소에서
     // 서버가 `nothing_to_stash` 로 막고 사용자는 갈 곳이 없다 (FR-GIT-167).
-    const res=await panel.post(GIT_API.stashPush,
+    const res=await panel.write.post(GIT_API.stashPush,
       {repo:panel.repo,message:GIT_STASH_BEFORE_MSG,includeUntracked:true});
-    panel.afterStashWrite(res);
+    panel.write.afterStashWrite(res);
     if(!res.ok) return;
     const co=await GitBranches._send(panel,opts);
     GitBranches._stashKept(panel,co);
@@ -76,7 +76,7 @@ Object.assign(GitBranches, {
         const res=await GitBranches._post(panel,
           Object.assign({},opts,{force:true,confirm:true}));
         if(res.ok) return {ok:true};
-        return {ok:false,reason:panel.writeReason(res),
+        return {ok:false,reason:panel.write.writeReason(res),
           stderrTail:(res.data&&res.data.message)||''};
       },
     });
@@ -91,7 +91,7 @@ Object.assign(GitBranches, {
       await GitBranches._conflict(panel,opts,d);
       return res;
     }
-    panel.applyWriteFail(res);
+    panel.write.applyWriteFail(res);
     return res;
   },
 
@@ -99,10 +99,10 @@ Object.assign(GitBranches, {
   // 목록·상태 갱신(FR-GIT-160)은 잡이 끝날 때 한다. 실행 전 거부(이름 충돌 등)는
   // 호출자가 다룬다.
   async _post(panel,opts){
-    const res=await panel.postJob(GIT_API.checkout,opts,r=>{
-      if(r.ok) panel.afterRefWrite(r.data); else panel.applyWriteFail(r);
+    const res=await panel.write.postJob(GIT_API.checkout,opts,r=>{
+      if(r.ok) panel.write.afterRefWrite(r.data); else panel.write.applyWriteFail(r);
     });
-    if(res.ok&&!res.started) panel.afterRefWrite(res.data);
+    if(res.ok&&!res.started) panel.write.afterRefWrite(res.data);
     return res;
   },
 
@@ -149,16 +149,16 @@ Object.assign(GitBranches, {
    * **실패가 아니라 진행 중 상태**로 다룬다 (FR-GIT-251·255).
    */
   async _run(panel,url,body){
-    const res=await panel.postJob(url,Object.assign({repo:panel.repo},body||{}),
+    const res=await panel.write.postJob(url,Object.assign({repo:panel.repo},body||{}),
       r=>GitBranches._after(panel,r));
     if(res.started) return res;
     return GitBranches._after(panel,res);
   },
 
   _after(panel,res){
-    if(res.ok){panel.afterRefWrite(res.data);return res}
+    if(res.ok){panel.write.afterRefWrite(res.data);return res}
     if(GitBranches._conflicted(panel,res)) return res;
-    panel.applyWriteFail(res);
+    panel.write.applyWriteFail(res);
     return res;
   },
 
@@ -173,10 +173,10 @@ Object.assign(GitBranches, {
     const st=d.status;
     if(!st) return false;
     if(!((st.operation&&st.operation.kind)||(st.conflicts||[]).length)) return false;
-    panel.adopt(d);
-    panel.branchNote(GIT_BR_MERGE_CONFLICT_NOTE);
-    panel.expandGroup('conflicts');
-    panel.openView('changes');
+    panel.write.adopt(d);
+    panel.views.branchNote(GIT_BR_MERGE_CONFLICT_NOTE);
+    panel.views.expandGroup('conflicts');
+    panel.selection.openView('changes');
     return true;
   },
 
@@ -213,11 +213,11 @@ Object.assign(GitBranches, {
   },
 
   async _delete(panel,names,force){
-    const res=await panel.post(GIT_API.branchDelete,
+    const res=await panel.write.post(GIT_API.branchDelete,
       {repo:panel.repo,names,force:!!force,confirm:true});
     if(res.ok){
       if(panel._branchesView) panel._branchesView.clearSelection();
-      panel.afterRefWrite(res.data);
+      panel.write.afterRefWrite(res.data);
       return res;
     }
     const d=res.data||{};
@@ -230,7 +230,7 @@ Object.assign(GitBranches, {
       const forced=await GitBranches._unmerged(panel,d);
       return forced||res;
     }
-    panel.applyWriteFail(res);
+    panel.write.applyWriteFail(res);
     return res;
   },
 
@@ -272,7 +272,7 @@ Object.assign(GitBranches, {
         // 되풀이해 보일 자리가 아니다 (FR-GIT-251).
         const st=(res.data&&res.data.status)||{};
         if((st.operation&&st.operation.kind)||'') return {ok:true};
-        return {ok:false,reason:panel.writeReason(res),
+        return {ok:false,reason:panel.write.writeReason(res),
           stderrTail:(res.data&&res.data.message)||''};
       },
     });
@@ -327,7 +327,7 @@ Object.assign(GitBranches, {
     if(!panel||!panel.repo||!target) return;
     const branch=target.short||'';
     if(!target.upstream) return GitBranches._publish(panel,branch,{});
-    const res=await panel._remote().run('branch/push',{branch});
+    const res=await panel.views._remote().run('branch/push',{branch});
     const d=(res&&res.data)||{};
     if(!res.ok&&res.code===409&&d.error==='publish_required')
       return GitBranches._publish(panel,branch,d.plan||{});
@@ -343,7 +343,7 @@ Object.assign(GitBranches, {
       action:GIT_ACT_PUBLISH,title:GIT_PUBLISH_TITLE,targets:[target],stages:1,
     });
     if(!ok) return;
-    return panel._remote().run('branch/push',{branch,publish:true});
+    return panel.views._remote().run('branch/push',{branch,publish:true});
   },
 
   // FR-GIT-268: 원격 ref 를 같은 이름의 로컬 ref 로 갱신한다. 원격 작업이므로 기존
@@ -351,7 +351,7 @@ Object.assign(GitBranches, {
   // 원격 ref 를 그대로 보낸다 — 원격과 브랜치는 서버가 가른다 (GV-g · FR-SDA-42).
   fetchInto(panel,target){
     if(!panel||!panel.repo||!target) return;
-    return panel._remote().run('branch/fetch',{ref:GitBranches.refName(target)});
+    return panel.views._remote().run('branch/fetch',{ref:GitBranches.refName(target)});
   },
 
   // FR-GIT-268: 원격 ref 삭제. 파괴적 확인은 메뉴 프레임워크가 거쳤다 (파괴적 목록에
@@ -388,7 +388,7 @@ Object.assign(GitBranches, {
       return {local:target,remote:((target.upstream||'')+'').trim()};
     // FR-BMU-16h: **뷰가 아니라 패널에게 묻는다.** 종전에는 Branches 뷰의 사본을
     // 읽어서, 그 탭을 한 번도 열지 않으면 추적하는 로컬이 있어도 "없다" 가 됐다.
-    const refs=Array.isArray(panel&&panel._knownRefs)?panel._knownRefs:[];
+    const refs=Array.isArray(panel&&panel.views._knownRefs)?panel.views._knownRefs:[];
     const hits=refs.filter(r=>r&&r.kind===GIT_REF_KIND_LOCAL
       &&((r.upstream||'')+'').trim()===target.short);
     return {local:hits.length===1?hits[0]:null,remote:target.short};
@@ -418,12 +418,12 @@ Object.assign(GitBranches, {
    */
   async delBoth(panel,target,names,force){
     if(!panel||!panel.repo||!target) return;
-    const res=await panel.post(GIT_API.branchDeleteBoth,
+    const res=await panel.write.post(GIT_API.branchDeleteBoth,
       {repo:panel.repo,ref:GitBranches.refName(target),force:!!force,confirm:true});
     const d=res.data||{};
     if(res.ok){
       if(panel._branchesView) panel._branchesView.clearSelection();
-      panel.afterRefWrite(d);
+      panel.write.afterRefWrite(d);
       return res;
     }
     if(res.code===409&&d.error==='branch_not_merged'){
@@ -432,11 +432,11 @@ Object.assign(GitBranches, {
     }
     // FR-BMU-15: 잡이 있으면 로컬은 지워졌고 원격이 실패했다 — 반쪽 삭제를 사유와 함께 말한다.
     if(d.job){
-      panel.afterRefWrite(d);
+      panel.write.afterRefWrite(d);
       GitBranches._delBothFail(d.job);
       return res;
     }
-    panel.applyWriteFail(res);
+    panel.write.applyWriteFail(res);
     return res;
   },
 
@@ -464,7 +464,7 @@ Object.assign(GitBranches, {
 
   deleteRemote(panel,target){
     if(!panel||!panel.repo||!target) return;
-    return panel._remote().run('branch/delete-remote',
+    return panel.views._remote().run('branch/delete-remote',
       {ref:GitBranches.refName(target),confirm:true});
   },
 
@@ -478,7 +478,7 @@ Object.assign(GitBranches, {
    */
   restoreRemoteCmd(panel,target){
     const short=(target&&target.short)||'';
-    const known=Array.isArray(panel&&panel._knownRefs)?panel._knownRefs:[];
+    const known=Array.isArray(panel&&panel.views._knownRefs)?panel.views._knownRefs:[];
     const remote=(target&&target.remote)
       ||((known.find(r=>r&&r.kind===GIT_REF_KIND_REMOTE&&r.short===short)||{}).remote)||'';
     if(!remote||!short.startsWith(remote+GIT_BR_PREFIX_SEP)||!target.oid) return '';

@@ -45,7 +45,7 @@ const lineChanges = (page: Page) =>
 
 const selectFile = (page: Page, group: string, path: string) =>
   page.evaluate(
-    ([g, p]) => (window as any).app.gitPanel._select(g, { path: p }),
+    ([g, p]) => (window as any).app.gitPanel.selection._select(g, { path: p }),
     [group, path]
   );
 
@@ -108,7 +108,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     expect(at, 'untracked.txt 가 목록에 없다').toBeGreaterThan(1);
     // 새 파일의 한 번 클릭은 편집기 탭이다 (FR-RTU-51). Diff 는 파일 메뉴의 Open Changes 로
     // 연다 — Diff 탭은 탭마다 대상을 들므로(UX_BATCH12_SRS FR-RTB-7) 고른 것만으로는 서지 않는다.
-    await page.evaluate(() => (window as any).app.gitPanel.openFileDiff({ group: 'working', path: 'untracked.txt' }));
+    await page.evaluate(() => (window as any).app.gitPanel.poll.openFileDiff({ group: 'working', path: 'untracked.txt' }));
 
     const pos = diff(page).locator('.git-diff-pos');
     const path = diff(page).locator('.git-diff-path');

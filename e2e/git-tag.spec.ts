@@ -71,7 +71,7 @@ async function openBranches(page: Page, repo: string) {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   // FR-GIT-28(개정): 고정 탭은 7개다.
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
@@ -112,7 +112,7 @@ test.describe('묶음 C — 태그 생성 (FR-GIT-260)', () => {
 
     // ① lightweight — 메시지를 적어도 실리지 않는다 (뜻이 없다).
     // 다이얼로그의 promise 는 **닫힐 때 resolve 한다** — 기다리면 여는 쪽에서 멈춘다.
-    await page.evaluate(() => { void (window as any).app.gitPanel.createTag(''); });
+    await page.evaluate(() => { void (window as any).app.gitPanel.views.createTag(''); });
     await expect(dlg(page), '태그 생성 대화상자가 없다').toHaveCount(1, { timeout: 5000 });
     await dlg(page).locator('.gtc-name').fill('v-light');
     await dlg(page).locator('.gtc-msg').fill('무시되어야 한다');
@@ -123,7 +123,7 @@ test.describe('묶음 C — 태그 생성 (FR-GIT-260)', () => {
 
     // ② annotated — 메시지가 실린다.
     // 다이얼로그의 promise 는 **닫힐 때 resolve 한다** — 기다리면 여는 쪽에서 멈춘다.
-    await page.evaluate(() => { void (window as any).app.gitPanel.createTag(''); });
+    await page.evaluate(() => { void (window as any).app.gitPanel.views.createTag(''); });
     await expect(dlg(page)).toHaveCount(1, { timeout: 5000 });
     await dlg(page).locator('.gtc-name').fill('v-annot');
     await dlg(page).locator('.gtc-kind[value="annotated"]').check();
@@ -162,7 +162,7 @@ test.describe('묶음 C — 태그 생성 (FR-GIT-260)', () => {
     await openBranches(page, repo);
 
     // 다이얼로그의 promise 는 **닫힐 때 resolve 한다** — 기다리면 여는 쪽에서 멈춘다.
-    await page.evaluate(() => { void (window as any).app.gitPanel.createTag(''); });
+    await page.evaluate(() => { void (window as any).app.gitPanel.views.createTag(''); });
     await expect(dlg(page)).toHaveCount(1, { timeout: 5000 });
     const why = dlg(page).locator('.gtc-why');
     const go = dlg(page).locator('.gtc-go');
@@ -214,7 +214,7 @@ test.describe('묶음 C — 태그 생성 (FR-GIT-260)', () => {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
 

@@ -58,7 +58,7 @@ Object.assign(Renderer.prototype, {
       // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 탭은 탭마다 전용 패널이다.
       const p=(root&&at.gitView==='diff')?this.app.repoWin.gitDiffPanelFor(root,slot,at):this.app.git.surfaces.gitPanelAt(root,slot);
       if(p.diffTabId) diffPanel=p;
-      el=p.elFor(at.gitView);
+      el=p.viewRoots.elFor(at.gitView);
     }else if(at.type==='editor'){
       const key=this.app.slot.slotKey(at.id,slot);
       let editor=this.app.fileEditors.get(key);
@@ -110,7 +110,7 @@ Object.assign(Renderer.prototype, {
       if(view&&view.restoreView) view.restoreView();
     }
     // UX_BATCH12_SRS FR-RTR-10: Diff 탭도 같은 규약이다 — 붙은 뒤에 되돌린다.
-    if(moved&&diffPanel) diffPanel.diffViewRestore();
+    if(moved&&diffPanel) diffPanel.diffPane.diffViewRestore();
     /**
      * FR-M11-17 (M11-B14): 에이전트 대화의 자리는 **여기서 되돌리지 않는다.**
      *

@@ -65,24 +65,29 @@ function world() {
     repo: '/r',
     _writing: false,
     _status: { status: { oid: 'h1' } },
-    get _knownRefs() { return state.refs },
     _branchesView: { selection: () => state.sel.slice(), clearSelection() {} },
-    post: async (url, body) => { log.push(['post', url, body]); return { ok: true, data: {} } },
-    postJob: async (url, body) => { log.push(['post', url, body]); return { ok: true, data: {} } },
-    _remote: () => ({
-      run: async (kind, body) => { log.push(['remote', kind, body]); return { ok: true, data: { job: { id: 'j' } } } },
-      awaitJob: async () => ({ exitCode: 0 }),
-    }),
-    afterRefWrite() {}, applyWriteFail() {}, _after() {}, _paint() {}, isDirty: () => false,
-    untrackedPaths: () => state.untracked.slice(),
-    stashDrop: rec('stashDrop'),
-    uncommittedClean: undefined,
+    write: {
+      post: async (url, body) => { log.push(['post', url, body]); return { ok: true, data: {} } },
+      postJob: async (url, body) => { log.push(['post', url, body]); return { ok: true, data: {} } },
+      afterRefWrite() {}, applyWriteFail() {},
+      stashDrop: rec('stashDrop'),
+    },
+    changes: { _paint() {} },
+    files: {
+      isDirty: () => false,
+      untrackedPaths: () => state.untracked.slice(),
+      uncommittedClean: undefined,
+    },
+    _after() {},
   });
-  // 브랜치·태그 파사드는 `GitViews` 부품의 것이다 (REFACTOR3_FE_GITPANEL_SRS 7g) — 패널 위임자처럼 잇는다.
+  // 브랜치·태그 파사드는 `GitViews` 부품의 것이다 (REFACTOR3_FE_GITPANEL_SRS 7g) — 메뉴가 `panel.views.X` 로 부른다.
   const views = new ctx.GitViews(panel);
-  for (const k of Object.getOwnPropertyNames(ctx.GitViews.prototype)) {
-    if (k !== 'constructor' && !(k in panel)) panel[k] = (...a) => views[k](...a);
-  }
+  views._knownRefs = state.refs;
+  views._remote = () => ({
+    run: async (kind, body) => { log.push(['remote', kind, body]); return { ok: true, data: { job: { id: 'j' } } } },
+    awaitJob: async () => ({ exitCode: 0 }),
+  });
+  panel.views = views;
   ctx.app = { gitPanel: panel };
   return { ctx, panel, state, log, dialog };
 }
@@ -124,10 +129,12 @@ function patch(w) {
     expose: ['GitFiles'],
     globals: { Toast: w.ctx.Toast, TOAST_ERR_MS: 0, GIT_UNC_CLEAN_CHANGED: 'changed' } });
   const files = new pf.GitFiles(w.panel);
-  // 대조와 뒷정리는 패널 대역의 것을 본다 — 부품 안의 부름이 그 대역을 지나지 않는다.
-  files.untrackedPaths = () => w.panel.untrackedPaths();
+  // 대조와 뒷정리는 대역의 것을 본다 — 실물 부품을 패널의 `files` 자리에 갈아 끼운다.
+  const stub = w.panel.files;
+  files.untrackedPaths = () => stub.untrackedPaths();
+  files.isDirty = stub.isDirty;
   files._after = () => {};
-  w.panel.uncommittedClean = (paths) => files.uncommittedClean(paths);
+  w.panel.files = files;
 }
 
 async function runItem(kind, id, target, mutating) {
@@ -136,7 +143,8 @@ async function runItem(kind, id, target, mutating) {
   const it = w.ctx.GIT_MENUS[kind].find((x) => x.id === id);
   if (mutating) w.dialog.onConfirm = () => mutate(w.state);
   await w.ctx.GitMenu._pick(it, target);
-  return { log: JSON.parse(JSON.stringify(w.log)), shown: plain(w.dialog.shown[0]) };
+  // 기록에 패널이 실린다 — 부품의 `p` 는 그 패널로 되돌아가므로 뺀다.
+  return { log: JSON.parse(JSON.stringify(w.log, (k, v) => (k === 'p' ? undefined : v))), shown: plain(w.dialog.shown[0]) };
 }
 
 test('F-1: 파괴적·경고 항목은 모두 표에 있다 (누락 없음)', () => {

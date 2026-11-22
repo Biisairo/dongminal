@@ -636,7 +636,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
 
     // 진짜 종단을 지난다 — 임시 경로를 테스트가 지어내면 "저장소 밖" 이라는 전제가
     // 픽스처의 것이 된다.
-    await page.evaluate(() => (window as any).app.gitPanel.openFileAtHead({ path: 'sub/x.txt' }));
+    await page.evaluate(() => (window as any).app.gitPanel.files.openFileAtHead({ path: 'sub/x.txt' }));
     await expect.poll(async () => (await tabs(page)).map((t) => t.root)).toEqual([REPO]);
     const t = (await tabs(page))[0];
     expect(t.file.startsWith(REPO)).toBe(false);

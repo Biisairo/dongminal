@@ -4,7 +4,7 @@
  * REFACTOR3_FE_GITPANEL_SRS 7g FR-FEP-7). 소유 필드는 없다 — 루트 맵(`_els`)·소실(`_missing`)·뷰 필드는 패널의 것이다.
  * 리포 전환·파괴는 패널 본문(`panel.js`)에 있다.
  *
- * `_paint` 는 패널 위임자를 지난다 — e2e·시험이 패널 인스턴스에서 그것을 덮는다.
+ * `_paint` 는 `this.p.changes._paint()` 로 부른다 — e2e·시험이 그 부품 인스턴스에서 그것을 덮는다.
  */
 class GitViewRoots extends GitPart {
 
@@ -39,7 +39,7 @@ class GitViewRoots extends GitPart {
     if(view==='branches'||view==='stash'||view==='console'||view==='worktrees'||view==='submodules')
       this._render(view);
     // FR-OPT-4-9 (FR-GVR-4 개정): 보이지 않는 동안 지나간 변화를 지금 받는다.
-    this.p._staleTake(view,before);
+    this.p.viewReload._staleTake(view,before);
     return el;
   }
 
@@ -86,7 +86,7 @@ class GitViewRoots extends GitPart {
     const el=this.p._els.get(view); if(!el) return;
     if(view==='diff'&&this.p._diffView){
       this.p._diffView.destroy(); this.p._diffView=null;
-      this.p._hunkBarDispose();
+      this.p.hunks._hunkBarDispose();
       this.p._diffKey=null; this.p._hunkKey=null; this.p._hunks=null;
     }
     // FR-RST-20·21: 맵을 손으로 적지 않는다 — 종전 맵에 Submodules 가 빠져 탭을
@@ -121,11 +121,11 @@ class GitViewRoots extends GitPart {
   }
 
   _renderBody(view,el){
-    if(view==='changes') return this.p._renderChanges(el);
-    if(view==='diff') return this.p._renderDiff(el);
-    if(GIT_VIEW_KINDS[view]) return this.p._renderView(view,el);
+    if(view==='changes') return this.p.changes._renderChanges(el);
+    if(view==='diff') return this.p.diffPane._renderDiff(el);
+    if(GIT_VIEW_KINDS[view]) return this.p.views._renderView(view,el);
     el.innerHTML='';
-    if(!this.p.repo) this.p._emptyHint(el,GIT_NO_REPO_HINT);
+    if(!this.p.repo) this.p.views._emptyHint(el,GIT_NO_REPO_HINT);
   }
 
   /**
@@ -201,19 +201,19 @@ class GitViewRoots extends GitPart {
     GitMenu.close();
     // FR-SVS-33: 소실은 관측의 성질이다 — **모든 칸**이 동시에 소실로 간다.
     // 판정은 여기 한 번, 뷰 해제는 칸마다다.
-    for(const p of this.p.obs.panels) p._enterMissingView();
+    for(const p of this.p.obs.panels) p.viewRoots._enterMissingView();
   }
 
   // 소실이 부르는 뷰 해제. 칸마다 자기 뷰를 놓는다.
   _enterMissingView(){
     this.p._sel.clear(); this.p._anchor=null; this.p.previewFile=null;
-    this.p._destroyViews();
-    this.p._commit().unmount();
-    this.p._history().unmount();
-    this.p._branches().unmount();
-    this.p._stash().unmount();
-    this.p._console().unmount();
-    this.p._worktrees().unmount();
+    this.p.diffPane._destroyViews();
+    this.p.views._commit().unmount();
+    this.p.views._history().unmount();
+    this.p.views._branches().unmount();
+    this.p.views._stash().unmount();
+    this.p.views._console().unmount();
+    this.p.views._worktrees().unmount();
     this._paintAllViews();
   }
 
@@ -271,7 +271,7 @@ class GitViewRoots extends GitPart {
     }
     // FR-RMS-16·27: 사용자의 계기는 주기를 기다리지 않는다. 기존 새로고침을 지난다.
     acts.appendChild(UIKit.button({label:GIT_RMS_RECHECK,title:GIT_TIP_MISSING_RECHECK,size:'sm',
-      cls:'git-missing-recheck',onClick:()=>this.p.refresh()}));
+      cls:'git-missing-recheck',onClick:()=>this.p.viewReload.refresh()}));
     box.appendChild(acts);
     box.appendChild(domEl('div','git-missing-auto',GIT_RMS_AUTO_NOTE));
     return box;

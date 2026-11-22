@@ -153,7 +153,7 @@ class GitBranches extends GitView {
    */
   paintStatus(){
     if(!this.el||this.panel.repo!==this._repo) return;
-    const h=this.panel.headName();
+    const h=this.panel.views.headName();
     if(h===this._head) return;
     this._head=h;
     this._load();
@@ -168,7 +168,7 @@ class GitBranches extends GitView {
     if(!this.el) return;
     this.el.dataset.repo=this._repo||'';
     if(!this._repo) return;
-    this._head=this.panel.headName();
+    this._head=this.panel.views.headName();
     this._load();
   }
 
@@ -192,7 +192,7 @@ class GitBranches extends GitView {
     // FR-GRF-31: 앞선 조회를 끊는다. 표는 잠금의 임자도 가른다 (FR-FEV-6).
     const tk=this.ticket('load');
     this._loading=true;
-    const res=await this.panel.fetchRefs(repo,{stale:()=>this.stale(tk),signal:tk.signal});
+    const res=await this.panel.views.fetchRefs(repo,{stale:()=>this.stale(tk),signal:tk.signal});
     if(this.superseded(tk)) return;
     // FR-GRF-24: 낡은 응답은 **그 값을 쓰지 않는 것**이지 잠금을 영원히 쥐는
     // 것이 아니다. 종전에는 여기서 `_loading=true` 인 채로 빠져나갔고, 그러면
@@ -209,7 +209,7 @@ class GitBranches extends GitView {
     const d=res.data;
     this._err=null;
     this._refs=Array.isArray(d.refs)?d.refs:[];
-    this.panel.adoptRefs(this._refs);   // FR-BMU-16h
+    this.panel.views.adoptRefs(this._refs);   // FR-BMU-16h
     if(this.el) this.paint();
   }
 }

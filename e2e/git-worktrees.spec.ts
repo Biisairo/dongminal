@@ -94,7 +94,7 @@ async function backToWorktrees(page: Page, repo: string) {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   await clickGitView(page, 'worktrees');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-worktrees/);
@@ -498,7 +498,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
 
     // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 새로고침 단추를 누르고 끝나기를 기다렸다 / 지금 같은 갱신 함수를
     // 부르고 그 끝을 기다린다 / 이유 단추가 없다.
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await clickGitView(page, 'worktrees');
 
     const kept = await page.evaluate((s: string) => {

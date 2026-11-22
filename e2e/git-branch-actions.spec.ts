@@ -113,9 +113,9 @@ const rename = (page: Page) => page.locator('#git-br-rename .gbr-box');
 const mergeBox = (page: Page) => page.locator('#git-br-merge .gbm-box');
 const upstreamBox = (page: Page) => page.locator('#git-br-upstream .gbu-box');
 const branchOf = (page: Page) =>
-  page.evaluate(() => ((window as any).app.gitPanel.statusOf() || {}).branch || '');
+  page.evaluate(() => ((window as any).app.gitPanel.views.statusOf() || {}).branch || '');
 const opKind = (page: Page) =>
-  page.evaluate(() => (((window as any).app.gitPanel.statusOf() || {}).operation || {}).kind || '');
+  page.evaluate(() => (((window as any).app.gitPanel.views.statusOf() || {}).operation || {}).kind || '');
 
 /**
  * 브랜치 행이 뜰 때까지 기다린다. 뷰가 비면 탭을 다시 눌러 되살린다 —
@@ -272,7 +272,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     // 원격 행에서도 열려 있다. 나머지 셋은 종전 그대로다.
     git(repo, 'push', '-q', 'origin', 'no-upstream:feat');
     git(repo, 'fetch', '-q', 'origin');
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await expect(row(page, 'origin/feat')).toHaveCount(1, { timeout: 20000 });
     await openRowMenu(page, row(page, 'origin/feat'));
     for (const id of ['rename', 'push', 'upstream-set']) {

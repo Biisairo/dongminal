@@ -54,7 +54,7 @@ async function settled(page: Page) {
  */
 async function stoppedAndWatchdogMuted(page: Page) {
   await page.evaluate(`(() => {${PANEL}
-    p._stop();
+    p.poll._stop();
     window.app.testing.gitWdAt = Date.now() + 3600 * 1000;
   })()`);
   expect((await panelState(page)).pollOn).toBe(false);
@@ -112,7 +112,7 @@ test.describe('GIT_LIVE_TRIGGERS — 워치독에 주기가 있다', () => {
     await settled(page);
     await page.evaluate(`(() => {${PANEL}
       ${CUT_RENDER}
-      p._stop();
+      p.poll._stop();
       window.app.testing.gitWdAt = 0;
     })()`);
     expect((await panelState(page)).pollOn).toBe(false);

@@ -81,7 +81,7 @@ async function openGitSurfaces(page: Page, repo: string) {
   await page.evaluate((views: readonly string[]) => {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
-    for (const v of views) a.gitPanel.openView(v);
+    for (const v of views) a.gitPanel.selection.openView(v);
   }, GIT_BODY_VIEWS);
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }

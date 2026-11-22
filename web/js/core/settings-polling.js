@@ -32,7 +32,7 @@ class PollingSection extends SettingsSection {
         // 값이 바뀐 즉시 도는 타이머에 닿는다 — 저장 왕복을 기다리면 사용자는
         // 설정이 듣지 않는 것으로 읽는다 (FR-WBR-10·11 과 같은 근거).
         if(spec.key==='gitStatusInterval'){
-          if(app.gitPanel&&app.gitPanel._reschedule) app.gitPanel._reschedule();
+          if(app.gitPanel&&app.gitPanel.poll._reschedule) app.gitPanel.poll._reschedule();
         }
         TIMERS.refreshChanged();
       });

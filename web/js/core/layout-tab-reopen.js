@@ -26,7 +26,7 @@ class LayoutTabReopen extends Controller {
       return ed && ed.viewState ? ed.viewState() : null;
     }
     const p = tab.gitView === 'diff' && this._gitDiffPanelAny(tab.id);
-    return p ? p.diffTabViewState() : null;
+    return p ? p.diffPane.diffTabViewState() : null;
   }
 
   _tabViewApply(tab, vs) {
@@ -36,7 +36,7 @@ class LayoutTabReopen extends Controller {
       return;
     }
     const p = tab.gitView === 'diff' && this._gitDiffPanelAny(tab.id);
-    if (p) p.diffTabViewApply(vs);
+    if (p) p.diffPane.diffTabViewApply(vs);
   }
 
   _gitDiffPanelAny(tabId) {

@@ -65,7 +65,7 @@ async function mutationsPerRound(page: Page, sels: string[], n = 2) {
     const recs: MutationRecord[] = [];
     const mo = new MutationObserver((rs) => recs.push(...rs));
     for (const el of els) mo.observe(el, { childList: true });
-    for (let i = 0; i < n; i++) await app.gitPanel.refresh();
+    for (let i = 0; i < n; i++) await app.gitPanel.viewReload.refresh();
     recs.push(...mo.takeRecords());
     mo.disconnect();
     return {
@@ -90,7 +90,7 @@ const kept = (page: Page, sel: string) => page.evaluate((s) => {
   return { total: els.length, kept: els.filter((el) => (el as any).__dmMark !== undefined).length };
 }, sel);
 
-const refresh = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.refresh());
+const refresh = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
 test.describe('묶음 P-A — 폴링이 목록을 통째로 갈아 끼우지 않는다', () => {
   test('P1 (FR-PRF-12 · TC-PRF-1): 값이 그대로인 회차에 원격 목록의 변이가 0 이다', async ({ page }) => {

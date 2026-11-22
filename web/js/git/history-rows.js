@@ -135,7 +135,7 @@ Object.assign(GitHistory.prototype, {
     s.textContent=GIT_HIST_UNCOMMITTED+' ('+this._dirtyN+')';
     m.appendChild(s);
     d.appendChild(g); d.appendChild(m);
-    d.addEventListener('click',()=>this.panel.openView('changes'));
+    d.addEventListener('click',()=>this.panel.selection.openView('changes'));
     d.addEventListener('contextmenu',ev=>{ev.preventDefault();GitMenu.open('uncommitted',{},ev)});
     return d;
   },
@@ -157,7 +157,7 @@ Object.assign(GitHistory.prototype, {
    * 않게 한다.
    */
   _commitIsHead(c){
-    const s=this.panel.statusOf();
+    const s=this.panel.views.statusOf();
     if(!s||!s.oid) return !!c.isHead;
     return c.oid===s.oid;
   },
@@ -173,7 +173,7 @@ Object.assign(GitHistory.prototype, {
    * refname 이라 `status.branch` 와 비교할 수 없다.
    */
   _isHeadRef(kind,short,fallback){
-    const s=this.panel.statusOf();
+    const s=this.panel.views.statusOf();
     if(!s) return !!fallback;
     // detached 는 어느 브랜치도 HEAD 가 아니다 (FR-GIT-144 의 상태와 맞는다).
     if(s.detached) return false;

@@ -49,16 +49,16 @@ test.describe('묶음 O — Diff 개요 눈금', () => {
   test('V-DOR-1/2: 접기는 꺼짐이 기본이다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page, fx('basic'));
-    await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+    await page.evaluate(() => (window as any).app.gitPanel.selection.openView('diff'));
     await expect(page.locator('#area .pn-body .git-diff-fold input')).not.toBeChecked();
-    expect(await page.evaluate(() => (window as any).app.gitPanel._foldPref())).toBe(false);
+    expect(await page.evaluate(() => (window as any).app.gitPanel.poll._foldPref())).toBe(false);
   });
 
   // V-DOR-3: 토글이 상태를 바꾸고 남는다 (FR-DOR-3·4).
   test('V-DOR-3: 접기 토글이 상태를 바꾸고 보존된다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page, fx('basic'));
-    await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+    await page.evaluate(() => (window as any).app.gitPanel.selection.openView('diff'));
 
     const box = page.locator('#area .pn-body .git-diff-fold input');
     await expect(box).toHaveCount(1);
@@ -67,20 +67,20 @@ test.describe('묶음 O — Diff 개요 눈금', () => {
     await box.check();
     const key = await page.evaluate(() => GIT_DIFF_FOLD_KEY);
     expect(await page.evaluate((k) => localStorage.getItem(k), key)).toBe('1');
-    expect(await page.evaluate(() => (window as any).app.gitPanel._foldPref())).toBe(true);
+    expect(await page.evaluate(() => (window as any).app.gitPanel.poll._foldPref())).toBe(true);
   });
 
   // FR-DOR-5: 두 뷰가 같은 상태를 쓴다. 갈리면 사용자가 어느 쪽을 보는지 모른다.
   test('V-DOR-4: Diff 와 Changes 미리보기가 같은 접기 상태를 쓴다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page, fx('basic'));
-    await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+    await page.evaluate(() => (window as any).app.gitPanel.selection.openView('diff'));
     await page.locator('#area .pn-body .git-diff-fold input').check();
 
     const same = await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
       const views = [p._diffView, p._previewView].filter(Boolean);
-      return views.every((v: any) => v._fold === p._foldPref());
+      return views.every((v: any) => v._fold === p.poll._foldPref());
     });
     expect(same).toBe(true);
   });

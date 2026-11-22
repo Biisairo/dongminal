@@ -29,7 +29,7 @@ function setup() {
   controllers(ctx, a);                             // 9d: git · 9f: wsSync
   a.gitPanels = new Map([['/r', { repo: '/r' }]]);
   const adopted = [];
-  Object.defineProperty(a, 'gitPanel', { value: { adoptJobs: (j) => adopted.push(j) } });
+  Object.defineProperty(a, 'gitPanel', { value: { views: { adoptJobs: (j) => adopted.push(j) } } });
   a.statusbar.updateStatusBar = () => {};
   const arrive = async (path) => {
     const i = waits.findIndex((w) => w.path === path);

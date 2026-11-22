@@ -38,8 +38,8 @@ test('F-6.1: 서브모듈 상태가 바뀌면 행 서명이 바뀐다', () => {
     globals: { GIT_ROW_FIELDS: rowFields() },
   });
   const panel = {
-    app: {}, _sel: new Set(), previewFile: null, _selKey: (g, x) => g + x,
-    _treeMode: () => false, _op: () => '',
+    app: {}, _sel: new Set(), previewFile: null, selection: { _selKey: (g, x) => g + x },
+    changes: { _treeMode: () => false }, files: { _op: () => '' },
   };
   const p = new ctx.GitChangeRows(panel);
   p._stateChar = () => 'M';

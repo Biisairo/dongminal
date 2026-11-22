@@ -75,7 +75,7 @@ test('F-3.1: 새 파일 행은 저장소 최상위 기준 경로로 편집기에
   await row(page, 'src/new.txt').click();
   await page.waitForFunction((abs: string) => edT.docHasModel((window as any).app.testing.edDocs?.get(abs)),
     j(SUB, 'new.txt'), { timeout: 20000 });
-  expect(await page.evaluate(() => (window as any).app.gitPanel.absPath({ path: 'src/b.txt' }))).toBe(j(SUB, 'b.txt'));
+  expect(await page.evaluate(() => (window as any).app.gitPanel.poll.absPath({ path: 'src/b.txt' }))).toBe(j(SUB, 'b.txt'));
 });
 
 test('F-3.3: 머리의 저장소 이름은 상위 저장소 이름이다', async ({ page, request }) => {
@@ -87,6 +87,6 @@ test('F-3.2: Console 은 하위 폴더 루트에서도 기록을 보인다', asy
   await enter(page, request);
   const r = await request.post('/api/git/stage', { data: { repo: SUB, paths: ['src/b.txt'] } });
   expect(r.ok()).toBeTruthy();
-  await page.evaluate(() => (window as any).app.gitPanel.openView('console'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('console'));
   await expect(page.locator('#area .git-con-row').first()).toBeVisible({ timeout: 15000 });
 });

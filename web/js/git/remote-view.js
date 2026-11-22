@@ -55,10 +55,10 @@ class GitRemoteView {
     });
     box.querySelector('.git-job-close').addEventListener('click',()=>this.r.dismiss());
     box.querySelector('.git-job-auth-copy').addEventListener('click',()=>
-      this.panel.copyText(this._termCmd(this.r._done||{})));
+      this.panel.poll.copyText(this._termCmd(this.r._done||{})));
     // REPO_FIX 01 §7.2: index.lock 에 막혀 끝난 잡의 출구 — 확인 뒤에만 지운다.
     box.querySelector('.git-job-lock').addEventListener('click',()=>
-      this.panel.removeIndexLock((this.r._done||{}).lock));
+      this.panel.write.removeIndexLock((this.r._done||{}).lock));
   }
 
   _box(el){return el.querySelector('.git-job[data-slot="'+this.r.slot+'"]')}
@@ -155,7 +155,7 @@ class GitRemoteView {
     const lockBtn=fail.querySelector('.git-job-lock');
     lockBtn.textContent=GIT_LOCK_REMOVE;
     lockBtn.classList.toggle('vis',!!lock);
-    lockBtn.disabled=!actionState(this.panel.actionOf(GIT_ACTION.lockRemove),false).enabled;
+    lockBtn.disabled=!actionState(this.panel.views.actionOf(GIT_ACTION.lockRemove),false).enabled;
     // FR-GIT-104: 안내만 한다. 받는 자리를 만들지 않는다.
     const auth=fail.querySelector('.git-job-auth');
     auth.classList.toggle('vis',!!d.authRequired);
@@ -234,7 +234,7 @@ class GitRemoteView {
   _copyLog(){
     const text=this.r._lines.map(l=>l.text||'').join('\n');
     const tail=(this.r._done&&this.r._done.stderrTail)||'';
-    this.panel.copyText(text||tail);
+    this.panel.poll.copyText(text||tail);
   }
 }
 

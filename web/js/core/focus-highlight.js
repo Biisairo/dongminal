@@ -65,7 +65,7 @@ class FocusHighlight extends Controller {
     const tree=this.app.editor.open._edTreeFor(s);
     if(tree) tree.revealPath(path);
     if(!tree||!tree.list||!tree.list.offsetParent) this._fhlPend={at,path};
-    if(panel&&panel._sel.size){panel._sel.clear();panel._anchor=null;panel._paint()}
+    if(panel&&panel._sel.size){panel._sel.clear();panel._anchor=null;panel.changes._paint()}
   }
 
   // FR-FHL-3·4: 탭이나 그 탭의 대상이 바뀌었으면 Changes 를 대상 행 하나로 한다. ‹ › 이동은 Diff 탭의
@@ -79,16 +79,16 @@ class FocusHighlight extends Controller {
   }
 
   _fhlDiffSel(panel,f,at){
-    const key=panel._selKey(f.group,f.path);
+    const key=panel.selection._selKey(f.group,f.path);
     // Changes 의 현재 행(`cur`)도 그 대상이다 — 그 행이 ‹ › 와 범위 선택의 기준이다.
     const cur=panel.previewFile;
-    if(!cur||cur.group!==f.group||cur.path!==f.path){panel.previewFile={...f,repo:panel.repo};panel._anchor={group:f.group,path:f.path};panel._paint()}
+    if(!cur||cur.group!==f.group||cur.path!==f.path){panel.previewFile={...f,repo:panel.repo};panel._anchor={group:f.group,path:f.path};panel.changes._paint()}
     if(panel._sel.size!==1||!panel._sel.has(key)){
       panel._sel.clear(); panel._sel.add(key);
       panel._anchor={group:f.group,path:f.path};
-      panel._paint();
+      panel.changes._paint();
     }
     // FR-FHL-10: 접힌 그룹·트리 폴더·"더 보기" 뒤에 있어도 보이게 한다. 숨어 있으면 보일 때 다시 한다.
-    if(!panel.revealRow(f.group,f.path)) this._fhlPend={at,diff:f};
+    if(!panel.changeRows.revealRow(f.group,f.path)) this._fhlPend={at,diff:f};
   }
 }

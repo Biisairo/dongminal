@@ -63,7 +63,7 @@ async function settle(page: Page, res: { status: number; body: any }) {
   const id = res.body && res.body.job && res.body.job.id;
   if (res.status !== 200 || !id) return res;
   const done = await page.waitForFunction((jid) => {
-    const r = (window as any).app.gitPanel._remote();
+    const r = (window as any).app.gitPanel.views._remote();
     for (const v of Object.values(r.views) as any[]) {
       if (v._done && v._done.id === jid) return v._done;
     }
@@ -412,7 +412,7 @@ const gurCopy = makeCopyFx(GURFX);
 
 async function gurOpenChanges(page: Page, repo: string) {
   await openGit(page, repo);
-  await page.evaluate(() => (window as any).app.gitPanel.openView('changes'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('changes'));
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 

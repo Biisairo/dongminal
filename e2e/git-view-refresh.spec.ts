@@ -320,7 +320,7 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await openTab(page, 'changes');
     // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 새로고침 단추를 누르고 끝나기를 기다렸다 / 지금 같은 갱신 함수를
     // 부르고 그 끝(Promise)을 기다린다 / 이유 단추가 없다.
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
     // 탭을 다시 여는 것은 목록을 다시 받지 않는다 — 보이는 것은 새로고침의 결과다.
     await openTab(page, 'stash');
@@ -347,7 +347,7 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await page.evaluate(() => {
       (window as any).gitStatusInterval = 600;
       const app = (window as any).app;
-      if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p._reschedule();
+      if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
     });
     // **예외 (`TEST-16`)**: 창을 여는 동안의 요청이 가라앉을 여유를 준다 —
     // 아래가 세는 것은 그 뒤의 증가분이다.
@@ -562,7 +562,7 @@ test.describe('증분 조회·회차 공유 (FR-OPT-4-8·4-9)', () => {
       const p = (window as any).app.gitPanel;
       const got: string[] = [];
       const hist0 = p._historyView._refs, br0 = p._branchesView._refs;
-      p.afterRefWrite(null);
+      p.write.afterRefWrite(null);
       await new Promise((r) => setTimeout(r, 1500));
       if (p._historyView._refs !== hist0) got.push('history');
       if (p._branchesView._refs !== br0) got.push('branches');
@@ -600,7 +600,7 @@ test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다',
   await openGit(page, repo);
   await page.evaluate(() => {
     const a = (window as any).app;
-    a.gitPanel.openView('diff');
+    a.gitPanel.selection.openView('diff');
   });
   await page.evaluate(() => {
     const row = document.querySelector('#area .ed-side .git-file[data-path="tracked.txt"]') as HTMLElement;
@@ -632,7 +632,7 @@ test('V-GLV-2 (FR-GLV-4): 칸을 줄여도 남은 패널의 관측이 산다', a
   const on = () => page.evaluate((r: string) => {
     const a = (window as any).app;
     const p = a.testing.gitPanelAt(r, 0);
-    return { pollOn: !!p._pollOn, ok: !!p._pollOk() };
+    return { pollOn: !!p._pollOn, ok: !!p.poll._pollOk() };
   }, repo);
   expect((await on()).pollOn, '전제가 깨졌다 — 처음부터 관측이 멎어 있다').toBe(true);
 
@@ -675,7 +675,7 @@ test('V-GLV-3 (FR-GLV-6): 거부당한 diff 는 폴링이 되풀이하지 않는
   });
   await waitForInit(page);
   await openGit(page, repo);
-  await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('diff'));
   await page.evaluate(() => {
     const row = document.querySelector('#area .ed-side .git-file[data-path="tracked.txt"]') as HTMLElement;
     if (row) row.click();

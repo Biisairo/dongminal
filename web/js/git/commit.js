@@ -349,7 +349,7 @@ class GitCommit extends GitView {
       const code=document.createElement('code');
       code.className='git-preflight-cmd'; code.textContent=(b&&b.fix)||'';
       const cp=UIKit.button({label:GIT_PREFLIGHT_COPY,title:GIT_TIP_PREFLIGHT_COPY,size:'sm',
-        cls:'git-preflight-copy',onClick:()=>this.panel.copyText((b&&b.fix)||'')});
+        cls:'git-preflight-copy',onClick:()=>this.panel.poll.copyText((b&&b.fix)||'')});
       f.appendChild(lab); f.appendChild(code); f.appendChild(cp);
       d.appendChild(r); d.appendChild(f);
       box.appendChild(d);
@@ -382,7 +382,7 @@ class GitCommit extends GitView {
     }
     const amend=this._amend;
     this._busy=true; this._blocks=null; this._err=null; this._paint();
-    const res=await this.panel.post(GIT_API.commit,{
+    const res=await this.panel.write.post(GIT_API.commit,{
       repo,message:msg,amend,
       signoff:this._opts.signoff,noVerify:this._opts.noVerify,all:this._opts.all,
     });
@@ -405,13 +405,13 @@ class GitCommit extends GitView {
       this._paint(); return;
     }
     if(!res.ok){
-      this._err=this.panel.writeError(res);
-      this.panel.applyWriteFail(res);
+      this._err=this.panel.write.writeError(res);
+      this.panel.write.applyWriteFail(res);
       this._paint(); return;
     }
     // FR-GIT-80: 상태를 갱신하고 입력을 비운다(draft 는 위에서 지웠다). amend 커밋이었으면
     // amend 슬롯만 비우고 원 draft 를 보인다 (F-7.2).
-    this.panel.adopt(d);
+    this.panel.write.adopt(d);
     this._setValue(amend?this._draftGet(repo):'');
     this._amend=false; this._amendText=''; this._tmplRepo=repo;
     // 옵션을 기억하지 않는다 (FR-GIT-79) — 다음 커밋이 조용히 훅을 끄지 않는다.
@@ -470,13 +470,13 @@ class GitCommit extends GitView {
     const u=this._undo; if(!u) return;
     // 진입점을 먼저 없앤다 — 한 번의 커밋에 한 번의 undo 다.
     this._undoHide();
-    const res=await this.panel.post(GIT_API.undoLast,{repo:u.repo,undoToken:u.token});
+    const res=await this.panel.write.post(GIT_API.undoLast,{repo:u.repo,undoToken:u.token});
     const d=res.data||{};
     if(!res.ok){
-      this._err=d.error===GIT_ERR_UNDO_EXPIRED?GIT_UNDO_FAIL:this.panel.writeError(res);
+      this._err=d.error===GIT_ERR_UNDO_EXPIRED?GIT_UNDO_FAIL:this.panel.write.writeError(res);
       this._paint(); return;
     }
-    this.panel.adopt(d);
+    this.panel.write.adopt(d);
     // 메시지를 커밋 직전으로 되돌린다 (FR-GIT-82).
     if(u.repo===this._repo){
       this._setValue(d.message||'');

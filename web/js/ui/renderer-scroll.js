@@ -255,7 +255,7 @@ Object.assign(Renderer.prototype, {
     if(app.gitPanels) for(const p of app.gitPanels.values()){
       for(const el of p._els.values()) take(el);
       // UX_BATCH12_SRS FR-RTR-10: Diff 탭의 본문은 편집기다 — 편집기 탭과 같이 스냅숏을 맡긴다.
-      if(p.diffTabId) p.diffViewKeep();
+      if(p.diffTabId) p.diffPane.diffViewKeep();
     }
     // VIEW_SCROLL_RESTORE_SRS FR-VSR-2 / D-2: **편집기 탭은 훑기로 잡히지 않는다** —
     // 편집기의 스크롤은 칸 DOM 의 `scrollTop` 이 아니라 엔진이 든 값이다. 그래서
