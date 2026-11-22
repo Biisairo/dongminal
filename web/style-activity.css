@@ -33,8 +33,10 @@ body:not(.mobile) #agents-handle{display:block}
 }
 /* REFACTOR3_FE_REST4_SRS FU-9: 숨김 목록의 클래스는 화면에 실제로 있어야 한다 — `css-structure.test.mjs` TC-FR4-5 가 JS·HTML 과 대조한다.
    이전: 웹 어디에도 없는 `.ag-title`·`.ag-refresh` 가 목록에 남아 있었다 (PROD3 DOC-15). */
+/* RAIL_CHAT_USAGE_SRS FR-RCU-5 (D-RCU-3)·FR-RCU-3 (D-RCU-2): 이전 — 채팅 클래스와 사용량 바닥 `.act-usage-foot` 가 목록에 있었다 /
+   지금 — 둘 다 없다 / 이유 — 채팅은 메인 패널로 옮겨 이 자리에 없고(CHAT_WINDOW_SRS D-7), 사용량은 레일에서 요약만 보인다(아래). */
 #agents-panel[data-rail] :is(.ag-tab-name,
-  .ag-sec-empty,.chat-row-sub,.chat-act,.chat-sub-h,.chat-none,.chat-node,.chat-person,.chat-down,.act-usage-foot,.ag-state,.ag-detail,.ag-usage,.ag-sub,
+  .ag-sec-empty,.ag-state,.ag-detail,.ag-usage,.ag-sub,
   .bg-row > :not(.bg-name),.runs-row > :not(.runs-short)){display:none}
 /* PEER_CHAT_SRS FR-PCH-82: 레일에서는 탭 넷이 아이콘으로 세로로 선다 — 눕는 머리·탭의 높이·활성 띠는
    패널 템플릿이 정한다 (PANEL_TEMPLATE_SRS FR-PNT-8). */
@@ -49,13 +51,25 @@ body:not(.mobile) #agents-handle{display:block}
 #agents-panel[data-rail] .ag-group{padding:0;height:0;overflow:hidden;pointer-events:none}
 /* UX_AUDIT_FIX_SRS FR-UXF-25: 레일의 카드는 이름 한 칸이다 — 상태 기호는 카드의 상태 띠가 대신한다. */
 #agents-panel[data-rail] .ag-dot{display:none}
-#agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row,.chat-row){padding:var(--sp-3) 3px;display:block}
+#agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row){padding:var(--sp-3) 3px;display:block}
 /* FR-RAL-2 와 같다: 이름은 두 줄까지, 넘치면 둘째 줄 끝에 `…`. */
-#agents-panel[data-rail] :is(.ag-loc,.bg-name,.runs-short,.chat-row-name){
+#agents-panel[data-rail] :is(.ag-loc,.bg-name,.runs-short){
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
   white-space:normal;overflow-wrap:anywhere;overflow:hidden;
   font-size:var(--sb-rail-fs);line-height:1.15;text-align:center;
 }
+/* RAIL_CHAT_USAGE_SRS FR-RCU-3 (D-RCU-2): 레일의 사용량은 요약 줄 하나다 — 색 점 · 세션 % · 주간 % 가 얇은 막대와 함께 세로로 선다.
+   이전: 바닥을 통째로 감췄다 / 새: 요약 줄만 보인다. 펼쳐 둔 상태여도 계정 머리·계정 줄·statusLine 줄은 감춘다 /
+   이유: 40px 에 드는 최소 정보 — 「지금 얼마나 썼나」. 자세한 값은 칸의 `title` 이 말한다. */
+#agents-panel[data-rail] :is(.act-usage-foot > :not(.act-usage-sum),
+  .act-usage-sum .cacct-name,.act-usage-sum > .ui-icon,.act-usage-sum .cacct-cell-label,.act-usage-sum .cacct-cell-left){display:none}
+#agents-panel[data-rail] .act-usage-foot{padding:var(--sp-3) var(--sp-1)}
+#agents-panel[data-rail] .act-usage-foot .act-usage-sum{
+  flex-direction:column;align-items:stretch;gap:var(--sp-2);height:auto;min-height:0;margin:0;
+}
+#agents-panel[data-rail] .act-usage-sum .cacct-who{justify-content:center}
+#agents-panel[data-rail] .act-usage-sum .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-2);width:100%}
+#agents-panel[data-rail] .act-usage-sum .cacct-cell{justify-content:center;font-size:var(--sb-rail-fs);font-variant-numeric:tabular-nums}
 /* FR-PDK-33·34: 드롭 자리 표시. `applyPanelDock` 과 같은 자리에서 세운다. */
 #dock-indicator{position:fixed;top:0;bottom:0;width:3px;background:var(--accent);
   pointer-events:none;z-index:var(--z-overlay);display:none}

@@ -256,6 +256,19 @@ body.mobile #sb-panel-windows #add-sandbox-window{margin:-8px -8px -8px auto}
 #sidebar[data-rail] .sbl-item.has-badge:not(.attn):not(.si-group) .sbl-dot{
   background:var(--accent);
 }
+/* RAIL_CHAT_USAGE_SRS FR-RCU-1·2 (D-RCU-1): 채팅 탭도 창 목록과 같은 말씨다 — 방은 아이콘과 두 줄 이름, 사람은 두 줄 이름.
+   이전: 이 레일에 채팅 규칙이 없어 구역 제목·빈 안내가 한 글자씩 세로로 꺾이고 온라인 이름이 잘렸다
+         (규칙은 채팅이 떠난 `#agents-panel[data-rail]` 에 남아 있었다 — CHAT_WINDOW_SRS D-7) /
+   새:   40px 에 들지 않는 구역 제목·빈 안내·부가 줄·행 동작·노드 머리·「닿지 않음」·안 읽은 수·`⋯` 는 감춘다 /
+   이유: 한 레일 안에서 두 말씨를 쓰지 않는다. 전체 이름은 행의 `title` 이 말한다. */
+#sidebar[data-rail] :is(.chat-sub-h,.chat-none,.chat-row-sub,.chat-act,.chat-node,.chat-down,.chat-row-n,.chat-row-more){display:none}
+#sidebar[data-rail] .chat-row{display:block;padding:var(--sp-3) 3px;text-align:center}
+#sidebar[data-rail] .chat-row-icon{display:block;margin:0 auto var(--sp-1)}
+#sidebar[data-rail] .chat-row-name{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
+  white-space:normal;overflow-wrap:anywhere;overflow:hidden;
+  font-size:var(--sb-rail-fs);line-height:1.15;text-align:center;
+}
 
 /* FR-SBC-12: 탭 바가 눕는다. 밑줄은 바깥 가장자리의 띠가 된다 — 세로 목록에서 아래 테두리는
    탭 사이의 구분선처럼 읽힌다. 눕는 머리·탭 높이·띠는 패널 템플릿이 정한다 (PANEL_TEMPLATE_SRS FR-PNT-8). */

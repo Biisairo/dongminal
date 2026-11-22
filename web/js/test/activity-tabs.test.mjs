@@ -41,14 +41,19 @@ test('탭은 같은 폭이고 고른 탭도 넓어지지 않는다', () => {
 
 // FR-PCH-82 (개정): 레일에서 Chats 는 방 줄만 남는다. 글자가 40px 폭에 한 자씩 꺾이지 않게,
 // 소제목·빈 문구·노드 줄·참가자 줄·연결 끊김 문구를 숨긴다.
-test('레일의 Chats 는 방 줄만 보인다', () => {
-  const css = read('style-activity.css');   // REFACTOR3_FE_REST4_SRS FU-11: Activity 규칙은 style.css 에서 갈라진 조각에 있다
-  // REFACTOR3_FE_REST4_SRS FU-8 로 개정: 이전 — `#agents-panel:not(.open)` / 지금 — 레일 표식 `#agents-panel[data-rail]` / 이유 — 레일 상태를 표식 하나로.
-  const hide = (css.match(/#agents-panel\[data-rail\] :is\(([\s\S]*?)\)\{display:none\}/) || [])[1] || '';
-  for (const cls of ['.chat-sub-h', '.chat-none', '.chat-node', '.chat-person', '.chat-down']) {
+// RAIL_CHAT_USAGE_SRS FR-RCU-1·2·5 로 개정: 이전 — `#agents-panel[data-rail]` 의 숨김 목록을 읽었고 사람 줄도 숨겼다 /
+// 지금 — `#sidebar[data-rail]`(style-main-panel.css) 를 읽고, 사람 줄은 두 줄 이름으로 남는다 /
+// 이유 — 채팅은 메인 패널의 탭으로 옮겼다(CHAT_WINDOW_SRS D-7). Activity 레일의 채팅 규칙은 죽은 규칙이라 지웠다.
+test('레일의 채팅은 방·사람 줄만 보인다', () => {
+  const css = read('style-main-panel.css');
+  const hide = (css.match(/#sidebar\[data-rail\] :is\(([^)]*\.chat-[^)]*)\)\{display:none\}/) || [])[1] || '';
+  for (const cls of ['.chat-sub-h', '.chat-none', '.chat-node', '.chat-down', '.chat-row-sub', '.chat-act']) {
     assert.ok(hide.includes(cls), `레일에서 ${cls} 를 숨기지 않는다`);
   }
-  assert.ok(!hide.includes('.chat-room'), '방 줄은 레일에 남아야 한다');
+  assert.ok(!hide.includes('.chat-room') && !hide.includes('.chat-person'), '방·사람 줄은 레일에 남아야 한다');
+  const act = read('style-activity.css');
+  const agHide = (act.match(/#agents-panel\[data-rail\] :is\(\.ag-tab-name,([\s\S]*?)\)\{display:none\}/) || [])[1] || '';
+  assert.ok(agHide && !agHide.includes('.chat-'), 'Activity 레일에 채팅 규칙이 남았다');
 });
 
 // UI_KIT_SRS FR-UIK-5·FR-GLY-5: 아이콘만 있는 탭의 아이콘은 탭 높이에서 파생한다 (× --ui-icon-ratio).
