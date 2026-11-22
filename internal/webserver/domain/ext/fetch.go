@@ -44,6 +44,15 @@ var ErrExtractTooLarge = errors.New("아카이브를 푼 총량이 상한을 넘
 // 없다 (FR-ATF-22).
 const stagingSuffix = ".new"
 
+// asidePattern·asideName 은 갈아 끼우는 동안 옛 설치를 비켜 두는 자리다 (FR-ATF-23).
+const (
+	asidePattern = ".old-*"
+	asideName    = "old"
+)
+
+// renameDir 는 디렉터리 옮기기다. 검사가 실패를 끼워 넣는 자리다.
+var renameDir = os.Rename
+
 // ErrArchiveTooLarge 는 받는 중에 MaxArchiveBytes 를 넘었다는 뜻이다.
 var ErrArchiveTooLarge = errors.New("아카이브가 크기 상한을 넘었습니다")
 
@@ -150,10 +159,43 @@ func FetchArchive(ctx context.Context, fetch Fetch, t Target, dest, tmpDir strin
 		_ = os.RemoveAll(staging)
 		return fmt.Errorf("자리를 만들지 못했습니다: %w", err)
 	}
-	_ = os.RemoveAll(dest)
-	if err := os.Rename(staging, dest); err != nil {
+	return swapIn(staging, dest)
+}
+
+// swapIn 은 staging 을 dest 자리에 옮겨 넣는다. 옛 설치는 먼저 비켜 두고, 옮겨 넣기에
+// 성공한 뒤에만 지운다. 실패하면 옛 설치를 되돌린다.
+//
+//	이전 동작: 옛 설치를 지운 뒤 옮겼다 — 옮기기가 실패하면 옛 설치가 사라졌다
+//	새  동작: 비켜 두고 옮긴 뒤 지운다
+//	이유:     FR-ATF-23
+func swapIn(staging, dest string) error {
+	var aside string
+	if _, err := os.Lstat(dest); err == nil {
+		// 비켜 둘 자리도 stagingSuffix 로 끝나므로 어느 팩의 자리와도 겹치지 않는다 (FR-ATF-22).
+		holder, err := os.MkdirTemp(filepath.Dir(dest), filepath.Base(dest)+asidePattern+stagingSuffix)
+		if err != nil {
+			_ = os.RemoveAll(staging)
+			return fmt.Errorf("옛 설치를 비켜 둘 자리를 만들지 못했습니다: %w", err)
+		}
+		aside = filepath.Join(holder, asideName)
+		if err := renameDir(dest, aside); err != nil {
+			_ = os.RemoveAll(holder)
+			_ = os.RemoveAll(staging)
+			return fmt.Errorf("옛 설치를 비켜 두지 못했습니다: %w", err)
+		}
+	}
+	if err := renameDir(staging, dest); err != nil {
 		_ = os.RemoveAll(staging)
+		if aside != "" {
+			if rerr := renameDir(aside, dest); rerr != nil {
+				return fmt.Errorf("풀어 둔 것을 옮기지 못했고 옛 설치를 %s 에 남겼습니다: %w", aside, err)
+			}
+			_ = os.RemoveAll(filepath.Dir(aside))
+		}
 		return fmt.Errorf("풀어 둔 것을 옮기지 못했습니다: %w", err)
+	}
+	if aside != "" {
+		_ = os.RemoveAll(filepath.Dir(aside))
 	}
 	return nil
 }

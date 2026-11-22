@@ -144,6 +144,42 @@ func TestFetchArchive_HardlinkRejectsEscapingTarget(t *testing.T) {
 	}
 }
 
+// TC-ATF-23 (FR-ATF-23 / AT-EXT-4): 새 설치를 옮겨 넣지 못하면 옛 설치가 그대로 남고
+// 곁다리(옆 자리·비켜 둔 자리)도 남지 않는다.
+func TestFetchArchive_RenameFailureRestoresOld(t *testing.T) {
+	root := t.TempDir()
+	dest := filepath.Join(root, "out")
+	old := makeTarGz(t, []tarEntry{{name: "old-file", body: "old"}})
+	if err := FetchArchive(context.Background(), blobFetch(old, nil),
+		Target{URL: "https://e.test/a.tar.gz", SHA256: sum(old)}, dest, CacheDir(root)); err != nil {
+		t.Fatal(err)
+	}
+
+	real := renameDir
+	t.Cleanup(func() { renameDir = real })
+	renameDir = func(from, to string) error {
+		if strings.HasSuffix(from, stagingSuffix) {
+			return errors.New("주입한 실패")
+		}
+		return real(from, to)
+	}
+
+	next := makeTarGz(t, []tarEntry{{name: "new-file", body: "new"}})
+	if err := FetchArchive(context.Background(), blobFetch(next, nil),
+		Target{URL: "https://e.test/b.tar.gz", SHA256: sum(next)}, dest, CacheDir(root)); err == nil {
+		t.Fatal("옮겨 넣기가 실패했는데 성공했다")
+	}
+	if b, err := os.ReadFile(filepath.Join(dest, "old-file")); err != nil || string(b) != "old" {
+		t.Fatalf("옛 설치가 사라졌다: %v %q", err, b)
+	}
+	entries, _ := os.ReadDir(root)
+	for _, e := range entries {
+		if e.Name() != "out" && e.Name() != filepath.Base(CacheDir(root)) {
+			t.Fatalf("곁다리가 남았다: %s", e.Name())
+		}
+	}
+}
+
 // TC-ATF-24 (FR-ATF-24 / AT-EXT-5): 다운로드 임시 파일은 `<root>/cache` 아래에 생기고
 // 끝나면 지워진다 — 격리 칸 밖(OS 임시 디렉터리)에 쓰지 않는다.
 func TestInstall_DownloadTempUnderCache(t *testing.T) {
