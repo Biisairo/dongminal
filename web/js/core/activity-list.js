@@ -56,7 +56,7 @@ const ACTIVITY_SECTIONS=[
    // UX_AUDIT_FIX_SRS FR-UXF-63: 배지는 작업 중인 수다. 주의가 있으면 종전대로 점이고 수는 말하지 않는다.
    badge:(app,its)=>{const dot=its.some(i=>i.t==='group'&&i.attn>0);return {n:dot||!app.tool?.work.workingToolIds?0:app.tool.work.workingToolIds().size,dot}},
    badgeWork:true},
-  {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), tip:()=>TIP_ACT_BG, empty:()=>t('bg.empty'),
+  {key:'bg', icon:'layers', title:()=>t('bg.title'), tip:()=>TIP_ACT_BG, empty:()=>t('bg.empty'),
    items:app=>app.agents.list._actBgRows()},
   {key:'runs', icon:'workflow', title:()=>t('runs.title'), tip:()=>TIP_ACT_RUNS, empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
    items:app=>app.agents.list._actRunsRows()},
@@ -273,7 +273,7 @@ class ActivityList extends Controller {
       // UX_AUDIT_FIX_SRS FR-UXF-100: 메뉴를 여는 꺾쇠는 라벨 뒤의 아이콘이다(이전 카탈로그 글자 `▾`).
       if(view.next) head.appendChild(UIKit.button({label:t('cacct.smart.menu'),kind:'ghost',size:'sm',cls:'cacct-smart',
         onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this.app.claude._claudeAcctSmartMenu({x:r.left,y:r.bottom})}}))
-        .appendChild(UIKit.icon('chevron-down',{size:'sm'}));
+        .appendChild(UIKit.icon('ellipsis',{size:'sm'}));
       for(const a of view.accounts) foot.appendChild(this.app.claude._claudeAcctEl(a));
     }
     // FR-CAC-93 · D-CAC-37: statusLine 은 머리 한 줄 아래 좁은 카드와 같은 줄 모양이다. 오래됨은 흐림·툴팁이다.
@@ -303,7 +303,7 @@ class ActivityList extends Controller {
     if(v.color) who.appendChild(domEl('span','cacct-dot')).style.background='var(--'+v.color+')';
     who.appendChild(domEl('span','cacct-name',v.name));
     this._actCellsEl(b,v.cells);
-    b.appendChild(UIKit.icon(v.open?'chevron-down':'chevron-up'));
+    b.appendChild(UIKit.icon(v.open?'chevron-down':'chevron-right'));
     return b;
   }
 

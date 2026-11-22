@@ -117,7 +117,7 @@ class PresetsSection extends SettingsSection {
       // Star (default) button
       // UI_KIT_SRS FR-GLY-4: 채움과 획으로 기본 여부를 가른다 — 별 두 글자가
       // 하던 일을 같은 모양의 두 상태가 한다.
-      const star=UIKit.button({icon:'star',iconFill:i===defaultPreset,
+      const star=UIKit.button({icon:'bookmark',iconFill:i===defaultPreset,
         title:TIP_PRESET_DEFAULT,kind:'ghost'});
       star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this.app.settings.apply.saveSettings();this._renderPresets()});
       item.appendChild(star);
@@ -138,7 +138,7 @@ class PresetsSection extends SettingsSection {
         wrap.append(q,yes,no);
         item.appendChild(wrap);
       }else{
-        const del=UIKit.button({icon:'x',title:TIP_PRESET_DEL,kind:'ghost',cls:'preset-del'});
+        const del=UIKit.button({icon:'trash-2',title:TIP_PRESET_DEL,kind:'ghost',cls:'preset-del'});
         del.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=i;this._renderPresets()});
         item.appendChild(del);
       }

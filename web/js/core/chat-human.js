@@ -74,11 +74,11 @@ class ChatHuman extends Controller {
    */
   _chatRoomMenu(id,at){
     const r=this.app.chat._chatRoom(id),items=[];
-    if(r&&r.joined) items.push({id:'leave',icon:'x',label:t('chat.leave'),onClick:()=>this.app.chat._chatLeave(id)});
+    if(r&&r.joined) items.push({id:'leave',icon:'log-out',label:t('chat.leave'),onClick:()=>this.app.chat._chatLeave(id)});
     if(this._chatHelper()){
       const ids=chatCtxTargets(this._chatRoomSel().sel,id,this.app.chat._chatRoomOrder||[id]);
       if(items.length) items.push({sep:true});
-      items.push({id:'kill',icon:'trash',label:t('chat.kill'),danger:true,onClick:()=>this._chatKillAsk(ids)});
+      items.push({id:'kill',icon:'trash-2',label:t('chat.kill'),danger:true,onClick:()=>this._chatKillAsk(ids)});
     }
     if(items.length) UIKit.menu(items,{at,cls:'chat-menu'});
   }
@@ -106,7 +106,7 @@ class ChatHuman extends Controller {
     const kicks=this._chatKickTargets(v,p.id);
     if(!kicks.length) return;
     e.preventDefault();
-    UIKit.menu([{id:'kick',icon:'minus',label:t('chat.kick'),danger:true,onClick:()=>this._chatKickAsk(kicks)}],{at:{x:e.clientX,y:e.clientY},cls:'chat-menu'});
+    UIKit.menu([{id:'kick',icon:'user-minus',label:t('chat.kick'),danger:true,onClick:()=>this._chatKickAsk(kicks)}],{at:{x:e.clientX,y:e.clientY},cls:'chat-menu'});
   }
 
   /** FR-PCH-86: 대화 속 보낸 이 이름 우클릭 → 그 참가자 하나 강퇴. */

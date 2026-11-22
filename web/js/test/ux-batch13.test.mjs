@@ -12,10 +12,11 @@ const dock = load(['core/panel-dock.js'], { expose: ['agCollapseIcon'] });
 
 test('TC-ACB-1: 접기 아이콘은 위치와 모바일 여부를 따른다', () => {
   const f = dock.agCollapseIcon;
-  assert.equal(f(true, 'right', false), 'chevron-right');
-  assert.equal(f(false, 'right', false), 'chevron-left');
-  assert.equal(f(true, 'left', false), 'chevron-left');
-  assert.equal(f(false, 'left', false), 'chevron-right');
+  // ICON_SET_SRS FR-ICN-10: 이전 꺾쇠(펼친 오른쪽 `chevron-right` 등) → 패널 그림. 접히는 방향은 그림 안의 꺾쇠가 같이 말한다.
+  assert.equal(f(true, 'right', false), 'panel-right-close');
+  assert.equal(f(false, 'right', false), 'panel-right-open');
+  assert.equal(f(true, 'left', false), 'panel-left-close');
+  assert.equal(f(false, 'left', false), 'panel-left-open');
   // MOBILE_UX_OVERHAUL_SRS FR-MUX-17: 모바일 Activity 는 전체 화면 시트다 — 접는 것이 아니라 닫는다.
   assert.equal(f(true, 'right', true), 'x');
   assert.equal(f(true, 'left', true), 'x');

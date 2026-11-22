@@ -1,8 +1,8 @@
 # SRS: 아이콘 세트 재정비 — 한 뜻 한 아이콘, 선 한 벌의 톤 (IEEE 29148 준수)
 
-> **문서 상태**: 승인·구현중
+> **문서 상태**: 승인·구현완료
 >
-> **남은 것**: 구현(스프라이트·쓰는 자리·스타일)과 시험 `web/js/test/icon-set.test.mjs`, 관련 e2e
+> 근거: `web/index.html` `#ui-sprite`(심볼 70개)·`web/style-kit.css` `.ui-icon`·`#ui-sprite .t`·`web/js/test/icon-set.test.mjs`(TC-ICN-1~7)·관련 e2e 28 spec 통과. 옅은 면이 `<use>` 복제본에 먹는 것(A-1)은 Chromium 화면으로 확인했다
 
 ## 1. 개요 (Introduction)
 
@@ -26,6 +26,7 @@ UI 아이콘 스프라이트(`web/index.html` `#ui-sprite`)를 다시 짠다. �
 ### 1.4 관계 (References)
 - `UI_KIT_SRS.md` §3.3 FR-GLY-1~9 를 **개정한다.** FR-GLY-2 의 `stroke-width:2` 는 FR-ICN-2 의 2.25 로 바뀐다. FR-GLY-2 의 「채움 없음」 은 FR-ICN-3 의 옅은 면만 예외로 둔다. FR-GLY-3 의 「Lucide(MIT)」 는 FR-ICN-11 로 바로잡는다(실제 라이선스는 ISC). FR-GLY-4 의 초기 사상표는 역사 기록으로 남고, 현재 사상은 이 문서 §3.2 다
 - `UX_AUDIT_FIX_SRS.md` FR-UXF-100~102(D-36) — 문자 아이콘 금지는 그대로 유효하다
+- `UX_AUDIT_FIX_SRS.md` FR-UXF-10 을 **개정한다**(D-ICN-23)
 - 시안 자료: `docs/internal/design/icons-2026-11-22/`(`proposal.html` 시안 비교, `meanings.mjs` 뜻 63개 표, `gen.mjs` 직접 그린 시범 C 의 경로)
 
 ### 1.5 사용자 결정 (2026-11-22)
@@ -59,6 +60,7 @@ UI 아이콘 스프라이트(`web/index.html` `#ui-sprite`)를 다시 짠다. �
 | D-ICN-20 | 이름은 Lucide 에서 가져온 것은 Lucide 이름 그대로, 직접 그린 것은 뜻 이름(`git-repo`·`git-history`·`git-fetch`·`window-group`)을 쓴다. 이전 자작 `git-stash`·`git-worktree`·`git-submodule`·`terminal-bg` 는 지운다 | 이름만 보고 출처를 안다. 이전 이름에 새 모양을 담으면 옛 문서·주석과 어긋난다 |
 | D-ICN-21 | 기본 프리셋 = `bookmark`, 즐겨찾기 = `star`. 둘 다 켜짐 상태는 지금처럼 꽉 채운다(`ui-icon-fill`) | 별은 브랜치 즐겨찾기에만 남긴다(시안 표). 채움으로 켜짐을 보이는 기존 동작을 바꾸지 않는다 |
 | D-ICN-22 | Discard 의 위험색은 이미 CSS(`style-git-commit.css` `[data-act="discard"]`)가 칠한다. 색 규칙은 바꾸지 않는다 | 시안의 「이쪽만 위험색」 은 이미 지금 동작이다 |
+| D-ICN-23 | 앱 다시 읽기(`#soft-reload-btn`)와 목록 다시 읽기는 같은 `refresh-cw` 다. `UX_AUDIT_FIX_SRS` FR-UXF-10(둘을 가른다)을 개정한다 | 시안 표의 결정이다(「같은 다시 읽기에 두 그림」). 두 단추는 놓인 자리(사이드바 아래 / 파일 트리 머리)가 달라 같은 그림이어도 헷갈리지 않고, `rotate-ccw` 는 「되돌리기」 로 읽힌다 |
 
 ### 1.7 가정 (Assumptions)
 - A-1: 문서 CSS 규칙은 `<use>` 가 복제한 심볼 내용에도 적용된다(SVG 2 — 복제본은 원본 요소에 맞는 규칙을 받는다). 구현 때 화면으로 확인한다

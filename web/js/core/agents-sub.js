@@ -40,10 +40,10 @@ function agentStateText(state,tool){
   return (AGENT_STATE_LABEL[state]||state)+(tool?' · '+tool:'');
 }
 
-/** UX_AUDIT_FIX_SRS FR-UXF-100: 상태 아이콘 — 카드의 점과 하위 행이 같이 쓴다. 작업 중의 점은 채워 그린다. */
+/** UX_AUDIT_FIX_SRS FR-UXF-100: 상태 아이콘 — 카드의 점과 하위 행이 같이 쓴다. 채우지 않는다 (ICON_SET_SRS FR-ICN-8). */
 function agentStateIcon(state){
   const name=AGENT_STATE_ICON[state]||AGENT_STATE_ICON.working;
-  return UIKit.icon(name,{size:'sm',fill:name==='dot'});
+  return UIKit.icon(name,{size:'sm'});
 }
 
 /** UX_BATCH12_SRS FR-SVL-3: 없어진 보기 전환이 남긴 브라우저 값의 키. 읽지 않고 지우기만 한다. */

@@ -99,7 +99,7 @@ class GitDiffPane extends GitPart {
       .addEventListener('change',ev=>this._setIgnoreWs(ev.target.checked));
     el.querySelector('.git-diff-fold input')
       .addEventListener('change',ev=>this.p.poll._setFold(ev.target.checked));
-    const more=el.querySelector('.git-diff-more'); more.appendChild(UIKit.icon('more-horizontal'));
+    const more=el.querySelector('.git-diff-more'); more.appendChild(UIKit.icon('ellipsis'));
     more.title=GIT_DIFF_MORE_TITLE; more.setAttribute('aria-label',GIT_DIFF_MORE_TITLE); more.addEventListener('click',()=>this._diffMoreMenu(more));
     el.dataset.built='1';
   }

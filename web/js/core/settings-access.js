@@ -42,7 +42,7 @@ class AccessSection extends SettingsSection {
     if(opts.plain){/* 해석 상태 없음 */}
     else if(e&&e.error){st.textContent=t('acl.resolve_fail');st.classList.add('err');st.title=e.error}
     else if(e&&e.resolved&&e.resolved.length){st.textContent=e.resolved.join(', ');st.title=t('acl.resolved_title')}
-    const del=UIKit.button({icon:'x',title:TIP_ACCESS_DEL,kind:'ghost',size:'sm'});
+    const del=UIKit.button({icon:'trash-2',title:TIP_ACCESS_DEL,kind:'ghost',size:'sm'});
     del.addEventListener('click',()=>row.remove());
     row.append(on,val,st,del);
     return row;

@@ -54,22 +54,24 @@
   --ui-tab-h:calc(30px * var(--fs-scale));
 }
 
-/* ── 아이콘 (FR-GLY-2·5) ───────────────────────────────────────────────
+/* ── 아이콘 (FR-GLY-2·5 · ICON_SET_SRS FR-ICN-2·3) ──────────────────────
    스프라이트의 <symbol> 은 모양만 갖고 색·굵기는 여기서 온다 — 그래서 44개
-   테마 어디서나 글자색을 그대로 따른다. */
+   테마 어디서나 글자색을 그대로 따른다. 이전 선 굵기 2 → 2.25 (D-ICN-4). */
 .ui-icon{
   width:var(--ui-icon-md);height:var(--ui-icon-md);flex:0 0 auto;
-  fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+  fill:none;stroke:currentColor;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round;
   vertical-align:-.15em;pointer-events:none;
 }
 .ui-icon-sm{width:var(--ui-icon-sm);height:var(--ui-icon-sm)}
 .ui-icon-lg{width:var(--ui-icon-lg);height:var(--ui-icon-lg)}
-/* 채워 그리는 모양(점 등)은 획이 아니라 면이다. */
+/* 켜짐 상태(즐겨찾기·기본 프리셋)는 모양을 꽉 채운다. */
 .ui-icon-fill{fill:currentColor;stroke:none}
+/* FR-ICN-3 (D-ICN-5·19): 물체 모양의 옅은 면. `<use>` 복제본도 원본에 맞는 규칙을 받는다. */
+#ui-sprite .t{fill:currentColor;stroke:none;opacity:.18}
 /* UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): CSS `content` 자리의 꺾쇠. 스프라이트를 쓸 수 없는 자리라 **같은 경로**를 마스크로 칠한다 —
-   선은 스프라이트처럼 2px·둥근 끝이고 색은 쓰는 자리의 `background` 다. 마스크는 알파만 읽으므로 `#000` 은 색이 아니다 (FR-TOK-29a). */
+   선은 스프라이트처럼 2.25·둥근 끝이고 색은 쓰는 자리의 `background` 다. 마스크는 알파만 읽으므로 `#000` 은 색이 아니다 (FR-TOK-29a). */
 :root{
-  --ui-chev-right:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
+  --ui-chev-right:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
 }
 
 /* ── 글꼴의 역할 (UIUX_OVERHAUL_SRS FR-TYP-1·3·4) ──────────────────────

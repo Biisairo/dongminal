@@ -58,7 +58,7 @@ class LayoutDock extends Controller {
       // UX_AUDIT_FIX_SRS D-38: 작업 패널의 접기(`ag-collapse`)와 같은 크기다 — 다르면 레일 맨 위에서 두 레일의 탭 선이 어긋난다.
       // QUALITY_FIX_SRS FR-QFX-3: 둘 다 큰 단추(30px)다 — 사이드바 단추의 하한(GIT_UI_REVISION FR-GIT-226).
       //   이전: 표준(26px) — D-38 이 작은 쪽에 맞추며 하한을 깼다
-      b=UIKit.button({icon:'chevron-left',title:TIP_PANEL_COLLAPSE,kind:'ghost',size:'lg',cls:'sb-collapse ui-panel-act-desktop',
+      b=UIKit.button({icon:'panel-left-close',title:TIP_PANEL_COLLAPSE,kind:'ghost',size:'lg',cls:'sb-collapse ui-panel-act-desktop',
         onClick:e=>{e.stopPropagation();this.app.layout.tabOps._toggleSidebar()}});
       acts.prepend(b);
     }

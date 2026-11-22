@@ -152,7 +152,7 @@ Object.assign(Renderer.prototype, {
     const app=this.app, h=dir==='horizontal';
     const sk=h?'splitH':'splitV';
     const kl=()=>displayKey((typeof shortcuts==='object'&&shortcuts[sk])||'');
-    const b=UIKit.button({icon:h?'columns':'rows',iconSize:'sm',kind:'ghost',cls:'pn-act pn-split',
+    const b=UIKit.button({icon:h?'columns-2':'rows-2',iconSize:'sm',kind:'ghost',cls:'pn-act pn-split',
       title:t(h?'html.split_h_title':'html.split_v_title',{key:kl()})});
     /**
      * **이름은 단축키를 기다리지 않는다.** `I18N.apply` 는 `data-i18n-shortcut` 이

@@ -104,8 +104,8 @@ const SB_TAB_DEFS=[
         // 사실을 함께 적는다 — 컨테이너 안의 변경이 호스트로 돌아오지 않는다는
         // 것은 창을 여는 순간에만 말하고 끝낼 성질이 아니다. 폴더를 실제로 받은
         // 창에만 붙는다 (복사한 것이 없으면 뜻이 없다).
-        // UX_AUDIT_FIX_SRS FR-UXF-100: 앞의 표식은 아이콘 `box` 다(이전 글자 `▣`).
-        badge:s.sandbox?{icon:'box',text:s.sandbox+(s.sandboxCopy?' · '+SANDBOX_COPY_BADGE:''),
+        // UX_AUDIT_FIX_SRS FR-UXF-100: 앞의 표식은 아이콘이다(이전 글자 `▣`). ICON_SET_SRS: `box` → `container`.
+        badge:s.sandbox?{icon:'container',text:s.sandbox+(s.sandboxCopy?' · '+SANDBOX_COPY_BADGE:''),
           cls:'si-sbx',
           title:t('sbx.window_badge_title')
             +(s.sandboxCopy?String.fromCharCode(10)+SANDBOX_COPY_BADGE_TITLE:'')}:null,
@@ -145,7 +145,7 @@ const SB_TAB_DEFS=[
      * 배열 순서가 곧 직행 키 번호이므로 이 탭은 `Ctrl+Shift+Digit2` 다.
      * `sidebarTab3` 은 파생이 사라지면서 함께 사라진다 (FR-RTU-7).
      */
-    id:REPO_TAB_ID,label:REPO_TAB_LABEL,icon:'git-branch',panelId:REPO_PANEL_ID,
+    id:REPO_TAB_ID,label:REPO_TAB_LABEL,icon:'git-repo',panelId:REPO_PANEL_ID,
     title:'Repositories and folders opened as editor windows',
     // FR-EDT-120: 목록의 원천은 `/api/editors` 다 — 그것이 없으면 행을 만들 수
     // 없다. **git 이 없는 것은 사유가 되지 않는다** (FR-RTU-9 / D-RTU-12):

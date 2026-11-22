@@ -108,13 +108,13 @@ class ChatController extends Controller {
     row.dataset.room=r.id;
     const title=chatRoomTitle(r,meId);
     row.title=title;
-    row.appendChild(UIKit.icon(r.kind==='direct'?'message-square':'list',{cls:'chat-row-icon'}));
+    row.appendChild(UIKit.icon(r.kind==='direct'?'message-square':'hash',{cls:'chat-row-icon'}));
     row.appendChild(domEl('span','chat-row-name',title));
     row.appendChild(domEl('span','chat-row-sub',t('chat.members',{n:r.members})));
     const n=this._chatS().unread(r.id);
     if(n) row.appendChild(domEl('span','chat-row-n ui-badge',String(n)));
     // CHAT_WINDOW_SRS FR-CW-23 (D-22): 들어간 방의 행에는 `⋯` 가 선다 — 나가기가 여기서도 된다.
-    if(r.joined) row.appendChild(UIKit.button({icon:'more-horizontal',kind:'ghost',size:'sm',cls:'chat-row-more',
+    if(r.joined) row.appendChild(UIKit.button({icon:'ellipsis',kind:'ghost',size:'sm',cls:'chat-row-more',
       title:TIP_CHAT_ROOM_MORE,onClick:e=>{e.stopPropagation();const b=e.currentTarget.getBoundingClientRect();this.human._chatRoomMenu(r.id,{x:b.left,y:b.bottom})}}));
     row.addEventListener('click',e=>{ if(!this.human._chatRoomPick(r.id,e)) this._chatOpenRoom(r.id) });
     row.addEventListener('contextmenu',e=>this.human._chatRoomCtx(r.id,e));

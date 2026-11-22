@@ -87,7 +87,7 @@ const GIT_DIFF_SAVE_FAIL=t('git.diff_save_fail');
 // FR-GCC-8: 파일 목록의 보기 방식. 같은 패널의 언어를 하나로 모은다 — 글자
 // 버튼 둘만 남으면 그 줄에서 눈이 한 번 더 멎는다. 툴팁은 이미 있는
 // `GIT_FILE_VIEW_TITLE` 이 말한다 — 같은 것을 두 벌로 두지 않는다.
-const GIT_FILES_MODE_ICON={tree:'folder',flat:'list'};
+const GIT_FILES_MODE_ICON={tree:'folder-tree',flat:'list'};
 const GIT_ERR_NOT_REPO=t('git.err_not_repo');
 const GIT_ERR_GIT_MISSING=t('git.err_git_missing');
 //
@@ -187,7 +187,7 @@ const GIT_ACT_LABEL={ours:'Ours',theirs:'Theirs'};
  * 크기는 여기서 정하지 않는다. `.ui-icon` 이 버튼 높이에서 파생시킨다 (FR-GLY-5) —
  * 그래서 요구 ⑤("아이콘이 버튼을 꽉 채운다")가 자리마다 다시 적히지 않는다.
  */
-const GIT_ACT_ICON={openFile:'external-link',stage:'plus',unstage:'minus',discard:'undo'};
+const GIT_ACT_ICON={openFile:'square-arrow-out-up-right',stage:'square-plus',unstage:'square-minus',discard:'undo-2'};
 /**
  * 행·폴더·그룹 머리가 함께 서는 **열**. 셋이며 순서가 곧 손에서의 거리다 —
  * 읽는 것이 앞, 되돌릴 수 없는 것이 끝이다.

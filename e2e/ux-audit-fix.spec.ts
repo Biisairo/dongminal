@@ -122,9 +122,11 @@ test.describe('1묶음 — 데스크톱', () => {
     expect(await label.evaluate((el) => getComputedStyle(el).fontStyle)).toBe('normal');
   });
 
-  test('TC-UXF-9: 앱 새로고침 단추는 목록 새로고침과 다른 아이콘이다', async ({ page }) => {
+  // ICON_SET_SRS §3.2 로 개정: 이전 — 앱은 `rotate-ccw`, 목록은 `refresh-cw` 로 갈랐다(FR-UXF-10) /
+  // 지금 — 둘 다 「다시 읽기」 한 뜻이라 `refresh-cw` 하나다 / 이유 — `rotate-ccw` 는 「되돌리기」 로 읽힌다 (D-ICN-6).
+  test('TC-UXF-9: 앱 다시 읽기 단추는 「다시 읽기」 아이콘이다', async ({ page }) => {
     await waitForInit(page);
-    await expect(page.locator('#soft-reload-btn use')).toHaveAttribute('href', '#i-rotate-ccw');
+    await expect(page.locator('#soft-reload-btn use')).toHaveAttribute('href', '#i-refresh-cw');
   });
 
   test('TC-UXF-10: 메뉴·토스트·모달은 같은 등장 동작을 쓴다', async ({ page }) => {

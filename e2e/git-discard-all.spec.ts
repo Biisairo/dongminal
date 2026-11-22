@@ -81,8 +81,9 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       expect(await bulk(page, 'staged').evaluateAll(
         (els) => els.map((e) => (e as HTMLElement).dataset.act))).toEqual(['unstage']);
       // 요구 ③/⑤: 아이콘이 상자를 꽉 채운다 — 스프라이트를 참조하는 `<svg>` 다.
+      //   ICON_SET_SRS §3.2 로 개정: 이전 `#i-plus`(새로 만들기와 같은 그림) → `#i-square-plus`.
       await expect(bulk(page, 'working').first().locator('svg.ui-icon use'))
-        .toHaveAttribute('href', '#i-plus');
+        .toHaveAttribute('href', '#i-square-plus');
 
       // 버튼 하나가 삭제를 포함하므로 툴팁이 그 사실을 말한다. 정확한 내역은
       // 확인창이 보인다 (FR-CMG-7).

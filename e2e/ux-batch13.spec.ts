@@ -29,14 +29,15 @@ const icon = (page: Page) => page.locator('#agents-panel .ag-collapse use').firs
 test.describe('FR-ACB — Activity 접기 단추', () => {
   test('ACB1: 오른쪽·왼쪽에서 방향이 바뀐다', async ({ page }) => {
     await waitForInit(page, { mode: 'desktop', clearOnFirstLoad: ['panelDock', 'agentsPanelOpen'] });
-    expect(await icon(page)).toContain('chevron-left');           // 오른쪽 레일
+    // ICON_SET_SRS FR-ICN-10 으로 개정: 이전 꺾쇠(`chevron-left/right`) → 패널 그림.
+    expect(await icon(page)).toContain('panel-right-open');       // 오른쪽 레일
     await page.locator('#agents-panel .ag-collapse').click();
-    expect(await icon(page)).toContain('chevron-right');          // 오른쪽 펼침
+    expect(await icon(page)).toContain('panel-right-close');      // 오른쪽 펼침
     await page.evaluate(() => (window as any).app.testing.setPanelDock({ left: ['activity', 'sidebar'], right: [] }));
     await nextFrames(page);
-    expect(await icon(page)).toContain('chevron-left');           // 왼쪽 펼침
+    expect(await icon(page)).toContain('panel-left-close');       // 왼쪽 펼침
     await page.locator('#agents-panel .ag-collapse').click();
-    expect(await icon(page)).toContain('chevron-right');          // 왼쪽 레일
+    expect(await icon(page)).toContain('panel-left-open');        // 왼쪽 레일
   });
 
   // MOBILE_UX_OVERHAUL_SRS FR-MUX-17 로 개정 — 이전: `chevron-up`(위에서 내려오는 띠를 위로 접는다).

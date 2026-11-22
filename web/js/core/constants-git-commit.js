@@ -21,7 +21,7 @@ const GIT_COMMIT_HEIGHT_KEY='gitCommitHeight';
 const GIT_COMMIT_DRAFT_DEBOUNCE_MS=300;
 const GIT_COMMIT_BTN=t('git.act.commit_btn');
 // UX_AUDIT_FIX_SRS FR-UXF-100: 아이콘 이름이다(이전 글자 `▾`).
-const GIT_COMMIT_MORE='chevron-down';
+const GIT_COMMIT_MORE='ellipsis';
 // FR-TIP-1: 꺾쇠만으로는 무엇이 열리는지 보이지 않는다.
 const GIT_COMMIT_MORE_TITLE='More commit options';
 const GIT_COMMIT_AMEND='amend';

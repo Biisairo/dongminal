@@ -79,12 +79,12 @@ const GIT_STALE_VIEWS=['history','branches','stash','worktrees','submodules'];
  * 문자였다. `⏲≣⊞` 는 폰트마다 모양이 크게 달라 특히 그랬다.
  */
 const GIT_SIDE_ACTIONS=[
-  {key:'history',  icon:'clock',      label:t('git.view.history'),title:'History'},
+  {key:'history',  icon:'git-history',      label:t('git.view.history'),title:'History'},
   {key:'branches', icon:'git-branch', label:t('git.view.branches'),title:'Branches'},
-  {key:'stash',    icon:'git-stash',  label:t('git.view.stash'),title:'Stash'},
-  {key:'console',  icon:'terminal',   label:t('git.view.console'),title:'Console'},
-  {key:'worktrees',icon:'git-worktree',label:t('git.view.worktrees'),title:'Worktrees'},
-  {key:'submodules',icon:'git-submodule',label:t('git.view.submodules'),title:'Submodules'},
+  {key:'stash',    icon:'archive',  label:t('git.view.stash'),title:'Stash'},
+  {key:'console',  icon:'square-terminal',   label:t('git.view.console'),title:'Console'},
+  {key:'worktrees',icon:'folders',label:t('git.view.worktrees'),title:'Worktrees'},
+  {key:'submodules',icon:'blocks',label:t('git.view.submodules'),title:'Submodules'},
 ];
 
 // REPO_TAB_UNIFY_SRS FR-RTU-25·26: 저장소가 아닌 자리와 거기서 만드는 길.

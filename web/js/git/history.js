@@ -168,7 +168,7 @@ class GitHistory extends GitView {
     histRetry.textContent=GIT_HIST_APPLY; histRetry.title=GIT_TIP_RETRY;
     const opts=el.querySelector('.git-hist-opts');
     opts.title=GIT_HIST_OPTS_TITLE;
-    opts.insertBefore(UIKit.icon('sliders'),opts.firstChild);
+    opts.insertBefore(UIKit.icon('sliders-horizontal'),opts.firstChild);
     opts.addEventListener('click',ev=>this._openOpts(ev));
     // FR-HBB-4·6: 인자 없이 부르면 startRef 가 빈 값이고 서버가 HEAD 를 쓴다.
     // 커밋·ref 를 시작점으로 삼는 길은 우클릭 메뉴가 그대로 갖는다 (§2.3).

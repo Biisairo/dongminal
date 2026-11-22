@@ -787,6 +787,7 @@
 | `D-ICN-20` | 이름은 Lucide 에서 가져온 것은 Lucide 이름 그대로, 직접 그린 것은 뜻 이름(`git-repo`·`git-history`·`git-fetch`·`window-group`)을 쓴다. 이전 자작 `git-stash`·`git-worktree`… | 이름만 보고 출처를 안다. 이전 이름에 새 모양을 담으면 옛 문서·주석과 어긋난다 | 채택 |
 | `D-ICN-21` | 기본 프리셋 = `bookmark`, 즐겨찾기 = `star`. 둘 다 켜짐 상태는 지금처럼 꽉 채운다(`ui-icon-fill`) | 별은 브랜치 즐겨찾기에만 남긴다(시안 표). 채움으로 켜짐을 보이는 기존 동작을 바꾸지 않는다 | 채택 |
 | `D-ICN-22` | Discard 의 위험색은 이미 CSS(`style-git-commit.css` `[data-act="discard"]`)가 칠한다. 색 규칙은 바꾸지 않는다 | 시안의 「이쪽만 위험색」 은 이미 지금 동작이다 | 채택 |
+| `D-ICN-23` | 앱 다시 읽기(`#soft-reload-btn`)와 목록 다시 읽기는 같은 `refresh-cw` 다. `UX_AUDIT_FIX_SRS` FR-UXF-10(둘을 가른다)을 개정한다 | 시안 표의 결정이다(「같은 다시 읽기에 두 그림」). 두 단추는 놓인 자리(사이드바 아래 / 파일 트리 머리)가 달라 같은 그림이어도 헷갈리지 않고, `rotate-ccw` 는 「되돌리기」 로 읽힌다 | 채택 |
 
 ## [`ISSUE_AGENT_TREE_SRS`](./ISSUE_AGENT_TREE_SRS.md)
 
@@ -2185,4 +2186,4 @@
 
 ---
 
-결정 **1342건** · 문서 **164개**.
+결정 **1343건** · 문서 **164개**.

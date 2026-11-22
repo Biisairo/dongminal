@@ -43,7 +43,7 @@ class ChatViews extends Controller {
     v.invite=UIKit.button({label:t('edge.invite_send'),kind:'ghost',size:'sm',cls:'chat-edge-invite',
       title:TIP_EDGE_INVITE_SEND,onClick:e=>{e.stopPropagation();if(v.invitePeer) this.app.edges._egInviteSend(v.invitePeer)}});
     v.invite.hidden=true;
-    head.append(title,kind,purpose,v.invite,UIKit.button({icon:'more-horizontal',title:TIP_CHAT_ROOM_ACTIONS,kind:'ghost',size:'sm',cls:'chat-more',
+    head.append(title,kind,purpose,v.invite,UIKit.button({icon:'ellipsis',title:TIP_CHAT_ROOM_ACTIONS,kind:'ghost',size:'sm',cls:'chat-more',
       onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._chatViewMenu(v,{x:r.left,y:r.bottom})}}));
     const main=domEl('div','chat-main');
     v.log=document.createElement('div');
@@ -72,9 +72,9 @@ class ChatViews extends Controller {
 
   _chatViewMenu(v,at){
     const r=this.app.chat._chatRoom(v.roomId);
-    const items=[{id:'leave',icon:'x',label:t('chat.leave'),disabled:!(r&&r.joined),onClick:()=>this.app.chat._chatLeave(v.roomId)}];
+    const items=[{id:'leave',icon:'log-out',label:t('chat.leave'),disabled:!(r&&r.joined),onClick:()=>this.app.chat._chatLeave(v.roomId)}];
     // FR-PCH-86: 도우미가 있을 때만 강제 삭제를 보인다.
-    if(r&&this.app.chat.human._chatHelper()) items.push({sep:true},{id:'kill',icon:'trash',label:t('chat.kill'),danger:true,onClick:()=>this.app.chat.human._chatKillAsk([v.roomId])});
+    if(r&&this.app.chat.human._chatHelper()) items.push({sep:true},{id:'kill',icon:'trash-2',label:t('chat.kill'),danger:true,onClick:()=>this.app.chat.human._chatKillAsk([v.roomId])});
     UIKit.menu(items,{at,cls:'chat-menu'});
   }
 

@@ -31,7 +31,7 @@ class DocRender {
       '<div class="dr-bar">' +
         // UX_AUDIT_FIX_SRS FR-UXF-100: 앞의 꺾쇠는 아이콘이다(이전 카탈로그 글자 `‹`).
         '<button type="button" class="ui-btn ui-btn-sm dr-source" title="' + DOC_RENDER_SOURCE_TITLE + '">' +
-          UIKit.iconHTML('chevron-left') + DOC_RENDER_SOURCE + '</button>' +
+          UIKit.iconHTML('arrow-left') + DOC_RENDER_SOURCE + '</button>' +
         '<span class="dr-path"></span>' +
       '</div>' +
       // UX_BATCH8_SRS FR-SCR-2: 스크롤 표면은 키트의 것이다 (`.ui-scroll`).

@@ -137,6 +137,8 @@
 **FR-UXF-10 (X5)** — 앱 새로고침 단추(`#soft-reload-btn`)는 `rotate-ccw` 아이콘을 쓴다. `refresh-cw` 는 목록 새로고침(Activity·git)
 에만 남는다.
 
+> **개정 2026-11-22 (`ICON_SET_SRS` §3.2)** — 앱 다시 읽기와 목록 다시 읽기는 「다시 읽기」 한 뜻이라 둘 다 `refresh-cw` 다. `rotate-ccw` 는 「되돌리기」 로 읽혀 스프라이트에서 뺐다.
+
 **FR-UXF-11 (X7)** — 떠 있는 표면(컨텍스트 메뉴·토스트·모달 상자)은 나타날 때 같은 동작 하나를 쓴다: `--dur-fast` 동안 투명도
 0→1 (`@keyframes ui-surface-in`). 위치는 움직이지 않는다.
 
@@ -805,7 +807,7 @@ D5(설정 모달 높이·묶음 접기)와 O8(빈 상태의 행동 단추)은 �
 | TC-UXF-6 | FR-UXF-7 | e2e(모바일): kb 키 안에 `svg use[href="#i-keyboard"]` 가 있고 글자 `⌨` 가 없다 |
 | TC-UXF-7 | FR-UXF-8 | e2e(모바일): 저장값 없이 diff 를 열면 통합 보기다. 데스크톱은 나란히다 |
 | TC-UXF-8 | FR-UXF-9 | e2e: 미리보기 탭 이름의 `font-style` 이 normal 이다 |
-| TC-UXF-9 | FR-UXF-10 | e2e: `#soft-reload-btn use` 의 href 가 `#i-rotate-ccw` 다 |
+| TC-UXF-9 | FR-UXF-10 | e2e: `#soft-reload-btn use` 의 href 가 `#i-refresh-cw` 다(2026-11-22 개정, 이전 `#i-rotate-ccw`) |
 | TC-UXF-10 | FR-UXF-11 | e2e: `.ui-menu`·`.toast`·`.ui-modal-box` 의 `animation-name` 이 `ui-surface-in` 이다 |
 | TC-UXF-11 | FR-UXF-12 | e2e: 같은 창의 카드 둘 중 뒤의 것을 `waiting` 으로 보고하면 그것이 앞에 선다. `done` 이면 원래 자리다 |
 | TC-UXF-12 | FR-UXF-20·21 | e2e(모바일): `.git-file` 높이 ≤ 44.5, discard 단추가 보인다. `.git-group-head` 높이 = 44 |

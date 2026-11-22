@@ -53,7 +53,7 @@ const GIT_JOB_ACTION={fetch:GIT_ACTION.fetch,pull:GIT_ACTION.pull,push:GIT_ACTIO
 const GIT_WRITE_UNBOUNDED=new Set([GIT_API.worktreesRemove,GIT_API.submodulesSync]);
 // FR-GCC-5: **버튼의 얼굴**. 좁은 사이드에서 글자 셋과 `▾` 셋은 두 줄을 먹었고
 // `Push` 의 `▾` 는 줄을 넘겼다(실측). 무엇인지는 툴팁(GIT_REMOTE_TITLE)이 말한다.
-const GIT_REMOTE_ICON={fetch:'download',pull:'arrow-down',push:'arrow-up'};
+const GIT_REMOTE_ICON={fetch:'git-fetch',pull:'arrow-down-to-line',push:'arrow-up-from-line'};
 // UX_AUDIT_FIX_SRS FR-UXF-78: 앞선 수는 Push 단추, 뒤처진 수는 Pull 단추 안에 선다. 방향은 단추의 아이콘이 이미 말하므로 수만이다.
 const GIT_REMOTE_COUNT={push:'ahead',pull:'behind'};
 const GIT_REMOTE_TITLE={
@@ -61,7 +61,7 @@ const GIT_REMOTE_TITLE={
   pull:'Fetch and merge into the current branch (git pull)',
   push:'Push the current branch to the remote (git push)',
 };
-const GIT_REMOTE_MORE='chevron-down';
+const GIT_REMOTE_MORE='ellipsis';
 const GIT_REMOTE_MORE_TITLE='More options';
 // FR-TIP-2: 이 둘은 **툴팁 전용**이다 — 꺼진 버튼의 사유를 title 로만 알린다
 // (FR-GIT-101). 화면에 글자로 서는 자리가 없으므로 영어로 옮긴다.

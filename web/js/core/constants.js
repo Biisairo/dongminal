@@ -134,8 +134,9 @@ const ATTN_DETAIL_VIEW_MAX=140;
 // `ENDED` 는 종료 신호 — 카드를 거둔다.
 const ACTIVITY_STATE=Object.freeze({WORKING:'working',WAITING:'waiting',DONE:'done',IDLE:'idle',ENDED:'ended'});
 // 상태별 아이콘 — 색(.ag-state.<state>)과 함께 상태를 구분.
-// UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): 스프라이트 이름이다(이전 글자 `● ✓ … ○`). 작업 중의 점은 채워 그린다.
-const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'dot',[ACTIVITY_STATE.DONE]:'check',[ACTIVITY_STATE.WAITING]:'more-horizontal',[ACTIVITY_STATE.IDLE]:'circle'};
+// UX_AUDIT_FIX_SRS FR-UXF-100 (D-36): 스프라이트 이름이다(이전 글자 `● ✓ … ○`).
+// ICON_SET_SRS FR-ICN-8 (D-ICN-16): 넷 다 채우지 않는다 — 이전 `dot`(채움)·`check`·`more-horizontal`·`circle` 은 알림 점·현재 표시·메뉴·체크박스와 겹쳤다.
+const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'loader-circle',[ACTIVITY_STATE.DONE]:'circle-check',[ACTIVITY_STATE.WAITING]:'hourglass',[ACTIVITY_STATE.IDLE]:'circle-dashed'};
 // UX_AUDIT_FIX_SRS FR-UXF-40: 상태의 보이는 글자. 상태값(데이터)은 그대로다.
 const AGENT_STATE_LABEL={
   [ACTIVITY_STATE.WORKING]:t('activity.state_working'),

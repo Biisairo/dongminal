@@ -7,7 +7,7 @@ const CHAT_TAB_ID='chat';
 const CHAT_PANEL_ID='sb-panel-chat';
 
 const SB_CHAT_TAB={
-  id:CHAT_TAB_ID,label:t('chat.title'),icon:'message-square',panelId:CHAT_PANEL_ID,
+  id:CHAT_TAB_ID,label:t('chat.title'),icon:'messages-square',panelId:CHAT_PANEL_ID,
   title:'Chat rooms and people online',
   // PEER_CHAT_SRS FR-PCH-81 → FR-CW-20: 배지는 지금 있는 방의 안 읽은 수의 합이다.
   badge:app=>app.chat.chatUnreadTotal?app.chat.chatUnreadTotal():0,

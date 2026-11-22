@@ -85,7 +85,7 @@ class MobileSheets extends Controller {
     back.type='button';back.id='modal-back';
     back.className='ui-btn ui-btn-icon ui-btn-ghost modal-back';
     back.title=TIP_SETTINGS_BACK;back.setAttribute('aria-label',TIP_SETTINGS_BACK);
-    back.appendChild(UIKit.icon('chevron-left'));
+    back.appendChild(UIKit.icon('arrow-left'));
     back.addEventListener('click',()=>this._settingsView(modal,'list'));
     const sec=document.createElement('span');
     sec.className='modal-section';
