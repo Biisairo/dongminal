@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { mkdirSync, readdirSync, rmSync, statSync } from 'fs';
+import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs';
 import { basename } from 'path';
 
 import { E2E_BIN, E2E_HOME, E2E_RUN_ENV } from '../playwright.config';
@@ -66,6 +66,13 @@ function keepPeers(): boolean {
  */
 function buildServer() {
   mkdirSync(E2E_HOME, { recursive: true });
+  // RUST_PORT_SRS FR-RSP-31: 미리 만든 바이너리(Rust 판)가 있으면 빌드하지 않고 그것을 쓴다.
+  const prebuilt = process.env.DM_E2E_PREBUILT_BIN;
+  if (prebuilt) {
+    copyFileSync(prebuilt, E2E_BIN);
+    chmodSync(E2E_BIN, 0o755);
+    return;
+  }
   execFileSync('go', ['build', '-o', E2E_BIN, './cmd/dongminal'], { stdio: ['ignore', 'ignore', 'inherit'] });
 }
 
