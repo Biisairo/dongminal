@@ -111,9 +111,17 @@ func questionInput(ts *tabState) []byte {
 }
 
 func (b *Bridge) alarm(c Config, toolID, reason string) {
+	// classify 는 transcript 를 읽으므로 잠금 밖에서 사본으로 한다 (ATTIC_FIX_SRS FR-ATF-43 ·
+	// FR-RD3-40). observe 는 ask·perm 을 새 값으로 바꿔 끼울 뿐 가리키는 Event 를 고치지 않으므로
+	// 얕은 사본으로 충분하다. 이전에는 b.mu 를 쥔 채 최대 512KB 를 읽었다.
 	b.mu.Lock()
-	kind, body := classify(reason, b.tabs[toolID])
+	var snap *tabState
+	if ts := b.tabs[toolID]; ts != nil {
+		cp := *ts
+		snap = &cp
+	}
 	b.mu.Unlock()
+	kind, body := classify(reason, snap)
 	p := map[string]any{"chat_id": c.UserID, "text": fitAlarm(kind, b.host.Location(toolID), body), "parse_mode": "HTML"}
 	kb := readKeyboard(toolID)
 	if kb != nil {
