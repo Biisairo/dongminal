@@ -247,6 +247,14 @@
 | `D-ATF-20` | FR-ATF-45·55 | 실패 시험을 먼저 쓰지 못했다 — 45 는 cgo 가 시험 파일에서 안 되고, 55 는 성능만 바뀐다. 기존 시험이 회귀를 막는다 | 채택 |
 | `D-ATF-21` | AT-EXT-6 은 고치지 않는다(사용자 결정) |  | 채택 |
 | `D-ATF-22` | 나머지 「물음」 11건과 터치 하한은 권장안을 따른다(사용자 결정) |  | 채택 |
+| `D-ATF-23` | FR-ATF-73 | 쓰는 곳이 없어진 `lsp.ErrUnknownServer` 와 그것을 400 으로 옮기던 처리기 분기를 지웠다. 파일에서 읽을 때(`LoadPaths`)의 모르는 키는 지금도 거르지 않는다 | 채택 |
+| `D-ATF-24` | FR-ATF-74 | `statusStale` 은 `gitApply` 와 `apiGitResolve` 의 성공 경로 둘 다 낸다. 화면은 `GitWrite.adopt` 가 받아 `viewReload.refresh()` 로 다시 읽는다(stash·원격 목록의 `if(d.st… | 채택 |
+| `D-ATF-25` | FR-ATF-75 | 거절 응답의 `deleted` 를 화면이 반쪽 삭제로 읽는다 — 목록을 다시 읽고 「로컬은 지웠지만 원격을 지우지 못했습니다 — <사유>」 를 알린다. 다른 잡 종단의 거절 응답은 바뀌지 않는다(`applied` 가 있을 때만 실린다) | 채택 |
+| `D-ATF-26` | FR-ATF-76 | 429 대기 상한 30초(`alarmRetryAfterMax`). 해석 오류의 평문 재전송은 `parse_mode` 를 빼고 **태그를 걷고 이스케이프를 푼다**. 그 밖의 실패는 1초(`backoffFirst`) 뒤 같은 내용을 한 번 | 채택 |
+| `D-ATF-27` | FR-ATF-77 | 생존 판정 시간은 `New` 가 45초로 정하는 필드 `deadAfter` 다. 끊길 때(`detach`) 유지 시간으로 판정한다 | 채택 |
+| `D-ATF-28` | FR-ATF-79 | 쓰이지 않게 된 `Service.relayed` 를 지웠다. `PEER_CHAT_SRS` R-10 을 개정했다 | 채택 |
+| `D-ATF-29` | FR-ATF-80 | 상한은 `validate` 가 아니라 추가 경로(`AddEdge`, 맺는 쪽 `addCode`, 받는 쪽 `/edge/v1/pair`)에서 본다. 오류 코드는 기존 `bad_request`(400). 이미 맺은 지문을 다시 맺는 것은 허용한다 | 채택 |
+| `D-ATF-30` | FR-ATF-81 | 미달 6곳(display 스위치·슬라이더 둘, shortcuts 키캡, telegram 토큰, edges 자기 노드)을 `body.mobile` 규칙으로 고쳤다. 망 노드는 투명한 `rect.eg-mesh-hit` 를 SVG 기하 CSS 로 넓힌다 —… | 채택 |
 
 ## [`BOOT_SCREEN_REUSE_SRS`](./BOOT_SCREEN_REUSE_SRS.md)
 
@@ -2214,4 +2222,4 @@
 
 ---
 
-결정 **1366건** · 문서 **165개**.
+결정 **1374건** · 문서 **165개**.

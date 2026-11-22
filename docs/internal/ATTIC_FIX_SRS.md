@@ -1,8 +1,6 @@
 # SRS: 「정독하지 않은 곳」 감사의 결함 고침 (IEEE 29148 준수)
 
-> **문서 상태**: 승인·구현중
->
-> **남은 것**: §6 사용자 결정분(FR-ATF-70~81) 구현과 시험
+> **문서 상태**: 승인·구현완료
 >
 > 근거: 묶음 넷의 Go 단위 시험(`go test -race -shuffle=on ./...` 통과)·`web/js/test/statusbar-poll.test.mjs` TC-ATF-44·`make gates`. 구현이 SRS 와 다르게 간 자리는 §5 다
 
@@ -148,3 +146,16 @@ PROD3_ATTIC 의 「물음」 12건에 대한 사용자 답이다. AT-EXT-6 은 *
 | TC-ATF-74~75 | FR-ATF-74~75 | Go 단위(재조회 실패 주입·잡 칸 점유) + 화면 단위 시험 |
 | TC-ATF-76~80 | FR-ATF-76~80 | Go 단위(가짜 Telegram 429·400, 짧게 끊기는 연결, 신뢰하지 않은 명령, 65번째 간선) |
 | TC-ATF-81 | FR-ATF-81 | e2e `touch-targets` TC-A11Y-13b 가 모든 탭에서 빈 목록 |
+
+### 6.1 구현이 정한 것 · SRS 와 다르게 간 자리 (§6 분)
+
+| # | 자리 | 내용 | 이유 |
+|---|---|---|---|
+| D-ATF-23 | FR-ATF-73 | 쓰는 곳이 없어진 `lsp.ErrUnknownServer` 와 그것을 400 으로 옮기던 처리기 분기를 지웠다. 파일에서 읽을 때(`LoadPaths`)의 모르는 키는 지금도 거르지 않는다 | 「모르는 키를 버린다」 는 PUT 의 규칙이다 |
+| D-ATF-24 | FR-ATF-74 | `statusStale` 은 `gitApply` 와 `apiGitResolve` 의 성공 경로 둘 다 낸다. 화면은 `GitWrite.adopt` 가 받아 `viewReload.refresh()` 로 다시 읽는다(stash·원격 목록의 `if(d.status)` 가드를 걷었다). 잡 결과에는 실리지 않는다 | FR 문장이 git 쓰기 전체를 말한다 |
+| D-ATF-25 | FR-ATF-75 | 거절 응답의 `deleted` 를 화면이 반쪽 삭제로 읽는다 — 목록을 다시 읽고 「로컬은 지웠지만 원격을 지우지 못했습니다 — <사유>」 를 알린다. 다른 잡 종단의 거절 응답은 바뀌지 않는다(`applied` 가 있을 때만 실린다) | 응답만 바꾸면 지워진 로컬이 목록에 남아 보였다 |
+| D-ATF-26 | FR-ATF-76 | 429 대기 상한 30초(`alarmRetryAfterMax`). 해석 오류의 평문 재전송은 `parse_mode` 를 빼고 **태그를 걷고 이스케이프를 푼다**. 그 밖의 실패는 1초(`backoffFirst`) 뒤 같은 내용을 한 번 | 태그를 남기면 `<b>` 가 글자로 보인다 |
+| D-ATF-27 | FR-ATF-77 | 생존 판정 시간은 `New` 가 45초로 정하는 필드 `deadAfter` 다. 끊길 때(`detach`) 유지 시간으로 판정한다 | 기존 생존 판정과 같은 값 |
+| D-ATF-28 | FR-ATF-79 | 쓰이지 않게 된 `Service.relayed` 를 지웠다. `PEER_CHAT_SRS` R-10 을 개정했다 | — |
+| D-ATF-29 | FR-ATF-80 | 상한은 `validate` 가 아니라 추가 경로(`AddEdge`, 맺는 쪽 `addCode`, 받는 쪽 `/edge/v1/pair`)에서 본다. 오류 코드는 기존 `bad_request`(400). 이미 맺은 지문을 다시 맺는 것은 허용한다 | `validate` 에 넣으면 64개를 넘게 가진 파일에서 이름 변경·삭제까지 막힌다 |
+| D-ATF-30 | FR-ATF-81 | 미달 6곳(display 스위치·슬라이더 둘, shortcuts 키캡, telegram 토큰, edges 자기 노드)을 `body.mobile` 규칙으로 고쳤다. 망 노드는 투명한 `rect.eg-mesh-hit` 를 SVG 기하 CSS 로 넓힌다 — Chromium 에서만 확인했다(Safari 가 기하 CSS 를 모르면 넓어지지 않을 뿐 지금보다 나빠지지 않는다). 비밀번호 칸도 FR-MUX-26 입력칸 하한을 받는다 | 공용 시험이 모든 탭을 DOM 에서 모아 훑는다 |
