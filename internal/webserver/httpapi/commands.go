@@ -114,7 +114,33 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	if !st.Flush() {
 		return
 	}
+	if !presence && s.foregroundOnConnect(st) && !st.Flush() {
+		return
+	}
 	s.pumpCommandSSE(r, st, msgs, closed, hello)
+}
+
+// foregroundOnConnect 는 구독이 열린 뒤 도구마다 지금의 전경 이름을 싣는다 (QUALITY_FLAKY_SRS FR-FLK-3).
+//
+//	이전 동작: 전경 이름은 바뀔 때의 방송뿐이었다. 화면의 부팅 조회(`/api/state`)와 이 구독 사이에
+//	          바뀐 이름(새 셸의 첫 틱 `"" → "~"` 등)은 받을 구독이 없어 사라졌고, 다음 변화까지 낡았다
+//	새  동작: 인사 뒤에 도구마다 `tool_foreground` 를 한 번 싣는다
+//	이유:     구독(`Add`)이 이미 열렸으므로 이 목록 뒤의 변화는 큐에 쌓여 이 줄들 **뒤에** 나간다 —
+//	          틈이 닫힌다. 인사를 먼저 flush 하는 것은 목록 조회(데몬 RPC)가 인사를 늦추지 않게 하려는 것이다
+//
+// 목록을 모르면 싣지 않는다 — 모르는 목록의 빈 이름이 화면의 이름을 지우면 안 된다 (FR-TLU-7).
+func (s *Server) foregroundOnConnect(st *sse.Stream) bool {
+	if s.Tools == nil {
+		return false
+	}
+	tools, known := s.Tools.ListOK()
+	if !known || len(tools) == 0 {
+		return false
+	}
+	for _, ev := range hub.ForegroundSnapshot(tools) {
+		st.Data(ev)
+	}
+	return true
 }
 
 // subscribeCommandSSE 는 SSE 하나의 구독을 연다. 칸 구독(presence)은 방송 구독 없이

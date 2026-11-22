@@ -23,6 +23,17 @@ func toolForegroundPayload(toolID, name string) []byte {
 	return sse.Payload("tool_foreground", map[string]any{"toolId": toolID, "name": name})
 }
 
+// ForegroundSnapshot 은 도구마다 지금의 전경 이름 이벤트다 (QUALITY_FLAKY_SRS FR-FLK-3). 구독이
+// 열릴 때 그 구독 하나에만 싣는다 — 빈 이름도 싣는다. 구독 앞의 틈에 프로그램이 끝났으면 화면이
+// 아직 그 이름을 들고 있다.
+func ForegroundSnapshot(tools []toolhub.ToolInfo) [][]byte {
+	out := make([][]byte, 0, len(tools))
+	for _, t := range tools {
+		out = append(out, toolForegroundPayload(t.ID, t.FgName))
+	}
+	return out
+}
+
 // BroadcastForeground 는 전경 이름 변화를 SSE 로 내보내는 콜백이다. 데몬 모드는
 // PTY 를 dongminald 가 들고 있어 변화가 IPC push 로 오므로, 그 콜백
 // (toolclient.ToolClient.OnForeground)에 이것을 꽂는다 (FR-TAN-7).

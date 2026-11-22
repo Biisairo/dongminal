@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현중
 
-> **남은 것**: FL-3 ~ FL-7 의 재현·원인·고침, 마지막 전량 e2e.
+> **남은 것**: FL-4 ~ FL-7 의 재현·원인·고침, 마지막 전량 e2e.
 
 - 접수: 2026-11-22 (`QUALITY_FIX_SRS` 뒤. `REFACTOR_PROD3_HANDOFF_4.md` §4 「흔들림」 목록 · `PROD3.md` §7.1 「전체 시험」 행)
 - 사용자 지시: 흔들림으로 받아들여 온 시험의 **원인을 찾아 고친다.** 재시도·시한을 늘려 덮지 않는다. 원인이 시험의 기다림 조건이면 상태가 바뀐 것을 기다리게 고치고, 원인이 앱의 경합이면 앱을 고친다.
@@ -18,7 +18,7 @@
 |---|---|---|---|
 | FL-1 | `e2e/activity-rail.spec.ts` TC-ACF-1 | 시험 경합 | 활동을 보고하기 전에 도구의 전경을 채운다(§2.1) |
 | FL-2 | `e2e/slot-view-state.spec.ts` TC-SVS-3·13·50·55·56 | 시험 경합 | 탭을 가운데가 아니라 이름의 왼쪽 끝으로 고르고, 활성이 된 것을 기다린다(§2.2) |
-| FL-3 | `e2e/tab-names.spec.ts` V-NAM-1·2·5 · V-TAN-2 | (조사 중) | |
+| FL-3 | `e2e/tab-names.spec.ts` V-NAM-1·2·5 · V-TAN-2 (같은 원인으로 V-TAN-4·6·12·14·15 · V-NAM-4) | 시험 경합 + **앱 결함** | 시험은 진짜 전경 이름이 닿은 뒤에 흉내를 넣는다. 서버는 구독이 열릴 때 도구마다 지금의 전경 이름을 싣는다(§2.3) |
 | FL-4 | `e2e/settings.spec.ts:256` · 「규칙에 맞지 않는 이름은 거절」 | (조사 중) | |
 | FL-5 | `e2e/ux-audit-fix.spec.ts` TC-UXF-1 · 「2묶음 두 모드」 · `ux-audit-fix-7` TC-UXF-94 | (조사 중) | |
 | FL-6 | `editor-ops` O7 · `edges-settings` 간선 주소·망 그림 · `claude-accounts` TC-CAC-27 · `tab` 단축키 · `kit-components` TC-CMP-19 | (조사 중) | |
@@ -66,6 +66,22 @@
 |---|---|
 | FR-FLK-2 | e2e 가 탭을 고를 때는 공용 도우미 `selectTab`(`fixtures.ts`)을 쓴다. 도우미는 탭 이름의 왼쪽 끝을 누르고, 그 탭이 활성이 될 때까지 기다린다. 탭 자신의 왼쪽 여백은 누르지 않는다 — 둘째 칸의 첫 탭은 그 자리를 칸 경계 손잡이가 덮는다 |
 
+### 2.3 FL-3 — 전경 이름 흉내가 덮인다 (tab-names)
+
+**재현.** HEAD 에서 `PW_WORKERS=8 --repeat-each=8` 136회 중 5회 실패(V-TAN-12 셋 · V-TAN-6 · V-NAM-4). 실패는 모두 「`vim`(또는 `claude`)을 기다렸는데 `~`」 이다.
+
+**원인 1 — 시험 경합.** 이 spec 은 실제 프로세스를 띄우지 않고 전경 이름을 흉내낸다(`onToolForeground` 를 직접 부르고 `/api/state` 응답을 고친다). 그런데 서버의 **진짜** 알림도 온다: 셸이 뜬 뒤 데몬의 첫 전경 틱(2초 주기)이 쉬는 셸의 이름 `"" → "~"` 를 방송한다(UX_AUDIT_FIX_SRS FR-UXF-65). 흉내가 그보다 먼저 들어가면 뒤에 온 진짜 알림이 흉내를 덮는다. V-NAM-4 는 활동 카드도 화면에만 넣어, 다음 주기 조회(서버의 빈 목록)가 카드를 지울 수 있었다(FL-1 과 같은 모양).
+
+**원인 2 — 앱 결함(계측).** 원인 1 을 고친 시험(진짜 이름이 브라우저에 닿을 때까지 기다린다)이 160여 회 중 4회, 서버는 `~` 인데 브라우저는 15초 동안 빈 이름에 머물렀다. 페이지에 `EventSource`·`fetch` 기록을 달아 보니 그 회차에는 `tool_foreground` 가 한 번도 오지 않았다: 부팅 조회 `/api/state`(도구 없음) → 첫 도구 생성(`POST /api/tools`, 521ms) → 구독 열림(591ms). 첫 틱이 도구 생성과 구독 사이(약 70ms, 부하가 걸리면 더 길다)에 떨어지면 그 방송을 받을 구독이 없다. 화면은 첫 구독에서 상태를 다시 받지 않으므로(FR-OPT-4-5 `bootCovered` — 부팅이 방금 받았다) 이름은 다음 변화(폴더 이동) 때까지 `Shell` 로 남는다. 새로고침 때도 같다 — 부팅 조회와 구독 사이에 시작하거나 끝난 프로그램의 이름은 받지 못한다.
+
+**판정.** 시험 경합(원인 1)과 앱 결함(원인 2).
+
+| ID | 요구 |
+|---|---|
+| FR-FLK-3 | 서버는 `/api/commands/sse` 구독이 열리면(칸 구독 `presence=1` 은 빼고) 인사 뒤에 도구마다 지금의 전경 이름을 `tool_foreground` 로 한 번 싣는다. 빈 이름도 싣는다. 도구 목록을 모르면(`ListOK` 가 거짓) 싣지 않는다 |
+| FR-FLK-4 | tab-names 의 흉내(`pushForeground`, V-NAM-1·2·5·4)는 그 도구의 진짜 전경 이름이 브라우저에 닿은 뒤에 넣는다(`fgSettled`: 서버의 `fgName` 이 비지 않을 때까지 — cwd 를 못 읽는 기계는 5초 동안 빈 이름이면 자리잡은 것으로 본다 — 그리고 브라우저의 `fgNames` 가 그 값이 될 때까지). 스냅숏 흉내는 빈 이름도 흉내다 |
+| FR-FLK-5 | V-NAM-4 는 활동을 서버에 `waiting` 으로 보고한다 |
+
 ## 3. 결정
 
 | ID | 결정 | 이유 |
@@ -74,6 +90,10 @@
 | D-FLK-2 | 주기 조회 한 회차를 시험 안에서 직접 부른다 | 조회가 끼어드는 순간을 부하에 맡기면 시험이 결함을 우연히만 잡는다. 직접 부르면 옛 시험 조건에서 늘 실패한다(결정적 RED) |
 | D-FLK-3 | 탭 이름이 자리잡기를 기다리지 않고 누르는 자리를 바꾼다 | 이름은 전경이 바뀔 때마다 바뀐다. 「다 바뀌었다」 를 정하는 조건이 없다. 이름의 왼쪽 끝은 이름의 길이와 무관하게 이름이다 |
 | D-FLK-4 | 같은 모양의 클릭(`a11y-keyboard` TC-A11Y-6e 의 비활성 터미널 탭)도 같은 도우미로 바꾼다 | 목록에 없었지만 원인이 같다 — 이름이 `~` 인 탭의 가운데를 누른다 |
+| D-FLK-5 | 틈은 서버가 닫는다 — 구독이 열릴 때 그 구독에만 이름을 싣는다. 화면이 첫 구독에서 `/api/state` 를 다시 받지 않는다 | 화면이 다시 받으면 FR-OPT-4-5 가 없앤 중복 조회(페이지 열 때마다 `/api/state` 두 번)가 돌아온다. 서버는 구독(`Add`)을 먼저 열고 목록을 읽으므로 그 뒤의 변화는 큐에 쌓여 실은 줄 **뒤에** 나간다 — 순서가 구조로 맞다. 목록 조회는 데몬의 목록 캐시를 지나고, 전경 push 가 캐시를 먼저 무효화하므로 방송보다 낡은 값을 싣지 않는다 |
+| D-FLK-6 | 인사를 먼저 flush 하고 이름을 그 다음에 싣는다 | 목록 조회가 데몬 RPC 일 수 있다. 인사가 늦으면 화면의 생존 판정(FR-RLC-25)이 흔들린다 |
+| D-FLK-7 | 빈 이름도 싣는다 | 부팅 조회와 구독 사이에 끝난 프로그램의 이름을 지우려면 빈 이름이 필요하다. 화면에서는 이름 하나를 지우고 그 탭만 다시 칠한다 |
+| D-FLK-8 | V-NAM-4 의 활동은 `waiting` 으로 서버에 보고한다 | 이 시험이 재는 것은 카드의 이름이다. 화면에만 넣으면 주기 조회가 지우고, `working` 은 전경이 빈 셸에서 조회가 뺀다(FR-AAP-20) |
 
 ## 4. 검증
 
@@ -81,6 +101,7 @@
 |---|---|
 | TC-FLK-1 | e2e `activity-rail.spec.ts` 전체를 `PW_WORKERS=8 --repeat-each=30 --retries=0` 으로 돌려 0 실패. 반증: `keepToolBusy` 를 빼면 주기 조회 단정에서 3/3 실패한다 |
 | TC-FLK-2 | e2e `slot-view-state.spec.ts` TC-SVS-3·13·50·55·56 을 `PW_WORKERS=8 --repeat-each=16` 으로 0 실패. `slot-view-state`·`a11y-keyboard` 전체를 `PW_WORKERS=6 --repeat-each=3` 으로 0 실패 |
+| TC-FLK-3 | Go `httpapi` `TestSSE_ForegroundOnConnect`(인사 뒤 도구마다 한 줄, 빈 이름 포함 — 옛 코드에서 RED) · `_UnknownList`(모르는 목록이면 없음) · `_PresenceSkips`(칸 구독이면 없음). e2e `tab-names.spec.ts` 전체 `PW_WORKERS=8 --repeat-each=10` 0 실패. 관련 e2e(재연결·새로고침·복원 비행·동기·skill-contract·version-autoreload 등 11 spec) 통과 |
 
 ## 5. 동작 변경 기록
 
@@ -88,6 +109,7 @@
 |---|---|---|---|
 | FL-1 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-2 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
+| FL-3 | 전경 이름은 바뀔 때의 방송뿐이었다. 부팅 조회와 구독 사이의 변화는 사라져, 새로 연 셸 탭이 폴더를 옮길 때까지 `Shell` 로 남을 수 있었다 | 구독이 열릴 때 서버가 도구마다 지금의 이름을 한 번 싣는다 | 부팅 조회와 구독 사이의 틈(FR-FLK-3, D-FLK-5) |
 
 ## 6. 구현 기록
 
@@ -95,3 +117,4 @@
 |---|---|
 | FL-1 | `activity-rail.spec.ts` TC-ACF-1 — `keepToolBusy(page, pid)` 뒤에 `working` 을 보고하고, 카드가 선 뒤 `activityRestore()` 를 불러 카드가 남는지 본다(FR-FLK-1). RED: 주기 조회 단정만 더한 시험이 3/3 실패(카드 0개). 고친 뒤 `PW_WORKERS=8 --repeat-each=30` 90 통과(HEAD 에서는 같은 조건 90회 중 12회 실패) |
 | FL-2 | `fixtures.ts` 에 `selectTab` — 이름의 왼쪽 끝(x 1px)을 누르고 활성을 기다린다(FR-FLK-2). `slot-view-state` 의 `clickTabId` 와 `a11y-keyboard` TC-A11Y-6e 가 쓴다. 원인 계측: 캡처 단계의 클릭 기록이 `tgt=pn-tab-x` 였고 `switchTab` 이 불리지 않았다. 첫 고침(탭 자신의 왼쪽 여백 x 3px)은 TC-SVS-56 에서 16/16 실패 — 둘째 칸 첫 탭의 왼쪽 끝을 칸 경계 손잡이(`.slot-handle`)가 덮었다. 이름 쪽으로 옮긴 뒤 `PW_WORKERS=8 --repeat-each=16` 80 통과(HEAD 80회 중 43회 실패), 두 spec 전체 `PW_WORKERS=6 --repeat-each=3` 132 통과 |
+| FL-3 | 서버: `hub.ForegroundSnapshot` · `Server.foregroundOnConnect`(`commands.go`) — 인사를 flush 한 뒤 칸 구독이 아니면 `ListOK` 의 도구마다 `tool_foreground` 를 싣고 flush(FR-FLK-3). Go 시험 `commands_sse_fg_test.go` 셋(옛 코드에서 첫째 RED: 인사 한 줄뿐). 시험: `tab-names.spec.ts` 의 `fgSettled`(서버 값은 `page.request` 로 읽어 스냅숏 흉내를 지나지 않는다) — `pushForeground` 가 도구마다 처음 한 번 부르고, V-NAM-1·2·5·4 가 직접 부른다. 스냅숏 흉내는 `fgStub.has` 로 빈 이름도 덮는다. V-NAM-4 는 활동을 `POST /api/tools/activity/set` 에 `waiting` 으로(FR-FLK-5). 원인 2 의 계측: 실패 회차의 페이지 기록에 `tool_foreground` 가 없고 구독은 도구 생성 70ms 뒤에 열렸다. 고친 뒤 `PW_WORKERS=8 --repeat-each=10` 170 통과(시험만 고친 상태에서 160여 회 중 4회 「브라우저에 닿지 않았다」). 관련 e2e 11 spec 96 통과. 사용자 언어 CHANGELOG 「고침」 |

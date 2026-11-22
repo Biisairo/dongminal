@@ -29,6 +29,7 @@ const fgStub = new Map<string, string>();
 
 async function installStateStub(page) {
   fgStub.clear();
+  fgSettledTools.clear();
   await page.route('**/api/state', async (route) => {
     // 페이지가 닫히는 중이거나 요청이 취소되면 fetch 도 fulfill 도 던진다. 가로채기가
     // 검사를 죽이면 안 되므로, 실패하면 손대지 않고 원래 요청으로 흘려보낸다.
@@ -41,8 +42,7 @@ async function installStateStub(page) {
       return;
     }
     for (const t of j.tools || []) {
-      const n = fgStub.get(t.id);
-      if (n) t.fgName = n;
+      if (fgStub.has(t.id)) t.fgName = fgStub.get(t.id);
     }
     try { await route.fulfill({ response: res, json: j }); } catch { /* 위와 같다 */ }
   });
@@ -82,10 +82,39 @@ async function renameRemote(page, coord: string, args: Record<string, unknown>) 
 // 활성 창의 첫 pane 첫 탭을 가리키는 좌표. 서버가 내는 라벨과 같은 형식이다.
 const FIRST_TAB_COORD = 'W1.P1.T1';
 
-// 서버가 보내는 tool_foreground SSE 를 흉내낸다 (FR-TAN-8).
+/**
+ * 서버의 **진짜** 전경 이름이 브라우저에 닿을 때까지 기다린다 (QUALITY_FLAKY_SRS FR-FLK-3).
+ *
+ * 셸이 뜬 뒤 데몬의 첫 전경 틱(2초 주기)이 쉬는 셸의 이름 `"" → "~"` 를 알린다
+ * (UX_AUDIT_FIX_SRS FR-UXF-65). 흉내를 그보다 먼저 넣으면 진짜 알림이 뒤에 와서 흉내를
+ * 덮는다 — 이 스펙이 「vim 을 기다렸는데 ~」 로 흔들리던 원인이다. 서버의 값은 `page.request`
+ * 로 읽는다(스냅숏 흉내 `page.route` 를 지나지 않는다).
+ *
+ * cwd 를 못 읽는 기계에서는 이름이 `""` 로 머물고 알림이 오지 않는다. 그때는 틱 두 번보다 긴
+ * 시간 동안 빈 이름이면 자리잡은 것으로 본다(QUALITY_FIX_SRS D-QFX-7 과 같은 판정).
+ */
+const FG_SETTLE_EMPTY_MS = 5000;
+const fgSettledTools = new Set<string>();
+async function fgSettled(page, toolId: string) {
+  if (fgSettledTools.has(toolId)) return;
+  const t0 = Date.now();
+  let name = '';
+  await expect.poll(async () => {
+    const st = await (await page.request.get('/api/state')).json();
+    name = ((st.tools || []).find((t: any) => t.id === toolId) || {}).fgName || '';
+    return name !== '' || Date.now() - t0 > FG_SETTLE_EMPTY_MS;
+  }, { timeout: 20000, message: '서버의 전경 이름이 자리잡지 않았다' }).toBe(true);
+  await expect.poll(() => page.evaluate((id) => (window as any).app.testing.fgNames.get(id) || '', toolId),
+    { message: '서버의 전경 이름이 브라우저에 닿지 않았다' }).toBe(name);
+  fgSettledTools.add(toolId);
+}
+
+// 서버가 보내는 tool_foreground SSE 를 흉내낸다 (FR-TAN-8). 진짜 알림이 먼저 닿은 뒤에 넣는다.
 async function pushForeground(page, toolId: string, name: string) {
-  // 스냅숏과 SSE 를 함께 움직인다 (installStateStub 참조).
-  if (name) fgStub.set(toolId, name); else fgStub.delete(toolId);
+  await fgSettled(page, toolId);
+  // 스냅숏과 SSE 를 함께 움직인다 (installStateStub 참조). 빈 이름도 흉내다 — 지우면 스냅숏이
+  // 진짜 이름(`~`)을 되살린다.
+  fgStub.set(toolId, name);
   await page.evaluate(([id, n]) => (window as any).app.testing.onToolForeground({ toolId: id, name: n }),
     [toolId, name]);
 }
@@ -294,6 +323,7 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
       return tab.toolId;
     });
     // 서버의 tool_foreground SSE 를 흉내낸다 (FR-TAN-8) — 조회가 아니라 적용을 잰다.
+    await fgSettled(page, toolId);
     await page.evaluate(([id]) =>
       (window as any).app.testing.onToolForeground({ toolId: id, name: 'vim' }), [toolId]);
     // 도구를 떼어 낸다 — 탭이 사라지므로 이름을 아는 자리는 파생 이름뿐이다.
@@ -315,14 +345,20 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
       const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
       return win.layout.tabs[0].toolId;
     });
+    await fgSettled(page, toolId);
     // 에이전트 패널은 활동이 관측된 도구만 카드로 만든다. 패널을 먼저 연다 — 열면 활동
-    // 목록을 다시 받고(ACTIVITY_RUNS_REFRESH_SRS FR-ARR-4), 그 조회가 떠난 뒤에 넣은 활동은
-    // 응답이 덮지 않는다 (FR-RSF-3).
-    await page.evaluate(([id]) => {
-      const app = (window as any).app;
-      if (!document.getElementById('agents-panel')!.classList.contains('open')) app.testing.agentsToggle();
-      app.testing.onToolActivity({ toolId: id, state: 'working', tool: 'Bash' });
-    }, [toolId]);
+    // 목록을 다시 받는다(ACTIVITY_RUNS_REFRESH_SRS FR-ARR-4).
+    //
+    // 활동은 **서버에** 보고한다 (QUALITY_FLAKY_SRS FR-FLK-3). 화면에만 넣으면 다음 주기 조회가
+    // 서버의 빈 목록으로 카드를 지운다. 상태는 `waiting` 이다 — 전경이 빈 셸의 `working` 은 조회가
+    // 뺀다(FR-AAP-20). 이 시험이 재는 것은 이름이지 상태가 아니다.
+    await page.evaluate(() => {
+      if (!document.getElementById('agents-panel')!.classList.contains('open')) (window as any).app.testing.agentsToggle();
+    });
+    expect(await page.evaluate(async (id) => (await fetch('/api/tools/activity/set', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toolId: id, state: 'waiting', tool: 'Bash' }),
+    })).status, toolId)).toBe(200);
     await expect(page.locator('#agents-panel .ag-card')).toHaveCount(1, { timeout: 10000 });
 
     await page.evaluate(([id]) =>
