@@ -16,7 +16,7 @@ function setup(acts, { located = () => true, attn = new Set() } = {}) {
   });
   const app = controllers(ctx, new ctx.App());
   app._activity = new Map(Object.entries(acts).map(([id, state]) => [id, { state }]));
-  app.findToolLocation = located;
+  app.tool.life.findToolLocation = located;
   app.attn.attnHas = (id) => attn.has(id);
   const agents = ctx.ACTIVITY_SECTIONS.find((s) => s.key === 'agents');
   return { app, badge: (its) => JSON.parse(JSON.stringify(agents.badge(app, its))) };
@@ -39,10 +39,10 @@ test('TC-UXF-62: 주의가 있는 그룹이 있으면 수 대신 점이다', () 
 
 test('FR-UXF-61: 주의가 있는 탭에는 작업 중 점을 두지 않는다', () => {
   const { app } = setup({ a: 'working', b: 'working', c: 'waiting' }, { attn: new Set(['b']) });
-  assert.equal(app.tabWorkDot('a'), true);
-  assert.equal(app.tabWorkDot('b'), false);
-  assert.equal(app.tabWorkDot('c'), false);
-  assert.equal(app.tabWorkDot(undefined), false);
+  assert.equal(app.tool.work.tabWorkDot('a'), true);
+  assert.equal(app.tool.work.tabWorkDot('b'), false);
+  assert.equal(app.tool.work.tabWorkDot('c'), false);
+  assert.equal(app.tool.work.tabWorkDot(undefined), false);
 });
 
 /**

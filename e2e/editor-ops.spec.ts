@@ -993,11 +993,11 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
   test('R4-6: 복제는 클립보드의 잘라내기 구분을 보존한다', async ({ page, request }) => {
     const R = mkRoot('r4-6');
     await enterExplorer(page, request, R);
-    await page.evaluate(({ r, p }: any) => (window as any).app.edClipSet(r, p, true), { r: R, p: j(R, 'top.txt') });
+    await page.evaluate(({ r, p }: any) => (window as any).app.editor.file.edClipSet(r, p, true), { r: R, p: j(R, 'top.txt') });
     await row(page, j(R, 'src')).click();
     await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().doDuplicate(p), j(R, 'src', 'a.txt'));
     await onDisk(() => fs.readdirSync(j(R, 'src')).length > 3).toBe(true);
-    const clip = await page.evaluate(() => (window as any).app.edClipGet());
+    const clip = await page.evaluate(() => (window as any).app.editor.file.edClipGet());
     expect(clip && clip.move).toBe(true);
   });
 
@@ -1043,7 +1043,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
     }
     await expect.poll(async () => (await tabs(page)).length).toBe(2);
     await expect.poll(() => page.evaluate(() => [...(window as any).app.fileEditors.values()].every((v: any) => edT.has(v))), { timeout: 30000 }).toBe(true);
-    const r = await page.evaluate(({ a, b }: any) => (window as any).app.edRetargetTabs(a, b), { a: j(R, 'src', 'a.txt'), b: j(R, 'src', 'b.txt') });
+    const r = await page.evaluate(({ a, b }: any) => (window as any).app.editor.pane.edRetargetTabs(a, b), { a: j(R, 'src', 'a.txt'), b: j(R, 'src', 'b.txt') });
     expect(r.conflicts).toEqual([j(R, 'src', 'b.txt')]);
     const files = (await tabs(page)).map((t) => t.file).sort();
     expect(files).toEqual([j(R, 'src', 'a.txt'), j(R, 'src', 'b.txt')]);
@@ -1057,7 +1057,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
 test.describe('UX_BATCH12 — 여러 항목 우클릭 (FR-EXM-3~5)', () => {
   const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
   const clipOf = (page: Page) => page.evaluate(() => {
-    const c = (window as any).app.edClipGet();
+    const c = (window as any).app.editor.file.edClipGet();
     return c ? { paths: [...c.paths].sort(), move: c.move } : null;
   });
   async function pickAB(page: Page, R: string) {

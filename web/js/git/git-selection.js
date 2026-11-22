@@ -70,7 +70,7 @@ class GitSelection extends GitPart {
     if(!this.p.repo||!e||!e.path||e.dir) return false;
     const abs=this.p.absPath(e);
     // 한 번 클릭이므로 미리보기다 (FR-RTU-40) — 목록을 훑어도 탭이 쌓이지 않는다.
-    this.app.edOpenFile(abs,{preview:true});
+    this.app.editor.file.edOpenFile(abs,{preview:true});
     return true;
   }
 
@@ -127,13 +127,13 @@ class GitSelection extends GitPart {
   openView(view){
     const app=this.app;
     if(this.p.root){
-      const w=app.edWindowFor(this.p.root); if(!w) return;
-      if(view===REPO_SIDE_CHANGES){ app.edSetSide(w,REPO_SIDE_CHANGES); return }
+      const w=app.editor.edWindowFor(this.p.root); if(!w) return;
+      if(view===REPO_SIDE_CHANGES){ app.editor.pane.edSetSide(w,REPO_SIDE_CHANGES); return }
       // UX_BATCH12_SRS FR-RTB-2·3·7: Diff 는 대상을 든 탭이다 — 지금 칸에 미리보기로 연다.
       // 대상이 없으면(진입점 아이콘) 아래 옛 길이 창의 Diff 탭으로 간다.
       const f=view==='diff'&&this._diffTarget();
-      if(f){app.gitDiffOpen(this.p.root,f,{preview:true,commit:!!this.p.commitFile});return}
-      const rid=app.edEnsurePane(w); if(!rid) return;
+      if(f){app.repoWin.gitDiffOpen(this.p.root,f,{preview:true,commit:!!this.p.commitFile});return}
+      const rid=app.editor.pane.edEnsurePane(w); if(!rid) return;
       app.addTab(rid,TAB_TYPE_GIT,{gitView:view,windowId:w.id});
       // FR-RTU-83: 모바일은 사이드(Changes)에 서서 이 부름을 낸다. 본문의 칸을
       // 가리키지 않으면 diff 탭은 생기고 화면은 Changes 그대로다.
@@ -179,16 +179,16 @@ class GitSelection extends GitPart {
     if(!app||!f||!f.repo||!f.path) return [];
     // §3A-4: 어휘적 저장소 최상위 기준 — 창 루트가 하위 폴더여도 같은 항목을 가리킨다.
     const abs=this.p.absPath(f);
-    const has=(app.edEntries?app.edEntries():[]).some(e=>e&&e.path===abs);
+    const has=(app.editor?.edEntries?app.editor.edEntries():[]).some(e=>e&&e.path===abs);
     const go=()=>{
-      const w=app.edWindowFor&&app.edWindowFor(abs);
+      const w=app.editor.edWindowFor&&app.editor.edWindowFor(abs);
       if(w) app.switchWindow(w.id);
     };
     const acts=has
       ? [{label:GIT_DIR_ENTRY_GO,title:GIT_DIR_ENTRY_GO_TITLE,run:go}]
       : [{label:GIT_DIR_ENTRY_ADD,title:GIT_DIR_ENTRY_ADD_TITLE,run:async()=>{
           // 추가가 실패하면 창도 없다 — 성공했을 때만 옮긴다.
-          if(await app.edMutate('/add',{path:abs})) go();
+          if(await app.editor.section.edMutate('/add',{path:abs})) go();
         }}];
     /**
      * UX_BATCH5_SRS FR-SUB-11: **서브모듈에만** 관리 자리로 가는 길을 더한다.

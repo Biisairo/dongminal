@@ -31,7 +31,7 @@ class LayoutWindowState extends Controller {
     // Editor 창은 pane 이 없고(FR-EDT-55) 그것이 정상이다 — `git pin` 하나에도
     // `workspace_changed` 가 오므로(§2.4) 예외가 없으면 다음 핀 한 번에 사라진다.
     // CHAT_WINDOW_SRS FR-CW-4: 칸이 없는 채팅 창도 남는다.
-    const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.app.isEditorWin(s)||this.app.git.isChatWin(s)))};
+    const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.app.editor.isEditorWin(s)||this.app.git.isChatWin(s)))};
     keep();
     // CHAT_WINDOW_SRS FR-CW-2·14: 채팅 창은 하나이고, 그 밖의 채팅 탭은 닫는다.
     const chatFixed=this.app.chat.window._chatNormalize?this.app.chat.window._chatNormalize(sv.windows):0;
@@ -40,7 +40,7 @@ class LayoutWindowState extends Controller {
     // FR-EDT-103·104·106 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다 — 다른 브라우저가
     // 만든 것도. `clean()` 이 아니라 여기다: `clean` 은 편집기 탭을 보존하도록
     // 만들어져 있고 창 타입을 알지 못한다 (§2.9).
-    const migrated=!!this.app._migrateEditorTabs(sv.windows);
+    const migrated=!!this.app.editor.open._migrateEditorTabs(sv.windows);
     // FR-EDT-105: 탭이 0이 된 pane 은 붕괴하고, layout 이 빈 **일반** 창은 사라진다.
     if(migrated||chatFixed) keep();
     // ISSUE_AGENT_TREE_SRS FR-WGR-6: 그룹 불변식은 창 목록이 정해진 뒤에 세운다.
@@ -56,7 +56,7 @@ class LayoutWindowState extends Controller {
    */
   _fallbackActiveWindow(ws){
     if(ws.windows.find(s=>s.id===ws.activeWindow)) return;
-    ws.activeWindow=(ws.windows.find(s=>!this.app.isEditorWin(s)&&!this.app.git.isChatWin(s))||ws.windows[0])?.id||null;
+    ws.activeWindow=(ws.windows.find(s=>!this.app.editor.isEditorWin(s)&&!this.app.git.isChatWin(s))||ws.windows[0])?.id||null;
   }
 
   /**
@@ -75,7 +75,7 @@ class LayoutWindowState extends Controller {
     delete this.app.ws.mobileBreakpoint;
     let moved=false;
     if('sidebarWidth' in this.app.ws){ delete this.app.ws.sidebarWidth; moved=true }
-    return this.app._edMigrateSideWidth()||moved;
+    return this.app.editor.pane._edMigrateSideWidth()||moved;
   }
 
   /**
@@ -84,7 +84,7 @@ class LayoutWindowState extends Controller {
    */
   _activateWindow(id,{rememberFocus=false}={}){
     if(rememberFocus&&this.app.ws.activeWindow!==id){
-      const cur=this.app.aw(); if(cur) cur.focusedPane=this.app.focused;
+      const cur=this.app.tool.life.aw(); if(cur) cur.focusedPane=this.app.focused;
     }
     this.app.ws.activeWindow=id;
     this._persistActiveWindow(id);
@@ -102,7 +102,7 @@ class LayoutWindowState extends Controller {
   _persistActiveWindow(id,win){
     const w=win||this.app.ws.windows.find(s=>s&&s.id===id);
     PrefStore.session.set(STORE_KEYS.activeWindow,id);
-    if(this.app.isEditorWin(w)) PrefStore.session.set(ACTIVE_EDITOR_ROOT_KEY,this.app.edRootOf(w));
+    if(this.app.editor.isEditorWin(w)) PrefStore.session.set(ACTIVE_EDITOR_ROOT_KEY,this.app.editor.edRootOf(w));
     else PrefStore.session.remove(ACTIVE_EDITOR_ROOT_KEY);
   }
 
@@ -116,14 +116,14 @@ class LayoutWindowState extends Controller {
     const preset=layoutPresets[idx];if(!preset)return;
     // Create new window with preset layout
     await this.app._mkWindow();
-    const s=this.app.aw();if(!s)return;
+    const s=this.app.tool.life.aw();if(!s)return;
     // Build layout from preset, creating panes as needed
     const build=async(tpl)=>{
       if(!tpl)return null;
       if(tpl.type==='pane'){
         const tabs=[];
         for(let i=0;i<tpl.tabCount;i++){
-          const p=await this.app._newTool();
+          const p=await this.app.tool.life._newTool();
           tabs.push({id:newEntityId(),name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id});
         }
         const rid=newEntityId();

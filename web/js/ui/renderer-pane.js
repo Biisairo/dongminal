@@ -32,7 +32,7 @@ Object.assign(Renderer.prototype, {
     // 같은 규칙을 Go 로 다시 쓰는 자리이며(layout-tree.js), 그쪽이 모르는 표시를 그
     // 함수에 넣으면 두 구현이 어긋난다.
     // REPO_FIX 03 §3A-7: ● 는 매 렌더 **파생**이다 — 탭 레코드에 두지 않는다.
-    return (this.app.tabDirty(this._rWin,tab)?'● ':'')+(tab.render?DOC_RENDER_TAB_MARK:'')+tabName(tab,this.app.fgNames);
+    return (this.app.editor.open.tabDirty(this._rWin,tab)?'● ':'')+(tab.render?DOC_RENDER_TAB_MARK:'')+tabName(tab,this.app.fgNames);
   },
 
   // 활성 탭의 **본문**을 pane body 에 붙인다. 타입별로 실체가 다르다 — git 은
@@ -54,9 +54,9 @@ Object.assign(Renderer.prototype, {
     if(at.type===TAB_TYPE_GIT){
       // 패널은 **(루트, 칸)마다** 있다 (FR-SVS-40·42 + FR-RTU-60). 루트는 **이 탭이
       // 있는 창**의 것이다 — 그리는 중인 창이 활성 창이 아닐 수 있다(슬롯).
-      const root=this.app.isEditorWin(this._rWin)?this.app.edRootOf(this._rWin):'';
+      const root=this.app.editor.isEditorWin(this._rWin)?this.app.editor.edRootOf(this._rWin):'';
       // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 탭은 탭마다 전용 패널이다.
-      const p=(root&&at.gitView==='diff')?this.app.gitDiffPanelFor(root,slot,at):this.app.git.surfaces.gitPanelAt(root,slot);
+      const p=(root&&at.gitView==='diff')?this.app.repoWin.gitDiffPanelFor(root,slot,at):this.app.git.surfaces.gitPanelAt(root,slot);
       if(p.diffTabId) diffPanel=p;
       el=p.elFor(at.gitView);
     }else if(at.type==='editor'){
@@ -66,7 +66,7 @@ Object.assign(Renderer.prototype, {
       // 동기로 왔다) — 같은 이동 API 를 탄다. 옮길 수 없으면(대상 경로가 이미 열려
       // 있다) 이 뷰를 거두고 새로 세운다.
       if(editor&&editor.filePath!==at.filePath){
-        const moved=this.app.edDocMove(editor.filePath,at.filePath);
+        const moved=this.app.editor.doc.edDocMove(editor.filePath,at.filePath);
         if(editor.filePath!==at.filePath||moved.conflicts.length){
           try{editor.destroy()}catch{ /* 이미 파괴된 것은 오류가 아니다 */ }
           this.app.fileEditors.delete(key);
@@ -83,7 +83,7 @@ Object.assign(Renderer.prototype, {
       el=editor.el;
     }else if(at.type==='run'){
       // FR-RVZ-6: 네 번째 타입. 루트 DOM 은 탭마다 캐시된다 (NFR-RVZ-2).
-      el=this.app.runViewEl(at,slot);
+      el=this.app.runsPanel().runViewEl(at,slot);
     }else if(at.type===TAB_TYPE_CHAT){
       // PEER_CHAT_SRS §3.11: 채팅 탭. 루트 DOM 은 탭과 칸마다 캐시된다.
       el=this.app.chat.views.chatViewEl(at,slot);
@@ -221,11 +221,11 @@ Object.assign(Renderer.prototype, {
       const name=this._tabDisplayName(tab);
       const lab=tabEl.querySelector('.pn-tab-label');
       if(lab.textContent!==name) lab.textContent=name;
-      workDotSync(tabEl,app.tabWorkDot(tab.toolId),lab);   // UX_AUDIT_FIX_SRS FR-UXF-61
+      workDotSync(tabEl,app.tool.work.tabWorkDot(tab.toolId),lab);   // UX_AUDIT_FIX_SRS FR-UXF-61
       // TAB_WIDTH_SRS FR-TBW-6 / D-5: **언제나** 붙인다 — 잘리지 않는 폭에서는
       // 보이지 않을 뿐이므로 해가 없다.
       tabEl.title=(tab.preview?REPO_PREVIEW_TITLE:name)+(tint?'\n'+tint.title:'');
-      workLabelSync(tabEl,app.tabWorkDot(tab.toolId));   // REFACTOR3_FE_FIX_SRS FR-FFX-1
+      workLabelSync(tabEl,app.tool.work.tabWorkDot(tab.toolId));   // REFACTOR3_FE_FIX_SRS FR-FFX-1
       kids.push(tabEl);
     }
     // D-A11Y-11: 탭은 `tablist` 안에, 동작은 그 **밖**에 — tablist 의 자식은 tab
@@ -234,7 +234,7 @@ Object.assign(Renderer.prototype, {
     const acts=tabs.lastChild;
     const list=scroll.firstChild;
     this._place(list,kids);
-    const aw=app.aw();
+    const aw=app.tool.life.aw();
     const closed=app.git.isKindWin(aw);
     /**
      * UIUX_OVERHAUL_SRS FR-CHR-2·3: 고정 구. **가르는 것은 모드가 아니라

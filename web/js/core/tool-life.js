@@ -47,7 +47,7 @@ class ToolLife extends Controller {
       // 터미널 탭을 pane 에 직접 넣으므로(`_restoreTool`) 그 게이트가 여기에도
       // 있어야 한다 — 없으면 Editor 창에 터미널 탭이 생기고, 일반 창만 걷는
       // `_migrateEditorTabs` 가 그것을 영원히 지나친다. Git 창도 같은 구멍이다.
-      const a=this.app.aw();
+      const a=this.aw();
       const cur=this.app.git.isKindWin(a)?null:a;
       const pn=(this.app.focused&&cur&&cur.layout?findPane(cur.layout,this.app.focused):null)
         ||(cur&&cur.layout?firstPane(cur.layout):null)
@@ -95,7 +95,7 @@ class ToolLife extends Controller {
     this.app.paneTabSet(pn,tabId);
     this.app.render();
     this.app.save();
-    this.app._bgRefresh();
+    this._bgRefresh();
   }
 
   // win 은 이 도구가 들어갈 창이다. 샌드박스 창이면 도구가 그 창의 대응
@@ -126,7 +126,7 @@ class ToolLife extends Controller {
   }
 
   async _focusedCwd(){
-    const p=this.app.focusedTerminal();
+    const p=this.app.tool.search.focusedTerminal();
     if(!p) return null;
     const r=await apiGet('/api/cwd',{query:{tool:p.id}});
     return (r.data&&r.data.cwd)||null;
@@ -164,7 +164,7 @@ class ToolLife extends Controller {
   // the window that is actually viewing the source pane (multi-window).
   _isToolInActiveWindow(toolId){
     if(!toolId) return false;
-    const s=this.app.aw();
+    const s=this.aw();
     if(!s||!s.layout) return false;
     return !!findTabWhere([s],tab=>tab.toolId===toolId);
   }
@@ -174,7 +174,7 @@ class ToolLife extends Controller {
    * 탭의 규칙(FR-TAN-15)이 적용되고, 없으면 파생 이름이 답한다.
    */
   _toolName(toolId,fallback){
-    const loc=this.app.findToolLocation(toolId);
+    const loc=this.findToolLocation(toolId);
     return toolDisplayName(toolId,this.app.fgNames,loc&&loc.tab,fallback);
   }
 
@@ -183,7 +183,3 @@ class ToolLife extends Controller {
     return toolId?findTabWhere(this.app.ws.windows,tab=>tab.toolId===toolId):null;
   }
 }
-
-// 바깥이 부르는 이름 — 레이아웃·슬롯·상태 동기화·편집기·작업 패널·`ui/`·e2e·계약.
-Controller.delegate(App,'tool.life',['_setToolBackground','_bgRefresh','_restoreTool','_newTool','_focusedCwd','_kill',
-  '_killTool','aw','_toolName','findToolLocation']);

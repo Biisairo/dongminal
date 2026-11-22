@@ -58,7 +58,7 @@ class AttnCenter extends Controller {
     for(const [toolId,info] of this.app._attn){
       // FR-NAM-6: 알림도 파생 이름을 쓴다 — 화면의 탭과 다른 이름을 부르면
       // 사용자가 어느 도구인지 못 찾는다.
-      items.push({toolId,name:this.app._toolName(toolId,toolId),
+      items.push({toolId,name:this.app.tool.life._toolName(toolId,toolId),
         reason:info&&info.reason==='idle'?t('attn.reason_idle'):t('attn.reason_signal'),
         detail:this.app.attn._attnDetail(toolId)});
     }

@@ -6,7 +6,7 @@
  */
 class GitSync extends Controller {
   // Repo 목록 갱신의 본체는 `git-repos-list.js` 의 `GitReposList` 다 (FR-ASE-8).
-  // 여기 남은 넷은 바깥이 부르는 이름이다 — 지연 생성은 `_runsPanel` 과 같은 규약이다.
+  // 여기 남은 넷은 바깥이 부르는 이름이다 — 지연 생성은 `runsPanel` 과 같은 규약이다.
   _gitReposList(){
     if(!this._reposList) this._reposList=new GitReposList(this.app);
     return this._reposList;
@@ -66,10 +66,10 @@ class GitSync extends Controller {
     // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기도 같은 방송을 듣는다 (IPC-8). 숨은 동안의
     // 것은 복귀 틱(`_edTick`)이 갚는다 — 탐색기의 주기 status 는 안전망뿐이다.
     if(typeof document!=='undefined'&&document.hidden){
-      this.app._edGitHold(repo,a.mark||'');
+      this.app.editor.pane._edGitHold(repo,a.mark||'');
       return;
     }
-    this.app._edOnGitChanged(repo,a.mark||'');
+    this.app.editor.open._edOnGitChanged(repo,a.mark||'');
     this._gitReposOnChanged(repo);
     if(!this.app._gitObservers) return;
     // 관측기는 **저장소마다** 하나다 (FR-GIT-26·29). 방송이 가리키는 저장소를
@@ -142,7 +142,7 @@ class GitSync extends Controller {
     const d=res.data;
     if(!res.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
     this._gitPinsApply(d.pinned);
-    this.app._edApplyLinked(d);
+    this.app.editor.sync._edApplyLinked(d);
     await this.gitReposRefresh();
     return {ok:true,pinned:d.pinned||[]};
   }
@@ -155,7 +155,7 @@ class GitSync extends Controller {
     const d=res.data;
     if(!res.ok) return false;
     this._gitPinsApply(d.pinned);
-    this.app._edApplyLinked(d);
+    this.app.editor.sync._edApplyLinked(d);
     this.app.git._gitLeaveIfRemoved(path);
     await this.gitReposRefresh();
     return true;

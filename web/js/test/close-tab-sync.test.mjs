@@ -21,14 +21,15 @@ function world() {
   const pane = { type: 'pane', id: 'p1', tabs: [{ id: 'r1', type: 'run', runId: 'x' }, { id: 't2', type: 'terminal', toolId: 'k' }], activeTab: 'r1' };
   const win = { id: 'w1', layout: pane };
   a.ws = { activeWindow: 'w1', windows: [win] };
-  a.aw = () => win;
+  a.tool.life.aw = () => win;
   a.calls = [];
-  for (const m of ['paneTabSet', 'setFocusState', '_focusWindow', 'render', 'save', '_killTool', 'editorsDrop']) {
+  for (const m of ['paneTabSet', 'setFocusState', '_focusWindow', 'render', 'save', 'editorsDrop']) {
     a[m] = (...args) => { a.calls.push(m) };
   }
+  a.tool.life._killTool = () => { a.calls.push('_killTool') };
   a.git.surfaces._gitRescheduleAll = () => { a.calls.push('_gitRescheduleAll') };
   a.layout.reopen._tabReopenNote = () => { a.calls.push('_tabReopenNote') };
-  a._isToolBusy = async () => false;
+  a.tool._isToolBusy = async () => false;
   a.paneTab = (pn) => pn.activeTab;
   return { a, pane };
 }

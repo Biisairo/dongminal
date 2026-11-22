@@ -46,7 +46,7 @@ class GitDiffView {
     // 검색·코드 탐색 키도 여기서 판정한다 — 편집기 칸의 `_onKeyCapture` 와 같다. 글자를 치는 자리 안의 키는
     // 전역 배선이 앱 단축키를 돌리지 않는다 (input-binding.js 의 `inText`).
     this._el.addEventListener('keydown',e=>{
-      if(window.app&&window.app.edTrySearchKey(e)) return;
+      if(window.app&&window.app.editor.search.edTrySearchKey(e)) return;
       this._viewKey(e);
     },true);
     // 작업 트리 쪽이 편집기 문서면 그 문서의 뷰(`diff-view-doc.js`), 아니면 null.
@@ -284,7 +284,7 @@ class GitDiffView {
     });
     // UX_BATCH12_SRS FR-RTB-10: 디스크의 파일을 고치는 축(문서 버퍼가 있다)의 수정본은 편집기
     // 탭처럼 수정키+클릭이 링크·정의로 간다. 읽기 전용 축과 원본 쪽은 그대로다.
-    const links=buf?edCmLinks({lsp:(v,pos)=>window.app.lspClickDef(v,pos)}):[];
+    const links=buf?edCmLinks({lsp:(v,pos)=>window.app.lspClient().lspClickDef(v,pos)}):[];
     const bExt=[...eb.extensions,links,listen,gitDiffHunkBar().field,
       CM.EditorView.editorAttributes.of({class:'git-diff-side-mod'})];
     const aExt=[...ea.extensions,CM.EditorView.editorAttributes.of({class:'git-diff-side-orig'})];

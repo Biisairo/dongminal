@@ -49,7 +49,7 @@ class MobileController extends Controller {
    * 없으므로 종전과 한 글자도 다르지 않다.
    */
   mobileSideSlots(){
-    return (this.app.isMobile&&this.app.isEditorWin(this.app.aw()))?1:0;
+    return (this.app.isMobile&&this.app.editor.isEditorWin(this.app.tool.life.aw()))?1:0;
   }
 
   // 지금 사이드 자리에 서 있는가. 그 자리에서는 본문의 pane 을 그리지 않는다.
@@ -58,7 +58,7 @@ class MobileController extends Controller {
   }
 
   _mobileCurrentPane(){
-    const s=this.app.aw(); if(!s||!s.layout) return null;
+    const s=this.app.tool.life.aw(); if(!s||!s.layout) return null;
     const regs=this.app.flattenPanes(s.layout);
     if(!regs.length) return null;
     const off=this.mobileSideSlots();
@@ -87,7 +87,7 @@ class MobileController extends Controller {
    */
   mobileShowPane(rid,opts){
     if(!rid||!this.app.isMobile) return false;
-    const s=this.app.aw(); if(!s||!s.layout) return false;
+    const s=this.app.tool.life.aw(); if(!s||!s.layout) return false;
     const i=this.app.flattenPanes(s.layout).findIndex(p=>p&&p.id===rid);
     if(i<0) return false;
     const idx=i+this.mobileSideSlots();
@@ -99,7 +99,7 @@ class MobileController extends Controller {
 
   // FR-RTU-82: 계수는 **사이드를 포함한다** — pane 이 둘이면 `1/3` 이다.
   mobilePaneCount(){
-    const s=this.app.aw(); if(!s) return 0;
+    const s=this.app.tool.life.aw(); if(!s) return 0;
     const off=this.mobileSideSlots();
     if(!s.layout) return off;
     return this.app.flattenPanes(s.layout).length+off;
@@ -133,8 +133,8 @@ class MobileController extends Controller {
     // 검색, 편집기·diff 면 그 파일의 찾기 패널이다. 종전에는 늘 터미널 검색이라 편집기
     // 칸에서는 아무것도 찾지 않았다.
     if(srch) srch.addEventListener('click',()=>{
-      if(!this.app.focusedTerminal()&&(this.app._edActiveEditor()||this.app._edActiveDiff())){this.app._edFindInFile();return}
-      this.app.toggleSearch();
+      if(!this.app.tool.search.focusedTerminal()&&(this.app.editor.search._edActiveEditor()||this.app.editor.search._edActiveDiff())){this.app.editor.search._edFindInFile();return}
+      this.app.tool.search.toggleSearch();
     });
     if(drwr) drwr.addEventListener('click',()=>this._toggleDrawer());
     if(bd) bd.addEventListener('click',()=>this._toggleDrawer(false));
@@ -207,7 +207,7 @@ class MobileController extends Controller {
   // FR-MTI-15~17: sticky 수식은 TerminalTool 한 곳에서 읽는다 — 키바 경로와
   // 키보드 경로가 서로 다른 수식을 쓰면 어느 쪽도 신뢰할 수 없다.
   _mkbSend(s){
-    const p=this.app.focusedTerminal();
+    const p=this.app.tool.search.focusedTerminal();
     if(!p) return;
     if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
     p._userInput(p._applyStickyMods(s));
@@ -236,7 +236,7 @@ class MobileController extends Controller {
      * 쓰면 두 곳이 `inputmode` 의 진실을 다툰다.
      */
     if(k.act==='kb'){
-      const p=this.app.focusedTerminal();
+      const p=this.app.tool.search.focusedTerminal();
       // 터미널이 아닌 것(편집기·git 입력)에 포커스가 있을 수 있다. 그쪽은
       // 이 규칙의 대상이 아니므로(FR-MKB-14) 종전대로 내리기만 한다.
       if(!p||!p._kbSuppressed){
@@ -250,7 +250,7 @@ class MobileController extends Controller {
     }
     // FR-MKB-10 / D-12: sticky 를 거치지 않는 날것의 바이트.
     if(k.raw!==undefined){
-      const p=this.app.focusedTerminal();
+      const p=this.app.tool.search.focusedTerminal();
       if(!p) return;
       if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
       // UX_BATCH11_SRS FR-TCP-9: 선택이 있으면 `^C` 는 복사다 — 사용자 입력의 한 자리를 지난다.
@@ -482,7 +482,7 @@ class MobileController extends Controller {
      */
     const kb=document.querySelector('#mobile-keybar .mkb-btn[data-act="kb"]');
     if(kb){
-      const p=this.app.focusedTerminal&&this.app.focusedTerminal();
+      const p=this.app.tool.search.focusedTerminal&&this.app.tool.search.focusedTerminal();
       kb.classList.toggle('sticky', !!(p&&p._kbSuppressed&&!p._kbSuppressed()));
     }
   }

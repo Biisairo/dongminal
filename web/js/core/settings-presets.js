@@ -26,7 +26,7 @@ class PresetsSection extends SettingsSection {
   // `gitBackTarget`(FR-GIT-183a)과 같은 규약이다. 기억이 없으면 목록의 첫 일반
   // 창이고, 일반 창이 하나도 없으면 null 이다.
   _presetSource(){
-    const a=this.app.aw();
+    const a=this.app.tool.life.aw();
     if(a&&!this.app.git.isKindWin(a)) return a;
     const plain=this.app.git.plainWindows();
     return plain.find(s=>s.id===this.app._lastPlainWindow)||plain[0]||null;
@@ -124,7 +124,7 @@ class PresetsSection extends SettingsSection {
       // Load button. 로드맵 M7 `FUI-25`: 실패는 **보인다** — 도구 생성이
       // 거절되면 종전에는 창만 비어 있었다.
       const load=UIKit.button({icon:'play',title:TIP_PRESET_LOAD,kind:'ghost'});
-      load.addEventListener('click',e=>{e.stopPropagation();this.app._loadPreset(i).catch(err=>this.app._notify(PRESET_LOAD_FAIL.replace('%s',String(err&&err.message||err))))});
+      load.addEventListener('click',e=>{e.stopPropagation();this.app._loadPreset(i).catch(err=>this.app.tool._notify(PRESET_LOAD_FAIL.replace('%s',String(err&&err.message||err))))});
       item.appendChild(load);
       // Delete button. `FUI-25`: 인라인 확인을 지난다 (Runs·백그라운드 목록의
       // `예/아니오` 와 같은 규약 — 모달 위의 모달을 띄우지 않는다).

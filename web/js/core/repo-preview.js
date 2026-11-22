@@ -22,7 +22,7 @@ class RepoPreview extends Controller {
    */
   _previewToReplace(s, pn){
     const prev=this._findPreviewTab(s, pn);
-    if(!prev||!this.app.tabDirty(s,prev.tab)) return prev;
+    if(!prev||!this.app.editor.open.tabDirty(s,prev.tab)) return prev;
     delete prev.tab.preview;
     return null;
   }
@@ -37,7 +37,7 @@ class RepoPreview extends Controller {
     delete tab.preview;
     // FR-EXR-59: 고정은 "이 파일에서 일하겠다" 다 — 탐색기가 쥔 포커스를 넘긴다
     // (FR-EXR-58 의 예외). 표명은 아래 render 가 소비한다.
-    this.app.edFocusHandoff();
+    this.app.editor.edFocusHandoff();
     this.app.render();
     this.app.save();
     return true;
@@ -71,6 +71,3 @@ class RepoPreview extends Controller {
     return { uuid: prev.tab.id };
   }
 }
-
-// 바깥이 부르는 이름 — 편집기 칸·레이아웃(탭 더하기)·`ui/`.
-Controller.delegate(App,'repoWin.preview',['pinPreviewTab','_findEditorTabIn','_retargetPreview']);

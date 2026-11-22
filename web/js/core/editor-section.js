@@ -58,7 +58,7 @@ class EditorSection extends Controller {
     const cut=Math.max(q.lastIndexOf('/'),q.lastIndexOf('\\'));
     if(cut>=0){
       const sep=q[cut], parent=q.slice(0,cut)||sep, pre=q.slice(cut+1);
-      const root=this.app.edRoots()
+      const root=this.app.editor.edRoots()
         .filter(r=>parent===r||parent.startsWith(r.endsWith(sep)?r:r+sep))
         .sort((a,b)=>b.length-a.length)[0];
       if(root){
@@ -76,7 +76,7 @@ class EditorSection extends Controller {
   }
 
   async _edAdd(){
-    const here=await this.app._edTermCwd();
+    const here=await this._edTermCwd();
     const cwds=await this._edTermCwds(here);
     // 경로는 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS F-m) — 추가 요청도 같은 판정으로 거절된다.
     //	이전 동작: 화면이 빈 경로만 막았고, 상대 경로·파일·없는 경로는 누른 뒤에야 알았다
@@ -96,7 +96,7 @@ class EditorSection extends Controller {
       ],
       validate:(v,d)=>answer.why(v,d),
       run:async v=>{
-        const ok=await this.app.edMutate('/add',{path:(v.path||'').trim()});
+        const ok=await this.edMutate('/add',{path:(v.path||'').trim()});
         return ok?{ok:true}:{ok:false,reason:EDITOR_ADD_FAIL};
       },
     });
@@ -113,7 +113,7 @@ class EditorSection extends Controller {
   // 사라진 디렉터리의 행도 지울 수 있어야 한다.
   async edRemove(path){
     if(!path) return false;
-    return this.app.edMutate('/remove',{path});
+    return this.edMutate('/remove',{path});
   }
 
   // FR-EDT-27: 재정렬은 전체 배열이 아니라 (src, target, before) 델타다 — 그
@@ -121,7 +121,7 @@ class EditorSection extends Controller {
   async edReorder(dr){
     if(!dr||!dr.src||!dr.target||dr.src===dr.target) return false;
     const path=k=>String(k||'').replace(/^ed:/,'');
-    const ok=await this.app.edMutate('/reorder',
+    const ok=await this.edMutate('/reorder',
       {src:path(dr.src),target:path(dr.target),before:!!dr.before});
     // FR-BLP-12 와 같은 규약: 확정하지 못했으면 서버가 아는 순서로 되돌린다.
     if(!ok) await this.edRefresh();
@@ -134,13 +134,13 @@ class EditorSection extends Controller {
    * 표현이므로 목록만 바뀌고 창이 그대로면 화면이 거짓을 말한다.
    */
   async edMutate(sub,body){
-    if(!this.app.edOn()) return false;
+    if(!this.app.editor.edOn()) return false;
     const r=await apiPost(EDITORS_API+sub,body);
     if(!r.ok) return false;
     const d=r.data;
     if(!d) return false;
     // 응답에는 `home` 이 없다 (FR-EDT-110) — 알고 있는 값을 그대로 쓴다.
-    this.app._edPatchList(d.list);
+    this.app.editor.sync._edPatchList(d.list);
     // FR-EDT-39: 연동으로 핀이 함께 바뀐다. 응답이 실어 준 값을 로컬 사본에도
     // 반영해 둔다 — 다음 PUT 이 서버가 방금 만든 핀을 지우지 않게.
     if(Array.isArray(d.pinned)) this.app.git.sync._gitPinsApply(d.pinned);
@@ -150,25 +150,21 @@ class EditorSection extends Controller {
   }
 
   async edRefresh(){
-    if(!await this.app._edLoad()){this.app.renderer._rSbTabs();return}
+    if(!await this.app.editor.sync._edLoad()){this.app.renderer._rSbTabs();return}
     this._edAfterChange();
   }
 
   // 재조정 → 활성 창 보정 → 저장 → 그리기. 목록이 바뀌는 모든 경로가 여기 하나를
   // 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
   _edAfterChange(){
-    this.app._edReconcile();
+    this.app.editor.sync._edReconcile();
     this.app.save();
     // 보고 있던 Editor 창이 사라졌으면 남는 자리로 옮긴다. 옮기지 않으면
     // activeWindow 가 없는 창을 가리켜 콘텐츠 영역이 빈다.
     if(!this.app.ws.windows.some(s=>s.id===this.app.ws.activeWindow)){
-      const back=this.app.edActivateTarget()||this.app.git.gitBackTarget();
+      const back=this.app.editor.open.edActivateTarget()||this.app.git.gitBackTarget();
       if(back){this.app.switchWindow(back.id);return}
     }
     this.app.render();
   }
 }
-
-// 바깥이 부르는 이름 — 부팅(`app.js`)·설정·`ui/`·`git/`·e2e·계약.
-Controller.delegate(App,'editor.section',['_initEditorSection','_edTermCwd','_edPathCandidates','edRemove','edReorder','edMutate',
-  'edRefresh']);

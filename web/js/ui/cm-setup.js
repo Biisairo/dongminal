@@ -125,7 +125,7 @@ function edCmExtensions(o) {
     o.diff ? [] : marks.low,
     edFindSources(),
     o.diff ? [] : marks.high,
-    o.diff ? [] : edCmLinks({ lsp: (v, pos) => window.app.lspClickDef(v, pos) }),
+    o.diff ? [] : edCmLinks({ lsp: (v, pos) => window.app.lspClient().lspClickDef(v, pos) }),
     o.diff ? [] : edCmScrollbar(),
     o.diff ? [] : edCmSticky(),
     edCmBracketColors(),
@@ -340,8 +340,8 @@ function edCmBracketColors() {
  * 기다리는 사이 편집기가 바뀌었거나(`current()` 가 거짓) 경로가 바뀌었으면 버린다.
  */
 async function edCmLspAttach(view, cmp, path, current) {
-  if (!view || !cmp || !cmp.lsp || typeof app === 'undefined' || !app || !app.lspExtFor) return;
-  const ext = path ? await app.lspExtFor(path) : null;
+  if (!view || !cmp || !cmp.lsp || typeof app === 'undefined' || !app || !app.lspClient) return;
+  const ext = path ? await app.lspClient().lspExtFor(path) : null;
   if (!current()) return;
   view.dispatch({ effects: cmp.lsp.reconfigure(ext || []) });
 }

@@ -67,11 +67,11 @@ class FileEditorSave {
     }
     const enc = doc && doc.encoding ? (ENC_LABEL[doc.encoding] || doc.encoding) : '';
     this.ed.note(t('editor.enc_unmappable', { line, col, char: u.char || '', enc }), FE_NOTE_ACTION_MS,
-      { label: ENC_CONVERT, run: () => app.edDocConvertUtf8(this.ed.filePath) });
+      { label: ENC_CONVERT, run: () => app.editor.doc.edDocConvertUtf8(this.ed.filePath) });
   }
 
-  write(content, stamp, doc) { return app.edDocWrite(this.ed.filePath, content, stamp, doc) }
+  write(content, stamp, doc) { return app.editor.doc.edDocWrite(this.ed.filePath, content, stamp, doc) }
 
   // FR-EXC-9: 경합의 확인창 — 문서 저장과 같은 것을 쓴다 (`app.edConfirmConflict`).
-  confirmConflict() { return app.edConfirmConflict(this.ed.name, this.ed.filePath) }
+  confirmConflict() { return app.editor.doc.edConfirmConflict(this.ed.name, this.ed.filePath) }
 }

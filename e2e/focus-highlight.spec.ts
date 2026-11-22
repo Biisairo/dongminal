@@ -58,8 +58,8 @@ async function setup(page: Page) {
   await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'changes') });
   await page.evaluate(async ([a1, a2]) => {
     const a = (window as any).app;
-    await a.edOpenFile(a1, { preview: false });
-    await a.edOpenFile(a2, { preview: false });
+    await a.editor.file.edOpenFile(a1, { preview: false });
+    await a.editor.file.edOpenFile(a2, { preview: false });
   }, [TOP(), NESTED()]);
 }
 
@@ -160,7 +160,7 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
       await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
       // 새로고침할 때 **반대쪽** 사이드를 보게 둔다 — 대상 패널이 늦게 서는 경우다.
       if (kind === 'file') {
-        await page.evaluate((f) => (window as any).app.edOpenFile(f, { preview: false }), TOP());
+        await page.evaluate((f) => (window as any).app.editor.file.edOpenFile(f, { preview: false }), TOP());
         await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'changes') });
       } else {
         await page.locator('#area .ed-side .git-file[data-path="tracked.txt"]').first().click();

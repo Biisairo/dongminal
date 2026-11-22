@@ -45,15 +45,9 @@ function host(ctx, over = {}) {
     _wsSeen() { log.push('_wsSeen'); return seenBefore },
     _wsMarkSaved(w) { log.push('_wsMarkSaved'); h.args.marked = w.map((s) => s.id) },
     _normalizeIncomingWorkspace(_sv, live) { log.push('_normalizeIncomingWorkspace'); h.args.live = live; return ret.normalize },
-    _edPatchList(list) { log.push('_edPatchList'); h.args.list = list },
-    _edReconcile(w) { log.push('_edReconcile'); h.args.reconcile = w; return ret.reconcile },
-    _edKeepActive(sv) { log.push('_edKeepActive'); h.args.keep = sv },
     _fallbackActiveWindow(sv) { log.push('_fallbackActiveWindow'); h.args.fallback = sv },
-    edOn: () => ret.edOn,
-    edRoots: () => ['/kept'],
     _activateWindow(id) { log.push('_activateWindow:' + id); h.args.activatedOnNew = h.ws === h.args.sv; h.ws.activeWindow = id },
     _stripDeviceKeys() { log.push('_stripDeviceKeys'); return ret.strip },
-    aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null,
     setFocusState(id) { log.push('setFocusState:' + id) },
     _slotTabsToWs() { log.push('_slotTabsToWs') },
     save() { log.push('save') },
@@ -62,7 +56,7 @@ function host(ctx, over = {}) {
     git: {
       gitWindow: () => h.ws.windows.find((s) => s.type === 'git') || null,
       sync: { gitReposKick() { log.push('gitReposKick') } },
-    }, attn: { _attnDrop(id) { log.push('_attnDrop:' + id); return ret.attnDrop }, _attnRefresh() { log.push('_attnRefresh') } },
+    }, attn: { _attnDrop(id) { log.push('_attnDrop:' + id); return ret.attnDrop }, _attnRefresh() { log.push('_attnRefresh') } }, editor: { edOn: () => ret.edOn, edRoots: () => ['/kept'], sync: { _edPatchList(list) { log.push('_edPatchList'); h.args.list = list }, _edReconcile(w) { log.push('_edReconcile'); h.args.reconcile = w; return ret.reconcile } }, pane: { _edKeepActive(sv) { log.push('_edKeepActive'); h.args.keep = sv } } }, tool: { life: { aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null } },
   };
   ctx.mergeUnseenLayout = (local, remote, seen, want) => {
     log.push('merge');
@@ -288,10 +282,7 @@ function saveRig() {
     },
     _saveFlushDeferred() { log.push('flush') },
     git: { sync: { gitReposKick() { log.push('gitReposKick') } } },
-    edOn: () => false,
-    _edPatchList(list) { log.push('_edPatchList:' + JSON.stringify(list)) },
-    _edReconcile(...a) { log.push('_edReconcile:' + a.length) },
-    _applyRemoteWorkspace(rem, panes, known) { log.push('apply:' + JSON.stringify([panes, known])); A._applied = rem },
+    _applyRemoteWorkspace(rem, panes, known) { log.push('apply:' + JSON.stringify([panes, known])); A._applied = rem }, editor: { edOn: () => false, sync: { _edPatchList(list) { log.push('_edPatchList:' + JSON.stringify(list)) }, _edReconcile(...a) { log.push('_edReconcile:' + a.length) } } },
   });
   A.wsSave = new ctx.WsSaveController(A);
   return { ctx, A, net, log, sleeps, warns, errs };
@@ -430,7 +421,7 @@ test('TC-FR3-20: 직렬화가 던져도 비행은 닫히고 끝 처리를 부른
 
 test('TC-FR3-21: 채택 순서 — 조회 → ETag → git 병합 → editors → 창 적용(도구 모름) → 미루기', async () => {
   const { ctx, A, net, log } = saveRig();
-  A.edOn = () => true;
+  A.editor.edOn = () => true;
   A.ws.git = { pinned: ['a'], drafts: { r: 'mine' }, favorites: { f: 1 } };
   const rem = { git: { pinned: ['b'], drafts: { r: 'theirs', s: 'x' }, extra: 1 }, editors: { list: ['E'] }, windows: [{ id: 'R' }] };
   net.get = async () => res(200, '7', rem);

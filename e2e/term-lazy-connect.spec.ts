@@ -33,7 +33,7 @@ async function seedHidden(page: Page, request: any): Promise<{ first: string; hi
   // 첫 탭으로 돌아간다 — 나머지는 숨는다.
   await page.evaluate(({ first }) => {
     const app = (window as any).app;
-    const loc = app.findToolLocation(first);
+    const loc = app.tool.life.findToolLocation(first);
     app.switchTab(loc.pane.id, loc.tab.id);
   }, r);
   await waitSettled(page);
@@ -85,7 +85,7 @@ test('TLC1 (IPC-5): 새로고침은 보이는 터미널의 WS 만 연다', async
   expect(known).toEqual([...s.all].sort());
   const tabs = await page.evaluate((first) => {
     const app = (window as any).app;
-    return app.findToolLocation(first).pane.tabs.length;
+    return app.tool.life.findToolLocation(first).pane.tabs.length;
   }, s.first);
   expect(tabs).toBe(HIDDEN + 1);
 });
@@ -98,7 +98,7 @@ test('TLC2 (IPC-5): 숨은 탭은 처음 그려질 때 붙고 전량을 재생�
   const target = s.hidden[0];
   await page.evaluate((id) => {
     const app = (window as any).app;
-    const loc = app.findToolLocation(id);
+    const loc = app.tool.life.findToolLocation(id);
     app.switchTab(loc.pane.id, loc.tab.id);
   }, target);
   await expect.poll(() => boot.ws.includes(target), { timeout: 10000 }).toBe(true);
@@ -114,8 +114,8 @@ test('TLC3 (IPC-5): 원격 워크스페이스 변경이 붙지 않은 도구의 
   expect(res.ok()).toBe(true);
   // 지우기는 방송하지 않는다 — 다음 워크스페이스 변경이 목록을 싣는다. 그 경로를 부른다.
   await page.evaluate(() => (window as any).app.testing.onWorkspaceChanged());
-  await expect.poll(() => page.evaluate((id) => !!(window as any).app.findToolLocation(id), gone), { timeout: 15000 }).toBe(false);
-  expect(await page.evaluate((id) => !!(window as any).app.findToolLocation(id), kept), '붙지 않은 도구의 탭이 사라졌다').toBe(true);
+  await expect.poll(() => page.evaluate((id) => !!(window as any).app.tool.life.findToolLocation(id), gone), { timeout: 15000 }).toBe(false);
+  expect(await page.evaluate((id) => !!(window as any).app.tool.life.findToolLocation(id), kept), '붙지 않은 도구의 탭이 사라졌다').toBe(true);
   expect(await page.evaluate((id) => (window as any).app.toolIds.has(id), gone)).toBe(false);
 });
 
@@ -153,7 +153,7 @@ test('TLC5 (IPC-5): 그려지지 않은 창의 칸을 나누어도 새 도구는
   const ref = await page.evaluate((hidden) => {
     const app = (window as any).app;
     for (const id of hidden) {
-      const loc = app.findToolLocation(id);
+      const loc = app.tool.life.findToolLocation(id);
       if (loc && loc.win.id !== app.ws.activeWindow) return { tool: id, win: loc.win.id, pane: loc.pane.id, drawn: !!app.toolAny(id) };
     }
     return null;

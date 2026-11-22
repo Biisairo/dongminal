@@ -177,8 +177,8 @@ const ED_SEARCH_ACTIONS={
 // 다르기** 때문이다: 검색은 루트만 있으면 되고, 이쪽은 편집기가 실제로 서 있어야
 // 한다 (FR-LSP-40b).
 const ED_LSP_ACTIONS={
-  edGotoDef:'_lspClient()._lspGotoDef',
-  edFindRefs:'_lspClient()._lspFindRefs',
+  edGotoDef:'lspClient()._lspGotoDef',
+  edFindRefs:'lspClient()._lspFindRefs',
 };
 
 // UX_BATCH9_SRS FR-ESV-2: 편집기 **인스턴스**가 수행하는 액션.

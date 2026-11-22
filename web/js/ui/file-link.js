@@ -49,7 +49,7 @@ async function filePathExisting(cands,cwd){
 /** FR-FPL-4: 편집기가 꺼져 있으면 파일 링크는 서지 않는다. */
 function fileLinksOn(){
   const A=window.app;
-  return !!(A&&A.edOn&&A.edOn());
+  return !!(A&&A.editor?.edOn&&A.editor.edOn());
 }
 
 /** FR-FPL-4·5: xterm 링크 공급자. 누르면 편집기의 그 줄로 연다. */
@@ -68,7 +68,7 @@ function fileLinkProvider(term,cwdOf){
             if(cand.line) o.line=cand.line;
             if(cand.col) o.col=cand.col;
             // FR-FPL-7: 이 mouseup 이 document 에 닿기 전에 터미널을 떼면 release 보고가 NaN 좌표로 나간다.
-            TIMERS.defer(()=>window.app.edOpenFile(abs,o),{label:'file-link'});
+            TIMERS.defer(()=>window.app.editor.file.edOpenFile(abs,o),{label:'file-link'});
           },
         }));
         cb(links.length?links:undefined);

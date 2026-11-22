@@ -49,7 +49,7 @@ class ToolWork extends Controller {
   /** 작업 중이고 창에 자리가 있는 도구 — 모바일 작업 단추·에이전트 탭 배지의 수가 이것이다. */
   workingToolIds(){
     const out=new Set();
-    for(const id of this.app._activity.keys()) if(this.toolWorking(id)&&this.app.findToolLocation(id)) out.add(id);
+    for(const id of this.app._activity.keys()) if(this.toolWorking(id)&&this.app.tool.life.findToolLocation(id)) out.add(id);
     return out;
   }
 
@@ -94,6 +94,3 @@ class ToolWork extends Controller {
     });
   }
 }
-
-// 바깥이 부르는 이름 — 렌더러·사이드바·작업 패널·e2e.
-Controller.delegate(App,'tool.work',['workingToolIds','tabWorkDot','windowWorkDot','_workSync','_workRefresh']);

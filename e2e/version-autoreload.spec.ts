@@ -158,7 +158,7 @@ test('TC-OPT-4-10b (FR-RLC-2b 개정·FR-RLC-1 D-2): 살아 있는 구독의 미
   await page.evaluate(() => {
     const w = window as any;
     w.__dirty = true;
-    w.app.edAnyDirty = () => w.__dirty;
+    w.app.editor.sync.edAnyDirty = () => w.__dirty;
     w.__dmAssetVersion('999997', () => true);
   });
   await expect(page.locator('#ver-held')).toBeVisible();

@@ -50,7 +50,7 @@ test.describe('UX_BATCH12 — Explorer 단축키 (FR-EXK-1~6)', () => {
     await enterExplorer(page, request, R);
     await pickAB(page, R);
     await page.keyboard.press('ControlOrMeta+KeyC');
-    const clip = await page.evaluate(() => (window as any).app.edClipGet());
+    const clip = await page.evaluate(() => (window as any).app.editor.file.edClipGet());
     expect([...clip.paths].sort()).toEqual([j(R, 'a.txt'), j(R, 'b.txt')]);
 
     await row(page, j(R, 'sub')).click();
@@ -64,7 +64,7 @@ test.describe('UX_BATCH12 — Explorer 단축키 (FR-EXK-1~6)', () => {
     await enterExplorer(page, request, R);
     await pickAB(page, R);
     await page.keyboard.press('ControlOrMeta+KeyX');
-    const clip = await page.evaluate(() => (window as any).app.edClipGet());
+    const clip = await page.evaluate(() => (window as any).app.editor.file.edClipGet());
     expect(clip && clip.move).toBe(true);
     expect(clip.paths.length).toBe(2);
 
@@ -72,7 +72,7 @@ test.describe('UX_BATCH12 — Explorer 단축키 (FR-EXK-1~6)', () => {
     await page.keyboard.press('ControlOrMeta+KeyV');
     await onDisk(() => fs.existsSync(j(R, 'sub', 'a.txt')) && fs.existsSync(j(R, 'sub', 'b.txt'))).toBe(true);
     await onDisk(() => fs.existsSync(j(R, 'a.txt')) || fs.existsSync(j(R, 'b.txt'))).toBe(false);
-    await expect.poll(() => page.evaluate(() => (window as any).app.edClipGet())).toBe(null);
+    await expect.poll(() => page.evaluate(() => (window as any).app.editor.file.edClipGet())).toBe(null);
   });
 
   test('TC-EXK-2a (FR-EXK-4): 두 파일 Delete → 확인 뒤 둘 다 지워진다', async ({ page, request }) => {
@@ -105,7 +105,7 @@ test.describe('UX_BATCH12 — Explorer 단축키 (FR-EXK-1~6)', () => {
     await page.keyboard.press('ControlOrMeta+KeyX');
     await page.keyboard.press('ControlOrMeta+KeyC');
     await expect(page.locator('.ed-confirm')).toHaveCount(0);
-    expect(await page.evaluate(() => (window as any).app.edClipGet())).toBe(null);
+    expect(await page.evaluate(() => (window as any).app.editor.file.edClipGet())).toBe(null);
   });
 
   test('TC-EXK-3 (FR-EXK-5): ⌘A 는 보이는 행 전부, Escape 는 앵커 하나', async ({ page, request }) => {

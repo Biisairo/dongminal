@@ -47,7 +47,7 @@ Object.assign(SettingsSync.prototype, {
           this._settingsLastSent=body;
           const res=await apiPut('/api/settings?clientId='+encodeURIComponent(this.app.clientId),body);
           ok=res.ok;
-          if(!ok&&this.app._notify) this.app._notify(SETTINGS_SAVE_FAIL);
+          if(!ok&&this.app.tool?._notify) this.app.tool._notify(SETTINGS_SAVE_FAIL);
         }
       }finally{
         this._settingsChain=null; this._settingsDirty=false;

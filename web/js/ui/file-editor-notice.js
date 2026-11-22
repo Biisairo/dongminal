@@ -110,7 +110,7 @@ class FileEditorNotice {
         go.textContent = LSP_INSTALLING;
         // 조달의 단위는 **팩**이다 (FR-EXT-5·31) — 서버 id 로 부르면 다섯을 내는
         // 팩에서 아무것도 받지 못한다.
-        if (window.app) window.app.lspOfferInstall(st.pack || st.id, this.ed);
+        if (window.app) window.app.lspClient().lspOfferInstall(st.pack || st.id, this.ed);
       });
     }
     const set = el.querySelector('.fe-offer-set');

@@ -51,7 +51,7 @@ class SoftReload extends Controller {
       //    새 상태를 더해도 이 파일은 바뀌지 않는다.
       this._softStep('states',()=>this.app.bus.publish('softreload',{}));
       // ④ 목록과 패널.
-      await this._softStepAsync('editors',()=>this.app._edLoad&&this.app._edLoad());
+      await this._softStepAsync('editors',()=>this.app.editor.sync._edLoad&&this.app.editor.sync._edLoad());
       this._softStep('gitRepos',()=>this.app.git.sync.gitReposRefresh&&this.app.git.sync.gitReposRefresh());
       this._softStep('gitPanel',()=>{
         const p=this.app.gitPanel;

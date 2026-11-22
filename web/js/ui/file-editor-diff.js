@@ -344,7 +344,7 @@ class EdDirtyDiff{
     const rel=prefix+tail;
     // REPO_FIX 03 §3A-3: 문서의 인코딩으로 기준을 디코드해 받는다 — CP949 문서의
     // 기준이 깨진 글자면 모든 줄이 변경으로 보인다.
-    const doc=this.app.edDocAt(this.filePath);
+    const doc=this.app.editor.doc.edDocAt(this.filePath);
     const params={repo:d.repo,axis:ED_DD_AXIS,path:rel};
     if(doc&&doc.encoding) params.encoding=doc.encoding;
     const dc=await gitFetch(GIT_API.diffContent,params);
@@ -367,9 +367,9 @@ class EdDirtyDiff{
   // 그 파일의 창이고, 그 창의 루트가 status 의 대상이다 (FR-EDD-3).
   _root(){
     const app=this.app;
-    if(!app||!app.edRoots) return '';
+    if(!app||!app.editor?.edRoots) return '';
     let best='';
-    for(const r of app.edRoots()){
+    for(const r of app.editor.edRoots()){
       if(!r) continue;
       // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 **어떤 루트도 걸리지
       // 않아** 이 함수가 늘 빈 값을 내고, 변경 표시가 통째로 서지 않는다.
@@ -447,7 +447,7 @@ class EdDirtyDiff{
   async stage(ch,view){
     if(!ch) return {ok:false,msg:ED_DD_STAGE_FAIL};
     // REPO_FIX 03 §3A-3: UTF-16 문서는 git 이 이진으로 보아 hunk 좌표가 없다.
-    const doc=this.app.edDocAt(this.filePath);
+    const doc=this.app.editor.doc.edDocAt(this.filePath);
     if(doc&&/^utf-16/.test(doc.encoding||'')) return {ok:false,msg:ENC_DD_STAGE_UTF16};
     if(view&&view._dirty){
       await view.save();

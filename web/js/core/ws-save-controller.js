@@ -173,7 +173,7 @@ class WsSaveController extends Controller {
     // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
     // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버
     // 값을 통째로 쓴다. 목록이 바뀌었으면 창도 따라와야 한다.
-    if(rem&&rem.editors&&this.app.edOn()){
+    if(rem&&rem.editors&&this.app.editor.edOn()){
       this.app.ws.editors=rem.editors;
       // WORKBENCH_REVIEW_SRS FR-WBR-30: **목록만** 갈아끼운다.
       //
@@ -184,8 +184,8 @@ class WsSaveController extends Controller {
       //   이유:     그 함수가 있는 이유가 바로 이것이다 — "아는 값은
       //             그대로, 목록만". 여기가 그 규약을 우회한 넷째
       //             자리였다
-      this.app._edPatchList(rem.editors.list);
-      this.app._edReconcile();
+      this.app.editor.sync._edPatchList(rem.editors.list);
+      this.app.editor.sync._edReconcile();
     }
     /**
      * FR-WSC-2: **창까지 채택한다.** 위의 둘(git·editors)만 받고

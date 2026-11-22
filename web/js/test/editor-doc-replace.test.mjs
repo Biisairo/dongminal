@@ -34,7 +34,7 @@ test('V-ELR-14 (FR-ELR-36): 바깥 내용을 넣는 동안 구독자가 보는 d
   const seen = [];
   d.buf.onChange(() => seen.push(d.dirty));
   serve('new\n', 's2');
-  assert.equal(await a.edDocRefresh(PATH), true);
+  assert.equal(await a.editor.doc.edDocRefresh(PATH), true);
   assert.deepEqual(seen, [false]);
   assert.equal(d.dirty, false);
   assert.equal(d.buf.value(), 'new\n');
@@ -49,13 +49,13 @@ test('V-ELR-15 (FR-ELR-37): 반영 도중 예외가 나면 표식은 옛 값이�
   const orig = console.error;
   console.error = () => {};
   let first;
-  try { first = await a.edDocRefresh(PATH) } finally { console.error = orig }
+  try { first = await a.editor.doc.edDocRefresh(PATH) } finally { console.error = orig }
   assert.equal(first, false);
   assert.equal(d.stamp, 's1', '실패한 회차는 표식을 옮기지 않는다 — 다음 회차가 다시 읽는다');
   assert.equal(d.dirty, false, 'dirty 로 남으면 폴링이 그 문서를 다시 묻지 않는다');
 
   fail = false;
-  assert.equal(await a.edDocRefresh(PATH), true);
+  assert.equal(await a.editor.doc.edDocRefresh(PATH), true);
   assert.equal(d.stamp, 's2');
   assert.equal(d.dirty, false);
   assert.equal(d.buf.value(), 'new\n');

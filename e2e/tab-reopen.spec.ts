@@ -67,7 +67,7 @@ async function tabs(page: Page): Promise<{ list: TabInfo[]; active: string; focu
   });
 }
 
-const openFile = (page: Page, name: string) => page.evaluate((p) => (window as any).app.edOpenFile(p), j(REPO, name));
+const openFile = (page: Page, name: string) => page.evaluate((p) => (window as any).app.editor.file.edOpenFile(p), j(REPO, name));
 
 async function closeByName(page: Page, name: string) {
   await page.evaluate((n) => {
@@ -291,7 +291,7 @@ test.describe('TC-RTR-4 — 파일 안의 점프도 기록의 한 칸이다 (FR-
     await openFile(page, 'a.txt');
     await openFile(page, 'long.txt');
     await expect.poll(() => lineOf(page)).toBe(1);
-    await page.evaluate((p) => (window as any).app.edOpenFile(p, { line: 200 }), j(REPO, 'long.txt'));
+    await page.evaluate((p) => (window as any).app.editor.file.edOpenFile(p, { line: 200 }), j(REPO, 'long.txt'));
     await expect.poll(() => lineOf(page)).toBe(200);
 
     await page.evaluate(() => (window as any).app.executeAction('focusBack'));

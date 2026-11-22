@@ -20,7 +20,7 @@ function setup({ windows, where, order = [] }) {
   const app = controllers(ctx, new ctx.App());
   app.ws = { windows: windows.map((id) => ({ id })), agentsOrder: order.slice() };
   app._activity = new Map();
-  app.findToolLocation = (id) => (where[id] ? { win: { id: where[id] }, tab: { name: id } } : null);
+  app.tool.life.findToolLocation = (id) => (where[id] ? { win: { id: where[id] }, tab: { name: id } } : null);
   app.attn.attnHas = () => false;
   return app;
 }

@@ -16,13 +16,13 @@ class EditorOpen extends Controller {
    * 파일 자체는 디스크에 그대로 있다.
    */
   _migrateEditorTabs(list){
-    if(!this.app.edOn()) return 0;
+    if(!this.app.editor.edOn()) return 0;
     const ws=list||this.app.ws.windows;
     if(!Array.isArray(ws)) return 0;
     let n=0;
     for(const s of ws){
       if(!s||!s.layout) continue;
-      if(this.app.isEditorWin(s)||this.app.git.isGitWin(s)) continue;
+      if(this.app.editor.isEditorWin(s)||this.app.git.isGitWin(s)) continue;
       const panes=panesOf(s.layout);
       for(const p of panes){
         const before=(p.tabs||[]).length;
@@ -42,13 +42,13 @@ class EditorOpen extends Controller {
   // FR-EDT-7: Editor 탭을 고르면 마지막으로 활성이었던 Editor 창으로 간다.
   // 그런 창이 없으면 root 에디터 창이다 (`gitBackTarget` 과 같은 모양).
   edActivateTarget(){
-    const wins=this.app.edWindows();
+    const wins=this.app.editor.edWindows();
     return wins.find(s=>s.id===this.app._lastEditorWindow)
-      ||this.app.edWindowFor(this.app._edHome())||wins[0]||null;
+      ||this.app.editor.edWindowFor(this.app.editor._edHome())||wins[0]||null;
   }
 
   edOpenWindow(root){
-    const w=this.app.edWindowFor(root);
+    const w=this.app.editor.edWindowFor(root);
     if(w) this.app.switchWindow(w.id);
   }
 
@@ -115,8 +115,8 @@ class EditorOpen extends Controller {
       const v=this.app.editorAny(tab.id);
       return !!(v&&v._dirty);
     }
-    if(tab.type===TAB_TYPE_GIT&&win&&this.app.isEditorWin(win)){
-      return this.app.git.surfaces._gitViewDirty(this.app.edRootOf(win),tab.gitView,false,tab.id);
+    if(tab.type===TAB_TYPE_GIT&&win&&this.app.editor.isEditorWin(win)){
+      return this.app.git.surfaces._gitViewDirty(this.app.editor.edRootOf(win),tab.gitView,false,tab.id);
     }
     return false;
   }
@@ -172,7 +172,7 @@ class EditorOpen extends Controller {
   _edVisibleDocPaths(){
     const seen=new Set();
     for(const s of (this.app.ws&&this.app.ws.windows)||[]){
-      if(!s||!s.layout||!this.app.isEditorWin(s)) continue;
+      if(!s||!s.layout||!this.app.editor.isEditorWin(s)) continue;
       // FR-ELR-11a: 보이지 않는 창은 묻지 않는다 (FR-STAT-17). 돌아오면 그 틱의
       // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
       if(!this.app.windowVisible(s.id)) continue;
@@ -181,7 +181,7 @@ class EditorOpen extends Controller {
         // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
         // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
         if(tab&&tab.type===TAB_TYPE_GIT&&tab.gitView==='diff')
-          for(const p of this.app.git.surfaces._gitDiffDocPaths(this.app.edRootOf(s))) seen.add(p);
+          for(const p of this.app.git.surfaces._gitDiffDocPaths(this.app.editor.edRootOf(s))) seen.add(p);
       }
     }
     return seen;
@@ -261,7 +261,7 @@ class EditorOpen extends Controller {
       if(!d||d.dirty||!d.stamp||d.stamp===now) continue;
       // REPO_FIX 03 E-7.1: 뷰가 아니라 **문서**의 refresh — 첫 뷰가 무엇이든 소스가
       // 갱신되고 모든 뷰가 알림을 받는다. 시선은 칸마다 지켜진다 (FR-ELR-30).
-      this.app.edDocRefresh(p);
+      this.app.editor.doc.edDocRefresh(p);
     }
   }
 
@@ -303,7 +303,7 @@ class EditorOpen extends Controller {
    */
   _edOnGitChanged(repo,mark){
     const hit=new Map();
-    for(const tree of this.app._edVisibleTrees()){
+    for(const tree of this._edVisibleTrees()){
       const st=tree.store;
       if(!st||hit.has(st)) continue;
       if(st.root!==repo&&st.gitRepo!==repo) continue;
@@ -343,7 +343,7 @@ class EditorOpen extends Controller {
     this.app.editor.sync._edReapTrees();
     const key=this.app.slotKey(s.id,slot||0);
     let tree=this.app._edTrees.get(key);
-    if(tree&&tree.root!==this.app.edRootOf(s)){tree.destroy();tree=null}
+    if(tree&&tree.root!==this.app.editor.edRootOf(s)){tree.destroy();tree=null}
     if(!tree){tree=new FileTree(this.app,s);this.app._edTrees.set(key,tree)}
     // FR-DSP-1c: 트리가 없던 동안 열린 파일을 이제 드러낸다. 한 번만이다 —
     // 지운 뒤에 부르므로 다음 render 가 같은 일을 되풀이하지 않는다.
@@ -378,12 +378,12 @@ class EditorOpen extends Controller {
   // 결과는 모든 칸에 칠해진다 (FR-SVS-20·22). 포커스 칸의 것을 고르고, 없으면
   // 그 창을 보는 아무 칸의 것을 쓴다.
   edActiveTree(){
-    const s=this.app.aw();
-    if(!this.app.isEditorWin(s)||!this.app._edTrees) return null;
+    const s=this.app.tool.life.aw();
+    if(!this.app.editor.isEditorWin(s)||!this.app._edTrees) return null;
     // FR-RTU-12·14: 사이드가 `Changes` 면 탐색기는 화면에 없다 — `_edVisibleTrees`
     // 와 같은 게이트다. 이 자리가 빠지면 즉시 신호(`gitSignal`)마다 보이지도
     // 않는 트리의 status 가 한 건 더 나가 디바운스가 무의미해진다 (V5 실측).
-    if(this.app.edSideOf(s)!==REPO_SIDE_EXPLORER) return null;
+    if(this.app.editor.pane.edSideOf(s)!==REPO_SIDE_EXPLORER) return null;
     const mine=this.app._edTrees.get(this.app.slotKey(s.id,this.app.slotFocused()));
     if(mine) return mine;
     for(const[key,tree] of this.app._edTrees) if(this.app.slotBase(key)===s.id) return tree;
@@ -437,14 +437,9 @@ class EditorOpen extends Controller {
        * 나가 "폴링을 껐는데 status 가 온다" 가 됐다 (V18).
        */
       const w=this.app.ws.windows.find(x=>x&&x.id===id);
-      if(this.app.isEditorWin(w)&&this.app.edSideOf(w)!==REPO_SIDE_EXPLORER) continue;
+      if(this.app.editor.isEditorWin(w)&&this.app.editor.pane.edSideOf(w)!==REPO_SIDE_EXPLORER) continue;
       out.push(tree);
     }
     return out;
   }
 }
-
-// 바깥이 부르는 이름 — Git(`_edOnGitChanged`)·레이아웃·포커스·LSP·`ui/`·`git/`·e2e·계약.
-Controller.delegate(App,'editor.open',['_migrateEditorTabs','edActivateTarget','edOpenWindow','edDoc','tabDirty','edDocDrop',
-  'edDirtyDiff','edDirtyDiffRepaint','edPollDocStamps','_edOnGitChanged','edStore','edTree','_edTreeFor','edActiveTree',
-  'edRefreshTreesFor','_edVisibleTrees']);

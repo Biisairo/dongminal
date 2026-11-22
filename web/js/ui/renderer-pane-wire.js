@@ -46,7 +46,7 @@ Object.assign(Renderer.prototype, {
     el.addEventListener('contextmenu',e=>{
       const c=ctx(); if(!c.pane||!c.tab) return;
       e.preventDefault(); e.stopPropagation();
-      const aw=app.aw();
+      const aw=app.tool.life.aw();
       const noNew=app.git.isKindWin(aw);
       const label=el.querySelector('.pn-tab-label');
       const at={x:e.clientX,y:e.clientY};
@@ -55,7 +55,7 @@ Object.assign(Renderer.prototype, {
       UIKit.menu([
         {id:'new',label:TAB_MENU_NEW,key:'newTab',disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.addTab(c.pane.id,'terminal')},
         {id:'rename',label:TAB_MENU_RENAME,disabled:c.tab.type===TAB_TYPE_GIT?TAB_MENU_RENAME_GIT_NO:false,
-          onClick:()=>{if(c.tab.preview) app.pinPreviewTab(c.tab); if(label) app.renameTab(c.tab,label)}},
+          onClick:()=>{if(c.tab.preview) app.repoWin.preview.pinPreviewTab(c.tab); if(label) app.renameTab(c.tab,label)}},
         ...(acct?[{sep:true},acct,{sep:true}]:[]),
         {id:'close',label:TAB_MENU_CLOSE,key:'closeTab',onClick:()=>app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot})},
       ],{at,cls:'tab-menu'});
@@ -64,7 +64,7 @@ Object.assign(Renderer.prototype, {
     el.addEventListener('dblclick',e=>{
       const c=ctx(); if(!c.tab||!c.tab.preview) return;
       e.stopPropagation();
-      app.pinPreviewTab(c.tab);
+      app.repoWin.preview.pinPreviewTab(c.tab);
     });
     // 탭은 `renameTab` 이다 — 창의 `rename` 과 달리 빈 문자열에 뜻이 있다
     // (FR-TAN-21). git 뷰 탭의 이름은 뷰에서 파생하므로 고쳐도 다음 그리기가
@@ -72,7 +72,7 @@ Object.assign(Renderer.prototype, {
     el.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{
       const c=ctx(); if(!c.tab||c.tab.type===TAB_TYPE_GIT) return;
       e.stopPropagation();
-      if(c.tab.preview){app.pinPreviewTab(c.tab);return}
+      if(c.tab.preview){app.repoWin.preview.pinPreviewTab(c.tab);return}
       app.renameTab(c.tab,e.target);
     });
   },
@@ -115,7 +115,7 @@ Object.assign(Renderer.prototype, {
     const{srcPaneId,tabId}=app.drag;
     app.drag=null;
     clearMarks();
-    const s=app.aw(); if(!s)return;
+    const s=app.tool.life.aw(); if(!s)return;
     const rect=el.getBoundingClientRect();
     const insBefore=e.clientX<rect.left+rect.width/2;
     if(srcPaneId===c.pane.id){
@@ -223,7 +223,7 @@ Object.assign(Renderer.prototype, {
       const n=node(); if(!n) return;
       const{srcPaneId,tabId}=app.drag;
       app.drag=null;
-      const s=app.aw(); if(!s)return;
+      const s=app.tool.life.aw(); if(!s)return;
       if(srcPaneId===n.id){
         const pn=findPane(s.layout,n.id); if(!pn)return;
         const si=pn.tabs.findIndex(tab=>tab.id===tabId); if(si<0)return;
@@ -299,7 +299,7 @@ Object.assign(Renderer.prototype, {
       // FR-MTI-25: 모바일에서 키보드를 올리는 유일한 경로. render 는 focus 하지
       // 않으므로 여기서 하지 않으면 모바일에서 입력을 시작할 길이 없다.
       if(app.isMobile){
-        const pn=findPane(app.aw()?.layout,n.id);
+        const pn=findPane(app.tool.life.aw()?.layout,n.id);
         const tab=pn&&(pn.tabs||[]).find(x=>x.id===app.paneTab(pn,slotOf()));
         if(tab&&tab.type!=='editor'){
           const p=app.toolAny(tab.toolId);

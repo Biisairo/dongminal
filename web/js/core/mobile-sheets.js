@@ -24,7 +24,7 @@ class MobileSheets extends Controller {
     const ov=document.getElementById('modal-overlay');
     const ag=document.getElementById('agents-panel');
     const sheet=mob&&(!!this.app.drawerOpen||!!(ag&&ag.classList.contains('open'))||!!(ov&&ov.classList.contains('open')));
-    const noKb=mob&&(sheet||!this.app.focusedTerminal());
+    const noKb=mob&&(sheet||!this.app.tool.search.focusedTerminal());
     const changed=b.classList.contains('m-no-kb')!==noKb;
     b.classList.toggle('m-sheet',sheet);
     b.classList.toggle('m-no-kb',noKb);

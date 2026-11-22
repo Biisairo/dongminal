@@ -203,7 +203,7 @@ class FileTreeSelect {
     // REPO_TAB_UNIFY_SRS FR-RTU-40·43: 한 번 클릭은 **미리보기**다. 트리를 훑는
     // 일이 탭 20개가 되면 목록을 보는 것 자체가 정리를 부른다 (D-RTU-9).
     // 고정하려면 더블클릭한다 (FR-RTU-42).
-    else if(kind==='file') this.tree.app.edOpenFile(p,{preview:true});
+    else if(kind==='file') this.tree.app.editor.file.edOpenFile(p,{preview:true});
     else this.tree._paintAll();
   }
 
@@ -239,7 +239,7 @@ class FileTreeSelect {
       return;
     }
     if(row.dataset.kind!=='file') return;
-    this.tree.app.edPinTabFor(row.dataset.path);
+    this.tree.app.editor.pane.edPinTabFor(row.dataset.path);
   }
 }
 

@@ -72,7 +72,7 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
   for (const id of all) {
     await remote.evaluate((tid) => {
       const a = (window as any).app;
-      const loc = a.findToolLocation(tid);
+      const loc = a.tool.life.findToolLocation(tid);
       a.switchTab(loc.pane.id, loc.tab.id);
       a.setFocus(loc.pane.id);
     }, id);
@@ -86,7 +86,7 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
     for (const id of all) {
       await local.evaluate((tid) => {
         const a = (window as any).app;
-        const loc = a.findToolLocation(tid);
+        const loc = a.tool.life.findToolLocation(tid);
         a.switchTab(loc.pane.id, loc.tab.id);
         a.setFocus(loc.pane.id);
       }, id);

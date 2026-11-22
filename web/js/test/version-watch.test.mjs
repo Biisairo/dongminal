@@ -43,7 +43,7 @@ function setup({ self = SELF, tried = null, dirty = false, page = null } = {}) {
       BOOT_STEP_VERSION: 'step-version',
       VER_HELD_MSG: 'held', VER_HELD_GO: 'go',
       UIKit: { button: (o) => ({ id: '', label: o.label, cls: o.cls, click: o.onClick }) },
-      app: { edAnyDirty: () => dirty },
+      app: { editor: { sync: { edAnyDirty: () => dirty } }, },
       apiGet: async (path, o) => {
         log.push('get:' + path + ':' + o.cache + ':' + o.parse + ':' + (o.query && typeof o.query._v));
         return page || { ok: false };
@@ -102,7 +102,7 @@ test('TC-FR5-10: dirty 편집이 있으면 배너만 한 번 세우고, 배너�
 
 test('TC-FR5-10: 앱의 dirty 판정이 던지면 dirty 가 아니다', () => {
   const s = setup();
-  s.ctx.app.edAnyDirty = () => { throw new Error('x') };
+  s.ctx.app.editor.sync.edAnyDirty = () => { throw new Error('x') };
   s.ctx.__dmAssetVersion('bbb222');
   assert.equal(s.log.at(-1), 'reload');
 });

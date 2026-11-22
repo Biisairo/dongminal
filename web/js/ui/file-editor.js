@@ -48,7 +48,7 @@ class FileEditor {
     // FR-EXC-11: 표식의 폴백. 자리는 `__dirty` 와 같다 — 문서를 못 얻은 뷰도
     // 저장은 할 수 있어야 한다.
     this.__stamp = '';
-    this._doc = (typeof app !== 'undefined' && app && app.edDoc) ? app.edDoc(filePath) : null;
+    this._doc = (typeof app !== 'undefined' && app && app.editor?.open.edDoc) ? app.editor.open.edDoc(filePath) : null;
     if (this._doc) this._doc.views.add(this);
     // EDITOR_GIT_UX_SRS FR-EGS-10: 검색 결과로 열린 경우 갈 자리. 편집기가
     // 뜨기 전에 요청이 올 수 있으므로 여기 담아 두었다 생성 직후에 쓴다.
@@ -101,7 +101,7 @@ class FileEditor {
       // REPO_FIX 03 §3A-5: 버퍼는 **문서가** 만든다(`edDocLoad` — 판별·변환 읽기).
       // 기다리는 사이 이 뷰가 파괴됐으면 편집기를 세우지 않는다 — 문서 뷰가 0 이면
       // `edDocDrop` 이 이미 해제했다 (#9).
-      const buf = await app.edDocLoad(this.filePath);
+      const buf = await app.editor.doc.edDocLoad(this.filePath);
       if (this._destroyed) return;
       if (!buf) throw new Error('document not loaded');
       this._createEditor(buf);
@@ -202,11 +202,11 @@ class FileEditor {
     if (this._doc && this._doc.decodable === false) this.note(FILE_UNDECODABLE_NOTE);
     // FR-LSP-44: 이 파일의 언어 서버가 없으면 제안한다. 판정은 app 이 하며
     // 상태를 파일마다 다시 묻지 않는다.
-    if (window.app && window.app.lspOfferFor) window.app.lspOfferFor(this);
+    if (window.app && window.app.lspClient) window.app.lspClient().lspOfferFor(this);
     // DOC_RENDER_VIEW_SRS FR-DRV-2·3: 렌더할 수 있는 문서면 버튼을 세우고, 이
     // 파일의 렌더 뷰에 버퍼가 생겼음을 알린다. 판정과 버튼은 app 이 갖는다 —
     // 편집기는 자기가 무슨 문서인지 알 필요가 없다.
-    if (window.app && window.app.docRenderMount) window.app.docRenderMount(this);
+    if (window.app && window.app.editor?.docRender.docRenderMount) window.app.editor.docRender.docRenderMount(this);
   }
 
   /**
@@ -225,7 +225,7 @@ class FileEditor {
     const was = this._dirty;
     // 문서는 버퍼를 스스로 구독한다(`_edDocWatch`) — 여기서도 부르는 것은 이 뷰가
     // 아래 판정(was→now)을 같은 틱에 보기 위해서다. 멱등이다.
-    if (this._doc) app.edDocDirtySync(this._doc);
+    if (this._doc) app.editor.doc.edDocDirtySync(this._doc);
     else this.__dirty = true;
     if (!was && this._dirty) this._tabLabelAll();
     // FR-EFP-17: 편집하는 동안 낡은 하이라이트가 남으면 그것이 거짓말이 된다.
@@ -344,12 +344,12 @@ class FileEditor {
   // 하고(레이아웃은 그쪽의 것이다) 여기서는 계기만 전한다.
   _pinIfPreview() {
     const app = window.app;
-    if (!app || !app.pinPreviewTab) return;
+    if (!app || !app.repoWin?.preview.pinPreviewTab) return;
     for (const s of app.ws.windows || []) {
       if (!s || !s.layout) continue;
       for (const pn of app.flattenPanes(s.layout)) {
         const tab = (pn.tabs || []).find((x) => x && x.id === this.id);
-        if (tab) { app.pinPreviewTab(tab); return }
+        if (tab) { app.repoWin.preview.pinPreviewTab(tab); return }
       }
     }
   }
@@ -396,7 +396,7 @@ class FileEditor {
     // FR-RTB-6 ⑤: 저장은 "이 파일을 남긴다" 다 — 수정이 없어도 고정한다.
     this._pinIfPreview();
     // REPO_FIX 05 §3A-3: 문서가 있으면 저장은 문서의 것이다 — git Diff 뷰와 같은 길이다.
-    if (this._doc) return app.edDocSave(this.filePath, this);
+    if (this._doc) return app.editor.doc.edDocSave(this.filePath, this);
     return this.saver.once();
   }
 
@@ -413,7 +413,7 @@ class FileEditor {
    */
   refresh() {
     if (this._loading || !this._doc) return;
-    app.edDocRefresh(this.filePath);
+    app.editor.doc.edDocRefresh(this.filePath);
   }
 
   _updateTabLabel() {
@@ -455,8 +455,8 @@ class FileEditor {
     // FR-EDD-16: 팝업과 등록을 먼저 걷는다 — 문서를 놓기 전이어야 관리자가
     // 살아 있는 동안 정리된다.
     this.peek.drop();
-    if (typeof app !== 'undefined' && app && app.edDocDrop) {
-      app.edDocDrop(this.filePath, this);
+    if (typeof app !== 'undefined' && app && app.editor?.open.edDocDrop) {
+      app.editor.open.edDocDrop(this.filePath, this);
     }
     this._doc = null;
   }

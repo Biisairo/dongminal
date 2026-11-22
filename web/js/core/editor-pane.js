@@ -39,10 +39,10 @@ class EditorPane extends Controller {
 
   _edTick(){
     const held=this._edGitHeld;
-    if(held){ this._edGitHeld=null; for(const [repo,mark] of held) this.app._edOnGitChanged(repo,mark) }
+    if(held){ this._edGitHeld=null; for(const [repo,mark] of held) this.app.editor.open._edOnGitChanged(repo,mark) }
     // 관측은 루트마다 하나다 (FR-SVS-20) — 같은 루트를 보는 칸이 넷이어도 한 번이다.
     const stores=new Map();
-    for(const tree of this.app._edVisibleTrees()) if(tree.store&&!stores.has(tree.store)) stores.set(tree.store,tree);
+    for(const tree of this.app.editor.open._edVisibleTrees()) if(tree.store&&!stores.has(tree.store)) stores.set(tree.store,tree);
     for(const tree of stores.values()){ if(tree.gitDue()) tree.pollGit(); else tree.paintGitCached() }
     // EDITOR_LIVE_RELOAD_SRS FR-ELR-10: **열어 둔 파일의 내용도 같은 틱이다.**
     // 트리와 갈라 두면 사용자는 "목록은 바뀌었는데 열어 둔 내용은 그대로인"
@@ -51,7 +51,7 @@ class EditorPane extends Controller {
     // 때문이다 (FR-SVS-50) — 창마다 부르면 같은 파일을 두 번 묻는다.
     this.app.editor.open.edStampTick([...stores.keys()]);
     // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 감시 집합의 안전망 — 다른 계기가 놓친 변화를 맞춘다.
-    this.app.edWatchSync();
+    this.app.editor.watch.edWatchSync();
   }
 
   /**
@@ -69,10 +69,10 @@ class EditorPane extends Controller {
   _edKeepActive(sv){
     if(!sv||!Array.isArray(sv.windows)) return;
     const cur=this.app.ws.windows.find(s=>s&&s.id===this.app.ws.activeWindow);
-    if(!this.app.isEditorWin(cur)) return;
-    const root=this.app.edRootOf(cur);
+    if(!this.app.editor.isEditorWin(cur)) return;
+    const root=this.app.editor.edRootOf(cur);
     if(!root) return;
-    const next=sv.windows.find(s=>this.app.isEditorWin(s)&&this.app.edRootOf(s)===root);
+    const next=sv.windows.find(s=>this.app.editor.isEditorWin(s)&&this.app.editor.edRootOf(s)===root);
     if(!next) return;
     sv.activeWindow=next.id;
     /**
@@ -96,10 +96,10 @@ class EditorPane extends Controller {
     if(!filePath) return;
     // UX_BATCH12_SRS FR-RTB-4·6: 같은 파일이 칸마다 열릴 수 있다 — 고정 대상은 앞선
     // 클릭이 미리보기를 세운 **지금 칸**의 탭이다.
-    const w=this._edLinkedWindow(filePath)||this.app.edWindowFor(this.app._edHome());
-    const rid=w&&w.layout&&this.app.edEnsurePane(w);
-    const found=(rid&&this.app._findEditorTabIn(w,findPane(w.layout,rid),filePath))||this.app._findEditorTab(filePath);
-    if(found) this.app.pinPreviewTab(found.tab);
+    const w=this._edLinkedWindow(filePath)||this.app.editor.edWindowFor(this.app.editor._edHome());
+    const rid=w&&w.layout&&this.edEnsurePane(w);
+    const found=(rid&&this.app.repoWin.preview._findEditorTabIn(w,findPane(w.layout,rid),filePath))||this.app._findEditorTab(filePath);
+    if(found) this.app.repoWin.preview.pinPreviewTab(found.tab);
   }
 
   // ── 사이드의 활성 탭 (REPO_TAB_UNIFY_SRS FR-RTU-12·13) ──
@@ -118,8 +118,8 @@ class EditorPane extends Controller {
    * 뜻을 갖는다 — 고정 행 셋은 그렇게 되지 않는다.
    */
   edSideFixed(s){
-    const root=this.app.edRootOf(s);
-    return !!root&&this.app.edFixed().some(e=>e.path===root);
+    const root=this.app.editor.edRootOf(s);
+    return !!root&&this.app.editor.edFixed().some(e=>e.path===root);
   }
 
   // 그 창에서 **설 수 있는** 탭. 화면과 판정이 같은 자리에서 온다 — 둘로 나뉘면
@@ -145,7 +145,7 @@ class EditorPane extends Controller {
     // FR-DIR-32 와 같은 근거: 사이드를 Explorer 로 돌린 것은 사용자가 방금 한
     // 일이다. 그동안 게이트에 막혀 쉰 트리는 낡았으므로 곧바로 묻는다.
     if(id===REPO_SIDE_EXPLORER){
-      const tree=this.app._edTreeFor(s);
+      const tree=this.app.editor.open._edTreeFor(s);
       if(tree){ tree.pollGit({now:true}); tree.pollStamp() }
     }
     // FR-RTU-62: 사이드 탭 전환은 **관측 조건의 계기**다. Changes 를 떠나면 그
@@ -220,8 +220,8 @@ class EditorPane extends Controller {
    */
   _edLinkedWindow(p){
     let best=null,blen=-1;
-    for(const s of this.app.edWindows()){
-      const root=this.app.edRootOf(s);
+    for(const s of this.app.editor.edWindows()){
+      const root=this.app.editor.edRootOf(s);
       if(!this._edUnder(root,p)) continue;
       if(root.length>blen){best=s;blen=root.length}
     }
@@ -283,7 +283,7 @@ class EditorPane extends Controller {
     // 탭 경로만 바꾸면 LSP·DocRender·재열기가 옛 경로를 가리킨다 (#10).
     // REPO_FIX 04 §3A-5 (T-9.1): 대상 경로에 이미 열린 문서가 있어 옮기지 못한 것은
     // 그 탭을 옛 경로에 남긴다 — 호출자가 사유를 보인다.
-    const moved=this.app.edDocMove(from,to);
+    const moved=this.app.editor.doc.edDocMove(from,to);
     const conflicts=new Set(moved.conflicts);
     const list=this._edTabsUnder(from);
     if(!list.length) return {count:0,conflicts:moved.conflicts};
@@ -322,7 +322,7 @@ class EditorPane extends Controller {
    * 로드 시점에 원형의 `gitSignal` 을 감쌌다).
    */
   _edAfterGitSignal(){
-    const tree=this.app.edActiveTree();
+    const tree=this.app.editor.open.edActiveTree();
     // FR-DIR-32: 저장·커밋 같은 즉시 신호도 백오프를 넘긴다.
     if(tree) tree.pollGit({now:true});
     // EDITOR_DIRTY_DIFF_SRS FR-EDD-50·51: 편집기의 기준도 이 신호로 따라온다.
@@ -330,9 +330,3 @@ class EditorPane extends Controller {
     if(this.app._edDocs) for(const d of this.app._edDocs.values()) if(d.dd) d.dd.refresh();
   }
 }
-
-// 바깥이 부르는 이름 — Git(`_edAfterGitSignal`·`_edGitHold`)·레이아웃(`_edMigrateSideWidth`)·모바일·상태 동기화·`ui/`·`git/`·
-// e2e·계약.
-Controller.delegate(App,'editor.pane',['_edKeepActive','edPinTabFor','edSideTabs','edSideOf','edSetSide','edSideWidth','edSetSideWidth',
-  '_edMigrateSideWidth','edEnsurePane','edDirtyUnder','edRetargetTabs','edCloseTabsUnder','_edAfterGitSignal',
-  '_edGitHold']);

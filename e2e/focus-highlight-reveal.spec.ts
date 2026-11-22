@@ -88,7 +88,7 @@ const CHG_ROW = (rel: string) => `#area .ed-side .git-changes .git-file.sel[data
 async function twoTabs(page: Page) {
   await page.evaluate((rel) => (window as any).app.gitPanel.openFileDiff({ group: 'working', path: rel }), LAST);
   await expect.poll(() => tabId(page, 'diff', LAST)).not.toBe('');
-  await page.evaluate((abs) => (window as any).app.edOpenFile(abs, { preview: false }), j(REPO, DEEP));
+  await page.evaluate((abs) => (window as any).app.editor.file.edOpenFile(abs, { preview: false }), j(REPO, DEEP));
   await expect.poll(() => tabId(page, 'file', DEEP)).not.toBe('');
   return { diff: await tabId(page, 'diff', LAST), file: await tabId(page, 'file', DEEP) };
 }

@@ -37,7 +37,7 @@ class FileTreeKeys {
       if(e.code==='KeyC'||e.code==='KeyX'){
         const ps=pick?this.tree._selTargets(pick).filter(x=>x&&x!==this.tree.root):[];
         if(!ps.length) return;
-        take(); this.tree.app.edClipSet(this.tree.root,ps,e.code==='KeyX'); return;
+        take(); this.tree.app.editor.file.edClipSet(this.tree.root,ps,e.code==='KeyX'); return;
       }
       if(e.code==='KeyV'){
         take(); this.tree.doPasteInto(this.tree._targetDir()); return;
@@ -83,7 +83,7 @@ class FileTreeKeys {
         // 더블클릭과 뜻이 같다 (FR-RTU-42) — 다만 키보드로는 미리보기를 지나지
         // 않았을 수 있으므로 `edPinTabFor` 가 아니라 여는 자리를 부른다.
         if(kind==='dir') this.tree.toggle(pick);
-        else if(kind==='file') this.tree.app.edOpenFile(pick,{preview:false});
+        else if(kind==='file') this.tree.app.editor.file.edOpenFile(pick,{preview:false});
         return;
     }
   }

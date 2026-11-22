@@ -109,7 +109,7 @@ class EditorSync extends Controller {
   _edMkWindow(root){
     // FR-EDT-42(2)·55: `layout:null` 로 태어난다. pane 이 **없는** 것이지 빈
     // pane 이 있는 것이 아니다. 이 창이 살아남는 근거는 FR-EDT-49 의 필터다.
-    return {id:newEntityId(),name:this.app.edName(root),type:WINDOW_TYPE_EDITOR,
+    return {id:newEntityId(),name:this.app.editor.edName(root),type:WINDOW_TYPE_EDITOR,
       editor:{root},layout:null};
   }
 
@@ -125,16 +125,16 @@ class EditorSync extends Controller {
    * 바뀐 창 수를 돌려준다. 저장은 호출자가 한다 (`_migrateGitWindow` 와 같은 규약).
    */
   _edReconcile(list){
-    if(!this.app.edOn()) return 0;
+    if(!this.app.editor.edOn()) return 0;
     this.edMirror();
     const ws=list||this.app.ws.windows;
     if(!Array.isArray(ws)) return 0;
-    const want=this.app.edRoots();
+    const want=this.app.editor.edRoots();
     const wantSet=new Set(want);
     const keep=new Map(),drop=new Set();
     for(const s of ws){
-      if(!this.app.isEditorWin(s)) continue;
-      const root=this.app.edRootOf(s);
+      if(!this.app.editor.isEditorWin(s)) continue;
+      const root=this.app.editor.edRootOf(s);
       // ③ 집합에 없는 루트의 창은 지운다.
       if(!root||!wantSet.has(root)){drop.add(s);continue}
       const cur=keep.get(root);
@@ -174,7 +174,7 @@ class EditorSync extends Controller {
       n++;
     }
     // 이름은 루트에서 파생된다 — 홈이 바뀌면 root 창의 이름도 따라간다 (FR-EDT-17).
-    for(const[root,s] of keep){const nm=this.app.edName(root);if(s.name!==nm){s.name=nm;n++}}
+    for(const[root,s] of keep){const nm=this.app.editor.edName(root);if(s.name!==nm){s.name=nm;n++}}
     this._edReapTrees(ws);
     // REPO_TAB_UNIFY_SRS FR-RTU-63: Git 패널도 창의 것이다 — 탐색기와 같은
     // 자리에서 거둔다. 재조정은 창이 사라지는 것을 아는 유일한 자리이므로,
@@ -208,7 +208,7 @@ class EditorSync extends Controller {
 
   // 이 창의 git 뷰 탭 중 저장하지 않은 편집을 든 것이 있는가 (FR-RTU-103).
   _edWinGitDirty(s){
-    const root=this.app.edRootOf(s);
+    const root=this.app.editor.edRootOf(s);
     for(const pn of this.app.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[]))
         if(tab&&tab.type===TAB_TYPE_GIT&&this.app.git.surfaces._gitViewDirty(root,tab.gitView,true,tab.id)) return true;
@@ -257,7 +257,7 @@ class EditorSync extends Controller {
     if(!s||!s.layout) return true;
     // FR-RTU-103: Diff 의 편집도 함께 저장한다 — `_edWinDirty` 가 그것을 세었으므로
     // 여기서 빠뜨리면 "저장하고 닫기" 가 일부만 저장한다.
-    const root=this.app.edRootOf(s);
+    const root=this.app.editor.edRootOf(s);
     let ok=true;
     for(const pn of this.app.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[]))
@@ -287,8 +287,8 @@ class EditorSync extends Controller {
    * 그것이 없으면 여러 파일 중 하나가 막혔을 때 사용자가 그 사실을 모른다.
    */
   async _edSaveAll(){
-    const s=this.app.aw();
-    if(!this.app.isEditorWin(s)) return;
+    const s=this.app.tool.life.aw();
+    if(!this.app.editor.isEditorWin(s)) return;
     if(!this._edWinDirty(s)){ Toast.show(ED_SAVE_ALL_NONE,'ok'); return }
     const ok=await this._edWinSaveDirty(s);
     Toast.show(ok?ED_SAVE_ALL_OK:ED_SAVE_ALL_PARTIAL,ok?'ok':'err');
@@ -298,12 +298,12 @@ class EditorSync extends Controller {
   // 정리해야 하는지 알 수 없다 (FR-EDT-84 와 같은 근거).
   _edNotifyHeld(held){
     const names=held.map(s=>s&&s.name).filter(Boolean);
-    if(!names.length||!this.app._notify) return;
+    if(!names.length||!this.app.tool?._notify) return;
     const key=names.slice().sort().join('\u0001');
     // 재조정은 되풀이해 불린다 — 같은 창을 두고 매번 알리면 그것이 소음이다.
     if(this._edHeldKey===key) return;
     this._edHeldKey=key;
-    this.app._notify(EDITOR_HELD_DIRTY.replace('%s',names.join(', ')));
+    this.app.tool._notify(EDITOR_HELD_DIRTY.replace('%s',names.join(', ')));
   }
 
   /**
@@ -332,7 +332,3 @@ class EditorSync extends Controller {
 
   // ── 편집기 탭 마이그레이션 (FR-EDT-103~106 / D-19) ──
 }
-
-// 바깥이 부르는 이름 — 부팅(`app.js`)·상태 동기화·재로드·Git·레이아웃·`ui/`·e2e·계약.
-Controller.delegate(App,'editor.sync',['_edLoad','_edPatchList','edMirror','_edApplyLinked','_edReconcile','_edWinDirty','edAnyDirty',
-  '_edWinSaveDirty','_edSaveAll']);

@@ -50,11 +50,11 @@ class EditorController extends Controller {
   // 조용히 지나간다 (§2.2).
   isEditorWin(s){return !!(s&&s.type===WINDOW_TYPE_EDITOR)}
 
-  edWindows(){return this.app.ws.windows.filter(s=>this.app.isEditorWin(s))}
+  edWindows(){return this.app.ws.windows.filter(s=>this.isEditorWin(s))}
 
   edRootOf(s){return (s&&s.editor&&s.editor.root)||''}
 
-  edWindowFor(root){return this.app.edWindows().find(s=>this.app.edRootOf(s)===root)||null}
+  edWindowFor(root){return this.edWindows().find(s=>this.edRootOf(s)===root)||null}
 
   // ── 목록 (FR-EDT-19·20·29·120) ──
 
@@ -87,8 +87,8 @@ class EditorController extends Controller {
   // FR-NOT-9: 고정 행 둘은 경로에서 이름을 뽑지 않는다 — 파생시키면 `~` 가
   // 홈 디렉터리 이름이 되고 메모장이 `notes` 가 된다.
   edName(root){
-    if(root===this.app._edHome()) return EDITOR_ROOT_NAME;
-    if(root&&root===this.app.edNotes()) return EDITOR_NOTES_NAME;
+    if(root===this._edHome()) return EDITOR_ROOT_NAME;
+    if(root&&root===this.edNotes()) return EDITOR_NOTES_NAME;
     if(root&&root===this._edPlugins()) return EDITOR_PLUGINS_NAME;
     return this.edBase(root);
   }
@@ -111,9 +111,9 @@ class EditorController extends Controller {
    */
   edFixed(){
     const out=[];
-    const notes=this.app.edNotes();
+    const notes=this.edNotes();
     if(notes) out.push({path:notes,notes:true});
-    const home=this.app._edHome();
+    const home=this._edHome();
     if(home) out.push({path:home,root:true});
     // 플러그인 선언은 `~` **아래**다 — 늘 쓰는 자리가 아니라 고칠 때 찾는 자리다.
     const plugins=this._edPlugins();
@@ -131,16 +131,12 @@ class EditorController extends Controller {
    * 워크스페이스의 첫 창이 지금까지와 같다.
    */
   edRoots(){
-    const home=this.app._edHome();
+    const home=this._edHome();
     if(!home) return [];
     // K-e (K20): 고정 루트의 순서는 서버가 정한다(`fixed`). 드는지는 지금 아는 값이 정한다 —
     // 메모·플러그인 루트를 잃으면(FR-NOT-11) 그 자리만 빠진다. `fixed` 가 없으면(옛 서버) home 하나다.
-    const known=new Set([home,this.app.edNotes(),this._edPlugins()].filter(Boolean));
+    const known=new Set([home,this.edNotes(),this._edPlugins()].filter(Boolean));
     const fixed=((this.app.editors||{}).fixed||[]).filter(p=>known.has(p));
     return [...(fixed.length?fixed:[home]),...this.edEntries().map(e=>e.path)];
   }
 }
-
-// 바깥이 부르는 이름 — 레이아웃·Git·슬롯·포커스·모바일·LSP·`ui/`·e2e·계약.
-Controller.delegate(App,'editor',['isEditorWin','edWindows','edRootOf','edWindowFor','edOn','_edHome','edNotes','edBase','edName',
-  'edEntries','edFixed','edRoots','edFocusHandoff']);

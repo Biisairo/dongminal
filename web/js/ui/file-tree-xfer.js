@@ -177,7 +177,7 @@ class FileTreeXfer {
         {id:'upload',label:EDITOR_MENU_UPLOAD,onClick:()=>this.tree.pickUpload(dir)},
         {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,onClick:()=>this.tree.pickUpload(dir,true)},
         {sep:true},
-        {id:'paste',label:EDITOR_MENU_PASTE,disabled:this.tree.app.edClipGet()?false:EDITOR_PASTE_NONE,onClick:()=>this.tree.doPasteInto(dir)},
+        {id:'paste',label:EDITOR_MENU_PASTE,disabled:this.tree.app.editor.file.edClipGet()?false:EDITOR_PASTE_NONE,onClick:()=>this.tree.doPasteInto(dir)},
         ...(ca?[{sep:true},
           {id:'claudeLink',label:t('cacct.map.folder_menu'),disabled:ca.linkWhy||false,onClick:ca.link},
           {id:'claudeUnlink',label:t('cacct.map.folder_clear'),disabled:ca.unlinkWhy||false,onClick:ca.unlink}]:[]),
@@ -235,12 +235,12 @@ class FileTreeXfer {
       {sep:true},
       // FR-WBR-70: 복사·붙여넣기·복제. 붙여넣는 자리는 만들기와 같은 규칙이
       // 정한다 — 폴더면 그 안, 아니면 그 형제 (`dir` 이 그것이다).
-      {id:'copy',label:EDITOR_MENU_COPY,act:FS_ACTION_COPY,run:()=>this.tree.app.edClipSet(this.tree.root,multi?many:p)},
+      {id:'copy',label:EDITOR_MENU_COPY,act:FS_ACTION_COPY,run:()=>this.tree.app.editor.file.edClipSet(this.tree.root,multi?many:p)},
       // FUI-11: 같은 클립보드에 **동사만** 다르게 놓는다. 붙여넣는 쪽이
       // `c.move` 로 갈린다 — 자리와 대상은 복사와 한 글자도 다르지 않다.
-      {id:'cut',label:EDITOR_MENU_CUT,act:FS_ACTION_MOVE,run:()=>this.tree.app.edClipSet(this.tree.root,multi?many:p,true)},
+      {id:'cut',label:EDITOR_MENU_CUT,act:FS_ACTION_MOVE,run:()=>this.tree.app.editor.file.edClipSet(this.tree.root,multi?many:p,true)},
       {id:'paste',label:EDITOR_MENU_PASTE,
-        disabled:()=>this.tree.app.edClipGet()?'':EDITOR_PASTE_NONE,
+        disabled:()=>this.tree.app.editor.file.edClipGet()?'':EDITOR_PASTE_NONE,
         run:()=>this.tree.doPasteInto(dir)},
       {id:'duplicate',label:EDITOR_MENU_DUPLICATE,act:FS_ACTION_COPY,run:()=>this.tree.doDuplicate(multi?many:p)},
       {sep:true},
@@ -253,7 +253,7 @@ class FileTreeXfer {
         {id:'claudeLink',label:t('cacct.map.folder_menu'),disabled:()=>ca.linkWhy,run:ca.link},
         {id:'claudeUnlink',label:t('cacct.map.folder_clear'),disabled:()=>ca.unlinkWhy,run:ca.unlink}]:[]),
     ],'edfs',{path:p},e,async stale=>{
-      const ans=await this.tree.app.edFsActions(this.tree.root,paths);
+      const ans=await this.tree.app.editor.file.edFsActions(this.tree.root,paths);
       return stale()?null:((ans&&ans.actions)||{});
     });
   }

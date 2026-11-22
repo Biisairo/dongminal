@@ -11,7 +11,7 @@
 class LayoutTabReopen extends Controller {
   // FR-RTR-1·2: 닫히는 탭을 적는다. `closeTab` 이 확인을 지난 뒤, 인스턴스를 놓기 전에 부른다.
   _tabReopenNote(s, pn, tab) {
-    if (!this.app.isEditorWin(s) || (tab.type !== TAB_TYPE_EDITOR && tab.type !== TAB_TYPE_GIT)) return;
+    if (!this.app.editor.isEditorWin(s) || (tab.type !== TAB_TYPE_EDITOR && tab.type !== TAB_TYPE_GIT)) return;
     const rec = { ...tab };
     delete rec.id;
     delete rec.preview;
@@ -40,7 +40,7 @@ class LayoutTabReopen extends Controller {
   }
 
   _gitDiffPanelAny(tabId) {
-    const own = this.app._gitDiffPanelOf(tabId, this.app.slotFocused());
+    const own = this.app.repoWin._gitDiffPanelOf(tabId, this.app.slotFocused());
     if (own || !this.app.gitPanels) return own;
     for (const p of this.app.gitPanels.values()) if (p.diffTabId === tabId) return p;
     return null;
@@ -74,7 +74,7 @@ class LayoutTabReopen extends Controller {
 
   _tabReopenWin(e) {
     const w = this.app.ws.windows.find(x => x && x.id === e.win);
-    return w && this.app.isEditorWin(w) ? w : null;
+    return w && this.app.editor.isEditorWin(w) ? w : null;
   }
 
   /**
@@ -87,7 +87,7 @@ class LayoutTabReopen extends Controller {
   _tabReopenEntry(e) {
     const w = this._tabReopenWin(e);
     if (!w) return null;
-    const rid = (w.layout && findPane(w.layout, e.pane)) ? e.pane : this.app.edEnsurePane(w);
+    const rid = (w.layout && findPane(w.layout, e.pane)) ? e.pane : this.app.editor.pane.edEnsurePane(w);
     const pn = rid && findPane(w.layout, rid);
     if (!pn) return null;
     let found = this._tabReopenExisting(w, pn, e.rec);
@@ -116,8 +116,8 @@ class LayoutTabReopen extends Controller {
       return inPane(x => x.type === TAB_TYPE_EDITOR && !!x.render === !!rec.render && x.filePath === rec.filePath);
     }
     if (rec.gitView === 'diff') {
-      const key = this.app.diffTabKey(rec.diffTarget);
-      return key ? inPane(x => x.type === TAB_TYPE_GIT && x.gitView === 'diff' && this.app.diffTabKey(x.diffTarget) === key) : null;
+      const key = this.app.repoWin.diffTabKey(rec.diffTarget);
+      return key ? inPane(x => x.type === TAB_TYPE_GIT && x.gitView === 'diff' && this.app.repoWin.diffTabKey(x.diffTarget) === key) : null;
     }
     return this.app.findGitViewTab(w, rec.gitView);
   }

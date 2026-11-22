@@ -22,8 +22,8 @@ class DocRender {
     this.kind = docRenderKindOf(filePath);
     // 이 문서가 속한 Editor 루트. `/` 로 시작하는 참조의 기준이자 루트 밖 판정의
     // 기준이다 (FR-DRV-25·26).
-    this.fsRoot = (typeof app !== 'undefined' && app && app.docRenderRootOf)
-      ? app.docRenderRootOf(filePath) : '';
+    this.fsRoot = (typeof app !== 'undefined' && app && app.editor?.docRender.docRenderRootOf)
+      ? app.editor.docRender.docRenderRootOf(filePath) : '';
     this.el = document.createElement('div');
     this.el.className = 'doc-render';
     this.el.tabIndex = 0;
@@ -40,7 +40,7 @@ class DocRender {
     this.el.querySelector('.dr-path').textContent = name || '';
     // FR-DRV-6: **같은 버튼이 되돌린다.** 렌더를 켠 손이 끄는 법을 따로 배우지 않는다.
     this.el.querySelector('.dr-source').addEventListener('click', () => {
-      if (window.app && window.app.docRenderToSource) window.app.docRenderToSource(this);
+      if (window.app && window.app.editor?.docRender.docRenderToSource) window.app.editor.docRender.docRenderToSource(this);
     });
     // 편집기 안의 키가 밖으로 나가지 않는 것과 같은 규약 — 여기서 앱 단축키가
     // 끼어들면 스크롤 중에 창이 바뀐다.
@@ -50,7 +50,7 @@ class DocRender {
 
     // FR-DRV-40: 문서를 딛는다. 뷰가 문서의 `views` 에 드는 것도 `FileEditor` 와
     // 같은 규약이며, 그래야 `edDocDrop` 이 수명을 셀 수 있다 (FR-SVS-55).
-    this._doc = (typeof app !== 'undefined' && app && app.edDoc) ? app.edDoc(filePath) : null;
+    this._doc = (typeof app !== 'undefined' && app && app.editor?.open.edDoc) ? app.editor.open.edDoc(filePath) : null;
     if (this._doc) this._doc.views.add(this);
     this._buf = null;
     this._sub = null;
@@ -70,7 +70,7 @@ class DocRender {
    * 거치지 않고 여기서 직접 찾을 수 있다 — 그래서 이 뷰는 편집기가 있는지 없는지 몰라도 된다.
    */
   _findBuf() {
-    const d = (typeof app !== 'undefined' && app && app.edDocAt) ? app.edDocAt(this.filePath) : null;
+    const d = (typeof app !== 'undefined' && app && app.editor?.doc.edDocAt) ? app.editor.doc.edDocAt(this.filePath) : null;
     return (d && d.buf) || null;
   }
 
@@ -113,7 +113,7 @@ class DocRender {
     // REPO_FIX 03 §3A-3·3A-5: 파일을 직접 읽지 않는다 — 문서가 판별·변환해 버퍼를
     // 만든다(첫 뷰가 렌더 탭이어도 버퍼가 생긴다). 인코딩 계약이 소스와 같아진다.
     //   이전 동작: `/api/file/read` 원문을 UTF-8 로 풀었다 — CP949 문서가 깨졌다
-    const buf = (typeof app !== 'undefined' && app && app.edDocLoad) ? await app.edDocLoad(this.filePath) : null;
+    const buf = (typeof app !== 'undefined' && app && app.editor?.doc.edDocLoad) ? await app.editor.doc.edDocLoad(this.filePath) : null;
     if (!buf) throw new Error('document not loaded');
     if (buf !== this._buf) this._bindBuf(buf);
     return buf.value();
@@ -231,7 +231,7 @@ class DocRender {
     // FR-DRV-26: 루트 밖으로는 가지 않는다. `edOpenFile` 도 거절하지만, 거절이
     // 침묵이면 링크가 죽은 것인지 우리가 막은 것인지 갈리지 않는다.
     if (!docInsideRoot(abs, this.fsRoot)) { this._note(DOC_RENDER_OUTSIDE); return }
-    if (window.app && window.app.edOpenFile) window.app.edOpenFile(abs, {});
+    if (window.app && window.app.editor?.file.edOpenFile) window.app.editor.file.edOpenFile(abs, {});
   }
 
   // 앵커. **이 상자 안에서만 움직인다** — `scrollIntoView` 는 조상 스크롤까지
@@ -390,7 +390,7 @@ class DocRender {
     this._bindBuf(this._findBuf());
     // REPO_FIX 03 E-7.1: 외부 변경은 문서가 한 번 읽는다 — 첫 뷰가 이 렌더 탭이어도
     // 소스 버퍼가 갱신된다. 버퍼 갱신은 구독(`onChange`)이 다시 그린다.
-    if (typeof app !== 'undefined' && app && app.edDocRefresh) app.edDocRefresh(this.filePath);
+    if (typeof app !== 'undefined' && app && app.editor?.doc.edDocRefresh) app.editor.doc.edDocRefresh(this.filePath);
     this._schedule(0);
   }
 
@@ -455,8 +455,8 @@ class DocRender {
     this._revokeBlob();
     if (this._sub) { this._sub(); this._sub = null }
     this._buf = null;
-    if (typeof app !== 'undefined' && app && app.edDocDrop) {
-      app.edDocDrop(this.filePath, this);
+    if (typeof app !== 'undefined' && app && app.editor?.open.edDocDrop) {
+      app.editor.open.edDocDrop(this.filePath, this);
     }
     this._doc = null;
   }

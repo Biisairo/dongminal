@@ -18,7 +18,7 @@ class EditorDoc extends Controller {
    * 누가 버퍼를 만들었으면 만들지 않는다 (#9).
    */
   edDocLoad(filePath){
-    const d=this.app.edDoc(filePath);
+    const d=this.app.editor.open.edDoc(filePath);
     if(d.buf) return Promise.resolve(d.buf);
     if(d.loading) return d.loading;
     const tok=docTokenOf(d,filePath);
@@ -297,7 +297,7 @@ class EditorDoc extends Controller {
    * 저장('save')·버리기(true)·취소(false).
    */
   edDocLeaveConfirm(){
-    return this.app._confirmClose(DOC_LEAVE_MSG,{saveBtn:true,saveLabel:DOC_LEAVE_SAVE,okLabel:DOC_LEAVE_DISCARD});
+    return this.app.tool._confirmClose(DOC_LEAVE_MSG,{saveBtn:true,saveLabel:DOC_LEAVE_SAVE,okLabel:DOC_LEAVE_DISCARD});
   }
 
   // 문서를 보는 편집기 하나에 알림을 띄운다.
@@ -359,7 +359,3 @@ class EditorDoc extends Controller {
     return out;
   }
 }
-
-// 바깥이 부르는 이름 — 편집기 뷰·Diff 문서·문서 렌더·상태바 인코딩·LSP·`ui/`·`git/`·e2e.
-Controller.delegate(App,'editor.doc',['edDocAt','edDocLoad','edDocRefresh','edDocDirtySync','edDocReopen','edDocConvertUtf8','edDocSave',
-  'edDocWrite','edConfirmConflict','edDocLeaveConfirm','edDocMove']);

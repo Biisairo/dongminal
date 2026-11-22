@@ -25,7 +25,7 @@ class FocusController extends Controller {
   // mutated window is not the active one, only its focusedPane is updated
   // (this.app.focused unchanged). REG-2~8 회귀 클래스 차단용 단일 진입점.
   setFocusState(rid, sess){
-    const target = sess || this.app.aw();
+    const target = sess || this.app.tool.life.aw();
     const moved = !!rid && this.app.focused !== rid;
     if(target) target.focusedPane = rid;
     if(!sess || (target && target.id === this.app.ws.activeWindow)){
@@ -78,7 +78,7 @@ class FocusController extends Controller {
    * 안의 점프는 `_lspBack`(FR-LSP-27)이 자기 스택으로 갖고 있고 성격이 다르다.
    */
   _navPlace(){
-    const s=this.app.aw(); if(!s||!s.layout) return null;
+    const s=this.app.tool.life.aw(); if(!s||!s.layout) return null;
     const rid=this.app.focused; if(!rid) return null;
     const pn=findPane(s.layout,rid); if(!pn) return null;
     return {win:s.id,pane:rid,tab:this.app.paneTab(pn,this.app.slotFocused())||null};
@@ -243,13 +243,13 @@ class FocusController extends Controller {
     // the user is asserting "I want this window" (multi-window).
     this.app._focusWindow(this.app.ws.activeWindow);
     if(this.app.focused===rid) return;
-    this.app.clearAllSearchDecorations();
+    this.app.tool.search.clearAllSearchDecorations();
     this.app.setFocusState(rid);
     this.app.prevFocus=rid;
     document.querySelectorAll('.pn').forEach(el=>{
       el.classList.toggle('focused',el.dataset.paneid===rid);
     });
-    this.app.researchIfOpen();
+    this.app.tool.search.researchIfOpen();
     this.app.statusbar.updateCwd();
     // FR-FLW-3: 목록은 핀에서만 오므로 포커스와 무관하다 — 여기서 새로 조회하지
     // 않는다. `+ Add` 가 딛는 마지막 터미널만 갱신한다 (D-FLW-6).

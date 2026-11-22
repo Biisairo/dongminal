@@ -154,7 +154,7 @@ Object.assign(LspClient.prototype, {
     // FR-RTR-8: 커서를 클릭한 자리로 옮기기 **전**의 자리를 기록한다.
     this.app.navJump();
     const link=await this._lspLinkAt(view,pos);
-    if(link){ await this.app.edOpenFile(link.path,link.line?{line:link.line}:{}); return }
+    if(link){ await this.app.editor.file.edOpenFile(link.path,link.line?{line:link.line}:{}); return }
     view.dispatch({selection:{anchor:pos}});
     await this._lspRunOn(view,CM.jumpToDefinition);
   },
@@ -171,7 +171,7 @@ Object.assign(LspClient.prototype, {
 
   async _lspRun(cmdOf){
     if(typeof CM==='undefined') return;
-    const v=this.app._edActiveEditor();
+    const v=this.app.editor.search._edActiveEditor();
     if(!v||!v._view) return;
     await this._lspRunOn(v._view,cmdOf(),v);
   },
@@ -212,7 +212,7 @@ Object.assign(LspClient.prototype, {
     let c=this._lspConns.get(key);
     if(!c){
       // FR-CMR-92: 진단은 그룹의 버퍼에 보관하고 모든 칸에 그린다 (§11.6 L2).
-      const bufOf=(path)=>{ const d=this.app.edDocAt(path); return (d&&d.buf)||null };
+      const bufOf=(path)=>{ const d=this.app.editor.doc.edDocAt(path); return (d&&d.buf)||null };
       c=new EdLspConn({
         root, desc,
         display:(path)=>this._lspDisplay(path),
@@ -246,7 +246,7 @@ Object.assign(LspClient.prototype, {
 
   // `Workspace.displayFile` — 앱이 그 파일을 열고 편집기가 선 뒤 그 뷰를 낸다.
   async _lspDisplay(path){
-    await this.app.edOpenFile(path,{});
+    await this.app.editor.file.edOpenFile(path,{});
     const tab=this.app._findEditorTab(path);
     const fe=tab&&this.app.editorAny(tab.tab.id);
     return fe&&fe.whenView?await fe.whenView():null;
@@ -256,7 +256,7 @@ Object.assign(LspClient.prototype, {
   // 겹쳐 있을 때 짧은 쪽을 고르면 언어 서버가 엉뚱한 저장소를 읽는다.
   _lspRootOfPath(path){
     let best='';
-    for(const w of this.app.edWindows()){
+    for(const w of this.app.editor.edWindows()){
       const r=w.editor&&w.editor.root;
       if(!r) continue;
       // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 어떤 루트도 걸리지 않아

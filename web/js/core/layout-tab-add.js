@@ -36,7 +36,7 @@ class LayoutTabAdd extends Controller {
 
   async addTab(rid, type = TAB_TYPE_TERMINAL, opts = {}) {
     // opts.windowId 지정 시 비활성 창의 pane 에도 추가 가능 (FR-RST-4).
-    const s = opts.windowId ? this.app.ws.windows.find(x => x.id === opts.windowId) : this.app.aw();
+    const s = opts.windowId ? this.app.ws.windows.find(x => x.id === opts.windowId) : this.app.tool.life.aw();
     if (!s || !this._tabTypeFits(s, type)) return;
     const pn = findPane(s.layout, rid); if (!pn) return;
     // FR-OPT-11-2 (FEC-22): 타입별 여는 길은 `TAB_OPENERS` 표다. 모르는 타입은 종전대로
@@ -57,13 +57,13 @@ class LayoutTabAdd extends Controller {
     //   새  동작: editor 와 git 탭 (Diff·History·Branches·Stash·Console·Worktrees)
     //   이유:     diff·history 는 좁은 사이드가 아니라 본문에서 봐야 읽힌다.
     //             그리고 그 탭들은 편집기 탭과 같은 자격이어야 한다 (FR-RTU-33)
-    if (this.app.isEditorWin(s) && type !== TAB_TYPE_EDITOR && type !== TAB_TYPE_GIT) return false;
+    if (this.app.editor.isEditorWin(s) && type !== TAB_TYPE_EDITOR && type !== TAB_TYPE_GIT) return false;
     // CHAT_WINDOW_SRS FR-CW-10: 채팅 창에는 채팅 탭만, 채팅 탭은 채팅 창에만 선다.
     if (this.app.git.isChatWin(s) || type === TAB_TYPE_CHAT) return this.app.git.isChatWin(s) && type === TAB_TYPE_CHAT;
     // FR-EDT-94·106: 그 반대도 불변식이다 — 편집기 탭은 어떤 경로로도 일반
     // 창에 생기지 않는다. Editor 표면이 없는 환경(FR-EDT-120)에서는 갈 곳이
     // 없으므로 옛 경로가 그대로 남는다.
-    if (type === TAB_TYPE_EDITOR && !this.app.isEditorWin(s) && this.app.edOn()) {
+    if (type === TAB_TYPE_EDITOR && !this.app.editor.isEditorWin(s) && this.app.editor.edOn()) {
       console.warn('[addTab] editor tab belongs to an Editor window (FR-EDT-94)');
       return false;
     }
@@ -92,7 +92,7 @@ class LayoutTabAdd extends Controller {
     if (!opts.runId) { console.warn('[addTab] run tab requires runId'); return }
     // FR-RVZ-7: 같은 Run 의 탭이 이미 있으면 새로 만들지 않고 그리로 옮긴다
     // (editor 의 중복 방지와 같은 규약).
-    const existing = this.app._findRunTab(opts.runId);
+    const existing = this.app.runsPanel()._findRunTab(opts.runId);
     if (existing) {
       this.app._revealTab(existing);
       this.app.render();
@@ -148,9 +148,9 @@ class LayoutTabAdd extends Controller {
     if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
     // UX_BATCH12_SRS FR-RTB-2·4 (FR-RTU-45 개정): 미리보기는 **그 칸**의 일이다. 같은
     // 파일이 그 칸에 있으면 그 탭으로 가고, 다른 칸에만 있으면 이 칸에 미리보기로 연다.
-    const existing = opts.preview ? this.app._findEditorTabIn(s, pn, opts.filePath) : this.app._findEditorTab(opts.filePath);
+    const existing = opts.preview ? this.app.repoWin.preview._findEditorTabIn(s, pn, opts.filePath) : this.app._findEditorTab(opts.filePath);
     if (!existing && opts.preview) {
-      const r = this.app._retargetPreview(s, pn, opts);
+      const r = this.app.repoWin.preview._retargetPreview(s, pn, opts);
       if (r) return r;
     }
     if (existing) {
@@ -178,7 +178,7 @@ class LayoutTabAdd extends Controller {
     // FR-GIT-244: 호출자가 cwd 를 주면 그것이 이긴다 — worktree 에서 터미널을 열 때
     // 기준은 pane 의 cwd 가 아니라 그 worktree 다. 주지 않으면 기존 동작 그대로다.
     const cwd = opts.cwd || ref.cwd || null;
-    const p = await this.app._newTool(cwd, cwd ? null : (ref.cwdTool || null), s);
+    const p = await this.app.tool.life._newTool(cwd, cwd ? null : (ref.cwdTool || null), s);
     const id = newEntityId();
     const given = typeof opts.name === 'string' && opts.name;
     const name = clampEntityName(given ? opts.name : TAB_NAME_DEFAULT);

@@ -20,8 +20,8 @@ class EditorSearch extends Controller {
   // 죽어 있었다. "터미널 창에서는 빈 문자열"만 보던 검사는 그것을 통과시킨다.
   _edSearchRoot(){
     const s=this.app.ws.windows.find(w=>w.id===this.app.ws.activeWindow);
-    if(!this.app.isEditorWin(s)) return '';
-    return this.app.edRootOf(s)||'';
+    if(!this.app.editor.isEditorWin(s)) return '';
+    return this.app.editor.edRootOf(s)||'';
   }
 
   // FR-EFP-13 의 판정. `_edActiveEditor` 와 가르는 이유는 위의 주석이다.
@@ -31,7 +31,7 @@ class EditorSearch extends Controller {
   // **터미널 검색**이 가져간다 — diff 위에서 `Mod+F` 를 누르면 터미널 찾기 줄이
   // 떴다 (실측). 접수 5번의 절반이 이 한 줄이다.
   _edFindReady(){
-    const v=this.app._edActiveEditor();
+    const v=this._edActiveEditor();
     if(v&&v._view) return true;
     return !!this._edActiveDiff();
   }
@@ -46,7 +46,7 @@ class EditorSearch extends Controller {
    */
   _edActiveDiff(){
     // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 는 그 탭의 패널이 든다.
-    const p=this.app.gitDiffPanelActive()||this.app.gitPanel;
+    const p=this.app.repoWin.gitDiffPanelActive()||this.app.gitPanel;
     const d=p&&p._diffView;
     if(!d||!d._cm||!d.el) return null;
     return d.el.offsetParent!==null?d:null;
@@ -68,7 +68,7 @@ class EditorSearch extends Controller {
    * 주는 일이며, 그 판단은 패널을 소유한 편집기가 한다 (`findOpen`).
    */
   _edFindInFile(){
-    const v=this.app._edActiveEditor();
+    const v=this._edActiveEditor();
     if(v&&v.findOpen){ v.findOpen(); return }
     // FR-UXB-44: 편집기 탭이 아니면 Diff 탭이다. 패널도 규약도 같은 한 벌이며
     // (`ED_FIND_MIXIN`), 다른 것은 어느 편집기의 모델을 찾느냐뿐이다.
@@ -78,7 +78,7 @@ class EditorSearch extends Controller {
 
   // UX_BATCH13_SRS FR-EGL-4: 줄 이동 패널. 고르는 길은 `_edFindInFile` 과 같다.
   _edGotoLine(){
-    const v=this.app._edActiveEditor();
+    const v=this._edActiveEditor();
     if(v&&v.gotoOpen){ v.gotoOpen(); return }
     const d=this._edActiveDiff();
     if(d) d.gotoOpen();
@@ -91,7 +91,7 @@ class EditorSearch extends Controller {
    * 여러 줄일 수도 있고 그 셋 다 종전처럼 빈 칸으로 연다.
    */
   _edSelectionSeed(){
-    const v=this.app._edActiveEditor();
+    const v=this._edActiveEditor();
     const eng=v&&v._findEngine?v._findEngine():null;
     return (eng&&eng.selText())||'';
   }
@@ -100,7 +100,7 @@ class EditorSearch extends Controller {
   // 활성 탭은 pane 이 안다.
   _edActiveEditor(){
     const s=this.app.ws.windows.find(w=>w.id===this.app.ws.activeWindow);
-    if(!this.app.isEditorWin(s)) return null;
+    if(!this.app.editor.isEditorWin(s)) return null;
     const p=findPane(s.layout,s.focusedPane||this.app.focused)
       ||((s.layout&&s.layout.type==='pane')?s.layout:null);
     // 편집기 인스턴스는 칸마다 선다 (FR-WSL-20) — 포커스 칸의 것을 찾는다.
@@ -150,14 +150,14 @@ class EditorSearch extends Controller {
    *    일부다. 아니면 false 를 돌려 그 키가 터미널로 내려간다 (FR-EKB-4).
    */
   _edKeyGate(action){
-    if(ED_LSP_ACTIONS[action]) return this._edFindReady()&&!!this.app._edSearchRoot();
+    if(ED_LSP_ACTIONS[action]) return this._edFindReady()&&!!this._edSearchRoot();
     if(action==='edFindInFile'||action==='edGotoLine') return this._edFindReady();   // UX_BATCH13_SRS FR-EGL-3
-    if(action==='edSaveAll') return this.app.isEditorWin(this.app.aw());
-    return !!this.app._edSearchRoot();
+    if(action==='edSaveAll') return this.app.editor.isEditorWin(this.app.tool.life.aw());
+    return !!this._edSearchRoot();
   }
 
   _edPanelOpen(mode){
-    const root=this.app._edSearchRoot();
+    const root=this._edSearchRoot();
     if(!root) return;
     this._edPanel(mode,root);
   }
@@ -310,10 +310,6 @@ class EditorSearch extends Controller {
     this._edPanelClose();
     const abs=pathJoin(p._root,it.path);
     // `find` 만 파일 자체를 열고, 나머지(grep·refs·defs)는 **그 줄로** 연다.
-    this.app.edOpenFile(abs,p._mode==='find'?undefined:{line:it.line,col:it.col});
+    this.app.editor.file.edOpenFile(abs,p._mode==='find'?undefined:{line:it.line,col:it.col});
   }
 }
-
-// 바깥이 부르는 이름 — 단축키·부팅(`app.js`)·모바일·LSP·상태바 인코딩·`ui/`·`git/`·계약.
-Controller.delegate(App,'editor.search',['_edSearchRoot','_edActiveDiff','_edQuickOpen','_edSearchOpen','_edFindInFile','_edGotoLine',
-  '_edActiveEditor','edTrySearchKey']);

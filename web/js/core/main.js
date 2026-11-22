@@ -52,11 +52,11 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
      * 조회에 실패하면 `null` 이고 그때는 갈래를 가르지 않는다 — 서버에 닿지 못하는
      * 것은 런타임의 문제가 아니다.
      */
-    const rt=await app._sbxRuntime();
+    const rt=await app.tool._sbxRuntime();
     if(rt&&!rt.ready){
       // 기동이 끝나 ok 가 됐을 때만 참이다 — 그때는 하려던 일을 그대로 잇는다
       // (FR-SRT-7). 사용자가 버튼을 다시 누르게 하지 않는다.
-      const go=await app._sbxRuntimeModal(rt);
+      const go=await app.tool._sbxRuntimeModal(rt);
       if(!go) return;
     }
     let list=[];
@@ -67,7 +67,7 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
     if(!list.length){
       // 런타임은 살아 있는데 고를 것이 없는 경우다 — 상태 갈래가 위에서 끝났으므로
       // 여기 남는 것은 정의가 비었거나 조회가 실패한 때다 (FR-SBX-20).
-      app._notify(t('sbx.unavailable_notify'));
+      app.tool._notify(t('sbx.unavailable_notify'));
       return;
     }
     // SANDBOX_PICK_COPY_SRS FR-SPK-1 / D-SPK-1: **언제나 묻는다.**
@@ -78,25 +78,25 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
     // 눈에는 작업 폴더를 고를 길도, 프로파일을 늘릴 길도 없었다.
     // 지금은 scratch 도 폴더를 받는다 — 복사로 (FR-SPK-10).
     // 지금 있는 자리는 **버튼으로만** 낸다 — 자동으로 채우지 않는다 (FR-SPK-4).
-    const here=await app._focusedCwd().catch(()=>null);
-    const picked=await app._pickSandbox(list,here,onlyDefault);
+    const here=await app.tool.life._focusedCwd().catch(()=>null);
+    const picked=await app.tool._pickSandbox(list,here,onlyDefault);
     if(!picked||!picked.profile) return;
     sandbox=picked.profile;
     workdir=picked.workdir||'';
     work=picked.work||'';
     copies=!!picked.copies;
     // FR-SPK-9: 비어 있는 값은 기억하지 않는다 — 최근 목록에 빈 줄이 쌓인다.
-    if(workdir) app._sbxRemember(workdir);
+    if(workdir) app.tool._sbxRemember(workdir);
   }
   // NFR-SPK-2: 복사는 상한 안에서도 수십 초가 걸릴 수 있다. 그동안 화면이
   // 아무 말도 하지 않으면 사용자는 고장으로 읽는다.
   const done=(sandbox&&copies&&workdir)
-    ? app._sbxProgress(SANDBOX_COPY_PROGRESS) : null;
+    ? app.tool._sbxProgress(SANDBOX_COPY_PROGRESS) : null;
   // 샌드박스 창은 실패가 흔하다(런타임 미실행·이미지 없음). 사유를 보이지 않으면
   // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20). 복사 상한을 넘긴 거부도
   // 이 길로 온다 (FR-SPK-14).
   app.addWindow(sandbox?{sandbox,cwd:workdir||undefined,sandboxWork:work,sandboxCopy:copies}:undefined)
-    .catch(err=>app._notify(errText(t('core.open_window_fail'),err)))
+    .catch(err=>app.tool._notify(errText(t('core.open_window_fail'),err)))
     .finally(()=>{if(done)done()});
 });
 // ISSUE_AGENT_TREE_SRS FR-WGR-23: 빈 그룹을 만들고 이름을 고친다.
@@ -158,5 +158,5 @@ window.addEventListener('resize',()=>{
 window.addEventListener('beforeunload',e=>{
   if(!confirmLeave) return;
   if(window.__dmReloading) return;
-  if(app.toolIds.size>0||app.edAnyDirty()) e.preventDefault();   // FR-OPT-4-11: 그려지지 않은 도구도 센다
+  if(app.toolIds.size>0||app.editor.sync.edAnyDirty()) e.preventDefault();   // FR-OPT-4-11: 그려지지 않은 도구도 센다
 });

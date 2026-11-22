@@ -50,7 +50,7 @@ class FileEditorKeys {
    * 하므로 잡힌 키는 뒤로 가지 않았다. 그 순서를 그대로 적는다.
    */
   onKeyCapture(e) {
-    if (window.app && window.app.edTrySearchKey(e)) return;
+    if (window.app && window.app.editor.search.edTrySearchKey(e)) return;
     // UX_BATCH9_SRS FR-ESV-1·2: **이 편집기의** 액션. 여섯과 같은 자리에서
     // 판정하되 수행은 인스턴스가 한다 — 포커스가 있는 편집기가 곧 이 요소의
     // 임자이므로, "어느 편집기를 저장할 것인가" 를 따로 고르지 않는다.

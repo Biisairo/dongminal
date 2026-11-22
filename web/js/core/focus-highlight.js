@@ -19,8 +19,8 @@ class FocusHighlight extends Controller {
   }
 
   focusHighlightSync(){
-    const s=this.app.aw(); if(!s||!s.layout) return;
-    const root=this.app.edRootOf(s); if(!root) return;
+    const s=this.app.tool.life.aw(); if(!s||!s.layout) return;
+    const root=this.app.editor.edRootOf(s); if(!root) return;
     const pn=findPane(s.layout,this.app.focused); if(!pn) return;
     const tab=(pn.tabs||[]).find(x=>x.id===this.app.paneTab(pn));
     const slot=this.app.slotFocused();
@@ -51,7 +51,7 @@ class FocusHighlight extends Controller {
   _fhlRetry(s,panel,at){
     const p=this._fhlPend; if(!p||p.at!==at) return;
     if(p.path){
-      const tree=this.app._edTreeFor(s); if(!tree||!tree.list||!tree.list.offsetParent) return;
+      const tree=this.app.editor.open._edTreeFor(s); if(!tree||!tree.list||!tree.list.offsetParent) return;
       this._fhlPend=null; tree.revealPath(p.path);
       return;
     }
@@ -62,7 +62,7 @@ class FocusHighlight extends Controller {
   // FR-FHL-2: Explorer 는 그 파일 하나(조상 펼침·스크롤), Changes 는 비운다. 루트 밖이면 손대지 않는다.
   _fhlFile(s,panel,root,path,at){
     if(!pathUnder(String(root).replace(/[\\/]+$/,''),path)) return;
-    const tree=this.app._edTreeFor(s);
+    const tree=this.app.editor.open._edTreeFor(s);
     if(tree) tree.revealPath(path);
     if(!tree||!tree.list||!tree.list.offsetParent) this._fhlPend={at,path};
     if(panel&&panel._sel.size){panel._sel.clear();panel._anchor=null;panel._paint()}
@@ -74,7 +74,7 @@ class FocusHighlight extends Controller {
     if(f&&f.path&&f.group){
       if(panel) this._fhlDiffSel(panel,f,at); else this._fhlPend={at,diff:f};
     }
-    const tree=this.app._edTreeFor(s);
+    const tree=this.app.editor.open._edTreeFor(s);
     if(tree&&(tree._selSet.size||tree._sel)){tree._selOnly('');tree._paintAll()}
   }
 

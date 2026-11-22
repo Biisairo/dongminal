@@ -242,7 +242,7 @@ class InputBinding {
       sides:(ctx)=>{
         const w=o.el.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=w+cw;
         const mine={px:w,pct:tot?w/tot*100:null};
-        const content={px:cw,cell:UIKit.grid(this.app.focusedTerminal&&this.app.focusedTerminal(),'x',cw-ctx.c0,0),
+        const content={px:cw,cell:UIKit.grid(this.app.tool.search.focusedTerminal&&this.app.tool.search.focusedTerminal(),'x',cw-ctx.c0,0),
           pct:tot?cw/tot*100:null};
         return ctx.side==='left'?[mine,content]:[content,mine];
       },
@@ -308,7 +308,7 @@ class InputBinding {
       // 검색이, 아니면 터미널 검색이 뜬다. Editor 창이 아닐 때 이 함수는 키를
       // 삼키지 않고 false 를 돌려준다 (FR-EKB-4).
       if(!inCm){
-        if(this.app.edTrySearchKey(e)) return;
+        if(this.app.editor.search.edTrySearchKey(e)) return;
         for(const h of BUILTIN_HOTKEYS){
           if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
         }
@@ -339,14 +339,14 @@ class InputBinding {
   // 터미널 검색 줄 (FUI-15).
   _bindSearch(){
     const si=document.getElementById('search-input');
-    si.addEventListener('input',()=>this.app.doSearch('next'));
+    si.addEventListener('input',()=>this.app.tool.search.doSearch('next'));
     si.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){e.preventDefault();this.app.doSearch(e.shiftKey?'prev':'next')}
-      if(e.key==='Escape'){e.preventDefault();e.stopPropagation();this.app.closeSearch()}
+      if(e.key==='Enter'){e.preventDefault();this.app.tool.search.doSearch(e.shiftKey?'prev':'next')}
+      if(e.key==='Escape'){e.preventDefault();e.stopPropagation();this.app.tool.search.closeSearch()}
       e.stopPropagation();
     });
-    document.getElementById('search-next').addEventListener('click',()=>this.app.doSearch('next'));
-    document.getElementById('search-prev').addEventListener('click',()=>this.app.doSearch('prev'));
+    document.getElementById('search-next').addEventListener('click',()=>this.app.tool.search.doSearch('next'));
+    document.getElementById('search-prev').addEventListener('click',()=>this.app.tool.search.doSearch('prev'));
     /**
      * FUI-15: 토글 셋. **누르면 곧바로 다시 찾는다** — 옵션을 바꾼 뒤 Enter 를
      * 한 번 더 눌러야 한다면 그 토글은 반쯤 듣는 것이다 (편집기 찾기 줄이
@@ -355,10 +355,10 @@ class InputBinding {
     for(const id of ['search-case','search-word','search-regex']){
       document.getElementById(id).addEventListener('click',ev=>{
         ev.currentTarget.classList.toggle('active');
-        this.app.doSearch('next');
+        this.app.tool.search.doSearch('next');
       });
     }
-    document.getElementById('search-close').addEventListener('click',()=>this.app.closeSearch());
+    document.getElementById('search-close').addEventListener('click',()=>this.app.tool.search.closeSearch());
   }
 
   /**

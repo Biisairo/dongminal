@@ -97,8 +97,8 @@ class DiagOverlay {
 
   pane(){
     const a=window.app;
-    if(!a||!a.focusedTerminal) return null;
-    try{return a.focusedTerminal()}catch{return null}
+    if(!a||!a.tool?.search.focusedTerminal) return null;
+    try{return a.tool.search.focusedTerminal()}catch{return null}
   }
 
   scrollState(){

@@ -43,9 +43,9 @@ class RepoWinController extends Controller {
    * 요청이면 그 칸의 미리보기 탭(종류 무관, FR-RTB-1)을 갈아 끼우며, 없으면 새 탭이다.
    */
   gitDiffOpen(root, f, opts = {}) {
-    const w = root && this.app.edWindowFor(root);
+    const w = root && this.app.editor.edWindowFor(root);
     if (!w || !f) return null;
-    const rid = (opts.paneId && w.layout && findPane(w.layout, opts.paneId)) ? opts.paneId : this.app.edEnsurePane(w);
+    const rid = (opts.paneId && w.layout && findPane(w.layout, opts.paneId)) ? opts.paneId : this.app.editor.pane.edEnsurePane(w);
     const pn = rid && findPane(w.layout, rid);
     if (!pn) return null;
     const target = this._diffTabTarget(f, opts.commit);
@@ -92,17 +92,17 @@ class RepoWinController extends Controller {
 
   // FR-RTB-6 ③: 지금 칸의 그 대상 Diff 탭을 고정한다. 여는 일은 앞선 클릭이 했다.
   gitDiffPin(root, f, commit) {
-    const w = root && f && this.app.edWindowFor(root);
-    const rid = w && w.layout && this.app.edEnsurePane(w);
+    const w = root && f && this.app.editor.edWindowFor(root);
+    const rid = w && w.layout && this.app.editor.pane.edEnsurePane(w);
     const pn = rid && findPane(w.layout, rid);
     const tab = pn && this._diffTabIn(pn, this.diffTabKey(this._diffTabTarget(f, commit)));
-    if (tab) this.app.pinPreviewTab(tab);
+    if (tab) this.app.repoWin.preview.pinPreviewTab(tab);
   }
 
   // Diff 탭 패널이 자기 탭을 고정한다 (FR-RTB-6 ④⑤).
   gitDiffTabPin(tabId) {
     const found = tabId && findTabWhere(this.app.ws.windows, x => x.id === tabId);
-    if (found) this.app.pinPreviewTab(found.tab);
+    if (found) this.app.repoWin.preview.pinPreviewTab(found.tab);
   }
 
   // 탭을 그 대상의 Diff 탭으로 만든다. 편집기 미리보기였으면 그 인스턴스를 놓는다 (FR-RTB-1).
@@ -153,8 +153,8 @@ class RepoWinController extends Controller {
 
   // 포커스 칸에서 보고 있는 Diff 탭의 패널. Diff 탭이 아니면 null 이다.
   gitDiffPanelActive() {
-    const s = this.app.aw();
-    if (!s || !s.layout || !this.app.isEditorWin(s)) return null;
+    const s = this.app.tool.life.aw();
+    if (!s || !s.layout || !this.app.editor.isEditorWin(s)) return null;
     const pn = findPane(s.layout, this.app.focused);
     const tab = pn && (pn.tabs || []).find(x => x.id === this.app.paneTab(pn));
     if (!tab || tab.type !== TAB_TYPE_GIT || tab.gitView !== 'diff') return null;
@@ -181,7 +181,3 @@ class RepoWinController extends Controller {
     return out;
   }
 }
-
-// 바깥이 부르는 이름 — 레이아웃(닫은 탭 다시 열기)·Git 등록부·편집기 찾기·`git/`·`ui/`·e2e.
-Controller.delegate(App,'repoWin',['diffTabKey','gitDiffOpen','gitDiffStep','gitDiffPin','gitDiffTabPin','gitDiffPanelFor',
-  '_gitDiffPanelOf','gitDiffPanelActive','_gitDiffPanelsDrop','_gitDiffTabIds']);

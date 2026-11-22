@@ -101,10 +101,10 @@ test.describe('창의 치수는 창 밖으로 새지 않는다', () => {
   // V-UXB-3 · FR-UXB-7
   test('탐색기 폭도 창의 것이다', async ({ page, request }) => {
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app.edSetSideWidth(300));
+    await page.evaluate(() => (window as any).app.editor.pane.edSetSideWidth(300));
     expect(await page.evaluate(() => sessionStorage.getItem('repoSideWidth'))).toBe('300');
     expect(await page.evaluate(() => (window as any).app.ws.repoSideWidth)).toBeUndefined();
-    expect(await page.evaluate(() => (window as any).app.edSideWidth())).toBe(300);
+    expect(await page.evaluate(() => (window as any).app.editor.pane.edSideWidth())).toBe(300);
     const ws = await (await request.get('/api/workspace')).json();
     expect(ws.repoSideWidth, '탐색기 폭이 서버에 올라갔다').toBeUndefined();
   });

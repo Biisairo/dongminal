@@ -33,7 +33,7 @@ class MobileNav extends Controller {
     if(!this.app.isMobile) return;
     const btn=document.getElementById('m-act-btn')||this._mActBtnEl();
     if(!btn) return;
-    const n=this.app.workingToolIds().size;   // UX_AUDIT_FIX_SRS FR-UXF-63 과 같은 판정
+    const n=this.app.tool.work.workingToolIds().size;   // UX_AUDIT_FIX_SRS FR-UXF-63 과 같은 판정
     const num=btn.querySelector('.m-act-n');
     if(num) num.textContent=n?String(n):'';
     btn.classList.toggle('working',n>0);
@@ -61,7 +61,7 @@ class MobileNav extends Controller {
 
   /** FR-MUX-78: 지금 자리의 세그먼트 — 사이드 자리면 그 사이드 탭, 아니면 편집기. */
   mobileRepoSegCur(){
-    return this.app.mobile.mobileOnSide()?this.app.edSideOf(this.app.aw()):REPO_SEG_EDITOR.id;
+    return this.app.mobile.mobileOnSide()?this.app.editor.pane.edSideOf(this.app.tool.life.aw()):REPO_SEG_EDITOR.id;
   }
 
   /**
@@ -69,11 +69,11 @@ class MobileNav extends Controller {
    * 칸의 자리로 간다 — 이미 편집기 자리이고 칸이 여럿이면 다음 칸이다 (칸 순회가 하던 일을 잃지 않는다).
    */
   mobileRepoSegGo(key){
-    const s=this.app.aw();
+    const s=this.app.tool.life.aw();
     if(!s) return;
     if(key!==REPO_SEG_EDITOR.id){
       this.app.mPaneIdx=0;
-      if(this.app.edSideOf(s)!==key) this.app.edSetSide(s,key);   // 다시 그린다
+      if(this.app.editor.pane.edSideOf(s)!==key) this.app.editor.pane.edSetSide(s,key);   // 다시 그린다
       else this.app.render();
       return;
     }
@@ -99,8 +99,8 @@ class MobileNav extends Controller {
     if(!seg) return;
     seg.hidden=!on;
     if(!on) return;
-    const s=this.app.aw(),cur=this.mobileRepoSegCur();
-    const allowed=new Set(this.app.edSideTabs(s).map(d=>d.id));
+    const s=this.app.tool.life.aw(),cur=this.mobileRepoSegCur();
+    const allowed=new Set(this.app.editor.pane.edSideTabs(s).map(d=>d.id));
     let n=0;
     if(s.layout) for(const p of this.app.flattenPanes(s.layout)) n+=(p&&p.tabs)?p.tabs.length:0;
     for(const b of seg.children){

@@ -193,7 +193,7 @@ class StatusBarController extends Controller {
       push('disk',`<span class="sb-item">DISK <span class="mono">${e(this.app._stats.diskPct)}%</span></span>`);
     }
     if(statusBar.termsize){
-      const p=this.app.focusedTerminal();
+      const p=this.app.tool.search.focusedTerminal();
       if(p&&p.term){
         push('termsize',`<span class="sb-item"><span class="mono">${e(p.term.cols)}×${e(p.term.rows)}</span></span>`);
       }
@@ -302,7 +302,7 @@ class StatusBarController extends Controller {
     // FR-NAM-5: 백그라운드 도구에는 탭이 없다 — 파생 이름이 그 도구를 부르는
     // 유일한 이름이다. 서버가 준 name 은 fallback 으로만 쓴다.
     const name=document.createElement('span'); name.className='bg-name';
-    name.textContent=this.app._toolName(b.toolId,b.name);
+    name.textContent=this.app.tool.life._toolName(b.toolId,b.name);
     const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
     row.appendChild(name); row.appendChild(cwd);
     // FR-BGK-12: Run 소속. 묶음 H 가 오기 전에는 필드가 없고, 그때는 아무것도 붙지 않는다.
@@ -338,7 +338,7 @@ class StatusBarController extends Controller {
       // FR-BGK-5: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
       // 취소와 복귀를 한 클릭에 겹치면 확인의 의미가 사라진다.
       if(this._bgConfirm){this._bgConfirmSet(null);return}
-      this.app._restoreTool(b.toolId);
+      this.app.tool.life._restoreTool(b.toolId);
       if(this.app.mobile.nav.actSheetLeave) this.app.mobile.nav.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
     });
     return row;
@@ -348,7 +348,7 @@ class StatusBarController extends Controller {
   _bgKillBtn(b){
     const btn=document.createElement('button');
     btn.className='ui-btn ui-btn-sm bg-kill'; btn.textContent=t('runs.close');
-    btn.title=t('bg.kill_title',{name:this.app._toolName(b.toolId,b.name)});
+    btn.title=t('bg.kill_title',{name:this.app.tool.life._toolName(b.toolId,b.name)});
     btn.dataset.toolid=b.toolId;
     btn.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(b.toolId)});
     return btn;
@@ -406,7 +406,7 @@ class StatusBarController extends Controller {
     if(!ok) msg=apiErrText(r,t('runs.close_fail'));
     this._bgPending=null;
     if(!ok) this._bgError={toolId,msg};
-    else await this.app._bgRefresh();
+    else await this.app.tool.life._bgRefresh();
     // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
     // 목록 갱신이 실패한 회차에도 '종료 중…' 이 남지 않게 여기서 한 번 더 그린다.
     this._bgPanelPaint();
@@ -430,7 +430,7 @@ class StatusBarController extends Controller {
    */
   _shortCwd(cwd){
     const sep=pathSep(cwd);
-    const home=this.app._edHome?this.app._edHome():'';
+    const home=this.app.editor?._edHome?this.app.editor._edHome():'';
     let short=cwd,athome=false;
     if(home&&pathUnder(home,cwd)){
       athome=true;
@@ -455,7 +455,7 @@ class StatusBarController extends Controller {
     return(b/1073741824).toFixed(1)+'GB';
   }
   _locationLabel(){
-    const s=this.app.aw();if(!s||!s.layout||!this.app.focused)return null;
+    const s=this.app.tool.life.aw();if(!s||!s.layout||!this.app.focused)return null;
     const sidx=this.app.ws.windows.findIndex(x=>x.id===this.app.ws.activeWindow);
     if(sidx<0)return null;
     const panes=panesOf(s.layout);
@@ -467,13 +467,13 @@ class StatusBarController extends Controller {
     return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
   }
   updateCwd(){   // FR-OPT-4-10 (FEC-3): OSC 777;Cwd 값(`_cwd`)이 있으면 그것, 없으면 포커스가 바뀐 때만 묻는다
-    const p=this.app.focusedTerminal();
+    const p=this.app.tool.search.focusedTerminal();
     if(!p||!statusBar.cwd){this._cwdTool=null;return}
     const moved=p.id!==this._cwdTool; this._cwdTool=p.id;
     if(p._cwd){if(this.app.cwd!==p._cwd){this.app.cwd=p._cwd;this.updateStatusBar()}return}
     if(!moved) return;
     apiGet('/api/cwd',{query:{tool:p.id}}).then(r=>{
-      const f=this.app.focusedTerminal();   // 늦은 답이 옮겨 간 포커스의 위치를 덮지 않는다
+      const f=this.app.tool.search.focusedTerminal();   // 늦은 답이 옮겨 간 포커스의 위치를 덮지 않는다
       if(!r.data||!f||f.id!==p.id) return;
       this.app.cwd=r.data.cwd; this.updateStatusBar();
     });

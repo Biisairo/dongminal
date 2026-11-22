@@ -325,8 +325,8 @@ class GitChangeRows extends GitPart {
     // UX_BATCH12_SRS FR-RTB-6 ③ (D-RTU-23 개정): 더블클릭은 앞선 클릭이 연 탭을 고정한다.
     d.addEventListener('dblclick',ev=>{
       if(!this.p.root||ev.metaKey||ev.ctrlKey||ev.shiftKey) return;
-      if(this.p._noBaseline(group,e)){ if(!e.dir) this.app.edPinTabFor(this.p.absPath(e)); return }
-      this.app.gitDiffPin(this.p.root,this.p._diffTarget(),!!this.p.commitFile);
+      if(this.p._noBaseline(group,e)){ if(!e.dir) this.app.editor.pane.edPinTabFor(this.p.absPath(e)); return }
+      this.app.repoWin.gitDiffPin(this.p.root,this.p._diffTarget(),!!this.p.commitFile);
     });
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();

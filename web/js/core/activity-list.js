@@ -35,7 +35,7 @@
  * 받는다. 패널(`ActivityPanel`)은 이 부품이 든다(`activityPanel`).
  *
  * 로드 순서 계약: `app.js` **뒤**, `agents-controller.js` 뒤. 구역이 부르는 이름들
- * (`_bgRow`·`_runsPanel`·`_attnDetail`)은 **호출 시점**에만 있으면 된다.
+ * (`_bgRow`·`runsPanel`·`_attnDetail`)은 **호출 시점**에만 있으면 된다.
  */
 
 /**
@@ -54,7 +54,7 @@ const ACTIVITY_SECTIONS=[
    items:app=>app.agents._agWindowItems(),
    // FR-PCH-81: Agents 는 알람 점이다. 접힌 창도 그룹 머리가 알람 수를 갖는다.
    // UX_AUDIT_FIX_SRS FR-UXF-63: 배지는 작업 중인 수다. 주의가 있으면 종전대로 점이고 수는 말하지 않는다.
-   badge:(app,its)=>{const dot=its.some(i=>i.t==='group'&&i.attn>0);return {n:dot||!app.workingToolIds?0:app.workingToolIds().size,dot}},
+   badge:(app,its)=>{const dot=its.some(i=>i.t==='group'&&i.attn>0);return {n:dot||!app.tool?.work.workingToolIds?0:app.tool.work.workingToolIds().size,dot}},
    badgeWork:true},
   {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), tip:()=>TIP_ACT_BG, empty:()=>t('bg.empty'),
    items:app=>app.agents.list._actBgRows()},
@@ -245,8 +245,8 @@ class ActivityList extends Controller {
 
   /** 구역의 목록을 다시 받는다. 활동은 자기 등록부가 몰고 온다 (FR-HUB-3). */
   _actRefresh(){
-    this.app._bgRefresh();
-    this.app._runsPanel()._runsRefresh();
+    this.app.tool.life._bgRefresh();
+    this.app.runsPanel()._runsRefresh();
     this.app.agents._activityRestore();
   }
 
@@ -336,7 +336,7 @@ class ActivityList extends Controller {
   }
 
   _actRunsRows(){
-    const rp=this.app._runsPanel();
+    const rp=this.app.runsPanel();
     // 목록을 받지 못한 것은 "없다" 가 아니다 — 그 사실이 구역 안에 남는다 (FR-RVZ-4).
     if(rp._runsErr){
       const d=document.createElement('div'); d.className='runs-err'; d.textContent=rp._runsErr;

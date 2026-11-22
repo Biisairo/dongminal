@@ -66,7 +66,7 @@ class TerminalTool {
         }},
         {id:'selectAll',label:TERM_MENU_SELECT_ALL,onClick:()=>this.term.selectAll()},
         {sep:true},
-        {id:'find',label:TERM_MENU_FIND,onClick:()=>{if(window.app&&app.toggleSearch)app.toggleSearch()}},
+        {id:'find',label:TERM_MENU_FIND,onClick:()=>{if(window.app&&app.tool?.search.toggleSearch)app.tool.search.toggleSearch()}},
         {id:'newTab',label:TAB_MENU_NEW,onClick:()=>{if(window.app&&app.addTabFocused)app.addTabFocused()}},
       ],{at:{x:e.clientX,y:e.clientY},cls:'term-menu'});
     });
@@ -188,8 +188,8 @@ class TerminalTool {
   // 이 패널이 든 탭의 자리. 슬롯 복합키(`id@1`)를 지나야 남의 칸을 닫지 않는다.
   _exitSpot(){
     const app=window.app;
-    if(!app||!app.findToolLocation) return null;
-    return app.findToolLocation(this.id);
+    if(!app||!app.tool?.life.findToolLocation) return null;
+    return app.tool.life.findToolLocation(this.id);
   }
 
   // FUI-14: 탭 닫기. `closeTab` 이 확인·정리 규약을 이미 든다.

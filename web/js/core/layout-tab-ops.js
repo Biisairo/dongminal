@@ -8,7 +8,7 @@ class LayoutTabOps extends Controller {
   async closeTab(rid,tid,sid,opts={}){
     // sid 를 지정하면 해당 창의 탭을 닫는다 (비활성 창 대상도 지원).
     // 지정 안 하면 기존 동작: 활성 창에서 닫는다.
-    const s = sid ? this.app.ws.windows.find(x=>x.id===sid) : this.app.aw();
+    const s = sid ? this.app.ws.windows.find(x=>x.id===sid) : this.app.tool.life.aw();
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
     const tab=pn.tabs.find(x=>x.id===tid); if(!tab) return;
@@ -23,7 +23,7 @@ class LayoutTabOps extends Controller {
     opts=ask;
     // UX_BATCH12_SRS FR-RTR-2: 닫은 탭 목록에 적는다. 커서·스크롤을 읽으므로 인스턴스를 놓기 전이다.
     this.app.layout.reopen._tabReopenNote(s,pn,tab);
-    if(gitTab) this.app.git.surfaces._gitDropView(this.app.edRootOf(s),tab.gitView,tab.id);
+    if(gitTab) this.app.git.surfaces._gitDropView(this.app.editor.edRootOf(s),tab.gitView,tab.id);
     // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
     if(isEditor) this.app.editorsDrop(tab.id);
     const toolId=tab.toolId;
@@ -61,9 +61,9 @@ class LayoutTabOps extends Controller {
     if(tool){
       if(opts.keepTool){
         // 탭만 제거한다 — 도구는 백그라운드에서 계속 실행된다 (FR-BG-2/3).
-        this.app._setToolBackground(tool,true).then(()=>this.app._bgRefresh());
+        this.app.tool.life._setToolBackground(tool,true).then(()=>this.app.tool.life._bgRefresh());
       }else{
-        this.app._killTool(tool);
+        this.app.tool.life._killTool(tool);
       }
     }
     this.app.save();
@@ -99,10 +99,10 @@ class LayoutTabOps extends Controller {
        * 뒤라서, 취소를 눌러도 편집은 돌아오지 않는다.
        */
       if(opts.force) return opts;
-      const root=this.app.edRootOf(s);
+      const root=this.app.editor.edRootOf(s);
       if(!this.app.git.surfaces._gitViewDirty(root,tab.gitView,true,tab.id)) return opts;
       return (async()=>{
-        const r=await this.app._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
+        const r=await this.app.tool._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
         if(!r) return null;
         // 저장이 실패하면 닫지 않는다 — 저장한 줄 알고 닫는 것이 곧 손실이다.
         if(r==='save'&&!await this.app.git.surfaces._gitViewSave(root,tab.gitView,tab.id)) return null;
@@ -116,7 +116,7 @@ class LayoutTabOps extends Controller {
       // 파일은 이미 없다.
       if(!editor || !editor._dirty || opts.force) return opts;
       return (async()=>{
-        const result=await this.app._confirmClose(CLOSE_DIRTY_MSG, { saveBtn: true });
+        const result=await this.app.tool._confirmClose(CLOSE_DIRTY_MSG, { saveBtn: true });
         // EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-13: **저장이 실패하면 닫지 않는다.**
         // 위 Diff 경로가 이미 그렇게 한다 — 편집기 경로에만 그 가드가 없었다.
         //
@@ -140,8 +140,8 @@ class LayoutTabOps extends Controller {
     // 막힌다. 사용자의 결정은 `dmctl run close` 를 부른 순간에 이미 있었다.
     if(!tab.toolId || opts.keepTool || opts.force) return opts;
     return (async()=>{
-      if(!await this.app._isToolBusy(tab.toolId)) return opts;
-      const r=await this.app._confirmClose(t('core.q_close_tab'),{bgBtn:toolBackgroundCapable(tab.type)});
+      if(!await this.app.tool._isToolBusy(tab.toolId)) return opts;
+      const r=await this.app.tool._confirmClose(t('core.q_close_tab'),{bgBtn:toolBackgroundCapable(tab.type)});
       if(!r) return null;
       return r==='background'?{...opts,keepTool:true}:opts;
     })();
@@ -154,7 +154,7 @@ class LayoutTabOps extends Controller {
     // FR-EDT-52·55·56: Editor 창은 pane 이 0이 되어도 남는다 — 창의 수명은
     // 행의 수명이다 (FR-EDT-42). 빈 pane 을 남기지 않는 것과 창을 지우는 것은
     // 다른 일이다.
-    if(!s.layout&&(this.app.isEditorWin(s)||this.app.git.isChatWin(s))){ // CHAT_WINDOW_SRS FR-CW-4·13: 채팅 창도 같다
+    if(!s.layout&&(this.app.editor.isEditorWin(s)||this.app.git.isChatWin(s))){ // CHAT_WINDOW_SRS FR-CW-4·13: 채팅 창도 같다
       if(isActive){this.app.setFocusState(null,s);this.app._focusWindow(s.id)}
       this.app.render();
       this.app.save();
@@ -167,11 +167,11 @@ class LayoutTabOps extends Controller {
       // 목록에 오르지도 않아 어디서도 닿을 수 없는 도구가 된다.
       return (async()=>{
         if(toolId){
-          if(opts.keepTool) await this.app._setToolBackground(toolId,true);
-          else this.app._killTool(toolId);
+          if(opts.keepTool) await this.app.tool.life._setToolBackground(toolId,true);
+          else this.app.tool.life._killTool(toolId);
         }
         await this.app.delWindow(s.id);
-        if(toolId&&opts.keepTool) this.app._bgRefresh();
+        if(toolId&&opts.keepTool) this.app.tool.life._bgRefresh();
       })();
     }
     if(isActive){
@@ -189,7 +189,7 @@ class LayoutTabOps extends Controller {
   switchTab(rid,tid,slot){
     const i=(slot==null)?this.app.slotFocused():slot;
     // 비포커스 칸의 창은 활성 창이 아닐 수 있다 — 그 칸의 창에서 pane 을 찾는다.
-    const s=(slot==null)?this.app.aw():(this.app.slotWindow(i)||this.app.aw());
+    const s=(slot==null)?this.app.tool.life.aw():(this.app.slotWindow(i)||this.app.tool.life.aw());
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
     if(this.app.paneTab(pn,i)===tid && this.app.focused===rid){this.app.setFocusState(rid, s); return}
@@ -216,7 +216,7 @@ class LayoutTabOps extends Controller {
     if(this.app.git.isGitWin(s)) return;
     // FR-EDT-50·51: Editor 창에서 분할이 생기는 유일한 길은 드래그드롭이다.
     // 단축키와 버튼은 이 자리에서 무시된다.
-    if(this.app.isEditorWin(s)||this.app.git.isChatWin(s)) return; // CHAT_WINDOW_SRS FR-CW-11: 채팅 창도 같다
+    if(this.app.editor.isEditorWin(s)||this.app.git.isChatWin(s)) return; // CHAT_WINDOW_SRS FR-CW-11: 채팅 창도 같다
     const tgtPaneId=opts.targetPane||(tgtWindowId===this.app.ws.activeWindow?this.app.focused:null);
     if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
@@ -228,7 +228,7 @@ class LayoutTabOps extends Controller {
     const refPaneId=ref.cwd ? null : (ref.cwdTool || null);
     const newPanes=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
-      const p=await this.app._newTool(ref.cwd || null, refPaneId, s);
+      const p=await this.app.tool.life._newTool(ref.cwd || null, refPaneId, s);
       const r=newEntityId(),tabId=newEntityId();
       newPanes.push({type:'pane',id:r,tabs:[{id:tabId,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id}],activeTab:tabId});
       lastR=r;
@@ -247,7 +247,7 @@ class LayoutTabOps extends Controller {
       if(this.app.ws.activeWindow!==savedWindow && this.app.ws.windows.some(x=>x.id===savedWindow)){
         this.app._activateWindow(savedWindow);
       }
-      const a=this.app.aw();
+      const a=this.app.tool.life.aw();
       if(a && savedFocused && findPane(a.layout,savedFocused)){
         this.app.setFocusState(savedFocused, a);
       } else if(savedFocused){
@@ -288,13 +288,13 @@ class LayoutTabOps extends Controller {
     return {};
   }
   switchTabPrev(){
-    const s=this.app.aw();if(!s||!this.app.focused)return;
+    const s=this.app.tool.life.aw();if(!s||!this.app.focused)return;
     const pn=findPane(s.layout,this.app.focused);if(!pn)return;
     const i=pn.tabs.findIndex(tab=>tab.id===this.app.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i-1+pn.tabs.length)%pn.tabs.length].id);
   }
   switchTabNext(){
-    const s=this.app.aw();if(!s||!this.app.focused)return;
+    const s=this.app.tool.life.aw();if(!s||!this.app.focused)return;
     const pn=findPane(s.layout,this.app.focused);if(!pn)return;
     const i=pn.tabs.findIndex(tab=>tab.id===this.app.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
@@ -320,7 +320,7 @@ class LayoutTabOps extends Controller {
   // `path.length<2` 는 분할이 없는 창(Git 창 포함)이 타는 자리다. 여기를 빠뜨리면
   // 터미널 창에서는 넘어가는데 Git 창에서는 안 넘어가는 비대칭이 생긴다.
   paneNavigate(dir){
-    const s=this.app.aw();if(!s||!this.app.focused)return this.app.slotNavigate(dir);
+    const s=this.app.tool.life.aw();if(!s||!this.app.focused)return this.app.slotNavigate(dir);
     const path=s.layout?findPath(s.layout,this.app.focused):null;
     if(!path||path.length<2)return this.app.slotNavigate(dir);
     for(let i=path.length-2;i>=0;i--){
@@ -338,9 +338,9 @@ class LayoutTabOps extends Controller {
     }
     return this.app.slotNavigate(dir);
   }
-  addTabFocused(){if(this.app.focused)this.app.addTab(this.app.focused,TAB_TYPE_TERMINAL).catch(err=>this.app._notify(errText(t('core.open_tab_fail'),err)))}
+  addTabFocused(){if(this.app.focused)this.app.addTab(this.app.focused,TAB_TYPE_TERMINAL).catch(err=>this.app.tool._notify(errText(t('core.open_tab_fail'),err)))}
   closeTabFocused(){
-    const s=this.app.aw();if(!s||!this.app.focused)return;
+    const s=this.app.tool.life.aw();if(!s||!this.app.focused)return;
     const pn=findPane(s.layout,this.app.focused);if(!pn)return;
     this.closeTab(pn.id,this.app.paneTab(pn));
   }

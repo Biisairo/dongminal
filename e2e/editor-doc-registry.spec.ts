@@ -52,7 +52,7 @@ test('refresh 응답 도착 전의 편집은 덮이지 않는다', async ({ page
   const held = new Promise<void>((r) => { release = r });
   await page.route('**/api/file/read*', async (route: any) => { await held; await route.continue() });
   writeFileSync(join(ROOT, 'r.txt'), 'DISK\n');
-  await page.evaluate((p: string) => { (window as any).__r = (window as any).app.edDocRefresh(p) }, P('r.txt'));
+  await page.evaluate((p: string) => { (window as any).__r = (window as any).app.editor.doc.edDocRefresh(p) }, P('r.txt'));
   await page.evaluate((s: string) => { edT.docSetText(eval(s), 'MINE\n') }, doc('r.txt'));
   release();
   expect(await page.evaluate(() => (window as any).__r)).toBe(false);
@@ -77,7 +77,7 @@ test('edDocMove: 새 URI 모델, 내용·dirty 보존, undo 소실', async ({ pa
   await open(page, 'm.txt');
   await page.evaluate((s: string) => { edT.docSetText(eval(s), 'EDITED\n') }, doc('m.txt'));
   renameSync(join(ROOT, 'm.txt'), join(ROOT, 'm2.txt'));
-  await page.evaluate(({ a, b }: any) => (window as any).app.edRetargetTabs(a, b), { a: P('m.txt'), b: P('m2.txt') });
+  await page.evaluate(({ a, b }: any) => (window as any).app.editor.pane.edRetargetTabs(a, b), { a: P('m.txt'), b: P('m2.txt') });
   const got = await page.evaluate(({ a, b }: any) => {
     const app = (window as any).app;
     const d = app.testing.edDocs.get(b);
@@ -161,7 +161,7 @@ test('렌더 탭만 남은 문서도 외부 변경을 문서 단위로 반영한
   await expect.poll(() => page.evaluate((s: string) => eval(s).views.size, doc('d.md'))).toBe(1);
   writeFileSync(join(ROOT, 'd.md'), '# new\n');
   await expect.poll(async () => {
-    await page.evaluate(() => (window as any).app.edPollDocStamps());
+    await page.evaluate(() => (window as any).app.editor.open.edPollDocStamps());
     return page.evaluate((s: string) => edT.docText(eval(s)), doc('d.md'));
   }, { timeout: 15000 }).toBe('# new\n');
 });

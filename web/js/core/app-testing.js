@@ -83,7 +83,7 @@ const APP_TESTING_NAMES = [
   'tool.search.focusedTerminal', 'tool.life.findToolLocation', 'attn.jumpToTool', 'tool.life._killTool', 'tool.life._toolName',
   'agents._onToolActivity', 'attn._onToolAttention', 'wsSync._onToolForeground', 'wsSync._fgApply', 'wsSync._fgMap', 'fgNames',
   'attn._isToolFocusedActive', 'wsSync._restoreBegin', 'wsSync._restoreLive', 'wsSync._restoreNote',
-  'tool.life._restoreTool', 'wsSync._restoreVoid', '_bg', '_runsPanel', '_runsPanel()._onRunChanged',
+  'tool.life._restoreTool', 'wsSync._restoreVoid', '_bg', 'runsPanel', 'runsPanel()._onRunChanged',
   // 같은 구멍 (FR-FMB-45a).
   'tool._isToolBusy', 'tool._toolsBusy',
 
@@ -124,7 +124,7 @@ const APP_TESTING_NAMES = [
   // MOBILE_UX_OVERHAUL_SRS TC-MUX-9·10b: 설정을 연다 — 섹션을 주면 그 상세로 바로 들어간다.
   'settings._openSettings',
   'mobile._scheduleMobileFit', 'focus.owner.resizeCheck',
-  '_lspClient()._lspRootOfPath',
+  'lspClient()._lspRootOfPath',
   // REPO_FIX 03 E-7.1: 렌더 탭을 여는 자리 — 렌더 탭만 남은 문서의 갱신을 잰다.
   'editor.docRender._docRenderOpen',
   // SYSTEM_THEME_FOLLOW_SRS TC-STF-1·2: 슬롯을 읽고 세운다.
@@ -143,7 +143,7 @@ function appTestingApi(app) {
   for (const entry of APP_TESTING_NAMES) {
     // REFACTOR3_FE_DELEG_SRS FR-DLG-4: 컨트롤러·부품으로 옮긴 이름은 **앱에서 주인까지의 점 경로**로 적는다
     // (`'slot.slotFocused'`). 키는 마지막 이름에서 정하므로 e2e 가 보는 이름은 그대로다. `x()` 마디는 지연 생성한
-    // 본체(`_lspClient()`), `section(t)` 마디는 설정 섹션이다 — 주인은 읽는 시점에 찾는다.
+    // 본체(`lspClient()`), `section(t)` 마디는 설정 섹션이다 — 주인은 읽는 시점에 찾는다.
     const keys = entry.split('.');
     const name = keys.pop();
     const owner = () => keys.reduce((o, k) => {

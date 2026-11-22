@@ -35,12 +35,12 @@ function world() {
     expose: ['findTabWhere'],
   });
   const a = controllers(ctx, new ctx.App());
-  a.isEditorWin = (s) => !!(s && s.editor);
+  a.editor.isEditorWin = (s) => !!(s && s.editor);
   a.git.isChatWin = (s) => !!(s && s.type === 'chat');
-  a.edRootOf = (s) => (s && s.editor && s.editor.root) || '';
+  a.editor.edRootOf = (s) => (s && s.editor && s.editor.root) || '';
   a.git._migrateGitWindow = () => 0;
-  a._migrateEditorTabs = () => 0;
-  a._edMigrateSideWidth = () => false;
+  a.editor.open._migrateEditorTabs = () => 0;
+  a.editor.pane._edMigrateSideWidth = () => false;
   return { ctx, a, sessionStorage };
 }
 
@@ -83,7 +83,7 @@ test('FEC-17: 편집기 탭 마이그레이션이 옮겼으면 다시 거르고 
   const { a } = world();
   const seen = [];
   a.git._migrateGitWindow = (list) => { seen.push(['git', list]); return 0 };
-  a._migrateEditorTabs = (list) => { seen.push(['ed', list]); list[0].layout = null; return 1 };
+  a.editor.open._migrateEditorTabs = (list) => { seen.push(['ed', list]); list[0].layout = null; return 1 };
   const sv = { windows: [{ id: 'A', layout: pane('p1', [term('t1', 'x')]) }, { id: 'B', layout: pane('p2', [term('t2', 'x')]) }] };
   const changed = a._normalizeIncomingWorkspace(sv, new Set(['x']));
   assert.equal(changed, true);
@@ -98,7 +98,7 @@ test('FEC-17: 기기 키를 걷어내고 폭을 옮겼는지 알린다', () => {
   assert.equal(a._stripDeviceKeys(), true);
   assert.deepEqual(Object.keys(a.ws), ['windows']);
   assert.equal(a._stripDeviceKeys(), false);
-  a._edMigrateSideWidth = () => true;
+  a.editor.pane._edMigrateSideWidth = () => true;
   assert.equal(a._stripDeviceKeys(), true, 'Repo 사이드 폭의 이사도 바뀜이다');
 });
 
@@ -119,7 +119,7 @@ test('FEC-17: 두 로드 경로가 같은 정규화·폴백을 지난다 (두 �
 test('FEC-18: _activateWindow 는 모델과 탭별 기억(창 id·Repo 루트)을 함께 적는다', () => {
   const { a, sessionStorage } = world();
   a.ws = { activeWindow: 'P', windows: [{ id: 'P' }, { id: 'E', editor: { root: '/repo' } }] };
-  a.aw = function () { return this.ws.windows.find((s) => s.id === this.ws.activeWindow) };
+  a.tool.life.aw = () => a.ws.windows.find((s) => s.id === a.ws.activeWindow);
   a.focused = 'pane-1';
   a._activateWindow('E', { rememberFocus: true });
   assert.equal(a.ws.activeWindow, 'E');

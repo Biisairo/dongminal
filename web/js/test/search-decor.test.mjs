@@ -23,10 +23,10 @@ test('doSearch 세 번에 getComputedStyle 0회 — 테마가 계산해 둔 장�
   });
   const a = controllers(ctx, new ctx.App());
   const term = { search: { findNext: (q, o) => { seen.push(o.decorations); return true } }, _searchSub: null };
-  a.focusedTerminal = () => term;
+  a.tool.search.focusedTerminal = () => term;
   a.tool.search._searchOpt = () => false;          // REFACTOR3_FE_APPCTL_SRS 9j: 부품 `ToolSearch` 의 것이다
   a.tool.search._searchBindResults = () => {};
-  for (let i = 0; i < 3; i++) a.doSearch('next');
+  for (let i = 0; i < 3; i++) a.tool.search.doSearch('next');
   assert.equal(reads, 0);
   assert.equal(seen.length, 3);
   assert.equal(seen[0].matchBackground, 'mb');

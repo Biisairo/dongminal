@@ -202,7 +202,7 @@ class SlotsController extends Controller {
 
   // 칸 idx 에 있는 창. 단일 슬롯 모드면 활성 창이다.
   slotWindow(i){
-    if(!this.app._slots) return i?null:this.app.aw();
+    if(!this.app._slots) return i?null:this.app.tool.life.aw();
     const id=this.app._slots.windows[i];
     return id?(this.app.ws.windows.find(s=>s.id===id)||null):null;
   }

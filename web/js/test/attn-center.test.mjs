@@ -61,7 +61,7 @@ function setup() {
   });
   const a = new ctx.App();
   a._attn = new Map();
-  a._toolName = (id) => id;
+  a.tool = { life: { _toolName: (id) => id } };
   a._details = {};
   // REFACTOR3_FE_APPCTL_SRS 9b: 센터는 `AttnController` 의 부품 `AttnCenter` 다. 시험은 종전처럼 앱에서 부른다.
   const c = new ctx.AttnCenter(a);

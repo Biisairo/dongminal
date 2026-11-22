@@ -97,7 +97,7 @@ const SB_TAB_DEFS=[
         active:s.id===app.ws.activeWindow,
         // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시.
         attn:app.attn.windowHasAttn(s),
-        work:app.windowWorkDot(s),   // UX_AUDIT_FIX_SRS FR-UXF-62
+        work:app.tool.work.windowWorkDot(s),   // UX_AUDIT_FIX_SRS FR-UXF-62
         // SANDBOX_WINDOW_SRS: 격리된 창임을 목록에서 구분한다. 어느 창이
         // 샌드박스인지 알 수 없으면 사용자가 격리를 신뢰할 근거가 없다.
         // SANDBOX_PICK_COPY_SRS FR-SPK-21·22: 작업 폴더가 복사본인 창은 그
@@ -150,11 +150,11 @@ const SB_TAB_DEFS=[
     // FR-EDT-120: 목록의 원천은 `/api/editors` 다 — 그것이 없으면 행을 만들 수
     // 없다. **git 이 없는 것은 사유가 되지 않는다** (FR-RTU-9 / D-RTU-12):
     // 탐색기와 편집기는 git 없이 성립하고, 그때 Changes 사이드가 사유를 보인다.
-    visible:app=>app.edOn(),
+    visible:app=>app.editor.edOn(),
     // FR-RTU-6: 헤더 배지는 두지 않는다 — 근거 없는 숫자를 남기지 않는다는
     // FR-GOB-13 의 판단이 그대로다. 개수는 행마다 붙는다.
     // FR-EDT-7: 탭을 고르면 콘텐츠 창까지 바뀐다.
-    onActivate:app=>{const w=app.edActivateTarget();if(w)app.switchWindow(w.id)},
+    onActivate:app=>{const w=app.editor.open.edActivateTarget();if(w)app.switchWindow(w.id)},
     // FR-GOB-9: 들어간 순간 등록된 리포 전부를 관측한다. 다음 폴링(3초)을
     // 기다리면 사용자는 낡은 배지를 먼저 본다.
     //
@@ -173,20 +173,20 @@ const SB_TAB_DEFS=[
       // 첫 응답 전에는 "없다" 를 말하지 않는다.
       ready:app=>!!app.editors,
       emptyText:REPO_ENTRIES_NONE,emptyClass:'ed-entries-none',
-      items:app=>app.edEntries(),
+      items:app=>app.editor.edEntries(),
       key:e=>'ed:'+e.path,
-      fixed:app=>app.edFixed(),
+      fixed:app=>app.editor.edFixed(),
       // FR-RTU-8: 순회 대상은 `items` 뒤에 `fixed` 를 이어 붙인 순서다 — 고정 행이
       // 마지막 자리로 **포함된다.** 제외하면 키만으로는 거기 갈 수 없다.
       cycle:{
         currentKey:app=>{
-          const w=app.aw();
-          return app.isEditorWin(w)?('ed:'+app.edRootOf(w)):null;
+          const w=app.tool.life.aw();
+          return app.editor.isEditorWin(w)?('ed:'+app.editor.edRootOf(w)):null;
         },
-        open:(app,e)=>app.edOpenWindow(e.path),
+        open:(app,e)=>app.editor.open.edOpenWindow(e.path),
       },
       row:(app,e)=>{
-        const w=app.edWindowFor(e.path);
+        const w=app.editor.edWindowFor(e.path);
         // FR-NOT-10: 고정 행 둘(`~`·메모장)은 지울 수 없고 재배치의 출발점도
         // 대상도 아니다. 가르는 것은 클래스뿐이며 CSS 가 그것을 딛는다.
         const pinned=!!e.root||!!e.notes;
@@ -212,7 +212,7 @@ const SB_TAB_DEFS=[
           .filter(Boolean).join(' ');
         return {
           // FR-EDT-10 / FR-NOT-9: 표시 이름은 경로의 마지막 조각, 툴팁은 절대경로.
-          name:app.edName(e.path),
+          name:app.editor.edName(e.path),
           title:why?e.path+' — '+why:e.path,
           active:!!w&&w.id===app.ws.activeWindow,
           cls,
@@ -244,10 +244,10 @@ const SB_TAB_DEFS=[
           fixed:pinned,
           removable:!pinned,
           dataset:{edRoot:e.path,gitRepo:e.path},
-          onOpen:app=>app.edOpenWindow(e.path),
+          onOpen:app=>app.editor.open.edOpenWindow(e.path),
           // FR-RTU-5 의 대칭: 제거도 하나다 — `/api/editors/remove` 가 연동으로
           // 핀까지 함께 지운다 (FR-EDT-34).
-          onRemove:pinned?null:(app=>app.edRemove(e.path)),
+          onRemove:pinned?null:(app=>app.editor.section.edRemove(e.path)),
         };
       },
       // FR-EDT-12·27: 순서는 서버가 권위다 — (src,target,before) 델타다.
@@ -261,10 +261,10 @@ const SB_TAB_DEFS=[
           const[moved]=arr.splice(si,1);
           let ti=arr.findIndex(x=>key(x)===dr.target);
           if(ti<0) arr.push(moved); else { if(!dr.before) ti++; arr.splice(ti,0,moved) }
-          app.edMirror();
+          app.editor.sync.edMirror();
           return true;
         },
-        commit:(app,dr)=>app.edReorder(dr),
+        commit:(app,dr)=>app.editor.section.edReorder(dr),
       },
     },
   },

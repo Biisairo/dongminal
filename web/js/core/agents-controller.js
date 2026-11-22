@@ -141,7 +141,7 @@ class AgentsController extends Controller {
     // FR-AGG-7·8: 재배치는 **그룹 안**의 일이다. 다른 창의 카드 위에 놓는 것은
     // 아무 일도 아니다 — 창 사이의 이동은 탭을 옮기는 일이고, 그 손잡이는
     // 사이드바에 이미 있다 (`tabDrop`). done 을 세워 dragend 폴백도 막는다.
-    const sl=this.app.findToolLocation(dr.pid),tl=this.app.findToolLocation(dr.targetPid);
+    const sl=this.app.tool.life.findToolLocation(dr.pid),tl=this.app.tool.life.findToolLocation(dr.targetPid);
     if(!sl||!tl||sl.win.id!==tl.win.id){dr.done=true;return}
     dr.done=true;
     const ord=this.app.ws.agentsOrder;
@@ -193,7 +193,7 @@ class AgentsController extends Controller {
    */
   agentsRender(){
     if(this.app.mobile.nav.mobileActSync) this.app.mobile.nav.mobileActSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-75 — 닫힌 패널은 아래에서 물러선다
-    if(this.app._workSync) this.app._workSync();   // UX_AUDIT_FIX_SRS FR-UXF-64 — 탭·창 행의 작업 중 표식도 닫힌 패널과 무관하다
+    if(this.app.tool?.work._workSync) this.app.tool.work._workSync();   // UX_AUDIT_FIX_SRS FR-UXF-64 — 탭·창 행의 작업 중 표식도 닫힌 패널과 무관하다
     const panel=document.getElementById('agents-panel');
     const body=document.getElementById('agents-body'),footHost=document.getElementById('agents-foot');
     const headHost=document.getElementById('agents-head');
@@ -223,7 +223,7 @@ class AgentsController extends Controller {
         // FR-NAM-6: 표시 이름이 근거에 들어간다 — 파생 이름이 바뀌면 카드도 바뀐다.
         // FR-AGG-13: 창 이름은 더 이상 카드가 읽지 않으므로 근거에서도 빠진다 —
         // 창을 옮긴 카드는 **자리**가 바뀌고, 그것은 items 순서가 말한다.
-        return [this.app._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
+        return [this.app.tool.life._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
                 this.app.attn.attnHas(it.toolId)?1:0,it.toolId===this.app.attn._agFocusedTool()?1:0,
                 agentUsageSig(i.usage),agentSubagentsSig(i.subagents)] // FR-ACU-15 · FR-SAU-24 · FR-ASV-37
           .join('\u0001');
@@ -262,7 +262,7 @@ class AgentsController extends Controller {
     // 배열을 창으로 거른 것이다 (D-10).
     const byWin=new Map();
     for(const toolId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
-      const loc=this.app.findToolLocation(toolId);
+      const loc=this.app.tool.life.findToolLocation(toolId);
       if(!loc) continue;
       let g=byWin.get(loc.win.id);
       if(!g) byWin.set(loc.win.id,g=[]);
@@ -415,7 +415,7 @@ class AgentsController extends Controller {
     // 다른 이름을 부르면 어느 도구인지 짚을 수 없다.
     // FR-AGG-13: 창 이름은 머리가 말한다. 카드에는 도구 이름만 남는다.
     const locDiv=document.createElement('div');locDiv.className='ag-loc';
-    locDiv.textContent=this.app._toolName(toolId,loc.tab.name||toolId);
+    locDiv.textContent=this.app.tool.life._toolName(toolId,loc.tab.name||toolId);
     /**
      * UX_AUDIT_FIX_SRS FR-UXF-25: 첫 줄은 상태 기호 · 탭 이름, 둘째 줄은 상태·도구 · detail 이다.
      *   이전: detail → 탭 이름(작은 보조 글자) → `● working · Edit` 차례로 세 줄

@@ -127,7 +127,7 @@ function stubPanelApp(ctx, subagents) {
   app._activity = new Map([['t1', { state: 'working', subagents }]]);
   app.ws = { windows: [{ id: 'w1', name: 'W' }] };
   app.agents._agentOrderSync = () => ['t1'];
-  app.findToolLocation = () => ({ win: { id: 'w1' }, tab: { name: 'tab' } });
+  app.tool.life.findToolLocation = () => ({ win: { id: 'w1' }, tab: { name: 'tab' } });
   app.attn.attnHas = () => false;
   app.agents.agentsRender = () => {};
   return app;
@@ -206,7 +206,7 @@ test('FR-ASV-40·43: Usage 는 구역이 아니라 맨 끝의 바닥이고, 한�
   assert.equal(ctx.ACTIVITY_SECTIONS.some((s) => s.key === 'usage'), false);
   const app = controllers(ctx, new ctx.App());
   app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
-  app._bg = []; app._runsPanel = () => ({});
+  app._bg = []; app.runsPanel = () => ({});
   app.agents._agWindowItems = () => [];
   app.chat.chatUnreadTotal = () => 0;
   app.agents._agFolded = () => new Set();

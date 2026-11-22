@@ -92,7 +92,7 @@ class LayoutDock extends Controller {
     return {
       dock:this.app.panelDock(), repoSide:this.app.repoSideDock(),
       sidebarPx:px(SIDEBAR_W_KEY,'sidebar',!collapsed), sidebarCollapsed:collapsed,
-      repoSidePx:this.app.edSideWidth(),
+      repoSidePx:this.app.editor.pane.edSideWidth(),
       activityPx:px(STORE_KEYS.agentsWidth,'agents-panel',open), activityOpen:open,
     };
   }

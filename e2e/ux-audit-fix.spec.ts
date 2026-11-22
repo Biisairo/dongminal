@@ -61,7 +61,7 @@ test.describe('1묶음 — 데스크톱', () => {
     // 묻는 그 순간의 규칙 값과 화면의 글자·툴팁이 같은지 본다.
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
-      const w = a.aw();
+      const w = a.tool.life.aw();
       const want = a.renderer._rWinName(w) + ' · ' + a.renderer._rWinTab(w);
       const el = document.getElementById('window-name')!;
       return el.textContent === want && el.getAttribute('title') === want;

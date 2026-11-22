@@ -206,7 +206,7 @@ test('FR-CAC-93: 값이 없으면 statusLine 줄을 그리지 않는다', () => 
 function footApp(ctx) {
   const app = controllers(ctx, new ctx.App());
   app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
-  app._bg = []; app._runsPanel = () => ({});
+  app._bg = []; app.runsPanel = () => ({});
   app.agents._agWindowItems = () => [];
   app.chat.chatUnreadTotal = () => 0;
   app.agents._agFolded = () => new Set();

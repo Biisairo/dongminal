@@ -16,7 +16,7 @@ class EditorWatch extends Controller {
       if(d) set.add(d);
     }
     const stores=new Set();
-    for(const tree of this.app._edVisibleTrees()){
+    for(const tree of this.app.editor.open._edVisibleTrees()){
       const st=tree.store;
       if(!st||stores.has(st)) continue;
       stores.add(st);
@@ -83,7 +83,7 @@ class EditorWatch extends Controller {
   async _edDocReloadRun(p){
     const q=this._edDocReloads;
     while(q.get(p)>0){
-      await this.app.edDocRefresh(p);
+      await this.app.editor.doc.edDocRefresh(p);
       const left=q.get(p)-1;
       if(left>0) q.set(p,left); else q.delete(p);
     }
@@ -93,7 +93,7 @@ class EditorWatch extends Controller {
   _edTreeFsChanged(p){
     const dir=edWatchParent(p);
     const hit=this._edTreeFsHits||(this._edTreeFsHits=new Set());
-    for(const tree of this.app._edVisibleTrees()){
+    for(const tree of this.app.editor.open._edVisibleTrees()){
       const st=tree.store;
       if(st&&st.kids&&st.kids.has(dir)) hit.add(st);
     }
@@ -105,7 +105,7 @@ class EditorWatch extends Controller {
     this._edTreeFsTimer=TIMERS.after(EXPLORER_FS_CHANGES_DELAY_MS,()=>{
       this._edTreeFsTimer=null;
       // 이름을 고치는 동안은 목록을 흔들지 않는다 (VS Code #112293).
-      if(this.app._edVisibleTrees().some(tree=>tree&&tree._edit)){ this._edTreeFsArm(); return }
+      if(this.app.editor.open._edVisibleTrees().some(tree=>tree&&tree._edit)){ this._edTreeFsArm(); return }
       const stores=[...this._edTreeFsHits];
       this._edTreeFsHits.clear();
       for(const st of stores) st.pollStamp();
@@ -113,8 +113,6 @@ class EditorWatch extends Controller {
   }
 }
 
-// 바깥이 부르는 이름 — 편집기 칸·상태 등록부·`git/`·`ui/`.
-Controller.delegate(App,'editor.watch',['edWatchSync','_edWatchRestore','_onFsChanged']);
 
 // 구분자는 둘 다 본다 — 서버는 OS 구분자로 싣는다 (`filepath.Join`).
 function edWatchParent(p){

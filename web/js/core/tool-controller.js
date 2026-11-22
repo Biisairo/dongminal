@@ -468,7 +468,3 @@ class ToolController extends Controller {
     return UIKit.ask({msg,actions,escValue:false});
   }
 }
-
-// 바깥이 부르는 이름 — 레이아웃·슬롯·편집기·Git·설정·`ui/`·e2e·계약.
-Controller.delegate(App,'tool',['_isToolBusy','_toolsBusy','_notify','_sbxProgress','_sbxRuntime','_sbxRuntimeModal',
-  '_sbxRemember','_pickSandbox','_confirmClose']);

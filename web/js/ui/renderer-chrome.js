@@ -72,7 +72,7 @@ Object.assign(Renderer.prototype, {
     if(!repo) return w.name||'';
     const pinned=((app.gitRepos||{}).pinned)||[];
     const hit=pinned.find(e=>e&&e.path===repo);
-    return (hit&&hit.name)||app.edBase(repo)||w.name||'';
+    return (hit&&hit.name)||app.editor.edBase(repo)||w.name||'';
   },
 
   /**
@@ -128,7 +128,7 @@ Object.assign(Renderer.prototype, {
     const app=this.app;
     const multi=!app.isMobile&&app.slotCount()>1;
     const top=document.getElementById('window-name');
-    if(top) this._rPaintTitle(top,multi?[]:this._rWinTitleParts(app.aw()));
+    if(top) this._rPaintTitle(top,multi?[]:this._rWinTitleParts(app.tool.life.aw()));
     app.mobile.mTopPaint();   // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일에서 창 이름의 툴팁은 cwd 다
     if(!multi) return;
     document.querySelectorAll('#area .slot[data-slot] .slot-head').forEach(h=>{
@@ -163,7 +163,7 @@ Object.assign(Renderer.prototype, {
   _rNavButtons(){
     const box=document.getElementById('nav-ctl');
     if(!box) return;
-    box.hidden=this.app.isMobile||!this.app.isEditorWin(this.app.aw());
+    box.hidden=this.app.isMobile||!this.app.editor.isEditorWin(this.app.tool.life.aw());
     if(box.hidden) return;
     const back=document.getElementById('nav-back'),fwd=document.getElementById('nav-forward');
     if(back) back.disabled=!this.app.navCan(-1);
@@ -171,7 +171,7 @@ Object.assign(Renderer.prototype, {
   },
 
   _rTopbar(){
-    const a=this.app.aw();
+    const a=this.app.tool.life.aw();
     // FR-STB-11·12: 칸이 하나면 토프바가 제목을 낸다. 칸이 여럿이면 머리글이 그
     // 자리를 이어받으므로 토프바는 **비운다** — 되풀이하면 그 값이 어느 칸의
     // 것인지 사용자가 매번 판정해야 한다 (D-1). 모바일에는 칸이 없다 (FR-STB-14).
@@ -189,7 +189,7 @@ Object.assign(Renderer.prototype, {
     // 단축키 경로는 이것과 무관하게 막힌다 — `_splitInner` 가 `isGitWin`·
     // `isEditorWin` 에서 되돌아간다 (V70·E6 의 뒷문장).
     const isGit=this.app.git.isGitWin(a);
-    const noSplit=isGit||this.app.isEditorWin(a)||this.app.git.isChatWin(a);
+    const noSplit=isGit||this.app.editor.isEditorWin(a)||this.app.git.isChatWin(a);
     for(const id of ['split-h','split-v']){
       const b=document.getElementById(id);
       if(b) b.disabled=noSplit;
@@ -301,7 +301,7 @@ Object.assign(Renderer.prototype, {
     const el=this._keep(key,()=>{
       const e=document.createElement('div'); e.className='ed-side'; return e;
     });
-    const active=app.edSideOf(s);
+    const active=app.editor.pane.edSideOf(s);
     const bar=this._keep(key+'/tabs',()=>{
       const b=document.createElement('div'); b.className='ed-side-tabs';
       b.draggable=true;                                   // PANEL_DOCK_SRS FR-PDK-30
@@ -315,7 +315,7 @@ Object.assign(Renderer.prototype, {
         // 채택마다 새로 온다. 지금 그 id 의 창을 찾아 넘긴다.
         btn.addEventListener('click',()=>{
           const w=app.ws.windows.find(x=>x&&x.id===((s&&s.id)||''));
-          app.edSetSide(w||s,d.id);
+          app.editor.pane.edSetSide(w||s,d.id);
         });
         b.appendChild(btn);
       }
@@ -323,7 +323,7 @@ Object.assign(Renderer.prototype, {
     });
     // FR-M9-22: 설 수 없는 탭은 **숨긴다** — 없앴다 만들면 그 위의 손이 클릭을
     // 잃는다 (FR-GRF-14, 새로고침 버튼과 같은 처리다).
-    const allowed=new Set(app.edSideTabs(s).map(d=>d.id));
+    const allowed=new Set(app.editor.pane.edSideTabs(s).map(d=>d.id));
     for(const btn of bar.children)
       if(btn.dataset&&btn.dataset.side){
         btn.hidden=!allowed.has(btn.dataset.side);
@@ -342,17 +342,17 @@ Object.assign(Renderer.prototype, {
     if(active===REPO_SIDE_CHANGES){
       // FR-RTU-32: Changes 는 **사이드에만** 있다. 본문 탭이 되지 않으므로 그
       // 뷰의 DOM 을 여기로 가져온다 — 뷰를 만드는 자리는 패널 하나다.
-      const p=app.git.surfaces.gitPanelAt(app.edRootOf(s),slot);
+      const p=app.git.surfaces.gitPanelAt(app.editor.edRootOf(s),slot);
       // FR-RTU-21·22: 나머지 여섯으로 가는 진입점. **Changes 탭에만** 둔다 —
       // Explorer 에서는 git 의 자리가 아니고, 파일 작업 중에 보일 이유가 없다.
-      kids.push(this._rSideActions(key,app.edRootOf(s),slot));
+      kids.push(this._rSideActions(key,app.editor.edRootOf(s),slot));
       const view=p.elFor(REPO_SIDE_CHANGES);
       view.classList.add('vis');
       // FR-GRF-15: `_place` 는 이미 그 자리에 있으면 손대지 않는다. `appendChild`
       // 로 다시 붙이면 같은 부모라도 떼었다 붙이는 것이다.
       this._place(body,[view]);
     }else{
-      this._place(body,[app.edTree(s,slot).mount()]);
+      this._place(body,[app.editor.open.edTree(s,slot).mount()]);
     }
     kids.push(body);
     this._place(el,kids);
@@ -423,7 +423,7 @@ Object.assign(Renderer.prototype, {
         return ctx.right?[main,side]:[side,main];
       },
       end:(ctx,ev)=>{
-        this.app.edSetSideWidth(width(ctx,ev));
+        this.app.editor.pane.edSetSideWidth(width(ctx,ev));
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.sizer.doFit();
       },
     });

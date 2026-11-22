@@ -23,7 +23,7 @@ class CodeSection extends SettingsSection {
    * 값이라 다른 탭에서 바뀔 일이 없지만, 고를 때마다 다시 칠하는 것이 이 모달의 규약이다 (FR-LVC-3).
    */
   onTab(){
-    this.app._lspRefresh();
+    this.app.lspClient()._lspRefresh();
     const dcb=document.getElementById('lsp-diag');
     if(dcb) dcb.checked=lspDiagOn;
   }
@@ -39,7 +39,7 @@ class CodeSection extends SettingsSection {
     const cb=document.getElementById('lsp-diag');
     if(cb){
       cb.checked=lspDiagOn;
-      this.listen(cb,'change',()=>this.app._lspClient()._lspSetDiag(cb.checked));
+      this.listen(cb,'change',()=>this.app.lspClient()._lspSetDiag(cb.checked));
     }
   }
 }

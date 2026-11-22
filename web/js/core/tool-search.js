@@ -20,7 +20,7 @@ class ToolSearch extends Controller {
     document.getElementById('search-input').value='';
     document.getElementById('search-count').textContent='';
     this.clearAllSearchDecorations();
-    this.app.focusedTerminal()?.focus();
+    this.focusedTerminal()?.focus();
     for(const pane of this.app.tools.values())if(pane.el.classList.contains('vis'))pane.sizer.doFit();
   }
   clearAllSearchDecorations(){
@@ -33,7 +33,7 @@ class ToolSearch extends Controller {
   }
   focusedTerminal(){
     if(!this.app.focused)return null;
-    const s=this.app.aw();if(!s)return null;
+    const s=this.app.tool.life.aw();if(!s)return null;
     const pn=findPane(s.layout,this.app.focused);if(!pn)return null;
     const tab=pn.tabs.find(x=>x.id===this.app.paneTab(pn));
     if(!tab||tab.type!==TAB_TYPE_TERMINAL)return null;
@@ -62,7 +62,7 @@ class ToolSearch extends Controller {
     if(typeof p.search.onDidChangeResults!=='function') return;
     p._searchSub=p.search.onDidChangeResults(r=>{
       // 이 패널이 더 이상 검색 대상이 아니면 남의 수를 적지 않는다.
-      if(this.app.focusedTerminal()!==p) return;
+      if(this.focusedTerminal()!==p) return;
       this._searchPaintCount(r);
     });
   }
@@ -90,7 +90,7 @@ class ToolSearch extends Controller {
   }
 
   doSearch(dir){
-    const p=this.app.focusedTerminal();if(!p||!p.search)return;
+    const p=this.focusedTerminal();if(!p||!p.search)return;
     const q=document.getElementById('search-input').value;
     const count=document.getElementById('search-count');
     if(!q){count.textContent='';this.clearAllSearchDecorations();return}
@@ -112,7 +112,3 @@ class ToolSearch extends Controller {
     else if(found===false) count.textContent=SEARCH_NONE;
   }
 }
-
-// 바깥이 부르는 이름 — 단축키·찾기 줄 배선(`ui/`)·렌더러·e2e·계약.
-Controller.delegate(App,'tool.search',['toggleSearch','closeSearch','clearAllSearchDecorations','researchIfOpen',
-  'focusedTerminal','doSearch']);

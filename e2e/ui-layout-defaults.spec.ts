@@ -429,10 +429,10 @@ test('V-LAY-21 (FR-LAY-3): 옮긴 자리가 여전히 꺼지고 켜진다', asyn
 
   // 종전 `.hidden` 클래스 자리 — index.html 의 초기 상태도 함께 잰다.
   expect(await disp(), '처음에는 감춰져 있다').toBe('none');
-  await page.evaluate(() => (window as any).app.toggleSearch());
+  await page.evaluate(() => (window as any).app.tool.search.toggleSearch());
   await expect(bar).toBeVisible();
   expect(await disp()).not.toBe('none');
-  await page.evaluate(() => (window as any).app.closeSearch());
+  await page.evaluate(() => (window as any).app.tool.search.closeSearch());
   expect(await disp()).toBe('none');
 });
 

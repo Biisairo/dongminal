@@ -16,7 +16,7 @@ class EditorFile extends Controller {
    * (FR-EDT-99) — 탐색기는 루트의 트리이지 열린 탭의 목록이 아니다.
    */
   async edOpenFile(filePath,opts){
-    if(!filePath||!this.app.edOn()) return null;
+    if(!filePath||!this.app.editor.edOn()) return null;
     // FR-EDT-101: 이미 열려 있으면 **그 탭이 있는 창**이 대상이다. 폴백 창의
     // pane 을 먼저 만들면 탭은 원래 창으로 가고 빈 pane 만 남는다 (FR-EDT-52).
     // UX_BATCH12_SRS FR-RTB-2·4: 미리보기는 열린 자리를 따라가지 않는다 — 고른 창의
@@ -26,15 +26,15 @@ class EditorFile extends Controller {
     const preview=!!(opts||{}).preview;
     const open=preview?null:this.app._findEditorTab(filePath);
     const anchor=(opts||{}).anchor||filePath;
-    const w=(open&&this.app.isEditorWin(open.win))?open.win
-      :(this.app.editor.pane._edLinkedWindow(anchor)||this.app.edWindowFor(this.app._edHome()));
+    const w=(open&&this.app.editor.isEditorWin(open.win))?open.win
+      :(this.app.editor.pane._edLinkedWindow(anchor)||this.app.editor.edWindowFor(this.app.editor._edHome()));
     if(!w) return null;
-    const rid=(open&&open.win===w)?open.pane.id:this.app.edEnsurePane(w);
+    const rid=(open&&open.win===w)?open.pane.id:this.app.editor.pane.edEnsurePane(w);
     if(!rid) return null;
     // FR-EXR-59: 미리보기가 **아닌** 열기는 명시적인 손짓이다 — 편집기가 포커스를
     // 갖는다 (FR-EXR-58 의 예외). 미리보기는 훑어보는 손짓이므로 탐색기가 쥔
     // 포커스를 그대로 둔다. 표명은 render 후 재포커스가 소비한다 (renderer.js).
-    if(!preview) this.app.edFocusHandoff();
+    if(!preview) this.app.editor.edFocusHandoff();
     // addTab 의 editor 분기가 중복 방지와 refresh 를 이미 한다.
     // FR-RTU-40: `preview` 는 그대로 넘긴다 — 미리보기 탭을 만들지 대체할지는
     // addTab 한 자리가 정한다.
@@ -51,7 +51,7 @@ class EditorFile extends Controller {
     const ln=(opts||{}).line;
     if(ln){
       const pn=w.layout&&findPane(w.layout,rid);
-      const tab=this.app._findEditorTabIn(w,pn,filePath)||this.app._findEditorTab(filePath);
+      const tab=this.app.repoWin.preview._findEditorTabIn(w,pn,filePath)||this.app._findEditorTab(filePath);
       const v=tab&&this.app.editorAny(tab.tab.id);
       if(v&&v.revealLine) v.revealLine(ln,(opts||{}).col);
     }
@@ -59,7 +59,7 @@ class EditorFile extends Controller {
     // 파일이 트리 어디에 있는지가 답의 일부인데, 탐색기를 그대로 두면 사용자가
     // 경로를 눈으로 따라가며 폴더를 하나씩 펼쳐야 한다. 여는 경로가 여럿이므로
     // (검색 둘·git 변경파일·dmctl open) 각 부름터가 아니라 이 자리에 둔다.
-    const tree=this.app._edTreeFor(w);
+    const tree=this.app.editor.open._edTreeFor(w);
     if(tree&&tree.revealPath) tree.revealPath(filePath);
     /**
      * UX_BATCH6_SRS FR-DSP-1c: **탐색기가 아직 없으면 기억해 둔다.**
@@ -193,7 +193,7 @@ class EditorFile extends Controller {
     if(dirty&&dirty.length){
       lines.push(EDITOR_DEL_DIRTY.replace('%n',dirty.length).replace('%s',dirty.join(', ')));
     }
-    return this.app._edConfirm(lines,EDITOR_DEL_OK,why);
+    return this._edConfirm(lines,EDITOR_DEL_OK,why);
   }
 
   _edConfirmDeleteOne(path,isDir,count,dirty,why){
@@ -210,11 +210,8 @@ class EditorFile extends Controller {
     if(dirty&&dirty.length){
       lines.push(EDITOR_DEL_DIRTY.replace('%n',dirty.length).replace('%s',dirty.join(', ')));
     }
-    return this.app._edConfirm(lines,EDITOR_DEL_OK,why);
+    return this._edConfirm(lines,EDITOR_DEL_OK,why);
   }
 
   // ── 목록 조작 (FR-EDT-12·25·26·27·28) ──
 }
-
-// 바깥이 부르는 이름 — Git·LSP·원격 커맨드·탐색기(`ui/file-tree-*`)·`ui/`·e2e·계약.
-Controller.delegate(App,'editor.file',['edOpenFile','edClipSet','edClipGet','edFs','edFsActions','_edConfirm','edConfirmDelete']);

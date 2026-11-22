@@ -22,7 +22,7 @@ class AttnController extends Controller {
    * FR-SVS-13)이라 같은 창을 두 칸에 띄우면 둘이 참이 된다 — 하이라이트는 하나여야 한다.
    */
   _agFocusedTool(){
-    const s=this.app.aw(); if(!s||!s.layout) return '';
+    const s=this.app.tool.life.aw(); if(!s||!s.layout) return '';
     const pn=findPane(s.layout,this.app.focused); if(!pn) return '';
     const at=(pn.tabs||[]).find(tab=>tab.id===this.app.paneTab(pn));
     return (at&&at.toolId)||'';
@@ -35,7 +35,7 @@ class AttnController extends Controller {
   // pane 이지만, 그 pane 을 그리는 칸은 여럿일 수 있다.
   _isToolFocusedActive(toolId){
     if(!toolId) return false;
-    const s=this.app.aw(); if(!s||!s.layout) return false;
+    const s=this.app.tool.life.aw(); if(!s||!s.layout) return false;
     const pn=findPane(s.layout,this.app.focused); if(!pn) return false;
     const tabs=pn.tabs||[];
     const n=this.app.slotCount();
@@ -241,7 +241,7 @@ class AttnController extends Controller {
    * 어디에도 없으면 해제. **클릭이 아무 일도 하지 않는 경우는 없다.**
    */
   jumpToTool(toolId){
-    const loc=this.app.findToolLocation(toolId);
+    const loc=this.app.tool.life.findToolLocation(toolId);
     if(!loc){this._attnLand(toolId);return}
     this._attnClear(toolId);
     this.app._activateWindow(loc.win.id);
@@ -276,7 +276,7 @@ class AttnController extends Controller {
   _attnLand(toolId){
     const bg=(this.app._bg||[]).some(b=>b&&b.toolId===toolId);
     // 백그라운드 도구는 되돌릴 자리가 있다 — ⏻ 모달의 복귀와 같은 경로다.
-    if(bg){this.app._restoreTool(toolId);return}
+    if(bg){this.app.tool.life._restoreTool(toolId);return}
     // 어디에도 없으면 알람만 거둔다. 서버에도 알린다 — 다른 브라우저의 배지도
     // 같이 내려가야 한다.
     this._attnClear(toolId);
@@ -320,7 +320,7 @@ class AttnController extends Controller {
       pn.classList.toggle('attn', !!(pid&&this.attnHas(pid)));
     });
     // UX_AUDIT_FIX_SRS FR-UXF-61·62: 주의가 서고 걷히면 작업 중 표식도 따라 바뀐다(주의가 앞선다).
-    if(this.app._workRefresh) this.app._workRefresh();
+    if(this.app.tool?.work._workRefresh) this.app.tool.work._workRefresh();
     // 열린 센터는 배지보다 **먼저** 다시 그린다 — 마지막 알림이 떨어지면 그리기가 목록을
     // 비우고 닫는다. 배지가 먼저 닫으면 `.open` 이 사라져 옛 항목이 닫힌 센터에 남는다
     // (x 클릭의 두 번째 그리기가 그것을 치우고 있었다, FR-OPT-11-7 · FEC-32).
@@ -380,7 +380,7 @@ class AttnController extends Controller {
     // TLS-1: 막힌 환경에서는 시도조차 하지 않는다. `new Notification` 이
     // 예외를 던지고, 그 예외는 아래 try 가 삼켜 아무 흔적도 남지 않았다.
     if(this.app.attnDesktopBlocked||Notification.permission!=='granted') return;
-    const loc=this.app.findToolLocation(toolId);
+    const loc=this.app.tool.life.findToolLocation(toolId);
     const where=loc?[loc.win&&loc.win.name,tabName(loc.tab,this.app.fgNames)].filter(Boolean).join(' · '):('pane '+toolId);
     const head=reason==='done'?t('attn.head_done'):reason==='waiting'?t('attn.head_waiting'):reason==='idle'?t('attn.head_idle'):t('attn.head_other');
     // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)

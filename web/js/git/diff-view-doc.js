@@ -20,7 +20,7 @@ Object.assign(GitDiffView.prototype, {
   // 편집 가능한 축의 절대경로. 그 밖 축은 '' — 양쪽 모두 자체 문서(읽기 전용)다.
   _shareAbs(target){
     const axis=(target&&target.axis)||'';
-    if(!GIT_AXIS_EDITABLE.has(axis)||!window.app||!window.app.edDoc) return '';
+    if(!GIT_AXIS_EDITABLE.has(axis)||!window.app||!window.app.editor?.open.edDoc) return '';
     return this._absPath(target);
   },
 
@@ -34,9 +34,9 @@ Object.assign(GitDiffView.prototype, {
     let dv=this._dv;
     if(!dv||dv.filePath!==abs){
       dv=this._docViewOf(abs);
-      window.app.edDoc(abs).views.add(dv);
+      window.app.editor.open.edDoc(abs).views.add(dv);
     }
-    const buf=await window.app.edDocLoad(abs).catch(e=>{
+    const buf=await window.app.editor.doc.edDocLoad(abs).catch(e=>{
       console.error('[GitDiffView] doc load failed:',e); return null;
     });
     if(this._stale(seq,token)){this._docLeaveIfIdle(dv);return false}
@@ -46,14 +46,14 @@ Object.assign(GitDiffView.prototype, {
 
   // 그리지 못한 채 끝난 입장은 곧바로 나간다 — 뷰 없는 문서가 남지 않는다.
   _docLeaveIfIdle(dv){
-    if(dv&&dv!==this._dv) window.app.edDocDrop(dv.filePath,dv);
+    if(dv&&dv!==this._dv) window.app.editor.open.edDocDrop(dv.filePath,dv);
   },
 
   _docLeave(){
     const dv=this._dv; this._dv=null;
-    if(dv) window.app.edDocDrop(dv.filePath,dv);
+    if(dv) window.app.editor.open.edDocDrop(dv.filePath,dv);
     // EDITOR_LIVE_RELOAD_SRS FR-ELR-65·66: Diff 문서의 부모 디렉터리도 감시 집합에 든다.
-    if(dv) window.app.edWatchSync();
+    if(dv) window.app.editor.watch.edWatchSync();
   },
 
   // 새 칸을 붙인 뒤에 부른다 — 앞 문서의 마지막 뷰였으면 그 버퍼가 여기서 버려진다.
@@ -61,22 +61,22 @@ Object.assign(GitDiffView.prototype, {
     if(this._dv===dv) return;
     this._docLeave();
     this._dv=dv;
-    window.app.edWatchSync();
+    window.app.editor.watch.edWatchSync();
   },
 
   _docRec(){
     const dv=this._dv;
-    const d=dv&&window.app&&window.app.edDocAt(dv.filePath);
+    const d=dv&&window.app&&window.app.editor.doc.edDocAt(dv.filePath);
     return d&&d.views.has(dv)?d:null;
   },
 
   _docBufOf(dv){
-    const d=dv&&window.app.edDocAt(dv.filePath);
+    const d=dv&&window.app.editor.doc.edDocAt(dv.filePath);
     return (d&&d.views.has(dv)&&d.buf)||null;
   },
 
   _docEncOf(dv){
-    const d=dv&&window.app.edDocAt(dv.filePath);
+    const d=dv&&window.app.editor.doc.edDocAt(dv.filePath);
     return (d&&d.encoding)||'';
   },
 
@@ -95,7 +95,7 @@ Object.assign(GitDiffView.prototype, {
       // 03 `edDocMove`: 버퍼는 그대로이고 경로만 옮겨 간다 (§3A-3 경로 이동).
       onDocMoved(np){ if(me._dv===dv) me._editTarget=np },
       onDocReadOnly(ro){ if(me._dv===dv) me._bindEdit() },
-      _confirmConflict(){ return window.app.edConfirmConflict(pathBase(dv.filePath),dv.filePath) },
+      _confirmConflict(){ return window.app.editor.doc.edConfirmConflict(pathBase(dv.filePath),dv.filePath) },
       _noteUnmappable(u,d){ me._docUnmappable(u,d) },
       _noteSaveFailed(r){ me._docSaveFailed(r) },
     };
@@ -139,7 +139,7 @@ Object.assign(GitDiffView.prototype, {
   async save(){
     if(this.onSaveIntent) this.onSaveIntent();
     if(!this._editable||!this._dv) return false;
-    const ok=await window.app.edDocSave(this._dv.filePath,this._dv);
+    const ok=await window.app.editor.doc.edDocSave(this._dv.filePath,this._dv);
     if(ok&&this.onSaved) this.onSaved();
     return ok;
   },
@@ -155,7 +155,7 @@ Object.assign(GitDiffView.prototype, {
     const enc=d&&d.encoding?(ENC_LABEL[d.encoding]||d.encoding):'';
     const path=this._dv?this._dv.filePath:'';
     this._setNote(t('editor.enc_unmappable',{line,col,char:u.char||'',enc}),null,
-      [{label:ENC_CONVERT,run:()=>window.app.edDocConvertUtf8(path)}]);
+      [{label:ENC_CONVERT,run:()=>window.app.editor.doc.edDocConvertUtf8(path)}]);
   },
 
   // 서버가 준 사유의 첫 줄을 싣는다 — 없으면 지어내지 않는다 (FileEditor 와 같은 규약).

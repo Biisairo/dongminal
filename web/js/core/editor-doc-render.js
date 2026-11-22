@@ -26,7 +26,7 @@ class EditorDocRender extends Controller {
    */
   docRenderMount(view) {
     if (!view || !view.el || !view.filePath) return;
-    const d = this.app.edDocAt(view.filePath);
+    const d = this.app.editor.doc.edDocAt(view.filePath);
     if (d && d.buf) this._docRenderNotifyBuf(view.filePath, d.buf);
     this._docRenderBindScroll(view);
     if (!this._docRenderKind(view.filePath)) return;
@@ -38,7 +38,7 @@ class EditorDocRender extends Controller {
     b.title = DOC_RENDER_BTN_TITLE;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.app._docRenderOpen(view.filePath, view.name);
+      this._docRenderOpen(view.filePath, view.name);
     });
     view.el.appendChild(b);
     this._docRenderPlace(view, b);
@@ -118,7 +118,7 @@ class EditorDocRender extends Controller {
    */
   docRenderRootOf(path) {
     let best = '';
-    for (const w of this.app.edWindows()) {
+    for (const w of this.app.editor.edWindows()) {
       const r = w.editor && w.editor.root;
       if (!r) continue;
       // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 어떤 루트도 걸리지 않아
@@ -144,7 +144,7 @@ class EditorDocRender extends Controller {
    * 옮기는** 순서인 것은 두 이동 함수가 "이미 있는 탭" 을 대상으로 삼기 때문이다.
    */
   _docRenderOpen(filePath, name) {
-    const s = this.app.aw();
+    const s = this.app.tool.life.aw();
     if (!s || !s.layout || !filePath) return;
     const ex = this._findRenderTab(filePath);
     if (ex) {
@@ -192,7 +192,7 @@ class EditorDocRender extends Controller {
       this.app.save();
       return;
     }
-    this.app.edOpenFile(view.filePath, {});
+    this.app.editor.file.edOpenFile(view.filePath, {});
   }
 
   // 렌더 탭 찾기. `_findEditorTab` 과 **갈라져 있는 것이 요점이다** (FR-DRV-10) —
@@ -208,7 +208,7 @@ class EditorDocRender extends Controller {
    * 화면에서 바로 옆에 보이는 칸이고, `flattenPanes` 의 순서가 그 순서다.
    */
   _paneSiblingOf(rid) {
-    const s = this.app.aw();
+    const s = this.app.tool.life.aw();
     if (!s || !s.layout) return null;
     const path = findPath(s.layout, rid);
     if (!path || path.length < 2) return null;
@@ -222,6 +222,3 @@ class EditorDocRender extends Controller {
     return this.app.flattenPanes(next)[0] || null;
   }
 }
-
-// 바깥이 부르는 이름 — 편집기 뷰·문서 렌더 뷰(`ui/`)·계약.
-Controller.delegate(App,'editor.docRender',['docRenderMount','docRenderRootOf','_docRenderOpen','docRenderToSource']);

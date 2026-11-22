@@ -211,7 +211,7 @@ class FileTreeEdit {
     this.tree._selOnly(path);
     this.tree._paintAll();
     // F-j: 이름을 따로 보낸다 — 경로만 보내면 서버는 `a/b` 가 이름인지 가를 수 없다.
-    const r=await this.tree.app.edFs(FS_CREATE_API,{root:this.tree.root,parent:dir,name,dir:!!isDir});
+    const r=await this.tree.app.editor.file.edFs(FS_CREATE_API,{root:this.tree.root,parent:dir,name,dir:!!isDir});
     if(!r.ok){
       // §3A-5 (T-6.2): 선택을 생성 전으로 되돌리고(다음 "새 파일" 이 원래 폴더에 뜬다),
       // 입력하던 이름 그대로 인라인 입력을 다시 연다(사유와 함께).
@@ -234,7 +234,7 @@ class FileTreeEdit {
      * 파일이 다음 클릭에 대체되면 사용자는 만들기가 실패한 것으로 읽는다.
      * 폴더는 열지 않는다 (FR-EXR-22).
      */
-    if(!isDir) await this.tree.app.edOpenFile(path,{preview:false});
+    if(!isDir) await this.tree.app.editor.file.edOpenFile(path,{preview:false});
   }
 
   /**
@@ -269,7 +269,7 @@ class FileTreeEdit {
       this.tree._selOnly(to);
       this.tree._paintAll();
     }
-    const r=await this.tree.app.edFs(FS_RENAME_API,name?{root:this.tree.root,from,name}:{root:this.tree.root,from,to});
+    const r=await this.tree.app.editor.file.edFs(FS_RENAME_API,name?{root:this.tree.root,from,name}:{root:this.tree.root,from,to});
     if(!r.ok){
       if(optim){this.tree._rekey(to,from);this.tree._restore(snap)}
       this.tree._fail(from,r.msg);
@@ -305,13 +305,13 @@ class FileTreeEdit {
     this.tree._clearErr();
     // 묻는 것이 확인창보다 먼저다 — 지울 수 있는지와 항목 수는 서버가 답한다
     // (SERVER_DRIVEN_ACTIONS_SRS F-g). 수는 폴더들 안의 합이다.
-    const ans=await this.tree.app.edFsActions(this.tree.root,targets);
+    const ans=await this.tree.app.editor.file.edFsActions(this.tree.root,targets);
     if(!ans){this.tree._fail(targets[0],EDITOR_FS_ERR_UNKNOWN);return}
     const st=actionState(ans.actions[FS_ACTION_DELETE]||null,false);
     const isDir=targets.some(target=>this.tree._kindOf(target)==='dir');
     const dirty=[];
-    for(const target of targets) for(const n of this.tree.app.edDirtyUnder(target)) if(!dirty.includes(n)) dirty.push(n);
-    if(!await this.tree.app.edConfirmDelete(targets,isDir,ans.count,dirty,st.enabled?'':st.why)) return;
+    for(const target of targets) for(const n of this.tree.app.editor.pane.edDirtyUnder(target)) if(!dirty.includes(n)) dirty.push(n);
+    if(!await this.tree.app.editor.file.edConfirmDelete(targets,isDir,ans.count,dirty,st.enabled?'':st.why)) return;
 
     const dirs=[];
     for(const target of targets){const d=this.tree._parent(target);if(!dirs.includes(d))dirs.push(d)}
@@ -322,11 +322,11 @@ class FileTreeEdit {
     const failed=[];
     const done=[];
     for(const target of targets){
-      const r=await this.tree.app.edFs(FS_DELETE_API,{root:this.tree.root,path:target});
+      const r=await this.tree.app.editor.file.edFs(FS_DELETE_API,{root:this.tree.root,path:target});
       if(!r.ok){failed.push({path:target,msg:r.msg});continue}
       // FR-EDT-91: 그 파일의 탭을 닫는다. 폴더면 하위 전부. 확인창은 다시 띄우지
       // 않는다 — FR-EDT-84 에서 이미 밝혔다.
-      await this.tree.app.edCloseTabsUnder(target);
+      await this.tree.app.editor.pane.edCloseTabsUnder(target);
       this.tree._forget(target);
       done.push(this.tree._repoRel(target));
     }
@@ -367,7 +367,7 @@ class FileTreeEdit {
    * 둘 다 보낸다. 둘 다 Editor 목록에 있는지는 서버가 본다.
    */
   async doPasteInto(dir,keepErr){
-    const c=this.tree.app.edClipGet();
+    const c=this.tree.app.editor.file.edClipGet();
     if(!c||!dir) return;
     // FR-WBR-1: 지난 실패의 사유는 다음 조작이 시작될 때 사라진다. 여러 폴더에 걸친
     // 복제는 한 조작이므로 `keepErr` 로 앞 폴더의 사유를 지키게 한다 (FR-EXM-6).
@@ -389,8 +389,8 @@ class FileTreeEdit {
     for(const src of c.paths){
       const to=pathJoin(dir,pathBase(src));
       const r=c.move
-        ? await this.tree.app.edFs(FS_RENAME_API,{srcRoot:c.root,from:src,dstRoot:this.tree.root,to})
-        : await this.tree.app.edFs(FS_COPY_API,{srcRoot:c.root,src,dstRoot:this.tree.root,dstDir:dir});
+        ? await this.tree.app.editor.file.edFs(FS_RENAME_API,{srcRoot:c.root,from:src,dstRoot:this.tree.root,to})
+        : await this.tree.app.editor.file.edFs(FS_COPY_API,{srcRoot:c.root,src,dstRoot:this.tree.root,dstDir:dir});
       if(!r.ok){failed.push({src,msg:r.msg});continue}
       if(c.move){
         // 옮긴 것의 열린 탭이 새 자리를 가리킨다 (FR-EDT-90 · `doRename` 과 같은 자리).
@@ -404,7 +404,7 @@ class FileTreeEdit {
     for(const f of failed) this.tree._fail(dir===this.tree.root?'':dir,f.msg);
     // **잘라낸 것은 한 번만 붙는다.** 옮겨진 원본을 남겨 두면 다음 붙여넣기가
     // "사라졌다" 로 실패한다 — 실패한 것만 남긴다 (FR-EXM-6).
-    if(c.move) this.tree.app.edClipSet(c.root,failed.map(f=>f.src),true);
+    if(c.move) this.tree.app.editor.file.edClipSet(c.root,failed.map(f=>f.src),true);
     if(!made.length) return;
     // FR-FTR-20b 와 같은 이유로 도착 폴더를 펼친다 — 접힌 폴더에 놓으면 놓은
     // 것이 화면에서 사라지고 사용자는 실패로 읽는다.
@@ -426,7 +426,7 @@ class FileTreeEdit {
     if(c.root===this.tree.root){
       await this.tree._after([...srcDirs.filter(d=>d!==dir),dir]);
     }else{
-      for(const d of srcDirs) this.tree.app.edRefreshTreesFor(c.root,d);
+      for(const d of srcDirs) this.tree.app.editor.open.edRefreshTreesFor(c.root,d);
       await this.tree._after([dir]);
     }
   }
@@ -438,15 +438,15 @@ class FileTreeEdit {
     if(!list.length) return;
     const byDir=new Map();
     for(const p of list){const d=this.tree._parent(p);byDir.set(d,[...(byDir.get(d)||[]),p])}
-    const keep=this.tree.app.edClipGet();
+    const keep=this.tree.app.editor.file.edClipGet();
     this.tree._clearErr();
     for(const [dir,group] of byDir){
-      this.tree.app.edClipSet(this.tree.root,group);
+      this.tree.app.editor.file.edClipSet(this.tree.root,group);
       await this.tree.doPasteInto(dir,true);
     }
     // 복제가 사용자의 클립보드를 덮지 않는다 — 그것은 다른 조작이다.
     // REPO_FIX 04 §3A-5 (T-7.1): 잘라내기/복사의 구분까지 되돌린다.
-    this.tree.app.edClipSet(keep&&keep.root,keep&&keep.paths,keep&&keep.move);
+    this.tree.app.editor.file.edClipSet(keep&&keep.root,keep&&keep.paths,keep&&keep.move);
   }
 
   /**
@@ -465,7 +465,7 @@ class FileTreeEdit {
     }
     // F-l: 자기 하위로의 이동도 보낸다 — 서버가 `into_self` 로 거절한다 (D-SDA-7).
     const res=await Promise.all(pairs.map(([from,to])=>
-      this.tree.app.edFs(FS_RENAME_API,{root:this.tree.root,from,to})));
+      this.tree.app.editor.file.edFs(FS_RENAME_API,{root:this.tree.root,from,to})));
     pairs.forEach(([from,to],i)=>{
       if(res[i].ok) this.tree._retargetOrFail(from,to);
       else this.tree._fail(from,res[i].msg);
@@ -476,7 +476,7 @@ class FileTreeEdit {
   // §3A-5 (T-9.1): 문서·탭을 옮기고, 같은 경로의 문서가 이미 열려 있어 옮기지 못한
   // 것은 사유를 보인다.
   _retargetOrFail(from,to){
-    const r=this.tree.app.edRetargetTabs(from,to);
+    const r=this.tree.app.editor.pane.edRetargetTabs(from,to);
     if(r&&r.conflicts&&r.conflicts.length) this.tree._fail(to,EDITOR_MOVE_TAB_CONFLICT);
   }
 }

@@ -154,7 +154,7 @@ class App {
     // 재조정과 편집기 탭 마이그레이션이 둘 다 `home` 을 알아야 돌 수 있고,
     // 모르면 둘 다 돌지 않는 것이 옳다 — 추측한 홈으로 만든 창은 나중에 서버가
     // 알려준 홈과 어긋난 채로 남는다.
-    const edReady=this._edLoad();
+    const edReady=this.editor.sync._edLoad();
     try{
       await this._initAdoptWorkspace(edReady);
     }catch(e){
@@ -170,7 +170,7 @@ class App {
     // 비운다.
     this._slotsRestore();
     this.agents._pruneAgentOrder();
-    const a=this.aw();
+    const a=this.tool.life.aw();
     if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this.setFocusState(f.id, a)}
     this.render();
     this._bind();
@@ -185,7 +185,7 @@ class App {
     }
     this.applyFocusOverlay();
     this.git._initGitSection();
-    this._initEditorSection();
+    this.editor.section._initEditorSection();
     // FR-SRL-8·9: 내부 새로고침의 진입점 둘. 배선은 `_subscribeCommands` **뒤**
     // 여야 한다 — 그것이 `_sseKick` 을 세운다.
     this._initSoftReload();
@@ -243,7 +243,7 @@ class App {
     if(!this.git.plainWindows().length) await this._mkWindow();
     // FR-EDT-42·43: 재조정이 도는 첫 번째 자리. 워크스페이스가 비어 있어도
     // root 에디터 창은 있어야 한다 (FR-EDT-13).
-    if(this._edReconcile()||sideWidthMoved) this.save();
+    if(this.editor.sync._edReconcile()||sideWidthMoved) this.save();
   }
 
   // Restore per-window activeWindow from sessionStorage (survives refresh).
@@ -265,7 +265,7 @@ class App {
        * 그래서 루트로 한 번 더 찾는다. 사용자에게 같은 저장소의 창은 같은 창이다.
        */
       const root=PrefStore.session.get(ACTIVE_EDITOR_ROOT_KEY);
-      const w=root?this.edWindowFor(root):null;
+      const w=root?this.editor.edWindowFor(root):null;
       if(w) this._activateWindow(w.id);
     }
     // FR-RLC-8: 사이드바 탭이 돌아갈 창의 기억도 같은 성질이다 — 같은 블록에서
@@ -387,7 +387,7 @@ class App {
       paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),
       paneLeft:()=>this.paneNavigate('left'),paneRight:()=>this.paneNavigate('right'),
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
-      newWindow:()=>this.addWindow().catch(err=>this._notify(errText(t('core.open_window_fail'),err))),
+      newWindow:()=>this.addWindow().catch(err=>this.tool._notify(errText(t('core.open_window_fail'),err))),
       newTab:()=>this.addTabFocused(),
       closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       // FR-PSC-3 · FR-CHR-15 (D-7): 버튼과 **같은 함수**다.
@@ -402,7 +402,7 @@ class App {
       // FR-PSC-3: 버튼 클릭과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
       bgToggle:()=>this.statusbar._bgPanelOpen(),
-      runsToggle:()=>this._runsModalToggle(),
+      runsToggle:()=>this.runsPanel()._runsModalToggle(),
       // FR-SBC-7a: 손잡이 드래그와 같은 함수다 (input-binding).
       sidebarToggle:()=>this._toggleSidebar(),
       // FR-SRL-9: 다른 앱 단축키와 **같은 길**을 탄다 — 설정에서 바꿀 수 있고,
@@ -410,15 +410,15 @@ class App {
       softReload:()=>this.softReload(),
       // UX-22: 설정 버튼과 **같은 길**로 열고 Shortcuts 탭으로 간다.
       shortcutsHelp:()=>this.settings._openSettings('shortcuts'),
-      toggleSearch:()=>this.toggleSearch(),
+      toggleSearch:()=>this.tool.search.toggleSearch(),
       // FR-EKB-5: 키 배선과 **같은 함수**를 부른다. 둘 다 Editor 창이 아니면
       // 스스로 아무 일도 하지 않으므로 여기에 가드를 겹치지 않는다.
-      edGotoDef:()=>this._lspGotoDef(),
-      edFindRefs:()=>this._lspFindRefs(),
-      edFindInFile:()=>this._edFindInFile(),
-      edGotoLine:()=>this._edGotoLine(),
-      edQuickOpen:()=>this._edQuickOpen(),
-      edGrep:()=>this._edSearchOpen(),
+      edGotoDef:()=>this.lspClient()._lspGotoDef(),
+      edFindRefs:()=>this.lspClient()._lspFindRefs(),
+      edFindInFile:()=>this.editor.search._edFindInFile(),
+      edGotoLine:()=>this.editor.search._edGotoLine(),
+      edQuickOpen:()=>this.editor.search._edQuickOpen(),
+      edGrep:()=>this.editor.search._edSearchOpen(),
     };
     // FR-SBT-21·26: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 맵을
     // 손으로 늘리지 않는다.
@@ -461,7 +461,7 @@ class App {
   // FR-SVS-61: 미뤄 둔 그리기가 있으면 이 그리기가 그것을 대신한다 — 지연은
   // "클릭을 삼키지 않기" 위한 것이지 그리기를 빼먹기 위한 것이 아니다.
   // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 창·탭·사이드가 바뀌면 감시 집합도 바뀐다.
-  render(){ this._slotRenderPending=false; this.renderer.render(); this.agents.agentsRender(); this.edWatchSync(); this.focusHighlightSync(); this.attnFocusSync() }
+  render(){ this._slotRenderPending=false; this.renderer.render(); this.agents.agentsRender(); this.editor.watch.edWatchSync(); this.focusHighlightSync(); this.attnFocusSync() }
 
 
   _bind(){ this.inputBinding.bind() }
@@ -469,32 +469,23 @@ class App {
   // ── 코드 탐색·Run 시각화 (위임) — 본체는 `lsp-client.js`·`lsp-paths.js` 의 `LspClient` 와 `ui/runs-panel.js` 의
   // `RunsPanel` 이다 (APP_STATE_EXTRACT_SRS FR-ASE-7·묶음 A, REFACTOR3_FE_APPCTL_SRS 9a 에서 옛 `app-lsp.js`·`app-runs.js`).
 
-  // 코드 탐색을 한 번도 쓰지 않은 브라우저는 만들지 않는다 (`_runsPanel` 과 같은 규약).
-  _lspClient(){
+  // 코드 탐색을 한 번도 쓰지 않은 브라우저는 만들지 않는다 (`runsPanel` 과 같은 규약).
+  lspClient(){
     if(!this._lsp) this._lsp=new LspClient(this);
     return this._lsp;
   }
 
   // Run 을 한 번도 열지 않은 브라우저는 만들지 않는다 (`gitObs` 와 같은 규약).
-  _runsPanel(){
+  runsPanel(){
     if(!this._runs) this._runs=new RunsPanel(this);
     return this._runs;
   }
 
   // 상태 등록부 `run.list` 의 복원 (ACTIVITY_RUNS_REFRESH_SRS FR-ARR-3).
-  _runsListRestore(){ return this._runsPanel()._runsRefresh() }
+  _runsListRestore(){ return this.runsPanel()._runsRefresh() }
   // 상태 등록부 `run.views` 의 조건과 복원 (RUN_VIEW_LIVE_SRS FR-RLV-7). Run 탭을 한 번도
   // 열지 않은 브라우저에는 `RunsPanel` 을 만들지 않는다.
   _runViewsOpen(){ return !!this._runs&&this._runs._runViewMap().size>0 }
   _runViewsRestore(){ if(this._runs) this._runs._runViewsRefresh() }
   _onRunMemberActivity(args){ if(this._runs) this._runs._onMemberActivity(args) }
 }
-
-// 바깥이 부르는 이름 — 형제 `app-*.js`(설정·명령·편집기)·`ui/file-editor.js`·`ui/diff-view.js`·e2e 계약(`app-testing.js`).
-Controller.delegate(App,(app,n,a)=>app._lspClient()[n](...a),['_lspRefresh','_lspGotoDef','_lspFindRefs','_lspRootOfPath','lspClickDef',
-  'lspExtFor','lspOfferFor','lspOfferInstall','lspOfferPending','lspOfferReopen']);
-// 바깥이 부르는 이름 — `layout-*.js`·`renderer.js`·`ws-sync-controller.js`·`slot-ops.js` 와 e2e. `_runsPanel` 을 부를 때 찾는다
-// (e2e 가 갈아 끼운다). UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): `#runs-btn` 은 없어졌고 Run 구역으로 직행하는 길은
-// `Ctrl+Shift+O` 다(PANEL_SHORTCUTS_SRS FR-PSC-2).
-Controller.delegate(App,(app,n,a)=>app._runsPanel()[n](...a),['_runsModalToggle','_findRunTab','runViewEl','_runDisposeView','_onRunChanged',
-  '_runPaint']);

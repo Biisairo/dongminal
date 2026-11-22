@@ -156,7 +156,7 @@ class GitPoll extends GitPart {
     // 그것이 곧 "그 표면" 이었기 때문이다. 창이 경로마다 생기면 패널도 여럿이고,
     // 그때 이 판정이 남의 창을 보면 비활성 창의 패널까지 git 을 부른다
     // (NFR-RTU-1 이 그것을 금한다).
-    const w=this.p.root?this.app.edWindowFor(this.p.root):this.app.git.gitWindow();
+    const w=this.p.root?this.app.editor.edWindowFor(this.p.root):this.app.git.gitWindow();
     if(!w||!this.app.windowVisible(w.id)) return false;
     // 창이 보이는 것과 **이 패널의 표면**이 보이는 것은 다르다 — 사이드가
     // Explorer 이고 본문에 git 뷰 탭도 없으면 이 관측을 쓰는 화면이 없다.

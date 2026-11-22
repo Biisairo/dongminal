@@ -25,7 +25,7 @@ class GitController extends Controller {
   // CHAT_WINDOW_SRS FR-CW-1·5: 채팅 창도 같다 — 진입점은 메인 패널의 `채팅` 탭이다.
   isChatWin(s){return !!(s&&s.type===WINDOW_TYPE_CHAT)}
   /** 일반(터미널) 창이 아닌 창 — Git·Repo·채팅. 창 목록·순회·대체의 판정은 이것 하나다. */
-  isKindWin(s){return this.isGitWin(s)||this.app.isEditorWin(s)||this.isChatWin(s)}
+  isKindWin(s){return this.isGitWin(s)||this.app.editor.isEditorWin(s)||this.isChatWin(s)}
   plainWindows(){return this.app.ws.windows.filter(s=>!this.isKindWin(s))}
 
   /**
@@ -86,8 +86,8 @@ class GitController extends Controller {
    */
   async openGitWindow(repo){
     if(!repo) return null;
-    if(!this.app.edWindowFor(repo)) await this.app.edMutate('/add',{path:repo});
-    const win=this.app.edWindowFor(repo);
+    if(!this.app.editor.edWindowFor(repo)) await this.app.editor.section.edMutate('/add',{path:repo});
+    const win=this.app.editor.edWindowFor(repo);
     if(!win) return null;
     this.app.switchWindow(win.id);
     return win.id;
@@ -174,7 +174,7 @@ class GitController extends Controller {
   gitSignal(kind){
     this.gitStatusHub().invalidate();
     if(this.app.gitPanel) this.app.gitPanel.signal(kind);
-    this.app._edAfterGitSignal(kind);
+    this.app.editor.pane._edAfterGitSignal(kind);
   }
 
   // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기·dirty-diff 가 나눠 쓰는 status. 요청은
@@ -197,7 +197,7 @@ class GitController extends Controller {
     // FR-EDT-94·97: 편집기 탭은 일반 창에 열리지 않는다. 대상 창은 **활성 리포
     // 경로에 연결된 Editor** 다 — 파일 경로로 고르지 않는다. 연동(FR-EDT-31)으로
     // 핀이 걸린 리포에는 그 Editor 가 늘 있다.
-    if(this.app.edOn()){ await this.app.edOpenFile(filePath,{anchor:this._gitActiveRepo(),preview:!!(opts||{}).preview}); return }
+    if(this.app.editor.edOn()){ await this.app.editor.file.edOpenFile(filePath,{anchor:this._gitActiveRepo(),preview:!!(opts||{}).preview}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
     if(rid) await this.app.addTab(rid,TAB_TYPE_EDITOR,{filePath,windowId:w.id});
@@ -217,7 +217,7 @@ class GitController extends Controller {
     // FR-EDT-94·98: Open File 과 같은 규약이다 — **리포로 고른다.** 서버는 HEAD 의
     // 내용을 저장소 밖에 놓으므로 파일로 고르면 언제나 폴백으로 떨어진다. 그 임시
     // 파일이 탐색기 루트 밖인 것은 정상이다 (FR-EDT-99).
-    if(this.app.edOn()){ await this.app.edOpenFile(openPath,{name,anchor:this._gitActiveRepo()}); return }
+    if(this.app.editor.edOn()){ await this.app.editor.file.edOpenFile(openPath,{name,anchor:this._gitActiveRepo()}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
     if(rid) await this.app.addTab(rid,TAB_TYPE_EDITOR,{filePath:openPath,name,windowId:w.id});
@@ -293,7 +293,7 @@ class GitController extends Controller {
    * 그것이었다 (D-FLW-6, 옛 FR-GIT-210).
    */
   _gitTermToolId(){
-    const p=this.app.focusedTerminal();
+    const p=this.app.tool.search.focusedTerminal();
     if(p){this.app._lastTermTool=p.id; return p.id}
     // 포커스가 터미널이 아니면(Git·Editor 창) **워크스페이스를 다시 읽는다.**
     //

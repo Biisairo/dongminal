@@ -321,7 +321,7 @@ class SlotOps extends Controller {
     }
     // SLOT_RUN_VIEW_SRS FR-SRV-4.2: Run 뷰도 칸의 것이다 — 편집기와 같은 판정을
     // 같은 자리에서 한다. 여기서 빠지면 사라진 칸의 뷰가 관측자를 들고 남는다.
-    // 레지스트리는 RunsPanel 이 든다 (APP_STATE_EXTRACT_SRS 묶음 A). `_runsPanel()`
+    // 레지스트리는 RunsPanel 이 든다 (APP_STATE_EXTRACT_SRS 묶음 A). `runsPanel()`
     // 로 지연 생성하지 않는다 — Run 을 연 적이 없으면 거둘 것도 없다.
     const rp=this.app._runs;
     if(rp&&rp._runViews) for(const [k,v] of [...rp._runViews]){

@@ -221,7 +221,7 @@ class GitDiffPane extends GitPart {
     this.p._diffPos=i;
     const target=list[i];
     // FR-RTB-9: Diff 탭의 ‹ › 는 그 탭이 있는 칸의 미리보기로 연다 (`gitDiffStep`).
-    if(this.p.diffTabId){this.app.gitDiffStep(this.p,target);return}
+    if(this.p.diffTabId){this.app.repoWin.gitDiffStep(this.p,target);return}
     this.p._select(target.group,{path:target.path,origPath:target.origPath,untracked:target.untracked});
   }
 
@@ -269,7 +269,7 @@ class GitDiffPane extends GitPart {
   async _diffLeaveAsk(view){
     if(this._diffAsking) return;
     this._diffAsking=true;
-    const r=await this.app.edDocLeaveConfirm();
+    const r=await this.app.editor.doc.edDocLeaveConfirm();
     const ok=r==='save'?await view.save():r===true;
     this._diffAsking=false;
     if(ok&&r===true){view.clear('');this.p._diffKey=null}
@@ -335,7 +335,7 @@ class GitDiffPane extends GitPart {
       // 색에 곧바로 서야 한다.
       onSaved:()=>this._gitSaved(),
       // FR-RTB-6 ⑤: 미리보기 Diff 에서 저장하면 고정된다.
-      onSaveIntent:()=>{if(this.p.diffTabId) this.app.gitDiffTabPin(this.p.diffTabId)},
+      onSaveIntent:()=>{if(this.p.diffTabId) this.app.repoWin.gitDiffTabPin(this.p.diffTabId)},
       // DIFF_HUNK_BAR_SRS D-4 / FR-DHB-10: 에디터가 서면 hover 툴바를 배선하고
       // 사라지면 걷는다. `GitDiffView` 는 관측을 모르므로 그 배선을 여기서 한다.
       onEditor:ed=>{ this.p._hunkBarWire(ed); if(ed) this._diffTabViewPending() },
@@ -355,7 +355,7 @@ class GitDiffPane extends GitPart {
     if(!this.p.root) return;
     if(this.p.diffTabId) this._diffTabEdited(v);
     else{
-      const w=this.app.edWindowFor(this.p.root); if(!w) return;
+      const w=this.app.editor.edWindowFor(this.p.root); if(!w) return;
       if(!this.app.findGitViewTab(w,'diff')) return;
     }
     // REPO_FIX 03 §3A-7: 탭 레코드에 쓰지 않는다 — 라벨은 렌더가 Diff 뷰에서
@@ -369,7 +369,7 @@ class GitDiffPane extends GitPart {
     this.p.signal('write');
     this.p.blameStale();
     // 탐색기의 색도 같은 사실을 딛는다 (FR-EDT-78).
-    const tree=this.app.edActiveTree&&this.app.edActiveTree();
+    const tree=this.app.editor.open.edActiveTree&&this.app.editor.open.edActiveTree();
     if(tree&&tree.pollGit) tree.pollGit({now:true});
   }
 
@@ -394,7 +394,7 @@ class GitDiffPane extends GitPart {
 
   // 탭의 대상을 패널에 싣는다. 같은 대상이면 아무것도 하지 않는다 — 렌더마다 불린다.
   diffTabApply(dt){
-    const key=dt?this.app.diffTabKey(dt):'';
+    const key=dt?this.app.repoWin.diffTabKey(dt):'';
     if(this._dtKey===key) return;
     this._dtKey=key;
     const f=dt?{...dt,repo:this.p.repo}:null;
@@ -428,7 +428,7 @@ class GitDiffPane extends GitPart {
   // 편집기 탭에서 쳐도 오므로, 포커스가 이 Diff 안에 있을 때만 이 탭의 계기로 센다.
   _diffTabEdited(v){
     const el=this.p._diffView&&this.p._diffView.el;
-    if(v&&el&&el.contains(document.activeElement)) this.app.gitDiffTabPin(this.p.diffTabId);
+    if(v&&el&&el.contains(document.activeElement)) this.app.repoWin.gitDiffTabPin(this.p.diffTabId);
   }
 
   // ── 보기 설정 (옛 panel-poll.js) ──

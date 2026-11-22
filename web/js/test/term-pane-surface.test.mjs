@@ -118,8 +118,8 @@ test('TC-FR5-50: `_onCwd` 는 포커스 터미널이면 상태바와 git 신호�
   const signals = [];
   let bar = 0;
   Object.assign(ctx.app, {
-    focusedTerminal: () => p, cwd: '/old',
-    git: { gitSignal: (k) => { signals.push(k) } }, statusbar: { updateStatusBar: () => { bar++ } },
+    cwd: '/old',
+    git: { gitSignal: (k) => { signals.push(k) } }, statusbar: { updateStatusBar: () => { bar++ } }, tool: { search: { focusedTerminal: () => p } },
   });
   p.output._onCwd('/new');
   assert.equal(p._cwd, '/new');

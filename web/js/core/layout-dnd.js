@@ -78,7 +78,7 @@ class LayoutDnd extends Controller {
     this.app.paneTabSet(dst,tab.id);this.app.setFocusState(dstRid, s);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다 — 여기서 터미널 창을
     // 만들면 안 된다.
-    if(!s.layout&&!this.app.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app._mkWindow();return}
+    if(!s.layout&&!this.app.editor.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app._mkWindow();return}
     this.app.save();this.app.render();
   }
 
@@ -90,7 +90,7 @@ class LayoutDnd extends Controller {
    * 만들지 않는다 (FR-MOV-9): 탭 레코드가 `toolId` 를 들고 그대로 옮겨 간다.
    */
   moveTabToWindow(srcRid,tabId,dstWinId){
-    const src=this.app.aw(); if(!src) return;
+    const src=this.app.tool.life.aw(); if(!src) return;
     // FR-MOV-5: Git 창은 주지도 받지도 않는다 (FR-GIT-181).
     // FR-EDT-53: Editor 창의 탭은 그 창 **밖으로 나가지 못한다** — 다른 Editor
     // 창으로도, 일반 창으로도.
@@ -186,7 +186,7 @@ class LayoutDnd extends Controller {
   }
 
   splitPaneWithTab(srcRid,tabId,targetRid,zone){
-    const s=this.app.aw();if(!s)return;
+    const s=this.app.tool.life.aw();if(!s)return;
     // FR-GIT-179·181: Git 창에는 분할 칸이 생기지 않는다.
     if(this.app.git.isGitWin(s))return;
     // FR-EDT-51: **Editor 창은 여기서 막지 않는다.** 드래그드롭이 분할이 생기는
@@ -211,7 +211,7 @@ class LayoutDnd extends Controller {
     };
     s.layout=splitNode(s.layout);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다.
-    if(!s.layout&&!this.app.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app._mkWindow();return}
+    if(!s.layout&&!this.app.editor.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app._mkWindow();return}
     this.app.setFocusState(newRid, s);this.app.save();this.app.render();
   }
 }

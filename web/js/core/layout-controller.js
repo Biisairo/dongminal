@@ -145,7 +145,7 @@ class LayoutController extends Controller {
     // FR-SBX-10: 창 id 를 도구보다 **먼저** 만든다. 순서가 반대면 첫 도구가
     // 자기 창을 모른 채 떠서, 샌드박스 창인데 첫 탭만 호스트에서 돈다.
     const wid=newEntityId();
-    const p=await this.app._newTool(cwd, cwd?null:refTool, {id:wid,sandbox,sandboxWork:sandbox?work:''});
+    const p=await this.app.tool.life._newTool(cwd, cwd?null:refTool, {id:wid,sandbox,sandboxWork:sandbox?work:''});
     const r=newEntityId(),tabId=newEntityId();
     const name=clampEntityName(typeof opts.name==='string'&&opts.name?opts.name:'Window');
     const s={
@@ -234,12 +234,12 @@ class LayoutController extends Controller {
    * 바뀐다 (NFR-2) — `delWindow` 의 `findIndex` 는 읽기일 뿐이다.
    */
   async _delWinDirtyOk(s,opts){
-    if(!(this.app._edWinDirty&&this.app._edWinDirty(s)&&!opts.force)) return true;
-    const r=await this.app._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
+    if(!(this.app.editor.sync._edWinDirty&&this.app.editor.sync._edWinDirty(s)&&!opts.force)) return true;
+    const r=await this.app.tool._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
     if(!r) return false;
     // FR-EXC-13a: 하나라도 저장하지 못했으면 창을 닫지 않는다 — 탭 하나의
     // 경합으로 창 전체의 편집을 잃을 수는 없다.
-    if(r==='save'&&!await this.app._edWinSaveDirty(s)) return false;
+    if(r==='save'&&!await this.app.editor.sync._edWinSaveDirty(s)) return false;
     return true;
   }
 
@@ -252,14 +252,14 @@ class LayoutController extends Controller {
    * 일관되어야 한다 — 한가한 셸까지 보존하면 백그라운드가 쓰레기로 찬다.
    */
   async _delWinAsk(pids,opts){
-    const busyMap=await this.app._toolsBusy(pids);
+    const busyMap=await this.app.tool._toolsBusy(pids);
     const busy=pids.filter(pid=>!!busyMap[pid]);
     const keep=new Set();
     // FR-M9-4: 답을 이미 받은 요청은 묻지 않는다. `keepTool` 이면 그 답이
     // "백그라운드" 이므로 busy 인 도구를 살린다 — 확인창의 `background` 와 같은 집합이다.
     const asked=busy.length>0;
     if(asked&&!opts.force){
-      const r=await this.app._confirmClose(t('core.q_close_window'),
+      const r=await this.app.tool._confirmClose(t('core.q_close_window'),
         {bgBtn:true,bgLabel:t('core.bg_running_only')});
       if(!r) return null;
       if(r==='background') for(const pid of busy) keep.add(pid);
@@ -287,14 +287,14 @@ class LayoutController extends Controller {
   _delWinTools(pids,asked,keep){
     if(!asked){
       this._winUndoFinal();
-      for(const pid of pids) this.app._setToolBackground(pid,true);
-      this.app._bgRefresh();
+      for(const pid of pids) this.app.tool.life._setToolBackground(pid,true);
+      this.app.tool.life._bgRefresh();
       return;
     }
-    for(const pid of keep) this.app._setToolBackground(pid,true);
-    if(keep.size) this.app._bgRefresh();
+    for(const pid of keep) this.app.tool.life._setToolBackground(pid,true);
+    if(keep.size) this.app.tool.life._bgRefresh();
     // FR-BG-4b: backgroundCapable 이 아닌 도구는 전환 대상이 아니라 종료된다.
-    for(const pid of pids) if(!keep.has(pid)) this.app._kill(pid);
+    for(const pid of pids) if(!keep.has(pid)) this.app.tool.life._kill(pid);
   }
 
   // 창을 뺀 뒤 — 빈 워크스페이스·다음 활성 창·포커스·그리기·저장.
@@ -317,7 +317,7 @@ class LayoutController extends Controller {
       }
       this.app._activateWindow(next.id);
     }
-    const a=this.app.aw();
+    const a=this.app.tool.life.aw();
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
       this.app.setFocusState(next, a);
@@ -357,8 +357,8 @@ class LayoutController extends Controller {
     if(u.timer) u.timer.stop();
     u.close();
     const referenced=new Set(this.app.ws.windows.flatMap(w=>allPids(w.layout)));
-    for(const pid of u.pids) if(!referenced.has(pid)) this.app._kill(pid);
-    this.app._bgRefresh();
+    for(const pid of u.pids) if(!referenced.has(pid)) this.app.tool.life._kill(pid);
+    this.app.tool.life._bgRefresh();
   }
 
   /**
@@ -374,8 +374,8 @@ class LayoutController extends Controller {
     this.app.ws.windows.splice(at,0,u.win);
     // FR-WGR-13: 되돌린 창은 원래 그룹으로 간다 — 그 사이 그룹이 지워졌으면 풀린다.
     this.groups._groupsNormalizeWs(this.app.ws);
-    for(const pid of u.pids) this.app._setToolBackground(pid,false);
-    this.app._bgRefresh();
+    for(const pid of u.pids) this.app.tool.life._setToolBackground(pid,false);
+    this.app.tool.life._bgRefresh();
     this.app._activateWindow(u.win.id);
     const next=(u.win.focusedPane&&findPane(u.win.layout,u.win.focusedPane))?u.win.focusedPane:firstPane(u.win.layout)?.id||null;
     this.app.setFocusState(next,u.win);
@@ -389,7 +389,7 @@ class LayoutController extends Controller {
       if(this.app.isMobile && this.app.drawerOpen) this.app.mobile._toggleDrawer(false);
       return;
     }
-    const cur=this.app.aw();if(cur)cur.focusedPane=this.app.focused;
+    const cur=this.app.tool.life.aw();if(cur)cur.focusedPane=this.app.focused;
     // FR-GIT-185: Open File 이 돌아갈 창을 기억한다 — 규칙이 하나여야 "어디에
     // 열렸는지 모르겠다"가 없다 (O15).
     // RELOAD_CONTINUITY_SRS FR-RLC-6·7: 그 기억은 새로고침을 건넌다. 사이드바
@@ -403,8 +403,8 @@ class LayoutController extends Controller {
     this.app._slotOnSwitch(sid);
     // FR-EDT-7: Editor 탭이 돌아갈 창을 같은 규약으로 기억한다 — 들어가는
     // 순간에 적는다. 나갈 때 적으면 한 번도 떠난 적 없는 창을 기억하지 못한다.
-    if(this.app.isEditorWin(this.app.aw())) this._rememberReturn('editor',sid);
-    const a=this.app.aw();
+    if(this.app.editor.isEditorWin(this.app.tool.life.aw())) this._rememberReturn('editor',sid);
+    const a=this.app.tool.life.aw();
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
       this.app.setFocusState(next, a);

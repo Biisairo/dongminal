@@ -17,7 +17,7 @@
  */
 class SettingsApply extends Controller {
   // 설정 저장의 본체는 `settings-sync.js` 의 `SettingsSync` 다 (APP_STATE_EXTRACT_SRS FR-ASE-9).
-  // 지연 생성은 `_runsPanel` 과 같은 규약이다.
+  // 지연 생성은 `runsPanel` 과 같은 규약이다.
   _settingsSync(){
     if(!this._setSync) this._setSync=new SettingsSync(this.app);
     return this._setSync;

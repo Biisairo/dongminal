@@ -149,7 +149,7 @@ class GitChanges extends GitPart {
       this.p._applyCadence();
       this.p.signal('init');
       // 목록·핀이 함께 바뀌었다 (FR-RTU-27). 사이드바가 그것을 따라오게 한다.
-      if(this.app.edRefresh) this.app.edRefresh();
+      if(this.app.editor?.section.edRefresh) this.app.editor.section.edRefresh();
       if(this.app.git.sync.gitReposRefresh) this.app.git.sync.gitReposRefresh();
     }
     // 취소(`false`)는 실패가 아니다 — 사유는 실패한 실행이 남긴 것만 선다.
@@ -402,7 +402,7 @@ class GitChanges extends GitPart {
         this.app.git.openGitWindow(c.path).then(id=>{
           if(!id) return;
           const w=this.app.ws.windows.find(s=>s&&s.id===id);
-          if(w) this.app.edSetSide(w,REPO_SIDE_CHANGES);
+          if(w) this.app.editor.pane.edSetSide(w,REPO_SIDE_CHANGES);
         });
       },
     }));

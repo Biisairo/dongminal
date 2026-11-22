@@ -87,7 +87,7 @@ class LayoutGroups extends Controller {
   }
 
   _tabPosition(tabId){
-    const r=this.app._findTabById(tabId);
+    const r=this.app.tool.cmd._findTabById(tabId);
     if(!r) return null;
     return {container:r.pane.id,index:r.pane.tabs.findIndex(x=>x.id===tabId)+1,count:r.pane.tabs.length};
   }
@@ -98,12 +98,12 @@ class LayoutGroups extends Controller {
    */
   moveTabTo(tabId,spec){
     spec=spec||{};
-    const src=this.app._findTabById(tabId);
+    const src=this.app.tool.cmd._findTabById(tabId);
     if(!src) return {error:'not_found'};
     let dst=null;
     const anchor=spec.before||spec.after;
     if(anchor){
-      const a=this.app._findTabById(anchor);
+      const a=this.app.tool.cmd._findTabById(anchor);
       if(!a) return {error:'not_found'};
       dst={win:a.win,pane:a.pane};
     }else if(spec.to){

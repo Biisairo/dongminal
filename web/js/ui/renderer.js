@@ -112,8 +112,8 @@ class Renderer {
     const oldFocus=this.app.prevFocus;
     this.app.prevFocus=this.app.focused;
     if(oldFocus!==undefined&&oldFocus!==this.app.focused){
-      this.app.clearAllSearchDecorations();
-      this.app.researchIfOpen();
+      this.app.tool.search.clearAllSearchDecorations();
+      this.app.tool.search.researchIfOpen();
     }
     this.app.mobile.applyMobileMode();
     this._rSbTabs();this._rLists();this._rTopbar();this._rLayout();this._rPaneIndicator();

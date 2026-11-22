@@ -46,8 +46,8 @@ function world() {
   a.closeWindowActive = rec('closeWindowActive');
   a.delWindow = rec('delWindow');
   a.render = rec('render');
-  a._notify = rec('_notify');
-  a._echoResult = rec('_echoResult');
+  a.tool._notify = rec('_notify');
+  a.tool.cmd._echoResult = rec('_echoResult');
   a.addTab = (...args) => { calls.push(['addTab', ...args]); return Promise.resolve({ uuid: 'tNew', toolId: 'x' }) };
   a.split = (...args) => { calls.push(['split', ...args]); return Promise.resolve({ panes: ['pN'], tabs: ['tN'] }) };
   a._mkWindow = (...args) => { calls.push(['_mkWindow', ...args]); return Promise.resolve({ win: 'wN', pane: 'pN', tab: 'tN' }) };
@@ -68,53 +68,53 @@ test('처리기는 전부 함수다', () => {
 
 test('closeTab 의 자리를 못 찾으면 아무것도 닫지 않는다 (FR-RUN-6b)', () => {
   const { a, calls } = world();
-  a._execRemote('closeTab', { location: 'W9.P9.T9' });
+  a.tool.cmd._execRemote('closeTab', { location: 'W9.P9.T9' });
   assert.deepEqual(calls.filter((c) => c[0] === 'closeTab' || c[0] === 'executeAction'), []);
 });
 
 test('closeTab 에 자리가 있으면 그 탭을 닫고, 없으면 공통 경로다', () => {
   const { a, calls } = world();
-  a._execRemote('closeTab', { location: 'W1.P1.T1', force: true });
+  a.tool.cmd._execRemote('closeTab', { location: 'W1.P1.T1', force: true });
   assert.deepEqual(calls.find((c) => c[0] === 'closeTab'), ['closeTab', 'p1', 't1', 'w1', { force: true, keepView: true }]);
-  a._execRemote('closeTab', {});
+  a.tool.cmd._execRemote('closeTab', {});
   assert.deepEqual(calls.find((c) => c[0] === 'executeAction'), ['executeAction', 'closeTab']);
 });
 
 test('closeWindow 는 답(force·keepTool)이 있을 때만 직접 닫고, 아니면 공통 경로다', async () => {
   const { a, calls } = world();
-  a._execRemote('closeWindow', {});
+  a.tool.cmd._execRemote('closeWindow', {});
   assert.deepEqual(calls.find((c) => c[0] === 'executeAction'), ['executeAction', 'closeWindow']);
   assert.equal(calls.find((c) => c[0] === 'closeWindowActive'), undefined);
-  a._execRemote('closeWindow', { force: true, keepTool: true });
+  a.tool.cmd._execRemote('closeWindow', { force: true, keepTool: true });
   assert.deepEqual(calls.find((c) => c[0] === 'closeWindowActive'), ['closeWindowActive', { force: true, keepTool: true }]);
 });
 
 test('closeWindow 에 자리가 있으면 그 window 를 활성으로 만들지 않고 닫는다 — -n 이 없어도 시선이 그대로다', () => {
   const { a, calls } = world();
-  a._execRemote('closeWindow', { location: 'W1.P1.T1', force: true });
+  a.tool.cmd._execRemote('closeWindow', { location: 'W1.P1.T1', force: true });
   assert.deepEqual(calls.find((c) => c[0] === 'delWindow'), ['delWindow', 'w1', { force: true }]);
-  a._execRemote('closeWindow', { location: 'W1.P1.T1' });
+  a.tool.cmd._execRemote('closeWindow', { location: 'W1.P1.T1' });
   assert.deepEqual(calls.filter((c) => c[0] === 'delWindow')[1], ['delWindow', 'w1', {}]);
   assert.deepEqual(calls.filter((c) => ['_focusLocation', 'executeAction', 'closeWindowActive'].includes(c[0])), []);
 });
 
 test('closeWindow 의 자리를 못 찾으면 아무것도 닫지 않는다', () => {
   const { a, calls } = world();
-  a._execRemote('closeWindow', { location: 'W9.P9.T9', force: true });
+  a.tool.cmd._execRemote('closeWindow', { location: 'W9.P9.T9', force: true });
   assert.deepEqual(calls.filter((c) => ['delWindow', 'executeAction', 'closeWindowActive'].includes(c[0])), []);
 });
 
 test('시선 이동 action 은 executeAction 으로 간다', () => {
   const { a, calls } = world();
-  for (const act of ['windowNext', 'tabPrev', 'paneLeft']) a._execRemote(act, {});
+  for (const act of ['windowNext', 'tabPrev', 'paneLeft']) a.tool.cmd._execRemote(act, {});
   assert.deepEqual(calls.filter((c) => c[0] === 'executeAction').map((c) => c[1]), ['windowNext', 'tabPrev', 'paneLeft']);
 });
 
 test('생성 명령은 처리기의 결과를 reqId 로 echo 한다', async () => {
   const { a, calls } = world();
-  a._execRemote('newTab', { reqId: 'r1' });
-  a._execRemote('splitV', { reqId: 'r2', location: 'W1.P1.T1' });
-  a._execRemote('newWindow', { reqId: 'r3', name: 'n' });
+  a.tool.cmd._execRemote('newTab', { reqId: 'r1' });
+  a.tool.cmd._execRemote('splitV', { reqId: 'r2', location: 'W1.P1.T1' });
+  a.tool.cmd._execRemote('newWindow', { reqId: 'r3', name: 'n' });
   await tick();
   const echoes = calls.filter((c) => c[0] === '_echoResult').sort((x, y) => x[1].localeCompare(y[1]));
   assert.deepEqual(JSON.parse(JSON.stringify(echoes)), [
@@ -129,13 +129,13 @@ test('생성 명령은 처리기의 결과를 reqId 로 echo 한다', async () =
 
 test('reqId 가 없으면 echo 하지 않는다', async () => {
   const { a, calls } = world();
-  a._execRemote('newTab', {});
+  a.tool.cmd._execRemote('newTab', {});
   await tick();
   assert.equal(calls.filter((c) => c[0] === '_echoResult').length, 0);
 });
 
 test('표에 없는 action 은 종전처럼 공통 경로로 간다', () => {
   const { a, calls } = world();
-  a._execRemote('focusBack', {});
+  a.tool.cmd._execRemote('focusBack', {});
   assert.deepEqual(calls.find((c) => c[0] === 'executeAction'), ['executeAction', 'focusBack']);
 });

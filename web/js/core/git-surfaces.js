@@ -137,7 +137,7 @@ class GitSurfaces extends Controller {
   // UX_BATCH12_SRS FR-RTB-7: Diff 탭은 탭마다 전용 패널이다 — `tabId` 가 오면 그 탭의 패널만 거둔다.
   _gitDropView(root,view,tabId){
     if(!view||!this.app.gitPanels) return;
-    if(tabId&&view==='diff'){this.app._gitDiffPanelsDrop(tabId);return}
+    if(tabId&&view==='diff'){this.app.repoWin._gitDiffPanelsDrop(tabId);return}
     for(const [key,p] of this.app.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(p.dropView) p.dropView(view);
@@ -207,7 +207,7 @@ class GitSurfaces extends Controller {
    */
   gitSurfaceOn(w){
     if(!w) return false;
-    if(this.app.edSideOf(w)===REPO_SIDE_CHANGES) return true;
+    if(this.app.editor.pane.edSideOf(w)===REPO_SIDE_CHANGES) return true;
     if(!w.layout) return false;
     for(const pn of this.app.flattenPanes(w.layout))
       if((pn.tabs||[]).some(tab=>tab&&tab.type===TAB_TYPE_GIT)) return true;
@@ -241,9 +241,9 @@ class GitSurfaces extends Controller {
     const n=this.app.slotCount();
     // 살아 있는 루트: Repo 창들의 루트 + 옛 Git 창의 자리('').
     const live=new Set(['']);
-    for(const s of this.app.ws.windows) if(this.app.isEditorWin(s)) live.add(this.app.edRootOf(s));
+    for(const s of this.app.ws.windows) if(this.app.editor.isEditorWin(s)) live.add(this.app.editor.edRootOf(s));
     // FR-RTB-7: Diff 탭 패널은 그 탭이 레이아웃에 남아 있을 때만 산다.
-    const tabs=this.app._gitDiffTabIds();
+    const tabs=this.app.repoWin._gitDiffTabIds();
     for(const [key,p] of this.app.gitPanels){
       if(this.app._slotOf(key)<n&&live.has(this._gitPanelRoot(key))&&(!p.diffTabId||tabs.has(p.diffTabId))) continue;
       p.destroy();
@@ -261,7 +261,7 @@ class GitSurfaces extends Controller {
    * 상태바와 사이드바가 딛을 패널이 있어야 하고, 그 자리는 종전과 같다.
    */
   _gitRootOfActive(){
-    const w=this.app.aw();
-    return this.app.isEditorWin(w)?this.app.edRootOf(w):'';
+    const w=this.app.tool.life.aw();
+    return this.app.editor.isEditorWin(w)?this.app.editor.edRootOf(w):'';
   }
 }

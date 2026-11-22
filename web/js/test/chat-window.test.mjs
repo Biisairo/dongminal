@@ -17,8 +17,8 @@ function world() {
     globals: { App: function App() {}, ErrorLog: { push() {} }, crypto: { randomUUID: (() => { let n = 0; return () => 'id' + (++n) })() } },
   });
   const a = controllers(ctx, new ctx.App());
-  a.isEditorWin = (s) => !!(s && s.type === 'editor');
-  a.edOn = () => true;
+  a.editor.isEditorWin = (s) => !!(s && s.type === 'editor');
+  a.editor.edOn = () => true;
   a.paneTabSet = (p, id) => { p.activeTab = id };
   return { ctx, a };
 }
@@ -44,7 +44,7 @@ test('TC-CW-3b: 분할은 채팅 창에서 아무 일도 하지 않는다', asyn
   a.ws = { windows: [C], activeWindow: 'C' };
   a.focused = 'p';
   let made = 0;
-  a._newTool = async () => { made++; return { id: 'x' } };
+  a.tool.life._newTool = async () => { made++; return { id: 'x' } };
   await a.split('h');
   assert.equal(made, 0);
   assert.equal(C.layout.type, 'pane');

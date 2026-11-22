@@ -52,7 +52,7 @@ Object.assign(Renderer.prototype, {
     if(!slots){
       area.removeAttribute('data-slotdir');
       this._rSlot=0;
-      this._rWindowInto(app.aw(),area);
+      this._rWindowInto(app.tool.life.aw(),area);
     }else{
       area.dataset.slotdir=app.slotDir;
       const n=app.slotCount();
@@ -223,7 +223,7 @@ Object.assign(Renderer.prototype, {
     const kb=ae&&ae.matches&&ae.matches(':focus-visible');
     const held=!app.focusHandoff&&ae&&ae.closest&&(ae.closest('.ed-explorer')
       ||(kb&&(ae.closest('.kb-nav')||!ae.closest('#area'))));
-    const s=app.aw();
+    const s=app.tool.life.aw();
     if(app.focused && !app.isMobile && s?.layout && !held){
       const pn=findPane(s.layout,app.focused);
       if(pn){const tab=pn.tabs.find(x=>x.id===app.paneTab(pn));if(tab){
@@ -286,7 +286,7 @@ Object.assign(Renderer.prototype, {
     this._rWin=s;
     // FR-EDT-46: Editor 창은 좌우 둘로 나뉜다 — 좌측 탐색기는 분할 트리 **밖**의
     // 고정 영역이므로 트리가 붙을 자리를 우측으로 바꾼다. 골격은 재사용한다.
-    const ed=app.isEditorWin(s)?this._rEditorWin(s):null;
+    const ed=app.editor.isEditorWin(s)?this._rEditorWin(s):null;
     if(ed) this._placeLayout(host,[ed.root]);
     const h=ed?ed.main:host;
     // FR-EDT-55: pane 이 하나도 없는 창이 있다. 그리기를 건너뛴다 — 죽은 편집기
@@ -336,7 +336,7 @@ Object.assign(Renderer.prototype, {
    */
   _paintEdEmpty(el,s){
     const app=this.app;
-    const msg=app.edSideOf(s)===REPO_SIDE_CHANGES?EDITOR_EMPTY_HINT_CHANGES:EDITOR_EMPTY_HINT;
+    const msg=app.editor.pane.edSideOf(s)===REPO_SIDE_CHANGES?EDITOR_EMPTY_HINT_CHANGES:EDITOR_EMPTY_HINT;
     const raw=(typeof shortcuts==='object'&&shortcuts.edQuickOpen)||'';
     const key=raw?displayKey(raw.replace(/Mod/g,IS_MAC?'Meta':'Ctrl')):'';
     const sig=msg+'\u0000'+key;
@@ -390,7 +390,7 @@ Object.assign(Renderer.prototype, {
       // 그 안의 스크롤은 `_keepScrollAll` 이 이미 지킨다 (FR-SCR-1).
       const side=this._rSide(s);
       // REPO_SIDE_WIDTH_SRS FR-RSW-2: 폭은 창의 것이 아니라 워크스페이스 하나다.
-      if(!mob) side.style.width=app.edSideWidth()+'px';
+      if(!mob) side.style.width=app.editor.pane.edSideWidth()+'px';
       kids.push(side);
       if(!mob){
         const h=this._keep(key+'/exh',()=>{

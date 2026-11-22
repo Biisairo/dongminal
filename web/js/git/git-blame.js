@@ -132,7 +132,7 @@ class GitBlame extends GitPart {
     // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 는 탭마다 패널이다 — 그 탭의 패널이 blame 모드를 든다.
     if(this.p.root){
       this.p._select(target.group,{path:target.path,origPath:target.origPath||''});
-      this.app.gitDiffOpen(this.p.root,this.p._diffTarget(),{preview:true,blame:true});
+      this.app.repoWin.gitDiffOpen(this.p.root,this.p._diffTarget(),{preview:true,blame:true});
       return;
     }
     this.p._blameOn=true;

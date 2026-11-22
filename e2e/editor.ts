@@ -150,7 +150,7 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     // 패널, 그것도 없으면 포커스 칸의 패널이다 (UX_BATCH12_SRS FR-RTB-7 — Diff 는 탭마다 패널).
     diffPanel: () => {
       const a = w.app;
-      const act = a.gitDiffPanelActive && a.gitDiffPanelActive();
+      const act = a.repoWin.gitDiffPanelActive && a.repoWin.gitDiffPanelActive();
       if (act) return act;
       const tabs = [...a.testing.gitPanels.values()].filter((p: any) => p.diffTabId && p._diffView);
       return tabs.length === 1 ? tabs[0] : a.gitPanel;

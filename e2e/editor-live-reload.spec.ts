@@ -154,7 +154,7 @@ test('V-ELR-10: 보이지 않는 창의 파일은 묻지 않는다', async ({ pa
   // 일반 창으로 간다. Editor 창은 이제 화면에 없다 (FR-STAT-17).
   await page.evaluate(() => {
     const a: any = (window as any).app;
-    const plain = a.ws.windows.find((s: any) => s && !a.isEditorWin(s));
+    const plain = a.ws.windows.find((s: any) => s && !a.editor.isEditorWin(s));
     if (plain) a.switchWindow(plain.id);
   });
   probe.bodies.length = 0;

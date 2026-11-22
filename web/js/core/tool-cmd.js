@@ -95,7 +95,7 @@ class ToolCmd extends Controller {
     if(!h){ this._remoteViaAction(action,args); return }
     const r=h(this.app,args);
     if(args.reqId&&r&&typeof r.then==='function'){
-      r.then(res=>{ if(res) this.app._echoResult(args.reqId,res) });
+      r.then(res=>{ if(res) this._echoResult(args.reqId,res) });
     }
   }
 
@@ -121,8 +121,8 @@ class ToolCmd extends Controller {
     // 연결된 Editor** 이고 없으면 root 에디터다 (FR-EDT-95) — 기준 경로가 파일
     // 자신이므로 anchor 를 따로 주지 않는다. `location` 은 따라가지 않는다:
     // 어느 창에 열지는 루트가 정하지 사용자가 서 있던 자리가 정하지 않는다.
-    if(this.app.edOn()){
-      this.app.edOpenFile(filePath,{name:name||pathBase(filePath)});
+    if(this.app.editor.edOn()){
+      this.app.editor.file.edOpenFile(filePath,{name:name||pathBase(filePath)});
       return;
     }
     if(location) this._focusLocation(location);
@@ -164,7 +164,7 @@ class ToolCmd extends Controller {
       if(c&&args.group) this.app.moveWindowTo(c.win,{to:args.group});
       this.app.render();
       return c&&{newWindows:[c.win],newPanes:[c.pane],newTabs:[c.tab]};
-    }).catch(err=>{ this.app._notify(errText(t('core.open_window_fail'),err)) });
+    }).catch(err=>{ this.app.tool._notify(errText(t('core.open_window_fail'),err)) });
   }
 
   _remoteNewTab(args){
@@ -189,7 +189,7 @@ class ToolCmd extends Controller {
       if(tab&&(args.after||args.index!==undefined)) this.app.moveTabTo(tab.uuid,args.after?{after:args.after}:{index:args.index});
       return tab&&{newTabs:[tab]};
     })
-      .catch(err=>{ this.app._notify(errText(t('core.open_tab_fail'),err)) });
+      .catch(err=>{ this.app.tool._notify(errText(t('core.open_tab_fail'),err)) });
   }
 
   _remoteSplit(dir,args){
@@ -205,7 +205,7 @@ class ToolCmd extends Controller {
 
   // FR-BG-2: detach 명령 — 도구를 백그라운드로 보내고 탭을 닫는다.
   _remoteDetachTab(args){
-    const loc=this.app.findToolLocation(args.toolId);
+    const loc=this.app.tool.life.findToolLocation(args.toolId);
     if(!loc){console.warn('[cmd] detachTab: 도구 위치 없음',args.toolId);return}
     if(!toolBackgroundCapable(loc.tab.type)){
       console.warn('[cmd] detachTab: 백그라운드 미지원 도구',loc.tab.type);return;
@@ -222,7 +222,7 @@ class ToolCmd extends Controller {
       if(!tgt){console.warn('[cmd] restoreTool: 대상 없음',args.location);return}
       opts.windowId=tgt.windowId; opts.paneId=tgt.paneId;
     }
-    this.app._restoreTool(args.toolId,opts);
+    this.app.tool.life._restoreTool(args.toolId,opts);
   }
 
   /**
@@ -313,7 +313,7 @@ class ToolCmd extends Controller {
       this.app._activateWindow(back.win,{rememberFocus:true});
       this.app._focusWindow(back.win);
     }
-    const a=this.app.aw();
+    const a=this.app.tool.life.aw();
     if(a&&back.pane&&findPane(a.layout,back.pane)) this.app.setFocusState(back.pane,a);
     this.app.save(); this.app.render();
   }
@@ -374,6 +374,3 @@ class ToolCmd extends Controller {
     this.app.save(); this.app.render();
   }
 }
-
-// 바깥이 부르는 이름 — 이벤트 버스(`event-bus.js`)·창 그룹·e2e·계약.
-Controller.delegate(App,'tool.cmd',['_echoResult','_execRemote','_findTabById']);

@@ -35,21 +35,23 @@ function loadLsp() {
   });
 }
 
-test('FR-ASE-7: LspClient 가 LSP 메서드 30개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
+test('FR-ASE-7: LspClient 가 LSP 메서드 30개를 갖고 App 에는 지연 생성 접근자만 남는다', () => {
   const ctx = loadLsp();
   assert.deepEqual(ownNames(ctx.LspClient.prototype), [...LSP_METHODS].sort());
+  // REFACTOR3_FE_DELEG_SRS: App 의 껍데기(위임자) 열은 걷었다 — 부르는 쪽이 `app.lspClient().X()` 를 부른다.
   const left = ownNames(ctx.App.prototype).filter((n) => /lsp/i.test(n));
-  assert.deepEqual(left, [...LSP_SHELLS, '_lspClient'].sort());
+  assert.deepEqual(left, ['lspClient']);
+  for (const n of LSP_SHELLS) assert.equal(typeof ctx.LspClient.prototype[n], 'function', n);
 });
 
-test('FR-ASE-7: 껍데기는 같은 LspClient 에 위임한다', () => {
+test('FR-ASE-7: 지연 생성한 LspClient 는 하나이고 거기 갈아 끼운 것을 부른다', () => {
   const ctx = loadLsp();
   const app = Object.create(ctx.App.prototype);
   const seen = [];
-  app._lspClient()._lspRootOfPath = (p) => { seen.push(p); return '/r' };
-  assert.equal(app._lspRootOfPath('/r/a.go'), '/r');
+  app.lspClient()._lspRootOfPath = (p) => { seen.push(p); return '/r' };
+  assert.equal(app.lspClient()._lspRootOfPath('/r/a.go'), '/r');
   assert.deepEqual(seen, ['/r/a.go']);
-  assert.equal(app._lspClient(), app._lsp);
+  assert.equal(app.lspClient(), app._lsp);
   assert.equal(app._lsp.app, app);
 });
 
@@ -169,7 +171,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 �
   // 메서드다. 주인은 생성자의 `this.<k>=new <C>(` 를 app.js 에서부터 따라 찾는다.
   const classFile = (c) => appFiles.concat(readdirSync(join(root, 'core')).map((n) => 'core/' + n), readdirSync(join(root, 'ui'))
     .map((n) => 'ui/' + n)).find((f) => f.endsWith('.js') && new RegExp('^class ' + c + '\\b', 'm').test(read(f)));
-  const LAZY = { '_lspClient()': 'LspClient', '_runsPanel()': 'RunsPanel' };
+  const LAZY = { 'lspClient()': 'LspClient', 'runsPanel()': 'RunsPanel' };
   const owned = (entry) => {
     const keys = entry.split('.');
     const n = keys.pop();

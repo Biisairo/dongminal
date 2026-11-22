@@ -18,8 +18,8 @@ class EdDiffPeek {
 
   init(){
     const app=window.app;
-    if(!app||!app.edDirtyDiff||!this.ed._view||!this.ed._buf) return;
-    this.ed._dd=app.edDirtyDiff(this.ed.filePath);
+    if(!app||!app.editor?.open.edDirtyDiff||!this.ed._view||!this.ed._buf) return;
+    this.ed._dd=app.editor.open.edDirtyDiff(this.ed.filePath);
     this.ed._dd.views.add(this.ed);
     this.ed._dd.attach(this.ed._buf);
     // 이미 계산이 끝난 문서를 두 번째 칸이 붙였을 수 있다 — 그때는 attach 가

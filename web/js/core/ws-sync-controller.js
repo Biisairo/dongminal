@@ -113,7 +113,7 @@ class WsSyncController extends Controller {
 
     // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
     // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
-    bus.subscribe('run_changed',a=>this.app._onRunChanged(a),{owner:'app'});
+    bus.subscribe('run_changed',a=>this.app.runsPanel()._onRunChanged(a),{owner:'app'});
     // RUN_VIEW_LIVE_SRS FR-RLV-5: 멤버의 상태 변화는 서버가 `run_changed` 로 알리지 못한다.
     bus.subscribe('tool_activity',a=>this.app._onRunMemberActivity(a),{owner:'app'});
     // CLAUDE_ACCOUNTS_SRS FR-CAC-100a: 계정 알림은 상태가 아니라 사건이다 — 등록부가 아니라 여기서 받는다.
@@ -134,7 +134,7 @@ class WsSyncController extends Controller {
 
     // 구독자가 없는 action 은 여기로 온다. 서버가 지명한 실행자만 수행하며
     // (FR-SXE-3), 지명이 없으면 게이팅하지 않는다 (FR-SXE-5 의 열화 경로).
-    bus.setFallback((action,args)=>this.app._execRemote(action,args));
+    bus.setFallback((action,args)=>this.app.tool.cmd._execRemote(action,args));
 
     // FR-RCS-6 · FR-RLC-26: 잠에서 깬 기기와 되돌아온 네트워크는 백오프를 기다릴
     // 이유가 없다. 원격(Tailscale) 사용에서 끊김의 대부분이 이 둘이므로, 즉시
@@ -321,7 +321,7 @@ class WsSyncController extends Controller {
     this._viewRestore(view);
     // FR-RSW-5 · FR-UXB-8: 옛 판의 브라우저가 옮긴 키를 계속 실어 보낼 수 있다.
     if(this.app._stripDeviceKeys()) edChanged=true;
-    const a=this.app.aw();
+    const a=this.app.tool.life.aw();
     if(a&&a.layout){
       const saved=a.focusedPane;
       const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
@@ -373,12 +373,12 @@ class WsSyncController extends Controller {
     // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
     // 갱신하지 않으면 재조정이 낡은 `editors` 를 딛어, 다른 브라우저가(또는
     // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
-    if(this.app.editors&&sv.editors) this.app._edPatchList(sv.editors.list);
-    if(this.app._edReconcile(sv.windows)) changed=true;
+    if(this.app.editors&&sv.editors) this.app.editor.sync._edPatchList(sv.editors.list);
+    if(this.app.editor.sync._edReconcile(sv.windows)) changed=true;
     // 재조정이 같은 루트의 창을 새 id 로 만들었을 수 있다 — 그때 활성 창을
     // **루트로** 다시 찾는다. 아래 폴백보다 먼저여야 한다: 폴백은 id 가 없으면
     // 일반 창을 고르므로, 여기서 잇지 않으면 방금 연 Repo 창을 잃는다.
-    this.app._edKeepActive(sv);
+    this.app.editor.pane._edKeepActive(sv);
     // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (첫 로드와 같은 한 자리).
     this.app._fallbackActiveWindow(sv);
     return changed;
@@ -420,8 +420,8 @@ class WsSyncController extends Controller {
    */
   _mergeUnseen(sv,seenBefore){
     // FR-OPL-14: 판정의 목록은 위에서 스냅샷으로 갈아 끼운 것이다(FR-EDT-20·43).
-    const edWant=new Set(this.app.edOn()?this.app.edRoots():[]);
-    if(!mergeUnseenLayout(this.app.ws.windows,sv.windows,seenBefore,this.app.edOn()?(r=>edWant.has(r)):null)) return false;
+    const edWant=new Set(this.app.editor.edOn()?this.app.editor.edRoots():[]);
+    if(!mergeUnseenLayout(this.app.ws.windows,sv.windows,seenBefore,this.app.editor.edOn()?(r=>edWant.has(r)):null)) return false;
     // FR-OPL-9 (= FR-WSC-13): 화면에만 남기면 다음 새로고침에서 사라진다.
     // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
     // 했을 수 있으므로 다시 본다. `_viewRestore` 의 활성 창 복원이 있으나 그것은

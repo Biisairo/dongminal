@@ -43,28 +43,20 @@ function host(over = {}) {
       activeWindow: 'B',
     },
     git: { isKindWin: (s) => o.kind.includes(s.id) },
-    _edWinDirty(s) { log.push('_edWinDirty:' + s.id); return o.dirty },
-    async _confirmClose(msg, opt) {
-      log.push('_confirmClose:' + msg + ':' + Object.keys(opt).sort().join(','));
-      return msg === 'dirty?' ? o.dirtyAns : o.procAns;
-    },
-    async _edWinSaveDirty(s) { log.push('_edWinSaveDirty:' + s.id); return o.saveOk },
-    async _toolsBusy(pids) {
-      log.push('_toolsBusy:' + pids.join(','));
-      return Object.fromEntries(pids.map((p) => [p, o.busy.includes(p)]));
-    },
-    _setToolBackground(pid, on) { log.push('_setToolBackground:' + pid + ':' + on) },
-    _bgRefresh() { log.push('_bgRefresh') },
-    _kill(pid) { log.push('_kill:' + pid) },
     _slotOnWindowGone(sid) { log.push('_slotOnWindowGone:' + sid) },
     async _mkWindow() { log.push('_mkWindow'); h.ws.windows.push({ id: 'N', layout: pane('n1') }); h.ws.activeWindow = 'N' },
     _activateWindow(id) { log.push('_activateWindow:' + id); h.ws.activeWindow = id },
-    aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null,
     setFocusState(id, s) { log.push('setFocusState:' + id + '@' + s.id) },
     focusClear() { log.push('focusClear') },
     _focusWindow(id) { log.push('_focusWindow:' + id) },
     render() { log.push('render') },
-    save() { log.push('save') },
+    save() { log.push('save') }, editor: { sync: { _edWinDirty(s) { log.push('_edWinDirty:' + s.id); return o.dirty }, async _edWinSaveDirty(s) { log.push('_edWinSaveDirty:' + s.id); return o.saveOk } } }, tool: { async _confirmClose(msg, opt) {
+      log.push('_confirmClose:' + msg + ':' + Object.keys(opt).sort().join(','));
+      return msg === 'dirty?' ? o.dirtyAns : o.procAns;
+    }, async _toolsBusy(pids) {
+      log.push('_toolsBusy:' + pids.join(','));
+      return Object.fromEntries(pids.map((p) => [p, o.busy.includes(p)]));
+    }, life: { _setToolBackground(pid, on) { log.push('_setToolBackground:' + pid + ':' + on) }, _bgRefresh() { log.push('_bgRefresh') }, _kill(pid) { log.push('_kill:' + pid) }, aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null } },
   };
   return h;
 }
