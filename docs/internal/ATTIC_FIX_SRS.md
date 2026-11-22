@@ -1,8 +1,8 @@
 # SRS: 「정독하지 않은 곳」 감사의 결함 고침 (IEEE 29148 준수)
 
-> **문서 상태**: 승인·구현중
+> **문서 상태**: 승인·구현완료
 >
-> **남은 것**: 묶음 ATT-1~4 구현과 시험
+> 근거: 묶음 넷의 Go 단위 시험(`go test -race -shuffle=on ./...` 통과)·`web/js/test/statusbar-poll.test.mjs` TC-ATF-44·`make gates`. 구현이 SRS 와 다르게 간 자리는 §5 다
 
 ## 1. 개요 (Introduction)
 
@@ -99,3 +99,21 @@
 
 ## 4. 이전 동작 / 새 동작 / 이유
 각 FR 의 「현상」 이 이전 동작이고 FR 본문이 새 동작이다. 이유는 PROD3_ATTIC 의 해당 행이다. 사용자에게 보이는 변화는 결함이 사라지는 것뿐이다 — 다만 FR-ATF-1(파일 이름 ref 의 checkout 이 실패한다)·FR-ATF-2(다른 커밋이 끼면 undo 가 거절된다)·FR-ATF-40(긴 알림이 잘려서 온다)·FR-ATF-57(깨진 설정 파일이 옆에 남는다)은 화면이나 응답에서 보인다.
+
+## 5. 구현이 정한 것 · SRS 와 다르게 간 자리 (2026-11-22)
+
+| # | 자리 | 내용 | 이유 |
+|---|---|---|---|
+| D-ATF-8 | FR-ATF-1 | `checkout -b <name> <start>`(`BranchCreateArgs`)에는 `--` 를 붙이지 않는다. 잡 울타리(`jobs/kinds.go` `checkoutShape`)는 끝의 `--` 를 받고, `-b` 없는 ref 는 `--` 가 없으면 거절한다 | `-b` 의 시작점은 git 이 커밋으로만 읽는다(실측: `'f.txt' is not a commit`) |
+| D-ATF-9 | FR-ATF-2 | undo 티켓의 HEAD 는 `query.HeadCommit`(`log -1` 한 번으로 oid·메시지)이 읽는다. 재조회도 HEAD 읽기도 실패하면 토큰을 내지 않는다. 판정과 `reset --soft HEAD@{1}` 사이의 아주 짧은 창은 남는다 | 판정은 서버가, 되돌리기는 git 이 한다 |
+| D-ATF-10 | FR-ATF-3 | 동기 생성·이름 변경의 이름 충돌은 write 의 `BranchExistsError` 가 낸다. 409 본문은 기존 필드(`branch`·`track`·`options`)에 `partial:false`·`status` 가 더해진 상위 집합이고, `message` 는 `branch_exists: …` 꼴이다. 잡 경로(checkout, `checkout:true` 생성)는 처리기 검사를 그대로 둔다 | write 가 검사하지 않는 경로가 있다 |
+| D-ATF-11 | FR-ATF-5 | 일부만 적용되고 실패한 Discard 도 복구 안내를 남기지 않는다(응답의 `partial`·`changed` 가 알린다). FR-GIT-92 를 근거로 「실행 전 등록」 을 요구하던 시험을 뒤집었다 | SRS 문구 그대로 |
+| D-ATF-12 | FR-ATF-9 | 잠금 대기 오류 문구가 `git_timeout: 잠금을 기다리는 중: context deadline exceeded` 꼴이 된다. `errors.Is` 분류는 같다 | ctx 오류도 함께 감싼다 |
+| D-ATF-13 | FR-ATF-31 | 언어 서버는 `platform.Current().Process.NewGroup` 으로 띄운다 — POSIX 새 세션, Windows Job Object. Windows 도 자손까지 끝난다. 언어 서버는 터미널의 Ctrl-C 를 직접 받지 않는다(stdin 이 닫히면 스스로 끝난다) | 이음매 게이트(OS 호출은 `platform` 안). git 잡과 같은 묶음 규칙 |
+| D-ATF-14 | FR-ATF-40 | 4096 은 태그를 걷고 이스케이프를 푼 글의 UTF-16 길이로 잰다. 표 변환으로 늘어 넘치면 예산을 반으로 줄여 다시 만든다. 처음 넘친 자리에 `…(PC 에서 보기)` 를 한 번 붙인다 | 공식 문서의 「after entities parsing」 |
+| D-ATF-15 | FR-ATF-44 | `Snapshot.MemTotalValid` 를 더했다. 상태바는 사용량이 숫자일 때만 메모리를 그린다(총량만 오면 그리지 않는다 — 지금과 같다) | 총량만 그리면 `NaNGB/16.0GB` 가 된다 |
+| D-ATF-16 | FR-ATF-51 | 초대는 지금 아는 노드의 키로 서명이 확인될 때만 받고 기억한다. 노드 하나의 몫 16(`maxSeenPerSender`), 전체 `maxNodes × 16`. 노드를 잊는 같은 잠금 구간에서 그 몫도 지운다. 이 노드가 보낸 초대는 따로 1024 까지 — 가득 차면 `ErrInviteFull` → `edge_rate_limited`(429, `edgenode/mesh.go`). 만료 전 항목은 밀어내지 않는다. 받아들인 위험: 잊힌 노드가 다시 알려지면 만료 전(최대 10분)의 옛 초대를 한 번 더 받을 수 있다 | 보안 검토 세 번(전역 표 고갈 · 지문 위조 · 노드 교체) |
+| D-ATF-17 | FR-ATF-53 | 로컬 참가자로의 전달도 노드별 줄을 지나 비동기가 된다 | 한 길로 순서를 지킨다 |
+| D-ATF-18 | FR-ATF-58 | rename 뒤의 디렉터리 fsync 실패는 오류가 아니라 경고 로그다 | 파일은 이미 바뀌었다 — 「실패하면 옛 내용 그대로」(FR-CAF-10)와 맞춘다 |
+| D-ATF-19 | FR-ATF-60 | 「알려진 헬퍼 이름」 은 이름의 꼴(빈 값·`.`·`/`·`\`·`:`·`..` 없음)로 판정한다. shim 기록은 `agent-shims/.helpers` 에 새로 둔다 | 지금 목록에 있는 이름만 지우면 폐지된 이름을 거둘 수 없다 |
+| D-ATF-20 | FR-ATF-45·55 | 실패 시험을 먼저 쓰지 못했다 — 45 는 cgo 가 시험 파일에서 안 되고, 55 는 성능만 바뀐다. 기존 시험이 회귀를 막는다 | — |

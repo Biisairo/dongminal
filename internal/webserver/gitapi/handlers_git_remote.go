@@ -312,7 +312,7 @@ func (s *GitServer) apiGitJobCancel(w http.ResponseWriter, r *http.Request) {
 	gitJSON(w, http.StatusOK, map[string]any{"ok": true, "id": req.ID, "canceled": hub.Cancel(req.ID)})
 }
 
-// GET /api/git/jobs — 진행 중 작업 전부 (FR-GIT-112). Git 패널이 `git_jobs_changed`·
+// GET /api/git/jobs — 진행 중 작업 전부. Git 패널이 `git_jobs_changed`·
 // 구독 열림에 받는다 (FR-OPT-4-4).
 func (s *GitServer) apiGitJobs(w http.ResponseWriter, r *http.Request) {
 	gitJSON(w, http.StatusOK, map[string]any{"jobs": s.jobsHub().Active()})

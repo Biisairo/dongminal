@@ -358,7 +358,7 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | GET | `/api/git/hunks` | 변경 덩어리 목록 |
 | POST | `/api/git/discard` | 변경을 버린다 |
 | POST | `/api/git/commit` | 커밋 — **작업**이다: `{job}` 을 돌려주고 oid·undoToken·실행 후 status 는 끝난 작업의 `result` 에 온다 |
-| POST | `/api/git/undo-last` | 마지막 커밋 되돌리기 (창이 지나면 거절) |
+| POST | `/api/git/undo-last` | 마지막 커밋 되돌리기 (창이 지나면 `undo_expired`, 그 사이 HEAD 가 바뀌었으면 `stale_observation` 으로 거절 — 토큰은 남는다) |
 | GET | `/api/git/diff-content` | diff 본문. 한 쪽이 32 MiB 를 넘으면 그 쪽은 `kind:"too_large"` 와 크기만 온다 |
 | GET | `/api/git/blob` | diff 한쪽의 **원본 바이트** — 그림만 내보낸다 (`<img src>` 가 건다) |
 | GET | `/api/git/file-head` | HEAD 판의 파일 내용 |
