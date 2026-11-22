@@ -370,7 +370,7 @@ Windows 는 `node_modules/npm/bin/npm-cli.js` 를 node 로 부른다. 이 차이
 | **V-EXT-7** | 팩 하나가 서버 다섯을 낸다 (FR-EXT-5) | `vscode-langservers-extracted` 매니페스트가 상태 다섯 줄을 내고 조달은 한 번이다 |
 | **V-EXT-8** | `needs` 순서 (FR-EXT-7) | node 없이 npm 팩을 조달하려 하면 node 를 이름으로 말하고 멈춘다 |
 | **V-EXT-9** | 호스트 도구 없음 (FR-EXT-14) | `go` 없는 `LookPath` 로 gopls 조달이 도구 이름을 말하고 멈춘다 |
-| **V-EXT-10** | 빌드 캐시 정리 (FR-EXT-23) | 조달 후 `GOMODCACHE`·`GOCACHE` 자리가 비어 있다 |
+| **V-EXT-10** | 빌드 캐시 정리 (FR-EXT-23) | 조달 후 `GOCACHE` 자리가 비어 있고 `GOMODCACHE` 는 남는다 (2026-11-22 사용자 결정 `ATTIC_FIX_SRS` FR-ATF-70 — 이전: 둘 다 비운다. 이유: 조달마다 모듈을 다시 받았다) |
 | **V-EXT-11** | 관측이지 캐시가 아니다 (FR-EXT-33) | 조달 후 파일을 지우면 다음 조회가 "없음" |
 | **V-EXT-12** | 사용자가 놓아둔 파일 (FR-EXT-26) | 네트워크 없이, 격리 칸에 직접 놓은 실행 파일이 `managed` 로 발견된다 |
 | **V-EXT-13** | 전개가 사용자 편집을 덮지 않는다 (FR-EXT-36) | 고친 매니페스트가 재기동 후에도 그대로다 |

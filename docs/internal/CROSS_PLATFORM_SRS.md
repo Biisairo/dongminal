@@ -585,7 +585,7 @@ type Browser interface {
 `//go:build !darwin && !linux && !windows` 로 좁힌다.
 
 **FR-XSY-2** `reader_linux.go` 신설:
-- `CPUTicks` — `/proc/stat` 첫 줄 (`user nice system idle`)
+- `CPUTicks` — `/proc/stat` 첫 줄 (`user nice system idle iowait`). iowait 은 idle 에 더한다 — 입출력을 기다리는 동안 CPU 는 놀고 있다 (2026-11-22 코드 기준 정정, `refactor/PROD3_ATTIC.md`)
 - `Mem` — `/proc/meminfo` 의 `MemTotal` 과 `MemTotal - MemAvailable`.
   `MemAvailable` 이 없는 낡은 커널이면 `MemFree + Buffers + Cached` 로 근사한다
 - `BootTime` — `/proc/stat` 의 `btime`

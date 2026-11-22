@@ -110,7 +110,7 @@ CI 러너는 홈이 매번 새것이라 아무 일도 없다. **개발 기계에
 
 ### 3.3 묶음 H — 점검
 
-- **FR-HLI-7** `runtime.CheckHelpers(binDir)` 는 설치된 헬퍼마다 **가리키는 것이
+- **FR-HLI-7** `runtime.InspectHelpers(binDir)`(문서의 옛 이름 `CheckHelpers` (2026-11-22 코드 기준 정정, `refactor/PROD3_ATTIC.md`)) 는 설치된 헬퍼마다 **가리키는 것이
   실제로 존재하는지** 본다. 없거나, 죽은 링크이거나, 실행 권한이 없으면 그 이름과
   사유를 돌려준다.
 - **FR-HLI-8** `doctor` 는 **운영 홈**의 헬퍼를 이 검사로 본다 (설치는 하지 않고,

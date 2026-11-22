@@ -228,7 +228,7 @@
 |----|---------|------|
 | FR-GLY-1 | `index.html` 은 `<svg id="ui-sprite" hidden>` 안에 `<symbol>` 묶음을 정적 마크업으로 갖는다 (D-8). | 필수 |
 | FR-GLY-2 | 모든 심볼은 `viewBox="0 0 24 24"`·`fill:none`·`stroke:currentColor`·`stroke-width:2`·`stroke-linecap:round` 다. 색을 심볼이 정하지 않는다. | 필수 |
-| FR-GLY-3 | 심볼의 출처는 Lucide(MIT)이며, 스프라이트 머리에 MIT 고지와 아이콘 이름 표를 남긴다 (D-3). | 필수 |
+| FR-GLY-3 | 심볼의 출처는 Lucide(**ISC** — 2026-11-22 정정, 이전 문구 「MIT」; 일부는 Feather MIT)이며, 스프라이트 머리에 고지를 남긴다 (D-3 · `ICON_SET_SRS` FR-ICN-11). | 필수 |
 | FR-GLY-4 | §2.6 의 문자 아이콘을 **전부** 교체한다 (D-3). 초기 사상: `✕ ×`→`x` / `⚙`→`settings` / `⟳ ↻`→`refresh-cw` / `✏`→`pencil` / `☰`→`menu` / `⌕ 🔍`→`search` / `🔔`→`bell` / `★`→`star` / `▣`→`box` / `⎇`→`git-branch` / `↗`→`external-link` / `↺`→`undo-2` / `⌨`→`keyboard` / `‹ ›`→`chevron-left/right` / `↑ ↓`→`arrow-up/down` / `▲ ▼`→`chevron-up/down` / `● `→`circle`(채움 예외) / `+ −`→`plus`·`minus` / `✓`→`check` / `⧉`→`columns-2`. | 필수 |
 | FR-GLY-5 | 아이콘 변의 길이는 버튼 높이에서 파생한다 (D-7). 버튼 밖(목록의 점 등)에 쓰는 아이콘은 `--ui-icon-sm`·`--ui-icon-md` 중 하나를 고른다 — 자리마다 px 를 적지 않는다. | 필수 |
 | FR-GLY-6 | 아이콘만 있는 버튼은 `title` 이 필수다 (FR-UIK-21). 지금 문자만 있고 툴팁이 없는 자리는 이 작업에서 문구를 갖는다 — 문구는 영어다 (FR-TIP-1·2). | 필수 |
