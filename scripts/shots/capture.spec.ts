@@ -13,6 +13,8 @@ const BASE = process.env.SHOT_BASE || 'http://127.0.0.1:58199';
 async function boot(page: Page) {
   await page.context().addInitScript(() => {
     sessionStorage.setItem('displayMode', 'desktop');
+    // 헤드리스 캡처에서는 WebGL 캔버스가 비어 찍힌다 — 터미널은 DOM 렌더로 찍는다 (TERMINAL_GPU_RENDER_SRS 의 끄기 키).
+    localStorage.setItem('termGpu', '0');
   });
   await page.goto(BASE);
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 20000 });
@@ -39,7 +41,8 @@ async function neutralShell(page: Page, cmds: string[] = []) {
 test('01 — 터미널과 분할', async ({ page }) => {
   await boot(page);
   await neutralShell(page, ['cd /tmp/dm-demo/notes-app && ls']);
-  await page.click('#split-v');
+  // 분할 단추는 탭 줄 끝의 아이콘이다 — 자리가 바뀌어도 깨지지 않게 명령으로 나눈다.
+  await page.evaluate(() => (window as any).app.testing.execRemote('splitV', {}));
   await page.waitForTimeout(900);
   await neutralShell(page, ['cd /tmp/dm-demo/notes-app && git log --oneline --graph --all']);
   await page.screenshot({ path: `${OUT}/terminal.png` });
@@ -50,9 +53,18 @@ test('02 — Git 창', async ({ page }) => {
   // 촬영이 깨진다. 여기서 재려는 것은 고정된 뒤의 **화면**이다.
   await page.request.post(`${BASE}/api/git/repos/pin`, { data: { path: '/tmp/dm-demo/notes-app' } });
   await boot(page);
-  await page.click('.sb-tab[data-panel="git"]');
-  await page.waitForTimeout(600);
-  await page.locator('#git-list .git-repo, #git-repos .git-repo').first().click().catch(() => {});
+  // 목록 패널의 `저장소` 탭을 보이고, 저장소 창을 열어 `기록` 을 본문에 띄운다.
+  // 목록 패널의 `저장소` 탭에서 notes-app 행을 눌러 그 저장소 창을 연다.
+  // 경로로 열면 macOS 의 `/tmp` → `/private/tmp` 때문에 다른 창(홈)이 앞에 설 수 있다 — 홈 목록이 찍히면 안 된다.
+  await page.click('.sb-tab[data-panel="repo"]');
+  await page.locator('#sb-panel-repo .sbl-item', { hasText: 'notes-app' }).first().click();
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await expect(page.locator('#area .ed-win .ed-side')).not.toContainText('.claude');
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a.testing.edSetSide(a.testing.aw(), 'changes');
+    a.gitPanel?.selection.openView('history');
+  });
   await page.waitForTimeout(1800);
   await page.screenshot({ path: `${OUT}/git.png` });
 });
@@ -62,6 +74,9 @@ test('03 — 설정과 테마', async ({ page }) => {
   await neutralShell(page);
   await page.click('#settings-btn');
   await expect(page.locator('#modal-overlay')).toBeVisible();
-  await page.waitForTimeout(500);
+  // 프로필 탭에는 기기 이름(호스트명)과 지문이 보인다 — 공개 문서에는 테마 탭(메인색·테마 목록)을 찍는다.
+  await page.locator('#modal-overlay').getByRole('tab', { name: '테마', exact: true }).click();
+  await page.waitForTimeout(600);
+  await expect(page.locator('#pf-name')).toBeHidden();
   await page.screenshot({ path: `${OUT}/settings.png` });
 });

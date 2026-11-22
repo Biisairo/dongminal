@@ -10,13 +10,17 @@ cd "$(dirname "$0")/../.."
 
 PORT=58199
 HOME_DIR=/tmp/dm-demo/home
+USER_HOME=/tmp/dm-demo/user
 BIN=./dongminal
 
 [[ -x "$BIN" ]] || { echo "먼저 빌드: scripts/build.sh" >&2; exit 1; }
 
 bash scripts/shots/demo-repo.sh
-"$BIN" stop --port "$PORT" --home "$HOME_DIR" >/dev/null 2>&1 || true
-"$BIN" start --port "$PORT" --home "$HOME_DIR" >/dev/null
+"$BIN" stop --all --port "$PORT" --home "$HOME_DIR" >/dev/null 2>&1 || true
+# 매번 빈 홈에서 시작한다 — 남은 워크스페이스(지난 촬영의 분할 등)가 그림에 섞인다.
+rm -rf "$HOME_DIR" "$USER_HOME" && mkdir -p "$HOME_DIR" "$USER_HOME"
+# 셸은 빈 가짜 홈의 bash 다 — 사용자의 셸 설정을 읽으면 프롬프트에 사용자명@호스트명이 보인다.
+HOME="$USER_HOME" SHELL=/bin/bash "$BIN" start --port "$PORT" --home "$HOME_DIR" >/dev/null
 trap '"$BIN" stop --all --port "$PORT" --home "$HOME_DIR" >/dev/null 2>&1 || true' EXIT
 
 SHOT_BASE="http://127.0.0.1:$PORT" npx playwright test scripts/shots/capture.spec.ts \

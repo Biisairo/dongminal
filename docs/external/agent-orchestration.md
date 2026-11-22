@@ -66,7 +66,7 @@ dongminal 이 띄운 터미널의 Claude Code 세션에서 슬래시 명령으�
 끊깁니다.
 
 - **일반 세션** — 맥락 훅(`dmctl ctx-hook`)이 이 규칙으로 알립니다. 설정 `migrationHook` 은 **기본 끔**이므로
-  Settings ▸ Terminal 에서 켜야 합니다. 기준은 `migrationHookCtxPct`(기본 50)입니다.
+  설정 ▸ 터미널 에서 켜야 합니다. 기준은 `migrationHookCtxPct`(기본 50)입니다.
 - **issue-tree 노드** — 안전 지점(하위가 끝났을 때, 잎은 한 단계를 커밋한 뒤)에서 같은 규칙으로 판단합니다. 기준은
   배정의 맥락 기준(`--ctx`, 없으면 `issueTreeCtxPct`)이고, `issueTreeMigration` 은 기본 켬입니다. 맥락 훅은
   issue-tree 노드를 건너뜁니다.
