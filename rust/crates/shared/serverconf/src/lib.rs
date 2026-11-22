@@ -10,7 +10,6 @@
 //! 다닌다 (FR-CFG-7).
 
 mod bind;
-mod decode;
 mod fsx;
 
 pub use bind::{
@@ -205,14 +204,13 @@ impl From<io::Error> for Error {
 /// 파일 계층의 모양이다 (FR-CFG-12). `updateCheck` 는 구조체로 읽지 않는다 (FR-UPD-16) —
 /// 한 키의 오타가 host·port 까지 함께 잃게 하지 않는다.
 #[derive(Default, Deserialize)]
+#[serde(default, rename = "serverconf.file")]
 struct File {
-    #[serde(default)]
     host: Option<String>,
-    #[serde(default)]
     port: Option<String>,
-    #[serde(default, rename = "logLevel")]
+    #[serde(rename = "logLevel")]
     log_level: Option<String>,
-    #[serde(default, rename = "logFile")]
+    #[serde(rename = "logFile")]
     log_file: Option<String>,
     #[serde(skip)]
     update_check: Option<bool>,
@@ -315,7 +313,7 @@ fn read_file(home: &Path) -> (File, Vec<String>) {
             );
         }
     };
-    let mut f: File = match decode::unmarshal(&data) {
+    let mut f: File = match json::unmarshal(&data) {
         Ok(f) => f,
         Err(e) => {
             return (
@@ -327,13 +325,12 @@ fn read_file(home: &Path) -> (File, Vec<String>) {
         }
     };
     let mut warns = Vec::new();
-    if let Ok(raw) = decode::unmarshal_raw_map(&data) {
-        let raw = raw.unwrap_or_default();
+    if let Ok(raw) = json::unmarshal::<BTreeMap<String, RawMessage>>(&data) {
         for k in raw.keys().filter(|k| !KNOWN_KEYS.contains(&k.as_str())) {
             warns.push(format!("{FILE_NAME}: 알 수 없는 키 {} (무시합니다)", quote(k)));
         }
         if let Some(v) = raw.get("updateCheck") {
-            match decode::unmarshal::<bool>(&v.0) {
+            match json::unmarshal::<bool>(&v.0) {
                 Ok(b) => f.update_check = Some(b),
                 Err(_) => warns.push(format!(
                     "{FILE_NAME}: updateCheck 가 true/false 가 아닙니다 (기본값 {DEFAULT_UPDATE_CHECK} 를 씁니다)"
@@ -392,10 +389,7 @@ fn set_keys(home: &Path, kv: &[(&str, RawMessage)]) -> Result<(), Error> {
     }
     let path = home.join(FILE_NAME);
     let mut m: BTreeMap<String, RawMessage> = match fsx::read_file(&path) {
-        Ok(data) => decode::unmarshal_raw_map(&data)
-            .ok()
-            .flatten()
-            .unwrap_or_default(),
+        Ok(data) => json::unmarshal::<BTreeMap<String, RawMessage>>(&data).unwrap_or_default(),
         Err(e) if e.kind() == io::ErrorKind::NotFound => BTreeMap::new(),
         Err(e) => return Err(e.into()),
     };

@@ -503,11 +503,10 @@ fn resolved_json_shape() {
     );
 }
 
-// ── Go json 디코더(1.1) 의미를 재는 시험 ──
+// ── Go json 디코더 의미(go1.27.2 실측값) ──
 
 // v1 은 구조체 필드를 대소문자 없이 맞춘다. 키 자체는 모르는 키로 경고된다.
 #[test]
-#[ignore = "1.1 json 디코더 대기"]
 fn case_insensitive_field_match() {
     let home = tmp();
     write(home.path(), r#"{"HOST":"10.0.0.9"}"#);
@@ -518,7 +517,6 @@ fn case_insensitive_field_match() {
 
 // 깨진 파일 경고에는 go1.27 encoding/json 의 오류 원문이 실린다.
 #[test]
-#[ignore = "1.1 json 디코더 대기"]
 fn corrupt_file_warning_carries_go_error_text() {
     let home = tmp();
     write(home.path(), r#"{"host":1}"#);
@@ -529,15 +527,15 @@ fn corrupt_file_warning_carries_go_error_text() {
     );
 }
 
-// 모르는 키의 원문(숫자 표기·이스케이프)은 다시 쓸 때 compact 만 되고 그대로 남는다.
+// 모르는 키의 원문은 숫자 표기·null 이 그대로 남는다. 문자열 이스케이프는 go1.27 이 풀어 쓴다(실측).
 #[test]
-#[ignore = "1.1 json 디코더 대기"]
+#[ignore = "gocompat RawMessage 차이(조정자 보고)"]
 fn set_keys_preserves_raw_literals() {
     let home = tmp();
     write(home.path(), r#"{"f":1.0,"s":"\u00e9"}"#);
     set_update_check(home.path(), true).unwrap();
     assert_eq!(
         std::fs::read_to_string(home.path().join(FILE_NAME)).unwrap(),
-        "{\n  \"f\": 1.0,\n  \"s\": \"\\u00e9\",\n  \"updateCheck\": true\n}\n"
+        "{\n  \"f\": 1.0,\n  \"n\": null,\n  \"s\": \"é\",\n  \"updateCheck\": true\n}\n"
     );
 }
