@@ -199,9 +199,12 @@ GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열
 **`App` 의 주제별 일은 컨트롤러가 맡는다** (`REFACTOR3_FE_APPCTL_SRS`). 컨트롤러는
 `Controller` 하위(`*-controller.js`)이고 App 은 그것을 필드로 든다(`app.layout`·`app.tool`·
 `app.git` 등). 컨트롤러가 크면 부품으로 다시 나눈다(`app.layout.tabOps`·`app.tool.cmd` 등).
-바깥이 App 에서 부르던 이름은 컨트롤러 파일 끝의 `Controller.delegate(App, …)` 위임자 표가
-잇는다 — 새 위임자를 `app.js` 에 더하지 않는다. 옛 `app-*.js`(`Object.assign(App.prototype, …)`
-로 원형을 넓히던 mixin)는 남아 있지 않다. 예외는 e2e 계약 `app-testing.js` 하나다.
+바깥은 컨트롤러의 이름을 **소유 경로**로 부른다(`app.slot.slotFocused()`·`app.editor.open.edOpenFile()`) —
+App 원형에 위임자를 두지 않는다(`REFACTOR3_FE_DELEG_SRS`, 게이트 `scripts/check-delegates.mjs`). 컨트롤러 안에서
+자기 이름은 `this.X()` 다. 시험·e2e 는 소유 인스턴스의 메서드를 갈아 끼운다. 이름을 문자열로 드는 표(상태 등록부·
+편집기 키·설정창 세우기 순서)와 e2e 계약 `app-testing.js` 는 앱에서 주인까지의 점 경로(`'git.sync._onGitChanged'`)를
+들고 부를 때 푼다. 지연 생성 본체는 `app.lspClient()`·`app.runsPanel()` 로 부른다. 옛 `app-*.js`
+(`Object.assign(App.prototype, …)` 로 원형을 넓히던 mixin)는 남아 있지 않다.
 
 **`GitPanel` 도 부품으로 나뉘었다** (`REFACTOR3_FE_GITPANEL_SRS`). 부품은 `GitPart` 하위이고
 패널이 필드로 든다(`this.poll`·`this.changes`·`this.views` 등 — 목록은 `git/panel.js` 머리 주석).

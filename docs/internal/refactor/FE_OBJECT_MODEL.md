@@ -8,7 +8,7 @@
 
 - `web/js` 는 약 61k 줄이고 모듈이 아니다. `index.html` 이 `<script>` 를 순서대로 싣고, 최상위 이름을 전역으로 서로 본다.
 - 주류는 mixin 이다. `Object.assign(App.prototype, …)` 가 68개 파일이고, `Object.assign(GitPanel.prototype, …)` 가 6~8개 파일이다.
-  - 단계 9 완료(2026-11-21, `REFACTOR3_FE_APPCTL_SRS`): `Object.assign(App.prototype, …)` 는 0 이다. App 은 주제별 `Controller` 를 드는 조립자이고, 바깥이 부르는 이름은 위임자 표로 남는다. (`GitPanel` 의 mixin 은 단계 7 에서 0 이 됐다.)
+  - 단계 9 완료(2026-11-21, `REFACTOR3_FE_APPCTL_SRS`): `Object.assign(App.prototype, …)` 는 0 이다. App 은 주제별 `Controller` 를 드는 조립자다. 바깥이 부르던 이름의 위임자 표는 `REFACTOR3_FE_DELEG_SRS` 가 걷었다 — 부르는 쪽이 소유 경로(`app.slot.slotFocused()`)를 부른다. (`GitPanel` 의 mixin 은 단계 7 에서 0 이 됐다.)
 - 이미 있는 기반은 다음과 같다.
   - `UIKit`(객체 리터럴 930줄): `tab`·`button`·`modal`·`menu`·`dialogOpen`·`roving`·`tabsFit`·`fadeWatch`
   - `reconcileList`(호출 약 20곳)
@@ -100,7 +100,7 @@ web/js/git/         git-view.js · git-list-tab.js · git-dialog.js · git-confi
 - 최상위 `class` 선언은 같은 realm 의 모든 스크립트에서 보인다. `GitModalBase` 가 이미 이 방식으로 동작한다. 다만 `window` 속성은 아니다. e2e 는 문자열 평가로 읽는다.
 - **단위 시험:** `harness.mjs` 의 `load()` 는 파일 배열을 그 순서대로 한 컨텍스트에서 돌린다. 기반을 앞에 적는다. 묶음 상수(`TERM_PANE` 같은)를 계층마다 둔다.
 - **로드 순서 게이트:** `check-load-order.mjs` 가 `extends` 의 우변을 로드 시점 참조로 잡는지 확인한다. 잡지 못하면 그 규칙을 더한다 `?`.
-- **App 과의 공존:** App 이 인스턴스를 든다(`this.activity = new ActivityPanel(this)`). 옮긴 mixin 메서드는 한동안 위임자로 남는다. 위임자는 e2e 와 다른 파일이 새 경로로 옮겨 간 뒤에 지운다.
+- **App 과의 공존:** App 이 인스턴스를 든다(`this.activity = new ActivityPanel(this)`). 옮긴 mixin 메서드는 한동안 위임자로 남았다가, e2e 와 다른 파일이 새 경로로 옮겨 간 뒤에 지웠다(`REFACTOR3_FE_DELEG_SRS`).
 - **외부 프레임워크는 쓰지 않는다**(권장). 빌드·ESM 전환·캐시 버스팅(`__ASSETV__`)·하네스를 한꺼번에 다시 설계해야 한다. 이미 동작하는 기반 클래스 방식(`GitModalBase`·`GitListTab`)을 넓히는 편이 위험이 작다.
 
 ## 6. 단계

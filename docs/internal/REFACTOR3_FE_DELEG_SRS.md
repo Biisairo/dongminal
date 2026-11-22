@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 위임자 걷기 — 컨트롤러·부품의 옛 이름을 부르는 쪽에서 새 경로로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: DL-1~DL-9 (하위 이슈 표 §2.3, 구현 기록 §6)
+> **남은 것**: DL-3(GitPanel)·DL-7(FileTree) — 다른 작업 트리에서 병렬 진행 중. 합친 뒤 D-DLG-9(`Controller.delegate` 삭제)와 게이트 기준선 제거(§6)
 
 - 접수: 2026-11-22. 리팩토링 3차의 마지막 구조 부채다. 근거: `REFACTOR3_FE_APPCTL_SRS` FR-FEA-4(위임자 표) · `REFACTOR3_FE_GITPANEL_SRS` FR-FEP-4·5(패널 본문의 위임자) · `REFACTOR3_FE_SETTINGS_SRS` FR-FES-9(섹션 위임자) · `REFACTOR3_FE_REST5_SRS` §1.3·D-FR5-8·D-FR5-9(FileTree·TerminalTool 부품 표) · `REFACTOR_PROD3_HANDOFF_4.md` §4("위임자 제거는 다음 리팩토링이다").
 - 사용자 결정: "알아서 끝까지". 큰 일은 범위를 줄이지 않고 하위 이슈로 나눈다. 하위 이슈 하나가 끝나면 커밋한다. 동작은 바꾸지 않는다.
@@ -104,13 +104,17 @@ P3a 단계 7·8·9 와 REST5 는 App·GitPanel·FileTree·TerminalTool 의 메�
 |---|---|---|
 | D-DLG-1 | 부르는 쪽은 소유 경로를 쓴다. 소유 클래스 안에서는 `this.X` 다 | 갈아 끼우기는 인스턴스의 속성을 바꾸는 일이다. 소유 경로와 소유 클래스의 `this` 는 같은 인스턴스이므로 둘 다 갈아 끼운 것을 본다(INV-DLG-2). 위임자가 하던 일 — "원형을 지나 인스턴스를 본다" — 은 소유 인스턴스가 직접 한다 |
 | D-DLG-2 | 계약은 키를 바꾸지 않고 목록에 소유 경로를 적는다 | e2e 수백 곳을 고치지 않고 내부 이름의 자리만 한 파일에서 바뀐다 — 계약이 있는 이유다(FR-ATC-2). 쓰기를 주인에 하므로 `app.testing.X = f` 로 갈아 끼운 것을 앱 경로가 본다 |
-| D-DLG-3 | 이름을 문자열로 부르는 표는 점 경로를 든다. 경로를 푸는 함수 `appPath(app, path)` 하나를 `core/helpers.js` 에 두지 않고 쓰는 자리에서 짧게 푼다 | 표 넷이 각각 한 줄로 푼다. 새 공용 함수를 만들 만큼 쓰임이 넓지 않다 |
+| D-DLG-3 | 이름을 문자열로 부르는 표는 점 경로를 든다. 경로를 푸는 공용 함수를 `core/helpers.js` 에 두지 않고 쓰는 자리에서 짧게 푼다. `section(tab)` 마디는 설정 섹션(없으면 아무것도 하지 않는다), `x()` 마디는 지연 생성 본체다 | 표 넷이 각각 몇 줄로 푼다. `state-registry.js` 는 e2e 합성 페이지(`sse-resilience`)가 홀로 싣는다 — 공용 함수에 기대면 하네스가 깨진다 |
 | D-DLG-4 | 섹션 위임자는 `section(tab)?.X(…)` 로 부른다 | `_sectionCall` 의 "섹션이 없으면 아무것도 하지 않는다" 를 그대로 옮긴다. 저장 단추 판정의 표(`SETTINGS_SAVE_LIVE`)는 `_sectionCall` 을 그대로 부른다 |
 | D-DLG-5 | e2e 는 계약 밖의 공개 이름(앞에 `_` 가 없는 이름)을 지금처럼 `window.app` 에서 직접 읽되 소유 경로로 읽는다. 계약 키로 옮기지 않는다 | 계약에 넣으면 계약이 커지고 e2e diff 가 늘어 "무엇이 바뀌었나" 가 흐려진다. 사설 이름(`_x`)은 이미 계약만 지난다(게이트 `check-e2e-private.sh`) |
 | D-DLG-6 | 부품 사이의 호출(FileTree·TerminalTool·GitPanel 부품)도 소유 경로로 부른다 — `this.tree.loader.reload()` | D-FR5-8 은 부품끼리 원형을 지나야 갈아 끼운 것을 본다고 했다. 이제 시험이 소유 부품을 갈아 끼우므로 소유 경로가 그것을 본다 |
 | D-DLG-7 | 기계 변환(TypeScript 파서 codemod)으로 바꾸고, 수신자의 종류를 모르는 자리는 사람이 파일을 보고 정한다 | 이름 가운데 `split`·`save`·`paint`·`init`·`reload`·`refresh`·`load` 처럼 흔한 것이 있어 글자 바꾸기로는 문자열·다른 객체의 같은 이름을 건드린다. 수신자가 주인일 때만 바꾼다 |
-| D-DLG-8 | 게이트의 예외 표: `FileEditor.note`·`FileEditor.offer`(→ `notice`). 이 SRS 범위 밖(§1.4)의 전달 메서드다 | 범위 밖의 것을 게이트가 막으면 게이트를 끄게 된다. 이름 단위로 적어 새 위반은 잡는다 |
-| D-DLG-9 | `Controller.delegate` 정적 메서드와 그 단위 시험을 지운다(예외 표가 비면) | 쓰는 곳이 없어진 코드다. 게이트가 같은 꼴의 재도입을 막는다 |
+| D-DLG-8 | 게이트의 예외 표: `FileEditor.note`·`FileEditor.offer`(→ `notice`) · `GitRemote.run`(→ `router`, REST3 FU-12 의 공개 입구) · `DocRender.focus`(→ DOM 요소의 `focus`, 부품이 아니다). 이 SRS 범위 밖(§1.4)의 전달 메서드다 | 범위 밖의 것을 게이트가 막으면 게이트를 끄게 된다. 이름 단위로 적어 새 위반은 잡는다 |
+| D-DLG-9 | `Controller.delegate` 정적 메서드와 그 단위 시험을 지운다(예외 표가 비면) | 쓰는 곳이 없어진 코드다. 게이트가 같은 꼴의 재도입을 막는다. 이 작업 트리에서는 FileTree 표(DL-7)가 아직 써서 남긴다 — DL-7 을 합칠 때 지운다 |
+| D-DLG-10 | 위임자를 지운 뒤 지연 생성 접근자 `_lspClient`·`_runsPanel` 을 `lspClient`·`runsPanel` 로 승격한다 | 옛 위임자(`lspClickDef` 등)는 공개 이름이었는데, `ui/`·`git/` 이 `app._lspClient()` 로 부르면 계층 경계 게이트(`check-layer.sh`, FR-FMB-40)가 막는다. 경계를 넘는 이름은 승격하는 것이 규약이다. 계약 키 `runsPanel` 은 그대로다 |
+| D-DLG-11 | 주인이 없을 수 있는 자리의 존재 확인(`if(app&&app.edDoc)`·`typeof app.attnUserIsWatching`)은 소유 경로의 첫 마디 뒤에 `?.` 를 넣는다(`app.editor?.doc.edDoc`). 부름 자체는 `?.` 없이 쓴다 | 그 확인은 앱이 덜 선 페이지(문서 렌더·편집기를 홀로 싣는 e2e 하네스·단위 시험의 대역)를 위한 것이다. 확인이 주인의 부재에서 던지면 가드가 뜻을 잃는다. 본 앱에서는 주인이 늘 있으므로 동작은 같다 |
+| D-DLG-12 | 단위 시험 하네스 `controllers()` 는 싣지 않은 뿌리 컨트롤러를 빈 주인(부품 필드 포함)으로 세운다 | 시험의 대역이 소유 경로(`app.git.plainWindows = …`)에 들어갈 자리가 있어야 한다. 실은 컨트롤러는 종전처럼 진짜로 선다 |
+| D-DLG-13 | (2026-11-22 주 세션 지시로 개정) 하위 이슈마다 e2e 를 돌리지 않는다. 대신 ① `make gates`·`npm run -s unit`·`npm run -s typecheck`·`make lint` 0 ② 걷은 이름이 옛 수신자(`app.X`·`this.app.X`·`w.app.X`·`window.app.X`·문자열 표의 옛 이름)로 남지 않았는지 정적 검사(TypeScript 파서 codemod 를 마른 채로 돌려 바꿀 자리 0) ③ 바꾼 e2e 파일은 `npx playwright test --list` 로 문법만. e2e 전량은 세 작업 트리를 합친 뒤 주 세션이 한 번 돈다 | 속도. DL-8·DL-1(e2e 전량 2,305 통과·흔들림 0)·DL-2(관련 54 spec 757 통과)는 앞의 방식으로 돌았다 |
 
 ## 4. 검증
 
@@ -120,7 +124,7 @@ P3a 단계 7·8·9 와 REST5 는 App·GitPanel·FileTree·TerminalTool 의 메�
 | TC-DLG-2 | 하위 이슈마다: 소유 인스턴스에 갈아 끼운 메서드를 앱 경로(다른 컨트롤러·부품)가 부른다 — 옛 TC-FEA-2·TC-FR5-50 의 갈아 끼우기 단정을 소유 인스턴스로 옮긴다(단위) |
 | TC-DLG-3 | 계약: 위임자였던 계약 이름을 `app.testing` 으로 읽으면 소유 인스턴스에 바인딩된 함수이고, 쓰면 소유 인스턴스에 쓰인다(단위) |
 | TC-DLG-4 | 게이트 `check-delegates.mjs` 가 ① `Controller.delegate(` ② 같은 이름 전달 메서드를 잡고 예외 표의 이름은 지난다(단위, `scripts/test`) |
-| TC-DLG-5 | 하위 이슈마다 `make gates` · `npm run -s unit` · `npm run -s typecheck` · `make lint` 0 · 그 묶음의 이름이 나오는 e2e spec 전부 |
+| TC-DLG-5 | 하위 이슈마다 `make gates` · `npm run -s unit` · `npm run -s typecheck` · `make lint` 0 · 정적 검사 0 · 바꾼 e2e 의 `--list` (D-DLG-13) |
 
 ## 5. 동작 변경 기록
 
@@ -130,6 +134,19 @@ P3a 단계 7·8·9 와 REST5 는 App·GitPanel·FileTree·TerminalTool 의 메�
 
 | 이슈 | 커밋 | 내용 |
 |---|---|---|
+| SRS | `4775b395` | 이 문서 |
+| DL-8 | `3df763ff` | TerminalTool 20 — 부품 `sizer`·`heldBar`·`output`·`xfer`. 부품 안의 `this.pane.X` 는 `this.X`. 표면 시험 TC-FR5-50 은 부품을 갈아 끼우고 TC-DLG-1 을 더했다. e2e 관련 11 spec 102 통과 |
+| DL-1 | `e33c131b` | 설정·간선·업데이트 55. 문자열 표 넷(등록부·`ED_*_ACTIONS`·`SETTINGS_INIT`·`SETTINGS_SAVE_LIVE`)과 계약 `app-testing.js` 전체를 점 경로로(다른 묶음의 이름까지 이때 한 번에). `SETTINGS_ACCESS` setter 의 `this`(앱)도 소유 경로. Go 시험 `derive_test.go` 의 문자열 대조 하나. e2e 전량(`make e2e`) 2,305 통과·흔들림 0 |
+| DL-2 | `251ff01e` | git(App 쪽) 42. 시험 하네스 `controllers()` 의 빈 주인(D-DLG-12). e2e 관련 54 spec 757 통과 |
+| DL-6 | `98a81965` | 채팅·활동·모바일·상태바·알림·계정 92. 홀로 실리는 `term-output.js`·`term-clipboard.js` 의 가드는 주인 부재를 견딘다 |
+| DL-5 | `7267abdc` | 도구·편집기·Repo 창·LSP·Run 154. `lspClient`·`runsPanel` 승격(D-DLG-10), 가드의 `?.`(D-DLG-11) |
+| DL-4 | `352958af` | 레이아웃·슬롯·포커스·동기화 147. 옛 위임자를 말하던 코드 주석을 지금 모양으로 |
+| DL-9 | `e6b2da61`…(이 커밋) | 게이트 `check-delegates.mjs`(+ 단위 시험 다섯, `make gates`·CI 연결) · 문서(`architecture.md`·`FE_OBJECT_MODEL.md`·PROD3 §7.1·CHANGELOG) |
+| DL-3 · DL-7 | — | 다른 작업 트리에서 병렬 진행 중. 게이트는 `GitPanel` 전달 157 · `FileTree` 표 8 을 기준선으로 둔다(수가 늘면 실패) |
+
+**수.** 위임자 768 → 258(GitPanel 162 · FileTree 96, 병렬 진행 중). App 490 · TerminalTool 20 은 0.
+
+**남긴 위임자.** 없다(App·TerminalTool). 게이트 예외 넷(D-DLG-8)은 이 SRS 가 세는 위임자가 아니다.
 
 ## 부록 A. 위임자 표 (HEAD `9a3d8e30`)
 
