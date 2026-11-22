@@ -44,7 +44,7 @@ fn rich_scenario() -> Scenario {
     Scenario::new("fake rich")
         .run(["a", "b"])
         .run_cli(Cli::new(["stdin"]).stdin("hello\n"))
-        .run_cli(Cli::new(["x"]).argv0("dmctl"))
+        .run_cli(Cli::new(["x"]).argv0("download"))
         .run_cli(Cli::new(["env"]).env("EXTRA", "{home}/sub"))
         .write_home("pre/seed.json", "{\"root\":\"{root}\"}")
         .run_cli(Cli::new(["write"]).env("CONTENT", "v1"))
@@ -154,6 +154,7 @@ fn cli_scrubs_inherited_env_and_reports_exit_codes() {
     );
     let b = fake(dir.path(), "b", "#!/bin/sh\necho \"p=none e=none n=1\"\n");
     let c = fake(dir.path(), "c", "#!/bin/sh\necho different\n");
+    let issues = issue_dir(dir.path(), "done");
     let run = |go: &Path, rust: &Path| {
         Command::new(env!("CARGO_BIN_EXE_dm-parity"))
             .args([
@@ -167,6 +168,7 @@ fn cli_scrubs_inherited_env_and_reports_exit_codes() {
             .env("DONGMINAL_PORT", "1234")
             .env("DM_E2E_RUN", "x")
             .env("DM_HERMETIC_ROOT", dir.path())
+            .env("DM_PARITY_ISSUES", &issues)
             .output()
             .unwrap()
     };
@@ -192,4 +194,54 @@ fn cli_scrubs_inherited_env_and_reports_exit_codes() {
         .output()
         .unwrap();
     assert_eq!(low.status.code(), Some(2));
+}
+
+/// cli-help 의 담당 이슈(6.1) 하나만 든 이슈 폴더.
+fn issue_dir(dir: &Path, status: &str) -> PathBuf {
+    let d = dir.join(format!("issues-{status}"));
+    fs::create_dir_all(&d).unwrap();
+    fs::write(
+        d.join("6.1-x.md"),
+        format!("---\nid: \"6.1\"\nstatus: {status}\n---\n"),
+    )
+    .unwrap();
+    d
+}
+
+/// FR-PAR-42: 담당 이슈가 done 이 아니면 차이는 보류이고 종료 코드는 0 이다.
+/// 이슈 폴더가 없으면 담당 이슈가 있는 시나리오를 돌리지 않는다(2).
+#[test]
+fn diffs_of_unfinished_owner_are_pending() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = fake(dir.path(), "a", "#!/bin/sh\necho a\n");
+    let b = fake(dir.path(), "b", "#!/bin/sh\necho b\n");
+    let todo = issue_dir(dir.path(), "todo");
+    let base = |cmd: &mut Command| {
+        cmd.args([
+            "--go",
+            a.to_str().unwrap(),
+            "--rust",
+            b.to_str().unwrap(),
+            "--only",
+            "cli-help",
+        ])
+        .env("DM_HERMETIC_ROOT", dir.path())
+        .env_remove("DM_PARITY_ISSUES");
+    };
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_dm-parity"));
+    base(&mut cmd);
+    let out = cmd
+        .args(["--issues", todo.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{text}");
+    assert!(
+        text.contains("PEND  cli-help (담당 6.1: todo, 차이 3개)"),
+        "{text}"
+    );
+    assert!(text.contains("같음 0, 다름 0, 보류 1"), "{text}");
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_dm-parity"));
+    base(&mut cmd);
+    assert_eq!(cmd.output().unwrap().status.code(), Some(2));
 }
