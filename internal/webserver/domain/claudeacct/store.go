@@ -75,19 +75,33 @@ type Patch struct {
 	Priority       *int     `json:"priority,omitempty"`
 }
 
+// AccountRanges 는 계정 행 칸의 범위다 (양 끝 포함). 키는 Patch 의 JSON 이름이고, `alias` 는
+// 글자(룬) 수의 범위다.
+//
+// REFACTOR3_FE_FIX_SRS FR-FFX-20 (FX-7): **범위의 원천은 이 표 하나다.** Validate 가 이것으로
+// 판정하고, 계정 목록 응답(`ranges`)이 이것을 실어 설정 화면이 칸의 min·max·maxLength 를 세운다 —
+// 종전에는 화면(`_cacctAccountRow`)과 여기에 같은 숫자가 따로 적혀 있었다. 모양은 AutoRange 와
+// 같다(D-FFX-14).
+var AccountRanges = map[string]AutoRange{
+	"alias":     {0, aliasMax},
+	"threshold": {thresholdMin, thresholdMax},
+	"priority":  {priorityMin, priorityMax},
+}
+
 // Validate 는 범위를 본다 (FR-CAC-11).
 func (p Patch) Validate() error {
-	if p.Alias != nil && utf8.RuneCountInString(*p.Alias) > aliasMax {
-		return fmt.Errorf("%w: 별칭은 %d자 이하입니다", ErrInvalid, aliasMax)
+	r := AccountRanges
+	if p.Alias != nil && !r["alias"].has(float64(utf8.RuneCountInString(*p.Alias))) {
+		return fmt.Errorf("%w: 별칭은 %.0f자 이하입니다", ErrInvalid, r["alias"].Max)
 	}
 	if p.Color != nil && !validColor(*p.Color) {
 		return fmt.Errorf("%w: 알 수 없는 색 %q", ErrInvalid, *p.Color)
 	}
-	if p.Threshold != nil && !p.ClearThreshold && (*p.Threshold < thresholdMin || *p.Threshold > thresholdMax) {
-		return fmt.Errorf("%w: 문턱값은 %.0f~%.1f 입니다", ErrInvalid, thresholdMin, thresholdMax)
+	if p.Threshold != nil && !p.ClearThreshold && !r["threshold"].has(*p.Threshold) {
+		return fmt.Errorf("%w: 문턱값은 %.0f~%.1f 입니다", ErrInvalid, r["threshold"].Min, r["threshold"].Max)
 	}
-	if p.Priority != nil && (*p.Priority < priorityMin || *p.Priority > priorityMax) {
-		return fmt.Errorf("%w: 우선순위는 %d~%d 입니다", ErrInvalid, priorityMin, priorityMax)
+	if p.Priority != nil && !r["priority"].has(float64(*p.Priority)) {
+		return fmt.Errorf("%w: 우선순위는 %.0f~%.0f 입니다", ErrInvalid, r["priority"].Min, r["priority"].Max)
 	}
 	return nil
 }

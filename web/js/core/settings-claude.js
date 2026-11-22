@@ -60,6 +60,7 @@ class ClaudeSection extends SettingsSection {
     this._cacctSet={
       off:list.status===503,
       accounts:list.ok&&list.data&&Array.isArray(list.data.accounts)?list.data.accounts:[],
+      ranges:list.ok&&list.data?list.data.ranges:null,
       auto:auto.ok&&auto.data?auto.data:null,
       folders:maps.ok&&maps.data?maps.data.folders||{}:{},
       unclaimed:unc.ok&&unc.data?unc.data.entries:[],
@@ -143,11 +144,11 @@ class ClaudeSection extends SettingsSection {
       inp.addEventListener('change',()=>this._cacctItem(r.id,key,inp.value));
       return inp;
     };
-    field('alias',t('cacct.set.alias'),'sbx-input','text',r.alias,'').maxLength=24;
-    const th=field('threshold',t('cacct.set.threshold'),'ds-num','number',r.threshold,t('cacct.set.threshold_ph'));
-    th.min='50'; th.max='100';
-    const pr=field('priority',t('cacct.set.priority'),'ds-num','number',r.priority,'');
-    pr.min='0'; pr.max='1000';
+    // FR-FFX-23: 범위는 계정 목록 응답의 `ranges` 가 준다.
+    const rg=this._cacctSet&&this._cacctSet.ranges;
+    cacctRangeApply(field('alias',t('cacct.set.alias'),'sbx-input','text',r.alias,''),rg,'alias');
+    cacctRangeApply(field('threshold',t('cacct.set.threshold'),'ds-num','number',r.threshold,t('cacct.set.threshold_ph')),rg,'threshold');
+    cacctRangeApply(field('priority',t('cacct.set.priority'),'ds-num','number',r.priority,''),rg,'priority');
     const dl=f.appendChild(domEl('label','sbx-flag'));
     const dis=dl.appendChild(domEl('input','ui-switch'));
     dis.type='checkbox'; dis.checked=r.disabled;
@@ -173,8 +174,7 @@ class ClaudeSection extends SettingsSection {
       const lab=box.appendChild(domEl('label','cacct-set-field',t(fd.label)));
       const inp=lab.appendChild(domEl('input','ds-num'));
       inp.type='number'; inp.value=form[fd.key];
-      const rg=cacctAutoRange(a.ranges,fd.key);
-      if(rg){inp.min=String(rg.min); inp.max=String(rg.max)}
+      cacctRangeApply(inp,a.ranges,fd.key);
       inputs[fd.key]=inp;
     }
     const sl=box.appendChild(domEl('label','cacct-set-field',t('cacct.set.auto_strategy')));

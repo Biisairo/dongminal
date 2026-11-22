@@ -28,6 +28,8 @@ type claudeAccountsView struct {
 	Autoswitch claudeAutoSummary        `json:"autoswitch"`
 	// OtherStatusLines 는 등록되지 않은 계정의 statusLine 값이다 (FR-CAC-78·93).
 	OtherStatusLines []claudeacct.StatusLineView `json:"otherStatusLines"`
+	// Ranges 는 계정 행 칸의 범위다 (REFACTOR3_FE_FIX_SRS FR-FFX-22) — 화면이 칸의 min·max·maxLength 로 쓴다.
+	Ranges map[string]claudeacct.AutoRange `json:"ranges"`
 }
 
 // claudeAutoSummary 는 foot 표식에 쓰는 자동 전환 요약이다 (FR-CAC-76·92).
@@ -99,7 +101,7 @@ func (s *Server) apiClaudeAccountsList(w http.ResponseWriter, _ *http.Request) {
 	}
 	v := claudeAccountsView{ActiveID: st.ActiveID, Accounts: views,
 		Autoswitch:       claudeAutoSummary{Enabled: av.Settings.Enabled, Status: av.State.Status},
-		OtherStatusLines: s.ca.sl.others(st.Accounts, now)}
+		OtherStatusLines: s.ca.sl.others(st.Accounts, now), Ranges: claudeacct.AccountRanges}
 	httpresp.JSON(w, http.StatusOK, v)
 }
 

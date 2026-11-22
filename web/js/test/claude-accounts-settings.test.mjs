@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { AGENTS, BASE, PANELS, load, plain } from './harness.mjs';
@@ -119,10 +120,35 @@ test('TC-FR1-8: 칸의 범위는 응답의 ranges 에서 오고, 화면 표에�
     assert.equal('max' in f, false, f.key);
   }
   const ranges = { intervalSeconds: { min: 15, max: 3600 } };
-  assert.deepEqual(plain(ctx.cacctAutoRange(ranges, 'intervalSeconds')), { min: 15, max: 3600 });
-  assert.equal(ctx.cacctAutoRange(ranges, 'threshold'), null);
-  assert.equal(ctx.cacctAutoRange(undefined, 'threshold'), null);
-  assert.equal(ctx.cacctAutoRange({ threshold: { min: 'x', max: 1 } }, 'threshold'), null);
+  assert.deepEqual(plain(ctx.cacctRange(ranges, 'intervalSeconds')), { min: 15, max: 3600 });
+  assert.equal(ctx.cacctRange(ranges, 'threshold'), null);
+  assert.equal(ctx.cacctRange(undefined, 'threshold'), null);
+  assert.equal(ctx.cacctRange({ threshold: { min: 'x', max: 1 } }, 'threshold'), null);
+});
+
+// REFACTOR3_FE_FIX_SRS TC-FFX-17 (FX-7, FR-FFX-23): 계정 행 칸의 범위도 응답(`GET /api/claude-accounts` 의 `ranges`)이 준다.
+//   이전 동작: `_cacctAccountRow` 가 `maxLength=24`·`min='50'`·`max='1000'` 같은 리터럴을 따로 적었다(Go `Patch.Validate` 와 두 벌)
+//   새  동작: `cacctRangeApply` 가 응답의 범위로 세우고, 못 받으면 세우지 않는다(D-FFX-16) — 판정은 서버의 400 이다
+test('TC-FFX-17: 계정 행 칸의 범위는 응답의 ranges 에서 오고, 화면에 리터럴이 없다', () => {
+  const ctx = loadSet();
+  assert.equal(typeof ctx.cacctAutoRange, 'undefined', 'cacctRange 하나로 읽는다(D-FFX-15)');
+  const ranges = { alias: { min: 0, max: 24 }, threshold: { min: 50, max: 100 }, priority: { min: 0, max: 1000 } };
+  const alias = { type: 'text' };
+  const th = { type: 'number' };
+  const pr = { type: 'number' };
+  ctx.cacctRangeApply(alias, ranges, 'alias');
+  ctx.cacctRangeApply(th, ranges, 'threshold');
+  ctx.cacctRangeApply(pr, ranges, 'priority');
+  assert.deepEqual(alias, { type: 'text', maxLength: 24 });
+  assert.deepEqual(th, { type: 'number', min: '50', max: '100' });
+  assert.deepEqual(pr, { type: 'number', min: '0', max: '1000' });
+  for (const rg of [undefined, null, {}]) {
+    const inp = { type: 'number' };
+    ctx.cacctRangeApply(inp, rg, 'priority');
+    assert.deepEqual(inp, { type: 'number' }, '범위를 못 받으면 세우지 않는다');
+  }
+  const src = readFileSync(new URL('../core/settings-claude.js', import.meta.url), 'utf8');
+  assert.equal(/maxLength=\d|\.min='\d|\.max='\d/.test(src), false, '계정 행에 범위 리터럴이 남았다');
 });
 
 

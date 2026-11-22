@@ -9,7 +9,7 @@
 
 /**
  * FR-CAC-70·94a: 자동 전환의 숫자 칸. `required` 가 아니면 비울 수 있다(비우면 지운다).
- * 범위는 여기 없다 — 서버 응답의 `ranges` 가 준다(`cacctAutoRange`, REFACTOR3_FE_REST1_SRS FR-FR1-13).
+ * 범위는 여기 없다 — 서버 응답의 `ranges` 가 준다(`cacctRange`, REFACTOR3_FE_REST1_SRS FR-FR1-13).
  */
 const CACCT_AUTO_FIELDS=[
   {key:'threshold',label:'cacct.set.auto_threshold',required:true},
@@ -108,10 +108,22 @@ function cacctFolderRows(folders,accounts){
  *   이전 동작: `CACCT_AUTO_FIELDS` 의 min·max(Go `Validate` 와 두 벌)
  *   새  동작: 응답의 값. 받지 못하면 null 이고 칸에 범위를 세우지 않는다(D-FR1-9)
  *   이유:     범위의 원천은 서버다 — 범위 밖 값은 서버가 400 으로 거절한다
+ * REFACTOR3_FE_FIX_SRS FR-FFX-23 (FX-7): 계정 행 칸(`GET /api/claude-accounts` 의 `ranges`)도 이것으로 읽는다.
  */
-function cacctAutoRange(ranges,key){
+function cacctRange(ranges,key){
   const r=ranges&&ranges[key];
   return r&&typeof r.min==='number'&&typeof r.max==='number'?{min:r.min,max:r.max}:null;
+}
+
+/**
+ * 칸 하나에 범위를 세운다 — 숫자 칸은 min·max, 글자 칸은 maxLength(글자 수의 상한).
+ * 범위를 받지 못하면 아무것도 세우지 않는다(D-FR1-9 · D-FFX-16).
+ */
+function cacctRangeApply(inp,ranges,key){
+  const r=cacctRange(ranges,key);
+  if(!r) return;
+  if(inp.type==='number'){inp.min=String(r.min); inp.max=String(r.max)}
+  else inp.maxLength=r.max;
 }
 
 /** FR-CAC-94a: 자동 전환 설정 → 칸 값. */
