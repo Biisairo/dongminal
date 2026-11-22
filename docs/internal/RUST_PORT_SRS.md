@@ -77,7 +77,7 @@ Go 구현과 같다. 기능 목록의 근거는 `architecture.md` 의 패키지 
   - `pkill`·`killall` 처럼 이름으로 프로세스를 죽이기. 프로세스를 끌 때는 자기가 띄운 PID 만 끈다.
 - **C-RSP-2 (기준선 고정)** 포팅의 기준은 커밋 `127ff7d9` 의 Go 코드다. 포팅 브랜치에서 Go 코드를 고치지 않는다. 다만 e2e 가 Rust 바이너리를 쓰게 하는 경로 수정(FR-RSP-31)만 예외로 한다.
 - **C-RSP-3 (의존성 보안)** 외부 crate 는 다음을 모두 만족해야 한다. 널리 쓰이고, 유지보수가 계속되며, RustSec 권고에 걸리지 않는다. 맞는 crate 가 없으면 직접 구현한다. 허용 목록은 `rust/DEPENDENCIES.md` 에 두고, 목록에 없는 crate 를 더하려면 그 문서를 먼저 고친다.
-- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`), PTY·소켓 fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
+- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`), PTY·소켓 fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리), `dm-gocompat` 의 Windows 전용 `FormatMessageW(LANG_ENGLISH)` 호출 하나(platform 이 gocompat 에 의존하므로 platform 에 둘 수 없는 자리)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
 - **C-RSP-5 (커밋)** 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다. 이슈 브랜치와 `rust-port` 에는 자동으로 커밋해도 된다. `main` 병합과 push 는 사용자 확인을 받은 뒤에만 한다.
 
 ### 2.5 가정과 의존
@@ -142,6 +142,8 @@ branch: rp/2.3
 - **FR-RSP-33 (입출력 모델)** `dm-shared-platform` 은 동기(std) API 만 낸다. 근거: Go 가 블로킹 I/O 모델이고, Windows AF_UNIX 는 std·tokio 모두 지원하지 않으며, PTY 읽기도 블로킹이다. 비동기 소비자(웹 서버·데몬)는 `tokio::task::spawn_blocking` 이나 전용 스레드로 감싼다. unix 의 IPC 스트림은 `into_std()` 뒤 `tokio::net::UnixStream::from_std` 로 바꿔 써도 된다. (1.4 결정 D-1)
 - **FR-RSP-35 (OS 오류 문구)** 로그·HTTP 오류 본문·CLI 출력에 드러나는 파일·OS 오류 문구는 Go 의 `*os.PathError`(`op path: 문구`)·`*os.LinkError`(`op old new: 문구`)·`*os.SyscallError` 와 같아야 한다. errno 문구는 unix 에서 Go `syscall` 의 표(소문자)를, Windows 에서 Go 와 같은 FormatMessage 결과를 쓴다. 이 규칙은 `dm-gocompat` 의 오류 타입(`GoPathError` 등, `io::Error` 로 감싸 `ErrorKind` 보존)으로만 만든다. (1.4.2 제안)
 - **FR-RSP-34 (로그 요청 ID)** Go 의 `context.Context` 로 넘기던 요청 ID 는 `dm-shared-dmlog` 의 `ReqCtx<'a> = Option<&'a str>` 를 첫 인자로 넘긴다.
+
+- **FR-RSP-36 (동시성 모델)** `dm-shared-platform` 위의 계층은 tokio 를 기본 런타임으로 쓴다. Go 의 goroutine 은 tokio task 로, `context.Context` 의 취소는 `tokio_util::sync::CancellationToken` 으로 옮긴다(`dm-shared-pollwait`·`dm-shared-fanout` 이 이 모양이다). 블로킹 I/O(platform, PTY 읽기, 파일 잠금)는 `spawn_blocking` 이나 전용 스레드에서 돈다. CLI 처럼 Go `context.Background()` 로 부르던 쪽은 취소하지 않는 토큰을 넘기고, 필요하면 current-thread 런타임을 띄운다. (1.2 결정)
 
 ### 3.5 작업 절차
 

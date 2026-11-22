@@ -10,3 +10,8 @@ publish = false
 workspace = true
 
 [dependencies]
+futures-util = { workspace = true }
+tokio-util = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

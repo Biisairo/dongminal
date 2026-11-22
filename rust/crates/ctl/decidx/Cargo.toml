@@ -10,3 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
+regex = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
