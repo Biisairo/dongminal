@@ -2,8 +2,8 @@
 
 이 세션에서 **스펙 셋을 쓰고 그중 일부를 구현**했다. 다음 세션은 여기서 이어 간다.
 
-- 스펙: [`UI_KIT_SRS`](./UI_KIT_SRS.md)(A) · [`PANEL_SURFACE_SRS`](./PANEL_SURFACE_SRS.md)(B) ·
-  [`ALERT_MOBILE_CONTEXT_SRS`](./ALERT_MOBILE_CONTEXT_SRS.md)(C)
+- 스펙: [`UI_KIT_SRS`](../UI_KIT_SRS.md)(A) · [`PANEL_SURFACE_SRS`](../PANEL_SURFACE_SRS.md)(B) ·
+  [`ALERT_MOBILE_CONTEXT_SRS`](../ALERT_MOBILE_CONTEXT_SRS.md)(C)
 - 인터뷰로 확정한 결정은 각 문서의 **§2 사용자 결정**에 있다. 다시 묻지 않는다.
 
 ---
@@ -22,7 +22,7 @@
 | ⑧ | 크기조절 핸들에 양쪽 크기 실시간 표시 | A | **완료** — 여섯 자리 전부 배선 |
 | ⑨ | History 검색 둘을 하나로 · 옵션은 드롭다운 | B | **완료** |
 | ⑩ | Run 의 context 표기 + 조정자 자신의 사용량 | C | **완료** |
-| ⑪ | **폴링 주기를 설정에서 조절** (2026-09-08 접수) | — | **완료** ([`POLL_INTERVAL_SETTINGS_SRS`](./archive/POLL_INTERVAL_SETTINGS_SRS.md)) |
+| ⑪ | **폴링 주기를 설정에서 조절** (2026-09-08 접수) | — | **완료** ([`POLL_INTERVAL_SETTINGS_SRS`](./POLL_INTERVAL_SETTINGS_SRS.md)) |
 
 **2026-09-08 후반에 추가로 접수한 다섯:**
 
@@ -167,7 +167,7 @@
 
 > "polling 이 한쪽에 모여있잖아? setting 에서 이 값을 조절할 수 있도록."
 
-스펙은 [`POLL_INTERVAL_SETTINGS_SRS`](./archive/POLL_INTERVAL_SETTINGS_SRS.md) 다. 이 메모의
+스펙은 [`POLL_INTERVAL_SETTINGS_SRS`](./POLL_INTERVAL_SETTINGS_SRS.md) 다. 이 메모의
 방향("값을 옮기는 것이 아니라 **그 선언이 설정을 읽게** 한다")이 그대로 D-4 가 됐고,
 전파는 `_settingsApply` 한 자리를 지난다.
 

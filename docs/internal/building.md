@@ -4,7 +4,7 @@
 [README](../../README.md) 와 [getting-started](../external/getting-started.md) 에 있다.
 
 이 문서는 **README 가 사용자 문서가 되면서 옮겨 온 것**이다
-(README_REWRITE_SRS FR-RDM-9). 내용은 그대로다.
+(README_REWRITE_SRS FR-RDM-9). 2026-11-22 에 지금 코드(`go.mod`·`Makefile`·`playwright.config.ts`)에 맞췄다.
 
 ---
 
@@ -22,8 +22,8 @@ PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐
 
 ### 소스에서 빌드
 
-받아서 쓰는 사람에게는 필요 없다 — 위 [설치](#설치)면 끝이다. 이 절은 고치는
-사람을 위한 것이다. Go 1.24+ 가 필요하다.
+받아서 쓰는 사람에게는 필요 없다 — [README](../../README.md) 의 설치면 끝이다. 이 절은 고치는
+사람을 위한 것이다. Go 는 `go.mod` 의 `go` 줄이 정한 판(지금 1.26.11) 이상이 필요하다.
 
 Go 는 교차 컴파일이 기본이라 별도 툴체인이 필요 없다. 맥에서 윈도우·리눅스
 바이너리가 그대로 나온다.
@@ -56,25 +56,39 @@ darwin 이 아닌 호스트에서 darwin 대상을 빌드하면 cgo 를 켤 수 
 
 ### 검사
 
+커밋 전에는 `make` 대상을 쓴다. `make help` 가 목록을 보인다.
+
+```bash
+make gates      # 커밋 전 게이트 — gofmt · go vet · go build · 이음매 · 타이머 · git 쓰기 · 크로스 컴파일 · vendor 판 · CSS·JS 규약 게이트들
+make lint       # golangci-lint + eslint (도구가 없으면 건너뛰고 알린다 — CI 는 돌린다)
+make typecheck  # e2e 타입 검사 + `// @ts-check` 를 단 프론트 파일
+make unit       # 프론트 순수 모듈 단위 시험 (node:test, web/js/test·scripts/test)
+make test       # Go 단위 시험 (-race -shuffle=on)
+make all        # 위 전부
+make hooks      # pre-commit 훅을 켠다
+```
+
+아래는 게이트가 부르는 스크립트 중 따로 쓸 일이 많은 것이다.
+
 ```bash
 scripts/check-cross.sh     # 5개 대상 build + vet (테스트 파일까지 타입 검사)
 scripts/check-seams.sh     # OS 의존 호출이 platform 밖에 없는지
-scripts/verify-isolated.sh # 격리 인스턴스를 띄워 종단간 22항목 (dongminal verify)
+scripts/verify-isolated.sh # 격리 인스턴스를 띄워 종단간 검사 (dongminal verify)
 ```
 
 종단간 검사의 정의는 **Go 한 벌**이다 (`internal/ctl/cli/verify.go`). 세 OS 가 같은
 목록을 돌고, CI 의 Linux·Windows 도 같은 것을 부른다 — 검사를 셸 스크립트로 두 벌
 적던 것을 접었다. 설계는
-[docs/internal/E2E_UNIFICATION_SRS.md](docs/internal/E2E_UNIFICATION_SRS.md).
+[docs/internal/E2E_UNIFICATION_SRS.md](./E2E_UNIFICATION_SRS.md).
 
 ### 배포
 
 태그 `v*` 를 밀면 `.github/workflows/release.yml` 이 세 OS 에서 게이트(단위 테스트 ·
 `doctor` · `verify`)를 돌리고, 다섯 대상을 빌드해 GitHub Releases 에 첨부한다.
 바이너리는 저장소에 커밋하지 않는다 — 이유와 설계는
-[docs/internal/RELEASE_SRS.md](docs/internal/RELEASE_SRS.md).
+[docs/internal/RELEASE_SRS.md](./RELEASE_SRS.md).
 
-설계와 이음매 목록은 [docs/internal/CROSS_PLATFORM_SRS.md](docs/internal/CROSS_PLATFORM_SRS.md).
+설계와 이음매 목록은 [docs/internal/CROSS_PLATFORM_SRS.md](./CROSS_PLATFORM_SRS.md).
 
 세 OS 모두 **실기에서 검증된다.** CI(`.github/workflows/verify.yml`)가 매 푸시마다
 Linux·Windows 에서 단위 테스트 · `doctor` · `verify` 를 돌리고, macOS 는 개발자가
@@ -86,6 +100,7 @@ Linux·Windows 에서 단위 테스트 · `doctor` · `verify` 를 돌리고, ma
 Go 테스트는 의존이 없다:
 
 ```bash
+make test                # = go test -race -shuffle=on ./internal/... ./cmd/... ./web/...
 go test ./...            # 호스트(darwin·linux)
 scripts/check-cross.sh   # 5개 대상 build + vet — 테스트 파일까지 타입 검사된다
 ```
@@ -96,12 +111,15 @@ e2e(Playwright)는 npm 이 필요하다. **빌드에는 필요 없다** — 프�
 ```bash
 npm ci                    # Playwright 설치 (e2e 전용)
 npx playwright install     # 브라우저 바이너리
-npx playwright test        # 전량 (약 5분)
+make e2e                   # 전량 — CI 와 같은 8샤드를 병렬로 (기본으로 이것을 쓴다, CONTRIBUTING §4)
+make e2e-all               # 전량을 한 프로세스로 — 누적 상태까지 겪는 무거운 쪽
+npx playwright test        # 위와 같은 한 프로세스 전량 (2026-11-22 기준 2313건, 이 기계에서 약 28분)
 npx playwright test e2e/git-panel.spec.ts   # 스펙 하나
 ```
 
-e2e 는 `go run ./cmd/dongminal start --foreground` 로 포트 60147 부터 서버를 직접
-띄우고 임시 홈을 쓴다 (`playwright.config.ts`). 운영 인스턴스의 UI 포트(58146)와 노드 포트
+e2e 는 `globalSetup`(`e2e/global-setup.ts`)이 서버 바이너리를 한 번 빌드하고, 워커마다
+임시 홈과 포트(60147 부터, 워커 i 는 `60147+i`)로 서버를 띄운다 (`playwright.config.ts`,
+`E2E_PARALLEL_SRS`). 포트 기준은 `E2E_PORT_BASE` 로 바꾼다. 운영 인스턴스의 UI 포트(58146)와 노드 포트
 기본값(58147)을 피한다. 워커의 `start` 는 그 포트를 쥔 프로세스를 종료하므로, 운영 포트와
 겹치면 운영 서버가 내려간다.
 
@@ -115,8 +133,8 @@ e2e 는 `go run ./cmd/dongminal start --foreground` 로 포트 60147 부터 서�
 기본 포트(58146)의 인스턴스를 정지시키므로, 격리 인스턴스를 접을 때는 `start` 가
 출력한 정지 명령(`--port`·`--home` 이 채워진 형태)을 그대로 쓴다.
 
-종단간은 `dongminal verify` 다. 격리 인스턴스를 **스스로** 띄워 22항목을 훑고
-치운다:
+종단간은 `dongminal verify` 다. 격리 인스턴스를 **스스로** 띄워 검사 목록 전량
+(`internal/ctl/cli/verify.go` 의 `verifyChecks`)을 훑고 치운다:
 
 ```bash
 ./dongminal verify           # 또는 scripts/verify-isolated.sh (빌드까지 함께)
@@ -125,7 +143,7 @@ e2e 는 `go run ./cmd/dongminal start --foreground` 로 포트 60147 부터 서�
 검사 범위는 데몬 기동·`paned.sock`·`/api/ping`, 도구 생성(PTY+IPC 왕복)·조회·busy
 RPC·출력 조회·**입력→출력 왕복**, 워크스페이스·설정·상태 조회, git 읽기 표면 8종과
 없는 git 경로의 404, `index.html` 이 실제로 로드하는 `<script>` 전량 200, 구 평면
-경로(`/js/app.js`) 404 다.
+경로(`/js/app.js`) 404, 경계(상대경로 400 · 읽기 상한 초과 413 · 정적 응답의 보안 헤더)다.
 
 `verify` 는 `--port`·`--home` 을 **받지 않는다.** 언제나 임시 홈과 빈 포트에서 돌고,
 `stop` 대신 자기가 띄운 PID 와 격리 홈의 `paned.pid` 만 직접 끝낸다 — 운영
@@ -138,13 +156,12 @@ git 검사 대상은 **실제 리포**여야 한다 — 비-git 디렉터리는 
 
 ## 기술 스택
 
-- **백엔드**: Go 1.24+, `creack/pty`, `gorilla/websocket`, `go:embed`
-- **프론트엔드**: xterm.js v5 (fit, search, web-links, unicode11 addons)
+- **백엔드**: Go(`go.mod` 의 판), `creack/pty`, `gorilla/websocket`, `go:embed`
+- **프론트엔드**: 번들러 없음. xterm.js 5.5 (fit, search, web-links, unicode11, webgl addons), 편집기 CodeMirror 6 — 판과 해시는 [VENDOR_VERSIONS.md](./VENDOR_VERSIONS.md)
 - **선택 의존성**: `claude` CLI (에이전트 오케스트레이션 시)
 
 ## TODO
 
 - focused browser 자동 동기화 — **범위가 줄었다.** 창 포커스 소유권이 서버 권위로 옮겨져(FR-XDF-*) 기기 간에도 동기화되고, 이제 *마지막으로 포커스한* 브라우저의 창 크기가 적용된다 (예전엔 마지막으로 *새로고침한* 브라우저였다). 남은 결손: 소유자가 OS 포커스를 잃은 채 소유권을 유지하면 아무도 리사이즈를 보내지 않아 크기가 그 시점에 고정된다
-- 주의 알림: 서버 호스트(브라우저 없는 원격 머신)용 OS 알림/웹훅·모바일 푸시 — 현재는 접속한 브라우저에만 표시됨
+- 주의 알림: 서버 호스트(브라우저 없는 원격 머신)용 OS 알림·웹훅 — 지금은 접속한 브라우저와 Telegram 브리지(`TELEGRAM_BRIDGE_SRS`, 휴대폰 알림)로만 전한다
 - 데스크톱 래핑 (tauri, electron 등)
-- mobile mode: Ctrl+C/D/Z 단발 버튼, 키 커스터마이즈, modifier sticky/lock 시각 강화 (RFC §8)

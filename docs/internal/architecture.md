@@ -31,11 +31,11 @@ Browser (xterm.js)                    ┌─ ② dongminald ──────�
 - 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 `go:embed` 로 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`(zsh)·`--rcfile`(bash) 로 훅 연결.
 - PTY 프로세스는 브라우저 새로고침해도 유지 (서버 메모리 버퍼).
 - 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 도구는 `tools.json` 에 기록되고(소유자 없는 백그라운드 도구·샌드박스 도구 제외), 되살릴 때 탭이 참조하는 것만 고른다(FR-EM-14). 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
-- 에이전트 접합면: 액션은 `dmctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](docs/external/agent-orchestration.md).
-- 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `dmctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 SSE(`tool_attention`) 로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md).
-- 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `dmctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → SSE(`tool_activity`) 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md).
+- 에이전트 접합면: 액션은 `dmctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](../external/agent-orchestration.md).
+- 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `dmctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 SSE(`tool_attention`) 로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](./archive/PANE_ATTENTION_NOTIFY_SRS.md).
+- 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `dmctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → SSE(`tool_activity`) 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](./archive/AGENT_ACTIVITY_PANEL_SRS.md).
 
-자세한 패키지 구조와 핫패스 성능 설계는 [docs/internal/architecture.md](docs/internal/architecture.md).
+자세한 패키지 구조와 핫패스 성능 설계는 이 문서의 아래 절에 있다.
 
 *(위 그림은 README 가 사용자 문서가 되면서 옮겨 온 것이다 — README_REWRITE_SRS
 FR-RDM-10.)*
@@ -116,7 +116,7 @@ internal/
     outbuf/              #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
       shellhooks/        #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
-      agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
+      agentplugin/       #     세션 스코프 주입 플러그인 (commands/issue-tree, commands/migration)
     agentrec/            #   ①②③ — 에이전트 보고의 해석·기록 값의 모양·보고 소켓 경로 (AGENT_RECORD_DAEMON_SRS §3.2a)
     agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
     handover/            #   ③④  — 데몬 교체(세션 유지 재시작)의 와이어 — 교체 요청·사유 코드·인계 판 (DAEMON_SESSION_KEEP_SRS)
@@ -362,7 +362,7 @@ DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 (FR-EDT-94). 그 창은 좌측에 파일 탐색기를, 우측에 편집기 영역을 갖는다.
 
 ```
-사이드바 탭:  창(windows) · 저장소(repo) · 채팅(chat)
+목록 패널 탭:  창(windows) · 저장소(repo) · 채팅(chat)
 저장소 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~` · 메모장]   ← 최하단 고정, 삭제 불가
 행 하나  =  창 하나 (`WINDOW_TYPE_EDITOR`, `editor.root`)
 ```
@@ -508,11 +508,11 @@ POST 두 개가 경합해 승자가 네트워크 순서로 정해진다 — 실�
 어느 칸이 무슨 창인지 위치만으로 읽히지 않는다. 흐리게 하는 방식은 쓸 수 없다 —
 그것은 이미 소유권 없음(`.pn-dimmed`)의 뜻이다.
 
-## 사이드바 탭 (`web/js/ui/sidebar-tabs.js`)
+## 목록 패널 탭 (`web/js/ui/sidebar-tabs.js`)
 
-좌측 사이드바는 `창`(windows)·`저장소`(repo)·`채팅`(chat) 세 목록을 세로로 쌓지 않고 **탭으로
+목록 패널(전의 사이드바, `#sidebar`)은 `창`(windows)·`저장소`(repo)·`채팅`(chat) 세 목록을 세로로 쌓지 않고 **탭으로
 가른다** (`GIT_SIDEBAR_TABS_SRS`, `REPO_TAB_UNIFY_SRS` — 옛 Git·Editor 두 탭을 하나로, `CHAT_WINDOW_SRS`). 한 번에 하나만 보이고, 보이는
-쪽이 사이드바의 남은 높이 전부를 쓴다.
+쪽이 목록 패널의 남은 높이 전부를 쓴다.
 
 **새 탭을 더하는 비용은 서술자 1개다** (FR-SBT-21). `sidebar-tabs.js` 의
 `SB_TAB_DEFS` 배열에 한 항목을 넣고 `index.html` 에 패널 래퍼(`<div class="sb-panel"
@@ -525,7 +525,7 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 | 목록 렌더 호출 | `renderer-chrome.js` 의 `_rLists` 가 `list` 를 가진 서술자를 **순회**한다. 예전에는 탭 id 두 개가 하드코딩돼 있었고, 셋째 탭이 그것을 드러냈다 |
 | 직행 키 `Ctrl+Shift+{n}` | 배열 인덱스. `SHORTCUT_DEFAULTS`·`SHORTCUT_LABELS`·`shortcuts` 를 로드 시점에 함께 채운다 |
 | `executeAction` 의 `sidebarTab{n}` | `app.js` 가 배열을 돌며 만든다 |
-| 설정 화면의 단축키 목록 | `settings-shortcuts.js` 의 `사이드바 탭` 그룹 |
+| 설정 화면의 단축키 목록 | `settings-shortcuts.js` 의 `목록 패널 탭` 그룹 |
 
 서술자의 훅은 `app` 을 인자로 받는다 — 배열이 모듈 수준 상수여야 단축키 등록이 App
 인스턴스보다 먼저 돌 수 있기 때문이다 (로드 순서상 `sidebar-tabs.js` 는 `app.js`
@@ -851,7 +851,7 @@ stateDiagram-v2
 
 `readiness.screenPatterns` 는 준비완료 판정 사다리 2단계의 자리지만 **소비자가
 없다.** 의도적 보류다 — 화면 패턴은 사용자가 하단 스테이터스라인 하나만 붙여도
-깨지며, 그것은 team 스킬의 `╭─`·`Thinking...` fingerprint 를 없애려는 이유와 같은
+깨지며, 그것은 옛 team 스킬(지금은 지워졌다)에서 `╭─`·`Thinking...` fingerprint 를 없앤 이유와 같은
 취약성이다.
 
 ## 멤버 프리앰블 (`internal/webserver/domain/run/preamble.go`)
@@ -917,25 +917,30 @@ N" 을 오보한다. 대신 `push.autoSetupRemote` 를 걸고, 생성 base 를
 
 worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 팬아웃에서 경합한다.
 
-## 스킬 (`internal/shared/runtime/agentplugin/skills`)
+## 에이전트 플러그인 (`internal/shared/runtime/agentplugin`)
 
-`team`(1회성 팀)과 `workflow`(재사용 정의서) 둘이며, **정책만 담고 액션은 전부
-`dmctl`** 이다. 세션 스코프로 주입되므로 사용자의 `~/.claude` 를 건드리지 않는다.
+> 개정 (2026-11-22, 코드 기준 정정) — 이전: 이 절은 스킬 둘(`team`·`workflow`, `agentplugin/skills`)을 적었다 / 새: 스킬은 `a3f45d86`(`ISSUE_AGENT_TREE_SRS`)에서 지워졌고, 플러그인은 슬래시 명령 둘만 싣는다 / 이유: 문서가 지운 자산을 가리켰다.
 
-기본 토폴로지는 **전용 창**이다 — 팀은 `dmctl new-window -n` 으로 만든 자기 창에서
-살고 사용자 창을 쪼개지 않는다. 그 결과 예전 스킬 규칙의 절반을 차지하던 사용자
-공간 방어(`--no-focus` 강제, `dmctl focus` 전면 금지, 셀 비율 레이아웃 계산)가
-**구조로 풀려** 규칙에서 사라졌다. `inline` 은 관찰용 선택지로만 남는다.
+플러그인은 `install.go` 의 `//go:embed all:agentplugin` 으로 바이너리에 들고, 에이전트 세션에
+`--plugin-dir` 로 세션 스코프 주입된다. 사용자의 `~/.claude` 를 건드리지 않는다. **정책만 담고
+액션은 전부 `dmctl`** 이다.
 
-준비완료 판정에 **화면 fingerprint 를 쓰지 않는다.** 그 판정은 에이전트 버전이나
-사용자의 스테이터스라인 하나로 깨지고, 무엇보다 권한 대기와 준비완료를 구분하지
-못한다. 팀원 매핑표도 대화 기록에 두지 않는다 — 진실은 `dmctl run status` 이며,
-컨텍스트 압축을 넘어간다.
+| 명령 | 파일 | 근거 |
+|---|---|---|
+| `/dongminal:issue-tree` | `agentplugin/commands/issue-tree.md` | 이슈 트리를 따라 에이전트를 세운다 — `ISSUE_AGENT_TREE_SRS`·`ISSUE_TREE_OPS_SRS`·`ISSUE_TREE_CLOSE_SRS` |
+| `/dongminal:migration` | `agentplugin/commands/migration.md` | 맥락이 찬 세션의 일을 다음 세션으로 넘긴다 — `M10_SRS` FR-M10-6 |
 
-스킬은 산문이라 컴파일도 테스트도 되지 않는다. 그래서 되돌아가면 곧바로 걸리는
-것만이라도 검출기로 세워 뒀다 (`internal/shared/runtime/skills_contract_test.go`) — 화면
-fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한 기동줄·필수 절차의
-부재. 임베드된 트리를 직접 읽으므로 배포되는 것과 검사 대상이 같다.
+`commands/` 의 `.md` 는 **전부 슬래시 명령이 된다.** 그래서 그 디렉터리에는 frontmatter 의
+`description` 이 있는 명령만 둔다 — 참조 문서나 eval 은 두지 않는다(`migration` 의 eval 은
+`docs/internal/migration-eval.md`).
+
+준비완료 판정에 **화면 fingerprint 를 쓰지 않는다.** 그 판정은 에이전트 버전이나 사용자의
+스테이터스라인 하나로 깨지고, 권한 대기와 준비완료를 구분하지 못한다. 기다림은 `dmctl wait` 가
+서버에서 붙잡는다.
+
+명령은 산문이라 컴파일도 테스트도 되지 않는다. 그래서 되돌아가면 곧바로 걸리는 것만이라도
+검출기로 세워 뒀다(`internal/shared/runtime/skills_contract_test.go`) — 명령 트리의 형식,
+필수 조항의 부재 등. 임베드된 트리를 직접 읽으므로 배포되는 것과 검사 대상이 같다.
 
 ## 커맨드 브로드캐스트 (`internal/webserver/hub/commands.go`)
 

@@ -1,7 +1,7 @@
 # 프로덕션 리팩토링 3차 — 「정독하지 않은 곳」 읽기 감사
 
 > 2026-11-22 · `main` · 기준 커밋 `6f7260e7`
-> 착수 문서: `docs/internal/REFACTOR_PROD3_HANDOFF_5.md` §3. 대상은 [`PROD3.md`](PROD3.md) §8 이 「정독하지 않은 곳」 으로 남긴 Go 영역이다.
+> 착수 문서: `docs/internal/archive/REFACTOR_PROD3_HANDOFF_5.md` §3. 대상은 [`PROD3.md`](PROD3.md) §8 이 「정독하지 않은 곳」 으로 남긴 Go 영역이다.
 > 이 문서는 **조사 결과**다. 고친 것은 각 행의 「처리」 에 커밋을 적는다.
 
 ## 0. 범위와 방법

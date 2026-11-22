@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
-> **끝난 것**: 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)·F(§3.5a)·R(§3.6a)·X(§3.7a)·K(§3.8a)·N(§3.9). 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **끝난 것**: 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)·F(§3.5a)·R(§3.6a)·X(§3.7a)·K(§3.8a)·N(§3.9). 인계 문서 `docs/internal/archive/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 

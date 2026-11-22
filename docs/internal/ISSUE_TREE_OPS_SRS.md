@@ -3,7 +3,7 @@
 > **문서 상태**: 승인·구현완료
 > **확인**: 사용자가 설치를 갱신하고 진행 중이던 트리를 재가동해 확인했다(2026-11-07). 맥락 훅의 additionalContext 전달과 `dmctl status` 의 사용량 줄은 실측했다.
 > **남은 것(막지 않음)**: 맥락 훅의 지연 측정(NFR-ITO-1) · mac 의 편집기 키 실측(e2e 브라우저는 Win32 였다) · git diff 보기의 키 차단(§3.6a 범위 밖) · 긴 brief 에서 트리 프리앰블 길이(R-1)
-> **입력**: `docs/internal/ISSUE_TREE_OPS_FINDINGS.md`(요구 입력 1~14번, 사용자 결정 넷). 이 SRS 가 그 문서를 대신한다.
+> **입력**: `docs/internal/archive/ISSUE_TREE_OPS_FINDINGS.md`(요구 입력 1~14번, 사용자 결정 넷). 이 SRS 가 그 문서를 대신한다.
 > **개정 대상**: `ISSUE_AGENT_TREE_SRS.md` 의 FR-IAT-50~54·60~64·73, FR-ITD-2·6, D-IAT-19 (§8 변경 기록)
 
 ## 1. 개요 (Introduction)

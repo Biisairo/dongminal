@@ -1,7 +1,7 @@
 # SRS: 채팅 창 — 채팅을 메인 패널의 탭과 자기 창으로 옮긴다 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: e2e 전량, V-LAY-1 의 linux·win32 기준선(푸시 뒤 `layout-baseline` 워크플로)
+> **남은 것**: V-LAY-1 의 linux·win32 기준선(푸시 뒤 `layout-baseline` 워크플로). e2e 전량은 2026-11-22 에 통과했다(2309 통과·흔들림 1(TC-CAC-27, 원인 고침 — `QUALITY_FLAKY_SRS` FR-FLK-12)·실패 0)
 > 접수: 2026-11-20. 근거: `UX_AUDIT_FIX_SRS` 사용자 결정 D-7·D-22, 이 문서 §2.1 의 결정 D-CW-1~D-CW-6.
 > 이 문서는 `PEER_CHAT_SRS` §3.11 의 **화면 자리**(Activity 의 Chats 탭, 터미널 창 칸의 채팅 탭)와 결정 D-PCH-31 을 **대체한다**.
 > 채팅의 동작(방·참가자·글·안 읽은 수·데몬)은 `PEER_CHAT_SRS` 그대로다.

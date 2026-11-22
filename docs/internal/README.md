@@ -6,10 +6,61 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 작업의 기록**이다. 보관 문서는 당시 어휘와 당시 코드 위치를 그대로 담고 있으므로
 **갱신하지 않는다.** 지금의 사실은 `architecture.md` 와 코드가 답한다.
 
+## 시작점 — 처음 읽는 순서
+
+| 문서 | 무엇을 답하는가 |
+|------|------|
+| [../../CONTRIBUTING.md](../../CONTRIBUTING.md) | 이 저장소가 지키는 규약 — 시작하기·브랜치와 커밋·검사·리뷰·릴리스 절차 |
+| [architecture.md](./architecture.md) | 패키지 구조, 프로세스(데몬·서버·헬퍼), 에이전트 접합면, 핫패스 성능, 종료 경로 |
+| [building.md](./building.md) | 빌드·검사(`make gates`·`make lint`·시험)·e2e·배포 |
+| [decisions.md](./decisions.md) | 현행 SRS(`*_SRS.md`)의 설계 결정 색인. `go run ./scripts/gen-decisions` 가 만든다 — 손으로 고치지 않는다 |
+| [test-checklist.md](./test-checklist.md) | 백엔드·프론트엔드 동작 체크리스트와 시험 커버리지 |
+| [PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md) | 성능 예산과 SLO — 무엇이 느려지면 결함인가 |
+| [VENDOR_VERSIONS.md](./VENDOR_VERSIONS.md) | `web/vendor` 제3자 자산의 판과 해시. `scripts/check-vendor.sh` 가 이 표를 지킨다 |
+| [GIT_MANUAL_CHECKLIST.md](./GIT_MANUAL_CHECKLIST.md) | Git 창의 수동 검증 목록(자동 시험이 잡지 못하는 것) |
+| [UX_REMAINING_2026-11-20.md](./UX_REMAINING_2026-11-20.md) | 문서에 정했지만 아직 구현하지 않은 UX 항목 |
+| [REFACTOR_PROD3_HANDOFF_6.md](./REFACTOR_PROD3_HANDOFF_6.md) | 가장 최근의 세션 인계서. 앞 인계서는 `archive/` 에 있다 |
+
+SRS 의 상태 표기는 `승인·구현완료`(끝남) · `승인·구현중`(머리의 「남은 것」 이 남은 일) · `폐기` 셋이다.
+
 ## 현행
 
 | 문서 | 내용 |
 |------|------|
+| [PANEL_TERMS_SRS.md](./PANEL_TERMS_SRS.md) | **사이드 패널의 이름 — 목록 패널과 작업 패널** (IEEE 29148, `FR-PNT-*`). 두 패널을 함께 「사이드 패널」, 창·저장소·채팅 목록 쪽을 「목록 패널」(전의 사이드바·메인 패널), 에이전트·Run·사용량 쪽을 「작업 패널」(전의 Activity)로 부른다. 상태: 승인·구현완료 |
+| [THEME_SEED_COLOR_SRS.md](./THEME_SEED_COLOR_SRS.md) | **메인색 — 색 하나로 테마 전체를 그 방향으로 계산** (IEEE 29148, `FR-SEED-*`). 상태: 승인·구현완료 |
+| [OPTIMIZE_REFACTOR_SRS.md](./OPTIMIZE_REFACTOR_SRS.md) | **통신 최소화·성능·리팩토링 — 프로덕션 승격 2차 감사** (IEEE 29148, `FR-OPT-*`). 상태: 승인·구현완료 |
+| [EDGE_PAIRING_SRS.md](./EDGE_PAIRING_SRS.md) | **간선 맺기·지우기 단순화 (Edge Pairing)** (IEEE 29148, `FR-EPR-*`). 상태: 승인·구현완료 |
+| [CODEMIRROR_MIGRATION_SRS.md](./CODEMIRROR_MIGRATION_SRS.md) | **편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로** (IEEE 29148, `FR-CMR-*`). 상태: 승인·구현완료 |
+| [CHAT_WINDOW_SRS.md](./CHAT_WINDOW_SRS.md) | **채팅 창 — 채팅을 메인 패널의 탭과 자기 창으로 옮긴다** (IEEE 29148, `FR-CW-*`). 상태: 승인·구현중 — 남은 것: V-LAY-1 의 linux·win32 기준선(푸시 뒤 `layout-baseline` 워크플로) |
+| [PERFORMANCE_HARDENING_SRS.md](./PERFORMANCE_HARDENING_SRS.md) | **성능 15건을 재고 고치고, **재는 것을 남긴다**** (IEEE 29148, `FR-PRF-*`). 상태: 승인·구현완료 |
+| [RUN_RECOVERY_SRS.md](./RUN_RECOVERY_SRS.md) | **데몬이 죽은 뒤 Run 복구** (IEEE 29148, `FR-RRC-*`). 상태: 승인·구현중 — 남은 것: 실제 운영에서의 확인(사용자 몫 — 셸 판정을 쓰려면 데몬 교체 `dongminal start` 가 한 번 필요하다, NFR-RRC-3). 묶음 F·A·J·E·W 와 문서는 마쳤다 |
+| [UX_BATCH13_SRS.md](./UX_BATCH13_SRS.md) | **Activity 접기 단추 방향 · 편집기 줄 이동** (IEEE 29148, `FR-EGL-*`). 상태: 승인·구현완료 |
+| [UX_BATCH12_SRS.md](./UX_BATCH12_SRS.md) | **UX 묶음 12 — 서브에이전트 목록 고정 · Explorer 다중 선택·단축키·Finder 로 끌어 내려받기 · 포커스 탭 하이라이트 · Run 트리 미니맵 · 실시간 갱신 누락** (IEEE 29148, `FR-RTB-*`). 상태: 승인·구현완료 — 남은 것: 없음 — §0 대장의 R1~R26 이 모두 완료다(R15·R16 은 작업 방식이라 적용 중이다). |
+| [SETTINGS_TAB_ORDER_SRS.md](./SETTINGS_TAB_ORDER_SRS.md) | **설정 탭의 순서와 묶음** (IEEE 29148, `FR-STO-*`). 상태: 승인·구현완료 |
+| [ISSUE_TREE_OPS_SRS.md](./ISSUE_TREE_OPS_SRS.md) | **issue-tree 운영 — 배정·승계·트리 구조·맥락 migration·표시줄 탭 이름·편집기 단축키** (IEEE 29148, `FR-ITA-*`). 상태: 승인·구현완료 |
+| [PROFILE_NAME_SRS.md](./PROFILE_NAME_SRS.md) | **프로필 이름 — 이름#번호 한 곳에서 정하기** (IEEE 29148, `FR-PFN-*`). 상태: 승인·구현중 — 남은 것: 데몬 모드 검증 |
+| [HOT_REBIND_SRS.md](./HOT_REBIND_SRS.md) | **포트·expose 의 실행 중 변경** (IEEE 29148, `FR-HRB-*`). 상태: 승인·구현중 — 남은 것: 사용자의 실제 확인(실서버에서 포트·expose 리바인드와 브라우저 이사)과 e2e. 묶음 S·D·R·U 는 구현·유닛 시험 완료 |
+| [EDGE_MESH_SRS.md](./EDGE_MESH_SRS.md) | **간선 계층의 망 정보 · 내 설정 변경 알림 · 망 그리기 · 간선 초대** (IEEE 29148, `FR-EGM-*`). 상태: 승인·구현완료 — 남은 것: 없음. 적용(모든 노드 업데이트·데몬 재시작)과 V-LAY-1 의 linux·win32 기준선(CI 산출물)은 사용자가 한다 |
+| [DAEMON_SESSION_KEEP_SRS.md](./DAEMON_SESSION_KEEP_SRS.md) | **데몬 교체 때 터미널 세션 유지** (IEEE 29148, `FR-DSK-*`). 상태: 승인·구현중 — 남은 것: 실제 운영 데몬에서의 첫 교체 확인(사용자 몫 — 처음 한 번은 `--refresh-daemon` 이 필요하다). 묶음 C·H·R 과 사용자 문서는 마쳤다 |
+| [AGENT_RECORD_DAEMON_SRS.md](./AGENT_RECORD_DAEMON_SRS.md) | **에이전트 기록의 데몬 소유 · 생존 판정의 세 값** (IEEE 29148, `FR-ARD-*`). 상태: 승인·구현완료 |
+| [ACTIVITY_STATE_SUBAGENT_SRS.md](./ACTIVITY_STATE_SUBAGENT_SRS.md) | **활동 상태 정확도 · 서브에이전트 활동 · 계정 한도** (IEEE 29148, `FR-ASV-*`). 상태: 승인·구현완료 |
+| [ACTIVITY_CARD_USAGE_SRS.md](./ACTIVITY_CARD_USAGE_SRS.md) | **Activity 에이전트 카드의 사용량 줄** (IEEE 29148, `FR-ACU-*`). 상태: 승인·구현완료 |
+| [TERMINAL_GPU_RENDER_SRS.md](./TERMINAL_GPU_RENDER_SRS.md) | **터미널 GPU 렌더링** (IEEE 29148, `FR-TGR-*`). 상태: 승인·구현완료 |
+| [OWNER_TRANSFER_REPLAY_SRS.md](./OWNER_TRANSFER_REPLAY_SRS.md) | **재생은 되찾는 쪽에서 한 번 — 소유권 이동의 비용** (IEEE 29148, `FR-OTR-*`). 상태: 승인·구현완료 |
+| [ACTIVITY_RUNS_REFRESH_SRS.md](./ACTIVITY_RUNS_REFRESH_SRS.md) | **Activity 패널 Runs 구역의 갱신** (IEEE 29148, `FR-ARR-*`). 상태: 승인·구현완료 |
+| [UX_BATCH11_SRS.md](./UX_BATCH11_SRS.md) | **UX 묶음 11 — 터미널 복사·붙여넣기 · 파일 경로 링크 · 끊긴 동안의 입력 · 주의 맥박 합성 · 모바일 터치 스크롤** (IEEE 29148, `FR-MTS-*`). 상태: 승인·구현완료 |
+| [RUN_VIEW_LIVE_SRS.md](./RUN_VIEW_LIVE_SRS.md) | **Run 대시보드의 즉시 갱신** (IEEE 29148, `FR-RLV-*`). 상태: 승인·구현완료 |
+| [SUBAGENT_USAGE_SRS.md](./SUBAGENT_USAGE_SRS.md) | **서브에이전트 사용량 — subagentStatusLine 프록시와 Activity 카드** (IEEE 29148, `FR-SAU-*`). 상태: 승인·구현완료 |
+| [EDITOR_LINK_LSP_SRS.md](./EDITOR_LINK_LSP_SRS.md) | **편집기 링크 이동 · Markdown 언어 서버 교체 · 스크롤바 표식 · LSP 대화상자 테마** (IEEE 29148, `FR-ELS-*`). 상태: 승인·구현중 — 남은 것: 수동 검증 V-ELS-11·12 (실서버), e2e 스크린 V-ELS-10 |
+| [WORKTREE_REMOVE_ALL_SRS.md](./WORKTREE_REMOVE_ALL_SRS.md) | **Worktrees 탭 — 모든 worktree 의 제거** (IEEE 29148, `FR-WRA-*`). 상태: 승인·구현완료 |
+| [OWNER_HANDBACK_SRS.md](./OWNER_HANDBACK_SRS.md) | **소유권은 떠난 자리로 돌아간다 — 주인 없는 창의 복귀** (IEEE 29148, `FR-OHB-*`). 상태: 폐기 |
+| [GIT_EMPTY_REPO_OBSERVE_SRS.md](./GIT_EMPTY_REPO_OBSERVE_SRS.md) | **빈 저장소는 관측이 오기 전에도 빈 저장소다 — History 의 `initial`** (IEEE 29148, `FR-GEO-*`). 상태: 승인·구현완료 |
+| [FOCUS_INITIAL_RESTORE_SRS.md](./FOCUS_INITIAL_RESTORE_SRS.md) | **소유권은 초기 문서대로 — blur 반납과 돌려주기를 걷는다** (IEEE 29148, `FR-FIR-*`). 상태: 승인·구현완료 |
+| [ED3_SCROLL_FOLLOW_SRS.md](./ED3_SCROLL_FOLLOW_SRS.md) | **스크롤백을 지운 뒤에는 바닥을 따른다 — ED3 와 시선** (IEEE 29148, `FR-ESF-*`). 상태: 승인·구현완료 |
+| [COPY_POPUP_ORIGIN_SRS.md](./COPY_POPUP_ORIGIN_SRS.md) | **복사는 복사한 화면의 것이다 — OSC 52 는 도착한 순간에 판정한다** (IEEE 29148, `FR-CPO-*`). 상태: 승인·구현완료 |
+| [SLOT_MARKER_SRS.md](./SLOT_MARKER_SRS.md) | **칸 마커 — 누르기 전에 어디가 열릴지 안다** (IEEE 29148, `FR-SMK-*`). 상태: 승인·구현완료 |
+| [DOC_SYNC_SRS.md](./DOC_SYNC_SRS.md) | **재는 것이 이미 있는데 아무도 안 보고 있는 자리를 닫는다** (IEEE 29148, `FR-DSY-*`). 상태: 승인·구현완료 |
 | [CLAUDE_ACCOUNTS_SRS.md](./CLAUDE_ACCOUNTS_SRS.md) | **Claude 다중 계정** (IEEE 29148, `FR-CAC-*`). cswap 의 핵심을 서버에 내장한다. 현재 로그인한 계정을 등록하고, 계정마다 사용량(OAuth usage API)·사용 속도 예측·로그인 만료일·제한 초기화를 보고, 수동·스마트·자동으로 전환한다. 탭 지정·폴더 매핑으로 계정별 프로필(`CLAUDE_CONFIG_DIR`)로 실행한다. 정보보호팀 승인으로 D-ACU-3·D-ASV-2 를 대체한다. **초안** |
 | [TELEGRAM_BRIDGE_SRS.md](./TELEGRAM_BRIDGE_SRS.md) | **Telegram 브리지** (IEEE 29148, `FR-TGB-*`). PC 에서 돌고 있는 에이전트를 휴대폰 Telegram 으로 보고 조작한다. 대화(`session_id`) 하나에 DM 토픽 하나, 글은 붙여넣기·키는 원시 쓰기, 권한·질문은 hook 값으로 버튼을 만들고 처리 여부는 `tool_use_id` 로 판정한다. 출력은 응답 글과 도구 호출 한 줄만. 설정에서 끄면 없는 것과 같다(실험 기능). **승인·구현중** |
 | [UI_POLISH_SRS.md](./UI_POLISH_SRS.md) | **화면 다듬기** (IEEE 29148, `FR-UIP-*`). 크기·상태 표현·문구를 한 벌로 맞추고(터미널 여백, 사이드바 기본 200px, 아이콘 16px, 개수는 조용한 글자·0 은 감춤, 세그먼트 선택 외형, 칸 하나면 포커스 선 없음, 일반 버튼 라벨 한국어) 쓰다 막히는 곳을 푼다(Git 진입점 이름, 사이드 탭에 맞는 빈 화면 안내, `Ctrl+Enter` 커밋, 저장소 경로 후보, 설정 세로 목록·검색, Diff 비교 이름). **승인·구현완료** |
@@ -49,9 +100,8 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [ACCESSIBILITY_BASELINE_SRS.md](./ACCESSIBILITY_BASELINE_SRS.md) | **접근성 기준 — 목표·범위·검사 방법·완료 조건** (IEEE 29148, `FR-A11Y-*`). **M7 선행 SRS ①.** 사용자 결정 2 = **WCAG 2.1 Level AA 전면**(2026-09-12)이고 xterm 캔버스·편집기 위젯은 예외 등록부(§6)의 2건이다. `07 §7` 이 적은 것은 결함 목록이 아니라 **부재**였다 — 기준이 없으면 `UX-4`·`UX-6` 을 "어디까지 하면 끝인가" 로 판정할 수 없다. §2.2 가 실측: `aria-hidden` 29 로 가장 많고 그 반대편(`role=` 3 · `tabindex` 1 · `aria-live` **0**)이 비어 있다 — 숨기는 일은 이미 규약이 됐는데 **이름을 주고 역할을 말하는 쪽**이 없다. D-A11Y-1 이 핵심 화면 한정(선택지 b)을 버린 이유를 적는다: "핵심" 의 경계가 또 하나의 미결정이므로, 경계를 **화면 목록이 아니라 등록된 예외 목록**이 지게 한다. D-A11Y-3·4 는 M6 이 비싸게 배운 둘의 적용 — 검사 표면을 손으로 적지 않고 파생시키는 것, 라이브 리전을 "있다" 가 아니라 **"들어왔다"** 로 재는 것 |
 | [DESIGN_TOKENS_SRS.md](./DESIGN_TOKENS_SRS.md) | **디자인 토큰 — 색·크기·글자·z-index 의 목록과 파생 규칙** (IEEE 29148, `FR-TOK-*`). **M7 선행 SRS ②.** `UI_KIT_SRS` FR-UIK-2 가 "색은 소유하지 않는다" 로 비켜 간 자리를 채운다 — 비켜 간 판단은 그때 옳았으나 **아무도 소유하지 않게 됐다.** §2 가 실측: 글자 크기 12종 · z-index 44선언 28값(`.ed-find` 9997 이 컨텍스트 메뉴를 덮는다) · 색 리터럴 160곳 · 미정의 `--bg-alt` 를 네 곳이 읽어 **투명으로 떨어진다**(폴백을 적은 셋과 안 적은 넷이 같은 파일 묶음에 있다). §2.1 이 이 문서의 뿌리다 — **`--text-dim` 은 99번 글자로 쓰이는데 테마 54종 어디서도 3:1 조차 넘지 않는다.** D-TOK-1 이 사용자 결정: 팔레트는 정본이고(Nord 의 `#4c566a` 는 Nord 그 자체다) **파생이 보장한다.** D-TOK-4 가 가장 비싼 결정이고 **실측이 정했다** — 단일 바닥 4.5 는 54종 중 **34종에서 세 단계 계층을 무너뜨린다**(가장 흐리던 것이 중간을 추월한다). 사다리(4.5/5.5/7.0)가 54/54 에서 계층을 보존한다. §7 의 잔여표가 비면 `style-kit.css` 의 **D-5 과도기가 닫힌다** |
 | [WINDOW_CLOSE_UNDO_SRS.md](./WINDOW_CLOSE_UNDO_SRS.md) | **창 닫기의 되돌리기** (IEEE 29148, `FR-WCU-*`). M7 `UX-2` — 한가한 창의 `×`·`Delete` 는 묻지 않고 5초 Undo 를 준다. 유예 동안 도구는 **백그라운드**에 산다(보이지 않는 상태를 만들지 않는다, D-WCU-1)·확인을 지난 닫기에는 Undo 가 없다(안전망은 길마다 하나, D-WCU-2)·만료는 어느 창에도 없는 도구만 죽인다(FR-WCU-4). **구현 완료** |
-| [UX_BATCH7_HANDOFF.md](./UX_BATCH7_HANDOFF.md) | **2026-09-08 접수 열 건의 인계 노트.** 세 스펙(UI_KIT·PANEL_SURFACE·ALERT_MOBILE_CONTEXT)의 진행 상태, 이 작업이 세운 공통 키트의 규약 셋, 그리고 **다시 밟지 말아야 할 함정 둘** — 부모의 `opacity:<1` 이 backdrop root 를 만들어 자식의 `backdrop-filter` 를 격리하는 것과, 같은 요소의 `clip-path` 가 `mask-image` 를 무효로 만드는 것(둘 다 실측). 다음 세션의 착수 순서가 §3 에 있다 |
 | [UI_KIT_SRS.md](./UI_KIT_SRS.md) | **공통 UI 키트 — 버튼·탭·아이콘·크기 표시** (IEEE 29148, `FR-UIK-*`·`FR-GLY-*`·`FR-HSZ-*`). 2026-09-08 접수 열 건 중 묶음 **A**(⑤⑥⑧). §2.1 이 실측 — 버튼이 **열한 종**이고 그중 셋은 `style-git.css:79` 에서 이미 한 줄에 묶여 있다(같이 적으려는 시도가 파일 경계에서 멈춘 자리). §2.6 은 아이콘 인벤토리 — 전부 유니코드 문자이고 크기 규칙은 레일 한 자리에만 있어 28px 버튼 안에 12px 글자가 앉는다. D-5 가 이 작업의 안전선이다: **기존 클래스를 지우지 않고 공통 클래스를 함께 붙인다**(`SidebarList` 의 `.sbl-*` 와 같은 방법) — e2e 131개와 캐스케이드가 그 이름 위에 서 있다. §7 의 이전 순서에서 git 표면이 마지막인 것은 그 파일들이 가장 넓게 얽혀 있기 때문이다. **구현 완료** — §7 의 이전 순서 표가 전부 `완료`(8번 모바일 키바만 근거를 적고 이전하지 않는다). **남은 것은 `FR-GLY-4` 의 `★` 하나**이고 그 소비 지점은 §7.1 에 있다 (`AUDIT-docs-gap.md` M5 — 이 묶음의 범위 밖이다) |
-| [ICON_SET_SRS.md](./ICON_SET_SRS.md) | **아이콘 세트 재정비 — 한 뜻 한 아이콘, 선 한 벌의 톤** (IEEE 29148, `FR-ICN-*`). `UI_KIT_SRS` FR-GLY-2·3·4 를 개정한다. 2026-11-22 사용자 결정: 선 기반 한 벌, stroke 2.25·둥근 끝, 옅은 면(.18)은 물체 모양에만, 한 뜻 = 한 아이콘(남는 겹침은 `chevron-right` 접힘/다음 하나). §3.2 가 뜻 63개 ↔ 심볼 표다. 시안 자료는 `design/icons-2026-11-22/` |
+| [ICON_SET_SRS.md](./ICON_SET_SRS.md) | **아이콘 세트 재정비 — 한 뜻 한 아이콘, 선 한 벌의 톤** (IEEE 29148, `FR-ICN-*`). `UI_KIT_SRS` FR-GLY-2·3·4 를 개정한다. 2026-11-22 사용자 결정: 선 기반 한 벌, stroke 2(D-ICN-25 로 2.25 에서 되돌림)·둥근 끝, 옅은 면(.18)은 물체 모양에만, 한 뜻 = 한 아이콘(남는 겹침은 `chevron-right` 접힘/다음 하나). §3.2 가 뜻 63개 ↔ 심볼 표다. 시안 자료는 `design/icons-2026-11-22/` |
 | [ATTIC_FIX_SRS.md](./ATTIC_FIX_SRS.md) | **「정독하지 않은 곳」 감사의 결함 고침** (IEEE 29148, `FR-ATF-*`). `refactor/PROD3_ATTIC.md` 의 「고침」 52건을 묶음 넷(git · 확장 팩·LSP · telegram·sysstat · 망·채팅·설정·설치)으로 고친다. 가장 큰 것은 AT-GAPI-1 — 파일 이름과 같은 ref 로 checkout 하면 그 파일의 변경이 확인 없이 지워졌다(D-ATF-1, argv 끝 `--`) |
 | [RAIL_CHAT_USAGE_SRS.md](./RAIL_CHAT_USAGE_SRS.md) | **레일의 채팅 목록과 Claude 사용량** (IEEE 29148, `FR-RCU-*`). 채팅이 메인 패널로 옮겨진 뒤 레일 규칙이 Activity 쪽에만 남아 사이드바 레일에서 글자가 세로로 꺾였다(수정). Activity 레일에서도 사용량 요약을 작게 보인다(추가) |
 | [PANEL_SURFACE_SRS.md](./PANEL_SURFACE_SRS.md) | **패널 표면 — 에이전트 그룹 · 레일 목록 · 변경 통합 · 검색 통합** (IEEE 29148, `FR-AGG-*`·`FR-RAL-*`·`FR-CMG-*`·`FR-HSU-*`). 묶음 **B**(①④⑦⑨). D-9 가 요체다 — **그룹은 상태가 아니라 파생이다**: `ws` 에 그룹을 저장하면 창 순서·탭 이동과 두 진실이 생기고 "즉각 반영" 이 동기화 코드가 된다. §2.3 이 `changes`/`untracked` 를 견준 표로, **diff 축·행 동작·그룹 일괄이 셋 다 같고** 갈리는 것은 상태 문자와 폐기의 명령(`checkout` vs `clean -f`)뿐임을 확인한다 — 그래서 D-4 의 확인창이 유일한 방어선이다. §2.4 는 History 검색의 사실 — 서버가 아는 검색은 `--grep` 하나이며, 그것이 D-13(저장소 전체 확장은 grep 갈래만)의 근거다. **구현 미착수** — 착수를 막던 다른 세션의 git 작업은 `ed54faf` 로 끝났다 |
@@ -88,7 +138,6 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [CONNECTIVITY_RESILIENCE_SRS.md](./CONNECTIVITY_RESILIENCE_SRS.md) | **재연결 폭주의 종식과 끊긴 순간의 기록** (IEEE 29148). 묶음 **A**(붙잡기) · **B**(진단 스냅샷). **원인을 고치지 않는다** — 아직 모른다(D-6). 대신 밝혀진 유일한 실제 결함을 없애고, 다음 발생 때 원인이 확정되도록 준비한다. §2.2 가 핵심이다: `onclose` 가 재연결의 유일한 계기이므로 **닫는 한 재연결은 반드시 온다** — 지연은 주기를 늘리고 거절은 오히려 줄인다. §2.5 는 구현 중 실측으로 FR-CNR-6 을 뒤집은 기록이다(hijack 뒤에는 `r.Context()` 가 절단을 알리지 않는다). **구현 완료** |
 | [CONNECTIVITY_INVESTIGATION.md](./CONNECTIVITY_INVESTIGATION.md) | **간헐적 접속 불가 — 조사 노트** (SRS 가 아니다). SSH 까지 끊긴다는 새 사실 때문에 `RECONNECT_STORM_SRS` 와 같다고 단정할 수 없다. §1 은 확정한 사실(폭주는 17분의 1 로 줄었으나 **멎지 않았다** · 절전은 배제 · 데몬이 둘), §2 는 근거 없는 가설 셋, §3 은 **끊긴 그 순간에** 찍어야 할 명령과 그것을 가르는 표다. 원인이 서면 그때 SRS 를 연다 |
 | [GIT_VIEW_REFRESH_SRS.md](./GIT_VIEW_REFRESH_SRS.md) | **Git 창 — 쓰기 뒤 뷰 갱신의 누락** (IEEE 29148, `FR-GVR-*`). "push 를 했는데 history 가 바로 안 바뀐다" 의 실체는 **아예 갱신하지 않는 것**이었다. §2.1 이 갱신을 부르는 자리를 전수로 세고, 원격 경로에만 그 대응물이 없음을 보인다. **갱신을 부르는 자리만 고친다** — 폴링 주기도 파일 감시도 손대지 않는다. **구현 완료** |
-| [WORKBENCH_REVIEW_HANDOFF.md](./WORKBENCH_REVIEW_HANDOFF.md) | 위 작업의 **인계 노트**. 메모 저장 조사에서 **헛짚은 가설 둘**(다시 파지 않도록), 아직 보지 않은 자리 둘(`_doc.saving` 이 남는 길 · 죽어 있는 소프트 리로드 트리 갱신), 메모리·신규 둘의 착수점, 회차마다 자리가 바뀌는 **e2e flake 관측** |
 | [GIT_DIR_ENTRY_SRS.md](./GIT_DIR_ENTRY_SRS.md) | **디렉터리 상태 항목** (IEEE 29148, `FR-DIR-*`). 서브모듈·중첩 저장소는 **폴더가 상태의 단위**다 — `git status` 가 `dir/` 한 줄로 접는 것을 이름 있는 항목으로 펴고, 그 자리에 사유와 진입점을 보인다. 루트가 저장소 **안**이어도 색을 입힌다 (FR-DIR-40). **구현 완료** |
 | [SANDBOX_PICK_COPY_SRS.md](./SANDBOX_PICK_COPY_SRS.md) | **샌드박스 선택창과 scratch 복사** (IEEE 29148, `FR-SPK-*`). 샌드박스 창을 열 때 작업 폴더를 고르고, 원본 대신 **복사본**을 컨테이너에 줄 수 있게 한다 — 그 사실은 창의 목록 배지로 남는다. **구현 완료** |
 | [GIT_HEAD_MOBILE_SRS.md](./GIT_HEAD_MOBILE_SRS.md) | **Git 머리의 왼쪽 정렬 · History 이식 · 모바일 폭** (IEEE 29148). 상단 버튼의 정렬, Changes 의 버튼 무리를 History 에도 세우는 일, 좁은 폭에서의 배치. **구현 완료** |
@@ -100,12 +149,9 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [ICON_ASSETS_SRS.md](./ICON_ASSETS_SRS.md) | **아이콘·파비콘 자산** (IEEE 29148). 파비콘·터치 아이콘·PWA 아이콘의 크기·형식·생성 경로 |
 | [RELEASE_SRS.md](./RELEASE_SRS.md) | **바이너리 배포 — GitHub Releases** (IEEE 29148). 쓰려면 클론해서 Go 로 빌드해야 하던 것을 릴리스 애셋으로 바꾼다. **바이너리를 저장소에 커밋하지 않는 근거가 실측으로 §2.1 에 있다**(5종 69MB · git 은 모든 판을 영구 보관 · 델타 압축이 먹지 않는다). darwin 을 macOS 러너에서 빌드해야 하는 이유(CGO 가 꺼지면 지표가 조용히 빠진다)도 여기다. **구현 완료** |
 | [CROSS_PLATFORM_SRS.md](./CROSS_PLATFORM_SRS.md) | **OS 이음매의 인터페이스화 · Linux/WSL/Windows 지원** (IEEE 29148). darwin 전용이던 것은 설계가 아니라 **OS 의존 호출이 부르는 자리에 그대로 박혀 있었기 때문**이다. `syscall.Kill`·`Setsid`·`/proc`·`lsof`·`pgrep`·`/bin/bash`·unix 소켓을 `platform` 뒤로 모은다. §11 이 실기 기록이다 |
-| [CROSS_PLATFORM_HANDOFF.md](./CROSS_PLATFORM_HANDOFF.md) | 위 작업의 인계 문서. 네 트랙 종료 시점의 상태와 CI 잡 넷이 초록이 된 근거. ConPTY 의 원인이 `STARTF_USESTDHANDLES` 하나였다는 결론이 §0 에 있다 |
 | [WINDOWS_TEST_PARITY_SRS.md](./WINDOWS_TEST_PARITY_SRS.md) | **Windows 테스트 패리티** (IEEE 29148). `test (windows-latest)` 가 **도입 이래 한 번도 통과한 적이 없었다** — 한 번도 초록이 아니었으므로 아무도 읽지 않았고, 그 사이 실패 356줄 아래 **제품 결함 4건**이 묻혀 있었다. 초록이 아닌 검사는 없는 검사라는 사실의 기록. **구현 완료** |
 | [E2E_UNIFICATION_SRS.md](./E2E_UNIFICATION_SRS.md) | **종단간 검증의 통일 — 세 OS 가 같은 목록을 돈다** (IEEE 29148, `FR-E2I-*`). macOS 는 셸 스크립트 21항목, Linux·Windows 는 CI 인라인으로 5단계를 돌았고 **세 벌이 서로의 목록을 몰랐다.** Go 한 벌(`dongminal verify`)로 모은다 — 두 벌이면 한쪽만 고쳐지고, 실제로 그런 적이 있다(D-3). **구현 완료** |
 | [CI_E2E_MATRIX_SRS.md](./CI_E2E_MATRIX_SRS.md) | **브라우저 종단간은 세 OS 에서 돈다** (IEEE 29148, `FR-CEM-*`). 접수한 말은 "ci 는 모든 os 에 대해 e2e 를 해야한다" 였다. Playwright 스위트가 **ubuntu 하나**에서, 그것도 사람이 부를 때와 태그를 밀 때만 돌던 자리를 **세 OS · 매 푸시**로 옮긴다 — `retries: process.env.CI ? 2 : 0` 을 들고 있던 스위트가 매 푸시에 돌지 않았고, 한 OS 의 초록은 다른 OS 를 말하지 않는다. D-4·NFR-CEM-2 가 이 작업의 요체 — OS 분기를 1,257항목에 흩지 않고 `e2e/osenv.ts` 한 자리에 둔다. macOS 의 임시 디렉터리를 `os.tmpdir()` 로 통일하지 않은 근거(유닉스 소켓 경로 상한 104바이트)가 그 파일에 있다. D-5 는 통과하지 못하는 항목을 `skip` 으로 감추지 않는다는 규약 |
-| [HANDOFF_WS2.md](./HANDOFF_WS2.md) | 인계 — WS-2 헤드리스 멤버 (`ORCHESTRATION_V2_SRS` §3.2, `FR-HLM-1~12`). 브리핑을 기억으로 쓴 사고의 기록이 머리말에 있다 |
-| [HANDOFF_WS4.md](./HANDOFF_WS4.md) | 인계 — WS-4 패턴 카탈로그 + P2P 봉인 해제 (`ORCHESTRATION_V2_SRS` §3.4). 묶음 P 완료·승인 시점의 상태와 남은 하나 |
 | [building.md](./building.md) | **빌드·검사·배포.** 받아 쓰는 사람에게는 필요 없다 — README 가 사용자 문서가 되면서 옮겨 온 개발자 절이다 (`README_REWRITE_SRS` FR-RDM-9) |
 | [architecture.md](./architecture.md) | 패키지 레이아웃, **에이전트 접합면과 Run**, **에이전트 어댑터 레지스트리**, **멤버 프리앰블**, 어댑터 패턴, 커맨드 브로드캐스트, 핫패스 성능, 종료 경로 |
 | [test-checklist.md](./test-checklist.md) | 백엔드·프론트엔드 동작 체크리스트 + 테스트 커버리지 현황 |
@@ -116,14 +162,11 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [AGENT_MEMORY_INJECTION_SRS.md](./AGENT_MEMORY_INJECTION_SRS.md) | dongminal 탭의 claude 에 CLAUDE.md 주입 (IEEE 29148, `FR-AMI-*`). claude shim 이 `--add-dir=<agent-memory>` 와 `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` 로 `agent-memory/CLAUDE.md`(dmctl 활용 지침)를 메모리로 읽힌다. **구현 완료** |
 | [SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md) | MCP 폐지와 세션 스코프 스킬 주입의 단일 진실 공급원 (IEEE 29148). 에이전트 접합면 = `dmctl` (액션) + `--plugin-dir`/`--settings` 주입 스킬·훅 (정책). **구현 완료** |
 | [RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md) | AI 오케스트레이터의 단일 진실 공급원 (IEEE 29148). Run 레코드·상태/대기 계약·에이전트 어댑터 레지스트리·worktree 격리·프리앰블/보고 계약·스킬 재작성. 착수 전 결정 5건 확정. **묶음 S·R·P·A·K 구현 완료, W 남음** |
-| [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md) | 위 SRS 의 입력 — orca(MIT)·paseo(AGPL) **실제 소스** 조사 노트. 파일 경로 근거 포함. §9 는 기존 문서 서술을 뒤집은 5건 |
-| [WAVE1_HANDOFF.md](./WAVE1_HANDOFF.md) | **3축 병렬 웨이브 1 의 완료 기록.** 워크스트림 **8개 전부 완료** — WS-1 식별자 uuid 전용화 · WS-2 헤드리스 멤버 · WS-3 컨텍스트 예산·승계 · WS-4 패턴 카탈로그+P2P · WS-5 Run 시각화 · WS-6 사이드바 탭 · WS-7 전경 프로세스 탭 이름 · WS-8 백그라운드 즉시 종료. §2 남은 것(수동 실사 M-1~M-10 · e2e 미실행) · §3 판정 기록 · **§5 반복하면 안 되는 것** — 브리핑을 기억으로 쓴 사고 3회, 대칭적 추종으로 같은 항목이 열 번 뒤집힌 사고, 게이트 전제, 플레이크 판정, "서버 완성 ≠ 기능 완성" · §7 커밋 분할 |
-| [PARALLEL_DELIVERY_PLAN.md](./PARALLEL_DELIVERY_PLAN.md) | **아래 세 SRS 를 한 번에 다루는 실행 계획.** §2 확정 결정 12건(스펙보다 앞선다) → §3 파일 단위 충돌 지도(핫스팟 6개) → §4 **Step 0 골격 선행 커밋**(동작 불변 리팩터, 게이트 3종) → §5 8 워크스트림·배타적 파일 소유권·웨이브 배치 → §7 통합 게이트와 수동 실사 10항목. §6 은 dongminal 자신의 팀 Run 으로 실행하는 구성(부트스트랩 주의 포함), §8 은 후속 독립 트랙(expose 인증·cross-platform)의 착수점. **완료 (2026-08-28 웨이브 1)** |
 | [ORCHESTRATION_V2_SRS.md](./ORCHESTRATION_V2_SRS.md) | **오케스트레이션 2세대** (IEEE 29148). 묶음 **I** 식별자 uuid 전용화(FR-IDU) · **H** 헤드리스 멤버(FR-HLM) · **C** 컨텍스트 예산·승계(FR-CBG) · **P** 패턴 카탈로그(FR-PAT) · **V** Run 시각화(FR-RVZ). §2.1 은 조사로 확정한 현재 상태 — **레이아웃 경로는 이미 uuid 전용이고 IO 경로가 라벨을 받는다**는 역전이 핵심 사실이다. **완료 (2026-08-28 웨이브 1)** |
 | [ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS.md](./ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS.md) | **도구 알람의 수명과 핀 리포 전체 관측** (IEEE 29148). 묶음 **L** 도구가 죽으면 알람도 죽는다(FR-ATL — 활동만 정리하고 주의를 남기던 네 자리) · **J** 탭 없는 도구의 알람이 착지하는 자리(FR-ATJ) · **O** Git 탭 진입 시 핀 전부 관측(FR-GOB, `?observe=1`). §2.1 의 감사 A1~A14 가 근거다 — **주의와 활동은 직교하는 두 레이어인데 정리 규약이 활동에만 있었다**는 것이 알람 결함의 뿌리다. D-2 로 `GIT_SIDEBAR_TABS_SRS` FR-SBT-12(Git 탭 헤더 배지)를 **폐기**한다 — 관측을 Git 탭 안으로 가둔 이상 그 밖의 숫자는 근거가 없다. **구현 완료** |
 | [GIT_SIDEBAR_TABS_SRS.md](./GIT_SIDEBAR_TABS_SRS.md) | **사이드바 상단 탭** (IEEE 29148). Windows/Git 의 세로 공존(`max-height:40%`)을 탭 전환으로 대체. FR-SBT-1~33. §3.6~3.8 은 2026-08-28 인터뷰로 추가된 것 — **탭의 서술자 인터페이스화**(새 탭 = 서술자 1개) · **탭 선택이 콘텐츠 창까지 전환** · **탭마다 직행 키 + 순회 키 재해석**. 이로써 `GIT_REMAINING` §1.2 의 보류건 **I5·I6 이 함께 닫힌다**. §7 은 철회된 결정 2건(D-4·D-6)과 그 근거. §4.1 은 착수 첫 작업 — 기존 Git e2e 의 가시성 전제 영향 범위 확정. **완료 (2026-08-28 웨이브 1)** |
 | [CONVENIENCE_SRS.md](./CONVENIENCE_SRS.md) | **편의 기능** (IEEE 29148). 묶음 **N** 전경 프로세스 자동 탭 이름(FR-TAN, 수동 이름이 영구히 이긴다) · **X** 백그라운드 도구 즉시 종료(FR-BGK, 확인 필수·전체 종료 없음). §2.1(c) 가 핵심 제약을 고정한다 — **데몬 모드는 PTMX 를 노출하지 않으므로 전경 프로세스 조회는 데몬 안에서 수행하고 IPC 로 실어 나른다.** FR-TAN-23/24 는 그 조회를 단일 함수 + build tag 로 격리해 cross-platform 후속 트랙이 갈아낄 자리를 만든다. §6 비목표에 분리한 둘(expose 인증·cross-platform). **완료 (2026-08-28 웨이브 1)** |
-| [GIT_REMAINING.md](./GIT_REMAINING.md) | **Git 트랙에서 아직 끝나지 않은 것 전부.** §1 사용자 검토 10건 — **오류 3건은 완료**(§1.3·§1.4 에 전수 조사 결과·E4·Git Graph 재구현), **개선 7건은 미착수이며 §1.2 에 착수점과 물어야 할 결정이 있다** · §2 수동 실사 잔여 · §3 문서 흡수 · §4 P1/P2 로 미뤄둔 기능(**2026-08-27 지시로 범위 안**, §4.1 의 자격증명·한글 안내문만 예외) · §5 알려진 간헐 실패 · §6 트랙 밖 별건. **목표는 여기 남은 전부를 끝내는 것이고, 이것이 다음 세션의 출발점이다** |
+| [GIT_REMAINING.md](./GIT_REMAINING.md) | **Git 트랙의 남은 일과 지난 검토 기록.** 2026-08-27 사용자 검토의 결함 3건·개선 7건과 5차 검토 결함 2건(E5·E6)은 모두 끝났다(문서 머리). 동작 표면 확장은 `GIT_ACTIONS_SRS` 로 이어졌다. 수동 실사 잔여와 P1/P2 로 미룬 항목은 본문에 있다 |
 | [GIT_REVIEW4_SRS.md](./GIT_REVIEW4_SRS.md) | **4차 사용자 검토의 오류 3건 명세** (IEEE 29148). `GIT_SRS`·`GIT_UI_REVISION_SRS` 를 개정한다. **FR-RPT-1~8** 은 Git 밖까지 걸리는 교차 규약이다 — 바깥 계기(폴링·SSE)의 다시 그리기가 요소 상태(hover·더블클릭·드래그·선택·툴팁)를 깨뜨리지 않게 하는 규칙이고, 공통 수단은 `web/js/ui/repaint.js` 다. **§2.3.1 은 VSCode Git Graph 의 배치 규칙 R1~R4 를 근거 코드와 함께 고정한다.** FR-GIT-227~235, V104~V131. §3.6 은 개선 7건이 착수될 때 채워진다 |
 | [design/](./design/) | **21단계 구현 계약** (`GIT_M*_STEP*_CONTRACT.md`). 각 단계 착수 시 SRS 를 다시 해석하지 않고 이 문서를 단일 진실 공급원으로 삼는다. `design/README.md` 가 색인·픽스처 규약·검증 게이트 |
 | [PACKAGE_RESTRUCTURE_SRS.md](./PACKAGE_RESTRUCTURE_SRS.md) | **프로세스 축 패키지 재구성의 단일 진실 공급원** (IEEE 29148). `internal/` 을 helper·daemon·webserver·ctl + `shared/` 로 재배치하고, 대형 패키지 3개(`server` 19,653줄 · `git` 10,936줄 · `app.js` 2,999줄)를 역할별로 갈랐다. §2.1 의 프로세스×패키지 실행 행렬과 §2.3 의 Go 메서드-패키지 제약 실측이 구조를 결정한 근거다. **16단계 전량 구현 완료** (§8.10·§8.11·§8.12) — 프로세스 축 밖 패키지 0개, `handlers_api.go` 701→262줄. §8 은 스펙 이탈 D-1~D-7 과 15·16단계 기록 — 특히 D-1·D-5 는 측정 방법의 결함(경계를 넘는 비공개 멤버 접근을 놓쳤다)을, §8.12 는 §5 비목표 #4 를 철회한 근거를 담는다 |
@@ -131,16 +174,13 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [E2E_HELPER_RECLAIM_SRS.md](./E2E_HELPER_RECLAIM_SRS.md) | **e2e 헬퍼 회수와 죽은 코드 정리** (IEEE 29148, `FR-EHR-*`). `fixtures.ts` 가 있는데도 87개 스펙이 같은 헬퍼를 각자 정의하던 것(`waitForInit` 63 · `copyFx` 22 · `openGit` 20)을 거뒀다 — **본문이 바이트 동일한 것만**, 변종은 그대로. §2.1 이 검증 독립성 원칙(`toHaveCount(7)` 을 `GIT_VIEWS.length` 로 바꾸지 않는 이유), §7.5 가 억제 주석으로 덮으려다 지적이 가리키던 것 자체를 없앤 기록 |
 | [FG_RESTORE_RACE_SRS.md](./FG_RESTORE_RACE_SRS.md) | **전경 이름 복원이 새 이름을 지우던 경쟁** (IEEE 29148, `FR-FGR-*`). `_fgRestore` 가 "`_attnRestore` 와 같은 규약" 이라 주석에 써놓고 그 규약(지울 후보를 요청 전에 확정)을 지키지 않았다. §7.1 이 **기각된 가설 둘의 기록**이고, §7.2 가 계측으로 확정한 근거다. 재시도로 덮지 않았다 |
 | [APP_STATE_EXTRACT_SRS.md](./APP_STATE_EXTRACT_SRS.md) | **App 의 상태를 소유자에게 돌려주는 리팩터** (IEEE 29148, `FR-ASE-*`). 묶음 A(`RunsPanel`)만 완료 — `app-runs.js` 730→38줄. **§7.2 가 앞선 측정의 정정**(`this.<이름>` 을 전부 필드로 세어 56%→실제 46%), **§7.3 이 추출의 세 조건**, §2.3 이 최대 함정(형제 파일은 `app.` 이 아니라 `this.` 로 만진다). 남은 후보 셋은 현재 측정으로 **전부 보류** |
-| [REFACTOR_HANDOFF.md](./REFACTOR_HANDOFF.md) | **`refactor` 브랜치 인수인계.** 네 단계의 결과·반드시 지킬 절차·손대지 않기로 한 것과 사유. 다음 세션은 [REFACTOR_NEXT_SESSION.md](./REFACTOR_NEXT_SESSION.md) 를 첫 메시지로 붙여넣는다 |
 | [CLI_CONSOLIDATION_SRS.md](./CLI_CONSOLIDATION_SRS.md) | 운영 스크립트 8개를 바이너리 액션 4개(`start`/`stop`/`migrate`/`health`)로 통합하고 `scripts/` 에 `build.sh` 하나만 남긴 근거 (IEEE 29148). **구현 완료** |
 | [MOBILE_TUI_INPUT_SCROLL_SRS.md](./MOBILE_TUI_INPUT_SCROLL_SRS.md) | **모바일 TUI 입력·스크롤 교정의 단일 진실 공급원** (IEEE 29148). FR-MTI-1~19, TC-MTI-1~14. xterm 을 포크하지 않고 앱 계층에서 교정한다 — `beforeinput` 가로채기(중복·유실 제거), 터치 감도 배율+관성, `visualViewport` fit 병합, 키바 포커스, sticky modifier. **구현 완료** |
 | [MOBILE_UX_OVERHAUL_SRS.md](./MOBILE_UX_OVERHAUL_SRS.md) | **모바일 UX 개편** (IEEE 29148). FR-MUX-1~82. 실측으로 찾은 결함 교정(탐색기 폭·키바·편집기 찾기·가로 휴대폰), 서랍·Activity·설정의 전체 높이 시트, 설정의 목록→상세, 길게 누르기 메뉴, 터치 크기. 새 모듈 `app-mobile-sheets.js`. 2차 FR-MUX-70~82: 상단바 Activity 단추, Repo 세그먼트, 사용량 한 줄 요약, Activity 바닥 정리(데스크톱 포함). 새 모듈 `app-mobile-nav.js`. **구현 완료** |
 | [PANEL_TEMPLATE_SRS.md](./PANEL_TEMPLATE_SRS.md) | **패널 템플릿** (IEEE 29148). FR-PNT-1~20. 메인 패널과 Activity 가 같은 골격(머리 = 탭 줄 + 끝 단추 · 몸통 · 바닥)·머리 높이·탭 모양·레일·모바일 시트(화면 전체, 좌우에서 미끄러짐)를 쓴다. 모바일 Activity 의 누른 뒤 유지·닫힘. 새 파일 `style-panel.css`. **구현 완료 — linux·win32 기준선만 남음** |
 | [UIUX_OVERHAUL_SRS.md](./UIUX_OVERHAUL_SRS.md) | **UI/UX 전면 개편 — 자리·구분·디자인** (IEEE 29148). 기능이 아니라 자리·위치·구분·디자인을 고친다 — M1 타이포(FR-TYP)·M2 의미색(FR-SEM)·M3 위계(FR-HIE)·M4 문체(FR-CPY)·M5 활동 패널(FR-ACT)·M6 크롬(FR-CHR). 뒤 SRS 가 고친 자리는 그 문서가 정본이다. **승인·구현완료** |
 | [UX_AUDIT_FIX_SRS.md](./UX_AUDIT_FIX_SRS.md) | **UI/UX 진단 반영** (IEEE 29148). `UX_AUDIT_2026-11-19.md` 의 항목을 묶음 순서로 반영했다 — 1묶음 FR-UXF-1~12(FR-UXF-12 승인 대기 우선은 D-37 로 철회), 2묶음 20~31, 3묶음 40~54, 4묶음 60~66, 5묶음 70~79, 6묶음 80~85, 6.5묶음 98~102·110~112(§3.12~3.14), 7묶음 90~96, §3.15·3.16(120~129: 두 패널 탭의 같은 동작, 실행 중 색 `accent2` 와 사이드바 링). **승인·구현완료** |
-| [MOBILE_TUI_SCROLL_INPUT_ANALYSIS.md](./MOBILE_TUI_SCROLL_INPUT_ANALYSIS.md) | 위 SRS 의 입력 — 실측 근거 (Informative). 대상 TUI 가 켜는 터미널 모드 캡처, 터치 1:1 스크롤 수치, `CompositionHelper._handleAnyTextareaChanges` 의 중복·유실 재현. §2 는 초기 판정(`_inputEvent` 게이트)을 관측 시점 오류로 정정한 기록을 남긴다 |
 | [GIT_MANUAL_CHECKLIST.md](./GIT_MANUAL_CHECKLIST.md) | Git 창 수동 검증 체크리스트 (V14·V60). 자동 테스트가 잡지 못하는 것만 — 배치·색·읽힘, 모바일 실기기, 성능·보안 기준. 픽스처(`e2e/git_fixture.sh`) 기준 |
-| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트(파일 전체가 그대로 첫 메시지다). **열려 있는 것은 Git 창 하나** — 재구성 트랙은 16단계로 닫혔다. `GIT_REMAINING.md` 가 출발점이고, 착수 전에 물어야 할 것(단축키 배정 · "원래 있던 윈도우"의 정의 · 자격증명 배제 유지 여부)과 반복하면 안 되는 함정(`stop` 의 포트 기반 대상 선정, BSD `sed` 의 `\b`, 보호 테스트 약화)을 담는다 |
 | [ACCESS_ALLOWLIST_SRS.md](./ACCESS_ALLOWLIST_SRS.md) | **접속 허용 목록** (IEEE 29148, `FR-ACL-*`). `--expose` 는 `0.0.0.0` 에 바인드하는 것이 전부였고 **그 뒤에 어떤 접근 제어도 없었다** — 그런데 이 서버가 여는 표면은 PTY·파일 읽기/쓰기/zip·명령 실행이다. 즉 `--expose` 는 인증 없는 원격 코드 실행 종단을 네트워크에 여는 일이었다. 출발지 IP 로 가르는 목록을 세운다. 짝 문서는 `REQUEST_GATE_SRS`(그쪽이 **누가 부를 수 있는가**). **구현 완료** |
 | [ACCESS_DENIED_PAGE_SRS.md](./ACCESS_DENIED_PAGE_SRS.md) | **막힌 출발지에게 보이는 화면** (IEEE 29148, `FR-ADP-*`). 종전에는 `403 forbidden` **평문 한 줄**이었고, 그 한 줄은 무엇이 막혔는지도 무엇을 해야 하는지도 말하지 않았다 — 접속하려던 사람은 **자기 IP 를 알 방법이 없고**, 소유자는 무엇을 허용해야 하는지 들을 방법이 없었다. **구현 완료** |
 | [AGENT_ADAPTER_COMPLETION_SRS.md](./AGENT_ADAPTER_COMPLETION_SRS.md) | **어댑터가 에이전트의 전부를 안다 — 이름을 한 자리로** (IEEE 29148, `FR-AAC-*`). `AGENT_EVENT_ABSTRACTION_SRS` 가 **이벤트**를 어댑터로 올렸고, 그때 올리지 않은 셋(훅 설치·전사본 해석·컨텍스트 창)이 전부 claude 의 구현 세부에 묶여 있었다. **구현 완료** |
@@ -230,7 +270,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 
 ```
 공간 축:  Client ▶ Window ─ Pane ─ Tab ─ Tool
-실행 축:  Run ─ Member ──1:1──▶ Tool        (직교. 접합 필드만 구현됨)
+실행 축:  Run ─ Member ──1:1──▶ Tool        (공간 축과 직교한다 — RUN_ORCHESTRATION_SRS)
 ```
 
 | 용어 | 뜻 |
@@ -240,13 +280,41 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | **Pane** | Window 안에서 나뉜 공간. 탭 목록 보유 |
 | **Tab** | 도구를 담는 공간 |
 | **Tool** | 탭에 탑재되는 실체 (`terminal` \| `editor`) |
-| **Run** | 오케스트레이션 실행 인스턴스 (미구현) |
+| **Run** | 오케스트레이션 실행 인스턴스. 기록은 `runs.json`(주인은 웹서버 프로세스) |
+
+**화면의 패널 이름** (`PANEL_TERMS_SRS`, 2026-11-22). 지난 SRS 와 보관 문서는 당시 이름을 그대로 쓴다.
+
+| 지금 이름 | 지난 문서의 이름 | 코드 |
+|---|---|---|
+| 사이드 패널 (두 패널을 함께) | 양쪽 패널 | `.ui-panel`, 테마 색 `sidebarBg`·`--sidebar-bg` |
+| 목록 패널 (창·저장소·채팅) | 사이드바 · 메인 패널 | `#sidebar` |
+| 작업 패널 (에이전트·백그라운드 도구·Run·사용량) | Activity 패널 · 에이전트 패널 | `#agents-panel` |
 
 `paned`·`paned.sock`·`paned.pid` 는 **데몬 프로세스의 이름**이며 개명 대상이 아니다.
 `internal/ctl/migrate` 안의 `panes.json`·`region`·`paneId` 는 **구 어휘가 입력**이라
 그대로 둔다.
 
 ## 보관 (`archive/`) — 완료된 작업의 기록
+
+### 세션 인계서·조사 노트 정리 (2026-11-22)
+
+끝난 작업의 세션 인계서와, SRS 로 옮겨진 조사·계획 노트다. 아래 행은 전에 「현행」 에 있던 것이다.
+
+| 문서 | 내용 |
+|---|---|
+| [UX_BATCH7_HANDOFF.md](./archive/UX_BATCH7_HANDOFF.md) | **2026-09-08 접수 열 건의 인계 노트.** 세 스펙(UI_KIT·PANEL_SURFACE·ALERT_MOBILE_CONTEXT)의 진행 상태, 이 작업이 세운 공통 키트의 규약 셋, 그리고 **다시 밟지 말아야 할 함정 둘** — 부모의 `opacity:<1` 이 backdrop root 를 만들어 자식의 `backdrop-filter` 를 격리하는 것과, 같은 요소의 `clip-path` 가 `mask-image` 를 무효로 만드는 것(둘 다 실측). 다음 세션의 착수 순서가 §3 에 있다 |
+| [WORKBENCH_REVIEW_HANDOFF.md](./archive/WORKBENCH_REVIEW_HANDOFF.md) | 위 작업의 **인계 노트**. 메모 저장 조사에서 **헛짚은 가설 둘**(다시 파지 않도록), 아직 보지 않은 자리 둘(`_doc.saving` 이 남는 길 · 죽어 있는 소프트 리로드 트리 갱신), 메모리·신규 둘의 착수점, 회차마다 자리가 바뀌는 **e2e flake 관측** |
+| [CROSS_PLATFORM_HANDOFF.md](./archive/CROSS_PLATFORM_HANDOFF.md) | 위 작업의 인계 문서. 네 트랙 종료 시점의 상태와 CI 잡 넷이 초록이 된 근거. ConPTY 의 원인이 `STARTF_USESTDHANDLES` 하나였다는 결론이 §0 에 있다 |
+| [HANDOFF_WS2.md](./archive/HANDOFF_WS2.md) | 인계 — WS-2 헤드리스 멤버 (`ORCHESTRATION_V2_SRS` §3.2, `FR-HLM-1~12`). 브리핑을 기억으로 쓴 사고의 기록이 머리말에 있다 |
+| [HANDOFF_WS4.md](./archive/HANDOFF_WS4.md) | 인계 — WS-4 패턴 카탈로그 + P2P 봉인 해제 (`ORCHESTRATION_V2_SRS` §3.4). 묶음 P 완료·승인 시점의 상태와 남은 하나 |
+| [ORCHESTRATOR_RESEARCH_NOTES.md](./archive/ORCHESTRATOR_RESEARCH_NOTES.md) | 위 SRS 의 입력 — orca(MIT)·paseo(AGPL) **실제 소스** 조사 노트. 파일 경로 근거 포함. §9 는 기존 문서 서술을 뒤집은 5건 |
+| [WAVE1_HANDOFF.md](./archive/WAVE1_HANDOFF.md) | **3축 병렬 웨이브 1 의 완료 기록.** 워크스트림 **8개 전부 완료** — WS-1 식별자 uuid 전용화 · WS-2 헤드리스 멤버 · WS-3 컨텍스트 예산·승계 · WS-4 패턴 카탈로그+P2P · WS-5 Run 시각화 · WS-6 사이드바 탭 · WS-7 전경 프로세스 탭 이름 · WS-8 백그라운드 즉시 종료. §2 남은 것(수동 실사 M-1~M-10 · e2e 미실행) · §3 판정 기록 · **§5 반복하면 안 되는 것** — 브리핑을 기억으로 쓴 사고 3회, 대칭적 추종으로 같은 항목이 열 번 뒤집힌 사고, 게이트 전제, 플레이크 판정, "서버 완성 ≠ 기능 완성" · §7 커밋 분할 |
+| [PARALLEL_DELIVERY_PLAN.md](./archive/PARALLEL_DELIVERY_PLAN.md) | **아래 세 SRS 를 한 번에 다루는 실행 계획.** §2 확정 결정 12건(스펙보다 앞선다) → §3 파일 단위 충돌 지도(핫스팟 6개) → §4 **Step 0 골격 선행 커밋**(동작 불변 리팩터, 게이트 3종) → §5 8 워크스트림·배타적 파일 소유권·웨이브 배치 → §7 통합 게이트와 수동 실사 10항목. §6 은 dongminal 자신의 팀 Run 으로 실행하는 구성(부트스트랩 주의 포함), §8 은 후속 독립 트랙(expose 인증·cross-platform)의 착수점. **완료 (2026-08-28 웨이브 1)** |
+| [REFACTOR_HANDOFF.md](./archive/REFACTOR_HANDOFF.md) | **`refactor` 브랜치 인수인계.** 네 단계의 결과·반드시 지킬 절차·손대지 않기로 한 것과 사유. 다음 세션은 [REFACTOR_NEXT_SESSION.md](./archive/REFACTOR_NEXT_SESSION.md) 를 첫 메시지로 붙여넣는다 |
+| [MOBILE_TUI_SCROLL_INPUT_ANALYSIS.md](./archive/MOBILE_TUI_SCROLL_INPUT_ANALYSIS.md) | 위 SRS 의 입력 — 실측 근거 (Informative). 대상 TUI 가 켜는 터미널 모드 캡처, 터치 1:1 스크롤 수치, `CompositionHelper._handleAnyTextareaChanges` 의 중복·유실 재현. §2 는 초기 판정(`_inputEvent` 게이트)을 관측 시점 오류로 정정한 기록을 남긴다 |
+| [NEXT_SESSION_PROMPT.md](./archive/NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트(파일 전체가 그대로 첫 메시지다). **열려 있는 것은 Git 창 하나** — 재구성 트랙은 16단계로 닫혔다. `GIT_REMAINING.md` 가 출발점이고, 착수 전에 물어야 할 것(단축키 배정 · "원래 있던 윈도우"의 정의 · 자격증명 배제 유지 여부)과 반복하면 안 되는 함정(`stop` 의 포트 기반 대상 선정, BSD `sed` 의 `\b`, 보호 테스트 약화)을 담는다 |
+| 세션 인계서 묶음 | [AGENT_RECORD_DAEMON_HANDOFF](./archive/AGENT_RECORD_DAEMON_HANDOFF.md) · [CLAUDE_ACCOUNTS_HANDOFF](./archive/CLAUDE_ACCOUNTS_HANDOFF.md) · [CLEANUP_AFTER_EDGE_MESH_HANDOFF](./archive/CLEANUP_AFTER_EDGE_MESH_HANDOFF.md) · [CLEANUP_FOLLOWUP_HANDOFF](./archive/CLEANUP_FOLLOWUP_HANDOFF.md) · [E2E_MAIN7_HANDOFF](./archive/E2E_MAIN7_HANDOFF.md) · [EDGE_MESH_HANDOFF](./archive/EDGE_MESH_HANDOFF.md) · [HOT_REBIND_HANDOFF](./archive/HOT_REBIND_HANDOFF.md) · [MOBILE_UX_2_HANDOFF](./archive/MOBILE_UX_2_HANDOFF.md) · [PEER_DAEMON_HANDOFF](./archive/PEER_DAEMON_HANDOFF.md) · [PEER_NETWORK_REVIEW_HANDOFF](./archive/PEER_NETWORK_REVIEW_HANDOFF.md) · [REFACTOR_PROD2_HANDOFF](./archive/REFACTOR_PROD2_HANDOFF.md) · [REFACTOR_PROD3_HANDOFF](./archive/REFACTOR_PROD3_HANDOFF.md) · [REFACTOR_PROD3_HANDOFF_2](./archive/REFACTOR_PROD3_HANDOFF_2.md) · [REFACTOR_PROD3_HANDOFF_3](./archive/REFACTOR_PROD3_HANDOFF_3.md) · [REFACTOR_PROD3_HANDOFF_4](./archive/REFACTOR_PROD3_HANDOFF_4.md) · [REFACTOR_PROD3_HANDOFF_5](./archive/REFACTOR_PROD3_HANDOFF_5.md) · [RELEASE_E2E_FAILURES_HANDOFF](./archive/RELEASE_E2E_FAILURES_HANDOFF.md) · [SERVER_DRIVEN_HANDOFF](./archive/SERVER_DRIVEN_HANDOFF.md) · [TAB_LOAD_HANDOFF](./archive/TAB_LOAD_HANDOFF.md) · [TELEGRAM_BRIDGE_HANDOFF](./archive/TELEGRAM_BRIDGE_HANDOFF.md) · [TERM_TUI_SCROLLBAR_HANDOFF](./archive/TERM_TUI_SCROLLBAR_HANDOFF.md) · [UX_3_HANDOFF](./archive/UX_3_HANDOFF.md) · [UX_4_HANDOFF](./archive/UX_4_HANDOFF.md) · [UX_5_HANDOFF](./archive/UX_5_HANDOFF.md) · [UX_6_HANDOFF](./archive/UX_6_HANDOFF.md) · [UX_7_HANDOFF](./archive/UX_7_HANDOFF.md) · [UX_8_HANDOFF](./archive/UX_8_HANDOFF.md) · [UX_BATCH12_HANDOFF](./archive/UX_BATCH12_HANDOFF.md) · [ISSUE_TREE_OPS_FINDINGS](./archive/ISSUE_TREE_OPS_FINDINGS.md) · [UX_AUDIT_2026-11-19](./archive/UX_AUDIT_2026-11-19.md) · [DAEMON_SESSION_KEEP_HANDOFF](./archive/DAEMON_SESSION_KEEP_HANDOFF.md) — 각 세션이 끝날 때 다음 세션에 넘긴 기록이다. 지금의 사실은 SRS 와 코드가 답한다 |
+
 
 ### 에이전트 GUI 완전 폐기로 보관 (2026-11, AGENT_GUI_REMOVAL_SRS §6 · FR-AGR-21)
 
@@ -404,18 +472,14 @@ GUI 와 프로토콜 표면을 전제로 쓴 문서다. 그 코드는 모두 지
 
 ## 남은 작업
 
+> 2026-11-22 갱신. 지난 표(요구 3·4 의 진행, 해소된 id·카운터 문제 등)는 git 이력에 있다.
+
 | 항목 | 상태 |
 |------|------|
-| 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | **완료.** 묶음 **S**(상태·대기 계약)·**R**(Run 레코드)·**P**(멤버 프리앰블)·**A**(어댑터 레지스트리)·**K**(스킬 재작성)·**W**(worktree 격리) 전부. FR-STA-4 준비완료 사다리 2단계(화면 패턴)는 스펙에 남기고 구현을 보류했다. **남은 별건**: 실제 격리 팀으로 한 바퀴 — 첫 격리 Run 은 새 worktree 경로가 신뢰 목록에 없어 폴더 신뢰 모달에 걸릴 수 있다 |
-| 요구 4 — Git 창 (`GIT_SRS`) | **P0 전량 구현 완료.** 그 뒤 사용자 검토 4회를 반영했다 — 1~3차는 [GIT_UI_REVISION_SRS.md](./archive/GIT_UI_REVISION_SRS.md)(FR-GIT-179~226), 4차 오류 3건은 [GIT_REVIEW4_SRS.md](./GIT_REVIEW4_SRS.md)(FR-RPT-1~8, FR-GIT-227~235). `go test ./...` 통과, Playwright 431. **남은 것은 4차 검토의 개선 7건·수동 실사·P1/P2 기능**이며 전부 [GIT_REMAINING.md](./GIT_REMAINING.md) 에 있다 |
-| ~~`TC-BGU-9b` 기존 실패~~ | **해소** (트랙 4 0-A). 제품 결함이 아니라 테스트가 서버 관측을 클라이언트 단정의 배리어로 쓴 것이었다. 별개로 `location` 미지정 복귀의 조용한 무효는 실재했고 FR-BGR-7 로 닫았다 |
-| ~~프론트엔드 id 가 UUID 가 아니다~~ | **해소** — 엔터티 id 는 `crypto.randomUUID()` 로 만든다. 생성 명령의 다중 실행도 함께 닫았다 ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
-| 워크스페이스 PUT 의 last-write-wins | 미해소. 사람 둘이 각자 브라우저에서 동시에 편집하면 한쪽이 유실된다. 오케스트레이터 경로는 FR-SXE-\* 가 덮는다 (WORKSPACE_IDENTITY_SRS §2.4·§5) |
-| ~~사용자 인스턴스 v1 → v2 마이그레이션~~ | **완료** (2026-08-24 12:24). `~/.dongminal` 에 `.v1.bak` 3개, `panes.json`→`tools.json` 전환 확인 |
-| `~/.dongminal/runs.json` | 커밋된 코드에 소비자가 없는 산출물. 실행 중 바이너리에 문자열조차 없다 — 출처 불명의 Run 레코드 프로토타입 |
-| ~~`internal/shared/uuid`(Go v7) 가 죽은 패키지~~ | **해소** — 묶음 U 가 `toolId`·`reqId` 의 단일 생성기로 삼았다 (FR-UNI-6) |
-| ~~`toolId` 가 서버 카운터~~ | **해소** — uuid. 카운터가 영속되지 않아 모든 도구가 닫힌 상태로 재기동하면 `"1"` 부터 재사용됐다 (WORKSPACE_IDENTITY_SRS §2.7) |
-| ~~LAN 노출 시 엔터티 생성 실패~~ | **해소** — `crypto.randomUUID` 는 보안 컨텍스트 전용이라 `--expose` 접속에서 undefined 였고 폴백이 없었다. `newUUID()` 가 `getRandomValues` 로 폴백한다 (FR-UNI-3) |
-| `~/.dongminal/panels.json` | v1 시절 도구 기록. 소비자 없음. 삭제 여부 미정 |
-| `CLIENT_ATTACH_SRS` — Client↔Window attach 서버 등록, visibility 파생 | 미착수 (ENTITY_MODEL SRS §7 후속) |
-| 사용자 대상 기능 TODO | 저장소 루트 [README.md](../../README.md) |
+| `승인·구현중` SRS 의 남은 일 | 사용자의 실서버 확인이 남았다 — [DAEMON_SESSION_KEEP_SRS.md](./DAEMON_SESSION_KEEP_SRS.md)(운영 데몬의 첫 교체) · [HOT_REBIND_SRS.md](./HOT_REBIND_SRS.md)(포트·expose 리바인드) · [RUN_RECOVERY_SRS.md](./RUN_RECOVERY_SRS.md)(데몬이 죽은 뒤 Run 복구) · [EDITOR_LINK_LSP_SRS.md](./EDITOR_LINK_LSP_SRS.md)(V-ELS-10~12). [CHAT_WINDOW_SRS.md](./CHAT_WINDOW_SRS.md) 는 linux·win32 레이아웃 기준선이 남았다(푸시 뒤 `layout-baseline` 워크플로). 각 문서 머리의 「남은 것」 이 원본이다 |
+| 문서에 정했지만 구현하지 않은 UX | [UX_REMAINING_2026-11-20.md](./UX_REMAINING_2026-11-20.md) |
+| Linux·Windows 실행 확인 | 푸시 뒤 CI 가 확인한다. 이번 판에서 Windows 에 닿는 변경: LSP 의 Job Object 묶음(`ATTIC_FIX_SRS` D-ATF-13) |
+| AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | 완료. FR-STA-4 준비완료 사다리 2단계(화면 패턴)만 스펙에 남기고 구현을 보류했다 |
+| 워크스페이스 동시 편집 | 409 충돌은 [WORKSPACE_SAVE_CONFLICT_SRS.md](./WORKSPACE_SAVE_CONFLICT_SRS.md) 가 닫았다 — 남의 변경을 지우지 않고, 이번 저장을 포기한 뒤 원격을 채택한다 |
+| `~/.dongminal/panels.json` | v1 시절 도구 기록. 읽는 코드가 없다. 지울지 정하지 않았다 |
+| `CLIENT_ATTACH_SRS` — Client↔Window attach 서버 등록, visibility 파생 | 미착수 (`ENTITY_MODEL_RESTRUCTURE_SRS` §7 의 후속) |

@@ -68,7 +68,7 @@
 - [`./GIT_REVIEW4_SRS.md`](./GIT_REVIEW4_SRS.md) — FR-RPT-* (다시 그리기 보존 규약)
 - [`./GIT_FOLLOW_REMOVAL_SRS.md`](./GIT_FOLLOW_REMOVAL_SRS.md) — FR-FLW-* (핀만 그린다)
 - [`./archive/MOBILE_MODE_RFC.md`](./archive/MOBILE_MODE_RFC.md) — 모바일 드로어
-- [`./PARALLEL_DELIVERY_PLAN.md`](./PARALLEL_DELIVERY_PLAN.md) — 3축 병렬 실행 계획
+- [`./PARALLEL_DELIVERY_PLAN.md`](./archive/PARALLEL_DELIVERY_PLAN.md) — 3축 병렬 실행 계획
 
 ---
 

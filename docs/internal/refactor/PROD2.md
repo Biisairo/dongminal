@@ -1,7 +1,7 @@
 # 프로덕션 리팩토링 2차 — 분석과 처리 기록
 
 > 2026-11-05 · `main` · 기준 커밋 `fed7ef0e`
-> 착수 문서: `docs/internal/REFACTOR_PROD2_HANDOFF.md`. 1차 감사는 [`README.md`](README.md)(기준 `ba13ec92`, 종결 `0a581c12`)에 있다.
+> 착수 문서: `docs/internal/archive/REFACTOR_PROD2_HANDOFF.md`. 1차 감사는 [`README.md`](README.md)(기준 `ba13ec92`, 종결 `0a581c12`)에 있다.
 
 ## 1. 범위
 

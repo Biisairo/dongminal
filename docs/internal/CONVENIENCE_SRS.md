@@ -17,7 +17,7 @@
 | 4 | "cross platform — linux, wsl, window native" | ❌ **독립 후속** — PTY·IPC·symlink·셸 훅 전면 교체 |
 
 3·4 를 뺀 것은 축소가 아니라 **분리**다. 두 트랙의 착수점은
-[`./PARALLEL_DELIVERY_PLAN.md`](./PARALLEL_DELIVERY_PLAN.md) §후속 트랙에 남긴다.
+[`./PARALLEL_DELIVERY_PLAN.md`](./archive/PARALLEL_DELIVERY_PLAN.md) §후속 트랙에 남긴다.
 
 ### 1.2 범위 (Scope)
 
@@ -44,7 +44,7 @@
 - [`./archive/PANE_ATTENTION_NOTIFY_SRS.md`](./archive/PANE_ATTENTION_NOTIFY_SRS.md) — attention 레이어
 - `FR-BGU-*` — 백그라운드 도구 UI (진입점·모달·복귀). 본 SRS 묶음 X 가 확장한다
 - [`./archive/RENAME_TAB_SESSION_SRS.md`](./archive/RENAME_TAB_SESSION_SRS.md) — 탭 이름변경 계약
-- [`./PARALLEL_DELIVERY_PLAN.md`](./PARALLEL_DELIVERY_PLAN.md) — 3축 병렬 실행 계획
+- [`./PARALLEL_DELIVERY_PLAN.md`](./archive/PARALLEL_DELIVERY_PLAN.md) — 3축 병렬 실행 계획
 
 ---
 

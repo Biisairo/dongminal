@@ -1,6 +1,6 @@
 # 인계 — WS-2 헤드리스 멤버 (묶음 H, FR-HLM-*)
 
-> 근거 문서: [`ORCHESTRATION_V2_SRS.md`](./ORCHESTRATION_V2_SRS.md) **§3.2**
+> 근거 문서: [`ORCHESTRATION_V2_SRS.md`](../ORCHESTRATION_V2_SRS.md) **§3.2**
 > (FR-HLM-1~12, 검증 V-HLM-1~8). 계획: [`PARALLEL_DELIVERY_PLAN.md`](./PARALLEL_DELIVERY_PLAN.md)
 >
 > **FR-HLM 은 12번까지만 존재한다.** 브리핑에 13~17 이 있었다면 그것은 덮어써진

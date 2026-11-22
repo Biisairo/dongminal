@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현완료
 
-문서 규격: IEEE 29148. 근거 문서: `docs/internal/MOBILE_TUI_SCROLL_INPUT_ANALYSIS.md`
+문서 규격: IEEE 29148. 근거 문서: `docs/internal/archive/MOBILE_TUI_SCROLL_INPUT_ANALYSIS.md`
 요구사항 식별자 접두어: `FR-MTI-`
 
 ---

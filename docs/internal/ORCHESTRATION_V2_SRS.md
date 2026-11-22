@@ -53,7 +53,7 @@
 - [`./ENTITY_MODEL_RESTRUCTURE_SRS.md`](./ENTITY_MODEL_RESTRUCTURE_SRS.md) — 엔티티 모델
 - [`./archive/AGENT_ACTIVITY_PANEL_SRS.md`](./archive/AGENT_ACTIVITY_PANEL_SRS.md) — activity 레이어 (FR-AAP-*)
 - [`./archive/PANE_ATTENTION_NOTIFY_SRS.md`](./archive/PANE_ATTENTION_NOTIFY_SRS.md) — attention 레이어
-- [`./PARALLEL_DELIVERY_PLAN.md`](./PARALLEL_DELIVERY_PLAN.md) — 본 SRS 를 포함한 3축 병렬 실행 계획
+- [`./PARALLEL_DELIVERY_PLAN.md`](./archive/PARALLEL_DELIVERY_PLAN.md) — 본 SRS 를 포함한 3축 병렬 실행 계획
 
 ---
 

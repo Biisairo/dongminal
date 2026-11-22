@@ -1,7 +1,7 @@
 # 프로덕션 리팩토링 3차 — 조사 목록
 
 > 2026-11-21 · `main` · 기준 커밋 `f433b371`
-> 착수 문서: `docs/internal/REFACTOR_PROD3_HANDOFF.md`. 1차는 [`README.md`](README.md)(기준 `ba13ec92`), 2차는 [`PROD2.md`](PROD2.md)(기준 `fed7ef0e`)에 있다.
+> 착수 문서: `docs/internal/archive/REFACTOR_PROD3_HANDOFF.md`. 1차는 [`README.md`](README.md)(기준 `ba13ec92`), 2차는 [`PROD2.md`](PROD2.md)(기준 `fed7ef0e`)에 있다.
 > 이 문서는 **조사 결과**다. 소스는 아직 한 줄도 고치지 않았다.
 
 ## 0. 범위와 방법

@@ -11,9 +11,9 @@
 
 | 축 | SRS | 묶음 | 성격 |
 |---|---|---|---|
-| **오케스트레이션** | [`ORCHESTRATION_V2_SRS.md`](./ORCHESTRATION_V2_SRS.md) | I·H·C·P·V | Go 중심 + 프론트 신규 |
-| **Git** | [`GIT_SIDEBAR_TABS_SRS.md`](./GIT_SIDEBAR_TABS_SRS.md) | FR-SBT-1~33 | 프론트 전용 |
-| **편의** | [`CONVENIENCE_SRS.md`](./CONVENIENCE_SRS.md) | N·X | Go(데몬) + 프론트 |
+| **오케스트레이션** | [`ORCHESTRATION_V2_SRS.md`](../ORCHESTRATION_V2_SRS.md) | I·H·C·P·V | Go 중심 + 프론트 신규 |
+| **Git** | [`GIT_SIDEBAR_TABS_SRS.md`](../GIT_SIDEBAR_TABS_SRS.md) | FR-SBT-1~33 | 프론트 전용 |
+| **편의** | [`CONVENIENCE_SRS.md`](../CONVENIENCE_SRS.md) | N·X | Go(데몬) + 프론트 |
 
 접수한 항목과 SRS 의 대응은 다음과 같다. **누락 없음**을 여기서 고정한다.
 

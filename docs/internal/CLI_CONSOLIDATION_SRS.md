@@ -329,7 +329,7 @@ macOS 는 `open -na "Google Chrome" --args --app=<url>`, Linux 는
 **FR-REF-4** 다음 문서의 스크립트 호출 예시를 새 CLI 로 고친다: `README.md`,
 `docs/external/getting-started.md`, `docs/internal/architecture.md`,
 `docs/internal/README.md`, `docs/internal/GIT_MANUAL_CHECKLIST.md`,
-`docs/internal/GIT_REMAINING.md`, `docs/internal/NEXT_SESSION_PROMPT.md`,
+`docs/internal/GIT_REMAINING.md`, `docs/internal/archive/NEXT_SESSION_PROMPT.md`,
 `docs/internal/archive/ENTITY_MODEL_HANDOFF.md`, `docs/internal/design/README.md`.
 
 **FR-REF-5** `docs/external/getting-started.md` 의 표류(§2.5 — 존재하지 않는

@@ -351,7 +351,7 @@
 | C9.5 | 결과 개수 표시 | |
 | C9.6 | 닫기 | Esc |
 
-### C10. 사이드바 (`web/js/core/`)
+### C10. 목록 패널 (전의 사이드바, `web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C10.1 | 창 목록 표시 | 이름 + 활성 표시 |
@@ -477,7 +477,7 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 | E2.4 | **Split (keepFocus)** → 포커스 유지 | dmctl/SSE로 `splitV` + keepFocus → `.pn.focused` = 기존 분할 칸 유지, API PUT body에서 `focusedPane` 변경 없음 확인 |
 | E2.5 | **탭 닫기** — 마지막 탭 아님 | `×` 클릭 → `.pn-tab.active` = 남은 탭, `.pn.focused` 유지 |
 | E2.6 | **탭 닫기** — 마지막 탭 (분할 칸 제거) | 유일한 탭 `×` 클릭 → `.pn` 개수 감소, `.pn.focused` = fallback 분할 칸, activeWindow 유지, **새 activeWindow의 `focusedPane` 설정 여부** 확인 |
-| E2.7 | **창 전환** → 포커스 복원 | 사이드바 창 클릭 → `.si.active` 변경, `#area` 재렌더, `.pn.focused` = 해당 창의 focusedPane |
+| E2.7 | **창 전환** → 포커스 복원 | 목록 패널 창 클릭 → `.si.active` 변경, `#area` 재렌더, `.pn.focused` = 해당 창의 focusedPane |
 | E2.8 | **setFocus** — 분할 칸 mousedown | 비활성 분할 칸 클릭 → `.pn.focused` 이동, API PUT body에서 `focusedPane` 동기화 확인 |
 | E2.9 | **_focusLocation** — 리모트 포커스 | SSE `focus` 명령 수신 → 지정 location으로 `.pn.focused` 이동, `activeTab` 변경, 이전 창 `focusedPane` 저장 확인 |
 | E2.10 | **검색 열린 상태에서 포커스 이동** | 검색창 열림 + pane 전환 → `page.evaluate(() => app.panes.get(id).search.decorations?.length)` 로 초기화 확인, 새 pane에서 재검색 |
@@ -491,7 +491,7 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 | E3.2 | 탭 drag & drop — 같은 분할 칸 내 순서 변경 | `.pn-tab` 드래그 → 순서 변경, `.pn-tab.active` 유지 |
 | E3.3 | 탭 drag & drop — 다른 분할 칸으로 이동 | source → target 분할 칸 body drop → source 분할 칸의 `.pn` 제거/축소, target에 탭 추가 |
 | E3.4 | 창 목록 drag & drop 순서 변경 | `.si` 드래그 → 창 순서 변경, `save` 호출 |
-| E3.5 | 사이드바 리사이즈 → CSS 변수 `--sb-w` | `#sb-handle` 드래그 → `documentElement` style 확인, localStorage `sidebarWidth` |
+| E3.5 | 목록 패널 리사이즈 → CSS 변수 `--sb-w` | `#sb-handle` 드래그 → `documentElement` style 확인, localStorage `sidebarWidth` |
 
 ### E4. 설정 및 테마
 | # | 테스트 | 검증 방법 |

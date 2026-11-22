@@ -51,7 +51,7 @@
 - `docs/internal/archive/REMOTE_COMMAND_RESULT_SRS.md` — `creatingActions`, `reqId` echo
 - `docs/internal/archive/UUID_IDENTITY_SRS.md` — 컬럼명·필드명만 적용되고 실제 id 체계에는
   적용되지 않았다 (§2.5)
-- `docs/internal/NEXT_SESSION_PROMPT.md` §0-B — 본 SRS 의 착수 지시
+- `docs/internal/archive/NEXT_SESSION_PROMPT.md` §0-B — 본 SRS 의 착수 지시
 
 ### 1.5 개요 (Overview)
 
