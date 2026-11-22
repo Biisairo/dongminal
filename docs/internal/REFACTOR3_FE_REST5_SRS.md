@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R5 — 남은 큰 함수·큰 파일·FileTree 부품화 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: R5c 의 `ui/term-pane.js`(776) 하나 — e2e 를 돌릴 수 있는 자리에서 나눈다(D-FR5-9). R5a(CSS)·R5b(함수)·R5d(FileTree)와 그 밖의 R5c 는 닫혔다.
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-22 (프로덕션 리팩토링 3차의 남은 부채 · `REFACTOR3_FE_REST3_SRS` §6 「남긴 것」 · `FE_MODULE_BOUNDARY_SRS` §7.1a 기준선 · `architecture.md` 「FileTree 는 아직 원형 확장이다」)
 - 사용자 결정: "알아서 끝까지", 하위 묶음 하나가 끝나면 커밋한다. 동작을 바꿔야만 나눌 수 있거나 범위를 줄여야 하면 멈추고 묻는다. 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -34,7 +33,7 @@
 
 - 위임자 제거(부르는 쪽을 부품 경로로 옮기기). 다음 리팩토링이다(HANDOFF_4 §4).
 - 동작·화면·요청·저장 값의 변경. 바꿔야만 나눌 수 있으면 멈추고 묻는다.
-- `e2e/` 파일. 이 묶음은 e2e 를 고치지 않는다 — e2e 가 이름으로 읽는 것(메서드·필드·CSS 파일명)은 그대로 둔다.
+- `e2e/` 파일. 이 묶음은 e2e 를 고치지 않는다 — e2e 가 이름으로 읽는 것(메서드·필드·CSS 파일명)은 그대로 둔다. 예외는 하나다: D-FR5-9 의 `term-pane.js` 를 나눌 때 `reconnect-storm` 하네스가 싣는 파일 목록에 줄을 더했다(합친 뒤 주 세션, e2e 를 돌린 자리).
 
 ### 1.4 불변 조건
 
@@ -99,7 +98,7 @@
 | D-FR5-6 | (R5b) 100줄 상한은 새 단위 시험 `fn-size.test.mjs` 가 모든 함수(주석 포함 줄 수)에 건다. 아직 남은 것은 시험 안의 남김 목록에 이유와 함께 둔다 | `method-size.test.mjs` 는 이름으로 찾은 함수의 코드 줄만 잰다. 즉시 실행 함수·팩토리처럼 이름이 없는 자리는 거기 들 수 없어 다시 불어도 보이지 않는다 |
 | D-FR5-7 | (R5c) e2e 가 파일을 홀로 싣는 하네스(`event-timer-hub-contract` 의 `git-part.js`+`git-poll.js`, `reconnect-storm` 의 `term-pane.js`·`term-input.js`·`ui-kit.js` 등)가 지나는 경로는 그 파일 안에 남긴다. `git-poll.js` 에서는 관측 한 번의 받아들이기(`_applyStatus` → `_applyNetFail`·`_applyError`·`_adoptObs`·`_paintObs`·`_fail`)를 옮기지 않고, 하네스가 부르지 않는 새로고침·뷰 다시 받기와 워치독을 옮긴다 | 이 작업 트리는 `e2e/` 를 고치지 않는다. 하네스가 싣지 않는 파일의 클래스를 그 경로가 부르면 하네스가 `ReferenceError` 로 깨진다. 처음에는 받아들이기를 `GitStatusApply` 로 옮겼다가, 하네스가 `_fail()` 경로로 백오프를 재는 것(T-5·T-7)을 보고 되돌렸다 |
 | D-FR5-8 | (R5d) 부품은 상태를 갖지 않는다 — 펼침·선택·조작·관측 통로는 탐색기 인스턴스에 남고, 부품은 탐색기의 이름을 **전부** `this.tree.X` 로 부른다. 위임자는 부품 메서드 전부이고 부품 파일 끝의 표(`Controller.delegate`)가 둔다 | e2e 와 시험이 탐색기 인스턴스의 필드(`_sel`·`_open`·`_kids` …)를 읽고 메서드(`_paintAll`·`_rollup`·`_after` …)를 갈아 끼운다. 부품 사이의 호출까지 원형을 지나야 갈아 끼운 것을 본다(INV-R5-2) — 그래서 부품끼리 직접 부르지 않는다. 필드 소유를 부품으로 옮기는 일은 위임자 제거와 함께 다음 리팩토링이다. GitPanel 단계 7 은 위임자를 클래스 본문에 두었으나, 여기서는 이름이 백 개를 넘어 App 컨트롤러와 같은 표를 쓴다 |
-| D-FR5-9 | (R5c) `ui/term-pane.js`(776)는 이 묶음에서 나누지 않는다 | e2e `reconnect-storm` 이 `term-pane.js`·`term-socket.js`·`term-input.js`·`ui-kit.js` 를 홀로 싣고 전역을 손으로 세운다. 그 하네스의 주석이 규약을 적어 두었다 — "`term-pane.js` 가 새 전역을 쓰면 **같은 변경에서** 여기 한 줄이 늘어야 한다". 이 작업 트리는 `e2e/` 를 고치지 않는다. 게다가 터미널의 몸(`_handleOutput`·`_doFlush`·`_onCwd`·`_uploadFiles`)은 e2e 여섯이 인스턴스에서 감싸거나 부르고, 크기 판정(`_refreshForWidth`·`_applyPtySize`·`ptySize`)은 단위 시험이 갈아 끼운다. 하네스가 지나지 않는 길(전송·보류 배너·종료 출구·출력 파이프라인)만 늦게 세우는 부품으로 옮기면 하네스는 지나지만, 500줄 아래까지 가려면 크기 판정과 `open` 까지 옮겨야 하고 그것은 e2e 로만 확인된다. 나누는 안: 부품 `TermTransfer`(전송 셋) · `TermHeld`(보류 배너 셋) · `TermOutput`(`_handleOutput`·`_oscCarryAt`·`_doFlush`·`_onCwd`) · `TermFit`(크기 판정) — 같은 이름의 위임자를 두고 부품은 `this.t.X` 로 부른다. 하네스에 그 파일들을 싣는 줄을 함께 더한다 |
+| D-FR5-9 | (R5c) `ui/term-pane.js`(776)는 분기 작업 트리에서 나누지 않고, 합친 뒤 e2e 를 돌릴 수 있는 주 세션에서 아래 안대로 나눈다(2026-11-22 구현, §6) | e2e `reconnect-storm` 이 `term-pane.js`·`term-socket.js`·`term-input.js`·`ui-kit.js` 를 홀로 싣고 전역을 손으로 세운다. 그 하네스의 주석이 규약을 적어 두었다 — "`term-pane.js` 가 새 전역을 쓰면 **같은 변경에서** 여기 한 줄이 늘어야 한다". 이 작업 트리는 `e2e/` 를 고치지 않는다. 게다가 터미널의 몸(`_handleOutput`·`_doFlush`·`_onCwd`·`_uploadFiles`)은 e2e 여섯이 인스턴스에서 감싸거나 부르고, 크기 판정(`_refreshForWidth`·`_applyPtySize`·`ptySize`)은 단위 시험이 갈아 끼운다. 하네스가 지나지 않는 길(전송·보류 배너·종료 출구·출력 파이프라인)만 늦게 세우는 부품으로 옮기면 하네스는 지나지만, 500줄 아래까지 가려면 크기 판정과 `open` 까지 옮겨야 하고 그것은 e2e 로만 확인된다. 나누는 안: 부품 `TermTransfer`(전송 셋) · `TermHeld`(보류 배너 셋) · `TermOutput`(`_handleOutput`·`_oscCarryAt`·`_doFlush`·`_onCwd`) · `TermFit`(크기 판정) — 같은 이름의 위임자를 두고 부품은 `this.t.X` 로 부른다. 하네스에 그 파일들을 싣는 줄을 함께 더한다 |
 
 ## 4. 검증
 
@@ -114,6 +113,7 @@
 | TC-FR5-30 | 단위(`file-tree-surface.test.mjs`, 나누기 전에 GREEN): FR-FR5-30 의 표면·대표 동작 |
 | TC-FR5-31 | 게이트·단위: `make gates` · `npm run -s unit` · `npm run -s typecheck` · eslint 0 |
 | TC-FR5-40 | e2e(합친 뒤 주 세션): §6 의 영역별 spec 이 HEAD 와 같은 결과다 |
+| TC-FR5-50 | 단위(`term-pane-surface.test.mjs`, 나누기 전에 GREEN): `TerminalTool` 원형 이름 99개의 종류와, 인스턴스에 갈아 끼운 `_doFlush`·`_onCwd`·`_downloadFile`·`_oscCarryAt`·`_applyPtySize`·`_followsPty`·`doFit`·`_refreshForWidth`·`_heldBanner`·`_sendUserFrame`·`_heldHide`·`_showOverlay`·`_toast`·`_fmtSize` 를 부르는 길. e2e: `term-*`·`terminal`·`reconnect-storm`·`mobile-keybar*`·업로드 관련 |
 
 ## 5. 동작 변경 기록
 
@@ -153,12 +153,21 @@
 
 **합친 뒤 e2e (주 세션, 2026-11-22, HEAD `22f590aa`).** 위 표의 spec 중 있는 것 104개(1,137건)를 한 번에 돌렸다 — 통과 1,134 · 실패 0 · 흔들림 0 · 건너뜀 3. REST5 회귀는 없다. TC-FR5-40 을 닫는다.
 
-**남긴 것.** `ui/term-pane.js`(776) — D-FR5-9. 위임자 제거와 부품의 필드 소유(§1.3 · D-FR5-8). 저장 기계의 필드를 컨트롤러로 옮기는 일(FR-FR5-22).
+**D-FR5-9 — `term-pane.js` 나누기 (주 세션, 2026-11-22).**
+
+| 커밋 | 요점 |
+|---|---|
+| `e46728ba` | 시험 고정 — `term-pane-surface.test.mjs` TC-FR5-50(13건). 나누기 전 코드에서 GREEN |
+| (이 커밋) | `term-pane.js` 776 → 436: 부품 넷 — `TermTransfer`(`term-transfer.js` 127, `xfer` — `_wireDnd`·`_downloadFile`·`_uploadFiles`·`_fmtSize`) · `TermHeld`(`term-held.js` 50, `heldBar` — `_heldMaybeShow`·`_heldBanner`·`_heldHide`·`_heldSend`·`_heldDiscard`) · `TermOutput`(`term-output.js` 84, `output` — `_handleOutput`·`_oscCarryAt`·`_doFlush`·`_onCwd`) · `TermFit`(`term-fit.js` 147, `sizer` — `_followsPty`·`_applyPtySize`·`_onSize`·`doFit`·`applyFontSize`·`ptySize`·`_refreshForWidth`). 변환은 기계적이다 — 메서드 몸의 `this` → `this.pane`(타이머 주인도 칸 그대로), 앞 주석은 그 메서드와 함께 간다. 부품은 상태를 갖지 않고 칸의 이름을 전부 `this.pane.X` 로 부른다(INV-R5-2). 위임자는 부품 메서드 전부이고 부품 파일 끝의 `Controller.delegate(TerminalTool,…)` 표가 둔다. 부품은 생성자에서 `_wireDnd` 보다 먼저 선다. `index.html` 네 줄(`term-pane.js` 바로 뒤) · 하네스 묶음 `TERM_PANE` 이 기반 클래스 둘과 부품 넷을 싣는다 · e2e `reconnect-storm` 하네스가 `component.js`·`controller.js` 와 부품 넷을 싣는다. JS 기준선 `1 · 776` → `0 · 500`(최대는 `core/app.js`) |
+
+검증: `make gates` · `npm run -s unit`(1,523) · `npm run -s typecheck` · `make lint` 0. e2e 22 spec(`term-*`·`terminal`·`reconnect-storm`·`mobile-keybar`·`mobile-keybar-touch`·`file-transfer`·`explorer-transfer-ignore`·`mobile-android-touch`·`mobile-tui-input-touch`·`regression-pane-scroll`·`sidebar-collapse`·`small-traffic`·`statusbar-xss`·`soft-reload`·`editor-cwd-inherit`·`font-size`·`git-live-triggers`·`focus-owner`·`m9-p1-ui`·`sse-resilience`·`tool-list-unknown`·`tab-width`) 255 통과 · 실패 0.
+
+**남긴 것.** 위임자 제거와 부품의 필드 소유(§1.3 · D-FR5-8). 저장 기계의 필드를 컨트롤러로 옮기는 일(FR-FR5-22).
 
 **SRS 와 다르게 한 것.**
 
 1. `git-poll.js` 에서 처음에는 관측 한 번의 받아들이기를 부품 `GitStatusApply` 로 옮겼다가 되돌렸다 — e2e `event-timer-hub-contract` 가 `git-part.js`+`git-poll.js` 만 실어 그 길(`_fail` 의 백오프)을 잰다. 대신 하네스가 지나지 않는 새로고침·뷰 다시 받기와 워치독을 옮겼다(D-FR5-7).
-2. FR-FR5-21 의 클래스 파일 가운데 `term-pane.js` 는 나누지 않았다(D-FR5-9).
+2. FR-FR5-21 의 클래스 파일 가운데 `term-pane.js` 는 분기 작업 트리에서 나누지 않고 합친 뒤 주 세션에서 나눴다(D-FR5-9). 그때 `e2e/reconnect-storm` 하네스를 고쳤다(§1.3 의 예외).
 3. `app.js` 는 저장 기계만으로는 509줄이라 저장이 쓰는 `_etagOf` 도 함께 옮겼다(FR-FR5-22 목록 밖 하나).
 4. `FileTree` 원형에 이름이 하나 늘었다 — 생성자를 100줄 아래로 줄이며 뺀 `_buildDom`(TC-FR5-30 이 적는다).
 5. 진단 오버레이의 시각 기준(`t0`)은 생성자에서 잡는다 — 종전에는 요소를 붙인 직후였다. 차이는 같은 동기 구간 안의 몇 줄이고 `?diag=1` 에서만 보이는 로그의 시각이다.

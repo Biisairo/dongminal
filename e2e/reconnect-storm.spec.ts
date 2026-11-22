@@ -35,6 +35,11 @@ const DROP_ENTRIES_JS = join(process.cwd(), 'web', 'js', 'ui', 'drop-entries.js'
 // EVENT_TIMER_HUB_SRS INV-1: `TermPane` 의 타이머는 전역 `TIMERS` 를 지난다.
 // 재는 것은 바뀌지 않는다 — 백오프·종단 판정은 여전히 이 클래스의 것이다.
 const TIMER_HUB_JS = join(process.cwd(), 'web', 'js', 'core', 'timer-hub.js');
+// REFACTOR3_FE_REST5_SRS D-FR5-9: 터미널의 전송·보류 배너·출력·크기 판정이 부품 넷으로 갈라졌다. 부품 파일 끝의
+// 위임자 표가 `Controller.delegate` 를 부르므로 기반 클래스 둘을 함께 싣는다.
+const BASE_JS = ['component.js', 'controller.js'].map((f) => join(process.cwd(), 'web', 'js', 'core', 'base', f));
+const TERM_PARTS_JS = ['term-transfer.js', 'term-held.js', 'term-output.js', 'term-fit.js']
+  .map((f) => join(process.cwd(), 'web', 'js', 'ui', f));
 
 // term-pane.js 가 기대하는 전역 중 재연결 경로가 쓰는 것만 세운다.
 // WebSocket 은 생성 횟수를 세고 마지막 인스턴스를 노출하는 가짜다.
@@ -97,7 +102,9 @@ async function loadTermPane(page: Page) {
   await page.addScriptTag({ path: DROP_ENTRIES_JS });
   await page.addScriptTag({ path: UI_KIT_JS });
   await page.addScriptTag({ path: TERM_SOCKET_JS });
+  for (const path of BASE_JS) await page.addScriptTag({ path });
   await page.addScriptTag({ path: TERM_PANE_JS });
+  for (const path of TERM_PARTS_JS) await page.addScriptTag({ path });
   await page.addScriptTag({ path: TERM_INPUT_JS });
   // `class` 선언은 전역 렉시컬 환경에 들어가고 window 에는 붙지 않는다
   // (repaint.js 의 `function` 선언과 다른 점). 이름으로 꺼내 올려둔다.

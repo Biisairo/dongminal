@@ -420,7 +420,7 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 코드가 아니거나 검사 코드이고, `i18n/ko.js`·`en.js` 는 **데이터**라 키가 늘면 줄이
 늘고 분할이 뜻을 갖지 않는다.
 
-    500줄초과=1 · 최대=776
+    500줄초과=0 · 최대=500
 
 **CSS 기준선** (2026-11-21, `REFACTOR3_FE_REST4_SRS` FU-11 · D-FR4-11). 같은 게이트가 `web/*.css`(vendor 제외)를 같은
 두 수로 잰다. 게이트를 세운 순간은 500줄 초과 5 · 최대 2,545(`style.css`)였고, `style.css` 를 원래 순서의 연속 구간 여덟으로
@@ -434,6 +434,8 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 | 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **18** |
 | 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,020** (`core/app-git.js`) |
 
+> 1 → 0 · 최대 776 → 500 (2026-11-22, `REFACTOR3_FE_REST5_SRS` D-FR5-9). `ui/term-pane.js`(776)의 전송·보류 배너·출력·크기 판정을 부품 넷 — `TermTransfer`(`term-transfer.js` 127) · `TermHeld`(`term-held.js` 50) · `TermOutput`(`term-output.js` 84) · `TermFit`(`term-fit.js` 147) — 으로 옮겨 436. 500줄 넘는 JS 파일이 없다. 최대 파일은 `core/app.js` 500 이다.
+>
 > 2 → 1 (2026-11-22, `REFACTOR3_FE_REST5_SRS` FR-FR5-21). `ui/ui-kit.js`(582)의 대화상자 스택(`_dlg*`·`dialogOpen`·`_focusMaybeQuiet`)을 `DialogStack`(`dialog-stack.js` 135)로 옮겨 458. 남은 하나는 `ui/term-pane.js` 776 이다 — e2e `reconnect-storm` 이 그 파일을 홀로 싣는 하네스이고 인스턴스 메서드를 갈아 끼우는 e2e 가 많아, e2e 를 돌릴 수 있는 자리에서 나눈다(`REFACTOR3_FE_REST5_SRS` D-FR5-9).
 
 > 4 → 2 · 최대 971 → 776 (2026-11-22, `REFACTOR3_FE_REST5_SRS` R5d). `FileTree` 의 원형 확장 여섯을 부품 여덟로 옮겼다 — `ui/file-tree-paint.js`(971)가 `file-tree-load.js`(468) · `file-tree-select.js`(248) · `file-tree-paint.js`(307)로 갈렸다. 남은 둘은 `ui/term-pane.js` 776 · `ui/ui-kit.js` 582 다. 최대 파일은 `ui/term-pane.js` 776 이다.

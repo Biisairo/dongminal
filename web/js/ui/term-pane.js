@@ -10,6 +10,9 @@ class TerminalTool {
     this._slot=0;
     // FR-OPT-12-1: 연결·재접속·송신 큐는 `TermSocket` 이 갖는다.
     this._sock=new TermSocket(this);
+    // REFACTOR3_FE_REST5_SRS D-FR5-9: 전송·보류 배너·출력·크기 판정은 부품이 맡는다. 부품은 상태를 갖지 않고 이 칸의
+    // 이름을 `this.pane.X` 로 부르며, 같은 이름의 위임자가 원형에 있다(부품 파일 끝의 표).
+    this.xfer=new TermTransfer(this); this.heldBar=new TermHeld(this); this.output=new TermOutput(this); this.sizer=new TermFit(this);
     this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false;
     // FR-RCS-1: 도구가 사라졌다는 서버의 통보(OP.EXIT)를 받았는가. 서면 재연결을
     // 영구히 멈춘다.
@@ -43,59 +46,6 @@ class TerminalTool {
     this.el.appendChild(drop);
     this._wireDnd();
     this._wireContextMenu();
-  }
-  // 파일·폴더 드롭 업로드.
-  _wireDnd(){
-    // FR-M9-30: 아래 `drop` 과 **같은 판정**이다. 두 문장이 갈리면 그 차이가 곧 결함이다.
-    this.el.addEventListener('dragover',e=>{e.preventDefault();if(isFileDrag(e)){e.stopPropagation();this.el.classList.add('dragover')}});
-    this.el.addEventListener('dragleave',()=>this.el.classList.remove('dragover'));
-    /**
-     * TERMINAL_FOLDER_DROP_SRS FR-TFD-10: **폴더도 받는다.**
-     *
-     * `dataTransfer.files` 만 보면 폴더는 오지 않거나 크기 0 의 실패가 된다 —
-     * 그런데 README·features.md 는 "폴더를 놓으면 하위 구조가 그대로 올라간다"
-     * 고 두 표면을 함께 말해 왔다. 없던 것은 기능이 아니라 이음매다.
-     *
-     * `items` 를 **먼저** 본다 (`dropEntries`). entry API 가 없는 브라우저에서만
-     * `files` 로 내려가며, 그때는 지금까지와 같은 동작이다 (파일만 올라간다).
-     *
-     * 한계(`EDITOR_UPLOAD_MAX_ENTRIES`)는 탐색기와 **같은 값**을 쓴다 — 같은
-     * 한 가지 사실을 두 벌로 적으면 한쪽만 바뀐다.
-     */
-    this.el.addEventListener('drop',e=>{
-      /**
-       * M9_SRS FR-M9-30 (사용자 접수 2026-09-14): **판정은 `dragover` 와 같은
-       * 문장이어야 한다.**
-       *
-       *   이전 동작: `files` 나 `items` 가 하나라도 있으면 파일 드롭으로 보고
-       *             `stopPropagation()` 했다
-       *   새  동작: `types` 에 `Files` 가 있을 때만. 바로 위 `dragover` 가 쓰는
-       *             그 판정이다
-       *   이유:     **탭 드래그에도 `items` 가 실리는 판이 있다.** 그때 터미널이
-       *             그 드롭을 삼켜 `.pn-body` 의 drop 이 영영 돌지 않고, 분할이
-       *             조용히 사라진다. 사용자 콘솔 로그가 그 자리다 —
-       *             `ZONE right` · `DROP` 발생 · `app.drag='tab'` 인데
-       *             `splitPaneWithTab` 은 불리지 않았다
-       *
-       * 두 핸들러가 같은 물음에 다른 문장으로 답하면 그 차이가 곧 결함이다.
-       * 파일·폴더 드롭은 둘 다 `types` 에 `Files` 를 싣는다 (폴더는 `items` 의
-       * `webkitGetAsEntry` 로 읽지만 `types` 는 같다).
-       */
-      if(!isFileDrag(e)) return;
-      const hasFiles=e.dataTransfer.files&&e.dataTransfer.files.length;
-      e.preventDefault();e.stopPropagation();
-      this.el.classList.remove('dragover');
-      walkDrop(e,EDITOR_UPLOAD_MAX_ENTRIES).then(r=>{
-        if(!r){ if(hasFiles) this._uploadFiles(e.dataTransfer.files); return }
-        // FR-TFD-14: 상한을 넘으면 **하나도** 올리지 않는다. 절반만 올라간
-        // 폴더는 되돌릴 길이 없다.
-        if(r.over){
-          this._toast(EDITOR_UPLOAD_TOO_MANY.replace('%n',EDITOR_UPLOAD_MAX_ENTRIES),'err',TOAST_ERR_MS);
-          return;
-        }
-        if(r.items.length) this._uploadFiles(r.items);
-      });
-    });
   }
   _wireContextMenu(){
     /**
@@ -349,40 +299,6 @@ class TerminalTool {
     this._heldMaybeShow();
   }
 
-  // ── 끊긴 동안의 입력 (UX_BATCH11_SRS FR-HIN-4~8) ──
-  // FR-HIN-4: 다시 붙었고 보류분이 있으면 배너를 세운다. 저절로 보내지 않는다.
-  _heldMaybeShow(){ if(this._sock.heldBytes>0) this._heldBanner() }
-  _heldBanner(){
-    let b=this.el.querySelector('.tp-held');
-    if(!b){
-      b=document.createElement('div');b.className='tp-held';
-      b.setAttribute('role','status');
-      const msg=document.createElement('div');msg.className='tp-held-msg';
-      const pre=document.createElement('code');pre.className='tp-held-pre ui-scroll-sm';
-      const acts=document.createElement('div');acts.className='tp-held-acts';
-      acts.appendChild(UIKit.button({label:t('term.held_send'),kind:'primary',size:'sm',onClick:()=>this._heldSend()}));
-      acts.appendChild(UIKit.button({label:t('term.held_discard'),size:'sm',onClick:()=>this._heldDiscard()}));
-      b.append(msg,pre,acts);
-      this.el.appendChild(b);
-    }
-    const n=this._sock.heldBytes;
-    b.querySelector('.tp-held-msg').textContent=t('term.held_title').replace('%d',n)+(this._sock.heldOver?' '+t('term.held_over'):'');
-    // 공유 `dec` 를 쓰지 않는다 — 프레임 경계에서 갈린 글자를 잇느라 stream 상태를 쥔다.
-    const d=new TextDecoder();
-    b.querySelector('.tp-held-pre').textContent=termHeldPreview(this._sock.held.map(m=>d.decode(m.subarray(1),{stream:true})).join('')+d.decode());
-  }
-  _heldHide(){ const b=this.el.querySelector('.tp-held'); if(b) b.remove() }
-  // FR-HIN-5: 담긴 순서대로. 그 사이 다시 끊기면 다시 보류된다.
-  _heldSend(){
-    for(const m of this._sock.takeHeld()) this._sendUserFrame(m);
-    this._heldHide();
-    this.focus();
-  }
-  _heldDiscard(){
-    this._sock.takeHeld();
-    this._heldHide();
-    this.focus();
-  }
   _wsLost(kind){
     if(kind==='close') this._showOverlay(t('term.disconnected'),t('term.reconnecting'));
     else this._showOverlay(t('term.conn_error'),t('term.reconnecting'));
@@ -435,137 +351,6 @@ class TerminalTool {
     try{this._decoder=new TextDecoder('utf-8',{fatal:false});this._outputBuf=''}catch{}
   }
   write(s){if(this.term)try{this.term.write(s)}catch{}else this._buf.push(s)}
-  /**
-   * FR-M9-3: **크기의 주인이 아닌 창은 PTY 를 따른다** (D-M9-3).
-   *
-   * 주인은 `resizeCheck` 가 이미 가른다 (FR-WSL-14 — 슬롯까지 묻는다). 없던 것은
-   * 판정이 아니라 **그 사실을 나머지에게 말하는 길**이었고, 이 값이 그것이다.
-   *
-   * 크기를 아직 못 받았으면 따르지 않는다 — 옛 서버에 붙은 탭은 종전대로 돈다.
-   */
-  _followsPty(){
-    if(!(this._ptyCols>0&&this._ptyRows>0)) return false;
-    if(!window.app||!window.app.resizeCheck) return false;
-    return !window.app.resizeCheck(this.id,this._slot);
-  }
-
-  /**
-   * FR-M9-3: 받은 크기로 xterm 을 세운다. 남는 폭은 여백이다.
-   *
-   * 주인에게는 하지 않는다 — 그쪽의 진실은 자기 `fit()` 이고, 그 결과가 PTY 로
-   * 가서 다시 이 통보가 되어 돌아온다. 주인까지 따르게 하면 그 고리가 자기를
-   * 먹는다.
-   */
-  _applyPtySize(){
-    if(!this.term||!this._followsPty()) return;
-    if(this.term.cols===this._ptyCols&&this.term.rows===this._ptyRows) return;
-    const had=this.term.cols;
-    try{this.term.resize(this._ptyCols,this._ptyRows)}catch{}
-    // FR-M10-2 의 재생을 지금 받지 않는다 — dim 인 화면은 아무도 안 기다린다(FR-OTR-1·E-7).
-    if(this.term.cols!==had) this._widthDebt=true;
-  }
-
-  /**
-   * FR-M9-3: 서버가 통보한 PTY 크기 (4 바이트 — cols 2 + rows 2, 빅엔디언).
-   *
-   * 0 은 "모른다" 이고 서버는 그것을 보내지 않는다. 그래도 막는 것은, 0 을 그대로
-   * 쓰면 `term.resize(0,0)` 이 화면을 잃기 때문이다.
-   */
-  _onSize(p){
-    if(!p||p.length<4) return;
-    const dv=new DataView(p.buffer,p.byteOffset,p.length);
-    const cols=dv.getUint16(0,false), rows=dv.getUint16(2,false);
-    if(!(cols>0&&rows>0)) return;
-    this._ptyCols=cols; this._ptyRows=rows;
-    this._applyPtySize();
-  }
-
-  /**
-   * FR-M9-3: 비소유자의 `fit()` 은 **자기 폭으로 되돌리는 일**이다.
-   *
-   * `doFit` 은 렌더·레이아웃·키보드 등 여러 자리가 조건 없이 부른다. 그 전부에
-   * 판정을 심는 대신 여기 하나에 둔다 — 판정 자리가 둘이면 한쪽만 고쳐진다.
-   * 소유자의 동작은 종전과 완전히 같다.
-   */
-  doFit(){
-    if(this._followsPty()){ this._applyPtySize(); return }
-    if(this.fit)try{this.fit.fit()}catch{}
-    // FR-M10-1: 여기가 **자기 폭이 정해지는 유일한 자리**다. 소유자로서 잰 값만
-    // 기록한다 — 비소유자의 경로는 위에서 이미 돌아갔다.
-    if(this.term&&this.term.cols>0){ this._ownCols=this.term.cols; this._ownRows=this.term.rows }
-  }
-
-  /**
-   * FR-FSS-15·16: 지금 값을 얹고 **다시 잰다**.
-   *
-   * 값만 얹으면 화면이 어긋난 채 남는다 — 글자가 커지면 같은 픽셀 상자에 들어가는
-   * `cols`·`rows` 가 줄고, PTY 는 옛 크기를 믿은 채 줄을 나눈다. `doFit` 이
-   * `fit()` → `onResize` → `_sendResize` 의 길을 이미 갖고 있으므로 그것을 딛는다
-   * (보낼 자격은 `resizeCheck` 가 종전대로 가린다, M10_SRS FR-M10-1).
-   */
-  applyFontSize(){
-    if(!this.term) return;
-    const px=termFontSizeNow();
-    if(this.term.options.fontSize===px) return;
-    this.term.options.fontSize=px;
-    this.doFit();
-  }
-
-  /**
-   * FR-M10-1: 소유자가 PTY 에 보낼 **자기 크기**.
-   *
-   * `resendWindowSizes` 가 `term.cols` 를 그대로 보내던 것이 M10-B1 이었다 — 비소유
-   * 동안 그 칸이 PTY 폭으로 덮여 있어, 되찾아도 물려받은 폭이 되돌아갔다 (§2.2).
-   *
-   * 보이는 pane 은 상자가 있으므로 **다시 잰다**. 숨은 pane 은 상자가 0 이라 `fit`
-   * 을 걸면 폭을 잃으므로 기억한 값을 쓴다 — 그것이 `_ownCols` 가 있는 이유다.
-   *
-   * 폭이 바뀌었으면 전량 재생을 건다 (FR-M10-2). **이 자리에만 건다** — `doFit` 에
-   * 걸면 창을 드래그할 때마다 tail 을 통째로 다시 받는다 (D-M10-3).
-   */
-  ptySize(){
-    if(!this.term) return null;
-    const had=this.term.cols;
-    const vis=!!(this.el&&this.el.classList.contains('vis'));
-    if(vis) this.doFit();
-    const cols=this._ownCols>0?this._ownCols:this.term.cols;
-    const rows=this._ownRows>0?this._ownRows:this.term.rows;
-    if(!(cols>0&&rows>0)) return null;
-    // FR-OTR-2·8: 빚은 라이브일 때만 근거다. FR-OTR-6·9: 서버가 대체 화면이라 하면 앱의 재그리기에 맡긴다.
-    // FR-OTR-10: 숨은 칸은 fit 하지 않아 `cols!==had` 가 풀리지 않는다 — 보일 때 갚는다.
-    if(cols!==had||(this._widthDebt&&this._seqLive)){ if(this._srvAlt||!vis) this._widthDebt=true; else this._refreshForWidth() }
-    return {cols,rows};
-  }
-
-  /**
-   * FR-M10-2: 스크롤백을 **지금 폭으로 다시 그린다.**
-   *
-   * 좌표를 버리면 다음 접속의 `since` 가 없고, 서버는 그것을 전량 재생으로 읽는다
-   * (FR-TRS-3). 전량 재생은 `termHardClear` 로 화면과 **스크롤백까지**(`\x1b[3J`)
-   * 지운 뒤 tail 을 되뿌리므로, 받는 xterm 이 그것을 지금 폭으로 다시 파싱한다.
-   * 사용자가 새로고침으로 하던 일이 이것이다 (M10_SRS §2.3).
-   *
-   * 와이어에 "재생 요청" op 를 더하지 않은 이유는 동시성이다 — `relayOutput` 이
-   * `sent` 오프셋으로 겹침을 자르는 중에 재생을 끼우면 그 오프셋을 되감아야 한다
-   * (D-M10-2). 소켓을 다시 열면 서버는 **새 연결**로 다루므로 그 물음이 없다.
-   */
-  _refreshForWidth(){
-    if(this._destroyed||this._exited) return false;
-    // FR-M11-1: **좌표 버리기가 소켓 판정보다 앞선다.** 폭이 바뀐 것은 화면의
-    // 사실이고 전송로의 사실이 아니다 — 재접속 대기·백오프 구간에서 물러나며
-    // 좌표를 들고 있으면, 뒤이어 붙는 쪽이 `since` 를 달고 **델타**를 받는다
-    // (`_wsURL`). 그러면 옛 폭의 그림은 영영 지워지지 않고, 폭은 이미 바뀌어
-    // 있어 다음 `ptySize()` 도 `cols!==had` 를 보지 못한다 (M11_SRS §2.4c·d).
-    this._seq=-1; this._seqLive=false;
-    // 좌표를 버렸으므로 재개할 자리가 없다 — 반쪽 멀티바이트를 끊는다 (FR-TRS-4).
-    // `reconnectNow` 안의 같은 판정은 아래 갈래에서만 지나간다.
-    this._resetDecoderIfNoResume();
-    // 소켓이 없으면 **여기서 멈춘다.** 새로 걸지 않는 이유는 그 자리에 이미
-    // 재접속이 백오프로 돌고 있기 때문이다 — 하나를 더 걸면 두 벌이 된다
-    // (D-M11-1). 반환값의 뜻은 종전대로 "지금 다시 붙였는가" 다.
-    if(!this.ws) return false;
-    return this.reconnectNow({quiet:true});
-  }
   focus(){if(this.term)try{this.term.focus()}catch{}}
   // FR-ESF-1~5: 스크롤백을 지운(ED3) 뒤에는 바닥을 따른다.
   _onEraseDisplay(ps){
@@ -621,137 +406,12 @@ class TerminalTool {
     const ov=this.el.querySelector('.tp-overlay');
     if(ov)ov.classList.remove('visible');
   }
-  _handleOutput(data){
-    // FR-TRS-7: 좌표 통보 뒤의 것만 센다. 길이는 **디코딩 전 바이트**다 —
-    // 서버의 오프셋이 PTY 가 낸 raw 바이트의 수이기 때문이다.
-    if(this._seqLive) this._seq+=data.length;
-    // stream:true preserves UTF-8 multibyte state across WS chunk boundaries
-    this._outputBuf+=this._decoder.decode(data,{stream:true}); TermClipboard.arrive(this);   // FR-CPO-1: 도착 때 판정
-    if(this._flushScheduled) return;
-    this._flushScheduled=true;
-    // 프레임이 아니라 매크로태스크다 — 숨은 탭에서도 출력이 흘러야 한다.
-    // `frame` 은 탭이 백그라운드면 멎는다.
-    TIMERS.defer(()=>this._doFlush(),{owner:this,label:'term-flush'});
-  }
-
-  /**
-   * FR-FTR-8: 버퍼 끝에 **완성되지 않은 OSC 시퀀스**가 있으면 그 시작 자리를
-   * 돌려준다. 없으면 -1 이다.
-   *
-   * 이것이 없으면 `\x1b]777;Download;/pa` 와 `th\x07` 로 갈린 청크에서 명령이
-   * 통째로 사라진다 — 버퍼는 flush 마다 비고 정규식은 다음 회차에 앞부분을
-   * 보지 못한다. `Cwd` 도 같은 경로를 타므로 cwd 표시와 git 신호까지 함께 잃는다.
-   *
-   * 종결자는 BEL 과 ST(`ESC \`) 둘 다 본다. `ESC` 하나만 걸친 경우도 보류한다 —
-   * 다음 청크에 `]` 가 온다.
-   */
-  _oscCarryAt(text){
-    const i=text.lastIndexOf('\x1b]');
-    if(i>=0&&text.indexOf('\x07',i)<0&&text.indexOf('\x1b\\',i+2)<0){
-      // 종결자 없는 입력에 화면이 영영 멈추지 않게 한다 — 상한을 넘으면 OSC 가
-      // 아니라고 보고 그대로 흘려보낸다.
-      return (text.length-i>OSC_CARRY_MAX)?-1:i;
-    }
-    if(text.endsWith('\x1b')) return text.length-1;
-    return -1;
-  }
-
-  _doFlush(){
-    this._flushScheduled=false;
-    if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
-    let text=this._outputBuf; this._outputBuf='';
-    const cut=this._oscCarryAt(text);
-    if(cut>=0){
-      this._outputBuf=text.slice(cut); text=text.slice(0,cut);
-      // 다음 청크가 언제 올지는 모른다 — 사용자가 키를 누를 때까지 안 올 수도
-      // 있다. 보류한 것이 프롬프트의 일부이면 화면이 멈춘 것으로 보이므로,
-      // 짧은 시간 뒤에는 그냥 내보낸다.
-      this._carryTimer=TIMERS.after(OSC_CARRY_MS,()=>{this._carryTimer=null;this._doFlush()},{owner:this,label:'osc-carry'});
-    }
-    if(!text) return;
-    const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
-    let m;
-    while((m=re.exec(text))!==null){
-      const cmd=m[1],val=m[2];
-      if(cmd==='Download') this._downloadFile(val);
-      else if(cmd==='Cwd') this._onCwd(val);
-    }
-    const clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
-    if(this.term) try{TermClipboard.feed(this,clean)}catch{}   // FR-CPO-5: 쓰기마다 도착 판정을 싣는다
-    else if(clean) this._buf.push(enc.encode(clean));
-  }
-  _onCwd(cwd){
-    this._cwd=cwd;
-    const f=app&&app.focusedTerminal();   // FR-OPT-4-10 (FEC-M1): 상태바는 포커스 터미널의 위치다
-    if(f&&f.id===this.id&&app.cwd!==cwd){app.cwd=cwd;app.updateStatusBar()}
-    // precmd·에이전트 hook 은 같은 OSC 경로를 탄다 — 셸 명령 직후의 즉시 신호다 (FR-GIT-18).
-    if(app)app.gitSignal('cwd');
-    // CLAUDE_ACCOUNTS_SRS FR-CAC-95: 폴더 연결의 틴트는 cwd 를 따른다.
-    if(app&&app.claudeOnCwd)app.claudeOnCwd();
-  }
   // FR-TXN-1: 알림은 터미널 화면이 아니라 창 하단 팝업으로 간다 — 셸이 소유한
   // 화면에 남이 쓰면 프롬프트가 어긋나 명령이 도는 것처럼 보인다
   // (TERM_XFER_NOTICE_SRS §1.2). FR-TXN-10: 팝업을 만들다 실패해도 전송은
   // 계속된다 (옛 FR-FTR-9 와 같은 규약).
   _toast(text,kind,ms){ try{return Toast.show(text,kind,ms)}catch{return null} }
 
-  _downloadFile(path){
-    const a=document.createElement('a');
-    a.href=FILE_DOWNLOAD_API+'?path='+encodeURIComponent(path);
-    a.download='';document.body.appendChild(a);a.click();a.remove();
-    // 앵커 클릭은 끝나는 시점을 알려 주지 않는다 — 진행 문구를 잠시 보이고
-    // 스스로 사라진다 (FR-TXN-8).
-    this._toast(TERM_DOWNLOAD_BUSY.replace('%s',path),'',TOAST_MS);
-  }
-  _uploadFiles(files){
-    if(!files||!files.length)return;
-    // FR-FTR-11: 이 도구의 폴더가 아닌 곳에 떨어뜨리지 않는다. 그 판정은 서버의 답이다
-    // (SERVER_DRIVEN_ACTIONS_SRS X-c) — 화면은 cwd 를 들지 않고 `tool` 로 보낸다.
-    apiGet(CWD_API,{query:{tool:this.id}}).then(res=>{
-      const a=res.ok&&res.data&&res.data.actions?res.data.actions['term.upload']:null;
-      if(!a||!a.ok){this._toast(TERM_UPLOAD_NO_CWD,'err',TOAST_ERR_MS);return}
-      let i=0;
-      const uploadNext=()=>{
-        // FR-FTR-10: 끝나도 셸에 엔터를 보내지 않는다 — 그 순간 돌고 있는 것이
-        // 셸이 아니면 그 프로그램이 엔터를 받는다.
-        if(i>=files.length) return;
-        // FR-TFD-12: `{file, relPath}` 도 받는다. `relPath` 가 있으면 서버가 그
-        // 아래 폴더를 만든다 — `file` 보다 **먼저** 실어야 한다. 서버가 스트림으로
-        // 파싱하므로 순서가 계약이다 (`file-tree-xfer.js` 의 근거와 같다).
-        const it=files[i++];
-        const f=it&&it.file?it.file:it;
-        const rel=(it&&it.relPath)||'';
-        const fd=new FormData();
-        if(rel) fd.append('relPath',rel);
-        fd.append('file',f);
-        // FR-TXN-3·5: 파일 하나의 일은 팝업 하나에서 마친다. 진행 팝업은 스스로
-        // 사라지지 않는다 — 전송이 소멸 시간보다 길면 시작한 일이 사라진다.
-        // FR-TFD-13: 보이는 이름은 `relPath` 다 — `a/b/c.txt` 를 `c.txt` 로만
-        // 보이면 어느 것이 끝났는지 알 수 없다.
-        const label=rel||f.name;
-        const toast=this._toast(TERM_UPLOAD_BUSY.replace('%s',label),'',0);
-        apiPost(UPLOAD_API,fd,{query:{tool:this.id}})
-          .then(r=>(r.ok&&r.data)?r.data:Promise.reject(r))
-          .then(d=>{
-            // FR-TFD-13: 폴더 맥락과 **실제 저장된 이름**을 함께 보인다. 서버는
-            // 충돌 시 개명하므로(`c (1).txt`) 그 사실이 보여야 하고, 그렇다고
-            // 마지막 조각만 보이면 어느 폴더의 것인지 알 수 없다.
-            const at=rel?rel.replace(/[^/]*$/,'')+d.name:d.name;
-            if(toast)toast.update(TERM_UPLOAD_OK.replace('%s',at).replace('%z',this._fmtSize(d.size)),'ok');
-            uploadNext();
-          }).catch(()=>{
-            if(toast)toast.update(TERM_UPLOAD_FAIL.replace('%s',label),'err',TOAST_ERR_MS);
-            uploadNext();
-          });
-      };
-      uploadNext();
-    }).catch(()=>this._toast(TERM_UPLOAD_NO_CWD,'err',TOAST_ERR_MS));
-  }
-  _fmtSize(b){
-    if(b<1024)return b+'B';
-    if(b<1048576)return(b/1024).toFixed(1)+'KB';
-    return(b/1048576).toFixed(1)+'MB';
-  }
   destroy(){
     this._destroyed=true;
     this._flingStop();
