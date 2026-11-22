@@ -449,8 +449,10 @@ version = "1.3.7"
 name = "dm-shared-chatwire"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-humancmd",
  "dm-shared-platform",
+ "serde",
 ]
 
 [[package]]
