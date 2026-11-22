@@ -1080,14 +1080,20 @@
 <!-- 수정키+클릭 링크 이동 (EDITOR_LINK_LSP_SRS FR-ELS-10). cm-lsp.js 뒤다 — edLspPath·edLspOffset 을 쓴다. -->
 <script src="js/ui/cm-link.js?v=__ASSETV__"></script>
 <script src="js/ui/file-editor.js?v=__ASSETV__"></script>
+<!-- FileEditor 의 부품 (REFACTOR3_FE_REST5_SRS FR-FR5-21) — 알림·제안 띠 · 편집기 대신 서는 화면 · 문서 없는 저장 · 키 배선. -->
+<script src="js/ui/file-editor-notice.js?v=__ASSETV__"></script>
+<script src="js/ui/file-editor-media.js?v=__ASSETV__"></script>
+<script src="js/ui/file-editor-save.js?v=__ASSETV__"></script>
+<script src="js/ui/file-editor-keys.js?v=__ASSETV__"></script>
 <!-- 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). file-editor.js 뒤여야
      한다 — FileEditor.prototype 에 얹는다 (DRIFT_RECLAIM_SRS FR-DRC-13). -->
 <script src="js/ui/file-editor-find.js?v=__ASSETV__"></script>
 <script src="js/ui/doc-render-util.js?v=__ASSETV__"></script>
 <script src="js/ui/doc-render.js?v=__ASSETV__"></script>
-<!-- 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). file-editor.js 뒤여야 한다 —
-     `FileEditor.prototype` 을 확장한다. -->
+<!-- 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). 칸 하나의 클릭·팝업은 FileEditor 의 부품 `EdDiffPeek` 다
+     (REFACTOR3_FE_REST5_SRS FR-FR5-23 — 종전에는 `FileEditor.prototype` 을 확장했다). -->
 <script src="js/ui/file-editor-diff.js?v=__ASSETV__"></script>
+<script src="js/ui/file-editor-peek.js?v=__ASSETV__"></script>
 <script src="js/ui/input-binding.js?v=__ASSETV__"></script>
 <!-- REFACTOR_STABILIZATION_SRS FR-RST-21: 뷰들이 공유하는 조각. `api.js` 앞이다 —
      gitFetch 는 호출 시점에만 필요하므로 순서가 뒤여도 되지만, 공유물이 먼저

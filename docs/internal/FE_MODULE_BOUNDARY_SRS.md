@@ -420,7 +420,7 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 코드가 아니거나 검사 코드이고, `i18n/ko.js`·`en.js` 는 **데이터**라 키가 늘면 줄이
 늘고 분할이 뜻을 갖지 않는다.
 
-    500줄초과=6 · 최대=971
+    500줄초과=4 · 최대=971
 
 **CSS 기준선** (2026-11-21, `REFACTOR3_FE_REST4_SRS` FU-11 · D-FR4-11). 같은 게이트가 `web/*.css`(vendor 제외)를 같은
 두 수로 잰다. 게이트를 세운 순간은 500줄 초과 5 · 최대 2,545(`style.css`)였고, `style.css` 를 원래 순서의 연속 구간 여덟으로
@@ -433,6 +433,8 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 |---|---:|---:|---:|---:|
 | 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **18** |
 | 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,020** (`core/app-git.js`) |
+
+> 6 → 4 (2026-11-22, `REFACTOR3_FE_REST5_SRS` FR-FR5-21·23). `ui/file-editor.js`(818)에서 부품 넷 — 알림·제안 띠 `FileEditorNotice`(153) · 편집기 대신 서는 화면 `FileEditorMedia`(109) · 문서 없는 저장 `FileEditorSave`(77) · 키 배선 `FileEditorKeys`(88) — 을 내어 463. `ui/file-editor-diff.js`(606)의 `Object.assign(FileEditor.prototype, …)` 를 부품 `EdDiffPeek`(`file-editor-peek.js` 126)로 옮겨 492. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 
 > 9 → 6 (2026-11-22, `REFACTOR3_FE_REST5_SRS` FR-FR5-21). `ui/doc-render.js`(693)의 순수 도움 함수를 `doc-render-util.js`(235)로 옮겨 463. `git/diff-view.js`(655)의 그림 보기를 부품 `GitDiffImage`(`diff-image.js` 111)로, 머리의 순수 함수 넷을 `view-util.js` 로 옮겨 492. `git/git-poll.js`(718)의 새로고침·뷰 다시 받기를 부품 `GitViewReload`(`git-view-reload.js` 150)로, 워치독을 부품 `GitWatchdog`(`git-watchdog.js` 102)로 옮겨 480. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 

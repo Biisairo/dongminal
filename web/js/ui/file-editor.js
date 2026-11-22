@@ -55,6 +55,12 @@ class FileEditor {
     this._pendingReveal = null;
     // CODEMIRROR_MIGRATION_SRS §11.6 L1: 편집기가 서면(또는 서지 못하면) 풀린다 — `whenView`.
     this._viewReady = new Promise((r) => { this._viewReadyResolve = r });
+    // 부품 (REFACTOR3_FE_REST5_SRS FR-FR5-21 · FR-FR5-23). `_init` 보다 먼저 선다.
+    this.notice = new FileEditorNotice(this);
+    this.media = new FileEditorMedia(this);
+    this.saver = new FileEditorSave(this);
+    this.keys = new FileEditorKeys(this);
+    this.peek = new EdDiffPeek(this);
 
     // Show loading indicator
     this.el.innerHTML = '<div class="fe-loading">Loading editor…</div>';
@@ -83,13 +89,13 @@ class FileEditor {
       // EDITOR_GIT_UX_SRS FR-EVW-3: **열기 전에 종류를 묻는다.** 이 물음이
       // 없던 동안 이진 파일은 대체 문자로 뒤덮인 채 편집기에 올라갔고, 그것을
       // 저장하면 원본이 파괴됐다 — 알림이 없는 것보다 나쁘다.
-      const probe = await this._probeFile();
+      const probe = await this.media.probe();
       this.kind = probe.kind;
-      if (probe.kind === FILE_KIND_BINARY) { this._showUnsupported(probe); this._loading = false; return }
+      if (probe.kind === FILE_KIND_BINARY) { this.media.showUnsupported(probe); this._loading = false; return }
       // FR-FAB-9: 상한을 넘으면 편집기를 세우지 않는다. 세우지 않으므로 저장
       // 경로 자체가 생기지 않는다 — 잘린 내용을 되쓸 길이 없다.
-      if (this._overSizeLimit(probe)) { this._showTooLarge(probe); this._loading = false; return }
-      if (probe.kind === FILE_KIND_IMAGE) { this._showImage(probe); this._loading = false; return }
+      if (this.media.overSizeLimit(probe)) { this.media.showTooLarge(probe); this._loading = false; return }
+      if (probe.kind === FILE_KIND_IMAGE) { this.media.showImage(probe); this._loading = false; return }
       await loadCodeMirror();
       // FR-SVS-50: 다른 칸이 이미 이 파일을 열어 두었으면 그 문서를 그대로 쓴다.
       // REPO_FIX 03 §3A-5: 버퍼는 **문서가** 만든다(`edDocLoad` — 판별·변환 읽기).
@@ -123,111 +129,13 @@ class FileEditor {
     edCmLspAttach(view, this._cmp, path, () => this._view === view && this.filePath === path);
   }
 
-  /**
-   * FR-EVW-1: 서버가 내용을 보고 판정한다 (FR-EVW-2) — 확장자는 근거가 아니다.
-   *
-   * FR-EVW-8: 종단이 없거나 실패하면 **텍스트로 가정한다.** 옛 서버에 붙은 새
-   * 브라우저에서 편집기가 통째로 서지 않는 것보다, 지금까지의 동작을 유지하는
-   * 편이 낫다.
-   */
-  async _probeFile() {
-    const r = await apiGet(FILE_PROBE_API, { query: { path: this.filePath } });
-    if (!r.ok) return { kind: FILE_KIND_TEXT };
-    return r.data && r.data.kind ? r.data : { kind: FILE_KIND_TEXT };
-  }
-
-  /**
-   * FR-FAB-9: 판정의 값은 **서버가 준 것**이다. `maxBytes` 가 없는 옛 서버에
-   * 붙었으면 게이트를 걸지 않는다 — 옛 서버에서 편집기가 통째로 막히는 것보다
-   * 지금까지의 동작을 유지하는 편이 낫다 (FR-EVW-8 과 같은 관대함이다).
-   */
-  _overSizeLimit(probe) {
-    const max = Number(probe && probe.maxBytes);
-    const size = Number(probe && probe.size);
-    if (!isFinite(max) || max <= 0 || !isFinite(size)) return false;
-    return size > max;
-  }
-
-  // FR-FAB-9: 사유와 함께 **나가는 길 둘**을 준다. 막기만 하면 사용자는 그
-  // 파일을 어떻게 보는지 모른 채 남는다.
-  _showTooLarge(probe) {
-    const href = FILE_DOWNLOAD_API + '?path=' + encodeURIComponent(this.filePath);
-    this.el.innerHTML =
-      '<div class="fe-unsupported">' +
-        '<div class="fe-unsup-title">' + FILE_TOO_LARGE_TITLE + '</div>' +
-        '<div class="fe-unsup-path">' + escHtml(this.filePath) + '</div>' +
-        '<div class="fe-unsup-meta">' +
-          escHtml(t('editor.size_with_limit',{size:this._fmtFileSize(probe.size),max:this._fmtFileSize(probe.maxBytes)})) +
-        '</div>' +
-        '<div class="fe-unsup-hint">' + FILE_TOO_LARGE_HINT + '</div>' +
-        '<a class="fe-unsup-dl" download href="' + escHtml(href) + '">' + FILE_TOO_LARGE_DOWNLOAD + '</a>' +
-      '</div>';
-  }
-
-  // FR-EVW-3: 열지 않고 사유를 보인다. 편집기를 세우지 않으므로 저장 경로
-  // 자체가 생기지 않는다 (FR-EVW-7).
-  _showUnsupported(probe) {
-    this.el.innerHTML =
-      '<div class="fe-unsupported">' +
-        '<div class="fe-unsup-title">' + FILE_UNSUPPORTED_TITLE + '</div>' +
-        '<div class="fe-unsup-path">' + escHtml(this.filePath) + '</div>' +
-        '<div class="fe-unsup-meta">' +
-          escHtml(probe.mime || '') + ' · ' + escHtml(this._fmtFileSize(probe.size)) +
-        '</div>' +
-        '<div class="fe-unsup-hint">' + FILE_UNSUPPORTED_HINT + '</div>' +
-      '</div>';
-  }
-
-  // FR-EVW-4: 원본 비율을 지키고 칸보다 크면 줄여 맞춘다. 바이트는
-  // /api/file/raw 가 준다 — 이미지 MIME 만 인라인으로 나온다 (FR-EVW-5).
-  _showImage(probe) {
-    const src = FILE_RAW_API + '?path=' + encodeURIComponent(this.filePath);
-    this.el.innerHTML =
-      '<div class="fe-image ui-scroll">' +
-        '<img class="fe-img" alt="' + escHtml(this.filePath) + '">' +
-        '<div class="fe-img-meta"></div>' +
-      '</div>';
-    const img = this.el.querySelector('.fe-img');
-    const meta = this.el.querySelector('.fe-img-meta');
-    img.addEventListener('load', () => {
-      meta.textContent = img.naturalWidth + '×' + img.naturalHeight +
-        ' · ' + (probe.mime || '') + ' · ' + this._fmtFileSize(probe.size);
-    });
-    img.addEventListener('error', () => {
-      meta.textContent = FILE_IMAGE_FAIL;
-    });
-    img.src = src;
-  }
-
-  /**
-   * **파일 크기**의 표기 (M6 `FE-22`).
-   *
-   * `StatusBarController` 의 `_fmtMemSize` 와 **합치지 마라.** 겉이 비슷하고 이름도
-   * 같았지만(`_fmtBytes`) 두 함수는 다른 값을 위한 것이다:
-   *
-   *   여기      파일 크기. **B·KB 가 뜻을 갖는다** — 수십 바이트짜리 파일이
-   *             실재하고, 그것을 `0.0MB` 로 적으면 사실을 지운다. 단위 앞에
-   *             공백이 있다
-   *   statusbar 시스템 메모리. 언제나 MB 이상이고 공백이 없다
-   *
-   * 이름이 같았던 것이 `FE-22` 가 "두 벌" 로 읽은 이유다. 합치면 두 화면 중
-   * 하나의 표기가 조용히 바뀐다 — 그래서 합치는 대신 **이름을 갈랐다**.
-   */
-  _fmtFileSize(n) {
-    const b = Number(n);
-    if (!isFinite(b)) return '';
-    if (b < 1024) return b + ' B';
-    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
-    return (b / 1048576).toFixed(1) + ' MB';
-  }
-
   _createEditor(buf) {
     this.el.innerHTML = '';
     this._mountView(buf);
     this._lspAttach();
     this._notifyIntegrations();
-    this._wireKeys();
-    this._wireFocus();
+    this.keys.wireKeys();
+    this.keys.wireFocus();
     // FR-EKB-5: 단축키는 편집기 `keymap` 에 굳히지 않는다. 굳히면 설정에서 바꾼 키가
     // 편집기 안에서만 듣지 않는다 — `_wireKeys` 의 keydown 이 그 자리를 맡는다. 전역
     // keydown 은 편집기에 포커스가 있으면 앱 단축키만 판정하고 편집기 키는 건너뛰므로
@@ -236,7 +144,7 @@ class FileEditor {
     // EDITOR_DIRTY_DIFF_SRS FR-EDD-15: 변경 표시는 **문서**의 것이다 — 이 칸은
     // 클릭과 팝업만 갖는다. `file-editor-diff.js` 가 없으면 편집기는 지금까지와
     // 똑같이 동작한다 (NFR-EDD-3).
-    if (this._ddInit) this._ddInit();
+    this.peek.init();
 
     if (this._pendingReveal) {
       const r = this._pendingReveal; this._pendingReveal = null;
@@ -325,83 +233,6 @@ class FileEditor {
     // FR-EDD-53: 변경 표시도 같은 계기다. 디바운스는 관리자가 갖는다 — 계산은 한
     // 번이어야 한다.
     if (this._dd) this._dd.schedule();
-  }
-
-  _wireKeys() {
-    /**
-     * EDITOR_FIND_PANEL_SRS FR-EFP-1·2·3: 검색 키 판정은 **capture** 단계다.
-     *
-     * 종전에는 bubble 이었다. 키의 실제 대상은 옛 엔진의 안쪽 요소이고 그 키
-     * 처리도 그 안에 붙어 있으므로, **엔진이 먼저 봤다** — 자기 find 위젯을 열고
-     * find 입력칸에 포커스를 줬다. 그 뒤 우리 `_edFindInFile` 이 `ed.focus()` 로
-     * 포커스를 본문으로 되돌렸고, 그래서 위젯은 떠 있는데 글자를 못 받았다.
-     * **타이핑한 글자가 전부 문서에 삽입됐다** (그 SRS §2.2~2.4).
-     *
-     * capture 로 먼저 보면 매칭된 키는 편집기에 닿지 않는다. 매칭되지 않으면
-     * `edTrySearchKey` 는 아무것도 하지 않으므로(FR-EFP-3) 편집기가 그대로 받는다 —
-     * 여기서 전파를 멈추면 편집기가 글자를 하나도 받지 못한다.
-     *
-     * FR-EKB-1·5 는 그대로다: 판정은 app 이 한 벌로 갖는다. 여기서 조합을 다시
-     * 적으면 설정에서 바꾼 키가 안쪽에만 반영되지 않는다.
-     */
-    // FR-EDD-34 (`_onKeyCapture` 의 뒷부분): 팝업을 닫는 길 둘 중 하나. 찾기 패널이 포커스를 갖고 있으면
-    // 그 패널의 핸들러가 먼저 먹고 전파를 멈추므로(`_findWire`) 이 자리는 돌지
-    // 않는다 — 두 Escape 가 다투지 않는다.
-    // REPO_FIX 03 E-9.2: capture 는 조상이 먼저 받으므로 찾기 입력의 Esc 도 여기 먼저
-    // 온다 — 찾기 패널 안에서 누른 Esc 는 찾기 패널의 것이다(팝업은 두고 그 패널만
-    // 닫는다). 이전: 팝업과 찾기 패널이 함께 닫혔다.
-    this.el.addEventListener('keydown', (e) => this._onKeyCapture(e), true);
-
-    // Keyboard interop: prevent terminal shortcuts from firing in editor
-    this.el.addEventListener('keydown', (e) => {
-      // 검색 키는 위의 capture 리스너가 이미 판정했다 — 여기서 다시 묻지 않는다.
-      // 편집기 안의 키는 편집기가 다 받는다.
-      // ISSUE_TREE_OPS_SRS FR-ITE-1: CodeMirror 가 쓰지 않은 수식키 조합만 브라우저 기본을 막는다.
-      if (window.app) window.app.inputBinding.blockBrowserDefault(e);
-      e.stopPropagation();
-    });
-  }
-
-  /**
-   * capture keydown 한 벌 (FEU-27). 종전에는 같은 요소에 capture 리스너가 둘이었다 — 검색·뷰
-   * 키가 먼저, dirty-diff 팝업의 Esc 가 다음. 앞의 둘은 키를 잡으면 `stopImmediatePropagation`
-   * 하므로 잡힌 키는 뒤로 가지 않았다. 그 순서를 그대로 적는다.
-   */
-  _onKeyCapture(e) {
-    if (window.app && window.app.edTrySearchKey(e)) return;
-    // UX_BATCH9_SRS FR-ESV-1·2: **이 편집기의** 액션. 여섯과 같은 자리에서
-    // 판정하되 수행은 인스턴스가 한다 — 포커스가 있는 편집기가 곧 이 요소의
-    // 임자이므로, "어느 편집기를 저장할 것인가" 를 따로 고르지 않는다.
-    if (this._edViewKey(e)) return;
-    if (e.key !== 'Escape' || !this._ddNode) return;
-    if (this._find && this._find.contains(/** @type {Node} */ (e.target))) return;
-    if (this._goto && this._goto.contains(/** @type {Node} */ (e.target))) return;   // UX_BATCH13_SRS FR-EGL-8
-    e.preventDefault(); this._ddClose();
-  }
-
-  _wireFocus() {
-    /**
-     * UX_BATCH12_SRS FR-RTR-8: 참조 목록에서 고르기는 큰 점프다. 고르는 처리는 라이브러리의
-     * 패널(`@codemirror/lsp-client`)이 하고 부를 자리가 없으므로, 그 패널보다 **먼저**(capture)
-     * 고르기 전의 자리를 뒤로·앞으로 기록에 넣는다.
-     */
-    const pick = (e) => {
-      if (!e.target.closest || !e.target.closest('.cm-lsp-reference-panel')) return;
-      if (e.type === 'keydown' && e.key !== 'Enter') return;
-      if (e.type === 'click' && !e.target.closest('.cm-lsp-reference')) return;
-      const app = window.app;
-      if (app && app.navJump) app.navJump();
-    };
-    this.el.addEventListener('click', pick, true);
-    this.el.addEventListener('keydown', pick, true);
-    // Focus handling — notify app when editor receives focus
-    this.el.addEventListener('focusin', (e) => {
-      // FR-EFP-5: 찾기 패널은 **자기 포커스를 갖는다.** 여기서 되돌리면 질의 칸이
-      // 글자를 하나도 받지 못한다 — `ed.focus()` 가 위젯의 포커스를 훔쳤던 것과
-      // 같은 종류의 결함이며(그 SRS §2.3), 자리만 다르다.
-      if (e.target && e.target.closest && e.target.closest('.fe-find, .fe-goto')) return;   // UX_BATCH13_SRS FR-EGL-4
-      if (this._view) this._view.focus();
-    });
   }
 
   /**
@@ -566,73 +397,14 @@ class FileEditor {
     this._pinIfPreview();
     // REPO_FIX 05 §3A-3: 문서가 있으면 저장은 문서의 것이다 — git Diff 뷰와 같은 길이다.
     if (this._doc) return app.edDocSave(this.filePath, this);
-    return this._saveOnce();
+    return this.saver.once();
   }
 
-  // 문서를 못 얻은 뷰(이진·이미지·로딩 실패)의 저장이다. 문서가 있으면 `edDocSave`.
-  async _saveOnce() {
-    if (!this._view || !this._dirty) return false;
-    const sentDoc = this._view.state.doc;
-    const content = this._buf ? this._buf.text(sentDoc) : sentDoc.toString();
-    try {
-      let r = await this._write(content, this._stamp, null);
-      if (r.status === 409) {
-        if (!await this._confirmConflict()) return false;
-        r = await this._write(content, '', null);
-      }
-      if (!r.ok) {
-        this._noteSaveFailed(r);
-        return false;
-      }
-      this._stamp = (r.data && r.data.stamp) || '';
-      if (this._view && this._view.state.doc.eq(sentDoc)) this.__dirty = false;
-      this._tabLabelAll();
-      if (typeof app !== 'undefined' && app) app.gitSignal('write');
-      return true;
-    } catch (e) {
-      console.error('[FileEditor] save error:', e);
-      this._noteSaveFailed(null);
-      return false;
-    }
-  }
-
-  /**
-   * 저장이 실패했음을 화면에 남긴다 (`FUI-05`).
-   *
-   * 붉은 테두리는 **무언가 잘못됐다**만 말한다. 사용자가 알아야 하는 것은 **무엇이**
-   * 잘못됐는가이고, 서버는 그것을 본문에 실어 보낸다 — 경계 거부인지 디스크
-   * 오류인지에 따라 할 일이 다르다.
-   *
-   * `r` 이 없으면(망 실패·예외) 사유를 모른다. 그때 지어내지 않는다.
-   */
-  _noteSaveFailed(r) {
-    // 색은 JS 가 들지 않는다 — 클래스만 토글하고 값은 CSS 가 갖는다 (FR-WRD-14).
-    this.el.classList.add('fe-save-failed');
-    TIMERS.after(FILE_SAVE_FAIL_FLASH_MS, () => { this.el.classList.remove('fe-save-failed'); }, {owner:this,label:'flash'});
-    let why = '';
-    if (r) why = (r.text || '').trim().split('\n')[0].slice(0, 200);
-    this.note(why ? FILE_SAVE_FAIL + ': ' + why : FILE_SAVE_FAIL);
-  }
-
-  /**
-   * REPO_FIX 03 §3A-2: 문서 인코딩으로 쓸 수 없는 글자가 있어 서버가 거절했다 — 파일은
-   * 그대로다. 그 자리로 커서를 옮기고, 사유와 "UTF-8 로 변환해 저장" 을 함께 보인다.
-   */
-  _noteUnmappable(u, doc) {
-    const line = Number(u.line) || 1, col = Number(u.col) || 1;
-    if (this._view) {
-      const pos = edCmPos(this._view.state.doc, line, col);
-      this._view.dispatch({ selection: { anchor: pos }, effects: CM.EditorView.scrollIntoView(pos, { y: 'center' }) });
-    }
-    const enc = doc && doc.encoding ? (ENC_LABEL[doc.encoding] || doc.encoding) : '';
-    this.note(t('editor.enc_unmappable', { line, col, char: u.char || '', enc }), FE_NOTE_ACTION_MS,
-      { label: ENC_CONVERT, run: () => app.edDocConvertUtf8(this.filePath) });
-  }
-
-  _write(content, stamp, doc) { return app.edDocWrite(this.filePath, content, stamp, doc) }
-
-  // FR-EXC-9: 경합의 확인창 — 문서 저장과 같은 것을 쓴다 (`app.edConfirmConflict`).
-  _confirmConflict() { return app.edConfirmConflict(this.name, this.filePath) }
+  // 문서 저장(`editor-doc.js`)이 칸에서 부르는 셋 — 몸은 `FileEditorSave` 다.
+  _noteSaveFailed(r) { return this.saver.noteFailed(r) }
+  _noteUnmappable(u, doc) { return this.saver.noteUnmappable(u, doc) }
+  _write(content, stamp, doc) { return this.saver.write(content, stamp, doc) }
+  _confirmConflict() { return this.saver.confirmConflict() }
 
   /**
    * 디스크의 내용을 다시 읽어 화면에 반영한다 (FR-EXC-1). REPO_FIX 03 E-7.1: 일은
@@ -661,142 +433,15 @@ class FileEditor {
     }
   }
 
-  /**
-   * EDITOR_LSP_SRS FR-LSP-28 / D-9: **침묵은 고장과 구별되지 않는다.**
-   *
-   * 코드 탐색은 안 되는 경우가 많다 — 서버 없음, 툴체인 없음, 기동 실패, 시간
-   * 초과, 결과 없음. 그 다섯이 모두 "아무 일도 일어나지 않음" 으로 보이면 사용자는
-   * 전부 우리 버그로 읽는다. 짧은 알림 줄 하나가 그것을 가른다.
-   *
-   * 자리는 찾기 패널과 같은 규약이다 (편집기 우상단) — 새 개념을 만들지 않는다.
-   */
-  // `action` 이 있으면 버튼 하나를 함께 둔다(`{label, run}`) — 그 알림은 눌러야 하므로
-  // 더 오래 남는다.
-  note(text, ms, action) {
-    if (!text) return;
-    if (!this._note) {
-      const el = document.createElement('div');
-      el.className = 'fe-note';
-      this.el.appendChild(el);
-      this._note = el;
-    }
-    this._note.textContent = text;
-    this._note.classList.toggle('fe-note-act', !!action);
-    if (action) {
-      this._note.appendChild(UIKit.button({ label: action.label, size: 'sm', cls: 'fe-note-btn',
-        onClick: () => { this._note.classList.remove('vis'); action.run() } }));
-    }
-    // FR-TOK-22: 같은 층에서 겹치는 순서는 DOM 이 정한다 — 보일 때 맨 뒤로
-    // 옮긴다 (`file-editor-find.js` 의 `findOpen` 이 같은 규약이다).
-    this.el.appendChild(this._note);
-    this._note.classList.add('vis');
-    TIMERS.cancel(this._noteT);
-    // 스스로 사라진다 — 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
-    this._noteT = TIMERS.after(ms || FE_NOTE_MS, () => {
-      if (this._note) this._note.classList.remove('vis');
-    }, {owner:this,label:'note-hide'});
-  }
-
-  /**
-   * EDITOR_LSP_SRS FR-LSP-44·45: 언어 서버가 없을 때의 제안.
-   *
-   * 알림 줄(`note`)과 **다른 것이다** — 이것은 스스로 사라지지 않고 버튼을 갖는다.
-   * 사용자가 무언가를 해야 하는 알림과 그냥 알리는 알림은 같은 모양일 수 없다.
-   */
-  offer(st) {
-    if (!st || this._offerEl) return;
-    const el = document.createElement('div');
-    el.className = 'ui-notice fe-offer';
-    el.dataset.id = st.id;
-    // 받을 수 없을 때의 사유는 **서버가 사람의 말로 적어 보낸다** (FR-EXT-29) —
-    // 화면이 다시 쓰면 서버가 아는 사유와 사용자가 읽는 문장이 갈린다.
-    const body = st.canInstall
-      ? josa(LSP_OFFER_BODY.replace('%s', st.id))
-      : josa((st.note || LSP_OFFER_BLOCKED).replace('%s', st.id));
-    // 마크업에 잇는 것은 **이름 붙인 값**이다 — 속성 접근이 마크업 안에 그대로
-    // 들어가면 `check-html.sh` 가 그것을 값으로 보고 막는다 (FE-16·17 의 규칙).
-    const actBtn = st.canInstall
-      ? '<button type="button" class="ui-btn ui-btn-sm ui-btn-primary fe-offer-go">' + LSP_OFFER_INSTALL + '</button>'
-      : '<button type="button" class="ui-btn ui-btn-sm fe-offer-set">' + LSP_OFFER_SETTINGS + '</button>';
-    el.innerHTML =
-      '<span class="fe-offer-msg"></span>' +
-      actBtn +
-      '<button type="button" class="ui-btn ui-btn-sm fe-offer-no">' + LSP_OFFER_DISMISS + '</button>';
-    // 사유는 텍스트 노드로 넣는다 — 서버가 보낸 이름이 그 자리에 닿는다.
-    el.querySelector('.fe-offer-msg').textContent = body;
-    this.el.appendChild(el);
-    this._offerEl = el;
-    // 종전에는 여기서 `fe-offered` 표식을 남겨 렌더 진입 손잡이를 아래로 내려
-    // 앉혔다. **U-2 로 그 손잡이가 좌하단으로 내려가면서 자리를 다투지 않게 됐다** —
-    // 표식이 가리키던 규칙이 사라졌으므로 표식도 함께 걷는다.
-    //
-    // 찾기 줄·알림 줄은 여전히 내려 앉는다. 그 둘은 형제 선택자(`.fe-offer ~ …`)로
-    // 닿으므로 표식이 필요 없다.
-    /**
-     * EDITOR_LSP_SRS FR-LSP-44a (2026-09-08 접수): **띠의 높이는 고정이 아니다.**
-     *
-     *   이전 동작: 아래로 내려 앉는 값이 `38px` 로 박혀 있었다 — 띠가 한 줄이라는
-     *              가정이다
-     *   새  동작: 실제 높이를 재어 `--fe-offer-h` 로 넘긴다
-     *   이유:     390px 폭에서 안내가 두세 줄로 접히면 띠가 38px 을 넘고, 그러면
-     *              `◈ 미리보기` 손잡이를 **그대로 덮는다** — 눌러도 띠가 먹는다
-     *              (CI ubuntu 실측: 그 러너에는 markdown 서버가 없어 띠가 늘 선다)
-     *
-     * 폭이 바뀌면 줄 수도 바뀌므로 한 번 재는 것으로는 모자라다. 관측을 띠와 같은
-     * 수명으로 두고 `offerClose` 에서 함께 놓는다.
-     */
-    this._offerMeasure();
-    if (typeof ResizeObserver === 'function') {
-      this._offerRo = new ResizeObserver(() => this._offerMeasure());
-      this._offerRo.observe(el);
-    }
-
-    const go = el.querySelector('.fe-offer-go');
-    if (go) {
-      go.addEventListener('click', () => {
-        go.disabled = true;
-        go.textContent = LSP_INSTALLING;
-        // 조달의 단위는 **팩**이다 (FR-EXT-5·31) — 서버 id 로 부르면 다섯을 내는
-        // 팩에서 아무것도 받지 못한다.
-        if (window.app) window.app.lspOfferInstall(st.pack || st.id, this);
-      });
-    }
-    const set = el.querySelector('.fe-offer-set');
-    if (set) {
-      set.addEventListener('click', () => {
-        // 받을 수 없을 때의 다음 걸음은 설정창이다 — 거기에 무엇이 없는지와
-        // 어디서 찾았는지가 다 있다.
-        const b = document.getElementById('settings-btn');
-        if (b) b.click();
-        const tab = document.querySelector('button.mtab[data-tab="code"]');
-        if (tab) tab.click();
-        this.offerClose();
-      });
-    }
-    // UX_AUDIT_FIX_SRS FR-UXF-82: 닫는 길은 둘(받기·나중에)이다. "제안함" 기록은 띠가 설 때
-    // 이미 남았다(`lspOfferFor`) — 다시 열려면 상태바 표식을 누른다(FR-UXF-83).
-    el.querySelector('.fe-offer-no').addEventListener('click', () => this.offerClose());
-  }
-
-  // FR-LSP-44a: 띠가 지금 먹고 있는 높이. 이 값 하나로 손잡이·찾기 줄·알림 줄이
-  // 다 같이 내려 앉는다 (`style-editor.css`·`style-docrender.css`).
-  _offerMeasure() {
-    if (!this._offerEl) return;
-    this.el.style.setProperty('--fe-offer-h', this._offerEl.offsetHeight + 'px');
-  }
-
-  offerClose() {
-    if (!this._offerEl) return;
-    if (this._offerRo) { this._offerRo.disconnect(); this._offerRo = null }
-    this._offerEl.remove();
-    this._offerEl = null;
-    this.el.style.removeProperty('--fe-offer-h');
-  }
+  // 알림 줄·제안 띠 — 앱·e2e 가 칸에서 부른다. 몸은 `FileEditorNotice` 다.
+  note(text, ms, action) { return this.notice.note(text, ms, action) }
+  offer(st) { return this.notice.offer(st) }
+  offerClose() { return this.notice.close() }
 
   destroy() {
     // FR-LSP-44a: 띠의 관측은 띠와 같은 수명이다. 닫히지 않은 채 뷰가 파괴되면
     // `offerClose` 를 지나지 않으므로 여기서도 놓는다.
-    if (this._offerRo) { this._offerRo.disconnect(); this._offerRo = null }
+    this.notice.release();
     this._destroyed = true;
     if (this._view) {
       // 버퍼는 **편집기의 것이 아니다** — 떼기만 한다. 문서의 수명은 `edDocDrop` 이
@@ -809,7 +454,7 @@ class FileEditor {
     this._buf = null;
     // FR-EDD-16: 팝업과 등록을 먼저 걷는다 — 문서를 놓기 전이어야 관리자가
     // 살아 있는 동안 정리된다.
-    if (this._ddDrop) this._ddDrop();
+    this.peek.drop();
     if (typeof app !== 'undefined' && app && app.edDocDrop) {
       app.edDocDrop(this.filePath, this);
     }

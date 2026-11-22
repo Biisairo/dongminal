@@ -13,7 +13,7 @@
  *
  *   edDiffLines        기준 ↔ 현재 버퍼의 줄 단위 diff (순수, FR-EDD-10~13)
  *   EdDirtyDiff        문서 하나의 기준·조각·데코레이션 (FR-EDD-1~9·15)
- *   FileEditor.prototype._dd*  칸 하나의 클릭·팝업 (FR-EDD-30~37)
+ *   EdDiffPeek                 칸 하나의 클릭·팝업 (FR-EDD-30~37) — `file-editor-peek.js`
  *
  * **기준은 index 다** (D-2). HEAD 가 아닌 이유는 서버의 부분 스테이징이 op 마다
  * 축을 못박기 때문이며(`write/patch.go:105`), VSCode 도 그 축이다.
@@ -254,7 +254,7 @@ function edDdExtensions(){
         mousedown(view,line){
           const fe=edDdOwner(view);
           if(!fe||!fe._dd) return false;
-          fe._ddClick(view.state.doc.lineAt(line.from).number);
+          fe.peek.click(view.state.doc.lineAt(line.from).number);
           return true;
         },
       },
@@ -404,7 +404,7 @@ class EdDirtyDiff{
     }
   }
 
-  _sync(){ for(const v of this.views) if(v._ddSync) v._ddSync() }
+  _sync(){ for(const v of this.views) if(v.peek) v.peek.sync() }
 
   // 그 줄을 덮는 조각. 좌측 막대를 누른 자리가 곧 이 물음이다.
   changeAt(line){
@@ -490,117 +490,3 @@ class EdDirtyDiff{
     this.views.clear();
   }
 }
-
-// ── 칸 하나의 클릭과 팝업 (FR-EDD-30~37) ──
-//
-// 팝업은 **칸의 것**이다 — block widget 이 칸의 상태에 있고, 두 칸이 같은 파일을
-// 볼 때 한쪽에서 연 팝업이 다른 칸의 화면을 밀어야 할 이유가 없다. 조각과 기준은
-// 문서의 것이므로(`EdDirtyDiff`) 여기서 다시 계산하지 않는다.
-Object.assign(FileEditor.prototype,{
-  _ddInit(){
-    const app=window.app;
-    if(!app||!app.edDirtyDiff||!this._view||!this._buf) return;
-    this._dd=app.edDirtyDiff(this.filePath);
-    this._dd.views.add(this);
-    this._dd.attach(this._buf);
-    // 이미 계산이 끝난 문서를 두 번째 칸이 붙였을 수 있다 — 그때는 attach 가
-    // 아무것도 하지 않으므로 여기서 한 번 칠한다.
-    if(this._dd.settled) this._dd.recompute();
-  },
-
-  // FR-CMR-41: 표식을 누르면 그 조각의 팝업, 표식이 없는 줄이면 닫는다.
-  _ddClick(line){
-    const ch=this._dd?this._dd.changeAt(line):null;
-    if(!ch){this._ddClose();return}
-    this._ddOpen(ch);
-  },
-
-  _ddOpen(ch){
-    this._ddClose();
-    const dd=this._dd,view=this._view;
-    if(!dd||!view) return;
-    const old=dd.baseLines(ch);
-    const node=document.createElement('div');
-    node.className='fe-dd-peek';
-    node.innerHTML=
-      '<div class="fe-dd-peek-bar">'+
-        '<button type="button" class="ui-btn ui-btn-sm fe-dd-peek-act" data-act="revert" title="'+
-          escHtml(ED_DD_REVERT_TITLE)+'">'+escHtml(ED_DD_REVERT)+'</button>'+
-        '<button type="button" class="ui-btn ui-btn-sm fe-dd-peek-act" data-act="stage" title="'+
-          escHtml(ED_DD_STAGE_TITLE)+'">'+escHtml(ED_DD_STAGE)+'</button>'+
-        '<span class="fe-dd-peek-note"></span>'+
-        '<button type="button" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost fe-dd-peek-close" title="'+
-          escHtml(ED_DD_PEEK_CLOSE_TITLE)+'" aria-label="'+escHtml(ED_DD_PEEK_CLOSE_TITLE)+'">'+
-          UIKit.iconHTML('x')+'</button>'+
-      '</div>'+
-      '<pre class="fe-dd-peek-old ui-scroll"></pre>';
-    // FR-EDD-32: 파일의 내용은 **텍스트 노드**로 넣는다. 마크업으로 넣으면 파일이
-    // 화면을 고친다.
-    const pre=node.querySelector('.fe-dd-peek-old');
-    if(old.length) pre.textContent=old.join('\n');
-    else{ pre.textContent=ED_DD_PEEK_ADDED; pre.classList.add('none') }
-    pre.style.maxHeight=(ED_DD_PEEK_MAX_LINES*view.defaultLineHeight)+'px';
-
-    node.querySelector('.fe-dd-peek-close').addEventListener('click',()=>this._ddClose());
-    for(const b of node.querySelectorAll('.fe-dd-peek-act')){
-      b.addEventListener('click',()=>this._ddAct(b.dataset.act,b));
-    }
-    // 조각 위에 뜬다. 삭제 조각의 자리도 같다 — 지워진 줄이 있던 자리가 그 위다.
-    const doc=view.state.doc;
-    const at=ch.line>doc.lines?{pos:doc.length,side:1}:{pos:doc.line(Math.max(1,ch.line)).from,side:-1};
-    view.dispatch({effects:edDdPeek().set.of({node,pos:at.pos,side:at.side})});
-    this._ddNode=node;
-    this._ddChange=ch;
-  },
-
-  async _ddAct(act,btn){
-    const dd=this._dd,ch=this._ddChange;
-    if(!dd||!ch) return;
-    if(act==='revert'){
-      dd.revert(ch,this);
-      this._ddClose();
-      return;
-    }
-    // FR-EDD-44: 저장이 앞설 수 있으므로 시간이 걸린다 — 침묵은 고장과 구별되지
-    // 않는다.
-    this._ddNote(ED_DD_STAGING);
-    for(const b of (this._ddNode?this._ddNode.querySelectorAll('.fe-dd-peek-act'):[])) b.disabled=true;
-    const res=await dd.stage(ch,this);
-    if(!res.ok){
-      this._ddNote(res.msg);
-      for(const b of (this._ddNode?this._ddNode.querySelectorAll('.fe-dd-peek-act'):[])) b.disabled=false;
-      return;
-    }
-    // 넓게 올렸으면 그 사실을 말한다 (FR-EDD-46 ③). 조각은 곧 사라지므로
-    // 팝업은 그 다음 계산이 닫는다 (FR-EDD-36).
-    if(res.wide) this._ddNote(ED_DD_STAGE_WIDE);
-    else this._ddClose();
-  },
-
-  _ddNote(text){
-    const el=this._ddNode&&this._ddNode.querySelector('.fe-dd-peek-note');
-    if(el) el.textContent=text||'';
-  },
-
-  // FR-EDD-36: 조각이 사라지면 팝업도 닫힌다. 없는 조각에 대한 동작 버튼을
-  // 남기지 않는다.
-  _ddSync(){
-    const ch=this._ddChange;
-    if(!ch) return;
-    const live=(this._dd&&this._dd.changes||[]).some(c=>
-      c.type===ch.type&&c.line===ch.line&&c.count===ch.count&&c.baseStart===ch.baseStart);
-    if(!live) this._ddClose();
-  },
-
-  _ddClose(){
-    if(this._ddNode&&this._view) this._view.dispatch({effects:edDdPeek().set.of(null)});
-    this._ddNode=null;
-    this._ddChange=null;
-  },
-
-  _ddDrop(){
-    this._ddClose();
-    if(this._dd) this._dd.views.delete(this);
-    this._dd=null;
-  },
-});
