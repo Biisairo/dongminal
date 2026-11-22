@@ -10,5 +10,13 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-dmenv = { path = "../dmenv" }
 dm-shared-dmlog = { path = "../dmlog" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tempfile = { workspace = true }
