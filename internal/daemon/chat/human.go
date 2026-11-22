@@ -74,10 +74,12 @@ func (s *Service) Command(sg humancmd.Signed) error {
 	return nil
 }
 
-// acceptCmdLocked 는 서명이 맞고 시각 안의 처음 보는 명령이면 넘기라고(참) 답한다. 적용은 이 노드가
-// 그 노드의 도우미 키를 믿을 때만 한다 — 믿지 못하는 노드가 중간에 있어도 너머에 닿는다 (§3.12a R-10).
-// 본 것은 id 가 아니라 서명된 프레임 전체의 해시로 기억한다. 같은 id 를 단 가짜가 먼저 와도 진짜를
-// 막지 못한다. 믿지 못해 넘기기만 한 것은 따로 기억해, 적용한 것의 기억을 밀어내지 못한다.
+// acceptCmdLocked 는 서명이 맞고 시각 안의 처음 보는 명령을 그 노드의 믿는 도우미 키
+// (trustedKeyLocked, D-PCH-39)로 확인했을 때만 적용하고 넘기라고(참) 답한다. 믿지 못한 명령은
+// 기억하지도 넘기지도 않고 버린다 (ATTIC_FIX_SRS FR-ATF-79 · AT-CHAT-9). 본 것은 id 가 아니라
+// 서명된 프레임 전체의 해시로 기억한다. 같은 id 를 단 가짜가 먼저 와도 진짜를 막지 못한다.
+//
+//	이전(§3.12a R-10): 믿지 못해도 넘겨, 속도 제한 없이 망 전체로 퍼졌다
 func (s *Service) acceptCmdLocked(fr frame) bool {
 	b, err := humancmd.Open(humancmd.Signed{B: fr.B, S: fr.S})
 	if err != nil || b.Node == s.id.Fingerprint || !inWindow(s.now(), b.At) {
@@ -87,15 +89,11 @@ func (s *Service) acceptCmdLocked(fr frame) bool {
 	if _, seen := s.cmds[h]; seen {
 		return false
 	}
-	if _, seen := s.relayed[h]; seen {
+	if key, ok := s.trustedKeyLocked(b.Node); !ok || key != b.Key {
 		return false
 	}
-	if key, ok := s.trustedKeyLocked(b.Node); ok && key == b.Key {
-		remember(s.cmds, h, s.now())
-		s.applyCmdLocked(b)
-		return true
-	}
-	remember(s.relayed, h, s.now())
+	remember(s.cmds, h, s.now())
+	s.applyCmdLocked(b)
 	return true
 }
 

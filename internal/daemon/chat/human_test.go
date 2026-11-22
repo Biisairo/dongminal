@@ -323,8 +323,11 @@ func TestPinAfterRelayedState(t *testing.T) {
 
 // §3.12a R-2: 고정한 간선에 같은 지문을 다시 더해도 helperKey 가 남는다 (edge 쪽 시험과 짝).
 
-// §3.12a R-10: 서명이 맞으면 믿지 못해도 넘긴다. 적용은 각 노드가 정한다.
-func TestCommandForwardedThroughUntrusting(t *testing.T) {
+// ATTIC_FIX_SRS TC-ATF-79 (FR-ATF-79 · AT-CHAT-9): 믿지 못하는 노드는 사람 명령을 넘기지 않는다.
+// C 는 D 의 고정값으로 A 를 믿지만, A 와 C 사이에는 A 를 믿지 못하는 B 뿐이라 닿지 않는다.
+//
+//	이전(§3.12a R-10): 서명이 맞으면 믿지 못해도 넘겨 C 가 적용했다
+func TestUntrustedCommandNotRelayed(t *testing.T) {
 	a, b, c, d := newHumanNode(t, "a"), newHumanNode(t, "b"), newHumanNode(t, "c"), newHumanNode(t, "d")
 	b.noPin = true
 	edgeLink(a, b)
@@ -349,8 +352,13 @@ func TestCommandForwardedThroughUntrusting(t *testing.T) {
 	if err := a.Command(signCmd(t, a.helper, a.fp(), humancmd.OpKill, []string{r.ID}, nil, time.Now())); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, "C 가 적용한다", func() bool { return !inRoom(c, pc.ID, r.ID) })
-	never(t, "B 가 적용한다", func() bool { return !inRoom(b, pb.ID, r.ID) })
+	never(t, "B 가 넘겨 C 가 적용한다", func() bool { return !inRoom(c, pc.ID, r.ID) || !inRoom(b, pb.ID, r.ID) })
+	b.mu.Lock()
+	n := len(b.cmds)
+	b.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("믿지 못한 명령을 %d 건 기억했다", n)
+	}
 }
 
 // 보안 검토: 같은 id 를 단 가짜(다른 키) 명령이 먼저 와도 진짜 명령을 막지 못한다.
