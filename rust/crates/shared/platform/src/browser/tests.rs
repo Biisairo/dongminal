@@ -86,8 +86,8 @@ fn win_browser_prefers_path() {
 
 #[test]
 fn win_browser_finds_standard_install() {
-    let base = Conv::HOST.join(&["C:", "Program Files"]);
-    let want = Conv::HOST.join(&[&base, CHROME_REL_PATH]);
+    let base = filepath::join(&["C:", "Program Files"]);
+    let want = filepath::join(&[&base, CHROME_REL_PATH]);
     let env_base = base.clone();
     let env: EnvFn = Box::new(move |k| {
         if k == "ProgramFiles" {
@@ -109,10 +109,7 @@ fn win_browser_install_order() {
     let env: EnvFn = Box::new(|k| format!("/{k}"));
     let edge_only: StatFn = Box::new(|p| p.contains("msedge"));
     let (name, _) = ok(win_browser(fake_look(&[]), env, edge_only).frameless_command(URL));
-    assert_eq!(
-        name,
-        Conv::HOST.join(&["/ProgramFiles(x86)", EDGE_REL_PATH])
-    );
+    assert_eq!(name, filepath::join(&["/ProgramFiles(x86)", EDGE_REL_PATH]));
 }
 
 #[test]

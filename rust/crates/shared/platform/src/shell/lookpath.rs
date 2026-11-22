@@ -3,7 +3,7 @@
 //! 호출부는 오류의 종류를 보지 않고 "찾았는가" 만 보므로 `Option` 으로 낸다. 상대경로로 찾은
 //! 결과(Go `ErrDot`)는 Go 에서 오류이므로 `None` 이다.
 
-use super::gopath::Conv;
+use dm_gocompat::filepath::{unix, windows};
 
 const DEFAULT_PATHEXT: &[&str] = &[".com", ".exe", ".bat", ".cmd"];
 
@@ -24,11 +24,11 @@ pub(crate) fn look_path_unix(
     if file.contains('/') {
         return find(file).then(|| file.to_owned());
     }
-    for dir in Conv::Unix.split_list(path_env) {
+    for dir in unix::split_list(path_env) {
         let dir = if dir.is_empty() { "." } else { dir.as_str() };
-        let p = Conv::Unix.join(&[dir, file]);
+        let p = unix::join(&[dir, file]);
         if find(&p) {
-            return Conv::Unix.is_abs(&p).then_some(p);
+            return unix::is_abs(&p).then_some(p);
         }
     }
     None
@@ -97,17 +97,16 @@ pub(crate) fn look_path_windows(
     if file.contains([':', '\\', '/']) {
         return find_executable_win(file, &exts, &chk);
     }
-    let w = Conv::Windows;
     // 현재 디렉터리에서 찾은 것은 Go 에서 ErrDot 오류다. PATH 에서 같은 실체를 찾을 때만 살아난다.
     let mut dotf: Option<String> = None;
     if !env.no_cwd {
-        dotf = find_executable_win(&w.join(&[".", file]), &exts, &chk);
+        dotf = find_executable_win(&windows::join(&[".", file]), &exts, &chk);
     }
-    for dir in w.split_list(env.path) {
+    for dir in windows::split_list(env.path) {
         if dir.is_empty() {
             continue;
         }
-        let Some(f) = find_executable_win(&w.join(&[&dir, file]), &exts, &chk) else {
+        let Some(f) = find_executable_win(&windows::join(&[&dir, file]), &exts, &chk) else {
             continue;
         };
         if let Some(d) = &dotf
@@ -115,7 +114,7 @@ pub(crate) fn look_path_windows(
         {
             return None;
         }
-        if !w.is_abs(&f) {
+        if !windows::is_abs(&f) {
             if dotf.is_none() {
                 dotf = Some(f);
             }

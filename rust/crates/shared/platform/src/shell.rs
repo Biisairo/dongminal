@@ -3,7 +3,6 @@
 //! 두 제공자는 cfg 없이 컴파일되고, 환경·파일시스템을 주입받아 어느 호스트에서도 검사된다.
 //! 경로 조립은 Go 와 같이 호스트의 `filepath` 규약을 따른다.
 
-pub(crate) mod gopath;
 pub(crate) mod lookpath;
 
 use std::path::Path;
@@ -11,7 +10,7 @@ use std::sync::LazyLock;
 
 use dm_shared_dmenv::ENV_SHELL;
 
-use gopath::Conv;
+use dm_gocompat::filepath;
 
 /// 도구 하나를 띄울 셸의 명세.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -144,14 +143,12 @@ impl ShellProvider for PosixShell {
         // 셸 분기다. zsh 는 환경변수, bash 는 인자로 건다 (FR-HPR-7). bash 는 --rcfile 을 로그인
         // 셸에서 읽지 않으므로 -l 을 대신한다.
         if path.contains("zsh") {
-            spec.env.push(format!(
-                "ZDOTDIR={}",
-                Conv::HOST.join(&[&bin, ZDOTDIR_NAME])
-            ));
+            spec.env
+                .push(format!("ZDOTDIR={}", filepath::join(&[&bin, ZDOTDIR_NAME])));
         } else if path.contains("bash") {
             spec.args = vec![
                 "--rcfile".to_owned(),
-                Conv::HOST.join(&[&bin, BASH_HOOK_FILE]),
+                filepath::join(&[&bin, BASH_HOOK_FILE]),
             ];
         }
         spec
@@ -205,7 +202,7 @@ fn dot_source(path: &str) -> String {
 }
 
 fn is_power_shell(path: &str) -> bool {
-    let base = Conv::HOST.base(path).to_lowercase();
+    let base = filepath::base(path).to_lowercase();
     base.contains("powershell") || base.contains("pwsh")
 }
 
@@ -265,7 +262,7 @@ impl ShellProvider for WindowsShell {
                 ..ShellSpec::default()
             };
         }
-        let hook = Conv::HOST.join(&[&bin, POWERSHELL_HOOK_FILE]);
+        let hook = filepath::join(&[&bin, POWERSHELL_HOOK_FILE]);
         ShellSpec {
             path,
             args: vec![

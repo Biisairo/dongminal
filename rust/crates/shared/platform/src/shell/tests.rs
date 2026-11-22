@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::gopath::Conv;
 use super::*;
+use dm_gocompat::filepath;
 
 fn fake_env(kv: &[(&str, &str)]) -> EnvFn {
     let m: HashMap<String, String> = kv
@@ -88,7 +88,7 @@ fn posix_shell_hook_env_zsh() {
     let s = posix(&[("SHELL", "/bin/zsh")], &["/bin/zsh"]);
     let spec = shell(&s, bin);
     assert_eq!(spec.args, ["-l"], "zsh 는 로그인 셸 그대로다");
-    let want = format!("ZDOTDIR={}", Conv::HOST.join(&[bin, "zdotdir"]));
+    let want = format!("ZDOTDIR={}", filepath::join(&[bin, "zdotdir"]));
     assert_eq!(spec.env.last(), Some(&want));
     assert!(spec.env.contains(&"SHELL=/bin/zsh".to_owned()));
 }
@@ -102,7 +102,7 @@ fn posix_shell_bash_uses_rcfile() {
         spec.args,
         [
             "--rcfile".to_owned(),
-            Conv::HOST.join(&[bin, "bash-hook.sh"])
+            filepath::join(&[bin, "bash-hook.sh"])
         ]
     );
     assert!(!spec.env.iter().any(|e| e.starts_with("BASH_ENV=")));
@@ -154,7 +154,7 @@ fn windows_shell_prefers_pwsh() {
     let s = windows(&[], &["pwsh.exe", "powershell.exe", "cmd.exe"]);
     let spec = shell(&s, r"C:\home\bin");
     assert_eq!(spec.path, "/usr/bin/pwsh.exe");
-    let want = dot_source(&Conv::HOST.join(&[r"C:\home\bin", POWERSHELL_HOOK_FILE]));
+    let want = dot_source(&filepath::join(&[r"C:\home\bin", POWERSHELL_HOOK_FILE]));
     assert_eq!(
         spec.args,
         [
@@ -346,7 +346,7 @@ fn windows_shell_skips_relative_hook_dir() {
 fn windows_shell_keeps_absolute_hook_dir() {
     for bin in [r"C:\home\bin", "C:/home/bin", r"\\srv\share\bin"] {
         let s = windows(&[], &["pwsh.exe"]);
-        let want = dot_source(&Conv::HOST.join(&[bin, POWERSHELL_HOOK_FILE]));
+        let want = dot_source(&filepath::join(&[bin, POWERSHELL_HOOK_FILE]));
         assert!(shell(&s, bin).args.contains(&want), "bin={bin:?}");
     }
 }

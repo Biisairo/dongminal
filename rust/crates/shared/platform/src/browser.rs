@@ -7,8 +7,8 @@
 use std::io;
 use std::sync::LazyLock;
 
-use crate::shell::gopath::Conv;
 use crate::shell::{EnvFn, LookFn, StatFn, power_shell_quote};
+use dm_gocompat::filepath;
 
 /// frameless window(주소창 없는 앱 창)를 여는 명령 `(name, args)`.
 pub trait Browser: Send + Sync {
@@ -54,7 +54,7 @@ impl Chain {
                 if base.is_empty() {
                     return None;
                 }
-                let path = Conv::HOST.join(&[&base, rel]);
+                let path = filepath::join(&[base.as_str(), rel]);
                 (self.stat)(&path).then(|| (path, args(url)))
             }),
             Launcher::Fixed(name, args) => Some(((*name).to_owned(), args(url))),
