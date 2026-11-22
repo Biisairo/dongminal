@@ -134,8 +134,6 @@ func (s *Server) apiLSPPathsPut(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := s.LSP.SetPaths(req.Paths)
 	switch {
-	case errors.Is(err, lsp.ErrUnknownServer):
-		writeToolIOErrorCode(w, http.StatusBadRequest, apierr.CodeBadRequest, err.Error())
 	case errors.Is(err, lsp.ErrPathNotAbsolute):
 		writeToolIOErrorCode(w, http.StatusBadRequest, apierr.CodeAbsPathNeeded, err.Error())
 	case err != nil:

@@ -78,7 +78,6 @@ func (s *Service) Install(ctx context.Context, packID string) ext.Outcome {
 
 // 경로 표의 거부 사유 (§3A-3). httpapi 가 코드를 고른다.
 var (
-	ErrUnknownServer   = errors.New("lsp: 모르는 서버 id")
 	ErrPathNotAbsolute = errors.New("lsp: 절대경로가 아니다")
 	ErrPathsSave       = errors.New("lsp: 경로 표를 저장하지 못했다")
 )
@@ -133,8 +132,8 @@ func (s *Service) Paths() map[string]string {
 	return out
 }
 
-// SetPaths 는 경로 표 전체를 바꾼다 (§3A-3). 키는 지금 서술자 id(팩/서버)여야 하고,
-// 값은 절대경로이거나 빈 문자열(삭제)이다. 파일 존재는 보지 않는다 — 상태 조회가
+// SetPaths 는 경로 표 전체를 바꾼다 (§3A-3). 키가 지금 서술자 id(팩/서버)가 아니면
+// 버린다(FR-ATF-73). 값은 절대경로이거나 빈 문자열(삭제)이다. 파일 존재는 보지 않는다 — 상태 조회가
 // "없음" 을 보인다. 저장에 성공하면 값이 바뀐 서술자의 통로를 모든 루트에서 닫는다.
 // 바뀌지 않은 서술자의 통로는 남는다.
 func (s *Service) SetPaths(next map[string]string) (map[string]string, error) {
@@ -145,8 +144,11 @@ func (s *Service) SetPaths(next map[string]string) (map[string]string, error) {
 	}
 	clean := map[string]string{}
 	for k, v := range next {
+		//	이전 동작: 모르는 키가 하나라도 있으면 표 전체를 거부했다(400)
+		//	새  동작: 모르는 키(지금 없는 팩)는 오류 없이 버린다
+		//	이유:     팩을 지운 뒤 옛 표를 통째로 PUT 해도 저장된다 — FR-ATF-73 (AT-LSP-7)
 		if !known[k] {
-			return nil, fmt.Errorf("%w: %q", ErrUnknownServer, k)
+			continue
 		}
 		if v == "" {
 			continue
