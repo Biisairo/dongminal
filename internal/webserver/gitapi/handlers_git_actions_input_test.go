@@ -71,6 +71,10 @@ func runInputCases(t *testing.T, s *GitServer, repo string, cases []inputCase) {
 				if code >= 400 {
 					t.Fatalf("답은 참인데 실행이 거절됐다: %d %v", code, out)
 				}
+				// 잡을 여는 종단은 잡이 끝날 때까지 기다린다 (QUALITY_FLAKY_SRS FR-FLK-11).
+				if out["job"] != nil {
+					gitJobDone(t, s, out)
+				}
 				return
 			}
 			if code < 400 || out["error"] != c.why {
@@ -190,6 +194,11 @@ func TestWorktreeCreateInputAnswer(t *testing.T) {
 		{"새 브랜치가 이미 있음", id, q("taken", "main", "1"), path, b("taken", "main", true), apierr.CodeBranchExists},
 		{"만들 수 있음", id, q("wt", "other", "0"), path, b("wt", "other", false), ""},
 	})
+	// QUALITY_FLAKY_SRS FR-FLK-11: 「만들 수 있음」 의 생성 잡이 끝난 뒤에 돌아온다 — 끝나기 전에 돌아오면
+	// 잡의 git 이 임시 폴더에 쓰는 동안 정리가 돌아 `directory not empty` 로 실패했다.
+	if _, err := os.Stat(filepath.Join(mgr.Path(worktree.RepoBucket(root), "wt"), ".git")); err != nil {
+		t.Fatalf("생성 잡이 끝나지 않은 채 돌아왔다: %v", err)
+	}
 }
 
 // GV-c (G-B4): 원격 추가의 이름·URL·이미 있는 이름.

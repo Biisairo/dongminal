@@ -18,10 +18,19 @@ const langOf = async (name) => (await CM.languages.find((l) => l.name === name).
 const JS = await langOf('JavaScript');
 const SH = await langOf('Shell');
 
+/**
+ * 다 파싱한 상태 (QUALITY_FLAKY_SRS FR-FLK-10).
+ *
+ * `EditorState.create` 는 첫 파싱에 20ms 만 쓰고(`Work.Apply`), `syntaxTree(state)` 는 그때의 나무를 돌려준다.
+ * `ensureSyntaxTree` 는 파싱을 끝까지 밀지만 그 결과는 파서 문맥에만 남고 이 상태의 나무는 그대로다 — 다음
+ * 트랜잭션이 받아 간다. 그래서 빈 트랜잭션 하나로 다 된 나무를 상태에 싣는다. 종전에는 그 한 줄이 없어,
+ * 부하가 걸려 첫 20ms 안에 JS 파싱이 끝나지 않으면 덜 된 나무로 판정했다(병렬 4벌 실행에서 12회 중 3회).
+ */
 const stateOf = (doc, lang) => {
   const st = CM.EditorState.create({ doc, extensions: lang ? [lang] : [] });
-  CM.ensureSyntaxTree(st, st.doc.length, 5000);
-  return st;
+  if (!lang) return st;
+  assert.ok(CM.ensureSyntaxTree(st, st.doc.length, 5000), '파싱이 5초 안에 끝나지 않았다');
+  return st.update({}).state;
 };
 const sticky = (st, line, max = 5) => [...ctx.edStickyLines(st, line, max)];
 
@@ -36,6 +45,12 @@ const NESTED3 = [
   '}',                // 8
   'const z = 1;',     // 9
 ].join('\n');
+
+test('FR-FLK-10: stateOf 는 첫 파싱이 20ms 안에 끝나지 않는 문서도 다 된 나무로 준다', () => {
+  const doc = Array.from({ length: 20000 }, (_, i) => `function f${i}() { if (x) { a(${i}); } }`).join('\n');
+  const st = stateOf(doc, JS);
+  assert.equal(CM.syntaxTree(st).length, st.doc.length);
+});
 
 test('FR-CMR-80·81: 중첩 3단계 — 바깥 범위가 먼저다', () => {
   const st = stateOf(NESTED3, JS);

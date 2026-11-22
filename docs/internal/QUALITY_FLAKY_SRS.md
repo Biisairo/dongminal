@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현중
 
-> **남은 것**: FL-7, 마지막 전량 e2e 의 재현·원인·고침, 마지막 전량 e2e.
+> **남은 것**: 마지막 전량 e2e 의 결과 기록 의 재현·원인·고침, 마지막 전량 e2e.
 
 - 접수: 2026-11-22 (`QUALITY_FIX_SRS` 뒤. `REFACTOR_PROD3_HANDOFF_4.md` §4 「흔들림」 목록 · `PROD3.md` §7.1 「전체 시험」 행)
 - 사용자 지시: 흔들림으로 받아들여 온 시험의 **원인을 찾아 고친다.** 재시도·시한을 늘려 덮지 않는다. 원인이 시험의 기다림 조건이면 상태가 바뀐 것을 기다리게 고치고, 원인이 앱의 경합이면 앱을 고친다.
@@ -22,7 +22,7 @@
 | FL-4 | `e2e/settings.spec.ts:256` 「고치던 이름은 덮지 않고…」 · 「규칙에 맞지 않는 이름은 거절」 | **앱 결함** | 프로필 패널의 읽기를 하나로 묶고, 읽는 사이에 고친 이름을 덮지 않는다(§2.4) |
 | FL-5 | `e2e/ux-audit-fix.spec.ts` TC-UXF-1 · 「2묶음 두 모드」(TC-UXF-16) · `ux-audit-fix-7` TC-UXF-94 | 시험 경합(TC-UXF-1·16) · 재현 못 함(TC-UXF-94) | 기대값을 묻는 순간에 계산하고, 카드 안 배치는 한 번에 잰다. 공용 `waitForInit` 이 첫 구독의 재검증을 기다린다(§2.5) |
 | FL-6 | `editor-ops` O7 · `edges-settings` 간선 주소·망 그림 · `claude-accounts` TC-CAC-27 · `tab` 단축키 · `kit-components` TC-CMP-19 | 시험 경합(`tab` 단축키 — FL-2 와 같은 원인) · 재현 못 함(나머지 넷) | `tab.spec` 의 탭 클릭을 `selectTab` 으로(§2.6) |
-| FL-7 | 단위 `cm-sticky.test.mjs` · Go `gitapi` `TestWorktreeCreateInputAnswer` | (조사 중) | |
+| FL-7 | 단위 `cm-sticky.test.mjs` · Go `gitapi` `TestWorktreeCreateInputAnswer` | 시험 경합(둘 다) | 시험의 상태 도우미가 다 된 구문 나무를 싣는다 · 생성 잡이 끝날 때까지 기다린다(§2.7) |
 
 ### 1.2 정의
 
@@ -125,6 +125,21 @@
 |---|---|
 | FR-FLK-9 | `tab.spec.ts` 의 탭 고르기(「tab switch by clicking another tab」·「keyboard shortcut switches tabs」)는 `selectTab` 을 쓴다(FR-FLK-2) |
 
+### 2.7 FL-7 — 단위 cm-sticky · Go TestWorktreeCreateInputAnswer
+
+**cm-sticky 재현.** 단독 30회 · `npm run unit` 8회 순차로는 0 실패. `npm run unit` 넷을 **동시에** 세 번(12회) 돌리면 3회 실패 — 늘 JS 구문 나무를 처음 쓰는 시험(「중첩 3단계」, 120~200ms)이다.
+
+**cm-sticky 원인.** 시험의 `stateOf` 는 상태를 만들고 `ensureSyntaxTree(st, 끝, 5000)` 를 부른 뒤 그 상태를 돌려준다. 그런데 `EditorState.create` 는 첫 파싱에 20ms 만 쓰고(`Work.Apply`), 판정 함수가 읽는 `syntaxTree(state)` 는 **그때의 나무**다. `ensureSyntaxTree` 가 끝까지 민 결과는 파서 문맥에만 남고, 다음 트랜잭션이 상태로 받아 간다. 부하가 걸려 첫 20ms 안에 JS 파싱이 끝나지 않으면 덜 된 나무로 판정한다. 앱은 그렇지 않다 — 화면의 플러그인은 나무가 바뀌는 트랜잭션마다 다시 잰다(`update` 의 `syntaxTree` 비교).
+
+**gitapi 원인.** `runInputCases` 의 「답이 참이면 실행해 본다」 는 `POST /api/git/worktrees/create` 를 부르고 4xx 가 아니면 곧바로 돌아온다. 이 종단은 **잡**을 열고 바로 답한다(REPO_FIX 01 §5.6). 시험이 끝나면 `t.TempDir` 정리가 도는데, 그때 잡의 `git worktree add` 가 아직 임시 폴더에 쓰고 있으면 `directory not empty` 다. 순차 150회로는 재현하지 못했지만(빨리 끝난다), 「돌아왔을 때 워크트리가 다 섰는가」 를 단정하면 5/5 실패한다 — 잡이 끝나기 전에 돌아온다는 것이 결정적이다.
+
+**판정.** 둘 다 시험 경합.
+
+| ID | 요구 |
+|---|---|
+| FR-FLK-10 | `cm-sticky.test.mjs` 의 `stateOf` 는 언어가 있으면 `ensureSyntaxTree` 가 다 됐음을 단정하고 빈 트랜잭션 하나로 그 나무를 실은 상태를 돌려준다 |
+| FR-FLK-11 | `runInputCases` 는 실행 종단이 잡을 열었으면 그 잡이 끝날 때까지 기다린다(`gitJobDone`). `TestWorktreeCreateInputAnswer` 는 돌아온 뒤 만든 워크트리(`.git`)가 있는지 단정한다 |
+
 ## 3. 결정
 
 | ID | 결정 | 이유 |
@@ -140,6 +155,7 @@
 | D-FLK-10 | 읽는 사이의 수정은 「요청을 낼 때의 값과 지금 값이 다르다」 로 판정한다 | 패널의 기준(`_liveMark`)은 첫 읽기 전에는 비어 있어 「수정」 을 말할 수 없다. 요청 시점의 값은 언제나 있다 |
 | D-FLK-11 | 첫 재검증 기다림은 공용 `waitForInit` 에 둔다. 흉내를 넣는 시험마다 `/api/snapshot` 을 가로채지 않는다 | 「앱이 떠서 멎었다」 는 구독과 그 재검증까지다(E2E_QUIESCENCE 의 뜻). 시험마다 가로채면 같은 구멍이 새 시험에서 다시 열린다 |
 | D-FLK-12 | 「첫 재검증이 끝났다」 는 기존 계약 `restoreLive('activity', null)` 로 묻는다. 계약에 새 이름을 더하지 않는다 | 버스는 비행이 없었으면 `undefined`, 닫혔으면 `null` 을 든다 — 그 차이가 곧 「한 번 돌고 닫혔다」 다. 모든 비행이 닫혔는지는 물을 수 없다 — 알람 복원은 목록이 `null` 이면 비행을 닫지 않고 돌아온다(`_attnRestore`) |
+| D-FLK-13 | cm-sticky 는 시험 도우미를 고친다. 판정 함수(`edStickyLines`)가 `ensureSyntaxTree` 를 부르게 하지 않는다 | 화면은 나무가 자라면 다시 잰다 — 판정 함수가 파싱을 밀면 스크롤마다 최대 5초를 막을 수 있다. 결함은 「상태를 만든 직후의 나무가 다 됐다」 고 본 시험의 전제다 |
 | D-FLK-8 | V-NAM-4 의 활동은 `waiting` 으로 서버에 보고한다 | 이 시험이 재는 것은 카드의 이름이다. 화면에만 넣으면 주기 조회가 지우고, `working` 은 전경이 빈 셸에서 조회가 뺀다(FR-AAP-20) |
 
 ## 4. 검증
@@ -151,6 +167,7 @@
 | TC-FLK-4 | 단위 `profile-panel.test.mjs` 넷 — 겹친 읽기는 하나 · 읽는 사이에 고친 이름은 남고 뒤의 방송이 안내 · 읽는 사이에 선 안내를 읽기가 거두지 않음(셋 다 옛 코드에서 RED) · 고치지 않았으면 읽은 값. e2e: 응답 400ms 지연 탐침이 고친 뒤 3/3(읽기 1번, 이름 남음, 안내 섬). `settings.spec.ts` `PW_WORKERS=8 --repeat-each=6` 0 실패, 설정 관련 5 spec 통과 |
 | TC-FLK-5 | 탐침(구독 1.5초 지연 · 활동 흉내 · 패널 열기 · 2.4초 관찰): 옛 `waitForInit` 에서 카드 0(2/2), 새 것에서 1(3/3). TC-UXF-16 `PW_WORKERS=8 --repeat-each=40` 0 실패. `ux-audit-fix`·`ux-audit-fix-7` `--repeat-each=3` 144 통과. 샤드 6/8 의 32 spec `PW_WORKERS=4` 249 통과(공용 기다림의 회귀) |
 | TC-FLK-6 | `tab.spec.ts` 포함 다섯 spec `PW_WORKERS=6 --repeat-each=4` 272 통과(다른 두 샤드를 함께 돌린 부하), 대상 줄 `PW_WORKERS=8 --repeat-each=10` 100 통과 |
+| TC-FLK-7 | 단위 `cm-sticky` 「stateOf 는 첫 파싱이 20ms 안에 끝나지 않는 문서도 다 된 나무로 준다」(JS 2만 줄 — 옛 도우미에서 RED). `npm run unit` 넷 동시 × 4회(16회) 0 실패(고치기 전 12회 중 3회). Go `TestWorktreeCreateInputAnswer` 의 워크트리 단정(옛 시험에서 5/5 RED) → `-count=20` 통과, `gitapi` `-race -shuffle=on` 통과 |
 | TC-FLK-3 | Go `httpapi` `TestSSE_ForegroundOnConnect`(인사 뒤 도구마다 한 줄, 빈 이름 포함 — 옛 코드에서 RED) · `_UnknownList`(모르는 목록이면 없음) · `_PresenceSkips`(칸 구독이면 없음). e2e `tab-names.spec.ts` 전체 `PW_WORKERS=8 --repeat-each=10` 0 실패. 관련 e2e(재연결·새로고침·복원 비행·동기·skill-contract·version-autoreload 등 11 spec) 통과 |
 
 ## 5. 동작 변경 기록
@@ -161,6 +178,7 @@
 | FL-2 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-5 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-6 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
+| FL-7 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-4 | 설정을 열면 프로필을 두 번 읽었고, 늦게 온 답이 그 사이에 고친 이름을 지웠다 | 읽기는 한 번이고, 읽는 사이에 고친 이름은 남는다(다른 곳에서 바뀌었으면 안내가 선다) | 느린 망에서 사용자의 글자가 사라졌다(FR-FLK-6) |
 | FL-3 | 전경 이름은 바뀔 때의 방송뿐이었다. 부팅 조회와 구독 사이의 변화는 사라져, 새로 연 셸 탭이 폴더를 옮길 때까지 `Shell` 로 남을 수 있었다 | 구독이 열릴 때 서버가 도구마다 지금의 이름을 한 번 싣는다 | 부팅 조회와 구독 사이의 틈(FR-FLK-3, D-FLK-5) |
 
@@ -173,4 +191,5 @@
 | FL-4 | `ProfileSection._loadProfilePanel` 은 단일 비행(`_pfReading`), 본문 `_pfRead` 는 요청 시점의 이름과 답이 왔을 때의 이름이 다르면 `_pfPaint(v,keepName)` 로 이름 칸을 두고 `_liveMark(k,r,{name: 읽은 값},keep)` 으로 안내를 둔다. `SettingsLive._liveMark` 에 넷째 인자 `keep`(FR-FLK-6). 시험 TC-FLK-4. 사용자 언어 CHANGELOG 「고침」 |
 | FL-5 | `fixtures.ts` `waitSseRevalidated` 를 `waitForInit` 끝에(FR-FLK-7). `ux-audit-fix.spec.ts` TC-UXF-1 은 `expect.poll` 로 그 순간의 규칙 값과 글자·툴팁을 견주고, TC-UXF-16 은 `card.evaluate` 한 번으로 넷을 잰다(FR-FLK-8). 시험 TC-FLK-5. TC-UXF-94 는 재현 못 함 |
 | FL-6 | `tab.spec.ts` 두 시험의 탭 클릭 셋을 `selectTab` 으로(FR-FLK-9). 나머지 넷은 재현 못 함(§2.6) |
+| FL-7 | `cm-sticky.test.mjs` `stateOf` + 시험 하나(FR-FLK-10). `handlers_git_actions_input_test.go` `runInputCases` 의 잡 기다림과 워크트리 단정(FR-FLK-11). 시험 TC-FLK-7 |
 | FL-3 | 서버: `hub.ForegroundSnapshot` · `Server.foregroundOnConnect`(`commands.go`) — 인사를 flush 한 뒤 칸 구독이 아니면 `ListOK` 의 도구마다 `tool_foreground` 를 싣고 flush(FR-FLK-3). Go 시험 `commands_sse_fg_test.go` 셋(옛 코드에서 첫째 RED: 인사 한 줄뿐). 시험: `tab-names.spec.ts` 의 `fgSettled`(서버 값은 `page.request` 로 읽어 스냅숏 흉내를 지나지 않는다) — `pushForeground` 가 도구마다 처음 한 번 부르고, V-NAM-1·2·5·4 가 직접 부른다. 스냅숏 흉내는 `fgStub.has` 로 빈 이름도 덮는다. V-NAM-4 는 활동을 `POST /api/tools/activity/set` 에 `waiting` 으로(FR-FLK-5). 원인 2 의 계측: 실패 회차의 페이지 기록에 `tool_foreground` 가 없고 구독은 도구 생성 70ms 뒤에 열렸다. 고친 뒤 `PW_WORKERS=8 --repeat-each=10` 170 통과(시험만 고친 상태에서 160여 회 중 4회 「브라우저에 닿지 않았다」). 관련 e2e 11 spec 96 통과. 사용자 언어 CHANGELOG 「고침」 |
