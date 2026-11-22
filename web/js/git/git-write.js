@@ -119,8 +119,7 @@ class GitWrite extends GitPart {
    * 남으므로 그 사실을 Stash 탭이 그 자리에서 알려야 한다.
    */
   afterStashWrite(res){
-    const d=(res&&res.data)||{};
-    if(d.status) this.adopt(d);
+    this.adopt((res&&res.data)||{});
     // 실패 사유는 Stash 탭이 보인다 — Changes 탭의 안내로 보내면 사용자가 조작한
     // 자리에서 결과를 읽을 수 없다.
     this.p.views._stash().adoptWrite(res);
@@ -288,7 +287,10 @@ class GitWrite extends GitPart {
   // signature 는 쓰기 응답에 없으므로 _lastSig 를 그대로 둔다. 다음 signature
   // 폴링이 차이를 보고 한 번 더 재조회하는 것은 해롭지 않다.
   adopt(d){
-    if(!d||!d.status||d.requested!==this.p.repo) return;
+    if(!d||d.requested!==this.p.repo) return;
+    // 쓰기는 적용됐고 서버의 재조회만 실패했다 — 실을 status 가 없으니 새로고침으로
+    // 다시 읽는다 (ATTIC_FIX_SRS FR-ATF-74).
+    if(!d.status){ if(d.statusStale) this.p.viewReload.refresh(); return }
     // mark 는 옛 관측의 것이다 — 남기면 다음 collect 가 그 값을 `ifMark` 로 실어, 서버의
     // 관측이 아직 그 mark 면 이 본문 위에 틀린 `unchanged` 를 받는다 (FR-OPT-4-7).
     this.p._status=Object.assign({},this.p._status||{},

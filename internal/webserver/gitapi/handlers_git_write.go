@@ -177,7 +177,7 @@ func (s *GitServer) apiGitResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	if failed == 0 {
 		if statusErr != nil {
-			gitError(w, statusErr)
+			gitWriteStaleOK(w, t.requested, t.root, map[string]any{"results": results})
 			return
 		}
 		gitWriteOK(w, t.requested, t.root, obs.Status, map[string]any{"results": results})
@@ -384,10 +384,14 @@ func (s *GitServer) gitApply(t *gitWrite, before query.Status, run func(context.
 		return obs.Status, true
 	}
 	if runErr == nil {
-		// 실행은 됐고 재조회가 실패했다. 결과를 성공으로 보이면 화면이 낡은 목록을
-		// 유지하므로 실패로 답한다.
-		gitError(t.w, statusErr)
-		return query.Status{}, false
+		// 실행은 됐고 재조회만 실패했다. 성공으로 답하되 status 를 싣지 않는다 —
+		// 화면은 statusStale 을 보고 상태를 다시 읽는다.
+		//
+		//	이전 동작: 오류로 답했다 — 적용된 쓰기를 화면이 실패로 보였다
+		//	새  동작: 200 에 status 대신 statusStale:true
+		//	이유:     쓰기는 이미 적용됐다 (ATTIC_FIX_SRS FR-ATF-74, AT-GAPI-4)
+		t.stale = true
+		return query.Status{}, true
 	}
 
 	body := map[string]any{"partial": false}
@@ -440,6 +444,9 @@ func (s *GitServer) gitIndexLock(ctx context.Context, root string, err error) (*
 	return info, info != nil
 }
 
+// gitKeyStatusStale 은 재조회가 실패해 status 를 싣지 못한 성공 응답의 표식이다.
+const gitKeyStatusStale = "statusStale"
+
 // gitWriteOK 는 쓰기 성공 응답이다. **실행 후 status 를 함께 담는다** (FR-GIT-71)
 // — 클라이언트가 폴링 주기를 기다리지 않는다.
 func gitWriteOK(w http.ResponseWriter, requested, root string, st query.Status, extra map[string]any) {
@@ -449,6 +456,22 @@ func gitWriteOK(w http.ResponseWriter, requested, root string, st query.Status, 
 		"ok":        true,
 		"partial":   false,
 		"status":    st,
+	}
+	for k, v := range extra {
+		body[k] = v
+	}
+	gitJSON(w, http.StatusOK, body)
+}
+
+// gitWriteStaleOK 는 쓰기는 적용됐고 재조회만 실패한 성공 응답이다 (FR-ATF-74).
+// status 자리를 비우고 statusStale 을 싣는다.
+func gitWriteStaleOK(w http.ResponseWriter, requested, root string, extra map[string]any) {
+	body := map[string]any{
+		"requested":       requested,
+		"repo":            root,
+		"ok":              true,
+		"partial":         false,
+		gitKeyStatusStale: true,
 	}
 	for k, v := range extra {
 		body[k] = v

@@ -122,7 +122,7 @@ class GitRemoteList extends GitView {
   adoptWrite(res){
     const d=(res&&res.data)||{};
     if(!res||!res.ok) return false;
-    if(d.status) this.panel.write.adopt(d);
+    this.panel.write.adopt(d);
     if(Array.isArray(d.remotes)) this._list=d.remotes;
     this._err=null;
     this.paint();

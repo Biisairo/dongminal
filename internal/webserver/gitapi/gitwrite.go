@@ -58,6 +58,8 @@ type gitWrite struct {
 	before    query.Status
 	gotBefore bool
 	after     query.Status
+	// stale 은 쓰기는 적용됐고 재조회가 실패해 after 가 없다는 뜻이다 (FR-ATF-74).
+	stale bool
 }
 
 // beginWrite 는 domain/git 이 실행하는 쓰기를 연다.
@@ -368,7 +370,11 @@ func (t *gitWrite) ok(extra map[string]any) {
 	if t.done {
 		return
 	}
-	gitWriteOK(t.w, t.requested, t.root, t.after, extra)
+	if t.stale {
+		gitWriteStaleOK(t.w, t.requested, t.root, extra)
+	} else {
+		gitWriteOK(t.w, t.requested, t.root, t.after, extra)
+	}
 	t.done = true
 }
 
