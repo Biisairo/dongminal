@@ -173,6 +173,7 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | D-2 | 보안 강화 | platform browser (WSL 폴백) | `powershell.exe -NoProfile -Command Start-Process <url>` — url 이 스크립트로 해석되어 명령 주입 | url 을 작은따옴표 축자 문자열로 넘긴다(`'` 는 `''`) | 1.4.3 보안 검토 |
 | D-3 | 알려진 차이 | gocompat json 디코딩 | 중첩 깊이 10000 까지 성공 | 513 이상이면 `exceeded max depth` (스택 넘침 방지) | 1.1 |
 | D-4 | 알려진 차이 | gocompat json 디코딩 | 타입 오류 때 일부 채운 값을 남긴다 | 값을 돌려주지 않는다. 그 값을 쓰는 Go 코드가 없음을 각 이슈가 확인한다 | 1.1 |
+| D-5 | 알려진 차이 | gocompat filepath (Windows) | `EvalSymlinks` 가 경로 대소문자를 실제 이름으로 정규화(toNorm) | 정규화하지 않는다(gocompat 에 OS 호출을 두지 않는다). 관측 자리를 만나면 platform 으로 옮긴다 | 4.1.1 |
 
 ## 4. 검증
 
