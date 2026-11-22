@@ -24,7 +24,7 @@
    - `~/.dongminal` 의 파일·소켓에 접근하기(읽기 포함)
    - 60147 미만의 포트 쓰기
    - `pkill`, `killall`, 이름으로 프로세스 찾아 죽이기. 내가 띄운 PID 만 끈다
-   - 특권 헬퍼, launchd·systemd 서비스 설치·제거·호출
+   - 특권 헬퍼, launchd·systemd 서비스 설치·제거·호출. 예외: 격리 데몬이 스스로 보내는 읽기 전용 `info`(공개키 조회)는 허용한다. `sign`·`kill`·`kick` 은 금지다 (SRS C-RSP-1)
    - 이 탭에 원래 있던 `dmctl`(PATH 의 `~/.dongminal/bin/dmctl`)로 포팅 결과를 시험하기. `dmctl` 은 조정자와 메시지를 주고받을 때만 쓴다
 4. e2e 는 이슈 8.1 만 돌린다. 다른 이슈에서 `npx playwright test` 를 돌리지 않는다.
 
