@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"dongminal/internal/shared/dmenv"
@@ -28,6 +29,9 @@ const (
 	fallbackName = "node"
 	maxPort      = 65535
 	fileMode     = 0o600
+	// badSuffix·badTimeLayout 은 깨진 설정 파일을 비켜 둘 이름의 꼬리다 (D-ATF-5).
+	badSuffix     = ".bad-"
+	badTimeLayout = "20060102T150405.000000000Z"
 )
 
 var (
@@ -230,7 +234,7 @@ func OpenStore(path, hostname string) *Store {
 		LegacyEdges []stored `json:"peers"`
 	}
 	if err := json.Unmarshal(data, &c); err != nil {
-		dmlog.Infof(nil, "loadEdges: %v — 노드 기능을 끈 채로 시작한다", err)
+		moveBroken(path, err)
 		return s
 	}
 	if c.Edges == nil {
@@ -247,6 +251,17 @@ func OpenStore(path, hostname string) *Store {
 		s.cfg.Name = DefaultName(s.cfg.Name)
 	}
 	return s
+}
+
+// moveBroken 은 깨진 설정 파일을 `<path>.bad-<UTC시각>` 으로 비켜 두고 경고한다. 다음 저장이
+// 원본을 덮지 않는다 (FR-ATF-57, D-ATF-5).
+func moveBroken(path string, cause error) {
+	bad := path + badSuffix + time.Now().UTC().Format(badTimeLayout)
+	if err := os.Rename(path, bad); err != nil {
+		dmlog.Warnf(nil, "loadEdges: %v — 깨진 파일을 비켜 두지 못했다(%v). 노드 기능을 끈 채로 시작한다", cause, err)
+		return
+	}
+	dmlog.Warnf(nil, "loadEdges: %v — 깨진 파일을 %s 로 옮기고 노드 기능을 끈 채로 시작한다", cause, bad)
 }
 
 // MigrateLegacyFiles 는 옛 이름의 홈 파일을 정리한다 (PEER_DAEMON_SRS FR-PDM-71).
