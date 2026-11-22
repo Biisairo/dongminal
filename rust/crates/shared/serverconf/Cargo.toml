@@ -10,5 +10,12 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-dmenv = { path = "../dmenv" }
 dm-shared-platform = { path = "../platform" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+dm-shared-testpath = { path = "../testpath" }
+tempfile = { workspace = true }
