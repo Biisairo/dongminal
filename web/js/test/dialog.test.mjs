@@ -183,7 +183,7 @@ test('TC-FED-5 UIKit.modal 은 KitModal 에 맡긴다 — 닫는 길이 여럿�
   assert.match(src.slice(i, src.indexOf('\n  },', i)), /new KitModal\(/);
 
   const e = env();
-  const ctx = load([...BASE, 'ui/ui-kit.js', ...DIALOG], {
+  const ctx = load([...BASE, 'ui/ui-kit.js', 'ui/dialog-stack.js', ...DIALOG], {
     expose: ['UIKit', 'KitModal', 'Dialog', 'EscapeStack'],
     globals: { document: e.document, TIMERS: e.TIMERS },
   });

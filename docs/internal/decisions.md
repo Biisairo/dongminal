@@ -1481,6 +1481,7 @@
 | `D-FR5-6` | (R5b) 100줄 상한은 새 단위 시험 `fn-size.test.mjs` 가 모든 함수(주석 포함 줄 수)에 건다. 아직 남은 것은 시험 안의 남김 목록에 이유와 함께 둔다 | `method-size.test.mjs` 는 이름으로 찾은 함수의 코드 줄만 잰다. 즉시 실행 함수·팩토리처럼 이름이 없는 자리는 거기 들 수 없어 다시 불어도 보이지 않는다 | 채택 |
 | `D-FR5-7` | (R5c) e2e 가 파일을 홀로 싣는 하네스(`event-timer-hub-contract` 의 `git-part.js`+`git-poll.js`, `reconnect-storm` 의 `term-pane.js`·`term-input.js`·`ui-k… | 이 작업 트리는 `e2e/` 를 고치지 않는다. 하네스가 싣지 않는 파일의 클래스를 그 경로가 부르면 하네스가 `ReferenceError` 로 깨진다. 처음에는 받아들이기를 `GitStatusApply` 로 옮겼다가, 하네스가 `_fail()` 경로… | 채택 |
 | `D-FR5-8` | (R5d) 부품은 상태를 갖지 않는다 — 펼침·선택·조작·관측 통로는 탐색기 인스턴스에 남고, 부품은 탐색기의 이름을 **전부** `this.tree.X` 로 부른다. 위임자는 부품 메서드 전부이고 부품 파일 끝의 표(`Controller.delega… | e2e 와 시험이 탐색기 인스턴스의 필드(`_sel`·`_open`·`_kids` …)를 읽고 메서드(`_paintAll`·`_rollup`·`_after` …)를 갈아 끼운다. 부품 사이의 호출까지 원형을 지나야 갈아 끼운 것을 본다(INV-R5-2… | 채택 |
+| `D-FR5-9` | (R5c) `ui/term-pane.js`(776)는 이 묶음에서 나누지 않는다 | e2e `reconnect-storm` 이 `term-pane.js`·`term-socket.js`·`term-input.js`·`ui-kit.js` 를 홀로 싣고 전역을 손으로 세운다. 그 하네스의 주석이 규약을 적어 두었다 — "`term-pane… | 채택 |
 
 ## [`REFACTOR3_FE_SETTINGS_SRS`](./REFACTOR3_FE_SETTINGS_SRS.md)
 
@@ -2120,4 +2121,4 @@
 
 ---
 
-결정 **1292건** · 문서 **161개**.
+결정 **1293건** · 문서 **161개**.
