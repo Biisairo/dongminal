@@ -163,3 +163,4 @@
 |---|---|
 | `2f141812` | 이 문서 |
 | QF-1 | `sidebar-actions.spec.ts` TC-SBA-1 을 한 줄 배치의 단정으로(FR-QFX-1). 반증: `#add-group` 을 공통 규칙(`style-main-panel.css`)에서 빼면 실패한다(높이·여백이 갈린다). 관련 e2e 5 spec(`grep -rl "add-group\|sb-actions"`) 105 통과 |
+| QF-2 | `version-autoreload.spec.ts` 의 `fakeSilence` 가 지금 구독의 `onmessage` 를 떼고 시각을 민다(FR-QFX-2) — TC-RLC-25·26 이 쓴다. 원인 실측: 진단 시험에서 시각만 민 직후 `tool_foreground {name:"~"}` 가 닿아 `_seen` 이 돌아왔고 세대가 1 에 머물렀다. 수신이 없으면 1.5초 안에 세대 1 → 2(감시는 돈다). 반증: 감시 job 의 `run` 을 비우면 TC-RLC-25 가 20초 시간 초과로 실패한다. `version-autoreload` 17건 `--repeat-each=2` 34 통과, 관련 e2e(`focus-owner`·`layout`) 34 통과 |

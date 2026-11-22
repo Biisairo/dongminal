@@ -321,9 +321,19 @@ test('TC-RLC-22b (FR-RLC-23): 인사도 되풀이 방지를 따른다', async ({
 // 지금 구독이 몇 번째로 열린 것인지. 다시 열렸는지를 이 수로 판정한다.
 const sseGen = (page: Page) => page.evaluate(() => (window as any).app.testing.sseGen || 0);
 
-// 마지막 수신 시각을 과거로 밀어 침묵을 흉내낸다 — 실제로 45초를 기다릴 수는 없다.
+// 침묵을 흉내낸다 — 실제로 45초를 기다릴 수는 없다.
+//
+// QUALITY_FIX_SRS FR-QFX-2: 시각만 밀면 흉내가 아니다. 다음 감시 틱(5초) 전에 실제 수신이 오면
+// FR-RLC-28 대로 시각이 지금으로 돌아오고, 구독은 침묵하지 않은 것이 된다 — 셸이 뜬 직후의 전경
+// 이름 알림(UX_AUDIT_FIX_SRS FR-UXF-65, `"" → "~"`)이 바로 그 수신이라 TC-RLC-25 가 늘 실패했다.
+// 그래서 지금 구독의 수신 처리기를 뗀다: half-open 소켓처럼 아무것도 앱에 닿지 않는다(D-QFX-2).
+// 다시 연 구독은 새 `EventSource` 라 처리기가 새로 붙는다.
 const fakeSilence = (page: Page, ms: number) =>
-  page.evaluate((back) => { (window as any).app.testing.sseSeen = Date.now() - back }, ms);
+  page.evaluate((back) => {
+    const t = (window as any).app.testing;
+    t.cmdES.onmessage = null;
+    t.sseSeen = Date.now() - back;
+  }, ms);
 
 test('TC-RLC-27 (FR-RLC-25·28): 수신이 이어지는 동안에는 끊지 않는다', async ({ page }) => {
   await waitForInit(page);
