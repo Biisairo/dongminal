@@ -47,7 +47,6 @@ const gitlinkMode = "160000"
 const (
 	DiffMaxBytes       = editorlimit.FileMaxBytes
 	LFSMaxPointerBytes = 1024 // LFS 포인터는 작다
-	BinarySniffBytes   = 8000 // git 의 휴리스틱과 같은 폭
 )
 
 // 거부 사유는 열거한다 — 서버가 400·404 를 구분해 답해야 하고, 전부 500 으로
@@ -348,11 +347,11 @@ func diffSideFromBody(body string, size int64) DiffSide {
 	return DiffSide{Kind: DiffKindText, Content: body, Size: size, body: body}
 }
 
-// hasNUL 은 앞 BinarySniffBytes 안의 NUL 을 찾는다. git 이 바이너리를 정하는
+// hasNUL 은 앞 editorlimit.BinarySniffBytes 안의 NUL 을 찾는다. git 이 바이너리를 정하는
 // 휴리스틱과 같은 폭이며, 뒤쪽만 보고 판정을 바꾸지 않는다.
 func hasNUL(body string) bool {
-	if len(body) > BinarySniffBytes {
-		body = body[:BinarySniffBytes]
+	if len(body) > editorlimit.BinarySniffBytes {
+		body = body[:editorlimit.BinarySniffBytes]
 	}
 	return strings.ContainsRune(body, 0)
 }

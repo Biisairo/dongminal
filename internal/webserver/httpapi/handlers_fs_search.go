@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"dongminal/internal/shared/editorlimit"
 )
 
 // /api/fs/{find,grep} — Editor 창의 파일 이름 찾기와 전체 내용 찾기
@@ -354,7 +356,7 @@ func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bo
 		defer f.Close()
 		br.Reset(f)
 		// 짧은 파일은 `Peek` 이 오류와 함께 있는 만큼을 준다 — 그것이 정상이다.
-		head, _ := br.Peek(binaryProbeLen)
+		head, _ := br.Peek(editorlimit.BinarySniffBytes)
 		if isBinary(head) {
 			return true
 		}

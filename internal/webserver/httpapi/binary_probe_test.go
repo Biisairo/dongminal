@@ -5,16 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"dongminal/internal/shared/editorlimit"
 )
 
 // REFACTOR3_DEDUP_GO_SRS FR-RDG-9: 이진 판정은 한 함수다 — UTF-16 BOM 이면 NUL 이 있어도 텍스트,
-// NUL 은 앞 binaryProbeLen 바이트에서만 본다.
+// NUL 은 앞 editorlimit.BinarySniffBytes 바이트에서만 본다(QUALITY_GO_SRS FR-QG-52).
 func TestIsBinary_Rule(t *testing.T) {
-	late := make([]byte, binaryProbeLen+1)
+	late := make([]byte, editorlimit.BinarySniffBytes+1)
 	for i := range late {
 		late[i] = 'a'
 	}
-	late[binaryProbeLen] = 0
+	late[editorlimit.BinarySniffBytes] = 0
 	cases := map[string]struct {
 		blob []byte
 		want bool

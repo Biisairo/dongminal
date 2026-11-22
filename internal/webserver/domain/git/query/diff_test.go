@@ -275,7 +275,7 @@ func TestDiffContent_Binary(t *testing.T) {
 // NUL 이 탐지 폭 뒤에만 있으면 text 다 — git 의 휴리스틱과 같은 폭을 쓴다.
 func TestDiffContent_NULBeyondSniffWindowIsText(t *testing.T) {
 	repo := diffRepo(t)
-	body := strings.Repeat("a", BinarySniffBytes) + "\x00"
+	body := strings.Repeat("a", editorlimit.BinarySniffBytes) + "\x00"
 	diffWrite(t, repo, "late.txt", body)
 	f := newDiffFake()
 	f.blobs[":late.txt"] = "x\n"
