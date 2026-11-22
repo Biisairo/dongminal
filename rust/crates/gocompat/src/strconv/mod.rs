@@ -47,8 +47,21 @@ fn push_hex_byte(dst: &mut String, b: u8) {
     dst.push(char::from(LOWER_HEX[usize::from(b & 0xf)]));
 }
 
+/// Go `strconv.QuoteRune`. 작은따옴표로 감싼 Go 룬 리터럴.
+pub fn quote_rune(c: char) -> String {
+    let mut out = String::with_capacity(4);
+    out.push('\'');
+    append_escaped(&mut out, c, '\'');
+    out.push('\'');
+    out
+}
+
 fn append_escaped_char(dst: &mut String, c: char) {
-    if c == '"' || c == '\\' {
+    append_escaped(dst, c, '"');
+}
+
+fn append_escaped(dst: &mut String, c: char, quote: char) {
+    if c == quote || c == '\\' {
         dst.push('\\');
         dst.push(c);
         return;
