@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
  * REFACTOR3_FE_REST3_SRS (2026-11-21): _applyRemoteWorkspace 66→22 · save 43→23 · _saveAdoptRemote 30→10.
  * REFACTOR3_FE_REST3_SRS R3b (TC-FR3-41): delWindow 56→13 · _renderPreview 77→11 ·
  * buildLaneGraph 121→5 · _buildChanges 73→22 · _rowEl 60→28 · _applyStatus 32→9.
+ * REFACTOR3_FE_REST5_SRS R5b (TC-FR5-11): _makeTab 96→16 · _renderThemePanel 85→17.
  */
 const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MAX = 50;
@@ -33,12 +34,12 @@ function methodLines(file, head) {
 const CASES = [
   ['core/layout-tab-add.js', '  async addTab('],
   ['core/layout-tab-ops.js', '  async closeTab('],
-  ['core/app.js', '  save(){'],
+  ['core/ws-save-controller.js', '  save(){'],
   ['core/app.js', '  async init(){'],
   ['core/tool-cmd.js', '  _execRemote(action, args){'],
   ['core/mobile-controller.js', '  initMobileKeybar('],
   ['core/ws-sync-controller.js', '  _applyRemoteWorkspace('],
-  ['core/app.js', '  async _saveAdoptRemote('],
+  ['core/ws-save-controller.js', '  async _saveAdoptRemote('],
   ['core/layout-controller.js', '  async delWindow('],
   ['core/settings-theme.js', '  _renderPreview('],
   ['git/lanes.js', 'function buildLaneGraph('],
@@ -46,6 +47,13 @@ const CASES = [
   ['git/git-changes.js', '  _buildChanges('],
   ['git/git-change-rows.js', '  _rowEl('],
   ['git/git-poll.js', '  _applyStatus('],
+  ['ui/renderer-pane-wire.js', '  _makeTab('],
+  ['ui/renderer-pane-wire.js', '  _tabWirePointer('],
+  ['ui/renderer-pane-wire.js', '  _tabWireDrag('],
+  ['core/settings-theme.js', '  _renderThemePanel('],
+  ['core/settings-theme.js', '  _themeItem('],
+  ['ui/diag.js', '  _hookEvents('],
+  ['ui/version-watch.js', '  saw('],
 ];
 
 for (const [file, head] of CASES) {

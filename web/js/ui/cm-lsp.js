@@ -194,6 +194,23 @@ function edLspCloseNote(lastClose) {
   return null;
 }
 
+/** Workspace 가 드는 파일 하나 — 같은 파일의 칸들(`views`)과 판(FR-CMR-23). `CM` 을 딛지 않아 로드 때 선다
+ * (REFACTOR3_FE_REST5_SRS FR-FR5-11). */
+class EdLspFile {
+  constructor(uri, languageId, version, doc) {
+    this.uri = uri;
+    this.languageId = languageId;
+    this.version = version;
+    this.doc = doc;
+    this.views = new Set();
+  }
+  getView(main) {
+    if (main && this.views.has(main)) return main;
+    for (const v of this.views) return v;
+    return null;
+  }
+}
+
 let edLspWorkspaceCls = null;
 
 /**
@@ -204,20 +221,6 @@ let edLspWorkspaceCls = null;
  */
 function edLspWorkspaceClass() {
   if (edLspWorkspaceCls) return edLspWorkspaceCls;
-  class EdLspFile {
-    constructor(uri, languageId, version, doc) {
-      this.uri = uri;
-      this.languageId = languageId;
-      this.version = version;
-      this.doc = doc;
-      this.views = new Set();
-    }
-    getView(main) {
-      if (main && this.views.has(main)) return main;
-      for (const v of this.views) return v;
-      return null;
-    }
-  }
   edLspWorkspaceCls = class EdLspWorkspace extends CM.Workspace {
     constructor(client, hooks) {
       super(client);

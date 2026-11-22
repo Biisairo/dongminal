@@ -36,8 +36,8 @@ function barRules() {
   return out;
 }
 
-/** 킷이 소유하는 파일. 다른 파일에 스크롤바 값이 있으면 한 벌이 아니다. */
-const KIT_FILE = 'web/style-kit.css';
+/** 킷이 소유하는 파일. 다른 파일에 스크롤바 값이 있으면 한 벌이 아니다. 킷은 두 조각이다 — 원래 순서의 연속 구간 (REFACTOR3_FE_REST5_SRS FR-FR5-1). */
+const KIT_FILES = ['web/style-kit.css', 'web/style-kit-controls.css'];
 
 test('TC-KIT-2: 스크롤바의 폭은 두 눈금과 0(숨김)뿐이다 (FR-KIT-4)', () => {
   const rules = barRules();
@@ -62,7 +62,7 @@ test('TC-KIT-4: 손잡이 색을 킷 밖에서 적지 않는다 (FR-KIT-5 · D-K
   for (const r of barRules()) {
     if (!/-thumb/.test(r.sel)) continue;
     if (!/(?:^|;)\s*background\s*:/.test(r.decls)) continue;
-    if (r.file === KIT_FILE) continue;
+    if (KIT_FILES.includes(r.file)) continue;
     bad.push(`${r.file}: ${r.sel}`);
   }
   // 손으로 그린 열넷이 전부 `--border` 를 쓰고 hover 가 없었다. 색이 갈리면
@@ -71,7 +71,7 @@ test('TC-KIT-4: 손잡이 색을 킷 밖에서 적지 않는다 (FR-KIT-5 · D-K
 });
 
 test('TC-KIT-4a: 킷의 손잡이는 --text-dim 이고 hover 가 있다 (D-KIT-3)', () => {
-  const kit = barRules().filter((r) => r.file === KIT_FILE);
+  const kit = barRules().filter((r) => KIT_FILES.includes(r.file));
   const thumb = kit.find((r) => /-thumb/.test(r.sel) && !/:hover/.test(r.sel));
   const hover = kit.find((r) => /-thumb:hover/.test(r.sel));
   assert.ok(thumb, '킷에 손잡이 규칙이 없다');
@@ -86,7 +86,7 @@ test('TC-KIT-4a: 킷의 손잡이는 --text-dim 이고 hover 가 있다 (D-KIT-3
 });
 
 test('TC-KIT-2a: 눈금 토큰은 배율을 먹지 않는다 (FR-KIT-6)', () => {
-  const kit = strip(readFileSync(KIT_FILE, 'utf8'));
+  const kit = strip(KIT_FILES.map((f) => readFileSync(f, 'utf8')).join('\n'));
   for (const name of ['--ui-scroll-w', '--ui-scroll-w-sm']) {
     const m = kit.match(new RegExp(`${name}\\s*:\\s*([^;]+);`));
     assert.ok(m, `${name} 가 세워지지 않았다`);

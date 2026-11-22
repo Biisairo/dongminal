@@ -28,6 +28,13 @@ export const HELPERS = ['core/path.js', 'core/helpers.js', 'core/theme-vars.js',
   'core/settings-state.js', 'core/layout-tree.js', 'core/git-status-helpers.js'];
 
 /**
+ * 옛 `core/constants.js` 를 이루던 주제 파일들 — index.html 의 순서다 (REFACTOR3_FE_REST5_SRS FR-FR5-20). 옛 파일 하나를
+ * 싣던 검사는 이것을 펼쳐 싣는다.
+ */
+export const CONSTANTS = ['core/constants.js', 'core/constants-term.js', 'core/constants-sandbox.js', 'core/constants-tips.js',
+  'core/constants-file.js'];
+
+/**
  * 터미널 칸 한 벌 — index.html 의 순서다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4). WS 배선
  * (`term-socket.js`)과 입력·IME(`term-input.js`)가 `term-pane.js` 에서 갈라졌다. 복사·텍스트 시트
  * (`term-clip.js`)와 터치 스크롤(`term-touch.js`)은 `term-input.js` 에서 갈라졌다 (UX_BATCH11_SRS).
@@ -75,7 +82,8 @@ export const GITVIEW = ['git/git-view.js'];
  */
 export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/git-changes.js',
   'git/git-change-rows.js', 'git/git-views.js', 'git/git-view-roots.js', 'git/git-write.js', 'git/git-files.js', 'git/git-selection.js',
-  'git/git-diff-pane.js', 'git/git-blame.js', 'git/git-hunks.js', 'git/git-poll.js'];
+  'git/git-diff-pane.js', 'git/git-blame.js', 'git/git-hunks.js', 'git/git-poll.js', 'git/git-view-reload.js',
+  'git/git-watchdog.js'];
 
 /**
  * 설정 섹션 한 벌 — index.html 의 순서다 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). `BASE` 뒤에 싣는다. 섹션 기반과 행이
@@ -99,7 +107,7 @@ export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
 export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
 export const GIT = ['core/git-repos-list.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
-export const WS_SYNC = ['core/ws-sync-controller.js', 'core/soft-reload.js'];
+export const WS_SYNC = ['core/ws-sync-controller.js', 'core/ws-save-controller.js', 'core/soft-reload.js'];
 export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'core/focus-owner.js'];
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];
 export const LAYOUT = ['core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js', 'core/layout-window-state.js',
@@ -113,7 +121,7 @@ export const REPO_WIN = ['core/repo-preview.js', 'core/repo-win-controller.js'];
 /** App 필드 → 뿌리 컨트롤러 클래스. App 생성자가 세우는 것과 같다 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). */
 const APP_CONTROLLERS = { settings: 'SettingsController', edges: 'EdgesController', update: 'UpdateController',
   attn: 'AttnController', claude: 'ClaudeAccountsController', statusbar: 'StatusBarController', chat: 'ChatController',
-  agents: 'AgentsController', mobile: 'MobileController', git: 'GitController', wsSync: 'WsSyncController',
+  agents: 'AgentsController', mobile: 'MobileController', git: 'GitController', wsSync: 'WsSyncController', wsSave: 'WsSaveController',
   focus: 'FocusController', slot: 'SlotsController', layout: 'LayoutController',
   tool: 'ToolController', editor: 'EditorController', repoWin: 'RepoWinController' };
 
@@ -128,6 +136,22 @@ export function controllers(ctx, app) {
     if (C) app[field] = new C(app);
   }
   return app;
+}
+
+/** 탐색기 필드 → 부품 클래스. `FileTree` 생성자가 세우는 것과 같다 (REFACTOR3_FE_REST5_SRS FR-FR5-31). */
+const FILE_TREE_PARTS = { loader: 'FileTreeLoad', selector: 'FileTreeSelect', painter: 'FileTreePaint', keys: 'FileTreeKeys',
+  marquee: 'FileTreeMarquee', edits: 'FileTreeEdit', xfer: 'FileTreeXfer', dl: 'FileTreeDownload' };
+
+/**
+ * 실은 파일에 있는 탐색기 부품을 탐색기 대역에 세운다 — `FileTree` 생성자의 몫을 시험이 대신한다(`controllers` 와 같은 꼴).
+ * 싣지 않은 부품은 건너뛴다.
+ */
+export function treeParts(ctx, t) {
+  for (const [field, cls] of Object.entries(FILE_TREE_PARTS)) {
+    const C = vm.runInContext('typeof ' + cls + ' === "function" ? ' + cls + ' : null', ctx);
+    if (C) t[field] = new C(t);
+  }
+  return t;
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));

@@ -47,7 +47,7 @@ function loadActivity(globals = {}) {
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
       // REFACTOR3_FE_REST2_SRS FR-FR2-13·14: 시간 이름 (constants.js).
       MS_PER_SEC: 1000, LIMIT_STALE_MS: 10 * 60 * 1000,
-      // FR-TIP-2: Activity 탭의 영어 툴팁 (constants.js).
+      // FR-TIP-2: Activity 탭의 영어 툴팁 (constants-tips.js).
       TIP_ACT_AGENTS: 'Show running agents', TIP_ACT_BG: 'Show background tools', TIP_ACT_RUNS: 'Show runs', TIP_ACT_CHATS: 'Show chat rooms',
       AGENT_STATE_ICON: { working: 'dot', done: 'check', waiting: 'more-horizontal', idle: 'circle' },
       AGENT_STATE_LABEL: { working: '작업 중' },

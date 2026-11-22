@@ -7,39 +7,47 @@
  *
  * 낙관적 갱신이 조회와 같은 파일에 있으면 "지금 보이는 것" 과 "곧 보일 것" 이
  * 뒤섞인다 — 그래서 갈랐다.
+ *
+ * 부품 `FileTreeEdit`(탐색기의 `edits`) 이다 (REFACTOR3_FE_REST5_SRS FR-FR5-31 — 옛 `Object.assign(FileTree.prototype, …)`). 상태는 종전대로
+ * 탐색기 인스턴스에 있고 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 탐색기의 이름은 전부 `this.tree.X` 로 부른다 — 시험·e2e 가
+ * 인스턴스에 갈아 끼운 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `FileTree` 원형에 둔다.
  */
-Object.assign(FileTree.prototype, {
+class FileTreeEdit {
+  constructor(tree){
+    this.tree=tree;
+  }
+
   startCreate(isDir,at){
     // **메모장의 폴더 금지는 폐기됐다** (M9_SRS FR-M9-23 / D-M9-15, 사용자 결정
-    // 2026-09-14). 여기 `if(isDir&&this._noDirs()) return` 이 있었다 —
+    // 2026-09-14). 여기 `if(isDir&&this.tree._noDirs()) return` 이 있었다 —
     // `EXPLORER_ROOT_KEYS_SRS` FR-EXR-30. 메모장은 다른 루트와 같다.
-    const d=at||this._targetDir();
-    this._clearErr();
+    const d=at||this.tree._targetDir();
+    this.tree._clearErr();
     // 입력 행이 그 폴더 안에 보이려면 폴더가 펼쳐져 있어야 한다.
-    if(d!==this.root&&!this._open.has(d)){
-      this._open.add(d);
-      if(!this._kids.has(d)) this.load(d);
+    if(d!==this.tree.root&&!this.tree._open.has(d)){
+      this.tree._open.add(d);
+      if(!this.tree._kids.has(d)) this.tree.load(d);
     }
-    this._edit={mode:'create',dir:d,path:'',isDir:!!isDir,init:''};
-    this._nameReset();
-    this._focusEdit=true;
-    this._paintAll();
-  },
+    this.tree._edit={mode:'create',dir:d,path:'',isDir:!!isDir,init:''};
+    this.tree._nameReset();
+    this.tree._focusEdit=true;
+    this.tree._paintAll();
+  }
 
   startRename(p){
-    if(!p||p===this.root) return;
-    this._clearErr();
-    this._edit={mode:'rename',dir:this._parent(p),path:p,
-      isDir:this._kindOf(p)==='dir',init:this._base(p)};
-    this._nameReset();
-    this._focusEdit=true;
-    this._paintAll();
-  },
+    if(!p||p===this.tree.root) return;
+    this.tree._clearErr();
+    this.tree._edit={mode:'rename',dir:this.tree._parent(p),path:p,
+      isDir:this.tree._kindOf(p)==='dir',init:this.tree._base(p)};
+    this.tree._nameReset();
+    this.tree._focusEdit=true;
+    this.tree._paintAll();
+  }
 
   cancelEdit(){
-    if(!this._edit) return;
-    this._edit=null; this._nameReset(); this._clearErr(); this._paintAll();
-  },
+    if(!this.tree._edit) return;
+    this.tree._edit=null; this.tree._nameReset(); this.tree._clearErr(); this.tree._paintAll();
+  }
 
   /**
    * 이름을 받아 조작으로 넘긴다. 빈 이름은 취소다. 이름이 옳은지는 **서버가 판정한다**
@@ -48,49 +56,49 @@ Object.assign(FileTree.prototype, {
    *	이전 동작: 화면이 `/` 만 스스로 막았다(`\`·`..` 는 몰랐다)
    */
   _commitEdit(raw){
-    const e=this._edit; if(!e) return;
+    const e=this.tree._edit; if(!e) return;
     const name=String(raw||'').trim();
-    if(!name){this.cancelEdit();return}
-    if(this._nameWhy){this._showNameWhy();return}
-    this._nameReset();
+    if(!name){this.tree.cancelEdit();return}
+    if(this.tree._nameWhy){this.tree._showNameWhy();return}
+    this.tree._nameReset();
     if(e.mode==='rename'){
-      if(name===e.init){this.cancelEdit();return}
-      this._edit=null; this._clearErr();
-      this.doRename(e.path,this._join(e.dir,name),name);
+      if(name===e.init){this.tree.cancelEdit();return}
+      this.tree._edit=null; this.tree._clearErr();
+      this.tree.doRename(e.path,this.tree._join(e.dir,name),name);
       return;
     }
-    this._edit=null; this._clearErr();
-    this.doCreate(e.dir,name,e.isDir);
-  },
+    this.tree._edit=null; this.tree._clearErr();
+    this.tree.doCreate(e.dir,name,e.isDir);
+  }
 
   // F-k: 인라인 입력이 멈추면 서버에 이름을 묻는다. 늦게 온 앞선 답은 세대로 버린다.
   // `_nameWhy` 는 지금 입력에 대한 거절 사유이고, 모르면 null 이다.
   _askName(raw){
-    const seq=this._nameReset();
-    this._nameT=TIMERS.after(FS_NAME_ASK_DEBOUNCE_MS,async()=>{
-      this._nameT=null;
+    const seq=this.tree._nameReset();
+    this.tree._nameT=TIMERS.after(FS_NAME_ASK_DEBOUNCE_MS,async()=>{
+      this.tree._nameT=null;
       const r=await apiPost(FS_VALIDATE_NAME_API,{name:raw});
-      if(seq!==this._nameSeq||!this._edit) return;
+      if(seq!==this.tree._nameSeq||!this.tree._edit) return;
       const a=r.ok&&r.data&&r.data.actions?r.data.actions[FS_ACTION_NAME]:null;
       if(!a) return;
       const st=actionState(a,false);
-      this._nameWhy=st.enabled?'':st.why;
-      this._showNameWhy();
+      this.tree._nameWhy=st.enabled?'':st.why;
+      this.tree._showNameWhy();
     },{owner:this,label:'fs-name-ask'});
-  },
+  }
 
   _nameReset(){
-    TIMERS.cancel(this._nameT); this._nameT=null;
-    this._nameWhy=null;
-    this._nameSeq=(this._nameSeq||0)+1;
-    return this._nameSeq;
-  },
+    TIMERS.cancel(this.tree._nameT); this.tree._nameT=null;
+    this.tree._nameWhy=null;
+    this.tree._nameSeq=(this.tree._nameSeq||0)+1;
+    return this.tree._nameSeq;
+  }
 
   // 사유는 입력 아래의 오류 줄이다 (FR-EDT-92 의 자리). 답이 참이면 그 줄을 거둔다.
   _showNameWhy(){
-    if(this._nameWhy){this._err={anchor:'input',msg:this._nameWhy,more:0};this._paintAll();return}
-    if(this._err&&this._err.anchor==='input') this._clearErr();
-  },
+    if(this.tree._nameWhy){this.tree._err={anchor:'input',msg:this.tree._nameWhy,more:0};this.tree._paintAll();return}
+    if(this.tree._err&&this.tree._err.anchor==='input') this.tree._clearErr();
+  }
 
   // ── 낙관적 반영과 되돌리기 (FR-EDT-92) ──
 
@@ -99,39 +107,39 @@ Object.assign(FileTree.prototype, {
   _snap(dirs){
     const m=new Map();
     for(const d of dirs){
-      const st=this._kids.get(d);
+      const st=this.tree._kids.get(d);
       m.set(d,st?{entries:st.entries.slice(),truncated:st.truncated,err:st.err}:null);
     }
     return m;
-  },
+  }
 
   _restore(snap){
     for(const [d,st] of snap){
-      this.store.bump(d);
+      this.tree.store.bump(d);
       // REPO_FIX 04 §3A-1: 스냅샷 때 목록이 없었으면(로드 진행 중) 되돌릴 근거가 없다 —
       // 그 사이 도착한 목록을 지우지 않고 다시 읽는다.
-      if(st) this._kids.set(d,st); else if(this._kids.has(d)) this.load(d);
+      if(st) this.tree._kids.set(d,st); else if(this.tree._kids.has(d)) this.tree.load(d);
     }
-    this._paintAll();
-  },
+    this.tree._paintAll();
+  }
 
   // 아직 서버가 모르는 항목을 **끝에** 붙인다. 순서는 서버가 정하므로(D-20)
   // 여기서 자리를 맞추지 않는다 — 다시 읽으면 제자리로 간다 (FR-EDT-88).
   _optimAdd(dir,name,isDir){
-    const st=this._kids.get(dir);
+    const st=this.tree._kids.get(dir);
     if(!st) return;
     st.entries=st.entries.concat([{name,dir:!!isDir,link:false,linkDir:false}]);
     // §3A-1: 직접 고친 목록 — 그 전에 출발한 응답은 적용하지 않는다.
-    this.store.bump(dir);
-  },
+    this.tree.store.bump(dir);
+  }
 
   _optimDel(p){
-    const st=this._kids.get(this._parent(p));
+    const st=this.tree._kids.get(this.tree._parent(p));
     if(!st) return;
-    const n=this._base(p);
+    const n=this.tree._base(p);
     st.entries=st.entries.filter(e=>!e||e.name!==n);
-    this.store.bump(this._parent(p));
-  },
+    this.tree.store.bump(this.tree._parent(p));
+  }
 
   /**
    * 이름 변경·이동의 낙관적 반영. 출발지에서 빼고 도착지에 넣는다.
@@ -140,81 +148,81 @@ Object.assign(FileTree.prototype, {
    * 펼쳐 놓은 폴더가 이동 한 번에 접히고, 사용자는 트리를 잃은 것으로 읽는다.
    */
   _optimMove(from,to){
-    const e=(this._kids.get(this._parent(from))||{entries:[]})
-      .entries.find(x=>x&&x.name===this._base(from));
-    this._optimDel(from);
-    this._optimAdd(this._parent(to),this._base(to),!!(e&&e.dir));
-    this._rekey(from,to);
-  },
+    const e=(this.tree._kids.get(this.tree._parent(from))||{entries:[]})
+      .entries.find(x=>x&&x.name===this.tree._base(from));
+    this.tree._optimDel(from);
+    this.tree._optimAdd(this.tree._parent(to),this.tree._base(to),!!(e&&e.dir));
+    this.tree._rekey(from,to);
+  }
 
   _rekey(from,to){
     const pre=from+pathSep(from);
     const map=p=>p===from?to:(p.startsWith(pre)?to+p.slice(from.length):p);
     // 캐시는 공유다 — 한 번만 갈아탄다.
     const kids=new Map();
-    for(const [k,v] of this._kids){
+    for(const [k,v] of this.tree._kids){
       const nk=map(k);
       // §3A-1: 옮겨진 키의 진행 중 로드는 옛 자리의 응답이다 — 양쪽 세대를 올려 버린다.
-      if(nk!==k){this.store.bump(k);this.store.bump(nk)}
+      if(nk!==k){this.tree.store.bump(k);this.tree.store.bump(nk)}
       kids.set(nk,v);
     }
-    this._kids=kids;
+    this.tree._kids=kids;
     // 펼침·선택은 칸마다 있다. **보는 칸 전부**가 갈아타야 한다 (FR-SVS-21) —
     // 조작한 칸만 갈아타면 다른 칸의 펼침이 옛 경로를 가리켜 그 가지가 접힌다.
-    for(const v of this.store.views) v._rekeyView(map);
-  },
+    for(const v of this.tree.store.views) v._rekeyView(map);
+  }
 
   _rekeyView(map){
     const open=new Set();
-    for(const p of this._open) open.add(map(p));
-    this._open=open;
-    if(this._sel) this._sel=map(this._sel);
+    for(const p of this.tree._open) open.add(map(p));
+    this.tree._open=open;
+    if(this.tree._sel) this.tree._sel=map(this.tree._sel);
     // FR-EMS-7: 집합도 함께 따라간다 — 앵커만 고치면 이름이 바뀐 뒤 화면의
     // 선택과 조작의 대상이 갈린다.
-    if(this._selSet&&this._selSet.size)
-      this._selSet=new Set([...this._selSet].map(map));
-  },
+    if(this.tree._selSet&&this.tree._selSet.size)
+      this.tree._selSet=new Set([...this.tree._selSet].map(map));
+  }
 
   // 사라진 가지의 캐시·펼침·선택을 거둔다. 남겨 두면 같은 이름이 다시 생겼을 때
   // 낡은 목록이 먼저 보인다.
   _forget(p){
     const pre=p+pathSep(p);
-    for(const k of [...this._kids.keys()]) if(k===p||k.startsWith(pre)) this._kids.delete(k);
-    for(const v of this.store.views) v._forgetView(p,pre);
-  },
+    for(const k of [...this.tree._kids.keys()]) if(k===p||k.startsWith(pre)) this.tree._kids.delete(k);
+    for(const v of this.tree.store.views) v._forgetView(p,pre);
+  }
 
   _forgetView(p,pre){
-    for(const k of [...this._open]) if(k===p||k.startsWith(pre)) this._open.delete(k);
-    if(this._sel===p||this._sel.startsWith(pre)) this._sel='';
+    for(const k of [...this.tree._open]) if(k===p||k.startsWith(pre)) this.tree._open.delete(k);
+    if(this.tree._sel===p||this.tree._sel.startsWith(pre)) this.tree._sel='';
     // 사라진 것은 집합에서도 빠진다 (FR-EMS-7).
-    if(this._selSet&&this._selSet.size)
-      for(const q of [...this._selSet]) if(q===p||q.startsWith(pre)) this._selSet.delete(q);
-  },
+    if(this.tree._selSet&&this.tree._selSet.size)
+      for(const q of [...this.tree._selSet]) if(q===p||q.startsWith(pre)) this.tree._selSet.delete(q);
+  }
 
   // ── 조작 넷 (FR-EDT-88·89·90·91·92) ──
 
   async doCreate(dir,name,isDir){
     // FR-WBR-1: 지난 실패의 사유는 다음 조작이 **시작될 때** 사라진다.
-    this._clearErr();
-    const path=this._join(dir,name);
-    const snap=this._snap([dir]);
-    const prevSel=this._sel, prevSet=new Set(this._selSet||[]);
-    this._optimAdd(dir,name,isDir);
-    this._selOnly(path);
-    this._paintAll();
+    this.tree._clearErr();
+    const path=this.tree._join(dir,name);
+    const snap=this.tree._snap([dir]);
+    const prevSel=this.tree._sel, prevSet=new Set(this.tree._selSet||[]);
+    this.tree._optimAdd(dir,name,isDir);
+    this.tree._selOnly(path);
+    this.tree._paintAll();
     // F-j: 이름을 따로 보낸다 — 경로만 보내면 서버는 `a/b` 가 이름인지 가를 수 없다.
-    const r=await this.app.edFs(FS_CREATE_API,{root:this.root,parent:dir,name,dir:!!isDir});
+    const r=await this.tree.app.edFs(FS_CREATE_API,{root:this.tree.root,parent:dir,name,dir:!!isDir});
     if(!r.ok){
       // §3A-5 (T-6.2): 선택을 생성 전으로 되돌리고(다음 "새 파일" 이 원래 폴더에 뜬다),
       // 입력하던 이름 그대로 인라인 입력을 다시 연다(사유와 함께).
-      this._restore(snap);
-      this._sel=prevSel; this._selSet=prevSet;
-      this._edit={mode:'create',dir,path:'',isDir:!!isDir,init:name};
-      this._focusEdit=true;
-      this._fail('input',r.msg);
+      this.tree._restore(snap);
+      this.tree._sel=prevSel; this.tree._selSet=prevSet;
+      this.tree._edit={mode:'create',dir,path:'',isDir:!!isDir,init:name};
+      this.tree._focusEdit=true;
+      this.tree._fail('input',r.msg);
       return;
     }
-    await this._after([dir]);
+    await this.tree._after([dir]);
     /**
      * FR-EXR-20~24: 만든 **파일**은 곧바로 연다. 진입점(툴바·메뉴·빈 여백
      * 더블클릭)을 가리지 않으려면 여기 한 자리여야 한다.
@@ -226,8 +234,8 @@ Object.assign(FileTree.prototype, {
      * 파일이 다음 클릭에 대체되면 사용자는 만들기가 실패한 것으로 읽는다.
      * 폴더는 열지 않는다 (FR-EXR-22).
      */
-    if(!isDir) await this.app.edOpenFile(path,{preview:false});
-  },
+    if(!isDir) await this.tree.app.edOpenFile(path,{preview:false});
+  }
 
   /**
    * 이름 변경과 이동은 같은 조작이다 (FR-EDT-109) — 다른 것은 `to` 의 부모뿐이다.
@@ -243,38 +251,38 @@ Object.assign(FileTree.prototype, {
     if(!from||!to||from===to) return;
     // FR-WBR-1·4: 끌어 옮기는 길(`file-tree-xfer`)은 `_commitEdit` 를 지나지
     // 않으므로 여기가 그 조작의 시작이다.
-    this._clearErr();
-    const sd=this._parent(from),dd=this._parent(to);
+    this.tree._clearErr();
+    const sd=this.tree._parent(from),dd=this.tree._parent(to);
     // FR-FTR-20b: 도착 폴더를 펼친다. 접힌 폴더로 옮기면 옮긴 것이 화면에서
     // 사라지고, 사용자는 잃은 것으로 읽는다 (업로드가 같은 이유로 펼친다).
-    if(dd!==this.root&&!this._open.has(dd)) this._open.add(dd);
+    if(dd!==this.tree.root&&!this.tree._open.has(dd)) this.tree._open.add(dd);
     // §3A-5 (T-6.1): 대상 경로의 키(펼쳐 둔 기존 폴더)가 이미 있으면 낙관 반영을 하지
     // 않는다 — 키 충돌에서 덮어쓰면 거부됐을 때 두 폴더의 펼침·캐시를 되돌릴 수 없다.
     //   이전 동작: 덮어써서 거부 뒤 한쪽 폴더의 펼침·목록이 사라졌다
     // 대상 폴더를 읽는 중이어도 같다 — 도착할 목록과 옮긴 키가 섞인다.
     // F-l: 자기 하위로의 이동은 서버가 거절한다(`into_self`). 그 그림은 되돌리기 어려우므로
     // 미리 그리지 않는다 — 허용 판정이 아니다.
-    const optim=!this._kids.has(to)&&!this.store.loadQ.has(to)&&!pathUnder(from,to);
-    const snap=this._snap(sd===dd?[sd]:[sd,dd]);
+    const optim=!this.tree._kids.has(to)&&!this.tree.store.loadQ.has(to)&&!pathUnder(from,to);
+    const snap=this.tree._snap(sd===dd?[sd]:[sd,dd]);
     if(optim){
-      this._optimMove(from,to);
-      this._selOnly(to);
-      this._paintAll();
+      this.tree._optimMove(from,to);
+      this.tree._selOnly(to);
+      this.tree._paintAll();
     }
-    const r=await this.app.edFs(FS_RENAME_API,name?{root:this.root,from,name}:{root:this.root,from,to});
+    const r=await this.tree.app.edFs(FS_RENAME_API,name?{root:this.tree.root,from,name}:{root:this.tree.root,from,to});
     if(!r.ok){
-      if(optim){this._rekey(to,from);this._restore(snap)}
-      this._fail(from,r.msg);
+      if(optim){this.tree._rekey(to,from);this.tree._restore(snap)}
+      this.tree._fail(from,r.msg);
       return;
     }
-    if(!optim) this._selOnly(to);
+    if(!optim) this.tree._selOnly(to);
     // FR-EDT-90: 열린 탭의 경로와 이름이 따라간다. 폴더면 그 아래 전부다.
     // REPO_FIX 04 §3A-5 (T-9.1): 서버 성공 뒤에만 옮긴다. 같은 경로의 문서가 이미
     // 열려 있어 옮기지 못한 탭은 옛 경로에 남기고 사유를 보인다(조작은 성공이다).
-    this._retargetOrFail(from,to);
+    this.tree._retargetOrFail(from,to);
     // FR-EDT-88: 이동이면 출발·도착 **둘 다** 다시 읽는다.
-    await this._after(sd===dd?[sd]:[sd,dd]);
-  },
+    await this.tree._after(sd===dd?[sd]:[sd,dd]);
+  }
 
   /**
    * FR-EDT-83·84: 영구 삭제. 확인창이 재귀 여부·항목 수·dirty 탭을 밝힌다.
@@ -292,35 +300,35 @@ Object.assign(FileTree.prototype, {
    * 지워진 채 이유를 모른다.
    */
   async doDelete(p){
-    const targets=this._selTargets(p).filter(x=>x&&x!==this.root);
+    const targets=this.tree._selTargets(p).filter(x=>x&&x!==this.tree.root);
     if(!targets.length) return;
-    this._clearErr();
+    this.tree._clearErr();
     // 묻는 것이 확인창보다 먼저다 — 지울 수 있는지와 항목 수는 서버가 답한다
     // (SERVER_DRIVEN_ACTIONS_SRS F-g). 수는 폴더들 안의 합이다.
-    const ans=await this.app.edFsActions(this.root,targets);
-    if(!ans){this._fail(targets[0],EDITOR_FS_ERR_UNKNOWN);return}
+    const ans=await this.tree.app.edFsActions(this.tree.root,targets);
+    if(!ans){this.tree._fail(targets[0],EDITOR_FS_ERR_UNKNOWN);return}
     const st=actionState(ans.actions[FS_ACTION_DELETE]||null,false);
-    const isDir=targets.some(target=>this._kindOf(target)==='dir');
+    const isDir=targets.some(target=>this.tree._kindOf(target)==='dir');
     const dirty=[];
-    for(const target of targets) for(const n of this.app.edDirtyUnder(target)) if(!dirty.includes(n)) dirty.push(n);
-    if(!await this.app.edConfirmDelete(targets,isDir,ans.count,dirty,st.enabled?'':st.why)) return;
+    for(const target of targets) for(const n of this.tree.app.edDirtyUnder(target)) if(!dirty.includes(n)) dirty.push(n);
+    if(!await this.tree.app.edConfirmDelete(targets,isDir,ans.count,dirty,st.enabled?'':st.why)) return;
 
     const dirs=[];
-    for(const target of targets){const d=this._parent(target);if(!dirs.includes(d))dirs.push(d)}
+    for(const target of targets){const d=this.tree._parent(target);if(!dirs.includes(d))dirs.push(d)}
     // `UX-25`: 복구 길은 **지우기 전에** 판정한다 — 지운 뒤에는 상태가 없다.
-    const recover=targets.filter(target=>this._recoverable(target)).map(target=>this._repoRel(target));
-    for(const target of targets) this._optimDel(target);
-    this._paintAll();
+    const recover=targets.filter(target=>this.tree._recoverable(target)).map(target=>this.tree._repoRel(target));
+    for(const target of targets) this.tree._optimDel(target);
+    this.tree._paintAll();
     const failed=[];
     const done=[];
     for(const target of targets){
-      const r=await this.app.edFs(FS_DELETE_API,{root:this.root,path:target});
+      const r=await this.tree.app.edFs(FS_DELETE_API,{root:this.tree.root,path:target});
       if(!r.ok){failed.push({path:target,msg:r.msg});continue}
       // FR-EDT-91: 그 파일의 탭을 닫는다. 폴더면 하위 전부. 확인창은 다시 띄우지
       // 않는다 — FR-EDT-84 에서 이미 밝혔다.
-      await this.app.edCloseTabsUnder(target);
-      this._forget(target);
-      done.push(this._repoRel(target));
+      await this.tree.app.edCloseTabsUnder(target);
+      this.tree._forget(target);
+      done.push(this.tree._repoRel(target));
     }
     /**
      * `UX-25` (`03 §P2` "파일 삭제는 영구인데 되돌릴 길이 없다"): **되돌릴 길이
@@ -333,19 +341,19 @@ Object.assign(FileTree.prototype, {
     if(hint.length) Toast.show(josa(EDITOR_DEL_RECOVER_HINT.replace('%s',hint.join(' '))),'',TOAST_ERR_MS,{cls:'ed-del-hint'});
     // §3A-1 (T-1.2): 항목별 되돌리기를 하지 않는다 — 아래 재조회가 서버 상태로
     // 수렴시킨다. 되돌리기가 다른 성공 건의 반영을 되돌리던 것이 없다 (#31).
-    for(const f of failed) this._fail(f.path,f.msg);
-    this._selOnly('');
-    await this._after(dirs);
-  },
+    for(const f of failed) this.tree._fail(f.path,f.msg);
+    this.tree._selOnly('');
+    await this.tree._after(dirs);
+  }
 
   // `UX-25`: git 이 되돌릴 수 있는 경로인가 — 저장소 안이고, 무시되지 않았고,
   // 추적되지 않은 것(`?`)이 아니다. 폴더는 접어 올린 문자로 본다.
   _recoverable(p){
-    if(!this._gitOn||this._isIgnored(p)) return false;
-    return this._stOf(p,this._kindOf(p))!==gitStateChar('untracked');
-  },
+    if(!this.tree._gitOn||this.tree._isIgnored(p)) return false;
+    return this.tree._stOf(p,this.tree._kindOf(p))!==gitStateChar('untracked');
+  }
   // 저장소 루트 기준 경로 — `git checkout -- <path>` 가 받는 형태.
-  _repoRel(p){ return (this._repoPrefix||'')+(this._rel(p)||this._base(p)) },
+  _repoRel(p){ return (this.tree._repoPrefix||'')+(this.tree._rel(p)||this.tree._base(p)) }
 
   /**
    * FR-WBR-70: 복사·붙여넣기·복제. 종단은 **하나**다 (`/api/fs/copy`) — 복제는
@@ -359,11 +367,11 @@ Object.assign(FileTree.prototype, {
    * 둘 다 보낸다. 둘 다 Editor 목록에 있는지는 서버가 본다.
    */
   async doPasteInto(dir,keepErr){
-    const c=this.app.edClipGet();
+    const c=this.tree.app.edClipGet();
     if(!c||!dir) return;
     // FR-WBR-1: 지난 실패의 사유는 다음 조작이 시작될 때 사라진다. 여러 폴더에 걸친
     // 복제는 한 조작이므로 `keepErr` 로 앞 폴더의 사유를 지키게 한다 (FR-EXM-6).
-    if(!keepErr) this._clearErr();
+    if(!keepErr) this.tree._clearErr();
     /**
      * `FUI-11`: 잘라내기면 **옮긴다.**
      *
@@ -381,31 +389,31 @@ Object.assign(FileTree.prototype, {
     for(const src of c.paths){
       const to=pathJoin(dir,pathBase(src));
       const r=c.move
-        ? await this.app.edFs(FS_RENAME_API,{srcRoot:c.root,from:src,dstRoot:this.root,to})
-        : await this.app.edFs(FS_COPY_API,{srcRoot:c.root,src,dstRoot:this.root,dstDir:dir});
+        ? await this.tree.app.edFs(FS_RENAME_API,{srcRoot:c.root,from:src,dstRoot:this.tree.root,to})
+        : await this.tree.app.edFs(FS_COPY_API,{srcRoot:c.root,src,dstRoot:this.tree.root,dstDir:dir});
       if(!r.ok){failed.push({src,msg:r.msg});continue}
       if(c.move){
         // 옮긴 것의 열린 탭이 새 자리를 가리킨다 (FR-EDT-90 · `doRename` 과 같은 자리).
-        this._retargetOrFail(src,to);
+        this.tree._retargetOrFail(src,to);
         moved.push(src); made.push(to);
       }else if(r.data&&r.data.path){
         made.push(r.data.path);
       }
     }
     // FR-WBR-73 / FR-EXM-6: 실패마다 그 자리에 사유가 붙는다 (FR-EDT-92 의 규약).
-    for(const f of failed) this._fail(dir===this.root?'':dir,f.msg);
+    for(const f of failed) this.tree._fail(dir===this.tree.root?'':dir,f.msg);
     // **잘라낸 것은 한 번만 붙는다.** 옮겨진 원본을 남겨 두면 다음 붙여넣기가
     // "사라졌다" 로 실패한다 — 실패한 것만 남긴다 (FR-EXM-6).
-    if(c.move) this.app.edClipSet(c.root,failed.map(f=>f.src),true);
+    if(c.move) this.tree.app.edClipSet(c.root,failed.map(f=>f.src),true);
     if(!made.length) return;
     // FR-FTR-20b 와 같은 이유로 도착 폴더를 펼친다 — 접힌 폴더에 놓으면 놓은
     // 것이 화면에서 사라지고 사용자는 실패로 읽는다.
-    if(dir!==this.root&&!this._open.has(dir)) this._open.add(dir);
-    this._selOnly(made[0]);
-    for(const m of made.slice(1)) this._selToggle(m);
+    if(dir!==this.tree.root&&!this.tree._open.has(dir)) this.tree._open.add(dir);
+    this.tree._selOnly(made[0]);
+    for(const m of made.slice(1)) this.tree._selToggle(m);
     if(!moved.length){
       // FR-WBR-74: 영향받은 것은 **대상 폴더 하나**다 (FR-EDT-88).
-      await this._after([dir]);
+      await this.tree._after([dir]);
       return;
     }
     /**
@@ -414,32 +422,32 @@ Object.assign(FileTree.prototype, {
      * `_after` 로는 닿지 않는다.
      */
     const srcDirs=[];
-    for(const src of moved){const d=this._parent(src);if(!srcDirs.includes(d))srcDirs.push(d)}
-    if(c.root===this.root){
-      await this._after([...srcDirs.filter(d=>d!==dir),dir]);
+    for(const src of moved){const d=this.tree._parent(src);if(!srcDirs.includes(d))srcDirs.push(d)}
+    if(c.root===this.tree.root){
+      await this.tree._after([...srcDirs.filter(d=>d!==dir),dir]);
     }else{
-      for(const d of srcDirs) this.app.edRefreshTreesFor(c.root,d);
-      await this._after([dir]);
+      for(const d of srcDirs) this.tree.app.edRefreshTreesFor(c.root,d);
+      await this.tree._after([dir]);
     }
-  },
+  }
 
   // 복제는 원본의 형제 자리에 붙여넣는 것이다 — 클립보드를 거치지 않는다.
   // UX_BATCH12 FR-EXM-3: 여러 항목이면 부모 폴더마다 한 번씩 붙인다.
   async doDuplicate(ps){
-    const list=[].concat(ps).filter(p=>p&&p!==this.root);
+    const list=[].concat(ps).filter(p=>p&&p!==this.tree.root);
     if(!list.length) return;
     const byDir=new Map();
-    for(const p of list){const d=this._parent(p);byDir.set(d,[...(byDir.get(d)||[]),p])}
-    const keep=this.app.edClipGet();
-    this._clearErr();
+    for(const p of list){const d=this.tree._parent(p);byDir.set(d,[...(byDir.get(d)||[]),p])}
+    const keep=this.tree.app.edClipGet();
+    this.tree._clearErr();
     for(const [dir,group] of byDir){
-      this.app.edClipSet(this.root,group);
-      await this.doPasteInto(dir,true);
+      this.tree.app.edClipSet(this.tree.root,group);
+      await this.tree.doPasteInto(dir,true);
     }
     // 복제가 사용자의 클립보드를 덮지 않는다 — 그것은 다른 조작이다.
     // REPO_FIX 04 §3A-5 (T-7.1): 잘라내기/복사의 구분까지 되돌린다.
-    this.app.edClipSet(keep&&keep.root,keep&&keep.paths,keep&&keep.move);
-  },
+    this.tree.app.edClipSet(keep&&keep.root,keep&&keep.paths,keep&&keep.move);
+  }
 
   /**
    * REPO_FIX 04 §3A-1 (T-1.2): 여러 항목 이동은 **배치**다 — 항목별 되돌리기 없이
@@ -447,32 +455,33 @@ Object.assign(FileTree.prototype, {
    * 항목은 실패 표시로 모은다.
    */
   async doMoveMany(pairs){
-    this._clearErr();
+    this.tree._clearErr();
     const dirs=[];
     const add=d=>{if(!dirs.includes(d))dirs.push(d)};
     for(const [from,to] of pairs){
-      add(this._parent(from)); add(this._parent(to));
-      const dd=this._parent(to);
-      if(dd!==this.root&&!this._open.has(dd)) this._open.add(dd);
+      add(this.tree._parent(from)); add(this.tree._parent(to));
+      const dd=this.tree._parent(to);
+      if(dd!==this.tree.root&&!this.tree._open.has(dd)) this.tree._open.add(dd);
     }
     // F-l: 자기 하위로의 이동도 보낸다 — 서버가 `into_self` 로 거절한다 (D-SDA-7).
     const res=await Promise.all(pairs.map(([from,to])=>
-      this.app.edFs(FS_RENAME_API,{root:this.root,from,to})));
+      this.tree.app.edFs(FS_RENAME_API,{root:this.tree.root,from,to})));
     pairs.forEach(([from,to],i)=>{
-      if(res[i].ok) this._retargetOrFail(from,to);
-      else this._fail(from,res[i].msg);
+      if(res[i].ok) this.tree._retargetOrFail(from,to);
+      else this.tree._fail(from,res[i].msg);
     });
-    await this._after(dirs);
-  },
+    await this.tree._after(dirs);
+  }
 
   // §3A-5 (T-9.1): 문서·탭을 옮기고, 같은 경로의 문서가 이미 열려 있어 옮기지 못한
   // 것은 사유를 보인다.
   _retargetOrFail(from,to){
-    const r=this.app.edRetargetTabs(from,to);
-    if(r&&r.conflicts&&r.conflicts.length) this._fail(to,EDITOR_MOVE_TAB_CONFLICT);
-  },
+    const r=this.tree.app.edRetargetTabs(from,to);
+    if(r&&r.conflicts&&r.conflicts.length) this.tree._fail(to,EDITOR_MOVE_TAB_CONFLICT);
+  }
+}
 
-  // ── 전송 (FILE_TRANSFER_SRS FR-FTR-13·14·19 · EXPLORER_TRANSFER_IGNORE_SRS
-  //    묶음 B·C·D) ──
-
-});
+// 탐색기 원형의 이름 — 앱·렌더러·e2e·시험과 다른 부품이 `FileTree` 에서 부른다 (REFACTOR3_FE_REST5_SRS FR-FR5-32).
+Controller.delegate(FileTree,'edits',['startCreate','startRename','cancelEdit','_commitEdit','_askName','_nameReset','_showNameWhy','_snap',
+  '_restore','_optimAdd','_optimDel','_optimMove','_rekey','_rekeyView','_forget','_forgetView','doCreate',
+  'doRename','doDelete','_recoverable','_repoRel','doPasteInto','doDuplicate','doMoveMany','_retargetOrFail']);

@@ -25,7 +25,7 @@ function loadUI() {
       App: class {},
       PrefStore: { local },
       STORE_KEYS: { activityTab: 'activityTab' },
-      // FR-TIP-2: Activity 탭의 영어 툴팁 (constants.js).
+      // FR-TIP-2: Activity 탭의 영어 툴팁 (constants-tips.js).
       TIP_ACT_AGENTS: 'Show running agents', TIP_ACT_BG: 'Show background tools', TIP_ACT_RUNS: 'Show runs', TIP_ACT_CHATS: 'Show chat rooms',
       TAB_TYPE_CHAT: 'chat',
       TIMERS: { defer: (fn) => fn() },

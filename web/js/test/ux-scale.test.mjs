@@ -59,7 +59,7 @@ test('TC-UXF-45: 모서리 토큰 넷과 --ui-radius 의 가리킴 (FR-UXF-46)',
     assert.ok(m, `${k} 정의가 없다`);
     assert.equal(m[1].trim(), v, `${k} 값`);
   }
-  const kit = strip(readFileSync(join(WEB, 'style-kit.css'), 'utf8'));
+  const kit = strip(['style-kit.css', 'style-kit-controls.css'].map((f) => readFileSync(join(WEB, f), 'utf8')).join('\n'));
   const ui = kit.match(/--ui-radius\s*:\s*([^;}]+)/);
   assert.ok(ui, '--ui-radius 정의가 없다');
   assert.equal(ui[1].trim(), 'var(--radius-sm)', '--ui-radius 는 --radius-sm 을 가리킨다');

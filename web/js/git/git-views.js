@@ -198,7 +198,7 @@ class GitViews extends GitPart {
    */
   fetchRefs(repo,opts){
     const o=opts||{};
-    const round=this.p.poll.refsRound();
+    const round=this.p.viewReload.refsRound();
     if(!round) return gitFetch(GIT_API.refs,{repo},{stale:o.stale,echo:{repo},signal:o.signal});
     if(!round.has(repo)) round.set(repo,gitFetch(GIT_API.refs,{repo},{echo:{repo}}));
     return round.get(repo).then(res=>

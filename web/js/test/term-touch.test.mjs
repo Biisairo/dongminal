@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { CONSTANTS, load, plain } from './harness.mjs';
 
 /**
  * `web/js/ui/term-touch.js` — 모바일 터치 스크롤의 순수 계산 (UX_BATCH11_SRS FR-MTS).
  */
-const ctx = () => load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'ui/term-touch.js'], {
+const ctx = () => load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'ui/term-touch.js'], {
   expose: ['MTI_TOUCH_GAIN', 'MTI_VELOCITY_WINDOW_MS'],
   globals: { TerminalTool: class {} },
 });
@@ -80,6 +80,6 @@ test('TC-MTS-11 같은 방향으로 다시 튕기면 남은 속도를 더한다'
 });
 
 test('FR-MTS-10 관성 감쇠는 프레임당 0.97 이다', () => {
-  const c = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js'], { expose: ['MTI_FLING_DECAY'] });
+  const c = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS], { expose: ['MTI_FLING_DECAY'] });
   assert.equal(c.MTI_FLING_DECAY, 0.97);
 });

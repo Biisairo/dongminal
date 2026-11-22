@@ -52,7 +52,7 @@ function loadFoot(globals = {}) {
     globals: {
       App: class {},
       ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done', WAITING: 'waiting', IDLE: 'idle' },
-      // FR-TIP-2: Activity 탭의 영어 툴팁 (constants.js).
+      // FR-TIP-2: Activity 탭의 영어 툴팁 (constants-tips.js).
       TIP_USAGE_SUM_OPEN: 'Show usage', TIP_USAGE_SUM_CLOSE: 'Hide usage',
       TIP_LIMIT_STATUSLINE: 'Rate limits reported by the Claude Code statusLine',
       // REFACTOR3_FE_REST2_SRS FR-FR2-13·14: 시간 이름 (constants.js).

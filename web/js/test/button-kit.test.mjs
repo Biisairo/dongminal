@@ -25,7 +25,8 @@ function buttonsOf(src) {
 }
 
 test('TC-KIT-7: .fe-offer 한 줄의 버튼 셋이 같은 크기 등급이다 (FR-KIT-17)', () => {
-  const src = readFileSync('web/js/ui/file-editor.js', 'utf8');
+  // REFACTOR3_FE_REST5_SRS FR-FR5-21: 제안 띠는 FileEditor 의 부품 `FileEditorNotice` 가 그린다.
+  const src = readFileSync('web/js/ui/file-editor-notice.js', 'utf8');
   const row = buttonsOf(src).filter((b) => /\bfe-offer-/.test(b.cls));
   // 파서가 헛돌면 검사가 조용히 초록이 된다 (M6 §4-A-1).
   assert.ok(row.length >= 3, `.fe-offer 의 버튼을 ${row.length}개밖에 못 읽었다`);

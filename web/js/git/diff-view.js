@@ -1,67 +1,4 @@
 /**
- * recovery hint 의 명령에 넣을 경로를 감싼다 (FR-GIT-92). 저장소에는 공백·따옴표·
- * 한글이 든 경로가 있고, 사용자가 그 명령을 **붙여 그대로 실행**하므로 셸이 읽는
- * 형태여야 한다.
- */
-/**
- * `gitHunkSpan` 이 여기 있었다 (FR-GIT-278) — 조각 머리의 텍스트 한 조각을 만드는
- * 함수였다. 하단 조각 목록이 폐기되면서(DIFF_HUNK_BAR_SRS FR-DHB-2) 부르는 자리가
- * 없어졌다.
- *
- * **그 함수가 지킨 규약은 남는다**: 사용자의 파일 내용이 닿는 자리는 언제나
- * `textContent` 다 (NFR-DHB-3). 새 코드에서 그 자리는 Diff 탭 머리의 안내
- * 한 줄(`_hunkNote`)과 revert 확인 대화의 대상 라벨이다.
- */
-
-function gitShQuote(p){
-  const s=String(p==null?'':p);
-  if(/^[A-Za-z0-9._\/@=+:,-]+$/.test(s)) return s;
-  return "'"+s.replace(/'/g,"'\\''")+"'";
-}
-
-/**
- * 바이트 수를 사람이 읽는 한 조각으로 만든다. 나누는 단위는 상태바·전송량 표시와
- * 같은 1024 계열이다 — 같은 화면 안에서 두 계산법이 섞이면 값이 어긋나 보인다.
- */
-function gitFmtBytes(n){
-  const b=Number(n)||0;
-  if(b<1024) return b+' B';
-  if(b<1048576) return (b/1024).toFixed(1)+' KB';
-  if(b<1073741824) return (b/1048576).toFixed(1)+' MB';
-  return (b/1073741824).toFixed(1)+' GB';
-}
-
-/**
- * 본문을 그리지 못하는 쪽의 메타 한 줄 (FR-GIT-46·47·48).
- *
- * LFS 포인터는 **가리키는 객체**의 oid·크기다 — 포인터 파일 자신의 134 B 는
- * 사용자가 묻는 것이 아니다. 서버가 싣지 않은 값은 만들지 않는다.
- */
-function gitBlobMeta(side){
-  const s=side||{};
-  if(s.kind===GIT_LFS_KIND){
-    const oid=s.lfsOid?GIT_LFS_OID_PREFIX+s.lfsOid.slice(0,GIT_LFS_OID_ABBREV)+'…':'';
-    const size=s.lfsSize?gitFmtBytes(s.lfsSize):'';
-    return [oid,size].filter(Boolean).join(GIT_META_SEP);
-  }
-  if(GIT_META_SIZED.has(s.kind)) return s.size?gitFmtBytes(s.size):'';
-  if(s.kind===GIT_SUBMODULE_KIND) return s.oid?s.oid.slice(0,GIT_COMMIT_ABBREV):'';
-  return '';
-}
-
-/**
- * 양쪽 메타를 안내 아래 줄들로 만든다. 같으면 한 줄이다 — 같은 값을 두 번 보이면
- * 사용자는 두 쪽이 다르다고 읽는다.
- */
-function gitBlobMetaLines(orig,mod){
-  const a=gitBlobMeta(orig),b=gitBlobMeta(mod);
-  if(a&&b&&a!==b){
-    return [GIT_META_SIDE.orig+GIT_META_LABEL_SEP+a,GIT_META_SIDE.mod+GIT_META_LABEL_SEP+b];
-  }
-  return [a||b].filter(Boolean);
-}
-
-/**
  * CodeMirror 의 merge 뷰 한 개를 감싼다 (FR-GIT-43 · CODEMIRROR_MIGRATION_SRS 묶음 G) — diff
  * 하이라이트를 자체 구현하지 않는다. 넓으면 `MergeView`(나란히), 좁으면 `unifiedMergeView` 편집기
  * 하나(인라인)다 (FR-CMR-50·51).
@@ -114,6 +51,8 @@ class GitDiffView {
     },true);
     // 작업 트리 쪽이 편집기 문서면 그 문서의 뷰(`diff-view-doc.js`), 아니면 null.
     this._dv=null; this._buf=null;
+    // 그림 보기 (REFACTOR3_FE_REST5_SRS FR-FR5-21). 보기 방식 `_imgMode` 는 뷰에 남는다.
+    this.image=new GitDiffImage(this);
   }
 
   get el(){return this._el}
@@ -172,7 +111,7 @@ class GitDiffView {
      * 새로 서고, 그것이 "바깥에서 바뀐 그림" 이 화면에 오는 유일한 길이다.
      */
     if(mime&&!GIT_DIFF_DRAWABLE.has(a.kind)){
-      bail(); this._drawImage(target,mime,a,b); return;
+      bail(); this.image.draw(target,mime,a,b); return;
     }
     // 한쪽이라도 본문이 없으면 에디터를 만들지 않고 서버가 준 사유를 보인다
     // (FR-GIT-46·47·48).
@@ -183,111 +122,9 @@ class GitDiffView {
       this._refused=true;
       this.clear(d.body.note||GIT_DIFF_LOAD_FAIL,gitBlobMetaLines(a,b)); return;
     }
-    if(mime&&this._imgMode){bail();this._drawImage(target,mime,a,b); return}
+    if(mime&&this._imgMode){bail();this.image.draw(target,mime,a,b); return}
     this._draw(target.path,a.content||'',b.content||'',d.body.note||'',target,dv);
-    if(mime) this._addImageToggle(target,mime,a,b);
-  }
-
-  // ── 그림 보기 (M9_SRS FR-M9-20 · D-M9-12·13) ──────────────
-
-  /** 한쪽의 바이트를 가리키는 주소. `<img src>` 가 이것을 그대로 건다. */
-  _blobURL(target,side){
-    let u=GIT_BLOB_API+'?repo='+encodeURIComponent(target.repo)+
-      '&axis='+encodeURIComponent(target.axis)+'&path='+encodeURIComponent(target.path)+
-      '&side='+encodeURIComponent(side);
-    if(target.origPath) u+='&origPath='+encodeURIComponent(target.origPath);
-    if(target.oid) u+='&oid='+encodeURIComponent(target.oid);
-    if(target.parentOid) u+='&parentOid='+encodeURIComponent(target.parentOid);
-    return u;
-  }
-
-  /**
-   * 두 판을 그린다.
-   *
-   * **`<img>` 로만 그린다** — SVG 도 그렇다 (D-M9-13 / FR-DRV-14·23). 인라인
-   * `<svg>` 로 넣으면 그 안의 스크립트가 돈다.
-   *
-   * 크기(px)와 용량을 각 판에 적는 것이 이 화면의 절반이다 — 같은 그림처럼 보이는
-   * 두 판을 가르는 것이 대개 그 둘이다.
-   */
-  _drawImage(target,mime,a,b){
-    this._dropEditor();
-    this._setNote('');
-    const mode=this._imgMode||GIT_IMG_MODE_SIDE;
-    this._imgMode=mode;
-    this._host.textContent='';
-    const wrap=document.createElement('div');
-    wrap.className='git-img-diff mode-'+mode;
-    wrap.appendChild(this._imgBar(target,mime,a,b));
-    const body=document.createElement('div');
-    body.className='git-img-body ui-scroll';
-    for(const side of [GIT_IMG_SIDE_ORIGINAL,GIT_IMG_SIDE_MODIFIED]){
-      body.appendChild(this._imgPane(target,side,side===GIT_IMG_SIDE_ORIGINAL?a:b));
-    }
-    wrap.appendChild(body);
-    this._host.appendChild(wrap);
-  }
-
-  _imgBar(target,mime,a,b){
-    const bar=document.createElement('div');
-    bar.className='git-img-bar';
-    for(const m of [GIT_IMG_MODE_SIDE,GIT_IMG_MODE_OVER]){
-      bar.appendChild(UIKit.button({label:GIT_IMG_MODE_LABEL[m],size:'sm',
-        cls:'git-img-mode'+(this._imgMode===m?' active':''),dataset:{mode:m},onClick:()=>{
-          if(this._imgMode===m) return;
-          this._imgMode=m;
-          this._drawImage(target,mime,a,b);
-        }}));
-    }
-    // SVG 는 텍스트 diff 도 갖는다 — 돌아갈 길을 같은 줄에 둔다.
-    if(GIT_DIFF_DRAWABLE.has(a.kind)&&GIT_DIFF_DRAWABLE.has(b.kind)){
-      const back=UIKit.button({label:GIT_IMG_AS_TEXT,size:'sm',cls:'git-img-as-text'});
-      // **다시 받지 않는다.** `show()` 를 부르면 stale 가드의 토큰이 없어
-      // 그 호출이 자기 세대에 걸러지고(실측), 무엇보다 우리가 이미 두 벌의
-      // 본문을 손에 들고 있다 — 같은 것을 다시 묻는 것은 왕복 하나를 버리는 일이다.
-      back.addEventListener('click',()=>{
-        this._imgMode=null;
-        this._draw(target.path,a.content||'',b.content||'','',target);
-        this._addImageToggle(target,mime,a,b);
-      });
-      bar.appendChild(back);
-    }
-    return bar;
-  }
-
-  _imgPane(target,side,meta){
-    const pane=document.createElement('div');
-    pane.className='git-img-pane git-img-'+side;
-    pane.dataset.side=side;
-    const head=document.createElement('div');
-    head.className='git-img-head'; head.textContent=GIT_IMG_SIDE_LABEL[side];
-    pane.appendChild(head);
-    if(meta&&meta.kind==='absent'){
-      // 추가·삭제다 — 없는 쪽을 빈 그림으로 그리면 "검은 그림" 으로 읽힌다.
-      const none=document.createElement('div');
-      none.className='git-img-none'; none.textContent=GIT_IMG_ABSENT;
-      pane.appendChild(none);
-      return pane;
-    }
-    const img=document.createElement('img');
-    img.className='git-img'; img.alt='';
-    const foot=document.createElement('div');
-    foot.className='git-img-meta';
-    img.addEventListener('load',()=>{
-      // 크기는 **브라우저가 읽은 값**이다 — 서버가 다시 세지 않는다.
-      const dim=img.naturalWidth+'\u00d7'+img.naturalHeight;
-      foot.textContent=meta&&meta.size?dim+GIT_META_SEP+gitFmtBytes(meta.size):dim;
-    });
-    img.addEventListener('error',()=>{ foot.textContent=GIT_IMG_FAIL });
-    img.src=this._blobURL(target,side);
-    pane.appendChild(img); pane.appendChild(foot);
-    return pane;
-  }
-
-  /** 텍스트 diff 위에 "그림으로" 를 얹는다 (SVG 의 갈래). */
-  _addImageToggle(target,mime,a,b){
-    this._setNote('',null,[{label:GIT_IMG_AS_IMAGE,title:GIT_IMG_AS_IMAGE,
-      run:()=>{ this._imgMode=GIT_IMG_MODE_SIDE; this._drawImage(target,mime,a,b) }}]);
+    if(mime) this.image.addToggle(target,mime,a,b);
   }
 
   // 본문 대신 안내를 보인다. 편집기는 함께 버린다 (FR-GIT-56).

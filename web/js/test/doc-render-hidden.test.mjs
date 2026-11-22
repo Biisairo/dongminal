@@ -12,7 +12,7 @@ import { load, fakeClock } from './harness.mjs';
  */
 function view(visible) {
   const clock = fakeClock();
-  const ctx = load(['core/timer-hub.js', 'ui/doc-render.js'], {
+  const ctx = load(['core/timer-hub.js', 'ui/doc-render-util.js', 'ui/doc-render.js'], {
     clock,
     expose: ['DocRender'],
     globals: { DOC_RENDER_DEBOUNCE_MS: 150 },

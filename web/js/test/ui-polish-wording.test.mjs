@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { CONSTANTS, load } from './harness.mjs';
 
 /**
  * UI_POLISH_SRS TC-UIP-7 (FR-UIP-11·12·24) — 일반 동작 라벨은 ko 에서 한국어이고,
@@ -9,7 +9,7 @@ import { load } from './harness.mjs';
  */
 
 function ctxFor() {
-  return load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js',
+  return load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS,
     'core/constants-api.js', 'core/constants-git.js', 'core/constants-git-changes.js',
     'core/constants-git-commit.js', 'core/constants-git-detect.js', 'core/constants-git-diff.js',
     'core/constants-git-history.js', 'core/constants-git-refs.js', 'core/constants-git-remote.js',

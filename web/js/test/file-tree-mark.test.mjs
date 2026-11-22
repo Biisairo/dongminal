@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { fakeClock, load } from './harness.mjs';
+import { fakeClock, load, BASE, treeParts } from './harness.mjs';
 
 /**
  * REPO_FIX 04 §3A-6 (T-8.1) — git 폴링 응답의 mark 가 직전 적용분과 같으면 상태
@@ -20,7 +20,8 @@ function tree(responses, opts = {}) {
     ask: async () => { hub.fetches++; return responses[Math.min(i++, responses.length - 1)] },
     peek: () => hub.peeked,
   };
-  const ctx = load(['ui/repaint.js', 'ui/file-tree-paint.js'], {
+  // REFACTOR3_FE_REST5_SRS R5d: git 색은 부품 `FileTreeLoad` 다 — 위임자 표가 대역 `FileTree` 원형에 얹는다.
+  const ctx = load([...BASE, 'ui/repaint.js', 'ui/file-tree-load.js', 'ui/file-tree-select.js', 'ui/file-tree-paint.js'], {
     clock,
     globals: {
       FileTree: class {},
@@ -32,7 +33,7 @@ function tree(responses, opts = {}) {
       pathSep: () => '/',
     },
   });
-  const t = Object.create(ctx.FileTree.prototype);
+  const t = treeParts(ctx, Object.create(ctx.FileTree.prototype));
   t.root = '/r';
   t.app = { gitStatusHub: () => hub };
   t.hub = hub;

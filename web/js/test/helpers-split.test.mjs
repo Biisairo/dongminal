@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { HELPERS, load } from './harness.mjs';
+import { CONSTANTS, HELPERS, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-6 (FEC-24): helpers.js 는 주제별 파일로 갈렸다.
@@ -30,7 +30,7 @@ test('index.html 이 주제 파일을 contrast.js 와 git-path.js 사이에 순�
 
 test('주제 파일을 이어 실으면 옛 helpers.js 의 이름이 전부 선다', () => {
   const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/settings-schema.js', 'core/settings-defaults.js',
-    'core/constants.js', ...HELPER_FILES], { expose: ['SHORTCUT_DEFAULTS', 'TOOL_CAPABILITIES', 'TAB_NAME_DEFAULT', 'STATUS_ITEMS', 'UI_LABELS'] });
+    ...CONSTANTS, ...HELPER_FILES], { expose: ['SHORTCUT_DEFAULTS', 'TOOL_CAPABILITIES', 'TAB_NAME_DEFAULT', 'STATUS_ITEMS', 'UI_LABELS'] });
   for (const n of ['parseShortcut', 'pathJoin', 'escHtml', 'errText', 'statusRun', 'themeVarsOf', 'applyThemeObj',
     'applyTabWidth', 'normalizeLayout', 'panesOf', 'findTabWhere', 'mergeUnseenLayout', 'tabNameSource', 'tabName',
     'gitBadgeStale', 'visiblePoll', 'gitGroupEntries', 'gitSubParts', 'newUUID']) {

@@ -420,18 +420,29 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 코드가 아니거나 검사 코드이고, `i18n/ko.js`·`en.js` 는 **데이터**라 키가 늘면 줄이
 늘고 분할이 뜻을 갖지 않는다.
 
-    500줄초과=11 · 최대=971
+    500줄초과=1 · 최대=776
 
 **CSS 기준선** (2026-11-21, `REFACTOR3_FE_REST4_SRS` FU-11 · D-FR4-11). 같은 게이트가 `web/*.css`(vendor 제외)를 같은
 두 수로 잰다. 게이트를 세운 순간은 500줄 초과 5 · 최대 2,545(`style.css`)였고, `style.css` 를 원래 순서의 연속 구간 여덟으로
-나눈 뒤의 값이 기준선이다. 남은 넷은 `style-git-views.css` 824 · `style-git.css` 685 · `style-editor.css` 575 · `style-kit.css` 565 다.
+나눈 뒤의 값이 기준선이었다. 남은 넷(`style-git-views.css` 824 · `style-git.css` 679 · `style-editor.css` 575 · `style-kit.css` 565)은
+`REFACTOR3_FE_REST5_SRS` FR-FR5-1(2026-11-22)이 같은 방법으로 둘씩 나눴다 — 4 → 0, 최대 824 → 433(`style-git-tabs.css`).
 
-    CSS 500줄초과=4 · 최대=824
+    CSS 500줄초과=0 · 최대=433
 
 | 지표 | §2.1 기준선 (2026-09-12) | §7.1 달성 (2026-09-13) | 게이트를 세운 순간 (2026-09-21) | **게이트 기준선 (2026-09-21)** |
 |---|---:|---:|---:|---:|
 | 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **18** |
 | 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,020** (`core/app-git.js`) |
+
+> 2 → 1 (2026-11-22, `REFACTOR3_FE_REST5_SRS` FR-FR5-21). `ui/ui-kit.js`(582)의 대화상자 스택(`_dlg*`·`dialogOpen`·`_focusMaybeQuiet`)을 `DialogStack`(`dialog-stack.js` 135)로 옮겨 458. 남은 하나는 `ui/term-pane.js` 776 이다 — e2e `reconnect-storm` 이 그 파일을 홀로 싣는 하네스이고 인스턴스 메서드를 갈아 끼우는 e2e 가 많아, e2e 를 돌릴 수 있는 자리에서 나눈다(`REFACTOR3_FE_REST5_SRS` D-FR5-9).
+
+> 4 → 2 · 최대 971 → 776 (2026-11-22, `REFACTOR3_FE_REST5_SRS` R5d). `FileTree` 의 원형 확장 여섯을 부품 여덟로 옮겼다 — `ui/file-tree-paint.js`(971)가 `file-tree-load.js`(468) · `file-tree-select.js`(248) · `file-tree-paint.js`(307)로 갈렸다. 남은 둘은 `ui/term-pane.js` 776 · `ui/ui-kit.js` 582 다. 최대 파일은 `ui/term-pane.js` 776 이다.
+
+> 6 → 4 (2026-11-22, `REFACTOR3_FE_REST5_SRS` FR-FR5-21·23). `ui/file-editor.js`(818)에서 부품 넷 — 알림·제안 띠 `FileEditorNotice`(153) · 편집기 대신 서는 화면 `FileEditorMedia`(109) · 문서 없는 저장 `FileEditorSave`(77) · 키 배선 `FileEditorKeys`(88) — 을 내어 463. `ui/file-editor-diff.js`(606)의 `Object.assign(FileEditor.prototype, …)` 를 부품 `EdDiffPeek`(`file-editor-peek.js` 126)로 옮겨 492. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
+
+> 9 → 6 (2026-11-22, `REFACTOR3_FE_REST5_SRS` FR-FR5-21). `ui/doc-render.js`(693)의 순수 도움 함수를 `doc-render-util.js`(235)로 옮겨 463. `git/diff-view.js`(655)의 그림 보기를 부품 `GitDiffImage`(`diff-image.js` 111)로, 머리의 순수 함수 넷을 `view-util.js` 로 옮겨 492. `git/git-poll.js`(718)의 새로고침·뷰 다시 받기를 부품 `GitViewReload`(`git-view-reload.js` 150)로, 워치독을 부품 `GitWatchdog`(`git-watchdog.js` 102)로 옮겨 480. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
+
+> 11 → 9 (2026-11-22, `REFACTOR3_FE_REST5_SRS` FR-FR5-20). `core/constants.js`(917)에서 터미널·모바일 입력(`constants-term.js` 264) · 샌드박스(`constants-sandbox.js` 58) · 툴팁(`constants-tips.js` 94) · Editor 창·파일(`constants-file.js` 75)을 절째로 옮겨 455, `core/constants-editor.js`(633)의 뒤쪽 절을 `constants-explorer.js`(353)로 옮겨 285. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 
 > 12 → 11 (2026-11-21, `REFACTOR3_FE_REST3_SRS` FU-12). `git/remote.js`(704)가 상태·수명의 `GitRemote`(482)와 칠하기의 `GitRemoteView`(`remote-view.js` 241)로 갈렸다. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 

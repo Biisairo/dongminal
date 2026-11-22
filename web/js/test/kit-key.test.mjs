@@ -15,6 +15,8 @@ import { test } from 'node:test';
  * 대신하므로 **죽은 규칙을 남겨 두 벌로 만들지 않는다.**
  */
 const ROOT = 'web';
+/** 킷은 두 조각이다 — 원래 순서의 연속 구간 (REFACTOR3_FE_REST5_SRS FR-FR5-1). */
+const KIT_FILES = ['web/style-kit.css', 'web/style-kit-controls.css'];
 const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 function cssFiles(dir, out = []) {
@@ -42,7 +44,7 @@ function rules() {
 test('TC-CMP-1a: 킷이 .ui-key 를 갖는다 (FR-CMP-10)', () => {
   const all = rules();
   assert.ok(all.length > 100, `규칙을 ${all.length}개밖에 못 읽었다 — 검사가 공회전한다`);
-  const kit = all.find((r) => r.file === 'web/style-kit.css' && /(^|,)\s*\.ui-key\s*$/.test(r.sel));
+  const kit = all.find((r) => KIT_FILES.includes(r.file) && /(^|,)\s*\.ui-key\s*$/.test(r.sel));
   assert.ok(kit, '`style-kit.css` 에 `.ui-key` 규칙이 없다');
   // 크기·모서리·글자는 토큰에서 온다 — 자리마다 px 를 적지 않는다.
   assert.match(kit.decls, /var\(--ui-btn-h-sm\)/, '높이가 `--ui-btn-h-sm` 에서 오지 않는다');
@@ -117,7 +119,7 @@ test('TC-CMP-6a: 아홉 자리에 자간 벌리기가 남지 않았다 (FR-CMP-3
 });
 
 test('TC-CMP-6b: 킷이 .ui-section-head 를 갖는다 (FR-CMP-30)', () => {
-  const kit = rules().find((r) => r.file === 'web/style-kit.css' && /(^|,)\s*\.ui-section-head\s*$/.test(r.sel));
+  const kit = rules().find((r) => KIT_FILES.includes(r.file) && /(^|,)\s*\.ui-section-head\s*$/.test(r.sel));
   assert.ok(kit, '`style-kit.css` 에 `.ui-section-head` 규칙이 없다');
   assert.doesNotMatch(kit.decls, /text-transform/, '킷이 대문자 장식을 갖고 있다');
   assert.doesNotMatch(kit.decls, /letter-spacing/, '킷이 자간 벌리기를 갖고 있다');
@@ -148,7 +150,7 @@ const NOTICE = ['git-job-note', 'git-stale-note', 'git-partial-note', 'git-diff-
 const NOTICE_PREFIXED = ['git-wt-note', 'git-sub-note'];
 
 test('TC-CMP-10a: 킷이 .ui-notice 와 주의 등급을 갖는다 (FR-CMP-50)', () => {
-  const kit = rules().filter((r) => r.file === 'web/style-kit.css');
+  const kit = rules().filter((r) => KIT_FILES.includes(r.file));
   const base = kit.find((r) => /(^|,)\s*\.ui-notice\s*$/.test(r.sel));
   const attn = kit.find((r) => /(^|,)\s*\.ui-notice-attn\s*$/.test(r.sel));
   assert.ok(base, '`.ui-notice` 가 없다');
@@ -162,7 +164,7 @@ test('TC-CMP-10a: 킷이 .ui-notice 와 주의 등급을 갖는다 (FR-CMP-50)',
 test('TC-CMP-10: 알림 열넷이 공통 선언을 킷에서 받는다 (FR-CMP-52 · FR-CMP-54)', () => {
   const bad = [];
   for (const r of rules()) {
-    if (r.file === 'web/style-kit.css') continue;
+    if (KIT_FILES.includes(r.file)) continue;
     const n = [...NOTICE, ...NOTICE_PREFIXED].find((x) => new RegExp(`(^|,)\\s*\\.${x}\\s*(,|$)`).test(r.sel));
     if (!n) continue;
     // 킷이 주는 것 — 여백·글자·역할색. 남으면 킷을 덮어 수렴하지 않는다.
@@ -229,7 +231,7 @@ const EMPTY_INLINE = ['lsp-empty', 'git-hist-empty', 'git-br-empty', 'git-stash-
   'git-wt-empty', 'git-sub-empty', 'git-rm-empty', 'ag-empty', 'bg-empty'];
 
 test('TC-CMP-12a: 킷이 .ui-empty 와 가운데 갈래를 갖는다 (FR-CMP-60)', () => {
-  const kit = rules().filter((r) => r.file === 'web/style-kit.css');
+  const kit = rules().filter((r) => KIT_FILES.includes(r.file));
   const base = kit.find((r) => /(^|,)\s*\.ui-empty\s*$/.test(r.sel));
   const center = kit.find((r) => /(^|,)\s*\.ui-empty-center\s*$/.test(r.sel));
   assert.ok(base, '`.ui-empty` 가 없다');
@@ -242,7 +244,7 @@ test('TC-CMP-12a: 킷이 .ui-empty 와 가운데 갈래를 갖는다 (FR-CMP-60)
 test('TC-CMP-12: 목록의 빈 줄 아홉이 공통 선언을 킷에서 받는다 (FR-CMP-61)', () => {
   const bad = [];
   for (const r of rules()) {
-    if (r.file === 'web/style-kit.css') continue;
+    if (KIT_FILES.includes(r.file)) continue;
     const n = EMPTY_INLINE.find((x) => new RegExp(`(^|,|\\s)\\.${x}\\s*$`).test(r.sel));
     if (!n) continue;
     for (const p of ['padding', 'font-size']) {
@@ -258,14 +260,14 @@ test('TC-CMP-12: 목록의 빈 줄 아홉이 공통 선언을 킷에서 받는�
  * (KIT_COMPONENTS_SRS TC-CMP-8·14 / FR-CMP-40~43 · 70~73).
  */
 test('TC-CMP-8a: 킷이 .ui-segment 를 갖는다 (FR-CMP-40)', () => {
-  const kit = rules().filter((r) => r.file === 'web/style-kit.css');
+  const kit = rules().filter((r) => KIT_FILES.includes(r.file));
   assert.ok(kit.some((r) => /(^|,)\s*\.ui-segment\s*$/.test(r.sel)), '`.ui-segment` 가 없다');
   const active = kit.find((r) => /\.ui-segment>\.ui-btn\.active/.test(r.sel.replace(/\s+/g, '')));
   assert.ok(active, '세그먼트의 `.active` 규칙이 없다 — 선택은 등급이 아니라 상태다');
 });
 
 test('TC-CMP-14a: 킷이 .ui-split 을 갖고 쌍이 붙는다 (FR-CMP-70)', () => {
-  const kit = rules().filter((r) => r.file === 'web/style-kit.css');
+  const kit = rules().filter((r) => KIT_FILES.includes(r.file));
   const base = kit.find((r) => /(^|,)\s*\.ui-split\s*$/.test(r.sel));
   assert.ok(base, '`.ui-split` 이 없다');
   // **틈이 0 이어야 한 테두리로 보인다.** 착수 시 `.git-head-remote{gap:4px}` 이
@@ -275,7 +277,7 @@ test('TC-CMP-14a: 킷이 .ui-split 을 갖고 쌍이 붙는다 (FR-CMP-70)', () 
 
 test('TC-CMP-14: 분할 쌍의 자리 규칙이 도메인에 남지 않는다 (FR-CMP-72)', () => {
   // `DESIGN_TOKENS_SRS` §7.5 가 "이름이 아니라 자리다" 로 남긴 넷. 킷이 대신한다.
-  const bad = rules().filter((r) => r.file !== 'web/style-kit.css'
+  const bad = rules().filter((r) => !KIT_FILES.includes(r.file)
     && /(git-head-remote|git-commit-go)\s*>/.test(r.sel)
     && /border-radius|border-top-right-radius|border-bottom-right-radius/.test(r.decls));
   assert.deepEqual(bad.map((r) => `${r.file}: ${r.sel}`), [],

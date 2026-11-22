@@ -78,6 +78,7 @@ test('TC-UXF-99: 새 심볼이 스프라이트에 있고 24×24 형식이다', (
 });
 
 test('TC-UXF-99: 탐색기 머리 단추에 별도 SVG 가 없다', () => {
-  const src = readFileSync(join(WEB, 'js', 'core', 'constants-editor.js'), 'utf8');
+  // REFACTOR3_FE_REST5_SRS FR-FR5-20: 옛 constants-editor.js 는 두 파일이다.
+  const src = ['constants-editor.js', 'constants-explorer.js'].map((f) => readFileSync(join(WEB, 'js', 'core', f), 'utf8')).join('\n');
   assert.doesNotMatch(stripJs(src), /viewBox="0 0 16 16"/);
 });

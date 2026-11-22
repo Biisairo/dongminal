@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { load, plain } from './harness.mjs';
+import { CONSTANTS, load, plain } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-2 (FEC-34): 모바일 키바의 키 표는 상수다. 보내는 바이트는
@@ -13,7 +13,7 @@ import { load, plain } from './harness.mjs';
 const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CTRL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 
-const ctx = () => load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js'], { expose: ['MKB_KEYS', 'MKB_FULL_NAMES'] });
+const ctx = () => load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS], { expose: ['MKB_KEYS', 'MKB_FULL_NAMES'] });
 
 test('키 표가 보내는 바이트는 종전과 같다', () => {
   const keys = plain(ctx().MKB_KEYS);
@@ -46,7 +46,7 @@ test('모든 키에 전체 이름이 있다', () => {
 });
 
 test('소스에 날 제어 문자가 없다', () => {
-  for (const f of ['core/constants.js', 'core/mobile-controller.js']) {
+  for (const f of [...CONSTANTS, 'core/mobile-controller.js']) {
     const lines = readFileSync(join(JS, f), 'utf8').split('\n');
     const bad = lines.map((l, i) => [i + 1, l]).filter(([, l]) => CTRL.test(l)).map(([n]) => n);
     assert.deepEqual(bad, [], f + ' 의 줄 ' + bad.join(','));

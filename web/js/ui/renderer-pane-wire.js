@@ -10,7 +10,6 @@ Object.assign(Renderer.prototype, {
   // 탭 요소 하나와 그 배선. **여기서만 배선한다** (FR-PDR-7) — 지금 어느 pane 의
   // 어느 탭인지는 `_ctx` 가 답한다 (FR-PDR-8).
   _makeTab(){
-    const app=this.app;
     const el=document.createElement('div');
     // D-A11Y-10: `×` 는 포인터 전용 표식이다 — `tab` 안의 컨트롤은 접근성 트리에
     // 설 수 없다. 키보드는 탭에서 `Delete` 로 닫는다 (`_makePane` 의 roving).
@@ -24,10 +23,15 @@ Object.assign(Renderer.prototype, {
       const c=(pn&&pn._ctx)||{};
       return {pane:c.node||null,slot:c.slot||0,tab:(el._ctx&&el._ctx.tab)||null};
     };
-    const clearMarks=()=>{
-      const bar=el.parentNode;
-      if(bar) bar.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));
-    };
+    // 수신기를 거는 순서는 클릭·메뉴·더블클릭 → 끌기다 (REFACTOR3_FE_REST5_SRS FR-FR5-12).
+    this._tabWirePointer(el,ctx);
+    this._tabWireDrag(el,ctx);
+    return el;
+  },
+
+  // 탭의 클릭·컨텍스트 메뉴·더블클릭(고정·이름 바꾸기). `ctx` 는 `_makeTab` 의 지금 문맥 읽기다.
+  _tabWirePointer(el,ctx){
+    const app=this.app;
     el.addEventListener('click',e=>{
       e.stopPropagation();
       const c=ctx(); if(!c.pane||!c.tab) return;
@@ -71,6 +75,15 @@ Object.assign(Renderer.prototype, {
       if(c.tab.preview){app.pinPreviewTab(c.tab);return}
       app.renameTab(c.tab,e.target);
     });
+  },
+
+  // 탭 끌어 옮기기 — 같은 칸 안에서는 순서 바꾸기, 다른 칸이면 `moveTabToPane`.
+  _tabWireDrag(el,ctx){
+    const app=this.app;
+    const clearMarks=()=>{
+      const bar=el.parentNode;
+      if(bar) bar.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));
+    };
     el.addEventListener('dragstart',e=>{
       const c=ctx(); if(!c.pane||!c.tab) return;
       app.drag={type:'tab',srcPaneId:c.pane.id,tabId:c.tab.id};
@@ -90,33 +103,36 @@ Object.assign(Renderer.prototype, {
       el.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');
       document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none');
     });
-    el.addEventListener('drop',e=>{
-      e.preventDefault(); e.stopPropagation();
-      if(!app.drag||app.drag.type!=='tab')return;
-      const c=ctx(); if(!c.pane||!c.tab) return;
-      const{srcPaneId,tabId}=app.drag;
-      app.drag=null;
-      clearMarks();
-      const s=app.aw(); if(!s)return;
-      const rect=el.getBoundingClientRect();
-      const insBefore=e.clientX<rect.left+rect.width/2;
-      if(srcPaneId===c.pane.id){
-        const pn=findPane(s.layout,c.pane.id); if(!pn)return;
-        const si=pn.tabs.findIndex(tt=>tt.id===tabId);
-        const di=pn.tabs.findIndex(tt=>tt.id===c.tab.id);
-        if(si<0||di<0||si===di)return;
-        const[moved]=pn.tabs.splice(si,1);
-        let ins=pn.tabs.findIndex(tt=>tt.id===c.tab.id);
-        if(!insBefore)ins++;
-        pn.tabs.splice(ins,0,moved);
-        app.paneTabSet(pn,tabId,c.slot);
-        app.save();
-        app.render();
-      }else{
-        app.moveTabToPane(srcPaneId,tabId,c.pane.id,c.tab.id,insBefore);
-      }
-    });
-    return el;
+    el.addEventListener('drop',e=>this._tabDrop(e,el,ctx,clearMarks));
+  },
+
+  // 탭 위에 놓기 — 왼쪽 절반이면 앞에, 오른쪽 절반이면 뒤에 넣는다.
+  _tabDrop(e,el,ctx,clearMarks){
+    const app=this.app;
+    e.preventDefault(); e.stopPropagation();
+    if(!app.drag||app.drag.type!=='tab')return;
+    const c=ctx(); if(!c.pane||!c.tab) return;
+    const{srcPaneId,tabId}=app.drag;
+    app.drag=null;
+    clearMarks();
+    const s=app.aw(); if(!s)return;
+    const rect=el.getBoundingClientRect();
+    const insBefore=e.clientX<rect.left+rect.width/2;
+    if(srcPaneId===c.pane.id){
+      const pn=findPane(s.layout,c.pane.id); if(!pn)return;
+      const si=pn.tabs.findIndex(tt=>tt.id===tabId);
+      const di=pn.tabs.findIndex(tt=>tt.id===c.tab.id);
+      if(si<0||di<0||si===di)return;
+      const[moved]=pn.tabs.splice(si,1);
+      let ins=pn.tabs.findIndex(tt=>tt.id===c.tab.id);
+      if(!insBefore)ins++;
+      pn.tabs.splice(ins,0,moved);
+      app.paneTabSet(pn,tabId,c.slot);
+      app.save();
+      app.render();
+    }else{
+      app.moveTabToPane(srcPaneId,tabId,c.pane.id,c.tab.id,insBefore);
+    }
   },
 
   /**

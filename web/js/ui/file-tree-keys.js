@@ -2,8 +2,16 @@
  * FileTree — 키보드 길 (FR-EXR-51~57 · UX_BATCH12 FR-EXK-1~6).
  *
  * file-tree-paint.js 에서 갈랐다 — 모듈 크기 게이트(FR-STR-40)가 그 파일의 성장을 막는다.
+ *
+ * 부품 `FileTreeKeys`(탐색기의 `keys`) 이다 (REFACTOR3_FE_REST5_SRS FR-FR5-31 — 옛 `Object.assign(FileTree.prototype, …)`). 상태는 종전대로
+ * 탐색기 인스턴스에 있고 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 탐색기의 이름은 전부 `this.tree.X` 로 부른다 — 시험·e2e 가
+ * 인스턴스에 갈아 끼운 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `FileTree` 원형에 둔다.
  */
-Object.assign(FileTree.prototype, {
+class FileTreeKeys {
+  constructor(tree){
+    this.tree=tree;
+  }
+
   /**
    * FR-EXR-51~57: 탐색기의 키보드 길. **조작을 만들지 않는다** — 이미 있는
    * `doDelete`·`edClipSet`·`doPasteInto`·`startRename` 에 길만 낸다.
@@ -18,65 +26,68 @@ Object.assign(FileTree.prototype, {
     if(e.target.closest('.ed-edit')) return;
     // FR-EXR-57: 머리 버튼에 포커스가 있는 동안의 키도 그 버튼의 것이다.
     if(e.target.closest('button')) return;
-    const p=this._sel;
+    const p=this.tree._sel;
     // FR-EXR-54: 루트는 지울 수도 이름을 고칠 수도 복사할 수도 없다. 붙여넣기만
     // 된다 — 그 자리가 루트라는 뜻이다 (FR-EXR-5).
-    const pick=p&&p!==this.root?p:'';
+    const pick=p&&p!==this.tree.root?p:'';
     const take=()=>{e.preventDefault();e.stopPropagation()};
     if(e.metaKey||e.ctrlKey){
       if(e.altKey||e.shiftKey) return;
       // UX_BATCH12 FR-EXK-2·6: 복사·잘라내기는 선택 전체다. 루트만 고르면 대상이 없다.
       if(e.code==='KeyC'||e.code==='KeyX'){
-        const ps=pick?this._selTargets(pick).filter(x=>x&&x!==this.root):[];
+        const ps=pick?this.tree._selTargets(pick).filter(x=>x&&x!==this.tree.root):[];
         if(!ps.length) return;
-        take(); this.app.edClipSet(this.root,ps,e.code==='KeyX'); return;
+        take(); this.tree.app.edClipSet(this.tree.root,ps,e.code==='KeyX'); return;
       }
       if(e.code==='KeyV'){
-        take(); this.doPasteInto(this._targetDir()); return;
+        take(); this.tree.doPasteInto(this.tree._targetDir()); return;
       }
       if(e.code==='KeyA'){
-        if(!this._selAll()) return;
-        take(); this._paintAll(); return;
+        if(!this.tree._selAll()) return;
+        take(); this.tree._paintAll(); return;
       }
       // FR-EXK-4: ⌘+Backspace 는 macOS Finder 의 삭제 관용이다.
       if(e.metaKey&&e.code==='Backspace'){
         if(!pick) return;
-        take(); this.doDelete(pick); return;
+        take(); this.tree.doDelete(pick); return;
       }
       return;
     }
     if(e.altKey||e.shiftKey) return;
-    const kind=pick?this._kindOf(pick):'';
+    const kind=pick?this.tree._kindOf(pick):'';
     switch(e.code){
       // FR-EXR-53: 확인은 `doDelete` 가 든다 (FR-EDT-83·84). 키보드라는 이유로
       // 확인을 빼는 갈래를 만들지 않는다 — `U-10` 이 그 부류의 결함이었다.
       // `Backspace` 를 함께 받는 것은 macOS 의 삭제 관용이 그것이기 때문이다.
       case 'Delete': case 'Backspace':
         if(!pick) return;
-        take(); this.doDelete(pick); return;
+        take(); this.tree.doDelete(pick); return;
       case 'F2':
         if(!pick) return;
-        take(); this.startRename(pick); return;
+        take(); this.tree.startRename(pick); return;
       // FR-EXK-5: 여럿을 고른 동안만 받는다 — 그 밖의 Escape 는 다른 이의 것이다.
       case 'Escape':
-        if(this._selSet.size<2) return;
-        take(); this._selOnly(this._sel); this._paintAll(); return;
-      case 'ArrowDown': take(); this._moveSel(1); return;
-      case 'ArrowUp': take(); this._moveSel(-1); return;
+        if(this.tree._selSet.size<2) return;
+        take(); this.tree._selOnly(this.tree._sel); this.tree._paintAll(); return;
+      case 'ArrowDown': take(); this.tree._moveSel(1); return;
+      case 'ArrowUp': take(); this.tree._moveSel(-1); return;
       case 'ArrowRight':
-        if(kind!=='dir'||this._open.has(pick)) return;
-        take(); this.toggle(pick); return;
+        if(kind!=='dir'||this.tree._open.has(pick)) return;
+        take(); this.tree.toggle(pick); return;
       case 'ArrowLeft':
-        if(kind!=='dir'||!this._open.has(pick)) return;
-        take(); this.toggle(pick); return;
+        if(kind!=='dir'||!this.tree._open.has(pick)) return;
+        take(); this.tree.toggle(pick); return;
       case 'Enter':
         if(!pick) return;
         take();
         // 더블클릭과 뜻이 같다 (FR-RTU-42) — 다만 키보드로는 미리보기를 지나지
         // 않았을 수 있으므로 `edPinTabFor` 가 아니라 여는 자리를 부른다.
-        if(kind==='dir') this.toggle(pick);
-        else if(kind==='file') this.app.edOpenFile(pick,{preview:false});
+        if(kind==='dir') this.tree.toggle(pick);
+        else if(kind==='file') this.tree.app.edOpenFile(pick,{preview:false});
         return;
     }
-  },
-});
+  }
+}
+
+// 탐색기 원형의 이름 — 앱·렌더러·e2e·시험과 다른 부품이 `FileTree` 에서 부른다 (REFACTOR3_FE_REST5_SRS FR-FR5-32).
+Controller.delegate(FileTree,'keys',['_onKey']);

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
-import { HELPERS, load } from './harness.mjs';
+import { CONSTANTS, HELPERS, load } from './harness.mjs';
 
 /**
  * UX_AUDIT_FIX_SRS TC-UXF-40 (FR-UXF-42) · TC-UXF-42 의 unit 부분 (FR-UXF-43).
@@ -81,7 +81,7 @@ test('TC-UXF-40 (판정): 허용 낱말·자리표시자·기호만이면 통과
 });
 
 test('TC-UXF-42 (unit): agentsToggle 단축키 이름은 작업 패널을 말한다', () => {
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS], { expose: ['SHORTCUT_LABELS'] });
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, ...HELPERS], { expose: ['SHORTCUT_LABELS'] });
   assert.match(ctx.SHORTCUT_LABELS.agentsToggle, /작업/);
   assert.match(catalog('en')['shortcut.agents_toggle'], /Work/);
 });

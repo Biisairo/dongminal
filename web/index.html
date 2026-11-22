@@ -23,6 +23,7 @@
   <!-- UI_KIT_SRS FR-UIK-1 / D-6: 공통 키트는 **넷보다 먼저** 온다. 캐스케이드가
        곧 의미이므로 키트가 먼저 서고 기존 파일이 그것을 덮을 수 있어야 한다. -->
   <link rel="stylesheet" href="style-kit.css?v=__ASSETV__">
+  <link rel="stylesheet" href="style-kit-controls.css?v=__ASSETV__">
   <link rel="stylesheet" href="style.css?v=__ASSETV__">
   <!-- REFACTOR3_FE_REST4_SRS FU-11 (D-FR4-12): style.css 를 원래 순서의 연속 구간으로 나눈 조각. **이 순서가 곧 캐스케이드다** —
        바꾸면 나누기 전과 다른 규칙이 이긴다. -->
@@ -34,10 +35,13 @@
   <link rel="stylesheet" href="style-mobile.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-system.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-git.css?v=__ASSETV__">
+  <link rel="stylesheet" href="style-git-commit.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-git-views.css?v=__ASSETV__">
+  <link rel="stylesheet" href="style-git-tabs.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-runs.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-sidebar.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-editor.css?v=__ASSETV__">
+  <link rel="stylesheet" href="style-editor-tools.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-docrender.css?v=__ASSETV__">
   <!-- PANEL_TEMPLATE_SRS: 패널 템플릿은 마지막에 읽힌다 — 패널마다의 규칙 위에 템플릿이 선다. -->
   <link rel="stylesheet" href="style-panel.css?v=__ASSETV__">
@@ -939,6 +943,11 @@
 <script src="js/core/settings-schema.js?v=__ASSETV__"></script>
 <script src="js/core/settings-defaults.js?v=__ASSETV__"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
+<!-- constants.js 에서 주제별로 옮긴 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20). constants.js 바로 뒤다 — keybar.js 가 MKB_KEYS 를 딛는다. -->
+<script src="js/core/constants-term.js?v=__ASSETV__"></script>
+<script src="js/core/constants-sandbox.js?v=__ASSETV__"></script>
+<script src="js/core/constants-tips.js?v=__ASSETV__"></script>
+<script src="js/core/constants-file.js?v=__ASSETV__"></script>
 <!-- 서버가 정하는 상한 (`GET /api/meta`, REFACTOR3_FE_REST2_SRS FR-FR2-5). constants.js 뒤다. -->
 <script src="js/core/server-meta.js?v=__ASSETV__"></script>
 <!-- 모바일 키바 구성의 순수 함수 (UX_AUDIT_FIX_SRS FR-UXF-93·94). constants.js 의 MKB_KEYS 를 딛는다. -->
@@ -948,8 +957,8 @@
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
 <!-- 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절
      순서와 같다 — 그 순서가 곧 로드 시점 참조의 순서였다.
-     `constants-git-diff.js` 는 `constants-editor.js` 앞이어야 한다: 그쪽의
-     `ED_DD_AXIS` 가 여기의 `GIT_AXIS` 를 읽는다. -->
+     `constants-git-diff.js` 는 `constants-editor.js`·`constants-explorer.js` 앞이어야 한다:
+     `constants-explorer.js` 의 `ED_DD_AXIS` 가 여기의 `GIT_AXIS` 를 읽는다. -->
 <script src="js/core/constants-git-changes.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git-commit.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git-detect.js?v=__ASSETV__"></script>
@@ -961,6 +970,7 @@
      FR-DRC-13). constants-git.js 뒤여야 한다. -->
 <script src="js/core/constants-git-actions.js?v=__ASSETV__"></script>
 <script src="js/core/constants-editor.js?v=__ASSETV__"></script>
+<script src="js/core/constants-explorer.js?v=__ASSETV__"></script>
 <!-- 서버 hunk 좌표의 클라이언트 측 사상 (DIFF_HUNK_BAR_SRS D-2). 편집기의 변경
      표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
      자리나 되지만, 두 소비자보다 앞이어야 읽는 순서가 곧 의존 순서가 된다. -->
@@ -1006,6 +1016,8 @@
 <!-- 핸들의 크기 HUD 와 끌기 (REFACTOR3_FE_REST3_SRS FR-FR3-16). ui-kit.js 바로 뒤 — `UIKit.drag` 가 이것에 맡긴다. -->
 <script src="js/ui/size-hud.js?v=__ASSETV__"></script>
 <script src="js/ui/size-drag.js?v=__ASSETV__"></script>
+<!-- 대화상자 스택·접근성 계약 (REFACTOR3_FE_REST5_SRS FR-FR5-21, 옛 `UIKit._dlg*`). UIKit.dialogOpen 이 부를 때 읽는다. -->
+<script src="js/ui/dialog-stack.js?v=__ASSETV__"></script>
 <!-- 대화상자 기반과 킷 모달 (REFACTOR3_FE_DIALOG_SRS FR-FED-11). `View` 뒤 — `extends` 는 로드 시점에 부모를 읽는다. -->
 <script src="js/ui/dialog.js?v=__ASSETV__"></script>
 <script src="js/ui/kit-modal.js?v=__ASSETV__"></script>
@@ -1070,13 +1082,20 @@
 <!-- 수정키+클릭 링크 이동 (EDITOR_LINK_LSP_SRS FR-ELS-10). cm-lsp.js 뒤다 — edLspPath·edLspOffset 을 쓴다. -->
 <script src="js/ui/cm-link.js?v=__ASSETV__"></script>
 <script src="js/ui/file-editor.js?v=__ASSETV__"></script>
+<!-- FileEditor 의 부품 (REFACTOR3_FE_REST5_SRS FR-FR5-21) — 알림·제안 띠 · 편집기 대신 서는 화면 · 문서 없는 저장 · 키 배선. -->
+<script src="js/ui/file-editor-notice.js?v=__ASSETV__"></script>
+<script src="js/ui/file-editor-media.js?v=__ASSETV__"></script>
+<script src="js/ui/file-editor-save.js?v=__ASSETV__"></script>
+<script src="js/ui/file-editor-keys.js?v=__ASSETV__"></script>
 <!-- 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). file-editor.js 뒤여야
      한다 — FileEditor.prototype 에 얹는다 (DRIFT_RECLAIM_SRS FR-DRC-13). -->
 <script src="js/ui/file-editor-find.js?v=__ASSETV__"></script>
+<script src="js/ui/doc-render-util.js?v=__ASSETV__"></script>
 <script src="js/ui/doc-render.js?v=__ASSETV__"></script>
-<!-- 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). file-editor.js 뒤여야 한다 —
-     `FileEditor.prototype` 을 확장한다. -->
+<!-- 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). 칸 하나의 클릭·팝업은 FileEditor 의 부품 `EdDiffPeek` 다
+     (REFACTOR3_FE_REST5_SRS FR-FR5-23 — 종전에는 `FileEditor.prototype` 을 확장했다). -->
 <script src="js/ui/file-editor-diff.js?v=__ASSETV__"></script>
+<script src="js/ui/file-editor-peek.js?v=__ASSETV__"></script>
 <script src="js/ui/input-binding.js?v=__ASSETV__"></script>
 <!-- REFACTOR_STABILIZATION_SRS FR-RST-21: 뷰들이 공유하는 조각. `api.js` 앞이다 —
      gitFetch 는 호출 시점에만 필요하므로 순서가 뒤여도 되지만, 공유물이 먼저
@@ -1099,7 +1118,10 @@
 <script src="js/git/git-blame.js?v=__ASSETV__"></script>
 <script src="js/git/git-hunks.js?v=__ASSETV__"></script>
 <script src="js/git/git-poll.js?v=__ASSETV__"></script>
+<script src="js/git/git-view-reload.js?v=__ASSETV__"></script>
+<script src="js/git/git-watchdog.js?v=__ASSETV__"></script>
 <script src="js/git/diff-cm.js?v=__ASSETV__"></script>
+<script src="js/git/diff-image.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view-parity.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view-doc.js?v=__ASSETV__"></script>
@@ -1148,6 +1170,9 @@
 <script src="js/ui/file-tree-obs.js?v=__ASSETV__"></script>
 <script src="js/ui/file-tree-store.js?v=__ASSETV__"></script>
 <script src="js/ui/file-tree.js?v=__ASSETV__"></script>
+<!-- FileTree 의 부품 (REFACTOR3_FE_REST5_SRS R5d). file-tree.js 뒤다 — 파일 끝의 위임자 표가 FileTree 원형에 얹는다. -->
+<script src="js/ui/file-tree-load.js?v=__ASSETV__"></script>
+<script src="js/ui/file-tree-select.js?v=__ASSETV__"></script>
 <script src="js/ui/file-tree-paint.js?v=__ASSETV__"></script>
 <script src="js/ui/file-tree-keys.js?v=__ASSETV__"></script>
 <script src="js/ui/file-tree-marquee.js?v=__ASSETV__"></script>
@@ -1173,6 +1198,8 @@
 <!-- 워크스페이스 동기화·SSE 배선과 내부 새로고침 (REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`·`app-reload.js`).
      끝에서 App 원형에 위임자와 `_sse` 접근자 넷을 둔다. -->
 <script src="js/core/ws-sync-controller.js?v=__ASSETV__"></script>
+<!-- 워크스페이스 저장 기계 (REFACTOR3_FE_REST5_SRS FR-FR5-22). app.js 뒤다 — 끝의 위임자 표가 App 원형에 얹는다. -->
+<script src="js/core/ws-save-controller.js?v=__ASSETV__"></script>
 <script src="js/core/soft-reload.js?v=__ASSETV__"></script>
 <!-- 도구와 그 부품 — 수명 (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-tool.js`). 작업 중 표식·검색 부품은 아래 옛 자리에 있다. -->
 <script src="js/core/tool-controller.js?v=__ASSETV__"></script>

@@ -20,6 +20,8 @@
  *   git-hunks.js      부분 스테이징 · hover 툴바 (`this.hunks`)
  *   git-diff-pane.js  Diff 탭 · Diff 탭 전용 패널의 몫 · 보기 설정 (`this.diffPane`)
  *   git-poll.js       접기 설정 · 폴링 · 상태 적용 (`this.poll`)
+ *   git-view-reload.js 새로고침 · 뷰 다시 받기 · refs 회차 (`this.viewReload`)
+ *   git-watchdog.js   멈춘 관측 되살리기 (`this.watchdog`)
  *   git-write.js      쓰기 한 번의 전과 후 — 후처리 훅 · 결과 해석 · 오퍼레이션 (`this.write`)
  *   git-changes.js    Changes 탭 — 골격 · 칠하기 · 머리 · git init (`this.changes`)
  *   git-change-rows.js Changes 탭의 그룹 · 트리 · 행 (`this.changeRows`)
@@ -84,6 +86,8 @@ class GitPanel {
     this.hunks=new GitHunks(this);
     this.diffPane=new GitDiffPane(this);
     this.poll=new GitPoll(this);
+    this.viewReload=new GitViewReload(this);
+    this.watchdog=new GitWatchdog(this);
     this.write=new GitWrite(this);
     this.changes=new GitChanges(this);
     this.changeRows=new GitChangeRows(this);
@@ -135,17 +139,17 @@ class GitPanel {
   repoTop(){ return this.poll.repoTop() }
   openFileDiff(target){ return this.poll.openFileDiff(target) }
   copyText(text){ return this.poll.copyText(text) }
-  refresh(){ return this.poll.refresh() }
-  _reloadViews(withConsole){ return this.poll._reloadViews(withConsole) }
-  _staleTake(key,before){ return this.poll._staleTake(key,before) }
-  _inRefsRound(fn){ return this.poll._inRefsRound(fn) }
-  _reloadStaleViews(sig){ return this.poll._reloadStaleViews(sig) }
+  refresh(){ return this.viewReload.refresh() }
+  _reloadViews(withConsole){ return this.viewReload._reloadViews(withConsole) }
+  _staleTake(key,before){ return this.viewReload._staleTake(key,before) }
+  _inRefsRound(fn){ return this.viewReload._inRefsRound(fn) }
+  _reloadStaleViews(sig){ return this.viewReload._reloadStaleViews(sig) }
   init(){ return this.poll.init() }
   signal(kind){ return this.poll.signal(kind) }
   _pollOk(){ return this.poll._pollOk() }
   _cadence(st){ return this.poll._cadence(st) }
   _applyCadence(){ return this.poll._applyCadence() }
-  _watchdog(){ return this.poll._watchdog() }
+  _watchdog(){ return this.watchdog.run() }
   _reschedule(){ return this.poll._reschedule() }
   _stop(){ return this.poll._stop() }
   collect(){ return this.poll.collect() }
@@ -404,6 +408,7 @@ class GitPanel {
     // 것으로 세었다 — 그 판정을 여기서 한 번 더 지나 바로잡는다.
     this.obs.resettle();
     this.blame.dispose(); this.hunks.dispose(); this.diffPane.dispose(); this.poll.dispose(); this.write.dispose();
+    this.viewReload.dispose(); this.watchdog.dispose();
     this.changes.dispose(); this.changeRows.dispose(); this.files.dispose(); this.selection.dispose();
     this.views.dispose(); this.viewRoots.dispose();
   }
