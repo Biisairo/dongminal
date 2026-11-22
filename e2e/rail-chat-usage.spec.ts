@@ -41,10 +41,10 @@ async function installUsageMock(page: Page) {
 /** 보이는 요소들의 폭·높이·줄 높이를 잰다. */
 async function boxes(page: Page, sel: string) {
   return page.locator(sel).evaluateAll((els) => els
-    .filter((e) => (e as HTMLElement).offsetParent !== null)
+    .filter((e) => e.checkVisibility())
     .map((e) => {
       const r = e.getBoundingClientRect();
-      return { cls: e.className, w: r.width, h: r.height, lh: parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.3 };
+      return { cls: e.getAttribute('class'), w: r.width, h: r.height, lh: parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.3 };
     }));
 }
 
@@ -85,6 +85,10 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
     await expect(sum).toContainText('%');
     const check = async () => {
       expect((await sum.boundingBox())!.width).toBeLessThanOrEqual(rw);
+      // 칸이 요약 줄 밖으로 넘쳐 잘리지 않는다 — 단추의 고정 높이가 세로로 쌓인 칸을 자르면 주간 % 가 화면 밖으로 간다.
+      const sb = (await sum.boundingBox())!;
+      const cb = (await sum.locator('.cacct-cells').boundingBox())!;
+      expect(cb.y + cb.height).toBeLessThanOrEqual(sb.y + sb.height + 1);
       for (const b of await boxes(page, '#agents-panel .act-usage-foot *')) {
         expect(b.w, `${b.cls} 의 폭`).toBeLessThanOrEqual(rw);
       }
