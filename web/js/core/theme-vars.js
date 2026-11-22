@@ -83,15 +83,15 @@ const THEME_BASE_NAME='Tokyo Night';
  * REFACTOR3_DEFECTS_SRS FR-RD3-1·2: 저장된 사용자 정의 테마는 색만 받는다. 미리보기가 값을
  * `innerHTML` 의 `style="…"` 에 넣으므로 색이 아닌 값은 마크업이 된다. 빠진 칸은 기본 테마 값이다.
  */
-function sanitizeCustomTheme(t){
-  if(!t||typeof t!=='object'||Array.isArray(t)) return null;
+function sanitizeCustomTheme(theme){
+  if(!theme||typeof theme!=='object'||Array.isArray(theme)) return null;
   const base=THEMES[THEME_BASE_NAME];
   const pick=(src,def)=>{
     const out={...def};
     if(src&&typeof src==='object') for(const [k,v] of Object.entries(src)) if(typeof v==='string'&&THEME_COLOR_RE.test(v)) out[k]=v;
     return out;
   };
-  return {mode:t.mode==='light'?'light':'dark',ui:pick(t.ui,base.ui),terminal:pick(t.terminal,base.terminal)};
+  return {mode:theme.mode==='light'?'light':'dark',ui:pick(theme.ui,base.ui),terminal:pick(theme.terminal,base.terminal)};
 }
 // FR-SEED-12: 견본의 색상 간격 — 0°·45°·…·315° 의 8개.
 const SEED_SWATCH_STEP=45;

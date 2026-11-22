@@ -121,7 +121,9 @@ const localPlugin = {
 export default [
   {
     // vendor 는 남의 코드이고 최소화돼 있다. 검사할 것도 고칠 것도 없다.
-    ignores: ['web/vendor/**', 'node_modules/**', 'dist/**', 'playwright-report/**', 'test-results/**'],
+    // `.claude/` 는 git 이 무시하는 로컬 도구 자리다 — 에이전트 worktree(`.claude/worktrees/*`)가 저장소 사본을
+    // 담아 같은 오류를 두 번 세거나 다른 커밋의 오류를 섞는다 (QUALITY_FIX_SRS FR-QFX-8).
+    ignores: ['web/vendor/**', 'node_modules/**', 'dist/**', 'playwright-report/**', 'test-results/**', '.claude/**'],
   },
   {
     // 앱 본체 — 클래식 스크립트. 모듈이 아니다.

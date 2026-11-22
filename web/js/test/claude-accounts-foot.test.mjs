@@ -725,7 +725,6 @@ test('FR-CAC-93 · FR-MUX-81: statusLine 줄은 등록되지 않은 계정의 �
   const SLV = (pct, age) => ({ windows: { fiveHour: { pct, resetsInSec: 7800, level: pct >= 90 ? 'critical' : '' }, sevenDay: { pct: 21, level: '' } },
     observedAt: NOW - age, ageSeconds: age, stale: age > 300 });
   const a = { ...ACC_A, statusLine: SLV(34, 10) };
-  const b = { ...ACC_B };
   const lines = ctx.claudeAcctStatusLines([{ name: 'wo***@', ...SLV(34, 10) }, { name: 'em***@' }, { name: 'ze***@', ...SLV(95, 600) }]);
   assert.equal(lines.length, 2, '값이 없는 계정(em***@)은 줄이 없다');
   assert.deepEqual(plain(lines[0]), {
