@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R5 — 남은 큰 함수·큰 파일·FileTree 부품화 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: R5a(CSS) · R5b(100줄 넘는 함수) · R5c(500줄 넘는 JS 파일) · R5d(FileTree 부품화) 전부.
+> **남은 것**: R5b(100줄 넘는 함수) · R5c(500줄 넘는 JS 파일) · R5d(FileTree 부품화). R5a(CSS)는 닫혔다.
 
 - 접수: 2026-11-22 (프로덕션 리팩토링 3차의 남은 부채 · `REFACTOR3_FE_REST3_SRS` §6 「남긴 것」 · `FE_MODULE_BOUNDARY_SRS` §7.1a 기준선 · `architecture.md` 「FileTree 는 아직 원형 확장이다」)
 - 사용자 결정: "알아서 끝까지", 하위 묶음 하나가 끝나면 커밋한다. 동작을 바꿔야만 나눌 수 있거나 범위를 줄여야 하면 멈추고 묻는다. 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -118,3 +118,5 @@
 
 | 커밋 | 요점 |
 |---|---|
+| `6e0b371c` | 이 SRS |
+| (R5a 커밋) | FR-FR5-1·2 — CSS 넷을 연속 구간 둘씩으로: `style-kit.css` 565 → 301 + `style-kit-controls.css` 265 · `style-git.css` 679 → 274 + `style-git-commit.css` 406 · `style-git-views.css` 824 → 392 + `style-git-tabs.css` 433 · `style-editor.css` 575 → 240 + `style-editor-tools.css` 336. 둘째 조각의 첫 줄을 빼고 이어 붙이면 원본과 바이트까지 같다(첫 조각의 머리 주석 목록만 고쳤다). CSS 기준선 `500줄초과=4 · 최대=824` → `0 · 433`. 킷을 이름으로 읽는 게이트 하나·시험 다섯이 `KIT_FILES` 둘을 본다. `check-spacing.mjs` 예외 셋의 파일명 → `style-git-tabs.css`. 시험 TC-FR5-1 |

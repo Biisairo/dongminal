@@ -22,7 +22,8 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = 'web';
-const KIT_FILE = 'web/style-kit.css';
+/** 킷은 두 조각이다 — 원래 순서의 연속 구간 (REFACTOR3_FE_REST5_SRS FR-FR5-1). */
+const KIT_FILES = new Set(['web/style-kit.css', 'web/style-kit-controls.css']);
 
 /**
  * 규칙: 이름 · 무엇을 찾는가 · 왜.
@@ -91,7 +92,7 @@ for (const f of cssFiles(ROOT)) {
 }
 
 // M6 §4-A-1: **아무것도 재지 않는 검사**를 만들지 않는다.
-const kitRules = rules.filter((r) => r.f === KIT_FILE);
+const kitRules = rules.filter((r) => KIT_FILES.has(r.f));
 if (rules.length < 100 || kitRules.length < 20) {
   console.error(`규칙 ${rules.length}개(킷 ${kitRules.length})밖에 못 읽었다 — 검사가 공회전한다.`);
   process.exit(1);
@@ -106,7 +107,7 @@ if (missing.length) {
 const bad = [];
 for (const R of RULES) {
   for (const r of rules) {
-    if (r.f === KIT_FILE || !usesClass(r.sel, R.cls)) continue;
+    if (KIT_FILES.has(r.f) || !usesClass(r.sel, R.cls)) continue;
     for (const p of R.props) {
       if (new RegExp(`(^|;)\\s*${p}\\s*:`).test(r.decls)) bad.push({ R, r, p });
     }
@@ -115,7 +116,7 @@ for (const R of RULES) {
 
 if (process.argv.includes('--list')) {
   for (const R of RULES) {
-    const hits = rules.filter((r) => r.f !== KIT_FILE && usesClass(r.sel, R.cls));
+    const hits = rules.filter((r) => !KIT_FILES.has(r.f) && usesClass(r.sel, R.cls));
     console.log(`.${R.cls} — 킷 밖에서 이 이름을 쓰는 규칙 ${hits.length}개`);
     for (const h of hits) console.log(`    ${h.f}: ${h.sel}`);
   }

@@ -424,9 +424,10 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 
 **CSS 기준선** (2026-11-21, `REFACTOR3_FE_REST4_SRS` FU-11 · D-FR4-11). 같은 게이트가 `web/*.css`(vendor 제외)를 같은
 두 수로 잰다. 게이트를 세운 순간은 500줄 초과 5 · 최대 2,545(`style.css`)였고, `style.css` 를 원래 순서의 연속 구간 여덟으로
-나눈 뒤의 값이 기준선이다. 남은 넷은 `style-git-views.css` 824 · `style-git.css` 685 · `style-editor.css` 575 · `style-kit.css` 565 다.
+나눈 뒤의 값이 기준선이었다. 남은 넷(`style-git-views.css` 824 · `style-git.css` 679 · `style-editor.css` 575 · `style-kit.css` 565)은
+`REFACTOR3_FE_REST5_SRS` FR-FR5-1(2026-11-22)이 같은 방법으로 둘씩 나눴다 — 4 → 0, 최대 824 → 433(`style-git-tabs.css`).
 
-    CSS 500줄초과=4 · 최대=824
+    CSS 500줄초과=0 · 최대=433
 
 | 지표 | §2.1 기준선 (2026-09-12) | §7.1 달성 (2026-09-13) | 게이트를 세운 순간 (2026-09-21) | **게이트 기준선 (2026-09-21)** |
 |---|---:|---:|---:|---:|

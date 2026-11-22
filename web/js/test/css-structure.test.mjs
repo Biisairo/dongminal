@@ -38,7 +38,8 @@ function rules(files = cssFiles('web')) {
 const sels = (r) => r.sel.split(',').map((s) => s.trim());
 
 test('FEU-24: style-git-views.css 에 Runs·사이드바 탭·백그라운드 규칙이 없다', () => {
-  const bad = rules(['web/style-git-views.css'])
+  // REFACTOR3_FE_REST5_SRS FR-FR5-1: git 뷰는 두 조각(`style-git-views.css`·`style-git-tabs.css`)이다.
+  const bad = rules(['web/style-git-views.css', 'web/style-git-tabs.css'])
     .filter((r) => /(^|[\s,>+~])(\.runs?-|\.run-view|\.bg-|#sb-tabs|\.sb-tab)/.test(r.sel))
     .map((r) => r.sel);
   assert.deepEqual(bad, [], 'git 과 무관한 선택자가 git 뷰 파일에 남았다');
@@ -50,7 +51,7 @@ test('FEU-24: 옮긴 파일이 git 뷰 바로 뒤에서 읽힌다 — 캐스케�
   const at = (n) => order.indexOf(n);
   assert.ok(at('style-runs.css') > 0, 'style-runs.css 링크가 없다');
   assert.ok(at('style-sidebar.css') > 0, 'style-sidebar.css 링크가 없다');
-  assert.equal(at('style-runs.css'), at('style-git-views.css') + 1, `순서: ${order.join(' → ')}`);
+  assert.equal(at('style-runs.css'), at('style-git-tabs.css') + 1, `순서: ${order.join(' → ')}`);
   assert.equal(at('style-sidebar.css'), at('style-runs.css') + 1, `순서: ${order.join(' → ')}`);
   assert.equal(at('style-editor.css'), at('style-sidebar.css') + 1, `순서: ${order.join(' → ')}`);
   assert.ok(rules(['web/style-runs.css']).some((r) => r.sel === '.runs-row'), '.runs-row 가 style-runs.css 에 없다');
@@ -112,11 +113,11 @@ test('TC-FR4-5: 레일 숨김 목록의 클래스는 모두 JS·HTML 에 있다'
 // 이전: style.css 한 파일이 2,545줄이었다.
 const CORE_PIECES = ['style.css', 'style-main-panel.css', 'style-workspace.css', 'style-activity.css',
   'style-modal.css', 'style-status.css', 'style-mobile.css', 'style-system.css'];
-test('TC-FR4-7: 코어 조각은 style-kit 뒤·style-git 앞에 원래 순서로 실리고, 각각 500줄 이하다', () => {
+test('TC-FR4-7: 코어 조각은 키트(style-kit·style-kit-controls) 뒤·style-git 앞에 원래 순서로 실리고, 각각 500줄 이하다', () => {
   const html = readFileSync('web/index.html', 'utf8');
   const order = [...html.matchAll(/<link rel="stylesheet" href="(style[\w-]*\.css)/g)].map((m) => m[1]);
   const at = order.indexOf('style.css');
-  assert.equal(order[at - 1], 'style-kit.css', `순서: ${order.join(' → ')}`);
+  assert.equal(order[at - 1], 'style-kit-controls.css', `순서: ${order.join(' → ')}`);
   assert.deepEqual(order.slice(at, at + CORE_PIECES.length), CORE_PIECES, `순서: ${order.join(' → ')}`);
   assert.equal(order[at + CORE_PIECES.length], 'style-git.css', `순서: ${order.join(' → ')}`);
   const long = CORE_PIECES.map((f) => [f, readFileSync(join('web', f), 'utf8').split('\n').length - 1]).filter(([, n]) => n > 500);
@@ -139,15 +140,34 @@ test('FEU-29: git 뷰 툴바 여섯이 골격 한 규칙을 나눈다', () => {
   assert.deepEqual(dup, [], '뷰별 규칙이 골격을 다시 적는다');
 });
 
+/** 킷은 두 조각이다 (REFACTOR3_FE_REST5_SRS FR-FR5-1). */
+const KIT_FILES = ['web/style-kit.css', 'web/style-kit-controls.css'];
+
+// REFACTOR3_FE_REST5_SRS FR-FR5-1 (TC-FR5-1): 500줄을 넘던 CSS 넷을 원래 순서의 연속 구간 둘로 나눴다.
+// 조각은 <link> 에서 바로 이어 실린다 — **이 순서가 곧 캐스케이드다.** 이전: 한 파일(565~824줄)이었다.
+const SPLIT_PAIRS = [['style-kit.css', 'style-kit-controls.css'], ['style-git.css', 'style-git-commit.css'],
+  ['style-git-views.css', 'style-git-tabs.css'], ['style-editor.css', 'style-editor-tools.css']];
+test('TC-FR5-1: 나눈 CSS 조각은 바로 이어 실리고 각각 500줄 이하다', () => {
+  const html = readFileSync('web/index.html', 'utf8');
+  const order = [...html.matchAll(/<link rel="stylesheet" href="(style[\w-]*\.css)/g)].map((m) => m[1]);
+  for (const [a, b] of SPLIT_PAIRS) {
+    assert.ok(order.indexOf(a) >= 0, `${a} 링크가 없다`);
+    assert.equal(order.indexOf(b), order.indexOf(a) + 1, `${b} 가 ${a} 바로 뒤가 아니다: ${order.join(' → ')}`);
+  }
+  assert.equal(order.indexOf('style-git-views.css'), order.indexOf('style-git-commit.css') + 1, `순서: ${order.join(' → ')}`);
+  const long = SPLIT_PAIRS.flat().map((f) => [f, readFileSync(join('web', f), 'utf8').split('\n').length - 1]).filter(([, n]) => n > 500);
+  assert.deepEqual(long, [], '500줄을 넘는 조각');
+});
+
 const HANDLES = ['#sb-handle', '#agents-handle', '.ed-ex-handle', '.slot-handle', '.sh'];
 
 test('FEU-29: 리사이즈 손잡이의 히트 영역은 킷 한 자리가 그린다', () => {
   const all = rules();
-  const kit = all.find((r) => r.file === 'web/style-kit.css' && r.sel === '.ui-resize-handle::before');
+  const kit = all.find((r) => KIT_FILES.includes(r.file) && r.sel === '.ui-resize-handle::before');
   assert.ok(kit, '킷에 `.ui-resize-handle::before` 가 없다');
   assert.match(kit.decls, /content\s*:/);
   assert.match(kit.decls, /var\(--ui-resize-hit\)/, '히트 폭이 토큰에서 오지 않는다');
-  const bad = all.filter((r) => r.file !== 'web/style-kit.css' && /::before/.test(r.sel)
+  const bad = all.filter((r) => !KIT_FILES.includes(r.file) && /::before/.test(r.sel)
     && HANDLES.some((h) => new RegExp(`${h.replace('.', '\\.')}(?![\\w-])[^,]*::before`).test(r.sel))
     && /content\s*:/.test(r.decls)).map((r) => `${r.file}: ${r.sel}`);
   assert.deepEqual(bad, [], '손잡이가 히트 영역을 자기 규칙으로 다시 그린다');

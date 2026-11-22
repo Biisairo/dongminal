@@ -217,7 +217,8 @@ prototype 이 아니라 클래스 자체에 얹는다(`FileTree._asUploadItems` 
 원본의 선언 순서다 — 캐스케이드는 순서가 곧 의미라서, 파일을 옮기는 것과 순서를
 바꾸는 것을 구별해야 한다. 그래서 편집기 엔진 규칙은 `style-editor.css` 가 아니라
 `style.css` 쪽에 남아 있다 — 지금은 `style.css` 를 원래 순서의 연속 구간으로 나눈 조각 `style-system.css` 다
-(REFACTOR3_FE_REST4_SRS FU-11).
+(REFACTOR3_FE_REST4_SRS FU-11). 500줄을 넘던 넷(`style-kit`·`style-git`·`style-git-views`·`style-editor`)도
+같은 방법으로 바로 뒤에 실리는 조각 하나씩을 얻었다(`-controls`·`-commit`·`-tabs`·`-tools`, REFACTOR3_FE_REST5_SRS FR-FR5-1).
 
 ## 오류 응답 — 판정은 한 곳, 렌더링은 표면마다
 
