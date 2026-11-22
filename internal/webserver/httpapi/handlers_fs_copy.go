@@ -96,6 +96,10 @@ func (s *Server) apiFSCopy(w http.ResponseWriter, r *http.Request) {
 		fsRejectAnswer(w, fsTooMany(s.limits.fsCopy))
 		return
 	}
+	// 이름 잡기부터 트리 채우기까지 **전부** 잠금 안이다 (QUALITY_GO_SRS FR-QG-41 · D-QG-7).
+	// 채우다 실패하면 `target` 을 통째로 지운다(FR-WBR-67) — 그 안에 우리의 다른 조작(만들기·
+	// 이름 바꾸기·복사)이 넣은 것이 없어야 그 삭제가 사용자의 것을 잃지 않는다. 이름 바꾸기
+	// 폴백의 "검사 → rename" 창(D-26)도 이 잠금이 우리끼리의 경합에서 닫는다.
 	s.fs.ops.Lock()
 	defer s.fs.ops.Unlock()
 	if st, err = os.Lstat(src); err != nil {
