@@ -1,8 +1,8 @@
 # SRS: 레일의 채팅 목록과 Claude 사용량 (IEEE 29148 준수)
 
-> **문서 상태**: 승인·구현중
+> **문서 상태**: 승인·구현완료
 >
-> **남은 것**: CSS·시험 구현
+> 근거: `e2e/rail-chat-usage.spec.ts` TC-RCU-1·2 와 `ui-layout-defaults`·`claude-accounts`·`chat-window`·`activity-rail`·`sidebar-tabs`·`ux-batch13`·`panel-dock` e2e 통과, `npm run unit`(`css-structure`·`activity-tabs`)·`make gates` 통과. 규칙은 `web/style-main-panel.css`(`#sidebar[data-rail] .chat-*`)와 `web/style-activity.css`(`#agents-panel[data-rail] .act-usage-*`)다
 
 ## 1. 개요
 
