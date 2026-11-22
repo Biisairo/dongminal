@@ -42,6 +42,8 @@ var (
 	ErrUnreachable = errors.New("상대에 닿지 못했다")
 	ErrNotEdge     = errors.New("간선이 아니다")
 	ErrUnknownNode = errors.New("모르는 노드다")
+	// ErrInviteFull 은 초대 기억이 만료 전 항목으로 가득 찼다는 뜻이다 (FR-ATF-51).
+	ErrInviteFull = errors.New("초대 기억이 가득 찼다")
 )
 
 // Hello 는 직접 정보다 (FR-EGM-20). Port 가 0 이면 주소를 싣지 않은 것이다.
@@ -141,10 +143,14 @@ func (l *link) writeLoop() {
 	}
 }
 
+// dialState 는 간선 하나의 걸기 상태다. 자동 재연결과 Notify 가 함께 쓴다 (FR-ATF-50).
 type dialState struct {
 	next    time.Time
 	wait    time.Duration
 	running bool
+	// done 은 지금 걸기가 끝나면 닫힌다. err 는 마지막 걸기의 결과다. m.mu 가 지킨다.
+	done chan struct{}
+	err  error
 }
 
 // Mesh 는 이 노드의 간선 계층이다.
@@ -547,15 +553,11 @@ func (m *Mesh) dialEdges(ctx context.Context, now time.Time) {
 		if _, linked := m.links[fp]; linked || e.Addr == "" {
 			continue
 		}
-		d := m.dialing[fp]
-		if d == nil {
-			d = &dialState{wait: redialMin}
-			m.dialing[fp] = d
-		}
+		d := m.dialStateLocked(fp)
 		if d.running || now.Before(d.next) {
 			continue
 		}
-		d.running = true
+		d.startLocked()
 		go m.redial(ctx, e, d)
 	}
 	m.mu.Unlock()
@@ -564,17 +566,34 @@ func (m *Mesh) dialEdges(ctx context.Context, now time.Time) {
 	}
 }
 
-func (m *Mesh) redial(ctx context.Context, e edge.Edge, d *dialState) {
+func (m *Mesh) dialStateLocked(fp string) *dialState {
+	d := m.dialing[fp]
+	if d == nil {
+		d = &dialState{wait: redialMin}
+		m.dialing[fp] = d
+	}
+	return d
+}
+
+func (d *dialState) startLocked() {
+	d.running = true
+	d.done = make(chan struct{})
+}
+
+func (m *Mesh) redial(ctx context.Context, e edge.Edge, d *dialState) error {
 	err := m.dial(ctx, e)
 	m.mu.Lock()
 	d.running = false
+	d.err = err
 	if err != nil {
 		d.next = m.now().Add(d.wait)
 		d.wait = min(d.wait*2, redialMax)
 	} else {
 		d.wait = redialMin
 	}
+	close(d.done)
 	m.mu.Unlock()
+	return err
 }
 
 // dial 은 간선 e 에 걸어 붙인다. 404 면 옛 판으로 표시하고(FR-EGM-7), edge_not_edge 면 간선을
@@ -683,12 +702,34 @@ func (m *Mesh) Notify(ctx context.Context, fp string) error {
 	case m.opts.Dial == nil:
 		return ErrUnreachable
 	}
-	if err := m.dial(ctx, e); err != nil {
-		return err
-	}
+	// 걸고 있는 중이면 그 걸기를 기다린다 — 같은 간선에 두 번 걸지 않는다 (FR-ATF-50).
 	m.mu.Lock()
-	l = m.links[fp]
-	m.mu.Unlock()
+	d := m.dialStateLocked(fp)
+	if d.running {
+		done := d.done
+		m.mu.Unlock()
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ErrUnreachable
+		}
+		m.mu.Lock()
+		err := d.err
+		l = m.links[fp]
+		m.mu.Unlock()
+		if l == nil && err != nil {
+			return err
+		}
+	} else {
+		d.startLocked()
+		m.mu.Unlock()
+		if err := m.redial(ctx, e, d); err != nil {
+			return err
+		}
+		m.mu.Lock()
+		l = m.links[fp]
+		m.mu.Unlock()
+	}
 	if l == nil {
 		return ErrUnreachable
 	}

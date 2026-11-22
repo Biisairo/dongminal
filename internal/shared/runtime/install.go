@@ -92,14 +92,17 @@ func installWith(binDir, self string) error {
 	// HELPER_INSTALL_SRS FR-HLI-1: 사라질 것을 가리키지 않는다. `go run` 아래에서
 	// 자기 자신은 임시 빌드 산출물이고, 그 프로세스가 끝나면 지워진다 — 설치는
 	// 성공한 채로 다섯 링크가 한꺼번에 죽는다 (§2.1·§2.3).
+	names := helperNames()
+	// 자기 복사본도 기록에 넣는다 — 덧없지 않은 다음 설치가 거둔다 (FR-ATF-60).
+	placed := append([]string(nil), names...)
 	if isEphemeralExe(self) {
 		stable, err := stableSelfCopy(paths, binDir, self)
 		if err != nil {
 			return err
 		}
 		self = stable
+		placed = append(placed, selfCopyName)
 	}
-	names := helperNames()
 	// 확장자는 설치 시점에만 붙인다. helperNames() 는 multi-call 디스패치가
 	// 보는 이름이며 그쪽에는 확장자가 없다 (FR-XPA-3).
 	// CLAUDE_ACCOUNTS_SRS FR-CAC-83: shim 은 `agent-shims/` 에 선다.
@@ -112,7 +115,8 @@ func installWith(binDir, self string) error {
 		}
 	}
 	// LEFTOVERS_SRS FR-LFT-5: 놓기만 하고 거두지 않으면 폐지된 이름이 영원히 남는다.
-	reapRetiredHelpers(binDir, names)
+	reapRetiredHelpers(binDir, placed, retiredHelperNames)
+	reapRetiredHelpers(dmenv.AgentShimsDirIn(binDir), agentadapter.ShimCommands(), nil)
 	/*
 		AGENT_ADAPTER_COMPLETION_SRS FR-AAC-4: **등록된 어댑터를 순회한다.**
 
@@ -204,33 +208,40 @@ const helperManifest = ".helpers"
 // 아니다 (D-3). `mdview` 는 실제로 사용자 `bin/` 에 남아 있던 것이다.
 var retiredHelperNames = []string{"mdview"}
 
-// reapRetiredHelpers 는 우리가 놓았던 것 중 지금 목록에 없는 것을 거두고, 이번에
-// 놓은 이름을 기록으로 남긴다.
+// reapRetiredHelpers 는 dir 에 우리가 놓았던 것(기록과 legacy) 중 지금 놓은 current 에 없는 것을
+// 거두고, 이번에 놓은 이름을 dir 의 기록으로 남긴다. bin 의 헬퍼·자기 복사본과 `agent-shims/` 의
+// shim 이 각자의 기록을 갖는다 (FR-ATF-60).
 //
 // 실패는 삼킨다 (FR-LFT-8). 남은 헬퍼는 해가 없고 — 잘못된 것을 가리키면
 // InspectHelpers 가 알린다 — 거두지 못했다고 설치를 접는 것이 더 해롭다.
-func reapRetiredHelpers(binDir string, current []string) {
+func reapRetiredHelpers(dir string, current, legacy []string) {
 	live := make(map[string]bool, len(current))
 	for _, n := range current {
 		live[n] = true
 	}
 	suffix := platform.Current().Paths.ExeSuffix()
-	for _, n := range append(readHelperManifest(binDir), retiredHelperNames...) {
-		if live[n] {
+	for _, n := range append(readHelperManifest(dir), legacy...) {
+		if live[n] || !manifestName(n) {
 			continue
 		}
-		_ = os.Remove(filepath.Join(binDir, n+suffix))
+		_ = os.Remove(filepath.Join(dir, n+suffix))
 	}
 	sorted := append([]string(nil), current...)
 	sort.Strings(sorted)
-	_ = platform.WriteFileIfChanged(filepath.Join(binDir, helperManifest),
+	_ = platform.WriteFileIfChanged(filepath.Join(dir, helperManifest),
 		[]byte(strings.Join(sorted, "\n")+"\n"), 0o644)
+}
+
+// manifestName 은 기록의 줄이 지워도 되는 헬퍼 이름 꼴인지다. 경로 구분자나 `..` 가 든 줄은
+// 기록이 놓인 디렉터리 밖을 가리킬 수 있으므로 지우지 않는다 (FR-ATF-60).
+func manifestName(n string) bool {
+	return n != "" && n != "." && !strings.ContainsAny(n, `/\:`) && !strings.Contains(n, "..")
 }
 
 // readHelperManifest 는 지난번에 놓은 이름들이다. 없으면 빈 목록이다 — 기록이
 // 생기기 전의 홈이 그렇고, 그 시절의 이름은 retiredHelperNames 가 맡는다.
-func readHelperManifest(binDir string) []string {
-	blob, err := os.ReadFile(filepath.Join(binDir, helperManifest))
+func readHelperManifest(dir string) []string {
+	blob, err := os.ReadFile(filepath.Join(dir, helperManifest))
 	if err != nil {
 		return nil
 	}

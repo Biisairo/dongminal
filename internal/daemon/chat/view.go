@@ -51,8 +51,9 @@ func (s *Service) Rooms(pid string) []RoomInfo {
 		return nil
 	}
 	var out []RoomInfo
-	for id := range s.claimedLocked() {
-		if _, ok := s.visibleRoomLocked(pid, id); ok {
+	claimed := s.claimedLocked()
+	for id := range claimed {
+		if _, ok := s.visibleInLocked(claimed, pid, id); ok {
 			out = append(out, s.roomInfoLocked(pid, id))
 		}
 	}
@@ -101,7 +102,12 @@ func (s *Service) recordLocked(id string) (room, bool) {
 }
 
 func (s *Service) visibleRoomLocked(pid, id string) (room, bool) {
-	r, ok := s.claimedLocked()[id]
+	return s.visibleInLocked(s.claimedLocked(), pid, id)
+}
+
+// visibleInLocked 는 이미 만든 방 명단 claimed 로 본 visibleRoomLocked 다 (FR-ATF-55).
+func (s *Service) visibleInLocked(claimed map[string]room, pid, id string) (room, bool) {
+	r, ok := claimed[id]
 	if !ok {
 		return room{}, false
 	}

@@ -10,11 +10,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"dongminal/internal/shared/platform"
 )
 
 const (
 	totpBytes     = 20
 	recoveryCount = 8
+	// secretMode 는 비밀 파일의 권한이다 — root 만 읽는다 (NFR-PCH-2).
+	secretMode = 0o600
 )
 
 // Secret 은 도우미의 비밀 파일이다 (NFR-PCH-2). root 만 읽는다.
@@ -82,7 +86,7 @@ func loadSecret(path string) (Secret, error) {
 	return s, nil
 }
 
-// saveSecret 은 비밀 파일을 0700 폴더의 0600 파일로 쓴다. 임시 파일에 쓴 뒤 바꿔 넣는다.
+// saveSecret 은 비밀 파일을 0700 폴더의 0600 파일로 원자 쓰기 한다 (FR-ATF-61).
 func saveSecret(path string, s Secret) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
@@ -94,9 +98,5 @@ func saveSecret(path string, s Secret) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return platform.WriteFileAtomic(path, raw, secretMode)
 }

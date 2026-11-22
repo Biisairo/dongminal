@@ -506,6 +506,155 @@ func TestInviteReachesOnlyTarget(t *testing.T) {
 	}
 }
 
+// fillSeen 은 m 의 받은 초대 기억을 서로 다른 보낸 노드의 만료 전 항목으로 가득 채운다.
+func fillSeen(m *testMesh, exp time.Time) {
+	m.Mesh.mu.Lock()
+	defer m.Mesh.mu.Unlock()
+	for len(m.seen) < maxSeenInvites {
+		from := randomHex(inviteIDBytes)
+		m.seen[randomHex(inviteIDBytes)] = seenInvite{exp: exp, from: from}
+		m.perSender[from]++
+	}
+}
+
+// TC-ATF-51 (FR-ATF-51): 받은 초대 기억이 만료 전 항목으로 가득 차면 새 초대를 받지 않는다.
+// 만료된 항목이 하나라도 있으면 그 자리를 쓴다. 이 노드의 보내기는 받은 기억과 따로 센다.
+func TestInviteMemoryFullRejects(t *testing.T) {
+	a, c := newTestMesh(t, "a"), newTestMesh(t, "c")
+	connect(a, c)
+	eventually(t, "A 가 C 를 안다", func() bool { return online(a, c.fp()) })
+	code := edge.EncodeInvite(edge.InviteCode{Addr: "10.0.0.1", Port: 7001, Fingerprint: a.fp(), Token: "tok"})
+	exp := time.Now().Add(edge.InviteTTL)
+	fillSeen(a, exp)
+	if err := a.SendInvite(c.fp(), code, exp); err != nil {
+		t.Fatalf("받은 기억이 가득 차도 보낸다 = %v", err)
+	}
+	eventually(t, "C 가 받는다", func() bool { return len(c.invites()) == 1 })
+	a.Mesh.mu.Lock()
+	for len(a.mine) < maxSentInvites {
+		a.mine[randomHex(inviteIDBytes)] = exp
+	}
+	a.Mesh.mu.Unlock()
+	if err := a.SendInvite(c.fp(), code, exp); !errors.Is(err, ErrInviteFull) {
+		t.Fatalf("보낸 기억이 가득 찬 보내기 = %v", err)
+	}
+	a.Mesh.mu.Lock()
+	clear(a.mine)
+	a.Mesh.mu.Unlock()
+	fillSeen(c, exp)
+	if err := a.SendInvite(c.fp(), code, exp); err != nil {
+		t.Fatal(err)
+	}
+	never(t, "가득 찬 C 가 초대를 받는다", func() bool { return len(c.invites()) > 1 })
+	c.Mesh.mu.Lock()
+	for k, e := range c.seen {
+		if e.from != a.fp() {
+			e.exp = time.Now().Add(-time.Second)
+			c.seen[k] = e
+			break
+		}
+	}
+	c.Mesh.mu.Unlock()
+	if err := a.SendInvite(c.fp(), code, exp); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "만료된 자리로 받는다", func() bool { return len(c.invites()) == 2 })
+}
+
+// TC-ATF-51 (FR-ATF-51, 보안 검토): 한 노드가 제 몫까지 초대를 쏟아도 다른 노드의 초대는 받는다.
+// 보낸 이를 거짓으로 적은 초대는 기억을 차지하지 않는다. 만료 전 초대를 다시 보내면 여전히 버린다.
+func TestInviteFloodPerSender(t *testing.T) {
+	c := newTestMesh(t, "c")
+	f1, f2 := newFakePeer(t, c, false), newFakePeer(t, c, false)
+	f1.write(t, f1.net(t, "f1", []string{c.fp()}))
+	f2.write(t, f2.net(t, "f2", []string{c.fp()}))
+	eventually(t, "가짜들을 안다", func() bool { return online(c, f1.id.Fingerprint) && online(c, f2.id.Fingerprint) })
+	now := time.Now()
+	mk := func(f *fakePeer) Frame {
+		id := randomHex(inviteIDBytes)
+		code := edge.EncodeInvite(edge.InviteCode{Addr: "10.0.0.1", Port: 7001, Fingerprint: f.id.Fingerprint, Token: "t"})
+		box, err := seal(f.id, PublicKey(c.id), id, f.id.Fingerprint, c.fp(), []byte(code))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fr, err := SignFrame(f.id, FrameInvite, inviteBody{ID: id, From: f.id.Fingerprint, To: c.fp(), At: now.UnixMilli(), Exp: now.Add(time.Minute).UnixMilli(), Box: box})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fr
+	}
+	first := mk(f1)
+	f1.write(t, first)
+	for range maxSeenPerSender + 4 {
+		f1.write(t, mk(f1))
+	}
+	eventually(t, "f1 의 몫까지 받는다", func() bool { return len(c.invites()) == maxSeenPerSender })
+	never(t, "f1 이 몫을 넘는다", func() bool { return len(c.invites()) > maxSeenPerSender })
+	// 보낸 노드를 거짓으로 적은 초대(모르는 지문, 남의 지문)는 서명이 맞지 않아 기억에 들지 않는다.
+	forge := func(from string) Frame {
+		fr, err := SignFrame(f1.id, FrameInvite, inviteBody{ID: randomHex(inviteIDBytes), From: from, To: c.fp(), At: now.UnixMilli(), Exp: now.Add(time.Minute).UnixMilli(), Box: "x"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fr
+	}
+	for range 2 * maxSeenPerSender {
+		f1.write(t, forge(randomHex(32)))
+		f1.write(t, forge(f2.id.Fingerprint))
+	}
+	never(t, "거짓 보낸 이가 기억을 차지한다", func() bool {
+		c.Mesh.mu.Lock()
+		defer c.Mesh.mu.Unlock()
+		return len(c.seen) != maxSeenPerSender || len(c.perSender) != 1
+	})
+	f2.write(t, mk(f2))
+	eventually(t, "f2 의 초대는 받는다", func() bool { return len(c.invites()) == maxSeenPerSender+1 })
+	f1.write(t, first)
+	never(t, "만료 전 초대를 다시 받는다", func() bool { return len(c.invites()) > maxSeenPerSender+1 })
+}
+
+// TC-ATF-51 (FR-ATF-51, 보안 검토): 노드가 몫까지 초대를 보낸 뒤 잊혀도 그 몫은 남지 않는다.
+// 받은 초대 기억은 아는 노드 수 × 몫을 넘지 않고, 새 노드의 초대는 받는다.
+func TestInviteQuotaForgottenWithNode(t *testing.T) {
+	c := newTestMesh(t, "c")
+	c.Mesh.mu.Lock()
+	c.maxNodes = 1
+	c.Mesh.mu.Unlock()
+	now := time.Now()
+	invite := func(f *fakePeer) Frame {
+		id := randomHex(inviteIDBytes)
+		code := edge.EncodeInvite(edge.InviteCode{Addr: "10.0.0.1", Port: 7001, Fingerprint: f.id.Fingerprint, Token: "t"})
+		box, err := seal(f.id, PublicKey(c.id), id, f.id.Fingerprint, c.fp(), []byte(code))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fr, err := SignFrame(f.id, FrameInvite, inviteBody{ID: id, From: f.id.Fingerprint, To: c.fp(), At: now.UnixMilli(), Exp: now.Add(time.Minute).UnixMilli(), Box: box})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fr
+	}
+	seen := func() (int, int) {
+		c.Mesh.mu.Lock()
+		defer c.Mesh.mu.Unlock()
+		return len(c.seen), len(c.perSender)
+	}
+	for i := range 4 {
+		f := newFakePeer(t, c, false)
+		f.write(t, f.net(t, "f", []string{c.fp()}))
+		eventually(t, "새 노드를 안다", func() bool { return online(c, f.id.Fingerprint) })
+		for range maxSeenPerSender {
+			f.write(t, invite(f))
+		}
+		eventually(t, "새 노드의 초대를 몫까지 받는다", func() bool { return len(c.invites()) == (i+1)*maxSeenPerSender })
+		if n, k := seen(); n != maxSeenPerSender || k != 1 {
+			t.Fatalf("%d 번째: 기억 %d 개, 보낸 노드 %d", i, n, k)
+		}
+		_ = f.conn.Close()
+		eventually(t, "끊긴 노드는 닿지 않는다", func() bool { return !online(c, f.id.Fingerprint) })
+	}
+}
+
 // FR-EGM-32: 상자는 받을 노드만 연다.
 func TestInviteBoxOnlyForRecipient(t *testing.T) {
 	a, b, c := newTestMesh(t, "a"), newTestMesh(t, "b"), newTestMesh(t, "c")
@@ -653,5 +802,42 @@ func TestRedialOutcomes(t *testing.T) {
 	a.dialEdges(context.Background(), time.Now())
 	if dials.Load() != 0 {
 		t.Fatal("주소 없는 간선에 걸었다")
+	}
+}
+
+// TC-ATF-50 (FR-ATF-50): Notify 의 걸기와 자동 재연결은 같은 dialState 를 거쳐 겹치지 않는다.
+func TestNotifySharesDialState(t *testing.T) {
+	for _, notifyFirst := range []bool{true, false} {
+		a := newTestMesh(t, "a")
+		peer := edge.Edge{Name: "b", Addr: "127.0.0.1", Port: 1, Fingerprint: strings.Repeat("cd", 32)}
+		a.mu.Lock()
+		a.edges = []edge.Edge{peer}
+		a.mu.Unlock()
+		var dials atomic.Int64
+		release := make(chan struct{})
+		a.opts.Dial = func(context.Context, edge.Target) (net.Conn, error) {
+			dials.Add(1)
+			<-release
+			return nil, errors.New("refused")
+		}
+		notified := make(chan error, 1)
+		notify := func() { go func() { notified <- a.Notify(context.Background(), peer.Fingerprint) }() }
+		if notifyFirst {
+			notify()
+			eventually(t, "Notify 가 건다", func() bool { return dials.Load() == 1 })
+			a.dialEdges(context.Background(), time.Now())
+		} else {
+			a.dialEdges(context.Background(), time.Now())
+			eventually(t, "다시 걸기가 건다", func() bool { return dials.Load() == 1 })
+			notify()
+		}
+		never(t, "두 번째 걸기", func() bool { return dials.Load() > 1 })
+		close(release)
+		if err := <-notified; !errors.Is(err, ErrUnreachable) {
+			t.Fatalf("notifyFirst=%v: Notify = %v", notifyFirst, err)
+		}
+		if dials.Load() != 1 {
+			t.Fatalf("notifyFirst=%v: 걸기 %d 번", notifyFirst, dials.Load())
+		}
 	}
 }

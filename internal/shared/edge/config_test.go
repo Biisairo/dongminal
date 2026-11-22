@@ -81,6 +81,39 @@ func TestOpenStoreDefaults(t *testing.T) {
 	}
 }
 
+// TC-ATF-57 (FR-ATF-57, D-ATF-5): 깨진 edges.json 은 .bad-<UTC시각> 으로 비켜 두고 빈 설정으로 연다.
+// 다음 저장이 원본을 덮지 않는다.
+func TestOpenStoreMovesBrokenFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, dmenv.EdgesFile)
+	broken := []byte(`{"enabled": true, "edges": [`)
+	if err := os.WriteFile(path, broken, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := OpenStore(path, "host-a")
+	if c := s.Config(); c.Enabled || len(c.Edges) != 0 || c.Name != "host-a" {
+		t.Fatalf("빈 설정이 아니다: %+v", c)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("원본이 그 자리에 남았다: %v", err)
+	}
+	bad, _ := filepath.Glob(path + ".bad-*")
+	if len(bad) != 1 {
+		t.Fatalf("비켜 둔 파일 = %v", bad)
+	}
+	if got, _ := os.ReadFile(bad[0]); string(got) != string(broken) {
+		t.Fatalf("비켜 둔 내용 = %q", got)
+	}
+	c := s.Config()
+	c.Name = "host-b"
+	if err := s.Save(c); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(bad[0]); string(got) != string(broken) {
+		t.Fatal("저장이 비켜 둔 원본을 바꿨다")
+	}
+}
+
 func TestStoreSaveAndReload(t *testing.T) {
 	path := filepath.Join(t.TempDir(), dmenv.EdgesFile)
 	s := OpenStore(path, "host-a")

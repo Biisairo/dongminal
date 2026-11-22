@@ -80,10 +80,11 @@ func RunDoctor(o DoctorOpts, stdout, stderr io.Writer) int {
 	// 종전에는 검사를 위해 거기에 실제로 설치했고, 그 경로로 사고가 났다
 	// (§2.5) — `go run` 으로 부르면 사라질 경로를 가리키는 링크가 운영 홈에
 	// 남는다. 계층이 도는지는 임시 자리에서 물어도 답이 같다.
+	// 임시 bin 을 못 만들면 오류로 끝낸다 — 운영 bin 으로 대신하지 않는다 (FR-ATF-59, D-ATF-7).
 	probeBin, cleanup, err := doctorProbeBin()
 	if err != nil {
-		r.bad("검사용 임시 bin 을 만들지 못했습니다: %v", err)
-		probeBin = filepath.Join(home, dmenv.BinDir)
+		fmt.Fprintf(stdout, "검사용 임시 bin 을 만들지 못했습니다: %v\n", err)
+		return 1
 	}
 	defer cleanup()
 	for _, c := range doctorChecks(p, home, probeBin) {

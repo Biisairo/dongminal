@@ -285,6 +285,9 @@ func (n *Node) opInviteSend(req Request) Response {
 		if errors.Is(err, edgemesh.ErrUnknownNode) {
 			return fail(http.StatusNotFound, edge.CodeNotFound, err.Error())
 		}
+		if errors.Is(err, edgemesh.ErrInviteFull) {
+			return fail(http.StatusTooManyRequests, edge.CodeRateLimited, err.Error())
+		}
 		return fail(http.StatusInternalServerError, CodeInternal, err.Error())
 	}
 	audit("out", target.Name, "invite", http.StatusOK)

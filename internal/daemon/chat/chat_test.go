@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -847,4 +848,166 @@ func TestChangedNotifies(t *testing.T) {
 	link(&testNode{Service: s, mesh: m, t: t, name: "a"}, b)
 	b.Register("b/y", KindAgent)
 	eventually(t, "남의 상태 알림", func() bool { return count() > before+1 })
+}
+
+func leftCount(s *testNode, pid string) int {
+	s.Service.mu.Lock()
+	defer s.Service.mu.Unlock()
+	return len(s.parts[pid].left)
+}
+
+// TC-ATF-52 (FR-ATF-52): 나간 개인채팅은 상대 노드 상태에 남아 있는 동안 다시 들어가지 않고,
+// 상대 노드 상태에서 사라지면 left 에서도 지운다.
+func TestLeftDirectForgottenWhenGone(t *testing.T) {
+	a := newTestNode(t, "a")
+	pa := a.Register("a/x", KindAgent)
+	f := newFakePeer(t, a)
+	owner := f.pid("o")
+	rec, err := newRecord(f.id, recordBody{Kind: KindDirect, Owner: owner, Peer: pa.ID, PeerNode: a.fp(), Created: time.Now(), Nonce: "n1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inRoom := []statePart{{ID: owner, Label: "f/o", Kind: KindAgent, Rooms: []string{rec.id()}}}
+	f.state(t, inRoom, []signedRecord{rec}, []string{a.fp()})
+	eventually(t, "자동으로 들어간다", func() bool { return roomVisible(a, pa.ID, rec.id()) })
+	if err := a.Leave(pa.ID, rec.id()); err != nil {
+		t.Fatal(err)
+	}
+	f.state(t, inRoom, []signedRecord{rec}, nil)
+	never(t, "방이 남은 동안 다시 들어간다", func() bool { return roomVisible(a, pa.ID, rec.id()) })
+	if leftCount(a, pa.ID) != 1 {
+		t.Fatal("방이 남은 동안 left 를 지웠다")
+	}
+	f.state(t, []statePart{{ID: owner, Label: "f/o", Kind: KindAgent}}, nil, nil)
+	eventually(t, "사라진 방을 left 에서 지운다", func() bool { return leftCount(a, pa.ID) == 0 })
+}
+
+// TC-ATF-52 (FR-ATF-52): 1:1 방을 만들고 나가기를 되풀이해도 left 가 쌓이지 않는다.
+func TestLeftDirectDoesNotGrow(t *testing.T) {
+	a, b := newTestNode(t, "a"), newTestNode(t, "b")
+	link(a, b)
+	pa := a.Register("a/x", KindAgent)
+	pb := b.Register("b/x", KindAgent)
+	eventually(t, "참가자를 본다", func() bool { return len(a.Online().Participants) == 2 })
+	for range 3 {
+		room, err := a.Direct(pa.ID, pb.ID, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "상대가 들어간다", func() bool { return roomVisible(b, pb.ID, room.ID) })
+		eventually(t, "A 가 상대의 참가를 본다", func() bool { return len(a.Rooms(pa.ID)[0].Members) == 2 })
+		if err := b.Leave(pb.ID, room.ID); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, "방이 사라진다", func() bool { return a.recordCount() == 0 })
+	}
+	eventually(t, "left 가 비워진다", func() bool { return leftCount(a, pa.ID) == 0 && leftCount(b, pb.ID) == 0 })
+}
+
+// orderedFixture 는 가짜 노드 f 의 참가자와 a 의 참가자가 함께 든 방이다. g 는 f 의 글을 다른
+// 연결로 나르는 두 번째 가짜 상대다. Deliver 는 글 "1" 에서 release 가 닫힐 때까지 멈춘다.
+type orderedFixture struct {
+	a       *testNode
+	f, g    *fakePeer
+	room    string
+	from    string
+	entered chan struct{}
+	release chan struct{}
+	mu      sync.Mutex
+	got     []string
+}
+
+func newOrderedFixture(t *testing.T) *orderedFixture {
+	t.Helper()
+	x := &orderedFixture{a: newTestNode(t, "a"), entered: make(chan struct{}), release: make(chan struct{})}
+	pa := x.a.Register("a/x", KindAgent)
+	room, _ := x.a.Create(pa.ID, "r", "")
+	x.room = room.ID
+	x.f, x.g = newFakePeer(t, x.a), newFakePeer(t, x.a)
+	x.from = x.f.pid("fp1")
+	x.f.state(t, []statePart{{ID: x.from, Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{x.a.recordOf(room.ID)}, []string{x.a.fp()})
+	eventually(t, "참가자를 본다", func() bool { return len(x.a.Rooms(pa.ID)[0].Members) == 2 })
+	x.a.Service.mu.Lock()
+	x.a.opts.Deliver = func(_ string, m Message) {
+		if m.Text == "1" {
+			close(x.entered)
+			<-x.release
+		}
+		x.mu.Lock()
+		x.got = append(x.got, m.Text)
+		x.mu.Unlock()
+	}
+	x.a.Service.mu.Unlock()
+	return x
+}
+
+func (x *orderedFixture) msg(t *testing.T, seq uint64) frame {
+	t.Helper()
+	text := string(rune('0' + seq))
+	fr, err := signFrame(x.f.id, frameMsg, msgBody{ID: "m" + text, Node: x.f.id.Fingerprint, Epoch: 1, Seq: seq, Room: x.room, From: x.from, Text: text, At: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fr
+}
+
+func (x *orderedFixture) delivered() []string {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	return append([]string{}, x.got...)
+}
+
+// TC-ATF-53 (FR-ATF-53): 같은 노드의 글은 다른 연결로 와도 받은 순서대로 넘긴다.
+func TestDeliveryOrderPerNode(t *testing.T) {
+	x := newOrderedFixture(t)
+	x.f.write(t, x.msg(t, 1))
+	<-x.entered
+	x.g.write(t, x.msg(t, 2))
+	never(t, "앞 글을 넘기기 전에 뒷 글을 넘긴다", func() bool { return len(x.delivered()) > 0 })
+	close(x.release)
+	eventually(t, "두 글", func() bool { return len(x.delivered()) == 2 })
+	if got := x.delivered(); got[0] != "1" || got[1] != "2" {
+		t.Fatalf("순서 = %v", got)
+	}
+}
+
+// TC-ATF-54 (FR-ATF-54): Close 뒤 들어온 프레임과 줄에 남은 글은 넘기지 않고, 전달 고루틴은 끝난다.
+func TestClosedServiceDropsFrames(t *testing.T) {
+	x := newOrderedFixture(t)
+	base := runtime.NumGoroutine()
+	x.f.write(t, x.msg(t, 1))
+	<-x.entered
+	x.g.write(t, x.msg(t, 2))
+	time.Sleep(50 * time.Millisecond)
+	x.a.Close()
+	close(x.release)
+	x.f.write(t, x.msg(t, 3))
+	never(t, "Close 뒤 글을 넘긴다", func() bool { return len(x.delivered()) > 1 })
+	x.f.state(t, []statePart{{ID: x.f.pid("late"), Label: "f/late", Kind: KindAgent}}, nil, nil)
+	never(t, "Close 뒤 상태를 받는다", func() bool {
+		for _, m := range x.a.Online().Participants {
+			if m.Label == "f/late" {
+				return true
+			}
+		}
+		return false
+	})
+	eventually(t, "전달 고루틴이 끝난다", func() bool { return runtime.NumGoroutine() <= base })
+}
+
+// TC-ATF-56 (FR-ATF-56): 로컬 상대의 1:1 방도 상대의 방 수 상한을 본다.
+func TestDirectLocalPeerCapped(t *testing.T) {
+	a := newTestNode(t, "a")
+	pa := a.Register("a/x", KindAgent)
+	pb := a.Register("a/y", KindAgent)
+	for i := range maxPartRooms {
+		if _, err := a.Create(pb.ID, "r"+string(rune('a'+i%26))+string(rune('a'+i/26)), ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, err := a.Direct(pa.ID, pb.ID, "")
+	mustCode(t, err, CodeBadRequest)
+	if n := len(a.Rooms(pb.ID)); n != maxPartRooms {
+		t.Fatalf("상대의 방 = %d", n)
+	}
 }

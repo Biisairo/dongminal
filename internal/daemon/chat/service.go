@@ -181,8 +181,10 @@ type Service struct {
 	warned    map[string]string
 	edgeCache []edge.Edge
 	edgeAt    time.Time
-	closed    bool
-	done      chan struct{}
+	// queues 는 글을 낸 노드마다의 전달 줄이다 (FR-ATF-53).
+	queues map[string]*deliveryQueue
+	closed bool
+	done   chan struct{}
 }
 
 // New 는 채팅을 세우고 간선 계층의 위층으로 싣는다. 연결 유지는 간선 계층이 한다.
@@ -200,7 +202,8 @@ func New(o Options) *Service {
 		nodes: map[string]*remote{},
 		wins:  map[string]*seqWindow{},
 		cmds:  map[string]time.Time{}, relayed: map[string]time.Time{}, warned: map[string]string{},
-		done: make(chan struct{}), pokes: make(chan struct{}, 1),
+		queues: map[string]*deliveryQueue{},
+		done:   make(chan struct{}), pokes: make(chan struct{}, 1),
 	}
 	s.sendRate = newLimiter(PerMinute, time.Minute, s.clock)
 	s.recvRate = newLimiter(PerMinute, time.Minute, s.clock)
@@ -318,6 +321,12 @@ func (s *Service) Direct(pid, peer, purpose string) (RoomInfo, error) {
 	if err := s.roomCapLocked(p); err != nil {
 		return RoomInfo{}, err
 	}
+	// 로컬 상대도 자동으로 들어가는 원격 상대와 같은 방 수 상한을 본다 (FR-ATF-56).
+	if q, ok := s.parts[peer]; ok {
+		if err := s.roomCapLocked(q); err != nil {
+			return RoomInfo{}, err
+		}
+	}
 	rec, err := newRecord(s.id, recordBody{Kind: KindDirect, Owner: pid, Peer: peer, PeerNode: peerNode, Purpose: purpose, Created: s.now(), Nonce: randomHex(16)})
 	if err != nil {
 		return RoomInfo{}, err
@@ -403,9 +412,8 @@ func (s *Service) Send(pid, roomID, text string) error {
 		return err
 	}
 	s.broadcastLocked(fr, "")
-	out := s.localDeliveriesLocked(body, p.Label, p.Kind)
+	s.enqueueLocked(s.id.Fingerprint, s.localDeliveriesLocked(body, p.Label, p.Kind))
 	s.mu.Unlock()
-	s.deliver(out)
 	return nil
 }
 
@@ -414,11 +422,45 @@ type pending struct {
 	msg Message
 }
 
-func (s *Service) deliver(out []pending) {
-	if s.opts.Deliver == nil {
+// deliveryQueue 는 노드 하나가 낸 글의 전달 줄이다. 고루틴 하나가 차례로 넘긴다. Service.mu 가 지킨다.
+type deliveryQueue struct {
+	items   []pending
+	running bool
+}
+
+// enqueueLocked 는 노드 node 가 낸 글을 그 노드의 전달 줄에 넣는다. 받은 순서가 넘기는 순서다 —
+// 잠금 밖에서 넘기면 같은 참가자의 글이 뒤바뀔 수 있다 (FR-ATF-53, FR-PCH-32).
+func (s *Service) enqueueLocked(node string, out []pending) {
+	if len(out) == 0 || s.opts.Deliver == nil || s.closed {
 		return
 	}
-	for _, d := range out {
+	q := s.queues[node]
+	if q == nil {
+		q = &deliveryQueue{}
+		s.queues[node] = q
+	}
+	q.items = append(q.items, out...)
+	if !q.running {
+		q.running = true
+		go s.drain(node, q)
+	}
+}
+
+// drain 은 줄이 빌 때까지 잠금 밖에서 Deliver 를 부른다. 비거나 채팅이 멈추면 줄을 지우고 끝난다.
+func (s *Service) drain(node string, q *deliveryQueue) {
+	for {
+		s.mu.Lock()
+		if s.closed || len(q.items) == 0 {
+			q.running, q.items = false, nil
+			if s.queues[node] == q {
+				delete(s.queues, node)
+			}
+			s.mu.Unlock()
+			return
+		}
+		d := q.items[0]
+		q.items = q.items[1:]
+		s.mu.Unlock()
 		s.opts.Deliver(d.pid, d.msg)
 	}
 }
@@ -499,7 +541,21 @@ func (s *Service) changedLocked() {
 			break
 		}
 	}
+	s.pruneLeftLocked()
 	s.announceLocked()
+}
+
+// pruneLeftLocked 는 어느 노드의 상태에도 생성 기록이 남지 않은 방을 left 에서 지운다
+// (FR-ATF-52). 닿지 않는 노드의 상태도 기록을 가진 것으로 친다 — 그 노드가 돌아와 방을 다시 말하면
+// 자동으로 들어가지 않아야 한다.
+func (s *Service) pruneLeftLocked() {
+	for _, p := range s.parts {
+		for id := range p.left {
+			if _, ok := s.recordLocked(id); !ok {
+				delete(p.left, id)
+			}
+		}
+	}
 }
 
 // announceLocked 는 자기 상태의 내용이 바뀌었을 때만 새 노드 상태 알림을 만들어 모든 연결로
@@ -552,9 +608,11 @@ func (s *Service) ownStateLocked() stateBody {
 // reactLocked 는 개인채팅을 맞춘다. 바꾼 것이 있으면 참이다 (FR-PCH-15·16).
 func (s *Service) reactLocked() bool {
 	changed := false
+	// 도달 가능 집합은 간선 계층의 잠금을 잡으므로 반복 밖에서 한 번 얻는다 (FR-ATF-55).
+	reach := s.reachableLocked()
 	// 상대 노드가 만든 개인채팅에 이 노드의 참가자가 상대로 적혀 있으면 들어간다.
 	for _, r := range s.nodes {
-		if !s.reachableLocked()[r.st.Node] {
+		if !reach[r.st.Node] {
 			continue
 		}
 		for id, rm := range r.rooms {
@@ -581,7 +639,7 @@ func (s *Service) reactLocked() bool {
 			if p.ID == rm.body.Peer {
 				other, node = rm.body.Owner, rm.body.Creator
 			}
-			switch s.whereLocked(node, other, id) {
+			switch s.whereLocked(reach, node, other, id) {
 			case presentInRoom:
 				if !p.peerSeen[id] {
 					p.peerSeen[id] = true
@@ -607,8 +665,8 @@ const (
 )
 
 // whereLocked 는 노드 node 의 참가자 pid 가 방 roomID 에 들어 있는지다. 닿지 않는 노드의
-// 참가자는 모른다.
-func (s *Service) whereLocked(node, pid, roomID string) whereabouts {
+// 참가자는 모른다. reach 는 도달 가능 집합이다.
+func (s *Service) whereLocked(reach map[string]bool, node, pid, roomID string) whereabouts {
 	if node == s.id.Fingerprint {
 		if q, ok := s.parts[pid]; ok && q.rooms[roomID] {
 			return presentInRoom
@@ -616,7 +674,7 @@ func (s *Service) whereLocked(node, pid, roomID string) whereabouts {
 		return absent
 	}
 	r, ok := s.nodes[node]
-	if !ok || !s.reachableLocked()[node] {
+	if !ok || !reach[node] {
 		return unreachable
 	}
 	if partInRoom(r.st, pid, roomID) {
