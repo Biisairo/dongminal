@@ -33,6 +33,15 @@ while IFS='=' read -r k _; do
   [[ "$k" == DONGMINAL_* ]] && unset "$k"
 done < <(env)
 
+# 툴체인·빌드 캐시는 실제 HOME 의 것을 쓴다. HOME 만 바꾸면 rustup 이 임시 HOME 에 툴체인을
+# 새로 내려받고 go 는 모듈 캐시를 다시 채운다.
+export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
+export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
+if command -v go >/dev/null 2>&1; then
+  export GOPATH="${GOPATH:-$(go env GOPATH)}"
+  export GOMODCACHE="${GOMODCACHE:-$(go env GOMODCACHE)}"
+  export GOCACHE="${GOCACHE:-$(go env GOCACHE)}"
+fi
 export HOME="$real_root/home"
 export DONGMINAL_HOME="$real_root/dmhome"
 export DONGMINAL_NO_UPDATE_CHECK=1
