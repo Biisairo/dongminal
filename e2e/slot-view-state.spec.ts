@@ -45,7 +45,7 @@ const openGitWindow = async (page: Page) => {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   const id = await page.evaluate((r: string) => (window as any).app.testing.edWindowFor(r).id, repo);
@@ -862,7 +862,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     // FR-RTU-70: 옛 `gitWindow()` 는 사라졌다 — 창의 신원은 루트다 (D-RTU-18).
@@ -1093,7 +1093,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
       const r = a.testing.gitRootOfActive();
       const p0 = a.testing.gitPanelAt(r, 0);
       const p1 = a.testing.gitPanelAt(r, 1);
-      await Promise.all([p0.uncommittedReset(), p1.uncommittedReset()]);
+      await Promise.all([p0.files.uncommittedReset(), p1.files.uncommittedReset()]);
     });
     expect(writes).toBe(1);
   });

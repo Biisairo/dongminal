@@ -164,9 +164,9 @@ class GitMenu {
     }
     if(!it.busy) return own;
     const p=gitMenuPanel();
-    if(!p||!p.actionOf) return '';
+    if(!p||!p.views.actionOf) return '';
     for(const id of [].concat(GitMenu._val(it.busy,target))){
-      const s=actionState(p.actionOf(id),false);
+      const s=actionState(p.views.actionOf(id),false);
       if(!s.enabled) return s.why;
     }
     return '';

@@ -125,14 +125,14 @@ class GitJobs {
    */
   state(key){
     const pending=Object.values(this.views).some(v=>v._busy&&v._busyKey===key);
-    return actionState(this.panel.actionOf(GIT_JOB_ACTION[key]),pending);
+    return actionState(this.panel.views.actionOf(GIT_JOB_ACTION[key]),pending);
   }
 
   // 버튼의 영어 툴팁 (FR-TIP-2 · GR-1g). 1층 답의 사유는 loading·job_busy 둘뿐이다.
   why(key){
     const s=this.state(key);
     if(s.enabled) return '';
-    const a=this.panel.actionOf(GIT_JOB_ACTION[key]);
+    const a=this.panel.views.actionOf(GIT_JOB_ACTION[key]);
     return a?GIT_REMOTE_WHY_BUSY:GIT_REMOTE_WHY_NO_STATUS;
   }
 
@@ -189,7 +189,7 @@ class GitJobs {
     if(this._owned.delete(jb.id)) return;
     const r=jb.result||{};
     if(r.status) this.panel.write.adopt({requested:this.panel.repo,repo:jb.repo,status:r.status});
-    if(jb.kind==='commit'&&gitJobOutcome(jb)==='ok') this.panel._commit().adoptJobDone(jb);
+    if(jb.kind==='commit'&&gitJobOutcome(jb)==='ok') this.panel.views._commit().adoptJobDone(jb);
   }
 
   adoptJobs(jobs){this._jobs=jobs;this._each(v=>v.adoptJobs(jobs))}

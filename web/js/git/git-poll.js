@@ -83,7 +83,7 @@ class GitPoll extends GitPart {
     return top||this.p.repo||'';
   }
 
-  openFileDiff(target){this.p._openDiff(target.group,{path:target.path,origPath:target.origPath||''})}
+  openFileDiff(target){this.p.selection._openDiff(target.group,{path:target.path,origPath:target.origPath||''})}
 
   /**
    * 우클릭 메뉴의 복사 진입점. **이름과 서명은 계약이다** — 메뉴 일곱 항목과
@@ -349,7 +349,7 @@ class GitPoll extends GitPart {
     // status 응답이 이미 그 답을 싣고 온다. ahead·behind·upstream·oid 를 근거에
     // 함께 넣으면 push 는 `ahead 1→0` 으로 드러난다 — 서버를 고치지 않고, 요청을
     // 늘리지 않고 감지된다.
-    const fp=this.p._viewFp(d);
+    const fp=this.p.views._viewFp(d);
     const prevFp=this.p._lastViewFp;
     this.p._lastViewFp=fp;
     // 첫 관측(`setRepo` 직후의 null)은 변화가 아니다 — 뷰는 열릴 때 스스로 받는다.

@@ -27,7 +27,7 @@ function panel() {
     _diffView: { dirty: false, docEncoding: () => '' },
     _hunkKey: ['/r', 'unstaged', 'a.txt'].join('\u0001'),
     _hunks: { diffId: 'old', list: [{ index: 0, header: '@@' }], note: '' },
-    _diffTarget() { return this.commitFile || this.previewFile },
+    selection: { _diffTarget: () => panel.commitFile || panel.previewFile },
     write: { post: async (url, body) => { posts.push([url, body]); return { ok: true, data: {} } } },
   };
   const h = new ctx.GitHunks(panel);

@@ -43,7 +43,7 @@ class GitSubmodules extends GitListTab {
   // FR-SUB-9: 서브모듈이 없으면 일괄에 뜻이 없다 (FR-WBR-53 과 같은 근거).
   _paintHead(){
     // update 는 common 칸 잡이다 — 칸이 찼는지는 서버의 1층 답이다 (GR-1b).
-    const upd=actionState(this.panel.actionOf(GIT_ACTION.submoduleUpdate),false).enabled;
+    const upd=actionState(this.panel.views.actionOf(GIT_ACTION.submoduleUpdate),false).enabled;
     for(const b of this.el.querySelectorAll('.git-sub-bulk'))
       b.disabled=!this._list.length||this._busy||(b.dataset.act==='update'&&!upd);
     const c=this.el.querySelector('.git-sub-cancel');

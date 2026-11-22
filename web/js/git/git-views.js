@@ -66,7 +66,7 @@ class GitViews extends GitPart {
       // 붙이면 Changes 의 작업 표시가 끝나지 않았다(실측: e2e git-view-refresh G1).
       if(p.diffTabId) continue;
       if(!p._remoteView&&!(jobs||[]).length) continue;
-      p._remote().adoptJobs(jobs);
+      p.views._remote().adoptJobs(jobs);
     }
   }
 

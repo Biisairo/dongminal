@@ -186,7 +186,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
       await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.repo),
         { timeout: 15000 }).toBe(wtPath);
 
-      await page.evaluate(() => (window as any).app.gitPanel.openView('worktrees'));
+      await page.evaluate(() => (window as any).app.gitPanel.selection.openView('worktrees'));
       const wt = page.locator('#area .pn-body .git-view.git-worktrees');
       await expect(wt).toBeVisible({ timeout: 10000 });
 
@@ -213,7 +213,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
     await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.repo),
       { timeout: 15000 }).toBe(repo);
 
-    await page.evaluate(() => (window as any).app.gitPanel.openView('worktrees'));
+    await page.evaluate(() => (window as any).app.gitPanel.selection.openView('worktrees'));
     const wt = page.locator('#area .pn-body .git-view.git-worktrees');
     await expect(wt).toBeVisible({ timeout: 10000 });
     const row = wt.locator(`.git-wt-row[data-path="${cssPath(wtPath)}"]`);
@@ -246,7 +246,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
     await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.repo),
       { timeout: 15000 }).toBe(wtPath);
 
-    await page.evaluate(() => (window as any).app.gitPanel.openView('history'));
+    await page.evaluate(() => (window as any).app.gitPanel.selection.openView('history'));
     const hist = page.locator('#area .pn-body .git-view.git-history');
     await expect(hist).toBeVisible({ timeout: 10000 });
     await expect(hist).toContainText('only-in-worktree', { timeout: 15000 });

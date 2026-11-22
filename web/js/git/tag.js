@@ -79,7 +79,7 @@ class GitTag {
    */
   static _job(panel,kind,body){
     if(!panel||!panel.repo) return;
-    return panel._remote().run(kind,body||{});
+    return panel.views._remote().run(kind,body||{});
   }
 
   /**
@@ -105,7 +105,7 @@ class GitTag {
 
   // 확인 문구의 명령에 쓸 원격 이름. 요청에는 싣지 않는다 — 서버가 정한다.
   static remoteOf(panel){
-    const up=((panel&&panel.statusOf&&panel.statusOf())||{}).upstream||'';
+    const up=((panel&&panel.views.statusOf&&panel.views.statusOf())||{}).upstream||'';
     const i=up.indexOf(GIT_BR_PREFIX_SEP);
     return i>0?up.slice(0,i):GIT_TAG_REMOTE_FALLBACK;
   }

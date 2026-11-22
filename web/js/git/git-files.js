@@ -12,7 +12,7 @@ class GitFiles extends GitPart {
   // FR-GIT-277: untracked 경로들. Clean 의 대상 목록과 비활성 판정이 같은 값을
   // 딛는다 — 두 벌로 두면 한쪽만 고쳐진다.
   untrackedPaths(){
-    const s=this.p.statusOf();
+    const s=this.p.views.statusOf();
     return ((s&&s.untracked)||[]).map(e=>e.path);
   }
 
@@ -72,8 +72,8 @@ class GitFiles extends GitPart {
     // 그 뒤 첫 paint 의 `_adopt` → `reset` 이 방금 채운 필터를 지운다. 열어 둔 뒤에
     // 채우면 두 경우 모두 성립한다 — 이미 받아들였으면 그대로, 아니면 filterPath 가
     // 스스로 받아들인다.
-    this.p.openView('history');
-    this.p._history().filterPath(target.path);
+    this.p.selection.openView('history');
+    this.p.views._history().filterPath(target.path);
   }
 
   /**
@@ -118,7 +118,7 @@ class GitFiles extends GitPart {
   showCommitDiff(f){
     if(!f||!f.oid) return;
     this.p.commitFile=f;
-    this.p.openView('diff');
+    this.p.selection.openView('diff');
     this.p.changes._paint();
   }
 
@@ -139,7 +139,7 @@ class GitFiles extends GitPart {
     const out=[];
     for(const g of GIT_GROUPS)
       for(const e of this._group(g.key))
-        if(this.p._sel.has(this.p._selKey(g.key,e.path)))
+        if(this.p._sel.has(this.p.selection._selKey(g.key,e.path)))
           out.push(this._target(g.key,e));
     return out;
   }
@@ -172,7 +172,7 @@ class GitFiles extends GitPart {
    */
   _rowTargets(act,group,path,origPath,untracked){
     const one=[{group,path,origPath:origPath||'',untracked:!!untracked}];
-    if(!this.p._sel.has(this.p._selKey(group,path))) return this._fit(act,one);
+    if(!this.p._sel.has(this.p.selection._selKey(group,path))) return this._fit(act,one);
     const all=this._fit(act,this._selected());
     return all.length?all:this._fit(act,one);
   }
@@ -239,7 +239,7 @@ class GitFiles extends GitPart {
    * 모르면 빈 문자열이고, 그때 툴팁은 양쪽을 다 밝힌다 (FR-GIT-224).
    */
   _op(){
-    const pf=this.p._commit()._pf;
+    const pf=this.p.views._commit()._pf;
     for(const b of (pf&&pf.blocks)||[]){
       const op=GIT_OP_BY_BLOCK[b.code];
       if(op) return op;
@@ -324,11 +324,11 @@ class GitFiles extends GitPart {
   _after(res,items){
     if(res.ok){
       this.p._note=null;
-      for(const i of items) this.p._sel.delete(this.p._selKey(i.group,i.path));
+      for(const i of items) this.p._sel.delete(this.p.selection._selKey(i.group,i.path));
       // F-4.3: 그 경로의 Diff 가 열려 있으면 hunk 쓰기와 같은 재적재를 한다. Diff 는 탭마다
       // 패널이므로(UX_BATCH12_SRS FR-RTB-7) 같은 저장소의 패널 전부를 본다.
       for(const p of this.p.obs.panels){
-        const f=p._diffTarget();
+        const f=p.selection._diffTarget();
         if(f&&!p.commitFile&&items.some(i=>i.path===f.path)) p.diffPane._diffInvalidate();
       }
       this.p.write.adopt(res.data);

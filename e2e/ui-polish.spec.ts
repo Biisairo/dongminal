@@ -186,7 +186,7 @@ test('TC-STO-1: 탭은 묶음 순서이고, 처음 열면 Profile 이 읽혀 있
 test('TC-UIP-12: Diff 보기 방식은 두 칸 선택 묶음이고 지금 방식이 선택돼 보인다', async ({ page }) => {
   await waitForInit(page);
   await openGit(page, fx('basic'));
-  await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('diff'));
   const seg = page.locator('#area .pn-body .git-diff-mode');
   await expect(seg.locator('button')).toHaveCount(2);
   await expect(seg.locator('button[aria-pressed="true"]')).toHaveCount(1);

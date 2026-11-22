@@ -95,7 +95,7 @@ async function openHistory(page: Page, repo: string) {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   await clickGitView(page, 'history');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
@@ -106,7 +106,7 @@ async function openHistory(page: Page, repo: string) {
   // hint 가 빈 채로 뜬다 (D5 실측, 두 시도 모두). 상한은 `fixtures.openGit` 과 같은
   // 근거로 30초다 — 병렬 워커의 `git` 들과 자리를 다툰다.
   await page.waitForFunction(
-    () => !!(window as any).app?.gitPanel?.statusOf()?.oid,
+    () => !!(window as any).app?.gitPanel?.views.statusOf()?.oid,
     undefined, { timeout: 30000 });
 }
 
@@ -120,7 +120,7 @@ async function openChanges(page: Page, repo: string) {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
@@ -394,7 +394,7 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
       .poll(
         () =>
           page.evaluate(
-            () => (((window as any).app.gitPanel.statusOf() || {}).operation || {}).kind || '',
+            () => (((window as any).app.gitPanel.views.statusOf() || {}).operation || {}).kind || '',
           ),
         { timeout: 20000 },
       )

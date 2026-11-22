@@ -113,9 +113,9 @@ const rename = (page: Page) => page.locator('#git-br-rename .gbr-box');
 const mergeBox = (page: Page) => page.locator('#git-br-merge .gbm-box');
 const upstreamBox = (page: Page) => page.locator('#git-br-upstream .gbu-box');
 const branchOf = (page: Page) =>
-  page.evaluate(() => ((window as any).app.gitPanel.statusOf() || {}).branch || '');
+  page.evaluate(() => ((window as any).app.gitPanel.views.statusOf() || {}).branch || '');
 const opKind = (page: Page) =>
-  page.evaluate(() => (((window as any).app.gitPanel.statusOf() || {}).operation || {}).kind || '');
+  page.evaluate(() => (((window as any).app.gitPanel.views.statusOf() || {}).operation || {}).kind || '');
 
 /**
  * 브랜치 행이 뜰 때까지 기다린다. 뷰가 비면 탭을 다시 눌러 되살린다 —

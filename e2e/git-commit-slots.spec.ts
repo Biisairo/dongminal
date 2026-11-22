@@ -128,11 +128,11 @@ test('C4 (F-7.4): 커밋 잡이 끝나기 전에 화면이 다른 저장소로 �
     if (route.request().method() === 'POST') { posted = true; await gate }
     await route.continue();
   });
-  await page.evaluate(() => { (window as any).__c = (window as any).app.gitPanel._commit()._commit() });
+  await page.evaluate(() => { (window as any).__c = (window as any).app.gitPanel.views._commit()._commit() });
   await expect.poll(() => posted, { timeout: 10000 }).toBe(true);
   // 잡이 끝나기 전에 입력 영역이 다른 저장소를 보게 한다(옛 Git 창의 리포 전환과 같은 길).
   await page.evaluate((o: string) => {
-    const c = (window as any).app.gitPanel._commit();
+    const c = (window as any).app.gitPanel.views._commit();
     (window as any).app.ws.git.drafts[o] = 'other draft';
     c._reset(o);
   }, other);
@@ -148,7 +148,7 @@ test('C5 (F-7.5): 저장소 전환은 대기 중인 draft 저장을 버리지 �
   const other = makeRepo('c5-other');
   await enter(page, request, repo);
   await page.evaluate((o: string) => {
-    const c = (window as any).app.gitPanel._commit();
+    const c = (window as any).app.gitPanel.views._commit();
     c._msg.value = 'typed just now';
     c._input();
     c._reset(o);
@@ -161,14 +161,14 @@ test('C6 (F-7.1): preflight 는 커밋 직전에 다시 받는다', async ({ pag
   await enter(page, request, repo);
   await msg(page).fill('c6 commit');
   // 커밋할 수 있는가는 서버의 답이다 (SERVER_DRIVEN_ACTIONS_SRS GR-3) — 답이 온 뒤에 누른다.
-  await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel._commit()._state().enabled),
+  await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.views._commit()._state().enabled),
     { timeout: 10000 }).toBe(true);
   const order: string[] = [];
   page.on('request', (r) => {
     if (r.url().includes('/api/git/preflight')) order.push('preflight');
     else if (r.url().endsWith('/api/git/commit') && r.method() === 'POST') order.push('commit');
   });
-  await page.evaluate(() => (window as any).app.gitPanel._commit()._commit());
+  await page.evaluate(() => (window as any).app.gitPanel.views._commit()._commit());
   await expect.poll(() => order.includes('commit'), { timeout: 10000 }).toBe(true);
   expect(order[0]).toBe('preflight');
 });
@@ -182,7 +182,7 @@ test('C7 (F-7.1): HEAD 가 바뀐 관측이 오면 preflight 를 다시 받는�
   await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
   await expect.poll(() => pf.length, { timeout: 10000 }).toBeGreaterThan(0);
   await expect.poll(() => page.evaluate(() => {
-    const c = (window as any).app.gitPanel._commit();
+    const c = (window as any).app.gitPanel.views._commit();
     return !!c._warning('detached_head');
   }), { timeout: 10000 }).toBe(true);
 });

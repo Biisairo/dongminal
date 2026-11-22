@@ -38,11 +38,11 @@ const GIT_MENUS={
     // FR-GIT-141: 18단계의 생성 다이얼로그를 시작점만 이 커밋으로 고정해 연다 —
     // 이름 검증(FR-GIT-159)까지 그것이 이미 안다.
     {id:'branch-from',busy:GIT_ACTION.write,label:t('git.menu.branch_from'),
-     run:target=>gitMenuPanel().createBranchFrom(target.oid)},
+     run:target=>gitMenuPanel().views.createBranchFrom(target.oid)},
     // FR-GIT-260: 태그 생성의 **같은 다이얼로그**를 대상만 이 커밋으로 고정해 연다
     // — 이름 검증도 종류 선택도 그것이 이미 안다.
     {id:'tag-from',busy:GIT_ACTION.write,label:GIT_TAG_CREATE_AT,
-     run:target=>gitMenuPanel().createTag(target.oid)},
+     run:target=>gitMenuPanel().views.createTag(target.oid)},
     {id:'copy-hash',   label:t('git.menu.copy_hash'),run:target=>gitMenuPanel().poll.copyText(target.oid)},
     {id:'copy-subject',label:t('git.menu.copy_subject'),run:target=>gitMenuPanel().poll.copyText(target.subject)},
     {sep:true},
@@ -52,7 +52,7 @@ const GIT_MENUS={
      action:GIT_CHECKOUT_DETACHED_ACT,title:GIT_CHECKOUT_DETACHED_TITLE,
      targets:target=>[target.abbrev+(target.subject?' '+target.subject:'')],
      hint:()=>({note:GIT_DETACHED_NOTE,command:''}),
-     run:target=>gitMenuPanel().checkoutRef(target.oid,{detach:true})},
+     run:target=>gitMenuPanel().views.checkoutRef(target.oid,{detach:true})},
     {sep:true},
     // 묶음 D — 커밋 동작 (GIT_ACTIONS_SRS §3.4 / FR-GIT-263~266).
     //
@@ -87,20 +87,20 @@ const GIT_MENUS={
   file:[
     {id:'openChanges',label:t('git.menu.file_open_changes'),run:target=>gitMenuPanel().poll.openFileDiff(target)},
     // FR-GIT-236: 행 인라인 동작과 같은 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
-    {id:'openFile',   label:t('git.menu.file_open_file'),run:target=>gitMenuPanel()._run('openFile',[target])},
+    {id:'openFile',   label:t('git.menu.file_open_file'),run:target=>gitMenuPanel().files._run('openFile',[target])},
     // FR-GIT-274: 워킹 트리가 아니라 `HEAD:<path>` 의 내용이다. 여는 자리는
     // Open File 과 같다 — Git 창이 아닌 창이다 (FR-GIT-179·185).
-    {id:'openFileHead',label:GIT_FILE_OPEN_HEAD,run:target=>gitMenuPanel().openFileAtHead(target)},
+    {id:'openFileHead',label:GIT_FILE_OPEN_HEAD,run:target=>gitMenuPanel().files.openFileAtHead(target)},
     {id:'copyPath',   label:t('git.menu.file_copy_path'),run:target=>gitMenuPanel().poll.copyText(gitMenuPanel().poll.absPath(target))},
     {sep:true},
     // FR-GIT-275: path 필터가 이미 있으므로(FR-GIT-129) 그것을 채워 탭을 여는 것이
     // 전부다 — 새 조회를 만들지 않는다.
-    {id:'fileHistory',label:GIT_FILE_HISTORY,run:target=>gitMenuPanel().openFileHistory(target)},
+    {id:'fileHistory',label:GIT_FILE_HISTORY,run:target=>gitMenuPanel().files.openFileHistory(target)},
     // FR-GIT-276: 고정 탭을 늘리지 않는다 — Diff 탭을 blame 모드로 연다 (D8).
     {id:'blame',      label:GIT_FILE_BLAME,  run:target=>gitMenuPanel().blame.openBlame(target)},
     // FR-GIT-273: **git 실행이 아니라 파일 쓰기다.** 저장소 루트의 `.gitignore`
     // 하나만 대상이며, 경로가 그 안인지는 서버가 다시 본다.
-    {id:'ignore',busy:GIT_ACTION.write,     label:GIT_FILE_IGNORE,run:target=>gitMenuPanel().ignorePath(target)},
+    {id:'ignore',busy:GIT_ACTION.write,     label:GIT_FILE_IGNORE,run:target=>gitMenuPanel().files.ignorePath(target)},
   ],
   // 브랜치·태그 (FR-GIT-154·155·156·160). 로컬과 원격은 **뜻이 다른 두 항목**이다 —
   // 원격 ref 로 그냥 옮겨 가면 detached 가 되므로 같은 이름의 로컬을 만들며 추적을
@@ -108,39 +108,39 @@ const GIT_MENUS={
   branch:[
     {id:'copy-name',label:t('git.menu.copy_branch_name'),run:target=>gitMenuPanel().poll.copyText(target.short)},
     {id:'checkout',act:GIT_ACTION.branchCheckout, label:'Checkout',
-     run:target=>gitMenuPanel().checkoutRef(target.short,{})},
+     run:target=>gitMenuPanel().views.checkoutRef(target.short,{})},
     {id:'checkout-local',act:GIT_ACTION.branchCheckoutLocal,label:GIT_BR_CHECKOUT_LOCAL,
-     run:target=>gitMenuPanel().checkoutRemote(target.short)},
+     run:target=>gitMenuPanel().views.checkoutRemote(target.short)},
     {sep:true},
     // 묶음 B — 접수한 말의 본체 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259).
     //
     // 판정(진행 중 작업·ref 종류·현재 브랜치)은 메뉴를 열 때 서버가 답한다 (GT-d·f).
     // FR-GIT-259: 커밋 메뉴의 `branch-from` 과 **같은 함수**를 시작점만 바꿔 부른다.
     {id:'branch-from',busy:GIT_ACTION.write,label:GIT_BR_CREATE_FROM,
-     run:target=>gitMenuPanel().createBranchFrom(target.short)},
+     run:target=>gitMenuPanel().views.createBranchFrom(target.short)},
     {id:'rename',act:GIT_ACTION.branchRename,label:GIT_BR_RENAME,
-     run:target=>gitMenuPanel().branchRename(target)},
+     run:target=>gitMenuPanel().views.branchRename(target)},
     // BRANCH_MENU_UNIFY_SRS FR-BMU-1~3: **로컬·원격 모두 여기다.**
     // 옛 `remote-pull`(Pull/Merge)은 이것과 **같은 함수**를 부르면서 활성 조건만
     // 반대였다 — 항목이 둘이라 로컬 브랜치에서 Pull 을 누르려던 사용자가 "원격
     // 브랜치에서만" 으로 막혔다. 동작이 하나였으므로 항목도 하나다.
     // ref 종류는 더 이상 비활성 사유가 아니다 (FR-BMU-2).
     {id:'merge',act:GIT_ACTION.branchMerge,label:GIT_BR_MERGE,
-     run:target=>gitMenuPanel().branchMerge(target.short)},
+     run:target=>gitMenuPanel().views.branchMerge(target.short)},
     // rebase 는 파괴적이다 (`rebase`) — 커밋 해시가 바뀐다. hint 는 rebase 전 HEAD 다.
     {id:'rebase',act:GIT_ACTION.branchRebase,label:GIT_BR_REBASE,destructive:true,
      action:GIT_ACT_REBASE,title:GIT_BR_REBASE_TITLE,
      targets:target=>[target.short],
      hint:()=>({note:GIT_BR_REBASE_NOTE,
-       command:'git reset --hard '+(((gitMenuPanel().statusOf()||{}).oid)||'')}),
-     run:target=>gitMenuPanel().branchRebase(target.short)},
+       command:'git reset --hard '+(((gitMenuPanel().views.statusOf()||{}).oid)||'')}),
+     run:target=>gitMenuPanel().views.branchRebase(target.short)},
     {sep:true},
     {id:'upstream-set',act:GIT_ACTION.branchUpstreamSet,label:GIT_BR_SET_UPSTREAM,
-     run:target=>gitMenuPanel().branchSetUpstream(target)},
+     run:target=>gitMenuPanel().views.branchSetUpstream(target)},
     {id:'upstream-unset',act:GIT_ACTION.branchUpstreamUnset,label:GIT_BR_UNSET_UPSTREAM,
-     run:target=>gitMenuPanel().branchUnsetUpstream(target)},
+     run:target=>gitMenuPanel().views.branchUnsetUpstream(target)},
     {id:'push',act:GIT_ACTION.branchPush,label:GIT_BR_PUSH,
-     run:target=>gitMenuPanel().branchPush(target)},
+     run:target=>gitMenuPanel().views.branchPush(target)},
     {sep:true},
     // 삭제는 파괴적이다 (`branch_delete`). hint 는 **지우기 전 oid** 로 만든다
     // (FR-GIT-250.2) — 목록이 그 값을 이미 싣고 있다 (/api/git/refs).
@@ -164,13 +164,13 @@ const GIT_MENUS={
      label:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE:GIT_BR_DELETE,
      action:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_ACT_REMOTE_REF_DELETE:GIT_ACT_BRANCH_DELETE,
      title:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE_TITLE:GIT_BR_DELETE_TITLE,
-     targets:target=>target.kind===GIT_REF_KIND_REMOTE?[target.short]:gitMenuPanel().branchDeleteTargets(target),
+     targets:target=>target.kind===GIT_REF_KIND_REMOTE?[target.short]:gitMenuPanel().views.branchDeleteTargets(target),
      hint:target=>target.kind===GIT_REF_KIND_REMOTE
        ?({note:GIT_BR_REMOTE_DELETE_NOTE,command:GitBranches.restoreRemoteCmd(gitMenuPanel(),target)})
        :({note:GIT_BR_DELETE_NOTE,command:'git branch '+target.short+' '+(target.oid||'')}),
      run:(target,names)=>target.kind===GIT_REF_KIND_REMOTE
-       ?gitMenuPanel().branchDeleteRemote(target)
-       :gitMenuPanel().branchDelete(target,names)},
+       ?gitMenuPanel().views.branchDeleteRemote(target)
+       :gitMenuPanel().views.branchDelete(target,names)},
     // FR-BMU-10·11: 셋째 길 — 로컬과 원격을 한 번에. upstream 이 있는 로컬
     // 브랜치에서만 열린다. 영향 범위에 **둘 다** 실어 무엇이 사라지는지 보인다
     // (FR-BMU-12 / FR-GIT-91).
@@ -188,17 +188,17 @@ const GIT_MENUS={
     {id:'delete-both',act:GIT_ACTION.branchDeleteBoth,label:GIT_BR_DELETE_BOTH,destructive:true,
      action:GIT_ACT_BRANCH_DELETE,title:GIT_BR_DELETE_BOTH_TITLE,
      targets:target=>{
-       const p=gitMenuPanel().branchDeletePair(target);
+       const p=gitMenuPanel().views.branchDeletePair(target);
        return [p.local&&p.local.short,p.remote].filter(Boolean);
      },
      hint:target=>{
-       const p=gitMenuPanel().branchDeletePair(target);
+       const p=gitMenuPanel().views.branchDeletePair(target);
        const loc=p.local||{};
        return {note:GIT_BR_DELETE_BOTH_NOTE,
          command:'git branch '+(loc.short||'')+' '+(loc.oid||'')
            +'\n'+GitBranches.restoreRemoteCmd(gitMenuPanel(),{short:p.remote||'',oid:loc.oid})};
      },
-     run:(target,names)=>gitMenuPanel().branchDeleteBoth(target,names)},
+     run:(target,names)=>gitMenuPanel().views.branchDeleteBoth(target,names)},
     {sep:true},
     // 원격 브랜치의 무리 (FR-GIT-268). 로컬에서는 비활성이고 사유가 보인다.
     //
@@ -207,7 +207,7 @@ const GIT_MENUS={
     // 가 원격 행에서 그 일을 한다). 남은 것은 fetch 뿐이다 — 그것만이 원격 ref
     // 에서만 뜻을 갖고 다른 항목이 대신할 수 없다.
     {id:'remote-fetch',act:GIT_ACTION.branchFetch,label:GIT_BR_REMOTE_FETCH,
-     run:target=>gitMenuPanel().branchFetchInto(target)},
+     run:target=>gitMenuPanel().views.branchFetchInto(target)},
   ],
   // 태그 (FR-GIT-260~262). 생성은 대상을 묻지 않고 열린다 — 비우면 HEAD 다.
   //
@@ -216,7 +216,7 @@ const GIT_MENUS={
   // 이므로 파괴적 확인은 프레임워크가 거치고, 항목은 **되살리는 명령**만 선언한다
   // — 그 명령은 지우기 전 oid 를 싣는다 (FR-GIT-92·250.2).
   tag:[
-    {id:'create',busy:GIT_ACTION.write,label:GIT_TAG_NEW,run:()=>gitMenuPanel().createTag('')},
+    {id:'create',busy:GIT_ACTION.write,label:GIT_TAG_NEW,run:()=>gitMenuPanel().views.createTag('')},
     {id:'copy-name',label:t('git.menu.copy_tag_name'),run:target=>gitMenuPanel().poll.copyText(target.short)},
     // 태그는 브랜치가 아니므로 옮겨 가면 detached 다 — 사전 경고를 1단계 거친다
     // (FR-GIT-144 와 같은 규약).
@@ -224,26 +224,26 @@ const GIT_MENUS={
      action:GIT_CHECKOUT_DETACHED_ACT,title:GIT_CHECKOUT_DETACHED_TITLE,
      targets:target=>[target.short],
      hint:()=>({note:GIT_DETACHED_NOTE,command:''}),
-     run:target=>gitMenuPanel().checkoutRef(target.short,{detach:true})},
+     run:target=>gitMenuPanel().views.checkoutRef(target.short,{detach:true})},
     {sep:true},
     // push 는 파괴적이 아니다 — 원격에 없던 ref 를 더할 뿐이다. 원격 작업이므로
     // job 경로를 탄다 (FR-GIT-262·101~104).
-    {id:'push',busy:GIT_ACTION.tagPush,    label:GIT_TAG_PUSH,    run:target=>gitMenuPanel().tagPush(target.short)},
-    {id:'push-all',busy:GIT_ACTION.tagPush,label:GIT_TAG_PUSH_ALL,run:()=>gitMenuPanel().tagPushAll()},
+    {id:'push',busy:GIT_ACTION.tagPush,    label:GIT_TAG_PUSH,    run:target=>gitMenuPanel().views.tagPush(target.short)},
+    {id:'push-all',busy:GIT_ACTION.tagPush,label:GIT_TAG_PUSH_ALL,run:()=>gitMenuPanel().views.tagPushAll()},
     {sep:true},
     {id:'delete',busy:GIT_ACTION.write,label:GIT_TAG_DELETE,destructive:true,
      action:GIT_ACT_TAG_DELETE,title:GIT_TAG_DELETE_TITLE,
      targets:target=>[target.short],
      hint:target=>({note:GIT_TAG_DELETE_NOTE,
        command:'git tag '+target.short+' '+gitTagOid(target)}),
-     run:target=>gitMenuPanel().tagDelete(target.short)},
+     run:target=>gitMenuPanel().views.tagDelete(target.short)},
     {id:'delete-remote',busy:GIT_ACTION.tagDeleteRemote,label:GIT_TAG_DELETE_REMOTE,destructive:true,
      action:GIT_ACT_REMOTE_REF_DELETE,title:GIT_TAG_DELETE_REMOTE_TITLE,
      targets:target=>[target.short],
      hint:target=>({note:GIT_TAG_DELETE_REMOTE_NOTE,
        command:'git push '+GitTag.remoteOf(gitMenuPanel())+' '+gitTagOid(target)+
          ':refs/tags/'+target.short}),
-     run:target=>gitMenuPanel().tagDeleteRemote(target.short)},
+     run:target=>gitMenuPanel().views.tagDeleteRemote(target.short)},
   ],
   // stash (FR-GIT-162~164·168). drop 만 파괴적이며 확인은 프레임워크가 거친다 —
   // 항목이 확인 코드를 따로 쓰지 않는다.
@@ -269,7 +269,7 @@ const GIT_MENUS={
   ],
   // 미커밋 변경 행 (FR-GIT-127·277).
   uncommitted:[
-    {id:'open-changes',label:t('git.menu.open_changes'),run:()=>gitMenuPanel().openView('changes')},
+    {id:'open-changes',label:t('git.menu.open_changes'),run:()=>gitMenuPanel().selection.openView('changes')},
     {sep:true},
     // FR-GIT-277: 생성 다이얼로그를 그대로 다시 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
     // 열 수 있는가는 서버의 1층 답이다 (SERVER_DRIVEN_ACTIONS_SRS GR-2b·e).
@@ -277,14 +277,14 @@ const GIT_MENUS={
      run:()=>gitMenuPanel().write.stashCreate()},
     // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다. 파괴적이
     // 아니므로 확인을 붙이지 않는다 (FR-GIT-97).
-    {id:'reset',busy:GIT_ACTION.uncommittedReset,label:GIT_UNC_RESET,run:()=>gitMenuPanel().uncommittedReset()},
+    {id:'reset',busy:GIT_ACTION.uncommittedReset,label:GIT_UNC_RESET,run:()=>gitMenuPanel().files.uncommittedReset()},
     // **파괴적이다** (FR-GIT-277). 되살릴 수 없으므로 hint 는 되돌리는 명령이
     // 아니라 먼저 담아 두는 명령이다.
     // 지울 것이 있는가는 서버의 답이다. 확인 목록(targets)은 보여 줄 목록일 뿐이다.
     {id:'clean',busy:GIT_ACTION.uncommittedClean,label:GIT_UNC_CLEAN,destructive:true,
      action:GIT_ACT_CLEAN_UNTRACKED,title:GIT_UNC_CLEAN_TITLE,
-     targets:()=>gitMenuPanel().untrackedPaths(),
+     targets:()=>gitMenuPanel().files.untrackedPaths(),
      hint:()=>({note:GIT_UNC_CLEAN_NOTE,command:GIT_UNC_CLEAN_CMD}),
-     run:(_,paths)=>gitMenuPanel().uncommittedClean(paths)},
+     run:(_,paths)=>gitMenuPanel().files.uncommittedClean(paths)},
   ],
 };

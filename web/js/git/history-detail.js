@@ -106,7 +106,7 @@ Object.assign(GitHistory.prototype, {
     p.textContent=f.origPath?f.origPath+' → '+f.path:f.path;
     row.title=p.textContent+(f.score?' ('+f.score+'%)':'');
     row.appendChild(st); row.appendChild(p);
-    row.addEventListener('click',()=>this.panel.showCommitDiff({
+    row.addEventListener('click',()=>this.panel.files.showCommitDiff({
       repo:this._repo,axis:GIT_AXIS.COMMIT,oid:d.oid,
       parentOid:(d.parents||[])[d.parentIndex]||'',
       path:f.path,origPath:f.origPath||'',

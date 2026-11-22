@@ -80,7 +80,7 @@ class GitSurfaces extends Controller {
    */
   _gitNotifyPinsAll(){
     if(!this.app.gitPanels) return;
-    for(const p of this.app.gitPanels.values()) if(p.notifyPins) p.notifyPins();
+    for(const p of this.app.gitPanels.values()) if(p.views.notifyPins) p.views.notifyPins();
   }
 
   // 패널이 하나도 남지 않은 관측기는 거둔다 — 타이머를 든 채 남으면 사라진 창의

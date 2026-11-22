@@ -12,7 +12,7 @@ class GitBlame extends GitPart {
     if(!this.p._blameOn) return null;
     const cf=this.p.commitFile;
     if(cf&&cf.path) return {path:cf.path,rev:cf.oid||''};
-    const f=this.p._diffTarget();
+    const f=this.p.selection._diffTarget();
     return f&&f.path?{path:f.path,rev:''}:null;
   }
 
@@ -131,12 +131,12 @@ class GitBlame extends GitPart {
     if(!target||!target.path) return;
     // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 는 탭마다 패널이다 — 그 탭의 패널이 blame 모드를 든다.
     if(this.p.root){
-      this.p._select(target.group,{path:target.path,origPath:target.origPath||''});
-      this.app.gitDiffOpen(this.p.root,this.p._diffTarget(),{preview:true,blame:true});
+      this.p.selection._select(target.group,{path:target.path,origPath:target.origPath||''});
+      this.app.gitDiffOpen(this.p.root,this.p.selection._diffTarget(),{preview:true,blame:true});
       return;
     }
     this.p._blameOn=true;
-    this.p._openDiff(target.group,{path:target.path,origPath:target.origPath||''});
+    this.p.selection._openDiff(target.group,{path:target.path,origPath:target.origPath||''});
   }
 
   // F-5.2: 작업 트리 파일의 Blame 을 다시 받게 한다 — 저장·git_changed·새로고침이 부른다.

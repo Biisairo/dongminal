@@ -600,7 +600,7 @@ test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다',
   await openGit(page, repo);
   await page.evaluate(() => {
     const a = (window as any).app;
-    a.gitPanel.openView('diff');
+    a.gitPanel.selection.openView('diff');
   });
   await page.evaluate(() => {
     const row = document.querySelector('#area .ed-side .git-file[data-path="tracked.txt"]') as HTMLElement;
@@ -675,7 +675,7 @@ test('V-GLV-3 (FR-GLV-6): 거부당한 diff 는 폴링이 되풀이하지 않는
   });
   await waitForInit(page);
   await openGit(page, repo);
-  await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('diff'));
   await page.evaluate(() => {
     const row = document.querySelector('#area .ed-side .git-file[data-path="tracked.txt"]') as HTMLElement;
     if (row) row.click();

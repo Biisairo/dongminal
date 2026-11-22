@@ -268,7 +268,7 @@ async function loadPanelPoll(page: Page) {
       isStale() { return false }
       // 이웃 부품(git-view-roots·git-views·git-changes)의 것. 폴링 계층은 부르기만 한다.
       viewRoots = { _leaveMissing() {} };
-      _viewFp() { return '' }
+      views = { _viewFp() { return '' } };
       changes = { _paint() {} };
       // 폴링 부품은 아래에서 세운다 — 부르는 쪽은 `p.poll.X` 다 (REFACTOR3_FE_DELEG_SRS).
       poll: any = null;

@@ -53,14 +53,14 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
 const row = (page: Page, group: string, p: string) =>
   page.locator(`#area .ed-side .git-group[data-group="${group}"] .git-file[data-path="${cssPath(p)}"]`);
 const staged = (page: Page) => page.evaluate(() =>
-  (((window as any).app.gitPanel.statusOf() || {}).staged || []).map((e: any) => e.path).sort());
+  (((window as any).app.gitPanel.views.statusOf() || {}).staged || []).map((e: any) => e.path).sort());
 const stageRow = (page: Page, p: string) => page.evaluate((f: string) =>
-  (window as any).app.gitPanel._run('stage', [{ group: 'working', path: f, origPath: '', untracked: false }]), p);
+  (window as any).app.gitPanel.files._run('stage', [{ group: 'working', path: f, origPath: '', untracked: false }]), p);
 // 연타 — 한 틱 안에서 차례로 누른다(첫 쓰기가 진행 중인 채로 나머지가 들어온다).
 const stageBurst = (page: Page, ps: string[]) => page.evaluate((fs: string[]) => {
   const p = (window as any).app.gitPanel;
   (window as any).__burst = Promise.all(fs.map((f) =>
-    p._run('stage', [{ group: 'working', path: f, origPath: '', untracked: false }])));
+    p.files._run('stage', [{ group: 'working', path: f, origPath: '', untracked: false }])));
 }, ps);
 const burstDone = (page: Page) => page.evaluate(() => (window as any).__burst);
 
@@ -158,7 +158,7 @@ test('D1 (F-4.3): 파일 단위 쓰기 뒤 열린 Diff 는 다음 관측을 기�
     else if (u.includes('/api/git/status?')) order.push('status');
     else if (u.includes('/api/git/unstage')) order.push('unstage');
   });
-  await page.evaluate(() => (window as any).app.gitPanel._run('unstage',
+  await page.evaluate(() => (window as any).app.gitPanel.files._run('unstage',
     [{ group: 'staged', path: 'a.txt', origPath: '', untracked: false }]));
   await expect.poll(() => page.evaluate(() => { const v = edT.diffPanel()._diffView; return edT.diffHasOrig(v) ? edT.diffText(v, 'orig') : undefined; }),
     { timeout: 10000 }).toBe('one\n');

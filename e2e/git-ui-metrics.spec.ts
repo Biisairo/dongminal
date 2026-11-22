@@ -62,7 +62,7 @@ async function measure(page: Page, scope: string) {
 
 async function gurOpenChanges(page: Page, repo: string) {
   await openGit(page, repo);
-  await page.evaluate(() => (window as any).app.gitPanel.openView('changes'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('changes'));
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
@@ -178,7 +178,7 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
       const a = (window as any).app;
       a.testing.mPaneIdx = 0;
       a.render();
-      a.gitPanel.openView('changes');
+      a.gitPanel.selection.openView('changes');
     });
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
     await gurWaitFiles(page, 3);

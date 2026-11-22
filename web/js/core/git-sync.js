@@ -236,7 +236,7 @@ class GitSync extends Controller {
 
   _gitJobsAdopt(jobs){
     this.app._gitJobs=jobs;
-    if(this.app.gitPanel) this.app.gitPanel.adoptJobs(jobs);
+    if(this.app.gitPanel) this.app.gitPanel.views.adoptJobs(jobs);
   }
 
   // U-19 ①: `_gitJobSeen`·`_gitJobEnded`·`_gitJobChip` 은 **제거됐다.** 셋 다

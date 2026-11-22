@@ -155,7 +155,7 @@ class GitRemoteView {
     const lockBtn=fail.querySelector('.git-job-lock');
     lockBtn.textContent=GIT_LOCK_REMOVE;
     lockBtn.classList.toggle('vis',!!lock);
-    lockBtn.disabled=!actionState(this.panel.actionOf(GIT_ACTION.lockRemove),false).enabled;
+    lockBtn.disabled=!actionState(this.panel.views.actionOf(GIT_ACTION.lockRemove),false).enabled;
     // FR-GIT-104: 안내만 한다. 받는 자리를 만들지 않는다.
     const auth=fail.querySelector('.git-job-auth');
     auth.classList.toggle('vis',!!d.authRequired);

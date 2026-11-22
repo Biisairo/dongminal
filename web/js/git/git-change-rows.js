@@ -104,11 +104,11 @@ class GitChangeRows extends GitPart {
     return [
       it.depth,...GIT_ROW_FIELDS.map(k=>e[k]==null||e[k]===false?'':String(e[k])),
       this._stateChar(group,e),
-      this.p._sel.has(this.p._selKey(group,e.path))?1:0,
+      this.p._sel.has(this.p.selection._selKey(group,e.path))?1:0,
       (this.p.previewFile&&this.p.previewFile.group===group&&this.p.previewFile.path===e.path)?1:0,
       this.p.changes._treeMode()?1:0,
       // ours·theirs 의 title 이 진행 중인 조작에 따라 뒤집힌다 (FR-GIT-224).
-      this.p._op()||'',
+      this.p.files._op()||'',
     ].join(RPT_SEP);
   }
 
@@ -202,7 +202,7 @@ class GitChangeRows extends GitPart {
       acts.appendChild(UIKit.button({icon:GIT_ACT_ICON[c.act],
         title:(GIT_DIR_ACT_TITLE_GROUP[it.group]||{})[c.act]||GIT_DIR_ACT_TITLE[c.act]||GIT_ACT_TITLE[c.act],
         kind:'ghost',size:'lg',cls:'git-file-act',dataset:{act:c.act},
-        onClick:ev=>{ev.stopPropagation();this.p._dirBulk(it.group,it.path,c.act)}}));
+        onClick:ev=>{ev.stopPropagation();this.p.files._dirBulk(it.group,it.path,c.act)}}));
     }
     d.addEventListener('click',()=>{
       if(this.p._dirCollapsed.has(key)) this.p._dirCollapsed.delete(key);
@@ -238,7 +238,7 @@ class GitChangeRows extends GitPart {
     // FR-GIT-187·189: 선택은 행 자체다 (체크박스 없음). 선택(`sel`)과 포커스
     // (`cur`, 미리보기 대상)를 나눈다 — 같게 그리면 미리보기가 어느 행을 보이는지
     // 알 수 없다.
-    if(this.p._sel.has(this.p._selKey(group,e.path))) d.classList.add('sel');
+    if(this.p._sel.has(this.p.selection._selKey(group,e.path))) d.classList.add('sel');
     const cur=this.p.previewFile;
     if(cur&&cur.group===group&&cur.path===e.path) d.classList.add('cur');
     // FR-GIT-190: 일부만 스테이지된 상태는 상태 문자 색으로 알린다.
@@ -269,7 +269,7 @@ class GitChangeRows extends GitPart {
   // 행의 동작 단추 하나. 뜻(제목)은 `gitRowActTitle`, 막힘은 서버의 행 답이다.
   _rowActBtn(group,e,a){
     // 진행 중인 조작은 뜻이 뒤집히는 둘에서만 묻는다 — 행마다 단추마다 묻지 않는다.
-    let title=gitRowActTitle(a,e,(a==='ours'||a==='theirs')?this.p._op():'');
+    let title=gitRowActTitle(a,e,(a==='ours'||a==='theirs')?this.p.files._op():'');
     /**
      * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-12·13 (D-2a): 담을 몫이 없으면 끈다 — 안쪽만 더러운
      * 서브모듈(상태 B)에서 `git add` 는 index 에 올릴 것이 없다.
@@ -290,9 +290,9 @@ class GitChangeRows extends GitPart {
       ev.stopPropagation();
       // FR-GIT-236: Open File 은 선택을 끌어오지 않는다 — `_rowTargets` 는 쓰기
       // 동작의 규약이고, 그것을 그대로 쓰면 고른 수만큼 편집기 탭이 열린다.
-      this.p._run(a, a==='openFile'
-        ? [this.p._target(group,e)]
-        : this.p._rowTargets(a,group,e.path,e.origPath,e.untracked));
+      this.p.files._run(a, a==='openFile'
+        ? [this.p.files._target(group,e)]
+        : this.p.files._rowTargets(a,group,e.path,e.origPath,e.untracked));
     });
     return b;
   }
@@ -315,22 +315,22 @@ class GitChangeRows extends GitPart {
      * (FR-GIT-69), 고를 때마다 본문이 갈리면 무엇을 고르는 중인지 알 수 없다.
      */
     d.addEventListener('click',ev=>{
-      this.p._select(group,e,ev);
+      this.p.selection._select(group,e,ev);
       if(ev&&(ev.metaKey||ev.ctrlKey||ev.shiftKey)) return;
       // FR-RTU-51 (개정): 비교의 왼쪽이 없는 행만 편집기다 — 판정은 그룹이 아니라
       // **항목**이 준다 (`_noBaseline`).
-      if(this.p._noBaseline(group,e)&&this.p._openInEditor(e)) return;
-      this.p.openView('diff');
+      if(this.p.selection._noBaseline(group,e)&&this.p.selection._openInEditor(e)) return;
+      this.p.selection.openView('diff');
     });
     // UX_BATCH12_SRS FR-RTB-6 ③ (D-RTU-23 개정): 더블클릭은 앞선 클릭이 연 탭을 고정한다.
     d.addEventListener('dblclick',ev=>{
       if(!this.p.root||ev.metaKey||ev.ctrlKey||ev.shiftKey) return;
-      if(this.p._noBaseline(group,e)){ if(!e.dir) this.app.edPinTabFor(this.p.poll.absPath(e)); return }
-      this.app.gitDiffPin(this.p.root,this.p._diffTarget(),!!this.p.commitFile);
+      if(this.p.selection._noBaseline(group,e)){ if(!e.dir) this.app.edPinTabFor(this.p.poll.absPath(e)); return }
+      this.app.gitDiffPin(this.p.root,this.p.selection._diffTarget(),!!this.p.commitFile);
     });
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
-      GitMenu.open('file',this.p._target(group,e),ev);
+      GitMenu.open('file',this.p.files._target(group,e),ev);
     });
   }
 
@@ -389,7 +389,7 @@ class GitChangeRows extends GitPart {
    */
   /** FR-FR1-9: 행의 Stage 가 꺼졌으면 그 사유(영어 툴팁), 켜져 있으면 ''. 답이 없는 행은 켜진다. */
   _stageOff(e){
-    const a=this.p.rowActionOf(e.path,GIT_ACTION.stage);
+    const a=this.p.views.rowActionOf(e.path,GIT_ACTION.stage);
     if(!a) return '';
     const s=actionState(a,false);
     return s.enabled?'':(GIT_STAGE_WHY_TITLE[a.why]||s.why);

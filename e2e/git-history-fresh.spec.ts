@@ -46,7 +46,7 @@ async function enter(page: Page, request: APIRequestContext, before?: (repo: str
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, REPO);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
-  await page.evaluate(() => (window as any).app.gitPanel.openView('history'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('history'));
   await page.waitForFunction(() => {
     const h = (window as any).app.gitPanel._historyView;
     return !!h && h._commits.length > 0 && !h._loading;

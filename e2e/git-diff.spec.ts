@@ -45,7 +45,7 @@ const lineChanges = (page: Page) =>
 
 const selectFile = (page: Page, group: string, path: string) =>
   page.evaluate(
-    ([g, p]) => (window as any).app.gitPanel._select(g, { path: p }),
+    ([g, p]) => (window as any).app.gitPanel.selection._select(g, { path: p }),
     [group, path]
   );
 

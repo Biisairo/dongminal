@@ -69,7 +69,7 @@ class GitDialog extends GitModalBase {
     const p=(window.app&&app.gitPanel)||null;
     if(!p) return '';
     const out=[p._lastSig||''];
-    const s=(p.statusOf&&p.statusOf())||null;
+    const s=(p.views.statusOf&&p.views.statusOf())||null;
     if(s){
       out.push(s.oid||'',s.branch||'');
       // FR-CMG-13: 화면과 같은 묶음이다 — 한쪽만 합치면 같은 파일이 자리마다

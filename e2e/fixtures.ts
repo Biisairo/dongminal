@@ -366,7 +366,7 @@ export async function clickGitView(page: any, view: string) {
     //              여는 것은 멱등이므로 이미 있으면 아무 일도 하지 않는다
     const tab = page.locator(`#area .pn-tab[data-git-view="${view}"]`);
     if (await tab.count() === 0) {
-      await page.evaluate((v: string) => (window as any).app?.gitPanel?.openView(v), view);
+      await page.evaluate((v: string) => (window as any).app?.gitPanel?.selection.openView(v), view);
     }
     await tab.first().click({ timeout: 5000 });
     await expect(page.locator('#area .pn-body .git-view.vis'))
@@ -922,7 +922,7 @@ export async function openGit(page: any, repo: string) {
       const p = a.gitPanel;
       if (!p) throw new Error('gitPanel 이 아직 없다');
       for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
-        p.openView(v);
+        p.selection.openView(v);
       }
     });
     await expect(page.locator('#area .pn-tab[data-git-view]'))
@@ -982,7 +982,7 @@ export async function openGit(page: any, repo: string) {
   // (M9-B2 를 닫은 것이 재현이 아니라 사용자 로그의 산수였다).
   try {
     await page.waitForFunction(
-      () => !!(window as any).app?.gitPanel?.statusOf(),
+      () => !!(window as any).app?.gitPanel?.views.statusOf(),
       undefined, { timeout: 60000 });
   } catch (e) {
     const why = await page.evaluate(() => {

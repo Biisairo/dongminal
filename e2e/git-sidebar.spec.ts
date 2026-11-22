@@ -311,7 +311,7 @@ async function gurCdFocused(page: Page, dir: string) {
 
 async function gurOpenChanges(page: Page, repo: string) {
   await openGit(page, repo);
-  await page.evaluate(() => (window as any).app.gitPanel.openView('changes'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('changes'));
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 

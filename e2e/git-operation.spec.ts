@@ -57,7 +57,7 @@ async function openChanges(page: Page, repo: string) {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
@@ -65,7 +65,7 @@ async function openChanges(page: Page, repo: string) {
 const bar = (page: Page) => page.locator('#area .ed-side .git-changes .git-op-bar');
 const act = (page: Page, a: string) => bar(page).locator(`.git-op-act[data-act="${a}"]`);
 const opKind = (page: Page) =>
-  page.evaluate(() => (((window as any).app.gitPanel.statusOf() || {}).operation || {}).kind || '');
+  page.evaluate(() => (((window as any).app.gitPanel.views.statusOf() || {}).operation || {}).kind || '');
 
 test.describe('묶음 A — 진행 중 작업의 출구 (V176)', () => {
   const dirs: string[] = [];

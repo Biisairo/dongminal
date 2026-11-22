@@ -32,7 +32,7 @@ class GitWorktrees extends GitListTab {
   _paintHead(){
     const add=this.el&&this.el.querySelector('.git-wt-add');
     if(!add) return;
-    const s=actionState(this.panel.actionOf(GIT_ACTION.worktreeCreate),false);
+    const s=actionState(this.panel.views.actionOf(GIT_ACTION.worktreeCreate),false);
     add.disabled=!s.enabled;
     add.title=s.enabled?GIT_WT_ADD_TITLE:GIT_REMOTE_WHY_BUSY;
   }

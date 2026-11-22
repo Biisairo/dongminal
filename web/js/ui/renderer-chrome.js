@@ -377,7 +377,7 @@ Object.assign(Renderer.prototype, {
         // 그러면 이 버튼이 죽은 패널에 뷰를 연다. 루트와 칸만 들고 그때 조회한다
         // (`_makeSlot` 이 인덱스를 드는 것과 같은 규약).
         const btn=UIKit.button({icon:a.icon,title:a.title,kind:'ghost',size:'lg',cls:'ed-side-act',
-          dataset:{view:a.key},onClick:()=>this.app.gitPanelAt(root,slot).openView(a.key)});
+          dataset:{view:a.key},onClick:()=>this.app.gitPanelAt(root,slot).selection.openView(a.key)});
         // UI_POLISH_SRS FR-UIP-18: 이름은 늘 DOM 에 있고, 폭이 남을 때만 CSS 가 보인다.
         // 이름은 `aria-label` 과 같은 말이라 읽기 트리에서는 감춘다.
         const lab=document.createElement('span');

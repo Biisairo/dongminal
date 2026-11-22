@@ -112,7 +112,7 @@ class GitStash extends GitView {
    * (SERVER_DRIVEN_ACTIONS_SRS GR-2b). untracked 뿐이어도 열리고, 옵션별 판정은
    * 다이얼로그가 서버에 묻는다.
    */
-  _state(){return actionState(this.panel.actionOf(GIT_ACTION.stashNew),false)}
+  _state(){return actionState(this.panel.views.actionOf(GIT_ACTION.stashNew),false)}
 
   _paintBar(){
     const el=this.el;
@@ -262,7 +262,7 @@ class GitStash extends GitView {
     d.appendChild(st); d.appendChild(p);
     // 축은 커밋 축이다 — stash 는 커밋이므로 `<oid>^` 와 비교한다. 위치
     // (`stash@{n}`)로 걸면 목록이 바뀐 뒤 다른 stash 의 diff 가 열린다.
-    d.addEventListener('click',()=>this.panel.showCommitDiff({
+    d.addEventListener('click',()=>this.panel.files.showCommitDiff({
       repo:this._repo,axis:GIT_AXIS.COMMIT,
       oid:oid,parentOid:oid+'^',revLabel:this._refOf(oid),
       path:f.path,origPath:f.origPath||'',

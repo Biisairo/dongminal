@@ -94,7 +94,7 @@ async function backToWorktrees(page: Page, repo: string) {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   await clickGitView(page, 'worktrees');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-worktrees/);

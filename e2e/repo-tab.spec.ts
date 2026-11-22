@@ -877,7 +877,7 @@ test('V-DSP-5 (FR-DSP-1d): 첫 관측이 History 보다 먼저 와도 미커밋 
     await page.evaluate(() => {
       const a = (window as any).app;
       a.testing.edSetSide(a.testing.aw(), 'changes');
-      a.gitPanel.openView('history');
+      a.gitPanel.selection.openView('history');
     });
     await expect(page.locator('#area .pn-body .git-view.git-history .git-hist-row.uncommitted'))
       .toHaveCount(1, { timeout: 15000 });

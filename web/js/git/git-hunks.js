@@ -269,7 +269,7 @@ class GitHunks extends GitPart {
     const ed=this._hunkBarEd,el=this._hunkBarEl;
     if(!ed||!el) return;
     if(this._hunkBarPos){
-      const f=this.p.commitFile?null:this.p._diffTarget();
+      const f=this.p.commitFile?null:this.p.selection._diffTarget();
       const acts=(f&&GIT_HUNK_ACTS[f.axis])||[];
       // 붙을 동작이 없으면 뜨지 않는다 — 빈 상자는 무엇을 할 수 있는지 말하지
       // 않으면서 diff 를 가린다 (FR-DHB-15).
@@ -330,7 +330,7 @@ class GitHunks extends GitPart {
    * 거부되고, 그때 화면은 조각을 다시 받는다 — 낡은 번호로 다른 곳을 고치지 않는다.
    */
   async _hunkAct(op){
-    const f=this.p.commitFile?null:this.p._diffTarget();
+    const f=this.p.commitFile?null:this.p.selection._diffTarget();
     const h=this.p._hunks;
     const co=this._hunkBarCoords();
     if(!f||!h||!co||this._hunkBlocked()) return;
@@ -402,6 +402,6 @@ class GitHunks extends GitPart {
     this.p._hunkKey=null; this.p._hunks=null;
     this._hunkBarHide();
     const el=this.p._els.get('diff');
-    if(el&&el.dataset.built==='1') this._paintHunks(el,(this.p.commitFile||this.p._blameOn)?null:this.p._diffTarget());
+    if(el&&el.dataset.built==='1') this._paintHunks(el,(this.p.commitFile||this.p._blameOn)?null:this.p.selection._diffTarget());
   }
 }

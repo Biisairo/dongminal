@@ -120,7 +120,7 @@ class GitDiffPane extends GitPart {
     // 커밋 축의 대상은 워킹 트리 목록에 없다 — ‹ › 와 n/m 과 "사라졌습니다" 는
     // 그 목록의 것이므로 커밋 축에서는 뜻이 없다 (FR-GIT-53).
     const cf=this.p.commitFile;
-    const f=this.p._diffTarget();
+    const f=this.p.selection._diffTarget();
     const i=cf?-1:this._diffIndex(list);
     if(i>=0) this.p._diffPos=i;
     // 목록이 비면 0/0 이고 ‹ › 는 disabled 다.
@@ -222,7 +222,7 @@ class GitDiffPane extends GitPart {
     const target=list[i];
     // FR-RTB-9: Diff 탭의 ‹ › 는 그 탭이 있는 칸의 미리보기로 연다 (`gitDiffStep`).
     if(this.p.diffTabId){this.app.gitDiffStep(this.p,target);return}
-    this.p._select(target.group,{path:target.path,origPath:target.origPath,untracked:target.untracked});
+    this.p.selection._select(target.group,{path:target.path,origPath:target.origPath,untracked:target.untracked});
   }
 
   // 대상이 그대로면 다시 부르지 않는다 — status 폴링마다 diff 를 재요청하면
@@ -258,7 +258,7 @@ class GitDiffPane extends GitPart {
     // GIT_DIR_ENTRY_SRS FR-DIR-21: 디렉터리 항목에는 diff 를 부르지 않는다.
     // 서버가 줄 것이 없고(실측), 사용자가 알아야 할 것은 사유와 갈 길이다.
     if(f.dir){
-      view.clear(this.p._dirEntryNote(f),[f.path],this.p._dirEntryActs(f));
+      view.clear(this.p.selection._dirEntryNote(f),[f.path],this.p.selection._dirEntryActs(f));
       return;
     }
     view.show(f,this.p.token());
@@ -282,7 +282,7 @@ class GitDiffPane extends GitPart {
     this.p.commitFile=null;
     this.p.previewFile=f;
     this.p._sel.clear();
-    this.p._sel.add(this.p._selKey(f.group,f.path));
+    this.p._sel.add(this.p.selection._selKey(f.group,f.path));
     this.p._anchor={group:f.group,path:f.path};
   }
 

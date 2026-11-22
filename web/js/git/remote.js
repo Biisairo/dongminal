@@ -183,7 +183,7 @@ class GitRemote {
    * 있으므로 단계 수를 이쪽에서 정하지 않는다 (FR-GIT-106).
    */
   async _forcePush(force,body){
-    const s=this.panel.statusOf()||{};
+    const s=this.panel.views.statusOf()||{};
     const b=body||{};
     const target=(b.remote&&b.branch)?(b.remote+'/'+b.branch)
       :(s.upstream||(s.branch||''));
@@ -358,7 +358,7 @@ class GitRemote {
     const rs=jb.result&&jb.result.status;
     if((jb.exitCode||jb.err)&&rs&&rs.operation&&rs.operation.kind){
       this._conflict=true;
-      this.panel.expandGroup('conflicts');
+      this.panel.views.expandGroup('conflicts');
     }
     this.router.finished(jb);
     this._paint();
@@ -422,11 +422,11 @@ class GitRemote {
     const p=this._pending;
     if(!p||this.panel._status===p.status) return;
     this._pending=null;
-    const s=this.panel.statusOf();
+    const s=this.panel.views.statusOf();
     if(!s||!(s.conflicts||[]).length) return;
     this._conflict=true;
-    this.panel.expandGroup('conflicts');
-    this.panel.openView('changes');
+    this.panel.views.expandGroup('conflicts');
+    this.panel.selection.openView('changes');
   }
 
   /**

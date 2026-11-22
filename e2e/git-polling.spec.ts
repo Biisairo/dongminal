@@ -290,7 +290,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     // History 를 둘러본 상태를 만든 뒤 그 reload 만 터지게 한다.
     await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
-      p._history().reload = () => { throw new Error('reload boom') };
+      p.views._history().reload = () => { throw new Error('reload boom') };
     });
 
     // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 단추를 눌러 disabled 가 풀리는지 봤다 / 지금 갱신 함수를 부르고

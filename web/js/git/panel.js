@@ -9,12 +9,12 @@
  * 하나로 판정한다 — 나중에 비동기 경로를 하나씩 훑어 가드를 덧붙이는 상황을
  * 만들지 않으려고 처음부터 둔다. 판정은 이 클래스의 `token`/`isStale` 이다.
  *
- * 클래스 본문에는 생성자·접근자·리포 전환과 수명(옛 `panel-life.js`)·부품 위임자가 있다. 접근자가
+ * 클래스 본문에는 생성자·접근자·리포 전환과 수명(옛 `panel-life.js`)이 있다. 접근자가
  * 클래스 본문에 있는 이유는 `Object.assign` 이 getter 를 **호출해 그 반환값을 복사**하기 때문이다 —
  * 원형에 얹으면 통로가 값으로 굳는다 (REFACTOR3_FE_GITPANEL_SRS INV-P3).
  *
  * 나머지는 부품 클래스(`GitPart` 하위, REFACTOR3_FE_GITPANEL_SRS)다. 부품은 혼자 쓰는 필드까지 갖고
- * 생성자가 만들어 든다. 바깥·다른 부품이 부르는 부품 메서드는 아래 위임자가 잇는다.
+ * 생성자가 만들어 든다. 바깥·다른 부품은 `panel.<부품>.X` 로 부품 메서드를 부른다 — 패널에 위임자를 두지 않는다 (REFACTOR3_FE_DELEG_SRS).
  *
  *   git-blame.js      Blame (`this.blame`)
  *   git-hunks.js      부분 스테이징 · hover 툴바 (`this.hunks`)
@@ -96,76 +96,6 @@ class GitPanel {
     this.views=new GitViews(this);
     this.viewRoots=new GitViewRoots(this);
   }
-
-  // 브랜치 메뉴의 짝 판정(branches-ops.js)이 읽는다 (FR-FEP-5). 주인은 `GitViews` 다.
-  get _knownRefs(){ return this.views._knownRefs }
-
-  // ── 부품 위임자 (FR-FEP-4) — 패널 바깥·다른 파일이 부르는 이름 ──
-  untrackedPaths(){ return this.files.untrackedPaths() }
-  uncommittedReset(){ return this.files.uncommittedReset() }
-  uncommittedClean(paths){ return this.files.uncommittedClean(paths) }
-  ignorePath(target){ return this.files.ignorePath(target) }
-  openFileHistory(target){ return this.files.openFileHistory(target) }
-  openFileAtHead(target){ return this.files.openFileAtHead(target) }
-  dirtyCount(){ return this.files.dirtyCount() }
-  isDirty(){ return this.files.isDirty() }
-  showCommitDiff(f){ return this.files.showCommitDiff(f) }
-  _target(group,e){ return this.files._target(group,e) }
-  _selected(){ return this.files._selected() }
-  _rowTargets(act,group,path,origPath,untracked){ return this.files._rowTargets(act,group,path,origPath,untracked) }
-  _bulk(group,act){ return this.files._bulk(group,act) }
-  _dirBulk(group,path,act){ return this.files._dirBulk(group,path,act) }
-  _run(act,items){ return this.files._run(act,items) }
-  _op(){ return this.files._op() }
-  _diffTarget(){ return this.selection._diffTarget() }
-  _selKey(group,path){ return this.selection._selKey(group,path) }
-  _noBaseline(group,e){ return this.selection._noBaseline(group,e) }
-  _openInEditor(e){ return this.selection._openInEditor(e) }
-  _select(group,e,ev){ return this.selection._select(group,e,ev) }
-  _openDiff(group,e){ return this.selection._openDiff(group,e) }
-  openView(view){ return this.selection.openView(view) }
-  _dirEntryNote(f){ return this.selection._dirEntryNote(f) }
-  _dirEntryActs(f){ return this.selection._dirEntryActs(f) }
-  _commit(){ return this.views._commit() }
-  _remote(){ return this.views._remote() }
-  adoptJobs(jobs){ return this.views.adoptJobs(jobs) }
-  expandGroup(key){ return this.views.expandGroup(key) }
-  _history(){ return this.views._history() }
-  _branches(){ return this.views._branches() }
-  _console(){ return this.views._console() }
-  _worktrees(){ return this.views._worktrees() }
-  _stash(){ return this.views._stash() }
-  _renderView(key,el){ return this.views._renderView(key,el) }
-  _emptyHint(el,text){ return this.views._emptyHint(el,text) }
-  statusOf(){ return this.views.statusOf() }
-  actionOf(id){ return this.views.actionOf(id) }
-  rowActionOf(path,id){ return this.views.rowActionOf(path,id) }
-  _viewFp(d){ return this.views._viewFp(d) }
-  headName(){ return this.views.headName() }
-  checkoutRef(ref,o){ return this.views.checkoutRef(ref,o) }
-  checkoutRemote(short){ return this.views.checkoutRemote(short) }
-  branchRename(target){ return this.views.branchRename(target) }
-  branchDelete(target,names){ return this.views.branchDelete(target,names) }
-  branchDeleteTargets(target){ return this.views.branchDeleteTargets(target) }
-  branchMerge(ref){ return this.views.branchMerge(ref) }
-  branchRebase(ref){ return this.views.branchRebase(ref) }
-  branchSetUpstream(target){ return this.views.branchSetUpstream(target) }
-  branchUnsetUpstream(target){ return this.views.branchUnsetUpstream(target) }
-  branchPush(target){ return this.views.branchPush(target) }
-  branchFetchInto(target){ return this.views.branchFetchInto(target) }
-  branchDeleteRemote(target){ return this.views.branchDeleteRemote(target) }
-  branchDeleteBoth(target,names){ return this.views.branchDeleteBoth(target,names) }
-  branchDeletePair(target){ return this.views.branchDeletePair(target) }
-  adoptRefs(refs){ return this.views.adoptRefs(refs) }
-  fetchRefs(repo,opts){ return this.views.fetchRefs(repo,opts) }
-  branchNote(msg){ return this.views.branchNote(msg) }
-  notifyPins(){ return this.views.notifyPins() }
-  createBranchFrom(oid){ return this.views.createBranchFrom(oid) }
-  createTag(oid){ return this.views.createTag(oid) }
-  tagDelete(name){ return this.views.tagDelete(name) }
-  tagDeleteRemote(name){ return this.views.tagDeleteRemote(name) }
-  tagPush(name){ return this.views.tagPush(name) }
-  tagPushAll(){ return this.views.tagPushAll() }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //
@@ -317,7 +247,7 @@ class GitPanel {
     this.poll._stop(); GitMenu.close(); this.diffPane._destroyViews();
     // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
     // 남아 있어서는 안 된다 (FR-GIT-83).
-    this._commit().unmount();
+    this.views._commit().unmount();
     // REFACTOR_STABILIZATION_SRS FR-RST-20: **게터를 부르지 않는다.**
     //
     // `this._history()` 류는 없으면 만든다. 그래서 종전 코드는 창을 닫을 때

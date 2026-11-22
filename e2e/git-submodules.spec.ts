@@ -85,7 +85,7 @@ async function openSubmodules(page: Page, repo: string) {
   await page.evaluate((views: readonly string[]) => {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
-    for (const v of views) a.gitPanel.openView(v);
+    for (const v of views) a.gitPanel.selection.openView(v);
   }, GIT_BODY_VIEWS);
   // FR-SUB-6: 고정 탭이 하나 늘었다.
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
@@ -246,7 +246,7 @@ test.describe('묶음 D — Submodules 탭', () => {
       await page.evaluate((views: readonly string[]) => {
         const a = (window as any).app;
         a.testing.edSetSide(a.testing.aw(), 'changes');
-        for (const v of views) a.gitPanel.openView(v);
+        for (const v of views) a.gitPanel.selection.openView(v);
       }, GIT_BODY_VIEWS);
 
       // 서브모듈이 디렉터리 항목으로 서려면 그 안에 변경이 있어야 한다.

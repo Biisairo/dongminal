@@ -197,14 +197,14 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     // 시작 요청이 오가는 중과 같은 상태를 만든다. SERVER_DRIVEN_ACTIONS_SRS FR-SDA-7·GR-1f:
     // 진행 중으로 꺼지는 것은 **누른 그 버튼**뿐이다 — 다른 버튼은 서버의 다음 답을 따른다.
     await page.evaluate(() => {
-      const r = (window as any).app.gitPanel._remote().views.index;
+      const r = (window as any).app.gitPanel.views._remote().views.index;
       r._busy = true; r._busyKey = 'push';
       r._paint();
     });
     expect(await heads()).toEqual([true, false]);
 
     await page.evaluate(() => {
-      const r = (window as any).app.gitPanel._remote().views.index;
+      const r = (window as any).app.gitPanel.views._remote().views.index;
       r._busy = false; r._busyKey = '';
       r._paint();
     });

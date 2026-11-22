@@ -46,7 +46,7 @@ async function openBranches(page: Page, repo: string) {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await clickGitView(page, 'branches');
@@ -271,7 +271,7 @@ test.describe('묶음 D — 삭제 통합', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       a.testing.edSetSide(a.testing.aw(), 'changes');
-      a.gitPanel.openView('history');
+      a.gitPanel.selection.openView('history');
     });
     await clickGitView(page, 'history');
 
@@ -432,7 +432,7 @@ async function openHistory(page: Page, repo: string) {
     const a = (window as any).app;
     a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.selection.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await clickGitView(page, 'history');

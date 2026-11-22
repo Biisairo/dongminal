@@ -123,9 +123,9 @@ class GitViewRoots extends GitPart {
   _renderBody(view,el){
     if(view==='changes') return this.p.changes._renderChanges(el);
     if(view==='diff') return this.p.diffPane._renderDiff(el);
-    if(GIT_VIEW_KINDS[view]) return this.p._renderView(view,el);
+    if(GIT_VIEW_KINDS[view]) return this.p.views._renderView(view,el);
     el.innerHTML='';
-    if(!this.p.repo) this.p._emptyHint(el,GIT_NO_REPO_HINT);
+    if(!this.p.repo) this.p.views._emptyHint(el,GIT_NO_REPO_HINT);
   }
 
   /**
@@ -208,12 +208,12 @@ class GitViewRoots extends GitPart {
   _enterMissingView(){
     this.p._sel.clear(); this.p._anchor=null; this.p.previewFile=null;
     this.p.diffPane._destroyViews();
-    this.p._commit().unmount();
-    this.p._history().unmount();
-    this.p._branches().unmount();
-    this.p._stash().unmount();
-    this.p._console().unmount();
-    this.p._worktrees().unmount();
+    this.p.views._commit().unmount();
+    this.p.views._history().unmount();
+    this.p.views._branches().unmount();
+    this.p.views._stash().unmount();
+    this.p.views._console().unmount();
+    this.p.views._worktrees().unmount();
     this._paintAllViews();
   }
 

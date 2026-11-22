@@ -172,7 +172,7 @@ class GitHistory extends GitView {
     opts.addEventListener('click',ev=>this._openOpts(ev));
     // FR-HBB-4·6: 인자 없이 부르면 startRef 가 빈 값이고 서버가 HEAD 를 쓴다.
     // 커밋·ref 를 시작점으로 삼는 길은 우클릭 메뉴가 그대로 갖는다 (§2.3).
-    brb.addEventListener('click',()=>this.panel.createBranchFrom());
+    brb.addEventListener('click',()=>this.panel.views.createBranchFrom());
     el.querySelector('.git-hist-retry').addEventListener('click',()=>{this._err=null;this._reload()});
     el.querySelector('.git-hist-search').addEventListener('input',ev=>this._search(ev.target.value));
     el.querySelector('.git-hist-search').addEventListener('keydown',ev=>{
@@ -242,11 +242,11 @@ class GitHistory extends GitView {
    *             즉시 나가게 되어 그 순서가 뒤집혔다 (ubuntu 러너 실측)
    */
   _syncStatus(){
-    const n=this.panel.dirtyCount();
+    const n=this.panel.files.dirtyCount();
     // FR-GIT-233: HEAD 표식을 관측에서 파생하므로 HEAD 가 움직이면 행을 다시 그려야
     // 한다 — 미커밋 개수만 보면 체크아웃 직후의 표식이 낡은 채로 남는다.
-    const h=this.panel.headName();
-    const o=(this.panel.statusOf()||{}).oid||'';
+    const h=this.panel.views.headName();
+    const o=(this.panel.views.statusOf()||{}).oid||'';
     if(n===this._dirtyN&&h===this._headName&&o===this._headOid) return false;
     this._dirtyN=n; this._headName=h; this._headOid=o; this._ver++;
     return true;

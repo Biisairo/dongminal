@@ -87,6 +87,6 @@ test('F-3.2: Console 은 하위 폴더 루트에서도 기록을 보인다', asy
   await enter(page, request);
   const r = await request.post('/api/git/stage', { data: { repo: SUB, paths: ['src/b.txt'] } });
   expect(r.ok()).toBeTruthy();
-  await page.evaluate(() => (window as any).app.gitPanel.openView('console'));
+  await page.evaluate(() => (window as any).app.gitPanel.selection.openView('console'));
   await expect(page.locator('#area .git-con-row').first()).toBeVisible({ timeout: 15000 });
 });

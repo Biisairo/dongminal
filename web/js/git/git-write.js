@@ -123,7 +123,7 @@ class GitWrite extends GitPart {
     if(d.status) this.adopt(d);
     // 실패 사유는 Stash 탭이 보인다 — Changes 탭의 안내로 보내면 사용자가 조작한
     // 자리에서 결과를 읽을 수 없다.
-    this.p._stash().adoptWrite(res);
+    this.p.views._stash().adoptWrite(res);
   }
 
   // ── 묶음 F — stash·파일·미커밋 행 (FR-GIT-272~275·277) ──
@@ -214,7 +214,7 @@ class GitWrite extends GitPart {
     const job=res.ok&&res.data&&res.data.job;
     if(job&&job.id){
       const requested=this.p.repo;
-      const done=this.p._remote().follow(job).then(jb=>this._jobRes(jb,requested));
+      const done=this.p.views._remote().follow(job).then(jb=>this._jobRes(jb,requested));
       if(opts&&opts.detach) return {ok:true,code:res.status,data:res.data,started:true,done};
       return done;
     }
@@ -351,7 +351,7 @@ class GitWrite extends GitPart {
    * 클라이언트만 막으면 API 직접 호출이 우회한다.
    */
   runOperation(action){
-    const op=(this.p.statusOf()||{}).operation||{};
+    const op=(this.p.views.statusOf()||{}).operation||{};
     const kind=op.kind||''; if(!kind) return;
     if(action!==GIT_OP_ABORT) return this._runOp(kind,action,false);
     return GitDialog.confirm({
@@ -389,7 +389,7 @@ class GitWrite extends GitPart {
     if(lockBtn){
       lockBtn.classList.toggle('vis',!!(n&&n.lock));
       // 잡이 돌면 그 잡이 lock 의 주인일 수 있다 — 서버의 1층 답 (GR-1b).
-      lockBtn.disabled=!actionState(this.p.actionOf(GIT_ACTION.lockRemove),false).enabled;
+      lockBtn.disabled=!actionState(this.p.views.actionOf(GIT_ACTION.lockRemove),false).enabled;
     }
     const ul=box.querySelector('.git-partial-list'); ul.innerHTML='';
     for(const p of (n&&n.changed)||[]){

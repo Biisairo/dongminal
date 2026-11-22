@@ -22,7 +22,7 @@ Object.assign(GitBranches, {
   async checkout(panel,ref,o){
     if(!panel||!panel.repo) return;
     const opts=Object.assign({repo:panel.repo,ref:ref||''},o||{});
-    if(!panel.isDirty()) return GitBranches._send(panel,opts);
+    if(!panel.files.isDirty()) return GitBranches._send(panel,opts);
     const pick=await GitDialog.open({
       id:'git-choice',ns:'gch',action:'checkout_dirty',
       title:GIT_DIRTY_TITLE,body:GIT_DIRTY_NOTE,
@@ -174,9 +174,9 @@ Object.assign(GitBranches, {
     if(!st) return false;
     if(!((st.operation&&st.operation.kind)||(st.conflicts||[]).length)) return false;
     panel.write.adopt(d);
-    panel.branchNote(GIT_BR_MERGE_CONFLICT_NOTE);
-    panel.expandGroup('conflicts');
-    panel.openView('changes');
+    panel.views.branchNote(GIT_BR_MERGE_CONFLICT_NOTE);
+    panel.views.expandGroup('conflicts');
+    panel.selection.openView('changes');
     return true;
   },
 
@@ -327,7 +327,7 @@ Object.assign(GitBranches, {
     if(!panel||!panel.repo||!target) return;
     const branch=target.short||'';
     if(!target.upstream) return GitBranches._publish(panel,branch,{});
-    const res=await panel._remote().run('branch/push',{branch});
+    const res=await panel.views._remote().run('branch/push',{branch});
     const d=(res&&res.data)||{};
     if(!res.ok&&res.code===409&&d.error==='publish_required')
       return GitBranches._publish(panel,branch,d.plan||{});
@@ -343,7 +343,7 @@ Object.assign(GitBranches, {
       action:GIT_ACT_PUBLISH,title:GIT_PUBLISH_TITLE,targets:[target],stages:1,
     });
     if(!ok) return;
-    return panel._remote().run('branch/push',{branch,publish:true});
+    return panel.views._remote().run('branch/push',{branch,publish:true});
   },
 
   // FR-GIT-268: 원격 ref 를 같은 이름의 로컬 ref 로 갱신한다. 원격 작업이므로 기존
@@ -351,7 +351,7 @@ Object.assign(GitBranches, {
   // 원격 ref 를 그대로 보낸다 — 원격과 브랜치는 서버가 가른다 (GV-g · FR-SDA-42).
   fetchInto(panel,target){
     if(!panel||!panel.repo||!target) return;
-    return panel._remote().run('branch/fetch',{ref:GitBranches.refName(target)});
+    return panel.views._remote().run('branch/fetch',{ref:GitBranches.refName(target)});
   },
 
   // FR-GIT-268: 원격 ref 삭제. 파괴적 확인은 메뉴 프레임워크가 거쳤다 (파괴적 목록에
@@ -388,7 +388,7 @@ Object.assign(GitBranches, {
       return {local:target,remote:((target.upstream||'')+'').trim()};
     // FR-BMU-16h: **뷰가 아니라 패널에게 묻는다.** 종전에는 Branches 뷰의 사본을
     // 읽어서, 그 탭을 한 번도 열지 않으면 추적하는 로컬이 있어도 "없다" 가 됐다.
-    const refs=Array.isArray(panel&&panel._knownRefs)?panel._knownRefs:[];
+    const refs=Array.isArray(panel&&panel.views._knownRefs)?panel.views._knownRefs:[];
     const hits=refs.filter(r=>r&&r.kind===GIT_REF_KIND_LOCAL
       &&((r.upstream||'')+'').trim()===target.short);
     return {local:hits.length===1?hits[0]:null,remote:target.short};
@@ -464,7 +464,7 @@ Object.assign(GitBranches, {
 
   deleteRemote(panel,target){
     if(!panel||!panel.repo||!target) return;
-    return panel._remote().run('branch/delete-remote',
+    return panel.views._remote().run('branch/delete-remote',
       {ref:GitBranches.refName(target),confirm:true});
   },
 
@@ -478,7 +478,7 @@ Object.assign(GitBranches, {
    */
   restoreRemoteCmd(panel,target){
     const short=(target&&target.short)||'';
-    const known=Array.isArray(panel&&panel._knownRefs)?panel._knownRefs:[];
+    const known=Array.isArray(panel&&panel.views._knownRefs)?panel.views._knownRefs:[];
     const remote=(target&&target.remote)
       ||((known.find(r=>r&&r.kind===GIT_REF_KIND_REMOTE&&r.short===short)||{}).remote)||'';
     if(!remote||!short.startsWith(remote+GIT_BR_PREFIX_SEP)||!target.oid) return '';

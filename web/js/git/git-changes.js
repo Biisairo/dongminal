@@ -81,7 +81,7 @@ class GitChanges extends GitPart {
     if(!this.p.repo){
       el.dataset.built=''; el.innerHTML='';
       // 골격을 버렸으므로 커밋 영역도 자기 DOM 을 놓아야 한다.
-      this.p._commit().unmount();
+      this.p.views._commit().unmount();
       const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
       d.textContent=this.p._errMsg||GIT_NO_REPO_HINT;
       el.appendChild(d);
@@ -104,7 +104,7 @@ class GitChanges extends GitPart {
    */
   _renderInit(el){
     el.dataset.built='';
-    this.p._commit().unmount();
+    this.p.views._commit().unmount();
     el.innerHTML='';
     const box=document.createElement('div'); box.className='git-init';
     const msg=document.createElement('div'); msg.className='git-init-msg';
@@ -201,7 +201,7 @@ class GitChanges extends GitPart {
       b.appendChild(UIKit.icon(GIT_REMOTE_MORE,{size:'sm'}));
     // FR-GIT-282: 리포명 자체가 전환 자리다 — 헤더에 새 버튼을 더하지 않는다.
     head.querySelector('.git-head-repo').addEventListener('click',ev=>this._openRepoPicker(ev));
-    this.p._remote().bindHead(head);
+    this.p.views._remote().bindHead(head);
   }
 
   // 머리 하나를 칠한다 (FR-GHM-5·6). 머리가 없는 뷰에서는 아무것도 하지 않는다 —
@@ -209,7 +209,7 @@ class GitChanges extends GitPart {
   _paintHeadIn(el){
     const head=el&&el.querySelector('.git-head'); if(!head) return;
     this._paintHead(el,this.p._status&&this.p._status.status);
-    this.p._remote().paintHead(head);
+    this.p.views._remote().paintHead(head);
   }
 
   // 머리를 실은 뷰 전부. 목록을 따로 적지 않는다 — 머리가 있는 뷰가 곧 대상이다.
@@ -220,7 +220,7 @@ class GitChanges extends GitPart {
 
   // 골격을 세우고 배선한다 (FR-FR3-18). 순서: 골격 → 보기 전환 → 머리 → 잡 글자 → 노트·진행 중 작업 → 그룹 → 커밋 → 원격.
   _buildChanges(el){
-    el.innerHTML=gitChangesHTML(GitChanges.headHTML(),this.p._remote().boxesHTML());
+    el.innerHTML=gitChangesHTML(GitChanges.headHTML(),this.p.views._remote().boxesHTML());
     /**
      * UX_AUDIT_FIX_SRS FR-UXF-23: 보기 전환(폴더/목록)은 브랜치 줄의 끝에 선다. 원격 단추와는 세로 선으로 가른다.
      *   이전: 목록 위에 보기 전환만의 줄(`.git-files-bar`)이 따로 섰다
@@ -244,10 +244,10 @@ class GitChanges extends GitPart {
       b.title=GIT_FILE_VIEW_TITLE[b.dataset.mode]||'';
       b.addEventListener('click',()=>this._setFileView(b.dataset.mode));
     }
-    this.p._commit().mount(el.querySelector('.git-commit'));
+    this.p.views._commit().mount(el.querySelector('.git-commit'));
     // 원격 버튼과 작업 영역의 동작 (FR-GIT-98~112). 골격은 여기 있고 상태는
     // GitRemote 가 들고 있다 — 골격을 다시 세워도 진행 중 작업이 사라지지 않는다.
-    this.p._remote().bind(el);
+    this.p.views._remote().bind(el);
     // FR-GIT-42: 목록 끝이 보일 때마다 다음 덩어리를 이어 그린다 — 관측기는 행 부품이 든다.
     this.p.changeRows._watchMore(files);
     el.dataset.built='1';
@@ -295,7 +295,7 @@ class GitChanges extends GitPart {
       acts.appendChild(UIKit.button({icon:GIT_ACT_ICON[c.act],
         title:(GIT_BULK_TITLE_GROUP[g.key]||{})[c.act]||GIT_BULK_TITLE[c.act],
         kind:'ghost',size:'lg',cls:'git-group-bulk',dataset:{act:c.act},
-        onClick:ev=>{ev.stopPropagation();this.p._bulk(g.key,c.act)}}));
+        onClick:ev=>{ev.stopPropagation();this.p.files._bulk(g.key,c.act)}}));
     }
     d.querySelector('.git-group-head').appendChild(acts);
     return d;
@@ -311,8 +311,8 @@ class GitChanges extends GitPart {
     for(const g of GIT_GROUPS) this.p.changeRows._paintGroup(el,g,gitGroupEntries(s,g.key));
     this._paintMode(el);
     this.p.write._paintNote(el);
-    this.p._commit().paint(s||null);
-    this.p._remote().paint(el);
+    this.p.views._commit().paint(s||null);
+    this.p.views._remote().paint(el);
   }
 
   // 헤더 (FR-GIT-32·33·40)

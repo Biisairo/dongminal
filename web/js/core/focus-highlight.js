@@ -79,7 +79,7 @@ class FocusHighlight extends Controller {
   }
 
   _fhlDiffSel(panel,f,at){
-    const key=panel._selKey(f.group,f.path);
+    const key=panel.selection._selKey(f.group,f.path);
     // Changes 의 현재 행(`cur`)도 그 대상이다 — 그 행이 ‹ › 와 범위 선택의 기준이다.
     const cur=panel.previewFile;
     if(!cur||cur.group!==f.group||cur.path!==f.path){panel.previewFile={...f,repo:panel.repo};panel._anchor={group:f.group,path:f.path};panel.changes._paint()}
