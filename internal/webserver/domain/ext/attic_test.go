@@ -229,6 +229,18 @@ func TestEnsureRuntime_ConcurrentFetchesOnce(t *testing.T) {
 	}
 }
 
+// TC-ATF-26 (FR-ATF-26 / AT-EXT-9): 설치 명령은 WaitDelay 를 갖는다. 없으면 자식이
+// 출력 파이프를 쥔 채 남을 때 취소해도 CombinedOutput 이 끝나지 않는다.
+func TestInstallCommand_HasWaitDelay(t *testing.T) {
+	cmd := installCommand(context.Background(), "tool", []string{"a"}, []string{"K=V"}, t.TempDir())
+	if cmd.WaitDelay <= 0 {
+		t.Fatalf("WaitDelay = %v, want > 0", cmd.WaitDelay)
+	}
+	if cmd.WaitDelay != InstallWaitDelay {
+		t.Fatalf("WaitDelay = %v, want %v", cmd.WaitDelay, InstallWaitDelay)
+	}
+}
+
 // concurrentWindow 는 동시 조달 검사가 두 번째 조달에 주는 틈이다.
 const concurrentWindow = 200 * time.Millisecond
 

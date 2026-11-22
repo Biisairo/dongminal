@@ -19,6 +19,9 @@ import (
 // 죽은 것으로 읽는다.
 const InstallTimeout = 10 * time.Minute
 
+// InstallWaitDelay 는 설치 명령이 취소된 뒤 파이프가 닫히기를 기다리는 상한이다 (FR-ATF-26).
+const InstallWaitDelay = 5 * time.Second
+
 // OutputTail 은 도구의 출력을 결과에 실을 때의 상한이다. 사용자가 읽을 부분은 대개
 // 마지막 오류 줄이다.
 const OutputTail = 4000
@@ -73,12 +76,19 @@ func NewInstaller(root string) *Installer {
 // execCombined 은 실제 실행이다. **셸을 거치지 않는다** — `exec.CommandContext` 에
 // 이름과 인자를 그대로 넘긴다 (FR-EXT-17).
 func execCombined(ctx context.Context, name string, args, env []string, dir string) ([]byte, error) {
+	return installCommand(ctx, name, args, env, dir).CombinedOutput()
+}
+
+// installCommand 는 설치 명령 하나다. 취소 뒤 InstallWaitDelay 가 지나면 출력 파이프를
+// 닫고 돌아온다 (FR-ATF-26) — 자식이 파이프를 쥔 채 남아도 시간 상한이 듣는다.
+func installCommand(ctx context.Context, name string, args, env []string, dir string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	cmd.WaitDelay = InstallWaitDelay
 	if len(env) > 0 {
 		cmd.Env = append(os.Environ(), env...)
 	}
-	return cmd.CombinedOutput()
+	return cmd
 }
 
 func (r *Installer) lookPath() func(string) (string, error) {
