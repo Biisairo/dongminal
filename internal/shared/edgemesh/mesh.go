@@ -686,9 +686,11 @@ func (m *Mesh) HelloAll(h Hello, wait time.Duration) {
 	for fp, l := range m.links {
 		done := make(chan struct{})
 		waits = append(waits, done)
+		// 기록을 먼저 하고 신호를 닫는다 — HelloAll 이 돌아오면 OnHelloSent 도 끝나 있다.
+		// 이전: 신호를 먼저 닫아 기록 전에 돌아올 수 있었다(TestHelloAllReturnsAfterSentHook).
 		l.send(outItem{line: line, sent: func() {
-			close(done)
 			m.helloSent(fp)
+			close(done)
 		}})
 	}
 	m.mu.Unlock()

@@ -434,6 +434,23 @@ func TestHelloAll(t *testing.T) {
 	eventually(t, "B 가 새 hello 를 받는다", func() bool { h, _ := b.hello(a.fp()); return h.Port == 7001 && h.Addr == "10.0.0.1" })
 }
 
+// TC-EGM-6 (FR-EGM-23): HelloAll 이 돌아오면 보낸 기록(OnHelloSent)도 끝나 있다.
+// 이전 동작: 완료 신호를 먼저 닫고 기록을 나중에 해, 기록이 느리면 HelloAll 이 그 전에 돌아왔다
+// (전체 `-race` 실행에서 TestHelloAll 이 가끔 실패했다). 기록을 늦춰 그 틈을 늘 연다.
+func TestHelloAllReturnsAfterSentHook(t *testing.T) {
+	a, b := newTestMesh(t, "a"), newTestMesh(t, "b")
+	orig := a.opts.OnHelloSent
+	a.opts.OnHelloSent = func(fp string) { time.Sleep(helloHookDelay); orig(fp) }
+	connect(a, b)
+	eventually(t, "연결", func() bool { return a.sentCount(b.fp()) == 1 })
+	a.HelloAll(Hello{Name: "a2"}, time.Second)
+	if n := a.sentCount(b.fp()); n != 2 {
+		t.Fatalf("HelloAll 이 돌아왔는데 보낸 기록이 %d 번이다, want 2", n)
+	}
+}
+
+const helloHookDelay = 50 * time.Millisecond
+
 // TC-EGM-7·8 (FR-EGM-7·26): 연결이 없을 때 Notify 는 바로 건다. 주소를 모르면 ErrAddrUnknown,
 // 상대가 404 면 옛 판으로 표시하고 ErrOutdated 다.
 func TestNotifyDialsNow(t *testing.T) {
