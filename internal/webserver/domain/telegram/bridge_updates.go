@@ -31,11 +31,15 @@ func (b *Bridge) onMessage(c Config, m Message) {
 	// 짝맞춤은 등록 전에도 받는다 (FR-TGB-11).
 	if code, ok := strings.CutPrefix(strings.TrimSpace(m.Text), "/pair"); ok {
 		if b.pair.Redeem(strings.TrimSpace(code)) {
-			if err := b.st.SetUser(m.From.ID); err == nil {
-				c.UserID = m.From.ID
-				b.reply(c, m, "등록했습니다. 이제 이 대화방으로 알림을 보냅니다.")
+			if err := b.st.SetUser(m.From.ID); err != nil {
+				// 코드는 이미 소모됐으니 실패를 알린다. 이전에는 아무 답도 없었다 (ATTIC_FIX_SRS FR-ATF-42).
+				dmlog.Infof(nil, "telegram: 짝맞춤 저장 실패 from=%d: %v", m.From.ID, err)
+				b.reply(c, m, "코드는 맞았지만 등록을 저장하지 못했습니다. PC 에서 새 코드를 받아 다시 시도하세요.")
 				return
 			}
+			c.UserID = m.From.ID
+			b.reply(c, m, "등록했습니다. 이제 이 대화방으로 알림을 보냅니다.")
+			return
 		}
 		dmlog.Infof(nil, "telegram: 짝맞춤 실패 from=%d", m.From.ID)
 		if m.From.ID == c.UserID {
