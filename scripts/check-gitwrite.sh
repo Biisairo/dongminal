@@ -109,9 +109,9 @@ opens_pipeline() {
 }
 
 # 저장소를 **범위로 갖지 않는** 쓰기. 파이프라인의 첫 단계가 repo 해석인데,
-# 이들에게는 해석할 저장소가 없다 — `init` 은 저장소를 만드는 중이고, 핀 셋은
+# 이들에게는 해석할 저장소가 없다 — `init` 은 저장소를 만드는 중이고, 핀 둘은
 # workspace.json 의 목록을 편집한다 (저장소를 건드리지 않는다).
-NOT_REPO_SCOPED='^(apiGitInit|apiGitPin|apiGitUnpin|apiGitReorder)$'
+NOT_REPO_SCOPED='^(apiGitInit|apiGitPin|apiGitUnpin)$'
 
 missing=""
 for h in $posts; do

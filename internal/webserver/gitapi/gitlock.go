@@ -39,7 +39,6 @@ var writeLocks = map[string]lockMode{
 	"/api/git/init":                 lockNone,
 	"/api/git/repos/pin":            lockNone,
 	"/api/git/repos/unpin":          lockNone,
-	"/api/git/repos/reorder":        lockNone,
 	"/api/git/stage":                lockTop,
 	"/api/git/unstage":              lockTop,
 	"/api/git/discard":              lockTop,

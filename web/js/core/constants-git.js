@@ -118,7 +118,7 @@ const GIT_BADGE_STALE_FACTOR=4;
 // FR-FLW-11: 핀이 하나도 없을 때. follow 행이 늘 한 줄을 채우고 있었으므로 이
 // 섹션은 빈 적이 없었다 — 이제는 있고, 빈 자리는 고장처럼 보인다.
 const GIT_REPOS_NONE=t('git.repos_none');
-// FR-ETR-31~33: `/api/cwd` 와 `/api/git/repo-at` 이 함께 쓰는 어휘. 서버의 상수와
-// 짝이며(gitCwdSourceTool), 문자열을 여러 곳에 흩뿌리면 한쪽만 바뀐다.
+// FR-ETR-31~33: `/api/cwd` 의 `source` 어휘. 서버의 상수(`cwdSourceTool`)와 짝이며, 문자열을 여러
+// 곳에 흩뿌리면 한쪽만 바뀐다.
 const GIT_CWD_SOURCE_TOOL='tool';
 const GIT_PIN_FAIL_LABEL=t('git.pin_fail_label');

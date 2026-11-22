@@ -14,13 +14,11 @@ type route = httproute.Route[*GitServer]
 
 var routes = []route{
 	httproute.Get("/api/git/repos", needGit((*GitServer).apiGitRepos)),
-	httproute.Get("/api/git/repo-at", needGit((*GitServer).apiGitRepoAt)),
 	// REPO_TAB_UNIFY_SRS FR-RTU-29: 저장소가 아닌 자리를 저장소로 만든다. 핀
 	// 추가와 같은 묶음에 두는 이유는 성공의 결과가 곧 핀이기 때문이다.
 	httproute.Post("/api/git/init", needGit((*GitServer).apiGitInit)),
 	httproute.Post("/api/git/repos/pin", needGit((*GitServer).apiGitPin)),
 	httproute.Post("/api/git/repos/unpin", needGit((*GitServer).apiGitUnpin)),
-	httproute.Post("/api/git/repos/reorder", needGit((*GitServer).apiGitReorder)),
 	httproute.Get("/api/git/status", (*GitServer).apiGitStatus),
 	httproute.Get("/api/git/signature", (*GitServer).apiGitSignature),
 	httproute.Get("/api/git/diff-content", (*GitServer).apiGitDiffContent),

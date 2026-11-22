@@ -153,3 +153,11 @@ test('Repo 탭이 숨어 있어도 git_changed 가 목록 갱신을 합쳐 부�
   a.git.sync._gitReposOnChanged('/other');
   assert.equal(holds.length, 2, '핀이 아닌 저장소의 알림은 무시한다');
 });
+
+// REFACTOR3_FE_FIX_SRS TC-FFX-14 (FX-6, FR-FFX-18): 지운 서버 종단 둘의 경로는 FE 표에도 없다.
+test('TC-FFX-14: GIT_API 에 repo-at·repos/reorder 가 없다', () => {
+  const ctx = load(['core/constants-api.js'], { expose: ['GIT_API'] });
+  assert.equal('repoAt' in ctx.GIT_API, false);
+  assert.equal('reposReorder' in ctx.GIT_API, false);
+  assert.equal(Object.values(ctx.GIT_API).some((p) => p === '/api/git/repo-at' || p === '/api/git/repos/reorder'), false);
+});

@@ -4,9 +4,7 @@ import (
 	"context"
 	"dongminal/internal/shared/diagtail"
 	"dongminal/internal/shared/fanout"
-	"dongminal/internal/shared/listorder"
 	"net/http"
-	"os"
 	"path/filepath"
 
 	"dongminal/internal/shared/httpresp"
@@ -97,9 +95,8 @@ func gitTail(msg string) string { return diagtail.Cut(msg, gitMessageMax) }
 
 // GET /api/git/repos[?observe=1|0&clientId=] — 핀 목록과 각 배지 (FR-FLW-2, FR-GOB-1).
 //
-// **follow 는 없다.** 그 조회는 `+ Add` 가 여는 순간에만 도는 /api/git/repo-at 로
-// 옮겼다 — 목록에 실으면 아무도 읽지 않는 값을 위해 3초마다 rev-parse 가 한 번 더
-// 돈다 (D-FLW-2).
+// **follow 는 없다** — 목록에 실으면 아무도 읽지 않는 값을 위해 3초마다 rev-parse 가
+// 한 번 더 돈다 (D-FLW-2).
 //
 // `observe=1` 은 응답을 만들기 전에 **핀 전부를 관측**한다. 그것이 없던 동안
 // 배지를 채우는 사람은 활성 리포의 폴링 하나뿐이었고(FR-GIT-22), 그래서 클릭해
@@ -167,59 +164,6 @@ func (s *GitServer) gitObservePins(ctx context.Context, pins []string, clientID 
 			s.Watch.NoteScoped(root, obs, clientID, gitPinsScope)
 		}
 	})
-}
-
-// GET /api/git/repo-at?tool=<toolId> — 그 도구의 cwd 가 속한 리포 (FR-FLW-6).
-//
-// 화면에 상주하지 않는다. `+ Add` 다이얼로그가 열릴 때 한 번 부르는 것이 전부이며,
-// 상주시키면 그것이 곧 follow 의 부활이다 (D-FLW-3).
-func (s *GitServer) apiGitRepoAt(w http.ResponseWriter, r *http.Request) {
-	cwd, source := s.gitToolCwd(r)
-	e := s.gitRepoAtEntry(r.Context(), cwd)
-	// FR-ETR-31: 이 값이 **누구의 것인지** 함께 싣는다. 폴백은 유지하되(D-10),
-	// 그것이 서버 자신의 cwd 라는 사실이 응답에서 보여야 한다 — 보이지 않으면
-	// 호출자는 남의 경로를 사용자의 것으로 채운다 (§2.4).
-	e["source"] = source
-	gitJSON(w, http.StatusOK, e)
-}
-
-// gitToolCwd 는 /api/cwd 와 같은 규약이다 — tool 이 비면 서버의 cwd 다.
-// 두 번째 값은 그 근거이며, `/api/cwd` 의 source 와 같은 어휘를 쓴다
-// (FR-FTR-7 · FR-ETR-31).
-func (s *GitServer) gitToolCwd(r *http.Request) (string, string) {
-	if id := r.URL.Query().Get("tool"); id != "" && s.Tools != nil {
-		if cwd := s.Tools.Cwd(id); cwd != "" {
-			return cwd, gitCwdSourceTool
-		}
-	}
-	cwd, _ := os.Getwd()
-	return cwd, gitCwdSourceServer
-}
-
-// /api/cwd 가 쓰는 것과 같은 두 값이다. 문자열을 두 곳에 흩뿌리면 한쪽만
-// 바뀐다 (FR-FTR-4 와 같은 근거).
-const (
-	gitCwdSourceTool   = "tool"
-	gitCwdSourceServer = "server"
-)
-
-// gitRepoAtEntry 는 cwd 가 속한 리포를 확정한다. 저장소가 아니면 path 는 비고
-// 사유만 실린다 — **마지막 유효 리포를 유지하지 않는다.**
-//
-// 배지를 싣지 않는다 — 이 값은 목록이 아니라 `+ Add` 의 기본값이며, 아직 핀되지
-// 않은 리포의 변경 개수는 어차피 관측된 적이 없다 (FR-GIT-24).
-func (s *GitServer) gitRepoAtEntry(ctx context.Context, cwd string) map[string]any {
-	e := map[string]any{"cwd": cwd, "isRepo": false, "path": "", "name": "", "reason": ""}
-	root, err := s.Git.RepoRoot(ctx, cwd)
-	if err != nil {
-		_, name := gitErrorCode(err)
-		e["reason"] = name
-		return e
-	}
-	e["isRepo"] = true
-	e["path"] = root
-	e["name"] = filepath.Base(root)
-	return e
 }
 
 // gitPinnedEntries 는 핀 목록을 순서 그대로 준다. 저장소가 아니게 된 핀은
@@ -386,51 +330,6 @@ func (s *GitServer) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gitJSON(w, http.StatusOK, map[string]any{"pinned": lists.Pinned, "editors": lists.Editors})
-}
-
-// gitReorderReq 는 핀 하나의 이동이다 (FR-GIT-223).
-//
-// **목록 전체를 받지 않는다.** 전체를 받으면 그 사이에 다른 브라우저 창이 핀을
-// 더했을 때 그것을 조용히 지운다. (src, target, before) 는 그때도 뜻이 유지된다.
-type gitReorderReq struct {
-	Src    string `json:"src"`
-	Target string `json:"target"`
-	Before bool   `json:"before"`
-}
-
-// POST /api/git/repos/reorder — 핀 순서를 바꾼다 (FR-GIT-223).
-//
-// rev-parse 를 하지 않는다 — unpin 과 같은 이유다. 저장된 문자열 그대로를 옮기는
-// 것이고, 저장소가 아니게 된 핀도 자리를 옮길 수 있어야 한다.
-func (s *GitServer) apiGitReorder(w http.ResponseWriter, r *http.Request) {
-	var req gitReorderReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if req.Src == "" {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "src 가 없다")
-		return
-	}
-	pins, err := s.gitPinsMutate(func(cur []string) []string {
-		return gitReorderPins(cur, req.Src, req.Target, req.Before)
-	})
-	if err != nil {
-		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
-		return
-	}
-	gitJSON(w, http.StatusOK, map[string]any{"pinned": pins})
-}
-
-// gitReorderPins 는 src 를 빼서 target 앞/뒤에 넣는다.
-//
-// src 가 없으면 **아무것도 바꾸지 않는다** — 목록에 없는 것을 옮기려는 요청은
-// 이미 화면이 낡았다는 뜻이고, 그때 순서를 흔들면 사용자가 보지 않은 변경이 남는다.
-// target 이 없으면 맨 끝이다 — 끌어다 놓은 곳이 사라졌다고 조작을 통째로 잃지 않는다.
-func gitReorderPins(cur []string, src, target string, before bool) []string {
-	// ToEnd 다 — 핀 목록에서는 끌어다 놓은 자리가 사라졌다고 조작을 통째로 잃지
-	// 않는다. 편집기 탭 목록은 반대 정책을 쓴다 (`wsentry.reorder`); 그 갈림의
-	// 근거는 `listorder` 의 머리 주석에 있다.
-	return listorder.Move(cur, src, target, before, listorder.ToEnd)
 }
 
 // gitRepoParam 은 repo 인자를 정규 루트로 옮긴다. 클라이언트가 보낸 경로를 그대로

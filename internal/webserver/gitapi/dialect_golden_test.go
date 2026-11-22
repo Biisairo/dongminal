@@ -64,11 +64,9 @@ func TestGitRoutes_UnavailableWithoutGit(t *testing.T) {
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}}
 	for _, ep := range []struct{ method, path string }{
 		{http.MethodGet, "/api/git/repos"},
-		{http.MethodGet, "/api/git/repo-at"},
 		{http.MethodPost, "/api/git/init"},
 		{http.MethodPost, "/api/git/repos/pin"},
 		{http.MethodPost, "/api/git/repos/unpin"},
-		{http.MethodPost, "/api/git/repos/reorder"},
 		{http.MethodGet, "/api/git/policy"},
 		{http.MethodGet, "/api/git/recovery"},
 		{http.MethodGet, "/api/git/jobs"},

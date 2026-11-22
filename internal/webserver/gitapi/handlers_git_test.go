@@ -196,65 +196,6 @@ func TestGitRepos_NoFollow(t *testing.T) {
 	}
 }
 
-// V-FLW-2 (FR-FLW-6): `+ Add` 가 여는 순간에만 도는 전용 조회. 저장소면 루트를,
-// 아니면 path 를 비우고 사유만 답한다 — 마지막 유효 리포를 유지하지 않는다.
-func TestGitRepoAt(t *testing.T) {
-	t.Run("저장소", func(t *testing.T) {
-		g := newGitFake(t)
-		s, hub, _, _ := gitTestServer(t, g)
-		hub.seed("t1", "T1")
-		hub.setCwd("t1", absWorkRepoSub)
-		g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
-
-		code, out := gitReq(t, s, http.MethodGet, "/api/git/repo-at?tool=t1", "")
-		if code != 200 {
-			t.Fatalf("code=%d body=%v", code, out)
-		}
-		if out["cwd"] != absWorkRepoSub {
-			t.Fatalf("cwd=%v", out["cwd"])
-		}
-		if out["isRepo"] != true || out["path"] != absWorkRepo || out["name"] != "repo" {
-			t.Fatalf("out=%v", out)
-		}
-		if out["reason"] != "" {
-			t.Fatalf("reason=%v", out["reason"])
-		}
-	})
-
-	t.Run("저장소 아님", func(t *testing.T) {
-		g := newGitFake(t)
-		s, hub, _, _ := gitTestServer(t, g)
-		hub.seed("t1", "T1")
-		hub.setCwd("t1", absTmpPlain)
-		g.root = func(string) (core.Output, error) {
-			return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
-		}
-
-		code, out := gitReq(t, s, http.MethodGet, "/api/git/repo-at?tool=t1", "")
-		if code != 200 {
-			t.Fatalf("code=%d body=%v", code, out)
-		}
-		if out["isRepo"] != false || out["path"] != "" {
-			t.Fatalf("out=%v", out)
-		}
-		if out["reason"] != gitErrNotRepo {
-			t.Fatalf("reason=%v, want %q", out["reason"], gitErrNotRepo)
-		}
-	})
-
-	t.Run("라우트 등록", func(t *testing.T) {
-		found := false
-		for _, rt := range routes {
-			if (rt.Method == "" || rt.Method == http.MethodGet) && rt.Match("/api/git/repo-at") {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatal("GET /api/git/repo-at 이 gitapi.routes 에 없다")
-		}
-	})
-}
-
 // 배지는 Store.Observed 만 읽는다. status 를 한 번 관측한 뒤에야 값이 생긴다
 // (FR-GIT-14 — follow 가 사라져도 핀 행의 배지는 그대로다).
 func TestGitRepos_BadgeFromObservation(t *testing.T) {

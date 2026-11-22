@@ -340,10 +340,8 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/git/repos` | 핀 목록과 각 배지(저장소면 git 이 푼 `root` 도). `?observe=1` 이면 응답 전에 핀 전부를 관측하고, `clientId` 를 함께 주면 그 신원이 핀 전부의 감시를 임대한다 — 배지가 바뀌면 `git_changed` 가 온다. `?observe=0&clientId=` 는 그 임대를 놓는다 |
-| GET | `/api/git/repo-at` | 그 경로가 저장소인가 (또는 어느 저장소에 속하는가) |
 | POST | `/api/git/init` | 그 자리를 저장소로 만든다 |
 | POST | `/api/git/repos/pin` · `/api/git/repos/unpin` | 핀을 더하고 뺀다 |
-| POST | `/api/git/repos/reorder` | 핀 순서. **서버가 권위**다 |
 | GET | `/api/git/status` | 변경 목록. 응답의 `mark` 는 관측 식별자다. `?ifMark=<mark>` 를 주면 그 값이 지금 관측과 같을 때 목록 없이 `{repo, requested, isRepo, rootMatch, requestedResolved, mark, unchanged:true, actions}` 만 답한다. `actions` 는 저장소 단위 동작(`git.fetch`·`git.pull`·`git.push`·`git.write`·`git.commit` 등)마다 지금 할 수 있는지(`{ok, why, args}`)이며, 진행 중인 작업에 따라 바뀌므로 `unchanged` 에도 실린다. 목록을 싣는 응답은 `rowActions` 도 싣는다 — 서브모듈 행마다 `{"<path>": {"git.stage": {ok, why}}}` 이고, 행이 없으면 빈 객체다 |
 | GET | `/api/git/signature` | 저장소의 변화 서명 — 바뀌었을 때만 알리기 위한 값 |
 | GET | `/api/git/policy` | 이 저장소에서 허용되는 동작 |

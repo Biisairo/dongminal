@@ -14,14 +14,6 @@ import { TMP, cssPath, tmpPath, realPath } from './osenv';
 // fixtures 의 resetWorkspace 가 매 테스트 전에 workspace.json 을 비워
 // git.pinned 도 지운다. 필요한 핀은 각 테스트가 스스로 만든다.
 
-// 프로젝트 저장소 경로는 서버에게 묻는다 — 비교 대상이 서버가 rev-parse 로 준
-// 값이므로, 테스트 프로세스의 cwd 를 쓰면 심링크 차이로 갈라진다.
-async function projectRepo(request: APIRequestContext) {
-  const d = await (await request.get('/api/git/repo-at')).json();
-  expect(d.isRepo, `서버 cwd 가 저장소가 아니다: ${JSON.stringify(d)}`).toBeTruthy();
-  return d.path as string;
-}
-
 // follow 대상은 포커스된 칸의 셸 cwd 다 — 셸을 실제로 이동시킨다.
 async function cd(page: Page, dir: string) {
   // 셸이 입력을 받을 수 있어야 한다 — xterm 이 선 것과 셸이 뜬 것은 다르다

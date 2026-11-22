@@ -537,7 +537,7 @@ Go 테스트는 전 패키지 통과, `go vet` 무경고, `gofmt` 청결. Playwr
 | `webserver/httpapi` — 탐색기·전송 | `handlers_fs_test.go`, `handlers_fs_ignored_test.go`, `handlers_fs_zip_test.go`, `handlers_fs_relpath_test.go`, `handlers_transfer_test.go` | 루트 가드·무시 판정·zip 상한·`relPath` 탈출 |
 | `webserver/httpapi` — 연결 복원력 | `ws_miss_test.go`, `ws_hold_test.go`, `diag_snapshot_test.go` | 되풀이 미스의 지연·붙잡기·진단 한 줄 |
 | `webserver/httpapi` — 커맨드 | `commands_test.go`, `commands_result_test.go`, `commands_uuid_test.go`, `commands_browser_test.go` | 마지막 것은 브라우저 `_execRemote` 와 화이트리스트를 대조한다 |
-| `webserver/gitapi` | `handlers_git_*_test.go` (20+) | 라우트·정책·기록·`repo-at` 의 `source` |
+| `webserver/gitapi` | `handlers_git_*_test.go` (20+) | 라우트·정책·기록 |
 | `webserver/domain/git` | `query/status_test.go`, `query/status_real_test.go`, `write/*_test.go` | `_real_test.go` 는 **실제 git** 으로 porcelain 형식을 고정한다 |
 | `webserver/domain/run`·`worktree`·`wsentry` | 각 패키지 `*_test.go` | Run 오케스트레이션·격리·Editor/Git 목록 |
 | `webserver/toolclient` | `toolclient_test.go` 등 | 데몬 RPC |
