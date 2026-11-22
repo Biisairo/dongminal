@@ -171,10 +171,29 @@ class ThemeSection extends SettingsSection {
     if(hint) hint.hidden=!seedColor;
   }
 
+  // 메인색 줄 → 추종 스위치 → 목록(Dark·Light 그룹) → 미리보기 순서로 그린다 (REFACTOR3_FE_REST5_SRS FR-FR5-13).
   _renderThemePanel(){
     this._renderSeedRow();
     const list=document.getElementById('theme-list'); list.innerHTML='';
-    // FR-STF-8: 스위치는 목록 위의 `.ds-row` 하나 — 이름은 구조에서 파생한다.
+    this._themeFollowRow();
+    const activeName=customTheme&&!themeFollowSystem?null:currentThemeName;
+    // FR-STF-3: 반대 모드의 슬롯도 보인다 — 적용 중이 아니어도 고른 것이다.
+    const slotName=themeFollowSystem?(systemColorMode()==='dark'?themeNameLight:themeNameDark):null;
+    this._themeListPrep(list);
+    const groups={dark:[],light:[]};
+    for(const name of Object.keys(THEMES)){
+      const theme=THEMES[name];
+      (theme.mode==='light'?groups.light:groups.dark).push(name);
+    }
+    this._themeGroup(list,'Dark',groups.dark,activeName,slotName);
+    this._themeGroup(list,'Light',groups.light,activeName,slotName);
+    const items=[...list.querySelectorAll('.tl-item')];
+    UIKit.rove(items,items.find(i=>i.classList.contains('active')));
+    this._renderPreview();
+  }
+
+  // FR-STF-8: 스위치는 목록 위의 `.ds-row` 하나 — 이름은 구조에서 파생한다.
+  _themeFollowRow(){
     const head=document.getElementById('theme-follow-row');
     if(head){
       const cb=head.querySelector('#ds-theme-follow');
@@ -195,12 +214,12 @@ class ThemeSection extends SettingsSection {
       const hint=head.nextElementSibling;
       if(hint&&hint.classList.contains('ds-hint')) hint.hidden=!(themeFollowSystem&&customTheme);
     }
-    const activeName=customTheme&&!themeFollowSystem?null:currentThemeName;
-    // FR-STF-3: 반대 모드의 슬롯도 보인다 — 적용 중이 아니어도 고른 것이다.
-    const slotName=themeFollowSystem?(systemColorMode()==='dark'?themeNameLight:themeNameDark):null;
-    // `G7-1` 첫 판: 스크롤 영역에 키보드가 닿아야 한다(axe `scrollable-region-
-    // focusable`) — 그리고 테마를 **고르는** 일도 키보드로 되어야 한다 (2.1.1).
-    // 목록은 listbox, 항목은 option, 키 계약은 `UIKit.roving` 한 벌이다 (D-A11Y-11).
+  }
+
+  // `G7-1` 첫 판: 스크롤 영역에 키보드가 닿아야 한다(axe `scrollable-region-
+  // focusable`) — 그리고 테마를 **고르는** 일도 키보드로 되어야 한다 (2.1.1).
+  // 목록은 listbox, 항목은 option, 키 계약은 `UIKit.roving` 한 벌이다 (D-A11Y-11).
+  _themeListPrep(list){
     list.setAttribute('role','listbox');
     list.setAttribute('aria-label',TIP_THEME_LIST);
     if(!list._kbNav){
@@ -210,66 +229,59 @@ class ThemeSection extends SettingsSection {
         activate:el=>el.click(),
       });
     }
-    const groups={dark:[],light:[]};
-    for(const name of Object.keys(THEMES)){
-      const theme=THEMES[name];
-      (theme.mode==='light'?groups.light:groups.dark).push(name);
+  }
+
+  _themeGroup(list,label,names,activeName,slotName){
+    if(!names.length) return;
+    // listbox 의 자식은 option 과 group 뿐이다 — 머리글은 group 의 이름이 된다.
+    const grp=document.createElement('div');
+    grp.setAttribute('role','group');
+    const hdr=document.createElement('div');
+    hdr.className='tl-section'; hdr.textContent=label;
+    hdr.id='tl-section-'+label.toLowerCase();
+    grp.setAttribute('aria-labelledby',hdr.id);
+    grp.appendChild(hdr);
+    list.appendChild(grp);
+    for(const name of names) grp.appendChild(this._themeItem(name,activeName,slotName));
+  }
+
+  _themeItem(name,activeName,slotName){
+    const theme=THEMES[name];
+    const item=document.createElement('div');
+    item.className='tl-item'+(name===activeName?' active':'')+(name===slotName?' slot':'');
+    item.setAttribute('role','option');
+    item.setAttribute('aria-selected',name===activeName?'true':'false');
+    item.tabIndex=-1;
+    // 색 점과 이름을 **DOM 으로 세운다.** 종전에는 마크업 문자열을 이어
+    // 붙였고, `t.ui[k]` 와 `name` 은 사용자가 만든 테마에서 온다 — 문자열
+    // 조립은 그 값들이 마크업이 되는 길이었다.
+    const keys=['bg','accent','text','border','danger'];
+    const dots=document.createElement('div');
+    dots.className='tl-dots';
+    // FR-SEED-13: 점은 메인색 변환 결과다 — 고르기 전에 결과를 본다.
+    const shown=seedTheme(theme,seedColor);
+    for(const k of keys){
+      const dot=document.createElement('span');
+      dot.style.background=shown.ui[k];
+      dots.appendChild(dot);
     }
-    const renderGroup=(label,names)=>{
-      if(!names.length) return;
-      // listbox 의 자식은 option 과 group 뿐이다 — 머리글은 group 의 이름이 된다.
-      const grp=document.createElement('div');
-      grp.setAttribute('role','group');
-      const hdr=document.createElement('div');
-      hdr.className='tl-section'; hdr.textContent=label;
-      hdr.id='tl-section-'+label.toLowerCase();
-      grp.setAttribute('aria-labelledby',hdr.id);
-      grp.appendChild(hdr);
-      list.appendChild(grp);
-      for(const name of names){
-        const theme=THEMES[name];
-        const item=document.createElement('div');
-        item.className='tl-item'+(name===activeName?' active':'')+(name===slotName?' slot':'');
-        item.setAttribute('role','option');
-        item.setAttribute('aria-selected',name===activeName?'true':'false');
-        item.tabIndex=-1;
-        // 색 점과 이름을 **DOM 으로 세운다.** 종전에는 마크업 문자열을 이어
-        // 붙였고, `t.ui[k]` 와 `name` 은 사용자가 만든 테마에서 온다 — 문자열
-        // 조립은 그 값들이 마크업이 되는 길이었다.
-        const keys=['bg','accent','text','border','danger'];
-        const dots=document.createElement('div');
-        dots.className='tl-dots';
-        // FR-SEED-13: 점은 메인색 변환 결과다 — 고르기 전에 결과를 본다.
-        const shown=seedTheme(theme,seedColor);
-        for(const k of keys){
-          const dot=document.createElement('span');
-          dot.style.background=shown.ui[k];
-          dots.appendChild(dot);
-        }
-        const label=document.createElement('span');
-        label.className='tl-name';
-        label.textContent=name;
-        item.appendChild(dots); item.appendChild(label);
-        item.addEventListener('click',()=>{
-          // FR-STF-3: 추종 중에는 그 테마의 모드에 맞는 슬롯이 바뀐다 — 지금
-          // 시스템 모드와 같은 쪽이면 즉시 적용되고, 아니면 저장만 된다.
-          if(themeFollowSystem){
-            if(theme.mode==='light') themeNameLight=name; else themeNameDark=name;
-            this.app._applyThemeChoice(); this._renderThemePanel(); this.app.saveSettings();
-            return;
-          }
-          currentThemeName=name; customTheme=null;
-          applyThemeObj(theme); this._renderThemePanel(); this._hideCustomEditor();
-          this.app.saveSettings();
-        });
-        grp.appendChild(item);
+    const label=document.createElement('span');
+    label.className='tl-name';
+    label.textContent=name;
+    item.appendChild(dots); item.appendChild(label);
+    item.addEventListener('click',()=>{
+      // FR-STF-3: 추종 중에는 그 테마의 모드에 맞는 슬롯이 바뀐다 — 지금
+      // 시스템 모드와 같은 쪽이면 즉시 적용되고, 아니면 저장만 된다.
+      if(themeFollowSystem){
+        if(theme.mode==='light') themeNameLight=name; else themeNameDark=name;
+        this.app._applyThemeChoice(); this._renderThemePanel(); this.app.saveSettings();
+        return;
       }
-    };
-    renderGroup('Dark', groups.dark);
-    renderGroup('Light', groups.light);
-    const items=[...list.querySelectorAll('.tl-item')];
-    UIKit.rove(items,items.find(i=>i.classList.contains('active')));
-    this._renderPreview();
+      currentThemeName=name; customTheme=null;
+      applyThemeObj(theme); this._renderThemePanel(); this._hideCustomEditor();
+      this.app.saveSettings();
+    });
+    return item;
   }
 
   _renderPreview(){

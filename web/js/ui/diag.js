@@ -22,71 +22,87 @@
  * 지난다 — 조용한 예외는 예외가 아니라 구멍이다. 이 화면이 테마와 무관한 별도
  * 문서로 분리되면 그 예외는 없어진다.
  */
-(function(){
-  if(!/[?&]diag=1(&|$)/.test(location.search)) return;
-
-  const MAX=600;
-  // 붙을 대상(소켓·스크롤 칸·렌더러)이 늦게 서므로 이 주기로 다시 걸어 본다.
-  const HOOK_RETRY_MS=1000;
-  // 첫 환경 기록. 부팅이 끝난 뒤의 값을 적으려고 조금 미룬다.
-  const ENV_DELAY_MS=800;
-  const lines=[];
-  let paused=false;
-
-  const el=document.createElement('div');
-  el.id='diag-ov';
-  el.innerHTML=
-    '<div class="dg-bar">'+
-      '<span class="dg-t">DIAG</span>'+
-      '<button class="ui-btn ui-btn-sm dg-b" data-a="send" title="Upload this log to the server as a file">'+escHtml(t('diag.send'))+'</button>'+
-      '<button class="ui-btn ui-btn-sm dg-b" data-a="clear" title="Clear the collected log lines">'+escHtml(t('diag.clear'))+'</button>'+
-      '<button class="ui-btn ui-btn-sm dg-b" data-a="pause" title="Pause and resume log collection">'+escHtml(t('diag.pause'))+'</button>'+
-      '<button class="ui-btn ui-btn-sm dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">'+escHtml(t('diag.env'))+'</button>'+
-      '<button class="ui-btn ui-btn-sm dg-b" data-a="hub" title="Dump pending timers and event topics (TimerHub / EventBus)">'+escHtml(t('diag.hub'))+'</button>'+
-      '<button class="ui-btn ui-btn-sm dg-b" data-a="err" title="Dump uncaught errors and unhandled promise rejections">'+escHtml(t('diag.err'))+'</button>'+
-      '<button class="ui-btn ui-btn-sm dg-b" data-a="min" title="Minimize this overlay">─</button>'+
-    '</div>'+
-    '<div class="dg-log"></div>';
-  const style=document.createElement('style');
-  style.textContent=
-    '#diag-ov{position:fixed;left:0;right:0;top:0;z-index:9999;background:rgba(0,0,0,.88);'+
-      'color:#0f0;font:10px/1.35 ui-monospace,monospace;max-height:45vh;display:flex;flex-direction:column;'+
-      'border-bottom:1px solid #0a0}'+
-    '#diag-ov.min .dg-log{display:none}'+
-    '#diag-ov .dg-bar{display:flex;gap:4px;align-items:center;padding:3px 4px;flex:0 0 auto;'+
-      'background:#020;border-bottom:1px solid #060}'+
-    '#diag-ov .dg-t{color:#0f0;font-weight:700;margin-right:auto}'+
-    '#diag-ov .dg-b{background:#030;border:1px solid #0a0;color:#0f0;font:10px ui-monospace,monospace;'+
-      'padding:3px 6px;border-radius:var(--radius-sm)}'+
-    '#diag-ov .dg-log{overflow-y:auto;padding:3px 4px;white-space:pre-wrap;word-break:break-all;'+
-      '-webkit-user-select:text;user-select:text}';
-  document.head.appendChild(style);
-  document.body.appendChild(el);
-  const logEl=el.querySelector('.dg-log');
-
-  const t0=Date.now();
-  function put(s){
-    if(paused) return;
-    lines.push(((Date.now()-t0)/MS_PER_SEC).toFixed(2)+' '+s);
-    if(lines.length>MAX) lines.splice(0,lines.length-MAX);
-    logEl.textContent=lines.slice(-60).join('\n');
-    logEl.scrollTop=logEl.scrollHeight;
+class DiagOverlay {
+  /** `?diag=1` 일 때만 선다. 그 밖에는 아무 것도 하지 않는다. */
+  static start(){
+    if(!/[?&]diag=1(&|$)/.test(location.search)) return null;
+    const d=new DiagOverlay();
+    d._build();
+    d._hookEvents();
+    d._hookLater();
+    d._wireBar();
+    setTimeout(()=>d.env(),DiagOverlay.ENV_DELAY_MS);
+    return d;
   }
 
-  const cn=(n)=>{
+  constructor(){
+    this.lines=[];
+    this.paused=false;
+    this.t0=Date.now();
+    this.el=null;
+    this.logEl=null;
+    // 칸마다 마지막으로 본 `ydisp` (M9-B2).
+    this.seen=new WeakMap();
+  }
+
+  _build(){
+    const el=document.createElement('div');
+    el.id='diag-ov';
+    el.innerHTML=
+      '<div class="dg-bar">'+
+        '<span class="dg-t">DIAG</span>'+
+        '<button class="ui-btn ui-btn-sm dg-b" data-a="send" title="Upload this log to the server as a file">'+escHtml(t('diag.send'))+'</button>'+
+        '<button class="ui-btn ui-btn-sm dg-b" data-a="clear" title="Clear the collected log lines">'+escHtml(t('diag.clear'))+'</button>'+
+        '<button class="ui-btn ui-btn-sm dg-b" data-a="pause" title="Pause and resume log collection">'+escHtml(t('diag.pause'))+'</button>'+
+        '<button class="ui-btn ui-btn-sm dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">'+escHtml(t('diag.env'))+'</button>'+
+        '<button class="ui-btn ui-btn-sm dg-b" data-a="hub" title="Dump pending timers and event topics (TimerHub / EventBus)">'+escHtml(t('diag.hub'))+'</button>'+
+        '<button class="ui-btn ui-btn-sm dg-b" data-a="err" title="Dump uncaught errors and unhandled promise rejections">'+escHtml(t('diag.err'))+'</button>'+
+        '<button class="ui-btn ui-btn-sm dg-b" data-a="min" title="Minimize this overlay">─</button>'+
+      '</div>'+
+      '<div class="dg-log"></div>';
+    const style=document.createElement('style');
+    style.textContent=
+      '#diag-ov{position:fixed;left:0;right:0;top:0;z-index:9999;background:rgba(0,0,0,.88);'+
+        'color:#0f0;font:10px/1.35 ui-monospace,monospace;max-height:45vh;display:flex;flex-direction:column;'+
+        'border-bottom:1px solid #0a0}'+
+      '#diag-ov.min .dg-log{display:none}'+
+      '#diag-ov .dg-bar{display:flex;gap:4px;align-items:center;padding:3px 4px;flex:0 0 auto;'+
+        'background:#020;border-bottom:1px solid #060}'+
+      '#diag-ov .dg-t{color:#0f0;font-weight:700;margin-right:auto}'+
+      '#diag-ov .dg-b{background:#030;border:1px solid #0a0;color:#0f0;font:10px ui-monospace,monospace;'+
+        'padding:3px 6px;border-radius:var(--radius-sm)}'+
+      '#diag-ov .dg-log{overflow-y:auto;padding:3px 4px;white-space:pre-wrap;word-break:break-all;'+
+        '-webkit-user-select:text;user-select:text}';
+    document.head.appendChild(style);
+    document.body.appendChild(el);
+    this.el=el;
+    this.logEl=el.querySelector('.dg-log');
+  }
+
+  put(s){
+    if(this.paused) return;
+    const lines=this.lines;
+    lines.push(((Date.now()-this.t0)/MS_PER_SEC).toFixed(2)+' '+s);
+    if(lines.length>DiagOverlay.MAX) lines.splice(0,lines.length-DiagOverlay.MAX);
+    this.logEl.textContent=lines.slice(-60).join('\n');
+    this.logEl.scrollTop=this.logEl.scrollHeight;
+  }
+
+  static cn(n){
     if(!n) return 'null';
     if(n===document.body) return 'body';
     const c=(n.className&&typeof n.className==='string')?('.'+n.className.trim().split(/\s+/).join('.')):'';
     return (n.tagName||'?').toLowerCase()+c;
-  };
+  }
 
-  function pane(){
+  pane(){
     const a=window.app;
     if(!a||!a.focusedTerminal) return null;
     try{return a.focusedTerminal()}catch{return null}
   }
-  function scrollState(){
-    const p=pane(); if(!p||!p.term) return 'no-pane';
+
+  scrollState(){
+    const p=this.pane(); if(!p||!p.term) return 'no-pane';
     const b=p.term.buffer.active;
     const vp=p.el.querySelector('.xterm-viewport');
     return 'vY='+b.viewportY+' baseY='+b.baseY+' len='+b.length+' rows='+p.term.rows+
@@ -99,7 +115,7 @@
    * 자동 갱신이 멎어도 화면에는 낡은 목록이 정상처럼 그려져 있다 (SRS §2.4).
    * 그 침묵을 깨는 값이 관측의 나이이며, 워치독이 판정에 쓰는 것과 같은 값이다.
    */
-  function gitObsState(){
+  gitObsState(){
     const a=window.app;
     if(!a||!a.gitPanels||!a.gitPanels.size) return 'git: no panels';
     const out=[];
@@ -110,103 +126,114 @@
     return 'git: '+out.join(' | ');
   }
 
-  function env(){
+  env(){
     const a=window.app;
-    const p=pane();
+    const p=this.pane();
     const tp=p?p.el:null;
     const vv=window.visualViewport;
-    put('--- ENV ---');
-    put('ua='+navigator.userAgent);
-    put('ver='+(document.querySelector('script[src*="term-pane.js"]')||{}).getAttribute?.('src'));
-    put('isMobile='+(a?a.isMobile:'?')+' displayMode='+(a?a.displayMode:'?')+' bp='+(a?a.mobileBreakpoint:'?'));
-    put('body.mobile='+document.body.classList.contains('mobile')+' kbUp='+document.body.classList.contains('keyboard-up'));
-    put('innerW/H='+window.innerWidth+'/'+window.innerHeight+' dpr='+window.devicePixelRatio);
-    put('vv='+(vv?(Math.round(vv.width)+'/'+Math.round(vv.height)+' offTop='+Math.round(vv.offsetTop)+' scale='+vv.scale.toFixed(2)):'none'));
-    put('tp.touchAction='+(tp?getComputedStyle(tp).touchAction:'?'));
-    put('vp.overflowY='+(p?getComputedStyle(p.el.querySelector('.xterm-viewport')||document.body).overflowY:'?'));
-    put('hasTouchScrollHook='+!!(p&&p._tsStart)+' hasBeforeInput='+!!(p&&p._onBeforeInput));
-    put('mouseEventsActive='+(p&&p.term&&p.term._core&&p.term._core.coreMouseService?p.term._core.coreMouseService.areMouseEventsActive:'?'));
-    put('renderer='+(p&&p.gpuRenderer?p.gpuRenderer():'?')+' gpuUnavailable='+(typeof TermGpu!=='undefined'?TermGpu.unavailable:'?')+' gpuLosses='+(typeof TermGpu!=='undefined'?TermGpu.losses:'?'));
-    put('active='+cn(document.activeElement));
-    put(scrollState());
-    put(gitObsState());
-    put('--- /ENV ---');
+    const cn=DiagOverlay.cn;
+    this.put('--- ENV ---');
+    this.put('ua='+navigator.userAgent);
+    this.put('ver='+(document.querySelector('script[src*="term-pane.js"]')||{}).getAttribute?.('src'));
+    this.put('isMobile='+(a?a.isMobile:'?')+' displayMode='+(a?a.displayMode:'?')+' bp='+(a?a.mobileBreakpoint:'?'));
+    this.put('body.mobile='+document.body.classList.contains('mobile')+' kbUp='+document.body.classList.contains('keyboard-up'));
+    this.put('innerW/H='+window.innerWidth+'/'+window.innerHeight+' dpr='+window.devicePixelRatio);
+    this.put('vv='+(vv?(Math.round(vv.width)+'/'+Math.round(vv.height)+' offTop='+Math.round(vv.offsetTop)+' scale='+vv.scale.toFixed(2)):'none'));
+    this.put('tp.touchAction='+(tp?getComputedStyle(tp).touchAction:'?'));
+    this.put('vp.overflowY='+(p?getComputedStyle(p.el.querySelector('.xterm-viewport')||document.body).overflowY:'?'));
+    this.put('hasTouchScrollHook='+!!(p&&p._tsStart)+' hasBeforeInput='+!!(p&&p._onBeforeInput));
+    this.put('mouseEventsActive='+(p&&p.term&&p.term._core&&p.term._core.coreMouseService?p.term._core.coreMouseService.areMouseEventsActive:'?'));
+    this.put('renderer='+(p&&p.gpuRenderer?p.gpuRenderer():'?')
+      +' gpuUnavailable='+(typeof TermGpu!=='undefined'?TermGpu.unavailable:'?')+' gpuLosses='+(typeof TermGpu!=='undefined'?TermGpu.losses:'?'));
+    this.put('active='+cn(document.activeElement));
+    this.put(this.scrollState());
+    this.put(this.gitObsState());
+    this.put('--- /ENV ---');
   }
 
-  // ── 터치 ──
-  // capture 로 발생을 기록하고, setTimeout 으로 처리 완료 후의 defaultPrevented 를 읽는다.
-  // 이 방식은 중간에서 stopPropagation 되어도 관측이 끊기지 않는다.
-  for(const type of ['touchstart','touchmove','touchend','touchcancel']){
-    window.addEventListener(type,(e)=>{
-      const p=pane();
-      const touch=e.touches&&e.touches[0];
-      const info=type+' n='+(e.touches?e.touches.length:0)+
-        (touch?(' y='+Math.round(touch.clientY)):'')+
-        ' cancelable='+e.cancelable+' tgt='+cn(e.target)+
-        ' tsActive='+(p?!!p._tsActive:'?');
-      setTimeout(()=>put(info+' dp='+e.defaultPrevented+' | '+scrollState()),0);
-    },{capture:true,passive:true});
+  _hookEvents(){
+    const cn=DiagOverlay.cn;
+    // ── 터치 ──
+    // capture 로 발생을 기록하고, setTimeout 으로 처리 완료 후의 defaultPrevented 를 읽는다.
+    // 이 방식은 중간에서 stopPropagation 되어도 관측이 끊기지 않는다.
+    for(const type of ['touchstart','touchmove','touchend','touchcancel']){
+      window.addEventListener(type,(e)=>{
+        const p=this.pane();
+        const touch=e.touches&&e.touches[0];
+        const info=type+' n='+(e.touches?e.touches.length:0)+
+          (touch?(' y='+Math.round(touch.clientY)):'')+
+          ' cancelable='+e.cancelable+' tgt='+cn(e.target)+
+          ' tsActive='+(p?!!p._tsActive:'?');
+        setTimeout(()=>this.put(info+' dp='+e.defaultPrevented+' | '+this.scrollState()),0);
+      },{capture:true,passive:true});
+    }
+
+    // ── 키·입력 ──
+    for(const type of ['keydown','keypress','beforeinput','input','compositionstart','compositionupdate','compositionend']){
+      window.addEventListener(type,(e)=>{
+        let s=type;
+        if(e instanceof KeyboardEvent) s+=' key='+JSON.stringify(e.key)+' code='+e.keyCode;
+        if(typeof e.data!=='undefined') s+=' data='+JSON.stringify(e.data);
+        if(e.inputType) s+=' it='+e.inputType;
+        if(typeof e.isComposing!=='undefined') s+=' comp='+e.isComposing;
+        s+=' tgt='+cn(e.target);
+        // UX_BATCH9_SRS FR-IMK-4: 조합 게이트가 이 키를 어떻게 다뤘는가.
+        //
+        // 게이트의 판정은 내부 상태라 이벤트만 보아서는 읽히지 않는다. 보류 큐의
+        // 길이와 정리 창의 상태를 이벤트 **직후**에 함께 찍으면 그 순서가 드러난다 —
+        // Enter 와 모바일 되풀이(SRS §2.8)를 실측으로 특정하기 위한 자리다.
+        const ip=this.pane();
+        const imeInfo=ip?(' ime='+(ip._imeOpen?'open':(ip._imeSettling?'settling':'-'))
+          +' q='+((ip._imeQ||[]).length)):'';
+        setTimeout(()=>this.put(s+' dp='+e.defaultPrevented+imeInfo),0);
+      },{capture:true,passive:true});
+    }
+
+    // ── 포커스 ──
+    for(const type of ['focusin','focusout']){
+      window.addEventListener(type,(e)=>this.put(type+' tgt='+cn(e.target)),{capture:true,passive:true});
+    }
+
+    // ── 뷰포트 ──
+    window.addEventListener('resize',()=>this.put('window.resize innerH='+window.innerHeight+' | '+this.scrollState()));
+    if(window.visualViewport){
+      const vv=window.visualViewport;
+      vv.addEventListener('resize',()=>this.put('vv.resize h='+Math.round(vv.height)+' offTop='+Math.round(vv.offsetTop)+
+        ' kbH='+Math.round(Math.max(0,window.innerHeight-vv.height-vv.offsetTop))));
+      vv.addEventListener('scroll',()=>this.put('vv.scroll offTop='+Math.round(vv.offsetTop)));
+    }
   }
 
-  // ── 키·입력 ──
-  for(const type of ['keydown','keypress','beforeinput','input','compositionstart','compositionupdate','compositionend']){
-    window.addEventListener(type,(e)=>{
-      let s=type;
-      if(e instanceof KeyboardEvent) s+=' key='+JSON.stringify(e.key)+' code='+e.keyCode;
-      if(typeof e.data!=='undefined') s+=' data='+JSON.stringify(e.data);
-      if(e.inputType) s+=' it='+e.inputType;
-      if(typeof e.isComposing!=='undefined') s+=' comp='+e.isComposing;
-      s+=' tgt='+cn(e.target);
-      // UX_BATCH9_SRS FR-IMK-4: 조합 게이트가 이 키를 어떻게 다뤘는가.
-      //
-      // 게이트의 판정은 내부 상태라 이벤트만 보아서는 읽히지 않는다. 보류 큐의
-      // 길이와 정리 창의 상태를 이벤트 **직후**에 함께 찍으면 그 순서가 드러난다 —
-      // Enter 와 모바일 되풀이(SRS §2.8)를 실측으로 특정하기 위한 자리다.
-      const ip=pane();
-      const imeInfo=ip?(' ime='+(ip._imeOpen?'open':(ip._imeSettling?'settling':'-'))
-        +' q='+((ip._imeQ||[]).length)):'';
-      setTimeout(()=>put(s+' dp='+e.defaultPrevented+imeInfo),0);
-    },{capture:true,passive:true});
-  }
-
-  // ── 포커스 ──
-  for(const type of ['focusin','focusout']){
-    window.addEventListener(type,(e)=>put(type+' tgt='+cn(e.target)),{capture:true,passive:true});
-  }
-
-  // ── 뷰포트 ──
-  window.addEventListener('resize',()=>put('window.resize innerH='+window.innerHeight+' | '+scrollState()));
-  if(window.visualViewport){
-    const vv=window.visualViewport;
-    vv.addEventListener('resize',()=>put('vv.resize h='+Math.round(vv.height)+' offTop='+Math.round(vv.offsetTop)+
-      ' kbH='+Math.round(Math.max(0,window.innerHeight-vv.height-vv.offsetTop))));
-    vv.addEventListener('scroll',()=>put('vv.scroll offTop='+Math.round(vv.offsetTop)));
+  // 붙을 대상(소켓·스크롤 칸·렌더러)이 늦게 서므로 주기로 다시 걸어 본다.
+  _hookLater(){
+    setInterval(()=>this._hookSend(),DiagOverlay.HOOK_RETRY_MS);
+    setInterval(()=>this._watchScroll(),DiagOverlay.HOOK_RETRY_MS);
+    setInterval(()=>this._pollYdisp(),DiagOverlay.YDISP_POLL_MS);
+    setInterval(()=>this._hookRenderer(),DiagOverlay.HOOK_RETRY_MS);
   }
 
   // ── 전송 바이트 ──
-  const hookSend=()=>{
-    const p=pane();
+  _hookSend(){
+    const p=this.pane();
     if(!p||p.__diagSpied) return;
     const orig=p._send.bind(p);
     p._send=(m)=>{
       try{
-        if(m[0]===0) put('SEND '+JSON.stringify(new TextDecoder().decode(m.subarray(1))));
-        else if(m[0]===1) put('RESIZE '+((m[1]<<8)|m[2])+'x'+((m[3]<<8)|m[4]));
+        if(m[0]===0) this.put('SEND '+JSON.stringify(new TextDecoder().decode(m.subarray(1))));
+        else if(m[0]===1) this.put('RESIZE '+((m[1]<<8)|m[2])+'x'+((m[3]<<8)|m[4]));
       }catch{}
       return orig(m);
     };
     p.__diagSpied=true;
-  };
-  setInterval(hookSend,HOOK_RETRY_MS);
+  }
 
   // ── 스크롤 결과 ──
-  const watchScroll=()=>{
-    const p=pane();
+  _watchScroll(){
+    const p=this.pane();
     if(!p||!p.term||p.__diagScroll) return;
-    try{p.term.onScroll(()=>put('term.onScroll '+scrollState()))}catch{}
+    try{p.term.onScroll(()=>this.put('term.onScroll '+this.scrollState()))}catch{}
     p.__diagScroll=true;
-  };
-  setInterval(watchScroll,HOOK_RETRY_MS);
+  }
 
   /**
    * M9-B2: **떨어져 있는 동안**의 `ydisp` 를 본다.
@@ -220,24 +247,23 @@
    * 바닥 추종(`vY===baseY` 로 함께 오른 것)은 적지 않는다. 그것은 정상이고,
    * 적으면 조용한 구간이 그 줄에 묻힌다.
    */
-  const seen=new WeakMap();
-  setInterval(()=>{
+  _pollYdisp(){
     const a=window.app;
     if(!a||!a.tools) return;
     for(const [id,p] of a.tools){
       if(!p||!p.term) continue;
       let b; try{b=p.term.buffer.active}catch{continue}
-      const prev=seen.get(p);
+      const prev=this.seen.get(p);
       const now={v:b.viewportY,base:b.baseY,len:b.length,rows:p.term.rows};
-      seen.set(p,now);
+      this.seen.set(p,now);
       if(!prev||prev.v===now.v) continue;
       if(now.v===now.base&&prev.v===prev.base) continue; // 바닥 추종
-      put('ydisp '+String(id).slice(0,8)+' '+prev.v+'->'+now.v
+      this.put('ydisp '+String(id).slice(0,8)+' '+prev.v+'->'+now.v
         +' base='+prev.base+'->'+now.base+' len='+prev.len+'->'+now.len
         +' rows='+prev.rows+'->'+now.rows
         +' conn='+p.el.isConnected+' vis='+p.el.classList.contains('vis'));
     }
-  },200);
+  }
 
   /**
    * M9-B2: 갈무리와 복원이 **무엇을 쥐고 무엇으로 되돌렸는지**.
@@ -245,7 +271,7 @@
    * 접수한 로그에서 복원의 흔들기 두 줄(`renderer-scroll.js`)은 보였지만 그것이
    * 어떤 `rec` 를 딛는지는 보이지 않았다. 여기가 그 한 줄이다.
    */
-  const hookRenderer=()=>{
+  _hookRenderer(){
     const r=window.app&&window.app.renderer;
     if(!r||r.__diagGrab) return;
     const g=r._grabScroll.bind(r), s=r._restoreScrollOf.bind(r);
@@ -253,7 +279,7 @@
       const rec=g(p);
       try{
         const b=p.term&&p.term.buffer.active;
-        put('grab '+String(p.id).slice(0,8)+' y='+rec.y+' atBottom='+rec.atBottom+' alt='+rec.alt
+        this.put('grab '+String(p.id).slice(0,8)+' y='+rec.y+' atBottom='+rec.atBottom+' alt='+rec.alt
           +' base='+(b?b.baseY:'?')+' len='+(b?b.length:'?')+' rows='+(p.term?p.term.rows:'?')
           +' conn='+p.el.isConnected+' vis='+p.el.classList.contains('vis'));
       }catch{}
@@ -262,15 +288,14 @@
     r._restoreScrollOf=(rec)=>{
       try{
         const p=rec&&rec.p, b=p&&p.term&&p.term.buffer.active;
-        put('restore '+String(p&&p.id).slice(0,8)+' y='+(rec&&rec.y)+' atBottom='+(rec&&rec.atBottom)
+        this.put('restore '+String(p&&p.id).slice(0,8)+' y='+(rec&&rec.y)+' atBottom='+(rec&&rec.atBottom)
           +' now='+(b?b.viewportY:'?')+' base='+(b?b.baseY:'?')+' len='+(b?b.length:'?')
           +' vis='+(p?p.el.classList.contains('vis'):'?'));
       }catch{}
       return s(rec);
     };
     r.__diagGrab=true;
-  };
-  setInterval(hookRenderer,HOOK_RETRY_MS);
+  }
 
   /**
    * OBSERVABILITY_SRS FR-OBS-18: 잡히지 않은 오류를 여기서 본다.
@@ -278,45 +303,50 @@
    * 기록은 `error-log.js` 가 **언제나** 쥐고 있다 — 진단을 켜야만 걸리는 훅은
    * 재현되는 문제만 잡기 때문이다. 이 버튼은 그 쥔 것을 화면으로 옮길 뿐이다.
    */
-  function errs(){
+  errs(){
     const L=window.__dongminalErrors;
-    if(!L){put('ERR (기록 계층 없음)');return}
+    if(!L){this.put('ERR (기록 계층 없음)');return}
     const items=L.items();
-    put('ERR total='+L.total()+' kept='+items.length);
-    if(!items.length){put('ERR (없음)');return}
+    this.put('ERR total='+L.total()+' kept='+items.length);
+    if(!items.length){this.put('ERR (없음)');return}
     for(const it of items){
-      put('ERR '+it.t+' '+it.kind+' '+it.message
+      this.put('ERR '+it.t+' '+it.kind+' '+it.message
         +(it.src?(' @'+it.src+':'+it.line+':'+it.col):''));
-      if(it.stack) for(const ln of it.stack.split('\n').slice(0,4)) put('ERR   '+ln.trim());
+      if(it.stack) for(const ln of it.stack.split('\n').slice(0,4)) this.put('ERR   '+ln.trim());
     }
   }
 
-  el.querySelector('.dg-bar').addEventListener('click',(e)=>{
+  _wireBar(){
+    const el=this.el;
+    el.querySelector('.dg-bar').addEventListener('click',(e)=>this._onBar(e));
+    // 오버레이 자체의 터치가 터미널 핸들러로 새지 않게 한다.
+    el.addEventListener('touchstart',e=>e.stopPropagation(),true);
+    el.addEventListener('touchmove',e=>e.stopPropagation(),true);
+  }
+
+  _onBar(e){
     const a=e.target&&e.target.dataset&&e.target.dataset.a;
     if(!a) return;
     e.preventDefault();e.stopPropagation();
-    if(a==='clear'){lines.length=0;logEl.textContent='';return}
-    if(a==='min'){el.classList.toggle('min');return}
-    if(a==='env'){env();return}
-    if(a==='hub'){hub();return}
-    if(a==='err'){errs();return}
-    if(a==='pause'){paused=!paused;e.target.textContent=paused?t('diag.resume'):t('diag.pause');return}
+    if(a==='clear'){this.lines.length=0;this.logEl.textContent='';return}
+    if(a==='min'){this.el.classList.toggle('min');return}
+    if(a==='env'){this.env();return}
+    if(a==='hub'){this.hub();return}
+    if(a==='err'){this.errs();return}
+    if(a==='pause'){this.paused=!this.paused;e.target.textContent=this.paused?t('diag.resume'):t('diag.pause');return}
     if(a==='send'){
-      const body=lines.join('\n')+'\n';
+      const body=this.lines.join('\n')+'\n';
       const name='dongminal-diag-'+Date.now()+'.txt';
       const fd=new FormData();
       fd.append('file',new Blob([body],{type:'text/plain'}),name);
       e.target.textContent='...';
       apiPost(UPLOAD_API,fd,{query:{dir:'/tmp'}})
         .then(r=>{
-          if(!r.ok){e.target.textContent=t('diag.fail');put('UPLOAD FAIL '+r.status);return}
-          e.target.textContent=t('diag.sent');put('UPLOADED '+(r.data&&r.data.name));
+          if(!r.ok){e.target.textContent=t('diag.fail');this.put('UPLOAD FAIL '+r.status);return}
+          e.target.textContent=t('diag.sent');this.put('UPLOADED '+(r.data&&r.data.name));
         });
     }
-  });
-  // 오버레이 자체의 터치가 터미널 핸들러로 새지 않게 한다.
-  el.addEventListener('touchstart',e=>e.stopPropagation(),true);
-  el.addEventListener('touchmove',e=>e.stopPropagation(),true);
+  }
 
   /**
    * 시간과 전파의 지금 상태 (EVENT_TIMER_HUB_SRS FR-SCH-11 · FR-BUS-9).
@@ -329,34 +359,42 @@
    * 한다. 없으면 조용히 지난다: 앱이 서기 전이나 부서진 뒤에도 진단은 살아야
    * 한다는 것이 이 계층의 규칙이다.
    */
-  const hub=()=>{
+  hub(){
     const app=window.app;
-    if(!app){put('HUB app 이 아직 없다');return}
+    if(!app){this.put('HUB app 이 아직 없다');return}
     if(app.timers){
       const ps=app.timers.pending();
-      put('HUB timers pending='+ps.length);
+      this.put('HUB timers pending='+ps.length);
       // 주기적인 것부터 — 마감이 가까운 순으로 본다.
       ps.slice().sort((a,b)=>(a.inMs==null?1e15:a.inMs)-(b.inMs==null?1e15:b.inMs))
         .slice(0,24)
-        .forEach(x=>put('  ['+x.kind+'] '+(x.id||x.label||'?')
+        .forEach(x=>this.put('  ['+x.kind+'] '+(x.id||x.label||'?')
           +' owner='+(typeof x.owner==='string'?x.owner:(x.owner?'obj':'-'))
           +(x.inMs!=null?' in='+x.inMs+'ms':'')
           +(x.every?' every='+x.every:'')
           +(x.runs!=null?' runs='+x.runs:'')
           +(x.fails?' fails='+x.fails:'')
           +(x.inflight?' INFLIGHT':'')));
-      if(ps.length>24) put('  … +'+(ps.length-24));
-    }else put('HUB timers 없음');
+      if(ps.length>24) this.put('  … +'+(ps.length-24));
+    }else this.put('HUB timers 없음');
     if(app.bus){
       const s=app.bus.stats();
-      put('HUB channels '+JSON.stringify(s.channel)+' extra='+((s.channels||[]).length-1));
-      for(const c of (s.channels||[])) put('  ch '+c.id+' alive='+c.alive);
+      this.put('HUB channels '+JSON.stringify(s.channel)+' extra='+((s.channels||[]).length-1));
+      for(const c of (s.channels||[])) this.put('  ch '+c.id+' alive='+c.alive);
       // 온 적 없는 topic 이 곧 "안 오는 이벤트" 다 — 그것부터 보이게 둔다.
       s.topics.slice().sort((a,b)=>a.count-b.count).forEach(x=>
-        put('  · '+x.topic+' subs='+x.subs+' n='+x.count
+        this.put('  · '+x.topic+' subs='+x.subs+' n='+x.count
           +(x.agoMs!=null?' ago='+x.agoMs+'ms':' (never)')));
-    }else put('HUB bus 없음');
-  };
+    }else this.put('HUB bus 없음');
+  }
+}
+/** 남기는 줄의 상한. */
+DiagOverlay.MAX=600;
+/** 붙을 대상(소켓·스크롤 칸·렌더러)이 늦게 서므로 이 주기로 다시 걸어 본다. */
+DiagOverlay.HOOK_RETRY_MS=1000;
+/** 첫 환경 기록. 부팅이 끝난 뒤의 값을 적으려고 조금 미룬다. */
+DiagOverlay.ENV_DELAY_MS=800;
+/** 떨어져 있는 칸의 `ydisp` 를 보는 주기 (M9-B2). */
+DiagOverlay.YDISP_POLL_MS=200;
 
-  setTimeout(env,ENV_DELAY_MS);
-})();
+DiagOverlay.start();

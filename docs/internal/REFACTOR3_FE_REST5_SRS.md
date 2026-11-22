@@ -1,7 +1,7 @@
 # SRS: 리팩토링 3차 PROD3 FE 나머지 R5 — 남은 큰 함수·큰 파일·FileTree 부품화 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: R5b(100줄 넘는 함수) · R5c(500줄 넘는 JS 파일) · R5d(FileTree 부품화). R5a(CSS)는 닫혔다.
+> **남은 것**: R5c(500줄 넘는 JS 파일) · R5d(FileTree 부품화, `FileTree` constructor 104줄 포함). R5a(CSS)·R5b(함수)는 닫혔다.
 
 - 접수: 2026-11-22 (프로덕션 리팩토링 3차의 남은 부채 · `REFACTOR3_FE_REST3_SRS` §6 「남긴 것」 · `FE_MODULE_BOUNDARY_SRS` §7.1a 기준선 · `architecture.md` 「FileTree 는 아직 원형 확장이다」)
 - 사용자 결정: "알아서 끝까지", 하위 묶음 하나가 끝나면 커밋한다. 동작을 바꿔야만 나눌 수 있거나 범위를 줄여야 하면 멈추고 묻는다. 코드와 설계 문서로 답이 나오는 갈림길은 권장안으로 정하고 §3 에 이유를 적는다.
@@ -94,7 +94,9 @@
 | D-FR5-1 | (R5a) CSS 는 규칙을 옮기지 않고 자르기만 한다. 자를 곳은 절 머리 주석(`/* ── … ── */`) 앞이다 | 캐스케이드는 순서가 곧 의미다. 연속 구간을 바로 이어 실으면 규칙의 순서가 바뀌지 않아 계산된 스타일이 그대로다(R4a D-FR4-12 와 같은 판단). 바이트 비교로 확인할 수 있다 |
 | D-FR5-2 | (R5a) 킷은 두 조각이 함께 "킷 파일" 이다. 시험·게이트는 목록(`KIT_FILES`)으로 본다 | "킷 밖에서 킷 값을 다시 적지 않는다" 는 규칙의 킷은 한 겹이다. 파일 이름 하나로 비교하면 둘째 조각이 "킷 밖" 이 된다 |
 | D-FR5-3 | (R5b) `FileTree` constructor 는 R5d 에서 다룬다 | R5d 가 생성자를 부품 조립으로 다시 쓴다. 먼저 나누면 같은 자리를 두 번 고친다 |
-| D-FR5-4 | (R5b) 팩토리 안의 이름 없는 클래스는 최상위로 올린다 | 팩토리는 CM 이 늦게 실리기 때문에 있고, 클래스 본문은 메서드 안에서만 `CM` 을 읽는다. 클래스 정의는 로드 시점에 `CM` 이 필요 없다 |
+| D-FR5-4 | (R5b) 팩토리 안의 이름 없는 클래스는 최상위로 올린다. 단 `EdLspWorkspace` 는 `extends CM.Workspace` 라 로드 때 정의할 수 없어 팩토리에 남기고, 부모가 없는 `EdLspFile` 만 올린다(팩토리 108 → 94줄) | 팩토리는 CM 이 늦게 실리기 때문에 있고, 클래스 본문은 메서드 안에서만 `CM` 을 읽는다. 클래스 정의는 로드 시점에 `CM` 이 필요 없다 — `extends` 절만 예외다 |
+| D-FR5-5 | (R5b) `check-i18n.mjs` 의 진단 오버레이 예외(`put` 호출의 인자)는 `this.put` 도 받는다 | 예외의 뜻은 "진단 로그 줄은 개발자 출력이다" 이고 호출 꼴이 아니다. `DiagOverlay` 가 되며 `put` 이 메서드가 됐다 |
+| D-FR5-6 | (R5b) 100줄 상한은 새 단위 시험 `fn-size.test.mjs` 가 모든 함수(주석 포함 줄 수)에 건다. 아직 남은 것은 시험 안의 남김 목록에 이유와 함께 둔다 | `method-size.test.mjs` 는 이름으로 찾은 함수의 코드 줄만 잰다. 즉시 실행 함수·팩토리처럼 이름이 없는 자리는 거기 들 수 없어 다시 불어도 보이지 않는다 |
 
 ## 4. 검증
 
@@ -120,3 +122,5 @@
 |---|---|
 | `6e0b371c` | 이 SRS |
 | (R5a 커밋) | FR-FR5-1·2 — CSS 넷을 연속 구간 둘씩으로: `style-kit.css` 565 → 301 + `style-kit-controls.css` 265 · `style-git.css` 679 → 274 + `style-git-commit.css` 406 · `style-git-views.css` 824 → 392 + `style-git-tabs.css` 433 · `style-editor.css` 575 → 240 + `style-editor-tools.css` 336. 둘째 조각의 첫 줄을 빼고 이어 붙이면 원본과 바이트까지 같다(첫 조각의 머리 주석 목록만 고쳤다). CSS 기준선 `500줄초과=4 · 최대=824` → `0 · 433`. 킷을 이름으로 읽는 게이트 하나·시험 다섯이 `KIT_FILES` 둘을 본다. `check-spacing.mjs` 예외 셋의 파일명 → `style-git-tabs.css`. 시험 TC-FR5-1 |
+| `11894bfb` | R5b 시험 고정 — `version-watch.test.mjs` TC-FR5-10(10건). 나누기 전 코드에서 GREEN |
+| (R5b 커밋) | FR-FR5-10~16 — `VersionWatch`(익명 126 → `start` 9 · 가장 긴 메서드 `saw` 18줄) · `DiagOverlay`(익명 338 → 가장 긴 메서드 `_hookEvents` 52줄, 상수 `MAX`·`HOOK_RETRY_MS`·`ENV_DELAY_MS`·`YDISP_POLL_MS` 는 클래스 정적 값) · `EdCmSticky`·`EdCmScrollbar`(팩토리 119·118 → 9) · `EdLspFile` 을 최상위로(`edLspWorkspaceClass` 108 → 94, D-FR5-4) · `_makeTab` 109 → 19(`_tabWirePointer`·`_tabWireDrag`·`_tabDrop`) · `_renderThemePanel` 100 → 19(`_themeFollowRow`·`_themeListPrep`·`_themeGroup`·`_themeItem`). 새 시험 `fn-size.test.mjs`(TC-FR5-11, D-FR5-6) · `method-size.test.mjs` 일곱 더함. 게이트 `check-i18n.mjs` 의 진단 예외(D-FR5-5). 이 판에서 100줄 넘는 함수는 `FileTree` constructor 하나(R5d)다 |

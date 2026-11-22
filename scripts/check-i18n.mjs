@@ -63,7 +63,9 @@ const SKIP_FILES = [
 const SKIP_CALLS = [
   { test: (c) => c.callee.type === 'MemberExpression' && c.callee.object.type === 'Identifier' && c.callee.object.name === 'console',
     why: '콘솔 로그 — 개발자가 읽는다 (FR-B-1 범위 밖)' },
-  { test: (c, file) => file === 'web/js/ui/diag.js' && c.callee.type === 'Identifier' && c.callee.name === 'put',
+  // REFACTOR3_FE_REST5_SRS FR-FR5-14: 오버레이가 클래스(`DiagOverlay`)가 되어 `put` 은 `this.put` 이다.
+  { test: (c, file) => file === 'web/js/ui/diag.js' && (c.callee.type === 'Identifier' ? c.callee.name === 'put'
+      : c.callee.type === 'MemberExpression' && c.callee.object.type === 'ThisExpression' && c.callee.property.name === 'put'),
     why: '진단 오버레이의 로그 줄(`put`) — 콘솔과 같은 성격의 개발자 출력' },
 ];
 

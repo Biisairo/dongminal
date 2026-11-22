@@ -74,118 +74,124 @@ function edCmRulerItems(view) {
   return p ? p.items : [];
 }
 
+/**
+ * 스크롤바·ruler 의 뷰 플러그인. 본문은 메서드 안에서만 `CM` 을 읽으므로 로드 때 `CM` 이 없어도 선다
+ * (REFACTOR3_FE_REST5_SRS FR-FR5-11). `edCmScrollbarPlugin` 이 처음 쓸 때 플러그인으로 감싼다.
+ */
+class EdCmScrollbar {
+  constructor(view) {
+    this.view = view;
+    this.items = [];
+    this.track = document.createElement('div');
+    this.track.className = 'cm-vscroll';
+    this.ruler = document.createElement('canvas');
+    this.ruler.className = 'cm-vscroll-ruler';
+    this.thumb = document.createElement('div');
+    this.thumb.className = 'cm-vscroll-thumb';
+    this.track.append(this.ruler, this.thumb);
+    view.dom.appendChild(this.track);
+    this.track.addEventListener('mousedown', (e) => this.onDown(e));
+    this.onMove = (e) => this.drag(e);
+    this.onUp = () => this.stop();
+    this.measure = { key: this, read: () => this.read(), write: (m) => this.write(m) };
+    view.requestMeasure(this.measure);
+  }
+
+  update(u) {
+    const src = u.state.facet(edRulerSource()) !== u.startState.facet(edRulerSource());
+    if (u.docChanged || u.selectionSet || u.geometryChanged || u.heightChanged || u.viewportChanged || src
+      || u.transactions.some((tr) => tr.effects.length)) {
+      this.view.requestMeasure(this.measure);
+    }
+  }
+
+  // FR-CMR-73: 다음 프레임에 한 번 — requestMeasure 는 같은 key 를 한 번으로 모은다.
+  read() {
+    const v = this.view;
+    const geo = edScrollGeo(v);
+    const top = v.scrollDOM.offsetTop;
+    const contentH = v.contentHeight;
+    const mm = edMinimapScale(v);
+    const items = [];
+    for (const src of v.state.facet(edRulerSource())) {
+      for (const it of src(v.state)) {
+        const y = mm ? mm.posTop(it.from) : edRulerY(v.lineBlockAt(it.from).top, contentH, geo.trackHeight);
+        const y2 = mm ? mm.posBottom(it.to) : edRulerY(v.lineBlockAt(it.to).bottom, contentH, geo.trackHeight);
+        items.push({ ...it, y, h: it.lane === 'full' ? ED_RULER_CURSOR_H : Math.max(ED_RULER_MIN_H, y2 - y) });
+      }
+    }
+    return { geo, top, items, slider: mm ? mm.slider() : null };
+  }
+
+  write(m) {
+    const { geo, top, items } = m;
+    const th = edThumbOf(geo, m.slider);
+    Object.assign(this.track.style, { top: top + 'px', height: geo.trackHeight + 'px' });
+    Object.assign(this.thumb.style, { display: th.visible ? '' : 'none', top: th.top + 'px', height: th.height + 'px' });
+    this.geo = geo;
+    this.items = items;
+    this.paint(geo.trackHeight, items);
+  }
+
+  paint(h, items) {
+    const c = this.ruler;
+    const dpr = window.devicePixelRatio || 1;
+    c.width = ED_SCROLL_W * dpr;
+    c.height = Math.max(0, h) * dpr;
+    c.style.height = h + 'px';
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    const css = getComputedStyle(this.view.dom);
+    const half = ED_SCROLL_W / 2;
+    for (const it of items) {
+      ctx.fillStyle = css.getPropertyValue(it.color).trim();
+      if (it.lane === 'full') ctx.fillRect(0, it.y, ED_SCROLL_W, it.h);
+      else ctx.fillRect(it.lane === 'left' ? 0 : half, it.y, half, it.h);
+    }
+  }
+
+  // FR-CMR-74: thumb 를 끌면 스크롤하고, track 을 누르면 thumb 가운데가 그 자리로 온다 (옛 엔진의 `scrollByPage:false`).
+  onDown(e) {
+    if (e.button !== 0 || !this.geo) return;
+    e.preventDefault();
+    const geo = edScrollGeo(this.view);
+    const mm = edMinimapScale(this.view);
+    const th = edThumbOf(geo, mm && mm.slider());
+    if (!th.visible) return;
+    const y = e.clientY - this.track.getBoundingClientRect().top;
+    if (e.target !== this.thumb) {
+      this.view.scrollDOM.scrollTop = edScrollForThumb(y - th.height / 2, geo, mm);
+    }
+    this.dragFrom = { y: e.clientY, top: edThumbOf(edScrollGeo(this.view), mm && mm.slider()).top };
+    this.thumb.classList.add('active');
+    window.addEventListener('mousemove', this.onMove);
+    window.addEventListener('mouseup', this.onUp);
+  }
+
+  drag(e) {
+    if (!this.dragFrom) return;
+    e.preventDefault();
+    const geo = edScrollGeo(this.view);
+    this.view.scrollDOM.scrollTop = edScrollForThumb(this.dragFrom.top + e.clientY - this.dragFrom.y, geo, edMinimapScale(this.view));
+  }
+
+  stop() {
+    this.dragFrom = null;
+    this.thumb.classList.remove('active');
+    window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('mouseup', this.onUp);
+  }
+
+  destroy() {
+    this.stop();
+    this.track.remove();
+  }
+}
+
 function edCmScrollbarPlugin() {
   if (edCmScrollbarPlugin.plugin) return edCmScrollbarPlugin.plugin;
-  edCmScrollbarPlugin.plugin = CM.ViewPlugin.fromClass(class {
-    constructor(view) {
-      this.view = view;
-      this.items = [];
-      this.track = document.createElement('div');
-      this.track.className = 'cm-vscroll';
-      this.ruler = document.createElement('canvas');
-      this.ruler.className = 'cm-vscroll-ruler';
-      this.thumb = document.createElement('div');
-      this.thumb.className = 'cm-vscroll-thumb';
-      this.track.append(this.ruler, this.thumb);
-      view.dom.appendChild(this.track);
-      this.track.addEventListener('mousedown', (e) => this.onDown(e));
-      this.onMove = (e) => this.drag(e);
-      this.onUp = () => this.stop();
-      this.measure = { key: this, read: () => this.read(), write: (m) => this.write(m) };
-      view.requestMeasure(this.measure);
-    }
-
-    update(u) {
-      const src = u.state.facet(edRulerSource()) !== u.startState.facet(edRulerSource());
-      if (u.docChanged || u.selectionSet || u.geometryChanged || u.heightChanged || u.viewportChanged || src
-        || u.transactions.some((tr) => tr.effects.length)) {
-        this.view.requestMeasure(this.measure);
-      }
-    }
-
-    // FR-CMR-73: 다음 프레임에 한 번 — requestMeasure 는 같은 key 를 한 번으로 모은다.
-    read() {
-      const v = this.view;
-      const geo = edScrollGeo(v);
-      const top = v.scrollDOM.offsetTop;
-      const contentH = v.contentHeight;
-      const mm = edMinimapScale(v);
-      const items = [];
-      for (const src of v.state.facet(edRulerSource())) {
-        for (const it of src(v.state)) {
-          const y = mm ? mm.posTop(it.from) : edRulerY(v.lineBlockAt(it.from).top, contentH, geo.trackHeight);
-          const y2 = mm ? mm.posBottom(it.to) : edRulerY(v.lineBlockAt(it.to).bottom, contentH, geo.trackHeight);
-          items.push({ ...it, y, h: it.lane === 'full' ? ED_RULER_CURSOR_H : Math.max(ED_RULER_MIN_H, y2 - y) });
-        }
-      }
-      return { geo, top, items, slider: mm ? mm.slider() : null };
-    }
-
-    write(m) {
-      const { geo, top, items } = m;
-      const th = edThumbOf(geo, m.slider);
-      Object.assign(this.track.style, { top: top + 'px', height: geo.trackHeight + 'px' });
-      Object.assign(this.thumb.style, { display: th.visible ? '' : 'none', top: th.top + 'px', height: th.height + 'px' });
-      this.geo = geo;
-      this.items = items;
-      this.paint(geo.trackHeight, items);
-    }
-
-    paint(h, items) {
-      const c = this.ruler;
-      const dpr = window.devicePixelRatio || 1;
-      c.width = ED_SCROLL_W * dpr;
-      c.height = Math.max(0, h) * dpr;
-      c.style.height = h + 'px';
-      const ctx = c.getContext('2d');
-      if (!ctx) return;
-      ctx.scale(dpr, dpr);
-      const css = getComputedStyle(this.view.dom);
-      const half = ED_SCROLL_W / 2;
-      for (const it of items) {
-        ctx.fillStyle = css.getPropertyValue(it.color).trim();
-        if (it.lane === 'full') ctx.fillRect(0, it.y, ED_SCROLL_W, it.h);
-        else ctx.fillRect(it.lane === 'left' ? 0 : half, it.y, half, it.h);
-      }
-    }
-
-    // FR-CMR-74: thumb 를 끌면 스크롤하고, track 을 누르면 thumb 가운데가 그 자리로 온다 (옛 엔진의 `scrollByPage:false`).
-    onDown(e) {
-      if (e.button !== 0 || !this.geo) return;
-      e.preventDefault();
-      const geo = edScrollGeo(this.view);
-      const mm = edMinimapScale(this.view);
-      const th = edThumbOf(geo, mm && mm.slider());
-      if (!th.visible) return;
-      const y = e.clientY - this.track.getBoundingClientRect().top;
-      if (e.target !== this.thumb) {
-        this.view.scrollDOM.scrollTop = edScrollForThumb(y - th.height / 2, geo, mm);
-      }
-      this.dragFrom = { y: e.clientY, top: edThumbOf(edScrollGeo(this.view), mm && mm.slider()).top };
-      this.thumb.classList.add('active');
-      window.addEventListener('mousemove', this.onMove);
-      window.addEventListener('mouseup', this.onUp);
-    }
-
-    drag(e) {
-      if (!this.dragFrom) return;
-      e.preventDefault();
-      const geo = edScrollGeo(this.view);
-      this.view.scrollDOM.scrollTop = edScrollForThumb(this.dragFrom.top + e.clientY - this.dragFrom.y, geo, edMinimapScale(this.view));
-    }
-
-    stop() {
-      this.dragFrom = null;
-      this.thumb.classList.remove('active');
-      window.removeEventListener('mousemove', this.onMove);
-      window.removeEventListener('mouseup', this.onUp);
-    }
-
-    destroy() {
-      this.stop();
-      this.track.remove();
-    }
-  }, {
+  edCmScrollbarPlugin.plugin = CM.ViewPlugin.fromClass(EdCmScrollbar, {
     eventHandlers: {
       scroll() { this.view.requestMeasure(this.measure) },
     },
