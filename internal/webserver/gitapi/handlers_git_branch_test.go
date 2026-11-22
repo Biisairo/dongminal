@@ -46,6 +46,7 @@ type gitM5Fake struct {
 	unmerged   map[string]bool   // merge-base --is-ancestor 가 아니오로 답할 브랜치
 	config     string            // config --list (원격 목록의 출처)
 	revCounts  map[string]int    // rev-list --count <range>
+	refChecks  int               // check-ref-format 호출 수 (FR-ATF-3)
 	writes     [][]string
 	writeErr   func(argv []string) (core.Output, error)
 	// onWrite 는 쓰기 성공 직후에 불린다. 쓰기가 상태를 바꾸는 것을 흉내 낸다.
@@ -92,6 +93,7 @@ func (f *gitM5Fake) read(_ context.Context, dir string, args []string) (core.Out
 	case args[0] == "status":
 		return core.Output{Stdout: f.status}, nil
 	case args[0] == "check-ref-format":
+		f.refChecks++
 		return fakeCheckRefFormat(args[2]), nil
 	// 묶음 B: upstream 표시 · 미머지 판정 · 영향 범위 · 원격 목록 (FR-GIT-254·255·258).
 	case args[0] == "for-each-ref" && strings.HasPrefix(args[1], "--format=%(refname)"):
@@ -372,6 +374,51 @@ func TestAPIGitBranchCreate(t *testing.T) {
 			st, _ := out["status"].(map[string]any)
 			if changes, _ := st["changes"].([]any); len(changes) != 1 {
 				t.Fatalf("실행 후 status 가 아니다: %v", st)
+			}
+		})
+	}
+}
+
+// TC-ATF-3 (ATTIC_FIX_SRS FR-ATF-3, AT-GAPI-6): 동기 생성·이름 변경의 이름 검증은
+// 한 번만 돈다. 이전: 처리기(gitBranchNameTaken)와 write(checkNewBranchName)가 같은
+// 검증·존재 확인을 두 번 돌렸다. 새: write 쪽만 보고, 그 sentinel 을 기존 409 본문
+// (branch·options)으로 옮긴다.
+func TestAPIGitBranchNameCheckedOnce(t *testing.T) {
+	for _, c := range []struct{ path, body string }{
+		{"/api/git/branch", `{"repo":` + qWorkRepo + `,"name":"feat"}`},
+		{"/api/git/branch/rename", `{"repo":` + qWorkRepo + `,"from":"main","to":"feat"}`},
+	} {
+		t.Run(c.path, func(t *testing.T) {
+			f := newGitM5Fake(t)
+			s := gitM5Server(t, f)
+			if code, out := gitReq(t, s, http.MethodPost, c.path, c.body); code != http.StatusOK {
+				t.Fatalf("→ %d %v", code, out)
+			}
+			f.mu.Lock()
+			n := f.refChecks
+			f.mu.Unlock()
+			if n != 1 {
+				t.Fatalf("check-ref-format %d번, want 1", n)
+			}
+		})
+	}
+	for _, c := range []struct{ path, body string }{
+		{"/api/git/branch", `{"repo":` + qWorkRepo + `,"name":"main"}`},
+		{"/api/git/branch/rename", `{"repo":` + qWorkRepo + `,"from":"feat","to":"main"}`},
+	} {
+		t.Run(c.path+" 충돌", func(t *testing.T) {
+			f := newGitM5Fake(t)
+			f.branches["feat"] = true
+			s := gitM5Server(t, f)
+			code, out := gitReq(t, s, http.MethodPost, c.path, c.body)
+			if code != http.StatusConflict || out["error"] != gitErrBranchExists || out["branch"] != "main" {
+				t.Fatalf("→ %d %v", code, out)
+			}
+			if opts, _ := out["options"].([]any); len(opts) != len(write.BranchConflictOptions) {
+				t.Fatalf("options = %v", out["options"])
+			}
+			if w := f.wrote(); len(w) != 0 {
+				t.Fatalf("충돌인데 실행됐다: %v", w)
 			}
 		})
 	}

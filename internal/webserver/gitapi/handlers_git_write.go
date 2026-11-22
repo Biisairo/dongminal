@@ -395,6 +395,12 @@ func (s *GitServer) gitApply(t *gitWrite, before query.Status, run func(context.
 	if errors.As(runErr, &be) && be.Partial() {
 		body["partial"] = true
 	}
+	var taken *write.BranchExistsError
+	if errors.As(runErr, &taken) {
+		for k, v := range branchExistsBody(taken.Name, "") {
+			body[k] = v
+		}
+	}
 	if statusErr == nil {
 		if changed := gitStatusDelta(before, obs.Status); len(changed) > 0 {
 			body["partial"] = true
