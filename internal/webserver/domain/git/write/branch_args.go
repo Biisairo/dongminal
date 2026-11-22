@@ -47,12 +47,15 @@ func CheckoutArgs(o CheckoutOpts) ([]string, error) {
 		argv = append(argv, checkoutCreateFlag, o.Create)
 	}
 	if o.Track != "" {
-		return append(argv, checkoutTrackFlag, o.Track), nil
+		argv = append(argv, checkoutTrackFlag, o.Track)
 	}
 	if o.Ref != "" {
 		argv = append(argv, o.Ref)
 	}
-	return argv, nil
+	// 끝의 `--` 는 이름을 ref 로만 읽게 한다 (ATTIC_FIX_SRS FR-ATF-1, AT-GAPI-1).
+	// 이전: 없는 ref 가 같은 이름의 파일이면 git 이 경로로 읽어 그 변경을 지웠다.
+	// 새: 없는 ref 는 git 이 오류로 끝낸다.
+	return append(argv, pathsSep), nil
 }
 
 // BranchCreateArgs 는 생성의 argv 다. Checkout 이면 만들면서 옮겨 가므로 명령 자체가

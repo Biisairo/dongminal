@@ -261,7 +261,7 @@ func TestAPIGitCheckout_ForceWithConfirm(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
-	want := []string{"checkout", "--force", "main"}
+	want := []string{"checkout", "--force", "main", "--"}
 	if got := f.wrote(); len(got) != 1 || fmt.Sprint(got[0]) != fmt.Sprint(want) {
 		t.Fatalf("argv = %v, want %v", got, want)
 	}
@@ -308,7 +308,7 @@ func TestAPIGitCheckout_RemoteBranchTracks(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
-	want := []string{"checkout", "-b", "feat", "--track", "origin/feat"}
+	want := []string{"checkout", "-b", "feat", "--track", "origin/feat", "--"}
 	if got := f.wrote(); len(got) != 1 || fmt.Sprint(got[0]) != fmt.Sprint(want) {
 		t.Fatalf("argv = %v, want %v", got, want)
 	}

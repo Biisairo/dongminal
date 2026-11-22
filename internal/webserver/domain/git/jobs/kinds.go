@@ -170,9 +170,15 @@ func digits(s string) bool {
 }
 
 // checkoutShape: CheckoutArgs·BranchCreateArgs(Checkout:true) —
-// `checkout [--force] [--detach] [-b <name>] [--track <ref> | <ref>]`.
+// `checkout [--force] [--detach] [-b <name>] [--track <ref> | <ref>] [--]`.
+// `-b` 없는 ref 는 `--` 로 끝나야 한다 — 없으면 git 이 없는 ref 를 경로로 읽어
+// 변경을 지운다 (ATTIC_FIX_SRS FR-ATF-1). `-b` 의 시작점은 git 이 커밋으로만 읽는다.
 func checkoutShape(argv []string, _ string) bool {
 	rest := argv[1:]
+	sep := len(rest) > 0 && rest[len(rest)-1] == checkoutPathsSep
+	if sep {
+		rest = rest[:len(rest)-1]
+	}
 	take := func(flag string) bool {
 		if len(rest) > 0 && rest[0] == flag {
 			rest = rest[1:]
@@ -196,7 +202,10 @@ func checkoutShape(argv []string, _ string) bool {
 	case 0:
 		return created
 	case 1:
-		return positional(rest[0])
+		return (created || sep) && positional(rest[0])
 	}
 	return false
 }
+
+// checkoutPathsSep 는 ref 와 경로를 가르는 git 의 구분자다.
+const checkoutPathsSep = "--"
