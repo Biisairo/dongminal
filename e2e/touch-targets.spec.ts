@@ -108,6 +108,20 @@ test.describe('터치 타겟 44px (FR-A11Y-27~29)', () => {
     await page.waitForSelector('#modal-overlay:not([hidden])', { timeout: 10000 });
     await waitSettled(page);
 
-    expect(report(await tooSmall(page))).toEqual([]);
+    // FR-ATF-81 (D-SEED-7): 모바일 설정은 섹션 목록 → 상세다. 첫 화면(목록)만
+    // 재면 상세 패널은 하나도 보지 않는다 — 탭도 DOM 에서 파생해 전부 훑는다.
+    const found: string[] = report(await tooSmall(page)).map((r) => `(list) ${r}`);
+    const tabs = await page.locator('#modal .mtab:visible').evaluateAll(
+      (els) => els.map((e) => e.getAttribute('data-tab') || ''));
+    expect(tabs.length).toBeGreaterThan(10);
+    for (const tab of tabs) {
+      await page.locator(`#modal .mtab[data-tab="${tab}"]`).click();
+      await page.waitForSelector(`#panel-${tab}`, { state: 'visible', timeout: 10000 });
+      await waitSettled(page);
+      found.push(...report(await tooSmall(page)).map((r) => `(${tab}) ${r}`));
+      await page.locator('#modal-back').click();
+      await page.waitForSelector('#modal .modal-tabs', { state: 'visible', timeout: 10000 });
+    }
+    expect(found).toEqual([]);
   });
 });
