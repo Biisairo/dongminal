@@ -225,3 +225,192 @@ fn spec_and_problem_wire() {
         br#"{"key":"k","reason":"r","got":1.5}"#
     );
 }
+
+// TC-CFG-4: 임베드된 같은 바이트를 읽어 서술자를 얻는다 (FR-CFG-10).
+#[test]
+fn load_reads_embedded_table() {
+    let specs = load().unwrap();
+    assert_eq!(specs.len(), 34, "서술자 {}개, 기대 34개", specs.len());
+    let by = by_key(&specs);
+    for k in [
+        "themeName",
+        "tabWidthPx",
+        "attnEdgeLevel",
+        "gitStatusInterval",
+        "uiFontSize",
+        "termFontSize",
+    ] {
+        assert!(by.contains_key(k), "{k} 가 표에 없다");
+    }
+    let s = &by["tabWidthPx"];
+    assert_eq!(
+        (s.kind.as_str(), s.min, s.max),
+        ("int", Some(40), Some(480))
+    );
+    assert!(
+        by["gitStatusInterval"].off,
+        "gitStatusInterval 은 0(끔)을 받는다"
+    );
+}
+
+// TC-CFG-3: 파일 형태가 계약이다 (FR-CFG-2).
+#[test]
+fn schema_file_is_plain_json() {
+    check_shape().unwrap();
+}
+
+#[test]
+fn validate_real_table() {
+    let specs = load().unwrap();
+    let (probs, unknown) = validate(
+        &specs,
+        br#"{"tabWidthPx":9999,"focusEdgeLevel":-3,"attnEdgeLevel":77,"themeName":"ok"}"#,
+    )
+    .unwrap();
+    assert_eq!(probs.len(), 3, "{probs:?}");
+    assert!(unknown.is_empty());
+    for blob in [r#"{"uiFontSize":8}"#, r#"{"termFontSize":32}"#] {
+        assert!(
+            validate(&specs, blob.as_bytes()).unwrap().0.is_empty(),
+            "{blob}"
+        );
+    }
+    for blob in [r#"{"uiFontSize":7}"#, r#"{"termFontSize":33}"#] {
+        assert_eq!(
+            validate(&specs, blob.as_bytes()).unwrap().0.len(),
+            1,
+            "{blob}"
+        );
+    }
+    let (probs, unknown) = validate(&specs, br#"{"futureKey":1,"themeName":"x"}"#).unwrap();
+    assert!(probs.is_empty());
+    assert_eq!(unknown, ["futureKey"]);
+    let (probs, _) = validate(&specs, br#"{"customTheme":{"ui":{"bg":"red"}}}"#).unwrap();
+    assert_eq!(probs.len(), 1);
+    assert_eq!(probs[0].key, "customTheme.ui.bg");
+    // null 블롭은 빈 객체다 (Go map 이 nil 로 남는다).
+    assert_eq!(validate(&specs, b"null").unwrap(), (vec![], vec![]));
+}
+
+// 깨진 블롭은 불일치가 아니라 오류다.
+#[test]
+fn validate_corrupt_blob() {
+    let specs = load().unwrap();
+    assert_eq!(
+        validate(&specs, b"{nope").unwrap_err().to_string(),
+        "JSON 이 아닙니다: invalid character 'n' looking for beginning of object key string"
+    );
+}
+
+// `dongminal config validate` 가 이 문구를 그대로 낸다. go1.27.2 실측 문구다.
+#[test]
+#[ignore = "gocompat json 디코더: map 타입 이름(map[string]interface {}) 미재현 — 조정자에 보고"]
+fn validate_non_object_blob_type_name() {
+    let specs = load().unwrap();
+    assert_eq!(
+        validate(&specs, b"[1]").unwrap_err().to_string(),
+        "JSON 이 아닙니다: json: cannot unmarshal array into Go value of type map[string]interface {}"
+    );
+}
+
+// TC-QG-10: 블롭 단위 검사.
+#[test]
+fn check_theme_blob_cases() {
+    let cases = [
+        (
+            r##"{"customTheme":{"mode":"dark","ui":{"bg":"#1a1b26","accent":"#7AA2F7cc"},"terminal":{"red":"#f7768e"}}}"##,
+            "",
+        ),
+        (r#"{"customTheme":null}"#, ""),
+        (r#"{"themeName":"Dracula"}"#, ""),
+        ("[1]", ""),
+        ("{bad", ""),
+        (r#"{"customTheme":{"name":"x","ui":{}}}"#, ""),
+        (
+            r##"{"customTheme":{"ui":{"bg":"#fff"}}}"##,
+            "customTheme.ui.bg",
+        ),
+        (r#"{"customTheme":{"ui":"nope"}}"#, "customTheme.ui"),
+        (r#"{"customTheme":"x"}"#, "customTheme"),
+        (
+            r#"{"customTheme":"x","customTheme":{"mode":"<b>"}}"#,
+            "customTheme.mode",
+        ),
+    ];
+    for (blob, bad) in cases {
+        let p = check_theme_blob(blob.as_bytes());
+        assert_eq!(p.map(|p| p.key).unwrap_or_default(), bad, "{blob}");
+    }
+}
+
+// TC-QG-10 · FR-QG-13: 내장 테마 54종의 값은 모두 통과한다. 원천은 임베드된 `js/ui/themes.js` 다.
+#[test]
+fn builtin_themes_pass() {
+    let src = dm_web_assets::get("js/ui/themes.js").unwrap();
+    let src = std::str::from_utf8(&src).unwrap();
+    let section = regex::Regex::new(r"(?m)^\s+(ui|terminal):\{([^}]*)\}").unwrap();
+    let pair = regex::Regex::new(r"(\w+):'([^']*)'").unwrap();
+    let mode = regex::Regex::new(r"mode:'(\w+)'").unwrap();
+    let modes: Vec<_> = mode.captures_iter(src).collect();
+    let secs: Vec<_> = section.captures_iter(src).collect();
+    assert_eq!((modes.len(), secs.len()), (54, 108));
+    for (i, m) in modes.iter().enumerate() {
+        let mut b = format!(r#"{{"customTheme":{{"mode":"{}""#, &m[1]);
+        for s in &secs[2 * i..2 * i + 2] {
+            let pairs: Vec<String> = pair
+                .captures_iter(&s[2])
+                .map(|p| format!(r#""{}":"{}""#, &p[1], &p[2]))
+                .collect();
+            b.push_str(&format!(r#","{}":{{{}}}"#, &s[1], pairs.join(",")));
+        }
+        b.push_str("}}");
+        assert!(
+            check_theme_blob(b.as_bytes()).is_none(),
+            "내장 테마 {i}: {b}"
+        );
+    }
+}
+
+fn web_src(rel: &str) -> String {
+    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../../web")
+        .join(rel);
+    std::fs::read_to_string(p).unwrap().replace("\r\n", "\n")
+}
+
+fn between<'a>(s: &'a str, open: &str, close: &str) -> &'a str {
+    let Some(i) = s.find(open) else { return "" };
+    let rest = &s[i + open.len()..];
+    rest.find(close).map(|j| &rest[..j]).unwrap_or("")
+}
+
+// TC-CFG-1: 세 표의 키 집합이 같다 (FR-CFG-4·5).
+#[test]
+fn schema_and_access_keys_match() {
+    let schema_keys = keys(&load().unwrap());
+    let src = web_src("js/core/settings-table.js");
+    let body = between(&src, "const SETTINGS_ACCESS={", "\n};");
+    assert!(!body.is_empty(), "SETTINGS_ACCESS 를 찾지 못했다");
+    let re = regex::Regex::new(r"(?m)^  ([A-Za-z_$][\w$]*):\{").unwrap();
+    let mut access: Vec<String> = re.captures_iter(body).map(|c| c[1].to_string()).collect();
+    access.sort();
+    assert_eq!(schema_keys, access, "키 집합이 갈렸다");
+}
+
+// saveSettings 가 표를 돌아야 한다 — 인라인 나열로 되돌아가면 여기서 잡힌다.
+#[test]
+fn save_settings_derives_from_table() {
+    let sync = web_src("js/core/settings-sync.js");
+    assert!(
+        between(&sync, "saveSettings(){", "\n  },")
+            .contains("this.app.settings.apply._settingsBody()"),
+        "saveSettings 가 _settingsBody 로 본문을 짓지 않는다"
+    );
+    let apply = web_src("js/core/settings-apply.js");
+    let body = between(&apply, "_settingsBody(){", "\n  }\n");
+    assert!(!body.is_empty(), "_settingsBody 를 찾지 못했다");
+    assert!(body.contains("for(const spec of SETTINGS_SCHEMA)"));
+    for k in ["gitConsoleInterval,", "focusEdgeLevel,attnEdgeLevel"] {
+        assert!(!body.contains(k), "키를 인라인으로 나열하고 있다: {k:?}");
+    }
+}

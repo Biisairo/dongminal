@@ -23,16 +23,17 @@ const SCHEMA_CLOSE: &[u8] = b"\n];";
 
 /// 블롭 키 하나의 서술자다. 필드 이름과 순서는 Go 구조체와 같다.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "settingsschema.Spec")]
 pub struct Spec {
     pub key: String,
     #[serde(rename = "type")]
     pub kind: String,
     pub def: Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub max: Option<i64>,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub off: bool,
     #[serde(rename = "where")]
     pub where_: String,
@@ -89,6 +90,40 @@ pub fn extract(src: &[u8]) -> Result<&[u8], Error> {
 
 fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
     hay.windows(needle.len()).position(|w| w == needle)
+}
+
+/// 원천 표를 읽어 서술자를 돌려준다. 표에 모르는 필드가 있으면 오류다 (FR-CFG-2).
+pub fn load() -> Result<Vec<Spec>, Error> {
+    let src = raw()?;
+    let body = extract(&src)?;
+    dm_gocompat::json::Decoder::new()
+        .disallow_unknown_fields()
+        .decode::<Option<Vec<Spec>>>(body)
+        .map(Option::unwrap_or_default)
+        .map_err(|e| Error(format!("서술자 표가 순수 JSON 이 아닙니다 (FR-CFG-2): {e}")))
+}
+
+/// 형태 계약만 확인한다 — 검사와 게이트가 부른다.
+pub fn check_shape() -> Result<(), Error> {
+    check_specs(&load()?)
+}
+
+/// 블롭을 서술자에 대조한다 (FR-CFG-8·9). 첫 오류에서 멈추지 않는다. 알 수 없는 키는
+/// 둘째 반환값(경고)이다. 블롭이 JSON 객체(또는 null)가 아니면 오류다.
+pub fn validate(specs: &[Spec], blob: &[u8]) -> Result<(Vec<Problem>, Vec<String>), Error> {
+    let m = dm_gocompat::json::unmarshal::<Option<serde_json::Map<String, Value>>>(blob)
+        .map_err(|e| Error(format!("JSON 이 아닙니다: {e}")))?;
+    Ok(validate_object(specs, &m.unwrap_or_default()))
+}
+
+/// 설정 블롭의 `customTheme` 만 본다 — `PUT /api/settings` 가 부른다 (FR-QG-11). 블롭이
+/// 객체가 아니거나 키가 없으면 통과다. 블롭이 JSON 인지는 부르는 쪽이 본다.
+pub fn check_theme_blob(blob: &[u8]) -> Option<Problem> {
+    use dm_gocompat::json::{RawMessage, unmarshal};
+    let m = unmarshal::<Option<BTreeMap<String, RawMessage>>>(blob).ok()??;
+    let raw = m.get(CUSTOM_THEME_KEY)?;
+    let v = unmarshal::<Value>(&raw.0).ok()?;
+    theme::check_custom_theme(&v)
 }
 
 /// 서술자 목록의 형태를 확인한다 — Go `CheckShape` 에서 표를 읽은 뒤의 검사다.
