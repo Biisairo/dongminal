@@ -2,24 +2,38 @@
 
 use serde::de::{self, DeserializeOwned, IntoDeserializer, Visitor};
 
-use super::Error;
 use super::encode::RAW_TOKEN;
 use super::parse::{Node, Value, parse_document, parse_prefix};
+use super::{Error, ErrorKind};
 
 /// 정수로 정확히 담기는 범위(float64 의 정수 정밀도). `any` 로 풀 때 이 범위의 정수는 i64 로 넘긴다.
 const MAX_EXACT_INT: i64 = 1 << 53;
 
+/// 디코딩 중첩 깊이 상한. serde 는 재귀로 풀기 때문에 스택을 지키려고 둔다.
+/// Go 는 10000 까지 받으므로 이보다 깊은 입력에서만 Go 와 다르다(구문 검사는 10000 까지 Go 와 같다).
+const MAX_DECODE_DEPTH: usize = 512;
+
 struct Ctx {
+    /// 입력의 시작 주소. 값의 offset 을 셀 때 쓴다.
+    base: usize,
     root: String,
     disallow_unknown: bool,
 }
 
-fn type_error(ctx: &Ctx, path: &[String], value: &str, go_type: &str) -> Error {
+fn type_error(ctx: &Ctx, path: &[String], value: &str, go_type: &str, offset: i64) -> Error {
     let field = path.join(".");
+    let kind = |struct_name: &str| ErrorKind::Type {
+        value: value.to_owned(),
+        field: field.clone(),
+        struct_name: struct_name.to_owned(),
+        go_type: go_type.to_owned(),
+        offset,
+    };
     if field.is_empty() {
-        return Error::new(format!(
-            "json: cannot unmarshal {value} into Go value of type {go_type}"
-        ));
+        return Error::with_kind(
+            format!("json: cannot unmarshal {value} into Go value of type {go_type}"),
+            kind(""),
+        );
     }
     let last = field.rsplit('.').next().unwrap_or("");
     let into = if !last.is_empty() && last.bytes().all(|c| c.is_ascii_digit()) {
@@ -27,10 +41,13 @@ fn type_error(ctx: &Ctx, path: &[String], value: &str, go_type: &str) -> Error {
     } else {
         "Go struct field "
     };
-    Error::new(format!(
-        "json: cannot unmarshal {value} into {into}{}.{field} of type {go_type}",
-        ctx.root
-    ))
+    Error::with_kind(
+        format!(
+            "json: cannot unmarshal {value} into {into}{}.{field} of type {go_type}",
+            ctx.root
+        ),
+        kind(&ctx.root),
+    )
 }
 
 fn kind_of(node: &Node<'_>) -> &'static str {
@@ -84,7 +101,25 @@ macro_rules! de_int {
 
 impl De<'_, '_> {
     fn err(&self, value: &str, go_type: &str) -> Error {
-        type_error(self.ctx, &self.path, value, go_type)
+        type_error(self.ctx, &self.path, value, go_type, self.offset())
+    }
+
+    /// Go `UnmarshalTypeError.Offset`: 스칼라는 값의 끝, 객체·배열은 여는 괄호 다음.
+    fn offset(&self) -> i64 {
+        let start = (self.v.raw.as_ptr() as usize).saturating_sub(self.ctx.base);
+        let end = match self.v.raw.first() {
+            Some(b'{' | b'[') => start + 1,
+            _ => start + self.v.raw.len(),
+        };
+        i64::try_from(end).unwrap_or(i64::MAX)
+    }
+
+    /// 컨테이너로 들어가기 전에 부른다. 경로 길이가 곧 중첩 깊이다.
+    fn check_depth(&self) -> Result<(), Error> {
+        if self.path.len() >= MAX_DECODE_DEPTH {
+            return Err(Error::new("exceeded max depth".to_owned()));
+        }
+        Ok(())
     }
 }
 
@@ -92,6 +127,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
     type Error = Error;
 
     fn deserialize_any<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
+        self.check_depth()?;
         match self.v.take_node() {
             Node::Null => visitor.visit_unit(),
             Node::Bool(b) => visitor.visit_bool(b),
@@ -184,9 +220,11 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
                 Ok(b) => visitor.visit_byte_buf(b),
                 Err(at) => {
                     let e = self.err("string", "[]uint8");
-                    Err(Error::new(format!(
-                        "{e}: illegal base64 data at input byte {at}"
-                    )))
+                    let kind = e.kind().clone();
+                    Err(Error::with_kind(
+                        format!("{e}: illegal base64 data at input byte {at}"),
+                        kind,
+                    ))
                 }
             },
             other => Err(self.err(kind_of(&other), "[]uint8")),
@@ -224,6 +262,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
     }
 
     fn deserialize_seq<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
+        self.check_depth()?;
         match self.v.take_node() {
             Node::Null => visitor.visit_seq(Seq::new(Vec::new(), self.ctx, self.path)),
             Node::Array(items) => visitor.visit_seq(Seq::new(items, self.ctx, self.path)),
@@ -249,6 +288,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
     }
 
     fn deserialize_map<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
+        self.check_depth()?;
         match self.v.take_node() {
             Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path)),
             Node::Object(members) => visitor.visit_map(Map::new(members, self.ctx, self.path)),
@@ -262,6 +302,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
         fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Error> {
+        self.check_depth()?;
         if self.path.is_empty() && self.ctx.root.is_empty() {
             self.ctx.root = short_name(name);
         }
@@ -281,6 +322,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
         _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Error> {
+        self.check_depth()?;
         match self.v.take_node() {
             Node::String(s) => visitor.visit_enum(IntoDeserializer::<Error>::into_deserializer(s)),
             Node::Object(mut members) if members.len() == 1 => {
@@ -314,16 +356,14 @@ fn resolve_fields<'a>(
 ) -> Result<Vec<(String, Value<'a>)>, Error> {
     let folded: Vec<String> = fields.iter().map(|f| fold(f)).collect();
     let mut out: Vec<(String, Value<'a>)> = Vec::with_capacity(members.len());
+    // 필드 위치 → out 안의 위치. 중복 키를 상수 시간에 찾는다.
+    let mut slot_of: Vec<Option<usize>> = vec![None; fields.len()];
     for (key, value) in members {
-        let field = fields
-            .iter()
-            .position(|f| *f == key)
-            .or_else(|| {
-                let k = fold(&key);
-                folded.iter().position(|f| *f == k)
-            })
-            .map(|i| fields[i]);
-        let Some(field) = field else {
+        let field = fields.iter().position(|f| *f == key).or_else(|| {
+            let k = fold(&key);
+            folded.iter().position(|f| *f == k)
+        });
+        let Some(fi) = field else {
             if disallow_unknown {
                 return Err(Error::new(format!(
                     "json: unknown field {}",
@@ -333,10 +373,12 @@ fn resolve_fields<'a>(
             out.push((key, value));
             continue;
         };
-        if let Some(slot) = out.iter_mut().find(|(k, _)| k == field) {
-            merge_into(&mut slot.1, value);
-        } else {
-            out.push((field.to_owned(), value));
+        match slot_of[fi] {
+            Some(at) => merge_into(&mut out[at].1, value),
+            None => {
+                slot_of[fi] = Some(out.len());
+                out.push((fields[fi].to_owned(), value));
+            }
         }
     }
     Ok(out)
@@ -476,7 +518,7 @@ macro_rules! key_int {
                 Err(_) => {
                     let mut path = self.path.to_vec();
                     path.push(self.key.clone());
-                    Err(type_error(self.ctx, &path, &format!("number {}", self.key), $go))
+                    Err(type_error(self.ctx, &path, &format!("number {}", self.key), $go, 0))
                 }
             }
         })*
@@ -579,8 +621,13 @@ impl<'de> de::VariantAccess<'de> for De<'_, '_> {
     }
 }
 
-fn decode_value<T: DeserializeOwned>(v: Value<'_>, disallow_unknown: bool) -> Result<T, Error> {
+fn decode_value<T: DeserializeOwned>(
+    data: &[u8],
+    v: Value<'_>,
+    disallow_unknown: bool,
+) -> Result<T, Error> {
     let mut ctx = Ctx {
+        base: data.as_ptr() as usize,
         root: String::new(),
         disallow_unknown,
     };
@@ -594,7 +641,7 @@ fn decode_value<T: DeserializeOwned>(v: Value<'_>, disallow_unknown: bool) -> Re
 /// Go `json.Unmarshal`. 입력 전체가 JSON 값 하나여야 하고, 구문 오류가 타입 오류보다 먼저다.
 pub fn unmarshal<T: DeserializeOwned>(data: &[u8]) -> Result<T, Error> {
     let v = parse_document(data)?;
-    decode_value(v, false)
+    decode_value(data, v, false)
 }
 
 /// Go `json.NewDecoder(r)` 로 값 하나를 읽는 경우. 입력은 이미 읽어 둔 바이트다.
@@ -621,21 +668,21 @@ impl Decoder {
             .iter()
             .all(|&c| matches!(c, b' ' | b'\t' | b'\r' | b'\n'))
         {
-            return Err(Error::new("EOF".to_owned()));
+            return Err(Error::with_kind("EOF".to_owned(), ErrorKind::Eof));
         }
         let (v, _) = parse_prefix(data).map_err(|e| {
             if e.msg == "unexpected end of JSON input" {
-                Error::new("unexpected EOF".to_owned())
+                Error::with_kind("unexpected EOF".to_owned(), ErrorKind::UnexpectedEof)
             } else {
                 Error::from(e)
             }
         })?;
-        decode_value(v, self.disallow_unknown)
+        decode_value(data, v, self.disallow_unknown)
     }
 
     /// [`Decoder::decode`] 와 같되, `Unmarshal` 처럼 입력 전체가 값 하나여야 한다.
     pub fn unmarshal<T: DeserializeOwned>(&self, data: &[u8]) -> Result<T, Error> {
         let v = parse_document(data)?;
-        decode_value(v, self.disallow_unknown)
+        decode_value(data, v, self.disallow_unknown)
     }
 }
