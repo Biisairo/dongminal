@@ -139,6 +139,8 @@ branch: rp/2.3
 - **FR-RSP-30** Rust 코드는 저장소의 `rust/` 아래 Cargo 워크스페이스에 둔다. crate 는 Go 패키지 경로를 따른다. 예: `internal/shared/edge` → `rust/crates/shared/edge`(crate 이름 `dm-shared-edge`), `cmd/dongminal` → `rust/crates/cmd/dongminal`. 여러 Go 패키지를 한 crate 로 묶거나 한 패키지를 여러 crate 로 나눠도 되지만, 그 사실을 이슈에 적는다.
 - **FR-RSP-31** e2e 의 `globalSetup` 은 환경변수 `DM_E2E_PREBUILT_BIN` 이 있으면 Go 빌드 대신 그 경로의 바이너리를 복사해 쓴다. 없으면 지금과 똑같이 동작한다.
 - **FR-RSP-32** Go 의 JSON·flag·시간·오류 문자열 규칙을 흉내 내는 공통 코드는 `dm-gocompat` crate 하나에 모은다. 다른 crate 가 같은 규칙을 따로 구현하지 않는다.
+- **FR-RSP-33 (입출력 모델)** `dm-shared-platform` 은 동기(std) API 만 낸다. 근거: Go 가 블로킹 I/O 모델이고, Windows AF_UNIX 는 std·tokio 모두 지원하지 않으며, PTY 읽기도 블로킹이다. 비동기 소비자(웹 서버·데몬)는 `tokio::task::spawn_blocking` 이나 전용 스레드로 감싼다. unix 의 IPC 스트림은 `into_std()` 뒤 `tokio::net::UnixStream::from_std` 로 바꿔 써도 된다. (1.4 결정 D-1)
+- **FR-RSP-34 (로그 요청 ID)** Go 의 `context.Context` 로 넘기던 요청 ID 는 `dm-shared-dmlog` 의 `ReqCtx<'a> = Option<&'a str>` 를 첫 인자로 넘긴다.
 
 ### 3.5 작업 절차
 
