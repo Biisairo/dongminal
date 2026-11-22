@@ -10,6 +10,14 @@ publish = false
 workspace = true
 
 [dependencies]
+chrono = { workspace = true }
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-dmlog = { path = "../dmlog" }
 dm-shared-platform = { path = "../platform" }
 dm-shared-pollwait = { path = "../pollwait" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true }
