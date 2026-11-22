@@ -2,9 +2,8 @@
  * FileTreeLoad — 탐색기의 조회와 git 색 (FR-EDT-59·63·65 · FR-SVS-20~22).
  *
  * `FileTree` 의 부품이다 (REFACTOR3_FE_REST5_SRS FR-FR5-31 — 옛 `Object.assign(FileTree.prototype, …)`). 상태(펼침·선택·
- * 조작·관측 통로)는 종전대로 탐색기 인스턴스에 있고, 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 탐색기의 이름은 전부
- * `this.tree.X` 로 부른다 — 시험·e2e 가 인스턴스에 갈아 끼운 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을
- * `FileTree` 원형에 둔다.
+ * 조작·관측 통로)는 종전대로 탐색기 인스턴스에 있고, 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 제 이름은 `this.X`, 탐색기와 다른 부품의 이름은 `this.tree.X`·`this.tree.<부품>.X` 로
+ * 부른다 — 시험·e2e 가 부품 인스턴스에 갈아 끼운 것을 부품끼리도 본다. 이 부품의 이름은 `FileTree` 원형에 없다 (REFACTOR3_FE_DELEG_SRS).
  *
  * 서버에서 한 겹을 받고(`load`) 무시된 이름을 가리며(`loadIgnored`), git 관측을 받아 색과 접기 표식을 입힌다(`pollGit`·`_applyGit`·
  * `_rollup`). 옛 자리는 `file-tree-paint.js` 다.
@@ -33,14 +32,14 @@ class FileTreeLoad {
      */
     const off=(opts&&opts.offset)|0;
     const q=this.tree.store.loadQ;
-    if(off) return q.has(dir)?Promise.resolve():this.tree._loadOnce(dir,off);
+    if(off) return q.has(dir)?Promise.resolve():this._loadOnce(dir,off);
     const cur=q.get(dir);
     if(cur){cur.again=true;return cur.done}
     const entry={again:false,done:Promise.resolve()};
     q.set(dir,entry);
     entry.done=(async()=>{
       // 낙관 반영으로 버려진 응답은 다시 읽는다 — 버리기만 하면 그 폴더가 목록 없이 남는다.
-      try{ do{ entry.again=false; if(await this.tree._loadOnce(dir,0)==='stale') entry.again=true }while(entry.again) }
+      try{ do{ entry.again=false; if(await this._loadOnce(dir,0)==='stale') entry.again=true }while(entry.again) }
       finally{ q.delete(dir) }
     })();
     return entry.done;
@@ -93,7 +92,7 @@ class FileTreeLoad {
     }
     this.tree._paintAll();
     // FR-ETR-5: 겹을 읽은 **뒤에** 그 겹의 이름들로 한 번 묻는다.
-    this.tree.loadIgnored(dir);
+    this.loadIgnored(dir);
   }
 
   /**
@@ -108,7 +107,7 @@ class FileTreeLoad {
     const st=this.tree._kids.get(dir);
     if(!st||!st.entries.length) return;
     // 부모가 무시면 이 겹 전부가 무시다 — 서버에 묻지 않는다.
-    if(this.tree._isIgnored(dir)){
+    if(this._isIgnored(dir)){
       this.tree._ign.set(dir,new Set(st.entries.map(e=>e&&e.name).filter(Boolean)));
       this.tree._paintAll();
       return;
@@ -137,8 +136,8 @@ class FileTreeLoad {
   // 무시면 loadIgnored 가 자식 전부를 그 겹의 Set 에 넣어 두었다.
   _isIgnored(p){
     if(p===this.tree.root) return false;
-    const s=this.tree._ign.get(this.tree._parent(p));
-    return !!(s&&s.has(this.tree._base(p)));
+    const s=this.tree._ign.get(this.tree.painter._parent(p));
+    return !!(s&&s.has(this.tree.painter._base(p)));
   }
 
   /**
@@ -150,20 +149,20 @@ class FileTreeLoad {
    */
   async reload(dir){
     const had=(this.tree._kids.get(dir)||{}).entries||[];
-    await this.tree.load(dir);
+    await this.load(dir);
     const st=this.tree._kids.get(dir);
     if(!st||st.err) return;
     while(st.truncated&&st.entries.length<had.length){
       const before=st.entries.length;
-      await this.tree.load(dir,{offset:before});
+      await this.load(dir,{offset:before});
       if(this.tree._kids.get(dir)!==st||st.entries.length<=before) break;
     }
   }
 
   // FR-EDT-64: **펼쳐져 있는 폴더만** 다시 읽는다. 펼침은 보존된다.
   refresh(){
-    this.tree.reload(this.tree.root);
-    for(const p of this.tree._open) this.tree.reload(p);
+    this.reload(this.tree.root);
+    for(const p of this.tree._open) this.reload(p);
   }
 
   // ── 겹의 변경 감지 (NOTES_LIVE_EXPLORER_SRS 묶음 L / FR-FSL-6~14) ──
@@ -214,8 +213,8 @@ class FileTreeLoad {
     if(opts&&opts.now) hub.invalidate();
     const r=await hub.ask(this.tree.root);
     this.tree._gitBusy=false;
-    this.tree._applyGit(r,now,Date.now());
-    if(this.tree.store.gitAgain){ this.tree.store.gitAgain=false; return this.tree.pollGit({now:true}) }
+    this._applyGit(r,now,Date.now());
+    if(this.tree.store.gitAgain){ this.tree.store.gitAgain=false; return this.pollGit({now:true}) }
   }
 
   /**
@@ -232,7 +231,7 @@ class FileTreeLoad {
     if(!got) return;
     // 안전망의 시계는 **그 관측의 시각**으로 간다 — 오래된 캐시를 지금 칠했다고
     // 지금 관측한 것이 되지 않는다.
-    this.tree._applyGit({ok:true,status:200,data:got.data},Date.now(),got.at);
+    this._applyGit({ok:true,status:200,data:got.data},Date.now(),got.at);
   }
 
   /**
@@ -258,9 +257,9 @@ class FileTreeLoad {
     if(!r.ok){
       // 503 은 git 자체가 없다는 답이다 — 그대로 두면 3초마다 영영 묻는다. Git
       // 패널이 503 을 `_gitOff` 로 굳히는 것과 같은 관례다 (`git-repos-list.js`).
-      if(r.status===503){this.tree._gitOff=true;this.tree._setStatus(null);return}
+      if(r.status===503){this.tree._gitOff=true;this._setStatus(null);return}
       // 404(`not_repo`)를 비롯한 4xx 는 **지금은** 저장소가 아니라는 답일 뿐이다.
-      if(r.status>=400&&r.status<500){this.tree._gitBack(now);this.tree._setStatus(null)}
+      if(r.status>=400&&r.status<500){this._gitBack(now);this._setStatus(null)}
       return;
     }
     // 200 인데 본문을 읽지 못한 것은 답이 아니다 — 중간의 프록시일 수 있다.
@@ -272,17 +271,17 @@ class FileTreeLoad {
     // 아래 `if(!repo)` 도 같은 자리로 가므로 이 줄이 없어도 동작은 같다. 그런데도
     // 두는 이유는 **계약을 읽는 쪽이 계약의 이름을 부르게** 하기 위해서다 — 빈
     // `repo` 로 판정하면 서버가 그 필드를 채우는 날 조용히 갈린다.
-    if(d.isRepo===false){this.tree._gitBack(now);this.tree._setStatus(null);return}
+    if(d.isRepo===false){this._gitBack(now);this._setStatus(null);return}
     const repo=d.repo||'';
     // 옛 서버는 `rootMatch` 를 주지 않는다. 그때는 문자열 비교로 물러나되,
     // 그 결과를 굳히지는 않는다.
     const match=(typeof d.rootMatch==='boolean')?d.rootMatch:(repo===this.tree.root);
-    if(!repo){this.tree._gitBack(now);this.tree._setStatus(null);return}
+    if(!repo){this._gitBack(now);this._setStatus(null);return}
     // FR-DIR-41·42: 저장소 루트로부터 이 트리 루트까지의 접두. 정규화를 아는 것은
     // 서버뿐이므로 **서버가 준 두 값 사이에서만** 계산한다.
     const resolved=(!match&&typeof d.requestedResolved==='string')?d.requestedResolved:'';
-    const prefix=match?'':this.tree._prefixOf(repo,resolved);
-    if(prefix===null){this.tree._gitBack(now);this.tree._setStatus(null);return}
+    const prefix=match?'':this._prefixOf(repo,resolved);
+    if(prefix===null){this._gitBack(now);this._setStatus(null);return}
     this.tree._gitRetryAt=0;
     this.tree._repoPrefix=prefix;
     this.tree.store.gitOkAt=Math.max(okAt,at);
@@ -295,7 +294,7 @@ class FileTreeLoad {
      */
     const key=d.mark?rptKey(repo,prefix,d.mark):'';
     if(key&&key===this.tree.store.gitKey) return;
-    this.tree._setStatus(d.status);
+    this._setStatus(d.status);
     this.tree.store.gitKey=key;
   }
 
@@ -339,7 +338,7 @@ class FileTreeLoad {
         const c=ch(e);
         // '.' 는 porcelain 의 "변화 없음" 이다 — 상태가 아니다.
         if(!e||!e.path||!c||c==='.') continue;
-        const k=this.tree._stKey(e.path);
+        const k=this._stKey(e.path);
         if(k===null) continue;
         // FR-DIR-1: 파일인지 디렉터리인지는 **서버가 확정한다** (D-DIR-1).
         (e.dir?dirs:files).set(k,c);
@@ -361,12 +360,12 @@ class FileTreeLoad {
     this.tree._partial=new Set();
     for(const e of (st&&st.staged)||[]){
       if(!e||!e.path||!e.staged||!e.unstaged) continue;
-      const k=this.tree._stKey(e.path);
+      const k=this._stKey(e.path);
       if(k!==null) this.tree._partial.add(k);
     }
     // FR-DIR-13: 접어 올림은 디렉터리 항목도 대상으로 삼는다 — 서브모듈이 바뀌면
     // 그것을 담은 폴더도 하위에 변경이 있다는 사실을 말해야 한다.
-    this.tree._dirSt=this.tree._rollup(new Map([...files,...dirs]));
+    this.tree._dirSt=this._rollup(new Map([...files,...dirs]));
     this.tree._paintAll();
   }
 
@@ -437,7 +436,7 @@ class FileTreeLoad {
       const own=(this.tree._st&&this.tree._st.get(rel))||'';
       if(own) return own;
     }
-    return this.tree._inherit(rel);
+    return this._inherit(rel);
   }
 
   /**
@@ -462,7 +461,3 @@ class FileTreeLoad {
     return '';
   }
 }
-
-// 탐색기 원형의 이름 — 앱·렌더러·e2e·시험과 다른 부품이 `FileTree` 에서 부른다 (REFACTOR3_FE_REST5_SRS FR-FR5-32).
-Controller.delegate(FileTree,'loader',['load','_loadOnce','loadIgnored','_isIgnored','reload','refresh','pollStamp','pollGit','paintGitCached',
-  'gitDue','_applyGit','_gitBack','_prefixOf','_setStatus','_stKey','_rollup','_isPartial','_stOf','_inherit']);

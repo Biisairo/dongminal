@@ -137,7 +137,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     const notes = await notesRoot(page);
     await openEditorWin(page, notes);
 
-    await page.evaluate(() => (window as any).app.testing.edActiveTree().startCreate(false));
+    await page.evaluate(() => (window as any).app.testing.edActiveTree().edits.startCreate(false));
     const input = page.locator('.ed-tree .ed-input');
     await expect(input).toBeVisible({ timeout: 10000 });
     await input.fill('memo-v16.md');

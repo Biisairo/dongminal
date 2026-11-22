@@ -752,7 +752,7 @@ test('FR-FEA-5(9d): 편집기 후속은 활성 트리를 즉시 묻고 열린 �
   const log = [];
   app.git._gitHub = { invalidate: () => log.push('invalidate') };
   Object.defineProperty(app, 'gitPanel', { value: null });
-  app.edActiveTree = () => ({ pollGit: (o) => log.push('tree:' + o.now) });
+  app.edActiveTree = () => ({ loader: { pollGit: (o) => log.push('tree:' + o.now) } });
   app._edDocs = new Map([['a', { dd: { refresh: () => log.push('dd') } }], ['b', {}]]);
   app.gitSignal('save');
   assert.deepEqual(log, ['invalidate', 'tree:true', 'dd']);
@@ -1695,7 +1695,7 @@ test('TC-FEA-2(9k-1): 갈아 끼운 aw·slotFocused·render·save·edActiveTree�
   const log = [];
   app.aw = () => { log.push('aw'); return { id: 'w', type: 'editor', editor: { side: 'explorer' } } };
   app.slotFocused = () => { log.push('slot'); return 0 };
-  const tree = { pollGit: (o) => log.push('poll:' + o.now), pollStamp() {} };
+  const tree = { loader: { pollGit: (o) => log.push('poll:' + o.now), pollStamp() {} } };
   app._edTrees = new Map([['w', tree]]);
   assert.equal(app.edActiveTree(), tree);
   app.render = () => log.push('render');

@@ -370,7 +370,7 @@ class GitDiffPane extends GitPart {
     this.p.blameStale();
     // 탐색기의 색도 같은 사실을 딛는다 (FR-EDT-78).
     const tree=this.app.edActiveTree&&this.app.edActiveTree();
-    if(tree&&tree.pollGit) tree.pollGit({now:true});
+    if(tree&&tree.loader) tree.loader.pollGit({now:true});
   }
 
   _destroyViews(){

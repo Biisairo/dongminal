@@ -60,7 +60,7 @@ class EditorFile extends Controller {
     // 경로를 눈으로 따라가며 폴더를 하나씩 펼쳐야 한다. 여는 경로가 여럿이므로
     // (검색 둘·git 변경파일·dmctl open) 각 부름터가 아니라 이 자리에 둔다.
     const tree=this.app._edTreeFor(w);
-    if(tree&&tree.revealPath) tree.revealPath(filePath);
+    if(tree&&tree.selector) tree.selector.revealPath(filePath);
     /**
      * UX_BATCH6_SRS FR-DSP-1c: **탐색기가 아직 없으면 기억해 둔다.**
      *

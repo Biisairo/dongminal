@@ -71,7 +71,7 @@ class SoftReload extends Controller {
       // 위임하므로 둘째 호출이 그 자리에서 돌아간다 (FR-SVS-20).
       this._softStep('trees',()=>{
         for(const tree of (this.app._edTrees?this.app._edTrees.values():[])){
-          if(tree&&typeof tree.refresh==='function') tree.refresh();
+          if(tree&&tree.loader&&typeof tree.loader.refresh==='function') tree.loader.refresh();
         }
       });
       // ⑤ 터미널 (FR-SRL-5, D-2): **전부** 다시 붙인다. 화면이 어긋난 것 같을 때

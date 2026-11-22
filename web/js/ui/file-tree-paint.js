@@ -10,8 +10,8 @@
  * 이 파일은 그리기 부품 `FileTreePaint`(탐색기의 `painter`) 다 — 평평한 목록(`_items`)·행 요소·입력 행·실패 표시.
  * 조회와 git 색은 `file-tree-load.js`(`FileTreeLoad`), 선택·클릭·펼침은 `file-tree-select.js`(`FileTreeSelect`) 로 갈랐다
  * (REFACTOR3_FE_REST5_SRS FR-FR5-31 — 옛 `Object.assign(FileTree.prototype, …)` 한 덩이 971줄). 상태는 종전대로 탐색기
- * 인스턴스에 있고 부품은 그것을 `this.tree` 로 읽고 쓴다. 탐색기의 이름은 전부 `this.tree.X` 로 부른다 — 시험·e2e 가 인스턴스에
- * 갈아 끼운 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `FileTree` 원형에 둔다.
+ * 인스턴스에 있고 부품은 그것을 `this.tree` 로 읽고 쓴다. 제 이름은 `this.X`, 탐색기와 다른 부품의 이름은 `this.tree.X`·`this.tree.<부품>.X` 로
+ * 부른다 — 시험·e2e 가 부품 인스턴스에 갈아 끼운 것을 부품끼리도 본다. 이 부품의 이름은 `FileTree` 원형에 없다 (REFACTOR3_FE_DELEG_SRS).
  */
 class FileTreePaint {
   constructor(tree){
@@ -68,10 +68,10 @@ class FileTreePaint {
           stale:!!(sub&&sub.stale),
           // §3A-5 (T-7.4): 다시 그려져도 드롭 강조가 남는다.
           drop:this.tree._dropDir===p,
-          sel:this.tree._selHas(p)||this.tree._sel===p,
-          st:this.tree._stOf(p,kind),
-          ignored:this.tree._isIgnored(p),
-          partial:kind!=='dir'&&this.tree._isPartial(p),chip:kind==='dir'?this.tree.app.claudeFolderChip(this.tree.root,p):null}; // CLAUDE_ACCOUNTS_SRS FR-CAC-97
+          sel:this.tree.selector._selHas(p)||this.tree._sel===p,
+          st:this.tree.loader._stOf(p,kind),
+          ignored:this.tree.loader._isIgnored(p),
+          partial:kind!=='dir'&&this.tree.loader._isPartial(p),chip:kind==='dir'?this.tree.app.claudeFolderChip(this.tree.root,p):null}; // CLAUDE_ACCOUNTS_SRS FR-CAC-97
         it.k='r:'+p;
         // 근거는 이 행이 읽는 값 **전부**다 — 좁히면 갱신이 조용히 멈춘다 (FR-RPT-2).
         it.s=[kind,depth,it.open?1:0,it.busy?1:0,it.err,it.sel?1:0,it.st,it.linkDir?1:0,
@@ -104,10 +104,10 @@ class FileTreePaint {
     // §3A-3: 붙을 행이 보이지 않으면 **가장 가까운 보이는 조상** 행 뒤, 그것도 없으면
     // 맨 앞(루트)이다.
     if(this.tree._err&&!errPut){
-      for(let a=this.tree._parent(this.tree._err.anchor);a&&a!==this.tree.root&&pathUnder(this.tree.root,a);a=this.tree._parent(a)){
+      for(let a=this._parent(this.tree._err.anchor);a&&a!==this.tree.root&&pathUnder(this.tree.root,a);a=this._parent(a)){
         const i=out.findIndex(x=>x.t==='row'&&x.path===a);
         if(i>=0){const it=err(out[i].depth+1); if(it) out.splice(i+1,0,it); break}
-        if(this.tree._parent(a)===a) break;
+        if(this._parent(a)===a) break;
       }
     }
     const rest=err(0); if(rest) out.unshift(rest);
@@ -115,8 +115,8 @@ class FileTreePaint {
   }
 
   paint(){
-    reconcileList(this.tree.list,this.tree._items(),{
-      key:it=>it.k, sig:it=>it.s, build:it=>this.tree._el(it),
+    reconcileList(this.tree.list,this._items(),{
+      key:it=>it.k, sig:it=>it.s, build:it=>this._el(it),
     });
     // FR-EXR-3: 루트의 선택은 **머리**가 보인다 — 뿌리에는 행이 없다(위 `_items`).
     this.tree.head.classList.toggle('sel',this.tree._sel===this.tree.root);
@@ -124,7 +124,7 @@ class FileTreePaint {
     const sel=this.tree.list.querySelector('.ed-row.sel');
     if(sel&&sel.id) this.tree.list.setAttribute('aria-activedescendant',sel.id);
     else this.tree.list.removeAttribute('aria-activedescendant');
-    this.tree._focusInput();
+    this._focusInput();
   }
 
   // 행의 id — 인스턴스 접두 + 경로. 공백이 id 에 설 수 없으므로 인코딩한다.
@@ -159,7 +159,7 @@ class FileTreePaint {
        * 두 번 받아 목록에 중복이 선다.
        */
       const d=document.createElement('div'); d.className='ed-more';
-      this.tree._pad(d,it.depth);
+      this._pad(d,it.depth);
       const tpl=it.err?EDITOR_TREE_MORE_FAIL:(it.busy?EDITOR_TREE_MORE_BUSY:EDITOR_TREE_TRUNCATED);
       d.textContent=tpl.replace('%s',it.n).replace('%t',it.total);
       if(it.err) d.classList.add('ed-more-err');
@@ -170,14 +170,14 @@ class FileTreePaint {
           const st=this.tree._kids.get(it.path);
           if(!st||st.moreBusy) return;
           st.moreBusy=true; st.moreErr=false; this.tree._paintAll();
-          this.tree.load(it.path,{offset:st.entries.length});
+          this.tree.loader.load(it.path,{offset:st.entries.length});
         });
       }
       return d;
     }
     if(it.t==='err'){
       const d=document.createElement('div'); d.className='ed-tree-err';
-      this.tree._pad(d,it.depth);
+      this._pad(d,it.depth);
       d.textContent=EDITOR_TREE_ERR+' — '+it.msg;
       return d;
     }
@@ -185,13 +185,13 @@ class FileTreePaint {
     // 클래스를 나눈다 — 하나로 합치면 어느 실패인지 화면이 말하지 못한다.
     if(it.t==='operr'){
       const d=document.createElement('div'); d.className='ed-op-err';
-      this.tree._pad(d,it.depth);
+      this._pad(d,it.depth);
       d.appendChild(domEl('span','ed-op-err-msg',it.msg));
       // §3A-3: 사용자가 닫을 수 있다 — 다음 조작을 시작하지 않아도 걷을 길이 있다.
       d.appendChild(UIKit.button({icon:'x',title:EDITOR_TREE_ERR_CLOSE,kind:'ghost',size:'sm',cls:'ed-op-err-x'}));
       return d;
     }
-    if(it.t==='in') return this.tree._elInput(it);
+    if(it.t==='in') return this._elInput(it);
     const d=document.createElement('div');
     // 상태 클래스는 Git 패널과 **같은 표**에서 나온다 (GIT_ST_CLASS) — 색값의
     // 정의 자리를 늘리지 않기 위해서다 (FR-EDT-70 / D-4).
@@ -209,7 +209,7 @@ class FileTreePaint {
     if(it.st) d.dataset.st=it.st;
     // FR-A11Y-16 / D-A11Y-11: 평평한 트리의 `treeitem`. 값은 전부 서명에 든
     // 것이므로(`_items`) 바뀌면 행이 다시 만들어져 속성도 따라온다.
-    d.id=this.tree._rowId(it.path);
+    d.id=this._rowId(it.path);
     d.setAttribute('role','treeitem');
     d.setAttribute('aria-level',String(it.depth+1));
     d.setAttribute('aria-selected',it.sel?'true':'false');
@@ -217,7 +217,7 @@ class FileTreePaint {
     // FR-EDT-85: 드래그 이동의 출발점. 링크도 옮길 수 있다 — 조작은 링크 **자신**을
     // 대상으로 삼는다 (D-21).
     d.draggable=true;
-    this.tree._pad(d,it.depth);
+    this._pad(d,it.depth);
     d.title=it.err?(it.path+' — '+EDITOR_TREE_ERR+' ('+it.err+')')
       :(it.stale?it.path+' — '+EDITOR_TREE_STALE:it.path);
     const tw=d.appendChild(domEl('span','ed-tw',it.kind==='dir'&&it.busy?EDITOR_TREE_TW_BUSY:''));   // UX_AUDIT_FIX_SRS FR-UXF-100: 꺾쇠는 아이콘, 열림은 `data-open`
@@ -238,16 +238,16 @@ class FileTreePaint {
   _elInput(it){
     const d=document.createElement('div');
     d.className='ed-row ed-edit'+(it.mode==='rename'?' ed-edit-rename':' ed-edit-new');
-    this.tree._pad(d,it.depth);
+    this._pad(d,it.depth);
     const tw=d.appendChild(domEl('span','ed-tw',''));
     if(it.isDir) UIKit.caret(tw,false);
     const i=document.createElement('input');
-    i.className='ed-input'; i.type='text'; i.value=it.init; i.spellcheck=false; i.oninput=()=>this.tree._askName(i.value); // F-k
+    i.className='ed-input'; i.type='text'; i.value=it.init; i.spellcheck=false; i.oninput=()=>this.tree.edits._askName(i.value); // F-k
     i.addEventListener('keydown',e=>{
       e.stopPropagation();
       // §3A-5 (T-7.3): 끝내면 키보드 포커스가 트리 목록으로 돌아온다.
-      if(e.key==='Enter'){e.preventDefault();this.tree._commitEdit(i.value);if(!this.tree._edit)this.tree.list.focus()}
-      else if(e.key==='Escape'){e.preventDefault();this.tree.cancelEdit();this.tree.list.focus()}
+      if(e.key==='Enter'){e.preventDefault();this.tree.edits._commitEdit(i.value);if(!this.tree._edit)this.tree.list.focus()}
+      else if(e.key==='Escape'){e.preventDefault();this.tree.edits.cancelEdit();this.tree.list.focus()}
     });
     d.appendChild(i);
     return d;
@@ -263,17 +263,17 @@ class FileTreePaint {
   // 종류는 **부모의 캐시**가 안다 — 행을 그리는 근거와 같은 값을 쓴다.
   _kindOf(p){
     if(p===this.tree.root) return 'dir';
-    const st=this.tree._kids.get(this.tree._parent(p));
-    const e=st&&st.entries.find(x=>x&&x.name===this.tree._base(p));
+    const st=this.tree._kids.get(this._parent(p));
+    const e=st&&st.entries.find(x=>x&&x.name===this._base(p));
     if(!e) return '';
     return e.link?'link':(e.dir?'dir':'file');
   }
 
   // FR-EDT-81: 만드는 자리. 선택이 폴더면 그 아래, 파일이면 그 부모, 없으면 루트다.
   _targetDir(){
-    const k=this.tree._sel?this.tree._kindOf(this.tree._sel):'';
+    const k=this.tree._sel?this._kindOf(this.tree._sel):'';
     if(k==='dir') return this.tree._sel;
-    if(k) return this.tree._parent(this.tree._sel);
+    if(k) return this._parent(this.tree._sel);
     return this.tree.root;
   }
 
@@ -301,7 +301,3 @@ class FileTreePaint {
    */
   _clearErr(){ if(!this.tree._err) return; this.tree._err=null; this.tree._paintAll() }
 }
-
-// 탐색기 원형의 이름 — 앱·렌더러·e2e·시험과 다른 부품이 `FileTree` 에서 부른다 (REFACTOR3_FE_REST5_SRS FR-FR5-32).
-Controller.delegate(FileTree,'painter',['_items','paint','_rowId','_focusInput','_pad','_el','_elInput','_base','_parent','_kindOf','_targetDir',
-  '_fail','_clearErr']);

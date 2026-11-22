@@ -86,7 +86,7 @@ class FileTreeStore {
 
   // FR-SVS-22: 관측이 갱신되면 그 루트를 보는 **모든** 칸이 다시 칠해진다.
   // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 펼침·읽기가 끝나면 감시 집합(겹)이 바뀐다.
-  paintAll(){ for(const v of this.views) v.paint(); this.app.edWatchSync() }
+  paintAll(){ for(const v of this.views) v.painter.paint(); this.app.edWatchSync() }
 
   // §3A-1: 낙관 반영으로 그 폴더의 목록을 직접 고쳤다 — 그 전에 출발한 응답은 버린다.
   bump(dir){ this.gen.set(dir,(this.gen.get(dir)||0)+1) }
@@ -147,7 +147,7 @@ class FileTreeStore {
     // 순차로 읽는다 — 병렬이면 응답마다의 paint 가 중간 상태를 깜빡인다.
     for(const d of reload){
       const v=[...this.views].find(x=>d===this.root||x._open.has(d));
-      if(v) await v.reload(d);
+      if(v) await v.loader.reload(d);
     }
   }
 }

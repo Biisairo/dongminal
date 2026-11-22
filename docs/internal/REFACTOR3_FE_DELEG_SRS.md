@@ -130,6 +130,7 @@ P3a 단계 7·8·9 와 REST5 는 App·GitPanel·FileTree·TerminalTool 의 메�
 
 | 이슈 | 커밋 | 내용 |
 |---|---|---|
+| DL-7 | `refactor(tree): DL-7` | FileTree 위임자 96개와 `Controller.delegate(FileTree, …)` 표 8개를 지웠다. 부품 안의 호출 269곳을 바꿨다: 제 이름은 `this.X`, 다른 부품의 이름은 `this.tree.<부품>.X`, 탐색기 본체는 `this.<부품>.X` 로 부른다. 관측(`file-tree-store.js`)은 보는 탐색기의 `painter.paint`·`loader.reload` 를 부른다. 앱 코드 6파일(`editor-file`·`editor-open`·`editor-pane`·`focus-highlight`·`soft-reload`·`git/git-diff-pane`)은 `tree.loader.X`·`tree.selector.X` 를 부른다. e2e 7 spec 은 트리 핸들의 부품 경로를 부른다. 단위 시험: `file-tree-surface` 를 다시 썼다 — 원형 이름 25개, TC-DLG-1(부품 이름 96개가 부품 원형에만 있다), TC-DLG-2(부품 안·부품 사이·관측의 호출이 부품 인스턴스에 갈아 끼운 것을 본다). `explorer-clip`·`file-tree-mark` 는 부품 인스턴스를 갈아 끼우고, `file-tree-store`·`editor-git-changed`·`app-controllers`(2줄)의 가짜 트리는 부품 모양을 갖는다. 남긴 위임자는 없다 |
 
 ## 부록 A. 위임자 표 (HEAD `9a3d8e30`)
 

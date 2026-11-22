@@ -6,8 +6,8 @@
  * 좌표는 **목록 내용 좌표**(스크롤 포함)로 들어, 자동 스크롤 중에도 시작점이 내용에 붙어 있다.
  *
  * 부품 `FileTreeMarquee`(탐색기의 `marquee`) 이다 (REFACTOR3_FE_REST5_SRS FR-FR5-31 — 옛 `Object.assign(FileTree.prototype, …)`). 상태는 종전대로
- * 탐색기 인스턴스에 있고 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 탐색기의 이름은 전부 `this.tree.X` 로 부른다 — 시험·e2e 가
- * 인스턴스에 갈아 끼운 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `FileTree` 원형에 둔다.
+ * 탐색기 인스턴스에 있고 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 제 이름은 `this.X`, 탐색기와 다른 부품의 이름은 `this.tree.X`·`this.tree.<부품>.X` 로
+ * 부른다 — 시험·e2e 가 부품 인스턴스에 갈아 끼운 것을 부품끼리도 본다. 이 부품의 이름은 `FileTree` 원형에 없다 (REFACTOR3_FE_DELEG_SRS).
  */
 class FileTreeMarquee {
   constructor(tree){
@@ -15,7 +15,7 @@ class FileTreeMarquee {
   }
 
   _initMarquee(){
-    this.tree.list.addEventListener('mousedown',e=>this.tree._mqDown(e));
+    this.tree.list.addEventListener('mousedown',e=>this._mqDown(e));
   }
 
   _mqDown(e){
@@ -24,9 +24,9 @@ class FileTreeMarquee {
     e.preventDefault();
     this.tree.list.focus({preventScroll:true});
     const add=e.metaKey||e.ctrlKey||e.shiftKey;
-    const m={x0:e.clientX,y0:e.clientY,from:this.tree._mqY(e.clientY),x:e.clientX,y:e.clientY,on:false,
+    const m={x0:e.clientX,y0:e.clientY,from:this._mqY(e.clientY),x:e.clientX,y:e.clientY,on:false,
       base:add?[...this.tree._selSet]:[],anchor:add?this.tree._sel:'',box:null,tick:null};
-    const move=ev=>{m.x=ev.clientX;m.y=ev.clientY;this.tree._mqMove(m)};
+    const move=ev=>{m.x=ev.clientX;m.y=ev.clientY;this._mqMove(m)};
     const up=()=>{
       document.removeEventListener('mousemove',move);
       document.removeEventListener('mouseup',up);
@@ -49,20 +49,20 @@ class FileTreeMarquee {
     if(!m.on){
       if(Math.hypot(m.x-m.x0,m.y-m.y0)<EDITOR_MARQUEE_MIN_PX) return;
       m.on=true;
-      if(this.tree._edit) this.tree.cancelEdit();
-      this.tree._clearErr();
+      if(this.tree._edit) this.tree.edits.cancelEdit();
+      this.tree.painter._clearErr();
       m.box=document.createElement('div');
       m.box.className='ed-marquee';
       this.tree.el.appendChild(m.box);
     }
-    this.tree._mqPaint(m);
-    this.tree._mqScroll(m);
+    this._mqPaint(m);
+    this._mqScroll(m);
   }
 
   // 상자를 그리고 세로로 겹친 행을 고른다. 앵커는 포인터 쪽 끝의 행이다.
   _mqPaint(m){
     const lr=this.tree.list.getBoundingClientRect(),er=this.tree.el.getBoundingClientRect();
-    const to=this.tree._mqY(m.y),lo=Math.min(m.from,to),hi=Math.max(m.from,to);
+    const to=this._mqY(m.y),lo=Math.min(m.from,to),hi=Math.max(m.from,to);
     const off=lr.top-er.top-this.tree.list.scrollTop;
     const top=Math.max(lo+off,lr.top-er.top),bot=Math.min(hi+off,lr.bottom-er.top);
     const xl=Math.min(m.x0,m.x)-er.left,xr=Math.max(m.x0,m.x)-er.left;
@@ -73,7 +73,7 @@ class FileTreeMarquee {
       if(y<hi&&y+b.height>lo&&r.dataset.path!==this.tree.root) hits.push(r.dataset.path);
     }
     if(to<m.from) hits.reverse();
-    this.tree._selMarquee(m.base,hits,m.anchor);
+    this.tree.selector._selMarquee(m.base,hits,m.anchor);
     this.tree._paintAll();
   }
 
@@ -91,11 +91,8 @@ class FileTreeMarquee {
       const before=this.tree.list.scrollTop;
       this.tree.list.scrollTop+=d;
       if(this.tree.list.scrollTop===before) return;
-      this.tree._mqPaint(m);
-      this.tree._mqScroll(m);
+      this._mqPaint(m);
+      this._mqScroll(m);
     },{label:'ed-marquee-scroll'});
   }
 }
-
-// 탐색기 원형의 이름 — 앱·렌더러·e2e·시험과 다른 부품이 `FileTree` 에서 부른다 (REFACTOR3_FE_REST5_SRS FR-FR5-32).
-Controller.delegate(FileTree,'marquee',['_initMarquee','_mqDown','_mqY','_mqMove','_mqPaint','_mqScroll']);

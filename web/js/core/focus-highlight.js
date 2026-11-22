@@ -52,7 +52,7 @@ class FocusHighlight extends Controller {
     const p=this._fhlPend; if(!p||p.at!==at) return;
     if(p.path){
       const tree=this.app._edTreeFor(s); if(!tree||!tree.list||!tree.list.offsetParent) return;
-      this._fhlPend=null; tree.revealPath(p.path);
+      this._fhlPend=null; tree.selector.revealPath(p.path);
       return;
     }
     const el=panel&&panel._els.get('changes'); if(!el||!el.offsetParent) return;
@@ -63,7 +63,7 @@ class FocusHighlight extends Controller {
   _fhlFile(s,panel,root,path,at){
     if(!pathUnder(String(root).replace(/[\\/]+$/,''),path)) return;
     const tree=this.app._edTreeFor(s);
-    if(tree) tree.revealPath(path);
+    if(tree) tree.selector.revealPath(path);
     if(!tree||!tree.list||!tree.list.offsetParent) this._fhlPend={at,path};
     if(panel&&panel._sel.size){panel._sel.clear();panel._anchor=null;panel._paint()}
   }
@@ -75,7 +75,7 @@ class FocusHighlight extends Controller {
       if(panel) this._fhlDiffSel(panel,f,at); else this._fhlPend={at,diff:f};
     }
     const tree=this.app._edTreeFor(s);
-    if(tree&&(tree._selSet.size||tree._sel)){tree._selOnly('');tree._paintAll()}
+    if(tree&&(tree._selSet.size||tree._sel)){tree.selector._selOnly('');tree._paintAll()}
   }
 
   _fhlDiffSel(panel,f,at){

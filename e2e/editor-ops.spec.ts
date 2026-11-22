@@ -925,7 +925,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
     await row(page, j(R, 'docs')).click();
     await page.evaluate(({ a, b, docs }: any) => {
       const t = (window as any).app.testing.edActiveTree();
-      return t.doMoveMany([[a, docs + '/a.txt'], [b, docs + '/b.txt']]);
+      return t.edits.doMoveMany([[a, docs + '/a.txt'], [b, docs + '/b.txt']]);
     }, { a: j(R, 'src', 'a.txt'), b: j(R, 'src', 'b.txt'), docs: j(R, 'docs') });
     await onDisk(() => fs.existsSync(j(R, 'docs', 'b.txt'))).toBe(true);
     await expect(row(page, j(R, 'docs', 'b.txt'))).toBeVisible();
@@ -933,7 +933,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
     await expect(row(page, j(R, 'src', 'b.txt'))).toHaveCount(0);
     await expect(opErr(page)).toBeVisible();
     await poll(page);
-    await page.evaluate(() => (window as any).app.testing.edActiveTree().refresh());
+    await page.evaluate(() => (window as any).app.testing.edActiveTree().loader.refresh());
     await expect(opErr(page)).toBeVisible(); // 재조회·폴링이 사유를 지우지 않는다
     await opErr(page).locator('.ed-op-err-x').click();
     await expect(opErr(page)).toHaveCount(0);
@@ -946,7 +946,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
     await row(page, j(R, 'src')).click();
     await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
     await page.route('**/api/fs/list*', (route: any) => route.fulfill({ status: 503, body: '{}' }));
-    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().load(p), j(R, 'src'));
+    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().loader.load(p), j(R, 'src'));
     await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
     await expect(row(page, j(R, 'src'))).toHaveClass(/ed-stale/);
     await page.unroute('**/api/fs/list*');
@@ -971,7 +971,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
     await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await row(page, j(R, 'docs')).click();
-    await page.evaluate(({ a, b }: any) => (window as any).app.testing.edActiveTree().doRename(a, b), { a: j(R, 'src'), b: j(R, 'docs') });
+    await page.evaluate(({ a, b }: any) => (window as any).app.testing.edActiveTree().edits.doRename(a, b), { a: j(R, 'src'), b: j(R, 'docs') });
     await expect(opErr(page)).toBeVisible();
     await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
     await expect(row(page, j(R, 'docs', 'd.txt'))).toBeVisible();
@@ -983,7 +983,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
     await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     // 폴더 로드가 끝나기 전에 만든다 — 낙관 반영과 진행 중 로드의 경합(§3A-1).
-    await page.evaluate((d: string) => (window as any).app.testing.edActiveTree().doCreate(d, 'a.txt', false), j(R, 'src'));
+    await page.evaluate((d: string) => (window as any).app.testing.edActiveTree().edits.doCreate(d, 'a.txt', false), j(R, 'src'));
     await expect(input(page)).toHaveValue('a.txt');
     await expect(opErr(page)).toBeVisible();
     expect(await page.evaluate(() => (window as any).app.testing.edActiveTree()._sel)).toBe(j(R, 'src'));
@@ -995,7 +995,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
     await enterExplorer(page, request, R);
     await page.evaluate(({ r, p }: any) => (window as any).app.edClipSet(r, p, true), { r: R, p: j(R, 'top.txt') });
     await row(page, j(R, 'src')).click();
-    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().doDuplicate(p), j(R, 'src', 'a.txt'));
+    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().edits.doDuplicate(p), j(R, 'src', 'a.txt'));
     await onDisk(() => fs.readdirSync(j(R, 'src')).length > 3).toBe(true);
     const clip = await page.evaluate(() => (window as any).app.edClipGet());
     expect(clip && clip.move).toBe(true);
@@ -1005,7 +1005,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
   test('R4-7: 인라인 편집 종료 뒤 포커스는 트리', async ({ page, request }) => {
     const R = mkRoot('r4-7');
     await enterExplorer(page, request, R);
-    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().startRename(p), j(R, 'top.txt'));
+    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().edits.startRename(p), j(R, 'top.txt'));
     await expect(input(page)).toBeFocused();
     await input(page).press('Escape');
     await expect(page.locator('.ed-tree')).toBeFocused();

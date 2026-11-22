@@ -12,7 +12,7 @@ const RENAME = '/api/fs/rename';
 
 function setup(fail = () => '') {
   const written = [];
-  // REFACTOR3_FE_REST5_SRS R5d: 탐색기의 몸은 부품 클래스다 — 위임자 표가 대역 `FileTree` 원형에 얹고 `treeParts` 가 부품을 세운다.
+  // REFACTOR3_FE_REST5_SRS R5d: 탐색기의 몸은 부품 클래스다 — `treeParts` 가 대역 `FileTree` 에 부품을 세운다(REFACTOR3_FE_DELEG_SRS).
   const ctx = load([...BASE, 'core/path.js', 'ui/repaint.js', 'ui/file-tree-load.js', 'ui/file-tree-select.js', 'ui/file-tree-paint.js',
     'ui/file-tree-edit.js', 'ui/file-tree-xfer.js',
     'core/editor-file.js'], {
@@ -47,9 +47,10 @@ function setup(fail = () => '') {
   app.edRefreshTreesFor = () => {};
   const t = treeParts(ctx, Object.create(ctx.FileTree.prototype));
   Object.assign(t, {
-    root: '/r', app, _open: new Set(), _sel: '', _selSet: new Set(), _err: null,
-    _after: async () => {}, _retargetOrFail: () => {}, _paintAll: () => {},
+    root: '/r', app, _open: new Set(), _sel: '', _selSet: new Set(), _err: null, _paintAll: () => {},
   });
+  t.xfer._after = async () => {};
+  t.edits._retargetOrFail = () => {};
   return { app, t, calls, written, max: () => maxInflight };
 }
 
@@ -81,7 +82,7 @@ test('TC-EXM-6c: 빈 목록이나 루트 없음이면 클립보드를 비운다'
 test('TC-EXM-6d: 두 경로 복사는 차례대로 붙고 만든 둘이 선택된다', async () => {
   const { app, t, calls, max } = setup();
   app.edClipSet('/r', ['/r/a.txt', '/r/b.txt']);
-  await t.doPasteInto('/r/dst');
+  await t.edits.doPasteInto('/r/dst');
   assert.deepEqual(calls.map((c) => [c.url, c.body.src]), [[COPY, '/r/a.txt'], [COPY, '/r/b.txt']]);
   assert.equal(max(), 1);
   assert.deepEqual([...t._selSet].sort(), ['/r/dst/a.txt copy', '/r/dst/b.txt copy']);
@@ -91,7 +92,7 @@ test('TC-EXM-6d: 두 경로 복사는 차례대로 붙고 만든 둘이 선택�
 test('TC-EXM-6e: 잘라내기 중 하나가 실패하면 클립보드에 실패한 것만 남고 사유가 붙는다', async () => {
   const { app, t, calls } = setup((src) => (src === '/r/b.txt' ? '사라졌다' : ''));
   app.edClipSet('/r', ['/r/a.txt', '/r/b.txt'], true);
-  await t.doPasteInto('/r/dst');
+  await t.edits.doPasteInto('/r/dst');
   assert.deepEqual(calls.map((c) => [c.url, c.body.from, c.body.to]), [
     [RENAME, '/r/a.txt', '/r/dst/a.txt'], [RENAME, '/r/b.txt', '/r/dst/b.txt']]);
   const c = app.edClipGet();
@@ -103,7 +104,7 @@ test('TC-EXM-6e: 잘라내기 중 하나가 실패하면 클립보드에 실패�
 test('TC-EXM-6f: 잘라내기가 모두 성공하면 클립보드가 빈다', async () => {
   const { app, t } = setup();
   app.edClipSet('/r', ['/r/a.txt', '/r/b.txt'], true);
-  await t.doPasteInto('/r/dst');
+  await t.edits.doPasteInto('/r/dst');
   assert.equal(app.edClipGet(), null);
   assert.deepEqual([...t._selSet].sort(), ['/r/dst/a.txt', '/r/dst/b.txt']);
 });
@@ -111,18 +112,18 @@ test('TC-EXM-6f: 잘라내기가 모두 성공하면 클립보드가 빈다', as
 test('TC-EXM-6g: 복제는 클립보드의 목록과 잘라내기 구분을 되돌린다', async () => {
   const { app, t } = setup();
   app.edClipSet('/r', ['/r/x', '/r/y'], true);
-  await t.doDuplicate('/r/src/a.txt');
+  await t.edits.doDuplicate('/r/src/a.txt');
   const c = app.edClipGet();
   assert.deepEqual({ ...c, paths: [...c.paths] }, { root: '/r', paths: ['/r/x', '/r/y'], move: true });
 });
 
 test('TC-EXM-2: 여러 항목의 경로 복사는 화면 순서대로 줄바꿈으로 잇는다', async () => {
   const { t, written } = setup();
-  t._items = () => ['/r/sub', '/r/sub/x', '/r/a', '/r/b'].map((path) => ({ t: 'row', path }));
-  t._selOnly('/r/b'); t._selToggle('/r/sub/x'); t._selToggle('/r/a');
-  const ps = t._selOrdered('/r/a');
+  t.painter._items = () => ['/r/sub', '/r/sub/x', '/r/a', '/r/b'].map((path) => ({ t: 'row', path }));
+  t.selector._selOnly('/r/b'); t.selector._selToggle('/r/sub/x'); t.selector._selToggle('/r/a');
+  const ps = t.selector._selOrdered('/r/a');
   assert.deepEqual([...ps], ['/r/sub/x', '/r/a', '/r/b']);
-  await t.copyPath(ps, false);
-  await t.copyPath(ps, true);
+  await t.xfer.copyPath(ps, false);
+  await t.xfer.copyPath(ps, true);
   assert.deepEqual(written, ['/r/sub/x\n/r/a\n/r/b', 'sub/x\na\nb']);
 });

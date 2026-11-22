@@ -18,8 +18,8 @@
  * **메서드의 몸은 부품 클래스에 있다** (REFACTOR3_FE_REST5_SRS R5d — 종전에는 주제별 파일이
  * `Object.assign(FileTree.prototype, …)` 로 얹었다, SPLIT_REFACTOR_SRS 묶음 C). 클래스 본문에는 생성자·접근자·
  * 마운트·파괴·정적 넷만 남는다. 상태(펼침·선택·조작·관측 통로)는 이 인스턴스에 있고 부품이 `this.tree` 로 읽고 쓴다.
- * 부품 파일 끝의 위임자 표(`Controller.delegate`)가 부품의 이름을 이 원형에 둔다 — 앱·렌더러·e2e 와 다른 부품은
- * 종전 이름 그대로 부른다. 접근자가 여기 남은 이유는 그것이 store 로 가는 **통로**이기 때문이다.
+ * 부품의 이름은 이 원형에 없다 — 앱·렌더러·e2e 와 다른 부품은 `tree.loader.reload()` 처럼 부품을 부른다
+ * (REFACTOR3_FE_DELEG_SRS). 접근자가 여기 남은 이유는 그것이 store 로 가는 **통로**이기 때문이다.
  *
  *   file-tree-load.js   조회 · git 색 · 무시 (`this.loader`)
  *   file-tree-select.js 선택 · 클릭 · 펼침 (`this.selector`)
@@ -123,7 +123,7 @@ class FileTree {
 
     this._buildDom();
 
-    this.load(this.root);
+    this.loader.load(this.root);
   }
 
   // 탐색기의 요소와 수신기 — 머리·트리·키·포커스 소유·클릭·끌기·사각형 선택·스크롤. 수명 내내 같은 요소다 (FR-EDT-66).
@@ -150,12 +150,12 @@ class FileTree {
       // 버튼은 자기 동작을 갖는다. 여기서 선택까지 바꾸면 새로고침이 선택을
       // 옮기는 것으로 읽힌다.
       if(e.target.closest('.ed-head-btn')) return;
-      this._selectRoot();
+      this.selector._selectRoot();
     });
     // FR-EXR-51: 키는 컨테이너 하나에 건다 — 머리와 트리 어느 쪽에 포커스가
     // 있어도 같은 길이어야 한다. 행에 거는 것은 reconcile 이 행을 다시 만들기
     // 때문에 성립하지 않는다 (아래 `click` 과 같은 근거).
-    this.el.addEventListener('keydown',e=>this._onKey(e));
+    this.el.addEventListener('keydown',e=>this.keys._onKey(e));
     /**
      * FR-EXR-58: **누가 포커스를 쥐고 있는가.** `_rLayout` 이 매 render 마다
      * `.ed-win` 을 떼었다 붙이므로 포커스는 빼앗기는 것이 아니라 **잃는다** —
@@ -181,15 +181,15 @@ class FileTree {
     this.el.appendChild(this.list);
 
     // 행은 reconcile 로 다시 만들어질 수 있다 — 리스너는 컨테이너 하나에만 건다.
-    this.list.addEventListener('click',e=>this._onClick(e));
+    this.list.addEventListener('click',e=>this.selector._onClick(e));
     // FR-RTU-42(④): 더블클릭은 **고정**이다. 클릭 두 번이 이미 그 파일을 미리보기로
     // 열어 두었으므로 여기서는 고정만 한다 — 목록에서 더블클릭하는 손짓은 "이것을
     // 열어 둔다" 이지 "잠깐 본다" 가 아니다.
-    this.list.addEventListener('dblclick',e=>this._onDbl(e));
+    this.list.addEventListener('dblclick',e=>this.selector._onDbl(e));
     // FR-EDT-80: 진입점 둘 중 하나. 같은 이유로 여기 한 번만 건다.
-    this.list.addEventListener('contextmenu',e=>this._onCtx(e));
-    this._initDnd();
-    this._initMarquee();
+    this.list.addEventListener('contextmenu',e=>this.xfer._onCtx(e));
+    this.xfer._initDnd();
+    this.marquee._initMarquee();
     this.list.addEventListener('scroll',()=>{
       if(this.el.isConnected) this._scrollY=this.list.scrollTop;
     });
@@ -241,14 +241,14 @@ class FileTree {
     // FR-EDT-80: 상단 버튼 셋 — 새 파일 · 새 폴더 · 새로고침. 만드는 자리는
     // 선택이 정한다 (FR-EDT-81) — 버튼은 그 규칙을 다시 적지 않는다.
     h.appendChild(this._headBtn('ed-head-new-file',EDITOR_TREE_NEW_FILE,
-      EDITOR_TREE_NEW_FILE_TITLE,()=>this.startCreate(false)));
+      EDITOR_TREE_NEW_FILE_TITLE,()=>this.edits.startCreate(false)));
     // **메모장도 이 버튼을 든다** (M9_SRS FR-M9-23). 종전에는 `_noDirs()` 로
     // 뺐다 (FR-EXR-31, 폐기) — 그 조항의 근거("눌러도 아무 일이 없는 버튼은
     // 고장으로 읽힌다")는 살아 있으나, 이제 눌리면 실제로 만들어진다.
     h.appendChild(this._headBtn('ed-head-new-dir',EDITOR_TREE_NEW_DIR,
-      EDITOR_TREE_NEW_DIR_TITLE,()=>this.startCreate(true)));
+      EDITOR_TREE_NEW_DIR_TITLE,()=>this.edits.startCreate(true)));
     h.appendChild(this._headBtn('ed-head-refresh',EDITOR_TREE_REFRESH,
-      EDITOR_TREE_REFRESH_TITLE,()=>this.refresh()));
+      EDITOR_TREE_REFRESH_TITLE,()=>this.loader.refresh()));
     return h;
   }
 
@@ -321,7 +321,7 @@ class FileTree {
   }
 
   destroy(){
-    this._springCancel();
+    this.xfer._springCancel();
     // FR-SVS-23: 이 칸의 시선은 사라진다. 관측은 다른 칸이 보고 있으면 남고,
     // 마지막 칸이었으면 store 가 스스로 거둬진다.
     if(this.store) this.store.detach(this);

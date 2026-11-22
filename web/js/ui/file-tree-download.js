@@ -5,8 +5,8 @@
  * file-tree-xfer.js 에서 갈랐다 — 모듈 크기 게이트(FR-STR-40)가 그 파일의 성장을 막는다.
  *
  * 부품 `FileTreeDownload`(탐색기의 `dl`) 이다 (REFACTOR3_FE_REST5_SRS FR-FR5-31 — 옛 `Object.assign(FileTree.prototype, …)`). 상태는 종전대로
- * 탐색기 인스턴스에 있고 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 탐색기의 이름은 전부 `this.tree.X` 로 부른다 — 시험·e2e 가
- * 인스턴스에 갈아 끼운 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `FileTree` 원형에 둔다.
+ * 탐색기 인스턴스에 있고 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 제 이름은 `this.X`, 탐색기와 다른 부품의 이름은 `this.tree.X`·`this.tree.<부품>.X` 로
+ * 부른다 — 시험·e2e 가 부품 인스턴스에 갈아 끼운 것을 부품끼리도 본다. 이 부품의 이름은 `FileTree` 원형에 없다 (REFACTOR3_FE_DELEG_SRS).
  */
 class FileTreeDownload {
   constructor(tree){
@@ -21,9 +21,9 @@ class FileTreeDownload {
    * 못한다 — 그 길(File System Access API)은 secure context 를 요구하는데 서버는
    * 평문 HTTP 다 (D-4).
    */
-  download(p){ this.tree.downloadMany([p]) }
+  download(p){ this.downloadMany([p]) }
   downloadMany(ps){
-    const d=this.tree._dlOf(ps);
+    const d=this._dlOf(ps);
     if(!d) return;
     const a=document.createElement('a');
     a.href=d.href; a.download=d.name;
@@ -39,15 +39,15 @@ class FileTreeDownload {
     const at='?root='+encodeURIComponent(this.tree.root);
     if(ps.length>1){
       return {href:FS_DOWNLOAD_MANY_API+at+ps.map(q).join(''),
-        name:this.tree._base(this.tree.root)+'-'+ps.length+'-items.zip',mime:'application/zip'};
+        name:this.tree.painter._base(this.tree.root)+'-'+ps.length+'-items.zip',mime:'application/zip'};
     }
     const p=ps[0];
     if(!p) return null;
-    const kind=p===this.tree.root?'dir':this.tree._kindOf(p);
+    const kind=p===this.tree.root?'dir':this.tree.painter._kindOf(p);
     if(kind!=='file'&&kind!=='dir') return null;
     const dir=kind==='dir';
     return {href:(dir?FS_DOWNLOAD_DIR_API:FS_DOWNLOAD_API)+at+q(p),
-      name:this.tree._base(p)+(dir?'.zip':''),mime:dir?'application/zip':'application/octet-stream'};
+      name:this.tree.painter._base(p)+(dir?'.zip':''),mime:dir?'application/zip':'application/octet-stream'};
   }
 
   /**
@@ -55,10 +55,7 @@ class FileTreeDownload {
    * 내려받는다. 상대 URL 은 무시되므로 `location.origin` 을 붙인다 (R-5).
    */
   _dragDownloadURL(ps){
-    const d=this.tree._dlOf(ps);
+    const d=this._dlOf(ps);
     return d?d.mime+':'+d.name+':'+location.origin+d.href:'';
   }
 }
-
-// 탐색기 원형의 이름 — 앱·렌더러·e2e·시험과 다른 부품이 `FileTree` 에서 부른다 (REFACTOR3_FE_REST5_SRS FR-FR5-32).
-Controller.delegate(FileTree,'dl',['download','downloadMany','_dlOf','_dragDownloadURL']);

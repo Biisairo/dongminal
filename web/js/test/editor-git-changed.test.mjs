@@ -18,9 +18,11 @@ function app() {
   const polls = [];
   const tree = {
     store,
-    gitDue: () => false,
-    pollGit: (o) => { polls.push(o || {}) },
-    paintGitCached: () => {},
+    loader: {
+      gitDue: () => false,
+      pollGit: (o) => { polls.push(o || {}) },
+      paintGitCached: () => {},
+    },
   };
   a.editor.open._edVisibleTrees = () => [tree];
   a.editor.open.edStampTick = async () => {};

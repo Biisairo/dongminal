@@ -644,7 +644,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
     const before = statusReqs;
     await page.evaluate(async () => {
       const ts = [...(window as any).app.testing.edTrees.values()];
-      await Promise.all(ts.map((t: any) => t.pollGit()));
+      await Promise.all(ts.map((t: any) => t.loader.pollGit()));
     });
     expect(statusReqs - before).toBeLessThanOrEqual(1);
   });
