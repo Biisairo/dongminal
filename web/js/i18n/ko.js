@@ -1269,6 +1269,8 @@ I18N.register('ko', {
   'usage.sl.label': 'statusLine',
   'usage.sl.five_hour': '세션',
   'usage.sl.seven_day': '주간',
+  'usage.rail.five_hour': '5h',
+  'usage.rail.seven_day': '7d',
   'cacct.title': 'Claude 계정',
   'cacct.active': '사용 중',
   'cacct.auto.off': '자동 전환 꺼짐',

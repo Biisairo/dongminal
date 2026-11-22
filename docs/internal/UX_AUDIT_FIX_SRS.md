@@ -231,6 +231,7 @@ D-WRD-10)과 이미 만들어진 git 뷰 탭의 이름은 데이터라 바꾸지
 | ANSI 색 이름 | Black·Red·Green·Yellow·Blue·Magenta·Cyan·White 와 Br 계열 |
 | 저장 데이터 기본값 | Shell, Window, Chat |
 | 그 밖 (구현 중 확정) | `mixed`(Reset 옵션), `dmctl`(제품 CLI) |
+| 레일 사용량 창 이름 (RAIL_CHAT_USAGE_SRS D-RCU-2 개정, 사용자 결정 2026-11-22) | `5h`·`7d` — 레일 칸(약 18px)에 `5시간`·`7일` 이 들지 않는다. 펼친 패널의 남은 시간은 §3.5.2 대로 한국어다 |
 
 #### 3.5.2 옮기는 말 (보이는 글자)
 

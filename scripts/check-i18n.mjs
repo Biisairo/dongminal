@@ -101,6 +101,7 @@ const DYNAMIC_PREFIXES = [
   { prefix: 'usage.win.', why: "activity-list.js(옛 app-activity.js) 가 서버 한도의 창 이름으로 `'usage.win.' + name` 을 조립한다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-41)" },
   { prefix: 'usage.dur.', why: "activity-list.js(옛 app-activity.js) 가 남은 시간의 단위(d·h·m)로 `'usage.dur.' + unit` 을 조립한다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-41)" },
   { prefix: 'usage.sl.', why: "activity-list.js(옛 app-activity.js) 가 statusLine 창 이름으로 `'usage.sl.' + name` 을 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-93)" },
+  { prefix: 'usage.rail.', why: "activity-list.js 의 `limitCell` 이 창 이름으로 `'usage.rail.' + name` 을 조립한다 — 레일 사용량 칸의 짧은 창 이름 (RAIL_CHAT_USAGE_SRS D-RCU-2 개정)" },
   { prefix: 'cacct.color.', why: "settings-claude-rows.js 가 팔레트 키로 `'cacct.color.' + acct_N` 을 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-94a·98)" },
   { prefix: 'cacct.st.', why: "claude-accounts-view.js(옛 app-claude-accounts.js) 가 서버의 계정 상태로 `'cacct.st.' + status` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-56)" },
   { prefix: 'cacct.rs.r.', why: "claude-accounts-controller.js(옛 app-claude-accounts.js) 가 서버의 초기화 결과로 `'cacct.rs.r.' + result` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-63)" },

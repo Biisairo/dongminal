@@ -63,13 +63,25 @@ body:not(.mobile) #agents-handle{display:block}
    이유: 40px 에 드는 최소 정보 — 「지금 얼마나 썼나」. 자세한 값은 칸의 `title` 이 말한다. */
 #agents-panel[data-rail] :is(.act-usage-foot > :not(.act-usage-sum),
   .act-usage-sum .cacct-name,.act-usage-sum > .ui-icon,.act-usage-sum .cacct-cell-label,.act-usage-sum .cacct-cell-left){display:none}
-#agents-panel[data-rail] .act-usage-foot{padding:var(--sp-3) var(--sp-1)}
+#agents-panel[data-rail] .act-usage-foot{padding:var(--sp-3) 0}
 #agents-panel[data-rail] .act-usage-foot .act-usage-sum{
   flex-direction:column;align-items:stretch;gap:var(--sp-2);height:auto;min-height:0;margin:0;
 }
 #agents-panel[data-rail] .act-usage-sum .cacct-who{justify-content:center}
-#agents-panel[data-rail] .act-usage-sum .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-2);width:100%}
-#agents-panel[data-rail] .act-usage-sum .cacct-cell{justify-content:center;font-size:var(--sb-rail-fs);font-variant-numeric:tabular-nums}
+/* FR-RCU-3 개정 (사용자 결정 2026-11-22, D-RCU-2 개정): 이전 — % 와 얇은 가로 막대가 세로로 쌓였다 /
+   새 — 두 칸이 나란히 서고, 칸마다 아래에서 위로 창 이름(5h·7d) · 세로 막대 · % 다 / 이유 — 사용자 디자인. */
+#agents-panel[data-rail] .act-usage-sum .cacct-cells{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--sp-1);width:100%}
+#agents-panel[data-rail] .act-usage-sum .cacct-cell{
+  flex-direction:column;align-items:center;gap:var(--sp-1);padding-bottom:0;
+  font-size:var(--sb-rail-fs);line-height:1.15;font-variant-numeric:tabular-nums;
+}
+#agents-panel[data-rail] .act-usage-sum .cacct-cell-pct{order:0}
+/* `100%` 는 9px 에서 22px 라 칸(18.5px)을 넘는다 — 0.8 배로 좁혀 칸에 넣는다(레일 폭에서 다른 길이 없다). */
+#agents-panel[data-rail] .act-usage-sum .cacct-cell.pct-wide .cacct-cell-pct{transform:scaleX(.8)}
+/* 막대 높이 24px — 9px 글자 두 줄(%·창 이름) 사이에서 사용률이 눈에 갈리는 길이. 폭은 펼침 막대의 두께 2px 의 두 배. */
+#agents-panel[data-rail] .act-usage-sum .cacct-cell-bar{order:1;position:relative;display:flex;align-items:flex-end;width:var(--sp-2);height:24px}
+#agents-panel[data-rail] .act-usage-sum .cacct-cell-fill{min-height:0;min-width:100%}
+#agents-panel[data-rail] .act-usage-sum .cacct-cell-win{order:2;display:block;color:var(--text-hint)}
 /* FR-PDK-33·34: 드롭 자리 표시. `applyPanelDock` 과 같은 자리에서 세운다. */
 #dock-indicator{position:fixed;top:0;bottom:0;width:3px;background:var(--accent);
   pointer-events:none;z-index:var(--z-overlay);display:none}
@@ -272,7 +284,9 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 var(--sp-4) 0 var(--sp-2
 .cacct-cell-pct{flex-shrink:0;color:inherit}
 .cacct-cell-left{min-width:0;overflow:hidden;text-overflow:ellipsis;color:inherit}
 .cacct-cell-bar{position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:var(--radius-pill);background:var(--border-weak);overflow:hidden}
-.cacct-cell-fill{display:block;height:100%;background:var(--accent)}
+.cacct-cell-win{display:none}
+/* 채움은 폭과 높이를 같은 값으로 받는다 — 가로 막대는 `min-height` 가 높이를 막대 높이로 덮는다 (레일의 세로 막대: RAIL_CHAT_USAGE_SRS FR-RCU-3 개정). */
+.cacct-cell-fill{display:block;min-height:100%;background:var(--accent)}
 .cacct-cell.lv-warn{color:var(--attn-text)}
 .cacct-cell.lv-warn .cacct-cell-fill{background:var(--attn)}
 .cacct-cell.lv-critical{color:var(--danger-text)}

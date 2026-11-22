@@ -101,8 +101,8 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
       await expect(sum.locator('.cacct-cell-pct').first()).toBeVisible();
       // FR-RCU-3 (개정): 두 칸이 나란히 — 칸마다 아래부터 창 이름 · 세로 막대 · %.
       const cells = await sum.locator('.cacct-cell').evaluateAll((els) => els.map((c) => {
-        const rect = (sel: string) => { const e = c.querySelector(sel); if (!e || !e.checkVisibility()) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, b: r.bottom, rt: r.right }; };
-        return { cell: rect(':scope'), win: rect('.cacct-cell-win'), bar: rect('.cacct-cell-bar'), fill: rect('.cacct-cell-fill'), pct: rect('.cacct-cell-pct'),
+        const rect = (sel: string) => { const e = sel ? c.querySelector(sel) : c; if (!e || !e.checkVisibility()) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, b: r.bottom, rt: r.right }; };
+        return { cell: rect(''), win: rect('.cacct-cell-win'), bar: rect('.cacct-cell-bar'), fill: rect('.cacct-cell-fill'), pct: rect('.cacct-cell-pct'),
           winText: c.querySelector('.cacct-cell-win')?.textContent, pctText: c.querySelector('.cacct-cell-pct')?.textContent,
           fillBg: getComputedStyle(c.querySelector('.cacct-cell-fill')!).backgroundColor, lv: c.className };
       }));

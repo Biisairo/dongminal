@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현완료
 >
-> 근거: `e2e/rail-chat-usage.spec.ts` TC-RCU-1·2 와 `ui-layout-defaults`·`claude-accounts`·`chat-window`·`activity-rail`·`sidebar-tabs`·`ux-batch13`·`panel-dock` e2e 통과, `npm run unit`(`css-structure`·`activity-tabs`)·`make gates` 통과. 규칙은 `web/style-main-panel.css`(`#sidebar[data-rail] .chat-*`)와 `web/style-activity.css`(`#agents-panel[data-rail] .act-usage-*`)다
+> 근거: `e2e/rail-chat-usage.spec.ts` TC-RCU-1·2·4 와 `ui-layout-defaults`·`claude-accounts`·`chat-window`·`activity-rail`·`sidebar-tabs`·`ux-batch13`·`panel-dock` e2e 통과, `npm run unit`(`css-structure`·`activity-tabs`)·`make gates` 통과. 규칙은 `web/style-main-panel.css`(`#sidebar[data-rail] .chat-*`)와 `web/style-activity.css`(`#agents-panel[data-rail] .act-usage-*`)다
 
 ## 1. 개요
 
@@ -25,7 +25,7 @@
 |---|---|---|
 | D-RCU-1 | 채팅 레일은 창 목록 레일과 같은 말씨다: 방 행은 아이콘 + 두 줄 줄인 이름(FR-RAL-2 와 같은 글자 크기 `--sb-rail-fs`), 구역 제목·빈 안내·부가 줄·행 동작 단추는 감춘다. 온라인 사람도 두 줄 줄인 이름이고, 노드 머리와 「닿지 않음」 표시는 감춘다 | 한 레일 안에서 두 말씨를 쓰지 않는다. 전체 이름은 `title` 이 말한다 |
 | D-RCU-2 | 사용량 레일은 **요약 줄만** 세로로 작게: 색 점 · 세션 % · 주간 % 와 얇은 막대. 이름·칸 이름·남은 시간·요약 꺾쇠는 감춘다. 펼쳐 둔 상태여도 레일에서는 요약만 보인다. 자세한 값은 칸의 `title` 이 말한다 | 40px 폭에 들어가는 최소 정보 — 「지금 얼마나 썼나」 |
-| D-RCU-2 개정 (사용자 결정 2026-11-22) | 이전: 색 점 아래로 세션 %·주간 % 가 얇은 가로 막대와 함께 세로로 쌓였다 / 새: 색 점 아래에 세션·주간 **두 칸이 나란히** 선다. 칸마다 맨 아래가 창 이름(`5h`·`7d`), 그 위가 아래에서 위로 차는 **세로 막대**, 맨 위가 % 다. 주의·위험 색(`.lv-warn`·`.lv-critical`)과 칸의 `title` 은 그대로다. 창 이름은 데이터의 칸 이름(`세션`·`주간`, 영어 `Session`·`Week`)이 칸 폭(약 17px)에 들지 않아 레일 전용 짧은 이름(`usage.rail.*`)을 칸 값 `short` 로 더한다 / 이유: 사용자 디자인 — 두 창을 한눈에 견준다 |
+| D-RCU-2 개정 (사용자 결정 2026-11-22) | 이전: 색 점 아래로 세션 %·주간 % 가 얇은 가로 막대와 함께 세로로 쌓였다 / 새: 색 점 아래에 세션·주간 **두 칸이 나란히** 선다. 칸마다 맨 아래가 창 이름(`5h`·`7d`), 그 위가 아래에서 위로 차는 **세로 막대**, 맨 위가 % 다. 주의·위험 색(`.lv-warn`·`.lv-critical`)과 칸의 `title` 은 그대로다. 창 이름은 데이터의 칸 이름(`세션`·`주간`, 영어 `Session`·`Week`)이 칸 폭(약 17px)에 들지 않아 레일 전용 짧은 이름(`usage.rail.*`)을 칸 값 `short` 로 더한다. 칸 폭을 넓히려고 바닥의 좌우 여백을 0 으로 둔다(칸 18.5px). `100%` 는 9px 에서 22px 라 칸에 들지 않으므로 세 자리 % 칸(`pct-wide`)만 가로 0.8 배로 좁힌다 / 이유: 사용자 디자인 — 두 창을 한눈에 견준다 |
 | D-RCU-4 | 사이드바 레일의 창 이름은 고름과 무관하게 같은 굵기(400)다. 행의 좌우 여백과 점-글자 간격을 3px 에서 `--sp-1`(2px)로 줄여 이름 칸을 25px 에서 28px 로 넓힌다. 고른 행은 바탕색과 점 색이 말한다 | 원인(2026-11-22 실측): 이름 칸은 25px(레일 40 − 테두리 1 − 여백 3×2 − 점 5 − 간격 3)이다. `ccr#32` 는 굵기 400 에서 25.37px, 고른 행의 굵기 500 에서 24.95px 였다(시스템 글꼴은 작은 크기에서 굵기마다 글자 폭이 다르다). 그래서 고르지 않은 행에서만 0.37px 넘쳐 `ccr#3` / `2` 로 꺾였다. 굵기가 갈리면 폭도 갈리므로 굵기를 하나로 두고, 경계에 걸린 이름이 들도록 칸에 3px 을 더 준다 |
 | D-RCU-3 | `#agents-panel[data-rail]` 의 죽은 채팅 규칙은 지운다 | 그 자리에 채팅이 없다 |
 

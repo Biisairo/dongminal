@@ -42,6 +42,8 @@ const ALLOW = new Set([
 /** 툴팁·`aria-label` 로만 쓰이는 키 — 이름이 `_title` 로 끝나지 않는 것. */
 const TIP_KEYS = new Set(['html.btn_split_h', 'html.btn_split_v']);
 const isTipKey = (k) => /_title$/.test(k) || TIP_KEYS.has(k);
+/** §3.5.1 의 키 단위 예외 — 낱말로 풀면 `{n}d` 같은 남은 시간까지 통과한다. 레일 사용량 창 이름 `5h`·`7d` (RAIL_CHAT_USAGE_SRS D-RCU-2 개정). */
+const LATIN_KEYS = new Set(['usage.rail.five_hour', 'usage.rail.seven_day']);
 
 const HANGUL = /[가-힣ㄱ-ㆎ]/;
 const WORD = /[A-Za-z][A-Za-z0-9]*(?:[.-][A-Za-z0-9]+)*/g;
@@ -62,7 +64,7 @@ function strayWords(v) {
 
 test('TC-UXF-40: ko 카탈로그의 라틴 문자 전용 값은 §3.5.1 허용 목록 안이다', () => {
   const bad = Object.entries(catalog('ko'))
-    .filter(([k]) => !isTipKey(k))
+    .filter(([k]) => !isTipKey(k) && !LATIN_KEYS.has(k))
     .map(([k, v]) => [k, v, strayWords(v)])
     .filter(([, , w]) => w.length)
     .map(([k, v, w]) => `${k} = ${JSON.stringify(v)} (${w.join(', ')})`);

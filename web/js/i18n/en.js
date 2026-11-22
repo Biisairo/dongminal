@@ -1246,6 +1246,8 @@ I18N.register('en', {
   'usage.sl.label': 'statusLine',
   'usage.sl.five_hour': 'Session',
   'usage.sl.seven_day': 'Week',
+  'usage.rail.five_hour': '5h',
+  'usage.rail.seven_day': '7d',
   'cacct.title': 'Claude accounts',
   'cacct.active': 'Active',
   'cacct.auto.off': 'Auto-switch off',

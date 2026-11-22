@@ -108,12 +108,15 @@ function limitShortLeft(sec){
  * D-CAC-37: 좁은 카드·statusLine 줄의 칸 하나. `name` 은 `five_hour`·`seven_day` 다. 툴팁은 창 이름·사용률·초기화 문구다.
  * 값이 없으면 null — 칸은 자리만 지킨다.
  */
+/** 레일 칸(약 18px)에 드는 % 글자 수 — `99%` 까지. */
+const RAIL_PCT_FIT=3;
+
 function limitCell(name,pct,resetsInSec,level){
   if(typeof pct!=='number') return null;
   const n=Math.round(pct);
   const used=t('usage.used',{n});
   const has=typeof resetsInSec==='number';
-  return {label:t('usage.sl.'+name),pct:n+'%',left:has?limitShortLeft(resetsInSec):'',
+  return {label:t('usage.sl.'+name),short:t('usage.rail.'+name),pct:n+'%',left:has?limitShortLeft(resetsInSec):'',
     fill:Math.min(100,Math.max(0,pct)),level:level||'',
     title:[limitWindowLabel(name),used,has?limitResetText(resetsInSec):''].filter(Boolean).join(' · ')};
 }
@@ -311,13 +314,17 @@ class ActivityList extends Controller {
   _actCellsEl(parent,cells){
     const box=parent.appendChild(domEl('span','cacct-cells'));
     for(const c of cells){
-      const el=box.appendChild(domEl('span','cacct-cell'+(c&&(c.level==='warn'||c.level==='critical')?' lv-'+c.level:'')));
+      // `pct-wide`: 세 자리 %(100% 이상)는 레일 칸에 들지 않아 CSS 가 가로로 좁힌다 (RAIL_CHAT_USAGE_SRS FR-RCU-3 개정).
+      const el=box.appendChild(domEl('span','cacct-cell'+(c&&(c.level==='warn'||c.level==='critical')?' lv-'+c.level:'')+(c&&c.pct.length>RAIL_PCT_FIT?' pct-wide':'')));
       if(!c) continue;
       el.title=c.title;
       el.appendChild(domEl('span','cacct-cell-label',c.label));
       el.appendChild(domEl('span','cacct-cell-pct',c.pct));
       if(c.left) el.appendChild(domEl('span','cacct-cell-left',c.left));
-      el.appendChild(domEl('span','cacct-cell-bar')).appendChild(domEl('span','cacct-cell-fill')).style.width=c.fill+'%';
+      el.appendChild(domEl('span','cacct-cell-win',c.short));
+      // RAIL_CHAT_USAGE_SRS FR-RCU-3 (개정): 레일에서는 막대가 서서 높이로 찬다 — 폭과 높이에 같은 값을 주고 CSS 가 한쪽을 `min-*:100%` 로 덮는다.
+      const fill=el.appendChild(domEl('span','cacct-cell-bar')).appendChild(domEl('span','cacct-cell-fill'));
+      fill.style.width=fill.style.height=c.fill+'%';
     }
     return box;
   }
