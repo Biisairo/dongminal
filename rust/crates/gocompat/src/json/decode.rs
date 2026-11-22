@@ -13,6 +13,66 @@ const MAX_EXACT_INT: i64 = 1 << 53;
 /// Go 는 10000 까지 받으므로 이보다 깊은 입력에서만 Go 와 다르다(구문 검사는 10000 까지 Go 와 같다).
 const MAX_DECODE_DEPTH: usize = 512;
 
+/// 타입 이름을 받지 못한 slice·map 의 기본 이름. Go 의 `[]any`·`map[string]any` 와 같다.
+const DEFAULT_SLICE_TYPE: &str = "[]interface {}";
+const DEFAULT_MAP_TYPE: &str = "map[string]interface {}";
+
+/// [`GoTypeName::TOKEN`] 의 앞부분. 뒤에 Go 타입 이름이 붙는다.
+pub const GO_TYPE_TOKEN: &str = "$dm_gocompat::json::go_type::";
+
+/// 타입 오류 문구에 쓸 Go 타입 이름을 지닌 표식. [`go_type!`](crate::go_type) 으로 만든다.
+pub trait GoTypeName {
+    /// `GO_TYPE_TOKEN` + Go 타입 이름.
+    const TOKEN: &'static str;
+}
+
+/// 필드의 Go 타입 이름을 정한다:
+/// `#[serde(deserialize_with = "dm_gocompat::json::with_go_type::<표식, _, _>")]`.
+/// 이 crate 밖의 serde 디코더에서는 아무 일도 하지 않는다.
+pub fn with_go_type<'de, N: GoTypeName, T: de::Deserialize<'de>, D: de::Deserializer<'de>>(
+    d: D,
+) -> Result<T, D::Error> {
+    struct Named<T>(std::marker::PhantomData<T>);
+    impl<'de, T: de::Deserialize<'de>> Visitor<'de> for Named<T> {
+        type Value = T;
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a value")
+        }
+        fn visit_newtype_struct<D: de::Deserializer<'de>>(self, d: D) -> Result<T, D::Error> {
+            T::deserialize(d)
+        }
+    }
+    d.deserialize_newtype_struct(N::TOKEN, Named(std::marker::PhantomData))
+}
+
+/// 맨 위 값의 Go 타입 이름을 정하는 감싸개: `unmarshal::<GoTyped<표식, Vec<X>>>(..)`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GoTyped<N, T>(pub T, std::marker::PhantomData<N>);
+
+impl<N, T> GoTyped<N, T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<'de, N: GoTypeName, T: de::Deserialize<'de>> de::Deserialize<'de> for GoTyped<N, T> {
+    fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        with_go_type::<N, T, D>(d).map(|v| GoTyped(v, std::marker::PhantomData))
+    }
+}
+
+/// Go 타입 이름 표식을 만든다. 예: `dm_gocompat::go_type!(pub WsWindows = "[]workspace.WsWindow");`
+#[macro_export]
+macro_rules! go_type {
+    ($vis:vis $name:ident = $go:literal) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        $vis struct $name;
+        impl $crate::json::GoTypeName for $name {
+            const TOKEN: &'static str = concat!("$dm_gocompat::json::go_type::", $go);
+        }
+    };
+}
+
 struct Ctx {
     /// 입력의 시작 주소. 값의 offset 을 셀 때 쓴다.
     base: usize,
@@ -82,6 +142,8 @@ struct De<'c, 'a> {
     v: Value<'a>,
     ctx: &'c mut Ctx,
     path: Vec<String>,
+    /// [`with_go_type`] 로 받은 Go 타입 이름. 이 값의 타입 오류에만 쓴다(자식에게 넘기지 않는다).
+    go_type: Option<&'static str>,
 }
 
 macro_rules! de_int {
@@ -101,6 +163,7 @@ macro_rules! de_int {
 
 impl De<'_, '_> {
     fn err(&self, value: &str, go_type: &str) -> Error {
+        let go_type = self.go_type.unwrap_or(go_type);
         type_error(self.ctx, &self.path, value, go_type, self.offset())
     }
 
@@ -258,6 +321,12 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
         if name == RAW_TOKEN {
             return visitor.visit_byte_buf(self.v.raw.to_vec());
         }
+        if let Some(go) = name.strip_prefix(GO_TYPE_TOKEN) {
+            return visitor.visit_newtype_struct(De {
+                go_type: Some(go),
+                ..self
+            });
+        }
         visitor.visit_newtype_struct(self)
     }
 
@@ -266,7 +335,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
         match self.v.take_node() {
             Node::Null => visitor.visit_seq(Seq::new(Vec::new(), self.ctx, self.path)),
             Node::Array(items) => visitor.visit_seq(Seq::new(items, self.ctx, self.path)),
-            other => Err(self.err(kind_of(&other), "slice")),
+            other => Err(self.err(kind_of(&other), DEFAULT_SLICE_TYPE)),
         }
     }
 
@@ -292,7 +361,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
         match self.v.take_node() {
             Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path)),
             Node::Object(members) => visitor.visit_map(Map::new(members, self.ctx, self.path)),
-            other => Err(self.err(kind_of(&other), "map")),
+            other => Err(self.err(kind_of(&other), DEFAULT_MAP_TYPE)),
         }
     }
 
@@ -446,6 +515,7 @@ impl<'de> de::SeqAccess<'de> for Seq<'_, '_> {
             v,
             ctx: self.ctx,
             path,
+            go_type: None,
         })
         .map(Some)
     }
@@ -499,6 +569,7 @@ impl<'de> de::MapAccess<'de> for Map<'_, '_> {
             v,
             ctx: self.ctx,
             path,
+            go_type: None,
         })
     }
 }
@@ -592,6 +663,7 @@ impl<'de, 'c, 'a> de::EnumAccess<'de> for Enum<'c, 'a> {
                 v: self.value,
                 ctx: self.ctx,
                 path,
+                go_type: None,
             },
         ))
     }
@@ -635,6 +707,7 @@ fn decode_value<T: DeserializeOwned>(
         v,
         ctx: &mut ctx,
         path: Vec::new(),
+        go_type: None,
     })
 }
 
