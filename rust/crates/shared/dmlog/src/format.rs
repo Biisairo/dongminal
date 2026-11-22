@@ -1,6 +1,9 @@
-//! slog 의 줄 조립. 시각은 `shim::LocalTime` 으로 받는다.
+//! slog 의 줄 조립.
 
-use crate::shim::{self, LocalTime};
+use dm_gocompat::strconv::{is_print, quote};
+use dm_gocompat::time::{format_log_std, format_rfc3339_millis};
+use time::OffsetDateTime;
+
 use crate::{Level, Value};
 
 /// slog `needsQuoting`. ASCII 는 JSON 의 safeSet 기준(제어 문자·`"` 는 인용, `\` 와 DEL 은
@@ -14,14 +17,14 @@ fn needs_quoting(s: &str) -> bool {
             let b = c as u8;
             b != b'\\' && (b == b' ' || b == b'=' || b == b'"' || b < 0x20)
         } else {
-            c == char::REPLACEMENT_CHARACTER || c.is_whitespace() || !shim::is_print(c)
+            c == char::REPLACEMENT_CHARACTER || c.is_whitespace() || !is_print(c)
         }
     })
 }
 
 fn push_string(buf: &mut String, s: &str) {
     if needs_quoting(s) {
-        buf.push_str(&shim::quote(s));
+        buf.push_str(&quote(s));
     } else {
         buf.push_str(s);
     }
@@ -54,7 +57,7 @@ fn push_attrs(buf: &mut String, req_id: Option<&str>, attrs: &[(&str, Value)]) {
 
 /// slog `TextHandler` 의 한 줄.
 pub(crate) fn text_line(
-    t: LocalTime,
+    t: OffsetDateTime,
     level: Level,
     msg: &str,
     req_id: Option<&str>,
@@ -62,7 +65,7 @@ pub(crate) fn text_line(
 ) -> String {
     let mut buf = String::with_capacity(64 + msg.len());
     buf.push_str("time=");
-    buf.push_str(&t.rfc3339_millis());
+    buf.push_str(&format_rfc3339_millis(t));
     buf.push_str(" level=");
     buf.push_str(level.go_name());
     buf.push_str(" msg=");
@@ -74,14 +77,14 @@ pub(crate) fn text_line(
 
 /// slog 기본 핸들러가 표준 `log`(LstdFlags)로 내는 한 줄. msg 는 인용하지 않는다.
 pub(crate) fn default_line(
-    t: LocalTime,
+    t: OffsetDateTime,
     level: Level,
     msg: &str,
     req_id: Option<&str>,
     attrs: &[(&str, Value)],
 ) -> String {
     let mut buf = String::with_capacity(32 + msg.len());
-    buf.push_str(&t.std_log_stamp());
+    buf.push_str(&format_log_std(t));
     buf.push(' ');
     buf.push_str(level.go_name());
     buf.push(' ');
@@ -97,17 +100,9 @@ pub(crate) fn default_line(
 mod tests {
     use super::*;
 
-    fn t(offset_secs: i32) -> LocalTime {
-        LocalTime {
-            year: 2026,
-            month: 11,
-            day: 23,
-            hour: 7,
-            minute: 5,
-            second: 3,
-            nanos: 120_999_999,
-            offset_secs,
-        }
+    fn t(offset_secs: i32) -> OffsetDateTime {
+        let off = time::UtcOffset::from_whole_seconds(offset_secs).unwrap();
+        time::macros::datetime!(2026-11-23 07:05:03.120_999_999).assume_offset(off)
     }
 
     #[test]
@@ -155,6 +150,27 @@ mod tests {
         assert_eq!(
             got,
             "time=2026-11-23T07:05:03.120Z level=WARN msg=\"무언가 7\"\n"
+        );
+    }
+
+    // Go 1.27 slog 실제 출력에서 옮긴 기대값.
+    #[test]
+    fn text_line_matches_go_quoting() {
+        let got = text_line(
+            t(0),
+            Level::Info,
+            "x",
+            None,
+            &[
+                ("a\\b", "a\u{7f}b".into()),
+                ("nb", "a\u{a0}b".into()),
+                ("q", "a\"b".into()),
+                ("", "e".into()),
+            ],
+        );
+        assert_eq!(
+            got,
+            "time=2026-11-23T07:05:03.120Z level=INFO msg=x a\\b=a\u{7f}b nb=\"a\\u00a0b\" q=\"a\\\"b\" \"\"=e\n"
         );
     }
 

@@ -295,6 +295,7 @@ name = "dm-shared-dmlog"
 version = "1.3.7"
 dependencies = [
  "base64",
+ "dm-gocompat",
  "rand",
  "time",
 ]

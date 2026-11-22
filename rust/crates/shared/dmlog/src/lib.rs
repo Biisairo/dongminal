@@ -9,7 +9,6 @@
 //!   (`2006/01/02 15:04:05 INFO msg k=v`), stderr, `info` 이상.
 
 mod format;
-mod shim;
 
 use std::io::Write;
 use std::sync::Mutex;
@@ -168,7 +167,7 @@ pub fn log(level: Level, ctx: ReqCtx<'_>, msg: &str, attrs: &[(&str, Value)]) {
             if level < lg.min {
                 return;
             }
-            let line = format::text_line(shim::now(), level, msg, req_id, attrs);
+            let line = format::text_line(dm_gocompat::time::now_local(), level, msg, req_id, attrs);
             let _ = lg.out.write_all(line.as_bytes());
         }
         None => {
@@ -176,7 +175,8 @@ pub fn log(level: Level, ctx: ReqCtx<'_>, msg: &str, attrs: &[(&str, Value)]) {
             if level < Level::Info {
                 return;
             }
-            let line = format::default_line(shim::now(), level, msg, req_id, attrs);
+            let line =
+                format::default_line(dm_gocompat::time::now_local(), level, msg, req_id, attrs);
             let _ = std::io::stderr().write_all(line.as_bytes());
         }
     }

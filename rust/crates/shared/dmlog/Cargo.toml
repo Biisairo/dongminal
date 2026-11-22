@@ -11,5 +11,6 @@ workspace = true
 
 [dependencies]
 base64 = { workspace = true }
+dm-gocompat = { path = "../../gocompat" }
 rand = { workspace = true }
 time = { workspace = true }
