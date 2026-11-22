@@ -73,7 +73,7 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
     await pickChange(page, 'untracked.txt');
     await page.evaluate((d) => {
       const a = (window as any).app; const t = a.testing.edTree(a.testing.aw());
-      if (t._open.has(d)) t.toggle(d);
+      if (t._open.has(d)) t.selector.toggle(d);
     }, join(REPO(), '디렉터리 한글'));
 
     await go(page, nested);
@@ -103,7 +103,7 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
     // Diff 탭에 있는 동안 사용자가 Explorer 에서 고른 것은 ‹ › 이동이 지운다 (FR-FHL-4).
     await page.evaluate((p) => {
       const a = (window as any).app; const t = a.testing.edTree(a.testing.aw());
-      t._selOnly(p); t._paintAll();
+      t.selector._selOnly(p); t._paintAll();
     }, TOP());
     // ‹ › 는 그 Diff 탭의 패널이 한다 (FR-RTB-9).
     await page.evaluate((id) => {
@@ -124,7 +124,7 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
     const three = [TOP(), join(REPO(), 'untracked.txt'), join(REPO(), 'renamed to.txt')];
     await page.evaluate((ps) => {
       const a = (window as any).app; const t = a.testing.edTree(a.testing.aw());
-      t._selOnly(ps[0]); t._selToggle(ps[1]); t._selToggle(ps[2]); t._paintAll();
+      t.selector._selOnly(ps[0]); t.selector._selToggle(ps[1]); t.selector._selToggle(ps[2]); t._paintAll();
       a.render(); a.render();
     }, three);
     expect((await state(page)).set).toEqual([...three].sort());

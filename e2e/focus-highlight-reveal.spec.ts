@@ -101,7 +101,7 @@ test.describe('FR-FHL-10 — 옮겨 간 하이라이트가 보이게 한다', ()
     await setSide(page, 'explorer');
     await page.evaluate((root) => {
       const a = (window as any).app; const tr = a.testing.edTree(a.testing.aw());
-      for (const p of [...tr._open]) if (p.startsWith(root + '/d059')) tr.toggle(p);
+      for (const p of [...tr._open]) if (p.startsWith(root + '/d059')) tr.selector.toggle(p);
       tr.list.closest('.ed-tree').scrollTop = 0; tr.list.scrollTop = 0;
     }, REPO);
     await go(page, t.file);

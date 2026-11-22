@@ -316,7 +316,7 @@ test.describe('묶음 D — 메모장은 다른 explorer 와 같다 (FR-M9-22·2
       const name = 'm9dir-' + Date.now();
       await page.evaluate(() => {
         const a = (window as any).app;
-        a.testing.edTree(a.testing.aw()).startCreate(true);
+        a.testing.edTree(a.testing.aw()).edits.startCreate(true);
       });
       await expect(input(page)).toBeVisible();
       await input(page).fill(name);

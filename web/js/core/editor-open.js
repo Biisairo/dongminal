@@ -312,7 +312,7 @@ class EditorOpen extends Controller {
     }
     if(!hit.size) return;
     // `now` 가 캐시를 넘는다 — 방송 전의 관측을 나눠 받지 않는다.
-    for(const tree of hit.values()) tree.pollGit({now:true});
+    for(const tree of hit.values()) tree.loader.pollGit({now:true});
     this.edStampTick([...hit.keys()]);
   }
 
@@ -350,7 +350,7 @@ class EditorOpen extends Controller {
     if(this._edReveal&&this._edReveal.has(s.id)){
       const want=this._edReveal.get(s.id);
       this._edReveal.delete(s.id);
-      if(tree.revealPath) tree.revealPath(want);
+      if(tree.selector) tree.selector.revealPath(want);
     }
     // FR-EDT-78: 창 활성화가 즉시 갱신의 계기 하나다. 여기가 그 사실을 아는
     // 유일한 자리다 — 마운트는 활성 창에만 일어난다. 관측이 공유되므로 어느
@@ -358,7 +358,7 @@ class EditorOpen extends Controller {
     // FR-FSL-7 과 같은 짝: 활성화는 색과 목록 **둘 다**의 계기다. 색만 새로
     // 받으면 사용자는 창을 바꾸자마자 "색은 맞는데 목록은 옛것" 을 본다.
     // FR-DIR-32: 활성화는 사용자가 방금 한 일이다 — 백오프를 넘겨 곧바로 묻는다.
-    if(this._edLastActive!==s.id){this._edLastActive=s.id;tree.pollGit({now:true});tree.pollStamp()}
+    if(this._edLastActive!==s.id){this._edLastActive=s.id;tree.loader.pollGit({now:true});tree.loader.pollStamp()}
     return tree;
   }
 
@@ -415,7 +415,7 @@ class EditorOpen extends Controller {
     if(!this.app._edTrees||!root||!dir) return;
     for(const tree of this.app._edTrees.values()){
       if(!tree||tree.root!==root) continue;
-      tree.load(dir);
+      tree.loader.load(dir);
     }
   }
 

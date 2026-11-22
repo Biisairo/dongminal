@@ -302,7 +302,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
     const after = await page.evaluate(() => {
       const t = (window as any).app.testing.edActiveTree();
       const dir = t.root;
-      t._open.add(dir); t.toggle(dir);          // 접는다
+      t._open.add(dir); t.selector.toggle(dir);          // 접는다
       return t._kids.get(dir).entries.length;
     });
     expect(after).toBe(20);
@@ -321,7 +321,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
     // 갱신 회차가 올 때마다 목록이 20으로 접힌다.
     await page.evaluate(async () => {
       const t = (window as any).app.testing.edActiveTree();
-      await t.reload(t.root);
+      await t.loader.reload(t.root);
     });
     await expect(rows(page)).toHaveCount(40);
     await expect(page.locator('.ed-tree .ed-more')).toHaveText('40 / 50 — 더 보기');

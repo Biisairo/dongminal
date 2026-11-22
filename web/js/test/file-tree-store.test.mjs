@@ -28,7 +28,7 @@ function setup(answers, raw) {
   });
   const store = new ctx.FileTreeStore({ edStores: new Map(), editor: { watch: { edWatchSync() {} } }, }, '/r');
   const reloads = [];
-  const view = (open) => ({ _open: new Set(open), paint() {}, reload: async (d) => { reloads.push(d) } });
+  const view = (open) => ({ _open: new Set(open), painter: { paint() {} }, loader: { reload: async (d) => { reloads.push(d) } } });
   return { store, sent, urls, reloads, view };
 }
 

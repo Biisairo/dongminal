@@ -10,8 +10,8 @@
  * `static` 넷은 prototype 이 아니라 클래스 자체에 붙는다 — 인스턴스 없이 불린다.
  *
  * 부품 `FileTreeXfer`(탐색기의 `xfer`) 이다 (REFACTOR3_FE_REST5_SRS FR-FR5-31 — 옛 `Object.assign(FileTree.prototype, …)`). 상태는 종전대로
- * 탐색기 인스턴스에 있고 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 탐색기의 이름은 전부 `this.tree.X` 로 부른다 — 시험·e2e 가
- * 인스턴스에 갈아 끼운 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `FileTree` 원형에 둔다. 정적 넷(`_asUploadItems` 등)은
+ * 탐색기 인스턴스에 있고 이 부품은 그것을 `this.tree` 로 읽고 쓴다. 제 이름은 `this.X`, 탐색기와 다른 부품의 이름은 `this.tree.X`·`this.tree.<부품>.X` 로
+ * 부른다 — 시험·e2e 가 부품 인스턴스에 갈아 끼운 것을 부품끼리도 본다. 이 부품의 이름은 `FileTree` 원형에 없다 (REFACTOR3_FE_DELEG_SRS). 정적 넷(`_asUploadItems` 등)은
  * `FileTree` 클래스 본문으로 갔다.
  */
 class FileTreeXfer {
@@ -37,7 +37,7 @@ class FileTreeXfer {
   async doUpload(dir,items){
     const list=FileTree._asUploadItems(items);
     if(!dir||!list.length) return;
-    this.tree._clearErr();
+    this.tree.painter._clearErr();
     // 올린 것이 보이지 않으면 사용자는 실패로 읽는다.
     if(dir!==this.tree.root&&!this.tree._open.has(dir)) this.tree._open.add(dir);
     this.tree._busy.add(dir); this.tree._paintAll();
@@ -47,11 +47,11 @@ class FileTreeXfer {
     for(let i=0;i<list.length;i++){
       const it=list[i];
       const label=it.relPath||it.file.name;
-      const why=await this.tree._uploadOne(dir,it);
+      const why=await this._uploadOne(dir,it);
       if(!why) continue;
       if(skipAll){skipped++;continue}
       // FR-ETR-29: 물을 수 없으면 **중단**이다 — 안전한 쪽이다 (FR-GIT-97).
-      const choice=await this.tree._askUploadFailure(label,why);
+      const choice=await this._askUploadFailure(label,why);
       if(choice==='retry'){i--;continue}
       if(choice==='skip'){skipped++;continue}
       if(choice==='skipAll'){skipAll=true;skipped++;continue}
@@ -60,10 +60,10 @@ class FileTreeXfer {
       break;
     }
     this.tree._busy.delete(dir);
-    await this.tree._after([dir]);
+    await this._after([dir]);
     // FR-ETR-30: 조용히 끝나면 사용자는 전부 올라간 줄 안다.
     if(!err&&skipped) err=EDITOR_UPLOAD_SKIPPED.replace('%n',skipped);
-    if(err) this.tree._fail(dir===this.tree.root?'':dir,err);
+    if(err) this.tree.painter._fail(dir===this.tree.root?'':dir,err);
   }
 
   /**
@@ -135,12 +135,12 @@ class FileTreeXfer {
       // FR-ETR-22: 상한을 넘으면 올리지 않는다. 홈 폴더를 잘못 골랐을 때
       // 수만 건의 요청을 만들지 않는다.
       if(files.length>EDITOR_UPLOAD_MAX_ENTRIES){
-        this.tree._fail(dir===this.tree.root?'':dir,
+        this.tree.painter._fail(dir===this.tree.root?'':dir,
           EDITOR_UPLOAD_TOO_MANY.replace('%n',EDITOR_UPLOAD_MAX_ENTRIES));
         this.tree._paintAll();
         return;
       }
-      if(files.length) this.tree.doUpload(dir,files);
+      if(files.length) this.doUpload(dir,files);
     });
     // 취소하면 change 가 오지 않는다 — 거두지 않으면 부를 때마다 하나씩 쌓인다.
     inp.addEventListener('cancel',()=>inp.remove());
@@ -153,9 +153,9 @@ class FileTreeXfer {
   // REPO_FIX 04 §3A-3: 실패 사유를 지우지 않는다 — 재조회가 사유를 앗아가면 사용자는
   // 조작이 성공한 줄 안다 (#27).
   async _after(dirs){
-    for(const d of dirs) await this.tree.load(d);
+    for(const d of dirs) await this.tree.loader.load(d);
     // FR-DIR-32: 방금 한 조작의 결과다 — 늦춰 보일 이유가 없다.
-    this.tree.pollGit({now:true});
+    this.tree.loader.pollGit({now:true});
   }
 
   // ── 진입점 둘 (FR-EDT-80) ──
@@ -166,18 +166,18 @@ class FileTreeXfer {
     // 행 메뉴의 같은 항목과 **같은 함수**를 부른다.
     if(!row&&this.tree.list.contains(e.target)){
       e.preventDefault();
-      if(this.tree._edit) this.tree.cancelEdit();
+      if(this.tree._edit) this.tree.edits.cancelEdit();
       const dir=this.tree.root;
       // CLAUDE_ACCOUNTS_SRS FR-CAC-97·95a: 빈 자리는 루트 폴더다 (FR-CMU-9).
       const ca=this.tree.app.claude.maps.claudeFolderMenu?this.tree.app.claude.maps.claudeFolderMenu(this.tree.root,dir,{x:e.clientX,y:e.clientY}):null;
       UIKit.menu([
-        {id:'newFile',label:EDITOR_MENU_NEW_FILE,onClick:()=>this.tree.startCreate(false,dir)},
+        {id:'newFile',label:EDITOR_MENU_NEW_FILE,onClick:()=>this.tree.edits.startCreate(false,dir)},
         // FR-M9-23: 여백 메뉴도 행 메뉴와 같다 — 가림이 폐기됐다.
-        {id:'newDir',label:EDITOR_MENU_NEW_DIR,onClick:()=>this.tree.startCreate(true,dir)},
-        {id:'upload',label:EDITOR_MENU_UPLOAD,onClick:()=>this.tree.pickUpload(dir)},
-        {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,onClick:()=>this.tree.pickUpload(dir,true)},
+        {id:'newDir',label:EDITOR_MENU_NEW_DIR,onClick:()=>this.tree.edits.startCreate(true,dir)},
+        {id:'upload',label:EDITOR_MENU_UPLOAD,onClick:()=>this.pickUpload(dir)},
+        {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,onClick:()=>this.pickUpload(dir,true)},
         {sep:true},
-        {id:'paste',label:EDITOR_MENU_PASTE,disabled:this.tree.app.editor.file.edClipGet()?false:EDITOR_PASTE_NONE,onClick:()=>this.tree.doPasteInto(dir)},
+        {id:'paste',label:EDITOR_MENU_PASTE,disabled:this.tree.app.editor.file.edClipGet()?false:EDITOR_PASTE_NONE,onClick:()=>this.tree.edits.doPasteInto(dir)},
         ...(ca?[{sep:true},
           {id:'claudeLink',label:t('cacct.map.folder_menu'),disabled:ca.linkWhy||false,onClick:ca.link},
           {id:'claudeUnlink',label:t('cacct.map.folder_clear'),disabled:ca.unlinkWhy||false,onClick:ca.unlink}]:[]),
@@ -187,40 +187,40 @@ class FileTreeXfer {
     if(!row||!this.tree.list.contains(row)||row.classList.contains('ed-edit')) return;
     e.preventDefault();
     const p=row.dataset.path,kind=row.dataset.kind;
-    if(this.tree._edit) this.tree.cancelEdit();
+    if(this.tree._edit) this.tree.edits.cancelEdit();
     /**
      * FR-EMS-24 와 같은 규약이다 (U-5): 우클릭한 행이 **선택 안이면 선택을
      * 지킨다.** 밖이면 그 하나로 되돌린다 — 고르지 않은 것에 메뉴를 열었는데
      * 고른 것이 지워지면 그것이 놀람이다.
      */
-    if(!this.tree._selHas(p)) this.tree._selOnly(p);
+    if(!this.tree.selector._selHas(p)) this.tree.selector._selOnly(p);
     else this.tree._sel=p;
     this.tree._paintAll();
     // 만드는 자리는 우클릭한 행이 정한다 — 폴더면 그 안, 아니면 그 형제다
     // (FR-EDT-81 과 같은 규칙).
-    const dir=kind==='dir'?p:this.tree._parent(p);
+    const dir=kind==='dir'?p:this.tree.painter._parent(p);
     // SERVER_DRIVEN_ACTIONS_SRS F-f: 이름 바꾸기·옮기기·복사·삭제를 할 수 있는지는 서버가
     // 답한다. 메뉴를 연 행이 먼저이고, 삭제는 선택 전부를 본다.
-    const paths=[p,...this.tree._selTargets(p).filter(x=>x&&x!==p)];
+    const paths=[p,...this.tree.selector._selTargets(p).filter(x=>x&&x!==p)];
     // UX_BATCH12 FR-EXM-3·4: 이름 바꾸기·새로 만들기·업로드 밖은 선택 전체가 대상이다.
-    const many=this.tree._selOrdered(p).filter(x=>x&&x!==this.tree.root),multi=many.length>1;
+    const many=this.tree.selector._selOrdered(p).filter(x=>x&&x!==this.tree.root),multi=many.length>1;
     // CLAUDE_ACCOUNTS_SRS FR-CAC-97·95a: 폴더 행에만. 대상은 우클릭한 행 하나다.
     const ca=kind==='dir'&&this.tree.app.claude.maps.claudeFolderMenu?this.tree.app.claude.maps.claudeFolderMenu(this.tree.root,p,{x:e.clientX,y:e.clientY}):null;
     GitMenu.openAsked([
-      {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.tree.startCreate(false,dir)},
+      {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.tree.edits.startCreate(false,dir)},
       // FR-M9-23: 메모장에서도 보인다 — FR-EXR-32 의 가림은 폐기됐다.
-      {id:'newDir',label:EDITOR_MENU_NEW_DIR,run:()=>this.tree.startCreate(true,dir)},
+      {id:'newDir',label:EDITOR_MENU_NEW_DIR,run:()=>this.tree.edits.startCreate(true,dir)},
       // FR-FTR-18: 업로드가 가는 자리도 같은 규칙이다 — 폴더면 그 안, 아니면 형제.
-      {id:'upload',label:EDITOR_MENU_UPLOAD,run:()=>this.tree.pickUpload(dir)},
+      {id:'upload',label:EDITOR_MENU_UPLOAD,run:()=>this.pickUpload(dir)},
       // FR-ETR-23: 폴더 업로드는 별개의 항목이다 — 한 input 이 두 모드를 겸할 수
       // 없다.
-      {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,run:()=>this.tree.pickUpload(dir,true)},
+      {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,run:()=>this.pickUpload(dir,true)},
       // FR-FTR-13 / FR-ETR-16: 파일과 폴더에서 활성이고, 폴더는 zip 으로 온다.
       // 링크만 비활성이다 — 링크 자신을 내려받는다는 뜻이 정해져 있지 않다.
       // 여러 항목은 zip 하나다 (FR-EXD-7) — 링크는 서버가 건너뛴다 (FR-ETR-16).
       {id:'download',label:EDITOR_MENU_DOWNLOAD,
         disabled:()=>!multi&&kind==='link'?EDITOR_DOWNLOAD_LINK_NO:'',
-        run:()=>this.tree.downloadMany(multi?many:[p])},
+        run:()=>this.tree.dl.downloadMany(multi?many:[p])},
       {sep:true},
       /**
        * M9_SRS FR-M9-19 (사용자 요구 2026-09-14): **경로 복사 둘.**
@@ -230,8 +230,8 @@ class FileTreeXfer {
        * 자기 구획인 이유는 D-M9-10 이다: 아래 `copy` 는 **파일 클립보드**이고 이것은
        * **텍스트 클립보드**다. 나란히 두면 사용자가 둘을 같은 것으로 읽는다.
        */
-      {id:'copyAbsPath',label:EDITOR_MENU_COPY_ABS_PATH,run:()=>this.tree.copyPath(multi?many:p,false)},
-      {id:'copyRelPath',label:EDITOR_MENU_COPY_REL_PATH,run:()=>this.tree.copyPath(multi?many:p,true)},
+      {id:'copyAbsPath',label:EDITOR_MENU_COPY_ABS_PATH,run:()=>this.copyPath(multi?many:p,false)},
+      {id:'copyRelPath',label:EDITOR_MENU_COPY_REL_PATH,run:()=>this.copyPath(multi?many:p,true)},
       {sep:true},
       // FR-WBR-70: 복사·붙여넣기·복제. 붙여넣는 자리는 만들기와 같은 규칙이
       // 정한다 — 폴더면 그 안, 아니면 그 형제 (`dir` 이 그것이다).
@@ -241,14 +241,14 @@ class FileTreeXfer {
       {id:'cut',label:EDITOR_MENU_CUT,act:FS_ACTION_MOVE,run:()=>this.tree.app.editor.file.edClipSet(this.tree.root,multi?many:p,true)},
       {id:'paste',label:EDITOR_MENU_PASTE,
         disabled:()=>this.tree.app.editor.file.edClipGet()?'':EDITOR_PASTE_NONE,
-        run:()=>this.tree.doPasteInto(dir)},
-      {id:'duplicate',label:EDITOR_MENU_DUPLICATE,act:FS_ACTION_COPY,run:()=>this.tree.doDuplicate(multi?many:p)},
+        run:()=>this.tree.edits.doPasteInto(dir)},
+      {id:'duplicate',label:EDITOR_MENU_DUPLICATE,act:FS_ACTION_COPY,run:()=>this.tree.edits.doDuplicate(multi?many:p)},
       {sep:true},
       {id:'rename',label:EDITOR_MENU_RENAME,act:FS_ACTION_RENAME,
-        disabled:()=>multi?EDITOR_RENAME_MANY_NO:'',run:()=>this.tree.startRename(p)},
+        disabled:()=>multi?EDITOR_RENAME_MANY_NO:'',run:()=>this.tree.edits.startRename(p)},
       // 확인은 `doDelete` 가 한다 — 재귀 여부·항목 수·dirty 탭을 밝혀야 하므로
       // 메뉴의 일반 확인(GitDialog)으로는 FR-EDT-83·84 를 만족하지 못한다.
-      {id:'delete',label:EDITOR_MENU_DELETE,act:FS_ACTION_DELETE,run:()=>this.tree.doDelete(p)},
+      {id:'delete',label:EDITOR_MENU_DELETE,act:FS_ACTION_DELETE,run:()=>this.tree.edits.doDelete(p)},
       ...(ca?[{sep:true},
         {id:'claudeLink',label:t('cacct.map.folder_menu'),disabled:()=>ca.linkWhy,run:ca.link},
         {id:'claudeUnlink',label:t('cacct.map.folder_clear'),disabled:()=>ca.unlinkWhy,run:ca.unlink}]:[]),
@@ -304,7 +304,7 @@ class FileTreeXfer {
       // 요소가 사라져 드래그 자체가 깨진다 (이 저장소의 `FR-RPT-3` 과 같은
       // 함정 — 실측으로 O6·O7·O8 이 한 번에 무너졌다). 모델만 바꾸고 화면은
       // 이동이 끝난 뒤의 갱신에 맡긴다.
-      if(!this.tree._selHas(this.tree._drag)) this.tree._selOnly(this.tree._drag);
+      if(!this.tree.selector._selHas(this.tree._drag)) this.tree.selector._selOnly(this.tree._drag);
       e.dataTransfer.effectAllowed='move';
       // 데이터가 없으면 일부 브라우저가 드래그를 시작조차 하지 않는다.
       e.dataTransfer.setData('text/plain',this.tree._drag);
@@ -313,7 +313,7 @@ class FileTreeXfer {
       e.dataTransfer.setData(FILE_TREE_DRAG_TYPE,this.tree._drag);
       // UX_BATCH12 FR-EXD-1~5: 바깥(Finder)에 놓으면 내려받는다. 트리 안의 놓기는
       // `dragover` 가 `move` 로 정하므로 옮기기 그대로다 (R-6).
-      const dl=this.tree._dragDownloadURL(this.tree._selOrdered(this.tree._drag).filter(x=>x!==this.tree.root));
+      const dl=this.tree.dl._dragDownloadURL(this.tree.selector._selOrdered(this.tree._drag).filter(x=>x!==this.tree.root));
       if(dl){e.dataTransfer.effectAllowed='copyMove';e.dataTransfer.setData('DownloadURL',dl)}
     });
     this.tree.el.addEventListener('dragover',e=>{
@@ -321,42 +321,42 @@ class FileTreeXfer {
       if(!this.tree._drag&&!ext) return;
       e.preventDefault(); e.stopPropagation();
       e.dataTransfer.dropEffect=ext?'copy':'move';
-      this.tree._markDrop(this.tree._dropDirAt(e.target));
-      this.tree._springSchedule(e.target);
+      this._markDrop(this._dropDirAt(e.target));
+      this._springSchedule(e.target);
     });
     // 탐색기 **바깥**으로 나갈 때만 지운다. 행에서 행으로 옮길 때마다 지우면
     // 표시가 깜빡이고, 그 사이의 drop 이 대상을 잃는다.
     this.tree.el.addEventListener('dragleave',e=>{
       if(e.relatedTarget&&this.tree.el.contains(e.relatedTarget)) return;
-      this.tree._dropClear();
+      this._dropClear();
     });
     this.tree.el.addEventListener('drop',e=>{
       const from=this.tree._drag;
       const ext=FileTree._isFileDrag(e);
       if(!from&&!ext) return;
       e.preventDefault(); e.stopPropagation();
-      const dir=this.tree._dropDirAt(e.target);
+      const dir=this._dropDirAt(e.target);
       // FR-ETR-21: `items` 는 **이 tick 안에서만** 살아 있다. 재귀 수집은
       // 비동기라, 걷기 전에 entry 를 전부 꺼내 두지 않으면 중간에 목록이 비어
       // 폴더가 통째로 사라진다 (실측되는 함정이다).
       const entries=ext?FileTree._dropEntries(e):null;
       const files=ext?[...((e.dataTransfer&&e.dataTransfer.files)||[])]:null;
-      this.tree._drag=''; this.tree._dropClear();
+      this.tree._drag=''; this._dropClear();
       EscapeStack.remove(this.tree._dragEsc);
       // 바깥에서 온 파일이 먼저다 — 내부 이동과 겹치는 자리가 없다.
       if(ext){
-        this.tree._dropUpload(dir,entries,files);
+        this._dropUpload(dir,entries,files);
         return;
       }
       // FR-EMS-24: 선택 전부를 옮긴다. 조상이 함께 선택된 자손은 뺀다 (FR-EMS-22).
       // §3A-5 (T-7.2): 원본 자신·현재 부모 위의 드롭은 그 항목만 건너뛴다(오류 없음).
       const pairs=[];
-      for(const src of this.tree._selTargets(from)){
-        if(src===dir||this.tree._parent(src)===dir) continue;
-        pairs.push([src,this.tree._join(dir,this.tree._base(src))]);
+      for(const src of this.tree.selector._selTargets(from)){
+        if(src===dir||this.tree.painter._parent(src)===dir) continue;
+        pairs.push([src,this.tree._join(dir,this.tree.painter._base(src))]);
       }
-      if(pairs.length===1) this.tree.doRename(pairs[0][0],pairs[0][1]);
-      else if(pairs.length) this.tree.doMoveMany(pairs);
+      if(pairs.length===1) this.tree.edits.doRename(pairs[0][0],pairs[0][1]);
+      else if(pairs.length) this.tree.edits.doMoveMany(pairs);
     });
     // §3A-5 (T-7.4): 드래그가 어떻게 끝나든(놓기·Esc·밖에 놓기·창 blur) 상태를 반드시
     // 해제한다 — 남은 상태가 이후 다른 드롭에서 파일을 옮기지 않게.
@@ -364,7 +364,7 @@ class FileTreeXfer {
     const endDrag=()=>{
       EscapeStack.remove(this.tree._dragEsc);
       if(!this.tree._drag&&!this.tree._dropDir) return;
-      this.tree._drag=''; this.tree._dropClear(); this.tree._paintAll();
+      this.tree._drag=''; this._dropClear(); this.tree._paintAll();
     };
     this.tree.el.addEventListener('dragend',endDrag);
     window.addEventListener('blur',endDrag);
@@ -378,7 +378,7 @@ class FileTreeXfer {
    */
   async _dropUpload(dir,entries,files){
     if(!entries){
-      if(files&&files.length) this.tree.doUpload(dir,files);
+      if(files&&files.length) this.doUpload(dir,files);
       return;
     }
     const items=[];
@@ -387,12 +387,12 @@ class FileTreeXfer {
       if(await FileTree._walkEntry(en,'',items)===false){over=true;break}
     }
     if(over){
-      this.tree._fail(dir===this.tree.root?'':dir,
+      this.tree.painter._fail(dir===this.tree.root?'':dir,
         EDITOR_UPLOAD_TOO_MANY.replace('%n',EDITOR_UPLOAD_MAX_ENTRIES));
       this.tree._paintAll();
       return;
     }
-    if(items.length) this.tree.doUpload(dir,items);
+    if(items.length) this.doUpload(dir,items);
   }
 
   /**
@@ -406,7 +406,7 @@ class FileTreeXfer {
     const row=target&&target.closest?target.closest('.ed-row[data-path]'):null;
     if(row&&this.tree.list.contains(row)){
       const p=row.dataset.path;
-      return row.dataset.kind==='dir'?p:this.tree._parent(p);
+      return row.dataset.kind==='dir'?p:this.tree.painter._parent(p);
     }
     return this.tree.root;
   }
@@ -427,7 +427,7 @@ class FileTreeXfer {
 
   _dropClear(){
     this.tree._dropDir='';
-    this.tree._springCancel();
+    this._springCancel();
     for(const el of this.tree.list.querySelectorAll('.ed-drop')) el.classList.remove('ed-drop');
     this.tree.head.classList.remove('ed-drop-root');
     this.tree.list.classList.remove('ed-drop-root');
@@ -443,12 +443,12 @@ class FileTreeXfer {
     const row=target&&target.closest?target.closest('.ed-row[data-kind="dir"]'):null;
     const p=row&&this.tree.list.contains(row)?row.dataset.path:'';
     if(this.tree._springPath===p) return;
-    this.tree._springCancel();
+    this._springCancel();
     if(!p||this.tree._open.has(p)) return;
     this.tree._springPath=p;
     this.tree._springTimer=TIMERS.after(EDITOR_SPRING_MS,()=>{
       this.tree._springTimer=null; this.tree._springPath='';
-      if(!this.tree._open.has(p)) this.tree.toggle(p);
+      if(!this.tree._open.has(p)) this.tree.selector.toggle(p);
     },{owner:this,label:'spring-open'});
   }
 
@@ -457,7 +457,3 @@ class FileTreeXfer {
     this.tree._springPath='';
   }
 }
-
-// 탐색기 원형의 이름 — 앱·렌더러·e2e·시험과 다른 부품이 `FileTree` 에서 부른다 (REFACTOR3_FE_REST5_SRS FR-FR5-32).
-Controller.delegate(FileTree,'xfer',['doUpload','_uploadOne','_askUploadFailure','pickUpload','_after','_onCtx','copyPath','_initDnd',
-  '_dropUpload','_dropDirAt','_markDrop','_dropClear','_springSchedule','_springCancel']);
