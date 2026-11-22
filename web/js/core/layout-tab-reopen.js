@@ -101,7 +101,7 @@ class LayoutTabReopen extends Controller {
     this.app._revealTab(found);
     this.app.render();
     if (fresh && e.view) this._tabViewApply(found.tab, e.view);
-    if (found.tab.type === TAB_TYPE_GIT) this.app._gitRescheduleAll();
+    if (found.tab.type === TAB_TYPE_GIT) this.app.git.surfaces._gitRescheduleAll();
     this.app.save();
     return { win: w.id, pane: found.pane.id, tab: found.tab.id };
   }

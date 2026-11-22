@@ -51,7 +51,7 @@ class GitPanel {
     // 접근자들이 `this._status` 같은 이름을 그대로 observer 로 잇는다 — 패널의
     // 본문이 관측의 자리를 알 필요가 없다.
     // 관측은 **이 패널의 저장소**의 것이다 (FR-RTU-64) — 앱에 하나가 아니다.
-    this.obs=app.gitObs(this.root);
+    this.obs=app.git.surfaces.gitObs(this.root);
     this.obs.attach(this);
 
     this._els=new Map(); // view key → 루트 DOM. **칸마다 따로다** (FR-SVS-42)
@@ -312,7 +312,7 @@ class GitPanel {
    */
   get repo(){
     if(this.root) return this.root;
-    const w=this.app.gitWindow();
+    const w=this.app.git.gitWindow();
     return (w&&w.git&&w.git.repo)||null;
   }
 
@@ -322,7 +322,7 @@ class GitPanel {
     // FR-RTU-60: Repo 창의 패널은 저장소가 **고정**이다 (창의 루트가 그것이다) —
     // 갈아탈 대상이 없으므로 전환도 없다. 그 값은 `repo` getter 가 준다.
     if(this.root) return;
-    const w=this.app.gitWindow(); if(!w) return;
+    const w=this.app.git.gitWindow(); if(!w) return;
     if(!w.git) w.git={repo:null};
     if(w.git.repo===path) return;
     w.git.repo=path;

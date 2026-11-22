@@ -38,7 +38,7 @@ const fx = (name: string) => realPath(join(FIXTURES, name));
 
 // FR-RTU-72: 경로 없이는 열 수 없다 — 창의 신원이 루트다 (D-RTU-18).
 const openRepo = (page: Page, repo: string) =>
-  page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
 
 // 그 루트의 Repo 창 수. 재조정이 같은 루트를 둘로 만들지 않는다 (FR-RTU-63).
 const repoWindowCount = (page: Page, repo: string) =>

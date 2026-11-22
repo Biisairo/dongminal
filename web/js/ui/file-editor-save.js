@@ -28,7 +28,7 @@ class FileEditorSave {
       this.ed._stamp = (r.data && r.data.stamp) || '';
       if (this.ed._view && this.ed._view.state.doc.eq(sentDoc)) this.ed.__dirty = false;
       this.ed._tabLabelAll();
-      if (typeof app !== 'undefined' && app) app.gitSignal('write');
+      if (typeof app !== 'undefined' && app) app.git.gitSignal('write');
       return true;
     } catch (e) {
       console.error('[FileEditor] save error:', e);

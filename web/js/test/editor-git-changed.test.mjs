@@ -31,7 +31,7 @@ function app() {
 test('숨은 동안 온 git_changed 는 복귀 틱에 그 저장소를 다시 묻는다', () => {
   const { ctx, a, polls } = app();
   ctx.document.hidden = true;
-  a._onGitChanged({ repo: '/r', mark: 'm2' });
+  a.git.sync._onGitChanged({ repo: '/r', mark: 'm2' });
   assert.equal(polls.length, 0, '숨은 동안에는 묻지 않는다');
   ctx.document.hidden = false;
   a.editor.pane._edTick();
@@ -44,7 +44,7 @@ test('숨은 동안 온 git_changed 는 복귀 틱에 그 저장소를 다시 �
 test('숨은 동안 온 방송이 이미 받은 mark 면 복귀 틱도 묻지 않는다', () => {
   const { ctx, a, polls } = app();
   ctx.document.hidden = true;
-  a._onGitChanged({ repo: '/r', mark: 'm1' });
+  a.git.sync._onGitChanged({ repo: '/r', mark: 'm1' });
   ctx.document.hidden = false;
   a.editor.pane._edTick();
   assert.equal(polls.length, 0);

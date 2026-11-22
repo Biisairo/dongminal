@@ -67,7 +67,7 @@ Object.assign(Renderer.prototype, {
   _rWinName(w){
     const app=this.app;
     if(!w) return '';
-    if(!app.isGitWin(w)) return w.name||'';
+    if(!app.git.isGitWin(w)) return w.name||'';
     const repo=(w.git&&w.git.repo)||'';
     if(!repo) return w.name||'';
     const pinned=((app.gitRepos||{}).pinned)||[];
@@ -188,8 +188,8 @@ Object.assign(Renderer.prototype, {
     //
     // 단축키 경로는 이것과 무관하게 막힌다 — `_splitInner` 가 `isGitWin`·
     // `isEditorWin` 에서 되돌아간다 (V70·E6 의 뒷문장).
-    const isGit=this.app.isGitWin(a);
-    const noSplit=isGit||this.app.isEditorWin(a)||this.app.isChatWin(a);
+    const isGit=this.app.git.isGitWin(a);
+    const noSplit=isGit||this.app.isEditorWin(a)||this.app.git.isChatWin(a);
     for(const id of ['split-h','split-v']){
       const b=document.getElementById(id);
       if(b) b.disabled=noSplit;
@@ -342,7 +342,7 @@ Object.assign(Renderer.prototype, {
     if(active===REPO_SIDE_CHANGES){
       // FR-RTU-32: Changes 는 **사이드에만** 있다. 본문 탭이 되지 않으므로 그
       // 뷰의 DOM 을 여기로 가져온다 — 뷰를 만드는 자리는 패널 하나다.
-      const p=app.gitPanelAt(app.edRootOf(s),slot);
+      const p=app.git.surfaces.gitPanelAt(app.edRootOf(s),slot);
       // FR-RTU-21·22: 나머지 여섯으로 가는 진입점. **Changes 탭에만** 둔다 —
       // Explorer 에서는 git 의 자리가 아니고, 파일 작업 중에 보일 이유가 없다.
       kids.push(this._rSideActions(key,app.edRootOf(s),slot));
@@ -377,7 +377,7 @@ Object.assign(Renderer.prototype, {
         // 그러면 이 버튼이 죽은 패널에 뷰를 연다. 루트와 칸만 들고 그때 조회한다
         // (`_makeSlot` 이 인덱스를 드는 것과 같은 규약).
         const btn=UIKit.button({icon:a.icon,title:a.title,kind:'ghost',size:'lg',cls:'ed-side-act',
-          dataset:{view:a.key},onClick:()=>this.app.gitPanelAt(root,slot).openView(a.key)});
+          dataset:{view:a.key},onClick:()=>this.app.git.surfaces.gitPanelAt(root,slot).openView(a.key)});
         // UI_POLISH_SRS FR-UIP-18: 이름은 늘 DOM 에 있고, 폭이 남을 때만 CSS 가 보인다.
         // 이름은 `aria-label` 과 같은 말이라 읽기 트리에서는 감춘다.
         const lab=document.createElement('span');

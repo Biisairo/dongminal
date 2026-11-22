@@ -17,7 +17,7 @@ const mobile = (page: Page) => waitForInit(page, { mode: 'mobile', viewport: VIE
 
 async function openRepoExplorer(page: Page, tag: string) {
   const repo = copyFx('basic', tag);
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
@@ -268,7 +268,7 @@ test.describe('터치 메뉴·편집기 (FR-MUX-43·46·50·51)', () => {
   test('TC-MUX-16: 파일 행을 길게 누르면 메뉴가 한 번 열리고 행은 열리지 않는다', async ({ page }) => {
     await mobile(page);
     const repo = copyFx('basic', 'mux-16');
-    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
     const row = page.locator('#area .ed-side .git-file', { hasText: 'untracked.txt' }).first();
     await expect(row).toBeVisible({ timeout: 20000 });
     await page.evaluate(() => {

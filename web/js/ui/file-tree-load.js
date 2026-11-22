@@ -210,7 +210,7 @@ class FileTreeLoad {
     // 나눠 쓴다 (FEU-5). 요청은 clientId 를 실어 서버 감시의 임대를 쥔다 (IPC-8).
     // 즉시 계기는 방금 한 일(저장·조작·활성화) **뒤의** 답이어야 하므로 캐시를 넘는다 —
     // 그 뒤에 묻는 소비자(열린 문서들)는 이 요청을 나눠 쓴다.
-    const hub=this.tree.app.gitStatusHub();
+    const hub=this.tree.app.git.gitStatusHub();
     if(opts&&opts.now) hub.invalidate();
     const r=await hub.ask(this.tree.root);
     this.tree._gitBusy=false;
@@ -228,7 +228,7 @@ class FileTreeLoad {
    */
   paintGitCached(){
     if(this.tree._gitOff||!this.tree.root) return;
-    const got=this.tree.app.gitStatusHub().peek(this.tree.root);
+    const got=this.tree.app.git.gitStatusHub().peek(this.tree.root);
     if(!got) return;
     // 안전망의 시계는 **그 관측의 시각**으로 간다 — 오래된 캐시를 지금 칠했다고
     // 지금 관측한 것이 되지 않는다.

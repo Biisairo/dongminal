@@ -48,10 +48,10 @@ class ToolLife extends Controller {
       // 있어야 한다 — 없으면 Editor 창에 터미널 탭이 생기고, 일반 창만 걷는
       // `_migrateEditorTabs` 가 그것을 영원히 지나친다. Git 창도 같은 구멍이다.
       const a=this.app.aw();
-      const cur=this.app.isKindWin(a)?null:a;
+      const cur=this.app.git.isKindWin(a)?null:a;
       const pn=(this.app.focused&&cur&&cur.layout?findPane(cur.layout,this.app.focused):null)
         ||(cur&&cur.layout?firstPane(cur.layout):null)
-        ||this.app.plainWindows().map(s=>firstPane(s.layout)).find(Boolean)
+        ||this.app.git.plainWindows().map(s=>firstPane(s.layout)).find(Boolean)
         ||null;
       if(pn) return pn;
       // 창이 하나도 없는 것은 delWindow 가 _mkWindow 를 끝내기 전의 과도

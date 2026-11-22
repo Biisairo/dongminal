@@ -45,7 +45,7 @@ test('옛 /api/stats 의 jobs 가 나중에 떠난 /api/git/jobs 의 새 목록�
   answers['/api/git/jobs'] = { ok: true, status: 200, data: { jobs: [{ id: 'new' }] } };
   const tick = a._pollStats();
   await new Promise((r) => setImmediate(r));
-  const push = a._pollGitJobs();
+  const push = a.git.sync._pollGitJobs();
   await arrive('/api/git/jobs'); await push;
   await arrive('/api/stats'); await tick;
   assert.deepEqual(a._gitJobs, [{ id: 'new' }], '옛 틱의 목록이 새 목록을 덮었다');
@@ -57,7 +57,7 @@ test('틱이 늦게 떠났으면 그 목록이 선다', async () => {
   const { a, answers, arrive } = setup();
   answers['/api/stats'] = { ok: true, status: 200, data: { cpu: 1, jobs: [{ id: 'tick' }] } };
   answers['/api/git/jobs'] = { ok: true, status: 200, data: { jobs: [{ id: 'push' }] } };
-  const push = a._pollGitJobs();
+  const push = a.git.sync._pollGitJobs();
   const tick = a._pollStats();
   await new Promise((r) => setImmediate(r));
   await arrive('/api/stats'); await tick;
@@ -71,7 +71,7 @@ test('밀어낸 틱이 실패하면 목록을 다시 조회한다', async () => 
   const { a, answers, arrive } = setup();
   answers['/api/stats'] = { ok: false, status: 0, data: null };
   answers['/api/git/jobs'] = { ok: true, status: 200, data: { jobs: [{ id: 'push' }] } };
-  const push = a._pollGitJobs();
+  const push = a.git.sync._pollGitJobs();
   const tick = a._pollStats();
   await new Promise((r) => setImmediate(r));
   await arrive('/api/git/jobs'); await push;
@@ -102,9 +102,9 @@ test('안전망 주기 폴은 gitReposKick 을 지나 비행 중인 갱신과 �
   });
   const a = controllers(ctx, new ctx.App());
   const holds = [];
-  a.gitReposRefresh = () => new Promise((r) => holds.push(r));
+  a.git.sync.gitReposRefresh = () => new Promise((r) => holds.push(r));
   a.git.sync._startGitReposPoll();
-  a.gitReposKick();
+  a.git.sync.gitReposKick();
   tickFn();
   assert.equal(holds.length, 1, '주기 폴이 비행 중인 갱신 옆에 하나를 더 띄웠다');
   holds[0]();
@@ -124,7 +124,7 @@ test('Repo 탭의 onEnter·onLeave 는 목록 갱신을 합치는 줄로 보낸�
   });
   const repo = ctx.SB_TAB_DEFS.find((d) => d.id === 'repo');
   const calls = [];
-  const app = { gitReposKick: () => calls.push('kick'), gitReposRefresh: () => calls.push('refresh') };
+  const app = { git: { sync: { gitReposKick: () => calls.push('kick'), gitReposRefresh: () => calls.push('refresh') } } };
   repo.onEnter(app);
   repo.onLeave(app);
   assert.deepEqual(calls, ['kick', 'kick']);
@@ -142,7 +142,7 @@ test('Repo 탭이 숨어 있어도 git_changed 가 목록 갱신을 합쳐 부�
   a.sbTab = 'windows';
   a.gitRepos = { pinned: [{ path: '/r', root: '/r' }] };
   const holds = [];
-  a.gitReposRefresh = () => new Promise((r) => holds.push(r));
+  a.git.sync.gitReposRefresh = () => new Promise((r) => holds.push(r));
   a.git.sync._gitReposOnChanged('/r');
   a.git.sync._gitReposOnChanged('/r');
   a.git.sync._gitReposOnChanged('/r');

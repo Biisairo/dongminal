@@ -25,7 +25,7 @@ class GitController extends Controller {
   // CHAT_WINDOW_SRS FR-CW-1·5: 채팅 창도 같다 — 진입점은 메인 패널의 `채팅` 탭이다.
   isChatWin(s){return !!(s&&s.type===WINDOW_TYPE_CHAT)}
   /** 일반(터미널) 창이 아닌 창 — Git·Repo·채팅. 창 목록·순회·대체의 판정은 이것 하나다. */
-  isKindWin(s){return this.app.isGitWin(s)||this.app.isEditorWin(s)||this.isChatWin(s)}
+  isKindWin(s){return this.isGitWin(s)||this.app.isEditorWin(s)||this.isChatWin(s)}
   plainWindows(){return this.app.ws.windows.filter(s=>!this.isKindWin(s))}
 
   /**
@@ -53,7 +53,7 @@ class GitController extends Controller {
   // Windows 탭이 돌아갈 자리이기도 하다 (FR-SBT-23·36) — Git 창이 사라져도
   // 그 계산은 남는다.
   gitBackTarget(){
-    const plain=this.app.plainWindows();
+    const plain=this.plainWindows();
     return plain.find(s=>s.id===this.app._lastPlainWindow)||plain[0]||null;
   }
 
@@ -142,7 +142,7 @@ class GitController extends Controller {
     this.app.timers.every({
       id:'git.watchdog', owner:'git:lifecycle', whenHidden:'pause',
       every:()=>GIT_WATCHDOG_CHECK_MS,
-      run:()=>this.app.gitWatchdogAll(),
+      run:()=>this.app.git.surfaces.gitWatchdogAll(),
     });
   }
 
@@ -160,8 +160,8 @@ class GitController extends Controller {
    * 보이지 않는 표면까지 복귀 신호마다 요청을 하나씩 낸다 (NFR-GLW-2).
    */
   _gitLifecycle(kind){
-    this.app._gitRescheduleAll();
-    if(kind) this.app.gitSignal(kind);
+    this.app.git.surfaces._gitRescheduleAll();
+    if(kind) this.gitSignal(kind);
   }
 
   // gitSignal 은 즉시 신호의 단일 진입점이다 (FR-GIT-18). 어디서 왔는지는 라벨로만
@@ -241,7 +241,7 @@ class GitController extends Controller {
    * Open File 과 터미널 열기가 이 한 자리를 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
    */
   async _gitPlainTarget(){
-    const plain=this.app.plainWindows();
+    const plain=this.plainWindows();
     let w=plain.find(s=>s.id===this.app._lastPlainWindow)||plain[0];
     if(!w) w=await this.app._mkWindow();
     if(!w||!w.layout) return null;
@@ -319,7 +319,7 @@ class GitController extends Controller {
   _anyTermToolId(){
     // 판정은 `plainWindows` 하나다 — Git 창만 걸러 두면 Editor 창의 탭이
     // 후보가 되는데, 거기에는 터미널 탭이 애초에 없다 (FR-EDT-54).
-    const wins=this.app.plainWindows();
+    const wins=this.plainWindows();
     const order=wins.slice().sort((a,b)=>
       (b.id===this.app._lastPlainWindow?1:0)-(a.id===this.app._lastPlainWindow?1:0));
     for(const w of order){
@@ -334,11 +334,6 @@ class GitController extends Controller {
   }
 }
 
-// 바깥(렌더러·편집기·레이아웃·사이드바·git 부품)과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'git',['gitWindow','isGitWin','isChatWin','isKindWin','plainWindows','gitBackTarget','_migrateGitWindow',
-  'openGitWindow','_initGitSection','gitSignal','gitStatusHub','gitOpenFile','gitOpenFileHead','gitOpenTerminal','gitBadgeFor',
-  'gitPinEntry','_gitTermToolId']);
-
 // FR-SVS-47: 전역 진입점은 **포커스 칸의 패널**을 가리킨다. 메뉴·확인창·다이얼로그는
 // 화면에 하나만 서고 사용자가 방금 조작한 자리에 속한다 (D-8). 접근자로 두는 덕에
 // `app.gitPanel` 을 딛던 자리들이 한 줄도 바뀌지 않는다.
@@ -351,6 +346,6 @@ Object.defineProperty(App.prototype,'gitPanel',{
    * 사이드바 배지가 창을 보지 않을 때도 이 값을 딛는다 (git-poll 의 signal
    * 주석과 같은 근거).
    */
-  get(){ const app=this; return app.gitPanelAt(app._gitRootOfActive(),app.slotFocused()) },
+  get(){ const app=this; return app.git.surfaces.gitPanelAt(app.git.surfaces._gitRootOfActive(),app.slotFocused()) },
   configurable:true,
 });

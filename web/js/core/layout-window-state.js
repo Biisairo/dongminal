@@ -31,12 +31,12 @@ class LayoutWindowState extends Controller {
     // Editor 창은 pane 이 없고(FR-EDT-55) 그것이 정상이다 — `git pin` 하나에도
     // `workspace_changed` 가 오므로(§2.4) 예외가 없으면 다음 핀 한 번에 사라진다.
     // CHAT_WINDOW_SRS FR-CW-4: 칸이 없는 채팅 창도 남는다.
-    const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.app.isEditorWin(s)||this.app.isChatWin(s)))};
+    const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.app.isEditorWin(s)||this.app.git.isChatWin(s)))};
     keep();
     // CHAT_WINDOW_SRS FR-CW-2·14: 채팅 창은 하나이고, 그 밖의 채팅 탭은 닫는다.
     const chatFixed=this.app._chatNormalize?this.app._chatNormalize(sv.windows):0;
     // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
-    this.app._migrateGitWindow(sv.windows);
+    this.app.git._migrateGitWindow(sv.windows);
     // FR-EDT-103·104·106 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다 — 다른 브라우저가
     // 만든 것도. `clean()` 이 아니라 여기다: `clean` 은 편집기 탭을 보존하도록
     // 만들어져 있고 창 타입을 알지 못한다 (§2.9).
@@ -56,7 +56,7 @@ class LayoutWindowState extends Controller {
    */
   _fallbackActiveWindow(ws){
     if(ws.windows.find(s=>s.id===ws.activeWindow)) return;
-    ws.activeWindow=(ws.windows.find(s=>!this.app.isEditorWin(s)&&!this.app.isChatWin(s))||ws.windows[0])?.id||null;
+    ws.activeWindow=(ws.windows.find(s=>!this.app.isEditorWin(s)&&!this.app.git.isChatWin(s))||ws.windows[0])?.id||null;
   }
 
   /**

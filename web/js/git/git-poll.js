@@ -156,11 +156,11 @@ class GitPoll extends GitPart {
     // 그것이 곧 "그 표면" 이었기 때문이다. 창이 경로마다 생기면 패널도 여럿이고,
     // 그때 이 판정이 남의 창을 보면 비활성 창의 패널까지 git 을 부른다
     // (NFR-RTU-1 이 그것을 금한다).
-    const w=this.p.root?this.app.edWindowFor(this.p.root):this.app.gitWindow();
+    const w=this.p.root?this.app.edWindowFor(this.p.root):this.app.git.gitWindow();
     if(!w||!this.app.windowVisible(w.id)) return false;
     // 창이 보이는 것과 **이 패널의 표면**이 보이는 것은 다르다 — 사이드가
     // Explorer 이고 본문에 git 뷰 탭도 없으면 이 관측을 쓰는 화면이 없다.
-    if(this.p.root&&!this.app.gitSurfaceOn(w)) return false;
+    if(this.p.root&&!this.app.git.surfaces.gitSurfaceOn(w)) return false;
     return !!this.p.repo;
   }
 
@@ -283,7 +283,7 @@ class GitPoll extends GitPart {
     const prev=this.p._status;
     if(prev&&prev.mark&&prev.requested===repo) q.ifMark=prev.mark;
     // 허브의 줄에 **떠날 때** 선다 — 먼저 떠난 쪽의 늦은 답이 나중 관측을 덮지 않는다.
-    const hub=this.app&&this.app.gitStatusHub?this.app.gitStatusHub():null;
+    const hub=this.app&&this.app.git.gitStatusHub?this.app.git.gitStatusHub():null;
     const ht=hub?hub.depart(repo):0;
     r=gitStatusMerge(await gitFetch(GIT_API.status,q),prev);
     d=r.data;
@@ -411,7 +411,7 @@ class GitPoll extends GitPart {
     const obs=d.mark?rptKey(d.repo||'',d.mark+'|'+JSON.stringify(d.actions||null)):'';
     if(!obs||obs!==this.p._obsSig){this.p.obs.paintAll(); this.p._obsSig=obs||null}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
-    this.app.gitReposKick();
+    this.app.git.sync.gitReposKick();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
     this.app.updateStatusBar();
     // FR-GIT-111 (FR-RPT-8): 충돌 판정은 관측마다 돈다 — 다시 그리기에 업히면

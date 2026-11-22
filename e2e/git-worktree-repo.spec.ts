@@ -75,7 +75,7 @@ async function addRepo(request: APIRequestContext, path: string) {
 }
 
 async function openSideChanges(page: Page, root: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), root);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), root);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;

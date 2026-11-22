@@ -18,7 +18,7 @@ class EditorSection extends Controller {
   // FR-EDT-28: `+ Add` 는 지금 터미널의 cwd 를 미리 채운다. 얻지 못하면 빈 칸으로
   // 연다.
   async _edTermCwd(){
-    const tool=this.app._gitTermToolId();
+    const tool=this.app.git._gitTermToolId();
     if(!tool) return '';
     const r=await apiGet('/api/cwd',{query:{tool}});
     if(!r.ok) return '';
@@ -36,7 +36,7 @@ class EditorSection extends Controller {
    */
   async _edTermCwds(here){
     const ids=[];
-    for(const w of this.app.plainWindows()) for(const p of panesOf(w.layout)) for(const tab of p.tabs||[]){
+    for(const w of this.app.git.plainWindows()) for(const p of panesOf(w.layout)) for(const tab of p.tabs||[]){
       if(tab.type===TAB_TYPE_TERMINAL&&this.app.toolIds.has(tab.toolId)&&!ids.includes(tab.toolId)) ids.push(tab.toolId);
     }
     const got=await Promise.all(ids.slice(0,PATH_SUGGEST_TERM_MAX).map(async tool=>{
@@ -143,9 +143,9 @@ class EditorSection extends Controller {
     this.app._edPatchList(d.list);
     // FR-EDT-39: 연동으로 핀이 함께 바뀐다. 응답이 실어 준 값을 로컬 사본에도
     // 반영해 둔다 — 다음 PUT 이 서버가 방금 만든 핀을 지우지 않게.
-    if(Array.isArray(d.pinned)) this.app._gitPinsApply(d.pinned);
+    if(Array.isArray(d.pinned)) this.app.git.sync._gitPinsApply(d.pinned);
     this._edAfterChange();
-    if(Array.isArray(d.pinned)&&this.app.gitReposRefresh) this.app.gitReposRefresh();
+    if(Array.isArray(d.pinned)&&this.app.git.sync.gitReposRefresh) this.app.git.sync.gitReposRefresh();
     return true;
   }
 
@@ -162,7 +162,7 @@ class EditorSection extends Controller {
     // 보고 있던 Editor 창이 사라졌으면 남는 자리로 옮긴다. 옮기지 않으면
     // activeWindow 가 없는 창을 가리켜 콘텐츠 영역이 빈다.
     if(!this.app.ws.windows.some(s=>s.id===this.app.ws.activeWindow)){
-      const back=this.app.edActivateTarget()||this.app.gitBackTarget();
+      const back=this.app.edActivateTarget()||this.app.git.gitBackTarget();
       if(back){this.app.switchWindow(back.id);return}
     }
     this.app.render();

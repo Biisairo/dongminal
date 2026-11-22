@@ -42,7 +42,7 @@ function host(over = {}) {
       ],
       activeWindow: 'B',
     },
-    isKindWin: (s) => o.kind.includes(s.id),
+    git: { isKindWin: (s) => o.kind.includes(s.id) },
     _edWinDirty(s) { log.push('_edWinDirty:' + s.id); return o.dirty },
     async _confirmClose(msg, opt) {
       log.push('_confirmClose:' + msg + ':' + Object.keys(opt).sort().join(','));

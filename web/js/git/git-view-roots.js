@@ -291,6 +291,6 @@ class GitViewRoots extends GitPart {
    */
   async _missingUnpin(){
     const path=this.p._missing; if(!path) return;
-    if(await this.app.gitUnpin(path)) this.p.setRepo(null);
+    if(await this.app.git.sync.gitUnpin(path)) this.p.setRepo(null);
   }
 }

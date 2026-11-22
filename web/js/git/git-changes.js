@@ -150,7 +150,7 @@ class GitChanges extends GitPart {
       this.p.signal('init');
       // 목록·핀이 함께 바뀌었다 (FR-RTU-27). 사이드바가 그것을 따라오게 한다.
       if(this.app.edRefresh) this.app.edRefresh();
-      if(this.app.gitReposRefresh) this.app.gitReposRefresh();
+      if(this.app.git.sync.gitReposRefresh) this.app.git.sync.gitReposRefresh();
     }
     // 취소(`false`)는 실패가 아니다 — 사유는 실패한 실행이 남긴 것만 선다.
     this.p.obs.paintAll();
@@ -399,7 +399,7 @@ class GitChanges extends GitPart {
       // 그러지 않으면 새 창의 기본 사이드(Explorer)가 떠서 누른 목록이 사라진다.
       run:()=>{
         GitMenu.close();
-        this.app.openGitWindow(c.path).then(id=>{
+        this.app.git.openGitWindow(c.path).then(id=>{
           if(!id) return;
           const w=this.app.ws.windows.find(s=>s&&s.id===id);
           if(w) this.app.edSetSide(w,REPO_SIDE_CHANGES);

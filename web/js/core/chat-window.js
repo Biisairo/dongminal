@@ -18,7 +18,7 @@ const CHAT_STRAY_WARN='[chat] closed {n} chat tab(s) outside the chat window (CH
 
 class ChatWindow extends Controller {
   /** FR-CW-2: 워크스페이스의 채팅 창. 없으면 null. */
-  chatWindow(){ return this.app.ws.windows.find(s=>this.app.isChatWin(s))||null }
+  chatWindow(){ return this.app.ws.windows.find(s=>this.app.git.isChatWin(s))||null }
 
   /** FR-CW-3: 없으면 칸 없는 채팅 창을 만든다. 저장은 부르는 쪽이 한다. */
   chatWindowEnsure(){
@@ -81,7 +81,7 @@ class ChatWindow extends Controller {
    */
   _chatNormalize(list){
     if(!Array.isArray(list)) return 0;
-    const chats=list.filter(s=>this.app.isChatWin(s));
+    const chats=list.filter(s=>this.app.git.isChatWin(s));
     const keep=chats[0]||null;
     let n=0,stray=0;
     const rooms=new Set();
@@ -96,7 +96,7 @@ class ChatWindow extends Controller {
       n++;
     }
     for(const s of list){
-      if(!s||!s.layout||this.app.isChatWin(s)) continue;
+      if(!s||!s.layout||this.app.git.isChatWin(s)) continue;
       for(const p of panesOf(s.layout)){
         const before=(p.tabs||[]).length;
         p.tabs=(p.tabs||[]).filter(tab=>!tab||tab.type!==TAB_TYPE_CHAT);

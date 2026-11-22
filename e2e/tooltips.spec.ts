@@ -76,7 +76,7 @@ async function assertAll(page: Page, label: string) {
 }
 
 async function openGitSurfaces(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate((views: readonly string[]) => {
     const a = (window as any).app;
@@ -149,7 +149,7 @@ test.describe('묶음 C — 모든 버튼의 영어 툴팁', () => {
   test('C5 (V-TIP-5 / FR-TIP-1·2): 파일 편집기와 찾기 패널', async ({ page }) => {
     await waitForInit(page);
     const repo = copyFx('basic', 'tip5');
-    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;

@@ -290,7 +290,7 @@ class SlotOps extends Controller {
   // 누적된다 (§7 R-1).
   _slotReap(){
     // FR-SVS-46: Git 패널도 칸의 것이다 — 사라진 칸의 것을 함께 거둔다.
-    this.app._gitPanelReap();
+    this.app.git.surfaces._gitPanelReap();
     // 칸 i(>0) 마다 그 칸이 지금 보여주는 toolId·tabId 집합.
     const keepTools=new Map(), keepTabs=new Map();
     const n=this.app.slotCount();

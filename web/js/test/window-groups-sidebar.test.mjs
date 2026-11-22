@@ -24,7 +24,7 @@ function setup(windows, groups, active) {
   });
   const app = controllers(ctx, new ctx.App());
   app.ws = { windows, windowGroups: groups, activeWindow: active };
-  app.plainWindows = () => app.ws.windows.filter((w) => !w.type);
+  app.git.plainWindows = () => app.ws.windows.filter((w) => !w.type);
   app.render = () => {};
   return app;
 }

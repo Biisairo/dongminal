@@ -109,7 +109,7 @@ function setup() {
     globals: { TIMERS: { disposeOwner() {} } },
   });
   const obs = { attach() {}, detach() {}, resettle() {} };
-  const app = { gitObs: () => obs, timers: { disposeOwner() {} } };
+  const app = { git: { surfaces: { gitObs: () => obs } }, timers: { disposeOwner() {} } };
   return { ctx, app, panel: new ctx.GitPanel(app, '') };
 }
 

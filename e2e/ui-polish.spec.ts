@@ -128,7 +128,7 @@ test.describe('커밋 (FR-UIP-14·20)', () => {
 test('TC-UIP-9: Changes 탭의 빈 편집 영역 안내는 Diff 를 말한다', async ({ page }) => {
   await waitForInit(page);
   // `openGit` 은 git 뷰 탭 일곱을 연다 — 빈 편집 영역을 보려면 창만 연다.
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), fx('basic'));
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), fx('basic'));
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   const hint = page.locator('#area .ed-empty');
   await expect(hint).toContainText('변경 목록에서 파일을 고르면 여기에 Diff 가 열립니다');

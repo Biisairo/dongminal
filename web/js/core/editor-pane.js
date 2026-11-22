@@ -151,7 +151,7 @@ class EditorPane extends Controller {
     // FR-RTU-62: 사이드 탭 전환은 **관측 조건의 계기**다. Changes 를 떠나면 그
     // 표면이 화면에서 사라지므로(본문에 git 뷰 탭이 없다면) 폴링도 멎어야 한다 —
     // 조건은 `_applyCadence` 가 불릴 때만 검사되고, 부르는 자리가 여기다.
-    this.app._gitRescheduleAll();
+    this.app.git.surfaces._gitRescheduleAll();
     this.app.save();
   }
 

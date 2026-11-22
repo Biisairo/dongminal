@@ -56,9 +56,8 @@ test('FR-ASE-7: 껍데기는 같은 LspClient 에 위임한다', () => {
 // ── FR-ASE-8 · Repo 목록 ──
 
 const REPOS_METHODS = ['_startGitReposPoll', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposSigOf'];
-// REFACTOR3_FE_APPCTL_SRS 9d: 껍데기와 지연 생성은 `GitSync`(`git.sync`)로 옮겼다. App 에는 바깥이 부르는 위임자 둘이 남는다.
+// REFACTOR3_FE_APPCTL_SRS 9d: 껍데기와 지연 생성은 `GitSync`(`git.sync`)로 옮겼다.
 const REPOS_SHELLS = ['_startGitReposPoll', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposList'];
-const REPOS_DELEGATES = ['gitReposKick', 'gitReposRefresh'];
 
 function loadRepos(globals = {}) {
   return load([...BASE, 'core/constants-api.js', ...GIT], {
@@ -67,12 +66,12 @@ function loadRepos(globals = {}) {
   });
 }
 
-test('FR-ASE-8: GitReposList 가 목록 갱신 메서드 다섯을 갖고 GitSync 에 껍데기 넷과 지연 생성이, App 에 위임자 둘이 남는다', () => {
+test('FR-ASE-8: GitReposList 가 목록 갱신 메서드 다섯을 갖고 GitSync 에 껍데기 넷과 지연 생성이 있으며 App 에는 없다', () => {
   const ctx = loadRepos();
   assert.deepEqual(ownNames(ctx.GitReposList.prototype), [...REPOS_METHODS].sort());
   assert.deepEqual(ownNames(ctx.GitSync.prototype).filter((n) => /Repos/.test(n)), [...REPOS_SHELLS].sort());
-  const left = ownNames(ctx.App.prototype).filter((n) => /Repos/.test(n));
-  assert.deepEqual(left, [...REPOS_DELEGATES].sort());
+  // REFACTOR3_FE_DELEG_SRS: App 의 위임자 둘(`gitReposKick`·`gitReposRefresh`)은 걷었다 — 부르는 쪽이 `git.sync` 를 부른다.
+  assert.deepEqual(ownNames(ctx.App.prototype).filter((n) => /Repos/.test(n)), []);
   assert.equal(ctx.App.prototype._gitReposSigOf, undefined, '내부 계산이 App 에 남았다');
 });
 
@@ -80,8 +79,8 @@ test('FR-ASE-8 · A-6: app 에 갈아 끼운 gitReposRefresh 를 가족 안의 g
   const ctx = loadRepos();
   const a = controllers(ctx, new ctx.App());
   let n = 0;
-  a.gitReposRefresh = async () => { n++ };
-  a.gitReposKick();
+  a.git.sync.gitReposRefresh = async () => { n++ };
+  a.git.sync.gitReposKick();
   await new Promise((r) => setImmediate(r));
   assert.equal(n, 1);
   assert.equal(a.git.sync._reposList.app, a);

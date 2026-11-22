@@ -280,7 +280,7 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
      * 미리 세우는 `openGit` 을 쓰지 않고 창만 연다 (FR-RTU-72). 그 헬퍼를 쓰면
      * 이 시험이 재려는 조건("열지 않은 뷰")이 성립하지 않는다.
      */
-    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;

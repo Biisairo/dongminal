@@ -481,10 +481,10 @@ test('8d: 키바 구역의 손짓은 구성을 바꾸고 설정 적용(this=sett
 test('8d: 프리셋의 원본 창은 App 의 창 목록을 그때 묻는다 — e2e 가 갈아 끼운 `plainWindows` 가 닿는다', () => {
   const { ctx } = setup({}, {});
   const w1 = { id: 'w1' }, w2 = { id: 'w2' }, ed = { id: 'e' };
-  const app = { ...fakeApp([]), aw: () => ed, isKindWin: (w) => w === ed, plainWindows: () => [w1, w2], _lastPlainWindow: 'w2' };
+  const app = { ...fakeApp([]), aw: () => ed, git: { isKindWin: (w) => w === ed, plainWindows: () => [w1, w2] }, _lastPlainWindow: 'w2' };
   const s = new ctx.PresetsSection(app);
   assert.equal(s._presetSource(), w2);
-  app.plainWindows = () => [];
+  app.git.plainWindows = () => [];
   assert.equal(s._presetSource(), null);
   app.aw = () => w1;
   assert.equal(s._presetSource(), w1, '활성 창이 일반 창이면 그 창이다');

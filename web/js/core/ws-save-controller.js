@@ -168,7 +168,7 @@ class WsSaveController extends Controller {
       const mine=this.app.ws.git||{};
       this.app.ws.git=wsGitAdopt(mine,rem.git);
       // FR-OPT-4-3: 핀이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
-      if(JSON.stringify(mine.pinned||[])!==JSON.stringify(rem.git.pinned||[])) this.app.gitReposKick();
+      if(JSON.stringify(mine.pinned||[])!==JSON.stringify(rem.git.pinned||[])) this.app.git.sync.gitReposKick();
     }
     // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
     // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버

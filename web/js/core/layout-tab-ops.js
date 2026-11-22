@@ -23,7 +23,7 @@ class LayoutTabOps extends Controller {
     opts=ask;
     // UX_BATCH12_SRS FR-RTR-2: 닫은 탭 목록에 적는다. 커서·스크롤을 읽으므로 인스턴스를 놓기 전이다.
     this.app.layout.reopen._tabReopenNote(s,pn,tab);
-    if(gitTab) this.app._gitDropView(this.app.edRootOf(s),tab.gitView,tab.id);
+    if(gitTab) this.app.git.surfaces._gitDropView(this.app.edRootOf(s),tab.gitView,tab.id);
     // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
     if(isEditor) this.app.editorsDrop(tab.id);
     const toolId=tab.toolId;
@@ -32,7 +32,7 @@ class LayoutTabOps extends Controller {
     pn.tabs=pn.tabs.filter(x=>x.id!==tid);
     // FR-RTU-62: 마지막 git 뷰 탭이 닫히면 그 창의 git 표면이 사라진다 —
     // 사이드가 Explorer 면 관측을 쓰는 화면이 없으므로 폴링도 멎어야 한다.
-    if(gitTab) this.app._gitRescheduleAll();
+    if(gitTab) this.app.git.surfaces._gitRescheduleAll();
     const isActive = s.id === this.app.ws.activeWindow;
     const tool=isEditor?null:toolId;
     if(pn.tabs.length===0){
@@ -100,12 +100,12 @@ class LayoutTabOps extends Controller {
        */
       if(opts.force) return opts;
       const root=this.app.edRootOf(s);
-      if(!this.app._gitViewDirty(root,tab.gitView,true,tab.id)) return opts;
+      if(!this.app.git.surfaces._gitViewDirty(root,tab.gitView,true,tab.id)) return opts;
       return (async()=>{
         const r=await this.app._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
         if(!r) return null;
         // 저장이 실패하면 닫지 않는다 — 저장한 줄 알고 닫는 것이 곧 손실이다.
-        if(r==='save'&&!await this.app._gitViewSave(root,tab.gitView,tab.id)) return null;
+        if(r==='save'&&!await this.app.git.surfaces._gitViewSave(root,tab.gitView,tab.id)) return null;
         return opts;
       })();
     }
@@ -154,7 +154,7 @@ class LayoutTabOps extends Controller {
     // FR-EDT-52·55·56: Editor 창은 pane 이 0이 되어도 남는다 — 창의 수명은
     // 행의 수명이다 (FR-EDT-42). 빈 pane 을 남기지 않는 것과 창을 지우는 것은
     // 다른 일이다.
-    if(!s.layout&&(this.app.isEditorWin(s)||this.app.isChatWin(s))){ // CHAT_WINDOW_SRS FR-CW-4·13: 채팅 창도 같다
+    if(!s.layout&&(this.app.isEditorWin(s)||this.app.git.isChatWin(s))){ // CHAT_WINDOW_SRS FR-CW-4·13: 채팅 창도 같다
       if(isActive){this.app.setFocusState(null,s);this.app._focusWindow(s.id)}
       this.app.render();
       this.app.save();
@@ -213,10 +213,10 @@ class LayoutTabOps extends Controller {
     const tgtWindowId=opts.targetWindow||this.app.ws.activeWindow;
     let s=this.app.ws.windows.find(x=>x.id===tgtWindowId);
     // FR-GIT-179: Git 창은 닫힌 창이다 — 분할 칸을 만들 수 없다.
-    if(this.app.isGitWin(s)) return;
+    if(this.app.git.isGitWin(s)) return;
     // FR-EDT-50·51: Editor 창에서 분할이 생기는 유일한 길은 드래그드롭이다.
     // 단축키와 버튼은 이 자리에서 무시된다.
-    if(this.app.isEditorWin(s)||this.app.isChatWin(s)) return; // CHAT_WINDOW_SRS FR-CW-11: 채팅 창도 같다
+    if(this.app.isEditorWin(s)||this.app.git.isChatWin(s)) return; // CHAT_WINDOW_SRS FR-CW-11: 채팅 창도 같다
     const tgtPaneId=opts.targetPane||(tgtWindowId===this.app.ws.activeWindow?this.app.focused:null);
     if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;

@@ -94,7 +94,7 @@ class GitFiles extends GitPart {
       return;
     }
     this.p._note=null;
-    this.app.gitOpenFileHead(d.openPath,target.path);
+    this.app.git.gitOpenFileHead(d.openPath,target.path);
   }
 
   // 워킹 트리에 남은 변경의 개수. History 의 미커밋 변경 행(FR-GIT-127)과
@@ -209,7 +209,7 @@ class GitFiles extends GitPart {
     if(act==='openFile'){
       // UX_BATCH12_SRS FR-RTB-3: 한 파일은 미리보기다. 여럿은 미리보기가 서로를 갈아 끼우므로 고정한다.
       const preview=items.length===1;
-      for(const i of items) this.app.gitOpenFile(this.p.absPath(i),{preview});
+      for(const i of items) this.app.git.gitOpenFile(this.p.absPath(i),{preview});
       return;
     }
     if(act==='discard'){this._discard(items);return}

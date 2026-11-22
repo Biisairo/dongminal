@@ -148,7 +148,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
     const from = await page.evaluate(() => (window as any).app.ws.activeWindow);
 
     // V-SBT-8 (FR-SBT-14): Git 창으로 들어가면 사이드바가 따라간다.
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
+    await page.evaluate((r) => (window as any).app.git.openGitWindow(r), fx('basic'));
     // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
     // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
@@ -175,7 +175,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
       await a.addWindow();
       return a.ws.activeWindow;
     });
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
+    await page.evaluate((r) => (window as any).app.git.openGitWindow(r), fx('basic'));
     // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
     // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
@@ -230,7 +230,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
 
   test('T8 (V-SBT-10): 탭 ↔ 창 동기화가 한 번에 멈춘다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
+    await page.evaluate((r) => (window as any).app.git.openGitWindow(r), fx('basic'));
     // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
     // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
@@ -315,7 +315,7 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
 test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
   test('T11 (V-SBT-26·27·28): 직행 키는 탭으로 가고, 같은 탭이면 패널을 접는다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
+    await page.evaluate((r) => (window as any).app.git.openGitWindow(r), fx('basic'));
     // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
     // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
@@ -382,7 +382,7 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     const a = fx('basic'), b = fx('with-remote');
     await pin(page, a);
     await pin(page, b);
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), a);
+    await page.evaluate((r) => (window as any).app.git.openGitWindow(r), a);
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     expect(await activeTab(page)).toBe('repo');
 

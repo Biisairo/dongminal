@@ -56,7 +56,7 @@ Object.assign(Renderer.prototype, {
       // 있는 창**의 것이다 — 그리는 중인 창이 활성 창이 아닐 수 있다(슬롯).
       const root=this.app.isEditorWin(this._rWin)?this.app.edRootOf(this._rWin):'';
       // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 탭은 탭마다 전용 패널이다.
-      const p=(root&&at.gitView==='diff')?this.app.gitDiffPanelFor(root,slot,at):this.app.gitPanelAt(root,slot);
+      const p=(root&&at.gitView==='diff')?this.app.gitDiffPanelFor(root,slot,at):this.app.git.surfaces.gitPanelAt(root,slot);
       if(p.diffTabId) diffPanel=p;
       el=p.elFor(at.gitView);
     }else if(at.type==='editor'){
@@ -235,7 +235,7 @@ Object.assign(Renderer.prototype, {
     const list=scroll.firstChild;
     this._place(list,kids);
     const aw=app.aw();
-    const closed=app.isKindWin(aw);
+    const closed=app.git.isKindWin(aw);
     /**
      * UIUX_OVERHAUL_SRS FR-CHR-2·3: 고정 구. **가르는 것은 모드가 아니라
      * 컨트롤이다.**

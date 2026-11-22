@@ -36,9 +36,9 @@ function world() {
   });
   const a = controllers(ctx, new ctx.App());
   a.isEditorWin = (s) => !!(s && s.editor);
-  a.isChatWin = (s) => !!(s && s.type === 'chat');
+  a.git.isChatWin = (s) => !!(s && s.type === 'chat');
   a.edRootOf = (s) => (s && s.editor && s.editor.root) || '';
-  a._migrateGitWindow = () => 0;
+  a.git._migrateGitWindow = () => 0;
   a._migrateEditorTabs = () => 0;
   a._edMigrateSideWidth = () => false;
   return { ctx, a, sessionStorage };
@@ -82,7 +82,7 @@ test('FEC-17: 정규화는 죽은 도구 탭을 걷고, layout 이 빈 일반 �
 test('FEC-17: 편집기 탭 마이그레이션이 옮겼으면 다시 거르고 바뀜을 알린다', () => {
   const { a } = world();
   const seen = [];
-  a._migrateGitWindow = (list) => { seen.push(['git', list]); return 0 };
+  a.git._migrateGitWindow = (list) => { seen.push(['git', list]); return 0 };
   a._migrateEditorTabs = (list) => { seen.push(['ed', list]); list[0].layout = null; return 1 };
   const sv = { windows: [{ id: 'A', layout: pane('p1', [term('t1', 'x')]) }, { id: 'B', layout: pane('p2', [term('t2', 'x')]) }] };
   const changed = a._normalizeIncomingWorkspace(sv, new Set(['x']));

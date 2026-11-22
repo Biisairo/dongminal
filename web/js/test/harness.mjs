@@ -138,10 +138,21 @@ export function controllers(ctx, app) {
   for (const [field, cls] of Object.entries(APP_CONTROLLERS)) {
     if (app[field]) continue;
     const C = vm.runInContext('typeof ' + cls + ' === "function" ? ' + cls + ' : null', ctx);
-    if (C) app[field] = new C(app);
+    if (C) { app[field] = new C(app); continue }
+    // 싣지 않은 컨트롤러는 빈 주인으로 둔다 — 시험이 소유 경로(`app.git.plainWindows = …`)에 대역을 갈아 끼운다
+    // (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
+    app[field] = Object.fromEntries((APP_CONTROLLER_PARTS[field] || []).map((k) => [k, {}]));
   }
   return app;
 }
+
+/** 뿌리 컨트롤러 → 그것이 드는 부품의 필드. 싣지 않은 컨트롤러의 빈 주인을 세울 때 쓴다. */
+const APP_CONTROLLER_PARTS = { settings: ['apply', 'live', 'saveState'], git: ['surfaces', 'sync'], agents: ['sub', 'list'],
+  chat: ['window', 'human', 'views'], claude: ['maps'], mobile: ['nav', 'sheets'], focus: ['hl', 'owner'], slot: ['ops'],
+  wsSync: ['reload'], repoWin: ['preview'],
+  layout: ['tabAdd', 'tabOps', 'dock', 'dnd', 'groups', 'winState', 'reopen'],
+  tool: ['life', 'cmd', 'work', 'search'],
+  editor: ['sync', 'open', 'pane', 'watch', 'section', 'doc', 'file', 'docRender', 'search'] };
 
 /** 탐색기 필드 → 부품 클래스. `FileTree` 생성자가 세우는 것과 같다 (REFACTOR3_FE_REST5_SRS FR-FR5-31). */
 const FILE_TREE_PARTS = { loader: 'FileTreeLoad', selector: 'FileTreeSelect', painter: 'FileTreePaint', keys: 'FileTreeKeys',

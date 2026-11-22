@@ -53,7 +53,6 @@ function host(ctx, over = {}) {
     _fallbackActiveWindow(sv) { log.push('_fallbackActiveWindow'); h.args.fallback = sv },
     edOn: () => ret.edOn,
     edRoots: () => ['/kept'],
-    gitWindow: () => h.ws.windows.find((s) => s.type === 'git') || null,
     _activateWindow(id) { log.push('_activateWindow:' + id); h.args.activatedOnNew = h.ws === h.args.sv; h.ws.activeWindow = id },
     _stripDeviceKeys() { log.push('_stripDeviceKeys'); return ret.strip },
     aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null,
@@ -61,7 +60,11 @@ function host(ctx, over = {}) {
     _slotTabsToWs() { log.push('_slotTabsToWs') },
     save() { log.push('save') },
     render() { log.push('render') },
-    gitReposKick() { log.push('gitReposKick') },
+    // 소유 경로의 대역 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
+    git: {
+      gitWindow: () => h.ws.windows.find((s) => s.type === 'git') || null,
+      sync: { gitReposKick() { log.push('gitReposKick') } },
+    },
   };
   ctx.mergeUnseenLayout = (local, remote, seen, want) => {
     log.push('merge');
@@ -286,7 +289,7 @@ function saveRig() {
       defer: (_fn, o) => { log.push('defer:' + o.label) },
     },
     _saveFlushDeferred() { log.push('flush') },
-    gitReposKick() { log.push('gitReposKick') },
+    git: { sync: { gitReposKick() { log.push('gitReposKick') } } },
     edOn: () => false,
     _edPatchList(list) { log.push('_edPatchList:' + JSON.stringify(list)) },
     _edReconcile(...a) { log.push('_edReconcile:' + a.length) },

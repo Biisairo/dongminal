@@ -299,10 +299,10 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
       // NFR-RTU-2 는 시간 예산으로 적혔지만 그 근거는 **패널을 유지하므로
       // 재구성이 없어야 한다** 였다 (D-RTU-35). 재는 것은 그 근거다 — 밀리초는
       // 기계가 정하고, 재구성이 없다는 사실은 구조가 정한다.
-      await page.evaluate((r: string) => (window as any).app.openGitWindow(r),
+      await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r),
         fx('with-remote'));
       await expect(page.locator('#area .ed-win .ed-side')).toBeVisible({ timeout: 10000 });
-      await page.evaluate((r: string) => (window as any).app.openGitWindow(r), fx('basic'));
+      await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), fx('basic'));
       await expect(page.locator(sel).first()).toBeVisible({ timeout: 10000 });
 
       expect(await markCount(page, sel)).toEqual({ kept: n, total: n });

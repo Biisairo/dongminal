@@ -80,8 +80,8 @@ test('TC-CW-5: 채팅 창이 둘이면 첫 창으로 합치고 같은 방은 하
 test('TC-CW-6: 창 목록(plainWindows)에 채팅 창이 없다', () => {
   const { a } = world();
   a.ws = { windows: [{ id: 'P', layout: pane('p', [term('x')]) }, { id: 'C', type: 'chat', layout: null }] };
-  assert.deepEqual(plain(a.plainWindows().map((s) => s.id)), ['P']);
-  assert.equal(a.isKindWin(a.ws.windows[1]), true);
+  assert.deepEqual(plain(a.git.plainWindows().map((s) => s.id)), ['P']);
+  assert.equal(a.git.isKindWin(a.ws.windows[1]), true);
 });
 
 test('FR-CW-3·12: 방을 열면 채팅 창이 생기고 칸이 생긴다. 같은 방은 한 탭이다', () => {

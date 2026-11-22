@@ -35,7 +35,7 @@ function tree(responses, opts = {}) {
   });
   const t = treeParts(ctx, Object.create(ctx.FileTree.prototype));
   t.root = '/r';
-  t.app = { gitStatusHub: () => hub };
+  t.app = { git: { gitStatusHub: () => hub } };
   t.hub = hub;
   t.clock = clock;
   t.store = { gitKey: '', gitOkAt: 0, gitRepo: '', gitMark: '', gitAgain: false };

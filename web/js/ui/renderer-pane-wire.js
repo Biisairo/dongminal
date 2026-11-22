@@ -47,7 +47,7 @@ Object.assign(Renderer.prototype, {
       const c=ctx(); if(!c.pane||!c.tab) return;
       e.preventDefault(); e.stopPropagation();
       const aw=app.aw();
-      const noNew=app.isKindWin(aw);
+      const noNew=app.git.isKindWin(aw);
       const label=el.querySelector('.pn-tab-label');
       const at={x:e.clientX,y:e.clientY};
       // CLAUDE_ACCOUNTS_SRS FR-CAC-85: 계정 기능이 없는 서버면 항목이 없다.

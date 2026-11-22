@@ -253,7 +253,7 @@ class FocusController extends Controller {
     this.app.updateCwd();
     // FR-FLW-3: 목록은 핀에서만 오므로 포커스와 무관하다 — 여기서 새로 조회하지
     // 않는다. `+ Add` 가 딛는 마지막 터미널만 갱신한다 (D-FLW-6).
-    this.app._gitTermToolId();
+    this.app.git._gitTermToolId();
     this.app.updateStatusBar();
     // ISSUE_TREE_OPS_SRS FR-ITW-4: 제목에 포커스 탭 이름이 있으므로 포커스를 따라간다.
     this.app.renderer._rPaintTitles();

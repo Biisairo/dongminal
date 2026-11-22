@@ -48,7 +48,7 @@ function repoWithConflictedMerge(tag: string) {
 }
 
 async function openChanges(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
   // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
   // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.

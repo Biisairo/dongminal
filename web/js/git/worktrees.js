@@ -130,10 +130,10 @@ class GitWorktrees extends GitListTab {
      * 헤더 드롭다운과 같은 결함이었다 (D-RTU-27). worktree 는 목록에 없는 경로일
      * 수 있고 `openGitWindow` 가 그때 먼저 더한다.
      */
-    if(act==='open'){this.app.openGitWindow(e.path);return}
+    if(act==='open'){this.app.git.openGitWindow(e.path);return}
     if(act==='pin'||act==='unpin'){this._pin(e,act==='unpin');return}
     // FR-GIT-244: 터미널은 **Git 창이 아닌 창**에 연다 (FR-GIT-41·185 와 같은 경로).
-    if(act==='term'){this.app.gitOpenTerminal(e.path);return}
+    if(act==='term'){this.app.git.gitOpenTerminal(e.path);return}
     if(act==='remove'){this._remove(e);return}
   }
 
@@ -144,8 +144,8 @@ class GitWorktrees extends GitListTab {
    * 알리지 않는다. 같은 사실을 두 번 알리면 사용자는 두 가지 일이 일어난 줄로 읽는다.
    */
   async _pin(e,off){
-    const ok=off?await this.app.gitUnpin(e.path)
-                :(await this.app.gitPin(e.path)).ok;
+    const ok=off?await this.app.git.sync.gitUnpin(e.path)
+                :(await this.app.git.sync.gitPin(e.path)).ok;
     this._note=ok?{kind:off?'unpinned':'pinned',msg:(off?GIT_WT_UNPINNED:GIT_WT_PINNED)+e.path}
                  :{kind:'fail',msg:off?GIT_WT_UNPIN_FAIL:GIT_WT_PIN_FAIL};
     if(!this.el) return;

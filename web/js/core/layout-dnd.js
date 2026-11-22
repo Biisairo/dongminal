@@ -57,7 +57,7 @@ class LayoutDnd extends Controller {
       return this._moveTabAcrossWindows(src,srcRid,tabId,dstWin,dstRid,beforeTabId,insertBefore);
     const s=src;
     // FR-GIT-181: Git 창은 탭을 받지도 내주지도 않는다.
-    if(this.app.isGitWin(s))return;
+    if(this.app.git.isGitWin(s))return;
     // FR-EDT-53: **Editor 창은 여기서 막지 않는다.** 이 경로는 활성 창 **안**의
     // 분할 칸끼리이며, 같은 Editor 창 안의 이동은 허용이다 (FR-EDT-51). 조건을
     // 탭 타입 자리(:22)에 넣으면 편집기 탭이 자기 창 안에서도 못 움직인다 (§2.2).
@@ -78,7 +78,7 @@ class LayoutDnd extends Controller {
     this.app.paneTabSet(dst,tab.id);this.app.setFocusState(dstRid, s);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다 — 여기서 터미널 창을
     // 만들면 안 된다.
-    if(!s.layout&&!this.app.isEditorWin(s)&&!this.app.isChatWin(s)){this.app._mkWindow();return}
+    if(!s.layout&&!this.app.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app._mkWindow();return}
     this.app.save();this.app.render();
   }
 
@@ -94,10 +94,10 @@ class LayoutDnd extends Controller {
     // FR-MOV-5: Git 창은 주지도 받지도 않는다 (FR-GIT-181).
     // FR-EDT-53: Editor 창의 탭은 그 창 **밖으로 나가지 못한다** — 다른 Editor
     // 창으로도, 일반 창으로도.
-    if(this.app.isKindWin(src)) return; // CHAT_WINDOW_SRS FR-CW-10: 채팅 창도 경계다
+    if(this.app.git.isKindWin(src)) return; // CHAT_WINDOW_SRS FR-CW-10: 채팅 창도 경계다
     const dst=this.app.ws.windows.find(w=>w&&w.id===dstWinId);
     // FR-EDT-53: 밖에서 들어오지도 못한다.
-    if(!dst||dst.id===src.id||this.app.isKindWin(dst)||!dst.layout) return;
+    if(!dst||dst.id===src.id||this.app.git.isKindWin(dst)||!dst.layout) return;
     const srcPane=findPane(src.layout,srcRid); if(!srcPane) return;
     const ti=srcPane.tabs.findIndex(x=>x.id===tabId); if(ti<0) return;
     // FR-MOV-6: git 탭은 옮기지 않는다 (FR-GIT-28).
@@ -138,8 +138,8 @@ class LayoutDnd extends Controller {
    * FR-EDT-53), 마지막 탭(FR-MOV-4), git 뷰 탭(FR-MOV-6)이 그대로 선다.
    */
   _moveTabAcrossWindows(src,srcRid,tabId,dst,dstRid,beforeTabId,insertBefore){
-    if(this.app.isKindWin(src)) return;
-    if(this.app.isKindWin(dst)||!dst.layout) return;
+    if(this.app.git.isKindWin(src)) return;
+    if(this.app.git.isKindWin(dst)||!dst.layout) return;
     const srcPane=findPane(src.layout,srcRid); if(!srcPane) return;
     const ti=srcPane.tabs.findIndex(x=>x.id===tabId); if(ti<0) return;
     if(srcPane.tabs[ti].type===TAB_TYPE_GIT) return;
@@ -188,7 +188,7 @@ class LayoutDnd extends Controller {
   splitPaneWithTab(srcRid,tabId,targetRid,zone){
     const s=this.app.aw();if(!s)return;
     // FR-GIT-179·181: Git 창에는 분할 칸이 생기지 않는다.
-    if(this.app.isGitWin(s))return;
+    if(this.app.git.isGitWin(s))return;
     // FR-EDT-51: **Editor 창은 여기서 막지 않는다.** 드래그드롭이 분할이 생기는
     // 유일한 길이므로(D-8) 이 경로는 허용이다 — 막는 자리는 단축키·버튼
     // (`_splitInner`) 쪽이다 (FR-EDT-50).
@@ -211,7 +211,7 @@ class LayoutDnd extends Controller {
     };
     s.layout=splitNode(s.layout);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다.
-    if(!s.layout&&!this.app.isEditorWin(s)&&!this.app.isChatWin(s)){this.app._mkWindow();return}
+    if(!s.layout&&!this.app.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app._mkWindow();return}
     this.app.setFocusState(newRid, s);this.app.save();this.app.render();
   }
 }

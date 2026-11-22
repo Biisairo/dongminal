@@ -333,7 +333,7 @@ class WsSyncController extends Controller {
     this.app._slotTabsToWs();
     if(edChanged) this.app.save();
     this.app.render();
-    if(wsPinsKey(this.app.ws.git)!==pinsBefore) this.app.gitReposKick();
+    if(wsPinsKey(this.app.ws.git)!==pinsBefore) this.app.git.sync.gitReposKick();
   }
 
   /**
@@ -399,7 +399,7 @@ class WsSyncController extends Controller {
   _viewKeep(){
     const active=this.app.ws.activeWindow;
     const {focus,tabs}=wsViewOf(this.app.ws.windows,n=>this.app.flattenPanes(n));
-    const localGit=this.app.gitWindow();
+    const localGit=this.app.git.gitWindow();
     const repo=(localGit&&localGit.git&&localGit.git.repo)||null;
     return {active,focus,tabs,repo};
   }
@@ -439,7 +439,7 @@ class WsSyncController extends Controller {
     // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
     // 그대로 쓴다 — 복원은 그 경로다.
     if(view.repo){
-      const gw=this.app.gitWindow();
+      const gw=this.app.git.gitWindow();
       if(gw){ if(!gw.git) gw.git={}; gw.git.repo=view.repo }
     }
   }

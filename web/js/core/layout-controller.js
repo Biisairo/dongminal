@@ -111,7 +111,7 @@ class LayoutController extends Controller {
     const arr=this.app.ws.windows;
     // FR-EDT-45: Editor 창도 대상이 아니다 — 창 하나 닫았을 뿐인데 편집기
     // 화면에 떨어지면 안 된다 (Git 창을 거르는 것과 같은 근거).
-    const plain=s=>s&&!this.app.isKindWin(s);
+    const plain=s=>s&&!this.app.git.isKindWin(s);
     for(let d=0;d<arr.length;d++){
       const a=arr[removedIdx+d], b=arr[removedIdx-d];
       if(plain(a)) return a;
@@ -396,7 +396,7 @@ class LayoutController extends Controller {
     // 탭 자체는 이미 건너는데(localStorage `sidebarTab`) 그 탭이 **돌아갈 자리**는
     // 건너지 못해, 새로고침 뒤 Windows 탭이 늘 첫 창으로 갔다 (SRS §2.2).
     // 적는 자리는 여기 하나다 — 두 벌로 만들면 한쪽만 갱신된다.
-    if(cur&&!this.app.isKindWin(cur)) this._rememberReturn('plain',cur.id);
+    if(cur&&!this.app.git.isKindWin(cur)) this._rememberReturn('plain',cur.id);
     this.app._activateWindow(sid);
     // WINDOW_SLOTS_SRS FR-WSL-54: 포커스 슬롯이 이 창을 받는다. 다른 슬롯은
     // 건드리지 않는다 — 그것이 두 칸을 나란히 두는 이유다.
@@ -415,7 +415,7 @@ class LayoutController extends Controller {
     // FR-GIT-22 + FR-RTU-62: 창 전환은 폴링 조건의 재평가 시점이다. **모든
     // 패널**이 다시 본다 — 떠난 창의 패널이 타이머를 든 채 남으면 아무도 보지
     // 않는 저장소를 계속 폴링한다.
-    this.app._gitRescheduleAll();
+    this.app.git.surfaces._gitRescheduleAll();
     this.app.save(); this.app.render();
   }
 }

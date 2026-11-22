@@ -259,10 +259,10 @@ async function loadPanelPoll(page: Page) {
       _stPoll = null as any;
       // 넷 다 승격된 이름이다 (FE_MODULE_BOUNDARY_SRS FR-FMB-40).
       app = {
-        gitWindow: () => ({ id: 'w1' }),
+        // 소유 경로의 대역 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
+        git: { gitWindow: () => ({ id: 'w1' }), surfaces: { gitSurfaceOn: () => true } },
         edWindowFor: () => ({ id: 'w1' }),
         windowVisible: () => true,
-        gitSurfaceOn: () => true,
       };
       token() { return 'tok' }
       isStale() { return false }

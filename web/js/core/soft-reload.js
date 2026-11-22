@@ -52,7 +52,7 @@ class SoftReload extends Controller {
       this._softStep('states',()=>this.app.bus.publish('softreload',{}));
       // ④ 목록과 패널.
       await this._softStepAsync('editors',()=>this.app._edLoad&&this.app._edLoad());
-      this._softStep('gitRepos',()=>this.app.gitReposRefresh&&this.app.gitReposRefresh());
+      this._softStep('gitRepos',()=>this.app.git.sync.gitReposRefresh&&this.app.git.sync.gitReposRefresh());
       this._softStep('gitPanel',()=>{
         const p=this.app.gitPanel;
         if(p&&typeof p.refresh==='function') p.refresh();

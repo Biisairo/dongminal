@@ -136,6 +136,6 @@ class Renderer {
     // `_initGitSection` 의 주기 job 이고, 둘은 `_gitWdAt` 문턱을 공유하므로 합쳐도
     // 검사는 `GIT_WATCHDOG_CHECK_MS` 당 한 번을 넘지 않는다. 렌더 쪽을 남기는
     // 이유는 표면이 막 바뀐 직후를 가장 이르게 잡기 때문이다.
-    this.app.gitWatchdogAll();
+    this.app.git.surfaces.gitWatchdogAll();
   }
 }

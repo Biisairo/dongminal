@@ -161,7 +161,7 @@ class LayoutGroups extends Controller {
    *   이전: 활성 창이 든 동안 그릴 때마다 펼쳐, 그 그룹은 접을 수 없었다
    */
   sidebarWindowEntries(){
-    const plain=this.app.plainWindows();
+    const plain=this.app.git.plainWindows();
     const groups=this.windowGroups();
     if(!groups.length) return plain;
     const byId=new Map(plain.map(w=>[w.id,w]));
@@ -198,7 +198,7 @@ class LayoutGroups extends Controller {
     if(dr.end){
       if(!srcG) r=winOrderMoveWindow(this.app.ws.windows,this.windowGroups(),dr.src,{to:WIN_ORDER_TOP});
       else{
-        const last=winOrderItems(this.app.plainWindows(),this.windowGroups()).filter(it=>it.kind==='window'||it.windows.length).pop();
+        const last=winOrderItems(this.app.git.plainWindows(),this.windowGroups()).filter(it=>it.kind==='window'||it.windows.length).pop();
         if(!last||last.id===srcG) return false;
         r=winOrderMoveGroup(this.app.ws.windows,this.windowGroups(),srcG,{after:last.id});
       }

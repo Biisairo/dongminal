@@ -22,7 +22,7 @@ class EditorOpen extends Controller {
     let n=0;
     for(const s of ws){
       if(!s||!s.layout) continue;
-      if(this.app.isEditorWin(s)||this.app.isGitWin(s)) continue;
+      if(this.app.isEditorWin(s)||this.app.git.isGitWin(s)) continue;
       const panes=panesOf(s.layout);
       for(const p of panes){
         const before=(p.tabs||[]).length;
@@ -116,7 +116,7 @@ class EditorOpen extends Controller {
       return !!(v&&v._dirty);
     }
     if(tab.type===TAB_TYPE_GIT&&win&&this.app.isEditorWin(win)){
-      return this.app._gitViewDirty(this.app.edRootOf(win),tab.gitView,false,tab.id);
+      return this.app.git.surfaces._gitViewDirty(this.app.edRootOf(win),tab.gitView,false,tab.id);
     }
     return false;
   }
@@ -181,7 +181,7 @@ class EditorOpen extends Controller {
         // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
         // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
         if(tab&&tab.type===TAB_TYPE_GIT&&tab.gitView==='diff')
-          for(const p of this.app._gitDiffDocPaths(this.app.edRootOf(s))) seen.add(p);
+          for(const p of this.app.git.surfaces._gitDiffDocPaths(this.app.edRootOf(s))) seen.add(p);
       }
     }
     return seen;

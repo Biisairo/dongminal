@@ -24,7 +24,7 @@ class FocusHighlight extends Controller {
     const pn=findPane(s.layout,this.app.focused); if(!pn) return;
     const tab=(pn.tabs||[]).find(x=>x.id===this.app.paneTab(pn));
     const slot=this.app.slotFocused();
-    const panel=this.app.gitPanels?this.app.gitPanels.get(this.app._gitPanelKey(root,slot)):null;
+    const panel=this.app.gitPanels?this.app.gitPanels.get(this.app.git.surfaces._gitPanelKey(root,slot)):null;
     // 미리보기 탭은 id 를 지킨 채 Diff ↔ 파일·다른 파일로 바뀐다(FR-RTB-1) — 내용까지 키에 넣는다.
     const at=s.id+'\0'+slot+'\0'+(tab?tab.id+'\0'+tab.type+'\0'+(tab.filePath||''):'');
     if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath){

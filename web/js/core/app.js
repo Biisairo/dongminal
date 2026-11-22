@@ -184,7 +184,7 @@ class App {
       }
     }
     this.applyFocusOverlay();
-    this._initGitSection();
+    this.git._initGitSection();
     this._initEditorSection();
     // FR-SRL-8·9: 내부 새로고침의 진입점 둘. 배선은 `_subscribeCommands` **뒤**
     // 여야 한다 — 그것이 `_sseKick` 을 세운다.
@@ -240,7 +240,7 @@ class App {
     // 가두지 않는다 (FR-CLS-2 와 같은 근거). **재조정보다 먼저** 한다: 창
     // 목록의 순서가 곧 사이드바의 순서이고, 사용자가 만든 적 없는 Editor 창이
     // 그 앞자리를 차지할 이유가 없다.
-    if(!this.plainWindows().length) await this._mkWindow();
+    if(!this.git.plainWindows().length) await this._mkWindow();
     // FR-EDT-42·43: 재조정이 도는 첫 번째 자리. 워크스페이스가 비어 있어도
     // root 에디터 창은 있어야 한다 (FR-EDT-13).
     if(this._edReconcile()||sideWidthMoved) this.save();

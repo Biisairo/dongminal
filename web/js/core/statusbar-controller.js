@@ -79,12 +79,12 @@ class StatusBarController extends Controller {
     const pingP=apiGet('/api/ping').then(r=>{t1=performance.now();return r});
     // 통계는 따로 받는다 — ping 을 순수한 지연 측정으로 남겨 두려는 것이다.
     // git 작업 목록은 같은 요청에 싣는다 (FR-OPT-4-4 — 회차당 3r → 2r).
-    const jt=this.app._gitJobsBegin();
+    const jt=this.app.git.sync._gitJobsBegin();
     const statsP=apiGet('/api/stats',jt?{query:{jobs:'1'}}:undefined);
     const [ping,st]=await Promise.all([pingP,statsP]);
     // 망 실패는 status 0 이다 — 그때 지연은 숫자가 아니라 "없음" 이다.
     this.app._latency=ping.status?Math.round(t1-t0):null;
-    if(jt) this.app._gitJobsSettle(jt,st.ok&&st.data?st.data.jobs:null);
+    if(jt) this.app.git.sync._gitJobsSettle(jt,st.ok&&st.data?st.data.jobs:null);
     if(st.ok&&st.data){
       delete st.data.jobs;
       this.app._stats=st.data;

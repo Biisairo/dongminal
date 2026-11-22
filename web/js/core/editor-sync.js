@@ -179,7 +179,7 @@ class EditorSync extends Controller {
     // REPO_TAB_UNIFY_SRS FR-RTU-63: Git 패널도 창의 것이다 — 탐색기와 같은
     // 자리에서 거둔다. 재조정은 창이 사라지는 것을 아는 유일한 자리이므로,
     // 여기서 빠지면 볼 사람이 없는 패널이 편집기를 든 채 남는다.
-    this.app._gitPanelReap();
+    this.app.git.surfaces._gitPanelReap();
     return n;
   }
 
@@ -211,7 +211,7 @@ class EditorSync extends Controller {
     const root=this.app.edRootOf(s);
     for(const pn of this.app.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[]))
-        if(tab&&tab.type===TAB_TYPE_GIT&&this.app._gitViewDirty(root,tab.gitView,true,tab.id)) return true;
+        if(tab&&tab.type===TAB_TYPE_GIT&&this.app.git.surfaces._gitViewDirty(root,tab.gitView,true,tab.id)) return true;
     return false;
   }
 
@@ -261,7 +261,7 @@ class EditorSync extends Controller {
     let ok=true;
     for(const pn of this.app.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[]))
-        if(tab&&tab.type===TAB_TYPE_GIT&&!await this.app._gitViewSave(root,tab.gitView,tab.id)) ok=false;
+        if(tab&&tab.type===TAB_TYPE_GIT&&!await this.app.git.surfaces._gitViewSave(root,tab.gitView,tab.id)) ok=false;
     if(!this.app.fileEditors) return ok;
     const ids=new Set();
     for(const pn of this.app.flattenPanes(s.layout))

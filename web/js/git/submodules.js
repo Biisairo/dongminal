@@ -114,9 +114,9 @@ class GitSubmodules extends GitListTab {
   _act(act,e){
     // e 가 없으면 머리의 일괄이다 — 대상은 저장소의 서브모듈 전부다 (FR-SUB-9).
     const path=e?e.path:'';
-    if(act==='open'){this.app.openGitWindow(e.absPath||'');return}
+    if(act==='open'){this.app.git.openGitWindow(e.absPath||'');return}
     // FR-GIT-244 와 같은 경로다 — 터미널은 Git 창이 아닌 창에 연다.
-    if(act==='term'){this.app.gitOpenTerminal(e.absPath||'');return}
+    if(act==='term'){this.app.git.gitOpenTerminal(e.absPath||'');return}
     if(act==='sync'){this._sync(path);return}
     /**
      * `init` 과 `update` 는 같은 명령이고 `--init` 만 다르다.

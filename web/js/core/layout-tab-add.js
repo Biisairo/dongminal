@@ -49,7 +49,7 @@ class LayoutTabAdd extends Controller {
   _tabTypeFits(s, type) {
     // FR-GIT-179: Git 창의 탭은 GIT_VIEWS 의 고정 탭뿐이다 — 더할 수 없다
     // (FR-GIT-28 개정으로 7개다. 숫자를 여기 적지 않는다 — 선언이 하나뿐이다).
-    if (this.app.isGitWin(s)) return false;
+    if (this.app.git.isGitWin(s)) return false;
     // FR-EDT-54 → REPO_TAB_UNIFY_SRS FR-RTU-16 으로 개정: Repo 창의 본문에는
     // **편집기 탭과 git 뷰 탭**이 산다. 터미널·run 탭은 여전히 만들 수 없다.
     //
@@ -59,7 +59,7 @@ class LayoutTabAdd extends Controller {
     //             그리고 그 탭들은 편집기 탭과 같은 자격이어야 한다 (FR-RTU-33)
     if (this.app.isEditorWin(s) && type !== TAB_TYPE_EDITOR && type !== TAB_TYPE_GIT) return false;
     // CHAT_WINDOW_SRS FR-CW-10: 채팅 창에는 채팅 탭만, 채팅 탭은 채팅 창에만 선다.
-    if (this.app.isChatWin(s) || type === TAB_TYPE_CHAT) return this.app.isChatWin(s) && type === TAB_TYPE_CHAT;
+    if (this.app.git.isChatWin(s) || type === TAB_TYPE_CHAT) return this.app.git.isChatWin(s) && type === TAB_TYPE_CHAT;
     // FR-EDT-94·106: 그 반대도 불변식이다 — 편집기 탭은 어떤 경로로도 일반
     // 창에 생기지 않는다. Editor 표면이 없는 환경(FR-EDT-120)에서는 갈 곳이
     // 없으므로 옛 경로가 그대로 남는다.
@@ -139,7 +139,7 @@ class LayoutTabAdd extends Controller {
     this.app.render();
     // FR-RTU-62: git 뷰 탭이 생기는 것은 **그 창에 git 표면이 서는** 일이다 —
     // 사이드가 Explorer 여도 이제 관측을 쓰는 화면이 있다.
-    this.app._gitRescheduleAll();
+    this.app.git.surfaces._gitRescheduleAll();
     this.app.save();
     return { uuid: id };
   }

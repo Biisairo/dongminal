@@ -97,7 +97,7 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
     // Git 창을 그 리포로 연 뒤 Open File 경로를 그대로 탄다.
     await page.evaluate(async (p) => {
       const a = (window as any).app;
-      await a.openGitWindow(p);
+      await a.git.openGitWindow(p);
       await a.testing.gitOpenFile(p + '/a.txt');
     }, root);
 
@@ -148,7 +148,7 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
       await expect.poll(() => edRoots(page), { timeout: 10000 }).toContain(root);
 
       // 그 저장소의 Repo 창에 앉는다.
-      await page.evaluate(async (p) => { await (window as any).app.openGitWindow(p) }, root);
+      await page.evaluate(async (p) => { await (window as any).app.git.openGitWindow(p) }, root);
       await expect.poll(() => page.evaluate(() => {
         const a = (window as any).app; const w = a.testing.aw();
         return (w && w.editor && w.editor.root) || '';

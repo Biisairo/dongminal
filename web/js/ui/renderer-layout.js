@@ -123,7 +123,7 @@ Object.assign(Renderer.prototype, {
     // **Repo 창의 패널(`root` 가 있는 것)은 건드리지 않는다** (FR-RTU-60).
     // 그쪽의 Changes 는 창의 사이드에 붙어 있고, 여기서 함께 떼면 방금 그린
     // 사이드가 비어 버린다 — 실측으로 확인한 결함이다.
-    if(!app.gitWindow()&&app.gitPanels)
+    if(!app.git.gitWindow()&&app.gitPanels)
       for(const p of app.gitPanels.values()) if(!p.root) p.detach();
     // FR-PDR-9: 이번에 어디에도 붙지 못한 위젯만 물러난다. **떼지 않는다** —
     // 자리를 지키고 있어야 다시 보일 때 옮기지 않는다.
@@ -294,7 +294,7 @@ Object.assign(Renderer.prototype, {
     if(!s||!s.layout){
       // 옛 트리가 남아 있으면 거둔다. Editor 창은 `_rEditorWin` 이 안내문을 놓았다.
       // CHAT_WINDOW_SRS FR-CW-4: 칸 없는 채팅 창은 빈 상태 한 줄이다.
-      if(!ed) this._placeLayout(host,app.isChatWin(s)?[this._rChatEmpty()]:[]);
+      if(!ed) this._placeLayout(host,app.git.isChatWin(s)?[this._rChatEmpty()]:[]);
       return;
     }
     // 포커스 보정은 **포커스 슬롯에서만** 한다. 비포커스 슬롯의 창을 그린다고

@@ -37,7 +37,7 @@ const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args]).toString().trim();
 
 async function openBranches(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
   // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
   // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
@@ -265,7 +265,7 @@ test.describe('묶음 D — 삭제 통합', () => {
     git(repo, 'fetch', '-q', 'origin');
 
     await waitForInit(page);
-    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     // **history 만** 연다 — branches 는 열지 않는다.
     await page.evaluate(() => {
@@ -423,7 +423,7 @@ test.describe('묶음 F — 반쪽 실패를 말한다', () => {
 // 없고, `delete-both` 는 그것을 보고 활성을 정한다 (FR-BMU-11).
 
 async function openHistory(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
   // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
   // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.

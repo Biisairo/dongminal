@@ -234,7 +234,7 @@ class EditorDoc extends Controller {
         this.edDocDirtySync(d);
       }
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
-      this.app.gitSignal('write');
+      this.app.git.gitSignal('write');
       return true;
     }catch(e){
       console.error('[edDoc] save error:',e);

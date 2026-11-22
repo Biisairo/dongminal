@@ -73,12 +73,12 @@ test.describe('제목 — <타입 라벨> · <창 이름>', () => {
     const b = await pin(request, makeRepo('dm-stb-b-'));
     await waitForInit(page);
 
-    await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
+    await page.evaluate((p) => (window as any).app.git.openGitWindow(p), a);
     const wantA = (await listName(page, a).textContent())!.trim();
     await expect(topName(page)).toHaveText(wantA, { timeout: 10000 });
 
     // **리포를 바꾸는 것은 창을 바꾸는 것이다** (FR-RTU-72).
-    await page.evaluate((p) => (window as any).app.openGitWindow(p), b);
+    await page.evaluate((p) => (window as any).app.git.openGitWindow(p), b);
     const wantB = (await listName(page, b).textContent())!.trim();
     expect(wantB).not.toBe(wantA);
     await expect(topName(page)).toHaveText(wantB, { timeout: 10000 });
@@ -97,7 +97,7 @@ test.describe('제목 — <타입 라벨> · <창 이름>', () => {
   test('Repo 창의 머리글은 토프바와 같은 이름을 쓴다', async ({ page, request }) => {
     const a = await pin(request, makeRepo('dm-stb-c-'));
     await waitForInit(page);
-    await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
+    await page.evaluate((p) => (window as any).app.git.openGitWindow(p), a);
     const want = (await listName(page, a).textContent())!.trim();
     await expect(topName(page)).toHaveText(want, { timeout: 10000 });
 

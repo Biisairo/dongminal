@@ -320,7 +320,7 @@ class EdDirtyDiff{
     if(!root) return false;
     // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1 (FEU-5): 여기서 쓰는 것은 저장소 루트와 접두뿐이다
     // — 같은 root 의 status 를 탐색기와 다른 문서들이 이미 받고 있다. 한 벌로 나눠 쓴다.
-    const st=await this.app.gitStatusHub().ask(root);
+    const st=await this.app.git.gitStatusHub().ask(root);
     if(!st.ok||!st.data){
       if(st.status===503) this._off=true;
       else if(st.status>=400&&st.status<500) this._back();
@@ -474,7 +474,7 @@ class EdDirtyDiff{
     // FR-EDD-48: 방금 index 가 바뀌었다 — 화면과 기준이 함께 따라와야 한다.
     // 기준은 gitSignal 이 다시 받는다 — 열린 문서 전부의 refresh 에 이 문서도 든다
     // (`editor-pane.js` `_edAfterGitSignal`). 여기서 한 번 더 부르면 같은 요청쌍이 두 번 나갔다 (FEU-4).
-    if(this.app&&this.app.gitSignal) this.app.gitSignal('patch');
+    if(this.app&&this.app.git.gitSignal) this.app.git.gitSignal('patch');
     return {ok:true,wide:co.wide};
   }
 

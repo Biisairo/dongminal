@@ -39,7 +39,7 @@ test.describe('Git 창의 상단 이름', () => {
     const b = await pin(request, makeRepo('dm-gwn-b-'));
     await waitForInit(page);
 
-    await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
+    await page.evaluate((p) => (window as any).app.git.openGitWindow(p), a);
     const wantA = await listName(page, a).textContent();
     expect(wantA).toBeTruthy();
     // UX_AUDIT_FIX_SRS FR-UXF-1 로 개정: 이전 `저장소 · <리포>` / 지금 `<리포>` — 라벨은 창 이름이 빌 때만 선다.
@@ -47,7 +47,7 @@ test.describe('Git 창의 상단 이름', () => {
     await expect(topName(page)).not.toHaveText('Git');
 
     // 같은 창에서 리포만 바꾼다 — render 가 돌지 않는 경로다.
-    await page.evaluate((p) => (window as any).app.openGitWindow(p), b);
+    await page.evaluate((p) => (window as any).app.git.openGitWindow(p), b);
     const wantB = await listName(page, b).textContent();
     expect(wantB).toBeTruthy();
     expect(wantB!.trim()).not.toBe(wantA!.trim());

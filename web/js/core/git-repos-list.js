@@ -40,7 +40,7 @@ Object.assign(GitReposList.prototype, {
   gitReposKick(){
     if(this._gitReposKicking){ this._gitReposKickAgain=true; return }
     this._gitReposKicking=true;
-    this.app.gitReposRefresh().finally(()=>{
+    this.app.git.sync.gitReposRefresh().finally(()=>{
       this._gitReposKicking=false;
       if(!this._gitReposKickAgain) return;
       this._gitReposKickAgain=false;
@@ -81,7 +81,7 @@ Object.assign(GitReposList.prototype, {
     // FR-OPT-4-3: 관측하면 그 신원이 핀 전부의 감시를 임대한다. 탭을 떠난 뒤의 첫
     // 요청(`observe=0`)이 그 임대를 놓는다 — 그 밖의 요청은 임대를 건드리지 않는다.
     const q={clientId:this.app.clientId};
-    if(this.app._gitObserveOk()){ q.observe='1'; this._gitPinsLeased=true }
+    if(this.app.git.sync._gitObserveOk()){ q.observe='1'; this._gitPinsLeased=true }
     else if(this._gitPinsLeased){ q.observe='0'; this._gitPinsLeased=false }
     const res=await gitFetch(GIT_API.repos,q,{stale});
     if(res.stale) return;
@@ -119,7 +119,7 @@ Object.assign(GitReposList.prototype, {
     // 바로 위 `_gitRescheduleAll` 이 **같은 이유로 이미 고쳐진 자리**다:
     // "종전에는 활성 칸의 패널 하나만 `_reschedule()` 했다 — 패널이 하나뿐이었기
     // 때문이다." 폴링은 옮겨졌고 이 통지만 옛 모양으로 남아 있었다.
-    this.app._gitNotifyPinsAll();
+    this.app.git.surfaces._gitNotifyPinsAll();
     this._gitReposSig=sig;
   },
 

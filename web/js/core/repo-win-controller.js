@@ -75,7 +75,7 @@ class RepoWinController extends Controller {
     const bp = opts.blame && this._gitDiffPanelOf(tab.id, this.app.slotFocused());
     if (bp) { bp._blameOn = true; bp._paint() }
     // FR-RTU-62: git 뷰 탭이 서는 것은 그 창에 git 표면이 서는 일이다.
-    this.app._gitRescheduleAll();
+    this.app.git.surfaces._gitRescheduleAll();
     this.app.save();
     // FR-RTU-83: 모바일이 사이드에 서 있으면 본문의 칸을 가리켜야 탭이 보인다.
     this.app.mobileShowPane(rid, { render: true });

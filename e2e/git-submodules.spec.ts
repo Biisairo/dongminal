@@ -80,7 +80,7 @@ test.afterAll(() => {
 });
 
 async function openSubmodules(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate((views: readonly string[]) => {
     const a = (window as any).app;
@@ -241,7 +241,7 @@ test.describe('묶음 D — Submodules 탭', () => {
     async ({ page }) => {
       await waitForInit(page);
       const repo = mkTree('d9');
-      await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+      await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
       await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
       await page.evaluate((views: readonly string[]) => {
         const a = (window as any).app;
@@ -325,7 +325,7 @@ test.describe('묶음 D — Submodules 탭', () => {
     const repo = mkTree('d11');
     // **`openSubmodules` 를 쓰지 않는다** — 그 헬퍼는 여덟 탭을 모두 미리 열어
     // 뷰를 전부 만든다. 여기서 재려는 것은 "열지 않은 뷰" 이므로 창만 세운다.
-    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
 
     // 아무 본문 탭도 열지 않았다 — 뷰는 하나도 없어야 한다.

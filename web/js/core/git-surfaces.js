@@ -139,7 +139,7 @@ class GitSurfaces extends Controller {
     if(!view||!this.app.gitPanels) return;
     if(tabId&&view==='diff'){this.app._gitDiffPanelsDrop(tabId);return}
     for(const [key,p] of this.app.gitPanels){
-      if(this.app._gitPanelRoot(key)!==(root||'')) continue;
+      if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(p.dropView) p.dropView(view);
     }
   }
@@ -160,7 +160,7 @@ class GitSurfaces extends Controller {
   _gitViewDirty(root,view,closing,tabId){
     if(!view||!this.app.gitPanels) return false;
     for(const [key,p] of this.app.gitPanels){
-      if(this.app._gitPanelRoot(key)!==(root||'')) continue;
+      if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(!this._gitPanelOfTab(p,view,tabId)) continue;
       if(p.viewDirty&&p.viewDirty(view,!!closing)) return true;
     }
@@ -172,7 +172,7 @@ class GitSurfaces extends Controller {
     const out=[];
     if(!this.app.gitPanels) return out;
     for(const [key,p] of this.app.gitPanels){
-      if(this.app._gitPanelRoot(key)!==(root||'')) continue;
+      if(this._gitPanelRoot(key)!==(root||'')) continue;
       const dp=p&&p._diffView&&p._diffView.docPath();
       if(dp) out.push(dp);
     }
@@ -187,7 +187,7 @@ class GitSurfaces extends Controller {
     if(!view||!this.app.gitPanels) return true;
     let ok=true;
     for(const [key,p] of this.app.gitPanels){
-      if(this.app._gitPanelRoot(key)!==(root||'')) continue;
+      if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(!this._gitPanelOfTab(p,view,tabId)) continue;
       if(p.viewSave&&!await p.viewSave(view)) ok=false;
     }
@@ -245,7 +245,7 @@ class GitSurfaces extends Controller {
     // FR-RTB-7: Diff 탭 패널은 그 탭이 레이아웃에 남아 있을 때만 산다.
     const tabs=this.app._gitDiffTabIds();
     for(const [key,p] of this.app.gitPanels){
-      if(this.app._slotOf(key)<n&&live.has(this.app._gitPanelRoot(key))&&(!p.diffTabId||tabs.has(p.diffTabId))) continue;
+      if(this.app._slotOf(key)<n&&live.has(this._gitPanelRoot(key))&&(!p.diffTabId||tabs.has(p.diffTabId))) continue;
       p.destroy();
       this.app.gitPanels.delete(key);
     }
@@ -265,7 +265,3 @@ class GitSurfaces extends Controller {
     return this.app.isEditorWin(w)?this.app.edRootOf(w):'';
   }
 }
-
-// 바깥과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'git.surfaces',['gitObs','_gitRescheduleAll','gitWatchdogAll','_gitNotifyPinsAll','gitPanelAt','_gitDropView',
-  '_gitViewDirty','_gitDiffDocPaths','_gitViewSave','gitSurfaceOn','_gitPanelKey','_gitPanelRoot','_gitPanelReap','_gitRootOfActive']);

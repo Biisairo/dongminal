@@ -619,7 +619,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     await addEditor(request, REPO);
     await addEditor(request, SUB);
     await gotoWithEditors(page);
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), REPO);
+    await page.evaluate((r) => (window as any).app.git.openGitWindow(r), REPO);
     await page.waitForFunction(() => (window as any).app.gitPanel.repo, undefined, { timeout: 10000 });
 
     await page.evaluate((p) => (window as any).app.testing.gitOpenFile(p), j(SUB, 'x.txt'));
@@ -631,7 +631,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     await addEditor(request, REPO);
     await addEditor(request, SUB);
     await gotoWithEditors(page);
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), REPO);
+    await page.evaluate((r) => (window as any).app.git.openGitWindow(r), REPO);
     await page.waitForFunction(() => (window as any).app.gitPanel.repo, undefined, { timeout: 10000 });
 
     // 진짜 종단을 지난다 — 임시 경로를 테스트가 지어내면 "저장소 밖" 이라는 전제가

@@ -63,10 +63,10 @@ const SB_TAB_DEFS=[
     // **무엇의** 목록인지 처음 보는 사용자에게 보이지 않는다.
     title:'Terminal windows in this workspace',
     // FR-SBT-13: 알람이 있는 창 수. `.si.attn` 이 목록 안에서만 알리던 것을 탭까지 끌어올린다.
-    badge:app=>app.plainWindows().filter(s=>app.windowHasAttn(s)).length,
+    badge:app=>app.git.plainWindows().filter(s=>app.windowHasAttn(s)).length,
     // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `gitBackTarget`
     // 한 자리다 (FR-SBT-36).
-    onActivate:app=>{const w=app.gitBackTarget();if(w)app.switchWindow(w.id)},
+    onActivate:app=>{const w=app.git.gitBackTarget();if(w)app.switchWindow(w.id)},
     // UX_REVISION_SRS FR-BLP-1~3: 목록의 서술자. 그리는 일도 순회도 SidebarList 가
     // 한다 — 이 탭이 주는 것은 **타깃뿐**이다.
     list:{
@@ -160,9 +160,9 @@ const SB_TAB_DEFS=[
     //
     // 둘 다 합치는 줄(`gitReposKick`)로 보낸다 — 들고 나기를 빨리 되풀이하면 `observe=1`
     // 과 `observe=0` 이 동시에 떠 서버에 뒤바뀐 순서로 닿고, 임대가 남거나 사라진다.
-    onEnter:app=>{if(app.gitReposKick)app.gitReposKick()},
+    onEnter:app=>{if(app.git.sync.gitReposKick)app.git.sync.gitReposKick()},
     // OPTIMIZE_REFACTOR_SRS FR-OPT-4-3: 떠나면 핀 임대를 놓는다 (`observe=0`).
-    onLeave:app=>{if(app.gitReposKick)app.gitReposKick()},
+    onLeave:app=>{if(app.git.sync.gitReposKick)app.git.sync.gitReposKick()},
     list:{
       containerId:REPO_LIST_ID,
       // FR-EDT-14 / FR-NOT-10: 고정 항목(root·메모장)의 자리는 **패널 최하단**이다.
@@ -192,7 +192,7 @@ const SB_TAB_DEFS=[
         const pinned=!!e.root||!!e.notes;
         // FR-RTU-6: 변경 개수는 **git 쪽 관측**에서 온다. 두 목록이 같은 집합이므로
         // 경로로 짝지으면 되고, 저장소가 아닌 행에는 배지가 없다.
-        const b=app.gitBadgeFor(e.path);
+        const b=app.git.gitBadgeFor(e.path);
         const stale=!!b&&gitBadgeStale(b);
         /**
          * FR-RMS-11·17: 저장소였던 자리가 **사라졌다면** 행이 그 사실을 말한다.
@@ -205,7 +205,7 @@ const SB_TAB_DEFS=[
          * 정당한 행이므로(FR-RTU-9 / D-RTU-12) 사유를 적지 않는다 — 핀 항목이
          * 있고 그 항목이 실패를 실어 왔을 때만이다.
          */
-        const pin=app.gitPinEntry(e.path);
+        const pin=app.git.gitPinEntry(e.path);
         const gone=!!pin&&pin.isRepo===false&&!!pin.reason;
         const why=gone?(GIT_WRITE_ERR[pin.reason]||pin.reason):'';
         const cls=[e.root?'ed-root':(e.notes?'ed-notes':''),gone?'norepo':'']

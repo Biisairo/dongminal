@@ -830,7 +830,7 @@ test('V-DSP-1 (FR-DSP-1): Repo 창의 사이드 기본 탭은 Changes 다', asyn
   await waitForInit(page);
   // `openGit` 은 사이드를 명시로 바꾸므로 여기서는 쓰지 않는다 — 재려는 것이
   // 바로 그 **기본값**이다.
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 20000 });
   const side = await page.evaluate(() => {
@@ -844,7 +844,7 @@ test('V-DSP-1 (FR-DSP-1): Repo 창의 사이드 기본 탭은 Changes 다', asyn
 test('V-DSP-1 (FR-DSP-2): 저장된 사이드 선택은 유지된다', async ({ page }) => {
   const repo = copyFx('basic', 'b6-side-keep');
   await waitForInit(page);
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
@@ -869,7 +869,7 @@ test('V-DSP-5 (FR-DSP-1d): 첫 관측이 History 보다 먼저 와도 미커밋 
   async ({ page }) => {
     const repo = copyFx('basic', 'b6-late-view');
     await waitForInit(page);
-    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     // **예외 (`TEST-16`): 순서를 만드는 대기다.** 관측이 뷰보다 먼저 오는 상황을
     // 일부러 만든다 — 러너에서만 나던 순서이고, 기다릴 신호가 없다.

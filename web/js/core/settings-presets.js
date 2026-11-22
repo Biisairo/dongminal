@@ -27,8 +27,8 @@ class PresetsSection extends SettingsSection {
   // 창이고, 일반 창이 하나도 없으면 null 이다.
   _presetSource(){
     const a=this.app.aw();
-    if(a&&!this.app.isKindWin(a)) return a;
-    const plain=this.app.plainWindows();
+    if(a&&!this.app.git.isKindWin(a)) return a;
+    const plain=this.app.git.plainWindows();
     return plain.find(s=>s.id===this.app._lastPlainWindow)||plain[0]||null;
   }
 

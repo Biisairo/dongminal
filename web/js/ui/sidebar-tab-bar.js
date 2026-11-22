@@ -38,7 +38,7 @@ class SidebarTabBar extends TabBar {
   labelForWindow(w){
     const a=this.app;
     // FR-RTU-1: Git 창과 Repo 창이 같은 탭에 속한다. 옛 Git 창은 마이그레이션 전까지 남는다(FR-RTU-70).
-    const id=(a.isGitWin(w)||a.isEditorWin(w))?REPO_TAB_ID:a.isChatWin(w)?CHAT_TAB_ID:'windows';
+    const id=(a.git.isGitWin(w)||a.isEditorWin(w))?REPO_TAB_ID:a.git.isChatWin(w)?CHAT_TAB_ID:'windows';
     const d=SB_TAB_DEFS.find(x=>x.id===id);
     return d?d.label:'';
   }
@@ -89,10 +89,10 @@ class SidebarTabBar extends TabBar {
   syncToWindow(){
     const a=this.app, w=a.aw();
     // FR-EDT-8 + FR-RTU-1: Repo 창(과 남은 옛 Git 창)이 활성이면 탭도 `repo` 로 따라온다.
-    if(a.isGitWin(w)||a.isEditorWin(w)){this.select(REPO_TAB_ID,{silent:true});return}
-    if(a.isChatWin(w)){this.select(CHAT_TAB_ID,{silent:true});return} // CHAT_WINDOW_SRS FR-CW-22
+    if(a.git.isGitWin(w)||a.isEditorWin(w)){this.select(REPO_TAB_ID,{silent:true});return}
+    if(a.git.isChatWin(w)){this.select(CHAT_TAB_ID,{silent:true});return} // CHAT_WINDOW_SRS FR-CW-22
     if(a.sbTab===CHAT_TAB_ID){this.select('windows',{silent:true});return}
-    if(a.sbTab===REPO_TAB_ID&&(a.edWindows().length||a.gitWindow())) this.select('windows',{silent:true});
+    if(a.sbTab===REPO_TAB_ID&&(a.edWindows().length||a.git.gitWindow())) this.select('windows',{silent:true});
   }
 
   // UX_AUDIT_FIX_SRS FR-UXF-122 (D-41): 직행 키는 토글이다. 모바일(서랍)은 접기가 없어 고르기만 한다 (FR-SBC-20).

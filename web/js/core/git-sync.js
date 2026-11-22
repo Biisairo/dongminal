@@ -143,7 +143,7 @@ class GitSync extends Controller {
     if(!res.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
     this._gitPinsApply(d.pinned);
     this.app._edApplyLinked(d);
-    await this.app.gitReposRefresh();
+    await this.gitReposRefresh();
     return {ok:true,pinned:d.pinned||[]};
   }
 
@@ -157,7 +157,7 @@ class GitSync extends Controller {
     this._gitPinsApply(d.pinned);
     this.app._edApplyLinked(d);
     this.app.git._gitLeaveIfRemoved(path);
-    await this.app.gitReposRefresh();
+    await this.gitReposRefresh();
     return true;
   }
 
@@ -244,7 +244,3 @@ class GitSync extends Controller {
   // 쓰임이 사라졌다. 작업의 진행·종료는 그것을 띄운 패널이 스트림으로 알고
   // (FR-GIT-103), 남의 작업은 `_pollGitJobs` → `adoptJobs` 가 받는다.
 }
-
-// 바깥과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'git.sync',['gitReposKick','_gitObserveOk','_onGitChanged','_gitObserveRestore','gitReposRefresh','gitPin','gitUnpin',
-  '_gitPinsApply','_pollGitJobs','_gitJobsBegin','_gitJobsSettle']);

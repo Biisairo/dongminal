@@ -900,7 +900,7 @@ export async function keepToolBusy(page: any, toolId?: string | null): Promise<s
  * 기댄다. 그것을 각 스펙이 각자 기다리다 부하에서 무너졌다.
  */
 export async function openGit(page: any, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   /**
    * 뷰를 여는 일과 **그것이 실제로 섰는지**를 한 묶음으로 본다

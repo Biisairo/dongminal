@@ -140,7 +140,7 @@ class GitSelection extends GitPart {
       app.mobileShowPane(rid,{render:true});
       return;
     }
-    const w=app.gitWindow(); if(!w||!w.layout) return;
+    const w=app.git.gitWindow(); if(!w||!w.layout) return;
     for(const pn of app.flattenPanes(w.layout)){
       const target=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView===view);
       if(target){app.switchTab(pn.id,target.id);return}

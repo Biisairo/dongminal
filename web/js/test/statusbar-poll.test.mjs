@@ -24,8 +24,7 @@ function setup() {
   let updates = 0;
   const app = {
     _stats: { cpu: 1 }, _latency: 5,
-    _gitJobsBegin: () => 7,
-    _gitJobsSettle: (jt, jobs) => settles.push([jt, jobs]),
+    git: { sync: { _gitJobsBegin: () => 7, _gitJobsSettle: (jt, jobs) => settles.push([jt, jobs]) } },
     updateStatusBar: () => { updates++ },
   };
   const sb = new ctx.StatusBarController(app);
@@ -105,7 +104,7 @@ test('TC-FR1-9: stats 가 실패하면 지표를 두고 작업 목록은 null �
 
 test('TC-FR1-9: git 패널이 없으면(작업 표 없음) stats 에 jobs 를 묻지 않는다', async () => {
   const { sb, app, calls, settles } = setup();
-  app._gitJobsBegin = () => 0;
+  app.git.sync._gitJobsBegin = () => 0;
   const done = sb._pollStats();
   await tick();
   assert.equal(req(calls, '/api/stats').opts, undefined);
