@@ -270,6 +270,16 @@ unsafe impl Sync for Inner {}
 
 struct WindowsTerminal(Arc<Inner>);
 
+impl WindowsTerminal {
+    /// 끝난 프로세스의 pid 는 다시 쓰일 수 있다 — 그 pid 로는 신호를 보내지 않는다.
+    fn ensure_running(&self) -> io::Result<()> {
+        if lock(&self.0.exit).is_some() {
+            return Err(io::Error::other("os: process already finished"));
+        }
+        Ok(())
+    }
+}
+
 fn take(slot: &Mutex<Option<Arc<File>>>) -> io::Result<Arc<File>> {
     lock(slot).clone().ok_or_else(closed_error)
 }
@@ -339,10 +349,12 @@ impl Terminal for WindowsTerminal {
     }
 
     fn terminate(&self) -> io::Result<()> {
+        self.ensure_running()?;
         crate::process::current().terminate(self.0.pid)
     }
 
     fn kill(&self) -> io::Result<()> {
+        self.ensure_running()?;
         crate::process::current().kill(self.0.pid)
     }
 

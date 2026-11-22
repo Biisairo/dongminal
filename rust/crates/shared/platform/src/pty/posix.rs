@@ -282,7 +282,8 @@ impl PosixTerminal {
         if self.pid <= 0 {
             return Ok(());
         }
-        if self.spawned && self.reaped.load(Ordering::Acquire) {
+        // 거둔 pid 는 다른 프로세스가 다시 쓸 수 있다 — 넘겨받은 셸이어도 신호를 보내지 않는다.
+        if self.reaped.load(Ordering::Acquire) {
             return Err(io::Error::other("os: process already finished"));
         }
         // SAFETY: kill(2) 는 메모리를 건드리지 않는다.
@@ -369,6 +370,7 @@ impl Terminal for PosixTerminal {
         loop {
             // SAFETY: status 는 쓰기 가능한 정수다.
             if unsafe { libc::waitpid(self.pid, &mut status, 0) } != -1 {
+                self.reaped.store(true, Ordering::Release);
                 return Ok(ExitStatus::from_raw(status));
             }
             let e = errno();
