@@ -150,7 +150,7 @@ web/                     # 프론트엔드 자산 + embed.FS()
                          #     base/ — Component·View·Controller 기반 클래스 (REFACTOR3_FE_BASE_SRS)
                          #     constants*.js — 주제별 상수 (로드 순서 = index.html 의 순서. 목록: ls web/js/core/constants*.js)
   js/ui/                 #   themes·renderer·term-pane·clipboard·file-editor 등
-                         #     file-tree{,-store,-paint,-edit,-xfer}.js — 탐색기 5파일
+                         #     file-tree{,-store,-obs,-load,-select,-paint,-keys,-marquee,-edit,-xfer,-download}.js — 탐색기
   js/git/                #   git 패널. api.js — gitFetch/gitPost (stale·echo 가드 소유)
                          #     observer(관측 하나) · panel(칸마다 하나) · diff-view(CodeMirror merge)
                          #     git-{poll,changes,views,write,files,selection,…}.js — GitPanel 의 부품 (GitPart 하위, 목록은 panel.js 머리 주석)
@@ -208,10 +208,14 @@ GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열
 본체에는 생성자·접근자·리포 전환과 수명·부품 위임자만 있다. 접근자가 본체에 있는 이유는
 `Object.assign` 이 getter 를 값으로 복사하기 때문이다 — 접근자는 값이 아니라 **자리**를 빌려 온다.
 
-**`FileTree` 는 아직 원형 확장이다** (`SPLIT_REFACTOR_SRS`). 본체 + 주제별 파일
-(`file-tree-{paint,edit,xfer,keys,marquee,download}.js`)이 `Object.assign(FileTree.prototype, …)` 로
-얹는다. `FileTreeStore` 로 가는 통로인 접근자는 같은 이유로 본체에 남는다. `static` 은
-prototype 이 아니라 클래스 자체에 얹는다(`FileTree._asUploadItems` 등).
+**`FileTree` 도 부품으로 나뉘었다** (`REFACTOR3_FE_REST5_SRS` R5d — 종전에는 주제별 파일이
+`Object.assign(FileTree.prototype, …)` 로 얹었다, `SPLIT_REFACTOR_SRS`). 부품 여덟 — 조회·git 색(`FileTreeLoad`) ·
+선택·클릭·펼침(`FileTreeSelect`) · 항목·그리기(`FileTreePaint`) · 키(`FileTreeKeys`) · 사각형 선택(`FileTreeMarquee`) ·
+생성·이름 변경·삭제(`FileTreeEdit`) · 업로드·우클릭·끌어 놓기(`FileTreeXfer`) · 다운로드(`FileTreeDownload`) — 을 생성자가
+만들어 든다(`this.loader`·`this.painter` 등, 목록은 `ui/file-tree.js` 머리 주석). **상태는 인스턴스에 남는다** — 부품은
+`this.tree` 로 읽고 쓰고, 탐색기의 이름을 전부 `this.tree.X` 로 부른다. 부품 파일 끝의 위임자 표(`Controller.delegate`)가
+부품의 이름을 원형에 두므로 앱·렌더러·e2e·시험은 종전 이름 그대로 부르고 갈아 끼운다. `FileTreeStore` 로 가는 통로인
+접근자와 정적 넷(`FileTree._asUploadItems` 등)은 클래스 본문에 있다.
 
 **CSS 도 같은 문제를 다르게 푼다.** `style.css` 는 여럿으로 갈렸고 `<link>` 순서가
 원본의 선언 순서다 — 캐스케이드는 순서가 곧 의미라서, 파일을 옮기는 것과 순서를

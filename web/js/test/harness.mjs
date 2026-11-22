@@ -138,6 +138,22 @@ export function controllers(ctx, app) {
   return app;
 }
 
+/** 탐색기 필드 → 부품 클래스. `FileTree` 생성자가 세우는 것과 같다 (REFACTOR3_FE_REST5_SRS FR-FR5-31). */
+const FILE_TREE_PARTS = { loader: 'FileTreeLoad', selector: 'FileTreeSelect', painter: 'FileTreePaint', keys: 'FileTreeKeys',
+  marquee: 'FileTreeMarquee', edits: 'FileTreeEdit', xfer: 'FileTreeXfer', dl: 'FileTreeDownload' };
+
+/**
+ * 실은 파일에 있는 탐색기 부품을 탐색기 대역에 세운다 — `FileTree` 생성자의 몫을 시험이 대신한다(`controllers` 와 같은 꼴).
+ * 싣지 않은 부품은 건너뛴다.
+ */
+export function treeParts(ctx, t) {
+  for (const [field, cls] of Object.entries(FILE_TREE_PARTS)) {
+    const C = vm.runInContext('typeof ' + cls + ' === "function" ? ' + cls + ' : null', ctx);
+    if (C) t[field] = new C(t);
+  }
+  return t;
+}
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 

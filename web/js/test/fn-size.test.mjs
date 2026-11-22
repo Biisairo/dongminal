@@ -20,9 +20,7 @@ const MAX = 100;
 const SKIP = new Set(['vendor', 'test', 'i18n']);
 
 /** 아직 남은 것 — 줄이면 여기서 지운다. 늘리지 않는다. */
-const LEFT = new Map([
-  ['ui/file-tree.js constructor', 'R5d 가 부품 조립으로 다시 쓴다 (D-FR5-3)'],
-]);
+const LEFT = new Map([]);
 
 function walk(d, out = []) {
   for (const e of readdirSync(d)) {

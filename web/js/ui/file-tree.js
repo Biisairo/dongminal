@@ -15,24 +15,77 @@
  * 트리는 옛 목록이었다. 파일 감시(fsnotify)는 여전히 하지 않는다 — 스탬프는
  * 그 대신 "이 겹이 바뀌었나"를 주기마다 한 번의 요청으로 묻는다 (D-5·D-6).
  *
- * **메서드는 이 파일에 없다.** 클래스 본문에는 `constructor`·접근자·마운트·파괴만
- * 남고, 나머지 55개는 주제별 파일이 `Object.assign(FileTree.prototype, …)` 로 얹는다
- * (SPLIT_REFACTOR_SRS 묶음 C). 접근자가 여기 남은 이유는 `Object.assign` 이 getter 를
- * **호출해 그 반환값을 복사**하기 때문이다 — 옮기면 store 로 가는 통로가 값으로 굳는다.
+ * **메서드의 몸은 부품 클래스에 있다** (REFACTOR3_FE_REST5_SRS R5d — 종전에는 주제별 파일이
+ * `Object.assign(FileTree.prototype, …)` 로 얹었다, SPLIT_REFACTOR_SRS 묶음 C). 클래스 본문에는 생성자·접근자·
+ * 마운트·파괴·정적 넷만 남는다. 상태(펼침·선택·조작·관측 통로)는 이 인스턴스에 있고 부품이 `this.tree` 로 읽고 쓴다.
+ * 부품 파일 끝의 위임자 표(`Controller.delegate`)가 부품의 이름을 이 원형에 둔다 — 앱·렌더러·e2e 와 다른 부품은
+ * 종전 이름 그대로 부른다. 접근자가 여기 남은 이유는 그것이 store 로 가는 **통로**이기 때문이다.
  *
- *   file-tree-paint.js  조회 · git 색 · 무시 · 항목 계산 · 그리기
- *   file-tree-keys.js   키보드 길
- *   file-tree-marquee.js 빈 여백의 사각형 선택
- *   file-tree-edit.js   생성 · 이름 변경 · 삭제 · 낙관적 갱신
- *   file-tree-xfer.js   업로드 · 우클릭 · 드래그드롭
- *   file-tree-download.js 다운로드 · 끌어 내려받기
+ *   file-tree-load.js   조회 · git 색 · 무시 (`this.loader`)
+ *   file-tree-select.js 선택 · 클릭 · 펼침 (`this.selector`)
+ *   file-tree-paint.js  항목 계산 · 그리기 (`this.painter`)
+ *   file-tree-keys.js   키보드 길 (`this.keys`)
+ *   file-tree-marquee.js 빈 여백의 사각형 선택 (`this.marquee`)
+ *   file-tree-edit.js   생성 · 이름 변경 · 삭제 · 낙관적 갱신 (`this.edits`)
+ *   file-tree-xfer.js   업로드 · 우클릭 · 드래그드롭 (`this.xfer`)
+ *   file-tree-download.js 다운로드 · 끌어 내려받기 (`this.dl`)
  *
  * 루트마다 하나인 관측(`FileTreeStore`)은 file-tree-store.js 다.
  */
 class FileTree {
   static _seq=0;
 
+  // ── 정적 넷 (옛 `file-tree-xfer.js` 의 `Object.assign(FileTree, …)`, REFACTOR3_FE_REST5_SRS FR-FR5-32) ──
+
+  /**
+   * 입력을 `{file, relPath}` 로 고른다. `File` 배열(파일 여럿 고르기)과 이미
+   * 상대경로가 붙은 항목(폴더 드롭·폴더 고르기) 둘을 같은 자리에서 받는다 —
+   * 부르는 곳이 셋이라 형식 판정이 흩어지면 한 곳만 고쳐진다.
+   */
+  static _asUploadItems(items){
+    if(!Array.isArray(items)) return [];
+    return items.map(x=>{
+      if(!x) return null;
+      if(x.file) return {file:x.file,relPath:x.relPath||''};
+      // <input webkitdirectory> 는 File 에 webkitRelativePath 를 실어 준다.
+      return {file:x,relPath:x.webkitRelativePath||''};
+    }).filter(Boolean);
+  }
+
+  // 바깥에서 온 파일인가. 내부 이동은 `text/plain` 만 싣는다.
+  // FR-M9-30: 판정은 `drop-entries.js` 한 벌이다 — 터미널이 같은 물음에 다른
+  // 문장으로 답하다 드롭을 삼킨 자리가 있었다. 이름은 남긴다(부르는 자리가 둘).
+  static _isFileDrag(e){ return isFileDrag(e) }
+
+  /**
+   * 드롭된 최상위 entry 들. 본체는 `ui/drop-entries.js` 의 `dropEntries` 다 —
+   * 터미널도 같은 일을 하므로 공용으로 뽑았다 (TERMINAL_FOLDER_DROP_SRS FR-TFD-1·4).
+   *
+   * 이름을 남기는 이유: 이것을 부르는 자리가 여럿이고, 지우면 이 변경이
+   * "이음매를 더한다" 를 넘어 "탐색기를 고친다" 가 된다 (FR-TFD-4).
+   */
+  static _dropEntries(e){
+    return dropEntries(e);
+  }
+
+  /**
+   * entry 하나를 걷는다. 본체는 `walkDropEntry` 다 (FR-TFD-1·4). 상한은 여기서
+   * 준다 — 공용 함수는 상수를 참조하지 않는다 (FR-TFD-3).
+   */
+  static _walkEntry(en,prefix,out){
+    return walkDropEntry(en,prefix,out,EDITOR_UPLOAD_MAX_ENTRIES);
+  }
+
   constructor(app,win){
+    // 부품 (REFACTOR3_FE_REST5_SRS FR-FR5-31). 맨 먼저 선다 — 아래가 부르는 `_head`·`load` 의 몸이 부품에 있다.
+    this.loader=new FileTreeLoad(this);
+    this.selector=new FileTreeSelect(this);
+    this.painter=new FileTreePaint(this);
+    this.keys=new FileTreeKeys(this);
+    this.marquee=new FileTreeMarquee(this);
+    this.edits=new FileTreeEdit(this);
+    this.xfer=new FileTreeXfer(this);
+    this.dl=new FileTreeDownload(this);
     this.app=app;
     this.winId=win.id;
     this.root=app.edRootOf(win);
@@ -68,6 +121,13 @@ class FileTree {
     this._springTimer=null;
     this._springPath='';
 
+    this._buildDom();
+
+    this.load(this.root);
+  }
+
+  // 탐색기의 요소와 수신기 — 머리·트리·키·포커스 소유·클릭·끌기·사각형 선택·스크롤. 수명 내내 같은 요소다 (FR-EDT-66).
+  _buildDom(){
     this.el=document.createElement('div');
     this.el.className='ed-explorer';
     // FR-EXR-50: 탐색기가 포커스를 받는 자리. 사용자가 말한 "편집기로부터 키보드
@@ -133,8 +193,6 @@ class FileTree {
     this.list.addEventListener('scroll',()=>{
       if(this.el.isConnected) this._scrollY=this.list.scrollTop;
     });
-
-    this.load(this.root);
   }
 
   // 관측으로 가는 통로. 이름은 예전과 같으므로 뷰의 본문은 한 줄도 바뀌지 않는다

@@ -6,684 +6,17 @@
  *
  * 이 파일이 대답하는 질문은 **"지금 무엇이 보이는가"** 다. 그것을 바꾸는 일
  * (생성·이름변경·삭제)은 file-tree-edit.js, 파일을 주고받는 일은 file-tree-xfer.js 다.
+ *
+ * 이 파일은 그리기 부품 `FileTreePaint`(탐색기의 `painter`) 다 — 평평한 목록(`_items`)·행 요소·입력 행·실패 표시.
+ * 조회와 git 색은 `file-tree-load.js`(`FileTreeLoad`), 선택·클릭·펼침은 `file-tree-select.js`(`FileTreeSelect`) 로 갈랐다
+ * (REFACTOR3_FE_REST5_SRS FR-FR5-31 — 옛 `Object.assign(FileTree.prototype, …)` 한 덩이 971줄). 상태는 종전대로 탐색기
+ * 인스턴스에 있고 부품은 그것을 `this.tree` 로 읽고 쓴다. 탐색기의 이름은 전부 `this.tree.X` 로 부른다 — 시험·e2e 가 인스턴스에
+ * 갈아 끼운 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `FileTree` 원형에 둔다.
  */
-Object.assign(FileTree.prototype, {
-  /**
-   * 한 겹만 읽는다 (FR-EDT-59). 실패는 그 폴더의 캐시에만 남으므로 트리의 나머지는
-   * 그대로다 (FR-EDT-63).
-   */
-  load(dir,opts){
-    /**
-     * REPO_FIX 04 §3A-1 (T-1.1): 진행 중 로드가 있으면 새 요청을 **버리지 않고**
-     * "끝난 뒤 한 번 더" 로 합친다(대기 1건). 적용은 출발 세대가 아직 현재일 때만 —
-     * 낙관 반영(`store.bump`) 전에 출발한 응답은 버린다.
-     *
-     *   이전 동작: busy 면 요청을 버렸고 세대가 없었다 — 뒤 요청이 사라지고 늦은 옛
-     *             응답이 낙관 반영을 덮었다 (#31, N2)
-     *   새  동작: coalesce + 세대
-     *
-     * 이어 받기(offset>0)는 재조회와 합치지 않는다. 재조회가 진행·대기 중이면 버린다 —
-     * 재조회가 적재분만큼 다시 채운다 (FR-FSP-12).
-     */
-    const off=(opts&&opts.offset)|0;
-    const q=this.store.loadQ;
-    if(off) return q.has(dir)?Promise.resolve():this._loadOnce(dir,off);
-    const cur=q.get(dir);
-    if(cur){cur.again=true;return cur.done}
-    const entry={again:false,done:Promise.resolve()};
-    q.set(dir,entry);
-    entry.done=(async()=>{
-      // 낙관 반영으로 버려진 응답은 다시 읽는다 — 버리기만 하면 그 폴더가 목록 없이 남는다.
-      try{ do{ entry.again=false; if(await this._loadOnce(dir,0)==='stale') entry.again=true }while(entry.again) }
-      finally{ q.delete(dir) }
-    })();
-    return entry.done;
-  },
-
-  async _loadOnce(dir,off){
-    const gen=this.store.gen.get(dir)||0;
-    this._busy.add(dir); this._paintAll();
-    /**
-     * FS_LIST_PAGING_SRS FR-FSP-12·14: `opts.offset` 이 있으면 **이어 붙인다.**
-     *
-     *   더 보기      offset = 적재분        → 다음 쪽을 뒤에 잇는다
-     *   재조회       offset = 0 · keep=적재분 → 받아 둔 만큼을 다시 채운다
-     */
-    const u=FS_LIST_API+'?root='+encodeURIComponent(this.root)+'&path='+encodeURIComponent(dir)
-      +(off?'&offset='+off:'');
-    const r=await apiGet(u);
-    const d=r.data;
-    this._busy.delete(dir);
-    if((this.store.gen.get(dir)||0)!==gen){this._paintAll();return 'stale'}
-    if(!r.ok){
-      // 이어 받기가 실패하면 **적재분은 그대로 둔다** (FR-FSP-13).
-      if(off){
-        const cur=this._kids.get(dir);
-        if(cur){ cur.moreErr=true; cur.moreBusy=false; this._paintAll(); return }
-      }
-      /**
-       * REPO_FIX 04 §3A-2 (T-2.2): 일시 오류(전송 실패·5xx)는 멀쩡한 목록을 오류로
-       * 덮지 않는다 — 목록을 두고 그 폴더 행에 "갱신 실패" 표식을 단다. 4xx(권한·
-       * 부재)는 목록을 오류로 바꾼다. 어느 쪽이든 관측은 failed — 다음 회차에 다시
-       * 읽는다(백오프).
-       */
-      const prev=this._kids.get(dir);
-      if((r.status===0||r.status>=500)&&prev&&!prev.err) prev.stale=true;
-      else this._kids.set(dir,{entries:[],truncated:false,total:0,err:(d&&d.code)||EDITOR_TREE_ERR});
-      ftObsLoaded(this.store.obs,dir,false,'',String(r.status),Date.now(),editorGitBackoffMs());
-    }else{
-      const got=Array.isArray(d.entries)?d.entries:[];
-      const prev=off?((this._kids.get(dir)||{}).entries||[]):[];
-      this._kids.set(dir,{
-        // 순서는 서버가 정한다 (D-20) — 이어 붙일 때도 다시 정렬하지 않는다 (FR-FSP-20).
-        entries:off?prev.concat(got):got,
-        truncated:!!d.truncated, total:(typeof d.total==='number')?d.total:got.length,
-        // 첫 쪽의 크기는 **서버가 말해 준 것**이다 (FR-FSP-15).
-        page0:off?((this._kids.get(dir)||{}).page0||got.length):got.length,
-        err:'', moreBusy:false, moreErr:false,
-      });
-      // FR-FSL-10: 방금 읽은 목록과 **같은 관측**의 스탬프를 기억한다 — ok 상태다.
-      if(!off) ftObsLoaded(this.store.obs,dir,true,(typeof d.stamp==='string'&&d.stamp)||'','',Date.now(),0);
-    }
-    this._paintAll();
-    // FR-ETR-5: 겹을 읽은 **뒤에** 그 겹의 이름들로 한 번 묻는다.
-    this.loadIgnored(dir);
-  },
-
-  /**
-   * FR-ETR-5·6: 한 겹의 무시 여부를 묻는다.
-   *
-   * **무시된 폴더의 하위는 묻지 않는다.** `gitignore(5)` 가 "제외된 부모 아래의
-   * 파일은 다시 포함될 수 없다" 고 못박으므로 그 생략은 판정을 바꾸지 않는다
-   * (D-2). 이것이 없으면 `node_modules` 를 펼칠 때마다 프로세스가 뜬다.
-   */
-  async loadIgnored(dir){
-    if(this._ignOff||!this.root) return;
-    const st=this._kids.get(dir);
-    if(!st||!st.entries.length) return;
-    // 부모가 무시면 이 겹 전부가 무시다 — 서버에 묻지 않는다.
-    if(this._isIgnored(dir)){
-      this._ign.set(dir,new Set(st.entries.map(e=>e&&e.name).filter(Boolean)));
-      this._paintAll();
-      return;
-    }
-    const names=st.entries.map(e=>e&&e.name).filter(Boolean);
-    let r=null,d=null;
-    r=await apiPost(FS_IGNORED_API,{root:this.root,dir,names});
-    d=r.data;
-    if(r.status===0) return;   // 전송 실패는 판정이 아니다 — 다음 기회에 다시 묻는다
-    // FR-ETR-4: 4xx 는 "이 경로로는 물을 수 없다" 는 서버의 답이다. 굳히지
-    // 않으면 겹을 펼칠 때마다 영영 묻는다 (`pollGit` 의 `_gitOff` 와 같은 관례).
-    if(!r.ok){
-      if(r.status>=400&&r.status<500){this._ignOff=true;this._ign.clear();this._paintAll()}
-      return;
-    }
-    // API_ANSWER_NOT_ABSENCE_SRS FR-ANA-2·4: 200 이지만 **판정할 수 없다** 는 답이다
-    // (저장소가 아니거나 git 이 없다). 종전에는 이것이 404 로 와서 위의 4xx 갈래가
-    // 굳혔다 — 굳히는 일은 그대로 하고, 신호만 상태 코드에서 이 필드로 옮겼다.
-    if(d&&d.isRepo===false){this._ignOff=true;this._ign.clear();this._paintAll();return}
-    if(!d||!Array.isArray(d.ignored)) return;
-    this._ign.set(dir,new Set(d.ignored));
-    this._paintAll();
-  },
-
-  // FR-ETR-7: 이 경로가 무시되었는가. 판정은 **그 겹의 답**에 있다 — 부모가
-  // 무시면 loadIgnored 가 자식 전부를 그 겹의 Set 에 넣어 두었다.
-  _isIgnored(p){
-    if(p===this.root) return false;
-    const s=this._ign.get(this._parent(p));
-    return !!(s&&s.has(this._base(p)));
-  },
-
-  /**
-   * FR-FSP-14: 그 겹을 **받아 둔 만큼** 다시 읽는다.
-   *
-   * 첫 쪽만 받고 나머지를 버리면 폴링 한 번이 사용자의 "더 보기" 를 되돌린다.
-   * 한 요청의 상한은 그대로이므로 받아 둔 쪽 수만큼 이어 받는다 — 쪽이 하나인
-   * 보통의 겹에서는 지금까지와 **똑같이 한 번**이다.
-   */
-  async reload(dir){
-    const had=(this._kids.get(dir)||{}).entries||[];
-    await this.load(dir);
-    const st=this._kids.get(dir);
-    if(!st||st.err) return;
-    while(st.truncated&&st.entries.length<had.length){
-      const before=st.entries.length;
-      await this.load(dir,{offset:before});
-      if(this._kids.get(dir)!==st||st.entries.length<=before) break;
-    }
-  },
-
-  // FR-EDT-64: **펼쳐져 있는 폴더만** 다시 읽는다. 펼침은 보존된다.
-  refresh(){
-    this.reload(this.root);
-    for(const p of this._open) this.reload(p);
-  },
-
-  /**
-   * 이 경로가 트리에 **보이게** 한다 — 조상 폴더를 루트까지 펼치고, 아직 읽지
-   * 않은 겹은 읽고, 그 행으로 스크롤한다.
-   *
-   * 검색으로 연 파일이 트리 어디에 있는지는 그 자체가 답의 일부다. 파일만 열고
-   * 탐색기를 그대로 두면 사용자가 경로를 눈으로 따라가며 폴더를 하나씩 펼쳐야
-   * 한다 — 검색이 방금 알려 준 것을 손으로 다시 찾는 셈이다.
-   *
-   * 겹은 **순차로** 읽는다. 병렬로 던지면 각 응답의 paint 가 서로를 덮어 중간
-   * 상태가 깜빡인다. 펼친 것은 되접지 않는다 (`_springSchedule` 과 같은 근거).
-   */
-  async revealPath(p){
-    if(!p||!this.root) return;
-    const root=String(this.root).replace(/[\\/]+$/,'');
-    if(!pathUnder(root,p)) return;   // 이 트리의 것이 아니다
-    // 부모부터 위로 훑어 루트 바로 아래까지 모은다. 상한을 두는 이유는 `_parent`
-    // 가 최상위에서 `'/'` 를 내기 때문이다 — 루트가 `'/'` 면 멈추지 않는다.
-    const chain=[];
-    let d=this._parent(p);
-    for(let i=0;i<EDITOR_TREE_REVEAL_MAX&&d&&d!==root&&pathUnder(root,d);i++){
-      chain.unshift(d);
-      d=this._parent(d);
-    }
-    for(const dir of chain){
-      this._open.add(dir);
-      if(!this._kids.has(dir)) await this.load(dir);
-    }
-    this._selOnly(p);
-    this._paintAll();
-    const row=this.list.querySelector('.ed-row.sel');
-    if(row&&row.scrollIntoView) row.scrollIntoView({block:'nearest'});
-  },
-
-  toggle(p){
-    if(this._open.has(p)){
-      this._open.delete(p);
-      /**
-       * FR-FSP-15: 접으면 **이어 받은 쪽을 버린다.** 접는 것은 "이제 안 본다"
-       * 는 말이고, 그 상태를 무한히 들고 있을 이유가 없다.
-       *
-       * **첫 쪽은 남긴다** — 다시 펴는 것이 빈 화면이어서는 안 되고, 여기서
-       * 캐시를 통째로 지우면 "이미 읽어 둔 폴더는 다시 묻지 않는다"(FR-EDT-67)
-       * 가 모든 폴더에 대해 깨진다.
-       */
-      const st=this._kids.get(p);
-      if(st&&st.page0&&st.entries.length>st.page0){
-        st.entries=st.entries.slice(0,st.page0);
-        st.truncated=true; st.moreBusy=false; st.moreErr=false;
-      }
-      this._paintAll();return;
-    }
-    this._open.add(p);
-    this._paintAll();
-    // 이미 읽어 둔 폴더는 다시 묻지 않는다 — 갱신의 계기는 FR-EDT-67 의 셋뿐이다.
-    if(!this._kids.has(p)) this.load(p);
-  },
-
-  /**
-   * FR-EMS-1 / R-EMS-1: **집합을 바꾸는 자리는 이 셋뿐이다.**
-   *
-   * 흩어 두면 앵커와 집합이 어긋나고, 그때 화면이 보이는 것과 조작이 지우는 것이
-   * 갈린다 — 그 어긋남은 지운 뒤에야 드러난다.
-   */
-  _selOnly(p){
-    this._sel=p||'';
-    this._selSet=new Set(p&&p!==this.root?[p]:[]);
-  },
-
-  // FR-EMS-3: 토글. 들어온 행이 새 앵커이며, 마지막 하나를 빼면 선택이 빈다.
-  _selToggle(p){
-    if(!p||p===this.root) return;
-    if(this._selSet.has(p)){
-      this._selSet.delete(p);
-      if(this._sel===p) this._sel=this._selSet.size?[...this._selSet][this._selSet.size-1]:'';
-      return;
-    }
-    this._selSet.add(p);
-    this._sel=p;
-  },
-
-  /**
-   * FR-EMS-4: 앵커부터 그 행까지 **보이는 순서**의 범위.
-   *
-   * 앵커는 움직이지 않는다 — 움직이면 범위를 다시 잡을 수 없고, 사용자는 매번
-   * 처음부터 고르게 된다.
-   */
-  _selRange(p){
-    if(!p||p===this.root) return;
-    const rows=this._items().filter(it=>it.t==='row').map(it=>it.path);
-    const a=rows.indexOf(this._sel),b=rows.indexOf(p);
-    if(a<0||b<0){this._selToggle(p);return}
-    const [lo,hi]=a<=b?[a,b]:[b,a];
-    this._selSet=new Set(rows.slice(lo,hi+1).filter(x=>x!==this.root));
-    this._selSet.add(this._sel);
-  },
-
-  // UX_BATCH12 FR-EXK-5: 보이는 행 전부(루트 제외). 앵커가 그 밖이면 첫 행이 앵커다.
-  _selAll(){
-    const rows=this._items().filter(it=>it.t==='row'&&it.path!==this.root).map(it=>it.path);
-    if(!rows.length) return false;
-    this._selSet=new Set(rows);
-    if(!this._selSet.has(this._sel)) this._sel=rows[0];
-    return true;
-  },
-
-  // UX_BATCH12 FR-EXM-1: 사각형 선택. 시작 때의 선택(`base`)에 든 행을 더한다.
-  _selMarquee(base,hits,anchor){
-    this._selSet=new Set([...base,...hits]);
-    this._sel=hits.length?hits[hits.length-1]:anchor;
-  },
-
-  // 이 행이 지금 선택에 들어 있는가. 그리기와 드래그가 함께 읽는다.
-  _selHas(p){ return !!p&&this._selSet.has(p) },
-
-  // 조작이 받을 대상. **조상이 함께 선택된 자손은 뺀다** (FR-EMS-22) — 조상과
-  // 함께 사라질 것을 다시 지우려 하면 그 실패가 사용자에게 거짓말을 한다.
-  _selTargets(fallback){
-    const all=this._selSet.size?[...this._selSet]:(fallback?[fallback]:[]);
-    return all.filter(p=>!all.some(q=>q!==p&&p.startsWith(q+'/')||q!==p&&p.startsWith(q+'\\')));
-  },
-
-  // UX_BATCH12 FR-EXM-3: `_selTargets` 를 화면 순서로. 경로 복사가 이 순서를 쓴다.
-  _selOrdered(fallback){
-    const at=new Map(this._items().filter(it=>it.t==='row').map((it,i)=>[it.path,i]));
-    const ix=p=>at.has(p)?at.get(p):Infinity;
-    return this._selTargets(fallback).sort((a,b)=>ix(a)-ix(b));
-  },
-
-  /**
-   * FR-EXR-1·2: 이 자리가 뜻하는 것이 루트일 때. 판정은 드롭과 같은 것을 쓴다
-   * (`_dropDirAt` — FR-FTR-20). "헤더와 빈 여백이면 루트다" 를 두 벌로 적으면
-   * 한쪽만 고쳐진다.
-   */
-  _selectRoot(){
-    if(this._edit) this.cancelEdit();
-    this._clearErr();
-    // FR-EMS-8: 루트를 고르는 것도 "하나" 다. 집합은 비운다 (FR-EMS-6).
-    this._selOnly('');
-    this._sel=this.root;
-    this._paintAll();
-  },
-
-  _onClick(e){
-    // FR-EXM-1: 사각형 끌기 뒤에 따라오는 클릭은 빈 여백 클릭이 아니다.
-    if(this._mqEat){this._mqEat=false;return}
-    // §3A-3: 실패 표시의 닫기.
-    if(e.target.closest('.ed-op-err-x')){this._clearErr();return}
-    // 인라인 입력 자신을 누른 것은 행 선택이 아니다 — 캐럿을 옮기는 중이다.
-    if(e.target.closest('.ed-edit')) return;
-    const row=e.target.closest('.ed-row');
-    // FR-EXR-1: 행이 아닌 자리는 루트다. 종전에는 여기서 그냥 나갔고, 그래서
-    // 같은 자리에 **놓을 수는 있는데 고를 수는 없었다**.
-    if(!row||!this.list.contains(row)){
-      if(this._dropDirAt(e.target)===this.root) this._selectRoot();
-      return;
-    }
-    // 다른 자리를 누르면 쓰다 만 이름은 버린다. 커밋하지 않는 이유는 클릭 한 번이
-    // 파일을 만드는 것보다 잃는 쪽이 안전하기 때문이다 (FR-GIT-97 과 같은 근거).
-    if(this._edit) this.cancelEdit();
-    const p=row.dataset.path,kind=row.dataset.kind;
-    /**
-     * FR-EMS-3·4·5: **고르는 클릭은 여는 클릭이 아니다.**
-     *
-     * `Mod` 는 Ctrl 과 Meta 중 정확히 하나다 (`shortcuts.js` 의 규약) — 둘 다 누른
-     * 조합까지 받으면 그것을 따로 쓰는 사람의 손짓을 가로챈다.
-     */
-    if(e.shiftKey&&!e.altKey){
-      this._clearErr();
-      this._selRange(p);
-      this._paintAll();
-      return;
-    }
-    if(e.ctrlKey!==e.metaKey&&!e.altKey&&!e.shiftKey){
-      this._clearErr();
-      this._selToggle(p);
-      this._paintAll();
-      return;
-    }
-    // FR-WBR-2: 다른 자리를 고른 것은 그 사유를 다 읽었다는 뜻이다. 이것이
-    // 없으면 상태를 바꾸지 않는 실패(자기 하위로의 이동 거부 — FR-EDT-85)의
-    // 메시지가 **영영 남는다** — 지우는 계기가 성공한 조작뿐이었다.
-    this._clearErr();
-    // FR-EMS-2: 평범한 클릭은 집합을 그 하나로 되돌린다 — 기존 동작 그대로다.
-    this._selOnly(p);
-    // FR-EDT-60: 링크는 펼치지도 열지도 않는다 — 선택만 바뀐다. 링크된 디렉터리를
-    // 파일로 취급하면 `apiFileRead` 가 not a file 400 을 낸다 (§2.6).
-    if(kind==='dir') this.toggle(p);
-    // REPO_TAB_UNIFY_SRS FR-RTU-40·43: 한 번 클릭은 **미리보기**다. 트리를 훑는
-    // 일이 탭 20개가 되면 목록을 보는 것 자체가 정리를 부른다 (D-RTU-9).
-    // 고정하려면 더블클릭한다 (FR-RTU-42).
-    else if(kind==='file') this.app.edOpenFile(p,{preview:true});
-    else this._paintAll();
-  },
-
-  // FR-RTU-42(④): 행 더블클릭은 그 파일의 탭을 고정한다. 여는 일은 앞선 클릭이
-  // 이미 했다 (`_onClick`).
-  /**
-   * FR-EXR-51: 선택을 **보이는 순서**로 옮긴다. 순서의 근거는 `_items()` 의 행
-   * 항목이며(FR-EXR-52) 펼침 상태를 그대로 따른다 — 별도의 순서 계산을 만들면
-   * 화면과 어긋난다.
-   *
-   * 선택이 없거나 루트면 끝에서 들어온다.
-   */
-  _moveSel(d){
-    const rows=this._items().filter(it=>it.t==='row');
-    if(!rows.length) return;
-    const i=rows.findIndex(it=>it.path===this._sel);
-    const n=i<0?(d>0?0:rows.length-1)
-      :Math.min(rows.length-1,Math.max(0,i+d));
-    // FR-EMS-8: 키보드 이동은 집합을 하나로 되돌린다.
-    this._selOnly(rows[n].path);
-    this._paintAll();
-    // 선택이 화면 밖으로 나가면 옮겨 보인다 — `revealPath` 와 같은 손짓이다.
-    const row=this.list.querySelector('.ed-row.sel');
-    if(row&&row.scrollIntoView) row.scrollIntoView({block:'nearest'});
-  },
-
-  _onDbl(e){
-    const row=e.target.closest('.ed-row');
-    // FR-EXR-10·11: 빈 여백의 더블클릭은 **루트에 새 파일**이다. 폴더가 아니다 —
-    // 폴더는 툴바·메뉴로만 만든다.
-    if(!row||!this.list.contains(row)){
-      if(this._dropDirAt(e.target)===this.root) this.startCreate(false,this.root);
-      return;
-    }
-    if(row.dataset.kind!=='file') return;
-    this.app.edPinTabFor(row.dataset.path);
-  },
-
-  // ── 겹의 변경 감지 (NOTES_LIVE_EXPLORER_SRS 묶음 L / FR-FSL-6~14) ──
-
-  /**
-   * FR-FSL-7·9: 겹들이 바뀌었는지 한 번에 묻고 **달라진 겹만** 다시 읽는다.
-   * REPO_FIX 04 §3A-2 (T-3.1): 질의는 store 가 한다 — 그 루트의 모든 뷰가 펼친 폴더의
-   * 합집합이다. 뷰는 부르기만 한다(같은 틱의 둘째 뷰는 store 의 busy 에 걸린다 — 첫
-   * 질의가 이미 그 뷰의 펼침을 담았다).
-   */
-  pollStamp(){ return this.store.pollStamp() },
-
-  // ── git 색 (FR-EDT-69~78) ──
-
-  /**
-   * FR-EDT-69·71: 근거는 `status` 하나다.
-   *
-   * **루트 판정은 서버가 한다** (GIT_DIR_ENTRY_SRS FR-DIR-5·30 / D-DIR-6). 옛
-   * 코드는 `d.repo!==this.root` 로 직접 비교했는데, 서버의 `repo` 는 git 이 심볼릭
-   * 링크를 푼 값이고 `this.root` 는 사용자가 추가한 원본이라 macOS 의 `/tmp` 아래
-   * Editor 는 그 비교가 **반드시** 어긋났다 — 그리고 어긋나는 순간 `_gitOff` 가
-   * 굳어 그 창의 색은 새로고침 전까지 영영 돌아오지 않았다 (§2.5 실측).
-   *
-   * FR-DIR-40: 루트가 저장소의 **안**이어도 색을 입힌다. 그때 상태 경로의 기준은
-   * 저장소 루트이므로 접두(`_repoPrefix`)를 함께 기억한다 (FR-DIR-41).
-   *
-   * FR-DIR-31: 실패의 수명은 사유마다 다르다.
-   *
-   *   503                     굳힌다 — git 자체가 없다. 다시 물어도 같다
-   *   404 · 그 밖의 4xx       늦춘다 — `git init` 이 뒤집을 수 있는 사유다
-   *   전송 실패 · 5xx         이번 회차만 건너뛴다
-   */
-  async pollGit(opts){
-    if(this._gitOff||!this.root) return;
-    // 비행 중에 온 즉시 계기는 버리지 않고 "끝나면 한 번 더" 로 남긴다 — 주기 물음이
-    // 안전망(30초)으로 내려간 뒤에는 버리면 그 변화를 다음 안전망까지 놓친다.
-    if(this._gitBusy){ if(opts&&opts.now) this.store.gitAgain=true; return }
-    // 백오프 중이면 건너뛴다. 창 활성화 같은 즉시 계기는 그것을 무시한다
-    // (FR-DIR-32) — 사용자가 방금 한 일의 결과를 늦춰 보일 이유가 없다.
-    const now=Date.now();
-    if(!(opts&&opts.now)&&this._gitRetryAt&&now<this._gitRetryAt) return;
-    this._gitBusy=true;
-    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 같은 root 의 물음은 GitStatusHub 가 한 벌로
-    // 나눠 쓴다 (FEU-5). 요청은 clientId 를 실어 서버 감시의 임대를 쥔다 (IPC-8).
-    // 즉시 계기는 방금 한 일(저장·조작·활성화) **뒤의** 답이어야 하므로 캐시를 넘는다 —
-    // 그 뒤에 묻는 소비자(열린 문서들)는 이 요청을 나눠 쓴다.
-    const hub=this.app.gitStatusHub();
-    if(opts&&opts.now) hub.invalidate();
-    const r=await hub.ask(this.root);
-    this._gitBusy=false;
-    this._applyGit(r,now,Date.now());
-    if(this.store.gitAgain){ this.store.gitAgain=false; return this.pollGit({now:true}) }
-  },
-
-  /**
-   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: **스탬프 틱에서 git 색을 캐시로 다시 칠한다.**
-   *
-   * 주기 status 는 안전망(`gitStatusInterval`)으로 내렸다. 그래도 색과 목록이 한
-   * 틱에 움직여야 한다 (FR-EDT-77 · FR-FSL-7) — 그래서 스탬프를 묻는 틱마다 hub 가
-   * 가진 마지막 관측(패널이 넘긴 것 포함, FEU-M1)으로 칠한다. 요청은 없다. 같은
-   * 관측이면 `gitKey` 가 걸러 칠하지 않는다.
-   */
-  paintGitCached(){
-    if(this._gitOff||!this.root) return;
-    const got=this.app.gitStatusHub().peek(this.root);
-    if(!got) return;
-    // 안전망의 시계는 **그 관측의 시각**으로 간다 — 오래된 캐시를 지금 칠했다고
-    // 지금 관측한 것이 되지 않는다.
-    this._applyGit({ok:true,status:200,data:got.data},Date.now(),got.at);
-  },
-
-  /**
-   * 이 틱에 status 를 물어야 하는가 (FR-OPT-4-1 안전망).
-   *
-   * 관측이 한 번도 성공하지 않았으면 매 틱 묻는다 — 일시 실패의 회복과 비저장소의
-   * 백오프(FR-DIR-31)가 종전 주기 그대로다. 성공한 뒤에는 `git_changed` 가 본줄이고
-   * 주기는 `gitStatusInterval` 이다. 0 은 "주기로 묻지 않는다" (FR-GIT-23).
-   */
-  gitDue(){
-    const at=this.store.gitOkAt;
-    if(!at) return true;
-    return gitStatusInterval>0&&Date.now()-at>=gitStatusInterval;
-  },
-
-  // `at` 은 이 관측의 시각이다 — 성공하면 안전망의 시계(`gitOkAt`)가 그것으로 간다.
-  _applyGit(r,now,at){
-    const d=r.data;
-    // 성공하지 못한 답은 관측이 아니다 — 안전망 시계를 걷어 다음 틱이 다시 묻게 한다.
-    const okAt=this.store.gitOkAt||0;
-    this.store.gitOkAt=0;
-    if(r.status===0) return;
-    if(!r.ok){
-      // 503 은 git 자체가 없다는 답이다 — 그대로 두면 3초마다 영영 묻는다. Git
-      // 패널이 503 을 `_gitOff` 로 굳히는 것과 같은 관례다 (`git-repos-list.js`).
-      if(r.status===503){this._gitOff=true;this._setStatus(null);return}
-      // 404(`not_repo`)를 비롯한 4xx 는 **지금은** 저장소가 아니라는 답일 뿐이다.
-      if(r.status>=400&&r.status<500){this._gitBack(now);this._setStatus(null)}
-      return;
-    }
-    // 200 인데 본문을 읽지 못한 것은 답이 아니다 — 중간의 프록시일 수 있다.
-    if(!d) return;
-    // API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1: **저장소가 아니라는 답이 이제 200 으로
-    // 온다.** 종전의 404 갈래와 같은 처리로 보낸다 — 굳히지 않고 늦춘다
-    // (FR-DIR-31): `git init` 이 뒤집을 수 있는 사유이기 때문이다.
-    //
-    // 아래 `if(!repo)` 도 같은 자리로 가므로 이 줄이 없어도 동작은 같다. 그런데도
-    // 두는 이유는 **계약을 읽는 쪽이 계약의 이름을 부르게** 하기 위해서다 — 빈
-    // `repo` 로 판정하면 서버가 그 필드를 채우는 날 조용히 갈린다.
-    if(d.isRepo===false){this._gitBack(now);this._setStatus(null);return}
-    const repo=d.repo||'';
-    // 옛 서버는 `rootMatch` 를 주지 않는다. 그때는 문자열 비교로 물러나되,
-    // 그 결과를 굳히지는 않는다.
-    const match=(typeof d.rootMatch==='boolean')?d.rootMatch:(repo===this.root);
-    if(!repo){this._gitBack(now);this._setStatus(null);return}
-    // FR-DIR-41·42: 저장소 루트로부터 이 트리 루트까지의 접두. 정규화를 아는 것은
-    // 서버뿐이므로 **서버가 준 두 값 사이에서만** 계산한다.
-    const resolved=(!match&&typeof d.requestedResolved==='string')?d.requestedResolved:'';
-    const prefix=match?'':this._prefixOf(repo,resolved);
-    if(prefix===null){this._gitBack(now);this._setStatus(null);return}
-    this._gitRetryAt=0;
-    this._repoPrefix=prefix;
-    this.store.gitOkAt=Math.max(okAt,at);
-    this.store.gitRepo=repo;
-    this.store.gitMark=d.mark||'';
-    /**
-     * REPO_FIX 04 §3A-6 (T-8.1): 관측이 같으면(저장소·접두·서버 mark) 상태 맵·rollup·
-     * 전체 재칠을 하지 않는다. 판정은 서버의 관측 식별자 하나로만 한다(§3A-0 X5).
-     *   이전 동작: 매 응답마다 전부 다시 계산하고 다시 칠했다(수천 행에서 폴링마다)
-     */
-    const key=d.mark?rptKey(repo,prefix,d.mark):'';
-    if(key&&key===this.store.gitKey) return;
-    this._setStatus(d.status);
-    this.store.gitKey=key;
-  },
-
-  // FR-DIR-31: 굳히는 대신 늦춘다. 다음 관측까지의 시각을 기억할 뿐이며,
-  // `_gitOff` 와 달리 되돌아올 수 있는 상태다.
-  _gitBack(now){ this._gitRetryAt=(now||Date.now())+editorGitBackoffMs() },
-
-  /**
-   * FR-DIR-41: 저장소 루트(`repo`)에서 이 트리 루트(`resolved`)까지의 접두를 낸다.
-   *
-   *   repo     /Users/me/app
-   *   resolved /Users/me/app/src   →  "src/"
-   *
-   * 루트가 저장소 밖이면 `null` 이다 — 색의 근거가 없다는 뜻이며 호출자가 그것을
-   * 백오프로 다룬다. `/appx` 가 `/app` 의 하위로 오인되지 않도록 경계는 구분자로
-   * 본다.
-   */
-  _prefixOf(repo,resolved){ return gitRepoPrefix(repo,resolved) },
-
-  /**
-   * 상태 응답을 경로→문자 맵 셋으로 옮긴다 (GIT_DIR_ENTRY_SRS FR-DIR-10).
-   *
-   *   `_st`      파일 자신의 상태
-   *   `_dirOwn`  **디렉터리 항목** 자신의 상태 — 서브모듈과 중첩 저장소
-   *   `_dirSt`   하위를 접어 올린 상태 (FR-EDT-73)
-   *
-   * FR-EDT-72: staged 와 unstaged 를 함께 가진 파일은 **unstaged 쪽 문자**를 쓴다 —
-   * 나중에 놓는 쪽이 이긴다. 충돌은 그 위에 온다 (먼저 손봐야 하는 상태다).
-   *
-   * FR-DIR-43: 키는 **트리 루트 기준**으로 옮긴다. 루트가 저장소 안일 때 status 의
-   * 경로는 저장소 루트 기준이므로 접두를 벗기고, 접두 밖의 경로는 버린다 — 트리에
-   * 없는 경로가 접어 올림에 새어 들면 루트 폴더가 근거 없는 색을 얻는다.
-   */
-  _setStatus(st){
-    // §3A-6: 비저장소·소실·오류로 색을 걷으면 직전 관측 키도 버린다.
-    this.store.gitKey='';
-    this._gitOn=!!st;
-    const files=new Map(),dirs=new Map();
-    const put=(arr,ch)=>{
-      for(const e of arr||[]){
-        const c=ch(e);
-        // '.' 는 porcelain 의 "변화 없음" 이다 — 상태가 아니다.
-        if(!e||!e.path||!c||c==='.') continue;
-        const k=this._stKey(e.path);
-        if(k===null) continue;
-        // FR-DIR-1: 파일인지 디렉터리인지는 **서버가 확정한다** (D-DIR-1).
-        (e.dir?dirs:files).set(k,c);
-      }
-    };
-    // FR-RST-22: 문자를 뽑는 규칙은 Git 패널과 **한 출처**다. 종전에는 같은
-    // 규칙이 두 화면에 따로 적혀 있었다 — 주석이 "같아야 한다" 고 밝히면서도.
-    put(st&&st.staged,e=>gitStateChar('staged',e));
-    put(st&&st.changes,e=>gitStateChar('changes',e));
-    put(st&&st.untracked,()=>gitStateChar('untracked'));
-    put(st&&st.conflicts,()=>gitStateChar('conflicts'));
-    this._st=files;
-    this._dirOwn=dirs;
-    // FR-GIT-190: staged 와 unstaged 를 함께 가진 파일. **Git 패널이 이것을
-    // 상태색보다 앞세워 `--attn` 으로 칠하므로 탐색기도 같아야 한다** — 같은
-    // 사실을 두 화면이 다른 색으로 말하지 않는다 (FR-STC-1 의 근거).
-    // FR-EDT-72 는 **문자**의 규칙이고 이것은 **색**의 규칙이라 서로 다르다.
-    // FR-DIR-14: 서브모듈도 양쪽을 함께 가질 수 있으므로 같은 규칙을 받는다.
-    this._partial=new Set();
-    for(const e of (st&&st.staged)||[]){
-      if(!e||!e.path||!e.staged||!e.unstaged) continue;
-      const k=this._stKey(e.path);
-      if(k!==null) this._partial.add(k);
-    }
-    // FR-DIR-13: 접어 올림은 디렉터리 항목도 대상으로 삼는다 — 서브모듈이 바뀌면
-    // 그것을 담은 폴더도 하위에 변경이 있다는 사실을 말해야 한다.
-    this._dirSt=this._rollup(new Map([...files,...dirs]));
-    this._paintAll();
-  },
-
-  /**
-   * status 의 경로(저장소 루트 기준)를 트리 루트 기준으로 옮긴다.
-   *
-   * 트리 밖이면 `null` 이다 — 버려야 할 경로라는 뜻이며, 빈 문자열(루트 자신)과
-   * 구분되어야 하므로 거짓값을 겸하는 `''` 를 쓰지 않는다.
-   */
-  _stKey(p){
-    const pre=this._repoPrefix||'';
-    if(!pre) return p;
-    if(!p.startsWith(pre)) return null;
-    return p.slice(pre.length);
-  },
-
-  /**
-   * FR-EDT-73·74: 폴더는 하위의 상태를 접어 올린다. 근거가 `status` 의 경로들이므로
-   * **펼쳐지지 않은 폴더에도** 색이 나온다.
-   *
-   * 우선순위는 `EDITOR_TREE_ST_RANK` 하나가 정하고 표에 없는 문자(D 포함)는
-   * 전파하지 않는다 (D-5).
-   */
-  _rollup(m){
-    const out=new Map();
-    for(const [p,ch] of m){
-      const rk=EDITOR_TREE_ST_RANK[ch];
-      if(!rk) continue;
-      for(let i=p.lastIndexOf('/');i>0;i=p.lastIndexOf('/',i-1)){
-        const dir=p.slice(0,i);
-        const cur=out.get(dir);
-        if(cur&&EDITOR_TREE_ST_RANK[cur]>=rk) break;
-        out.set(dir,ch);
-      }
-    }
-    return out;
-  },
-
-  // FR-GIT-190: 일부만 스테이지된 파일인가. 폴더에는 뜻이 없다 — 파일 하나의
-  // 사실이므로 접어 올리지 않는다 (Git 패널도 행 단위로만 표시한다).
-  _isPartial(p){
-    const rel=this._rel(p);
-    return !!(rel&&this._partial&&this._partial.has(rel));
-  },
-
-  /**
-   * 한 노드의 상태 문자.
-   *
-   * **FR-EDT-75 는 개정됐다** (GIT_DIR_ENTRY_SRS FR-DIR-11 / D-DIR-3) — 폴더도 자기
-   * 상태를 가질 수 있다. gitlink(모드 160000)와 중첩 저장소가 그것이며, 둘 다 git 이
-   * 디렉터리 하나를 상태의 단위로 보고한 것이다.
-   *
-   *   폴더 = 자기 항목 > 접어 올림 > 상속
-   *   파일 = 자기 상태 > 상속
-   *
-   * 자기 항목이 접어 올림을 이기는 이유는, 접어 올림은 **하위의 요약**이고 자기
-   * 항목은 **그 폴더 자신에 대한 git 의 보고**이기 때문이다.
-   */
-  _stOf(p,kind){
-    const rel=this._rel(p);
-    if(!rel) return '';
-    if(kind==='dir'){
-      const own=(this._dirOwn&&this._dirOwn.get(rel))||'';
-      if(own) return own;
-      const roll=(this._dirSt&&this._dirSt.get(rel))||'';
-      if(roll) return roll;
-    }else{
-      const own=(this._st&&this._st.get(rel))||'';
-      if(own) return own;
-    }
-    return this._inherit(rel);
-  },
-
-  /**
-   * FR-DIR-12: 디렉터리 항목의 색은 **하위 전체가 상속한다.**
-   *
-   * 상속이 없으면 사용자는 "폴더는 초록인데 안은 전부 무색" 을 본다 — 중첩 저장소
-   * 안의 파일은 부모의 status 에 **결코 나오지 않기 때문**이다 (§2.1). 그 무색은
-   * "변경 없음" 이 아니라 "이 저장소가 모르는 자리" 인데, 화면은 둘을 같게 말한다.
-   *
-   * 가장 **가까운** 조상이 이긴다 — 중첩 저장소 안에 또 다른 중첩이 있을 수 있고,
-   * 그때 사용자에게 가까운 사실은 안쪽의 것이다.
-   *
-   * NFR-DIR-2: 훑는 것은 조상 경로뿐이라 행마다 경로 깊이만큼이다. 디렉터리 항목
-   * 전체를 훑지 않는다.
-   */
-  _inherit(rel){
-    if(!this._dirOwn||!this._dirOwn.size) return '';
-    for(let i=rel.lastIndexOf('/');i>0;i=rel.lastIndexOf('/',i-1)){
-      const ch=this._dirOwn.get(rel.slice(0,i));
-      if(ch) return ch;
-    }
-    return '';
-  },
+class FileTreePaint {
+  constructor(tree){
+    this.tree=tree;
+  }
 
   // ── 그리기 (FR-EDT-66·68) ──
 
@@ -693,19 +26,19 @@ Object.assign(FileTree.prototype, {
    */
   _items(){
     const out=[];
-    const ed=this._edit;
+    const ed=this.tree._edit;
     // FR-EDT-92: 실패는 **그 자리**에 붙는다. 붙을 행이 지금 보이지 않으면 뿌리
     // 위에 붙인다 — 어디에도 못 붙어 사라지면 사용자는 조작이 성공한 줄 안다.
     let errPut=false;
     const err=depth=>{
-      if(!this._err||errPut) return null;
+      if(!this.tree._err||errPut) return null;
       errPut=true;
-      const msg=this._err.more?t('editor.tree_fail_more',{msg:this._err.msg,n:this._err.more}):this._err.msg;
+      const msg=this.tree._err.more?t('editor.tree_fail_more',{msg:this.tree._err.msg,n:this.tree._err.more}):this.tree._err.msg;
       return {t:'operr',depth,msg,
         k:'oe',s:rptKey('oe',depth,msg)};
     };
     const errAt=(anchor,depth)=>{
-      if(!this._err||errPut||this._err.anchor!==anchor) return;
+      if(!this.tree._err||errPut||this.tree._err.anchor!==anchor) return;
       const it=err(depth); if(it) out.push(it);
     };
     // FR-EDT-81·82: 인라인 입력. 만들기는 대상 폴더의 **첫 자리**에, 이름 변경은
@@ -713,7 +46,7 @@ Object.assign(FileTree.prototype, {
     const input=depth=>({t:'in',depth,mode:ed.mode,isDir:!!ed.isDir,init:ed.init,
       k:'in',s:rptKey('in',ed.mode,depth,ed.isDir?1:0)});
     const walk=(dir,depth)=>{
-      const st=this._kids.get(dir);
+      const st=this.tree._kids.get(dir);
       if(!st) return;
       if(ed&&ed.mode==='create'&&ed.dir===dir){
         out.push(input(depth));
@@ -721,24 +54,24 @@ Object.assign(FileTree.prototype, {
       }
       for(const e of st.entries){
         if(!e||!e.name) continue;
-        const p=this._join(dir,e.name);
+        const p=this.tree._join(dir,e.name);
         // FR-EDT-60: `dir` 은 Lstat 기준이라 링크는 언제나 false 이고, 대상 종류는
         // `linkDir` 이 알린다. 셋을 여기 한 번만 가른다.
         const kind=e.link?'link':(e.dir?'dir':'file');
-        const sub=this._kids.get(p);
+        const sub=this.tree._kids.get(p);
         const it={t:'row',path:p,name:e.name,kind,depth,
           linkDir:!!e.linkDir,
-          open:kind==='dir'&&this._open.has(p),
-          busy:this._busy.has(p),
+          open:kind==='dir'&&this.tree._open.has(p),
+          busy:this.tree._busy.has(p),
           err:(sub&&sub.err)||'',
           // §3A-2 (T-2.2): 일시 오류로 갱신에 실패했다 — 목록은 이전 것이다.
           stale:!!(sub&&sub.stale),
           // §3A-5 (T-7.4): 다시 그려져도 드롭 강조가 남는다.
-          drop:this._dropDir===p,
-          sel:this._selHas(p)||this._sel===p,
-          st:this._stOf(p,kind),
-          ignored:this._isIgnored(p),
-          partial:kind!=='dir'&&this._isPartial(p),chip:kind==='dir'?this.app.claudeFolderChip(this.root,p):null}; // CLAUDE_ACCOUNTS_SRS FR-CAC-97
+          drop:this.tree._dropDir===p,
+          sel:this.tree._selHas(p)||this.tree._sel===p,
+          st:this.tree._stOf(p,kind),
+          ignored:this.tree._isIgnored(p),
+          partial:kind!=='dir'&&this.tree._isPartial(p),chip:kind==='dir'?this.tree.app.claudeFolderChip(this.tree.root,p):null}; // CLAUDE_ACCOUNTS_SRS FR-CAC-97
         it.k='r:'+p;
         // 근거는 이 행이 읽는 값 **전부**다 — 좁히면 갱신이 조용히 멈춘다 (FR-RPT-2).
         it.s=[kind,depth,it.open?1:0,it.busy?1:0,it.err,it.sel?1:0,it.st,it.linkDir?1:0,
@@ -764,38 +97,38 @@ Object.assign(FileTree.prototype, {
       }
     };
     // 뿌리에는 행이 없으므로(이름은 머리가 보인다) 뿌리의 실패는 여기 실어 보인다.
-    const rs=this._kids.get(this.root);
+    const rs=this.tree._kids.get(this.tree.root);
     if(rs&&rs.err) out.push({t:'err',depth:0,msg:rs.err,k:'e:root',s:rptKey('e',rs.err)});
     else if(rs&&rs.stale) out.push({t:'err',depth:0,msg:EDITOR_TREE_STALE,k:'e:root',s:rptKey('e','stale')});
-    walk(this.root,0);
+    walk(this.tree.root,0);
     // §3A-3: 붙을 행이 보이지 않으면 **가장 가까운 보이는 조상** 행 뒤, 그것도 없으면
     // 맨 앞(루트)이다.
-    if(this._err&&!errPut){
-      for(let a=this._parent(this._err.anchor);a&&a!==this.root&&pathUnder(this.root,a);a=this._parent(a)){
+    if(this.tree._err&&!errPut){
+      for(let a=this.tree._parent(this.tree._err.anchor);a&&a!==this.tree.root&&pathUnder(this.tree.root,a);a=this.tree._parent(a)){
         const i=out.findIndex(x=>x.t==='row'&&x.path===a);
         if(i>=0){const it=err(out[i].depth+1); if(it) out.splice(i+1,0,it); break}
-        if(this._parent(a)===a) break;
+        if(this.tree._parent(a)===a) break;
       }
     }
     const rest=err(0); if(rest) out.unshift(rest);
     return out;
-  },
+  }
 
   paint(){
-    reconcileList(this.list,this._items(),{
-      key:it=>it.k, sig:it=>it.s, build:it=>this._el(it),
+    reconcileList(this.tree.list,this.tree._items(),{
+      key:it=>it.k, sig:it=>it.s, build:it=>this.tree._el(it),
     });
     // FR-EXR-3: 루트의 선택은 **머리**가 보인다 — 뿌리에는 행이 없다(위 `_items`).
-    this.head.classList.toggle('sel',this._sel===this.root);
+    this.tree.head.classList.toggle('sel',this.tree._sel===this.tree.root);
     // D-A11Y-11: 앵커가 행이면 그 행을 가리킨다. 루트·없음이면 가리키는 것이 없다.
-    const sel=this.list.querySelector('.ed-row.sel');
-    if(sel&&sel.id) this.list.setAttribute('aria-activedescendant',sel.id);
-    else this.list.removeAttribute('aria-activedescendant');
-    this._focusInput();
-  },
+    const sel=this.tree.list.querySelector('.ed-row.sel');
+    if(sel&&sel.id) this.tree.list.setAttribute('aria-activedescendant',sel.id);
+    else this.tree.list.removeAttribute('aria-activedescendant');
+    this.tree._focusInput();
+  }
 
   // 행의 id — 인스턴스 접두 + 경로. 공백이 id 에 설 수 없으므로 인코딩한다.
-  _rowId(p){ return this._uid+'-'+encodeURIComponent(p) },
+  _rowId(p){ return this.tree._uid+'-'+encodeURIComponent(p) }
 
   /**
    * FR-EDT-82: 이름 변경은 **확장자 앞까지** 미리 선택한다 — 바꾸려는 것은 거의
@@ -805,16 +138,16 @@ Object.assign(FileTree.prototype, {
    * 한 번**만 준다. 매 paint 마다 주면 폴링이 캐럿을 계속 되돌린다.
    */
   _focusInput(){
-    if(!this._focusEdit) return;
-    const el=this.list.querySelector('.ed-input');
+    if(!this.tree._focusEdit) return;
+    const el=this.tree.list.querySelector('.ed-input');
     if(!el) return;
-    this._focusEdit=false;
+    this.tree._focusEdit=false;
     el.focus();
     const v=el.value, i=v.lastIndexOf('.');
-    el.setSelectionRange(0,(!this._edit.isDir&&i>0)?i:v.length);
-  },
+    el.setSelectionRange(0,(!this.tree._edit.isDir&&i>0)?i:v.length);
+  }
 
-  _pad(el,depth){ el.style.paddingLeft=(GIT_TREE_PAD0+depth*GIT_TREE_INDENT)+'px' },
+  _pad(el,depth){ el.style.paddingLeft=(GIT_TREE_PAD0+depth*GIT_TREE_INDENT)+'px' }
 
   _el(it){
     if(it.t==='more'){
@@ -826,7 +159,7 @@ Object.assign(FileTree.prototype, {
        * 두 번 받아 목록에 중복이 선다.
        */
       const d=document.createElement('div'); d.className='ed-more';
-      this._pad(d,it.depth);
+      this.tree._pad(d,it.depth);
       const tpl=it.err?EDITOR_TREE_MORE_FAIL:(it.busy?EDITOR_TREE_MORE_BUSY:EDITOR_TREE_TRUNCATED);
       d.textContent=tpl.replace('%s',it.n).replace('%t',it.total);
       if(it.err) d.classList.add('ed-more-err');
@@ -834,17 +167,17 @@ Object.assign(FileTree.prototype, {
       else{
         d.classList.add('ed-more-can');
         d.addEventListener('click',()=>{
-          const st=this._kids.get(it.path);
+          const st=this.tree._kids.get(it.path);
           if(!st||st.moreBusy) return;
-          st.moreBusy=true; st.moreErr=false; this._paintAll();
-          this.load(it.path,{offset:st.entries.length});
+          st.moreBusy=true; st.moreErr=false; this.tree._paintAll();
+          this.tree.load(it.path,{offset:st.entries.length});
         });
       }
       return d;
     }
     if(it.t==='err'){
       const d=document.createElement('div'); d.className='ed-tree-err';
-      this._pad(d,it.depth);
+      this.tree._pad(d,it.depth);
       d.textContent=EDITOR_TREE_ERR+' — '+it.msg;
       return d;
     }
@@ -852,13 +185,13 @@ Object.assign(FileTree.prototype, {
     // 클래스를 나눈다 — 하나로 합치면 어느 실패인지 화면이 말하지 못한다.
     if(it.t==='operr'){
       const d=document.createElement('div'); d.className='ed-op-err';
-      this._pad(d,it.depth);
+      this.tree._pad(d,it.depth);
       d.appendChild(domEl('span','ed-op-err-msg',it.msg));
       // §3A-3: 사용자가 닫을 수 있다 — 다음 조작을 시작하지 않아도 걷을 길이 있다.
       d.appendChild(UIKit.button({icon:'x',title:EDITOR_TREE_ERR_CLOSE,kind:'ghost',size:'sm',cls:'ed-op-err-x'}));
       return d;
     }
-    if(it.t==='in') return this._elInput(it);
+    if(it.t==='in') return this.tree._elInput(it);
     const d=document.createElement('div');
     // 상태 클래스는 Git 패널과 **같은 표**에서 나온다 (GIT_ST_CLASS) — 색값의
     // 정의 자리를 늘리지 않기 위해서다 (FR-EDT-70 / D-4).
@@ -871,12 +204,12 @@ Object.assign(FileTree.prototype, {
       // status 에 나오지 않는다) 규칙을 적어 두지 않으면 순서가 뒤집힌다.
       +(it.ignored?' ed-ignored':'')
       +(it.stale?' ed-stale':'')+(it.drop?' ed-drop':'')
-      +(this._drag&&this._drag===it.path?' ed-dragging':'');
+      +(this.tree._drag&&this.tree._drag===it.path?' ed-dragging':'');
     d.dataset.path=it.path; d.dataset.kind=it.kind;
     if(it.st) d.dataset.st=it.st;
     // FR-A11Y-16 / D-A11Y-11: 평평한 트리의 `treeitem`. 값은 전부 서명에 든
     // 것이므로(`_items`) 바뀌면 행이 다시 만들어져 속성도 따라온다.
-    d.id=this._rowId(it.path);
+    d.id=this.tree._rowId(it.path);
     d.setAttribute('role','treeitem');
     d.setAttribute('aria-level',String(it.depth+1));
     d.setAttribute('aria-selected',it.sel?'true':'false');
@@ -884,7 +217,7 @@ Object.assign(FileTree.prototype, {
     // FR-EDT-85: 드래그 이동의 출발점. 링크도 옮길 수 있다 — 조작은 링크 **자신**을
     // 대상으로 삼는다 (D-21).
     d.draggable=true;
-    this._pad(d,it.depth);
+    this.tree._pad(d,it.depth);
     d.title=it.err?(it.path+' — '+EDITOR_TREE_ERR+' ('+it.err+')')
       :(it.stale?it.path+' — '+EDITOR_TREE_STALE:it.path);
     const tw=d.appendChild(domEl('span','ed-tw',it.kind==='dir'&&it.busy?EDITOR_TREE_TW_BUSY:''));   // UX_AUDIT_FIX_SRS FR-UXF-100: 꺾쇠는 아이콘, 열림은 `data-open`
@@ -893,7 +226,7 @@ Object.assign(FileTree.prototype, {
     if(it.stale) d.appendChild(UIKit.icon('triangle-alert',{size:'sm',cls:'ed-stale-mark'}));   // REPO_FIX 04 §3A-2 → FR-UXF-100: 이전 CSS `::after` 의 `⚠`
     if(it.kind==='link') d.appendChild(domEl('span','ed-mark',it.linkDir?EDITOR_TREE_LINK_DIR_SUFFIX:'')).prepend(UIKit.icon(EDITOR_TREE_LINK,{size:'sm'}));
     return d;
-  },
+  }
 
   /**
    * FR-EDT-81·82 의 인라인 입력. 만들기와 이름 변경이 **같은 요소**를 쓴다 — 받는
@@ -905,44 +238,44 @@ Object.assign(FileTree.prototype, {
   _elInput(it){
     const d=document.createElement('div');
     d.className='ed-row ed-edit'+(it.mode==='rename'?' ed-edit-rename':' ed-edit-new');
-    this._pad(d,it.depth);
+    this.tree._pad(d,it.depth);
     const tw=d.appendChild(domEl('span','ed-tw',''));
     if(it.isDir) UIKit.caret(tw,false);
     const i=document.createElement('input');
-    i.className='ed-input'; i.type='text'; i.value=it.init; i.spellcheck=false; i.oninput=()=>this._askName(i.value); // F-k
+    i.className='ed-input'; i.type='text'; i.value=it.init; i.spellcheck=false; i.oninput=()=>this.tree._askName(i.value); // F-k
     i.addEventListener('keydown',e=>{
       e.stopPropagation();
       // §3A-5 (T-7.3): 끝내면 키보드 포커스가 트리 목록으로 돌아온다.
-      if(e.key==='Enter'){e.preventDefault();this._commitEdit(i.value);if(!this._edit)this.list.focus()}
-      else if(e.key==='Escape'){e.preventDefault();this.cancelEdit();this.list.focus()}
+      if(e.key==='Enter'){e.preventDefault();this.tree._commitEdit(i.value);if(!this.tree._edit)this.tree.list.focus()}
+      else if(e.key==='Escape'){e.preventDefault();this.tree.cancelEdit();this.tree.list.focus()}
     });
     d.appendChild(i);
     return d;
-  },
+  }
 
   // ── 파일 조작 (FR-EDT-79~93) ──
 
-  _base(p){ return pathBase(p) },
+  _base(p){ return pathBase(p) }
   // 부모는 **그 경로의 구분자**로 자른다 — `/` 만 보면 Windows 의 절대경로에서
   // 자를 자리를 찾지 못해 언제나 루트를 답한다.
-  _parent(p){ const s=String(p||''); const i=Math.max(s.lastIndexOf('/'),s.lastIndexOf('\\')); return i<=0?'/':s.slice(0,i) },
+  _parent(p){ const s=String(p||''); const i=Math.max(s.lastIndexOf('/'),s.lastIndexOf('\\')); return i<=0?'/':s.slice(0,i) }
 
   // 종류는 **부모의 캐시**가 안다 — 행을 그리는 근거와 같은 값을 쓴다.
   _kindOf(p){
-    if(p===this.root) return 'dir';
-    const st=this._kids.get(this._parent(p));
-    const e=st&&st.entries.find(x=>x&&x.name===this._base(p));
+    if(p===this.tree.root) return 'dir';
+    const st=this.tree._kids.get(this.tree._parent(p));
+    const e=st&&st.entries.find(x=>x&&x.name===this.tree._base(p));
     if(!e) return '';
     return e.link?'link':(e.dir?'dir':'file');
-  },
+  }
 
   // FR-EDT-81: 만드는 자리. 선택이 폴더면 그 아래, 파일이면 그 부모, 없으면 루트다.
   _targetDir(){
-    const k=this._sel?this._kindOf(this._sel):'';
-    if(k==='dir') return this._sel;
-    if(k) return this._parent(this._sel);
-    return this.root;
-  },
+    const k=this.tree._sel?this.tree._kindOf(this.tree._sel):'';
+    if(k==='dir') return this.tree._sel;
+    if(k) return this.tree._parent(this.tree._sel);
+    return this.tree.root;
+  }
 
   /**
    * REPO_FIX 04 §3A-3 (T-4.1): 실패 사유는 재조회·폴링·`_after` 에 지워지지 않는다 —
@@ -951,10 +284,10 @@ Object.assign(FileTree.prototype, {
    *   이전 동작: `_after` 의 첫 줄이 지워 사용자가 사유를 보지 못했다 (#27)
    */
   _fail(anchor,msg){
-    if(this._err) this._err.more=(this._err.more||0)+1;
-    else this._err={anchor,msg,more:0};
-    this._paintAll();
-  },
+    if(this.tree._err) this.tree._err.more=(this.tree._err.more||0)+1;
+    else this.tree._err={anchor,msg,more:0};
+    this.tree._paintAll();
+  }
   /**
    * WORKBENCH_REVIEW_SRS FR-WBR-3: **지우면 그린다.**
    *
@@ -966,6 +299,9 @@ Object.assign(FileTree.prototype, {
    *             값만 비우면 화면에 남는다. 비어 있을 때는 아무 일도 하지 않으므로
    *             기존 호출처의 비용은 늘지 않는다
    */
-  _clearErr(){ if(!this._err) return; this._err=null; this._paintAll() },
+  _clearErr(){ if(!this.tree._err) return; this.tree._err=null; this.tree._paintAll() }
+}
 
-});
+// 탐색기 원형의 이름 — 앱·렌더러·e2e·시험과 다른 부품이 `FileTree` 에서 부른다 (REFACTOR3_FE_REST5_SRS FR-FR5-32).
+Controller.delegate(FileTree,'painter',['_items','paint','_rowId','_focusInput','_pad','_el','_elInput','_base','_parent','_kindOf','_targetDir',
+  '_fail','_clearErr']);

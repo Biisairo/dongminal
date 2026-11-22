@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, load } from './harness.mjs';
+import { BASE, load, treeParts } from './harness.mjs';
 
 /**
  * UX_BATCH12_SRS TC-EXM-6 (FR-EXM-6·7) — 탐색기 클립보드가 경로 목록을 담고,
@@ -12,7 +12,9 @@ const RENAME = '/api/fs/rename';
 
 function setup(fail = () => '') {
   const written = [];
-  const ctx = load([...BASE, 'core/path.js', 'ui/repaint.js', 'ui/file-tree-paint.js', 'ui/file-tree-edit.js', 'ui/file-tree-xfer.js',
+  // REFACTOR3_FE_REST5_SRS R5d: 탐색기의 몸은 부품 클래스다 — 위임자 표가 대역 `FileTree` 원형에 얹고 `treeParts` 가 부품을 세운다.
+  const ctx = load([...BASE, 'core/path.js', 'ui/repaint.js', 'ui/file-tree-load.js', 'ui/file-tree-select.js', 'ui/file-tree-paint.js',
+    'ui/file-tree-edit.js', 'ui/file-tree-xfer.js',
     'core/editor-file.js'], {
     expose: ['EditorFile'],
     globals: {
@@ -43,7 +45,7 @@ function setup(fail = () => '') {
     return { ok: true, code: '', msg: '', data: { ok: true, path: made } };
   };
   app.edRefreshTreesFor = () => {};
-  const t = Object.create(ctx.FileTree.prototype);
+  const t = treeParts(ctx, Object.create(ctx.FileTree.prototype));
   Object.assign(t, {
     root: '/r', app, _open: new Set(), _sel: '', _selSet: new Set(), _err: null,
     _after: async () => {}, _retargetOrFail: () => {}, _paintAll: () => {},

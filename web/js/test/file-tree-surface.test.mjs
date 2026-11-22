@@ -10,11 +10,13 @@ import { BASE, load } from './harness.mjs';
  * 앱·렌더러·e2e 가 탐색기 인스턴스의 메서드와 필드를 이름으로 부르고(`load`·`paint`·`revealPath`·`_onKey` 등) 시험이
  * 인스턴스의 메서드를 갈아 끼운다(`_paintAll`·`_rollup`·`_after` 등). 이름 하나가 사라지면 그 자리가 조용히 죽는다.
  */
-const FILES = ['ui/file-tree-obs.js', 'ui/file-tree-store.js', 'ui/file-tree.js', 'ui/file-tree-paint.js', 'ui/file-tree-keys.js',
-  'ui/file-tree-marquee.js', 'ui/file-tree-edit.js', 'ui/file-tree-xfer.js', 'ui/file-tree-download.js'];
+// REFACTOR3_FE_REST5_SRS R5d: `file-tree-paint.js` 에서 부품 둘(`file-tree-load.js`·`file-tree-select.js`)이 갈라졌다.
+const FILES = ['ui/file-tree-obs.js', 'ui/file-tree-store.js', 'ui/file-tree.js', 'ui/file-tree-load.js', 'ui/file-tree-select.js',
+  'ui/file-tree-paint.js', 'ui/file-tree-keys.js', 'ui/file-tree-marquee.js', 'ui/file-tree-edit.js', 'ui/file-tree-xfer.js',
+  'ui/file-tree-download.js'];
 
 const PROTO = [
-  '_after:function', '_applyGit:function', '_askName:function', '_askUploadFailure:function', '_base:function',
+  '_after:function', '_applyGit:function', '_askName:function', '_askUploadFailure:function', '_base:function', '_buildDom:function',
   '_busy:get', '_clearErr:function', '_commitEdit:function', '_dirOwn:getset', '_dirSt:getset', '_dlOf:function',
   '_dragDownloadURL:function', '_dropClear:function', '_dropDirAt:function', '_dropUpload:function', '_el:function',
   '_elInput:function', '_fail:function', '_focusInput:function', '_forget:function', '_forgetView:function',
@@ -53,6 +55,7 @@ function surface(files) {
   };
 }
 
+// `_buildDom` 은 R5d 가 더한 이름이다 — 생성자의 요소 세우기를 뺐다(FileTree constructor 104줄 → 100 아래, FR-FR5-15).
 test('TC-FR5-30: FileTree 원형의 이름과 종류가 그대로다', () => {
   const s = surface(FILES);
   assert.ok(s.proto.length >= 100, `원형 이름을 ${s.proto.length}개밖에 못 읽었다 — 검사가 공회전한다`);
