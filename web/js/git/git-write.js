@@ -51,7 +51,7 @@ class GitWrite extends GitPart {
   afterRefWrite(d){
     this.adopt(d);
     // FR-OPT-4-9: 두 뷰가 refs 를 하나로 받는다.
-    this.p._inRefsRound(()=>{
+    this.p.viewReload._inRefsRound(()=>{
       if(this.p._branchesView) this.p._branchesView.reload();
       if(this.p._historyView) this.p._historyView.reload();
     });
@@ -144,7 +144,7 @@ class GitWrite extends GitPart {
   afterStashRefWrite(res){
     this.afterStashWrite(res);
     if(!res||!res.ok) return;
-    this.p._inRefsRound(()=>{
+    this.p.viewReload._inRefsRound(()=>{
       if(this.p._branchesView) this.p._branchesView.reload();
       // FR-GVR-20: `afterRefWrite` 와 같은 근거 — 새 브랜치는 커밋 행의 배지에도
       // 나타나야 하고, 그 배지는 목록을 다시 받아야 갱신된다.
@@ -187,7 +187,7 @@ class GitWrite extends GitPart {
     if(!ok||repo!==this.p.repo) return;
     // 관측이 같으면 refresh 는 다시 그리지 않는다 — 안내 줄은 여기서 걷는다.
     this.p._note=null; this.p._paint();
-    this.p.refresh();
+    this.p.viewReload.refresh();
   }
 
   // POST 한 번. ok 는 **서버가 ok:true 를 준 것**이다 — 200 이지만 본문이 없는

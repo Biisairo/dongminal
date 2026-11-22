@@ -466,7 +466,7 @@ class GitChangeRows extends GitPart {
       const parts=path.split('/');
       for(let i=1;i<parts.length;i++) if(this.p._dirCollapsed.delete(group+':'+parts.slice(0,i).join('/'))) paint=true;
     }
-    const n=this.p._fileList().filter(e=>e.group===group).length;
+    const n=this.p.diffPane._fileList().filter(e=>e.group===group).length;
     if(paint) this.p._paint();
     const el=this.p._els.get('changes'); if(!el) return false;
     const q='.git-group[data-group="'+group+'"] .git-file[data-path="'+CSS.escape(path)+'"]';

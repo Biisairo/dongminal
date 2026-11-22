@@ -97,7 +97,7 @@ const GIT_MENUS={
     // 전부다 — 새 조회를 만들지 않는다.
     {id:'fileHistory',label:GIT_FILE_HISTORY,run:target=>gitMenuPanel().openFileHistory(target)},
     // FR-GIT-276: 고정 탭을 늘리지 않는다 — Diff 탭을 blame 모드로 연다 (D8).
-    {id:'blame',      label:GIT_FILE_BLAME,  run:target=>gitMenuPanel().openBlame(target)},
+    {id:'blame',      label:GIT_FILE_BLAME,  run:target=>gitMenuPanel().blame.openBlame(target)},
     // FR-GIT-273: **git 실행이 아니라 파일 쓰기다.** 저장소 루트의 `.gitignore`
     // 하나만 대상이며, 경로가 그 안인지는 서버가 다시 본다.
     {id:'ignore',busy:GIT_ACTION.write,     label:GIT_FILE_IGNORE,run:target=>gitMenuPanel().ignorePath(target)},

@@ -366,7 +366,7 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     /** Diff 의 두 쪽이 LSP 에 어느 파일로 보이는가 (`lspPathOf`). */
     diffLspPaths: (dv: any) => ({ mod: dv.lspPathOf(dv._mod), orig: dv.lspPathOf(dv._orig) }),
     /** hunk 툴바가 지금 붙어 있는 줄 (`gitPanel`). 없으면 -1. */
-    hunkBarLine: (gp: any) => gp._hunkBarPos?.line ?? -1,
+    hunkBarLine: (gp: any) => gp.hunks._hunkBarPos?.line ?? -1,
     diffChangeCount: (dv: any) => {
       const ch = dv && dv.chunks ? dv.chunks() : null;
       return ch ? ch.length : -1;

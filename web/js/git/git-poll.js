@@ -129,7 +129,7 @@ class GitPoll extends GitPart {
     if(document.hidden) return;
     if(!this.p.repo||this.p._gitMissing) return;
     // F-5.2: 파일 저장(편집기 탭 포함)은 작업 트리 Blame 을 낡게 한다.
-    if(kind==='write') for(const p of this.p.obs.panels) p.blameStale();
+    if(kind==='write') for(const p of this.p.obs.panels) p.blame.blameStale();
     TIMERS.cancel(this.p._sigT);
     // 연속 신호가 status 를 연발하지 않게 하나로 합친다.
     this.p._sigT=TIMERS.after(GIT_SIGNAL_DEBOUNCE_MS,()=>{this.p._sigT=null;this.p.collect()},
@@ -332,7 +332,7 @@ class GitPoll extends GitPart {
     this.p._failStreak=0;
     // UX_BATCH9_SRS FR-GLR-2: 화면이 언제의 것인지를 남기는 유일한 자리다.
     this.p._lastObsAt=Date.now();
-    this.p._leaveMissing();
+    this.p.viewRoots._leaveMissing();
     this._applyCadence();
     this.p._status=d;
     // 응답에 signature 가 함께 오므로 그 값으로 갱신한다 — 직후 signature 폴링이
@@ -437,7 +437,7 @@ class GitPoll extends GitPart {
     // (FR-RMS-26) — 확정된 사실은 점증할 이유가 없다.
     if(code===GIT_RMS_CODE){
       this.p._failStreak=0;
-      this.p._enterMissing();
+      this.p.viewRoots._enterMissing();
       this._applyCadence();
       return;
     }

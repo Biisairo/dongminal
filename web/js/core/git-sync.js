@@ -98,7 +98,7 @@ class GitSync extends Controller {
       if(!o.pollOkAny()) continue;
       o._gitMark=a.mark||'';
       // REPO_FIX 05 F-5.2: 작업 트리가 바뀌었다 — 작업 트리 Blame 도 다시 받는다.
-      for(const q of o.panels) q.blameStale();
+      for(const q of o.panels) q.blame.blameStale();
       p.collect();
     }
   }

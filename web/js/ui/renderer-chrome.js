@@ -346,7 +346,7 @@ Object.assign(Renderer.prototype, {
       // FR-RTU-21·22: 나머지 여섯으로 가는 진입점. **Changes 탭에만** 둔다 —
       // Explorer 에서는 git 의 자리가 아니고, 파일 작업 중에 보일 이유가 없다.
       kids.push(this._rSideActions(key,app.edRootOf(s),slot));
-      const view=p.elFor(REPO_SIDE_CHANGES);
+      const view=p.viewRoots.elFor(REPO_SIDE_CHANGES);
       view.classList.add('vis');
       // FR-GRF-15: `_place` 는 이미 그 자리에 있으면 손대지 않는다. `appendChild`
       // 로 다시 붙이면 같은 부모라도 떼었다 붙이는 것이다.

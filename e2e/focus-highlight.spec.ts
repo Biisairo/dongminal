@@ -45,7 +45,7 @@ const go = (page: Page, tid: string) => page.evaluate((id) => {
 /** Changes 의 행 하나를 사용자가 고르듯 고른다. */
 const pickChange = (page: Page, rel: string, mods: any = undefined) => page.evaluate(([r, m]) => {
   const p = (window as any).app.gitPanel;
-  const e = p._fileList().find((x: any) => x.path === r);
+  const e = p.diffPane._fileList().find((x: any) => x.path === r);
   p._select(e.group, e, m);
 }, [rel, mods] as const);
 
@@ -109,7 +109,7 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
     await page.evaluate((id) => {
       const a = (window as any).app;
       const p = [...a.testing.gitPanels.values()].find((x: any) => x.diffTabId === id);
-      p._diffMove(1);
+      p.diffPane._diffMove(1);
     }, diff);
     await expect.poll(async () => (await state(page)).set).toEqual([]);
     await expect.poll(async () => (await state(page)).changes).not.toEqual(['tracked.txt']);

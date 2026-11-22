@@ -55,7 +55,7 @@ class SoftReload extends Controller {
       this._softStep('gitRepos',()=>this.app.gitReposRefresh&&this.app.gitReposRefresh());
       this._softStep('gitPanel',()=>{
         const p=this.app.gitPanel;
-        if(p&&typeof p.refresh==='function') p.refresh();
+        if(p&&typeof p.viewReload.refresh==='function') p.viewReload.refresh();
       });
       // WORKBENCH_REVIEW_SRS FR-WBR-95: 살아 있는 트리 뷰는 `_edTrees` 에 있다.
       //

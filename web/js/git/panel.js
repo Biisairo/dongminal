@@ -100,56 +100,23 @@ class GitPanel {
   // 머리 골격은 패널 인스턴스 없이도 필요하다 (History). 주인은 `GitChanges` 다.
   static headHTML(opts){ return GitChanges.headHTML(opts) }
 
-  // e2e 가 툴바의 자리를 읽는다 (FR-FEP-5). 주인은 `GitHunks` 다.
-  get _hunkBarEd(){ return this.hunks._hunkBarEd }
-  get _hunkBarPos(){ return this.hunks._hunkBarPos }
   // e2e 가 보기 취향을 바꿔 넣는다 (FR-FEP-5). 주인은 `GitChanges` 다.
   get _fileView(){ return this.changes._fileView } set _fileView(v){ this.changes._fileView=v }
   // 브랜치 메뉴의 짝 판정(branches-ops.js)이 읽는다 (FR-FEP-5). 주인은 `GitViews` 다.
   get _knownRefs(){ return this.views._knownRefs }
 
   // ── 부품 위임자 (FR-FEP-4) — 패널 바깥·다른 파일이 부르는 이름 ──
-  openBlame(target){ return this.blame.openBlame(target) }
-  blameStale(){ return this.blame.blameStale() }
-  _paintBlame(el){ return this.blame._paintBlame(el) }
-  _paintHunks(el,f){ return this.hunks._paintHunks(el,f) }
-  _hunkText(){ return this.hunks._hunkText() }
-  _hunkNote(el,text){ return this.hunks._hunkNote(el,text) }
-  _hunkBarWire(ed){ return this.hunks._hunkBarWire(ed) }
-  _hunkBarDispose(){ return this.hunks._hunkBarDispose() }
-  _hunkBarHide(){ return this.hunks._hunkBarHide() }
-  _hunkBarPaint(){ return this.hunks._hunkBarPaint() }
-  _hunkAct(kind){ return this.hunks._hunkAct(kind) }
-  _diffChanged(){ return this.hunks._diffChanged() }
-  _renderDiff(el){ return this.diffPane._renderDiff(el) }
-  _diffInvalidate(){ return this.diffPane._diffInvalidate() }
-  _fileList(){ return this.diffPane._fileList() }
-  _diffIndex(list){ return this.diffPane._diffIndex(list) }
-  _diffMove(delta){ return this.diffPane._diffMove(delta) }
-  reloadDiff(user){ return this.diffPane.reloadDiff(user) }
-  _destroyViews(){ return this.diffPane._destroyViews() }
-  diffTabApply(dt){ return this.diffPane.diffTabApply(dt) }
-  diffViewKeep(){ return this.diffPane.diffViewKeep() }
-  diffViewRestore(){ return this.diffPane.diffViewRestore() }
-  diffTabViewState(){ return this.diffPane.diffTabViewState() }
-  diffTabViewApply(vs){ return this.diffPane.diffTabViewApply(vs) }
   _foldPref(){ return this.poll._foldPref() }
   _setFold(on){ return this.poll._setFold(on) }
   absPath(target){ return this.poll.absPath(target) }
   repoTop(){ return this.poll.repoTop() }
   openFileDiff(target){ return this.poll.openFileDiff(target) }
   copyText(text){ return this.poll.copyText(text) }
-  refresh(){ return this.viewReload.refresh() }
-  _reloadViews(withConsole){ return this.viewReload._reloadViews(withConsole) }
-  _staleTake(key,before){ return this.viewReload._staleTake(key,before) }
-  _inRefsRound(fn){ return this.viewReload._inRefsRound(fn) }
-  _reloadStaleViews(sig){ return this.viewReload._reloadStaleViews(sig) }
   init(){ return this.poll.init() }
   signal(kind){ return this.poll.signal(kind) }
   _pollOk(){ return this.poll._pollOk() }
   _cadence(st){ return this.poll._cadence(st) }
   _applyCadence(){ return this.poll._applyCadence() }
-  _watchdog(){ return this.watchdog.run() }
   _reschedule(){ return this.poll._reschedule() }
   _stop(){ return this.poll._stop() }
   collect(){ return this.poll.collect() }
@@ -255,17 +222,6 @@ class GitPanel {
   tagDeleteRemote(name){ return this.views.tagDeleteRemote(name) }
   tagPush(name){ return this.views.tagPush(name) }
   tagPushAll(){ return this.views.tagPushAll() }
-  elFor(view){ return this.viewRoots.elFor(view) }
-  viewDirty(view,closing){ return this.viewRoots.viewDirty(view,closing) }
-  viewSave(view){ return this.viewRoots.viewSave(view) }
-  dropView(view){ return this.viewRoots.dropView(view) }
-  _render(view){ return this.viewRoots._render(view) }
-  _paintStaleIn(el){ return this.viewRoots._paintStaleIn(el) }
-  paintStale(){ return this.viewRoots.paintStale() }
-  _enterMissing(){ return this.viewRoots._enterMissing() }
-  _enterMissingView(){ return this.viewRoots._enterMissingView() }
-  _leaveMissing(){ return this.viewRoots._leaveMissing() }
-  _paintAllViews(){ return this.viewRoots._paintAllViews() }
 
   // ── 관측으로 가는 통로 (FR-SVS-30) ──
   //
@@ -383,11 +339,11 @@ class GitPanel {
     this._diffKey=null; this._diffPos=0; this.commitFile=null;
     this._hunkKey=null; this._hunks=null;
     // 앞 리포의 조각을 가리키던 툴바가 새 리포의 diff 위에 남아서는 안 된다.
-    this._hunkBarHide();
+    this.hunks._hunkBarHide();
     // blame 은 파일에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을 가리킨다.
     this._blameOn=false; this.blame.reset();
     if(this._diffView) this._diffView.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
-    for(const v of GIT_VIEWS) if(this._els.has(v.key)) this._render(v.key);
+    for(const v of GIT_VIEWS) if(this._els.has(v.key)) this.viewRoots._render(v.key);
   }
 
   // Git 창이 사라졌을 때 루트를 area 로 되돌린다. 인스턴스는 살아 있다 —
@@ -414,7 +370,7 @@ class GitPanel {
   }
 
   detach(){
-    this._stop(); GitMenu.close(); this._destroyViews();
+    this._stop(); GitMenu.close(); this.diffPane._destroyViews();
     // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
     // 남아 있어서는 안 된다 (FR-GIT-83).
     this._commit().unmount();

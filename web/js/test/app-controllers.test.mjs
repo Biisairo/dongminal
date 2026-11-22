@@ -1919,7 +1919,7 @@ test('TC-FEA-1(9k-3): 위임자는 컨트롤러 메서드를 같은 인자로 �
 });
 
 test('TC-FEA-1(9k-3): Diff 탭 패널은 App 의 등록부(gitPanels)에 서고 App 을 든다 — 미리보기 고정은 편집기 뿌리로 포커스를 넘긴다', () => {
-  const ctx = load9k3({ GitPanel: class { constructor(app, root) { this.app = app; this.root = root } _reschedule() {} diffTabApply() {} } });
+  const ctx = load9k3({ GitPanel: class { constructor(app, root) { this.app = app; this.root = root } _reschedule() {} diffPane = { diffTabApply() {} } } });
   const app = controllers(ctx, new ctx.App());
   const p = app.gitDiffPanelFor('/r', 0, { id: 't' });
   assert.equal(p.app, app);

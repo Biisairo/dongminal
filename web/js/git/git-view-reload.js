@@ -24,7 +24,7 @@ class GitViewReload extends GitPart {
   async refresh(){
     if(this.p._refreshing||!this.p.repo) return;
     this.p._refreshing=true;
-    for(const p of this.p.obs.panels) p.blameStale();
+    for(const p of this.p.obs.panels) p.blame.blameStale();
     /**
      * 플래그 해제는 `finally` 가 한다 (선례: `_wsApply` 의 `_wsApplyInflight`).
      *
@@ -47,7 +47,7 @@ class GitViewReload extends GitPart {
       // 바뀌며 보이게 됐다 (GIT_PUSH_OBSERVE_SRS §2.10).
       //
       // 위 `finally` 가 지키는 것은 **잠금**이고, 여기가 지키는 것은 **관측**이다.
-      try{ for(const p of this.p.obs.panels) jobs.push(...p._reloadViews(true)) }
+      try{ for(const p of this.p.obs.panels) jobs.push(...p.viewReload._reloadViews(true)) }
       catch(e){ console.error('[git] reloadViews',e) }
       await Promise.allSettled([this.p.collect(),...jobs]);
     }finally{
@@ -89,7 +89,7 @@ class GitViewReload extends GitPart {
       // FR-GLV-1 / D-8: 새로고침이 자동 경로보다 **적게** 하지 않는다. 오히려
       // 하나 더 한다 — `withConsole` 은 "사용자가 눌렀다" 의 표식이고, 그때는
       // 거부 표식(FR-GLV-6)도 넘어 다시 시도한다.
-      if(this.p._diffView) jobs.push(this.p.reloadDiff(!!withConsole));
+      if(this.p._diffView) jobs.push(this.p.diffPane.reloadDiff(!!withConsole));
       if(withConsole&&this.p._consoleView) jobs.push(this.p._consoleView.reload());
     });
     return jobs;

@@ -320,7 +320,7 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await openTab(page, 'changes');
     // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 새로고침 단추를 누르고 끝나기를 기다렸다 / 지금 같은 갱신 함수를
     // 부르고 그 끝(Promise)을 기다린다 / 이유 단추가 없다.
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
     // 탭을 다시 여는 것은 목록을 다시 받지 않는다 — 보이는 것은 새로고침의 결과다.
     await openTab(page, 'stash');

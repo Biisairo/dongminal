@@ -179,7 +179,7 @@ test('C7 (F-7.1): HEAD 가 바뀐 관측이 오면 preflight 를 다시 받는�
   const pf: string[] = [];
   page.on('request', (r) => { if (r.url().includes('/api/git/preflight')) pf.push(r.url()) });
   git(repo, 'checkout', '-q', '--detach');
-  await page.evaluate(() => (window as any).app.gitPanel.refresh());
+  await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
   await expect.poll(() => pf.length, { timeout: 10000 }).toBeGreaterThan(0);
   await expect.poll(() => page.evaluate(() => {
     const c = (window as any).app.gitPanel._commit();

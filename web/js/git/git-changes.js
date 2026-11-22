@@ -158,9 +158,9 @@ class GitChanges extends GitPart {
 
   _paint(){
     // 소실은 status 가 없는 상태다 — 아래의 칠하기는 전부 그것을 딛는다 (FR-RMS-19).
-    if(this.p._missing){this.p._paintAllViews();return}
+    if(this.p._missing){this.p.viewRoots._paintAllViews();return}
     const c=this.p._els.get('changes'); if(c) this._renderChanges(c);
-    const d=this.p._els.get('diff'); if(d) this.p._renderDiff(d);
+    const d=this.p._els.get('diff'); if(d) this.p.diffPane._renderDiff(d);
     // History 는 status 에서 미커밋 변경 행만 딛는다 (FR-GIT-127) — 목록 전체를
     // 폴링마다 다시 그리면 스크롤이 매초 흔들린다.
     if(this.p._historyView) this.p._historyView.paintStatus();
@@ -177,7 +177,7 @@ class GitChanges extends GitPart {
     if(this.p._submodulesView) this.p._submodulesView._paintHead();
     // FR-GRF-9: 낡음은 **모든 뷰**의 사실이다 — 위의 뷰별 칠하기와 달리
     // 무엇을 보고 있든 같은 것을 말한다.
-    this.p.paintStale();
+    this.p.viewRoots.paintStale();
   }
 
   /**
@@ -305,7 +305,7 @@ class GitChanges extends GitPart {
     const s=this.p._status&&this.p._status.status;
     this._paintHeadIn(el);
     // FR-GRF-9: 낡음 배너는 뷰 공통이다 — 여기서는 이 뷰의 것만 칠한다.
-    this.p._paintStaleIn(el);
+    this.p.viewRoots._paintStaleIn(el);
     this.p._paintOp(el,s);
     // FR-CMG-2: 워킹 그룹은 서버의 두 배열을 합친 것이다 — 판정은 한 자리다.
     for(const g of GIT_GROUPS) this.p._paintGroup(el,g,gitGroupEntries(s,g.key));

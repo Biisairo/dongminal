@@ -50,7 +50,7 @@ const files = (page: Page) => page.locator('#area .ed-side .git-file');
 // / 이유 목록은 자동 관측으로만 바뀐다. 갱신은 `refresh()` 를 부른다.
 const sideRefresh = (page: Page) =>
   page.locator('#area .ed-side .git-head-refresh');
-const refresh = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.refresh());
+const refresh = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
 // 파일 목록이 채워질 때까지 기다린다 — status 조회는 비동기다.
 async function waitFiles(page: Page, min = 1) {
@@ -456,8 +456,8 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
 
     await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
-      void p.refresh();
-      void p.refresh(); // 받는 동안 다시 부른다 — 막혀 있어야 한다
+      void p.viewReload.refresh();
+      void p.viewReload.refresh(); // 받는 동안 다시 부른다 — 막혀 있어야 한다
     });
     // **예외 (`TEST-16`): 나가지 않는 두 번째 요청을 잰다.** 위 라우트가 1.5초를
     // 붙들므로 그보다 넉넉히 두고 하나뿐인지 본다.

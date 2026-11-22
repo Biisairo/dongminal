@@ -51,14 +51,14 @@ async function enter(page: Page, request: APIRequestContext) {
 
 const blameRows = (page: Page) => page.locator('#area .ed-area .git-blame .git-blame-row');
 const openBlame = (page: Page, p: string) => page.evaluate((f: string) =>
-  (window as any).app.gitPanel.openBlame({ group: 'working', path: f, origPath: '' }), p);
+  (window as any).app.gitPanel.blame.openBlame({ group: 'working', path: f, origPath: '' }), p);
 
 test('F-5.2: 작업 트리 Blame 은 새로고침 때 다시 받는다', async ({ page, request }) => {
   await enter(page, request);
   await openBlame(page, 'a.txt');
   await expect(blameRows(page)).toHaveCount(2, { timeout: 15000 });
   fs.appendFileSync(j(REPO, 'a.txt'), 'three\n');
-  await page.evaluate(() => (window as any).app.gitPanel.refresh());
+  await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
   await expect(blameRows(page)).toHaveCount(3, { timeout: 10000 });
 });
 

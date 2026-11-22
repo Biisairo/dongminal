@@ -141,7 +141,7 @@ class RepoWinController extends Controller {
       this.app.gitPanels.set(key, p);
       p._reschedule();
     }
-    p.diffTabApply(tab.diffTarget || null);
+    p.diffPane.diffTabApply(tab.diffTarget || null);
     return p;
   }
 

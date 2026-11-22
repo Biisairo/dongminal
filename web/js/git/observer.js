@@ -105,13 +105,13 @@ class GitObserver {
 
   // FR-SVS-32: 관측이 갱신되면 살아 있는 **모든** 패널이 칠한다.
   paintAll(){ for(const p of this.panels) p._paint() }
-  paintAllViews(){ for(const p of this.panels) p._paintAllViews() }
-  reloadViewsAll(){ for(const p of this.panels) p._reloadViews() }
-  reloadStaleViewsAll(sig){ for(const p of this.panels) p._reloadStaleViews(sig) }
+  paintAllViews(){ for(const p of this.panels) p.viewRoots._paintAllViews() }
+  reloadViewsAll(){ for(const p of this.panels) p.viewReload._reloadViews() }
+  reloadStaleViewsAll(sig){ for(const p of this.panels) p.viewReload._reloadStaleViews(sig) }
   // UX_BATCH6_SRS FR-GLV-1: 열려 있는 Diff 는 **관측 회차마다** 다시 받는다.
   // `_viewFp` 에 업히지 않는 이유는 그 근거가 작업 트리의 **내용**을 보지 않기
   // 때문이다 (SRS §2.4) — 파일이 또 고쳐져도 fp 는 한 톨도 움직이지 않는다.
-  reloadDiffAll(){ for(const p of this.panels) p.reloadDiff() }
+  reloadDiffAll(){ for(const p of this.panels) p.diffPane.reloadDiff() }
   notifyStatusAll(){ for(const p of this.panels) if(p._remoteView) p._remoteView.notifyStatus() }
 
   // 주기 타이머의 종단. 패널이 하나도 없으면 폴 이유가 없다.

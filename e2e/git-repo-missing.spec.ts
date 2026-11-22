@@ -349,7 +349,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     await page.waitForTimeout(6000);
     failing = false;
     // 사용자의 계기는 백오프를 기다리지 않는다 (V-RMS-19) — 이것으로 성공 하나를 만든다.
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
     const c = counter(page, '/api/git/status');
     await page.waitForTimeout(3000);

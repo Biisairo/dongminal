@@ -272,7 +272,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     // 원격 행에서도 열려 있다. 나머지 셋은 종전 그대로다.
     git(repo, 'push', '-q', 'origin', 'no-upstream:feat');
     git(repo, 'fetch', '-q', 'origin');
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await expect(row(page, 'origin/feat')).toHaveCount(1, { timeout: 20000 });
     await openRowMenu(page, row(page, 'origin/feat'));
     for (const id of ['rename', 'push', 'upstream-set']) {

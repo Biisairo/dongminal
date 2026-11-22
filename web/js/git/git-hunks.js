@@ -385,7 +385,7 @@ class GitHunks extends GitPart {
     // 사유는 **그 대상의 것**이다. 아래에서 목록을 다시 받으려고 키를 비우므로,
     // 어느 대상의 사유인지 따로 들고 있어야 다시 받는 그 회차에 지워지지 않는다.
     this._hunkErrKey=res.ok?null:this.p._hunkKey;
-    this.p._diffInvalidate();
+    this.p.diffPane._diffInvalidate();
     if(res.ok){this.p._note=null; this.p.adopt(res.data); return}
     this.p.applyWriteFail(res);
   }

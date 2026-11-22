@@ -125,9 +125,34 @@ test('TC-FEP-1 부품은 GitPart·Component 하위이고 패널이 든다', () =
   }
 });
 
+/** 위임자를 걷은 부품 (REFACTOR3_FE_DELEG_SRS DL-3). 부르는 쪽이 `panel.<부품>.X` 를 부른다. */
+const WALKED = new Set(['blame', 'hunks', 'diffPane', 'watchdog', 'viewReload', 'viewRoots']);
+
+test('TC-DLG-1 걷은 부품의 이름은 부품 원형에 있고 패널 원형에는 없다', () => {
+  const { ctx, panel } = setup();
+  const proto = Object.getPrototypeOf(panel);
+  for (const s of PARTS) {
+    if (!WALKED.has(s.field)) continue;
+    for (const [name] of s.delegates) {
+      assert.equal(typeof Object.getPrototypeOf(panel[s.field])[name], 'function', `${s.field}.${name} 이 없다`);
+      assert.ok(!(name in proto), `위임자가 남았다: ${name}`);
+    }
+    for (const k of [...(s.exposed || []), ...(s.exposedRW || [])]) assert.ok(!(k in proto), `접근자가 남았다: ${k}`);
+    for (const [name] of s.statics || []) {
+      assert.equal(typeof ctx[s.cls][name], 'function', `${s.cls}.${name} 이 없다`);
+      assert.ok(!(name in ctx.GitPanel), `정적 위임자가 남았다: ${name}`);
+    }
+  }
+  if (WALKED.has('watchdog')) {
+    assert.equal(typeof ctx.GitWatchdog.prototype.run, 'function');
+    assert.ok(!('_watchdog' in proto), '위임자가 남았다: _watchdog');
+  }
+});
+
 test('TC-FEP-1 위임자는 부품 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
   const { panel } = setup();
   for (const s of PARTS) {
+    if (WALKED.has(s.field)) continue;
     for (const [name, args] of s.delegates) {
       const got = [];
       const ret = { from: name };
@@ -143,6 +168,7 @@ test('TC-FEP-1 위임자는 부품 메서드를 같은 인자로 부르고 값�
 test('TC-FEP-1 정적 위임자는 부품 클래스의 정적 메서드를 부른다', () => {
   const { ctx } = setup();
   for (const s of PARTS) {
+    if (WALKED.has(s.field)) continue;
     for (const [name, args] of s.statics || []) {
       assert.equal(typeof ctx.GitPanel[name], 'function', `GitPanel.${name} 이 없다`);
       assert.equal(ctx.GitPanel[name](...args), ctx[s.cls][name](...args));
@@ -173,8 +199,8 @@ test('TC-FEP-3 부품 소유 필드가 패널 원형·생성자에 없고 패널
   const proto = Object.getPrototypeOf(panel);
   const panelSrc = readdirSync(GIT).filter((f) => /^panel/.test(f)).map((f) => [f, readFileSync(join(GIT, f), 'utf8')]);
   for (const s of PARTS) {
-    const exposed = s.exposed || [];
-    const rw = s.exposedRW || [];
+    const exposed = WALKED.has(s.field) ? [] : s.exposed || [];
+    const rw = WALKED.has(s.field) ? [] : s.exposedRW || [];
     for (const k of s.owned) {
       assert.ok(!Object.hasOwn(panel, k), `${k} 가 패널 생성자에 있다`);
       for (const [f, src] of panelSrc) assert.ok(!src.includes('this.' + k), `${f} 가 ${k} 를 읽는다`);

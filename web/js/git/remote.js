@@ -373,7 +373,7 @@ class GitRemote {
     this.panel.afterJobSlots();
     // F-9.4: 결과를 모르면 status 뿐 아니라 목록들(stash·refs)도 다시 받는다 — 무엇이
     // 일어났는지는 관측이 말한다. 성공 후처리(undo·draft 비우기)는 하지 않는다.
-    if(gitJobOutcome(jb)==='unknown') this.panel._reloadViews();
+    if(gitJobOutcome(jb)==='unknown') this.panel.viewReload._reloadViews();
   }
 
   /**

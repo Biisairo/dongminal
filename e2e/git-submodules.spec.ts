@@ -304,7 +304,7 @@ test.describe('묶음 D — Submodules 탭', () => {
     // 뷰가 실제로 섰다 — 여기까지는 종전에도 맞았다.
     expect(await page.evaluate(() => !!(window as any).app.gitPanel._submodulesView)).toBe(true);
 
-    await page.evaluate(() => (window as any).app.gitPanel.dropView('submodules'));
+    await page.evaluate(() => (window as any).app.gitPanel.viewRoots.dropView('submodules'));
 
     // 언마운트되면 자기 DOM 을 놓는다. 종전에는 맵에 없어 그대로 남았다.
     expect(await page.evaluate(() => {

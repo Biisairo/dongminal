@@ -295,14 +295,14 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
 
     // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 단추를 눌러 disabled 가 풀리는지 봤다 / 지금 갱신 함수를 부르고
     // `_refreshing` 이 풀리는지 본다 / 이유 단추가 없다. 진입점(`refresh()`)은 남아 패널 열기·창 전환이 부른다.
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
     expect(await page.evaluate(() => (window as any).app.gitPanel._refreshing),
       '_refreshing 이 참으로 남았다').toBe(false);
 
     // 잠기지 않았음의 증명은 "두 번째 누름이 실제로 요청을 낸다" 다.
     const st = counter(page, '/api/git/status');
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await expect.poll(() => st.n, { timeout: 3000 }).toBeGreaterThanOrEqual(1);
   });
 

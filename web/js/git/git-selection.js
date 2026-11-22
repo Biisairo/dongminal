@@ -99,7 +99,7 @@ class GitSelection extends GitPart {
       // FR-CMG-3: 출신은 그룹이 아니라 항목이 안다 — 워킹 그룹에는 둘이 함께 있다.
       untracked:!!e.untracked,
     };
-    const i=this.p._diffIndex(this.p._fileList());
+    const i=this.p.diffPane._diffIndex(this.p.diffPane._fileList());
     if(i>=0) this.p._diffPos=i;
     this.p._paint();
     // UX_BATCH12 FR-FHL-4: Diff 탭이 포커스면 대상이 바뀐 것이다 — 하이라이트를 맞춘다.

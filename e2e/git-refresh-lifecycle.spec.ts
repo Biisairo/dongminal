@@ -117,7 +117,7 @@ test.describe('FR-GRF 묶음 B — git 이 돌아온다', () => {
       expect(locked.pollOk, '_gitMissing 인데 폴링 조건이 참이다').toBe(false);
 
       // 성공한 관측 하나. 종전에는 이 자리에 해제가 없어 페이지 수명 내내 잠겼다.
-      await page.evaluate(() => (window as any).app.gitPanel.refresh());
+      await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
       await expect.poll(
         () => page.evaluate(() => {
           const p = (window as any).app.gitPanel;

@@ -163,8 +163,8 @@ class GitDiffPane extends GitPart {
     // blame 모드에서는 hunk 조각이 뜻을 잃는다 — 부분 스테이징의 대상은 diff 다.
     // **force 를 넘기지 않는다** — 조각이 낡는 계기는 본문이 바뀐 것이고, 그것은
     // `onChanged` 가 `_hunkKey` 를 지워 알린다 (FR-GLV-1).
-    this.p._paintHunks(el,(cf||this.p._blameOn)?null:f);
-    this.p._paintBlame(el);
+    this.p.hunks._paintHunks(el,(cf||this.p._blameOn)?null:f);
+    this.p.blame._paintBlame(el);
   }
 
   // 쓰기 뒤 Diff 를 다시 받게 한다 — 조각 관측과 본문 둘 다 낡았다. hunk 쓰기와 파일
@@ -172,7 +172,7 @@ class GitDiffPane extends GitPart {
   _diffInvalidate(){
     this.p._hunkKey=null; this.p._hunks=null;
     // FR-DHB-44: 사라진 조각 위에 툴바가 남지 않는다 — 다시 hover 로만 뜬다.
-    this.p._hunkBarHide();
+    this.p.hunks._hunkBarHide();
     // Diff 편집기의 두 문서도 낡았다 — 같은 대상이라도 내용이 바뀌었다 (FR-GIT-71).
     this.p._diffKey=null;
   }
@@ -338,10 +338,10 @@ class GitDiffPane extends GitPart {
       onSaveIntent:()=>{if(this.p.diffTabId) this.app.gitDiffTabPin(this.p.diffTabId)},
       // DIFF_HUNK_BAR_SRS D-4 / FR-DHB-10: 에디터가 서면 hover 툴바를 배선하고
       // 사라지면 걷는다. `GitDiffView` 는 관측을 모르므로 그 배선을 여기서 한다.
-      onEditor:ed=>{ this.p._hunkBarWire(ed); if(ed) this._diffTabViewPending() },
+      onEditor:ed=>{ this.p.hunks._hunkBarWire(ed); if(ed) this._diffTabViewPending() },
       // UX_BATCH6_SRS FR-GLV-1: 본문이 실제로 바뀐 회차다. 조각 관측은 이
       // 본문에서 파생되므로 그때만 낡는다 — 폴링마다 다시 받으면 요청이 배로 는다.
-      onChanged:()=>this.p._diffChanged(),
+      onChanged:()=>this.p.hunks._diffChanged(),
     });
     return this.p._diffView;
   }
@@ -350,8 +350,8 @@ class GitDiffPane extends GitPart {
   _setDiffDirty(v){
     // §3A-3 hunk 와 dirty: 사유 줄과 툴바가 dirty 를 따른다.
     const el=this.p._els.get('diff');
-    if(el&&el.dataset.built==='1') this.p._hunkNote(el.querySelector('.git-diff-hunk-note'),this.p._hunkText());
-    this.p._hunkBarPaint();
+    if(el&&el.dataset.built==='1') this.p.hunks._hunkNote(el.querySelector('.git-diff-hunk-note'),this.p.hunks._hunkText());
+    this.p.hunks._hunkBarPaint();
     if(!this.p.root) return;
     if(this.p.diffTabId) this._diffTabEdited(v);
     else{
@@ -367,7 +367,7 @@ class GitDiffPane extends GitPart {
 
   _gitSaved(){
     this.p.signal('write');
-    this.p.blameStale();
+    this.p.blame.blameStale();
     // 탐색기의 색도 같은 사실을 딛는다 (FR-EDT-78).
     const tree=this.app.edActiveTree&&this.app.edActiveTree();
     if(tree&&tree.pollGit) tree.pollGit({now:true});
@@ -379,7 +379,7 @@ class GitDiffPane extends GitPart {
     // 리스너는 그 길에서 걷힌다 (FR-DHB-22). 여기서 한 번 더 부르는 것은 뷰가
     // 에디터를 세운 적 없는 경우의 몫이다 — 그때는 아무 일도 하지 않는다.
     this.p._diffView.destroy(); this.p._diffView=null;
-    this.p._hunkBarDispose();
+    this.p.hunks._hunkBarDispose();
     this.p._diffKey=null;
     this.p._hunkKey=null; this.p._hunks=null;
     // 골격이 버린 뷰의 DOM 을 들고 있다 — 다시 열릴 때 새 뷰로 세운다.

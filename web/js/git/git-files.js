@@ -329,7 +329,7 @@ class GitFiles extends GitPart {
       // 패널이므로(UX_BATCH12_SRS FR-RTB-7) 같은 저장소의 패널 전부를 본다.
       for(const p of this.p.obs.panels){
         const f=p._diffTarget();
-        if(f&&!p.commitFile&&items.some(i=>i.path===f.path)) p._diffInvalidate();
+        if(f&&!p.commitFile&&items.some(i=>i.path===f.path)) p.diffPane._diffInvalidate();
       }
       this.p.adopt(res.data);
       return;

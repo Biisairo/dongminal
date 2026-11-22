@@ -152,7 +152,7 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     // V6 (FR-GCC-10 개정): 새로고침이 오류 없이 돌고 **본문의 머리가 살아 있다** — 재는 것은 자리가 아니라 그 사실이다.
     // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 이전 사이드 단추를 눌렀다 / 지금 같은 갱신 함수를 부른다 / 이유 단추가 없다.
     await expect(sideRefresh(page)).toHaveCount(0);
-    await page.evaluate(() => (window as any).app.gitPanel.refresh());
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await expect(hist(page).locator('.git-head-branch')).toHaveText('main', { timeout: 10000 });
 
     // V5: 리포명 클릭 → 전환 메뉴
