@@ -8,12 +8,28 @@
 //! - map(`HashMap`·`BTreeMap`·`serde_json::Value` 객체)은 Go map 처럼 키 바이트 순으로 정렬된다.
 //! - `json.RawMessage` 는 [`RawMessage`] 다.
 //! - `serde_json::to_*` 로 쓰면 이 규칙이 적용되지 않는다. 출력은 늘 이 모듈로 만든다.
+//!
+//! 디코딩([`unmarshal`]·[`Decoder`])은 serde `Deserialize` 를 받는다. go1.27 의 v1 의미를 따른다.
+//! - 구조체에는 `#[serde(default)]` 를 단다. Go 는 없는 필드를 0 값으로 두고 오류를 내지 않는다.
+//! - 필드 이름은 정확히 같은 것이 먼저, 없으면 대소문자를 무시하고 맞춘다(`_`·`-` 는 구별한다).
+//!   알 수 없는 키는 무시한다. 원래 키가 필요하면 같은 입력을 `BTreeMap<String, RawMessage>` 로도 푼다.
+//! - 같은 필드의 키가 여럿이면 마지막 값이 이긴다. 객체끼리는 합치고, 뒤의 `null` 은 무시한다.
+//! - `null` 은 값을 바꾸지 않는다(0 값으로 남는다). `Option` 은 `None` 이 된다.
+//! - `serde_json::Value` 로 풀면 숫자는 Go `float64` 와 같은 값이 된다(±2^53 안의 정수는 i64 로 담는다).
+//! - 오류 문구는 go1.27.2 실측과 같다. 타입 이름은 Rust 타입에서 고른다: i64 → `int`, u64 → `uint`,
+//!   i32 → `int32`, f64 → `float64`, String → `string`, `[]byte` → `[]uint8`, 구조체는 serde 이름
+//!   (Go 와 같게 하려면 `#[serde(rename = "pkg.Type")]`). slice·map 의 원소 타입은 알 수 없어
+//!   `slice`·`map` 으로 쓴다(Go 는 `[]int`·`map[string]int`).
+//! - Go 는 타입 오류가 나도 나머지 필드를 채운 값을 남기지만, 여기서는 값을 돌려주지 않는다.
 
+mod decode;
 mod encode;
+mod parse;
 mod scanner;
 
 use std::fmt;
 
+pub use decode::{Decoder, unmarshal};
 pub use encode::{Encoder, append_string, marshal, marshal_indent};
 pub use scanner::{SyntaxError, compact, indent, valid};
 
@@ -253,5 +269,9 @@ impl serde::de::Visitor<'_> for BytesVisitor {
     }
 }
 
+#[cfg(test)]
+mod decode_tests;
+#[cfg(test)]
+mod parse_tests;
 #[cfg(test)]
 mod tests;

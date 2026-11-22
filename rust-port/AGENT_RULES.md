@@ -24,7 +24,7 @@
    - `~/.dongminal` 의 파일·소켓에 접근하기(읽기 포함)
    - 60147 미만의 포트 쓰기
    - `pkill`, `killall`, 이름으로 프로세스 찾아 죽이기. 내가 띄운 PID 만 끈다
-   - 특권 헬퍼, launchd·systemd 서비스 설치·제거·호출
+   - 특권 헬퍼, launchd·systemd 서비스 설치·제거·호출. 예외: 격리 데몬이 스스로 보내는 읽기 전용 `info`(공개키 조회)는 허용한다. `sign`·`kill`·`kick` 은 금지다 (SRS C-RSP-1)
    - 이 탭에 원래 있던 `dmctl`(PATH 의 `~/.dongminal/bin/dmctl`)로 포팅 결과를 시험하기. `dmctl` 은 조정자와 메시지를 주고받을 때만 쓴다
 4. e2e 는 이슈 8.1 만 돌린다. 다른 이슈에서 `npx playwright test` 를 돌리지 않는다.
 
@@ -50,6 +50,7 @@
 - 내 crate 의 공개 API 는 다른 crate 가 쓰기 좋게 정한다. 진행 기록에 공개 API 를 요약해 다음 이슈가 참고하게 한다.
 - 의존 crate 는 `rust/DEPENDENCIES.md` 의 허용 목록에서만 고른다. `{ workspace = true }` 로 참조한다.
 - Go 의 JSON·시간·flag·`strconv.Quote`·`%v` 같은 출력 규칙은 `dm-gocompat` 을 쓴다. 기준선은 go1.27.2(JSONv2 기본)이므로 Go 소스·v1 문서를 보고 JSON 출력이나 JSON 오류 문구를 짐작하지 않는다. 필요한 기능이 아직 없으면 조정자에게 알린다. 내 crate 에 따로 구현하지 않는다.
+- JSON 은 `dm_gocompat::json` 으로만 다룬다. 출력은 `marshal`·`marshal_indent`·`Encoder`(serde_json::to_* 금지), 입력은 `unmarshal`·`Decoder`. 구조체에는 `#[serde(default)]` 를 단다(Go 는 없는 필드를 0 값으로 둔다). nil 이 될 수 있는 slice·map·포인터는 `Option` 으로 둔다. 타입 오류 문구를 Go 와 맞추려면 구조체에 `#[serde(rename = "pkg.Type")]` 를 단다. 알려진 차이(slice·map 원소 타입 이름, 타입 오류 때 부분 채움)가 관측 표면에 드러나는 자리를 만나면 조정자에게 알린다.
 - `unsafe` 는 `dm-shared-platform`, PTY·fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈, `dm-gocompat` 의 Windows `FormatMessageW` 호출에서만 쓰고, `// SAFETY:` 주석을 단다.
 - 상수(타임아웃, 재시도 간격, 파일 이름, 경로)는 Go 의 값과 같게 하고, 상수로 이름을 붙인다.
 - 패닉으로 흐름을 제어하지 않는다. `unwrap()`·`expect()` 는 테스트와, 불변 조건이 증명되는 곳에만 쓴다.
