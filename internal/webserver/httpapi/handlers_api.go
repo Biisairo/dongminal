@@ -52,6 +52,9 @@ func (s *Server) getStats() map[string]interface{} {
 	}
 	if snap.MemValid {
 		out["memUsed"] = snap.Mem.Used
+	}
+	// 총량만 읽힌 부분 성공도 낸다 (ATTIC_FIX_SRS FR-ATF-44).
+	if snap.MemValid || snap.MemTotalValid {
 		out["memTotal"] = snap.Mem.Total
 	}
 	if snap.DiskValid {

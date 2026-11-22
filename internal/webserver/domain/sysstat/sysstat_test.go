@@ -257,6 +257,30 @@ func TestSampler_UnsupportedIsNotFatal(t *testing.T) {
 	}
 }
 
+// ATTIC_FIX_SRS TC-ATF-44: 메모리 읽기의 부분 성공(총량과 오류)도 총량을 살린다 — mach 가 없는
+// CGO_ENABLED=0 darwin 의 reader 가 이렇게 답한다 (AT-SYS-1).
+func TestSampler_KeepsMemTotalOnPartialSuccess(t *testing.T) {
+	const total = 16 << 30
+	r := &fakeReader{mem: MemInfo{Total: total}, memErr: ErrUnsupported}
+	s := NewSampler(r, time.Hour, "/")
+	s.sample()
+
+	snap := s.Snapshot()
+	if !snap.MemTotalValid || snap.Mem.Total != total {
+		t.Fatalf("총량을 버렸다: %+v", snap)
+	}
+	if snap.MemValid {
+		t.Error("사용량을 읽지 못했는데 메모리 전체가 유효로 표시됐다")
+	}
+
+	// 총량도 없는 실패는 무효로 남는다.
+	s2 := NewSampler(&fakeReader{memErr: ErrUnsupported}, time.Hour, "/")
+	s2.sample()
+	if snap := s2.Snapshot(); snap.MemTotalValid || snap.MemValid {
+		t.Errorf("총량 없는 실패가 유효로 표시됐다: %+v", snap)
+	}
+}
+
 // FR-STAT-11: 커널 호출은 주기당 1회다 — Snapshot 을 몇 번 읽든 늘지 않는다.
 func TestSampler_SnapshotDoesNotReadKernel(t *testing.T) {
 	r := &fakeReader{ticks: []CPUTicks{{Idle: 1}, {Idle: 2}}}

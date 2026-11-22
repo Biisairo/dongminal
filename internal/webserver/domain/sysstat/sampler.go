@@ -19,6 +19,9 @@ type Snapshot struct {
 
 	Mem      MemInfo
 	MemValid bool
+	// MemTotalValid 는 Mem.Total 만이라도 유효한가다. MemValid 이면 늘 참이다 — 사용량을 읽지
+	// 못한 부분 성공(mach 가 없는 darwin)에서 총량만 낸다 (ATTIC_FIX_SRS FR-ATF-44).
+	MemTotalValid bool
 
 	DiskPct   float64
 	DiskValid bool
@@ -116,9 +119,15 @@ func (s *Sampler) sample() {
 		s.prev = cur
 		s.hasPrev = true
 	}
-	if memErr == nil {
+	// 이전: 오류와 함께 온 총량을 버렸다 — CGO_ENABLED=0 darwin 에서 memTotal 이 없었다.
+	switch {
+	case memErr == nil:
 		s.snap.Mem = mem
 		s.snap.MemValid = true
+		s.snap.MemTotalValid = true
+	case mem.Total > 0:
+		s.snap.Mem.Total = mem.Total
+		s.snap.MemTotalValid = true
 	}
 	if bootErr == nil {
 		s.snap.BootTime = boot

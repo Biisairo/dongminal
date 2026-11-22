@@ -117,6 +117,20 @@ func TestStats_ColdStartHasNoCPU(t *testing.T) {
 	}
 }
 
+// ATTIC_FIX_SRS TC-ATF-44: 총량만 유효하면 memTotal 만 낸다 (AT-SYS-1).
+func TestStats_MemTotalOnly(t *testing.T) {
+	ts, _ := statsServer(t, sysstat.Snapshot{
+		Mem: sysstat.MemInfo{Total: 100}, MemTotalValid: true,
+	})
+	body := fetchStats(t, ts)
+	if got, ok := body["memTotal"].(float64); !ok || got != 100 {
+		t.Errorf("memTotal=%v want 100", body["memTotal"])
+	}
+	if _, ok := body["memUsed"]; ok {
+		t.Errorf("읽지 못한 memUsed 가 응답에 있다: %v", body["memUsed"])
+	}
+}
+
 // Stats 미주입 wiring 도 500 이 아니어야 한다.
 func TestStats_NilProviderStillResponds(t *testing.T) {
 	srv, err := New(Config{DataDir: t.TempDir()}, Deps{})
