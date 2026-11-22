@@ -93,33 +93,10 @@ fn open_pty(cols: u16, rows: u16) -> io::Result<(OwnedFd, OwnedFd)> {
     Ok((m, s))
 }
 
-/// Go `exec.LookPath` — 구분자가 없으면 이 프로세스의 PATH 로 찾는다.
-fn look_path(file: &str) -> Result<String, String> {
-    let not_found = || format!("exec: {}: executable file not found in $PATH", quote(file));
-    let path = std::env::var_os("PATH").unwrap_or_default();
-    for dir in std::env::split_paths(&path) {
-        let dir = if dir.as_os_str().is_empty() {
-            std::path::PathBuf::from(".")
-        } else {
-            dir
-        };
-        let cand = dir.join(file);
-        let Ok(m) = std::fs::metadata(&cand) else {
-            continue;
-        };
-        if m.is_dir() || crate::atomic::file_perm(&m) & 0o111 == 0 {
-            continue;
-        }
-        let s = cand.to_string_lossy().into_owned();
-        if !cand.is_absolute() {
-            return Err(format!(
-                "exec: {}: cannot run executable found relative to current directory",
-                quote(file)
-            ));
-        }
-        return Ok(s);
-    }
-    Err(not_found())
+/// 구분자가 없는 이름을 이 프로세스의 PATH 로 찾는다 (Go `exec.Command` 의 LookPath).
+fn resolve(file: &str) -> Result<String, String> {
+    crate::look_path(file)
+        .ok_or_else(|| format!("exec: {}: executable file not found in $PATH", quote(file)))
 }
 
 /// 자식에서 쓸 argv·envp. fork 전에 모두 만들어 둔다(자식에서는 할당하지 않는다).
@@ -190,7 +167,7 @@ impl Pty for PosixPty {
         let prog = if spec.path.contains('/') {
             spec.path.clone()
         } else {
-            look_path(&spec.path).map_err(|m| wrap(io::Error::new(io::ErrorKind::NotFound, m)))?
+            resolve(&spec.path).map_err(|m| wrap(io::Error::new(io::ErrorKind::NotFound, m)))?
         };
         if spec.args.is_empty() {
             return Err(wrap(io::Error::new(
