@@ -655,3 +655,40 @@ func TestRedialOutcomes(t *testing.T) {
 		t.Fatal("주소 없는 간선에 걸었다")
 	}
 }
+
+// TC-ATF-50 (FR-ATF-50): Notify 의 걸기와 자동 재연결은 같은 dialState 를 거쳐 겹치지 않는다.
+func TestNotifySharesDialState(t *testing.T) {
+	for _, notifyFirst := range []bool{true, false} {
+		a := newTestMesh(t, "a")
+		peer := edge.Edge{Name: "b", Addr: "127.0.0.1", Port: 1, Fingerprint: strings.Repeat("cd", 32)}
+		a.mu.Lock()
+		a.edges = []edge.Edge{peer}
+		a.mu.Unlock()
+		var dials atomic.Int64
+		release := make(chan struct{})
+		a.opts.Dial = func(context.Context, edge.Target) (net.Conn, error) {
+			dials.Add(1)
+			<-release
+			return nil, errors.New("refused")
+		}
+		notified := make(chan error, 1)
+		notify := func() { go func() { notified <- a.Notify(context.Background(), peer.Fingerprint) }() }
+		if notifyFirst {
+			notify()
+			eventually(t, "Notify 가 건다", func() bool { return dials.Load() == 1 })
+			a.dialEdges(context.Background(), time.Now())
+		} else {
+			a.dialEdges(context.Background(), time.Now())
+			eventually(t, "다시 걸기가 건다", func() bool { return dials.Load() == 1 })
+			notify()
+		}
+		never(t, "두 번째 걸기", func() bool { return dials.Load() > 1 })
+		close(release)
+		if err := <-notified; !errors.Is(err, ErrUnreachable) {
+			t.Fatalf("notifyFirst=%v: Notify = %v", notifyFirst, err)
+		}
+		if dials.Load() != 1 {
+			t.Fatalf("notifyFirst=%v: 걸기 %d 번", notifyFirst, dials.Load())
+		}
+	}
+}
