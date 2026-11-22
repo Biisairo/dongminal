@@ -39,8 +39,8 @@ export const CONSTANTS = ['core/constants.js', 'core/constants-term.js', 'core/c
  * (`term-socket.js`)과 입력·IME(`term-input.js`)가 `term-pane.js` 에서 갈라졌다. 복사·텍스트 시트
  * (`term-clip.js`)와 터치 스크롤(`term-touch.js`)은 `term-input.js` 에서 갈라졌다 (UX_BATCH11_SRS).
  *
- * REFACTOR3_FE_REST5_SRS D-FR5-9: 부품 넷(`term-{transfer,held,output,fit}.js`)이 `term-pane.js` 에서 갈라졌다. 파일 끝의
- * 위임자 표(`Controller.delegate`)가 원형에 얹으므로 기반 클래스 둘을 앞에 싣는다.
+ * REFACTOR3_FE_REST5_SRS D-FR5-9: 부품 넷(`term-{transfer,held,output,fit}.js`)이 `term-pane.js` 에서 갈라졌다.
+ * 부품이 `Controller`·`Component` 를 상속하므로 기반 클래스 둘을 앞에 싣는다.
  */
 export const TERM_PANE = ['core/base/component.js', 'core/base/controller.js', 'ui/term-socket.js', 'ui/term-pane.js',
   'ui/term-transfer.js', 'ui/term-held.js', 'ui/term-output.js', 'ui/term-fit.js', 'ui/term-input.js', 'ui/term-clip.js',

@@ -246,8 +246,8 @@ const ROUTES = [
 const JS_ROOT = new URL('..', import.meta.url).pathname;
 
 /**
- * App 원형에 메서드를 얹는 파일들(`Object.assign(App.prototype`)에서 정의된 이름과 위임자 표(`Controller.delegate(App`,
- * 섹션 위임자 표 `SETTINGS_SECTION_DELEGATES` — REFACTOR3_FE_APPCTL_SRS 9a)의 이름. 섹션 파일은 클래스라 빠진다.
+ * App 원형에 있는 이름: `core/app.js` 의 클래스 본문 메서드와, App 원형에 메서드를 얹는 파일(`Object.assign(App.prototype`)의
+ * 이름. 위임자 표는 REFACTOR3_FE_DELEG_SRS 로 없어졌다(되살아남은 `check-delegates` 가 막는다).
  */
 function appMixinNames() {
   const out = new Set();
@@ -257,12 +257,7 @@ function appMixinNames() {
       if (statSync(f).isDirectory()) { if (n !== 'test' && n !== 'vendor') walk(f); continue }
       if (!n.endsWith('.js')) continue;
       const src = readFileSync(f, 'utf8');
-      for (const t of src.matchAll(/Controller\.delegate\(App,[\s\S]*?\[([\s\S]*?)\]\);/g)) {
-        for (const m of t[1].matchAll(/'([^']+)'/g)) out.add(m[1]);
-      }
-      const sec = src.match(/const SETTINGS_SECTION_DELEGATES=\{([\s\S]*?)\};/);
-      if (sec) for (const m of sec[1].matchAll(/'([^']+)'/g)) out.add(m[1]);
-      if (!src.includes('Object.assign(App.prototype')) continue;
+      if (f !== join(JS_ROOT, 'core/app.js') && !src.includes('Object.assign(App.prototype')) continue;
       for (const m of src.matchAll(/^ {2}(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/gm)) out.add(m[1]);
     }
   };

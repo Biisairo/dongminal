@@ -157,14 +157,9 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 �
     for (const m of src.matchAll(/\bthis\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) names.add(m[1]);
     for (const m of src.matchAll(/^ {2}([A-Za-z_$][\w$]*)\s*:\s*\{/gm)) names.add(m[1]);   // `Object.defineProperties` 접근자
   }
-  // 위임자 표(`Controller.delegate(App, …, [...])`·섹션 위임자 표)의 이름 — 컨트롤러 파일마다 끝에 있다.
+  // 컨트롤러가 App 에 쓰는 필드 — 컨트롤러 파일마다 본다(위임자 표는 REFACTOR3_FE_DELEG_SRS 로 없어졌다).
   for (const f of readdirSync(join(root, 'core')).filter((n) => n.endsWith('.js')).map((n) => 'core/' + n)) {
     const src = read(f);
-    for (const t of src.matchAll(/Controller\.delegate\(App,[\s\S]*?\[([\s\S]*?)\]\);/g)) {
-      for (const m of t[1].matchAll(/'([^']+)'/g)) names.add(m[1]);
-    }
-    const sec = src.match(/const SETTINGS_SECTION_DELEGATES=\{([\s\S]*?)\};/);
-    if (sec) for (const m of sec[1].matchAll(/'([^']+)'/g)) names.add(m[1]);
     for (const m of src.matchAll(/\bthis\.app\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) names.add(m[1]);   // 컨트롤러가 App 에 쓰는 필드
   }
   // REFACTOR3_FE_DELEG_SRS FR-DLG-4: 위임자였던 이름은 앱에서 주인까지의 점 경로로 적힌다 — 마지막 이름이 그 주인 클래스의
