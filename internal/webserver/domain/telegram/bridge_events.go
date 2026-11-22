@@ -154,9 +154,34 @@ func (b *Bridge) clearButtons(c Config, toolID string) {
 	ids := b.buttons[toolID]
 	delete(b.buttons, toolID)
 	b.mu.Unlock()
+	failed := make([]bool, len(ids))
 	fanout.Each(context.Background(), clearButtonsParallel, len(ids), func(i int) {
-		b.dropButton(c, c.UserID, ids[i])
+		failed[i] = b.dropButton(c, c.UserID, ids[i]) != nil
 	})
+	var left []int64
+	for i, id := range ids {
+		if failed[i] {
+			left = append(left, id)
+		}
+	}
+	b.keepButtons(toolID, left)
+}
+
+// keepButtons 는 걷지 못한 메시지를 목록 앞(오래된 쪽)에 되돌린다 — 다음 해제 때 다시 걷는다
+// (ATTIC_FIX_SRS FR-ATF-41).
+//
+//	이전: 걷기 실패도 목록에서 빠져 그 버튼은 다시 걷지 않았다
+func (b *Bridge) keepButtons(toolID string, ids []int64) {
+	if len(ids) == 0 {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	ids = append(ids, b.buttons[toolID]...)
+	if len(ids) > maxButtonsPerTab {
+		ids = ids[len(ids)-maxButtonsPerTab:]
+	}
+	b.buttons[toolID] = ids
 }
 
 // forgetButton 은 이미 걷은 메시지를 목록에서 뺀다.
@@ -171,8 +196,8 @@ func (b *Bridge) forgetButton(toolID string, msgID int64) {
 	b.buttons[toolID] = ids
 }
 
-func (b *Bridge) dropButton(c Config, chatID, msgID int64) {
-	_ = b.call(c, "editMessageReplyMarkup", map[string]any{"chat_id": chatID, "message_id": msgID,
+func (b *Bridge) dropButton(c Config, chatID, msgID int64) error {
+	return b.call(c, "editMessageReplyMarkup", map[string]any{"chat_id": chatID, "message_id": msgID,
 		"reply_markup": map[string]any{"inline_keyboard": [][]any{}}}, nil)
 }
 

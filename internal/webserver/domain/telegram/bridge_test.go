@@ -35,6 +35,8 @@ type apiCall struct {
 type fakeTG struct {
 	mu    sync.Mutex
 	calls []apiCall
+	// failEdits 는 버튼 걷기를 거절할 메시지 id 다.
+	failEdits map[float64]bool
 }
 
 func (f *fakeTG) handler(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +47,13 @@ func (f *fakeTG) handler(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	f.calls = append(f.calls, apiCall{parts[len(parts)-1], body})
 	id := len(f.calls)
+	refuse := parts[len(parts)-1] == "editMessageReplyMarkup" && f.failEdits[body["message_id"].(float64)]
 	f.mu.Unlock()
+	if refuse {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = io.WriteString(w, `{"ok":false,"error_code":429,"description":"Too Many Requests"}`)
+		return
+	}
 	if parts[len(parts)-1] == "sendMessage" {
 		_, _ = io.WriteString(w, `{"ok":true,"result":{"message_id":`+strconv.Itoa(id)+`}}`)
 		return

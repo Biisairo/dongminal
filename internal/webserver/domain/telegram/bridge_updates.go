@@ -65,8 +65,8 @@ func (b *Bridge) onCallback(c Config, q CallbackQuery) {
 	}
 	b.host.Attend(toolID, false)
 	b.answer(c, q.ID, "읽음")
-	if q.Message != nil {
-		b.dropButton(c, q.Message.Chat.ID, q.Message.MessageID)
+	// 걷지 못하면 목록에 남겨 해제 때 다시 걷는다 (ATTIC_FIX_SRS FR-ATF-41).
+	if q.Message != nil && b.dropButton(c, q.Message.Chat.ID, q.Message.MessageID) == nil {
 		b.forgetButton(toolID, q.Message.MessageID)
 	}
 }
