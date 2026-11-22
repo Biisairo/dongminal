@@ -73,7 +73,7 @@ Go 구현과 같다. 기능 목록의 근거는 `architecture.md` 의 패키지 
   - 격리되지 않은 환경에서 Go·Rust 바이너리의 `start`·`stop`·`d`·`update`·`rollback`·`service`·`uninstall`·`migrate` 를 실행하기.
   - `~/.dongminal` 아래의 파일·소켓에 쓰거나 연결하기. 읽기도 하지 않는다.
   - 운영 서버의 포트나 1024~60146 범위의 포트를 잡기. 격리 실행은 60147 이상을 쓴다.
-  - 특권 헬퍼(`/Library/PrivilegedHelperTools/com.dongminal.helper`)나 launchd·systemd 서비스를 설치하거나, 제거하거나, 호출하기.
+  - 특권 헬퍼(`/Library/PrivilegedHelperTools/com.dongminal.helper`)나 launchd·systemd 서비스를 설치하거나, 제거하거나, 호출하기. 예외: 데몬이 부팅할 때와 30초마다 헬퍼 소켓(`/var/run/com.dongminal.helper.sock`)에 보내는 읽기 전용 `info`(공개키 조회)는 허용한다. 기준선 Go 데몬과 e2e 가 이미 하는 동작이고 헬퍼 상태를 바꾸지 않는다. `sign`·`kill`·`kick` 등 다른 요청은 금지한다.
   - `pkill`·`killall` 처럼 이름으로 프로세스를 죽이기. 프로세스를 끌 때는 자기가 띄운 PID 만 끈다.
 - **C-RSP-2 (기준선 고정)** 포팅의 기준은 커밋 `127ff7d9` 의 Go 코드다. 포팅 브랜치에서 Go 코드를 고치지 않는다. 다만 e2e 가 Rust 바이너리를 쓰게 하는 경로 수정(FR-RSP-31)만 예외로 한다.
 - **C-RSP-3 (의존성 보안)** 외부 crate 는 다음을 모두 만족해야 한다. 널리 쓰이고, 유지보수가 계속되며, RustSec 권고에 걸리지 않는다. 맞는 crate 가 없으면 직접 구현한다. 허용 목록은 `rust/DEPENDENCIES.md` 에 두고, 목록에 없는 crate 를 더하려면 그 문서를 먼저 고친다.

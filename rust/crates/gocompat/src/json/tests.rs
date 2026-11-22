@@ -224,6 +224,11 @@ fn valid_compact_indent_like_go() {
     for &s in inputs {
         let q = crate::strconv::quote_bytes(s);
         let want = golden_str(&g, &format!("valid_{q}"));
+        let got = match super::scanner::check_valid(s) {
+            Ok(()) => "ok".to_owned(),
+            Err(e) => e.to_string(),
+        };
+        assert_eq!(got, want, "input {q}");
         assert_eq!(valid(s), want == "ok", "input {q}");
         match g.get(&format!("compact_{q}")) {
             Some(want) => assert_eq!(&compact(s).expect("compact"), want, "compact {q}"),

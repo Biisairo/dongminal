@@ -1,4 +1,5 @@
-//! Go `encoding/json` scanner.go 의 상태 기계. 구문 오류 문구와 위치가 Go 와 같다.
+//! Go `encoding/json` v1 scanner.go 의 상태 기계. 검사를 통과한 입력의 compact·indent 서식에만 쓴다.
+//! 구문 오류는 [`super::parse`] 가 go1.27(JSONv2 기본) 문구로 낸다.
 
 use std::fmt;
 
@@ -411,19 +412,9 @@ impl Scanner {
     }
 }
 
-/// Go `checkValid`: 전체가 JSON 값 하나인지 본다.
+/// Go `checkValid`(go1.27 JSONv2 기본): 전체가 JSON 값 하나인지 보고, 아니면 Go 와 같은 문구의 오류를 낸다.
 pub(crate) fn check_valid(data: &[u8]) -> Result<(), SyntaxError> {
-    let mut scan = Scanner::new();
-    for &c in data {
-        scan.bytes += 1;
-        if scan.step(c) == Op::Error {
-            return Err(scan.take_err());
-        }
-    }
-    if scan.eof() == Op::Error {
-        return Err(scan.take_err());
-    }
-    Ok(())
+    super::parse::parse_document(data).map(|_| ())
 }
 
 /// Go `json.Valid`.
@@ -445,6 +436,7 @@ pub(crate) fn append_compact(
     src: &[u8],
     escape: bool,
 ) -> Result<(), SyntaxError> {
+    check_valid(src)?;
     let orig = dst.len();
     let mut scan = Scanner::new();
     let mut start = 0;
@@ -508,6 +500,7 @@ pub(crate) fn append_indent(
     prefix: &str,
     indent: &str,
 ) -> Result<(), SyntaxError> {
+    check_valid(src)?;
     let orig = dst.len();
     let mut scan = Scanner::new();
     let mut need_indent = false;
