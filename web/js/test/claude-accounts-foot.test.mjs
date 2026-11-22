@@ -11,7 +11,7 @@ const EN = {
   'usage.used': '{n}% used', 'usage.resets_in': 'Resets in {t}', 'usage.resets_soon': 'Resets soon',
   'usage.as_of': 'as of {t}', 'usage.dur.d': '{n}d', 'usage.dur.h': '{n}h', 'usage.dur.m': '{n}m',
   'usage.short.d': '{n}d', 'usage.short.h': '{n}h', 'usage.short.m': '{n}m',
-  'usage.sl.label': 'statusLine', 'usage.sl.five_hour': 'Session', 'usage.sl.seven_day': 'Week',
+  'usage.sl.label': 'statusLine', 'usage.sl.five_hour': 'Session', 'usage.sl.seven_day': 'Week', 'usage.rail.five_hour': '5h', 'usage.rail.seven_day': '7d',
   'cacct.title': 'Claude accounts', 'cacct.active': 'Active', 'cacct.next': 'Next account',
   'cacct.age_min': '{n}m ago', 'cacct.retry_at': 'retry {t}',
   'cacct.st.relogin_required': 'Log in again', 'cacct.st.rate_limited': 'Rate limited',
@@ -110,8 +110,8 @@ test('FR-CAC-91: 오버레이가 닫힌 묶음은 머리와 5시간·주간 막�
   assert.equal(v.age, '');
   assert.equal(v.pop, false);
   assert.equal(v.wide, true);
-  assert.deepEqual(v.mini, [{ label: 'Session', pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
-    { label: 'Week', pct: '72%', left: '4d', fill: 72, level: 'warn', title: 'Current week · 72% used · Resets in 4d 6h' }], 'D-CAC-37: 칸 — 사용률·가장 큰 단위 하나의 남은 시간');
+  assert.deepEqual(v.mini, [{ label: 'Session', short: '5h', pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+    { label: 'Week', short: '7d', pct: '72%', left: '4d', fill: 72, level: 'warn', title: 'Current week · 72% used · Resets in 4d 6h' }], 'D-CAC-37: 칸 — 사용률·가장 큰 단위 하나의 남은 시간');
   assert.deepEqual(v.bars.map((b) => b.label), ['Current session', 'Current week']);
   assert.deepEqual(v.bars[0], { id: 'a:five_hour', label: 'Current session', used: '34% used', fill: 34.4, level: '',
     reset: 'Resets in 2h 10m · ' + fillEn('cacct.wd.' + new Date((NOW + 7800) * 1000).getDay()) + ' ' + clock((NOW + 7800) * 1000),
@@ -188,8 +188,8 @@ test('FR-CAC-93: statusLine 은 한 줄이다 — 창마다 이름과 %, 끝에 
   ] }];
   const v = plain(statusLineView(limits, observedAt + 60_000));
   assert.equal(v.label, 'statusLine');
-  assert.deepEqual(v.cells, [{ label: 'Session', pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
-    { label: 'Week', pct: '91%', left: '4d', fill: 91, level: 'critical', title: 'Current week · 91% used · Resets in 4d 6h' }]);
+  assert.deepEqual(v.cells, [{ label: 'Session', short: '5h', pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+    { label: 'Week', short: '7d', pct: '91%', left: '4d', fill: 91, level: 'critical', title: 'Current week · 91% used · Resets in 4d 6h' }]);
   assert.equal(v.asOf, '');
   assert.equal(plain(statusLineView(limits, observedAt + 11 * 60_000)).asOf, 'as of ' + clock(observedAt));
 });
@@ -729,8 +729,8 @@ test('FR-CAC-93 · FR-MUX-81: statusLine 줄은 등록되지 않은 계정의 �
   assert.equal(lines.length, 2, '값이 없는 계정(em***@)은 줄이 없다');
   assert.deepEqual(plain(lines[0]), {
     key: 'other:wo***@', label: 'statusLine', name: 'wo***@', color: '',
-    cells: [{ label: 'Session', pct: '34%', left: '2h', fill: 34, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
-      { label: 'Week', pct: '21%', left: '', fill: 21, level: '', title: 'Current week · 21% used' }], asOf: '',
+    cells: [{ label: 'Session', short: '5h', pct: '34%', left: '2h', fill: 34, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+      { label: 'Week', short: '7d', pct: '21%', left: '', fill: 21, level: '', title: 'Current week · 21% used' }], asOf: '',
   });
   assert.equal(lines[1].name, 'ze***@');
   assert.equal(lines[1].color, '');

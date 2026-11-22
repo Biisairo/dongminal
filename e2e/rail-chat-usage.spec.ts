@@ -7,7 +7,9 @@ import { test, expect, waitForInit } from './fixtures';
  *
  *   TC-RCU-1  사이드바 레일의 채팅 탭: 보이는 채팅 요소는 레일 폭 안이고, 감춘 요소는 보이지 않으며,
  *             방·사람 이름은 두 줄 이하다 (FR-RCU-1·2)
- *   TC-RCU-2  Activity 레일: 사용량 요약 줄이 보이고 `%` 가 있으며 레일 폭 안이다. 계정 줄은 보이지 않는다 (FR-RCU-3)
+ *   TC-RCU-2  Activity 레일: 사용량 요약 줄이 보이고 `%` 가 있으며 레일 폭 안이다. 계정 줄은 보이지 않는다.
+ *             세션·주간 두 칸이 나란히 서고, 칸마다 아래부터 창 이름(5h·7d) · 세로 막대 · % 순이다 (FR-RCU-3 개정)
+ *   TC-RCU-4  사이드바 레일: 고른 창과 고르지 않은 창의 이름이 같은 모양으로 서고, 들어가는 이름은 한 줄이다 (FR-RCU-6)
  *
  * 사용량은 `claude-accounts.spec` 처럼 브라우저에서 `/api/claude-accounts*` 응답을 위조한다 (D-CAC-32).
  */
@@ -97,6 +99,34 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
         expect(await boxes(page, '#agents-panel ' + sel), `${sel} 가 레일에 보인다`).toEqual([]);
       }
       await expect(sum.locator('.cacct-cell-pct').first()).toBeVisible();
+      // FR-RCU-3 (개정): 두 칸이 나란히 — 칸마다 아래부터 창 이름 · 세로 막대 · %.
+      const cells = await sum.locator('.cacct-cell').evaluateAll((els) => els.map((c) => {
+        const rect = (sel: string) => { const e = c.querySelector(sel); if (!e || !e.checkVisibility()) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, b: r.bottom, rt: r.right }; };
+        return { cell: rect(':scope'), win: rect('.cacct-cell-win'), bar: rect('.cacct-cell-bar'), fill: rect('.cacct-cell-fill'), pct: rect('.cacct-cell-pct'),
+          winText: c.querySelector('.cacct-cell-win')?.textContent, pctText: c.querySelector('.cacct-cell-pct')?.textContent,
+          fillBg: getComputedStyle(c.querySelector('.cacct-cell-fill')!).backgroundColor, lv: c.className };
+      }));
+      expect(cells.length).toBe(2);
+      expect(cells.map((c) => c.winText)).toEqual(['5h', '7d']);
+      for (const c of cells) {
+        expect(c.win && c.bar && c.pct && c.fill, `${c.winText} 칸의 이름·막대·% 가 보인다`).toBeTruthy();
+        expect(c.pct!.b, '% 가 막대 위').toBeLessThanOrEqual(c.bar!.y + 1);
+        expect(c.bar!.b, '막대가 창 이름 위').toBeLessThanOrEqual(c.win!.y + 1);
+        expect(c.bar!.h, '막대가 세로로 길다').toBeGreaterThan(c.bar!.w * 2);
+        expect(Math.abs(c.fill!.b - c.bar!.b), '채움이 막대 바닥에서 선다').toBeLessThanOrEqual(1);
+        expect(Math.abs(c.fill!.h - c.bar!.h * parseInt(c.pctText!) / 100), '채움 높이가 % 를 따른다').toBeLessThanOrEqual(1.5);
+        expect(c.cell!.rt).toBeLessThanOrEqual(sb.x + sb.width + 1);
+      }
+      const [s5, s7] = cells;
+      expect(s5.cell!.rt, '두 칸이 나란히').toBeLessThanOrEqual(s7.cell!.x + 1);
+      expect(Math.abs(s5.win!.y - s7.win!.y), '창 이름이 같은 바닥 줄').toBeLessThanOrEqual(1);
+      expect(Math.abs(s5.bar!.y - s7.bar!.y)).toBeLessThanOrEqual(1);
+      // 72% 는 주의 단계다 — 막대 색이 보통 칸과 다르다.
+      expect(s7.lv).toContain('lv-warn');
+      expect(s7.fillBg).not.toBe(s5.fillBg);
+      // 색 점은 칸 위에 남는다.
+      const dot = (await sum.locator('.cacct-dot').boundingBox())!;
+      expect(dot.y + dot.height).toBeLessThanOrEqual(Math.min(s5.pct!.y, s7.pct!.y) + 1);
     };
     await check();
     // 펼쳐 둔 상태여도 레일에서는 요약만 보인다 (D-RCU-2).
@@ -104,5 +134,40 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
     await sum.click();
     await expect(panel.locator('.act-usage-sum')).toHaveAttribute('aria-expanded', open === 'true' ? 'false' : 'true');
     await check();
+  });
+
+  test('TC-RCU-4: 사이드바 레일의 창 이름은 고름과 무관하게 같은 모양이다', async ({ page }) => {
+    await waitForInit(page, { mode: 'desktop' });
+    const rows = page.locator('#sidebar .sbl-item.si');
+    const n = await rows.count();
+    await page.evaluate(() => (window as any).app.testing.execRemote('newWindow', {}));
+    await expect(rows).toHaveCount(n + 1);
+    // 첫 창을 `ccr#32` 로 — 활성은 새 창이다.
+    await page.evaluate(() => (window as any).app.testing.execRemote('renameWindow', { location: 'W1.P1.T1', name: 'ccr#32' }));
+    const target = rows.filter({ hasText: 'ccr#32' });
+    await expect(target).toHaveCount(1);
+    await expect(target).not.toHaveClass(/\bactive\b/);
+    await page.locator('#sidebar .sb-collapse').click();
+    await expect(page.locator('#sidebar')).toHaveAttribute('data-rail', /.*/);
+
+    const measure = () => page.locator('#sidebar .sbl-item.si .sbl-name').evaluateAll((els) => els.map((e) => {
+      const r = document.createRange();
+      r.selectNodeContents(e);
+      const cs = getComputedStyle(e);
+      return { text: e.textContent, active: e.parentElement!.classList.contains('active'), lines: r.getClientRects().length,
+        w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height, fw: cs.fontWeight };
+    }));
+    const before = await measure();
+    const idle = before.find((b) => b.text === 'ccr#32')!;
+    const sel = before.find((b) => b.active)!;
+    expect(idle.lines, '고르지 않은 ccr#32 가 두 줄로 꺾인다').toBe(1);
+    expect(idle.fw, '고름에 따라 글자 굵기가 달라 폭이 갈린다').toBe(sel.fw);
+    expect(idle.w).toBe(sel.w);
+
+    await target.click();
+    await expect(target).toHaveClass(/\bactive\b/);
+    const after = (await measure()).find((b) => b.text === 'ccr#32')!;
+    expect(after.lines).toBe(1);
+    expect(after.h).toBe(idle.h);
   });
 });
