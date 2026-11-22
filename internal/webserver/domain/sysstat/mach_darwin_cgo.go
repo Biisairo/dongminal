@@ -15,15 +15,28 @@ import "C"
 
 import (
 	"fmt"
+	"sync"
 	"unsafe"
 )
+
+var (
+	hostOnce sync.Once
+	hostPort C.host_t
+)
+
+// machHost 는 host 포트다. mach_host_self 는 부를 때마다 send right 참조를 하나 늘리므로 한 번만
+// 얻어 프로세스 수명 동안 쓴다 (ATTIC_FIX_SRS FR-ATF-45). 이전에는 호출마다 얻고 놓지 않았다.
+func machHost() C.host_t {
+	hostOnce.Do(func() { hostPort = C.host_t(C.mach_host_self()) })
+	return hostPort
+}
 
 // machCPUTicks 는 host_statistics(HOST_CPU_LOAD_INFO) 의 누적 tick 을 읽는다.
 func machCPUTicks() (CPUTicks, error) {
 	var info C.host_cpu_load_info_data_t
 	count := C.mach_msg_type_number_t(C.HOST_CPU_LOAD_INFO_COUNT)
 	kr := C.host_statistics(
-		C.host_t(C.mach_host_self()),
+		machHost(),
 		C.HOST_CPU_LOAD_INFO,
 		C.host_info_t(unsafe.Pointer(&info)),
 		&count,
@@ -50,7 +63,7 @@ func machMemUsed() (uint64, error) {
 	var vm C.vm_statistics64_data_t
 	count := C.mach_msg_type_number_t(C.HOST_VM_INFO64_COUNT)
 	kr := C.host_statistics64(
-		C.host_t(C.mach_host_self()),
+		machHost(),
 		C.HOST_VM_INFO64,
 		C.host_info64_t(unsafe.Pointer(&vm)),
 		&count,
@@ -69,7 +82,7 @@ func machMemUsed() (uint64, error) {
 // machPageSize 는 host_page_size 로 페이지 크기를 얻는다 (FR-STAT-16).
 func machPageSize() (uint64, error) {
 	var ps C.vm_size_t
-	if kr := C.host_page_size(C.host_t(C.mach_host_self()), &ps); kr != C.KERN_SUCCESS {
+	if kr := C.host_page_size(machHost(), &ps); kr != C.KERN_SUCCESS {
 		return 0, fmt.Errorf("host_page_size: kr=%d", int(kr))
 	}
 	if ps == 0 {
