@@ -10,4 +10,12 @@ publish = false
 workspace = true
 
 [dependencies]
+bytes = { workspace = true }
 dm-shared-dmlog = { path = "../dmlog" }
+http = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+
+[dev-dependencies]
+futures-util = { workspace = true }
+tokio = { workspace = true }
