@@ -82,7 +82,7 @@
 - **FR-EPR-51** `POST /api/edges/add` `{code}` → `{fp, name}`. `name` 인자는 없다.
 - **FR-EPR-52** `POST /api/edges/remove` `{fp}` → `{fp, name, notified}`. `PUT /api/edges/address` `{fp, addr, port}`.
 - **FR-EPR-53** `GET /api/edges/pending`, `POST /api/edges/approve`, `POST /api/edges/reject` 는 없앤다(404).
-- **FR-EPR-54** 오류 코드: `edge_name_taken`·`edge_pending_not_found` 는 없애고 `edge_not_edge`(403)·`edge_ambiguous`(400)를 더한다.
+- **FR-EPR-54** 오류 코드: `edge_name_taken`·`edge_pending_not_found` 는 없애고 `edge_not_edge`(403)·`edge_ambiguous`(400)를 더한다. **더함 2026-11-22**: 간선이 64개(`edge.MaxEdges`)인 노드에 새 지문을 맺으면 맺는 쪽·받는 쪽 모두 `bad_request`(400)로 거절한다(`ATTIC_FIX_SRS` FR-ATF-80). 이미 맺은 지문을 다시 맺는 것은 막지 않는다.
 
 dmctl
 

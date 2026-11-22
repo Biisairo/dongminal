@@ -169,8 +169,12 @@ func (b *Bridge) sendAlarm(c Config, p map[string]any, out any) error {
 	case isAPI && ae.Code == http.StatusTooManyRequests:
 		b.sleep(min(time.Duration(ae.RetryAfter)*time.Second, alarmRetryAfterMax))
 	case isAPI && ae.Code == http.StatusBadRequest && strings.Contains(ae.Description, parseErrorText):
+		// parse_mode 만 빼면 태그가 글자로 보인다 — 평문은 태그를 걷고 이스케이프를 푼다.
 		plain := maps.Clone(p)
 		delete(plain, "parse_mode")
+		if text, ok := plain["text"].(string); ok {
+			plain["text"] = plainText(text)
+		}
 		p = plain
 	default:
 		b.sleep(backoffFirst)

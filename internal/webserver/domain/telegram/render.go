@@ -87,10 +87,13 @@ func (b *budget) put(sb *strings.Builder, s string) bool {
 
 var reHTMLTag = regexp.MustCompile(`<[^>]*>`)
 
+// plainText 는 HTML 본문에서 태그를 걷고 이스케이프를 푼 글이다 — 사용자가 보는 글자 그대로다.
+func plainText(s string) string { return html.UnescapeString(reHTMLTag.ReplaceAllString(s, "")) }
+
 // textUnits 는 Telegram 이 세는 길이다 — 태그를 걷고 이스케이프를 푼 글의 UTF-16 단위다 (D-ATF-6).
 func textUnits(s string) int {
 	n := 0
-	for _, r := range html.UnescapeString(reHTMLTag.ReplaceAllString(s, "")) {
+	for _, r := range plainText(s) {
 		n += utf16.RuneLen(r)
 	}
 	return n

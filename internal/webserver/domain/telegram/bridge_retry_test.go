@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -97,6 +98,10 @@ func TestAlarmParseErrorResendsPlain(t *testing.T) {
 	}
 	if body["chat_id"] != float64(me) || body["text"] == "" {
 		t.Fatalf("재전송 본문이 틀렸다: %v", body)
+	}
+	// 평문이면 태그·엔티티를 걷어 보낸다 — 걷지 않으면 사용자에게 `<b>` 가 글자로 보인다.
+	if text, _ := body["text"].(string); reHTMLTag.MatchString(text) || strings.Contains(text, "&lt;") || strings.Contains(text, "&amp;") {
+		t.Fatalf("평문 재전송에 HTML 이 남았다: %q", text)
 	}
 	if len(w.d) != 0 {
 		t.Fatalf("해석 오류에 기다렸다: %v", w.d)

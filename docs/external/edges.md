@@ -166,7 +166,8 @@ zsh 에서 `extendedglob` 을 켰다면 `#` 이 패턴으로 읽혀 `no matches 
 | `edge_no_invite` · `edge_token_invalid` | 초대가 만료됐거나 쓰였거나 틀렸습니다 | 초대를 새로 받으세요. 새 초대를 만들면 이전 코드는 쓸 수 없습니다 |
 | `edge_not_found` · `edge_ambiguous` | 그 지문의 간선이 없거나, 앞자리가 간선 둘 이상에 맞습니다 | `dmctl edges` 로 지문을 보고 8자리 이상의 더 긴 앞자리를 주세요 |
 | `edge_port_closed` | 노드 포트가 닫혀 있어 초대를 만들 수 없습니다 | 노드 포트를 켜고 `dmctl edges` 의 `port error` 를 확인하세요 |
-| `edge_rate_limited` | 한 출발지 주소의 맺기 요청이 1분에 60회를 넘었습니다 | 잠시 뒤 다시 보내세요 |
+| `edge_rate_limited` | 한 출발지 주소의 맺기 요청이 1분에 60회를 넘었습니다. 또는 이 노드가 보낸 초대 기억(1024개)이 가득 찼습니다 | 잠시 뒤 다시 보내세요 |
+| `bad_request` (맺기) | 이 노드나 상대 노드의 간선이 이미 64개입니다 | 쓰지 않는 간선을 지운 뒤 다시 맺으세요. 이미 64개를 넘게 가진 설정 파일은 그대로 읽히고, 새로 맺기만 막힙니다 |
 | `edge_daemon_restart` | 붙은 데몬이 노드 기능을 모르는 옛 판입니다 | `dongminal start` 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 `dongminal start --refresh-daemon` 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다 |
 
 전체 오류 코드는 [errors.md](./errors.md) 에 있습니다. API 는 [api.md](./api.md) 의 "노드 간 통신" 절을 봅니다.
