@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/webserver/domain/ext"
 )
@@ -104,8 +105,19 @@ func (s *Service) LoadPaths(file string) error {
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return fmt.Errorf("%s: %w", file, err)
 	}
+	//	이전 동작: 파일의 값을 검사 없이 받았다 — 상대경로는 검사와 실행이 다른 파일을 가리켰다
+	//	새  동작: SetPaths 와 같이 절대경로가 아닌 값은 버리고 경고를 남긴다
+	//	이유:     FR-ATF-71 (AT-EXT-13)
+	paths := make(map[string]string, len(body.Paths))
+	for k, v := range body.Paths {
+		if !filepath.IsAbs(v) {
+			dmlog.Warnf(nil, "lsp: 경로 표 %s 의 %q 값 %q 는 절대경로가 아니어서 무시한다", file, k, v)
+			continue
+		}
+		paths[k] = v
+	}
 	s.mu.Lock()
-	s.paths = body.Paths
+	s.paths = paths
 	s.mu.Unlock()
 	return nil
 }
