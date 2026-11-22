@@ -1,10 +1,12 @@
 package telegram
 
 import (
+	"context"
 	"slices"
 	"time"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/fanout"
 )
 
 // askTool 은 사용자에게 선택지를 묻는 도구다.
@@ -131,15 +133,22 @@ func (b *Bridge) alarm(c Config, toolID, reason string) {
 	}
 }
 
-// clearButtons 는 그 탭의 남은 `[읽음]` 을 모두 걷는다 (FR-TGB-58b).
+// clearButtonsParallel 은 버튼 걷기 요청을 한꺼번에 몇 개까지 띄우는가다 (QUALITY_GO_SRS
+// FR-QG-20 · D-QG-6). 한 대화에 짧게 많이 보내면 Telegram 이 429 로 늦추므로 작게 둔다.
+// 걷지 못한 버튼은 눌러도 답이 같다(FR-TGB-58a).
+const clearButtonsParallel = 4
+
+// clearButtons 는 그 탭의 남은 `[읽음]` 을 모두 걷는다 (FR-TGB-58b). 요청은 잠금 밖에서
+// 상한 있는 병렬로 보낸다 — 순차일 때는 버튼 32개에 요청 32번의 왕복을 줄 세웠다
+// (실측: 요청당 100ms 에서 3.26s → 0.8s 언저리, TC-QG-20).
 func (b *Bridge) clearButtons(c Config, toolID string) {
 	b.mu.Lock()
 	ids := b.buttons[toolID]
 	delete(b.buttons, toolID)
 	b.mu.Unlock()
-	for _, id := range ids {
-		b.dropButton(c, c.UserID, id)
-	}
+	fanout.Each(context.Background(), clearButtonsParallel, len(ids), func(i int) {
+		b.dropButton(c, c.UserID, ids[i])
+	})
 }
 
 // forgetButton 은 이미 걷은 메시지를 목록에서 뺀다.
