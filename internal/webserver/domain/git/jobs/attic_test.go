@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"dongminal/internal/webserver/domain/git/core"
 )
@@ -137,5 +138,21 @@ func TestJob_FinisherPanicFailsJobAndFreesSlot(t *testing.T) {
 				t.Fatal("panic 뒤에도 칸이 찼다")
 			}
 		})
+	}
+}
+
+// TC-ATF-10 (FR-ATF-10, AT-GJB-8): 상한 줄 끊기는 UTF-8 룬 경계에서 한다. 이전:
+// 4096바이트에서 끊어 한글 한 글자가 두 줄로 쪼개져 깨졌다.
+func TestReadLines_CutsOnRuneBoundary(t *testing.T) {
+	head := strings.Repeat("a", JobLineMax-1)
+	var got []string
+	readLines(strings.NewReader(head+"가나\n"), func(s string) { got = append(got, s) })
+	if len(got) != 2 || got[0] != head || got[1] != "가나" {
+		t.Fatalf("줄 = %d개 %q…", len(got), got[len(got)-1])
+	}
+	for i, s := range got {
+		if !utf8.ValidString(s) {
+			t.Fatalf("%d 번째 줄이 깨졌다: %q", i, s[len(s)-3:])
+		}
 	}
 }
