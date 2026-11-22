@@ -13,7 +13,7 @@
 ```sh
 rust/parity/run.sh                       # 등록된 시나리오 전부를 Go 대 Rust 로 비교
 rust/parity/run.sh --only cli-help       # 시나리오 하나만
-rust/parity/run.sh --list                # 시나리오 이름 목록
+rust/parity/run.sh --list                # 시나리오 이름과 담당 이슈 목록
 rust/parity/run.sh --keep --only X       # 쪽 뿌리를 지우지 않고 경로를 찍는다
 rust/parity/run.sh --self-test           # Go 대 Go 로 실행기 자체를 검증 (cargo test)
 ```
@@ -22,9 +22,19 @@ rust/parity/run.sh --self-test           # Go 대 Go 로 실행기 자체를 검
 
 1. Go 참조 바이너리를 `rust/target/go-ref/dongminal` 에 빌드한다. 저장소 루트에는 만들지 않는다 (C-RSP-1).
 2. `cargo build -p dongminal -p dm-parity` 를 실행한다.
-3. `rust/scripts/hermetic.sh` 아래에서 `dm-parity --go … --rust …` 를 실행한다.
+3. `rust/scripts/hermetic.sh` 아래에서 `dm-parity --go … --rust … --issues <이슈 폴더>` 를 실행한다. 이슈 폴더는 `DM_PARITY_ISSUES` 가 있으면 그것을 쓰고, 없으면 `<저장소>/rust-port/issues` 를 쓴다. 이슈 worktree 의 사본은 낡을 수 있으므로, 최신 상태로 판정하려면 `DM_PARITY_ISSUES=/Users/dykim/personal/dongminal-rust/int/rust-port/issues` 처럼 통합 worktree 의 폴더를 준다.
 
-종료 코드의 뜻은 다음과 같다. `0` 은 모든 시나리오가 같다는 뜻이다. `1` 은 차이나 시나리오 오류가 있다는 뜻이다. `2` 는 사용법이나 설정이 잘못되었다는 뜻이다.
+시나리오마다 결과를 하나 찍는다.
+
+| 결과 | 뜻 |
+|---|---|
+| `ok` | 두 쪽이 같다 |
+| `DIFF` | 다르다. 또는 시나리오 오류가 있다. 모든 차이를 찍는다 |
+| `PEND` | 다르지만 담당 이슈가 아직 `done` 이 아니다. 실패로 세지 않는다. 첫 차이만 찍는다 |
+
+마지막 줄은 `<N>개 중 같음 a, 다름 b, 보류 c` 다. 종료 코드는 다름이 없으면 `0`, 있으면 `1`, 사용법이나 설정이 잘못되었으면 `2` 다. 담당 이슈가 있는 시나리오를 돌리는데 이슈 폴더가 없으면 `2` 다.
+
+보류 중인 시나리오의 차이를 전부 보려면, 그 담당 이슈를 `status: done` 으로 적은 임시 이슈 폴더를 `--issues` 로 준다.
 
 차이는 다음 형식으로 보고한다.
 
@@ -37,16 +47,19 @@ DIFF  cli-unknown-action
 
 ## 시나리오 쓰기
 
-시나리오는 Rust 코드로 쓰고 `src/scenarios.rs` 의 `all()` 에 더한다. YAML 해석기는 의존성 허용 목록에 없으므로 쓰지 않는다.
+시나리오는 Rust 코드로 쓰고 `src/scenarios/` 의 표면별 파일(`cli.rs` `helper.rs` `http.rs` `home.rs`)에 더한다. 새 파일을 만들면 `src/scenarios/mod.rs` 의 `all()` 에 이어 붙인다. YAML 해석기는 의존성 허용 목록에 없으므로 쓰지 않는다.
+
+모든 시나리오는 `.owner("<이슈 ID>")` 로 담당 이슈를 단다. 담당 이슈는 그 표면을 Rust 로 만드는 이슈다(`SURFACE.md` 의 "담당" 열). `tests/catalog.rs` 가 담당 이슈가 없거나 이슈 폴더에 없는 ID 를 단 시나리오를 실패로 만든다. 새 시나리오를 더하면 `run.sh --self-test` 로 Go 대 Go 가 같은지(결정론적인지) 확인하고, `SURFACE.md` 9절에 행을 더한다.
 
 ```rust
 use crate::{Cli, Http, Rule, Scenario, Serve};
 
 Scenario::new("dmctl-list")                                  // 이름은 --only 로 고를 때 쓴다
+    .owner("6.3")                                              // 담당 이슈
     .write_home("settings.json", r#"{"theme":"dark"}"#)        // 준비: 홈에 파일을 둔다
     .serve(Serve::new(["start", "--foreground", "--port", "{port}"], "/api/ping"))
     .http(Http::get("/api/settings").header("Origin", "http://localhost:{port}"))
-    .run_cli(Cli::new(["list-workspace"]).argv0("dmctl").env("DONGMINAL_PORT", "{port}"))
+    .run_cli(Cli::new(["list-workspace"]).argv0("dmctl"))      // dmctl 은 serve 뒤에만 (C-PAR-7)
     .home_file("workspace.json")                               // 끝난 뒤 이 파일 내용을 비교
     .home_tree(["logs/"])                                      // 끝난 뒤 경로 목록을 비교 (logs/ 는 뺀다)
     .normalize(Rule::rfc3339())                                // 시각을 <TIME> 으로
@@ -125,6 +138,16 @@ Scenario::new("dmctl-list")                                  // 이름은 --only
 - 비교하는 헤더는 `Content-Type`, `Cache-Control`, `Location`, `Set-Cookie`, `Vary`, `WWW-Authenticate`, `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Strict-Transport-Security`, `Permissions-Policy`, `Access-Control-*`, `Cross-Origin-*` 와 `compare_header` 로 더한 이름이다. 이름은 대소문자를 가리지 않는다. 같은 이름이 여럿이면 받은 순서대로 줄바꿈으로 이어 비교한다.
 - `Date` 는 있는지만 비교한다(`<present>`).
 - `Content-Length` 와 `Transfer-Encoding` 은 비교하지 않는다. 본문은 chunked 를 푼 뒤에 비교한다.
+
+### 시나리오에 넣으면 안 되는 것
+
+- `start`·`stop`·`service`·`uninstall`·`update --check`·`rollback`·`restore`·`migrate` 의 실제 실행 경로. 도움말과 파서가 실행 전에 거절하는 인자 오류만 넣는다. `stop` 은 포트를 쥔 프로세스를 끄고, `service`·`uninstall` 은 OS 서비스에 닿는다.
+- `otp status`·`install`·`uninstall`·`run`. 특권 도우미에 닿는다.
+- argv0 `claude`·`dongminald`. 실행기가 거절한다.
+- 격리 서버(`serve`) 없이 `dmctl`·`edit`·`detach`·`open-url` 를 부르는 단계. 실행기가 거절한다.
+- 60147 미만의 숫자 `--port`. 실행기가 거절한다. 포트는 `{port}` 로 쓴다.
+
+자세한 근거는 `SURFACE.md` 9.2절에 있다.
 
 ## 지원하지 않는 것
 
