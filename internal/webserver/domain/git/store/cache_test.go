@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -152,5 +153,73 @@ func TestStore_ForgetRootDetachesFlight(t *testing.T) {
 	st.mu.Unlock()
 	if cached {
 		t.Fatal("떼어 낸 flight 의 결과가 캐시에 담겼다")
+	}
+}
+
+// TC-ATF-11 (ATTIC_FIX_SRS FR-ATF-11, AT-GST-1): gitDirs 의 캐시 미스는 경로별
+// single-flight 다 — RepoRoot 와 같은 모양. 이전: 동시 미스마다 rev-parse 가 돌았다.
+//
+// 합류는 RepoRootSingleFlight 와 같이 시계 읽기로 잰다.
+func TestStore_GitDirsSingleFlight(t *testing.T) {
+	g := newFakeGit(t)
+	release := make(chan struct{})
+	svc := core.New(core.WithRunner(func(ctx context.Context, dir string, args []string) (core.Output, error) {
+		if len(args) > 1 && args[1] == "--absolute-git-dir" {
+			<-release
+		}
+		return g.runner(ctx, dir, args)
+	}))
+	const n = 8
+	now := time.Now()
+	reads := make(chan struct{}, 4*n)
+	st := NewStore(svc, WithClock(func() time.Time {
+		reads <- struct{}{}
+		return now
+	}))
+	st.dirs[absR] = dirsEntry{at: now.Add(-2 * st.gitDirsTTL)}
+	ctx := context.Background()
+
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, errs[i] = st.CommonDir(ctx, absR)
+		}(i)
+	}
+	for i := 0; i < n; i++ {
+		<-reads
+	}
+	close(release)
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("[%d] %v", i, err)
+		}
+	}
+	if got := g.count("rev-parse --absolute-git-dir"); got != 1 {
+		t.Fatalf("rev-parse %d 회, want 1", got)
+	}
+}
+
+// FR-ATF-11 (AT-GST-2·3): ForgetRoot 는 그 경로 아래의 dirs 도 지운다 — 저장소를 다시
+// 만들면 30초 동안 옛 gitdir 을 읽지 않는다. 루트 경로(`/`, `C:\`)도 하위 항목을
+// 지운다 — 이전: 접두어가 `//` 가 되어 아무것도 못 지웠다.
+func TestStore_ForgetRootClearsDirsAndHandlesFSRoot(t *testing.T) {
+	sub := filepath.Join(absR, "sub")
+	fsRoot := filepath.VolumeName(absR) + string(filepath.Separator)
+	for _, c := range []struct{ name, forget string }{{"저장소", absR}, {"파일시스템 루트", fsRoot}} {
+		t.Run(c.name, func(t *testing.T) {
+			st := NewStore(core.New(), fixedClock(time.Now()))
+			for _, k := range []string{absR, sub} {
+				st.roots[k] = rootEntry{root: absR, at: time.Now()}
+				st.dirs[k] = dirsEntry{gitDir: k, commonDir: k, at: time.Now()}
+			}
+			st.ForgetRoot(c.forget)
+			if len(st.roots) != 0 || len(st.dirs) != 0 {
+				t.Fatalf("남은 roots=%v dirs=%v", st.roots, st.dirs)
+			}
+		})
 	}
 }

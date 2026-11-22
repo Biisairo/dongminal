@@ -107,14 +107,16 @@ func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		t.reject(err)
 	}
-	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.Name, "") {
-		return
-	}
 	// §5.2: 만들면서 옮겨 가는 것은 checkout 잡이다. 만들기만 하는 것은 동기다.
 	if req.Checkout {
+		if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.Name, "") {
+			return
+		}
 		t.startWriteJob(core.WriteSpec{Argv: argv}, t.snapshot(), nil, nil)
 		return
 	}
+	// 동기 생성의 이름 검증·충돌 확인은 write.BranchCreate 한 번이다 — 충돌 sentinel 은
+	// gitApply 가 같은 409 본문으로 옮긴다 (ATTIC_FIX_SRS FR-ATF-3, AT-GAPI-6).
 	t.apply(func(ctx context.Context) error {
 		_, err := write.BranchCreate(s.Git.Service(), ctx, t.root, opts)
 		return err
@@ -198,16 +200,22 @@ func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, ctx context.Contex
 	if !exists {
 		return false
 	}
-	gitErrJSON(w, http.StatusConflict, gitErrBranchExists, map[string]any{
-		"error":     gitErrBranchExists,
-		"message":   "로컬 브랜치 " + name + " 가 이미 있다",
-		"requested": requested,
-		"repo":      root,
-		"branch":    name,
-		"track":     track,
-		"options":   write.BranchConflictOptions,
-	})
+	body := branchExistsBody(name, track)
+	body["error"] = gitErrBranchExists
+	body["message"] = "로컬 브랜치 " + name + " 가 이미 있다"
+	body["requested"], body["repo"] = requested, root
+	gitErrJSON(w, http.StatusConflict, gitErrBranchExists, body)
 	return true
+}
+
+// branchExistsBody 는 이름 충돌 409 의 표면 고유 필드다 — 무엇이 이미 있는지와
+// 고를 수 있는 선택지. 사전 검사와 쓰기 실패(gitApply)가 같은 모양을 낸다.
+func branchExistsBody(name, track string) map[string]any {
+	return map[string]any{
+		"branch":  name,
+		"track":   track,
+		"options": write.BranchConflictOptions,
+	}
 }
 
 // ── 묶음 B — 브랜치 동작의 서버 표면 (GIT_ACTIONS_SRS §3.2 · §3.5) ──
@@ -296,9 +304,7 @@ func (s *GitServer) apiGitBranchRename(w http.ResponseWriter, r *http.Request) {
 	}) {
 		return
 	}
-	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.To, "") {
-		return
-	}
+	// 새 이름의 검증·충돌 확인은 write.BranchRename 한 번이다 (FR-ATF-3).
 	t.apply(func(ctx context.Context) error {
 		_, err := write.BranchRename(s.Git.Service(), ctx, t.root, opts)
 		return err
@@ -319,7 +325,8 @@ func (s *GitServer) apiGitBranchDelete(w http.ResponseWriter, r *http.Request) {
 	t.requireConfirm(true, req.Confirm,
 		"브랜치 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·254)")
 	t.resolve(req.Repo)
-	opts := write.BranchDeleteOpts{Names: req.Names, Force: req.Force}
+	// 같은 이름은 먼저 접는다 — 미머지 선택지의 개수 판정도 접은 수로 한다 (FR-ATF-4).
+	opts := write.BranchDeleteOpts{Names: write.FoldBranchNames(req.Names), Force: req.Force}
 	if _, err := write.BranchDeleteArgs(opts); err != nil {
 		t.reject(err)
 	}

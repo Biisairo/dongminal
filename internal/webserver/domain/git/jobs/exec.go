@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"dongminal/internal/webserver/domain/git/core"
 )
@@ -70,7 +71,9 @@ func execStream(ctx context.Context, cmd *exec.Cmd, args []string, emit func(str
 // 끼어들지 않게 한다.
 //
 // 상한을 넘긴 줄은 상한에서 끊어 내보낸다 — 구분자 없는 스트림 하나가 메모리를
-// 삼키거나 읽기를 멈추게 하지 않는다.
+// 삼키거나 읽기를 멈추게 하지 않는다. 끊는 자리는 UTF-8 룬 경계이고 덜 온 룬은
+// 다음 줄로 넘긴다 (ATTIC_FIX_SRS FR-ATF-10, AT-GJB-8 — 이전: 상한 바이트에서 끊어
+// 멀티바이트 문자가 깨졌다).
 func readLines(r io.Reader, emit func(string)) {
 	br := bufio.NewReaderSize(r, JobLineMax)
 	buf := make([]byte, 0, JobLineMax)
@@ -92,7 +95,24 @@ func readLines(r io.Reader, emit func(string)) {
 		}
 		buf = append(buf, b)
 		if len(buf) >= JobLineMax {
-			flush()
+			cut := runeCut(buf)
+			emit(string(buf[:cut]))
+			buf = append(buf[:0], buf[cut:]...)
 		}
 	}
+}
+
+// runeCut 은 b 를 끊을 자리다 — 끝의 룬이 덜 왔으면 그 룬의 앞, 아니면 len(b).
+// 룬 시작을 찾지 못하는(깨진) 바이트는 그대로 끊는다.
+func runeCut(b []byte) int {
+	for i := len(b) - 1; i > 0 && i >= len(b)-utf8.UTFMax; i-- {
+		if !utf8.RuneStart(b[i]) {
+			continue
+		}
+		if utf8.FullRune(b[i:]) {
+			return len(b)
+		}
+		return i
+	}
+	return len(b)
 }

@@ -256,7 +256,7 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 		All:      req.All,
 	})
 	root := t.root
-	t.startWriteJob(spec, before, func(_ context.Context, jb *jobs.Job) {
+	t.startWriteJob(spec, before, func(ctx context.Context, jb *jobs.Job) {
 		// ⑦ 토큰은 커밋이 성공한 뒤에만, 완료 처리의 **마지막**에 발급한다 — undo 창
 		// (write.UndoTTL)의 기점이 Done 공개 직전이어야 화면이 받는 창이 온전하다.
 		if !jobSucceeded(jb) || jb.Result == nil {
@@ -265,7 +265,17 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 		if jb.Result.Status != nil {
 			jb.Result.Oid = jb.Result.Status.Oid
 		}
-		jb.Result.UndoToken = s.gitUndo.issue(root)
+		// 토큰은 그 커밋에 묶는다 (FR-ATF-2). 재조회가 실패했으면 HEAD 를 직접 읽고,
+		// 그것도 실패하면 묶을 커밋이 없으니 발급하지 않는다.
+		head := jb.Result.Oid
+		if head == "" {
+			oid, _, err := query.HeadCommit(s.Git.Service(), ctx, root)
+			if err != nil {
+				return
+			}
+			head = oid
+		}
+		jb.Result.UndoToken = s.gitUndo.issue(root, head)
 	}, nil)
 }
 
@@ -297,17 +307,28 @@ func (s *GitServer) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
 	if t.stop() {
 		return
 	}
+	// HEAD 와 메시지는 소비 **전에** 읽는다 — 되돌린 뒤에는 그 커밋이 HEAD 가 아니고,
+	// 읽기가 실패해도 토큰이 남아야 다시 시도할 수 있다 (ATTIC_FIX_SRS FR-ATF-2,
+	// AT-GAPI-3).
+	head, msg, err := query.HeadCommit(s.Git.Service(), t.ctx(), t.root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
 	// 실행 **전에** 소비한다. 성공 후에 소비하면 동시에 온 두 요청이 커밋 두 개를
 	// 되돌린다 — 한 번의 커밋에 한 번의 undo 다.
-	if !s.gitUndo.consume(t.root, req.UndoToken) {
+	//
+	//	이전 동작: 토큰에 커밋이 없어 5초 안에 다른 경로(터미널)의 커밋이 끼면 그것을 되돌렸다
+	//	새  동작: 발급 때의 HEAD 와 다르면 토큰을 남기고 409 stale_observation
+	//	이유:     되돌리는 것은 토큰을 받은 그 커밋이어야 한다 (D-ATF-2, AT-GAPI-2)
+	switch s.gitUndo.consume(t.root, req.UndoToken, head) {
+	case undoInvalid:
 		t.rejectWith(http.StatusConflict, gitErrUndoExpired,
 			"undo 창이 지났거나 이미 사용된 토큰이다 (5초)")
 		return
-	}
-	// 메시지는 되돌리기 **전에** 읽는다 — 되돌린 뒤에는 그 커밋이 HEAD 가 아니다.
-	msg, err := query.LastCommitMessage(s.Git.Service(), t.ctx(), t.root)
-	if err != nil {
-		gitError(w, err)
+	case undoHeadMoved:
+		t.rejectWith(http.StatusConflict, apierr.CodeStaleObservation,
+			"토큰을 받은 뒤 HEAD 가 다른 커밋으로 옮겨졌다")
 		return
 	}
 	t.apply(func(ctx context.Context) error {
@@ -373,6 +394,12 @@ func (s *GitServer) gitApply(t *gitWrite, before query.Status, run func(context.
 	var be *write.BatchError
 	if errors.As(runErr, &be) && be.Partial() {
 		body["partial"] = true
+	}
+	var taken *write.BranchExistsError
+	if errors.As(runErr, &taken) {
+		for k, v := range branchExistsBody(taken.Name, "") {
+			body[k] = v
+		}
 	}
 	if statusErr == nil {
 		if changed := gitStatusDelta(before, obs.Status); len(changed) > 0 {
@@ -557,11 +584,21 @@ func (s *GitServer) gitResolveRepoSoft(w http.ResponseWriter, r *http.Request, r
 	return root, false, true
 }
 
-// undoTicket 은 방금 만든 커밋 하나에 대한 되돌리기 권한이다.
+// undoTicket 은 방금 만든 커밋 하나에 대한 되돌리기 권한이다. head 는 그 커밋이다.
 type undoTicket struct {
 	token   string
+	head    string
 	expires time.Time
 }
+
+// undoVerdict 는 consume 의 판정이다.
+type undoVerdict int
+
+const (
+	undoConsumed  undoVerdict = iota
+	undoInvalid               // 없거나·만료됐거나·다른 토큰
+	undoHeadMoved             // 토큰은 살아 있지만 HEAD 가 발급 때의 커밋이 아니다 — 소모하지 않는다
+)
 
 // gitUndoStore 는 리포별로 티켓 **하나**를 쥔다 (FR-GIT-83). 새 커밋이 이전 토큰을
 // 밀어내고, 소비되면 사라진다.
@@ -575,29 +612,34 @@ type gitUndoStore struct {
 }
 
 // issue 는 리포의 티켓을 새것으로 바꾸고 토큰을 준다. 이전 토큰은 이 순간 무효다.
-func (u *gitUndoStore) issue(repo string) string {
+// head 는 방금 만든 커밋이다.
+func (u *gitUndoStore) issue(repo, head string) string {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	if u.tickets == nil {
 		u.tickets = map[string]undoTicket{}
 	}
 	u.pruneLocked()
-	t := undoTicket{token: uuid.NewString(), expires: u.clock().Add(write.UndoTTL)}
+	t := undoTicket{token: uuid.NewString(), head: head, expires: u.clock().Add(write.UndoTTL)}
 	u.tickets[repo] = t
 	return t.token
 }
 
-// consume 은 토큰이 그 리포의 살아 있는 티켓일 때만 참이며, 그때 티켓을 없앤다.
-// 빈 토큰은 언제나 거짓이다 — 토큰 없이 부른 요청이 통과하면 만료가 뜻을 잃는다.
-func (u *gitUndoStore) consume(repo, token string) bool {
+// consume 은 토큰이 그 리포의 살아 있는 티켓이고 head 가 발급 때의 커밋일 때만
+// 티켓을 없애고 undoConsumed 다. 빈 토큰은 언제나 undoInvalid 다 — 토큰 없이 부른
+// 요청이 통과하면 만료가 뜻을 잃는다.
+func (u *gitUndoStore) consume(repo, token, head string) undoVerdict {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	t, ok := u.tickets[repo]
 	if !ok || token == "" || t.token != token || !u.clock().Before(t.expires) {
-		return false
+		return undoInvalid
+	}
+	if t.head != head {
+		return undoHeadMoved
 	}
 	delete(u.tickets, repo)
-	return true
+	return undoConsumed
 }
 
 // pruneLocked 는 만료된 티켓을 버린다. 티켓 수명이 5초이므로 LRU 를 둘 값이 없다.

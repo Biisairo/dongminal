@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -20,15 +22,47 @@ import (
 func (j *Jobs) run1(ctx context.Context, cancel context.CancelFunc, st *jobState) {
 	defer cancel()
 	started := j.now()
-	exit, err := j.run(ctx, st.job.Repo, st.raw, st.spec.Stdin, func(stream, text string) {
-		j.appendLine(st, stream, text)
-	})
+	exit, err := j.runGuarded(ctx, st)
 	// 상한 초과는 실행기가 무엇을 돌려주든 **이것이** 사유다 (O9). 실행기의
 	// 오류로 남기면 "왜 끝났는가"가 실행기 구현에 따라 달라진다.
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		err = fmt.Errorf("%w: 상한 %v 를 넘겨 종료했다", core.ErrTimeout, j.ceiling)
 	}
 	j.finish(st, exit, err, j.now().Sub(started))
+}
+
+// runGuarded 는 실행기를 부르고 그 panic 을 이 잡의 실패로 바꾼다 (ATTIC_FIX_SRS
+// FR-ATF-8, D-ATF-4). 이전: 잡 고루틴에 recover 가 없어 서버 전체가 죽었다. 새: 잡이
+// 실패로 끝나고 finish 가 칸을 비운다. 스택은 로그로.
+func (j *Jobs) runGuarded(ctx context.Context, st *jobState) (exit int, err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			exit, err = -1, panicErr(st, "실행기", v)
+		}
+	}()
+	return j.run(ctx, st.job.Repo, st.raw, st.spec.Stdin, func(stream, text string) {
+		j.appendLine(st, stream, text)
+	})
+}
+
+// hookGuarded 는 완료 훅 하나를 부르고 그 panic 을 이 잡의 실패로 바꾼다 (FR-ATF-8).
+// 훅이 죽어도 finish 는 끝까지 가서 칸을 비운다.
+func hookGuarded(st *jobState, final *Job, name string, hook func()) {
+	defer func() {
+		if v := recover(); v != nil {
+			err := panicErr(st, name, v)
+			if final.Err == "" {
+				final.Err = err.Error()
+			}
+		}
+	}()
+	hook()
+}
+
+// panicErr 는 잡 안의 panic 을 기록하고 잡의 사유로 쓸 오류로 바꾼다.
+func panicErr(st *jobState, where string, v any) error {
+	dmlog.Errorf(nil, "git job panic id=%s kind=%s where=%s: %v\n%s", st.job.ID, st.job.Kind, where, v, debug.Stack())
+	return fmt.Errorf("%s panic: %v", where, v)
 }
 
 // appendLine 은 줄 하나를 보존하고 구독자에게 흘려보낸다.
@@ -51,7 +85,9 @@ func (j *Jobs) appendLine(st *jobState, stream, text string) {
 	st.seq++
 	ln := Line{Seq: st.seq, Stream: stream, Text: text}
 	st.lines = append(st.lines, ln)
-	if len(st.lines) > j.lineCap {
+	// 상한의 두 배에 닿을 때 한 번에 자른다 — 보이는 줄은 visibleLines 가 상한으로
+	// 끊는다. 이전: 상한을 넘으면 줄마다 상한만큼 복사했다(잠금 안) (FR-ATF-7, AT-GJB-2).
+	if len(st.lines) >= lineTrimFactor*j.lineCap {
 		st.lines = append(st.lines[:0], st.lines[len(st.lines)-j.lineCap:]...)
 	}
 	if stream == LineStderr {
@@ -77,6 +113,7 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 	// 쓸 수 없다. 사본이 완성되면 훅을 먼저 부르고, 그 뒤에 한 번의 잠금으로
 	// 공개한다.
 	j.mu.Lock()
+	st.finishing = true
 	final := st.job
 	canceled := st.canceled
 	tail := strings.Join(st.stderr, "\n")
@@ -101,10 +138,10 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 	}
 	if j.onDone != nil {
 		snapshot := final
-		j.onDone(&snapshot)
+		hookGuarded(st, &final, "완료 훅(onDone)", func() { j.onDone(&snapshot) })
 	}
 	if st.finish != nil {
-		st.finish(fctx, &final)
+		hookGuarded(st, &final, "완료 처리(finish)", func() { st.finish(fctx, &final) })
 	}
 
 	j.mu.Lock()
@@ -188,6 +225,17 @@ func (j *Jobs) recordFinal(st *jobState, final Job, tail string, exit int, dur t
 		j.svc.RecordWrite(final.Repo,
 			core.WriteSpec{Argv: final.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin}, out, recErr)
 	}
+}
+
+// lineTrimFactor 는 보존 줄을 자르는 시점이다 — 상한의 이 배수에 닿으면 상한으로 자른다.
+const lineTrimFactor = 2
+
+// visibleLines 는 밖에 보이는 보존 줄이다 — 마지막 lineCap 줄. 잠금 아래에서 부른다.
+func (j *Jobs) visibleLines(st *jobState) []Line {
+	if len(st.lines) > j.lineCap {
+		return st.lines[len(st.lines)-j.lineCap:]
+	}
+	return st.lines
 }
 
 // sweepLocked 는 보존 기간이 지난 작업을 버린다. 진행 중인 것은 건드리지 않는다.

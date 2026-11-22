@@ -47,12 +47,15 @@ func CheckoutArgs(o CheckoutOpts) ([]string, error) {
 		argv = append(argv, checkoutCreateFlag, o.Create)
 	}
 	if o.Track != "" {
-		return append(argv, checkoutTrackFlag, o.Track), nil
+		argv = append(argv, checkoutTrackFlag, o.Track)
 	}
 	if o.Ref != "" {
 		argv = append(argv, o.Ref)
 	}
-	return argv, nil
+	// 끝의 `--` 는 이름을 ref 로만 읽게 한다 (ATTIC_FIX_SRS FR-ATF-1, AT-GAPI-1).
+	// 이전: 없는 ref 가 같은 이름의 파일이면 git 이 경로로 읽어 그 변경을 지웠다.
+	// 새: 없는 ref 는 git 이 오류로 끝낸다.
+	return append(argv, pathsSep), nil
 }
 
 // BranchCreateArgs 는 생성의 argv 다. Checkout 이면 만들면서 옮겨 가므로 명령 자체가
@@ -102,6 +105,7 @@ func BranchRenameArgs(o BranchRenameOpts) ([]string, error) {
 // `-d` 가 기본이고 `-D` 는 호출자가 명시할 때만이다 (FR-GIT-97). **여러 개를 한 번에
 // 강제 삭제하지 않는다** — 확인 하나가 여러 개의 미머지 브랜치를 지우는 자리가 된다.
 func BranchDeleteArgs(o BranchDeleteOpts) ([]string, error) {
+	o.Names = FoldBranchNames(o.Names)
 	if len(o.Names) == 0 {
 		return nil, fmt.Errorf("%w: 지울 브랜치가 없다", ErrBranchDelete)
 	}
@@ -175,4 +179,18 @@ func UpstreamArgs(o UpstreamOpts) ([]string, error) {
 		return nil, err
 	}
 	return []string{"branch", branchSetUpstreamPrefix + o.Upstream, o.Branch}, nil
+}
+
+// FoldBranchNames 는 같은 이름을 하나로 접는다(처음 순서 유지) (ATTIC_FIX_SRS FR-ATF-4,
+// AT-GAPI-8). 이전: `branch -d a a` 가 첫 삭제만 적용하고 실패했다. 새: 한 번만 싣는다.
+func FoldBranchNames(names []string) []string {
+	seen := make(map[string]bool, len(names))
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	return out
 }

@@ -105,10 +105,20 @@ func checkNewBranchName(s *core.Service, ctx context.Context, repo, name string)
 		return err
 	}
 	if exists {
-		return fmt.Errorf("%w: 로컬 브랜치 %q 가 이미 있다", ErrBranchExists, name)
+		return &BranchExistsError{Name: name}
 	}
 	return nil
 }
+
+// BranchExistsError 는 ErrBranchExists 에 그 이름을 싣는다 — 처리기가 409 본문에
+// 무엇이 이미 있는지와 선택지를 담는다 (ATTIC_FIX_SRS FR-ATF-3).
+type BranchExistsError struct{ Name string }
+
+func (e *BranchExistsError) Error() string {
+	return fmt.Sprintf("%s: 로컬 브랜치 %q 가 이미 있다", ErrBranchExists, e.Name)
+}
+
+func (e *BranchExistsError) Unwrap() error { return ErrBranchExists }
 
 // ── 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268) ──
 //
@@ -245,6 +255,7 @@ func BranchRename(s *core.Service, ctx context.Context, repo string, o BranchRen
 // 실행 **전에** 지워질 브랜치의 oid 를 읽어 recovery hint 로 남긴다 (FR-GIT-250.2).
 // 실행 후에 읽으면 ref 가 이미 없고, 그러면 hint 는 안내문만 남는다.
 func BranchDelete(s *core.Service, ctx context.Context, repo string, o BranchDeleteOpts) (core.Output, BranchDeletePlan, error) {
+	o.Names = FoldBranchNames(o.Names)
 	argv, err := BranchDeleteArgs(o)
 	if err != nil {
 		return denied(), BranchDeletePlan{}, err

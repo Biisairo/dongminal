@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -23,15 +24,15 @@ func TestCheckoutArgs_Order(t *testing.T) {
 		o    CheckoutOpts
 		want []string
 	}{
-		{"브랜치 전환", CheckoutOpts{Ref: "main"}, []string{"checkout", "main"}},
-		{"detached", CheckoutOpts{Ref: "abc123", Detach: true}, []string{"checkout", "--detach", "abc123"}},
-		{"강제", CheckoutOpts{Ref: "main", Force: true}, []string{"checkout", "--force", "main"}},
-		{"생성 후 전환", CheckoutOpts{Create: "feat"}, []string{"checkout", "-b", "feat"}},
-		{"시작점 지정 생성", CheckoutOpts{Create: "feat", Ref: "abc123"}, []string{"checkout", "-b", "feat", "abc123"}},
+		{"브랜치 전환", CheckoutOpts{Ref: "main"}, []string{"checkout", "main", "--"}},
+		{"detached", CheckoutOpts{Ref: "abc123", Detach: true}, []string{"checkout", "--detach", "abc123", "--"}},
+		{"강제", CheckoutOpts{Ref: "main", Force: true}, []string{"checkout", "--force", "main", "--"}},
+		{"생성 후 전환", CheckoutOpts{Create: "feat"}, []string{"checkout", "-b", "feat", "--"}},
+		{"시작점 지정 생성", CheckoutOpts{Create: "feat", Ref: "abc123"}, []string{"checkout", "-b", "feat", "abc123", "--"}},
 		{
 			"원격 추적 생성",
 			CheckoutOpts{Create: "feat", Track: "origin/feat"},
-			[]string{"checkout", "-b", "feat", "--track", "origin/feat"},
+			[]string{"checkout", "-b", "feat", "--track", "origin/feat", "--"},
 		},
 	}
 	for _, c := range cases {
@@ -44,6 +45,42 @@ func TestCheckoutArgs_Order(t *testing.T) {
 				t.Fatalf("argv = %v, want %v", got, c.want)
 			}
 		})
+	}
+}
+
+// TC-ATF-1 (ATTIC_FIX_SRS FR-ATF-1, AT-GAPI-1): 워킹 트리의 파일과 이름이 같은
+// ref 로 checkout 해도 파일은 그대로다. 이전: argv 에 `--` 가 없어 git 이 없는 ref 를
+// 경로로 읽고 커밋 안 한 변경을 확인 없이 지웠다(exit 0). 새: argv 끝의 `--` 로
+// ref 로만 읽혀 git 이 오류로 끝낸다.
+func TestCheckout_FileNamedRefDoesNotRestoreFile(t *testing.T) {
+	repo := tempRepo(t)
+	f := filepath.Join(repo, "f.txt")
+	if err := os.WriteFile(f, []byte("committed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, repo, "add", "f.txt")
+	gitRun(t, repo, "commit", "-q", "-m", "f")
+	const dirty = "uncommitted\n"
+	if err := os.WriteFile(f, []byte(dirty), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	spec, err := CheckoutSpec(CheckoutOpts{Ref: "f.txt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if last := spec.Argv[len(spec.Argv)-1]; last != pathsSep {
+		t.Fatalf("argv 끝 = %q, want %q (argv=%v)", last, pathsSep, spec.Argv)
+	}
+	if _, err := core.New().ExecWrite(context.Background(), repo, spec); err == nil {
+		t.Fatal("없는 ref 의 checkout 이 성공했다")
+	}
+	got, err := os.ReadFile(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != dirty {
+		t.Fatalf("f.txt = %q, want %q — 커밋 안 한 변경이 지워졌다", got, dirty)
 	}
 }
 
@@ -274,6 +311,30 @@ func TestBranchDeleteArgs(t *testing.T) {
 		} else if !errors.Is(err, ErrBranchDelete) && !errors.Is(err, core.ErrRefName) {
 			t.Fatalf("%+v 의 오류가 분류되지 않았다: %v", o, err)
 		}
+	}
+}
+
+// TC-ATF-4 (ATTIC_FIX_SRS FR-ATF-4, AT-GAPI-8): 같은 이름이 두 번 오면 하나로 접는다.
+// 이전: `branch -d a a` 가 첫 삭제만 적용하고 둘째에서 실패했다(부분 적용). 새: 한 번만
+// 싣고, 접은 뒤 하나면 `-D` 도 받는다.
+func TestBranchDelete_FoldsDuplicateNames(t *testing.T) {
+	got, err := BranchDeleteArgs(BranchDeleteOpts{Names: []string{"a", "b", "a"}})
+	if err != nil || fmt.Sprint(got) != fmt.Sprint([]string{"branch", "-d", "a", "b"}) {
+		t.Fatalf("argv = %v, err = %v", got, err)
+	}
+	if got, err := BranchDeleteArgs(BranchDeleteOpts{Names: []string{"a", "a"}, Force: true}); err != nil ||
+		fmt.Sprint(got) != fmt.Sprint([]string{"branch", "-D", "a"}) {
+		t.Fatalf("force argv = %v, err = %v", got, err)
+	}
+
+	repo := tempRepoWithBranch(t, "feat")
+	s := core.New()
+	_, plan, err := BranchDelete(s, context.Background(), repo, BranchDeleteOpts{Names: []string{"feat", "feat"}})
+	if err != nil {
+		t.Fatalf("BranchDelete: %v", err)
+	}
+	if len(plan.Names) != 1 || len(plan.Oids) != 1 || len(s.Hints(0)) != 1 {
+		t.Fatalf("plan = %+v, hints = %d", plan, len(s.Hints(0)))
 	}
 }
 

@@ -221,13 +221,5 @@ func (x *Exclusion) slotLocked(k Keys, slot string) (map[string]string, string) 
 	return x.common, k.Common
 }
 
-// ctxErr 는 ctx 의 끝을 core 의 분류로 옮긴다. 요청이 떠난 것은 서버 실패가 아니다.
-func ctxErr(ctx context.Context) error {
-	switch {
-	case errors.Is(ctx.Err(), context.DeadlineExceeded):
-		return fmt.Errorf("%w: 잠금을 기다리다 마감을 넘겼다", core.ErrTimeout)
-	case ctx.Err() != nil:
-		return fmt.Errorf("%w: 잠금을 기다리는 동안 요청이 떠났다", core.ErrCanceled)
-	}
-	return nil
-}
+// ctxErr 는 잠금 대기 중 끝난 ctx 의 분류다 (core.CtxErr).
+func ctxErr(ctx context.Context) error { return core.CtxErr(ctx, "잠금을 기다리는 중") }

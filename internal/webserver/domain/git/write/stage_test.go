@@ -182,9 +182,10 @@ func TestStage_SplitsAndReportsPartial(t *testing.T) {
 	}
 }
 
-// S5 (V37, FR-GIT-89·92): Discard 는 파괴적으로 기록되고, **실행 전에** recovery
-// hint 가 남는다. 실행 후에 남기면 실행이 실패한 경로에서 hint 가 없다.
-func TestDiscard_DestructiveAndHintBeforeExec(t *testing.T) {
+// S5 (V37, FR-GIT-89·92): Discard 는 파괴적으로 기록되고, 실행이 **성공한 뒤에**
+// recovery hint 가 남는다 (ATTIC_FIX_SRS FR-ATF-5, AT-GAPI-11). 이전: 실행 전에 남겨
+// 아무것도 버리지 않은 실패에도 "버려졌다" 는 안내가 남았다. 새: 성공 뒤에만.
+func TestDiscard_DestructiveAndHintAfterExec(t *testing.T) {
 	var hintsAtExec []int
 	var argvs [][]string
 	var destructive []bool
@@ -207,8 +208,8 @@ func TestDiscard_DestructiveAndHintBeforeExec(t *testing.T) {
 		t.Fatalf("argv = %v, want %v", argvs, want)
 	}
 	for i, n := range hintsAtExec {
-		if n == 0 {
-			t.Fatalf("%d 번째 실행 시점에 hint 가 없었다", i)
+		if n != 0 {
+			t.Fatalf("%d 번째 실행 시점에 hint 가 이미 있었다", i)
 		}
 	}
 
@@ -284,5 +285,22 @@ func TestDiscard_PartialAcrossBothCommands(t *testing.T) {
 	}
 	if !be.Partial() || be.Applied != 2 || be.Total != 3 {
 		t.Fatalf("BatchError = %+v", be)
+	}
+	if hints := s.Hints(0); len(hints) != 0 {
+		t.Fatalf("실패한 Discard 가 hint 를 남겼다: %+v", hints)
+	}
+}
+
+// FR-ATF-5: 첫 명령에서 실패하면 아무것도 버리지 않았고 hint 도 없다.
+func TestDiscard_FailureLeavesNoHint(t *testing.T) {
+	fail := func(context.Context, string, []string, string) (core.Output, error) {
+		return core.Output{ExitCode: 1, Stderr: "fatal: 실패"}, nil
+	}
+	s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(fail))
+	if _, err := Discard(s, context.Background(), absTmpRepo, Paths{"a.txt"}, nil); err == nil {
+		t.Fatal("실패가 성공으로 끝났다")
+	}
+	if hints := s.Hints(0); len(hints) != 0 {
+		t.Fatalf("hint = %+v", hints)
 	}
 }

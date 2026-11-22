@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"dongminal/internal/shared/gittest"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -28,5 +29,22 @@ func TestLastCommitMessage_MultiLine(t *testing.T) {
 	}
 	if recs := s.Records(0); len(recs) != 1 || recs[0].Argv[0] != "log" {
 		t.Fatalf("읽기 경로로 실행되지 않았다: %+v", recs)
+	}
+}
+
+// FR-ATF-2: HeadCommit 은 한 번의 읽기로 HEAD oid 와 메시지 전문을 준다.
+func TestHeadCommit_OidAndMessage(t *testing.T) {
+	repo := tempRepo(t)
+	s := core.New()
+	ctx := context.Background()
+
+	gitIn(t, repo, "commit", "--allow-empty", "--cleanup=strip", "-m", commitFixtureMessage)
+	want := gittest.Run(t, repo, "rev-parse", "HEAD")
+	oid, msg, err := HeadCommit(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("HeadCommit: %v", err)
+	}
+	if oid != want || msg != commitFixtureMessage {
+		t.Fatalf("oid, message = %q, %q; want %q, %q", oid, msg, want, commitFixtureMessage)
 	}
 }

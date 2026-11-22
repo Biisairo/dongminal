@@ -3,6 +3,7 @@ package gitapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -46,6 +47,10 @@ type gitWriteFake struct {
 	status   string
 	identity bool // false 면 preflight 가 identity_missing 으로 막는다
 	message  string
+	// headOid 는 HEAD 커밋이다(status 의 branch.oid 와 같은 값에서 시작한다).
+	headOid string
+	// logErr 가 있으면 log 읽기가 실패한다 (FR-ATF-2).
+	logErr   error
 	writes   [][]string
 	stdins   []string
 	writeErr func(argv []string) (core.Output, error)
@@ -68,6 +73,7 @@ func newGitWriteFake(t *testing.T) *gitWriteFake {
 		status:   gitWriteStatus("a.txt", "M."),
 		identity: true,
 		message:  "직전 커밋 제목\n\n본문",
+		headOid:  strings.Repeat("a", 40),
 	}
 }
 
@@ -90,6 +96,10 @@ func (f *gitWriteFake) read(_ context.Context, dir string, args []string) (core.
 			f.mu.Lock()
 		}
 		return core.Output{Stdout: f.status}, nil
+	case args[0] == "log" && f.logErr != nil:
+		return core.Output{}, f.logErr
+	case args[0] == "log" && strings.HasPrefix(args[len(args)-1], "--pretty=%H"):
+		return core.Output{Stdout: f.headOid + "\x00" + f.message + "\n"}, nil
 	case args[0] == "log":
 		return core.Output{Stdout: f.message + "\n"}, nil
 	case args[0] == "config":
@@ -353,6 +363,58 @@ func TestAPIGitUndoLast_ConsumedOnce(t *testing.T) {
 	}
 	if got := f.wrote(); len(got) != 1 {
 		t.Fatalf("undo 가 두 번 실행됐다: %v", got)
+	}
+}
+
+// TC-ATF-2 (ATTIC_FIX_SRS FR-ATF-2, AT-GAPI-2): 토큰 발급 뒤 다른 커밋이 HEAD 를
+// 옮기면 undo 는 409 stale_observation 이고 토큰은 남는다. 이전: 토큰에 커밋이 없어
+// 5초 안에 터미널에서 만든 커밋을 되돌렸다. 새: 발급 때의 HEAD 와 다르면 거절한다.
+func TestAPIGitUndoLast_HeadMovedIsStale(t *testing.T) {
+	f := newGitWriteFake(t)
+	s, _ := gitWriteServer(t, f)
+	tok := gitIssueUndo(t, s, f)
+	body := `{"repo":` + qWorkRepo + `,"undoToken":` + testpath.JSONQuote(tok) + `}`
+
+	issued := f.headOid
+	f.mu.Lock()
+	f.headOid = strings.Repeat("b", 40)
+	f.mu.Unlock()
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", body)
+	if code != http.StatusConflict || out["error"] != "stale_observation" {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	if got := f.wrote(); len(got) != 0 {
+		t.Fatalf("다른 커밋을 되돌렸다: %v", got)
+	}
+
+	// 토큰은 소모되지 않았다 — HEAD 가 돌아오면 같은 토큰이 통한다.
+	f.mu.Lock()
+	f.headOid = issued
+	f.mu.Unlock()
+	if code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", body); code != http.StatusOK {
+		t.Fatalf("토큰이 소모됐다: code = %d, body = %v", code, out)
+	}
+}
+
+// FR-ATF-2 (AT-GAPI-3): 메시지 읽기가 실패하면 토큰을 소모하지 않는다. 이전: 토큰을
+// 지운 뒤 읽기가 실패해 재시도할 수 없었다. 새: 읽기를 먼저 한다.
+func TestAPIGitUndoLast_ReadFailureKeepsToken(t *testing.T) {
+	f := newGitWriteFake(t)
+	s, _ := gitWriteServer(t, f)
+	tok := gitIssueUndo(t, s, f)
+	body := `{"repo":` + qWorkRepo + `,"undoToken":` + testpath.JSONQuote(tok) + `}`
+
+	f.mu.Lock()
+	f.logErr = errors.New("log 실패")
+	f.mu.Unlock()
+	if code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", body); code == http.StatusOK {
+		t.Fatalf("읽기 실패가 성공으로 답했다: %v", out)
+	}
+	f.mu.Lock()
+	f.logErr = nil
+	f.mu.Unlock()
+	if code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", body); code != http.StatusOK {
+		t.Fatalf("재시도 = %d, body = %v", code, out)
 	}
 }
 
