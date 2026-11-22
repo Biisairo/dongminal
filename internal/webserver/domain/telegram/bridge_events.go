@@ -12,6 +12,9 @@ import (
 // askTool 은 사용자에게 선택지를 묻는 도구다.
 const askTool = "AskUserQuestion"
 
+// readReply 는 transcript 의 마지막 응답을 읽는다. 시험이 바꿔 낀다.
+var readReply = LastReply
+
 // tabState 는 탭 하나의 직전 hook 이다 (FR-TGB-51·55). 알람이 울릴 때 종류와 내용을 정한다.
 type tabState struct {
 	transcript string
@@ -62,33 +65,38 @@ var (
 	kindOther      = alarmKind{emoji: "🔔", label: "알림"}
 )
 
-// classify 는 알람 사유와 직전 hook 으로 종류와 내용(HTML)을 정한다. ts 가 nil 이면 hook 이
-// 없는 에이전트다 (FR-TGB-52·59).
-func classify(reason string, ts *tabState) (alarmKind, string) {
+// classify 는 알람 사유와 직전 hook 으로 종류와 내용을 정한다. 내용은 남은 단위 안에서
+// HTML 로 옮기는 함수이고, 없으면 nil 이다. ts 가 nil 이면 hook 이 없는 에이전트다 (FR-TGB-52·59).
+func classify(reason string, ts *tabState) (alarmKind, func(*budget) string) {
 	if ts == nil {
 		ts = &tabState{}
 	}
 	switch reason {
 	case "done":
 		if ts.failed {
-			return kindError, plainHTML(ts.failure)
+			failure := ts.failure
+			return kindError, func(b *budget) string { return plainHTML(failure, b) }
 		}
 		if ts.transcript == "" {
-			return kindDone, ""
+			return kindDone, nil
 		}
-		return kindDone, mdToHTML(cutRunes(LastReply(ts.transcript)))
+		reply := readReply(ts.transcript)
+		return kindDone, func(b *budget) string { return mdToHTML(b.take(reply)) }
 	case "waiting":
 		if p := ts.perm; p != nil && p.Tool != askTool {
 			k := kindPermission
 			k.tool = p.Tool
-			return k, codeHTML(permSummary(p.Input, p.Detail))
+			summary := permSummary(p.Input, p.Detail)
+			return k, func(b *budget) string { return codeHTML(summary, b) }
 		}
 		if ts.ask != nil || ts.perm != nil {
-			return kindQuestion, questionHTML(questionInput(ts))
+			input := questionInput(ts)
+			return kindQuestion, func(b *budget) string { return questionHTML(input, b) }
 		}
-		return kindWaiting, plainHTML(ts.notice)
+		notice := ts.notice
+		return kindWaiting, func(b *budget) string { return plainHTML(notice, b) }
 	}
-	return kindOther, ""
+	return kindOther, nil
 }
 
 // questionInput 은 질문의 입력이다. 권한 요청에 입력이 없으면 앞서 연 질문의 것이다 (FR-TGB-55).
@@ -106,7 +114,7 @@ func (b *Bridge) alarm(c Config, toolID, reason string) {
 	b.mu.Lock()
 	kind, body := classify(reason, b.tabs[toolID])
 	b.mu.Unlock()
-	p := map[string]any{"chat_id": c.UserID, "text": alarmText(kind, b.host.Location(toolID), body), "parse_mode": "HTML"}
+	p := map[string]any{"chat_id": c.UserID, "text": fitAlarm(kind, b.host.Location(toolID), body), "parse_mode": "HTML"}
 	kb := readKeyboard(toolID)
 	if kb != nil {
 		p["reply_markup"] = kb

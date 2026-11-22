@@ -6,14 +6,16 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode/utf8"
+	"unicode/utf16"
 )
 
 // 알림 모양 (FR-TGB-51·52·52a·54·58). Telegram HTML 로 보낸다.
 
 const (
-	// contentMax 는 내용 원문의 글자 수 상한이다 (FR-TGB-54).
+	// contentMax 는 내용 원문의 상한이다 (FR-TGB-54). UTF-16 단위로 센다 (ATTIC_FIX_SRS D-ATF-6).
 	contentMax = 3500
+	// messageMax 는 Telegram 글의 상한이다 — 엔티티를 푼 뒤의 UTF-16 단위다 (D-ATF-6).
+	messageMax = 4096
 	cutMark    = "…(PC 에서 보기)"
 	// callbackMax 는 버튼 데이터의 상한(바이트)이다 (Telegram).
 	callbackMax = 64
@@ -36,12 +38,83 @@ func locationLines(l Location) string {
 	return strings.Join(append(lines, line("Tab   ", l.Tab)), "\n")
 }
 
-// cutRunes 는 contentMax 글자를 넘으면 앞부분만 남기고 cutMark 를 붙인다.
-func cutRunes(s string) string {
-	if utf8.RuneCountInString(s) <= contentMax {
-		return s
+// unitsPrefix 는 s 의 앞부분 중 limit UTF-16 단위 안에 드는 바이트 길이와 그 단위 수다.
+// 글자를 쪼개지 않는다.
+func unitsPrefix(s string, limit int) (end, units int) {
+	for i, r := range s {
+		n := utf16.RuneLen(r)
+		if units+n > limit {
+			return i, units
+		}
+		units += n
 	}
-	return string([]rune(s)[:contentMax]) + cutMark
+	return len(s), units
+}
+
+// cutUnits 는 limit UTF-16 단위를 넘으면 앞부분만 남기고 cutMark 를 붙인다.
+func cutUnits(s string, limit int) string {
+	if end, _ := unitsPrefix(s, limit); end < len(s) {
+		return s[:end] + cutMark
+	}
+	return s
+}
+
+// budget 은 알림 하나의 내용에 남은 UTF-16 단위다. 처음 넘친 자리에 cutMark 를 붙이고
+// 그 뒤의 글은 버린다.
+type budget struct {
+	left int
+	full bool
+}
+
+func (b *budget) take(s string) string {
+	if b.full {
+		return ""
+	}
+	end, n := unitsPrefix(s, b.left)
+	if end < len(s) {
+		b.full = true
+		return s[:end] + cutMark
+	}
+	b.left -= n
+	return s
+}
+
+// put 은 sb 에 b.take(s) 를 쓰고, 아직 더 실을 수 있는가를 돌려준다.
+func (b *budget) put(sb *strings.Builder, s string) bool {
+	sb.WriteString(b.take(s))
+	return !b.full
+}
+
+var reHTMLTag = regexp.MustCompile(`<[^>]*>`)
+
+// textUnits 는 Telegram 이 세는 길이다 — 태그를 걷고 이스케이프를 푼 글의 UTF-16 단위다 (D-ATF-6).
+func textUnits(s string) int {
+	n := 0
+	for _, r := range html.UnescapeString(reHTMLTag.ReplaceAllString(s, "")) {
+		n += utf16.RuneLen(r)
+	}
+	return n
+}
+
+// fitAlarm 은 알림 전체다. 사용자·에이전트 유래 글(도구·위치 이름, 내용)은 HTML 로 옮기기
+// 전에 limit 단위로 잘라 태그가 깨지지 않는다. Markdown 을 옮기면 글이 늘 수 있으므로(표의
+// 칸 나눔) messageMax 를 넘으면 limit 을 반으로 줄여 다시 만든다 (ATTIC_FIX_SRS FR-ATF-40).
+//
+//	이전: 내용만 3500 글자(rune)로 잘랐다 — 질문·선택지·위치 이름은 자르지 않아 4096 을 넘으면 알림이 사라졌다
+func fitAlarm(k alarmKind, loc Location, body func(*budget) string) string {
+	for limit := contentMax; ; limit /= 2 {
+		kk := k
+		kk.tool = cutUnits(k.tool, limit)
+		l := Location{Device: cutUnits(loc.Device, limit), Window: cutUnits(loc.Window, limit), Tab: cutUnits(loc.Tab, limit)}
+		bodyHTML := ""
+		if body != nil {
+			bodyHTML = body(&budget{left: limit})
+		}
+		text := alarmText(kk, l, bodyHTML)
+		if limit == 0 || textUnits(text) <= messageMax {
+			return text
+		}
+	}
 }
 
 // alarmText 는 알림 전체다. bodyHTML 은 이미 옮긴 내용이다. 위치는 접힌 문단의 머리이고,
@@ -68,21 +141,21 @@ func readKeyboard(toolID string) map[string]any {
 }
 
 // plainHTML 은 평문 내용이다. 비면 빈 글이다.
-func plainHTML(s string) string {
+func plainHTML(s string, b *budget) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return ""
 	}
-	return esc(cutRunes(s))
+	return esc(b.take(s))
 }
 
 // codeHTML 은 권한 요청의 요약이다.
-func codeHTML(s string) string {
+func codeHTML(s string, b *budget) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return ""
 	}
-	return codeLines(strings.Split(cutRunes(s), "\n"))
+	return codeLines(strings.Split(b.take(s), "\n"))
 }
 
 // codeLines 는 여러 줄 코드를 줄마다 `<code>` 로 감싼다. 접힌 문단 안의 `<pre>` 는 상자를
@@ -121,30 +194,36 @@ type question struct {
 }
 
 // questionHTML 은 AskUserQuestion 의 질문과 선택지다. 읽지 못하면 빈 글이다 (FR-TGB-52).
-func questionHTML(input []byte) string {
+// 줄 나눔도 b 에서 센다.
+func questionHTML(input []byte, b *budget) string {
 	var in struct {
 		Questions []question `json:"questions"`
 	}
 	if json.Unmarshal(input, &in) != nil {
 		return ""
 	}
-	blocks := make([]string, 0, len(in.Questions))
-	for _, q := range in.Questions {
+	var sb strings.Builder
+	for i, q := range in.Questions {
+		if i > 0 && !b.put(&sb, "\n\n") {
+			break
+		}
 		title := q.Question
 		if q.Header != "" {
 			title = "[" + q.Header + "] " + title
 		}
-		lines := []string{"<b>" + esc(title) + "</b>"}
+		sb.WriteString("<b>" + esc(b.take(title)) + "</b>")
 		for j, o := range q.Options {
+			if !b.put(&sb, "\n") {
+				break
+			}
 			line := strconv.Itoa(j+1) + ". " + o.Label
 			if o.Description != "" {
 				line += " — " + o.Description
 			}
-			lines = append(lines, esc(line))
+			sb.WriteString(esc(b.take(line)))
 		}
-		blocks = append(blocks, strings.Join(lines, "\n"))
 	}
-	return strings.Join(blocks, "\n\n")
+	return sb.String()
 }
 
 var (
