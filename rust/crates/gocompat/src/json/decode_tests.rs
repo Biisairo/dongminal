@@ -355,3 +355,19 @@ fn decoder_error_kinds_match_go() {
         &ErrorKind::Other
     );
 }
+
+// go1.27.2 실측: RawMessage 는 원문 바이트를 그대로 담는다(이스케이프·공백 보존). map 의 null 은 키를 남기고 "null".
+#[test]
+fn raw_message_keeps_source_bytes_like_go() {
+    let input = r#"{"n":null,"s":"\u00e9","t":"\/x","u":" x ","o":{ "a" : 1 , "c":"\u00e9\/"},"arr":[ 1 , "\u0041" ],"num":1.50,"bad":"\ud800"}"#;
+    let m: std::collections::BTreeMap<String, RawMessage> = unmarshal(input.as_bytes()).expect("ok");
+    assert_eq!(m.len(), 8);
+    assert_eq!(m["n"].0, r#"null"#.as_bytes(), "n");
+    assert_eq!(m["s"].0, r#""\u00e9""#.as_bytes(), "s");
+    assert_eq!(m["t"].0, r#""\/x""#.as_bytes(), "t");
+    assert_eq!(m["u"].0, r#"" x ""#.as_bytes(), "u");
+    assert_eq!(m["o"].0, r#"{ "a" : 1 , "c":"\u00e9\/"}"#.as_bytes(), "o");
+    assert_eq!(m["arr"].0, r#"[ 1 , "\u0041" ]"#.as_bytes(), "arr");
+    assert_eq!(m["num"].0, r#"1.50"#.as_bytes(), "num");
+    assert_eq!(m["bad"].0, r#""\ud800""#.as_bytes(), "bad");
+}
