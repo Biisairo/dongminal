@@ -180,9 +180,22 @@ pub(crate) struct WindowsShell {
     pub(crate) look: LookFn,
 }
 
-/// PowerShell 의 홑따옴표 문자열. 홑따옴표 자신만 겹쳐 쓴다.
-fn power_shell_quote(v: &str) -> String {
-    format!("'{}'", v.replace('\'', "''"))
+/// PowerShell 이 홑따옴표로 읽는 문자. 굽은 따옴표도 문자열을 닫는다.
+const POWERSHELL_SINGLE_QUOTES: &[char] = &['\'', '\u{2018}', '\u{2019}', '\u{201A}', '\u{201B}'];
+
+/// PowerShell 의 홑따옴표(축자) 문자열. 그 안의 홑따옴표 문자는 겹쳐 써서 리터럴로 남긴다.
+/// Go 는 `'` 만 겹친다. 굽은 따옴표까지 겹치는 것은 보안 강화다 (RUST_PORT_SRS 3.7 D-2).
+pub(crate) fn power_shell_quote(v: &str) -> String {
+    let mut out = String::with_capacity(v.len() + 2);
+    out.push('\'');
+    for c in v.chars() {
+        if POWERSHELL_SINGLE_QUOTES.contains(&c) {
+            out.push(c);
+        }
+        out.push(c);
+    }
+    out.push('\'');
+    out
 }
 
 /// 스크립트를 현재 세션 스코프로 읽는 명령. -File 은 -NoExit 과 함께일 때 대화형 유지가

@@ -360,3 +360,15 @@ fn current_hook_root_matches_build() {
     };
     assert_eq!(current().hook_root(), want);
 }
+
+// RUST_PORT_SRS 3.7 D-2: PowerShell 은 굽은 홑따옴표도 문자열을 닫는 따옴표로 읽는다.
+#[test]
+fn power_shell_quote_doubles_curly_quotes() {
+    let w = windows(&[], &[]);
+    assert_eq!(w.quote("a\u{2019}b"), "'a\u{2019}\u{2019}b'");
+    assert_eq!(
+        w.quote("\u{2018}\u{201A}\u{201B}'"),
+        "'\u{2018}\u{2018}\u{201A}\u{201A}\u{201B}\u{201B}'''"
+    );
+    assert_eq!(w.quote("plain"), "'plain'");
+}

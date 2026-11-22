@@ -8,7 +8,7 @@ use std::io;
 use std::sync::LazyLock;
 
 use crate::shell::gopath::Conv;
-use crate::shell::{EnvFn, LookFn, StatFn};
+use crate::shell::{EnvFn, LookFn, StatFn, power_shell_quote};
 
 /// frameless window(주소창 없는 앱 창)를 여는 명령 `(name, args)`.
 pub trait Browser: Send + Sync {
@@ -97,12 +97,13 @@ fn plain_args(url: &str) -> Vec<String> {
     vec![url.to_owned()]
 }
 
+/// url 은 축자 문자열로 넘긴다. Go 는 `Start-Process <url>` 을 따로 넘겨 PowerShell 이 url 을
+/// 스크립트로 읽었다 — `;`·`$( )` 로 명령 주입이 됐다 (RUST_PORT_SRS 3.7 D-2).
 fn start_process_args(url: &str) -> Vec<String> {
     vec![
         "-NoProfile".to_owned(),
         "-Command".to_owned(),
-        "Start-Process".to_owned(),
-        url.to_owned(),
+        format!("Start-Process -FilePath {}", power_shell_quote(url)),
     ]
 }
 
