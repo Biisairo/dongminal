@@ -413,3 +413,33 @@ fn save_settings_derives_from_table() {
         assert!(!body.contains(k), "키를 인라인으로 나열하고 있다: {k:?}");
     }
 }
+
+// Go `Problem.String()` — `dongminal config validate` 가 이 줄을 낸다.
+#[test]
+fn problem_display() {
+    let specs = load().unwrap();
+    let (probs, _) = validate(
+        &specs,
+        br#"{"tabWidthPx":9999,"themeName":1.5,"customTheme":{"ui":{"bg":[1,"x"]}},"keybar":{"b":null,"a":true}}"#,
+    )
+    .unwrap();
+    let lines: Vec<String> = probs.iter().map(|p| p.to_string()).collect();
+    assert!(
+        lines.contains(&"tabWidthPx: 최댓값 480 보다 큽니다 (값 9999)".to_string()),
+        "{lines:?}"
+    );
+    assert!(
+        lines.contains(&"themeName: string 이어야 합니다 (값 1.5)".to_string()),
+        "{lines:?}"
+    );
+    assert!(
+        lines.contains(
+            &"customTheme.ui.bg: #rrggbb 또는 #rrggbbaa 색이어야 합니다 (값 [1 x])".to_string()
+        ),
+        "{lines:?}"
+    );
+    let p = Problem::new("k", "r", &serde_json::json!({"b": null, "a": true}));
+    assert_eq!(p.to_string(), "k: r (값 map[a:true b:<nil>])");
+    let p = Problem::new("k", "r", &serde_json::json!(1e21));
+    assert_eq!(p.to_string(), "k: r (값 1e+21)");
+}
