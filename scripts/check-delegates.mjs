@@ -37,13 +37,6 @@ const acorn = require('acorn');
  */
 const ALLOW = new Set(['FileEditor.note', 'FileEditor.offer', 'GitRemote.run', 'DocRender.focus']);
 
-/**
- * 기준선 — **병렬 진행 중**인 하위 이슈의 남은 위임자 (SRS §2.3 DL-3 GitPanel · DL-7 FileTree). 다른 작업 트리에서 걷는
- * 중이라 이 커밋에는 남아 있다. 예외가 아니다: 그 이슈가 합쳐지면 이 표에서 줄을 지운다. 수가 늘면 실패한다.
- *   delegate  주인 → `Controller.delegate(` 호출 수 · forward  클래스 → 같은 이름 전달 메서드 수
- */
-const PENDING = { delegate: { FileTree: 8 }, forward: { GitPanel: 157 } };
-
 const ROOT = process.argv[2] || 'web/js';
 
 function walk(dir, out = []) {
@@ -90,7 +83,6 @@ function isForward(m) {
 }
 
 const hits = [];
-const pending = { delegate: {}, forward: {} };
 for (const f of walk(ROOT)) {
   const src = readFileSync(f, 'utf8');
   let ast;
@@ -100,27 +92,17 @@ for (const f of walk(ROOT)) {
   visit(ast, (n) => {
     if (n.type === 'CallExpression' && n.callee.type === 'MemberExpression' && !n.callee.computed
       && n.callee.object.type === 'Identifier' && n.callee.object.name === 'Controller' && n.callee.property.name === 'delegate') {
-      const host = n.arguments[0] && n.arguments[0].type === 'Identifier' ? n.arguments[0].name : '?';
-      if (PENDING.delegate[host]) pending.delegate[host] = (pending.delegate[host] || 0) + 1;
-      else hits.push(`${rel}:${n.loc.start.line}: Controller.delegate( — 위임자 표`);
+      hits.push(`${rel}:${n.loc.start.line}: Controller.delegate( — 위임자 표`);
     }
     if ((n.type === 'ClassDeclaration' || n.type === 'ClassExpression') && n.id) {
       for (const m of n.body.body) {
         if (!isForward(m)) continue;
         const id = n.id.name + '.' + m.key.name;
         if (ALLOW.has(id)) continue;
-        if (PENDING.forward[n.id.name]) { pending.forward[n.id.name] = (pending.forward[n.id.name] || 0) + 1; continue }
         hits.push(`${rel}:${m.loc.start.line}: ${id} — 같은 이름을 같은 인자로 넘기기만 하는 메서드`);
       }
     }
   });
-}
-
-for (const kind of ['delegate', 'forward']) {
-  for (const [host, max] of Object.entries(PENDING[kind])) {
-    const got = pending[kind][host] || 0;
-    if (got > max) hits.push(`${host}: ${kind} ${got} > 기준선 ${max} — 병렬 진행 중인 이슈의 위임자가 늘었다`);
-  }
 }
 
 if (hits.length) {
@@ -130,6 +112,4 @@ if (hits.length) {
   console.error('  예외가 필요하면 이 파일의 ALLOW 와 SRS D-DLG-8 에 이름 단위로 적습니다.');
   process.exit(1);
 }
-const left = Object.entries(pending).flatMap(([k, o]) => Object.entries(o).map(([h, c]) => h + ' ' + k + ' ' + c));
-console.log('delegates ok — 위임자 표·같은 이름 전달 메서드가 없다 (예외 ' + ALLOW.size + (left.length ? ' · 병렬 진행 중 기준선: '
-  + left.join(', ') : '') + ')');
+console.log('delegates ok — 위임자 표·같은 이름 전달 메서드가 없다 (예외 ' + ALLOW.size + ')');

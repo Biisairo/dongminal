@@ -63,10 +63,8 @@ test('TC-DLG-4: 예외 표의 이름은 지난다', () => {
   assert.equal(r.code, 0, r.out);
 });
 
-test('TC-DLG-4: 병렬 진행 중인 기준선은 지나되 수가 늘면 잡는다', () => {
-  const calls = (n) => Array.from({ length: n }, (_, i) => `Controller.delegate(FileTree,'p${i}',['f${i}']);`).join('\n') + '\n';
-  assert.equal(run({ 'ft.js': calls(8) }).code, 0);
-  const r = run({ 'ft.js': calls(9) });
+test('TC-DLG-4: 기준선이 없다 — 걷기를 마친 주인의 위임자 표도 하나부터 잡는다', () => {
+  const r = run({ 'ft.js': "Controller.delegate(FileTree,'p',['f']);\n" });
   assert.equal(r.code, 1);
-  assert.match(r.out, /FileTree: delegate 9 > 기준선 8/);
+  assert.match(r.out, /ft\.js:1: Controller\.delegate\(/);
 });

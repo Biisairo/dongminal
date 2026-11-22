@@ -8,7 +8,7 @@ import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, REPO_WIN, SETTINGS, SLOTS, TO
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
- *   TC-FEA-1 컨트롤러는 `Controller`·`Component` 하위이고 App 이 든다. 위임자는 같은 인자로 부르고 값을 돌려준다
+ *   TC-FEA-1 컨트롤러는 `Controller`·`Component` 하위이고 App 이 든다
  *   TC-FEA-2 e2e·단위가 App 인스턴스에 갈아 끼운 이름을 컨트롤러 경로도 부른다
  *   TC-FEA-3 옮긴 mixin 파일이 없고 `Object.assign(App.prototype` 의 수가 준다. 계약 이름이 App 에서 읽힌다
  *
@@ -242,18 +242,6 @@ test('TC-FEA-1(9a): App 생성자가 컨트롤러를 만든다 — 부팅의 _se
   const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
   for (const line of ['this.settings=new SettingsController(this);', 'this.edges=new EdgesController(this);',
     'this.update=new UpdateController(this);']) assert.ok(ctor.includes(line), line);
-});
-
-test('TC-FEA-1: Controller.delegate 는 이름마다 같은 인자로 부르고 답을 돌려주는 메서드를 둔다', () => {
-  const ctx = load(BASE, { expose: ['Controller'], globals: { TIMERS: { disposeOwner() {} } } });
-  class Host {}
-  ctx.Controller.delegate(Host, 'a.b', ['f']);
-  ctx.Controller.delegate(Host, (self, name, args) => [name, ...args, self.k], ['g']);
-  const h = new Host();
-  h.k = 'k';
-  h.a = { b: { f: (...x) => ['f', ...x] } };
-  assert.deepEqual(plain(h.f(1, 'x')), ['f', 1, 'x']);
-  assert.deepEqual(plain(h.g(2)), ['g', 2, 'k']);
 });
 
 /** 위임자 경로 → 소유 클래스 (REFACTOR3_FE_DELEG_SRS DL-1). */
