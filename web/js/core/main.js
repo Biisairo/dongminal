@@ -17,6 +17,8 @@ const themeReady=(async()=>{try{
   // `_settingsApply` 한 자리이며, 부팅·SSE 방송·소프트 리로드가 같은 길을
   // 지난다 — 종전에는 이 자리와 `app-settings.js` 의 IIFE 가 키를 각자 나열해,
   // 다른 창에서 바뀐 값을 받아 얹을 자리가 아예 없었다.
+  // 설정창 세우기(`initModal`, `app.init` 안)와 어느 쪽이 먼저여도 된다 — 적용은 값을 얹고 선 섹션만 칠하며,
+  // 뒤에 서는 섹션은 그 값으로 칠한다 (QUALITY_FIX_SRS FR-QFX-9·12).
   if(r.ok) app._settingsApply(r.data,{boot:true});
 }catch(e){ ErrorLog.push('settings',(e&&e.message)||e) }
   // FR-BTS-11: 설정이 왔든 오지 않았든, 남은 것은 워크스페이스다.

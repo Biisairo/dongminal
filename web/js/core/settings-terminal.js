@@ -1,7 +1,7 @@
 /**
  * TerminalSection — Settings ▸ Terminal (REFACTOR3_FE_SETTINGS_SRS 8a). 모바일 키바 구성(`#ds-keybar`)은 8d 에서 왔다
- * (옛 `app-settings-keybar.js`) — 변경은 곧바로 키바에 얹히고 저장된다. 얹는 `_keybarApply` 는 App 에 남는다(위임자, 본체는 `SettingsApply`): 설정
- * `keybar` 의 setter 가 설정창이 서기 전(부팅)에도 부른다.
+ * (옛 `app-settings-keybar.js`) — 변경은 곧바로 키바에 얹히고 저장된다. 모바일 키바에 얹는 `_keybarApply` 는 App 에 남는다(위임자, 본체는
+ * `SettingsApply`): 설정 `keybar` 의 setter 가 설정창이 서기 전(부팅)에도 부른다. 구성 목록은 이 섹션의 `paint` 가 칠한다(QUALITY_FIX_SRS FR-QFX-10).
  *
  * `Claude Code 를 fullscreen 으로`(AGENT_RENDER_ENV_SRS FR-ARE-3)와 스크롤 속도(FR-ARE-10·11)는 **쓰는 주체가
  * 서버**다 — 도구를 띄울 때 환경에 넣는다. 화면은 값을 들고 저장할 뿐이고, 이미 떠 있는 터미널은 바뀌지 않는다.
@@ -27,6 +27,15 @@ class TerminalSection extends SettingsSection {
     this.paint();
     this._initTermGpu();
     this._initKeybar();
+  }
+
+  /**
+   * 행과 키바 구성 목록 (QUALITY_FIX_SRS FR-QFX-10). 계기는 다른 섹션과 같다 — 부팅(`init`) · 값을 얹은 뒤 · 설정을 열 때.
+   *   이전: 목록은 `_keybarApply` 가 섹션이 있을 때만 칠했다(값을 얹을 때만, 열 때는 칠하지 않았다)
+   */
+  paint(){
+    super.paint();
+    this._keybarPaint();
   }
 
   /** TERMINAL_GPU_RENDER_SRS FR-TGR-14·15: 기기별 값이다 — 서버 설정 블롭에 싣지 않는다. */
@@ -80,7 +89,6 @@ class TerminalSection extends SettingsSection {
       else this._keybarSet(keybarMove(keybarCfg,id,b.dataset.act==='up'?-1:1));
     });
     sync();
-    this._keybarPaint();
   }
 
   /** 추가 줄이 지금 가리키는 조합. */
@@ -93,6 +101,7 @@ class TerminalSection extends SettingsSection {
   _keybarSet(cfg){
     keybarCfg=cfg;
     this.app._keybarApply();
+    this._keybarPaint();
     this.app.saveSettings();
   }
 

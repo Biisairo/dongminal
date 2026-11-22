@@ -236,7 +236,10 @@ class SettingsController extends Controller {
     this._settingsSearchReset=()=>{input.value='';apply()};   // 열 때 비운다(`SettingsController.onOpen`)
   }
 
-  /** 섹션 위임자의 길 — 그 탭의 섹션이 없으면(`init` 전) 아무것도 하지 않는다. */
+  /**
+   * 섹션 위임자의 길 — 그 탭의 섹션이 없으면(`init` 전) 아무것도 하지 않는다. 설정 적용 길(`SettingsApply`)은 이것을
+   * 부르지 않는다 — 칠하기는 `paint()` 한 자리다(QUALITY_FIX_SRS FR-QFX-9). 남은 쓰임은 아래 위임자 표다(D-QFX-9).
+   */
   _sectionCall(tab,name,args){
     const s=this.section(tab);
     return s?s[name](...args):undefined;

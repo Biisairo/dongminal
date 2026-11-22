@@ -7,7 +7,10 @@
  * (옛 `app-polling.js`)를 진다. 행의 배선은 설정 섹션이다(`settings-display.js` 등, REFACTOR3_FE_SETTINGS_SRS 8a).
  *
  * **모달과 갈린 이유**: 이 메서드들은 설정창이 없어도 돈다 (부팅이 부른다). 그래서 App 생성자가 컨트롤러를
- * 만든다 — 부팅의 `_settingsApply`(`main.js`)가 설정창(`initModal`)보다 먼저 온다.
+ * 만든다. 부팅의 `_settingsApply`(`main.js`, `/api/settings` 응답 뒤)와 설정창 세우기(`initModal`, 워크스페이스를
+ * 받은 뒤)는 어느 쪽이 먼저일지 정해져 있지 않다 — **순서와 무관하게 같은 결과**가 이 파일의 규약이다
+ * (QUALITY_FIX_SRS FR-QFX-9·12): 적용은 값(상태)을 얹고, 설정창은 `_paintSettingControls` 한 자리에서만 칠한다
+ * (선 섹션의 `paint()`). 아직 서지 않은 섹션은 `init` 에서 지금 상태로 칠한다. 적용 길은 섹션을 직접 부르지 않는다.
  * 표의 `get`·`set` 은 종전대로 App 을 `this` 로 받는다.
  *
  * 로드 순서 계약: `settings-table.js` 뒤, `settings-section.js` 앞.
@@ -82,7 +85,6 @@ class SettingsApply extends Controller {
       if(v===undefined) continue;
       acc.set.call(this.app,v);
     }
-    this.app._paintSettingControls();
     // 테마는 두 키가 한 쌍이라 표 밖에 남는다 — **사용자 정의가 이름을 이긴다.**
     // 표를 돌며 각자 얹으면 순서에 따라 답이 갈린다.
     if(saved.customTheme){customTheme=sanitizeCustomTheme(saved.customTheme)}
@@ -104,9 +106,6 @@ class SettingsApply extends Controller {
      * 않는다**: 주기를 바꾼 것은 수집의 계기가 아니다.
      */
     TIMERS.refreshChanged();
-    // 화면의 드롭다운도 같은 값을 보여야 한다 — 다른 창에서 바뀐 값이 SSE 로
-    // 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다 (FR-SYN). 위의
-    // `_paintSettingControls` 가 `PollingSection.paint` 로 칠한다.
     /**
      * FR-PIS-17 / D-9: `agentsPollMs` 의 이사는 **부팅에서만** 한다.
      *
@@ -115,6 +114,14 @@ class SettingsApply extends Controller {
      * 덮는다. 이사는 한 번이고 조용하다.
      */
     if(opts&&opts.boot) this._pollMigrateAgents(saved);
+    /**
+     * 설정창을 칠하는 자리는 여기 하나다 (QUALITY_FIX_SRS FR-QFX-9·11) — 선 섹션마다 `paint()`. 다른 창에서 바뀐
+     * 값이 SSE 로 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다 (FR-SYN). 맨 끝인 것은 이사가 바꾼 값까지
+     * 싣기 위해서다. 칠하기는 값만 읽으므로 테마·주기를 얹은 뒤여도 결과가 같다.
+     *   이전: 표를 돈 직후에 칠했고, 이사(`_pollMigrateAgents`)와 키바 얹기(`_keybarApply`)가 섹션을 따로 칠했다
+     *         — 섹션이 아직 없으면(부팅 적용이 `initModal` 보다 먼저) 아무것도 하지 않는 `_sectionCall` 로 버텼다
+     */
+    this.app._paintSettingControls();
   }
 
   /**
@@ -239,12 +246,14 @@ class SettingsApply extends Controller {
   }
 
   /**
-   * UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바 구성을 얹는다. 키바는 세워진 뒤에만 다시 그린다 — 부팅의 설정 얹기가
-   * `initMobileKeybar` 보다 먼저 올 수 있다. 설정 구역(Terminal ▸ 모바일 키바)은 섹션이 있으면 그것이 칠한다.
+   * UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바 구성을 모바일 키바에 얹는다. 그리기는 상태(`keybarCfg`·`modKbd`)만 읽으므로
+   * 키바가 서기 전(`initMobileKeybar` 앞, 부팅 적용)에 불러도 같은 키바가 된다 — 서면서 다시 그린다.
+   * 설정 구역(Terminal ▸ 모바일 키바)의 목록은 `TerminalSection.paint` 가 칠한다 (QUALITY_FIX_SRS FR-QFX-10).
+   *   이전: `modKbd` 가 있을 때만 그렸고, 설정 구역은 섹션이 있으면 여기서 칠했다(`_sectionCall`)
    */
   _keybarApply(){
-    if(this.app.modKbd){ this.app._mkbRender(); this.app.mkbRefresh() }
-    this.app.settings._sectionCall('terminal','_keybarPaint',[]);
+    this.app._mkbRender();
+    this.app.mkbRefresh();
   }
 
   // FR-PIS-20: `Polling` 탭의 행은 `PollingSection` 이 표에서 만든다 (REFACTOR3_FE_SETTINGS_SRS 8b·8e).
@@ -266,7 +275,6 @@ class SettingsApply extends Controller {
     if(v===agentsPollInterval) return;
     agentsPollInterval=v;
     TIMERS.refreshChanged();
-    this.app.settings._sectionCall('polling','paint',[]);
     this.app.saveSettings();
   }
 }

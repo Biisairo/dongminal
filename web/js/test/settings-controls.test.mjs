@@ -36,6 +36,8 @@ function setup() {
     expose: ['SettingsController', 'DisplaySection', 'TerminalSection', 'CodeSection'],
   });
   ctx.document.getElementById = (id) => els[id] || null;
+  // QUALITY_FIX_SRS FR-QFX-10: terminal 의 칠하기가 키바 구성 목록(`#ds-keybar .kbc-list`)도 찾는다 — 여기는 없다.
+  ctx.document.querySelector = () => null;
   ctx.document.activeElement = null;
   const app = new ctx.App();
   app._slotDirPaint = () => {};

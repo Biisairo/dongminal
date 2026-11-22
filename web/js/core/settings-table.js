@@ -105,7 +105,7 @@ const SETTINGS_ACCESS={
   issueTreeCtxPct:{get:()=>issueTreeCtxPct,set(v){
     issueTreeCtxPct=clampSetting('issueTreeCtxPct',v);
   }},
-  keybar:{get:()=>keybarCfg,set(v){keybarCfg=v;this._keybarApply()}},   // UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바·설정 구역을 곧바로 다시 그린다
+  keybar:{get:()=>keybarCfg,set(v){keybarCfg=v;this._keybarApply()}},   // UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바를 곧바로 다시 그린다. 설정 구역은 칠하기(`TerminalSection.paint`)가 맡는다
   claudeScrollSpeed:{get:()=>claudeScrollSpeed,set(v){
     claudeScrollSpeed=clampSetting('claudeScrollSpeed',v);
   }},

@@ -61,8 +61,8 @@ class App {
     // 사이드바 탭 (GIT_SIDEBAR_TABS_SRS §3.9.2). 활성 탭은 클라이언트의 것이다 (D-1).
     this.sbTab=SidebarTabs.restore();
     this.sbBusy=false; // FR-SBT-14 ↔ 22 의 재진입 가드
-    // 주제별 조정자 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). 생성자에서 선다 — 부팅의 `_settingsApply`(`main.js`)가
-    // 설정창(`initModal`)보다 먼저 오고, 간선·판 확인의 복원은 구독이 열리자마자 온다.
+    // 주제별 조정자 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). 생성자에서 선다 — 부팅의 `_settingsApply`(`main.js`)는
+    // 설정창(`initModal`)보다 먼저 올 수 있고(순서 무관, QUALITY_FIX_SRS FR-QFX-9), 간선·판 확인의 복원은 구독이 열리자마자 온다.
     this.settings=new SettingsController(this);
     this.edges=new EdgesController(this);
     this.update=new UpdateController(this);

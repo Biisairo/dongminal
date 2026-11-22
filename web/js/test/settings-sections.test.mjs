@@ -29,7 +29,7 @@ function elem(id, extra) {
 
 /** 기반·행·섹션을 싣는다. 값의 길(`SETTINGS_ACCESS`)은 시험이 준다. */
 function setup(access, els) {
-  const doc = { activeElement: null, getElementById: (id) => els[id] || null };
+  const doc = { activeElement: null, getElementById: (id) => els[id] || null, querySelector: () => null };
   const ctx = load([...BASE, ...SETTINGS], {
     expose: ['SettingsSection', 'FormRow', 'View', 'DisplaySection', 'TerminalSection', 'CodeSection', 'PollingSection',
       'StatusbarSection', 'NotifySection', 'ProfileSection', 'ServerSection', 'SandboxSection', 'TelegramSection',
@@ -682,4 +682,87 @@ test('TC-FFX-7: 읽기는 섹션마다 하나만 난다 — 비행 중의 열기
   assert.deepEqual(reads, ['edges', 'access', 'edges']);
   c.onTab('display');
   assert.deepEqual(reads, ['edges', 'access', 'edges', 'display'], '다섯 밖의 탭은 지금처럼 onTab 이다');
+});
+
+// ── QUALITY_FIX_SRS QF-7 — 부팅 적용과 설정창 세우기의 순서 ─────────────────────
+
+/**
+ * 적용(`SettingsApply._settingsApply`)과 컨트롤러를 진짜로 싣고, 섹션 하나는 규약(`init` 이 `paint` 를 부른다)만 갖춘
+ * 가짜다. 값은 `state` 에 얹히고, 칠한 값과 모바일 키바에 그린 값을 남긴다.
+ */
+function orderSetup() {
+  const state = { n: 1, kb: 'default' };
+  const ctx = loadController();
+  Object.assign(ctx, {
+    migrateUiFontScale() {},
+    SETTINGS_SCHEMA: [{ key: 'n' }, { key: 'keybar' }],
+    SETTINGS_ACCESS: {
+      n: { set(v) { state.n = v } },
+      keybar: { set(v) { state.kb = v; this._keybarApply() } },
+    },
+    settingValue: (v) => v,
+    THEMES: { x: {} }, currentThemeName: 'x', customTheme: null, themeFollowSystem: false, applyThemeObj() {},
+    I18N: { applyShortcuts() {} },
+    TIMERS: { refreshChanged() {}, disposeOwner() {} },
+    PrefStore: { local: { get: () => null } }, STORE_KEYS: { legacyAgentsPollMs: 'x' },
+  });
+  const drawn = [];
+  const app = { gitPanel: null, _mkbRender: () => drawn.push(state.kb), mkbRefresh() {} };
+  const c = new ctx.SettingsController(app);
+  app.settings = c;
+  app._paintSettingControls = () => c.paint();
+  app._keybarApply = () => c.apply._keybarApply();
+  const section = () => ({ tab: 'terminal', painted: null, init() { this.paint() }, paint() { this.painted = { ...state } } });
+  return { c, state, drawn, section };
+}
+
+test('TC-QFX-7: 부팅 적용이 설정창보다 먼저여도 뒤여도 칠한 값·모바일 키바가 같다 (FR-QFX-9·10·12)', () => {
+  const saved = { n: 5, keybar: 'K' };
+  // 적용 → 세우기: 섹션이 없을 때 적용이 왔다. 서는 섹션이 지금 상태로 칠한다.
+  const a = orderSetup();
+  a.c.apply._settingsApply(saved, { boot: true });
+  const sa = a.c.start(a.section());
+  // 세우기 → 적용: 선 섹션을 적용이 칠한다.
+  const b = orderSetup();
+  const sb = b.c.start(b.section());
+  b.c.apply._settingsApply(saved, { boot: true });
+  assert.deepEqual(plain(sa.painted), { n: 5, kb: 'K' });
+  assert.deepEqual(plain(sb.painted), plain(sa.painted));
+  // 모바일 키바도 두 순서에서 같은 구성으로 그려진다 — 키바가 서기 전(`modKbd` 없음)에도 그린다.
+  assert.equal(a.drawn.at(-1), 'K');
+  assert.equal(b.drawn.at(-1), 'K');
+});
+
+test('TC-QFX-7: 칠하기는 적용의 맨 끝, 이사 뒤다 — 이사가 섹션을 따로 칠하지 않는다 (FR-QFX-11)', () => {
+  const { c } = orderSetup();
+  const log = [];
+  c.apply._pollMigrateAgents = () => log.push('migrate');
+  c.app._paintSettingControls = () => log.push('paint');
+  c.apply._settingsApply({ n: 2 }, { boot: true });
+  assert.deepEqual(log, ['migrate', 'paint']);
+  log.length = 0;
+  c.apply._settingsApply({ n: 3 });
+  assert.deepEqual(log, ['paint'], '이사는 부팅에서만');
+});
+
+test('TC-QFX-7: 적용 길은 섹션을 직접 부르지 않고, 키바 얹기에 modKbd 가드가 없다 (FR-QFX-9·10)', () => {
+  const src = readFileSync(join(JS_ROOT, 'core/settings-apply.js'), 'utf8');
+  assert.ok(!/_sectionCall\(/.test(src), 'settings-apply.js 가 _sectionCall 을 부른다');
+  const body = src.slice(src.indexOf('  _keybarApply(){'), src.indexOf('\n  }\n', src.indexOf('  _keybarApply(){')));
+  assert.ok(!/modKbd/.test(body), '_keybarApply 가 modKbd 로 가른다');
+});
+
+test('TC-QFX-7: TerminalSection.paint 가 행과 키바 구성 목록을 칠하고, 사용자가 고친 구성도 목록을 칠한다 (FR-QFX-10)', () => {
+  const { ctx } = setup({}, {});
+  const log = [];
+  const app = { ...fakeApp(log), _keybarApply: () => log.push('apply') };
+  ctx.keybarCfg = { order: ['a'] };
+  const s = new ctx.TerminalSection(app);
+  s._keybarPaint = () => log.push('kbc');
+  s.rows = [{ paint: () => log.push('row') }];
+  s.paint();
+  assert.deepEqual(log, ['row', 'kbc']);
+  log.length = 0;
+  s._keybarSet({ order: ['b'] });
+  assert.deepEqual(log, ['apply', 'kbc', 'save']);
 });
