@@ -30,21 +30,21 @@
 
 | ID | 종류 | 자리 | 현상 | 제안 | 규모 | 확인 |
 |---|---|---|---|---|---|---|
-| **FC-F1** | 보안(저장형 XSS) | `web/js/core/settings-theme.js` `_renderPreview` · 서버 `internal/shared/settingsschema/schema.go:199-202` | 저장된 `customTheme` 의 값(`u.sidebarBg`·`u.border`·터미널 팔레트)을 검증 없이 `innerHTML` 템플릿의 `style="…"` 에 넣는다. 서버는 `object` 인지만 본다. 따옴표가 든 값은 속성을 벗어나 마크업을 주입한다. 설정은 다른 기기로 방송된다 | 색은 `hexRgb` 를 통과한 것만 쓴다. 미리보기는 DOM API·`style.setProperty` 로 그린다. 서버도 `customTheme` 의 키별 값을 검증한다 | S~M | ✔메인 (공격 가능성은 설정 PUT 접근 제어에 달림 `?`) |
-| **GD-F1** | 데이터 레이스 | `internal/webserver/domain/run/store_write.go:366` `ReapTargets` | Record 를 **얕게** 복사해 돌려준다. `Members`·`Worktree` 포인터가 저장소와 공유되고, 잠금 밖의 `reapRuns→cleanupWorktrees` 가 읽는 동안 `MarkWorktrees`·`mutateMember` 가 그 자리를 쓴다. 1차 H-1 의 `cloneRun` 처방이 이 경로에 닿지 않았다 | `cloneRun(r)` 로 복사한다. 이 경로를 치는 `-race` 시험을 더한다 | S | ✔메인 (재현은 안 함) |
-| **GH-F4** | 레이스(덮어쓰기) | `internal/webserver/httpapi/handlers_files.go` `apiFileWrite` (스탬프 검사 :580 → 원자 쓰기) | 스탬프 검사와 쓰기 사이에 잠금이 없다(파일에 `Lock` 0건). 두 저장이 같은 스탬프를 보면 뒤의 쓰기가 앞을 덮는다. FR-EXC-5 가 막으려던 경우다 | 경로별 잠금으로 검사부터 쓰기까지 감싼다 | M | ✔메인 |
-| **GH-F1** | 오류 계약 | `httpapi/handlers_toolio.go` `decodeJSONBody`·`writeToolIOError` (호출 49곳, 표본) · `handlers_lsp.go` | 1 MiB 를 넘는 본문이 `X-Error-Code: too_large` 로 나간다. 공개 계약(`features.md` 용량 표 「JSON 본문 → `body_too_large`」)과 다르다. 1차 H-4 가 `httperr` 쪽만 고친 재발이다 | 읽기 실패의 코드를 `bodyReadCode` 로 낸다. 시험을 더한다 | S | ✔메인 |
-| **GH-F2** | 오류 계약 | `httpapi/handlers_fs.go` `fsDecode` · `gitapi/handlers_git_write.go` `gitDecodeBody` · `gitapi/handlers_git.go` `gitDecodeRawPath` | 같은 상한 초과에 fs 는 `400`+`bad_request`, git 은 `413`+`bad_request` 를 낸다. 계약은 `413`+`body_too_large` 다 | GH-F1 과 한 규칙으로 맞춘다 | S | ✔ |
-| **GH-F3** | 정보 노출(경미) | toolio·fs·git 디코더, `apiFileWrite` | Go 오류 문구(`json: cannot unmarshal … httpapi.fsDeleteReq`)를 응답 본문에 싣는다. 내부 타입 이름이 드러난다 | 본문은 고정 문구로, 전문은 `dmlog` 로 보낸다 | S | ✔ |
-| **GD-F2** | 블로킹·무한 증가 | `domain/telegram/bridge.go:122` `process` · `bridge_updates.go:15` · `bridge_events.go:103-131` | `b.mu` 를 쥔 채 HTTP 를 부른다(호출당 상한 15초). 그동안 업데이트 수신이 멈춘다. 알림 버튼 목록은 상한 없이 늘고, 걷을 때 버튼마다 HTTP 를 순차로 보낸다 | 전송은 잠금 밖에서 한다. 버튼 목록에 상한을 둔다 | M | ✔ (지연 실측 없음) |
-| **GD-F3** | 중복 조회 | `domain/claudeacct/engine.go:271-289` `FetchNow` | 최소 간격 검사를 `e.busy` 잠금 **밖**에서 하고, 잠금을 얻은 뒤 다시 보지 않는다. 새로고침이 겹치면 두 번 조회한다 | 잠금을 얻은 뒤 다시 검사한다 | S | ✔ |
-| **DM-F1** | 오류 삼킴 | `internal/helper/runtimebin/edit.go:44` | `dmctl edit` 이 응답 상태를 버려서 서버가 400/500 을 줘도 exit 0 이다 | `dmctlHTTPResult` 를 쓴다 | S | ✔메인 |
-| **DM-F2** | 정화 누락 | `internal/daemon/chatsock/chatsock.go:539` `clean` | Cf(bidi 재정렬·zero-width)를 지우지 않는다. 같은 규칙의 다른 7벌은 지운다(DM-10). 결과는 이름·붙여넣기로 터미널에 찍힌다 | 공용 정화 함수로 바꾼다 | S | ✔메인 |
+| **FC-F1** | 보안(저장형 XSS) | `web/js/core/settings-theme.js` `_renderPreview` · 서버 `internal/shared/settingsschema/schema.go:199-202` | 저장된 `customTheme` 의 값(`u.sidebarBg`·`u.border`·터미널 팔레트)을 검증 없이 `innerHTML` 템플릿의 `style="…"` 에 넣는다. 서버는 `object` 인지만 본다. 따옴표가 든 값은 속성을 벗어나 마크업을 주입한다. 설정은 다른 기기로 방송된다 | 색은 `hexRgb` 를 통과한 것만 쓴다. 미리보기는 DOM API·`style.setProperty` 로 그린다. 서버도 `customTheme` 의 키별 값을 검증한다 — **처리함**: 화면은 P1 `08922b9b`(`REFACTOR3_DEFECTS_SRS` FR-RD3-1~4 `sanitizeCustomTheme`)와 R3b `26bafe55`(FC-12 미리보기), 서버는 `QUALITY_GO_SRS` QG-2 `63197fa7` — `PUT /api/settings` 가 색이 아닌 `customTheme` 값을 `400` · `bad_request` 로 거절하고, `dongminal config` 검증도 같은 규칙 | S~M | ✔메인 (공격 가능성은 설정 PUT 접근 제어에 달림 `?`) |
+| **GD-F1** | 데이터 레이스 | `internal/webserver/domain/run/store_write.go:366` `ReapTargets` | Record 를 **얕게** 복사해 돌려준다. `Members`·`Worktree` 포인터가 저장소와 공유되고, 잠금 밖의 `reapRuns→cleanupWorktrees` 가 읽는 동안 `MarkWorktrees`·`mutateMember` 가 그 자리를 쓴다. 1차 H-1 의 `cloneRun` 처방이 이 경로에 닿지 않았다 | `cloneRun(r)` 로 복사한다. 이 경로를 치는 `-race` 시험을 더한다 — **처리함 (P1 `08922b9b`, `REFACTOR3_DEFECTS_SRS` FR-RD3-10)**: `cloneRun` 으로 복사 | S | ✔메인 (재현은 안 함) |
+| **GH-F4** | 레이스(덮어쓰기) | `internal/webserver/httpapi/handlers_files.go` `apiFileWrite` (스탬프 검사 :580 → 원자 쓰기) | 스탬프 검사와 쓰기 사이에 잠금이 없다(파일에 `Lock` 0건). 두 저장이 같은 스탬프를 보면 뒤의 쓰기가 앞을 덮는다. FR-EXC-5 가 막으려던 경우다 | 경로별 잠금으로 검사부터 쓰기까지 감싼다 — **처리함 (P1 `08922b9b`, `REFACTOR3_DEFECTS_SRS` FR-RD3-20~22)**: 경로별 참조 계수 잠금 | M | ✔메인 |
+| **GH-F1** | 오류 계약 | `httpapi/handlers_toolio.go` `decodeJSONBody`·`writeToolIOError` (호출 49곳, 표본) · `handlers_lsp.go` | 1 MiB 를 넘는 본문이 `X-Error-Code: too_large` 로 나간다. 공개 계약(`features.md` 용량 표 「JSON 본문 → `body_too_large`」)과 다르다. 1차 H-4 가 `httperr` 쪽만 고친 재발이다 | 읽기 실패의 코드를 `bodyReadCode` 로 낸다. 시험을 더한다 — **처리함 (P1 `08922b9b`, `REFACTOR3_DEFECTS_SRS` FR-RD3-30·31)**: `apierr.BodyReadCode` 한 자리 | S | ✔메인 |
+| **GH-F2** | 오류 계약 | `httpapi/handlers_fs.go` `fsDecode` · `gitapi/handlers_git_write.go` `gitDecodeBody` · `gitapi/handlers_git.go` `gitDecodeRawPath` | 같은 상한 초과에 fs 는 `400`+`bad_request`, git 은 `413`+`bad_request` 를 낸다. 계약은 `413`+`body_too_large` 다 | GH-F1 과 한 규칙으로 맞춘다 — **처리함 (P1 `08922b9b`, `REFACTOR3_DEFECTS_SRS` FR-RD3-32·33)**: 모두 `413` · `body_too_large` | S | ✔ |
+| **GH-F3** | 정보 노출(경미) | toolio·fs·git 디코더, `apiFileWrite` | Go 오류 문구(`json: cannot unmarshal … httpapi.fsDeleteReq`)를 응답 본문에 싣는다. 내부 타입 이름이 드러난다 | 본문은 고정 문구로, 전문은 `dmlog` 로 보낸다 — **처리함 (`QUALITY_GO_SRS` QG-1, `b7785b53`)**: 고정 문구에 요청 자리(`paths: number 값은 맞지 않다`)만 잇고 전문은 `dmlog`. git 핀 저장 실패도 고정 문구. git stderr 꼬리는 사용자가 읽을 이유라 그대로(D-QG-2) | S | ✔ |
+| **GD-F2** | 블로킹·무한 증가 | `domain/telegram/bridge.go:122` `process` · `bridge_updates.go:15` · `bridge_events.go:103-131` | `b.mu` 를 쥔 채 HTTP 를 부른다(호출당 상한 15초). 그동안 업데이트 수신이 멈춘다. 알림 버튼 목록은 상한 없이 늘고, 걷을 때 버튼마다 HTTP 를 순차로 보낸다 | 전송은 잠금 밖에서 한다. 버튼 목록에 상한을 둔다 — **처리함**: 잠금 밖 전송·버튼 상한 32 는 P1 `08922b9b`(`REFACTOR3_DEFECTS_SRS` FR-RD3-40~42), 걷기를 상한 4 의 병렬로(버튼 32개, 요청당 100ms 에서 3.26s → 0.82s)는 `QUALITY_GO_SRS` QG-3 `5c48bccf` | M | ✔ (지연 실측 없음) |
+| **GD-F3** | 중복 조회 | `domain/claudeacct/engine.go:271-289` `FetchNow` | 최소 간격 검사를 `e.busy` 잠금 **밖**에서 하고, 잠금을 얻은 뒤 다시 보지 않는다. 새로고침이 겹치면 두 번 조회한다 | 잠금을 얻은 뒤 다시 검사한다 — **처리함 (P1 `08922b9b`, `REFACTOR3_DEFECTS_SRS` FR-RD3-50·51)** | S | ✔ |
+| **DM-F1** | 오류 삼킴 | `internal/helper/runtimebin/edit.go:44` | `dmctl edit` 이 응답 상태를 버려서 서버가 400/500 을 줘도 exit 0 이다 | `dmctlHTTPResult` 를 쓴다 — **처리함 (P1 `08922b9b`, `REFACTOR3_DEFECTS_SRS` FR-RD3-60)** | S | ✔메인 |
+| **DM-F2** | 정화 누락 | `internal/daemon/chatsock/chatsock.go:539` `clean` | Cf(bidi 재정렬·zero-width)를 지우지 않는다. 같은 규칙의 다른 7벌은 지운다(DM-10). 결과는 이름·붙여넣기로 터미널에 찍힌다 | 공용 정화 함수로 바꾼다 — **처리함 (P1 `08922b9b`, `REFACTOR3_DEFECTS_SRS` FR-RD3-70)**. 공용 정화 한 벌은 P2 GC `994d9805` | S | ✔메인 |
 | FC-F2 | 표시 오류 | `core/app-layout.js:362`·`:386` · `core/app-chat-window.js:58-64` | 모바일 서랍을 닫는 두 경로가 상단바를 다시 그리지 않는다. ☰/✕ 아이콘이 낡을 수 있다 | FC-01 의 `closeDrawer()` 로 모은다 — **처리함** (P1 FR-RD3-80 · P3a 2 `DrawerSheet`: 닫기 다섯 곳이 한 길로 상단바를 다시 그린다) | S | ? (화면 확인 필요) |
-| GH-F5 | 가용성 | `toolclient/client.go:622-672` `callWithin` | RPC 한 번이 5초를 넘으면 데몬 연결 전체를 끊고 다시 맞춘다. 느린 정상 호출이 연결을 흔들 수 있다 | 시한 초과는 그 호출만 실패시키고, 생존은 heartbeat 로 판정하도록 검토한다 | M | ? (빈도 미실측) |
-| DM-F3 | 응답 해석 | `runtimebin/detach.go:157-175` | `Delivered` 가 없으면 0 으로 읽어 exit 1 이다. `dmctlDelivery` 는 "없으면 모른다" 로 읽는다. 규칙이 두 벌이다 | `dmctlDelivery` 로 통일한다 | S | ? |
-| DM-F4 | 인코딩 | `runtimebin/dmctl_whoami.go:29` | `toolId` 를 이스케이프하지 않는다 | `url.QueryEscape` | S | ? (UUID 면 실해 없음) |
-| DM-F5 | panic 가능 | `runtimebin/dmctl_account.go:217-223` | `--json` 에서 본문이 `null` 이면 nil map 에 대입한다 | 오류 검사 후 빈 객체로 시작한다 | S | ? |
+| GH-F5 | 가용성 | `toolclient/client.go:622-672` `callWithin` | RPC 한 번이 5초를 넘으면 데몬 연결 전체를 끊고 다시 맞춘다. 느린 정상 호출이 연결을 흔들 수 있다 | 시한 초과는 그 호출만 실패시키고, 생존은 heartbeat 로 판정하도록 검토한다 — **유지(결정, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-8 · SH `6cb999d1`)**: DAEMON_SPLIT_SRS FR-14 가 요구하고, `ping` 은 처리 중이면 건너뛰므로 무응답 데몬을 찾는 수단이 이 시한뿐이며, 옛 데몬은 요청을 읽기 루프에서 처리해 한 호출이 막히면 뒤 호출도 막힌다 | M | ? (빈도 미실측) |
+| DM-F3 | 응답 해석 | `runtimebin/detach.go:157-175` | `Delivered` 가 없으면 0 으로 읽어 exit 1 이다. `dmctlDelivery` 는 "없으면 모른다" 로 읽는다. 규칙이 두 벌이다 | `dmctlDelivery` 로 통일한다 — **처리함 (P2 GB `a0372852`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-26)** | S | ? |
+| DM-F4 | 인코딩 | `runtimebin/dmctl_whoami.go:29` | `toolId` 를 이스케이프하지 않는다 | `url.QueryEscape` — **처리함 (P2 GB `a0372852`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-26)** | S | ? (UUID 면 실해 없음) |
+| DM-F5 | panic 가능 | `runtimebin/dmctl_account.go:217-223` | `--json` 에서 본문이 `null` 이면 nil map 에 대입한다 | 오류 검사 후 빈 객체로 시작한다 — **처리함 (P2 GB `a0372852`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-26)** | S | ? |
 
 ---
 
@@ -54,9 +54,9 @@
 
 | ID | 자리 | 현상 | 제안 | 규모 |
 |---|---|---|---|---|
-| DM-12 | `internal/{daemon,shared,ctl,helper}`·`cmd` | `"/api/…"` 경로 리터럴 **89곳**(표본). 이름이 바뀌면 빌드가 아니라 실행 중 404 로 드러난다 | 경로 상수 한 벌 | M |
-| DM-16 | `shared/humancmd/humancmd.go:27` | 도우미 소켓이 절대 경로로 고정이다. 다른 소켓은 home 에서 파생한다 | 플랫폼 transport 에서 얻는다 | S |
-| GH-20 | `httpapi/handlers_fs_search.go:263` | rg JSON 줄 상한 `4<<20` 이 인라인이다 | 이름 있는 상수 | S |
+| DM-12 | `internal/{daemon,shared,ctl,helper}`·`cmd` | `"/api/…"` 경로 리터럴 **89곳**(표본). 이름이 바뀌면 빌드가 아니라 실행 중 404 로 드러난다 | 경로 상수 한 벌 — **처리함 (SC `d60365c6`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-40)**: `shared/apipath`(상수 61, 리터럴 92곳), 서버 라우트와의 대조 시험 | M |
+| DM-16 | `shared/humancmd/humancmd.go:27` | 도우미 소켓이 절대 경로로 고정이다. 다른 소켓은 home 에서 파생한다 | 플랫폼 transport 에서 얻는다 — **처리함 (유지 결정, SC `f0849a42`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-42)**: darwin 전용 특권 도우미라 고정 경로가 맞다는 이유를 주석에 적었다 | S |
+| GH-20 | `httpapi/handlers_fs_search.go:263` | rg JSON 줄 상한 `4<<20` 이 인라인이다 | 이름 있는 상수 — **처리함 (SH `b429a39a`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-5)** | S |
 | FU-19 | `ui/open-url.js:74` | `min(520px,90vw)` 를 JS 문자열에 박았다 | CSS 클래스로 — **처리함 (R2, `324d7922`)**: 같은 꼴 9줄을 `ui-modal-sm·md·lg` 로, `KitModal` 의 `width` 삭제 | S |
 | FU-9 | `web/style.css:875-876` | Activity 레일 숨김 목록이 한 선택자에 클래스 28개다. 새 클래스를 빠뜨리면 레일에 글자가 샌다. 그 가운데 죽은 선택자가 섞였다(DOC-15) | 죽은 것을 걷고, 숨김 대상에 표식을 달거나 게이트로 대조한다 — **처리함 (R4a, `3f3df12a`)**: `.ag-title`·`.ag-refresh` 를 걷고, 레일 숨김 목록(`[data-rail]` 의 `display:none`)의 클래스 25개를 JS·HTML 과 대조하는 시험 TC-FR4-5(`REFACTOR3_FE_REST4_SRS` D-FR4-9·10) | M |
 | FC-12 | `core/settings-theme.js`(옛 `app-settings-theme.js`) `_renderPreview` | 테마 미리보기의 인라인 `style` 27줄(px·색) | `.pv-*` 클래스로. FC-F1 과 함께 — **처리함 (R3b, `26bafe55`)**. 인라인 `style` 45곳 → 0. 골격은 팔레트 값이 섞이지 않는 고정 문자열(`THEME_PREVIEW_HTML`), 색은 `themePreviewVars` 의 `--pv-*` 변수. 계산된 스타일 그대로 | M |
@@ -65,22 +65,22 @@
 
 | ID | 자리 | 현상 | 제안 | 규모 |
 |---|---|---|---|---|
-| GH-2 | `httperr.go`·`handlers_toolio.go`·`handlers_whoami.go`·`handlers_runs.go`·`codefail.go`·`handlers_fs.go`·`handlers_files.go`·`gitapi/handlers_git.go`·`shared/edgenode`·`shared/edge` | 오류 응답 렌더러가 **11벌**이다. 각자 헤더를 세팅하고, 그것이 헤더 누락(GH-F1·F2)이 되풀이된 원인이다. `writeWhoAmIError` 는 `writeToolIOError` 와 바이트 단위로 같다(GH-1) | 방언을 인자로 받는 렌더러 하나. 방언별 바이트는 유지한다 | M |
-| GH-3 | `httperr.go`·`codefail.go`·`handlers_toolio.go`·`handlers_fs.go`·`gitapi`×2·`handlers_lsp.go`·`edgenode` | 본문 디코더 래퍼 **8종**. 빈 본문 처리가 서로 다르다(`readJSONBody` 만 `{}` 로 바꿈) | `httpreq.DecodeJSON` 하나가 실패 종류를 돌려주고, 답은 방언이 한다 | M |
-| GH-6 | `handlers_fs_search.go:429` `isBinary` ↔ `handlers_file_probe.go:62` | 이진 판정 두 벌. 편집기는 UTF-16 BOM 을 텍스트로, 검색은 이진으로 본다. 의도 기록이 없다 | 한 함수로. BOM 정책은 결정 필요(§6) | S |
-| GH-7 | `gitapi/*.go` | `if s.Git == nil` 가드 16곳 | 라우트 등록 때 한 번 감싼다 | S |
-| GH-8 | `apierr/codes_core.go:16`·`edgenode/node.go:56`·`edge/listener.go:143`·`edge/upgrade.go:99` | `"X-Error-Code"` 이름 4벌(하나는 리터럴) | shared 에 상수 하나 | S |
-| GD-1·2 | `domain/worktree/remove.go:51-100`·`:127-159` | `Remove`·`RemoveListed` 전처리 중복, `worktree prune` 3번·`Stat` 2번 | 공통 전처리·`pruneAndCheckGone` | S |
-| GD-3 | `worktree.go:235` ↔ `submodule.go:317` `runGit` | 1차 MED 쌍둥이가 그대로다 | core 에 한 벌 | S |
-| GD-5 | `domain/wsentry/wsentry.go` | `homeFn` 기본값·`MkdirAll` 패턴 2~3곳 | 헬퍼 | S |
-| DM-1 | `runtimebin` 9자리 | HTTP 응답 → 종료 코드 변환이 **9벌**(주석은 "세 자리" 라고 적음) | 상태→종료 코드 함수 하나에 종단별 거부 렌더러를 주입 | M |
-| DM-2 | `dmctl_toolio.go:391`·`dmctl_run_http.go:70`·`dmctl_edge.go:344` | 거부 본문 렌더러 3벌. edge 용 `printRefusal` 을 account 가 빌려 쓴다 | 공통 파서 | S |
-| DM-3 | `dmctl_listworkspace.go:38`·`:56`·`dmctl_rename_confirm.go:71` | `/api/state` 읽기 3벌, 실패 문구도 셋 | 읽기 함수 하나 | S |
-| DM-4 | `dmctl_listworkspace.go:195-247` ↔ `shared/workspace/manager_parse.go:173` | 같은 순회·같은 JSON 모양 두 벌(주석은 의도라 적음) | 결정 필요(§6) | M |
-| DM-5 | `runtimebin` 전반 | 인자 파싱 세 체계(`argSpec`·`parseSubArgs`·손 루프 10곳, 표본). 모르는 인자 문구도 셋 | `argSpec` 하나로 | M |
-| **DM-7** | `shared/humancmd` ↔ `shared/chatwire` (`OpKill`·`OpKick`), `"hello"`·`"msg"` | IPC 상수가 여러 벌이다. 값이 어긋나면 `applyCmdLocked` 가 **조용히** 아무것도 하지 않는다 | 한 벌로, 어긋나면 실패하는 시험 | S |
-| DM-6·8·9·10 | `edgenode`↔`edgemesh` `helloWait` · 형제 소켓 경로 3벌 · 이름 축약 4벌(지문 12·16자, 근거 없음) · Cf 정화 7벌 | 같은 규칙의 여러 벌 | shared 한 벌 | S |
-| DM-17 | `shared/sandbox/runtime.go:119-181` | 같은 명령을 문자열·인자 배열로 두 번 적는다. OS 분기 3벌 | OS 표 하나에서 파생 | S |
+| GH-2 | `httperr.go`·`handlers_toolio.go`·`handlers_whoami.go`·`handlers_runs.go`·`codefail.go`·`handlers_fs.go`·`handlers_files.go`·`gitapi/handlers_git.go`·`shared/edgenode`·`shared/edge` | 오류 응답 렌더러가 **11벌**이다. 각자 헤더를 세팅하고, 그것이 헤더 누락(GH-F1·F2)이 되풀이된 원인이다. `writeWhoAmIError` 는 `writeToolIOError` 와 바이트 단위로 같다(GH-1) | 방언을 인자로 받는 렌더러 하나. 방언별 바이트는 유지한다 — **처리함 (P2 GA `d94b16bd`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-2·3·4)**: `httpresp.Fail`·`FailCode` 한 렌더러, 방언 바이트는 골든으로 그대로 | M |
+| GH-3 | `httperr.go`·`codefail.go`·`handlers_toolio.go`·`handlers_fs.go`·`gitapi`×2·`handlers_lsp.go`·`edgenode` | 본문 디코더 래퍼 **8종**. 빈 본문 처리가 서로 다르다(`readJSONBody` 만 `{}` 로 바꿈) | `httpreq.DecodeJSON` 하나가 실패 종류를 돌려주고, 답은 방언이 한다 — **처리함 (P2 GA `d94b16bd`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-5)**: `httpreq.DecodeJSON`. `lspReadBody` 는 상한 상수만 공유(그 SRS §6) | M |
+| GH-6 | `handlers_fs_search.go:429` `isBinary` ↔ `handlers_file_probe.go:62` | 이진 판정 두 벌. 편집기는 UTF-16 BOM 을 텍스트로, 검색은 이진으로 본다. 의도 기록이 없다 | 한 함수로. BOM 정책은 결정 필요(§6) — **처리함 (P2 GA `d94b16bd`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-9)**: 한 함수, 검색도 UTF-16 BOM 을 텍스트로(Q2) | S |
+| GH-7 | `gitapi/*.go` | `if s.Git == nil` 가드 16곳 | 라우트 등록 때 한 번 감싼다 — **처리함 (P2 GA `d94b16bd`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-8)**: 라우트 `needGit` 으로 10곳. 본문 검증이 가드보다 먼저인 처리기는 400 이 503 이 되므로 감싸지 않음(그 SRS §6) | S |
+| GH-8 | `apierr/codes_core.go:16`·`edgenode/node.go:56`·`edge/listener.go:143`·`edge/upgrade.go:99` | `"X-Error-Code"` 이름 4벌(하나는 리터럴) | shared 에 상수 하나 — **처리함 (P2 GA `d94b16bd`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-1)**: `httpresp.CodeHeader` 하나, 리터럴 검사 시험 | S |
+| GD-1·2 | `domain/worktree/remove.go:51-100`·`:127-159` | `Remove`·`RemoveListed` 전처리 중복, `worktree prune` 3번·`Stat` 2번 | 공통 전처리·`pruneAndCheckGone` — **처리함 (P2 GD `56dffed0`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-60)**: `prepareRemove`·`pruneAndCheckGone` | S |
+| GD-3 | `worktree.go:235` ↔ `submodule.go:317` `runGit` | 1차 MED 쌍둥이가 그대로다 | core 에 한 벌 — **처리함**: 실행·결합은 P2 GD `56dffed0`(`REFACTOR3_DEDUP_GO_SRS` FR-RDG-61, `core.ExecUnguardedText`), 남은 감싸개 두 벌은 `QUALITY_GO_SRS` FR-QG-50 `036e184a`(`core.UnguardedTextRunner` 하나, 호출처 게이트가 새 진입점도 본다) | S |
+| GD-5 | `domain/wsentry/wsentry.go` | `homeFn` 기본값·`MkdirAll` 패턴 2~3곳 | 헬퍼 — **처리함 (P2 GD `56dffed0`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-63)**: `wsentry.home`·`ensureRoot` | S |
+| DM-1 | `runtimebin` 9자리 | HTTP 응답 → 종료 코드 변환이 **9벌**(주석은 "세 자리" 라고 적음) | 상태→종료 코드 함수 하나에 종단별 거부 렌더러를 주입 — **처리함 (P2 GB `a0372852`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-20)**: `httpExit`+`exitRule`, 골든 `httpexit.golden` | M |
+| DM-2 | `dmctl_toolio.go:391`·`dmctl_run_http.go:70`·`dmctl_edge.go:344` | 거부 본문 렌더러 3벌. edge 용 `printRefusal` 을 account 가 빌려 쓴다 | 공통 파서 — **처리함 (P2 GB `a0372852`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-21)**: `parseRefusal` | S |
+| DM-3 | `dmctl_listworkspace.go:38`·`:56`·`dmctl_rename_confirm.go:71` | `/api/state` 읽기 3벌, 실패 문구도 셋 | 읽기 함수 하나 — **처리함 (P2 GB `a0372852`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-22)**: `fetchState` | S |
+| DM-4 | `dmctl_listworkspace.go:195-247` ↔ `shared/workspace/manager_parse.go:173` | 같은 순회·같은 JSON 모양 두 벌(주석은 의도라 적음) | 결정 필요(§6) — **처리함 (P2 GB `a0372852`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-23, Q4)**: `shared/workspace` 한 벌, 골든 `listworkspace.golden` | M |
+| DM-5 | `runtimebin` 전반 | 인자 파싱 세 체계(`argSpec`·`parseSubArgs`·손 루프 10곳, 표본). 모르는 인자 문구도 셋 | `argSpec` 하나로 — **처리함**: 모르는 인자 문구 하나는 P2 GB `a0372852`(`REFACTOR3_DEDUP_GO_SRS` FR-RDG-24), `send-input`·`msg`·`detach` 의 손 루프는 `QUALITY_GO_SRS` FR-QG-53 `cdd38aa9`(골든 전후 — detach 의 `=` 형·빈 `--at` 만 바뀜). 남김: `parseSubArgs`(edge·account) — 플래그 표·한 줄표 위치 인자(`-5`)·값 빠짐 문구가 다른 체계라 옮기면 출력이 바뀐다 | M |
+| **DM-7** | `shared/humancmd` ↔ `shared/chatwire` (`OpKill`·`OpKick`), `"hello"`·`"msg"` | IPC 상수가 여러 벌이다. 값이 어긋나면 `applyCmdLocked` 가 **조용히** 아무것도 하지 않는다 | 한 벌로, 어긋나면 실패하는 시험 — **처리함 (P2 GC `994d9805`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-41)**: kill·kick 원천은 `humancmd`, 대조 시험 | S |
+| DM-6·8·9·10 | `edgenode`↔`edgemesh` `helloWait` · 형제 소켓 경로 3벌 · 이름 축약 4벌(지문 12·16자, 근거 없음) · Cf 정화 7벌 | 같은 규칙의 여러 벌 | shared 한 벌 — **처리함 (P2 GC `994d9805`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-40·42·43·44)**: `edgemesh.HelloWait` · `platform.SiblingSocket` · `shared/termtext` | S |
+| DM-17 | `shared/sandbox/runtime.go:119-181` | 같은 명령을 문자열·인자 배열로 두 번 적는다. OS 분기 3벌 | OS 표 하나에서 파생 — **처리함 (P2 GC `994d9805`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-46)**: OS 표 하나 | S |
 | FC-01·02 | `core/app-mobile*.js`·`app-settings.js:437` | `_toggleDrawer(false); _rTopbar()` 쌍 5곳 복사. 서랍 상태가 필드·`body` 클래스·`#sidebar.open` 세 곳에서 따로 바뀐다 | `closeDrawer()`·`_setDrawer(open)` — **처리함** (§7.1 P3a 2: 서랍 상태는 `DrawerSheet` 한 자리, 닫기 경로는 모두 `_toggleDrawer(false)` → `DrawerSheet.setOpen`) | S |
 | FC-03 | `core/theme-vars.js:18-31` ↔ `core/contrast.js:55-60` | 색 거리 두 벌(제곱 RGB / redmean). `pickAccent2` 가 둘을 섞는다 | 한 메트릭. **알림색이 일부 테마에서 바뀌는 동작 변경**이다(§6) — **처리함 (R1, `8ab87528`)**: redmean 하나, Ayu Mirage 알림색·실행 중 색이 바뀐다 | M |
 | FC-11 | `core/app-settings-claude.js:12-17` ↔ `claudeacct/autoswitch.go:73-78` | 자동 전환 범위가 JS·Go 두 벌, 대조 게이트 없음 | PROD2 §7a ② — 서버가 원천 — **처리함 (R1, `a51da4bb`)**: autoswitch 응답의 `ranges`. 계정 행 칸은 남음 | M |
@@ -92,11 +92,11 @@
 
 | ID | 자리 | 현상 | 제안 | 규모 |
 |---|---|---|---|---|
-| GH-4·5·21 | 본문 상한 64 KiB 3벌·1 MiB 2벌 · NUL 검사 폭 `8000` 리터럴 3번 vs `binaryProbeLen` · fs 상한이 세 곳에 | 같은 값의 여러 이름 | 용도별 한 번, 한 표 | S |
-| GH-19 | `toolclient/client.go:318` | 재접속 시작 백오프 `time.Second` 리터럴 | 이름 | S |
-| GD-20 | `telegram/bridge.go:40·166`·`client.go:45`·`claudeacct/engine.go:637`·`dirlock.go:51` | 시간 값 다섯. `client.Timeout 70s` 는 `pollTimeout 50`(단위 없음)+20 인데 관계가 코드에 없다 | 이름, 파생 | S |
-| DM-13·14·15 | 시간 상수 115줄/64파일(표본) · "떠 있나" 시한 6개(1·2·3·5초) · `humancmd.Info` 예산 두 벌 | 흩어진 예산 | 한 파일, 목적 두세 개로 | M |
-| DM-11 | `dmenv` 머리말 vs `serverconf`·`updatecheck`·`ctl/cli/options.go`·`sandbox.go:279` | "이름은 여기 있다" 인데 밖에 넷, `sandbox` 는 문자열로 적는다 | `dmenv` 로 모은다 | S |
+| GH-4·5·21 | 본문 상한 64 KiB 3벌·1 MiB 2벌 · NUL 검사 폭 `8000` 리터럴 3번 vs `binaryProbeLen` · fs 상한이 세 곳에 | 같은 값의 여러 이름 | 용도별 한 번, 한 표 — **처리함**: 64 KiB·1 MiB 는 P2 GA `d94b16bd`(`REFACTOR3_DEDUP_GO_SRS` FR-RDG-6 `httpreq.SmallLimit`·`DefaultLimit`), fs 상한 표는 SH `b429a39a`(`fs_limits.go`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-5), NUL 검사 폭 8000 은 `QUALITY_GO_SRS` FR-QG-52 `0296bf2d`(`editorlimit.BinarySniffBytes` 하나 — 편집기·검색·diff) | S |
+| GH-19 | `toolclient/client.go:318` | 재접속 시작 백오프 `time.Second` 리터럴 | 이름 — **처리함 (SH `b429a39a`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-5)** | S |
+| GD-20 | `telegram/bridge.go:40·166`·`client.go:45`·`claudeacct/engine.go:637`·`dirlock.go:51` | 시간 값 다섯. `client.Timeout 70s` 는 `pollTimeout 50`(단위 없음)+20 인데 관계가 코드에 없다 | 이름, 파생 — **처리함 (SD `7d7891f8`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-23)**: 클라이언트 시한은 `pollTimeout` 에서 파생 | S |
+| DM-13·14·15 | 시간 상수 115줄/64파일(표본) · "떠 있나" 시한 6개(1·2·3·5초) · `humancmd.Info` 예산 두 벌 | 흩어진 예산 | 한 파일, 목적 두세 개로 — **처리함 (SC `f0849a42`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-41)**: `runtimebin/budgets.go`, "떠 있나" 시한은 목적 둘, `humancmd.DefaultTimeout` 하나 | M |
+| DM-11 | `dmenv` 머리말 vs `serverconf`·`updatecheck`·`ctl/cli/options.go`·`sandbox.go:279` | "이름은 여기 있다" 인데 밖에 넷, `sandbox` 는 문자열로 적는다 | `dmenv` 로 모은다 — **처리함 (P2 GC `994d9805`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-45)**. 남았던 문자열 셋은 SC `44ba911f` | S |
 | FC-10 | `core/constants.js` 939줄 | 상수 파일에 함수 9개 | 쓰는 쪽으로 옮긴다 — **처리함 (R2, `49136bd7`)**: 서버 상한은 새 `core/server-meta.js`, 사이드바 폭은 `input-binding.js`, 샌드박스 문구는 `tool-controller.js`, `agentsWidthOk` 은 호출 0 이라 삭제 | M |
 | FC-19·20·22 | `*1000` 환산·`after(50)` 류 · 타이밍 상수가 파일별 · 툴팁 리터럴 10곳(표본) | `constants*.js`·`TIP_*` 규약 밖 | 모은다 — **처리함 (R2, `b3fe9935`)**: 전수는 `REFACTOR3_FE_REST2_SRS` §2.6. `MS_PER_SEC`, 주기 상수 넷 → `constants.js`, 지연 이름 다섯, `TIP_*` 열일곱. 남김: `CLAUDE_ACCT_POLL_MS`(등록부만 싣는 페이지) · 서술자 표·`diag.js` 의 툴팁 | S |
 | FU-10 | `web/style*.css` | 간격 px 리터럴 **821건**(정규식 근사), 간격 토큰 0. `gap:6px` 68·`gap:8px` 63 | 간격 토큰 3~4단 → 치환 → 게이트 — **처리함 (R4b, `92c59b26`·`6d46d4e1`·`d05e001a`·`0efcb302`)**: 토큰 여덟 단, 치환 822 · 붙이기 105 · 예외 20, 게이트 `check-spacing.mjs` (`REFACTOR3_FE_REST4_SRS` §2.5) | L |
@@ -105,12 +105,12 @@
 
 | ID | 자리 | 현상 | 제안 | 규모 |
 |---|---|---|---|---|
-| GD-17 | `hub/gitwatch.go:706-787` `observe` | 잠금 3번, `need` 조건 4개, 전이가 함수 안에 묻혔다 | `need`·전이를 순수 함수로 떼고 시험 | M |
-| GD-21 | `hub/gitwatch.go:354` `watchPhase` | 운영 호출 0(시험만) | 지운다 | S |
+| GD-17 | `hub/gitwatch.go:706-787` `observe` | 잠금 3번, `need` 조건 4개, 전이가 함수 안에 묻혔다 | `need`·전이를 순수 함수로 떼고 시험 — **처리함 (SD `7d7891f8`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-22)**: 판정 순수 함수 셋 | M |
+| GD-21 | `hub/gitwatch.go:354` `watchPhase` | 운영 호출 0(시험만) | 지운다 — **처리함 (SD `7d7891f8`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-23)**: 지우고 시험은 `phaseHash` 로 | S |
 | FU-2~6 | `renderer-chrome.js:100` `_rWinTitle` · `history-load.js:201` `reloadRefs` · `panel-views.js:78` `_submodules` · `ui-kit.js:730` `menuOpen` · `cm-lsp.js:360` `unsubscribe` | 호출처 0 인 함수(뒤 둘은 `?`) | 확인 후 지운다 — **넷 처리함** (§7.1 P3a 0~2. `_rWinTitle` 은 `_rWinTitleParts` 로 살아 있어 죽은 것이 아니었다). `cm-lsp.js` `unsubscribe` 는 **남김 (R2)** — 호출처 0 이 아니다. 번들 `cm.js` 의 `LSPClient.connect`·`disconnect` 가 부른다(`REFACTOR3_FE_REST2_SRS` D-FR2-9). 같은 R2 에서 앱 호출 0 인 `UIKit.tabsFitWatch` 를 지웠다(`854590b2`) | S |
 | FU-17 | `git/panel-changes.js:661-665` | 서브모듈 stage 금지를 화면만 판정한다(SERVER_DRIVEN 목록 밖의 C 부류) | 정책 결정 먼저(§6) — **처리함 (R1, `19f60b6a`)**: 서버 판정·409 `submodule_inner_only`·행 답 `rowActions` | S |
 | FC-15 | `core/app-agents.js:248-253` | `filter` 4번, `reconcileList` 3번 | 구역 표를 한 번 순회 — **처리함 (R2, `854590b2`)**: 한 번 훑어 구역 넷으로. `reconcileList` 는 받는 곳이 셋이라 세 번 그대로 | S |
-| DM-24 | `ctl/cli/options.go:293-460` | `take`·`unknownFlag` 블록 6번 | 공통 적용기 | S |
+| DM-24 | `ctl/cli/options.go:293-460` | `take`·`unknownFlag` 블록 6번 | 공통 적용기 — **처리함 (P2 GB `a0372852`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-25)** | S |
 
 ### 2.5. 너무 큰 함수·클래스 분할 (분류 5)
 
@@ -125,15 +125,15 @@
 | FU-14·15·16 | `lanes.js` `buildLaneGraph` ~180 · `git-changes.js`(옛 `panel-changes`) `_buildChanges` 126 · `git-change-rows.js` `_rowEl` 108 · `git-poll.js`(옛 `panel-poll`) `_applyStatus` 120 · 100줄 안팎 6곳 | 분류(순수)와 그리기 — **처리함 (R3b, `b40a3086` FU-14 · `47a00334` FU-15·16)**. 넷 다 순수 판정과 단계로(코드 121 → 5 · 73 → 22 · 60 → 28 · 32 → 9). 100줄 안팎 나머지 넷(`version-watch` 익명 · `_makeTab` · `file-tree` constructor · `_renderThemePanel`)은 **남김** — 고정 시험부터 세워야 한다(`REFACTOR3_FE_REST3_SRS` D-FR3-14) | M · M |
 | FU-11 | `web/style.css` 2,492줄 | CSS 는 크기 게이트가 없다(`check-file-size` 가 `web/js` 만) | 기준선 + 영역별 분할 — **처리함 (R4a, `8e87010d`)**: `check-file-size.mjs` 가 `web/*.css` 도 잰다(`CSS 500줄초과=4 · 최대=824`). `style.css` 2,539줄을 원래 순서의 연속 구간 여덟(268~385줄)으로, `<link>` 순서가 캐스케이드를 지킨다. 계산된 스타일 그대로 | M · L |
 | GH-13·14 | 80줄 넘는 함수 14개(표본; `apiRunSucceed` 131·`handleCommandSSE` 131·`handleCommandPost` 121·`apiGitStatus` 113) · `handlers_files.go` 749·`access.go` 744·`toolclient/client.go` 685 | 파싱·판정·렌더 / 주제별 파일 — **GH-13 처리함 (`37e36bcd` · `6cc3e9cd` · `66a37fda`)**: 다시 잰 HTTP 처리기 14개를 모두 80줄 아래로, 판정 순수 함수에 표 주도 시험 30개, httpapi PASS 이름 빠짐 0(`REFACTOR3_GO_STRUCT_SRS` FR-RGS-1 · `deniedPageHTML` 과 domain 셋은 남김 D-RGS-3). **GH-14 처리함** (SH 묶음 FR-RGS-2: 파일 셋 분할) | M · M |
-| GD-13~16·18 | `query/diff.go` 632 · `write/branch.go` 589 · `hub/gitwatch.go` 877 · `attn_tracker.go` 548 · `autoswitch.decide` 79줄 | 파일 분할(동작 불변) | M · M |
-| DM-18 | `shared/platform/procinfo.go` 627 | 빌드 태그 없이 darwin·linux 가 한 파일 | 플랫폼별 파일 | M · L |
-| DM-21·22·23 | `dmctl_account.go` 631 · `dmctl_listworkspace.go` 505 · `dmctl.go` 579(분기 셋 + 도움말 110줄) | 파일 분할, 명령 표 한 벌 | M · L |
+| GD-13~16·18 | `query/diff.go` 632 · `write/branch.go` 589 · `hub/gitwatch.go` 877 · `attn_tracker.go` 548 · `autoswitch.decide` 79줄 | 파일 분할(동작 불변) — **처리함**: 파일 넷은 SD `8c2cc91d`(`REFACTOR3_GO_STRUCT_SRS` FR-RGS-21), `decide` 는 SD `7d7891f8`(FR-RGS-22, `autoTrigger`·`inCooldown`·`switchFirst`) | M · M |
+| DM-18 | `shared/platform/procinfo.go` 627 | 빌드 태그 없이 darwin·linux 가 한 파일 | 플랫폼별 파일 — **처리함 (SC `c2389f95`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-43)**: 플랫폼 어댑터 파일로. OS 빌드 제약은 **달지 않음**(결정, `QUALITY_GO_SRS` D-QG-8 `35786196`) — 가짜 실행기 시험이 다른 OS 에서 도는 것이 설계이고, `go tool nm` 으로 다른 OS 어댑터가 바이너리에 없음을 확인 | M · L |
+| DM-21·22·23 | `dmctl_account.go` 631 · `dmctl_listworkspace.go` 505 · `dmctl.go` 579(분기 셋 + 도움말 110줄) | 파일 분할, 명령 표 한 벌 — **처리함 (SC `c2389f95`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-43)** | M · L |
 
 ### 2.6. 충분한 추상화 (분류 6)
 
 | ID | 자리 | 현상 | 제안 | 규모 |
 |---|---|---|---|---|
-| GH-15 | `httpapi/server.go:82-228` `Server` | 필드 44개, 잠금 5개. `settingsMu` 하나가 access 와 sandbox 를 함께 잠근다 | 도메인별 하위 구조체와 각자의 잠금 | L · 위험 H |
+| GH-15 | `httpapi/server.go:82-228` `Server` | 필드 44개, 잠금 5개. `settingsMu` 하나가 access 와 sandbox 를 함께 잠근다 | 도메인별 하위 구조체와 각자의 잠금 — **처리함 (SH `acb5cae9`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-3)**: 하위 구조체, `settingsMu` → access·sandbox 각자의 `putMu` | L · 위험 H |
 | FU-8 | `style-panel.css`·`style.css` | 레일 상태 선택자 `:is(html.sb-collapsed body:not(.mobile) #sidebar, …)` 반복(style.css 14 · style-panel.css 6) | `data-rail` 속성 하나 — **처리함 (R4a, `abb8a5df`)**: 패널 루트의 `data-rail`, `Panel.railSync` 한 자리가 세운다(열림·`body.mobile`·부팅 복원). 첫 프레임은 `index.html`. 선택자 22곳(style-panel.css 는 실제 8). 계산된 스타일 그대로 | M |
 
 ### 2.7. 비슷한 로직을 하나의 클래스로 (분류 7)
@@ -141,8 +141,8 @@
 | ID | 자리 | 현상 | 제안 | 규모 |
 |---|---|---|---|---|
 | **FU-20** | `web/js/ui/sidebar-tabs.js`(사이드바 탭 줄) ↔ `web/js/core/app-agents.js`(작업 패널 탭 줄) | **사용자 추가 요청(2026-11-21).** 두 패널 상단 탭의 동작이 아직 하나 다르다 — 글자(라벨) 표시 여부를 패널마다 따로 판정한다. 지금은 두 패널이 `UIKit.tabsFit`·`tabsFitWatch` 를 각자 부르고, 탭 정의·배지·스크롤 자리·직행 키도 각자 들고 있다(사이드바 `SB_TAB_DEFS`, 작업 패널 `_actTabsEl`·`_actTabsPaint`) | 패널 탭 줄을 **공통 패널 객체 하나**(탭 정의·라벨 판정·배지·스크롤 자리·직행 토글)로 만들고, 두 패널은 그것을 상속해 쓴다. 라벨 표시 규칙은 그 한 자리에서 정한다. **결정(2026-11-21): 글자 표시 규칙은 지금처럼 패널별**(자기 탭 줄에 라벨이 다 들어가면 보인다)이고, 그 판정·배선을 공통 패널 객체 한 자리로 옮긴다. 두 패널의 다른 동작은 그 한 자리를 지나며 사라져야 한다 — 구현 때 두 패널의 판정 시점(배지 변화·폭 변화·다시 그리기·모바일)을 나란히 대조해 실제 차이를 찾아 적는다 — **처리함 (구조)** (§7.1 P3a 2: 판정은 `TabBar.fit` 한 자리. 사용자 보고 차이는 재현하지 못해 화면·조작을 묻는다) | M |
-| GD-4 | `claudeacct/engine.go:609-650` ↔ `autoswitch.go:370-407` | 두 `Run` 의 wake 채널·ctx·타이머 루프가 같다 | 공용 루프에 `Tick` 주입 | M |
-| GH-2·3 · DM-1·2 | (§2.2) | 오류 렌더러·디코더·종료 코드 변환 | 각각 한 타입으로 | M |
+| GD-4 | `claudeacct/engine.go:609-650` ↔ `autoswitch.go:370-407` | 두 `Run` 의 wake 채널·ctx·타이머 루프가 같다 | 공용 루프에 `Tick` 주입 — **처리함 (P2 GD `56dffed0`, `REFACTOR3_DEDUP_GO_SRS` FR-RDG-62)**: `claudeacct.waker` | M |
+| GH-2·3 · DM-1·2 | (§2.2) | 오류 렌더러·디코더·종료 코드 변환 | 각각 한 타입으로 — **처리함** (§2.2 의 각 행) | M |
 
 ### 2.8. 사람의 가독성 (분류 8)
 
@@ -166,20 +166,20 @@
 
 | # | ID | 자리 | 현상 | 측정 | 규모 |
 |---|---|---|---|---|---|
-| 1 | GH-17 | `httpapi` `fsOps` 전역 뮤텍스 | 세기(최대 1만 항목)와 복사·삭제 전 구간을 잡아, 다른 루트의 mkdir·이름 바꾸기가 모두 기다린다 | 큰 폴더 복사 중 mkdir 응답 시간 | M |
-| 2 | GH-18 | `access.go` `apiAccessPut` → `refresh` | `settingsMu` 를 쥔 채 DNS 조회. 샌드박스 설정 PUT 이 그동안 기다린다 | 해석 지연 주입 후 sandbox PUT 지연 | S |
-| 3 | GD-11 | `run.Store.save` | 변경마다 전체 Run 을 `json.Marshal`(1차 P3 의 남은 절반) | 저장 1회 바이트·alloc, Run 수별 | L |
-| 4 | GD-7 | `query/diff.go` `diffBlobSide` | 블롭 한쪽마다 git 2회(`cat-file -s`+`show`), diff 한 번에 fork 4회 | diff 1회의 자식 프로세스 수 | M |
-| 5 | GH-16 | `handlers_fs_search.go:348` | 파일마다 64 KiB `bufio` 를 새로 만들고 8000바이트만 본다 | 검색 1회의 alloc | S |
-| 6 | GD-8 | `claudeacct/autoswitch.go` `Tick` | 회차마다 `ps -axo args=` fork | Tick 당 fork 수 | S |
-| 7 | GD-9·23 | `claudeacct/engine.go` `setRow`·`Tick` | 행마다 전 행 `MarshalIndent`+fsync(잠금 안). 한 회차에 `accounts.json` 을 2~3번 다시 읽는다 | 회차당 쓰기·읽기 횟수 | S |
-| 8 | GD-10 | `engine.go:213` | 계정 사이 250ms 를 `busy` 를 쥐고 `time.Sleep`, ctx 를 안 본다 — 종료가 N×250ms 늦는다 | 종료 신호 → Run 복귀 시간 | S |
-| 9 | GD-6 | `wsentry.Roots` | 호출마다 `MkdirAll` 2번(1차 LOW 잔존) | 응답 경로의 시스템콜 수 | S |
-| 10 | GD-12 | `telegram` `b.tabs` | 넣기만 하고 지우지 않는다 | 도구 N개 생성·종료 뒤 맵 크기 | S |
-| 11 | DM-19 | `ctl/cli/proc.go` 정지 대기 | 정지 한 번에 `lsof` 최대 약 20회(darwin) | `stop` 1회의 자식 프로세스 수 | S |
-| 12 | DM-20 | `dmctl rename-tab` 확인 | `/api/state` 를 최대 약 15회 GET, 매번 전체 디코딩 | 1회의 요청 수 | S |
+| 1 | GH-17 | `httpapi` `fsOps` 전역 뮤텍스 | 세기(최대 1만 항목)와 복사·삭제 전 구간을 잡아, 다른 루트의 mkdir·이름 바꾸기가 모두 기다린다 — **처리함·유지**: 세기는 잠금 밖(SH `b429a39a`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-4). 복사 전 구간의 잠금은 측정 뒤 **유지**(결정, `QUALITY_GO_SRS` D-QG-7 `6c4b7551`) — 파일 3,000개 복사 중 다른 루트 mkdir 318~748 ms(복사가 끝날 때까지). 실패 정리(FR-WBR-67)와 이름 바꾸기 폴백의 창(D-26)이 그 잠금에 기댄다 | 큰 폴더 복사 중 mkdir 응답 시간 | M |
+| 2 | GH-18 | `access.go` `apiAccessPut` → `refresh` | `settingsMu` 를 쥔 채 DNS 조회. 샌드박스 설정 PUT 이 그동안 기다린다 — **처리함 (SH `b429a39a`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-4)**: DNS 는 잠금 밖, 시한 3초 | 해석 지연 주입 후 sandbox PUT 지연 | S |
+| 3 | GD-11 | `run.Store.save` | 변경마다 전체 Run 을 `json.Marshal`(1차 P3 의 남은 절반) — **유지(결정, `REFACTOR3_GO_STRUCT_SRS` §6 SD)**: 직렬화 몫은 Run 10/50/200 에서 2%/9%/36%(저장 1회 42.6/64.2/88.0 ms). 나머지는 세대 회전·쓰기라 증분 직렬화로 줄지 않고, 무효화 누락은 데이터 손실이다 | 저장 1회 바이트·alloc, Run 수별 | L |
+| 4 | GD-7 | `query/diff.go` `diffBlobSide` | 블롭 한쪽마다 git 2회(`cat-file -s`+`show`), diff 한 번에 fork 4회 — **유지(결정, `REFACTOR3_GO_STRUCT_SRS` §6 SD)**: 한 번으로 줄이면 상한 넘는 블롭을 끝까지 받아 FR-GIT-48 을 어긴다 | diff 1회의 자식 프로세스 수 | M |
+| 5 | GH-16 | `handlers_fs_search.go:348` | 파일마다 64 KiB `bufio` 를 새로 만들고 8000바이트만 본다 — **처리함 (SH `b429a39a`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-4)**: 버퍼 되쓰기, 2.66 MB → 0.11 MB/op | 검색 1회의 alloc | S |
+| 6 | GD-8 | `claudeacct/autoswitch.go` `Tick` | 회차마다 `ps -axo args=` fork — **처리함 (SD `cd12d4cb`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-20)**: 1분 기억, fork 6 → 2 | Tick 당 fork 수 | S |
+| 7 | GD-9·23 | `claudeacct/engine.go` `setRow`·`Tick` | 행마다 전 행 `MarshalIndent`+fsync(잠금 안). 한 회차에 `accounts.json` 을 2~3번 다시 읽는다 — **처리함 (SD `cd12d4cb`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-20)**: 쓰기 3 → 1, 읽기 2 → 1 | 회차당 쓰기·읽기 횟수 | S |
+| 8 | GD-10 | `engine.go:213` | 계정 사이 250ms 를 `busy` 를 쥐고 `time.Sleep`, ctx 를 안 본다 — 종료가 N×250ms 늦는다 — **처리함 (SD `cd12d4cb`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-20)**: stagger 가 ctx 를 본다 | 종료 신호 → Run 복귀 시간 | S |
+| 9 | GD-6 | `wsentry.Roots` | 호출마다 `MkdirAll` 2번(1차 LOW 잔존) — **유지(결정, `REFACTOR3_GO_STRUCT_SRS` §6 SD)**: `MkdirAll` 은 `Roots` 42 µs 의 6.6% 이고, 빼면 FR-NOT-1·2 가 깨진다 | 응답 경로의 시스템콜 수 | S |
+| 10 | GD-12 | `telegram` `b.tabs` | 넣기만 하고 지우지 않는다 — **처리함 (SD `cd12d4cb`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-20)**: `SetToolGoneObserver` 로 수거 | 도구 N개 생성·종료 뒤 맵 크기 | S |
+| 11 | DM-19 | `ctl/cli/proc.go` 정지 대기 | 정지 한 번에 `lsof` 최대 약 20회(darwin) — **처리함 (SC `fdf4bdba`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-44)**: pid 생존만 보고 끝에 포트를 한 번, `lsof` 25 → 3 | `stop` 1회의 자식 프로세스 수 | S |
+| 12 | DM-20 | `dmctl rename-tab` 확인 | `/api/state` 를 최대 약 15회 GET, 매번 전체 디코딩 — **처리함 (SC `fdf4bdba`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-44)**: 간격을 두 배씩, 요청 42 → 15 | 1회의 요청 수 | S |
 | 13 | FC-21 | `app-statusbar.js` `_pollStats` | ping → stats 직렬 2왕복 — **처리함 (R1, `85668248`)**: 함께 보낸다, 회차당 1왕복 | 회차당 왕복 | S |
-| 14 | DM-27·28 | `daemon/ipc/paned.go:203` `MethodTerminate` · `chatsock.Serve` | `goSlow` 상한 우회로 고루틴이 요청 수만큼 · hello 전 연결은 `Close` 에서 안 닫힘(5초 상한) | 동시 terminate N건의 고루틴 수 | S |
+| 14 | DM-27·28 | `daemon/ipc/paned.go:203` `MethodTerminate` · `chatsock.Serve` | `goSlow` 상한 우회로 고루틴이 요청 수만큼 · hello 전 연결은 `Close` 에서 안 닫힘(5초 상한) — DM-28 **처리함 (SC `fdf4bdba`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-44)**: hello 전 연결도 `Close` 에서 닫는다. DM-27 **유지(결정, 같은 SRS §6 SC)**: 상한 뒤에 줄 세우면 클라이언트 시한(5+3초)을 넘어 연결이 끊긴다(GH-F5 와 엮임) | 동시 terminate N건의 고루틴 수 | S |
 
 ---
 
@@ -192,9 +192,9 @@
 | ID | 자리 | 내용 |
 |---|---|---|
 | DOC-6 | `UX_AUDIT_FIX_SRS` FR-UXF-85 | "사이드바 창 행 메뉴" 에 키캡을 단다고 적었지만 그 메뉴가 **없다**(`sidebar-list.js`·`sidebar-tabs.js` 에 `contextmenu` 0곳). 만들지, 범위 밖으로 둘지 결정 필요 — **처리함 (P7 `0b8ad169`)**: Q5 결정대로 FR 에서 「사이드바 창 행 메뉴」 를 지웠다 |
-| GH-11 | `httpapi/handlers_runs_actions.go` `runErrAnswer` · `handlers_runs.go:174` | `action.Answer.Why` 는 사유 **코드**인데 미분류 실패는 `err.Error()` 자유 문구가 들어간다 |
-| GH-12 | `action/action.go:118` `EntityName` | 카탈로그 42개 ID 가운데 이것만 생산자가 없다 |
-| GH-24 | `httpapi/access_denied.go:53` | 403 HTML 화면에 `X-Error-Code` 가 없다. FR-ERR-7 이 HTML 을 빼는지 확인 못 함 `?` |
+| GH-11 | `httpapi/handlers_runs_actions.go` `runErrAnswer` · `handlers_runs.go:174` | `action.Answer.Why` 는 사유 **코드**인데 미분류 실패는 `err.Error()` 자유 문구가 들어간다 — **처리함 (SH `8ae39a5e`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-7)**: 미분류 실패는 `internal_error`, 전문은 로그 |
+| GH-12 | `action/action.go:118` `EntityName` | 카탈로그 42개 ID 가운데 이것만 생산자가 없다 — **처리함 (SH `8ae39a5e`, `REFACTOR3_GO_STRUCT_SRS` FR-RGS-7)**: 생산자 `entityNameAnswer` 를 주석으로 이음 |
+| GH-24 | `httpapi/access_denied.go:53` | 403 HTML 화면에 `X-Error-Code` 가 없다. FR-ERR-7 이 HTML 을 빼는지 확인 못 함 `?` — **처리함 (`QUALITY_GO_SRS` QG-4, `527aa03c`)**: 화면에 `X-Error-Code: forbidden`(평문 403 과 같음), 본문 그대로 |
 | — | `git-ui-metrics.spec.ts` V80 | 사이드바 접기 단추 26px 가 하한 미달. HEAD 에서도 실패(인계서 확인) |
 | — | `npm run -s unit` | 열 번에 두 번꼴로 1건 실패, 어느 시험인지 모름(인계서) |
 | — | `settings.spec.ts` | "규칙에 맞지 않는 이름은 거절" 이 전량 실행에서만 실패, 원인 미조사 |
@@ -305,6 +305,7 @@
 | P7 | `ead3f7be`·`7362d88a`·`289a4d41`·`0b8ad169`·`000e3f85`·`4910afc9` (합침 `9171f2b7`) · `c9ea6550`·`d6a6bee6`…(이 커밋) | 문서 동기화와 게이트 — 문서는 코드 기준(Q6). 설정 대조 시험이 옮긴 파일을 읽는다 · 주석의 옛 파일 이름·낡은 줄 번호(DOC-13·14·17) · 게이트 `check-code-refs.mjs` · 낡은 SRS 본문(DOC-1·6·7·8·9·13·18·19·20 · GH-9) · 살아 있는 문서(DOC-2·3·5·10·11·17) · 게이트 `check-srs-progress.sh` 의 절 상태 검사(DOC-7) · 죽은 CSS 규칙 둘과 디자인 토큰 표(DOC-4) · CHANGELOG 의 뒤집는 네 쌍(DOC-12) · 색인(`docs/internal/README.md`) 상태 · 이 문서의 처리함 표시. DOC-15·16 은 R4a·R2, GD-19·22 는 SD, GH-23 은 SH(유지), DM-25·26 은 SC 가 이미 처리했다. 지난 인계서·감사·SRS 구현 기록과 `WORKSPACE_IDENTITY`·`PERFORMANCE_HARDENING` 의 표는 시점 기록이라 고치지 않음(사용자 결정 Q6 의 범위: 살아 있는 문서·주석만). 동작 변경 없음 |
 | FIX | `777e8629`·`e683f684`·`8a4fbc93`·`e60c4880`·`6a92e943`·`fa990d74` · FX-6·7 `4a370b32`·`4e7e4c21`·`ca4645ab`…(이 커밋) | `REFACTOR3_FE_FIX_SRS` — 사용자 결정(2026-11-22)으로 고친 다섯, 모두 동작 변경. FX-1 P8-2: 작업 중인 탭·창 행·Agents 탭의 툴팁과 `aria-label` 이 `working` 을 말한다(§6 Q7 의 나머지 넷은 그대로) · FX-2 설정 statusbar 스위치를 열 때·방송 뒤에 다시 칠하고, 숫자 행 다섯에 포커스 가드(실측으로 다섯 모두 덮임을 확인) · FX-3 설정을 열 때 고른 서버 패널(access·sandbox·edges·telegram·server)을 다시 읽는다 — 수정이 있으면 두고 읽기는 섹션마다 하나 · FX-4 죽은 `_gitAddRepo`·`_gitReorder` 와 도우미·문구 · FX-5 e2e 게이트가 `<별칭>.app._x` 를 잡고(7곳을 계약으로), 계약의 없는 이름 `_gitJobChip`·`_focusCh` 를 걷었다 · FX-6 부르는 곳 없는 서버 종단 `GET /api/git/repo-at`·`POST /api/git/repos/reorder` 와 그것만 쓰던 함수·경로·시험·문서를 지웠다(둘 다 404, dmctl·다른 Go 코드는 부르지 않았다) · FX-7 계정 행 칸(별칭 24자·한도 50~100·우선순위 0~1000)의 범위를 Go 표 `AccountRanges` 하나로, `GET /api/claude-accounts` 의 `ranges` 로 싣고 화면이 그것을 쓴다(R1 의 남은 것, 값 같음) |
 | QUALITY | `2f141812`·`abbf050f`·`e7d0ccc6`·`8f524ff6`·`b34f65f5`·`0d861c59`·`43cd0c79`·`eb6487c6`…(이 커밋) | `QUALITY_FIX_SRS` — 「원래 실패」 e2e 다섯과 eslint 2건, 부팅 설정 적용 순서. 낡은 시험 넷을 뒤의 요구에 맞췄다: TC-SBA-1·V-GAP-1(FR-UXF-96 한 줄 배치, `Box` 라벨 감춤) · TC-RLC-25(침묵 흉내가 FR-UXF-65 의 전경 이름 알림에 덮였다 — 수신 처리기를 뗀다) · skill-contract:451(「환경」 이 아니라 「전」 사진이 전경 이름 자리잡기 전에 찍히는 경합). 결함 하나: V80 — 두 패널의 접기 단추 26 → 30px(FR-GIT-226, D-38 은 두 단추를 같게 해 지킨다). eslint 0(`.claude/**` 제외 포함). QF-7: 적용은 값, 칠하기는 맨 끝 한 자리 — 적용 길의 `_sectionCall`·`modKbd` 가드를 걷고 두 순서의 결과가 같음을 단위로 잰다 |
+| QUALITY_GO | `060f7358` · `b7785b53` · `63197fa7` · `5c48bccf` · `527aa03c` · `6c4b7551` · `036e184a` · `35786196` · `0296bf2d` · `0674988f` · `cdd38aa9`…(이 커밋) | `QUALITY_GO_SRS` — Go 의 남은 항목. GH-F3 디코드 오류 문구는 고정 문구에 요청 자리만(Go 타입 이름 없음, 전문은 `dmlog`, 핀 저장 실패도 고정) · FC-F1 서버 쪽: `PUT /api/settings` 가 색이 아닌 `customTheme` 값을 `400` · `bad_request` 로 거절(이미 저장된 값은 화면이 걸러 다음 저장부터 통과) · GD-F2 버튼 걷기 상한 4 병렬(3.26s → 0.82s) · GH-24 403 화면에 `X-Error-Code: forbidden` · GH-17 복사 잠금은 측정 뒤 유지(불변식 둘) · GD-3 `core.UnguardedTextRunner` · DM-18 빌드 제약은 달지 않음(근거) · GH-4·5·21 `editorlimit.BinarySniffBytes` · DM-5 손 루프 셋을 `argSpec` 으로(골든 전후, detach 셋만 바뀜). 동작 변경은 그 SRS §5. 이 문서의 이미 처리된 행 표시(§1·§2·§3·§4.1)도 이 커밋. 남김: `parseSubArgs`(edge·account) |
 
 ---
 

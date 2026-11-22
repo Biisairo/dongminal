@@ -122,42 +122,35 @@ const dmctlSendInputHelp = `dmctl send-input — 도구의 쉘/프로그램에 �
 수신측이 신뢰 채널로 인식한다. send-input 은 일반 쉘 대상이다.
 `
 
-func runDmctlSendInput(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	target, execute := "", false
-	var positional []string
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, dmctlSendInputHelp)
-			return 0
-		case a == "--at" || a == "-l":
-			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "send-input: flag %s requires value\n", a)
-				return 2
-			}
-			target = args[i+1]
-			i += 2
-			continue
-		case strings.HasPrefix(a, "--at="):
-			target = a[len("--at="):]
-		case strings.HasPrefix(a, "-l="):
-			target = a[len("-l="):]
-		case a == "--execute" || a == "-x":
-			execute = true
-		case a == "--":
-			positional = append(positional, args[i+1:]...)
-			i = len(args)
-			continue
-		case a != "-" && strings.HasPrefix(a, "-"):
-			fmt.Fprintf(stderr, "send-input: %s\n", unknownArg(a))
-			return 2
-		default:
-			positional = append(positional, a)
-		}
-		i++
+// sendInputFlags 는 send-input 의 인자다.
+type sendInputFlags struct {
+	target     string
+	execute    bool
+	positional []string
+}
+
+// parseSendInputFlags 는 argSpec 하나다 (QUALITY_GO_SRS FR-QG-53 · PROD3 DM-5). 손 루프였을 때와
+// 출력이 같다(argparse.golden).
+func parseSendInputFlags(args []string, stdout, stderr io.Writer) (sendInputFlags, int, bool) {
+	var f sendInputFlags
+	spec := argSpec{
+		help:     dmctlSendInputHelp,
+		vals:     map[string]func(string) error{"--at": setStr(&f.target), "-l": setStr(&f.target)},
+		bools:    map[string]*bool{"--execute": &f.execute, "-x": &f.execute},
+		rest:     &f.positional,
+		restHelp: true,
+		dash:     true,
 	}
+	code, proceed := spec.run("send-input", args, stdout, stderr)
+	return f, code, proceed
+}
+
+func runDmctlSendInput(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	f, code, proceed := parseSendInputFlags(args, stdout, stderr)
+	if !proceed {
+		return code
+	}
+	target, execute, positional := f.target, f.execute, f.positional
 	if target == "" {
 		target = selfToolID()
 	}
@@ -207,44 +200,32 @@ const dmctlMsgHelp = `dmctl msg — 같은 워크스페이스의 다른 에이�
 가리킨다.
 `
 
-func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	to, from := "", ""
-	var positional []string
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, dmctlMsgHelp)
-			return 0
-		case a == "--to" || a == "--from":
-			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "msg: flag %s requires value\n", a)
-				return 2
-			}
-			if a == "--to" {
-				to = args[i+1]
-			} else {
-				from = args[i+1]
-			}
-			i += 2
-			continue
-		case strings.HasPrefix(a, "--to="):
-			to = a[len("--to="):]
-		case strings.HasPrefix(a, "--from="):
-			from = a[len("--from="):]
-		case a == "--":
-			positional = append(positional, args[i+1:]...)
-			i = len(args)
-			continue
-		case a != "-" && strings.HasPrefix(a, "-"):
-			fmt.Fprintf(stderr, "msg: %s\n", unknownArg(a))
-			return 2
-		default:
-			positional = append(positional, a)
-		}
-		i++
+// msgFlags 는 msg 의 인자다.
+type msgFlags struct {
+	to, from   string
+	positional []string
+}
+
+// parseMsgFlags 는 argSpec 하나다 (FR-QG-53). 손 루프였을 때와 출력이 같다(argparse.golden).
+func parseMsgFlags(args []string, stdout, stderr io.Writer) (msgFlags, int, bool) {
+	var f msgFlags
+	spec := argSpec{
+		help:     dmctlMsgHelp,
+		vals:     map[string]func(string) error{"--to": setStr(&f.to), "--from": setStr(&f.from)},
+		rest:     &f.positional,
+		restHelp: true,
+		dash:     true,
 	}
+	code, proceed := spec.run("msg", args, stdout, stderr)
+	return f, code, proceed
+}
+
+func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	f, code, proceed := parseMsgFlags(args, stdout, stderr)
+	if !proceed {
+		return code
+	}
+	to, from, positional := f.to, f.from, f.positional
 	if to == "" {
 		fmt.Fprintln(stderr, "usage: dmctl msg --to <uuid> [--from <uuid>] <메시지>")
 		return 2

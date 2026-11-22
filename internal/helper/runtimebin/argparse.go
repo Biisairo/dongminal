@@ -20,6 +20,12 @@ type argSpec struct {
 	rest *[]string
 	// strictEq 이면 `--k=` 처럼 값이 빈 등호 형은 모르는 인자다.
 	strictEq bool
+	// restHelp 이면 rest 가 있어도 `-h`·`--help` 를 이 spec 의 도움말로 받는다 — 최상위
+	// 도움말이 없는 하위 명령(send-input·msg)의 몫이다 (QUALITY_GO_SRS FR-QG-53).
+	restHelp bool
+	// dash 이면 rest 모드에서 `-` 하나를 위치 인자로 받는다 — 본문을 stdin 에서 읽으라는
+	// 표지다(`readBody`).
+	dash bool
 }
 
 type argErrKind int
@@ -55,7 +61,7 @@ func (s argSpec) parse(args []string) (help bool, e *argError) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		if isHelpArg(a) {
-			if s.rest != nil {
+			if s.rest != nil && !s.restHelp {
 				continue
 			}
 			return true, nil
@@ -86,7 +92,7 @@ func (s argSpec) parse(args []string) (help bool, e *argError) {
 				continue
 			}
 		}
-		if s.rest != nil && !strings.HasPrefix(a, "-") {
+		if s.rest != nil && (!strings.HasPrefix(a, "-") || (s.dash && a == "-")) {
 			*s.rest = append(*s.rest, a)
 			continue
 		}

@@ -3,6 +3,7 @@ package gitapi
 import (
 	"context"
 	"dongminal/internal/shared/diagtail"
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/fanout"
 	"net/http"
 	"path/filepath"
@@ -309,7 +310,7 @@ func (s *GitServer) apiGitPin(w http.ResponseWriter, r *http.Request) {
 	// 응답의 root 는 wsentry 가 정규화해 실제로 저장한 값이다 (FR-EDT-24).
 	stored, lists, err := s.entries().PinAdd(root)
 	if err != nil {
-		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
+		gitPinSaveFail(w, r, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, map[string]any{"root": stored, "pinned": lists.Pinned, "editors": lists.Editors})
@@ -326,10 +327,18 @@ func (s *GitServer) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
 	// root 행은 연동으로 사라지지 않는다 (FR-EDT-38).
 	lists, err := s.entries().PinRemove(path)
 	if err != nil {
-		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
+		gitPinSaveFail(w, r, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, map[string]any{"pinned": lists.Pinned, "editors": lists.Editors})
+}
+
+// gitPinSaveFail 은 핀 목록 저장의 실패다. 원인은 작업 공간 파일의 해석 오류(Go 타입
+// 이름)나 저장 경로라 본문에 싣지 않고 로그로 보낸다 (QUALITY_GO_SRS FR-QG-5 · D-QG-2).
+// 상태와 코드는 종전과 같다.
+func gitPinSaveFail(w http.ResponseWriter, r *http.Request, err error) {
+	dmlog.Infof(r.Context(), "git pin save %s: %v", r.URL.Path, err)
+	gitFail(w, http.StatusInternalServerError, gitErrFailed, "핀 목록을 저장하지 못했다")
 }
 
 // gitRepoParam 은 repo 인자를 정규 루트로 옮긴다. 클라이언트가 보낸 경로를 그대로

@@ -220,10 +220,10 @@ const unguardedReason = "worktree 도메인 — 화이트리스트가 argv[0] �
 // 실제 배선은 WithService 로 Service 를 준다 — 그래야 이 패키지의 git 실행이
 // Console 과 Replay 가 보는 같은 기록에 남는다.
 func execGit(ctx context.Context, dir string, args ...string) (string, error) {
-	return runGit(ctx, nil, dir, args...)
+	return gitRunner(nil)(ctx, dir, args...)
 }
 
-// runGit 은 이 패키지의 유일한 git 실행이다 (GIT_EXEC_UNIFY_SRS FR-GXU-7).
+// gitRunner 는 이 패키지의 유일한 git 실행이다 (GIT_EXEC_UNIFY_SRS FR-GXU-7).
 //
 // **인가는 이 패키지가 진다.** `checkRepo`·`checkPath`·`validRef`·`repoLock` 이
 // 그것이며, core 의 화이트리스트는 지나지 않는다 — `git worktree` 는 한 하위
@@ -233,16 +233,13 @@ func execGit(ctx context.Context, dir string, args ...string) (string, error) {
 // core 로 가는 것은 **실행 방법**이다 — 환경(FR-GIT-104 의 프롬프트 배제),
 // 마감, 출력 상한, 취소, 오류 분류, 기록. 종전에는 그 여섯이 전부 빠져 있었다.
 //
-// 실행·결합·감싸기는 submodule 과 같은 한 자리(core.ExecUnguardedText)다
-// (FR-OPT-7-2 · REFACTOR3_DEDUP_GO_SRS FR-RDG-61). 성공은 stdout 만, 실패는 stdout
-// 다음 stderr 이고 오류는 %w 로 core 의 분류를 잇는다 (REPO_FIX 01 §5.6 — Manager
-// 경유 쓰기의 실패도 lock 필드·504 를 싣는다).
-func runGit(ctx context.Context, svc *core.Service, dir string, args ...string) (string, error) {
-	return svc.ExecUnguardedText(ctx, dir, core.UnguardedSpec{
-		Argv:    args,
-		Timeout: opTimeout,
-		Reason:  unguardedReason,
-	}, gitMissing, strings.TrimSpace)
+// 실행·결합·감싸기는 submodule 과 같은 한 자리(core.UnguardedTextRunner)다
+// (FR-OPT-7-2 · REFACTOR3_DEDUP_GO_SRS FR-RDG-61 · QUALITY_GO_SRS FR-QG-50). 여기 남는 것은
+// 이 패키지의 인자(마감·사유·git 부재 sentinel·앞뒤 다듬기)뿐이다. 성공은 stdout 만, 실패는
+// stdout 다음 stderr 이고 오류는 %w 로 core 의 분류를 잇는다 (REPO_FIX 01 §5.6 — Manager
+// 경유 쓰기의 실패도 lock 필드·504 를 싣는다). svc 가 nil 이면 기록 없이 돈다.
+func gitRunner(svc *core.Service) func(ctx context.Context, dir string, args ...string) (string, error) {
+	return svc.UnguardedTextRunner(opTimeout, unguardedReason, gitMissing, strings.TrimSpace)
 }
 
 // gitMissing 은 git 부재를 이 패키지의 사유로 바꿔 든다 — apierr 가 이 sentinel 로
@@ -253,9 +250,7 @@ func gitMissing(err error) error { return fmt.Errorf("%w: %v", ErrGitMissing, er
 // 이것을 주지 않으면 이 패키지의 실행은 Console 에 보이지 않는다.
 func WithService(svc *core.Service) Option {
 	return func(m *Manager) {
-		m.git = func(ctx context.Context, dir string, args ...string) (string, error) {
-			return runGit(ctx, svc, dir, args...)
-		}
+		m.git = gitRunner(svc)
 	}
 }
 

@@ -2,6 +2,7 @@ package runtimebin
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -47,65 +48,82 @@ const detachHelp = `detach — 현재 도구를 백그라운드로 보내고 탭
 //
 // -l 은 여기서 --list 다. dmctl 은 -l 을 --at 의 단축으로 쓰지만, 기존 detach -l
 // 사용을 깨뜨릴 수 없으므로 그 단축은 제공하지 않는다.
-func runDetach(args []string, stdout, stderr io.Writer) int {
-	doList := false
-	restoreID := ""
-	at := ""
+// detachFlags 는 detach 의 인자다.
+type detachFlags struct {
+	doList    bool
+	restoreID string
+	at        string
 	// UX_BATCH6_SRS FR-BGP-3: 돌릴 명령과 그 자리. 빈 문자열과 "주지 않았다" 를
 	// 가르기 위해 플래그 유무를 따로 든다 — `--run ''` 는 오류이지 무동작이 아니다.
-	runCmd, hasRun, cwd := "", false, ""
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, detachHelp)
-			return 0
-		case a == "--run":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "detach: --run 은 실행할 명령이 필요합니다")
-				return 2
-			}
-			runCmd, hasRun = args[i+1], true
-			i++
-		case strings.HasPrefix(a, "--run="):
-			runCmd, hasRun = strings.TrimPrefix(a, "--run="), true
-		case a == "--cwd":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "detach: --cwd 는 경로가 필요합니다")
-				return 2
-			}
-			cwd = args[i+1]
-			i++
-		case strings.HasPrefix(a, "--cwd="):
-			cwd = strings.TrimPrefix(a, "--cwd=")
-		case a == "--list" || a == "-l":
-			doList = true
-		case a == "--restore" || a == "-r":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "detach: --restore 는 도구 id 가 필요합니다 (detach --list 로 확인)")
-				return 2
-			}
-			restoreID = args[i+1]
-			i++
-		case a == "--at":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)")
-				return 2
-			}
-			at = args[i+1]
-			i++
-		case strings.HasPrefix(a, "--at="):
-			at = strings.TrimPrefix(a, "--at=")
-			if at == "" {
-				fmt.Fprintln(stderr, "detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)")
-				return 2
-			}
-		default:
-			fmt.Fprintf(stderr, "detach: %s\n", unknownArg(a))
-			fmt.Fprint(stderr, detachHelp)
-			return 2
-		}
+	runCmd string
+	hasRun bool
+	cwd    string
+}
+
+// detachNeedsValue 는 값이 빠진 플래그마다 무엇을 줘야 하는지 말한다 — detach 의 안내는
+// 일반 문구(`flag X requires value`)보다 자세하다. `-r` 도 `--restore` 로 말한다(종전과 같다).
+var detachNeedsValue = map[string]string{
+	"--run":     "--run 은 실행할 명령이 필요합니다",
+	"--cwd":     "--cwd 는 경로가 필요합니다",
+	"--restore": detachRestoreNeedsID,
+	"-r":        detachRestoreNeedsID,
+	"--at":      detachAtNeedsUUID,
+}
+
+const (
+	detachRestoreNeedsID = "--restore 는 도구 id 가 필요합니다 (detach --list 로 확인)"
+	detachAtNeedsUUID    = "--at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)"
+)
+
+// parseDetachFlags 는 argSpec 하나다 (QUALITY_GO_SRS FR-QG-53 · PROD3 DM-5). 오류 문구는
+// detach 의 것(값이 빠진 플래그마다의 안내, 모르는 인자 뒤의 도움말)을 그대로 쓴다. 바뀐 것
+// 둘은 SRS §5 다 — `--restore=ID`·`-r=ID` 를 받고, `--at ""` 를 `--at=` 처럼 거절한다.
+func parseDetachFlags(args []string, stdout, stderr io.Writer) (detachFlags, int, bool) {
+	var f detachFlags
+	spec := argSpec{
+		help: detachHelp,
+		vals: map[string]func(string) error{
+			"--run": func(v string) error {
+				f.runCmd, f.hasRun = v, true
+				return nil
+			},
+			"--cwd":     setStr(&f.cwd),
+			"--restore": setStr(&f.restoreID),
+			"-r":        setStr(&f.restoreID),
+			"--at": func(v string) error {
+				if v == "" {
+					return errors.New(detachAtNeedsUUID)
+				}
+				f.at = v
+				return nil
+			},
+		},
+		bools: map[string]*bool{"--list": &f.doList, "-l": &f.doList},
 	}
+	help, e := spec.parse(args)
+	switch {
+	case help:
+		fmt.Fprint(stdout, detachHelp)
+		return f, 0, false
+	case e == nil:
+		return f, 0, true
+	case e.kind == argNeedsValue:
+		fmt.Fprintln(stderr, "detach: "+detachNeedsValue[e.arg])
+	case e.kind == argInvalid:
+		fmt.Fprintf(stderr, "detach: %v\n", e.err)
+	default:
+		fmt.Fprintf(stderr, "detach: %s\n", unknownArg(e.arg))
+		fmt.Fprint(stderr, detachHelp)
+	}
+	return f, 2, false
+}
+
+func runDetach(args []string, stdout, stderr io.Writer) int {
+	f, code, proceed := parseDetachFlags(args, stdout, stderr)
+	if !proceed {
+		return code
+	}
+	doList, restoreID, at, runCmd, hasRun, cwd := f.doList, f.restoreID, f.at, f.runCmd, f.hasRun, f.cwd
 
 	if hasRun {
 		if strings.TrimSpace(runCmd) == "" {

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/shared/httpresp"
 	"dongminal/internal/shared/mimeprobe"
 	"dongminal/internal/shared/textenc"
@@ -29,8 +30,6 @@ const (
 
 	// http.DetectContentType 이 보는 만큼. 그보다 더 읽어도 판정이 달라지지 않는다.
 	sniffLen = 512
-	// NUL 검사 범위. git 의 판정과 같은 폭이다.
-	binaryProbeLen = 8000
 )
 
 // probeFile 은 파일의 종류와 MIME 을 판정한다.
@@ -39,7 +38,7 @@ const (
 // PNG 도, 확장자 없는 스크립트도 흔하고, 확장자를 믿으면 전자는 깨진 글자로
 // 열리고 후자는 열리지 않는다.
 func probeFile(f *os.File) (kind, mime string, head []byte, err error) {
-	head = make([]byte, binaryProbeLen)
+	head = make([]byte, editorlimit.BinarySniffBytes)
 	n, rerr := io.ReadFull(f, head)
 	if rerr != nil && rerr != io.EOF && rerr != io.ErrUnexpectedEOF {
 		return "", "", nil, rerr
@@ -66,7 +65,7 @@ func probeFile(f *os.File) (kind, mime string, head []byte, err error) {
 }
 
 // isBinary 는 이진 판정 하나다 — 편집기(probe)와 검색이 같이 쓴다 (REFACTOR3_DEDUP_GO_SRS
-// FR-RDG-9). 앞 binaryProbeLen 바이트에 NUL 이 있으면 이진이다 — git 과 같은 판정이다
+// FR-RDG-9). 앞 editorlimit.BinarySniffBytes 바이트에 NUL 이 있으면 이진이다 — git 과 같은 판정이다
 // (FR-EGS-5).
 //
 // REPO_FIX 03 §3A-1: UTF-16 BOM 이면 NUL 이 있어도 텍스트다 — 판정은 read 가 한다.
@@ -76,8 +75,8 @@ func probeFile(f *os.File) (kind, mime string, head []byte, err error) {
 //	새:   검색도 텍스트로 보고 바이트로 비교한다
 //	이유: Q2 — 편집기와 같은 규칙
 func isBinary(head []byte) bool {
-	if len(head) > binaryProbeLen {
-		head = head[:binaryProbeLen]
+	if len(head) > editorlimit.BinarySniffBytes {
+		head = head[:editorlimit.BinarySniffBytes]
 	}
 	if textenc.HasUTF16BOM(head) {
 		return false

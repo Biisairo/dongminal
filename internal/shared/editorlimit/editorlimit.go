@@ -29,3 +29,9 @@ func BodyMaxBytes(fileMax int64) int64 { return fileMax*jsonEscapeFactor + BodyE
 // 붙는다. 줄은 최소 한 바이트(개행)이므로 한 판은 최대 두 배다 — 두 판이면 네 배이고,
 // 머리(`diff --git`·`@@`)는 봉투 여유가 싣는다.
 func PatchDiffMaxBytes(fileMax int64) int64 { return 2*2*fileMax + BodyEnvelope }
+
+// BinarySniffBytes 는 이진 판정이 NUL 을 찾는 앞쪽 폭이다 — git 의 휴리스틱과 같은 값이다
+// (QUALITY_GO_SRS FR-QG-52). 편집기 판정(`/api/file/probe`)·파일 검색·git diff 가 이 이름
+// 하나를 쓴다. 종전에는 `httpapi.binaryProbeLen` 과 `query.BinarySniffBytes` 두 이름이었다 —
+// 한쪽만 바뀌면 같은 파일이 편집기에서는 텍스트, diff 에서는 이진이 된다.
+const BinarySniffBytes = 8000

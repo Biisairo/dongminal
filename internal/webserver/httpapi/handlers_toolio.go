@@ -216,10 +216,10 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, body any, limit ...i
 	// 본문 하나가 서버 메모리를 정했다 (REQUEST_GATE_SRS FR-RQG-14).
 	switch fail, err := httpreq.DecodeJSON(w, r, body, lim); fail {
 	case httpreq.ReadFailed:
-		writeToolIOErrorCode(w, httpreq.Status(err), apierr.BodyReadCode(err), "본문을 읽지 못했다: "+err.Error())
+		writeToolIOErrorCode(w, httpreq.Status(err), apierr.BodyReadCode(err), httpreq.Message(r, "본문을 읽지 못했다", err))
 		return false
 	case httpreq.NotJSON:
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+		writeToolIOError(w, http.StatusBadRequest, httpreq.Message(r, "잘못된 JSON", err))
 		return false
 	}
 	return true

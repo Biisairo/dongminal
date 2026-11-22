@@ -24,6 +24,12 @@ import (
 // 골든 갱신 (REFACTOR3_DEDUP_GO_SRS FR-RDG-24 · §5). 이전: dmctl 파서의 모르는 인자 줄이
 // `unknown flag: X`. 새: `unknown argument: X`. 이유: 모르는 인자 문구를 하나로 모았다.
 // 바뀐 줄은 그 문구뿐이다.
+//
+// 골든 갱신 (QUALITY_GO_SRS FR-QG-53 · §5). send-input·msg·detach 의 손 루프를 argSpec 으로
+// 옮겼다. 그 줄들은 옮기기 전 코드로 먼저 만들었다(0674988f). send-input·msg 는 그대로다.
+// detach 에서 셋이 바뀌었다 — 이전: `--restore=id1`·`-r=id1` 은 모르는 인자(도움말과 2),
+// `--at ""` 는 통과. 새: 앞의 둘은 `--restore id1` 과 같고, `--at ""` 는 `--at=` 처럼 거절.
+// 이유: argSpec 이 값 플래그의 `=` 형을 한 규칙으로 받고, 빈 탭 uuid 를 한 자리에서 거절한다.
 
 var updateArgGolden = flag.Bool("update-arg-golden", false, "rewrite testdata/argparse.golden")
 
@@ -79,6 +85,29 @@ var goldenParseCases = func() []goldenParseCase {
 		[]string{"--no-focus", "-n", "--auto", "--force", "--background"}, []string{"--no-focus=1"},
 		[]string{"a", "--", "--at", "b"}, []string{"-h", "a"}, []string{"a", "--bogus"}, []string{"-5"},
 	)
+	// QUALITY_GO_SRS FR-QG-53 (PROD3 DM-5): 손 루프 셋. 골든은 argSpec 으로 옮기기 전에 만들었다.
+	add("send-input", common...)
+	add("send-input",
+		[]string{"--at"}, []string{"--at", "t1", "hi"}, []string{"--at=t1", "a", "b"}, []string{"--at="},
+		[]string{"-l", "t1", "-x", "-"}, []string{"-l=t1", "--execute", "x"}, []string{"--execute=1"},
+		[]string{"a", "--", "--at", "b"}, []string{"-h", "a"}, []string{"a", "--bogus"}, []string{"-5"},
+		[]string{"--bogus", "-h"}, []string{"a", "-h"}, []string{"--at", "--execute"},
+	)
+	add("msg", common...)
+	add("msg",
+		[]string{"--to"}, []string{"--from"}, []string{"--to", "u1", "hi"}, []string{"--to=u1", "--from=u2", "a"},
+		[]string{"--to="}, []string{"--to", "u1", "-"}, []string{"--to", "u1", "--", "-x"}, []string{"-5"},
+		[]string{"--to", "u1", "-h"}, []string{"--to", "u1", "--bogus"}, []string{"--from", "--to"},
+	)
+	add("detach", common...)
+	add("detach",
+		[]string{"--run"}, []string{"--run", "npm test"}, []string{"--run=ls"}, []string{"--run="},
+		[]string{"--run", "ls", "--cwd", "/tmp"}, []string{"--cwd"}, []string{"--cwd=/tmp"}, []string{"--cwd="},
+		[]string{"--list"}, []string{"-l"}, []string{"--list=1"},
+		[]string{"--restore"}, []string{"--restore", "id1"}, []string{"-r", "id1", "--at", "t1"}, []string{"--restore=id1"},
+		[]string{"-r=id1"}, []string{"--at"}, []string{"--at", "t1"}, []string{"--at="}, []string{"--at=t1"},
+		[]string{"--at", ""}, []string{"--list", "--bogus"}, []string{"--bogus", "-h"}, []string{"-h", "--bogus"},
+	)
 	return cs
 }()
 
@@ -98,6 +127,15 @@ func renderParse(c goldenParseCase) string {
 	case "dmctl":
 		p, err := parseDmctlFlags(c.args)
 		res = fmt.Sprintf("err=%v p=%s", err, setFields(p))
+	case "send-input":
+		f, code, proceed := parseSendInputFlags(c.args, &out, &errw)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
+	case "msg":
+		f, code, proceed := parseMsgFlags(c.args, &out, &errw)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
+	case "detach":
+		f, code, proceed := parseDetachFlags(c.args, &out, &errw)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
 	}
 	stdout := out.String()
 	if len(stdout) > 40 {

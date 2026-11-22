@@ -28,3 +28,11 @@ func TestPatchDiffMaxBytes(t *testing.T) {
 		t.Fatalf("PatchDiffMaxBytes=%d want %d", got, want)
 	}
 }
+
+// QUALITY_GO_SRS FR-QG-52 (PROD3 GH-4·5·21): 이진 판정의 NUL 검사 폭은 편집기·검색·diff 가
+// 같은 이름 하나를 쓴다. 값은 git 의 휴리스틱과 같은 8000 이다.
+func TestBinarySniffBytes(t *testing.T) {
+	if BinarySniffBytes != 8000 {
+		t.Fatalf("BinarySniffBytes=%d want 8000 (git 의 휴리스틱)", BinarySniffBytes)
+	}
+}

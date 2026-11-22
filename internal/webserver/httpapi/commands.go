@@ -314,7 +314,7 @@ func parseCommandPost(w http.ResponseWriter, r *http.Request) (req commandPostRe
 		return req, false
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
-		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
+		httpErr(w, httpreq.Message(r, "invalid json", err), http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return req, false
 	}
 	if !hub.IsAllowedCmdAction(req.Action) {

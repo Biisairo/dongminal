@@ -554,3 +554,331 @@ dmctl ["-5"]
   err=unknown argument: -5 p={}
   stdout=""
   stderr=""
+send-input []
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+send-input ["-h"]
+  code=0 proceed=false f={}
+  stdout="<741 bytes, sum de343e96>"
+  stderr=""
+send-input ["--help"]
+  code=0 proceed=false f={}
+  stdout="<741 bytes, sum de343e96>"
+  stderr=""
+send-input ["--json"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --json\n"
+send-input ["--json" "-h" "--bogus"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --json\n"
+send-input ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --bogus\n"
+send-input ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --json=1\n"
+send-input ["="]
+  code=0 proceed=true f={positional:[=]}
+  stdout=""
+  stderr=""
+send-input ["-"]
+  code=0 proceed=true f={positional:[-]}
+  stdout=""
+  stderr=""
+send-input ["x"]
+  code=0 proceed=true f={positional:[x]}
+  stdout=""
+  stderr=""
+send-input ["--"]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+send-input ["--at"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: flag --at requires value\n"
+send-input ["--at" "t1" "hi"]
+  code=0 proceed=true f={target:t1 positional:[hi]}
+  stdout=""
+  stderr=""
+send-input ["--at=t1" "a" "b"]
+  code=0 proceed=true f={target:t1 positional:[a b]}
+  stdout=""
+  stderr=""
+send-input ["--at="]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+send-input ["-l" "t1" "-x" "-"]
+  code=0 proceed=true f={target:t1 execute:true positional:[-]}
+  stdout=""
+  stderr=""
+send-input ["-l=t1" "--execute" "x"]
+  code=0 proceed=true f={target:t1 execute:true positional:[x]}
+  stdout=""
+  stderr=""
+send-input ["--execute=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --execute=1\n"
+send-input ["a" "--" "--at" "b"]
+  code=0 proceed=true f={positional:[a --at b]}
+  stdout=""
+  stderr=""
+send-input ["-h" "a"]
+  code=0 proceed=false f={}
+  stdout="<741 bytes, sum de343e96>"
+  stderr=""
+send-input ["a" "--bogus"]
+  code=2 proceed=false f={positional:[a]}
+  stdout=""
+  stderr="send-input: unknown argument: --bogus\n"
+send-input ["-5"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: -5\n"
+send-input ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --bogus\n"
+send-input ["a" "-h"]
+  code=0 proceed=false f={positional:[a]}
+  stdout="<741 bytes, sum de343e96>"
+  stderr=""
+send-input ["--at" "--execute"]
+  code=0 proceed=true f={target:--execute}
+  stdout=""
+  stderr=""
+msg []
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+msg ["-h"]
+  code=0 proceed=false f={}
+  stdout="<1187 bytes, sum ef719695>"
+  stderr=""
+msg ["--help"]
+  code=0 proceed=false f={}
+  stdout="<1187 bytes, sum ef719695>"
+  stderr=""
+msg ["--json"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: --json\n"
+msg ["--json" "-h" "--bogus"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: --json\n"
+msg ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: --bogus\n"
+msg ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: --json=1\n"
+msg ["="]
+  code=0 proceed=true f={positional:[=]}
+  stdout=""
+  stderr=""
+msg ["-"]
+  code=0 proceed=true f={positional:[-]}
+  stdout=""
+  stderr=""
+msg ["x"]
+  code=0 proceed=true f={positional:[x]}
+  stdout=""
+  stderr=""
+msg ["--"]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+msg ["--to"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: flag --to requires value\n"
+msg ["--from"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: flag --from requires value\n"
+msg ["--to" "u1" "hi"]
+  code=0 proceed=true f={to:u1 positional:[hi]}
+  stdout=""
+  stderr=""
+msg ["--to=u1" "--from=u2" "a"]
+  code=0 proceed=true f={to:u1 from:u2 positional:[a]}
+  stdout=""
+  stderr=""
+msg ["--to="]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+msg ["--to" "u1" "-"]
+  code=0 proceed=true f={to:u1 positional:[-]}
+  stdout=""
+  stderr=""
+msg ["--to" "u1" "--" "-x"]
+  code=0 proceed=true f={to:u1 positional:[-x]}
+  stdout=""
+  stderr=""
+msg ["-5"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: -5\n"
+msg ["--to" "u1" "-h"]
+  code=0 proceed=false f={to:u1}
+  stdout="<1187 bytes, sum ef719695>"
+  stderr=""
+msg ["--to" "u1" "--bogus"]
+  code=2 proceed=false f={to:u1}
+  stdout=""
+  stderr="msg: unknown argument: --bogus\n"
+msg ["--from" "--to"]
+  code=0 proceed=true f={from:--to}
+  stdout=""
+  stderr=""
+detach []
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+detach ["-h"]
+  code=0 proceed=false f={}
+  stdout="<1710 bytes, sum 9fce4dc>"
+  stderr=""
+detach ["--help"]
+  code=0 proceed=false f={}
+  stdout="<1710 bytes, sum 9fce4dc>"
+  stderr=""
+detach ["--json"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --json\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--json" "-h" "--bogus"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --json\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --bogus\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --json=1\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: =\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["-"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: -\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["x"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: x\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--run"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --run 은 실행할 명령이 필요합니다\n"
+detach ["--run" "npm test"]
+  code=0 proceed=true f={runCmd:npm test hasRun:true}
+  stdout=""
+  stderr=""
+detach ["--run=ls"]
+  code=0 proceed=true f={runCmd:ls hasRun:true}
+  stdout=""
+  stderr=""
+detach ["--run="]
+  code=0 proceed=true f={hasRun:true}
+  stdout=""
+  stderr=""
+detach ["--run" "ls" "--cwd" "/tmp"]
+  code=0 proceed=true f={runCmd:ls hasRun:true cwd:/tmp}
+  stdout=""
+  stderr=""
+detach ["--cwd"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --cwd 는 경로가 필요합니다\n"
+detach ["--cwd=/tmp"]
+  code=0 proceed=true f={cwd:/tmp}
+  stdout=""
+  stderr=""
+detach ["--cwd="]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+detach ["--list"]
+  code=0 proceed=true f={doList:true}
+  stdout=""
+  stderr=""
+detach ["-l"]
+  code=0 proceed=true f={doList:true}
+  stdout=""
+  stderr=""
+detach ["--list=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --list=1\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--restore"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --restore 는 도구 id 가 필요합니다 (detach --list 로 확인)\n"
+detach ["--restore" "id1"]
+  code=0 proceed=true f={restoreID:id1}
+  stdout=""
+  stderr=""
+detach ["-r" "id1" "--at" "t1"]
+  code=0 proceed=true f={restoreID:id1 at:t1}
+  stdout=""
+  stderr=""
+detach ["--restore=id1"]
+  code=0 proceed=true f={restoreID:id1}
+  stdout=""
+  stderr=""
+detach ["-r=id1"]
+  code=0 proceed=true f={restoreID:id1}
+  stdout=""
+  stderr=""
+detach ["--at"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)\n"
+detach ["--at" "t1"]
+  code=0 proceed=true f={at:t1}
+  stdout=""
+  stderr=""
+detach ["--at="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)\n"
+detach ["--at=t1"]
+  code=0 proceed=true f={at:t1}
+  stdout=""
+  stderr=""
+detach ["--at" ""]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)\n"
+detach ["--list" "--bogus"]
+  code=2 proceed=false f={doList:true}
+  stdout=""
+  stderr="detach: unknown argument: --bogus\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --bogus\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["-h" "--bogus"]
+  code=0 proceed=false f={}
+  stdout="<1710 bytes, sum 9fce4dc>"
+  stderr=""

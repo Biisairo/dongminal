@@ -170,3 +170,16 @@ func (s *Service) ExecUnguardedText(ctx context.Context, dir string, spec Unguar
 	}
 	return UnguardedText(spec.Argv, out, err, trim)
 }
+
+// UnguardedTextRunner 는 ExecUnguardedText 를 도메인의 실행기 꼴(dir 과 위치 인자)로 묶는다
+// (QUALITY_GO_SRS FR-QG-50 · PROD3 GD-3). worktree 와 submodule 이 같은 감싸개(argv 를 spec 에
+// 담고 마감·사유를 붙이는 runGit)를 각자 들던 것을 하나로 모았다. 도메인마다 다른 것 — 마감,
+// 기록에 남는 사유, git 부재를 도메인 sentinel 로 바꾸는 missing, 다듬기 trim — 은 인자다.
+//
+// 수신자는 nil 이어도 된다(기록 없이 돈다, FR-GXU-4). 이 진입점도 호출처 게이트(FR-GXU-12)의
+// 대상이다.
+func (s *Service) UnguardedTextRunner(timeout time.Duration, reason string, missing func(error) error, trim func(string) string) func(ctx context.Context, dir string, args ...string) (string, error) {
+	return func(ctx context.Context, dir string, args ...string) (string, error) {
+		return s.ExecUnguardedText(ctx, dir, UnguardedSpec{Argv: args, Timeout: timeout, Reason: reason}, missing, trim)
+	}
+}
