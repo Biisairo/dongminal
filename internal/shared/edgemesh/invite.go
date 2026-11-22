@@ -17,8 +17,12 @@ import (
 )
 
 const (
-	// maxSeenInvites 는 본 초대 id 를 기억하는 수다 (FR-EGM-33).
-	maxSeenInvites = 1024
+	// maxSeenInvites 는 받은 초대 id 를 기억하는 수다 (FR-EGM-33). maxSeenPerSender 는 그 가운데
+	// 보낸 노드 하나가 차지할 수 있는 수, maxSentInvites 는 이 노드가 보낸 초대 id 를 기억하는
+	// 수다 — 한 노드의 초대 홍수가 다른 노드의 초대와 이 노드의 보내기를 막지 못한다 (FR-ATF-51).
+	maxSeenInvites   = 1024
+	maxSeenPerSender = 64
+	maxSentInvites   = maxSeenInvites
 	// inviteSkew 는 초대 시각이 지금보다 앞설 수 있는 상한이다.
 	inviteSkew = 5 * time.Minute
 	// inviteInfo 는 초대 상자 키의 HKDF info 머리다 (FR-EGM-32).
@@ -46,12 +50,22 @@ type Invite struct {
 	Expires time.Time
 }
 
-// inviteState 는 본 초대 id 와 그 만료다. Mesh.mu 가 지킨다.
-type inviteState struct {
-	seen map[string]time.Time
+type seenInvite struct {
+	exp  time.Time
+	from string
 }
 
-func newInviteState() inviteState { return inviteState{seen: map[string]time.Time{}} }
+// inviteState 는 본 초대 id 와 그 만료다. seen 은 받은 것, perSender 는 보낸 노드마다 seen 에
+// 든 수, mine 은 이 노드가 보낸 것이다. Mesh.mu 가 지킨다.
+type inviteState struct {
+	seen      map[string]seenInvite
+	perSender map[string]int
+	mine      map[string]time.Time
+}
+
+func newInviteState() inviteState {
+	return inviteState{seen: map[string]seenInvite{}, perSender: map[string]int{}, mine: map[string]time.Time{}}
+}
 
 // SendInvite 는 망 이웃 to 에게 간선 초대 코드를 보낸다 (FR-EGM-32·33). 코드는 to 의 노드
 // 공개키로만 열린다. to 를 모르면 ErrUnknownNode, 초대 기억이 가득 찼으면 ErrInviteFull 이다.
@@ -72,7 +86,7 @@ func (m *Mesh) SendInvite(to, code string, exp time.Time) error {
 	if err != nil {
 		return err
 	}
-	if !m.rememberInviteLocked(id, exp) {
+	if !m.rememberSentLocked(id, exp) {
 		return ErrInviteFull
 	}
 	m.broadcastLocked(Encode(fr), nil)
@@ -98,7 +112,7 @@ func (m *Mesh) acceptInviteLocked(fr Frame) (*Invite, bool) {
 	if !ok || !Verify(r.key, FrameInvite, fr.B, fr.S) {
 		return nil, false
 	}
-	if !m.rememberInviteLocked(b.ID, exp) {
+	if !m.rememberSeenLocked(b.ID, b.From, exp) {
 		return nil, false
 	}
 	if b.To != m.id.Fingerprint {
@@ -120,21 +134,48 @@ func validInviteID(id string) bool {
 	return err == nil && len(raw) == inviteIDBytes
 }
 
-// rememberInviteLocked 는 본 초대 id 를 만료까지 기억한다. 넘치면 만료된 것을 잊고, 그래도 넘치면
-// 기억하지 않고 거짓을 돌려준다 — 만료 전 항목을 밀어내면 옛 초대가 다시 뜬다 (FR-ATF-51).
-func (m *Mesh) rememberInviteLocked(id string, exp time.Time) bool {
-	if len(m.seen) >= maxSeenInvites {
+// rememberSeenLocked 는 from 이 보낸 초대 id 를 만료까지 기억한다. 전체나 from 의 몫이 차면
+// 만료된 것을 잊고, 그래도 차 있으면 기억하지 않고 거짓을 돌려준다 — 만료 전 항목을 밀어내면 옛
+// 초대가 다시 뜬다 (FR-ATF-51).
+func (m *Mesh) rememberSeenLocked(id, from string, exp time.Time) bool {
+	full := func() bool { return len(m.seen) >= maxSeenInvites || m.perSender[from] >= maxSeenPerSender }
+	if full() {
 		now := m.now()
 		for k, e := range m.seen {
-			if !e.After(now) {
-				delete(m.seen, k)
+			if !e.exp.After(now) {
+				m.forgetSeenLocked(k, e.from)
 			}
 		}
-		if len(m.seen) >= maxSeenInvites {
+		if full() {
 			return false
 		}
 	}
-	m.seen[id] = exp
+	m.seen[id] = seenInvite{exp: exp, from: from}
+	m.perSender[from]++
+	return true
+}
+
+func (m *Mesh) forgetSeenLocked(id, from string) {
+	delete(m.seen, id)
+	if m.perSender[from]--; m.perSender[from] <= 0 {
+		delete(m.perSender, from)
+	}
+}
+
+// rememberSentLocked 는 이 노드가 보낸 초대 id 를 만료까지 기억한다. 받은 초대와 따로 센다.
+func (m *Mesh) rememberSentLocked(id string, exp time.Time) bool {
+	if len(m.mine) >= maxSentInvites {
+		now := m.now()
+		for k, e := range m.mine {
+			if !e.After(now) {
+				delete(m.mine, k)
+			}
+		}
+		if len(m.mine) >= maxSentInvites {
+			return false
+		}
+	}
+	m.mine[id] = exp
 	return true
 }
 

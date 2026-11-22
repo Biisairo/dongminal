@@ -506,43 +506,94 @@ func TestInviteReachesOnlyTarget(t *testing.T) {
 	}
 }
 
-// TC-ATF-51 (FR-ATF-51): 초대 기억이 만료 전 항목으로 가득 차면 새 초대를 보내지도 받지도 않는다.
-// 만료된 항목이 하나라도 있으면 그 자리를 쓴다.
+// fillSeen 은 m 의 받은 초대 기억을 서로 다른 보낸 노드의 만료 전 항목으로 가득 채운다.
+func fillSeen(m *testMesh, exp time.Time) {
+	m.Mesh.mu.Lock()
+	defer m.Mesh.mu.Unlock()
+	for len(m.seen) < maxSeenInvites {
+		from := randomHex(inviteIDBytes)
+		m.seen[randomHex(inviteIDBytes)] = seenInvite{exp: exp, from: from}
+		m.perSender[from]++
+	}
+}
+
+// TC-ATF-51 (FR-ATF-51): 받은 초대 기억이 만료 전 항목으로 가득 차면 새 초대를 받지 않는다.
+// 만료된 항목이 하나라도 있으면 그 자리를 쓴다. 이 노드의 보내기는 받은 기억과 따로 센다.
 func TestInviteMemoryFullRejects(t *testing.T) {
 	a, c := newTestMesh(t, "a"), newTestMesh(t, "c")
 	connect(a, c)
 	eventually(t, "A 가 C 를 안다", func() bool { return online(a, c.fp()) })
-	fill := func(m *testMesh, exp time.Time) {
-		m.Mesh.mu.Lock()
-		defer m.Mesh.mu.Unlock()
-		for i := len(m.seen); i < maxSeenInvites; i++ {
-			m.seen[randomHex(inviteIDBytes)] = exp
-		}
-	}
 	code := edge.EncodeInvite(edge.InviteCode{Addr: "10.0.0.1", Port: 7001, Fingerprint: a.fp(), Token: "tok"})
 	exp := time.Now().Add(edge.InviteTTL)
-	fill(a, exp)
+	fillSeen(a, exp)
+	if err := a.SendInvite(c.fp(), code, exp); err != nil {
+		t.Fatalf("받은 기억이 가득 차도 보낸다 = %v", err)
+	}
+	eventually(t, "C 가 받는다", func() bool { return len(c.invites()) == 1 })
+	a.Mesh.mu.Lock()
+	for len(a.mine) < maxSentInvites {
+		a.mine[randomHex(inviteIDBytes)] = exp
+	}
+	a.Mesh.mu.Unlock()
 	if err := a.SendInvite(c.fp(), code, exp); !errors.Is(err, ErrInviteFull) {
-		t.Fatalf("가득 찬 기억으로 보내기 = %v", err)
+		t.Fatalf("보낸 기억이 가득 찬 보내기 = %v", err)
 	}
 	a.Mesh.mu.Lock()
-	clear(a.seen)
+	clear(a.mine)
 	a.Mesh.mu.Unlock()
-	fill(c, exp)
+	fillSeen(c, exp)
 	if err := a.SendInvite(c.fp(), code, exp); err != nil {
 		t.Fatal(err)
 	}
-	never(t, "가득 찬 C 가 초대를 받는다", func() bool { return len(c.invites()) > 0 })
+	never(t, "가득 찬 C 가 초대를 받는다", func() bool { return len(c.invites()) > 1 })
 	c.Mesh.mu.Lock()
-	for k := range c.seen {
-		c.seen[k] = time.Now().Add(-time.Second)
-		break
+	for k, e := range c.seen {
+		if e.from != a.fp() {
+			e.exp = time.Now().Add(-time.Second)
+			c.seen[k] = e
+			break
+		}
 	}
 	c.Mesh.mu.Unlock()
 	if err := a.SendInvite(c.fp(), code, exp); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, "만료된 자리로 받는다", func() bool { return len(c.invites()) == 1 })
+	eventually(t, "만료된 자리로 받는다", func() bool { return len(c.invites()) == 2 })
+}
+
+// TC-ATF-51 (FR-ATF-51, 보안 검토): 한 노드가 제 몫까지 초대를 쏟아도 다른 노드의 초대는 받는다.
+// 만료 전 초대를 다시 보내면 여전히 버린다.
+func TestInviteFloodPerSender(t *testing.T) {
+	c := newTestMesh(t, "c")
+	f1, f2 := newFakePeer(t, c, false), newFakePeer(t, c, false)
+	f1.write(t, f1.net(t, "f1", []string{c.fp()}))
+	f2.write(t, f2.net(t, "f2", []string{c.fp()}))
+	eventually(t, "가짜들을 안다", func() bool { return online(c, f1.id.Fingerprint) && online(c, f2.id.Fingerprint) })
+	now := time.Now()
+	mk := func(f *fakePeer) Frame {
+		id := randomHex(inviteIDBytes)
+		code := edge.EncodeInvite(edge.InviteCode{Addr: "10.0.0.1", Port: 7001, Fingerprint: f.id.Fingerprint, Token: "t"})
+		box, err := seal(f.id, PublicKey(c.id), id, f.id.Fingerprint, c.fp(), []byte(code))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fr, err := SignFrame(f.id, FrameInvite, inviteBody{ID: id, From: f.id.Fingerprint, To: c.fp(), At: now.UnixMilli(), Exp: now.Add(time.Minute).UnixMilli(), Box: box})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fr
+	}
+	first := mk(f1)
+	f1.write(t, first)
+	for range maxSeenPerSender + 4 {
+		f1.write(t, mk(f1))
+	}
+	eventually(t, "f1 의 몫까지 받는다", func() bool { return len(c.invites()) == maxSeenPerSender })
+	never(t, "f1 이 몫을 넘는다", func() bool { return len(c.invites()) > maxSeenPerSender })
+	f2.write(t, mk(f2))
+	eventually(t, "f2 의 초대는 받는다", func() bool { return len(c.invites()) == maxSeenPerSender+1 })
+	f1.write(t, first)
+	never(t, "만료 전 초대를 다시 받는다", func() bool { return len(c.invites()) > maxSeenPerSender+1 })
 }
 
 // FR-EGM-32: 상자는 받을 노드만 연다.
