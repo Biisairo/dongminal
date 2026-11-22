@@ -562,7 +562,7 @@ func TestInviteMemoryFullRejects(t *testing.T) {
 }
 
 // TC-ATF-51 (FR-ATF-51, 보안 검토): 한 노드가 제 몫까지 초대를 쏟아도 다른 노드의 초대는 받는다.
-// 만료 전 초대를 다시 보내면 여전히 버린다.
+// 보낸 이를 거짓으로 적은 초대는 기억을 차지하지 않는다. 만료 전 초대를 다시 보내면 여전히 버린다.
 func TestInviteFloodPerSender(t *testing.T) {
 	c := newTestMesh(t, "c")
 	f1, f2 := newFakePeer(t, c, false), newFakePeer(t, c, false)
@@ -590,6 +590,23 @@ func TestInviteFloodPerSender(t *testing.T) {
 	}
 	eventually(t, "f1 의 몫까지 받는다", func() bool { return len(c.invites()) == maxSeenPerSender })
 	never(t, "f1 이 몫을 넘는다", func() bool { return len(c.invites()) > maxSeenPerSender })
+	// 보낸 노드를 거짓으로 적은 초대(모르는 지문, 남의 지문)는 서명이 맞지 않아 기억에 들지 않는다.
+	forge := func(from string) Frame {
+		fr, err := SignFrame(f1.id, FrameInvite, inviteBody{ID: randomHex(inviteIDBytes), From: from, To: c.fp(), At: now.UnixMilli(), Exp: now.Add(time.Minute).UnixMilli(), Box: "x"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fr
+	}
+	for range 2 * maxSeenPerSender {
+		f1.write(t, forge(randomHex(32)))
+		f1.write(t, forge(f2.id.Fingerprint))
+	}
+	never(t, "거짓 보낸 이가 기억을 차지한다", func() bool {
+		c.Mesh.mu.Lock()
+		defer c.Mesh.mu.Unlock()
+		return len(c.seen) != maxSeenPerSender || len(c.perSender) != 1
+	})
 	f2.write(t, mk(f2))
 	eventually(t, "f2 의 초대는 받는다", func() bool { return len(c.invites()) == maxSeenPerSender+1 })
 	f1.write(t, first)

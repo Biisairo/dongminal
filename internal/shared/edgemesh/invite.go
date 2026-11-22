@@ -17,12 +17,14 @@ import (
 )
 
 const (
-	// maxSeenInvites 는 받은 초대 id 를 기억하는 수다 (FR-EGM-33). maxSeenPerSender 는 그 가운데
-	// 보낸 노드 하나가 차지할 수 있는 수, maxSentInvites 는 이 노드가 보낸 초대 id 를 기억하는
-	// 수다 — 한 노드의 초대 홍수가 다른 노드의 초대와 이 노드의 보내기를 막지 못한다 (FR-ATF-51).
-	maxSeenInvites   = 1024
-	maxSeenPerSender = 64
-	maxSentInvites   = maxSeenInvites
+	// maxSeenPerSender 는 받은 초대 id 기억에서 보낸 노드 하나가 차지할 수 있는 수다. 보낸 노드는
+	// 서명을 그 노드의 키로 확인한 아는 노드다 — 모르는 노드나 서명이 맞지 않는 초대는 기억에 들지
+	// 않는다. maxSeenInvites 는 받은 초대 id 를 기억하는 수다 (FR-EGM-33). 아는 노드 전부가 제 몫을
+	// 채워도 넘치지 않게 둘의 곱이다. maxSentInvites 는 이 노드가 보낸 초대 id 를 따로 기억하는
+	// 수다 — 받은 초대가 이 노드의 보내기를 막지 못한다 (FR-ATF-51).
+	maxSeenPerSender = 16
+	maxSeenInvites   = maxNodes * maxSeenPerSender
+	maxSentInvites   = 1024
 	// inviteSkew 는 초대 시각이 지금보다 앞설 수 있는 상한이다.
 	inviteSkew = 5 * time.Minute
 	// inviteInfo 는 초대 상자 키의 HKDF info 머리다 (FR-EGM-32).
@@ -108,6 +110,7 @@ func (m *Mesh) acceptInviteLocked(fr Frame) (*Invite, bool) {
 	if !exp.After(now) || exp.Sub(at) > edge.InviteTTL || at.After(now.Add(inviteSkew)) {
 		return nil, false
 	}
+	// 보낸 노드 몫은 이 확인을 지난 뒤에만 쓴다 — 지문을 거짓으로 적은 초대는 기억에 들지 않는다.
 	r, ok := m.nodes[b.From]
 	if !ok || !Verify(r.key, FrameInvite, fr.B, fr.S) {
 		return nil, false
