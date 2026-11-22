@@ -286,6 +286,12 @@ func (n *Node) pair(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fp := edge.ClientFingerprint(r)
+	// 간선이 가득 차면 초대를 쓰기 전에 거절한다 — 같은 코드로 나중에 맺을 수 있다 (FR-ATF-80).
+	if err := n.store.CanAdd(fp); err != nil {
+		audit("in", "-", "pair", http.StatusBadRequest)
+		writeFail(w, http.StatusBadRequest, CodeBadRequest, err.Error())
+		return
+	}
 	switch err := n.pairing.Redeem(in.Token, fp); err {
 	case nil:
 	case edge.ErrNoInvite:

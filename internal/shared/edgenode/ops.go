@@ -316,6 +316,10 @@ func (n *Node) addCode(ctx context.Context, code string) Response {
 	if err != nil {
 		return fail(http.StatusBadRequest, edge.CodeInviteInvalid, err.Error())
 	}
+	// 간선이 가득 차면 상대에게 묻기 전에 거절한다 — 상대만 간선을 더하지 않게 (FR-ATF-80).
+	if err := n.store.CanAdd(ic.Fingerprint); err != nil {
+		return storeFail(err)
+	}
 	cfg := n.store.Config()
 	body := map[string]any{"token": ic.Token, "name": cfg.Name, "proto": proto}
 	if cfg.Enabled && n.portStatus().Listening {
@@ -345,6 +349,8 @@ func storeFail(err error) Response {
 		return fail(http.StatusNotFound, edge.CodeNotFound, err.Error())
 	case errors.Is(err, edge.ErrAmbiguous):
 		return fail(http.StatusBadRequest, edge.CodeAmbiguous, err.Error())
+	case errors.Is(err, edge.ErrEdgeLimit):
+		return fail(http.StatusBadRequest, CodeBadRequest, err.Error())
 	case errors.Is(err, edge.ErrSaveFailed):
 		return fail(http.StatusInternalServerError, CodeSaveFailed, err.Error())
 	}
