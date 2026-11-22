@@ -57,6 +57,19 @@ impl Problem {
     }
 }
 
+/// Go `Problem.String()`: `%s: %s (값 %v)`.
+impl fmt::Display for Problem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}: {} (값 {})",
+            self.key,
+            self.reason,
+            dm_gocompat::fmt::v_value(&self.got)
+        )
+    }
+}
+
 /// 표 읽기·검증의 오류. `Display` 는 Go `err.Error()` 와 같은 문구다.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error(String);
