@@ -104,10 +104,16 @@ func TestInstall_ToolchainWithoutTool(t *testing.T) {
 	}
 }
 
-// TC-EXT-52 (FR-EXT-23 / V-EXT-10): **빌드가 끝나면 캐시를 즉시 지운다.**
+// TC-EXT-52 (FR-EXT-23 / V-EXT-10) · TC-ATF-70 (FR-ATF-70, AT-EXT-10): **빌드가
+// 끝나면 빌드 캐시를 즉시 지우고, 모듈 캐시는 남긴다.**
 //
 // §2.1 의 889 MB 는 산출물이 아니라 부산물이다. 남겨 두면 39 MB 를 얻자고 1 GB 를
 // 쓴 채로 있게 된다.
+//
+// 이전: GOCACHE 와 GOMODCACHE 가 둘 다 비었는지 봤다.
+// 새: GOCACHE 는 비고 GOMODCACHE 는 남는지 본다.
+// 이유: 받아 둔 모듈은 다음 조달이 다시 쓴다. 캐시 칸을 갈라 둔 까닭(env.go)과
+// 코드를 맞춘다 (ATTIC_FIX_SRS FR-ATF-70).
 func TestInstall_ToolchainClearsBuildCache(t *testing.T) {
 	root := t.TempDir()
 	m := mustParse(t, goPack)
@@ -130,10 +136,11 @@ func TestInstall_ToolchainClearsBuildCache(t *testing.T) {
 		t.Fatalf("조달이 실패했다: %+v", out)
 	}
 	env := envMap(rec.calls[0].env)
-	for _, k := range []string{"GOMODCACHE", "GOCACHE"} {
-		if _, err := os.Stat(env[k]); !errors.Is(err, os.ErrNotExist) {
-			t.Errorf("%s 가 남았다 (FR-EXT-23): %s", k, env[k])
-		}
+	if _, err := os.Stat(env["GOCACHE"]); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("GOCACHE 가 남았다 (FR-EXT-23): %s", env["GOCACHE"])
+	}
+	if _, err := os.Stat(filepath.Join(env["GOMODCACHE"], "big")); err != nil {
+		t.Errorf("GOMODCACHE 를 지웠다 (FR-ATF-70): %v", err)
 	}
 	// 산출물은 남아야 한다 — 캐시와 함께 지우면 조달이 무의미해진다.
 	if !isExecutable(ManagedExe(root, m, m.Servers[0])) {
