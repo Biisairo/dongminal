@@ -641,6 +641,26 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
   // 알 수 없는 무작위 실패가 된다.
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
   await waitSettled(page);
+  await waitSseRevalidated(page);
+}
+
+/**
+ * 첫 구독이 열리고 그 재검증(활동 목록)이 끝날 때까지 기다린다 (QUALITY_FLAKY_SRS FR-FLK-7).
+ *
+ * 구독이 열리면(`sse:open`) 상태 레지스트리가 활동·알람·백그라운드를 `/api/snapshot` 한 번으로
+ * 다시 받는다. 부하가 걸리면 구독은 `waitSettled` 뒤에 열린다. 그 앞에 화면에만 넣은 활동
+ * (`app.testing.onToolActivity`)은 서버가 모르는 값이라 이 재검증이 지운다 — 시험이 넣은 직후
+ * 카드가 사라졌다(구독을 1.5초 늦춰 결정적으로 재현).
+ *
+ * 「끝났다」 는 `restoreLive('activity', null)` 이다 — 버스는 활동의 비행이 **한 번도 없었으면**
+ * `undefined`, 닫혔으면 `null` 을 든다(`EventBus.endSnapshot`). 그래서 이 값이 참이면 첫 재검증이
+ * 떠났다가 닫혔다. 활동의 비행은 실패·추월을 포함한 모든 길에서 닫힌다(`_activityRestore`).
+ */
+async function waitSseRevalidated(page: any) {
+  await page.waitForFunction(() => {
+    const t = (window as any).app.testing;
+    return !!t.sse && t.sse.readyState === 1 && t.restoreLive('activity', null);
+  }, undefined, { timeout: 15000, polling: 50 });
 }
 
 // 기본 준비 판정: init() → render() → 포커스된 칸의 xterm 이 섰다.

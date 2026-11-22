@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현중
 
-> **남은 것**: FL-5 ~ FL-7 의 재현·원인·고침, 마지막 전량 e2e.
+> **남은 것**: FL-6 · FL-7, 마지막 전량 e2e 의 재현·원인·고침, 마지막 전량 e2e.
 
 - 접수: 2026-11-22 (`QUALITY_FIX_SRS` 뒤. `REFACTOR_PROD3_HANDOFF_4.md` §4 「흔들림」 목록 · `PROD3.md` §7.1 「전체 시험」 행)
 - 사용자 지시: 흔들림으로 받아들여 온 시험의 **원인을 찾아 고친다.** 재시도·시한을 늘려 덮지 않는다. 원인이 시험의 기다림 조건이면 상태가 바뀐 것을 기다리게 고치고, 원인이 앱의 경합이면 앱을 고친다.
@@ -20,7 +20,7 @@
 | FL-2 | `e2e/slot-view-state.spec.ts` TC-SVS-3·13·50·55·56 | 시험 경합 | 탭을 가운데가 아니라 이름의 왼쪽 끝으로 고르고, 활성이 된 것을 기다린다(§2.2) |
 | FL-3 | `e2e/tab-names.spec.ts` V-NAM-1·2·5 · V-TAN-2 (같은 원인으로 V-TAN-4·6·12·14·15 · V-NAM-4) | 시험 경합 + **앱 결함** | 시험은 진짜 전경 이름이 닿은 뒤에 흉내를 넣는다. 서버는 구독이 열릴 때 도구마다 지금의 전경 이름을 싣는다(§2.3) |
 | FL-4 | `e2e/settings.spec.ts:256` 「고치던 이름은 덮지 않고…」 · 「규칙에 맞지 않는 이름은 거절」 | **앱 결함** | 프로필 패널의 읽기를 하나로 묶고, 읽는 사이에 고친 이름을 덮지 않는다(§2.4) |
-| FL-5 | `e2e/ux-audit-fix.spec.ts` TC-UXF-1 · 「2묶음 두 모드」 · `ux-audit-fix-7` TC-UXF-94 | (조사 중) | |
+| FL-5 | `e2e/ux-audit-fix.spec.ts` TC-UXF-1 · 「2묶음 두 모드」(TC-UXF-16) · `ux-audit-fix-7` TC-UXF-94 | 시험 경합(TC-UXF-1·16) · 재현 못 함(TC-UXF-94) | 기대값을 묻는 순간에 계산하고, 카드 안 배치는 한 번에 잰다. 공용 `waitForInit` 이 첫 구독의 재검증을 기다린다(§2.5) |
 | FL-6 | `editor-ops` O7 · `edges-settings` 간선 주소·망 그림 · `claude-accounts` TC-CAC-27 · `tab` 단축키 · `kit-components` TC-CMP-19 | (조사 중) | |
 | FL-7 | 단위 `cm-sticky.test.mjs` · Go `gitapi` `TestWorktreeCreateInputAnswer` | (조사 중) | |
 
@@ -94,6 +94,23 @@
 |---|---|
 | FR-FLK-6 | 프로필 패널의 읽기는 하나만 난다 — 읽는 중에 다시 부르면 그 읽기를 돌려준다. 읽는 사이에 이름 칸이 바뀌었으면(요청을 낼 때의 값과 다르면) 이름 칸은 칠하지 않고 번호·지문만 칠한다. 기준은 읽은 값이다(고친 이름은 저장하지 않은 수정으로 남는다). 그 사이에 선 「바뀌었다」 안내는 거두지 않는다 |
 
+### 2.5 FL-5 — 상단바 제목 · 카드 배치 · 키바 (ux-audit-fix · ux-audit-fix-7)
+
+**재현.** `ux-audit-fix`·`ux-audit-fix-7` 전체를 `PW_WORKERS=8 --repeat-each=4`(192회)로 0 실패. 네 spec 을 함께 `--repeat-each=3` 으로 돌린 회차에서 TC-UXF-16 이 한 번 실패했다: 상태 기호와 이름의 세로 중심이 82.5px 어긋났다(기대 ≤ 2).
+
+**원인 1 — TC-UXF-16(시험 경합).** 네 요소(기호·이름·상태·detail)의 상자를 `rectOf` 로 **하나씩** 잰다. 그 사이에 활동 목록이 다시 그려지면 카드가 통째로 위아래로 옮겨 간다 — 82.5px 는 카드 한 장 높이에 가깝다. 시험이 재려는 것은 카드 **안**의 배치다.
+
+**원인 2 — 화면에만 넣은 활동이 첫 구독의 재검증에 지워진다(시험 경합, TC-UXF-16·17·18 과 활동을 화면에 넣는 시험).** 이 시험들은 `/api/tools/activity` 만 가로채 흉내 활동을 돌려주고 `onToolActivity` 로 화면에 넣는다. 구독이 열리면(`sse:open`) 상태 레지스트리가 활동을 `/api/snapshot` 으로 다시 받는데, 이 요청은 가로채지 않는다. 공용 `waitForInit` 은 저장이 멎기(`waitSettled`)만 기다리고 구독이 열리기는 기다리지 않는다. 부하가 걸려 구독이 그 뒤에 열리면 서버의 빈 목록이 흉내 카드를 지운다. 구독을 1.5초 늦추는 탐침으로 결정적으로 재현했다(카드 0개, 2/2).
+
+**원인 3 — TC-UXF-1(시험 경합, 추론).** 기대값(`창 이름 · 탭 이름`)을 한 번 찍어 두고 화면의 글자와 견준다. 탭 이름은 첫 전경 틱에서 `Shell` 이 `~` 로 바뀐다(FR-UXF-65). 찍은 직후 바뀌면 화면은 옳은데 기대값이 낡는다. 상단바가 전경 이름을 따라간다는 것은 탐침으로 확인했다(이름이 `~` 가 된 뒤 화면도 `Window · ~`). 이 시험의 실패 자체는 재현하지 못했다.
+
+**TC-UXF-94 — 재현 못 함.** 시도한 조건: TC-UXF-94 둘을 `PW_WORKERS=8 --repeat-each=20`(40회), `ux-audit-fix-7` 전체를 `PW_WORKERS=8 --repeat-each=4`·`--repeat-each=3`, 같은 샤드(6/8) 32 spec 을 `PW_WORKERS=4` 로 한 번(249 통과). 키바 구성은 서버 설정이라 같은 워커의 앞 시험이 남긴 값이 영향을 줄 수 있으나, 같은 샤드에서 키바를 바꾸는 spec 은 없다(`mobile-android-touch` 는 키바를 읽기만 한다). 마지막 전량 실행의 결과로 다시 본다.
+
+| ID | 요구 |
+|---|---|
+| FR-FLK-7 | 공용 `waitForInit` 은 저장이 멎은 뒤 구독이 열리고 첫 재검증의 활동 비행이 닫힐 때까지 기다린다(`app.testing.sse.readyState === 1` 이고 `app.testing.restoreLive('activity', null)`) |
+| FR-FLK-8 | TC-UXF-1 은 기대값을 묻는 순간에 계산해 화면의 글자·툴팁과 견준다. TC-UXF-16 은 카드 안 네 요소의 상자를 한 번에 잰다 |
+
 ## 3. 결정
 
 | ID | 결정 | 이유 |
@@ -107,6 +124,8 @@
 | D-FLK-7 | 빈 이름도 싣는다 | 부팅 조회와 구독 사이에 끝난 프로그램의 이름을 지우려면 빈 이름이 필요하다. 화면에서는 이름 하나를 지우고 그 탭만 다시 칠한다 |
 | D-FLK-9 | 프로필의 겹친 읽기는 섹션 안의 단일 비행으로 묶는다. `SETTINGS_REREAD` 에 넣지 않는다 | profile 은 열 때의 다시 읽기를 자기 `onOpen` 이 한다(순서 계약 INV-S3). 목록에 넣으면 그 순서가 바뀐다 |
 | D-FLK-10 | 읽는 사이의 수정은 「요청을 낼 때의 값과 지금 값이 다르다」 로 판정한다 | 패널의 기준(`_liveMark`)은 첫 읽기 전에는 비어 있어 「수정」 을 말할 수 없다. 요청 시점의 값은 언제나 있다 |
+| D-FLK-11 | 첫 재검증 기다림은 공용 `waitForInit` 에 둔다. 흉내를 넣는 시험마다 `/api/snapshot` 을 가로채지 않는다 | 「앱이 떠서 멎었다」 는 구독과 그 재검증까지다(E2E_QUIESCENCE 의 뜻). 시험마다 가로채면 같은 구멍이 새 시험에서 다시 열린다 |
+| D-FLK-12 | 「첫 재검증이 끝났다」 는 기존 계약 `restoreLive('activity', null)` 로 묻는다. 계약에 새 이름을 더하지 않는다 | 버스는 비행이 없었으면 `undefined`, 닫혔으면 `null` 을 든다 — 그 차이가 곧 「한 번 돌고 닫혔다」 다. 모든 비행이 닫혔는지는 물을 수 없다 — 알람 복원은 목록이 `null` 이면 비행을 닫지 않고 돌아온다(`_attnRestore`) |
 | D-FLK-8 | V-NAM-4 의 활동은 `waiting` 으로 서버에 보고한다 | 이 시험이 재는 것은 카드의 이름이다. 화면에만 넣으면 주기 조회가 지우고, `working` 은 전경이 빈 셸에서 조회가 뺀다(FR-AAP-20) |
 
 ## 4. 검증
@@ -116,6 +135,7 @@
 | TC-FLK-1 | e2e `activity-rail.spec.ts` 전체를 `PW_WORKERS=8 --repeat-each=30 --retries=0` 으로 돌려 0 실패. 반증: `keepToolBusy` 를 빼면 주기 조회 단정에서 3/3 실패한다 |
 | TC-FLK-2 | e2e `slot-view-state.spec.ts` TC-SVS-3·13·50·55·56 을 `PW_WORKERS=8 --repeat-each=16` 으로 0 실패. `slot-view-state`·`a11y-keyboard` 전체를 `PW_WORKERS=6 --repeat-each=3` 으로 0 실패 |
 | TC-FLK-4 | 단위 `profile-panel.test.mjs` 넷 — 겹친 읽기는 하나 · 읽는 사이에 고친 이름은 남고 뒤의 방송이 안내 · 읽는 사이에 선 안내를 읽기가 거두지 않음(셋 다 옛 코드에서 RED) · 고치지 않았으면 읽은 값. e2e: 응답 400ms 지연 탐침이 고친 뒤 3/3(읽기 1번, 이름 남음, 안내 섬). `settings.spec.ts` `PW_WORKERS=8 --repeat-each=6` 0 실패, 설정 관련 5 spec 통과 |
+| TC-FLK-5 | 탐침(구독 1.5초 지연 · 활동 흉내 · 패널 열기 · 2.4초 관찰): 옛 `waitForInit` 에서 카드 0(2/2), 새 것에서 1(3/3). TC-UXF-16 `PW_WORKERS=8 --repeat-each=40` 0 실패. `ux-audit-fix`·`ux-audit-fix-7` `--repeat-each=3` 144 통과. 샤드 6/8 의 32 spec `PW_WORKERS=4` 249 통과(공용 기다림의 회귀) |
 | TC-FLK-3 | Go `httpapi` `TestSSE_ForegroundOnConnect`(인사 뒤 도구마다 한 줄, 빈 이름 포함 — 옛 코드에서 RED) · `_UnknownList`(모르는 목록이면 없음) · `_PresenceSkips`(칸 구독이면 없음). e2e `tab-names.spec.ts` 전체 `PW_WORKERS=8 --repeat-each=10` 0 실패. 관련 e2e(재연결·새로고침·복원 비행·동기·skill-contract·version-autoreload 등 11 spec) 통과 |
 
 ## 5. 동작 변경 기록
@@ -124,6 +144,7 @@
 |---|---|---|---|
 | FL-1 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-2 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
+| FL-5 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-4 | 설정을 열면 프로필을 두 번 읽었고, 늦게 온 답이 그 사이에 고친 이름을 지웠다 | 읽기는 한 번이고, 읽는 사이에 고친 이름은 남는다(다른 곳에서 바뀌었으면 안내가 선다) | 느린 망에서 사용자의 글자가 사라졌다(FR-FLK-6) |
 | FL-3 | 전경 이름은 바뀔 때의 방송뿐이었다. 부팅 조회와 구독 사이의 변화는 사라져, 새로 연 셸 탭이 폴더를 옮길 때까지 `Shell` 로 남을 수 있었다 | 구독이 열릴 때 서버가 도구마다 지금의 이름을 한 번 싣는다 | 부팅 조회와 구독 사이의 틈(FR-FLK-3, D-FLK-5) |
 
@@ -134,4 +155,5 @@
 | FL-1 | `activity-rail.spec.ts` TC-ACF-1 — `keepToolBusy(page, pid)` 뒤에 `working` 을 보고하고, 카드가 선 뒤 `activityRestore()` 를 불러 카드가 남는지 본다(FR-FLK-1). RED: 주기 조회 단정만 더한 시험이 3/3 실패(카드 0개). 고친 뒤 `PW_WORKERS=8 --repeat-each=30` 90 통과(HEAD 에서는 같은 조건 90회 중 12회 실패) |
 | FL-2 | `fixtures.ts` 에 `selectTab` — 이름의 왼쪽 끝(x 1px)을 누르고 활성을 기다린다(FR-FLK-2). `slot-view-state` 의 `clickTabId` 와 `a11y-keyboard` TC-A11Y-6e 가 쓴다. 원인 계측: 캡처 단계의 클릭 기록이 `tgt=pn-tab-x` 였고 `switchTab` 이 불리지 않았다. 첫 고침(탭 자신의 왼쪽 여백 x 3px)은 TC-SVS-56 에서 16/16 실패 — 둘째 칸 첫 탭의 왼쪽 끝을 칸 경계 손잡이(`.slot-handle`)가 덮었다. 이름 쪽으로 옮긴 뒤 `PW_WORKERS=8 --repeat-each=16` 80 통과(HEAD 80회 중 43회 실패), 두 spec 전체 `PW_WORKERS=6 --repeat-each=3` 132 통과 |
 | FL-4 | `ProfileSection._loadProfilePanel` 은 단일 비행(`_pfReading`), 본문 `_pfRead` 는 요청 시점의 이름과 답이 왔을 때의 이름이 다르면 `_pfPaint(v,keepName)` 로 이름 칸을 두고 `_liveMark(k,r,{name: 읽은 값},keep)` 으로 안내를 둔다. `SettingsLive._liveMark` 에 넷째 인자 `keep`(FR-FLK-6). 시험 TC-FLK-4. 사용자 언어 CHANGELOG 「고침」 |
+| FL-5 | `fixtures.ts` `waitSseRevalidated` 를 `waitForInit` 끝에(FR-FLK-7). `ux-audit-fix.spec.ts` TC-UXF-1 은 `expect.poll` 로 그 순간의 규칙 값과 글자·툴팁을 견주고, TC-UXF-16 은 `card.evaluate` 한 번으로 넷을 잰다(FR-FLK-8). 시험 TC-FLK-5. TC-UXF-94 는 재현 못 함 |
 | FL-3 | 서버: `hub.ForegroundSnapshot` · `Server.foregroundOnConnect`(`commands.go`) — 인사를 flush 한 뒤 칸 구독이 아니면 `ListOK` 의 도구마다 `tool_foreground` 를 싣고 flush(FR-FLK-3). Go 시험 `commands_sse_fg_test.go` 셋(옛 코드에서 첫째 RED: 인사 한 줄뿐). 시험: `tab-names.spec.ts` 의 `fgSettled`(서버 값은 `page.request` 로 읽어 스냅숏 흉내를 지나지 않는다) — `pushForeground` 가 도구마다 처음 한 번 부르고, V-NAM-1·2·5·4 가 직접 부른다. 스냅숏 흉내는 `fgStub.has` 로 빈 이름도 덮는다. V-NAM-4 는 활동을 `POST /api/tools/activity/set` 에 `waiting` 으로(FR-FLK-5). 원인 2 의 계측: 실패 회차의 페이지 기록에 `tool_foreground` 가 없고 구독은 도구 생성 70ms 뒤에 열렸다. 고친 뒤 `PW_WORKERS=8 --repeat-each=10` 170 통과(시험만 고친 상태에서 160여 회 중 4회 「브라우저에 닿지 않았다」). 관련 e2e 11 spec 96 통과. 사용자 언어 CHANGELOG 「고침」 |

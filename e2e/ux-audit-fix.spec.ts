@@ -56,14 +56,17 @@ test.describe('1묶음 — 데스크톱', () => {
     await waitForInit(page);
     const top = page.locator('#window-name');
     await expect(top).not.toHaveText(/^창 · /, { timeout: 10000 });
-    const want = await page.evaluate(() => {
+    // 기대값을 한 번 찍어 두지 않는다 (QUALITY_FLAKY_SRS FR-FLK-8) — 탭 이름은 첫 전경 틱에서
+    // `Shell` 이 `~` 로 바뀐다(FR-UXF-65). 찍은 뒤에 바뀌면 화면은 옳은데 기대값이 낡는다.
+    // 묻는 그 순간의 규칙 값과 화면의 글자·툴팁이 같은지 본다.
+    await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
       const w = a.aw();
-      return a.renderer._rWinName(w) + ' · ' + a.renderer._rWinTab(w);
-    });
-    await expect(top).toHaveText(want);
+      const want = a.renderer._rWinName(w) + ' · ' + a.renderer._rWinTab(w);
+      const el = document.getElementById('window-name')!;
+      return el.textContent === want && el.getAttribute('title') === want;
+    })).toBe(true);
     await expect(top.locator('.tt-sep')).toHaveCount(1);
-    await expect(top).toHaveAttribute('title', want);
   });
 
   test('TC-UXF-3: 마우스로 연 설정은 링 없이 포커스를 주고 돌려주며, 키를 누르면 링이 선다', async ({ page }) => {
@@ -275,11 +278,15 @@ test.describe('2묶음 — 두 모드', () => {
     await page.evaluate(() => (window as any).app.actPanelOpen());
     const card = page.locator(`#agents-panel .ag-card[data-toolid="${id}"]`);
     await expect(card).toBeVisible({ timeout: 10000 });
-    const sel = (s: string) => `#agents-panel .ag-card[data-toolid="${id}"] ${s}`;
-    const dot = await rectOf(page, sel('.ag-dot'));
-    const loc = await rectOf(page, sel('.ag-loc'));
-    const st = await rectOf(page, sel('.ag-state'));
-    const dt = await rectOf(page, sel('.ag-detail'));
+    // 넷을 **한 번에** 잰다 (QUALITY_FLAKY_SRS FR-FLK-8). 따로 재면 그 사이에 목록이 다시 그려져 카드가
+    // 위아래로 옮겨 갈 수 있다(실측: 기호와 이름의 세로 중심이 82.5px 어긋났다). 재는 것은 카드 안의 배치다.
+    const { dot, loc, st, dt } = await card.evaluate((c) => {
+      const r = (s: string) => {
+        const b = c.querySelector(s)!.getBoundingClientRect();
+        return { left: b.left, top: b.top, height: b.height, width: b.width };
+      };
+      return { dot: r('.ag-dot'), loc: r('.ag-loc'), st: r('.ag-state'), dt: r('.ag-detail') };
+    });
     expect(Math.abs(dot.top + dot.height / 2 - (loc.top + loc.height / 2))).toBeLessThanOrEqual(2);
     expect(st.top).toBeGreaterThan(loc.top + loc.height / 2);
     expect(Math.abs(st.top + st.height / 2 - (dt.top + dt.height / 2))).toBeLessThanOrEqual(2);
