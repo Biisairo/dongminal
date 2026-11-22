@@ -417,7 +417,7 @@ Object.assign(RunsPanel.prototype, {
   // 현재 포커스 분할 칸에 새 탭을 만든다 (FR-HLM-6).
   async _runJumpToMember(m) {
     if (!m || !m.id) return;
-    if (m.toolId && this.app.findToolLocation(m.toolId)) { this.app.jumpToTool(m.toolId); return }
+    if (m.toolId && this.app.findToolLocation(m.toolId)) { this.app.attn.jumpToTool(m.toolId); return }
     // FR-RRC-41: 조정자는 멤버가 아니라 부착할 것이 없다 — 탭이 없으면 가지 않는다.
     if (m.coord) return;
     try {

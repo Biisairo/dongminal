@@ -243,7 +243,7 @@ class ClaudeSection extends SettingsSection {
   _cacctHistoryEl(root){
     root.appendChild(domEl('div','ds-sec',t('cacct.set.sec_history')));
     const row=root.appendChild(domEl('div','ds-row'));
-    row.appendChild(UIKit.button({label:t('cacct.hist.open'),size:'sm',cls:'cacct-history-btn',onClick:()=>this.app._claudeAcctHistory()}));
+    row.appendChild(UIKit.button({label:t('cacct.hist.open'),size:'sm',cls:'cacct-history-btn',onClick:()=>this.app.claude._claudeAcctHistory()}));
   }
 
   _cacctPaint(){

@@ -43,7 +43,7 @@ test.describe('FR-ACB — Activity 접기 단추', () => {
   // 새: `x`. 이유: 모바일 Activity 는 화면 전체를 덮는 시트라 접히는 방향이 없다.
   test('ACB2: 모바일에서는 닫는다', async ({ page }) => {
     await waitForInit(page, { mode: 'mobile', clearOnFirstLoad: ['panelDock', 'agentsPanelOpen'] });
-    await page.evaluate(() => (window as any).app.setAgentsPanelOpen(true));
+    await page.evaluate(() => (window as any).app.agents.setAgentsPanelOpen(true));
     await nextFrames(page);
     expect(await icon(page)).toContain('#i-x');
   });

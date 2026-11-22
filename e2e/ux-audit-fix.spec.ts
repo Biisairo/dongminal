@@ -157,7 +157,7 @@ test.describe('1묶음 — 데스크톱', () => {
     );
     await page.route('**/api/tools/activity', (route) => route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify({ activities: [], limits: [] }) }));
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     await set(pid1!, 'done');
     await set(pid2!, 'done');
     const cards = page.locator('#agents-panel .ag-card');
@@ -275,7 +275,7 @@ test.describe('2묶음 — 두 모드', () => {
     await page.route('**/api/tools/activity', (route) => route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify({ activities: [act], limits: [] }) }));
     await page.evaluate((a) => (window as any).app.testing.onToolActivity(a), act);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const card = page.locator(`#agents-panel .ag-card[data-toolid="${id}"]`);
     await expect(card).toBeVisible({ timeout: 10000 });
     // 넷을 **한 번에** 잰다 (QUALITY_FLAKY_SRS FR-FLK-8). 따로 재면 그 사이에 목록이 다시 그려져 카드가
@@ -327,7 +327,7 @@ test.describe('갱신', () => {
       ? route.fulfill({ status: 500, body: 'boom' })
       : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ activities: [act], limits: [] }) }));
     await page.evaluate((a) => (window as any).app.testing.onToolActivity(a), act);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const card = page.locator(`#agents-panel .ag-card[data-toolid="${id}"]`);
     await expect(card).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#agents-panel .ag-refresh')).toHaveCount(0);
@@ -387,7 +387,7 @@ test.describe('접기 단추', () => {
 
   test('TC-UXF-22: 접기 단추는 패널의 바깥 가장자리 쪽 끝에 선다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const sbBtn = await rectOf(page, '#sb-acts .sb-collapse');
     const sbTab = await rectOf(page, '#sb-tabs .ui-panel-tab');
     expect(sbBtn.left).toBeLessThan(sbTab.left);
@@ -423,7 +423,7 @@ test.describe('3묶음 — 말 통일', () => {
     await page.route('**/api/tools/activity', (route) => route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify({ activities: [act], limits: [] }) }));
     await page.evaluate((a) => (window as any).app.testing.onToolActivity(a), act);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     await expect(page.locator(`#agents-panel .ag-card[data-toolid="${id}"] .ag-state`)).toHaveText('작업 중 · Edit', { timeout: 10000 });
 
     await openGit(page, fx('basic'));
@@ -637,7 +637,7 @@ test.describe('4묶음 — 작업 중 표식', () => {
     await page.locator('#area .pn.focused .pn-tab-add').click();
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     const pid2 = (await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid'))!;
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     await reportAct(page, pid1, 'working');
     await reportAct(page, pid2, 'working');
     const badge = page.locator('#agents-panel .ag-tab[data-sec="agents"] .ag-tab-n');

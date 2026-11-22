@@ -169,7 +169,7 @@ class FileTreeXfer {
       if(this.tree._edit) this.tree.cancelEdit();
       const dir=this.tree.root;
       // CLAUDE_ACCOUNTS_SRS FR-CAC-97·95a: 빈 자리는 루트 폴더다 (FR-CMU-9).
-      const ca=this.tree.app.claudeFolderMenu?this.tree.app.claudeFolderMenu(this.tree.root,dir,{x:e.clientX,y:e.clientY}):null;
+      const ca=this.tree.app.claude.maps.claudeFolderMenu?this.tree.app.claude.maps.claudeFolderMenu(this.tree.root,dir,{x:e.clientX,y:e.clientY}):null;
       UIKit.menu([
         {id:'newFile',label:EDITOR_MENU_NEW_FILE,onClick:()=>this.tree.startCreate(false,dir)},
         // FR-M9-23: 여백 메뉴도 행 메뉴와 같다 — 가림이 폐기됐다.
@@ -205,7 +205,7 @@ class FileTreeXfer {
     // UX_BATCH12 FR-EXM-3·4: 이름 바꾸기·새로 만들기·업로드 밖은 선택 전체가 대상이다.
     const many=this.tree._selOrdered(p).filter(x=>x&&x!==this.tree.root),multi=many.length>1;
     // CLAUDE_ACCOUNTS_SRS FR-CAC-97·95a: 폴더 행에만. 대상은 우클릭한 행 하나다.
-    const ca=kind==='dir'&&this.tree.app.claudeFolderMenu?this.tree.app.claudeFolderMenu(this.tree.root,p,{x:e.clientX,y:e.clientY}):null;
+    const ca=kind==='dir'&&this.tree.app.claude.maps.claudeFolderMenu?this.tree.app.claude.maps.claudeFolderMenu(this.tree.root,p,{x:e.clientX,y:e.clientY}):null;
     GitMenu.openAsked([
       {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.tree.startCreate(false,dir)},
       // FR-M9-23: 메모장에서도 보인다 — FR-EXR-32 의 가림은 폐기됐다.

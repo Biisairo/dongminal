@@ -252,8 +252,8 @@ class SettingsApply extends Controller {
    *   이전: `modKbd` 가 있을 때만 그렸고, 설정 구역은 섹션이 있으면 여기서 칠했다(`_sectionCall`)
    */
   _keybarApply(){
-    this.app._mkbRender();
-    this.app.mkbRefresh();
+    this.app.mobile._mkbRender();
+    this.app.mobile.mkbRefresh();
   }
 
   // FR-PIS-20: `Polling` 탭의 행은 `PollingSection` 이 표에서 만든다 (REFACTOR3_FE_SETTINGS_SRS 8b·8e).

@@ -40,7 +40,7 @@ class StatusbarSection extends SettingsSection {
       const inp=document.createElement('input');
       inp.type='checkbox'; inp.className='ui-switch'; inp.checked=!!statusBar[k];
       this._sw.set(k,inp);
-      this.listen(inp,'change',()=>{statusBar[k]=inp.checked;app.settings.apply.saveSettings();app.updateStatusBar()});
+      this.listen(inp,'change',()=>{statusBar[k]=inp.checked;app.settings.apply.saveSettings();app.statusbar.updateStatusBar()});
       row.appendChild(label);row.appendChild(inp);
       el.appendChild(row);
     }

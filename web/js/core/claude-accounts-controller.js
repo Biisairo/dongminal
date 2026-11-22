@@ -35,7 +35,7 @@ class ClaudeAccountsController extends Controller {
         this.app._claudeAcctOtherSl=[];
       }
       this.app._restoreEnd('claudeAccounts',flight);
-      this.app.agentsRender();
+      this.app.agents.agentsRender();
       // FR-CAC-95a: 매핑은 탭·Repo·Explorer 가 쓴다. 계정 기능이 없는 서버면 받지 않는다.
       if(r.status===503){ if(this.app._claudeMaps){this.app._claudeMaps=null;this.maps._claudeMapsRepaint()} }
       else if(r.ok) return this.maps._claudeMapsLoad();
@@ -45,7 +45,7 @@ class ClaudeAccountsController extends Controller {
   /** FR-CAC-94a: 설정의 Claude 계정 패널이 열려 있으면 그것도 다시 받는다. */
   _onClaudeAccountsChanged(){
     if(this.app.settings.section('claude')?._cacctPanelShown()) this.app.settings.section('claude')?._cacctRefreshSoft();
-    return this.app._claudeAcctRestore();
+    return this._claudeAcctRestore();
   }
 
   /** FR-CAC-100a: 서버의 계정 알림. 자동 전환은 알림(ok), 나머지는 주의(err) 토스트다. */
@@ -66,19 +66,19 @@ class ClaudeAccountsController extends Controller {
     const prev=this._claudeAcctActiveId;
     this._claudeAcctActiveId=cur;
     if(prev===undefined||prev===cur) return;
-    const f=this.app._claudeAcctFold();
+    const f=this._claudeAcctFold();
     if(!(prev in f)&&!(cur in f)) return;
     delete f[prev]; delete f[cur];
     PrefStore.local.setJson(STORE_KEYS.claudeAcctFold,f);
   }
 
   _claudeAcctFoldToggle(id){
-    const f=this.app._claudeAcctFold();
+    const f=this._claudeAcctFold();
     const a=(this.app._claudeAccts||[]).find(x=>x.id===id);
     const wide=typeof f[id]==='boolean'?f[id]:!!(a&&a.active);
     f[id]=!wide;
     PrefStore.local.setJson(STORE_KEYS.claudeAcctFold,f);
-    this.app.agentsRender();
+    this.app.agents.agentsRender();
   }
 
   /**
@@ -94,7 +94,7 @@ class ClaudeAccountsController extends Controller {
     }
     if(!this._claudeAcctPopEsc) this._claudeAcctPopEsc={active:()=>!!this.app._claudeAcctPopId,close:()=>this._claudeAcctPopClose()};
     if(opening) EscapeStack.push(this._claudeAcctPopEsc); else EscapeStack.remove(this._claudeAcctPopEsc);
-    this.app.agentsRender();
+    this.app.agents.agentsRender();
   }
 
   /** 칸 누름은 칸의 처리기(`_claudeAcctPopToggle`)가 맡는다 — 여기서 닫으면 같은 칸이 다시 연다. */
@@ -107,7 +107,7 @@ class ClaudeAccountsController extends Controller {
   _claudeAcctPopClose(){
     if(this._claudeAcctPopEsc) EscapeStack.remove(this._claudeAcctPopEsc);
     this.app._claudeAcctPopId=null;
-    this.app.agentsRender();
+    this.app.agents.agentsRender();
   }
 
   /** FR-CAC-62·63: 확인을 받은 뒤의 사용. 결과는 언제나 알리고, 목록을 다시 받는다. */
@@ -118,7 +118,7 @@ class ClaudeAccountsController extends Controller {
     if(!r.ok){ Toast.show(apiErrText(r,t('cacct.rs.use')),'err'); return r }
     const res=r.data&&r.data.result;
     Toast.show(t('cacct.rs.r.'+res),res==='reset'?'ok':'err');
-    await this.app._claudeAcctRestore();
+    await this._claudeAcctRestore();
     return r;
   }
 
@@ -148,7 +148,7 @@ class ClaudeAccountsController extends Controller {
   async _claudeAcctAct(path,body,what){
     const r=await apiPost(path,body);
     if(!r.ok){ Toast.show(apiErrText(r,what),'err'); return r }
-    await this.app._claudeAcctRestore();
+    await this._claudeAcctRestore();
     return r;
   }
 
@@ -226,8 +226,8 @@ class ClaudeAccountsController extends Controller {
     if(v.active) who.appendChild(domEl('span','cacct-active',t('cacct.active')));
     if(v.status) who.appendChild(domEl('span','cacct-st',v.status)).title=v.status;
     if(v.age) who.appendChild(domEl('span','cacct-age',v.age));
-    if(!v.wide) this.app._actCellsEl(head,v.mini);
-    if(v.wide) for(const b of v.bars) this.app._actUsageWinEl(box,b);
+    if(!v.wide) this.app.agents.list._actCellsEl(head,v.mini);
+    if(v.wide) for(const b of v.bars) this.app.agents.list._actUsageWinEl(box,b);
     const m=v.more;
     if(!m) return box;
     const more=box.appendChild(document.createElement('div'));
@@ -243,8 +243,8 @@ class ClaudeAccountsController extends Controller {
     if(v.title&&v.title!==v.name) ph.appendChild(domEl('div','cacct-pop-title',v.title));
     if(m.status) ph.appendChild(domEl('div','cacct-pop-st',m.status));
     const usage=more.appendChild(domEl('div','cacct-pop-sec'));
-    for(const b of v.bars) this.app._actUsageWinEl(usage,b);
-    for(const b of m.scoped) this.app._actUsageWinEl(usage,b);
+    for(const b of v.bars) this.app.agents.list._actUsageWinEl(usage,b);
+    for(const b of m.scoped) this.app.agents.list._actUsageWinEl(usage,b);
     if(m.pace) usage.appendChild(domEl('div','cacct-pace'+(m.pace.warn?' warn':''),m.pace.text));
     if(m.spend||m.login){
       const info=more.appendChild(domEl('div','cacct-pop-sec'));
@@ -273,7 +273,3 @@ class ClaudeAccountsController extends Controller {
     return box;
   }
 }
-
-// 바깥(상태 등록부·SSE·활동 패널·설정 ▸ Claude)과 계약이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'claude',['_claudeAcctRestore','_onClaudeAccountsChanged','_onClaudeAccountAlert','_claudeAcctFold',
-  '_claudeAcctSmartMenu','_claudeAcctHistory','_claudeAcctEl']);

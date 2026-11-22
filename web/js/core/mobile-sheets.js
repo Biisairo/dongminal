@@ -31,7 +31,7 @@ class MobileSheets extends Controller {
     if(!changed) return;
     // 키보드가 올라와 있으면 그 보정(padding-bottom)이 키바 높이를 품고 있다 — 다시 잰다.
     this.app._mKbH=null;
-    if(window.visualViewport) this.app._mobileVvApply(); else this.app._scheduleFit();
+    if(window.visualViewport) this.app.mobile._mobileVvApply(); else this.app.mobile._scheduleFit();
   }
 
   _initMobileSheets(){
@@ -62,7 +62,7 @@ class MobileSheets extends Controller {
     // FR-MUX-13: 닫는 길이 셋이다(닫기·바깥·Escape) — 열림 표식 하나를 지켜본다.
     if(this._settingsOverlayMo) this._settingsOverlayMo.disconnect();
     this._settingsOverlayMo=new MutationObserver(()=>{
-      this.app.mobileChromeSync();
+      this.mobileChromeSync();
       if(!overlay.classList.contains('open')) EscapeStack.remove(this._settingsDetailEsc);   // FR-FEE-6
     });
     this._settingsOverlayMo.observe(overlay,{attributes:true,attributeFilter:['class']});
@@ -144,6 +144,3 @@ class MobileSheets extends Controller {
     },{capture:true});
   }
 }
-
-// 활동 패널·설정·`ui/`(서랍·렌더러)와 시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'mobile.sheets',['mobileChromeSync','_settingsMobileOnOpen']);

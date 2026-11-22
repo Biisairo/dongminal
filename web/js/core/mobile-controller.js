@@ -18,12 +18,12 @@ class MobileController extends Controller {
     const mob=this.app.isMobile;
     const was=document.body.classList.contains('mobile');
     document.body.classList.toggle('mobile', mob);
-    this.app.sbPanel().railSync(); this.app.actPanel().railSync();   // REFACTOR3_FE_REST4_SRS FR-FR4-4
+    this.app.sbPanel().railSync(); this.app.agents.list.actPanel().railSync();   // REFACTOR3_FE_REST4_SRS FR-FR4-4
     if(was!==mob){
-      this.app.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
+      this.app.agents.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
       if(this.app.settings.apply._edApplyWordWrap) this.app.settings.apply._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
       // REFACTOR3_FE_BASE_SRS FR-FEB-26: 모바일 진입·이탈은 두 탭 줄을 같은 길로 다시 잰다. 이전: 작업 패널은 닫혀 있으면 재지 않았다.
-      this.app.sbPanel().tabs.fit(); this.app.actPanel().tabs.fit();
+      this.app.sbPanel().tabs.fit(); this.app.agents.list.actPanel().tabs.fit();
     }
     if(!mob){this.drawerSheet().close();document.body.classList.remove('keyboard-up')}
   }
@@ -34,7 +34,7 @@ class MobileController extends Controller {
   }
   _toggleDrawer(open){
     const d=this.drawerSheet();
-    if(!this.app.isMobile){ if(!d.close()) this.app.mobileChromeSync(); return }
+    if(!this.app.isMobile){ if(!d.close()) this.app.mobile.sheets.mobileChromeSync(); return }
     d.setOpen(open===undefined?!d.isOpen():open);
   }
 
@@ -175,7 +175,7 @@ class MobileController extends Controller {
     // visualViewport tracking — keyboard up/down detection
     if(window.visualViewport){
       const vv=window.visualViewport;
-      const apply=()=>this.app._mobileVvApply();
+      const apply=()=>this._mobileVvApply();
       vv.addEventListener('resize', apply);
       vv.addEventListener('scroll', apply);
       apply();
@@ -193,7 +193,7 @@ class MobileController extends Controller {
       dot.title=ok?'Connected':'Disconnected';dot.setAttribute('aria-label',dot.title);
     }
     const name=document.getElementById('window-name');
-    if(name) name.title=this.app._shortCwd(this.app.cwd||'~');
+    if(name) name.title=this.app.statusbar._shortCwd(this.app.cwd||'~');
   }
 
   // UX_AUDIT_FIX_SRS FR-UXF-93 (D-31): 키바는 설정 `keybar` 를 따른다. 설정이 바뀌면 다시 그리고(`_keybarApply`) sticky 표시를 다시 단다.
@@ -487,8 +487,3 @@ class MobileController extends Controller {
     }
   }
 }
-
-// 바깥(부팅 표 `SETTINGS_INIT`·`main.js`·포커스·편집기·설정·상태바·`ui/`)과 계약이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'mobile',['applyMobileMode','_toggleDrawer','mobileSideSlots','mobileOnSide','mobileShowPane',
-  'mobilePaneCount','initMobile','initMobileKeybar','mTopPaint','_mkbRender','_scheduleFit','_scheduleMobileFit','_mobileVvApply',
-  '_kbSuppressAll','mkbRefresh']);

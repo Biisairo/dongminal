@@ -44,8 +44,6 @@ function host(ctx, over = {}) {
     flattenPanes: (n) => ctx.panesOf(n),
     _wsSeen() { log.push('_wsSeen'); return seenBefore },
     _wsMarkSaved(w) { log.push('_wsMarkSaved'); h.args.marked = w.map((s) => s.id) },
-    _attnDrop(id) { log.push('_attnDrop:' + id); return ret.attnDrop },
-    _attnRefresh() { log.push('_attnRefresh') },
     _normalizeIncomingWorkspace(_sv, live) { log.push('_normalizeIncomingWorkspace'); h.args.live = live; return ret.normalize },
     _edPatchList(list) { log.push('_edPatchList'); h.args.list = list },
     _edReconcile(w) { log.push('_edReconcile'); h.args.reconcile = w; return ret.reconcile },
@@ -64,7 +62,7 @@ function host(ctx, over = {}) {
     git: {
       gitWindow: () => h.ws.windows.find((s) => s.type === 'git') || null,
       sync: { gitReposKick() { log.push('gitReposKick') } },
-    },
+    }, attn: { _attnDrop(id) { log.push('_attnDrop:' + id); return ret.attnDrop }, _attnRefresh() { log.push('_attnRefresh') } },
   };
   ctx.mergeUnseenLayout = (local, remote, seen, want) => {
     log.push('merge');

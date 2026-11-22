@@ -30,7 +30,7 @@ function setup() {
   a.gitPanels = new Map([['/r', { repo: '/r' }]]);
   const adopted = [];
   Object.defineProperty(a, 'gitPanel', { value: { adoptJobs: (j) => adopted.push(j) } });
-  a.updateStatusBar = () => {};
+  a.statusbar.updateStatusBar = () => {};
   const arrive = async (path) => {
     const i = waits.findIndex((w) => w.path === path);
     waits.splice(i, 1)[0].go();
@@ -43,7 +43,7 @@ test('옛 /api/stats 의 jobs 가 나중에 떠난 /api/git/jobs 의 새 목록�
   const { a, answers, arrive, adopted } = setup();
   answers['/api/stats'] = { ok: true, status: 200, data: { cpu: 1, jobs: [{ id: 'old' }] } };
   answers['/api/git/jobs'] = { ok: true, status: 200, data: { jobs: [{ id: 'new' }] } };
-  const tick = a._pollStats();
+  const tick = a.statusbar._pollStats();
   await new Promise((r) => setImmediate(r));
   const push = a.git.sync._pollGitJobs();
   await arrive('/api/git/jobs'); await push;
@@ -58,7 +58,7 @@ test('틱이 늦게 떠났으면 그 목록이 선다', async () => {
   answers['/api/stats'] = { ok: true, status: 200, data: { cpu: 1, jobs: [{ id: 'tick' }] } };
   answers['/api/git/jobs'] = { ok: true, status: 200, data: { jobs: [{ id: 'push' }] } };
   const push = a.git.sync._pollGitJobs();
-  const tick = a._pollStats();
+  const tick = a.statusbar._pollStats();
   await new Promise((r) => setImmediate(r));
   await arrive('/api/stats'); await tick;
   await arrive('/api/git/jobs'); await push;
@@ -72,7 +72,7 @@ test('밀어낸 틱이 실패하면 목록을 다시 조회한다', async () => 
   answers['/api/stats'] = { ok: false, status: 0, data: null };
   answers['/api/git/jobs'] = { ok: true, status: 200, data: { jobs: [{ id: 'push' }] } };
   const push = a.git.sync._pollGitJobs();
-  const tick = a._pollStats();
+  const tick = a.statusbar._pollStats();
   await new Promise((r) => setImmediate(r));
   await arrive('/api/git/jobs'); await push;
   await arrive('/api/stats'); await tick;
@@ -83,7 +83,7 @@ test('밀어낸 틱이 실패하면 목록을 다시 조회한다', async () => 
 test('아무것도 밀어내지 않은 틱의 실패는 다시 조회하지 않는다', async () => {
   const { a, answers, arrive, waits } = setup();
   answers['/api/stats'] = { ok: false, status: 0, data: null };
-  const tick = a._pollStats();
+  const tick = a.statusbar._pollStats();
   await new Promise((r) => setImmediate(r));
   await arrive('/api/stats'); await tick;
   assert.equal(waits.length, 0, '실패한 틱마다 조회가 하나씩 늘었다');

@@ -39,7 +39,7 @@ async function open(page: any, name: string) {
     const v = (window as any).app.testing.edActiveEditor();
     return !!(v && v.filePath === f && edT.has(v));
   }, P(name)), { timeout: 30000 }).toBe(true);
-  await page.evaluate(() => (window as any).app.updateStatusBar());
+  await page.evaluate(() => (window as any).app.statusbar.updateStatusBar());
 }
 
 const encItem = (page: any) => page.locator('#sb-items .sb-enc');
@@ -71,7 +71,7 @@ test('표현할 수 없는 글자는 거절 — 파일 불변, 변환 버튼', a
   await note.locator('.fe-note-btn').click();
   await page.locator('.fe-enc-confirm .fe-enc-go').click();
   await expect.poll(() => readFileSync(join(ROOT, 'k2.txt'), 'utf8'), { timeout: 10000 }).toBe('한글 😀\n');
-  await page.evaluate(() => (window as any).app.updateStatusBar());
+  await page.evaluate(() => (window as any).app.statusbar.updateStatusBar());
   await expect(encItem(page)).toHaveText('UTF-8');
 });
 
@@ -82,7 +82,7 @@ test('다시 열기: 다른 인코딩으로 디스크에서 다시 디코드', a
   await encItem(page).click();
   await page.locator('.sb-enc-menu [data-id="reopen-windows-1252"]').click();
   await expect.poll(() => model(page, P('e.txt'))).toBe('cafÃ©\n');
-  await page.evaluate(() => (window as any).app.updateStatusBar());
+  await page.evaluate(() => (window as any).app.statusbar.updateStatusBar());
   await expect(encItem(page)).toHaveText('Windows-1252');
   // dirty 면 먼저 묻는다 — 취소하면 그대로다.
   await setText(page, P('e.txt'), 'edited\n');
@@ -100,7 +100,7 @@ test('변환 저장: 메뉴에서 CP949 → UTF-8', async ({ page }) => {
   await page.locator('.fe-enc-confirm .fe-enc-go').click();
   await expect.poll(() => readFileSync(join(ROOT, 'k3.txt'), 'utf8'), { timeout: 10000 }).toBe('한글\n');
   // X-e: 저장 응답의 답을 따른다 — 변환한 뒤에는 변환할 것이 없다.
-  await page.evaluate(() => (window as any).app.updateStatusBar());
+  await page.evaluate(() => (window as any).app.statusbar.updateStatusBar());
   await encItem(page).click();
   const item = page.locator('.sb-enc-menu [data-id="to-utf8"]');
   await expect(item).toHaveAttribute('aria-disabled', 'true');

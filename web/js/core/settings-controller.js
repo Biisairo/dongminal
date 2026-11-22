@@ -112,11 +112,11 @@ class SettingsController extends Controller {
     this.paint();
     this._labelSettingsRows();
     this._hook('claude','onOpen');
-    if(app.isMobile&&app.drawerOpen) app._toggleDrawer(false);
+    if(app.isMobile&&app.drawerOpen) app.mobile._toggleDrawer(false);
     if(this._settingsSearchReset) this._settingsSearchReset();
     this._hook('profile','onOpen');
     this._rereadOnOpen();
-    app._settingsMobileOnOpen(modal);
+    app.mobile.sheets._settingsMobileOnOpen(modal);
   }
 
   /**

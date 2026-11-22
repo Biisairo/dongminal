@@ -153,7 +153,7 @@ class DisplaySection extends SettingsSection {
       app._paintAttnEdge();
       this._attnEdgePreview();
       // 세기를 0 으로 내리면 지금 켜져 있던 띠도 그 자리에서 꺼져야 한다.
-      app._attnRefresh();
+      app.attn._attnRefresh();
       app.settings.apply._saveSettingsSoon('ae');
     });
     this.listen(sl,'change',()=>app.settings.apply._saveSettingsNow('ae'));

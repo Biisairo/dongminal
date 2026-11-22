@@ -122,7 +122,7 @@ test.describe('패널 탭의 아이콘과 라벨 (FR-UXF-98·99, D-35)', () => {
       await expect(sbTab(page, id).locator('.sb-tab-label')).toBeHidden();
     }
 
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     await expect(page.locator('#agents-panel')).toHaveClass(/\bopen\b/);
     await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '480px'));
     for (const id of ['agents', 'bg', 'runs']) {

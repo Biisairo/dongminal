@@ -219,8 +219,8 @@ test('FR-CAC-95a: 매핑을 받으면 다시 칠하고, 503 이면 화면에 아
   reply = { ok: false, status: 503, data: null };
   await app.claude.maps._claudeMapsLoad();
   assert.equal(app._claudeMaps, null);
-  assert.equal(app.claudeTabTint({ type: 'terminal', toolId: 't1' }), null);
-  assert.equal(app.claudeTabMenuItem({ type: 'terminal', toolId: 't1' }, {}), null);
+  assert.equal(app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't1' }), null);
+  assert.equal(app.claude.maps.claudeTabMenuItem({ type: 'terminal', toolId: 't1' }, {}), null);
 });
 
 test('FR-CAC-95a: 경로는 서버에 한 번만 묻고, 답이 오면 다시 칠한다. 폴더 연결이 없으면 묻지 않는다', async () => {
@@ -235,8 +235,8 @@ test('FR-CAC-95a: 경로는 서버에 한 번만 묻고, 답이 오면 다시 �
   assert.deepEqual(calls, ['/api/claude-accounts/resolve?cwd=%2Fvar%2Fr']);
   assert.equal(app.renders, 1);
   assert.equal(app.claude.maps._claudeNorm('/var/r'), '/private/var/r');
-  assert.equal(app.claudeRepoChip('/var/r').text, 'bob');
-  assert.equal(app.claudeFolderChip('/var/r', '/var/r/x'), null);
+  assert.equal(app.claude.maps.claudeRepoChip('/var/r').text, 'bob');
+  assert.equal(app.claude.maps.claudeFolderChip('/var/r', '/var/r/x'), null);
 });
 
 test('FR-CAC-95·95a: 탭 틴트는 터미널의 cwd 보고값을 쓰고, 없으면 /api/cwd 를 도구마다 한 번 묻는다', async () => {
@@ -246,16 +246,16 @@ test('FR-CAC-95·95a: 탭 틴트는 터미널의 cwd 보고값을 쓰고, 없으
   app._claudeMaps = MAPS;
   app.tools = new Map([['t3', { _cwd: '/home/u/x' }], ['t4', {}]]);
   // t3: 보고값 → 정규화를 물은 뒤 폴더 연결(옅게).
-  assert.equal(app.claudeTabTint({ type: 'terminal', toolId: 't3' }), null);
+  assert.equal(app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't3' }), null);
   await drain();
-  assert.equal(app.claudeTabTint({ type: 'terminal', toolId: 't3' }).alpha, 0.14);
+  assert.equal(app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't3' }).alpha, 0.14);
   // t4: 보고값이 없다 → /api/cwd 한 번.
-  app.claudeTabTint({ type: 'terminal', toolId: 't4' });
-  app.claudeTabTint({ type: 'terminal', toolId: 't4' });
-  await drain(); app.claudeTabTint({ type: 'terminal', toolId: 't4' }); await drain();
+  app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't4' });
+  app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't4' });
+  await drain(); app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't4' }); await drain();
   assert.equal(calls.filter((c) => c.startsWith('/api/cwd')).length, 1);
-  assert.equal(app.claudeTabTint({ type: 'terminal', toolId: 't4' }).folder, undefined);
-  assert.equal(app.claudeTabTint({ type: 'terminal', toolId: 't4' }).title, 'Claude account: bob@y.org (folder /home/u/repo)');
+  assert.equal(app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't4' }).folder, undefined);
+  assert.equal(app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't4' }).title, 'Claude account: bob@y.org (folder /home/u/repo)');
   // 탭 지정은 cwd 와 무관하게 진하다.
-  assert.equal(app.claudeTabTint({ type: 'terminal', toolId: 't1' }).alpha, 0.28);
+  assert.equal(app.claude.maps.claudeTabTint({ type: 'terminal', toolId: 't1' }).alpha, 0.28);
 });

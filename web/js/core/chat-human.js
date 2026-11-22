@@ -56,7 +56,7 @@ class ChatHuman extends Controller {
     const s=this._chatRoomSel(),had=s.sel.size>0;
     const r=chatPick(s.sel,s.anchor,this.app.chat._chatRoomOrder||[],id,e);
     s.anchor=r.anchor;
-    if((r.handled||had)&&this.app._chatRepaint) this.app._chatRepaint();
+    if((r.handled||had)&&this.app.chat.window._chatRepaint) this.app.chat.window._chatRepaint();
     return r.handled;
   }
 
@@ -166,7 +166,7 @@ class ChatHuman extends Controller {
     if(ok!==true) return false;
     this._chatRoomSel().sel.clear();
     for(const v of this.app.chat.views._chatViewMap().values()) if(v.sel) v.sel.clear();
-    await this.app._chatRestore();
+    await this.app.chat._chatRestore();
     return true;
   }
 }

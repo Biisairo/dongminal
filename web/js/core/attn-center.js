@@ -60,7 +60,7 @@ class AttnCenter extends Controller {
       // 사용자가 어느 도구인지 못 찾는다.
       items.push({toolId,name:this.app._toolName(toolId,toolId),
         reason:info&&info.reason==='idle'?t('attn.reason_idle'):t('attn.reason_signal'),
-        detail:this.app._attnDetail(toolId)});
+        detail:this.app.attn._attnDetail(toolId)});
     }
     reconcileList(center,items,{
       key:it=>it.head?'head':'item:'+it.toolId,
@@ -96,14 +96,14 @@ class AttnCenter extends Controller {
       d.title=it.detail;
       item.appendChild(d);
     }
-    item.addEventListener('click',()=>{this.app.jumpToTool(toolId);this._attnCenterClose()});
+    item.addEventListener('click',()=>{this.app.attn.jumpToTool(toolId);this._attnCenterClose()});
     // 로드맵 M7 `FUI-22`: **하나만** 뗀다. 항목 클릭은 이동이고 "모두 제거" 는
     // 전부다 — 보고 넘기려는 알림 하나를 위해 그 둘 중 하나를 고르게 하지 않는다.
     // 서버에도 알린다(`_attnClear`) — 다른 브라우저의 배지도 함께 내려간다.
     // 다시 그리기는 `_attnClear` → `_attnRefresh` 가 한다(센터가 열려 있으면) — 여기서
     // 한 번 더 그리지 않는다 (FR-OPT-11-7 · FEC-32).
     const x=UIKit.button({icon:'x',title:TIP_ATTN_DISMISS,kind:'ghost',size:'sm',cls:'attn-x'});
-    x.addEventListener('click',e=>{e.stopPropagation();this.app._attnClear(toolId,false)});
+    x.addEventListener('click',e=>{e.stopPropagation();this.app.attn._attnClear(toolId,false)});
     item.appendChild(x);
     return item;
   }

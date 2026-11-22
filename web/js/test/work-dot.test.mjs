@@ -17,7 +17,7 @@ function setup(acts, { located = () => true, attn = new Set() } = {}) {
   const app = controllers(ctx, new ctx.App());
   app._activity = new Map(Object.entries(acts).map(([id, state]) => [id, { state }]));
   app.findToolLocation = located;
-  app.attnHas = (id) => attn.has(id);
+  app.attn.attnHas = (id) => attn.has(id);
   const agents = ctx.ACTIVITY_SECTIONS.find((s) => s.key === 'agents');
   return { app, badge: (its) => JSON.parse(JSON.stringify(agents.badge(app, its))) };
 }

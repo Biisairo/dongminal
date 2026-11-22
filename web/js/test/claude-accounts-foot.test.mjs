@@ -207,9 +207,9 @@ function footApp(ctx) {
   const app = controllers(ctx, new ctx.App());
   app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
   app._bg = []; app._runsPanel = () => ({});
-  app._agWindowItems = () => [];
-  app.chatUnreadTotal = () => 0;
-  app._agFolded = () => new Set();
+  app.agents._agWindowItems = () => [];
+  app.chat.chatUnreadTotal = () => 0;
+  app.agents._agFolded = () => new Set();
   app._limits = [];
   app._claudeAccts = [];
   return app;
@@ -254,7 +254,7 @@ test('FR-CAC-91: 모양 기본값은 활성 계정만 넓게이고, 바꾼 모�
   const ctx = loadFoot();
   const app = footApp(ctx);
   let rendered = 0;
-  app.agentsRender = () => { rendered++ };
+  app.agents.agentsRender = () => { rendered++ };
   app._claudeAccts = [ACC_A, ACC_B];
   const wide = () => plain(app.agents.list._actItems().at(-1).view.accounts.map((a) => a.wide));
   assert.deepEqual(wide(), [true, false]);
@@ -275,7 +275,7 @@ test('FR-CAC-91: 오버레이는 한 번에 하나 — 같은 칸은 닫고, 다
   const ctx = loadFoot({ apiPost: () => Promise.resolve({ ok: false, status: 409, data: {} }) });
   const app = footApp(ctx);
   let rendered = 0;
-  app.agentsRender = () => { rendered++ };
+  app.agents.agentsRender = () => { rendered++ };
   app._claudeAccts = [ACC_A, ACC_B];
   const pops = () => plain(app.agents.list._actItems().at(-1).view.accounts.map((a) => a.pop));
   assert.deepEqual(pops(), [false, false]);
@@ -434,7 +434,7 @@ function restoreApp(ctx) {
   app._restoreBegin = () => new Set();
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
-  app.agentsRender = () => {};
+  app.agents.agentsRender = () => {};
   return app;
 }
 
@@ -450,14 +450,14 @@ test('FR-CAC-91: 활성 계정이 바뀌면 이전·새 활성 계정의 기억�
   const ctx = loadFoot({ stateFetch: () => Promise.resolve(reply) });
   const app = restoreApp(ctx);
   reply = { ok: true, status: 200, data: { accounts: [{ ...ACC_A, active: true }, { ...ACC_B, active: false }, { ...ACC_B, id: 'c', active: false }] } };
-  await app._claudeAcctRestore();
+  await app.claude._claudeAcctRestore();
   ctx._local.setJson('claudeAcctFold', { a: false, b: false, c: true });
-  await app._claudeAcctRestore();
+  await app.claude._claudeAcctRestore();
   assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctFold')), { a: false, b: false, c: true }, '활성이 그대로면 둔다');
   reply = { ok: true, status: 200, data: { accounts: [{ ...ACC_A, active: false }, { ...ACC_B, active: true }, { ...ACC_B, id: 'c', active: false }] } };
-  await app._claudeAcctRestore();
+  await app.claude._claudeAcctRestore();
   assert.deepEqual(JSON.parse(ctx._local.m.get('claudeAcctFold')), { c: true });
-  const wide = plain(ctx.claudeAcctFootViews(app._claudeAccts, app._claudeAcctFold(), null).map((x) => x.wide));
+  const wide = plain(ctx.claudeAcctFootViews(app._claudeAccts, app.claude._claudeAcctFold(), null).map((x) => x.wide));
   assert.deepEqual(wide, [false, true, true], '새 활성(b)은 넓고, 이전 활성(a)은 기본(좁음)');
 });
 
@@ -465,13 +465,13 @@ test('FR-CAC-122: 복원이 계정 목록을 담고, 503(계정 기능 없음)�
   let reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [ACC_A] } };
   const ctx = loadFoot({ stateFetch: () => Promise.resolve(reply) });
   const app = restoreApp(ctx);
-  await app._claudeAcctRestore();
+  await app.claude._claudeAcctRestore();
   assert.deepEqual(plain(app._claudeAccts.map((a) => a.id)), ['a']);
   reply = { ok: false, status: 0, data: null };
-  await app._claudeAcctRestore();
+  await app.claude._claudeAcctRestore();
   assert.equal(app._claudeAccts.length, 1, '망 실패는 마지막 값을 지우지 않는다');
   reply = { ok: false, status: 503, data: { code: 'claude_accounts_unavailable' } };
-  await app._claudeAcctRestore();
+  await app.claude._claudeAcctRestore();
   assert.equal(app._claudeAccts.length, 0);
 });
 
@@ -484,7 +484,7 @@ test('FR-CAC-91·92: 전환·다음 계정·새로 고침은 서버 종단을 �
     Toast: { show: (m, k) => toasts.push([m, k]) },
   });
   const app = restoreApp(ctx);
-  app._claudeAcctRestore = () => Promise.resolve();
+  app.claude._claudeAcctRestore = () => Promise.resolve();
   await app.claude._claudeAcctSwitch('b');
   await app.claude._claudeAcctSmart('next');
   await app.claude._claudeAcctRefresh('a');
@@ -590,7 +590,7 @@ test('FR-CAC-62·63: 사용은 확인 뒤에만 보내고, 결과를 알린다. 
     Toast: { show: (m, k) => toasts.push([m, k]) },
   });
   const app = restoreApp(ctx);
-  app._claudeAcctRestore = () => Promise.resolve();
+  app.claude._claudeAcctRestore = () => Promise.resolve();
   await app.claude._claudeAcctReset('a', { program: 'cedar_ember', grantId: 'g_1' });
   reply = { ok: true, status: 200, data: { result: 'unconfirmed' } };
   await app.claude._claudeAcctReset('a', { program: 'juniper_tide', grantId: '' });
@@ -608,7 +608,7 @@ test('D-CAC-36: 오버레이를 열고 닫아도 서버에 묻지 않는다', as
   const calls = [];
   const ctx = loadFoot({ apiPost: (p, b) => { calls.push([p, b]); return Promise.resolve({ ok: true, status: 200, data: {} }) } });
   const app = footApp(ctx);
-  app.agentsRender = () => {};
+  app.agents.agentsRender = () => {};
   await app.claude._claudeAcctPopToggle('a');
   await app.claude._claudeAcctPopToggle('a');
   assert.deepEqual(plain(calls), []);
@@ -657,7 +657,7 @@ test('FR-CAC-92: 자동 전환 표식은 목록 응답의 요약에서 온다', 
 
   const reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [ACC_A], autoswitch: { enabled: true, status: 'unmanaged' } } };
   const r = restoreApp(loadFoot({ stateFetch: () => Promise.resolve(reply) }));
-  await r._claudeAcctRestore();
+  await r.claude._claudeAcctRestore();
   assert.deepEqual(plain(r._claudeAcctAuto), { enabled: true, status: 'unmanaged' });
 });
 
@@ -670,7 +670,7 @@ test('FR-CAC-31a·92: 스마트 전환 셋은 전략을 보내고, best 가 머�
     Toast: { show: (m, k) => toasts.push([m, k]) },
   });
   const app = restoreApp(ctx);
-  app._claudeAcctRestore = () => Promise.resolve();
+  app.claude._claudeAcctRestore = () => Promise.resolve();
   for (const s of ['next', 'next-available', 'best']) await app.claude._claudeAcctSmart(s);
   assert.deepEqual(plain(calls.map((c) => c[1])), [{ strategy: 'next' }, { strategy: 'next-available' }, { strategy: 'best' }]);
   assert.equal(toasts.length, 0);
@@ -701,12 +701,12 @@ test('FR-CAC-100a: 알림은 토스트로 뜬다 — 전환은 ok, 나머지는 
   const toasts = [];
   const ctx = loadFoot({ Toast: { show: (m, k) => toasts.push([m, k]) } });
   const app = restoreApp(ctx);
-  app._onClaudeAccountAlert({ kind: 'autoswitch', from: 'ab***@', to: 'Work', trigger: 'proactive' });
-  app._onClaudeAccountAlert({ kind: 'near_limit', name: 'Work', window: 'five_hour' });
-  app._onClaudeAccountAlert({ kind: 'all_exhausted', resetAvailable: true });
-  app._onClaudeAccountAlert({ kind: 'relogin', name: 'ab***@' });
-  app._onClaudeAccountAlert({ kind: 'nonsense' });
-  app._onClaudeAccountAlert(null);
+  app.claude._onClaudeAccountAlert({ kind: 'autoswitch', from: 'ab***@', to: 'Work', trigger: 'proactive' });
+  app.claude._onClaudeAccountAlert({ kind: 'near_limit', name: 'Work', window: 'five_hour' });
+  app.claude._onClaudeAccountAlert({ kind: 'all_exhausted', resetAvailable: true });
+  app.claude._onClaudeAccountAlert({ kind: 'relogin', name: 'ab***@' });
+  app.claude._onClaudeAccountAlert({ kind: 'nonsense' });
+  app.claude._onClaudeAccountAlert(null);
   assert.deepEqual(plain(toasts), [
     ['Switched ab***@ → Work (proactive)', 'ok'],
     ['Work: Current session at the line, nowhere to switch', 'err'],
@@ -746,6 +746,6 @@ test('FR-CAC-93 · FR-MUX-81: statusLine 줄은 등록되지 않은 계정의 �
 
   const reply = { ok: true, status: 200, data: { activeId: 'a', accounts: [a], otherStatusLines: [{ name: 'x***@', ...SLV(1, 1) }] } };
   const r = restoreApp(loadFoot({ stateFetch: () => Promise.resolve(reply) }));
-  await r._claudeAcctRestore();
+  await r.claude._claudeAcctRestore();
   assert.equal(r._claudeAcctOtherSl.length, 1);
 });

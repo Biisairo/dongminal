@@ -44,8 +44,8 @@ class ChatController extends Controller {
       if(r.ok&&r.data) this.app._chat=r.data;
       else if(r.status) this.app._chat={down:(r.data&&r.data.code)||'chat_unavailable'};
       this.app._restoreEnd('chat',flight);
-      if(this.app._chatRepaint) this.app._chatRepaint(); // CHAT_WINDOW_SRS FR-CW-21: 목록은 메인 패널이다
-      this.app._chatViewsPaint();
+      if(this.app.chat.window._chatRepaint) this.app.chat.window._chatRepaint(); // CHAT_WINDOW_SRS FR-CW-21: 목록은 메인 패널이다
+      this.app.chat.views._chatViewsPaint();
     });
   }
 
@@ -56,8 +56,8 @@ class ChatController extends Controller {
     const m=a&&a.msg;
     if(!m||!m.room) return;
     if(!this._chatS().add(m.room,m,this.views._chatRoomShown(m.room))) return;
-    if(this.app._chatRepaint) this.app._chatRepaint();
-    this.app._chatViewsPaint(m.room);
+    if(this.app.chat.window._chatRepaint) this.app.chat.window._chatRepaint();
+    this.app.chat.views._chatViewsPaint(m.room);
   }
 
   _chatRooms(){ return (this.app._chat&&Array.isArray(this.app._chat.rooms))?this.app._chat.rooms:[] }
@@ -213,7 +213,7 @@ class ChatController extends Controller {
     const me=this._chatMe()||{};
     this._chatSeq=(this._chatSeq||0)+1;
     this._chatS().add(roomId,{id:'local-'+this._chatSeq,room:roomId,from:me.id,fromLabel:me.label,fromKind:'user',text,at:Date.now()},true);
-    this.app._chatViewsPaint(roomId);
+    this.app.chat.views._chatViewsPaint(roomId);
     return true;
   }
 
@@ -224,6 +224,3 @@ class ChatController extends Controller {
     await this._chatRestore();
   }
 }
-
-// 바깥(상태 등록부·레이아웃·활동 패널·`ui/sidebar-tab-chat.js`)과 시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'chat',['_chatRestore','_onChatChanged','_onChatMessage','chatUnreadTotal','_chatItems','_addChatTab']);

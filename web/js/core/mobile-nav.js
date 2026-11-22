@@ -21,7 +21,7 @@ class MobileNav extends Controller {
    * 채팅 탭 열기(`chat-window.js` `_chatOpenTab`).
    */
   actSheetLeave(){
-    if(this.app.isMobile&&this.app.agentsPanelOpen()) this.app.setAgentsPanelOpen(false);
+    if(this.app.isMobile&&this.app.agents.agentsPanelOpen()) this.app.agents.setAgentsPanelOpen(false);
   }
 
   /**
@@ -52,8 +52,8 @@ class MobileNav extends Controller {
     const num=document.createElement('span');num.className='m-act-n';num.setAttribute('aria-hidden','true');
     b.append(dot,num);
     b.addEventListener('click',()=>{
-      if(this.app.drawerOpen) this.app._toggleDrawer(false);
-      this.app.actPanelOpen();
+      if(this.app.drawerOpen) this.app.mobile._toggleDrawer(false);
+      this.app.agents.list.actPanelOpen();
     });
     menu.before(b);
     return b;
@@ -61,7 +61,7 @@ class MobileNav extends Controller {
 
   /** FR-MUX-78: 지금 자리의 세그먼트 — 사이드 자리면 그 사이드 탭, 아니면 편집기. */
   mobileRepoSegCur(){
-    return this.app.mobileOnSide()?this.app.edSideOf(this.app.aw()):REPO_SEG_EDITOR.id;
+    return this.app.mobile.mobileOnSide()?this.app.edSideOf(this.app.aw()):REPO_SEG_EDITOR.id;
   }
 
   /**
@@ -79,9 +79,9 @@ class MobileNav extends Controller {
     }
     const regs=s.layout?this.app.flattenPanes(s.layout):[];
     if(!regs.length) return;
-    const off=this.app.mobileSideSlots();
+    const off=this.app.mobile.mobileSideSlots();
     let i=regs.findIndex(p=>p&&p.id===this.app.focused);
-    if(!this.app.mobileOnSide()&&regs.length>1) i=(this.app.mPaneIdx-off+1)%regs.length;
+    if(!this.app.mobile.mobileOnSide()&&regs.length>1) i=(this.app.mPaneIdx-off+1)%regs.length;
     if(i<0) i=0;
     this.app.mPaneIdx=i+off;
     this.app.setFocusState(regs[i].id);
@@ -94,7 +94,7 @@ class MobileNav extends Controller {
    * 감춘다(`_rPaneIndicator`). 그 창에 설 수 없는 사이드 탭은 세그먼트에도 없다.
    */
   mobileRepoSegSync(){
-    const on=this.app.mobileSideSlots()>0;
+    const on=this.app.mobile.mobileSideSlots()>0;
     const seg=document.getElementById('m-repo-seg')||(on?this._mRepoSegEl():null);
     if(!seg) return;
     seg.hidden=!on;
@@ -137,6 +137,3 @@ class MobileNav extends Controller {
     return seg;
   }
 }
-
-// 활동·채팅 창·상태바·`ui/`가 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'mobile.nav',['actSheetLeave','mobileActSync','mobileRepoSegSync']);

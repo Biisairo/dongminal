@@ -316,6 +316,7 @@ test('TC-FEA-2(9a): 갈아 끼운 _edgesRestore·_restore*·_liveOpen·_liveNoti
   const app = new ctx.App();
   app.edges = new ctx.EdgesController(app);
   app.update = new ctx.UpdateController(app);
+  app.chat = { views: {} };
   const log = [];
   // REFACTOR3_FE_DELEG_SRS: 갈아 끼우는 자리는 소유 인스턴스다 — 섹션은 탭 이름으로 찾는다.
   const sections = { edges: {}, profile: {} };
@@ -428,19 +429,9 @@ test('TC-FEA-1(9b): App 생성자가 컨트롤러를 만든다', () => {
   assert.ok(!ctor.includes('this._attnNotifs='), '알림 창 표는 AttnController 가 든다');
 });
 
-test('TC-FEA-1(9b): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
-  const ctx = load9b();
-  const app = new ctx.App();
-  app.attn = {};
-  app.claude = { maps: {} };
-  app.statusbar = {};
-  const seen = [];
-  for (const [path, names] of Object.entries(DELEGATES_9B)) {
-    const target = path.split('.').reduce((o, k) => o[k], app);
-    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
-  }
-  for (const names of Object.values(DELEGATES_9B)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
-  assert.deepEqual(plain(seen), Object.values(DELEGATES_9B).flat().map((n) => [n, 1, 'x']));
+test('TC-DLG-1(DL-6): 9b 의 옛 위임자 이름은 App 원형에 없고 소유 클래스 원형의 메서드다', () => {
+  assertWalked(load9b(), DELEGATES_9B, { attn: 'AttnController', claude: 'ClaudeAccountsController', 'claude.maps': 'ClaudeMaps',
+    statusbar: 'StatusBarController' });
 });
 
 /**
@@ -452,7 +443,7 @@ test('TC-FR2-3: _bgPanelOpen 이 Background 구역을 열고 옛 이름은 남�
   const ctx = load9b();
   const app = new ctx.App();
   const opened = [];
-  app.actPanelOpen = (sec) => opened.push(sec);
+  app.agents = { list: { actPanelOpen: (sec) => opened.push(sec) } };
   const sb = new ctx.StatusBarController(app);
   sb._bgConfirm = 'x'; sb._bgError = 'e';
   sb._bgPanelOpen();
@@ -483,14 +474,14 @@ test('TC-FEA-2(9b): 갈아 끼운 _attnClear·_claudeAcctRestore·updateStatusBa
   app.settings = { section: () => null };   // 설정 섹션을 세우기 전이다 (REFACTOR3_FE_DELEG_SRS D-DLG-4)
   app._attn = new Map([['t1', { reason: 'x' }]]);
   const log = [];
-  app._attnClear = (id, typed) => log.push('clear:' + id + ':' + typed);
+  app.attn._attnClear = (id, typed) => log.push('clear:' + id + ':' + typed);
   const tab = { dataset: { toolid: 't1' } };
   const pane = { querySelector: () => tab };
   app.attn._attnNoteInteraction({ type: 'pointerdown', target: { closest: () => pane } });
-  app._claudeAcctRestore = () => { log.push('acctRestore'); return 'R' };
+  app.claude._claudeAcctRestore = () => { log.push('acctRestore'); return 'R' };
   assert.equal(app.claude._onClaudeAccountsChanged(), 'R');
   app.focusedTerminal = () => ({ id: 'p1', _cwd: '/w' });
-  app.updateStatusBar = () => log.push('status');
+  app.statusbar.updateStatusBar = () => log.push('status');
   app.statusbar.updateCwd();
   assert.deepEqual(log, ['clear:t1:false', 'acctRestore', 'status']);
 });
@@ -581,19 +572,10 @@ test('TC-FEA-1(9c): App 생성자가 컨트롤러를 만든다', () => {
     'this.mobile=new MobileController(this);']) assert.ok(ctor.includes(line), line);
 });
 
-test('TC-FEA-1(9c): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
-  const ctx = load9c();
-  const app = new ctx.App();
-  app.chat = { window: {}, views: {} };
-  app.agents = { sub: {}, list: {} };
-  app.mobile = { nav: {}, sheets: {} };
-  const seen = [];
-  for (const [path, names] of Object.entries(DELEGATES_9C)) {
-    const target = path.split('.').reduce((o, k) => o[k], app);
-    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
-  }
-  for (const names of Object.values(DELEGATES_9C)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
-  assert.deepEqual(plain(seen), Object.values(DELEGATES_9C).flat().map((n) => [n, 1, 'x']));
+test('TC-DLG-1(DL-6): 9c 의 옛 위임자 이름은 App 원형에 없고 소유 클래스 원형의 메서드다', () => {
+  assertWalked(load9c(), DELEGATES_9C, { chat: 'ChatController', 'chat.window': 'ChatWindow', 'chat.views': 'ChatViews',
+    agents: 'AgentsController', 'agents.sub': 'AgentsSub', 'agents.list': 'ActivityList', mobile: 'MobileController',
+    'mobile.nav': 'MobileNav', 'mobile.sheets': 'MobileSheets' });
 });
 
 test('TC-FEA-2(9c): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
@@ -613,16 +595,16 @@ test('TC-FEA-2(9c): 갈아 끼운 _chatRepaint·_chatViewsPaint·_runsPanel·_ac
   const log = [];
   app.chat._chatS = () => ({ add: () => true });
   app.chat.views._chatRoomShown = () => false;
-  app._chatRepaint = () => log.push('chatRepaint');
-  app._chatViewsPaint = (room) => log.push('views:' + room);
+  app.chat.window._chatRepaint = () => log.push('chatRepaint');
+  app.chat.views._chatViewsPaint = (room) => log.push('views:' + room);
   app.chat._onChatMessage({ msg: { room: 'r1' } });
   app._bgRefresh = () => log.push('bg');
   app._runsPanel = () => ({ _runsRefresh: () => log.push('runs') });
-  app._activityRestore = () => log.push('activity');
+  app.agents._activityRestore = () => log.push('activity');
   app.agents.list._actRefresh();
   Object.defineProperty(app, 'isMobile', { value: false });
   app.mobile.drawerSheet = () => ({ close: () => false });
-  app.mobileChromeSync = () => log.push('chrome');
+  app.mobile.sheets.mobileChromeSync = () => log.push('chrome');
   app.mobile._toggleDrawer();
   assert.deepEqual(log, ['chatRepaint', 'views:r1', 'bg', 'runs', 'activity', 'chrome']);
 });
@@ -1001,19 +983,20 @@ test('TC-FEA-2(9g): 갈아 끼운 setFocusState·updateStatusBar·save·_agFocus
   app.ws = { activeWindow: 'w1', windows: [] };
   app._windowFocusOwner = {};
   app._slotIdentity = () => 'me';
-  for (const n of ['clearAllSearchDecorations', 'researchIfOpen', 'updateCwd']) app[n] = () => {};
+  for (const n of ['clearAllSearchDecorations', 'researchIfOpen']) app[n] = () => {};
+  app.statusbar.updateCwd = () => {};
   app.git._gitTermToolId = () => {};
   app.renderer = { _rPaintTitles() {} };
   app.setFocusState = (rid) => log.push('state:' + rid);
-  app.updateStatusBar = () => log.push('status');
+  app.statusbar.updateStatusBar = () => log.push('status');
   app.save = () => log.push('save');
   app.slotFocused = () => { log.push('slot'); return 0 };
   app.setFocus('p2');
   assert.equal(app.prevFocus, 'p2');
   app._attn = new Map([['b', {}]]);
   let cur = 'a';
-  app._agFocusedTool = () => cur;
-  app._attnClear = (id) => log.push('clear:' + id);
+  app.attn._agFocusedTool = () => cur;
+  app.attn._attnClear = (id) => log.push('clear:' + id);
   app.attnFocusSync();
   cur = 'b';
   app.attnFocusSync();
@@ -1577,11 +1560,13 @@ const DELEGATES_9K1 = {
 /** 편집기 묶음이 부르는 다른 묶음의 이름 — App 원형의 대역이다(시험 파일에 `app.X =` 를 늘리지 않는다). */
 class App9k {
   // 다른 묶음의 주인 대역 — 위임자를 걷었으므로 소유 경로에 둔다 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
-  constructor() { this.git = { surfaces: { _gitRescheduleAll() {} }, sync: {} } }
+  constructor() {
+    this.git = { surfaces: { _gitRescheduleAll() {} }, sync: {} };
+    this.mobile = { mobileShowPane() {}, nav: {}, sheets: {} };
+  }
   slotKey(id, slot) { return slot ? id + '@' + slot : id }
   slotBase(key) { return String(key).split('@')[0] }
   _findEditorTab() { return null }
-  mobileShowPane() {}
 }
 
 function load9k1(globals = {}) {

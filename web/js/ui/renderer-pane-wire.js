@@ -51,7 +51,7 @@ Object.assign(Renderer.prototype, {
       const label=el.querySelector('.pn-tab-label');
       const at={x:e.clientX,y:e.clientY};
       // CLAUDE_ACCOUNTS_SRS FR-CAC-85: 계정 기능이 없는 서버면 항목이 없다.
-      const acct=app.claudeTabMenuItem?app.claudeTabMenuItem(c.tab,at):null;
+      const acct=app.claude.maps.claudeTabMenuItem?app.claude.maps.claudeTabMenuItem(c.tab,at):null;
       UIKit.menu([
         {id:'new',label:TAB_MENU_NEW,key:'newTab',disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.addTab(c.pane.id,'terminal')},
         {id:'rename',label:TAB_MENU_RENAME,disabled:c.tab.type===TAB_TYPE_GIT?TAB_MENU_RENAME_GIT_NO:false,

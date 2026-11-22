@@ -41,7 +41,7 @@ class AgentsController extends Controller {
     if(!toolId||!state) return;
     this.app._restoreNote('activity',toolId);   // FR-RSF-4
     if(state===ACTIVITY_STATE.ENDED){ // 종료 → 카드 제거
-      if(this.app._activity.delete(toolId)) this.app.agentsRender();
+      if(this.app._activity.delete(toolId)) this.agentsRender();
       return;
     }
     // FR-AAP-13/21: 기존 항목은 제자리 갱신(순서 불변), 신규는 Map 끝(=최하단)에 추가
@@ -49,7 +49,7 @@ class AgentsController extends Controller {
     // SUBAGENT_USAGE_SRS FR-SAU-25: 서브에이전트 목록도 같다.
     const prev=this.app._activity.get(toolId);
     this.app._activity.set(toolId,{state,tool:tool||'',detail:detail||'',usage:prev&&prev.usage,subagents:prev&&prev.subagents});
-    this.app.agentsRender();
+    this.agentsRender();
   }
 
   // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원
@@ -80,7 +80,7 @@ class AgentsController extends Controller {
       }
       this.app._restoreEnd('activity',flight);
       this._actStaleCount(true);
-      this.app.agentsRender();
+      this.agentsRender();
     }).catch(()=>{this.app._restoreEnd('activity',flight);this._actStaleCount(false)});
   }
 
@@ -104,15 +104,15 @@ class AgentsController extends Controller {
   }
 
   // FR-AAP-11/12: 우측 활동 패널 토글(열림 상태 영속)
-  agentsToggle(){ this.app.actPanel().toggle() }
+  agentsToggle(){ this.app.agents.list.actPanel().toggle() }
 
   /**
    * UX_BATCH12_SRS FR-ACF-1·8: `.open` 은 **펼침**이다. 데스크톱에서 `.open` 이 없으면 레일이고
    * (CSS 가 폭을 덮는다), 모바일에서는 숨는다. 저장 값(`agentsPanelOpen`)의 뜻도 같다. 하는 일은 `ActivityPanel` 이 맡는다.
    */
-  setAgentsPanelOpen(open){ this.app.actPanel().setOpen(open) }
+  setAgentsPanelOpen(open){ this.app.agents.list.actPanel().setOpen(open) }
 
-  agentsPanelOpen(){ return this.app.actPanel().isOpen() }
+  agentsPanelOpen(){ return this.app.agents.list.actPanel().isOpen() }
 
   /**
    * FR-AAP-19 (회복 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-6): 활동 스냅샷의 주기는 **패널이
@@ -151,7 +151,7 @@ class AgentsController extends Controller {
     ord.splice(si,1);
     let ti=ord.indexOf(dr.targetPid);
     if(ti<0){ord.push(dr.pid)}else{if(!dr.before)ti++;ord.splice(ti,0,dr.pid)}
-    this.app.save();this.app.agentsRender();
+    this.app.save();this.agentsRender();
   }
 
   // FR-EM-16: 부팅 시 workspace 트리에 없는 도구 id 를 agentsOrder 에서 제거한다.
@@ -192,7 +192,7 @@ class AgentsController extends Controller {
    * 머리글도 항목으로 다룬다 — 값이 없으므로 한 번 만들면 그대로 남는다.
    */
   agentsRender(){
-    if(this.app.mobileActSync) this.app.mobileActSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-75 — 닫힌 패널은 아래에서 물러선다
+    if(this.app.mobile.nav.mobileActSync) this.app.mobile.nav.mobileActSync();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-75 — 닫힌 패널은 아래에서 물러선다
     if(this.app._workSync) this.app._workSync();   // UX_AUDIT_FIX_SRS FR-UXF-64 — 탭·창 행의 작업 중 표식도 닫힌 패널과 무관하다
     const panel=document.getElementById('agents-panel');
     const body=document.getElementById('agents-body'),footHost=document.getElementById('agents-foot');
@@ -224,7 +224,7 @@ class AgentsController extends Controller {
         // FR-AGG-13: 창 이름은 더 이상 카드가 읽지 않으므로 근거에서도 빠진다 —
         // 창을 옮긴 카드는 **자리**가 바뀌고, 그것은 items 순서가 말한다.
         return [this.app._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
-                this.app.attnHas(it.toolId)?1:0,it.toolId===this.app._agFocusedTool()?1:0,
+                this.app.attn.attnHas(it.toolId)?1:0,it.toolId===this.app.attn._agFocusedTool()?1:0,
                 agentUsageSig(i.usage),agentSubagentsSig(i.subagents)] // FR-ACU-15 · FR-SAU-24 · FR-ASV-37
           .join('\u0001');
       },
@@ -261,14 +261,14 @@ class AgentsController extends Controller {
     // 않는다 (D-9). 순서는 `ws.agentsOrder` 그대로이고, 그룹 안 순서는 그 평면
     // 배열을 창으로 거른 것이다 (D-10).
     const byWin=new Map();
-    for(const toolId of this.app._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
+    for(const toolId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
       const loc=this.app.findToolLocation(toolId);
       if(!loc) continue;
       let g=byWin.get(loc.win.id);
       if(!g) byWin.set(loc.win.id,g=[]);
       g.push({t:'card',toolId,info:this.app._activity.get(toolId),loc});
     }
-    const out=[],fold=this.app._agFolded();
+    const out=[],fold=this._agFolded();
     // FR-AGG-2·3: 그룹 순서는 `ws.windows` 의 순서다. 패널이 따로 갖는 순서가
     // 없으므로 창 순서가 바뀌면 그 자리에서 따라간다.
     // UX_AUDIT_FIX_SRS FR-UXF-110 (D-37): 상태로 자리를 옮기지 않는다 — 승인 대기 끌어올리기(FR-UXF-12)는 철회됐다.
@@ -277,7 +277,7 @@ class AgentsController extends Controller {
       if(!g||!g.length) continue; // FR-AGG-4: 빈 머리는 정보가 아니다
       const folded=fold.has(win.id);
       // FR-AGG-11: 알람 수는 접혀 있어도 보인다 — 접었다고 알람이 사라지면 안 된다.
-      out.push({t:'group',win,attn:g.reduce((n,c)=>n+(this.app.attnHas(c.toolId)?1:0),0),folded});
+      out.push({t:'group',win,attn:g.reduce((n,c)=>n+(this.app.attn.attnHas(c.toolId)?1:0),0),folded});
       if(folded) continue;
       for(const c of g) out.push(c);
     }
@@ -297,10 +297,10 @@ class AgentsController extends Controller {
   }
 
   _agFoldToggle(winId){
-    const f=this.app._agFolded();
+    const f=this._agFolded();
     if(f.has(winId)) f.delete(winId); else f.add(winId);
     PrefStore.local.setJson(STORE_KEYS.agentsGroupFold,Array.from(f));
-    this.app.agentsRender();
+    this.agentsRender();
   }
 
   // FR-AGG-1·10·11·12: 그룹 머리. 창 이름을 말하고, 접히고, 알람 수를 보이고,
@@ -374,7 +374,7 @@ class AgentsController extends Controller {
     // QUALITY_FIX_SRS FR-QFX-3: 메인 패널의 접기(`sb-collapse`)와 같은 큰 단추(30px)다. 이전: 표준(26px).
     const open=this.agentsPanelOpen();
     mkBtn('ui-btn-lg ag-collapse',open?(this.app.isMobile?TIP_PANEL_CLOSE:TIP_PANEL_COLLAPSE):TIP_PANEL_EXPAND,this._agCollapseIcon());   // FR-MUX-17
-    head.querySelector('.ag-collapse').addEventListener('click',e=>{e.stopPropagation();this.app.agentsToggle()});
+    head.querySelector('.ag-collapse').addEventListener('click',e=>{e.stopPropagation();this.agentsToggle()});
     return head;
   }
 
@@ -409,7 +409,7 @@ class AgentsController extends Controller {
   _agCardEl(panel,toolId,info,loc){
     info=info||{};
     const card=document.createElement('div');
-    card.className='ag-card'+(this.app.attnHas(toolId)?' attn':'')+(toolId===this.app._agFocusedTool()?' focused':'');
+    card.className='ag-card'+(this.app.attn.attnHas(toolId)?' attn':'')+(toolId===this.app.attn._agFocusedTool()?' focused':'');
     card.dataset.toolid=toolId;
     // FR-NAM-1·6: 도구 이름은 한 자리에서 온다 — 에이전트 패널이 화면의 탭과
     // 다른 이름을 부르면 어느 도구인지 짚을 수 없다.
@@ -439,7 +439,7 @@ class AgentsController extends Controller {
     // UX_BATCH12_SRS FR-SVL-1: 서브에이전트는 언제나 카드 안의 목록이다 (FR-ASV-34).
     for(const s of subs) card.appendChild(this.sub._agSubagentEl(agentSubagentView(s))); // FR-SAU-20
     // FR-ATA-6: 해제는 jumpToTool 이 한다. PANEL_TEMPLATE_SRS FR-PNT-15: 이동했으면 모바일 시트를 닫는다.
-    card.addEventListener('click',()=>{this.app.jumpToTool(toolId);if(this.app.actSheetLeave)this.app.actSheetLeave()});
+    card.addEventListener('click',()=>{this.app.attn.jumpToTool(toolId);if(this.app.mobile.nav.actSheetLeave)this.app.mobile.nav.actSheetLeave()});
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
     card.draggable=true;
     card.addEventListener('dragstart',e=>{
@@ -462,7 +462,3 @@ class AgentsController extends Controller {
     return card;
   }
 }
-
-// 바깥(상태 등록부·활동 패널·작업·포커스·모바일·`ui/`)과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'agents',['_onToolActivity','_activityRestore','agentsToggle','setAgentsPanelOpen','agentsPanelOpen',
-  '_agentsPanelShown','reorderAgents','_pruneAgentOrder','_agentOrderSync','agentsRender','_agWindowItems','_agFolded']);

@@ -169,7 +169,7 @@ class App {
     // activeWindow 를 덮는다 (FR-WSL-3). 워크스페이스에 없는 창 id 는 그 슬롯만
     // 비운다.
     this._slotsRestore();
-    this._pruneAgentOrder();
+    this.agents._pruneAgentOrder();
     const a=this.aw();
     if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this.setFocusState(f.id, a)}
     this.render();
@@ -391,7 +391,7 @@ class App {
       newTab:()=>this.addTabFocused(),
       closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       // FR-PSC-3 · FR-CHR-15 (D-7): 버튼과 **같은 함수**다.
-      agentsToggle:()=>this.actPanelOpen(),
+      agentsToggle:()=>this.agents.list.actPanelOpen(),
       // FR-WSL-51·74: 버튼과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
       slotAdd:()=>this.slotAdd(),
@@ -461,7 +461,7 @@ class App {
   // FR-SVS-61: 미뤄 둔 그리기가 있으면 이 그리기가 그것을 대신한다 — 지연은
   // "클릭을 삼키지 않기" 위한 것이지 그리기를 빼먹기 위한 것이 아니다.
   // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 창·탭·사이드가 바뀌면 감시 집합도 바뀐다.
-  render(){ this._slotRenderPending=false; this.renderer.render(); this.agentsRender(); this.edWatchSync(); this.focusHighlightSync(); this.attnFocusSync() }
+  render(){ this._slotRenderPending=false; this.renderer.render(); this.agents.agentsRender(); this.edWatchSync(); this.focusHighlightSync(); this.attnFocusSync() }
 
 
   _bind(){ this.inputBinding.bind() }

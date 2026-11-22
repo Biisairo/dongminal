@@ -51,15 +51,15 @@
  */
 const ACTIVITY_SECTIONS=[
   {key:'agents', icon:'bot', title:()=>t('panel.sec_agents'), tip:()=>TIP_ACT_AGENTS, empty:()=>t('attn.no_active_agents'),
-   items:app=>app._agWindowItems(),
+   items:app=>app.agents._agWindowItems(),
    // FR-PCH-81: Agents 는 알람 점이다. 접힌 창도 그룹 머리가 알람 수를 갖는다.
    // UX_AUDIT_FIX_SRS FR-UXF-63: 배지는 작업 중인 수다. 주의가 있으면 종전대로 점이고 수는 말하지 않는다.
    badge:(app,its)=>{const dot=its.some(i=>i.t==='group'&&i.attn>0);return {n:dot||!app.workingToolIds?0:app.workingToolIds().size,dot}},
    badgeWork:true},
   {key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), tip:()=>TIP_ACT_BG, empty:()=>t('bg.empty'),
-   items:app=>app._actBgRows()},
+   items:app=>app.agents.list._actBgRows()},
   {key:'runs', icon:'workflow', title:()=>t('runs.title'), tip:()=>TIP_ACT_RUNS, empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
-   items:app=>app._actRunsRows()},
+   items:app=>app.agents.list._actRunsRows()},
   // CHAT_WINDOW_SRS FR-CW-40 (D-7): Chats 구역은 메인 패널의 `채팅` 탭으로 옮겼다. 이전: 넷째 탭 `chats`.
 ];
 
@@ -187,7 +187,7 @@ class ActivityList extends Controller {
     }
     const out=[{t:'tabs',cur,tabs}].concat(body);
     // FR-ASV-40·43 · FR-CAC-90: Usage 바닥은 늘 맨 끝이고, 계정도 statusLine 값도 없으면 없다.
-    const accounts=claudeAcctFootViews(this.app._claudeAccts,this.app._claudeAcctFold(),this.app._claudeAcctPopId);
+    const accounts=claudeAcctFootViews(this.app._claudeAccts,this.app.claude._claudeAcctFold(),this.app._claudeAcctPopId);
     const sl=statusLineView(this.app._limits,Date.now());
     const acctSl=claudeAcctStatusLines(this.app._claudeAcctOtherSl);   // MOBILE_UX_OVERHAUL_SRS FR-MUX-81
     if(!accounts.length&&!sl&&!acctSl.length) return out;
@@ -247,13 +247,13 @@ class ActivityList extends Controller {
   _actRefresh(){
     this.app._bgRefresh();
     this.app._runsPanel()._runsRefresh();
-    this.app._activityRestore();
+    this.app.agents._activityRestore();
   }
 
   // ── 구역이 주는 항목 ─────────────────────────────────────────────
 
   _actBgRows(){
-    return (this.app._bg||[]).map(b=>({t:'row',sec:'bg',id:b.toolId,el:this.app._bgRow(b)}));
+    return (this.app._bg||[]).map(b=>({t:'row',sec:'bg',id:b.toolId,el:this.app.statusbar._bgRow(b)}));
   }
 
   /** FR-ASV-40·41 · FR-CAC-90~93: Usage 바닥. 계정 머리 줄(자동 전환 표식·전환 메뉴) · 계정 묶음 · 맨 아래 statusLine 줄. */
@@ -272,9 +272,9 @@ class ActivityList extends Controller {
       head.appendChild(domEl('span','cacct-auto'+(view.auto.on?' on':''),view.auto.text));
       // UX_AUDIT_FIX_SRS FR-UXF-100: 메뉴를 여는 꺾쇠는 라벨 뒤의 아이콘이다(이전 카탈로그 글자 `▾`).
       if(view.next) head.appendChild(UIKit.button({label:t('cacct.smart.menu'),kind:'ghost',size:'sm',cls:'cacct-smart',
-        onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this.app._claudeAcctSmartMenu({x:r.left,y:r.bottom})}}))
+        onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this.app.claude._claudeAcctSmartMenu({x:r.left,y:r.bottom})}}))
         .appendChild(UIKit.icon('chevron-down',{size:'sm'}));
-      for(const a of view.accounts) foot.appendChild(this.app._claudeAcctEl(a));
+      for(const a of view.accounts) foot.appendChild(this.app.claude._claudeAcctEl(a));
     }
     // FR-CAC-93 · D-CAC-37: statusLine 은 머리 한 줄 아래 좁은 카드와 같은 줄 모양이다. 오래됨은 흐림·툴팁이다.
     // 계정을 모르는 보고는 이름 칸이 빈 마지막 줄이다.
@@ -298,7 +298,7 @@ class ActivityList extends Controller {
     b.type='button';b.className='ui-btn ui-btn-ghost act-usage-sum';
     b.setAttribute('aria-expanded',String(v.open));
     b.title=v.open?TIP_USAGE_SUM_CLOSE:TIP_USAGE_SUM_OPEN;
-    b.addEventListener('click',e=>{e.stopPropagation();PrefStore.local.setBool(STORE_KEYS.activityUsageOpen,!v.open);this.app.agentsRender()});
+    b.addEventListener('click',e=>{e.stopPropagation();PrefStore.local.setBool(STORE_KEYS.activityUsageOpen,!v.open);this.app.agents.agentsRender()});
     const who=b.appendChild(domEl('span','cacct-who'));
     if(v.color) who.appendChild(domEl('span','cacct-dot')).style.background='var(--'+v.color+')';
     who.appendChild(domEl('span','cacct-name',v.name));
@@ -345,7 +345,3 @@ class ActivityList extends Controller {
     return (rp._runsList||[]).map(rv=>({t:'row',sec:'runs',id:String(rv.id),el:rp._runsRow(rv)}));
   }
 }
-
-// 바깥(모바일·상태바·활동 패널·Claude 계정·`app.js`)과 시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'agents.list',['actPanel','_actTabSelect','actPanelOpen','_actRefresh','_actBgRows','_actCellsEl',
-  '_actUsageWinEl','_actRunsRows']);

@@ -117,7 +117,7 @@ class WsSyncController extends Controller {
     // RUN_VIEW_LIVE_SRS FR-RLV-5: 멤버의 상태 변화는 서버가 `run_changed` 로 알리지 못한다.
     bus.subscribe('tool_activity',a=>this.app._onRunMemberActivity(a),{owner:'app'});
     // CLAUDE_ACCOUNTS_SRS FR-CAC-100a: 계정 알림은 상태가 아니라 사건이다 — 등록부가 아니라 여기서 받는다.
-    bus.subscribe('claude_account_alert',a=>this.app._onClaudeAccountAlert(a),{owner:'app'});
+    bus.subscribe('claude_account_alert',a=>this.app.claude._onClaudeAccountAlert(a),{owner:'app'});
 
     /**
      * ── 다섯 상태는 **등록부에서 파생된다** (FR-HUB-3) ──
@@ -284,7 +284,7 @@ class WsSyncController extends Controller {
     // FR-NAM-5·6: 도구 이름을 부르는 다른 표면도 따라간다. 열려 있을 때만 그린다 —
     // 닫힌 것을 그리면 되살아난다. 둘 다 reconcile 이라 값이 그대로면 DOM 은
     // 손대지 않는다 (FR-RPT-3).
-    if(this.app.agentsRender) this.app.agentsRender();
+    if(this.app.agents.agentsRender) this.app.agents.agentsRender();
   }
 
   /**
@@ -354,14 +354,14 @@ class WsSyncController extends Controller {
     let attnDropped=false;
     for(const [key,p] of Array.from(this.app.tools.entries())){
       const id=this.app.slotBase(key);
-      if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.app.tools.delete(key); if(this.app._attnDrop(id)) attnDropped=true }
+      if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.app.tools.delete(key); if(this.app.attn._attnDrop(id)) attnDropped=true }
     }
     for(const id of Array.from(this.app.toolIds)){
       if(live.has(id)) continue;
       this.app.toolIds.delete(id); this.app._toolsBoot.delete(id);
-      if(this.app._attnDrop(id)) attnDropped=true;
+      if(this.app.attn._attnDrop(id)) attnDropped=true;
     }
-    if(attnDropped) this.app._attnRefresh();
+    if(attnDropped) this.app.attn._attnRefresh();
   }
 
   /** 받은 스냅샷을 이 화면의 규약에 맞춘다. 창을 고쳤으면 참 — 되쓰기의 근거다. */

@@ -72,10 +72,11 @@ test('TC-RD3-80: 서랍을 닫으면 상단바를 다시 그린다', () => {
   });
   let drawn = 0;
   const app = Object.assign(Object.create(c.App.prototype), {
-    isMobile: true, drawerOpen: true, mobileChromeSync() {}, renderer: { _rTopbar: () => { drawn++ } },
+    isMobile: true, drawerOpen: true, renderer: { _rTopbar: () => { drawn++ } },
   });
   app.mobile = new c.MobileController(app);   // REFACTOR3_FE_APPCTL_SRS 9c
-  app._toggleDrawer(false);
+  app.mobile.sheets.mobileChromeSync = () => {};
+  app.mobile._toggleDrawer(false);
   assert.equal(app.drawerOpen, false);
   assert.equal(drawn, 1);
 });

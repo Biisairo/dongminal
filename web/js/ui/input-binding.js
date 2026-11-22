@@ -52,7 +52,7 @@ class InputBinding {
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
     // MOBILE_UX_OVERHAUL_SRS FR-MUX-15: 모바일의 Activity 는 화면 전체를 덮는 시트다 —
     // 되살리면 앱이 그 시트로 시작해 작업 화면이 보이지 않는다.
-    if(!this.app.isMobile&&PrefStore.session.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open');this.app.actPanel().railSync()}
+    if(!this.app.isMobile&&PrefStore.session.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open');this.app.agents.list.actPanel().railSync()}
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다. 폭 손잡이 둘은
      * 그 위에서 다시 한 구현이다 (`_bindWidthHandle`, FR-OPT-16-2 · FEU-17).
@@ -65,7 +65,7 @@ class InputBinding {
       // UX_BATCH12_SRS FR-ACF-6: 사이드바 손잡이(FR-SBC-7)와 같다 — 임계 아래면 레일이다.
       collapse:raw=>{
         const rail=raw<AGENTS_COLLAPSE_AT_PX;
-        if(rail===this.app.agentsPanelOpen()) this.app.setAgentsPanelOpen(!rail);
+        if(rail===this.app.agents.agentsPanelOpen()) this.app.agents.setAgentsPanelOpen(!rail);
         return rail;
       },
       save:w=>PrefStore.session.set(STORE_KEYS.agentsWidth,w),
@@ -94,7 +94,7 @@ class InputBinding {
     sbEl.addEventListener('dragover',e=>{const dr=this.app.drag;if(dr&&dr.type==='tab')e.preventDefault()});
     document.addEventListener('drop',e=>{
       const dr=this.app.drag; if(!dr) return;
-      if(dr.type==='agent'){e.preventDefault();this.app.reorderAgents(dr);return}
+      if(dr.type==='agent'){e.preventDefault();this.app.agents.reorderAgents(dr);return}
     });
     // ISSUE_AGENT_TREE_SRS FR-WGR-24 (개정): 사이드바 목록의 재배치는 **문서 전체**가 받는다 — 포인터가 패널 밖이어도
     // 표시선이 따라오고 그 자리에 놓인다. 캡처인 것은 `.pn-body` 의 drop 이 전파를 끊기 때문이다(아래 패널 도킹과 같은 근거).

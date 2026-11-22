@@ -241,7 +241,7 @@ class LayoutGroups extends Controller {
     if(el&&g) this.app.rename(g,el);
   }
 
-  groupHasAttn(entry){return entry.windows.some(w=>this.app.windowHasAttn(w))}
+  groupHasAttn(entry){return entry.windows.some(w=>this.app.attn.windowHasAttn(w))}
 
   // ── 원격 명령 (REMOTE_ACTIONS) — 회신할 결과를 약속으로 돌려준다 (FR-RCR-6) ──
 

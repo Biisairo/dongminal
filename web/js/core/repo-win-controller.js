@@ -78,7 +78,7 @@ class RepoWinController extends Controller {
     this.app.git.surfaces._gitRescheduleAll();
     this.app.save();
     // FR-RTU-83: 모바일이 사이드에 서 있으면 본문의 칸을 가리켜야 탭이 보인다.
-    this.app.mobileShowPane(rid, { render: true });
+    this.app.mobile.mobileShowPane(rid, { render: true });
     return { uuid: tab.id };
   }
 

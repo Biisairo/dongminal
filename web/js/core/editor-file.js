@@ -45,7 +45,7 @@ class EditorFile extends Controller {
     this.app.switchWindow(w.id);
     // FR-RTU-83: 모바일이 사이드에 서 있으면 본문은 그려지지 않는다. 같은 근거의
     // 나머지 절반이다 — 창을 옮기는 것만으로는 그 칸이 보이지 않는다.
-    this.app.mobileShowPane(rid,{render:true});
+    this.app.mobile.mobileShowPane(rid,{render:true});
     // FR-EGS-10: 검색 결과로 열렸으면 그 줄로 간다. 이미 열려 있던 탭이어도
     // 옮긴다 — 사용자가 고른 것은 파일이 아니라 그 줄이다.
     const ln=(opts||{}).line;

@@ -114,7 +114,7 @@ Object.assign(RunsPanel.prototype, {
   _runsModalToggle(open) {
     if (open === false) return;              // 조회는 남의 동작에 닫히지 않는다
     this._runsErr = null; this._runsConfirm = null; this._runsDelErr = null;
-    this.app.actPanelOpen('runs');
+    this.app.agents.list.actPanelOpen('runs');
   },
 
   // FR-RVZ-3: 목록은 GET /api/runs 다. 대시보드가 쓰는 /graph 와 다른 종단이며,
@@ -153,7 +153,7 @@ Object.assign(RunsPanel.prototype, {
 
   /** 패널이 열려 있으면 다시 그린다. 모달 시절 `_runsModalRender` 가 하던 일이다. */
   _runsPanelPaint() {
-    this.app.agentsRender();
+    this.app.agents.agentsRender();
   },
 
   _runsRow(rv) {
@@ -222,7 +222,7 @@ Object.assign(RunsPanel.prototype, {
       // FR-DEL-3·4: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
       if (this._runsConfirm) { this._runsConfirmSet(null); return }
       this.app.addTab(this.app.focused, 'run', { runId: rv.id, short: rv.short });
-      if (this.app.actSheetLeave) this.app.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
+      if (this.app.mobile.nav.actSheetLeave) this.app.mobile.nav.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
     });
     return row;
   },

@@ -115,15 +115,15 @@ class Renderer {
       this.app.clearAllSearchDecorations();
       this.app.researchIfOpen();
     }
-    this.app.applyMobileMode();
+    this.app.mobile.applyMobileMode();
     this._rSbTabs();this._rLists();this._rTopbar();this._rLayout();this._rPaneIndicator();
     // MOBILE_UX_OVERHAUL_SRS FR-MUX-2: 포커스 칸은 레이아웃이 선 뒤에 확정된다.
-    this.app.mobileChromeSync();
+    this.app.mobile.sheets.mobileChromeSync();
     // UX_BATCH6_SRS FR-SCR-2: 갈무리해 둔 스크롤을 되돌린다. **여기여야 한다** —
     // 요소가 문서에 붙은 뒤에만 `scrollTop` 이 값을 받는다.
     this._restoreScroll();
-    this.app.updateCwd();
-    this.app.updateStatusBar();
+    this.app.statusbar.updateCwd();
+    this.app.statusbar.updateStatusBar();
     // Apply window focus overlay after every render so the DOM is
     // guaranteed to exist (BroadcastChannel may trigger applyFocusOverlay
     // before the first render completes).

@@ -107,7 +107,7 @@ function stubApp(ctx) {
   const app = controllers(ctx, new ctx.App());
   app._activity = new Map();
   app._restoreNote = () => {};
-  app.agentsRender = () => {};
+  app.agents.agentsRender = () => {};
   app._restoreBegin = () => new Set();
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
@@ -119,14 +119,14 @@ test('FR-ACU-17·16: 복원이 usage 를 담고, SSE 덮어쓰기는 그것을 �
   const ctx = loadAgents({ stateFetch: () => Promise.resolve({ ok: true, data: { activities } }) });
   const app = stubApp(ctx);
 
-  await app._activityRestore();
+  await app.agents._activityRestore();
   assert.deepEqual(plain(app._activity.get('t1').usage), FULL);
 
-  app._onToolActivity({ toolId: 't1', state: 'done', tool: '', detail: '' });
+  app.agents._onToolActivity({ toolId: 't1', state: 'done', tool: '', detail: '' });
   assert.equal(app._activity.get('t1').state, 'done');
   assert.deepEqual(plain(app._activity.get('t1').usage), FULL);
 
   activities = [{ toolId: 't1', state: 'done' }];
-  await app._activityRestore();
+  await app.agents._activityRestore();
   assert.equal(app._activity.get('t1').usage, undefined);
 });

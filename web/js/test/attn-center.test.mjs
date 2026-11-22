@@ -63,10 +63,10 @@ function setup() {
   a._attn = new Map();
   a._toolName = (id) => id;
   a._details = {};
-  a._attnDetail = (id) => a._details[id] || '';
   // REFACTOR3_FE_APPCTL_SRS 9b: 센터는 `AttnController` 의 부품 `AttnCenter` 다. 시험은 종전처럼 앱에서 부른다.
   const c = new ctx.AttnCenter(a);
-  a.attn = { center: c, _attnClearAll: () => {} };
+  // 위임자를 걷었으므로 센터는 `app.attn` 의 이름을 부른다 — 시험은 앱의 대역으로 잇는다 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
+  a.attn = { center: c, _attnClearAll: () => {}, _attnDetail: (id) => a._details[id] || '' };
   for (const n of ['_positionAttnCenter', '_attnCenterToggle', '_attnCenterClose', '_attnCenterRender']) a[n] = (...x) => c[n](...x);
   return { a, ...d };
 }
@@ -80,7 +80,7 @@ test('x 한 번에 센터를 한 번 그린다', () => {
   const orig = a._attnCenterRender;
   a._attnCenterRender = function () { renders++; return orig.call(this) };
   // `_attnClear` 는 `_attnRefresh` 를 지나 열린 센터를 다시 그린다 (`AttnController`).
-  a._attnClear = function (id) { this._attn.delete(id); this._attnCenterRender() };
+  a.attn._attnClear = (id) => { a._attn.delete(id); a._attnCenterRender() };
   a._attnCenterRender();
   renders = 0;
   const item = rows(center)[0];

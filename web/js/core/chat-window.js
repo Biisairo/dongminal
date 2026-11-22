@@ -62,8 +62,8 @@ class ChatWindow extends Controller {
     this.app.render();
     this.app.save();
     // PANEL_TEMPLATE_SRS FR-PNT-15 · FR-CW-50: 방을 열었으면 모바일의 시트·서랍을 닫는다.
-    if(this.app.actSheetLeave) this.app.actSheetLeave();
-    if(this.app.isMobile&&this.app.drawerOpen) this.app._toggleDrawer(false);
+    if(this.app.mobile.nav.actSheetLeave) this.app.mobile.nav.actSheetLeave();
+    if(this.app.isMobile&&this.app.drawerOpen) this.app.mobile._toggleDrawer(false);
   }
 
   /** FR-CW-31: 나간 방의 탭을 닫는다. */
@@ -120,11 +120,8 @@ class ChatWindow extends Controller {
   chatPanelRender(){
     const host=document.getElementById('chat-list');
     if(!host||this.app.sbTab!==CHAT_TAB_ID) return;
-    const items=this.app._chatItems();
+    const items=this.app.chat._chatItems();
     if(!items.length) items.push({id:'empty',el:domEl('div','ui-empty chat-none',t('chat.empty'))});
     reconcileList(host,items,{key:it=>it.id,sig:it=>it.el.outerHTML,build:it=>it.el});
   }
 }
-
-// `ui/sidebar-tab-chat.js`·창 정규화(`layout-window-state.js`)·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'chat.window',['chatWindowOpen','_chatNormalize','_chatRepaint','chatPanelRender']);

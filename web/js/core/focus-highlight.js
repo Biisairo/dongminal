@@ -13,9 +13,9 @@ class FocusHighlight extends Controller {
    * 바뀌지 않으면 아무것도 하지 않는다 — 첫 판정·브라우저 복귀·포커스 탭에 새로 선 알람 (FR-ATA-1).
    */
   attnFocusSync(){
-    const cur=this.app._agFocusedTool(),first=this._afcAt===undefined,changed=this._afcAt!==cur;
+    const cur=this.app.attn._agFocusedTool(),first=this._afcAt===undefined,changed=this._afcAt!==cur;
     this._afcAt=cur;
-    if(!first&&changed&&cur&&this.app._attn.has(cur)) this.app._attnClear(cur,false);
+    if(!first&&changed&&cur&&this.app._attn.has(cur)) this.app.attn._attnClear(cur,false);
   }
 
   focusHighlightSync(){

@@ -21,13 +21,13 @@ function setup({ windows, where, order = [] }) {
   app.ws = { windows: windows.map((id) => ({ id })), agentsOrder: order.slice() };
   app._activity = new Map();
   app.findToolLocation = (id) => (where[id] ? { win: { id: where[id] }, tab: { name: id } } : null);
-  app.attnHas = () => false;
+  app.attn.attnHas = () => false;
   return app;
 }
 
 const report = (app, id, state = 'working') => app._activity.set(id, { state });
-const cards = (app) => plain(app._agWindowItems().filter((x) => x.t === 'card').map((x) => x.toolId));
-const groups = (app) => plain(app._agWindowItems().filter((x) => x.t === 'group').map((x) => x.win.id));
+const cards = (app) => plain(app.agents._agWindowItems().filter((x) => x.t === 'card').map((x) => x.toolId));
+const groups = (app) => plain(app.agents._agWindowItems().filter((x) => x.t === 'group').map((x) => x.win.id));
 
 test('TC-UXF-110: 승인 대기여도 카드와 그룹이 자리를 옮기지 않는다', () => {
   const app = setup({ windows: ['w1', 'w2'], where: { a: 'w1', b: 'w1', c: 'w2' }, order: ['a', 'b', 'c'] });

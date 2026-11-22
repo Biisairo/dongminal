@@ -39,9 +39,9 @@ function rig() {
   const app = controllers(ctx, Object.create(ctx.App.prototype, { isMobile: { value: false, writable: true } }));
   app.tools = new Map();
   app.refreshes = 0;
-  app._actRefresh = () => { app.refreshes++ };
-  app.agentsRender = () => {};
-  app._actTabSelect = () => {};
+  app.agents.list._actRefresh = () => { app.refreshes++ };
+  app.agents.agentsRender = () => {};
+  app.agents.list._actTabSelect = () => {};
   return { app, panel: els['agents-panel'] };
 }
 
@@ -55,20 +55,20 @@ test('TC-ARR-2: _runsListRestore 는 Runs 목록을 한 번 다시 받는다', (
 
 test('TC-ARR-3: agentsToggle 로 열면 구역 재조회 한 번, 닫을 때는 없다', () => {
   const { app, panel } = rig();
-  app.agentsToggle();
+  app.agents.agentsToggle();
   assert.equal(panel.classList.contains('open'), true);
   assert.equal(app.refreshes, 1);
-  app.agentsToggle();
+  app.agents.agentsToggle();
   assert.equal(panel.classList.contains('open'), false);
   assert.equal(app.refreshes, 1, '닫을 때 다시 받았다');
 });
 
 test('TC-ARR-4: actPanelOpen 은 닫힌 패널을 열 때도, 열린 패널에서 구역을 바꿀 때도 한 번이다', () => {
   const { app, panel } = rig();
-  app.actPanelOpen('runs');
+  app.agents.list.actPanelOpen('runs');
   assert.equal(panel.classList.contains('open'), true);
   assert.equal(app.refreshes, 1, '닫힌 패널을 열며 두 번 받았다');
-  app.actPanelOpen('bg');
+  app.agents.list.actPanelOpen('bg');
   assert.equal(app.refreshes, 2);
 });
 
@@ -79,21 +79,21 @@ test('TC-ARR-4: actPanelOpen 은 닫힌 패널을 열 때도, 열린 패널에�
 test('FR-ACF-9: _agentsPanelShown — 데스크톱은 늘 참, 모바일은 펼침일 때만', () => {
   const { app } = rig();
   app.isMobile = false;
-  assert.equal(app._agentsPanelShown(), true);
+  assert.equal(app.agents._agentsPanelShown(), true);
   app.isMobile = true;
-  assert.equal(app._agentsPanelShown(), false);
-  app.setAgentsPanelOpen(true);
-  assert.equal(app._agentsPanelShown(), true);
+  assert.equal(app.agents._agentsPanelShown(), false);
+  app.agents.setAgentsPanelOpen(true);
+  assert.equal(app.agents._agentsPanelShown(), true);
 });
 
 test('FR-ACF-6: setAgentsPanelOpen 은 상태를 정하고, 같은 값이면 다시 받지 않는다', () => {
   const { app, panel } = rig();
-  app.setAgentsPanelOpen(true);
-  assert.equal(app.agentsPanelOpen(), true);
+  app.agents.setAgentsPanelOpen(true);
+  assert.equal(app.agents.agentsPanelOpen(), true);
   assert.equal(app.refreshes, 1);
-  app.setAgentsPanelOpen(true);
+  app.agents.setAgentsPanelOpen(true);
   assert.equal(app.refreshes, 1);
-  app.setAgentsPanelOpen(false);
+  app.agents.setAgentsPanelOpen(false);
   assert.equal(panel.classList.contains('open'), false);
-  assert.equal(app.agentsPanelOpen(), false);
+  assert.equal(app.agents.agentsPanelOpen(), false);
 });

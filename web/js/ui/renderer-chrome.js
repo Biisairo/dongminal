@@ -129,7 +129,7 @@ Object.assign(Renderer.prototype, {
     const multi=!app.isMobile&&app.slotCount()>1;
     const top=document.getElementById('window-name');
     if(top) this._rPaintTitle(top,multi?[]:this._rWinTitleParts(app.aw()));
-    app.mTopPaint();   // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일에서 창 이름의 툴팁은 cwd 다
+    app.mobile.mTopPaint();   // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일에서 창 이름의 툴팁은 cwd 다
     if(!multi) return;
     document.querySelectorAll('#area .slot[data-slot] .slot-head').forEach(h=>{
       const i=Number(h.closest('.slot').dataset.slot);
@@ -146,13 +146,13 @@ Object.assign(Renderer.prototype, {
   _rPaneIndicator(){
     const ind=document.getElementById('m-pane-indicator');
     if(!ind) return;
-    const n=this.app.mobilePaneCount();
+    const n=this.app.mobile.mobilePaneCount();
     // FR-MUX-5: 순회할 자리가 둘 이상일 때만 선다. 데스크톱에서는 `.mobile-only` 가 이미 감추므로
     // 속성을 건드리지 않는다 (데스크톱 DOM 은 종전과 같다 — V-LAY-1).
     // FR-MUX-77: 모바일 Repo 창에서는 세그먼트가 그 자리를 갖는다 (`mobileSideSlots()>0` = 모바일 + Repo 창).
     const nav=ind.closest('.m-pane-nav');
-    if(nav) nav.hidden=this.app.isMobile&&(n<=1||this.app.mobileSideSlots()>0);
-    if(this.app.mobileRepoSegSync) this.app.mobileRepoSegSync();
+    if(nav) nav.hidden=this.app.isMobile&&(n<=1||this.app.mobile.mobileSideSlots()>0);
+    if(this.app.mobile.nav.mobileRepoSegSync) this.app.mobile.nav.mobileRepoSegSync();
     if(n<=0){ind.textContent='0/0';return}
     if(this.app.mPaneIdx>=n) this.app.mPaneIdx=n-1;
     if(this.app.mPaneIdx<0) this.app.mPaneIdx=0;

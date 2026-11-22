@@ -28,8 +28,8 @@ class ToolLife extends Controller {
     if(!this.app._restoreLive('background',flight)) return;
     this.app._bg=Array.isArray(r.data.background)?r.data.background:[];
     this.app._restoreEnd('background',flight);
-    this.app.updateStatusBar();
-    this.app._bgPanelPaint();
+    this.app.statusbar.updateStatusBar();
+    this.app.statusbar._bgPanelPaint();
   }
 
   // FR-BGR-7: 복귀 대상 Pane 을 고른다.
@@ -148,12 +148,12 @@ class ToolLife extends Controller {
 
   async _kill(pid){
     this._killToolInstances(pid);
-    if(this.app._attnDrop(pid)) this.app._attnRefresh();
+    if(this.app.attn._attnDrop(pid)) this.app.attn._attnRefresh();
     await apiDel(`/api/tools/${pid}`);
   }
   _killTool(pid){
     this._killToolInstances(pid);
-    if(this.app._attnDrop(pid)) this.app._attnRefresh();
+    if(this.app.attn._attnDrop(pid)) this.app.attn._attnRefresh();
     apiDel(`/api/tools/${pid}`);
   }
 

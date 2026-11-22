@@ -30,7 +30,7 @@ class DrawerSheet extends Panel {
   onClose(){ this.changed() }
 
   changed(){
-    if(this.app.mobileChromeSync) this.app.mobileChromeSync();
+    if(this.app.mobile.sheets.mobileChromeSync) this.app.mobile.sheets.mobileChromeSync();
     if(this._onChange) this._onChange();
   }
 }

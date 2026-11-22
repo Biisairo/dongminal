@@ -71,7 +71,7 @@ test('FR-PCH-86·78: 도우미가 없으면 강제 삭제·강퇴 메뉴가 없�
   const menus = [];
   const ctx = loadHuman(menus);
   const app = controllers(ctx, new ctx.App());
-  app.agentsRender = () => {};
+  app.agents.agentsRender = () => {};
   app._chat = { helper: false, me: { id: 'me' }, rooms: [{ id: 'r1', kind: 'group', name: 'ops', people: [] }] };
   app.chat.human._chatRoomCtx('r1', ev({}));
   app.chat.human._chatPersonCtx({ roomId: 'r1', sel: new Set(), people: [] }, { id: 'p1', label: 'x' }, ev({}));

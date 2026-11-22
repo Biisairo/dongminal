@@ -126,17 +126,17 @@ function stubPanelApp(ctx, subagents) {
   const app = controllers(ctx, new ctx.App());
   app._activity = new Map([['t1', { state: 'working', subagents }]]);
   app.ws = { windows: [{ id: 'w1', name: 'W' }] };
-  app._agentOrderSync = () => ['t1'];
+  app.agents._agentOrderSync = () => ['t1'];
   app.findToolLocation = () => ({ win: { id: 'w1' }, tab: { name: 'tab' } });
-  app.attnHas = () => false;
-  app.agentsRender = () => {};
+  app.attn.attnHas = () => false;
+  app.agents.agentsRender = () => {};
   return app;
 }
 
 test('UX_BATCH12 FR-SVL-1·2: 서브에이전트는 카드 안의 목록이고 하위 카드 항목이 없다', () => {
   const ctx = loadActivity();
   const app = stubPanelApp(ctx, [SUB, { ...SUB, id: 'a2' }]);
-  assert.deepEqual(plain(app._agWindowItems().map((i) => i.t)), ['group', 'card']);
+  assert.deepEqual(plain(app.agents._agWindowItems().map((i) => i.t)), ['group', 'card']);
   assert.equal(app._agSubView, undefined, '보기 전환이 남아 있다');
   assert.equal(app._agSubViewToggle, undefined);
   assert.equal(app._agSubFoldToggle, undefined);
@@ -147,7 +147,7 @@ test('UX_BATCH12 FR-SVL-3: 남아 있는 agentsSubView 값은 읽지 않고 지�
   const ctx = loadActivity();
   ctx._local.set('agentsSubView', 'tree');
   const app = stubPanelApp(ctx, [SUB]);
-  assert.deepEqual(plain(app._agWindowItems().map((i) => i.t)), ['group', 'card']);
+  assert.deepEqual(plain(app.agents._agWindowItems().map((i) => i.t)), ['group', 'card']);
   assert.equal(ctx._local.get('agentsSubView'), null);
 });
 
@@ -156,7 +156,7 @@ test('UX_BATCH12 FR-SVL-3: 남아 있는 agentsSubView 값은 읽지 않고 지�
 test('FR-ASV-36: SSE 는 같은 id 의 원소를 바꾸고, 없으면 끝에 더하고, main 이 없으면 버린다', () => {
   const ctx = loadActivity();
   const app = stubPanelApp(ctx, [{ ...SUB }]);
-  app._onToolSubagentActivity({ toolId: 't1', agentId: 'a1', agentType: 'Explore', state: 'waiting', tool: 'Bash', detail: 'rm' });
+  app.agents.sub._onToolSubagentActivity({ toolId: 't1', agentId: 'a1', agentType: 'Explore', state: 'waiting', tool: 'Bash', detail: 'rm' });
   const s = app._activity.get('t1').subagents;
   assert.equal(s.length, 1);
   assert.equal(s[0].state, 'waiting');
@@ -164,11 +164,11 @@ test('FR-ASV-36: SSE 는 같은 id 의 원소를 바꾸고, 없으면 끝에 더
   assert.equal(s[0].detail, 'rm');
   assert.equal(s[0].model, 'claude-haiku-5-5');
 
-  app._onToolSubagentActivity({ toolId: 't1', agentId: 'n1', agentType: 'Plan', state: 'working', tool: '', detail: '' });
+  app.agents.sub._onToolSubagentActivity({ toolId: 't1', agentId: 'n1', agentType: 'Plan', state: 'working', tool: '', detail: '' });
   assert.deepEqual(plain(app._activity.get('t1').subagents.map((x) => x.id)), ['a1', 'n1']);
   assert.equal(app._activity.get('t1').subagents[1].agentType, 'Plan');
 
-  app._onToolSubagentActivity({ toolId: 'nope', agentId: 'a1', state: 'working' });
+  app.agents.sub._onToolSubagentActivity({ toolId: 'nope', agentId: 'a1', state: 'working' });
   assert.equal(app._activity.has('nope'), false);
 });
 
@@ -207,9 +207,9 @@ test('FR-ASV-40·43: Usage 는 구역이 아니라 맨 끝의 바닥이고, 한�
   const app = controllers(ctx, new ctx.App());
   app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
   app._bg = []; app._runsPanel = () => ({});
-  app._agWindowItems = () => [];
-  app.chatUnreadTotal = () => 0;
-  app._agFolded = () => new Set();
+  app.agents._agWindowItems = () => [];
+  app.chat.chatUnreadTotal = () => 0;
+  app.agents._agFolded = () => new Set();
   app._limits = [];
   assert.equal(app.agents.list._actItems().some((i) => i.t === 'foot'), false);
   app._limits = [{ agent: 'claude', observedAt: Date.now(), windows: [{ name: 'five_hour', usedPct: 1, level: '' }] }];
@@ -225,7 +225,7 @@ test('FR-ASV-21·44: 복원이 limits 를 담는다', async () => {
   app._restoreBegin = () => new Set();
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
-  app.agentsRender = () => {};
-  await app._activityRestore();
+  app.agents.agentsRender = () => {};
+  await app.agents._activityRestore();
   assert.deepEqual(plain(app._limits), limits);
 });

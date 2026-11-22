@@ -49,6 +49,6 @@ class AttnClaim extends Controller {
       if(res&&res.ok&&res.data&&Array.isArray(res.data.granted)) granted=res.data.granted;
     }
     if(granted.includes('banner')) this.app.attn._attnDesktopNotify(reason,toolId); // FR-PAN-13a
-    if(granted.includes('sound')) this.app._attnBeep(); // FR-PAN-13c
+    if(granted.includes('sound')) this.app.attn._attnBeep(); // FR-PAN-13c
   }
 }

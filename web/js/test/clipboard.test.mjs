@@ -94,14 +94,14 @@ test('복사창은 한 번에 하나다 (FR-ETR-41)', async () => {
 
 test('보고 있지 않은 도구의 복사는 창을 띄우지 않는다 (FR-ETR-44)', async () => {
   const { ctx } = ctxWith({ writeText: null, exec: () => false });
-  ctx.app = { attnUserIsWatching: () => false };
+  ctx.app = { attn: { attnUserIsWatching: () => false } };
   assert.equal(await ctx.ClipboardWriter.write('x', 'tool-9'), false);
   assert.equal(ctx.ClipboardWriter._cur, null, '엉뚱한 창에 복사창이 섰다');
 });
 
 test('toolId 가 없으면 게이트가 걸리지 않는다 — 사용자가 부른 복사다', async () => {
   const { ctx } = ctxWith({ writeText: null, exec: () => false });
-  ctx.app = { attnUserIsWatching: () => false };
+  ctx.app = { attn: { attnUserIsWatching: () => false } };
   await ctx.ClipboardWriter.write('x');
   assert.ok(ctx.ClipboardWriter._cur);
 });

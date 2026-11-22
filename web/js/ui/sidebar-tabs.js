@@ -63,7 +63,7 @@ const SB_TAB_DEFS=[
     // **무엇의** 목록인지 처음 보는 사용자에게 보이지 않는다.
     title:'Terminal windows in this workspace',
     // FR-SBT-13: 알람이 있는 창 수. `.si.attn` 이 목록 안에서만 알리던 것을 탭까지 끌어올린다.
-    badge:app=>app.git.plainWindows().filter(s=>app.windowHasAttn(s)).length,
+    badge:app=>app.git.plainWindows().filter(s=>app.attn.windowHasAttn(s)).length,
     // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `gitBackTarget`
     // 한 자리다 (FR-SBT-36).
     onActivate:app=>{const w=app.git.gitBackTarget();if(w)app.switchWindow(w.id)},
@@ -96,7 +96,7 @@ const SB_TAB_DEFS=[
         cls:s.groupId?'si-in-group':'',
         active:s.id===app.ws.activeWindow,
         // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시.
-        attn:app.windowHasAttn(s),
+        attn:app.attn.windowHasAttn(s),
         work:app.windowWorkDot(s),   // UX_AUDIT_FIX_SRS FR-UXF-62
         // SANDBOX_WINDOW_SRS: 격리된 창임을 목록에서 구분한다. 어느 창이
         // 샌드박스인지 알 수 없으면 사용자가 격리를 신뢰할 근거가 없다.
@@ -129,7 +129,7 @@ const SB_TAB_DEFS=[
         // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
         // FR-AGG-3: agents 패널의 그룹 순서는 이 배열에서 파생하므로(D-9) 같은
         // 자리에서 다시 그린다 — 폴링을 기다리면 방금 만든 순서를 한 박자 늦게 본다.
-        commit:app=>{app.save();if(app.agentsRender)app.agentsRender()},
+        commit:app=>{app.save();if(app.agents.agentsRender)app.agents.agentsRender()},
       },
     },
   },
@@ -240,7 +240,7 @@ const SB_TAB_DEFS=[
               :(stale?t('git.badge_stale',{at:new Date(b.observedAtUnixMs).toLocaleTimeString()}):''),
           }:null,
           // CLAUDE_ACCOUNTS_SRS FR-CAC-96: 저장소 루트에 적용되는 폴더 연결의 계정.
-          chip:app.claudeRepoChip?app.claudeRepoChip(e.path):null,
+          chip:app.claude.maps.claudeRepoChip?app.claude.maps.claudeRepoChip(e.path):null,
           fixed:pinned,
           removable:!pinned,
           dataset:{edRoot:e.path,gitRepo:e.path},

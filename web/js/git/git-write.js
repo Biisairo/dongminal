@@ -301,7 +301,7 @@ class GitWrite extends GitPart {
     // 결과에 영향을 주지 않으므로 모든 칸이 함께 바뀐다.
     this.p.obs.paintAll();
     this.app.git.sync.gitReposRefresh();
-    this.app.updateStatusBar();
+    this.app.statusbar.updateStatusBar();
   }
 
   /**

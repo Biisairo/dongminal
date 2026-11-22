@@ -21,7 +21,7 @@ class NotifySection extends SettingsSection {
       });
     }
     // TLS-1: 동작할 수 없는 환경이면 **끄고 사유를 말한다.**
-    app._attnSecurityNotice();
+    app.attn._attnSecurityNotice();
     const sd=document.getElementById('attn-sound');
     if(sd){
       sd.checked=app.attnSound;

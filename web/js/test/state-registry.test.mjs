@@ -31,7 +31,7 @@ test('tool.activity 주기는 패널이 열렸거나 알림이 있을 때만 돈
     timers: { every: (spec) => jobs.push(spec) },
     agentsPollMs: 5000,
     _attn: new Map(),
-    _agentsPanelShown: () => open,
+    agents: { _agentsPanelShown: () => open },
   };
   ctx.wireStateRegistry(app);
   const job = jobs.find((j) => j.id === 'tool.activity');
@@ -125,8 +125,7 @@ test('run.list 주기는 패널이 열려 있을 때만 활동 주기로 목록�
     timers: { every: (spec) => jobs.push(spec) },
     agentsPollMs: 1234,
     _attn: new Map([['t1', { reason: 'signaled' }]]),
-    _agentsPanelShown: () => open,
-    _runsListRestore: () => { calls++ },
+    _runsListRestore: () => { calls++ }, agents: { _agentsPanelShown: () => open },
   };
   ctx.wireStateRegistry(app);
   const job = jobs.find((j) => j.id === 'run.list');
@@ -165,8 +164,7 @@ test('tool.background 주기는 패널이 열려 있을 때만 활동 주기로 
     timers: { every: (spec) => jobs.push(spec) },
     agentsPollMs: 4321,
     _attn: new Map(),
-    _agentsPanelShown: () => open,
-    tool: { life: { _bgRefresh: () => { calls++ } } },
+    tool: { life: { _bgRefresh: () => { calls++ } } }, agents: { _agentsPanelShown: () => open },
   };
   ctx.wireStateRegistry(app);
   const job = jobs.find((j) => j.id === 'tool.background');
@@ -193,7 +191,7 @@ test('TC-ACF-5: Activity 의 세 주기는 패널이 보이는 동안 돈다', (
     agentsPollMs: 1000,
     _attn: new Map(),
     _agentsPanelOpen: () => false,
-    _agentsPanelShown: () => shown,
+    agents: { _agentsPanelShown: () => shown },
   };
   ctx.wireStateRegistry(app);
   for (const id of ['tool.activity', 'run.list', 'tool.background']) {

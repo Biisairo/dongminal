@@ -151,7 +151,7 @@ class EditorDocRender extends Controller {
       this.app.paneTabSet(ex.pane, ex.tab.id);
       this.app.setFocusState(ex.pane.id, s);
       // FR-RTU-83: 모바일 순회가 그 칸을 가리켜야 렌더 탭이 화면에 온다.
-      this.app.mobileShowPane(ex.pane.id);
+      this.app.mobile.mobileShowPane(ex.pane.id);
       this.app.render();
       this.app.save();
       return;
@@ -173,7 +173,7 @@ class EditorDocRender extends Controller {
     // 것이 아니므로 탭을 다시 찾아 그 자리를 가리킨다 — 순회에서 `옆 칸` 은 다음
     // 자리이고, 그리로 가지 않으면 미리보기는 열리고도 보이지 않는다.
     const put = this._findRenderTab(filePath);
-    if (put) this.app.mobileShowPane(put.pane.id, {render:true});
+    if (put) this.app.mobile.mobileShowPane(put.pane.id, {render:true});
   }
 
   /**

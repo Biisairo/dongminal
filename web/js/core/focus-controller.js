@@ -47,14 +47,14 @@ class FocusController extends Controller {
        * `mobileShowPane` 을 직접 부른다 (`edOpenFile`·`openView`·
        * `_docRenderOpen`). 여기는 그 함수의 **포커스 경로**일 뿐이다.
        */
-      if(moved && this.app.isMobile && this.app.mobileOnSide&&this.app.mobileOnSide()){
-        this.app.mobileShowPane(rid);
+      if(moved && this.app.isMobile && this.app.mobile.mobileOnSide&&this.app.mobile.mobileOnSide()){
+        this.app.mobile.mobileShowPane(rid);
       }
       // ATTENTION_FIRING_SRS FR-ATA-1: 포커스는 더 이상 해제가 아니다. 여기
       // 있던 `_attnClearFocused()` 가 "사용자가 보기 전에 알람이 사라진다" 의
       // 마지막 고리였다 — 해제는 `_attnNoteInteraction` 한 자리에서만 온다.
     }
-    this.app.agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
+    this.app.agents.agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
     this._persistFocusedPanes();
     // M9_SRS FR-M9-24: **보던 자리의 기록은 여기 한 자리에서 난다.** 창 전환도
     // 탭 전환도 칸 포커스도 전부 이 함수를 지난다 — 진입점마다 적으면 한쪽만
@@ -250,11 +250,11 @@ class FocusController extends Controller {
       el.classList.toggle('focused',el.dataset.paneid===rid);
     });
     this.app.researchIfOpen();
-    this.app.updateCwd();
+    this.app.statusbar.updateCwd();
     // FR-FLW-3: 목록은 핀에서만 오므로 포커스와 무관하다 — 여기서 새로 조회하지
     // 않는다. `+ Add` 가 딛는 마지막 터미널만 갱신한다 (D-FLW-6).
     this.app.git._gitTermToolId();
-    this.app.updateStatusBar();
+    this.app.statusbar.updateStatusBar();
     // ISSUE_TREE_OPS_SRS FR-ITW-4: 제목에 포커스 탭 이름이 있으므로 포커스를 따라간다.
     this.app.renderer._rPaintTitles();
     this.app.save();

@@ -73,7 +73,7 @@ class ActivityTabBar extends TabBar {
     if(bd.dot){ if(!dot) b.appendChild(domEl('span','ag-tab-dot')) }else if(dot) dot.remove();
   }
 
-  render(){ this.app.agentsRender() }
+  render(){ this.app.agents.agentsRender() }
 
   /**
    * UX_AUDIT_FIX_SRS FR-UXF-121 (D-41): 탭마다 보던 자리로 돌아온다 — 메인 패널과 같은 규칙이다.
@@ -89,13 +89,13 @@ class ActivityTabBar extends TabBar {
   }
 
   canFold(){ return true }
-  isFolded(){ return !this.app.agentsPanelOpen() }
-  setFolded(v){ this.app.setAgentsPanelOpen(!v) }
+  isFolded(){ return !this.app.agents.agentsPanelOpen() }
+  setFolded(v){ this.app.agents.setAgentsPanelOpen(!v) }
 
   /** FR-ARR-5: 열린 패널에서 다른 구역으로 가면 그 목록을 다시 받는다. 닫혀 있었으면 여는 길이 받는다. */
   jump(n){
     const d=this.defs()[n-1];
-    if(d&&!this.isFolded()&&this.current!==d.id) this.app._actRefresh();
+    if(d&&!this.isFolded()&&this.current!==d.id) this.app.agents.list._actRefresh();
     super.jump(n);
   }
 }

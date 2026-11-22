@@ -79,8 +79,8 @@ const ClipboardWriter={
   _watchedHere(toolId){
     if(!toolId) return true;
     const app=(typeof window!=='undefined')?window.app:null;
-    if(!app||typeof app.attnUserIsWatching!=='function') return true;
-    return !!app.attnUserIsWatching(toolId);
+    if(!app||typeof app.attn.attnUserIsWatching!=='function') return true;
+    return !!app.attn.attnUserIsWatching(toolId);
   },
 
   /**

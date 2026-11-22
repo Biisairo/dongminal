@@ -119,7 +119,7 @@ const SETTINGS_ACCESS={
   attnEdgeLevel:{get:()=>attnEdgeLevel,set(v){
     attnEdgeLevel=v;
     this._paintAttnEdge();
-    this._attnRefresh();
+    this.attn._attnRefresh();
   }},
   // SYSTEM_THEME_FOLLOW_SRS FR-STF-1·THEME_SEED_COLOR_SRS FR-SEED-1: 얹는 것은 값뿐이다 — 어느 테마를 어떻게 적용할지는 `_settingsApply` 가 정한다 (`_applyThemeChoice`).
   themeFollowSystem:{get:()=>themeFollowSystem,set(v){themeFollowSystem=!!v}},

@@ -63,7 +63,7 @@ class AgentsSub extends Controller {
     if(i>=0) list[i]={...list[i],...upd};
     else list.push({id:agentId,agentType:agentType||'',...upd});
     this.app._activity.set(toolId,{...info,subagents:list});
-    this.app.agentsRender();
+    this.app.agents.agentsRender();
   }
 
   /** FR-ASV-31: 서브에이전트 머리 — (↳) · 종류 · 상태. */
@@ -93,6 +93,3 @@ class AgentsSub extends Controller {
     return row;
   }
 }
-
-// 상태 등록부가 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'agents.sub',['_onToolSubagentActivity']);

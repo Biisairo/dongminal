@@ -18,7 +18,7 @@ function pane(mods = {}) {
     expose: ['TerminalTool', 'TIMERS', 'TERM_REPORT_RE', 'OP'],
   });
   const modKbd = Object.assign({ ctrl: false, alt: false }, mods);
-  ctx.app = { resizeCheck: () => true, isMobile: true, modKbd, mkbRefresh() {} };
+  ctx.app = { resizeCheck: () => true, isMobile: true, modKbd, mobile: { mkbRefresh() {} } };
   const p = new ctx.TerminalTool('t1', 'tool');
   // 보낸 **문자열**만 붙잡는다 — 인코딩은 이 검사의 관심이 아니다.
   p.sentText = [];

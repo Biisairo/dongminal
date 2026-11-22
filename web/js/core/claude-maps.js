@@ -255,7 +255,3 @@ function claudeAcctChipEl(c){
   s.style.setProperty('--cacct-c','var(--'+c.color+')');
   return s;
 }
-
-// `ui/`(탭 틴트·탭 메뉴·Repo 칩·Explorer 칩·폴더 메뉴·cwd 알림)가 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'claude.maps',['claudeTabTint','claudeOnCwd','claudeRepoChip','claudeFolderChip','claudeTabMenuItem',
-  'claudeFolderMenu']);

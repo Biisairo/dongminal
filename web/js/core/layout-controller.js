@@ -386,7 +386,7 @@ class LayoutController extends Controller {
 
   switchWindow(sid){
     if(this.app.ws.activeWindow===sid){
-      if(this.app.isMobile && this.app.drawerOpen) this.app._toggleDrawer(false);
+      if(this.app.isMobile && this.app.drawerOpen) this.app.mobile._toggleDrawer(false);
       return;
     }
     const cur=this.app.aw();if(cur)cur.focusedPane=this.app.focused;
@@ -410,7 +410,7 @@ class LayoutController extends Controller {
       this.app.setFocusState(next, a);
     } else this.app.focusClear();
     this.app.mPaneIdx=0;
-    if(this.app.isMobile && this.app.drawerOpen) this.app._toggleDrawer(false);
+    if(this.app.isMobile && this.app.drawerOpen) this.app.mobile._toggleDrawer(false);
     this.app._focusWindow(sid);
     // FR-GIT-22 + FR-RTU-62: 창 전환은 폴링 조건의 재평가 시점이다. **모든
     // 패널**이 다시 본다 — 떠난 창의 패널이 타이머를 든 채 남으면 아무도 보지

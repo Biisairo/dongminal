@@ -11,10 +11,10 @@ function rig() {
   const ctx = load([...BASE, ...FOCUS], { globals: { App: class {} } });
   const app = controllers(ctx, new ctx.App());   // REFACTOR3_FE_APPCTL_SRS 9g: 하이라이트는 `focus.hl`
   app.cur = '';
-  app._agFocusedTool = () => app.cur;
+  app.attn._agFocusedTool = () => app.cur;
   app._attn = new Map();
   app.cleared = [];
-  app._attnClear = (id, typed) => { app.cleared.push([id, typed]); app._attn.delete(id) };
+  app.attn._attnClear = (id, typed) => { app.cleared.push([id, typed]); app._attn.delete(id) };
   return app;
 }
 

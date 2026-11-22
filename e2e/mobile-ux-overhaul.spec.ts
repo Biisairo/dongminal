@@ -110,7 +110,7 @@ test.describe('전체 높이 시트 (FR-MUX-10~14)', () => {
 
   test('TC-MUX-7: Activity 는 화면 전체를 덮고 Escape 로 닫힌다', async ({ page }) => {
     await mobile(page);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const panel = page.locator('#agents-panel');
     await expect(panel).toHaveClass(/open/);
     // PANEL_TEMPLATE_SRS FR-PNT-11: 시트는 오른쪽에서 미끄러져 들어온다 — 전환이 끝난 자리를 잰다.
@@ -137,7 +137,7 @@ test.describe('전체 높이 시트 (FR-MUX-10~14)', () => {
     await page.locator('#drawer-close').click();
     await expect(page.locator('#mobile-keybar')).toBeVisible();
 
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     await expect(page.locator('#mobile-keybar')).toBeHidden();
     await expect(page.locator('#status-bar')).toBeHidden();
     await page.keyboard.press('Escape');
@@ -343,7 +343,7 @@ test.describe('2차 — 사용량 한 줄 요약 (FR-MUX-70~73)', () => {
   test('TC-MUX-20·21: 모바일 바닥은 요약 한 줄이고, 누르면 펼쳐지고 다시 누르면 접힌다', async ({ page }) => {
     await mockAccounts(page);
     await mobile(page);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const foot = page.locator('#agents-foot');
     const sum = foot.locator('.act-usage-sum');
     await expect(sum).toHaveCount(1, { timeout: 10000 });
@@ -369,7 +369,7 @@ test.describe('2차 — 사용량 한 줄 요약 (FR-MUX-70~73)', () => {
   test('TC-MUX-22·28·29: 데스크톱 바닥은 펼친 채 시작하고, 색 띠는 단색·사용 중은 테두리 없음·등록 계정 statusLine 줄 없음', async ({ page }) => {
     await mockAccounts(page);
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const foot = page.locator('#agents-foot');
     await expect(foot.locator('.cacct')).toHaveCount(3, { timeout: 10000 });
     // UX_AUDIT_FIX_SRS FR-UXF-73·74 로 개정: 이전 — 데스크톱 바닥에는 요약 줄이 없었다 / 지금 — 요약 줄이 있고 저장값이

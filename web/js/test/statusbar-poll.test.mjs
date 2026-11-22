@@ -25,9 +25,10 @@ function setup() {
   const app = {
     _stats: { cpu: 1 }, _latency: 5,
     git: { sync: { _gitJobsBegin: () => 7, _gitJobsSettle: (jt, jobs) => settles.push([jt, jobs]) } },
-    updateStatusBar: () => { updates++ },
   };
   const sb = new ctx.StatusBarController(app);
+  app.statusbar = sb;
+  sb.updateStatusBar = () => { updates++ };
   return { sb, app, calls, clock, settles, updates: () => updates };
 }
 const tick = () => new Promise((r) => setImmediate(r));

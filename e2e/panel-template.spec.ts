@@ -18,7 +18,7 @@ const style = (page: Page, sel: string) => page.locator(sel).first().evaluate((e
 test.describe('데스크톱 — 같은 머리 (FR-PNT-1~8)', () => {
   test('TC-PNT-1·3: 두 머리는 상단바 선에 맞고, Activity 머리는 탭 줄 + 끝 단추 한 줄이다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     await expect(page.locator('#agents-panel')).toHaveClass(/open/);
     const top = await box(page, '#topbar');
     const sb = await box(page, '#sidebar > .ui-panel-head');
@@ -42,7 +42,7 @@ test.describe('데스크톱 — 같은 머리 (FR-PNT-1~8)', () => {
 
   test('TC-PNT-2: 두 패널의 탭은 높이·바탕·글자·활성 표식이 같다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const a = await style(page, '#sb-tabs .ui-panel-tab:not(.active)');
     const b = await style(page, '#agents-panel .ui-panel-tab:not(.active)');
     expect(b).toEqual(a);
@@ -61,7 +61,7 @@ test.describe('데스크톱 — 같은 머리 (FR-PNT-1~8)', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       a.testing.setSidebarCollapsed(true);
-      a.setAgentsPanelOpen(false);
+      a.agents.setAgentsPanelOpen(false);
     });
     await expect(page.locator('#agents-panel')).not.toHaveClass(/open/);
     await expect.poll(async () => (await box(page, '#sidebar')).width).toBe(40);
@@ -214,7 +214,7 @@ test.describe('모바일 Activity — 누른 뒤 (FR-PNT-15~17)', () => {
   test('TC-PNT-12: 데스크톱에서는 에이전트 카드를 눌러도 패널이 열린 채다', async ({ page }) => {
     await waitForInit(page);
     const id = await workingAgent(page);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     await page.locator(`#agents-panel .ag-card[data-toolid="${id}"]`).click();
     await expect(panel(page)).toHaveClass(/open/);
   });

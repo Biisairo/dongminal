@@ -206,7 +206,7 @@ test.describe('window 그룹 · 순서 명령 (ISSUE_AGENT_TREE_SRS)', () => {
     const input = page.locator('#windows .rename-input');
     await expect(input).toBeVisible();
     await page.keyboard.type('Mid');
-    await page.evaluate(() => { const a = (window as any).app; a.windowHasAttn = () => true; a.render() });
+    await page.evaluate(() => { const a = (window as any).app; a.attn.windowHasAttn = () => true; a.render() });
     await expect(input).toBeFocused();
     await page.keyboard.type('Done');
     await page.keyboard.press('Enter');

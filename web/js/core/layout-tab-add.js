@@ -10,7 +10,7 @@
  */
 const TAB_OPENERS=Object.freeze({
   [TAB_TYPE_RUN]:(app,s,pn,rid,o)=>app.layout.tabAdd._addRunTab(s,pn,o),
-  [TAB_TYPE_CHAT]:(app,s,pn,rid,o)=>app._addChatTab(s,pn,o),
+  [TAB_TYPE_CHAT]:(app,s,pn,rid,o)=>app.chat._addChatTab(s,pn,o),
   [TAB_TYPE_GIT]:(app,s,pn,rid,o)=>app.layout.tabAdd._addGitTab(s,pn,o),
   [TAB_TYPE_EDITOR]:(app,s,pn,rid,o)=>app.layout.tabAdd._addEditorTab(s,pn,o),
   [TAB_TYPE_TERMINAL]:(app,s,pn,rid,o)=>app.layout.tabAdd._addTerminalTab(s,pn,rid,o),

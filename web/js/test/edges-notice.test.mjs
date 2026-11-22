@@ -45,6 +45,7 @@ function setup(extra = {}) {
   const app = new ctx.App();
   // REFACTOR3_FE_APPCTL_SRS 9a: 간선 읽기·알림은 `EdgesController`, 패널의 기준은 `SettingsLive` 다.
   app.edges = new ctx.EdgesController(app);
+  app.chat = { views: {} };
   // 섹션은 탭 이름으로 찾는다 (REFACTOR3_FE_DELEG_SRS D-DLG-4). 간선 칠하기는 막아 둔다.
   const sections = { edges: { _edgesPaint() {} }, profile: { _pfFollow() {} } };
   app.settings = { live: new ctx.SettingsLive(app), apply: {}, saveState: {}, section: (t) => sections[t] || null };

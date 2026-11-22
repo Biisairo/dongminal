@@ -16,7 +16,7 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 /** REFACTOR3_FE_APPCTL_SRS 9b: 청구는 `AttnController` 의 부품 `AttnClaim` 이다. 시험은 종전처럼 앱에서 부른다. */
 function claim(ctx, a) {
   const c = new ctx.AttnClaim(a);
-  a.attn = { claim: c, _attnDesktopNotify: (...x) => a._attnDesktopNotify(...x) };
+  a.attn = { claim: c, _attnDesktopNotify: (...x) => a._attnDesktopNotify(...x), _attnBeep: a.beep };
   for (const n of ['_attnCanBanner', '_attnCanSound', '_attnAnnounce']) a[n] = (...x) => c[n](...x);
   return a;
 }
@@ -41,7 +41,7 @@ function setup({ desktop = true, blocked = false, permission = 'granted', sound 
   a.attnSound = sound;
   const fired = [];
   a._attnDesktopNotify = (reason, toolId) => fired.push(['banner', reason, toolId]);
-  a._attnBeep = () => fired.push(['sound']);
+  a.beep = () => fired.push(['sound']);   // `claim` 이 `attn._attnBeep` 에 둔다
   claim(ctx, a);
   return { a, posts, fired };
 }

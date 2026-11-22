@@ -144,7 +144,7 @@ class EditorDoc extends Controller {
     d.savedDoc=d.buf.doc;
     this.edDocDirtySync(d);
     for(const v of d.views) if(v&&v.onDocReadOnly) v.onDocReadOnly(d.decodable===false);
-    this.app.updateStatusBar();
+    this.app.statusbar.updateStatusBar();
     return true;
   }
 
@@ -163,7 +163,7 @@ class EditorDoc extends Controller {
     d.encoding='utf-8'; d.bom=false;
     const ok=await this._edDocSaveOnce(filePath,d,ui,{force:true,convertFrom:prev.encoding});
     if(!ok){d.encoding=prev.encoding;d.bom=prev.bom}
-    this.app.updateStatusBar();
+    this.app.statusbar.updateStatusBar();
     return ok;
   }
 

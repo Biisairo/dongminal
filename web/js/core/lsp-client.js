@@ -288,7 +288,7 @@ Object.assign(LspClient.prototype, {
     // UX_AUDIT_FIX_SRS FR-UXF-82: 띠는 언어마다 처음 한 번 선다 — 선 순간 "제안함" 이다.
     this.lspDismiss(s.id);
     if(view.offer) view.offer(s);
-    this.app.updateStatusBar();
+    this.app.statusbar.updateStatusBar();
   },
 
   /**
@@ -300,7 +300,7 @@ Object.assign(LspClient.prototype, {
     const ext=this._lspExtOf(view.filePath);
     if(!ext) return null;
     if(!this._lspStatus){
-      if(!this._lspStatusP) this._lspStatusCached().then(()=>this.app.updateStatusBar());
+      if(!this._lspStatusP) this._lspStatusCached().then(()=>this.app.statusbar.updateStatusBar());
       return null;
     }
     const s=this._lspStatus.find(x=>(x.exts||[]).some(e=>e===ext));

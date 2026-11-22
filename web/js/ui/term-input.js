@@ -169,7 +169,7 @@ Object.assign(TerminalTool.prototype, {
     let changed=false;
     if(mk.ctrl===true){mk.ctrl=false;changed=true}
     if(mk.alt===true){mk.alt=false;changed=true}
-    if(changed && A.mkbRefresh) A.mkbRefresh();
+    if(changed && A.mobile.mkbRefresh) A.mobile.mkbRefresh();
     return out;
   },
 

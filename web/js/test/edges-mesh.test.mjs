@@ -33,6 +33,7 @@ function setup() {
   const app = new ctx.App();
   // REFACTOR3_FE_APPCTL_SRS 9a: 간선 읽기·망 그림·초대는 `EdgesController` 다.
   app.edges = new ctx.EdgesController(app);
+  app.chat = { views: {} };
   // 섹션은 탭 이름으로 찾는다 (REFACTOR3_FE_DELEG_SRS D-DLG-4). 이 시험은 간선 섹션만 세운다.
   const sections = { edges: { _edgesPaint() {} } };
   app.settings = { live: new ctx.SettingsLive(app), apply: {}, section: (t) => sections[t] || null };

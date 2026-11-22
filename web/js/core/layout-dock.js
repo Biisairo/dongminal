@@ -24,7 +24,7 @@ class LayoutDock extends Controller {
     PrefStore.session.setJson(STORE_KEYS.panelDock,n);
     this.applyPanelDock();
     this._dockRefit();
-    this.app.agentsRender();   // UX_BATCH13_SRS FR-ACB-5: 접기 아이콘이 자리를 따른다
+    this.app.agents.agentsRender();   // UX_BATCH13_SRS FR-ACB-5: 접기 아이콘이 자리를 따른다
   }
 
   // FR-PDK-14: 자리가 바뀌면 보이는 터미널의 폭이 바뀐다.
@@ -88,7 +88,7 @@ class LayoutDock extends Controller {
       const el=document.getElementById(id);
       return el&&shown?el.getBoundingClientRect().width:NaN;
     };
-    const open=this.app.agentsPanelOpen(), collapsed=this.app.sidebarCollapsed();
+    const open=this.app.agents.agentsPanelOpen(), collapsed=this.app.sidebarCollapsed();
     return {
       dock:this.app.panelDock(), repoSide:this.app.repoSideDock(),
       sidebarPx:px(SIDEBAR_W_KEY,'sidebar',!collapsed), sidebarCollapsed:collapsed,

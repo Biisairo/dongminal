@@ -28,7 +28,7 @@ class ChatViews extends Controller {
     v.roomId=tab.roomId;
     this._chatViewPaint(v);
     // 탭이 보였다 — 그 방의 안 읽은 수가 0 이 된다. 패널은 그리는 중이 아닐 때 다시 그린다.
-    if(this.app.chat._chatS().read(v.roomId)) TIMERS.defer(()=>{if(this.app._chatRepaint)this.app._chatRepaint()},{owner:this.app,label:'chat-read'});
+    if(this.app.chat._chatS().read(v.roomId)) TIMERS.defer(()=>{if(this.app.chat.window._chatRepaint)this.app.chat.window._chatRepaint()},{owner:this.app,label:'chat-read'});
     return v.root;
   }
 
@@ -171,6 +171,3 @@ function chatClock(ms){
   const d=new Date(ms||0);
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
-
-// `ui/renderer-pane.js`·`EdgesController`·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'chat.views',['chatViewEl','_chatViewsPaint']);

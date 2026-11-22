@@ -101,7 +101,7 @@ function stubApp(ctx) {
   const app = controllers(ctx, new ctx.App());
   app._activity = new Map();
   app._restoreNote = () => {};
-  app.agentsRender = () => {};
+  app.agents.agentsRender = () => {};
   app._restoreBegin = () => new Set();
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
@@ -113,13 +113,13 @@ test('FR-SAU-25: 복원이 subagents 를 담고, SSE 덮어쓰기는 지우지 �
   const ctx = loadAgents({ stateFetch: () => Promise.resolve({ ok: true, data: { activities } }) });
   const app = stubApp(ctx);
 
-  await app._activityRestore();
+  await app.agents._activityRestore();
   assert.deepEqual(plain(app._activity.get('t1').subagents), [RUN]);
 
-  app._onToolActivity({ toolId: 't1', state: 'done', tool: '', detail: '' });
+  app.agents._onToolActivity({ toolId: 't1', state: 'done', tool: '', detail: '' });
   assert.deepEqual(plain(app._activity.get('t1').subagents), [RUN]);
 
   activities = [{ toolId: 't1', state: 'done' }];
-  await app._activityRestore();
+  await app.agents._activityRestore();
   assert.equal(app._activity.get('t1').subagents, undefined);
 });

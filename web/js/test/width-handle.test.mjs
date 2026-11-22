@@ -39,13 +39,11 @@ function world({ local = {}, session = {}, collapsed = false, agOpen = true, doc
   });
   const state = { collapsed, agOpen, fits: 0 };
   const app = {
-    actPanelOpen() {}, tools: new Map([['p', { el: { classList: { contains: () => true } }, sizer: { doFit: () => { state.fits++ } } }]]),
+    tools: new Map([['p', { el: { classList: { contains: () => true } }, sizer: { doFit: () => { state.fits++ } } }]]),
     focusedTerminal: () => null,
     sidebarCollapsed: () => state.collapsed,
     setSidebarCollapsed: (v) => { state.collapsed = v },
-    agentsPanelOpen: () => state.agOpen,
-    setAgentsPanelOpen: (v) => { state.agOpen = v },
-    panelDock: () => dock,
+    panelDock: () => dock, agents: { agentsPanelOpen: () => state.agOpen, setAgentsPanelOpen: (v) => { state.agOpen = v }, list: { actPanelOpen() {} } },
   };
   const ib = new ctx.InputBinding(app);
   const calls = [];

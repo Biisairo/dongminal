@@ -77,7 +77,7 @@ test.describe('5묶음 — 사용량 바닥 (FR-UXF-73~75)', () => {
     await mockAccounts(page);
     await waitForInit(page);
     await page.evaluate(() => localStorage.removeItem('activityUsageOpen'));
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const foot = page.locator('#agents-foot');
     const sum = foot.locator('.act-usage-sum');
     await expect(sum).toHaveAttribute('aria-expanded', 'true', { timeout: 10000 });
@@ -94,7 +94,7 @@ test.describe('5묶음 — 사용량 바닥 (FR-UXF-73~75)', () => {
 
     await page.reload();
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     await expect(foot.locator('.act-usage-sum')).toHaveAttribute('aria-expanded', 'false', { timeout: 10000 });
     await expect(foot.locator('.cacct')).toHaveCount(0);
     await page.evaluate(() => localStorage.removeItem('activityUsageOpen'));
@@ -104,7 +104,7 @@ test.describe('5묶음 — 사용량 바닥 (FR-UXF-73~75)', () => {
     await mockAccounts(page);
     await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
     await page.evaluate(() => localStorage.removeItem('activityUsageOpen'));
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const foot = page.locator('#agents-foot');
     await expect(foot.locator('.act-usage-sum')).toHaveAttribute('aria-expanded', 'false', { timeout: 10000 });
   });
@@ -113,7 +113,7 @@ test.describe('5묶음 — 사용량 바닥 (FR-UXF-73~75)', () => {
     await mockAccounts(page, true);
     await waitForInit(page);
     await page.evaluate(() => localStorage.removeItem('activityUsageOpen'));
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const auto = page.locator('#agents-foot .cacct-auto.on');
     await expect(auto).toBeVisible({ timeout: 10000 });
     const c = await auto.evaluate((e) => {

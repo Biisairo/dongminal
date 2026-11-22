@@ -312,7 +312,7 @@ Object.assign(Renderer.prototype, {
        * 포커스 동기화는 그 자리를 건너뛴다 — 사이드는 분할 트리 밖이라 포커스된
        * pane 이 될 수 없고, 무조건 포커스를 따라가면 사이드에 설 수 없다.
        */
-      const off=app.mobileSideSlots();
+      const off=app.mobile.mobileSideSlots();
       const n=regs.length+off;
       if(app.mPaneIdx>=n) app.mPaneIdx=n-1;
       if(app.mPaneIdx<0) app.mPaneIdx=0;
@@ -382,7 +382,7 @@ Object.assign(Renderer.prototype, {
      * 보인다 (D-RTU-11).
      */
     const mob=app.isMobile;
-    const onSide=mob&&app.mobileOnSide();
+    const onSide=mob&&app.mobile.mobileOnSide();
     const kids=[];
     if(!mob||onSide){
       // REPO_TAB_UNIFY_SRS FR-RTU-12: 사이드는 `Explorer` 와 `Changes` 를 탭으로

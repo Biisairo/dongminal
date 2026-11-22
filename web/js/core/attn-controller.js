@@ -68,7 +68,7 @@ class AttnController extends Controller {
     if(!toolId) return;
     this.app._restoreNote('attn',toolId);   // FR-RSF-4
     this.app._attn.set(toolId,{reason});
-    this.app._attnRefresh();
+    this._attnRefresh();
     // FR-ATD-2: 표식은 모든 창에. 배너·소리는 한 컴퓨터에서 한 번 (attn-claim.js).
     this.claim._attnAnnounce(reason,toolId,seq);
   }
@@ -84,7 +84,7 @@ class AttnController extends Controller {
    */
   attnUserIsWatching(toolId){
     const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
-    return browserFocused&&this.app._isToolFocusedActive(toolId);
+    return browserFocused&&this._isToolFocusedActive(toolId);
   }
 
   _onToolAttentionClear({toolId}={}){
@@ -95,7 +95,7 @@ class AttnController extends Controller {
     this._attnNoteLock(toolId,false);
     this.app._restoreNote('attn',toolId);   // FR-RSF-4
     if(!this.app._attn.delete(toolId)) return;
-    this.app._attnRefresh();
+    this._attnRefresh();
   }
 
   /**
@@ -124,7 +124,7 @@ class AttnController extends Controller {
       for(const pid of live){if(!flight.has(pid)&&!this.app._attn.has(pid))this.app._attn.set(pid,{reason:'signaled'})}
       for(const pid of Array.from(this.app._attn.keys())){if(!live.has(pid)&&!flight.has(pid))this._attnDrop(pid)}
       this.app._restoreEnd('attn',flight);
-      this.app._attnRefresh();
+      this._attnRefresh();
       // FR-ATA-1: 복원도 포커스를 이유로 지우지 않는다. 개정 전에는 FR-ATL-10
       // 이 여기서 "보고 있으면 해제" 를 했으나, 그 규약 자체가 사라졌다 —
       // 해제는 실제 상호작용에서만 온다 (D-1).
@@ -157,7 +157,7 @@ class AttnController extends Controller {
     this.app._attn.delete(toolId);
     this._attnNoteLock(toolId,!!typed);
     apiPost('/api/tools/attention/clear',{toolId,typed:!!typed});
-    this.app._attnRefresh();
+    this._attnRefresh();
   }
 
   /**
@@ -192,7 +192,7 @@ class AttnController extends Controller {
     this.app._restoreVoid('attn');   // FR-RSF-5: 전체 초기화는 id 로 표현되지 않는다
     this.app._attn.clear();
     this.center._attnCenterClose();
-    this.app._attnRefresh();
+    this._attnRefresh();
   }
 
   // FR-PAN-16: 창 layout 안에 주의 상태 pane 이 있는지
@@ -224,7 +224,7 @@ class AttnController extends Controller {
     const toolId=at?at.dataset.toolid:null;
     if(!toolId) return;
     const typed=e.type==='keydown';
-    if(this.app._attn.has(toolId)) this.app._attnClear(toolId,typed);
+    if(this.app._attn.has(toolId)) this._attnClear(toolId,typed);
     else if(typed) this._attnRearm(toolId);
   }
 
@@ -243,7 +243,7 @@ class AttnController extends Controller {
   jumpToTool(toolId){
     const loc=this.app.findToolLocation(toolId);
     if(!loc){this._attnLand(toolId);return}
-    this.app._attnClear(toolId);
+    this._attnClear(toolId);
     this.app._activateWindow(loc.win.id);
     /**
      * UX_BATCH6_SRS FR-RUN-1: **포커스 칸이 그 창을 받는다.**
@@ -279,7 +279,7 @@ class AttnController extends Controller {
     if(bg){this.app._restoreTool(toolId);return}
     // 어디에도 없으면 알람만 거둔다. 서버에도 알린다 — 다른 브라우저의 배지도
     // 같이 내려가야 한다.
-    this.app._attnClear(toolId);
+    this._attnClear(toolId);
   }
 
   // FR-PAN-16: 제목 배지 + notification center 배지/팝오버 갱신
@@ -312,12 +312,12 @@ class AttnController extends Controller {
     // FR-ATV-1: 포커스 예외가 없다. 표식이 맥박을 얻은 뒤로 둘은 시간축에서
     // 갈라지므로, 같은 자리에 겹쳐도 서로를 가리지 않는다 (§2.4).
     document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(tabEl=>{
-      tabEl.classList.toggle('attn', this.app.attnHas(tabEl.dataset.toolid));
+      tabEl.classList.toggle('attn', this.attnHas(tabEl.dataset.toolid));
     });
     document.querySelectorAll('#area .pn[data-paneid]').forEach(pn=>{
       const at=pn.querySelector('.pn-tab.active[data-toolid]');
       const pid=at?at.dataset.toolid:null;
-      pn.classList.toggle('attn', !!(pid&&this.app.attnHas(pid)));
+      pn.classList.toggle('attn', !!(pid&&this.attnHas(pid)));
     });
     // UX_AUDIT_FIX_SRS FR-UXF-61·62: 주의가 서고 걷히면 작업 중 표식도 따라 바뀐다(주의가 앞선다).
     if(this.app._workRefresh) this.app._workRefresh();
@@ -334,7 +334,7 @@ class AttnController extends Controller {
       // FR-ACT-8: 배지가 내려가면 띄워 둘 목록도 없다.
       if(!n) this.center._attnCenterClose();
     }
-    this.app.agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
+    this.app.agents.agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
   }
 
   /**
@@ -463,7 +463,7 @@ class AttnController extends Controller {
     if(!this.app.attnDesktopBlocked&&Notification.permission==='default'&&this.app.attnDesktop&&!this._attnPermAsked){
       this._attnPermAsked=true;
       let asked=false;
-      const ask=()=>{if(asked)return;asked=true;ErrorLog.quiet('notify',()=>{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this.initAttn&&this.app._attnRefresh())})};
+      const ask=()=>{if(asked)return;asked=true;ErrorLog.quiet('notify',()=>{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this.initAttn&&this._attnRefresh())})};
       document.addEventListener('pointerdown',ask,{once:true,capture:true});
       document.addEventListener('keydown',ask,{once:true,capture:true});
     }
@@ -477,11 +477,6 @@ class AttnController extends Controller {
       document.addEventListener('pointerdown',e=>this._attnNoteInteraction(e),{capture:true});
       document.addEventListener('keydown',e=>this._attnNoteInteraction(e),{capture:true});
     }
-    this.app._attnRefresh();
+    this._attnRefresh();
   }
 }
-
-// 바깥(포커스·도구·작업·활동·상태 등록부·설정·클립보드·`ui/`)과 계약이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'attn',['attnHas','_agFocusedTool','_isToolFocusedActive','_onToolAttention','attnUserIsWatching',
-  '_onToolAttentionClear','_attnRestore','_attnDrop','_attnClear','windowHasAttn','_attnNoteInteraction','jumpToTool',
-  '_attnRefresh','_attnSecurityNotice','_attnDetail','_attnBeep','initAttn']);

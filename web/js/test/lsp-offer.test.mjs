@@ -27,7 +27,7 @@ function setup(servers, dismissed = {}) {
       LSP_STATUS_TTL_MS: 60000,
     },
   });
-  return new ctx.LspClient({ updateStatusBar() {} });
+  return new ctx.LspClient({ statusbar: { updateStatusBar() {} } });
 }
 
 function editor(path, mounted = true) {

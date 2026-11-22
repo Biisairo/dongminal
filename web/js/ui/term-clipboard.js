@@ -80,7 +80,7 @@ const TermClipboard={
   _usingHere(pane){
     const app=(typeof window!=='undefined')?window.app:null;
     if(!app) return false;
-    const watch=typeof app.attnUserIsWatching==='function'?app.attnUserIsWatching(pane.id):false;
+    const watch=app.attn&&typeof app.attn.attnUserIsWatching==='function'?app.attn.attnUserIsWatching(pane.id):false;
     const own=typeof app.resizeCheck==='function'?app.resizeCheck(pane.id,pane._slot):false;
     return !!watch&&!!own;
   },

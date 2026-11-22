@@ -58,8 +58,7 @@ function fakeApp(log) {
       },
       paint: () => log.push('paint'),
     },
-    _attnSecurityNotice: () => log.push('tls'),
-    timers: { after: (ms) => { log.push('after:' + ms); return { stop: () => log.push('stop') } }, disposeOwner() {} },
+    timers: { after: (ms) => { log.push('after:' + ms); return { stop: () => log.push('stop') } }, disposeOwner() {} }, attn: { _attnSecurityNotice: () => log.push('tls') },
   };
 }
 
@@ -386,7 +385,7 @@ test('TC-FES-2(범위): 포커스 가장자리 input 은 값·두 행·화면·�
 test('TC-FES-2(범위): 주의 가장자리 input 은 화면·미리보기·주의 다시 보기·미룬 저장, 0 이면 미리보기를 끈다', () => {
   const { ctx, doc, els } = edgeSetup();
   const log = [];
-  const app = { ...fakeApp(log), _paintAttnEdge: () => log.push('paintAttn'), _attnRefresh: () => log.push('refresh') };
+  const app = { ...fakeApp(log), _paintAttnEdge: () => log.push('paintAttn'), attn: { _attnRefresh: () => log.push('refresh') } };
   const s = new ctx.DisplaySection(app);
   s._initAttnEdge();
   els['ds-attnedge'].value = '6';
@@ -582,8 +581,7 @@ test('TC-FES-4: 열 때는 theme → shortcuts → presets → display → 칠�
   const log = [];
   const app = {
     isMobile: true, drawerOpen: true,
-    _toggleDrawer: (v) => log.push('drawer:' + v),
-    _settingsMobileOnOpen: (m) => log.push('mobile:' + m),
+    mobile: { _toggleDrawer: (v) => log.push('drawer:' + v), sheets: { _settingsMobileOnOpen: (m) => log.push('mobile:' + m) } },
   };
   const c = new ctx.SettingsController(app);
   c.paint = () => log.push('paint');
@@ -648,7 +646,7 @@ test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는�
 function rereadSetup(active, dirty) {
   const ctx = loadController();
   ctx.settingsPanelDirty = (_app, panel) => dirty.has(panel);
-  const app = { isMobile: false, _settingsMobileOnOpen() {} };
+  const app = { isMobile: false, mobile: { sheets: { _settingsMobileOnOpen() {} } } };
   const c = new ctx.SettingsController(app);
   c.paint = () => {};
   c._labelSettingsRows = () => {};
@@ -721,7 +719,7 @@ function orderSetup() {
     PrefStore: { local: { get: () => null } }, STORE_KEYS: { legacyAgentsPollMs: 'x' },
   });
   const drawn = [];
-  const app = { gitPanel: null, _mkbRender: () => drawn.push(state.kb), mkbRefresh() {} };
+  const app = { gitPanel: null, mobile: { _mkbRender: () => drawn.push(state.kb), mkbRefresh() {} } };
   const c = new ctx.SettingsController(app);
   app.settings = c;
   const section = () => ({ tab: 'terminal', painted: null, init() { this.paint() }, paint() { this.painted = { ...state } } });

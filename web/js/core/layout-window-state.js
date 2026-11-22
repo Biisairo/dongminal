@@ -34,7 +34,7 @@ class LayoutWindowState extends Controller {
     const keep=()=>{sv.windows=sv.windows.filter(s=>s&&(s.layout||this.app.isEditorWin(s)||this.app.git.isChatWin(s)))};
     keep();
     // CHAT_WINDOW_SRS FR-CW-2·14: 채팅 창은 하나이고, 그 밖의 채팅 탭은 닫는다.
-    const chatFixed=this.app._chatNormalize?this.app._chatNormalize(sv.windows):0;
+    const chatFixed=this.app.chat.window._chatNormalize?this.app.chat.window._chatNormalize(sv.windows):0;
     // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
     this.app.git._migrateGitWindow(sv.windows);
     // FR-EDT-103·104·106 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다 — 다른 브라우저가

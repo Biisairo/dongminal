@@ -57,7 +57,7 @@ test.describe('FX-1 작업 중의 툴팁·접근 이름', () => {
     await page.locator('#area .pn.focused .pn-tab-add').click();
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     const pid2 = (await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid'))!;
-    await page.evaluate(() => (window as any).app.actPanelOpen());
+    await page.evaluate(() => (window as any).app.agents.list.actPanelOpen());
     const agTab = page.locator('#agents-panel .ag-tab[data-sec="agents"]');
     const tip0 = (await agTab.getAttribute('title'))!;
     await reportAct(page, pid1, 'working');

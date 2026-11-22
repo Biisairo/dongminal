@@ -66,10 +66,10 @@ class ToolWork extends Controller {
   }
 
   /** FR-UXF-61: 탭에 점을 두는가. */
-  tabWorkDot(toolId){ return this.toolWorking(toolId)&&!this.app.attnHas(toolId) }
+  tabWorkDot(toolId){ return this.toolWorking(toolId)&&!this.app.attn.attnHas(toolId) }
 
   /** FR-UXF-62·129: 창 행의 선택 점에 링을 두는가. */
-  windowWorkDot(s){ return this.windowWorking(s)&&!this.app.windowHasAttn(s) }
+  windowWorkDot(s){ return this.windowWorking(s)&&!this.app.attn.windowHasAttn(s) }
 
   /** FR-UXF-64: 작업 중 모임이 바뀌었을 때만 표식을 고친다. */
   _workSync(){

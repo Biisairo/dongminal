@@ -89,7 +89,7 @@ class StatusBarController extends Controller {
       delete st.data.jobs;
       this.app._stats=st.data;
     }
-    this.app.updateStatusBar();
+    this.updateStatusBar();
   }
   /**
    * FR-RPT-3: 지표를 통째로 다시 만들지 않는다.
@@ -122,7 +122,7 @@ class StatusBarController extends Controller {
     });
     // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일은 상태바 대신 상단바가 연결과 cwd 를 말한다.
     // 이전: 여기서 순위(FR-HIE-4)를 싣고 모바일 접힘을 다시 쟀다 — 모바일에 상태바가 없어 걷었다.
-    this.app.mTopPaint();
+    this.app.mobile.mTopPaint();
   }
 
   /** 상태바 항목 — `{k, html}` 또는 `{k, el}`. 순서가 곧 화면의 순서다. */
@@ -252,7 +252,7 @@ class StatusBarController extends Controller {
       if(h===null){h=nh;return}
       if(Math.abs(nh-h)<0.5)return;
       h=nh;
-      this.app._scheduleFit();
+      this.app.mobile._scheduleFit();
     });
     this._sbRo.observe(bar);
   }
@@ -282,12 +282,12 @@ class StatusBarController extends Controller {
    */
   _bgPanelOpen(){
     this._bgConfirm=null; this._bgError=null;
-    this.app.actPanelOpen('bg');
+    this.app.agents.list.actPanelOpen('bg');
   }
 
   /** 패널이 열려 있으면 다시 그린다. 모달 시절 `_bgModalRender` 가 하던 일이다. */
   _bgPanelPaint(){
-    this.app.agentsRender();
+    this.app.agents.agentsRender();
   }
 
   // FR-BGK-1: 행 하나. 종료는 행 클릭(복귀)과 **다른 목표**다 — 겹치면 복귀하려다
@@ -339,7 +339,7 @@ class StatusBarController extends Controller {
       // 취소와 복귀를 한 클릭에 겹치면 확인의 의미가 사라진다.
       if(this._bgConfirm){this._bgConfirmSet(null);return}
       this.app._restoreTool(b.toolId);
-      if(this.app.actSheetLeave) this.app.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
+      if(this.app.mobile.nav.actSheetLeave) this.app.mobile.nav.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
     });
     return row;
   }
@@ -470,17 +470,12 @@ class StatusBarController extends Controller {
     const p=this.app.focusedTerminal();
     if(!p||!statusBar.cwd){this._cwdTool=null;return}
     const moved=p.id!==this._cwdTool; this._cwdTool=p.id;
-    if(p._cwd){if(this.app.cwd!==p._cwd){this.app.cwd=p._cwd;this.app.updateStatusBar()}return}
+    if(p._cwd){if(this.app.cwd!==p._cwd){this.app.cwd=p._cwd;this.updateStatusBar()}return}
     if(!moved) return;
     apiGet('/api/cwd',{query:{tool:p.id}}).then(r=>{
       const f=this.app.focusedTerminal();   // 늦은 답이 옮겨 간 포커스의 위치를 덮지 않는다
       if(!r.data||!f||f.id!==p.id) return;
-      this.app.cwd=r.data.cwd; this.app.updateStatusBar();
+      this.app.cwd=r.data.cwd; this.updateStatusBar();
     });
   }
 }
-
-// 바깥(부팅 표 `SETTINGS_INIT`·상태 등록부·설정 ▸ 상태바·편집기·포커스·도구·활동·모바일·`ui/`)과 계약이 App 에서 부르는
-// 이름 (FR-FEA-4).
-Controller.delegate(App,'statusbar',['initStatusBar','_startStatsPoll','_pollStats','updateStatusBar',
-  '_bgPanelPaint','_bgRow','_shortCwd','_fmtMemSize','updateCwd']);

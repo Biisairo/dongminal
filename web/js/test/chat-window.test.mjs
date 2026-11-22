@@ -57,7 +57,7 @@ test('TC-CW-4: 채팅 창 밖의 채팅 탭은 닫는다 — 빈 칸은 붕괴�
   try {
     const P = { id: 'P', layout: { type: 'split', dir: 'h', children: [pane('a', [term('x'), chat('c1', 'r1')]), pane('b', [chat('c2', 'r2')])], sizes: [50, 50] } };
     const list = [P];
-    assert.equal(a._chatNormalize(list), 2);
+    assert.equal(a.chat.window._chatNormalize(list), 2);
     const left = P.layout;
     assert.equal(left.type, 'pane', '탭이 0 이 된 칸은 사라진다');
     assert.deepEqual(plain(left.tabs.map((x) => x.id)), ['x']);
@@ -72,7 +72,7 @@ test('TC-CW-5: 채팅 창이 둘이면 첫 창으로 합치고 같은 방은 하
   const C1 = { id: 'C1', type: 'chat', layout: pane('p1', [chat('a', 'r1')]) };
   const C2 = { id: 'C2', type: 'chat', layout: pane('p2', [chat('b', 'r1'), chat('c', 'r2')]) };
   const list = [C1, C2];
-  assert.equal(a._chatNormalize(list), 1);
+  assert.equal(a.chat.window._chatNormalize(list), 1);
   assert.deepEqual(plain(list.map((s) => s.id)), ['C1']);
   assert.deepEqual(plain(C1.layout.tabs.map((x) => x.roomId)), ['r1', 'r2']);
 });

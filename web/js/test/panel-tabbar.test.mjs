@@ -139,21 +139,27 @@ function setup() {
   const app = controllers(ctx, new ctx.App());
   Object.assign(app, {
     sbTab: 'a', sbBusy: false, isMobile: false, tools: new Map(), refreshes: 0, renders: 0, settings: { apply: {} },
-    mobileChromeSync() {}, _actRefresh() { app.refreshes++ },
     sbPanel() { return this._sb || (this._sb = new ctx.SidebarPanel(this)) },
-    actPanel() { return this._act || (this._act = new ctx.ActivityPanel(this)) },
     sidebarCollapsed() { return !this.sbPanel().isOpen() },
     setSidebarCollapsed(on) { this.sbPanel().setOpen(!on) },
-    agentsPanelOpen() { return this.actPanel().isOpen() },
-    setAgentsPanelOpen(v) { this.actPanel().setOpen(v) },
+    counts: {}, dots: {},
+  });
+  // 작업 패널 쪽은 소유 경로에 둔다 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
+  app.mobile.sheets.mobileChromeSync = () => {};
+  Object.assign(app.agents.list, {
+    _actRefresh() { app.refreshes++ },
+    actPanel() { return app._act || (app._act = new ctx.ActivityPanel(app)) },
+  });
+  Object.assign(app.agents, {
+    agentsPanelOpen() { return app.agents.list.actPanel().isOpen() },
+    setAgentsPanelOpen(v) { app.agents.list.actPanel().setOpen(v) },
     /** `agentsRender` 의 탭 줄 부분 — 줄을 두고 센 값으로 그린다. */
     agentsRender() {
       app.renders++;
-      const tb = this.actPanel().tabs;
+      const tb = app.agents.list.actPanel().tabs;
       tb.ensure();
       tb.paintWith(sections.map((s) => ({ key: s.key, tip: s.tip(), n: app.counts[s.key] || 0, dot: !!app.dots[s.key] })));
     },
-    counts: {}, dots: {},
   });
   return { ctx, ids, app, fits, local, session, document, built: () => built };
 }
@@ -248,18 +254,18 @@ test('SidebarTabBar: 숨은 탭·패널·배지, 보던 탭이 숨으면 첫 탭
 test('ActivityTabBar: 수 배지·알람 점·툴팁, 탭마다 몸통 스크롤 자리, 모르는 저장 값은 첫 탭', () => {
   const { app, ids, local } = setup();
   local.set('activityTab', 'chats');
-  const tb = app.actPanel().tabs;
+  const tb = app.agents.list.actPanel().tabs;
   assert.equal(tb.current, 'agents');
   app.counts = { bg: 2 };
   app.dots = { agents: true };
-  app.agentsRender();
+  app.agents.agentsRender();
   const tab = (id) => tb.el.querySelector('.ag-tab[data-sec="' + id + '"]');
   assert.equal(json([tb.el.className, tb.el.attrs.role]), json(['ag-tabs ui-panel-tabs', 'tablist']));
   assert.equal(json([tab('bg').querySelector('.ag-tab-n').hidden, tab('bg').querySelector('.ag-tab-n').textContent]), json([false, '2']));
   assert.ok(tab('agents').querySelector('.ag-tab-dot'), '알람 점');
   assert.equal(tab('runs').title, 'runs tip');
   app.dots = {};
-  app.agentsRender();
+  app.agents.agentsRender();
   assert.equal(tab('agents').querySelector('.ag-tab-dot'), null);
   ids['agents-body'].scrollTop = 120;
   tb.select('bg');
@@ -292,9 +298,9 @@ function fitSpy(ctx, fits, sb, act) {
 
 test('TC-FEB-21: 배지·폭·탭 전환·다시 그리기·펼치기·모바일 진입에서 두 줄이 같은 판정 길을 지난다', () => {
   const { ctx, app, fits, document } = setup();
-  const sb = app.sbPanel().tabs, act = app.actPanel().tabs;
+  const sb = app.sbPanel().tabs, act = app.agents.list.actPanel().tabs;
   sb.paint();
-  app.agentsRender();
+  app.agents.agentsRender();
   const spy = fitSpy(ctx, fits, sb, act);
   spy.take();
   const both = (what, r) => {
@@ -304,7 +310,7 @@ test('TC-FEB-21: 배지·폭·탭 전환·다시 그리기·펼치기·모바일
 
   // 배지 변화 — 사이드바는 `_sbUpdateBadges`(→ paintBadges), 작업 패널은 다시 그리기의 센 값.
   app.nA = 5; sb.paintBadges();
-  app.counts = { bg: 7 }; app.agentsRender();
+  app.counts = { bg: 7 }; app.agents.agentsRender();
   both('배지', spy.take());
 
   // 폭 변화 — 관측은 두 패널 모두 자기 탭 줄에 걸린다.
@@ -316,19 +322,19 @@ test('TC-FEB-21: 배지·폭·탭 전환·다시 그리기·펼치기·모바일
   both('탭 전환', spy.take());
 
   // 다시 그리기.
-  sb.paint(); app.agentsRender();
+  sb.paint(); app.agents.agentsRender();
   both('다시 그리기', spy.take());
 
   // 레일에서 펼치기 — 이전: 사이드바는 관측만 기다렸고 작업 패널은 다시 그리며 쟀다.
-  app.setAgentsPanelOpen(true); spy.take();
-  app.setSidebarCollapsed(true); app.setAgentsPanelOpen(false);
+  app.agents.setAgentsPanelOpen(true); spy.take();
+  app.setSidebarCollapsed(true); app.agents.setAgentsPanelOpen(false);
   both('접기', spy.take());
-  app.setSidebarCollapsed(false); app.setAgentsPanelOpen(true);
+  app.setSidebarCollapsed(false); app.agents.setAgentsPanelOpen(true);
   both('펼치기', spy.take());
 
   // 모바일 진입 — 이전: 작업 패널이 닫혀 있으면 다시 그리기가 일찍 돌아가 재지 않았다.
   app.isMobile = true;
-  app.applyMobileMode();
+  app.mobile.applyMobileMode();
   assert.ok(document.body.classList.contains('mobile'));
   both('모바일 진입', spy.take());
 });
@@ -358,7 +364,7 @@ test('FR-FEB-23: Panel — 열림은 루트의 클래스 하나, 바뀔 때만 �
 test('FR-FEE-5: 서랍과 작업 패널은 EscapeStack 버블 층이고 모바일에서만 살아 있다 — 사이드바는 등록하지 않는다', () => {
   const { ctx, app } = setup();
   const d = new ctx.DrawerSheet(app);
-  const a = app.actPanel();
+  const a = app.agents.list.actPanel();
   assert.equal(json([app.sbPanel().escapable, a.escapable, d.escapable]), json([false, true, true]));
   assert.equal(json([a.phase, d.phase]), json(['bubble', 'bubble']));
   app.isMobile = false;
@@ -382,7 +388,7 @@ test('FR-FEB-24: SidebarPanel — 접힘 표식은 documentElement 하나, 저�
 
 test('FR-FEB-24: ActivityPanel — 손잡이·영속·재조회·다시 그리기, show(key) 는 직행 키 토글', () => {
   const { app, ids, session } = setup();
-  const p = app.actPanel();
+  const p = app.agents.list.actPanel();
   p.show('runs');
   assert.equal(json([p.isOpen(), ids['agents-handle'].classList.contains('open'), session.get('agentsPanelOpen'), p.tabs.current, app.refreshes]),
     json([true, true, '1', 'runs', 1]));
@@ -399,12 +405,12 @@ test('FR-FEB-24: ActivityPanel — 손잡이·영속·재조회·다시 그리�
 test('TC-FR4-3: 레일 표식은 레일을 갖는 패널이 닫혀 있고 데스크톱일 때만 선다 — 열림이 바뀔 때 다시 선다', () => {
   const { app, ids } = setup();
   const rail = () => ['data-rail' in ids.sidebar.attrs, 'data-rail' in ids['agents-panel'].attrs];
-  assert.equal(json([app.sbPanel().rail, app.actPanel().rail]), json([true, true]));
+  assert.equal(json([app.sbPanel().rail, app.agents.list.actPanel().rail]), json([true, true]));
   app.setSidebarCollapsed(true);
   assert.equal(json(rail()), json([true, false]), '사이드바 접힘 → 레일');
-  app.setAgentsPanelOpen(true);
+  app.agents.setAgentsPanelOpen(true);
   assert.equal(json(rail()), json([true, false]), '작업 패널 펼침 → 레일 아님');
-  app.setAgentsPanelOpen(false);
+  app.agents.setAgentsPanelOpen(false);
   assert.equal(json(rail()), json([true, true]), '작업 패널 닫힘 → 레일');
   app.setSidebarCollapsed(false);
   assert.equal(json(rail()), json([false, true]), '사이드바 펼침 → 레일 아님');
@@ -414,18 +420,18 @@ test('TC-FR4-3: 모바일 진입·이탈에 두 패널의 표식이 함께 다�
   const { app, ids, document } = setup();
   const rail = () => ['data-rail' in ids.sidebar.attrs, 'data-rail' in ids['agents-panel'].attrs];
   app.setSidebarCollapsed(true);
-  app.setAgentsPanelOpen(true);
-  app.setAgentsPanelOpen(false);
+  app.agents.setAgentsPanelOpen(true);
+  app.agents.setAgentsPanelOpen(false);
   assert.equal(json(rail()), json([true, true]));
   app.isMobile = true;
-  app.applyMobileMode();
+  app.mobile.applyMobileMode();
   assert.ok(document.body.classList.contains('mobile'));
   assert.equal(json(rail()), json([false, false]), '모바일 진입 → 둘 다 레일 아님');
-  app.setAgentsPanelOpen(true);
-  app.setAgentsPanelOpen(false);
+  app.agents.setAgentsPanelOpen(true);
+  app.agents.setAgentsPanelOpen(false);
   assert.equal(json(rail()), json([false, false]), '모바일에서 닫아도 레일 아님');
   app.isMobile = false;
-  app.applyMobileMode();
+  app.mobile.applyMobileMode();
   assert.equal(json(rail()), json([true, true]), '모바일 이탈 → 다시 레일');
 });
 
@@ -449,7 +455,7 @@ test('TC-FR4-3: 서랍(DrawerSheet)은 레일을 갖지 않는다 — #sidebar �
 test('TC-FEB-22: DrawerSheet — 필드·body.drawer-open·#sidebar.open 이 함께 바뀌고 상단바를 다시 그린다', () => {
   const { ctx, ids, document } = setup();
   let top = 0, chrome = 0;
-  const app = { drawerOpen: false, mobileChromeSync() { chrome++ } };
+  const app = { drawerOpen: false, mobile: { sheets: { mobileChromeSync() { chrome++ } } } };
   const d = new ctx.DrawerSheet(app, { onChange: () => { top++ } });
   const state = () => [app.drawerOpen, document.body.classList.contains('drawer-open'), ids.sidebar.classList.contains('open'), top, chrome];
   d.open();
@@ -464,14 +470,14 @@ test('TC-FEB-22: _toggleDrawer — 모바일은 토글, 데스크톱은 닫힌 �
   const { app, ids, document } = setup();
   let top = 0, chrome = 0;
   app.renderer = { _rTopbar: () => { top++ } };
-  app.mobileChromeSync = () => { chrome++ };
+  app.mobile.sheets.mobileChromeSync = () => { chrome++ };
   app.isMobile = true;
-  app._toggleDrawer();
+  app.mobile._toggleDrawer();
   assert.equal(json([app.drawerOpen, ids.sidebar.classList.contains('open'), document.body.classList.contains('drawer-open'), top]), json([true, true, true, 1]));
-  app._toggleDrawer(false);
+  app.mobile._toggleDrawer(false);
   assert.equal(json([app.drawerOpen, ids.sidebar.classList.contains('open'), top]), json([false, false, 2]));
   app.isMobile = false;
   chrome = 0;
-  app._toggleDrawer(true);
+  app.mobile._toggleDrawer(true);
   assert.equal(json([app.drawerOpen, ids.sidebar.classList.contains('open'), top, chrome]), json([false, false, 2, 1]));
 });

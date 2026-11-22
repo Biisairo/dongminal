@@ -86,7 +86,7 @@ Object.assign(Renderer.prototype, {
       el=this.app.runViewEl(at,slot);
     }else if(at.type===TAB_TYPE_CHAT){
       // PEER_CHAT_SRS §3.11: 채팅 탭. 루트 DOM 은 탭과 칸마다 캐시된다.
-      el=this.app.chatViewEl(at,slot);
+      el=this.app.chat.views.chatViewEl(at,slot);
     }else{
       // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 (FR-WSL-20).
       const p=at.toolId?this.app.mkTool(at.toolId,at.name||'',slot):null;
@@ -171,7 +171,7 @@ Object.assign(Renderer.prototype, {
     // 옛 FR-PAN-9 의 포커스 예외가 `_attnRefresh` 의 토글을 다음 render() 마다
     // 도로 떼고 있었다 — 포커스 칸에서 뜬 알람의 링이 보이지 않던 자리다.
     // 두 표식은 서로 다른 픽셀에 앉으므로 겹쳐도 서로를 가리지 않는다 (FR-ATV-2).
-    el.classList.toggle('attn',!!at&&!!app.attnHas(at.toolId));
+    el.classList.toggle('attn',!!at&&!!app.attn.attnHas(at.toolId));
     this._rTabs(el.firstChild,n,shown,key);
     this._mountTabBody(el.lastChild,at);
     return el;
@@ -208,10 +208,10 @@ Object.assign(Renderer.prototype, {
       // FR-ATV-1·3: 보고 있는 탭도 알람을 그린다. 활성 배경은 활성 색에 머물고
       // 밑줄만 맥박하므로(`.pn-tab.active.attn`) 알람이 활성 표시를 빼앗지 않는다.
       const active=tab.id===shown;
-      const attn=app.attnHas(tab.toolId);
+      const attn=app.attn.attnHas(tab.toolId);
       // FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧 대체된다".
       // CLAUDE_ACCOUNTS_SRS FR-CAC-95: 적용되는 계정의 배경 틴트. 활성·알람 표식은 그 위에 그대로 선다.
-      const tint=app.claudeTabTint?app.claudeTabTint(tab):null;
+      const tint=app.claude.maps.claudeTabTint?app.claude.maps.claudeTabTint(tab):null;
       tabEl.className='pn-tab'+(active?' active':'')+(attn?' attn':'')+(isGit?' git':'')
         +(tab.preview?' '+REPO_PREVIEW_CLASS:'')+(tint?' cacct-tint':'');
       if(tint) tabEl.style.setProperty('--cacct-tint',claudeAcctTintCss(tint));

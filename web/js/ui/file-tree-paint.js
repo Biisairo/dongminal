@@ -71,7 +71,7 @@ class FileTreePaint {
           sel:this.tree._selHas(p)||this.tree._sel===p,
           st:this.tree._stOf(p,kind),
           ignored:this.tree._isIgnored(p),
-          partial:kind!=='dir'&&this.tree._isPartial(p),chip:kind==='dir'?this.tree.app.claudeFolderChip(this.tree.root,p):null}; // CLAUDE_ACCOUNTS_SRS FR-CAC-97
+          partial:kind!=='dir'&&this.tree._isPartial(p),chip:kind==='dir'?this.tree.app.claude.maps.claudeFolderChip(this.tree.root,p):null}; // CLAUDE_ACCOUNTS_SRS FR-CAC-97
         it.k='r:'+p;
         // 근거는 이 행이 읽는 값 **전부**다 — 좁히면 갱신이 조용히 멈춘다 (FR-RPT-2).
         it.s=[kind,depth,it.open?1:0,it.busy?1:0,it.err,it.sel?1:0,it.st,it.linkDir?1:0,
