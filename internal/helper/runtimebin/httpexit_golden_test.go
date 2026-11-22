@@ -111,7 +111,7 @@ func TestHTTPExitGolden(t *testing.T) {
 		var out, errw bytes.Buffer
 		code := c.run(&out, &errw)
 		fmt.Fprintf(&b, "refused %s\n  code=%d\n  stdout=%q\n  stderr=%q\n", c.name, code,
-			strings.ReplaceAll(out.String(), port, "PORT"), strings.ReplaceAll(errw.String(), port, "PORT"))
+			strings.ReplaceAll(out.String(), port, "PORT"), refusedText(strings.ReplaceAll(errw.String(), port, "PORT")))
 	}
 
 	path := filepath.Join("testdata", "httpexit.golden")
@@ -134,4 +134,12 @@ func TestHTTPExitGolden(t *testing.T) {
 		}
 		t.Fatalf("golden length mismatch: got %d lines want %d", len(gl), len(wl))
 	}
+}
+
+// refusedText 는 OS 마다 다른 연결 거부 문구를 골든의 문구(Unix)로 맞춘다. 문구는 Go 의
+// net 오류가 OS 에서 받아 그대로 싣는 것이다 — 명령이 내는 글이 아니다.
+func refusedText(s string) string {
+	return strings.ReplaceAll(s,
+		"connectex: No connection could be made because the target machine actively refused it.",
+		"connect: connection refused")
 }

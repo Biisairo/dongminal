@@ -44,7 +44,8 @@ func TestSaveSettingsDerivesFromTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := string(src)
+	// Windows 체크아웃은 core.autocrlf 로 줄 끝을 CRLF 로 바꾼다 — 끝 표식 "\n  }\n" 이 어긋난다.
+	s := strings.ReplaceAll(string(src), "\r\n", "\n")
 	// 본문을 짓는 일은 `_settingsBody` 가 한다 — saveSettings 가 비행 합치기를
 	// 갖게 되면서 갈렸다 (OPTIMIZE_REFACTOR_SRS FR-OPT-5-2). 비행은 `SettingsSync` 의
 	// 것이고 본문은 앱이 짓는다 (APP_STATE_EXTRACT_SRS FR-ASE-9).
@@ -52,7 +53,7 @@ func TestSaveSettingsDerivesFromTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if save := between(string(syncSrc), "saveSettings(){", "\n  },"); !strings.Contains(save, "this.app.settings.apply._settingsBody()") {
+	if save := between(strings.ReplaceAll(string(syncSrc), "\r\n", "\n"), "saveSettings(){", "\n  },"); !strings.Contains(save, "this.app.settings.apply._settingsBody()") {
 		t.Fatal("saveSettings 가 _settingsBody 로 본문을 짓지 않는다")
 	}
 	body := between(s, "_settingsBody(){", "\n  }\n")
