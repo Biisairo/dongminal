@@ -3,8 +3,6 @@ package store
 import (
 	"container/list"
 	"context"
-	"errors"
-	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -198,11 +196,7 @@ func (st *Store) Status(ctx context.Context, repo string) (Observation, bool, er
 	case <-f.done:
 		return f.obs, joined, f.err
 	case <-ctx.Done():
-		kind := core.ErrCanceled
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			kind = core.ErrTimeout
-		}
-		return Observation{}, joined, fmt.Errorf("%w: %w", kind, ctx.Err())
+		return Observation{}, joined, core.CtxErr(ctx, "status 를 기다리는 중")
 	}
 }
 
@@ -296,11 +290,7 @@ func (st *Store) RepoRoot(ctx context.Context, cwd string) (string, error) {
 	case <-f.done:
 		return f.root, f.err
 	case <-ctx.Done():
-		kind := core.ErrCanceled
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			kind = core.ErrTimeout
-		}
-		return "", fmt.Errorf("%w: %w", kind, ctx.Err())
+		return "", core.CtxErr(ctx, "저장소 루트를 기다리는 중")
 	}
 }
 

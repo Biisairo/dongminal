@@ -68,6 +68,24 @@ func (e *ExecError) Error() string {
 // exit 코드와 stderr 뿐이다.
 func (e *ExecError) Unwrap() error { return e.kind }
 
+// CtxErr 는 끝난 ctx 를 core 의 분류로 옮긴다 — DeadlineExceeded 는 ErrTimeout, 그
+// 밖(Canceled)은 ErrCanceled 다. 요청이 떠난 것은 서버 실패가 아니다. ctx 가 끝나지
+// 않았으면 nil 이다. what 은 무엇을 하다 끝났는지이고, ctx 의 오류도 함께 감싼다.
+//
+// 분류가 jobs·worktree·store 두 곳에 네 벌이던 것을 하나로 모았다
+// (ATTIC_FIX_SRS FR-ATF-9, AT-GJB-7).
+func CtxErr(ctx context.Context, what string) error {
+	err := ctx.Err()
+	if err == nil {
+		return nil
+	}
+	kind := ErrCanceled
+	if errors.Is(err, context.DeadlineExceeded) {
+		kind = ErrTimeout
+	}
+	return fmt.Errorf("%w: %s: %w", kind, what, err)
+}
+
 // classify 는 stderr 와 ctx 로 실패의 종류를 정한다. 비교를 소문자로 하고 기본
 // Runner 가 LC_ALL=C 를 거는 이유가 같다 — 분류가 로케일에 흔들리면 안 된다.
 func classify(ctx context.Context, stderr string) error {

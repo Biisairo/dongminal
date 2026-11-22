@@ -418,7 +418,9 @@ func (j *Jobs) Get(id string) (*Job, bool) {
 	return &snapshot, true
 }
 
-// Active 는 진행 중인 작업 전부다. 상태바가 읽는다 (FR-GIT-112).
+// Active 는 진행 중인 작업 전부다. `/api/git/jobs` 와 `/api/stats?jobs=1` 이 싣고
+// 잡 표시기가 읽는다 (FR-OPT-4-4 · SERVER_DRIVEN_ACTIONS_SRS K-h). 철회된 FR-GIT-112
+// (상태바)를 근거로 적던 주석을 고쳤다 (ATTIC_FIX_SRS FR-ATF-9, AT-GJB-6).
 func (j *Jobs) Active() []*Job {
 	j.mu.Lock()
 	defer j.mu.Unlock()
