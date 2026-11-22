@@ -33,4 +33,3 @@ pub(crate) fn mkdir_all(path: &Path, perm: u32) -> io::Result<()> {
     b.create(path)
         .map_err(|e| path_error("mkdir", &lossy(path), e))
 }
-

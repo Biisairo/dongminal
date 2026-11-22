@@ -25,7 +25,9 @@ use std::path::Path;
 use dm_gocompat::json::{self, RawMessage};
 use dm_gocompat::oserr::go_error_string;
 use dm_gocompat::strconv::quote;
-use dm_shared_dmenv::{DEFAULT_HOST, DEFAULT_PORT, ENV_HOST, ENV_LOG_FILE, ENV_LOG_LEVEL, ENV_PORT};
+use dm_shared_dmenv::{
+    DEFAULT_HOST, DEFAULT_PORT, ENV_HOST, ENV_LOG_FILE, ENV_LOG_LEVEL, ENV_PORT,
+};
 use serde::{Deserialize, Serialize, Serializer};
 
 /// 파일 계층이 사는 자리다. `<home>` 아래다.
@@ -327,7 +329,10 @@ fn read_file(home: &Path) -> (File, Vec<String>) {
     let mut warns = Vec::new();
     if let Ok(raw) = json::unmarshal::<BTreeMap<String, RawMessage>>(&data) {
         for k in raw.keys().filter(|k| !KNOWN_KEYS.contains(&k.as_str())) {
-            warns.push(format!("{FILE_NAME}: 알 수 없는 키 {} (무시합니다)", quote(k)));
+            warns.push(format!(
+                "{FILE_NAME}: 알 수 없는 키 {} (무시합니다)",
+                quote(k)
+            ));
         }
         if let Some(v) = raw.get("updateCheck") {
             match json::unmarshal::<bool>(&v.0) {

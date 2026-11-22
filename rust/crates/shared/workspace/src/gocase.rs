@@ -4,7 +4,7 @@
 //! 쓴다. Go 는 문자 하나를 문자 하나로 바꾼다. 탭 uuid 의 소문자 색인이 Go 와 같은 것을
 //! 맞추게 한다.
 
-fn one(mut it: impl Iterator<Item = char> + ExactSizeIterator, c: char, multi: char) -> char {
+fn one(mut it: impl ExactSizeIterator<Item = char>, c: char, multi: char) -> char {
     if it.len() == 1 {
         it.next().unwrap_or(c)
     } else {

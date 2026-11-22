@@ -2,7 +2,11 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// 검사가 아는 셸의 이름 → 경로다.
-const POSIX_SHELLS: [(&str, &str); 3] = [("bash", "/bin/bash"), ("sh", "/bin/sh"), ("zsh", "/bin/zsh")];
+const POSIX_SHELLS: [(&str, &str); 3] = [
+    ("bash", "/bin/bash"),
+    ("sh", "/bin/sh"),
+    ("zsh", "/bin/zsh"),
+];
 
 /// 테스트가 띄우는 셸의 후보 순서다 — 앞의 것이 있으면 그것이다.
 const PINNED_SHELLS: [&str; 2] = ["bash", "sh"];

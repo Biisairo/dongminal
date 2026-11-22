@@ -13,7 +13,9 @@ struct FakeLive(Mutex<HashSet<String>>);
 
 impl FakeLive {
     fn of(ids: &[&str]) -> Arc<Self> {
-        Arc::new(Self(Mutex::new(ids.iter().map(|s| (*s).to_owned()).collect())))
+        Arc::new(Self(Mutex::new(
+            ids.iter().map(|s| (*s).to_owned()).collect(),
+        )))
     }
     fn set(&self, id: &str, live: bool) {
         let mut g = self.0.lock().unwrap();
@@ -284,7 +286,11 @@ fn save_is_non_blocking() {
     let m = mgr(live3(), store);
     let start = Instant::now();
     m.save(SAMPLE_WS.as_bytes(), "").unwrap();
-    assert!(start.elapsed() < Duration::from_millis(20), "{:?}", start.elapsed());
+    assert!(
+        start.elapsed() < Duration::from_millis(20),
+        "{:?}",
+        start.elapsed()
+    );
 }
 
 #[test]
@@ -303,7 +309,8 @@ fn save_coalescing() {
     store.open();
     m.close();
     let got = store.wrote.load(Ordering::SeqCst);
-    assert!(got < N && got <= 2, "writes={got}");
+    // 하나는 집혀 막혀 있고, 하나만 뒤에 줄 선다 (latest-wins).
+    assert!(got <= 2, "writes={got}, {N} 번 저장이 합쳐지지 않았다");
 }
 
 #[test]
@@ -485,8 +492,7 @@ fn on_index_update_runs_outside_lock_in_rev_order() {
     let first = std::thread::spawn(move || m1.save(SAMPLE_WS.as_bytes(), "").map(|_| ()));
     ent_rx.recv().unwrap();
     let m2 = m.clone();
-    let second =
-        std::thread::spawn(move || m2.save(&variant_ws(SAMPLE_WS, 2), "").map(|_| ()));
+    let second = std::thread::spawn(move || m2.save(&variant_ws(SAMPLE_WS, 2), "").map(|_| ()));
     wait_for(
         || m.current_rev() == 2,
         Duration::from_secs(2),
@@ -639,7 +645,10 @@ fn save_rejects_v1_and_missing_schema_version() {
     let m = mgr(live3(), MemPersister::empty());
     let e = m.save(SAMPLE_V1.as_bytes(), "").unwrap_err();
     assert!(e.is_schema_too_old());
-    assert_eq!(e.to_string(), format!("workspace parse: {SCHEMA_TOO_OLD_MSG}"));
+    assert_eq!(
+        e.to_string(),
+        format!("workspace parse: {SCHEMA_TOO_OLD_MSG}")
+    );
     let blob = r#"{"windows":[{"id":"s1","name":"w","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"a","toolId":"10"}]}}]}"#;
     assert!(m.save(blob.as_bytes(), "").unwrap_err().is_schema_too_old());
     let e = m
@@ -783,10 +792,8 @@ fn file_persister_read_error_is_go_shaped() {
 
 #[test]
 fn build_index_empty() {
-    for b in [&b""[..]] {
-        let ix = parse::build_index(b).unwrap();
-        assert!(ix.labels.is_empty() && ix.entries.is_empty());
-    }
+    let ix = parse::build_index(b"").unwrap();
+    assert!(ix.labels.is_empty() && ix.entries.is_empty());
     assert!(parse::build_index(b"bad").is_err());
 }
 
@@ -842,7 +849,11 @@ fn build_index_empty_uuids_are_tolerated() {
     let e = &ix.entries[0];
     assert_eq!((e.tool_id.as_str(), e.label.as_str()), ("1", "W1.P1.T1"));
     assert_eq!(
-        (e.window_uuid.as_str(), e.pane_uuid.as_str(), e.tab_uuid.as_str()),
+        (
+            e.window_uuid.as_str(),
+            e.pane_uuid.as_str(),
+            e.tab_uuid.as_str()
+        ),
         ("s1", "r1", "t1")
     );
     assert_eq!(e.short_code, "t1");
@@ -893,12 +904,18 @@ fn layout_type_constant_matches_browser() {
 // FR-EM-18: Run 접합 필드는 없거나 있어도 동작이 같다.
 #[test]
 fn run_seam_fields() {
-    assert_eq!(mgr(live3(), MemPersister::with(SAMPLE_V2)).entries().len(), 3);
+    assert_eq!(
+        mgr(live3(), MemPersister::with(SAMPLE_V2)).entries().len(),
+        3
+    );
     let blob = r#"{"schemaVersion":2,"windows":[{"id":"s1","name":"team","ownerRunId":"run-7",
 	  "layout":{"type":"pane","id":"r1","activeTab":"t1",
 	    "tabs":[{"id":"t1","name":"writer","toolId":"10","runId":"run-7"}]}}]}"#;
     assert_eq!(mgr(live3(), MemPersister::with(blob)).entries().len(), 1);
-    assert_eq!(sorted(referenced_tool_ids(blob.as_bytes()).unwrap()), ["10"]);
+    assert_eq!(
+        sorted(referenced_tool_ids(blob.as_bytes()).unwrap()),
+        ["10"]
+    );
 }
 
 // ── 참조 추출 (FR-EM-14) ──
@@ -924,7 +941,10 @@ fn referenced_tool_ids_cases() {
 	  {"type":"pane","id":"r1","tabs":[
 	    {"id":"t1","type":"editor","filePath":"/a.md"},
 	    {"id":"t2","type":"terminal","toolId":"7"}]}}]}"#;
-    assert_eq!(sorted(referenced_tool_ids(editor.as_bytes()).unwrap()), ["7"]);
+    assert_eq!(
+        sorted(referenced_tool_ids(editor.as_bytes()).unwrap()),
+        ["7"]
+    );
     assert!(referenced_tool_ids(b"").unwrap().is_empty());
     assert!(referenced_tool_ids(SAMPLE_V1.as_bytes()).is_err());
     assert!(referenced_tool_ids(br#"{"windows":"#).is_err());
@@ -1033,10 +1053,22 @@ fn resolve_strict_non_label_failures_unchanged() {
             "id 해석 실패: 550e8400-e29b-41d4-a716-4466554400ff (list_workspace 로 확인)".into(),
         ),
         ("nope", "id 해석 실패: nope (list_workspace 로 확인)".into()),
-        ("4.1.1", "id 해석 실패: 4.1.1 (list_workspace 로 확인)".into()),
-        ("W1.P1", "id 해석 실패: W1.P1 (list_workspace 로 확인)".into()),
-        ("W1.P1.T1x", "id 해석 실패: W1.P1.T1x (list_workspace 로 확인)".into()),
-        ("W١.P1.T1", "id 해석 실패: W١.P1.T1 (list_workspace 로 확인)".into()),
+        (
+            "4.1.1",
+            "id 해석 실패: 4.1.1 (list_workspace 로 확인)".into(),
+        ),
+        (
+            "W1.P1",
+            "id 해석 실패: W1.P1 (list_workspace 로 확인)".into(),
+        ),
+        (
+            "W1.P1.T1x",
+            "id 해석 실패: W1.P1.T1x (list_workspace 로 확인)".into(),
+        ),
+        (
+            "W١.P1.T1",
+            "id 해석 실패: W١.P1.T1 (list_workspace 로 확인)".into(),
+        ),
     ] {
         let e = m.resolve_strict(input).unwrap_err();
         assert!(!e.is_label_identifier(), "{input}");
@@ -1136,7 +1168,10 @@ fn resolve_uuid_stable_across_label_reflow() {
     assert_eq!(m.resolve("W1.P1.T1").unwrap(), "20");
     assert_eq!(m.resolve(tab_b).unwrap(), "20");
     assert!(m.resolve(tab_a).is_err());
-    assert!(m.resolve("550e8400").is_err(), "short code 는 거부한다 (NFR-UID-4)");
+    assert!(
+        m.resolve("550e8400").is_err(),
+        "short code 는 거부한다 (NFR-UID-4)"
+    );
     assert!(m.is_known_tab_id(&tab_b.to_uppercase()));
     assert!(!m.is_known_tab_id(tab_a));
     assert!(!m.is_known_tab_id(""));
@@ -1160,8 +1195,7 @@ fn apply_run_marks_cases() {
 	  {"type":"pane","id":"p1","tabs":[{"id":"t1","toolId":"x","foo":"bar"},{"id":"t2"}]},
 	  {"type":"pane","id":"p2","tabs":[{"id":"t3","runId":"old"}]}]}},
 	  {"id":"w2","layout":{"type":"pane","id":"p3","tabs":[{"id":"t4"}]}}]}"#;
-    let mut tree: serde_json::Map<String, serde_json::Value> =
-        json::unmarshal(blob).unwrap();
+    let mut tree: serde_json::Map<String, serde_json::Value> = json::unmarshal(blob).unwrap();
     let tabs: HashSet<String> = ["t1", "t3"].map(String::from).into();
     assert!(apply_run_marks(&mut tree, &tabs, "w1", true, "run-1"));
     let out = String::from_utf8(json::marshal(&tree).unwrap()).unwrap();
@@ -1178,7 +1212,10 @@ fn apply_run_marks_cases() {
     assert!(!apply_run_marks(&mut tree, &tabs, "w1", true, "run-1"));
     assert!(apply_run_marks(&mut tree, &tabs, "w1", false, ""));
     let out = String::from_utf8(json::marshal(&tree).unwrap()).unwrap();
-    assert!(!out.contains("runId") && !out.contains("ownerRunId"), "{out}");
+    assert!(
+        !out.contains("runId") && !out.contains("ownerRunId"),
+        "{out}"
+    );
     let mut broken: serde_json::Map<String, serde_json::Value> =
         json::unmarshal(br#"{"windows":"x"}"#).unwrap();
     assert!(!apply_run_marks(&mut broken, &tabs, "w1", true, "r"));
@@ -1187,10 +1224,9 @@ fn apply_run_marks_cases() {
 // Go `id, _ := m["id"].(string)`: id 가 없으면 "" 로 비교한다.
 #[test]
 fn apply_run_marks_missing_ids_compare_as_empty() {
-    let mut tree: serde_json::Map<String, serde_json::Value> = json::unmarshal(
-        br#"{"windows":[{"layout":{"type":"pane","tabs":[{"name":"n"}]}}]}"#,
-    )
-    .unwrap();
+    let mut tree: serde_json::Map<String, serde_json::Value> =
+        json::unmarshal(br#"{"windows":[{"layout":{"type":"pane","tabs":[{"name":"n"}]}}]}"#)
+            .unwrap();
     let tabs: HashSet<String> = [String::new()].into();
     assert!(apply_run_marks(&mut tree, &tabs, "", true, "r"));
     let out = String::from_utf8(json::marshal(&tree).unwrap()).unwrap();
@@ -1209,10 +1245,7 @@ fn decode_err(blob: &str) -> String {
 #[test]
 fn decode_errors_match_go() {
     for (blob, want) in [
-        (
-            r#"{"windows":"#,
-            "unexpected end of JSON input",
-        ),
+        (r#"{"windows":"#, "unexpected end of JSON input"),
         (
             r#"{"schemaVersion":"2"}"#,
             "json: cannot unmarshal string into Go struct field WsState.schemaVersion of type int",
@@ -1265,11 +1298,9 @@ fn decode_error_slice_type_name() {
 
 #[test]
 fn decode_is_case_insensitive_and_last_duplicate_wins() {
-    let s = decode_state(
-        br#"{"Windows":[{"ID":"a","LAYOUT":{"type":"pane"}}],"schemaversion":2}"#,
-    )
-    .unwrap()
-    .unwrap();
+    let s = decode_state(br#"{"Windows":[{"ID":"a","LAYOUT":{"type":"pane"}}],"schemaversion":2}"#)
+        .unwrap()
+        .unwrap();
     assert_eq!(s.schema_version, 2);
     assert_eq!(s.windows[0].id, "a");
     assert_eq!(s.windows[0].layout.as_ref().unwrap().kind, "pane");

@@ -256,8 +256,7 @@ pub fn new_id() -> String {
 
 fn valid_id(s: &str) -> bool {
     s.len() <= MAX_ID
-        && s
-            .chars()
+        && s.chars()
             .all(|r| r.is_ascii_alphanumeric() || r == '-' || r == '_')
 }
 

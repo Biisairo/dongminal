@@ -81,8 +81,14 @@ fn priority_flag_wins() {
         getenv: Some(&env),
         ..Default::default()
     });
-    assert_eq!((got.host.value.as_str(), got.host.source), ("1.1.1.1", Source::Flag));
-    assert_eq!((got.port.value.as_str(), got.port.source), ("1111", Source::Flag));
+    assert_eq!(
+        (got.host.value.as_str(), got.host.source),
+        ("1.1.1.1", Source::Flag)
+    );
+    assert_eq!(
+        (got.port.value.as_str(), got.port.source),
+        ("1111", Source::Flag)
+    );
     assert_eq!(
         (got.log_level.value.as_str(), got.log_level.source),
         ("error", Source::Flag)
@@ -95,8 +101,14 @@ fn priority_falls_through_layers() {
     let home = tmp();
     write(home.path(), r#"{"host":"10.0.0.1","port":"3333"}"#);
     let got = resolve_home(home.path());
-    assert_eq!((got.host.value.as_str(), got.host.source), ("10.0.0.1", Source::File));
-    assert_eq!((got.port.value.as_str(), got.port.source), ("3333", Source::File));
+    assert_eq!(
+        (got.host.value.as_str(), got.host.source),
+        ("10.0.0.1", Source::File)
+    );
+    assert_eq!(
+        (got.port.value.as_str(), got.port.source),
+        ("3333", Source::File)
+    );
 
     let got = resolve_home(tmp().path());
     assert_eq!(got.host.source, Source::Default);
@@ -105,7 +117,11 @@ fn priority_falls_through_layers() {
 
     let got = resolve_env(home.path(), &env_of(&[("DONGMINAL_LOG_LEVEL", "warn")]));
     assert_eq!(
-        (got.log_level.value.as_str(), got.log_level.source, got.log_level.env.as_str()),
+        (
+            got.log_level.value.as_str(),
+            got.log_level.source,
+            got.log_level.env.as_str()
+        ),
         ("warn", Source::Env, "DONGMINAL_LOG_LEVEL")
     );
 }
@@ -204,12 +220,24 @@ fn bind_env_ignored() {
     write(home.path(), r#"{"host":"10.0.0.1","port":"3333"}"#);
     let env = env_of(&BIND_ENV);
     let got = resolve_env(home.path(), &env);
-    assert_eq!((got.host.value.as_str(), got.host.source), ("10.0.0.1", Source::File));
-    assert_eq!((got.port.value.as_str(), got.port.source), ("3333", Source::File));
+    assert_eq!(
+        (got.host.value.as_str(), got.host.source),
+        ("10.0.0.1", Source::File)
+    );
+    assert_eq!(
+        (got.port.value.as_str(), got.port.source),
+        ("3333", Source::File)
+    );
 
     let got = resolve_env(tmp().path(), &env);
-    assert_eq!((got.host.value.as_str(), got.host.source), (DEFAULT_HOST, Source::Default));
-    assert_eq!((got.port.value.as_str(), got.port.source), (DEFAULT_PORT, Source::Default));
+    assert_eq!(
+        (got.host.value.as_str(), got.host.source),
+        (DEFAULT_HOST, Source::Default)
+    );
+    assert_eq!(
+        (got.port.value.as_str(), got.port.source),
+        (DEFAULT_PORT, Source::Default)
+    );
 }
 
 // TC-HRB-1 (FR-HRB-8): 바인드 환경 변수가 있으면 경고 한 줄. 없으면 빈 문자열.
@@ -229,15 +257,27 @@ fn bind_env_warning() {
 #[test]
 fn file_bad_port_falls_back_to_default() {
     for (body, warn) in [
-        (r#"{"port":"zzz"}"#, r#"포트가 숫자가 아닙니다: "zzz" (출처: file)"#),
-        (r#"{"port":"99999"}"#, r#"포트가 범위(1~65535) 밖입니다: "99999" (출처: file)"#),
-        (r#"{"port":"0"}"#, r#"포트가 범위(1~65535) 밖입니다: "0" (출처: file)"#),
+        (
+            r#"{"port":"zzz"}"#,
+            r#"포트가 숫자가 아닙니다: "zzz" (출처: file)"#,
+        ),
+        (
+            r#"{"port":"99999"}"#,
+            r#"포트가 범위(1~65535) 밖입니다: "99999" (출처: file)"#,
+        ),
+        (
+            r#"{"port":"0"}"#,
+            r#"포트가 범위(1~65535) 밖입니다: "0" (출처: file)"#,
+        ),
     ] {
         let home = tmp();
         write(home.path(), body);
         let got = resolve_home(home.path());
         assert!(got.err().is_none(), "{body}");
-        assert_eq!((got.port.value.as_str(), got.port.source), (DEFAULT_PORT, Source::Default));
+        assert_eq!(
+            (got.port.value.as_str(), got.port.source),
+            (DEFAULT_PORT, Source::Default)
+        );
         assert_eq!(
             got.warnings,
             [format!(
@@ -263,12 +303,18 @@ fn set_bind_preserves_keys() {
     assert_eq!(m["futureKey"], 1);
     set_bind(home.path(), "0.0.0.0", "").unwrap();
     let m = read_json(home.path());
-    assert_eq!((&m["host"], &m["port"]), (&J::from("0.0.0.0"), &J::from("9100")));
+    assert_eq!(
+        (&m["host"], &m["port"]),
+        (&J::from("0.0.0.0"), &J::from("9100"))
+    );
     if dm_shared_testpath::perm_checked() {
         assert_eq!(perm(&home.path().join(FILE_NAME)), 0o600);
     }
     let got = resolve_home(home.path());
-    assert_eq!((got.host.value.as_str(), got.port.value.as_str()), ("0.0.0.0", "9100"));
+    assert_eq!(
+        (got.host.value.as_str(), got.port.value.as_str()),
+        ("0.0.0.0", "9100")
+    );
 }
 
 // 파일 형식은 Go MarshalIndent 와 같다: 키 정렬, 두 칸 들여쓰기, 끝 줄바꿈, HTML 이스케이프.
@@ -442,7 +488,10 @@ fn set_update_check_preserves_other_keys() {
     set_update_check(home.path(), false).unwrap();
     let r = resolve_home(home.path());
     assert!(!r.update_check);
-    assert_eq!((r.port.value.as_str(), r.log_level.value.as_str()), ("7777", "debug"));
+    assert_eq!(
+        (r.port.value.as_str(), r.log_level.value.as_str()),
+        ("7777", "debug")
+    );
 }
 
 #[test]
@@ -511,8 +560,14 @@ fn case_insensitive_field_match() {
     let home = tmp();
     write(home.path(), r#"{"HOST":"10.0.0.9"}"#);
     let r = resolve_home(home.path());
-    assert_eq!((r.host.value.as_str(), r.host.source), ("10.0.0.9", Source::File));
-    assert_eq!(r.warnings, [r#"server.json: 알 수 없는 키 "HOST" (무시합니다)"#]);
+    assert_eq!(
+        (r.host.value.as_str(), r.host.source),
+        ("10.0.0.9", Source::File)
+    );
+    assert_eq!(
+        r.warnings,
+        [r#"server.json: 알 수 없는 키 "HOST" (무시합니다)"#]
+    );
 }
 
 // 깨진 파일 경고에는 go1.27 encoding/json 의 오류 원문이 실린다.
@@ -523,7 +578,9 @@ fn corrupt_file_warning_carries_go_error_text() {
     let r = resolve_home(home.path());
     assert_eq!(
         r.warnings,
-        ["server.json 가 깨졌습니다: json: cannot unmarshal number into Go struct field file.host of type string (무시하고 진행합니다)"]
+        [
+            "server.json 가 깨졌습니다: json: cannot unmarshal number into Go struct field file.host of type string (무시하고 진행합니다)"
+        ]
     );
 }
 

@@ -72,14 +72,44 @@ fn open_rejects_tampered_body_and_bad_shape() {
     let mut b = s.b.0.clone();
     let pos = b.windows(4).position(|w| w == b"kill").unwrap();
     b[pos..pos + 4].copy_from_slice(b"kick");
-    assert!(open(&Signed { b: RawMessage(b), s: s.s.clone() }).is_err());
-    assert!(open(&Signed { b: RawMessage(b"not json".to_vec()), s: s.s.clone() }).is_err());
+    assert!(
+        open(&Signed {
+            b: RawMessage(b),
+            s: s.s.clone()
+        })
+        .is_err()
+    );
+    assert!(
+        open(&Signed {
+            b: RawMessage(b"not json".to_vec()),
+            s: s.s.clone()
+        })
+        .is_err()
+    );
 
     let k = key();
     for body in [
-        Body { id: String::new(), node: "n".into(), op: OP_KILL.into(), rooms: vec!["r".into()], ..Default::default() },
-        Body { id: "a b".into(), node: "n".into(), op: OP_KILL.into(), rooms: vec!["r".into()], ..Default::default() },
-        Body { id: new_id(), node: "n".into(), op: "nuke".into(), rooms: vec!["r".into()], ..Default::default() },
+        Body {
+            id: String::new(),
+            node: "n".into(),
+            op: OP_KILL.into(),
+            rooms: vec!["r".into()],
+            ..Default::default()
+        },
+        Body {
+            id: "a b".into(),
+            node: "n".into(),
+            op: OP_KILL.into(),
+            rooms: vec!["r".into()],
+            ..Default::default()
+        },
+        Body {
+            id: new_id(),
+            node: "n".into(),
+            op: "nuke".into(),
+            rooms: vec!["r".into()],
+            ..Default::default()
+        },
     ] {
         assert!(open(&sign(&k, body).unwrap()).is_err());
     }
@@ -116,7 +146,10 @@ fn body_wire_bytes_and_signature_domain() {
             id: "abc".into(),
             node: "n1".into(),
             op: OP_KICK.into(),
-            kicks: vec![Kick { room: "r".into(), participant: "p".into() }],
+            kicks: vec![Kick {
+                room: "r".into(),
+                participant: "p".into(),
+            }],
             at: 5,
             ..Default::default()
         },
@@ -125,7 +158,9 @@ fn body_wire_bytes_and_signature_domain() {
     let pk = public_key(&k);
     assert_eq!(
         String::from_utf8(s.b.0.clone()).unwrap(),
-        format!(r#"{{"id":"abc","node":"n1","op":"kick","kicks":[{{"room":"r","participant":"p"}}],"at":5,"key":"{pk}"}}"#)
+        format!(
+            r#"{{"id":"abc","node":"n1","op":"kick","kicks":[{{"room":"r","participant":"p"}}],"at":5,"key":"{pk}"}}"#
+        )
     );
     // go1.27.2 crypto/ed25519 의 같은 시드·본문 결과(실측).
     assert_eq!(pk, "6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=");
@@ -138,7 +173,11 @@ fn body_wire_bytes_and_signature_domain() {
     assert_eq!(s.s, STANDARD.encode(k.sign(&msg).to_bytes()));
     assert_eq!(
         String::from_utf8(json::marshal(&s).unwrap()).unwrap(),
-        format!(r#"{{"b":{},"s":"{}"}}"#, String::from_utf8(s.b.0.clone()).unwrap(), s.s)
+        format!(
+            r#"{{"b":{},"s":"{}"}}"#,
+            String::from_utf8(s.b.0.clone()).unwrap(),
+            s.s
+        )
     );
 }
 
@@ -147,7 +186,12 @@ fn frame_wire_bytes() {
     let f = Frame {
         t: TYPE_SIGN.into(),
         code: "123456".into(),
-        req: Some(Request { node: "n".into(), op: OP_KILL.into(), rooms: vec!["a".into()], kicks: vec![] }),
+        req: Some(Request {
+            node: "n".into(),
+            op: OP_KILL.into(),
+            rooms: vec!["a".into()],
+            kicks: vec![],
+        }),
         ..Default::default()
     };
     assert_eq!(
@@ -155,7 +199,14 @@ fn frame_wire_bytes() {
         r#"{"t":"sign","code":"123456","req":{"node":"n","op":"kill","rooms":["a"]}}"#
     );
     assert_eq!(
-        String::from_utf8(json::marshal(&Frame { t: TYPE_INFO.into(), ..Default::default() }).unwrap()).unwrap(),
+        String::from_utf8(
+            json::marshal(&Frame {
+                t: TYPE_INFO.into(),
+                ..Default::default()
+            })
+            .unwrap()
+        )
+        .unwrap(),
         r#"{"t":"info"}"#
     );
     let f = Frame {
@@ -189,7 +240,10 @@ fn request_valid_cases() {
     assert!(kill(vec!["r"; MAX_TARGETS]).valid());
     assert!(!kill(vec!["r"; MAX_TARGETS + 1]).valid());
     let mut r = kill(vec!["r"]);
-    r.kicks = vec![Kick { room: "a".into(), participant: "b".into() }];
+    r.kicks = vec![Kick {
+        room: "a".into(),
+        participant: "b".into(),
+    }];
     assert!(!r.valid());
     r.node = String::new();
     assert!(!r.valid());
@@ -204,7 +258,10 @@ fn request_valid_cases() {
         rooms: vec![],
         kicks: k
             .into_iter()
-            .map(|(r, p)| Kick { room: r.into(), participant: p.into() })
+            .map(|(r, p)| Kick {
+                room: r.into(),
+                participant: p.into(),
+            })
             .collect(),
     };
     assert!(kick(vec![("r", "p")]).valid());
@@ -218,13 +275,19 @@ fn request_valid_cases() {
 fn new_id_is_32_hex() {
     let id = new_id();
     assert_eq!(id.len(), 32);
-    assert!(id.bytes().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+    assert!(
+        id.bytes()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    );
     assert_ne!(id, new_id());
 }
 
 #[test]
 fn error_display_and_constants() {
-    let e = Error { code: CODE_BAD_CODE.into(), until: 0 };
+    let e = Error {
+        code: CODE_BAD_CODE.into(),
+        until: 0,
+    };
     assert_eq!(e.to_string(), "helper: bad_code");
     assert_eq!(Error::no_helper().to_string(), "helper: no_helper");
     assert_eq!(DEFAULT_TIMEOUT, std::time::Duration::from_secs(3));
@@ -242,7 +305,11 @@ struct Duplex {
 
 impl Duplex {
     fn new(resp: &[u8]) -> Self {
-        Self { input: Cursor::new(resp.to_vec()), output: Vec::new(), fail_read_after: None }
+        Self {
+            input: Cursor::new(resp.to_vec()),
+            output: Vec::new(),
+            fail_read_after: None,
+        }
     }
 }
 
@@ -274,26 +341,47 @@ impl Write for Duplex {
 #[test]
 fn round_trip_writes_one_line_and_reads_one() {
     let mut d = Duplex::new(b"{\"t\":\"info\",\"key\":\"K\",\"lockedUntil\":9}\r\n{\"t\":\"x\"}\n");
-    let f = round_trip(&mut d, &Frame { t: TYPE_INFO.into(), ..Default::default() }).unwrap();
+    let f = round_trip(
+        &mut d,
+        &Frame {
+            t: TYPE_INFO.into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
     assert_eq!(d.output, b"{\"t\":\"info\"}\n");
-    assert_eq!((f.t.as_str(), f.key.as_str(), f.locked_until), ("info", "K", 9));
+    assert_eq!(
+        (f.t.as_str(), f.key.as_str(), f.locked_until),
+        ("info", "K", 9)
+    );
 }
 
 #[test]
 fn round_trip_failures_are_no_helper() {
-    let req = Frame { t: TYPE_INFO.into(), ..Default::default() };
+    let req = Frame {
+        t: TYPE_INFO.into(),
+        ..Default::default()
+    };
     let mut over = vec![b'x'; MAX_LINE];
     over.push(b'\n');
     for resp in [&b""[..], b"\n", b"garbage\n", &over] {
         let e = round_trip(&mut Duplex::new(resp), &req).unwrap_err();
-        assert_eq!(e.code, CODE_NO_HELPER, "{:?}", String::from_utf8_lossy(&resp[..resp.len().min(20)]));
+        assert_eq!(
+            e.code,
+            CODE_NO_HELPER,
+            "{:?}",
+            String::from_utf8_lossy(&resp[..resp.len().min(20)])
+        );
     }
 }
 
 // Scanner: 줄바꿈 없는 마지막 조각도 토큰이다. 읽기 오류(마감 초과) 때도 그렇다.
 #[test]
 fn round_trip_accepts_unterminated_last_line() {
-    let req = Frame { t: TYPE_INFO.into(), ..Default::default() };
+    let req = Frame {
+        t: TYPE_INFO.into(),
+        ..Default::default()
+    };
     let f = round_trip(&mut Duplex::new(br#"{"t":"signed","s":"S"}"#), &req).unwrap();
     assert_eq!(f.s, "S");
     let body = br#"{"t":"error","code":"locked","until":3}"#;
@@ -306,7 +394,10 @@ fn round_trip_accepts_unterminated_last_line() {
 // 버퍼 상한: 줄바꿈 포함 MAX_LINE 바이트까지 받는다.
 #[test]
 fn round_trip_line_limit_boundary() {
-    let req = Frame { t: TYPE_INFO.into(), ..Default::default() };
+    let req = Frame {
+        t: TYPE_INFO.into(),
+        ..Default::default()
+    };
     let pad = MAX_LINE - 1 - r#"{"t":"info","key":""}"#.len();
     let line = format!(r#"{{"t":"info","key":"{}"}}"#, "k".repeat(pad));
     assert_eq!(line.len(), MAX_LINE - 1);

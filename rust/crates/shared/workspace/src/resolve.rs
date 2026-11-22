@@ -81,10 +81,7 @@ impl Manager {
             return Ok(String::new());
         }
         let ix = self.index();
-        let tool_id = ix
-            .uuid_to_id
-            .get(&to_lower(id))
-            .filter(|p| !p.is_empty());
+        let tool_id = ix.uuid_to_id.get(&to_lower(id)).filter(|p| !p.is_empty());
         let Some(tool_id) = tool_id else {
             // FR-UNI-11 2번: 살아 있는 toolId 는 그대로 통과한다.
             if self.live.is_live(id) {
@@ -122,7 +119,7 @@ fn unresolved_error(ix: &Index, id: &str) -> Error {
 
 /// 좌표 라벨의 형태 `(?i)^W\d+\.P\d+\.T\d+$` 다. 진단 문구를 고르는 데에만 쓴다.
 fn is_label_form(s: &str) -> bool {
-    fn part<'a>(s: &'a str, letter: u8) -> Option<&'a str> {
+    fn part(s: &str, letter: u8) -> Option<&str> {
         let b = s.as_bytes();
         if b.first()?.to_ascii_uppercase() != letter {
             return None;

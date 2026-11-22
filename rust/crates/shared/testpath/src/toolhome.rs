@@ -20,10 +20,8 @@ impl ToolHome {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or_default();
-        let dir = std::env::temp_dir().join(format!(
-            "dongminal-toolhome-{}-{nanos}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("dongminal-toolhome-{}-{nanos}", std::process::id()));
         if let Err(e) = std::fs::create_dir(&dir) {
             panic!("도구 홈 격리용 임시 디렉터리를 만들지 못했습니다: {e}");
         }
