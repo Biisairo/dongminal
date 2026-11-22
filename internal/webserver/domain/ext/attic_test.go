@@ -241,6 +241,40 @@ func TestInstallCommand_HasWaitDelay(t *testing.T) {
 	}
 }
 
+// TC-ATF-27 (FR-ATF-27 / AT-EXT-11·12): `deployed.json` 은 원자 쓰기로 남기고, 기록이
+// 실패하면 이번 기동에 쓴 선언을 되돌린다 — 다음 기동이 사용자 편집을 덮거나 지운 팩을
+// 되살리지 않는다.
+func TestDeploy_RecordFailureRevertsManifests(t *testing.T) {
+	root := t.TempDir()
+	real := writeDeployedFile
+	t.Cleanup(func() { writeDeployedFile = real })
+	var wrote []string
+	writeDeployedFile = func(p string, data []byte, perm os.FileMode) error {
+		wrote = append(wrote, p)
+		return errors.New("주입한 실패")
+	}
+	if errs := Deploy(root); len(errs) == 0 {
+		t.Fatal("기록이 실패했는데 오류가 없다")
+	}
+	if len(wrote) != 1 || wrote[0] != filepath.Join(root, deployedName) {
+		t.Fatalf("기록이 원자 쓰기를 지나지 않았다: %v", wrote)
+	}
+	ms, _ := Builtins()
+	for _, m := range ms {
+		if _, err := os.Stat(filepath.Join(PluginDir(root, m.ID), ManifestName)); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("%s: 기록 실패 뒤에도 선언이 남았다: %v", m.ID, err)
+		}
+	}
+
+	writeDeployedFile = real
+	if errs := Deploy(root); len(errs) != 0 {
+		t.Fatalf("다음 전개가 실패했다: %v", errs)
+	}
+	if got, _ := Load(root); len(got) != len(ms) {
+		t.Fatalf("다음 전개가 펴지 않았다: %d (기대 %d)", len(got), len(ms))
+	}
+}
+
 // concurrentWindow 는 동시 조달 검사가 두 번째 조달에 주는 틈이다.
 const concurrentWindow = 200 * time.Millisecond
 
