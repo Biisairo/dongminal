@@ -54,6 +54,17 @@ type Store struct {
 	// rootFlights 는 진행 중인 RepoRoot 해석이다 (FR-OPT-7-4). 같은 cwd 의 동시
 	// 미스가 rev-parse 를 호출자 수만큼 돌리지 않게 한다.
 	rootFlights map[string]*rootFlight
+	// dirFlights 는 진행 중인 gitDirs 해석이다 (ATTIC_FIX_SRS FR-ATF-11) — rootFlights
+	// 와 같은 모양이다.
+	dirFlights map[string]*dirsFlight
+}
+
+// dirsFlight 는 진행 중인 gitDirs 해석 하나다.
+type dirsFlight struct {
+	done      chan struct{}
+	gitDir    string
+	commonDir string
+	err       error
 }
 
 // rootFlight 는 진행 중인 RepoRoot 해석 하나다.
@@ -146,6 +157,7 @@ func NewStore(svc *core.Service, opts ...StoreOption) *Store {
 		roots:       map[string]rootEntry{},
 		dirs:        map[string]dirsEntry{},
 		rootFlights: map[string]*rootFlight{},
+		dirFlights:  map[string]*dirsFlight{},
 	}
 	for _, o := range opts {
 		o(st)
@@ -328,44 +340,87 @@ func (st *Store) flyRoot(cwd string, f *rootFlight) {
  * 지우는 대상이 그 경로 **하나가 아닌** 이유는, 캐시의 키가 물어본 cwd 이기
  * 때문이다 — 하위 디렉터리로 물었던 기억도 이제 다른 답을 갖는다.
  */
+//
+// ATTIC_FIX_SRS FR-ATF-11 (AT-GST-2·3):
+//
+//	이전 동작: dirs 를 지우지 않아 저장소를 다시 만들면 30초 동안 옛 gitdir 을 읽었고,
+//	          루트(`/`)면 접두어가 `//` 가 되어 하위 항목을 못 지웠다
+//	새  동작: dirs·dirFlights 도 지우고, 구분자로 끝나는 루트는 그대로 접두어다
+//	이유:     `git init` 뒤의 답이 곧바로 반영돼야 한다
 func (st *Store) ForgetRoot(path string) {
 	if path == "" {
 		return
 	}
+	path = filepath.Clean(path)
+	prefix := path
+	if !strings.HasSuffix(prefix, string(filepath.Separator)) {
+		prefix += string(filepath.Separator)
+	}
+	under := func(k string) bool { return k == path || strings.HasPrefix(k, prefix) }
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	prefix := path + string(filepath.Separator)
-	for k := range st.roots {
-		if k == path || strings.HasPrefix(k, prefix) {
-			delete(st.roots, k)
-		}
-	}
-	for k := range st.rootFlights {
-		if k == path || strings.HasPrefix(k, prefix) {
-			delete(st.rootFlights, k)
+	forgetUnder(st.roots, under)
+	forgetUnder(st.rootFlights, under)
+	forgetUnder(st.dirs, under)
+	forgetUnder(st.dirFlights, under)
+}
+
+// forgetUnder 는 under 가 참인 키를 지운다.
+func forgetUnder[V any](m map[string]V, under func(string) bool) {
+	for k := range m {
+		if under(k) {
+			delete(m, k)
 		}
 	}
 }
 
 // gitDirs 는 gitdir·common-dir 해석을 캐시한다. 실패는 캐시하지 않는다 — TTL 이
 // 30초여서, 방금 만들어진 저장소가 그동안 계속 실패로 보이면 안 된다.
+//
+// 미스는 경로별 single-flight 다 (ATTIC_FIX_SRS FR-ATF-11, AT-GST-1) — RepoRoot 와
+// 같은 규약으로 서버 수명 ctx 에서 돌고, 호출자는 자기 ctx 로만 빠져나간다.
 func (st *Store) gitDirs(ctx context.Context, repo string) (string, string, error) {
 	st.mu.Lock()
 	e, ok := st.dirs[repo]
-	fresh := ok && st.now().Sub(e.at) < st.gitDirsTTL
-	st.mu.Unlock()
-	if fresh {
+	if ok && st.now().Sub(e.at) < st.gitDirsTTL {
+		st.mu.Unlock()
 		return e.gitDir, e.commonDir, nil
 	}
-	gitDir, commonDir, err := st.svc.GitDirs(ctx, repo)
-	if err != nil {
-		return "", "", err
+	f := st.dirFlights[repo]
+	if f == nil {
+		f = &dirsFlight{done: make(chan struct{})}
+		st.dirFlights[repo] = f
+		go st.flyDirs(repo, f)
 	}
-	st.mu.Lock()
-	pruneCache(st.dirs, st.observedCap, st.now(), st.gitDirsTTL)
-	st.dirs[repo] = dirsEntry{gitDir: gitDir, commonDir: commonDir, at: st.now()}
 	st.mu.Unlock()
-	return gitDir, commonDir, nil
+
+	select {
+	case <-f.done:
+		return f.gitDir, f.commonDir, f.err
+	case <-ctx.Done():
+		return "", "", core.CtxErr(ctx, "gitdir 해석을 기다리는 중")
+	}
+}
+
+// flyDirs 는 gitDirs 해석 하나를 끝까지 돌린다. ForgetRoot 가 떼어 낸 flight 의
+// 결과는 담지 않는다.
+func (st *Store) flyDirs(repo string, f *dirsFlight) {
+	ctx, cancel := context.WithTimeout(st.root, core.DefaultTimeout)
+	gitDir, commonDir, err := st.svc.GitDirs(ctx, repo)
+	cancel()
+
+	st.mu.Lock()
+	if st.dirFlights[repo] == f {
+		delete(st.dirFlights, repo)
+		if err == nil {
+			pruneCache(st.dirs, st.observedCap, st.now(), st.gitDirsTTL)
+			st.dirs[repo] = dirsEntry{gitDir: gitDir, commonDir: commonDir, at: st.now()}
+		}
+	}
+	st.mu.Unlock()
+
+	f.gitDir, f.commonDir, f.err = gitDir, commonDir, err
+	close(f.done)
 }
 
 // observe 는 status 와 signature 를 한 번에 채운다. signature 는 git 을 실행하지
