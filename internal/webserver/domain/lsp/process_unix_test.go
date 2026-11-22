@@ -5,12 +5,12 @@ package lsp
 import (
 	"bufio"
 	"context"
-	"errors"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // TC-ATF-31 (FR-ATF-31 / AT-LSP-3): 언어 서버를 멈추면 그 서버가 띄운 자식까지 끝난다.
@@ -31,13 +31,13 @@ func TestStartProcess_StopKillsProcessGroup(t *testing.T) {
 		t.Fatalf("자식 pid = %q: %v", line, err)
 	}
 	// 실패해도 고아를 남기지 않는다.
-	t.Cleanup(func() { _ = syscall.Kill(child, syscall.SIGKILL) })
+	t.Cleanup(func() { _ = platform.Current().Process.Kill(child) })
 
 	stop()
 
 	deadline := time.Now().Add(childGoneWithin)
 	for time.Now().Before(deadline) {
-		if err := syscall.Kill(child, 0); errors.Is(err, syscall.ESRCH) {
+		if !platform.Current().Process.Alive(child) {
 			return
 		}
 		time.Sleep(childPollEvery)
