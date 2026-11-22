@@ -436,6 +436,13 @@ Object.assign(GitBranches, {
       GitBranches._delBothFail(d.job);
       return res;
     }
+    // ATTIC_FIX_SRS FR-ATF-75: 원격 잡을 세우지 못한 거절에도 로컬 삭제가 실려 오면 반쪽 삭제다 —
+    // 목록을 다시 읽고 사유와 함께 말한다. 이전: 일반 실패만 보여 지워진 로컬이 목록에 남아 보였다.
+    if(d.deleted){
+      panel.write.afterRefWrite(d);
+      GitBranches._delBothFail({err:panel.write.writeError(res)});
+      return res;
+    }
     panel.write.applyWriteFail(res);
     return res;
   },
