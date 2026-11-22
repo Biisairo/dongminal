@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현중
 
-> **남은 것**: FL-4 ~ FL-7 의 재현·원인·고침, 마지막 전량 e2e.
+> **남은 것**: FL-5 ~ FL-7 의 재현·원인·고침, 마지막 전량 e2e.
 
 - 접수: 2026-11-22 (`QUALITY_FIX_SRS` 뒤. `REFACTOR_PROD3_HANDOFF_4.md` §4 「흔들림」 목록 · `PROD3.md` §7.1 「전체 시험」 행)
 - 사용자 지시: 흔들림으로 받아들여 온 시험의 **원인을 찾아 고친다.** 재시도·시한을 늘려 덮지 않는다. 원인이 시험의 기다림 조건이면 상태가 바뀐 것을 기다리게 고치고, 원인이 앱의 경합이면 앱을 고친다.
@@ -19,7 +19,7 @@
 | FL-1 | `e2e/activity-rail.spec.ts` TC-ACF-1 | 시험 경합 | 활동을 보고하기 전에 도구의 전경을 채운다(§2.1) |
 | FL-2 | `e2e/slot-view-state.spec.ts` TC-SVS-3·13·50·55·56 | 시험 경합 | 탭을 가운데가 아니라 이름의 왼쪽 끝으로 고르고, 활성이 된 것을 기다린다(§2.2) |
 | FL-3 | `e2e/tab-names.spec.ts` V-NAM-1·2·5 · V-TAN-2 (같은 원인으로 V-TAN-4·6·12·14·15 · V-NAM-4) | 시험 경합 + **앱 결함** | 시험은 진짜 전경 이름이 닿은 뒤에 흉내를 넣는다. 서버는 구독이 열릴 때 도구마다 지금의 전경 이름을 싣는다(§2.3) |
-| FL-4 | `e2e/settings.spec.ts:256` · 「규칙에 맞지 않는 이름은 거절」 | (조사 중) | |
+| FL-4 | `e2e/settings.spec.ts:256` 「고치던 이름은 덮지 않고…」 · 「규칙에 맞지 않는 이름은 거절」 | **앱 결함** | 프로필 패널의 읽기를 하나로 묶고, 읽는 사이에 고친 이름을 덮지 않는다(§2.4) |
 | FL-5 | `e2e/ux-audit-fix.spec.ts` TC-UXF-1 · 「2묶음 두 모드」 · `ux-audit-fix-7` TC-UXF-94 | (조사 중) | |
 | FL-6 | `editor-ops` O7 · `edges-settings` 간선 주소·망 그림 · `claude-accounts` TC-CAC-27 · `tab` 단축키 · `kit-components` TC-CMP-19 | (조사 중) | |
 | FL-7 | 단위 `cm-sticky.test.mjs` · Go `gitapi` `TestWorktreeCreateInputAnswer` | (조사 중) | |
@@ -82,6 +82,18 @@
 | FR-FLK-4 | tab-names 의 흉내(`pushForeground`, V-NAM-1·2·5·4)는 그 도구의 진짜 전경 이름이 브라우저에 닿은 뒤에 넣는다(`fgSettled`: 서버의 `fgName` 이 비지 않을 때까지 — cwd 를 못 읽는 기계는 5초 동안 빈 이름이면 자리잡은 것으로 본다 — 그리고 브라우저의 `fgNames` 가 그 값이 될 때까지). 스냅숏 흉내는 빈 이름도 흉내다 |
 | FR-FLK-5 | V-NAM-4 는 활동을 서버에 `waiting` 으로 보고한다 |
 
+### 2.4 FL-4 — 프로필 이름 칸 (settings 「고치던 이름은 덮지 않고…」 · 「규칙에 맞지 않는 이름은 거절」)
+
+**재현.** 단독·파일 단위·`PW_WORKERS=8 --repeat-each=12` 에서는 0회 실패(8샤드 동시·전량에서만 실패하던 것). 응답을 늦춰 결정적으로 재현했다: `GET /api/profile` 를 400ms 늦추고 설정을 열어 Profile 탭을 누른 뒤 이름을 치면, 친 이름(`고치는중`)이 사라지고 안내가 서지 않는다(3/3).
+
+**원인.** 두 가지가 겹친다. ① 설정을 열면 `ProfileSection.onOpen` 이 읽고(첫 탭이 Profile 이다, FR-STO-2), 시험이 Profile 탭을 누르면 `onTab` 이 **한 번 더** 읽는다 — 읽기가 둘 겹친다(서버 패널 다섯은 `_reread` 로 하나만 나지만 profile 은 그 목록 밖이다). ② 읽기의 답은 이름 칸을 읽은 값으로 칠하고 기준(`_liveMark`)을 그 값으로 둔다. 시험은 패널이 **보이면** 곧바로 이름을 친다. 읽기가 그 뒤에 닿으면 친 글자가 지워지고, 기준과 화면이 같아져 「고치던 값」 이 없어진다 — 「거절」 시험은 원래 이름을 저장해 200 을 받고, 「덮지 않고」 시험은 안내 대신 다시 읽기가 돈다. 부하가 걸려 답이 늦을 때만 드러난다.
+
+**판정.** 앱 결함. 느린 망에서 설정을 열자마자 이름을 고치면 늦게 온 답이 사용자의 글자를 지운다.
+
+| ID | 요구 |
+|---|---|
+| FR-FLK-6 | 프로필 패널의 읽기는 하나만 난다 — 읽는 중에 다시 부르면 그 읽기를 돌려준다. 읽는 사이에 이름 칸이 바뀌었으면(요청을 낼 때의 값과 다르면) 이름 칸은 칠하지 않고 번호·지문만 칠한다. 기준은 읽은 값이다(고친 이름은 저장하지 않은 수정으로 남는다). 그 사이에 선 「바뀌었다」 안내는 거두지 않는다 |
+
 ## 3. 결정
 
 | ID | 결정 | 이유 |
@@ -93,6 +105,8 @@
 | D-FLK-5 | 틈은 서버가 닫는다 — 구독이 열릴 때 그 구독에만 이름을 싣는다. 화면이 첫 구독에서 `/api/state` 를 다시 받지 않는다 | 화면이 다시 받으면 FR-OPT-4-5 가 없앤 중복 조회(페이지 열 때마다 `/api/state` 두 번)가 돌아온다. 서버는 구독(`Add`)을 먼저 열고 목록을 읽으므로 그 뒤의 변화는 큐에 쌓여 실은 줄 **뒤에** 나간다 — 순서가 구조로 맞다. 목록 조회는 데몬의 목록 캐시를 지나고, 전경 push 가 캐시를 먼저 무효화하므로 방송보다 낡은 값을 싣지 않는다 |
 | D-FLK-6 | 인사를 먼저 flush 하고 이름을 그 다음에 싣는다 | 목록 조회가 데몬 RPC 일 수 있다. 인사가 늦으면 화면의 생존 판정(FR-RLC-25)이 흔들린다 |
 | D-FLK-7 | 빈 이름도 싣는다 | 부팅 조회와 구독 사이에 끝난 프로그램의 이름을 지우려면 빈 이름이 필요하다. 화면에서는 이름 하나를 지우고 그 탭만 다시 칠한다 |
+| D-FLK-9 | 프로필의 겹친 읽기는 섹션 안의 단일 비행으로 묶는다. `SETTINGS_REREAD` 에 넣지 않는다 | profile 은 열 때의 다시 읽기를 자기 `onOpen` 이 한다(순서 계약 INV-S3). 목록에 넣으면 그 순서가 바뀐다 |
+| D-FLK-10 | 읽는 사이의 수정은 「요청을 낼 때의 값과 지금 값이 다르다」 로 판정한다 | 패널의 기준(`_liveMark`)은 첫 읽기 전에는 비어 있어 「수정」 을 말할 수 없다. 요청 시점의 값은 언제나 있다 |
 | D-FLK-8 | V-NAM-4 의 활동은 `waiting` 으로 서버에 보고한다 | 이 시험이 재는 것은 카드의 이름이다. 화면에만 넣으면 주기 조회가 지우고, `working` 은 전경이 빈 셸에서 조회가 뺀다(FR-AAP-20) |
 
 ## 4. 검증
@@ -101,6 +115,7 @@
 |---|---|
 | TC-FLK-1 | e2e `activity-rail.spec.ts` 전체를 `PW_WORKERS=8 --repeat-each=30 --retries=0` 으로 돌려 0 실패. 반증: `keepToolBusy` 를 빼면 주기 조회 단정에서 3/3 실패한다 |
 | TC-FLK-2 | e2e `slot-view-state.spec.ts` TC-SVS-3·13·50·55·56 을 `PW_WORKERS=8 --repeat-each=16` 으로 0 실패. `slot-view-state`·`a11y-keyboard` 전체를 `PW_WORKERS=6 --repeat-each=3` 으로 0 실패 |
+| TC-FLK-4 | 단위 `profile-panel.test.mjs` 넷 — 겹친 읽기는 하나 · 읽는 사이에 고친 이름은 남고 뒤의 방송이 안내 · 읽는 사이에 선 안내를 읽기가 거두지 않음(셋 다 옛 코드에서 RED) · 고치지 않았으면 읽은 값. e2e: 응답 400ms 지연 탐침이 고친 뒤 3/3(읽기 1번, 이름 남음, 안내 섬). `settings.spec.ts` `PW_WORKERS=8 --repeat-each=6` 0 실패, 설정 관련 5 spec 통과 |
 | TC-FLK-3 | Go `httpapi` `TestSSE_ForegroundOnConnect`(인사 뒤 도구마다 한 줄, 빈 이름 포함 — 옛 코드에서 RED) · `_UnknownList`(모르는 목록이면 없음) · `_PresenceSkips`(칸 구독이면 없음). e2e `tab-names.spec.ts` 전체 `PW_WORKERS=8 --repeat-each=10` 0 실패. 관련 e2e(재연결·새로고침·복원 비행·동기·skill-contract·version-autoreload 등 11 spec) 통과 |
 
 ## 5. 동작 변경 기록
@@ -109,6 +124,7 @@
 |---|---|---|---|
 | FL-1 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
 | FL-2 | — (시험만) | — | 앱 동작은 바뀌지 않는다 |
+| FL-4 | 설정을 열면 프로필을 두 번 읽었고, 늦게 온 답이 그 사이에 고친 이름을 지웠다 | 읽기는 한 번이고, 읽는 사이에 고친 이름은 남는다(다른 곳에서 바뀌었으면 안내가 선다) | 느린 망에서 사용자의 글자가 사라졌다(FR-FLK-6) |
 | FL-3 | 전경 이름은 바뀔 때의 방송뿐이었다. 부팅 조회와 구독 사이의 변화는 사라져, 새로 연 셸 탭이 폴더를 옮길 때까지 `Shell` 로 남을 수 있었다 | 구독이 열릴 때 서버가 도구마다 지금의 이름을 한 번 싣는다 | 부팅 조회와 구독 사이의 틈(FR-FLK-3, D-FLK-5) |
 
 ## 6. 구현 기록
@@ -117,4 +133,5 @@
 |---|---|
 | FL-1 | `activity-rail.spec.ts` TC-ACF-1 — `keepToolBusy(page, pid)` 뒤에 `working` 을 보고하고, 카드가 선 뒤 `activityRestore()` 를 불러 카드가 남는지 본다(FR-FLK-1). RED: 주기 조회 단정만 더한 시험이 3/3 실패(카드 0개). 고친 뒤 `PW_WORKERS=8 --repeat-each=30` 90 통과(HEAD 에서는 같은 조건 90회 중 12회 실패) |
 | FL-2 | `fixtures.ts` 에 `selectTab` — 이름의 왼쪽 끝(x 1px)을 누르고 활성을 기다린다(FR-FLK-2). `slot-view-state` 의 `clickTabId` 와 `a11y-keyboard` TC-A11Y-6e 가 쓴다. 원인 계측: 캡처 단계의 클릭 기록이 `tgt=pn-tab-x` 였고 `switchTab` 이 불리지 않았다. 첫 고침(탭 자신의 왼쪽 여백 x 3px)은 TC-SVS-56 에서 16/16 실패 — 둘째 칸 첫 탭의 왼쪽 끝을 칸 경계 손잡이(`.slot-handle`)가 덮었다. 이름 쪽으로 옮긴 뒤 `PW_WORKERS=8 --repeat-each=16` 80 통과(HEAD 80회 중 43회 실패), 두 spec 전체 `PW_WORKERS=6 --repeat-each=3` 132 통과 |
+| FL-4 | `ProfileSection._loadProfilePanel` 은 단일 비행(`_pfReading`), 본문 `_pfRead` 는 요청 시점의 이름과 답이 왔을 때의 이름이 다르면 `_pfPaint(v,keepName)` 로 이름 칸을 두고 `_liveMark(k,r,{name: 읽은 값},keep)` 으로 안내를 둔다. `SettingsLive._liveMark` 에 넷째 인자 `keep`(FR-FLK-6). 시험 TC-FLK-4. 사용자 언어 CHANGELOG 「고침」 |
 | FL-3 | 서버: `hub.ForegroundSnapshot` · `Server.foregroundOnConnect`(`commands.go`) — 인사를 flush 한 뒤 칸 구독이 아니면 `ListOK` 의 도구마다 `tool_foreground` 를 싣고 flush(FR-FLK-3). Go 시험 `commands_sse_fg_test.go` 셋(옛 코드에서 첫째 RED: 인사 한 줄뿐). 시험: `tab-names.spec.ts` 의 `fgSettled`(서버 값은 `page.request` 로 읽어 스냅숏 흉내를 지나지 않는다) — `pushForeground` 가 도구마다 처음 한 번 부르고, V-NAM-1·2·5·4 가 직접 부른다. 스냅숏 흉내는 `fgStub.has` 로 빈 이름도 덮는다. V-NAM-4 는 활동을 `POST /api/tools/activity/set` 에 `waiting` 으로(FR-FLK-5). 원인 2 의 계측: 실패 회차의 페이지 기록에 `tool_foreground` 가 없고 구독은 도구 생성 70ms 뒤에 열렸다. 고친 뒤 `PW_WORKERS=8 --repeat-each=10` 170 통과(시험만 고친 상태에서 160여 회 중 4회 「브라우저에 닿지 않았다」). 관련 e2e 11 spec 96 통과. 사용자 언어 CHANGELOG 「고침」 |

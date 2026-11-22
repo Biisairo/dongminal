@@ -44,10 +44,11 @@ function setup({ get, put, open = false } = {}) {
   let titles = 0;
   app._applyPageTitle = () => { titles++ };
   const notices = [];
-  app._liveNotice = (k, reload) => { if (reload) notices.push(k) };
+  const cleared = [];
+  app._liveNotice = (k, reload) => { if (reload) notices.push(k); else cleared.push(k) };
   // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `ProfileSection` 이다. 저장·알림은 App 을 거친다.
   const sec = new ctx.ProfileSection(app);
-  return { ctx, app, sec, els, puts, titles: () => titles, gets: () => gets, notices };
+  return { ctx, app, sec, els, puts, titles: () => titles, gets: () => gets, notices, cleared };
 }
 
 test('패널을 열면 이름·번호·지문을 그리고 탭 제목 이름을 맞춘다', async () => {
@@ -137,4 +138,63 @@ test('닫힌 패널은 방송을 따라가지 않는다', async () => {
   await sec._loadProfilePanel();
   await sec._pfFollow(edgesRead('E9'));
   assert.equal(gets(), 1);
+});
+
+// QUALITY_FLAKY_SRS FR-FLK-6 — 읽기는 하나만 나고, 읽는 사이에 고친 이름을 덮지 않는다.
+function pendingGet() {
+  const box = { release: null };
+  box.get = () => new Promise((res) => { box.release = (name = PROFILE.name, tag = 'E1') => res({ ok: true, status: 200, data: { ...PROFILE, name }, headers: { get: () => tag } }) });
+  return box;
+}
+
+test('겹친 읽기는 하나만 난다 (열기와 탭 고르기)', async () => {
+  const g = pendingGet();
+  const { sec, gets } = setup({ open: true, get: g.get });
+  const a = sec._loadProfilePanel();
+  const b = sec._loadProfilePanel();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(gets(), 1);
+  g.release();
+  await Promise.all([a, b]);
+  assert.equal(gets(), 1);
+});
+
+test('읽는 사이에 고친 이름은 덮지 않고, 뒤의 방송이 안내한다', async () => {
+  const g = pendingGet();
+  const { sec, els, notices } = setup({ open: true, get: g.get });
+  const reading = sec._loadProfilePanel();
+  await new Promise((r) => setTimeout(r, 0));
+  els['pf-name'].value = '고치는중';
+  g.release();
+  await reading;
+  assert.equal(els['pf-name'].value, '고치는중');
+  assert.equal(els['pf-tag'].textContent, '#0427');
+  await sec._pfFollow(edgesRead('E9'));
+  assert.equal(els['pf-name'].value, '고치는중');
+  assert.deepEqual(notices, ['profile']);
+});
+
+test('읽는 사이에 선 안내는 그 읽기가 거두지 않는다', async () => {
+  const g = pendingGet();
+  const { sec, els, notices, cleared } = setup({ open: true, get: g.get });
+  const reading = sec._loadProfilePanel();
+  await new Promise((r) => setTimeout(r, 0));
+  els['pf-name'].value = '고치는중';
+  await sec._pfFollow(edgesRead('E9'));
+  assert.deepEqual(notices, ['profile']);
+  g.release();
+  await reading;
+  assert.equal(els['pf-name'].value, '고치는중');
+  assert.deepEqual(cleared, []);
+});
+
+test('읽는 사이에 고치지 않았으면 읽은 값으로 그린다', async () => {
+  const g = pendingGet();
+  const { sec, els, cleared } = setup({ open: true, get: g.get });
+  const reading = sec._loadProfilePanel();
+  await new Promise((r) => setTimeout(r, 0));
+  g.release('다른창', 'E9');
+  await reading;
+  assert.equal(els['pf-name'].value, '다른창');
+  assert.deepEqual(cleared, ['profile']);
 });

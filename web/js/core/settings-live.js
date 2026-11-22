@@ -19,12 +19,15 @@ class SettingsLive extends Controller {
 
   _liveTag(r){ return (r&&r.headers&&typeof r.headers.get==='function'&&r.headers.get('ETag'))||'' }
 
-  /** 읽거나 저장한 뒤 부른다 — 지문과 지금 폼 값이 새 기준이다. 알림은 거둔다. */
-  _liveMark(k,r,form){
+  /**
+   * 읽거나 저장한 뒤 부른다 — 지문과 `form` 이 새 기준이다. 알림은 거둔다. `keep` 이면 알림을 둔다 — 화면의 값이
+   * 기준과 다른 채(읽는 사이에 고친 값) 남는 자리다(QUALITY_FLAKY_SRS FR-FLK-6).
+   */
+  _liveMark(k,r,form,keep){
     const l=this._liveOf(k);
     l.etag=this._liveTag(r);
     l.base=JSON.stringify(form);
-    this.app._liveNotice(k,null);
+    if(!keep) this.app._liveNotice(k,null);
     if(this.app._saveBtnsPaint) this.app._saveBtnsPaint(); // UX_AUDIT_FIX_SRS FR-UXF-72: 기준이 바뀌었다
   }
 

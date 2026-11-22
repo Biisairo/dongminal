@@ -10,8 +10,9 @@
 class ProfileSection extends SettingsSection {
   constructor(app){ super(app,'profile') }
 
-  _pfPaint(v){
-    document.getElementById('pf-name').value=v.name||'';
+  // `keepName` 이면 이름 칸은 건드리지 않는다 — 사용자가 고치던 글자다(FR-FLK-6).
+  _pfPaint(v,keepName){
+    if(!keepName) document.getElementById('pf-name').value=v.name||'';
     document.getElementById('pf-tag').textContent=v.tag?'#'+v.tag:'';
     const fp=document.getElementById('pf-fp');
     fp.replaceChildren(...edgeFpGroups(v.fingerprint).map(g=>{
@@ -29,13 +30,30 @@ class ProfileSection extends SettingsSection {
     if(v&&v.name&&v.name!==profileName){ profileName=v.name; this.app._applyPageTitle() }
   }
 
-  async _loadProfilePanel(){
+  /**
+   * QUALITY_FLAKY_SRS FR-FLK-6: 읽기는 하나만 난다 — 설정을 열 때(`onOpen`)와 탭을 고를 때(`onTab`)가 겹치면 같은 읽기를
+   * 돌려준다(서버 패널의 `_reread` 와 같은 규칙, FR-FFX-11).
+   */
+  _loadProfilePanel(){
+    if(!this._pfReading) this._pfReading=this._pfRead().finally(()=>{ this._pfReading=null });
+    return this._pfReading;
+  }
+
+  /**
+   * QUALITY_FLAKY_SRS FR-FLK-6: 읽는 사이에 사용자가 이름을 고쳤으면 그 글자를 덮지 않는다.
+   *   이전: 답이 오면 이름 칸을 읽은 값으로 칠했다 — 설정을 열자마자 친 이름이 늦게 온 답에 지워졌다
+   *   새:   번호·지문만 칠하고, 읽은 값을 기준으로 둔다 — 고친 이름은 저장하지 않은 수정으로 남아 뒤의 방송이 안내한다.
+   *         그 사이에 선 안내도 거두지 않는다
+   */
+  async _pfRead(){
+    const asked=this._pfCollect();
     await statusRun(document.getElementById('pf-status'),{fail:t('edge.read_fail')},async()=>{
       const r=await apiGet('/api/profile');
       if(r.ok&&r.data){
-        this._pfPaint(r.data);
+        const edited=this._pfCollect().name!==asked.name;
+        this._pfPaint(r.data,edited);
         this._pfApply(r.data);
-        this.app._liveMark('profile',r,this._pfCollect());
+        this.app._liveMark('profile',r,{name:(r.data.name||'').trim()},edited);
       }
       return r;
     });
