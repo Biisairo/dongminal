@@ -221,6 +221,18 @@
 | `D-4` | `prefers-reduced-motion` 을 존중한다. |  | 채택 |
 | `D-5` | 분할 칸의 링은 겹(`::after`)으로 옮긴다. |  | 채택 |
 
+## [`ATTIC_FIX_SRS`](./ATTIC_FIX_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-ATF-1` | 브랜치 checkout 의 argv 끝에 `--` 를 붙인다. 판정 단계는 바꾸지 않는다 | git 이 이름을 ref 로만 읽고, 없는 ref 는 git 이 오류로 끝낸다. 판정에 `rev-parse` 를 더하는 것보다 한 자리에서 막는다 | 채택 |
+| `D-ATF-2` | undo 토큰에 발급 시점의 HEAD oid 를 싣고, 소비 때 HEAD 가 다르면 토큰을 소모하지 않고 기존 코드 `stale_observation`(그 코드의 기존 HTTP 상태)으로 거절한다 | 다른 경로의 커밋을 되돌리지 않는다. 「관측한 HEAD 가 낡았다」 는 그 코드의 뜻 그대로다 — 새 코드를 만들지 않는다 | 채택 |
+| `D-ATF-3` | `finish` 에 든 잡의 `Cancel` 은 false 를 돌려준다(이미 끝나는 중) | 취소 응답과 결과가 어긋나지 않는다. 결과를 다시 분류하는 쪽은 완료 훅이 이미 돈 뒤라 되돌릴 수 없다 | 채택 |
+| `D-ATF-4` | 잡 실행기·완료 훅의 panic 은 그 잡의 실패(`Err`)로 바꾸고 칸을 비운다. 스택은 `dmlog` 로 | 서버 전체가 죽지 않는다 | 채택 |
+| `D-ATF-5` | 깨진 `edges.json` 은 `edges.json.bad-<UTC시각>` 으로 옮기고 경고 로그를 남긴 뒤 빈 설정으로 연다 | 원본을 잃지 않는다. 빈 설정으로 여는 지금 동작은 유지한다 | 채택 |
+| `D-ATF-6` | Telegram 길이 상한은 UTF-16 코드 단위로 센다 | Bot API 의 4096 은 UTF-16 단위다(공식 문서 「1-4096 characters after entities parsing」, 엔티티 오프셋이 UTF-16) | 채택 |
+| `D-ATF-7` | doctor 의 임시 bin 실패는 오류로 끝낸다 | FR-HLI-5·8 — doctor 는 운영 bin 을 건드리지 않는다 | 채택 |
+
 ## [`BOOT_SCREEN_REUSE_SRS`](./BOOT_SCREEN_REUSE_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -2186,4 +2198,4 @@
 
 ---
 
-결정 **1343건** · 문서 **164개**.
+결정 **1350건** · 문서 **165개**.
