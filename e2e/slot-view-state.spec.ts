@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard, freshDir, clickRowAct, nextFrames } from './fixtures';
+import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard, freshDir, clickRowAct, nextFrames, selectTab } from './fixtures';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
@@ -72,7 +72,7 @@ const activeTabId = (page: Page, slot: number | null) =>
   paneOf(page, slot).locator('.pn-tab.active').first().getAttribute('data-tab-id');
 
 const clickTabId = async (page: Page, slot: number | null, tid: string) => {
-  await paneOf(page, slot).locator(`.pn-tab[data-tab-id="${tid}"]`).first().click();
+  await selectTab(paneOf(page, slot).locator(`.pn-tab[data-tab-id="${tid}"]`).first());
 };
 
 const tabIdsOf = (page: Page, winId: string) =>

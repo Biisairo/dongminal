@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, addEditor, rmTree, enterExplorer } from './fixtures';
+import { test, expect, waitForInit, waitSettled, addEditor, rmTree, enterExplorer, selectTab } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, realPath } from './osenv';
 
@@ -214,7 +214,8 @@ test.describe('접근성 — 키보드 계약이 마우스·입력을 건드리�
       await expect(tabs).toHaveCount(2, { timeout: 10000 });
       await waitSettled(page);
     }
-    await page.locator('#area .pn.focused .pn-tab:not(.active)').first().click();
+    const other = await page.locator('#area .pn.focused .pn-tab:not(.active)').first().getAttribute('data-tab-id');
+    await selectTab(page.locator(`#area .pn.focused .pn-tab[data-tab-id="${other}"]`));
     await expect.poll(() => focusedIs(page, '.xterm-helper-textarea'), { timeout: 10000 }).toBe(true);
   });
 

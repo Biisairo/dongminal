@@ -2,7 +2,7 @@ import { execFileSync, spawn } from 'child_process';
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, Locator } from '@playwright/test';
 
 import { E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
@@ -807,6 +807,23 @@ export async function routeAllBusy(page: any): Promise<{ single: number; batch: 
     return r.fulfill({ json: { busy: true } });
   });
   return n;
+}
+
+/**
+ * 탭을 **고른다** — 가운데가 아니라 이름의 왼쪽 끝을 누른다 (QUALITY_FLAKY_SRS FR-FLK-2).
+ *
+ * `locator.click()` 은 요소의 가운데를 누른다. 셸 탭의 이름은 첫 전경 틱에서 `Shell` 이
+ * `~` 로 바뀌고(FR-UXF-65), 이름이 한 글자인 탭은 폭이 44px 이라 **가운데가 닫기 단추(×)**
+ * 다 — 그 순간에 누르면 탭이 닫힌다. 이름의 왼쪽 끝은 이름의 길이와 상관없이 그 자리다.
+ * 탭 자신의 왼쪽 여백은 쓰지 않는다 — 칸 둘째의 첫 탭은 그 자리를 칸 경계 손잡이가 덮는다.
+ *
+ * 누른 뒤 그 탭이 활성이 될 때까지 기다린다.
+ */
+export async function selectTab(tab: Locator): Promise<void> {
+  const label = tab.locator('.pn-tab-label');
+  const box = await label.boundingBox();
+  await label.click({ position: { x: 1, y: Math.round((box ? box.height : 16) / 2) } });
+  await expect(tab).toHaveClass(/\bactive\b/);
 }
 
 /**
