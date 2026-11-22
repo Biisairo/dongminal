@@ -152,3 +152,11 @@
 | 킷 대화상자 | `DialogStack` | `kit-dialog` · `a11y-*` · `settings` · `git-confirm` · `git-dialog` |
 
 **남긴 것.** `ui/term-pane.js`(776) — D-FR5-9. 위임자 제거와 부품의 필드 소유(§1.3 · D-FR5-8). 저장 기계의 필드를 컨트롤러로 옮기는 일(FR-FR5-22).
+
+**SRS 와 다르게 한 것.**
+
+1. `git-poll.js` 에서 처음에는 관측 한 번의 받아들이기를 부품 `GitStatusApply` 로 옮겼다가 되돌렸다 — e2e `event-timer-hub-contract` 가 `git-part.js`+`git-poll.js` 만 실어 그 길(`_fail` 의 백오프)을 잰다. 대신 하네스가 지나지 않는 새로고침·뷰 다시 받기와 워치독을 옮겼다(D-FR5-7).
+2. FR-FR5-21 의 클래스 파일 가운데 `term-pane.js` 는 나누지 않았다(D-FR5-9).
+3. `app.js` 는 저장 기계만으로는 509줄이라 저장이 쓰는 `_etagOf` 도 함께 옮겼다(FR-FR5-22 목록 밖 하나).
+4. `FileTree` 원형에 이름이 하나 늘었다 — 생성자를 100줄 아래로 줄이며 뺀 `_buildDom`(TC-FR5-30 이 적는다).
+5. 진단 오버레이의 시각 기준(`t0`)은 생성자에서 잡는다 — 종전에는 요소를 붙인 직후였다. 차이는 같은 동기 구간 안의 몇 줄이고 `?diag=1` 에서만 보이는 로그의 시각이다.
