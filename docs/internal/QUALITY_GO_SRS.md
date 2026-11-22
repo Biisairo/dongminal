@@ -124,6 +124,8 @@
 |---|---|---|---|
 | QG-1 | 디코드 실패 문구에 원인 오류 그대로(`… json: cannot unmarshal number into Go struct field fsDeleteReq.path of type string`). 읽기 실패도 원인 그대로 | 고정 문구 + 요청 자리(`본문이 JSON 이 아니다: path: number 값은 맞지 않다`). 문법 오류·상한 초과는 종전 문구 그대로(골든 불변). 그 밖의 읽기 실패는 고정 문구뿐. 전문은 `dmlog` | 내부 타입 이름 노출(GH-F3). D-QG-1 |
 | QG-1 | 핀 추가·빼기의 저장 실패 문구가 원인 오류(작업 공간 파일 해석 오류·경로) | `핀 목록을 저장하지 못했다`. 원인은 `dmlog` | D-QG-2 |
+| QG-2 | `PUT /api/settings` 가 JSON 이면 무엇이든 저장했다 | `customTheme` 의 색·`mode` 가 규칙을 어기면 `400` · `bad_request`(문구 `customTheme.ui.bg: #rrggbb 또는 #rrggbbaa 색이어야 합니다`), 저장하지 않는다 | FC-F1 서버 쪽 — 나쁜 값이 다른 기기로 방송되지 않게. D-QG-3 |
+| QG-2 | `dongminal config` 검증이 `customTheme` 을 object 인지만 봤다 | 키별 값 검증(문제의 키가 `customTheme.ui.bg` 꼴) | 같은 규칙 한 벌(FR-QG-10) |
 
 ## 6. 구현 기록
 

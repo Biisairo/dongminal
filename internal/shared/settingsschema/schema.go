@@ -181,6 +181,10 @@ func check(s Spec, v any) *Problem {
 	if v == nil {
 		return nil
 	}
+	// QUALITY_GO_SRS FR-QG-10: object 라는 사실만으로는 모자란 키다 — 값이 화면의 스타일에 닿는다.
+	if s.Key == CustomThemeKey {
+		return checkCustomTheme(v)
+	}
 	switch s.Type {
 	case "any":
 		return nil

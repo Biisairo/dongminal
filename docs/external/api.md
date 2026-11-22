@@ -16,7 +16,7 @@
 | GET | `/api/workspace` | workspace.json raw (`schemaVersion: 2`). ETag 헤더 포함 |
 | PUT | `/api/workspace` | workspace 저장. `If-Match: <rev>` 로 낙관적 동시성 제어. stale 시 409 + 최신 `ETag` 반환 |
 | GET | `/api/settings` | 설정 조회 |
-| PUT | `/api/settings?clientId=` | 설정 저장 (`settings.json` 즉시 영속화). `clientId`(선택)는 방송 `settings_changed` 의 `args.origin` 으로 돌아간다 — 보낸 창이 자기 방송의 재조회를 건너뛰는 근거. 생략하면 `origin` 이 없다 |
+| PUT | `/api/settings?clientId=` | 설정 저장 (`settings.json` 즉시 영속화). `clientId`(선택)는 방송 `settings_changed` 의 `args.origin` 으로 돌아간다 — 보낸 창이 자기 방송의 재조회를 건너뛰는 근거. 생략하면 `origin` 이 없다. 본문이 JSON 이 아니면 `400` · `invalid_json`. `customTheme` 이 있으면 `ui`·`terminal` 의 값은 모두 `#rrggbb`·`#rrggbbaa` 색이고 `mode` 는 `dark`·`light` 여야 한다 — 어기면 `400` · `bad_request` 로 거절하고 저장하지 않는다(본문 문구가 어긴 키 경로를 말한다) |
 | GET | `/api/update` | 마지막 판 확인 결과 — `{ enabled, current, latest, newer, link, checkedAt, failed }`. **밖으로 나가지 않습니다** (캐시만 읽음) |
 | PUT | `/api/update` | 자동 판 확인 토글 — `{ enabled: bool }`. `server.json` 의 `updateCheck` 에 남습니다 (설정 블롭이 아닙니다) |
 | GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }`. `?jobs=1` 이면 `/api/git/jobs` 의 `jobs` 를 함께 싣습니다 (git 이 없으면 키가 없습니다) |

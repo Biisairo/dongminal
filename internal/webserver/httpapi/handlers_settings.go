@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"dongminal/internal/shared/httpreq"
+	"dongminal/internal/shared/settingsschema"
 	"os"
 	"sync"
 
@@ -161,6 +162,13 @@ func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 	// `settings.json` 에 썼다 — 그 파일이 깨지면 다음 기동이 설정을 잃는다.
 	if !json.Valid(body) {
 		httpErr(w, "settings must be JSON", http.StatusBadRequest, apierr.CodeInvalidJSON)
+		return
+	}
+	// QUALITY_GO_SRS FR-QG-11 · D-QG-3: 사용자 정의 테마의 값은 색이어야 한다 — 그 값이 다른
+	// 기기의 화면 스타일에 닿는다. 키만 버리지 않고 거절한다: 서버는 블롭을 고쳐 쓰지 않는다.
+	// 이미 저장된 블롭은 보지 않는다(FR-QG-12) — 화면이 읽을 때 걸러 다음 저장부터 통과한다.
+	if p := settingsschema.CheckThemeBlob(body); p != nil {
+		httpErr(w, p.Key+": "+p.Reason, http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
 	if s.Settings != nil {
