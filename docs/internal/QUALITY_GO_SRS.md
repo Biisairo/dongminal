@@ -1,8 +1,6 @@
 # SRS: 리팩토링 3차 Go 남은 항목 — 오류 문구, 테마 값, 병렬 걷기, 잠금 범위, 한 벌 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-
-> **남은 것**: 이슈 여섯을 차례로 구현한다(§6 구현 기록).
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-22 (프로덕션 리팩토링 3차 · `docs/internal/refactor/PROD3.md` 에서 남은 Go 항목)
 - 사용자 지시(2026-11-22): 하나씩 끝나면 커밋한다. 끝까지 진행한다.
@@ -135,5 +133,14 @@
 
 | 이슈 | 커밋 | 요점 |
 |---|---|---|
+| QG-1 | `b7785b53` | `httpreq.Reason`·`Message`(문법 오류 문구 · 형 오류의 `<필드>: <JSON 종류> 값은 맞지 않다` · 상한 초과 문구, 그 밖은 없음, 전문은 `dmlog`). 적용 여섯 자리(fs·toolio·git 디코더, 파일 표식·저장, 명령 POST)와 git 핀 추가·빼기의 저장 실패. 시험 `reason_test.go`·`decode_reason_test.go`(httpapi 다섯 종단·git 둘)는 옛 코드에서 실패했다(본문에 `Go struct field …Req`). 방언 골든(`dialect_golden_test.go` 둘)은 바꾸지 않고 통과한다. 클라이언트가 이 문구를 읽는 곳은 없다(`web/js`·`runtimebin` 검색 0곳) |
+| QG-2 | `63197fa7` | `settingsschema.CheckThemeBlob`·`check` 의 `customTheme` 갈래(`theme.go`), `apiSettingsPut` 이 JSON 검사 뒤에 부른다. 시험: 갈래 열둘 · `Validate` · 내장 테마 54종(embed 된 `themes.js` 를 읽어 대조) · PUT 거절과 저장 안 함(옛 코드에서 200). 클라이언트의 키 목록은 확인만 했다 — `sanitizeCustomTheme` 은 키 이름을 묻지 않고 `ui`·`terminal` 의 값만 본다(D-QG-5). `docs/external/api.md` 의 `PUT /api/settings` 줄에 거절 규칙 |
+| QG-3 | `5c48bccf` | `clearButtons` 가 `fanout.Each`(상한 `clearButtonsParallel` = 4). 측정 `TestBridge_ClearButtonsBoundedParallel`(가짜 Telegram, 요청당 100ms, 버튼 32개): **전 3.26s · 동시 1 → 후 0.82s · 동시 4**. 시험은 동시 최대가 상한 이하, 시간이 순차의 절반 미만, 목록이 지워졌음을 본다. `-race` 통과 |
+| QG-4 | `527aa03c` | `writeDeniedPage` 가 `X-Error-Code: forbidden`. 시험은 화면과 평문 403 의 코드가 같음을 본다(옛 코드에서 빈 값). 다른 헤더·본문 그대로. `errors.md` 는 이미 "모든 오류 응답에 코드가 실린다" 고 적고 있어 고치지 않았다 |
 | QG-5 | `6c4b7551` | **측정 뒤 유지**(D-QG-7). 측정 `TestMeasureFSCopyBlocksOtherRootMkdir`(`DM_MEASURE_FS_COPY=1` 일 때만 돈다, 임시 폴더): 파일 3,000개(4 KiB)·폴더 30개 트리 복사 중 다른 루트의 `mkdir` 응답 — 3회 397 · 748 · 318 ms, 복사 시간 398 · 748 · 319 ms. 즉 다른 루트의 `mkdir` 은 복사가 끝날 때까지 기다린다(상한 1만 항목이면 약 1~2.5초, 큰 파일이면 더 길다). 잠금 자리에 불변식 두 개를 주석으로 적었다 |
-| QG-6 DM-18 | (이 커밋) | **달지 않음**(D-QG-8). 세 OS `go vet ./...` 통과, `go tool nm` 으로 다른 OS 어댑터가 바이너리에 없음을 확인 |
+| QG-6 GD-3 | `036e184a` | `core.(*Service).UnguardedTextRunner(timeout, reason, missing, trim)` 하나. worktree·submodule 의 `runGit` 을 지우고 각자 `gitRunner(svc)` 한 줄(인자만)로. 호출처 게이트 정규식이 `UnguardedTextRunner(` 도 잡는다(`TestUnguardedCallPatternCoversText`). 새 시험 `TestUnguardedTextRunner` 는 옛 코드에서 컴파일 실패 |
+| QG-6 DM-18 | `35786196` | **달지 않음**(D-QG-8). 세 OS `go vet ./...` 통과, `go tool nm` 으로 다른 OS 어댑터가 바이너리에 없음을 확인 |
+| QG-6 GH-4·5·21 | `0296bf2d` | `editorlimit.BinarySniffBytes`(8000) 하나를 편집기 판정·파일 검색·diff 가 쓴다. `httpapi.binaryProbeLen`·`query.BinarySniffBytes` 를 지웠다. 64 KiB·1 MiB(P2)와 fs 상한 표(SH)는 이미 한 이름이었다 |
+| QG-6 DM-5 | `0674988f` · `cdd38aa9` | 먼저 손 루프 셋을 파싱 함수로 떼고(동작 불변) 그 출력을 `argparse.golden` 에 82갈래로 고정했다. 그 뒤 `argSpec` 으로 옮겼다 — `argSpec` 에 선택 필드 둘(`restHelp`: rest 모드에서도 도움말을 이 spec 이 받는다 · `dash`: `-` 하나를 위치 인자로)을 더했고 기존 사용처는 그대로다. 골든 차이는 §5 의 detach 셋뿐. **남김**: `parseSubArgs`(edge·account 하위 명령) — 플래그 표(map)·한 줄표로 시작하는 위치 인자(`-5`)·`X 에 값이 없습니다` 문구가 다른 체계라 옮기면 출력이 바뀐다. 따로 다룰 일이다 |
+
+검증(마지막): `gofmt -l` 변경 0 · `go vet ./...`(그리고 `GOOS=linux`·`windows`·`darwin`) · `go test -race ./...` 통과 — 알려진 흔들림 `gitapi` `TestWorktreeCreateInputAnswer`(임시 폴더 정리 `directory not empty`)가 한 번 졌고 패키지 재실행·단독 3회는 통과했다 · httpapi `go test -v` PASS 이름: 시작 1321 → 끝 1329, **빠진 이름 0** · `make gates` 통과.
