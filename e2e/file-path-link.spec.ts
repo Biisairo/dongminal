@@ -62,7 +62,7 @@ test('TC-FPL-3 있는 파일의 경로형만 링크이고, 누르면 편집기�
     const links: any[] = await new Promise((res) => pane._fileLinks.provideLinks(y, (l: any) => res(l || [])));
     const orig = app.editor?.file.edOpenFile;
     (window as any).__fplGot = null;
-    app.editor.file.edOpenFile = (p: string, o: any) => { (window as any).__fplGot = { p, o }; app.editor.file.edOpenFile = orig; return orig.call(app, p, o) };
+    app.editor.file.edOpenFile = (p: string, o: any) => { (window as any).__fplGot = { p, o }; app.editor.file.edOpenFile = orig; return orig.call(app.editor.file, p, o) };
     links[0].activate(new MouseEvent('click'), links[0].text);
   }, line);
   // FR-FPL-7: 여는 것은 이벤트 디스패치가 끝난 뒤다.
