@@ -1,6 +1,9 @@
 //! Go `time` 의 관측 규칙: RFC 3339 계열 형식과 `Local` 시간대.
 
+mod duration;
 mod zone;
+
+pub use duration::{format_duration, format_std_duration};
 
 pub use zone::{PLATFORM_ZONE_SOURCES, Zone, ZoneInfo, local, resolve_local};
 
