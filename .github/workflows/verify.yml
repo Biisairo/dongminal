@@ -228,6 +228,10 @@ jobs:
       - name: 로드 순서
         run: node scripts/check-load-order.mjs
 
+      # REFACTOR3_FE_DELEG_SRS FR-DLG-7: 컨트롤러·부품으로 옮긴 이름을 주인 원형에 위임자로 다시 두지 않는다.
+      - name: 위임자
+        run: node scripts/check-delegates.mjs
+
       # OPTIMIZE_REFACTOR_SRS FR-OPT-11-3 (FEC-19 · FEC-20). 저장소 호출이 파일마다
       # `try{…}catch{}` 로 흩어져 실패가 아무 데도 남지 않았고, 첫 페인트 선주입의
       # 키·범위는 상수와 손으로 맞췄다.
