@@ -110,8 +110,8 @@ test('FR-CAC-91: 오버레이가 닫힌 묶음은 머리와 5시간·주간 막�
   assert.equal(v.age, '');
   assert.equal(v.pop, false);
   assert.equal(v.wide, true);
-  assert.deepEqual(v.mini, [{ label: 'Session', short: '5h', pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
-    { label: 'Week', short: '7d', pct: '72%', left: '4d', fill: 72, level: 'warn', title: 'Current week · 72% used · Resets in 4d 6h' }], 'D-CAC-37: 칸 — 사용률·가장 큰 단위 하나의 남은 시간');
+  assert.deepEqual(v.mini, [{ label: 'Session', short: '5h', n: 34, pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+    { label: 'Week', short: '7d', n: 72, pct: '72%', left: '4d', fill: 72, level: 'warn', title: 'Current week · 72% used · Resets in 4d 6h' }], 'D-CAC-37: 칸 — 사용률·가장 큰 단위 하나의 남은 시간');
   assert.deepEqual(v.bars.map((b) => b.label), ['Current session', 'Current week']);
   assert.deepEqual(v.bars[0], { id: 'a:five_hour', label: 'Current session', used: '34% used', fill: 34.4, level: '',
     reset: 'Resets in 2h 10m · ' + fillEn('cacct.wd.' + new Date((NOW + 7800) * 1000).getDay()) + ' ' + clock((NOW + 7800) * 1000),
@@ -188,8 +188,8 @@ test('FR-CAC-93: statusLine 은 한 줄이다 — 창마다 이름과 %, 끝에 
   ] }];
   const v = plain(statusLineView(limits, observedAt + 60_000));
   assert.equal(v.label, 'statusLine');
-  assert.deepEqual(v.cells, [{ label: 'Session', short: '5h', pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
-    { label: 'Week', short: '7d', pct: '91%', left: '4d', fill: 91, level: 'critical', title: 'Current week · 91% used · Resets in 4d 6h' }]);
+  assert.deepEqual(v.cells, [{ label: 'Session', short: '5h', n: 34, pct: '34%', left: '2h', fill: 34.4, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+    { label: 'Week', short: '7d', n: 91, pct: '91%', left: '4d', fill: 91, level: 'critical', title: 'Current week · 91% used · Resets in 4d 6h' }]);
   assert.equal(v.asOf, '');
   assert.equal(plain(statusLineView(limits, observedAt + 11 * 60_000)).asOf, 'as of ' + clock(observedAt));
 });
@@ -365,7 +365,7 @@ test('FR-CAC-90·93: 바닥 원소 — 머리, 계정 묶음, 맨 아래 statusL
   assert.equal(find(a, 'cacct-pop'), null);
   assert.equal(parts[3].textContent, 'statusLine');
   const sl = parts[4];
-  assert.equal(find(sl, 'cacct-cell-pct').textContent, '1%');
+  assert.equal(find(sl, 'cacct-cell-pct').textContent + find(sl, 'cacct-cell-unit').textContent, '1%');
   assert.equal(find(sl, 'act-usage-sl-label'), null, '이름표는 머리에 한 번만');
 });
 
@@ -421,7 +421,7 @@ test('FR-CAC-91: 오버레이에는 요약과 동작 버튼이 있고, 활성 �
   assert.equal(find(popB.children[0], 'cacct-active'), null);
   assert.deepEqual(popB.children[3].children.map((c) => c.className.trim()), ['ui-btn cacct-refresh', 'ui-btn cacct-switch'], '새로 고침 왼쪽, 전환 오른쪽');
   const cell = find(b, 'cacct-cells').children[0];
-  assert.equal(find(cell, 'cacct-cell-pct').textContent, '1%', '좁은 모양의 한 줄에 창마다 칸');
+  assert.equal(find(cell, 'cacct-cell-pct').textContent + find(cell, 'cacct-cell-unit').textContent, '1%', '좁은 모양의 한 줄에 창마다 칸');
   assert.equal(find(cell, 'cacct-cell-label').textContent, 'Session', '칸 앞에 작은 창 이름');
   assert.equal(find(foot[0], 'cacct-pop'), null);
 });
@@ -729,8 +729,8 @@ test('FR-CAC-93 · FR-MUX-81: statusLine 줄은 등록되지 않은 계정의 �
   assert.equal(lines.length, 2, '값이 없는 계정(em***@)은 줄이 없다');
   assert.deepEqual(plain(lines[0]), {
     key: 'other:wo***@', label: 'statusLine', name: 'wo***@', color: '',
-    cells: [{ label: 'Session', short: '5h', pct: '34%', left: '2h', fill: 34, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
-      { label: 'Week', short: '7d', pct: '21%', left: '', fill: 21, level: '', title: 'Current week · 21% used' }], asOf: '',
+    cells: [{ label: 'Session', short: '5h', n: 34, pct: '34%', left: '2h', fill: 34, level: '', title: 'Current session · 34% used · Resets in 2h 10m' },
+      { label: 'Week', short: '7d', n: 21, pct: '21%', left: '', fill: 21, level: '', title: 'Current week · 21% used' }], asOf: '',
   });
   assert.equal(lines[1].name, 'ze***@');
   assert.equal(lines[1].color, '');

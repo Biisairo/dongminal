@@ -7,8 +7,10 @@ import { test, expect, waitForInit } from './fixtures';
  *
  *   TC-RCU-1  사이드바 레일의 채팅 탭: 보이는 채팅 요소는 레일 폭 안이고, 감춘 요소는 보이지 않으며,
  *             방·사람 이름은 두 줄 이하다 (FR-RCU-1·2)
- *   TC-RCU-2  Activity 레일: 사용량 요약 줄이 보이고 `%` 가 있으며 레일 폭 안이다. 계정 줄은 보이지 않는다.
- *             세션·주간 두 칸이 나란히 서고, 칸마다 아래부터 창 이름(5h·7d) · 세로 막대 · % 순이다 (FR-RCU-3 개정)
+ *   TC-RCU-2  Activity 레일: 사용량 요약 줄이 보이고 레일 폭 안이다. 계정 줄은 보이지 않는다.
+ *             세션·주간 두 칸이 나란히 서고, 칸마다 아래부터 창 이름(5h·7d) · 세로 막대 · 값 순이다 (FR-RCU-3 개정)
+ *             개정 2: 칸 위에 색 점과 계정 이름(두 줄 이하)이 서고, 값은 `%` 없이 숫자만이며 가로로 줄지 않는다.
+ *             글자 상자끼리 1px 이상 떨어진다 — 짧은 이름과 긴 이름 둘 다
  *   TC-RCU-4  사이드바 레일: 고른 창과 고르지 않은 창의 이름이 같은 모양으로 서고, 들어가는 이름은 한 줄이다 (FR-RCU-6)
  *
  * 사용량은 `claude-accounts.spec` 처럼 브라우저에서 `/api/claude-accounts*` 응답을 위조한다 (D-CAC-32).
@@ -20,10 +22,10 @@ const NOW = () => Math.floor(Date.now() / 1000);
 const win = (pct: number, inSec: number) =>
   ({ pct, resetsAt: NOW() + inSec, resetsInSec: inSec, level: pct >= 90 ? 'critical' : pct >= 70 ? 'warn' : '' });
 
-async function installUsageMock(page: Page) {
+async function installUsageMock(page: Page, alias = 'Work', five = 34) {
   const accounts = [
-    { id: 'a', email: 'alice@x.com', alias: 'Work', color: 'acct-3', disabled: false, priority: 0, active: true,
-      usage: { status: 'ok', ageSeconds: 10, windows: { fiveHour: win(34, 7800), sevenDay: win(72, 368000) } } },
+    { id: 'a', email: 'alice@x.com', alias, color: 'acct-3', disabled: false, priority: 0, active: true,
+      usage: { status: 'ok', ageSeconds: 10, windows: { fiveHour: win(five, 7800), sevenDay: win(72, 368000) } } },
     { id: 'b', email: 'bob@y.org', color: 'acct-6', disabled: false, priority: 0, active: false,
       usage: { status: 'ok', ageSeconds: 10, windows: { fiveHour: win(5, 9000), sevenDay: win(10, 400000) } } },
   ];
@@ -73,8 +75,8 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
     for (const b of names) expect(b.h, `${b.cls} 가 두 줄을 넘는다`).toBeLessThanOrEqual(b.lh * 2 + 1);
   });
 
-  test('TC-RCU-2: Activity 레일에 사용량 요약이 작게 보인다', async ({ page }) => {
-    await installUsageMock(page);
+  for (const acct of ['업무 계정', 'Claude Max 업무용 공유 계정 alice@example.com']) test(`TC-RCU-2: Activity 레일에 사용량 요약이 작게 보인다 (${acct})`, async ({ page }) => {
+    await installUsageMock(page, acct, 100);
     await waitForInit(page, { mode: 'desktop' });
     const panel = page.locator('#agents-panel');
     if (await panel.evaluate((e) => e.classList.contains('open'))) await panel.locator('.ag-collapse').click();
@@ -84,7 +86,6 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
 
     const sum = panel.locator('.act-usage-sum');
     await expect(sum).toBeVisible({ timeout: 10000 });
-    await expect(sum).toContainText('%');
     const check = async () => {
       expect((await sum.boundingBox())!.width).toBeLessThanOrEqual(rw);
       // 칸이 요약 줄 밖으로 넘쳐 잘리지 않는다 — 단추의 고정 높이가 세로로 쌓인 칸을 자르면 주간 % 가 화면 밖으로 간다.
@@ -94,7 +95,7 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
       for (const b of await boxes(page, '#agents-panel .act-usage-foot *')) {
         expect(b.w, `${b.cls} 의 폭`).toBeLessThanOrEqual(rw);
       }
-      for (const sel of ['.cacct', '.act-usage-head', '.act-usage-sl', '.act-usage-sl-h', '.act-usage-sum .cacct-name',
+      for (const sel of ['.cacct', '.act-usage-head', '.act-usage-sl', '.act-usage-sl-h',
         '.act-usage-sum .cacct-cell-label', '.act-usage-sum .cacct-cell-left', '.act-usage-sum > .ui-icon']) {
         expect(await boxes(page, '#agents-panel ' + sel), `${sel} 가 레일에 보인다`).toEqual([]);
       }
@@ -127,6 +128,34 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
       // 색 점은 칸 위에 남는다.
       const dot = (await sum.locator('.cacct-dot').boundingBox())!;
       expect(dot.y + dot.height).toBeLessThanOrEqual(Math.min(s5.pct!.y, s7.pct!.y) + 1);
+      // 개정 2: 값은 `%` 없는 숫자이고 가로로 줄지 않는다.
+      expect(await sum.locator('.cacct-cell-pct').evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText))).toEqual(['100', '72']);
+      for (const t of await sum.locator('.cacct-cell-pct').evaluateAll((els) => els.map((e) => getComputedStyle(e).transform))) expect(t).toBe('none');
+      // 개정 2: 계정 이름이 칸 위에 보이고 두 줄 이하이며, 전체 이름은 title 이다.
+      const name = sum.locator('.cacct-name');
+      await expect(name).toBeVisible();
+      await expect(name).toHaveAttribute('title', acct);
+      const [nb] = await boxes(page, '#agents-panel .act-usage-sum .cacct-name');
+      expect(nb.h, '이름이 두 줄을 넘는다').toBeLessThanOrEqual(nb.lh * 2 + 1);
+      expect(nb.h, '이름이 한 줄도 안 보인다').toBeGreaterThanOrEqual(nb.lh - 1);
+      // 개정 2: 글자·점·막대 상자가 서로 닿지 않고(1px 이상), 모두 레일 안쪽(테두리 제외)이다.
+      const rects = await panel.evaluate((p) => {
+        const pr = p.getBoundingClientRect();
+        const inner = { l: pr.left + parseFloat(getComputedStyle(p).borderLeftWidth), r: pr.right - parseFloat(getComputedStyle(p).borderRightWidth) };
+        const els = [...p.querySelectorAll('.act-usage-sum :is(.cacct-dot,.cacct-name,.cacct-cell-pct,.cacct-cell-bar,.cacct-cell-win)')]
+          .filter((e) => e.checkVisibility());
+        return { inner, list: els.map((e) => { const r = e.getBoundingClientRect(); return { c: e.className + ':' + (e.textContent || ''), l: r.left, r: r.right, t: r.top, b: r.bottom }; }) };
+      });
+      expect(rects.list.length).toBe(8);
+      for (const a of rects.list) {
+        expect(a.l, `${a.c} 가 레일 왼쪽 밖`).toBeGreaterThanOrEqual(rects.inner.l - 0.5);
+        expect(a.r, `${a.c} 가 레일 오른쪽 밖`).toBeLessThanOrEqual(rects.inner.r + 0.5);
+      }
+      for (let i = 0; i < rects.list.length; i++) for (let j = i + 1; j < rects.list.length; j++) {
+        const a = rects.list[i], b = rects.list[j];
+        const gap = Math.max(b.l - a.r, a.l - b.r, b.t - a.b, a.t - b.b);
+        expect(gap, `${a.c} 와 ${b.c} 가 붙었다`).toBeGreaterThanOrEqual(1);
+      }
     };
     await check();
     // 펼쳐 둔 상태여도 레일에서는 요약만 보인다 (D-RCU-2).

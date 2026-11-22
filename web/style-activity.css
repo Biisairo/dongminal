@@ -58,27 +58,37 @@ body:not(.mobile) #agents-handle{display:block}
   white-space:normal;overflow-wrap:anywhere;overflow:hidden;
   font-size:var(--sb-rail-fs);line-height:1.15;text-align:center;
 }
-/* RAIL_CHAT_USAGE_SRS FR-RCU-3 (D-RCU-2): 레일의 사용량은 요약 줄 하나다 — 색 점 · 세션 % · 주간 % 가 얇은 막대와 함께 세로로 선다.
+/* RAIL_CHAT_USAGE_SRS FR-RCU-3 (D-RCU-2): 레일의 사용량은 요약 줄 하나다 — 색 점 · 이름 · 세션·주간 칸이 세로로 선다.
    이전: 바닥을 통째로 감췄다 / 새: 요약 줄만 보인다. 펼쳐 둔 상태여도 계정 머리·계정 줄·statusLine 줄은 감춘다 /
-   이유: 40px 에 드는 최소 정보 — 「지금 얼마나 썼나」. 자세한 값은 칸의 `title` 이 말한다. */
+   이유: 40px 에 드는 최소 정보 — 「누구의 것을 지금 얼마나 썼나」. 자세한 값은 칸의 `title` 이 말한다. */
 #agents-panel[data-rail] :is(.act-usage-foot > :not(.act-usage-sum),
-  .act-usage-sum .cacct-name,.act-usage-sum > .ui-icon,.act-usage-sum .cacct-cell-label,.act-usage-sum .cacct-cell-left){display:none}
+  .act-usage-sum > .ui-icon,.act-usage-sum .cacct-cell-label,.act-usage-sum .cacct-cell-left,.act-usage-sum .cacct-cell-unit){display:none}
 #agents-panel[data-rail] .act-usage-foot{padding:var(--sp-3) 0}
+/* FR-RCU-3 개정 2 (사용자 피드백 2026-11-22): 이전 — 이름을 감추고 칸 사이 2px·글자 사이 2px 로 붙었다 /
+   새 — 위 여백과 좌우 2px 안에서 이름(두 줄까지)이 서고, 칸 사이 4px·값·막대·창 이름 사이 4px 다 /
+   이유 — 「글자가 다 붙어 있고 계정명이 안 보인다」. 좌우 2px 를 두고도 칸(15.5px)에 `100`(9px 에서 14.6px)이 든다. */
 #agents-panel[data-rail] .act-usage-foot .act-usage-sum{
-  flex-direction:column;align-items:stretch;gap:var(--sp-2);height:auto;min-height:0;margin:0;
+  flex-direction:column;align-items:stretch;gap:var(--sp-3);height:auto;min-height:0;margin:0;padding:var(--sp-2) var(--sp-1) 0;
 }
-#agents-panel[data-rail] .act-usage-sum .cacct-who{justify-content:center}
+#agents-panel[data-rail] .act-usage-sum .cacct-who{flex-direction:column;align-items:center;gap:var(--sp-1);width:100%}
+/* FR-RAL-2 와 같다: 이름은 두 줄까지, 넘치면 둘째 줄 끝에 `…`. 전체 이름은 `title` 이다.
+   줄 높이만 1.3 이다 — 1.15 에서는 한글 셋째 줄의 윗부분이 이름 상자 바닥에 비쳐 보였다(9px, 실측). */
+#agents-panel[data-rail] .act-usage-sum .cacct-name{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;width:100%;
+  white-space:normal;overflow-wrap:anywhere;overflow:hidden;
+  font-size:var(--sb-rail-fs);line-height:1.3;text-align:center;
+}
 /* FR-RCU-3 개정 (사용자 결정 2026-11-22, D-RCU-2 개정): 이전 — % 와 얇은 가로 막대가 세로로 쌓였다 /
-   새 — 두 칸이 나란히 서고, 칸마다 아래에서 위로 창 이름(5h·7d) · 세로 막대 · % 다 / 이유 — 사용자 디자인. */
-#agents-panel[data-rail] .act-usage-sum .cacct-cells{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--sp-1);width:100%}
+   새 — 두 칸이 나란히 서고, 칸마다 아래에서 위로 창 이름(5h·7d) · 세로 막대 · 값이다 / 이유 — 사용자 디자인.
+   개정 2: 값은 `%` 없이 숫자만이다 — `100%`(22px)·`72%`(16.6px)는 칸에 들지 않고, 가로로 좁히면 읽기 어렵다.
+   무엇의 값인지는 창 이름과 칸의 `title` 이 말한다. */
+#agents-panel[data-rail] .act-usage-sum .cacct-cells{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--sp-2);width:100%}
 #agents-panel[data-rail] .act-usage-sum .cacct-cell{
-  flex-direction:column;align-items:center;gap:var(--sp-1);padding-bottom:0;
+  flex-direction:column;align-items:center;gap:var(--sp-2);padding-bottom:0;
   font-size:var(--sb-rail-fs);line-height:1.15;font-variant-numeric:tabular-nums;
 }
 #agents-panel[data-rail] .act-usage-sum .cacct-cell-pct{order:0}
-/* `100%` 는 9px 에서 22px 라 칸(18.5px)을 넘는다 — 0.8 배로 좁혀 칸에 넣는다(레일 폭에서 다른 길이 없다). */
-#agents-panel[data-rail] .act-usage-sum .cacct-cell.pct-wide .cacct-cell-pct{transform:scaleX(.8)}
-/* 막대 높이 24px — 9px 글자 두 줄(%·창 이름) 사이에서 사용률이 눈에 갈리는 길이. 폭은 펼침 막대의 두께 2px 의 두 배. */
+/* 막대 높이 24px — 9px 글자 두 줄(값·창 이름) 사이에서 사용률이 눈에 갈리는 길이. 폭은 펼침 막대의 두께 2px 의 두 배. */
 #agents-panel[data-rail] .act-usage-sum .cacct-cell-bar{order:1;position:relative;display:flex;align-items:flex-end;width:var(--sp-2);height:24px}
 #agents-panel[data-rail] .act-usage-sum .cacct-cell-fill{min-height:0;min-width:100%}
 #agents-panel[data-rail] .act-usage-sum .cacct-cell-win{order:2;display:block;color:var(--text-hint)}
