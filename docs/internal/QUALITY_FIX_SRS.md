@@ -1,8 +1,6 @@
 # SRS: 「원래 실패」 로 받아들여 온 시험과 남은 품질 결함 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-
-> **남은 것**: QF-1~7 전부(구현 기록 §6 이 채워지는 대로 줄인다).
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-22 (프로덕션 리팩토링 3차 마무리 · `REFACTOR_PROD3_HANDOFF_4.md` §3 넷째 · §4 「알려진 e2e 실패」, eslint 원래 2건)
 - 사용자 지시: 오랫동안 「원래 실패」 로 받아들여 온 e2e 가 실제 결함인지 낡은 시험인지 가려 **고친다**. 시험을 약하게 만들어 통과시키지 않는다 — 시험이 틀렸다면 어느 SRS 요구·결정이 바뀌었는지 근거를 적는다.
@@ -169,3 +167,11 @@
 | QF-4 | `ui-kit-icons.spec.ts` V-GAP-1 — `--sb-w` 를 320px 로 넓혀 `Box` 라벨이 선 뒤, 아이콘 오른쪽 변과 라벨 왼쪽 변 사이가 `--ui-gap`(6px)과 ±0.5px 안인지 잰다(FR-QFX-5). 실측: 넓힌 폭에서 사이가 6px. 반증: 라벨에 `margin-left:3px` 를 더하면 「아이콘과 라벨 사이 9px」 로 실패한다. 관련 e2e(`ui-kit-icons`·`ux-audit-fix-7`·`sandbox-pick`) 28 통과 |
 | QF-5 | `skill-contract.spec.ts` — 도우미 `settledState`(`/api/state` 를 2.5초 간격으로 두 번 읽어 같을 때의 값, 상한 20초)로 「전」 을 찍는다(FR-QFX-6). 「후」 와의 통째 비교는 그대로다. 원인 실측: HEAD 에서 「전」 의 셸 도구 `fgName:""` · 「후」 `"~"`. 같은 기계의 진단 시험에서 부팅 직후 `tool_foreground {name:"~"}` 가 닿는 것을 봤다(QF-2 와 같은 알림). 「전용 창 Run」 `--repeat-each=3` 3 통과, spec 전체 23 통과 |
 | QF-6 | `sanitizeCustomTheme(theme)` · `claude-accounts-foot.test.mjs` 의 `const b` 삭제(FR-QFX-7·8). `make lint` 를 돌리니 같은 오류가 `.claude/worktrees/<에이전트>/` 사본에서 한 벌 더 나왔다 — ESLint flat config 는 `.gitignore` 를 읽지 않는다. `eslint.config.mjs` 의 `ignores` 에 `.claude/**`(git 이 무시하는 로컬 도구 자리)를 더했다(요구에 적지 않은 자리). `make lint` — golangci-lint 0 · eslint 0. 단위 1480 · typecheck · `make gates` 통과, 테마 e2e(`theme`·`theme-seed`) 10 통과 |
+| QF-7 `eb6487c6` | `SettingsApply._settingsApply` — 칠하기(`_paintSettingControls`)를 표를 돈 직후에서 맨 끝(이사 뒤)으로 옮겼다(D-QFX-11). `_keybarApply` 는 모바일 키바만 그린다(`modKbd` 가드와 `_sectionCall('terminal','_keybarPaint')` 를 걷음). `_pollMigrateAgents` 의 `_sectionCall('polling','paint')` 를 걷음. `TerminalSection.paint` = 행 + `_keybarPaint`; `_initKeybar` 끝의 `_keybarPaint` 는 `init` 의 `paint` 가 맡고, `_keybarSet` 이 목록을 칠한다. 주석: `settings-apply.js` 머리 · `settings-terminal.js` 머리 · `settings-table.js` `keybar` · `settings-controller.js` `_sectionCall` · `app.js` 생성자 · `main.js` 부팅 적용. 시험 `settings-sections.test.mjs` TC-QFX-7 넷 — 모두 옛 코드에서 RED(두 순서 · 이사 뒤 칠하기 · 정적 · terminal 칠하기). 가짜 문서에 `querySelector` 를 더했다(`settings-sections`·`settings-controls` — terminal 의 칠하기가 키바 목록을 찾는다). 단위 1484 · typecheck · `make gates` · `make lint` 통과. 관련 e2e 58 spec(설정·키바·폴링·부팅 화면·글자 크기·테마 등, `grep -rlE`) 636 통과 |
+
+**SRS 와 다르게 한 것.**
+
+1. QF-6 — `eslint.config.mjs` 의 `ignores` 에 `.claude/**` 를 더했다. 요구에 적지 않은 자리다(`make lint` 가 에이전트 worktree 사본의 같은 오류를 셌다).
+2. QF-3 — TC-UXF-31b 에 단정을 더했다(요구는 V80·레일 정렬만 적었다).
+
+**남긴 것.** `_sectionCall` 의 「섹션이 없으면」 판정(D-QFX-9 — 위임자 표의 다른 길). `activity-rail` TC-ACF-1 의 흔들림(HEAD 에서도 6회 중 2회 실패, 실패 때 활동 카드가 사라져 있다 — 범위 밖). `kit-components` TC-CMP-19(이번 지시 밖, 이번 QF-3 관련 e2e 에서는 통과).
