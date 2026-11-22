@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-use dm_parity::runner::{OBS_READY, OBS_STATUS, run_side};
+use dm_parity::runner::{OBS_ERROR, OBS_EXIT, OBS_READY, OBS_STDOUT, run_side};
 use dm_parity::{Options, Side, run_scenario, scenarios};
 
 #[test]
@@ -27,6 +27,7 @@ fn go_against_itself_has_no_diff_and_leaves_no_daemon() {
             .filter(|pid| {
                 Command::new("kill")
                     .args(["-0", pid])
+                    .stderr(std::process::Stdio::null())
                     .status()
                     .is_ok_and(|st| st.success())
             })
@@ -53,9 +54,13 @@ fn go_against_itself_has_no_diff_and_leaves_no_daemon() {
     }
 }
 
-/// 두 쪽이 똑같이 실패해도 차이는 없다. 서버 시나리오가 실제로 떠서 응답했는지 따로 본다.
+/// 두 쪽이 똑같이 실패해도 차이는 없다. Go 쪽 관측값이 시나리오의 의도대로인지 따로 본다.
+/// - 서버 시나리오: 준비가 `ok` 이고 `error` 관측값이 없다(연결이 모두 됐다).
+/// - `cli-*-args`: 모든 단계가 종료 코드 2 다(파서가 거절했고 액션은 실행되지 않았다).
+/// - `cli-*-help`: 모든 단계가 종료 코드 0 이고 stdout 이 비어 있지 않다.
+/// - `helper-*`: 종료 코드가 0 또는 2 뿐이다(1 은 서버 요청까지 갔다는 뜻이다).
 #[test]
-fn go_server_scenarios_really_serve() {
+fn go_observations_match_scenario_intent() {
     let Some(go) = std::env::var_os("DM_PARITY_GO_BIN").map(PathBuf::from) else {
         eprintln!("DM_PARITY_GO_BIN 이 없어 건너뛴다");
         return;
@@ -66,15 +71,40 @@ fn go_server_scenarios_really_serve() {
     for s in scenarios::all() {
         let run = run_side(&s, Side::Go, &go, &opts, &mut next).unwrap();
         let _ = fs::remove_dir_all(&run.root);
-        let value = |name: &str| {
+        let name = s.name();
+        let values = |obs: &str| -> Vec<(String, String)> {
             run.observations
                 .iter()
-                .find(|o| o.name == name)
-                .map(|o| String::from_utf8_lossy(&o.value).into_owned())
+                .filter(|o| o.name == obs)
+                .map(|o| {
+                    (
+                        o.step_label.clone(),
+                        String::from_utf8_lossy(&o.value).into_owned(),
+                    )
+                })
+                .collect()
         };
-        if let Some(ready) = value(OBS_READY) {
-            assert_eq!(ready, "ok", "{}", s.name());
-            assert_eq!(value(OBS_STATUS).as_deref(), Some("200 OK"), "{}", s.name());
+        let errors = values(OBS_ERROR);
+        assert!(errors.is_empty(), "{name}: {errors:?}");
+        for (label, ready) in values(OBS_READY) {
+            assert_eq!(ready, "ok", "{name} {label}");
+        }
+        let exits = values(OBS_EXIT);
+        if name.starts_with("cli-") && name.ends_with("-args") {
+            assert!(exits.iter().all(|(_, c)| c == "2"), "{name}: {exits:?}");
+        }
+        if name.starts_with("cli-") && name.ends_with("-help") {
+            assert!(exits.iter().all(|(_, c)| c == "0"), "{name}: {exits:?}");
+            assert!(
+                values(OBS_STDOUT).iter().all(|(_, o)| !o.is_empty()),
+                "{name}"
+            );
+        }
+        if name.starts_with("helper-") {
+            assert!(
+                exits.iter().all(|(_, c)| c == "0" || c == "2"),
+                "{name}: {exits:?}"
+            );
         }
     }
 }
