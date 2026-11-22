@@ -110,6 +110,7 @@ class EdgesController extends Controller {
       const handle=edgeHandle(n);
       const marks=meshNodeMarks(edges.get(n.fp)).map(k=>t(k));
       g.setAttribute('aria-label',[handle,n.self?t('edge.mesh_me'):t(n.online?'edge.online':'edge.offline'),...marks].join(' · '));
+      g.appendChild(svgEl('rect',{class:'eg-mesh-hit'}));
       g.appendChild(svgEl('circle',{r:MESH_NODE_R}));
       const label=svgEl('text',{y:MESH_LABEL_DY,'text-anchor':'middle',class:'eg-mesh-name'});
       label.textContent=handle;

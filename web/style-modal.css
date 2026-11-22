@@ -285,6 +285,8 @@ body.mobile #theme-seed-row .seed-color{width:var(--touch-min);height:var(--touc
 .sc-key{cursor:pointer;min-width:80px;transition:border-color var(--dur-base)}
 .sc-key:hover{border-color:var(--accent-border)}
 .sc-key.recording{border-color:var(--accent);color:var(--accent-text);animation:sc-pulse 1s infinite}
+/* ATTIC_FIX_SRS FR-ATF-81: 이전 모바일 단축키 상자 높이 22 / 새 --touch-min / 이유 키트 키캡 높이(--ui-btn-h-sm)가 모바일에 그대로 남았다 (D-SEED-7) */
+body.mobile .sc-key{height:var(--touch-min)}
 @keyframes sc-pulse{0%,100%{border-color:var(--accent)}50%{border-color:transparent}}
 
 /* ── Search Bar ── */
