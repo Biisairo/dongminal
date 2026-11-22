@@ -126,6 +126,7 @@
 | QG-1 | 핀 추가·빼기의 저장 실패 문구가 원인 오류(작업 공간 파일 해석 오류·경로) | `핀 목록을 저장하지 못했다`. 원인은 `dmlog` | D-QG-2 |
 | QG-2 | `PUT /api/settings` 가 JSON 이면 무엇이든 저장했다 | `customTheme` 의 색·`mode` 가 규칙을 어기면 `400` · `bad_request`(문구 `customTheme.ui.bg: #rrggbb 또는 #rrggbbaa 색이어야 합니다`), 저장하지 않는다 | FC-F1 서버 쪽 — 나쁜 값이 다른 기기로 방송되지 않게. D-QG-3 |
 | QG-2 | `dongminal config` 검증이 `customTheme` 을 object 인지만 봤다 | 키별 값 검증(문제의 키가 `customTheme.ui.bg` 꼴) | 같은 규칙 한 벌(FR-QG-10) |
+| QG-4 | 403 차단 화면(HTML)에 `X-Error-Code` 가 없었다 | `X-Error-Code: forbidden`(평문 403 과 같음). 본문·다른 헤더 그대로 | 모든 오류 응답이 코드를 싣는다는 규약(FR-ERR-4, `docs/external/errors.md` 머리) |
 
 ## 6. 구현 기록
 

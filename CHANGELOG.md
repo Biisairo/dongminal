@@ -133,6 +133,7 @@
 - 서버도 사용자 정의 테마(`customTheme`)의 값을 검사합니다. `ui`·`terminal` 의 값이 `#rrggbb`·`#rrggbbaa` 색이 아니거나 `mode` 가 `dark`·`light` 가 아니면 `PUT /api/settings` 가 `400` · `bad_request` 로 거절하고 저장하지 않습니다. 이미 저장된 설정은 그대로 읽히고, 화면이 읽을 때 걸러 다음 저장부터 통과합니다. `dongminal config` 의 검증도 같은 규칙입니다(`QUALITY_GO_SRS` FR-QG-10~13).
 - 설정에 저장된 사용자 정의 테마의 값이 색이 아니면(따옴표·`url(…)` 등) 테마 미리보기에서 마크업으로 들어갈 수 있던 것을 고쳤습니다. 이제 색이 아닌 값은 기본 테마의 색으로 바뀝니다.
 - 형이 틀린 JSON 을 보낸 요청의 오류 문구에 서버 내부의 Go 타입 이름(`json: cannot unmarshal … Go struct field fsDeleteReq.paths of type []string`)이 실리던 것을 고쳤습니다. 이제 문구는 고정 문장에 틀린 자리(`paths: number 값은 맞지 않다`)만 붙이고, 전문은 서버 로그에 남습니다. Git 핀 추가·빼기의 저장 실패 문구도 고정 문장입니다. 상태와 오류 코드는 그대로입니다(`QUALITY_GO_SRS` FR-QG-1~5).
+- 허용 목록에 막힌 브라우저에 보이는 차단 화면(403)에 `X-Error-Code: forbidden` 이 없던 것을 고쳤습니다. 이제 차단 화면도 다른 오류 응답처럼 코드를 싣습니다. 화면은 그대로입니다(`QUALITY_GO_SRS` FR-QG-30).
 - 본문 상한(1 MiB)을 넘는 요청의 오류 코드가 표면마다 달랐던 것(`too_large`·`bad_request`, fs 는 상태 400)을 고쳤습니다. 이제 모두 `413` · `body_too_large` 입니다.
 - Telegram 탭의 남은 `[읽음]` 버튼을 걷을 때 요청을 하나씩 순서대로 보내던 것을 동시에 넷까지 보내도록 바꿨습니다. 버튼 32개를 걷는 시간이 요청당 100ms 기준 3.3초에서 0.8초로 줄었습니다(`QUALITY_GO_SRS` FR-QG-20).
 - Telegram 알림을 보내는 동안 봇이 받은 메시지와 `[읽음]` 처리가 멈추던 것을 고쳤습니다. 탭 하나가 기억하는 `[읽음]` 메시지는 최근 32개까지입니다.

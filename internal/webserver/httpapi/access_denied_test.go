@@ -156,3 +156,22 @@ func TestAccessDenied_UnparsableAddrStillShowsSomething(t *testing.T) {
 		t.Fatalf("알릴 주소가 화면에 없다:\n%s", body)
 	}
 }
+
+// QUALITY_GO_SRS TC-QG-30: 차단 화면도 오류 응답이라 `X-Error-Code` 를 싣는다 — 평문 403 과
+// 같은 `forbidden` 이다. 본문은 그대로 화면이다 (FR-QG-30 · FR-ERR-4).
+//
+// 이전: 화면에는 코드가 없어 같은 거절이 요청 종류에 따라 코드가 있기도 없기도 했다(PROD3 GH-24).
+func TestAccessDenied_PageCarriesErrorCode(t *testing.T) {
+	page := deniedResponse(t, "text/html", "navigate", "")
+	plain := deniedResponse(t, "application/json", "", "")
+	if got := page.Header().Get("X-Error-Code"); got != "forbidden" {
+		t.Fatalf("화면의 X-Error-Code=%q, want forbidden", got)
+	}
+	if page.Header().Get("X-Error-Code") != plain.Header().Get("X-Error-Code") {
+		t.Fatalf("화면 %q · 평문 %q — 같은 거절의 코드가 다르다",
+			page.Header().Get("X-Error-Code"), plain.Header().Get("X-Error-Code"))
+	}
+	if !strings.HasPrefix(page.Header().Get("Content-Type"), "text/html") {
+		t.Fatal("화면이 아니다")
+	}
+}

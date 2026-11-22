@@ -4,6 +4,8 @@ import (
 	"html"
 	"net/http"
 	"strings"
+
+	"dongminal/internal/webserver/apierr"
 )
 
 // 막힌 출발지에게 보이는 화면 (ACCESS_DENIED_PAGE_SRS).
@@ -50,6 +52,9 @@ func writeDeniedPage(w http.ResponseWriter, ip string) {
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("X-Frame-Options", "DENY")
 	h.Set("Cache-Control", "no-store")
+	// QUALITY_GO_SRS FR-QG-30: 오류 응답은 모두 코드를 싣는다(FR-ERR-4). 평문 403 과 같은 값이다 —
+	// 본문이 화면일 뿐 같은 거절이다. 헤더는 본문 계약 밖이라 화면은 그대로다.
+	h.Set(apierr.CodeHeader, apierr.CodeForbidden)
 	w.WriteHeader(http.StatusForbidden)
 	_, _ = w.Write([]byte(deniedPageHTML(ip)))
 }
