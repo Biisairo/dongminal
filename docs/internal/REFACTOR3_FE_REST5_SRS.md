@@ -151,6 +151,8 @@
 | 탐색기 | `FileTree` 부품 여덟 | `explorer-*` · `editor-tab` · `notes-live-explorer` · `file-transfer` · `explorer-transfer-ignore` · `repo-*` |
 | 킷 대화상자 | `DialogStack` | `kit-dialog` · `a11y-*` · `settings` · `git-confirm` · `git-dialog` |
 
+**합친 뒤 e2e (주 세션, 2026-11-22, HEAD `22f590aa`).** 위 표의 spec 중 있는 것 104개(1,137건)를 한 번에 돌렸다 — 통과 1,134 · 실패 0 · 흔들림 0 · 건너뜀 3. REST5 회귀는 없다. TC-FR5-40 을 닫는다.
+
 **남긴 것.** `ui/term-pane.js`(776) — D-FR5-9. 위임자 제거와 부품의 필드 소유(§1.3 · D-FR5-8). 저장 기계의 필드를 컨트롤러로 옮기는 일(FR-FR5-22).
 
 **SRS 와 다르게 한 것.**

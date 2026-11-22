@@ -121,6 +121,8 @@
 
 **부하 실험에서 함께 본 다른 실패(목록 밖).** 위 ② 의 부하로 돌린 두 샤드에서 셋이 실패했다 — `editor-cwd-inherit` V-CWD-2(`newWindow 가 탭을 만들지 않았다`) · `git-feedback` F-9.3(90초 시간 초과) · `explorer-copy` C5(메뉴 항목 클릭 20초 시간 초과). 이번 범위 밖이라 조사하지 않았다.
 
+> **다시 돌렸다 — 재현 못 함 (2026-11-22, HEAD `22f590aa`, `REFACTOR3_FE_REST5_SRS` 합친 뒤).** 셋 다 `--retries=0`. ① 세 시험만 `--repeat-each=5`(워커 2, 15회) ② 세 spec 전체 `--repeat-each=5`(워커 4, 105회) ③ 세 spec 전체 `PW_WORKERS=8 --repeat-each=5`(105회) — 그동안 샤드 3/8 을 `E2E_PORT_BASE=62147 PW_WORKERS=4` 로 함께 돌려 부하를 줬다. 같은 날 REST5 영역 spec 104개(1,137건) 한 회차에서도 셋은 첫 시도에 통과했다. 실패를 보지 못해 고치지 않았다. 처음 실패한 조건(위 ② — 샤드 둘을 워커 4 로 함께 돌리는 중의 워커 6, 동시 브라우저 14)보다 부하가 낮았다.
+
 | ID | 요구 |
 |---|---|
 | FR-FLK-9 | `tab.spec.ts` 의 탭 고르기(「tab switch by clicking another tab」·「keyboard shortcut switches tabs」)는 `selectTab` 을 쓴다(FR-FLK-2) |
