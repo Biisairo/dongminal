@@ -10,3 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
+time = { workspace = true }
+
+[target.'cfg(not(unix))'.dependencies]
+chrono = { workspace = true }
