@@ -263,8 +263,9 @@ function saveRig() {
   const net = { puts: [], gets: [], put: null, get: null };
   const warns = [];
   const errs = [];
-  const ctx = load([...BASE, 'core/layout-tree.js', 'core/app.js'], {
-    expose: ['App'],
+  // REFACTOR3_FE_REST5_SRS FR-FR5-22: 저장 기계는 `WsSaveController` 다 — App 원형의 위임자가 그리로 잇는다.
+  const ctx = load([...BASE, 'core/layout-tree.js', 'core/app.js', 'core/ws-save-controller.js'], {
+    expose: ['App', 'WsSaveController'],
     globals: {
       TIMERS: { disposeOwner() {} }, WINDOW_TYPE_EDITOR: 'editor',
       WS_SCHEMA_VERSION: 2, WS_SAVE_BACKOFF_MS: 200, WS_SAVE_BACKOFF_MAX_MS: 2000, WS_SAVE_CONFLICT_WARN: 4,
@@ -291,6 +292,7 @@ function saveRig() {
     _edReconcile(...a) { log.push('_edReconcile:' + a.length) },
     _applyRemoteWorkspace(rem, panes, known) { log.push('apply:' + JSON.stringify([panes, known])); A._applied = rem },
   });
+  A.wsSave = new ctx.WsSaveController(A);
   return { ctx, A, net, log, sleeps, warns, errs };
 }
 

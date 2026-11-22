@@ -107,7 +107,7 @@ export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
 export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
 export const GIT = ['core/git-repos-list.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
-export const WS_SYNC = ['core/ws-sync-controller.js', 'core/soft-reload.js'];
+export const WS_SYNC = ['core/ws-sync-controller.js', 'core/ws-save-controller.js', 'core/soft-reload.js'];
 export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'core/focus-owner.js'];
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];
 export const LAYOUT = ['core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js', 'core/layout-window-state.js',
@@ -121,7 +121,7 @@ export const REPO_WIN = ['core/repo-preview.js', 'core/repo-win-controller.js'];
 /** App 필드 → 뿌리 컨트롤러 클래스. App 생성자가 세우는 것과 같다 (REFACTOR3_FE_APPCTL_SRS FR-FEA-1). */
 const APP_CONTROLLERS = { settings: 'SettingsController', edges: 'EdgesController', update: 'UpdateController',
   attn: 'AttnController', claude: 'ClaudeAccountsController', statusbar: 'StatusBarController', chat: 'ChatController',
-  agents: 'AgentsController', mobile: 'MobileController', git: 'GitController', wsSync: 'WsSyncController',
+  agents: 'AgentsController', mobile: 'MobileController', git: 'GitController', wsSync: 'WsSyncController', wsSave: 'WsSaveController',
   focus: 'FocusController', slot: 'SlotsController', layout: 'LayoutController',
   tool: 'ToolController', editor: 'EditorController', repoWin: 'RepoWinController' };
 
