@@ -125,6 +125,12 @@
 |---|---|
 | FR-FLK-9 | `tab.spec.ts` 의 탭 고르기(「tab switch by clicking another tab」·「keyboard shortcut switches tabs」)는 `selectTab` 을 쓴다(FR-FLK-2) |
 
+> **TC-CAC-27 원인 확정 (2026-11-22, 여섯째 세션).** 전량 e2e(HEAD `c35af007`)에서 다시 흔들렸고(재시도 통과), 단정은 `.act-usage-sl` 0개 기대·1개였다. **재현:** `npx playwright test e2e/activity.spec.ts:552 e2e/claude-accounts.spec.ts:75 --workers=1 --retries=0`(고친 뒤에는 시험이 83행이다)이 매번 같은 자리에서 실패한다. **원인 — 시험 격리(앱 결함 아님).** 워커의 서버는 시험끼리 공유된다(`E2E_PARALLEL_SRS`). `activity.spec` TC-ASV-15 가 `POST /api/tools/usage` 로 보낸 `rateLimits` 는 서버의 에이전트별 한도(`agents.rateLimits`)에 남고, 픽스처(`cleanTools`)는 워크스페이스·고아 도구·주의 알림만 비운다. 같은 워커에서 뒤에 도는 TC-CAC-27 의 화면은 `/api/tools/activity` 의 `limits` 를 받아 「계정을 모르는 보고」 줄을 맨 아래에 그린다 — FR-CAC-93 그대로의 앱 동작이다. 시험은 계정 API 만 위조하고(D-CAC-32) 이 응답은 위조하지 않았다. 워커에 어느 파일이 먼저 배정되느냐에 따라 흔들렸다. **같은 원인의 둘째 피해:** 고친 뒤의 전량(HEAD 작업 트리)에서 `ui-layout-defaults` V-LAY-1 이 「재지 않는 자리 210(기준선 40)」 으로 실패했다 — 기준선에 없는 사용량 바닥(`.act-usage-foot.has-sum` 등)이 섰다. `activity.spec.ts:552` → `ui-layout-defaults.spec.ts:186`(워커 1) 순서로 매번 재현되고, 홀로는 통과한다. 활동은 재연결 묶음 `/api/snapshot` 으로도 오므로 그 길도 덮어야 했다(종단만 덮은 첫 고침은 V-LAY-1 에서 여전히 실패했다).
+
+| ID | 요구 |
+|---|---|
+| FR-FLK-12 | 사용량 바닥의 모양에 단정이 걸린 시험(TC-CAC-27, V-LAY-1)은 화면이 받는 계정 한도를 빈 목록으로 위조한다 — 픽스처 도우미 `stubEmptyLimits(page)` 가 활동이 오는 두 길(`/api/tools/activity` 와 `/api/snapshot` 의 `activity` 조각)의 `limits` 만 비운다. 활동 목록은 서버 값 그대로다. 같은 워커의 앞 시험이 남긴 한도에 단정이 갈리지 않는다. 실행 파일에 한도를 지우는 시험용 입구를 두지 않는다(D-CAC-32 와 같은 규약) |
+
 ### 2.7 FL-7 — 단위 cm-sticky · Go TestWorktreeCreateInputAnswer
 
 **cm-sticky 재현.** 단독 30회 · `npm run unit` 8회 순차로는 0 실패. `npm run unit` 넷을 **동시에** 세 번(12회) 돌리면 3회 실패 — 늘 JS 구문 나무를 처음 쓰는 시험(「중첩 3단계」, 120~200ms)이다.
@@ -168,6 +174,7 @@
 | TC-FLK-5 | 탐침(구독 1.5초 지연 · 활동 흉내 · 패널 열기 · 2.4초 관찰): 옛 `waitForInit` 에서 카드 0(2/2), 새 것에서 1(3/3). TC-UXF-16 `PW_WORKERS=8 --repeat-each=40` 0 실패. `ux-audit-fix`·`ux-audit-fix-7` `--repeat-each=3` 144 통과. 샤드 6/8 의 32 spec `PW_WORKERS=4` 249 통과(공용 기다림의 회귀) |
 | TC-FLK-6 | `tab.spec.ts` 포함 다섯 spec `PW_WORKERS=6 --repeat-each=4` 272 통과(다른 두 샤드를 함께 돌린 부하), 대상 줄 `PW_WORKERS=8 --repeat-each=10` 100 통과 |
 | TC-FLK-7 | 단위 `cm-sticky` 「stateOf 는 첫 파싱이 20ms 안에 끝나지 않는 문서도 다 된 나무로 준다」(JS 2만 줄 — 옛 도우미에서 RED). `npm run unit` 넷 동시 × 4회(16회) 0 실패(고치기 전 12회 중 3회). Go `TestWorktreeCreateInputAnswer` 의 워크트리 단정(옛 시험에서 5/5 RED) → `-count=20` 통과, `gitapi` `-race -shuffle=on` 통과 |
+| TC-FLK-8 | FR-FLK-12: 재현 순서 둘(사용량 보고 시험 → TC-CAC-27 / → V-LAY-1, 워커 1, 재시도 0)이 고치기 전 실패·고친 뒤 통과. 셋을 한 워커에 이어 돌려 3 통과. `claude-accounts`·`ui-layout-defaults`·`activity` spec 전체 통과. `claude-accounts.spec.ts` 홀로 `--repeat-each=3` 통과 |
 | TC-FLK-3 | Go `httpapi` `TestSSE_ForegroundOnConnect`(인사 뒤 도구마다 한 줄, 빈 이름 포함 — 옛 코드에서 RED) · `_UnknownList`(모르는 목록이면 없음) · `_PresenceSkips`(칸 구독이면 없음). e2e `tab-names.spec.ts` 전체 `PW_WORKERS=8 --repeat-each=10` 0 실패. 관련 e2e(재연결·새로고침·복원 비행·동기·skill-contract·version-autoreload 등 11 spec) 통과 |
 
 ## 5. 동작 변경 기록
@@ -190,7 +197,7 @@
 | FL-2 | `fixtures.ts` 에 `selectTab` — 이름의 왼쪽 끝(x 1px)을 누르고 활성을 기다린다(FR-FLK-2). `slot-view-state` 의 `clickTabId` 와 `a11y-keyboard` TC-A11Y-6e 가 쓴다. 원인 계측: 캡처 단계의 클릭 기록이 `tgt=pn-tab-x` 였고 `switchTab` 이 불리지 않았다. 첫 고침(탭 자신의 왼쪽 여백 x 3px)은 TC-SVS-56 에서 16/16 실패 — 둘째 칸 첫 탭의 왼쪽 끝을 칸 경계 손잡이(`.slot-handle`)가 덮었다. 이름 쪽으로 옮긴 뒤 `PW_WORKERS=8 --repeat-each=16` 80 통과(HEAD 80회 중 43회 실패), 두 spec 전체 `PW_WORKERS=6 --repeat-each=3` 132 통과 |
 | FL-4 | `ProfileSection._loadProfilePanel` 은 단일 비행(`_pfReading`), 본문 `_pfRead` 는 요청 시점의 이름과 답이 왔을 때의 이름이 다르면 `_pfPaint(v,keepName)` 로 이름 칸을 두고 `_liveMark(k,r,{name: 읽은 값},keep)` 으로 안내를 둔다. `SettingsLive._liveMark` 에 넷째 인자 `keep`(FR-FLK-6). 시험 TC-FLK-4. 사용자 언어 CHANGELOG 「고침」 |
 | FL-5 | `fixtures.ts` `waitSseRevalidated` 를 `waitForInit` 끝에(FR-FLK-7). `ux-audit-fix.spec.ts` TC-UXF-1 은 `expect.poll` 로 그 순간의 규칙 값과 글자·툴팁을 견주고, TC-UXF-16 은 `card.evaluate` 한 번으로 넷을 잰다(FR-FLK-8). 시험 TC-FLK-5. TC-UXF-94 는 재현 못 함 |
-| FL-6 | `tab.spec.ts` 두 시험의 탭 클릭 셋을 `selectTab` 으로(FR-FLK-9). 나머지 넷은 재현 못 함(§2.6) |
+| FL-6 | `tab.spec.ts` 두 시험의 탭 클릭 셋을 `selectTab` 으로(FR-FLK-9). 나머지 넷은 재현 못 함(§2.6). TC-CAC-27·V-LAY-1 은 2026-11-22 에 원인을 확정해 고쳤다(FR-FLK-12) — `fixtures.ts` `stubEmptyLimits` 를 `claude-accounts.spec.ts` `installMock` 과 `ui-layout-defaults.spec.ts` V-LAY-1 이 부른다 |
 | FL-7 | `cm-sticky.test.mjs` `stateOf` + 시험 하나(FR-FLK-10). `handlers_git_actions_input_test.go` `runInputCases` 의 잡 기다림과 워크트리 단정(FR-FLK-11). 시험 TC-FLK-7 |
 | FL-3 | 서버: `hub.ForegroundSnapshot` · `Server.foregroundOnConnect`(`commands.go`) — 인사를 flush 한 뒤 칸 구독이 아니면 `ListOK` 의 도구마다 `tool_foreground` 를 싣고 flush(FR-FLK-3). Go 시험 `commands_sse_fg_test.go` 셋(옛 코드에서 첫째 RED: 인사 한 줄뿐). 시험: `tab-names.spec.ts` 의 `fgSettled`(서버 값은 `page.request` 로 읽어 스냅숏 흉내를 지나지 않는다) — `pushForeground` 가 도구마다 처음 한 번 부르고, V-NAM-1·2·5·4 가 직접 부른다. 스냅숏 흉내는 `fgStub.has` 로 빈 이름도 덮는다. V-NAM-4 는 활동을 `POST /api/tools/activity/set` 에 `waiting` 으로(FR-FLK-5). 원인 2 의 계측: 실패 회차의 페이지 기록에 `tool_foreground` 가 없고 구독은 도구 생성 70ms 뒤에 열렸다. 고친 뒤 `PW_WORKERS=8 --repeat-each=10` 170 통과(시험만 고친 상태에서 160여 회 중 4회 「브라우저에 닿지 않았다」). 관련 e2e 11 spec 96 통과. 사용자 언어 CHANGELOG 「고침」 |
 

@@ -1,4 +1,4 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, stubEmptyLimits } from './fixtures';
 
 /**
  * CLAUDE_ACCOUNTS_SRS TC-CAC-27 — 계정 둘 → foot 두 묶음 + statusLine 줄 → 전환 → 활성 표식 이동 →
@@ -33,6 +33,7 @@ function mockState() {
 type Mock = ReturnType<typeof mockState>;
 
 async function installMock(page: any, st: Mock) {
+  await stubEmptyLimits(page); // QUALITY_FLAKY_SRS FR-FLK-12: 같은 워커의 앞 시험이 남긴 한도가 바닥에 줄을 세우지 않게
   await page.route('**/api/claude-accounts**', async (route: any) => {
     const req = route.request();
     const url = new URL(req.url());

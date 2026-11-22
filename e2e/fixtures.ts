@@ -355,6 +355,30 @@ test.afterEach(async ({ page }, testInfo) => {
   console.log(line);
 });
 
+/**
+ * 화면이 받는 계정 한도(`/api/tools/activity` 의 `limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
+ *
+ * 한도는 서버의 에이전트별 값이라 도구가 죽어도 남는다(ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20). 워커의
+ * 서버는 시험끼리 공유되므로, 같은 워커의 앞 시험이 `POST /api/tools/usage` 로 보낸 한도가 뒤 시험의
+ * 화면에 사용량 바닥(「계정을 모르는 보고」 줄)을 세운다. 사용량 바닥의 모양에 단정이 걸린 시험은
+ * `waitForInit` 전에 이것을 부른다. 활동 목록은 서버 값 그대로다. 실행 파일에 시험용 입구를 두지 않는다.
+ */
+export async function stubEmptyLimits(page: any) {
+  // 활동은 두 길로 온다 — 그 종단(`/api/tools/activity`)과 재연결 묶음(`/api/snapshot` 의 `activity` 조각).
+  await page.route('**/api/tools/activity', async (route: any) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await route.fetch();
+    const body = await res.json();
+    return route.fulfill({ response: res, json: { ...body, limits: [] } });
+  });
+  await page.route('**/api/snapshot?**', async (route: any) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    if (body && body.activity) body.activity = { ...body.activity, limits: [] };
+    return route.fulfill({ response: res, json: body });
+  });
+}
+
 export async function clickGitView(page: any, view: string) {
   await expect(async () => {
     // **탭이 없으면 먼저 연다.**

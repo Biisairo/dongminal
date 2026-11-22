@@ -4,7 +4,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit as fxOpenGit, waitForInit, clickGitView,
-  GIT_BODY_VIEWS, gitFixture, cleanGitFixture, switchToEditorRoot, openExplorerSide } from './fixtures';
+  GIT_BODY_VIEWS, gitFixture, cleanGitFixture, switchToEditorRoot, openExplorerSide, stubEmptyLimits } from './fixtures';
 import { tmpPath, TMP, realPath } from './osenv';
 
 // UI_LAYOUT_DEFAULTS_SRS §5 — 검증 V-LAY-1~33.
@@ -186,6 +186,8 @@ async function resetToDefaults(request: APIRequestContext) {
 test('V-LAY-1 (FR-LAY-50): 계산값이 기준선과 같다', async ({ page, request }) => {
   test.setTimeout(180000);
   await resetToDefaults(request);
+  // QUALITY_FLAKY_SRS FR-FLK-12: 앞 시험이 남긴 한도가 기준선에 없는 사용량 바닥을 세우지 않게 한다.
+  await stubEmptyLimits(page);
   await waitForInit(page, { mode: 'desktop', viewport: { width: 1280, height: 720 } });
   const now = await collect(page);
 
