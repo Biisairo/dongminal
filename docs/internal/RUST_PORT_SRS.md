@@ -170,10 +170,11 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | ID | 종류 | 자리 | Go 기준선 | Rust 판 | 근거 |
 |---|---|---|---|---|---|
 | D-1 | 보안 강화 | platform IPC (Windows) | 소켓에 chmod 0600 → Windows 에서는 읽기 전용 속성만 바뀌어 다른 사용자도 연결 가능 | 소유자 전용 DACL | 1.4.5 보안 검토 |
-| D-2 | 보안 강화 | platform browser (WSL 폴백) | `powershell.exe -NoProfile -Command Start-Process <url>` — url 이 스크립트로 해석되어 명령 주입 | url 을 작은따옴표 축자 문자열로 넘긴다(`'` 는 `''`) | 1.4.3 보안 검토 |
+| D-2 | 보안 강화 | platform browser (WSL 폴백) | `powershell.exe -NoProfile -Command Start-Process <url>` — url 이 스크립트로 해석되어 명령 주입 | url 을 작은따옴표 축자 문자열로 넘긴다(`'` 와 굽은 홑따옴표 U+2018~201B 는 겹쳐 쓴다). 같은 인용 함수를 쓰는 Windows 셸 인용·훅 닷소싱도 함께 강화된다. 이 문자가 없는 입력의 출력은 Go 와 같다 | 1.4.3 보안 검토 |
 | D-3 | 알려진 차이 | gocompat json 디코딩 | 중첩 깊이 10000 까지 성공 | 513 이상이면 `exceeded max depth` (스택 넘침 방지) | 1.1 |
 | D-4 | 알려진 차이 | gocompat json 디코딩 | 타입 오류 때 일부 채운 값을 남긴다 | 값을 돌려주지 않는다. 그 값을 쓰는 Go 코드가 없음을 각 이슈가 확인한다 | 1.1 |
 | D-5 | 알려진 차이 | gocompat filepath (Windows) | `EvalSymlinks` 가 경로 대소문자를 실제 이름으로 정규화(toNorm) | 정규화하지 않는다(gocompat 에 OS 호출을 두지 않는다). 관측 자리를 만나면 platform 으로 옮긴다 | 4.1.1 |
+| D-6 | 알려진 차이 | gocompat time | 연도 ±9999 밖도 담고 `year outside of range` 오류를 낸다 | time crate 가 그 범위를 담지 못해 그 오류가 생기지 않는다(파싱 단계에서 거절) | 1.1 |
 
 ## 4. 검증
 

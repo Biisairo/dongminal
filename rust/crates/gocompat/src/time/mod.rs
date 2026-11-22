@@ -1,9 +1,14 @@
 //! Go `time` 의 관측 규칙: RFC 3339 계열 형식과 `Local` 시간대.
 
 mod duration;
+mod parse;
 mod zone;
 
 pub use duration::{format_duration, format_std_duration};
+pub use parse::{
+    GoTime, ParseError, RFC3339, RFC3339_NANO, json_time, json_time_opt, parse_rfc3339,
+    parse_rfc3339_nano, zero_time,
+};
 
 pub use zone::{PLATFORM_ZONE_SOURCES, Zone, ZoneInfo, local, resolve_local};
 
