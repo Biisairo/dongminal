@@ -1,6 +1,9 @@
 //! Go `strconv` 의 관측 규칙. `fmt` 의 `%q` 도 문자열에서는 [`quote`] 와 같다.
 
+mod float;
 mod isprint;
+
+pub use float::format_float;
 
 use isprint::{IS_NOT_PRINT16, IS_NOT_PRINT32, IS_PRINT16, IS_PRINT32};
 
