@@ -144,6 +144,8 @@ fn parse_name(sa: &libc::sockaddr_un) -> Option<String> {
     if sa.sun_family as i32 != libc::AF_UNIX {
         return None;
     }
+    // c_char 는 대상에 따라 i8·u8 이다.
+    #[allow(clippy::unnecessary_cast)]
     let path: Vec<u8> = sa.sun_path.iter().map(|&c| c as u8).collect();
     #[cfg(target_os = "linux")]
     let bytes = {
