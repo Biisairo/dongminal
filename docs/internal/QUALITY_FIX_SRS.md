@@ -142,7 +142,7 @@
 | TC-QFX-1 | e2e `sidebar-actions.spec.ts` TC-SBA-1(FR-QFX-1). 반증: `#add-group` 을 공통 규칙에서 빼면 실패한다 |
 | TC-QFX-2 | e2e `version-autoreload.spec.ts` TC-RLC-25·26(FR-QFX-2), 같은 spec 의 나머지. 반증: 감시 job 을 멈추면 실패한다 |
 | TC-QFX-3 | e2e `git-ui-metrics.spec.ts` V80(옛 코드에서 RED) · 레일의 두 첫 탭 윗변이 같다(`ux-audit-fix-6.spec.ts` TC-UXF-31b 에 더한다) · `ux-audit-fix` 접기 단추 · `sidebar-collapse` 등 관련 spec |
-| TC-QFX-4 | e2e `ui-kit-icons.spec.ts` V-GAP-1(FR-QFX-5). 반증: `#add-sandbox-window` 의 `gap` 을 0 으로 하면 실패한다 |
+| TC-QFX-4 | e2e `ui-kit-icons.spec.ts` V-GAP-1(FR-QFX-5). 반증: `Box` 라벨에 왼쪽 여백을 더하면 실패한다 |
 | TC-QFX-5 | e2e `skill-contract.spec.ts:451`(FR-QFX-6), `--repeat-each=3` |
 | TC-QFX-6 | `npx eslint .` 0 · `make lint` |
 | TC-QFX-7 | 단위(`settings-sections.test.mjs`): ① `settings-apply.js` 에 `_sectionCall` 이 없다 · `_keybarApply` 에 `modKbd` 가드가 없다(옛 코드에서 RED) ② `TerminalSection.paint` 가 키바 목록을 칠한다(옛 코드에서 RED) ③ 두 순서(적용 → `init` · `init` → 적용)에서 칠한 결과가 같다 ④ 이사는 칠하기 앞이다(옛 코드에서 RED) |
@@ -164,4 +164,5 @@
 | `2f141812` | 이 문서 |
 | QF-1 | `sidebar-actions.spec.ts` TC-SBA-1 을 한 줄 배치의 단정으로(FR-QFX-1). 반증: `#add-group` 을 공통 규칙(`style-main-panel.css`)에서 빼면 실패한다(높이·여백이 갈린다). 관련 e2e 5 spec(`grep -rl "add-group\|sb-actions"`) 105 통과 |
 | QF-2 | `version-autoreload.spec.ts` 의 `fakeSilence` 가 지금 구독의 `onmessage` 를 떼고 시각을 민다(FR-QFX-2) — TC-RLC-25·26 이 쓴다. 원인 실측: 진단 시험에서 시각만 민 직후 `tool_foreground {name:"~"}` 가 닿아 `_seen` 이 돌아왔고 세대가 1 에 머물렀다. 수신이 없으면 1.5초 안에 세대 1 → 2(감시는 돈다). 반증: 감시 job 의 `run` 을 비우면 TC-RLC-25 가 20초 시간 초과로 실패한다. `version-autoreload` 17건 `--repeat-each=2` 34 통과, 관련 e2e(`focus-owner`·`layout`) 34 통과 |
-| QF-3 | `sbCollapsePaint`(`layout-dock.js`)의 `UIKit.button` 에 `size:'lg'`, `AgentsController` 머리의 `ag-collapse` 에 `ui-btn-lg`(FR-QFX-3). 시험: V80 이 옛 코드에서 RED(`.sb-collapse` 26×26) → 통과. TC-UXF-31b(`ux-audit-fix-6`)에 두 단추가 30×30 이고 두 레일의 첫 탭 윗변이 같다는 단정을 더했다(FR-QFX-4, 옛 코드에서 RED — 크기 단정). 관련 e2e 19 spec(`grep -rl "ag-collapse\|sb-collapse\|panel-head\|ui-panel-acts"` + `git-ui-metrics`) 226 — 통과 224 · 실패 2: `ui-kit-icons` V-GAP-1(QF-4 대상) · `activity-rail` TC-ACF-1(알려진 흔들림 — HEAD 에서도 `--repeat-each=6` 에 2 실패, 이 변경 뒤 1 실패. 원인은 활동 카드가 셸의 첫 프롬프트 보고에 지워지는 것으로 보이며 이번 범위 밖). 단위 1480 · typecheck · `make gates` 통과 |
+| QF-3 | `sbCollapsePaint`(`layout-dock.js`)의 `UIKit.button` 에 `size:'lg'`, `AgentsController` 머리의 `ag-collapse` 에 `ui-btn-lg`(FR-QFX-3). 시험: V80 이 옛 코드에서 RED(`.sb-collapse` 26×26) → 통과. TC-UXF-31b(`ux-audit-fix-6`)에 두 단추가 30×30 이고 두 레일의 첫 탭 윗변이 같다는 단정을 더했다(FR-QFX-4, 옛 코드에서 RED — 크기 단정). 관련 e2e 19 spec(`grep -rl "ag-collapse\|sb-collapse\|panel-head\|ui-panel-acts"` + `git-ui-metrics`) 226 — 통과 224 · 실패 2: `ui-kit-icons` V-GAP-1(QF-4 대상) · `activity-rail` TC-ACF-1(알려진 흔들림 — HEAD 에서도 `--repeat-each=6` 에 2 실패, 이 변경 뒤 1 실패. 실패 때 활동 카드가 사라져 있다. 원인은 이번 범위 밖이라 조사하지 않았다). 단위 1480 · typecheck · `make gates` 통과 |
+| QF-4 | `ui-kit-icons.spec.ts` V-GAP-1 — `--sb-w` 를 320px 로 넓혀 `Box` 라벨이 선 뒤, 아이콘 오른쪽 변과 라벨 왼쪽 변 사이가 `--ui-gap`(6px)과 ±0.5px 안인지 잰다(FR-QFX-5). 실측: 넓힌 폭에서 사이가 6px. 반증: 라벨에 `margin-left:3px` 를 더하면 「아이콘과 라벨 사이 9px」 로 실패한다. 관련 e2e(`ui-kit-icons`·`ux-audit-fix-7`·`sandbox-pick`) 28 통과 |

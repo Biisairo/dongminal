@@ -118,6 +118,15 @@ test.describe('묶음 UIK — 아이콘이 버튼을 채운다 (V-1)', () => {
  */
 test('V-GAP-1: 아이콘과 글자 사이가 키트의 간격이다', async ({ page }) => {
   await waitForInit(page);
+  /**
+   * QUALITY_FIX_SRS FR-QFX-5: **라벨이 보이는 폭에서 잰다.** 기본 폭(200px)의 패널에서는 `Box` 라벨이 감춰진다
+   * (UX_AUDIT_FIX_SRS FR-UXF-96 · D-32 개정, TC-UXF-95) — 그때 상자 안에는 아이콘뿐이라 간격이 걸릴 자리가 없다.
+   *   이전 단정: 상자 오른쪽 변 − 아이콘 오른쪽 변 > 토큰 — 라벨이 섰을 때만 참이었다(감춘 뒤에는 안쪽 여백 5px 을 쟀다)
+   *   새  단정: 아이콘 오른쪽 변과 라벨 왼쪽 변 사이가 토큰과 같다 — FR-GAP-1 이 말하는 바로 그 간격
+   * 패널을 넓히는 것은 사용자가 손잡이를 끄는 것과 같은 길(`--sb-w`)이다.
+   */
+  await page.evaluate(() => document.documentElement.style.setProperty('--sb-w', '320px'));
+  await expect(page.locator('#add-sandbox-window .ui-btn-label')).toBeVisible();
   const got = await page.evaluate(() => {
     const px = (v: string) => parseFloat(v) || 0;
     // FONT_SIZE_SETTING_SRS FR-FSS-5 이후 `--ui-gap` 은 `calc(6px * var(--fs-scale))`
@@ -137,8 +146,8 @@ test('V-GAP-1: 아이콘과 글자 사이가 키트의 간격이다', async ({ p
       boxGap: px(getComputedStyle(box).columnGap),
       boxDisplay: getComputedStyle(box).display,
       // 간격이 **실제로** 벌어졌는가 — 아이콘의 오른쪽 변과 글자의 시작 사이.
-      boxIconRight: (box.querySelector('svg') as SVGElement).getBoundingClientRect().right,
-      boxRight: box.getBoundingClientRect().right,
+      iconRight: (box.querySelector('svg') as SVGElement).getBoundingClientRect().right,
+      labelLeft: (box.querySelector('.ui-btn-label') as HTMLElement).getBoundingClientRect().left,
     };
   });
   expect(got.token, '--ui-gap 토큰이 없다').toBeGreaterThan(0);
@@ -155,5 +164,5 @@ test('V-GAP-1: 아이콘과 글자 사이가 키트의 간격이다', async ({ p
    */
   // inline 이면 gap 이 걸리지 않는다 — 그것이 접수된 결함이었다.
   expect(got.boxDisplay).toContain('flex');
-  expect(got.boxRight - got.boxIconRight).toBeGreaterThan(got.token);
+  expect(Math.abs(got.labelLeft - got.iconRight - got.token), `아이콘과 라벨 사이 ${got.labelLeft - got.iconRight}px`).toBeLessThanOrEqual(0.5);
 });
