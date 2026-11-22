@@ -100,7 +100,7 @@ async function loadAppCmd(page: Page) {
   await page.evaluate(() => {
     const a = (window as any).__wsSyncOf(new (window as any).App());
     (window as any).__app = a;
-    a._subscribeCommands();
+    a.wsSync._subscribeCommands();
   });
 }
 

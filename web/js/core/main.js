@@ -34,7 +34,7 @@ const themeReady=(async()=>{try{
  */
 Promise.allSettled([themeReady,app.init()]).then(()=>BootScreen.done());
 // 설정이 오기 전의 모양이다 — 이후는 설정을 얹는 길이 칠한다 (FR-OPT-1-12).
-app._presetButtonPaint();
+app.layout.winState._presetButtonPaint();
 document.getElementById('add-window').addEventListener('click',async(e)=>{
   // 안쪽 박스를 눌렀으면 샌드박스 창이다. 바깥은 종전대로 일반 창.
   let sandbox='',workdir='',work='',copies=false;
@@ -95,15 +95,15 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
   // 샌드박스 창은 실패가 흔하다(런타임 미실행·이미지 없음). 사유를 보이지 않으면
   // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20). 복사 상한을 넘긴 거부도
   // 이 길로 온다 (FR-SPK-14).
-  app.addWindow(sandbox?{sandbox,cwd:workdir||undefined,sandboxWork:work,sandboxCopy:copies}:undefined)
+  app.layout.addWindow(sandbox?{sandbox,cwd:workdir||undefined,sandboxWork:work,sandboxCopy:copies}:undefined)
     .catch(err=>app.tool._notify(errText(t('core.open_window_fail'),err)))
     .finally(()=>{if(done)done()});
 });
 // ISSUE_AGENT_TREE_SRS FR-WGR-23: 빈 그룹을 만들고 이름을 고친다.
-document.getElementById('add-group').addEventListener('click',()=>app.addGroupInteractive());
+document.getElementById('add-group').addEventListener('click',()=>app.layout.groups.addGroupInteractive());
 document.getElementById('add-preset').addEventListener('click',()=>{
-  if(defaultPreset>=0&&layoutPresets[defaultPreset]) app._loadPreset(defaultPreset);
-  else app.addWindow();
+  if(defaultPreset>=0&&layoutPresets[defaultPreset]) app.layout.winState._loadPreset(defaultPreset);
+  else app.layout.addWindow();
 });
 
 // Custom toggle handler

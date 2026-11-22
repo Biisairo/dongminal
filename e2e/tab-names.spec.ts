@@ -316,7 +316,7 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
     // 탭 둘을 만든다 — 하나를 백그라운드로 보내도 창에 탭이 남아야 한다.
     const toolId = await page.evaluate(async () => {
       const app = (window as any).app;
-      await app.addTab(app.focused, 'terminal', {});
+      await app.layout.tabAdd.addTab(app.focused, 'terminal', {});
       const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
       const pane = app.testing.flattenPanes(win.layout)[0];
       const tab = pane.tabs.find((t: any) => t.id === pane.activeTab);
@@ -371,7 +371,7 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
     await gotoSettled(page);
     const toolId = await page.evaluate(async () => {
       const app = (window as any).app;
-      await app.addTab(app.focused, 'terminal', { name: '비평가' });
+      await app.layout.tabAdd.addTab(app.focused, 'terminal', { name: '비평가' });
       const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
       const pane = app.testing.flattenPanes(win.layout)[0];
       return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;

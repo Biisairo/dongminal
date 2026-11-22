@@ -216,7 +216,7 @@ test.describe('Pane DOM reconcile', () => {
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
       page.click('#add-window'),
     ]);
-    await page.evaluate((sid) => (window as any).app.switchWindow(sid), home);
+    await page.evaluate((sid) => (window as any).app.layout.switchWindow(sid), home);
     await expect
       .poll(() => page.evaluate('window.app.ws.activeWindow'), { timeout: 10000 })
       .toBe(home);

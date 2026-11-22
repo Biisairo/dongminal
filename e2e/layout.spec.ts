@@ -88,8 +88,8 @@ test.describe('Layout & navigation', () => {
       const app = (window as any).app;
       // Fire two splits without awaiting between them — simulates a fast
       // shortcut press. Both promises must resolve to distinct panes.
-      const p1 = app.split('horizontal');
-      const p2 = app.split('horizontal');
+      const p1 = app.layout.tabOps.split('horizontal');
+      const p2 = app.layout.tabOps.split('horizontal');
       return Promise.all([p1, p2]);
     });
 
@@ -134,7 +134,7 @@ test.describe('Layout & navigation', () => {
 
     // Click 1: completes naturally.
     await page.evaluate(async () => {
-      await (window as any).app.split('horizontal');
+      await (window as any).app.layout.tabOps.split('horizontal');
     });
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
     // 첫 분할의 **저장이 서버에 닿을 때까지** 기다린다 (FR-EQS-*).
@@ -169,7 +169,7 @@ test.describe('Layout & navigation', () => {
     });
     await page.evaluate(async () => {
       const app = (window as any).app;
-      const p = app.split('horizontal');
+      const p = app.layout.tabOps.split('horizontal');
       // Force an immediate remote-state apply on the next microtask while
       // _splitInner is still awaiting _newTool.
       await Promise.resolve();
@@ -212,7 +212,7 @@ test.describe('Layout & navigation', () => {
     const countBefore = await page.locator('#area .pn').count();
     await page.evaluate(async (targetRid) => {
       const app = (window as any).app;
-      await app.split('horizontal', {
+      await app.layout.tabOps.split('horizontal', {
         keepFocus: true,
         targetWindow: app.ws.activeWindow,
         targetPane: targetRid,
@@ -474,7 +474,7 @@ test.describe('Layout & navigation', () => {
     // Trigger split with keepFocus via evaluate (avoids Promise.all race).
     await page.evaluate(async () => {
       const app = (window as any).app;
-      await app.split('horizontal', { keepFocus: true });
+      await app.layout.tabOps.split('horizontal', { keepFocus: true });
     });
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
 
@@ -498,7 +498,7 @@ test.describe('탭줄의 고정 구 (FR-CHR-2)', () => {
       await page.setViewportSize({ width: 640, height: 600 });
       await page.evaluate(async () => {
         const a = (window as any).app;
-        for (let i = 0; i < 12; i++) await a.addTab(a.focused, 'terminal');
+        for (let i = 0; i < 12; i++) await a.layout.tabAdd.addTab(a.focused, 'terminal');
         a.render();
       });
       const scroll = page.locator('#area .pn.focused .pn-tabs-scroll');

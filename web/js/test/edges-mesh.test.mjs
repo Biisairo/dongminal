@@ -34,13 +34,14 @@ function setup() {
   // REFACTOR3_FE_APPCTL_SRS 9a: 간선 읽기·망 그림·초대는 `EdgesController` 다.
   app.edges = new ctx.EdgesController(app);
   app.chat = { views: {} };
+  app.wsSync = {};
   // 섹션은 탭 이름으로 찾는다 (REFACTOR3_FE_DELEG_SRS D-DLG-4). 이 시험은 간선 섹션만 세운다.
   const sections = { edges: { _edgesPaint() {} } };
   app.settings = { live: new ctx.SettingsLive(app), apply: {}, section: (t) => sections[t] || null };
   app.settings.live._liveOpen = () => false;
-  app._restoreBegin = () => 1;
-  app._restoreLive = () => true;
-  app._restoreEnd = () => {};
+  app.wsSync._restoreBegin = () => 1;
+  app.wsSync._restoreLive = () => true;
+  app.wsSync._restoreEnd = () => {};
   app.settings.apply._applyPageTitle = () => {};
   return { ctx, app, shown, posts, setNext: (v) => { next = v }, setPost: (v) => { postResult = v } };
 }

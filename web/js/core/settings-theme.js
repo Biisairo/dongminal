@@ -4,9 +4,9 @@
  * 테마 목록 · 미리보기 · 사용자 정의 편집기 · 색 입력. 테마가 자기 파일을 갖는
  * 이유는 44개 테마의 목록과 **그것을 고치는 편집기**가 함께 있어야 하기 때문이다.
  *
- * 어느 테마를 적용할지 정하는 `_applyThemeChoice` 는 App 에 남는다(위임자, 본체는 `settings-apply.js`) — 부팅의
+ * 어느 테마를 적용할지 정하는 `_applyThemeChoice` 는 `settings.apply` 의 것이다(`settings-apply.js`) — 부팅의
  * `_settingsApply` 가 설정창이 서기 전에 부른다. `main.js`·e2e 가 부르는 이름(`_showCustomEditor`·
- * `_hideCustomEditor`·`themeSlots`·`setThemeSlots`)은 App 의 위임자가 이 섹션에 잇는다(FR-FES-9).
+ * `_hideCustomEditor`·`themeSlots`·`setThemeSlots`)은 `settings.section(theme)` 경로로 이 섹션을 부른다(REFACTOR3_FE_DELEG_SRS FR-DLG-4).
  */
 /**
  * REFACTOR3_FE_REST3_SRS FR-FR3-11 (FC-12): 미리보기가 읽는 색 변수. 이름은 리터럴이다 — `check-css-vars.mjs` 가

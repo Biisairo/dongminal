@@ -23,27 +23,30 @@ function world() {
   a.ws = { activeWindow: 'w1', windows: [win] };
   a.tool.life.aw = () => win;
   a.calls = [];
-  for (const m of ['paneTabSet', 'setFocusState', '_focusWindow', 'render', 'save', 'editorsDrop']) {
-    a[m] = (...args) => { a.calls.push(m) };
+  // 소유 경로에 갈아 끼운다 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
+  for (const p of ['slot.paneTabSet', 'focus.setFocusState', 'focus.owner._focusWindow', 'render', 'wsSave.save', 'slot.editorsDrop']) {
+    const ks = p.split('.');
+    const m = ks.pop();
+    ks.reduce((o, k) => o[k], a)[m] = (...args) => { a.calls.push(m) };
   }
   a.tool.life._killTool = () => { a.calls.push('_killTool') };
   a.git.surfaces._gitRescheduleAll = () => { a.calls.push('_gitRescheduleAll') };
   a.layout.reopen._tabReopenNote = () => { a.calls.push('_tabReopenNote') };
   a.tool._isToolBusy = async () => false;
-  a.paneTab = (pn) => pn.activeTab;
+  a.slot.paneTab = (pn) => pn.activeTab;
   return { a, pane };
 }
 
 test('Run 탭 닫기는 같은 틱에 탭을 빼고 그린다', () => {
   const { a, pane } = world();
-  a.closeTab('p1', 'r1');
+  a.layout.tabOps.closeTab('p1', 'r1');
   assert.deepEqual(pane.tabs.map((x) => x.id), ['t2']);
   assert.ok(a.calls.includes('render'));
 });
 
 test('도구가 있는 탭은 busy 를 물은 뒤에 닫는다', async () => {
   const { a, pane } = world();
-  const p = a.closeTab('p1', 't2');
+  const p = a.layout.tabOps.closeTab('p1', 't2');
   assert.equal(pane.tabs.length, 2, '묻기 전에는 빼지 않는다');
   await p;
   assert.deepEqual(pane.tabs.map((x) => x.id), ['r1']);

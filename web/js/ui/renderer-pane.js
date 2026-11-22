@@ -60,7 +60,7 @@ Object.assign(Renderer.prototype, {
       if(p.diffTabId) diffPanel=p;
       el=p.elFor(at.gitView);
     }else if(at.type==='editor'){
-      const key=this.app.slotKey(at.id,slot);
+      const key=this.app.slot.slotKey(at.id,slot);
       let editor=this.app.fileEditors.get(key);
       // REPO_FIX 03 §3A-5: 탭의 경로가 바뀌었다(원격 기기의 이름변경이 워크스페이스
       // 동기로 왔다) — 같은 이동 API 를 탄다. 옮길 수 없으면(대상 경로가 이미 열려
@@ -106,7 +106,7 @@ Object.assign(Renderer.prototype, {
     // FR-VSR-3: 편집기 탭의 시선은 **붙은 뒤에** 되돌린다. 이동하지 않은 경로에서는
     // 부르지 않는다 — 화면을 만지는 쪽의 조건은 좁아야 한다 (FR-PDR-10 의 규약).
     if(moved&&at.type==='editor'){
-      const view=this.app.fileEditors.get(this.app.slotKey(at.id,slot));
+      const view=this.app.fileEditors.get(this.app.slot.slotKey(at.id,slot));
       if(view&&view.restoreView) view.restoreView();
     }
     // UX_BATCH12_SRS FR-RTR-10: Diff 탭도 같은 규약이다 — 붙은 뒤에 되돌린다.
@@ -162,9 +162,9 @@ Object.assign(Renderer.prototype, {
     el._ctx={node:n,slot};
     el.dataset.paneid=n.id;
     // FR-SVS-1: 이 pane 이 **이 칸에서** 보이는 탭.
-    const shown=app.paneTab(n,slot);
+    const shown=app.slot.paneTab(n,slot);
     // FR-WSL-35: 포커스로 그리는 것은 포커스 칸 하나다.
-    const focused=n.id===app.focused&&slot===app.slotFocused();
+    const focused=n.id===app.focused&&slot===app.slot.slotFocused();
     const at=(n.tabs||[]).find(tab=>tab.id===shown);
     el.classList.toggle('focused',focused);
     // FR-ATV-1: 알람 표식은 포커스 여부와 **무관하게** 그려진다. 여기 남아 있던
@@ -335,7 +335,7 @@ Object.assign(Renderer.prototype, {
       if(e.target.closest('.pn-tab'))return;
       const n=node(); if(!n)return;
       e.stopPropagation();
-      app.addTab(n.id,'terminal');
+      app.layout.tabAdd.addTab(n.id,'terminal');
     });
     /**
      * 로드맵 M7 `UX-24`: 탭이 넘치면 **그 사실이 보인다.** 스크롤바를 감춘 채
@@ -434,7 +434,7 @@ Object.assign(Renderer.prototype, {
         const {prev,next,horiz,tot,p0}=ctx;
         const pw=horiz?prev.offsetWidth:prev.offsetHeight;
         const nw=tot-pw, d=pw-p0;
-        const cell=(el,delta)=>UIKit.grid(this.app.termIn(el),horiz?'x':'y',horiz?delta:0,horiz?0:delta);
+        const cell=(el,delta)=>UIKit.grid(this.app.layout.tabOps.termIn(el),horiz?'x':'y',horiz?delta:0,horiz?0:delta);
         return [
           {px:pw,cell:cell(prev,d),pct:tot?pw/tot*100:null},
           {px:nw,cell:cell(next,-d),pct:tot?nw/tot*100:null},
@@ -442,7 +442,7 @@ Object.assign(Renderer.prototype, {
       },
       end:()=>{
         const nd=sp._node;
-        if(nd){nd.sizes=[];for(const c of sp.children){if(c.classList.contains('sc'))nd.sizes.push(parseFloat(c.style.flex)||1)}this.app.save()}
+        if(nd){nd.sizes=[];for(const c of sp.children){if(c.classList.contains('sc'))nd.sizes.push(parseFloat(c.style.flex)||1)}this.app.wsSave.save()}
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.sizer.doFit();
       },
     });

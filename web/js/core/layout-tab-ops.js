@@ -25,10 +25,10 @@ class LayoutTabOps extends Controller {
     this.app.layout.reopen._tabReopenNote(s,pn,tab);
     if(gitTab) this.app.git.surfaces._gitDropView(this.app.editor.edRootOf(s),tab.gitView,tab.id);
     // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
-    if(isEditor) this.app.editorsDrop(tab.id);
+    if(isEditor) this.app.slot.editorsDrop(tab.id);
     const toolId=tab.toolId;
     const closingIdx=pn.tabs.findIndex(x=>x.id===tid);
-    const wasShown=this.app.paneTab(pn,opts.slot)===tid;
+    const wasShown=this.app.slot.paneTab(pn,opts.slot)===tid;
     pn.tabs=pn.tabs.filter(x=>x.id!==tid);
     // FR-RTU-62: 마지막 git 뷰 탭이 닫히면 그 창의 git 표면이 사라진다 —
     // 사이드가 Explorer 면 관측을 쓰는 화면이 없으므로 폴링도 멎어야 한다.
@@ -46,15 +46,15 @@ class LayoutTabOps extends Controller {
       // 살아 있으면 움직이지 않고, 같은 탭을 보고 있었다면 FR-SVS-5 로 폴백한다.
       // 보이지 않던 탭을 닫으면 보이는 탭은 그대로다 — 이슈 트리가 자식 탭을 닫을 때 사용자가 보던
       // 에이전트 탭이 이웃으로 바뀌었다 (사용자 보고 2026-11-16, FR-SVS-10 개정).
-      if(wasShown) this.app.paneTabSet(pn,nextId,opts.slot);
+      if(wasShown) this.app.slot.paneTabSet(pn,nextId,opts.slot);
       // 워크스페이스가 죽은 탭을 가리키지 않게 한다 — 비포커스 칸이 닫은
       // 경우에는 `paneTabSet` 이 `activeTab` 을 쓰지 않는다 (FR-SVS-14).
       if(pn.activeTab===tid) pn.activeTab=nextId;
       // `keepView`(지목한 원격 닫기)는 사용자가 다른 칸에 있으면 포커스를 옮기지 않는다.
       //   이전: 닫은 탭의 칸으로 포커스가 옮겨졌다 — 이슈 트리가 탭을 닫을 때 포커스가 튀었다
       if(isActive&&!(opts.keepView&&this.app.focused!==rid)){
-        this.app.setFocusState(rid,s);
-        this.app._focusWindow(s.id);
+        this.app.focus.setFocusState(rid,s);
+        this.app.focus.owner._focusWindow(s.id);
       }
     }
     this.app.render();
@@ -66,7 +66,7 @@ class LayoutTabOps extends Controller {
         this.app.tool.life._killTool(tool);
       }
     }
-    this.app.save();
+    this.app.wsSave.save();
   }
 
   /**
@@ -110,7 +110,7 @@ class LayoutTabOps extends Controller {
       })();
     }
     if(tab.type===TAB_TYPE_EDITOR){
-      const editor=this.app.editorAny(tab.id);
+      const editor=this.app.slot.editorAny(tab.id);
       // EDITOR_TAB_SRS FR-EDT-91: 파일이 삭제되어 닫는 경로는 확인을 건너뛴다 —
       // dirty 라는 사실은 삭제 확인창이 이미 밝혔고(FR-EDT-84), 여기서 취소해도
       // 파일은 이미 없다.
@@ -155,9 +155,9 @@ class LayoutTabOps extends Controller {
     // 행의 수명이다 (FR-EDT-42). 빈 pane 을 남기지 않는 것과 창을 지우는 것은
     // 다른 일이다.
     if(!s.layout&&(this.app.editor.isEditorWin(s)||this.app.git.isChatWin(s))){ // CHAT_WINDOW_SRS FR-CW-4·13: 채팅 창도 같다
-      if(isActive){this.app.setFocusState(null,s);this.app._focusWindow(s.id)}
+      if(isActive){this.app.focus.setFocusState(null,s);this.app.focus.owner._focusWindow(s.id)}
       this.app.render();
-      this.app.save();
+      this.app.wsSave.save();
       return true;
     }
     if(!s.layout){
@@ -170,7 +170,7 @@ class LayoutTabOps extends Controller {
           if(opts.keepTool) await this.app.tool.life._setToolBackground(toolId,true);
           else this.app.tool.life._killTool(toolId);
         }
-        await this.app.delWindow(s.id);
+        await this.app.layout.delWindow(s.id);
         if(toolId&&opts.keepTool) this.app.tool.life._bgRefresh();
       })();
     }
@@ -178,8 +178,8 @@ class LayoutTabOps extends Controller {
       // 칸이 사라졌으므로 이웃 탭은 없다 — 닫은 칸이 포커스였으면 첫 칸으로 간다.
       const fallback=this.app.focused===rid?null:this.app.focused;
       const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
-      this.app.setFocusState(next,s);
-      this.app._focusWindow(s.id);
+      this.app.focus.setFocusState(next,s);
+      this.app.focus.owner._focusWindow(s.id);
     }
     return false;
   }
@@ -187,14 +187,14 @@ class LayoutTabOps extends Controller {
   // FR-SVS-4: 탭을 고르는 **단일 통로**다. `slot` 을 주면 그 칸의 시선만 바뀌고,
   // 생략하면 포커스 칸이다. 사이드바·순회 키·클릭이 모두 여기를 지난다.
   switchTab(rid,tid,slot){
-    const i=(slot==null)?this.app.slotFocused():slot;
+    const i=(slot==null)?this.app.slot.slotFocused():slot;
     // 비포커스 칸의 창은 활성 창이 아닐 수 있다 — 그 칸의 창에서 pane 을 찾는다.
-    const s=(slot==null)?this.app.tool.life.aw():(this.app.slotWindow(i)||this.app.tool.life.aw());
+    const s=(slot==null)?this.app.tool.life.aw():(this.app.slot.slotWindow(i)||this.app.tool.life.aw());
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
-    if(this.app.paneTab(pn,i)===tid && this.app.focused===rid){this.app.setFocusState(rid, s); return}
-    this.app.paneTabSet(pn,tid,i); this.app.setFocusState(rid, s);
-    this.app.save(); this.app.render();
+    if(this.app.slot.paneTab(pn,i)===tid && this.app.focused===rid){this.app.focus.setFocusState(rid, s); return}
+    this.app.slot.paneTabSet(pn,tid,i); this.app.focus.setFocusState(rid, s);
+    this.app.wsSave.save(); this.app.render();
   }
 
   // split is serialized through this._splitChain so that rapid successive
@@ -245,24 +245,24 @@ class LayoutTabOps extends Controller {
       // FR-SKF-1: 저장된 사용자 포커스를 그대로 복원. activeWindow / focused 모두.
       // FR-SKF-3: 저장된 pane 이 사후 layout 에서 사라졌으면 무동작 + 경고.
       if(this.app.ws.activeWindow!==savedWindow && this.app.ws.windows.some(x=>x.id===savedWindow)){
-        this.app._activateWindow(savedWindow);
+        this.app.layout.winState._activateWindow(savedWindow);
       }
       const a=this.app.tool.life.aw();
       if(a && savedFocused && findPane(a.layout,savedFocused)){
-        this.app.setFocusState(savedFocused, a);
+        this.app.focus.setFocusState(savedFocused, a);
       } else if(savedFocused){
         console.warn('[split] keepFocus: savedFocused pane gone after split, leaving focus as-is');
       }
     } else {
       if(this.app.ws.activeWindow!==tgtWindowId){
-        this.app._activateWindow(tgtWindowId,{rememberFocus:true});
+        this.app.layout.winState._activateWindow(tgtWindowId,{rememberFocus:true});
       }
       const next = lastR || tgtPaneId;
-      this.app.setFocusState(next, s);
-      this.app._focusWindow(tgtWindowId);
+      this.app.focus.setFocusState(next, s);
+      this.app.focus.owner._focusWindow(tgtWindowId);
     }
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 pane/tab id 반환 (echo 용).
     return {
       panes: newPanes.map(pn=>pn.id),
@@ -272,7 +272,7 @@ class LayoutTabOps extends Controller {
 
   _paneNewToolRef(sess,rid){
     const pn=findPane(sess.layout,rid);if(!pn)return {};
-    const tab=pn.tabs.find(x=>x.id===this.app.paneTab(pn));
+    const tab=pn.tabs.find(x=>x.id===this.app.slot.paneTab(pn));
     if(!tab) return {};
     // 절대경로 판정과 부모 자르기를 `/` 로 굳히지 않는다 — Windows 의 절대경로는
     // `C:\…` 로 시작하고 그 안에 `/` 가 없다. 굳히면 편집기 탭에서 만든 도구가
@@ -290,13 +290,13 @@ class LayoutTabOps extends Controller {
   switchTabPrev(){
     const s=this.app.tool.life.aw();if(!s||!this.app.focused)return;
     const pn=findPane(s.layout,this.app.focused);if(!pn)return;
-    const i=pn.tabs.findIndex(tab=>tab.id===this.app.paneTab(pn));if(i<0)return;
+    const i=pn.tabs.findIndex(tab=>tab.id===this.app.slot.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i-1+pn.tabs.length)%pn.tabs.length].id);
   }
   switchTabNext(){
     const s=this.app.tool.life.aw();if(!s||!this.app.focused)return;
     const pn=findPane(s.layout,this.app.focused);if(!pn)return;
-    const i=pn.tabs.findIndex(tab=>tab.id===this.app.paneTab(pn));if(i<0)return;
+    const i=pn.tabs.findIndex(tab=>tab.id===this.app.slot.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
   }
   // 순회 키(Ctrl+Shift+[ ])의 **단일 디스패치 지점**이다.
@@ -320,9 +320,9 @@ class LayoutTabOps extends Controller {
   // `path.length<2` 는 분할이 없는 창(Git 창 포함)이 타는 자리다. 여기를 빠뜨리면
   // 터미널 창에서는 넘어가는데 Git 창에서는 안 넘어가는 비대칭이 생긴다.
   paneNavigate(dir){
-    const s=this.app.tool.life.aw();if(!s||!this.app.focused)return this.app.slotNavigate(dir);
+    const s=this.app.tool.life.aw();if(!s||!this.app.focused)return this.app.slot.ops.slotNavigate(dir);
     const path=s.layout?findPath(s.layout,this.app.focused):null;
-    if(!path||path.length<2)return this.app.slotNavigate(dir);
+    if(!path||path.length<2)return this.app.slot.ops.slotNavigate(dir);
     for(let i=path.length-2;i>=0;i--){
       const parent=path[i],child=path[i+1];
       if(parent.type!=='split')continue;
@@ -333,18 +333,18 @@ class LayoutTabOps extends Controller {
       if(dir==='down'&&!isH)ti=ci+1; if(dir==='up'&&!isH)ti=ci-1;
       if(ti>=0&&ti<parent.children.length){
         const target=firstPane(parent.children[ti]);
-        if(target){this.app.setFocusState(target.id, s);this.app.save();this.app.render();return}
+        if(target){this.app.focus.setFocusState(target.id, s);this.app.wsSave.save();this.app.render();return}
       }
     }
-    return this.app.slotNavigate(dir);
+    return this.app.slot.ops.slotNavigate(dir);
   }
-  addTabFocused(){if(this.app.focused)this.app.addTab(this.app.focused,TAB_TYPE_TERMINAL).catch(err=>this.app.tool._notify(errText(t('core.open_tab_fail'),err)))}
+  addTabFocused(){if(this.app.focused)this.app.layout.tabAdd.addTab(this.app.focused,TAB_TYPE_TERMINAL).catch(err=>this.app.tool._notify(errText(t('core.open_tab_fail'),err)))}
   closeTabFocused(){
     const s=this.app.tool.life.aw();if(!s||!this.app.focused)return;
     const pn=findPane(s.layout,this.app.focused);if(!pn)return;
-    this.closeTab(pn.id,this.app.paneTab(pn));
+    this.closeTab(pn.id,this.app.slot.paneTab(pn));
   }
-  closeWindowActive(opts){this.app.delWindow(this.app.ws.activeWindow,opts||{})}
+  closeWindowActive(opts){this.app.layout.delWindow(this.app.ws.activeWindow,opts||{})}
 
   /**
    * SIDEBAR_COLLAPSE_SRS 묶음 SBC — 사이드바 접기.
@@ -373,7 +373,7 @@ class LayoutTabOps extends Controller {
   /** 메인 패널 (FR-FEB-24). 처음 부를 때 만든다 — 탭 줄(`SidebarTabBar`)을 든다. */
   sbPanel(){ return this.sidebarPanel||(this.sidebarPanel=new SidebarPanel(this.app)) }
 
-  _toggleSidebar(){this.app.setSidebarCollapsed(!this.sidebarCollapsed())}
+  _toggleSidebar(){this.setSidebarCollapsed(!this.sidebarCollapsed())}
 
   /**
    * PANEL_SURFACE_SRS FR-RAL-9·10: **사이드바가 지금 레일인가.**
@@ -400,8 +400,3 @@ class LayoutTabOps extends Controller {
     return null;
   }
 }
-
-// 바깥이 부르는 이름 — `app.js`(단축키)·`tool-cmd.js`·`layout-dnd.js`·`layout-dock.js`·편집기·채팅·`ui/`·e2e·계약.
-Controller.delegate(App,'layout.tabOps',['closeTab','switchTab','split','switchTabPrev','switchTabNext','switchWindowPrev',
-  'switchWindowNext','paneNavigate','addTabFocused','closeTabFocused','closeWindowActive','sidebarCollapsed','setSidebarCollapsed',
-  'sbPanel','_toggleSidebar','sbRail','termIn']);

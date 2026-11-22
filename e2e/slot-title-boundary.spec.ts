@@ -36,11 +36,11 @@ const head = (page: Page, i: number) => page.locator(`#area .slot[data-slot="${i
 const listName = (page: Page, root: string) =>
   page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(root)}"] .ed-entry-name`);
 
-const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slotAdd());
-const slotRemove = (page: Page) => page.evaluate(() => (window as any).app.slotRemove());
-const focusSlot = (page: Page, i: number) => page.evaluate((n) => (window as any).app.slotFocusTo(n), i);
+const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slot.ops.slotAdd());
+const slotRemove = (page: Page) => page.evaluate(() => (window as any).app.slot.ops.slotRemove());
+const focusSlot = (page: Page, i: number) => page.evaluate((n) => (window as any).app.slot.ops.slotFocusTo(n), i);
 const openInSlot = (page: Page, i: number, id: string) =>
-  page.evaluate(([n, w]) => (window as any).app.slotOpen(n, w), [i, id] as const);
+  page.evaluate(([n, w]) => (window as any).app.slot.ops.slotOpen(n, w), [i, id] as const);
 const activeWindowOf = (page: Page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 const addWindow = (page: Page) =>
   page.evaluate(async () => {
@@ -149,7 +149,7 @@ test.describe('자리 분담 — 칸이 하나일 때와 여럿일 때', () => {
   test('빈 칸의 머리글은 창 없음이다', async ({ page }) => {
     await waitForInit(page);
     await slotAdd(page);
-    await page.evaluate(() => (window as any).app.slotOpen(1, null));
+    await page.evaluate(() => (window as any).app.slot.ops.slotOpen(1, null));
     await expect(head(page, 1)).toHaveText('창 없음', { timeout: 10000 });
   });
 });
@@ -238,7 +238,7 @@ test.describe('경계 — 슬롯 계층의 색과 굵기', () => {
   // TC-STB-12 — 분할 손잡이는 손대지 않는다 (FR-STB-28).
   test('분할 손잡이는 종전대로다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app.split('horizontal'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.split('horizontal'));
     const sh = page.locator('#area .sp > .sh').first();
     await expect(sh).toHaveCount(1);
     const got = await sh.evaluate((el) => {

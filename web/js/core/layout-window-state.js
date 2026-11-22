@@ -115,7 +115,7 @@ class LayoutWindowState extends Controller {
   async _loadPreset(idx){
     const preset=layoutPresets[idx];if(!preset)return;
     // Create new window with preset layout
-    await this.app._mkWindow();
+    await this.app.layout._mkWindow();
     const s=this.app.tool.life.aw();if(!s)return;
     // Build layout from preset, creating panes as needed
     const build=async(tpl)=>{
@@ -143,8 +143,8 @@ class LayoutWindowState extends Controller {
     // 프리셋이 빈 layout 을 담고 있어도 `_mkWindow` 가 만든 layout 을 덮어쓰지
     // 않는다 — 덮어쓰면 창 필터(FR-EDT-49)가 그 일반 창을 지우고 도구만 남는다.
     if(built) s.layout=built;
-    this.app.setFocusState(firstPane(s.layout)?.id||null, s);
-    await this.app.save();this.app.render();
+    this.app.focus.setFocusState(firstPane(s.layout)?.id||null, s);
+    await this.app.wsSave.save();this.app.render();
   }
 
   // FR-OPT-1-12 (FEC-8): 사이드바의 기본 프리셋 버튼. 값을 얹는 자리(설정 setter)와
@@ -154,7 +154,3 @@ class LayoutWindowState extends Controller {
     if(pbtn)pbtn.style.display=defaultPreset>=0&&layoutPresets[defaultPreset]?'':'none';
   }
 }
-
-// 바깥이 부르는 이름 — 부팅(`app.js`)·상태 동기화·슬롯·포커스·편집기·설정 프리셋·e2e·계약.
-Controller.delegate(App,'layout.winState',['_normalizeIncomingWorkspace','_fallbackActiveWindow','_stripDeviceKeys',
-  '_activateWindow','_persistActiveWindow','_loadPreset','_presetButtonPaint']);

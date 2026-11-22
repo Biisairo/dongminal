@@ -462,7 +462,7 @@ class StatusBarController extends Controller {
     const pidx=panes.findIndex(r=>r.id===this.app.focused);
     if(pidx<0)return null;
     const pn=panes[pidx];
-    const tidx=pn.tabs.findIndex(tab=>tab.id===this.app.paneTab(pn));
+    const tidx=pn.tabs.findIndex(tab=>tab.id===this.app.slot.paneTab(pn));
     if(tidx<0)return null;
     return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
   }

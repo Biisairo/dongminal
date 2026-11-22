@@ -44,7 +44,7 @@ const addRunTab = (page: Page, runId = RUN_A) =>
     const first = (n: any): any => !n ? null
       : n.type === 'pane' ? n : (n.children || []).map(first).find(Boolean);
     const pn = first(w.layout);
-    await app.addTab(pn.id, 'run', { runId: rid });
+    await app.layout.tabAdd.addTab(pn.id, 'run', { runId: rid });
     app.render();
     const tab = (pn.tabs || []).find((t: any) => t.type === 'run');
     return { tabId: tab.id, paneId: pn.id, winId: w.id };
@@ -54,14 +54,14 @@ const addRunTab = (page: Page, runId = RUN_A) =>
 const showInBothSlots = (page: Page, winId: string, paneId: string, tabId: string) =>
   page.evaluate(([w, p, t]) => {
     const app = (window as any).app;
-    app.slotAdd();
-    app.slotOpen(0, w); app.slotOpen(1, w);
+    app.slot.ops.slotAdd();
+    app.slot.ops.slotOpen(0, w); app.slot.ops.slotOpen(1, w);
     const find = (n: any): any => !n ? null
       : n.type === 'pane' ? (n.id === p ? n : null) : (n.children || []).map(find).find(Boolean);
     const pn = find(app.ws.windows.find((x: any) => x.id === w).layout);
-    app.paneTabSet(pn, t, 0);
-    app.paneTabSet(pn, t, 1);
-    app.slotFocusTo(0);
+    app.slot.paneTabSet(pn, t, 0);
+    app.slot.paneTabSet(pn, t, 1);
+    app.slot.ops.slotFocusTo(0);
     app.render();
   }, [winId, paneId, tabId] as const);
 
@@ -126,8 +126,8 @@ test.describe('Run 뷰의 칸 다중화', () => {
 
     await page.evaluate(() => {
       const app = (window as any).app;
-      app.slotFocusTo(0);
-      app.slotRemove();
+      app.slot.ops.slotFocusTo(0);
+      app.slot.ops.slotRemove();
       app.render();
     });
     await expect.poll(() => page.locator('.run-view').count(), { timeout: 15000 }).toBe(1);
@@ -172,7 +172,7 @@ test.describe('Run 뷰의 칸 다중화', () => {
 
     await page.evaluate(([p, t]) => {
       const app = (window as any).app;
-      app.closeTab(p, t);
+      app.layout.tabOps.closeTab(p, t);
       app.render();
       // 회수는 run 변경 수신에서 스스로 맞춘다 (`RunsPanel` 의 규약).
       app.testing.onRunChanged({ runId: 'zzzz' });

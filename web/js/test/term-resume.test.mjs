@@ -24,7 +24,7 @@ function pane(opts = {}) {
   // (FE_MODULE_BOUNDARY_SRS FR-FMB-40) — `term-pane.js` 가 `ui/` 라 이것이 그
   // 경계를 넘는다. **격리 하네스는 전역을 손으로 세우므로**(C-5) 승격이 이
   // 스텁까지가 그 변경의 범위다.
-  ctx.app = { resizeCheck: () => opts.owner !== false, isMobile: false };
+  ctx.app = { isMobile: false, focus: { owner: { resizeCheck: () => opts.owner !== false } } };
   const p = new ctx.TerminalTool('t1', 'tool');
   // 보낸 프레임을 붙잡는다 — 소켓은 세우지 않는다.
   p.sent = [];

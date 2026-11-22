@@ -68,15 +68,15 @@ class RepoWinController extends Controller {
       if (opts.preview) tab.preview = true;
       pn.tabs.push(tab);
     }
-    this.app.paneTabSet(pn, tab.id);
-    this.app.setFocusState(pn.id, w);
+    this.app.slot.paneTabSet(pn, tab.id);
+    this.app.focus.setFocusState(pn.id, w);
     this.app.render();
     // FR-GIT-276: Blame 진입점은 그 탭의 패널을 blame 모드로 연다 — 모드는 패널의 상태다.
-    const bp = opts.blame && this._gitDiffPanelOf(tab.id, this.app.slotFocused());
+    const bp = opts.blame && this._gitDiffPanelOf(tab.id, this.app.slot.slotFocused());
     if (bp) { bp._blameOn = true; bp._paint() }
     // FR-RTU-62: git 뷰 탭이 서는 것은 그 창에 git 표면이 서는 일이다.
     this.app.git.surfaces._gitRescheduleAll();
-    this.app.save();
+    this.app.wsSave.save();
     // FR-RTU-83: 모바일이 사이드에 서 있으면 본문의 칸을 가리켜야 탭이 보인다.
     this.app.mobile.mobileShowPane(rid, { render: true });
     return { uuid: tab.id };
@@ -108,7 +108,7 @@ class RepoWinController extends Controller {
   // 탭을 그 대상의 Diff 탭으로 만든다. 편집기 미리보기였으면 그 인스턴스를 놓는다 (FR-RTB-1).
   _diffTabRetarget(tab, target) {
     if (tab.type === TAB_TYPE_EDITOR) {
-      this.app.editorsDrop(tab.id);
+      this.app.slot.editorsDrop(tab.id);
       delete tab.filePath;
       delete tab.render;
     }
@@ -133,7 +133,7 @@ class RepoWinController extends Controller {
    */
   gitDiffPanelFor(root, slot, tab) {
     if (!this.app.gitPanels) this.app.gitPanels = new Map();
-    const key = this.app.slotKey('git:' + (root || '') + GIT_DIFF_TAB_SEP + tab.id, slot || 0);
+    const key = this.app.slot.slotKey('git:' + (root || '') + GIT_DIFF_TAB_SEP + tab.id, slot || 0);
     let p = this.app.gitPanels.get(key);
     if (!p) {
       p = new GitPanel(this.app, root || '');
@@ -147,7 +147,7 @@ class RepoWinController extends Controller {
 
   _gitDiffPanelOf(tabId, slot) {
     if (!this.app.gitPanels) return null;
-    for (const [key, p] of this.app.gitPanels) if (p.diffTabId === tabId && this.app._slotOf(key) === (slot || 0)) return p;
+    for (const [key, p] of this.app.gitPanels) if (p.diffTabId === tabId && this.app.slot._slotOf(key) === (slot || 0)) return p;
     return null;
   }
 
@@ -156,9 +156,9 @@ class RepoWinController extends Controller {
     const s = this.app.tool.life.aw();
     if (!s || !s.layout || !this.app.editor.isEditorWin(s)) return null;
     const pn = findPane(s.layout, this.app.focused);
-    const tab = pn && (pn.tabs || []).find(x => x.id === this.app.paneTab(pn));
+    const tab = pn && (pn.tabs || []).find(x => x.id === this.app.slot.paneTab(pn));
     if (!tab || tab.type !== TAB_TYPE_GIT || tab.gitView !== 'diff') return null;
-    return this._gitDiffPanelOf(tab.id, this.app.slotFocused());
+    return this._gitDiffPanelOf(tab.id, this.app.slot.slotFocused());
   }
 
   _gitDiffPanelsDrop(tabId) {

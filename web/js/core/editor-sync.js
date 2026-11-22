@@ -202,7 +202,7 @@ class EditorSync extends Controller {
       for(const tab of (pn.tabs||[])) if(tab&&tab.type===TAB_TYPE_EDITOR) ids.add(tab.id);
     if(!ids.size) return false;
     for(const[k,v] of this.app.fileEditors)
-      if(v&&v._dirty&&ids.has(this.app.slotBase(k))) return true;
+      if(v&&v._dirty&&ids.has(this.app.slot.slotBase(k))) return true;
     return false;
   }
 
@@ -268,7 +268,7 @@ class EditorSync extends Controller {
       for(const tab of (pn.tabs||[])) if(tab&&tab.type===TAB_TYPE_EDITOR) ids.add(tab.id);
     const done=new Set();
     for(const[k,v] of this.app.fileEditors){
-      const base=this.app.slotBase(k);
+      const base=this.app.slot.slotBase(k);
       if(!v||!v._dirty||!ids.has(base)||done.has(base)) continue;
       done.add(base);
       if(!await v.save()) ok=false;
@@ -318,12 +318,12 @@ class EditorSync extends Controller {
   _edReapTrees(ws){
     if(!this.app._edTrees||!this.app._edTrees.size) return;
     const alive=new Set((ws||this.app.ws.windows||[]).map(s=>s&&s.id).filter(Boolean));
-    const n=this.app.slotCount();
+    const n=this.app.slot.slotCount();
     for(const[key,tree] of this.app._edTrees){
       // FR-SVS-24: 키는 복합키다 — 창 id 와 칸을 갈라 본다.
-      const id=this.app.slotBase(key);
+      const id=this.app.slot.slotBase(key);
       // FR-SVS-23: 창이 사라졌거나 그 칸 자체가 사라졌으면 시선을 거둔다.
-      if(alive.has(id)&&this.app._slotOf(key)<n) continue;
+      if(alive.has(id)&&this.app.slot._slotOf(key)<n) continue;
       tree.destroy();
       this.app._edTrees.delete(key);
       if(this.app.editor.open._edLastActive===id&&!this.app._edTrees.has(id)) this.app.editor.open._edLastActive=null;

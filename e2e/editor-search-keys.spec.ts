@@ -83,7 +83,7 @@ test('터미널 창의 Mod+F 는 종전대로 터미널 검색이다', async ({ 
     const a = (window as any).app;
     const term = a.ws.windows.find((w: any) => !a.testing.isEditorWin(w));
     if (!term) throw new Error('터미널 창이 없다');
-    a.switchWindow(term.id);
+    a.layout.switchWindow(term.id);
   });
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 10000 });
 

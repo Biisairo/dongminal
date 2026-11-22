@@ -3,7 +3,7 @@
  *
  * 워크스페이스 동기화·SSE 배선은 `ws-sync-controller.js`(옛 `app-ws-sync.js`)로 갈랐다 (REFACTOR PROD2 §8).
  * `ToolController` 의 부품 `.cmd` 다(REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-cmd.js`). 표 `REMOTE_ACTIONS` 의 처리기는 App 을 받아
- * 이 부품의 메서드를 `app.tool.cmd._remoteX` 로, 창 그룹의 것은 위임자로 부른다.
+ * 이 부품의 메서드를 `app.tool.cmd._remoteX` 로, 창 그룹의 것은 `app.layout.groups.X` 로 부른다.
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 /**
@@ -56,12 +56,12 @@ const REMOTE_ACTIONS=Object.freeze({
   paneLeft:(app,a)=>app.tool.cmd._remoteViaAction('paneLeft',a),
   paneRight:(app,a)=>app.tool.cmd._remoteViaAction('paneRight',a),
   // ISSUE_AGENT_TREE_SRS 묶음 G·O (`layout-groups.js`).
-  newGroup:(app,a)=>app._remoteNewGroup(a),
-  renameGroup:(app,a)=>app._remoteRenameGroup(a),
-  deleteGroup:(app,a)=>app._remoteDeleteGroup(a),
-  moveTab:(app,a)=>app._remoteMoveTab(a),
-  moveWindow:(app,a)=>app._remoteMoveWindow(a),
-  moveGroup:(app,a)=>app._remoteMoveGroup(a),
+  newGroup:(app,a)=>app.layout.groups._remoteNewGroup(a),
+  renameGroup:(app,a)=>app.layout.groups._remoteRenameGroup(a),
+  deleteGroup:(app,a)=>app.layout.groups._remoteDeleteGroup(a),
+  moveTab:(app,a)=>app.layout.groups._remoteMoveTab(a),
+  moveWindow:(app,a)=>app.layout.groups._remoteMoveWindow(a),
+  moveGroup:(app,a)=>app.layout.groups._remoteMoveGroup(a),
 });
 
 class ToolCmd extends Controller {
@@ -127,7 +127,7 @@ class ToolCmd extends Controller {
     }
     if(location) this._focusLocation(location);
     const rid=this.app.focused;
-    if(rid) this.app.addTab(rid,TAB_TYPE_EDITOR,{name:name||pathBase(filePath),filePath});
+    if(rid) this.app.layout.tabAdd.addTab(rid,TAB_TYPE_EDITOR,{name:name||pathBase(filePath),filePath});
   }
 
   // RENAME_TAB_SESSION_SRS FR-RNS-1/2: 순수 데이터 변경 — 포커스 무영향.
@@ -138,20 +138,20 @@ class ToolCmd extends Controller {
     if(!args.location||(!args.name&&!toAuto)){console.warn('[cmd] '+action+': location/name 필수');return}
     const tgt=this._resolveLocation(args.location);
     if(!tgt){console.warn('[cmd] '+action+': 대상 없음',args.location);return}
-    if(toAuto){ this.app._tabToAuto(tgt.tab); this.app.save(); this.app.render(); return }
+    if(toAuto){ this.app.layout._tabToAuto(tgt.tab); this.app.wsSave.save(); this.app.render(); return }
     const name=clampEntityName(args.name);
     // FR-TAN-2: 에이전트가 준 이름도 사용자가 준 이름과 같은 자격이다 —
     // 역할명이 다음 조회에 지워지면 안 된다.
-    if(action==='renameTab'){ tgt.tab.name=name; this.app._tabToManual(tgt.tab) }
+    if(action==='renameTab'){ tgt.tab.name=name; this.app.layout._tabToManual(tgt.tab) }
     else tgt.win.name=name;
-    this.app.save(); this.app.render();
+    this.app.wsSave.save(); this.app.render();
   }
 
   // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newWindow/newTab 은 name/keepFocus
   // 를 전달하기 위해 명시 분기. 의미는 _mkWindow/addTab 내부에서 보장.
   _remoteNewWindow(args){
     // ISSUE_AGENT_TREE_SRS FR-WGR-33: 그 그룹의 끝에 만든다. 없는 그룹이면 만들지 않는다.
-    if(args.group&&!this.app.windowGroups().some(g=>g.id===args.group)) return Promise.resolve({error:'not_found'});
+    if(args.group&&!this.app.layout.groups.windowGroups().some(g=>g.id===args.group)) return Promise.resolve({error:'not_found'});
     // FR-WBR-22: `dmctl` 은 더 이상 호출자 도구를 자동으로 싣지 않는다 —
     // 새 창은 홈에서 뜬다. `cwdTool` 은 다른 호출자가 명시로 줄 때만 온다
     // (FR-CWD-3 은 남는다).
@@ -159,9 +159,9 @@ class ToolCmd extends Controller {
     // 컨테이너 안 자리라 다른 인자이며, 둘이 함께 오면 앞의 것이 이긴다.
     // M8 D-A-25: 도구 생성의 거부(없는 `--cwd` 400 · 샌드박스 실패)는 화면에
     // 말한다. echo 는 내지 않는다 — dmctl 은 `timedOut` 으로 exit 1 을 받는다(D-A-2).
-    return this.app._mkWindow({name:args.name,keepFocus:!!args.keepFocus,cwdTool:args.cwdTool,
+    return this.app.layout._mkWindow({name:args.name,keepFocus:!!args.keepFocus,cwdTool:args.cwdTool,
       sandbox:args.sandbox,cwd:args.cwd||args.workdir}).then((c)=>{
-      if(c&&args.group) this.app.moveWindowTo(c.win,{to:args.group});
+      if(c&&args.group) this.app.layout.groups.moveWindowTo(c.win,{to:args.group});
       this.app.render();
       return c&&{newWindows:[c.win],newPanes:[c.pane],newTabs:[c.tab]};
     }).catch(err=>{ this.app.tool._notify(errText(t('core.open_window_fail'),err)) });
@@ -185,8 +185,8 @@ class ToolCmd extends Controller {
     }
     if(!rid) return;
     // ISSUE_AGENT_TREE_SRS FR-ORD-11: 만든 뒤 그 칸 안에서 자리를 잡는다.
-    return this.app.addTab(rid,TAB_TYPE_TERMINAL,opts).then((tab)=>{
-      if(tab&&(args.after||args.index!==undefined)) this.app.moveTabTo(tab.uuid,args.after?{after:args.after}:{index:args.index});
+    return this.app.layout.tabAdd.addTab(rid,TAB_TYPE_TERMINAL,opts).then((tab)=>{
+      if(tab&&(args.after||args.index!==undefined)) this.app.layout.groups.moveTabTo(tab.uuid,args.after?{after:args.after}:{index:args.index});
       return tab&&{newTabs:[tab]};
     })
       .catch(err=>{ this.app.tool._notify(errText(t('core.open_tab_fail'),err)) });
@@ -200,7 +200,7 @@ class ToolCmd extends Controller {
       opts.targetWindow=tgt.windowId;
       opts.targetPane=tgt.paneId;
     }
-    return this.app.split(dir,opts).then((c)=>c&&{newPanes:c.panes,newTabs:c.tabs});
+    return this.app.layout.tabOps.split(dir,opts).then((c)=>c&&{newPanes:c.panes,newTabs:c.tabs});
   }
 
   // FR-BG-2: detach 명령 — 도구를 백그라운드로 보내고 탭을 닫는다.
@@ -210,7 +210,7 @@ class ToolCmd extends Controller {
     if(!toolBackgroundCapable(loc.tab.type)){
       console.warn('[cmd] detachTab: 백그라운드 미지원 도구',loc.tab.type);return;
     }
-    this.app.closeTab(loc.pane.id,loc.tab.id,loc.win.id,{keepTool:true});
+    this.app.layout.tabOps.closeTab(loc.pane.id,loc.tab.id,loc.win.id,{keepTool:true});
   }
 
   _remoteRestoreTool(args){
@@ -247,11 +247,11 @@ class ToolCmd extends Controller {
     if(args.location){
       const tgt=this._resolveLocation(args.location);
       if(!tgt){ console.warn('[cmd] closeWindow: 대상 없음',args.location); return }
-      this.app.delWindow(tgt.windowId,_closeOpts(args)||{});
+      this.app.layout.delWindow(tgt.windowId,_closeOpts(args)||{});
       return;
     }
     if(!(args.force||args.keepTool)){ this._remoteViaAction('closeWindow',args); return }
-    this.app.closeWindowActive(_closeOpts(args));
+    this.app.layout.tabOps.closeWindowActive(_closeOpts(args));
   }
 
   // location 지정 closeTab 은 활성/비활성 창 구분 없이 포커스를 건드리지 않고 직접 close.
@@ -268,7 +268,7 @@ class ToolCmd extends Controller {
       // M9_SRS FR-M9-4: `keepTool` 은 그 답이 "백그라운드로 보내기" 일 때다
       // (`dmctl close-tab --background`). `force` 없이 오지 않는다 — 답을 준
       // 요청이 확인창을 만나면 그 자리에서 멎는다.
-      this.app.closeTab(tgt.paneId, tgt.tabId, tgt.windowId, {...(_closeOpts(args)||{}),keepView:true});
+      this.app.layout.tabOps.closeTab(tgt.paneId, tgt.tabId, tgt.windowId, {...(_closeOpts(args)||{}),keepView:true});
       return;
     }
     /**
@@ -310,12 +310,12 @@ class ToolCmd extends Controller {
   _viewRestore(back){
     if(!back) return;
     if(this.app.ws.activeWindow!==back.win && this.app.ws.windows.some(x=>x.id===back.win)){
-      this.app._activateWindow(back.win,{rememberFocus:true});
-      this.app._focusWindow(back.win);
+      this.app.layout.winState._activateWindow(back.win,{rememberFocus:true});
+      this.app.focus.owner._focusWindow(back.win);
     }
     const a=this.app.tool.life.aw();
-    if(a&&back.pane&&findPane(a.layout,back.pane)) this.app.setFocusState(back.pane,a);
-    this.app.save(); this.app.render();
+    if(a&&back.pane&&findPane(a.layout,back.pane)) this.app.focus.setFocusState(back.pane,a);
+    this.app.wsSave.save(); this.app.render();
   }
 
   /**
@@ -367,10 +367,10 @@ class ToolCmd extends Controller {
     if(!at){console.warn('[cmd] focus: 형식 오류',loc);return}
     const r=this._locationAt(at);
     if(!r){console.warn('[cmd] focus: 자리 없음',loc);return}
-    this.app._activateWindow(r.win.id,{rememberFocus:true});
-    this.app.paneTabSet(r.pane,r.tab.id);
-    this.app.setFocusState(r.pane.id, r.win);
-    this.app._focusWindow(r.win.id);
-    this.app.save(); this.app.render();
+    this.app.layout.winState._activateWindow(r.win.id,{rememberFocus:true});
+    this.app.slot.paneTabSet(r.pane,r.tab.id);
+    this.app.focus.setFocusState(r.pane.id, r.win);
+    this.app.focus.owner._focusWindow(r.win.id);
+    this.app.wsSave.save(); this.app.render();
   }
 }

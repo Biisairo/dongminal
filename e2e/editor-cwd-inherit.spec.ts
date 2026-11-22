@@ -177,7 +177,7 @@ test.describe('편집기 탭 → 새 도구의 cwd 상속', () => {
     const newPaneId = await page.evaluate(async () => {
       const a = (window as any).app;
       const before = new Set([...a.tools.keys()]);
-      await a.addTab(a.focused, 'terminal');
+      await a.layout.tabAdd.addTab(a.focused, 'terminal');
       return [...a.tools.keys()].find((k) => !before.has(k)) as string;
     });
     expect(await paneCwd(request, newPaneId)).toBe(parentCwd);
@@ -238,7 +238,7 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
       const here = uxrFx('basic');
       const base = await page.evaluate(async ([cwd]) => {
         const app = (window as any).app;
-        await app.addTab(app.focused, 'terminal', { cwd });
+        await app.layout.tabAdd.addTab(app.focused, 'terminal', { cwd });
         const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
         const pane = win.layout;
         return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;
@@ -268,13 +268,13 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
       const here = uxrFx('basic');
       await page.evaluate(async ([cwd]) => {
         const app = (window as any).app;
-        await app.addTab(app.focused, 'terminal', { cwd });
+        await app.layout.tabAdd.addTab(app.focused, 'terminal', { cwd });
       }, [here]);
 
       const made = await page.evaluate(async () => {
         const app = (window as any).app;
         const before = new Set([...app.tools.keys()]);
-        await app.addTab(app.focused, 'terminal');
+        await app.layout.tabAdd.addTab(app.focused, 'terminal');
         return [...app.tools.keys()].find((k) => !before.has(k)) as string;
       });
       await expectToolCwd(request, made, here, '같은 창의 새 탭이 승계를 잃었다');
@@ -285,14 +285,14 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
     const here = uxrFx('basic');
     const caller = await page.evaluate(async ([cwd]) => {
       const app = (window as any).app;
-      await app.addTab(app.focused, 'terminal', { cwd });
+      await app.layout.tabAdd.addTab(app.focused, 'terminal', { cwd });
       const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
       const pane = win.layout;
       return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;
     }, [here]);
     // 포커스를 다른 분할 칸으로 옮겨도, 호출한 셸(caller)이 기준이어야 한다
     // (FR-CWD-4: 조정자가 어느 창을 보고 있든 자기 cwd 에서 팀 창이 열린다).
-    await page.evaluate(() => (window as any).app.split('horizontal'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.split('horizontal'));
     await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
     const made = await page.evaluate(async ([tid]) => {
       const app = (window as any).app;

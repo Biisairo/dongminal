@@ -356,7 +356,7 @@ class GitDiffPane extends GitPart {
     if(this.p.diffTabId) this._diffTabEdited(v);
     else{
       const w=this.app.editor.edWindowFor(this.p.root); if(!w) return;
-      if(!this.app.findGitViewTab(w,'diff')) return;
+      if(!this.app.layout.tabAdd.findGitViewTab(w,'diff')) return;
     }
     // REPO_FIX 03 §3A-7: 탭 레코드에 쓰지 않는다 — 라벨은 렌더가 Diff 뷰에서
     // 파생한다(`app.tabDirty`). 바뀐 때만 다시 그린다.

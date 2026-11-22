@@ -44,7 +44,7 @@ test('dirty ● 는 라벨에만 있고 워크스페이스 저장본에 없다',
   });
   await expect(label(page)).toHaveText(/^● /);
   // 저장을 부른 뒤 서버 저장본을 본다.
-  await page.evaluate(() => (window as any).app.save());
+  await page.evaluate(() => (window as any).app.wsSave.save());
   await expect.poll(async () => JSON.stringify(await (await request.get('/api/workspace')).json()).includes('"dirty"'),
     { timeout: 10000 }).toBe(false);
   // 다른 렌더(창 다시 그리기)에서도 파생이 유지된다.

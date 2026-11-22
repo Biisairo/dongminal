@@ -32,7 +32,7 @@ test('SMT2 (FEC-3): OSC 로 받은 위치가 있으면 포커스가 바뀌어도
     const app = (window as any).app;
     const a = app.testing.focusedTerminal();
     a.output._onCwd('/tmp/dm-smt-a');
-    app.split('horizontal');
+    app.layout.tabOps.split('horizontal');
     return { a: a.id };
   });
   await expect.poll(() => page.evaluate((a) => {
@@ -43,7 +43,7 @@ test('SMT2 (FEC-3): OSC 로 받은 위치가 있으면 포커스가 바뀌어도
   await page.evaluate((a) => {
     const app = (window as any).app;
     // 앞 터미널로 포커스를 되돌린다 — 그 터미널은 OSC 값을 들고 있다.
-    app.setFocus(app.tool.life.findToolLocation(a).pane.id);
+    app.focus.setFocus(app.tool.life.findToolLocation(a).pane.id);
   }, ids.a);
   await page.waitForTimeout(800);
   expect(cwd.n, 'OSC 값이 있는데 서버에 물었다').toBe(0);
@@ -56,7 +56,7 @@ test('SMT3 (FEC-M1): 포커스 아닌 터미널의 OSC 는 상태바의 위치�
     const app = (window as any).app;
     const a = app.testing.focusedTerminal();
     a.output._onCwd('/tmp/dm-smt-focus');
-    app.split('horizontal');
+    app.layout.tabOps.split('horizontal');
     return a.id;
   });
   await expect.poll(() => page.evaluate((a) => {

@@ -72,7 +72,7 @@ class FileEditorKeys {
       if (e.type === 'keydown' && e.key !== 'Enter') return;
       if (e.type === 'click' && !e.target.closest('.cm-lsp-reference')) return;
       const app = window.app;
-      if (app && app.navJump) app.navJump();
+      if (app && app.focus?.navJump) app.focus.navJump();
     };
     this.ed.el.addEventListener('click', pick, true);
     this.ed.el.addEventListener('keydown', pick, true);

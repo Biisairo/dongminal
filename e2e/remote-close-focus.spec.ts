@@ -13,12 +13,12 @@ test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () 
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
       const mine = a.focused;
-      await a.split('horizontal');
+      await a.layout.tabOps.split('horizontal');
       const win = a.testing.aw();
       const other = win.layout.children.map((c: any) => c.id).find((id: string) => id !== mine);
       const pane = (id: string) => win.layout.children.find((c: any) => c.id === id);
-      await a.addTab(other, undefined, { keepFocus: true });
-      a.setFocusState(mine, win);
+      await a.layout.tabAdd.addTab(other, undefined, { keepFocus: true });
+      a.focus.setFocusState(mine, win);
       const victim = pane(other).tabs[pane(other).tabs.length - 1].id;
       a.testing.execRemote('closeTab', { location: victim, force: true });
       await new Promise((r) => setTimeout(r, 800));
@@ -37,18 +37,18 @@ test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () 
         const a = (window as any).app;
         const win = a.testing.aw();
         const rid = a.focused;
-        await a.addTab(rid, undefined, { keepFocus: true });
-        await a.addTab(rid, undefined, { keepFocus: true });
-        await a.addTab(rid, undefined, { keepFocus: true });
+        await a.layout.tabAdd.addTab(rid, undefined, { keepFocus: true });
+        await a.layout.tabAdd.addTab(rid, undefined, { keepFocus: true });
+        await a.layout.tabAdd.addTab(rid, undefined, { keepFocus: true });
         const pn = a.testing.flattenPanes(win.layout).find((x: any) => x.id === rid);
         const watched = pn.tabs[1].id;
-        a.switchTab(rid, watched);
-        if (goAway) await a.addWindow();
+        a.layout.tabOps.switchTab(rid, watched);
+        if (goAway) await a.layout.addWindow();
         const victim = pn.tabs[3].id;
         a.testing.execRemote('closeTab', { location: victim, force: true });
         await new Promise((r) => setTimeout(r, 800));
         if (goAway) { a.testing.execRemote('closeWindow', { force: true }); await new Promise((r) => setTimeout(r, 800)); }
-        return { watched, victim, left: pn.tabs.map((t: any) => t.id), active: pn.activeTab, shown: a.paneTab(pn) };
+        return { watched, victim, left: pn.tabs.map((t: any) => t.id), active: pn.activeTab, shown: a.slot.paneTab(pn) };
       }, away);
       expect(got.left, '탭이 닫히지 않았다').not.toContain(got.victim);
       expect(got.shown, '보이지 않는 탭을 닫았는데 보이는 탭이 바뀌었다').toBe(got.watched);
@@ -61,9 +61,9 @@ test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () 
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
       const mine = a.ws.activeWindow;
-      await a.addWindow({ keepFocus: true });
-      await a.addWindow({ keepFocus: true });
-      await a.addWindow({ keepFocus: true });
+      await a.layout.addWindow({ keepFocus: true });
+      await a.layout.addWindow({ keepFocus: true });
+      await a.layout.addWindow({ keepFocus: true });
       const wins = a.testing.plainWindows();
       const victim = wins[wins.length - 2];
       // 서버는 closeWindow 의 uuid 를 좌표로 바꿔 보낸다 (`translateLocationUUID`).
@@ -80,7 +80,7 @@ test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () 
     await waitForInit(page);
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addWindow({ keepFocus: true });
+      await a.layout.addWindow({ keepFocus: true });
       const before = a.ws.windows.map((w: any) => w.id);
       a.testing.execRemote('closeWindow', { location: 'W99.P1.T1', force: true });
       await new Promise((r) => setTimeout(r, 800));

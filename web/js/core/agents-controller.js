@@ -39,7 +39,7 @@ class AgentsController extends Controller {
   // FR-AAP-15: SSE tool_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
   _onToolActivity({toolId,state,tool,detail}={}){
     if(!toolId||!state) return;
-    this.app._restoreNote('activity',toolId);   // FR-RSF-4
+    this.app.wsSync._restoreNote('activity',toolId);   // FR-RSF-4
     if(state===ACTIVITY_STATE.ENDED){ // 종료 → 카드 제거
       if(this.app._activity.delete(toolId)) this.agentsRender();
       return;
@@ -58,13 +58,13 @@ class AgentsController extends Controller {
   // `agentsPollMs`(기본 5초)마다 불리므로 비행 창이 상시 열려 있고, 통째로 비우면
   // 그 사이 도착한 활동이 태어나자마자 사라진다 (RESTORE_FLIGHT_SRS §2.1).
   _activityRestore(src){
-    const flight=this.app._restoreBegin('activity');
+    const flight=this.app.wsSync._restoreBegin('activity');
     return stateFetch(src,'/api/tools/activity').then(res=>{
       // UX_AUDIT_FIX_SRS FR-UXF-28: 실패한 응답은 "활동이 없다" 가 아니다 — 목록을 그대로 두고 실패만 센다.
       //   이전: `res.ok` 가 아니면 빈 목록으로 읽어 카드를 모두 지웠다
-      if(!res.ok||!res.data){this.app._restoreEnd('activity',flight);this._actStaleCount(false);return}
+      if(!res.ok||!res.data){this.app.wsSync._restoreEnd('activity',flight);this._actStaleCount(false);return}
       const j=res.data;
-      if(!this.app._restoreLive('activity',flight)) return;
+      if(!this.app.wsSync._restoreLive('activity',flight)) return;
       const list=(j&&Array.isArray(j.activities))?j.activities.slice():[];
       if(j) this.app._limits=Array.isArray(j.limits)?j.limits:[]; // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40
       list.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
@@ -78,10 +78,10 @@ class AgentsController extends Controller {
       for(const id of Array.from(this.app._activity.keys())){
         if(!seen.has(id)&&!flight.has(id)) this.app._activity.delete(id);
       }
-      this.app._restoreEnd('activity',flight);
+      this.app.wsSync._restoreEnd('activity',flight);
       this._actStaleCount(true);
       this.agentsRender();
-    }).catch(()=>{this.app._restoreEnd('activity',flight);this._actStaleCount(false)});
+    }).catch(()=>{this.app.wsSync._restoreEnd('activity',flight);this._actStaleCount(false)});
   }
 
   /**
@@ -99,7 +99,7 @@ class AgentsController extends Controller {
     note=document.createElement('div');
     note.className='ui-notice ui-notice-attn ag-stale';
     note.append(document.createTextNode(t('activity.stale')),
-      UIKit.button({label:t('core.reload_app'),kind:'ghost',size:'sm',cls:'ag-stale-reload',onClick:()=>this.app.softReload()}));
+      UIKit.button({label:t('core.reload_app'),kind:'ghost',size:'sm',cls:'ag-stale-reload',onClick:()=>this.app.wsSync.reload.softReload()}));
     panel.insertBefore(note,body);
   }
 
@@ -151,7 +151,7 @@ class AgentsController extends Controller {
     ord.splice(si,1);
     let ti=ord.indexOf(dr.targetPid);
     if(ti<0){ord.push(dr.pid)}else{if(!dr.before)ti++;ord.splice(ti,0,dr.pid)}
-    this.app.save();this.agentsRender();
+    this.app.wsSave.save();this.agentsRender();
   }
 
   // FR-EM-16: 부팅 시 workspace 트리에 없는 도구 id 를 agentsOrder 에서 제거한다.

@@ -39,7 +39,7 @@ const tabId = (page: Page, kind: 'file' | 'diff', path = '') => page.evaluate(([
 
 const go = (page: Page, tid: string) => page.evaluate((id) => {
   const a = (window as any).app;
-  a.switchTab(a.focused, id);
+  a.layout.tabOps.switchTab(a.focused, id);
 }, tid);
 
 /** Changes 의 행 하나를 사용자가 고르듯 고른다. */
@@ -168,7 +168,7 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
         await openExplorer(page);
       }
       // 새로고침 전에 지금 상태의 저장이 서버에 닿게 한다.
-      await page.evaluate(() => (window as any).app.save());
+      await page.evaluate(() => (window as any).app.wsSave.save());
       await page.reload();
       await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
       if (kind === 'file') {

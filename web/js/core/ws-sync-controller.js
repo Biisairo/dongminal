@@ -79,7 +79,7 @@ class WsSyncController extends Controller {
       if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v),()=>bus.alive()&&bus.gen()===gen);
     },{owner:'app'});
 
-    bus.subscribe('workspace_changed',a=>this.app._onWorkspaceChanged(a&&a.rev),{owner:'app'});
+    bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});
 
     /**
      * FR-M9-10 (D-M9-8): **끊겼던 동안의 삭제는 다시 붙어도 오지 않는다.**
@@ -109,7 +109,7 @@ class WsSyncController extends Controller {
      * 이름을 고치는 중에 워크스페이스가 다시 그려져 편집하던 행이 사라졌다.
      * `_gen` 은 `connect()` 마다 오르므로 첫 연결이 1 이다 (`event-bus.js`).
      */
-    bus.subscribe('sse:open',(a)=>{ if(a&&a.gen>1) this.app._onWorkspaceChanged() },{owner:'app'});
+    bus.subscribe('sse:open',(a)=>{ if(a&&a.gen>1) this._onWorkspaceChanged() },{owner:'app'});
 
     // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
     // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
@@ -184,10 +184,10 @@ class WsSyncController extends Controller {
         // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 전경 이름의 복원이 이 요청에 있다 (FR-RSF-3 의
         // 경로 개정). 그래서 여기서 `fg` 비행을 연다 — 응답을 기다리는 사이 SSE 가 만진
         // id 는 이 스냅샷이 덮지 않는다.
-        const fgT=this.app._restoreBegin('fg');
+        const fgT=this._restoreBegin('fg');
         const r=await apiGet('/api/state');
-        if(!r.ok){ this.app._restoreEnd('fg',fgT); break }
-        const et=this.app._etagOf(r);
+        if(!r.ok){ this._restoreEnd('fg',fgT); break }
+        const et=this.app.wsSave._etagOf(r);
         const st=r.data;
         const sv=st&&st.workspace;
         const sp=(st&&st.tools)||[];
@@ -196,8 +196,8 @@ class WsSyncController extends Controller {
         const known=!(st&&st.toolsKnown===false);
         // 창이 없거나 워크스페이스가 낡은 스냅샷이어도 도구 목록은 응답 시점의 것이다 —
         // 이름은 아래 두 갈래보다 먼저 얹는다.
-        if(known&&this.app._restoreLive('fg',fgT)) this.app._fgApply(sp,fgT);
-        this.app._restoreEnd('fg',fgT);
+        if(known&&this._restoreLive('fg',fgT)) this._fgApply(sp,fgT);
+        this._restoreEnd('fg',fgT);
         if(!sv||!sv.windows) break;
         // UX_REVISION_SRS FR-GRR-4: **낡은 스냅샷을 적용하지 않는다.**
         //
@@ -209,7 +209,7 @@ class WsSyncController extends Controller {
         const now=this.app.wsETag?parseInt(this.app.wsETag,10):-1;
         const got=et?parseInt(et,10):-1;
         if(got>=0&&now>=0&&got<now) continue;
-        this.app._applyRemoteWorkspace(sv, sp, known);
+        this._applyRemoteWorkspace(sv, sp, known);
         if(et) this.app.wsETag=et;
       }while(this.app._wsApplyPending);
     }catch(err){console.error('[ws] sync',err)}
@@ -222,8 +222,8 @@ class WsSyncController extends Controller {
   // 프로그램이 끝난 것이며 탭 이름은 기본값으로 돌아간다 (FR-TAN-12).
   _onToolForeground({toolId,name}={}){
     if(!toolId) return;
-    this.app._restoreNote('fg',toolId);
-    const m=this.app._fgMap();
+    this._restoreNote('fg',toolId);
+    const m=this._fgMap();
     if(name) m.set(toolId,name); else m.delete(toolId);
     this._fgRepaint(toolId);
   }
@@ -241,7 +241,7 @@ class WsSyncController extends Controller {
   // `fg` 비행을 연다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-5, 종전 `_fgRestore`). SSE 는
   // **변화**만 나르므로 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
   _fgApply(tools,touched){
-    const m=this.app._fgMap();
+    const m=this._fgMap();
     const seen=new Set();
     let changed=false;
     for(const p of tools||[]){
@@ -304,12 +304,12 @@ class WsSyncController extends Controller {
      * 같은 모양이 된다 — 다른 화면이 닫은 탭을 이 화면이 되살려 영영 닫히지
      * 않는다 (V-OPL-3e 가 그것을 잡았다).
      */
-    const seenBefore=this.app._wsSeen();
+    const seenBefore=this.app.wsSave._wsSeen();
     // FR-OPT-4-3: 핀 목록이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
     const pinsBefore=wsPinsKey(this.app.ws.git);
     // FR-WSC-12: 이 스냅샷에 실린 창이 곧 **원격이 아는 창**이다. 아래에서
     // 마이그레이션·재조정이 `sv.windows` 를 고치므로 그 전에 적어 둔다.
-    this.app._wsMarkSaved(sv.windows);
+    this.app.wsSave._wsMarkSaved(sv.windows);
     const {ids,live}=wsLiveTools(serverPanes,toolsKnown);
     this._reapDeadTools(ids,live);
     // FR-EDT-42·103: 마이그레이션과 재조정이 창을 고쳤으면 그 결과를 서버에
@@ -320,18 +320,18 @@ class WsSyncController extends Controller {
     this.app.ws=sv;
     this._viewRestore(view);
     // FR-RSW-5 · FR-UXB-8: 옛 판의 브라우저가 옮긴 키를 계속 실어 보낼 수 있다.
-    if(this.app._stripDeviceKeys()) edChanged=true;
+    if(this.app.layout.winState._stripDeviceKeys()) edChanged=true;
     const a=this.app.tool.life.aw();
     if(a&&a.layout){
       const saved=a.focusedPane;
       const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
-      if(f) this.app.setFocusState(f.id, a);
+      if(f) this.app.focus.setFocusState(f.id, a);
     }
     // FR-SVS-7·14: 칸별 시선은 `activeWindow`·`focusedPane` 과 같은 범주다 —
     // 구조 변경은 받아들이면서 보는 자리는 로컬이 이긴다. 맵은 `_slots` 에
     // 있으므로 살아남고, 포커스 칸의 시선을 새 워크스페이스에 다시 얹는다.
-    this.app._slotTabsToWs();
-    if(edChanged) this.app.save();
+    this.app.slot._slotTabsToWs();
+    if(edChanged) this.app.wsSave.save();
     this.app.render();
     if(wsPinsKey(this.app.ws.git)!==pinsBefore) this.app.git.sync.gitReposKick();
   }
@@ -353,7 +353,7 @@ class WsSyncController extends Controller {
     for(const id of ids) this.app.toolIds.add(id);
     let attnDropped=false;
     for(const [key,p] of Array.from(this.app.tools.entries())){
-      const id=this.app.slotBase(key);
+      const id=this.app.slot.slotBase(key);
       if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.app.tools.delete(key); if(this.app.attn._attnDrop(id)) attnDropped=true }
     }
     for(const id of Array.from(this.app.toolIds)){
@@ -368,7 +368,7 @@ class WsSyncController extends Controller {
   _reconcileIncoming(sv,live){
     let changed=false;
     // FR-OPT-11-1 (FEC-17): 첫 로드와 같은 한 벌이다.
-    if(this.app._normalizeIncomingWorkspace(sv,live)) changed=true;
+    if(this.app.layout.winState._normalizeIncomingWorkspace(sv,live)) changed=true;
     // FR-EDT-20·43: **재조정보다 목록이 먼저다.** 목록은 서버 권위이고
     // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
     // 갱신하지 않으면 재조정이 낡은 `editors` 를 딛어, 다른 브라우저가(또는
@@ -380,7 +380,7 @@ class WsSyncController extends Controller {
     // 일반 창을 고르므로, 여기서 잇지 않으면 방금 연 Repo 창을 잃는다.
     this.app.editor.pane._edKeepActive(sv);
     // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (첫 로드와 같은 한 자리).
-    this.app._fallbackActiveWindow(sv);
+    this.app.layout.winState._fallbackActiveWindow(sv);
     return changed;
   }
 
@@ -426,14 +426,14 @@ class WsSyncController extends Controller {
     // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
     // 했을 수 있으므로 다시 본다. `_viewRestore` 의 활성 창 복원이 있으나 그것은
     // 로컬 활성 창이 살아 있을 때만 돈다.
-    this.app._fallbackActiveWindow(sv);
+    this.app.layout.winState._fallbackActiveWindow(sv);
     return true;
   }
 
   /** `_viewKeep` 이 집은 시선을 교체된 워크스페이스에 되얹는다. */
   _viewRestore(view){
     if(view.active && this.app.ws.windows.some(s=>s.id===view.active)){
-      this.app._activateWindow(view.active);
+      this.app.layout.winState._activateWindow(view.active);
     }
     wsViewRestore(this.app.ws.windows,view,n=>this.app.flattenPanes(n));
     // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
@@ -445,9 +445,6 @@ class WsSyncController extends Controller {
   }
 }
 
-// 바깥(부팅·저장·상태 등록부·알림·에이전트·도구·창 소유)과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'wsSync',['_restoreBegin','_restoreLive','_restoreNote','_restoreVoid','_restoreEnd','_subscribeCommands',
-  '_onWorkspaceChanged','_onToolForeground','_fgMap','_fgApply','_fgRepaint','_applyRemoteWorkspace']);
 
 /**
  * SSE 의 내부 상태를 붙잡던 이름들 (FR-HUB-7).

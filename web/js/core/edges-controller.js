@@ -43,9 +43,9 @@ function edgeRemain(expires,now){
 
 class EdgesController extends Controller {
   _edgesRestore(src){
-    const flight=this.app._restoreBegin('edges');
+    const flight=this.app.wsSync._restoreBegin('edges');
     return stateFetch(src,'/api/edges').then(r=>{
-      if(!this.app._restoreLive('edges',flight)) return;
+      if(!this.app.wsSync._restoreLive('edges',flight)) return;
       // 503 은 노드 계층이 없는 서버다.
       if(r.ok&&r.data){
         this.app._edges=r.data;
@@ -61,7 +61,7 @@ class EdgesController extends Controller {
           this.app.settings.section('edges')?._egNodePaint(v); this.app.settings.live._liveMark('edges',r,this.app.settings.section('edges')?._egNodeCollect());
         });
       }
-      this.app._restoreEnd('edges',flight);
+      this.app.wsSync._restoreEnd('edges',flight);
     });
   }
 

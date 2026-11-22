@@ -4,7 +4,7 @@
  * 열림은 `#agents-panel.open` 이고 뜻은 **펼침**이다. 데스크톱에서 닫힘은 레일이고(CSS 가 폭을 덮는다), 모바일에서는 숨는다.
  * 저장 값(`STORE_KEYS.agentsPanelOpen`)의 뜻도 같다. 손잡이(`#agents-handle`)는 표식을 따라간다.
  * 모바일 시트로는 Esc 로 닫힌다 — EscapeStack 버블 층이고 모바일에서만 살아 있다. 데스크톱에서는 닫히지 않는다(REFACTOR3_FE_ESC_SRS FR-FEE-5).
- * App 의 `setAgentsPanelOpen`·`agentsPanelOpen`·`agentsToggle`·`actPanelOpen` 은 이 인스턴스에 맡기는 위임자다 (INV-F2).
+ * `AgentsController` 의 `setAgentsPanelOpen`·`agentsPanelOpen`·`agentsToggle` 과 `ActivityList.actPanelOpen` 이 이 인스턴스에 맡긴다 (INV-F2).
  */
 class ActivityPanel extends Panel {
   constructor(app){

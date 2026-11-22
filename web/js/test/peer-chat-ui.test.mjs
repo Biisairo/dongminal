@@ -177,11 +177,11 @@ test('FR-PCH-83: 같은 방의 채팅 탭은 하나다 — 이미 있으면 그�
   const pane = { id: 'p', tabs: [] };
   app.ws = { windows: [{ id: 'w', panes: [pane] }] };
   let revealed = null;
-  app._revealTab = (f) => { revealed = f.tab.id };
-  app.paneTabSet = () => {};
-  app.setFocusState = () => {};
+  app.layout.tabAdd._revealTab = (f) => { revealed = f.tab.id };
+  app.slot.paneTabSet = () => {};
+  app.focus.setFocusState = () => {};
   app.render = () => {};
-  app.save = () => {};
+  app.wsSave.save = () => {};
   const first = app.chat._addChatTab(app.ws.windows[0], pane, { roomId: 'r1', name: '#ops' });
   assert.equal(first.uuid, 'tab1');
   assert.deepEqual(plain(pane.tabs), [{ id: 'tab1', name: '#ops', type: 'chat', roomId: 'r1' }]);

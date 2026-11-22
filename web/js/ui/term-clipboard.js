@@ -81,7 +81,7 @@ const TermClipboard={
     const app=(typeof window!=='undefined')?window.app:null;
     if(!app) return false;
     const watch=app.attn&&typeof app.attn.attnUserIsWatching==='function'?app.attn.attnUserIsWatching(pane.id):false;
-    const own=typeof app.resizeCheck==='function'?app.resizeCheck(pane.id,pane._slot):false;
+    const own=typeof app.focus?.owner.resizeCheck==='function'?app.focus.owner.resizeCheck(pane.id,pane._slot):false;
     return !!watch&&!!own;
   },
 

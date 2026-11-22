@@ -19,7 +19,7 @@ async function seedHidden(page: Page, request: any): Promise<{ first: string; hi
     const app = (window as any).app;
     const pane = app.focused;
     const first = app.testing.focusedTerminal().id;
-    for (let i = 0; i < n; i++) await app.addTab(pane, 'terminal');
+    for (let i = 0; i < n; i++) await app.layout.tabAdd.addTab(pane, 'terminal');
     const bg = await app.testing.mkWindow({ keepFocus: true });
     app.render();
     return { first, pane, bg: bg && bg.win };
@@ -34,7 +34,7 @@ async function seedHidden(page: Page, request: any): Promise<{ first: string; hi
   await page.evaluate(({ first }) => {
     const app = (window as any).app;
     const loc = app.tool.life.findToolLocation(first);
-    app.switchTab(loc.pane.id, loc.tab.id);
+    app.layout.tabOps.switchTab(loc.pane.id, loc.tab.id);
   }, r);
   await waitSettled(page);
   // 스크롤백이 채워질 때까지 — 재생 바이트를 재려면 채워져 있어야 한다.
@@ -99,7 +99,7 @@ test('TLC2 (IPC-5): 숨은 탭은 처음 그려질 때 붙고 전량을 재생�
   await page.evaluate((id) => {
     const app = (window as any).app;
     const loc = app.tool.life.findToolLocation(id);
-    app.switchTab(loc.pane.id, loc.tab.id);
+    app.layout.tabOps.switchTab(loc.pane.id, loc.tab.id);
   }, target);
   await expect.poll(() => boot.ws.includes(target), { timeout: 10000 }).toBe(true);
   await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('dm-tlc-fill', { timeout: 15000 });
@@ -121,7 +121,7 @@ test('TLC3 (IPC-5): 원격 워크스페이스 변경이 붙지 않은 도구의 
 
 test('TLC4 (IPC-11): 칸 구독은 presence 로 열리고 방송을 받지 않는다', async ({ page }) => {
   await waitForInit(page);
-  await page.evaluate(() => (window as any).app.slotAdd());
+  await page.evaluate(() => (window as any).app.slot.ops.slotAdd());
   await expect.poll(() => page.evaluate(() => (window as any).app.bus.channels().map((c: any) => c.url)), { timeout: 10000 })
     .toContainEqual(expect.stringContaining('presence=1'));
   // 칸 구독에 온 메시지를 센다. 인사(server_hello)는 keepalive 라 뺀다.
@@ -139,7 +139,7 @@ test('TLC4 (IPC-11): 칸 구독은 presence 로 열리고 방송을 받지 않�
     (window as any).app.bus.subscribe('workspace_changed', () => got.push('workspace_changed'), { owner: 'tlc4' });
     (window as any).__mainMsgs = got;
   });
-  await page.evaluate(async () => { const app = (window as any).app; await app.testing.mkWindow({ keepFocus: true }); app.save() });
+  await page.evaluate(async () => { const app = (window as any).app; await app.testing.mkWindow({ keepFocus: true }); app.wsSave.save() });
   await expect.poll(() => page.evaluate(() => (window as any).__mainMsgs.length), { timeout: 10000 }).toBeGreaterThan(0);
   // TEST-16: 칸 구독에 방송이 **오지 않음**을 잰다.
   await page.waitForTimeout(800);
@@ -162,7 +162,7 @@ test('TLC5 (IPC-5): 그려지지 않은 창의 칸을 나누어도 새 도구는
   expect(ref!.drawn, '다른 창의 도구가 이미 그려졌다').toBe(false);
   const [req] = await Promise.all([
     page.waitForRequest((r) => r.method() === 'POST' && /\/api\/tools\?/.test(r.url())),
-    page.evaluate((r) => (window as any).app.split('horizontal', { targetWindow: r.win, targetPane: r.pane, keepFocus: true }), ref!),
+    page.evaluate((r) => (window as any).app.layout.tabOps.split('horizontal', { targetWindow: r.win, targetPane: r.pane, keepFocus: true }), ref!),
   ]);
   expect(new URL(req.url()).searchParams.get('cwdTool'), '그려지지 않은 도구의 cwd 를 잇지 않았다').toBe(ref!.tool);
 });

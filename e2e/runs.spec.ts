@@ -241,7 +241,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const firstTabId = (await runTabs(page))[0].id;
 
     // 다른 탭을 활성으로 만들어 두어야 "포커스가 옮겨졌다"가 관측된다.
-    await page.evaluate(() => (window as any).app.addTab((window as any).app.focused));
+    await page.evaluate(() => (window as any).app.layout.tabAdd.addTab((window as any).app.focused));
     await expect.poll(() => tabCount(page)).toBe(after1 + 1);
 
     await openList(page);
@@ -611,13 +611,13 @@ test('V-RUN-1 (FR-RUN-1): 점프하면 포커스 칸이 그 창을 받는다',
     await waitForInit(page);
     const info = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addWindow();            // 둘째 창
+      await a.layout.addWindow();            // 둘째 창
       const wins = a.testing.plainWindows();
       const w0 = wins[0], w1 = wins[wins.length - 1];
-      a.slotAdd();
-      a.slotOpen(0, w0.id);
-      a.slotOpen(1, w1.id);
-      a.slotFocusTo(0);
+      a.slot.ops.slotAdd();
+      a.slot.ops.slotOpen(0, w0.id);
+      a.slot.ops.slotOpen(1, w1.id);
+      a.slot.ops.slotFocusTo(0);
       a.render();
       return {
         focusedBefore: a.testing.slotFocused(),
@@ -644,10 +644,10 @@ test('V-RUN-1 (FR-RUN-2): 단일 슬롯의 점프는 종전과 같다', async ({
   await waitForInit(page);
   const got = await page.evaluate(async () => {
     const a = (window as any).app;
-    await a.addWindow();
+    await a.layout.addWindow();
     const wins = a.testing.plainWindows();
     const w1 = wins[wins.length - 1];
-    a.switchWindow(wins[0].id);
+    a.layout.switchWindow(wins[0].id);
     const toolId = w1.layout.tabs[0].toolId;
     a.testing.jumpToTool(toolId);
     return { active: a.ws.activeWindow, want: w1.id, slots: !!a.testing.slots };
@@ -666,7 +666,7 @@ test('V-RUN-4 (FR-RUN-6a): uuid 로 지목한 탭이 닫힌다', async ({ page }
   await waitForInit(page);
   const got = await page.evaluate(async () => {
     const a = (window as any).app;
-    await a.addTab();
+    await a.layout.tabAdd.addTab();
     const win = a.testing.aw();
     const tabs = win.layout.tabs;
     const victim = tabs[0].id;
@@ -760,7 +760,7 @@ test.describe('묶음 F — 대시보드 맞춤 (FR-FIT-*)', () => {
     }, [toolId]);
     await page.evaluate(async ([id]) => {
       const app = (window as any).app;
-      await app.addTab(app.focused, 'run', { runId: id, short: String(id).slice(0, 8) });
+      await app.layout.tabAdd.addTab(app.focused, 'run', { runId: id, short: String(id).slice(0, 8) });
     }, [runId]);
 
     const svg = page.locator('.run-view .run-graph');

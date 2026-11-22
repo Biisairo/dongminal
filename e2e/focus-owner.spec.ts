@@ -28,7 +28,7 @@ async function newClient(browser, opts: { osFocused?: boolean } = {}) {
 }
 
 // claim 은 setFocus 경로로 소유권을 주장한다 (`focus-controller.js` `setFocus` — 클릭마다 무조건 주장).
-const claim = (page) => page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+const claim = (page) => page.evaluate(() => (window as any).app.focus.setFocus((window as any).app.focused));
 
 const clientIdOf = (page) => page.evaluate(() => (window as any).app.clientId);
 const activeWindowOf = (page) => page.evaluate(() => (window as any).app.ws.activeWindow);

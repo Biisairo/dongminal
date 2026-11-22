@@ -88,7 +88,7 @@ test('V-TGR-2: 탭을 바꾸면 숨은 칸에서 떼고, 새로 보이는 칸에
   await page.evaluate(() => {
     const w = window as any;
     w.__gpuFirst = w.app.testing.focusedTerminal();
-    w.app.addTabFocused();
+    w.app.layout.tabOps.addTabFocused();
   });
   await expect.poll(() => page.evaluate(() => {
     const w = window as any;

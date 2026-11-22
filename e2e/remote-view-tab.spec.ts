@@ -22,7 +22,7 @@ const paneState = (page: Page, rid: string) => page.evaluate((id: string) => {
   const a = (window as any).app;
   const win = a.testing.aw();
   const pn = a.testing.flattenPanes(win.layout).find((x: any) => x.id === id);
-  return pn ? { tabs: pn.tabs.map((t: any) => t.id), shown: a.paneTab(pn) } : null;
+  return pn ? { tabs: pn.tabs.map((t: any) => t.id), shown: a.slot.paneTab(pn) } : null;
 }, rid);
 
 test.describe('다른 브라우저의 저장이 보이는 탭을 바꾸지 않는다 (FR-VTL)', () => {
@@ -32,16 +32,16 @@ test.describe('다른 브라우저의 저장이 보이는 탭을 바꾸지 않�
     const { rid, tabs } = await A.page.evaluate(async () => {
       const a = (window as any).app;
       const id = a.focused;
-      await a.addTab(id, undefined, { keepFocus: true });
-      await a.addTab(id, undefined, { keepFocus: true });
+      await a.layout.tabAdd.addTab(id, undefined, { keepFocus: true });
+      await a.layout.tabAdd.addTab(id, undefined, { keepFocus: true });
       const pn = a.testing.flattenPanes(a.testing.aw().layout).find((x: any) => x.id === id);
-      a.switchTab(id, pn.tabs[1].id);
+      a.layout.tabOps.switchTab(id, pn.tabs[1].id);
       return { rid: id, tabs: pn.tabs.map((t: any) => t.id) };
     });
     const watched = tabs[1];
     await expect.poll(async () => (await paneState(B.page, rid))?.tabs.length, { timeout: 10000 }).toBe(tabs.length);
 
-    await B.page.evaluate(({ id, tid }) => (window as any).app.switchTab(id, tid), { id: rid, tid: tabs[2] });
+    await B.page.evaluate(({ id, tid }) => (window as any).app.layout.tabOps.switchTab(id, tid), { id: rid, tid: tabs[2] });
     await expect.poll(async () => {
       const r = await A.page.request.get('/api/workspace');
       const ws = await r.json();
@@ -66,18 +66,18 @@ test.describe('다른 브라우저의 저장이 보이는 탭을 바꾸지 않�
     const { rid, tabs } = await A.page.evaluate(async () => {
       const a = (window as any).app;
       const id = a.focused;
-      await a.addTab(id, undefined, { keepFocus: true });
-      await a.addTab(id, undefined, { keepFocus: true });
+      await a.layout.tabAdd.addTab(id, undefined, { keepFocus: true });
+      await a.layout.tabAdd.addTab(id, undefined, { keepFocus: true });
       const pn = a.testing.flattenPanes(a.testing.aw().layout).find((x: any) => x.id === id);
-      a.switchTab(id, pn.tabs[1].id);
+      a.layout.tabOps.switchTab(id, pn.tabs[1].id);
       return { rid: id, tabs: pn.tabs.map((t: any) => t.id) };
     });
     await expect.poll(async () => (await paneState(B.page, rid))?.tabs.length, { timeout: 10000 }).toBe(tabs.length);
 
     await B.page.evaluate(async ({ id, tid, keep }) => {
       const a = (window as any).app;
-      a.switchTab(id, keep);
-      await a.closeTab(id, tid, undefined, { force: true });
+      a.layout.tabOps.switchTab(id, keep);
+      await a.layout.tabOps.closeTab(id, tid, undefined, { force: true });
     }, { id: rid, tid: tabs[1], keep: tabs[0] });
     await expect.poll(async () => (await paneState(A.page, rid))?.tabs.length, { timeout: 10000 }).toBe(tabs.length - 1);
 

@@ -302,7 +302,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
 
   test('V72 (FR-GIT-182): Git 창은 WINDOWS 목록에도 창 전환 순환에도 없다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app.addWindow());
+    await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
     await openGit(page, gurFx('basic'));
 
@@ -322,7 +322,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     const plain = await page.evaluate(() => {
       const a = (window as any).app;
       const id = a.ws.windows.find((w: any) => w.type !== 'git').id;
-      a.switchWindow(id);
+      a.layout.switchWindow(id);
       return id;
     });
     await expect.poll(activeId, { timeout: 10000 }).toBe(plain);
@@ -396,13 +396,13 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     // 그 필터만으로는 안 된다 — `type!=='editor'` 도 함께 걸러야 일반 창만 남는다.
     await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addWindow();
-      await a.addWindow();
+      await a.layout.addWindow();
+      await a.layout.addWindow();
     });
     const ids = (await plainWindows(page)).map((w: any) => w.id);
     expect(ids.length).toBeGreaterThanOrEqual(3);
     const from = ids[1];
-    await page.evaluate((id) => (window as any).app.switchWindow(id), from);
+    await page.evaluate((id) => (window as any).app.layout.switchWindow(id), from);
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
 
     const fxBasic = gurFx('basic');

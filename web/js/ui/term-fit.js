@@ -2,8 +2,8 @@
  * TerminalTool — 크기 판정 (PTY 따르기 · 자기 폭 · 폭이 바뀐 뒤의 다시 그리기, M9_SRS FR-M9-3 · M10_SRS · M11_SRS · OWNER_TRANSFER_REPLAY_SRS).
  *
  * 부품 `TermFit`(터미널의 `sizer`) 이다 (REFACTOR3_FE_REST5_SRS D-FR5-9). 상태를 갖지 않는다 — 필드는 종전대로 터미널 인스턴스에
- * 있고 이 부품은 그것을 `this.pane` 으로 읽고 쓴다. 터미널의 이름은 전부 `this.pane.X` 로 부른다 — e2e·시험이 인스턴스에 갈아 끼운
- * 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `TerminalTool` 원형에 둔다.
+ * 있고 이 부품은 그것을 `this.pane` 으로 읽고 쓴다. 부르는 쪽은 이 부품을 소유 경로로 부른다
+ * (`tool.sizer.doFit()`) — e2e·시험도 이 부품에 갈아 끼운다 (REFACTOR3_FE_DELEG_SRS D-DLG-6).
  */
 class TermFit {
   constructor(pane){
@@ -20,8 +20,8 @@ class TermFit {
    */
   _followsPty(){
     if(!(this.pane._ptyCols>0&&this.pane._ptyRows>0)) return false;
-    if(!window.app||!window.app.resizeCheck) return false;
-    return !window.app.resizeCheck(this.pane.id,this.pane._slot);
+    if(!window.app||!window.app.focus?.owner.resizeCheck) return false;
+    return !window.app.focus.owner.resizeCheck(this.pane.id,this.pane._slot);
   }
 
   /**

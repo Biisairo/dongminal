@@ -9,7 +9,7 @@
  *   다시 그리기  탭을 고르면 패널 전체(`agentsRender`)를 다시 그린다 — 몸통의 항목이 탭을 따른다
  *   스크롤    몸통(`#agents-body`)이 하나라 자리를 탭 키별 Map 에 적는다 — 요소에 적는 `ScrollMemo` 는 탭마다 다른 요소를 전제한다
  *   직행 키   `actPanelOpen(key)` — 접기는 패널 닫기다. 열린 패널에서 다른 구역으로 가면 목록을 다시 받는다(FR-ARR-5)
- * App 의 `_actTab`·`_actTabSelect`·`_actTabsEl`·`_actTabsPaint` 는 이 인스턴스에 맡기는 위임자다 (INV-F2).
+ * `ActivityList` 의 `_actTabSelect` 등이 이 인스턴스에 맡긴다 (INV-F2).
  */
 class ActivityTabBar extends TabBar {
   constructor(app){

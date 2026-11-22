@@ -221,7 +221,7 @@ Object.assign(RunsPanel.prototype, {
       if (this._runsPending) return;
       // FR-DEL-3·4: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
       if (this._runsConfirm) { this._runsConfirmSet(null); return }
-      this.app.addTab(this.app.focused, 'run', { runId: rv.id, short: rv.short });
+      this.app.layout.tabAdd.addTab(this.app.focused, 'run', { runId: rv.id, short: rv.short });
       if (this.app.mobile.nav.actSheetLeave) this.app.mobile.nav.actSheetLeave();   // PANEL_TEMPLATE_SRS FR-PNT-15
     });
     return row;
@@ -356,7 +356,7 @@ Object.assign(RunsPanel.prototype, {
   // 모드의 동작은 한 글자도 바뀌지 않는다.
   runViewEl(tab, slot) {
     const m = this._runViewMap();
-    const key = this.app.slotKey(tab.id, slot || 0);
+    const key = this.app.slot.slotKey(tab.id, slot || 0);
     let v = m.get(key);
     if (!v) { v = { key, tabId: tab.id, slot: slot || 0, runId: tab.runId, root: this._runBuildRoot(), data: null, err: null, busy: false, pending: false }; m.set(key, v) }
     // 워크스페이스 복원이 같은 탭 id 에 다른 runId 를 실어 올 수 있다.
@@ -442,7 +442,7 @@ Object.assign(RunsPanel.prototype, {
     // 편집기가 이 자리에서 정확히 같은 실수를 냈다 (FR-SVS-60): `@1` 만 잘라
     // 내던 동안 칸 2·3 의 뷰는 살아 있는 탭인데도 매번 파괴됐다.
     for (const [key, v] of Array.from(m)) {
-      if (!live.has(this.app.slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
+      if (!live.has(this.app.slot.slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
       if (pick && !pick(v)) continue;
       v.err = null;
       this._runFetch(v);

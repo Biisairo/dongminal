@@ -22,7 +22,7 @@ class LayoutTabReopen extends Controller {
 
   _tabViewState(tab) {
     if (tab.type === TAB_TYPE_EDITOR) {
-      const ed = this.app.editorAny(tab.id);
+      const ed = this.app.slot.editorAny(tab.id);
       return ed && ed.viewState ? ed.viewState() : null;
     }
     const p = tab.gitView === 'diff' && this._gitDiffPanelAny(tab.id);
@@ -31,7 +31,7 @@ class LayoutTabReopen extends Controller {
 
   _tabViewApply(tab, vs) {
     if (tab.type === TAB_TYPE_EDITOR) {
-      const ed = this.app.editorAny(tab.id);
+      const ed = this.app.slot.editorAny(tab.id);
       if (ed && ed.viewApply) ed.viewApply(vs);
       return;
     }
@@ -40,7 +40,7 @@ class LayoutTabReopen extends Controller {
   }
 
   _gitDiffPanelAny(tabId) {
-    const own = this.app.repoWin._gitDiffPanelOf(tabId, this.app.slotFocused());
+    const own = this.app.repoWin._gitDiffPanelOf(tabId, this.app.slot.slotFocused());
     if (own || !this.app.gitPanels) return own;
     for (const p of this.app.gitPanels.values()) if (p.diffTabId === tabId) return p;
     return null;
@@ -97,12 +97,12 @@ class LayoutTabReopen extends Controller {
       pn.tabs.splice(Math.min(Math.max(0, e.idx), pn.tabs.length), 0, tab);
       found = { win: w, pane: pn, tab };
     }
-    this.app._navRetab(e.tabId, found.tab.id);
-    this.app._revealTab(found);
+    this.app.focus._navRetab(e.tabId, found.tab.id);
+    this.app.layout.tabAdd._revealTab(found);
     this.app.render();
     if (fresh && e.view) this._tabViewApply(found.tab, e.view);
     if (found.tab.type === TAB_TYPE_GIT) this.app.git.surfaces._gitRescheduleAll();
-    this.app.save();
+    this.app.wsSave.save();
     return { win: w.id, pane: found.pane.id, tab: found.tab.id };
   }
 
@@ -119,9 +119,6 @@ class LayoutTabReopen extends Controller {
       const key = this.app.repoWin.diffTabKey(rec.diffTarget);
       return key ? inPane(x => x.type === TAB_TYPE_GIT && x.gitView === 'diff' && this.app.repoWin.diffTabKey(x.diffTarget) === key) : null;
     }
-    return this.app.findGitViewTab(w, rec.gitView);
+    return this.app.layout.tabAdd.findGitViewTab(w, rec.gitView);
   }
 }
-
-// 바깥이 부르는 이름 — 단축키·포커스의 뒤로·앞으로(`focus-controller.js`)·e2e.
-Controller.delegate(App,'layout.reopen',['tabReopen','tabReopenCan','tabReopenAt']);

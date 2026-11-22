@@ -55,7 +55,7 @@ const addTab = (page) => page.evaluate(async () => {
   const app = (window as any).app;
   const win = app.ws.windows.find((w) => w.id === app.ws.activeWindow);
   const pane = win.layout.type === 'pane' ? win.layout : win.layout.children[0];
-  await app.addTab(pane.id, 'terminal', { windowId: win.id });
+  await app.layout.tabAdd.addTab(pane.id, 'terminal', { windowId: win.id });
 });
 
 test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다', () => {
@@ -160,7 +160,7 @@ test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다',
       const win = app.ws.windows.find((w) => w.id === app.ws.activeWindow);
       const pane = win.layout.type === 'pane' ? win.layout : win.layout.children[0];
       const tab = pane.tabs[pane.tabs.length - 1];
-      app.closeTab(pane.id, tab.id, win.id);
+      app.layout.tabOps.closeTab(pane.id, tab.id, win.id);
     });
     await expect.poll(() => tabCount(B.page), { timeout: 15000 }).toBe(grown - 1);
     expect(await tabCount(A.page)).toBe(grown);

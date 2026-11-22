@@ -2,8 +2,8 @@
  * TerminalTool — 출력 파이프라인 (디코드 · OSC 보류 · flush · OSC 777 의 Cwd·Download, FR-TRS-7 · FR-FTR-8).
  *
  * 부품 `TermOutput`(터미널의 `output`) 이다 (REFACTOR3_FE_REST5_SRS D-FR5-9). 상태를 갖지 않는다 — 필드는 종전대로 터미널 인스턴스에
- * 있고 이 부품은 그것을 `this.pane` 으로 읽고 쓴다. 터미널의 이름은 전부 `this.pane.X` 로 부른다 — e2e·시험이 인스턴스에 갈아 끼운
- * 것을 부품도 본다. 파일 끝의 위임자 표가 이 부품의 이름을 `TerminalTool` 원형에 둔다.
+ * 있고 이 부품은 그것을 `this.pane` 으로 읽고 쓴다. 부르는 쪽은 이 부품을 소유 경로로 부른다
+ * (`tool.sizer.doFit()`) — e2e·시험도 이 부품에 갈아 끼운다 (REFACTOR3_FE_DELEG_SRS D-DLG-6).
  */
 class TermOutput {
   constructor(pane){

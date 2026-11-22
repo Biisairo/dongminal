@@ -68,7 +68,7 @@ const tabId = (page: Page, kind: 'file' | 'diff', p: string) => page.evaluate(([
   return t ? t.id : '';
 }, [kind, p, REPO] as const);
 
-const go = (page: Page, tid: string) => page.evaluate((id) => { const a = (window as any).app; a.switchTab(a.focused, id) }, tid);
+const go = (page: Page, tid: string) => page.evaluate((id) => { const a = (window as any).app; a.layout.tabOps.switchTab(a.focused, id) }, tid);
 
 /** 선택자에 맞는 행이 있고, 그 행이 스크롤 상자 안에 보이는가. */
 const visibleIn = (page: Page, sel: string) => page.evaluate((s) => {

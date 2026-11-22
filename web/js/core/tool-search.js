@@ -35,7 +35,7 @@ class ToolSearch extends Controller {
     if(!this.app.focused)return null;
     const s=this.app.tool.life.aw();if(!s)return null;
     const pn=findPane(s.layout,this.app.focused);if(!pn)return null;
-    const tab=pn.tabs.find(x=>x.id===this.app.paneTab(pn));
+    const tab=pn.tabs.find(x=>x.id===this.app.slot.paneTab(pn));
     if(!tab||tab.type!==TAB_TYPE_TERMINAL)return null;
     return this.app.tools.get(tab.toolId);
   }

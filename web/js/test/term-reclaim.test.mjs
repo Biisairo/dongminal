@@ -26,7 +26,7 @@ function pane(opts = {}) {
   // 소유는 검사가 쥔다. `owner` 는 **바뀔 수 있는 값**이다 — 이 파일이 재는 것이
   // 그 전이이므로, term-size 의 고정 답과 달리 상자에 담는다.
   const state = { owner: opts.owner !== false };
-  ctx.app = { resizeCheck: () => state.owner, isMobile: false };
+  ctx.app = { isMobile: false, focus: { owner: { resizeCheck: () => state.owner } } };
   const p = new ctx.TerminalTool('t1', 'tool');
   p.sent = [];
   p._send = (m) => { p.sent.push(m) };

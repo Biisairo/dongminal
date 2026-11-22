@@ -127,7 +127,7 @@ async function newClient(browser: any) {
 }
 
 const claim = (page: Page) =>
-  page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+  page.evaluate(() => (window as any).app.focus.setFocus((window as any).app.focused));
 
 test.describe('놓은 창은 되찾을 수 있다', () => {
   /**

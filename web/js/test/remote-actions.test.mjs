@@ -42,15 +42,15 @@ function world() {
   a.executeAction = rec('executeAction');
   cmd._viewMark = () => null;
   cmd._viewRestore = rec('_viewRestore');
-  a.closeTab = rec('closeTab');
-  a.closeWindowActive = rec('closeWindowActive');
-  a.delWindow = rec('delWindow');
+  a.layout.tabOps.closeTab = rec('closeTab');
+  a.layout.tabOps.closeWindowActive = rec('closeWindowActive');
+  a.layout.delWindow = rec('delWindow');
   a.render = rec('render');
   a.tool._notify = rec('_notify');
   a.tool.cmd._echoResult = rec('_echoResult');
-  a.addTab = (...args) => { calls.push(['addTab', ...args]); return Promise.resolve({ uuid: 'tNew', toolId: 'x' }) };
-  a.split = (...args) => { calls.push(['split', ...args]); return Promise.resolve({ panes: ['pN'], tabs: ['tN'] }) };
-  a._mkWindow = (...args) => { calls.push(['_mkWindow', ...args]); return Promise.resolve({ win: 'wN', pane: 'pN', tab: 'tN' }) };
+  a.layout.tabAdd.addTab = (...args) => { calls.push(['addTab', ...args]); return Promise.resolve({ uuid: 'tNew', toolId: 'x' }) };
+  a.layout.tabOps.split = (...args) => { calls.push(['split', ...args]); return Promise.resolve({ panes: ['pN'], tabs: ['tN'] }) };
+  a.layout._mkWindow = (...args) => { calls.push(['_mkWindow', ...args]); return Promise.resolve({ win: 'wN', pane: 'pN', tab: 'tN' }) };
   return { ctx, a, calls };
 }
 

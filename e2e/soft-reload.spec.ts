@@ -18,7 +18,7 @@ async function enter(page: Page) {
   await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.waitForFunction(() => !!(window as any).app?.softReload, undefined, { timeout: 15000 });
+  await page.waitForFunction(() => !!(window as any).app.wsSync?.reload.softReload, undefined, { timeout: 15000 });
 }
 
 test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
@@ -111,8 +111,8 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
     const ran = await page.evaluate(async () => {
       const app = (window as any).app;
       // 두 번째 호출은 즉시 false 여야 한다 — 첫 번째가 아직 돌고 있다.
-      const first = app.softReload();
-      const second = await app.softReload();
+      const first = app.wsSync.reload.softReload();
+      const second = await app.wsSync.reload.softReload();
       await first;
       return second;
     });
@@ -144,7 +144,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
     });
     expect(n).toBeGreaterThan(0);
 
-    await page.evaluate(() => (window as any).app.softReload());
+    await page.evaluate(() => (window as any).app.wsSync.reload.softReload());
     const stillExited = await page.evaluate(() => {
       const app = (window as any).app;
       let k = 0;
@@ -163,10 +163,10 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
     const known = await page.evaluate(() => {
       const app = (window as any).app;
       let called = false;
-      const orig = app.softReload.bind(app);
-      app.softReload = () => { called = true; return Promise.resolve(true) };
+      const orig = app.wsSync.reload.softReload.bind(app.wsSync.reload);
+      app.wsSync.reload.softReload = () => { called = true; return Promise.resolve(true) };
       app.executeAction('softReload');
-      app.softReload = orig;
+      app.wsSync.reload.softReload = orig;
       return called;
     });
     expect(known, 'executeAction 이 softReload 를 모른다 — 체계 밖에 있다').toBe(true);
@@ -183,7 +183,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
     await enter(page);
 
     // busy 는 도는 동안만 선다. 끝난 뒤의 상태를 재는 것으로 "되돌아온다" 를 잡는다.
-    await page.evaluate(() => (window as any).app.softReload());
+    await page.evaluate(() => (window as any).app.wsSync.reload.softReload());
     await expect(btn(page)).not.toHaveClass(/busy/, { timeout: 20000 });
     await expect(btn(page)).toBeEnabled();
   });
@@ -211,7 +211,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
       await page.evaluate((root) => {
         const a = (window as any).app;
         const win = a.testing.edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
-        a.switchWindow(win.id);
+        a.layout.switchWindow(win.id);
       }, stored);
       await openExplorerSide(page);
       const sub = path.join(base, 'sub');

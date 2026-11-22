@@ -106,11 +106,11 @@ test('FR-ACU-15: 근거는 반올림한 백분율·등급·모델·effort 로 �
 function stubApp(ctx) {
   const app = controllers(ctx, new ctx.App());
   app._activity = new Map();
-  app._restoreNote = () => {};
+  app.wsSync._restoreNote = () => {};
   app.agents.agentsRender = () => {};
-  app._restoreBegin = () => new Set();
-  app._restoreLive = () => true;
-  app._restoreEnd = () => {};
+  app.wsSync._restoreBegin = () => new Set();
+  app.wsSync._restoreLive = () => true;
+  app.wsSync._restoreEnd = () => {};
   return app;
 }
 

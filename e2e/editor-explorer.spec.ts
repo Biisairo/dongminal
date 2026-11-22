@@ -580,7 +580,7 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
     const before = await page.evaluate(() => {
       const a = (window as any).app;
       const plain = a.testing.plainWindows()[0];
-      if (plain) a.switchWindow(plain.id);
+      if (plain) a.layout.switchWindow(plain.id);
       return a.testing.edTrees.size;
     });
     expect(before).toBeGreaterThan(0);

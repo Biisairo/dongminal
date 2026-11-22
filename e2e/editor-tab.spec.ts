@@ -254,12 +254,12 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
     // FR-EDT-8: 역방향. 일반 창으로 나갔다가 Editor 창으로 돌아오면 탭이 따라온다.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a.testing.plainWindows()[0].id);
+      a.layout.switchWindow(a.testing.plainWindows()[0].id);
     });
     await expect.poll(() => page.evaluate(() => (window as any).app.testing.sbTab)).toBe('windows');
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a.testing.edWindows()[0].id);
+      a.layout.switchWindow(a.testing.edWindows()[0].id);
     });
     await expect.poll(() => page.evaluate(() => (window as any).app.testing.sbTab)).toBe('repo');
   });
@@ -525,7 +525,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     await page.evaluate(async () => {
       const a = (window as any).app;
       const p = a.testing.flattenPanes(a.testing.aw().layout)[1];
-      await a.closeTab(p.id, p.tabs[0].id);
+      await a.layout.tabOps.closeTab(p.id, p.tabs[0].id);
     });
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
@@ -581,8 +581,8 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       const w = a.testing.aw();
       const pane = a.testing.flattenPanes(w.layout)[0];
       const before = a.tools.size;
-      await a.addTab(pane.id, 'terminal');
-      await a.addTab(pane.id, 'run', { runId: 'x' });
+      await a.layout.tabAdd.addTab(pane.id, 'terminal');
+      await a.layout.tabAdd.addTab(pane.id, 'run', { runId: 'x' });
       return { tabs: a.testing.flattenPanes(a.testing.aw().layout)[0].tabs.length, tools: a.tools.size - before };
     });
     expect(got.tabs).toBe(1);
@@ -659,7 +659,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     // FR-RSW-2: 다른 Repo 창으로 옮겨도 같은 폭이다 — 창마다 기억하지 않는다.
     await page.evaluate((home) => {
       const a = (window as any).app;
-      a.switchWindow(a.testing.edWindows().find((w: any) => w.editor.root !== home).id);
+      a.layout.switchWindow(a.testing.edWindows().find((w: any) => w.editor.root !== home).id);
     }, HOME_DIR);
     await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', '310px');
 
@@ -713,9 +713,9 @@ test.describe('묶음 R·M — 일반 창 금지와 마이그레이션 (FR-EDT-9
     const got = await page.evaluate(async (fp) => {
       const a = (window as any).app;
       const plain = a.testing.plainWindows()[0];
-      a.switchWindow(plain.id);
+      a.layout.switchWindow(plain.id);
       const pane = a.testing.flattenPanes(plain.layout)[0];
-      await a.addTab(pane.id, 'editor', { filePath: fp });
+      await a.layout.tabAdd.addTab(pane.id, 'editor', { filePath: fp });
       const has = (n: any): boolean => !n ? false
         : n.type === 'pane' ? (n.tabs || []).some((t: any) => t.type === 'editor')
           : (n.children || []).some(has);
@@ -813,9 +813,9 @@ test.describe('묶음 W — 백그라운드 복귀 (FR-EDT-54)', () => {
     const toolId = await page.evaluate(async () => {
       const a = (window as any).app;
       const plain = a.testing.plainWindows()[0];
-      a.switchWindow(plain.id);
+      a.layout.switchWindow(plain.id);
       const pane = a.testing.flattenPanes(plain.layout)[0];
-      await a.addTab(pane.id, 'terminal');
+      await a.layout.tabAdd.addTab(pane.id, 'terminal');
       const p = a.testing.flattenPanes(a.testing.aw().layout).find((x: any) => x.id === pane.id);
       return p.tabs[p.tabs.length - 1].toolId as string;
     });

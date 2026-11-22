@@ -109,7 +109,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
 
     // 핀을 눌러 그 저장소의 Repo 창이 활성이 됐다 — 터미널로 돌아가야 cd 를 칠 수 있다.
     const other = makeRepo('dm-repo-flw4b-');
-    await page.evaluate((id) => (window as any).app.switchWindow(id), termWin);
+    await page.evaluate((id) => (window as any).app.layout.switchWindow(id), termWin);
     await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
     await page.click('#area .pn.focused .xterm-screen');
     await cd(page, other);
@@ -226,7 +226,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
   test('S7 (V17·V-SBT-2·3): 창이 많아도 각 탭이 사이드바의 남은 높이를 쓴다', async ({ page }) => {
     await waitForInit(page);
     await page.setViewportSize({ width: 1280, height: 400 });
-    for (let i = 0; i < 10; i++) await page.evaluate(() => (window as any).app.addWindow());
+    for (let i = 0; i < 10; i++) await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect(page.locator('#windows .si')).toHaveCount(11);
 
     const sb = (await page.locator('#sidebar').boundingBox())!;
@@ -269,7 +269,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
       return a.testing.save();
     });
     // 창 추가도 같은 저장 경로를 밟는다.
-    await page.evaluate(() => (window as any).app.addWindow());
+    await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect.poll(async () => {
       const d = await (await request.get('/api/git/repos')).json();
       return d.pinned.map((p: { path: string }) => p.path);
@@ -401,7 +401,7 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     // 돌지 않는다 — `addTab` 은 활성 탭만 옮긴다.
     await Promise.all([
       page.waitForResponse((r: any) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
-      page.evaluate(() => (window as any).app.addTab((window as any).app.focused)),
+      page.evaluate(() => (window as any).app.layout.tabAdd.addTab((window as any).app.focused)),
     ]);
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(2, { timeout: 10000 });
     await gurCdFocused(page, repoB);

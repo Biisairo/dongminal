@@ -44,13 +44,13 @@ function groupRow(app,e){
     name:g.name,
     title:tn('sidebar.group_title',n,{name:g.name})+(tree?' · '+tree:''),
     cls:['si-group',e.folded?'folded':'',g.tree?'si-group-tree':''].filter(Boolean).join(' '),
-    attn:app.groupHasAttn(e),
+    attn:app.layout.groups.groupHasAttn(e),
     badge:{text:String(n),cls:'si-group-count'},
     removable:true,
     removeTitle:t('sidebar.group_remove'),
     dataset:{groupId:g.id},
-    onOpen:a=>a.wgFoldToggle(g.id),
-    onRemove:a=>a.deleteGroup(g.id),
+    onOpen:a=>a.layout.groups.wgFoldToggle(g.id),
+    onRemove:a=>a.layout.groups.deleteGroup(g.id),
     onRename:(a,el)=>a.rename(g,el),
   };
 }
@@ -66,7 +66,7 @@ const SB_TAB_DEFS=[
     badge:app=>app.git.plainWindows().filter(s=>app.attn.windowHasAttn(s)).length,
     // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `gitBackTarget`
     // 한 자리다 (FR-SBT-36).
-    onActivate:app=>{const w=app.git.gitBackTarget();if(w)app.switchWindow(w.id)},
+    onActivate:app=>{const w=app.git.gitBackTarget();if(w)app.layout.switchWindow(w.id)},
     // UX_REVISION_SRS FR-BLP-1~3: 목록의 서술자. 그리는 일도 순회도 SidebarList 가
     // 한다 — 이 탭이 주는 것은 **타깃뿐**이다.
     list:{
@@ -76,20 +76,20 @@ const SB_TAB_DEFS=[
       actions:['add-window','add-preset','add-group'],
       // FR-GIT-182: Git 창은 이 목록에 없다 — 진입점은 GIT 탭의 리포 항목뿐이다.
       // ISSUE_AGENT_TREE_SRS FR-WGR-20: 그룹 머리가 같은 목록의 행으로 섞인다.
-      items:app=>app.sidebarWindowEntries(),
+      items:app=>app.layout.groups.sidebarWindowEntries(),
       key:s=>s.kind==='group'?WG_KEY+s.group.id:s.id,
       // FR-BLP-15~18: 순회. 규약은 블루프린트가 갖고, 여기는 타깃만 준다.
       cycle:{
         // 그룹 머리는 순회 대상이 아니다 — 창만 돈다.
         filter:s=>s.kind!=='group',
         currentKey:app=>app.ws.activeWindow,
-        open:(app,s)=>app.switchWindow(s.id),
+        open:(app,s)=>app.layout.switchWindow(s.id),
       },
       // FR-MOV-1: 창 항목은 탭을 받는다. 지금 보고 있는 창은 받을 이유가 없다 —
       // 같은 창 안의 이동은 분할 칸의 탭 바가 이미 한다.
       tabDrop:{
         accepts:(app,r)=>r.key!==app.ws.activeWindow&&!String(r.key).startsWith(WG_KEY),
-        drop:(app,r,dr)=>app.moveTabToWindow(dr.srcPaneId,dr.tabId,r.key),
+        drop:(app,r,dr)=>app.layout.dnd.moveTabToWindow(dr.srcPaneId,dr.tabId,r.key),
       },
       row:(app,s)=>s.kind==='group'?groupRow(app,s):({
         name:s.name,
@@ -111,25 +111,25 @@ const SB_TAB_DEFS=[
             +(s.sandboxCopy?String.fromCharCode(10)+SANDBOX_COPY_BADGE_TITLE:'')}:null,
         removable:true,
         dataset:{sid:s.id,windowType:s.type||WINDOW_TYPE_TERMINAL},
-        onOpen:app=>app.switchWindow(s.id),
-        onRemove:app=>app.delWindow(s.id),
+        onOpen:app=>app.layout.switchWindow(s.id),
+        onRemove:app=>app.layout.delWindow(s.id),
         onRename:(app,el)=>app.rename(s,el),
       }),
       reorder:{
         type:'window',
         // ISSUE_AGENT_TREE_SRS FR-WGR-24: 그룹 안팎·그룹 통째 이동은 순서 함수가 정한다
         // (FR-WGR-4 의 불변식을 끌어 놓기도 지킨다).
-        apply:(app,dr)=>app.sidebarReorder(dr),
+        apply:(app,dr)=>app.layout.groups.sidebarReorder(dr),
         // FR-WGR-24 (개정): 그룹의 첫 창 위·마지막 창 아래에서 포인터가 행의 가로 가운데보다 왼쪽(패널 왼쪽 밖 포함)이면 그룹 밖이다.
         //   이전: 들여쓰기(22px) 왼쪽일 때만 — 그 띠에 포인터를 정확히 올리기 어려웠다
         outside:(app,key,el,x,before)=>{
           const r=el.getBoundingClientRect();
-          return el.classList.contains('si-in-group')&&x<r.left+r.width/2&&!!app.wgEdgeGroup(key,before);
+          return el.classList.contains('si-in-group')&&x<r.left+r.width/2&&!!app.layout.groups.wgEdgeGroup(key,before);
         },
         // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
         // FR-AGG-3: agents 패널의 그룹 순서는 이 배열에서 파생하므로(D-9) 같은
         // 자리에서 다시 그린다 — 폴링을 기다리면 방금 만든 순서를 한 박자 늦게 본다.
-        commit:app=>{app.save();if(app.agents.agentsRender)app.agents.agentsRender()},
+        commit:app=>{app.wsSave.save();if(app.agents.agentsRender)app.agents.agentsRender()},
       },
     },
   },
@@ -154,7 +154,7 @@ const SB_TAB_DEFS=[
     // FR-RTU-6: 헤더 배지는 두지 않는다 — 근거 없는 숫자를 남기지 않는다는
     // FR-GOB-13 의 판단이 그대로다. 개수는 행마다 붙는다.
     // FR-EDT-7: 탭을 고르면 콘텐츠 창까지 바뀐다.
-    onActivate:app=>{const w=app.editor.open.edActivateTarget();if(w)app.switchWindow(w.id)},
+    onActivate:app=>{const w=app.editor.open.edActivateTarget();if(w)app.layout.switchWindow(w.id)},
     // FR-GOB-9: 들어간 순간 등록된 리포 전부를 관측한다. 다음 폴링(3초)을
     // 기다리면 사용자는 낡은 배지를 먼저 본다.
     //
@@ -308,7 +308,7 @@ for(let i=SB_TAB_DEFS.length;i<SB_JUMP_MAX;i++){
  * 이 객체는 렌더러·App 이 부르던 이름을 그 인스턴스(`app.sbPanel().tabs`)에 넘긴다. 이름을 지우는 일은 단계 9 다.
  */
 const SidebarTabs={
-  bar(app){ return app.sbPanel().tabs },
+  bar(app){ return app.layout.tabOps.sbPanel().tabs },
   visible(app){ return this.bar(app).visibleDefs() },
   def(app,id){ return this.bar(app).def(id) },
   labelForWindow(app,w){ return this.bar(app).labelForWindow(w) },

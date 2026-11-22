@@ -82,7 +82,7 @@ class EditorPane extends Controller {
      * 엉뚱한 일반 창을 고른다. 실측: 새로고침 뒤 Changes 사이드가 사라졌다
      * (V33·FR-GIT-76).
      */
-    this.app._persistActiveWindow(next.id,next);
+    this.app.layout.winState._persistActiveWindow(next.id,next);
   }
 
   /**
@@ -98,7 +98,7 @@ class EditorPane extends Controller {
     // 클릭이 미리보기를 세운 **지금 칸**의 탭이다.
     const w=this._edLinkedWindow(filePath)||this.app.editor.edWindowFor(this.app.editor._edHome());
     const rid=w&&w.layout&&this.edEnsurePane(w);
-    const found=(rid&&this.app.repoWin.preview._findEditorTabIn(w,findPane(w.layout,rid),filePath))||this.app._findEditorTab(filePath);
+    const found=(rid&&this.app.repoWin.preview._findEditorTabIn(w,findPane(w.layout,rid),filePath))||this.app.layout.tabAdd._findEditorTab(filePath);
     if(found) this.app.repoWin.preview.pinPreviewTab(found.tab);
   }
 
@@ -152,7 +152,7 @@ class EditorPane extends Controller {
     // 표면이 화면에서 사라지므로(본문에 git 뷰 탭이 없다면) 폴링도 멎어야 한다 —
     // 조건은 `_applyCadence` 가 불릴 때만 검사되고, 부르는 자리가 여기다.
     this.app.git.surfaces._gitRescheduleAll();
-    this.app.save();
+    this.app.wsSave.save();
   }
 
   // ── 사이드 폭 (REPO_SIDE_WIDTH_SRS FR-RSW-1~5) ──
@@ -267,7 +267,7 @@ class EditorPane extends Controller {
   // 무엇을 잃는지 모른다 (GitConfirm 의 영향 범위와 같은 근거).
   edDirtyUnder(p){
     return this._edTabsUnder(p)
-      .filter(x=>{const e=this.app.editorAny(x.tab.id);return !!(e&&e._dirty)})
+      .filter(x=>{const e=this.app.slot.editorAny(x.tab.id);return !!(e&&e._dirty)})
       .map(x=>x.tab.name);
   }
 
@@ -292,10 +292,10 @@ class EditorPane extends Controller {
       if(conflicts.has(np)) continue;
       tab.filePath=np;
       tab.name=pathBase(np)||tab.name;
-      for(const ed of this.app.editorsOf(tab.id)){ed.filePath=np;ed.name=tab.name}
+      for(const ed of this.app.slot.editorsOf(tab.id)){ed.filePath=np;ed.name=tab.name}
     }
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
     return {count:list.length,conflicts:moved.conflicts};
   }
 
@@ -308,7 +308,7 @@ class EditorPane extends Controller {
    */
   async edCloseTabsUnder(p){
     const list=this._edTabsUnder(p);
-    for(const x of list) await this.app.closeTab(x.pane.id,x.tab.id,x.win.id,{force:true});
+    for(const x of list) await this.app.layout.tabOps.closeTab(x.pane.id,x.tab.id,x.win.id,{force:true});
     return list.length;
   }
 

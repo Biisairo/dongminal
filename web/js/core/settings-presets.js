@@ -2,8 +2,8 @@
  * PresetsSection — Settings ▸ Presets (REFACTOR3_FE_SETTINGS_SRS 8d, 옛 `app-presets.js` 의 패널 부분).
  *
  * 목록·저장·이름 바꾸기·지우기 확인·기본 프리셋 별. 프리셋을 **불러오는** `_loadPreset`(창을 만든다)과 사이드바의
- * 기본 프리셋 단추 칠하기 `_presetButtonPaint`(부팅에서 설정창보다 먼저 돈다)는 App 에 남는다(위임자, 본체는 `layout-window-state.js`).
- * e2e 계약(`_renderPresets`·`_savePreset`)은 App 의 위임자가 이 섹션에 잇는다(FR-FES-9).
+ * 기본 프리셋 단추 칠하기 `_presetButtonPaint`(부팅에서 설정창보다 먼저 돈다)는 `layout.winState` 의 것이다.
+ * e2e 계약(`_renderPresets`·`_savePreset`)은 `settings.section(presets)` 경로로 이 섹션을 부른다(REFACTOR3_FE_DELEG_SRS FR-DLG-4).
  */
 class PresetsSection extends SettingsSection {
   constructor(app){ super(app,'presets') }
@@ -99,7 +99,7 @@ class PresetsSection extends SettingsSection {
     this._presetMsg('');
     const el=document.getElementById('preset-list');if(!el)return;
     el.innerHTML='';
-    this.app._presetButtonPaint();
+    this.app.layout.winState._presetButtonPaint();
     if(!layoutPresets.length){
       el.innerHTML='<div style="color:var(--text-hint);font-size:12px;text-align:center;padding:20px"></div>';
       el.firstChild.textContent=t('presets.empty');
@@ -124,7 +124,7 @@ class PresetsSection extends SettingsSection {
       // Load button. 로드맵 M7 `FUI-25`: 실패는 **보인다** — 도구 생성이
       // 거절되면 종전에는 창만 비어 있었다.
       const load=UIKit.button({icon:'play',title:TIP_PRESET_LOAD,kind:'ghost'});
-      load.addEventListener('click',e=>{e.stopPropagation();this.app._loadPreset(i).catch(err=>this.app.tool._notify(PRESET_LOAD_FAIL.replace('%s',String(err&&err.message||err))))});
+      load.addEventListener('click',e=>{e.stopPropagation();this.app.layout.winState._loadPreset(i).catch(err=>this.app.tool._notify(PRESET_LOAD_FAIL.replace('%s',String(err&&err.message||err))))});
       item.appendChild(load);
       // Delete button. `FUI-25`: 인라인 확인을 지난다 (Runs·백그라운드 목록의
       // `예/아니오` 와 같은 규약 — 모달 위의 모달을 띄우지 않는다).

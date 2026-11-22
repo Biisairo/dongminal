@@ -33,7 +33,7 @@ class LayoutDock extends Controller {
   }
 
   applyPanelDock(){
-    const s=this.app.panelDock(), o=dockOrders(s), de=document.documentElement, st=de.style;
+    const s=this.panelDock(), o=dockOrders(s), de=document.documentElement, st=de.style;
     this._dockShown=s;
     st.setProperty('--dock-sb-ord',String(o.sidebar.panel));
     st.setProperty('--dock-sb-h-ord',String(o.sidebar.handle));
@@ -41,8 +41,8 @@ class LayoutDock extends Controller {
     st.setProperty('--dock-ag-h-ord',String(o.activity.handle));
     de.dataset.sbSide=dockSideOf(s,'sidebar');
     de.dataset.agSide=dockSideOf(s,'activity');
-    de.dataset.repoSide=this.app.repoSideDock();
-    this.app.sbCollapsePaint();
+    de.dataset.repoSide=this.repoSideDock();
+    this.sbCollapsePaint();
   }
 
   /**
@@ -58,10 +58,11 @@ class LayoutDock extends Controller {
       // UX_AUDIT_FIX_SRS D-38: 작업 패널의 접기(`ag-collapse`)와 같은 크기다 — 다르면 레일 맨 위에서 두 레일의 탭 선이 어긋난다.
       // QUALITY_FIX_SRS FR-QFX-3: 둘 다 큰 단추(30px)다 — 사이드바 단추의 하한(GIT_UI_REVISION FR-GIT-226).
       //   이전: 표준(26px) — D-38 이 작은 쪽에 맞추며 하한을 깼다
-      b=UIKit.button({icon:'chevron-left',title:TIP_PANEL_COLLAPSE,kind:'ghost',size:'lg',cls:'sb-collapse ui-panel-act-desktop',onClick:e=>{e.stopPropagation();this.app._toggleSidebar()}});
+      b=UIKit.button({icon:'chevron-left',title:TIP_PANEL_COLLAPSE,kind:'ghost',size:'lg',cls:'sb-collapse ui-panel-act-desktop',
+        onClick:e=>{e.stopPropagation();this.app.layout.tabOps._toggleSidebar()}});
       acts.prepend(b);
     }
-    const open=!this.app.sidebarCollapsed();
+    const open=!this.app.layout.tabOps.sidebarCollapsed();
     const tip=open?TIP_PANEL_COLLAPSE:TIP_PANEL_EXPAND;
     b.title=tip; b.setAttribute('aria-label',tip);
     b.replaceChildren(UIKit.icon(agCollapseIcon(open,document.documentElement.dataset.sbSide||'left',false)));
@@ -88,9 +89,9 @@ class LayoutDock extends Controller {
       const el=document.getElementById(id);
       return el&&shown?el.getBoundingClientRect().width:NaN;
     };
-    const open=this.app.agents.agentsPanelOpen(), collapsed=this.app.sidebarCollapsed();
+    const open=this.app.agents.agentsPanelOpen(), collapsed=this.app.layout.tabOps.sidebarCollapsed();
     return {
-      dock:this.app.panelDock(), repoSide:this.app.repoSideDock(),
+      dock:this.panelDock(), repoSide:this.repoSideDock(),
       sidebarPx:px(SIDEBAR_W_KEY,'sidebar',!collapsed), sidebarCollapsed:collapsed,
       repoSidePx:this.app.editor.pane.edSideWidth(),
       activityPx:px(STORE_KEYS.agentsWidth,'agents-panel',open), activityOpen:open,
@@ -107,7 +108,3 @@ class LayoutDock extends Controller {
     return PrefStore.local.remove(PLY_KEYS.saved);
   }
 }
-
-// 바깥이 부르는 이름 — 부팅·설정·`ui/`(드래그 배선)·사이드바 접기(`layout-tab-ops.js`)·e2e·계약.
-Controller.delegate(App,'layout.dock',['panelDock','setPanelDock','applyPanelDock','sbCollapsePaint','repoSideDock',
-  'setRepoSideDock','saveLayout','resetLayout']);

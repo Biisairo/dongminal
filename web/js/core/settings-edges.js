@@ -9,7 +9,7 @@
  *
  * REFACTOR3_FE_SETTINGS_SRS 8c: 초대 코드(`_egInvite`)와 남은 시간 타이머는 이 섹션이 든다. 읽은 값 `_edges` 는
  * 설정 밖(`EdgesController`·채팅)이 읽으므로 App 에 남는다(FR-FES-5). 망 그림·받은 초대는 `EdgesController` 의
- * 것이고(REFACTOR3_FE_APPCTL_SRS 9a), 그것이 부르는 `_edgesPaint`·`_egNodePaint`·`_egNodeCollect` 는 App 에 위임자가 있다.
+ * 것이고(REFACTOR3_FE_APPCTL_SRS 9a), 그것이 부르는 `_edgesPaint`·`_egNodePaint`·`_egNodeCollect` 는 `settings.section('edges')` 로 부른다.
  */
 
 class EdgesSection extends SettingsSection {

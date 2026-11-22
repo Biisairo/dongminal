@@ -133,12 +133,12 @@ class SettingsApply extends Controller {
    * 것은 스냅샷끼리의 추월뿐이다.
    */
   _settingsRestore(src){
-    const flight=this.app._restoreBegin('settings');
+    const flight=this.app.wsSync._restoreBegin('settings');
     return stateFetch(src,'/api/settings').then(r=>{
-      if(!this.app._restoreLive('settings',flight)) return;
+      if(!this.app.wsSync._restoreLive('settings',flight)) return;
       // D-OPT-7: 자기 에코는 얹지 않는다 — 판정은 `SettingsSync._settingsAcceptRemote`.
       this._settingsSync()._settingsAcceptRemote(r);
-      this.app._restoreEnd('settings',flight);
+      this.app.wsSync._restoreEnd('settings',flight);
     });
   }
 

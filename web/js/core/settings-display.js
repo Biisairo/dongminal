@@ -53,7 +53,7 @@ class DisplaySection extends SettingsSection {
     if(dsMode) dsMode.value=this.app.displayMode;
     if(dsBp) dsBp.value=this.app.mobileBreakpoint;
     // FR-WSL-81: 슬롯 방향 세그먼트.
-    this.app._slotDirPaint();
+    this.app.slot.ops._slotDirPaint();
   }
 
   /**
@@ -77,8 +77,8 @@ class DisplaySection extends SettingsSection {
       out=document.getElementById('ds-layout-status');
     if(!save||!reset||!out) return;
     const fail=t('settings.layout_failed');
-    this.listen(save,'click',()=>{out.textContent=this.app.saveLayout()?t('settings.layout_saved'):fail});
-    this.listen(reset,'click',()=>{out.textContent=this.app.resetLayout()?t('settings.layout_cleared'):fail});
+    this.listen(save,'click',()=>{out.textContent=this.app.layout.dock.saveLayout()?t('settings.layout_saved'):fail});
+    this.listen(reset,'click',()=>{out.textContent=this.app.layout.dock.resetLayout()?t('settings.layout_cleared'):fail});
   }
 
   /** 표시 모드와 모바일 경계 폭. 탭별(sessionStorage) 값이다 — 서버 블롭에 싣지 않는다. */
@@ -123,7 +123,7 @@ class DisplaySection extends SettingsSection {
       focusEdgeLevel=Number(sl.value);
       this._paintFocusEdgeRow();
       this._paintAttnEdgeRow();
-      app._paintFocusEdge();
+      app.focus._paintFocusEdge();
       this._focusEdgePreview();
       app.settings.apply._saveSettingsSoon('ufe');
     });
@@ -150,7 +150,7 @@ class DisplaySection extends SettingsSection {
     this.listen(sl,'input',()=>{
       attnEdgeLevel=Number(sl.value);
       this._paintAttnEdgeRow();
-      app._paintAttnEdge();
+      app.focus._paintAttnEdge();
       this._attnEdgePreview();
       // 세기를 0 으로 내리면 지금 켜져 있던 띠도 그 자리에서 꺼져야 한다.
       app.attn._attnRefresh();
@@ -207,8 +207,8 @@ class DisplaySection extends SettingsSection {
     const sw=el.querySelector('button');
     if(sw) this.listen(sw,'click',()=>{
       app.slotDir=app.slotDir==='vertical'?'horizontal':'vertical';
-      app._slotDirPaint();
+      app.slot.ops._slotDirPaint();
     });
-    app._slotDirPaint();
+    app.slot.ops._slotDirPaint();
   }
 }

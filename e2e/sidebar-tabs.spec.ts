@@ -125,7 +125,7 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
     await waitForInit(page);
     // 목록이 넘치도록 창을 늘리고 뷰포트를 줄인다.
     await page.setViewportSize({ width: 1280, height: 400 });
-    for (let i = 0; i < 14; i++) await page.evaluate(() => (window as any).app.addWindow());
+    for (let i = 0; i < 14; i++) await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect(page.locator('#windows .si')).toHaveCount(15);
 
     const top = await page.evaluate(() => {
@@ -144,7 +144,7 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
 test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
   test('T5 (V-SBT-8·21): 리포를 열면 탭이 따라오고, Windows 탭이 직전 창으로 돌린다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(async () => { await (window as any).app.addWindow() });
+    await page.evaluate(async () => { await (window as any).app.layout.addWindow() });
     const from = await page.evaluate(() => (window as any).app.ws.activeWindow);
 
     // V-SBT-8 (FR-SBT-14): Git 창으로 들어가면 사이드바가 따라간다.
@@ -172,7 +172,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
     await waitForInit(page);
     const from = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addWindow();
+      await a.layout.addWindow();
       return a.ws.activeWindow;
     });
     await page.evaluate((r) => (window as any).app.git.openGitWindow(r), fx('basic'));
@@ -356,11 +356,11 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     await waitForInit(page);
     const ids = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addWindow();
+      await a.layout.addWindow();
       return a.testing.plainWindows().map((w: any) => w.id);
     });
     expect(ids.length).toBeGreaterThanOrEqual(2);
-    await page.evaluate((id) => (window as any).app.switchWindow(id), ids[0]);
+    await page.evaluate((id) => (window as any).app.layout.switchWindow(id), ids[0]);
 
     await page.evaluate(() => (window as any).app.executeAction('windowNext'));
     await expect.poll(() => page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(ids[1]);
@@ -465,7 +465,7 @@ test.describe('묶음 T — 인터페이스화 (FR-SBT-18~21)', () => {
     await waitForInit(page);
     const ids = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addWindow();
+      await a.layout.addWindow();
       return a.testing.plainWindows().map((w: any) => w.id);
     });
     expect(ids.length).toBeGreaterThanOrEqual(2);
@@ -570,7 +570,7 @@ test.describe('묶음 B — 사이드바 리스트 블루프린트 (FR-BLP-*)', 
 
   test('V-BLP-2: 창 재배치가 즉시 반영된다 (블루프린트 경로)', async ({ page }) => {
     await gotoSettled(page);
-    await page.evaluate(() => (window as any).app.addWindow());
+    await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
     // `#windows` 목록에 실제로 보이는 항목은 일반 창뿐이다 (EDITOR_TAB_SRS
     // FR-EDT-13: root 에디터 창은 항상 있지만 이 목록에는 안 나온다). `ws.windows`
@@ -603,7 +603,7 @@ test.describe('묶음 B — 목록 순회 (FR-BLP-15~18)', () => {
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(only);
 
     // ② 창 목록: 둘이면 감싸며 돈다.
-    await page.evaluate(() => (window as any).app.addWindow());
+    await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
     const ids = await page.evaluate(() => (window as any).app.ws.windows.map((w: any) => w.id));
     const from = await page.evaluate(() => (window as any).app.ws.activeWindow);

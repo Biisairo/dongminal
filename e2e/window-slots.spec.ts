@@ -12,13 +12,13 @@ import {
 // activeWindow·focusedPane 을 벗기므로(app.js:293) 그 판정은 슬롯 이전에도
 // 클라이언트의 현재 포커스를 따라오지 않았다 (SRS §2.7).
 
-const slotCount = (page) => page.evaluate(() => (window as any).app.slotCount());
+const slotCount = (page) => page.evaluate(() => (window as any).app.slot.slotCount());
 const slotsState = (page) => page.evaluate(() => (window as any).app.slots);
-const slotAdd = (page) => page.evaluate(() => (window as any).app.slotAdd());
-const slotRemove = (page) => page.evaluate(() => (window as any).app.slotRemove());
-const focusSlot = (page, i: number) => page.evaluate((n) => (window as any).app.slotFocusTo(n), i);
+const slotAdd = (page) => page.evaluate(() => (window as any).app.slot.ops.slotAdd());
+const slotRemove = (page) => page.evaluate(() => (window as any).app.slot.ops.slotRemove());
+const focusSlot = (page, i: number) => page.evaluate((n) => (window as any).app.slot.ops.slotFocusTo(n), i);
 const openInSlot = (page, i: number, winId: string) =>
-  page.evaluate(([n, id]) => (window as any).app.slotOpen(n, id), [i, winId] as const);
+  page.evaluate(([n, id]) => (window as any).app.slot.ops.slotOpen(n, id), [i, winId] as const);
 const activeWindowOf = (page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 const toolKeys = (page) => page.evaluate(() => [...(window as any).app.tools.keys()]);
 const slotDirOf = (page) => page.evaluate(() => (window as any).app.slotDir);
@@ -327,11 +327,11 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
     await waitForInit(page);
     const [, w2] = await slotsWith(page, 2);
 
-    await page.evaluate(() => (window as any).app.paneNavigate('right'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
     expect((await slotsState(page)).focused).toBe(1);
     expect(await activeWindowOf(page)).toBe(w2);
 
-    await page.evaluate(() => (window as any).app.paneNavigate('left'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('left'));
     expect((await slotsState(page)).focused).toBe(0);
   });
 
@@ -340,11 +340,11 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
     await slotsWith(page, 3);
 
     for (const want of [1, 2]) {
-      await page.evaluate(() => (window as any).app.paneNavigate('right'));
+      await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
       expect((await slotsState(page)).focused).toBe(want);
     }
     for (const want of [1, 0]) {
-      await page.evaluate(() => (window as any).app.paneNavigate('left'));
+      await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('left'));
       expect((await slotsState(page)).focused).toBe(want);
     }
   });
@@ -366,7 +366,7 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
 
     await openInSlot(page, 1, gitWin);
     await focusSlot(page, 1);
-    await page.evaluate(() => (window as any).app.paneNavigate('left'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('left'));
     expect((await slotsState(page)).focused).toBe(0);
   });
 
@@ -374,23 +374,23 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
     await waitForInit(page);
     await slotsWith(page, 2);
 
-    await page.evaluate(() => (window as any).app.paneNavigate('down'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('down'));
     expect((await slotsState(page)).focused).toBe(0);
-    await page.evaluate(() => (window as any).app.paneNavigate('up'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('up'));
     expect((await slotsState(page)).focused).toBe(0);
   });
 
   test('TC-WSL-14: 단일 칸·가장자리에서는 무동작이고 순환하지 않는다 (FR-WSL-44/46)', async ({ page }) => {
     await waitForInit(page);
     const before = await activeWindowOf(page);
-    await page.evaluate(() => (window as any).app.paneNavigate('right'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
     expect(await slotCount(page)).toBe(1);
     expect(await activeWindowOf(page)).toBe(before);
 
     await slotsWith(page, 2);
     await focusSlot(page, 1);
     // 마지막 칸에서 오른쪽 — 첫 칸으로 돌아오지 않는다.
-    await page.evaluate(() => (window as any).app.paneNavigate('right'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
     expect((await slotsState(page)).focused).toBe(1);
   });
 
@@ -398,7 +398,7 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
     await waitForInit(page);
     const [, w2] = await slotsWith(page, 2);
 
-    await page.evaluate(() => (window as any).app.paneNavigate('right'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
     expect(await activeWindowOf(page)).toBe(w2);
 
     const inTarget = await page.evaluate((id) => {
@@ -499,7 +499,7 @@ test.describe('묶음 U·M — 진입점과 모바일', () => {
     const wins = await slotsWith(page, 3);
     await focusSlot(page, 1);
 
-    await page.evaluate((id) => (window as any).app.delWindow(id), wins[1]);
+    await page.evaluate((id) => (window as any).app.layout.delWindow(id), wins[1]);
     await expect(page.locator('#area .slot[data-slot="1"].slot-empty')).toHaveCount(1, {
       timeout: 10000,
     });
@@ -609,12 +609,12 @@ test.describe('묶음 D — 슬롯 방향', () => {
     await slotsWith(page, 2);
 
     // 좌우는 넘지 않는다 — 칸이 위아래로 놓였다.
-    await page.evaluate(() => (window as any).app.paneNavigate('right'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
     expect((await slotsState(page)).focused).toBe(0);
 
-    await page.evaluate(() => (window as any).app.paneNavigate('down'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('down'));
     expect((await slotsState(page)).focused).toBe(1);
-    await page.evaluate(() => (window as any).app.paneNavigate('up'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('up'));
     expect((await slotsState(page)).focused).toBe(0);
   });
 
@@ -754,7 +754,7 @@ test.describe('FUI-19 — 슬롯을 건너는 탭 이동', () => {
     // 출발 창의 마지막 탭은 내주지 않는다 (FR-MOV-4) — 하나 더 만든다.
     const src0 = (await paneOf(page, w1))!;
     if (src0.tabs.length <= 1) {
-      await page.evaluate((rid) => (window as any).app.addTab(rid, 'terminal'), src0.pane);
+      await page.evaluate((rid) => (window as any).app.layout.tabAdd.addTab(rid, 'terminal'), src0.pane);
       await waitSettled(page);
     }
     const src = (await paneOf(page, w1))!;
@@ -783,7 +783,7 @@ test.describe('FUI-19 — 슬롯을 건너는 탭 이동', () => {
       const p = (await paneOf(page, w1))!;
       if (p.tabs.length <= 1) break;
       await page.evaluate(([rid, tid, sid]) =>
-        (window as any).app.closeTab(rid, tid, sid),
+        (window as any).app.layout.tabOps.closeTab(rid, tid, sid),
       [p.pane, p.tabs[p.tabs.length - 1], w1] as const);
       await waitSettled(page);
     }
@@ -828,10 +828,10 @@ test.describe('묶음 C — 창 닫기의 활성 창 (FR-CLS-*)', () => {
     const plain = await page.evaluate(() => {
       const app = (window as any).app;
       const w = app.testing.plainWindows()[0];
-      app.switchWindow(w.id);
+      app.layout.switchWindow(w.id);
       return w.id;
     });
-    await page.evaluate(id => (window as any).app.delWindow(id), plain);
+    await page.evaluate(id => (window as any).app.layout.delWindow(id), plain);
     await expect
       .poll(() => page.evaluate(() => {
         const app = (window as any).app;
@@ -861,7 +861,7 @@ test.describe('묶음 C — 창 닫기의 활성 창 (FR-CLS-*)', () => {
 test.describe('묶음 D — 드롭이 삼켜지지 않는다 (FR-M9-30)', () => {
   test('V-M9-30: items 가 실린 탭 드롭이 터미널 위에서도 분할한다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(async () => { const a = (window as any).app; await a.addTab(a.focused, 'terminal') });
+    await page.evaluate(async () => { const a = (window as any).app; await a.layout.tabAdd.addTab(a.focused, 'terminal') });
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(2, { timeout: 15000 });
 
     const panes = () => page.locator('#area .pn').count();
@@ -915,7 +915,7 @@ test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
     await gotoSettled(page);
     const src = await page.evaluate(async () => {
       const app = (window as any).app;
-      await app.addTab(app.focused, 'terminal', {});
+      await app.layout.tabAdd.addTab(app.focused, 'terminal', {});
       const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
       const pane = win.layout;
       return { winId: win.id, tabId: pane.activeTab };
@@ -926,7 +926,7 @@ test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
       app.render();
       return r.win;
     });
-    await page.evaluate(id => (window as any).app.switchWindow(id), src.winId);
+    await page.evaluate(id => (window as any).app.layout.switchWindow(id), src.winId);
     await expect(page.locator(`#windows .si[data-sid="${dstId}"]`)).toBeVisible();
 
     // dragstart(탭) → dragover(창 항목) → drop(창 항목).
@@ -964,7 +964,7 @@ test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
     // 원본 창에 탭 하나를 더한다 — 마지막 탭은 옮길 수 없다 (FR-MOV-4).
     const src = await page.evaluate(async () => {
       const app = (window as any).app;
-      await app.addTab(app.focused, 'terminal', {});
+      await app.layout.tabAdd.addTab(app.focused, 'terminal', {});
       const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
       const pane = win.layout.type === 'pane' ? win.layout : null;
       return { winId: win.id, paneId: pane.id, tabId: pane.activeTab, toolId: pane.tabs.find((t: any) => t.id === pane.activeTab).toolId };
@@ -976,7 +976,7 @@ test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
       return r.win;
     });
     // 옮기기 전에 원본 창을 활성으로 되돌린다 — 이동은 활성 창에서 나간다.
-    await page.evaluate(id => (window as any).app.switchWindow(id), src.winId);
+    await page.evaluate(id => (window as any).app.layout.switchWindow(id), src.winId);
     await page.evaluate(a => (window as any).app.testing.moveTabToWindow(a.paneId, a.tabId, a.dst),
       { paneId: src.paneId, tabId: src.tabId, dst: dstId });
 
@@ -1014,7 +1014,7 @@ test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
       app.render();
       return r.win;
     });
-    await page.evaluate(id => (window as any).app.switchWindow(id), src.winId);
+    await page.evaluate(id => (window as any).app.layout.switchWindow(id), src.winId);
     await page.evaluate(a => (window as any).app.testing.moveTabToWindow(a.paneId, a.tabId, a.dst),
       { paneId: src.paneId, tabId: src.tabId, dst: dstId });
     const stillHome = await page.evaluate(a => {

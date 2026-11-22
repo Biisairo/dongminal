@@ -60,7 +60,7 @@ test.describe('결함 교정 (FR-MUX-1~6)', () => {
     // 터미널 창으로 돌아오면 다시 보인다.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a.testing.plainWindows()[0].id);
+      a.layout.switchWindow(a.testing.plainWindows()[0].id);
     });
     await expect(page.locator('#mobile-keybar')).toBeVisible();
   });

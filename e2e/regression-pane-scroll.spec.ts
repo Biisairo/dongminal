@@ -71,7 +71,7 @@ async function tabIdsOfFocused(page): Promise<string[]> {
 async function twoTerminalTabs(page): Promise<string[]> {
   await page.evaluate(async () => {
     const a = (window as any).app;
-    await a.addTab(a.focused, 'terminal');
+    await a.layout.tabAdd.addTab(a.focused, 'terminal');
   });
   return await tabIdsOfFocused(page);
 }
@@ -85,7 +85,7 @@ async function paneUntil(page, pred: (s: any) => boolean, why: string, timeout =
 
 /** 탭을 전환하고 **그 전환이 선 것까지** 본다. */
 async function switchTab(page, tid: string) {
-  await page.evaluate((t) => (window as any).app.switchTab((window as any).app.focused, t), tid);
+  await page.evaluate((t) => (window as any).app.layout.tabOps.switchTab((window as any).app.focused, t), tid);
   await expect
     .poll(async () => {
       const ids = await page.evaluate(() => {
@@ -169,9 +169,9 @@ async function winRoundTripHere(page) {
     return { cur: a.ws.activeWindow, other: other ? other.id : '' };
   });
   expect(ids.other, '왕복할 다른 창이 없다').not.toBe('');
-  await page.evaluate((id) => (window as any).app.switchWindow(id), ids.other);
+  await page.evaluate((id) => (window as any).app.layout.switchWindow(id), ids.other);
   await paneUntil(page, (s) => !!s, '다른 창이 서지 않았다');
-  await page.evaluate((id) => (window as any).app.switchWindow(id), ids.cur);
+  await page.evaluate((id) => (window as any).app.layout.switchWindow(id), ids.cur);
   await paneUntil(page, (s) => !!s, '돌아온 창이 서지 않았다');
 }
 
@@ -193,7 +193,7 @@ test.describe('Pane scroll preserve regression', () => {
 
     // 세션 B 추가하여 활성 전환된 다음 다시 A 로 복귀.
     await addWindow(page);
-    await page.evaluate((sid) => (window as any).app.switchWindow(sid), sidA);
+    await page.evaluate((sid) => (window as any).app.layout.switchWindow(sid), sidA);
     // doFit reflow 보정으로 viewportY 는 ±2, scrollTop 은 ±2*lineHeight 허용.
     await paneUntil(page,
       (s) => !!s && Math.abs(s.viewportY - before.viewportY) <= 2 && s.scrollTop > 0,
@@ -434,7 +434,7 @@ test.describe('Pane scroll preserve regression', () => {
         return { cur: a.ws.activeWindow, other: other ? other.id : '' };
       });
       expect(ids.other, '왕복할 다른 창이 없다').not.toBe('');
-      await page.evaluate((id) => (window as any).app.switchWindow(id), ids.other);
+      await page.evaluate((id) => (window as any).app.layout.switchWindow(id), ids.other);
       await expect.poll(async () => page.evaluate((id) => {
         const p = (window as any).app.tools.get(id);
         return !!p && !p.el.classList.contains('vis');
@@ -444,7 +444,7 @@ test.describe('Pane scroll preserve regression', () => {
       await grownPast(grown, '떨어져 있는 동안 버퍼가 자라지 않았다');
 
       await armScrollProbe();
-      await page.evaluate((id) => (window as any).app.switchWindow(id), ids.cur);
+      await page.evaluate((id) => (window as any).app.layout.switchWindow(id), ids.cur);
       await expect.poll(async () => page.evaluate((id) => {
         const p = (window as any).app.tools.get(id);
         return !!p && p.el.classList.contains('vis') && p.el.isConnected;

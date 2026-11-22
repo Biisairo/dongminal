@@ -127,7 +127,7 @@ class Renderer {
     // Apply window focus overlay after every render so the DOM is
     // guaranteed to exist (BroadcastChannel may trigger applyFocusOverlay
     // before the first render completes).
-    this.app.applyFocusOverlay();
+    this.app.focus.owner.applyFocusOverlay();
     // UX_BATCH9_SRS FR-GLR-1: 그리고 난 자리에서 묻는다 — 지금 보이는 표면의
     // 관측이 멎어 있지는 않은가. 표면 판정이 정확하려면 레이아웃이 선 **뒤**여야
     // 한다.

@@ -21,12 +21,12 @@ class UpdateController extends Controller {
    * 503 은 판 확인이 없는 서버다. 그때는 배지도 토글도 없다 — 종전의 서버다.
    */
   _updateRestore(src){
-    const flight=this.app._restoreBegin('update');
+    const flight=this.app.wsSync._restoreBegin('update');
     return stateFetch(src,'/api/update').then(r=>{
-      if(!this.app._restoreLive('update',flight)) return;
+      if(!this.app.wsSync._restoreLive('update',flight)) return;
       this.app._update=r.ok?r.data:null;
       this._updateRender();
-      this.app._restoreEnd('update',flight);
+      this.app.wsSync._restoreEnd('update',flight);
     });
   }
 

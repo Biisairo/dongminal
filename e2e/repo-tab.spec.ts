@@ -205,7 +205,7 @@ test.describe('묶음 V — git 뷰는 본문 탭이 된다', () => {
       await page.evaluate(() => {
         const a = (window as any).app;
         const w = a.testing.aw();
-        a.addTab(a.testing.edEnsurePane(w), 'terminal', { windowId: w.id });
+        a.layout.tabAdd.addTab(a.testing.edEnsurePane(w), 'terminal', { windowId: w.id });
       });
       // **예외 (`TEST-16`)**: 본문 탭이 **늘지 않음**을 잰다 — 기다릴 신호가 없다.
       await page.waitForTimeout(300);
@@ -518,7 +518,7 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
     await page.evaluate((r) => {
       const a = (window as any).app;
       const win = a.testing.edWindows().find((x: any) => a.testing.edRootOf(x) === r);
-      a.switchWindow(win.id);
+      a.layout.switchWindow(win.id);
     }, root);
     await expect(page.locator('body')).toHaveClass(/mobile/);
   }

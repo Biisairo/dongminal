@@ -40,23 +40,13 @@ function host(ctx, over = {}) {
     log, seenBefore, args: {},
     ws: { windows: [], activeWindow: null, git: { pinned: ['p'] } },
     tools: new Map(), toolIds: new Set(), _toolsBoot: new Set(), editors: null,
-    slotBase: (k) => String(k).split('@')[0],
     flattenPanes: (n) => ctx.panesOf(n),
-    _wsSeen() { log.push('_wsSeen'); return seenBefore },
-    _wsMarkSaved(w) { log.push('_wsMarkSaved'); h.args.marked = w.map((s) => s.id) },
-    _normalizeIncomingWorkspace(_sv, live) { log.push('_normalizeIncomingWorkspace'); h.args.live = live; return ret.normalize },
-    _fallbackActiveWindow(sv) { log.push('_fallbackActiveWindow'); h.args.fallback = sv },
-    _activateWindow(id) { log.push('_activateWindow:' + id); h.args.activatedOnNew = h.ws === h.args.sv; h.ws.activeWindow = id },
-    _stripDeviceKeys() { log.push('_stripDeviceKeys'); return ret.strip },
-    setFocusState(id) { log.push('setFocusState:' + id) },
-    _slotTabsToWs() { log.push('_slotTabsToWs') },
-    save() { log.push('save') },
     render() { log.push('render') },
     // 소유 경로의 대역 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
     git: {
       gitWindow: () => h.ws.windows.find((s) => s.type === 'git') || null,
       sync: { gitReposKick() { log.push('gitReposKick') } },
-    }, attn: { _attnDrop(id) { log.push('_attnDrop:' + id); return ret.attnDrop }, _attnRefresh() { log.push('_attnRefresh') } }, editor: { edOn: () => ret.edOn, edRoots: () => ['/kept'], sync: { _edPatchList(list) { log.push('_edPatchList'); h.args.list = list }, _edReconcile(w) { log.push('_edReconcile'); h.args.reconcile = w; return ret.reconcile } }, pane: { _edKeepActive(sv) { log.push('_edKeepActive'); h.args.keep = sv } } }, tool: { life: { aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null } },
+    }, attn: { _attnDrop(id) { log.push('_attnDrop:' + id); return ret.attnDrop }, _attnRefresh() { log.push('_attnRefresh') } }, editor: { edOn: () => ret.edOn, edRoots: () => ['/kept'], sync: { _edPatchList(list) { log.push('_edPatchList'); h.args.list = list }, _edReconcile(w) { log.push('_edReconcile'); h.args.reconcile = w; return ret.reconcile } }, pane: { _edKeepActive(sv) { log.push('_edKeepActive'); h.args.keep = sv } } }, tool: { life: { aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null } }, slot: { slotBase: (k) => String(k).split('@')[0], _slotTabsToWs() { log.push('_slotTabsToWs') } }, wsSave: { _wsSeen() { log.push('_wsSeen'); return seenBefore }, _wsMarkSaved(w) { log.push('_wsMarkSaved'); h.args.marked = w.map((s) => s.id) }, save() { log.push('save') } }, layout: { winState: { _normalizeIncomingWorkspace(_sv, live) { log.push('_normalizeIncomingWorkspace'); h.args.live = live; return ret.normalize }, _fallbackActiveWindow(sv) { log.push('_fallbackActiveWindow'); h.args.fallback = sv }, _activateWindow(id) { log.push('_activateWindow:' + id); h.args.activatedOnNew = h.ws === h.args.sv; h.ws.activeWindow = id }, _stripDeviceKeys() { log.push('_stripDeviceKeys'); return ret.strip } } }, focus: { setFocusState(id) { log.push('setFocusState:' + id) } },
   };
   ctx.mergeUnseenLayout = (local, remote, seen, want) => {
     log.push('merge');
@@ -280,11 +270,11 @@ function saveRig() {
       sleep: (ms) => { sleeps.push(ms); log.push('sleep:' + ms); return Promise.resolve() },
       defer: (_fn, o) => { log.push('defer:' + o.label) },
     },
-    _saveFlushDeferred() { log.push('flush') },
     git: { sync: { gitReposKick() { log.push('gitReposKick') } } },
-    _applyRemoteWorkspace(rem, panes, known) { log.push('apply:' + JSON.stringify([panes, known])); A._applied = rem }, editor: { edOn: () => false, sync: { _edPatchList(list) { log.push('_edPatchList:' + JSON.stringify(list)) }, _edReconcile(...a) { log.push('_edReconcile:' + a.length) } } },
+    editor: { edOn: () => false, sync: { _edPatchList(list) { log.push('_edPatchList:' + JSON.stringify(list)) }, _edReconcile(...a) { log.push('_edReconcile:' + a.length) } } }, wsSync: { _applyRemoteWorkspace(rem, panes, known) { log.push('apply:' + JSON.stringify([panes, known])); A._applied = rem } },
   });
   A.wsSave = new ctx.WsSaveController(A);
+  A.wsSave._saveFlushDeferred = () => { log.push('flush') };
   return { ctx, A, net, log, sleeps, warns, errs };
 }
 
@@ -293,7 +283,7 @@ const drain = () => new Promise((r) => setImmediate(r));
 test('TC-FR3-12: 부팅에 실패한 판은 저장하지 않는다', () => {
   const { A, net } = saveRig();
   A._bootFailed = true;
-  assert.equal(A.save(), undefined);
+  assert.equal(A.wsSave.save(), undefined);
   assert.equal(net.puts.length, 0);
   assert.equal(A._savePending, undefined);
 });
@@ -303,7 +293,7 @@ test('TC-FR3-13: 본문은 창별 키·dirty 를 벗기고 현재 스키마 판�
   A.ws.windows[0].layout.tabs[0].dirty = true;
   A._saveConflicts = 3; A._saveHoldUntil = 0;
   net.put = async () => res(200, '6');
-  const p = A.save();
+  const p = A.wsSave.save();
   assert.equal(A._saveInflight, true);
   assert.equal(A._saveChain, p);
   A.ws.windows.push({ id: 'LATE' });
@@ -331,7 +321,7 @@ test('TC-FR3-14: ETag 가 없으면 조건 머리를 싣지 않는다. 응답에
   const { A, net } = saveRig();
   A.wsETag = null;
   net.put = async () => res(200, null);
-  await A.save();
+  await A.wsSave.save();
   assert.deepEqual(net.puts[0].headers, {});
   assert.equal(A.wsETag, null);
 });
@@ -340,10 +330,10 @@ test('TC-FR3-15: 비행 중의 저장은 같은 약속을 돌려받고, 대기�
   const { A, net, log } = saveRig();
   let n = 0;
   net.put = async () => res(200, String(6 + n++));
-  const p1 = A.save();
+  const p1 = A.wsSave.save();
   A.ws.windows[0].name = 'x';
-  const p2 = A.save();
-  const p3 = A.save();
+  const p2 = A.wsSave.save();
+  const p3 = A.wsSave.save();
   assert.equal(p1, p2);
   assert.equal(p2, p3);
   await p1;
@@ -356,17 +346,17 @@ test('TC-FR3-15: 비행 중의 저장은 같은 약속을 돌려받고, 대기�
 test('TC-FR3-16: 마지막으로 성공한 본문·ETag 와 같으면 보내지 않고, 비행이 동기로 끝나 붙들지 않는다', async () => {
   const { A, net, log } = saveRig();
   net.put = async () => res(200, '6');
-  await A.save();
+  await A.wsSave.save();
   A.ws.activeWindow = 'other';
   A.ws.windows[0].focusedPane = 'zz';
-  const p = A.save();
+  const p = A.wsSave.save();
   assert.equal(A._saveInflight, false, '같은 본문은 await 없이 끝난다');
   assert.equal(A._saveChain, null);
   await p;
   assert.equal(net.puts.length, 1);
   assert.deepEqual(log, ['flush', 'flush']);
   A.wsETag = '9';
-  await A.save();
+  await A.wsSave.save();
   assert.equal(net.puts.length, 2, 'ETag 가 바뀌면 같은 본문도 보낸다');
 });
 
@@ -374,7 +364,7 @@ test('TC-FR3-17: 충돌 뒤의 미루기 — 남은 시간만큼 잔 뒤에 나�
   const { ctx, A, net, log } = saveRig();
   net.put = async () => { log.push('put'); return res(200, '6') };
   A._saveHoldUntil = ctx.Date.now() + 150;
-  await A.save();
+  await A.wsSave.save();
   assert.deepEqual(log, ['sleep:150', 'put', 'flush']);
 });
 
@@ -382,8 +372,8 @@ for (const st of [409, 428]) {
   test('TC-FR3-18: ' + st + ' 이면 원격을 채택하고 이 저장을 포기한다 — 대기분은 이 비행에서 보내지 않는다', async () => {
     const { A, net, log } = saveRig();
     net.put = async () => { log.push('put'); return res(st, '99') };
-    net.get = async () => { A.save(); return res(200, '7', {}) };
-    await A.save();
+    net.get = async () => { A.wsSave.save(); return res(200, '7', {}) };
+    await A.wsSave.save();
     assert.equal(net.puts.length, 1);
     assert.deepEqual(net.gets, ['/api/workspace']);
     assert.equal(A.wsETag, '7');
@@ -396,13 +386,13 @@ for (const st of [409, 428]) {
 test('TC-FR3-19: 그 밖의 실패 응답은 아무것도 적지 않고, 예외는 경고로 남기고 대기분을 이어 보낸다', async () => {
   const { A, net, warns } = saveRig();
   net.put = async () => res(500, '6');
-  await A.save();
+  await A.wsSave.save();
   assert.equal(A.wsETag, '5');
   assert.equal(A._wsLastSent, undefined);
   assert.equal(net.gets.length, 0);
   let n = 0;
-  net.put = async () => { if (n++ === 0) { await null; A.save(); throw new Error('net') } return res(200, '8') };
-  await A.save();
+  net.put = async () => { if (n++ === 0) { await null; A.wsSave.save(); throw new Error('net') } return res(200, '8') };
+  await A.wsSave.save();
   assert.equal(net.puts.length, 3);
   assert.equal(warns.length, 1);
   assert.match(warns[0], /^\[save\] PUT failed/);
@@ -412,7 +402,7 @@ test('TC-FR3-19: 그 밖의 실패 응답은 아무것도 적지 않고, 예외�
 test('TC-FR3-20: 직렬화가 던져도 비행은 닫히고 끝 처리를 부른다', async () => {
   const { A, log, warns } = saveRig();
   A.ws.loop = A.ws;
-  await A.save();
+  await A.wsSave.save();
   assert.equal(A._saveInflight, false);
   assert.equal(A._saveChain, null);
   assert.deepEqual(log, ['flush']);
@@ -426,7 +416,7 @@ test('TC-FR3-21: 채택 순서 — 조회 → ETag → git 병합 → editors �
   const rem = { git: { pinned: ['b'], drafts: { r: 'theirs', s: 'x' }, extra: 1 }, editors: { list: ['E'] }, windows: [{ id: 'R' }] };
   net.get = async () => res(200, '7', rem);
   const now = ctx.Date.now();
-  await A._saveAdoptRemote();
+  await A.wsSave._saveAdoptRemote();
   assert.deepEqual(log, ['gitReposKick', '_edPatchList:["E"]', '_edReconcile:0', 'apply:[[],false]']);
   assert.equal(A.wsETag, '7');
   assert.equal(A.ws.git, rem.git, 'git 은 받은 객체 그대로다');
@@ -442,7 +432,7 @@ test('TC-FR3-22: 핀이 같으면 목록을 받지 않고, 내 쪽에 drafts·fa
   A.ws.git = { pinned: ['a'] };
   const rem = { git: { pinned: ['a'], drafts: { r: 'theirs' } } };
   net.get = async () => res(200, '7', rem);
-  await A._saveAdoptRemote();
+  await A.wsSave._saveAdoptRemote();
   assert.deepEqual(log, []);
   assert.deepEqual(plain(A.ws.git), { pinned: ['a'], drafts: { r: 'theirs' } });
 });
@@ -451,7 +441,7 @@ test('TC-FR3-23: 편집기가 꺼져 있으면 editors 를 받지 않고, git·w
   const { A, net, log } = saveRig();
   const before = A.ws.git;
   net.get = async () => res(200, null, { editors: { list: ['E'] } });
-  await A._saveAdoptRemote();
+  await A.wsSave._saveAdoptRemote();
   assert.deepEqual(log, []);
   assert.equal(A.ws.git, before);
   assert.equal(A.ws.editors, undefined);
@@ -462,7 +452,7 @@ test('TC-FR3-24: 조회가 실패하면 아무것도 채택하지 않고 미루�
   const { ctx, A, net, log } = saveRig();
   net.get = async () => res(500, '7', { windows: [] });
   const now = ctx.Date.now();
-  await A._saveAdoptRemote();
+  await A.wsSave._saveAdoptRemote();
   assert.deepEqual(log, []);
   assert.equal(A.wsETag, '5');
   assert.equal(A._saveHoldUntil, now + 200);
@@ -472,7 +462,7 @@ test('TC-FR3-25: 조회가 던지면 오류 기록에 남기고 미루기는 한
   const { ctx, A, net, errs } = saveRig();
   net.get = async () => { throw new Error('boom') };
   const now = ctx.Date.now();
-  await A._saveAdoptRemote();
+  await A.wsSave._saveAdoptRemote();
   assert.deepEqual(errs, [['workspace', 'boom']]);
   assert.equal(A._saveHoldUntil, now + 200);
 });
@@ -481,7 +471,7 @@ test('TC-FR3-26: 연속 충돌 수는 비행을 넘어 늘고, 미루기는 그�
   const { ctx, A, net, warns } = saveRig();
   net.get = async () => res(500);
   const holds = [];
-  for (let i = 0; i < 12; i++) { await A._saveAdoptRemote(); holds.push(A._saveHoldUntil - ctx.Date.now()) }
+  for (let i = 0; i < 12; i++) { await A.wsSave._saveAdoptRemote(); holds.push(A._saveHoldUntil - ctx.Date.now()) }
   assert.deepEqual(holds, [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2000, 2000]);
   assert.equal(A._saveConflicts, 12);
   assert.equal(warns.length, 9);

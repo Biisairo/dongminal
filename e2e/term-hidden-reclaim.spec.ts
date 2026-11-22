@@ -43,13 +43,13 @@ function trackSockets(page: Page): Sock[] {
   return out;
 }
 
-const claim = (page: Page) => page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+const claim = (page: Page) => page.evaluate(() => (window as any).app.focus.setFocus((window as any).app.focused));
 
 test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 재생은 한 벌이다', async ({ browser, request }) => {
   const local = await newClient(browser, 1440);
   await local.evaluate(async (n) => {
     const app = (window as any).app;
-    for (let i = 1; i < n; i++) await app.addTab(app.focused, 'terminal');
+    for (let i = 1; i < n; i++) await app.layout.tabAdd.addTab(app.focused, 'terminal');
     app.render();
   }, TABS);
   await waitSettled(local);
@@ -73,8 +73,8 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
     await remote.evaluate((tid) => {
       const a = (window as any).app;
       const loc = a.tool.life.findToolLocation(tid);
-      a.switchTab(loc.pane.id, loc.tab.id);
-      a.setFocus(loc.pane.id);
+      a.layout.tabOps.switchTab(loc.pane.id, loc.tab.id);
+      a.focus.setFocus(loc.pane.id);
     }, id);
     await waitSettled(remote);
   }
@@ -87,8 +87,8 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
       await local.evaluate((tid) => {
         const a = (window as any).app;
         const loc = a.tool.life.findToolLocation(tid);
-        a.switchTab(loc.pane.id, loc.tab.id);
-        a.setFocus(loc.pane.id);
+        a.layout.tabOps.switchTab(loc.pane.id, loc.tab.id);
+        a.focus.setFocus(loc.pane.id);
       }, id);
       await waitSettled(local);
       await local.waitForTimeout(1500);

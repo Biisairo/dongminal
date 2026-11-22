@@ -24,9 +24,9 @@ async function newClient(browser) {
 
 const activeOf = (page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 const windowIds = (page) => page.evaluate(() => (window as any).app.ws.windows.map((w) => w.id));
-const switchTo = (page, id: string) => page.evaluate((w) => (window as any).app.switchWindow(w), id);
+const switchTo = (page, id: string) => page.evaluate((w) => (window as any).app.layout.switchWindow(w), id);
 // 소유권 주장 — 지명(`Focus.Executor()`)은 **가장 최근에 주장한** 클라이언트다.
-const claim = (page) => page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+const claim = (page) => page.evaluate(() => (window as any).app.focus.setFocus((window as any).app.focused));
 
 /** 그 창의 첫 탭 uuid — `location` 이 받는 유일한 형식이다 (FR-IDU-*). */
 const tabIn = (page, windowId: string) => page.evaluate((id) => {

@@ -70,7 +70,7 @@ test.describe('FR-M9-24 — 보던 자리를 오간다', () => {
     // 일어나지 않은 채 기록만 준다 — 사용자에게는 "키가 안 듣는다" 로 보인다.
     await page.evaluate((id) => {
       const a = (window as any).app;
-      a.closeTab(a.focused, id);
+      a.layout.tabOps.closeTab(a.focused, id);
     }, t2);
     await expect(tabsOf(page)).toHaveCount(2, { timeout: 15000 });
 
@@ -85,7 +85,7 @@ test.describe('FR-M9-24 — 보던 자리를 오간다', () => {
     const t2 = await addTab(page);
     await page.evaluate(({ a, b }) => {
       const app = (window as any).app;
-      for (let i = 0; i < 130; i++) app.switchTab(app.focused, i % 2 ? a : b);
+      for (let i = 0; i < 130; i++) app.layout.tabOps.switchTab(app.focused, i % 2 ? a : b);
     }, { a: t1, b: t2 });
     const n = (await page.evaluate(() => (window as any).app.testing.navCounts())).back;
     expect(n, '상한이 듣지 않는다').toBeLessThanOrEqual(100);

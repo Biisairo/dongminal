@@ -4,8 +4,8 @@
  * 직렬화 · 같은 본문 건너뛰기 · PUT · 409 채택 · 백오프 · 비행 뒤의 유예 처리. 저장이 함께 쓰는 필드(`wsETag`·`_saveInflight`·
  * `_saveChain`·`_savePending`·`_saveHoldUntil`·`_saveConflicts`·`_wsLastSent`·`_wsSavedIds`·`_wsSavedTabs`·`_wsDeferRev`·
  * `_wsApplyPending`)는 종전대로 App 에 있다 — 적용기(`ws-sync-controller.js`)와 시험·e2e 가 App 에서 읽고 쓴다.
- * 앱의 이름은 전부 `this.app.X` 로 부른다 — 시험이 App 인스턴스에 갈아 끼운 것(`_saveFlushDeferred`·`_applyRemoteWorkspace` 등)을
- * 이 경로도 본다 (INV-R5-2). 바깥이 부르는 이름은 파일 끝의 위임자 표가 App 에 둔다.
+ * 다른 주인의 이름은 소유 경로(`this.app.wsSync._applyRemoteWorkspace`)로, 자기 이름은 `this.X` 로 부른다 — 시험이 소유 인스턴스에
+ * 갈아 끼운 것을 이 경로도 본다 (INV-R5-2 · REFACTOR3_FE_DELEG_SRS D-DLG-1).
  */
 class WsSaveController extends Controller {
   /**
@@ -24,7 +24,7 @@ class WsSaveController extends Controller {
   // 탭만 사라지는 갈래(`git-head-mobile` V10-13 의 탭 7→1)를 가릴 수 없다.
   // 탭 id 는 전역 유일(UUIDv4)이므로 창별로 나누지 않는다 (FR-OPL-3).
   _wsMarkSaved(windows){
-    const seen=this.app._wsIdsOf(windows);
+    const seen=this._wsIdsOf(windows);
     this.app._wsSavedIds=seen.windows;
     this.app._wsSavedTabs=seen.tabs;
   }
@@ -79,12 +79,12 @@ class WsSaveController extends Controller {
           // **재시도하지 않는다** (FR-WSC-1). 사용자가 그 사이 새로 조작했으면
           // 그것은 다음 저장으로 나간다 (FR-WSC-5) — 포기하는 것은 이번 본문이며
           // 사용자의 다음 의도가 아니다.
-          if(await this.app._savePut(body)) break;
+          if(await this._savePut(body)) break;
         }catch(err){console.warn('[save] PUT failed',err)}
       }
       this.app._saveChain=null;
       this.app._saveInflight=false;
-      this.app._saveFlushDeferred();
+      this._saveFlushDeferred();
     };
     // 같은 본문이면 비행이 await 없이 끝난다(FR-OPT-5-1) — 그때 끝난 약속을
     // 비행으로 붙들면 다음 저장이 모두 그것을 돌려받고 나가지 않는다.
@@ -98,7 +98,7 @@ class WsSaveController extends Controller {
    * 창·탭 기억은 **직렬화 시점의 것**을 떠 두고 성공한 뒤에 적는다.
    */
   async _savePut(body){
-    const seen=this.app._wsIdsOf(this.app.ws.windows);
+    const seen=this._wsIdsOf(this.app.ws.windows);
     const headers={};
     if(this.app.wsETag) headers['If-Match']=this.app.wsETag;
     const res=await apiPut('/api/workspace',body,{headers});
@@ -123,11 +123,11 @@ class WsSaveController extends Controller {
        * 일이다. 그래서 원격이 이긴다 (I-1 / D-1) — 남의 창이 사라지는 것은
        * 되돌릴 수 없고, 내 폭 조정이 사라지는 것은 다시 하면 된다.
        */
-      await this.app._saveAdoptRemote();
+      await this._saveAdoptRemote();
       return true;
     }
     if(res.ok){
-      const et=this.app._etagOf(res);
+      const et=this._etagOf(res);
       if(et) this.app.wsETag=et;
       // FR-WSC-12: 이 본문이 서버에 남았다 — 여기 실린 창은 이제 원격이
       // 아는 창이다.
@@ -153,11 +153,11 @@ class WsSaveController extends Controller {
     try{
       const gr=await apiGet('/api/workspace');
       if(gr.ok){
-        this.app.wsETag=this.app._etagOf(gr);
-        this.app._adoptRemote(gr.data);
+        this.app.wsETag=this._etagOf(gr);
+        this._adoptRemote(gr.data);
       }
     }catch(e){ ErrorLog.push('workspace',(e&&e.message)||e) }
-    this.app._saveBackoff(conflicts);
+    this._saveBackoff(conflicts);
   }
 
   /** 409 채택의 본문 — git → editors → 창 순서다. */
@@ -217,7 +217,7 @@ class WsSaveController extends Controller {
      * 저장 예약(`FR-WSC-13`)도 적용기가 한다 — 병합이 일어났는지를
      * 아는 자리가 거기다 (FR-OPL-9).
      */
-    if(rem&&rem.windows) this.app._applyRemoteWorkspace(rem,[],false);
+    if(rem&&rem.windows) this.app.wsSync._applyRemoteWorkspace(rem,[],false);
   }
 
   // FR-WSC-7: 다음 저장을 잠시 미룬다 — 두 화면이 서로 밀어내는 동안
@@ -261,11 +261,11 @@ class WsSaveController extends Controller {
     this.app._wsDeferRev=undefined;
     const seenRev=this.app.wsETag?parseInt(this.app.wsETag,10):-1;
     if(deferred!==undefined&&!(deferred<=seenRev)){
-      this.app.timers.defer(()=>this.app._onWorkspaceChanged(deferred===Infinity?undefined:deferred),{owner:'app',label:'ws-deferred'});
+      this.app.timers.defer(()=>this.app.wsSync._onWorkspaceChanged(deferred===Infinity?undefined:deferred),{owner:'app',label:'ws-deferred'});
     }
     // FR-WSC-9: 채택 중에 새 저장이 예약됐으면(재조정이 창을 고친 경우가 그렇다)
     // 그것을 잃지 않는다. 백오프는 다음 비행의 앞머리가 지킨다.
-    if(this.app._savePending) this.app.timers.defer(()=>this.app.save(),{owner:'app',label:'save-pending'});
+    if(this.app._savePending) this.app.timers.defer(()=>this.save(),{owner:'app',label:'save-pending'});
   }
 }
 
@@ -311,6 +311,3 @@ function wsGitAdopt(mine,remGit){
 
 // FR-WSC-7: 연속 충돌 수에 비례하되 상한이 있다.
 function wsSaveHoldMs(conflicts){ return Math.min(WS_SAVE_BACKOFF_MS*conflicts,WS_SAVE_BACKOFF_MAX_MS) }
-
-// 바깥(설정·명령·편집기·레이아웃·적용기·시험·e2e 계약)이 App 에서 부르는 이름 (REFACTOR3_FE_REST5_SRS FR-FR5-22).
-Controller.delegate(App,'wsSave',['_etagOf','_wsMarkSaved','_wsIdsOf','_wsSeen','save','_savePut','_saveAdoptRemote','_adoptRemote','_saveBackoff','_saveFlushDeferred']);

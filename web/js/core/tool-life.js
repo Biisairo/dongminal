@@ -22,12 +22,12 @@ class ToolLife extends Controller {
    * 늦게 떠난 것이 먼저 도착해 새 목록을 낡은 것으로 되돌리는 일이다.
    */
   async _bgRefresh(src){
-    const flight=this.app._restoreBegin('background');
+    const flight=this.app.wsSync._restoreBegin('background');
     const r=await stateFetch(src,'/api/tools/background');
     if(!r.ok||!r.data) return;
-    if(!this.app._restoreLive('background',flight)) return;
+    if(!this.app.wsSync._restoreLive('background',flight)) return;
     this.app._bg=Array.isArray(r.data.background)?r.data.background:[];
-    this.app._restoreEnd('background',flight);
+    this.app.wsSync._restoreEnd('background',flight);
     this.app.statusbar.updateStatusBar();
     this.app.statusbar._bgPanelPaint();
   }
@@ -92,9 +92,9 @@ class ToolLife extends Controller {
     const tabId=newEntityId();
     if(!this.app.tools.has(toolId)) this.app.mkTool(toolId,DEFAULT_TOOL_NAME);
     pn.tabs.push({id:tabId,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId});
-    this.app.paneTabSet(pn,tabId);
+    this.app.slot.paneTabSet(pn,tabId);
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
     this._bgRefresh();
   }
 
@@ -140,7 +140,7 @@ class ToolLife extends Controller {
   // 두 칸만 돌아, `SLOT_MAX` 가 4 로 자란 뒤 슬롯 2·3 의 인스턴스가 살아남았다.
   _killToolInstances(pid){
     this.app.toolIds.delete(pid); this.app._toolsBoot.delete(pid);
-    for(const k of this.app.slotKeysOf(pid)){
+    for(const k of this.app.slot.slotKeysOf(pid)){
       const p=this.app.tools.get(k);
       if(p){ErrorLog.quiet('destroy',()=>p.destroy()); this.app.tools.delete(k)}
     }

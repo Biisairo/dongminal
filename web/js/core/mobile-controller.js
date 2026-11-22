@@ -18,18 +18,18 @@ class MobileController extends Controller {
     const mob=this.app.isMobile;
     const was=document.body.classList.contains('mobile');
     document.body.classList.toggle('mobile', mob);
-    this.app.sbPanel().railSync(); this.app.agents.list.actPanel().railSync();   // REFACTOR3_FE_REST4_SRS FR-FR4-4
+    this.app.layout.tabOps.sbPanel().railSync(); this.app.agents.list.actPanel().railSync();   // REFACTOR3_FE_REST4_SRS FR-FR4-4
     if(was!==mob){
       this.app.agents.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
       if(this.app.settings.apply._edApplyWordWrap) this.app.settings.apply._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
       // REFACTOR3_FE_BASE_SRS FR-FEB-26: 모바일 진입·이탈은 두 탭 줄을 같은 길로 다시 잰다. 이전: 작업 패널은 닫혀 있으면 재지 않았다.
-      this.app.sbPanel().tabs.fit(); this.app.agents.list.actPanel().tabs.fit();
+      this.app.layout.tabOps.sbPanel().tabs.fit(); this.app.agents.list.actPanel().tabs.fit();
     }
     if(!mob){this.drawerSheet().close();document.body.classList.remove('keyboard-up')}
   }
   /** 모바일 서랍 (REFACTOR3_FE_BASE_SRS FR-FEB-25). 필드·`body.drawer-open`·`#sidebar.open` 과 상단바를 `DrawerSheet` 가 함께 바꾼다. */
   drawerSheet(){
-    return this._drawer||(this._drawer=new DrawerSheet(this.app,{tabs:this.app.sbPanel?this.app.sbPanel().tabs:null,
+    return this._drawer||(this._drawer=new DrawerSheet(this.app,{tabs:this.app.layout?.tabOps.sbPanel?this.app.layout.tabOps.sbPanel().tabs:null,
       onChange:()=>{if(this.app.renderer) this.app.renderer._rTopbar()}}));   // REFACTOR3_DEFECTS_SRS FR-RD3-80
   }
   _toggleDrawer(open){
@@ -112,8 +112,8 @@ class MobileController extends Controller {
     // 포커스의 대상이 아니고(FR-RTU-11), 옮기면 렌더의 포커스 동기화가 곧바로
     // 본문 자리로 되돌린다.
     if(pn){
-      this.app.setFocusState(pn.id);
-      this.app.save();
+      this.app.focus.setFocusState(pn.id);
+      this.app.wsSave.save();
     }
     this.app.render();
   }

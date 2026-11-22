@@ -7,7 +7,7 @@
  * 표식이 한 항목을 이룬다. 그래서 파일을 직접 고치게 두지 않고 여기서 다룬다.
  *
  * REFACTOR3_FE_SETTINGS_SRS 8c: 방송을 받는 `_onSandboxChanged`(옛 `settings-live.js`)도 이 섹션에 있다. App 의
- * 위임자 `_onSandboxChanged`·`_sbxCollect`(저장 단추 판정)가 이리로 잇는다.
+ * 방송 등록부와 저장 단추 판정이 `settings.section('sandbox')` 로 `_onSandboxChanged`·`_sbxCollect` 를 부른다.
  */
 class SandboxSection extends SettingsSection {
   constructor(app){ super(app,'sandbox') }

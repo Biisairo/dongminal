@@ -115,7 +115,7 @@ Object.assign(Renderer.prototype, {
     const app=this.app;
     if(!w||!w.layout) return '';
     const pn=findPane(w.layout,w.focusedPane)||app.flattenPanes(w.layout)[0];
-    const tid=pn&&app.paneTab(pn,slot);
+    const tid=pn&&app.slot.paneTab(pn,slot);
     const tab=tid&&(pn.tabs||[]).find(x=>x.id===tid);
     return tab?tabName(tab,app.fgNames):'';
   },
@@ -126,14 +126,14 @@ Object.assign(Renderer.prototype, {
    */
   _rPaintTitles(){
     const app=this.app;
-    const multi=!app.isMobile&&app.slotCount()>1;
+    const multi=!app.isMobile&&app.slot.slotCount()>1;
     const top=document.getElementById('window-name');
     if(top) this._rPaintTitle(top,multi?[]:this._rWinTitleParts(app.tool.life.aw()));
     app.mobile.mTopPaint();   // UX_AUDIT_FIX_SRS FR-UXF-91: 모바일에서 창 이름의 툴팁은 cwd 다
     if(!multi) return;
     document.querySelectorAll('#area .slot[data-slot] .slot-head').forEach(h=>{
       const i=Number(h.closest('.slot').dataset.slot);
-      const win=app.slotWindow(i);
+      const win=app.slot.slotWindow(i);
       this._rPaintTitle(h,win?this._rWinTitleParts(win,i):[t('core.no_window')]);
     });
   },
@@ -166,8 +166,8 @@ Object.assign(Renderer.prototype, {
     box.hidden=this.app.isMobile||!this.app.editor.isEditorWin(this.app.tool.life.aw());
     if(box.hidden) return;
     const back=document.getElementById('nav-back'),fwd=document.getElementById('nav-forward');
-    if(back) back.disabled=!this.app.navCan(-1);
-    if(fwd) fwd.disabled=!this.app.navCan(1);
+    if(back) back.disabled=!this.app.focus.navCan(-1);
+    if(fwd) fwd.disabled=!this.app.focus.navCan(1);
   },
 
   _rTopbar(){
@@ -205,7 +205,7 @@ Object.assign(Renderer.prototype, {
     // FR-WSL-50·62: 칸 더하기·빼기. 모바일에는 칸을 만드는 길이 없다.
     // 한계에 닿은 버튼은 비활성이다 — 눌리지만 아무 일도 하지 않는 버튼은
     // 고장으로 읽힌다 (FR-GIT-180 이 세운 규약).
-    const n=this.app.slotCount();
+    const n=this.app.slot.slotCount();
     const sa=document.getElementById('slot-add');
     if(sa){
       sa.hidden=this.app.isMobile;
@@ -256,12 +256,12 @@ Object.assign(Renderer.prototype, {
         b.className='slot-marker-cell ui-btn';        // FR-SMK-12 — 킷 등급
         b.type='button';
         b.dataset.slot=String(i);                     // FR-SMK-3
-        b.addEventListener('click',()=>this.app.slotFocusTo(i));   // FR-SMK-10·11
+        b.addEventListener('click',()=>this.app.slot.ops.slotFocusTo(i));   // FR-SMK-10·11
         cells.push(b);
       }
       box.replaceChildren(...cells);
     }
-    const f=this.app.slotFocused();
+    const f=this.app.slot.slotFocused();
     for(let i=0;i<n;i++){
       const b=box.children[i];
       // FR-SMK-13: 이름은 **낱말 키로 먼저 선다.** 단축키 표를 기다리면
@@ -410,7 +410,7 @@ Object.assign(Renderer.prototype, {
     const width=(ctx,ev)=>clamp(ctx.start+(ctx.right?-1:1)*(ev.clientX-ctx.sx0));
     UIKit.drag(h,{
       axis:'x',
-      start:()=>({start:ex().offsetWidth,win:h.closest('.ed-win'),right:this.app.repoSideDock()==='right'}),
+      start:()=>({start:ex().offsetWidth,win:h.closest('.ed-win'),right:this.app.layout.dock.repoSideDock()==='right'}),
       move:(ctx,ev)=>{
         const w=width(ctx,ev)+'px';
         for(const el of document.querySelectorAll('.ed-win>.ed-side')) el.style.width=w;

@@ -126,12 +126,12 @@ test.describe('축 B — 국제화', () => {
       const a = (window as any).app;
       const wins = [a.ws.activeWindow];
       for (let i = 1; i < 3; i++) { const r = await a.testing.mkWindow(); a.render(); wins.push(r.win) }
-      for (let i = 1; i < 3; i++) a.slotAdd();
-      for (let i = 0; i < 3; i++) a.slotOpen(i, wins[i]);
-      a.slotFocusTo(1);
+      for (let i = 1; i < 3; i++) a.slot.ops.slotAdd();
+      for (let i = 0; i < 3; i++) a.slot.ops.slotOpen(i, wins[i]);
+      a.slot.ops.slotFocusTo(1);
       return wins[1];
     });
-    await page.evaluate((id) => (window as any).app.delWindow(id), win);
+    await page.evaluate((id) => (window as any).app.layout.delWindow(id), win);
     const slot = page.locator('#area .slot[data-slot="1"].slot-empty');
     await expect(slot).toHaveCount(1, { timeout: 10000 });
     await expect(slot.getByText('사이드바에서 창을 고르세요')).toBeVisible();
@@ -166,7 +166,7 @@ test.describe('축 B — 국제화', () => {
     };
     const A = await mk();
     const B = await mk();
-    await A.page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+    await A.page.evaluate(() => (window as any).app.focus.setFocus((window as any).app.focused));
     const dimmed = B.page.locator('#area .pn.pn-dimmed');
     await expect(dimmed).toHaveCount(1, { timeout: 10000 });
     await expect(dimmed.getByText('클릭하여 포커스')).toBeVisible();

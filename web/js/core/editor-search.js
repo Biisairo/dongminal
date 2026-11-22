@@ -104,9 +104,9 @@ class EditorSearch extends Controller {
     const p=findPane(s.layout,s.focusedPane||this.app.focused)
       ||((s.layout&&s.layout.type==='pane')?s.layout:null);
     // 편집기 인스턴스는 칸마다 선다 (FR-WSL-20) — 포커스 칸의 것을 찾는다.
-    const tid=p&&this.app.paneTab(p);
+    const tid=p&&this.app.slot.paneTab(p);
     if(!tid) return null;
-    return this.app.editorAny(tid);
+    return this.app.slot.editorAny(tid);
   }
 
   /**

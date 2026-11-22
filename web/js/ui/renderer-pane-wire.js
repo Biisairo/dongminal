@@ -35,8 +35,8 @@ Object.assign(Renderer.prototype, {
     el.addEventListener('click',e=>{
       e.stopPropagation();
       const c=ctx(); if(!c.pane||!c.tab) return;
-      if(e.target.classList.contains('pn-tab-x')) app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot});
-      else app.switchTab(c.pane.id,c.tab.id,c.slot);
+      if(e.target.classList.contains('pn-tab-x')) app.layout.tabOps.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot});
+      else app.layout.tabOps.switchTab(c.pane.id,c.tab.id,c.slot);
     });
     /**
      * CONTEXT_MENU_UNIFY_SRS FR-CMU-8 (`FUI-08`): 탭의 컨텍스트 메뉴. 항목마다
@@ -53,11 +53,11 @@ Object.assign(Renderer.prototype, {
       // CLAUDE_ACCOUNTS_SRS FR-CAC-85: 계정 기능이 없는 서버면 항목이 없다.
       const acct=app.claude.maps.claudeTabMenuItem?app.claude.maps.claudeTabMenuItem(c.tab,at):null;
       UIKit.menu([
-        {id:'new',label:TAB_MENU_NEW,key:'newTab',disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.addTab(c.pane.id,'terminal')},
+        {id:'new',label:TAB_MENU_NEW,key:'newTab',disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.layout.tabAdd.addTab(c.pane.id,'terminal')},
         {id:'rename',label:TAB_MENU_RENAME,disabled:c.tab.type===TAB_TYPE_GIT?TAB_MENU_RENAME_GIT_NO:false,
-          onClick:()=>{if(c.tab.preview) app.repoWin.preview.pinPreviewTab(c.tab); if(label) app.renameTab(c.tab,label)}},
+          onClick:()=>{if(c.tab.preview) app.repoWin.preview.pinPreviewTab(c.tab); if(label) app.layout.renameTab(c.tab,label)}},
         ...(acct?[{sep:true},acct,{sep:true}]:[]),
-        {id:'close',label:TAB_MENU_CLOSE,key:'closeTab',onClick:()=>app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot})},
+        {id:'close',label:TAB_MENU_CLOSE,key:'closeTab',onClick:()=>app.layout.tabOps.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot})},
       ],{at,cls:'tab-menu'});
     });
     // FR-RTU-42: 탭 자체의 더블클릭이 고정한다.
@@ -73,7 +73,7 @@ Object.assign(Renderer.prototype, {
       const c=ctx(); if(!c.tab||c.tab.type===TAB_TYPE_GIT) return;
       e.stopPropagation();
       if(c.tab.preview){app.repoWin.preview.pinPreviewTab(c.tab);return}
-      app.renameTab(c.tab,e.target);
+      app.layout.renameTab(c.tab,e.target);
     });
   },
 
@@ -127,11 +127,11 @@ Object.assign(Renderer.prototype, {
       let ins=pn.tabs.findIndex(tt=>tt.id===c.tab.id);
       if(!insBefore)ins++;
       pn.tabs.splice(ins,0,moved);
-      app.paneTabSet(pn,tabId,c.slot);
-      app.save();
+      app.slot.paneTabSet(pn,tabId,c.slot);
+      app.wsSave.save();
       app.render();
     }else{
-      app.moveTabToPane(srcPaneId,tabId,c.pane.id,c.tab.id,insBefore);
+      app.layout.dnd.moveTabToPane(srcPaneId,tabId,c.pane.id,c.tab.id,insBefore);
     }
   },
 
@@ -176,7 +176,7 @@ Object.assign(Renderer.prototype, {
       const node=pn&&pn._ctx&&pn._ctx.node;
       // FR-EXR-42 와 같은 규약 — 자리는 활성 pane 이 아니라 **이 버튼이 속한
       // pane** 이다.
-      app.split(dir,node?{targetPane:node.id}:{});
+      app.layout.tabOps.split(dir,node?{targetPane:node.id}:{});
     });
     return b;
   },
@@ -187,7 +187,7 @@ Object.assign(Renderer.prototype, {
     add.addEventListener('click',e=>{
       e.stopPropagation();
       const pn=add.closest('.pn');
-      if(pn&&pn._ctx&&pn._ctx.node) app.addTab(pn._ctx.node.id);
+      if(pn&&pn._ctx&&pn._ctx.node) app.layout.tabAdd.addTab(pn._ctx.node.id);
     });
     // M8_UNIFIED_SRS FR-AGT-1: `+` 의 컨텍스트 메뉴가 에이전트 탭을 낸다 — 클릭은
     // 종전대로 터미널이다. 목록은 등록부에서 파생한다 (FR-U-1).
@@ -197,7 +197,7 @@ Object.assign(Renderer.prototype, {
       if(!(pn&&pn._ctx&&pn._ctx.node)) return;
       const pid=pn._ctx.node.id;
       UIKit.menu([
-        {id:'new',label:TAB_MENU_NEW,key:'newTab',onClick:()=>app.addTab(pid,'terminal')},
+        {id:'new',label:TAB_MENU_NEW,key:'newTab',onClick:()=>app.layout.tabAdd.addTab(pid,'terminal')},
       ],{at:{x:e.clientX,y:e.clientY},cls:'tab-menu'});
     });
     return add;
@@ -229,11 +229,11 @@ Object.assign(Renderer.prototype, {
         const si=pn.tabs.findIndex(tab=>tab.id===tabId); if(si<0)return;
         const[moved]=pn.tabs.splice(si,1);
         pn.tabs.push(moved);
-        app.paneTabSet(pn,tabId,slotOf());
-        app.save();
+        app.slot.paneTabSet(pn,tabId,slotOf());
+        app.wsSave.save();
         app.render();
       }else{
-        app.moveTabToPane(srcPaneId,tabId,n.id,null,false);
+        app.layout.dnd.moveTabToPane(srcPaneId,tabId,n.id,null,false);
       }
     });
   },
@@ -245,24 +245,24 @@ Object.assign(Renderer.prototype, {
       if(!app.drag||app.drag.type!=='tab')return;
       e.preventDefault(); e.stopPropagation();
       this._clearTabMarks(tabs);
-      app.showBodyDropIndicator(body,app.getDragZone(body,e));
+      app.layout.dnd.showBodyDropIndicator(body,app.layout.dnd.getDragZone(body,e));
     });
     body.addEventListener('dragleave',e=>{
-      if(!body.contains(e.relatedTarget)) app.clearBodyDropIndicator(body);
+      if(!body.contains(e.relatedTarget)) app.layout.dnd.clearBodyDropIndicator(body);
     });
     body.addEventListener('drop',e=>{
       e.preventDefault(); e.stopPropagation();
       if(!app.drag||app.drag.type!=='tab')return;
       const n=node(); if(!n) return;
-      const zone=app.getDragZone(body,e);
+      const zone=app.layout.dnd.getDragZone(body,e);
       const{srcPaneId,tabId}=app.drag;
       app.drag=null;
-      app.clearBodyDropIndicator(body);
+      app.layout.dnd.clearBodyDropIndicator(body);
       if(zone==='center'){
         if(srcPaneId===n.id)return;
-        app.moveTabToPane(srcPaneId,tabId,n.id,null,false);
+        app.layout.dnd.moveTabToPane(srcPaneId,tabId,n.id,null,false);
       }else{
-        app.splitPaneWithTab(srcPaneId,tabId,n.id,zone);
+        app.layout.dnd.splitPaneWithTab(srcPaneId,tabId,n.id,zone);
       }
     });
   },
@@ -294,13 +294,13 @@ Object.assign(Renderer.prototype, {
        * 않으므로 단일 슬롯 모드와 칸 안의 클릭은 종전과 한 글자도 다르지 않다.
        * 그리기는 여전히 미룬다 (FR-SVS-61).
        */
-      if(app.slotFocused()!==slotOf()) app.slotFocusTo(slotOf(),{deferRender:true});
-      app.setFocus(n.id);
+      if(app.slot.slotFocused()!==slotOf()) app.slot.ops.slotFocusTo(slotOf(),{deferRender:true});
+      app.focus.setFocus(n.id);
       // FR-MTI-25: 모바일에서 키보드를 올리는 유일한 경로. render 는 focus 하지
       // 않으므로 여기서 하지 않으면 모바일에서 입력을 시작할 길이 없다.
       if(app.isMobile){
         const pn=findPane(app.tool.life.aw()?.layout,n.id);
-        const tab=pn&&(pn.tabs||[]).find(x=>x.id===app.paneTab(pn,slotOf()));
+        const tab=pn&&(pn.tabs||[]).find(x=>x.id===app.slot.paneTab(pn,slotOf()));
         if(tab&&tab.type!=='editor'){
           const p=app.toolAny(tab.toolId);
           if(p) p.focus();

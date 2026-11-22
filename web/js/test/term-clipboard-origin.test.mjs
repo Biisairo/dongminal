@@ -26,7 +26,7 @@ function rig(opts = {}) {
   ctx.ClipboardWriter.write = (text) => { copied.push(text); return Promise.resolve(true) };
   // "쓰는 화면" 의 세 재료 — OS 포커스·활성 탭(attnUserIsWatching)과 소유권(resizeCheck).
   const st = { watch: opts.watch !== false, own: opts.own !== false };
-  ctx.app = { resizeCheck: () => st.own, attn: { attnUserIsWatching: () => st.watch } };
+  ctx.app = { attn: { attnUserIsWatching: () => st.watch }, focus: { owner: { resizeCheck: () => st.own } } };
 
   let osc = null;
   const pending = [];

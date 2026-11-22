@@ -158,12 +158,12 @@ class EditorSection extends Controller {
   // 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
   _edAfterChange(){
     this.app.editor.sync._edReconcile();
-    this.app.save();
+    this.app.wsSave.save();
     // 보고 있던 Editor 창이 사라졌으면 남는 자리로 옮긴다. 옮기지 않으면
     // activeWindow 가 없는 창을 가리켜 콘텐츠 영역이 빈다.
     if(!this.app.ws.windows.some(s=>s.id===this.app.ws.activeWindow)){
       const back=this.app.editor.open.edActivateTarget()||this.app.git.gitBackTarget();
-      if(back){this.app.switchWindow(back.id);return}
+      if(back){this.app.layout.switchWindow(back.id);return}
     }
     this.app.render();
   }

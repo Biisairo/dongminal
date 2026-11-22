@@ -36,17 +36,17 @@ test('TC-ITW-1: 표시줄이 포커스 탭 이름을 따라가고 title 에 전�
     return { first: panes[0].id, focused: app.focused };
   });
   await expect(top).not.toHaveText(`${name} · ccr#32›33 피킹`, { timeout: 10000 });
-  await page.evaluate((id) => (window as any).app.setFocus(id), second.first);
+  await page.evaluate((id) => (window as any).app.focus.setFocus(id), second.first);
   await expect(top).toHaveText(`${name} · ccr#32›33 피킹`, { timeout: 10000 });
 });
 
 test('TC-ITW-1: 칸이 여럿이면 각 머리글이 자기 창의 포커스 탭 이름을 보인다', async ({ page }) => {
   await waitForInit(page);
   await rename(page, '첫 칸 탭');
-  await page.evaluate(() => (window as any).app.slotAdd());
+  await page.evaluate(() => (window as any).app.slot.ops.slotAdd());
   const head0 = page.locator('#area .slot[data-slot="0"] .slot-head');
   await expect(head0).toContainText('· 첫 칸 탭', { timeout: 10000 });
   await expect(head0).toHaveAttribute('title', /· 첫 칸 탭$/);
   await expect(page.locator('#window-name')).toHaveText('');
-  await page.evaluate(() => (window as any).app.slotRemove());
+  await page.evaluate(() => (window as any).app.slot.ops.slotRemove());
 });

@@ -52,12 +52,12 @@ const SETTINGS_ACCESS={
   gitReposInterval:{get:()=>gitReposInterval,set:v=>POLL_BY_KEY.gitReposInterval.set(v)},
   gitWorktreeInterval:{get:()=>gitWorktreeInterval,set:v=>POLL_BY_KEY.gitWorktreeInterval.set(v)},
   gitConsoleInterval:{get:()=>gitConsoleInterval,set:v=>POLL_BY_KEY.gitConsoleInterval.set(v)},
-  layoutPresets:{get:()=>layoutPresets,set(v){layoutPresets=v;this._presetButtonPaint()}},
-  defaultPreset:{get:()=>defaultPreset,set(v){defaultPreset=v;this._presetButtonPaint()}},
+  layoutPresets:{get:()=>layoutPresets,set(v){layoutPresets=v;this.layout.winState._presetButtonPaint()}},
+  defaultPreset:{get:()=>defaultPreset,set(v){defaultPreset=v;this.layout.winState._presetButtonPaint()}},
   // FR-TAN-19
   fgTabNames:{get:()=>fgTabNames,set(v){
     fgTabNames=v;
-    if(this._fgRepaint) this._fgRepaint();
+    if(this.wsSync?._fgRepaint) this.wsSync._fgRepaint();
   }},
   // FR-ARE-3: 저장된 적 없으면 기본값(켬). 서버도 같은 기본값을 쓴다
   // (`agentRenderEnv`) — 두 자리가 어긋나면 화면과 실제가 갈린다.
@@ -114,11 +114,11 @@ const SETTINGS_ACCESS={
   // 레인지 행을 칠하는 것은 `_paintSettingControls` 다 (`DisplaySection.paint`).
   focusEdgeLevel:{get:()=>focusEdgeLevel,set(v){
     focusEdgeLevel=v;
-    this._paintFocusEdge();
+    this.focus._paintFocusEdge();
   }},
   attnEdgeLevel:{get:()=>attnEdgeLevel,set(v){
     attnEdgeLevel=v;
-    this._paintAttnEdge();
+    this.focus._paintAttnEdge();
     this.attn._attnRefresh();
   }},
   // SYSTEM_THEME_FOLLOW_SRS FR-STF-1·THEME_SEED_COLOR_SRS FR-SEED-1: 얹는 것은 값뿐이다 — 어느 테마를 어떻게 적용할지는 `_settingsApply` 가 정한다 (`_applyThemeChoice`).

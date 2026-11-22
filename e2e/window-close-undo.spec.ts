@@ -44,7 +44,7 @@ async function inBackground(request: APIRequestContext, id: string): Promise<boo
 async function setup(page: Page) {
   await waitForInit(page, { clearLocalStorage: true });
   if ((await plainIds(page)).length < 2) {
-    await page.evaluate(() => (window as any).app.addWindow());
+    await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect.poll(() => plainIds(page).then((x) => x.length), { timeout: 10000 }).toBeGreaterThan(1);
     await waitSettled(page);
   }
@@ -120,7 +120,7 @@ test.describe('창 닫기의 되돌리기 (FR-WCU-1~8)', () => {
     await waitForInit(page, { clearLocalStorage: true });
     // 창 셋 — 활성 하나를 남기고 둘을 차례로 닫는다.
     while ((await plainIds(page)).length < 3) {
-      await page.evaluate(() => (window as any).app.addWindow());
+      await page.evaluate(() => (window as any).app.layout.addWindow());
       await waitSettled(page);
     }
     const active = await activeWindow(page);

@@ -20,9 +20,9 @@ class ClaudeAccountsController extends Controller {
   }
 
   _claudeAcctRestore(src){
-    const flight=this.app._restoreBegin('claudeAccounts');
+    const flight=this.app.wsSync._restoreBegin('claudeAccounts');
     return stateFetch(src,'/api/claude-accounts').then(r=>{
-      if(!this.app._restoreLive('claudeAccounts',flight)) return;
+      if(!this.app.wsSync._restoreLive('claudeAccounts',flight)) return;
       // 503 은 계정 기능이 없는 서버다(데이터 폴더 없음). 망 실패는 마지막 값을 지우지 않는다.
       if(r.ok&&r.data){
         this.app._claudeAccts=Array.isArray(r.data.accounts)?r.data.accounts:[];
@@ -34,7 +34,7 @@ class ClaudeAccountsController extends Controller {
         this.app._claudeAcctAuto=null;
         this.app._claudeAcctOtherSl=[];
       }
-      this.app._restoreEnd('claudeAccounts',flight);
+      this.app.wsSync._restoreEnd('claudeAccounts',flight);
       this.app.agents.agentsRender();
       // FR-CAC-95a: 매핑은 탭·Repo·Explorer 가 쓴다. 계정 기능이 없는 서버면 받지 않는다.
       if(r.status===503){ if(this.app._claudeMaps){this.app._claudeMaps=null;this.maps._claudeMapsRepaint()} }

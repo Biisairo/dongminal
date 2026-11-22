@@ -71,10 +71,10 @@ async function splitWithGitAside(page: Page) {
     const gitWin = app.testing.edWindows().find((w: any) => app.testing.edRootOf(w) === app.testing.gitRootOfActive())
       || app.testing.aw();
     const plain = app.testing.plainWindows()[0];
-    app.slotAdd();
-    app.slotOpen(0, plain.id);
-    app.slotOpen(1, gitWin.id);
-    app.slotFocusTo(0);
+    app.slot.ops.slotAdd();
+    app.slot.ops.slotOpen(0, plain.id);
+    app.slot.ops.slotOpen(1, gitWin.id);
+    app.slot.ops.slotFocusTo(0);
     app.render();
     return { active: app.ws.activeWindow, git: gitWin.id, plain: plain.id };
   });
@@ -187,7 +187,7 @@ test.describe('M6 — 보이면 갱신된다', () => {
     await page.evaluate(() => {
       const app = (window as any).app;
       const w = app.testing.plainWindows()[0];
-      if (w) app.switchWindow(w.id);
+      if (w) app.layout.switchWindow(w.id);
     });
     expect(await pollOk(page, repo, 0), '보이지 않는 창을 관측하고 있다').toBe(false);
   });
@@ -249,10 +249,10 @@ test.describe('M6 — Editor 도 같은 원칙', () => {
       // `openExplorerSide`(활성 창을 본다)로는 닿지 않는다.
       app.testing.edSetSide(ed, 'explorer');
       const plain = app.testing.plainWindows()[0];
-      app.slotAdd();
-      app.slotOpen(0, plain.id);
-      app.slotOpen(1, ed.id);
-      app.slotFocusTo(0);
+      app.slot.ops.slotAdd();
+      app.slot.ops.slotOpen(0, plain.id);
+      app.slot.ops.slotOpen(1, ed.id);
+      app.slot.ops.slotFocusTo(0);
       app.render();
       return { ed: ed.id, plain: plain.id, active: app.ws.activeWindow };
     }, repo);

@@ -16,12 +16,12 @@ const cells = (page: Page) => page.locator('#slot-marker .slot-marker-cell');
 const cell = (page: Page, i: number) =>
   page.locator(`#slot-marker .slot-marker-cell[data-slot="${i}"]`);
 
-const slotCount = (page: Page) => page.evaluate(() => (window as any).app.slotCount());
-const slotFocused = (page: Page) => page.evaluate(() => (window as any).app.slotFocused());
-const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slotAdd());
-const slotRemove = (page: Page) => page.evaluate(() => (window as any).app.slotRemove());
+const slotCount = (page: Page) => page.evaluate(() => (window as any).app.slot.slotCount());
+const slotFocused = (page: Page) => page.evaluate(() => (window as any).app.slot.slotFocused());
+const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slot.ops.slotAdd());
+const slotRemove = (page: Page) => page.evaluate(() => (window as any).app.slot.ops.slotRemove());
 const focusSlot = (page: Page, i: number) =>
-  page.evaluate((n) => (window as any).app.slotFocusTo(n), i);
+  page.evaluate((n) => (window as any).app.slot.ops.slotFocusTo(n), i);
 const setSlotDir = (page: Page, d: string) =>
   page.evaluate((v) => ((window as any).app.slotDir = v), d);
 
@@ -115,7 +115,7 @@ test.describe('무엇을 그리는가 (FR-SMK-4·5·6·8)', () => {
       const app = (window as any).app;
       app.slots.sizes[0] = 3;
       app.slots.sizes[1] = 1;
-      app.slotApplySizes();
+      app.slot.ops.slotApplySizes();
     });
     const widths = await cells(page).evaluateAll((els) =>
       els.map((e) => e.getBoundingClientRect().width));
@@ -126,7 +126,7 @@ test.describe('무엇을 그리는가 (FR-SMK-4·5·6·8)', () => {
     await waitForInit(page);
     await slotsTo(page, 3);
     const win = await page.evaluate(() => (window as any).app.slots.windows[1]);
-    await page.evaluate((id) => (window as any).app.delWindow(id), win);
+    await page.evaluate((id) => (window as any).app.layout.delWindow(id), win);
     await expect(page.locator('#area .slot[data-slot="1"].slot-empty')).toHaveCount(1, {
       timeout: 10000,
     });
@@ -159,7 +159,7 @@ test.describe('누르면 칸이 옮겨간다 (FR-SMK-10·11)', () => {
   test('TC-SMK-17: 화면 쪽에서 칸을 옮겨도 마커가 따라간다 (deferRender)', async ({ page }) => {
     await waitForInit(page);
     await slotsTo(page, 3);
-    await page.evaluate(() => (window as any).app.slotFocusTo(2, { deferRender: true }));
+    await page.evaluate(() => (window as any).app.slot.ops.slotFocusTo(2, { deferRender: true }));
 
     await expect(cell(page, 2)).toHaveAttribute('aria-current', 'true', { timeout: 10000 });
     await expect(cell(page, 0)).not.toHaveAttribute('aria-current', 'true');

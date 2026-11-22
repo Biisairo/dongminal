@@ -87,7 +87,7 @@ class SlotsController extends Controller {
 
   editorAny(tabId){
     if(!tabId) return null;
-    return this.app.fileEditors.get(this.slotKey(tabId,this.app.slotFocused()))||this.editorsOf(tabId)[0]||null;
+    return this.app.fileEditors.get(this.slotKey(tabId,this.slotFocused()))||this.editorsOf(tabId)[0]||null;
   }
 
   // 그 탭의 모든 칸 편집기를 파괴하고 Map 에서 뺀다.
@@ -137,7 +137,7 @@ class SlotsController extends Controller {
   paneTab(pn,slot){
     if(!pn) return null;
     const tabs=pn.tabs||[];
-    const i=(slot==null)?this.app.slotFocused():slot;
+    const i=(slot==null)?this.slotFocused():slot;
     const m=this.app._slots&&Array.isArray(this.app._slots.tabs)?this.app._slots.tabs[i]:null;
     const tid=m&&m[pn.id];
     if(tid&&tabs.some(tab=>tab.id===tid)) return tid;
@@ -155,10 +155,10 @@ class SlotsController extends Controller {
    */
   paneTabSet(pn,tid,slot){
     if(!pn||!tid) return;
-    const i=(slot==null)?this.app.slotFocused():slot;
+    const i=(slot==null)?this.slotFocused():slot;
     const m=this._slotTabMap(i);
     if(m){ m[pn.id]=tid; this._slotsPersist() }
-    if(!this.app._slots||i===this.app.slotFocused()) pn.activeTab=tid;
+    if(!this.app._slots||i===this.slotFocused()) pn.activeTab=tid;
     /**
      * M9_SRS FR-M9-24: **탭이 바뀐 사실은 여기서만 온전하다.**
      *
@@ -167,7 +167,7 @@ class SlotsController extends Controller {
      * `+` 로 탭을 둘 만들어도 기록이 0 이었다). 창·칸의 변화는 저쪽이, 탭의
      * 변화는 이쪽이 말한다. 둘 다 같은 `_navNote` 를 부르므로 판정은 한 벌이다.
      */
-    this.app._navNote();
+    this.app.focus._navNote();
   }
 
   // FR-SVS-3: 칸이 창을 받으면 그 창의 pane 마다 **그 순간의 활성 탭**으로
@@ -175,7 +175,7 @@ class SlotsController extends Controller {
   // 움직인다 — 오버라이드가 없는 pane 은 `pn.activeTab` 을 따르기 때문이다.
   _slotTabsSeed(i){
     if(!this.app._slots) return;
-    const s=this.app.slotWindow(i);
+    const s=this.slotWindow(i);
     if(!s||!s.layout) return;
     const m=this._slotTabMap(i);
     for(const pn of this.app.flattenPanes(s.layout)){
@@ -188,9 +188,9 @@ class SlotsController extends Controller {
   // 포커스 칸을 따라오는** 것이다.
   _slotTabsToWs(){
     if(!this.app._slots) return false;
-    const s=this.app.slotWindow(this.app.slotFocused());
+    const s=this.slotWindow(this.slotFocused());
     if(!s||!s.layout) return false;
-    const m=this.app._slots.tabs&&this.app._slots.tabs[this.app.slotFocused()];
+    const m=this.app._slots.tabs&&this.app._slots.tabs[this.slotFocused()];
     if(!m) return false;
     let changed=false;
     for(const pn of this.app.flattenPanes(s.layout)){
@@ -242,7 +242,7 @@ class SlotsController extends Controller {
   _slotIdentities(){
     const n=this.slotCount();
     const out=[];
-    for(let i=0;i<n;i++) out.push(this.app._slotIdentity(i));
+    for(let i=0;i<n;i++) out.push(this._slotIdentity(i));
     return out;
   }
 
@@ -261,7 +261,7 @@ class SlotsController extends Controller {
       // 옛 서버는 파라미터를 모르고 전부 보내지만 이 채널은 처리하지 않는다.
       if(want&&!this._slotSse[i]){
         this._slotSse[i]=this.app.bus.openChannel('slot:'+i,
-          '/api/commands/sse?presence=1&clientId='+encodeURIComponent(this.app._slotIdentity(i)),
+          '/api/commands/sse?presence=1&clientId='+encodeURIComponent(this._slotIdentity(i)),
           {owner:'slots'});
       }else if(!want&&this._slotSse[i]){
         this.app.bus.closeChannel('slot:'+i);
@@ -309,7 +309,7 @@ class SlotsController extends Controller {
     // 이전에 적힌 키에는 `tabs` 가 아예 없다.
     for(let i=0;i<this.app._slots.windows.length;i++) this._slotTabsSeed(i);
     const cur=this.app._slots.windows[this.app._slots.focused];
-    if(cur) this.app._activateWindow(cur);
+    if(cur) this.app.layout.winState._activateWindow(cur);
     this._slotSyncSubs();
   }
 
@@ -326,9 +326,6 @@ class SlotsController extends Controller {
   }
 }
 
-// 렌더러·레이아웃·편집기·도구·포커스·동기화와 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'slot',['slotCount','slotFocused','slotKey','slotKeysOf','editorsOf','editorAny','editorsDrop','_slotOf',
-  'slotBase','paneTab','paneTabSet','_slotTabsToWs','slotWindow','windowVisible','_slotIdentity','_slotsRestore']);
 
 // 접근자는 `Object.assign` 으로 옮길 수 없다 — 그것은 getter 를 **평가해서 값으로**
 // 복사하므로, 프로토타입에 상수가 박히고 인스턴스 상태를 영영 보지 못한다.

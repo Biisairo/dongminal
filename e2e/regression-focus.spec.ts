@@ -23,7 +23,7 @@ test.describe('focusedPane 불변식 회귀', () => {
     await waitForInit(page, { clearLocalStorage: true });
 
     // Split horizontally → 2 panes in session 1.
-    await page.evaluate(() => (window as any).app.split('h'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.split('h'));
     await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
 
     // Pick the second pane as focus target.
@@ -39,7 +39,7 @@ test.describe('focusedPane 불변식 회귀', () => {
       walk(s.layout);
       // simulate switchTab on 2nd pane's active tab
       const target = regs[1];
-      a.switchTab(target.id, target.activeTab);
+      a.layout.tabOps.switchTab(target.id, target.activeTab);
       return target.id;
     });
 
@@ -47,7 +47,7 @@ test.describe('focusedPane 불변식 회귀', () => {
     await addWindow(page);
     await page.evaluate((sid0) => {
       const a = (window as any).app;
-      a.switchWindow(sid0);
+      a.layout.switchWindow(sid0);
     }, await page.evaluate(() => (window as any).app.ws.windows[0].id));
 
     // Focused pane should be r2id.
@@ -59,7 +59,7 @@ test.describe('focusedPane 불변식 회귀', () => {
     await waitForInit(page, { clearLocalStorage: true });
 
     // Split → 2 panes; close the second pane (focused after split).
-    await page.evaluate(() => (window as any).app.split('h'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.split('h'));
     await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
 
     const stateBefore = await page.evaluate(() => {
@@ -81,14 +81,14 @@ test.describe('focusedPane 불변식 회귀', () => {
       };
       const pn = find(s.layout, a.focused);
       for (const t of [...pn.tabs]) {
-        await a.closeTab(pn.id, t.id);
+        await a.layout.tabOps.closeTab(pn.id, t.id);
       }
     });
 
     // Add 2nd session and return.
     await addWindow(page);
     const sid0 = await page.evaluate(() => (window as any).app.ws.windows[0].id);
-    await page.evaluate((sid) => (window as any).app.switchWindow(sid), sid0);
+    await page.evaluate((sid) => (window as any).app.layout.switchWindow(sid), sid0);
 
     // s.focusedPane should not be the removed rid.
     const ok = await page.evaluate(() => {
@@ -112,7 +112,7 @@ test.describe('focusedPane 불변식 회귀', () => {
     const result = await page.evaluate(async () => {
       const a = (window as any).app;
       const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
-      await a.split('h');
+      await a.layout.tabOps.split('h');
       return {
         focused: a.focused,
         focusedPane: s.focusedPane,
@@ -132,7 +132,7 @@ test.describe('focusedPane 불변식 회귀', () => {
       const a = (window as any).app;
       const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const beforeFocus = a.focused;
-      await a.split('h', { keepFocus: true });
+      await a.layout.tabOps.split('h', { keepFocus: true });
       return {
         beforeFocus,
         focused: a.focused,
@@ -152,7 +152,7 @@ test.describe('focusedPane 불변식 회귀', () => {
     const sidA = await page.evaluate(() => (window as any).app.ws.activeWindow);
     const r2idA = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.split('h');
+      await a.layout.tabOps.split('h');
       return a.focused; // 새 pane (lastR)
     });
 
@@ -162,7 +162,7 @@ test.describe('focusedPane 불변식 회귀', () => {
     expect(sidB).not.toBe(sidA);
 
     // 다시 A 로 전환 → 활성 A.
-    await page.evaluate((sid) => (window as any).app.switchWindow(sid), sidA);
+    await page.evaluate((sid) => (window as any).app.layout.switchWindow(sid), sidA);
     expect(await page.evaluate(() => (window as any).app.focused)).toBe(r2idA);
 
     // 활성 세션 A 를 삭제 → B 가 활성이 됨. B 의 focusedPane 은 자기 layout 의 첫 pane 이어야 함.
@@ -170,7 +170,7 @@ test.describe('focusedPane 불변식 회귀', () => {
       const a = (window as any).app;
       // 삭제 시 busy 확인 모달이 뜨지 않도록 fake.
       a.testing.toolsBusy = async () => ({});
-      await a.delWindow(sid);
+      await a.layout.delWindow(sid);
     }, sidA);
 
     const after = await page.evaluate(() => {
@@ -201,13 +201,13 @@ test.describe('focusedPane 불변식 회귀', () => {
 
     const focusedAfterSplit = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.split('h');
+      await a.layout.tabOps.split('h');
       return a.focused;
     });
 
     // 2번째 세션 추가 후 복귀.
     await addWindow(page);
-    await page.evaluate((sid) => (window as any).app.switchWindow(sid), session1Id);
+    await page.evaluate((sid) => (window as any).app.layout.switchWindow(sid), session1Id);
 
     const focusedOnReturn = await page.evaluate(() => (window as any).app.focused);
     expect(focusedOnReturn).toBe(focusedAfterSplit);
@@ -220,9 +220,9 @@ test.describe('focusedPane 불변식 회귀', () => {
     // 동일 pane 에 탭 4개 만들기 (terminal 기본 1개 + 3개 추가).
     const ids = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addTab(a.focused, 'terminal');
-      await a.addTab(a.focused, 'terminal');
-      await a.addTab(a.focused, 'terminal');
+      await a.layout.tabAdd.addTab(a.focused, 'terminal');
+      await a.layout.tabAdd.addTab(a.focused, 'terminal');
+      await a.layout.tabAdd.addTab(a.focused, 'terminal');
       const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const find = (n: any, id: string): any => {
         if (!n) return null;
@@ -238,13 +238,13 @@ test.describe('focusedPane 불변식 회귀', () => {
     // 가운데 탭(index 1) 활성 후 닫기 → 다음 탭(원래 index 2) 으로 이동해야 함.
     await page.evaluate((tid) => {
       const a = (window as any).app;
-      a.switchTab(a.focused, tid);
+      a.layout.tabOps.switchTab(a.focused, tid);
     }, ids[1]);
 
     const expectedNext = ids[2];
     await page.evaluate(async (tid) => {
       const a = (window as any).app;
-      await a.closeTab(a.focused, tid);
+      await a.layout.tabOps.closeTab(a.focused, tid);
     }, ids[1]);
 
     const activeAfterCloseMid = await page.evaluate(() => {
@@ -264,12 +264,12 @@ test.describe('focusedPane 불변식 회귀', () => {
     // 현재 탭들: [ids[0], ids[2], ids[3]] (ids[1] 제거됨)
     await page.evaluate((tid) => {
       const a = (window as any).app;
-      a.switchTab(a.focused, tid);
+      a.layout.tabOps.switchTab(a.focused, tid);
     }, ids[3]);
 
     await page.evaluate(async (tid) => {
       const a = (window as any).app;
-      await a.closeTab(a.focused, tid);
+      await a.layout.tabOps.closeTab(a.focused, tid);
     }, ids[3]);
 
     const activeAfterCloseLast = await page.evaluate(() => {

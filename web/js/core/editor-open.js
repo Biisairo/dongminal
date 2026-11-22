@@ -49,7 +49,7 @@ class EditorOpen extends Controller {
 
   edOpenWindow(root){
     const w=this.app.editor.edWindowFor(root);
-    if(w) this.app.switchWindow(w.id);
+    if(w) this.app.layout.switchWindow(w.id);
   }
 
   // ── 탐색기 (FR-EDT-57~68) ──
@@ -112,7 +112,7 @@ class EditorOpen extends Controller {
     if(tab.type===TAB_TYPE_EDITOR){
       const d=this.app._edDocs&&this.app._edDocs.get(tab.filePath);
       if(d) return !!d.dirty;
-      const v=this.app.editorAny(tab.id);
+      const v=this.app.slot.editorAny(tab.id);
       return !!(v&&v._dirty);
     }
     if(tab.type===TAB_TYPE_GIT&&win&&this.app.editor.isEditorWin(win)){
@@ -175,7 +175,7 @@ class EditorOpen extends Controller {
       if(!s||!s.layout||!this.app.editor.isEditorWin(s)) continue;
       // FR-ELR-11a: 보이지 않는 창은 묻지 않는다 (FR-STAT-17). 돌아오면 그 틱의
       // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
-      if(!this.app.windowVisible(s.id)) continue;
+      if(!this.app.slot.windowVisible(s.id)) continue;
       for(const n of panesOf(s.layout)) for(const tab of (n.tabs||[])){
         if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath) seen.add(tab.filePath);
         // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
@@ -341,7 +341,7 @@ class EditorOpen extends Controller {
     // 회수의 주 자리는 `_edReapTrees`(재조정)다. 여기서 한 번 더 부르는 것은
     // 재조정을 지나지 않는 경로로 창이 사라졌을 때의 그물이다.
     this.app.editor.sync._edReapTrees();
-    const key=this.app.slotKey(s.id,slot||0);
+    const key=this.app.slot.slotKey(s.id,slot||0);
     let tree=this.app._edTrees.get(key);
     if(tree&&tree.root!==this.app.editor.edRootOf(s)){tree.destroy();tree=null}
     if(!tree){tree=new FileTree(this.app,s);this.app._edTrees.set(key,tree)}
@@ -370,7 +370,7 @@ class EditorOpen extends Controller {
    */
   _edTreeFor(w){
     if(!w||!this.app._edTrees) return null;
-    return this.app._edTrees.get(this.app.slotKey(w.id,this.app.slotFocused()))
+    return this.app._edTrees.get(this.app.slot.slotKey(w.id,this.app.slot.slotFocused()))
       ||this.app._edTrees.get(w.id)||null;
   }
 
@@ -384,9 +384,9 @@ class EditorOpen extends Controller {
     // 와 같은 게이트다. 이 자리가 빠지면 즉시 신호(`gitSignal`)마다 보이지도
     // 않는 트리의 status 가 한 건 더 나가 디바운스가 무의미해진다 (V5 실측).
     if(this.app.editor.pane.edSideOf(s)!==REPO_SIDE_EXPLORER) return null;
-    const mine=this.app._edTrees.get(this.app.slotKey(s.id,this.app.slotFocused()));
+    const mine=this.app._edTrees.get(this.app.slot.slotKey(s.id,this.app.slot.slotFocused()));
     if(mine) return mine;
-    for(const[key,tree] of this.app._edTrees) if(this.app.slotBase(key)===s.id) return tree;
+    for(const[key,tree] of this.app._edTrees) if(this.app.slot.slotBase(key)===s.id) return tree;
     return null;
   }
 
@@ -424,8 +424,8 @@ class EditorOpen extends Controller {
     const out=[];
     for(const [key,tree] of this.app._edTrees){
       if(!tree) continue;
-      const id=this.app.slotBase(key);
-      if(!this.app.windowVisible(id)) continue;
+      const id=this.app.slot.slotBase(key);
+      if(!this.app.slot.windowVisible(id)) continue;
       /**
        * REPO_TAB_UNIFY_SRS FR-RTU-12·14: **사이드가 Explorer 일 때만** 묻는다.
        *

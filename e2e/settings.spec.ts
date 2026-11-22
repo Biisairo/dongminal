@@ -119,7 +119,7 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
       const a = (window as any).app;
       (window as any).layoutPresets.length = 0;
       const ed = a.testing.edWindows()[0];
-      a.switchWindow(ed.id);
+      a.layout.switchWindow(ed.id);
       a.testing.savePreset();
       const list = (window as any).layoutPresets;
       return {
@@ -143,7 +143,7 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
       const a = (window as any).app;
       (window as any).layoutPresets.length = 0;
       const ed = a.testing.edWindows()[0];
-      a.switchWindow(ed.id);
+      a.layout.switchWindow(ed.id);
       // 일반 창이 하나도 없는 상태는 delWindow 의 과도 상태뿐이므로 그 자리를
       // 대신 세운다 — 재는 것은 "대상이 없을 때의 처신" 이다.
       const real = a.testing.plainWindows;

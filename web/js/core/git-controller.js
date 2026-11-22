@@ -71,7 +71,7 @@ class GitController extends Controller {
       ws.push(w);
       return w;
     });
-    if(n) this.app.save();
+    if(n) this.app.wsSave.save();
   }
 
   /**
@@ -89,7 +89,7 @@ class GitController extends Controller {
     if(!this.app.editor.edWindowFor(repo)) await this.app.editor.section.edMutate('/add',{path:repo});
     const win=this.app.editor.edWindowFor(repo);
     if(!win) return null;
-    this.app.switchWindow(win.id);
+    this.app.layout.switchWindow(win.id);
     return win.id;
   }
 
@@ -200,7 +200,7 @@ class GitController extends Controller {
     if(this.app.editor.edOn()){ await this.app.editor.file.edOpenFile(filePath,{anchor:this._gitActiveRepo(),preview:!!(opts||{}).preview}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
-    if(rid) await this.app.addTab(rid,TAB_TYPE_EDITOR,{filePath,windowId:w.id});
+    if(rid) await this.app.layout.tabAdd.addTab(rid,TAB_TYPE_EDITOR,{filePath,windowId:w.id});
   }
 
   /**
@@ -220,7 +220,7 @@ class GitController extends Controller {
     if(this.app.editor.edOn()){ await this.app.editor.file.edOpenFile(openPath,{name,anchor:this._gitActiveRepo()}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
-    if(rid) await this.app.addTab(rid,TAB_TYPE_EDITOR,{filePath:openPath,name,windowId:w.id});
+    if(rid) await this.app.layout.tabAdd.addTab(rid,TAB_TYPE_EDITOR,{filePath:openPath,name,windowId:w.id});
   }
 
   /**
@@ -231,7 +231,7 @@ class GitController extends Controller {
     if(!cwd) return;
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
-    if(rid) await this.app.addTab(rid,TAB_TYPE_TERMINAL,{cwd,windowId:w.id,name:pathBase(cwd)});
+    if(rid) await this.app.layout.tabAdd.addTab(rid,TAB_TYPE_TERMINAL,{cwd,windowId:w.id,name:pathBase(cwd)});
   }
 
   /**
@@ -243,9 +243,9 @@ class GitController extends Controller {
   async _gitPlainTarget(){
     const plain=this.plainWindows();
     let w=plain.find(s=>s.id===this.app._lastPlainWindow)||plain[0];
-    if(!w) w=await this.app._mkWindow();
+    if(!w) w=await this.app.layout._mkWindow();
     if(!w||!w.layout) return null;
-    this.app.switchWindow(w.id);
+    this.app.layout.switchWindow(w.id);
     return w;
   }
 
@@ -326,7 +326,7 @@ class GitController extends Controller {
       const pn=w.focusedPane?findPane(w.layout,w.focusedPane):firstPane(w.layout);
       for(const p of [pn,firstPane(w.layout)]){
         if(!p) continue;
-        const tab=p.tabs.find(x=>x.id===this.app.paneTab(p));
+        const tab=p.tabs.find(x=>x.id===this.app.slot.paneTab(p));
         if(tab&&tab.type===TAB_TYPE_TERMINAL&&this.app.toolIds.has(tab.toolId)) return tab.toolId;
       }
     }
@@ -346,6 +346,6 @@ Object.defineProperty(App.prototype,'gitPanel',{
    * 사이드바 배지가 창을 보지 않을 때도 이 값을 딛는다 (git-poll 의 signal
    * 주석과 같은 근거).
    */
-  get(){ const app=this; return app.git.surfaces.gitPanelAt(app.git.surfaces._gitRootOfActive(),app.slotFocused()) },
+  get(){ const app=this; return app.git.surfaces.gitPanelAt(app.git.surfaces._gitRootOfActive(),app.slot.slotFocused()) },
   configurable:true,
 });

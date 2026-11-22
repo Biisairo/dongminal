@@ -74,7 +74,7 @@ async function closeByName(page: Page, name: string) {
     const a = (window as any).app;
     const pn = a.testing.flattenPanes(a.testing.aw().layout)[0];
     const tab = pn.tabs.find((x: any) => x.name === n);
-    return a.closeTab(pn.id, tab.id);
+    return a.layout.tabOps.closeTab(pn.id, tab.id);
   }, name);
 }
 
@@ -98,7 +98,7 @@ test.describe('TC-RTR-1 — 닫은 탭을 역순으로 다시 연다 (FR-RTR-1~5
     await page.evaluate(() => {
       const a = (window as any).app;
       const pn = a.testing.flattenPanes(a.testing.aw().layout)[0];
-      return a.addTab(pn.id, 'git', { gitView: 'history' });
+      return a.layout.tabAdd.addTab(pn.id, 'git', { gitView: 'history' });
     });
     await expect.poll(async () => (await tabs(page)).list).toEqual([E('a.txt'), DIFF, HIST]);
 
@@ -142,7 +142,7 @@ test.describe('TC-RTR-1 — 닫은 탭을 역순으로 다시 연다 (FR-RTR-1~5
     const pnTabs = page.locator('#area .pn.focused .pn-tab');
     await page.locator('#area .pn.focused .pn-tab-add').click();
     await expect(pnTabs).toHaveCount(2, { timeout: 15000 });
-    await page.evaluate(() => { const a = (window as any).app; return a.closeTabFocused() });
+    await page.evaluate(() => { const a = (window as any).app; return a.layout.tabOps.closeTabFocused() });
     await expect(pnTabs).toHaveCount(1, { timeout: 15000 });
     await page.evaluate(() => (window as any).app.executeAction('tabReopen'));
     // **예외 (`TEST-16`)**: 터미널 탭이 **되살아나지 않음**을 잰다.
@@ -160,7 +160,7 @@ test.describe('TC-RTR-2 — 다시 연 편집기는 커서·스크롤이 그대�
       const a = (window as any).app;
       const pn = a.testing.flattenPanes(a.testing.aw().layout)[0];
       const tab = pn.tabs.find((x: any) => x.name === 'long.txt');
-      const ed = tab && a.editorAny(tab.id);
+      const ed = tab && a.slot.editorAny(tab.id);
       const v = ed && ed._view;
       if (!v) return null;
       return { line: v.state.doc.lineAt(v.state.selection.main.head).number, top: Math.round(v.scrollDOM.scrollTop) };
@@ -169,7 +169,7 @@ test.describe('TC-RTR-2 — 다시 연 편집기는 커서·스크롤이 그대�
     await page.evaluate(() => {
       const a = (window as any).app;
       const pn = a.testing.flattenPanes(a.testing.aw().layout)[0];
-      const v = a.editorAny(pn.tabs.find((x: any) => x.name === 'long.txt').id)._view;
+      const v = a.slot.editorAny(pn.tabs.find((x: any) => x.name === 'long.txt').id)._view;
       v.dispatch({ selection: { anchor: v.state.doc.line(150).from } });
       v.scrollDOM.scrollTop = 1500;
     });
@@ -261,7 +261,7 @@ test.describe('TC-RTR-7 — 뒤로·앞으로 버튼 (FR-RTR-13·14)', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       const w = a.testing.plainWindows()[0];
-      a.switchWindow(w.id);
+      a.layout.switchWindow(w.id);
     });
     await expect(back).toBeHidden();
     await expect(fwd).toBeHidden();
@@ -272,10 +272,10 @@ test.describe('TC-RTR-7 — 뒤로·앞으로 버튼 (FR-RTR-13·14)', () => {
     // 터미널 창에서는 버튼이 서지 않는다 — 판정 함수만 잰다.
     await page.locator('#area .pn.focused .pn-tab-add').click();
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(2, { timeout: 15000 });
-    expect(await page.evaluate(() => (window as any).app.navCan(-1))).toBe(true);
-    await page.evaluate(() => { const a = (window as any).app; return a.closeTab(a.focused, a.testing.aw().layout.tabs[0].id) });
+    expect(await page.evaluate(() => (window as any).app.focus.navCan(-1))).toBe(true);
+    await page.evaluate(() => { const a = (window as any).app; return a.layout.tabOps.closeTab(a.focused, a.testing.aw().layout.tabs[0].id) });
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(1, { timeout: 15000 });
-    expect(await page.evaluate(() => (window as any).app.navCan(-1))).toBe(false);
+    expect(await page.evaluate(() => (window as any).app.focus.navCan(-1))).toBe(false);
   });
 });
 
@@ -312,10 +312,10 @@ test.describe('TC-RTR-5 — 창을 오가도 탭의 스크롤이 그대로다 (F
     const back = await page.evaluate(() => (window as any).app.ws.activeWindow);
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a.testing.plainWindows()[0].id);
+      a.layout.switchWindow(a.testing.plainWindows()[0].id);
     });
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 10000 });
-    await page.evaluate((id) => (window as any).app.switchWindow(id), back);
+    await page.evaluate((id) => (window as any).app.layout.switchWindow(id), back);
   }
   const top = (page: Page, sel: string) => page.evaluate((s) => {
     const el = document.querySelector(s) as HTMLElement | null;

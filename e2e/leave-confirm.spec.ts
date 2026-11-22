@@ -146,7 +146,7 @@ test.describe('묶음 CLG — 닫기 가드 (FR-CLG-1~6)', () => {
     await makeDocDirty(page);
 
     const winId = await page.evaluate(() => (window as any).app.testing.aw().id);
-    await page.evaluate((id: string) => { (window as any).__del = (window as any).app.delWindow(id) }, winId);
+    await page.evaluate((id: string) => { (window as any).__del = (window as any).app.layout.delWindow(id) }, winId);
 
     await expect(page.locator(OVERLAY)).toBeVisible({ timeout: 10000 });
     // 탭 닫기와 **같은 팝업**이다 — 문구도 버튼도 (FR-CLG-1).
@@ -172,7 +172,7 @@ test.describe('묶음 CLG — 닫기 가드 (FR-CLG-1~6)', () => {
     await makeDocDirty(page, 'SAVED');
 
     const winId = await page.evaluate(() => (window as any).app.testing.aw().id);
-    await page.evaluate((id: string) => { (window as any).__del = (window as any).app.delWindow(id) }, winId);
+    await page.evaluate((id: string) => { (window as any).__del = (window as any).app.layout.delWindow(id) }, winId);
     await expect(page.locator(OVERLAY)).toBeVisible({ timeout: 10000 });
     await page.click(OVERLAY + ' .confirm-save');
     await page.evaluate(() => (window as any).__del);

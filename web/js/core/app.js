@@ -146,7 +146,7 @@ class App {
   async init(){
     // OS focus listeners go up before any async work — a `focus` event during
     // init must still claim the active window.
-    this._initFocusSync();
+    this.focus._initFocusSync();
     // F-4: 서버 상수(이름 상한 등)를 받는다. 부팅을 기다리게 하지 않는다 — 받기 전에는
     // 자르지 않을 뿐이다.
     apiGet(META_API).then(r=>{if(r.ok) applyServerMeta(r.data)});
@@ -162,41 +162,41 @@ class App {
       // FR-SFD-22: 여기서 세우는 창은 **화면을 위한 것**이다. 이 판이 디스크로
       // 나가면 사용자의 창·탭이 그것으로 덮인다 (`FE-2`, P0).
       this._bootFailed=true;
-      if(!this.ws.windows.length) await this._mkWindow();
+      if(!this.ws.windows.length) await this.layout._mkWindow();
     }
     this._initRestoreSession();
     // FR-WSL-2·7: 슬롯 복원은 activeWindow 복원 **뒤**다 — 포커스 슬롯의 창이
     // activeWindow 를 덮는다 (FR-WSL-3). 워크스페이스에 없는 창 id 는 그 슬롯만
     // 비운다.
-    this._slotsRestore();
+    this.slot._slotsRestore();
     this.agents._pruneAgentOrder();
     const a=this.tool.life.aw();
-    if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this.setFocusState(f.id, a)}
+    if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this.focus.setFocusState(f.id, a)}
     this.render();
     this._bind();
-    this._subscribeCommands();
+    this.wsSync._subscribeCommands();
     // Initial window claim: only if window has focus AND no other window
     // already owns this window (prevents init-time claim races).
     if(document.hasFocus&&document.hasFocus()){
       const sid=this.ws.activeWindow;
       if(sid && !this._windowFocusOwner[sid]){
-        this._focusWindow(sid);
+        this.focus.owner._focusWindow(sid);
       }
     }
-    this.applyFocusOverlay();
+    this.focus.owner.applyFocusOverlay();
     this.git._initGitSection();
     this.editor.section._initEditorSection();
     // FR-SRL-8·9: 내부 새로고침의 진입점 둘. 배선은 `_subscribeCommands` **뒤**
     // 여야 한다 — 그것이 `_sseKick` 을 세운다.
-    this._initSoftReload();
+    this.wsSync.reload._initSoftReload();
     // FR-WSL-50: 슬롯 토글 버튼. 다른 `_init*` 과 같은 자리다 (방향 설정은 `DisplaySection`).
-    this._initSlots();
+    this.slot.ops._initSlots();
   }
 
   // 부팅의 워크스페이스 채택 — 서버 스냅숏을 받아 정규화하고, 창이 없으면 세운다.
   async _initAdoptWorkspace(edReady){
     const stRes=await this._fetchStateKnown();
-    this.wsETag=this._etagOf(stRes);
+    this.wsETag=this.wsSave._etagOf(stRes);
     const st=stRes.data||{};
     const sp=st.tools||[];
     const sv=st.workspace;
@@ -206,7 +206,7 @@ class App {
     for(const p of sp){this.toolIds.add(p.id);this._toolsBoot.add(p.id)}
     // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 첫 화면의 전경 이름은 이 목록에서 온다 — 첫
     // 구독이 같은 목록을 다시 받지 않는다. 모르는 목록으로는 얹지 않는다 (FR-TLU-7).
-    if(st.toolsKnown!==false) this._fgApply(sp);
+    if(st.toolsKnown!==false) this.wsSync._fgApply(sp);
     await edReady;
     // **창이 없어도 서버가 소유한 키는 채택한다.**
     //
@@ -221,7 +221,7 @@ class App {
       // FR-WSC-12: 첫 로드도 원격이 아는 창을 알려 주는 자리다. 비어 있으면
       // 비어 있는 것이 사실이며, 그 뒤 우리가 만드는 창은 전부 "원격이 본 적
       // 없는 창" 이다.
-      this._wsMarkSaved(sv.windows);
+      this.wsSave._wsMarkSaved(sv.windows);
     }
     // REPO_SIDE_WIDTH_SRS FR-RSW-5: 마이그레이션이 무언가 옮겼는지. 저장은 아래
     // 재조정의 `save()` 와 겹치므로 여기서는 표시만 든다.
@@ -231,19 +231,19 @@ class App {
       // FR-UXB-8: 폭은 걷어내기만 한다 — 치수는 창의 것이다 (D-UXB-1). 화면에
       // 세우는 일은 하지 않는다: 첫 페인트 스크립트가 이 창의 값으로 이미 세웠고,
       // 서버의 값이 그것을 덮으면 다른 기기에서 끈 폭이 이 화면에 강제된다.
-      sideWidthMoved=this._stripDeviceKeys();
+      sideWidthMoved=this.layout.winState._stripDeviceKeys();
       // FR-OPT-11-1 (FEC-17): 원격 채택과 같은 한 벌이다.
-      if(this._normalizeIncomingWorkspace(this.ws,ok)) this.save();
-      this._fallbackActiveWindow(this.ws);
+      if(this.layout.winState._normalizeIncomingWorkspace(this.ws,ok)) this.wsSave.save();
+      this.layout.winState._fallbackActiveWindow(this.ws);
     }
     // 일반 창 하나는 늘 있어야 한다 — Editor 창만 남기고 사용자를 그 안에
     // 가두지 않는다 (FR-CLS-2 와 같은 근거). **재조정보다 먼저** 한다: 창
     // 목록의 순서가 곧 사이드바의 순서이고, 사용자가 만든 적 없는 Editor 창이
     // 그 앞자리를 차지할 이유가 없다.
-    if(!this.git.plainWindows().length) await this._mkWindow();
+    if(!this.git.plainWindows().length) await this.layout._mkWindow();
     // FR-EDT-42·43: 재조정이 도는 첫 번째 자리. 워크스페이스가 비어 있어도
     // root 에디터 창은 있어야 한다 (FR-EDT-13).
-    if(this.editor.sync._edReconcile()||sideWidthMoved) this.save();
+    if(this.editor.sync._edReconcile()||sideWidthMoved) this.wsSave.save();
   }
 
   // Restore per-window activeWindow from sessionStorage (survives refresh).
@@ -251,7 +251,7 @@ class App {
   _initRestoreSession(){
     const saved=PrefStore.session.get(STORE_KEYS.activeWindow);
     if(saved && this.ws.windows.some(s=>s.id===saved)){
-      this._activateWindow(saved);
+      this.layout.winState._activateWindow(saved);
     }else{
       /**
        * REPO_TAB_UNIFY_SRS D-RTU-18: **Repo 창의 신원은 id 가 아니라 루트다.**
@@ -266,11 +266,11 @@ class App {
        */
       const root=PrefStore.session.get(ACTIVE_EDITOR_ROOT_KEY);
       const w=root?this.editor.edWindowFor(root):null;
-      if(w) this._activateWindow(w.id);
+      if(w) this.layout.winState._activateWindow(w.id);
     }
     // FR-RLC-8: 사이드바 탭이 돌아갈 창의 기억도 같은 성질이다 — 같은 블록에서
     // 되살린다.
-    this._restoreReturn();
+    this.layout._restoreReturn();
     // Restore per-window focusedPane for each window from sessionStorage.
     const map=PrefStore.session.json(STORE_KEYS.focusedPanes,null);
     if(map&&typeof map==='object'){
@@ -288,7 +288,7 @@ class App {
   // 한 글자도 바뀌지 않아야 한다. 같은 도구를 두 슬롯에 그리면 인스턴스가 둘이고
   // WebSocket 도 둘이다 (§7 R-1, 회수는 _slotReap).
   mkTool(id,name,slot){
-    const key=this.slotKey(id,slot||0);
+    const key=this.slot.slotKey(id,slot||0);
     if(this.tools.has(key)) return this.tools.get(key);
     const p=new TerminalTool(id,name);
     p._slot=slot||0;
@@ -297,7 +297,7 @@ class App {
     document.getElementById('area').appendChild(p.el);
     p.connect();
     this.tools.set(key,p);
-    this.applyFocusOverlay();
+    this.focus.owner.applyFocusOverlay();
     return p;
   }
 
@@ -309,10 +309,10 @@ class App {
   // 됐다.
   toolAny(id){
     if(!id) return null;
-    const f=this.slotFocused();
-    const first=this.tools.get(this.slotKey(id,f));
+    const f=this.slot.slotFocused();
+    const first=this.tools.get(this.slot.slotKey(id,f));
     if(first) return first;
-    for(const k of this.slotKeysOf(id)){
+    for(const k of this.slot.slotKeysOf(id)){
       const p=this.tools.get(k);
       if(p) return p;
     }
@@ -380,34 +380,34 @@ class App {
   _buildActionMap(){
     const map={
       // FR-M9-24·25 · UX_BATCH12_SRS FR-RTR-13a: 뒤로·앞으로 버튼과 **같은 함수**를 부른다.
-      focusBack:()=>this.navBack(),focusForward:()=>this.navForward(),
-      tabReopen:()=>this.tabReopen(),
-      windowNext:()=>this.switchWindowNext(),windowPrev:()=>this.switchWindowPrev(),
-      tabNext:()=>this.switchTabNext(),tabPrev:()=>this.switchTabPrev(),
-      paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),
-      paneLeft:()=>this.paneNavigate('left'),paneRight:()=>this.paneNavigate('right'),
-      splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
-      newWindow:()=>this.addWindow().catch(err=>this.tool._notify(errText(t('core.open_window_fail'),err))),
-      newTab:()=>this.addTabFocused(),
-      closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
+      focusBack:()=>this.focus.navBack(),focusForward:()=>this.focus.navForward(),
+      tabReopen:()=>this.layout.reopen.tabReopen(),
+      windowNext:()=>this.layout.tabOps.switchWindowNext(),windowPrev:()=>this.layout.tabOps.switchWindowPrev(),
+      tabNext:()=>this.layout.tabOps.switchTabNext(),tabPrev:()=>this.layout.tabOps.switchTabPrev(),
+      paneUp:()=>this.layout.tabOps.paneNavigate('up'),paneDown:()=>this.layout.tabOps.paneNavigate('down'),
+      paneLeft:()=>this.layout.tabOps.paneNavigate('left'),paneRight:()=>this.layout.tabOps.paneNavigate('right'),
+      splitH:()=>this.layout.tabOps.split('horizontal'),splitV:()=>this.layout.tabOps.split('vertical'),
+      newWindow:()=>this.layout.addWindow().catch(err=>this.tool._notify(errText(t('core.open_window_fail'),err))),
+      newTab:()=>this.layout.tabOps.addTabFocused(),
+      closeWindow:()=>this.layout.tabOps.closeWindowActive(),closeTab:()=>this.layout.tabOps.closeTabFocused(),
       // FR-PSC-3 · FR-CHR-15 (D-7): 버튼과 **같은 함수**다.
       agentsToggle:()=>this.agents.list.actPanelOpen(),
       // FR-WSL-51·74: 버튼과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
-      slotAdd:()=>this.slotAdd(),
-      slotRemove:()=>this.slotRemove(),
+      slotAdd:()=>this.slot.ops.slotAdd(),
+      slotRemove:()=>this.slot.ops.slotRemove(),
       // FR-WSL-56: 손잡이 클릭과 같은 길이다 (`slotFocusTo`).
-      slotPrev:()=>this.slotNav(-1),
-      slotNext:()=>this.slotNav(1),
+      slotPrev:()=>this.slot.ops.slotNav(-1),
+      slotNext:()=>this.slot.ops.slotNav(1),
       // FR-PSC-3: 버튼 클릭과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
       bgToggle:()=>this.statusbar._bgPanelOpen(),
       runsToggle:()=>this.runsPanel()._runsModalToggle(),
       // FR-SBC-7a: 손잡이 드래그와 같은 함수다 (input-binding).
-      sidebarToggle:()=>this._toggleSidebar(),
+      sidebarToggle:()=>this.layout.tabOps._toggleSidebar(),
       // FR-SRL-9: 다른 앱 단축키와 **같은 길**을 탄다 — 설정에서 바꿀 수 있고,
       // 터미널보다 앞서는 우선순위도 그 체계가 준다 (shortcuts.md).
-      softReload:()=>this.softReload(),
+      softReload:()=>this.wsSync.reload.softReload(),
       // UX-22: 설정 버튼과 **같은 길**로 열고 Shortcuts 탭으로 간다.
       shortcutsHelp:()=>this.settings._openSettings('shortcuts'),
       toggleSearch:()=>this.tool.search.toggleSearch(),
@@ -434,7 +434,7 @@ class App {
     const done = () => {
       const v = input.value.trim();
       // FUI-18: 창 이름도 만들 때와 같은 상한을 지난다.
-      if(v && v !== old) { obj.name = clampEntityName(v); this.save(); }
+      if(v && v !== old) { obj.name = clampEntityName(v); this.wsSave.save(); }
       // 이름 요소를 되돌린다. 이름이 그대로면 행의 서명도 그대로라 다시 그리기가 행을
       // 새로 만들지 않는다 — 되돌리지 않으면 편집칸이 남는다.
       input.replaceWith(el);
@@ -461,7 +461,7 @@ class App {
   // FR-SVS-61: 미뤄 둔 그리기가 있으면 이 그리기가 그것을 대신한다 — 지연은
   // "클릭을 삼키지 않기" 위한 것이지 그리기를 빼먹기 위한 것이 아니다.
   // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 창·탭·사이드가 바뀌면 감시 집합도 바뀐다.
-  render(){ this._slotRenderPending=false; this.renderer.render(); this.agents.agentsRender(); this.editor.watch.edWatchSync(); this.focusHighlightSync(); this.attnFocusSync() }
+  render(){ this._slotRenderPending=false; this.renderer.render(); this.agents.agentsRender(); this.editor.watch.edWatchSync(); this.focus.hl.focusHighlightSync(); this.focus.hl.attnFocusSync() }
 
 
   _bind(){ this.inputBinding.bind() }

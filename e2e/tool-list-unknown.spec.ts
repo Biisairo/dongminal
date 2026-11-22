@@ -161,9 +161,9 @@ test.describe('묶음 M — 죽은 도구 청소와 슬롯 키', () => {
     // (FR-WSL-20). 칸 1 의 키는 `toolId@1` 이다.
     await page.evaluate((id) => {
       const app = (window as any).app;
-      app.slotAdd();
-      app.slotOpen(1, id);
-      app.slotFocusTo(0);
+      app.slot.ops.slotAdd();
+      app.slot.ops.slotOpen(1, id);
+      app.slot.ops.slotFocusTo(0);
       app.render();
     }, win);
 
@@ -183,9 +183,9 @@ test.describe('묶음 M — 죽은 도구 청소와 슬롯 키', () => {
     const win = await activeWindowOf(page);
     await page.evaluate((id) => {
       const app = (window as any).app;
-      app.slotAdd();
-      app.slotOpen(1, id);
-      app.slotFocusTo(0);
+      app.slot.ops.slotAdd();
+      app.slot.ops.slotOpen(1, id);
+      app.slot.ops.slotFocusTo(0);
       app.render();
     }, win);
     expect((await toolKeys(page)).some((k: string) => k.includes('@1'))).toBe(true);

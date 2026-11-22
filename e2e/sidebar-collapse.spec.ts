@@ -345,7 +345,7 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
     await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
     const [first, second] = await page.evaluate(() =>
       (window as any).app.testing.plainWindows().map((s: any) => s.id).slice(0, 2));
-    await page.evaluate((id) => (window as any).app.switchWindow(id), first);
+    await page.evaluate((id) => (window as any).app.layout.switchWindow(id), first);
 
     await toggleKey(page);
     await page.locator(`#windows .si[data-sid="${second}"]`).click();

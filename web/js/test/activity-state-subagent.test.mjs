@@ -222,9 +222,9 @@ test('FR-ASV-21·44: 복원이 limits 를 담는다', async () => {
   const ctx = loadActivity({ stateFetch: () => Promise.resolve({ ok: true, data: { activities: [], limits } }) });
   const app = controllers(ctx, new ctx.App());
   app._activity = new Map();
-  app._restoreBegin = () => new Set();
-  app._restoreLive = () => true;
-  app._restoreEnd = () => {};
+  app.wsSync._restoreBegin = () => new Set();
+  app.wsSync._restoreLive = () => true;
+  app.wsSync._restoreEnd = () => {};
   app.agents.agentsRender = () => {};
   await app.agents._activityRestore();
   assert.deepEqual(plain(app._limits), limits);

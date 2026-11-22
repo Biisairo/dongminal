@@ -137,7 +137,7 @@ class GitSync extends Controller {
     // WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-18: 핀은 서버의 워크스페이스를 고친다 — 이 화면의
     // 저장을 먼저 끝낸다. 그러지 않으면 방금 한 조작(탭 전환)을 실은 저장이 핀의 rev 에
     // 409 를 받고 원격 채택으로 그 조작이 사라진다.
-    await this.app.save();
+    await this.app.wsSave.save();
     const res=await gitPost(GIT_API.reposPin,{path});
     const d=res.data;
     if(!res.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
@@ -150,7 +150,7 @@ class GitSync extends Controller {
   async gitUnpin(path){
     if(!path) return false;
     // FR-WSC-18: 핀과 같다.
-    await this.app.save();
+    await this.app.wsSave.save();
     const res=await gitPost(GIT_API.reposUnpin,{path});
     const d=res.data;
     if(!res.ok) return false;
@@ -189,12 +189,12 @@ class GitSync extends Controller {
    */
   async _pollGitJobs(){
     if(!this._gitJobsWanted()) return;
-    const flight=this.app._restoreBegin('gitJobs');
+    const flight=this.app.wsSync._restoreBegin('gitJobs');
     // 전역 조회다 — 리포에 매이지 않으므로 echo 가 없다 (FR-DPN-33).
     const res=await gitFetch(GIT_API.jobs,null);
     const d=res.data;
-    if(!this.app._restoreLive('gitJobs',flight)) return;
-    this.app._restoreEnd('gitJobs',flight);
+    if(!this.app.wsSync._restoreLive('gitJobs',flight)) return;
+    this.app.wsSync._restoreEnd('gitJobs',flight);
     // 받지 못했으면 이전 목록을 유지한다 — 한 번의 실패로 목록이 사라지면
     // "작업이 끝났다" 와 "모른다" 가 같아진다.
     if(!res.ok||!Array.isArray(d.jobs)) return;
@@ -220,14 +220,14 @@ class GitSync extends Controller {
   _gitJobsBegin(){
     if(!this._gitJobsWanted()) return null;
     const displaced=this.app.bus.inFlight('gitJobs');
-    const flight=this.app._restoreBegin('gitJobs');
+    const flight=this.app.wsSync._restoreBegin('gitJobs');
     this._gitJobsDisplacer=displaced?flight:null;
     return flight;
   }
 
   _gitJobsSettle(flight,jobs){
-    if(!this.app._restoreLive('gitJobs',flight)) return;
-    this.app._restoreEnd('gitJobs',flight);
+    if(!this.app.wsSync._restoreLive('gitJobs',flight)) return;
+    this.app.wsSync._restoreEnd('gitJobs',flight);
     const requery=this._gitJobsDisplacer===flight;
     this._gitJobsDisplacer=null;
     if(Array.isArray(jobs)) this._gitJobsAdopt(jobs);

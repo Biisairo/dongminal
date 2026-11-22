@@ -33,8 +33,8 @@ class FocusOwner extends Controller {
   // 자리가 한 글자도 바뀌지 않아야 한다.
   _focusWindow(windowId,slot){
     if(!windowId) return;
-    const si=(slot==null)?this.app.slotFocused():slot;
-    const cid=this.app._slotIdentity(si);
+    const si=(slot==null)?this.app.slot.slotFocused():slot;
+    const cid=this.app.slot._slotIdentity(si);
     let changed=false;
     // Release other windows this SLOT owns (one slot → one window).
     for(const sid of Object.keys(this.app._windowFocusOwner)){
@@ -63,7 +63,7 @@ class FocusOwner extends Controller {
    * 부르지 않으면 칸 여럿의 재주장이 한 자리에서만 온전해진다 (실제로 그랬다).
    */
   _focusReclaim(){
-    if(this.app._slots) this.app._slotClaimAll();
+    if(this.app._slots) this.app.slot.ops._slotClaimAll();
     else if(this.app.ws.activeWindow) this._focusWindow(this.app.ws.activeWindow,0);
   }
 
@@ -129,12 +129,12 @@ class FocusOwner extends Controller {
    * 합류·복귀 시의 스냅샷. `state-registry` 의 `merge:'latest'` — 추월만 막는다.
    */
   _focusRestore(src){
-    const flight=this.app._restoreBegin('focus');
+    const flight=this.app.wsSync._restoreBegin('focus');
     return stateFetch(src,'/api/focus').then(res=>{
       const j=res.ok?res.data:null;
       if(!j) return;
-      if(!this.app._restoreLive('focus',flight)) return;
-      this.app._restoreEnd('focus',flight);
+      if(!this.app.wsSync._restoreLive('focus',flight)) return;
+      this.app.wsSync._restoreEnd('focus',flight);
       this.app._windowFocusOwner=j.owners||{};
       this.applyFocusOverlay();
       // FR-WSL-12: 슬롯이 둘이면 둘 다 재주장한다 — 각 슬롯의 구독이 따로 끊기고
@@ -156,7 +156,7 @@ class FocusOwner extends Controller {
     if(!sid) return true; // pane not in any window yet → allow
     const owner=this.app._windowFocusOwner[sid];
     if(!owner) return true;
-    return owner===this.app._slotIdentity(slot||0);
+    return owner===this.app.slot._slotIdentity(slot||0);
   }
 
   // applyFocusOverlay syncs the DOM: panes whose window is owned by
@@ -175,7 +175,7 @@ class FocusOwner extends Controller {
     for(const pn of document.querySelectorAll('.pn')){
       const slotEl=pn.closest?pn.closest('.slot'):null;
       const slot=slotEl?(parseInt(slotEl.dataset.slot,10)||0):0;
-      const mine=this.app._slotIdentity(slot);
+      const mine=this.app.slot._slotIdentity(slot);
       let dim=false;
       for(const tabEl of pn.querySelectorAll('.pn-tab[data-toolid]')){
         const sid=this._toolWindowId(tabEl.dataset.toolid);
@@ -214,10 +214,10 @@ class FocusOwner extends Controller {
   // PTY is sized correctly BEFORE render, avoiding a one-frame glitch.
   resendWindowSizes(windowId,slot){
     if(!windowId) return;
-    const si=(slot==null)?this.app.slotFocused():slot;
+    const si=(slot==null)?this.app.slot.slotFocused():slot;
     // Don't send resize if another slot/client owns this window.
     const owner=this.app._windowFocusOwner[windowId];
-    if(owner&&owner!==this.app._slotIdentity(si)) return;
+    if(owner&&owner!==this.app.slot._slotIdentity(si)) return;
     const s=this.app.ws.windows.find(x=>x.id===windowId);
     if(!s||!s.layout) return;
     const toolIds=new Set();
@@ -230,7 +230,7 @@ class FocusOwner extends Controller {
     };
     walk(s.layout);
     for(const pid of toolIds){
-      const p=this.app.tools.get(this.app.slotKey(pid,si));
+      const p=this.app.tools.get(this.app.slot.slotKey(pid,si));
       // Send resize even if pane is hidden — the dimensions were set when
       // it was last visible and are still valid. This avoids a visible
       // glitch where the PTY renders at the wrong size for one frame.
@@ -247,7 +247,3 @@ class FocusOwner extends Controller {
     }
   }
 }
-
-// 레이아웃·슬롯·도구·상태 등록부와 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'focus.owner',['_focusWindow','_onWindowFocus','_focusRestore','resizeCheck','applyFocusOverlay',
-  'resendWindowSizes']);

@@ -356,7 +356,7 @@ class GitPanel {
     // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
     // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
     // "같은 창에서 리포만 바꾼" 경우가 새로고침에서 사라진다.
-    this.app.save();
+    this.app.wsSave.save();
   }
 
   /**

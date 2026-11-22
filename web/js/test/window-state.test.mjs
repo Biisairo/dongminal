@@ -52,16 +52,16 @@ const term = (id, toolId) => ({ id, type: 'terminal', toolId });
 test('FEC-17: 활성 창 폴백은 Editor 가 아닌 첫 창이고, 없으면 첫 창·null 이다', () => {
   const { a } = world();
   const ws = { activeWindow: 'gone', windows: [{ id: 'E', editor: { root: '/r' } }, { id: 'P' }] };
-  a._fallbackActiveWindow(ws);
+  a.layout.winState._fallbackActiveWindow(ws);
   assert.equal(ws.activeWindow, 'P');
   ws.activeWindow = 'E';
-  a._fallbackActiveWindow(ws);
+  a.layout.winState._fallbackActiveWindow(ws);
   assert.equal(ws.activeWindow, 'E', '살아 있는 활성 창은 그대로 둔다');
   const only = { activeWindow: null, windows: [{ id: 'E', editor: { root: '/r' } }] };
-  a._fallbackActiveWindow(only);
+  a.layout.winState._fallbackActiveWindow(only);
   assert.equal(only.activeWindow, 'E');
   const none = { activeWindow: 'x', windows: [] };
-  a._fallbackActiveWindow(none);
+  a.layout.winState._fallbackActiveWindow(none);
   assert.equal(none.activeWindow, null);
 });
 
@@ -73,7 +73,7 @@ test('FEC-17: 정규화는 죽은 도구 탭을 걷고, layout 이 빈 일반 �
     { id: 'E', editor: { root: '/r' } },
     null,
   ] };
-  const changed = a._normalizeIncomingWorkspace(sv, new Set(['live']));
+  const changed = a.layout.winState._normalizeIncomingWorkspace(sv, new Set(['live']));
   assert.equal(changed, false);
   assert.deepEqual(plain(sv.windows.map((s) => s.id)), ['A', 'E']);
   assert.deepEqual(plain(sv.windows[0].layout.tabs.map((t) => t.id)), ['t1']);
@@ -85,7 +85,7 @@ test('FEC-17: 편집기 탭 마이그레이션이 옮겼으면 다시 거르고 
   a.git._migrateGitWindow = (list) => { seen.push(['git', list]); return 0 };
   a.editor.open._migrateEditorTabs = (list) => { seen.push(['ed', list]); list[0].layout = null; return 1 };
   const sv = { windows: [{ id: 'A', layout: pane('p1', [term('t1', 'x')]) }, { id: 'B', layout: pane('p2', [term('t2', 'x')]) }] };
-  const changed = a._normalizeIncomingWorkspace(sv, new Set(['x']));
+  const changed = a.layout.winState._normalizeIncomingWorkspace(sv, new Set(['x']));
   assert.equal(changed, true);
   assert.deepEqual(plain(sv.windows.map((s) => s.id)), ['B']);
   assert.equal(seen[0][0], 'git');
@@ -95,11 +95,11 @@ test('FEC-17: 편집기 탭 마이그레이션이 옮겼으면 다시 거르고 
 test('FEC-17: 기기 키를 걷어내고 폭을 옮겼는지 알린다', () => {
   const { a } = world();
   a.ws = { windows: [], displayMode: 'mobile', mobileBreakpoint: 900, sidebarWidth: 200 };
-  assert.equal(a._stripDeviceKeys(), true);
+  assert.equal(a.layout.winState._stripDeviceKeys(), true);
   assert.deepEqual(Object.keys(a.ws), ['windows']);
-  assert.equal(a._stripDeviceKeys(), false);
+  assert.equal(a.layout.winState._stripDeviceKeys(), false);
   a.editor.pane._edMigrateSideWidth = () => true;
-  assert.equal(a._stripDeviceKeys(), true, 'Repo 사이드 폭의 이사도 바뀜이다');
+  assert.equal(a.layout.winState._stripDeviceKeys(), true, 'Repo 사이드 폭의 이사도 바뀜이다');
 });
 
 test('FEC-17: 두 로드 경로가 같은 정규화·폴백을 지난다 (두 벌 금지)', () => {
@@ -121,15 +121,15 @@ test('FEC-18: _activateWindow 는 모델과 탭별 기억(창 id·Repo 루트)�
   a.ws = { activeWindow: 'P', windows: [{ id: 'P' }, { id: 'E', editor: { root: '/repo' } }] };
   a.tool.life.aw = () => a.ws.windows.find((s) => s.id === a.ws.activeWindow);
   a.focused = 'pane-1';
-  a._activateWindow('E', { rememberFocus: true });
+  a.layout.winState._activateWindow('E', { rememberFocus: true });
   assert.equal(a.ws.activeWindow, 'E');
   assert.equal(a.ws.windows[0].focusedPane, 'pane-1', '떠나는 창의 포커스를 적는다');
   assert.equal(sessionStorage.getItem('activeWindow'), 'E');
   assert.equal(sessionStorage.getItem('activeEditorRoot'), '/repo');
   a.focused = 'pane-9';
-  a._activateWindow('E', { rememberFocus: true });
+  a.layout.winState._activateWindow('E', { rememberFocus: true });
   assert.equal(a.ws.windows[1].focusedPane, undefined, '같은 창이면 떠나는 것이 아니다');
-  a._activateWindow('P');
+  a.layout.winState._activateWindow('P');
   assert.equal(sessionStorage.getItem('activeWindow'), 'P');
   assert.equal(sessionStorage.getItem('activeEditorRoot'), null, '일반 창이면 루트 기억을 지운다');
 });

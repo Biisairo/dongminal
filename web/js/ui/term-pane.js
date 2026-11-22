@@ -11,7 +11,7 @@ class TerminalTool {
     // FR-OPT-12-1: 연결·재접속·송신 큐는 `TermSocket` 이 갖는다.
     this._sock=new TermSocket(this);
     // REFACTOR3_FE_REST5_SRS D-FR5-9: 전송·보류 배너·출력·크기 판정은 부품이 맡는다. 부품은 상태를 갖지 않고 이 칸의
-    // 이름을 `this.pane.X` 로 부르며, 같은 이름의 위임자가 원형에 있다(부품 파일 끝의 표).
+    // 이름을 `this.pane.X` 로 부른다. 부품의 이름은 바깥도 부품 경로로 부른다(REFACTOR3_FE_DELEG_SRS).
     this.xfer=new TermTransfer(this); this.heldBar=new TermHeld(this); this.output=new TermOutput(this); this.sizer=new TermFit(this);
     this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false;
     // FR-RCS-1: 도구가 사라졌다는 서버의 통보(OP.EXIT)를 받았는가. 서면 재연결을
@@ -67,7 +67,7 @@ class TerminalTool {
         {id:'selectAll',label:TERM_MENU_SELECT_ALL,onClick:()=>this.term.selectAll()},
         {sep:true},
         {id:'find',label:TERM_MENU_FIND,onClick:()=>{if(window.app&&app.tool?.search.toggleSearch)app.tool.search.toggleSearch()}},
-        {id:'newTab',label:TAB_MENU_NEW,onClick:()=>{if(window.app&&app.addTabFocused)app.addTabFocused()}},
+        {id:'newTab',label:TAB_MENU_NEW,onClick:()=>{if(window.app&&app.layout?.tabOps.addTabFocused)app.layout.tabOps.addTabFocused()}},
       ],{at:{x:e.clientX,y:e.clientY},cls:'term-menu'});
     });
   }
@@ -95,7 +95,7 @@ class TerminalTool {
     this.term.onData(d=>this._onTermData(d));
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
-      if(!window.app||!window.app.resizeCheck(this.id,this._slot)) return;
+      if(!window.app||!window.app.focus.owner.resizeCheck(this.id,this._slot)) return;
       this._sendResize(cols,rows);
     });
     // FR-MTI-1: 모바일 소프트 키보드 입력을 xterm 의 CompositionHelper 경로에서
@@ -196,7 +196,7 @@ class TerminalTool {
   _exitClose(){
     const loc=this._exitSpot();
     if(!loc) return;
-    window.app.closeTab(loc.pane.id,loc.tab.id,loc.win.id);
+    window.app.layout.tabOps.closeTab(loc.pane.id,loc.tab.id,loc.win.id);
   }
 
   /**
@@ -209,8 +209,8 @@ class TerminalTool {
     const loc=this._exitSpot();
     if(!loc) return;
     const app=window.app;
-    await app.addTab(loc.pane.id,'terminal',{windowId:loc.win.id});
-    app.closeTab(loc.pane.id,loc.tab.id,loc.win.id);
+    await app.layout.tabAdd.addTab(loc.pane.id,'terminal',{windowId:loc.win.id});
+    app.layout.tabOps.closeTab(loc.pane.id,loc.tab.id,loc.win.id);
   }
   _sendResize(cols,rows){
     const m=new Uint8Array(5);m[0]=OP.RESIZE;
@@ -224,7 +224,7 @@ class TerminalTool {
     // FR-TRS-7: 새 소켓이다. 좌표 통보를 받기 전까지는 세지 않는다 — 그 전에 오는
     // OpOutput 은 재생분이고, 그것을 더하면 좌표가 재생 길이만큼 앞질러 간다.
     this._seqLive=false;
-    if(this.term && window.app && window.app.resizeCheck(this.id)){
+    if(this.term && window.app && window.app.focus.owner.resizeCheck(this.id)){
       this._sendResize(this.term.cols,this.term.rows);
     }
     this._flushSendQueue();
@@ -273,7 +273,7 @@ class TerminalTool {
     const cols=this.term.cols, rows=this.term.rows;
     if(!(rows>1)) return;
     // FR-TRS-19: 크기의 주인이 아닌 창이 PTY 를 흔들면 주인 창의 화면이 깨진다.
-    if(!window.app||!window.app.resizeCheck(this.id,this._slot)) return;
+    if(!window.app||!window.app.focus.owner.resizeCheck(this.id,this._slot)) return;
     this._sendResize(cols,rows-1);
     TIMERS.defer(()=>{if(this.term)this._sendResize(cols,rows)},{owner:this,label:'trs-nudge'});
   }

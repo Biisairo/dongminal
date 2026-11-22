@@ -436,7 +436,7 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     await expect(treeRows(page).first()).toBeVisible({ timeout: 10000 });
 
     // FR-SVS-20: 관측은 루트마다 하나다. 칸을 둘로 늘려도 그 사실이 유지된다.
-    await page.evaluate(() => (window as any).app.slotAdd());
+    await page.evaluate(() => (window as any).app.slot.ops.slotAdd());
     await page.waitForFunction(
       () => document.querySelectorAll('.ed-win .ed-explorer').length >= 2,
       undefined, { timeout: 10000 });
@@ -446,7 +446,7 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     const cycles = Math.floor(POLL_WAIT / 3000);
     expect(stamp.n, `칸 둘이어도 주기당 한 벌 (n=${stamp.n}, 주기≈${cycles})`)
       .toBeLessThanOrEqual(cycles + 1);
-    await page.evaluate(() => (window as any).app.slotRemove());
+    await page.evaluate(() => (window as any).app.slot.ops.slotRemove());
   });
 });
 

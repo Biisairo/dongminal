@@ -6,7 +6,7 @@
  * 때문이다 (FR-ACL-24) — 그 판정과 그 확인은 같은 한 가지 일이다.
  *
  * REFACTOR3_FE_SETTINGS_SRS 8c: 방송을 받는 `_onAccessChanged`(옛 `settings-live.js`)도 이 섹션에 있다. App 의
- * 위임자 `_onAccessChanged`·`_aclCollect`(저장 단추 판정)가 이리로 잇는다.
+ * 방송 등록부와 저장 단추 판정이 `settings.section('access')` 로 `_onAccessChanged`·`_aclCollect` 를 부른다.
  */
 class AccessSection extends SettingsSection {
   constructor(app){ super(app,'access') }

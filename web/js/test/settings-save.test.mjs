@@ -26,9 +26,10 @@ function setup() {
   // REFACTOR3_FE_APPCTL_SRS 9a: 저장·복원은 `SettingsApply`(`settings.apply`) 다.
   app.settings = { apply: new ctx.SettingsApply(app) };
   app.clientId = 'c-self';
-  app._restoreBegin = () => 1;
-  app._restoreLive = () => true;
-  app._restoreEnd = () => {};
+  app.wsSync = {};
+  app.wsSync._restoreBegin = () => 1;
+  app.wsSync._restoreLive = () => true;
+  app.wsSync._restoreEnd = () => {};
   app.settings.apply._settingsApply = () => {};
   return { app, calls, setPut: (f) => { putImpl = f } };
 }

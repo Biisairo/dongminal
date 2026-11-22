@@ -39,12 +39,12 @@ async function sameFileInThreeSlots(page: Page, request: APIRequestContext): Pro
   const edWin = await page.evaluate((root) => {
     const a = (window as any).app;
     const win = a.testing.edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
-    a.switchWindow(win.id);
+    a.layout.switchWindow(win.id);
     return win.id;
   }, ROOT);
   await page.evaluate((fp) => (window as any).app.testing.edOpenFile(fp), FILE);
-  await page.evaluate(() => { const a = (window as any).app; a.slotAdd(); a.slotAdd() });
-  await page.evaluate((id) => { const a = (window as any).app; for (let i = 0; i < 3; i++) a.slotOpen(i, id) }, edWin);
+  await page.evaluate(() => { const a = (window as any).app; a.slot.ops.slotAdd(); a.slot.ops.slotAdd() });
+  await page.evaluate((id) => { const a = (window as any).app; for (let i = 0; i < 3; i++) a.slot.ops.slotOpen(i, id) }, edWin);
   await page.evaluate(() => (window as any).app.render());
   await page.waitForFunction(() => {
     const es = [...(window as any).app.fileEditors.values()];

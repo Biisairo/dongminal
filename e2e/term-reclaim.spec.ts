@@ -19,7 +19,7 @@ async function newClient(browser, size: { width: number; height: number }) {
   return { ctx, page };
 }
 
-const claim = (page) => page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+const claim = (page) => page.evaluate(() => (window as any).app.focus.setFocus((window as any).app.focused));
 
 const sizeOf = (page) => page.evaluate(() => {
   const app = (window as any).app;

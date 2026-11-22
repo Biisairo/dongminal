@@ -55,13 +55,13 @@ Object.assign(Renderer.prototype, {
       this._rWindowInto(app.tool.life.aw(),area);
     }else{
       area.dataset.slotdir=app.slotDir;
-      const n=app.slotCount();
+      const n=app.slot.slotCount();
       // 골격을 먼저 세워 자리에 놓고, 본문은 그다음에 채운다 — 붙기 전에 채우면
       // 첫 그리기에서 문서 밖의 요소를 재는 코드가 생긴다.
       const kids=[],bodies=[];
       for(let i=0;i<n;i++){
         const el=this._keep('slot:'+i,()=>this._makeSlot(i));
-        const win=app.slotWindow(i);
+        const win=app.slot.slotWindow(i);
         el.classList.toggle('slot-focused',i===slots.focused);
         el.classList.toggle('slot-empty',!win);   // FR-WSL-6
         el.dataset.slot=String(i);
@@ -88,14 +88,14 @@ Object.assign(Renderer.prototype, {
             const h=document.createElement('div');
             h.className='slot-handle ui-resize-handle';
             h.dataset.slotHandle=String(i);
-            app.slotHandleBind(h,i);            // FR-WSL-32 — 배선은 만들 때 한 번
+            app.slot.ops.slotHandleBind(h,i);            // FR-WSL-32 — 배선은 만들 때 한 번
             return h;
           }));
         }
       }
       this._placeLayout(area,kids);
       for(const [i,win,body] of bodies){ this._rSlot=i; this._rWindowInto(win,body) }
-      app.slotApplySizes();
+      app.slot.ops.slotApplySizes();
       this._rSlot=0;
     }
   },
@@ -113,7 +113,7 @@ Object.assign(Renderer.prototype, {
     // FR-SVS-60: 파싱은 `slotBase` 한 자리다. 여기서 `@1` 만 잘라 내던 동안
     // 칸 2·3 의 편집기는 살아 있는 탭인데도 매 render 마다 파괴됐다.
     for(const[k,v] of app.fileEditors){
-      const tid=app.slotBase(k);
+      const tid=app.slot.slotBase(k);
       if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
     }
     // 옛 Git 창이 사라졌으면 그 창의 패널만 루트를 area 로 되돌린다. 인스턴스는
@@ -156,7 +156,7 @@ Object.assign(Renderer.prototype, {
       // After fit, panes have correct dimensions. Re-send sizes for the
       // active window if this window owns it and has OS focus.
       if(app.windowFocused){
-        app.resendWindowSizes(app.ws.activeWindow);
+        app.focus.owner.resendWindowSizes(app.ws.activeWindow);
       }
     },{owner:this,label:'render-frame'});
   },
@@ -226,9 +226,9 @@ Object.assign(Renderer.prototype, {
     const s=app.tool.life.aw();
     if(app.focused && !app.isMobile && s?.layout && !held){
       const pn=findPane(s.layout,app.focused);
-      if(pn){const tab=pn.tabs.find(x=>x.id===app.paneTab(pn));if(tab){
+      if(pn){const tab=pn.tabs.find(x=>x.id===app.slot.paneTab(pn));if(tab){
         // 포커스 슬롯의 인스턴스를 focus 한다 (FR-WSL-20).
-        if(tab.type==='editor'){const v=app.editorAny(tab.id);if(v)v.el.focus()}
+        if(tab.type==='editor'){const v=app.slot.editorAny(tab.id);if(v)v.el.focus()}
         else{
           /**
            * M11_SRS FR-M11-47 (M11-B48): **에이전트 탭도 여기서 포커스를 받는다.**
@@ -265,10 +265,10 @@ Object.assign(Renderer.prototype, {
     const app=this.app;
     const el=document.createElement('div');
     el.className='slot';
-    el.addEventListener('mousedown',()=>{if(app.slotFocused()!==i)app.slotFocusTo(i,{deferRender:true})});
+    el.addEventListener('mousedown',()=>{if(app.slot.slotFocused()!==i)app.slot.ops.slotFocusTo(i,{deferRender:true})});
     // 클릭이 자기 일로 render 를 돌면 `App.render` 가 플래그를 지우므로 이 자리는
     // 아무 일도 하지 않는다. 빈 자리를 눌렀을 때를 위한 자리다.
-    el.addEventListener('click',()=>app.slotRenderFlush());
+    el.addEventListener('click',()=>app.slot.ops.slotRenderFlush());
     return el;
   },
 
@@ -299,9 +299,9 @@ Object.assign(Renderer.prototype, {
     }
     // 포커스 보정은 **포커스 슬롯에서만** 한다. 비포커스 슬롯의 창을 그린다고
     // 해서 `app.focused`(포커스 슬롯의 pane)를 옮기면 안 된다.
-    const isFocusedSlot=this._rSlot===app.slotFocused();
+    const isFocusedSlot=this._rSlot===app.slot.slotFocused();
     if(isFocusedSlot&&!findPane(s.layout,app.focused)){
-      app.setFocusState(firstPane(s.layout)?.id||null,s);
+      app.focus.setFocusState(firstPane(s.layout)?.id||null,s);
     }
     let dom;
     if(app.isMobile){
@@ -320,7 +320,7 @@ Object.assign(Renderer.prototype, {
         const fIdx=regs.findIndex(r=>r.id===app.focused);
         if(fIdx>=0) app.mPaneIdx=fIdx+off;
         const target=regs[app.mPaneIdx-off];
-        if(target){app.setFocusState(target.id,s);dom=this._buildPane(target,'m')}
+        if(target){app.focus.setFocusState(target.id,s);dom=this._buildPane(target,'m')}
       }
     }else{
       dom=this._buildNode(s.layout,'0');

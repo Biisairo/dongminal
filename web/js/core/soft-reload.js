@@ -38,7 +38,7 @@ class SoftReload extends Controller {
       });
       // ② 워크스페이스. 인자 없이 부르면 rev 비교를 건너뛰고 무조건 받아 온다
       //    (`ws-sync-controller.js` 의 `typeof rev==='number'`).
-      await this._softStepAsync('workspace',()=>this.app._onWorkspaceChanged());
+      await this._softStepAsync('workspace',()=>this.app.wsSync._onWorkspaceChanged());
       // ③ 워크스페이스에 없는 것들. SSE 는 **변화**만 나르므로 합류 시점의
       //    사실은 이 복원으로만 온다.
       //    **다섯을 손으로 나열하지 않는다** (EVENT_TIMER_HUB_SRS FR-HUB-3).
@@ -135,9 +135,6 @@ class SoftReload extends Controller {
     const b=document.getElementById(RELOAD_BTN_ID);
     if(!b) return;
     b.title=RELOAD_TITLE;
-    b.addEventListener('click',()=>this.app.softReload());
+    b.addEventListener('click',()=>this.softReload());
   }
 }
-
-// 부팅·단축키·에이전트 패널·Git 뷰와 시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'wsSync.reload',['softReload','_initSoftReload']);

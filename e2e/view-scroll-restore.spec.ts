@@ -104,9 +104,9 @@ async function winRoundTrip(page: Page) {
     return { cur: a.ws.activeWindow, other: other ? other.id : '' };
   });
   expect(ids.other).not.toBe('');
-  await page.evaluate((id) => (window as any).app.switchWindow(id), ids.other);
+  await page.evaluate((id) => (window as any).app.layout.switchWindow(id), ids.other);
   await waitSettled(page);
-  await page.evaluate((id) => (window as any).app.switchWindow(id), ids.cur);
+  await page.evaluate((id) => (window as any).app.layout.switchWindow(id), ids.cur);
   await waitSettled(page);
 }
 

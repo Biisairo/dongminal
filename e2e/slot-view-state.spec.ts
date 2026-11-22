@@ -13,12 +13,12 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
 // 하나뿐이다 — 포커스 칸의 탭이 워크스페이스에 반영되는지가 `dmctl` 의 활성
 // 판정(SRS §2.4)을 지탱하기 때문이다.
 
-const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slotAdd());
+const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slot.ops.slotAdd());
 const renderNow = (page: Page) => page.evaluate(() => (window as any).app.render());
 const focusSlot = (page: Page, i: number) =>
-  page.evaluate((n) => (window as any).app.slotFocusTo(n), i);
+  page.evaluate((n) => (window as any).app.slot.ops.slotFocusTo(n), i);
 const openInSlot = (page: Page, i: number, winId: string) =>
-  page.evaluate(([n, id]) => (window as any).app.slotOpen(n, id), [i, winId] as const);
+  page.evaluate(([n, id]) => (window as any).app.slot.ops.slotOpen(n, id), [i, winId] as const);
 const activeWindowOf = (page: Page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 const slotsState = (page: Page) => page.evaluate(() => (window as any).app.slots);
 
@@ -93,7 +93,7 @@ const gitViewIn = (page: Page, slot: number) =>
 
 const addTabTo = (page: Page, paneId: string) =>
   page.evaluate(async (rid) => {
-    await (window as any).app.addTab(rid);
+    await (window as any).app.layout.tabAdd.addTab(rid);
     (window as any).app.render();
   }, paneId);
 
@@ -354,7 +354,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     const tabs = await tabIdsOf(page, win);
 
     // 분할로 pane 을 둘 만든다 — 탭 이동은 pane 사이의 일이다.
-    await page.evaluate(() => (window as any).app.split('horizontal'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.split('horizontal'));
     await page.waitForFunction(
       () => document.querySelectorAll('#area .pn').length >= 2, undefined, { timeout: 10000 });
     const panes = await page.evaluate((id) => {
@@ -410,7 +410,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
         return null;
       };
       const pn = find(w.layout);
-      return pn ? [a.paneTab(pn, 0), a.paneTab(pn, 1)] : null;
+      return pn ? [a.slot.paneTab(pn, 0), a.slot.paneTab(pn, 1)] : null;
     }, [win, dst] as const);
     // 옮긴 칸은 그 탭을, 다른 칸은 자기가 보던 탭을 그대로 본다.
     expect(shown[0]).toBe(tabs[1].id);
@@ -433,8 +433,8 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await clickTabId(page, 1, tabs[1].id);
 
     // 칸 사이를 오간다 — 포커스가 움직이는 것과 보는 탭이 바뀌는 것은 다른 사건이다.
-    await page.evaluate(() => (window as any).app.paneNavigate('left'));
-    await page.evaluate(() => (window as any).app.paneNavigate('right'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('left'));
+    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
     await renderNow(page);
 
     expect(await activeTabId(page, 0)).toBe(tabs[0].id);
@@ -576,7 +576,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
       // UX_BATCH6_SRS FR-DSP-1: 사이드의 기본이 Changes 다. 이 묶음이 재는 것은
       // **탐색기**의 관측과 시선이므로 그 자리를 명시로 연다.
       a.testing.edSetSide(win, 'explorer');
-      a.switchWindow(win.id);
+      a.layout.switchWindow(win.id);
       return win.id;
     }, ROOT);
     await slotAdd(page);
@@ -669,8 +669,8 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
 
     // 칸 1 을 없앤다 → 칸 0 의 펼침은 그대로고, 관측도 살아 있다.
     await page.evaluate(() => {
-      (window as any).app.slotFocusTo(1);
-      (window as any).app.slotRemove();
+      (window as any).app.slot.ops.slotFocusTo(1);
+      (window as any).app.slot.ops.slotRemove();
     });
     await renderNow(page);
     await page.waitForFunction(
@@ -788,7 +788,7 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     const winB = await page.evaluate(async () => {
       const a = (window as any).app;
       const r = await a.testing.mkWindow();
-      a.switchWindow(r.win);
+      a.layout.switchWindow(r.win);
       await a.executeAction('splitH');
       a.render();
       return r.win;
@@ -806,7 +806,7 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     await openInSlot(page, 1, winB);
     await focusSlot(page, 1);
     // 칸 1 에서 **둘째** pane 에 선다.
-    await page.evaluate((pid: string) => (window as any).app.setFocus(pid), bPanes[1]);
+    await page.evaluate((pid: string) => (window as any).app.focus.setFocus(pid), bPanes[1]);
     expect(await page.evaluate((id: string) =>
       (window as any).app.ws.windows.find((x: any) => x.id === id).focusedPane, winB))
       .toBe(bPanes[1]);
@@ -1027,8 +1027,8 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     expect(await panelsForActiveRoot(page)).toBe(2);
 
     await page.evaluate(() => {
-      (window as any).app.slotFocusTo(1);
-      (window as any).app.slotRemove();
+      (window as any).app.slot.ops.slotFocusTo(1);
+      (window as any).app.slot.ops.slotRemove();
     });
     await renderNow(page);
     await page.waitForFunction(
@@ -1142,7 +1142,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     const edWin = await page.evaluate((root) => {
       const a = (window as any).app;
       const win = a.testing.edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
-      a.switchWindow(win.id);
+      a.layout.switchWindow(win.id);
       return win.id;
     }, ROOT);
     await page.evaluate((fp) => (window as any).app.testing.edOpenFile(fp), FILE);
@@ -1272,8 +1272,8 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
 
       // 그 칸을 없앤다 → 그 뷰의 `destroy()` 가 저장 도중에 온다.
       await page.evaluate(() => {
-        (window as any).app.slotFocusTo(1);
-        (window as any).app.slotRemove();
+        (window as any).app.slot.ops.slotFocusTo(1);
+        (window as any).app.slot.ops.slotRemove();
       });
       await renderNow(page);
       await page.waitForFunction(
@@ -1311,7 +1311,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       edT.docSetDiagnostic(d, 1, 'x');
     });
     expect(await markers()).toBe(1);
-    await page.evaluate(() => { (window as any).app.slotFocusTo(1); (window as any).app.slotRemove() });
+    await page.evaluate(() => { (window as any).app.slot.ops.slotFocusTo(1); (window as any).app.slot.ops.slotRemove() });
     await renderNow(page);
     await page.waitForFunction(() => [...(window as any).app.testing.edDocs.values()][0].views.size === 1,
       undefined, { timeout: 15000 });
@@ -1329,8 +1329,8 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     // 칸 하나를 없앤다 → 다른 칸이 보고 있으므로 문서는 남는다. 편집 중이던 것이
     // 칸 정리로 사라지면 그것이 결함이다.
     await page.evaluate(() => {
-      (window as any).app.slotFocusTo(1);
-      (window as any).app.slotRemove();
+      (window as any).app.slot.ops.slotFocusTo(1);
+      (window as any).app.slot.ops.slotRemove();
     });
     await renderNow(page);
     await page.waitForFunction(() => {
@@ -1349,7 +1349,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       const w = a.ws.windows.find((x: any) => x.type === 'editor' && x.layout);
       const walk = (n: any): any => (n.type === 'pane' ? n : walk(n.children[0]));
       const pn = walk(w.layout);
-      return a.closeTab(pn.id, pn.tabs[0].id, w.id);
+      return a.layout.tabOps.closeTab(pn.id, pn.tabs[0].id, w.id);
     });
     await renderNow(page);
     await page.waitForFunction(

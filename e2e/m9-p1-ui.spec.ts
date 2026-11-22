@@ -103,7 +103,7 @@ test.describe('FR-M9-4: 원격 닫기의 답', () => {
     await waitForInit(page);
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addTab();
+      await a.layout.tabAdd.addTab();
       const tabs = a.testing.aw().layout.tabs;
       const victim = tabs[0];
       a.testing.execRemote('closeTab', { location: victim.id, keepTool: true, force: true });
@@ -132,7 +132,7 @@ test.describe('FR-M9-4: 원격 닫기의 답', () => {
 
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addWindow();
+      await a.layout.addWindow();
       const wins = a.testing.plainWindows();
       const victim = wins[wins.length - 1];
       const anchor = victim.layout.tabs[0].id;

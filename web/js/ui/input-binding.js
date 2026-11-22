@@ -26,7 +26,7 @@ class InputBinding {
     const sbEl=document.getElementById('sidebar');
     // FR-HSZ-3: 두 핸들의 반대쪽이 같은 요소다 — 콘텐츠 영역.
     const contentEl=document.getElementById('content');
-    this.app.applyPanelDock();
+    this.app.layout.dock.applyPanelDock();
     this._bindAgentsPanel(contentEl);
     this._bindDocDnd(sbEl);
     this._bindDock(sbEl);
@@ -60,7 +60,7 @@ class InputBinding {
      * 끄는 방향은 패널의 자리(PANEL_DOCK_SRS)를 따른다.
      */
     this._bindWidthHandle(aph,{
-      el:ap, contentEl, side:()=>dockSideOf(this.app.panelDock(),'activity'), min:AGENTS_W_MIN_PX, max:AGENTS_W_MAX_PX,
+      el:ap, contentEl, side:()=>dockSideOf(this.app.layout.dock.panelDock(),'activity'), min:AGENTS_W_MIN_PX, max:AGENTS_W_MAX_PX,
       apply:w=>document.documentElement.style.setProperty('--ag-w',w+'px'),
       // UX_BATCH12_SRS FR-ACF-6: 사이드바 손잡이(FR-SBC-7)와 같다 — 임계 아래면 레일이다.
       collapse:raw=>{
@@ -152,7 +152,7 @@ class InputBinding {
       if(!appEl||!appEl.contains(e.target)) return;
       const r=appEl.getBoundingClientRect(), box={left:r.left,width:r.width};
       const rects={sidebar:rectOf('sidebar'),activity:rectOf('agents-panel')};
-      const s=app.panelDock();
+      const s=app.layout.dock.panelDock();
       dr.target=dockDropTarget(s,dr.panel,e.clientX,box,rects);
       const x=dockIndicatorX(s,dr.panel,dr.target,box,rects);
       bar.classList.add('on');
@@ -162,8 +162,8 @@ class InputBinding {
       const dr=app.drag; if(!dr||dr.type!=='dock') return;
       e.preventDefault(); e.stopPropagation(); clear(); app.drag=null;
       if(!dr.target) return;                                       // FR-PDK-35
-      if(dr.panel==='repoSide') app.setRepoSideDock(dr.target);
-      else app.setPanelDock(dockMove(app.panelDock(),dr.panel,dr.target.side,dr.target.index));
+      if(dr.panel==='repoSide') app.layout.dock.setRepoSideDock(dr.target);
+      else app.layout.dock.setPanelDock(dockMove(app.layout.dock.panelDock(),dr.panel,dr.target.side,dr.target.index));
     },true);
     document.addEventListener('dragend',()=>{
       const dr=app.drag; if(!dr||dr.type!=='dock') return;
@@ -189,7 +189,7 @@ class InputBinding {
      * 유일한 길이면 키보드만 쓰는 사람에게는 길이 없다.
      */
     this._bindWidthHandle(sbh,{
-      el:sb, contentEl, side:()=>dockSideOf(this.app.panelDock(),'sidebar'), min:SIDEBAR_W_MIN_PX, max:SIDEBAR_W_MAX_PX,
+      el:sb, contentEl, side:()=>dockSideOf(this.app.layout.dock.panelDock(),'sidebar'), min:SIDEBAR_W_MIN_PX, max:SIDEBAR_W_MAX_PX,
       apply:w=>document.documentElement.style.setProperty('--sb-w',w+'px'),
       // 접힘에서 시작하면 기준은 레일의 폭이다 — 그 자리에서 오른쪽으로 끌면
       // 임계를 넘어 펼쳐진다.
@@ -197,7 +197,7 @@ class InputBinding {
         const collapse=raw<SIDEBAR_COLLAPSE_AT_PX;
         // 접힘 자체는 `setSidebarCollapsed` 한 자리에서 정한다 — 클래스·저장·
         // 터미널 재적합이 거기 묶여 있고, 두 벌로 두면 한쪽만 고쳐진다.
-        if(collapse!==this.app.sidebarCollapsed()) this.app.setSidebarCollapsed(collapse);
+        if(collapse!==this.app.layout.tabOps.sidebarCollapsed()) this.app.layout.tabOps.setSidebarCollapsed(collapse);
         // 접힌 폭(레일)은 고정이다 (FR-SBC-2·16) — 폭을 따라가지 않는다.
         return collapse;
       },

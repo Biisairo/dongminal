@@ -8,8 +8,8 @@
  *
  * APP_STATE_EXTRACT_SRS FR-ASE-7: 이 가족의 상태와 메서드는 `App` 이 아니라 `LspClient`
  * 가 갖는다. 본문은 옛 `app-lsp.js` 에서 구간 이동했고 편집은 앱으로 나가는 자리
- * (`this.app.`)뿐이다. 바깥이 부르는 이름은 `app.js` 의 위임자가 지킨다
- * (REFACTOR3_FE_APPCTL_SRS 9a).
+ * (`this.app.`)뿐이다. 바깥은 `app.lspClient().X()` 로 부른다
+ * (REFACTOR3_FE_DELEG_SRS — 옛 `app.js` 의 위임자 표를 걷었다).
  */
 class LspClient {
   constructor(app){ this.app=app }
@@ -141,7 +141,7 @@ Object.assign(LspClient.prototype, {
   // 라이브러리의 패널에 보인다 (M8 결정 6, §3.16). 연결이 닫혀 있으면 먼저 다시 연다.
 
   // UX_BATCH12_SRS FR-RTR-8: 정의 이동은 큰 점프다 — 가기 전 자리를 뒤로·앞으로 기록에 넣는다.
-  async _lspGotoDef(){ this.app.navJump(); await this._lspRun(()=>CM.jumpToDefinition) },
+  async _lspGotoDef(){ this.app.focus.navJump(); await this._lspRun(()=>CM.jumpToDefinition) },
   async _lspFindRefs(){ await this._lspRun(()=>CM.findReferences) },
 
   /**
@@ -152,7 +152,7 @@ Object.assign(LspClient.prototype, {
   async lspClickDef(view,pos){
     if(!view||pos==null) return;
     // FR-RTR-8: 커서를 클릭한 자리로 옮기기 **전**의 자리를 기록한다.
-    this.app.navJump();
+    this.app.focus.navJump();
     const link=await this._lspLinkAt(view,pos);
     if(link){ await this.app.editor.file.edOpenFile(link.path,link.line?{line:link.line}:{}); return }
     view.dispatch({selection:{anchor:pos}});
@@ -247,8 +247,8 @@ Object.assign(LspClient.prototype, {
   // `Workspace.displayFile` — 앱이 그 파일을 열고 편집기가 선 뒤 그 뷰를 낸다.
   async _lspDisplay(path){
     await this.app.editor.file.edOpenFile(path,{});
-    const tab=this.app._findEditorTab(path);
-    const fe=tab&&this.app.editorAny(tab.tab.id);
+    const tab=this.app.layout.tabAdd._findEditorTab(path);
+    const fe=tab&&this.app.slot.editorAny(tab.tab.id);
     return fe&&fe.whenView?await fe.whenView():null;
   },
 

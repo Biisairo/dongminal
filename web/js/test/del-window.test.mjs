@@ -43,20 +43,14 @@ function host(over = {}) {
       activeWindow: 'B',
     },
     git: { isKindWin: (s) => o.kind.includes(s.id) },
-    _slotOnWindowGone(sid) { log.push('_slotOnWindowGone:' + sid) },
-    async _mkWindow() { log.push('_mkWindow'); h.ws.windows.push({ id: 'N', layout: pane('n1') }); h.ws.activeWindow = 'N' },
-    _activateWindow(id) { log.push('_activateWindow:' + id); h.ws.activeWindow = id },
-    setFocusState(id, s) { log.push('setFocusState:' + id + '@' + s.id) },
-    focusClear() { log.push('focusClear') },
-    _focusWindow(id) { log.push('_focusWindow:' + id) },
     render() { log.push('render') },
-    save() { log.push('save') }, editor: { sync: { _edWinDirty(s) { log.push('_edWinDirty:' + s.id); return o.dirty }, async _edWinSaveDirty(s) { log.push('_edWinSaveDirty:' + s.id); return o.saveOk } } }, tool: { async _confirmClose(msg, opt) {
+    editor: { sync: { _edWinDirty(s) { log.push('_edWinDirty:' + s.id); return o.dirty }, async _edWinSaveDirty(s) { log.push('_edWinSaveDirty:' + s.id); return o.saveOk } } }, tool: { async _confirmClose(msg, opt) {
       log.push('_confirmClose:' + msg + ':' + Object.keys(opt).sort().join(','));
       return msg === 'dirty?' ? o.dirtyAns : o.procAns;
     }, async _toolsBusy(pids) {
       log.push('_toolsBusy:' + pids.join(','));
       return Object.fromEntries(pids.map((p) => [p, o.busy.includes(p)]));
-    }, life: { _setToolBackground(pid, on) { log.push('_setToolBackground:' + pid + ':' + on) }, _bgRefresh() { log.push('_bgRefresh') }, _kill(pid) { log.push('_kill:' + pid) }, aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null } },
+    }, life: { _setToolBackground(pid, on) { log.push('_setToolBackground:' + pid + ':' + on) }, _bgRefresh() { log.push('_bgRefresh') }, _kill(pid) { log.push('_kill:' + pid) }, aw: () => h.ws.windows.find((s) => s.id === h.ws.activeWindow) || null } }, slot: { ops: { _slotOnWindowGone(sid) { log.push('_slotOnWindowGone:' + sid) } } }, layout: { async _mkWindow() { log.push('_mkWindow'); h.ws.windows.push({ id: 'N', layout: pane('n1') }); h.ws.activeWindow = 'N' }, winState: { _activateWindow(id) { log.push('_activateWindow:' + id); h.ws.activeWindow = id } } }, focus: { setFocusState(id, s) { log.push('setFocusState:' + id + '@' + s.id) }, focusClear() { log.push('focusClear') }, owner: { _focusWindow(id) { log.push('_focusWindow:' + id) } } }, wsSave: { save() { log.push('save') } },
   };
   return h;
 }
@@ -65,6 +59,11 @@ function setup(over) {
   const c = ctx();
   const h = host(over);
   const ctl = new c.LayoutController(h);
+  // 자기 클래스 안의 부름은 그 인스턴스를 지난다 — 대역은 `ctl` 에 둔다 (REFACTOR3_FE_DELEG_SRS D-DLG-1).
+  const fake = h.layout;
+  h.layout = ctl;
+  ctl._mkWindow = fake._mkWindow;
+  ctl.winState._activateWindow = fake.winState._activateWindow;
   ctl._winUndoFinal = () => h.log.push('_winUndoFinal');
   ctl._winUndoArm = (win, i, pids) => h.log.push('_winUndoArm:' + win.id + ':' + i + ':' + pids.join(','));
   return { h, ctl };

@@ -165,7 +165,7 @@ test.describe('문서 렌더 뷰', () => {
     const active = await page.evaluate(() => {
       const a = (window as any).app;
       const pn = a.testing.flattenPanes(a.testing.aw().layout).find((p: any) => p.id === a.focused);
-      const t = (pn.tabs || []).find((x: any) => x.id === a.paneTab(pn, 0));
+      const t = (pn.tabs || []).find((x: any) => x.id === a.slot.paneTab(pn, 0));
       return { render: !!t.render, path: t.filePath };
     });
     expect(active.render).toBeFalsy();
@@ -224,7 +224,7 @@ test.describe('문서 렌더 뷰', () => {
     const active = await page.evaluate(() => {
       const a = (window as any).app;
       const pn = a.testing.flattenPanes(a.testing.aw().layout).find((p: any) => p.id === a.focused);
-      const t = (pn.tabs || []).find((x: any) => x.id === a.paneTab(pn, 0));
+      const t = (pn.tabs || []).find((x: any) => x.id === a.slot.paneTab(pn, 0));
       return !!t.render;
     });
     expect(active).toBeFalsy();
@@ -239,7 +239,7 @@ test.describe('문서 렌더 뷰', () => {
       const a = (window as any).app;
       for (const pn of a.testing.flattenPanes(a.testing.aw().layout)) {
         const t = (pn.tabs || []).find((x: any) => !x.render);
-        if (t) { a.closeTab(pn.id, t.id); return }
+        if (t) { a.layout.tabOps.closeTab(pn.id, t.id); return }
       }
     });
     await expect(page.locator(RENDER_BODY + ' h1')).toHaveText('제목 하나', { timeout: 15000 });

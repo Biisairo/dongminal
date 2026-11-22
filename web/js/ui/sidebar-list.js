@@ -315,7 +315,7 @@ class SidebarList extends ListView {
       // FR-RAL-9: 레일에서는 재배치를 하지 않는다 — 40px 폭에서 위/아래 절반을
       // 가르는 판정(아래 dragover)은 실패하기 쉽고, 순서를 바꾸려는 사람은 이미
       // 펼칠 이유가 있다. CSS 로는 막을 수 없으므로 제스처의 출발점에서 끊는다.
-      if (app.sbRail && app.sbRail()) { e.preventDefault(); return }
+      if (app.layout.tabOps.sbRail && app.layout.tabOps.sbRail()) { e.preventDefault(); return }
       app.drag = { type: d.reorder.type, src: r.key, target: null, before: false, done: false };
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
       TIMERS.defer(() => el.classList.add('dragging'), {label:'drag-class'});

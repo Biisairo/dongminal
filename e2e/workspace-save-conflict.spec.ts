@@ -89,7 +89,7 @@ test.describe('워크스페이스 저장 충돌', () => {
     const before = await serverPlain(request);
 
     await blind(B);
-    await A.evaluate(() => (window as any).app.addWindow());
+    await A.evaluate(() => (window as any).app.layout.addWindow());
     await expect.poll(() => serverPlain(request), { timeout: 15000 }).toBe(before + 1);
 
     const codes = putCodes(B);
@@ -124,7 +124,7 @@ test.describe('워크스페이스 저장 충돌', () => {
     expect(notes, '메모 루트가 없다 — 이 검사가 성립하지 않는다').toBeTruthy();
 
     await blind(B);
-    await A.evaluate(() => (window as any).app.addWindow());
+    await A.evaluate(() => (window as any).app.layout.addWindow());
     await expect.poll(() => serverPlain(request), { timeout: 15000 }).toBe(before + 1);
 
     const codes = putCodes(B);
@@ -201,7 +201,7 @@ test.describe('워크스페이스 저장 충돌', () => {
     const before = await serverPlain(request);
 
     await blind(B);
-    await A.evaluate(() => (window as any).app.addWindow());
+    await A.evaluate(() => (window as any).app.layout.addWindow());
     await expect.poll(() => serverPlain(request), { timeout: 15000 }).toBe(before + 1);
     expect(await localPlain(B), 'B 가 미리 알고 있으면 이 검사의 전제가 없다').toBe(before);
 
@@ -230,7 +230,7 @@ test.describe('워크스페이스 저장 충돌', () => {
     const before = await serverPlain(request);
     const codes = putCodes(A);
 
-    await A.evaluate(() => (window as any).app.addWindow());
+    await A.evaluate(() => (window as any).app.layout.addWindow());
     await expect.poll(() => serverPlain(request), { timeout: 15000 }).toBe(before + 1);
 
     // 창을 건드리지 않는 저장도 통과하고, 그 값이 서버에 남는다.

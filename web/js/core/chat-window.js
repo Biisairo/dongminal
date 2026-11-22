@@ -33,7 +33,7 @@ class ChatWindow extends Controller {
   chatWindowOpen(){
     const w=this.chatWindowEnsure();
     if(this.app.ws.activeWindow===w.id){ this.app.render(); return w }
-    this.app.switchWindow(w.id);
+    this.app.layout.switchWindow(w.id);
     return w;
   }
 
@@ -52,15 +52,15 @@ class ChatWindow extends Controller {
     const r=this.app.chat._chatRoom(id),me=this.app.chat._chatMe();
     const w=this.chatWindowEnsure();
     const found=findTabWhere([w],tab=>tab.type===TAB_TYPE_CHAT&&tab.roomId===id);
-    if(found) this.app._revealTab(found);
+    if(found) this.app.layout.tabAdd._revealTab(found);
     else{
       // 창을 먼저 바꾼다 — `switchWindow` 는 떠나는 창의 포커스 칸을 지금 `focused` 로 적는다.
-      if(this.app.ws.activeWindow!==w.id) this.app.switchWindow(w.id);
+      if(this.app.ws.activeWindow!==w.id) this.app.layout.switchWindow(w.id);
       const pn=this._chatPaneOf(w);
-      this.app._pushTab(w,pn,{id:newEntityId(),name:clampEntityName(r?chatRoomTitle(r,me&&me.id):'Chat'),type:TAB_TYPE_CHAT,roomId:id},true);
+      this.app.layout.tabAdd._pushTab(w,pn,{id:newEntityId(),name:clampEntityName(r?chatRoomTitle(r,me&&me.id):'Chat'),type:TAB_TYPE_CHAT,roomId:id},true);
     }
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
     // PANEL_TEMPLATE_SRS FR-PNT-15 · FR-CW-50: 방을 열었으면 모바일의 시트·서랍을 닫는다.
     if(this.app.mobile.nav.actSheetLeave) this.app.mobile.nav.actSheetLeave();
     if(this.app.isMobile&&this.app.drawerOpen) this.app.mobile._toggleDrawer(false);
@@ -72,7 +72,7 @@ class ChatWindow extends Controller {
     if(!w||!w.layout) return;
     for(const p of panesOf(w.layout).slice())
       for(const tab of (p.tabs||[]).slice())
-        if(tab.type===TAB_TYPE_CHAT&&tab.roomId===roomId) this.app.closeTab(p.id,tab.id,w.id);
+        if(tab.type===TAB_TYPE_CHAT&&tab.roomId===roomId) this.app.layout.tabOps.closeTab(p.id,tab.id,w.id);
   }
 
   /**
@@ -90,7 +90,7 @@ class ChatWindow extends Controller {
       if(extra.layout) for(const p of panesOf(extra.layout)) for(const tab of p.tabs||[]){
         if(tab.type!==TAB_TYPE_CHAT||rooms.has(tab.roomId)) continue;
         rooms.add(tab.roomId);
-        this.app._pushTab(keep,this._chatPaneOf(keep),tab,false);
+        this.app.layout.tabAdd._pushTab(keep,this._chatPaneOf(keep),tab,false);
       }
       list.splice(list.indexOf(extra),1);
       n++;

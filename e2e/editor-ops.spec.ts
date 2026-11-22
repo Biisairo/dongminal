@@ -663,7 +663,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     // 다른 창으로 떠난다 — 이제 대상 창은 **비활성**이다.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a.testing.plainWindows()[0].id);
+      a.layout.switchWindow(a.testing.plainWindows()[0].id);
     });
     await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'src', 'a.txt'));
     const t = await tabs(page);
@@ -681,7 +681,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     const first = (await tabs(page))[0];
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a.testing.plainWindows()[0].id);
+      a.layout.switchWindow(a.testing.plainWindows()[0].id);
     });
     // 두 번째는 `edit` 의 경로로 연다 — 중복 방지는 진입점마다 따로 있지 않다.
     await page.evaluate((p) => (window as any).app.testing.execRemote('openEditorTab', { filePath: p }), f);

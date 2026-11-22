@@ -226,7 +226,7 @@ const DELEGATES_DONE = ['saveSettings', '_settingsApply', '_settingsRestore', '_
   '_egNodePaint', '_egMeshPaint', '_egInvitesPaint', '_egNotify', '_cacctPanelShown', '_cacctRefreshSoft',
   '_loadTelegramPanel', '_tgRead', '_pfCollect', '_pfFollow', '_sbxCollect', '_aclCollect', '_egNodeCollect',
   'themeSlots', 'setThemeSlots', '_showCustomEditor', '_hideCustomEditor', '_renderPresets', '_savePreset',
-  '_applyThemeChoice', '_keybarApply', 'initModal'];
+  '_applyThemeChoice', '_keybarApply', 'initModal', '_presetButtonPaint', '_loadPreset'];
 
 /** 8c 의 위임자 → 섹션 탭과 섹션 메서드. 위임자는 인자를 그대로 넘기고 답을 그대로 돌려준다. */
 const ROUTES = [
@@ -294,7 +294,7 @@ test('TC-FES-3: 섹션이 init 에서 선언한 행이 표와 같다', () => {
   ctx.applyUiFontScale = () => {};
   Object.assign(ctx, { focusEdgeLevel: 0, attnEdgeLevel: 0, UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10 });
   for (const m of MOVED) {
-    const s = new ctx[m.cls]({ ...fakeApp([]), _slotDirPaint() {}, displayMode: 'auto', mobileBreakpoint: 768 });
+    const s = new ctx[m.cls]({ ...fakeApp([]), displayMode: 'auto', mobileBreakpoint: 768, slot: { ops: { _slotDirPaint() {} } } });
     if (m.init !== false) s.init();
     assert.deepEqual(plain(s.rows.map((r) => [r.decl.key, r.decl.id, r.decl.kind])), m.rows, m.cls);
   }
@@ -368,7 +368,7 @@ test('TC-FES-2(범위): 레인지 두 행은 값·채움·라벨을 칠하고 0 
 test('TC-FES-2(범위): 포커스 가장자리 input 은 값·두 행·화면·미리보기·미룬 저장, change 는 곧바로 저장', () => {
   const { ctx, doc, els } = edgeSetup();
   const log = [];
-  const app = { ...fakeApp(log), _paintFocusEdge: () => log.push('paintFocus') };
+  const app = { ...fakeApp(log), focus: { _paintFocusEdge: () => log.push('paintFocus') } };
   const s = new ctx.DisplaySection(app);
   s._initFocusEdge();
   assert.equal(els['ds-focusedge'].max, 10);
@@ -385,7 +385,7 @@ test('TC-FES-2(범위): 포커스 가장자리 input 은 값·두 행·화면·�
 test('TC-FES-2(범위): 주의 가장자리 input 은 화면·미리보기·주의 다시 보기·미룬 저장, 0 이면 미리보기를 끈다', () => {
   const { ctx, doc, els } = edgeSetup();
   const log = [];
-  const app = { ...fakeApp(log), _paintAttnEdge: () => log.push('paintAttn'), attn: { _attnRefresh: () => log.push('refresh') } };
+  const app = { ...fakeApp(log), attn: { _attnRefresh: () => log.push('refresh') }, focus: { _paintAttnEdge: () => log.push('paintAttn') } };
   const s = new ctx.DisplaySection(app);
   s._initAttnEdge();
   els['ds-attnedge'].value = '6';
@@ -627,7 +627,7 @@ test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는�
   ctx.applyTabWidth = () => {};
   ctx.applyUiFontScale = () => {};
   Object.assign(ctx, { focusEdgeLevel: 0, attnEdgeLevel: 0, UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10 });
-  const app = { ...fakeApp([]), _slotDirPaint() {}, displayMode: 'auto', mobileBreakpoint: 768 };
+  const app = { ...fakeApp([]), displayMode: 'auto', mobileBreakpoint: 768, slot: { ops: { _slotDirPaint() {} } } };
   const rows = [];
   for (const cls of ['DisplaySection', 'TerminalSection']) {
     const s = new ctx[cls](app);

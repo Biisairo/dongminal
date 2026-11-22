@@ -12,7 +12,7 @@ const ctx = load(['ui/runs-panel.js'], {
 });
 
 function panel(views) {
-  const p = new ctx.RunsPanel({ ws: { windows: [] }, slotBase: (k) => k });
+  const p = new ctx.RunsPanel({ ws: { windows: [] }, slot: { slotBase: (k) => k } });
   const fetched = [];
   p._runsRefreshSoon = () => {};
   p._runLiveTabIds = () => new Set(views.map((v) => v.key));

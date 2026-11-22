@@ -297,7 +297,7 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
     await expect(page.locator(`#agents-panel .ag-card[data-toolid="${pidA}"] .ag-loc`)).not.toContainText(names[0]);
 
     // FR-AGG-4: 활동이 없는 셋째 창은 머리를 갖지 않는다.
-    await page.evaluate(() => (window as any).app.addWindow());
+    await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect(page.locator('#windows .si')).toHaveCount(3, { timeout: 10000 });
     await expect(page.locator('#agents-panel .ag-group')).toHaveCount(2);
   });
@@ -324,7 +324,7 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
     await page.evaluate(
       ({ win1, win2, pidB }: any) => {
         const app = (window as any).app;
-        app.switchWindow(win1);
+        app.layout.switchWindow(win1);
         const loc = app.testing.findToolLocation(pidB);
         app.testing.moveTabToWindow(loc.pane.id, loc.tab.id, win2);
       },

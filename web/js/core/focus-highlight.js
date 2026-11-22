@@ -22,8 +22,8 @@ class FocusHighlight extends Controller {
     const s=this.app.tool.life.aw(); if(!s||!s.layout) return;
     const root=this.app.editor.edRootOf(s); if(!root) return;
     const pn=findPane(s.layout,this.app.focused); if(!pn) return;
-    const tab=(pn.tabs||[]).find(x=>x.id===this.app.paneTab(pn));
-    const slot=this.app.slotFocused();
+    const tab=(pn.tabs||[]).find(x=>x.id===this.app.slot.paneTab(pn));
+    const slot=this.app.slot.slotFocused();
     const panel=this.app.gitPanels?this.app.gitPanels.get(this.app.git.surfaces._gitPanelKey(root,slot)):null;
     // 미리보기 탭은 id 를 지킨 채 Diff ↔ 파일·다른 파일로 바뀐다(FR-RTB-1) — 내용까지 키에 넣는다.
     const at=s.id+'\0'+slot+'\0'+(tab?tab.id+'\0'+tab.type+'\0'+(tab.filePath||''):'');
@@ -92,6 +92,3 @@ class FocusHighlight extends Controller {
     if(!panel.revealRow(f.group,f.path)) this._fhlPend={at,diff:f};
   }
 }
-
-// 렌더·알림·Changes 가 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'focus.hl',['attnFocusSync','focusHighlightSync']);

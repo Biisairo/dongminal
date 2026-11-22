@@ -24,7 +24,7 @@ class AttnController extends Controller {
   _agFocusedTool(){
     const s=this.app.tool.life.aw(); if(!s||!s.layout) return '';
     const pn=findPane(s.layout,this.app.focused); if(!pn) return '';
-    const at=(pn.tabs||[]).find(tab=>tab.id===this.app.paneTab(pn));
+    const at=(pn.tabs||[]).find(tab=>tab.id===this.app.slot.paneTab(pn));
     return (at&&at.toolId)||'';
   }
 
@@ -38,11 +38,11 @@ class AttnController extends Controller {
     const s=this.app.tool.life.aw(); if(!s||!s.layout) return false;
     const pn=findPane(s.layout,this.app.focused); if(!pn) return false;
     const tabs=pn.tabs||[];
-    const n=this.app.slotCount();
+    const n=this.app.slot.slotCount();
     for(let i=0;i<n;i++){
       // 그 칸이 이 창을 보고 있지 않으면 그 칸의 시선은 이 판정과 무관하다.
-      if(this.app._slots&&this.app.slotWindow(i)!==s) continue;
-      const at=tabs.find(tab=>tab.id===this.app.paneTab(pn,i));
+      if(this.app._slots&&this.app.slot.slotWindow(i)!==s) continue;
+      const at=tabs.find(tab=>tab.id===this.app.slot.paneTab(pn,i));
       if(at&&at.toolId===toolId) return true;
     }
     return false;
@@ -66,7 +66,7 @@ class AttnController extends Controller {
    */
   _onToolAttention({toolId,reason,seq}={}){
     if(!toolId) return;
-    this.app._restoreNote('attn',toolId);   // FR-RSF-4
+    this.app.wsSync._restoreNote('attn',toolId);   // FR-RSF-4
     this.app._attn.set(toolId,{reason});
     this._attnRefresh();
     // FR-ATD-2: 표식은 모든 창에. 배너·소리는 한 컴퓨터에서 한 번 (attn-claim.js).
@@ -93,7 +93,7 @@ class AttnController extends Controller {
     // 서버발 해제도 서버에서는 주목이다 — 잠금이 섰다고 기록해 둔다. 그러지
     // 않으면 다른 브라우저가 해제한 도구를 여기서 만져도 잠금이 풀리지 않는다.
     this._attnNoteLock(toolId,false);
-    this.app._restoreNote('attn',toolId);   // FR-RSF-4
+    this.app.wsSync._restoreNote('attn',toolId);   // FR-RSF-4
     if(!this.app._attn.delete(toolId)) return;
     this._attnRefresh();
   }
@@ -115,15 +115,15 @@ class AttnController extends Controller {
    * 사용자가 거둔 알람이 되살아나는 쪽은 그대로였다 (RESTORE_FLIGHT_SRS §1.1).
    */
   _attnRestore(src){
-    const flight=this.app._restoreBegin('attn');
+    const flight=this.app.wsSync._restoreBegin('attn');
     return stateFetch(src,'/api/tools/attention').then(res=>{
       const j=res.ok?res.data:null;
-      if(!this.app._restoreLive('attn',flight)) return;
+      if(!this.app.wsSync._restoreLive('attn',flight)) return;
       if(!j||!Array.isArray(j.toolIds)) return;
       const live=new Set(j.toolIds);
       for(const pid of live){if(!flight.has(pid)&&!this.app._attn.has(pid))this.app._attn.set(pid,{reason:'signaled'})}
       for(const pid of Array.from(this.app._attn.keys())){if(!live.has(pid)&&!flight.has(pid))this._attnDrop(pid)}
-      this.app._restoreEnd('attn',flight);
+      this.app.wsSync._restoreEnd('attn',flight);
       this._attnRefresh();
       // FR-ATA-1: 복원도 포커스를 이유로 지우지 않는다. 개정 전에는 FR-ATL-10
       // 이 여기서 "보고 있으면 해제" 를 했으나, 그 규약 자체가 사라졌다 —
@@ -139,7 +139,7 @@ class AttnController extends Controller {
   _attnDrop(toolId){
     if(!toolId) return false;
     this._attnCloseNotif(toolId);
-    this.app._restoreNote('attn',toolId);   // FR-RSF-4
+    this.app.wsSync._restoreNote('attn',toolId);   // FR-RSF-4
     return this.app._attn.delete(toolId);
   }
 
@@ -152,7 +152,7 @@ class AttnController extends Controller {
    */
   _attnClear(toolId,typed){
     if(!toolId) return;
-    this.app._restoreNote('attn',toolId);   // FR-RSF-4 — 사용자 조작도 비행보다 새롭다
+    this.app.wsSync._restoreNote('attn',toolId);   // FR-RSF-4 — 사용자 조작도 비행보다 새롭다
     this._attnCloseNotif(toolId);
     this.app._attn.delete(toolId);
     this._attnNoteLock(toolId,!!typed);
@@ -189,7 +189,7 @@ class AttnController extends Controller {
     Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
     // FR-ATF-13: 서버는 이 한 번으로 전부를 잠근다 — 로컬 기록도 함께 세운다.
     for(const id of this.app._attn.keys()) this._attnNoteLock(id,false);
-    this.app._restoreVoid('attn');   // FR-RSF-5: 전체 초기화는 id 로 표현되지 않는다
+    this.app.wsSync._restoreVoid('attn');   // FR-RSF-5: 전체 초기화는 id 로 표현되지 않는다
     this.app._attn.clear();
     this.center._attnCenterClose();
     this._attnRefresh();
@@ -244,7 +244,7 @@ class AttnController extends Controller {
     const loc=this.app.tool.life.findToolLocation(toolId);
     if(!loc){this._attnLand(toolId);return}
     this._attnClear(toolId);
-    this.app._activateWindow(loc.win.id);
+    this.app.layout.winState._activateWindow(loc.win.id);
     /**
      * UX_BATCH6_SRS FR-RUN-1: **포커스 칸이 그 창을 받는다.**
      *
@@ -261,11 +261,11 @@ class AttnController extends Controller {
      *
      * 단일 슬롯에서는 `_slots` 가 없어 무동작이다 (FR-RUN-2).
      */
-    this.app._slotOnSwitch(loc.win.id);
+    this.app.slot.ops._slotOnSwitch(loc.win.id);
     // FR-SVS-12: 알람은 사용자를 부르는 것이고 사용자는 포커스 칸에 있다.
-    this.app.paneTabSet(loc.pane,loc.tab.id);
-    this.app.setFocusState(loc.pane.id, loc.win);
-    this.app._focusWindow(loc.win.id);
+    this.app.slot.paneTabSet(loc.pane,loc.tab.id);
+    this.app.focus.setFocusState(loc.pane.id, loc.win);
+    this.app.focus.owner._focusWindow(loc.win.id);
     this.app.render();
   }
 
@@ -301,7 +301,7 @@ class AttnController extends Controller {
     // UX_BATCH12_SRS FR-RGT-2: 그룹 머리는 `data-sid` 가 없다 — 그 안 창들로 판정한다(`groupRow` 와 같은 판정).
     document.querySelectorAll('#windows .si').forEach(el=>{
       const gid=el.dataset.groupId;
-      if(gid){el.classList.toggle('attn',this.app.groupHasAttn({windows:this.app.ws.windows.filter(w=>w.groupId===gid)}));return}
+      if(gid){el.classList.toggle('attn',this.app.layout.groups.groupHasAttn({windows:this.app.ws.windows.filter(w=>w.groupId===gid)}));return}
       const s=this.app.ws.windows.find(x=>x.id===el.dataset.sid);
       el.classList.toggle('attn', !!(s&&this.windowHasAttn(s)));
     });

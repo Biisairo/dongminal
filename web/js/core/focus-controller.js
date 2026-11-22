@@ -81,7 +81,7 @@ class FocusController extends Controller {
     const s=this.app.tool.life.aw(); if(!s||!s.layout) return null;
     const rid=this.app.focused; if(!rid) return null;
     const pn=findPane(s.layout,rid); if(!pn) return null;
-    return {win:s.id,pane:rid,tab:this.app.paneTab(pn,this.app.slotFocused())||null};
+    return {win:s.id,pane:rid,tab:this.app.slot.paneTab(pn,this.app.slot.slotFocused())||null};
   }
 
   _navSame(a,b){ return !!a&&!!b&&a.win===b.win&&a.pane===b.pane&&a.tab===b.tab }
@@ -94,7 +94,7 @@ class FocusController extends Controller {
    */
   _navNote(){
     if(this._navMoving) return;
-    const p=this.app._navPlace();
+    const p=this._navPlace();
     if(!p||this._navSame(p,this._navCur)) return;
     if(this._navCur) this._navPush(this._navHere());
     this._navCur=p;
@@ -126,7 +126,7 @@ class FocusController extends Controller {
 
   // 그 탭 편집기의 커서(문서 안 offset). 편집기 탭이 아니면 null — 커서가 없는 자리다.
   _navCursor(tabId){
-    const ed=this.app.editorAny(tabId);
+    const ed=this.app.slot.editorAny(tabId);
     return ed&&ed.cursorAt?ed.cursorAt():null;
   }
 
@@ -137,7 +137,7 @@ class FocusController extends Controller {
    */
   navJump(){
     if(this._navMoving) return;
-    const p=this.app._navPlace();
+    const p=this._navPlace();
     const pos=p&&this._navCursor(p.tab);
     if(pos==null) return;
     this._navPush({...p,pos});
@@ -161,13 +161,13 @@ class FocusController extends Controller {
     this._navMoving=true;
     try{
       // UX_BATCH12_SRS FR-RTR-7: 닫힌 탭의 자리면 닫은 탭 목록으로 다시 열고 그리로 간다.
-      if(!this._navAlive(p)) p=this.app.tabReopenAt(p)||p;
-      if(this.app.ws.activeWindow!==p.win) this.app.switchWindow(p.win);
-      if(p.tab) this.app.switchTab(p.pane,p.tab);
-      else this.app.setFocusState(p.pane);
+      if(!this._navAlive(p)) p=this.app.layout.reopen.tabReopenAt(p)||p;
+      if(this.app.ws.activeWindow!==p.win) this.app.layout.switchWindow(p.win);
+      if(p.tab) this.app.layout.tabOps.switchTab(p.pane,p.tab);
+      else this.setFocusState(p.pane);
       // FR-RTR-8·9: 커서를 실은 자리(점프)면 그 커서로 간다. 없으면 커서를 움직이지 않는다.
       if(p.pos!=null) this._navCursorGo(p.tab,p.pos);
-      this._navCur=this.app._navPlace()||p;
+      this._navCur=this._navPlace()||p;
       if(p.pos!=null) this._navCur.jump=true;
     } finally { this._navMoving=false }
   }
@@ -198,12 +198,12 @@ class FocusController extends Controller {
   }
 
   _navCursorGo(tabId,pos){
-    const ed=this.app.editorAny(tabId);
+    const ed=this.app.slot.editorAny(tabId);
     if(ed&&ed.viewApply) ed.viewApply({anchor:pos,head:pos,len:-1});
   }
 
   // 건너뛰지 않고 갈 수 있는 자리인가 — 열린 자리이거나 다시 열 수 있는 자리다 (FR-RTR-7·14).
-  _navReachable(p){ return this._navAlive(p)||this.app.tabReopenCan(p) }
+  _navReachable(p){ return this._navAlive(p)||this.app.layout.reopen.tabReopenCan(p) }
 
   // 다시 연 탭은 새 id 다 — 기록의 옛 id 를 바꿔 그 자리로 다시 갈 수 있게 한다.
   _navRetab(from,to){
@@ -241,10 +241,10 @@ class FocusController extends Controller {
   setFocus(rid){
     // Claim window ownership on every click — even if focus doesn't change,
     // the user is asserting "I want this window" (multi-window).
-    this.app._focusWindow(this.app.ws.activeWindow);
+    this.app.focus.owner._focusWindow(this.app.ws.activeWindow);
     if(this.app.focused===rid) return;
     this.app.tool.search.clearAllSearchDecorations();
-    this.app.setFocusState(rid);
+    this.setFocusState(rid);
     this.app.prevFocus=rid;
     document.querySelectorAll('.pn').forEach(el=>{
       el.classList.toggle('focused',el.dataset.paneid===rid);
@@ -257,7 +257,7 @@ class FocusController extends Controller {
     this.app.statusbar.updateStatusBar();
     // ISSUE_TREE_OPS_SRS FR-ITW-4: 제목에 포커스 탭 이름이 있으므로 포커스를 따라간다.
     this.app.renderer._rPaintTitles();
-    this.app.save();
+    this.app.wsSave.save();
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -355,7 +355,3 @@ class FocusController extends Controller {
       attnEdgeLevel*ATTN_EDGE_ALPHA_PER_LEVEL);
   }
 }
-
-// 바깥(렌더러·레이아웃·슬롯·편집기·명령·동기화)과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'focus',['setFocusState','focusClear','_navPlace','_navNote','navJump','_navRetab','navCan','navBack',
-  'navForward','_navCounts','setFocus','_initFocusSync','_paintFocusEdge','_paintAttnEdge']);

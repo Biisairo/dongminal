@@ -1,6 +1,6 @@
 /**
  * TerminalSection — Settings ▸ Terminal (REFACTOR3_FE_SETTINGS_SRS 8a). 모바일 키바 구성(`#ds-keybar`)은 8d 에서 왔다
- * (옛 `app-settings-keybar.js`) — 변경은 곧바로 키바에 얹히고 저장된다. 모바일 키바에 얹는 `_keybarApply` 는 App 에 남는다(위임자, 본체는
+ * (옛 `app-settings-keybar.js`) — 변경은 곧바로 키바에 얹히고 저장된다. 모바일 키바에 얹는 `_keybarApply` 는 `settings.apply` 의 것이다(본체는
  * `SettingsApply`): 설정 `keybar` 의 setter 가 설정창이 서기 전(부팅)에도 부른다. 구성 목록은 이 섹션의 `paint` 가 칠한다(QUALITY_FIX_SRS FR-QFX-10).
  *
  * `Claude Code 를 fullscreen 으로`(AGENT_RENDER_ENV_SRS FR-ARE-3)와 스크롤 속도(FR-ARE-10·11)는 **쓰는 주체가

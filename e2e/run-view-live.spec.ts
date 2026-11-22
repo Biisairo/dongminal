@@ -38,7 +38,7 @@ test('TC-RLV-8: 열린 Run 탭은 /graph 를 주기로 다시 받는다', async 
 
   await page.evaluate(async ([id]) => {
     const app = (window as any).app;
-    await app.addTab(app.focused, 'run', { runId: id, short: String(id).slice(0, 8) });
+    await app.layout.tabAdd.addTab(app.focused, 'run', { runId: id, short: String(id).slice(0, 8) });
   }, [runId]);
   await expect(page.locator('.run-view .run-graph')).toBeVisible({ timeout: 10000 });
   await expect.poll(() => graph.n, { timeout: 2000 }).toBeGreaterThan(0);

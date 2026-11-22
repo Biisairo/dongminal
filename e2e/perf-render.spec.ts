@@ -56,9 +56,9 @@ async function actionRenders(page: Page, action: 'tab' | 'slotAdd' | 'slotRemove
   return page.evaluate(async (act) => {
     const w = window as any, a = w.app;
     w.__dmRender = 0;
-    if (act === 'tab') await a.addTab(a.focused, 'terminal');
-    else if (act === 'slotAdd') a.slotAdd();
-    else a.slotRemove(1);
+    if (act === 'tab') await a.layout.tabAdd.addTab(a.focused, 'terminal');
+    else if (act === 'slotAdd') a.slot.ops.slotAdd();
+    else a.slot.ops.slotRemove(1);
     return w.__dmRender as number;
   }, action);
 }
@@ -92,11 +92,11 @@ test.describe('묶음 P-A — 한 동작이 render() 를 한 번만 부른다', 
      */
     const sync = await page.evaluate(() => {
       const a = (window as any).app;
-      a.slotAdd();
+      a.slot.ops.slotAdd();
       // 같은 태스크 안이다 — 합쳐서 미루면 여기서 DOM 이 아직 하나다.
       const dom = document.querySelectorAll('#area .slot').length;
-      const n = a.slotCount();
-      a.slotRemove(1);
+      const n = a.slot.slotCount();
+      a.slot.ops.slotRemove(1);
       return { dom, n };
     });
     expect(sync.n).toBe(2);

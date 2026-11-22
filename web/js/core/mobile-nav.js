@@ -84,8 +84,8 @@ class MobileNav extends Controller {
     if(!this.app.mobile.mobileOnSide()&&regs.length>1) i=(this.app.mPaneIdx-off+1)%regs.length;
     if(i<0) i=0;
     this.app.mPaneIdx=i+off;
-    this.app.setFocusState(regs[i].id);
-    this.app.save();
+    this.app.focus.setFocusState(regs[i].id);
+    this.app.wsSave.save();
     this.app.render();
   }
 

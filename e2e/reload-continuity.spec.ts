@@ -44,7 +44,7 @@ test.describe('묶음 Q — 사이드바가 돌아갈 자리의 기억', () => {
     // 창 셋. 세 번째를 본다 — 접수한 시나리오 그대로다.
     await addWindow(page);
     const third = await addWindow(page);
-    await page.evaluate((id) => (window as any).app.switchWindow(id), third);
+    await page.evaluate((id) => (window as any).app.layout.switchWindow(id), third);
     expect(await activeWindowOf(page)).toBe(third);
     const ids = await plainIds(page);
     expect(ids.length).toBeGreaterThanOrEqual(3);
@@ -94,7 +94,7 @@ test.describe('묶음 Q — 사이드바가 돌아갈 자리의 기억', () => {
     const gone = await addWindow(page);
     await setTab(page, 'repo');
     // 기억은 남기고 그 창만 지운다 — 없는 창으로 돌아갈 수는 없다.
-    await page.evaluate((id) => (window as any).app.delWindow(id), gone);
+    await page.evaluate((id) => (window as any).app.layout.delWindow(id), gone);
 
     await reload(page);
     await setTab(page, 'windows');

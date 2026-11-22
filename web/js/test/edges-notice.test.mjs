@@ -46,14 +46,15 @@ function setup(extra = {}) {
   // REFACTOR3_FE_APPCTL_SRS 9a: 간선 읽기·알림은 `EdgesController`, 패널의 기준은 `SettingsLive` 다.
   app.edges = new ctx.EdgesController(app);
   app.chat = { views: {} };
+  app.wsSync = {};
   // 섹션은 탭 이름으로 찾는다 (REFACTOR3_FE_DELEG_SRS D-DLG-4). 간선 칠하기는 막아 둔다.
   const sections = { edges: { _edgesPaint() {} }, profile: { _pfFollow() {} } };
   app.settings = { live: new ctx.SettingsLive(app), apply: {}, saveState: {}, section: (t) => sections[t] || null };
   app.settings.live._liveOpen = () => false; // 설정 패널이 열려 있지 않다 (UX_BATCH12 FR-LIV-4)
   app.timers = { after: (...a) => { after.push(a); return { stop() {} } }, cancel() {} };
-  app._restoreBegin = () => 1;
-  app._restoreLive = () => true;
-  app._restoreEnd = () => {};
+  app.wsSync._restoreBegin = () => 1;
+  app.wsSync._restoreLive = () => true;
+  app.wsSync._restoreEnd = () => {};
   app._titles = 0;
   app.settings.apply._applyPageTitle = () => { app._titles++ };
   // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `EdgesSection` 이다. 읽기·지문·알림은 App 을 거친다.
@@ -145,7 +146,7 @@ test('끊기는 지문으로 보내고, 상대에게 알리지 못했으면 알�
 test('탭을 여는 읽기가 밀려도 노드 칸은 그 값으로 채운다', async () => {
   const data = { node: { name: 'office', port: 58147 }, edges: [{ name: 'b', fp: 'f' }] };
   const { app, sec } = setup({ apiGet: async () => ({ ok: true, status: 200, data }) });
-  app._restoreLive = () => false; // 방송의 다시 읽기가 뒤에 시작했다
+  app.wsSync._restoreLive = () => false; // 방송의 다시 읽기가 뒤에 시작했다
   const painted = {};
   sec._egNodePaint = (v) => { painted.node = v };
   sec._egEdgesPaint = (p, force) => { painted.edges = [p, force] };

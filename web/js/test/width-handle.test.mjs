@@ -40,9 +40,7 @@ function world({ local = {}, session = {}, collapsed = false, agOpen = true, doc
   const state = { collapsed, agOpen, fits: 0 };
   const app = {
     tools: new Map([['p', { el: { classList: { contains: () => true } }, sizer: { doFit: () => { state.fits++ } } }]]),
-    sidebarCollapsed: () => state.collapsed,
-    setSidebarCollapsed: (v) => { state.collapsed = v },
-    panelDock: () => dock, agents: { agentsPanelOpen: () => state.agOpen, setAgentsPanelOpen: (v) => { state.agOpen = v }, list: { actPanelOpen() {} } }, tool: { search: { focusedTerminal: () => null } },
+    agents: { agentsPanelOpen: () => state.agOpen, setAgentsPanelOpen: (v) => { state.agOpen = v }, list: { actPanelOpen() {} } }, tool: { search: { focusedTerminal: () => null } }, layout: { tabOps: { sidebarCollapsed: () => state.collapsed, setSidebarCollapsed: (v) => { state.collapsed = v } }, dock: { panelDock: () => dock } },
   };
   const ib = new ctx.InputBinding(app);
   const calls = [];

@@ -148,12 +148,12 @@ class EditorDocRender extends Controller {
     if (!s || !s.layout || !filePath) return;
     const ex = this._findRenderTab(filePath);
     if (ex) {
-      this.app.paneTabSet(ex.pane, ex.tab.id);
-      this.app.setFocusState(ex.pane.id, s);
+      this.app.slot.paneTabSet(ex.pane, ex.tab.id);
+      this.app.focus.setFocusState(ex.pane.id, s);
       // FR-RTU-83: 모바일 순회가 그 칸을 가리켜야 렌더 탭이 화면에 온다.
       this.app.mobile.mobileShowPane(ex.pane.id);
       this.app.render();
-      this.app.save();
+      this.app.wsSave.save();
       return;
     }
     const src = findPane(s.layout, this.app.focused) || this.app.flattenPanes(s.layout)[0];
@@ -167,8 +167,8 @@ class EditorDocRender extends Controller {
     });
     const sib = this._paneSiblingOf(src.id);
     // 두 함수가 각자 `save`·`render` 를 한다 — 여기서 다시 부르지 않는다.
-    if (sib) this.app.moveTabToPane(src.id, id, sib.id, null, false);
-    else this.app.splitPaneWithTab(src.id, id, src.id, 'right');
+    if (sib) this.app.layout.dnd.moveTabToPane(src.id, id, sib.id, null, false);
+    else this.app.layout.dnd.splitPaneWithTab(src.id, id, src.id, 'right');
     // FR-RTU-83: **옆 칸은 모바일 화면에 없다.** 나눈 뒤의 칸 id 는 여기서 만든
     // 것이 아니므로 탭을 다시 찾아 그 자리를 가리킨다 — 순회에서 `옆 칸` 은 다음
     // 자리이고, 그리로 가지 않으면 미리보기는 열리고도 보이지 않는다.
@@ -183,13 +183,13 @@ class EditorDocRender extends Controller {
   docRenderToSource(view) {
     if (!view || !view.filePath) return;
     // `_findEditorTab` 은 소스 탭만 찾는다 (FR-DRV-10).
-    const ex = this.app._findEditorTab(view.filePath);
+    const ex = this.app.layout.tabAdd._findEditorTab(view.filePath);
     if (ex) {
-      this.app._activateWindow(ex.win.id);
-      this.app.paneTabSet(ex.pane, ex.tab.id);
-      this.app.setFocusState(ex.pane.id, ex.win);
+      this.app.layout.winState._activateWindow(ex.win.id);
+      this.app.slot.paneTabSet(ex.pane, ex.tab.id);
+      this.app.focus.setFocusState(ex.pane.id, ex.win);
       this.app.render();
-      this.app.save();
+      this.app.wsSave.save();
       return;
     }
     this.app.editor.file.edOpenFile(view.filePath, {});

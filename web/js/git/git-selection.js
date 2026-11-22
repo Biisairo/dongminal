@@ -103,7 +103,7 @@ class GitSelection extends GitPart {
     if(i>=0) this.p._diffPos=i;
     this.p._paint();
     // UX_BATCH12 FR-FHL-4: Diff 탭이 포커스면 대상이 바뀐 것이다 — 하이라이트를 맞춘다.
-    this.app.focusHighlightSync();
+    this.app.focus.hl.focusHighlightSync();
   }
 
   _openDiff(group,e){
@@ -134,7 +134,7 @@ class GitSelection extends GitPart {
       const f=view==='diff'&&this._diffTarget();
       if(f){app.repoWin.gitDiffOpen(this.p.root,f,{preview:true,commit:!!this.p.commitFile});return}
       const rid=app.editor.pane.edEnsurePane(w); if(!rid) return;
-      app.addTab(rid,TAB_TYPE_GIT,{gitView:view,windowId:w.id});
+      app.layout.tabAdd.addTab(rid,TAB_TYPE_GIT,{gitView:view,windowId:w.id});
       // FR-RTU-83: 모바일은 사이드(Changes)에 서서 이 부름을 낸다. 본문의 칸을
       // 가리키지 않으면 diff 탭은 생기고 화면은 Changes 그대로다.
       app.mobile.mobileShowPane(rid,{render:true});
@@ -143,7 +143,7 @@ class GitSelection extends GitPart {
     const w=app.git.gitWindow(); if(!w||!w.layout) return;
     for(const pn of app.flattenPanes(w.layout)){
       const target=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView===view);
-      if(target){app.switchTab(pn.id,target.id);return}
+      if(target){app.layout.tabOps.switchTab(pn.id,target.id);return}
     }
   }
 
@@ -182,7 +182,7 @@ class GitSelection extends GitPart {
     const has=(app.editor?.edEntries?app.editor.edEntries():[]).some(e=>e&&e.path===abs);
     const go=()=>{
       const w=app.editor.edWindowFor&&app.editor.edWindowFor(abs);
-      if(w) app.switchWindow(w.id);
+      if(w) app.layout.switchWindow(w.id);
     };
     const acts=has
       ? [{label:GIT_DIR_ENTRY_GO,title:GIT_DIR_ENTRY_GO_TITLE,run:go}]

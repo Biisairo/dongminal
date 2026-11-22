@@ -38,12 +38,12 @@ class ChatController extends Controller {
 
   /** 등록부의 restore. 실패면 코드를 남겨 Chats 탭이 까닭을 말하게 한다. */
   _chatRestore(src){
-    const flight=this.app._restoreBegin('chat');
+    const flight=this.app.wsSync._restoreBegin('chat');
     return stateFetch(src,'/api/chat').then(r=>{
-      if(!this.app._restoreLive('chat',flight)) return;
+      if(!this.app.wsSync._restoreLive('chat',flight)) return;
       if(r.ok&&r.data) this.app._chat=r.data;
       else if(r.status) this.app._chat={down:(r.data&&r.data.code)||'chat_unavailable'};
-      this.app._restoreEnd('chat',flight);
+      this.app.wsSync._restoreEnd('chat',flight);
       if(this.app.chat.window._chatRepaint) this.app.chat.window._chatRepaint(); // CHAT_WINDOW_SRS FR-CW-21: 목록은 메인 패널이다
       this.app.chat.views._chatViewsPaint();
     });
@@ -168,15 +168,15 @@ class ChatController extends Controller {
     if (!opts.roomId) { console.warn('[addTab] chat tab requires roomId'); return }
     const existing = findTabWhere(this.app.ws.windows, tab => tab.type === TAB_TYPE_CHAT && tab.roomId === opts.roomId);
     if (existing) {
-      this.app._revealTab(existing);
+      this.app.layout.tabAdd._revealTab(existing);
       this.app.render();
-      this.app.save();
+      this.app.wsSave.save();
       return;
     }
     const id = newEntityId();
-    this.app._pushTab(s, pn, { id, name: clampEntityName(opts.name || 'Chat'), type: TAB_TYPE_CHAT, roomId: opts.roomId }, true);
+    this.app.layout.tabAdd._pushTab(s, pn, { id, name: clampEntityName(opts.name || 'Chat'), type: TAB_TYPE_CHAT, roomId: opts.roomId }, true);
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
     return { uuid: id };
   }
 

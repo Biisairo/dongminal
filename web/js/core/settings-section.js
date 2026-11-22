@@ -3,8 +3,8 @@
  *
  * `index.html` 의 `#panel-<tab>` 을 받아 쓴다 — 그 요소의 주인은 마크업이므로 `dispose()` 가 떼지 않는다.
  * 훅은 넷이다: `init()`(한 번 — 리스너는 `listen`·`own`) · `onOpen()`(설정을 열 때) · `onTab()`(그 탭을 고를 때) ·
- * `paint()`(칠하기 한 자리 — 기본은 선언한 행을 칠한다). 저장·적용은 `this.app` 을 거쳐 부른다 — e2e·단위 시험이
- * App 인스턴스의 메서드를 갈아 끼운다.
+ * `paint()`(칠하기 한 자리 — 기본은 선언한 행을 칠한다). 저장·적용은 소유 경로(`this.app.settings.apply`)로 부른다 — e2e·단위
+ * 시험이 그 인스턴스의 메서드를 갈아 끼운다.
  *
  * 섹션을 드는 것은 `SettingsController`(`settings-controller.js`)다 — 세우기(`start`)·찾기(`section(tab)`)와
  * 열기·탭 훅의 순서가 그쪽에 있다(FR-FES-6·7).

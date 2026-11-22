@@ -25,7 +25,7 @@ function pane(opts = {}) {
     expose: ['OP', 'TerminalTool', 'TIMERS', 'SEQ_FLAG_FULL', 'SEQ_FLAG_ALT'],
   });
   const state = { owner: opts.owner !== false };
-  ctx.app = { resizeCheck: () => state.owner, isMobile: false };
+  ctx.app = { isMobile: false, focus: { owner: { resizeCheck: () => state.owner } } };
   const p = new ctx.TerminalTool('t1', 'tool');
   p._send = () => {};
   // 자기 폭은 151. PTY 가 44 로 오면 잃는 쪽의 폭 변화가 된다.

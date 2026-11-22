@@ -560,7 +560,7 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
     });
 
     // A 가 주인이 되고, A 의 셸이 OSC 52 를 낸다.
-    await A.page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+    await A.page.evaluate(() => (window as any).app.focus.setFocus((window as any).app.focused));
     await A.page.locator('#area .pn.focused .xterm-helper-textarea').focus();
     await A.page.keyboard.type("printf '\\033]52;c;%s\\007' " + b64('from-A') + '\n');
     // B 가 그 바이트를 받았다 — 메아리가 아니라 OSC 52 가 도착한 것을 본다.

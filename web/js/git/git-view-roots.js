@@ -170,7 +170,7 @@ class GitViewRoots extends GitPart {
       el.insertBefore(note,head?head.nextSibling:el.firstChild);
       // UX_AUDIT_FIX_SRS FR-UXF-29: 수동 git 새로고침이 없으므로(FR-UXF-27) 복구 길은 앱 새로고침이다.
       note.append(document.createElement('span'),
-        UIKit.button({label:t('core.reload_app'),kind:'ghost',size:'sm',cls:'git-stale-reload',onClick:()=>this.app.softReload()}));
+        UIKit.button({label:t('core.reload_app'),kind:'ghost',size:'sm',cls:'git-stale-reload',onClick:()=>this.app.wsSync.reload.softReload()}));
     }
     note.firstChild.textContent=info.text;
     note.classList.add('vis');

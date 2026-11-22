@@ -139,16 +139,16 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
     const r = await page.evaluate(() => {
       const stub = (window as any).__app;
       // ① 증분이 먼저 도착해 X 의 전경 이름을 세웠다.
-      stub._fgMap().set('X', 'from-sse');
+      stub.wsSync._fgMap().set('X', 'from-sse');
 
       // ② 스냅샷 비행이 시작되고, 그 사이 증분이 X 를 만졌다고 기록한다.
-      const t = stub._restoreBegin('fg');
-      stub._restoreNote('fg', 'X');
+      const t = stub.wsSync._restoreBegin('fg');
+      stub.wsSync._restoreNote('fg', 'X');
 
       // ③ X 를 **모르는** 스냅샷이 뒤늦게 도착한다. 보호가 없으면 X 가 지워진다.
-      stub._fgApply([{ id: 'Y', fgName: 'from-snapshot' }], t);
+      stub.wsSync._fgApply([{ id: 'Y', fgName: 'from-snapshot' }], t);
 
-      return { x: stub._fgMap().get('X') || null, y: stub._fgMap().get('Y') || null };
+      return { x: stub.wsSync._fgMap().get('X') || null, y: stub.wsSync._fgMap().get('Y') || null };
     });
 
     expect(r.x, '증분이 만진 id 를 스냅샷이 지웠다 (FR-RSF-3)').toBe('from-sse');
@@ -162,9 +162,9 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
 
     const left = await page.evaluate(() => {
       const stub = (window as any).__app;
-      stub._fgMap().set('X', 'stale');
-      stub._fgApply([{ id: 'Y', fgName: 'fresh' }]);
-      return { x: stub._fgMap().get('X') || null, y: stub._fgMap().get('Y') || null };
+      stub.wsSync._fgMap().set('X', 'stale');
+      stub.wsSync._fgApply([{ id: 'Y', fgName: 'fresh' }]);
+      return { x: stub.wsSync._fgMap().get('X') || null, y: stub.wsSync._fgMap().get('Y') || null };
     });
 
     expect(left.x, 'touched 가 없는데도 낡은 id 가 살아남았다 (FR-RSF-7)').toBeNull();
@@ -177,10 +177,10 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
 
     const r = await page.evaluate(() => {
       const stub = (window as any).__app;
-      const t = stub._restoreBegin('attn');
-      const before = stub._restoreLive('attn', t);
-      stub._restoreVoid('attn'); // 전체 초기화가 일어났다
-      return { before, after: stub._restoreLive('attn', t) };
+      const t = stub.wsSync._restoreBegin('attn');
+      const before = stub.wsSync._restoreLive('attn', t);
+      stub.wsSync._restoreVoid('attn'); // 전체 초기화가 일어났다
+      return { before, after: stub.wsSync._restoreLive('attn', t) };
     });
 
     expect(r.before, '갓 시작한 비행이 살아 있지 않다').toBe(true);
@@ -193,11 +193,11 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
 
     const r = await page.evaluate(() => {
       const stub = (window as any).__app;
-      const first = stub._restoreBegin('activity');
-      const second = stub._restoreBegin('activity');
+      const first = stub.wsSync._restoreBegin('activity');
+      const second = stub.wsSync._restoreBegin('activity');
       return {
-        first: stub._restoreLive('activity', first),
-        second: stub._restoreLive('activity', second),
+        first: stub.wsSync._restoreLive('activity', first),
+        second: stub.wsSync._restoreLive('activity', second),
       };
     });
 
@@ -560,7 +560,7 @@ test.describe('T-12 — 소프트리로드의 재검증 목록 (SRS §2.4)', () 
         orig[k] = o[k].bind(o);
         o[k] = (...a: any[]) => { called.push(k); return orig[k](...a) };
       }
-      await app.softReload();
+      await app.wsSync.reload.softReload();
       for (const p of paths) { const { o, k } = at(p); o[k] = orig[k] }
 
       return { missing, called };

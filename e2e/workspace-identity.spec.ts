@@ -171,7 +171,7 @@ test.describe('묶음 I — 엔터티 id 는 uuid 다', () => {
     // 브로드캐스트가 아니라 각자 로컬 생성 — 단일 실행자 게이팅이 닿지 않는 경로다.
     // addTab 은 만든 탭의 {uuid, toolId} 를 돌려준다 (FR-RCR-7).
     const mk = (p: Page) => p.evaluate(() =>
-      (window as any).app.addTab((window as any).app.focused, 'terminal'));
+      (window as any).app.layout.tabAdd.addTab((window as any).app.focused, 'terminal'));
     const [ta, tb] = await Promise.all([mk(A.page), mk(B.page)]);
 
     expect(ta?.uuid, 'A 가 탭을 만들지 않았다').toBeTruthy();
@@ -267,7 +267,7 @@ test.describe('묶음 X — 생성 명령은 한 클라이언트만 수행한다
     // 둘 다 target 이 **아닌** 자리에 세운다. 지명은 `FocusRegistry.Executor()` 가
     // 고르며 **가장 최근에 주장한** 클라이언트다 — 그래서 B 가 실행자다.
     for (const p of [A.page, B.page]) {
-      await p.evaluate((id) => (window as any).app.setFocus(id), away);
+      await p.evaluate((id) => (window as any).app.focus.setFocus(id), away);
     }
     await expect.poll(() => focusedOf(A.page), { timeout: 10000 }).toBe(away);
     await expect.poll(() => focusedOf(B.page), { timeout: 10000 }).toBe(away);

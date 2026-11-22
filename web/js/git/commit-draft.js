@@ -29,7 +29,7 @@ Object.assign(GitCommit.prototype, {
     if(!repo) return;
     const d=this._drafts();
     if(v) d[repo]=v; else delete d[repo];
-    this.app.save();
+    this.app.wsSave.save();
   },
 
   _setValue(v){

@@ -638,13 +638,13 @@ test('V-GLV-2 (FR-GLV-4): 칸을 줄여도 남은 패널의 관측이 산다', a
 
   await page.evaluate(() => {
     const a = (window as any).app;
-    a.slotAdd();
+    a.slot.ops.slotAdd();
     a.render();
   });
   await expect(page.locator('#area .slot')).toHaveCount(2, { timeout: 10000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a.slotRemove();
+    a.slot.ops.slotRemove();
     a.render();
   });
   // 칸이 하나로 돌아가면 `.slot` 래퍼 자체가 사라진다 — 하나뿐인 칸은 감싸지

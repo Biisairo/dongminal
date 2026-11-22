@@ -139,10 +139,12 @@ function setup() {
   const app = controllers(ctx, new ctx.App());
   Object.assign(app, {
     sbTab: 'a', sbBusy: false, isMobile: false, tools: new Map(), refreshes: 0, renders: 0, settings: { apply: {} },
-    sbPanel() { return this._sb || (this._sb = new ctx.SidebarPanel(this)) },
-    sidebarCollapsed() { return !this.sbPanel().isOpen() },
-    setSidebarCollapsed(on) { this.sbPanel().setOpen(!on) },
     counts: {}, dots: {},
+  });
+  Object.assign(app.layout.tabOps, {
+    sbPanel() { return app._sb || (app._sb = new ctx.SidebarPanel(app)) },
+    sidebarCollapsed() { return !app.layout.tabOps.sbPanel().isOpen() },
+    setSidebarCollapsed(on) { app.layout.tabOps.sbPanel().setOpen(!on) },
   });
   // 작업 패널 쪽은 소유 경로에 둔다 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
   app.mobile.sheets.mobileChromeSync = () => {};
@@ -168,7 +170,7 @@ function setup() {
 
 test('TC-FEB-20: 단추는 줄이 비었을 때만 만든다 — 두 번 그려도 한 벌이다', () => {
   const { app, ids, built } = setup();
-  const sb = app.sbPanel().tabs;
+  const sb = app.layout.tabOps.sbPanel().tabs;
   sb.paint();
   sb.paint();
   assert.equal(built(), 3);
@@ -233,7 +235,7 @@ test('TC-FEB-20: jump 의 세 갈래 — 펼친 채 같은 탭 → 접기 / 다�
 
 test('SidebarTabBar: 숨은 탭·패널·배지, 보던 탭이 숨으면 첫 탭, 재진입 가드', () => {
   const { app, ids } = setup();
-  const sb = app.sbPanel().tabs;
+  const sb = app.layout.tabOps.sbPanel().tabs;
   app.nA = 3;
   sb.paint();
   const tab = (id) => ids['sb-tabs'].querySelector('.sb-tab[data-panel="' + id + '"]');
@@ -298,7 +300,7 @@ function fitSpy(ctx, fits, sb, act) {
 
 test('TC-FEB-21: 배지·폭·탭 전환·다시 그리기·펼치기·모바일 진입에서 두 줄이 같은 판정 길을 지난다', () => {
   const { ctx, app, fits, document } = setup();
-  const sb = app.sbPanel().tabs, act = app.agents.list.actPanel().tabs;
+  const sb = app.layout.tabOps.sbPanel().tabs, act = app.agents.list.actPanel().tabs;
   sb.paint();
   app.agents.agentsRender();
   const spy = fitSpy(ctx, fits, sb, act);
@@ -327,9 +329,9 @@ test('TC-FEB-21: 배지·폭·탭 전환·다시 그리기·펼치기·모바일
 
   // 레일에서 펼치기 — 이전: 사이드바는 관측만 기다렸고 작업 패널은 다시 그리며 쟀다.
   app.agents.setAgentsPanelOpen(true); spy.take();
-  app.setSidebarCollapsed(true); app.agents.setAgentsPanelOpen(false);
+  app.layout.tabOps.setSidebarCollapsed(true); app.agents.setAgentsPanelOpen(false);
   both('접기', spy.take());
-  app.setSidebarCollapsed(false); app.agents.setAgentsPanelOpen(true);
+  app.layout.tabOps.setSidebarCollapsed(false); app.agents.setAgentsPanelOpen(true);
   both('펼치기', spy.take());
 
   // 모바일 진입 — 이전: 작업 패널이 닫혀 있으면 다시 그리기가 일찍 돌아가 재지 않았다.
@@ -365,7 +367,7 @@ test('FR-FEE-5: 서랍과 작업 패널은 EscapeStack 버블 층이고 모바�
   const { ctx, app } = setup();
   const d = new ctx.DrawerSheet(app);
   const a = app.agents.list.actPanel();
-  assert.equal(json([app.sbPanel().escapable, a.escapable, d.escapable]), json([false, true, true]));
+  assert.equal(json([app.layout.tabOps.sbPanel().escapable, a.escapable, d.escapable]), json([false, true, true]));
   assert.equal(json([a.phase, d.phase]), json(['bubble', 'bubble']));
   app.isMobile = false;
   assert.equal(json([a.active(), d.active()]), json([false, false]));
@@ -376,13 +378,13 @@ test('FR-FEE-5: 서랍과 작업 패널은 EscapeStack 버블 층이고 모바�
 test('FR-FEB-24: SidebarPanel — 접힘 표식은 documentElement 하나, 저장은 접힘일 때만 "1"', () => {
   const { app, document, session } = setup();
   let painted = 0;
-  app.sbCollapsePaint = () => { painted++ };
-  app.setSidebarCollapsed(true);
-  assert.equal(json([document.documentElement.classList.contains('sb-collapsed'), session.get('sidebarCollapsed'), app.sidebarCollapsed(), painted]),
+  app.layout.dock.sbCollapsePaint = () => { painted++ };
+  app.layout.tabOps.setSidebarCollapsed(true);
+  assert.equal(json([document.documentElement.classList.contains('sb-collapsed'), session.get('sidebarCollapsed'), app.layout.tabOps.sidebarCollapsed(), painted]),
     json([true, '1', true, 1]));
-  app.setSidebarCollapsed(true);
+  app.layout.tabOps.setSidebarCollapsed(true);
   assert.equal(painted, 1, '같은 값이면 아무것도 하지 않는다');
-  app.setSidebarCollapsed(false);
+  app.layout.tabOps.setSidebarCollapsed(false);
   assert.equal(json([document.documentElement.classList.contains('sb-collapsed'), session.get('sidebarCollapsed'), painted]), json([false, null, 2]));
 });
 
@@ -405,21 +407,21 @@ test('FR-FEB-24: ActivityPanel — 손잡이·영속·재조회·다시 그리�
 test('TC-FR4-3: 레일 표식은 레일을 갖는 패널이 닫혀 있고 데스크톱일 때만 선다 — 열림이 바뀔 때 다시 선다', () => {
   const { app, ids } = setup();
   const rail = () => ['data-rail' in ids.sidebar.attrs, 'data-rail' in ids['agents-panel'].attrs];
-  assert.equal(json([app.sbPanel().rail, app.agents.list.actPanel().rail]), json([true, true]));
-  app.setSidebarCollapsed(true);
+  assert.equal(json([app.layout.tabOps.sbPanel().rail, app.agents.list.actPanel().rail]), json([true, true]));
+  app.layout.tabOps.setSidebarCollapsed(true);
   assert.equal(json(rail()), json([true, false]), '사이드바 접힘 → 레일');
   app.agents.setAgentsPanelOpen(true);
   assert.equal(json(rail()), json([true, false]), '작업 패널 펼침 → 레일 아님');
   app.agents.setAgentsPanelOpen(false);
   assert.equal(json(rail()), json([true, true]), '작업 패널 닫힘 → 레일');
-  app.setSidebarCollapsed(false);
+  app.layout.tabOps.setSidebarCollapsed(false);
   assert.equal(json(rail()), json([false, true]), '사이드바 펼침 → 레일 아님');
 });
 
 test('TC-FR4-3: 모바일 진입·이탈에 두 패널의 표식이 함께 다시 선다 — 모바일에서는 닫혀 있어도 레일이 아니다', () => {
   const { app, ids, document } = setup();
   const rail = () => ['data-rail' in ids.sidebar.attrs, 'data-rail' in ids['agents-panel'].attrs];
-  app.setSidebarCollapsed(true);
+  app.layout.tabOps.setSidebarCollapsed(true);
   app.agents.setAgentsPanelOpen(true);
   app.agents.setAgentsPanelOpen(false);
   assert.equal(json(rail()), json([true, true]));
@@ -437,14 +439,14 @@ test('TC-FR4-3: 모바일 진입·이탈에 두 패널의 표식이 함께 다�
 
 test('TC-FR4-3: 서랍(DrawerSheet)은 레일을 갖지 않는다 — #sidebar 를 열고 닫아도 표식을 건드리지 않는다', () => {
   const { ctx, app, ids } = setup();
-  app.setSidebarCollapsed(true);
+  app.layout.tabOps.setSidebarCollapsed(true);
   assert.equal('data-rail' in ids.sidebar.attrs, true);
   const d = new ctx.DrawerSheet(app);
   assert.equal(d.rail, false);
   d.open();
   assert.equal(json([ids.sidebar.classList.contains('open'), 'data-rail' in ids.sidebar.attrs]), json([true, true]));
   d.close();
-  app.setSidebarCollapsed(false);
+  app.layout.tabOps.setSidebarCollapsed(false);
   d.open();
   d.close();
   assert.equal('data-rail' in ids.sidebar.attrs, false);

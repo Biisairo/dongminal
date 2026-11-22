@@ -27,7 +27,7 @@ function pane() {
     },
     expose: ['TerminalTool', 'OP', 'TOPTS', 'ClipboardWriter', 'TERM_HELD_MAX', 'TERM_OVERLAY_HIDE_MS', 'termHeldPreview'],
   });
-  ctx.app = { resizeCheck: () => false, isMobile: false };
+  ctx.app = { isMobile: false, focus: { owner: { resizeCheck: () => false } } };
   const copied = [];
   let copyOk = true;
   ctx.ClipboardWriter.write = async (text) => { copied.push(text); return copyOk };

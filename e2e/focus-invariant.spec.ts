@@ -39,7 +39,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     // Add a new tab via UI button, then switch.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.addTab(a.focused, 'terminal');
+      a.layout.tabAdd.addTab(a.focused, 'terminal');
     });
     await page.waitForFunction(() => document.querySelectorAll('#area .pn.focused .pn-tab').length >= 2, { timeout: 5000 });
     const tabs = await page.locator('#area .pn.focused .pn-tab').all();
@@ -59,13 +59,13 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     // Add a second session. EDITOR_TAB_SRS FR-EDT-13: root 에디터 창이 항상
     // 하나 더 있으므로 `ws.windows.length` 는 이제 일반 창 둘과 무관하게 3
     // 이상이다 — 일반 창만 센다.
-    await page.evaluate(() => (window as any).app.addWindow());
+    await page.evaluate(() => (window as any).app.layout.addWindow());
     await expect.poll(async () => (await plainWindows(page)).length, { timeout: 5000 }).toBe(2);
 
     // Switch back to the first session.
     await page.evaluate((id) => {
       const a = (window as any).app;
-      a.switchWindow(id);
+      a.layout.switchWindow(id);
     }, firstWin);
     await expect
       .poll(() => page.evaluate(() => (window as any).app.ws.activeWindow), { timeout: 10000 })
@@ -88,8 +88,8 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     // Add 2 more terminal tabs and wait for each pane to register.
     await page.evaluate(async () => {
       const a = (window as any).app;
-      await a.addTab(a.focused, 'terminal');
-      await a.addTab(a.focused, 'terminal');
+      await a.layout.tabAdd.addTab(a.focused, 'terminal');
+      await a.layout.tabAdd.addTab(a.focused, 'terminal');
     });
     await page.waitForFunction(() => {
       const a = (window as any).app;
@@ -108,7 +108,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     expect(tabIds.length).toBeGreaterThanOrEqual(3);
 
     // Activate middle tab and wait for it to become active.
-    await page.evaluate((tid) => (window as any).app.switchTab((window as any).app.focused, tid), tabIds[1]);
+    await page.evaluate((tid) => (window as any).app.layout.tabOps.switchTab((window as any).app.focused, tid), tabIds[1]);
     await page.waitForFunction((tid) => {
       const a = (window as any).app;
       const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
@@ -117,7 +117,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     }, tabIds[1], { timeout: 5000 });
 
     // Close middle tab.
-    await page.evaluate((tid) => (window as any).app.closeTab((window as any).app.focused, tid), tabIds[1]);
+    await page.evaluate((tid) => (window as any).app.layout.tabOps.closeTab((window as any).app.focused, tid), tabIds[1]);
     await page.waitForFunction((expected) => {
       const a = (window as any).app;
       const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
@@ -142,7 +142,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     });
     expect(otherRid).toBeTruthy();
 
-    await page.evaluate((rid) => (window as any).app.setFocus(rid), otherRid);
+    await page.evaluate((rid) => (window as any).app.focus.setFocus(rid), otherRid);
     await expect
       .poll(() => page.evaluate(() => (window as any).app.focused), { timeout: 10000 })
       .toBe(otherRid);

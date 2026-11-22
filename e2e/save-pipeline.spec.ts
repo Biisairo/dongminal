@@ -173,9 +173,9 @@ test.describe('워크스페이스 저장 (FR-OPT-5-1)', () => {
       const wins = a.ws.windows.map((w: any) => w.id);
       const back = a.ws.activeWindow;
       if (wins.length > 1) {
-        a.switchWindow(wins.find((id: string) => id !== back));
+        a.layout.switchWindow(wins.find((id: string) => id !== back));
         await a.testing.save();
-        a.switchWindow(back);
+        a.layout.switchWindow(back);
         await a.testing.save();
       }
       await a.testing.save();

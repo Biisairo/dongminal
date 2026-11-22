@@ -6,7 +6,7 @@
  * 새 주소의 화면이 새 값을 보인다 (FR-HRB-44).
  *
  * REFACTOR3_FE_SETTINGS_SRS 8c: 읽은 값(`_srv`)과 이사 중 표시(`_srvMoving`)는 이 섹션이 든다. SSE `server_moving`
- * (`state-registry.js`)은 App 의 위임자 `_onServerMoving` 을 지난다.
+ * (`state-registry.js`)은 `settings.section(server)._onServerMoving` 을 부른다.
  */
 
 /** server.json 값의 출처(`GET /api/server/bind` 의 source) → 문구 키. */

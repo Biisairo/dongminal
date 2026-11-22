@@ -1139,7 +1139,7 @@ export async function switchToEditorRoot(page: any, root: string, timeout = 1500
       const win = a.testing.edWindows().find((x: any) => x.editor && key(x.editor.root) === key(r));
       if (!win) return false;
       if (key(a.testing.edRootOf(a.testing.aw())) === key(r)) return true;
-      a.switchWindow(win.id);
+      a.layout.switchWindow(win.id);
       return false;
     },
     root, { timeout, polling: 100 },

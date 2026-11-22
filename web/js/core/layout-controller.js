@@ -90,9 +90,9 @@ class LayoutController extends Controller {
       const v=input.value.trim();
       // FR-TAN-21: 비워서 확정하면 자동으로 돌아간다. 지금까지 빈 이름은 그냥
       // 거부돼 동작이 비어 있었고, 여기에 뜻을 준다.
-      if(!v){ this._tabToAuto(tab); this.app.save() }
+      if(!v){ this._tabToAuto(tab); this.app.wsSave.save() }
       // FUI-18: 만들 때와 **같은 상한**이다. 여기가 그 상한의 우회로였다.
-      else if(v!==old){ tab.name=clampEntityName(v); this._tabToManual(tab); this.app.save() }
+      else if(v!==old){ tab.name=clampEntityName(v); this._tabToManual(tab); this.app.wsSave.save() }
       this.app.render();
     };
     input.addEventListener('blur', done, {once:true});
@@ -167,7 +167,7 @@ class LayoutController extends Controller {
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
     // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).
     if(!opts.keepFocus){
-      this.app._activateWindow(s.id);
+      this.app.layout.winState._activateWindow(s.id);
       // FR-WSL-54: **여는 경로는 포커스 칸에 연다** — 창을 만드는 것도 그 경로다.
       //
       // 화면은 `ws.activeWindow` 가 아니라 **칸이 가리키는 창**을 그린다
@@ -176,19 +176,19 @@ class LayoutController extends Controller {
       // ("생성과 동시에 이동해야 하는데 이동하지 않는다", 2026-09-11).
       //
       // `switchWindow` 가 밟는 걸음과 같다. 다른 칸은 건드리지 않는다.
-      this.app._slotOnSwitch(s.id);
-      this.app.setFocusState(r, s);
-      this.app._focusWindow(s.id);
+      this.app.slot.ops._slotOnSwitch(s.id);
+      this.app.focus.setFocusState(r, s);
+      this.app.focus.owner._focusWindow(s.id);
     }
     // Fire-and-forget save: keeps the UI snappy. Awaiting here would block
     // render on the PUT roundtrip (see split/addTab which already use
     // this pattern).
-    this.app.save();
+    this.app.wsSave.save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-6/7: 생성한 엔터티 id 반환 (echo 용).
     return {win:s.id, pane:r, tab:{uuid:tabId, toolId:p.id}};
   }
 
-  async addWindow(opts){await this.app._mkWindow(opts||{});this.app.render()}
+  async addWindow(opts){await this._mkWindow(opts||{});this.app.render()}
 
   /**
    * M9_SRS FR-M9-4: `opts.force` 는 **이미 물었다**는 뜻이다 (탭 쪽 FR-RUN-6 과
@@ -215,7 +215,7 @@ class LayoutController extends Controller {
     if(!ans.asked) this._winUndoArm(s,i,pids);
     // FR-WSL-6: 실제로 지워진 뒤에 슬롯을 정리한다 — 위의 확인 대화에서
     // 취소되면 여기 도달하지 않는다.
-    this.app._slotOnWindowGone(sid);
+    this.app.slot.ops._slotOnWindowGone(sid);
     await this._delWinAfter(sid,i);
   }
 
@@ -299,7 +299,7 @@ class LayoutController extends Controller {
 
   // 창을 뺀 뒤 — 빈 워크스페이스·다음 활성 창·포커스·그리기·저장.
   async _delWinAfter(sid,i){
-    if(!this.app.ws.windows.length){await this.app._mkWindow();this.app.render();return}
+    if(!this.app.ws.windows.length){await this._mkWindow();this.app.render();return}
     if(this.app.ws.activeWindow===sid){
       // UX_REVISION_SRS FR-CLS-1: 다음 활성 창은 **일반 창**이다. 인덱스로만
       // 고르면 Git 창이 활성이 되고, 그러면 사이드바 탭이 Git 으로 따라간다
@@ -311,21 +311,21 @@ class LayoutController extends Controller {
       if(!next){
         // FR-CLS-2: 일반 창이 남지 않았다. Git 창만 남기고 사용자를 그 안에
         // 가두지 않는다 — 새 창을 만들고 그리로 간다.
-        await this.app._mkWindow();
-        this.app.render(); this.app.save();
+        await this._mkWindow();
+        this.app.render(); this.app.wsSave.save();
         return;
       }
-      this.app._activateWindow(next.id);
+      this.app.layout.winState._activateWindow(next.id);
     }
     const a=this.app.tool.life.aw();
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
-      this.app.setFocusState(next, a);
-    } else this.app.focusClear();
+      this.app.focus.setFocusState(next, a);
+    } else this.app.focus.focusClear();
     // Render first, save in background (matches split/addTab/closeTab).
-    this.app._focusWindow(this.app.ws.activeWindow);
+    this.app.focus.owner._focusWindow(this.app.ws.activeWindow);
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
   }
 
   // ── 창 닫기의 되돌리기 (WINDOW_CLOSE_UNDO_SRS FR-WCU-1~7) ──
@@ -376,12 +376,12 @@ class LayoutController extends Controller {
     this.groups._groupsNormalizeWs(this.app.ws);
     for(const pid of u.pids) this.app.tool.life._setToolBackground(pid,false);
     this.app.tool.life._bgRefresh();
-    this.app._activateWindow(u.win.id);
+    this.app.layout.winState._activateWindow(u.win.id);
     const next=(u.win.focusedPane&&findPane(u.win.layout,u.win.focusedPane))?u.win.focusedPane:firstPane(u.win.layout)?.id||null;
-    this.app.setFocusState(next,u.win);
-    this.app._focusWindow(u.win.id);
+    this.app.focus.setFocusState(next,u.win);
+    this.app.focus.owner._focusWindow(u.win.id);
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
   }
 
   switchWindow(sid){
@@ -397,29 +397,25 @@ class LayoutController extends Controller {
     // 건너지 못해, 새로고침 뒤 Windows 탭이 늘 첫 창으로 갔다 (SRS §2.2).
     // 적는 자리는 여기 하나다 — 두 벌로 만들면 한쪽만 갱신된다.
     if(cur&&!this.app.git.isKindWin(cur)) this._rememberReturn('plain',cur.id);
-    this.app._activateWindow(sid);
+    this.app.layout.winState._activateWindow(sid);
     // WINDOW_SLOTS_SRS FR-WSL-54: 포커스 슬롯이 이 창을 받는다. 다른 슬롯은
     // 건드리지 않는다 — 그것이 두 칸을 나란히 두는 이유다.
-    this.app._slotOnSwitch(sid);
+    this.app.slot.ops._slotOnSwitch(sid);
     // FR-EDT-7: Editor 탭이 돌아갈 창을 같은 규약으로 기억한다 — 들어가는
     // 순간에 적는다. 나갈 때 적으면 한 번도 떠난 적 없는 창을 기억하지 못한다.
     if(this.app.editor.isEditorWin(this.app.tool.life.aw())) this._rememberReturn('editor',sid);
     const a=this.app.tool.life.aw();
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
-      this.app.setFocusState(next, a);
-    } else this.app.focusClear();
+      this.app.focus.setFocusState(next, a);
+    } else this.app.focus.focusClear();
     this.app.mPaneIdx=0;
     if(this.app.isMobile && this.app.drawerOpen) this.app.mobile._toggleDrawer(false);
-    this.app._focusWindow(sid);
+    this.app.focus.owner._focusWindow(sid);
     // FR-GIT-22 + FR-RTU-62: 창 전환은 폴링 조건의 재평가 시점이다. **모든
     // 패널**이 다시 본다 — 떠난 창의 패널이 타이머를 든 채 남으면 아무도 보지
     // 않는 저장소를 계속 폴링한다.
     this.app.git.surfaces._gitRescheduleAll();
-    this.app.save(); this.app.render();
+    this.app.wsSave.save(); this.app.render();
   }
 }
-
-// 바깥이 부르는 이름 — `app.js`(부팅의 복원·창 단축키)·`tool-cmd.js`·`layout-dnd.js`·`layout-window-state.js`(프리셋)·편집기·`ui/`·e2e·계약.
-Controller.delegate(App,'layout',['_restoreReturn','_tabToManual','_tabToAuto','renameTab','_mkWindow','addWindow','delWindow',
-  'switchWindow']);

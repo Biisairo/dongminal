@@ -70,16 +70,16 @@ class LayoutDnd extends Controller {
     // (FR-RTU-30) 자리를 정하는 것은 사용자다. 창 밖으로는 여전히 못 나간다 —
     // 그 판정은 `moveTabToWindow` 가 창 타입으로 한다 (FR-RTU-17).
     const[tab]=srcRg.tabs.splice(ti,1);
-    if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.app.focused===srcRid)this.app.setFocusState(dstRid, s)}
+    if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.app.focused===srcRid)this.app.focus.setFocusState(dstRid, s)}
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
     const dst=findPane(s.layout,dstRid);if(!dst)return;
     if(beforeTabId){let ins=dst.tabs.findIndex(x=>x.id===beforeTabId);if(ins<0)ins=dst.tabs.length;else if(!insertBefore)ins++;dst.tabs.splice(ins,0,tab)}
     else dst.tabs.push(tab);
-    this.app.paneTabSet(dst,tab.id);this.app.setFocusState(dstRid, s);
+    this.app.slot.paneTabSet(dst,tab.id);this.app.focus.setFocusState(dstRid, s);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다 — 여기서 터미널 창을
     // 만들면 안 된다.
-    if(!s.layout&&!this.app.editor.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app._mkWindow();return}
-    this.app.save();this.app.render();
+    if(!s.layout&&!this.app.editor.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app.layout._mkWindow();return}
+    this.app.wsSave.save();this.app.render();
   }
 
   /**
@@ -115,16 +115,16 @@ class LayoutDnd extends Controller {
     // FR-MOV-3: 빈 분할 칸은 접힌다 — `moveTabToPane` 과 같은 규약이다.
     if(!srcPane.tabs.length){
       src.layout=doRemove(src.layout,srcRid);
-      if(this.app.focused===srcRid) this.app.setFocusState(firstPane(src.layout)?.id||null, src);
+      if(this.app.focused===srcRid) this.app.focus.setFocusState(firstPane(src.layout)?.id||null, src);
     }else if(srcPane.activeTab===tabId){
       srcPane.activeTab=srcPane.tabs[0].id;
     }
     dstPane.tabs.push(tab);
-    this.app.paneTabSet(dstPane,tab.id);
+    this.app.slot.paneTabSet(dstPane,tab.id);
     dst.focusedPane=dstRid;
     // FR-MOV-8: 옮긴 창으로 따라간다. 옮겼는데 보이지 않으면 사용자는 탭이
     // 사라진 것으로 읽는다. switchWindow 가 저장·그리기까지 한다.
-    this.app.switchWindow(dst.id);
+    this.app.layout.switchWindow(dst.id);
   }
 
   /**
@@ -150,7 +150,7 @@ class LayoutDnd extends Controller {
     // FR-MOV-3: 빈 분할 칸은 접힌다 — `moveTabToPane` 과 같은 규약이다.
     if(!srcPane.tabs.length){
       src.layout=doRemove(src.layout,srcRid);
-      if(this.app.focused===srcRid) this.app.setFocusState(firstPane(src.layout)?.id||null, src);
+      if(this.app.focused===srcRid) this.app.focus.setFocusState(firstPane(src.layout)?.id||null, src);
     }else if(srcPane.activeTab===tabId){
       srcPane.activeTab=srcPane.tabs[0].id;
     }
@@ -160,7 +160,7 @@ class LayoutDnd extends Controller {
       if(ins<0) ins=dstPane.tabs.length; else if(!insertBefore) ins++;
       dstPane.tabs.splice(ins,0,tab);
     }else dstPane.tabs.push(tab);
-    this.app.paneTabSet(dstPane,tab.id);
+    this.app.slot.paneTabSet(dstPane,tab.id);
     dst.focusedPane=dstRid;
     /**
      * **창을 갈아타지 않는다** — `moveTabToWindow` 와 갈리는 둘째 자리다.
@@ -170,7 +170,7 @@ class LayoutDnd extends Controller {
      * 이미 화면에 있다** — 그 칸으로 끌어다 놓았기 때문이다. 활성 창을 옮기면
      * 오히려 사용자가 보고 있던 칸이 바뀐다.
      */
-    this.app.save(); this.app.render();
+    this.app.wsSave.save(); this.app.render();
   }
 
   // 창 하나가 가진 탭 수. FR-MOV-4 의 판정 하나에만 쓰인다.
@@ -211,11 +211,7 @@ class LayoutDnd extends Controller {
     };
     s.layout=splitNode(s.layout);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다.
-    if(!s.layout&&!this.app.editor.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app._mkWindow();return}
-    this.app.setFocusState(newRid, s);this.app.save();this.app.render();
+    if(!s.layout&&!this.app.editor.isEditorWin(s)&&!this.app.git.isChatWin(s)){this.app.layout._mkWindow();return}
+    this.app.focus.setFocusState(newRid, s);this.app.wsSave.save();this.app.render();
   }
 }
-
-// 바깥이 부르는 이름 — `ui/`(탭 줄·칸의 끌어 놓기)·창 그룹의 `moveTabTo`·e2e.
-Controller.delegate(App,'layout.dnd',['getDragZone','showBodyDropIndicator','clearBodyDropIndicator','moveTabToPane',
-  'moveTabToWindow','splitPaneWithTab']);

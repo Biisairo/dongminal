@@ -19,7 +19,7 @@ function pane(opts = {}) {
     expose: ['OP', 'TerminalTool', 'TIMERS'],
   });
   // `resizeCheck` 가 크기의 주인을 가른다 (FR-WSL-14). 검사가 그 답을 쥔다.
-  ctx.app = { resizeCheck: () => opts.owner !== false, isMobile: false };
+  ctx.app = { isMobile: false, focus: { owner: { resizeCheck: () => opts.owner !== false } } };
   const p = new ctx.TerminalTool('t1', 'tool');
   p.sent = [];
   p._send = (m) => { p.sent.push(m) };

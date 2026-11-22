@@ -40,7 +40,7 @@ function setup() {
   ctx.document.querySelector = () => null;
   ctx.document.activeElement = null;
   const app = new ctx.App();
-  app._slotDirPaint = () => {};
+  app.slot = { ops: { _slotDirPaint: () => {} } };
   app.settings = new ctx.SettingsController(app);
   for (const C of ['DisplaySection', 'TerminalSection', 'CodeSection']) app.settings.start(new ctx[C](app));
   return { ctx, els, app };

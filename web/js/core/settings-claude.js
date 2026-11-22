@@ -6,7 +6,7 @@
  * `settings-claude-rows.js` 에 있다.
  *
  * 패널 상태(`_cacctSet`·`_cacctDirty`·`_cacctStale`·`_cacctDrag`·`_cacctFocusWired`)는 이 섹션이 든다. 설정 밖
- * (`ClaudeAccountsController`)이 부르는 `_cacctPanelShown`·`_cacctRefreshSoft` 는 App 에 위임자가 있다.
+ * (`ClaudeAccountsController`)이 부르는 `_cacctPanelShown`·`_cacctRefreshSoft` 는 `settings.section('claude')` 로 부른다.
  */
 class ClaudeSection extends SettingsSection {
   constructor(app){ super(app,'claude') }

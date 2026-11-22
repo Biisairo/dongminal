@@ -431,9 +431,9 @@ test('FR-CAC-91: 오버레이에는 요약과 동작 버튼이 있고, 활성 �
 function restoreApp(ctx) {
   const app = controllers(ctx, new ctx.App());
   app.claude = new ctx.ClaudeAccountsController(app);   // REFACTOR3_FE_APPCTL_SRS 9b
-  app._restoreBegin = () => new Set();
-  app._restoreLive = () => true;
-  app._restoreEnd = () => {};
+  app.wsSync._restoreBegin = () => new Set();
+  app.wsSync._restoreLive = () => true;
+  app.wsSync._restoreEnd = () => {};
   app.agents.agentsRender = () => {};
   return app;
 }

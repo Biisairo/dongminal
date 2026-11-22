@@ -206,7 +206,7 @@ test('V-EXC-12: 경합으로 저장이 막히면 "저장 후 닫기" 가 탭을 
     expect(loc).not.toBeNull();
 
     await page.evaluate((l: any) => {
-      (window as any).__close = (window as any).app.closeTab(l.pane, l.tab, l.win);
+      (window as any).__close = (window as any).app.layout.tabOps.closeTab(l.pane, l.tab, l.win);
     }, loc);
 
     // dirty 확인창 → 저장 후 닫기

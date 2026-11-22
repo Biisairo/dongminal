@@ -68,7 +68,7 @@ function counter(page: Page, needle: string) {
 }
 
 const switchToWindow = (page: Page, id: string) =>
-  page.evaluate((i) => (window as any).app.switchWindow(i), id);
+  page.evaluate((i) => (window as any).app.layout.switchWindow(i), id);
 
 /**
  * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70).** 옛 `WINDOW_TYPE_GIT` 창은 로드에

@@ -216,9 +216,9 @@ class GitSurfaces extends Controller {
 
   // 키의 조립은 여기 하나다 — 회수(`_gitPanelReap`)가 같은 규칙으로 되풀어야
   // 하고, 두 벌이 되면 한쪽만 고쳐진다.
-  _gitPanelKey(root,slot){ return this.app.slotKey('git:'+(root||''),slot||0) }
+  _gitPanelKey(root,slot){ return this.app.slot.slotKey('git:'+(root||''),slot||0) }
   _gitPanelRoot(key){
-    const base=this.app.slotBase(key);
+    const base=this.app.slot.slotBase(key);
     if(!base.startsWith('git:')) return '';
     // FR-RTB-7: Diff 탭 패널의 키는 루트 뒤에 탭 id 를 단다 (`gitDiffPanelFor`).
     const at=base.indexOf(GIT_DIFF_TAB_SEP);
@@ -238,14 +238,14 @@ class GitSurfaces extends Controller {
    */
   _gitPanelReap(){
     if(!this.app.gitPanels||!this.app.gitPanels.size) return;
-    const n=this.app.slotCount();
+    const n=this.app.slot.slotCount();
     // 살아 있는 루트: Repo 창들의 루트 + 옛 Git 창의 자리('').
     const live=new Set(['']);
     for(const s of this.app.ws.windows) if(this.app.editor.isEditorWin(s)) live.add(this.app.editor.edRootOf(s));
     // FR-RTB-7: Diff 탭 패널은 그 탭이 레이아웃에 남아 있을 때만 산다.
     const tabs=this.app.repoWin._gitDiffTabIds();
     for(const [key,p] of this.app.gitPanels){
-      if(this.app._slotOf(key)<n&&live.has(this._gitPanelRoot(key))&&(!p.diffTabId||tabs.has(p.diffTabId))) continue;
+      if(this.app.slot._slotOf(key)<n&&live.has(this._gitPanelRoot(key))&&(!p.diffTabId||tabs.has(p.diffTabId))) continue;
       p.destroy();
       this.app.gitPanels.delete(key);
     }

@@ -155,7 +155,7 @@ test('V-ELR-10: 보이지 않는 창의 파일은 묻지 않는다', async ({ pa
   await page.evaluate(() => {
     const a: any = (window as any).app;
     const plain = a.ws.windows.find((s: any) => s && !a.editor.isEditorWin(s));
-    if (plain) a.switchWindow(plain.id);
+    if (plain) a.layout.switchWindow(plain.id);
   });
   probe.bodies.length = 0;
   // **예외 (`TEST-16`)**: 그 경로를 **묻지 않음**을 잰다. 오지 않는 요청을
@@ -207,10 +207,10 @@ test('V-ELR-8: 두 칸이 같은 파일을 볼 때 내용은 함께, 시선은 �
   await openFile(page, saved, 'h.txt');
 
   const edWin = await page.evaluate(() => (window as any).app.testing.aw().id);
-  await page.evaluate(() => (window as any).app.slotAdd());
+  await page.evaluate(() => (window as any).app.slot.ops.slotAdd());
   await page.evaluate((id: string) => {
     const a: any = (window as any).app;
-    a.slotOpen(0, id); a.slotOpen(1, id); a.render();
+    a.slot.ops.slotOpen(0, id); a.slot.ops.slotOpen(1, id); a.render();
   }, edWin);
   await page.waitForFunction(() => {
     const es = [...(window as any).app.fileEditors.values()];

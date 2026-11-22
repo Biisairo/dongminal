@@ -22,7 +22,7 @@ class ChatViews extends Controller {
   /** renderer._mountTabBody 가 부른다. 루트 DOM 은 탭과 칸의 쌍마다 하나이며 재사용된다. */
   chatViewEl(tab,slot){
     const m=this._chatViewMap();
-    const key=this.app.slotKey(tab.id,slot||0);
+    const key=this.app.slot.slotKey(tab.id,slot||0);
     let v=m.get(key);
     if(!v){ v=this._chatViewBuild(key,tab); m.set(key,v) }
     v.roomId=tab.roomId;

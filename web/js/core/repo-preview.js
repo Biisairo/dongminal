@@ -39,7 +39,7 @@ class RepoPreview extends Controller {
     // (FR-EXR-58 의 예외). 표명은 아래 render 가 소비한다.
     this.app.editor.edFocusHandoff();
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
     return true;
   }
 
@@ -60,14 +60,14 @@ class RepoPreview extends Controller {
     prev.tab.name = clampEntityName(opts.name || pathBase(opts.filePath) || '');
     // 편집기 인스턴스는 탭 id 로 산다 — 대상이 바뀌었으므로 버린다.
     for (const [k, v] of [...this.app.fileEditors]) {
-      if (this.app.slotBase(k) !== prev.tab.id) continue;
+      if (this.app.slot.slotBase(k) !== prev.tab.id) continue;
       try { v.destroy() } catch { /* 이미 파괴된 것은 오류가 아니다 */ }
       this.app.fileEditors.delete(k);
     }
-    this.app.paneTabSet(prev.pane, prev.tab.id);
-    this.app.setFocusState(prev.pane.id, s);
+    this.app.slot.paneTabSet(prev.pane, prev.tab.id);
+    this.app.focus.setFocusState(prev.pane.id, s);
     this.app.render();
-    this.app.save();
+    this.app.wsSave.save();
     return { uuid: prev.tab.id };
   }
 }

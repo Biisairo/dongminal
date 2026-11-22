@@ -20,7 +20,7 @@ class LayoutGroups extends Controller {
 
   _groupsCommit(windows){
     this.app.ws.windows=windows;
-    this.app.save();this.app.render();
+    this.app.wsSave.save();this.app.render();
   }
 
   /** FR-WGR-30 · FR-WGR-8: 빈 그룹을 만든다. 트리 표지가 같은 그룹은 둘이 될 수 없다. */
@@ -32,7 +32,7 @@ class LayoutGroups extends Controller {
     const g={id:newEntityId(),name:clampEntityName(n)};
     if(tree) g.tree={repo:tree.repo,root:tree.root};
     this.app.ws.windowGroups=groups.concat([g]);
-    this.app.save();this.app.render();
+    this.app.wsSave.save();this.app.render();
     return {id:g.id};
   }
 
@@ -42,7 +42,7 @@ class LayoutGroups extends Controller {
     const g=this.windowGroups().find(x=>x.id===id);
     if(!g) return {error:'not_found'};
     g.name=clampEntityName(n);
-    this.app.save();this.app.render();
+    this.app.wsSave.save();this.app.render();
     return {};
   }
 
@@ -54,7 +54,7 @@ class LayoutGroups extends Controller {
     if(rest.length) this.app.ws.windowGroups=rest;
     else delete this.app.ws.windowGroups;
     for(const w of this.app.ws.windows) if(w&&w.groupId===id) delete w.groupId;
-    this.app.save();this.app.render();
+    this.app.wsSave.save();this.app.render();
     return {};
   }
 
@@ -118,7 +118,7 @@ class LayoutGroups extends Controller {
       if(!r.ok) return {error:r.error};
       const byId=new Map(src.pane.tabs.map(x=>[x.id,x]));
       src.pane.tabs=r.list.map(x=>byId.get(x));
-      this.app.save();this.app.render();
+      this.app.wsSave.save();this.app.render();
       return {position:this._tabPosition(tabId)};
     }
     if(spec.prev||spec.next) return {error:'bad_spec'};
@@ -130,7 +130,7 @@ class LayoutGroups extends Controller {
       if(!Number.isInteger(n)||n<1||n>ids.length+1) return {error:'out_of_range'};
       if(n<=ids.length){before=ids[n-1];insertBefore=true}
     }
-    this.app.moveTabToPane(src.pane.id,tabId,dst.pane.id,before,insertBefore);
+    this.app.layout.dnd.moveTabToPane(src.pane.id,tabId,dst.pane.id,before,insertBefore);
     const pos=this._tabPosition(tabId);
     if(!pos||pos.container!==dst.pane.id) return {error:'rejected'};
     return {position:pos};
@@ -271,8 +271,3 @@ function _orderSpec(a){
   if(a.to) s.to=a.to;
   return s;
 }
-
-// 바깥이 부르는 이름 — 원격 명령 표(`tool-cmd.js`)·사이드바(`ui/`)·e2e.
-Controller.delegate(App,'layout.groups',['windowGroups','newGroup','deleteGroup','moveWindowTo','moveTabTo','wgFoldToggle',
-  'sidebarWindowEntries','sidebarReorder','wgEdgeGroup','addGroupInteractive','groupHasAttn','_remoteNewGroup',
-  '_remoteRenameGroup','_remoteDeleteGroup','_remoteMoveWindow','_remoteMoveGroup','_remoteMoveTab']);

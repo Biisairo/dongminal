@@ -19,7 +19,7 @@ function world() {
   const a = controllers(ctx, new ctx.App());
   a.editor.isEditorWin = (s) => !!(s && s.type === 'editor');
   a.editor.edOn = () => true;
-  a.paneTabSet = (p, id) => { p.activeTab = id };
+  a.slot.paneTabSet = (p, id) => { p.activeTab = id };
   return { ctx, a };
 }
 
@@ -45,7 +45,7 @@ test('TC-CW-3b: 분할은 채팅 창에서 아무 일도 하지 않는다', asyn
   a.focused = 'p';
   let made = 0;
   a.tool.life._newTool = async () => { made++; return { id: 'x' } };
-  await a.split('h');
+  await a.layout.tabOps.split('h');
   assert.equal(made, 0);
   assert.equal(C.layout.type, 'pane');
 });
@@ -90,11 +90,11 @@ test('FR-CW-3·12: 방을 열면 채팅 창이 생기고 칸이 생긴다. 같�
   a.chat._chatRoom = () => ({ id: 'r1', kind: 'group', name: 'ops' });
   a.chat._chatMe = () => ({ id: 'me' });
   let revealed = 0;
-  a.switchWindow = (id) => { a.ws.activeWindow = id };
-  a._revealTab = () => { revealed++ };
-  a.setFocusState = () => {};
+  a.layout.switchWindow = (id) => { a.ws.activeWindow = id };
+  a.layout.tabAdd._revealTab = () => { revealed++ };
+  a.focus.setFocusState = () => {};
   a.render = () => {};
-  a.save = () => {};
+  a.wsSave.save = () => {};
   a.chat.window._chatOpenTab('r1');
   const C = a.chat.window.chatWindow();
   assert.ok(C);

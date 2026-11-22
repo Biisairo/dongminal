@@ -98,6 +98,6 @@ class SidebarTabBar extends TabBar {
   // UX_AUDIT_FIX_SRS FR-UXF-122 (D-41): 직행 키는 토글이다. 모바일(서랍)은 접기가 없어 고르기만 한다 (FR-SBC-20).
   //   이전: 토글이 아니어서 이미 그 탭이면 아무 일도 하지 않았다 (FR-SBT-27)
   canFold(){ return !this.app.isMobile }
-  isFolded(){ return this.app.sidebarCollapsed() }
-  setFolded(v){ this.app.setSidebarCollapsed(v) }
+  isFolded(){ return this.app.layout.tabOps.sidebarCollapsed() }
+  setFolded(v){ this.app.layout.tabOps.setSidebarCollapsed(v) }
 }

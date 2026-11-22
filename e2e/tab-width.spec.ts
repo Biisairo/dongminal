@@ -21,7 +21,7 @@ async function makeTabs(page: Page) {
   await page.evaluate(async () => {
     const a = (window as any).app;
     const pane = a.focused;
-    for (let i = 0; i < 3; i++) await a.addTab(pane, 'terminal');
+    for (let i = 0; i < 3; i++) await a.layout.tabAdd.addTab(pane, 'terminal');
     // 이름은 **탭 목록에 직접** 박는다 — 파생 이름(FR-TAN-*)에 기대면 이 시험이
     // 그 규칙까지 딛게 된다. `findPane` 은 전역이다 (layout-tree.js).
     const s = a.testing.aw();
@@ -128,7 +128,7 @@ test.describe('탭 너비 고정 (FR-TBW-1~11)', () => {
       // 줄이 넘칠 만큼 늘린다.
       await page.evaluate(async () => {
         const a = (window as any).app;
-        for (let i = 0; i < 12; i++) await a.addTab(a.focused, 'terminal');
+        for (let i = 0; i < 12; i++) await a.layout.tabAdd.addTab(a.focused, 'terminal');
         a.render();
       });
       await expect.poll(() => page.locator(TAB).count(), { timeout: 15000 })
@@ -207,7 +207,7 @@ test.describe('탭 줄 — 끌 수 있음이 보이고 넘침이 보인다 (UX-2
     await page.setViewportSize({ width: 640, height: 600 });
     await page.evaluate(async () => {
       const a = (window as any).app;
-      for (let i = 0; i < 14; i++) await a.addTab(a.focused, 'terminal');
+      for (let i = 0; i < 14; i++) await a.layout.tabAdd.addTab(a.focused, 'terminal');
       a.render();
     });
     // FR-CHR-2: 구르는 것은 `.pn-tabs` 가 아니라 그 안의 스크롤러다 — 고정 구는

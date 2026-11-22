@@ -12,7 +12,7 @@ class SlotOps extends Controller {
   // 그러면 사이드바 클릭 한 번으로 끝난다.
   slotAdd(){
     if(this.app.isMobile) return;                       // FR-WSL-62
-    if(this.app.slotCount()>=SLOT_MAX) return;          // FR-WSL-1
+    if(this.app.slot.slotCount()>=SLOT_MAX) return;          // FR-WSL-1
     if(!this.app._slots){
       const cur=this.app.ws.activeWindow||null;
       this.app._slots={windows:[cur,cur],sizes:[SLOT_SIZE_DEFAULT,SLOT_SIZE_DEFAULT],
@@ -39,7 +39,7 @@ class SlotOps extends Controller {
   // 하나면 없앨 수 없다 — 그 상태가 단일 슬롯 모드다.
   slotRemove(){
     if(!this.app._slots) return;
-    const n=this.app.slotCount();
+    const n=this.app.slot.slotCount();
     if(n<=1) return;
     if(n===2){
       const ki=this.app._slots.focused===0?1:0;
@@ -59,10 +59,10 @@ class SlotOps extends Controller {
       this._slotReap();
       this.app.slot._slotsPersist();
       if(keep){
-        this.app._activateWindow(keep);
+        this.app.layout.winState._activateWindow(keep);
       }
       this.app.render();
-      if(this.app.ws.activeWindow) this.app._focusWindow(this.app.ws.activeWindow,0);
+      if(this.app.ws.activeWindow) this.app.focus.owner._focusWindow(this.app.ws.activeWindow,0);
       return;
     }
     const at=this.app._slots.focused;
@@ -94,7 +94,7 @@ class SlotOps extends Controller {
    * 일로 render 를 돌면 그것이 대신한다 (`App.render` 가 플래그를 지운다).
    */
   slotFocusTo(i,opts){
-    if(!this.app._slots||i<0||i>=this.app.slotCount()) return;
+    if(!this.app._slots||i<0||i>=this.app.slot.slotCount()) return;
     if(this.app._slots.focused===i){this._slotSyncActive();return}
     this.app._slots.focused=i;
     this._slotSyncActive();
@@ -106,7 +106,7 @@ class SlotOps extends Controller {
     }else{
       this.app.render();
     }
-    if(this.app.ws.activeWindow) this.app._focusWindow(this.app.ws.activeWindow,i);
+    if(this.app.ws.activeWindow) this.app.focus.owner._focusWindow(this.app.ws.activeWindow,i);
   }
 
   /**
@@ -122,15 +122,15 @@ class SlotOps extends Controller {
    * 지나므로 활성 창·활성 탭 동기화와 소유권 주장이 클릭과 **같은 길**이다.
    */
   slotNav(delta){
-    const n=this.app.slotCount(); if(n<=1) return;
-    this.slotFocusTo((this.app.slotFocused()+delta+n)%n);
+    const n=this.app.slot.slotCount(); if(n<=1) return;
+    this.slotFocusTo((this.app.slot.slotFocused()+delta+n)%n);
   }
 
   // 강조만 칠한다. render 를 대신하는 것이 아니라 그 **앞자리**를 메운다 —
   // 사용자가 누른 칸이 즉시 켜져 보여야 하기 때문이다.
   _slotPaintFocus(){
-    const n=this.app.slotCount();
-    const f=this.app.slotFocused();
+    const n=this.app.slot.slotCount();
+    const f=this.app.slot.slotFocused();
     for(let k=0;k<n;k++){
       const el=document.querySelector(`#area .slot[data-slot="${k}"]`);
       if(el) el.classList.toggle('slot-focused',k===f);
@@ -178,7 +178,7 @@ class SlotOps extends Controller {
       // FR-SCH-13: `defer` 는 기다리는 것이 아니라 **순서를 미루는 것**이다 —
       // 이 자리가 원하는 것이 정확히 그것이다. click 은 mouseup 의 **뒤에**
       // 서므로, 마감을 가진 지연이 아니라 다음 태스크여야 한다.
-      this.app.timers.defer(()=>this.app.slotRenderFlush(),{owner:'slots',label:'render-flush'});
+      this.app.timers.defer(()=>this.slotRenderFlush(),{owner:'slots',label:'render-flush'});
     },{once:true});
   }
 
@@ -186,21 +186,21 @@ class SlotOps extends Controller {
   // 창이 기억하는 자리로 맞춘다 — 창을 오갈 때 `switchWindow` 가 하는 일과 같다
   // (FR-WSL-43).
   _slotSyncActive(){
-    const s=this.app.slotWindow(this.app.slotFocused());
+    const s=this.app.slot.slotWindow(this.app.slot.slotFocused());
     if(!s) return;
-    this.app._activateWindow(s.id);
+    this.app.layout.winState._activateWindow(s.id);
     // FR-SVS-14: 워크스페이스의 활성 탭은 **포커스 칸이 보는 것**이다. 포커스가
     // 칸을 옮기면 그것도 따라온다.
-    if(this.app._slotTabsToWs()) this.app.save();
+    if(this.app.slot._slotTabsToWs()) this.app.wsSave.save();
     if(s.layout){
       const saved=s.focusedPane;
       const pn=(saved&&findPane(s.layout,saved))?{id:saved}:firstPane(s.layout);
-      if(pn) this.app.setFocusState(pn.id,s);
+      if(pn) this.app.focus.setFocusState(pn.id,s);
     }
   }
 
   slotOpen(i,winId){
-    if(!this.app._slots||i<0||i>=this.app.slotCount()) return;
+    if(!this.app._slots||i<0||i>=this.app.slot.slotCount()) return;
     this.app._slots.windows[i]=winId||null;
     // FR-SVS-3: 창이 바뀐 칸의 시선은 그 창의 현재 활성 탭에서 시작한다. 이전
     // 창의 pane id 가 남아 있어도 해가 없다 — `paneTab` 이 없는 탭을 폴백한다.
@@ -232,7 +232,7 @@ class SlotOps extends Controller {
       const id=windows[i];
       if(!id||claimed.has(id)) continue;
       claimed.add(id);
-      this.app._focusWindow(id,i);
+      this.app.focus.owner._focusWindow(id,i);
     }
   }
 
@@ -277,7 +277,7 @@ class SlotOps extends Controller {
     if(!axis.includes(dir)) return false;
     const from=this.app._slots.focused;
     const to=dir===axis[1]?from+1:from-1;
-    if(to<0||to>=this.app.slotCount()) return false;           // FR-WSL-44
+    if(to<0||to>=this.app.slot.slotCount()) return false;           // FR-WSL-44
     if(!this.app._slots.windows[to]) return false;             // FR-WSL-46
     this.slotFocusTo(to);
     return true;
@@ -293,10 +293,10 @@ class SlotOps extends Controller {
     this.app.git.surfaces._gitPanelReap();
     // 칸 i(>0) 마다 그 칸이 지금 보여주는 toolId·tabId 집합.
     const keepTools=new Map(), keepTabs=new Map();
-    const n=this.app.slotCount();
+    const n=this.app.slot.slotCount();
     for(let i=1;i<SLOT_MAX;i++){
       const tools=new Set(), tabs=new Set();
-      const s=(i<n)?this.app.slotWindow(i):null;
+      const s=(i<n)?this.app.slot.slotWindow(i):null;
       if(s&&s.layout){
         for(const pn of this.app.flattenPanes(s.layout)){
           for(const tab of (pn.tabs||[])){
@@ -308,14 +308,14 @@ class SlotOps extends Controller {
       keepTools.set(i,tools); keepTabs.set(i,tabs);
     }
     for(const [k,p] of [...this.app.tools]){
-      const i=this.app._slotOf(k); if(!i) continue;
-      if(keepTools.get(i)?.has(this.app.slotBase(k))) continue;
+      const i=this.app.slot._slotOf(k); if(!i) continue;
+      if(keepTools.get(i)?.has(this.app.slot.slotBase(k))) continue;
       ErrorLog.quiet('destroy',()=>p.destroy());
       this.app.tools.delete(k);
     }
     for(const [k,v] of [...this.app.fileEditors]){
-      const i=this.app._slotOf(k); if(!i) continue;
-      if(keepTabs.get(i)?.has(this.app.slotBase(k))) continue;
+      const i=this.app.slot._slotOf(k); if(!i) continue;
+      if(keepTabs.get(i)?.has(this.app.slot.slotBase(k))) continue;
       ErrorLog.quiet('destroy',()=>v.destroy());
       this.app.fileEditors.delete(k);
     }
@@ -325,8 +325,8 @@ class SlotOps extends Controller {
     // 로 지연 생성하지 않는다 — Run 을 연 적이 없으면 거둘 것도 없다.
     const rp=this.app._runs;
     if(rp&&rp._runViews) for(const [k,v] of [...rp._runViews]){
-      const i=this.app._slotOf(k); if(!i) continue;
-      if(keepTabs.get(i)?.has(this.app.slotBase(k))) continue;
+      const i=this.app.slot._slotOf(k); if(!i) continue;
+      if(keepTabs.get(i)?.has(this.app.slot.slotBase(k))) continue;
       rp._runDisposeView(v);
       rp._runViews.delete(k);
     }
@@ -404,7 +404,7 @@ class SlotOps extends Controller {
         const {a,b,vert,aPx0,total}=ctx;
         const ap=vert?a.getBoundingClientRect().height:a.getBoundingClientRect().width;
         const bp=Math.max(0,total-ap), d=ap-aPx0;
-        const cell=(el,delta)=>UIKit.grid(this.app.termIn(el),vert?'y':'x',vert?0:delta,vert?delta:0);
+        const cell=(el,delta)=>UIKit.grid(this.app.layout.tabOps.termIn(el),vert?'y':'x',vert?0:delta,vert?delta:0);
         return [
           {px:ap,cell:cell(a,d),pct:total?ap/total*100:null},
           {px:bp,cell:cell(b,-d),pct:total?bp/total*100:null},
@@ -428,7 +428,3 @@ class SlotOps extends Controller {
     }
   }
 }
-
-// 렌더러·레이아웃·단축키·포커스·부팅과 계약·시험이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'slot.ops',['slotAdd','slotRemove','slotFocusTo','slotNav','slotRenderFlush','slotOpen','_slotClaimAll',
-  '_slotOnSwitch','_slotOnWindowGone','slotNavigate','_initSlots','_slotDirPaint','slotHandleBind','slotApplySizes']);

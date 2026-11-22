@@ -268,7 +268,7 @@ Object.assign(GitBranches.prototype, {
     const i=cur.indexOf(short);
     if(i<0) cur.push(short); else cur.splice(i,1);
     if(cur.length) b[this._repo]=cur; else delete b[this._repo];
-    this.app.save();
+    this.app.wsSave.save();
     this._paintTree();
   },
 

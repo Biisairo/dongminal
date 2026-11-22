@@ -22,9 +22,9 @@ class EditorFile extends Controller {
     // UX_BATCH12_SRS FR-RTB-2·4: 미리보기는 열린 자리를 따라가지 않는다 — 고른 창의
     // **지금 칸**에 선다. 같은 파일이 다른 칸에 있어도 그 칸은 건드리지 않는다.
     // UX_BATCH12_SRS FR-RTR-8: 검색 결과로 그 줄에 가는 것은 큰 점프다 — 가기 전 자리를 기록한다.
-    if((opts||{}).line) this.app.navJump();
+    if((opts||{}).line) this.app.focus.navJump();
     const preview=!!(opts||{}).preview;
-    const open=preview?null:this.app._findEditorTab(filePath);
+    const open=preview?null:this.app.layout.tabAdd._findEditorTab(filePath);
     const anchor=(opts||{}).anchor||filePath;
     const w=(open&&this.app.editor.isEditorWin(open.win))?open.win
       :(this.app.editor.pane._edLinkedWindow(anchor)||this.app.editor.edWindowFor(this.app.editor._edHome()));
@@ -38,11 +38,11 @@ class EditorFile extends Controller {
     // addTab 의 editor 분기가 중복 방지와 refresh 를 이미 한다.
     // FR-RTU-40: `preview` 는 그대로 넘긴다 — 미리보기 탭을 만들지 대체할지는
     // addTab 한 자리가 정한다.
-    await this.app.addTab(rid,TAB_TYPE_EDITOR,
+    await this.app.layout.tabAdd.addTab(rid,TAB_TYPE_EDITOR,
       {filePath,name:(opts||{}).name,windowId:w.id,preview});
     // FR-EDT-102: 열면 그 창으로 전환된다. 열었는데 보이지 않으면 사용자는
     // 실패로 읽는다. 사이드바 탭은 FR-EDT-8 로 따라온다.
-    this.app.switchWindow(w.id);
+    this.app.layout.switchWindow(w.id);
     // FR-RTU-83: 모바일이 사이드에 서 있으면 본문은 그려지지 않는다. 같은 근거의
     // 나머지 절반이다 — 창을 옮기는 것만으로는 그 칸이 보이지 않는다.
     this.app.mobile.mobileShowPane(rid,{render:true});
@@ -51,8 +51,8 @@ class EditorFile extends Controller {
     const ln=(opts||{}).line;
     if(ln){
       const pn=w.layout&&findPane(w.layout,rid);
-      const tab=this.app.repoWin.preview._findEditorTabIn(w,pn,filePath)||this.app._findEditorTab(filePath);
-      const v=tab&&this.app.editorAny(tab.tab.id);
+      const tab=this.app.repoWin.preview._findEditorTabIn(w,pn,filePath)||this.app.layout.tabAdd._findEditorTab(filePath);
+      const v=tab&&this.app.slot.editorAny(tab.tab.id);
       if(v&&v.revealLine) v.revealLine(ln,(opts||{}).col);
     }
     // 연 파일이 **탐색기에서도** 보이게 한다. 파일 검색·전체 검색으로 열면 그

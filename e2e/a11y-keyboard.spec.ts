@@ -49,7 +49,7 @@ const focusedSid = (page: Page) =>
 async function ensureTwoWindows(page: Page) {
   const n = await page.locator('#windows .si').count();
   if (n >= 2) return;
-  await page.evaluate(() => (window as any).app.addWindow());
+  await page.evaluate(() => (window as any).app.layout.addWindow());
   await expect(page.locator('#windows .si')).toHaveCount(n + 1, { timeout: 10000 });
   await waitSettled(page);
 }
@@ -107,7 +107,7 @@ test.describe('접근성 — 목록·탭·트리의 키보드 (FR-A11Y-16 / UX-4
     await waitForInit(page, { clearLocalStorage: true });
     const tabs = page.locator('#area .pn.focused [role=tablist] [role=tab]');
     if ((await tabs.count()) < 2) {
-      await page.evaluate(() => (window as any).app.addTabFocused());
+      await page.evaluate(() => (window as any).app.layout.tabOps.addTabFocused());
       await expect(tabs).toHaveCount(2, { timeout: 10000 });
       await waitSettled(page);
     }
@@ -152,7 +152,7 @@ test.describe('접근성 — 목록·탭·트리의 키보드 (FR-A11Y-16 / UX-4
     await waitForInit(page, { clearLocalStorage: true });
     const tabs = page.locator('#area .pn.focused .pn-tab');
     if ((await tabs.count()) < 2) {
-      await page.evaluate(() => (window as any).app.addTabFocused());
+      await page.evaluate(() => (window as any).app.layout.tabOps.addTabFocused());
       await expect(tabs).toHaveCount(2, { timeout: 10000 });
       await waitSettled(page);
     }
@@ -210,7 +210,7 @@ test.describe('접근성 — 키보드 계약이 마우스·입력을 건드리�
 
     const tabs = page.locator('#area .pn.focused .pn-tab');
     if ((await tabs.count()) < 2) {
-      await page.evaluate(() => (window as any).app.addTabFocused());
+      await page.evaluate(() => (window as any).app.layout.tabOps.addTabFocused());
       await expect(tabs).toHaveCount(2, { timeout: 10000 });
       await waitSettled(page);
     }

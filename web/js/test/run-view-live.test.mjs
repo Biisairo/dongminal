@@ -15,7 +15,7 @@ const ctx = load(['ui/runs-panel.js'], {
 });
 
 function panel(views, live, list = []) {
-  const p = new ctx.RunsPanel({ ws: { windows: [] }, slotBase: (k) => k });
+  const p = new ctx.RunsPanel({ ws: { windows: [] }, slot: { slotBase: (k) => k } });
   const fetched = [];
   let soon = 0;
   p._runsRefreshSoon = () => { soon++ };
