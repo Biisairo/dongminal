@@ -35,8 +35,11 @@ fn re(p: &str) -> Regex {
 static ROW_RE: LazyLock<Regex> =
     LazyLock::new(|| re(&format!(r"^\|{WS}*\*{{0,2}}{ID_PAT}\*{{0,2}}{WS}*\|(.*)$")));
 /// 굵은 머리: `**D-CAF-1: 제목**` · `**D-CAF-1** 제목` · `- **D-1. 제목**` (FR-DSY-10).
-static HEAD_RE: LazyLock<Regex> =
-    LazyLock::new(|| re(&format!(r"^(?:[-*+]{WS}+)?\*\*{ID_PAT}(?:[.:：]|\*|{WS})(.*)$")));
+static HEAD_RE: LazyLock<Regex> = LazyLock::new(|| {
+    re(&format!(
+        r"^(?:[-*+]{WS}+)?\*\*{ID_PAT}(?:[.:：]|\*|{WS})(.*)$"
+    ))
+});
 /// 굵은 span 안쪽: `- **D-X 제목.** 그 뒤의 근거` 에서 제목만 든다.
 static SPAN_RE: LazyLock<Regex> = LazyLock::new(|| {
     re(&format!(
@@ -55,7 +58,10 @@ pub fn collect(dir: &Path) -> std::io::Result<Vec<Entry>> {
             let name = e.file_name();
             let Some(name) = name.to_str() else { continue };
             if name.ends_with("_SRS.md") {
-                paths.push((dir.join(name).to_string_lossy().into_owned(), name.to_owned()));
+                paths.push((
+                    dir.join(name).to_string_lossy().into_owned(),
+                    name.to_owned(),
+                ));
             }
         }
     }
@@ -71,7 +77,9 @@ pub fn collect(dir: &Path) -> std::io::Result<Vec<Entry>> {
             .filter_map(|c| c.get(1).map(|m| m.as_str()))
             .collect();
         for line in text.split('\n') {
-            let Some(mut e) = parse_line(line) else { continue };
+            let Some(mut e) = parse_line(line) else {
+                continue;
+            };
             e.source = name.clone();
             // 같은 ID 가 여러 문서에 있다 — 출처로 갈라 준다.
             if !seen.insert(format!("{name}/{}", e.id)) {
@@ -83,11 +91,7 @@ pub fn collect(dir: &Path) -> std::io::Result<Vec<Entry>> {
             out.push(e);
         }
     }
-    out.sort_by(|a, b| {
-        a.source
-            .cmp(&b.source)
-            .then_with(|| id_cmp(&a.id, &b.id))
-    });
+    out.sort_by(|a, b| a.source.cmp(&b.source).then_with(|| id_cmp(&a.id, &b.id)));
     Ok(out)
 }
 
@@ -227,7 +231,14 @@ pub fn render(entries: &[Entry]) -> String {
                 e.source
             );
         }
-        let _ = writeln!(b, "| `{}` | {} | {} | {} |", e.id, cell(&e.title), cell(&e.why), e.status);
+        let _ = writeln!(
+            b,
+            "| `{}` | {} | {} | {} |",
+            e.id,
+            cell(&e.title),
+            cell(&e.why),
+            e.status
+        );
     }
     let sources: HashSet<&str> = entries.iter().map(|e| e.source.as_str()).collect();
     let _ = write!(

@@ -11,7 +11,13 @@ fn ms(n: u64) -> Duration {
 #[tokio::test]
 async fn until_returns_immediately_when_condition_holds() {
     let start = Instant::now();
-    let r = until(&CancellationToken::new(), Duration::from_secs(1), ms(100), || true).await;
+    let r = until(
+        &CancellationToken::new(),
+        Duration::from_secs(1),
+        ms(100),
+        || true,
+    )
+    .await;
     assert_eq!(r, Ok(()));
     assert!(start.elapsed() < ms(50));
 }
@@ -19,7 +25,13 @@ async fn until_returns_immediately_when_condition_holds() {
 #[tokio::test]
 async fn until_times_out_without_sleeping_past_max() {
     let start = Instant::now();
-    let r = until(&CancellationToken::new(), ms(30), Duration::from_secs(1), || false).await;
+    let r = until(
+        &CancellationToken::new(),
+        ms(30),
+        Duration::from_secs(1),
+        || false,
+    )
+    .await;
     assert_eq!(r, Err(WaitError::Timeout));
     assert!(start.elapsed() < ms(500));
 }
@@ -31,10 +43,15 @@ async fn until_stops_when_cancelled() {
     let p2 = polled.clone();
     let c2 = cancel.clone();
     let task = tokio::spawn(async move {
-        until(&c2, Duration::from_secs(60), Duration::from_secs(60), || {
-            p2.notify_one();
-            false
-        })
+        until(
+            &c2,
+            Duration::from_secs(60),
+            Duration::from_secs(60),
+            || {
+                p2.notify_one();
+                false
+            },
+        )
         .await
     });
     polled.notified().await;
@@ -62,7 +79,10 @@ fn signal_notify_wakes_all_waiters() {
     let (a, b) = (s.c(), s.c());
     assert!(!a.fired());
     s.notify();
-    assert!(a.fired() && b.fired(), "notify 가 기다리던 쪽을 깨우지 않았다");
+    assert!(
+        a.fired() && b.fired(),
+        "notify 가 기다리던 쪽을 깨우지 않았다"
+    );
     assert!(!s.c().fired(), "notify 뒤의 새 구독이 이미 울려 있다");
 }
 
@@ -73,10 +93,15 @@ async fn on_asks_only_on_signal() {
     let ready = Arc::new(AtomicBool::new(false));
     let (s2, a2, r2) = (s.clone(), asks.clone(), ready.clone());
     let task = tokio::spawn(async move {
-        on(&CancellationToken::new(), Duration::from_secs(5), || s2.c(), || {
-            a2.fetch_add(1, Ordering::SeqCst);
-            r2.load(Ordering::SeqCst)
-        })
+        on(
+            &CancellationToken::new(),
+            Duration::from_secs(5),
+            || s2.c(),
+            || {
+                a2.fetch_add(1, Ordering::SeqCst);
+                r2.load(Ordering::SeqCst)
+            },
+        )
         .await
     });
     let deadline = Instant::now() + Duration::from_secs(1);
@@ -115,17 +140,30 @@ async fn on_or_at_asks_only_on_signal_or_at_next() {
     let wake = Instant::now() + ms(150);
     let (s2, a2, r2) = (s.clone(), asks.clone(), ready.clone());
     let task = tokio::spawn(async move {
-        on_or_at(&CancellationToken::new(), Duration::from_secs(5), || s2.c(), |_| {
-            let n = a2.fetch_add(1, Ordering::SeqCst) + 1;
-            if r2.load(Ordering::SeqCst) {
-                return (true, None);
-            }
-            if n == 1 { (false, Some(wake)) } else { (false, None) }
-        })
+        on_or_at(
+            &CancellationToken::new(),
+            Duration::from_secs(5),
+            || s2.c(),
+            |_| {
+                let n = a2.fetch_add(1, Ordering::SeqCst) + 1;
+                if r2.load(Ordering::SeqCst) {
+                    return (true, None);
+                }
+                if n == 1 {
+                    (false, Some(wake))
+                } else {
+                    (false, None)
+                }
+            },
+        )
         .await
     });
     tokio::time::sleep(ms(500)).await;
-    assert_eq!(asks.load(Ordering::SeqCst), 2, "첫 물음 + 말한 시각의 물음 = 2");
+    assert_eq!(
+        asks.load(Ordering::SeqCst),
+        2,
+        "첫 물음 + 말한 시각의 물음 = 2"
+    );
     ready.store(true, Ordering::SeqCst);
     s.notify();
     let r = tokio::time::timeout(Duration::from_secs(1), task)
@@ -141,23 +179,35 @@ async fn on_or_at_next_past_max_times_out_at_max_with_final_ask() {
     let s = Signal::default();
     let asks = AtomicI64::new(0);
     let start = Instant::now();
-    let r = on_or_at(&CancellationToken::new(), ms(60), || s.c(), |now| {
-        asks.fetch_add(1, Ordering::SeqCst);
-        (false, Some(now + Duration::from_secs(3600)))
-    })
+    let r = on_or_at(
+        &CancellationToken::new(),
+        ms(60),
+        || s.c(),
+        |now| {
+            asks.fetch_add(1, Ordering::SeqCst);
+            (false, Some(now + Duration::from_secs(3600)))
+        },
+    )
     .await;
     assert_eq!(r, Err(WaitError::Timeout));
     assert!(start.elapsed() < ms(500));
-    assert_eq!(asks.load(Ordering::SeqCst), 2, "첫 물음 + 상한의 마지막 물음 = 2");
+    assert_eq!(
+        asks.load(Ordering::SeqCst),
+        2,
+        "첫 물음 + 상한의 마지막 물음 = 2"
+    );
 }
 
 #[tokio::test]
 async fn on_or_at_settles_on_final_ask_at_max() {
     let s = Signal::default();
     let asks = AtomicI64::new(0);
-    let r = on_or_at(&CancellationToken::new(), ms(30), || s.c(), |_| {
-        (asks.fetch_add(1, Ordering::SeqCst) + 1 == 2, None)
-    })
+    let r = on_or_at(
+        &CancellationToken::new(),
+        ms(30),
+        || s.c(),
+        |_| (asks.fetch_add(1, Ordering::SeqCst) + 1 == 2, None),
+    )
     .await;
     assert_eq!(r, Ok(()), "상한에서의 마지막 물음이 참이면 성공이어야 한다");
 }

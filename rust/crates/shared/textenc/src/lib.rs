@@ -58,7 +58,7 @@ impl Codec {
     fn decode_strict(self, b: &[u8]) -> Option<String> {
         match self {
             Codec::Utf16 { le } => {
-                if b.len() % 2 != 0 {
+                if !b.len().is_multiple_of(2) {
                     return None;
                 }
                 let units = b.chunks_exact(2).map(|p| {
@@ -68,7 +68,9 @@ impl Codec {
                         u16::from_be_bytes([p[0], p[1]])
                     }
                 });
-                char::decode_utf16(units).collect::<Result<String, _>>().ok()
+                char::decode_utf16(units)
+                    .collect::<Result<String, _>>()
+                    .ok()
             }
             Codec::Legacy(enc) => enc
                 .decode_without_bom_handling_and_without_replacement(b)
@@ -89,7 +91,10 @@ impl Codec {
             Codec::Legacy(enc) if enc == SHIFT_JIS => encode_sjis(text),
             Codec::Legacy(enc) if enc == WINDOWS_1252 => {
                 // x/text 는 1252 의 미정의 자리(U+0081 등)를 인코딩하지 않는다.
-                if text.chars().any(|c| (c as u32) < 0x100 && WIN1252_UNDEFINED.contains(&(c as u8))) {
+                if text
+                    .chars()
+                    .any(|c| (c as u32) < 0x100 && WIN1252_UNDEFINED.contains(&(c as u8)))
+                {
                     return None;
                 }
                 encode_whatwg(enc, text)
@@ -240,11 +245,7 @@ pub fn decode_as(b: &[u8], id: &str) -> Option<Decoded> {
                 bom = true;
             }
         }
-        WIN1252 => {
-            if b.iter().any(|c| WIN1252_UNDEFINED.contains(c)) {
-                return None;
-            }
-        }
+        WIN1252 if b.iter().any(|c| WIN1252_UNDEFINED.contains(c)) => return None,
         _ => {}
     }
     let c = codec(id)?;

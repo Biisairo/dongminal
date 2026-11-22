@@ -62,9 +62,18 @@ mod tests {
 
     #[test]
     fn before_and_after() {
-        assert_eq!(mv(&["a", "b", "c", "d"], "d", "b", true, Missing::Keep), ["a", "d", "b", "c"]);
-        assert_eq!(mv(&["a", "b", "c", "d"], "a", "c", false, Missing::Keep), ["b", "c", "a", "d"]);
-        assert_eq!(mv(&["a", "b", "c"], "a", "c", false, Missing::Keep), ["b", "c", "a"]);
+        assert_eq!(
+            mv(&["a", "b", "c", "d"], "d", "b", true, Missing::Keep),
+            ["a", "d", "b", "c"]
+        );
+        assert_eq!(
+            mv(&["a", "b", "c", "d"], "a", "c", false, Missing::Keep),
+            ["b", "c", "a", "d"]
+        );
+        assert_eq!(
+            mv(&["a", "b", "c"], "a", "c", false, Missing::Keep),
+            ["b", "c", "a"]
+        );
     }
 
     #[test]
@@ -75,12 +84,21 @@ mod tests {
 
     #[test]
     fn empty_target_is_end_regardless_of_policy() {
-        assert_eq!(mv(&["a", "b", "c"], "a", "", true, Missing::Keep), ["b", "c", "a"]);
+        assert_eq!(
+            mv(&["a", "b", "c"], "a", "", true, Missing::Keep),
+            ["b", "c", "a"]
+        );
     }
 
     #[test]
     fn missing_target_policy() {
-        assert_eq!(mv(&["a", "b", "c"], "a", "zz", true, Missing::Keep), ["a", "b", "c"]);
-        assert_eq!(mv(&["a", "b", "c"], "a", "zz", true, Missing::ToEnd), ["b", "c", "a"]);
+        assert_eq!(
+            mv(&["a", "b", "c"], "a", "zz", true, Missing::Keep),
+            ["a", "b", "c"]
+        );
+        assert_eq!(
+            mv(&["a", "b", "c"], "a", "zz", true, Missing::ToEnd),
+            ["b", "c", "a"]
+        );
     }
 }

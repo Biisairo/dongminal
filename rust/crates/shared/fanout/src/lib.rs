@@ -80,7 +80,10 @@ mod tests {
         })
         .await;
         assert_eq!(calls.load(Ordering::SeqCst), 3);
-        each(&cancel, 4, 10, |_| -> std::future::Ready<()> { panic!("끝난 취소로 시작했다") }).await;
+        each(&cancel, 4, 10, |_| -> std::future::Ready<()> {
+            panic!("끝난 취소로 시작했다")
+        })
+        .await;
     }
 
     #[tokio::test]

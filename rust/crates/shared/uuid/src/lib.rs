@@ -188,8 +188,13 @@ impl Uuid {
         if b[8] != b'-' || b[13] != b'-' || b[18] != b'-' || b[23] != b'-' {
             return Err(ParseError::InvalidFormat);
         }
-        const SEGMENTS: [(usize, usize, usize); 5] =
-            [(0, 8, 0), (9, 13, 4), (14, 18, 6), (19, 23, 8), (24, 36, 10)];
+        const SEGMENTS: [(usize, usize, usize); 5] = [
+            (0, 8, 0),
+            (9, 13, 4),
+            (14, 18, 6),
+            (19, 23, 8),
+            (24, 36, 10),
+        ];
         let mut u = [0u8; 16];
         for (lo, hi, dst) in SEGMENTS {
             for (k, pair) in b[lo..hi].chunks_exact(2).enumerate() {
@@ -206,7 +211,10 @@ impl fmt::Display for Uuid {
     /// 정규형 8-4-4-4-12 소문자 hex 다.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::with_capacity(36);
-        for (i, (lo, hi)) in [(0, 4), (4, 6), (6, 8), (8, 10), (10, 16)].into_iter().enumerate() {
+        for (i, (lo, hi)) in [(0, 4), (4, 6), (6, 8), (8, 10), (10, 16)]
+            .into_iter()
+            .enumerate()
+        {
             if i > 0 {
                 s.push('-');
             }
@@ -256,7 +264,11 @@ mod tests {
         for i in [8, 13, 18, 23] {
             assert_eq!(s.as_bytes()[i], b'-');
         }
-        assert!(s.replace('-', "").bytes().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+        assert!(
+            s.replace('-', "")
+                .bytes()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        );
     }
 
     #[test]
@@ -285,7 +297,13 @@ mod tests {
     fn monotonic_across_ms() {
         let step = Arc::new(AtomicBool::new(false));
         let s2 = step.clone();
-        let g = Generator::with_clock(move || if s2.load(Ordering::SeqCst) { T0 + 10 } else { T0 });
+        let g = Generator::with_clock(move || {
+            if s2.load(Ordering::SeqCst) {
+                T0 + 10
+            } else {
+                T0
+            }
+        });
         let u1 = g.generate().unwrap();
         step.store(true, Ordering::SeqCst);
         let u2 = g.generate().unwrap();
@@ -297,7 +315,13 @@ mod tests {
     fn monotonic_clock_backwards() {
         let back = Arc::new(AtomicBool::new(false));
         let b2 = back.clone();
-        let g = Generator::with_clock(move || if b2.load(Ordering::SeqCst) { T0 - 100 } else { T0 });
+        let g = Generator::with_clock(move || {
+            if b2.load(Ordering::SeqCst) {
+                T0 - 100
+            } else {
+                T0
+            }
+        });
         let u1 = g.generate().unwrap();
         back.store(true, Ordering::SeqCst);
         let u2 = g.generate().unwrap();
@@ -322,7 +346,9 @@ mod tests {
         let handles: Vec<_> = (0..10)
             .map(|_| {
                 let g = g.clone();
-                std::thread::spawn(move || (0..1000).map(|_| g.generate().unwrap()).collect::<Vec<_>>())
+                std::thread::spawn(move || {
+                    (0..1000).map(|_| g.generate().unwrap()).collect::<Vec<_>>()
+                })
             })
             .collect();
         let mut seen = HashSet::new();

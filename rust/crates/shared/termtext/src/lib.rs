@@ -122,10 +122,31 @@ mod tests {
 
     #[test]
     fn cf_table_edges() {
-        for c in ['\u{ad}', '\u{600}', '\u{605}', '\u{6dd}', '\u{8e2}', '\u{180e}', '\u{fff9}', '\u{fffb}', '\u{110cd}', '\u{1343f}', '\u{e0001}', '\u{e007f}'] {
+        for c in [
+            '\u{ad}',
+            '\u{600}',
+            '\u{605}',
+            '\u{6dd}',
+            '\u{8e2}',
+            '\u{180e}',
+            '\u{fff9}',
+            '\u{fffb}',
+            '\u{110cd}',
+            '\u{1343f}',
+            '\u{e0001}',
+            '\u{e007f}',
+        ] {
             assert!(hidden(c), "hidden({c:?})");
         }
-        for c in ['\u{ac}', '\u{ae}', '\u{606}', '\u{2065}', '\u{fffc}', '\u{e0000}', '\u{e0080}'] {
+        for c in [
+            '\u{ac}',
+            '\u{ae}',
+            '\u{606}',
+            '\u{2065}',
+            '\u{fffc}',
+            '\u{e0000}',
+            '\u{e0080}',
+        ] {
             assert!(!hidden(c), "hidden({c:?})");
         }
     }

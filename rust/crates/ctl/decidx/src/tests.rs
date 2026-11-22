@@ -24,14 +24,21 @@ fn collect_reads_list_form() {
     );
     let got = collect(d.path()).unwrap();
     assert_eq!(got.len(), 2, "{:?}", ids(&got));
-    assert_eq!(has(&got, "D-AAA-1").map(|e| e.title.as_str()), Some("첫 결정이다."));
+    assert_eq!(
+        has(&got, "D-AAA-1").map(|e| e.title.as_str()),
+        Some("첫 결정이다.")
+    );
 }
 
 // TC-DSY-3
 #[test]
 fn collect_accepts_every_bullet() {
     let d = tempfile::tempdir().unwrap();
-    write_srs(d.path(), "B_SRS.md", "# B\n\n- **D-BBB-1 대시.**\n* **D-BBB-2 별표.**\n+ **D-BBB-3 더하기.**\n");
+    write_srs(
+        d.path(),
+        "B_SRS.md",
+        "# B\n\n- **D-BBB-1 대시.**\n* **D-BBB-2 별표.**\n+ **D-BBB-3 더하기.**\n",
+    );
     let got = collect(d.path()).unwrap();
     assert_eq!(got.len(), 3, "{:?}", ids(&got));
 }
@@ -60,15 +67,29 @@ fn collect_table_and_struck_unchanged() {
     );
     let got = collect(d.path()).unwrap();
     let one = has(&got, "D-DDD-1").expect("D-DDD-1");
-    assert_eq!((one.title.as_str(), one.why.as_str(), one.status.as_str()), ("표 행의 결정", "그 근거", "채택"));
-    assert!(has(&got, "D-DDD-2").is_none(), "취소선만 있는 행이 항목이 됐다: {:?}", ids(&got));
-    assert_eq!(has(&got, "D-DDD-3").map(|e| e.status.as_str()), Some("철회"));
+    assert_eq!(
+        (one.title.as_str(), one.why.as_str(), one.status.as_str()),
+        ("표 행의 결정", "그 근거", "채택")
+    );
+    assert!(
+        has(&got, "D-DDD-2").is_none(),
+        "취소선만 있는 행이 항목이 됐다: {:?}",
+        ids(&got)
+    );
+    assert_eq!(
+        has(&got, "D-DDD-3").map(|e| e.status.as_str()),
+        Some("철회")
+    );
 }
 
 #[test]
 fn collect_marks_truncated_list_title() {
     let d = tempfile::tempdir().unwrap();
-    write_srs(d.path(), "E_SRS.md", "# E\n\n- **D-EEE-1 이 결정은 다음 줄로 이어지고\n  여기서 끝난다.**\n");
+    write_srs(
+        d.path(),
+        "E_SRS.md",
+        "# E\n\n- **D-EEE-1 이 결정은 다음 줄로 이어지고\n  여기서 끝난다.**\n",
+    );
     let got = collect(d.path()).unwrap();
     let e = has(&got, "D-EEE-1").expect("D-EEE-1");
     assert!(e.title.ends_with('…'), "{:?}", e.title);
@@ -105,7 +126,11 @@ fn render_matches_go_generated_index() {
     let got = render(&collect(&dir).unwrap());
     if got != want {
         let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
-        let i = g.iter().zip(&w).position(|(a, b)| a != b).unwrap_or(g.len().min(w.len()));
+        let i = g
+            .iter()
+            .zip(&w)
+            .position(|(a, b)| a != b)
+            .unwrap_or(g.len().min(w.len()));
         panic!(
             "줄 {} 에서 갈린다\n rust: {:?}\n   go: {:?}",
             i + 1,

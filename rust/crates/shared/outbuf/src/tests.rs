@@ -339,15 +339,27 @@ fn ring_matches_reference() {
                             fed
                         })
                         .collect();
-                    assert_eq!(s.feed(&p), r.feed(&p), "max={max} seed={seed} step={step} feed({n})");
+                    assert_eq!(
+                        s.feed(&p),
+                        r.feed(&p),
+                        "max={max} seed={seed} step={step} feed({n})"
+                    );
                 }
-                assert_eq!(s.snapshot(), r.snapshot(), "max={max} seed={seed} step={step}");
+                assert_eq!(
+                    s.snapshot(),
+                    r.snapshot(),
+                    "max={max} seed={seed} step={step}"
+                );
                 assert_eq!(s.len(), r.retained());
                 let end = r.total_in;
                 let m = max as i64;
                 let rnd = rng.below(max as u64 + 2) as i64;
                 for off in [-1, 0, end, end + 1, end - m, end - m - 1, end - rnd] {
-                    assert_eq!(s.since(off), r.since(off), "max={max} seed={seed} step={step} since({off})");
+                    assert_eq!(
+                        s.since(off),
+                        r.since(off),
+                        "max={max} seed={seed} step={step} since({off})"
+                    );
                 }
             }
         }

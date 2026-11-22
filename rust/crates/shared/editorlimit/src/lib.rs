@@ -35,13 +35,19 @@ mod tests {
 
     #[test]
     fn body_max() {
-        assert_eq!(body_max_bytes(FILE_MAX_BYTES), 6 * FILE_MAX_BYTES + BODY_ENVELOPE);
+        assert_eq!(
+            body_max_bytes(FILE_MAX_BYTES),
+            6 * FILE_MAX_BYTES + BODY_ENVELOPE
+        );
         assert_eq!(body_max_bytes(16), 96 + BODY_ENVELOPE);
     }
 
     #[test]
     fn patch_diff_max() {
-        assert_eq!(patch_diff_max_bytes(FILE_MAX_BYTES), 4 * FILE_MAX_BYTES + BODY_ENVELOPE);
+        assert_eq!(
+            patch_diff_max_bytes(FILE_MAX_BYTES),
+            4 * FILE_MAX_BYTES + BODY_ENVELOPE
+        );
     }
 
     #[test]

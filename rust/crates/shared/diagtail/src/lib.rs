@@ -28,10 +28,10 @@ pub fn cut_str(msg: &str, max: usize) -> String {
 /// 실행 결과 하나의 진단이다. 출력(앞뒤 공백 제외)이 비었으면 오류 문구를 쓴다.
 pub fn of(out: &[u8], err: Option<&str>, max: usize) -> Vec<u8> {
     let mut s = trim_space(out);
-    if s.is_empty() {
-        if let Some(e) = err {
-            s = e.as_bytes();
-        }
+    if s.is_empty()
+        && let Some(e) = err
+    {
+        s = e.as_bytes();
     }
     cut(s, max)
 }
@@ -39,10 +39,10 @@ pub fn of(out: &[u8], err: Option<&str>, max: usize) -> Vec<u8> {
 /// [`of`] 의 문자열판이다.
 pub fn of_str(out: &str, err: Option<&str>, max: usize) -> String {
     let mut s = out.trim();
-    if s.is_empty() {
-        if let Some(e) = err {
-            s = e;
-        }
+    if s.is_empty()
+        && let Some(e) = err
+    {
+        s = e;
     }
     cut_str(s, max)
 }

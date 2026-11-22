@@ -114,7 +114,10 @@ mod tests {
             tab: s("y"),
             ..Default::default()
         };
-        assert_eq!(l.render(), "  label=W1.P1.T1  toolId=12  shellPid=1  size=80x24  window=\"x\"  tab=\"y\"");
+        assert_eq!(
+            l.render(),
+            "  label=W1.P1.T1  toolId=12  shellPid=1  size=80x24  window=\"x\"  tab=\"y\""
+        );
     }
 
     // TC-PL-3
@@ -132,7 +135,10 @@ mod tests {
             tab: s("b"),
             ..Default::default()
         };
-        assert_eq!(l.render(), "  label=W1.P1.T1  uuid=u  short=s  toolId=1  shellPid=2  size=1x2  window=\"a\"  tab=\"b\"");
+        assert_eq!(
+            l.render(),
+            "  label=W1.P1.T1  uuid=u  short=s  toolId=1  shellPid=2  size=1x2  window=\"a\"  tab=\"b\""
+        );
     }
 
     // TC-PL-4
@@ -146,7 +152,10 @@ mod tests {
             tab: s("b"),
             ..Default::default()
         };
-        assert_eq!(l.render(), r#"  label=L  toolId=1  shellPid=1  window="a"  tab="b""#);
+        assert_eq!(
+            l.render(),
+            r#"  label=L  toolId=1  shellPid=1  window="a"  tab="b""#
+        );
     }
 
     // TC-PL-5
