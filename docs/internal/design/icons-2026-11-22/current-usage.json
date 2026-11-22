@@ -1,0 +1,1088 @@
+[
+ {
+  "name": "x",
+  "body": "<path d=\"M18 6 6 18M6 6l12 12\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 304,
+    "code": "<button id=\"search-close\" class=\"ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost\" title=\"Close (Esc)\" aria-label=\"Close\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-x\"/></svg></button>",
+    "loose": false
+   },
+   {
+    "f": "web/index.html",
+    "line": 334,
+    "code": "<button class=\"modal-close ui-btn ui-btn-icon ui-btn-ghost\" id=\"modal-close\" title=\"Close settings\" aria-label=\"Close settings\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-x\"/></svg></button",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/attn-center.js",
+    "line": 105,
+    "code": "const x=UIKit.button({icon:'x',title:TIP_ATTN_DISMISS,kind:'ghost',size:'sm',cls:'attn-x'});",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/chat-human.js",
+    "line": 77,
+    "code": "if(r&&r.joined) items.push({id:'leave',icon:'x',label:t('chat.leave'),onClick:()=>this.app.chat._chatLeave(id)});",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/chat-views.js",
+    "line": 75,
+    "code": "const items=[{id:'leave',icon:'x',label:t('chat.leave'),disabled:!(r&&r.joined),onClick:()=>this.app.chat._chatLeave(v.roomId)}];",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/mobile-controller.js",
+    "line": 146,
+    "code": "xb.appendChild(UIKit.icon('x'));",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/settings-access.js",
+    "line": 45,
+    "code": "const del=UIKit.button({icon:'x',title:TIP_ACCESS_DEL,kind:'ghost',size:'sm'});",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/settings-presets.js",
+    "line": 141,
+    "code": "const del=UIKit.button({icon:'x',title:TIP_PRESET_DEL,kind:'ghost',cls:'preset-del'});",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/settings-sandbox.js",
+    "line": 33,
+    "code": "const del=UIKit.button({icon:'x',title:TIP_SBX_MOUNT_DEL,kind:'ghost',size:'sm'});",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/file-editor-find.js",
+    "line": 72,
+    "code": "+ ' title=\"' + ED_FIND_CLOSE_TITLE + '\" aria-label=\"' + ED_FIND_CLOSE_TITLE + '\">' + UIKit.iconHTML('x') + '</button>'",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/file-editor-find.js",
+    "line": 227,
+    "code": "+ ' title=\"' + ED_FIND_CLOSE_TITLE + '\" aria-label=\"' + ED_FIND_CLOSE_TITLE + '\">' + UIKit.iconHTML('x') + '</button>';",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/file-editor-peek.js",
+    "line": 53,
+    "code": "UIKit.iconHTML('x')+'</button>'+",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/file-tree-paint.js",
+    "line": 191,
+    "code": "d.appendChild(UIKit.button({icon:'x',title:EDITOR_TREE_ERR_CLOSE,kind:'ghost',size:'sm',cls:'ed-op-err-x'}));",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/kit-modal.js",
+    "line": 60,
+    "code": "if(head) head.appendChild(UIKit.button({icon:'x',title:s.closeTitle||'Close',kind:'ghost',cls:'ui-modal-close',onClick:()=>close()}));",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/renderer-chrome.js",
+    "line": 204,
+    "code": "if(dt){ const ic=dt.querySelector('svg'); const n=UIKit.icon(this.app.drawerOpen?'x':'menu'); if(ic) ic.replaceWith(n); else dt.prepend(n) }",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/renderer-pane-wire.js",
+    "line": 17,
+    "code": "+'<span class=\"pn-tab-x\" aria-hidden=\"true\" title=\"'+TAB_CLOSE_TITLE+'\">'+UIKit.iconHTML('x','ui-icon-sm')+'</span>';",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/sidebar-list.js",
+    "line": 236,
+    "code": "x.appendChild(UIKit.icon('x', { size: 'sm' }));",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "clock",
+  "body": "<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 6v6l4 2\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git.js",
+    "line": 82,
+    "code": "{key:'history',  icon:'clock',      label:t('git.view.history'),title:'History'},",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "plus",
+  "body": "<path d=\"M5 12h14M12 5v14\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 198,
+    "code": "<button id=\"add-window\" class=\"ui-btn\" title=\"New window\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-plus\"/></svg><span class=\"ui-btn-label\" data-i18n=\"html.btn_new\">New</span><span id=\"add",
+    "loose": false
+   },
+   {
+    "f": "web/index.html",
+    "line": 213,
+    "code": "<button id=\"repo-add\" class=\"ui-btn\" title=\"Add a repository or folder\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-plus\"/></svg><span class=\"ui-btn-label\" data-i18n=\"html.btn_repo_add\">Add<",
+    "loose": false
+   },
+   {
+    "f": "web/index.html",
+    "line": 280,
+    "code": "<button class=\"tbtn ui-btn ui-btn-icon ui-btn-sm\" id=\"slot-add\" data-i18n-title=\"html.slot_add_title\" data-i18n-shortcut=\"slotAdd\" aria-label=\"Add a window slot\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/chat-controller.js",
+    "line": 100,
+    "code": "d.appendChild(UIKit.button({icon:'plus',label:t('chat.new_group'),kind:'ghost',size:'sm',cls:'chat-new',",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/constants-git-changes.js",
+    "line": 190,
+    "code": "const GIT_ACT_ICON={openFile:'external-link',stage:'plus',unstage:'minus',discard:'undo'};",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/renderer-pane-wire.js",
+    "line": 186,
+    "code": "const add=UIKit.button({icon:'plus',iconSize:'sm',title:TAB_ADD_TITLE,kind:'ghost',cls:'pn-tab-add'});",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "minus",
+  "body": "<path d=\"M5 12h14\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 278,
+    "code": "<button class=\"tbtn ui-btn ui-btn-icon ui-btn-sm\" id=\"slot-remove\" data-i18n-title=\"html.slot_remove_title\" data-i18n-shortcut=\"slotRemove\" aria-label=\"Remove a window slot\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/chat-human.js",
+    "line": 109,
+    "code": "UIKit.menu([{id:'kick',icon:'minus',label:t('chat.kick'),danger:true,onClick:()=>this._chatKickAsk(kicks)}],{at:{x:e.clientX,y:e.clientY},cls:'chat-menu'});",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/constants-git-changes.js",
+    "line": 190,
+    "code": "const GIT_ACT_ICON={openFile:'external-link',stage:'plus',unstage:'minus',discard:'undo'};",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "check",
+  "body": "<path d=\"M20 6 9 17l-5-5\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants.js",
+    "line": 138,
+    "code": "const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'dot',[ACTIVITY_STATE.DONE]:'check',[ACTIVITY_STATE.WAITING]:'more-horizontal',[ACTIVITY_STATE.IDLE]:'circle'};",
+    "loose": true
+   },
+   {
+    "f": "web/js/git/git-diff-pane.js",
+    "line": 110,
+    "code": "const it=(id,label,on,fn)=>({id,label,cur:on,icon:on?'check':undefined,onClick:fn});",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/constants-git-refs.js",
+    "line": 42,
+    "code": "const GIT_BR_CURRENT_MARK='check';",
+    "via": "GIT_BR_CURRENT_MARK",
+    "kind": "def"
+   },
+   {
+    "f": "web/js/git/branches-tree.js",
+    "line": 196,
+    "code": "c.appendChild(UIKit.icon(GIT_BR_CURRENT_MARK,{size:'sm'}));",
+    "via": "GIT_BR_CURRENT_MARK"
+   }
+  ]
+ },
+ {
+  "name": "chevron-left",
+  "body": "<path d=\"m15 18-6-6 6-6\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 250,
+    "code": "<button class=\"mtbtn ui-btn ui-btn-icon ui-btn-ghost\" id=\"m-pane-prev\" title=\"Focus the previous pane\" aria-label=\"Focus the previous pane\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-chevro",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/layout-dock.js",
+    "line": 61,
+    "code": "b=UIKit.button({icon:'chevron-left',title:TIP_PANEL_COLLAPSE,kind:'ghost',size:'lg',cls:'sb-collapse ui-panel-act-desktop',",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/mobile-sheets.js",
+    "line": 88,
+    "code": "back.appendChild(UIKit.icon('chevron-left'));",
+    "loose": false
+   },
+   {
+    "f": "web/js/git/git-diff-pane.js",
+    "line": 84,
+    "code": "b.appendChild(UIKit.icon(b.dataset.nav==='next'?'chevron-right':'chevron-left'));",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/doc-render.js",
+    "line": 34,
+    "code": "UIKit.iconHTML('chevron-left') + DOC_RENDER_SOURCE + '</button>' +",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "chevron-right",
+  "body": "<path d=\"m9 18 6-6-6-6\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 252,
+    "code": "<button class=\"mtbtn ui-btn ui-btn-icon ui-btn-ghost\" id=\"m-pane-next\" title=\"Focus the next pane\" aria-label=\"Focus the next pane\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-chevron-right\"",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/agents-controller.js",
+    "line": 313,
+    "code": "icon:folded?'chevron-right':'chevron-down',",
+    "loose": true
+   },
+   {
+    "f": "web/js/git/git-diff-pane.js",
+    "line": 84,
+    "code": "b.appendChild(UIKit.icon(b.dataset.nav==='next'?'chevron-right':'chevron-left'));",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/file-editor-find.js",
+    "line": 60,
+    "code": "+ UIKit.iconHTML('chevron-right') + '</button>'",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/file-editor-find.js",
+    "line": 149,
+    "code": "b.innerHTML = UIKit.iconHTML(on ? 'chevron-down' : 'chevron-right');",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/ui-kit.js",
+    "line": 141,
+    "code": "el.replaceChildren(this.icon(open ? 'chevron-down' : 'chevron-right', { size: 'sm' }));",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "chevron-up",
+  "body": "<path d=\"m18 15-6-6-6 6\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/activity-list.js",
+    "line": 306,
+    "code": "b.appendChild(UIKit.icon(v.open?'chevron-down':'chevron-up'));",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "chevron-down",
+  "body": "<path d=\"m6 9 6 6 6-6\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/activity-list.js",
+    "line": 276,
+    "code": ".appendChild(UIKit.icon('chevron-down',{size:'sm'}));",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/activity-list.js",
+    "line": 306,
+    "code": "b.appendChild(UIKit.icon(v.open?'chevron-down':'chevron-up'));",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/agents-controller.js",
+    "line": 313,
+    "code": "icon:folded?'chevron-right':'chevron-down',",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/file-editor-find.js",
+    "line": 149,
+    "code": "b.innerHTML = UIKit.iconHTML(on ? 'chevron-down' : 'chevron-right');",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/ui-kit.js",
+    "line": 141,
+    "code": "el.replaceChildren(this.icon(open ? 'chevron-down' : 'chevron-right', { size: 'sm' }));",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/constants-git-commit.js",
+    "line": 24,
+    "code": "const GIT_COMMIT_MORE='chevron-down';",
+    "via": "GIT_COMMIT_MORE",
+    "kind": "def"
+   },
+   {
+    "f": "web/js/git/commit.js",
+    "line": 70,
+    "code": "more.replaceChildren(UIKit.icon(GIT_COMMIT_MORE,{size:'sm'})); more.title=GIT_COMMIT_MORE_TITLE;",
+    "via": "GIT_COMMIT_MORE"
+   },
+   {
+    "f": "web/js/core/constants-git-remote.js",
+    "line": 64,
+    "code": "const GIT_REMOTE_MORE='chevron-down';",
+    "via": "GIT_REMOTE_MORE",
+    "kind": "def"
+   },
+   {
+    "f": "web/js/git/git-changes.js",
+    "line": 201,
+    "code": "b.appendChild(UIKit.icon(GIT_REMOTE_MORE,{size:'sm'}));",
+    "via": "GIT_REMOTE_MORE"
+   }
+  ]
+ },
+ {
+  "name": "arrow-up",
+  "body": "<path d=\"m5 12 7-7 7 7M12 19V5\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 294,
+    "code": "<button id=\"search-prev\" class=\"ui-btn ui-btn-icon ui-btn-sm\" title=\"Previous match (Shift+Enter)\" aria-label=\"Previous match\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-arrow-up\"/></svg></",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/constants-git-remote.js",
+    "line": 56,
+    "code": "const GIT_REMOTE_ICON={fetch:'download',pull:'arrow-down',push:'arrow-up'};",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/file-editor-find.js",
+    "line": 68,
+    "code": "+ ' title=\"' + ED_FIND_PREV_TITLE + '\" aria-label=\"' + ED_FIND_PREV_TITLE + '\">' + UIKit.iconHTML('arrow-up') + '</button>'",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "arrow-down",
+  "body": "<path d=\"M12 5v14m7-7-7 7-7-7\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 295,
+    "code": "<button id=\"search-next\" class=\"ui-btn ui-btn-icon ui-btn-sm\" title=\"Next match (Enter)\" aria-label=\"Next match\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-arrow-down\"/></svg></button>",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/constants-git-remote.js",
+    "line": 56,
+    "code": "const GIT_REMOTE_ICON={fetch:'download',pull:'arrow-down',push:'arrow-up'};",
+    "loose": true
+   },
+   {
+    "f": "web/js/ui/file-editor-find.js",
+    "line": 70,
+    "code": "+ ' title=\"' + ED_FIND_NEXT_TITLE + '\" aria-label=\"' + ED_FIND_NEXT_TITLE + '\">' + UIKit.iconHTML('arrow-down') + '</button>'",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "arrow-left",
+  "body": "<path d=\"m12 19-7-7 7-7M19 12H5\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 273,
+    "code": "<button class=\"tbtn ui-btn ui-btn-icon ui-btn-sm nav-btn\" id=\"nav-back\" data-i18n-title=\"html.nav_back_title\" data-i18n-shortcut=\"focusBack\" aria-label=\"Go back\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "arrow-right",
+  "body": "<path d=\"M5 12h14m-7-7 7 7-7 7\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 274,
+    "code": "<button class=\"tbtn ui-btn ui-btn-icon ui-btn-sm nav-btn\" id=\"nav-forward\" data-i18n-title=\"html.nav_forward_title\" data-i18n-shortcut=\"focusForward\" aria-label=\"Go forward\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "download",
+  "body": "<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git-remote.js",
+    "line": 56,
+    "code": "const GIT_REMOTE_ICON={fetch:'download',pull:'arrow-down',push:'arrow-up'};",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "search",
+  "body": "<circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 266,
+    "code": "<button class=\"mtbtn ui-btn ui-btn-icon ui-btn-ghost\" id=\"m-search-btn\" title=\"Find in this pane\" aria-label=\"Find in this pane\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-search\"/></svg></",
+    "loose": false
+   },
+   {
+    "f": "web/index.html",
+    "line": 289,
+    "code": "<span class=\"search-icon\"><svg class=\"ui-icon ui-icon-sm\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-search\"/></svg></span>",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "bell",
+  "body": "<path d=\"M10.268 21a2 2 0 0 0 3.464 0\"/><path d=\"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 255,
+    "code": "<button class=\"tbtn ui-btn\" id=\"attn-badge\" title=\"Tools waiting for your attention\" aria-label=\"Tools waiting for your attention\" style=\"display:none\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use hre",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "settings",
+  "body": "<path d=\"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 227,
+    "code": "<button id=\"settings-btn\" class=\"ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost\" title=\"Settings\" aria-label=\"Settings\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-settings\"/></svg></button>",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "refresh-cw",
+  "body": "<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/><path d=\"M8 16H3v5\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-explorer.js",
+    "line": 120,
+    "code": "const EDITOR_TREE_REFRESH='refresh-cw';",
+    "via": "EDITOR_TREE_REFRESH",
+    "kind": "def"
+   },
+   {
+    "f": "web/js/core/constants-editor.js",
+    "line": 90,
+    "code": "// 선 굵기가 달라 그 하나가 도리어 눈에 띈다 (EDITOR_TREE_REFRESH 의 근거와 같다).",
+    "via": "EDITOR_TREE_REFRESH"
+   },
+   {
+    "f": "web/js/ui/file-tree.js",
+    "line": 250,
+    "code": "h.appendChild(this._headBtn('ed-head-refresh',EDITOR_TREE_REFRESH,",
+    "via": "EDITOR_TREE_REFRESH"
+   }
+  ]
+ },
+ {
+  "name": "rotate-ccw",
+  "body": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/><path d=\"M3 3v5h5\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 226,
+    "code": "<button id=\"soft-reload-btn\" class=\"ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost\" title=\"Reload the app without a full page refresh\" aria-label=\"Reload the app\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><u",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "pencil",
+  "body": "<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\"/><path d=\"m15 5 4 4\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 401,
+    "code": "<button id=\"custom-toggle\" class=\"ui-btn\" title=\"Toggle the custom theme editor\"><svg class=\"ui-icon ui-icon-sm\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-pencil\"/></svg><span class=\"ui-btn-label\" data-i18n=\"h",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "menu",
+  "body": "<path d=\"M4 12h16M4 6h16M4 18h16\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 285,
+    "code": "<button class=\"mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only\" id=\"m-drawer-toggle\" title=\"Open the menu\" aria-label=\"Open the menu\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-menu\"/></s",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/renderer-chrome.js",
+    "line": 204,
+    "code": "if(dt){ const ic=dt.querySelector('svg'); const n=UIKit.icon(this.app.drawerOpen?'x':'menu'); if(ic) ic.replaceWith(n); else dt.prepend(n) }",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "more-horizontal",
+  "body": "<circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"19\" cy=\"12\" r=\"1\"/><circle cx=\"5\" cy=\"12\" r=\"1\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/chat-controller.js",
+    "line": 117,
+    "code": "if(r.joined) row.appendChild(UIKit.button({icon:'more-horizontal',kind:'ghost',size:'sm',cls:'chat-row-more',",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/chat-views.js",
+    "line": 46,
+    "code": "head.append(title,kind,purpose,v.invite,UIKit.button({icon:'more-horizontal',title:TIP_CHAT_ROOM_ACTIONS,kind:'ghost',size:'sm',cls:'chat-more',",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/constants.js",
+    "line": 138,
+    "code": "const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'dot',[ACTIVITY_STATE.DONE]:'check',[ACTIVITY_STATE.WAITING]:'more-horizontal',[ACTIVITY_STATE.IDLE]:'circle'};",
+    "loose": true
+   },
+   {
+    "f": "web/js/git/git-diff-pane.js",
+    "line": 102,
+    "code": "const more=el.querySelector('.git-diff-more'); more.appendChild(UIKit.icon('more-horizontal'));",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "star",
+  "body": "<path d=\"M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 199,
+    "code": "<button id=\"add-preset\" class=\"ui-btn\" title=\"New window from default preset\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-star\"/></svg><span class=\"ui-btn-label\" data-i18n=\"html.btn_preset\">",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/settings-presets.js",
+    "line": 120,
+    "code": "const star=UIKit.button({icon:'star',iconFill:i===defaultPreset,",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/constants-git-refs.js",
+    "line": 39,
+    "code": "const GIT_BR_FAV_MARK='star';",
+    "via": "GIT_BR_FAV_MARK",
+    "kind": "def"
+   },
+   {
+    "f": "web/js/git/branches-tree.js",
+    "line": 65,
+    "code": "if(g.key===GIT_BR_GROUP_FAV) nm.prepend(UIKit.icon(GIT_BR_FAV_MARK,{size:'sm',fill:true}),' ');  // UX_AUDIT_FIX_SRS FR-UXF-100: 이전 카탈로그 글자 `★`",
+    "via": "GIT_BR_FAV_MARK"
+   },
+   {
+    "f": "web/js/git/branches-tree.js",
+    "line": 185,
+    "code": "f.appendChild(UIKit.icon(GIT_BR_FAV_MARK,{size:'sm',fill:on}));",
+    "via": "GIT_BR_FAV_MARK"
+   }
+  ]
+ },
+ {
+  "name": "box",
+  "body": "<path d=\"M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"/><path d=\"m3.3 7 8.7 5 8.7-5\"/><path d=\"M12 22V12\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 198,
+    "code": "<button id=\"add-window\" class=\"ui-btn\" title=\"New window\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-plus\"/></svg><span class=\"ui-btn-label\" data-i18n=\"html.btn_new\">New</span><span id=\"add",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/sidebar-tabs.js",
+    "line": 108,
+    "code": "badge:s.sandbox?{icon:'box',text:s.sandbox+(s.sandboxCopy?' · '+SANDBOX_COPY_BADGE:''),",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "git-branch",
+  "body": "<path d=\"M6 3v12\"/><circle cx=\"18\" cy=\"6\" r=\"3\"/><circle cx=\"6\" cy=\"18\" r=\"3\"/><path d=\"M18 9a9 9 0 0 1-9 9\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git.js",
+    "line": 83,
+    "code": "{key:'branches', icon:'git-branch', label:t('git.view.branches'),title:'Branches'},",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/sidebar-tabs.js",
+    "line": 148,
+    "code": "id:REPO_TAB_ID,label:REPO_TAB_LABEL,icon:'git-branch',panelId:REPO_PANEL_ID,",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "git-stash",
+  "body": "<path d=\"M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z\"/><path d=\"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65\"/><path d=\"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git.js",
+    "line": 84,
+    "code": "{key:'stash',    icon:'git-stash',  label:t('git.view.stash'),title:'Stash'},",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "git-worktree",
+  "body": "<path d=\"M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5\"/><circle cx=\"13\" cy=\"12\" r=\"2\"/><path d=\"M18 19c-2.8 0-5-2.2-5-5v8\"/><circle cx=\"20\" cy=\"19\" r=\"2\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git.js",
+    "line": 86,
+    "code": "{key:'worktrees',icon:'git-worktree',label:t('git.view.worktrees'),title:'Worktrees'},",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "git-submodule",
+  "body": "<path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/><circle cx=\"12\" cy=\"13\" r=\"2\"/><path d=\"M14 13h3\"/><path d=\"M7 13h3\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git.js",
+    "line": 87,
+    "code": "{key:'submodules',icon:'git-submodule',label:t('git.view.submodules'),title:'Submodules'},",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "external-link",
+  "body": "<path d=\"M15 3h6v6\"/><path d=\"M10 14 21 3\"/><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git-changes.js",
+    "line": 190,
+    "code": "const GIT_ACT_ICON={openFile:'external-link',stage:'plus',unstage:'minus',discard:'undo'};",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "undo",
+  "body": "<path d=\"M9 14 4 9l5-5\"/><path d=\"M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git-changes.js",
+    "line": 190,
+    "code": "const GIT_ACT_ICON={openFile:'external-link',stage:'plus',unstage:'minus',discard:'undo'};",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/settings-shortcuts.js",
+    "line": 59,
+    "code": "const rst=UIKit.button({icon:'undo',title:SHORTCUT_RESET_TITLE,kind:'ghost',size:'sm'});",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "keyboard",
+  "body": "<path d=\"M10 8h.01M12 12h.01M14 8h.01M16 12h.01M18 8h.01M6 8h.01M7 16h10\"/><rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-term.js",
+    "line": 38,
+    "code": "{label:'⌨',act:'kb',icon:'keyboard'},",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "circle",
+  "body": "<circle cx=\"12\" cy=\"12\" r=\"10\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants.js",
+    "line": 138,
+    "code": "const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'dot',[ACTIVITY_STATE.DONE]:'check',[ACTIVITY_STATE.WAITING]:'more-horizontal',[ACTIVITY_STATE.IDLE]:'circle'};",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "dot",
+  "body": "<circle cx=\"12\" cy=\"12\" r=\"5\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/agents-sub.js",
+    "line": 46,
+    "code": "return UIKit.icon(name,{size:'sm',fill:name==='dot'});",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/constants.js",
+    "line": 138,
+    "code": "const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'dot',[ACTIVITY_STATE.DONE]:'check',[ACTIVITY_STATE.WAITING]:'more-horizontal',[ACTIVITY_STATE.IDLE]:'circle'};",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "columns",
+  "body": "<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M12 3v18\"/>",
+  "uses": [
+   {
+    "f": "web/js/ui/renderer-pane-wire.js",
+    "line": 155,
+    "code": "const b=UIKit.button({icon:h?'columns':'rows',iconSize:'sm',kind:'ghost',cls:'pn-act pn-split',",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "rows",
+  "body": "<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M3 12h18\"/>",
+  "uses": [
+   {
+    "f": "web/js/ui/renderer-pane-wire.js",
+    "line": 155,
+    "code": "const b=UIKit.button({icon:h?'columns':'rows',iconSize:'sm',kind:'ghost',cls:'pn-act pn-split',",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "trash",
+  "body": "<path d=\"M3 6h18\"/><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/><path d=\"M10 11v6M14 11v6\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/chat-human.js",
+    "line": 81,
+    "code": "items.push({id:'kill',icon:'trash',label:t('chat.kill'),danger:true,onClick:()=>this._chatKillAsk(ids)});",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/chat-views.js",
+    "line": 77,
+    "code": "if(r&&this.app.chat.human._chatHelper()) items.push({sep:true},{id:'kill',icon:'trash',label:t('chat.kill'),danger:true,onClick:()=>this.app.chat.human._chatKillAsk([v.roomId])});",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "sliders",
+  "body": "<path d=\"M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3\"/><path d=\"M14 2v4M8 10v4M16 18v4\"/>",
+  "uses": [
+   {
+    "f": "web/js/git/history.js",
+    "line": 171,
+    "code": "opts.insertBefore(UIKit.icon('sliders'),opts.firstChild);",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "folder",
+  "body": "<path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 200,
+    "code": "<button id=\"add-group\" class=\"ui-btn\" title=\"New window group\"><svg class=\"ui-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><use href=\"#i-folder\"/></svg><span class=\"ui-btn-label\" data-i18n=\"html.btn_group\">Group</span></",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/constants-git-changes.js",
+    "line": 90,
+    "code": "const GIT_FILES_MODE_ICON={tree:'folder',flat:'list'};",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/settings-claude.js",
+    "line": 206,
+    "code": "name.appendChild(UIKit.icon('folder',{size:'sm'}));",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "file",
+  "body": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/>",
+  "uses": []
+ },
+ {
+  "name": "list",
+  "body": "<path d=\"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/chat-controller.js",
+    "line": 111,
+    "code": "row.appendChild(UIKit.icon(r.kind==='direct'?'message-square':'list',{cls:'chat-row-icon'}));",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/constants-git-changes.js",
+    "line": 90,
+    "code": "const GIT_FILES_MODE_ICON={tree:'folder',flat:'list'};",
+    "loose": true
+   }
+  ]
+ },
+ {
+  "name": "copy",
+  "body": "<rect x=\"8\" y=\"8\" width=\"14\" height=\"14\" rx=\"2\"/><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/>",
+  "uses": [
+   {
+    "f": "web/index.html",
+    "line": 433,
+    "code": "<div class=\"ds-row\"><span data-i18n=\"html.profile_fp\"></span><code id=\"pf-fp\" class=\"eg-fp ds-wide\"></code><button type=\"button\" id=\"pf-fp-copy\" class=\"ui-btn ui-btn-icon ui-btn-ghost\" title=\"Copy the fingerprint\" aria-l",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "play",
+  "body": "<path d=\"M6 3.5v17l14-8.5z\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/settings-presets.js",
+    "line": 126,
+    "code": "const load=UIKit.button({icon:'play',title:TIP_PRESET_LOAD,kind:'ghost'});",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "terminal",
+  "body": "<path d=\"m4 17 6-6-6-6M12 19h8\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-git.js",
+    "line": 85,
+    "code": "{key:'console',  icon:'terminal',   label:t('git.view.console'),title:'Console'},",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "panel-left",
+  "body": "<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M9 3v18\"/>",
+  "uses": []
+ },
+ {
+  "name": "message-square",
+  "body": "<path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/chat-controller.js",
+    "line": 111,
+    "code": "row.appendChild(UIKit.icon(r.kind==='direct'?'message-square':'list',{cls:'chat-row-icon'}));",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/chat-controller.js",
+    "line": 143,
+    "code": "UIKit.menu([{id:'direct',icon:'message-square',label:t('chat.direct_open'),onClick:()=>this._chatDirect(p.id)}],{at,cls:'chat-menu'});",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/sidebar-tab-chat.js",
+    "line": 10,
+    "code": "id:CHAT_TAB_ID,label:t('chat.title'),icon:'message-square',panelId:CHAT_PANEL_ID,",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "bot",
+  "body": "<path d=\"M12 8V4H8\"/><rect x=\"4\" y=\"8\" width=\"16\" height=\"12\" rx=\"2\"/><path d=\"M2 14h2M20 14h2M9 13v2M15 13v2\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/activity-list.js",
+    "line": 53,
+    "code": "{key:'agents', icon:'bot', title:()=>t('panel.sec_agents'), tip:()=>TIP_ACT_AGENTS, empty:()=>t('attn.no_active_agents'),",
+    "loose": false
+   },
+   {
+    "f": "web/js/core/mobile-nav.js",
+    "line": 50,
+    "code": "b.appendChild(UIKit.icon('bot'));",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "terminal-bg",
+  "body": "<path d=\"M7 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4\"/><rect x=\"3\" y=\"9\" width=\"12\" height=\"12\" rx=\"2\"/><path d=\"m7 13 3 2-3 2\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/activity-list.js",
+    "line": 59,
+    "code": "{key:'bg', icon:'terminal-bg', title:()=>t('bg.title'), tip:()=>TIP_ACT_BG, empty:()=>t('bg.empty'),",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "workflow",
+  "body": "<rect x=\"3\" y=\"3\" width=\"8\" height=\"8\" rx=\"2\"/><path d=\"M7 11v4a2 2 0 0 0 2 2h4\"/><rect x=\"13\" y=\"13\" width=\"8\" height=\"8\" rx=\"2\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/activity-list.js",
+    "line": 61,
+    "code": "{key:'runs', icon:'workflow', title:()=>t('runs.title'), tip:()=>TIP_ACT_RUNS, empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "app-window",
+  "body": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"/><path d=\"M10 4v4M2 8h20M6 4v4\"/>",
+  "uses": [
+   {
+    "f": "web/js/ui/sidebar-tabs.js",
+    "line": 60,
+    "code": "id:'windows',label:t('sidebar.tab_windows'),icon:'app-window',  // UX_AUDIT_FIX_SRS FR-UXF-100: 이전 `terminal`(Background 와 닮았다)",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "file-plus",
+  "body": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4M9 15h6M12 18v-6\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-explorer.js",
+    "line": 184,
+    "code": "const EDITOR_TREE_NEW_FILE='file-plus';",
+    "via": "EDITOR_TREE_NEW_FILE",
+    "kind": "def"
+   },
+   {
+    "f": "web/js/ui/file-tree.js",
+    "line": 243,
+    "code": "h.appendChild(this._headBtn('ed-head-new-file',EDITOR_TREE_NEW_FILE,",
+    "via": "EDITOR_TREE_NEW_FILE"
+   }
+  ]
+ },
+ {
+  "name": "folder-plus",
+  "body": "<path d=\"M12 10v6M9 13h6\"/><path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/constants-explorer.js",
+    "line": 186,
+    "code": "const EDITOR_TREE_NEW_DIR='folder-plus';",
+    "via": "EDITOR_TREE_NEW_DIR",
+    "kind": "def"
+   },
+   {
+    "f": "web/js/ui/file-tree.js",
+    "line": 248,
+    "code": "h.appendChild(this._headBtn('ed-head-new-dir',EDITOR_TREE_NEW_DIR,",
+    "via": "EDITOR_TREE_NEW_DIR"
+   }
+  ]
+ },
+ {
+  "name": "link",
+  "body": "<path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/>",
+  "uses": [
+   {
+    "f": "web/js/ui/file-tree-paint.js",
+    "line": 227,
+    "code": "if(it.kind==='link') d.appendChild(domEl('span','ed-mark',it.linkDir?EDITOR_TREE_LINK_DIR_SUFFIX:'')).prepend(UIKit.icon(EDITOR_TREE_LINK,{size:'sm'}));",
+    "loose": true
+   },
+   {
+    "f": "web/js/core/constants-explorer.js",
+    "line": 116,
+    "code": "const EDITOR_TREE_LINK='link';",
+    "via": "EDITOR_TREE_LINK",
+    "kind": "def"
+   }
+  ]
+ },
+ {
+  "name": "triangle-alert",
+  "body": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4M12 17h.01\"/>",
+  "uses": [
+   {
+    "f": "web/js/ui/file-tree-paint.js",
+    "line": 226,
+    "code": "if(it.stale) d.appendChild(UIKit.icon('triangle-alert',{size:'sm',cls:'ed-stale-mark'}));   // REPO_FIX 04 §3A-2 → FR-UXF-100: 이전 CSS `::after` 의 `⚠`",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/run-dashboard.js",
+    "line": 343,
+    "code": "if (m.contextLevel !== 'ok') ctx.append(' ', UIKit.icon('triangle-alert', { size: 'sm' }));   // UX_AUDIT_FIX_SRS FR-UXF-100: 이전 글자 `⚠`",
+    "loose": false
+   },
+   {
+    "f": "web/js/ui/runs-panel.js",
+    "line": 185,
+    "code": "if (lv) row.appendChild(domEl('div', 'runs-ctx lv-' + lv, ' ' + lv)).prepend(UIKit.icon('triangle-alert', { size: 'sm' }));",
+    "loose": false
+   }
+  ]
+ },
+ {
+  "name": "corner-down-right",
+  "body": "<path d=\"m15 10 5 5-5 5\"/><path d=\"M4 4v7a4 4 0 0 0 4 4h12\"/>",
+  "uses": [
+   {
+    "f": "web/js/core/agents-sub.js",
+    "line": 73,
+    "code": "head.appendChild(domEl('span','ag-sub-arrow','')).appendChild(UIKit.icon('corner-down-right',{size:'sm'}));",
+    "loose": false
+   }
+  ]
+ }
+]
