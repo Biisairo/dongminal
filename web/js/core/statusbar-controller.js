@@ -184,7 +184,8 @@ class StatusBarController extends Controller {
     if(statusBar.cpu&&this.app._stats.cpu!==undefined){
       push('cpu',`<span class="sb-item">CPU <span class="mono">${e(this.app._stats.cpu)}%</span></span>`);
     }
-    if(statusBar.memory&&this.app._stats.memTotal){
+    // ATTIC_FIX_SRS FR-ATF-44: 서버가 총량만 줄 수 있다(cgo 없는 darwin) — 사용량이 없으면 지금처럼 그리지 않는다(이전: `NaNGB/16.0GB` 로 그려질 뻔했다).
+    if(statusBar.memory&&this.app._stats.memTotal&&typeof this.app._stats.memUsed==='number'){
       const used=this._fmtMemSize(this.app._stats.memUsed);
       const total=this._fmtMemSize(this.app._stats.memTotal);
       push('memory',`<span class="sb-item">MEM <span class="mono">${e(used)}/${e(total)}</span></span>`);

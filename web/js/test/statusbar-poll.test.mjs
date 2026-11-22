@@ -114,3 +114,9 @@ test('TC-FR1-9: git 패널이 없으면(작업 표 없음) stats 에 jobs 를 �
   await done;
   assert.deepEqual(settles, []);
 });
+
+test('TC-ATF-44: 메모리는 사용량이 숫자일 때만 그린다(총량만 오면 그리지 않는다)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../core/statusbar-controller.js', import.meta.url), 'utf8');
+  assert.match(src, /if\(statusBar\.memory&&this\.app\._stats\.memTotal&&typeof this\.app\._stats\.memUsed==='number'\)/);
+});
