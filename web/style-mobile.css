@@ -253,8 +253,9 @@ body.mobile #search-count{min-width:0}
    하한을 주고, 손잡이가 들어가지 않으면 다음 줄로 내린다. */
 body.mobile .ds-row{flex-wrap:wrap;row-gap:var(--sp-4)}
 body.mobile .ds-row>span:first-child{min-width:5em}
-/* FR-MUX-26: 설정·대화상자의 선택 상자와 입력칸도 터치 하한을 지킨다. */
-body.mobile :is(.display-settings,.ui-modal,.git-view,.ed-side) :is(select,.ui-input,.ui-select,input:not([type]),input[type=text],input[type=search],input[type=number]){min-height:var(--touch-min);font-size:var(--fs-xl)}
+/* FR-MUX-26: 설정·대화상자의 선택 상자와 입력칸도 터치 하한을 지킨다.
+   ATTIC_FIX_SRS FR-ATF-81: 이전 비밀번호 칸(Telegram 토큰)이 빠져 높이 24 / 새 같은 하한 / 이유 D-SEED-7 */
+body.mobile :is(.display-settings,.ui-modal,.git-view,.ed-side) :is(select,.ui-input,.ui-select,input:not([type]),input[type=text],input[type=search],input[type=number],input[type=password]){min-height:var(--touch-min);font-size:var(--fs-xl)}
 /* ── MOBILE_UX_OVERHAUL_SRS 2차 (FR-MUX-70~79) ── */
 /* FR-MUX-74·75: 상단바 Activity 단추. 작업 중이면 상태 점과 수 — 점은 맥동하지 않는다(조용한 계기판의 램프). */
 #m-act-btn .m-act-dot{display:none;width:6px;height:6px;border-radius:50%;background:var(--accent2)}

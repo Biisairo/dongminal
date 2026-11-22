@@ -203,6 +203,21 @@
 /* 오른쪽 값(세로)일 때만 손잡이가 옮겨 앉는다 — 트랙 폭(34) - 손잡이(12) - 여백(2·2) */
 .ds-switch[data-v="vertical"] button{background:var(--accent-active);border-color:var(--accent-border)}
 .ds-switch[data-v="vertical"] button i{transform:translateX(16px)}
+/* ATTIC_FIX_SRS FR-ATF-81: 모바일은 닿는 자리만 하한으로 키우고 트랙은 안쪽에 같은 크기로 그린다.
+     이전 동작: 모바일 방향 스위치가 34×18 이었다
+     새  동작: 모바일은 --touch-min 정사각이 닿고, 보이는 트랙(34×18)과 손잡이는 그대로다
+     이유:     손가락으로 누르기 어려웠다 (D-SEED-7) */
+body.mobile .ds-switch button{width:var(--touch-min);height:var(--touch-min);background:transparent;border:0;border-radius:0}
+body.mobile .ds-switch button::before{
+  content:'';position:absolute;top:50%;left:50%;width:34px;height:18px;box-sizing:border-box;transform:translate(-50%,-50%);
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-pill);
+  transition:background var(--dur-base),border-color var(--dur-base);
+}
+body.mobile .ds-switch button:hover::before{border-color:var(--accent)}
+body.mobile .ds-switch[data-v="vertical"] button{background:transparent}
+body.mobile .ds-switch[data-v="vertical"] button::before{background:var(--accent-active);border-color:var(--accent-border)}
+/* 트랙의 왼쪽 끝(50% - 17) 에서 데스크톱과 같은 3px (테두리 1 + 여백 2) 안쪽 */
+body.mobile .ds-switch button i{top:calc(50% - 6px);left:calc(50% - 14px)}
 
 /* FR-SCT-6~9: 정도를 고르는 컨트롤. 값 표시의 폭을 고정하는 이유는 `.ds-toggle`
    과 같다 — 글자 수가 바뀔 때마다 행이 흔들린다. */
@@ -236,6 +251,8 @@
 .ds-range input[type=range]:hover::-webkit-slider-thumb{background:var(--text-bright)}
 .ds-range input[type=range]:hover::-moz-range-thumb{background:var(--text-bright)}
 .ds-range input[type=range]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:2px;border-radius:var(--radius-sm)}
+/* ATTIC_FIX_SRS FR-ATF-81: 이전 모바일 슬라이더 높이 14 / 새 --touch-min (트랙·엄지는 그대로 가운데) / 이유 손가락이 닿지 않았다 (D-SEED-7) */
+body.mobile .ds-range input[type=range]{height:var(--touch-min)}
 
 /* ── 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS FR-SPT-15·16) ── */
 .bk-confirm{

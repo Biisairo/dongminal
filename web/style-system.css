@@ -103,6 +103,16 @@
 .eg-mesh-name{fill:var(--text-bright);font-size:var(--fs-sm)}
 .eg-mesh-node.off .eg-mesh-name{fill:var(--text-hint)}
 .eg-mesh-mark{fill:var(--attn-text);font-size:var(--fs-xs)}
+/* ATTIC_FIX_SRS FR-ATF-81: 그림은 그대로 두고 모바일에만 투명한 히트 상자를 연다.
+     이전 동작: 모바일 망 노드의 닿는 자리가 원과 이름뿐이라 높이 30 이었다
+     새  동작: 모바일은 원을 가운데로 한 --touch-min + --sp-4 정사각이 닿는다. 데스크톱은 상자가 없다
+     이유:     좁은 폭에서 그림이 줄어도(viewBox) 하한을 넘게 여유를 둔다 (D-SEED-7) */
+.eg-mesh-hit{display:none}
+body.mobile .eg-mesh-hit{
+  display:inline;fill:transparent;stroke:none;
+  --eg-hit:calc(var(--touch-min) + var(--sp-4));
+  x:calc(var(--eg-hit) / -2);y:calc(var(--eg-hit) / -2);width:var(--eg-hit);height:var(--eg-hit);
+}
 .eg-mesh-act{margin-top:var(--sp-3)}
 
 /* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
