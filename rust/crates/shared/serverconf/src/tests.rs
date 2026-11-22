@@ -527,15 +527,14 @@ fn corrupt_file_warning_carries_go_error_text() {
     );
 }
 
-// 모르는 키의 원문은 숫자 표기·null 이 그대로 남는다. 문자열 이스케이프는 go1.27 이 풀어 쓴다(실측).
+// 모르는 키의 원문은 숫자 표기·null 이 그대로 남는다. 문자열 이스케이프도 원문 그대로다.
 #[test]
-#[ignore = "gocompat RawMessage 차이(조정자 보고)"]
 fn set_keys_preserves_raw_literals() {
     let home = tmp();
-    write(home.path(), r#"{"f":1.0,"s":"\u00e9"}"#);
+    write(home.path(), r#"{"f":1.0,"s":"\u00e9","n":null}"#);
     set_update_check(home.path(), true).unwrap();
     assert_eq!(
         std::fs::read_to_string(home.path().join(FILE_NAME)).unwrap(),
-        "{\n  \"f\": 1.0,\n  \"n\": null,\n  \"s\": \"é\",\n  \"updateCheck\": true\n}\n"
+        "{\n  \"f\": 1.0,\n  \"n\": null,\n  \"s\": \"\\u00e9\",\n  \"updateCheck\": true\n}\n"
     );
 }

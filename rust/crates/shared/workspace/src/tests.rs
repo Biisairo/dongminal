@@ -1250,13 +1250,16 @@ fn decode_errors_match_go() {
     }
 }
 
-// slice 원소 타입 이름(`[]workspace.WsTab`)은 아직 재현되지 않는다 (조정자 보고).
+// slice 타입 이름도 Go 와 같다 (go_type!).
 #[test]
-#[ignore = "gocompat slice 타입 이름(조정자 보고)"]
 fn decode_error_slice_type_name() {
     assert_eq!(
         decode_err(r#"{"windows":[{"layout":{"children":[null,{"type":"pane","tabs":{}}]}}]}"#),
         "json: cannot unmarshal object into Go struct field WsState.windows.0.layout.children.1.tabs of type []workspace.WsTab"
+    );
+    assert_eq!(
+        decode_err(r#"{"schemaVersion":2,"windows":{}}"#),
+        "json: cannot unmarshal object into Go struct field WsState.windows of type []workspace.WsWindow"
     );
 }
 

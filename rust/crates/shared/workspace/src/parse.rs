@@ -14,17 +14,24 @@ pub const SCHEMA_VERSION: i64 = 2;
 pub const LAYOUT_TYPE_PANE: &str = "pane";
 pub const LAYOUT_TYPE_SPLIT: &str = "split";
 
+dm_gocompat::go_type!(GoTabs = "[]workspace.WsTab");
+dm_gocompat::go_type!(GoLayouts = "[]*workspace.WsLayout");
+dm_gocompat::go_type!(GoWindows = "[]workspace.WsWindow");
+dm_gocompat::go_type!(GoGroups = "[]workspace.WsGroup");
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default, rename = "workspace.WsLayout")]
 pub struct WsLayout {
     #[serde(rename = "type")]
     pub kind: String,
     pub id: String,
+    #[serde(deserialize_with = "json::with_go_type::<GoTabs, _, _>")]
     pub tabs: Vec<WsTab>,
     #[serde(rename = "activeTab")]
     pub active_tab: String,
     pub direction: String,
     /// Go `[]*WsLayout` — 원소가 `null` 일 수 있다.
+    #[serde(deserialize_with = "json::with_go_type::<GoLayouts, _, _>")]
     pub children: Vec<Option<WsLayout>>,
 }
 
@@ -87,10 +94,14 @@ pub struct WsGroupTree {
 pub struct WsState {
     #[serde(rename = "schemaVersion")]
     pub schema_version: i64,
+    #[serde(deserialize_with = "json::with_go_type::<GoWindows, _, _>")]
     pub windows: Vec<WsWindow>,
     #[serde(rename = "activeWindow")]
     pub active_window: String,
-    #[serde(rename = "windowGroups")]
+    #[serde(
+        rename = "windowGroups",
+        deserialize_with = "json::with_go_type::<GoGroups, _, _>"
+    )]
     pub window_groups: Vec<WsGroup>,
 }
 
