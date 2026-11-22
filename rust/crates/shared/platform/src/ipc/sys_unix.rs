@@ -467,3 +467,8 @@ pub(super) fn remove(path: &Path) -> io::Result<()> {
 pub(super) fn is_not_exist(e: &io::Error) -> bool {
     e.raw_os_error() == Some(libc::ENOENT)
 }
+
+/// POSIX 는 chmod 0600 과 0700 디렉터리가 막는다. 더 할 일이 없다.
+pub(super) fn restrict_to_owner(_path: &Path) -> io::Result<()> {
+    Ok(())
+}

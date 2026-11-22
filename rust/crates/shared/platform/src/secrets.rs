@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 
 use dm_gocompat::oserr::{go_error_string, path_error};
 
-use crate::shell::gopath::Conv;
 use crate::shell::{EnvFn, os_env};
+use dm_gocompat::filepath;
 
 /// 비밀 저장소의 오류. 문구는 Go 와 같다.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,7 +131,7 @@ impl Secrets for MacKeychain {
             return u;
         }
         if let Some(h) = (self.home)() {
-            let b = Conv::HOST.base(&h);
+            let b = filepath::base(&h);
             if !b.is_empty() && b != "." && b != "/" {
                 return b;
             }

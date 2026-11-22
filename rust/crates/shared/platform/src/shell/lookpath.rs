@@ -3,7 +3,7 @@
 //! 호출부는 오류의 종류를 보지 않고 "찾았는가" 만 보므로 `Option` 으로 낸다. 상대경로로 찾은
 //! 결과(Go `ErrDot`)는 Go 에서 오류이므로 `None` 이다.
 
-use super::gopath::Conv;
+use dm_gocompat::filepath::{unix, windows};
 
 const DEFAULT_PATHEXT: &[&str] = &[".com", ".exe", ".bat", ".cmd"];
 
@@ -24,11 +24,11 @@ pub(crate) fn look_path_unix(
     if file.contains('/') {
         return find(file).then(|| file.to_owned());
     }
-    for dir in Conv::Unix.split_list(path_env) {
+    for dir in unix::split_list(path_env) {
         let dir = if dir.is_empty() { "." } else { dir.as_str() };
-        let p = Conv::Unix.join(&[dir, file]);
+        let p = unix::join(&[dir, file]);
         if find(&p) {
-            return Conv::Unix.is_abs(&p).then_some(p);
+            return unix::is_abs(&p).then_some(p);
         }
     }
     None
@@ -97,17 +97,16 @@ pub(crate) fn look_path_windows(
     if file.contains([':', '\\', '/']) {
         return find_executable_win(file, &exts, &chk);
     }
-    let w = Conv::Windows;
     // 현재 디렉터리에서 찾은 것은 Go 에서 ErrDot 오류다. PATH 에서 같은 실체를 찾을 때만 살아난다.
     let mut dotf: Option<String> = None;
     if !env.no_cwd {
-        dotf = find_executable_win(&w.join(&[".", file]), &exts, &chk);
+        dotf = find_executable_win(&windows::join(&[".", file]), &exts, &chk);
     }
-    for dir in w.split_list(env.path) {
+    for dir in windows::split_list(env.path) {
         if dir.is_empty() {
             continue;
         }
-        let Some(f) = find_executable_win(&w.join(&[&dir, file]), &exts, &chk) else {
+        let Some(f) = find_executable_win(&windows::join(&[&dir, file]), &exts, &chk) else {
             continue;
         };
         if let Some(d) = &dotf
@@ -115,7 +114,7 @@ pub(crate) fn look_path_windows(
         {
             return None;
         }
-        if !w.is_abs(&f) {
+        if !windows::is_abs(&f) {
             if dotf.is_none() {
                 dotf = Some(f);
             }
@@ -127,14 +126,23 @@ pub(crate) fn look_path_windows(
 }
 
 /// 이 호스트의 `exec.LookPath`.
-pub(crate) fn look_path(file: &str) -> Option<String> {
+pub fn look_path(file: &str) -> Option<String> {
+    #[cfg(windows)]
+    let path_env = super::os_env("path");
+    #[cfg(not(windows))]
+    let path_env = super::os_env("PATH");
+    look_path_in(file, &path_env)
+}
+
+/// `look_path` 와 같되, 검색 경로(unix `PATH`, windows `%path%`)를 인자로 받는다.
+/// 시험이 프로세스 환경을 바꾸지 않고 검색 경로를 바꿔 볼 수 있게 한다.
+pub fn look_path_in(file: &str, path_env: &str) -> Option<String> {
     #[cfg(windows)]
     {
         use std::path::Path;
-        let path = super::os_env("path");
         let pathext = super::os_env("PATHEXT");
         let env = WinEnv {
-            path: &path,
+            path: path_env,
             pathext: &pathext,
             no_cwd: std::env::var_os("NoDefaultCurrentDirectoryInExePath").is_some(),
         };
@@ -153,7 +161,7 @@ pub(crate) fn look_path(file: &str) -> Option<String> {
     }
     #[cfg(not(windows))]
     {
-        look_path_unix(file, &super::os_env("PATH"), find_executable_unix)
+        look_path_unix(file, path_env, find_executable_unix)
     }
 }
 
@@ -191,6 +199,26 @@ fn eaccess_x(file: &str) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    #[test]
+    fn look_path_in_uses_given_search_path() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let exe = d.path().join("dm-fake-tool");
+        std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let dir = d.path().to_str().unwrap();
+        assert_eq!(
+            crate::look_path_in("dm-fake-tool", dir).as_deref(),
+            exe.to_str()
+        );
+        assert_eq!(
+            crate::look_path_in("dm-fake-tool", "/nonexistent-dm-dir"),
+            None
+        );
+        assert_eq!(crate::look_path_in("", dir), None);
+    }
+
     use super::*;
 
     fn set(found: &'static [&'static str]) -> impl Fn(&str) -> bool {
