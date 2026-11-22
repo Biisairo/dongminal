@@ -120,3 +120,36 @@ async fn json_encode_failure_writes_empty_body() {
 fn code_header_name() {
     assert_eq!(CODE_HEADER, "X-Error-Code");
 }
+
+// TC-RDG-2: 헤더 이름 리터럴은 이 crate 밖의 비시험 코드에 없다 (FR-RDG-1).
+#[test]
+fn code_header_literal_only_here() {
+    let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let crates = here.parent().and_then(|p| p.parent()).unwrap();
+    let lit = format!("\"{CODE_HEADER}\"");
+    let mut hits = Vec::new();
+    let mut stack = vec![crates.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for e in std::fs::read_dir(&dir).unwrap() {
+            let p = e.unwrap().path();
+            if p.is_dir() {
+                if p != here && p.file_name().is_some_and(|n| n != "tests" && n != "target") {
+                    stack.push(p);
+                }
+                continue;
+            }
+            if p.extension().is_none_or(|x| x != "rs")
+                || p.file_name().is_some_and(|n| n == "tests.rs")
+            {
+                continue;
+            }
+            if std::fs::read_to_string(&p).unwrap().contains(&lit) {
+                hits.push(p);
+            }
+        }
+    }
+    assert!(
+        hits.is_empty(),
+        "X-Error-Code 리터럴이 httpresp 밖에 있다: {hits:?}"
+    );
+}
