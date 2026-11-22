@@ -1,7 +1,6 @@
 # SRS: 리팩토링 3차 마무리 — 사용자가 고친다고 정한 일곱 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: FX-6(죽은 서버 종단 둘 삭제) · FX-7(계정 행 숫자 칸의 범위를 서버 원천으로). FX-1~5 는 닫혔다.
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-11-22 (프로덕션 리팩토링 3차 마무리 · `refactor/PROD3.md` §6 Q7 · P8, `REFACTOR_PROD3_HANDOFF_4.md` §3 「찾은 결함」)
 - **사용자 결정 (2026-11-22)**:
@@ -181,7 +180,10 @@
 | FX-2 | 실측 먼저(HEAD `3dfb1c17`, 임시 e2e — 같은 명령에서 지웠다): 설정 탭에서 숫자 칸에 포커스를 둔 채 범위 밖 값을 치고(`9999`, 글자 크기 둘은 `1`), 저장(PUT)이 끝난 뒤 다른 클라이언트가 `statusBar.hostname` 을 뒤집었다. 방송을 받은 뒤 입력란 — `ds-uifs` `"1"`→`"8"` · `ds-termfs` `"1"`→`"8"` · `ds-scrollspeed` `"9999"`→`"20"` · `ds-mighookpct`·`ds-treemigpct` `"9999"`→`"100"`, 포커스는 그대로. 대조군 `ds-tabw`(가드)는 `"9999"` 그대로. **추정이 맞았다** — 다섯 모두 `_settingsApply` → `_paintSettingControls` → `FormRow.paint` 가 덮는다. 고친 것: 다섯 행에 `guard:true`, `StatusbarSection.paint`(스위치 표 `_sw`). 시험 `settings-sections.test.mjs` TC-FFX-4 · `settings-controls.test.mjs` FEC-26 의 가드 목록 개정 · e2e TC-FFX-5·6(옛 코드에서 RED — 실측과 같은 시험) |
 | FX-3 | `SettingsController` — 표 `SETTINGS_REREAD`(다섯), 열 때 `_rereadOnOpen`(profile 의 `onOpen` 뒤, 모바일 화면 앞 — 검색 비우기가 고른 탭을 정한 뒤다), 비행 하나 `_reread`(탭 → 약속 `Map`, 끝나면 `finally` 로 걷는다). `onTab` 의 다섯도 `_reread` 를 지난다. 고른 탭은 `SettingsModal.current()`. 수정 판정은 저장 단추 표에서 `settingsPanelDirty`(`settings-save-state.js`), 저장 단추가 없는 server 는 `ServerSection.dirty()`(`_srvChanges`). 시험 `settings-sections.test.mjs` TC-FFX-7 셋(둘은 옛 코드에서 RED, "수정이 있으면 읽지 않는다" 는 옛 코드에서도 참) · e2e TC-FFX-8(옛 코드에서 RED — 닫힌 동안 바뀐 목록이 보이지 않았다) |
 | FX-4 | 확인: LSP `findReferences`(`git-sync.js` 의 `_gitAddRepo`·`_gitReorder`) — 정의 한 곳씩뿐. `grep -rn` 웹·e2e·시험·`scripts`·위임자 표(`Controller.delegate(App,'git.sync',…)` 에 없음)·계약(`app-testing.js` 에 없음) — 부르는 곳 0, e2e 주석 하나(`git-worktrees.spec.ts`)뿐. 지운 것: `GitSync` 의 메서드 다섯(`_gitAddRepo`·`_gitRepoAt`·`_gitAddRepoRun`·`_gitReorder`·`_gitPinsSort`) · `constants-git.js` 의 `GIT_ADD_REPO_*` 여덟과 주석 · i18n 키 `git.add_repo_*` 여덟(ko·en). 주석 셋을 고쳤다(`editor-section.js` · e2e `git-worktrees`·`git-sidebar`). 남긴 것: `GIT_API.repoAt`·`reposReorder`·`GIT_ACTION.repoAdd`(서버 경로·동작 ID 의 거울, D-FFX-9) · `check-server-driven.sh` 의 금지 이름 `GIT_ADD_REPO_NEED_PATH`(되살아나지 않게 막는 표) |
+| `4a370b32` | FX-6·7 을 덧붙인 이 문서 |
 | FX-5 | 게이트 — 둘째 꼴 `\)\.app._` 를 `\.app._` 로 넓혔다(수신자를 가리지 않는다, D-FFX-10). 고친 게이트가 옮기기 전 트리에서 `workspace-resync.spec.ts` 7곳으로 실패했고(RED), 탐침 파일의 `w.app._probeA()`·`(window as any).app?._probeB`·`foo?.app._probeC` 셋을 잡았다. 7곳은 계약 `app.testing.onWorkspaceChanged` 의 읽기(바인딩된 원본)·쓰기(인스턴스 덮어쓰기 — 구독이 `this.app._onWorkspaceChanged` 로 부르므로 닿는다)로. 계약에서 `_gitJobChip`·`_focusCh` 를 걷었다(150 → 148). e2e — `git-statusbar` B3 은 DOM 단정만 남기고, `focus-owner` TC-XDF-9 는 `BroadcastChannel` 생성자를 감싸 `dongminal-focus` 를 여는 생성이 없는지 본다. 단위 `app-state-owners.test.mjs` TC-FEA-3 — 예외 없음·두 이름이 App·계약에 없음(옛 계약에서 RED) |
+| FX-6 `4e7e4c21` | 확인: gopls `references` — `apiGitRepoAt`(routes.go 한 곳) · `gitToolCwd`·`gitRepoAtEntry`(`apiGitRepoAt` 안 한 곳씩) · `gitCwdSourceTool`·`gitCwdSourceServer`(`gitToolCwd` 안) · `gitReorderPins`(`apiGitReorder` 안) · `apiGitReorder`(routes.go). `grep -rn "repo-at\|repos/reorder"`(`internal`·`cmd`·`web`·`scripts`·`docs`·`e2e`) — Go 사용처는 `gitapi` 의 처리기·라우트·잠금표·시험뿐, `cmd`·`internal/helper`(dmctl)·다른 Go 패키지 0. 웹은 `GIT_API` 두 줄과 주석 하나, e2e 는 부르는 곳 없는 도우미 `projectRepo`(`git-sidebar.spec.ts`) 하나. 지운 것: 라우트 둘 · `writeLocks` 한 줄 · 처리기 둘과 함수·형·상수 여섯(`gitToolCwd`·`gitRepoAtEntry`·`gitCwdSourceTool`·`gitCwdSourceServer`·`gitReorderReq`·`gitReorderPins`) · 시험(`handlers_git_repoat_source_test.go` 전체 · `TestGitRepoAt` · reorder 시험 다섯과 그것만 쓰던 도우미 `gitPinServer`·`seedPins`·`pinsOf` · `dialect_golden_test`·`TestGitRoutes_UnavailableWithoutGit` 의 두 행) · `GIT_API.repoAt`·`reposReorder` · e2e `projectRepo` · `api.md` 두 행 · `check-gitwrite.sh` 의 면제 목록에서 `apiGitReorder`. 주석을 고쳤다(`apiGitRepos` 머리 · `constants-git.js` 의 `GIT_CWD_SOURCE_TOOL` — 짝 상수는 이제 `httpapi` 의 `cwdSourceTool` · `test-checklist.md`). 시험 TC-FFX-13(`handlers_git_removed_test.go`) · TC-FFX-14(`app-git-lists.test.mjs`) — 둘 다 옛 코드에서 RED |
+| FX-7 `ca4645ab` | `claudeacct.AccountRanges`(`alias` 0~24 · `threshold` 50~100 · `priority` 0~1000, 상수 `aliasMax`·`thresholdMin/Max`·`priorityMin/Max` 에서), `Patch.Validate` 가 그 표로(오류 문구 같음 — 시험이 문자열로 본다). `claudeAccountsView.Ranges`(`ranges`). 화면 — `cacctAutoRange` → `cacctRange`, 새 `cacctRangeApply`(숫자 칸 min·max, 글자 칸 maxLength, 못 받으면 아무것도), `_loadClaudePanel` 이 `ranges` 를 `_cacctSet` 에 싣고 `_cacctAccountRow` 의 리터럴 다섯을 지웠다. 자동 전환 칸도 `cacctRangeApply` 를 지난다(동작 같음). 시험 TC-FFX-15(`account_ranges_test.go`) · TC-FFX-16(`claude_accounts_ranges_test.go`) · TC-FFX-17(`claude-accounts-settings.test.mjs`) — 셋 다 옛 코드에서 RED. TC-FR1-8 은 새 이름으로 |
 
 **SRS 와 다르게 한 것.**
 
@@ -189,6 +191,8 @@
 2. FR-FFX-11 — 비행 하나는 섹션이 아니라 `SettingsController` 가 든다(탭 → 약속). 섹션은 `onTab` 그대로이고, 열기·탭 누르기 두 길이 컨트롤러에서 만난다. 섹션 기반 클래스에 메서드를 더하지 않아도 된다.
 3. FR-FFX-10 — server 패널은 저장 단추 표에 없어 `ServerSection.dirty()`(적용하지 않은 포트·노출)로 판정한다.
 4. FR-FFX-13 — 지운 문구 상수와 i18n 키는 여덟씩이다(요구의 "여덟" 과 같다). `GIT_ACTION.repoAdd` 는 남겼다(D-FFX-9 와 같은 근거).
+5. FR-FFX-17 — 게이트 `check-gitwrite.sh` 의 면제 목록(`NOT_REPO_SCOPED`)에서 `apiGitReorder` 를 걷었다. 요구에 적지 않은 자리다.
+6. D-FFX-15 — 이름만 바꾸지 않고 칸에 범위를 세우는 도우미 `cacctRangeApply` 를 더했다. 계정 행 셋과 자동 전환 칸이 같은 두 줄(숫자면 min·max, 아니면 maxLength)을 되풀이하지 않게 하고, DOM 없이 단위 시험으로 재기 위해서다.
 
 **시험 결과.** 이슈마다 `make gates`·`npm run -s typecheck` 통과. 단위 1478 통과(FX-5 뒤). 관련 e2e(`grep -rl` 로 고른 spec):
 
@@ -197,5 +201,6 @@
 - FX-3: 49 spec 555 — 통과 552 · 실패 1 V-GAP-1(원래 실패) · 흔들림 2 `edges-settings` 간선 주소 · `editor-ops` O7(알려진 흔들림, `edges-settings` 는 단독 2회 반복 10/10 통과)
 - FX-4: 10 spec 153 통과
 - FX-5: `workspace-resync`·`focus-owner`·`git-statusbar` 19 통과
+- FX-6·7(HEAD `84c2c579` 뒤): 이슈마다 `make gates`·`npm run -s typecheck`·`gofmt -l`(자기 변경 0)·`go vet ./...` 통과, 단위 1479(FX-6)·1480(FX-7) 통과. Go `gitapi`·`httpapi`·`listorder`·`helper`·`ctl`·`claudeacct`·`cmd` 통과. e2e — FX-6: `/api/git/repos`·핀·`GIT_API` 를 쓰는 10 spec 116 통과 · FX-7: `claude-accounts`·`activity`·`mobile-ux-overhaul`·`steady-traffic`·`ux-audit-fix-5` 51 통과(알려진 흔들림 TC-CAC-27 도 이번에는 통과)
 
-**남긴 것.** 부팅 적용과 `initModal` 의 순서 보장(§1.3). 서버 종단 `/api/git/repo-at`·`/api/git/repos/reorder` 는 FE 에서 부르는 곳이 없어졌다 — 지울지는 따로 정한다. 다섯 패널의 다른 다시 읽기 길(저장 뒤·알림의 다시 불러오기 단추)은 비행 하나를 지나지 않는다(지금 그대로).
+**남긴 것.** 부팅 적용과 `initModal` 의 순서 보장(§1.3). ~~서버 종단 `/api/git/repo-at`·`/api/git/repos/reorder` 는 FE 에서 부르는 곳이 없어졌다 — 지울지는 따로 정한다.~~ FX-6 이 지웠다. `listorder.ToEnd` 는 사용처가 없어졌지만 남겼다(D-FFX-13). e2e 의 계정 목록은 가짜 응답이라 `ranges` 가 없다 — 칸에 범위가 서는지는 단위 시험(TC-FFX-17)과 Go 응답 시험(TC-FFX-16)이 나눠 잰다. 다섯 패널의 다른 다시 읽기 길(저장 뒤·알림의 다시 불러오기 단추)은 비행 하나를 지나지 않는다(지금 그대로).
