@@ -42,6 +42,7 @@ pub use process::{Group, Process, ShutdownSignal};
 pub use procinfo::{ProcInfo, command_lines};
 pub use pty::{ProcSpec, Pty, Terminal};
 pub use secrets::{Secrets, SecretsError};
+pub use shell::lookpath::{look_path, look_path_in};
 pub use shell::{
     BASH_HOOK_FILE, POSIX_HOOK_ROOT, POWERSHELL_HOOK_FILE, ShellProvider, ShellSpec,
     WINDOWS_HOOK_ROOT,

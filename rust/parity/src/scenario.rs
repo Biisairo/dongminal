@@ -11,6 +11,12 @@ pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 /// C-RSP-1: 격리 실행이 쓸 수 있는 가장 낮은 포트.
 pub const MIN_PORT: u16 = 60147;
 
+/// 서버에 요청을 보낼 수 있는 헬퍼. 격리 홈에 주소 파일이 없으면 기본 포트로 붙으므로
+/// 같은 시나리오에서 격리 서버를 먼저 띄운 뒤에만 실행한다 (SPEC C-PAR-7).
+const NETWORK_HELPERS: &[&str] = &["dmctl", "edit", "detach", "open-url"];
+/// 진짜 프로그램을 실행하는 셈. 시나리오에 넣지 않는다 (C-PAR-7).
+const FORBIDDEN_ARGV0: &[&str] = &["claude", "dongminald"];
+
 pub const PH_HOME: &str = "{home}";
 pub const PH_ROOT: &str = "{root}";
 pub const PH_PORT: &str = "{port}";
@@ -203,6 +209,7 @@ pub struct Scenario {
     pub(crate) files: Vec<String>,
     pub(crate) tree: Option<Vec<String>>,
     pub(crate) rules: Vec<Rule>,
+    pub(crate) owner: Option<String>,
 }
 
 impl Scenario {
@@ -213,11 +220,22 @@ impl Scenario {
             files: Vec::new(),
             tree: None,
             rules: Vec::new(),
+            owner: None,
         }
     }
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Rust 쪽 구현을 맡은 이슈 ID. 그 이슈가 `done` 이 아니면 차이는 보류다 (SPEC FR-PAR-42).
+    pub fn owner(mut self, issue: &str) -> Self {
+        self.owner = Some(issue.to_string());
+        self
+    }
+
+    pub fn owner_issue(&self) -> Option<&str> {
+        self.owner.as_deref()
     }
 
     /// 인자만 주는 CLI 단계.
@@ -310,9 +328,20 @@ impl Scenario {
                     "단계 {i}: write_home 경로 {path:?} 는 홈 안의 상대 경로여야 한다"
                 ));
             }
-            if matches!(step, Step::Http(_))
-                && !self.steps[..i].iter().any(|s| matches!(s, Step::Serve(_)))
+            let served = self.steps[..i].iter().any(|s| matches!(s, Step::Serve(_)));
+            if let Step::Run(Cli {
+                argv0: Some(name), ..
+            }) = step
             {
+                if FORBIDDEN_ARGV0.contains(&name.as_str()) {
+                    errs.push(format!("단계 {i}: argv0 {name} 는 시나리오에 넣지 않는다"));
+                } else if NETWORK_HELPERS.contains(&name.as_str()) && !served {
+                    errs.push(format!(
+                        "단계 {i}: {name} 앞에 serve 단계가 없다 (격리 서버 없이 기본 포트로 붙을 수 있다)"
+                    ));
+                }
+            }
+            if matches!(step, Step::Http(_)) && !served {
                 errs.push(format!("단계 {i}: http 앞에 serve 단계가 없다"));
             }
         }
@@ -379,6 +408,21 @@ mod tests {
             .serve(Serve::new(["a"], "/"))
             .serve(Serve::new(["b"], "/"));
         assert_eq!(s.validate().len(), 1);
+    }
+
+    #[test]
+    fn network_helpers_need_serve_and_shims_are_forbidden() {
+        let bare = Scenario::new("a").run_cli(Cli::new(["--help"]).argv0("dmctl"));
+        assert_eq!(bare.validate().len(), 1);
+        let served = Scenario::new("b")
+            .serve(Serve::new(["start"], "/api/ping"))
+            .run_cli(Cli::new(["--help"]).argv0("dmctl"))
+            .run_cli(Cli::new(["x"]).argv0("download"));
+        assert!(served.validate().is_empty());
+        let shim = Scenario::new("c")
+            .serve(Serve::new(["start"], "/"))
+            .run_cli(Cli::new(["-v"]).argv0("claude"));
+        assert_eq!(shim.validate().len(), 1);
     }
 
     #[test]

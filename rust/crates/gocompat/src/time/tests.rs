@@ -183,3 +183,92 @@ fn duration_string_matches_go() {
         "1.5s"
     );
 }
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+#[serde(default, rename = "main.S")]
+struct S {
+    t: super::GoTime,
+    #[serde(with = "super::json_time_opt")]
+    p: Option<OffsetDateTime>,
+}
+
+// testdata/go_time_parse.txt: go1.27.2 time.Parse(RFC3339|RFC3339Nano) 와 time.Time JSON 의 결과.
+#[test]
+fn parse_and_json_time_match_go() {
+    use base64::Engine as _;
+    let b64 = base64::engine::general_purpose::STANDARD;
+    let data = std::fs::read_to_string(testdata("go_time_parse.txt")).expect("golden");
+    let mut n = 0;
+    for line in data.lines() {
+        let (name, want) = line.split_once('\t').expect("tab");
+        let name = b64.decode(name).expect("b64");
+        let want = String::from_utf8(b64.decode(want).expect("b64")).expect("utf8");
+        let (kind, rest) = {
+            let i = name.iter().position(|&c| c == b'|').expect("bar");
+            (&name[..i], &name[i + 1..])
+        };
+        match kind {
+            b"P2006-01-02T15:04:05Z07:00" | b"P2006-01-02T15:04:05.999999999Z07:00" => {
+                let Ok(input) = std::str::from_utf8(rest) else {
+                    continue;
+                };
+                let r = if kind.len() > 30 {
+                    super::parse_rfc3339_nano(input)
+                } else {
+                    super::parse_rfc3339(input)
+                };
+                let got = match r {
+                    Ok(t) => format_rfc3339_nano(t),
+                    Err(e) => format!("ERR {e}"),
+                };
+                assert_eq!(got, want, "{input:?}");
+            }
+            b"J" | b"JR" => {
+                let body = if kind == b"J" {
+                    let mut b = b"{\"t\":\"".to_vec();
+                    b.extend_from_slice(rest);
+                    b.extend_from_slice(b"\",\"p\":\"");
+                    b.extend_from_slice(rest);
+                    b.extend_from_slice(b"\"}");
+                    b
+                } else {
+                    rest.to_vec()
+                };
+                let (want_err, want_val) = want.split_once('\n').expect("2 lines");
+                match crate::json::unmarshal::<S>(&body) {
+                    Ok(v) => {
+                        assert_eq!(want_err, "<nil>", "{}", String::from_utf8_lossy(&body));
+                        // Go 는 +24:00 을 읽지만 다시 쓰지 못한다(출력이 비어 있다).
+                        match crate::json::marshal(&v) {
+                            Ok(got) => assert_eq!(String::from_utf8(got).expect("utf8"), want_val),
+                            Err(_) => assert_eq!(want_val, ""),
+                        }
+                    }
+                    Err(e) => assert_eq!(
+                        e.to_string(),
+                        want_err,
+                        "{}",
+                        String::from_utf8_lossy(&body)
+                    ),
+                }
+            }
+            b"M" => {
+                // time crate 는 10000년을 담지 못하므로 그 경우는 Rust 에서 생기지 않는다.
+                if rest == b"year" {
+                    continue;
+                }
+                let offset = UtcOffset::from_hms(24, 0, 0).expect("offset");
+                let t = ::time::macros::datetime!(2024-01-01 0:00 UTC).to_offset(offset);
+                let e = crate::json::marshal(&S {
+                    t: super::GoTime(t),
+                    p: None,
+                })
+                .expect_err("range");
+                assert_eq!(e.to_string(), want);
+            }
+            _ => panic!("unknown {kind:?}"),
+        }
+        n += 1;
+    }
+    assert!(n > 130, "{n}");
+}

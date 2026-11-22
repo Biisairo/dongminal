@@ -10,3 +10,8 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

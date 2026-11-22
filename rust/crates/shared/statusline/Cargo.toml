@@ -10,3 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../gocompat" }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
