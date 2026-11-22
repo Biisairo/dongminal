@@ -902,3 +902,70 @@ func TestLeftDirectDoesNotGrow(t *testing.T) {
 	}
 	eventually(t, "left 가 비워진다", func() bool { return leftCount(a, pa.ID) == 0 && leftCount(b, pb.ID) == 0 })
 }
+
+// orderedFixture 는 가짜 노드 f 의 참가자와 a 의 참가자가 함께 든 방이다. g 는 f 의 글을 다른
+// 연결로 나르는 두 번째 가짜 상대다. Deliver 는 글 "1" 에서 release 가 닫힐 때까지 멈춘다.
+type orderedFixture struct {
+	a       *testNode
+	f, g    *fakePeer
+	room    string
+	from    string
+	entered chan struct{}
+	release chan struct{}
+	mu      sync.Mutex
+	got     []string
+}
+
+func newOrderedFixture(t *testing.T) *orderedFixture {
+	t.Helper()
+	x := &orderedFixture{a: newTestNode(t, "a"), entered: make(chan struct{}), release: make(chan struct{})}
+	pa := x.a.Register("a/x", KindAgent)
+	room, _ := x.a.Create(pa.ID, "r", "")
+	x.room = room.ID
+	x.f, x.g = newFakePeer(t, x.a), newFakePeer(t, x.a)
+	x.from = x.f.pid("fp1")
+	x.f.state(t, []statePart{{ID: x.from, Label: "f/x", Kind: KindAgent, Rooms: []string{room.ID}}}, []signedRecord{x.a.recordOf(room.ID)}, []string{x.a.fp()})
+	eventually(t, "참가자를 본다", func() bool { return len(x.a.Rooms(pa.ID)[0].Members) == 2 })
+	x.a.Service.mu.Lock()
+	x.a.opts.Deliver = func(_ string, m Message) {
+		if m.Text == "1" {
+			close(x.entered)
+			<-x.release
+		}
+		x.mu.Lock()
+		x.got = append(x.got, m.Text)
+		x.mu.Unlock()
+	}
+	x.a.Service.mu.Unlock()
+	return x
+}
+
+func (x *orderedFixture) msg(t *testing.T, seq uint64) frame {
+	t.Helper()
+	text := string(rune('0' + seq))
+	fr, err := signFrame(x.f.id, frameMsg, msgBody{ID: "m" + text, Node: x.f.id.Fingerprint, Epoch: 1, Seq: seq, Room: x.room, From: x.from, Text: text, At: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fr
+}
+
+func (x *orderedFixture) delivered() []string {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	return append([]string{}, x.got...)
+}
+
+// TC-ATF-53 (FR-ATF-53): 같은 노드의 글은 다른 연결로 와도 받은 순서대로 넘긴다.
+func TestDeliveryOrderPerNode(t *testing.T) {
+	x := newOrderedFixture(t)
+	x.f.write(t, x.msg(t, 1))
+	<-x.entered
+	x.g.write(t, x.msg(t, 2))
+	never(t, "앞 글을 넘기기 전에 뒷 글을 넘긴다", func() bool { return len(x.delivered()) > 0 })
+	close(x.release)
+	eventually(t, "두 글", func() bool { return len(x.delivered()) == 2 })
+	if got := x.delivered(); got[0] != "1" || got[1] != "2" {
+		t.Fatalf("순서 = %v", got)
+	}
+}

@@ -64,12 +64,11 @@ func (s *Service) handle(from string, fr frame) {
 		s.mu.Unlock()
 	case frameMsg:
 		s.mu.Lock()
-		out, ok := s.acceptMsgLocked(fr)
-		if ok {
+		if out, node, ok := s.acceptMsgLocked(fr); ok {
 			s.broadcastLocked(fr, from)
+			s.enqueueLocked(node, out)
 		}
 		s.mu.Unlock()
-		s.deliver(out)
 	}
 }
 
@@ -221,22 +220,22 @@ func validState(st stateBody) bool {
 	return true
 }
 
-// acceptMsgLocked 는 처음 보는 바른 글을 받고, 이 노드의 그 방 참가자에게 넘길 것을 돌려준다.
+// acceptMsgLocked 는 처음 보는 바른 글을 받고, 이 노드의 그 방 참가자에게 넘길 것과 낸 노드를 돌려준다.
 // 보낸 노드의 최신 상태에서 보낸 이가 그 방에 들어 있어야 하고, 개인채팅이면 두 참가자 중
 // 하나여야 한다. 같은 글과 지난 글은 보낸 노드마다의 순서 창으로 거른다 (§3.9).
-func (s *Service) acceptMsgLocked(fr frame) ([]pending, bool) {
+func (s *Service) acceptMsgLocked(fr frame) ([]pending, string, bool) {
 	var b msgBody
 	if json.Unmarshal(fr.B, &b) != nil || b.Node == s.id.Fingerprint || !validID(b.ID) || b.ID == "" {
-		return nil, false
+		return nil, "", false
 	}
 	r, ok := s.nodes[b.Node]
 	if !ok || b.Epoch != r.st.Epoch || !verify(r.key, frameMsg, fr.B, fr.S) ||
 		len(b.Text) > MaxText || !validBody(b.Text) || !partInRoom(r.st, b.From, b.Room) {
-		return nil, false
+		return nil, "", false
 	}
 	rm, ok := s.recordLocked(b.Room)
 	if !ok || !partyOK(rm, b.Node, b.From) {
-		return nil, false
+		return nil, "", false
 	}
 	w := s.wins[b.Node]
 	if w == nil {
@@ -244,10 +243,10 @@ func (s *Service) acceptMsgLocked(fr frame) ([]pending, bool) {
 		s.wins[b.Node] = w
 	}
 	if !w.accept(b.Epoch, b.Seq) {
-		return nil, false
+		return nil, "", false
 	}
 	if !s.recvRate.allow(b.Node + "/" + b.From) {
-		return nil, false
+		return nil, "", false
 	}
 	label, kind := "", ""
 	for _, sp := range r.st.Parts {
@@ -255,5 +254,5 @@ func (s *Service) acceptMsgLocked(fr frame) ([]pending, bool) {
 			label, kind = sp.Label, sp.Kind
 		}
 	}
-	return s.localDeliveriesLocked(b, label, kind), true
+	return s.localDeliveriesLocked(b, label, kind), b.Node, true
 }

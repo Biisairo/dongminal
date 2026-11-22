@@ -181,8 +181,10 @@ type Service struct {
 	warned    map[string]string
 	edgeCache []edge.Edge
 	edgeAt    time.Time
-	closed    bool
-	done      chan struct{}
+	// queues 는 글을 낸 노드마다의 전달 줄이다 (FR-ATF-53).
+	queues map[string]*deliveryQueue
+	closed bool
+	done   chan struct{}
 }
 
 // New 는 채팅을 세우고 간선 계층의 위층으로 싣는다. 연결 유지는 간선 계층이 한다.
@@ -200,7 +202,8 @@ func New(o Options) *Service {
 		nodes: map[string]*remote{},
 		wins:  map[string]*seqWindow{},
 		cmds:  map[string]time.Time{}, relayed: map[string]time.Time{}, warned: map[string]string{},
-		done: make(chan struct{}), pokes: make(chan struct{}, 1),
+		queues: map[string]*deliveryQueue{},
+		done:   make(chan struct{}), pokes: make(chan struct{}, 1),
 	}
 	s.sendRate = newLimiter(PerMinute, time.Minute, s.clock)
 	s.recvRate = newLimiter(PerMinute, time.Minute, s.clock)
@@ -403,9 +406,8 @@ func (s *Service) Send(pid, roomID, text string) error {
 		return err
 	}
 	s.broadcastLocked(fr, "")
-	out := s.localDeliveriesLocked(body, p.Label, p.Kind)
+	s.enqueueLocked(s.id.Fingerprint, s.localDeliveriesLocked(body, p.Label, p.Kind))
 	s.mu.Unlock()
-	s.deliver(out)
 	return nil
 }
 
@@ -414,11 +416,45 @@ type pending struct {
 	msg Message
 }
 
-func (s *Service) deliver(out []pending) {
-	if s.opts.Deliver == nil {
+// deliveryQueue 는 노드 하나가 낸 글의 전달 줄이다. 고루틴 하나가 차례로 넘긴다. Service.mu 가 지킨다.
+type deliveryQueue struct {
+	items   []pending
+	running bool
+}
+
+// enqueueLocked 는 노드 node 가 낸 글을 그 노드의 전달 줄에 넣는다. 받은 순서가 넘기는 순서다 —
+// 잠금 밖에서 넘기면 같은 참가자의 글이 뒤바뀔 수 있다 (FR-ATF-53, FR-PCH-32).
+func (s *Service) enqueueLocked(node string, out []pending) {
+	if len(out) == 0 || s.opts.Deliver == nil || s.closed {
 		return
 	}
-	for _, d := range out {
+	q := s.queues[node]
+	if q == nil {
+		q = &deliveryQueue{}
+		s.queues[node] = q
+	}
+	q.items = append(q.items, out...)
+	if !q.running {
+		q.running = true
+		go s.drain(node, q)
+	}
+}
+
+// drain 은 줄이 빌 때까지 잠금 밖에서 Deliver 를 부른다. 비거나 채팅이 멈추면 줄을 지우고 끝난다.
+func (s *Service) drain(node string, q *deliveryQueue) {
+	for {
+		s.mu.Lock()
+		if s.closed || len(q.items) == 0 {
+			q.running, q.items = false, nil
+			if s.queues[node] == q {
+				delete(s.queues, node)
+			}
+			s.mu.Unlock()
+			return
+		}
+		d := q.items[0]
+		q.items = q.items[1:]
+		s.mu.Unlock()
 		s.opts.Deliver(d.pid, d.msg)
 	}
 }
