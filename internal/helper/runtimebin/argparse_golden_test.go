@@ -24,6 +24,12 @@ import (
 // 골든 갱신 (REFACTOR3_DEDUP_GO_SRS FR-RDG-24 · §5). 이전: dmctl 파서의 모르는 인자 줄이
 // `unknown flag: X`. 새: `unknown argument: X`. 이유: 모르는 인자 문구를 하나로 모았다.
 // 바뀐 줄은 그 문구뿐이다.
+//
+// 골든 갱신 (QUALITY_GO_SRS FR-QG-53 · §5). send-input·msg·detach 의 손 루프를 argSpec 으로
+// 옮겼다. 그 줄들은 옮기기 전 코드로 먼저 만들었다(0674988f). send-input·msg 는 그대로다.
+// detach 에서 셋이 바뀌었다 — 이전: `--restore=id1`·`-r=id1` 은 모르는 인자(도움말과 2),
+// `--at ""` 는 통과. 새: 앞의 둘은 `--restore id1` 과 같고, `--at ""` 는 `--at=` 처럼 거절.
+// 이유: argSpec 이 값 플래그의 `=` 형을 한 규칙으로 받고, 빈 탭 uuid 를 한 자리에서 거절한다.
 
 var updateArgGolden = flag.Bool("update-arg-golden", false, "rewrite testdata/argparse.golden")
 

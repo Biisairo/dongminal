@@ -129,6 +129,7 @@
 | QG-2 | `PUT /api/settings` 가 JSON 이면 무엇이든 저장했다 | `customTheme` 의 색·`mode` 가 규칙을 어기면 `400` · `bad_request`(문구 `customTheme.ui.bg: #rrggbb 또는 #rrggbbaa 색이어야 합니다`), 저장하지 않는다 | FC-F1 서버 쪽 — 나쁜 값이 다른 기기로 방송되지 않게. D-QG-3 |
 | QG-2 | `dongminal config` 검증이 `customTheme` 을 object 인지만 봤다 | 키별 값 검증(문제의 키가 `customTheme.ui.bg` 꼴) | 같은 규칙 한 벌(FR-QG-10) |
 | QG-4 | 403 차단 화면(HTML)에 `X-Error-Code` 가 없었다 | `X-Error-Code: forbidden`(평문 403 과 같음). 본문·다른 헤더 그대로 | 모든 오류 응답이 코드를 싣는다는 규약(FR-ERR-4, `docs/external/errors.md` 머리) |
+| QG-6 (DM-5) | `detach --restore=ID`·`detach -r=ID` 는 모르는 인자(도움말과 종료 2). `detach --at ""` 는 통과(복귀 대상 없음과 같음) | 앞의 둘은 `--restore ID` 와 같다. `--at ""` 는 `--at=` 처럼 `--at 은 탭 uuid 가 필요합니다` 로 거절(2). `send-input`·`msg` 의 출력은 그대로(골든 불변) | `argSpec` 이 값 플래그의 `=` 형을 한 규칙으로 받고, 빈 탭 uuid 를 한 자리에서 거절한다. 골든 `argparse.golden` 의 바뀐 줄은 이 셋뿐이다 |
 
 ## 6. 구현 기록
 

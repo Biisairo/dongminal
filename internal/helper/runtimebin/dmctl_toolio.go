@@ -129,42 +129,20 @@ type sendInputFlags struct {
 	positional []string
 }
 
+// parseSendInputFlags 는 argSpec 하나다 (QUALITY_GO_SRS FR-QG-53 · PROD3 DM-5). 손 루프였을 때와
+// 출력이 같다(argparse.golden).
 func parseSendInputFlags(args []string, stdout, stderr io.Writer) (sendInputFlags, int, bool) {
 	var f sendInputFlags
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, dmctlSendInputHelp)
-			return f, 0, false
-		case a == "--at" || a == "-l":
-			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "send-input: flag %s requires value\n", a)
-				return f, 2, false
-			}
-			f.target = args[i+1]
-			i += 2
-			continue
-		case strings.HasPrefix(a, "--at="):
-			f.target = a[len("--at="):]
-		case strings.HasPrefix(a, "-l="):
-			f.target = a[len("-l="):]
-		case a == "--execute" || a == "-x":
-			f.execute = true
-		case a == "--":
-			f.positional = append(f.positional, args[i+1:]...)
-			i = len(args)
-			continue
-		case a != "-" && strings.HasPrefix(a, "-"):
-			fmt.Fprintf(stderr, "send-input: %s\n", unknownArg(a))
-			return f, 2, false
-		default:
-			f.positional = append(f.positional, a)
-		}
-		i++
+	spec := argSpec{
+		help:     dmctlSendInputHelp,
+		vals:     map[string]func(string) error{"--at": setStr(&f.target), "-l": setStr(&f.target)},
+		bools:    map[string]*bool{"--execute": &f.execute, "-x": &f.execute},
+		rest:     &f.positional,
+		restHelp: true,
+		dash:     true,
 	}
-	return f, 0, true
+	code, proceed := spec.run("send-input", args, stdout, stderr)
+	return f, code, proceed
 }
 
 func runDmctlSendInput(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -228,44 +206,18 @@ type msgFlags struct {
 	positional []string
 }
 
+// parseMsgFlags 는 argSpec 하나다 (FR-QG-53). 손 루프였을 때와 출력이 같다(argparse.golden).
 func parseMsgFlags(args []string, stdout, stderr io.Writer) (msgFlags, int, bool) {
 	var f msgFlags
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, dmctlMsgHelp)
-			return f, 0, false
-		case a == "--to" || a == "--from":
-			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "msg: flag %s requires value\n", a)
-				return f, 2, false
-			}
-			if a == "--to" {
-				f.to = args[i+1]
-			} else {
-				f.from = args[i+1]
-			}
-			i += 2
-			continue
-		case strings.HasPrefix(a, "--to="):
-			f.to = a[len("--to="):]
-		case strings.HasPrefix(a, "--from="):
-			f.from = a[len("--from="):]
-		case a == "--":
-			f.positional = append(f.positional, args[i+1:]...)
-			i = len(args)
-			continue
-		case a != "-" && strings.HasPrefix(a, "-"):
-			fmt.Fprintf(stderr, "msg: %s\n", unknownArg(a))
-			return f, 2, false
-		default:
-			f.positional = append(f.positional, a)
-		}
-		i++
+	spec := argSpec{
+		help:     dmctlMsgHelp,
+		vals:     map[string]func(string) error{"--to": setStr(&f.to), "--from": setStr(&f.from)},
+		rest:     &f.positional,
+		restHelp: true,
+		dash:     true,
 	}
-	return f, 0, true
+	code, proceed := spec.run("msg", args, stdout, stderr)
+	return f, code, proceed
 }
 
 func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {

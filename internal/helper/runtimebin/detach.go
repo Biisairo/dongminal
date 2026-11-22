@@ -2,6 +2,7 @@ package runtimebin
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -59,61 +60,62 @@ type detachFlags struct {
 	cwd    string
 }
 
+// detachNeedsValue 는 값이 빠진 플래그마다 무엇을 줘야 하는지 말한다 — detach 의 안내는
+// 일반 문구(`flag X requires value`)보다 자세하다. `-r` 도 `--restore` 로 말한다(종전과 같다).
+var detachNeedsValue = map[string]string{
+	"--run":     "--run 은 실행할 명령이 필요합니다",
+	"--cwd":     "--cwd 는 경로가 필요합니다",
+	"--restore": detachRestoreNeedsID,
+	"-r":        detachRestoreNeedsID,
+	"--at":      detachAtNeedsUUID,
+}
+
+const (
+	detachRestoreNeedsID = "--restore 는 도구 id 가 필요합니다 (detach --list 로 확인)"
+	detachAtNeedsUUID    = "--at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)"
+)
+
+// parseDetachFlags 는 argSpec 하나다 (QUALITY_GO_SRS FR-QG-53 · PROD3 DM-5). 오류 문구는
+// detach 의 것(값이 빠진 플래그마다의 안내, 모르는 인자 뒤의 도움말)을 그대로 쓴다. 바뀐 것
+// 둘은 SRS §5 다 — `--restore=ID`·`-r=ID` 를 받고, `--at ""` 를 `--at=` 처럼 거절한다.
 func parseDetachFlags(args []string, stdout, stderr io.Writer) (detachFlags, int, bool) {
 	var f detachFlags
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, detachHelp)
-			return f, 0, false
-		case a == "--run":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "detach: --run 은 실행할 명령이 필요합니다")
-				return f, 2, false
-			}
-			f.runCmd, f.hasRun = args[i+1], true
-			i++
-		case strings.HasPrefix(a, "--run="):
-			f.runCmd, f.hasRun = strings.TrimPrefix(a, "--run="), true
-		case a == "--cwd":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "detach: --cwd 는 경로가 필요합니다")
-				return f, 2, false
-			}
-			f.cwd = args[i+1]
-			i++
-		case strings.HasPrefix(a, "--cwd="):
-			f.cwd = strings.TrimPrefix(a, "--cwd=")
-		case a == "--list" || a == "-l":
-			f.doList = true
-		case a == "--restore" || a == "-r":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "detach: --restore 는 도구 id 가 필요합니다 (detach --list 로 확인)")
-				return f, 2, false
-			}
-			f.restoreID = args[i+1]
-			i++
-		case a == "--at":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)")
-				return f, 2, false
-			}
-			f.at = args[i+1]
-			i++
-		case strings.HasPrefix(a, "--at="):
-			f.at = strings.TrimPrefix(a, "--at=")
-			if f.at == "" {
-				fmt.Fprintln(stderr, "detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)")
-				return f, 2, false
-			}
-		default:
-			fmt.Fprintf(stderr, "detach: %s\n", unknownArg(a))
-			fmt.Fprint(stderr, detachHelp)
-			return f, 2, false
-		}
+	spec := argSpec{
+		help: detachHelp,
+		vals: map[string]func(string) error{
+			"--run": func(v string) error {
+				f.runCmd, f.hasRun = v, true
+				return nil
+			},
+			"--cwd":     setStr(&f.cwd),
+			"--restore": setStr(&f.restoreID),
+			"-r":        setStr(&f.restoreID),
+			"--at": func(v string) error {
+				if v == "" {
+					return errors.New(detachAtNeedsUUID)
+				}
+				f.at = v
+				return nil
+			},
+		},
+		bools: map[string]*bool{"--list": &f.doList, "-l": &f.doList},
 	}
-	return f, 0, true
+	help, e := spec.parse(args)
+	switch {
+	case help:
+		fmt.Fprint(stdout, detachHelp)
+		return f, 0, false
+	case e == nil:
+		return f, 0, true
+	case e.kind == argNeedsValue:
+		fmt.Fprintln(stderr, "detach: "+detachNeedsValue[e.arg])
+	case e.kind == argInvalid:
+		fmt.Fprintf(stderr, "detach: %v\n", e.err)
+	default:
+		fmt.Fprintf(stderr, "detach: %s\n", unknownArg(e.arg))
+		fmt.Fprint(stderr, detachHelp)
+	}
+	return f, 2, false
 }
 
 func runDetach(args []string, stdout, stderr io.Writer) int {
