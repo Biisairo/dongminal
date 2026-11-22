@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { BASE, HELPERS, LAYOUT, controllers, load, plain } from './harness.mjs';
+import { CONSTANTS, BASE, HELPERS, LAYOUT, controllers, load, plain } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-1 — 워크스페이스 정규화 한 벌(FEC-17) · 활성 창
@@ -26,7 +26,7 @@ function memStore() {
 
 function world() {
   const sessionStorage = memStore();
-  const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js',
+  const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', ...CONSTANTS,
     ...HELPERS, 'core/window-order.js', ...LAYOUT], {
     globals: {
       App: function App() {}, sessionStorage, ACTIVE_EDITOR_ROOT_KEY: 'activeEditorRoot',

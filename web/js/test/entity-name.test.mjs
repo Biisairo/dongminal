@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { CONSTANTS, load } from './harness.mjs';
 
 /**
  * SERVER_DRIVEN_ACTIONS_SRS F-4 (FR-SDA-54) — 이름의 길이 상한은 **서버가** 정한다.
  * 화면은 `GET /api/meta` 의 `entityNameMax` 로 자르고, 받기 전에는 자르지 않는다.
  */
 function fresh() {
-  return load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/server-meta.js'], { expose: ['clampEntityName', 'applyServerMeta'] });
+  return load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/server-meta.js'], { expose: ['clampEntityName', 'applyServerMeta'] });
 }
 
 test('받기 전에는 자르지 않는다 — 화면이 상한을 지어내지 않는다', () => {

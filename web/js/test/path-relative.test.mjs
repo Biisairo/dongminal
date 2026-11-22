@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, HELPERS } from './harness.mjs';
+import { CONSTANTS, load, HELPERS } from './harness.mjs';
 
 /**
  * `web/js/core/path.js` 의 `pathRelative` — M9_SRS FR-M9-19 / D-M9-10.
@@ -15,7 +15,7 @@ import { load, HELPERS } from './harness.mjs';
  */
 // `shortcuts.js` 는 로드 시점에 `t()` 로 단축키 이름표를 세운다 — 카탈로그가 먼저
 // 서야 한다 (`optimistic-layout.test.mjs` 와 같은 벌).
-const { pathRelative } = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS]);
+const { pathRelative } = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, ...HELPERS]);
 
 test('POSIX: 루트 아래의 경로가 루트를 뗀 나머지가 된다', () => {
   assert.equal(pathRelative('/a/b', '/a/b/c/d.txt'), 'c/d.txt');

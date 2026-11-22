@@ -28,6 +28,13 @@ export const HELPERS = ['core/path.js', 'core/helpers.js', 'core/theme-vars.js',
   'core/settings-state.js', 'core/layout-tree.js', 'core/git-status-helpers.js'];
 
 /**
+ * 옛 `core/constants.js` 를 이루던 주제 파일들 — index.html 의 순서다 (REFACTOR3_FE_REST5_SRS FR-FR5-20). 옛 파일 하나를
+ * 싣던 검사는 이것을 펼쳐 싣는다.
+ */
+export const CONSTANTS = ['core/constants.js', 'core/constants-term.js', 'core/constants-sandbox.js', 'core/constants-tips.js',
+  'core/constants-file.js'];
+
+/**
  * 터미널 칸 한 벌 — index.html 의 순서다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4). WS 배선
  * (`term-socket.js`)과 입력·IME(`term-input.js`)가 `term-pane.js` 에서 갈라졌다. 복사·텍스트 시트
  * (`term-clip.js`)와 터치 스크롤(`term-touch.js`)은 `term-input.js` 에서 갈라졌다 (UX_BATCH11_SRS).

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, fakeClock, plain } from './harness.mjs';
+import { CONSTANTS, load, fakeClock, plain } from './harness.mjs';
 
 /**
  * `web/js/ui/file-link.js` — 터미널 출력의 파일 경로 링크 (UX_BATCH11_SRS FR-FPL).
@@ -11,7 +11,7 @@ import { load, fakeClock, plain } from './harness.mjs';
 function ctxWith(api) {
   const clock = fakeClock();
   const calls = [];
-  const ctx = load(['../vendor/markdown-it.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/path.js', 'ui/bare-link.js', 'ui/file-link.js'], {
+  const ctx = load(['../vendor/markdown-it.js', 'core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/path.js', 'ui/bare-link.js', 'ui/file-link.js'], {
     clock,
     globals: {
       atob,

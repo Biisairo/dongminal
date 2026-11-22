@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { CONSTANTS, load, plain } from './harness.mjs';
 
 /**
  * UX_AUDIT_FIX_SRS §3.11.2 (D-31) — 모바일 키바의 구성(`keybarResolve`, FR-UXF-93)과
  * 매크로 키 조합(`mkbComboBytes`·라벨·이름, FR-UXF-94). TC-UXF-92·93.
  */
-const ctx = () => load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/keybar.js'], {
+const ctx = () => load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/keybar.js'], {
   expose: ['MKB_KEYS', 'keybarResolve', 'keybarRows', 'keybarReset', 'keybarMove', 'keybarToggle',
     'mkbComboBytes', 'mkbComboLabel', 'mkbComboName', 'mkbMacroValid'],
 });

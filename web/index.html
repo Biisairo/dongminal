@@ -943,6 +943,11 @@
 <script src="js/core/settings-schema.js?v=__ASSETV__"></script>
 <script src="js/core/settings-defaults.js?v=__ASSETV__"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
+<!-- constants.js 에서 주제별로 옮긴 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20). constants.js 바로 뒤다 — keybar.js 가 MKB_KEYS 를 딛는다. -->
+<script src="js/core/constants-term.js?v=__ASSETV__"></script>
+<script src="js/core/constants-sandbox.js?v=__ASSETV__"></script>
+<script src="js/core/constants-tips.js?v=__ASSETV__"></script>
+<script src="js/core/constants-file.js?v=__ASSETV__"></script>
 <!-- 서버가 정하는 상한 (`GET /api/meta`, REFACTOR3_FE_REST2_SRS FR-FR2-5). constants.js 뒤다. -->
 <script src="js/core/server-meta.js?v=__ASSETV__"></script>
 <!-- 모바일 키바 구성의 순수 함수 (UX_AUDIT_FIX_SRS FR-UXF-93·94). constants.js 의 MKB_KEYS 를 딛는다. -->
@@ -952,8 +957,8 @@
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
 <!-- 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절
      순서와 같다 — 그 순서가 곧 로드 시점 참조의 순서였다.
-     `constants-git-diff.js` 는 `constants-editor.js` 앞이어야 한다: 그쪽의
-     `ED_DD_AXIS` 가 여기의 `GIT_AXIS` 를 읽는다. -->
+     `constants-git-diff.js` 는 `constants-editor.js`·`constants-explorer.js` 앞이어야 한다:
+     `constants-explorer.js` 의 `ED_DD_AXIS` 가 여기의 `GIT_AXIS` 를 읽는다. -->
 <script src="js/core/constants-git-changes.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git-commit.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git-detect.js?v=__ASSETV__"></script>
@@ -965,6 +970,7 @@
      FR-DRC-13). constants-git.js 뒤여야 한다. -->
 <script src="js/core/constants-git-actions.js?v=__ASSETV__"></script>
 <script src="js/core/constants-editor.js?v=__ASSETV__"></script>
+<script src="js/core/constants-explorer.js?v=__ASSETV__"></script>
 <!-- 서버 hunk 좌표의 클라이언트 측 사상 (DIFF_HUNK_BAR_SRS D-2). 편집기의 변경
      표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
      자리나 되지만, 두 소비자보다 앞이어야 읽는 순서가 곧 의존 순서가 된다. -->

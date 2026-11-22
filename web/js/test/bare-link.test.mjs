@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, fakeClock, plain } from './harness.mjs';
+import { CONSTANTS, load, fakeClock, plain } from './harness.mjs';
 
 /**
  * `web/js/ui/bare-link.js` — 스킴 없는 도메인 링크 (BARE_DOMAIN_LINK_SRS).
@@ -12,7 +12,7 @@ import { load, fakeClock, plain } from './harness.mjs';
 function ctxWith(api) {
   const clock = fakeClock();
   const calls = [];
-  const ctx = load(['../vendor/markdown-it.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/path.js', 'ui/bare-link.js'], {
+  const ctx = load(['../vendor/markdown-it.js', 'core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/path.js', 'ui/bare-link.js'], {
     clock,
     globals: {
       // markdown-it 번들이 싣는 순간 쓴다.

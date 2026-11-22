@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { CONSTANTS, load } from './harness.mjs';
 
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-16-2 (FEU-17): Agents 패널과 사이드바의 폭 손잡이는 한 구현이다.
@@ -26,7 +26,7 @@ function world({ local = {}, session = {}, collapsed = false, agOpen = true, doc
     'agents-handle': node('agents-handle', 4), 'sb-handle': node('sb-handle', 4),
   };
   const ls = memStore(local), ss = memStore(session);
-  const ctx = load(['core/error-log.js', 'core/pref-store.js', 'core/panel-dock.js', 'core/constants.js', 'ui/input-binding.js'], {
+  const ctx = load(['core/error-log.js', 'core/pref-store.js', 'core/panel-dock.js', ...CONSTANTS, 'ui/input-binding.js'], {
     globals: {
       t: (k) => k, tn: (k) => k, localStorage: ls, sessionStorage: ss, addEventListener() {},
       document: {

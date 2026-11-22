@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, fakeClock, TERM_PANE } from './harness.mjs';
+import { CONSTANTS, load, fakeClock, TERM_PANE } from './harness.mjs';
 
 /**
  * `web/js/ui/term-gpu.js` — 터미널 GPU 렌더링의 수명 (TERMINAL_GPU_RENDER_SRS).
@@ -43,7 +43,7 @@ function world(opts = {}) {
     addEventListener() {},
   };
   if (lib) globals.WebglAddon = lib;
-  const ctx = load(['core/error-log.js', 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js',
+  const ctx = load(['core/error-log.js', 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', ...CONSTANTS,
     'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE, 'ui/term-gpu.js'], {
     clock: fakeClock(),
     globals,

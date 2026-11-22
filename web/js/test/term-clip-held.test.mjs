@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, fakeClock, TERM_PANE } from './harness.mjs';
+import { CONSTANTS, load, fakeClock, TERM_PANE } from './harness.mjs';
 
 /**
  * UX_BATCH11_SRS — 터미널 복사·붙여넣기 키 규칙(FR-TCP)과 끊긴 동안의 입력 보류(FR-HIN).
@@ -18,7 +18,7 @@ function pane() {
     close() { this.closed++; this.readyState = 3 }
   }
   const toasts = [];
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
     clock,
     globals: {
       WebSocket: FakeWS, location: { protocol: 'http:', host: 'h' },

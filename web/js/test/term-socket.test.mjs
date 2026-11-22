@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { load, fakeClock, TERM_PANE } from './harness.mjs';
+import { CONSTANTS, load, fakeClock, TERM_PANE } from './harness.mjs';
 
 /**
  * `web/js/ui/term-socket.js` — 터미널 WS 배선 한 벌 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1 ·
@@ -25,7 +25,7 @@ function pane(rnd = 0.5) {
     send(m) { this.sent.push(m) }
     close() { this.closed++; this.readyState = 3 }
   }
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
     clock,
     // 지터의 난수를 쥔다 — 기다리는 시간이 결정적이어야 잴 수 있다.
     globals: { WebSocket: FakeWS, location: { protocol: 'http:', host: 'h' }, Math: Object.assign(Object.create(Math), { random: () => rnd }) },

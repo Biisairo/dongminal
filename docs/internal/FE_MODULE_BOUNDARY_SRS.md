@@ -420,7 +420,7 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 코드가 아니거나 검사 코드이고, `i18n/ko.js`·`en.js` 는 **데이터**라 키가 늘면 줄이
 늘고 분할이 뜻을 갖지 않는다.
 
-    500줄초과=11 · 최대=971
+    500줄초과=9 · 최대=971
 
 **CSS 기준선** (2026-11-21, `REFACTOR3_FE_REST4_SRS` FU-11 · D-FR4-11). 같은 게이트가 `web/*.css`(vendor 제외)를 같은
 두 수로 잰다. 게이트를 세운 순간은 500줄 초과 5 · 최대 2,545(`style.css`)였고, `style.css` 를 원래 순서의 연속 구간 여덟으로
@@ -433,6 +433,8 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 |---|---:|---:|---:|---:|
 | 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **18** |
 | 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,020** (`core/app-git.js`) |
+
+> 11 → 9 (2026-11-22, `REFACTOR3_FE_REST5_SRS` FR-FR5-20). `core/constants.js`(917)에서 터미널·모바일 입력(`constants-term.js` 264) · 샌드박스(`constants-sandbox.js` 58) · 툴팁(`constants-tips.js` 94) · Editor 창·파일(`constants-file.js` 75)을 절째로 옮겨 455, `core/constants-editor.js`(633)의 뒤쪽 절을 `constants-explorer.js`(353)로 옮겨 285. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 
 > 12 → 11 (2026-11-21, `REFACTOR3_FE_REST3_SRS` FU-12). `git/remote.js`(704)가 상태·수명의 `GitRemote`(482)와 칠하기의 `GitRemoteView`(`remote-view.js` 241)로 갈렸다. 최대 파일은 그대로 `ui/file-tree-paint.js` 971 이다.
 

@@ -60,8 +60,8 @@ function fakeEl(title, kids) {
   };
 }
 
-// FR-FFX-5: 문구는 상수다 — `constants.js` 의 값을 그대로 쓴다.
-const WORKING_SUFFIX = readFileSync(new URL('../core/constants.js', import.meta.url), 'utf8')
+// FR-FFX-5: 문구는 상수다 — `constants-tips.js` 의 값을 그대로 쓴다.
+const WORKING_SUFFIX = readFileSync(new URL('../core/constants-tips.js', import.meta.url), 'utf8')
   .match(/^const TIP_WORKING_SUFFIX='([^']*)';$/m)?.[1];
 
 function labelCtx() {

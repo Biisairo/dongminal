@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { load } from './harness.mjs';
+import { CONSTANTS, load } from './harness.mjs';
 
 /**
  * SERVER_DRIVEN_ACTIONS_SRS K-j ⑤ — 값이 아니라 계산이라 서버가 보낼 수 없는 두 벌(K6·K16).
@@ -24,7 +24,7 @@ test('K6: GitHistory._digest 는 서버 gitOidDigest 와 같은 값을 낸다', 
 });
 
 test('K16: 서버가 지우는 질의마다 그 응답을 화면이 보고로 안다', () => {
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js'], { expose: ['TERM_REPORT_RE'] });
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS], { expose: ['TERM_REPORT_RE'] });
   const vs = vectors('internal/webserver/httpapi/testdata/term_query_report_vectors.json');
   assert.ok(vs.length >= 8);
   for (const v of vs) {
