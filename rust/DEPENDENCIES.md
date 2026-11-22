@@ -13,7 +13,7 @@ crate 의 Cargo.toml 에서는 언제나 `foo = { workspace = true }` 로 참조
 | TLS·인증서 | rustls(ring), tokio-rustls, rcgen(ring), x509-parser | aws-lc·openssl 금지 (deny.toml) |
 | 암호 | sha1, sha2, hmac, hkdf, ed25519-dalek, p256, aes-gcm, subtle, rand | Go crypto/* 대응 |
 | 인코딩 | serde, serde_json(preserve_order), base64, hex, data-encoding, percent-encoding, url, encoding_rs | Go JSON 규칙은 dm-gocompat 에서만 흉내 낸다 |
-| 시간 | time | Go time 형식은 dm-gocompat |
+| 시간 | time, chrono(clock) | Go time 형식은 dm-gocompat. 로컬 시간대는 chrono::Local 로 얻는다(time 의 local offset 은 unix 멀티스레드에서 실패하고, libc localtime_r 는 unsafe 가 필요하다) |
 | 압축·아카이브 | flate2, zip(deflate), tar | |
 | 파일 감시 | notify | fsnotify 대응 |
 | OS | libc, nix(unix), windows-sys(windows) | `unsafe` 는 C-RSP-4 범위에서만 |

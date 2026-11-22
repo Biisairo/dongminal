@@ -77,7 +77,7 @@ Go 구현과 같다. 기능 목록의 근거는 `architecture.md` 의 패키지 
   - `pkill`·`killall` 처럼 이름으로 프로세스를 죽이기. 프로세스를 끌 때는 자기가 띄운 PID 만 끈다.
 - **C-RSP-2 (기준선 고정)** 포팅의 기준은 커밋 `127ff7d9` 의 Go 코드다. 포팅 브랜치에서 Go 코드를 고치지 않는다. 다만 e2e 가 Rust 바이너리를 쓰게 하는 경로 수정(FR-RSP-31)만 예외로 한다.
 - **C-RSP-3 (의존성 보안)** 외부 crate 는 다음을 모두 만족해야 한다. 널리 쓰이고, 유지보수가 계속되며, RustSec 권고에 걸리지 않는다. 맞는 crate 가 없으면 직접 구현한다. 허용 목록은 `rust/DEPENDENCIES.md` 에 두고, 목록에 없는 crate 를 더하려면 그 문서를 먼저 고친다.
-- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`)와 PTY·소켓 fd 전달 코드에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
+- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`), PTY·소켓 fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
 - **C-RSP-5 (커밋)** 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다. 이슈 브랜치와 `rust-port` 에는 자동으로 커밋해도 된다. `main` 병합과 push 는 사용자 확인을 받은 뒤에만 한다.
 
 ### 2.5 가정과 의존
@@ -139,6 +139,8 @@ branch: rp/2.3
 - **FR-RSP-30** Rust 코드는 저장소의 `rust/` 아래 Cargo 워크스페이스에 둔다. crate 는 Go 패키지 경로를 따른다. 예: `internal/shared/edge` → `rust/crates/shared/edge`(crate 이름 `dm-shared-edge`), `cmd/dongminal` → `rust/crates/cmd/dongminal`. 여러 Go 패키지를 한 crate 로 묶거나 한 패키지를 여러 crate 로 나눠도 되지만, 그 사실을 이슈에 적는다.
 - **FR-RSP-31** e2e 의 `globalSetup` 은 환경변수 `DM_E2E_PREBUILT_BIN` 이 있으면 Go 빌드 대신 그 경로의 바이너리를 복사해 쓴다. 없으면 지금과 똑같이 동작한다.
 - **FR-RSP-32** Go 의 JSON·flag·시간·오류 문자열 규칙을 흉내 내는 공통 코드는 `dm-gocompat` crate 하나에 모은다. 다른 crate 가 같은 규칙을 따로 구현하지 않는다.
+- **FR-RSP-33 (입출력 모델)** `dm-shared-platform` 은 동기(std) API 만 낸다. 근거: Go 가 블로킹 I/O 모델이고, Windows AF_UNIX 는 std·tokio 모두 지원하지 않으며, PTY 읽기도 블로킹이다. 비동기 소비자(웹 서버·데몬)는 `tokio::task::spawn_blocking` 이나 전용 스레드로 감싼다. unix 의 IPC 스트림은 `into_std()` 뒤 `tokio::net::UnixStream::from_std` 로 바꿔 써도 된다. (1.4 결정 D-1)
+- **FR-RSP-34 (로그 요청 ID)** Go 의 `context.Context` 로 넘기던 요청 ID 는 `dm-shared-dmlog` 의 `ReqCtx<'a> = Option<&'a str>` 를 첫 인자로 넘긴다.
 
 ### 3.5 작업 절차
 

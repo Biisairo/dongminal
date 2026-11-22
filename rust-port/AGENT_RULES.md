@@ -50,7 +50,7 @@
 - 내 crate 의 공개 API 는 다른 crate 가 쓰기 좋게 정한다. 진행 기록에 공개 API 를 요약해 다음 이슈가 참고하게 한다.
 - 의존 crate 는 `rust/DEPENDENCIES.md` 의 허용 목록에서만 고른다. `{ workspace = true }` 로 참조한다.
 - Go 의 JSON·시간·flag·`strconv.Quote`·`%v` 같은 출력 규칙은 `dm-gocompat` 을 쓴다. 필요한 기능이 아직 없으면 조정자에게 알린다. 내 crate 에 따로 구현하지 않는다.
-- `unsafe` 는 `dm-shared-platform` 과 PTY·fd 전달 코드에서만 쓰고, `// SAFETY:` 주석을 단다.
+- `unsafe` 는 `dm-shared-platform`, PTY·fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈에서만 쓰고, `// SAFETY:` 주석을 단다.
 - 상수(타임아웃, 재시도 간격, 파일 이름, 경로)는 Go 의 값과 같게 하고, 상수로 이름을 붙인다.
 - 패닉으로 흐름을 제어하지 않는다. `unwrap()`·`expect()` 는 테스트와, 불변 조건이 증명되는 곳에만 쓴다.
 - 주석은 최소로 단다. Go 주석의 SRS 참조(FR-…)는 동작의 근거가 되므로, 관측 동작에 관한 것만 옮긴다.
