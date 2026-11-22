@@ -613,6 +613,48 @@ func TestInviteFloodPerSender(t *testing.T) {
 	never(t, "만료 전 초대를 다시 받는다", func() bool { return len(c.invites()) > maxSeenPerSender+1 })
 }
 
+// TC-ATF-51 (FR-ATF-51, 보안 검토): 노드가 몫까지 초대를 보낸 뒤 잊혀도 그 몫은 남지 않는다.
+// 받은 초대 기억은 아는 노드 수 × 몫을 넘지 않고, 새 노드의 초대는 받는다.
+func TestInviteQuotaForgottenWithNode(t *testing.T) {
+	c := newTestMesh(t, "c")
+	c.Mesh.mu.Lock()
+	c.maxNodes = 1
+	c.Mesh.mu.Unlock()
+	now := time.Now()
+	invite := func(f *fakePeer) Frame {
+		id := randomHex(inviteIDBytes)
+		code := edge.EncodeInvite(edge.InviteCode{Addr: "10.0.0.1", Port: 7001, Fingerprint: f.id.Fingerprint, Token: "t"})
+		box, err := seal(f.id, PublicKey(c.id), id, f.id.Fingerprint, c.fp(), []byte(code))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fr, err := SignFrame(f.id, FrameInvite, inviteBody{ID: id, From: f.id.Fingerprint, To: c.fp(), At: now.UnixMilli(), Exp: now.Add(time.Minute).UnixMilli(), Box: box})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fr
+	}
+	seen := func() (int, int) {
+		c.Mesh.mu.Lock()
+		defer c.Mesh.mu.Unlock()
+		return len(c.seen), len(c.perSender)
+	}
+	for i := range 4 {
+		f := newFakePeer(t, c, false)
+		f.write(t, f.net(t, "f", []string{c.fp()}))
+		eventually(t, "새 노드를 안다", func() bool { return online(c, f.id.Fingerprint) })
+		for range maxSeenPerSender {
+			f.write(t, invite(f))
+		}
+		eventually(t, "새 노드의 초대를 몫까지 받는다", func() bool { return len(c.invites()) == (i+1)*maxSeenPerSender })
+		if n, k := seen(); n != maxSeenPerSender || k != 1 {
+			t.Fatalf("%d 번째: 기억 %d 개, 보낸 노드 %d", i, n, k)
+		}
+		_ = f.conn.Close()
+		eventually(t, "끊긴 노드는 닿지 않는다", func() bool { return !online(c, f.id.Fingerprint) })
+	}
+}
+
 // FR-EGM-32: 상자는 받을 노드만 연다.
 func TestInviteBoxOnlyForRecipient(t *testing.T) {
 	a, b, c := newTestMesh(t, "a"), newTestMesh(t, "b"), newTestMesh(t, "c")

@@ -19,7 +19,7 @@ import (
 const (
 	// maxSeenPerSender 는 받은 초대 id 기억에서 보낸 노드 하나가 차지할 수 있는 수다. 보낸 노드는
 	// 서명을 그 노드의 키로 확인한 아는 노드다 — 모르는 노드나 서명이 맞지 않는 초대는 기억에 들지
-	// 않는다. maxSeenInvites 는 받은 초대 id 를 기억하는 수다 (FR-EGM-33). 아는 노드 전부가 제 몫을
+	// 않고, 노드를 잊으면 그 노드의 몫도 잊는다. maxSeenInvites 는 받은 초대 id 를 기억하는 수다 (FR-EGM-33). 아는 노드 전부가 제 몫을
 	// 채워도 넘치지 않게 둘의 곱이다. maxSentInvites 는 이 노드가 보낸 초대 id 를 따로 기억하는
 	// 수다 — 받은 초대가 이 노드의 보내기를 막지 못한다 (FR-ATF-51).
 	maxSeenPerSender = 16
@@ -163,6 +163,21 @@ func (m *Mesh) forgetSeenLocked(id, from string) {
 	if m.perSender[from]--; m.perSender[from] <= 0 {
 		delete(m.perSender, from)
 	}
+}
+
+// forgetSenderLocked 는 잊은 노드 from 이 보낸 초대 id 를 잊는다. 받은 초대 기억은 늘 아는 노드
+// 수 × maxSeenPerSender 를 넘지 않는다. 잊은 노드의 초대는 그 노드가 다시 알려지기 전에는 받지
+// 않고, 다시 알려진 뒤에는 만료 전 옛 초대를 한 번 더 받을 수 있다 (FR-ATF-51).
+func (m *Mesh) forgetSenderLocked(from string) {
+	if m.perSender[from] == 0 {
+		return
+	}
+	for k, e := range m.seen {
+		if e.from == from {
+			delete(m.seen, k)
+		}
+	}
+	delete(m.perSender, from)
 }
 
 // rememberSentLocked 는 이 노드가 보낸 초대 id 를 만료까지 기억한다. 받은 초대와 따로 센다.

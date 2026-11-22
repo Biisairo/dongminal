@@ -171,6 +171,7 @@ func (m *Mesh) evictLocked() bool {
 	}
 	m.marks[victim] = mark{epoch: r.st.Epoch, seq: r.st.Seq, at: m.now()}
 	delete(m.nodes, victim)
+	m.forgetSenderLocked(victim)
 	m.reach = nil
 	return true
 }
