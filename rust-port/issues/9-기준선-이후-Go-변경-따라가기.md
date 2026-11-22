@@ -6,7 +6,7 @@ deps: []
 go: []
 crates: []
 owner: ""
-branch: rust-port/9
+branch: rp/9
 ---
 
 # 9 기준선 이후 Go 변경 따라가기

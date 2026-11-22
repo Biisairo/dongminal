@@ -6,7 +6,7 @@ deps: []
 go: []
 crates: []
 owner: ""
-branch: rust-port/1
+branch: rp/1
 ---
 
 # 1 shared 기초

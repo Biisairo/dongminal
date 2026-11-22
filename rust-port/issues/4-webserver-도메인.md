@@ -6,7 +6,7 @@ deps: []
 go: []
 crates: []
 owner: ""
-branch: rust-port/4
+branch: rp/4
 ---
 
 # 4 webserver 도메인

@@ -3,7 +3,7 @@
 - 문서 형식: ISO/IEC/IEEE 29148:2018 소프트웨어 요구사항 명세(SRS)
 - 요구사항 접두어: `FR-RSP-n`(기능), `NFR-RSP-n`(비기능), `C-RSP-n`(제약), `V-RSP-n`(검증)
 - 기준선: Go 구현 커밋 `127ff7d9`(v1.3.7)
-- 작업 브랜치: `rust-port`(통합), `rust-port/<이슈 ID>`(이슈별)
+- 작업 브랜치: `rust-port`(통합), `rp/<이슈 ID>`(이슈별)
 - 이슈 관리: `rust-port/issues/`(파일 하나가 이슈 하나)
 
 ## 1. 소개
@@ -99,7 +99,7 @@ deps: [1.2, 1.3]        # 이 이슈가 쓰는 crate 를 만드는 이슈
 go: [internal/shared/edge]
 crates: [dm-shared-edge]
 owner: <탭 uuid 또는 비움>
-branch: rust-port/2.3
+branch: rp/2.3
 ```
 
 - 본문: 목표, 대상 Go 코드, 관측 표면, 완료 조건, 진행 기록.
@@ -143,7 +143,7 @@ branch: rust-port/2.3
 ### 3.5 작업 절차
 
 - **FR-RSP-40** 기준선 이후 `main` 에 들어온 Go 변경은 `9.x` 이슈로 따라간다.
-- **FR-RSP-41** 이슈 하나는 에이전트 하나가 자기 worktree(`/Users/dykim/personal/dongminal-rust/<ID>`)와 브랜치 `rust-port/<ID>` 에서 진행한다.
+- **FR-RSP-41** 이슈 하나는 에이전트 하나가 자기 worktree(`/Users/dykim/personal/dongminal-rust/<ID>`)와 브랜치 `rp/<ID>` 에서 진행한다.
 - **FR-RSP-42** 이슈는 `deps` 의 이슈가 모두 `done` 이 된 뒤에 시작한다. 시작할 때 `rust-port` 의 최신 상태에서 브랜치를 딴다.
 - **FR-RSP-43** 에이전트는 진행 상태를 자기 이슈 파일의 머리말 `status` 와 본문 "진행 기록" 에만 적는다. 다른 이슈 파일은 고치지 않는다. 단 자기 이슈를 나눌 때 하위 이슈 파일을 만드는 것은 예외로 한다.
 - **FR-RSP-44** 이슈가 끝나면 에이전트는 상태를 `review` 로 바꾸고 조정자에게 알린다. 조정자는 확인한 뒤 `rust-port` 로 병합하고 상태를 `done` 으로 바꾼다.

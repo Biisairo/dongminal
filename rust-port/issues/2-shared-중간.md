@@ -6,7 +6,7 @@ deps: []
 go: []
 crates: []
 owner: ""
-branch: rust-port/2
+branch: rp/2
 ---
 
 # 2 shared 중간

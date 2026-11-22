@@ -9,7 +9,7 @@
 | 통합 worktree (`rust-port` 브랜치) | `/Users/dykim/personal/dongminal-rust/int` |
 | 이슈 폴더 (상태는 **여기서만** 고친다) | `/Users/dykim/personal/dongminal-rust/int/rust-port/issues/` |
 | 내 worktree | `/Users/dykim/personal/dongminal-rust/<이슈 ID>` |
-| 내 브랜치 | `rust-port/<이슈 ID>` |
+| 내 브랜치 | `rp/<이슈 ID>` |
 | Go 기준선 (읽기 전용 참조) | 내 worktree 의 `internal/`, `cmd/` (커밋 `127ff7d9`) |
 | Rust 워크스페이스 | 내 worktree 의 `rust/` |
 

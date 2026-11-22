@@ -6,7 +6,7 @@ deps: []
 go: []
 crates: []
 owner: ""
-branch: rust-port/6
+branch: rp/6
 ---
 
 # 6 ctl·helper
