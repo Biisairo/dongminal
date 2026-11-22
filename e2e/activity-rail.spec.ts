@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, keepToolBusy, waitForInit } from './fixtures';
 
 /**
  * UX_BATCH12_SRS FR-ACF — Activity 패널은 데스크톱에서 닫히지 않고 레일로 접힌다.
@@ -34,9 +34,14 @@ test.describe('FR-ACF Activity 레일', () => {
     await expect(page.locator('#agents-handle')).toBeVisible();
 
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
+    // `working` 은 전경이 빈 도구에서 다음 스냅샷이 지운다 (FR-AAP-20) — 에이전트 자리를 채운다.
+    await keepToolBusy(page, pid);
     expect(await setActivity(page, pid!, 'working', 'Bash', 'npm test')).toBe(200);
     const card = panel(page).locator('.ag-card');
     await expect(card).toHaveCount(1, { timeout: 10000 });
+    // 주기의 회차를 지금 부른다 — 카드는 다음 스냅샷에도 남아야 한다.
+    await page.evaluate(() => (window as any).app.testing.activityRestore());
+    await expect(card).toHaveCount(1);
     await expect(card.locator('.ag-loc')).toBeVisible();
     await expect(card.locator('.ag-state')).toBeHidden();
     await expect(card.locator('.ag-detail')).toBeHidden();
