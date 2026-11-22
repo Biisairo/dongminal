@@ -81,8 +81,11 @@ func Unstage(s *core.Service, ctx context.Context, repo string, paths Paths) (co
 // tracked 는 `checkout`, untracked 는 `clean` 으로 갈리므로 호출자가 어느 쪽인지
 // 알려 준다 — 여기서 추측하면 untracked 파일에 checkout 을 걸어 조용히 실패한다.
 //
-// 실행 **전에** recovery hint 를 남긴다 (FR-GIT-92). 실행 후에 남기면 실패한
-// 경로에서 hint 가 없고, 사용자는 무엇을 잃었는지조차 알 수 없다.
+// recovery hint 는 실행이 **성공한 뒤에** 남긴다 (FR-GIT-92, ATTIC_FIX_SRS FR-ATF-5).
+//
+//	이전 동작: 실행 전에 남겨, 아무것도 버리지 않은 실패에도 "버려졌다" 는 안내가 남았다
+//	새  동작: 성공 뒤에만 남긴다. 부분 적용은 응답의 partial·changed 가 말한다
+//	이유:     hint 는 되살릴 값이 없는 안내문이라, 거짓 안내가 더 해롭다 (AT-GAPI-11)
 func Discard(s *core.Service, ctx context.Context, repo string, tracked, untracked Paths) (core.Output, error) {
 	if len(tracked) == 0 && len(untracked) == 0 {
 		return denied(), fmt.Errorf("%w: 경로가 없다", core.ErrUnsafeArgument)
@@ -97,7 +100,6 @@ func Discard(s *core.Service, ctx context.Context, repo string, tracked, untrack
 		return denied(), err
 	}
 	total := len(ct) + len(cu)
-	s.AddHint(discardHint(repo, ct, cu))
 
 	var out core.Output
 	applied := 0
@@ -113,6 +115,7 @@ func Discard(s *core.Service, ctx context.Context, repo string, tracked, untrack
 			return out, err
 		}
 	}
+	s.AddHint(discardHint(repo, ct, cu))
 	return out, nil
 }
 
