@@ -31,7 +31,7 @@ SRS 의 상태 표기는 `승인·구현완료`(끝남) · `승인·구현중`(�
 | [THEME_SEED_COLOR_SRS.md](./THEME_SEED_COLOR_SRS.md) | **메인색 — 색 하나로 테마 전체를 그 방향으로 계산** (IEEE 29148, `FR-SEED-*`). 상태: 승인·구현완료 |
 | [OPTIMIZE_REFACTOR_SRS.md](./OPTIMIZE_REFACTOR_SRS.md) | **통신 최소화·성능·리팩토링 — 프로덕션 승격 2차 감사** (IEEE 29148, `FR-OPT-*`). 상태: 승인·구현완료 |
 | [EDGE_PAIRING_SRS.md](./EDGE_PAIRING_SRS.md) | **간선 맺기·지우기 단순화 (Edge Pairing)** (IEEE 29148, `FR-EPR-*`). 상태: 승인·구현완료 |
-| [CODEMIRROR_MIGRATION_SRS.md](./CODEMIRROR_MIGRATION_SRS.md) | **편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로** (IEEE 29148, `FR-CMR-*`). 상태: 승인·구현완료 |
+| [CODEMIRROR_MIGRATION_SRS.md](./CODEMIRROR_MIGRATION_SRS.md) | **편집기 엔진 교체 — 옛 편집기 엔진에서 CodeMirror 6 으로** (IEEE 29148, `FR-CMR-*`). 상태: 승인·구현완료 |
 | [CHAT_WINDOW_SRS.md](./CHAT_WINDOW_SRS.md) | **채팅 창 — 채팅을 메인 패널의 탭과 자기 창으로 옮긴다** (IEEE 29148, `FR-CW-*`). 상태: 승인·구현중 — 남은 것: V-LAY-1 의 linux·win32 기준선(푸시 뒤 `layout-baseline` 워크플로) |
 | [PERFORMANCE_HARDENING_SRS.md](./PERFORMANCE_HARDENING_SRS.md) | **성능 15건을 재고 고치고, **재는 것을 남긴다**** (IEEE 29148, `FR-PRF-*`). 상태: 승인·구현완료 |
 | [RUN_RECOVERY_SRS.md](./RUN_RECOVERY_SRS.md) | **데몬이 죽은 뒤 Run 복구** (IEEE 29148, `FR-RRC-*`). 상태: 승인·구현중 — 남은 것: 실제 운영에서의 확인(사용자 몫 — 셸 판정을 쓰려면 데몬 교체 `dongminal start` 가 한 번 필요하다, NFR-RRC-3). 묶음 F·A·J·E·W 와 문서는 마쳤다 |
