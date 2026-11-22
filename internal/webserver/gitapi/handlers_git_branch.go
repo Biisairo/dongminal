@@ -325,7 +325,8 @@ func (s *GitServer) apiGitBranchDelete(w http.ResponseWriter, r *http.Request) {
 	t.requireConfirm(true, req.Confirm,
 		"브랜치 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·254)")
 	t.resolve(req.Repo)
-	opts := write.BranchDeleteOpts{Names: req.Names, Force: req.Force}
+	// 같은 이름은 먼저 접는다 — 미머지 선택지의 개수 판정도 접은 수로 한다 (FR-ATF-4).
+	opts := write.BranchDeleteOpts{Names: write.FoldBranchNames(req.Names), Force: req.Force}
 	if _, err := write.BranchDeleteArgs(opts); err != nil {
 		t.reject(err)
 	}

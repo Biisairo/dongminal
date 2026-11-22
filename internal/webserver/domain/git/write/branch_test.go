@@ -314,6 +314,30 @@ func TestBranchDeleteArgs(t *testing.T) {
 	}
 }
 
+// TC-ATF-4 (ATTIC_FIX_SRS FR-ATF-4, AT-GAPI-8): 같은 이름이 두 번 오면 하나로 접는다.
+// 이전: `branch -d a a` 가 첫 삭제만 적용하고 둘째에서 실패했다(부분 적용). 새: 한 번만
+// 싣고, 접은 뒤 하나면 `-D` 도 받는다.
+func TestBranchDelete_FoldsDuplicateNames(t *testing.T) {
+	got, err := BranchDeleteArgs(BranchDeleteOpts{Names: []string{"a", "b", "a"}})
+	if err != nil || fmt.Sprint(got) != fmt.Sprint([]string{"branch", "-d", "a", "b"}) {
+		t.Fatalf("argv = %v, err = %v", got, err)
+	}
+	if got, err := BranchDeleteArgs(BranchDeleteOpts{Names: []string{"a", "a"}, Force: true}); err != nil ||
+		fmt.Sprint(got) != fmt.Sprint([]string{"branch", "-D", "a"}) {
+		t.Fatalf("force argv = %v, err = %v", got, err)
+	}
+
+	repo := tempRepoWithBranch(t, "feat")
+	s := core.New()
+	_, plan, err := BranchDelete(s, context.Background(), repo, BranchDeleteOpts{Names: []string{"feat", "feat"}})
+	if err != nil {
+		t.Fatalf("BranchDelete: %v", err)
+	}
+	if len(plan.Names) != 1 || len(plan.Oids) != 1 || len(s.Hints(0)) != 1 {
+		t.Fatalf("plan = %+v, hints = %d", plan, len(s.Hints(0)))
+	}
+}
+
 // B22 (FR-GIT-250.2 / V174): 삭제 hint 는 **지우기 전 oid** 로 만든 되살릴 명령이다.
 // 안내문만 남기면 되살릴 수 없다.
 func TestBranchDelete_HintCarriesPreDeleteOid(t *testing.T) {

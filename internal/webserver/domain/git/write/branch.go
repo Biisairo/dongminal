@@ -255,6 +255,7 @@ func BranchRename(s *core.Service, ctx context.Context, repo string, o BranchRen
 // 실행 **전에** 지워질 브랜치의 oid 를 읽어 recovery hint 로 남긴다 (FR-GIT-250.2).
 // 실행 후에 읽으면 ref 가 이미 없고, 그러면 hint 는 안내문만 남는다.
 func BranchDelete(s *core.Service, ctx context.Context, repo string, o BranchDeleteOpts) (core.Output, BranchDeletePlan, error) {
+	o.Names = FoldBranchNames(o.Names)
 	argv, err := BranchDeleteArgs(o)
 	if err != nil {
 		return denied(), BranchDeletePlan{}, err
