@@ -195,3 +195,9 @@ test('TC-ICN-7: 패널 접기 아이콘은 쪽과 상태로 고르고, 모바일
 test('TC-ICN-7: 에이전트 상태 아이콘은 채우지 않는다', () => {
   assert.doesNotMatch(read('js/core/agents-sub.js'), /fill:name===/);
 });
+
+// D-ICN-24: 레이아웃 기준선(e2e `ui-layout-defaults` V-LAY-1)은 문서의 모든 요소를 태그로 센다 —
+// 스프라이트에 새 태그가 들면 「재지 않는 자리」 로 잡힌다. 선은 `<path>` 로 적는다.
+test('TC-ICN-1: 스프라이트는 <line> 대신 <path> 를 쓴다', () => {
+  assert.doesNotMatch(sprite, /<line\b/);
+});
