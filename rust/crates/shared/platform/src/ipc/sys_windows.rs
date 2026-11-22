@@ -340,3 +340,134 @@ pub(super) fn is_not_exist(e: &io::Error) -> bool {
         Some(ERROR_FILE_NOT_FOUND | ERROR_PATH_NOT_FOUND | ERROR_BAD_NETPATH)
     )
 }
+
+/// 종단 파일의 DACL 을 현재 사용자·SYSTEM 전용으로 바꾼다 (FR-RSP-6). chmod 0600 은 Windows 에서
+/// 읽기 전용 속성만 바꾸므로, 같은 호스트의 다른 사용자를 막는 일은 이것이 한다. AF_UNIX 종단은
+/// 재분석 지점이라 따라가지 않고 그 자체를 연다.
+pub(super) fn restrict_to_owner(path: &Path) -> io::Result<()> {
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE, LocalFree};
+    use windows_sys::Win32::Security::Authorization::{
+        ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1, SE_FILE_OBJECT,
+        SetSecurityInfo,
+    };
+    use windows_sys::Win32::Security::{
+        ACL, DACL_SECURITY_INFORMATION, GetSecurityDescriptorDacl,
+        PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
+    };
+    use windows_sys::Win32::Storage::FileSystem::{
+        CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, OPEN_EXISTING,
+        READ_CONTROL, WRITE_DAC,
+    };
+
+    let sddl: Vec<u16> = super::owner_only_sddl(&current_user_sid()?)
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let mut sd: PSECURITY_DESCRIPTOR = ptr::null_mut();
+    // SAFETY: sddl 은 NUL 로 끝나는 UTF-16 이고, sd 는 성공하면 LocalFree 로 풀 버퍼를 받는다.
+    if unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl.as_ptr(),
+            SDDL_REVISION_1,
+            &mut sd,
+            ptr::null_mut(),
+        )
+    } == 0
+    {
+        return Err(last_os());
+    }
+    let result = (|| {
+        let mut present = 0;
+        let mut defaulted = 0;
+        let mut dacl: *mut ACL = ptr::null_mut();
+        // SAFETY: sd 는 위에서 만든 유효한 기술자이고, 출력 포인터는 호출 동안 살아 있다.
+        if unsafe { GetSecurityDescriptorDacl(sd, &mut present, &mut dacl, &mut defaulted) } == 0 {
+            return Err(last_os());
+        }
+        let p = wide(path);
+        // SAFETY: p 는 NUL 로 끝나는 UTF-16 이다.
+        let h = unsafe {
+            CreateFileW(
+                p.as_ptr(),
+                WRITE_DAC | READ_CONTROL,
+                0,
+                ptr::null(),
+                OPEN_EXISTING,
+                FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+                ptr::null_mut(),
+            )
+        };
+        if h == INVALID_HANDLE_VALUE {
+            return Err(last_os());
+        }
+        // SAFETY: h 는 WRITE_DAC 로 연 핸들이고, dacl 은 sd 가 살아 있는 동안 유효하다.
+        let rc = unsafe {
+            SetSecurityInfo(
+                h,
+                SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                dacl,
+                ptr::null(),
+            )
+        };
+        // SAFETY: h 는 위에서 연, 이 함수만 쥔 핸들이다.
+        unsafe { CloseHandle(h) };
+        if rc != 0 {
+            return Err(io::Error::from_raw_os_error(rc as i32));
+        }
+        Ok(())
+    })();
+    // SAFETY: sd 는 Convert… 가 LocalAlloc 으로 내준 버퍼다.
+    unsafe { LocalFree(sd) };
+    result
+}
+
+/// 이 프로세스 토큰의 사용자 SID 문자열(`S-1-5-21-…`).
+fn current_user_sid() -> io::Result<String> {
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, LocalFree};
+    use windows_sys::Win32::Security::Authorization::ConvertSidToStringSidW;
+    use windows_sys::Win32::Security::{GetTokenInformation, TOKEN_QUERY, TOKEN_USER, TokenUser};
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    let mut token: HANDLE = ptr::null_mut();
+    // SAFETY: 현재 프로세스의 의사 핸들과 출력 포인터를 넘긴다.
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        return Err(last_os());
+    }
+    let result = (|| {
+        let mut need = 0u32;
+        // SAFETY: 크기만 묻는 호출이다(버퍼 null, 길이 0).
+        unsafe { GetTokenInformation(token, TokenUser, ptr::null_mut(), 0, &mut need) };
+        if need == 0 {
+            return Err(last_os());
+        }
+        // TOKEN_USER 의 정렬을 지키려고 u64 버퍼를 쓴다.
+        let mut buf = vec![0u64; (need as usize).div_ceil(8)];
+        // SAFETY: buf 는 need 바이트 이상이고 호출 동안 살아 있다.
+        if unsafe {
+            GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), need, &mut need)
+        } == 0
+        {
+            return Err(last_os());
+        }
+        // SAFETY: 성공한 GetTokenInformation(TokenUser) 는 buf 앞에 TOKEN_USER 를 쓴다.
+        let user = unsafe { &*(buf.as_ptr() as *const TOKEN_USER) };
+        let mut s: windows_sys::core::PWSTR = ptr::null_mut();
+        // SAFETY: user.User.Sid 는 buf 안의 유효한 SID 이고, s 는 성공하면 LocalFree 할 버퍼를 받는다.
+        if unsafe { ConvertSidToStringSidW(user.User.Sid, &mut s) } == 0 {
+            return Err(last_os());
+        }
+        // SAFETY: s 는 NUL 로 끝나는 UTF-16 문자열이다.
+        let len = unsafe { (0..).take_while(|&i| *s.add(i) != 0).count() };
+        // SAFETY: 위에서 센 길이만큼 읽는다.
+        let out = String::from_utf16_lossy(unsafe { std::slice::from_raw_parts(s, len) });
+        // SAFETY: s 는 ConvertSidToStringSidW 가 LocalAlloc 으로 내준 버퍼다.
+        unsafe { LocalFree(s.cast()) };
+        Ok(out)
+    })();
+    // SAFETY: token 은 위에서 연, 이 함수만 쥔 핸들이다.
+    unsafe { CloseHandle(token) };
+    result
+}

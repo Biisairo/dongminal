@@ -276,3 +276,11 @@ fn into_std_keeps_connection() {
     (&a).read_exact(&mut buf).unwrap();
     assert_eq!(&buf, b"ok");
 }
+
+#[test]
+fn owner_only_sddl_grants_user_and_system() {
+    assert_eq!(
+        owner_only_sddl("S-1-5-21-1-2-3-1001"),
+        "D:P(A;;FA;;;S-1-5-21-1-2-3-1001)(A;;FA;;;SY)"
+    );
+}

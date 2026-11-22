@@ -264,6 +264,12 @@ impl Ipc for UnixSocketIpc {
             drop(ln);
             return Err(path_error("chmod", &name, e));
         }
+        // FR-RSP-6: Windows 의 chmod 는 읽기 전용 속성뿐이라 다른 사용자를 막지 못한다(Go 기준선의
+        // 약점). 소유자 전용 DACL 로 막는다. POSIX 는 할 일이 없다.
+        if let Err(e) = sys::restrict_to_owner(endpoint) {
+            drop(ln);
+            return Err(path_error("setsecurityinfo", &name, e));
+        }
         Ok(ln)
     }
 
@@ -289,6 +295,12 @@ impl Ipc for UnixSocketIpc {
             Err(e) => Err(path_error("remove", &path_str(endpoint), e)),
         }
     }
+}
+
+/// 소유자 전용 DACL 의 SDDL. 상속을 끊고(`P`) 그 사용자와 SYSTEM 에만 모든 권한(`FA`)을 준다.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn owner_only_sddl(user_sid: &str) -> String {
+    format!("D:P(A;;FA;;;{user_sid})(A;;FA;;;SY)")
 }
 
 /// 소켓 비트를 본다 — 종전 cli/proc.go 의 판정과 같다. 심볼릭 링크는 따라간다 (Go `os.Stat`).
