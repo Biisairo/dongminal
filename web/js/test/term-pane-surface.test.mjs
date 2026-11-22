@@ -205,7 +205,7 @@ test('TC-FR5-50: 올리기는 파일마다 인스턴스의 `_toast` 와 `_fmtSiz
     apiPost: (_u, fd) => { posted.push(fd.parts); return Promise.resolve({ ok: true, data: { name: 'b.txt', size: 5 } }) },
   });
   const updates = [];
-  p._toast = () => ({ update: (text, kind) => { updates.push(kind) } });
+  p._toast = () => ({ update: (_text, kind) => { updates.push(kind) } });
   const sizes = [];
   p._fmtSize = (b) => { sizes.push(b); return b + 'B' };
   p._uploadFiles([{ file: { name: 'b.txt' }, relPath: 'd/b.txt' }, { name: 'c.txt' }]);
