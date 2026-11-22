@@ -39,11 +39,16 @@ func (s *Service) Changed() {
 	}
 }
 
+// handle 은 받은 프레임을 다룬다. Close 뒤에는 아무것도 받지 않는다 (FR-ATF-54).
 func (s *Service) handle(from string, fr frame) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+	var pin func()
 	switch fr.T {
 	case frameState:
-		s.mu.Lock()
-		var pin func()
 		if _, ok := s.acceptStateLocked(fr); ok {
 			s.broadcastLocked(fr, from)
 			s.changedLocked()
@@ -51,24 +56,20 @@ func (s *Service) handle(from string, fr frame) {
 		// 간선 상대 자신의 연결로 온 상태는, 같은 번호를 다른 길로 먼저 받았어도 고정을 확인한다
 		// (§3.12a R-6, EDGE_MESH_SRS FR-EGM-44). 그 상대의 최신 상태(s.nodes)로 본다.
 		pin = s.pinLocked(from)
-		s.mu.Unlock()
-		if pin != nil {
-			pin()
-		}
 	case frameCmd:
-		s.mu.Lock()
 		if s.acceptCmdLocked(fr) {
 			s.broadcastLocked(fr, from)
 			s.changedLocked()
 		}
-		s.mu.Unlock()
 	case frameMsg:
-		s.mu.Lock()
 		if out, node, ok := s.acceptMsgLocked(fr); ok {
 			s.broadcastLocked(fr, from)
 			s.enqueueLocked(node, out)
 		}
-		s.mu.Unlock()
+	}
+	s.mu.Unlock()
+	if pin != nil {
+		pin()
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -968,4 +969,28 @@ func TestDeliveryOrderPerNode(t *testing.T) {
 	if got := x.delivered(); got[0] != "1" || got[1] != "2" {
 		t.Fatalf("순서 = %v", got)
 	}
+}
+
+// TC-ATF-54 (FR-ATF-54): Close 뒤 들어온 프레임과 줄에 남은 글은 넘기지 않고, 전달 고루틴은 끝난다.
+func TestClosedServiceDropsFrames(t *testing.T) {
+	x := newOrderedFixture(t)
+	base := runtime.NumGoroutine()
+	x.f.write(t, x.msg(t, 1))
+	<-x.entered
+	x.g.write(t, x.msg(t, 2))
+	time.Sleep(50 * time.Millisecond)
+	x.a.Close()
+	close(x.release)
+	x.f.write(t, x.msg(t, 3))
+	never(t, "Close 뒤 글을 넘긴다", func() bool { return len(x.delivered()) > 1 })
+	x.f.state(t, []statePart{{ID: x.f.pid("late"), Label: "f/late", Kind: KindAgent}}, nil, nil)
+	never(t, "Close 뒤 상태를 받는다", func() bool {
+		for _, m := range x.a.Online().Participants {
+			if m.Label == "f/late" {
+				return true
+			}
+		}
+		return false
+	})
+	eventually(t, "전달 고루틴이 끝난다", func() bool { return runtime.NumGoroutine() <= base })
 }
