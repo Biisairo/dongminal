@@ -7,12 +7,14 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/git/write"
 	"dongminal/internal/webserver/domain/submodule"
 )
 
@@ -164,5 +166,60 @@ func TestBranchDeleteBoth(t *testing.T) {
 		if b, _ := submodule.ExecGit(context.Background(), dir, "branch", "--list", "feat"); strings.TrimSpace(b) != "" {
 			t.Fatalf("%s 에 feat 가 남았다: %q", dir, b)
 		}
+	}
+}
+
+// TC-ATF-75 (AT-GAPI-5): 로컬을 지운 뒤 원격 잡 등록이 job_busy 로 거절되면, 그 거절
+// 응답에 이미 적용된 로컬 삭제 결과(`deleted`)를 성공 응답과 같은 모양으로 싣는다.
+func TestBranchDeleteBoth_JobBusyCarriesLocalDeletion(t *testing.T) {
+	s, repo, bare := gtBranchRepo(t)
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	s.gitJobs.run = func(context.Context, string, []string, string, func(string, string)) (int, error) {
+		<-release
+		return 0, nil
+	}
+	var once sync.Once
+	// 로컬 삭제가 끝난 직후 common 칸을 다른 잡이 차지한다 — 앞선 칸 판정과 등록 사이의 끼어듦.
+	occupy := func() {
+		once.Do(func() {
+			keys, err := s.gitKeys(context.Background(), repo)
+			if err != nil {
+				t.Errorf("keys: %v", err)
+				return
+			}
+			if _, err := s.jobsHub().Start(repo, keys, "fetch", write.FetchSpec(write.FetchOpts{})); err != nil {
+				t.Errorf("칸 차지: %v", err)
+			}
+		})
+	}
+	s.Git = store.NewStore(core.New(core.WithWriteRunner(
+		func(ctx context.Context, dir string, args []string, _ string) (core.Output, error) {
+			out, err := submodule.ExecGit(ctx, dir, args...)
+			if err != nil {
+				return core.Output{ExitCode: 1, Stderr: out}, nil
+			}
+			if args[0] == "branch" {
+				occupy()
+			}
+			return core.Output{Stdout: out}, nil
+		})))
+	b, _ := json.Marshal(repo)
+	code, out := wtReq(t, s, http.MethodPost, "/api/git/branch/delete-both",
+		`{"repo":`+string(b)+`,"ref":"refs/remotes/origin/feat","confirm":true}`)
+	if code != http.StatusConflict || out["error"] != apierr.CodeJobBusy {
+		t.Fatalf("= %d %v, want 409 job_busy", code, out)
+	}
+	deleted, _ := out["deleted"].(map[string]any)
+	names, _ := deleted["names"].([]any)
+	oids, _ := deleted["oids"].([]any)
+	if len(names) != 1 || names[0] != "feat" || len(oids) != 1 {
+		t.Fatalf("deleted = %v, want 로컬 삭제 계획 {names:[feat], oids:[…]}", out["deleted"])
+	}
+	if b, _ := submodule.ExecGit(context.Background(), repo, "branch", "--list", "feat"); strings.TrimSpace(b) != "" {
+		t.Fatalf("로컬 feat 가 남았다: %q", b)
+	}
+	if b, _ := submodule.ExecGit(context.Background(), bare, "branch", "--list", "feat"); strings.TrimSpace(b) == "" {
+		t.Fatal("거절된 원격 삭제가 실행됐다")
 	}
 }

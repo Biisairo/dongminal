@@ -60,6 +60,8 @@ type gitWriteFake struct {
 	writeCtx func(ctx context.Context)
 	// onStatus 는 status 조회마다 불린다(잠금 밖에서 부른다).
 	onStatus func()
+	// statusErr 가 있으면 status 조회가 실패한다 (FR-ATF-74).
+	statusErr error
 }
 
 func newGitWriteFake(t *testing.T) *gitWriteFake {
@@ -94,6 +96,9 @@ func (f *gitWriteFake) read(_ context.Context, dir string, args []string) (core.
 			f.mu.Unlock()
 			hook()
 			f.mu.Lock()
+		}
+		if f.statusErr != nil {
+			return core.Output{}, f.statusErr
 		}
 		return core.Output{Stdout: f.status}, nil
 	case args[0] == "log" && f.logErr != nil:
@@ -678,6 +683,62 @@ func TestAPIGitResolve_AllOK(t *testing.T) {
 	}
 	if results, _ := out["results"].([]any); len(results) != 1 {
 		t.Fatalf("results = %v", out["results"])
+	}
+}
+
+// TC-ATF-74 (AT-GAPI-4): 쓰기는 적용됐고 재조회만 실패하면 200 이다. status 대신
+// statusStale:true 를 싣는다 — 화면은 성공으로 읽고 상태를 다시 읽는다.
+func TestAPIGitWrite_StatusRereadFailIsStaleOK(t *testing.T) {
+	cases := []struct{ path, body string }{
+		{"/api/git/stage", `{"repo":` + qWorkRepo + `,"paths":["a.txt"]}`},
+		{"/api/git/resolve", `{"repo":` + qWorkRepo + `,"side":"theirs","paths":["a.txt"],"confirm":true}`},
+	}
+	for _, c := range cases {
+		t.Run(c.path, func(t *testing.T) {
+			f := newGitWriteFake(t)
+			f.onWrite = func(f *gitWriteFake, _ []string) { f.statusErr = errors.New("status 재조회 실패") }
+			s, _ := gitWriteServer(t, f)
+			code, out := gitReq(t, s, http.MethodPost, c.path, c.body)
+			if code != http.StatusOK || out["ok"] != true || out["statusStale"] != true {
+				t.Fatalf("= %d %v, want 200 ok statusStale", code, out)
+			}
+			if _, has := out["status"]; has {
+				t.Fatalf("낡은 응답에 status 가 실렸다: %v", out)
+			}
+			if out["requested"] != gitWriteRepo || out["repo"] != gitWriteRepo {
+				t.Fatalf("requested/repo = %v / %v", out["requested"], out["repo"])
+			}
+			if len(f.wrote()) == 0 {
+				t.Fatal("쓰기가 실행되지 않았다")
+			}
+		})
+	}
+}
+
+// 재조회가 성공하면 statusStale 을 싣지 않는다.
+func TestAPIGitWrite_FreshStatusHasNoStaleFlag(t *testing.T) {
+	f := newGitWriteFake(t)
+	s, _ := gitWriteServer(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stage", `{"repo":`+qWorkRepo+`,"paths":["a.txt"]}`)
+	if code != http.StatusOK || out["status"] == nil {
+		t.Fatalf("= %d %v", code, out)
+	}
+	if _, has := out["statusStale"]; has {
+		t.Fatalf("새 status 응답에 statusStale 이 실렸다: %v", out)
+	}
+}
+
+// 쓰기가 실패하고 재조회도 실패하면 여전히 오류다 — statusStale 은 적용된 쓰기에만.
+func TestAPIGitWrite_RunFailWithStatusFailStaysError(t *testing.T) {
+	f := newGitWriteFake(t)
+	f.writeErr = func([]string) (core.Output, error) {
+		f.statusErr = errors.New("status 재조회 실패")
+		return core.Output{ExitCode: 1, Stderr: "fatal: 실패"}, nil
+	}
+	s, _ := gitWriteServer(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stage", `{"repo":`+qWorkRepo+`,"paths":["a.txt"]}`)
+	if code == http.StatusOK || out["statusStale"] != nil {
+		t.Fatalf("= %d %v, want 오류·statusStale 없음", code, out)
 	}
 }
 
