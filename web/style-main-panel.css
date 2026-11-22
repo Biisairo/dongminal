@@ -226,9 +226,14 @@ body.mobile #sb-panel-windows #add-sandbox-window{margin:-8px -8px -8px auto}
 #sidebar[data-rail] .sbl-x,
 #sidebar[data-rail] .sbl-none,
 #sidebar[data-rail] .ed-entries-none{display:none}
-/* 여백이 3px 이어야 점(5px)과 글자가 40px 안에 함께 든다 — 펼침의 10px 로는
-   글자에 7px 밖에 남지 않는다. */
-#sidebar[data-rail] .sbl-item{padding:0 3px;gap:3px}
+/* 여백이 작아야 점(5px)과 글자가 40px 안에 함께 든다 — 펼침의 10px 로는
+   글자에 7px 밖에 남지 않는다.
+   RAIL_CHAT_USAGE_SRS FR-RCU-6 (D-RCU-4): 이전 — 여백·간격 3px, 이름 칸 25px. 고른 행만 굵기 500 이어서
+   `ccr#32`(400 에서 25.37px, 500 에서 24.95px)가 고르지 않은 행에서만 두 줄로 꺾였다 /
+   새 — 여백·간격 `--sp-1`(이름 칸 28px), 이름 굵기는 고름과 무관하게 하나 / 이유 — 굵기가 갈리면 글자 폭이 갈려
+   경계에 걸린 이름의 줄 수가 고름에 따라 바뀐다. 고른 행은 바탕색과 점 색이 말한다. */
+#sidebar[data-rail] .sbl-item{padding:0 var(--sp-1);gap:var(--sp-1)}
+#sidebar[data-rail] .sbl-item.active .sbl-name{font-weight:inherit}
 /* FR-RAL-2 (개정, 2026-09-08 접수): **첫 글자가 아니라 이름이다.**
 
      이전 동작: 레일에는 이름의 첫 글자 하나만 남았다 — `창`·`메` 로는 어느
