@@ -18,8 +18,11 @@
 //! - `serde_json::Value` 로 풀면 숫자는 Go `float64` 와 같은 값이 된다(±2^53 안의 정수는 i64 로 담는다).
 //! - 오류 문구는 go1.27.2 실측과 같다. 타입 이름은 Rust 타입에서 고른다: i64 → `int`, u64 → `uint`,
 //!   i32 → `int32`, f64 → `float64`, String → `string`, `[]byte` → `[]uint8`, 구조체는 serde 이름
-//!   (Go 와 같게 하려면 `#[serde(rename = "pkg.Type")]`). slice·map 의 원소 타입은 알 수 없어
-//!   `slice`·`map` 으로 쓴다(Go 는 `[]int`·`map[string]int`).
+//!   (Go 와 같게 하려면 `#[serde(rename = "pkg.Type")]`), slice 는 `[]interface {}`, map 은
+//!   `map[string]interface {}`(`serde_json::Value` 를 담는 것에 맞춘 기본값). 그 밖의 slice·map
+//!   (예: Go `[]main.WsWindow`) 은 [`go_type!`](crate::go_type) 표식과
+//!   `#[serde(deserialize_with = "dm_gocompat::json::with_go_type::<표식, _, _>")]` 로 이름을 준다.
+//!   맨 위 값은 [`GoTyped`] 로 감싼다.
 //! - Go 는 타입 오류가 나도 나머지 필드를 채운 값을 남기지만, 여기서는 값을 돌려주지 않는다.
 
 mod decode;
@@ -29,7 +32,7 @@ mod scanner;
 
 use std::fmt;
 
-pub use decode::{Decoder, unmarshal};
+pub use decode::{Decoder, GO_TYPE_TOKEN, GoTypeName, GoTyped, unmarshal, with_go_type};
 
 pub use encode::{Encoder, append_string, marshal, marshal_indent};
 pub use scanner::{SyntaxError, compact, indent, valid};
