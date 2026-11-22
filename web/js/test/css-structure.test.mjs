@@ -198,3 +198,10 @@ test('FEU-29: 빈 규칙이 없다', () => {
   const empty = rules().filter((r) => !r.decls.trim()).map((r) => `${r.file}: ${r.sel}{}`);
   assert.deepEqual(empty, []);
 });
+
+test('RAIL_CHAT_USAGE_SRS FR-RCU-7 (TC-RCU-5): 레일의 두 줄 줄임 규칙은 모두 줄 높이 1.3 이다', () => {
+  const clamp = rules().filter((r) => r.sel.includes('[data-rail]') && /line-clamp:\s*2/.test(r.decls));
+  assert.ok(clamp.length >= 4, `두 줄 줄임 규칙이 ${clamp.length}개 — 선택자가 바뀌었다`);
+  const bad = clamp.filter((r) => !/line-height:\s*1\.3\s*(;|$)/.test(r.decls)).map((r) => `${r.file}: ${r.sel}`);
+  assert.deepEqual(bad, []);
+});

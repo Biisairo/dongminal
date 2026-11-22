@@ -53,10 +53,11 @@ body:not(.mobile) #agents-handle{display:block}
 #agents-panel[data-rail] .ag-dot{display:none}
 #agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row){padding:var(--sp-3) 3px;display:block}
 /* FR-RAL-2 와 같다: 이름은 두 줄까지, 넘치면 둘째 줄 끝에 `…`. */
+/* RAIL_CHAT_USAGE_SRS FR-RCU-7 (D-RCU-5): 이전 — 줄 높이 1.15 에서 셋째 줄 글자 윗부분이 1px 비쳤다 / 새 — 1.3 / 이유 — 두 줄 이름 모두 같은 규칙. */
 #agents-panel[data-rail] :is(.ag-loc,.bg-name,.runs-short){
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
   white-space:normal;overflow-wrap:anywhere;overflow:hidden;
-  font-size:var(--sb-rail-fs);line-height:1.15;text-align:center;
+  font-size:var(--sb-rail-fs);line-height:1.3;text-align:center;
 }
 /* RAIL_CHAT_USAGE_SRS FR-RCU-3 (D-RCU-2): 레일의 사용량은 요약 줄 하나다 — 색 점 · 이름 · 세션·주간 칸이 세로로 선다.
    이전: 바닥을 통째로 감췄다 / 새: 요약 줄만 보인다. 펼쳐 둔 상태여도 계정 머리·계정 줄·statusLine 줄은 감춘다 /
@@ -77,6 +78,7 @@ body:not(.mobile) #agents-handle{display:block}
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;width:100%;
   white-space:normal;overflow-wrap:anywhere;overflow:hidden;
   font-size:var(--sb-rail-fs);line-height:1.3;text-align:center;
+  font-weight:500; /* FR-RCU-8 (D-RCU-6): 이전 600 — 위계는 크기·색이 세운다 */
 }
 /* FR-RCU-3 개정 (사용자 결정 2026-11-22, D-RCU-2 개정): 이전 — % 와 얇은 가로 막대가 세로로 쌓였다 /
    새 — 두 칸이 나란히 서고, 칸마다 아래에서 위로 창 이름(5h·7d) · 세로 막대 · 값이다 / 이유 — 사용자 디자인.
@@ -90,7 +92,8 @@ body:not(.mobile) #agents-handle{display:block}
 #agents-panel[data-rail] .act-usage-sum .cacct-cell-pct{order:0}
 /* 막대 높이 24px — 9px 글자 두 줄(값·창 이름) 사이에서 사용률이 눈에 갈리는 길이. 폭은 펼침 막대의 두께 2px 의 두 배. */
 #agents-panel[data-rail] .act-usage-sum .cacct-cell-bar{order:1;position:relative;display:flex;align-items:flex-end;width:var(--sp-2);height:24px}
-#agents-panel[data-rail] .act-usage-sum .cacct-cell-fill{min-height:0;min-width:100%}
+/* FR-RCU-8 (D-RCU-6): 채움은 바탕과 같은 둥근 끝이다 — 각진 채움 윗면이 둥근 바탕 안에서 잘려 보였다. */
+#agents-panel[data-rail] .act-usage-sum .cacct-cell-fill{min-height:0;min-width:100%;border-radius:inherit}
 #agents-panel[data-rail] .act-usage-sum .cacct-cell-win{order:2;display:block;color:var(--text-hint)}
 /* FR-PDK-33·34: 드롭 자리 표시. `applyPanelDock` 과 같은 자리에서 세운다. */
 #dock-indicator{position:fixed;top:0;bottom:0;width:3px;background:var(--accent);
@@ -395,7 +398,16 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 var(--sp-4) 0 var(--sp-2
 }
 .act-usage-sum .cacct-who{flex-wrap:nowrap}
 @container (max-width:149px){
-  .cacct-cells,.act-usage-sum .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-2)}
+  .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-2)}
+}
+/* UX_AUDIT_FIX_SRS FR-UXF-73a: 안쪽 200px 미만이면 요약 줄이 두 줄이다 — 첫 줄은 점·이름·펼침 아이콘, 둘째 줄은 두 칸.
+   이전: 칸을 하나씩 쌓는 규칙이 요약 줄에도 걸렸고, 높이가 행 높이로 고정이라 윗칸이 줄 위로 넘쳤다 /
+   이유: 한 줄을 지키면 최소 폭(안쪽 약 135px)에서 이름 칸이 0px 이 된다. 레일은 제 배치가 있어 뺀다. */
+@container (max-width:199px){
+  #agents-panel:not([data-rail]) .act-usage-foot .act-usage-sum{flex-wrap:wrap;height:auto;row-gap:var(--sp-1);padding-block:var(--sp-2)}
+  #agents-panel:not([data-rail]) .act-usage-sum .cacct-who{flex:1 1 0;min-width:0}
+  #agents-panel:not([data-rail]) .act-usage-sum>.ui-icon{order:1}
+  #agents-panel:not([data-rail]) .act-usage-sum .cacct-cells{order:2;flex:1 1 100%;grid-template-columns:repeat(2,auto);justify-content:start}
 }
 
 .pn-body{flex:1;position:relative;overflow:hidden}

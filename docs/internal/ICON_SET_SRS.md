@@ -2,6 +2,8 @@
 
 > **문서 상태**: 승인·구현완료
 >
+> 개정 2026-11-22: D-ICN-25 — 선 굵기 2.25 → 2 (사용자 피드백)
+>
 > 근거: `web/index.html` `#ui-sprite`(심볼 70개)·`web/style-kit.css` `.ui-icon`·`#ui-sprite .t`·`web/js/test/icon-set.test.mjs`(TC-ICN-1~7)·관련 e2e 28 spec 통과. 옅은 면이 `<use>` 복제본에 먹는 것(A-1)은 Chromium 화면으로 확인했다
 
 ## 1. 개요 (Introduction)
@@ -24,7 +26,7 @@ UI 아이콘 스프라이트(`web/index.html` `#ui-sprite`)를 다시 짠다. �
 - **쓰는 자리**: 아이콘 이름을 적은 코드 위치
 
 ### 1.4 관계 (References)
-- `UI_KIT_SRS.md` §3.3 FR-GLY-1~9 를 **개정한다.** FR-GLY-2 의 `stroke-width:2` 는 FR-ICN-2 의 2.25 로 바뀐다. FR-GLY-2 의 「채움 없음」 은 FR-ICN-3 의 옅은 면만 예외로 둔다. FR-GLY-3 의 「Lucide(MIT)」 는 FR-ICN-11 로 바로잡는다(실제 라이선스는 ISC). FR-GLY-4 의 초기 사상표는 역사 기록으로 남고, 현재 사상은 이 문서 §3.2 다
+- `UI_KIT_SRS.md` §3.3 FR-GLY-1~9 를 **개정한다.** FR-GLY-2 의 `stroke-width:2` 는 FR-ICN-2 가 이어받는다(한때 2.25 였다가 D-ICN-25 로 2 에 돌아왔다). FR-GLY-2 의 「채움 없음」 은 FR-ICN-3 의 옅은 면만 예외로 둔다. FR-GLY-3 의 「Lucide(MIT)」 는 FR-ICN-11 로 바로잡는다(실제 라이선스는 ISC). FR-GLY-4 의 초기 사상표는 역사 기록으로 남고, 현재 사상은 이 문서 §3.2 다
 - `UX_AUDIT_FIX_SRS.md` FR-UXF-100~102(D-36) — 문자 아이콘 금지는 그대로 유효하다
 - `UX_AUDIT_FIX_SRS.md` FR-UXF-10 을 **개정한다**(D-ICN-23)
 - 시안 자료: `docs/internal/design/icons-2026-11-22/`(`proposal.html` 시안 비교, `meanings.mjs` 뜻 63개 표, `gen.mjs` 직접 그린 시범 C 의 경로)
@@ -37,6 +39,7 @@ UI 아이콘 스프라이트(`web/index.html` `#ui-sprite`)를 다시 짠다. �
 | D-ICN-2 | 시안 세 벌(A Lucide 선 / B Phosphor Duotone / C 직접 그린 시범)을 본 뒤의 지시: 뜻마다 **최선의 모양, 한 번에 이해되는 모양**을 고르되, 세 시안을 오가며 고르면 톤이 달라지므로 **두께·느낌 등 톤을 맞춘다**. 모양 선택은 위임받았다 |
 | D-ICN-3 | 톤 규칙 ①: **선 기반 한 벌.** FR-GLY-2(stroke·currentColor) 규약을 지킨다. B(채움 기반)에서 고른 뜻은 선으로 다시 그려 같은 톤에 맞춘다 |
 | D-ICN-4 | 톤 규칙 ②: **stroke-width 2.25, 둥근 끝(round cap)·둥근 이음(round join)** 으로 통일한다(이전 2) |
+| D-ICN-25 | (2026-11-22, 사용자 피드백) D-ICN-4 의 선 굵기를 **2.25 → 2** 로 되돌린다. 둥근 끝·둥근 이음은 그대로다 | 사용자: 「아이콘 선 두께 좀만 얇게. 조금만 복잡한 아이콘은 선이 뭉개진다」. 1배 화면 실측(16px) — 2.25 에서 톱니·팔레트·키보드·겹친 층의 선 사이가 붙었고, 2 에서 벌어졌다. 1.75 는 `+`·`−`·화살표가 옅어져 「조금」 보다 많이 바뀐다 |
 | D-ICN-5 | 톤 규칙 ③: **옅은 면(opacity .18)은 물체 모양에만** 일관되게 깐다. 화살표·꺾쇠·점 같은 기호 모양에는 깔지 않는다 |
 | D-ICN-6 | 톤 규칙 ④: **한 뜻 = 한 아이콘, 한 아이콘 = 한 뜻.** 남는 겹침 하나(`chevron-right` 의 접힘 / 다음)는 방향 꺾쇠 관례라 둔다 |
 | D-ICN-7 | 쓰는 곳 없는 `file`·`panel-left` 는 스프라이트에서 뺀다 |
@@ -65,7 +68,7 @@ UI 아이콘 스프라이트(`web/index.html` `#ui-sprite`)를 다시 짠다. �
 
 ### 1.7 가정 (Assumptions)
 - A-1: 문서 CSS 규칙은 `<use>` 가 복제한 심볼 내용에도 적용된다(SVG 2 — 복제본은 원본 요소에 맞는 규칙을 받는다). 구현 때 화면으로 확인한다
-- A-2: 아이콘 크기는 13~20px 이다. 2.25 선은 16px 에서 1.5px 이다
+- A-2: 아이콘 크기는 13~20px 이다. 2 선은 16px 에서 1.33px 이다(D-ICN-25 전의 2.25 는 1.5px)
 
 ## 2. 현황 (Current State)
 - 스프라이트는 심볼 54개, 쓰는 곳 없는 것 2개(`file`·`panel-left`)
@@ -79,7 +82,8 @@ UI 아이콘 스프라이트(`web/index.html` `#ui-sprite`)를 다시 짠다. �
 
 **FR-ICN-1** — 모든 심볼은 `viewBox="0 0 24 24"` 이고 `stroke`·`stroke-width`·`stroke-linecap`·`stroke-linejoin`·`fill`·`opacity` 속성을 스스로 갖지 않는다(D-ICN-19).
 
-**FR-ICN-2** — `.ui-icon` 은 `stroke-width:2.25`·`stroke-linecap:round`·`stroke-linejoin:round`·`fill:none`·`stroke:currentColor` 다. CSS 마스크 꺾쇠 `--ui-chev-right` 도 2.25·둥근 끝이다(D-ICN-4).
+**FR-ICN-2** — `.ui-icon` 은 `stroke-width:2`·`stroke-linecap:round`·`stroke-linejoin:round`·`fill:none`·`stroke:currentColor` 다. CSS 마스크 꺾쇠 `--ui-chev-right` 도 2·둥근 끝이다(D-ICN-4, D-ICN-25).
+  - **개정 (2026-11-22, D-ICN-25)** — 이전: 2.25 / 새: 2 / 이유: 복잡한 아이콘의 선이 1배 화면에서 뭉개졌다(사용자 피드백).
 
 **FR-ICN-3** — 옅은 면은 `#ui-sprite .t{fill:currentColor;stroke:none;opacity:.18}` 한 규칙이 준다(D-ICN-5·19).
 
@@ -179,7 +183,7 @@ UI 아이콘 스프라이트(`web/index.html` `#ui-sprite`)를 다시 짠다. �
 
 | 자리 | 이전 | 새 | 이유 |
 |---|---|---|---|
-| 모든 아이콘 | 선 2, 면 없음 | 선 2.25, 물체에 옅은 면 | D-ICN-3~5 |
+| 모든 아이콘 | 선 2, 면 없음 | 선 2(D-ICN-25 로 2.25 에서 되돌림), 물체에 옅은 면 | D-ICN-3~5·25 |
 | 위 표의 「이전」 열이 다른 자리 | 표의 이전 심볼 | 표의 새 심볼 | 겹침 해소·한눈에 이해(D-ICN-1·6, 이유는 `meanings.mjs` 의 `why`) |
 | 작업 중 상태 | 채운 점 | 도는 고리 그림(움직이지 않는다) | 알림 점과 갈린다 |
 | 사용량 요약 펼침 | 닫힘 `chevron-up` | 닫힘 `chevron-right` | 펼침 / 접힘 한 짝(FR-ICN-9) |
@@ -204,7 +208,7 @@ UI 아이콘 스프라이트(`web/index.html` `#ui-sprite`)를 다시 짠다. �
 
 - MEDIUM — 동적으로 고르는 아이콘 이름(삼항·상수)을 놓치면 빈 아이콘이 된다. 완화: TC-ICN-6 의 패턴 스캔 + `UIKit.icon` 의 개발 경고 + e2e 전량
 - LOW — 옅은 면이 일부 브라우저에서 `<use>` 복제본에 안 먹으면 면이 사라질 뿐 모양은 남는다(A-1). 구현 때 화면으로 확인한다
-- LOW — 2.25 선이 13px 아이콘에서 조금 두꺼워 보일 수 있다. 화면 비교로 확인한다
+- LOW — 2.25 선이 13px 아이콘에서 조금 두꺼워 보일 수 있다. 화면 비교로 확인한다 → 실제로 복잡한 아이콘이 1배 화면에서 뭉개져 2 로 되돌렸다(D-ICN-25)
 
 ## 7. 비목표
 - 아이콘 크기·버튼 치수·색 규칙 변경

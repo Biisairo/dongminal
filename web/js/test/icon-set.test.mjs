@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { load } from './harness.mjs';
 
 /**
- * ICON_SET_SRS TC-ICN-1~7: 아이콘은 선 한 벌(2.25·둥근 끝)이고, 옅은 면은 물체 모양에만 있고, 한 뜻 = 한 아이콘이다.
+ * ICON_SET_SRS TC-ICN-1~7: 아이콘은 선 한 벌(2·둥근 끝, D-ICN-25)이고, 옅은 면은 물체 모양에만 있고, 한 뜻 = 한 아이콘이다.
  *
  * MEANINGS 는 SRS §3.2 표를 옮긴 것이다. 표를 고치면 여기도 고친다.
  * uses 는 쓰는 자리마다 「그 파일에 이 이름이 이렇게 적혀 있다」 는 정규식이다.
@@ -112,16 +112,16 @@ test('TC-ICN-1: 심볼은 24 격자이고 선·채움·투명도를 스스로 �
   assert.deepEqual(bad, []);
 });
 
-test('TC-ICN-2: 선 2.25·둥근 끝, 옅은 면 한 규칙, 마스크 꺾쇠도 2.25', () => {
+test('TC-ICN-2: 선 2·둥근 끝, 옅은 면 한 규칙, 마스크 꺾쇠도 2 (D-ICN-25)', () => {
   const css = read('style-kit.css');
   const icon = css.match(/\n\.ui-icon\{([^}]*)\}/)[1];
-  assert.match(icon, /stroke-width:2\.25;/);
+  assert.match(icon, /stroke-width:2;/);
   assert.match(icon, /stroke-linecap:round;/);
   assert.match(icon, /stroke-linejoin:round;/);
   assert.match(icon, /fill:none;/);
   assert.match(icon, /stroke:currentColor;/);
   assert.match(css, /#ui-sprite \.t\{fill:currentColor;stroke:none;opacity:\.18\}/);
-  assert.match(css.match(/--ui-chev-right:[^;]*;/)[0], /stroke-width='2\.25' stroke-linecap='round' stroke-linejoin='round'/);
+  assert.match(css.match(/--ui-chev-right:[^;]*;/)[0], /stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/);
 });
 
 test('TC-ICN-3: 물체 모양만 옅은 면(.t)을 갖는다', () => {
