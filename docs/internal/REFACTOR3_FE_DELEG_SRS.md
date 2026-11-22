@@ -146,6 +146,7 @@ P3a 단계 7·8·9 와 REST5 는 App·GitPanel·FileTree·TerminalTool 의 메�
 
 | 합침 | `ba8b72b1` · `a964d2d6` | DL-3·DL-7 작업 트리를 main 에 합쳤다. 충돌은 양쪽 변경을 모두 살렸다: 한 줄에 App 이름과 패널·트리 이름이 함께 있으면 둘 다 소유 경로로 (`this.app.repoWin.gitDiffOpen(this.p.root,this.p.selection._diffTarget(),…)`). DL-7 쪽은 패널·트리 쪽을 받고 App 쪽은 codemod 를 다시 돌려 옮겼다. DL-7 의 가짜 앱 하나(`file-tree-surface` 의 `edWatchSync`)는 소유 경로로 |
 | 정리 | `3eba528c` · (이 커밋) | D-DLG-9: `Controller.delegate` 정적 메서드와 TC-FEA-1 을 지웠다. 게이트의 병렬 진행 중 기준선(`PENDING`)을 지웠다 — 이제 `Controller.delegate(` 하나부터 잡는다(TC-DLG-4). 문서(`architecture.md`·`FE_OBJECT_MODEL.md`·README·PROD3 §7.1) |
+| e2e 전량 | `14fef565` · `3f0cdc28` · `b11f7166` | 합친 트리의 첫 `make e2e`(DL-3·4·5·6·7 은 e2e 없이 만들었다): 2,289 통과 · 실패 16(3 spec). 원인은 셋 다 codemod 가 못 보는 자리였다 — `pane-dom-reconcile` 의 문자열 `evaluate` 안의 옛 App 이름 다섯(9건), `event-timer-hub-contract` 의 앱 대역이 옛 모양(`windowVisible`·`edWindowFor` 를 앱에 두고 `agents` 가 없음, 6건), `file-path-link` 가 갈아 끼운 `edOpenFile` 의 원본을 앱에 대고 부름(1건). 고친 뒤 전량 2,304 통과 · 실패 0 · 흔들림 1(`editor-ops` O7, 단독 재실행 통과 — 위임자와 무관한 알려진 흔들림) · 건너뜀 3 |
 
 **수.** 위임자 768 → 0. App 490 · GitPanel 162 · FileTree 96 · TerminalTool 20.
 
