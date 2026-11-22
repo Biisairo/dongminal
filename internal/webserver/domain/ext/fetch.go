@@ -175,10 +175,135 @@ func place(blob, dir string, t Target) error {
 // 형식을 URL 이 아니라 **파일 내용**으로 판정하지 않는 이유는 단순함이다 — 공식
 // 배포본의 이름은 안정적이고, 틀린 형식은 파싱에서 곧바로 실패한다.
 func extract(archive, dest string, strip int) error {
-	if strings.HasSuffix(strings.ToLower(archive), ".zip") || isZip(archive) {
-		return extractZip(archive, dest, strip)
+	u, err := newUnpacker(dest)
+	if err != nil {
+		return err
 	}
-	return extractTarGz(archive, dest, strip)
+	if strings.HasSuffix(strings.ToLower(archive), ".zip") || isZip(archive) {
+		return extractZip(archive, u, strip)
+	}
+	return extractTarGz(archive, u, strip)
+}
+
+// unpacker 는 엔트리를 격리 칸 하나에 놓는다 (FR-ATF-20).
+//
+// 이름·링크 문자열의 검사(entryPath·checkLinkTarget)는 앞서 놓인 링크를 모른다 —
+// `b→c/..`, `a→b/..` 는 둘 다 칸 안을 가리키는 문자열이지만 `a/evil` 은 칸의 부모에
+// 쓰인다. 그래서 쓰기 전에 **디스크의 실경로**를 본다.
+type unpacker struct {
+	dest string
+	// real 은 dest 의 실경로다. 비교의 기준이다.
+	real string
+}
+
+func newUnpacker(dest string) (*unpacker, error) {
+	real, err := filepath.EvalSymlinks(dest)
+	if err != nil {
+		return nil, fmt.Errorf("풀 자리를 확인하지 못했습니다: %w", err)
+	}
+	return &unpacker{dest: dest, real: real}, nil
+}
+
+func (u *unpacker) inside(real string) bool {
+	rel, err := filepath.Rel(u.real, real)
+	if err != nil || filepath.IsAbs(rel) {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// mkdir 은 dir 을 만든다. 이미 있는 가장 가까운 조상의 실경로가 칸 안일 때만이다 —
+// MkdirAll 이 링크를 따라 칸 밖에 디렉터리를 만들기 전에 본다.
+func (u *unpacker) mkdir(dir string) error {
+	p := dir
+	for {
+		if _, err := os.Lstat(p); err == nil {
+			break
+		}
+		parent := filepath.Dir(p)
+		if parent == p {
+			break
+		}
+		p = parent
+	}
+	real, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return fmt.Errorf("아카이브의 경로를 확인하지 못했습니다: %w", err)
+	}
+	if !u.inside(real) {
+		return fmt.Errorf("아카이브의 경로가 격리 칸 밖으로 이어집니다: %q", dir)
+	}
+	return os.MkdirAll(dir, 0o755)
+}
+
+// file 은 보통 파일 하나를 쓴다. 그 자리에 링크가 있으면 따라가지 않고 지운 뒤 쓴다.
+func (u *unpacker) file(target string, r io.Reader, perm os.FileMode) error {
+	if err := u.mkdir(filepath.Dir(target)); err != nil {
+		return err
+	}
+	if fi, err := os.Lstat(target); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		if err := os.Remove(target); err != nil {
+			return err
+		}
+	}
+	return writeFile(target, r, perm)
+}
+
+// symlink 는 상대 경로이고 해석 결과가 칸 안인 링크만 만든다. 아직 대상이 없는
+// 링크는 남기되, 그 뒤의 쓰기가 mkdir 의 실경로 검사를 지난다.
+func (u *unpacker) symlink(rel, target, link string) error {
+	// FR-EXT-39: 이름은 안쪽인데 **가리키는 곳이 밖**인 갈래다. 엔트리
+	// 이름만 보는 가드로는 막지 못한다.
+	if err := checkLinkTarget(rel, link); err != nil {
+		return err
+	}
+	if err := u.mkdir(filepath.Dir(target)); err != nil {
+		return err
+	}
+	_ = os.Remove(target)
+	if err := os.Symlink(link, target); err != nil {
+		return err
+	}
+	real, err := filepath.EvalSymlinks(target)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil || !u.inside(real) {
+		_ = os.Remove(target)
+		return fmt.Errorf("링크가 격리 칸 밖을 가리킵니다: %q → %q", rel, link)
+	}
+	return nil
+}
+
+// hardlink 는 tar 하드링크를 복사로 놓는다. 대상 이름은 아카이브 뿌리 기준이라
+// strip 을 똑같이 적용한다 (AT-EXT-8).
+//
+//	이전 동작: 하드링크를 심볼릭 링크로 만들고 strip 을 적용하지 않았다 — 깨진 링크
+//	새  동작: strip 을 적용한 칸 안의 보통 파일을 복사한다
+//	이유:     FR-ATF-20
+func (u *unpacker) hardlink(target, linkname string, strip int) error {
+	srcRel, skip, err := entryPath(linkname, strip)
+	if err != nil {
+		return err
+	}
+	if skip {
+		return fmt.Errorf("하드링크의 대상이 없습니다: %q", linkname)
+	}
+	src := filepath.Join(u.dest, srcRel)
+	fi, err := os.Lstat(src)
+	if err != nil || !fi.Mode().IsRegular() {
+		return fmt.Errorf("하드링크의 대상이 보통 파일이 아닙니다: %q", linkname)
+	}
+	real, err := filepath.EvalSymlinks(src)
+	if err != nil || !u.inside(real) {
+		return fmt.Errorf("하드링크가 격리 칸 밖을 가리킵니다: %q", linkname)
+	}
+	f, err := os.Open(real)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return u.file(target, f, fi.Mode().Perm())
 }
 
 func isZip(p string) bool {
@@ -194,7 +319,7 @@ func isZip(p string) bool {
 	return magic[0] == 'P' && magic[1] == 'K'
 }
 
-func extractTarGz(archive, dest string, strip int) error {
+func extractTarGz(archive string, u *unpacker, strip int) error {
 	f, err := os.Open(archive)
 	if err != nil {
 		return err
@@ -222,28 +347,23 @@ func extractTarGz(archive, dest string, strip int) error {
 		if skip {
 			continue
 		}
-		target := filepath.Join(dest, rel)
+		target := filepath.Join(u.dest, rel)
 
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := u.mkdir(target); err != nil {
 				return err
 			}
 		case tar.TypeReg:
-			if err := writeFile(target, tr, os.FileMode(hdr.Mode).Perm()); err != nil {
+			if err := u.file(target, tr, os.FileMode(hdr.Mode).Perm()); err != nil {
 				return err
 			}
-		case tar.TypeSymlink, tar.TypeLink:
-			// FR-EXT-39: 이름은 안쪽인데 **가리키는 곳이 밖**인 갈래다. 엔트리
-			// 이름만 보는 가드로는 막지 못한다.
-			if err := checkLinkTarget(rel, hdr.Linkname); err != nil {
+		case tar.TypeSymlink:
+			if err := u.symlink(rel, target, hdr.Linkname); err != nil {
 				return err
 			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return err
-			}
-			_ = os.Remove(target)
-			if err := os.Symlink(hdr.Linkname, target); err != nil {
+		case tar.TypeLink:
+			if err := u.hardlink(target, hdr.Linkname, strip); err != nil {
 				return err
 			}
 		default:
@@ -254,7 +374,7 @@ func extractTarGz(archive, dest string, strip int) error {
 	}
 }
 
-func extractZip(archive, dest string, strip int) error {
+func extractZip(archive string, u *unpacker, strip int) error {
 	zr, err := zip.OpenReader(archive)
 	if err != nil {
 		return fmt.Errorf("아카이브를 열지 못했습니다: %w", err)
@@ -269,9 +389,9 @@ func extractZip(archive, dest string, strip int) error {
 		if skip {
 			continue
 		}
-		target := filepath.Join(dest, rel)
+		target := filepath.Join(u.dest, rel)
 		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := u.mkdir(target); err != nil {
 				return err
 			}
 			continue
@@ -280,7 +400,7 @@ func extractZip(archive, dest string, strip int) error {
 		if err != nil {
 			return err
 		}
-		err = writeFile(target, rc, f.Mode().Perm())
+		err = u.file(target, rc, f.Mode().Perm())
 		rc.Close()
 		if err != nil {
 			return err
