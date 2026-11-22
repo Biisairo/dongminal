@@ -99,6 +99,8 @@ async function loadRestoreProtocol(page: Page) {
       _repaintTabs() {}
       // `_fgRepaint` 는 제목도 다시 칠한다 (FR-ITW-4). 그릴 제목이 없는 하네스다.
       renderer = { _rPaintTitles() {}, _tabDisplayName() { return ''; } };
+      // 에이전트 패널이 없는 하네스다 — `agents.agentsRender` 가 없으면 그리지 않는다.
+      agents = {};
       // 경쟁 해소는 이제 버스가 소유한다 (FR-BUS-6). `_restore*` 는 위임
       // 껍데기이므로, 그것을 재려면 버스가 서 있어야 한다. 침묵 감시를 쓰지
       // 않으므로 타이머는 주입하지 않는다.
@@ -261,8 +263,8 @@ async function loadPanelPoll(page: Page) {
       app = {
         // 소유 경로의 대역 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
         git: { gitWindow: () => ({ id: 'w1' }), surfaces: { gitSurfaceOn: () => true } },
-        edWindowFor: () => ({ id: 'w1' }),
-        windowVisible: () => true,
+        editor: { edWindowFor: () => ({ id: 'w1' }) },
+        slot: { windowVisible: () => true },
       };
       token() { return 'tok' }
       isStale() { return false }
