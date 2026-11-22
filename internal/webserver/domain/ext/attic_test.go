@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"dongminal/internal/shared/testpath"
 )
@@ -179,6 +181,56 @@ func TestFetchArchive_RenameFailureRestoresOld(t *testing.T) {
 		}
 	}
 }
+
+// TC-ATF-21 (FR-ATF-21 / AT-EXT-2): 같은 런타임의 조달은 직렬이다. node 가 필요한 팩
+// 둘을 함께 조달해도 런타임은 한 번 받고, 서로의 옆 자리를 지우지 않는다.
+func TestEnsureRuntime_ConcurrentFetchesOnce(t *testing.T) {
+	root := t.TempDir()
+	node := mustParse(t, nodeRuntime)
+	tg, ok := node.Source.Targets[CurrentTarget()]
+	if !ok {
+		t.Skipf("이 타깃(%s)의 선언이 검사 매니페스트에 없다", CurrentTarget())
+	}
+	blob := makeTarGz(t, []tarEntry{
+		{name: "pkg/" + tg.Provides["node"], body: "#!/bin/sh\n", mode: 0o755},
+		{name: "pkg/" + tg.Provides["npm"], body: "#!/bin/sh\n", mode: 0o755},
+	})
+	node.Source.Targets[CurrentTarget()] = Target{URL: tg.URL, SHA256: sum(blob), Strip: 1, Provides: tg.Provides}
+
+	var mu sync.Mutex
+	fetched := 0
+	fetch := func(_ context.Context, _ string, w io.Writer) error {
+		mu.Lock()
+		fetched++
+		mu.Unlock()
+		// 다른 쪽이 같은 자리에 들어올 틈을 준다 — 잠금이 없으면 그 틈에 두 번째 조달이 들어온다.
+		time.Sleep(concurrentWindow)
+		_, err := w.Write(blob)
+		return err
+	}
+	outs := make([]Outcome, 2)
+	var wg sync.WaitGroup
+	for i := range outs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			inst := testInstaller(root, &recorder{}, nil, fetch)
+			outs[i] = inst.ensureRuntime(context.Background(), node.ID, []Manifest{node})
+		}()
+	}
+	wg.Wait()
+	for i, o := range outs {
+		if !o.OK {
+			t.Fatalf("조달 %d 이 실패했다: %+v", i, o)
+		}
+	}
+	if fetched != 1 {
+		t.Fatalf("런타임을 %d 번 받았다, want 1", fetched)
+	}
+}
+
+// concurrentWindow 는 동시 조달 검사가 두 번째 조달에 주는 틈이다.
+const concurrentWindow = 200 * time.Millisecond
 
 // TC-ATF-24 (FR-ATF-24 / AT-EXT-5): 다운로드 임시 파일은 `<root>/cache` 아래에 생기고
 // 끝나면 지워진다 — 격리 칸 밖(OS 임시 디렉터리)에 쓰지 않는다.

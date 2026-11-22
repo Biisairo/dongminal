@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -182,7 +183,15 @@ func (r *Installer) Install(ctx context.Context, m Manifest, runtimes []Manifest
 //
 // **있으면 아무것도 하지 않는다.** 호스트의 것도 인정하며(§2.5 ④ 와 같은 근거),
 // 그것이 대개의 개발 기계에서 우리가 아무것도 받지 않는 이유다.
+//
+// 같은 런타임의 조달은 직렬이다 (FR-ATF-21). 팩 단위 잠금만으로는 node 가 필요한
+// 팩 둘이 같은 옆 자리를 서로 지운다. 잠금을 얻은 뒤 다시 보아, 앞선 조달이 세운
+// 런타임을 또 받지 않는다.
 func (r *Installer) ensureRuntime(ctx context.Context, id string, runtimes []Manifest) Outcome {
+	if runtimeReadyIn(r.Root, r.lookPath(), runtimes, id, CurrentTarget()) {
+		return Outcome{OK: true}
+	}
+	defer runtimeLocks.lock(filepath.Join(r.Root, id))()
 	if runtimeReadyIn(r.Root, r.lookPath(), runtimes, id, CurrentTarget()) {
 		return Outcome{OK: true}
 	}
@@ -206,6 +215,31 @@ func (r *Installer) ensureRuntime(ctx context.Context, id string, runtimes []Man
 		return Outcome{Reason: fmt.Sprintf("%s 를 받지 못했습니다", id), Detail: err.Error()}
 	}
 	return Outcome{OK: true}
+}
+
+// runtimeLocks 는 런타임 조달의 직렬 구간이다. 열쇠는 격리 칸과 런타임 id 다 (FR-ATF-21).
+var runtimeLocks keyedMutex
+
+// keyedMutex 는 열쇠마다 하나인 잠금이다. 열쇠는 런타임 수만큼이라 지우지 않는다.
+type keyedMutex struct {
+	mu sync.Mutex
+	m  map[string]*sync.Mutex
+}
+
+// lock 은 key 의 잠금을 얻고 푸는 함수를 돌려준다.
+func (k *keyedMutex) lock(key string) func() {
+	k.mu.Lock()
+	if k.m == nil {
+		k.m = map[string]*sync.Mutex{}
+	}
+	l, ok := k.m[key]
+	if !ok {
+		l = &sync.Mutex{}
+		k.m[key] = l
+	}
+	k.mu.Unlock()
+	l.Lock()
+	return l.Unlock
 }
 
 // installNPM 은 **그 런타임의 npm** 으로 받는다 (FR-EXT-12).
