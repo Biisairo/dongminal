@@ -28,7 +28,7 @@ type Service struct {
 
 	// Start 는 언어 서버 프로세스를 세운다. 비면 실제 프로세스를 쓴다.
 	Start Starter
-	// Now 는 시계다. 비면 time.Now — 백오프·TTL 검사가 시간을 쥔다.
+	// Now 는 시계다. 비면 time.Now — idle 정리(Sweep)가 시간을 쥔다.
 	Now func() time.Time
 	// IdleAfter·MaxSessions 가 0 이면 이 패키지의 기본값을 쓴다.
 	IdleAfter   time.Duration
