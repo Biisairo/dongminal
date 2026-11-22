@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +45,8 @@ var (
 	ErrAmbiguous = errors.New("지문 앞자리가 간선 둘 이상에 맞습니다")
 	// ErrInvalidNodeField 는 허용 폴더(절대 경로)·알릴 주소(주소)가 틀렸다는 뜻이다.
 	ErrInvalidNodeField = errors.New("허용 폴더는 절대 경로, 알릴 주소는 IP 주소나 호스트명이어야 합니다")
+	// ErrEdgeLimit 은 간선이 MaxEdges 개라 더 맺지 못한다는 뜻이다 (ATTIC_FIX_SRS FR-ATF-80).
+	ErrEdgeLimit = fmt.Errorf("간선은 최대 %d 개입니다", MaxEdges)
 	// ErrSaveFailed 는 저장 자체의 실패다. 사유는 로그로만 간다.
 	ErrSaveFailed = errors.New("노드 설정을 저장하지 못했습니다")
 )
@@ -55,6 +58,9 @@ const (
 	// DisplayNameMax 는 상대가 알린 표시 이름의 바이트 상한이다.
 	DisplayNameMax = 64
 	fingerprintLen = 64
+	// MaxEdges 는 맺을 수 있는 간선 수의 상한이다 (ATTIC_FIX_SRS FR-ATF-80). 추가만 막는다 —
+	// 파일에 이미 더 있으면 그대로 읽고 저장한다.
+	MaxEdges = 64
 )
 
 // Edge 는 간선 하나다. 신원은 Fingerprint 다. Name 은 상대가 알린 표시 이름이라 겹쳐도
@@ -431,6 +437,21 @@ func (s *Store) resolveHandle(q string) (Edge, error) {
 	return Edge{}, ErrAmbiguous
 }
 
+// CanAdd 는 지문 fp 의 간선을 더할 수 있는가다. 이미 있는 간선은 다시 맺을 수 있고, 새 간선은
+// MaxEdges 개 미만일 때만 더한다. 맺기 전에 보아 상대·초대를 건드리지 않고 거절한다.
+func (s *Store) CanAdd(fp string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return canAdd(s.cfg.Edges, fp)
+}
+
+func canAdd(edges []Edge, fp string) error {
+	if len(edges) < MaxEdges || slices.ContainsFunc(edges, func(e Edge) bool { return e.Fingerprint == fp }) {
+		return nil
+	}
+	return ErrEdgeLimit
+}
+
 // AddEdge 는 간선을 더한다. 같은 지문이 있으면 이름·주소만 바꾸고 고정한 도우미 키는
 // 넘겨받는다 — 도우미 키는 간선을 지울 때만 사라진다 (FR-EPR-7, PEER_CHAT_SRS §3.12a R-2).
 func (s *Store) AddEdge(p Edge) error {
@@ -447,6 +468,9 @@ func (s *Store) AddEdge(p Edge) error {
 			}
 			c.Edges[i] = p
 			return nil
+		}
+		if err := canAdd(c.Edges, p.Fingerprint); err != nil {
+			return err
 		}
 		c.Edges = append(c.Edges, p)
 		return nil

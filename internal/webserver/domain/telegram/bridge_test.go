@@ -37,6 +37,13 @@ type fakeTG struct {
 	calls []apiCall
 	// failEdits 는 버튼 걷기를 거절할 메시지 id 다.
 	failEdits map[float64]bool
+	// sendFails 는 sendMessage 가 차례로 돌려줄 실패 응답이다. 비면 성공한다.
+	sendFails []fakeFail
+}
+
+type fakeFail struct {
+	status int
+	body   string
 }
 
 func (f *fakeTG) handler(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +55,17 @@ func (f *fakeTG) handler(w http.ResponseWriter, r *http.Request) {
 	f.calls = append(f.calls, apiCall{parts[len(parts)-1], body})
 	id := len(f.calls)
 	refuse := parts[len(parts)-1] == "editMessageReplyMarkup" && f.failEdits[body["message_id"].(float64)]
+	var fail *fakeFail
+	if parts[len(parts)-1] == "sendMessage" && len(f.sendFails) > 0 {
+		fail = &f.sendFails[0]
+		f.sendFails = f.sendFails[1:]
+	}
 	f.mu.Unlock()
+	if fail != nil {
+		w.WriteHeader(fail.status)
+		_, _ = io.WriteString(w, fail.body)
+		return
+	}
 	if refuse {
 		w.WriteHeader(http.StatusTooManyRequests)
 		_, _ = io.WriteString(w, `{"ok":false,"error_code":429,"description":"Too Many Requests"}`)

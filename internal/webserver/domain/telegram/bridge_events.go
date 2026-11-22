@@ -2,7 +2,11 @@ package telegram
 
 import (
 	"context"
+	"errors"
+	"maps"
+	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"dongminal/internal/shared/dmlog"
@@ -133,7 +137,7 @@ func (b *Bridge) alarm(c Config, toolID, reason string) {
 	var msg struct {
 		MessageID int64 `json:"message_id"`
 	}
-	if err := b.call(c, "sendMessage", p, &msg); err != nil {
+	if err := b.sendAlarm(c, p, &msg); err != nil {
 		dmlog.Infof(nil, "telegram: 알림을 보내지 못했다: %v", err)
 		return
 	}
@@ -148,6 +152,34 @@ func (b *Bridge) alarm(c Config, toolID, reason string) {
 		b.mu.Unlock()
 	}
 }
+
+// sendAlarm 은 알림을 보내고, 실패하면 한 번 다시 보낸다 (ATTIC_FIX_SRS FR-ATF-76 · AT-TG-3).
+// 429 면 retry_after 를 alarmRetryAfterMax 까지 지켜 기다리고, HTML 해석 오류(400)면 parse_mode 를
+// 빼고 보낸다. 그 밖의 실패는 backoffFirst 뒤에 같은 것을 다시 보낸다. b.mu 는 쥐지 않는다.
+//
+//	이전: 실패한 알림은 로그만 남기고 버렸다
+func (b *Bridge) sendAlarm(c Config, p map[string]any, out any) error {
+	err := b.call(c, "sendMessage", p, out)
+	if err == nil {
+		return nil
+	}
+	var ae *APIError
+	isAPI := errors.As(err, &ae)
+	switch {
+	case isAPI && ae.Code == http.StatusTooManyRequests:
+		b.sleep(min(time.Duration(ae.RetryAfter)*time.Second, alarmRetryAfterMax))
+	case isAPI && ae.Code == http.StatusBadRequest && strings.Contains(ae.Description, parseErrorText):
+		plain := maps.Clone(p)
+		delete(plain, "parse_mode")
+		p = plain
+	default:
+		b.sleep(backoffFirst)
+	}
+	return b.call(c, "sendMessage", p, out)
+}
+
+// parseErrorText 는 Bot API 가 HTML 을 읽지 못했을 때 400 설명에 싣는 글이다.
+const parseErrorText = "can't parse entities"
 
 // clearButtonsParallel 은 버튼 걷기 요청을 한꺼번에 몇 개까지 띄우는가다 (QUALITY_GO_SRS
 // FR-QG-20 · D-QG-6). 한 대화에 짧게 많이 보내면 Telegram 이 429 로 늦추므로 작게 둔다.

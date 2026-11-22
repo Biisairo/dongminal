@@ -44,6 +44,8 @@ var (
 	ErrUnknownNode = errors.New("모르는 노드다")
 	// ErrInviteFull 은 초대 기억이 만료 전 항목으로 가득 찼다는 뜻이다 (FR-ATF-51).
 	ErrInviteFull = errors.New("초대 기억이 가득 찼다")
+	// errDuplicate 는 건 연결을 Attach 가 중복으로 버렸다는 뜻이다. 걸기 실패로 센다 (FR-ATF-77).
+	errDuplicate = errors.New("같은 상대와의 연결이 이미 있다")
 )
 
 // Hello 는 직접 정보다 (FR-EGM-20). Port 가 0 이면 주소를 싣지 않은 것이다.
@@ -105,6 +107,8 @@ type link struct {
 	// helloDone 은 연결이 열릴 때 보낸 hello 를 다 쓰면 닫힌다.
 	helloDone chan struct{}
 	lastSeen  atomic.Int64
+	// since 는 연결이 붙은 시각이다. 끊길 때 다시 걸기 간격을 정한다 (FR-ATF-77).
+	since time.Time
 	// open 은 위층이 첫 줄을 넣었는가다 (FR-EGM-6). m.mu 가 지킨다.
 	open bool
 }
@@ -297,27 +301,31 @@ func remoteHost(c net.Conn) string {
 // Attach 는 상대 fp 와의 연결을 붙인다. 같은 상대와 이미 연결이 있으면 하나만 남긴다: 지문이
 // 작은 쪽이 건 연결을 남기고, 같으면 새 연결을 남긴다 (FR-EGM-3). 새 연결에는 hello, 자기 net,
 // 아는 노드들의 net 을 먼저 넣고 위층을 부른다 (FR-EGM-6).
-func (m *Mesh) Attach(fp string, conn net.Conn, dialed bool) {
+func (m *Mesh) Attach(fp string, conn net.Conn, dialed bool) { m.attach(fp, conn, dialed) }
+
+// attach 는 Attach 이고, 연결을 붙였는가를 돌려준다.
+func (m *Mesh) attach(fp string, conn net.Conn, dialed bool) bool {
 	l := &link{fp: fp, conn: conn, remote: remoteHost(conn), out: make(chan outItem, outQueue),
 		done: make(chan struct{}), helloDone: make(chan struct{})}
 	l.dialer = fp
 	if dialed {
 		l.dialer = m.id.Fingerprint
 	}
-	l.lastSeen.Store(m.now().UnixNano())
+	l.since = m.now()
+	l.lastSeen.Store(l.since.UnixNano())
 	h := m.hello()
 	m.mu.Lock()
 	if m.closed || fp == "" || fp == m.id.Fingerprint {
 		m.mu.Unlock()
 		_ = conn.Close()
-		return
+		return false
 	}
 	var replaced *link
 	if old, ok := m.links[fp]; ok {
 		if !m.preferNew(old, l) {
 			m.mu.Unlock()
 			_ = conn.Close()
-			return
+			return false
 		}
 		replaced = old
 	}
@@ -344,6 +352,7 @@ func (m *Mesh) Attach(fp string, conn net.Conn, dialed bool) {
 		go up.Linked(fp)
 	}
 	go m.readLoop(l)
+	return true
 }
 
 func (m *Mesh) preferNew(old, l *link) bool {
@@ -413,6 +422,15 @@ func (m *Mesh) detach(l *link) {
 		return
 	}
 	delete(m.links, l.fp)
+	// 생존 판정 시간(deadAfter)을 버틴 연결만 걸기 간격을 처음 값으로 되돌린다. 그보다 일찍
+	// 끊기면 걸기 실패로 센다 (ATTIC_FIX_SRS FR-ATF-77 · AT-MESH-1).
+	if d := m.dialing[l.fp]; d != nil {
+		if now := m.now(); now.Sub(l.since) >= m.deadAfter {
+			d.wait = redialMin
+		} else {
+			d.failLocked(now)
+		}
+	}
 	if !m.closed {
 		m.announceLocked(nil)
 		m.topologyLocked()
@@ -575,6 +593,12 @@ func (m *Mesh) dialStateLocked(fp string) *dialState {
 	return d
 }
 
+// failLocked 는 걸기 실패를 센다: 다음 걸기를 지금 간격 뒤로 미루고 간격을 두 배로 늘린다.
+func (d *dialState) failLocked(now time.Time) {
+	d.next = now.Add(d.wait)
+	d.wait = min(d.wait*2, redialMax)
+}
+
 func (d *dialState) startLocked() {
 	d.running = true
 	d.done = make(chan struct{})
@@ -585,11 +609,10 @@ func (m *Mesh) redial(ctx context.Context, e edge.Edge, d *dialState) error {
 	m.mu.Lock()
 	d.running = false
 	d.err = err
+	// 성공해도 간격을 되돌리지 않는다 — 연결이 deadAfter 를 버티고 끊길 때 detach 가 되돌린다.
+	//	이전: TCP·TLS 성공만으로 1초로 되돌려, 붙자마자 끊기는 상대에 1초마다 걸었다
 	if err != nil {
-		d.next = m.now().Add(d.wait)
-		d.wait = min(d.wait*2, redialMax)
-	} else {
-		d.wait = redialMin
+		d.failLocked(m.now())
 	}
 	close(d.done)
 	m.mu.Unlock()
@@ -601,7 +624,9 @@ func (m *Mesh) redial(ctx context.Context, e edge.Edge, d *dialState) error {
 func (m *Mesh) dial(ctx context.Context, e edge.Edge) error {
 	conn, err := m.opts.Dial(ctx, edge.Target{Addr: e.Addr, Port: e.Port, Fingerprint: e.Fingerprint})
 	if err == nil {
-		m.Attach(e.Fingerprint, conn, true)
+		if !m.attach(e.Fingerprint, conn, true) {
+			return errDuplicate
+		}
 		return nil
 	}
 	var re *edge.RemoteError
@@ -723,7 +748,8 @@ func (m *Mesh) Notify(ctx context.Context, fp string) error {
 	} else {
 		d.startLocked()
 		m.mu.Unlock()
-		if err := m.redial(ctx, e, d); err != nil {
+		// 중복으로 버려졌으면 먼저 있던 연결로 hello 가 간다.
+		if err := m.redial(ctx, e, d); err != nil && !errors.Is(err, errDuplicate) {
 			return err
 		}
 		m.mu.Lock()
