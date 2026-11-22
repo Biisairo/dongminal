@@ -247,6 +247,20 @@
 .seed-swatch:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
 #theme-seed-row .seed-color{width:var(--ui-btn-h-sm);height:var(--ui-btn-h-sm);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px;cursor:pointer;background:transparent}
 #custom-editor .seed-hint{margin-bottom:var(--sp-4)}
+/* FR-SEED-15: 손잡이 묶음은 줄 수 있고 견본은 줄을 바꾼다 — 모바일 견본은 터치 하한(44)이라 여덟 개가
+   한 줄에 들지 않는다. 좁은 폭(행 문법 기준 440px, FR-UXF-50)에서는 묶음이 라벨 아래 줄로 내려가고
+   견본은 넷씩 두 줄이다. 넓은 폭에서는 한 줄에 들어 모양이 그대로다.
+     이전 동작: 손잡이 묶음이 줄지 않아 견본이 카드 오른쪽 밖으로 넘쳐 잘렸다
+     새  동작: 견본·색 입력·스위치가 카드 폭 안에 든다
+     이유:     390px 모바일에서 견본 일부와 색 입력·스위치가 보이지 않았다 */
+#theme-seed-row .seed-ctl{flex:0 1 auto;min-width:0}
+#theme-seed-row .seed-swatches{flex-wrap:wrap;min-width:0}
+@container (max-width:439.98px){
+  #theme-seed-row{flex-wrap:wrap;row-gap:var(--sp-4)}
+  #theme-seed-row>span:first-child{flex:1 0 100%}
+  #theme-seed-row .seed-ctl{flex:1 1 0;justify-content:flex-start}
+  #theme-seed-row .seed-swatches{display:grid;grid-template-columns:repeat(4,max-content)}
+}
 /* UI_POLISH_SRS FR-UIP-16: 키트의 기본 버튼이다 — 점선 상자는 "여기에 놓으세요" 의
    모양이라 누르는 버튼으로 읽히지 않았다. 켜진 상태는 세그먼트의 선택과 같은 말이다. */
 #custom-toggle.active{background:var(--accent-subtle);color:var(--text-bright);border-color:var(--border-strong)}

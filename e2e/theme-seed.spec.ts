@@ -87,4 +87,24 @@ test.describe('메인색', () => {
     expect(applied).toBe(await cssVar(page, '--accent'));
     await expect(page.locator('#theme-preview .pv-dot').first()).toHaveCSS('background-color', rgb(applied));
   });
+
+  test('TC-SEED-12: 390px 모바일에서 견본·색 입력·스위치가 카드 안쪽에 들고, 견본은 터치 하한을 지킨다', async ({ page }) => {
+    await waitForInit(page, { mode: 'mobile', viewport: { width: 390, height: 844 } });
+    await page.click('#m-drawer-toggle');
+    await openTheme(page);
+    const g = await page.locator('#theme-seed-row').evaluate((row) => {
+      const r = row.getBoundingClientRect();
+      const inner = r.right - parseFloat(getComputedStyle(row).paddingRight);
+      const ctl = [...row.querySelectorAll<HTMLElement>('.seed-swatch, .seed-color, .ui-switch')];
+      const sw = ctl.filter((e) => e.classList.contains('seed-swatch')).map((e) => e.getBoundingClientRect());
+      return {
+        inner,
+        right: Math.max(...ctl.map((e) => e.getBoundingClientRect().right)),
+        minSide: Math.min(...sw.map((b) => Math.min(b.width, b.height))),
+        touch: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--touch-min')),
+      };
+    });
+    expect(g.right).toBeLessThanOrEqual(g.inner + 0.5);
+    expect(g.minSide).toBeGreaterThanOrEqual(g.touch - 0.5);
+  });
 });
