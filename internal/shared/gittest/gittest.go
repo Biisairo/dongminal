@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"dongminal/internal/shared/platform"
@@ -84,15 +85,42 @@ func Count(t testing.TB) *Counter {
 	if platform.Current().OS == platform.Windows {
 		t.Skip("git 계수는 셸 스크립트를 쓴다 — Windows 에서는 건너뛴다")
 	}
-	real := Path(t)
-	dir := t.TempDir()
-	log := filepath.Join(dir, "calls.log")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '" + log + "'\nexec '" + real + "' \"$@\"\n"
-	if err := os.WriteFile(filepath.Join(dir, "git"), []byte(script), 0o755); err != nil {
+	dir, err := countShim(Path(t))
+	if err != nil {
 		t.Fatal(err)
 	}
+	log := filepath.Join(t.TempDir(), "calls.log")
+	t.Setenv(countLogEnv, log)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	return &Counter{log: log}
+}
+
+// countLogEnv 는 계수 스크립트가 줄을 적을 파일이다 — 시험마다 다르다.
+const countLogEnv = "DM_GITTEST_LOG"
+
+// 계수 스크립트는 시험 실행(프로세스)마다 **한 번만** 만든다.
+//
+//	이전 동작: 시험마다 새 임시 폴더에 새 `git` 스크립트를 만들었다
+//	새  동작: 한 번 만든 스크립트를 다시 쓰고, 기록 파일만 시험마다 환경 변수로 넘긴다
+//	이유:     macOS 는 처음 보는 실행 파일을 띄울 때 보안 검사를 한다 — 실측 12초(두 번째는
+//	          0.06초). 부하가 겹치면 git 의 30초 마감을 넘겨 시험이 흔들렸다
+//	          (TestResolve_BatchesPaths · TestStashPopChecked_ThreeProcesses, 2026-11-22)
+var (
+	shimOnce sync.Once
+	shimDir  string
+	shimErr  error
+)
+
+func countShim(real string) (string, error) {
+	shimOnce.Do(func() {
+		shimDir, shimErr = os.MkdirTemp("", "dm-gittest-")
+		if shimErr != nil {
+			return
+		}
+		script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$" + countLogEnv + "\"\nexec '" + real + "' \"$@\"\n"
+		shimErr = os.WriteFile(filepath.Join(shimDir, "git"), []byte(script), 0o755)
+	})
+	return shimDir, shimErr
 }
 
 // Calls 는 지금까지 뜬 git 의 argv 다 (공백으로 이은 한 줄씩).
