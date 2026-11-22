@@ -33,12 +33,14 @@ function setup() {
   const app = new ctx.App();
   // REFACTOR3_FE_APPCTL_SRS 9a: 간선 읽기·망 그림·초대는 `EdgesController` 다.
   app.edges = new ctx.EdgesController(app);
-  app.settings = { live: new ctx.SettingsLive(app) };
-  app._liveOpen = () => false;
+  // 섹션은 탭 이름으로 찾는다 (REFACTOR3_FE_DELEG_SRS D-DLG-4). 이 시험은 간선 섹션만 세운다.
+  const sections = { edges: { _edgesPaint() {} } };
+  app.settings = { live: new ctx.SettingsLive(app), apply: {}, section: (t) => sections[t] || null };
+  app.settings.live._liveOpen = () => false;
   app._restoreBegin = () => 1;
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
-  app._applyPageTitle = () => {};
+  app.settings.apply._applyPageTitle = () => {};
   return { ctx, app, shown, posts, setNext: (v) => { next = v }, setPost: (v) => { postResult = v } };
 }
 
@@ -93,17 +95,17 @@ test('간선 상대의 알림 대기·옛 판 표시 (FR-EGM-52·54)', () => {
 test('알리기는 지문으로 보내고 다시 읽는다 (FR-EGM-54)', async () => {
   const { app, posts, setPost } = setup();
   let reads = 0;
-  app._edgesRestore = async () => { reads++ };
+  app.edges._edgesRestore = async () => { reads++ };
   setPost({ ok: true, status: 200, data: { notified: true } });
-  await app._egNotify({ fp: A, name: 'a', tag: '0002' });
+  await app.edges._egNotify({ fp: A, name: 'a', tag: '0002' });
   assert.equal(JSON.stringify(posts), JSON.stringify([['/api/edges/notify', { fp: A }]]));
   assert.equal(reads, 1);
 });
 
 test('초대 보내기·맺기·거절 (FR-EGM-53·55)', async () => {
   const { app, posts } = setup();
-  app._edgesRestore = async () => {};
-  await app._egInviteSend({ fp: B, name: 'b', tag: '0003' });
+  app.edges._edgesRestore = async () => {};
+  await app.edges._egInviteSend({ fp: B, name: 'b', tag: '0003' });
   await app.edges._egInviteAccept({ id: 'i1', from: B, name: 'b', tag: '0003' });
   await app.edges._egInviteReject({ id: 'i2', from: C, name: 'c', tag: '0004' });
   assert.equal(JSON.stringify(posts), JSON.stringify([
@@ -115,8 +117,8 @@ test('초대 보내기·맺기·거절 (FR-EGM-53·55)', async () => {
 
 test('invited 방송은 보낸 노드의 핸들로 알림을 띄운다 (FR-EGM-55)', async () => {
   const { app, shown } = setup();
-  app._edgesPaint = () => {};
-  await app._onEdgesChanged({ invited: { fp: B, name: 'b', tag: '0003' } });
+  app.settings.section('edges')._edgesPaint = () => {};
+  await app.edges._onEdgesChanged({ invited: { fp: B, name: 'b', tag: '0003' } });
   assert.equal(shown.length, 1);
   assert.match(shown[0].text, /^edge\.invited_notice/);
   assert.match(shown[0].text, /"name":"b#0003"/);

@@ -70,7 +70,7 @@ test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중�
   });
   ctx.document.activeElement = els['ds-tabw'];
   els['ds-tabw'].value = '99';
-  app._paintSettingControls();
+  app.settings.paint();
   assert.equal(els['ds-fgnames'].checked, true);
   assert.equal(els['ds-claudefs'].checked, true);
   assert.equal(els['ds-confirmleave'].checked, false);
@@ -81,6 +81,6 @@ test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중�
   assert.equal(els['ds-termfs'].value, '14', '한 번도 실리지 않은 키는 표의 기본값');
   assert.equal(els['ds-tabw'].value, '99', '치는 중인 글자를 덮었다');
   ctx.document.activeElement = null;
-  app._paintSettingControls();
+  app.settings.paint();
   assert.equal(els['ds-tabw'].value, '180');
 });

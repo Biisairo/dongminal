@@ -6,8 +6,8 @@
  * `app-settings-init.js` 에서 구간 이동했고 편집은 앱으로 나가는 자리(`this.app.`)뿐이다.
  * `_settingsAcceptRemote` 는 `_settingsRestore` 안에 있던 에코 판정 두 줄이다.
  *
- * **`_settingsApply`·`_settingsRestore` 는 `this.app.` 으로 부른다** (§2.3a A-6) — e2e
- * (`save-pipeline`)가 앱의 `_settingsApply` 를 갈아 끼워 재적용 수를 센다.
+ * **`_settingsApply`·`_settingsRestore` 는 `this.app.settings.apply.` 로 부른다** (§2.3a A-6) — e2e
+ * (`save-pipeline`)가 그 주인의 `_settingsApply` 를 갈아 끼워 재적용 수를 센다 (REFACTOR3_FE_DELEG_SRS).
  */
 class SettingsSync {
   constructor(app){ this.app=app }
@@ -42,7 +42,7 @@ Object.assign(SettingsSync.prototype, {
       try{
         while(this._settingsDirty){
           this._settingsDirty=false;
-          const body=JSON.stringify(this.app._settingsBody());
+          const body=JSON.stringify(this.app.settings.apply._settingsBody());
           // D-OPT-7: 보낸 본문을 **보내기 전에** 적는다 — 방송이 응답보다 먼저 온다.
           this._settingsLastSent=body;
           const res=await apiPut('/api/settings?clientId='+encodeURIComponent(this.app.clientId),body);
@@ -54,7 +54,7 @@ Object.assign(SettingsSync.prototype, {
         // 비행 중에 받은 방송은 미뤄 두었다 — 남의 저장일 수 있으므로 이제 다시 본다.
         if(this._settingsEchoMissed){
           this._settingsEchoMissed=false;
-          this.app._settingsRestore();
+          this.app.settings.apply._settingsRestore();
         }
       }
       return ok;
@@ -103,6 +103,6 @@ Object.assign(SettingsSync.prototype, {
    */
   _settingsAcceptRemote(r){
     if(this._settingsLocalPending()) this._settingsEchoMissed=true;
-    else if(!(r.ok&&r.text===this._settingsLastSent)) this.app._settingsApply(r.ok?r.data:null);
+    else if(!(r.ok&&r.text===this._settingsLastSent)) this.app.settings.apply._settingsApply(r.ok?r.data:null);
   },
 });

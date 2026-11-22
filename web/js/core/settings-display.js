@@ -66,8 +66,8 @@ class DisplaySection extends SettingsSection {
     sel.value=I18N.locale;
     this.listen(sel,'change',async()=>{
       uiLocale=I18N.resolve(sel.value);
-      const ok=await this.app.saveSettings();
-      if(ok&&uiLocale!==I18N.locale&&this.app._localeMirror(uiLocale)) location.reload();
+      const ok=await this.app.settings.apply.saveSettings();
+      if(ok&&uiLocale!==I18N.locale&&this.app.settings.apply._localeMirror(uiLocale)) location.reload();
     });
   }
 
@@ -125,12 +125,12 @@ class DisplaySection extends SettingsSection {
       this._paintAttnEdgeRow();
       app._paintFocusEdge();
       this._focusEdgePreview();
-      app._saveSettingsSoon('ufe');
+      app.settings.apply._saveSettingsSoon('ufe');
     });
     // 손을 떼는 순간이 값이 정해지는 순간이다 — 그때는 기다리지 않고 보낸다.
     // `tabWidthPx` 가 `blur` 에서 하는 것과 같은 자리다: 디바운스는 드래그 **중**의
     // PUT 폭주를 막으려는 것이지, 정해진 값을 늦추려는 것이 아니다.
-    this.listen(sl,'change',()=>app._saveSettingsNow('ufe'));
+    this.listen(sl,'change',()=>app.settings.apply._saveSettingsNow('ufe'));
   }
 
   /**
@@ -154,9 +154,9 @@ class DisplaySection extends SettingsSection {
       this._attnEdgePreview();
       // 세기를 0 으로 내리면 지금 켜져 있던 띠도 그 자리에서 꺼져야 한다.
       app._attnRefresh();
-      app._saveSettingsSoon('ae');
+      app.settings.apply._saveSettingsSoon('ae');
     });
-    this.listen(sl,'change',()=>app._saveSettingsNow('ae'));
+    this.listen(sl,'change',()=>app.settings.apply._saveSettingsNow('ae'));
   }
 
   _paintFocusEdgeRow(){ this._paintRange('ds-focusedge',focusEdgeLevel,UFE_LEVEL_MAX) }

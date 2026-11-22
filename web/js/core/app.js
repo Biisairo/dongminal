@@ -409,7 +409,7 @@ class App {
       // 터미널보다 앞서는 우선순위도 그 체계가 준다 (shortcuts.md).
       softReload:()=>this.softReload(),
       // UX-22: 설정 버튼과 **같은 길**로 열고 Shortcuts 탭으로 간다.
-      shortcutsHelp:()=>this._openSettings('shortcuts'),
+      shortcutsHelp:()=>this.settings._openSettings('shortcuts'),
       toggleSearch:()=>this.toggleSearch(),
       // FR-EKB-5: 키 배선과 **같은 함수**를 부른다. 둘 다 Editor 창이 아니면
       // 스스로 아무 일도 하지 않으므로 여기에 가드를 겹치지 않는다.

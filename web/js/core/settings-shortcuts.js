@@ -57,7 +57,7 @@ class ShortcutsSection extends SettingsSection {
           this.app.recording=k;btn.textContent=t('keys.press_key');btn.classList.add('recording');
         });
         const rst=UIKit.button({icon:'undo',title:SHORTCUT_RESET_TITLE,kind:'ghost',size:'sm'});
-        rst.addEventListener('click',()=>{shortcuts[k]=SHORTCUT_DEFAULTS[k];this.app.saveSettings();btn.textContent=displayKey(shortcuts[k]);I18N.applyShortcuts(document)});
+        rst.addEventListener('click',()=>{shortcuts[k]=SHORTCUT_DEFAULTS[k];this.app.settings.apply.saveSettings();btn.textContent=displayKey(shortcuts[k]);I18N.applyShortcuts(document)});
         row.appendChild(label);
         const btns=document.createElement('div');btns.className='sc-btns';
         btns.appendChild(btn);btns.appendChild(rst);

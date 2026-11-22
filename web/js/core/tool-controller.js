@@ -407,7 +407,7 @@ class ToolController extends Controller {
     open.title=TIP_SBX_SETTINGS;
     // 선택창을 닫고 설정을 연다 — 두 창이 겹치면 어느 쪽이 살아 있는지
     // 알 수 없다.
-    open.addEventListener('click',()=>{close();this.app._openSettings('sandbox')});
+    open.addEventListener('click',()=>{close();this.app.settings._openSettings('sandbox')});
     hint.appendChild(open);
     return hint;
   }

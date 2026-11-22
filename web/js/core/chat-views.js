@@ -41,7 +41,7 @@ class ChatViews extends Controller {
     const v={key,tabId:tab.id,roomId:tab.roomId,root,title,kind,purpose,drawn:[],peopleSig:''};
     // EDGE_MESH_SRS FR-EGM-56: 개인채팅 상대 노드가 간선이 아닌 온라인 망 이웃이면 간선 초대를 보낸다.
     v.invite=UIKit.button({label:t('edge.invite_send'),kind:'ghost',size:'sm',cls:'chat-edge-invite',
-      title:TIP_EDGE_INVITE_SEND,onClick:e=>{e.stopPropagation();if(v.invitePeer) this.app._egInviteSend(v.invitePeer)}});
+      title:TIP_EDGE_INVITE_SEND,onClick:e=>{e.stopPropagation();if(v.invitePeer) this.app.edges._egInviteSend(v.invitePeer)}});
     v.invite.hidden=true;
     head.append(title,kind,purpose,v.invite,UIKit.button({icon:'more-horizontal',title:TIP_CHAT_ROOM_ACTIONS,kind:'ghost',size:'sm',cls:'chat-more',
       onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._chatViewMenu(v,{x:r.left,y:r.bottom})}}));

@@ -27,7 +27,7 @@ class ProfileSection extends SettingsSection {
 
   /** FR-PFN-20: 탭 제목의 이름을 지금 값으로 맞춘다. */
   _pfApply(v){
-    if(v&&v.name&&v.name!==profileName){ profileName=v.name; this.app._applyPageTitle() }
+    if(v&&v.name&&v.name!==profileName){ profileName=v.name; this.app.settings.apply._applyPageTitle() }
   }
 
   /**
@@ -53,7 +53,7 @@ class ProfileSection extends SettingsSection {
         const edited=this._pfCollect().name!==asked.name;
         this._pfPaint(r.data,edited);
         this._pfApply(r.data);
-        this.app._liveMark('profile',r,{name:(r.data.name||'').trim()},edited);
+        this.app.settings.live._liveMark('profile',r,{name:(r.data.name||'').trim()},edited);
       }
       return r;
     });
@@ -65,12 +65,12 @@ class ProfileSection extends SettingsSection {
     await statusRun(document.getElementById('pf-status'),
       {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         // FR-PFN-13: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
-        const r=await apiPut('/api/profile',this._pfCollect(),this.app._liveOpts('profile'));
-        if(this.app._liveStale('profile',r,()=>this._loadProfilePanel())) return r;
+        const r=await apiPut('/api/profile',this._pfCollect(),this.app.settings.live._liveOpts('profile'));
+        if(this.app.settings.live._liveStale('profile',r,()=>this._loadProfilePanel())) return r;
         if(r.ok&&r.data){
           this._pfPaint(r.data);
           this._pfApply(r.data);
-          this.app._liveMark('profile',r,this._pfCollect());
+          this.app.settings.live._liveMark('profile',r,this._pfCollect());
         }
         return r;
       });
@@ -84,7 +84,7 @@ class ProfileSection extends SettingsSection {
   _pfFollow(r){
     if(this._pfSaving) return;
     let reading;
-    this.app._liveChanged('profile',r,this._pfCollect(),()=>{ reading=this._loadProfilePanel() });
+    this.app.settings.live._liveChanged('profile',r,this._pfCollect(),()=>{ reading=this._loadProfilePanel() });
     return reading;
   }
 

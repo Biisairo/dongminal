@@ -47,8 +47,8 @@ class EdgesSection extends SettingsSection {
     document.getElementById('eg-fp').textContent=edgeFp16(n.fingerprint);
     this._egInvitePaint();
     this._egEdgesPaint(v.edges||[]);
-    this.app._egMeshPaint();
-    this.app._egInvitesPaint();
+    this.app.edges._egMeshPaint();
+    this.app.edges._egInvitesPaint();
   }
 
   /** 고치던 줄(열린 입력 칸이 있는 줄)은 그대로 두고 나머지만 새로 만든다. force 면 전부 새로 만든다. */
@@ -117,7 +117,7 @@ class EdgesSection extends SettingsSection {
       if(addr.hidden){ editing(true);addr.focus();return }
       statusRun(st,{ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         const r=await apiPut('/api/edges/address',{fp:p.fp,addr:addr.value.trim(),port:parseInt(port.value,10)||0});
-        if(r.ok){ editing(false); await this.app._edgesRestore() }
+        if(r.ok){ editing(false); await this.app.edges._edgesRestore() }
         return r;
       });
     });
@@ -135,7 +135,7 @@ class EdgesSection extends SettingsSection {
     mark.textContent=marks.join(' · ');
     mark.hidden=!marks.length;
     const notify=UIKit.button({label:t('edge.notify'),kind:'ghost',size:'sm',cls:'eg-notify',
-      title:TIP_EDGE_NOTIFY,onClick:()=>this.app._egNotify(p)});
+      title:TIP_EDGE_NOTIFY,onClick:()=>this.app.edges._egNotify(p)});
     row.append(who,mark,addr,port,edit,cancel,notify,del);
     return row;
   }
@@ -169,7 +169,7 @@ class EdgesSection extends SettingsSection {
     let v=null,got=null;
     await statusRun(document.getElementById('eg-node-status'),{fail:t('edge.read_fail')},async()=>{
       const r=await apiGet('/api/edges');
-      if(r.ok&&r.data){ v=r.data; got=r; await this.app._edgesRestore(Promise.resolve(r)) }
+      if(r.ok&&r.data){ v=r.data; got=r; await this.app.edges._edgesRestore(Promise.resolve(r)) }
       return r;
     });
     // 방송의 다시 읽기가 이 읽기를 밀어내면 `_edges` 가 아직 비어 있을 수 있다 — 이 읽기의
@@ -177,7 +177,7 @@ class EdgesSection extends SettingsSection {
     v=v||this.app._edges;
     if(!v) return;
     this._egNodePaint(v);
-    if(got) this.app._liveMark('edges',got,this._egNodeCollect());
+    if(got) this.app.settings.live._liveMark('edges',got,this._egNodeCollect());
     // 탭을 열면 고치던 줄도 버리고 지금 값으로 그린다.
     this._egEdgesPaint(v.edges||[],true);
   }
@@ -194,9 +194,9 @@ class EdgesSection extends SettingsSection {
     this.listen(save,'click',()=>statusRun(document.getElementById('eg-node-status'),
       {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
-        const r=await apiPut('/api/edges/node',this._egNodeCollect(),this.app._liveOpts('edges'));
-        if(this.app._liveStale('edges',r,()=>this._loadEdgesPanel())) return r;
-        if(r.ok&&r.data){ this.app._edges=r.data; this._egNodePaint(); this._edgesPaint(); this.app._liveMark('edges',r,this._egNodeCollect()) }
+        const r=await apiPut('/api/edges/node',this._egNodeCollect(),this.app.settings.live._liveOpts('edges'));
+        if(this.app.settings.live._liveStale('edges',r,()=>this._loadEdgesPanel())) return r;
+        if(r.ok&&r.data){ this.app._edges=r.data; this._egNodePaint(); this._edgesPaint(); this.app.settings.live._liveMark('edges',r,this._egNodeCollect()) }
         return r;
       }));
     const invSt=document.getElementById('eg-inv-status');

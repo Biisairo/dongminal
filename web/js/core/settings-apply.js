@@ -121,7 +121,7 @@ class SettingsApply extends Controller {
      *   이전: 표를 돈 직후에 칠했고, 이사(`_pollMigrateAgents`)와 키바 얹기(`_keybarApply`)가 섹션을 따로 칠했다
      *         — 섹션이 아직 없으면(부팅 적용이 `initModal` 보다 먼저) 아무것도 하지 않는 `_sectionCall` 로 버텼다
      */
-    this.app._paintSettingControls();
+    this.app.settings.paint();
   }
 
   /**
@@ -275,12 +275,6 @@ class SettingsApply extends Controller {
     if(v===agentsPollInterval) return;
     agentsPollInterval=v;
     TIMERS.refreshChanged();
-    this.app.saveSettings();
+    this.saveSettings();
   }
 }
-
-// 바깥(설정 섹션 · `settings-sync.js` · `state-registry.js` · `main.js` · 표의 setter · 다른 묶음)과 계약이 App 에서
-// 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'settings.apply',['_applyPageTitle','_saveSettingsSoon','_saveSettingsNow','_localeMirror',
-  '_edApplyWordWrap','_edApplyMinimap','_edApplyFontSize','_termApplyFontSize','_applyThemeChoice','_keybarApply',
-  'saveSettings','_onSettingsChanged','_settingsBody','_settingsLocalPending','_settingsApply','_settingsRestore']);

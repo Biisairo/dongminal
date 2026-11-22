@@ -138,7 +138,7 @@ function setup() {
   /** 사이드바와 작업 패널 쪽을 함께 든 App 대역. */
   const app = controllers(ctx, new ctx.App());
   Object.assign(app, {
-    sbTab: 'a', sbBusy: false, isMobile: false, tools: new Map(), refreshes: 0, renders: 0,
+    sbTab: 'a', sbBusy: false, isMobile: false, tools: new Map(), refreshes: 0, renders: 0, settings: { apply: {} },
     mobileChromeSync() {}, _actRefresh() { app.refreshes++ },
     sbPanel() { return this._sb || (this._sb = new ctx.SidebarPanel(this)) },
     actPanel() { return this._act || (this._act = new ctx.ActivityPanel(this)) },

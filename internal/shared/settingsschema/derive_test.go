@@ -52,7 +52,7 @@ func TestSaveSettingsDerivesFromTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if save := between(string(syncSrc), "saveSettings(){", "\n  },"); !strings.Contains(save, "this.app._settingsBody()") {
+	if save := between(string(syncSrc), "saveSettings(){", "\n  },"); !strings.Contains(save, "this.app.settings.apply._settingsBody()") {
 		t.Fatal("saveSettings 가 _settingsBody 로 본문을 짓지 않는다")
 	}
 	body := between(s, "_settingsBody(){", "\n  }\n")

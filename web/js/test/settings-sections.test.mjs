@@ -49,9 +49,15 @@ function setup(access, els) {
 /** 부른 순서를 남기는 가짜 앱. 섹션이 주인인 타이머는 `app.timers` 로 간다. */
 function fakeApp(log) {
   return {
-    saveSettings: () => log.push('save'),
-    _saveSettingsSoon: (k) => log.push('soon:' + k),
-    _saveSettingsNow: (k) => log.push('now:' + k),
+    // 저장의 껍데기는 `settings.apply` 에 있다 (REFACTOR3_FE_DELEG_SRS).
+    settings: {
+      apply: {
+        saveSettings: () => log.push('save'),
+        _saveSettingsSoon: (k) => log.push('soon:' + k),
+        _saveSettingsNow: (k) => log.push('now:' + k),
+      },
+      paint: () => log.push('paint'),
+    },
     _attnSecurityNotice: () => log.push('tls'),
     timers: { after: (ms) => { log.push('after:' + ms); return { stop: () => log.push('stop') } }, disposeOwner() {} },
   };
@@ -185,7 +191,7 @@ const MOVED = [
   { cls: 'PollingSection', tab: 'polling', gone: ['_pollPaintRows'], rows: [] },
   { cls: 'StatusbarSection', tab: 'statusbar', gone: ['_renderStatusBarSettings'], rows: [] },
   { cls: 'NotifySection', tab: 'notify', gone: ['initUpdateSettings'], rows: [] },
-  // 8c — 서버 자원 패널. 설정 밖·저장 단추 판정이 부르는 이름은 위임자로 남는다(`DELEGATES`).
+  // 8c — 서버 자원 패널. 설정 밖·저장 단추 판정이 부르는 이름은 섹션에서 부른다(`ROUTES`).
   { cls: 'ProfileSection', tab: 'profile', rows: [],
     gone: ['_pfPaint', '_pfApply', '_loadProfilePanel', '_profileSave', '_initProfilePanel', '_profileOnSettingsOpen'] },
   { cls: 'ServerSection', tab: 'server', rows: [],
@@ -214,17 +220,14 @@ const MOVED = [
       '_bkReset', '_bkRevList', '_bkRevert', '_initBackup'] },
 ];
 
-/** FR-FES-9 의 위임자 가운데 이 단계까지 옮긴 파일에 있는 것 + 설정 밖·저장 단추 판정이 부르는 이름(8c). */
-const DELEGATES = ['saveSettings', '_settingsApply', '_settingsRestore', '_onSettingsChanged', '_openSettings',
+/** 위임자를 걷은 이름 — App 원형에 없다 (REFACTOR3_FE_DELEG_SRS §2.3). */
+const DELEGATES_DONE = ['saveSettings', '_settingsApply', '_settingsRestore', '_onSettingsChanged', '_openSettings',
   '_saveSettingsSoon', '_saveSettingsNow', '_paintSettingControls', '_edApplyWordWrap', '_edApplyMinimap',
-  '_edApplyFontSize', '_termApplyFontSize',
-  // 8c
-  '_onAccessChanged', '_onSandboxChanged', '_onServerMoving', '_edgesPaint', '_egNodePaint', '_egMeshPaint',
-  '_egInvitesPaint', '_egNotify', '_cacctPanelShown', '_cacctRefreshSoft', '_loadTelegramPanel', '_tgRead',
-  '_pfCollect', '_pfFollow', '_sbxCollect', '_aclCollect', '_egNodeCollect',
-  // 8d — 위임자와, 설정창이 서기 전(부팅의 `_settingsApply`·`main.js`)에도 도는 App 메서드
+  '_edApplyFontSize', '_termApplyFontSize', '_onAccessChanged', '_onSandboxChanged', '_onServerMoving', '_edgesPaint',
+  '_egNodePaint', '_egMeshPaint', '_egInvitesPaint', '_egNotify', '_cacctPanelShown', '_cacctRefreshSoft',
+  '_loadTelegramPanel', '_tgRead', '_pfCollect', '_pfFollow', '_sbxCollect', '_aclCollect', '_egNodeCollect',
   'themeSlots', 'setThemeSlots', '_showCustomEditor', '_hideCustomEditor', '_renderPresets', '_savePreset',
-  '_applyThemeChoice', '_keybarApply', '_presetButtonPaint', '_loadPreset'];
+  '_applyThemeChoice', '_keybarApply', 'initModal'];
 
 /** 8c 의 위임자 → 섹션 탭과 섹션 메서드. 위임자는 인자를 그대로 넘기고 답을 그대로 돌려준다. */
 const ROUTES = [
@@ -298,11 +301,11 @@ test('TC-FES-3: 섹션이 init 에서 선언한 행이 표와 같다', () => {
   }
 });
 
-test('TC-FES-3: 옮긴 _init* 가 App 원형에 없고 위임자는 남는다', () => {
+test('TC-FES-3: 옮긴 _init* 와 위임자가 App 원형에 없다 (REFACTOR3_FE_DELEG_SRS)', () => {
   const names = appMixinNames();
   for (const m of MOVED) for (const n of m.gone) assert.ok(!names.has(n), 'App 원형에 남았다: ' + n);
   assert.doesNotMatch(readFileSync(join(JS_ROOT, 'core/lsp-client.js'), 'utf8'), /^ {2}_initLSP\(/m, 'LspClient._initLSP');
-  for (const n of DELEGATES) assert.ok(names.has(n), '위임자가 없다: ' + n);
+  for (const n of DELEGATES_DONE) assert.ok(!names.has(n), '위임자가 남았다: ' + n);
 });
 
 test('TC-FES-3(8c): 위임자는 그 탭의 섹션에 인자와 답을 그대로 잇고, 섹션이 없으면 아무것도 하지 않는다', () => {
@@ -311,9 +314,11 @@ test('TC-FES-3(8c): 위임자는 그 탭의 섹션에 인자와 답을 그대로
     expose: ['SettingsController'],
   });
   // REFACTOR3_FE_APPCTL_SRS 9a: 컨트롤러는 App 생성자가 만든다 — 섹션을 세우기(`initModal`) 전이 「섹션이 없음」 이다.
+  // REFACTOR3_FE_DELEG_SRS D-DLG-4: 부르는 쪽은 `settings.section(tab)?.X()` 로 부른다 — 섹션이 없으면 아무것도 하지 않는다.
   const bare = new ctx.App();
   bare.settings = new ctx.SettingsController(bare);
-  for (const [name] of ROUTES) assert.equal(bare[name]('x'), undefined, name);
+  for (const [, tab, meth] of ROUTES) assert.equal(bare.settings.section(tab)?.[meth]('x'), undefined, meth);
+  for (const [, tab, meth] of ROUTES) assert.equal(bare.settings._sectionCall(tab, meth, ['x']), undefined, meth);
   const app = new ctx.App();
   const seen = [];
   const tabs = new Map();
@@ -323,8 +328,9 @@ test('TC-FES-3(8c): 위임자는 그 탭의 섹션에 인자와 답을 그대로
   }
   app.settings = new ctx.SettingsController(app);
   for (const sec of tabs.values()) app.settings.start(sec);
-  for (const [name, , meth] of ROUTES) assert.equal(app[name]('a', 2), meth + ':ok', name);
-  assert.deepEqual(plain(seen), ROUTES.map(([, , meth]) => [meth, 'a', 2]));
+  for (const [name, tab, meth] of ROUTES) assert.equal(app.settings.section(tab)?.[meth]('a', 2), meth + ':ok', name);
+  for (const [name, tab, meth] of ROUTES) assert.equal(app.settings._sectionCall(tab, meth, ['b', 3]), meth + ':ok', name);
+  assert.deepEqual(plain(seen), [...ROUTES.map(([, , meth]) => [meth, 'a', 2]), ...ROUTES.map(([, , meth]) => [meth, 'b', 3])]);
 });
 
 // ── 8b 특이 행 (FR-FES-4) ────────────────────────────────────────────────
@@ -459,10 +465,11 @@ test('8d: ThemeSection 의 init 은 시스템 모드 구독을 걸고, 섹션이
   assert.equal(mq.listeners.change.length, 0);
 });
 
-test('8d: 키바 구역의 손짓은 구성을 바꾸고 App 의 적용(this=app)과 저장을 부른다', () => {
+test('8d: 키바 구역의 손짓은 구성을 바꾸고 설정 적용(this=settings.apply)과 저장을 부른다', () => {
   const { ctx } = setup({}, {});
   const log = [];
-  const app = { ...fakeApp(log), _keybarApply() { log.push('apply:' + (this === app)) } };
+  const app = fakeApp(log);
+  app.settings.apply._keybarApply = function () { log.push('apply:' + (this === app.settings.apply)) };
   ctx.keybarCfg = { order: ['a'] };
   const s = new ctx.TerminalSection(app);
   const next = { order: ['b'] };
@@ -535,9 +542,14 @@ test('TC-FES-4: SettingsController 는 Controller 하위이고 옛 부팅 순서
   for (const c of SECTION_CLASSES) ctx[c].prototype.init = function () { log.push(this.tab) };
   ctx.SettingsModal = class { constructor(h) { this.h = h } init() { log.push('modal'); return this } };
   ctx.document = { getElementById: (id) => (id === 'modal' ? { id } : null) };
-  const app = { _paintSettingControls: () => log.push('paint') };
-  for (const n of ['initSaveButtons', 'initStatusBar', 'initMobile', 'initMobileKeybar', 'initAttn']) app[n] = () => log.push(n);
+  // REFACTOR3_FE_DELEG_SRS FR-DLG-3: 사이의 init 은 앱에서 주인까지의 점 경로로 부른다.
+  const app = {};
   const c = new ctx.SettingsController(app);
+  app.settings = c;
+  c.paint = () => log.push('paint');
+  const at = (path) => { const ks = path.split('.'); const n = ks.pop(); return [ks.reduce((o, k) => (o[k] = o[k] || {}), app), n] };
+  for (const p of ['settings.saveState.initSaveButtons', 'statusbar.initStatusBar', 'mobile.initMobile', 'mobile.initMobileKeybar',
+    'attn.initAttn']) { const [o, n] = at(p); o[n] = () => log.push(n) }
   // REFACTOR3_FE_APPCTL_SRS 9a: 검색 배선은 컨트롤러의 것이다.
   c._bindSettingsSearch = (m) => log.push(m.id === 'modal' ? 'search' : 'search?');
   assert.ok(c instanceof ctx.Controller);
@@ -551,15 +563,16 @@ test('TC-FES-4: SettingsController 는 Controller 하위이고 옛 부팅 순서
 });
 
 test('TC-FES-4: initModal 은 컨트롤러의 init 하나이고 _init 호출이 없다 — 설정 init 은 input-binding 에 하나뿐이다', () => {
-  // REFACTOR3_FE_APPCTL_SRS 9a: 컨트롤러는 App 생성자가 만들고, `initModal` 은 그 `init` 을 부르는 위임자다.
+  // REFACTOR3_FE_APPCTL_SRS 9a: 컨트롤러는 App 생성자가 만든다. REFACTOR3_FE_DELEG_SRS: 옛 위임자 `initModal` 은 걷었고
+  // 부르는 쪽이 `settings.init()` 을 부른다.
   const src = readFileSync(join(JS_ROOT, 'core/settings-controller.js'), 'utf8');
-  assert.match(src, /^Controller\.delegate\(App,app=>\{ app\.settings\.init\(\) \},\['initModal'\]\);$/m);
+  assert.doesNotMatch(src, /Controller\.delegate\(/);
   assert.match(readFileSync(join(JS_ROOT, 'core/app.js'), 'utf8'), /^ {4}this\.settings=new SettingsController\(this\);$/m);
   const bind = readFileSync(join(JS_ROOT, 'ui/input-binding.js'), 'utf8');
   for (const n of ['initSaveButtons', 'initStatusBar', 'initPresets', 'initMobile', 'initMobileKeybar', 'initAttn', 'initPollingSettings']) {
     assert.ok(!new RegExp('this\\.app\\.' + n + '\\(').test(bind), 'input-binding 이 직접 부른다: ' + n);
   }
-  assert.match(bind, /this\.app\.initModal\(\)/);
+  assert.match(bind, /this\.app\.settings\.init\(\)/);
   const names = appMixinNames();
   for (const n of ['_settingsOnOpen', '_settingsOnTab', 'initPresets', 'initPollingSettings']) assert.ok(!names.has(n), 'App 원형에 남았다: ' + n);
 });
@@ -569,11 +582,11 @@ test('TC-FES-4: 열 때는 theme → shortcuts → presets → display → 칠�
   const log = [];
   const app = {
     isMobile: true, drawerOpen: true,
-    _paintSettingControls: () => log.push('paint'),
     _toggleDrawer: (v) => log.push('drawer:' + v),
     _settingsMobileOnOpen: (m) => log.push('mobile:' + m),
   };
   const c = new ctx.SettingsController(app);
+  c.paint = () => log.push('paint');
   // REFACTOR3_FE_APPCTL_SRS 9a: 라벨과 검색 비우기는 컨트롤러의 것이다.
   c._labelSettingsRows = () => log.push('label');
   c._settingsSearchReset = () => log.push('search');
@@ -635,8 +648,9 @@ test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는�
 function rereadSetup(active, dirty) {
   const ctx = loadController();
   ctx.settingsPanelDirty = (_app, panel) => dirty.has(panel);
-  const app = { isMobile: false, _paintSettingControls() {}, _settingsMobileOnOpen() {} };
+  const app = { isMobile: false, _settingsMobileOnOpen() {} };
   const c = new ctx.SettingsController(app);
+  c.paint = () => {};
   c._labelSettingsRows = () => {};
   c.modal = { current: () => active.tab };
   const reads = [];
@@ -698,7 +712,7 @@ function orderSetup() {
     SETTINGS_SCHEMA: [{ key: 'n' }, { key: 'keybar' }],
     SETTINGS_ACCESS: {
       n: { set(v) { state.n = v } },
-      keybar: { set(v) { state.kb = v; this._keybarApply() } },
+      keybar: { set(v) { state.kb = v; this.settings.apply._keybarApply() } },
     },
     settingValue: (v) => v,
     THEMES: { x: {} }, currentThemeName: 'x', customTheme: null, themeFollowSystem: false, applyThemeObj() {},
@@ -710,8 +724,6 @@ function orderSetup() {
   const app = { gitPanel: null, _mkbRender: () => drawn.push(state.kb), mkbRefresh() {} };
   const c = new ctx.SettingsController(app);
   app.settings = c;
-  app._paintSettingControls = () => c.paint();
-  app._keybarApply = () => c.apply._keybarApply();
   const section = () => ({ tab: 'terminal', painted: null, init() { this.paint() }, paint() { this.painted = { ...state } } });
   return { c, state, drawn, section };
 }
@@ -737,7 +749,7 @@ test('TC-QFX-7: 칠하기는 적용의 맨 끝, 이사 뒤다 — 이사가 섹�
   const { c } = orderSetup();
   const log = [];
   c.apply._pollMigrateAgents = () => log.push('migrate');
-  c.app._paintSettingControls = () => log.push('paint');
+  c.app.settings.paint = () => log.push('paint');
   c.apply._settingsApply({ n: 2 }, { boot: true });
   assert.deepEqual(log, ['migrate', 'paint']);
   log.length = 0;
@@ -755,7 +767,8 @@ test('TC-QFX-7: 적용 길은 섹션을 직접 부르지 않고, 키바 얹기�
 test('TC-QFX-7: TerminalSection.paint 가 행과 키바 구성 목록을 칠하고, 사용자가 고친 구성도 목록을 칠한다 (FR-QFX-10)', () => {
   const { ctx } = setup({}, {});
   const log = [];
-  const app = { ...fakeApp(log), _keybarApply: () => log.push('apply') };
+  const app = fakeApp(log);
+  app.settings.apply._keybarApply = () => log.push('apply');
   ctx.keybarCfg = { order: ['a'] };
   const s = new ctx.TerminalSection(app);
   s._keybarPaint = () => log.push('kbc');

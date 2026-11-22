@@ -100,7 +100,7 @@ class AccessSection extends SettingsSection {
       const hnow=document.getElementById('acl-host-now');
       if(hnow) hnow.textContent=v.host||t('core.unknown_paren');
       if(hostBox) for(const e of (v.hosts||[])) hostBox.appendChild(this._aclHostRow(e));
-      this.app._liveMark('access',r,this._aclCollect());
+      this.app.settings.live._liveMark('access',r,this._aclCollect());
       return r;
     });
   }
@@ -112,9 +112,9 @@ class AccessSection extends SettingsSection {
     await statusRun(document.getElementById('acl-status'),
       {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
-        const r=await apiPut('/api/access',cfg,this.app._liveOpts('access'));
-        if(this.app._liveStale('access',r,()=>this._loadAccessPanel())) return r;
-        if(r.ok){ this.app._liveMark('access',r,cfg); await this._loadAccessPanel() }
+        const r=await apiPut('/api/access',cfg,this.app.settings.live._liveOpts('access'));
+        if(this.app.settings.live._liveStale('access',r,()=>this._loadAccessPanel())) return r;
+        if(r.ok){ this.app.settings.live._liveMark('access',r,cfg); await this._loadAccessPanel() }
         return r;
       });
   }
@@ -186,9 +186,9 @@ class AccessSection extends SettingsSection {
   onTab(){ return this._loadAccessPanel() }
 
   _onAccessChanged(){
-    if(!this.app._liveOpen('access')) return;
+    if(!this.app.settings.live._liveOpen('access')) return;
     return apiGet('/api/access').then(r=>{
-      if(r.ok) this.app._liveChanged('access',r,this._aclCollect(),()=>this._loadAccessPanel());
+      if(r.ok) this.app.settings.live._liveChanged('access',r,this._aclCollect(),()=>this._loadAccessPanel());
     });
   }
 }

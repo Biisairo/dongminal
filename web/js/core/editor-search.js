@@ -127,7 +127,10 @@ class EditorSearch extends Controller {
       // 돌려준다 (FR-EKB-4 · FR-LSP-40b) — 삼키면 그 조합이 죽은 키가 된다.
       if(!this._edKeyGate(action)) return false;
       e.preventDefault(); e.stopImmediatePropagation();
-      this.app[fn]();
+      // 값은 앱에서 주인까지의 점 경로다 — `()` 마디는 지연 생성한 본체다 (REFACTOR3_FE_DELEG_SRS FR-DLG-3).
+      const keys=fn.split('.'), last=keys.pop();
+      const o=keys.reduce((x,k)=>k.endsWith('()')?x[k.slice(0,-2)]():x[k],this.app);
+      o[last]();
       return true;
     }
     return false;

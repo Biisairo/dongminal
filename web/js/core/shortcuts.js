@@ -164,21 +164,21 @@ const SHORTCUT_LABELS={
 // 때 삼키지 않고 다음 배선으로 넘기려면, 그 사실을 아는 자리가 이름 하나로
 // 있어야 한다 — 터미널 창의 `Mod+F` 는 종전대로 터미널 검색이다.
 const ED_SEARCH_ACTIONS={
-  edFindInFile:'_edFindInFile',
-  edQuickOpen:'_edQuickOpen',
-  edGrep:'_edSearchOpen',
-  edGotoLine:'_edGotoLine',   // UX_BATCH13_SRS FR-EGL-2
+  edFindInFile:'editor.search._edFindInFile',
+  edQuickOpen:'editor.search._edQuickOpen',
+  edGrep:'editor.search._edSearchOpen',
+  edGotoLine:'editor.search._edGotoLine',   // UX_BATCH13_SRS FR-EGL-2
   // FUI-07: **창**이 수행한다 — `ED_VIEW_ACTIONS`(편집기 인스턴스의 것)가 아니라
   // 이쪽이다. "어느 편집기가" 가 답의 일부가 아니고, 답은 "이 창의 전부" 다.
-  edSaveAll:'_edSaveAll',
+  edSaveAll:'editor.sync._edSaveAll',
 };
 
 // EDITOR_LSP_SRS 묶음 F — 코드 탐색 셋. 검색 셋과 나눠 두는 이유는 **게이트가
 // 다르기** 때문이다: 검색은 루트만 있으면 되고, 이쪽은 편집기가 실제로 서 있어야
 // 한다 (FR-LSP-40b).
 const ED_LSP_ACTIONS={
-  edGotoDef:'_lspGotoDef',
-  edFindRefs:'_lspFindRefs',
+  edGotoDef:'_lspClient()._lspGotoDef',
+  edFindRefs:'_lspClient()._lspFindRefs',
 };
 
 // UX_BATCH9_SRS FR-ESV-2: 편집기 **인스턴스**가 수행하는 액션.

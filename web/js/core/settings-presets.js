@@ -47,14 +47,14 @@ class PresetsSection extends SettingsSection {
     if(!layout){this._presetMsg(PRESET_SAVE_NO_PLAIN);return}
     const name=t('presets.default_name',{n:layoutPresets.length+1});
     layoutPresets.push({name,layout});
-    this.app.saveSettings();
+    this.app.settings.apply.saveSettings();
     this._renderPresets();
   }
   _deletePreset(idx){
     layoutPresets.splice(idx,1);
     if(defaultPreset===idx)defaultPreset=-1;
     else if(defaultPreset>idx)defaultPreset--;
-    this.app.saveSettings();
+    this.app.settings.apply.saveSettings();
     this._renderPresets();
   }
   _renamePreset(idx){
@@ -67,7 +67,7 @@ class PresetsSection extends SettingsSection {
     item.replaceWith(inp);inp.focus();inp.select();
     const save=()=>{
       layoutPresets[idx].name=inp.value.trim()||layoutPresets[idx].name;
-      this.app.saveSettings();this._renderPresets();
+      this.app.settings.apply.saveSettings();this._renderPresets();
     };
     inp.addEventListener('blur',save);
     inp.addEventListener('keydown',e=>{if(e.key==='Enter')save();if(e.key==='Escape'){inp.value=layoutPresets[idx].name;save()}e.stopPropagation()});
@@ -119,7 +119,7 @@ class PresetsSection extends SettingsSection {
       // 하던 일을 같은 모양의 두 상태가 한다.
       const star=UIKit.button({icon:'star',iconFill:i===defaultPreset,
         title:TIP_PRESET_DEFAULT,kind:'ghost'});
-      star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this.app.saveSettings();this._renderPresets()});
+      star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this.app.settings.apply.saveSettings();this._renderPresets()});
       item.appendChild(star);
       // Load button. 로드맵 M7 `FUI-25`: 실패는 **보인다** — 도구 생성이
       // 거절되면 종전에는 창만 비어 있었다.

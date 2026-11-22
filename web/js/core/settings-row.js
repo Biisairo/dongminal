@@ -36,18 +36,18 @@ class FormRow {
       section.listen(el,'change',()=>{
         set(el.checked);
         after();
-        app.saveSettings();
+        app.settings.apply.saveSettings();
       });
     }else if(d.kind==='number'){
       section.listen(el,'input',()=>{
         set(clampSetting(d.key,el.value));
         after();
-        app._saveSettingsSoon(d.id);
+        app.settings.apply._saveSettingsSoon(d.id);
       });
       section.listen(el,'blur',()=>{
         // 잘린 사실이 **보여야** 사용자가 왜 그 값인지 안다 (FR-TBW-4).
         el.value=String(this.value());
-        app._saveSettingsNow(d.id);
+        app.settings.apply._saveSettingsNow(d.id);
       });
     }
     return this;

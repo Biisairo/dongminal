@@ -285,7 +285,7 @@ class AttnController extends Controller {
   // FR-PAN-16: 제목 배지 + notification center 배지/팝오버 갱신
   _attnRefresh(){
     const n=this.app._attn.size;
-    this.app._applyPageTitle(); // FR-PAN-13b · PAGE_TITLE_SRS FR-PGT-8
+    this.app.settings.apply._applyPageTitle(); // FR-PAN-13b · PAGE_TITLE_SRS FR-PGT-8
     /**
      * ALERT_MOBILE_CONTEXT_SRS FR-AED-6 / D-1: 화면 가장자리의 점멸.
      *

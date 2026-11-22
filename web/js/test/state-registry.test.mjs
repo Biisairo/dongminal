@@ -70,9 +70,14 @@ function snapshotRig() {
     bus: { subscribe: (t, fn) => { if (!subs.has(t)) subs.set(t, []); subs.get(t).push(fn) } },
     timers: { every() {} },
   };
-  for (const name of ['_attnRestore', '_activityRestore', '_bgRefresh', '_settingsRestore',
-    '_updateRestore', '_focusRestore', '_gitObserveRestore', '_pollGitJobs', '_edgesRestore', '_runsListRestore']) {
-    app[name] = (src) => { got[name] = src };
+  // 등록부는 주인까지의 점 경로로 부른다 (REFACTOR3_FE_DELEG_SRS FR-DLG-3).
+  for (const path of ['attn._attnRestore', 'agents._activityRestore', 'tool.life._bgRefresh', 'settings.apply._settingsRestore',
+    'update._updateRestore', 'focus.owner._focusRestore', 'git.sync._gitObserveRestore', 'git.sync._pollGitJobs',
+    'edges._edgesRestore', '_runsListRestore']) {
+    const keys = path.split('.');
+    const name = keys.pop();
+    const owner = keys.reduce((o, k) => (o[k] = o[k] || {}), app);
+    owner[name] = (src) => { got[name] = src };
   }
   ctx.wireStateRegistry(app);
   const fire = (t, a) => { for (const fn of subs.get(t) || []) fn(a) };
@@ -161,7 +166,7 @@ test('tool.background 주기는 패널이 열려 있을 때만 활동 주기로 
     agentsPollMs: 4321,
     _attn: new Map(),
     _agentsPanelShown: () => open,
-    _bgRefresh: () => { calls++ },
+    tool: { life: { _bgRefresh: () => { calls++ } } },
   };
   ctx.wireStateRegistry(app);
   const job = jobs.find((j) => j.id === 'tool.background');

@@ -22,7 +22,7 @@ class TelegramSection extends SettingsSection {
     const sil=document.getElementById('tg-silence');
     if(document.activeElement!==sil) sil.value=String(v.silenceMin??'');
     this._tgPairPaint();
-    if(this.app._saveBtnsPaint) this.app._saveBtnsPaint(); // UX_AUDIT_FIX_SRS FR-UXF-72: 서버 값이 새 기준이다
+    if(this.app.settings.saveState._saveBtnsPaint) this.app.settings.saveState._saveBtnsPaint(); // UX_AUDIT_FIX_SRS FR-UXF-72: 서버 값이 새 기준이다
   }
 
   _tgPairPaint(){
@@ -72,7 +72,7 @@ class TelegramSection extends SettingsSection {
       if(!token) return;
       statusRun(tokSt,{pending:t('tg.checking'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         const r=this._tgApply(await apiPut('/api/telegram/token',{token}));
-        if(r.ok){ inp.value=''; if(this.app._saveBtnsPaint) this.app._saveBtnsPaint() }
+        if(r.ok){ inp.value=''; if(this.app.settings.saveState._saveBtnsPaint) this.app.settings.saveState._saveBtnsPaint() }
         return r;
       });
     });

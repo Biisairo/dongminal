@@ -44,91 +44,91 @@ const APP_TESTING_NAMES = [
   // ── 창·칸·탭 (layout) ──
   //
   // 창 목록과 그 안의 칸·탭. `aw` 는 활성 창, `plainWindows` 는 Editor·Git 을 뺀 것이다.
-  'aw', '_mkWindow', 'plainWindows', 'flattenPanes', 'isEditorWin', 'isGitWin',
-  '_lastPlainWindow', 'moveTabToPane', 'moveTabToWindow', '_findEditorTab', 'slotFocused',
-  'slotWindow', 'slotRenderFlush', '_slotRenderPending', 'windowFocused',
-  '_windowFocusOwner', '_confirmClose', 'drag',
+  'tool.life.aw', 'layout._mkWindow', 'git.plainWindows', 'flattenPanes', 'editor.isEditorWin', 'git.isGitWin',
+  '_lastPlainWindow', 'layout.dnd.moveTabToPane', 'layout.dnd.moveTabToWindow', 'layout.tabAdd._findEditorTab', 'slot.slotFocused',
+  'slot.slotWindow', 'slot.ops.slotRenderFlush', '_slotRenderPending', 'windowFocused',
+  '_windowFocusOwner', 'tool._confirmClose', 'drag',
   // `TEST-6` 의 게이트 구멍으로 계약 밖에 남아 있던 것 (FR-FMB-45a).
-  '_collectPanes', 'mPaneIdx', '_slots', 'splitPaneWithTab',
-  '_loadPreset', '_savePreset', '_renderPresets',
+  '_collectPanes', 'mPaneIdx', '_slots', 'layout.dnd.splitPaneWithTab',
+  'layout.winState._loadPreset', 'settings.section(presets)._savePreset', 'settings.section(presets)._renderPresets',
 
   // ── 편집기·탐색기 (editor) ──
   //
   // Repo 창의 좌우 두 표면. `editors` 는 목록의 원본 자료구조다 (D-ATC-5).
-  '_edActiveEditor', 'edActiveTree', '_edConfirm', 'edDirtyDiff', '_edDocs', '_edHome',
-  'editors', 'edMutate', 'edNotes', '_edOff', 'edOpenFile', 'edOpenWindow',
-  '_edQuickOpen', '_edReconcile', 'edRemove', 'edRootOf', '_edSearchOpen', '_edSearchRoot',
-  'edSetSide', 'edStores', '_edTrees', '_edVisibleTrees', 'edWindowFor', 'edWindows',
+  'editor.search._edActiveEditor', 'editor.open.edActiveTree', 'editor.file._edConfirm', 'editor.open.edDirtyDiff', '_edDocs', 'editor._edHome',
+  'editors', 'editor.section.edMutate', 'editor.edNotes', '_edOff', 'editor.file.edOpenFile', 'editor.open.edOpenWindow',
+  'editor.search._edQuickOpen', 'editor.sync._edReconcile', 'editor.section.edRemove', 'editor.edRootOf', 'editor.search._edSearchOpen', 'editor.search._edSearchRoot',
+  'editor.pane.edSetSide', 'edStores', '_edTrees', 'editor.open._edVisibleTrees', 'editor.edWindowFor', 'editor.edWindows',
   // 같은 구멍 (FR-FMB-45a). 사이드의 **폭**은 탭 선택과 다른 축이다 (REPO_SIDE_WIDTH_SRS).
   // M9_SRS FR-M9-24: 보던 자리의 기록. 검사가 재는 것은 **자리 셋**과 두 더미의
   // 길이다 — 화면만 보면 "돌아갔다" 와 "새로 갔다" 를 가를 수 없다.
-  '_navPlace', '_navCounts',
-  'edEnsurePane', '_edGitPoll', 'edSideOf', 'edSideWidth',
-  'edSetSideWidth', '_edMigrateSideWidth', 'edStore', 'edTree',
+  'focus._navPlace', 'focus._navCounts',
+  'editor.pane.edEnsurePane', '_edGitPoll', 'editor.pane.edSideOf', 'editor.pane.edSideWidth',
+  'editor.pane.edSetSideWidth', 'editor.pane._edMigrateSideWidth', 'editor.open.edStore', 'editor.open.edTree',
   // UI_POLISH_SRS TC-UIP-10: 저장소 추가 후보의 첫 줄이 될 포커스 터미널의 cwd.
-  '_edTermCwd',
+  'editor.section._edTermCwd',
 
   // ── git ──
   //
   // 관측기·패널은 (루트, 칸)마다 하나다 — e2e 가 그 모양을 알아야 재는 것이 있다.
-  '_gitObservers', 'gitOpenFile', 'gitPanelAt', 'gitPanels', 'gitPin',
-  'gitRepos', 'gitReposRefresh', '_gitRootOfActive', 'gitSignal', 'gitUnpin', '_gitWdAt',
-  'gitWindow',
+  '_gitObservers', 'git.gitOpenFile', 'git.surfaces.gitPanelAt', 'gitPanels', 'git.sync.gitPin',
+  'gitRepos', 'git.sync.gitReposRefresh', 'git.surfaces._gitRootOfActive', 'git.gitSignal', 'git.sync.gitUnpin', '_gitWdAt',
+  'git.gitWindow',
   // 같은 구멍 (FR-FMB-45a).
-  '_gitPanelRoot', '_onGitChanged',
+  'git.surfaces._gitPanelRoot', 'git.sync._onGitChanged',
 
   // ── 도구·터미널·Run (tool) ──
   //
   // 도구는 서버(데몬)가 소유하는 실행 실체다. 전경 이름(`_fg*`)과 복원(`_restore*`)이 그 수명의 두 축이다.
-  'focusedTerminal', 'findToolLocation', 'jumpToTool', '_killTool', '_toolName',
-  '_onToolActivity', '_onToolAttention', '_onToolForeground', '_fgApply', '_fgMap', 'fgNames',
-  '_isToolFocusedActive', '_restoreBegin', '_restoreLive', '_restoreNote',
-  '_restoreTool', '_restoreVoid', '_bg', '_runsPanel', '_onRunChanged',
+  'tool.search.focusedTerminal', 'tool.life.findToolLocation', 'attn.jumpToTool', 'tool.life._killTool', 'tool.life._toolName',
+  'agents._onToolActivity', 'attn._onToolAttention', 'wsSync._onToolForeground', 'wsSync._fgApply', 'wsSync._fgMap', 'fgNames',
+  'attn._isToolFocusedActive', 'wsSync._restoreBegin', 'wsSync._restoreLive', 'wsSync._restoreNote',
+  'tool.life._restoreTool', 'wsSync._restoreVoid', '_bg', '_runsPanel', '_runsPanel()._onRunChanged',
   // 같은 구멍 (FR-FMB-45a).
-  '_isToolBusy', '_toolsBusy',
+  'tool._isToolBusy', 'tool._toolsBusy',
 
   // ── 사이드바·상태바 (sidebar) ──
   //
   // 탭과 레일, 그리고 하단 상태바.
-  'sbBusy', '_sbJumpTo', 'sbRail', '_sbSetTab', 'sbTab', 'setSidebarCollapsed',
+  'sbBusy', '_sbJumpTo', 'layout.tabOps.sbRail', '_sbSetTab', 'sbTab', 'layout.tabOps.setSidebarCollapsed',
   // PANEL_DOCK_SRS: 패널의 좌우 자리.
-  'panelDock', 'setPanelDock', 'repoSideDock', 'setRepoSideDock',
+  'layout.dock.panelDock', 'layout.dock.setPanelDock', 'layout.dock.repoSideDock', 'layout.dock.setRepoSideDock',
   // PANEL_LAYOUT_SRS: 새 탭의 시작값으로 쓰는 저장 레이아웃.
-  'saveLayout', 'resetLayout',
-  'updateStatusBar', '_stats',
+  'layout.dock.saveLayout', 'layout.dock.resetLayout',
+  'statusbar.updateStatusBar', '_stats',
 
   // ── 주의·활동·알림 (attention) ──
   //
   // `_attn` 은 toolId → 사유의 Map 이다 (FR-PAN-9·16).
-  '_attn', '_attnBeep', '_attnClear', '_attnRefresh', '_attnRestore', '_activity',
-  '_activityRestore', '_notify', 'agentsToggle',
+  '_attn', 'attn._attnBeep', 'attn._attnClear', 'attn._attnRefresh', 'attn._attnRestore', '_activity',
+  'agents._activityRestore', 'tool._notify', 'agents.agentsToggle',
 
   // ── 전파·저장 (sync) ──
   //
   // SSE 구독과 워크스페이스 저장. 두 축이 한 절에 있는 이유는 둘이 같은 경주를 만들기 때문이다 (WORKSPACE_SAVE_CONFLICT_SRS).
-  '_sse', '_sseGen', '_sseSeen', '_sseKick', '_cmdES', '_subscribeCommands', '_execRemote', '_echoResult',
-  'save', 'saveSettings', '_onWorkspaceChanged', '_wsApplyInflight',
+  '_sse', '_sseGen', '_sseSeen', '_sseKick', '_cmdES', 'wsSync._subscribeCommands', 'tool.cmd._execRemote', 'tool.cmd._echoResult',
+  'wsSave.save', 'settings.apply.saveSettings', 'wsSync._onWorkspaceChanged', '_wsApplyInflight',
   // CLAUDE_ACCOUNTS_SRS FR-CAC-94a: 계정 변경 신호(SSE)를 받은 것처럼 — 입력 중 다시 그리기를 잰다.
-  '_onClaudeAccountsChanged',
+  'claude._onClaudeAccountsChanged',
   // 같은 구멍 (FR-FMB-45a). 저장의 **비행 중**과 **대기 중**은 다른 사실이다.
-  '_applyRemoteWorkspace', '_saveInflight', '_savePending',
+  'wsSync._applyRemoteWorkspace', '_saveInflight', '_savePending',
   // OPTIMIZE_REFACTOR_SRS D-OPT-7: 자기 에코가 설정을 다시 얹지 않는지 센다.
-  '_settingsApply',
+  'settings.apply._settingsApply',
   // FEC-M3: 자기 방송(origin)이 닿았는지 본다 — 닿은 뒤 GET 이 없어야 한다.
-  '_onSettingsChanged',
+  'settings.apply._onSettingsChanged',
 
   // ── 그 밖 (misc) ──
   //
   // 위 어느 축에도 들지 않는 것. **이 절이 길어지면 축이 하나 빠진 것이다.**
-  '_applyPageTitle', '_mKbH', 'modKbd', '_mobileVvApply',
+  'settings.apply._applyPageTitle', '_mKbH', 'modKbd', 'mobile._mobileVvApply',
   // MOBILE_UX_OVERHAUL_SRS TC-MUX-9·10b: 설정을 연다 — 섹션을 주면 그 상세로 바로 들어간다.
-  '_openSettings',
-  '_scheduleMobileFit', 'resizeCheck',
-  '_lspRootOfPath',
+  'settings._openSettings',
+  'mobile._scheduleMobileFit', 'focus.owner.resizeCheck',
+  '_lspClient()._lspRootOfPath',
   // REPO_FIX 03 E-7.1: 렌더 탭을 여는 자리 — 렌더 탭만 남은 문서의 갱신을 잰다.
-  '_docRenderOpen',
+  'editor.docRender._docRenderOpen',
   // SYSTEM_THEME_FOLLOW_SRS TC-STF-1·2: 슬롯을 읽고 세운다.
-  'themeSlots', 'setThemeSlots',
+  'settings.section(theme).themeSlots', 'settings.section(theme).setThemeSlots',
 ];
 
 /**
@@ -140,7 +140,16 @@ const APP_TESTING_NAMES = [
  */
 function appTestingApi(app) {
   const api = {};
-  for (const name of APP_TESTING_NAMES) {
+  for (const entry of APP_TESTING_NAMES) {
+    // REFACTOR3_FE_DELEG_SRS FR-DLG-4: 컨트롤러·부품으로 옮긴 이름은 **앱에서 주인까지의 점 경로**로 적는다
+    // (`'slot.slotFocused'`). 키는 마지막 이름에서 정하므로 e2e 가 보는 이름은 그대로다. `x()` 마디는 지연 생성한
+    // 본체(`_lspClient()`), `section(t)` 마디는 설정 섹션이다 — 주인은 읽는 시점에 찾는다.
+    const keys = entry.split('.');
+    const name = keys.pop();
+    const owner = () => keys.reduce((o, k) => {
+      const m = /^(\w+)\((\w*)\)$/.exec(k);
+      return m ? o[m[1]](...(m[2] ? [m[2]] : [])) : o[k];
+    }, app);
     // 이름 규칙에 예외가 없다 (FR-ATC-4, FE_MODULE_BOUNDARY_SRS FR-FMB-44 로 개정):
     // **계약의 이름은 내부 이름에서 앞의 `_` 를 뗀 것**이다. `FE-4` 가 디렉터리를
     // 넘는 이름 148개를 승격하면서 그것들은 이미 `_` 가 없다 — 그래서 "뗀다" 가
@@ -149,10 +158,11 @@ function appTestingApi(app) {
     Object.defineProperty(api, key, {
       enumerable: true,
       get() {
-        const v = app[name];
-        return (typeof v === 'function') ? v.bind(app) : v;
+        const o = owner();
+        const v = o && o[name];
+        return (typeof v === 'function') ? v.bind(o) : v;
       },
-      set(v) { app[name] = v },
+      set(v) { owner()[name] = v },
     });
   }
   return api;

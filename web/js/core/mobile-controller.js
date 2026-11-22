@@ -21,7 +21,7 @@ class MobileController extends Controller {
     this.app.sbPanel().railSync(); this.app.actPanel().railSync();   // REFACTOR3_FE_REST4_SRS FR-FR4-4
     if(was!==mob){
       this.app.agentsRender();   // UX_BATCH13_SRS FR-ACB-5
-      if(this.app._edApplyWordWrap) this.app._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
+      if(this.app.settings.apply._edApplyWordWrap) this.app.settings.apply._edApplyWordWrap();   // MOBILE_UX_OVERHAUL_SRS FR-MUX-43
       // REFACTOR3_FE_BASE_SRS FR-FEB-26: 모바일 진입·이탈은 두 탭 줄을 같은 길로 다시 잰다. 이전: 작업 패널은 닫혀 있으면 재지 않았다.
       this.app.sbPanel().tabs.fit(); this.app.actPanel().tabs.fit();
     }

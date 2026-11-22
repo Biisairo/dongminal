@@ -61,6 +61,3 @@ class UpdateController extends Controller {
   }
   // FR-UPD-15: 설정 페이지의 체크박스는 `NotifySection` 이 배선한다 (REFACTOR3_FE_SETTINGS_SRS 8b).
 }
-
-// `state-registry.js`·`settings-notify.js` 가 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'update',['_updateRestore','_updateRender']);

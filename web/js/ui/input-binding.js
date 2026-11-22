@@ -35,7 +35,7 @@ class InputBinding {
     this._bindSearch();
     // REFACTOR3_FE_SETTINGS_SRS 8e: 설정 탭들과 그 사이의 init(저장 단추·상태바·모바일·키바·주의)을 옛 순서대로
     // 세운다 — 순서는 `SettingsController` 의 표 `SETTINGS_INIT` 하나다.
-    this.app.initModal();
+    this.app.settings.init();
   }
 
 
@@ -269,7 +269,7 @@ class InputBinding {
         this.app.recording=null;
         if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
         I18N.applyShortcuts(document);   // FR-B-7: 툴팁이 새 표기를 따라온다
-        this.app.saveSettings();
+        this.app.settings.apply.saveSettings();
         return;
       }
       /**

@@ -67,12 +67,12 @@ const SETTINGS_ACCESS={
   // 이미 열려 있는 편집기에도 얹는다.
   editorWordWrap:{get:()=>editorWordWrap,set(v){
     editorWordWrap=v;
-    if(this._edApplyWordWrap) this._edApplyWordWrap();
+    if(this.settings.apply._edApplyWordWrap) this.settings.apply._edApplyWordWrap();
   }},
   // FR-MMT-4: 줄바꿈과 같은 근거로 열려 있는 편집기에도 얹는다.
   editorMinimap:{get:()=>editorMinimap,set(v){
     editorMinimap=v;
-    if(this._edApplyMinimap) this._edApplyMinimap();
+    if(this.settings.apply._edApplyMinimap) this.settings.apply._edApplyMinimap();
   }},
   // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
   tabFixedWidth:{get:()=>tabFixedWidth,set(v){
@@ -88,12 +88,12 @@ const SETTINGS_ACCESS={
   uiFontSize:{get:()=>uiFontSize,set(v){
     uiFontSize=clampSetting('uiFontSize',v);
     applyUiFontScale();
-    if(this._edApplyFontSize) this._edApplyFontSize();
+    if(this.settings.apply._edApplyFontSize) this.settings.apply._edApplyFontSize();
   }},
   // FR-FSS-12·15: 터미널만 움직인다.
   termFontSize:{get:()=>termFontSize,set(v){
     termFontSize=clampSetting('termFontSize',v);
-    if(this._termApplyFontSize) this._termApplyFontSize();
+    if(this.settings.apply._termApplyFontSize) this.settings.apply._termApplyFontSize();
   }},
   // AGENT_RENDER_ENV_SRS FR-ARE-8: 얹을 화면이 없다 — 값은 서버가 쓴다.
   // ISSUE_TREE_OPS_SRS FR-ITM-1·2: 두 쌍은 서로 영향을 주지 않는다. 얹을 화면이 없다.
@@ -105,7 +105,7 @@ const SETTINGS_ACCESS={
   issueTreeCtxPct:{get:()=>issueTreeCtxPct,set(v){
     issueTreeCtxPct=clampSetting('issueTreeCtxPct',v);
   }},
-  keybar:{get:()=>keybarCfg,set(v){keybarCfg=v;this._keybarApply()}},   // UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바를 곧바로 다시 그린다. 설정 구역은 칠하기(`TerminalSection.paint`)가 맡는다
+  keybar:{get:()=>keybarCfg,set(v){keybarCfg=v;this.settings.apply._keybarApply()}},   // UX_AUDIT_FIX_SRS FR-UXF-93·95: 키바를 곧바로 다시 그린다. 설정 구역은 칠하기(`TerminalSection.paint`)가 맡는다
   claudeScrollSpeed:{get:()=>claudeScrollSpeed,set(v){
     claudeScrollSpeed=clampSetting('claudeScrollSpeed',v);
   }},
@@ -133,6 +133,6 @@ const SETTINGS_ACCESS={
     uiLocale=I18N.resolve(v);
     const sel=document.getElementById('ds-locale');
     if(sel) sel.value=uiLocale;
-    if(uiLocale!==I18N.locale&&this._localeMirror(uiLocale)) location.reload();
+    if(uiLocale!==I18N.locale&&this.settings.apply._localeMirror(uiLocale)) location.reload();
   }},
 };

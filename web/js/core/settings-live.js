@@ -27,8 +27,8 @@ class SettingsLive extends Controller {
     const l=this._liveOf(k);
     l.etag=this._liveTag(r);
     l.base=JSON.stringify(form);
-    if(!keep) this.app._liveNotice(k,null);
-    if(this.app._saveBtnsPaint) this.app._saveBtnsPaint(); // UX_AUDIT_FIX_SRS FR-UXF-72: 기준이 바뀌었다
+    if(!keep) this._liveNotice(k,null);
+    if(this.app.settings.saveState._saveBtnsPaint) this.app.settings.saveState._saveBtnsPaint(); // UX_AUDIT_FIX_SRS FR-UXF-72: 기준이 바뀌었다
   }
 
   /** FR-LIV-6: 저장하지 않은 수정은 지금 폼 값이 마지막으로 읽은 값과 다른 것이다. */
@@ -48,17 +48,17 @@ class SettingsLive extends Controller {
 
   /** FR-LIV-4: 방송을 받았을 때. 지문이 같으면 이 패널과 무관한 변화다. */
   _liveChanged(k,r,form,reload){
-    if(!this.app._liveOpen(k)) return;
+    if(!this._liveOpen(k)) return;
     const tag=this._liveTag(r);
     if(tag&&tag===this._liveOf(k).etag) return;
-    if(this._liveDirty(k,form)){ this.app._liveNotice(k,reload); return }
+    if(this._liveDirty(k,form)){ this._liveNotice(k,reload); return }
     reload();
   }
 
   /** FR-LIV-5: 409 를 받았으면 알린다. 참이면 낡은 저장이었다. */
   _liveStale(k,r,reload){
     if(!r||r.status!==409) return false;
-    this.app._liveNotice(k,reload);
+    this._liveNotice(k,reload);
     return true;
   }
 
@@ -81,6 +81,3 @@ class SettingsLive extends Controller {
   }
   // 방송을 받는 `_onAccessChanged`·`_onSandboxChanged` 는 그 섹션에 있다 (REFACTOR3_FE_SETTINGS_SRS 8c).
 }
-
-// 설정 섹션·`EdgesController` 가 App 에서 부르는 이름 (FR-FEA-4). `_liveOpen`·`_liveNotice` 는 시험이 갈아 끼운다.
-Controller.delegate(App,'settings.live',['_liveMark','_liveOpts','_liveOpen','_liveChanged','_liveStale','_liveNotice']);

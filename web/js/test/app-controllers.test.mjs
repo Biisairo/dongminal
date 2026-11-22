@@ -35,11 +35,46 @@ function overridden() {
   return out;
 }
 
-/** 계약 `app-testing.js` 의 이름. */
-function contractNames() {
+/** 계약 `app-testing.js` 의 항목 — 이름 → 앱에서 주인까지의 경로(App 자신이면 ''). REFACTOR3_FE_DELEG_SRS FR-DLG-4. */
+function contractEntries() {
   const src = read('core/app-testing.js');
   const list = src.match(/const APP_TESTING_NAMES = \[([\s\S]*?)\];/)[1];
-  return new Set([...list.matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  return new Map([...list.matchAll(/'([^']+)'/g)].map((m) => {
+    const keys = m[1].split('.');
+    const n = keys.pop();
+    return [n, keys.join('.')];
+  }));
+}
+
+/** 계약 `app-testing.js` 의 이름(경로의 마지막 마디). */
+function contractNames() {
+  return new Set(contractEntries().keys());
+}
+
+/** 경로의 주인 클래스가 정의된 파일. 생성자의 `this.<k>=new <C>(` 를 app.js 에서부터 따라간다. */
+function ownerFile(path) {
+  const files = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'));
+  const classFile = (c) => files.find((f) => new RegExp('^class ' + c + '\\b', 'm').test(readFileSync(f, 'utf8')));
+  let file = join(JS_ROOT, 'core/app.js');
+  for (const k of path.split('.')) {
+    const sec = /^section\((\w+)\)$/.exec(k);
+    if (sec) { file = join(JS_ROOT, 'core/settings-' + sec[1] + '.js'); continue }
+    const field = k.replace(/\(\)$/, '');
+    const src = readFileSync(file, 'utf8');
+    const m = src.match(new RegExp('this\\.' + (k.endsWith('()') ? '_' + field.slice(1).replace(/^(lsp|runs)Client$/, '$1') : field)
+      + '=new ([A-Z][A-Za-z]+)\\('));
+    const lazy = { _lspClient: 'LspClient', _runsPanel: 'RunsPanel' }[field];
+    file = classFile(lazy || (m && m[1]));
+    assert.ok(file, '주인 클래스를 못 찾았다: ' + path);
+  }
+  return file;
+}
+
+/** 계약 이름이 주인에서 함수다 — 위임자였던 이름은 소유 클래스의 메서드, 아니면 App 원형의 메서드. */
+function assertContractOwner(n, appProto) {
+  const path = contractEntries().get(n);
+  if (!path) { assert.equal(typeof appProto[n], 'function', n); return }
+  assert.match(readFileSync(ownerFile(path), 'utf8'), new RegExp('^ {2}(?:async\\s+)?' + n.replace(/\$/g, '\\$') + '\\(', 'm'), path + '.' + n);
 }
 
 /** 하위 이슈별 표. `ctl` 은 컨트롤러 파일, `gone` 은 없어진 mixin, `plainNow` 는 mixin 을 벗은 파일. */
@@ -175,10 +210,14 @@ function load9a(globals = {}) {
   });
 }
 
-/** `this.app` 이 아닌 `this.X` 로 읽는 이름. */
+/**
+ * `this.app` 이 아닌 `this.X` 로 읽는 이름. 그 파일의 클래스가 가진 메서드는 뺀다 — 위임자를 걷은 뒤에는 갈아 끼우는
+ * 자리가 소유 인스턴스이므로 소유 클래스 안의 `this.X()` 가 갈아 끼운 것을 본다 (REFACTOR3_FE_DELEG_SRS D-DLG-1).
+ */
 function thisNames(src) {
   const out = new Set();
-  for (const m of src.matchAll(/(?<![\w$.])this\.([A-Za-z_$][\w$]*)/g)) out.add(m[1]);
+  const own = new Set([...src.matchAll(/^ {2}(?:async\s+)?([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]));
+  for (const m of src.matchAll(/(?<![\w$.])this\.([A-Za-z_$][\w$]*)/g)) if (!own.has(m[1])) out.add(m[1]);
   return out;
 }
 
@@ -216,28 +255,24 @@ test('TC-FEA-1: Controller.delegate 는 이름마다 같은 인자로 부르고 
   assert.deepEqual(plain(h.g(2)), ['g', 2, 'k']);
 });
 
-test('TC-FEA-1(9a): 위임자는 컨트롤러 메서드를 같은 인자로 부르고 값을 돌려준다', () => {
+/** 위임자 경로 → 소유 클래스 (REFACTOR3_FE_DELEG_SRS DL-1). */
+const OWNERS_9A = { edges: 'EdgesController', update: 'UpdateController', 'settings.apply': 'SettingsApply',
+  'settings.live': 'SettingsLive', 'settings.saveState': 'SettingsSaveState', settings: 'SettingsController' };
+
+test('TC-DLG-1(DL-1): 옛 위임자 이름은 App 원형에 없고 소유 클래스 원형의 메서드다', () => {
   const ctx = load9a();
-  const app = new ctx.App();
-  app.edges = {};
-  app.update = {};
-  app.settings = { apply: {}, live: {}, saveState: {} };
-  const seen = [];
   for (const [path, names] of Object.entries(DELEGATES_9A)) {
-    const target = path.split('.').reduce((o, k) => o[k], app);
-    for (const n of names) target[n] = (...a) => { seen.push([n, ...a]); return 'r:' + n };
+    for (const n of names) {
+      assert.equal(ctx.App.prototype[n], undefined, '위임자가 남았다: ' + n);
+      assert.equal(typeof ctx[OWNERS_9A[path]].prototype[n], 'function', path + '.' + n);
+    }
   }
-  for (const names of Object.values(DELEGATES_9A)) for (const n of names) assert.equal(app[n](1, 'x'), 'r:' + n, n);
-  assert.deepEqual(plain(seen), Object.values(DELEGATES_9A).flat().map((n) => [n, 1, 'x']));
-  // 이름이 다른 위임자 둘과 섹션 위임자.
-  const log = [];
-  app.settings.init = () => { log.push('init'); return app.settings };
-  app.settings.paint = () => log.push('paint');
-  app.settings._sectionCall = (tab, name, args) => { log.push([tab, name, ...args]); return tab + ':' + name };
-  assert.equal(app.initModal(), undefined);
-  app._paintSettingControls();
-  for (const [n, tab] of Object.entries(SECTION_DELEGATES_9A)) assert.equal(app[n]('a', 2), tab + ':' + n, n);
-  assert.deepEqual(plain(log), ['init', 'paint', ...Object.entries(SECTION_DELEGATES_9A).map(([n, tab]) => [tab, n, 'a', 2])]);
+  for (const n of [...Object.keys(SECTION_DELEGATES_9A), 'initModal', '_paintSettingControls']) {
+    assert.equal(ctx.App.prototype[n], undefined, '위임자가 남았다: ' + n);
+  }
+  assert.equal(typeof ctx.SettingsController.prototype.init, 'function');
+  assert.equal(typeof ctx.SettingsController.prototype.paint, 'function');
+  assert.doesNotMatch(read('core/settings-controller.js'), /SETTINGS_SECTION_DELEGATES/);
 });
 
 test('TC-FEA-1(9a): LSP·Run 위임자는 App 본문에 있고 지연 생성한 본체에 잇는다', () => {
@@ -269,24 +304,27 @@ test('TC-FEA-2(9a): 갈아 끼운 _edgesRestore·_restore*·_liveOpen·_liveNoti
   app.edges = new ctx.EdgesController(app);
   app.update = new ctx.UpdateController(app);
   const log = [];
-  app._edgesRestore = () => { log.push('edgesRestore'); return 'R' };
+  // REFACTOR3_FE_DELEG_SRS: 갈아 끼우는 자리는 소유 인스턴스다 — 섹션은 탭 이름으로 찾는다.
+  const sections = { edges: {}, profile: {} };
+  app.settings = { live: new ctx.SettingsLive(app), apply: { _applyPageTitle() {} }, section: (t) => sections[t] };
+  app.edges._edgesRestore = () => { log.push('edgesRestore'); return 'R' };
   assert.equal(app.edges._onEdgesChanged({}), 'R');
-  delete app._edgesRestore;
+  delete app.edges._edgesRestore;
   app._restoreBegin = (k) => { log.push('begin:' + k); return 7 };
   app._restoreLive = (k, f) => { log.push('live:' + k + f); return true };
   app._restoreEnd = (k, f) => log.push('end:' + k + f);
-  app._edgesPaint = () => log.push('edgesPaint');
-  app._liveOpen = () => { log.push('liveOpen'); return false };
-  app._pfFollow = () => log.push('pfFollow');
+  sections.edges._edgesPaint = () => log.push('edgesPaint');
+  app.settings.live._liveOpen = () => { log.push('liveOpen'); return false };
+  sections.profile._pfFollow = () => log.push('pfFollow');
   await app.edges._edgesRestore();
   await app.update._updateRestore();
   assert.deepEqual(log, ['edgesRestore', 'begin:edges', 'live:edges7', 'pfFollow', 'edgesPaint', 'liveOpen', 'end:edges7',
     'begin:update', 'live:update7', 'end:update7']);
 
-  const live = new ctx.SettingsLive(app);
+  const live = app.settings.live;
   const seen = [];
-  app._liveOpen = () => true;
-  app._liveNotice = (k, r) => seen.push([k, typeof r]);
+  app.settings.live._liveOpen = () => true;
+  app.settings.live._liveNotice = (k, r) => seen.push([k, typeof r]);
   live._liveChanged('access', null, { a: 1 }, () => seen.push('reload'));
   assert.deepEqual(plain(seen), [['access', 'function']], '수정이 있으면 갈아 끼운 _liveNotice 로 알린다');
 });
@@ -316,12 +354,12 @@ test('TC-FEA-3(9a): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
     '_openSettings', 'themeSlots', 'setThemeSlots'];
   for (const n of names) {
     assert.ok(contract.has(n), '계약에 없다: ' + n);
-    assert.equal(typeof ctx.App.prototype[n], 'function', n);
+    assertContractOwner(n, ctx.App.prototype);
   }
   const app = load([...BASE, 'core/app.js'], { expose: ['App'], globals: { TIMERS: { disposeOwner() {} } } }).App;
   for (const n of ['_runsPanel', '_onRunChanged', '_lspRootOfPath']) {
     assert.ok(contract.has(n), '계약에 없다: ' + n);
-    assert.equal(typeof app.prototype[n], 'function', n);
+    assertContractOwner(n, app.prototype);
   }
 });
 
@@ -429,6 +467,7 @@ test('TC-FEA-2(9b): 갈아 끼운 _attnClear·_claudeAcctRestore·updateStatusBa
   app.attn = new ctx.AttnController(app);
   app.claude = new ctx.ClaudeAccountsController(app);
   app.statusbar = new ctx.StatusBarController(app);
+  app.settings = { section: () => null };   // 설정 섹션을 세우기 전이다 (REFACTOR3_FE_DELEG_SRS D-DLG-4)
   app._attn = new Map([['t1', { reason: 'x' }]]);
   const log = [];
   app._attnClear = (id, typed) => log.push('clear:' + id + ':' + typed);
@@ -461,7 +500,7 @@ test('TC-FEA-3(9b): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
     '_onClaudeAccountsChanged', 'updateStatusBar'];
   for (const n of names) {
     assert.ok(contract.has(n), '계약에 없다: ' + n);
-    assert.equal(typeof ctx.App.prototype[n], 'function', n);
+    assertContractOwner(n, ctx.App.prototype);
   }
 });
 
@@ -592,7 +631,7 @@ test('TC-FEA-3(9c): 옮긴 묶음의 계약 이름이 App 원형에서 함수로
   const names = ['_onToolActivity', '_activityRestore', 'agentsToggle', '_scheduleMobileFit', '_mobileVvApply'];
   for (const n of names) {
     assert.ok(contract.has(n), '계약에 없다: ' + n);
-    assert.equal(typeof ctx.App.prototype[n], 'function', n);
+    assertContractOwner(n, ctx.App.prototype);
   }
 });
 
@@ -1752,8 +1791,8 @@ test('TC-FEA-1(9k-2): 묶음 하나만 닿는 필드는 부품이 든다 — 클
   assert.match(read('core/editor-file.js'), /this\.app\.edFocusHandoff\(\)/);
 });
 
-test('TC-FEA-1(9k-2): 편집기 키는 App 의 이름으로 부른다 — 다른 부품(저장 전부)에 닿는다', () => {
-  const ctx = load9k1({ ED_APP_ACTIONS: { edSaveAll: '_edSaveAll' }, ED_LSP_ACTIONS: {}, shortcuts: { edSaveAll: 's' },
+test('TC-FEA-1(9k-2): 편집기 키는 주인까지의 점 경로로 부른다 — 다른 부품(저장 전부)에 닿는다', () => {
+  const ctx = load9k1({ ED_APP_ACTIONS: { edSaveAll: 'editor.sync._edSaveAll' }, ED_LSP_ACTIONS: {}, shortcuts: { edSaveAll: 's' },
     matchShortcut: (e, k) => e.key === k });
   const app = controllers(ctx, new ctx.App());
   const log = [];

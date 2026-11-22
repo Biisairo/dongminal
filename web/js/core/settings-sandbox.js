@@ -70,7 +70,7 @@ class SandboxSection extends SettingsSection {
       document.getElementById('sbx-image').value=(cfg.dev&&cfg.dev.image)||'';
       document.getElementById('sbx-ports').value=(cfg.dev&&cfg.dev.ports||[]).join(', ');
       for(const m of cfg.mounts||[]) box.appendChild(this._sbxMountRow(m));
-      this.app._liveMark('sandbox',r,this._sbxCollect());
+      this.app.settings.live._liveMark('sandbox',r,this._sbxCollect());
       return r;
     });
   }
@@ -88,8 +88,8 @@ class SandboxSection extends SettingsSection {
         async()=>{
           // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
           const cfg=this._sbxCollect();
-          const r=await apiPut('/api/sandbox/config',cfg,this.app._liveOpts('sandbox'));
-          if(!this.app._liveStale('sandbox',r,()=>this._loadSandboxPanel())&&r.ok) this.app._liveMark('sandbox',r,cfg);
+          const r=await apiPut('/api/sandbox/config',cfg,this.app.settings.live._liveOpts('sandbox'));
+          if(!this.app.settings.live._liveStale('sandbox',r,()=>this._loadSandboxPanel())&&r.ok) this.app.settings.live._liveMark('sandbox',r,cfg);
           return r;
         });
     });
@@ -100,9 +100,9 @@ class SandboxSection extends SettingsSection {
   onTab(){ return this._loadSandboxPanel() }
 
   _onSandboxChanged(){
-    if(!this.app._liveOpen('sandbox')) return;
+    if(!this.app.settings.live._liveOpen('sandbox')) return;
     return apiGet('/api/sandbox/config').then(r=>{
-      if(r.ok) this.app._liveChanged('sandbox',r,this._sbxCollect(),()=>this._loadSandboxPanel());
+      if(r.ok) this.app.settings.live._liveChanged('sandbox',r,this._sbxCollect(),()=>this._loadSandboxPanel());
     });
   }
 }

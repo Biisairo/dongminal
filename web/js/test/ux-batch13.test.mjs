@@ -35,7 +35,7 @@ test('TC-EGL-1: 내장 gotoLine 묶음이 없다', () => {
 test('TC-EGL-2: edGotoLine 은 Ctrl+KeyG 이고 라벨이 있다', () => {
   assert.equal(sc.SHORTCUT_DEFAULTS.edGotoLine, 'Ctrl+KeyG');
   assert.ok(sc.SHORTCUT_LABELS.edGotoLine);
-  assert.equal(sc.ED_SEARCH_ACTIONS.edGotoLine, '_edGotoLine');
+  assert.equal(sc.ED_SEARCH_ACTIONS.edGotoLine, 'editor.search._edGotoLine');
 });
 
 test('TC-EGL-3: 줄 · 줄:열 을 해석한다', () => {

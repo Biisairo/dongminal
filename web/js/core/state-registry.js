@@ -39,23 +39,23 @@ const CLAUDE_ACCT_POLL_MS=30*1000;
 const STATE_REGISTRY=[
   {
     id:'tool.attention',
-    restore:'_attnRestore',
+    restore:'attn._attnRestore',
     merge:'touched',      // 증분이 id 를 만진다 — 스냅샷이 그것을 덮으면 안 된다
     flight:'attn',
     part:'attention',
     events:{
-      tool_attention:'_onToolAttention',
-      tool_attention_clear:'_onToolAttentionClear',
+      tool_attention:'attn._onToolAttention',
+      tool_attention_clear:'attn._onToolAttentionClear',
     },
     revalidateOn:['sse:open','softreload'],
   },
   {
     id:'tool.activity',
-    restore:'_activityRestore',
+    restore:'agents._activityRestore',
     merge:'touched',
     flight:'activity',
     part:'activity',
-    events:{tool_activity:'_onToolActivity',tool_subagent_activity:'_onToolSubagentActivity'},
+    events:{tool_activity:'agents._onToolActivity',tool_subagent_activity:'agents.sub._onToolSubagentActivity'},
     revalidateOn:['sse:open','softreload'],
     // 이 상태만 주기를 갖는다. 서버가 활동 변화를 전부 밀지는 않기 때문이다
     // (AGENT_ACTIVITY_PANEL_SRS) — 주기는 사용자가 정한다.
@@ -80,7 +80,7 @@ const STATE_REGISTRY=[
     id:'tool.foreground',
     merge:'touched',
     flight:'fg',
-    events:{tool_foreground:'_onToolForeground'},
+    events:{tool_foreground:'wsSync._onToolForeground'},
   },
   {
     /**
@@ -109,14 +109,14 @@ const STATE_REGISTRY=[
   },
   {
     id:'tool.background',
-    restore:'_bgRefresh',
+    restore:'tool.life._bgRefresh',
     // **`touched` 가 아니다.** `tools_background_changed` 는 증분을 나르지 않고
     // "목록을 다시 받으라" 는 신호다 (FR-BGV-1). 만진 id 라는 개념이 없으므로
     // 보호할 것도 없다 — 막아야 하는 것은 스냅샷끼리의 추월뿐이다.
     merge:'latest',
     flight:'background',
     part:'background',
-    events:{tools_background_changed:'_bgRefresh'},
+    events:{tools_background_changed:'tool.life._bgRefresh'},
     revalidateOn:['sse:open','softreload'],
     // UX_BATCH12 FR-LIV-7: 행의 Run 표지와 cwd 는 조회 때 계산된다 — 신호가 없는 변화를
     // 패널이 열린 동안 활동 주기로 고친다 (`run.list` 와 같은 모양).
@@ -138,14 +138,14 @@ const STATE_REGISTRY=[
      * `every` 는 없다. 설정은 사용자가 바꿀 때만 바뀌고, 그 순간을 서버가 안다.
      */
     id:'settings',
-    restore:'_settingsRestore',
+    restore:'settings.apply._settingsRestore',
     merge:'latest',
     flight:'settings',
     part:'settings',
     // FR-OPT-4-5 (FEC-10): 첫 연결의 재검증은 건너뛴다 — 부팅(`main.js`)이 방금 받았다.
     // 부팅 조회와 구독 사이의 짧은 틈에 바뀐 값은 다음 방송·재연결이 준다.
     bootCovered:true,
-    events:{settings_changed:'_onSettingsChanged'},
+    events:{settings_changed:'settings.apply._onSettingsChanged'},
     revalidateOn:['sse:open','softreload'],
   },
   {
@@ -164,11 +164,11 @@ const STATE_REGISTRY=[
      * 증분을 나르지 않고 "다시 받으라" 는 신호다.
      */
     id:'update',
-    restore:'_updateRestore',
+    restore:'update._updateRestore',
     merge:'latest',
     flight:'update',
     part:'update',
-    events:{update_changed:'_updateRestore'},
+    events:{update_changed:'update._updateRestore'},
     revalidateOn:['sse:open','softreload'],
   },
   {
@@ -188,9 +188,9 @@ const STATE_REGISTRY=[
      * (FR-GPO-23).
      */
     id:'git.observe',
-    restore:'_gitObserveRestore',
+    restore:'git.sync._gitObserveRestore',
     merge:'latest',
-    events:{git_changed:'_onGitChanged'},
+    events:{git_changed:'git.sync._onGitChanged'},
     revalidateOn:['sse:open'],
   },
   {
@@ -200,9 +200,9 @@ const STATE_REGISTRY=[
      * 지금의 집합을 다시 등록한다. 안전망은 편집기 틱(`_edTick`)이다 (FR-ELR-61).
      */
     id:'fs.watch',
-    restore:'_edWatchRestore',
+    restore:'editor.watch._edWatchRestore',
     merge:'latest',
-    events:{fs_changed:'_onFsChanged'},
+    events:{fs_changed:'editor.watch._onFsChanged'},
     revalidateOn:['sse:open'],
   },
   {
@@ -214,21 +214,21 @@ const STATE_REGISTRY=[
      * `restore` 가 묻지 않는다 (`_gitJobsWanted`).
      */
     id:'git.jobs',
-    restore:'_pollGitJobs',
+    restore:'git.sync._pollGitJobs',
     merge:'latest',
     flight:'gitJobs',
-    events:{git_jobs_changed:'_pollGitJobs'},
+    events:{git_jobs_changed:'git.sync._pollGitJobs'},
     revalidateOn:['sse:open','softreload'],
   },
   {
     id:'window.focus',
-    restore:'_focusRestore',
+    restore:'focus.owner._focusRestore',
     // 전체 소유권 맵이 온다. 증분이 아니므로 통째로 갈아치우면 되고 자기 에코
     // 필터가 필요 없다 (FR-XDF-14 — 멱등). 여기서도 추월만 막는다.
     merge:'latest',
     flight:'focus',
     part:'focus',
-    events:{window_focus:'_onWindowFocus'},
+    events:{window_focus:'focus.owner._onWindowFocus'},
     revalidateOn:['sse:open','softreload'],
   },
   {
@@ -237,11 +237,11 @@ const STATE_REGISTRY=[
      * `edges_changed` 로 민다. 끊겨 있던 동안 생긴 대기는 재연결의 스냅샷이 준다.
      */
     id:'edges',
-    restore:'_edgesRestore',
+    restore:'edges._edgesRestore',
     merge:'latest',
     flight:'edges',
     part:'edges',
-    events:{edges_changed:'_onEdgesChanged'},
+    events:{edges_changed:'edges._onEdgesChanged'},
     revalidateOn:['sse:open','softreload'],
   },
   {
@@ -250,10 +250,10 @@ const STATE_REGISTRY=[
      * `chat_changed` 로 민다. 사람에게 온 글은 `chat_message` 로 오고 화면만 든다.
      */
     id:'chat',
-    restore:'_chatRestore',
+    restore:'chat._chatRestore',
     merge:'latest',
     flight:'chat',
-    events:{chat_changed:'_onChatChanged',chat_message:'_onChatMessage'},
+    events:{chat_changed:'chat._onChatChanged',chat_message:'chat._onChatMessage'},
     revalidateOn:['sse:open','softreload'],
   },
   {
@@ -263,10 +263,10 @@ const STATE_REGISTRY=[
      * 패널이 열린 동안 주기로도 다시 받는다 (`run.list` 와 같은 모양).
      */
     id:'claude.accounts',
-    restore:'_claudeAcctRestore',
+    restore:'claude._claudeAcctRestore',
     merge:'latest',
     flight:'claudeAccounts',
-    events:{claude_accounts_changed:'_onClaudeAccountsChanged'},
+    events:{claude_accounts_changed:'claude._onClaudeAccountsChanged'},
     revalidateOn:['sse:open','softreload'],
     every:()=>CLAUDE_ACCT_POLL_MS,
     when:(app)=>app._agentsPanelShown(),
@@ -277,12 +277,12 @@ const STATE_REGISTRY=[
      * 아무것도 하지 않는다 — 열 때 읽는다.
      */
     id:'settings.live',
-    events:{access_changed:'_onAccessChanged',sandbox_changed:'_onSandboxChanged'},
+    events:{access_changed:'settings.section(access)._onAccessChanged',sandbox_changed:'settings.section(sandbox)._onSandboxChanged'},
   },
   {
     /** HOT_REBIND_SRS FR-HRB-26 — 서버가 포트를 옮겼다. 화면은 설정을 맡기고 새 주소로 간다. */
     id:'server.move',
-    events:{server_moving:'_onServerMoving'},
+    events:{server_moving:'settings.section(server)._onServerMoving'},
   },
 ];
 
@@ -294,12 +294,21 @@ const STATE_REGISTRY=[
  */
 function wireStateRegistry(app){
   const bus=app.bus;
+  // 이름은 앱에서 주인까지의 점 경로다(`'git.sync._onGitChanged'`, REFACTOR3_FE_DELEG_SRS FR-DLG-3). `section(tab)` 마디는
+  // 설정 섹션이고, 섹션이 아직 없으면(설정창을 세우기 전) 아무것도 하지 않는다.
   const call=(name,args)=>{
-    const fn=app[name];
+    const keys=name.split('.'), last=keys.pop();
+    let o=app;
+    for(const k of keys){
+      const m=/^(\w+)\((\w+)\)$/.exec(k);
+      o=m?o[m[1]](m[2]):o&&o[k];
+      if(m&&!o) return;
+    }
+    const fn=o&&o[last];
     // 이름이 사라졌으면 **소리를 낸다.** 종전의 `&&` 가드는 같은 상황을 조용히
     // 삼켰고, 그래서 한 상태만 갱신되지 않는 채로 배포됐다 (FR-WBR-95).
     if(typeof fn!=='function'){ console.error('[state]',name,'이 없다'); return }
-    return fn.call(app,args);
+    return fn.call(o,args);
   };
 
   for(const d of STATE_REGISTRY){

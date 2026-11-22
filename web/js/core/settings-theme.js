@@ -111,7 +111,7 @@ class ThemeSection extends SettingsSection {
   init(){
     if(typeof matchMedia!=='function') return;
     const mq=matchMedia('(prefers-color-scheme: dark)');
-    const on=()=>{if(themeFollowSystem){this.app._applyThemeChoice();this._renderThemePanel()}};
+    const on=()=>{if(themeFollowSystem){this.app.settings.apply._applyThemeChoice();this._renderThemePanel()}};
     if(mq.addEventListener) this.listen(mq,'change',on); else if(mq.addListener) mq.addListener(on);
   }
 
@@ -123,7 +123,7 @@ class ThemeSection extends SettingsSection {
   setThemeSlots(s){
     if(s&&THEMES[s.dark]) themeNameDark=s.dark;
     if(s&&THEMES[s.light]) themeNameLight=s.light;
-    this.app._applyThemeChoice(); this._renderThemePanel(); this.app.saveSettings();
+    this.app.settings.apply._applyThemeChoice(); this._renderThemePanel(); this.app.settings.apply.saveSettings();
   }
 
   /**
@@ -150,7 +150,7 @@ class ThemeSection extends SettingsSection {
       });
       // 끄는 동안은 화면만 따라가고 놓을 때 저장한다 (FR-SEED-10, 편집기 FEC-5 와 같다).
       this.listen(inp,'input',()=>{seedColor=inp.value.toLowerCase();this._seedChanged(false)});
-      this.listen(inp,'change',()=>this.app._saveSettingsNow('seed-color'));
+      this.listen(inp,'change',()=>this.app.settings.apply._saveSettingsNow('seed-color'));
     }
     for(const b of box.children){
       b.disabled=!on;
@@ -161,8 +161,8 @@ class ThemeSection extends SettingsSection {
   /** FR-SEED-10·11: 메인색이 바뀌었다 — 다시 적용하고, 패널·편집기 안내를 고친다. */
   _seedChanged(save){
     if(seedColor) PrefStore.local.set(SEED_LAST_KEY,seedColor);
-    this.app._applyThemeChoice(); this._renderThemePanel(); this._paintSeedHint();
-    if(save) this.app.saveSettings(); else this.app._saveSettingsSoon('seed-color');
+    this.app.settings.apply._applyThemeChoice(); this._renderThemePanel(); this._paintSeedHint();
+    if(save) this.app.settings.apply.saveSettings(); else this.app.settings.apply._saveSettingsSoon('seed-color');
   }
 
   /** FR-SEED-11: 편집기는 원본을 고친다 — 메인색이 켜져 있으면 그 사실을 알린다. */
@@ -207,7 +207,7 @@ class ThemeSection extends SettingsSection {
             const theme=THEMES[currentThemeName];
             if(theme&&theme.mode==='light') themeNameLight=currentThemeName; else if(theme) themeNameDark=currentThemeName;
           }
-          this.app._applyThemeChoice(); this._renderThemePanel(); this.app.saveSettings();
+          this.app.settings.apply._applyThemeChoice(); this._renderThemePanel(); this.app.settings.apply.saveSettings();
         });
       }
       // FR-STF-7: 사용자 정의가 있는데 추종이 켜져 있으면 그것은 적용되지 않는다.
@@ -274,12 +274,12 @@ class ThemeSection extends SettingsSection {
       // 시스템 모드와 같은 쪽이면 즉시 적용되고, 아니면 저장만 된다.
       if(themeFollowSystem){
         if(theme.mode==='light') themeNameLight=name; else themeNameDark=name;
-        this.app._applyThemeChoice(); this._renderThemePanel(); this.app.saveSettings();
+        this.app.settings.apply._applyThemeChoice(); this._renderThemePanel(); this.app.settings.apply.saveSettings();
         return;
       }
       currentThemeName=name; customTheme=null;
       applyThemeObj(theme); this._renderThemePanel(); this._hideCustomEditor();
-      this.app.saveSettings();
+      this.app.settings.apply.saveSettings();
     });
     return item;
   }
@@ -354,10 +354,10 @@ class ThemeSection extends SettingsSection {
       customTheme[section][key]=inp.value;
       applyThemeObj(customTheme);
       this._renderPreview();
-      this.app._saveSettingsSoon('theme-color');
+      this.app.settings.apply._saveSettingsSoon('theme-color');
     });
     inp.addEventListener('change',()=>{
-      if(customTheme) this.app._saveSettingsNow('theme-color');
+      if(customTheme) this.app.settings.apply._saveSettingsNow('theme-color');
     });
     item.appendChild(lbl); item.appendChild(inp);
     return item;

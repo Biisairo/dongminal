@@ -19,7 +19,7 @@ function tgTokenDirty(v){ return String(v||'').trim()!=='' }
 /** FR-UXF-70: 조용한 시간은 서버 값과 다를 때 변경이다. 서버 값을 모르면 변경이 없다. */
 function tgSilenceDirty(tg,v){ return !!tg&&(parseInt(v,10)||0)!==(tg.silenceMin||0) }
 
-const SETTINGS_SAVE_LIVE=(k,collect)=>app=>app.settings.live._liveOf(k).base!==''&&app.settings.live._liveDirty(k,app[collect]());
+const SETTINGS_SAVE_LIVE=(k,collect)=>app=>app.settings.live._liveOf(k).base!==''&&app.settings.live._liveDirty(k,app.settings._sectionCall(k,collect,[]));
 const SETTINGS_SAVE_VAL=id=>{const e=document.getElementById(id);return e?e.value:''};
 
 /** FR-UXF-70: 단추 · 그 패널 · 변경 판정. `#ds-layout-save` 는 폼 값이 없는 동작이라 대상이 아니다. */
@@ -59,11 +59,8 @@ class SettingsSaveState extends Controller {
       const p=document.getElementById(d.panel);
       if(!p||seen.has(p)) continue;
       seen.add(p);
-      for(const ev of ['input','change','click']) p.addEventListener(ev,()=>this.app._saveBtnsPaint());
+      for(const ev of ['input','change','click']) p.addEventListener(ev,()=>this._saveBtnsPaint());
     }
-    this.app._saveBtnsPaint();
+    this._saveBtnsPaint();
   }
 }
-
-// `settings-telegram.js`·`SettingsLive` 와 부팅 표 `SETTINGS_INIT` 이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'settings.saveState',['_saveBtnsPaint','initSaveButtons']);

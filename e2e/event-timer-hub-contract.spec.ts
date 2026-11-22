@@ -545,19 +545,23 @@ test.describe('T-12 — 소프트리로드의 재검증 목록 (SRS §2.4)', () 
     const seen = await page.evaluate(async () => {
       const app = (window as any).app;
       // 전경 이름은 워크스페이스 재조회가 나른다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-5).
-      const keys = ['_attnRestore', '_activityRestore', '_bgRefresh', '_focusRestore', '_onWorkspaceChanged'];
+      // 이름은 주인까지의 점 경로다 — 등록부가 그 주인을 부른다 (REFACTOR3_FE_DELEG_SRS FR-DLG-3).
+      const paths = ['attn._attnRestore', 'agents._activityRestore', 'tool.life._bgRefresh', 'focus.owner._focusRestore',
+        'wsSync._onWorkspaceChanged'];
+      const at = (p: string) => { const ks = p.split('.'); const k = ks.pop()!; return { o: ks.reduce((o: any, x) => o[x], app), k } };
 
       // 존재 자체가 계약이다 — `&&` 가드는 없는 이름을 조용히 삼킨다.
-      const missing = keys.filter((k) => typeof app[k] !== 'function');
+      const missing = paths.filter((p) => { const { o, k } = at(p); return typeof o[k] !== 'function' }).map((p) => p.split('.').pop());
 
       const called: string[] = [];
       const orig: any = {};
-      for (const k of keys) {
-        orig[k] = app[k].bind(app);
-        app[k] = (...a: any[]) => { called.push(k); return orig[k](...a) };
+      for (const p of paths) {
+        const { o, k } = at(p);
+        orig[k] = o[k].bind(o);
+        o[k] = (...a: any[]) => { called.push(k); return orig[k](...a) };
       }
       await app.softReload();
-      for (const k of keys) app[k] = orig[k];
+      for (const p of paths) { const { o, k } = at(p); o[k] = orig[k] }
 
       return { missing, called };
     });

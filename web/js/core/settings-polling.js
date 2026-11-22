@@ -28,7 +28,7 @@ class PollingSection extends SettingsSection {
       this.listen(sel,'change',()=>{
         // FR-PIS-8: 값의 판정은 표 한 자리다 (`settingValue`, FR-OPT-11-4).
         spec.set(settingValue(parseInt(sel.value,10),SETTINGS_BY_KEY[spec.key]));
-        app.saveSettings();
+        app.settings.apply.saveSettings();
         // 값이 바뀐 즉시 도는 타이머에 닿는다 — 저장 왕복을 기다리면 사용자는
         // 설정이 듣지 않는 것으로 읽는다 (FR-WBR-10·11 과 같은 근거).
         if(spec.key==='gitStatusInterval'){

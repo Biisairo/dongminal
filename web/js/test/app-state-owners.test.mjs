@@ -105,10 +105,14 @@ function loadSync() {
   return { ctx, puts };
 }
 
-test('FR-ASE-9: SettingsSync 가 저장 파이프라인을 갖고 App 에는 껍데기 넷과 지연 생성이 남는다', () => {
+test('FR-ASE-9: SettingsSync 가 저장 파이프라인을 갖고 SettingsApply 에는 껍데기 넷과 지연 생성이 남는다', () => {
   const { ctx } = loadSync();
   assert.deepEqual(ownNames(ctx.SettingsSync.prototype), [...SYNC_METHODS].sort());
-  for (const n of SYNC_SHELLS) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+  // REFACTOR3_FE_DELEG_SRS: 껍데기는 `settings.apply` 에 있고 App 원형의 위임자는 걷었다.
+  for (const n of SYNC_SHELLS) {
+    assert.equal(typeof ctx.SettingsApply.prototype[n], 'function', n);
+    assert.equal(ctx.App.prototype[n], undefined, '위임자가 남았다: ' + n);
+  }
   assert.equal(ctx.App.prototype._settingsAcceptRemote, undefined, '에코 판정이 App 에 남았다');
 });
 
@@ -118,8 +122,8 @@ test('FR-ASE-9 · A-6: 에코 판정은 app 에 갈아 끼운 _settingsApply 를
   app.settings = { apply: new ctx.SettingsApply(app) };
   app.clientId = 'c';
   const applied = [];
-  app._settingsApply = (d) => applied.push(d);
-  await app.saveSettings();
+  app.settings.apply._settingsApply = (d) => applied.push(d);
+  await app.settings.apply.saveSettings();
   const sync = app.settings.apply._settingsSync();
   assert.equal(sync.app, app);
   sync._settingsAcceptRemote({ ok: true, text: puts[0], data: {} });
@@ -134,7 +138,7 @@ test('FR-ASE-9 · A-6: 에코 판정은 app 에 갈아 끼운 _settingsApply 를
  * 계약(`app-testing.js`)의 이름은 App 인스턴스에서 그대로 읽힌다 — mixin 을 컨트롤러로 옮겨도 App 에 메서드
  * (본문·mixin·위임자 표)나 필드(`this.X=`)로 남는다.
  */
-test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·위임자·필드다', async () => {
+test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 경로 끝 주인의 메서드다', async () => {
   const { readFileSync, readdirSync } = await import('node:fs');
   const { join } = await import('node:path');
   const root = new URL('..', import.meta.url).pathname;
@@ -162,8 +166,26 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·위임자·필드�
     if (sec) for (const m of sec[1].matchAll(/'([^']+)'/g)) names.add(m[1]);
     for (const m of src.matchAll(/\bthis\.app\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) names.add(m[1]);   // 컨트롤러가 App 에 쓰는 필드
   }
+  // REFACTOR3_FE_DELEG_SRS FR-DLG-4: 위임자였던 이름은 앱에서 주인까지의 점 경로로 적힌다 — 마지막 이름이 그 주인 클래스의
+  // 메서드다. 주인은 생성자의 `this.<k>=new <C>(` 를 app.js 에서부터 따라 찾는다.
+  const classFile = (c) => appFiles.concat(readdirSync(join(root, 'core')).map((n) => 'core/' + n), readdirSync(join(root, 'ui'))
+    .map((n) => 'ui/' + n)).find((f) => f.endsWith('.js') && new RegExp('^class ' + c + '\\b', 'm').test(read(f)));
+  const LAZY = { '_lspClient()': 'LspClient', '_runsPanel()': 'RunsPanel' };
+  const owned = (entry) => {
+    const keys = entry.split('.');
+    const n = keys.pop();
+    let file = 'core/app.js';
+    for (const k of keys) {
+      const sec = /^section\((\w+)\)$/.exec(k);
+      if (sec) { file = 'core/settings-' + sec[1] + '.js'; continue }
+      const m = read(file).match(new RegExp('this\\.' + k + '=new ([A-Z][A-Za-z]+)\\('));
+      file = classFile(LAZY[k] || (m && m[1]));
+      if (!file) return false;
+    }
+    return new RegExp('^ {2}(?:async\\s+)?' + n.replace(/\$/g, '\\$') + '\\(', 'm').test(read(file));
+  };
   // REFACTOR3_FE_FIX_SRS FR-FFX-15: 계약의 모든 이름이 App 에 있다 — 알려진 예외(`_gitJobChip`·`_focusCh`)를 걷었다.
-  assert.deepEqual(contract.filter((n) => !names.has(n)), []);
+  assert.deepEqual(contract.filter((n) => (n.includes('.') ? !owned(n) : !names.has(n))), []);
   // 둘은 되살아나지 않는다 — 상태바의 원격 작업 chip(U-19 ①)과 BroadcastChannel 포커스 경로(FR-XDF-5).
   for (const gone of ['_gitJobChip', '_focusCh']) assert.ok(!names.has(gone) && !contract.includes(gone), gone);
 });

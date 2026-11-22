@@ -16,7 +16,8 @@
 const SETTINGS_INIT_MODAL='@modal';
 
 /**
- * 부팅 배선의 순서 (TC-FES-4). 섹션은 클래스, 문자열은 그 사이에 도는 App 의 init 이다.
+ * 부팅 배선의 순서 (TC-FES-4). 섹션은 클래스, 문자열은 그 사이에 도는 init 의 앱에서 주인까지의 점 경로다
+ * (REFACTOR3_FE_DELEG_SRS FR-DLG-3).
  *
  * 옛 순서(df15f347)는 `initModal` 의 나열 다음에 `ui/input-binding.js` 의 init 여덟이었다. 섹션 셋은 다른 init
  * 안이나 뒤에서 섰다 — statusbar 는 `initStatusBar` 끝, notify 는 `initAttn` 안, polling 은 `initPollingSettings`.
@@ -25,10 +26,10 @@ const SETTINGS_INIT_MODAL='@modal';
  */
 const SETTINGS_INIT=[
   ThemeSection, SETTINGS_INIT_MODAL, ShortcutsSection, DisplaySection, TerminalSection, CodeSection,
-  '_paintSettingControls', BackupSection, SandboxSection, AccessSection, EdgesSection, ProfileSection,
+  'settings.paint', BackupSection, SandboxSection, AccessSection, EdgesSection, ProfileSection,
   TelegramSection, ServerSection, ClaudeSection,
-  'initSaveButtons', 'initStatusBar', StatusbarSection, PresetsSection, 'initMobile', 'initMobileKeybar',
-  'initAttn', NotifySection, PollingSection,
+  'settings.saveState.initSaveButtons', 'statusbar.initStatusBar', StatusbarSection, PresetsSection, 'mobile.initMobile', 'mobile.initMobileKeybar',
+  'attn.initAttn', NotifySection, PollingSection,
 ];
 
 /**
@@ -53,7 +54,7 @@ class SettingsController extends Controller {
     for(const step of SETTINGS_INIT){
       if(typeof step==='function') this.start(new step(this.app));
       else if(step===SETTINGS_INIT_MODAL) this._initModal();
-      else this.app[step]();
+      else{ const keys=step.split('.'), last=keys.pop(); keys.reduce((o,k)=>o[k],this.app)[last]() }
     }
     return this;
   }
@@ -108,7 +109,7 @@ class SettingsController extends Controller {
     this._hook('shortcuts','onOpen');
     this._hook('presets','onOpen');
     this._hook('display','onOpen');
-    app._paintSettingControls();
+    this.paint();
     this._labelSettingsRows();
     this._hook('claude','onOpen');
     if(app.isMobile&&app.drawerOpen) app._toggleDrawer(false);
@@ -237,8 +238,9 @@ class SettingsController extends Controller {
   }
 
   /**
-   * 섹션 위임자의 길 — 그 탭의 섹션이 없으면(`init` 전) 아무것도 하지 않는다. 설정 적용 길(`SettingsApply`)은 이것을
-   * 부르지 않는다 — 칠하기는 `paint()` 한 자리다(QUALITY_FIX_SRS FR-QFX-9). 남은 쓰임은 아래 위임자 표다(D-QFX-9).
+   * 섹션의 이름을 부르는 길 — 그 탭의 섹션이 없으면(`init` 전) 아무것도 하지 않는다. 설정 적용 길(`SettingsApply`)은
+   * 이것을 부르지 않는다 — 칠하기는 `paint()` 한 자리다(QUALITY_FIX_SRS FR-QFX-9). 남은 쓰임은 저장 단추 판정
+   * (`SETTINGS_SAVE_LIVE`)이다. 다른 자리는 `section(tab)?.X()` 로 부른다 (REFACTOR3_FE_DELEG_SRS D-DLG-4).
    */
   _sectionCall(tab,name,args){
     const s=this.section(tab);
@@ -246,23 +248,3 @@ class SettingsController extends Controller {
   }
 }
 
-/**
- * 섹션 위임자 — App 이름 → 그 섹션의 탭 (REFACTOR3_FE_SETTINGS_SRS FR-FES-9). 설정 밖(`EdgesController`·
- * `state-registry.js`·Claude 계정·`main.js`)·저장 단추 판정(`settings-save-state.js`)·e2e 계약이 App 에서 부른다.
- * 섹션이 아직 없으면(`initModal` 전) 아무것도 하지 않는다.
- */
-const SETTINGS_SECTION_DELEGATES={
-  access:['_onAccessChanged','_aclCollect'], sandbox:['_onSandboxChanged','_sbxCollect'], server:['_onServerMoving'],
-  edges:['_edgesPaint','_egNodePaint','_egNodeCollect'], claude:['_cacctPanelShown','_cacctRefreshSoft'],
-  telegram:['_loadTelegramPanel','_tgRead'], profile:['_pfCollect','_pfFollow'],
-  // 8d — `main.js`(사용자 정의 편집기 단추)·e2e 계약(`app-testing.js`)
-  theme:['themeSlots','setThemeSlots','_showCustomEditor','_hideCustomEditor'], presets:['_renderPresets','_savePreset'],
-};
-for(const [tab,names] of Object.entries(SETTINGS_SECTION_DELEGATES)){
-  Controller.delegate(App,(app,name,args)=>app.settings._sectionCall(tab,name,args),names);
-}
-// 바깥(`ui/input-binding.js`·`main.js`·다른 묶음·설정 섹션)과 계약이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'settings',['_openSettings']);
-// `initModal` 은 설정창과 탭들을 세운다(`init`, 한 번 — 세우는 순서는 `SETTINGS_INIT`). `_paintSettingControls` 는 `paint` 다.
-Controller.delegate(App,app=>{ app.settings.init() },['initModal']);
-Controller.delegate(App,app=>app.settings.paint(),['_paintSettingControls']);

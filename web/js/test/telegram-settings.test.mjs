@@ -44,10 +44,10 @@ function setup() {
   });
   const app = new ctx.App();
   app.timers = { every: () => ({ stop() {} }) };
-  // 저장 단추 판정(`SettingsSaveState`)은 이 시험의 대상이 아니다 — 대역의 원소에 classList 가 없다.
-  app._saveBtnsPaint = () => {};
-  // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `TelegramSection` 이다. `_loadTelegramPanel`·`_tgRead` 는 App 의 위임자다.
+  // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `TelegramSection` 이다. `_loadTelegramPanel`·`_tgRead` 는 섹션에서 부른다.
   app.settings = new ctx.SettingsController(app);
+  // 저장 단추 판정(`SettingsSaveState`)은 이 시험의 대상이 아니다 — 대역의 원소에 classList 가 없다.
+  app.settings.saveState._saveBtnsPaint = () => {};
   app.settings.start(new ctx.TelegramSection(app));
   return { app, dom, calls, replies };
 }
@@ -57,7 +57,7 @@ const view = (o) => ({ enabled: false, tokenSet: false, botName: '', paired: fal
 test('token 칸은 서버 값으로 채우지 않고, 저장에 성공하면 비운다', async () => {
   const { app, dom, calls, replies } = setup();
   replies['GET /api/telegram'] = { ok: true, status: 200, data: view({ tokenSet: true, botName: 'good_bot' }) };
-  await app._loadTelegramPanel();
+  await app.settings.section('telegram')?._loadTelegramPanel();
   assert.equal(dom['tg-token'].value, '');
   assert.equal(dom['tg-bot'].textContent, 'tg.bot_set{"name":"@good_bot"}');
 
@@ -93,11 +93,11 @@ test('등록 코드는 만든 응답에서만 보이고, 등록이 끝나면 거
   assert.equal(dom['tg-pair-code'].value, '/pair 123456');
 
   replies['GET /api/telegram'] = { ok: true, status: 200, data: view({ tokenSet: true, paired: true, pair: { expires: exp } }) };
-  await app._tgRead();
+  await app.settings.section('telegram')?._tgRead();
   assert.equal(dom['tg-pair-box'].hidden, false, '서버에 코드가 살아 있으면 그대로 보인다');
 
   replies['GET /api/telegram'] = { ok: true, status: 200, data: view({ tokenSet: true, paired: true }) };
-  await app._tgRead();
+  await app.settings.section('telegram')?._tgRead();
   assert.equal(dom['tg-pair-box'].hidden, true);
   assert.equal(dom['tg-pair-code'].value, '');
   assert.equal(dom['tg-account'].textContent, 'tg.paired');

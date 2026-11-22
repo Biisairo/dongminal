@@ -26,12 +26,17 @@ function setup() {
   });
   const app = new ctx.App();
   // REFACTOR3_FE_APPCTL_SRS 9a: 기준과 단추는 `SettingsController` 의 부품이다.
-  app.settings = { live: new ctx.SettingsLive(app), saveState: new ctx.SettingsSaveState(app) };
+  // 폼 값은 그 탭의 섹션이 모은다 — 판정은 `_sectionCall(탭, 이름)` 으로 묻는다 (REFACTOR3_FE_DELEG_SRS D-DLG-4).
   app._pfForm = { name: 'a' };
-  app._pfCollect = () => app._pfForm;
-  app._aclCollect = () => ({});
-  app._egNodeCollect = () => ({});
-  app._sbxCollect = () => ({});
+  const sections = {
+    profile: { _pfCollect: () => app._pfForm }, access: { _aclCollect: () => ({}) },
+    edges: { _egNodeCollect: () => ({}) }, sandbox: { _sbxCollect: () => ({}) },
+  };
+  app.settings = {
+    live: new ctx.SettingsLive(app), saveState: new ctx.SettingsSaveState(app),
+    section: (tab) => sections[tab],
+    _sectionCall: (tab, name, args) => sections[tab][name](...args),
+  };
   return { app, dom, ctx };
 }
 
@@ -53,19 +58,19 @@ test('Telegram 조용한 시간은 서버 값과 다를 때만 변경이다', ()
 
 test('기준을 읽기 전에는 비활성, 읽은 값과 같으면 비활성, 다르면 활성이고 주동작 모양이다', () => {
   const { app, dom } = setup();
-  app._saveBtnsPaint();
+  app.settings.saveState._saveBtnsPaint();
   assert.equal(dom['pf-save'].disabled, true);
   assert.equal(dom['pf-save'].classList.contains('ui-btn-primary'), false);
 
-  app._liveMark('profile', null, app._pfCollect());
+  app.settings.live._liveMark('profile', null, app.settings.section('profile')?._pfCollect());
   assert.equal(dom['pf-save'].disabled, true, '_liveMark 가 다시 판정한다');
 
   app._pfForm = { name: 'b' };
-  app._saveBtnsPaint();
+  app.settings.saveState._saveBtnsPaint();
   assert.equal(dom['pf-save'].disabled, false);
   assert.equal(dom['pf-save'].classList.contains('ui-btn-primary'), true);
 
-  app._liveMark('profile', null, app._pfCollect());
+  app.settings.live._liveMark('profile', null, app.settings.section('profile')?._pfCollect());
   assert.equal(dom['pf-save'].disabled, true, '저장하면 기준이 새 값이다');
 });
 
@@ -74,12 +79,12 @@ test('Telegram 단추는 입력과 서버 값으로 판정한다', () => {
   app._tg = { silenceMin: 5 };
   dom['tg-silence'].value = '5';
   dom['tg-token'].value = '';
-  app._saveBtnsPaint();
+  app.settings.saveState._saveBtnsPaint();
   assert.equal(dom['tg-token-save'].disabled, true);
   assert.equal(dom['tg-silence-save'].disabled, true);
   dom['tg-token'].value = '1:a';
   dom['tg-silence'].value = '9';
-  app._saveBtnsPaint();
+  app.settings.saveState._saveBtnsPaint();
   assert.equal(dom['tg-token-save'].disabled, false);
   assert.equal(dom['tg-silence-save'].disabled, false);
 });

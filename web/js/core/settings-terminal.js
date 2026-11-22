@@ -100,9 +100,9 @@ class TerminalSection extends SettingsSection {
 
   _keybarSet(cfg){
     keybarCfg=cfg;
-    this.app._keybarApply();
+    this.app.settings.apply._keybarApply();
     this._keybarPaint();
-    this.app.saveSettings();
+    this.app.settings.apply.saveSettings();
   }
 
   /** FR-UXF-95: 행마다 라벨·이름·켜기·위·아래, 매크로는 지우기. `⌨` 는 행이 없다. */

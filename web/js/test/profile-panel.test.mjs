@@ -39,13 +39,14 @@ function setup({ get, put, open = false } = {}) {
   });
   const app = new ctx.App();
   // REFACTOR3_FE_APPCTL_SRS 9a: 패널의 기준은 `SettingsLive`, 간선 읽기는 `EdgesController` 다.
-  app.settings = { live: new ctx.SettingsLive(app) };
+  // 이 시험은 섹션 표를 세우지 않는다 — 섹션 이름은 아무 데도 닿지 않는다 (REFACTOR3_FE_DELEG_SRS D-DLG-4).
+  app.settings = { live: new ctx.SettingsLive(app), apply: {}, saveState: {}, section: () => null };
   app.edges = new ctx.EdgesController(app);
   let titles = 0;
-  app._applyPageTitle = () => { titles++ };
+  app.settings.apply._applyPageTitle = () => { titles++ };
   const notices = [];
   const cleared = [];
-  app._liveNotice = (k, reload) => { if (reload) notices.push(k); else cleared.push(k) };
+  app.settings.live._liveNotice = (k, reload) => { if (reload) notices.push(k); else cleared.push(k) };
   // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `ProfileSection` 이다. 저장·알림은 App 을 거친다.
   const sec = new ctx.ProfileSection(app);
   return { ctx, app, sec, els, puts, titles: () => titles, gets: () => gets, notices, cleared };

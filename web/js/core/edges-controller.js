@@ -50,15 +50,15 @@ class EdgesController extends Controller {
       if(r.ok&&r.data){
         this.app._edges=r.data;
         // PROFILE_NAME_SRS FR-PFN-20: 탭 제목의 이름은 노드 이름이다. 이름을 바꾸면 방송이 다시 읽힌다.
-        if(r.data.node&&r.data.node.name!==profileName){ profileName=r.data.node.name; this.app._applyPageTitle() }
-        if(this.app._pfFollow) this.app._pfFollow(r);
-        this.app._edgesPaint();
+        if(r.data.node&&r.data.node.name!==profileName){ profileName=r.data.node.name; this.app.settings.apply._applyPageTitle() }
+        this.app.settings.section('profile')?._pfFollow(r);
+        this.app.settings.section('edges')?._edgesPaint();
         // EDGE_MESH_SRS FR-EGM-56: 개인채팅의 초대 버튼은 망 그림을 따른다.
         if(this.app._chatViewsPaint) this.app._chatViewsPaint();
         // UX_BATCH12 FR-LIV-4: 노드 설정 폼은 목록과 따로 — 지문이 바뀌었을 때만 따라간다.
         const v=r.data;
-        if(this.app._liveOpen('edges')) this.app._liveChanged('edges',r,this.app._egNodeCollect(),()=>{
-          this.app._egNodePaint(v); this.app._liveMark('edges',r,this.app._egNodeCollect());
+        if(this.app.settings.live._liveOpen('edges')) this.app.settings.live._liveChanged('edges',r,this.app.settings.section('edges')?._egNodeCollect(),()=>{
+          this.app.settings.section('edges')?._egNodePaint(v); this.app.settings.live._liveMark('edges',r,this.app.settings.section('edges')?._egNodeCollect());
         });
       }
       this.app._restoreEnd('edges',flight);
@@ -72,7 +72,7 @@ class EdgesController extends Controller {
     if(removed&&a.byPeer) Toast.show(t('edge.removed_notice',{name:edgeHandle(removed)}),'',0);
     // EDGE_MESH_SRS FR-EGM-55: 망 이웃이 보낸 간선 초대를 받았다. 맺기·거절은 Edges 에서 한다.
     if(a&&a.invited) Toast.show(t('edge.invited_notice',{name:edgeHandle(a.invited)}),'',0);
-    return this.app._edgesRestore();
+    return this._edgesRestore();
   }
 
   /** 망 그림과 그 아래의 할 일을 그린다. 패널이 없는 화면에서는 아무것도 하지 않는다. */
@@ -215,23 +215,20 @@ class EdgesController extends Controller {
     const r=await apiPost('/api/edges/notify',{fp:p.fp});
     if(r.ok) Toast.show(t('edge.notified',{name:edgeHandle(p)}),'ok');
     else Toast.show(apiErrText(r,t('edge.notify_fail')),'err');
-    await this.app._edgesRestore();
+    await this._edgesRestore();
     return r;
   }
 
   async _egInviteAccept(inv){
     const r=await apiPost('/api/edges/invite/accept',{id:inv.id});
     if(!r.ok) Toast.show(apiErrText(r,t('edge.add_fail')),'err');
-    await this.app._edgesRestore();
+    await this._edgesRestore();
     return r;
   }
 
   async _egInviteReject(inv){
     const r=await apiPost('/api/edges/invite/reject',{id:inv.id});
-    await this.app._edgesRestore();
+    await this._edgesRestore();
     return r;
   }
 }
-
-// 바깥(`state-registry.js`·`settings-edges.js`·`chat-views.js`)이 App 에서 부르는 이름 (FR-FEA-4).
-Controller.delegate(App,'edges',['_edgesRestore','_onEdgesChanged','_egMeshPaint','_egInvitesPaint','_egInviteSend','_egNotify']);

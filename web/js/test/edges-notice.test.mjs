@@ -45,15 +45,16 @@ function setup(extra = {}) {
   const app = new ctx.App();
   // REFACTOR3_FE_APPCTL_SRS 9a: 간선 읽기·알림은 `EdgesController`, 패널의 기준은 `SettingsLive` 다.
   app.edges = new ctx.EdgesController(app);
-  app.settings = { live: new ctx.SettingsLive(app) };
-  app._liveOpen = () => false; // 설정 패널이 열려 있지 않다 (UX_BATCH12 FR-LIV-4)
+  // 섹션은 탭 이름으로 찾는다 (REFACTOR3_FE_DELEG_SRS D-DLG-4). 간선 칠하기는 막아 둔다.
+  const sections = { edges: { _edgesPaint() {} }, profile: { _pfFollow() {} } };
+  app.settings = { live: new ctx.SettingsLive(app), apply: {}, saveState: {}, section: (t) => sections[t] || null };
+  app.settings.live._liveOpen = () => false; // 설정 패널이 열려 있지 않다 (UX_BATCH12 FR-LIV-4)
   app.timers = { after: (...a) => { after.push(a); return { stop() {} } }, cancel() {} };
   app._restoreBegin = () => 1;
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
-  app._edgesPaint = () => {};
   app._titles = 0;
-  app._applyPageTitle = () => { app._titles++ };
+  app.settings.apply._applyPageTitle = () => { app._titles++ };
   // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `EdgesSection` 이다. 읽기·지문·알림은 App 을 거친다.
   const sec = new ctx.EdgesSection(app);
   return {
@@ -96,31 +97,31 @@ test('핸들은 이름#번호이고, 번호가 없으면 이름만이다 (FR-PFN
 test('승인 대기가 있어도 알림·만료 타이머가 없다', async () => {
   const { app, shown, after, setNext } = setup();
   setNext({ ok: true, status: 200, data: { edges: [], pending: [{ id: 'p1', expires: '2099-01-01T00:00:00Z' }] } });
-  await app._edgesRestore();
+  await app.edges._edgesRestore();
   assert.equal(shown.length, 0);
   assert.equal(after.length, 0);
 });
 
 test('paired 방송은 상대 핸들로 "맺었습니다" 알림을 남긴다 (FR-PFN-22)', async () => {
   const { app, shown } = setup();
-  await app._onEdgesChanged({ paired: { fp: 'aaaaaaaaaaaaaaaabbbb', name: 'node-a', tag: '0042' } });
+  await app.edges._onEdgesChanged({ paired: { fp: 'aaaaaaaaaaaaaaaabbbb', name: 'node-a', tag: '0042' } });
   assert.equal(shown.length, 1);
   assert.equal(shown[0].kind, 'ok');
   assert.equal(shown[0].ms, 0, '맺음 알림은 남아야 한다');
   assert.match(shown[0].text, /^edge\.paired_notice/);
   assert.match(shown[0].text, /"name":"node-a#0042"/);
-  await app._onEdgesChanged({});
+  await app.edges._onEdgesChanged({});
   assert.equal(shown.length, 1);
 });
 
 test('상대가 지운 removed 방송만 "끊겼습니다" 알림을 띄운다', async () => {
   const { app, shown } = setup();
-  await app._onEdgesChanged({ removed: { fp: 'f1', name: 'node-b', tag: '0001' }, byPeer: true });
+  await app.edges._onEdgesChanged({ removed: { fp: 'f1', name: 'node-b', tag: '0001' }, byPeer: true });
   assert.equal(shown.length, 1);
   assert.match(shown[0].text, /^edge\.removed_notice/);
   assert.match(shown[0].text, /"name":"node-b#0001"/);
   // 이쪽에서 지운 것(어느 탭이든 dmctl 이든)은 알리지 않는다.
-  await app._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
+  await app.edges._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
   assert.equal(shown.length, 1, '이쪽에서 지운 간선을 알렸다');
 });
 
@@ -156,7 +157,7 @@ test('탭을 여는 읽기가 밀려도 노드 칸은 그 값으로 채운다', 
 test('간선 읽기의 노드 이름이 탭 제목 이름이 된다 (PROFILE_NAME_SRS FR-PFN-20)', async () => {
   const { ctx, app, setNext } = setup();
   setNext({ ok: true, status: 200, data: { node: { name: '동민', tag: '0427' }, edges: [] } });
-  await app._edgesRestore();
+  await app.edges._edgesRestore();
   assert.equal(ctx.profileName, '동민');
   assert.equal(app._titles, 1);
 });
@@ -164,10 +165,10 @@ test('간선 읽기의 노드 이름이 탭 제목 이름이 된다 (PROFILE_NAM
 test('간선 읽기는 열린 프로필 패널에도 알린다 (FR-PFN-14)', async () => {
   const { app, setNext } = setup();
   const seen = [];
-  app._pfFollow = (r) => { seen.push(r) };
+  app.settings.section('profile')._pfFollow = (r) => { seen.push(r) };
   const r = { ok: true, status: 200, data: { node: { name: '동민' }, edges: [] } };
   setNext(r);
-  await app._edgesRestore();
+  await app.edges._edgesRestore();
   assert.equal(seen.length, 1);
   assert.equal(seen[0], r);
 });

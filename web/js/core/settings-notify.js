@@ -44,7 +44,7 @@ class NotifySection extends SettingsSection {
     this.listen(cb,'change',()=>{
       const on=cb.checked;
       apiPut('/api/update',{enabled:on}).then(r=>{
-        if(r.ok&&r.data){ app._update=r.data; app._updateRender(); return }
+        if(r.ok&&r.data){ app._update=r.data; app.update._updateRender(); return }
         // 서버가 받지 못했다. 화면만 바뀐 채로 두면 껐다고 믿게 된다 —
         // 그것이 §1.2 가 막으려는 거짓말이다.
         cb.checked=!on;

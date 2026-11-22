@@ -84,10 +84,10 @@ async function loadAppCmd(page: Page) {
           after: (ms: number, fn: any, o: any) => this.timers.after(ms, fn, o),
         });
       }
-      _attnRestore() {}
-      _activityRestore() {}
-      _bgRefresh() {}
-      _focusRestore() {}
+      // 등록부는 주인까지의 점 경로로 부른다 (REFACTOR3_FE_DELEG_SRS FR-DLG-3).
+      attn = { _attnRestore() {} };
+      agents = { _activityRestore() {} };
+      focus = { owner: { _focusRestore() {} } };
     };
   });
   await page.addScriptTag({ path: API_JS });
@@ -96,7 +96,7 @@ async function loadAppCmd(page: Page) {
   await page.addScriptTag({ path: TOOL_CMD_JS });
   await page.addScriptTag({ path: APP_WS_SYNC_JS });
   await page.addScriptTag({ path: SOFT_RELOAD_JS });
-  await page.addScriptTag({ content: 'window.__wsSyncOf = (a) => { a.wsSync = new WsSyncController(a); a.tool = { cmd: new ToolCmd(a) }; return a; };' });
+  await page.addScriptTag({ content: 'window.__wsSyncOf = (a) => { a.wsSync = new WsSyncController(a); a.tool = { cmd: new ToolCmd(a), life: { _bgRefresh() {} } }; return a; };' });
   await page.evaluate(() => {
     const a = (window as any).__wsSyncOf(new (window as any).App());
     (window as any).__app = a;
