@@ -2,7 +2,7 @@
 
 - 문서 형식: ISO/IEC/IEEE 29148:2018 소프트웨어 요구사항 명세(SRS)
 - 요구사항 접두어: `FR-RSP-n`(기능), `NFR-RSP-n`(비기능), `C-RSP-n`(제약), `V-RSP-n`(검증)
-- 기준선: Go 구현 커밋 `127ff7d9`(v1.3.7)
+- 기준선: Go 구현 커밋 `127ff7d9`(v1.3.7)를 **go1.27.2 툴체인, GOEXPERIMENT 기본값**(JSONv2 위의 encoding/json v1 호환층 포함)으로 빌드한 바이너리. 운영 바이너리와 같은 판이다. 릴리즈·CI 가 쓰는 go.mod 의 go 1.26.11 은 기준이 아니다(사용자 결정, 2026-11-23). Go 참조 바이너리와 Go 테스트는 이 툴체인으로 만든다
 - 작업 브랜치: `rust-port`(통합), `rp/<이슈 ID>`(이슈별)
 - 이슈 관리: `rust-port/issues/`(파일 하나가 이슈 하나)
 
@@ -140,6 +140,7 @@ branch: rp/2.3
 - **FR-RSP-31** e2e 의 `globalSetup` 은 환경변수 `DM_E2E_PREBUILT_BIN` 이 있으면 Go 빌드 대신 그 경로의 바이너리를 복사해 쓴다. 없으면 지금과 똑같이 동작한다.
 - **FR-RSP-32** Go 의 JSON·flag·시간·오류 문자열 규칙을 흉내 내는 공통 코드는 `dm-gocompat` crate 하나에 모은다. 다른 crate 가 같은 규칙을 따로 구현하지 않는다.
 - **FR-RSP-33 (입출력 모델)** `dm-shared-platform` 은 동기(std) API 만 낸다. 근거: Go 가 블로킹 I/O 모델이고, Windows AF_UNIX 는 std·tokio 모두 지원하지 않으며, PTY 읽기도 블로킹이다. 비동기 소비자(웹 서버·데몬)는 `tokio::task::spawn_blocking` 이나 전용 스레드로 감싼다. unix 의 IPC 스트림은 `into_std()` 뒤 `tokio::net::UnixStream::from_std` 로 바꿔 써도 된다. (1.4 결정 D-1)
+- **FR-RSP-35 (OS 오류 문구)** 로그·HTTP 오류 본문·CLI 출력에 드러나는 파일·OS 오류 문구는 Go 의 `*os.PathError`(`op path: 문구`)·`*os.LinkError`(`op old new: 문구`)·`*os.SyscallError` 와 같아야 한다. errno 문구는 unix 에서 Go `syscall` 의 표(소문자)를, Windows 에서 Go 와 같은 FormatMessage 결과를 쓴다. 이 규칙은 `dm-gocompat` 의 오류 타입(`GoPathError` 등, `io::Error` 로 감싸 `ErrorKind` 보존)으로만 만든다. (1.4.2 제안)
 - **FR-RSP-34 (로그 요청 ID)** Go 의 `context.Context` 로 넘기던 요청 ID 는 `dm-shared-dmlog` 의 `ReqCtx<'a> = Option<&'a str>` 를 첫 인자로 넘긴다.
 
 ### 3.5 작업 절차

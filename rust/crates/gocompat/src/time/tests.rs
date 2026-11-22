@@ -150,3 +150,36 @@ fn resolve_local_follows_go_tz_rules() {
     let z = resolve_local(None, empty);
     assert_eq!((z.name(), z.offset_at(sec)), ("UTC", 0));
 }
+
+#[test]
+fn duration_string_matches_go() {
+    let g = crate::testutil::golden("go_encode.txt");
+    let durs: [i64; 18] = [
+        0,
+        1,
+        999,
+        1000,
+        1500,
+        1_000_000,
+        1_500_000,
+        1_000_000_000,
+        1_500_000_000,
+        90_000_000_000,
+        3_600_000_000_000,
+        26 * 3_600_000_000_000 + 3 * 60_000_000_000 + 4_000_000_000 + 5,
+        -1_000_000_000,
+        -1,
+        i64::MAX,
+        i64::MIN,
+        100_000_000,
+        120_000_000_000,
+    ];
+    for d in durs {
+        let want = crate::testutil::golden_str(&g, &format!("dur_{d}"));
+        assert_eq!(super::format_duration(d), want, "{d}");
+    }
+    assert_eq!(
+        super::format_std_duration(std::time::Duration::from_millis(1500)),
+        "1.5s"
+    );
+}
