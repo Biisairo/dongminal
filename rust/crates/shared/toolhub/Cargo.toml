@@ -1,0 +1,19 @@
+[package]
+name = "dm-shared-toolhub"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-activity = { path = "../activity" }
+dm-shared-dmenv = { path = "../dmenv" }
+dm-shared-dmlog = { path = "../dmlog" }
+dm-shared-outbuf = { path = "../outbuf" }
+dm-shared-platform = { path = "../platform" }
+dm-shared-pollwait = { path = "../pollwait" }
+dm-shared-uuid = { path = "../uuid" }

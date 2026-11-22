@@ -1,0 +1,58 @@
+[package]
+name = "dm-webserver-httpapi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-activity = { path = "../../shared/activity" }
+dm-shared-agentadapter = { path = "../../shared/agentadapter" }
+dm-shared-agentrec = { path = "../../shared/agentrec" }
+dm-shared-chatwire = { path = "../../shared/chatwire" }
+dm-shared-dmenv = { path = "../../shared/dmenv" }
+dm-shared-dmlog = { path = "../../shared/dmlog" }
+dm-shared-edge = { path = "../../shared/edge" }
+dm-shared-edgenode = { path = "../../shared/edgenode" }
+dm-shared-edgerelay = { path = "../../shared/edgerelay" }
+dm-shared-editorlimit = { path = "../../shared/editorlimit" }
+dm-shared-httpreq = { path = "../../shared/httpreq" }
+dm-shared-httpresp = { path = "../../shared/httpresp" }
+dm-shared-mimeprobe = { path = "../../shared/mimeprobe" }
+dm-shared-platform = { path = "../../shared/platform" }
+dm-shared-pollwait = { path = "../../shared/pollwait" }
+dm-shared-runwait = { path = "../../shared/runwait" }
+dm-shared-sandbox = { path = "../../shared/sandbox" }
+dm-shared-serverconf = { path = "../../shared/serverconf" }
+dm-shared-settingsschema = { path = "../../shared/settingsschema" }
+dm-shared-statusline = { path = "../../shared/statusline" }
+dm-shared-textenc = { path = "../../shared/textenc" }
+dm-shared-toolhub = { path = "../../shared/toolhub" }
+dm-shared-toolipc = { path = "../../shared/toolipc" }
+dm-shared-updatecheck = { path = "../../shared/updatecheck" }
+dm-shared-uuid = { path = "../../shared/uuid" }
+dm-shared-workspace = { path = "../../shared/workspace" }
+dm-webserver-action = { path = "../action" }
+dm-webserver-apierr = { path = "../apierr" }
+dm-webserver-domain-claudeacct = { path = "../domain/claudeacct" }
+dm-webserver-domain-ext = { path = "../domain/ext" }
+dm-webserver-domain-git-core = { path = "../domain/git/core" }
+dm-webserver-domain-git-jobs = { path = "../domain/git/jobs" }
+dm-webserver-domain-git-store = { path = "../domain/git/store" }
+dm-webserver-domain-lsp = { path = "../domain/lsp" }
+dm-webserver-domain-run = { path = "../domain/run" }
+dm-webserver-domain-submodule = { path = "../domain/submodule" }
+dm-webserver-domain-sysstat = { path = "../domain/sysstat" }
+dm-webserver-domain-telegram = { path = "../domain/telegram" }
+dm-webserver-domain-worktree = { path = "../domain/worktree" }
+dm-webserver-domain-wsentry = { path = "../domain/wsentry" }
+dm-webserver-fswatch = { path = "../fswatch" }
+dm-webserver-gitapi = { path = "../gitapi" }
+dm-webserver-httproute = { path = "../httproute" }
+dm-webserver-hub = { path = "../hub" }
+dm-webserver-seam-toolaccess = { path = "../seam/toolaccess" }
+dm-webserver-sse = { path = "../sse" }

@@ -1,0 +1,17 @@
+[package]
+name = "dm-shared-sandboxplace"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-dmlog = { path = "../dmlog" }
+dm-shared-platform = { path = "../platform" }
+dm-shared-sandbox = { path = "../sandbox" }
+dm-shared-serverconf = { path = "../serverconf" }
+dm-shared-toolhub = { path = "../toolhub" }

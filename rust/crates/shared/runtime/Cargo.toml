@@ -1,0 +1,15 @@
+[package]
+name = "dm-shared-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-agentadapter = { path = "../agentadapter" }
+dm-shared-dmenv = { path = "../dmenv" }
+dm-shared-platform = { path = "../platform" }

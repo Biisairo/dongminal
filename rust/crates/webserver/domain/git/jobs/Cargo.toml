@@ -1,0 +1,17 @@
+[package]
+name = "dm-webserver-domain-git-jobs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-dmlog = { path = "../../../../shared/dmlog" }
+dm-shared-uuid = { path = "../../../../shared/uuid" }
+dm-webserver-domain-git-core = { path = "../core" }
+dm-webserver-domain-git-query = { path = "../query" }
+dm-webserver-domain-git-write = { path = "../write" }

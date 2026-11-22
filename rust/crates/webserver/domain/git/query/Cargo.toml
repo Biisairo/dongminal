@@ -1,0 +1,16 @@
+[package]
+name = "dm-webserver-domain-git-query"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-editorlimit = { path = "../../../../shared/editorlimit" }
+dm-shared-mimeprobe = { path = "../../../../shared/mimeprobe" }
+dm-shared-textenc = { path = "../../../../shared/textenc" }
+dm-webserver-domain-git-core = { path = "../core" }

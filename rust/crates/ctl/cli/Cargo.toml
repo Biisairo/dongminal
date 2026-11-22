@@ -1,0 +1,28 @@
+[package]
+name = "dm-ctl-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-ctl-migrate = { path = "../migrate" }
+dm-ctl-privhelper = { path = "../privhelper" }
+dm-shared-apipath = { path = "../../shared/apipath" }
+dm-shared-dmenv = { path = "../../shared/dmenv" }
+dm-shared-editorlimit = { path = "../../shared/editorlimit" }
+dm-shared-handover = { path = "../../shared/handover" }
+dm-shared-platform = { path = "../../shared/platform" }
+dm-shared-pollwait = { path = "../../shared/pollwait" }
+dm-shared-release = { path = "../../shared/release" }
+dm-shared-runfile = { path = "../../shared/runfile" }
+dm-shared-runtime = { path = "../../shared/runtime" }
+dm-shared-serverconf = { path = "../../shared/serverconf" }
+dm-shared-settingsschema = { path = "../../shared/settingsschema" }
+dm-shared-toolhub = { path = "../../shared/toolhub" }
+dm-shared-toolipc = { path = "../../shared/toolipc" }
+dm-webserver-domain-git-core = { path = "../../webserver/domain/git/core" }

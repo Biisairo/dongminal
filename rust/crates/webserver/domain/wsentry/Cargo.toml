@@ -1,0 +1,15 @@
+[package]
+name = "dm-webserver-domain-wsentry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-listorder = { path = "../../../shared/listorder" }
+dm-shared-workspace = { path = "../../../shared/workspace" }
+dm-webserver-sse = { path = "../../sse" }

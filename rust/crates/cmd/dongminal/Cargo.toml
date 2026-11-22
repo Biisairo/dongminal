@@ -1,0 +1,47 @@
+[package]
+name = "dongminal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "dongminal"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-ctl-cli = { path = "../../ctl/cli" }
+dm-daemon-boot = { path = "../../daemon/boot" }
+dm-helper-runtimebin = { path = "../../helper/runtimebin" }
+dm-shared-activity = { path = "../../shared/activity" }
+dm-shared-dmenv = { path = "../../shared/dmenv" }
+dm-shared-dmlog = { path = "../../shared/dmlog" }
+dm-shared-handover = { path = "../../shared/handover" }
+dm-shared-platform = { path = "../../shared/platform" }
+dm-shared-pollwait = { path = "../../shared/pollwait" }
+dm-shared-runtime = { path = "../../shared/runtime" }
+dm-shared-sandboxplace = { path = "../../shared/sandboxplace" }
+dm-shared-serverconf = { path = "../../shared/serverconf" }
+dm-shared-toolhub = { path = "../../shared/toolhub" }
+dm-shared-toolipc = { path = "../../shared/toolipc" }
+dm-shared-updatecheck = { path = "../../shared/updatecheck" }
+dm-shared-workspace = { path = "../../shared/workspace" }
+dm-webserver-domain-ext = { path = "../../webserver/domain/ext" }
+dm-webserver-domain-git-core = { path = "../../webserver/domain/git/core" }
+dm-webserver-domain-git-jobs = { path = "../../webserver/domain/git/jobs" }
+dm-webserver-domain-git-query = { path = "../../webserver/domain/git/query" }
+dm-webserver-domain-git-store = { path = "../../webserver/domain/git/store" }
+dm-webserver-domain-lsp = { path = "../../webserver/domain/lsp" }
+dm-webserver-domain-run = { path = "../../webserver/domain/run" }
+dm-webserver-domain-sysstat = { path = "../../webserver/domain/sysstat" }
+dm-webserver-domain-worktree = { path = "../../webserver/domain/worktree" }
+dm-webserver-httpapi = { path = "../../webserver/httpapi" }
+dm-webserver-hub = { path = "../../webserver/hub" }
+dm-webserver-recordsync = { path = "../../webserver/recordsync" }
+dm-webserver-seam-adapters = { path = "../../webserver/seam/adapters" }
+dm-webserver-toolclient = { path = "../../webserver/toolclient" }
+dm-web-assets = { path = "../../web" }

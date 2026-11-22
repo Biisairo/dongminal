@@ -1,0 +1,16 @@
+[package]
+name = "dm-webserver-seam-adapters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-platform = { path = "../../../shared/platform" }
+dm-shared-toolhub = { path = "../../../shared/toolhub" }
+dm-shared-workspace = { path = "../../../shared/workspace" }
+dm-webserver-seam-toolaccess = { path = "../toolaccess" }

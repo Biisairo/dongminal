@@ -1,0 +1,14 @@
+[package]
+name = "dm-shared-toolipc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-chatwire = { path = "../chatwire" }
+dm-shared-toolhub = { path = "../toolhub" }

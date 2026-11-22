@@ -1,0 +1,23 @@
+[package]
+name = "dm-webserver-apierr"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-edge = { path = "../../shared/edge" }
+dm-shared-httpreq = { path = "../../shared/httpreq" }
+dm-shared-httpresp = { path = "../../shared/httpresp" }
+dm-webserver-domain-git-core = { path = "../domain/git/core" }
+dm-webserver-domain-git-jobs = { path = "../domain/git/jobs" }
+dm-webserver-domain-git-query = { path = "../domain/git/query" }
+dm-webserver-domain-git-write = { path = "../domain/git/write" }
+dm-webserver-domain-run = { path = "../domain/run" }
+dm-webserver-domain-sysstat = { path = "../domain/sysstat" }
+dm-webserver-domain-worktree = { path = "../domain/worktree" }
+dm-webserver-domain-wsentry = { path = "../domain/wsentry" }

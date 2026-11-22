@@ -1,0 +1,17 @@
+[package]
+name = "dm-shared-edge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-dmenv = { path = "../dmenv" }
+dm-shared-dmlog = { path = "../dmlog" }
+dm-shared-httpresp = { path = "../httpresp" }
+dm-shared-platform = { path = "../platform" }
+dm-shared-termtext = { path = "../termtext" }

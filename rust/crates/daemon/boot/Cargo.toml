@@ -1,0 +1,32 @@
+[package]
+name = "dm-daemon-boot"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-daemon-chat = { path = "../chat" }
+dm-daemon-chatsock = { path = "../chatsock" }
+dm-daemon-ipc = { path = "../ipc" }
+dm-daemon-swap = { path = "../swap" }
+dm-shared-activity = { path = "../../shared/activity" }
+dm-shared-agentrec = { path = "../../shared/agentrec" }
+dm-shared-chatwire = { path = "../../shared/chatwire" }
+dm-shared-dmenv = { path = "../../shared/dmenv" }
+dm-shared-dmlog = { path = "../../shared/dmlog" }
+dm-shared-edge = { path = "../../shared/edge" }
+dm-shared-edgenode = { path = "../../shared/edgenode" }
+dm-shared-edgerelay = { path = "../../shared/edgerelay" }
+dm-shared-humancmd = { path = "../../shared/humancmd" }
+dm-shared-platform = { path = "../../shared/platform" }
+dm-shared-runfile = { path = "../../shared/runfile" }
+dm-shared-runtime = { path = "../../shared/runtime" }
+dm-shared-sandboxplace = { path = "../../shared/sandboxplace" }
+dm-shared-toolhub = { path = "../../shared/toolhub" }
+dm-shared-toolipc = { path = "../../shared/toolipc" }
+dm-shared-workspace = { path = "../../shared/workspace" }
