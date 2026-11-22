@@ -16,6 +16,28 @@ import { TMP, realPath, slash } from './osenv';
 // /api/commands/sse 구독자이기 때문이다 — 스킬의 delivered>0 전제를 만족시킨다.
 
 // dmctl list-workspace 가 /api/state 를 읽어 만드는 행에서 스킬이 캡처하는 값들.
+/**
+ * 도구의 런타임 값이 자리잡은 `/api/state` (QUALITY_FIX_SRS FR-QFX-6).
+ *
+ * 셸이 뜬 직후의 도구는 `fgName:""` 이고, 데몬의 전경 틱(2초, `fgRefreshInterval`)이 cwd 를 알게 된 뒤
+ * cwd 이름(홈이면 `~`, UX_AUDIT_FIX_SRS FR-UXF-65)을 채운다. 「전」 을 그 앞에 찍으면 Run 과 무관한
+ * 이 변화가 「사용자 공간이 바뀌었다」 로 읽힌다 — 이 시험이 「환경 실패」 로 남아 있던 원인이다.
+ * 틱보다 긴 간격으로 두 번 읽어 같을 때의 값을 쓴다(D-QFX-7: 필드를 빼고 견주지 않는다).
+ */
+const STATE_SETTLE_GAP_MS = 2500;
+async function settledState(request: any): Promise<any> {
+  const read = async () => (await request.get('/api/state')).json();
+  let prev = await read();
+  await expect.poll(async () => {
+    await new Promise((r) => setTimeout(r, STATE_SETTLE_GAP_MS));
+    const next = await read();
+    const same = JSON.stringify(next) === JSON.stringify(prev);
+    prev = next;
+    return same;
+  }, { timeout: 20_000, intervals: [0] }).toBe(true);
+  return prev;
+}
+
 // windowFocusMap 은 창별 "지금 보고 있는 탭"이다. `-n`(keepFocus)이 실제로
 // 보장하는 것이 이것이며, /api/focus 의 owners(어느 클라이언트가 그 창의 포커스를
 // 소유하나)와는 다른 개념이다 — 새 창이 owners 항목을 갖는 것은 정상이고 등록도
@@ -456,7 +478,7 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     const activeBefore = await clientActive();
     expect(activeBefore, '클라이언트 활성 창을 못 읽었다 — 단정이 공허해진다').toBeTruthy();
 
-    const wsBefore = await (await request.get('/api/state')).json();
+    const wsBefore = await settledState(request);
     const focusBefore = await windowFocusMap(request);
 
     // 1. 전용 창 — 응답이 창·시드 uuid 를 직접 준다 (list-workspace 재조회 없음).
