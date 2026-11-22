@@ -10,3 +10,12 @@ publish = false
 workspace = true
 
 [dependencies]
+bytes = { workspace = true }
+dm-gocompat = { path = "../../gocompat" }
+http = { workspace = true }
+http-body-util = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true }

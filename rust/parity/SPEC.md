@@ -39,7 +39,7 @@
 
 ### 2.1 시나리오
 
-- **FR-PAR-1** 시나리오는 Rust 코드로 정의한다. 시나리오는 이름, 단계 목록, 비교할 홈 파일 목록, 정규화 규칙 목록을 갖는다. YAML 해석기는 허용 목록(`DEPENDENCIES.md`)에 없으므로 쓰지 않는다.
+- **FR-PAR-1** 시나리오는 Rust 코드로 정의한다. 시나리오는 이름, 담당 이슈 ID, 단계 목록, 비교할 홈 파일 목록, 정규화 규칙 목록을 갖는다. YAML 해석기는 허용 목록(`DEPENDENCIES.md`)에 없으므로 쓰지 않는다.
 - **FR-PAR-2** 단계 종류는 다음과 같다.
   1. `run` — CLI 를 한 번 실행한다. 인자, 추가 환경변수, stdin, argv[0] 이름(multi-call 헬퍼용), 제한 시간을 줄 수 있다. 관측값: `stdout`, `stderr`, `exit`.
   2. `write_home` — 쪽의 DONGMINAL_HOME 아래에 파일을 만든다(시나리오 준비용). 관측값이 없다.
@@ -55,6 +55,7 @@
 - **C-PAR-3** 시나리오 인자에 `--port N`(또는 `--port=N`)이 있고 N 이 60147 미만이면 시나리오를 실행하지 않고 오류로 보고한다.
 - **C-PAR-4** 정리할 때 끄는 프로세스는 두 가지뿐이다. ① 실행기가 `serve` 로 띄운 자식 PID ② 쪽 DONGMINAL_HOME 의 `paned.pid` 가 가리키는 PID 중, 그 프로세스의 실행 파일 경로가 이 쪽 바이너리와 같은 것. 이름으로 프로세스를 찾지 않는다.
 - **C-PAR-6** 쪽 뿌리는 짧은 이름으로 만든다. `{home}/paned.sock` 경로가 103바이트를 넘으면(macOS `sun_path` 한도) 실행 전에 오류를 낸다.
+- **C-PAR-7** argv0 가 서버에 요청할 수 있는 헬퍼(`dmctl` `edit` `detach` `open-url`)인 `run` 단계는 같은 시나리오의 앞에 `serve` 단계가 있어야 한다. 헬퍼는 격리 홈에 주소 파일이 없으면 기본 포트로 붙기 때문이다. argv0 `claude`(진짜 claude 를 실행하는 셈)와 `dongminald` 는 시나리오에 넣지 못한다. 어기면 시나리오를 실행하지 않고 오류로 보고한다.
 - **C-PAR-5** 운영 바이너리(`/Users/dykim/personal/dongminal/dongminal`)나 `~/.dongminal` 아래 경로를 쪽 바이너리로 받으면 실행을 거절한다.
 
 ### 2.3 정규화
@@ -75,8 +76,9 @@
 
 ### 2.6 진입점
 
-- **FR-PAR-40** `dm-parity --go <경로> --rust <경로> [--only <이름>]... [--list] [--keep]` 은 등록된 시나리오를 돌린다. 모두 같으면 종료 코드 0, 차이가 있으면 1, 사용법·설정 오류면 2 다. `--keep` 은 쪽 뿌리를 지우지 않고 경로를 찍는다.
-- **FR-PAR-41** `rust/parity/run.sh` 는 Go 참조 바이너리를 `rust/target/go-ref/dongminal` 에 만들고(저장소 루트에 만들지 않는다), Rust 바이너리를 `cargo build -p dongminal` 으로 만든 뒤, `rust/scripts/hermetic.sh` 아래에서 `dm-parity` 를 돌린다. 인자는 `dm-parity` 에 넘긴다.
+- **FR-PAR-40** `dm-parity --go <경로> --rust <경로> [--issues <이슈 폴더>] [--only <이름>]... [--list] [--keep]` 은 등록된 시나리오를 돌린다. 시나리오마다 `ok`·`DIFF`·`PEND` 중 하나를 찍고, 끝에 `<N>개 중 같음 a, 다름 b, 보류 c` 를 찍는다. 다름이 없으면 종료 코드 0, 있으면 1, 사용법·설정 오류면 2 다. `--list` 는 이름과 담당 이슈를 탭으로 나눠 찍는다. `--keep` 은 쪽 뿌리를 지우지 않고 경로를 찍는다. `--issues` 가 없으면 환경변수 `DM_PARITY_ISSUES` 를 쓴다.
+- **FR-PAR-42** 담당 이슈의 상태는 이슈 폴더의 `*.md` 머리말(`id`, `status`)에서 읽는다. 차이가 있고 담당 이슈의 상태가 `done` 이 아니면 그 시나리오는 보류(`PEND`)이고 다름으로 세지 않는다. 시나리오 오류, 담당 이슈가 없는 시나리오의 차이, 담당 이슈를 폴더에서 찾지 못한 시나리오의 차이는 다름이다. 선택한 시나리오에 담당 이슈가 있는데 이슈 폴더가 주어지지 않으면 종료 코드 2 다.
+- **FR-PAR-41** `rust/parity/run.sh` 는 Go 참조 바이너리를 `rust/target/go-ref/dongminal` 에 만들고(저장소 루트에 만들지 않는다), Rust 바이너리를 `cargo build -p dongminal` 으로 만든 뒤, `rust/scripts/hermetic.sh` 아래에서 `dm-parity` 를 돌린다. 이슈 폴더는 `DM_PARITY_ISSUES` 가 있으면 그것, 없으면 `<저장소>/rust-port/issues` 다. 인자는 `dm-parity` 에 넘긴다.
 
 ### 2.7 e2e 바이너리 경로 (FR-RSP-31)
 
@@ -86,4 +88,6 @@
 
 - **V-PAR-1** 단위 테스트: 정규화(기본·기성·사용자 규칙, 범위 좁히기), HTTP 응답 해석(chunked, Content-Length, 닫힘까지), 헤더 선택, 차이 보고 형식, 포트 거절.
 - **V-PAR-2** 통합 테스트(unix): 가짜 바이너리(셸 스크립트) 두 개로 같음·다름(stdout, 종료 코드, 홈 파일)을 판정하고, 자식 환경의 격리(C-PAR-1)를 확인한다.
-- **V-PAR-3** 자기 검증: `DM_PARITY_GO_BIN` 이 있으면 등록 시나리오 전부와 서버 시나리오를 Go 대 Go 로 돌려 차이가 없어야 한다.
+- **V-PAR-3** 자기 검증: `DM_PARITY_GO_BIN` 이 있으면 등록 시나리오 전부를 Go 대 Go 로 돌려 차이가 없고 정리 뒤 데몬이 남지 않아야 한다. 또 Go 쪽 관측값이 시나리오의 의도와 맞아야 한다: `error` 관측값이 없고 서버 준비가 `ok`, `cli-*-args` 의 종료 코드는 모두 2, `cli-*-help` 는 모두 0 이고 stdout 이 비어 있지 않음, `helper-*` 의 종료 코드는 0 또는 2.
+- **V-PAR-4** 목록 검사: 등록 시나리오는 모두 검증(`validate`)을 통과하고, 이름이 겹치지 않으며, 담당 이슈가 `rust-port/issues` 에 있다.
+- **V-PAR-5** 표면 목록: `rust/parity/SURFACE.md` 의 모든 항목에 담당 이슈가 있다.
