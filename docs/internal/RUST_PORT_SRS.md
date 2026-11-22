@@ -143,6 +143,8 @@ branch: rp/2.3
 - **FR-RSP-35 (OS 오류 문구)** 로그·HTTP 오류 본문·CLI 출력에 드러나는 파일·OS 오류 문구는 Go 의 `*os.PathError`(`op path: 문구`)·`*os.LinkError`(`op old new: 문구`)·`*os.SyscallError` 와 같아야 한다. errno 문구는 unix 에서 Go `syscall` 의 표(소문자)를, Windows 에서 Go 와 같은 FormatMessage 결과를 쓴다. 이 규칙은 `dm-gocompat` 의 오류 타입(`GoPathError` 등, `io::Error` 로 감싸 `ErrorKind` 보존)으로만 만든다. (1.4.2 제안)
 - **FR-RSP-34 (로그 요청 ID)** Go 의 `context.Context` 로 넘기던 요청 ID 는 `dm-shared-dmlog` 의 `ReqCtx<'a> = Option<&'a str>` 를 첫 인자로 넘긴다.
 
+- **FR-RSP-36 (동시성 모델)** `dm-shared-platform` 위의 계층은 tokio 를 기본 런타임으로 쓴다. Go 의 goroutine 은 tokio task 로, `context.Context` 의 취소는 `tokio_util::sync::CancellationToken` 으로 옮긴다(`dm-shared-pollwait`·`dm-shared-fanout` 이 이 모양이다). 블로킹 I/O(platform, PTY 읽기, 파일 잠금)는 `spawn_blocking` 이나 전용 스레드에서 돈다. CLI 처럼 Go `context.Background()` 로 부르던 쪽은 취소하지 않는 토큰을 넘기고, 필요하면 current-thread 런타임을 띄운다. (1.2 결정)
+
 ### 3.5 작업 절차
 
 - **FR-RSP-40** 기준선 이후 `main` 에 들어온 Go 변경은 `9.x` 이슈로 따라간다.
