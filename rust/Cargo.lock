@@ -787,7 +787,14 @@ dependencies = [
 name = "dm-webserver-domain-git-core"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-platform",
+ "rand",
+ "regex",
+ "serde",
+ "tempfile",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
