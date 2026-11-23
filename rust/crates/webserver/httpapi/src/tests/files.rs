@@ -841,6 +841,34 @@ async fn file_write_notifies_lsp() {
         fn notify_files(&self, events: Vec<FileEvent>) {
             self.0.lock().unwrap().extend(events);
         }
+        fn status(&self) -> (Vec<dm_webserver_domain_ext::Status>, Vec<String>) {
+            Default::default()
+        }
+        fn open_tunnel(
+            &self,
+            _: &str,
+            _: &str,
+        ) -> Result<Arc<dyn dm_webserver_domain_lsp::Tunnel>, dm_webserver_domain_lsp::OpenError>
+        {
+            Err(dm_webserver_domain_lsp::OpenError::Limit)
+        }
+        fn paths(&self) -> std::collections::HashMap<String, String> {
+            Default::default()
+        }
+        fn set_paths(
+            &self,
+            next: std::collections::HashMap<String, String>,
+        ) -> Result<std::collections::HashMap<String, String>, dm_webserver_domain_lsp::PathsError>
+        {
+            Ok(next)
+        }
+        fn install<'a>(
+            &'a self,
+            _: &'a dm_webserver_domain_ext::Ctx,
+            _: &'a str,
+        ) -> futures_util::future::BoxFuture<'a, dm_webserver_domain_ext::Outcome> {
+            Box::pin(async { Default::default() })
+        }
     }
     let rec = Arc::new(Rec::default());
     let r2 = rec.clone();

@@ -14,8 +14,10 @@ mod agent_records;
 mod agent_render_env;
 mod ansi;
 mod attention;
+mod chat_api;
 mod commands;
 mod deps;
+mod edge_api;
 mod editors;
 mod entity_name;
 mod file_boundary;
@@ -37,6 +39,7 @@ mod fs_zip;
 mod gitwire;
 mod handlers_fs_ignored;
 mod httperr;
+mod lsp_api;
 mod lspsvc;
 mod mediatype;
 mod meta;
@@ -58,6 +61,7 @@ mod toolhub;
 mod toolio;
 mod tools_api;
 mod usage;
+mod workspace_revert;
 mod ws;
 
 use std::path::PathBuf;
@@ -73,7 +77,9 @@ use dm_webserver_seam_toolaccess::{ToolReader, WorkspaceReader};
 pub use access::DEFAULT_ACCESS_REFRESH;
 pub use agent_records::RecordSink;
 pub use attention::{AttentionDaemon, DaemonCallError};
+pub use chat_api::ChatDaemon;
 pub use deps::{SandboxReaper, SettingsStore, StatsSnapshotter, UpdateService, WorkspaceStore};
+pub use edge_api::EdgeDaemon;
 pub use lspsvc::LspService;
 pub use migration_advice::{MigrationConf, parse_migration_conf};
 pub use req::{BodyError, ReqBody};
@@ -134,6 +140,10 @@ pub struct Deps {
     pub records: Option<Arc<dyn RecordSink>>,
     /// 데몬의 알람 판정이다 (§3.3a). 없거나 판정하지 않으면 추적기가 판정한다.
     pub attn_daemon: Option<Arc<dyn AttentionDaemon>>,
+    /// 데몬의 노드다 (PEER_DAEMON_SRS §3.5a). 없으면 간선 API 는 503 이다 (FR-DMR-21).
+    pub edge_daemon: Option<Arc<dyn EdgeDaemon>>,
+    /// 데몬의 채팅 사람 참가자다 (PEER_CHAT_SRS §3.11). 없으면 준비되지 않은 데몬과 같다 (FR-DMR-22).
+    pub chat_daemon: Option<Arc<dyn ChatDaemon>>,
     /// 실행 기록을 공유할 git core 서비스다 (Go `Deps.Git.Service()`). 없어도 무시 판정은 돌고
     /// 기록만 빠진다 (FR-GXU-4·10).
     pub git_service: Option<Arc<dm_webserver_domain_git_core::Service>>,
@@ -190,6 +200,12 @@ pub struct Server {
     pub(crate) waits: status::StatusWaits,
     /// 활동 보고의 알림이다 — 활동 대기가 이것과 마감 시각에만 다시 본다 (FR-OPT-16-3).
     pub(crate) activity_changed: dm_shared_pollwait::Signal,
+    /// 이 기기의 `이름#번호` 기억이다 (Go `handle`).
+    pub(crate) handle: edge_api::HandleCache,
+    /// 노드 포트를 다시 맞추라는 신호다 (Go `edgeKick`).
+    pub(crate) edge_kick: edge_api::EdgeKick,
+    /// `/api/lsp/ws` 의 메시지 상한이다 (FR-CMR-104). 시험만이 낮춘다.
+    pub(crate) lsp_ws_read_limit: usize,
 }
 
 /// 탐색기·편집기의 파일 조작 잠금이다 (Go `fsState`).
@@ -272,6 +288,9 @@ impl Server {
             attn_claims: attention::AttnClaims::default(),
             waits: status::StatusWaits::default(),
             activity_changed: dm_shared_pollwait::Signal::default(),
+            handle: edge_api::HandleCache::default(),
+            edge_kick: edge_api::EdgeKick::default(),
+            lsp_ws_read_limit: lsp_api::LSP_WS_READ_LIMIT,
         }
     }
 
