@@ -171,3 +171,13 @@ fn listen_tcp_in_use_is_raw_bind_error() {
     assert_eq!(err.kind(), io::ErrorKind::AddrInUse);
     assert!(err.raw_os_error().is_some(), "{err:?}");
 }
+
+// dmenv::listen_addr 의 결과는 실제 리슨(Go net.Listen("tcp"))이 받는 것이어야 한다 — dmenv 에서 옮긴 시험.
+#[test]
+fn dmenv_listen_addr_is_listenable() {
+    for host in ["127.0.0.1", "::1", ""] {
+        let bound = (PORT_LO..PORT_HI)
+            .any(|port| listen_tcp(&dm_shared_dmenv::listen_addr(host, &port.to_string())).is_ok());
+        assert!(bound, "{host:?} 에 리슨하지 못했다");
+    }
+}
