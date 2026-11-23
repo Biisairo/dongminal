@@ -16,11 +16,12 @@ rust/parity/run.sh --only cli-help       # 시나리오 하나만
 rust/parity/run.sh --list                # 시나리오 이름과 담당 이슈 목록
 rust/parity/run.sh --keep --only X       # 쪽 뿌리를 지우지 않고 경로를 찍는다
 rust/parity/run.sh --self-test           # Go 대 Go 로 실행기 자체를 검증 (cargo test)
+rust/parity/run.sh --go-bin <경로> …     # 미리 만든 Go 참조 바이너리를 쓴다
 ```
 
 `run.sh` 는 다음 순서로 동작한다.
 
-1. Go 참조 바이너리를 `rust/target/go-ref/dongminal` 에 빌드한다. 저장소 루트에는 만들지 않는다 (C-RSP-1).
+1. Go 참조 바이너리를 정한다. 첫 인자가 `--go-bin <경로>`(또는 `--go-bin=<경로>`)이면 그 파일을 쓴다. 아니면 `DM_GO_REF_SRC`(Go 소스가 있는 `main` 의 worktree)에서 `rust/scripts/go-ref.sh` 로 `rust/target/go-ref/dongminal` 에 빌드한다. 저장소 루트에는 만들지 않는다 (C-RSP-1). 둘 다 없거나 바이너리가 없으면 `parity: Go 참조가 없다 …` 를 찍고 종료 2 다 (GO_REMOVAL_SRS G-65).
 2. `cargo build -p dongminal -p dm-parity` 를 실행한다.
 3. `rust/scripts/hermetic.sh` 아래에서 `dm-parity --go … --rust … --issues <이슈 폴더>` 를 실행한다. 이슈 폴더는 `DM_PARITY_ISSUES` 가 있으면 그것을 쓰고, 없으면 `<저장소>/rust-port/issues` 를 쓴다. 이슈 worktree 의 사본은 낡을 수 있으므로, 최신 상태로 판정하려면 `DM_PARITY_ISSUES=/Users/dykim/personal/dongminal-rust/int/rust-port/issues` 처럼 통합 worktree 의 폴더를 준다.
 
@@ -157,7 +158,7 @@ Scenario::new("dmctl-list")                                  // 이름은 --only
 
 ## e2e 에서 Rust 바이너리 쓰기 (FR-RSP-31)
 
-`e2e/global-setup.ts` 는 `DM_E2E_PREBUILT_BIN` 이 있으면 `go build` 대신 그 파일을 `E2E_BIN` 으로 복사하고 0755 권한을 준다. e2e 는 이슈 8.1 만 실행한다.
+`e2e/global-setup.ts` 는 `DM_E2E_PREBUILT_BIN` 이 있으면 기본 빌드 대신 그 파일을 `E2E_BIN` 으로 복사하고 0755 권한을 준다. e2e 는 이슈 8.1 만 실행한다.
 
 ```sh
 DM_E2E_PREBUILT_BIN=$PWD/rust/target/release/dongminal E2E_PORT_BASE=60147 npx playwright test

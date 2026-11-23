@@ -133,12 +133,12 @@ struct Vector {
     digest: String,
 }
 
-// 화면과 나누는 지문 표본 (internal/webserver/gitapi/testdata).
+// 화면과 나누는 지문 표본 (testdata/oid_digest_vectors.json).
 #[test]
 fn oid_digest_shared_vectors() {
     let p = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../../internal/webserver/gitapi/testdata/oid_digest_vectors.json"
+        "/testdata/oid_digest_vectors.json"
     );
     let vs: Vec<Vector> = serde_json::from_slice(&std::fs::read(p).unwrap()).unwrap();
     assert!(vs.len() >= 3);

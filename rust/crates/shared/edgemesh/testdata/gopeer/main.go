@@ -2,7 +2,7 @@
 // g1 과 g2 를 메모리 연결로 잇고, g1 이 127.0.0.1:-port 로 들어오는 연결 하나를 -peer 지문의
 // 간선으로 붙인다. 표준 입력의 명령에 답하고 사건을 표준 출력에 한 줄씩 적는다.
 //
-//	go build -o rust/target/go-ref/meshpeer ./rust/crates/shared/edgemesh/testdata/gopeer
+//	DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/meshpeer rust/crates/shared/edgemesh/testdata/gopeer
 package main
 
 import (

@@ -14,7 +14,7 @@ use dm_gocompat::oserr::{go_error_string, path_error};
 const SRC_DIR: &str = "docs/internal";
 const OUT: &str = "docs/internal/decisions.md";
 /// 생성물이 어긋났을 때 안내하는 명령이다.
-const REGEN: &str = "cargo run -p dm-scripts-gen-decisions --";
+const REGEN: &str = dm_ctl_decidx::GENERATE;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();

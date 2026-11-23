@@ -61,9 +61,8 @@ fn hook_commands(blob: &[u8]) -> BTreeMap<String, Vec<String>> {
 }
 
 #[test]
-fn asset_list_matches_disk_and_go_tree() {
+fn asset_list_matches_disk() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
-    let go = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../internal/shared/runtime");
     let mut disk = Vec::new();
     fn walk(dir: &Path, rel: &str, out: &mut Vec<String>) {
         let mut es: Vec<_> = fs::read_dir(dir).unwrap().map(Result::unwrap).collect();
@@ -80,11 +79,6 @@ fn asset_list_matches_disk_and_go_tree() {
     walk(&root, "", &mut disk);
     let listed: Vec<_> = assets::ASSETS.iter().map(|a| a.path.to_owned()).collect();
     assert_eq!(listed, disk);
-    if go.is_dir() {
-        for a in assets::ASSETS {
-            assert_eq!(fs::read(go.join(a.path)).unwrap(), a.data, "{}", a.path);
-        }
-    }
 }
 
 #[test]
