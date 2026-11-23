@@ -110,13 +110,12 @@ fn check_link_inside(root: &str, file: &str) -> Result<(), Error> {
     let top = std::fs::canonicalize(root)
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|_| filepath::clean(root));
-    let target = match std::fs::canonicalize(file) {
-        Ok(t) => t,
-        // 대상이 없는 링크: 링크 값을 링크가 있는 디렉터리 기준으로 푼다.
-        Err(_) => match std::fs::read_link(file) {
-            Ok(l) => std::path::Path::new(&top).join(l),
-            Err(_) => std::path::PathBuf::from(file),
-        },
+    // 대상이 없는 링크는 따라가 만들 자리를 믿을 수 없으므로 거절한다.
+    let Ok(target) = std::fs::canonicalize(file) else {
+        return Err(Error::new(
+            WriteKind::IgnorePath,
+            format!("{file} 는 대상이 없는 심볼릭 링크다"),
+        ));
     };
     let target = filepath::clean(&target.to_string_lossy());
     let inside = filepath::rel(&top, &target)
