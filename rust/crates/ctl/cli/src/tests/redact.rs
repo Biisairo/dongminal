@@ -63,6 +63,104 @@ fn query_and_assignments() {
     assert_masked(&format!("GITHUB_TOKEN={CANARY}"), "GITHUB_TOKEN=***");
 }
 
+// 우회 ①: 따옴표 값과 구분자 둘레 공백.
+#[test]
+fn quoted_and_spaced_assignments() {
+    assert_masked(
+        &format!(r#"token="{CANARY} x" next"#),
+        r#"token="***" next"#,
+    );
+    assert_masked(
+        &format!("password='{CANARY} x'; y=1"),
+        "password='***'; y=1",
+    );
+    assert_masked(&format!(r#"secret: "{CANARY}""#), r#"secret: "***""#);
+    assert_masked(&format!("api_key = {CANARY} y"), "api_key = *** y");
+    assert_masked(&format!("passwd\t=\t{CANARY}"), "passwd\t=\t***");
+    assert_masked(&format!("token : {CANARY}"), "token : ***");
+    assert_masked(
+        &format!(r#"token="{CANARY}\"{CANARY}" z"#),
+        r#"token="***" z"#,
+    );
+    assert_masked(&format!(r#"token='{CANARY}\'{CANARY}' z"#), "token='***' z");
+    // 닫는 따옴표가 없으면 그 줄 끝까지 가린다.
+    assert_masked(&format!("token=\"{CANARY} x\nnext"), "token=\"***\nnext");
+    assert_masked(&format!("token='{CANARY}"), "token='***");
+    // 빈 값·이미 가린 값은 그대로다.
+    for s in [
+        r#"token="" x"#,
+        "token='' x",
+        r#"token="***""#,
+        "token = \nnext",
+    ] {
+        assert_eq!(redact_secrets(s), s);
+    }
+}
+
+// 우회 ②: slog 텍스트 줄 안의 이스케이프된 JSON·따옴표.
+#[test]
+fn escaped_json_in_slog_line() {
+    assert_masked(
+        &format!(r#"level=INFO msg="body={{\"token\":\"{CANARY}\",\"themeName\":\"dark\"}}" n=1"#),
+        r#"level=INFO msg="body={\"token\":\"***\",\"themeName\":\"dark\"}" n=1"#,
+    );
+    // 값 안의 이스케이프된 따옴표(JSON \" 가 한 번 더 인용된 \\\")도 값의 일부다.
+    assert_masked(
+        &format!(r#"msg="{{\"apiToken\" : \"{CANARY}\\\"{CANARY}\"}}""#),
+        r#"msg="{\"apiToken\" : \"***\"}""#,
+    );
+    assert_masked(
+        &format!(r#"msg="run password=\"{CANARY} x\" ok" n=1"#),
+        r#"msg="run password=\"***\" ok" n=1"#,
+    );
+    assert_masked(
+        &format!(r#"msg="secret: \"{CANARY}\\\\\"" n=1"#),
+        r#"msg="secret: \"***\"" n=1"#,
+    );
+    assert_masked(&format!(r#"msg="token=\"{CANARY}"#), r#"msg="token=\"***"#);
+    for s in [
+        r#"msg="body={\"themeName\":\"dark\",\"key\":\"ctrl+c\"}" n=1"#,
+        r#"msg="{\"token\":\"\"}""#,
+        r#"msg="run token=\"\" ok""#,
+    ] {
+        assert_eq!(redact_secrets(s), s);
+    }
+}
+
+// 이스케이프 뒤의 여러 바이트 글자·입력 끝에서 끊긴 값도 패닉 없이 가린다.
+#[test]
+fn cut_values_do_not_panic() {
+    for (input, want) in [
+        ("token=\"\\한글", "token=\"***"),
+        ("token='한\\", "token='***"),
+        ("msg=\"token=\\\"\\\\한", "msg=\"token=\\\"***"),
+        ("msg=\"token=\\\"\\\\\\", "msg=\"token=\\\"***"),
+        ("{\\\"token\\\":\\\"\\", "{\\\"token\\\":\\\"***"),
+        ("token=\\", "token=***"),
+    ] {
+        assert_eq!(redact_secrets(input), want, "{input}");
+    }
+}
+
+// 우회 ③: 로그 끝 자르기로 PEM 의 한쪽 표시만 남은 경우.
+#[test]
+fn pem_half_block() {
+    assert_masked(
+        &format!("앞\n-----BEGIN RSA PRIVATE KEY-----\n{CANARY}\nAAAA\n"),
+        "앞\n-----BEGIN RSA PRIVATE KEY-----\n***",
+    );
+    assert_masked(
+        &format!("{CANARY}\nAAAA\n-----END RSA PRIVATE KEY-----\n뒤\n"),
+        "***\n-----END RSA PRIVATE KEY-----\n뒤\n",
+    );
+    assert_masked(
+        &format!(
+            "{CANARY}\n-----END EC PRIVATE KEY-----\n가\n-----BEGIN EC PRIVATE KEY-----\n{CANARY}\n-----END EC PRIVATE KEY-----\n나\n-----BEGIN EC PRIVATE KEY-----\n{CANARY}"
+        ),
+        "***\n-----END EC PRIVATE KEY-----\n가\n-----BEGIN EC PRIVATE KEY-----\n***\n-----END EC PRIVATE KEY-----\n나\n-----BEGIN EC PRIVATE KEY-----\n***",
+    );
+}
+
 // 비밀이 없는 입력은 바이트 하나 바꾸지 않는다 — Go 번들과 같아야 한다.
 #[test]
 fn no_secret_is_unchanged() {
