@@ -174,6 +174,8 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | D-3 | 알려진 차이 | gocompat json 디코딩 | 중첩 깊이 10000 까지 성공 | 513 이상이면 `exceeded max depth` (스택 넘침 방지) | 1.1 |
 | D-4 | 알려진 차이 | gocompat json 디코딩 | 타입 오류 때 일부 채운 값을 남긴다 | 값을 돌려주지 않는다. 그 값을 쓰는 Go 코드가 없음을 각 이슈가 확인한다 | 1.1 |
 | D-5 | 알려진 차이 | gocompat filepath (Windows) | `EvalSymlinks` 가 경로 대소문자를 실제 이름으로 정규화(toNorm) | 정규화하지 않는다(gocompat 에 OS 호출을 두지 않는다). 관측 자리를 만나면 platform 으로 옮긴다 | 4.1.1 |
+| D-6 | 알려진 차이 | gocompat time | 연도 ±9999 밖도 담고 `year outside of range` 오류를 낸다 | time crate 가 그 범위를 담지 못해 그 오류가 생기지 않는다(파싱 단계에서 거절) | 1.1 |
+| D-7 | 보안 강화 | platform PTY (넘겨받은 셸·Windows) | 거둔(adopt) 셸의 PID 에 신호를 보낸다 — PID 가 재사용되면 다른 프로세스를 죽일 수 있다 | 거둔 셸에는 신호를 보내지 않는다. 경합 상황에서만 다르다 | 1.4.6 |
 
 ## 4. 검증
 
