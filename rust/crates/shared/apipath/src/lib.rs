@@ -147,11 +147,11 @@ mod tests {
     use std::collections::BTreeSet;
     use std::path::{Path, PathBuf};
 
-    fn repo_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..")
+    fn crates_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    /// Go 소스 한 파일의 `"/api/…"` 문자열 리터럴 전부다.
+    /// 소스 한 파일의 `"/api/…"` 문자열 리터럴 전부다.
     fn api_literals(src: &str, out: &mut BTreeSet<String>) {
         let mut rest = src;
         while let Some(i) = rest.find("\"/api/") {
@@ -162,44 +162,40 @@ mod tests {
         }
     }
 
-    /// Go 기준선 apipath 와 상수 집합이 같다 — 이름과 값 모두.
-    #[test]
-    fn matches_go_baseline_constants() {
-        let src = std::fs::read_to_string(repo_root().join("internal/shared/apipath/apipath.go"))
-            .expect("Go 기준선 apipath.go");
-        let mut go = BTreeSet::new();
-        for line in src.lines() {
-            let t = line.trim();
-            if let Some((name, v)) = t.split_once(" = \"") {
-                let name = name.trim();
-                if name.chars().all(|c| c.is_ascii_alphanumeric()) {
-                    go.insert(v.trim_end_matches('"').to_owned());
+    /// `dir` 아래 시험이 아닌 `.rs` 의 리터럴을 모은다. `tests` 디렉터리와 `tests.rs` 는 뺀다.
+    fn collect_routes(dir: &Path, out: &mut BTreeSet<String>) {
+        for e in std::fs::read_dir(dir).expect("서버 소스") {
+            let p = e.expect("dir entry").path();
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            if p.is_dir() {
+                if name != "tests" {
+                    collect_routes(&p, out);
                 }
+            } else if name.ends_with(".rs") && name != "tests.rs" {
+                api_literals(&std::fs::read_to_string(&p).expect("소스"), out);
             }
         }
-        let ours: BTreeSet<String> = ALL.iter().map(|(_, v)| (*v).to_owned()).collect();
-        assert_eq!(ours, go);
-        assert_eq!(ALL.len(), go.len());
     }
 
     /// TestPathsMatchServerRoutes: 상수마다 서버가 같은 문자열로 라우트를 둔다 (FR-RGS-40).
-    /// 서버의 Rust 포팅이 아직 없으므로 Go 기준선 서버 소스를 대조한다.
     #[test]
     fn paths_match_server_routes() {
         let mut routes = BTreeSet::new();
-        for dir in ["internal/webserver/httpapi", "internal/webserver/gitapi"] {
-            let d = repo_root().join(dir);
-            for e in std::fs::read_dir(&d).expect("서버 패키지") {
-                let p = e.expect("dir entry").path();
-                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-                if !name.ends_with(".go") || name.ends_with("_test.go") {
-                    continue;
-                }
-                api_literals(&std::fs::read_to_string(&p).expect("소스"), &mut routes);
-            }
+        for dir in ["webserver/httpapi/src", "webserver/gitapi/src"] {
+            collect_routes(&crates_root().join(dir), &mut routes);
         }
+        assert!(
+            !routes.is_empty(),
+            "서버 라우트 리터럴을 하나도 읽지 못했다"
+        );
         for (name, v) in ALL {
             assert!(routes.contains(*v), "{name} = {v:?} — 서버 라우트에 없다");
         }
+    }
+
+    #[test]
+    fn all_values_are_unique() {
+        let set: BTreeSet<&str> = ALL.iter().map(|(_, v)| *v).collect();
+        assert_eq!(set.len(), ALL.len());
     }
 }
