@@ -1,6 +1,7 @@
 mod access;
 mod attention;
 mod attnenv;
+mod claude_accounts;
 mod commands;
 mod fakes;
 mod files;

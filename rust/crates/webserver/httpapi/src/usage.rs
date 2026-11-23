@@ -358,10 +358,13 @@ impl Server {
         };
         self.agents.usage.put(tool_id, u.clone());
         self.put_record(toolipc::RECORD_USAGE, tool_id, Some(&u));
-        // FR-ASV-20: 계정 한도의 임자는 statusLine 을 보고하는 에이전트다. 계정을 실은 보고를
-        // 계정별로 두는 갈래(FR-CAC-78)는 5.5.9 가 이 앞에 잇는다.
+        // FR-ASV-20: 계정 한도의 임자는 statusLine 을 보고하는 에이전트다. FR-CAC-78: 계정을 실은
+        // 보고는 계정별로 둔다. 에이전트 단위 값은 계정을 모르는 보고만이다.
         let limits = u.usage.rate_limits.as_ref().filter(|l| !l.is_empty());
-        if let (Some(agent), Some(limits)) =
+        let acc = body.account.as_ref().filter(|a| !a.email.is_empty());
+        if let (Some(acc), Some(ca)) = (acc, &self.ca) {
+            ca.sl.put(acc, u.usage.rate_limits.as_ref(), now);
+        } else if let (Some(agent), Some(limits)) =
             (dm_shared_agentadapter::status_line_reporter(), limits)
         {
             self.agents.rate_limits.put(agent, limits, now);

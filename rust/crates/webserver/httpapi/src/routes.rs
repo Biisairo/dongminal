@@ -154,6 +154,60 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         // PROFILE_NAME_SRS §3.2: 이 기기의 이름.
         get("/api/profile", h!(api_profile_get)),
         put("/api/profile", h!(api_profile_put)),
+        // CLAUDE_ACCOUNTS_SRS FR-CAC-120·121.
+        get("/api/claude-accounts", h!(api_claude_accounts_list)),
+        post("/api/claude-accounts/add", h!(api_claude_accounts_add)),
+        put("/api/claude-accounts/item", h!(api_claude_accounts_item)),
+        post(
+            "/api/claude-accounts/remove",
+            h!(api_claude_accounts_remove),
+        ),
+        post("/api/claude-accounts/order", h!(api_claude_accounts_order)),
+        post(
+            "/api/claude-accounts/switch",
+            h!(api_claude_accounts_switch),
+        ),
+        post(
+            "/api/claude-accounts/refresh",
+            h!(api_claude_accounts_refresh),
+        ),
+        post("/api/claude-accounts/reset", h!(api_claude_accounts_reset)),
+        get(
+            "/api/claude-accounts/history",
+            h!(api_claude_accounts_history),
+        ),
+        get(
+            "/api/claude-accounts/autoswitch",
+            h!(api_claude_accounts_autoswitch_get),
+        ),
+        put(
+            "/api/claude-accounts/autoswitch",
+            h!(api_claude_accounts_autoswitch_put),
+        ),
+        get(
+            "/api/claude-accounts/mappings",
+            h!(api_claude_accounts_mappings_get),
+        ),
+        put(
+            "/api/claude-accounts/mappings",
+            h!(api_claude_accounts_mappings_put),
+        ),
+        get(
+            "/api/claude-accounts/resolve",
+            h!(api_claude_accounts_resolve),
+        ),
+        post(
+            "/api/claude-accounts/launch",
+            h!(api_claude_accounts_launch),
+        ),
+        get(
+            "/api/claude-accounts/unclaimed",
+            h!(api_claude_accounts_unclaimed),
+        ),
+        post(
+            "/api/claude-accounts/unclaimed/remove",
+            h!(api_claude_accounts_unclaimed_remove),
+        ),
         // TELEGRAM_BRIDGE_SRS FR-TGB-1~5·10~11.
         get("/api/telegram", h!(api_telegram_get)),
         put("/api/telegram/token", h!(api_telegram_token)),

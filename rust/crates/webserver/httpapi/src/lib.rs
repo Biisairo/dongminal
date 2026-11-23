@@ -15,6 +15,7 @@ mod agent_render_env;
 mod ansi;
 mod attention;
 mod chat_api;
+mod claude_accounts;
 mod commands;
 mod deps;
 mod edge_api;
@@ -79,6 +80,7 @@ pub use access::DEFAULT_ACCESS_REFRESH;
 pub use agent_records::RecordSink;
 pub use attention::{AttentionDaemon, DaemonCallError};
 pub use chat_api::ChatDaemon;
+pub use claude_accounts::ClaudeHooks;
 pub use deps::{SandboxReaper, SettingsStore, StatsSnapshotter, UpdateService, WorkspaceStore};
 pub use edge_api::EdgeDaemon;
 pub use lspsvc::LspService;
@@ -104,6 +106,10 @@ pub struct Config {
     pub version: String,
     /// Telegram Bot API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다.
     pub telegram_api: String,
+    /// Claude Code 설정(`~/.claude`·`~/.claude.json`)을 찾을 사용자 홈이다. 비면 OS 의 홈이다.
+    pub claude_home: PathBuf,
+    /// Anthropic API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다.
+    pub claude_api: String,
 }
 
 /// 주입 표면이다 (Go `Deps`). 비어 있는 자리는 그 표면만 실패한다.
@@ -147,6 +153,8 @@ pub struct Deps {
     pub edge_daemon: Option<Arc<dyn EdgeDaemon>>,
     /// 데몬의 채팅 사람 참가자다 (PEER_CHAT_SRS §3.11). 없으면 준비되지 않은 데몬과 같다 (FR-DMR-22).
     pub chat_daemon: Option<Arc<dyn ChatDaemon>>,
+    /// Claude 계정의 비밀 저장소·프로세스 목록이다 (Go `Config.ClaudeSecrets`·`ClaudeProcs`).
+    pub claude: ClaudeHooks,
     /// 실행 기록을 공유할 git core 서비스다 (Go `Deps.Git.Service()`). 없어도 무시 판정은 돌고
     /// 기록만 빠진다 (FR-GXU-4·10).
     pub git_service: Option<Arc<dm_webserver_domain_git_core::Service>>,
@@ -211,6 +219,8 @@ pub struct Server {
     pub(crate) lsp_ws_read_limit: usize,
     /// Telegram 알림 이음매다 (Go `tg`). data_dir 이 없으면 없다.
     pub(crate) tg: Option<telegram_api::TelegramWire>,
+    /// Claude 다중 계정이다 (Go `ca`, CLAUDE_ACCOUNTS_SRS). data_dir 이 없으면 없다.
+    pub(crate) ca: Option<claude_accounts::ClaudeAcctWire>,
 }
 
 /// 탐색기·편집기의 파일 조작 잠금이다 (Go `fsState`).
@@ -273,6 +283,7 @@ impl Server {
         }
         let deps_commands = deps.commands.clone();
         let tg = telegram_api::init_telegram(&cfg, me.clone());
+        let ca = claude_accounts::init_claude_accounts(&cfg, &deps.claude, me.clone());
         let srv = Server {
             deps,
             cfg,
@@ -300,6 +311,7 @@ impl Server {
             edge_kick: edge_api::EdgeKick::default(),
             lsp_ws_read_limit: lsp_api::LSP_WS_READ_LIMIT,
             tg,
+            ca,
         };
         if let Some(hub) = own_hub {
             srv.wire_telegram_attention(&hub);

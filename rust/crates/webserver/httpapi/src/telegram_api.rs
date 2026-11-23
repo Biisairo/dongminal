@@ -369,13 +369,13 @@ impl telegram::Host for TelegramHost {
             tab: tool_id.to_owned(),
             ..Default::default()
         };
-        if let Some(w) = &s.deps.work_index {
-            if let Some(e) = w.entries().into_iter().find(|e| e.tool_id == tool_id) {
-                loc.window = e.window_name;
-                if !e.tab_name.is_empty() {
-                    loc.tab = e.tab_name;
-                    return loc;
-                }
+        if let Some(w) = &s.deps.work_index
+            && let Some(e) = w.entries().into_iter().find(|e| e.tool_id == tool_id)
+        {
+            loc.window = e.window_name;
+            if !e.tab_name.is_empty() {
+                loc.tab = e.tab_name;
+                return loc;
             }
         }
         if let Some(io) = &s.deps.tool_io {

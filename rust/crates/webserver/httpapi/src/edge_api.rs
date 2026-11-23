@@ -115,10 +115,10 @@ fn write_edge_response(res: &EdgeResult) -> Response {
     } else {
         code_fail(status, &res.code, &res.message)
     };
-    if !res.etag.is_empty() {
-        if let Ok(v) = HeaderValue::from_str(&res.etag) {
-            out.headers_mut().insert(http::header::ETAG, v);
-        }
+    if !res.etag.is_empty()
+        && let Ok(v) = HeaderValue::from_str(&res.etag)
+    {
+        out.headers_mut().insert(http::header::ETAG, v);
     }
     out
 }
