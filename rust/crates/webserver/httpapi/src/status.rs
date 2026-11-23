@@ -69,7 +69,7 @@ pub(crate) enum Liveness {
 }
 
 /// Go `toolStatus`: 도구 하나의 에이전트 상태 관측이다. `quiet_ms` 의 -1 은 출력을 본 적이 없다는
-/// 뜻이다. Run 멤버 상태(`member`, FR-ITC-5)는 5.5.4 가 `subagents` 뒤에 잇는다.
+/// 뜻이다.
 #[derive(Clone, Debug, Default, Serialize)]
 pub(crate) struct ToolStatus {
     #[serde(rename = "toolId")]
@@ -94,8 +94,18 @@ pub(crate) struct ToolStatus {
     pub(crate) usage: Option<ToolUsage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) subagents: Option<Vec<Subagent>>,
+    /// 이 도구가 Run 멤버면 그 멤버와 계산한 상태다 (FR-ITC-5).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) member: Option<ToolMember>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) limits: Vec<LimitEntry>,
+}
+
+/// Go `toolMember`.
+#[derive(Clone, Debug, Default, Serialize)]
+pub(crate) struct ToolMember {
+    pub(crate) id: String,
+    pub(crate) state: String,
 }
 
 /// Go `waitResult`: 대기의 결말이다. `timeout` 은 실패가 아니라 체크포인트다 (FR-STA-6).
@@ -262,10 +272,16 @@ impl Server {
     }
 
     /// Go `quiescenceAllowed`: 훅으로 준비완료를 말하는 에이전트에는 정적 폴백을 쓰지 않는다.
-    /// 어떤 에이전트가 도는지는 Run 멤버 기록이 안다 — 그 갈래는 5.5.4 가 잇는다. 멤버가 아닌
-    /// 도구는 폴백을 허용한다 (NFR-RUN-1).
-    pub(crate) fn quiescence_allowed(&self, _tool_id: &str) -> bool {
-        true
+    /// 어떤 에이전트가 도는지는 Run 멤버 기록이 안다. 멤버가 아닌 도구는 폴백을 허용한다
+    /// (NFR-RUN-1).
+    pub(crate) fn quiescence_allowed(&self, tool_id: &str) -> bool {
+        let Some(m) = self.runs().and_then(|st| st.member_by_tool(tool_id)) else {
+            return true;
+        };
+        match dm_shared_agentadapter::get(&m.agent) {
+            Ok(ad) => !ad.readiness.hooks,
+            Err(_) => true,
+        }
     }
 
     /// GET /api/tools/activity/get?id= (FR-STA-1).
@@ -280,6 +296,10 @@ impl Server {
         let res = off_thread(move || -> Result<ToolStatus, Response> {
             let tool_id = srv.resolve_tool_id(&id)?;
             let mut st = srv.tool_status_at(&tool_id, srv.tool_liveness(&tool_id));
+            if let Some(m) = srv.runs().and_then(|r| r.member_by_tool(&tool_id)) {
+                let state = srv.derive_member_state(&m);
+                st.member = Some(ToolMember { id: m.id, state });
+            }
             st.limits = srv.agents.rate_limits.view(time::OffsetDateTime::now_utc());
             Ok(st)
         })

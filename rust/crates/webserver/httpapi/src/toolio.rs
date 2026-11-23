@@ -225,10 +225,6 @@ impl Server {
             tool_id,
         })
     }
-
-    /// Go `recordRunMessage`(handlers_runs_graph.go): Run 그래프에 메시지 엣지를 남긴다.
-    /// Run 저장소는 5.5.4·5.5.5 가 배선한다 — 그 전까지는 Go 의 `Runs == nil` 갈래와 같다.
-    pub(crate) fn record_run_message(&self, _from_tool_id: &str, _to_tool_id: &str, _size: usize) {}
 }
 
 /// Go `agentEnvelope`: 받는 쪽 에이전트가 신뢰 채널로 알아보는 봉투다.

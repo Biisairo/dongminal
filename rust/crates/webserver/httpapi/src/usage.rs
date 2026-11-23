@@ -27,6 +27,7 @@ use crate::subagents::{CardSubagent, SubagentActivityStore, SubagentStore, card_
 pub(crate) type ToolUsage = agentrec::Usage;
 
 const CONTEXT_SOURCE_STATUS_LINE: &str = "statusline";
+const CONTEXT_SOURCE_TRANSCRIPT: &str = "transcript";
 
 /// resetsAt 이 이보다 크면 밀리초로 본다 (R-4).
 const RESETS_AT_MILLIS_FLOOR: f64 = 1e12;
@@ -368,17 +369,17 @@ impl Server {
             let recs = self.agents.rate_limits.records();
             self.put_record(toolipc::RECORD_LIMITS, "", Some(&recs));
         }
-        // Run 맥락 기록의 관측(`observeUsageContext`, FR-SLP-11·22)은 5.5.5 가 잇는다.
+        self.observe_usage_context(tool_id, &u);
     }
 
-    /// Go `toolUsageView`: 상태 응답에 얹을 `context`·`usage` 다. statusLine 값이 없을 때의 Run
-    /// 기록(transcript) 갈래는 5.5.4 가 잇는다.
+    /// Go `toolUsageView`: 상태 응답에 얹을 `context`·`usage` 다. statusLine 값이 없으면 Run 기록의
+    /// transcript 값으로 `context` 만 채운다 (FR-SLP-11).
     pub(crate) fn tool_usage_view(
         &self,
         tool_id: &str,
     ) -> (Option<ToolContext>, Option<ToolUsage>) {
         let Some(u) = self.agents.usage.get(tool_id) else {
-            return (None, None);
+            return (self.transcript_context(tool_id), None);
         };
         let mut c = ToolContext {
             source: CONTEXT_SOURCE_STATUS_LINE.to_owned(),
@@ -395,6 +396,45 @@ impl Server {
             c.tokens = t;
         }
         (Some(c), Some(u))
+    }
+
+    /// Go `toolUsageView` 의 Run 기록 갈래.
+    fn transcript_context(&self, tool_id: &str) -> Option<ToolContext> {
+        let m = self.runs()?.member_by_tool(tool_id)?;
+        if m.context.context_tokens <= 0 {
+            return None;
+        }
+        Some(ToolContext {
+            used_pct: Some(m.context.context_ratio * 100.0),
+            window_tokens: m.context.context_limit,
+            tokens: m.context.context_tokens as f64,
+            source: CONTEXT_SOURCE_TRANSCRIPT.to_owned(),
+            observed_at: m.context.context_at,
+        })
+    }
+
+    /// Go `observeUsageContext`: Run 의 맥락 기록에도 공식 값을 넣는다 (FR-SLP-11·22).
+    fn observe_usage_context(&self, tool_id: &str, u: &ToolUsage) {
+        let Some(tokens) = u.context_tokens() else {
+            return;
+        };
+        let mut obs = dm_webserver_domain_run::ContextObservation {
+            tokens: tokens as i64,
+            has_tokens: true,
+            ..Default::default()
+        };
+        if let Some(w) = u
+            .usage
+            .context_window
+            .as_ref()
+            .and_then(|c| c.window_tokens)
+        {
+            obs.window = w;
+        }
+        if let Some(sid) = &u.usage.session_id {
+            obs.session_id = sid.clone();
+        }
+        self.observe_run_context(tool_id, obs);
     }
 
     pub(crate) fn activity_entries(&self) -> Vec<ActivityEntry> {
