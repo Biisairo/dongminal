@@ -9,11 +9,20 @@ use crate::error::{Batch, Error, exec_write};
 /// 한 번의 git 호출이 받는 경로 수 상한이다 (ARG_MAX).
 pub const MAX_PATHS_PER_CALL: usize = 1000;
 pub(crate) const PATHS_SEP: &str = "--";
+/// 사용자 경로를 축자로 읽힌다 — `:` 로 시작하는 경로가 pathspec 매직이 되지 않는다 (DIFF-14).
+pub(crate) const LITERAL_PATHSPEC: &str = ":(literal)";
+
+pub(crate) fn literal(paths: &[String]) -> Vec<String> {
+    paths
+        .iter()
+        .map(|p| format!("{LITERAL_PATHSPEC}{p}"))
+        .collect()
+}
 
 pub async fn stage(s: &Service, ctx: &Ctx, repo: &str, paths: &[String]) -> Result<Output, Error> {
     let clean = check_paths(paths)?;
     let total = clean.len();
-    exec_paths(s, ctx, repo, &clean, false, total, 0, &["add"])
+    exec_paths(s, ctx, repo, &literal(&clean), false, total, 0, &["add"])
         .await
         .map(|(o, _)| o)
 }
@@ -32,7 +41,7 @@ pub async fn unstage(
         &["rm", "--cached", "-q"]
     };
     let total = clean.len();
-    exec_paths(s, ctx, repo, &clean, false, total, 0, lead)
+    exec_paths(s, ctx, repo, &literal(&clean), false, total, 0, lead)
         .await
         .map(|(o, _)| o)
 }
@@ -54,14 +63,24 @@ pub async fn discard(
     let mut out = Output::default();
     let mut applied = 0;
     if !ct.is_empty() {
-        (out, applied) = exec_paths(s, ctx, repo, &ct, true, total, 0, &["checkout", "-q"]).await?;
+        (out, applied) = exec_paths(
+            s,
+            ctx,
+            repo,
+            &literal(&ct),
+            true,
+            total,
+            0,
+            &["checkout", "-q"],
+        )
+        .await?;
     }
     if !cu.is_empty() {
         (out, _) = exec_paths(
             s,
             ctx,
             repo,
-            &cu,
+            &literal(&cu),
             true,
             total,
             applied,

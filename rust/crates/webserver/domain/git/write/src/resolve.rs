@@ -8,7 +8,7 @@ use serde::Serialize;
 
 use crate::commit::{argv, spec};
 use crate::error::{Error, exec, exec_write};
-use crate::stage::{MAX_PATHS_PER_CALL, PATHS_SEP, check_paths};
+use crate::stage::{MAX_PATHS_PER_CALL, PATHS_SEP, check_paths, literal};
 
 pub const RESOLVE_OURS: &str = "ours";
 pub const RESOLVE_THEIRS: &str = "theirs";
@@ -119,6 +119,7 @@ impl Resolver<'_> {
 
     async fn batch(&self, ps: &[String], mode: Mode) -> Result<(), Error> {
         let (s, ctx, repo) = (self.s, self.ctx, self.repo);
+        let ps = &literal(ps);
         match mode {
             Mode::Checkout => {
                 let mut av = vec![
@@ -158,7 +159,7 @@ async fn unmerged_stages(
     paths: &[String],
 ) -> Result<HashMap<String, HashSet<String>>, Error> {
     let mut av = argv(&["ls-files", "-u", "-z", PATHS_SEP]);
-    av.extend(paths.iter().cloned());
+    av.extend(literal(paths));
     let out = exec(s, ctx, repo, &av).await?;
     let mut stages: HashMap<String, HashSet<String>> = HashMap::new();
     for rec in out.stdout_str().split('\0') {

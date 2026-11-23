@@ -6,9 +6,7 @@ use dm_webserver_domain_git_query as query;
 
 use crate::commit::{argv, spec};
 use crate::error::{Error, WriteKind, exec_write};
-use crate::stage::{check_paths, exec_paths};
-
-const LITERAL_PATHSPEC: &str = ":(literal)";
+use crate::stage::{check_paths, exec_paths, literal};
 
 pub fn uncommitted_reset_args() -> Vec<String> {
     argv(&["reset", "-q", "--mixed", "HEAD"])
@@ -72,10 +70,7 @@ pub async fn clean_untracked(
         ));
     }
     s.add_hint(clean_hint(repo, &paths));
-    let specs: Vec<String> = paths
-        .iter()
-        .map(|p| format!("{LITERAL_PATHSPEC}{p}"))
-        .collect();
+    let specs = literal(&paths);
     let lead = clean_untracked_args();
     let lead: Vec<&str> = lead.iter().map(String::as_str).collect();
     let res = exec_paths(s, ctx, repo, &specs, true, specs.len(), 0, &lead).await;
