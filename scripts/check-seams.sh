@@ -46,12 +46,18 @@ fi
 # 다른 검사 전제(경로·권한·셸)를 cfg 로 다루는 것이 존재 이유다 (M8 D-A-21).
 EXEMPT='^rust/crates/shared/platform/|^rust/crates/webserver/domain/sysstat/|^rust/crates/shared/testpath/'
 
-# 파일 하나와 항목 하나의 예외 (GO_REMOVAL_SRS Q-GRM-8 — 제품 코드를 고치지 않고 표로 둔다).
+# 파일 하나와 항목 하나의 예외 (GO_REMOVAL_SRS Q-GRM-8). 넷 모두 시험 전용 파일이고, 필요한
+# 능력이 platform 에 없다 — 제품 코드가 쓰지 않는 능력을 시험 하나 때문에 platform 에 더하지 않는다.
 #
-#   edgerelay/src/tests.rs, helper/runtimebin/src/tests/chatmcp.rs — unix 소켓
-#     시험이 소켓 짝(`UnixStream::pair`)과 막힌 소켓 자리를 직접 만든다.
+#   edgerelay/src/tests.rs — unix 소켓
+#     "듣는 프로세스가 없는 소켓 파일" 을 치우는지 본다. 그런 파일을 만들려면 소켓을 묶고 지우지
+#     않은 채 닫아야 하는데, platform 의 IpcListener 는 Drop 에서 파일을 지운다(Go 와 같은 뜻).
+#   helper/runtimebin/src/tests/chatmcp.rs — unix 소켓
+#     연결된 소켓 짝(`UnixStream::pair`)으로 채팅 소켓 양 끝을 흉내 낸다. platform 에 짝 만들기가 없다.
 #   shared/{edge,edgenode}/tests/go_interop.rs — ps
-#     Go 참조 프로세스가 살아 있는지 본다. Go 참조를 줄 때만 도는 선택 실행 시험이다.
+#     Go 참조 데몬을 끄기 전에 그 pid 의 **전체 명령줄**이 이번 시험의 바이너리 경로인지 본다
+#     (운영 데몬을 잘못 끄지 않기 위한 확인, RUST_PORT_SRS C-RSP-1). platform 의 ProcInfo 는
+#     프로세스 이름만 주므로 이 확인을 할 수 없다. Go 참조를 줄 때만 도는 선택 실행 시험이다.
 ALLOW_HITS=(
   "rust/crates/shared/edgerelay/src/tests.rs|unix 소켓 직접 사용"
   "rust/crates/helper/runtimebin/src/tests/chatmcp.rs|unix 소켓 직접 사용"

@@ -35,9 +35,9 @@ fi
 # 형식: `경로|줄 내용의 정규식|사유`. 정규식은 **줄 내용**에 맞춘다 — 줄 번호는
 # 편집마다 흔들린다. 사유 없는 예외는 받지 않는다 (FR-SAF-23).
 EXCEPTIONS=(
-  'rust/crates/webserver/httpapi/src/serve.rs|let \(parts, body\) = req\.into_parts\(\)|요청을 Req 로 옮기는 자리 — 본문은 읽지 않고 Req 에 담는다'
-  'rust/crates/webserver/gitapi/src/req.rs|let \(parts, body\) = req\.into_parts\(\)|요청을 git Req 로 옮기는 자리 — 본문은 읽지 않고 담는다'
-  'rust/crates/webserver/httpapi/src/serve.rs|b\.body\(r\.take_body\(\)\)|git 표면으로 요청을 그대로 넘긴다 — 읽는 것은 gitapi 의 decode_body 다'
+  'rust/crates/webserver/httpapi/src/serve.rs|let \(parts, body\) = req\.into_parts\(\)|요청을 Req 로 옮기는 서버 배관 — 본문을 읽지 않고 Req 에 담는다. Go 는 net/http 가 r.Body 로 같은 일을 했다'
+  'rust/crates/webserver/gitapi/src/req.rs|let \(parts, body\) = req\.into_parts\(\)|요청을 git Req 로 옮기는 배관 — 본문을 읽지 않고 담는다. 읽는 것은 decode_body(httpreq) 다'
+  'rust/crates/webserver/httpapi/src/serve.rs|b\.body\(r\.take_body\(\)\)|git 표면으로 요청을 그대로 넘긴다(Go s.git.ServeHTTP(w, r)) — 읽는 것은 gitapi 의 decode_body 다'
   'rust/crates/webserver/httpapi/src/multipart.rs|let mut body = r\.take_body\(\)|업로드(512MiB) 상한은 실제 사고에서 배운 방어라 httpreq 를 지나지 않는다 (httpreq 머리말)'
 )
 
