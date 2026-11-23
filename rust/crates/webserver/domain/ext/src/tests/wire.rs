@@ -5,7 +5,9 @@ use std::net::TcpListener;
 
 use super::*;
 use crate::fetch::HttpFetch;
-use crate::install::{HostExec, Outcome};
+#[cfg(unix)]
+use crate::install::HostExec;
+use crate::install::Outcome;
 use crate::locate::{Missing, Status};
 
 fn json(v: &impl serde::Serialize) -> String {

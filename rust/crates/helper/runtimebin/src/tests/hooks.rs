@@ -12,7 +12,9 @@ use dm_shared_apipath as apipath;
 use dm_shared_dmenv as dmenv;
 use serde_json::{Value, json};
 
-use super::{Req, TestServer, run_with};
+#[cfg(unix)]
+use super::Req;
+use super::{TestServer, run_with};
 use crate::budgets::HOOK_BUDGET;
 use crate::ctx::{Ctx, Env};
 use crate::dmctl::hooks::{

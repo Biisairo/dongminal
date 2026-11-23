@@ -20,6 +20,7 @@ struct Case {
 }
 
 const CLI: &str = include_str!("../../testdata/go_cli_golden.json");
+#[cfg(unix)]
 const CONFIG: &str = include_str!("../../testdata/go_cli_golden_home.json");
 
 /// 정답 자료는 새기지 않은 Go 빌드(`dev`)에서 뽑았다.

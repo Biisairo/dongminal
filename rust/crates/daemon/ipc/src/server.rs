@@ -23,6 +23,7 @@ use crate::records::GlobalRecords;
 /// 소켓에 살아 있는 데몬이 있는지 알아보는 dial 의 상한이다.
 pub const DIAL_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 /// pid·지문 파일의 권한이다.
+#[cfg(unix)]
 const STATE_FILE_MODE: u32 = 0o600;
 
 /// 채팅의 사람 참가자 쪽이다 (PEER_CHAT_SRS §3.11).

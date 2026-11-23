@@ -642,6 +642,7 @@ async fn remove_drops_profile_warnings() {
 
 // --- mappings_test ---
 
+#[cfg(unix)]
 #[test]
 fn normalize_folder_cases() {
     let t = tempfile::tempdir().unwrap();
@@ -649,10 +650,7 @@ fn normalize_folder_cases() {
     let real = format!("{root}/real");
     fs::create_dir_all(format!("{real}/sub")).unwrap();
     let link = format!("{root}/link");
-    #[cfg(unix)]
     std::os::unix::fs::symlink(&real, &link).unwrap();
-    #[cfg(not(unix))]
-    return;
     let want = fs::canonicalize(&real)
         .unwrap()
         .to_string_lossy()

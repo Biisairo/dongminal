@@ -5,12 +5,13 @@
 
 use std::sync::Arc;
 
+#[cfg(unix)]
 use dm_webserver_apierr as apierr;
 use serde_json::{Value, json};
 
-use super::fsenv::{
-    Env, exists, fs_env, fs_env_with, get, post, qe, seed_root, temp_dir, upload, write,
-};
+#[cfg(unix)]
+use super::fsenv::upload;
+use super::fsenv::{Env, exists, fs_env, fs_env_with, get, post, qe, seed_root, temp_dir, write};
 use crate::fs_actions::fs_name_answer;
 use crate::fs_copy::fs_copy_name;
 use crate::routes::API_ROUTES;
