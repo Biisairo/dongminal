@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use dm_gocompat::json;
+use dm_gocompat::neturl_err::UrlError;
 use dm_gocompat::oserr::{go_error_string, syscall_error};
-use dm_gocompat::strconv::quote;
 use http::{Request, StatusCode, header};
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
@@ -240,15 +240,15 @@ pub(crate) fn host_port(addr: &str, port: i64) -> String {
 }
 
 /// 닿지 못한 사유다. url 이 있으면 Go `*url.Error` 꼴(`Post "<url>": <사유>`)이다.
-/// 사유 문구의 Go 형식은 이슈 1.6(Go 형식 HTTP 클라이언트 오류)이 끝나면 그 도구로 바꾼다.
 pub(crate) fn unreachable(url: Option<&str>, cause: &str) -> CallError {
     match url {
-        Some(u) => CallError::Unreachable(format!("Post {}: {cause}", quote(u))),
+        Some(u) => CallError::Unreachable(UrlError::new("POST", u, cause).to_string()),
         None => CallError::Unreachable(cause.to_string()),
     }
 }
 
-/// TLS 오류를 가른다: 지문 불일치, 상대의 거절(경보 수신), 그 밖은 닿지 못함이다.
+/// TLS 오류를 가른다: 지문 불일치, 상대의 거절(경보 수신), 그 밖은 닿지 못함이다. 사유 문구는
+/// dm-gocompat `neturl_err` 와 같은 규칙(rustls 는 `tls: …`, 끊긴 응답은 `EOF`)이다.
 pub(crate) fn classify(url: Option<&str>, e: &(dyn std::error::Error + 'static)) -> CallError {
     if let Some(t) = find_tls_error(e) {
         if is_fingerprint_mismatch(t) {
@@ -257,6 +257,12 @@ pub(crate) fn classify(url: Option<&str>, e: &(dyn std::error::Error + 'static))
         if matches!(t, rustls::Error::AlertReceived(_)) {
             return CallError::Rejected;
         }
+        return unreachable(url, &format!("tls: {t}"));
+    }
+    if e.downcast_ref::<hyper::Error>()
+        .is_some_and(hyper::Error::is_incomplete_message)
+    {
+        return unreachable(url, "EOF");
     }
     unreachable(url, &e.to_string())
 }

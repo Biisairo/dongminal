@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 base64 = { workspace = true }
 bytes = { workspace = true }
-dm-gocompat = { path = "../../gocompat" }
+dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
 dm-shared-dmenv = { path = "../dmenv" }
 dm-shared-dmlog = { path = "../dmlog" }
 dm-shared-httpresp = { path = "../httpresp" }
