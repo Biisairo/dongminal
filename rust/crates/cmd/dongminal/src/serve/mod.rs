@@ -93,6 +93,11 @@ pub(crate) struct App {
 
 /// `start --foreground` 의 실체다 (FR-FG-1). 배경 모드는 자기 자신을 이 형태로 재실행한다.
 pub(crate) fn serve(t: &ServeTarget<'_>) -> i32 {
+    // Go buildApp 의 `os.Setenv(DONGMINAL_HOME, home)`: 서버가 띄우는 자식(git hook·언어 서버·확장
+    // 설치)이 이 홈을 물려받는다. 런타임·스레드를 세우기 전인 여기서만 쓸 수 있다.
+    if let Err(e) = platform::set_env_before_threads(dmenv::ENV_HOME, t.home) {
+        errorf!(None, "{}: {e}", dmenv::ENV_HOME);
+    }
     let rt = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -192,8 +197,8 @@ pub(crate) fn build_app(
     port: &str,
     dial: impl FnOnce() -> Result<ToolClient, DaemonUnavailable>,
 ) -> Result<App, BuildError> {
-    // 바인드는 환경변수로 넘기지 않는다 — 헬퍼는 주소 파일로 서버를 찾는다 (FR-HRB-11·12). 홈도
-    // 환경에 심지 않는다(Go `os.Setenv(DONGMINAL_HOME)`) — 홈이 필요한 자리는 값을 받는다.
+    // 바인드는 환경변수로 넘기지 않는다 — 헬퍼는 주소 파일로 서버를 찾는다 (FR-HRB-11·12). 홈은
+    // serve 가 스레드를 세우기 전에 환경에 넣었다.
 
     // CONFIG_MANAGEMENT_SRS FR-CFG-13: 홈이 정해졌으므로 파일 계층까지 읽어 로그 수준을 다시 세운다.
     let conf = serverconf::resolve(&serverconf::Inputs {
