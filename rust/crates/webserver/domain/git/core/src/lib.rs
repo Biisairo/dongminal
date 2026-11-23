@@ -35,7 +35,9 @@ pub use exec::{
     BoxFut, Builder, DEFAULT_MAX_OUTPUT, DEFAULT_RECORD_CAP, DEFAULT_TIMEOUT, ENV_OVERRIDES,
     GitCommand, Output, Runner, Service, WriteRunner, command, env, launch_args, vanished_bin,
 };
-pub use guard::{CHECK_REF_FORMAT_BRANCH, CHECK_REF_FORMAT_NORMALIZE, check_ref_arg, rel_path};
+pub use guard::{
+    CHECK_REF_FORMAT_BRANCH, CHECK_REF_FORMAT_NORMALIZE, check_ref_arg, rel_path, rel_path_detail,
+};
 pub use oid::{is_null_oid, is_oid};
 pub use record::{Record, RecordSpan, Recorder, redact_secrets};
 pub use recovery::{DEFAULT_HINT_CAP, Hint, HintLog};

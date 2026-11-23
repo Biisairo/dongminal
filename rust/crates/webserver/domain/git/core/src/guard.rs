@@ -181,27 +181,27 @@ fn config_read_flag(a: &str) -> bool {
 /// 리포 상대경로를 검증한다 (FR-GIT-62). 정규화한 값을 돌려주지 않는다 — 다듬을 여지가
 /// 있으면 거부한다. 오류의 종류(Go 의 kind)는 호출자가 고른다.
 pub fn rel_path(p: &str, kind: Kind) -> Result<String, Error> {
+    rel_path_detail(p).map_err(|d| Error::new(kind, d))
+}
+
+/// rel_path 의 규칙. 거부 사유(`kind: ` 뒤에 올 문구)를 돌려준다 — core 밖의 사유
+/// (query 의 unsafe_diff_path 등)로 감쌀 때 쓴다.
+pub fn rel_path_detail(p: &str) -> Result<String, String> {
     if p.trim().is_empty() {
-        return Err(Error::new(kind, "경로가 비었다"));
+        return Err("경로가 비었다".to_owned());
     }
     let slashed = filepath::to_slash(p);
     if filepath::is_abs(p) || slashed.starts_with('/') || !filepath::volume_name(p).is_empty() {
-        return Err(Error::new(
-            kind,
-            format!("절대경로는 받지 않는다: {}", quote(p)),
-        ));
+        return Err(format!("절대경로는 받지 않는다: {}", quote(p)));
     }
     if p.contains('\0') {
-        return Err(Error::new(kind, "NUL 을 포함한 경로"));
+        return Err("NUL 을 포함한 경로".to_owned());
     }
     if slashed.split('/').any(|seg| seg == "..") {
-        return Err(Error::new(kind, format!("부모 참조가 있다: {}", quote(p))));
+        return Err(format!("부모 참조가 있다: {}", quote(p)));
     }
     if path::clean(p) != p {
-        return Err(Error::new(
-            kind,
-            format!("정규화되지 않은 경로다: {}", quote(p)),
-        ));
+        return Err(format!("정규화되지 않은 경로다: {}", quote(p)));
     }
     Ok(p.to_owned())
 }
