@@ -9,11 +9,23 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+# Go net/http 클라이언트 오류 문구(neturl_err). reqwest·rustls 를 끌어온다.
+reqwest = ["dep:reqwest", "dep:rustls", "dep:hyper"]
+
 [dependencies]
 base64 = { workspace = true }
+hyper = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }
+
+[dev-dependencies]
+rcgen = { workspace = true }
+tokio = { workspace = true }
+tokio-rustls = { workspace = true }
 
 [target.'cfg(not(unix))'.dependencies]
 chrono = { workspace = true }
