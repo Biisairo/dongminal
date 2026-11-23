@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { test as base, expect, Locator } from '@playwright/test';
 
-import { E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
+import { E2E_BIN, E2E_HOME, E2E_HOST, E2E_PORT0 } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
 import { ED_SEL, installEdAdapter } from './editor';
 import { realPath } from './osenv';
@@ -285,7 +285,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
 
       try {
         // 러너의 첫 기동은 느리다 (FR-EPL-5).
-        await pingUntilUp(`http://localhost:${port}/api/ping`, 90_000);
+        await pingUntilUp(`http://${E2E_HOST}:${port}/api/ping`, 90_000);
       } catch (err) {
         throw new Error(
           `워커 ${i} 의 서버 기동 실패 (port=${port}, home=${home})` +
@@ -293,7 +293,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
           `\n${err}\n--- 서버 stderr (마지막 4KB) ---\n${tail}`);
       }
 
-      await use({ port, home, baseURL: `http://localhost:${port}` });
+      await use({ port, home, baseURL: `http://${E2E_HOST}:${port}` });
 
       // 데몬을 먼저 세운다 — 웹서버만 죽이면 detach 된 dongminald 가 자기 도구
       // 셸들의 PTY 를 계속 붙든다 (FR-EPL-4).
@@ -374,7 +374,7 @@ async function noteServerAtFailure(title: string) {
   if (!serverLog || !serverPort) return;
   const raw = await new Promise<string>((resolve) => {
     let got = Buffer.alloc(0);
-    const sock = connect(serverPort, '127.0.0.1');
+    const sock = connect(serverPort, E2E_HOST);
     const done = (why: string) => { sock.destroy(); resolve(why + ' ' + JSON.stringify(got.subarray(0, 512).toString('latin1'))) };
     sock.setTimeout(3000, () => done('timeout'));
     sock.on('connect', () => sock.write('GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n'));
