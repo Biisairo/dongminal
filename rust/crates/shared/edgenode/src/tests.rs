@@ -1051,3 +1051,40 @@ async fn relay_pair_full_flow() {
     );
     assert!(a.node.store().is_edge(&fb) && b.node.store().is_edge(&fa));
 }
+
+// Go callFail(err): notify 실패는 감싼 원인으로 가린다. 원격 거절은 그 코드로, 원격 문구가 고정
+// 문구로 끝나도 Rejected 로 오인하지 않는다. 문구는 감싼 오류 전체다.
+#[test]
+fn mesh_call_fail_uses_wrapped_cause() {
+    use dm_shared_edgemesh::{ErrorKind, MeshError};
+    let rejected_text = CallError::Rejected.to_string();
+    let not_edge = CallError::Remote(edge::RemoteError {
+        status: 403,
+        code: edge::CODE_NOT_EDGE.into(),
+        message: rejected_text.clone(),
+    });
+    let r = crate::mesh::mesh_call_fail(&MeshError::with_call(ErrorKind::NotEdge, not_edge));
+    assert!(
+        r.status == StatusCode::FORBIDDEN && r.code == edge::CODE_NOT_EDGE,
+        "{r:?}"
+    );
+    let err = MeshError::with_call(ErrorKind::Unreachable, CallError::Rejected);
+    let r = crate::mesh::mesh_call_fail(&err);
+    assert!(
+        r.status == StatusCode::BAD_GATEWAY
+            && r.code == edge::CODE_REJECTED
+            && r.message == err.to_string(),
+        "{r:?}"
+    );
+    let err = MeshError::with_call(ErrorKind::Unreachable, CallError::FingerprintMismatch);
+    assert_eq!(
+        crate::mesh::mesh_call_fail(&err).code,
+        edge::CODE_FP_MISMATCH
+    );
+    let err = MeshError::with_call(ErrorKind::Unreachable, CallError::Unreachable("x".into()));
+    let r = crate::mesh::mesh_call_fail(&err);
+    assert!(
+        r.code == edge::CODE_UNREACHABLE && r.message == err.to_string(),
+        "{r:?}"
+    );
+}

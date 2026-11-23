@@ -1418,3 +1418,149 @@ fn remote_host_matches_go() {
     );
     assert_eq!(remote_host("[::1]:5".parse().unwrap()), "::1");
 }
+
+// notify 의 걸기 실패는 원인 CallError 를 그대로 든다 (Go `%w`): 노드가 RemoteError 코드나
+// Rejected·FingerprintMismatch 를 가려 오류 코드로 옮긴다.
+#[test]
+fn notify_failure_keeps_call_error() {
+    mt().block_on(async {
+        let a = new_test_mesh("a");
+        let fp = "ab".repeat(32);
+        a.set_edges(vec![edge_to(&fp, "127.0.0.1", 1)]);
+        let bg = CancellationToken::new();
+        let not_edge = CallError::Remote(RemoteError {
+            status: 403,
+            code: CODE_NOT_EDGE.into(),
+            message: "간선이 아닌 노드입니다".into(),
+        });
+        for (cause, kind) in [
+            (not_edge, ErrorKind::NotEdge),
+            (CallError::Rejected, ErrorKind::Unreachable),
+            (CallError::FingerprintMismatch, ErrorKind::Unreachable),
+            (
+                CallError::Unreachable("refused".into()),
+                ErrorKind::Unreachable,
+            ),
+        ] {
+            a.set_dial(fail_dial(cause.clone()));
+            a.inner.lock().dialing.clear();
+            let err = a.notify(&bg, &fp).await.unwrap_err();
+            assert_eq!(err.kind(), kind, "{cause}");
+            assert_eq!(err.call_error(), Some(&cause));
+            assert_eq!(
+                err.to_string(),
+                format!("{}: {cause}", MeshError::from(kind))
+            );
+            assert!(std::error::Error::source(&err).is_some());
+        }
+        let err = MeshError::from(ErrorKind::Outdated);
+        assert!(err.call_error().is_none());
+    });
+}
+
+fn fill_marks(m: &TestMesh, reached: bool) {
+    let mut st = m.inner.lock();
+    let now = OffsetDateTime::now_utc();
+    for i in 0..crate::net::MAX_MARKS {
+        st.net.marks.insert(
+            format!("{i:064x}"),
+            crate::net::Mark {
+                epoch: 1,
+                seq: 1,
+                at: now,
+                reached,
+            },
+        );
+    }
+}
+
+// DIFF(보안): 번호 기억(marks)이 가득 차도 닿은 적 있는 노드의 번호는 밀어내지 않는다 — 모르는
+// 지문의 net 을 쏟아 잊힌 노드의 옛 net 재전송 막기를 풀지 못한다. Go 는 가장 오래된 번호를 밀어냈다.
+#[test]
+fn reached_marks_not_pushed_out() {
+    mt().block_on(async {
+        for reached in [true, false] {
+            let a = new_test_mesh("a");
+            a.inner.lock().max_nodes = 2;
+            let mut f = new_fake_peer(&a, false);
+            let n = f.net("f", &[a.fp()]);
+            f.write(&n).await;
+            let ffp = f.fp();
+            eventually("f 가 온라인", || a.online(&ffp)).await;
+            let (x, _dx) = new_identity();
+            f.write(&net_frame(&x, "x", 1, 1, &[])).await;
+            let xfp = x.fingerprint.clone();
+            eventually("X 를 안다", || a.name_of(&xfp).is_some()).await;
+            fill_marks(&a, reached);
+            let (y, _dy) = new_identity();
+            f.write(&net_frame(&y, "y", 1, 1, &[])).await;
+            let yfp = y.fingerprint.clone();
+            if reached {
+                never(
+                    "닿은 노드의 번호를 밀어내고 Y 를 받는다",
+                    || a.name_of(&yfp).is_some(),
+                )
+                .await;
+                assert!(a.name_of(&xfp).is_some(), "X 를 잊었다");
+            } else {
+                eventually(
+                    "닿은 적 없는 번호를 밀어내고 Y 를 받는다",
+                    || a.name_of(&yfp).is_some(),
+                )
+                .await;
+                let st = a.inner.lock();
+                assert!(
+                    st.net.marks.len() == crate::net::MAX_MARKS && st.net.marks.contains_key(&xfp)
+                );
+            }
+        }
+    });
+}
+
+// 닿은 적 있는 노드는 잊혀도 그 표시가 번호에 남는다.
+#[test]
+fn evicted_reachable_node_mark_is_reached() {
+    mt().block_on(async {
+        let (a, b) = (new_test_mesh("a"), new_test_mesh("b"));
+        a.inner.lock().max_nodes = 1;
+        let cut = connect(&a, &b);
+        eventually("B 가 온라인", || a.online(&b.fp())).await;
+        cut.cancel();
+        eventually("끊김", || !a.online(&b.fp())).await;
+        let mut f = new_fake_peer(&a, false);
+        let n = f.net("f", &[a.fp()]);
+        f.write(&n).await;
+        let bfp = b.fp();
+        eventually("B 를 잊는다", || {
+            a.inner.lock().net.marks.contains_key(&bfp)
+        })
+        .await;
+        assert!(
+            a.inner.lock().net.marks[&bfp].reached,
+            "닿은 노드의 번호가 표시되지 않았다"
+        );
+    });
+}
+
+// 잊었다가 더 새로운 net 으로 다시 받은 노드는 닿은 적 있다는 표시를 잇는다.
+#[test]
+fn readmitted_node_keeps_reached() {
+    mt().block_on(async {
+        let a = new_test_mesh("a");
+        let (x, _dx) = new_identity();
+        let xfp = x.fingerprint.clone();
+        a.inner.lock().net.marks.insert(
+            xfp.clone(),
+            crate::net::Mark {
+                epoch: 1,
+                seq: 1,
+                at: OffsetDateTime::now_utc(),
+                reached: true,
+            },
+        );
+        let mut f = new_fake_peer(&a, false);
+        f.write(&net_frame(&x, "x", 1, 2, &[])).await;
+        eventually("X 를 다시 받는다", || a.name_of(&xfp).is_some()).await;
+        assert!(a.inner.lock().net.nodes[&xfp].reached, "표시를 잃었다");
+    });
+}

@@ -1,5 +1,7 @@
 use std::fmt;
 
+use dm_shared_edge::CallError;
+
 /// 간선 계층의 오류 종류다. 노드가 오류 코드로 옮긴다 (FR-EGM-26·60).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorKind {
@@ -37,18 +39,38 @@ impl ErrorKind {
 pub struct MeshError {
     kind: ErrorKind,
     cause: Option<String>,
+    call: Option<CallError>,
 }
 
 impl MeshError {
     pub(crate) fn new(kind: ErrorKind) -> Self {
-        Self { kind, cause: None }
+        Self {
+            kind,
+            cause: None,
+            call: None,
+        }
     }
 
     pub(crate) fn wrap(kind: ErrorKind, cause: impl fmt::Display) -> Self {
         Self {
             kind,
             cause: Some(cause.to_string()),
+            call: None,
         }
+    }
+
+    /// 걸기 실패를 감싼다. 원인은 [`MeshError::call_error`] 로 꺼낸다 (Go `%w`).
+    pub fn with_call(kind: ErrorKind, cause: CallError) -> Self {
+        Self {
+            kind,
+            cause: Some(cause.to_string()),
+            call: Some(cause),
+        }
+    }
+
+    /// 감싼 걸기 실패다. Go 의 `errors.As(err, &*edge.RemoteError)` 등에 해당한다.
+    pub fn call_error(&self) -> Option<&CallError> {
+        self.call.as_ref()
     }
 
     /// Go 의 `errors.Is(err, edgemesh.ErrXxx)` 에 해당한다.
@@ -72,4 +94,10 @@ impl fmt::Display for MeshError {
     }
 }
 
-impl std::error::Error for MeshError {}
+impl std::error::Error for MeshError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.call
+            .as_ref()
+            .map(|c| c as &(dyn std::error::Error + 'static))
+    }
+}
