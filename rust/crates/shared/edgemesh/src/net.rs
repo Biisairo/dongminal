@@ -1,17 +1,21 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
+use std::time::Duration;
 
 use dm_gocompat::json;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 use crate::frame::{FRAME_NET, Frame, encode, parse_key, sign_frame, verify};
-use crate::mesh::{Inner, Link, Mesh, State};
+use crate::mesh::{Inner, Link, Mesh, REDIAL_MAX, State};
 
 /// 아는 노드의 상한이다. 넘으면 닿지 않는 노드부터 잊는다 (FR-EGM-13).
 pub(crate) const MAX_NODES: usize = 256;
 /// 잊은 노드의 마지막 번호를 기억하는 수다.
 pub(crate) const MAX_MARKS: usize = 4096;
+/// 닿은 적 있는 노드의 번호를 지키는 시간이다. 잊은 때부터 세고, 지나면 가득 찬 기억에서 밀어낼 수
+/// 있다 (DIFF: Go 는 가장 오래된 번호를 밀어낸다).
+pub const MARK_REACHED_TTL: Duration = REDIAL_MAX.saturating_mul(3);
 /// 이름의 바이트 상한이다 (FR-EGM-11).
 const MAX_NAME: usize = 64 * 4;
 
@@ -55,11 +59,17 @@ pub(crate) struct Mark {
     pub reached: bool,
 }
 
-/// 가득 찬 번호 기억에서 밀어낼 것 — 닿은 적 없는 노드의 가장 오래된 번호다.
-fn junk_mark(marks: &HashMap<String, Mark>) -> Option<String> {
+/// 가득 찬 번호 기억에서 밀어낼 수 있는 번호인가다 — 닿은 적 없거나, 닿은 적 있어도 잊은 지
+/// [`MARK_REACHED_TTL`] 이 지난 번호다. 채팅도 같은 규칙을 쓴다.
+pub fn mark_expendable(reached: bool, at: OffsetDateTime, now: OffsetDateTime) -> bool {
+    !reached || now - at >= MARK_REACHED_TTL
+}
+
+/// 가득 찬 번호 기억에서 밀어낼 것 — 밀어낼 수 있는 번호 가운데 가장 오래된 것이다.
+fn junk_mark(marks: &HashMap<String, Mark>, now: OffsetDateTime) -> Option<String> {
     marks
         .iter()
-        .filter(|(_, m)| !m.reached)
+        .filter(|(_, m)| mark_expendable(m.reached, m.at, now))
         .min_by_key(|(_, m)| m.at)
         .map(|(k, _)| k.clone())
 }
@@ -209,11 +219,11 @@ impl Inner {
         let Some(victim) = victim else {
             return false;
         };
-        // 번호 기억이 가득 차면 닿은 적 없는 노드의 번호만 밀어낸다. 그런 것이 없으면 잊지 않는다 —
-        // 닿은 적 있는 노드의 번호를 밀어내면 그 노드의 옛 net 을 다시 받는다 (DIFF: Go 는 가장 오래된
-        // 번호를 밀어낸다).
+        // 번호 기억이 가득 차면 닿은 적 없거나 수명이 지난 번호만 밀어낸다. 그런 것이 없으면 잊지
+        // 않는다 — 수명 안의 닿은 노드의 번호를 밀어내면 그 노드의 옛 net 을 다시 받는다 (DIFF: Go 는
+        // 가장 오래된 번호를 밀어낸다).
         if st.net.marks.len() >= MAX_MARKS {
-            let Some(junk) = junk_mark(&st.net.marks) else {
+            let Some(junk) = junk_mark(&st.net.marks, self.now()) else {
                 return false;
             };
             st.net.marks.remove(&junk);

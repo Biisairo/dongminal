@@ -1513,8 +1513,11 @@ fn state_with_bad_kind_dropped() {
 }
 
 fn fill_marks(a: &TestNode, reached: bool) {
+    fill_marks_at(a, reached, OffsetDateTime::now_utc());
+}
+
+fn fill_marks_at(a: &TestNode, reached: bool, now: OffsetDateTime) {
     let mut st = a.lock();
-    let now = OffsetDateTime::now_utc();
     for i in 0..crate::service::MAX_MARKS {
         st.marks.insert(
             format!("{i:064x}"),
@@ -1612,5 +1615,123 @@ fn readmitted_node_keeps_reached() {
         })
         .await;
         assert!(a.lock().nodes[&xfp].reached, "표시를 잃었다");
+    });
+}
+
+type Clock = Arc<Mutex<OffsetDateTime>>;
+
+fn t0() -> OffsetDateTime {
+    OffsetDateTime::from_unix_timestamp(1_000_000).unwrap()
+}
+
+fn seq_state_frame(id: &Identity, seq: u64) -> Frame {
+    sign_frame(
+        id,
+        FRAME_STATE,
+        &StateBody {
+            node: id.fingerprint.clone(),
+            key: edgemesh::public_key(id),
+            epoch: 1,
+            seq,
+            ..StateBody::default()
+        },
+    )
+    .unwrap()
+}
+
+/// 시계를 t0 에 묶고, 닿는 가짜 상대 f 와 그 너머의 X 를 아는 노드를 세운다. 아는 노드 상한은 2 다.
+async fn marks_fixture() -> (TestNode, Clock, FakePeer, Identity, TempDir) {
+    let clock: Clock = Arc::new(Mutex::new(t0()));
+    let c = clock.clone();
+    let a = new_test_node_with("a", |o| o.now = Some(Arc::new(move || *c.lock().unwrap())));
+    a.lock().max_nodes = 2;
+    let mut f = new_fake_peer(&a);
+    f.state(vec![], vec![], Some(&[a.fp()])).await;
+    let (x, dx) = new_identity();
+    f.write(&state_frame(&x, None)).await;
+    let xfp = x.fingerprint.clone();
+    eventually("X 를 안다", || a.lock().nodes.contains_key(&xfp)).await;
+    (a, clock, f, x, dx)
+}
+
+// FR-RDF-1: 닿은 적 있는 노드의 번호로 기억이 가득 차도, 수명(MARK_REACHED_TTL)이 지난 번호는
+// 밀어내고 새 노드를 받는다. 시계는 주입한다.
+#[test]
+fn expired_reached_marks_pushed_out() {
+    rt().block_on(async {
+        let (a, clock, mut f, x, _dx) = marks_fixture().await;
+        fill_marks_at(&a, true, t0());
+        *clock.lock().unwrap() = t0() + edgemesh::MARK_REACHED_TTL;
+        let (y, _dy) = new_identity();
+        f.write(&state_frame(&y, None)).await;
+        let yfp = y.fingerprint.clone();
+        eventually(
+            "수명이 지난 번호를 밀어내고 Y 를 받는다",
+            || a.lock().nodes.contains_key(&yfp),
+        )
+        .await;
+        let st = a.lock();
+        assert_eq!(st.marks.len(), crate::service::MAX_MARKS);
+        assert!(st.marks.contains_key(&x.fingerprint), "X 의 번호가 없다");
+    });
+}
+
+// FR-RDF-1: 수명 안의 닿은 번호는 가득 차도 밀어내지 않는다 (DIFF-19 유지).
+#[test]
+fn live_reached_marks_not_pushed_out() {
+    rt().block_on(async {
+        let (a, clock, mut f, x, _dx) = marks_fixture().await;
+        fill_marks_at(&a, true, t0());
+        *clock.lock().unwrap() = t0() + edgemesh::MARK_REACHED_TTL - Duration::from_secs(1);
+        let (y, _dy) = new_identity();
+        f.write(&state_frame(&y, None)).await;
+        let yfp = y.fingerprint.clone();
+        never(
+            "수명 안의 번호를 밀어내고 Y 를 받는다",
+            || a.lock().nodes.contains_key(&yfp),
+        )
+        .await;
+        let st = a.lock();
+        assert!(st.nodes.contains_key(&x.fingerprint), "X 를 잊었다");
+        assert_eq!(st.marks.len(), crate::service::MAX_MARKS);
+    });
+}
+
+// FR-RDF-1: 기억이 가득 차지 않으면 수명이 지난 닿은 번호도 남아 옛 상태를 막는다. 거절한
+// 재전송은 번호의 시각을 바꾸지 않는다.
+#[test]
+fn old_reached_mark_kept_when_not_full() {
+    rt().block_on(async {
+        let (a, clock, mut f, _x, _dx) = marks_fixture().await;
+        let (z, _dz) = new_identity();
+        let zfp = z.fingerprint.clone();
+        a.lock().marks.insert(
+            zfp.clone(),
+            crate::service::Mark {
+                epoch: 1,
+                state_seq: 5,
+                msg_max: 0,
+                at: t0(),
+                reached: true,
+            },
+        );
+        *clock.lock().unwrap() = t0() + edgemesh::MARK_REACHED_TTL * 10;
+        for i in 0..3 {
+            let (y, _dy) = new_identity();
+            f.write(&state_frame(&y, None)).await;
+            let yfp = y.fingerprint.clone();
+            eventually(&format!("Y{i} 를 받는다"), || {
+                a.lock().nodes.contains_key(&yfp)
+            })
+            .await;
+        }
+        f.write(&seq_state_frame(&z, 3)).await;
+        never("Z 의 옛 상태를 받는다", || {
+            a.lock().nodes.contains_key(&zfp)
+        })
+        .await;
+        let st = a.lock();
+        assert!(st.marks.len() < crate::service::MAX_MARKS);
+        assert_eq!(st.marks[&zfp].at, t0(), "거절한 재전송이 시각을 바꿨다");
     });
 }

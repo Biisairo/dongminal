@@ -4,8 +4,9 @@
 use std::collections::{HashMap, HashSet};
 
 use dm_gocompat::json;
-use dm_shared_edgemesh::{Frame, Upper, encode, parse_key, verify};
+use dm_shared_edgemesh::{Frame, Upper, encode, mark_expendable, parse_key, verify};
 use dm_shared_termtext as termtext;
+use time::OffsetDateTime;
 
 use crate::frame::{
     FRAME_CMD, FRAME_MSG, FRAME_STATE, MsgBody, StateBody, bound_to, open_record, valid_body,
@@ -220,10 +221,11 @@ impl Service {
         let Some(victim) = victim else {
             return false;
         };
-        // 번호 기억이 가득 찼고 밀어낼 수 있는 것(닿은 적 없는 노드의 것)이 없으면 잊지 않는다 — 닿은
-        // 적 있는 노드의 번호를 밀어내면 그 노드의 옛 상태·글을 다시 받는다 (DIFF: Go 는 가장 오래된
-        // 번호를 밀어낸다).
-        if st.marks.len() >= MAX_MARKS && junk_mark(st).is_none() {
+        // 번호 기억이 가득 찼고 밀어낼 수 있는 것(닿은 적 없거나 수명이 지난 번호)이 없으면 잊지
+        // 않는다 — 수명 안의 닿은 노드의 번호를 밀어내면 그 노드의 옛 상태·글을 다시 받는다 (DIFF: Go
+        // 는 가장 오래된 번호를 밀어낸다).
+        let now = self.now();
+        if st.marks.len() >= MAX_MARKS && junk_mark(st, now).is_none() {
             return false;
         }
         let Some(r) = st.nodes.remove(&victim) else {
@@ -233,7 +235,7 @@ impl Service {
             epoch: r.st.epoch,
             state_seq: r.st.seq,
             msg_max: 0,
-            at: self.now(),
+            at: now,
             reached: r.reached,
         };
         if let Some(w) = st.wins.remove(&victim)
@@ -241,7 +243,7 @@ impl Service {
         {
             m.msg_max = w.max;
         }
-        remember_mark(st, victim, m);
+        remember_mark(st, victim, m, now);
         true
     }
 
@@ -284,18 +286,19 @@ impl Service {
     }
 }
 
-/// 가득 찬 번호 기억에서 밀어낼 것 — 닿은 적 없는 노드의 가장 오래된 번호다.
-fn junk_mark(st: &State) -> Option<String> {
+/// 가득 찬 번호 기억에서 밀어낼 것 — 밀어낼 수 있는 번호 가운데 가장 오래된 것이다. 규칙은 간선
+/// 계층과 같다.
+fn junk_mark(st: &State, now: OffsetDateTime) -> Option<String> {
     st.marks
         .iter()
-        .filter(|(_, v)| !v.reached)
+        .filter(|(_, v)| mark_expendable(v.reached, v.at, now))
         .min_by_key(|(_, v)| v.at)
         .map(|(k, _)| k.clone())
 }
 
-fn remember_mark(st: &mut State, fp: String, m: Mark) {
+fn remember_mark(st: &mut State, fp: String, m: Mark, now: OffsetDateTime) {
     if st.marks.len() >= MAX_MARKS
-        && let Some(junk) = junk_mark(st)
+        && let Some(junk) = junk_mark(st, now)
     {
         st.marks.remove(&junk);
     }
