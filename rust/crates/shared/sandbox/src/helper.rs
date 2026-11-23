@@ -237,7 +237,7 @@ fn cross_build_helper(arch: &str, dest: &str) -> Result<(), String> {
     std::fs::copy(&built, dest).map(|_| ()).map_err(os_err)
 }
 
-/// 이 crate 가 컴파일된 자리다. 릴리스 빌드(`rust/scripts/build.sh`)는 `--cfg dongminal_trimpath` 로
+/// 이 crate 가 컴파일된 자리다. 릴리스 빌드(`scripts/build.sh`)는 `--cfg dongminal_trimpath` 로
 /// 빌드한 사람의 절대 경로 대신 워크스페이스 상대 경로를 새긴다 — Go `-trimpath` 의
 /// `runtime.Caller` 와 같아서, 다른 경로에서 빌드해도 산출물이 바이트로 같다 (SEC-30).
 #[cfg(dongminal_trimpath)]

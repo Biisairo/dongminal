@@ -98,7 +98,7 @@ license = "MIT"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
-# 릴리스 빌드가 빌드 경로를 새기지 않게 한다 (rust/scripts/build.sh, Go -trimpath).
+# 릴리스 빌드가 빌드 경로를 새기지 않게 한다 (scripts/build.sh, Go -trimpath).
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(dongminal_trimpath)"] }
 
 [workspace.lints.clippy]
