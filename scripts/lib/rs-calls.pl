@@ -3,7 +3,8 @@
 #   perl scripts/lib/rs-calls.pl <함수 이름 정규식> <파일...>
 #
 # 출력: "<파일>:<줄>: <이름>(<인자들>)" — rustfmt 가 여러 줄로 나눈 인자를 공백 하나로 접는다.
-# 괄호는 짝을 맞춰 읽는다. 주석 줄(//, *, /*)에서 시작한 호출은 건너뛴다.
+# 괄호는 짝을 맞춰 읽는다. 주석 줄(//, *, /*)에서 시작한 호출과 바로 앞에 `#[cfg(test)]` 가
+# 붙은 호출은 건너뛴다.
 use strict;
 use warnings;
 
@@ -16,6 +17,7 @@ for my $f (@ARGV) {
     my ($name, $a, $at) = ($1, $2, $-[0]);
     my $ls = rindex($s, "\n", $at) + 1;
     next if substr($s, $ls, $at - $ls) =~ m{^\s*(//|\*|/\*)};
+    next if substr($s, 0, $at) =~ /#\[cfg\(test\)\]\s*$/;
     my $ln = (substr($s, 0, $at) =~ tr/\n//) + 1;
     $a =~ s/\s+/ /g;
     $a =~ s/^ | $//g;
