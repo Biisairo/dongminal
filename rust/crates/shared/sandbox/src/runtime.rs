@@ -73,7 +73,7 @@ fn tail(r: &RunOutput) -> String {
 pub fn probe(
     goos: &str,
     look: &dyn Fn(&str) -> Result<String, String>,
-    run: &ExecFn,
+    run: &ExecFn<'_>,
 ) -> RuntimeStatus {
     let (start_command, start_tryable) = start_command(goos);
     let mut st = RuntimeStatus {
@@ -128,7 +128,7 @@ pub fn start_command(goos: &str) -> (String, bool) {
 }
 
 /// 시도할 수 있으면 시작 명령을 실행한다.
-pub fn start_runtime(goos: &str, run: &ExecFn) -> StartResult {
+pub fn start_runtime(goos: &str, run: &ExecFn<'_>) -> StartResult {
     let (command, tryable) = start_command(goos);
     let mut res = StartResult {
         command,

@@ -24,7 +24,7 @@ pub(crate) struct ProfileFile {
 pub fn load_profiles(
     path: &str,
     read: &dyn Fn(&str) -> io::Result<Vec<u8>>,
-    home: &HomeFn,
+    home: &HomeFn<'_>,
 ) -> Result<HashMap<String, Profile>, Error> {
     let blob = match read(path) {
         Ok(b) => b,

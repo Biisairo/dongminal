@@ -38,9 +38,9 @@ pub use runtime::{
 /// 런타임 CLI 한 번(인자 → 합친 출력·오류)이다.
 pub type RunFn = Arc<dyn Fn(&[String]) -> RunOutput + Send + Sync>;
 /// 실행 파일 한 번(경로, 인자 → 합친 출력·오류)이다.
-pub type ExecFn = dyn Fn(&str, &[String]) -> RunOutput;
+pub type ExecFn<'a> = dyn Fn(&str, &[String]) -> RunOutput + 'a;
 /// 사용자 홈이다. 모르면 `None` (Go `os.UserHomeDir` 의 오류).
-pub type HomeFn = dyn Fn() -> Option<String>;
+pub type HomeFn<'a> = dyn Fn() -> Option<String> + 'a;
 
 const NAME_PREFIX: &str = "dongminal-sbx-";
 /// 컨테이너가 어느 인스턴스·창의 것인지 다는 라벨이다.

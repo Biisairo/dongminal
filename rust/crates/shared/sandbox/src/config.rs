@@ -27,7 +27,7 @@ pub struct DevConfig {
 }
 
 /// sandbox.json 을 읽는다. 비었으면 빈 설정이다. scratch 는 재정의할 수 없다.
-pub fn parse_config(blob: &[u8], home: &HomeFn) -> Result<Config, Error> {
+pub fn parse_config(blob: &[u8], home: &HomeFn<'_>) -> Result<Config, Error> {
     let mut cfg = Config::default();
     if let Some(h) = home() {
         cfg.home = h;

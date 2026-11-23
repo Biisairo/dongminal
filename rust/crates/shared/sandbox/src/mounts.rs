@@ -26,7 +26,7 @@ impl Mount {
 }
 
 /// `호스트경로:컨테이너경로[:ro|:rw]` 를 읽는다. `~` 는 사용자 홈으로 편다.
-pub fn parse_mount(v: &str, home: &HomeFn) -> Result<Mount, Error> {
+pub fn parse_mount(v: &str, home: &HomeFn<'_>) -> Result<Mount, Error> {
     let mut raw = v.trim();
     if raw.is_empty() {
         return Err(Error::msg("빈 마운트 항목입니다"));
@@ -58,7 +58,7 @@ pub fn parse_mount(v: &str, home: &HomeFn) -> Result<Mount, Error> {
     Ok(m)
 }
 
-fn expand_home(p: &str, home: &HomeFn) -> Result<String, Error> {
+fn expand_home(p: &str, home: &HomeFn<'_>) -> Result<String, Error> {
     if p != "~" && !p.starts_with("~/") && !p.starts_with("~\\") {
         return Ok(p.to_string());
     }
@@ -75,7 +75,7 @@ fn expand_home(p: &str, home: &HomeFn) -> Result<String, Error> {
 }
 
 /// sandbox.json 의 mounts 항목 하나(문자열 또는 객체)다.
-pub(crate) fn to_mount(v: &serde_json::Value, home: &HomeFn) -> Result<Mount, Error> {
+pub(crate) fn to_mount(v: &serde_json::Value, home: &HomeFn<'_>) -> Result<Mount, Error> {
     use serde_json::Value;
     match v {
         Value::String(t) => parse_mount(t, home),
