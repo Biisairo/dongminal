@@ -13,6 +13,7 @@ use dm_gocompat::filepath;
 use notify::event::{EventKind, ModifyKind, RenameMode};
 use notify::{RecursiveMode, Watcher};
 
+use crate::os::KQUEUE_ENTRIES_MAX;
 use crate::pipeline::{OP_CHMOD, OP_CREATE, OP_REMOVE, OP_RENAME, OP_WRITE, Op, RawEvent};
 
 /// 백엔드가 멎은 이유.
@@ -99,10 +100,13 @@ impl Core {
             if known {
                 continue;
             }
-            if self
-                .w
-                .watch(Path::new(&p), RecursiveMode::NonRecursive)
-                .is_ok()
+            let room = self.dirs.get(dir).map_or(0, HashSet::len) < KQUEUE_ENTRIES_MAX;
+            if room
+                && openable(&p)
+                && self
+                    .w
+                    .watch(Path::new(&p), RecursiveMode::NonRecursive)
+                    .is_ok()
             {
                 self.dirs
                     .entry(dir.to_owned())
@@ -119,6 +123,13 @@ impl Core {
         let s = self.dirs.get_mut(&dir)?;
         s.remove(p).then_some(dir)
     }
+}
+
+/// kqueue 감시는 대상을 블로킹 `open(O_RDONLY)` 로 연다. FIFO·장치를 열면 감시 스레드가 멈출 수
+/// 있으므로 일반 파일·디렉터리(링크는 대상 기준)만 감시한다. 디렉터리마다 감시 항목은
+/// KQUEUE_ENTRIES_MAX 까지다. 둘 다 보안 강화이고 특수 파일·상한 밖 항목의 이벤트만 빠진다.
+fn openable(p: &str) -> bool {
+    std::fs::metadata(p).is_ok_and(|m| m.is_file() || m.is_dir())
 }
 
 /// notify 이벤트 하나를 fsnotify 의 op 로. 알 수 없는 것은 0 이다.

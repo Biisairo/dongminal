@@ -364,3 +364,26 @@ fn watchable_windows_never() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(!crate::os::watchable(&tmp.path().to_string_lossy()));
 }
+
+// 보안 강화: 감시 디렉터리에 FIFO 가 있어도 감시자가 멈추지 않는다(kqueue 는 블로킹 open).
+#[cfg(unix)]
+#[test]
+fn real_backend_survives_fifo() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = filepath::eval_symlinks(&tmp.path().to_string_lossy()).unwrap();
+    let fifo = std::ffi::CString::new(filepath::join(&[dir.as_str(), "pipe"])).unwrap();
+    // SAFETY: 시험 전용. fifo 는 호출 동안 살아 있는 NUL 종료 경로다.
+    assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+    let (tx, rx) = std::sync::mpsc::channel();
+    let (mut b, _ev) = crate::backend::new_notify_backend().unwrap();
+    let d2 = dir.clone();
+    std::thread::spawn(move || {
+        let r = b.add(&d2);
+        let _ = tx.send(r);
+        b.close();
+    });
+    let r = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("FIFO 때문에 감시자가 멈췄다");
+    assert!(r.is_ok());
+}
