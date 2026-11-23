@@ -96,6 +96,8 @@ fn serve(home: &str, version: &str, daemon_build: &str, handover_fd: i64) {
     }
 
     let pm = Arc::new(ToolManager::new(home, None));
+    // Go 의 데몬은 main 이 `os.Setenv(DONGMINAL_HOME, home)` 한 프로세스 환경에서 도구를 띄운다.
+    pm.set_env_overlay(vec![(dmenv::ENV_HOME.to_owned(), home.to_owned())]);
     // FR-SBX-10: 데몬이 PTY 를 가지므로 샌드박스 배치도 여기서 한다. 포트는 넘기지 않는다
     // (FR-HRB-13).
     if let Some(pl) = dm_shared_sandboxplace::wire(home, version, "") {

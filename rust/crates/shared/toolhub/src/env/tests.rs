@@ -196,3 +196,61 @@ fn shell_name_and_start_dir() {
     let none = Env::new(&[]);
     assert_eq!(tool_start_dir(&|k| none.get(k), ""), ".");
 }
+
+fn ov(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+#[test]
+fn overlay_getenv_prefers_overlay_last_wins() {
+    let o = ov(&[(dmenv::ENV_HOME, "/a"), (dmenv::ENV_HOME, "/b")]);
+    assert_eq!(overlay_getenv(&o, dmenv::ENV_HOME), "/b");
+    // 덮지 않은 이름은 프로세스 환경이다.
+    assert_eq!(
+        overlay_getenv(&o, "PATH"),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    assert_eq!(overlay_getenv(&[], "DM_TEST_SURELY_UNSET_9f3"), "");
+}
+
+#[test]
+fn environ_with_replaces_overlaid_keys_once() {
+    let base = vec![
+        "A=1".to_string(),
+        format!("{}=/old", dmenv::ENV_HOME),
+        "B=2".to_string(),
+    ];
+    let got = environ_with(base, &ov(&[(dmenv::ENV_HOME, "/new"), ("C", "3")]));
+    assert_eq!(
+        got,
+        vec![
+            "A=1".to_string(),
+            "B=2".to_string(),
+            format!("{}=/new", dmenv::ENV_HOME),
+            "C=3".to_string(),
+        ]
+    );
+    assert_eq!(
+        environ_with(vec!["A=1".into()], &[]),
+        vec!["A=1".to_string()]
+    );
+}
+
+#[test]
+fn tool_env_with_home_overlay_sets_bin_and_home() {
+    let o = ov(&[(dmenv::ENV_HOME, "/inst")]);
+    let g = |k: &str| overlay_getenv(&o, k);
+    let bin = tool_bin_dir(&g);
+    assert_eq!(bin, filepath::join(&["/inst", "bin"]));
+    let env = tool_env(&g, "T1", "/bin/sh", &bin, &[], &[], &o);
+    let homes: Vec<&String> = env
+        .iter()
+        .filter(|kv| kv.starts_with(&format!("{}=", dmenv::ENV_HOME)))
+        .collect();
+    assert_eq!(homes, vec![&format!("{}=/inst", dmenv::ENV_HOME)]);
+    let path = env.iter().rev().find(|kv| kv.starts_with("PATH=")).unwrap();
+    assert!(path.ends_with(&bin), "{path}");
+}

@@ -438,7 +438,7 @@ fn doctor_process(r: &mut CheckReport<'_>, p: &Platform) {
 /// 주입·출력 스트림에서 깨지면 터미널 검사로는 잡지 못한다.
 ///
 /// Go 는 `os.Setenv(DONGMINAL_HOME, home)` 로 홈을 넘겼다. Rust 는 프로세스 환경을 바꾸지 않고
-/// 도구 환경 맨 뒤에 홈을 얹는다 — toolhub 가 홈을 받는 자리가 생기면(이슈 7) 그리로 넘긴다.
+/// 도구 등록부의 환경 덮개로 넘긴다.
 fn doctor_tool(r: &mut CheckReport<'_>, home: &str) {
     r.section("도구 (toolhub)");
 
@@ -462,12 +462,15 @@ fn doctor_tool(r: &mut CheckReport<'_>, home: &str) {
         }
     }
     let m = ToolManager::new(&data_dir, None);
+    // StartTool 은 DONGMINAL_HOME 아래 bin 을 셸 환경에 심는다.
+    m.set_env_overlay(vec![(dmenv::ENV_HOME.to_owned(), home.to_owned())]);
     let mut guard = Cleanup(m.clone(), None, data_dir);
-    let place = Placement {
-        extra_env: vec![format!("{}={home}", dmenv::ENV_HOME)],
-        ..Placement::default()
-    };
-    let tool = match m.create(home, DOCTOR_PROBE_COLS, DOCTOR_PROBE_ROWS, place) {
+    let tool = match m.create(
+        home,
+        DOCTOR_PROBE_COLS,
+        DOCTOR_PROBE_ROWS,
+        Placement::default(),
+    ) {
         Ok(t) => t,
         Err(e) => {
             r.bad(format!("도구 기동 실패: {e}"));

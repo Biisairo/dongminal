@@ -475,8 +475,19 @@ mod pty {
                 dir: String::new(),
             };
             let cwd = self.iso.path().to_str().unwrap();
-            Tool::start_with(&g, id, id, cwd, (80, 24), on_exit, hooks, Some(&place), &[])
-                .expect("start")
+            Tool::start_with(
+                &g,
+                &[],
+                id,
+                id,
+                cwd,
+                (80, 24),
+                on_exit,
+                hooks,
+                Some(&place),
+                &[],
+            )
+            .expect("start")
         }
     }
 
