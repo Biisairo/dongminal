@@ -203,6 +203,7 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-29 | 결함 수정 | 빌드 스크립트 데몬 지문(daemon-fingerprint.sh) | `xargs sum` 이 셸 함수를 못 불러 /usr/bin/sum(BSD 16비트 체크섬)이 돈다 — 지문 충돌이 쉽다 | sha256 으로 지문을 만든다. 지문 값의 모양이 Go 빌드와 다르다 | 7.4 |
 | DIFF-30 | 구현 차이 | 보조 도구(gen-decisions·gen-errors `-check` 안내, check-shared-constants 사유 문구) | 재생성 안내가 `go run ./scripts/gen-…`, gen-errors 원천이 `codes_doc.go`, 사유가 Go 이름(`query.Op*`·`workspace.SchemaVersion`·`N * time.<단위>`) | 실제로 돌 명령 `cargo run -p dm-scripts-gen-… --`, 원천 `apierr` 의 코드 안내, 사유가 Rust 이름(`query::OP_*`·`workspace::SCHEMA_VERSION`·`Duration::from_<단위>(N)`). 짝 ID·형식·종료 코드는 같다(틀린 안내를 하지 않는다 — DIFF-12 와 같은 이유) | 8.4 |
 | DIFF-31 | 보안 강화 | sandbox dev 헬퍼 (릴리스 trimpath 빌드) | `-trimpath` 빌드는 작업 디렉터리의 go.mod 를 헬퍼 소스 루트로 받아들여, 남의 트리에서 빌드가 돌 수 있다 | 릴리스 빌드는 헬퍼 소스 트리를 작업 디렉터리에서 찾지 않는다 | 7.4 |
+| DIFF-32 | 결함 수정 | 서버 판 확인 킬스위치 `DONGMINAL_NO_UPDATE_CHECK=1` | `app.go` 가 updatecheck 에 Getenv 를 넘기지 않아 변수가 먹지 않는다 — server.json `updateCheck` 가 켜져 있으면 판 확인(외부 요청)이 나가고 `/api/update` 가 `enabled:true` 다 | 변수가 1 이면 판 확인을 하지 않고 `/api/update` 가 `enabled:false` 다 | 8.2 |
 
 ## 4. 검증
 
