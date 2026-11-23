@@ -1,7 +1,9 @@
 //! 알림 (FR-CAC-100·100a·101). 이름은 표시 이름뿐이다 — 이메일·ID·토큰을 싣지 않는다.
 
 use dm_gocompat::json::is_empty;
+use dm_gocompat::time::{Zone, to_zone};
 use serde::Serialize;
+use time::OffsetDateTime;
 
 use crate::auto::{AUTO_STRATEGY_PRIORITY_CONSUME_FIRST, Auto, AutoSettings, rank, rank_priority};
 use crate::engine::STATUS_RELOGIN_REQUIRED;
@@ -20,7 +22,6 @@ pub const ALERT_AUTOSWITCH_STOPPED: &str = "autoswitch_stopped";
 
 /// 억제 키를 남겨 두는 시간(초)이다.
 const ALERT_KEEP_S: i64 = 8 * 86400;
-const DAY_LAYOUT: &str = "%Y-%m-%d";
 
 /// SSE `claude_account_alert` 의 본문이다.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -46,11 +47,15 @@ pub struct Alert {
 
 /// unix 초의 로컬 날짜(`2006-01-02`).
 fn local_day(unix: i64) -> String {
-    chrono::DateTime::from_timestamp(unix, 0)
+    local_day_in(unix, dm_gocompat::time::local())
+}
+
+/// `zone` 에서 본 unix 초의 날짜(`2006-01-02`). `time` 이 담지 못하는 시각은 빈 글이다.
+pub(crate) fn local_day_in(unix: i64, zone: &Zone) -> String {
+    OffsetDateTime::from_unix_timestamp(unix)
         .map(|t| {
-            t.with_timezone(&chrono::Local)
-                .format(DAY_LAYOUT)
-                .to_string()
+            let t = to_zone(t, zone);
+            format!("{:04}-{:02}-{:02}", t.year(), u8::from(t.month()), t.day())
         })
         .unwrap_or_default()
 }

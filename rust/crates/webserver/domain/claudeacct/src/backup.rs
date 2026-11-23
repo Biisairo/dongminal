@@ -49,13 +49,17 @@ impl BackupStore {
         if !self.sec.available() {
             return Ok(None);
         }
-        match self.sec.get(BACKUP_SERVICE, &kc_account(id, suffix))? {
+        match fsutil::off_worker(|| self.sec.get(BACKUP_SERVICE, &kc_account(id, suffix)))? {
             Some(v) => Credential::parse(v.as_bytes()).map(Some),
             None => Ok(None),
         }
     }
 
     fn write_sfx(&self, id: &str, suffix: &str, c: &Credential) -> Result<(), Error> {
+        fsutil::off_worker(|| self.write_sfx_blocking(id, suffix, c))
+    }
+
+    fn write_sfx_blocking(&self, id: &str, suffix: &str, c: &Credential) -> Result<(), Error> {
         let raw = c.marshal()?;
         if self.sec.available()
             && self
@@ -104,7 +108,9 @@ impl BackupStore {
             if let Err(e) = fsutil::remove_if_exists(&self.file(id, sfx)) {
                 errs.push(e.into());
             }
-            if let Err(e) = self.sec.delete(BACKUP_SERVICE, &kc_account(id, sfx)) {
+            if let Err(e) =
+                fsutil::off_worker(|| self.sec.delete(BACKUP_SERVICE, &kc_account(id, sfx)))
+            {
                 errs.push(e.into());
             }
         }

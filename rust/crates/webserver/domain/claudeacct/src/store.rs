@@ -10,7 +10,7 @@ use std::time::Duration;
 use dm_gocompat::json::{self, is_empty};
 use dm_gocompat::strconv::quote;
 use dm_gocompat::time::GoTime;
-use dm_shared_platform::{FileLock, lock_file};
+use dm_shared_platform::FileLock;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Sentinel};
@@ -252,7 +252,7 @@ impl Store {
     pub fn lock(&self) -> Result<FileLock, Error> {
         fsutil::mkdir_all(&self.dir, DIR_MODE)?;
         set_dir_mode(&self.dir);
-        lock_file(&self.dir.join(STORE_LOCK_FILE), self.lock_timeout)
+        fsutil::lock_file(&self.dir.join(STORE_LOCK_FILE), self.lock_timeout)
             .map_err(|e| Error::new(e.to_string()))
     }
 

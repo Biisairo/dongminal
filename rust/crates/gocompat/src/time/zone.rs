@@ -44,7 +44,6 @@ pub struct Zone {
     zones: Vec<ZoneEntry>,
     tx: Vec<Trans>,
     extend: String,
-    system: bool,
 }
 
 impl Zone {
@@ -55,7 +54,6 @@ impl Zone {
             zones: Vec::new(),
             tx: Vec::new(),
             extend: String::new(),
-            system: false,
         }
     }
 
@@ -73,7 +71,6 @@ impl Zone {
                 index: 0,
             }],
             extend: String::new(),
-            system: false,
         }
     }
 
@@ -89,9 +86,6 @@ impl Zone {
 
     /// Go `Location.lookup`: 유닉스 초 `sec` 에서의 이름·오프셋·DST 여부.
     pub fn lookup(&self, sec: i64) -> ZoneInfo {
-        if self.system {
-            return system_lookup(sec);
-        }
         if self.zones.is_empty() {
             return ZoneInfo {
                 name: "UTC".to_owned(),
@@ -287,7 +281,6 @@ fn parse_tzif(name: &str, data: &[u8]) -> Option<Zone> {
         zones,
         tx,
         extend,
-        system: false,
     })
 }
 
@@ -578,10 +571,15 @@ pub fn resolve_local(tz: Option<&str>, read: impl Fn(&str) -> Option<Vec<u8>>) -
     Zone::utc()
 }
 
+#[cfg(any(windows, test))]
+#[path = "tzi.rs"]
+pub(crate) mod tzi;
+
 static LOCAL: OnceLock<Zone> = OnceLock::new();
 
 /// Go `time.Local`. 처음 부를 때 한 번 정한다. unix 는 Go 와 같은 규칙으로 `TZ` 와
-/// zoneinfo 파일을 읽는다. 그 밖의 OS 는 OS 의 시간대(chrono::Local)를 따르고, 이름은 `Local` 이다.
+/// zoneinfo 파일을 읽는다. Windows 는 Go 와 같이
+/// `GetTimeZoneInformation` 의 규칙으로 만든다(zoneinfo_windows.go).
 pub fn local() -> &'static Zone {
     LOCAL.get_or_init(|| {
         #[cfg(unix)]
@@ -589,34 +587,13 @@ pub fn local() -> &'static Zone {
             let tz = std::env::var("TZ").ok();
             resolve_local(tz.as_deref(), |p| std::fs::read(p).ok())
         }
-        #[cfg(not(unix))]
+        #[cfg(windows)]
         {
-            Zone {
-                name: "Local".to_owned(),
-                zones: Vec::new(),
-                tx: Vec::new(),
-                extend: String::new(),
-                system: true,
-            }
+            super::windows::local()
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            Zone::utc()
         }
     })
-}
-
-#[cfg(not(unix))]
-fn system_lookup(sec: i64) -> ZoneInfo {
-    use chrono::{Local, Offset, TimeZone};
-    let offset = Local
-        .timestamp_opt(sec, 0)
-        .single()
-        .map_or(0, |t| t.offset().fix().local_minus_utc());
-    ZoneInfo {
-        name: String::new(),
-        offset,
-        is_dst: false,
-    }
-}
-
-#[cfg(unix)]
-fn system_lookup(_sec: i64) -> ZoneInfo {
-    Zone::utc().lookup(0)
 }
