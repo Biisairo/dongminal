@@ -9,6 +9,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
+use tokio_util::sync::CancellationToken;
 
 use crate::mesh::{InvitedRow, MeshView};
 use crate::{
@@ -18,6 +19,8 @@ use crate::{
 
 /// 지울 때 상대에게 알리는 시한이다.
 const UNPAIR_TIMEOUT: Duration = Duration::from_secs(3);
+/// Go `context.DeadlineExceeded` 의 문구다.
+pub(crate) const DEADLINE_EXCEEDED: &str = "context deadline exceeded";
 /// 상대가 보낸 문장의 바이트 상한이다.
 const REMOTE_TEXT_MAX: usize = 512;
 /// ETag 로 쓰는 해시의 앞 바이트 수다.
@@ -142,20 +145,38 @@ struct ProfileView {
 }
 
 impl Node {
+    /// [`Node::do_op`] 과 같되 limit 이 지나면 상대를 기다리던 자리가 Go 의 ctx 시한 초과와
+    /// 같은 답으로 끝난다 (Go `Do` 에 `context.WithTimeout` 을 건 꼴).
+    pub async fn do_op_within(&self, req: Request, limit: Duration) -> Response {
+        let deadline = CancellationToken::new();
+        let op = self.dispatch(req, &deadline);
+        tokio::pin!(op);
+        tokio::select! {
+            r = &mut op => return r,
+            () = tokio::time::sleep(limit) => deadline.cancel(),
+        }
+        op.await
+    }
+
     /// 동작 하나를 한다 (Go `Do`).
     pub async fn do_op(&self, req: Request) -> Response {
+        self.dispatch(req, &CancellationToken::new()).await
+    }
+
+    /// deadline 이 취소되면 상대를 기다리던 자리가 시한 초과로 끝난다.
+    async fn dispatch(&self, req: Request, deadline: &CancellationToken) -> Response {
         match req.op.as_str() {
             "get" => self.tagged(ok(&self.view())),
             "node" => self.op_node(&req).await,
             "profile" => self.tagged(ok(&self.profile())),
             "profile_name" => self.op_profile_name(&req).await,
             "invite" => self.op_invite(&req),
-            "add" => self.op_add(&req).await,
-            "remove" => self.op_remove(&req).await,
+            "add" => self.op_add(&req, deadline).await,
+            "remove" => self.op_remove(&req, deadline).await,
             "address" => self.op_address(&req),
-            "notify" => self.op_notify(&req).await,
+            "notify" => self.op_notify(&req, deadline).await,
             "invite_send" => self.op_invite_send(&req),
-            "invite_accept" => self.op_invite_accept(&req).await,
+            "invite_accept" => self.op_invite_accept(&req, deadline).await,
             "invite_reject" => self.op_invite_reject(&req),
             _ => fail(StatusCode::NOT_FOUND, CODE_NOT_FOUND, "unknown op"),
         }
@@ -361,20 +382,20 @@ impl Node {
         ok(&Out { code, expires })
     }
 
-    async fn op_add(&self, req: &Request) -> Response {
+    async fn op_add(&self, req: &Request, deadline: &CancellationToken) -> Response {
         #[derive(Deserialize, Default)]
         #[serde(default)]
         struct In {
             code: String,
         }
         match decode::<In>(&req.args) {
-            Ok(v) => self.add_code(&v.code).await,
+            Ok(v) => self.add_code(&v.code, deadline).await,
             Err(r) => r,
         }
     }
 
     /// 초대 코드로 상대에게 짝 맺기를 걸고, 받아들여지면 간선을 더한다.
-    pub(crate) async fn add_code(&self, code: &str) -> Response {
+    pub(crate) async fn add_code(&self, code: &str, deadline: &CancellationToken) -> Response {
         let ic = match edge::decode_invite(code) {
             Ok(c) => c,
             Err(e) => {
@@ -407,7 +428,11 @@ impl Node {
             port: ic.port,
             fingerprint: ic.fingerprint.clone(),
         };
-        let resp: Out = match self.client.call(&t, PAIR_PATH, &body).await {
+        let call = tokio::select! {
+            r = self.client.call(&t, PAIR_PATH, &body) => r,
+            () = deadline.cancelled() => Err(deadline_exceeded(&t, PAIR_PATH)),
+        };
+        let resp: Out = match call {
             Ok(v) => v,
             Err(e) => {
                 audit("out", "-", "pair", StatusCode::BAD_GATEWAY);
@@ -446,7 +471,7 @@ impl Node {
         })
     }
 
-    async fn op_remove(&self, req: &Request) -> Response {
+    async fn op_remove(&self, req: &Request, deadline: &CancellationToken) -> Response {
         let e = match self.resolve_arg(req) {
             Ok(e) => e,
             Err(r) => return r,
@@ -459,7 +484,10 @@ impl Node {
                 fingerprint: e.fingerprint.clone(),
             };
             let call = self.client.call_raw(&t, UNPAIR_PATH, &Empty {});
-            notified = matches!(tokio::time::timeout(UNPAIR_TIMEOUT, call).await, Ok(Ok(_)));
+            notified = tokio::select! {
+                r = tokio::time::timeout(UNPAIR_TIMEOUT, call) => matches!(r, Ok(Ok(_))),
+                () = deadline.cancelled() => false,
+            };
         }
         let status = if notified {
             StatusCode::OK
@@ -620,4 +648,17 @@ fn remote_code(code: &str) -> &'static str {
 
 fn clean_remote_text(s: &str) -> String {
     dm_shared_termtext::cut(&dm_shared_termtext::strip(s), REMOTE_TEXT_MAX).to_string()
+}
+
+/// Go `http.Client.Do` 가 ctx 시한 초과로 끝난 오류(`Post "<url>": context deadline exceeded`)다.
+fn deadline_exceeded(t: &Target, path: &str) -> CallError {
+    let host = if t.addr.contains(':') {
+        format!("[{}]:{}", t.addr, t.port)
+    } else {
+        format!("{}:{}", t.addr, t.port)
+    };
+    let url = format!("https://{host}{path}");
+    CallError::Unreachable(
+        dm_gocompat::neturl_err::UrlError::new("POST", &url, DEADLINE_EXCEEDED).to_string(),
+    )
 }
