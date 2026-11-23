@@ -1671,18 +1671,6 @@
 | `D-RLV-4` | handoff 는 신호를 보내지 않는다 | 대시보드와 Runs 목록에 보이는 값을 바꾸지 않는다 | 채택 |
 | `D-RLV-5` | 주기 조회는 살아 있는 모든 Run 뷰가 대상이다. 화면에 보이는지는 묻지 않는다 | 탭은 보통 한두 개다. 가시성 판정을 더하면 칸·창 판정이 하나 더 생긴다. 페이지가 숨으면 TimerHub 가 멈춘다 | 채택 |
 
-## [`RUST_PORT_SRS`](./RUST_PORT_SRS.md)
-
-| ID | 결정 | 근거 | 상태 |
-|---|---|---|---|
-| `D-1` | 보안 강화 | platform IPC (Windows) | 채택 |
-| `D-2` | 보안 강화 | platform browser (WSL 폴백) | 채택 |
-| `D-3` | 알려진 차이 | gocompat json 디코딩 | 채택 |
-| `D-4` | 알려진 차이 | gocompat json 디코딩 | 채택 |
-| `D-5` | 알려진 차이 | gocompat filepath (Windows) | 채택 |
-| `D-6` | 알려진 차이 | gocompat time | 채택 |
-| `D-7` | 보안 강화 | platform PTY (넘겨받은 셸·Windows) | 채택 |
-
 ## [`SAFETY_CORRECTNESS_SRS`](./SAFETY_CORRECTNESS_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -2255,4 +2243,4 @@
 
 ---
 
-결정 **1392건** · 문서 **168개**.
+결정 **1385건** · 문서 **167개**.
