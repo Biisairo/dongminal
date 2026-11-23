@@ -40,7 +40,7 @@ mod window;
 mod tests;
 
 pub use actions::{Serve, ServeTarget, action_names, dispatch};
-pub use backup::{BackupOpts, RestoreOpts, parse_backup, parse_restore};
+pub use backup::{BackupOpts, RestoreOpts, parse_backup, parse_restore, run_backup, run_restore};
 pub use config::{ConfigOpts, parse_config, run_config};
 pub use doctor::run_doctor;
 pub use health::run_health;

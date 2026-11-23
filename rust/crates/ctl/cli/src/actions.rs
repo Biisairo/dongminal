@@ -26,7 +26,7 @@ use crate::uninstall::parse_uninstall;
 use crate::update::parse_update;
 use crate::version::{parse_version, run_version, usage_version};
 use crate::window::run_window_in;
-use crate::{doctor, health, migrate, rollback, service, start, stop, uninstall, update};
+use crate::{backup, doctor, health, migrate, rollback, service, start, stop, uninstall, update};
 
 /// `start --foreground` 가 이 프로세스로 띄울 서버다.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -113,9 +113,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "backup",
             brief: "홈 전체를 zip 하나로 담는다 (G4-3)",
             usage: usage_backup,
-            run: |rest, _, _, out, err| {
-                drive("backup", parse_backup(rest), out, err, |_, _, err| {
-                    not_ported("backup", ISSUE_UPDATE, err)
+            run: |rest, env, _, out, err| {
+                drive("backup", parse_backup(rest), out, err, |o, out, err| {
+                    backup::run_backup_in(&o, env, out, err)
                 })
             },
         },
@@ -123,9 +123,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "restore",
             brief: "backup 으로 담은 zip 을 홈에 되돌린다 (G4-3)",
             usage: usage_restore,
-            run: |rest, _, _, out, err| {
-                drive("restore", parse_restore(rest), out, err, |_, _, err| {
-                    not_ported("restore", ISSUE_UPDATE, err)
+            run: |rest, env, _, out, err| {
+                drive("restore", parse_restore(rest), out, err, |o, out, err| {
+                    backup::run_restore_in(&o, env, out, err)
                 })
             },
         },

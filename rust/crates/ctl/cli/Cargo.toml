@@ -33,6 +33,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
+zip = { workspace = true }
 
 [dev-dependencies]
 dm-shared-agentadapter = { path = "../../shared/agentadapter" }
