@@ -9,20 +9,25 @@
 mod answers;
 mod blame;
 mod blob;
+mod branch;
 mod handlers_git;
 mod history;
 mod init;
 mod job;
+mod judge;
 mod lock;
 mod lock_remove;
+mod operation;
 mod pins;
 mod policy;
 mod records;
+mod remote;
 mod replay;
 mod reply;
 mod req;
 mod routes;
 mod write;
+mod write_ops;
 
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -68,9 +73,9 @@ pub struct GitServer {
     pub job_runner: Option<JobRunner>,
     diffs: OnceLock<Arc<Service>>,
     own_exclusion: OnceLock<Exclusion>,
-    // 잡 경로는 5.4.2 의 종단(fetch·pull·push·병합 등)이 처음 부른다.
-    #[allow(dead_code)]
     jobs: Mutex<Option<Jobs>>,
+    /// 커밋 하나에 대한 되돌리기 권한 (FR-GIT-83).
+    undo: Arc<write_ops::UndoStore>,
     lock_wait: Duration,
 }
 

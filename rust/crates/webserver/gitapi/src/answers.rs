@@ -249,3 +249,246 @@ impl GitServer {
         Ok(remotes.into_iter().map(|r| r.name).collect())
     }
 }
+
+/// 진행 중인 작업(merge·rebase 등)이 새 작업을 막는가다 (FR-SDA-32).
+pub(crate) fn op_answer(st: &Status) -> Answer {
+    let k = &st.operation.kind;
+    if !k.is_empty() {
+        return deny(
+            CONFLICT,
+            apierr::CODE_OPERATION_IN_PROGRESS,
+            args1("kind", k.clone().into()),
+        );
+    }
+    allow()
+}
+
+/// 커밋 메시지의 판정이다 (GR-3b ①). 실행 종단은 이것을 잠금보다 먼저 본다.
+pub(crate) fn commit_message_answer(msg: &str) -> Answer {
+    if blank(msg) {
+        return deny(BAD_REQUEST, apierr::CODE_EMPTY_MESSAGE, None);
+    }
+    allow()
+}
+
+/// 저장소 상태로 본 커밋의 판정이다 (GR-3b ③④ · FR-GIT-84·86). `amend_unchanged` 는 git 을
+/// 부르므로 필요할 때만 부른다.
+pub(crate) async fn commit_state_answer<F, Fut>(
+    st: &Status,
+    pf: &query::Preflight,
+    all: bool,
+    amend: bool,
+    amend_unchanged: F,
+) -> Answer
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = bool>,
+{
+    if !pf.blocks.is_empty() {
+        let blocks = serde_json::to_value(&pf.blocks).unwrap_or_default();
+        return deny(
+            CONFLICT,
+            apierr::CODE_PREFLIGHT_BLOCKED,
+            args1("blocks", blocks),
+        );
+    }
+    if st.staged.is_empty() && !all && (!amend || amend_unchanged().await) {
+        return deny(BAD_REQUEST, apierr::CODE_NOTHING_STAGED, None);
+    }
+    allow()
+}
+
+/// 판정에 쓰는 저장소의 사실이다 (GT-d). 요청의 이름은 실제 ref 에 대 본다.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct BranchFacts {
+    pub(crate) refs: Vec<query::Ref>,
+    pub(crate) st: Status,
+}
+
+impl BranchFacts {
+    pub(crate) fn find(&self, kind: &str, short: &str) -> Option<&query::Ref> {
+        self.refs
+            .iter()
+            .find(|r| r.kind == kind && r.short == short)
+    }
+
+    /// 그 종류의 ref 다. 없으면 이름만 든 빈 종류의 ref 다 — 판정이 "그 종류가 아니다" 로 답한다.
+    pub(crate) fn ref_or(&self, kind: &str, short: &str) -> query::Ref {
+        self.find(kind, short)
+            .cloned()
+            .unwrap_or_else(|| query::Ref {
+                short: short.to_owned(),
+                ..query::Ref::default()
+            })
+    }
+
+    /// 로컬 → 원격 순으로 찾은 ref 다. 둘 다 없으면 `None`(oid·태그 등).
+    pub(crate) fn any_ref(&self, short: &str) -> Option<query::Ref> {
+        self.find(query::REF_KIND_LOCAL, short)
+            .or_else(|| self.find(query::REF_KIND_REMOTE, short))
+            .cloned()
+    }
+}
+
+/// 양쪽 삭제의 짝이다 (FR-SDA-35). git 이 짝이라고 적어 둔 추적 관계만 짝이다.
+fn branch_pair(r: &query::Ref, f: &BranchFacts) -> (query::Ref, String, Answer) {
+    if r.kind == query::REF_KIND_LOCAL {
+        if r.upstream.is_empty() {
+            return (
+                query::Ref::default(),
+                String::new(),
+                deny(CONFLICT, apierr::CODE_NO_UPSTREAM, None),
+            );
+        }
+        return (r.clone(), r.upstream.clone(), allow());
+    }
+    let hits: Vec<&query::Ref> = f
+        .refs
+        .iter()
+        .filter(|l| l.kind == query::REF_KIND_LOCAL && l.upstream == r.short)
+        .collect();
+    match hits.as_slice() {
+        [] => (
+            query::Ref::default(),
+            String::new(),
+            deny(CONFLICT, apierr::CODE_NO_TRACKING_BRANCH, None),
+        ),
+        [one] => ((*one).clone(), r.short.clone(), allow()),
+        _ => (
+            query::Ref::default(),
+            String::new(),
+            deny(CONFLICT, apierr::CODE_MANY_TRACKING_BRANCH, None),
+        ),
+    }
+}
+
+fn not_kind(kind: &str, r: &query::Ref) -> Answer {
+    if r.kind == kind {
+        return allow();
+    }
+    if kind == query::REF_KIND_LOCAL {
+        return deny(BAD_REQUEST, apierr::CODE_NOT_LOCAL_BRANCH, None);
+    }
+    deny(BAD_REQUEST, apierr::CODE_NOT_REMOTE_BRANCH, None)
+}
+
+fn current() -> Answer {
+    deny(CONFLICT, apierr::CODE_BRANCH_CURRENT, None)
+}
+
+/// 원격 ref 를 가를 수 없다.
+pub(crate) fn not_remote() -> Answer {
+    deny(BAD_REQUEST, apierr::CODE_NOT_REMOTE_BRANCH, None)
+}
+
+/// 브랜치 동작 하나의 판정이다 — 칸은 보지 않는다.
+pub(crate) fn branch_answer(id: &str, r: &query::Ref, f: &BranchFacts) -> Answer {
+    let local = r.kind == query::REF_KIND_LOCAL;
+    match id {
+        action::GIT_BRANCH_CHECKOUT | action::GIT_BRANCH_DELETE => {
+            let a = not_kind(query::REF_KIND_LOCAL, r);
+            if !a.ok {
+                return a;
+            }
+            if r.is_head {
+                return current();
+            }
+        }
+        action::GIT_BRANCH_CHECKOUT_LOCAL
+        | action::GIT_BRANCH_FETCH
+        | action::GIT_BRANCH_DELETE_REMOTE => return not_kind(query::REF_KIND_REMOTE, r),
+        action::GIT_BRANCH_RENAME | action::GIT_BRANCH_UPSTREAM_SET | action::GIT_BRANCH_PUSH => {
+            return not_kind(query::REF_KIND_LOCAL, r);
+        }
+        action::GIT_BRANCH_UPSTREAM_UNSET => {
+            let a = not_kind(query::REF_KIND_LOCAL, r);
+            if !a.ok {
+                return a;
+            }
+            if r.upstream.is_empty() {
+                return deny(CONFLICT, apierr::CODE_NO_UPSTREAM, None);
+            }
+        }
+        action::GIT_BRANCH_MERGE | action::GIT_BRANCH_REBASE => {
+            let a = op_answer(&f.st);
+            if !a.ok {
+                return a;
+            }
+            if local && r.is_head {
+                return deny(CONFLICT, apierr::CODE_TARGET_IS_HEAD, None);
+            }
+        }
+        action::GIT_BRANCH_DELETE_BOTH => {
+            let (loc, _, a) = branch_pair(r, f);
+            if !a.ok {
+                return a;
+            }
+            if loc.is_head {
+                return current();
+            }
+        }
+        _ => {}
+    }
+    allow()
+}
+
+/// upstream 설정의 판정이다 (GV-f · FR-SDA-41). 브랜치는 로컬이어야 하고, upstream 은 이
+/// 저장소가 아는 원격 ref 여야 한다.
+pub(crate) fn upstream_answer(f: &BranchFacts, branch: &str, upstream: &str) -> Answer {
+    let a = branch_answer(
+        action::GIT_BRANCH_UPSTREAM_SET,
+        &f.ref_or(query::REF_KIND_LOCAL, branch),
+        f,
+    );
+    if !a.ok {
+        return a;
+    }
+    if blank(upstream) {
+        return deny(BAD_REQUEST, apierr::CODE_EMPTY_REF, None);
+    }
+    if f.find(query::REF_KIND_REMOTE, upstream).is_none() {
+        return deny(BAD_REQUEST, apierr::CODE_UPSTREAM_UNKNOWN, None);
+    }
+    allow()
+}
+
+impl GitServer {
+    pub(crate) async fn branch_facts(
+        &self,
+        git: &Arc<Store>,
+        ctx: &Ctx,
+        root: &str,
+        st: Status,
+    ) -> Result<BranchFacts, query::Error> {
+        let refs = query::refs(git.service(), ctx, root).await?;
+        Ok(BranchFacts { refs, st })
+    }
+
+    /// 원격 추가의 판정이다 (GV-c · G-B4). 실행(`write::remote_add`)도 같은 검사를 지난다.
+    pub(crate) async fn remote_add_answer(
+        &self,
+        git: &Arc<Store>,
+        ctx: &Ctx,
+        root: &str,
+        name: &str,
+        url: &str,
+    ) -> Result<Answer, query::Error> {
+        if blank(name) {
+            return Ok(deny(BAD_REQUEST, apierr::CODE_EMPTY_NAME, None));
+        }
+        if let Err(e) = write::check_remote_name(name) {
+            return Ok(err_answer(Some(&e)));
+        }
+        if blank(url) {
+            return Ok(deny(BAD_REQUEST, apierr::CODE_EMPTY_URL, None));
+        }
+        if let Err(e) = write::check_remote_url(url) {
+            return Ok(err_answer(Some(&e)));
+        }
+        let list = query::remotes(git.service(), ctx, root).await?;
+        if list.iter().any(|r| r.name == name) {
+            return Ok(deny(CONFLICT, apierr::CODE_REMOTE_EXISTS, None));
+        }
+        Ok(allow())
+    }
+}
