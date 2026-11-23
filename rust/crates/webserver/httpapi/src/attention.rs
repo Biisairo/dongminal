@@ -489,7 +489,7 @@ impl Server {
             &req.detail,
             agentrec::agent_reports_turn_start(&req.agent),
         );
-        // Telegram 브리지(`telegramActivity`)는 5.5.9 가 잇는다.
+        self.telegram_activity(req);
         None
     }
 

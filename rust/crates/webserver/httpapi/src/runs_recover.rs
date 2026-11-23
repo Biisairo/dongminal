@@ -237,10 +237,13 @@ impl Server {
         }
     }
 
-    /// Go `agentConfigDirs`. 계정 서비스(`s.ca`)의 목록은 5.5.9 가 잇는다.
+    /// Go `agentConfigDirs`: 세션 등록부를 볼 설정 폴더들이다. 계정 서비스가 있으면 그 목록이다.
     fn agent_config_dirs(&self) -> Vec<PathBuf> {
         if let Some(d) = &self.run_aux.recover_dirs {
             return d();
+        }
+        if let Some(ca) = &self.ca {
+            return ca.svc.config_dirs();
         }
         match std::env::home_dir().filter(|h| !h.as_os_str().is_empty()) {
             Some(home) => {

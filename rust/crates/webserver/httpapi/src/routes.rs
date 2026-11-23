@@ -144,6 +144,13 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/fs/download-dir", h!(api_fs_download_dir)),
         get("/api/fs/download-many", h!(api_fs_download_many)),
         post("/api/fs/upload", h!(api_fs_upload)),
+        // EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 설치.
+        post("/api/lsp/status", h!(api_lsp_status)),
+        get("/api/lsp/paths", h!(api_lsp_paths_get)),
+        put("/api/lsp/paths", h!(api_lsp_paths_put)),
+        post("/api/lsp/install", h!(api_lsp_install)),
+        // CODEMIRROR_MIGRATION_SRS 묶음 S — 브라우저 LSP 클라이언트와 언어 서버의 통로.
+        get("/api/lsp/ws", h!(api_lsp_ws)),
         get("/api/editors", h!(api_editors_get)),
         post("/api/editors/add", h!(api_editors_add)),
         // F-m: 편집기 루트 추가 경로의 답.
@@ -151,7 +158,97 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         post("/api/editors/remove", h!(api_editors_remove)),
         post("/api/editors/reorder", h!(api_editors_reorder)),
         any("/api/ping", h!(api_ping)),
+        // M5 `G4-7`: 워크스페이스 되돌리기. 서버가 돌고 있어도 쓸 수 있다.
+        get("/api/workspace/revisions", h!(api_workspace_revisions)),
+        post("/api/workspace/revert", h!(api_workspace_revert)),
         get("/api/stats", h!(api_stats)),
+        // PEER_NETWORK_SRS FR-PNW-70: 노드 간 통신의 로컬 API (edge_api.rs).
+        get("/api/chat", h!(api_chat_get)),
+        post("/api/chat/create", h!(api_chat_create)),
+        post("/api/chat/direct", h!(api_chat_direct)),
+        post("/api/chat/join", h!(api_chat_join)),
+        post("/api/chat/leave", h!(api_chat_leave)),
+        post("/api/chat/send", h!(api_chat_send)),
+        post("/api/chat/kill", h!(api_chat_kill)),
+        post("/api/chat/kick", h!(api_chat_kick)),
+        get("/api/edges", h!(api_edges_get)),
+        put("/api/edges/node", h!(api_edges_node_put)),
+        post("/api/edges/invite", h!(api_edges_invite)),
+        post("/api/edges/add", h!(api_edges_add)),
+        post("/api/edges/remove", h!(api_edges_remove)),
+        put("/api/edges/address", h!(api_edges_address)),
+        post("/api/edges/notify", h!(api_edges_notify)),
+        post("/api/edges/invite/send", h!(api_edges_invite_send)),
+        post("/api/edges/invite/accept", h!(api_edges_invite_accept)),
+        post("/api/edges/invite/reject", h!(api_edges_invite_reject)),
+        // PROFILE_NAME_SRS §3.2: 이 기기의 이름.
+        get("/api/profile", h!(api_profile_get)),
+        put("/api/profile", h!(api_profile_put)),
+        // CLAUDE_ACCOUNTS_SRS FR-CAC-120·121.
+        get("/api/claude-accounts", h!(api_claude_accounts_list)),
+        post("/api/claude-accounts/add", h!(api_claude_accounts_add)),
+        put("/api/claude-accounts/item", h!(api_claude_accounts_item)),
+        post(
+            "/api/claude-accounts/remove",
+            h!(api_claude_accounts_remove),
+        ),
+        post("/api/claude-accounts/order", h!(api_claude_accounts_order)),
+        post(
+            "/api/claude-accounts/switch",
+            h!(api_claude_accounts_switch),
+        ),
+        post(
+            "/api/claude-accounts/refresh",
+            h!(api_claude_accounts_refresh),
+        ),
+        post("/api/claude-accounts/reset", h!(api_claude_accounts_reset)),
+        get(
+            "/api/claude-accounts/history",
+            h!(api_claude_accounts_history),
+        ),
+        get(
+            "/api/claude-accounts/autoswitch",
+            h!(api_claude_accounts_autoswitch_get),
+        ),
+        put(
+            "/api/claude-accounts/autoswitch",
+            h!(api_claude_accounts_autoswitch_put),
+        ),
+        get(
+            "/api/claude-accounts/mappings",
+            h!(api_claude_accounts_mappings_get),
+        ),
+        put(
+            "/api/claude-accounts/mappings",
+            h!(api_claude_accounts_mappings_put),
+        ),
+        get(
+            "/api/claude-accounts/resolve",
+            h!(api_claude_accounts_resolve),
+        ),
+        post(
+            "/api/claude-accounts/launch",
+            h!(api_claude_accounts_launch),
+        ),
+        get(
+            "/api/claude-accounts/unclaimed",
+            h!(api_claude_accounts_unclaimed),
+        ),
+        post(
+            "/api/claude-accounts/unclaimed/remove",
+            h!(api_claude_accounts_unclaimed_remove),
+        ),
+        // TELEGRAM_BRIDGE_SRS FR-TGB-1~5·10~11.
+        get("/api/telegram", h!(api_telegram_get)),
+        put("/api/telegram/token", h!(api_telegram_token)),
+        put("/api/telegram/enabled", h!(api_telegram_enabled)),
+        put("/api/telegram/silence", h!(api_telegram_silence)),
+        post("/api/telegram/pair", h!(api_telegram_pair)),
+        when(
+            METHOD_DELETE,
+            Matcher::Exact("/api/telegram/pair"),
+            h!(api_telegram_unpair),
+        ),
         #[cfg(test)]
         get("/api/test/panic", h!(api_test_panic)),
     ]
