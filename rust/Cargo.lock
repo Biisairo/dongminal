@@ -1146,6 +1146,7 @@ version = "1.3.7"
 dependencies = [
  "bytes",
  "dm-gocompat",
+ "dm-shared-dmlog",
  "dm-shared-platform",
  "dm-shared-testpath",
  "futures-util",
