@@ -39,7 +39,7 @@ const RELAY_COALESCE_MAX: usize = 64 << 10;
 /// 구독 채널의 크기다.
 const OUTPUT_QUEUE: usize = 256;
 /// 정렬을 위해 줄 끝을 찾는 범위다 (Go `trsAlignScan`).
-const TRS_ALIGN_SCAN: usize = 4 << 10;
+pub(crate) const TRS_ALIGN_SCAN: usize = 4 << 10;
 
 /// 같은 없는 도구를 다시 물으면 늦춘다 (Go `MissRepeatWindow`·`MissDelay`).
 pub(crate) const MISS_REPEAT_WINDOW: Duration = Duration::from_secs(10);
@@ -49,8 +49,8 @@ pub(crate) const MISS_HOLD_AFTER: usize = 5;
 pub(crate) const MISS_HOLD_MAX: Duration = Duration::from_secs(10 * 60);
 pub(crate) const MISS_HOLD_LIMIT: i64 = 64;
 
-const TERM_RESET: &[u8] = b"\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l";
-const TERM_HARD_CLEAR: &[u8] = b"\x1b[?1049l\x1b[H\x1b[2J\x1b[3J";
+pub(crate) const TERM_RESET: &[u8] = b"\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l";
+pub(crate) const TERM_HARD_CLEAR: &[u8] = b"\x1b[?1049l\x1b[H\x1b[2J\x1b[3J";
 const TERM_ALT_ON: &[u8] = b"\x1b[?1049h";
 const SEQ_FLAG_FULL: u8 = 1 << 0;
 const SEQ_FLAG_ALT: u8 = 1 << 1;
@@ -84,7 +84,7 @@ pub(crate) fn strip_snapshot_queries(b: &[u8]) -> Vec<u8> {
     SNAPSHOT_QUERY.replace_all(b, &b""[..]).into_owned()
 }
 
-fn align_head(b: &[u8]) -> &[u8] {
+pub(crate) fn align_head(b: &[u8]) -> &[u8] {
     let scan = b.len().min(TRS_ALIGN_SCAN);
     match b[..scan].iter().position(|&c| c == b'\n') {
         Some(i) => &b[i + 1..],
@@ -153,7 +153,7 @@ fn advance_sent(c: &OutChunk, sent: i64) -> i64 {
     c.end.max(sent)
 }
 
-fn relay_joinable(c: &OutChunk, sent: i64) -> bool {
+pub(crate) fn relay_joinable(c: &OutChunk, sent: i64) -> bool {
     c.size.is_none() && !output_gap(c, sent)
 }
 

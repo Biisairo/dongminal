@@ -324,7 +324,7 @@ async fn config_read_and_write() {
     assert_eq!(
         sub.try_recv()
             .map(|b| String::from_utf8_lossy(&b).into_owned()),
-        Some(r#"{"action":"sandbox_changed"}"#.to_owned())
+        Some(r#"{"action":"sandbox_changed","args":{}}"#.to_owned())
     );
 }
 

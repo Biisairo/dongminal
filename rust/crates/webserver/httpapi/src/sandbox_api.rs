@@ -239,7 +239,10 @@ impl Server {
         }
         // FR-LIV-3: 저장이 끝난 뒤에 알린다.
         if let Some(c) = self.commands() {
-            c.broadcast(&dm_webserver_sse::payload::<()>("sandbox_changed", None));
+            c.broadcast(&dm_webserver_sse::payload(
+                "sandbox_changed",
+                Some(&BTreeMap::<String, ()>::new()),
+            ));
         }
         let tag = self.sandbox_tag().await;
         let mut res = Response::new(dm_shared_httpresp::empty());

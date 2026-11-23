@@ -1,11 +1,15 @@
 mod access;
+mod commands;
 mod fakes;
 mod gate;
 mod golden;
+mod golden_552;
 mod mux;
 mod netx;
 mod render_env;
 mod sandbox_api;
 mod support;
+mod term;
 mod toolio;
 mod tools_api;
+mod ws;

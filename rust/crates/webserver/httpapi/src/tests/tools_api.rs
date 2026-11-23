@@ -205,7 +205,7 @@ async fn create_success() {
     let (_d, s) = srv(hub_deps(&h));
     let r = post_json(&s, "/api/tools?cols=80&rows=24", "").await;
     assert_eq!(r.status, 200);
-    assert_eq!(r.body.trim(), r#"{"id":"new-1","name":"Shell #1"}"#);
+    assert_eq!(r.body.trim(), r#"{"id":"fake1","name":"Fake fake1"}"#);
     let (cwd, c, rw, _) = h.last.lock().unwrap().clone().unwrap();
     assert_eq!((cwd.as_str(), c, rw), ("", 80, 24));
 }

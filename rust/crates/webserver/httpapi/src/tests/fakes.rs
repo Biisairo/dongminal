@@ -14,10 +14,14 @@ use dm_webserver_domain_sysstat::Snapshot;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
+use dm_webserver_hub::{CmdResult, CmdSub, CommandBroker};
+use futures_util::future::BoxFuture;
+use std::sync::Arc;
+
 use crate::agent_render_env::agent_render_env;
 use crate::{
     SandboxReaper, SettingsStore, StatsSnapshotter, ToolError, ToolHub, ToolIdentity, Unsubscribe,
-    WorkspaceStore,
+    UpdateService, WorkspaceStore,
 };
 
 /// Go `fakePaneHub` 중 이 종단들이 쓰는 것.
@@ -37,6 +41,11 @@ pub(crate) struct FakeHub {
     pub(crate) busy_many_fails: bool,
     pub(crate) cap: bool,
     pub(crate) create_err: Option<String>,
+    /// 도구마다 구독 (출력 송신자, 종료 신호).
+    pub(crate) subs: Mutex<HashMap<String, (Sender<OutChunk>, CancellationToken)>>,
+    pub(crate) snaps: Mutex<HashMap<String, ToolSnapshot>>,
+    pub(crate) inputs: Mutex<Vec<(String, Vec<u8>)>>,
+    pub(crate) resizes: Mutex<Vec<(String, u16, u16)>>,
 }
 
 impl FakeHub {
@@ -54,11 +63,31 @@ impl FakeHub {
 }
 
 impl ToolHub for FakeHub {
-    fn subscribe(&self, _: &str, _: Sender<OutChunk>) -> (CancellationToken, Unsubscribe) {
-        (CancellationToken::new(), Box::new(|| {}))
+    fn subscribe(&self, tool_id: &str, tx: Sender<OutChunk>) -> (CancellationToken, Unsubscribe) {
+        let exit = CancellationToken::new();
+        self.subs
+            .lock()
+            .unwrap()
+            .insert(tool_id.to_owned(), (tx, exit.clone()));
+        (exit, Box::new(|| {}))
     }
-    fn snapshot_tool_since(&self, _: &str, _: i64) -> Result<ToolSnapshot, ToolError> {
-        Ok(ToolSnapshot::default())
+    fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError> {
+        if !self.has(id) {
+            return Err(ToolError::NotFound(format!("tool {id} not found")));
+        }
+        let mut snap = self
+            .snaps
+            .lock()
+            .unwrap()
+            .get(id)
+            .cloned()
+            .unwrap_or_default();
+        if since >= 0 && since <= snap.end {
+            let keep = crate::ws::trim_overlap(&snap.data, snap.end, since).to_vec();
+            snap.data = keep;
+            snap.resumed = true;
+        }
+        Ok(snap)
     }
     fn daemon_info(&self) -> DaemonInfo {
         DaemonInfo::default()
@@ -69,8 +98,18 @@ impl ToolHub for FakeHub {
     fn has_feature(&self, _: &str) -> bool {
         false
     }
-    fn input_notify(&self, _: &str, _: &[u8]) {}
-    fn resize_notify(&self, _: &str, _: u16, _: u16) {}
+    fn input_notify(&self, id: &str, data: &[u8]) {
+        self.inputs
+            .lock()
+            .unwrap()
+            .push((id.to_owned(), data.to_vec()));
+    }
+    fn resize_notify(&self, id: &str, cols: u16, rows: u16) {
+        self.resizes
+            .lock()
+            .unwrap()
+            .push((id.to_owned(), cols, rows));
+    }
     fn list(&self) -> Vec<ToolInfo> {
         self.tools.lock().unwrap().clone()
     }
@@ -98,8 +137,8 @@ impl ToolHub for FakeHub {
             return Err(ToolError::Other(e.clone()));
         }
         let n = self.created.fetch_add(1, Ordering::SeqCst) + 1;
-        let id = format!("new-{n}");
-        let name = format!("Shell #{n}");
+        let id = format!("fake{n}");
+        let name = format!("Fake {id}");
         self.seed(&id, &name);
         Ok(ToolIdentity { id, name })
     }
@@ -179,6 +218,8 @@ pub(crate) struct FakeWork {
     pub(crate) stale: bool,
     pub(crate) windows: Option<Vec<WindowInfo>>,
     pub(crate) saves: AtomicUsize,
+    pub(crate) coord_map: HashMap<String, String>,
+    pub(crate) coord_err: HashMap<String, String>,
 }
 
 impl FakeWork {
@@ -225,10 +266,17 @@ impl WorkspaceStore for FakeWork {
         Ok(*rev)
     }
     fn coordinate_of(&self, id: &str) -> Result<String, WorkspaceError> {
-        Ok(id.to_owned())
+        if let Some(e) = self.coord_err.get(id) {
+            return Err(WorkspaceError::Resolve(e.clone()));
+        }
+        Ok(self
+            .coord_map
+            .get(id)
+            .cloned()
+            .unwrap_or_else(|| id.to_owned()))
     }
-    fn is_known_tab_id(&self, _: &str) -> bool {
-        false
+    fn is_known_tab_id(&self, id: &str) -> bool {
+        !id.is_empty() && self.coord_map.contains_key(id)
     }
     fn entries(&self) -> Vec<TabEntry> {
         Vec::new()
@@ -309,5 +357,61 @@ impl StatsSnapshotter for FakeStats {
     fn snapshot(&self) -> Snapshot {
         self.calls.fetch_add(1, Ordering::SeqCst);
         self.snap
+    }
+}
+
+/// Go `fakeCommandBroker`: 방송을 적고 기다리는 명령에는 정해 둔 결과를 곧바로 준다.
+#[derive(Default)]
+pub(crate) struct FakeBroker {
+    pub(crate) published: Mutex<Vec<String>>,
+    pub(crate) await_result: CmdResult,
+    pub(crate) await_delivered: usize,
+    pub(crate) delivered: Mutex<Vec<(String, CmdResult)>>,
+}
+
+impl FakeBroker {
+    pub(crate) fn published(&self) -> Vec<String> {
+        self.published.lock().unwrap().clone()
+    }
+}
+
+impl CommandBroker for FakeBroker {
+    fn add(&self) -> Option<Arc<CmdSub>> {
+        Some(CmdSub::new())
+    }
+    fn remove(&self, _: &Arc<CmdSub>) {}
+    fn broadcast(&self, payload: &[u8]) -> usize {
+        self.published
+            .lock()
+            .unwrap()
+            .push(String::from_utf8_lossy(payload).into_owned());
+        1
+    }
+    fn broadcast_and_await<'a>(
+        &'a self,
+        payload: &'a [u8],
+        _: &'a str,
+        _: Duration,
+    ) -> BoxFuture<'a, (CmdResult, usize, bool)> {
+        self.broadcast(payload);
+        Box::pin(async move { (self.await_result.clone(), self.await_delivered, false) })
+    }
+    fn deliver_result(&self, req_id: &str, res: CmdResult) {
+        self.delivered
+            .lock()
+            .unwrap()
+            .push((req_id.to_owned(), res));
+    }
+}
+
+/// Go `fakeUpdates`.
+#[derive(Default)]
+pub(crate) struct FakeUpdates {
+    pub(crate) triggers: AtomicUsize,
+}
+
+impl UpdateService for FakeUpdates {
+    fn trigger(&self) {
+        self.triggers.fetch_add(1, Ordering::SeqCst);
     }
 }
