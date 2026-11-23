@@ -7,11 +7,6 @@ targets = [
 
 [advisories]
 yanked = "deny"
-ignore = [
-  # 유지보수 중단 알림이지 취약점이 아니다. 로컬 시간대를 unsafe 없이 얻는 자리(DEPENDENCIES.md)라
-  # 대체는 따로 정한다 (8.3 진행 기록).
-  { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained — 대체 결정 전까지 둔다" },
-]
 
 [licenses]
 allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "CDLA-Permissive-2.0"]

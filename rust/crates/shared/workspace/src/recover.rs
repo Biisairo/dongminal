@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use dm_gocompat::oserr::{go_error_string, link_error, path_error};
 use dm_shared_dmlog::errorf;
 use dm_shared_platform::{STATE_FILE_GENERATIONS, write_state_file};
+use time::{OffsetDateTime, UtcOffset};
 
 use crate::Persister;
 use crate::parse::{Index, build_index};
@@ -19,7 +20,20 @@ pub const LOAD_EMPTY: &str = "empty";
 pub const PERSIST_FAILED: &str = "write-failed";
 
 const FILE_PERM: u32 = 0o644;
-const QUARANTINE_TS_FORMAT: &str = "%Y%m%dT%H%M%SZ";
+
+/// Go `t.UTC().Format("20060102T150405Z")`.
+pub(crate) fn quarantine_ts(t: OffsetDateTime) -> String {
+    let t = t.to_offset(UtcOffset::UTC);
+    format!(
+        "{:04}{:02}{:02}T{:02}{:02}{:02}Z",
+        t.year(),
+        u8::from(t.month()),
+        t.day(),
+        t.hour(),
+        t.minute(),
+        t.second()
+    )
+}
 
 /// 손상된 파일을 격리하고 세대에서 되살릴 수 있는 저장소다.
 pub trait Recoverable {
@@ -72,7 +86,7 @@ impl Persister for FilePersister {
 
 impl Recoverable for FilePersister {
     fn quarantine(&self) -> io::Result<()> {
-        let ts = chrono::Utc::now().format(QUARANTINE_TS_FORMAT);
+        let ts = quarantine_ts(OffsetDateTime::now_utc());
         let dst = self.suffixed(&format!(".corrupt-{ts}"));
         fs::rename(&self.path, &dst).map_err(|e| {
             link_error(
