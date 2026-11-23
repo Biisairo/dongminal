@@ -1,30 +1,24 @@
-# 포팅 진행 상태 (2026-11-23 16:55, 4차 정지 — 세션 사용률 65%)
+# 포팅 진행 상태 (2026-11-23 23:5x — 포팅 계획 이슈 전부 done)
 
-진척: Go 프로덕션 102,842 줄 중 약 86% 병합(이슈 파일 줄 수 기준 어림). 남은 줄 약 1만 4천, 거의 전부 5.5 httpapi 하위와 7.
+진척: Go 프로덕션 102,842 줄 전부 Rust 로 옮겨 rust-port 에 병합. 이슈 트리 0~9 전부 done.
+마지막 검증: 워크스페이스 전체 시험 3,825 통과·실패 0(darwin, hermetic), linux/arm64 실기 3,820 통과,
+e2e 2,317 중 Rust 2,312 통과(실패 1 = V-LAY-1, Go 기준선과 같음 / 흔들림 1 = git-feedback F-9.4, Go 도 같음),
+Go↔Rust 상호 운용 221 항목 같음, verify 종단간 26/26, 다섯 대상 교차 clippy·deny·audit·Go make gates 통과,
+재현 빌드(다른 경로 재빌드 sha256 같음). SRS 3.7 DIFF-1~32.
 
-## 끝남
+## 남은 것 (사용자 결정)
 
-0.x~4.x 전부, 5.1~5.4 전부, 5.5.1, 5.5.6, 6.x 전부, 7.1. SRS 3.7 DIFF-1~23.
-
-이번 세션(리셋 뒤) 병합: 6.1.2, 6.1.3(+가림 우회 수정), 3.3(FR-RSP-22 Go↔Rust 교체 검증), 5.4.1~5.4.3, 5.5.1, 5.5.6, platform hostname()·interface_addrs().
-
-## 재개 때 할 일 (순서대로)
-
-1. ~~5.5.2 충돌 해소 후 병합~~ — 끝남(5e1b0948, Deps.work 는 wsentry::WorkspaceStore 하위 trait 으로 통합)
-2. 5.5.2 병합 뒤: 5.5.3(사슬 X), 5.5.10 gitapi 배선(5.4.3 에이전트 탭 3e21a636 이 대기 중 — 그에게 준다), 5.5.7.2(5.5.2 SSE 접점)
-3. 지금 바로 가능: 5.5.7.1 탐색기 조작(접점 없음, todo)
-4. 5.5.3 뒤: 5.5.4→5.5.5, 5.5.8, 5.5.9 병렬
-5. 5.5 전체 뒤: 7(넘겨 받을 일: tool_home, toolhub 홈 주입 공개 자리, dmlog::init, verify 종단간 1회) → 8 → 9
+- Windows 실기 검증 수단(Actions windows 러너·VM·SSH PC) — 8.3 이슈 파일에 미검증 목록
+- 운영 전환(Go→Rust 바이너리 교체)과 main 병합·push 시점 (조정자는 하지 않는다)
+- SRS 3.7 보안 강화·결함 수정(DIFF-1,2,7~11,13~23,26,29,31,32)을 Go 에도 고칠지
+- Go 결함 보고: daemon-fingerprint.sh 의 `xargs sum`(DIFF-29), DONGMINAL_NO_UPDATE_CHECK 무시(DIFF-32), scripts/check-home-layout.sh 소켓 4개 누락
+- claude 셈 `--allowedTools=mcp__dongminal` 사전 허용(Go 와 같아 그대로)
+- chrono(unmaintained, RUSTSEC-2026-0543) 직접 사용 crate 3개 — 대체 여부
+- 릴리즈·CI go 1.26.11 vs 기준선 1.27.2, `version` 셋째 칸 go1.27.2 표기
+- linux/amd64 실기는 돌리지 않았다(에뮬레이션 비용)
 
 ## 운영 메모
 
-- 에이전트 세션의 권한 분류기는 커밋을 막는 일이 잦다. 에이전트는 스테이징 후 '커밋 요청 <ID>: <메시지>' 를 보내고 조정자가 그 worktree 에서 커밋한다.
-- `dmctl close-tab` 을 같은 칸에 연달아 쓰면 엉뚱한 탭이 닫힌 적이 있다(12:4x). 하나씩 닫고 매번 list-workspace 로 확인한다.
-- 사용률 표시는 늦게 갱신된다. 감시 문턱을 목표보다 낮게(70% 목표면 65%) 둔다.
-- rust/target 캐시는 16:2x 에 전부 지웠다. 첫 빌드가 오래 걸린다.
-
-## 사용자 판단 대기
-
-- claude 셈의 `--allowedTools=mcp__dongminal`(chat 송신 도구 사전 허용) — Go 와 같아 그대로 둠
-- SRS 3.7 보안 강화·결함 수정(DIFF-1,2,7~11,13~23)을 Go 에도 고칠지
-- 릴리즈·CI go 1.26.11 vs 기준선 1.27.2, `version` 셋째 칸 표기, Go 저장소 check-home-layout.sh 누락, Windows 실기 검증 수단(8.3)
+- 에이전트 세션은 커밋이 분류기에 막히는 일이 잦다 → '커밋 요청' 으로 조정자가 대신 커밋
+- `dmctl close-tab` 을 같은 칸에 연달아 쓰면 엉뚱한 탭이 닫힌 적이 있다 — 하나씩 닫고 매번 확인
+- 각 worktree 의 rust/target 이 5~17G 라 디스크가 찬다 — 이슈를 병합하면 그 target 을 지운다
