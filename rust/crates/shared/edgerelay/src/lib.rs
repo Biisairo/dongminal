@@ -137,6 +137,9 @@ fn bridge(s: IpcStream, rt: &Handle) -> tokio::io::DuplexStream {
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     if (&*s).write_all(&buf[..n]).is_err() {
+                        // 상대가 먼저 닫았다. tokio 쪽의 쓰기가 끊기면 이미 받은 바이트(TLS 거절
+                        // 경보 등)를 읽기 전에 쓰기 오류가 먼저 나므로, 끝까지 읽어 버린다.
+                        while matches!(rt2.block_on(rd.read(&mut buf)), Ok(n) if n > 0) {}
                         break;
                     }
                 }
