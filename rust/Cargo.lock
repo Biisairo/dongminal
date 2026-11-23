@@ -1130,7 +1130,14 @@ dependencies = [
 name = "dm-webserver-domain-worktree"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
+ "dm-shared-gittest",
  "dm-webserver-domain-git-core",
+ "hex",
+ "serde",
+ "sha2",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
