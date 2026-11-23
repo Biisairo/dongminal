@@ -1,5 +1,6 @@
 //! Go 시험을 옮긴 것. 도우미는 Go `fakes_test.go` 와 가짜 HTTP 서버다.
 
+mod auto;
 mod creds;
 mod engine;
 mod files;
