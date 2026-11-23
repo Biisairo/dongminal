@@ -90,6 +90,9 @@ pub(crate) struct Stats {
     #[serde(rename = "diskPct", skip_serializing_if = "Option::is_none")]
     disk_pct: Option<f64>,
     hostname: String,
+    /// `?jobs=1` 일 때 진행 중 git 작업이다 — Go 의 map 키 순서(바이트 순) 자리다.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    jobs: Option<Vec<dm_webserver_domain_git_jobs::Job>>,
     #[serde(rename = "memTotal", skip_serializing_if = "Option::is_none")]
     mem_total: Option<u64>,
     #[serde(rename = "memUsed", skip_serializing_if = "Option::is_none")]
@@ -190,9 +193,14 @@ impl Server {
         out
     }
 
-    /// GET /api/stats. `?jobs=1` 은 5.5.10 이 git 과 함께 붙인다.
-    pub(crate) async fn api_stats(&self, _r: &mut Req) -> Response {
-        write_json(&self.get_stats())
+    /// GET /api/stats. `?jobs=1` 이면 진행 중 git 작업 목록을 함께 싣는다 — git 이 없으면 키를
+    /// 싣지 않는다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-4).
+    pub(crate) async fn api_stats(&self, r: &mut Req) -> Response {
+        let mut out = self.get_stats();
+        if r.q("jobs") == "1" {
+            out.jobs = self.deps.git.as_ref().and_then(|g| g.active_jobs());
+        }
+        write_json(&out)
     }
 
     /// GET /api/state.
