@@ -13,6 +13,7 @@ workspace = true
 base64 = { workspace = true }
 bytes = { workspace = true }
 dm-gocompat = { path = "../../gocompat" }
+flate2 = { workspace = true }
 futures-util = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
@@ -23,6 +24,7 @@ regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+time = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
@@ -74,4 +76,5 @@ dm-webserver-seam-toolaccess = { path = "../seam/toolaccess" }
 dm-webserver-sse = { path = "../sse" }
 
 [dev-dependencies]
+dm-shared-gittest = { path = "../../shared/gittest" }
 tempfile = { workspace = true }

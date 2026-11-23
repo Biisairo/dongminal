@@ -67,6 +67,16 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/file/raw", h!(api_file_raw)),
         // 묶음 S — 탐색기의 디렉터리 조회 (FR-EDT-108). root 를 함께 받아 그 아래로 제한한다 (D-16).
         get("/api/fs/list", h!(api_fs_list)),
+        // EDITOR_LIVE_RELOAD_SRS FR-ELR-51: 보이는 디렉터리의 감시 등록. 변화는 `fs_changed` 로 온다.
+        put("/api/fs/watch", h!(api_fs_watch)),
+        // EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 파일 이름 찾기·전체 내용 찾기.
+        get("/api/fs/find", h!(api_fs_find)),
+        get("/api/fs/grep", h!(api_fs_grep)),
+        // EXPLORER_TRANSFER_IGNORE_SRS 묶음 A — 한 겹에서 무시된 이름을 가른다 (D-1).
+        post("/api/fs/ignored", h!(api_fs_ignored)),
+        // 묶음 B — 폴더를 zip 으로 (FR-ETR-11). UX_BATCH12_SRS FR-EXD-3·4: 여러 경로를 zip 하나로.
+        get("/api/fs/download-dir", h!(api_fs_download_dir)),
+        get("/api/fs/download-many", h!(api_fs_download_many)),
         get("/api/editors", h!(api_editors_get)),
         post("/api/editors/add", h!(api_editors_add)),
         // F-m: 편집기 루트 추가 경로의 답.

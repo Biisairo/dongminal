@@ -25,8 +25,12 @@ mod files_transfer;
 mod fs;
 mod fs_actions;
 mod fs_limits;
+mod fs_search;
 mod fs_stamp;
 mod fs_transfer;
+mod fs_watch;
+mod fs_zip;
+mod handlers_fs_ignored;
 mod httperr;
 mod lspsvc;
 mod mediatype;
@@ -102,6 +106,9 @@ pub struct Deps {
     pub repo_root: Option<wsentry::RepoRootFn>,
     /// 편집기의 코드 탐색 표면이다 (EDITOR_LSP_SRS 묶음 A). 없으면 그 연동만 빠진다.
     pub lsp: Option<Arc<dyn LspService>>,
+    /// 실행 기록을 공유할 git core 서비스다 (Go `Deps.Git.Service()`). 없어도 무시 판정은 돌고
+    /// 기록만 빠진다 (FR-GXU-4·10).
+    pub git_service: Option<Arc<dm_webserver_domain_git_core::Service>>,
 }
 
 /// 연결 진단의 계수다 (Go `connStats` 중 이 하위 이슈가 쓰는 것).
@@ -152,6 +159,10 @@ pub struct Server {
 /// 탐색기·편집기의 파일 조작 잠금이다 (Go `fsState`).
 #[derive(Default)]
 pub(crate) struct FsState {
+    /// 보이는 디렉터리의 파일 감시다 (FR-ELR-51). `new` 가 언제나 세운다.
+    pub(crate) watch: Option<dm_webserver_fswatch::Manager>,
+    /// 폴더 zip 내려받기의 상한과 지금 흐르는 수다 (FR-ETR-12·45).
+    pub(crate) zip: fs_zip::ZipLimits,
     /// 편집기 저장의 표식 검사~쓰기를 경로마다 한 번에 하나로 묶는다 (REFACTOR3_DEFECTS_SRS FR-RD3-20).
     pub(crate) writes: PathLocks,
 }
@@ -194,6 +205,7 @@ impl Server {
         access.refresh();
         let hosts = HostAllow::new(Some(access.clone()), cfg.allowed_hosts.clone());
         let entries = Arc::new(new_entry_store(&cfg, &deps));
+        let deps_commands = deps.commands.clone();
         Server {
             deps,
             cfg,
@@ -209,7 +221,10 @@ impl Server {
             started: Instant::now(),
             entries,
             limits: ServerLimits::default(),
-            fs: FsState::default(),
+            fs: FsState {
+                watch: Some(fs_watch::new_fs_watch(deps_commands)),
+                ..FsState::default()
+            },
         }
     }
 

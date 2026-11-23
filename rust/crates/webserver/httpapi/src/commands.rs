@@ -330,7 +330,7 @@ impl Server {
         self: &Arc<Self>,
         cid: &str,
         remote: &str,
-        _presence: bool,
+        presence: bool,
     ) -> impl FnOnce() {
         let mut undo: Vec<Box<dyn FnOnce() + Send>> = Vec::new();
         if !cid.is_empty() {
@@ -342,6 +342,16 @@ impl Server {
                     me.broadcast_focus_owners();
                 }
             }));
+        }
+        // FR-ELR-51: 파일 감시는 이 구독이 붙어 있는 동안만이다. presence 구독은 쥐지 않는다.
+        if !cid.is_empty()
+            && !presence
+            && let Some(w) = &self.fs.watch
+        {
+            let ep = w.attach(cid);
+            let w = w.clone();
+            let cid = cid.to_owned();
+            undo.push(Box::new(move || w.detach(&cid, ep)));
         }
         move || {
             while let Some(f) = undo.pop() {
