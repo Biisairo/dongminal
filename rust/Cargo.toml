@@ -98,6 +98,8 @@ license = "MIT"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
+# 릴리스 빌드가 빌드 경로를 새기지 않게 한다 (rust/scripts/build.sh, Go -trimpath).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(dongminal_trimpath)"] }
 
 [workspace.lints.clippy]
 dbg_macro = "deny"
@@ -133,7 +135,7 @@ rand = "0.10.4"
 rcgen = { version = "0.14.10", default-features = false, features = ["pem", "ring"] }
 regex = "1.13.2"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider", "json", "stream"] }
-rust-embed = { version = "8.14.0", features = ["debug-embed", "include-exclude"] }
+rust-embed = { version = "8.14.0", features = ["debug-embed", "include-exclude", "deterministic-timestamps"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
