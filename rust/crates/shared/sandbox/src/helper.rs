@@ -52,8 +52,8 @@ pub fn ensure_helper(d: &HelperDeps) -> Result<String, crate::Error> {
     if d.version == DEV_VERSION {
         if let Err(e) = (d.cross_build)(&d.arch, &dest) {
             return Err(crate::Error::msg(format!(
-                "리눅스용 {HELPER_NAME} 를 만들지 못했습니다(개발 빌드): {e}\n  직접 놓아두려면: GOOS=linux GOARCH={} go build -o {dest} ./cmd/dongminal",
-                d.arch
+                "리눅스용 {HELPER_NAME} 를 만들지 못했습니다(개발 빌드): {e}\n  직접 놓아두려면: cargo build --release -p dongminal --target {triple} && cp target/{triple}/release/dongminal {dest}",
+                triple = linux_triple(&d.arch)
             )));
         }
         return Ok(dest);
@@ -65,6 +65,15 @@ pub fn ensure_helper(d: &HelperDeps) -> Result<String, crate::Error> {
         )));
     }
     Ok(dest)
+}
+
+/// Go `GOARCH` 이름의 리눅스 Rust 대상이다.
+fn linux_triple(arch: &str) -> String {
+    match arch {
+        "amd64" => "x86_64-unknown-linux-gnu".into(),
+        "arm64" => "aarch64-unknown-linux-gnu".into(),
+        other => format!("{other}-unknown-linux-gnu"),
+    }
 }
 
 fn release_asset_url(version: &str, arch: &str) -> String {
@@ -188,15 +197,21 @@ async fn fetch_async(url: &str, dest: &str) -> Result<(), String> {
 fn cross_build_helper(arch: &str, dest: &str) -> Result<(), String> {
     let root = source_root()?;
     mkdir_parent(dest)?;
-    let triple = match arch {
-        "amd64" => "x86_64-unknown-linux-gnu",
-        "arm64" => "aarch64-unknown-linux-gnu",
-        other => return Err(format!("지원하지 않는 아키텍처입니다: {other}")),
-    };
-    let args: Vec<String> = ["build", "--release", "-p", "dongminal", "--target", triple]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+    if !matches!(arch, "amd64" | "arm64") {
+        return Err(format!("지원하지 않는 아키텍처입니다: {arch}"));
+    }
+    let triple = linux_triple(arch);
+    let args: Vec<String> = [
+        "build",
+        "--release",
+        "-p",
+        "dongminal",
+        "--target",
+        triple.as_str(),
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let r = std::process::Command::new(&cargo)
         .args(&args)
