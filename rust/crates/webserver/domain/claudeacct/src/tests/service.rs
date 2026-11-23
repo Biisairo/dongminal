@@ -2,7 +2,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -22,8 +22,12 @@ pub(crate) struct Env {
     pub(crate) data: PathBuf,
     pub(crate) sec: Arc<MemSecrets>,
     pub(crate) prof: Arc<FakeProfile>,
-    pub(crate) svc: Service,
+    pub(crate) svc: Arc<Service>,
     pub(crate) paths: ClaudePaths,
+    /// 서비스·엔진이 함께 보는 시계(unix 초).
+    pub(crate) clock: Arc<AtomicI64>,
+    /// 살아 있다고 볼 pid.
+    pub(crate) alive: Arc<Mutex<Vec<i32>>>,
 }
 
 pub(crate) fn new_env() -> Env {
@@ -35,6 +39,8 @@ pub(crate) fn new_env() -> Env {
     let prof = Arc::new(FakeProfile::default());
     let paths = ClaudePaths::default_for(&home);
     let n = Arc::new(AtomicUsize::new(0));
+    let clock = Arc::new(AtomicI64::new(1_700_000_000));
+    let alive: Arc<Mutex<Vec<i32>>> = Arc::default();
     let mut svc = Service::new(
         Store::open(&data),
         BackupStore {
@@ -49,21 +55,34 @@ pub(crate) fn new_env() -> Env {
         paths.clone(),
         &data,
         prof.clone(),
-        Arc::new(|| time::OffsetDateTime::from_unix_timestamp(1_700_000_000).unwrap()),
+        clock_fn(&clock),
         Arc::new(move || format!("id{}", n.fetch_add(1, Ordering::SeqCst) + 1)),
     );
     svc.lock_timeout = Duration::from_secs(1);
+    let a2 = alive.clone();
+    svc.alive = Some(Arc::new(move |pid| a2.lock().unwrap().contains(&pid)));
     Env {
         _tmp: tmp,
         data,
         sec,
         prof,
-        svc,
+        svc: Arc::new(svc),
         paths,
+        clock,
+        alive,
     }
 }
 
+pub(crate) fn clock_fn(c: &Arc<AtomicI64>) -> Clock {
+    let c = c.clone();
+    Arc::new(move || time::OffsetDateTime::from_unix_timestamp(c.load(Ordering::SeqCst)).unwrap())
+}
+
 impl Env {
+    pub(crate) fn svc_mut(&mut self) -> &mut Service {
+        Arc::get_mut(&mut self.svc).expect("서비스를 함께 쥔 쪽이 없어야 한다")
+    }
+
     /// 사용자가 Claude Code 에서 그 계정으로 로그인한 상태를 만든다.
     pub(crate) fn login(&self, email: &str, org: &str, acc: &str, access: &str, refresh: &str) {
         self.sec.put(
@@ -367,7 +386,7 @@ async fn switch_unknown_and_active() {
 #[tokio::test]
 async fn switch_honours_claude_locks() {
     let mut e = two_accounts().await;
-    e.svc.lock_timeout = Duration::from_millis(300);
+    e.svc_mut().lock_timeout = Duration::from_millis(300);
     let [lock, _] = e.paths.cred_lock_dirs();
     fs::create_dir_all(&lock).unwrap();
     assert!(
@@ -517,8 +536,8 @@ async fn sync_active_from_live() {
 fn config_dirs() {
     let t = tempfile::tempdir().unwrap();
     let mut e = new_env();
-    e.svc.dir = t.path().to_path_buf();
-    e.svc.claude.config_home = PathBuf::from("/home/u/.claude");
+    e.svc_mut().dir = t.path().to_path_buf();
+    e.svc_mut().claude.config_home = PathBuf::from("/home/u/.claude");
     assert_eq!(e.svc.config_dirs(), [PathBuf::from("/home/u/.claude")]);
     for id in ["b", "a"] {
         fs::create_dir_all(e.svc.profile_dir(id)).unwrap();
@@ -596,7 +615,7 @@ async fn profile_warnings_record_and_clear() {
     let mut e = two_accounts().await;
     let fail = Arc::new(Mutex::new(true));
     let f2 = fail.clone();
-    e.svc.link_shared = Some(Arc::new(move |_: &Path, _: &Path| {
+    e.svc_mut().link_shared = Some(Arc::new(move |_: &Path, _: &Path| {
         if *f2.lock().unwrap() {
             vec!["skills".into(), "settings.json".into()]
         } else {
@@ -615,7 +634,7 @@ async fn profile_warnings_record_and_clear() {
 #[tokio::test]
 async fn remove_drops_profile_warnings() {
     let mut e = two_accounts().await;
-    e.svc.link_shared = Some(Arc::new(|_: &Path, _: &Path| vec!["skills".to_owned()]));
+    e.svc_mut().link_shared = Some(Arc::new(|_: &Path, _: &Path| vec!["skills".to_owned()]));
     e.svc.prepare_profile("id1").unwrap();
     e.svc.remove("id1").await.unwrap();
     assert!(e.svc.profile_warnings("id1").is_empty());
@@ -963,8 +982,8 @@ pub(crate) fn write_session(dir: &Path, pid: i32) {
 
 #[tokio::test]
 async fn pinned_running() {
-    let mut e = two_accounts().await;
-    e.svc.alive = Some(Arc::new(|pid| pid == 42));
+    let e = two_accounts().await;
+    e.alive.lock().unwrap().push(42);
     assert!(!e.svc.pinned_running("id1"));
     let dir = e.svc.profile_dir("id1");
     write_session(&dir, 7);
@@ -1004,8 +1023,8 @@ async fn reclaim_profile_token() {
 
 #[tokio::test]
 async fn switch_reports_pinned_running() {
-    let mut e = two_accounts().await;
-    e.svc.alive = Some(Arc::new(|pid| pid == 42));
+    let e = two_accounts().await;
+    e.alive.lock().unwrap().push(42);
     e.svc.prepare_profile("id2").unwrap();
     write_session(&e.svc.profile_dir("id2"), 42);
     e.svc.profile_live("id2").write(&Credential::parse(br#"{"claudeAiOauth":{"accessToken":"at-b2","refreshToken":"rt-b2","expiresAt":1900000000000}}"#).unwrap()).unwrap();
