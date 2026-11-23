@@ -144,7 +144,6 @@ tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring
 tokio-tungstenite = "0.30.0"
 tokio-util = { version = "0.7.20", features = ["full"] }
 tower = "0.5.3"
-unicode-normalization = "0.1.25"
 url = "2.5.9"
 windows-sys = "0.61.2"
 x509-parser = "0.18.1"

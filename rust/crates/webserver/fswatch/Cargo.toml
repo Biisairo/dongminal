@@ -13,7 +13,7 @@ workspace = true
 dm-gocompat = { path = "../../gocompat" }
 dm-shared-dmlog = { path = "../../shared/dmlog" }
 notify = { workspace = true, features = ["macos_kqueue"] }
-unicode-normalization = { workspace = true }
+icu_normalizer = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }

@@ -6,7 +6,6 @@ use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use dm_gocompat::filepath;
-use unicode_normalization::UnicodeNormalization;
 
 use crate::coalesce::{Change, Kind, coalesce};
 
@@ -147,7 +146,9 @@ impl Pipeline {
     pub fn push(&self, e: RawEvent) {
         let mut name = e.name;
         if self.0.opt.nfc {
-            let base: String = filepath::base(&name).nfc().collect();
+            let base: String = icu_normalizer::ComposingNormalizerBorrowed::new_nfc()
+                .normalize(&filepath::base(&name))
+                .into_owned();
             name = filepath::join(&[filepath::dir(&name), base]);
         }
         if e.op & (OP_REMOVE | OP_RENAME) != 0 {

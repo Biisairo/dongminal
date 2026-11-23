@@ -16,10 +16,9 @@ crate 의 Cargo.toml 에서는 언제나 `foo = { workspace = true }` 로 참조
 | 시간 | time, chrono(clock) | Go time 형식은 dm-gocompat. 로컬 시간대는 chrono::Local 로 얻는다(time 의 local offset 은 unix 멀티스레드에서 실패하고, libc localtime_r 는 unsafe 가 필요하다) |
 | 압축·아카이브 | flate2, zip(deflate), tar | |
 | 파일 감시 | notify | fsnotify 대응 |
-| 유니코드 정규화 | unicode-normalization | golang.org/x/text/unicode/norm 대응 (macOS 파일 이름 NFD→NFC, 4.7) |
 | OS | libc, nix(unix), windows-sys(windows) | `unsafe` 는 C-RSP-4 범위에서만 |
 | 정규식 | regex | |
-| 유니코드 정규화 | icu_normalizer | Go `golang.org/x/text/unicode/norm` 대응(NFC). url→idna 가 이미 끌어오는 crate 다 |
+| 유니코드 정규화 | icu_normalizer | Go `golang.org/x/text/unicode/norm` 대응(NFC). url→idna 가 이미 끌어오는 crate 다. 정규화는 이것 하나만 쓴다(fswatch·claudeacct) |
 | 자산 임베드 | rust-embed | `web/` 임베드 |
 | 테스트 전용 | tempfile | dev-dependencies 에서만 |
 
