@@ -17,3 +17,5 @@ dm-shared-outbuf = { path = "../outbuf" }
 dm-shared-platform = { path = "../platform" }
 dm-shared-pollwait = { path = "../pollwait" }
 dm-shared-uuid = { path = "../uuid" }
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }

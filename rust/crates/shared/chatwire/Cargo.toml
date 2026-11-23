@@ -12,3 +12,5 @@ workspace = true
 [dependencies]
 dm-shared-humancmd = { path = "../humancmd" }
 dm-shared-platform = { path = "../platform" }
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }

@@ -473,8 +473,10 @@ version = "1.3.7"
 name = "dm-shared-chatwire"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-humancmd",
  "dm-shared-platform",
+ "serde",
 ]
 
 [[package]]
@@ -755,6 +757,7 @@ dependencies = [
 name = "dm-shared-toolhub"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-activity",
  "dm-shared-dmenv",
  "dm-shared-dmlog",
@@ -762,14 +765,17 @@ dependencies = [
  "dm-shared-platform",
  "dm-shared-pollwait",
  "dm-shared-uuid",
+ "serde",
 ]
 
 [[package]]
 name = "dm-shared-toolipc"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-chatwire",
  "dm-shared-toolhub",
+ "serde",
 ]
 
 [[package]]
