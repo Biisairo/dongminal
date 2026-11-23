@@ -179,6 +179,7 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-8 | 결함 수정 | ctl/migrate | workspace 가 `null` 이면 패닉 | 빈 객체로 다룬다 | 6.2 |
 | DIFF-9 | 보안 강화 | ctl/privhelper | 동시 연결 수에 상한이 없어 자원 고갈 가능 | 동시 연결 상한 32 | 6.2 |
 | DIFF-10 | 보안 강화 | webserver/fswatch (macOS kqueue) | 디렉터리의 모든 항목(특수 파일 포함)을 감시 대상으로 열어 fd 가 바닥날 수 있다 | 특수 파일(FIFO·소켓·장치)은 건너뛰고 디렉터리당 4096 항목까지만 감시한다 | 4.7 |
+| DIFF-11 | 보안 강화 | shared/toolhub (붙여넣기 감싸기) | `wrapPaste` 가 본문의 `ESC[201~` 를 한 번만 지워, 지운 자리에서 끝 표시가 다시 생겨 bracketed paste 를 빠져나갈 수 있다 | 끝 표시가 남지 않을 때까지 지운다 | 2.2.3 |
 
 ## 4. 검증
 
