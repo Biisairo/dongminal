@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 환경변수 문서 대조 (CONFIG_MANAGEMENT_SRS FR-CFG-18 · M5 `G5-2`).
+# 환경변수 문서 대조 (CONFIG_MANAGEMENT_SRS FR-CFG-18 · M5 `G5-2`, GO_REMOVAL_SRS G-25).
 #
 # 코드가 읽는 환경변수와 `docs/external/getting-started.md` 의 표가 **양방향으로**
 # 같아야 한다.
@@ -25,30 +25,36 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 
   코드의 `DONGMINAL_*`(+ `PORT`)와 getting-started.md 의 표를 양방향 대조한다.
 
-  세는 것: internal/ · cmd/ 의 **비검사 Go 소스**에 나오는 변수 이름
-  빼는 것: *_test.go (검사 전용 변수는 제품 표면이 아니다)
+  세는 것: rust/crates/ 의 **비검사 Rust 소스**에 나오는 변수 이름
+  빼는 것: 시험 전용 소스 (검사 전용 변수는 제품 표면이 아니다),
+           빌드 각인 변수 DONGMINAL_BUILD_VERSION·DONGMINAL_BUILD_DAEMON
 USAGE
   exit 0
 fi
 
-# ── 코드 쪽 ────────────────────────────────────────────────
-# 검사 파일을 빼는 이유: `DONGMINAL_TEST_RUNS_DIR` 처럼 검사만 쓰는 변수는
-# 제품의 표면이 아니다. 문서에 실으면 사용자가 쓸 수 있는 값으로 읽힌다.
+source scripts/lib/rs-src.sh
+
+# 빌드 각인 변수 — 실행 중에 읽지 않는다. 빌드할 때 `option_env!` 가 바이너리에 새기는
+# 값이며 Go 판 `-ldflags -X` 의 자리다 (GO_REMOVAL_SRS Q-GRM-11, RUST_PORT_SRS FR-RSP-11).
+BUILD_STAMP='^(DONGMINAL_BUILD_VERSION|DONGMINAL_BUILD_DAEMON)$'
+
+src=$(rs_src_files)
+if [[ -z "$src" ]]; then
+  echo "검사할 Rust 소스가 없습니다 (rust/crates/**/*.rs) — 빈 통과를 막습니다."
+  exit 1
+fi
+
 code_vars=$(
-  grep -rhoE '"DONGMINAL_[A-Z0-9_]+"' --include='*.go' internal cmd 2>/dev/null \
-    --exclude='*_test.go' | tr -d '"' | sort -u
+  printf '%s\n' "$src" | xargs grep -hoE '"DONGMINAL_[A-Z0-9_]+"' 2>/dev/null \
+    | tr -d '"' | grep -vE "$BUILD_STAMP" | sort -u
 )
-# `PORT` 는 접두사가 없어 따로 본다 — 이름이 계약이라 바꾸지 않는다.
-if grep -rqE 'EnvPort\s*=\s*"PORT"' --include='*.go' internal 2>/dev/null; then
+if printf '%s\n' "$src" | xargs grep -qE 'const ENV_PORT[A-Z_]*: &(\x27static )?str = "PORT"' 2>/dev/null; then
   code_vars=$(printf '%s\nPORT\n' "$code_vars" | sort -u)
 fi
-# 빌드 스크립트의 변수는 코드가 아니라 스크립트가 읽는다.
 if grep -qE '\$\{?BINARY' scripts/build.sh 2>/dev/null; then
   code_vars=$(printf '%s\nBINARY\n' "$code_vars" | sort -u)
 fi
 
-# ── 문서 쪽 ────────────────────────────────────────────────
-# 표의 첫 칸(`| \`VAR\` |`)만 센다. 본문에 스쳐 지나가는 언급은 문서화가 아니다.
 doc_vars=$(
   grep -oE '^\| `(DONGMINAL_[A-Z0-9_]+|PORT|BINARY)`' "$DOC" \
     | sed -E 's/^\| `//; s/`$//' | sort -u

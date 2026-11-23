@@ -2,7 +2,7 @@
 //! 확인·Go 노드가 넘겨 준 net·초대 상자(ECDH·HKDF·AES-GCM)를 양쪽으로 시험한다.
 //!
 //! `DM_PARITY_GO_MESHPEER` 가 없으면 건너뛴다. 격리 실행으로 돌린다:
-//! `rust/scripts/hermetic.sh go build -o rust/target/go-ref/meshpeer ./rust/crates/shared/edgemesh/testdata/gopeer`
+//! `rust/scripts/hermetic.sh env DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/meshpeer rust/crates/shared/edgemesh/testdata/gopeer`
 //! `rust/scripts/hermetic.sh env DM_PARITY_GO_MESHPEER=$PWD/rust/target/go-ref/meshpeer cargo test --manifest-path rust/Cargo.toml -p dm-shared-edgemesh --test go_interop`
 
 use std::path::PathBuf;

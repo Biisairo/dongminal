@@ -120,6 +120,42 @@ mod tests {
         assert!(get("js/core/settings-schema.js").is_some());
     }
 
+    const ASSET_VER_PLACEHOLDER: &str = "__ASSETV__";
+
+    /// 따옴표 안의 `?v=` 값 전부다 — Go `\?v=([^"'\s>]*)` 와 같다.
+    fn asset_versions(doc: &str) -> Vec<&str> {
+        doc.match_indices("?v=")
+            .map(|(i, m)| {
+                let rest = &doc[i + m.len()..];
+                let end = rest
+                    .find(|c: char| matches!(c, '"' | '\'' | '>') || c.is_ascii_whitespace())
+                    .unwrap_or(rest.len());
+                &rest[..end]
+            })
+            .collect()
+    }
+
+    // TC-AVS-9 (FR-AVS-4·15): 문서는 판을 적지 않는다. 판은 서버가 서빙 시점에 넣는다.
+    #[test]
+    fn index_declares_no_literal_version() {
+        let b = get("index.html").expect("index.html");
+        let doc = std::str::from_utf8(&b).expect("utf-8");
+        let vs = asset_versions(doc);
+        assert!(
+            !vs.is_empty(),
+            "index.html 에 ?v= 가 없다 — 자산이 무효화되지 않는다"
+        );
+        for v in vs {
+            assert_eq!(v, ASSET_VER_PLACEHOLDER, "index.html 이 판을 손으로 적었다");
+        }
+    }
+
+    #[test]
+    fn asset_versions_catches_literal() {
+        let doc = "<link href=\"a.css?v=__ASSETV__\"><script src='b.js?v=12'></script> c?v=x>";
+        assert_eq!(asset_versions(doc), vec!["__ASSETV__", "12", "x"]);
+    }
+
     #[test]
     fn go_sources_and_tests_are_not_embedded() {
         assert!(get("embed.go").is_none());

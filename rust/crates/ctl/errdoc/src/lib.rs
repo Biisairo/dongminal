@@ -5,9 +5,12 @@
 use dm_webserver_apierr as apierr;
 
 /// 문서의 머리말이다. 코드 표는 이 뒤에 붙는다.
+/// 저장소 뿌리에서 문서를 다시 만드는 명령이다.
+pub const GENERATE: &str = "cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-errors";
+
 pub const HEADER: &str = r#"<!-- 이 파일은 생성물입니다. 직접 고치지 마세요.
-     원천: internal/webserver/apierr/codes_doc.go
-     생성: dongminal 저장소에서 `go run ./scripts/gen-errors`
+     원천: rust/crates/webserver/apierr/src/codes.rs
+     생성: dongminal 저장소에서 `cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-errors`
      검사: scripts/check-error-docs.sh (CI) -->
 
 # 오류 코드
@@ -96,10 +99,15 @@ mod tests {
         );
     }
 
-    /// go1.27.2 의 `errdoc.Render()` 출력과 바이트 단위로 같다.
+    /// 머리 줄 말고는 go1.27.2 의 `errdoc.Render()` 출력과 바이트 단위로 같다.
     #[test]
-    fn render_matches_go_golden() {
+    fn render_matches_golden() {
         let want = include_str!("../testdata/errors.md");
         assert_eq!(render().unwrap(), want);
+    }
+
+    #[test]
+    fn header_names_generate_command() {
+        assert!(super::HEADER.contains(&format!("`{}`", super::GENERATE)));
     }
 }
