@@ -303,7 +303,7 @@ fn parse_authority(authority: &str) -> Option<String> {
             if !valid_userinfo(&authority[..i]) {
                 return None;
             }
-            unescape(&authority[..i], Mode::UserPassword)?;
+            unescape(&authority[..i], Mode::Userinfo)?;
             &authority[i + 1..]
         }
         None => authority,
@@ -379,7 +379,7 @@ enum Mode {
     Path,
     Host,
     Zone,
-    UserPassword,
+    Userinfo,
     Fragment,
 }
 

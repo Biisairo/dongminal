@@ -70,6 +70,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/sandbox/config", h!(api_sandbox_config_get)),
         put("/api/sandbox/config", h!(api_sandbox_config_put)),
         get("/api/workspace", h!(api_workspace_get)),
+        get("/api/meta", h!(api_meta)),
         put("/api/workspace", h!(api_workspace_put)),
         // ACCESS_ALLOWLIST_SRS FR-ACL-19·20. 게이트 **뒤**에 있다 (FR-ACL-21).
         get("/api/access", h!(api_access_get)),
@@ -87,6 +88,32 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/file/raw", h!(api_file_raw)),
         // 묶음 S — 탐색기의 디렉터리 조회 (FR-EDT-108). root 를 함께 받아 그 아래로 제한한다 (D-16).
         get("/api/fs/list", h!(api_fs_list)),
+        // NOTES_LIVE_EXPLORER_SRS 묶음 L — 겹이 바뀌었는지만 묻는다.
+        post("/api/fs/stamp", h!(api_fs_stamp)),
+        // FR-OPT-4-2: 겹·파일을 한 요청으로 묻는다.
+        post("/api/fs/stamps", h!(api_fs_stamps)),
+        // EDITOR_LIVE_RELOAD_SRS FR-ELR-51: 보이는 디렉터리의 감시 등록. 변화는 `fs_changed` 로 온다.
+        put("/api/fs/watch", h!(api_fs_watch)),
+        // EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 파일 이름 찾기·전체 내용 찾기.
+        get("/api/fs/find", h!(api_fs_find)),
+        get("/api/fs/grep", h!(api_fs_grep)),
+        // EXPLORER_TRANSFER_IGNORE_SRS 묶음 A — 한 겹에서 무시된 이름을 가른다 (D-1).
+        post("/api/fs/ignored", h!(api_fs_ignored)),
+        post("/api/fs/create", h!(api_fs_create)),
+        post("/api/fs/rename", h!(api_fs_rename)),
+        post("/api/fs/delete", h!(api_fs_delete)),
+        // F-a: 메뉴의 답과 삭제할 항목 수.
+        post("/api/fs/actions", h!(api_fs_actions)),
+        // F-i: 만들기·이름 바꾸기의 이름 판정.
+        post("/api/fs/validate-name", h!(api_fs_validate_name)),
+        // FR-WBR-60: 루트를 둘 받는 유일한 fs 종단이다.
+        post("/api/fs/copy", h!(api_fs_copy)),
+        // 묶음 D·E — 탐색기의 전송. /api/{upload,download} 와 같은 일을 하되 root 가드를 받는다.
+        get("/api/fs/download", h!(api_fs_download)),
+        // 묶음 B — 폴더를 zip 으로 (FR-ETR-11). UX_BATCH12_SRS FR-EXD-3·4: 여러 경로를 zip 하나로.
+        get("/api/fs/download-dir", h!(api_fs_download_dir)),
+        get("/api/fs/download-many", h!(api_fs_download_many)),
+        post("/api/fs/upload", h!(api_fs_upload)),
         get("/api/editors", h!(api_editors_get)),
         post("/api/editors/add", h!(api_editors_add)),
         // F-m: 편집기 루트 추가 경로의 답.
