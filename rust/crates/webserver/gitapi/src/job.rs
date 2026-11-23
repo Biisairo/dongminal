@@ -1,8 +1,6 @@
 //! 쓰기의 잡 경로 (Go `gitjob.go` 와 `handlers_git_remote.go` 의 공용 부분).
 //!
 //! 분 단위가 될 수 있는 쓰기는 응답을 붙잡지 않고 잡으로 띄워 식별자를 곧바로 준다 (FR-GIT-102).
-//! 이 경로를 부르는 종단은 5.4.2 가 옮긴다 — 그때까지는 시험만 부른다.
-#![allow(dead_code)]
 
 use std::sync::Arc;
 

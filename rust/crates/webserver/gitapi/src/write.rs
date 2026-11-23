@@ -55,8 +55,7 @@ pub(crate) struct GitWrite<'a> {
     after: Status,
     /// 쓰기는 적용됐고 재조회만 실패했다 (FR-ATF-74).
     stale: bool,
-    /// 잡 거절 응답에 함께 실을 "이미 적용된 것" 이다. 채우는 종단은 5.4.2 가 옮긴다.
-    #[allow(dead_code)]
+    /// 잡 거절 응답에 함께 실을 "이미 적용된 것" 이다.
     pub(crate) applied: Option<Obj>,
 }
 
@@ -434,7 +433,7 @@ impl<'a> GitWrite<'a> {
             code,
             name,
             &git_tail(&run_err.to_string()),
-            run_err,
+            Some(run_err),
             body,
         )
         .await;
@@ -447,14 +446,16 @@ impl<'a> GitWrite<'a> {
         code: StatusCode,
         name: &str,
         msg: &str,
-        cause: &dyn GitErr,
+        cause: Option<&dyn GitErr>,
         mut body: Obj,
     ) {
         body.extend(obj! {
             "error" => name, "message" => msg,
             "requested" => self.requested, "repo" => self.root,
         });
-        if let Some(lock) = self.s.git_index_lock(ctx, &self.root, cause).await {
+        if let Some(cause) = cause
+            && let Some(lock) = self.s.git_index_lock(ctx, &self.root, cause).await
+        {
             body.insert("lock".to_owned(), raw(&lock));
         }
         self.respond(git_err_json(code, name, &body));
