@@ -21,3 +21,5 @@ dm-webserver-domain-run = { path = "../domain/run" }
 dm-webserver-domain-sysstat = { path = "../domain/sysstat" }
 dm-webserver-domain-worktree = { path = "../domain/worktree" }
 dm-webserver-domain-wsentry = { path = "../domain/wsentry" }
+
+[dev-dependencies]
