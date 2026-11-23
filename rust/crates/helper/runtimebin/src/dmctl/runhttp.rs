@@ -1,11 +1,8 @@
 //! runs 종단의 왕복과 `{error,detail,…}` 방언의 거절 문구.
 
-#![allow(dead_code)]
-
 use std::io::Write;
 use std::time::Duration;
 
-use dm_gocompat::json::RawMessage;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -14,6 +11,17 @@ use crate::http::{
     ExitRule, HttpOut, base_url, http_delete, http_exit, http_get_within, http_post_json_within,
     parse_refusal, print_api_error, refuse_with, take_field,
 };
+
+#[derive(Default, Deserialize, Clone, Debug)]
+#[serde(default, rename = "runtimebin.runWorktree")]
+pub(crate) struct RunWorktree {
+    pub path: String,
+    pub branch: String,
+    pub base: String,
+    pub removed: bool,
+    pub residue: String,
+    pub detail: String,
+}
 
 /// Run 멤버의 뷰다. 거절 본문의 `unreported` 가 이 모양이다.
 #[derive(Default, Deserialize, Clone, Debug)]
@@ -29,7 +37,7 @@ pub(crate) struct RunMember {
     pub state: String,
     pub outcome: String,
     pub summary: String,
-    pub worktree: Option<RawMessage>,
+    pub worktree: Option<RunWorktree>,
     pub headless: bool,
     #[serde(rename = "contextRatio")]
     pub context_ratio: f64,

@@ -478,7 +478,7 @@ fn optional_fields(tool: &str, detail: &str) -> String {
     out
 }
 
-fn write_raw_json(ctx: &mut Ctx<'_>, body: &[u8]) {
+pub(crate) fn write_raw_json(ctx: &mut Ctx<'_>, body: &[u8]) {
     let mut out = body;
     while let [rest @ .., b'\n'] = out {
         out = rest;

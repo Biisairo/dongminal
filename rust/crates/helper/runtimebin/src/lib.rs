@@ -77,6 +77,18 @@ fn os_to_string(s: OsString) -> String {
         .unwrap_or_else(|s| s.to_string_lossy().into_owned())
 }
 
+/// env 의 인스턴스 홈 아래 에이전트 훅 자리다. 홈을 모르면 빈 문자열이다.
+pub(crate) fn agent_hooks_dir_in(env: &Env) -> String {
+    let home = env.get(dm_shared_dmenv::ENV_HOME);
+    if home.is_empty() {
+        return String::new();
+    }
+    let bin = Path::new(&home).join(dm_shared_dmenv::BIN_DIR);
+    dm_shared_dmenv::agent_hooks_dir_in(&bin)
+        .to_string_lossy()
+        .into_owned()
+}
+
 /// 이 프로세스가 속한 인스턴스의 에이전트 훅 자리다. 홈(`DONGMINAL_HOME`)을 모르면 빈 문자열이다.
 pub fn agent_hooks_dir() -> String {
     let home = Env::process().get(dm_shared_dmenv::ENV_HOME);

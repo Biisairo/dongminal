@@ -285,3 +285,7 @@ pub(crate) fn run_dmctl_list_groups(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
     }
     0
 }
+
+pub(crate) fn repo_issue_ref_matches(s: &str) -> bool {
+    REPO_ISSUE_REF.is_match(s)
+}
