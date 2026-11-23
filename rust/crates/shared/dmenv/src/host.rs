@@ -203,16 +203,8 @@ mod tests {
         }
     }
 
-    // listen_addr 의 결과는 실제 listen 이 받는 것이어야 한다. 포트는 운영 범위(60147 미만)를 피한다.
-    #[test]
-    fn listen_addr_is_bindable() {
-        for host in ["127.0.0.1", "::1"] {
-            let bound = (60147u16..60247).any(|port| {
-                std::net::TcpListener::bind(listen_addr(host, &port.to_string())).is_ok()
-            });
-            assert!(bound, "{host} 에 바인드하지 못했다");
-        }
-    }
+    // listen_addr 의 결과가 실제 listen 이 받는 것인지는 platform 의 tcp_listen 시험이 본다
+    // (platform 이 dmenv 에 의존하므로 여기서 platform 리슨을 부를 수 없다).
 
     #[test]
     fn base() {

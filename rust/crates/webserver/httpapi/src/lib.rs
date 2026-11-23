@@ -46,7 +46,6 @@ mod handlers_diag;
 mod handlers_fs_ignored;
 mod health;
 mod httperr;
-mod listen;
 mod lsp_api;
 mod lspsvc;
 mod mediatype;

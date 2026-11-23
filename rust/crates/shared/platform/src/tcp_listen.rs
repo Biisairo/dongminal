@@ -9,8 +9,6 @@ use std::sync::OnceLock;
 
 use socket2::{Domain, Protocol, Socket, Type};
 
-use crate::netx::split_host_port;
-
 /// Go `syscall.SOMAXCONN`(Windows)·`somaxconn`(unix) 자리다. 커널이 상한으로 줄인다.
 const LISTEN_BACKLOG: i32 = i32::MAX;
 
@@ -108,7 +106,10 @@ pub(crate) fn listen_plan(ip: Option<IpAddr>, port: u16, caps: IpStackCaps) -> L
 }
 
 /// Go `net.Listen("tcp", addr)`. 이름 호스트는 풀어서 첫 IPv4(없으면 첫 주소)를 쓴다.
-pub(crate) fn listen_tcp(addr: &str) -> io::Result<TcpListener> {
+///
+/// 실패하면 bind·listen 의 `io::Error` 를 그대로 준다. Go `net.OpError` 꼴(`listen tcp {addr}: ...`)의
+/// 포장은 호출자가 한다. 돌려주는 리스너는 블로킹이다 — 비동기 쪽은 호출자가 `from_std` 한다.
+pub fn listen_tcp(addr: &str) -> io::Result<TcpListener> {
     let Some((host, port)) = split_host_port(addr) else {
         return TcpListener::bind(addr);
     };
@@ -149,7 +150,7 @@ fn open(plan: &ListenPlan) -> io::Result<TcpListener> {
 }
 
 /// Go 는 IPv4-mapped 주소를 IPv4 로 보인다(`IP.String`). 이중 스택 리스너가 받은 주소를 맞춘다.
-pub(crate) fn canonical_addr(a: SocketAddr) -> SocketAddr {
+pub fn canonical_addr(a: SocketAddr) -> SocketAddr {
     match a {
         SocketAddr::V6(v6) => match v6.ip().to_ipv4_mapped() {
             Some(v4) => SocketAddr::new(IpAddr::V4(v4), v6.port()),
@@ -158,3 +159,28 @@ pub(crate) fn canonical_addr(a: SocketAddr) -> SocketAddr {
         SocketAddr::V4(_) => a,
     }
 }
+
+/// Go `net.SplitHostPort`. 오류면 `None` 이다.
+fn split_host_port(hostport: &str) -> Option<(&str, &str)> {
+    let i = hostport.rfind(':')?;
+    let host = if hostport.starts_with('[') {
+        let end = hostport.find(']')?;
+        if end + 1 == hostport.len() || end + 1 != i {
+            return None;
+        }
+        &hostport[1..end]
+    } else {
+        let host = &hostport[..i];
+        if host.contains(':') {
+            return None;
+        }
+        host
+    };
+    if host.contains(['[', ']']) || hostport[i + 1..].contains(['[', ']']) {
+        return None;
+    }
+    Some((host, &hostport[i + 1..]))
+}
+
+#[cfg(test)]
+mod tests;

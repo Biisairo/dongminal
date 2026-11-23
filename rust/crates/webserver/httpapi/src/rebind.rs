@@ -12,6 +12,7 @@ use std::time::Duration;
 use dm_shared_dmenv as dmenv;
 use dm_shared_dmlog::{errorf, infof, warnf};
 use dm_shared_httpresp::Response;
+use dm_shared_platform::canonical_addr;
 use dm_shared_serverconf as serverconf;
 use dm_webserver_apierr as apierr;
 use http::{Method, StatusCode};
@@ -26,7 +27,6 @@ use tokio_util::task::TaskTracker;
 use crate::Server;
 use crate::carry::CarryStore;
 use crate::httperr::{code_fail, read_json_body, write_json};
-use crate::listen::canonical_addr;
 use crate::netx::split_host_port;
 use crate::openurl::is_loopback_addr;
 use crate::rebind_conns::{ConnIo, ConnSet, ConnTimeouts, DoneBody, Phase};
@@ -46,7 +46,7 @@ pub(crate) type ListenFn = Arc<dyn Fn(&str) -> io::Result<std::net::TcpListener>
 
 /// 기본 리슨 (Go `net.Listen`). 와일드카드는 가능하면 이중 스택이다.
 pub(crate) fn default_listen(addr: &str) -> io::Result<std::net::TcpListener> {
-    crate::listen::listen_tcp(addr)
+    dm_shared_platform::listen_tcp(addr)
 }
 
 /// 실행 중 리바인드의 상태다 (Go `rebindState`).
