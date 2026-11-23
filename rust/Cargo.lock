@@ -786,13 +786,25 @@ dependencies = [
 name = "dm-shared-edgenode"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-dmenv",
  "dm-shared-dmlog",
  "dm-shared-edge",
  "dm-shared-edgemesh",
+ "dm-shared-edgerelay",
  "dm-shared-httpreq",
  "dm-shared-httpresp",
  "dm-shared-termtext",
+ "hex",
+ "http",
+ "hyper",
+ "rand",
+ "serde",
+ "sha2",
+ "tempfile",
+ "time",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

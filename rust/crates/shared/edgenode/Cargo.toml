@@ -17,3 +17,17 @@ dm-shared-edgemesh = { path = "../edgemesh" }
 dm-shared-httpreq = { path = "../httpreq" }
 dm-shared-httpresp = { path = "../httpresp" }
 dm-shared-termtext = { path = "../termtext" }
+dm-gocompat = { path = "../../gocompat" }
+hex = { workspace = true }
+http = { workspace = true }
+hyper = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+
+[dev-dependencies]
+dm-shared-edgerelay = { path = "../edgerelay" }
+rand = { workspace = true }
+tempfile = { workspace = true }
