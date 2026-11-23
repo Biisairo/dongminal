@@ -3,11 +3,15 @@
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime};
 
-use dm_webserver_domain_git_core::{self as core, Ctx};
+#[cfg(unix)]
+use dm_webserver_domain_git_core::Ctx;
+use dm_webserver_domain_git_core::{self as core};
 use tokio::sync::{Notify, mpsc};
 
 use super::support::*;
-use crate::exec::{exec_stream, read_lines};
+#[cfg(unix)]
+use crate::exec::exec_stream;
+use crate::exec::read_lines;
 use crate::{
     Emit, FIX_FORCE_WITH_LEASE, JOB_LINE_CAP, JOB_RETENTION, Jobs, JobsKind, JobsOptions,
     LINE_STDERR, LINE_STDOUT, Line, StartOptions,

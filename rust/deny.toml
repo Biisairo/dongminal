@@ -7,14 +7,26 @@ targets = [
 
 [advisories]
 yanked = "deny"
+ignore = [
+  # 유지보수 중단 알림이지 취약점이 아니다. 로컬 시간대를 unsafe 없이 얻는 자리(DEPENDENCIES.md)라
+  # 대체는 따로 정한다 (8.3 진행 기록).
+  { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained — 대체 결정 전까지 둔다" },
+]
 
 [licenses]
 allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "CDLA-Permissive-2.0"]
 confidence-threshold = 0.9
+# 허용 목록 밖이지만 허용적인 라이선스를 그 crate 에만 연다.
+exceptions = [
+  { crate = "notify", allow = ["CC0-1.0"] },
+  { crate = "xxhash-rust", allow = ["BSL-1.0"] },
+]
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# 워크스페이스 안의 path 의존(모두 publish = false)은 와일드카드로 세지 않는다.
+allow-wildcard-paths = true
 deny = [
   { crate = "openssl-sys", reason = "TLS 는 rustls(ring) 만 쓴다" },
   { crate = "native-tls", reason = "TLS 는 rustls(ring) 만 쓴다" },

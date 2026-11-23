@@ -83,7 +83,14 @@ async fn signature_ref_add_survives_stale_dir_mtime() {
     let Some(repo) = git_repo() else { return };
     let p = repo.path.as_str();
     let s = Service::new();
-    let dirs = [format!("{p}/.git/refs"), format!("{p}/.git/refs/heads")];
+    // git 판에 따라(예: 2.39) 느슨한 ref 를 지울 때 packed-refs 를 새로 쓴다. 미리 만들어 두고 그
+    // mtime 도 함께 고정해, 전제(mtime 근거가 그대로다)가 git 판과 무관하게 서게 한다.
+    git_run(p, &["pack-refs", "--all"]);
+    let dirs = [
+        format!("{p}/.git/refs"),
+        format!("{p}/.git/refs/heads"),
+        format!("{p}/.git/packed-refs"),
+    ];
     let pin = || {
         let mts: Vec<std::time::SystemTime> = dirs
             .iter()

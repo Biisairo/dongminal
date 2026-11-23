@@ -86,6 +86,7 @@ fn probe_bin_is_temporary() {
     assert!(!Path::new(&bin).exists(), "검사용 자리가 남았다: {bin}");
 }
 
+#[cfg(unix)]
 fn suffix() -> &'static str {
     dm_shared_platform::current().paths.exe_suffix()
 }

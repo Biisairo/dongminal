@@ -233,6 +233,7 @@ pub(crate) fn mkdir_temp(dir: &str, prefix: &str) -> Result<String, String> {
             .build_hasher()
             .finish() as u32;
         let p = filepath::join(&[dir, &format!("{prefix}{n}")]);
+        #[cfg_attr(not(unix), expect(unused_mut))]
         let mut b = std::fs::DirBuilder::new();
         #[cfg(unix)]
         std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o700);
@@ -279,6 +280,7 @@ pub(crate) fn mkdir_all(path: &str, mode: u32) -> io::Result<()> {
             mkdir_all(parent, mode)?;
         }
     }
+    #[cfg_attr(not(unix), expect(unused_mut))]
     let mut d = std::fs::DirBuilder::new();
     #[cfg(unix)]
     std::os::unix::fs::DirBuilderExt::mode(&mut d, mode);

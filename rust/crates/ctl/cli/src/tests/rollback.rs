@@ -4,6 +4,7 @@ use std::path::Path;
 
 use dm_shared_dmenv as dmenv;
 
+#[cfg(unix)]
 use super::proc::live_socket;
 use super::{Vars, with_env};
 use crate::homelayout::home_layout;

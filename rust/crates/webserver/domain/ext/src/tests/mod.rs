@@ -176,6 +176,7 @@ pub(crate) fn link(name: &str, typ: u8, target: &str) -> TarEntry {
     }
 }
 
+#[cfg(unix)]
 pub(crate) fn dir_entry(name: &str) -> TarEntry {
     TarEntry {
         name: name.to_owned(),

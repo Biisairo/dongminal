@@ -58,6 +58,7 @@ pub(crate) fn lexists(p: &str) -> bool {
 
 /// Go `os.Mkdir`.
 fn mkdir(p: &str, perm: u32) -> io::Result<()> {
+    #[cfg_attr(not(unix), expect(unused_mut))]
     let mut b = fs::DirBuilder::new();
     #[cfg(unix)]
     {

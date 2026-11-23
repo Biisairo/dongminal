@@ -1,4 +1,5 @@
 //! `start --foreground` 의 서버 프로세스 (Go `cmd/dongminal/app.go`). 임시 홈과 60147 이상 포트에서만 돈다.
+#![cfg(unix)]
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -35,7 +36,6 @@ fn health_ok(port: u16) -> bool {
 // Go buildApp 의 `os.Setenv(DONGMINAL_HOME)` 자리: 환경변수 없이 `--home` 으로 띄워도 serve 첫 줄에서
 // 스레드가 하나뿐이라 홈을 환경에 넣는다(넣지 못하면 ERROR 줄이 남는다). 서버는 데몬에 붙어 서고,
 // SIGTERM 에 정상 종료 마커를 남긴다.
-#[cfg(unix)]
 #[test]
 fn foreground_serve_sets_home_env_before_threads() {
     let d = tempfile::Builder::new().prefix("dm").tempdir().unwrap();

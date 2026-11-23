@@ -347,7 +347,7 @@ mod tests {
             .start(
                 ProcSpec {
                     path: "/bin/sh".into(),
-                    args: vec!["sh".into(), "-c".into(), "sleep 30".into()],
+                    args: vec!["sh".into(), "-c".into(), "exec sleep 30".into()],
                     env: vec![],
                     dir: String::new(),
                 },
@@ -375,7 +375,7 @@ mod tests {
             "자식 {} 의 단말 {tty} 가 없다: {kids:?}",
             t.pid()
         );
-        assert_eq!(command_name(t.pid()), "sleep"); // sh -c 가 sleep 으로 exec 한다
+        assert_eq!(command_name(t.pid()), "sleep"); // sh 가 sleep 으로 exec 한다(dash 는 저절로 하지 않는다)
         assert_eq!(command_name(-5), "shell");
         let _ = t.kill();
         let _ = t.wait();

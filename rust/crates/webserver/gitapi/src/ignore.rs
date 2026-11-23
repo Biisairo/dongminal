@@ -158,6 +158,10 @@ fn write_head_temp(root: &str, rel: &str, content: &str) -> io::Result<String> {
                 perm.set_mode(HEAD_FILE_PERM);
             }
             #[cfg(not(unix))]
+            #[expect(
+                clippy::permissions_set_readonly_false,
+                reason = "Go os.Chmod 의 Windows 갈래처럼 읽기 전용만 푼다"
+            )]
             perm.set_readonly(false);
             std::fs::set_permissions(&abs, perm).map_err(|e| path_error("chmod", &abs, e))?;
         }

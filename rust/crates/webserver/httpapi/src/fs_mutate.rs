@@ -255,6 +255,7 @@ fn same_file(a: &str, b: &str, _: &Metadata, _: &Metadata) -> bool {
 
 /// Go `os.Mkdir(p, perm)`.
 pub(crate) fn mkdir(p: &str, perm: u32) -> std::io::Result<()> {
+    #[cfg_attr(not(unix), expect(unused_mut))]
     let mut b = std::fs::DirBuilder::new();
     #[cfg(unix)]
     {
