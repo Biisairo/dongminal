@@ -1,7 +1,6 @@
 //! frameless window 열기. 명령 조립은 platform 이 한다 (FR-XBR-3).
 
 use dm_gocompat::oserr::go_error_string;
-use dm_gocompat::strconv::quote;
 
 /// frameless window 를 연다. 문구는 Go `exec.Cmd.Start` 의 오류와 같다.
 pub(crate) fn open_frameless(url: &str) -> Result<(), String> {
@@ -18,13 +17,8 @@ fn start(name: &str, args: &[String]) -> Result<(), String> {
     let prog = if has_sep {
         name.to_owned()
     } else {
-        dm_shared_platform::look_path(name).ok_or_else(|| {
-            format!(
-                "exec: {}: executable file not found in {}",
-                quote(name),
-                if cfg!(windows) { "%PATH%" } else { "$PATH" }
-            )
-        })?
+        dm_shared_platform::try_look_path(name)
+            .map_err(|e| dm_shared_platform::exec_error(name, e))?
     };
     std::process::Command::new(&prog)
         .args(args)

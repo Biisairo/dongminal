@@ -529,3 +529,17 @@ async fn wait_count(n: &AtomicUsize, want: usize) {
     }
     panic!("tick 이 {want} 번 오지 않았다");
 }
+
+// 10.5b: 따로 흉내 낸 MkdirAll 을 gocompat 으로 모았다. 막힌 칸의 경로로 내고, `x/.` 도 만든다.
+#[cfg(unix)]
+#[test]
+fn mkdir_all_matches_go() {
+    let mk = |p: &str| crate::fsutil::mkdir_all(std::path::Path::new(p), 0o700);
+    let d = tempfile::tempdir().unwrap();
+    let r = d.path().to_string_lossy().into_owned();
+    std::fs::write(format!("{r}/f"), "x").unwrap();
+    let e = mk(&format!("{r}/f/a/b")).unwrap_err();
+    assert_eq!(e.to_string(), format!("mkdir {r}/f: not a directory"));
+    mk(&format!("{r}/new/.")).unwrap();
+    assert!(std::fs::metadata(format!("{r}/new")).unwrap().is_dir());
+}

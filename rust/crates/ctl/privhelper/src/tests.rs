@@ -644,3 +644,21 @@ fn local_rfc3339_shape() {
         "{s}"
     );
 }
+
+// 10.5b: 폴더를 만들 수 없으면 Go os.MkdirAll 처럼 막힌 칸의 경로로 낸다.
+#[test]
+fn mkdir_errors_match_go() {
+    let d = tempfile::tempdir().unwrap();
+    let blocker = d.path().join("f");
+    fs::write(&blocker, b"x").unwrap();
+    let want = format!("mkdir {}: not a directory", blocker.display());
+    assert_eq!(
+        mkdir_all(&blocker.join("bin"), 0o755)
+            .unwrap_err()
+            .to_string(),
+        want
+    );
+    let s = Secret::default();
+    let e = save_secret(&blocker.join("a").join("secret.json"), &s).unwrap_err();
+    assert_eq!(e.to_string(), want);
+}

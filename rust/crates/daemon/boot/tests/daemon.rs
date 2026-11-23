@@ -246,6 +246,7 @@ fn self_bin() -> PathBuf {
 }
 
 /// Go 참조 바이너리(go1.27.2 로 기준선을 빌드한 것)다. 없으면 그 시험을 건너뛴다.
+/// 만드는 법: `DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh <bin> ./cmd/dongminal`.
 fn go_bin() -> Option<PathBuf> {
     let p = std::env::var_os("DM_GO_DONGMINAL")?;
     Some(PathBuf::from(p))

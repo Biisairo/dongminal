@@ -586,3 +586,16 @@ fn call_without_args() {
 fn clean_strips_format_chars() {
     assert_eq!(clean("a\u{202e}b\u{200b}c\x07d\u{fffd}"), "abcd");
 }
+
+// 10.5b: 소켓 폴더를 만들 수 없으면 Go os.MkdirAll 처럼 막힌 칸의 경로로 낸다.
+#[test]
+fn create_dir_error_matches_go() {
+    let dir = tempfile::tempdir().unwrap();
+    let blocker = dir.path().join("f");
+    std::fs::write(&blocker, b"x").unwrap();
+    let e = create_dir(&blocker.join("a")).unwrap_err();
+    assert_eq!(
+        e.to_string(),
+        format!("mkdir {}: not a directory", blocker.display())
+    );
+}

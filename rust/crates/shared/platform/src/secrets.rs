@@ -206,7 +206,8 @@ fn run_with_stdin(
     name: &str,
     args: &[&str],
 ) -> Result<(Vec<u8>, i32), String> {
-    let mut cmd = Command::new(name);
+    let prog = crate::command_path(name)?;
+    let mut cmd = Command::new(&prog);
     cmd.args(args)
         .stdin(if stdin.is_some() {
             Stdio::piped()
@@ -217,7 +218,7 @@ fn run_with_stdin(
         .stderr(Stdio::null());
     let mut child = cmd
         .spawn()
-        .map_err(|e| go_error_string(&path_error("fork/exec", name, e)))?;
+        .map_err(|e| go_error_string(&path_error("fork/exec", &prog, e)))?;
     let deadline = Instant::now() + KEYCHAIN_TIMEOUT;
     let writer = match (child.stdin.take(), stdin) {
         (Some(mut w), Some(data)) => {

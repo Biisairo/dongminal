@@ -18,7 +18,17 @@ pub(crate) struct RunOut {
 }
 
 pub(crate) fn exec_run(name: &str, args: &[&str]) -> RunOut {
-    match std::process::Command::new(name)
+    let prog = match crate::command_path(name) {
+        Ok(p) => p,
+        Err(err) => {
+            return RunOut {
+                stdout: Vec::new(),
+                ok: false,
+                err,
+            };
+        }
+    };
+    match std::process::Command::new(&prog)
         .args(args)
         .stdin(std::process::Stdio::null())
         .output()

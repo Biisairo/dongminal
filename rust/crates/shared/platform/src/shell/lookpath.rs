@@ -9,21 +9,24 @@ use dm_gocompat::strconv::quote;
 const DEFAULT_PATHEXT: &[&str] = &[".com", ".exe", ".bat", ".cmd"];
 
 /// Go `exec.LookPath` 의 실패.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LookPathError {
     /// Go `exec.ErrNotFound`.
     NotFound,
     /// Go `exec.ErrDot`: 현재 디렉터리나 상대 PATH 항목에서만 찾았다. 실행하지 않는다.
     Dot,
+    /// 명시 경로에서 Go `findExecutable` 이 낸 원인의 `Error()` 문구.
+    Find(String),
 }
 
 impl LookPathError {
     /// 감싼 Go 오류의 `Error()` 문구.
-    pub fn as_str(self) -> &'static str {
+    pub fn as_str(&self) -> &str {
         match self {
             LookPathError::NotFound if cfg!(windows) => "executable file not found in %PATH%",
             LookPathError::NotFound => "executable file not found in $PATH",
             LookPathError::Dot => "cannot run executable found relative to current directory",
+            LookPathError::Find(m) => m,
         }
     }
 }
@@ -37,25 +40,25 @@ fn rejected(file: &str) -> bool {
     matches!(file, "" | "." | "..")
 }
 
-/// unix 판. `find` 는 Go `findExecutable` 이 성공하는가다.
+/// unix 판. `find` 는 Go `findExecutable` 이고, 실패는 그 원인의 문구다.
 #[cfg_attr(windows, allow(dead_code))]
 pub(crate) fn look_path_unix(
     file: &str,
     path_env: &str,
-    find: impl Fn(&str) -> bool,
+    find: impl Fn(&str) -> Result<(), String>,
 ) -> Result<String, LookPathError> {
     if rejected(file) {
         return Err(LookPathError::NotFound);
     }
     if file.contains('/') {
         return find(file)
-            .then(|| file.to_owned())
-            .ok_or(LookPathError::NotFound);
+            .map(|()| file.to_owned())
+            .map_err(LookPathError::Find);
     }
     for dir in unix::split_list(path_env) {
         let dir = if dir.is_empty() { "." } else { dir.as_str() };
         let p = unix::join(&[dir, file]);
-        if find(&p) {
+        if find(&p).is_ok() {
             return unix::is_abs(&p).then_some(p).ok_or(LookPathError::Dot);
         }
     }
@@ -99,23 +102,45 @@ fn has_ext(file: &str) -> bool {
     }
 }
 
+/// Go `fs.ErrNotExist.Error()`.
+const ERR_NOT_EXIST: &str = "file does not exist";
+
+/// Go `findExecutable`(windows).
 #[cfg_attr(not(windows), allow(dead_code))]
-fn find_executable_win(file: &str, exts: &[String], chk: &impl Fn(&str) -> bool) -> Option<String> {
+fn find_executable_win(
+    file: &str,
+    exts: &[String],
+    chk: &impl Fn(&str) -> Result<(), String>,
+) -> Result<String, LookPathError> {
     if exts.is_empty() {
-        return chk(file).then(|| file.to_owned());
+        return chk(file)
+            .map(|()| file.to_owned())
+            .map_err(LookPathError::Find);
     }
-    if has_ext(file) && chk(file) {
-        return Some(file.to_owned());
+    if has_ext(file) && chk(file).is_ok() {
+        return Ok(file.to_owned());
     }
-    exts.iter().map(|e| format!("{file}{e}")).find(|f| chk(f))
+    if let Some(f) = exts
+        .iter()
+        .map(|e| format!("{file}{e}"))
+        .find(|f| chk(f).is_ok())
+    {
+        return Ok(f);
+    }
+    Err(if has_ext(file) {
+        LookPathError::Find(ERR_NOT_EXIST.to_owned())
+    } else {
+        LookPathError::NotFound
+    })
 }
 
-/// windows 판. `chk` 는 Go `chkStat`(있고 디렉터리가 아니다), `same` 은 `os.SameFile` 이다.
+/// windows 판. `chk` 는 Go `chkStat`(있고 디렉터리가 아니다)이고 실패는 그 문구, `same` 은
+/// `os.SameFile` 이다.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn look_path_windows(
     file: &str,
     env: &WinEnv<'_>,
-    chk: impl Fn(&str) -> bool,
+    chk: impl Fn(&str) -> Result<(), String>,
     same: impl Fn(&str, &str) -> bool,
 ) -> Result<String, LookPathError> {
     if rejected(file) {
@@ -123,18 +148,18 @@ pub(crate) fn look_path_windows(
     }
     let exts = path_ext(env.pathext);
     if file.contains([':', '\\', '/']) {
-        return find_executable_win(file, &exts, &chk).ok_or(LookPathError::NotFound);
+        return find_executable_win(file, &exts, &chk);
     }
     // 현재 디렉터리에서 찾은 것은 Go 에서 ErrDot 오류다. PATH 에서 같은 실체를 찾을 때만 살아난다.
     let mut dotf: Option<String> = None;
     if !env.no_cwd {
-        dotf = find_executable_win(&windows::join(&[".", file]), &exts, &chk);
+        dotf = find_executable_win(&windows::join(&[".", file]), &exts, &chk).ok();
     }
     for dir in windows::split_list(env.path) {
         if dir.is_empty() {
             continue;
         }
-        let Some(f) = find_executable_win(&windows::join(&[&dir, file]), &exts, &chk) else {
+        let Ok(f) = find_executable_win(&windows::join(&[&dir, file]), &exts, &chk) else {
             continue;
         };
         if let Some(d) = &dotf
@@ -168,6 +193,25 @@ pub fn look_path_in(file: &str, path_env: &str) -> Option<String> {
     try_look_path_in(file, path_env).ok()
 }
 
+/// Go `exec.Command(name, ..)` 가 실행할 경로. 이름이 `filepath.Base(name)` 와 같으면(구분자가 없으면)
+/// LookPath 를 거치고, 실패(ErrDot 포함)는 Go `exec.Error` 문구다. 그 밖의 이름은 그대로 둔다.
+/// std `Command::new` 에 맨 이름을 주면 std 가 PATH 를 직접 훑어 ErrDot 거절을 건너뛴다.
+pub fn command_path(name: &str) -> Result<String, String> {
+    #[cfg(windows)]
+    let path_env = super::os_env("path");
+    #[cfg(not(windows))]
+    let path_env = super::os_env("PATH");
+    command_path_in(name, &path_env)
+}
+
+/// [`command_path`] 와 같되, 검색 경로를 인자로 받는다.
+pub fn command_path_in(name: &str, path_env: &str) -> Result<String, String> {
+    if dm_gocompat::filepath::base(name) != name {
+        return Ok(name.to_owned());
+    }
+    try_look_path_in(name, path_env).map_err(|e| exec_error(name, e))
+}
+
 /// 이 호스트의 `exec.LookPath`. 실패의 종류를 가른다.
 pub fn try_look_path(file: &str) -> Result<String, LookPathError> {
     #[cfg(windows)]
@@ -188,18 +232,15 @@ pub fn try_look_path_in(file: &str, path_env: &str) -> Result<String, LookPathEr
             pathext: &pathext,
             no_cwd: std::env::var_os("NoDefaultCurrentDirectoryInExePath").is_some(),
         };
-        look_path_windows(
-            file,
-            &env,
-            |p| std::fs::metadata(p).is_ok_and(|m| !m.is_dir()),
-            |a, b| match (
+        look_path_windows(file, &env, chk_stat_windows, |a, b| {
+            match (
                 crate::paths::file_id(Path::new(a)),
                 crate::paths::file_id(Path::new(b)),
             ) {
                 (Some(x), Some(y)) => x == y,
                 _ => false,
-            },
-        )
+            }
+        })
     }
     #[cfg(not(windows))]
     {
@@ -207,23 +248,48 @@ pub fn try_look_path_in(file: &str, path_env: &str) -> Result<String, LookPathEr
     }
 }
 
+/// Go `fs.ErrPermission.Error()`.
+const ERR_PERMISSION: &str = "permission denied";
+
+/// Go `chkStat`(windows): 있고 디렉터리가 아니다. Go `os.Stat` 은 없는 파일에
+/// `GetFileAttributesEx`, 그 밖의 실패에 `CreateFile` 을 op 로 싣는다.
+#[cfg(windows)]
+fn chk_stat_windows(file: &str) -> Result<(), String> {
+    use dm_gocompat::oserr::{go_error_string, path_error};
+    match std::fs::metadata(file) {
+        Ok(m) if m.is_dir() => Err(ERR_PERMISSION.to_owned()),
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let op = if e.kind() == std::io::ErrorKind::NotFound {
+                "GetFileAttributesEx"
+            } else {
+                "CreateFile"
+            };
+            Err(go_error_string(&path_error(op, file, e)))
+        }
+    }
+}
+
 /// Go `findExecutable`(unix): 디렉터리가 아니고, 유효 ID 로 실행할 수 있다. `faccessat` 이
-/// ENOSYS·EPERM 이면 권한 비트로 내려간다.
+/// ENOSYS·EPERM 이면 권한 비트로 내려간다. 실패는 Go 의 원인 문구다.
 #[cfg(unix)]
-fn find_executable_unix(file: &str) -> bool {
+fn find_executable_unix(file: &str) -> Result<(), String> {
+    use dm_gocompat::oserr::{errno_string, go_error_string, path_error};
     use std::os::unix::fs::PermissionsExt;
-    let Ok(m) = std::fs::metadata(file) else {
-        return false;
-    };
+    let m = std::fs::metadata(file).map_err(|e| go_error_string(&path_error("stat", file, e)))?;
     if m.is_dir() {
-        return false;
+        return Err(errno_string(libc::EISDIR));
     }
     match eaccess_x(file) {
-        Ok(()) => true,
+        Ok(()) => Ok(()),
         Err(e) if matches!(e.raw_os_error(), Some(libc::ENOSYS) | Some(libc::EPERM)) => {
-            m.permissions().mode() & 0o111 != 0
+            if m.permissions().mode() & 0o111 != 0 {
+                Ok(())
+            } else {
+                Err(ERR_PERMISSION.to_owned())
+            }
         }
-        Err(_) => false,
+        Err(e) => Err(go_error_string(&e)),
     }
 }
 
@@ -289,6 +355,65 @@ mod tests {
         assert_eq!(crate::look_path_in("dm-fake-dot", &rel), None);
     }
 
+    // 10.5b: Go exec.Command 처럼 맨 이름만 LookPath 를 거친다. ErrDot 이면 실행할 경로를 주지 않는다.
+    #[cfg(unix)]
+    #[test]
+    fn command_path_in_follows_exec_command() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let exe = d.path().join("dm-dot-cmd");
+        std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let rel = dm_gocompat::filepath::rel(
+            &std::env::current_dir().unwrap().to_string_lossy(),
+            &d.path().to_string_lossy(),
+        )
+        .unwrap();
+        assert_eq!(
+            crate::command_path_in("dm-dot-cmd", &rel).unwrap_err(),
+            r#"exec: "dm-dot-cmd": cannot run executable found relative to current directory"#
+        );
+        let dir = d.path().to_string_lossy().into_owned();
+        assert_eq!(
+            crate::command_path_in("dm-dot-cmd", &dir).unwrap(),
+            exe.to_string_lossy()
+        );
+        assert_eq!(
+            crate::command_path_in("./dm-dot-cmd", &rel).unwrap(),
+            "./dm-dot-cmd"
+        );
+    }
+
+    // 10.5b: go1.27.2 실측 — 명시 경로를 찾지 못하면 findExecutable 의 원인을 싣는다.
+    #[cfg(unix)]
+    #[test]
+    fn explicit_path_errors_match_go() {
+        let d = tempfile::tempdir().unwrap();
+        let r = d.path().to_string_lossy().into_owned();
+        std::fs::write(format!("{r}/plain"), "x").unwrap();
+        std::fs::create_dir(format!("{r}/dir")).unwrap();
+        let msg = |p: String| crate::exec_error(&p, crate::try_look_path_in(&p, "").unwrap_err());
+        assert_eq!(
+            msg(format!("{r}/missing")),
+            format!(r#"exec: "{r}/missing": stat {r}/missing: no such file or directory"#)
+        );
+        assert_eq!(
+            msg(format!("{r}/dir")),
+            format!(r#"exec: "{r}/dir": is a directory"#)
+        );
+        assert_eq!(
+            msg(format!("{r}/plain/x")),
+            format!(r#"exec: "{r}/plain/x": stat {r}/plain/x: not a directory"#)
+        );
+        // root 는 실행 권한 검사를 건너뛴다.
+        if std::fs::File::open("/etc/sudoers").is_err() {
+            assert_eq!(
+                msg(format!("{r}/plain")),
+                format!(r#"exec: "{r}/plain": permission denied"#)
+            );
+        }
+    }
+
     #[test]
     fn exec_error_matches_go() {
         let nf = if cfg!(windows) {
@@ -308,8 +433,14 @@ mod tests {
 
     use super::*;
 
-    fn set(found: &'static [&'static str]) -> impl Fn(&str) -> bool {
-        move |p| found.contains(&p)
+    fn set(found: &'static [&'static str]) -> impl Fn(&str) -> Result<(), String> {
+        move |p| {
+            if found.contains(&p) {
+                Ok(())
+            } else {
+                Err(format!("stat {p}: no such file or directory"))
+            }
+        }
     }
 
     #[test]
@@ -328,9 +459,12 @@ mod tests {
             look_path_unix("/opt/x/tool", "", &find).as_deref(),
             Ok("/opt/x/tool")
         );
+        // 명시 경로의 실패는 Go findExecutable 의 원인 그대로다.
         assert_eq!(
             look_path_unix("/opt/x/none", "/opt/x", &find),
-            Err(LookPathError::NotFound)
+            Err(LookPathError::Find(
+                "stat /opt/x/none: no such file or directory".into()
+            ))
         );
         // 빈 항목은 "." 이고, 상대경로로 찾은 것은 ErrDot 이다.
         let find = set(&["rel", "rel2/t"]);
@@ -340,11 +474,11 @@ mod tests {
         );
         assert_eq!(look_path_unix("t", "rel2", &find), Err(LookPathError::Dot));
         assert_eq!(
-            look_path_unix("", "/", |_| true),
+            look_path_unix("", "/", |_| Ok(())),
             Err(LookPathError::NotFound)
         );
         assert_eq!(
-            look_path_unix("..", "/", |_| true),
+            look_path_unix("..", "/", |_| Ok(())),
             Err(LookPathError::NotFound)
         );
     }
@@ -411,6 +545,36 @@ mod tests {
         assert_eq!(
             look_path_windows("x.exe", &rel, &chk, same),
             Err(LookPathError::Dot)
+        );
+    }
+
+    // 10.5b: Windows 명시 경로 — Go findExecutable·chkStat 의 원인 그대로다.
+    #[test]
+    fn windows_explicit_path_errors() {
+        let env = WinEnv {
+            path: r"C:\a",
+            pathext: "",
+            no_cwd: true,
+        };
+        let chk = set(&[]);
+        let same = |a: &str, b: &str| a == b;
+        assert_eq!(
+            look_path_windows(r"C:\x\tool", &env, &chk, same),
+            Err(LookPathError::NotFound)
+        );
+        assert_eq!(
+            look_path_windows(r"C:\x\a.exe", &env, &chk, same),
+            Err(LookPathError::Find("file does not exist".into()))
+        );
+        let noext = WinEnv {
+            pathext: ";",
+            ..env
+        };
+        assert_eq!(
+            look_path_windows(r"C:\x\a.exe", &noext, &chk, same),
+            Err(LookPathError::Find(
+                r"stat C:\x\a.exe: no such file or directory".into()
+            ))
         );
     }
 

@@ -1,6 +1,6 @@
 <!-- 이 파일은 생성물입니다. 직접 고치지 마세요.
      원천: docs/internal/*_SRS.md 의 결정 항목
-     생성: dongminal 저장소에서 `go run ./scripts/gen-decisions`
+     생성: dongminal 저장소에서 `cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-decisions`
      검사: scripts/check-decisions.sh (CI) -->
 
 # 결정 색인 (ADR-lite)

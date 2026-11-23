@@ -1,7 +1,8 @@
 //! 설치 결과(경로·종류·권한·내용·symlink 대상)를 Go 와 바이트 단위로 비교한다 (FR-RSP-13).
 //!
 //! Go 참조는 `testdata/goref` 를 빌드해 같은 bin 자리에 설치한 결과다. 두 설치는 같은 경로에
-//! 차례로 하므로 경로가 든 파일(claude.json·omp shim)도 그대로 비교된다. `go` 가 없으면 건너뛴다.
+//! 차례로 하므로 경로가 든 파일(claude.json·omp shim)도 그대로 비교된다. Go 참조는 `DM_GO_REF_SRC`
+//! (main 의 worktree)가 있을 때만 `rust/scripts/go-ref.sh` 로 빌드한다. 없으면 건너뛴다 (GO_REMOVAL_SRS Q-GRM-4).
 #![cfg(unix)]
 
 use std::fs;
@@ -14,16 +15,15 @@ fn repo_root() -> PathBuf {
 }
 
 fn build_goref(out: &Path) -> Option<PathBuf> {
-    dm_shared_platform::look_path("go")?;
+    std::env::var_os("DM_GO_REF_SRC")?;
     let exe = out.join("dongminal");
-    let st = Command::new("go")
-        .current_dir(repo_root())
-        .args(["build", "-o"])
+    let st = Command::new("bash")
+        .arg(repo_root().join("rust/scripts/go-ref.sh"))
         .arg(&exe)
-        .arg("./rust/crates/shared/runtime/testdata/goref")
+        .arg("rust/crates/shared/runtime/testdata/goref")
         .status()
         .unwrap();
-    assert!(st.success(), "go build 실패");
+    assert!(st.success(), "Go 참조 빌드 실패");
     Some(exe)
 }
 
@@ -91,7 +91,7 @@ fn write(p: &Path, body: &str, mode: u32) {
 fn install_matches_go() {
     let work = tempfile::tempdir().unwrap();
     let Some(goref) = build_goref(work.path()) else {
-        eprintln!("go 가 없어 건너뛴다");
+        eprintln!("DM_GO_REF_SRC 가 없어 건너뛴다");
         return;
     };
     let goref = fs::canonicalize(goref).unwrap();
