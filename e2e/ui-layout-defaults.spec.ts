@@ -4,7 +4,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit as fxOpenGit, waitForInit, clickGitView,
-  GIT_BODY_VIEWS, gitFixture, cleanGitFixture, switchToEditorRoot, openExplorerSide, stubEmptyLimits } from './fixtures';
+  GIT_BODY_VIEWS, gitFixture, cleanGitFixture, switchToEditorRoot, openExplorerSide, stubEmptyActivityCounts } from './fixtures';
 import { tmpPath, TMP, realPath } from './osenv';
 
 // UI_LAYOUT_DEFAULTS_SRS §5 — 검증 V-LAY-1~33.
@@ -185,9 +185,32 @@ async function resetToDefaults(request: APIRequestContext) {
 
 test('V-LAY-1 (FR-LAY-50): 계산값이 기준선과 같다', async ({ page, request }) => {
   test.setTimeout(180000);
+  await matchesBaseline(page, request);
+});
+
+/**
+ * RUST_DEFECT_FIX_SRS FR-RDF-6: 같은 워커의 앞 시험이 남긴 열린 Run 이 활동 탭 배지를 켜면
+ * 열 화면 모두에 `span.ag-tab-n.ui-tab-badge` 키가 새로 생겨 드리프트 게이트를 넘었다.
+ * 그 상태를 일부러 만들고 같은 대조를 돌린다.
+ */
+test('V-LAY-1b (FR-RDF-6): 앞 시험이 남긴 Run 이 대조를 흔들지 않는다', async ({ page, request }) => {
+  test.skip(WRITE, '기준선은 V-LAY-1 이 뜬다');
+  test.setTimeout(180000);
+  const r = await request.post('/api/runs', { data: { objective: 'V-LAY-1b', projection: 'inline', isolation: 'none' } });
+  expect(r.status()).toBe(200);
+  const run = await r.json();
+  try {
+    await matchesBaseline(page, request);
+  } finally {
+    await request.delete('/api/runs/' + encodeURIComponent(run.id));
+  }
+});
+
+async function matchesBaseline(page: Page, request: APIRequestContext) {
   await resetToDefaults(request);
-  // QUALITY_FLAKY_SRS FR-FLK-12: 앞 시험이 남긴 한도가 기준선에 없는 사용량 바닥을 세우지 않게 한다.
-  await stubEmptyLimits(page);
+  // QUALITY_FLAKY_SRS FR-FLK-12 · RUST_DEFECT_FIX_SRS FR-RDF-6: 앞 시험이 남긴 한도·활동·백그라운드 도구·Run 이
+  // 기준선에 없는 사용량 바닥과 탭 배지를 세우지 않게 한다.
+  await stubEmptyActivityCounts(page);
   await waitForInit(page, { mode: 'desktop', viewport: { width: 1280, height: 720 } });
   const now = await collect(page);
 
@@ -299,7 +322,7 @@ test('V-LAY-1 (FR-LAY-50): 계산값이 기준선과 같다', async ({ page, req
     console.log(`드리프트가 기준선보다 낫다 — ${drift}(기준선 ${baseDrift}). ` +
       `${SRS} §9 의 수를 이 값으로 갱신하라 (좋아진 것을 적지 않으면 다음 역행이 보이지 않는다).`);
   }
-});
+}
 
 test('V-LAY-2 · V-LAY-12 (FR-LAY-20·22): 여덟 뷰가 전부 같은 기본을 쓴다',
   async ({ page }) => {
