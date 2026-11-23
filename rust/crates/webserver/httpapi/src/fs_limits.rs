@@ -2,6 +2,10 @@
 
 /// FS_LIST_MAX (FR-EDT-65).
 pub(crate) const FS_LIST_MAX: usize = 10000;
+/// FS_DELETE_MAX (FR-EDT-118).
+pub(crate) const FS_DELETE_MAX: usize = 10000;
+/// 복사의 항목 수 상한이다. 삭제와 같은 규약이다 (FR-WBR-66).
+pub(crate) const FS_COPY_MAX: usize = 10000;
 /// 업로드 본문의 상한 (FR-FTR-5, D-6).
 pub(crate) const FS_UPLOAD_MAX_BYTES: i64 = 512 << 20;
 
@@ -9,6 +13,8 @@ pub(crate) const FS_UPLOAD_MAX_BYTES: i64 = 512 << 20;
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ServerLimits {
     pub(crate) fs_list: usize,
+    pub(crate) fs_delete: usize,
+    pub(crate) fs_copy: usize,
     pub(crate) upload_max_bytes: i64,
     /// `/api/file/{read,raw}` 가 내보내고 `/api/file/write` 가 받는 한 파일의 상한이다 (FR-FAB-8 ·
     /// FR-OPT-15-1). Go 는 패키지 변수 `fileReadMaxBytes` 이고 시험이 낮춘다.
@@ -19,6 +25,8 @@ impl Default for ServerLimits {
     fn default() -> Self {
         ServerLimits {
             fs_list: FS_LIST_MAX,
+            fs_delete: FS_DELETE_MAX,
+            fs_copy: FS_COPY_MAX,
             upload_max_bytes: FS_UPLOAD_MAX_BYTES,
             file_read_max: dm_shared_editorlimit::FILE_MAX_BYTES,
         }

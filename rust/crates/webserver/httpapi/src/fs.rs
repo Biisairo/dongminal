@@ -78,7 +78,12 @@ pub(crate) fn fs_from_os<E: Classify + Display + ?Sized>(err: &E) -> FsError {
 
 /// [`fs_from_os`] 의 `io::Error` 판. 로그의 문구를 Go 의 os 오류와 맞춘다.
 pub(crate) fn fs_from_io(err: &std::io::Error) -> FsError {
-    let code = apierr::FS.lookup(err).map_or(FS_ERR_IO, |(_, c)| c);
+    // Go `fs.ErrExist` 는 ENOTEMPTY 도 받는다 (syscall `Errno.Is`).
+    let code = if err.kind() == std::io::ErrorKind::DirectoryNotEmpty {
+        FS_ERR_EXISTS
+    } else {
+        apierr::FS.lookup(err).map_or(FS_ERR_IO, |(_, c)| c)
+    };
     fs_cause(code, &dm_gocompat::oserr::go_error_string(err))
 }
 
@@ -160,6 +165,44 @@ pub(crate) fn fs_resolve_existing(root: &str, p: &str) -> Result<String, FsError
     }
     let resolved = filepath::eval_symlinks(&filepath::clean(p)).map_err(|e| fs_resolve_err(&e))?;
     fs_under_root(root, &resolved)
+}
+
+/// Go `fsResolveTarget`: 이름을 가리키는 경로를 푼다 — 부모만 풀고 마지막 조각은 그대로 붙인다.
+/// 링크 자체를 지우거나 옮길 수 있고, 중간 디렉터리 링크로 루트를 벗어나는 경우는 걸린다 (FR-EDT-112).
+pub(crate) fn fs_resolve_target(root: &str, p: &str) -> Result<String, FsError> {
+    if !filepath::is_abs(p) {
+        return Err(FsError::new(
+            FS_ERR_BAD_REQUEST,
+            "path 는 절대경로여야 한다",
+        ));
+    }
+    let cleaned = filepath::clean(p);
+    let parent =
+        filepath::eval_symlinks(&filepath::dir(&cleaned)).map_err(|e| fs_resolve_err(&e))?;
+    fs_under_root(root, &filepath::join(&[parent, filepath::base(&cleaned)]))
+}
+
+/// Go `fsOK`.
+pub(crate) fn fs_ok() -> Response {
+    httpresp::json(StatusCode::OK, &serde_json::json!({"ok": true}))
+}
+
+impl Server {
+    /// Go `fsRootTarget`: root 를 먼저 확정한 뒤에만 경로를 푼다 (FR-DRC-11).
+    pub(crate) fn fs_root_target(
+        &self,
+        req_root: &str,
+        req_path: &str,
+    ) -> Result<(String, String), Response> {
+        let root = self.fs_root(req_root)?;
+        let target = fs_target_in(&root, req_path)?;
+        Ok((root, target))
+    }
+}
+
+/// Go `fsTargetIn`: 이미 확정된 root 아래의 또 다른 경로다.
+pub(crate) fn fs_target_in(root: &str, p: &str) -> Result<String, Response> {
+    fs_resolve_target(root, p).map_err(|e| fs_fail_err(&e))
 }
 
 /// Go `fsResolveErr`: 권한과 부재를 가른다 (FR-EDT-117).

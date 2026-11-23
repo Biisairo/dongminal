@@ -50,6 +50,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/sandbox/config", h!(api_sandbox_config_get)),
         put("/api/sandbox/config", h!(api_sandbox_config_put)),
         get("/api/workspace", h!(api_workspace_get)),
+        get("/api/meta", h!(api_meta)),
         put("/api/workspace", h!(api_workspace_put)),
         // ACCESS_ALLOWLIST_SRS FR-ACL-19·20. 게이트 **뒤**에 있다 (FR-ACL-21).
         get("/api/access", h!(api_access_get)),
@@ -67,6 +68,22 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/file/raw", h!(api_file_raw)),
         // 묶음 S — 탐색기의 디렉터리 조회 (FR-EDT-108). root 를 함께 받아 그 아래로 제한한다 (D-16).
         get("/api/fs/list", h!(api_fs_list)),
+        // NOTES_LIVE_EXPLORER_SRS 묶음 L — 겹이 바뀌었는지만 묻는다.
+        post("/api/fs/stamp", h!(api_fs_stamp)),
+        // FR-OPT-4-2: 겹·파일을 한 요청으로 묻는다.
+        post("/api/fs/stamps", h!(api_fs_stamps)),
+        post("/api/fs/create", h!(api_fs_create)),
+        post("/api/fs/rename", h!(api_fs_rename)),
+        post("/api/fs/delete", h!(api_fs_delete)),
+        // F-a: 메뉴의 답과 삭제할 항목 수.
+        post("/api/fs/actions", h!(api_fs_actions)),
+        // F-i: 만들기·이름 바꾸기의 이름 판정.
+        post("/api/fs/validate-name", h!(api_fs_validate_name)),
+        // FR-WBR-60: 루트를 둘 받는 유일한 fs 종단이다.
+        post("/api/fs/copy", h!(api_fs_copy)),
+        // 묶음 D·E — 탐색기의 전송. /api/{upload,download} 와 같은 일을 하되 root 가드를 받는다.
+        get("/api/fs/download", h!(api_fs_download)),
+        post("/api/fs/upload", h!(api_fs_upload)),
         get("/api/editors", h!(api_editors_get)),
         post("/api/editors/add", h!(api_editors_add)),
         // F-m: 편집기 루트 추가 경로의 답.

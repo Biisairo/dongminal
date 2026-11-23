@@ -1,0 +1,569 @@
+[
+ {
+  "m": "GET",
+  "target": "/api/meta",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22656e636f64696e6773223a5b227574662d38222c226370393439222c2273686966745f6a6973222c2277696e646f77732d31323532225d2c22656e746974794e616d654d6178223a36342c2266696c655374616d70734d6178223a3531322c2266735374616d704d6178223a3531322c2266735761746368446972734d6178223a313032347d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/stamp",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2264697273223a5b227b524f4f547d222c227b524f4f547d2f737562222c227b524f4f547d2f612e747874222c227b524f4f547d2f6e6f7065222c222f657463222c2272656c225d7d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b227374616d7073223a7b227b524f4f547d223a2231373030303030303030313233343536373839222c227b524f4f547d2f737562223a2231373030303030303030313233343536373839227d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/stamp",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a222f657463222c2264697273223a5b5d7d",
+  "status": 403,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=outside_root"
+  ],
+  "resp": "7b22636f6465223a226f7574736964655f726f6f74222c226d657373616765223a22726f6f7420eab08020456469746f7220ebaaa9eba19dec979020ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/stamps",
+  "ct": "application/json",
+  "body": "7b227472656573223a5b7b22726f6f74223a227b524f4f547d222c2264697273223a5b227b524f4f547d2f7570225d7d2c7b22726f6f74223a222f657463222c2264697273223a5b222f657463225d7d2c7b22726f6f74223a2272656c227d5d2c227061746873223a5b227b524f4f547d2f612e747874222c227b524f4f547d2f6e6f7065225d7d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b227061746873223a7b227b524f4f547d2f612e747874223a22313739373963666533643835636431352d36227d2c227472656573223a7b222f657463223a7b22636f6465223a226f7574736964655f726f6f74222c22737461747573223a3430337d2c227b524f4f547d223a7b227374616d7073223a7b227b524f4f547d2f7570223a2231373030303030303030313233343536373839227d7d2c2272656c223a7b22636f6465223a226261645f72657175657374222c22737461747573223a3430307d7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/stamps",
+  "ct": "application/json",
+  "body": "7b7d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b227061746873223a7b7d2c227472656573223a7b7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/validate-name",
+  "ct": "application/json",
+  "body": "7b226e616d65223a222020227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b2266732e6e616d65223a7b226f6b223a66616c73652c22776879223a22656d7074795f6e616d65227d7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/validate-name",
+  "ct": "application/json",
+  "body": "7b226e616d65223a22612f62227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b2266732e6e616d65223a7b226f6b223a66616c73652c22776879223a226e616d655f6861735f736570617261746f72227d7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/validate-name",
+  "ct": "application/json",
+  "body": "7b226e616d65223a222e2e227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b2266732e6e616d65223a7b226f6b223a66616c73652c22776879223a226e616d655f7265736572766564227d7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/validate-name",
+  "ct": "application/json",
+  "body": "7b226e616d65223a22206f6b2e74787420227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b2266732e6e616d65223a7b226f6b223a747275657d7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/actions",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c227061746873223a5b5d7d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a22706174687320eab08020ebb984ec9788eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/actions",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c227061746873223a5b227b524f4f547d2f737562222c227b524f4f547d2f612e747874225d7d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b2266732e636f7079223a7b226f6b223a747275657d2c2266732e64656c657465223a7b226f6b223a747275657d2c2266732e6d6f7665223a7b226f6b223a747275657d2c2266732e72656e616d65223a7b226f6b223a747275657d7d2c22636f756e74223a317d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/actions",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c227061746873223a5b227b524f4f547d222c227b524f4f547d2f6e6f7065225d7d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b2266732e636f7079223a7b226f6b223a66616c73652c22776879223a226e6f745f666f756e64227d2c2266732e64656c657465223a7b226f6b223a66616c73652c22776879223a22656469746f725f726f6f745f70726f746563746564227d2c2266732e6d6f7665223a7b226f6b223a66616c73652c22776879223a22656469746f725f726f6f745f70726f746563746564227d2c2266732e72656e616d65223a7b226f6b223a66616c73652c22776879223a22656469746f725f726f6f745f70726f746563746564227d7d2c22636f756e74223a307d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/actions",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c227061746873223a5b227b524f4f547d2f2e2e2f78225d7d",
+  "status": 403,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=outside_root"
+  ],
+  "resp": "7b22636f6465223a226f7574736964655f726f6f74222c226d657373616765223a22eba3a8ed8ab820ebb096ec9d9820eab2bdeba19ceb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/create",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2270617468223a227b524f4f547d2f6e65772e747874227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275657d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/create",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2270617468223a227b524f4f547d2f6e65772e747874227d",
+  "status": 409,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=exists"
+  ],
+  "resp": "7b22636f6465223a22657869737473222c226d657373616765223a22ec9db4ebafb820ec9e88eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/create",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c22706172656e74223a227b524f4f547d2f737562222c226e616d65223a22206e6420222c22646972223a747275657d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275657d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/create",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c22706172656e74223a227b524f4f547d222c226e616d65223a22612f62227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=name_has_separator"
+  ],
+  "resp": "7b22636f6465223a226e616d655f6861735f736570617261746f72227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/create",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2270617468223a2272656c227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a227061746820eb8a9420eca088eb8c80eab2bdeba19cec97acec95bc20ed959ceb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/create",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2270617468223a227b524f4f547d2f6e6f70652f78227d",
+  "status": 404,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=not_found"
+  ],
+  "resp": "7b22636f6465223a226e6f745f666f756e64222c226d657373616765223a22eab2bdeba19ceba5bc20ecb0beec9d8420ec889820ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/rename",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2266726f6d223a227b524f4f547d2f6e65772e747874222c22746f223a227b524f4f547d2f612e747874227d",
+  "status": 409,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=exists"
+  ],
+  "resp": "7b22636f6465223a22657869737473222c226d657373616765223a22eb8c80ec8381ec979020eab099ec9d8020ec9db4eba684ec9db420ec9db4ebafb820ec9e88eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/rename",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2266726f6d223a227b524f4f547d2f6e65772e747874222c226e616d65223a2272656e616d65642e747874227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275657d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/rename",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2266726f6d223a227b524f4f547d2f737562222c22746f223a227b524f4f547d2f7375622f6e642f696e227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=into_self"
+  ],
+  "resp": "7b22636f6465223a22696e746f5f73656c66227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/rename",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2266726f6d223a227b524f4f547d222c22746f223a227b524f4f547d2f78227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=editor_root_protected"
+  ],
+  "resp": "7b22636f6465223a22656469746f725f726f6f745f70726f746563746564227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/rename",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2266726f6d223a227b524f4f547d2f676f6e65222c22746f223a227b524f4f547d2f78227d",
+  "status": 404,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=not_found"
+  ],
+  "resp": "7b22636f6465223a226e6f745f666f756e64227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/rename",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2266726f6d223a227b524f4f547d2f72656e616d65642e747874222c226e616d65223a222e2e227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=name_reserved"
+  ],
+  "resp": "7b22636f6465223a226e616d655f7265736572766564227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/copy",
+  "ct": "application/json",
+  "body": "7b22737263526f6f74223a227b524f4f547d222c22737263223a227b524f4f547d2f612e747874222c22647374526f6f74223a227b524f4f547d222c22647374446972223a227b524f4f547d2f737562227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275652c2270617468223a227b524f4f547d2f7375622f612e747874227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/copy",
+  "ct": "application/json",
+  "body": "7b22737263526f6f74223a227b524f4f547d222c22737263223a227b524f4f547d2f612e747874222c22647374526f6f74223a227b524f4f547d222c22647374446972223a227b524f4f547d2f737562227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275652c2270617468223a227b524f4f547d2f7375622f6120636f70792e747874227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/copy",
+  "ct": "application/json",
+  "body": "7b22737263526f6f74223a227b524f4f547d222c22737263223a227b524f4f547d2f612e747874222c22647374526f6f74223a227b524f4f547d222c22647374446972223a227b524f4f547d2f737562227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275652c2270617468223a227b524f4f547d2f7375622f6120636f707920322e747874227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/copy",
+  "ct": "application/json",
+  "body": "7b22737263526f6f74223a227b524f4f547d222c22737263223a227b524f4f547d2f7570222c22647374526f6f74223a227b524f4f547d222c22647374446972223a227b524f4f547d2f737562227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275652c2270617468223a227b524f4f547d2f7375622f7570227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/copy",
+  "ct": "application/json",
+  "body": "7b22737263526f6f74223a227b524f4f547d222c22737263223a227b524f4f547d2f737562222c22647374526f6f74223a227b524f4f547d222c22647374446972223a227b524f4f547d2f7375622f6e64227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=into_self"
+  ],
+  "resp": "7b22636f6465223a22696e746f5f73656c66227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/copy",
+  "ct": "application/json",
+  "body": "7b22737263526f6f74223a227b524f4f547d222c22737263223a227b524f4f547d2f612e747874222c22647374526f6f74223a227b524f4f547d222c22647374446972223a227b524f4f547d2f612e747874227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a22eb8c80ec8381ec9db420eb9494eba089ed84b0eba6aceab08020ec9584eb8b88eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/copy",
+  "ct": "application/json",
+  "body": "7b22737263526f6f74223a222f657463222c22737263223a222f6574632f686f737473222c22647374526f6f74223a227b524f4f547d222c22647374446972223a227b524f4f547d227d",
+  "status": 403,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=outside_root"
+  ],
+  "resp": "7b22636f6465223a226f7574736964655f726f6f74222c226d657373616765223a22726f6f7420eab08020456469746f7220ebaaa9eba19dec979020ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root={ROOT}\u0026path={ROOT}/sub",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22656e7472696573223a5b7b226e616d65223a226e64222c22646972223a747275652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a227570222c22646972223a747275652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a226120636f707920322e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a226120636f70792e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a22612e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a226b6565702e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d5d2c226f6666736574223a302c2270617468223a227b524f4f547d2f737562222c227374616d70223a2231373935343335363733333035323636393532222c22746f74616c223a362c227472756e6361746564223a66616c73657d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/delete",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2270617468223a227b524f4f547d227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=editor_root_protected"
+  ],
+  "resp": "7b22636f6465223a22656469746f725f726f6f745f70726f746563746564227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/delete",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2270617468223a227b524f4f547d2f6e6f7065227d",
+  "status": 404,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=not_found"
+  ],
+  "resp": "7b22636f6465223a226e6f745f666f756e64227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/delete",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2270617468223a227b524f4f547d2f7375622f7570227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275657d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/delete",
+  "ct": "application/json",
+  "body": "7b22726f6f74223a227b524f4f547d222c2270617468223a227b524f4f547d2f7375622f6120636f70792e747874227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226f6b223a747275657d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/download?root={ROOT}\u0026path={ROOT}/a.txt",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Disposition=attachment; filename=\"a.txt\"; filename*=UTF-8''a.txt",
+   "Content-Length=6",
+   "Content-Type=application/octet-stream"
+  ],
+  "resp": "68656c6c6f0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/download?root={ROOT}\u0026path={ROOT}/sub",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a226e6f7420612066696c65227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/download?root={ROOT}\u0026path={ROOT}/nope",
+  "ct": "",
+  "body": "",
+  "status": 404,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=not_found"
+  ],
+  "resp": "7b22636f6465223a226e6f745f666f756e64222c226d657373616765223a22eab2bdeba19ceba5bc20ecb0beec9d8420ec889820ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/download?root=/etc\u0026path=/etc/hosts",
+  "ct": "",
+  "body": "",
+  "status": 403,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=outside_root"
+  ],
+  "resp": "7b22636f6465223a226f7574736964655f726f6f74222c226d657373616765223a22726f6f7420eab08020456469746f7220ebaaa9eba19dec979020ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/upload?root={ROOT}\u0026dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 409,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=exists"
+  ],
+  "resp": "7b22636f6465223a22657869737473222c226d657373616765223a22eb8c80ec8381ec979020eab099ec9d8020ec9db4eba684ec9db420ec9db4ebafb820ec9e88eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/upload?root={ROOT}\u0026dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 409,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=exists"
+  ],
+  "resp": "7b22636f6465223a22657869737473222c226d657373616765223a22eb8c80ec8381ec979020eab099ec9d8020ec9db4eba684ec9db420ec9db4ebafb820ec9e88eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/upload?root={ROOT}\u0026dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2272656c50617468220d0a0d0a2e2e2f782e7478740d0a2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d22782e747874220d0a0d0a580d0a2d2d422d2d0d0a",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a2272656c5061746820eab08020eb8c80ec838120ebb096ec9d8420eab080eba6aced82a8eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/upload?root={ROOT}\u0026dir=/etc",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 403,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=outside_root"
+  ],
+  "resp": "7b22636f6465223a226f7574736964655f726f6f74222c226d657373616765223a22eba3a8ed8ab820ebb096ec9d9820eab2bdeba19ceb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/upload?root={ROOT}\u0026dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a79797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979790d0a2d2d422d2d0d0a",
+  "status": 413,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=too_large"
+  ],
+  "resp": "7b22636f6465223a22746f6f5f6c61726765222c226d657373616765223a2275706c6f616420746f6f206c61726765227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/upload?root={ROOT}\u0026dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2272656c50617468220d0a0d0a642f652f782e7478740d0a2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d22782e747874220d0a0d0a580d0a2d2d422d2d0d0a",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226e616d65223a22782e747874222c226f6b223a747275652c2270617468223a227b524f4f547d2f75702f642f652f782e747874222c2273697a65223a317d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/fs/upload?root={ROOT}\u0026dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d222f220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a22ed8c8cec9dbc20ec9db4eba684ec9db420ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root={ROOT}\u0026path={ROOT}/up",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22656e7472696573223a5b7b226e616d65223a2264222c22646972223a747275652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a226475702e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d5d2c226f6666736574223a302c2270617468223a227b524f4f547d2f7570222c227374616d70223a2231373935343335363733333037363139383339222c22746f74616c223a322c227472756e6361746564223a66616c73657d0a"
+ }
+]
