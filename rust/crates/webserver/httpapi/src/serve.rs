@@ -35,6 +35,11 @@ pub trait GitHandler: Send + Sync {
         req: http::Request<ReqBody>,
         req_id: Option<String>,
     ) -> Pin<Box<dyn Future<Output = Option<Response>> + Send + '_>>;
+
+    /// 진행 중 git 작업이다 (`/api/stats?jobs=1`). git 이 없으면 `None` 이다.
+    fn active_jobs(&self) -> Option<Vec<dm_webserver_domain_git_jobs::Job>> {
+        None
+    }
 }
 
 /// mux 의 패턴 (Go `ServeMux` 의 메서드 없는 패턴).

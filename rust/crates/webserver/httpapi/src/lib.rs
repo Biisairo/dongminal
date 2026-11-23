@@ -24,16 +24,20 @@ mod files_stamp;
 mod files_transfer;
 mod fs;
 mod fs_actions;
+mod fs_copy;
 mod fs_limits;
+mod fs_mutate;
 mod fs_search;
 mod fs_stamp;
 mod fs_transfer;
 mod fs_watch;
 mod fs_zip;
+mod gitwire;
 mod handlers_fs_ignored;
 mod httperr;
 mod lspsvc;
 mod mediatype;
+mod meta;
 mod multipart;
 mod netx;
 mod openurl;
@@ -91,8 +95,16 @@ pub struct Deps {
     pub commands: Option<Arc<dyn CommandBroker>>,
     pub tool_io: Option<Arc<dyn ToolReader>>,
     pub work_index: Option<Arc<dyn WorkspaceReader>>,
-    /// `/api/git/*` 처리기다. 없으면 그 표면은 404 다 (5.5.10 이 gitapi 로 채운다).
+    /// `/api/git/*` 처리기다. 없으면 `new` 가 아래 git 자리들로 gitapi 를 세운다.
     pub git: Option<Arc<dyn GitHandler>>,
+    /// 모든 git 조회가 지나는 지점이다 (Go `Deps.Git`). 없으면 /api/git/* 이 503 이다 (FR-GIT-60).
+    pub git_store: Option<Arc<dm_webserver_domain_git_store::Store>>,
+    /// 저장소 배타 상태다 — 쓰기·잡·Run 격리가 같은 것을 봐야 한다 (REPO_FIX 01 §5.4).
+    pub git_exclusion: Option<dm_webserver_domain_git_jobs::Exclusion>,
+    /// 사용자 worktree 영역의 관리자다 (FR-WKT-13). 없으면 Worktrees 탭이 503 이다.
+    pub user_worktrees: Option<Arc<dyn dm_webserver_domain_worktree::Service>>,
+    /// Run 격리 영역의 관리자다 (Go `Deps.Worktrees`). gitapi 는 root 경로만 쓴다 (FR-GIT-240).
+    pub worktrees: Option<Arc<dyn dm_webserver_domain_worktree::Service>>,
     /// workspace.json 저장소다 (Go `Deps.Work`). Editor 목록(`Server::entries`)도 읽고 쓴다.
     pub work: Option<Arc<dyn WorkspaceStore>>,
     pub updates: Option<Arc<dyn UpdateService>>,
@@ -165,6 +177,8 @@ pub(crate) struct FsState {
     pub(crate) zip: fs_zip::ZipLimits,
     /// 편집기 저장의 표식 검사~쓰기를 경로마다 한 번에 하나로 묶는다 (REFACTOR3_DEFECTS_SRS FR-RD3-20).
     pub(crate) writes: PathLocks,
+    /// 탐색기의 파일 조작을 직렬화한다 (FR-EDT-115). 실제 파일 조작 구간만 잡는다.
+    pub(crate) ops: Arc<std::sync::Mutex<()>>,
 }
 
 /// 명령 허브를 Editor 목록 저장소의 방송 자리로 잇는다.
@@ -205,6 +219,11 @@ impl Server {
         access.refresh();
         let hosts = HostAllow::new(Some(access.clone()), cfg.allowed_hosts.clone());
         let entries = Arc::new(new_entry_store(&cfg, &deps));
+        let limits = ServerLimits::default();
+        if deps.git.is_none() {
+            let g = gitwire::new_git_server(&deps, limits.file_read_max);
+            deps.git = Some(Arc::new(gitwire::GitApi(Arc::new(g))));
+        }
         let deps_commands = deps.commands.clone();
         Server {
             deps,
@@ -220,7 +239,7 @@ impl Server {
             me,
             started: Instant::now(),
             entries,
-            limits: ServerLimits::default(),
+            limits,
             fs: FsState {
                 watch: Some(fs_watch::new_fs_watch(deps_commands)),
                 ..FsState::default()

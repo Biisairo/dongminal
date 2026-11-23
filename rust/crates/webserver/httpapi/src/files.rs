@@ -51,10 +51,11 @@ pub(crate) fn is_filesystem_root(p: &str) -> bool {
 }
 
 /// 전송 종단의 실패 형식이다 (Go `failFn`). 두 표면이 다른 것은 이것뿐이다 — 터미널은
-/// text/plain(`textFail`), 탐색기는 JSON 코드(`jsonFail`, FR-EDT-117 — 5.5.7 이 더한다).
+/// text/plain(`textFail`), 탐색기는 JSON 코드(`jsonFail`, FR-EDT-117).
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Fail {
     Text,
+    Json,
 }
 
 impl Fail {
@@ -62,6 +63,7 @@ impl Fail {
         match self {
             // 본문에 서버 경로를 싣지 않는다 (FR-FTR-3). 코드는 헤더로 간다 (FR-ERR-4).
             Fail::Text => http_err(msg, status, code),
+            Fail::Json => dm_shared_httpresp::fail_code(status, code, msg),
         }
     }
 }

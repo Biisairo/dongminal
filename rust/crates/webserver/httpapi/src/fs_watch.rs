@@ -17,14 +17,11 @@ use serde::{Deserialize, Serialize};
 use crate::Server;
 use crate::files_stamp::FILE_STAMPS_MAX;
 use crate::fs::{FS_ERR_BAD_REQUEST, fs_decode, fs_fail};
+use crate::fs_stamp::FS_STAMP_MAX;
 use crate::req::Req;
 
-/// Go `fsStampMax`(`handlers_fs_stamp.go`, 5.5.7.1 의 `fs_stamp::FS_STAMP_MAX`)와 같은 값이다.
-/// 두 하위 이슈가 따로 서도록 여기서는 값을 적는다.
-const FS_STAMP_MAX_FOR_WATCH: usize = 512;
-
 /// 한 클라이언트가 등록할 수 있는 디렉터리 수다 (FR-ELR-51) — fsStampMax + fileStampsMax.
-pub(crate) const FS_WATCH_DIRS_MAX: usize = FS_STAMP_MAX_FOR_WATCH + FILE_STAMPS_MAX;
+pub(crate) const FS_WATCH_DIRS_MAX: usize = FS_STAMP_MAX + FILE_STAMPS_MAX;
 
 /// 설정 blob 에서 워크트리 회차 간격을 읽는 키다 (FR-ELR-76).
 #[cfg_attr(not(test), allow(dead_code))]
