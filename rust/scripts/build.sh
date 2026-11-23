@@ -55,7 +55,9 @@ die() { echo "$*" >&2; echo >&2; usage >&2; exit 1; }
 # 재현 가능 빌드 (04-secops SEC-30): 빌드한 사람의 경로를 바이너리에서 지운다.
 repro_rustflags() {
   local flags="${RUSTFLAGS:-}"
-  flags="${flags:+$flags }--remap-path-prefix=$PWD=/dongminal/rust"
+  # env!("CARGO_MANIFEST_DIR") 처럼 remap 이 닿지 않는 경로는 이 cfg 가 지운다.
+  flags="${flags:+$flags }--cfg dongminal_trimpath"
+  flags="$flags --remap-path-prefix=$PWD=/dongminal/rust"
   [[ -n "${CARGO_HOME:-}" ]] && flags="$flags --remap-path-prefix=$CARGO_HOME=/cargo"
   flags="$flags --remap-path-prefix=$HOME/.cargo=/cargo"
   flags="$flags --remap-path-prefix=$(rustc --print sysroot)=/rustc"
@@ -65,7 +67,11 @@ repro_rustflags() {
 build_one() {
   local target="$1" out="$2"
   local fp; fp="$(scripts/daemon-fingerprint.sh --target "$target" 2>/dev/null || true)"
-  local -a env=(RUSTFLAGS="$(repro_rustflags)")
+  local rf; rf="$(repro_rustflags)"
+  # darwin: ld64 의 LC_UUID 는 링크 결과의 해시인데, rustc 는 링크 **뒤에** 디버그 정보를 지운다.
+  # 그러면 UUID 에 오브젝트 파일의 절대 경로(OSO)가 섞인다. 링크 단계에서 빼야 UUID 가 경로와 무관하다.
+  [[ "$target" == *apple-darwin ]] && rf="$rf -C link-arg=-Wl,-S"
+  local -a env=(RUSTFLAGS="$rf")
   if [[ -n "$VERSION" ]]; then env+=(DONGMINAL_BUILD_VERSION="$VERSION"); fi
   if [[ -n "$fp" ]]; then env+=(DONGMINAL_BUILD_DAEMON="$fp"); fi
   env -u DONGMINAL_BUILD_VERSION -u DONGMINAL_BUILD_DAEMON "${env[@]}" \
