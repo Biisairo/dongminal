@@ -1,8 +1,7 @@
 //! `PUT /api/fs/watch` 와 `fs_changed` 방송 (Go `handlers_fs_watch.go`, EDITOR_LIVE_RELOAD_SRS
 //! FR-ELR-51·59·76).
 //!
-//! 감시 임대(attach/detach)는 SSE 구독(`commands::attach_sse_leases`)이 쥔다. `fs_changed` 뒤의
-//! `gitWatch.Kick` 과 `applyGitWorktree` 는 gitWatch 를 세우는 5.5.8 이 잇는다.
+//! 감시 임대(attach/detach)는 SSE 구독(`commands::attach_sse_leases`)이 쥔다.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -10,7 +9,7 @@ use std::sync::Arc;
 use dm_gocompat::filepath;
 use dm_shared_httpresp::{self as httpresp, Response};
 use dm_webserver_fswatch::{self as fswatch, Change, Manager, ManagerOptions};
-use dm_webserver_hub::{CommandBroker, GIT_WATCH_INTERVAL, GIT_WATCH_WORKTREE_EVERY};
+use dm_webserver_hub::{CommandBroker, GIT_WATCH_INTERVAL, GIT_WATCH_WORKTREE_EVERY, GitWatcher};
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +23,6 @@ use crate::req::Req;
 pub(crate) const FS_WATCH_DIRS_MAX: usize = FS_STAMP_MAX + FILE_STAMPS_MAX;
 
 /// 설정 blob 에서 워크트리 회차 간격을 읽는 키다 (FR-ELR-76).
-#[cfg_attr(not(test), allow(dead_code))]
 const GIT_WORKTREE_KEY: &str = "gitWorktreeInterval";
 
 #[derive(Deserialize, Default)]
@@ -72,13 +70,27 @@ pub(crate) fn fs_changed_payload(changes: &[Change], overflow: bool) -> Vec<u8> 
     dm_webserver_sse::payload("fs_changed", Some(&Changes { changes: out }))
 }
 
-/// Go `newFSWatch`: 감시자를 세운다. 이벤트는 방송한다 (FR-ELR-59). 같은 경로로 git 관측을
-/// 당기는 일(FR-ELR-75)은 5.5.8 이 gitWatch 와 함께 더한다.
-pub(crate) fn new_fs_watch(cmds: Option<Arc<dyn CommandBroker>>) -> Manager {
+/// Go `newFSWatch`: 감시자를 세운다. 이벤트는 방송하고, 같은 경로로 git 관측을 당긴다
+/// (FR-ELR-59·75).
+///
+/// 감시 이벤트는 tokio 밖의 스레드에서 오고, git 의 계기 관측은 tokio 타이머를 건다 — 세운 순간의
+/// 런타임에 들어가 부른다. 런타임 밖에서 세웠으면 계기 관측만 빠진다(회차 관측은 그대로다).
+pub(crate) fn new_fs_watch(
+    cmds: Option<Arc<dyn CommandBroker>>,
+    git: Option<Arc<GitWatcher>>,
+) -> Manager {
+    let rt = tokio::runtime::Handle::try_current().ok();
     Manager::new(ManagerOptions::defaults(Arc::new(
         move |c: &[Change], overflow: bool| {
             if let Some(cmds) = &cmds {
                 cmds.broadcast(&fs_changed_payload(c, overflow));
+            }
+            if let (Some(git), Some(rt)) = (&git, &rt)
+                && !c.is_empty()
+            {
+                let paths: Vec<String> = c.iter().map(|x| x.path.clone()).collect();
+                let _g = rt.enter();
+                git.kick(&paths);
             }
         },
     )))
@@ -86,8 +98,6 @@ pub(crate) fn new_fs_watch(cmds: Option<Arc<dyn CommandBroker>>) -> Manager {
 
 /// Go `gitWorktreeRounds`: 설정 blob 에서 워크트리 회차 간격을 회차 수로 낸다 (FR-ELR-76). 값은
 /// `GIT_WATCH_INTERVAL` 로 나눠 올림한다. 읽을 수 없거나 범위 밖이면 표의 기본값이다.
-/// 5.5.8 의 `applyGitWorktree` 가 부른다.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn git_worktree_rounds(blob: &[u8]) -> u64 {
     let spec = dm_shared_settingsschema::load()
         .ok()

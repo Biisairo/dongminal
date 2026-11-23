@@ -63,6 +63,7 @@ macro_rules! mux_h {
 /// 서버의 mux 표다 (Go `Handler` 의 `mux.HandleFunc` 들). 하위 이슈가 자기 종단을 더한다.
 pub(crate) fn mux_table() -> Vec<(Pattern, Handler)> {
     vec![
+        (Pattern::Tree("/"), mux_h!(handle_static)),
         (Pattern::Exact("/ws"), mux_h!(handle_ws)),
         (Pattern::Tree("/api/"), handle_api_entry as Handler),
         (Pattern::Exact("/api/commands"), mux_h!(handle_command_post)),
@@ -386,7 +387,7 @@ async fn finish(res: Response) -> Response {
 }
 
 /// Go `http.Redirect(w, r, url, 307)`. 본문은 `Fprintln` 이라 줄바꿈이 둘이다.
-fn redirect(method: &Method, loc: &str) -> Response {
+pub(crate) fn redirect(method: &Method, loc: &str) -> Response {
     let body = if method == Method::GET {
         format!(
             "<a href=\"{}\">Temporary Redirect</a>.\n\n",
@@ -479,7 +480,7 @@ fn valid_encoded_path(s: &str) -> bool {
 }
 
 /// Go `shouldEscape(c, encodePath)`.
-fn should_escape_path(c: u8) -> bool {
+pub(crate) fn should_escape_path(c: u8) -> bool {
     if c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_' | b'.' | b'~') {
         return false;
     }

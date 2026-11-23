@@ -396,10 +396,8 @@ async fn state_happy_path() {
     assert_eq!(v["toolsKnown"], true);
     assert_eq!(v["tools"].as_array().unwrap().len(), 1);
     assert_eq!(v["workspace"]["windows"].as_array().unwrap().len(), 1);
-    assert!(
-        v.get("fgTabNames").is_none(),
-        "설정 저장소가 없으면 싣지 않는다"
-    );
+    // 설정 저장소를 주지 않으면 `new` 가 기본 저장소를 세운다 — 빈 blob 은 켬이다.
+    assert_eq!(v["fgTabNames"], true);
 }
 
 #[tokio::test]

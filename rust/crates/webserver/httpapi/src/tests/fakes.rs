@@ -46,6 +46,8 @@ pub(crate) struct FakeHub {
     pub(crate) snaps: Mutex<HashMap<String, ToolSnapshot>>,
     pub(crate) inputs: Mutex<Vec<(String, Vec<u8>)>>,
     pub(crate) resizes: Mutex<Vec<(String, u16, u16)>>,
+    /// 데몬이 hello 에서 말한 판 (Go `infoHub`).
+    pub(crate) daemon: DaemonInfo,
 }
 
 impl FakeHub {
@@ -90,7 +92,7 @@ impl ToolHub for FakeHub {
         Ok(snap)
     }
     fn daemon_info(&self) -> DaemonInfo {
-        DaemonInfo::default()
+        self.daemon.clone()
     }
     fn reconnects(&self) -> i64 {
         0
@@ -220,6 +222,7 @@ pub(crate) struct FakeWork {
     pub(crate) saves: AtomicUsize,
     pub(crate) coord_map: HashMap<String, String>,
     pub(crate) coord_err: HashMap<String, String>,
+    pub(crate) tab_entries: Vec<TabEntry>,
 }
 
 impl FakeWork {
@@ -282,66 +285,47 @@ impl WorkspaceStore for FakeWork {
         !id.is_empty() && self.coord_map.contains_key(id)
     }
     fn entries(&self) -> Vec<TabEntry> {
-        Vec::new()
+        self.tab_entries.clone()
     }
     fn windows(&self) -> Option<Vec<WindowInfo>> {
         self.windows.clone()
     }
 }
 
-/// Go `fakeSettingsStore`: blob 을 들고 Go 와 같은 해석으로 답한다.
+/// Go `fakeSettingsStore`: blob 을 들고 Go 와 같은 해석으로 답한다. `save_err` 를 세우면 저장이
+/// 실패한다 (M3 DoD).
 #[derive(Default)]
 pub(crate) struct FakeSettings {
     pub(crate) blob: Mutex<Vec<u8>>,
+    pub(crate) saves: AtomicUsize,
+    pub(crate) save_err: Option<std::io::ErrorKind>,
 }
 
 impl SettingsStore for FakeSettings {
+    fn get(&self) -> Vec<u8> {
+        self.blob.lock().unwrap().clone()
+    }
+    fn set(&self, blob: Vec<u8>) {
+        *self.blob.lock().unwrap() = blob;
+    }
+    fn save(&self) -> std::io::Result<()> {
+        self.saves.fetch_add(1, Ordering::SeqCst);
+        match self.save_err {
+            Some(k) => Err(k.into()),
+            None => Ok(()),
+        }
+    }
     fn render_env(&self) -> Vec<String> {
-        agent_render_env(&self.blob.lock().unwrap())
+        agent_render_env(&self.get())
     }
     fn fg_tab_names(&self) -> bool {
-        #[derive(serde::Deserialize, Default)]
-        #[serde(default)]
-        struct Cfg {
-            #[serde(rename = "fgTabNames")]
-            fg_tab_names: Option<bool>,
-        }
-        dm_gocompat::json::unmarshal::<Cfg>(&self.blob.lock().unwrap())
-            .ok()
-            .and_then(|c| c.fg_tab_names)
-            .unwrap_or(true)
+        crate::settings::parse_fg_tab_names(&self.get())
     }
-    /// Go `parseContextPolicy` 와 같은 해석이다(실물은 5.5.5 가 옮긴다).
     fn context_policy(&self) -> dm_webserver_domain_run::ContextPolicy {
-        #[derive(serde::Deserialize, Default)]
-        #[serde(default)]
-        struct Orch {
-            #[serde(rename = "contextBytesPerToken")]
-            bpt: f64,
-            #[serde(rename = "contextLimitTokens")]
-            limit: f64,
-            #[serde(rename = "contextWarnRatio")]
-            warn: f64,
-            #[serde(rename = "contextCriticalRatio")]
-            critical: f64,
-        }
-        #[derive(serde::Deserialize, Default)]
-        #[serde(default)]
-        struct Cfg {
-            orchestration: Orch,
-        }
-        match dm_gocompat::json::unmarshal::<Cfg>(&self.blob.lock().unwrap()) {
-            Ok(c) => dm_webserver_domain_run::ContextPolicy {
-                bytes_per_token: c.orchestration.bpt,
-                limit_tokens: c.orchestration.limit,
-                warn_ratio: c.orchestration.warn,
-                critical_ratio: c.orchestration.critical,
-            },
-            Err(_) => dm_webserver_domain_run::ContextPolicy::default_policy(),
-        }
+        crate::settings::parse_context_policy(&self.get())
     }
     fn migration(&self) -> crate::MigrationConf {
-        crate::parse_migration_conf(&self.blob.lock().unwrap())
+        crate::parse_migration_conf(&self.get())
     }
 }
 
@@ -443,10 +427,24 @@ impl CommandBroker for FakeBroker {
 #[derive(Default)]
 pub(crate) struct FakeUpdates {
     pub(crate) triggers: AtomicUsize,
+    pub(crate) sets: AtomicUsize,
+    pub(crate) snap: Mutex<dm_shared_updatecheck::Snapshot>,
+    pub(crate) set_err: Option<String>,
 }
 
 impl UpdateService for FakeUpdates {
     fn trigger(&self) {
         self.triggers.fetch_add(1, Ordering::SeqCst);
+    }
+    fn snapshot(&self) -> dm_shared_updatecheck::Snapshot {
+        self.snap.lock().unwrap().clone()
+    }
+    fn set_enabled(&self, on: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.sets.fetch_add(1, Ordering::SeqCst);
+        if let Some(e) = &self.set_err {
+            return Err(e.clone().into());
+        }
+        self.snap.lock().unwrap().enabled = on;
+        Ok(())
     }
 }

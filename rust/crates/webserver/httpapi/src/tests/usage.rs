@@ -36,6 +36,7 @@ fn p1_env() -> Env {
 fn p1_env_settings(blob: &str) -> Env {
     let st = Arc::new(FakeSettings {
         blob: Mutex::new(blob.as_bytes().to_vec()),
+        ..FakeSettings::default()
     });
     tracked_with(&["p1"], move |d| d.settings = Some(st))
 }

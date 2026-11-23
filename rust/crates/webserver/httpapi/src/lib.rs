@@ -13,11 +13,14 @@ mod access_denied;
 mod agent_records;
 mod agent_render_env;
 mod ansi;
+mod asset_version;
 mod attention;
+mod carry;
 mod chat_api;
 mod claude_accounts;
 mod commands;
 mod deps;
+mod diag_snapshot;
 mod edge_api;
 mod editors;
 mod entity_name;
@@ -39,20 +42,27 @@ mod fs_watch;
 mod fs_zip;
 mod gitwire;
 mod go_embed;
+mod handlers_diag;
 mod handlers_fs_ignored;
+mod health;
 mod httperr;
+mod listen;
 mod lsp_api;
 mod lspsvc;
 mod mediatype;
 mod meta;
 mod migration_advice;
+mod mimetable;
 mod multipart;
 mod netx;
 mod openurl;
 mod path_lock;
+mod rebind;
+mod rebind_conns;
 mod req;
 mod reqgate;
 mod routes;
+mod run;
 mod runs;
 mod runs_assign;
 mod runs_close;
@@ -65,15 +75,20 @@ mod runs_tree;
 mod runs_worktree;
 mod sandbox_api;
 mod serve;
+mod serve_content;
+mod settings;
 mod settings_etag;
 mod snapshot;
+mod static_assets;
 mod status;
 mod subagents;
 mod telegram_api;
 mod toolhub;
 mod toolio;
 mod tools_api;
+mod update_api;
 mod usage;
+mod whoami;
 mod workspace_revert;
 mod ws;
 
@@ -93,11 +108,14 @@ pub use attention::{AttentionDaemon, DaemonCallError};
 pub use chat_api::ChatDaemon;
 pub use claude_accounts::ClaudeHooks;
 pub use deps::{SandboxReaper, SettingsStore, StatsSnapshotter, UpdateService, WorkspaceStore};
+pub use diag_snapshot::DIAG_SNAPSHOT_EVERY;
 pub use edge_api::EdgeDaemon;
 pub use lspsvc::LspService;
 pub use migration_advice::{MigrationConf, parse_migration_conf};
 pub use req::{BodyError, ReqBody};
+pub use run::SHUTDOWN_GRACE;
 pub use serve::GitHandler;
+pub use static_assets::{AssetEntry, StaticAssets, WebAssets};
 pub use toolhub::{ToolError, ToolHub, ToolIdentity, Unsubscribe};
 
 use access::AccessStore;
@@ -115,6 +133,8 @@ pub struct Config {
     pub allowed_hosts: Vec<String>,
     /// 이 서버 바이너리의 판이다 (VERSION_HEALTH_SRS FR-VHL-10).
     pub version: String,
+    /// 브라우저로 서빙할 정적 자산이다 (Go `StaticFS`). 없으면 `/` 가 서지 않는다. 실물은 [`WebAssets`].
+    pub static_fs: Option<Arc<dyn StaticAssets>>,
     /// Telegram Bot API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다.
     pub telegram_api: String,
     /// Claude Code 설정(`~/.claude`·`~/.claude.json`)을 찾을 사용자 홈이다. 비면 OS 의 홈이다.
@@ -169,6 +189,12 @@ pub struct Deps {
     /// 실행 기록을 공유할 git core 서비스다 (Go `Deps.Git.Service()`). 없어도 무시 판정은 돌고
     /// 기록만 빠진다 (FR-GXU-4·10).
     pub git_service: Option<Arc<dm_webserver_domain_git_core::Service>>,
+    /// 호출자의 원격 주소를 그 셸의 도구로 푼다 (Go `Deps.WhoAmI`). 없으면 `/api/whoami` 가 500 이다.
+    pub who_am_i: Option<Arc<dyn dm_webserver_seam_toolaccess::ClientToolResolver>>,
+    /// git 감시자가 `git_changed` 를 방송할 때 그 저장소로 불린다 (REPO_FIX 02 §3A-6).
+    pub on_git_changed: Option<dm_webserver_hub::RepoHook>,
+    /// git 감시자가 저장소의 첫 표명을 기준선으로 삼을 때 불린다 (CODEMIRROR_MIGRATION_SRS §11.6 W).
+    pub on_git_baseline: Option<dm_webserver_hub::RepoHook>,
     /// runs.json 저장소다 (Go `Deps.Runs`, RUN_ORCHESTRATION_SRS 묶음 R). 없으면 /api/runs* 가 503
     /// 이고 그 밖의 동작에는 영향이 없다 (NFR-RUN-1).
     pub runs: Option<Arc<dm_webserver_domain_run::Store>>,
@@ -225,6 +251,13 @@ pub struct Server {
     pub(crate) waits: status::StatusWaits,
     /// 활동 보고의 알림이다 — 활동 대기가 이것과 마감 시각에만 다시 본다 (FR-OPT-16-3).
     pub(crate) activity_changed: dm_shared_pollwait::Signal,
+    /// 실행 중 리바인드·이사 보관·연결 시한이다 (HOT_REBIND_SRS 묶음 R).
+    pub(crate) rebind: rebind::RebindState,
+    /// 저장소 signature 를 감시해 `git_changed` 를 방송한다 (GIT_PUSH_OBSERVE_SRS). 저장소 계층이
+    /// 없으면 없다.
+    pub(crate) git_watch: Option<Arc<dm_webserver_hub::GitWatcher>>,
+    /// 정적 자산 `/` 의 처리기와 자산의 판이다. 정적 자산이 없는 구성이면 없다.
+    pub(crate) statics: Option<static_assets::StaticHandler>,
     /// Run 표면의 서버 쪽 보조 상태다 — 복구·통지 (Go `runAux`).
     pub(crate) run_aux: runs_recover::RunAux,
     /// 이 기기의 `이름#번호` 기억이다 (Go `handle`).
@@ -284,6 +317,11 @@ impl Server {
             own_hub = Some(hub.clone());
             deps.commands = Some(hub as Arc<dyn CommandBroker>);
         }
+        // DataDir 이 비면 이름만 남는다 — 작업 디렉터리의 그 파일이다.
+        if deps.settings.is_none() {
+            let path = cfg.data_dir.join(dm_shared_dmenv::SETTINGS_FILE);
+            deps.settings = Some(Arc::new(settings::FileSettings::new(path)));
+        }
         let access = Arc::new(AccessStore::new(
             cfg.data_dir.join(dm_shared_dmenv::ACCESS_FILE),
         ));
@@ -293,8 +331,10 @@ impl Server {
         let hosts = HostAllow::new(Some(access.clone()), cfg.allowed_hosts.clone());
         let entries = Arc::new(new_entry_store(&cfg, &deps));
         let limits = ServerLimits::default();
+        let statics = cfg.static_fs.clone().map(static_assets::StaticHandler::new);
+        let git_watch = gitwire::new_git_watch(&deps);
         if deps.git.is_none() {
-            let g = gitwire::new_git_server(&deps, limits.file_read_max);
+            let g = gitwire::new_git_server(&deps, limits.file_read_max, git_watch.as_ref());
             deps.git = Some(Arc::new(gitwire::GitApi(Arc::new(g))));
         }
         let deps_commands = deps.commands.clone();
@@ -316,13 +356,16 @@ impl Server {
             entries,
             limits,
             fs: FsState {
-                watch: Some(fs_watch::new_fs_watch(deps_commands)),
+                watch: Some(fs_watch::new_fs_watch(deps_commands, git_watch.clone())),
                 ..FsState::default()
             },
             agents: usage::AgentStores::default(),
             attn_claims: attention::AttnClaims::default(),
             waits: status::StatusWaits::default(),
             activity_changed: dm_shared_pollwait::Signal::default(),
+            rebind: rebind::RebindState::default(),
+            git_watch,
+            statics,
             run_aux: runs_recover::RunAux::default(),
             handle: edge_api::HandleCache::default(),
             edge_kick: edge_api::EdgeKick::default(),
@@ -353,9 +396,12 @@ impl Server {
         self.deps.work.as_deref()
     }
 
-    /// 지금 서빙하는 자산의 판이다 (FR-AVS-3). 정적 자산은 5.5.8 이 배선한다 — 그 전에는 모른다.
+    /// 지금 서빙하는 자산의 판이다 (FR-AVS-3). 정적 자산이 없는 구성이면 모른다 (FR-AVS-10).
     pub(crate) fn asset_version(&self) -> String {
-        String::new()
+        self.statics
+            .as_ref()
+            .map(|h| h.version.clone())
+            .unwrap_or_default()
     }
 
     pub(crate) fn commands(&self) -> Option<&Arc<dyn CommandBroker>> {

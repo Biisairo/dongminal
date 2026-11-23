@@ -20,10 +20,12 @@ http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
+rand = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+socket2 = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
@@ -54,6 +56,7 @@ dm-shared-toolipc = { path = "../../shared/toolipc" }
 dm-shared-updatecheck = { path = "../../shared/updatecheck" }
 dm-shared-uuid = { path = "../../shared/uuid" }
 dm-shared-workspace = { path = "../../shared/workspace" }
+dm-web-assets = { path = "../../web" }
 dm-webserver-action = { path = "../action" }
 dm-webserver-apierr = { path = "../apierr" }
 dm-webserver-domain-claudeacct = { path = "../domain/claudeacct" }

@@ -85,6 +85,7 @@ async fn records_migration_told_goes_to_daemon() {
     let s = sink.clone();
     let st = Arc::new(FakeSettings {
         blob: Mutex::new(br#"{"migrationHook":true}"#.to_vec()),
+        ..FakeSettings::default()
     });
     let env = tracked_with(&["p1"], move |d| {
         d.records = Some(s);

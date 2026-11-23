@@ -343,6 +343,15 @@ impl Server {
                 }
             }));
         }
+        // FR-GWL-3: git 감시 임대도 이 구독이 쥔다 — 보고 있는 동안을 아는 것은 연결이다.
+        if !cid.is_empty()
+            && let Some(w) = &self.git_watch
+        {
+            let ep = w.attach(cid);
+            let w = w.clone();
+            let cid = cid.to_owned();
+            undo.push(Box::new(move || w.detach(&cid, ep)));
+        }
         // FR-ELR-51: 파일 감시는 이 구독이 붙어 있는 동안만이다. presence 구독은 쥐지 않는다.
         if !cid.is_empty()
             && !presence

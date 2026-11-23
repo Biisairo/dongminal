@@ -216,3 +216,79 @@ pub(crate) fn parse_media_type(v: &[u8]) -> Result<(String, HashMap<String, Vec<
         .collect();
     Ok((mediatype, params))
 }
+
+fn is_token(s: &[u8]) -> bool {
+    !s.is_empty() && s.iter().all(|&c| is_token_char(c))
+}
+
+/// Go `needsEncoding`: 탭이 아닌 제어 문자나 ASCII 밖의 글자가 있는가다.
+fn needs_encoding(s: &[u8]) -> bool {
+    s.iter().any(|&b| !(b' '..=b'~').contains(&b) && b != b'\t')
+}
+
+/// Go `mime.FormatMediaType`. 형식에 맞지 않으면 빈 값이다.
+pub(crate) fn format_media_type(t: &str, param: &HashMap<String, Vec<u8>>) -> Vec<u8> {
+    const UPPERHEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut b = Vec::new();
+    match t.split_once('/') {
+        None => {
+            if !is_token(t.as_bytes()) {
+                return Vec::new();
+            }
+            b.extend_from_slice(t.to_ascii_lowercase().as_bytes());
+        }
+        Some((major, sub)) => {
+            if !is_token(major.as_bytes()) || !is_token(sub.as_bytes()) {
+                return Vec::new();
+            }
+            b.extend_from_slice(major.to_ascii_lowercase().as_bytes());
+            b.push(b'/');
+            b.extend_from_slice(sub.to_ascii_lowercase().as_bytes());
+        }
+    }
+    let mut keys: Vec<&String> = param.keys().collect();
+    keys.sort();
+    for attribute in keys {
+        let value = &param[attribute];
+        b.extend_from_slice(b"; ");
+        if !is_token(attribute.as_bytes()) {
+            return Vec::new();
+        }
+        b.extend_from_slice(attribute.to_ascii_lowercase().as_bytes());
+        if needs_encoding(value) {
+            b.extend_from_slice(b"*=utf-8''");
+            for &ch in value {
+                if ch <= b' '
+                    || ch >= 0x7f
+                    || ch == b'*'
+                    || ch == b'\''
+                    || ch == b'%'
+                    || is_tspecial(ch)
+                {
+                    b.extend_from_slice(&[
+                        b'%',
+                        UPPERHEX[usize::from(ch >> 4)],
+                        UPPERHEX[usize::from(ch & 0x0f)],
+                    ]);
+                } else {
+                    b.push(ch);
+                }
+            }
+            continue;
+        }
+        b.push(b'=');
+        if is_token(value) {
+            b.extend_from_slice(value);
+            continue;
+        }
+        b.push(b'"');
+        for &ch in value {
+            if ch == b'"' || ch == b'\\' {
+                b.push(b'\\');
+            }
+            b.push(ch);
+        }
+        b.push(b'"');
+    }
+    b
+}

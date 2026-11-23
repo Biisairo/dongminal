@@ -15,14 +15,22 @@ pub trait WorkspaceStore: dm_webserver_domain_wsentry::WorkspaceStore {
     fn windows(&self) -> Option<Vec<WindowInfo>>;
 }
 
-/// Go `UpdateService`: 새 판 확인 (UPDATE_NOTICE_SRS). 5.5.8 이 표면을 더한다.
+/// Go `UpdateService`: 새 판 확인 (UPDATE_NOTICE_SRS).
 pub trait UpdateService: Send + Sync {
     /// 확인을 한 번 깨운다(블로킹일 수 있다).
     fn trigger(&self);
+    /// 캐시를 읽는다. 나가지 않는다 (FR-UPD-8).
+    fn snapshot(&self) -> dm_shared_updatecheck::Snapshot;
+    /// 토글을 바꾸고 server.json 에 적는다 (FR-UPD-13).
+    fn set_enabled(&self, on: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
-/// Go `SettingsStore` 중 이 하위 이슈가 읽는 가지 (설정 blob 저장소). 5.5.8 이 나머지를 더한다.
+/// Go `SettingsStore`: 설정 blob 저장소다. 서버는 blob 을 해석하지 않고 그대로 저장·응답한다.
 pub trait SettingsStore: Send + Sync {
+    fn get(&self) -> Vec<u8>;
+    fn set(&self, blob: Vec<u8>);
+    /// **실패를 돌려준다** (M3 DoD) — PUT 이 쓰기 실패에 500 을 답한다.
+    fn save(&self) -> std::io::Result<()>;
     /// 새 도구에 얹을 환경의 사본이다 (FR-ARE-7).
     fn render_env(&self) -> Vec<String>;
     /// 탭 이름을 전경 프로그램에서 파생하는가다 (FR-TAN-19).
