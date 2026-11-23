@@ -13,4 +13,4 @@
 # 사용: scripts/check-decisions.sh
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-exec go run ./scripts/gen-decisions -check
+exec cargo run -q --locked --manifest-path rust/Cargo.toml -p dm-scripts-gen-decisions -- -check

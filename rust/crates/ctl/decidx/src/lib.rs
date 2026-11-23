@@ -195,9 +195,13 @@ fn split_id(s: &str) -> (&str, i64) {
     }
 }
 
+/// 저장소 뿌리에서 색인을 다시 만드는 명령이다.
+pub const GENERATE: &str =
+    "cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-decisions";
+
 const HEADER: &str = "<!-- 이 파일은 생성물입니다. 직접 고치지 마세요.
      원천: docs/internal/*_SRS.md 의 결정 항목
-     생성: dongminal 저장소에서 `go run ./scripts/gen-decisions`
+     생성: dongminal 저장소에서 `cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-decisions`
      검사: scripts/check-decisions.sh (CI) -->
 
 # 결정 색인 (ADR-lite)
