@@ -88,6 +88,18 @@ pub(crate) async fn on_change(n: &TestNode, what: &str, mut cond: impl FnMut() -
     }
 }
 
+/// a 가 pid 를 온라인 참가자로 볼 때까지 기다린다. 참가자 수는 아직 닿지 않은 노드의 참가자도
+/// 센다 — direct 는 온라인인 상대만 받는다.
+pub(crate) async fn until_online_part(a: &TestNode, pid: &str) {
+    on_change(a, "상대 참가자가 온라인이다", || {
+        a.online()
+            .participants
+            .iter()
+            .any(|m| m.id == pid && m.online)
+    })
+    .await;
+}
+
 pub(crate) type Got = Arc<Mutex<Vec<(String, Message)>>>;
 
 pub(crate) struct TestNode {
@@ -754,10 +766,8 @@ fn direct_chat() {
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
         let pc = b.register("b/y", KIND_AGENT);
-        eventually("A 가 B 의 참가자를 본다", || {
-            a.online().participants.len() == 3
-        })
-        .await;
+        until_online_part(&a, &pb.id).await;
+        until_online_part(&a, &pc.id).await;
         must_code(a.direct(&pa.id, "nobody", ""), CODE_NO_SUCH_PARTICIPANT);
         let room = a.direct(&pa.id, &pb.id, "1대1").unwrap();
         eventually("상대가 자동으로 들어간다", || {
@@ -797,7 +807,7 @@ fn direct_survives_disconnect() {
         let cut = link(&a, &b);
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
-        eventually("참가자를 본다", || a.online().participants.len() == 2).await;
+        until_online_part(&a, &pb.id).await;
         let room = a.direct(&pa.id, &pb.id, "").unwrap();
         eventually("A 가 상대의 참가를 본다", || {
             a.first_room_members(&pa.id) == 2
@@ -964,7 +974,7 @@ fn direct_rejects_third_node() {
         let _k = link(&a, &b);
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
-        eventually("참가자를 본다", || a.online().participants.len() == 2).await;
+        until_online_part(&a, &pb.id).await;
         let room = a.direct(&pa.id, &pb.id, "").unwrap();
         eventually("A 가 상대의 참가를 본다", || {
             a.first_room_members(&pa.id) == 2
@@ -1181,7 +1191,7 @@ fn direct_peer_node_not_evicted() {
         let cut = link(&a, &b);
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
-        eventually("참가자를 본다", || a.online().participants.len() == 2).await;
+        until_online_part(&a, &pb.id).await;
         let room = a.direct(&pa.id, &pb.id, "").unwrap();
         eventually("A 가 상대의 참가를 본다", || {
             a.first_room_members(&pa.id) == 2
@@ -1305,22 +1315,26 @@ fn left_direct_does_not_grow() {
         let _k = link(&a, &b);
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
-        eventually("참가자를 본다", || a.online().participants.len() == 2).await;
+        until_online_part(&a, &pb.id).await;
         for _ in 0..3 {
             let room = a.direct(&pa.id, &pb.id, "").unwrap();
-            eventually("상대가 들어간다", || {
+            on_change(&b, "상대가 들어간다", || {
                 b.room_visible(&pb.id, &room.id)
             })
             .await;
-            eventually("A 가 상대의 참가를 본다", || {
+            on_change(&a, "A 가 상대의 참가를 본다", || {
                 a.first_room_members(&pa.id) == 2
             })
             .await;
             b.leave(&pb.id, &room.id).unwrap();
-            eventually("방이 사라진다", || a.record_count() == 0).await;
+            on_change(&a, "방이 사라진다", || a.record_count() == 0).await;
         }
-        eventually("left 가 비워진다", || {
-            left_count(&a, &pa.id) == 0 && left_count(&b, &pb.id) == 0
+        on_change(&a, "A 의 left 가 비워진다", || {
+            left_count(&a, &pa.id) == 0
+        })
+        .await;
+        on_change(&b, "B 의 left 가 비워진다", || {
+            left_count(&b, &pb.id) == 0
         })
         .await;
     });
