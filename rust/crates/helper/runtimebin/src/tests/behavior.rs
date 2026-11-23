@@ -57,6 +57,9 @@ fn helper_name_strips_executable_extension_only() {
     for name in ["dmctl", "edit", "download", "detach", "open-url"] {
         assert!(helper(name).is_some(), "{name}");
     }
+    for name in dm_shared_agentadapter::shim_commands() {
+        assert!(helper(name).is_some(), "shim {name}");
+    }
     assert!(helper("dongminal").is_none());
     assert!(crate::dispatch(Vec::new()).is_none());
     assert!(crate::dispatch(vec!["/x/dongminal".into(), "version".into()]).is_none());
@@ -116,7 +119,6 @@ fn helper_scenarios_match_go() {
     env.set(dm_shared_dmenv::ENV_HOME, home.path().to_str().unwrap());
     let cwd = std::env::current_dir().unwrap();
     let cwd = cwd.to_string_lossy();
-    let later = ["edge", "account", "chat-mcp"];
     let mut checked = 0;
     for line in read_testdata("helper_scenarios.jsonl").lines() {
         let row: Value = serde_json::from_str(line).unwrap();
@@ -127,9 +129,6 @@ fn helper_scenarios_match_go() {
             .iter()
             .map(|a| a.as_str().unwrap())
             .collect();
-        if argv0 == "dmctl" && args.first().is_some_and(|a| later.contains(a)) {
-            continue;
-        }
         let (code, out, err) = run_with(&env, helper(argv0).unwrap(), &args, b"");
         let what = format!("{argv0} {args:?}");
         assert_eq!(i64::from(code), row["code"].as_i64().unwrap(), "{what}");
@@ -145,7 +144,7 @@ fn helper_scenarios_match_go() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 53 - 9);
+    assert_eq!(checked, 53);
 }
 
 // ── 레이아웃 명령 ─────────────────────────────────────

@@ -20,6 +20,7 @@ mod helptext;
 mod http;
 mod openurl;
 mod report;
+mod shim;
 
 #[cfg(test)]
 mod tests;
@@ -43,6 +44,8 @@ pub fn helper(name: &str) -> Option<RunFn> {
         "detach" => Some(detach::run_detach),
         // VIEWER_URL_OPEN_SRS FR-VUO-12: BROWSER 는 실행 파일을 요구하므로 헬퍼로 선다.
         "open-url" => Some(openurl::run_open_url),
+        // CLAUDE_ACCOUNTS_SRS FR-CAC-83: `agent-shims/<명령>` 으로 서는 shim 이다. 이름은 등록부가 정한다.
+        _ if dm_shared_agentadapter::shim_commands().contains(&name) => shim::runner(name),
         _ => None,
     }
 }

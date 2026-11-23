@@ -21,6 +21,8 @@ pub(crate) struct HttpOut {
     pub err: Option<String>,
     /// Go `net.Error.Timeout()` — 예산 안에 끝나지 않았다.
     pub timeout: bool,
+    /// Go `errors.Is(err, ECONNREFUSED)` — 서버가 연결을 거부했다.
+    pub refused: bool,
 }
 
 impl HttpOut {
@@ -30,6 +32,7 @@ impl HttpOut {
             body: body.to_vec(),
             err: None,
             timeout: false,
+            refused: false,
         }
     }
     fn failed(err: String) -> Self {
@@ -38,6 +41,7 @@ impl HttpOut {
             body: Vec::new(),
             err: Some(err),
             timeout: false,
+            refused: false,
         }
     }
 }
@@ -154,6 +158,7 @@ async fn send(
     let _ = rustls::crypto::ring::default_provider().install_default();
     let failed = |e: reqwest::Error| HttpOut {
         timeout: e.is_timeout(),
+        refused: conn_refused(&e),
         ..HttpOut::failed(UrlError::from_reqwest(method, url, &e).to_string())
     };
     let client = match reqwest::Client::builder()
@@ -189,11 +194,25 @@ async fn send(
                     body: data,
                     err: Some(neturl_err::body_error(&e)),
                     timeout: e.is_timeout(),
+                    refused: false,
                 };
             }
         }
     }
     HttpOut::ok(status, &data)
+}
+
+fn conn_refused(e: &reqwest::Error) -> bool {
+    let mut cur: Option<&(dyn std::error::Error + 'static)> = Some(e);
+    while let Some(x) = cur {
+        if x.downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.kind() == std::io::ErrorKind::ConnectionRefused)
+        {
+            return true;
+        }
+        cur = x.source();
+    }
+    false
 }
 
 /// JSON 본문을 싣는 요청이다.
@@ -292,7 +311,6 @@ pub(crate) fn api_rule(path: &str) -> ExitRule<'_> {
 }
 
 /// `{code,message}` 방언의 종단이다 (edge·account, FR-PNW-74).
-#[allow(dead_code)]
 pub(crate) fn code_rule() -> ExitRule<'static> {
     ExitRule {
         prefix: "dmctl",

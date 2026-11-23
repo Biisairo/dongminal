@@ -430,12 +430,6 @@ fn argparse_golden() {
     assert_same(&got, &want, "argparse.golden");
 }
 
-const LATER: &[&str] = &["edges", "edge", "account"];
-
-fn is_later(args: &[&str]) -> bool {
-    args.first().is_some_and(|a| LATER.contains(a))
-}
-
 #[test]
 fn httpresult_golden() {
     let cmds: &[&[&str]] = &[
@@ -463,7 +457,7 @@ fn httpresult_golden() {
         let srv = TestServer::fixed(*status, body);
         let home = tempfile::tempdir().unwrap();
         let env = srv.env(home.path());
-        for c in cmds.iter().filter(|c| !is_later(c)) {
+        for c in cmds {
             let (code, out, err) = dm(&env, c);
             let _ = write!(
                 got,
@@ -519,6 +513,15 @@ fn httpexit_cmds(file: String) -> Vec<GoldenCmd> {
             Box::new(|env| run_with(env, crate::openurl::run_open_url, &["https://x"], b"")),
             None,
         ),
+        ("edges", dmc(&["edges"]), None),
+        ("edge add", dmc(&["edge", "add", "c"]), None),
+        // DM-F5: 본문이 null 이면 옛 코드는 panic 한다 — 따로 시험한다.
+        (
+            "account list --json",
+            dmc(&["account", "list", "--json"]),
+            Some(|s, b| s / 100 == 2 && b == "null"),
+        ),
+        ("account list", dmc(&["account", "list"]), None),
         (
             "move-tab",
             dmc(&[
@@ -540,15 +543,6 @@ fn httpexit_cmds(file: String) -> Vec<GoldenCmd> {
         ("run tree", dmc(&["run", "tree", "--ref", "o/r#32"]), None),
         ("run close", dmc(&["run", "close", "--run", "r1"]), None),
     ]
-}
-
-const HTTPEXIT_LATER: &[&str] = &["edges", "edge add", "account list --json", "account list"];
-
-fn httpexit_block_is_later(b: &str) -> bool {
-    let head = b.lines().next().unwrap_or_default();
-    HTTPEXIT_LATER
-        .iter()
-        .any(|n| head.ends_with(&format!(" {n}")))
 }
 
 #[test]
@@ -615,7 +609,6 @@ fn httpexit_golden() {
     }
     let want: String = blocks(&read_testdata("httpexit.golden"))
         .into_iter()
-        .filter(|b| !httpexit_block_is_later(b))
         .collect();
     assert_same(&got, &want, "httpexit.golden");
 }

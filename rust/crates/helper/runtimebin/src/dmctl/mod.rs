@@ -1,5 +1,9 @@
 //! `dmctl` — dongminal 워크스페이스 원격 제어 CLI.
 
+pub(crate) mod account;
+pub(crate) mod chatmcp;
+pub(crate) mod edge;
+pub(crate) mod hooks;
 pub(crate) mod listworkspace;
 pub(crate) mod notify;
 pub(crate) mod order;
@@ -9,8 +13,8 @@ pub(crate) mod rows;
 pub(crate) mod run;
 pub(crate) mod runhttp;
 pub(crate) mod status;
+pub(crate) mod statusline;
 pub(crate) mod toolio;
-pub(crate) mod unported;
 pub(crate) mod whoami;
 
 use serde_json::{Map, Value};
@@ -48,15 +52,15 @@ fn command(name: &str) -> Option<Command> {
         "list-workspace" => Raw(|ctx, _, a| listworkspace::dmctl_list_workspace(ctx, a)),
         "who-am-i" => Raw(|ctx, _, a| whoami::dmctl_who_am_i(ctx, a)),
         "notify" => Raw(|ctx, _, a| notify::run_dmctl_notify(ctx, a)),
-        "activity"
-        | "agent-context"
-        | "ctx-hook"
-        | "chat-mcp"
-        | "edges"
-        | "edge"
-        | "account"
-        | "statusline"
-        | "subagent-statusline" => Raw(unported::run),
+        "edges" => Raw(|ctx, _, a| edge::run_dmctl_edges(ctx, a)),
+        "edge" => Raw(|ctx, _, a| edge::run_dmctl_edge(ctx, a)),
+        "account" => Raw(|ctx, _, a| account::run_dmctl_account(ctx, a)),
+        "activity" => Raw(|ctx, _, a| hooks::run_dmctl_activity(ctx, a)),
+        "agent-context" => Raw(|ctx, _, a| hooks::run_dmctl_agent_context(ctx, a)),
+        "ctx-hook" => Raw(|ctx, _, a| hooks::run_dmctl_ctx_hook(ctx, a)),
+        "statusline" => Raw(|ctx, _, a| statusline::run_dmctl_statusline(ctx, a)),
+        "subagent-statusline" => Raw(|ctx, _, a| statusline::run_dmctl_subagent_statusline(ctx, a)),
+        "chat-mcp" => Raw(|ctx, _, a| chatmcp::run_dmctl_chat_mcp(ctx, a)),
         "read-screen" | "read-output" => Raw(toolio::run_dmctl_read),
         "send-input" => Raw(|ctx, _, a| toolio::run_dmctl_send_input(ctx, a)),
         "msg" => Raw(|ctx, _, a| toolio::run_dmctl_msg(ctx, a)),
