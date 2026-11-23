@@ -451,3 +451,54 @@ async fn snapshot_carries_update_part() {
     let (_d2, s2) = srv(Deps::default());
     assert_eq!(get(&s2, "/api/snapshot?parts=update").await.body, "{}\n");
 }
+
+// TC-ITB-4 (FR-ITB-6): who-am-i 가 Run 멤버이면 member 를 싣는다. 멤버가 아니면 키가 없다.
+#[tokio::test]
+async fn whoami_carries_member() {
+    use dm_webserver_domain_run::{MemberSpec, StartOptions, Store as RunStore};
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("runs")).unwrap();
+    let runs = Arc::new(RunStore::new(d.path().join("runs")));
+    let rec = runs
+        .start(StartOptions {
+            objective: "o".to_owned(),
+            projection: dm_webserver_domain_run::BACKGROUND.to_owned(),
+            isolation: dm_webserver_domain_run::ISOLATION_NONE.to_owned(),
+            tree: "o/r#32".to_owned(),
+            ..StartOptions::default()
+        })
+        .unwrap();
+    let node = runs
+        .add_member(
+            &rec.id,
+            MemberSpec {
+                role: "ccr#32›33".to_owned(),
+                agent: "claude".to_owned(),
+                tool_id: "tool-n".to_owned(),
+                assign: Some(dm_webserver_domain_run::Assignment {
+                    issue: "33".to_owned(),
+                    ..Default::default()
+                }),
+                ..MemberSpec::default()
+            },
+        )
+        .unwrap();
+    let mk = |id: &str| {
+        server(
+            d.path(),
+            Deps {
+                who_am_i: Some(FakeResolver::ok(id, 1)),
+                runs: Some(runs.clone()),
+                ..Deps::default()
+            },
+        )
+    };
+    let v = get(&mk("tool-n"), "/api/whoami").await.json();
+    assert_eq!(
+        v["member"],
+        serde_json::json!({"id": node.id, "role": "ccr#32›33", "runId": node.run_id, "tree": "o/r#32"})
+    );
+    let r = get(&mk("tool-x"), "/api/whoami").await;
+    assert_eq!(r.status, 200);
+    assert!(r.json().get("member").is_none(), "{}", r.body);
+}

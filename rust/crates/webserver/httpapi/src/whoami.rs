@@ -13,12 +13,14 @@ use crate::httperr::{http_err, write_tool_io_error};
 use crate::req::Req;
 use crate::tools_api::off_thread;
 
-/// Go 의 `map[string]any` 응답이다 — 키는 바이트 순이다. `member`(열린 Run 의 멤버)는 Run 저장소를
-/// 배선하는 하위 이슈가 더한다.
+/// Go 의 `map[string]any` 응답이다 — 키는 바이트 순이다.
 #[derive(Serialize, Default)]
 struct WhoAmI {
     focused: bool,
     label: String,
+    /// 열린 Run 의 멤버이면 그 정체다 (ISSUE_TREE_OPS_SRS FR-ITB-6).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    member: Option<WhoMember>,
     #[serde(rename = "paneUuid")]
     pane_uuid: String,
     #[serde(rename = "shellPid")]
@@ -35,6 +37,17 @@ struct WhoAmI {
     window: String,
     #[serde(rename = "windowUuid")]
     window_uuid: String,
+}
+
+/// Go 의 `map[string]any{"id","runId","role"[,"tree"]}` — 키는 바이트 순이다.
+#[derive(Serialize)]
+struct WhoMember {
+    id: String,
+    role: String,
+    #[serde(rename = "runId")]
+    run_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tree: Option<String>,
 }
 
 impl Server {
@@ -97,6 +110,21 @@ impl Server {
                 resp.pane_uuid = e.pane_uuid;
                 resp.focused = e.is_active;
             }
+        }
+        // FR-ITB-6: migration 이 이 값을 보고 승계 갈래로 간다.
+        if let Some(runs) = &self.deps.runs
+            && let Some(m) = runs.member_by_tool(&resp.tool_id)
+        {
+            let tree = runs
+                .get(&m.run_id)
+                .map(|rec| rec.tree)
+                .filter(|t| !t.is_empty());
+            resp.member = Some(WhoMember {
+                id: m.id,
+                role: m.role,
+                run_id: m.run_id,
+                tree,
+            });
         }
         httpresp::json(StatusCode::OK, &resp)
     }
