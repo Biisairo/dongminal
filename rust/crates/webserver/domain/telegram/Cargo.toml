@@ -10,6 +10,22 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../../gocompat" }
 dm-shared-dmlog = { path = "../../../shared/dmlog" }
 dm-shared-fanout = { path = "../../../shared/fanout" }
 dm-shared-platform = { path = "../../../shared/platform" }
+rand = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+subtle = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+tempfile = { workspace = true }

@@ -176,6 +176,8 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | D-5 | 알려진 차이 | gocompat filepath (Windows) | `EvalSymlinks` 가 경로 대소문자를 실제 이름으로 정규화(toNorm) | 정규화하지 않는다(gocompat 에 OS 호출을 두지 않는다). 관측 자리를 만나면 platform 으로 옮긴다 | 4.1.1 |
 | D-6 | 알려진 차이 | gocompat time | 연도 ±9999 밖도 담고 `year outside of range` 오류를 낸다 | time crate 가 그 범위를 담지 못해 그 오류가 생기지 않는다(파싱 단계에서 거절) | 1.1 |
 | D-7 | 보안 강화 | platform PTY (넘겨받은 셸·Windows) | 거둔(adopt) 셸의 PID 에 신호를 보낸다 — PID 가 재사용되면 다른 프로세스를 죽일 수 있다 | 거둔 셸에는 신호를 보내지 않는다. 경합 상황에서만 다르다 | 1.4.6 |
+| D-8 | 결함 수정 | ctl/migrate | workspace 가 `null` 이면 패닉 | 빈 객체로 다룬다 | 6.2 |
+| D-9 | 보안 강화 | ctl/privhelper | 동시 연결 수에 상한이 없어 자원 고갈 가능 | 동시 연결 상한 32 | 6.2 |
 
 ## 4. 검증
 

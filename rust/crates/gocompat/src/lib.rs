@@ -4,6 +4,8 @@ pub mod filepath;
 pub mod flag;
 pub mod fmt;
 pub mod json;
+#[cfg(feature = "reqwest")]
+pub mod neturl_err;
 pub mod oserr;
 pub mod path;
 pub mod strconv;

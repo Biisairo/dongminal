@@ -5,6 +5,7 @@
 use std::fmt;
 use std::time::Duration;
 
+use dm_gocompat::neturl_err::{self, UrlError};
 use serde::Deserialize;
 
 /// 릴리스가 사는 저장소다. 릴리스를 발행하는 곳과 같아야 한다.
@@ -25,7 +26,7 @@ const USER_AGENT: &str = "Go-http-client/1.1";
 /// NFR-UPD-4: 요청이 싣는 것은 이 한 줄뿐이다.
 const ACCEPT: &str = "application/vnd.github+json";
 
-/// 확인 실패. `Display` 는 Go `err.Error()` 의 문구다(전송 오류는 근사).
+/// 확인 실패. `Display` 는 Go `err.Error()` 의 문구다.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(String);
 
@@ -49,11 +50,11 @@ pub async fn latest(url: &str) -> Result<(String, String), Error> {
     let url = if url.is_empty() { API } else { url };
     // reqwest 의 rustls-no-provider 는 프로세스 공통 암호 공급자를 요구한다. 이미 있으면 그대로 쓴다.
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let transport =
-        |e: reqwest::Error| Error(format!("Get {}: {e}", dm_gocompat::strconv::quote(url)));
+    let transport = |e: reqwest::Error| Error(UrlError::from_reqwest("GET", url, &e).to_string());
     let client = reqwest::Client::builder()
         .timeout(TIMEOUT)
         .user_agent(USER_AGENT)
+        .redirect(neturl_err::redirect_policy())
         .build()
         .map_err(transport)?;
     let mut res = client
@@ -67,7 +68,11 @@ pub async fn latest(url: &str) -> Result<(String, String), Error> {
     }
     let mut body = Vec::new();
     while body.len() < BODY_LIMIT {
-        match res.chunk().await.map_err(transport)? {
+        match res
+            .chunk()
+            .await
+            .map_err(|e| Error(neturl_err::body_error(&e)))?
+        {
             Some(c) => body.extend_from_slice(&c),
             None => break,
         }

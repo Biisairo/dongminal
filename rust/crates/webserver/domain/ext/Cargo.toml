@@ -10,6 +10,22 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../../gocompat" }
 dm-shared-diagtail = { path = "../../../shared/diagtail" }
 dm-shared-dmenv = { path = "../../../shared/dmenv" }
 dm-shared-platform = { path = "../../../shared/platform" }
+flate2 = { workspace = true }
+futures-util = { workspace = true }
+hex = { workspace = true }
+reqwest = { workspace = true }
+rust-embed = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+tar = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+zip = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

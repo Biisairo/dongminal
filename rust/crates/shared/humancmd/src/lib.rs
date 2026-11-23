@@ -8,8 +8,8 @@
 mod client;
 mod wire;
 
-pub use client::{Client, Info};
-pub use wire::{DEFAULT_TIMEOUT, MAX_LINE, round_trip};
+pub use client::{Client, Deadline, Info};
+pub use wire::{DEFAULT_TIMEOUT, MAX_LINE, read_line, round_trip};
 
 use std::fmt;
 
@@ -162,7 +162,7 @@ pub struct Error {
 }
 
 impl Error {
-    pub(crate) fn no_helper() -> Self {
+    pub fn no_helper() -> Self {
         Self {
             code: CODE_NO_HELPER.to_owned(),
             until: 0,
