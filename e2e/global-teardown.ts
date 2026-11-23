@@ -32,6 +32,11 @@ async function globalTeardown() {
     }
     stopDaemon(fullPath);
     stopDaemonsUnder(fullPath);
+    // RUST_DEFECT_FIX_SRS 10.7b: 실패를 가릴 때는 홈(워커의 `server.log` 포함)을 남긴다. 데몬은 위에서 세웠다.
+    if (process.env.DM_E2E_KEEP_HOME) {
+      console.log(`DM_E2E_KEEP_HOME: 홈을 남겼다 — ${fullPath}`);
+      continue;
+    }
     try {
       rmSync(fullPath, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     } catch {
