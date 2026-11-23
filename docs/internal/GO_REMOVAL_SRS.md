@@ -339,6 +339,8 @@ R3·R4 는 게이트가 12개라 한 묶음이 크다. 사람이 부족하면 R3
 
 ## 4. 미해결 질문(결정 후보)
 
+> 조정자 추가(2026-11-24): **G-74** 프런트 단위 시험(`npm run unit`, web/js/test)이 internal/ 의 시험 벡터 4개와 `internal/webserver/hub/commands.go` 의 cmdActions 표를 직접 읽는다(shared-vectors·cm-lsp·window-order·remote-actions). Rust 쪽 사본·Rust hub 소스를 읽게 바꾼다 — 11.2(R2) 가 맡는다. 출력·통과 수는 같아야 한다.
+
 > 조정자 결정(2026-11-24): Q-GRM-1~12 는 모두 권장안대로 한다(musl 정적, 대상 OS 러너 원생 빌드, version 셋째 칸 유지, Go 참조 대조는 `DM_GO_REF_SRC` 선택 실행, `rust/` 유지, cargo-llvm-cov, clippy+deny+audit, 축 예외 표, "Go 기준선" 표기 인정, rust-toolchain.toml 고정, 빌드 각인 변수는 env-docs 예외, gates.sh `--go` 제거). Q-GRM-13·14 는 사용자 결정 대기 — 그동안 CI 는 로컬에서 같은 단계를 스크립트로 재현해 확인한다.
 
 각 질문에 권장안을 적는다. 사용자나 조정자가 정한다.
