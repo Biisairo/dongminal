@@ -130,6 +130,9 @@ async function snap(page: Page, screen: string): Promise<Record<string, Row>> {
   }, screen);
 }
 
+/** 내용이 비동기로 차는 뷰와, 찼다는 표지. 기준선이 그 표지를 담고 떴다. */
+const VIEW_READY: Partial<Record<string, string>> = { history: '.git-hist-row.head' };
+
 /** 터미널 화면 · Editor 창 · git 여덟 뷰를 훑는다. */
 async function collect(page: Page): Promise<Record<string, Row>> {
   const all: Record<string, Row> = {};
@@ -149,6 +152,14 @@ async function collect(page: Page): Promise<Record<string, Row>> {
     // 표면을 두 번 찍고 새 표면은 한 번도 찍지 않는다.
     await expect(page.locator(`#area .pn-body .git-view.git-${v}`))
       .toHaveClass(/vis/, { timeout: 10000 });
+    // RUST_DEFECT_FIX_SRS FR-RDF-6: `vis` 가 선 그 프레임에는 `ResizeObserver` 가 아직 돌지 않았다. history 를
+    // 그때 찍으면 폭 클래스(`hide-hash`)가 없는 목록이 「지금에만」 키가 된다(전량 회차 실측). 행이 선 뒤 두
+    // 프레임을 넘겨 관찰자 반영까지 기다린다.
+    const ready = VIEW_READY[v];
+    if (ready) {
+      await expect(page.locator(`#area .pn-body .git-view.git-${v} ${ready}`).first()).toBeAttached({ timeout: 15000 });
+    }
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
     merge(await snap(page, 'git:' + v));
   }
 
