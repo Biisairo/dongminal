@@ -140,10 +140,9 @@ fn credential_with_tokens() {
 #[test]
 fn credential_expired() {
     let c = Credential::parse(br#"{"claudeAiOauth":{"expiresAt":1000000}}"#).unwrap();
-    let at = |ms: u64| std::time::UNIX_EPOCH + std::time::Duration::from_millis(ms);
-    assert!(c.expired(at(1_000_000 - 300_000)));
-    assert!(!c.expired(at(1_000_000 - 300_001)));
-    assert!(Credential::parse(b"{}").unwrap().expired(at(0)));
+    assert!(c.expired(1_000_000 - 300_000));
+    assert!(!c.expired(1_000_000 - 300_001));
+    assert!(Credential::parse(b"{}").unwrap().expired(0));
 }
 
 #[test]

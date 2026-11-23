@@ -33,6 +33,8 @@ pub enum Sentinel {
     LiveChanged,
     /// `ErrNoCandidate`
     NoCandidate,
+    /// `ErrTooSoon`
+    TooSoon,
 }
 
 impl Sentinel {
@@ -56,6 +58,7 @@ impl Sentinel {
             }
             Sentinel::LiveChanged => "전환 도중 활성 자격증명이 바뀌었습니다. 다시 시도하세요",
             Sentinel::NoCandidate => "전환할 계정이 없습니다",
+            Sentinel::TooSoon => "조금 전에 조회했거나 물러나는 중입니다",
         }
     }
 }

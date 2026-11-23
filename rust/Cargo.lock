@@ -1180,6 +1180,7 @@ dependencies = [
  "dm-shared-dmlog",
  "dm-shared-platform",
  "dm-shared-testpath",
+ "dm-webserver-domain-run",
  "futures-util",
  "hex",
  "http",

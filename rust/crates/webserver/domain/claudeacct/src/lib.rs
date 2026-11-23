@@ -12,6 +12,7 @@ mod claudecfg;
 mod client;
 mod creds;
 mod dirlock;
+mod engine;
 mod error;
 mod fsutil;
 mod history;
@@ -23,9 +24,11 @@ mod policy;
 mod profile;
 mod resets;
 mod service;
+mod smart;
 mod store;
 mod unclaimed;
 mod usage;
+mod view;
 mod waker;
 
 #[cfg(test)]
@@ -38,6 +41,11 @@ pub use client::{
 };
 pub use creds::Credential;
 pub use dirlock::DEFAULT_LOCK_WAIT;
+pub use engine::{
+    ClaimBody, Engine, JitterFn, LineForFn, ModelsFn, OnChangeFn, Row, STATUS_KEYCHAIN_UNAVAILABLE,
+    STATUS_NO_CREDENTIALS, STATUS_OK, STATUS_RATE_LIMITED, STATUS_RELOGIN_REQUIRED,
+    STATUS_TOKEN_EXPIRED, STATUS_UNAVAILABLE, StatusLineFn, UsageApi,
+};
 pub use error::{Error, HttpStatusError, Sentinel};
 pub use history::*;
 pub use live::LiveStore;
@@ -54,9 +62,17 @@ pub use service::{
     AliveFn, Clock, IdGen, LinkFn, OUTGOING_EMPTY, OUTGOING_FOREIGN, OUTGOING_KNOWN,
     OUTGOING_ROTATED, OUTGOING_SAME, OUTGOING_UNRESOLVED, Service, SwitchResult,
 };
+pub use smart::{
+    MODELS_ALL, REASON_CURRENT_UNAVAILABLE, REASON_EXHAUSTED, REASON_NO_COMPARISON, REASON_NONE,
+    REASON_STAY, STRATEGY_BEST, STRATEGY_NEXT, STRATEGY_NEXT_AVAILABLE, SwitchRequest,
+};
 pub use store::{ACCOUNT_RANGES, Account, AutoRange, Patch, State, Store};
 pub use unclaimed::UnclaimedEntry;
 pub use usage::{Models, ScopedWindow, Spend, Usage, Window, parse_usage};
+pub use view::{
+    AccountView, PaceView, ScopedWindowView, StatusLineView, StatusLineWindows, UsageView,
+    WindowView, WindowsView, build_views, masked_name, status_line_view_of, usage_level,
+};
 
 pub(crate) const FILE_MODE: u32 = 0o600;
 pub(crate) const DIR_MODE: u32 = 0o700;
