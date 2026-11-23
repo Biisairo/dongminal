@@ -1,0 +1,19 @@
+[package]
+name = "dm-scripts-check-shared-constants"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "check-shared-constants"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-gocompat = { path = "../../gocompat" }
+dm-webserver-domain-git-jobs = { path = "../../webserver/domain/git/jobs" }
+regex = { workspace = true }
