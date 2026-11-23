@@ -47,7 +47,7 @@ pub use junction::junction;
 pub use lastexit::{LAST_EXIT_FILE, LastExit, mark_clean_exit, mark_running, read_last_exit};
 pub use oskind::{OsKind, build_target};
 pub use paths::Paths;
-pub use process::{Group, Process, ShutdownSignal};
+pub use process::{Group, Process, ShutdownSignal, exit_status_text};
 pub use procinfo::{ProcInfo, command_lines};
 pub use pty::{ProcSpec, Pty, Terminal};
 pub use secrets::{Secrets, SecretsError};

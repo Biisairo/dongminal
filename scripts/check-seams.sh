@@ -48,16 +48,11 @@ EXEMPT='^rust/crates/shared/platform/|^rust/crates/webserver/domain/sysstat/|^ru
 
 # 파일 하나와 항목 하나의 예외 (GO_REMOVAL_SRS Q-GRM-8 — 제품 코드를 고치지 않고 표로 둔다).
 #
-#   toolhub/src/tool.rs, sandbox/src/exec.rs — libc::SIG*
-#     종료 정보의 시그널 이름("hangup"·"killed" …)을 Go `syscall.Signal.String()` 과
-#     같은 문구로 짝짓는다. Rust 표준에는 시그널 이름 문자열이 없다.
 #   edgerelay/src/tests.rs, helper/runtimebin/src/tests/chatmcp.rs — unix 소켓
 #     시험이 소켓 짝(`UnixStream::pair`)과 막힌 소켓 자리를 직접 만든다.
 #   shared/{edge,edgenode}/tests/go_interop.rs — ps
 #     Go 참조 프로세스가 살아 있는지 본다. Go 참조를 줄 때만 도는 선택 실행 시험이다.
 ALLOW_HITS=(
-  "rust/crates/shared/toolhub/src/tool.rs|libc::SIG*"
-  "rust/crates/shared/sandbox/src/exec.rs|libc::SIG*"
   "rust/crates/shared/edgerelay/src/tests.rs|unix 소켓 직접 사용"
   "rust/crates/helper/runtimebin/src/tests/chatmcp.rs|unix 소켓 직접 사용"
   "rust/crates/shared/edge/tests/go_interop.rs|ps"
