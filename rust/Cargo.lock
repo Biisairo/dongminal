@@ -544,8 +544,11 @@ dependencies = [
 name = "dm-shared-handover"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-agentrec",
  "dm-shared-platform",
+ "serde",
+ "tempfile",
 ]
 
 [[package]]

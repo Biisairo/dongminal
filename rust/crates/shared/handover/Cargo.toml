@@ -12,3 +12,8 @@ workspace = true
 [dependencies]
 dm-shared-agentrec = { path = "../agentrec" }
 dm-shared-platform = { path = "../platform" }
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
