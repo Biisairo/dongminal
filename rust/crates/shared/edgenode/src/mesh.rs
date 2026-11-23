@@ -10,7 +10,10 @@ use serde::Serialize;
 use time::OffsetDateTime;
 use tokio_util::sync::CancellationToken;
 
-use crate::ops::{Request, Response, call_fail, decode, fail, ok, store_fail};
+use crate::ops::{DEADLINE_EXCEEDED, Request, Response, call_fail, decode, fail, ok, store_fail};
+
+/// Go `context.Canceled` 의 문구다.
+const CONTEXT_CANCELED: &str = "context canceled";
 use crate::{CODE_BAD_REQUEST, CODE_INTERNAL, Change, Node, NowFn, Ref, audit};
 
 /// 보관할 받은 초대의 수다.
@@ -190,7 +193,7 @@ impl Node {
         self.changed(Change::default());
     }
 
-    pub(crate) async fn op_notify(&self, req: &Request) -> Response {
+    pub(crate) async fn op_notify(&self, req: &Request, deadline: &CancellationToken) -> Response {
         #[derive(serde::Deserialize, Default)]
         #[serde(default)]
         struct In {
@@ -207,7 +210,8 @@ impl Node {
             Ok(e) => e,
             Err(err) => return store_fail(&err),
         };
-        if let Err(err) = m.notify(&CancellationToken::new(), &e.fingerprint).await {
+        if let Err(err) = m.notify(deadline, &e.fingerprint).await {
+            let err = deadline_cause(err, deadline);
             match err.kind() {
                 ErrorKind::AddrUnknown => {
                     return fail(
@@ -421,7 +425,11 @@ impl Node {
         })
     }
 
-    pub(crate) async fn op_invite_accept(&self, req: &Request) -> Response {
+    pub(crate) async fn op_invite_accept(
+        &self,
+        req: &Request,
+        deadline: &CancellationToken,
+    ) -> Response {
         let id = match decode::<IdIn>(&req.args) {
             Ok(v) => v.id,
             Err(r) => return r,
@@ -433,7 +441,7 @@ impl Node {
                 "no such invite",
             );
         };
-        let r = self.add_code(&inv.code).await;
+        let r = self.add_code(&inv.code, deadline).await;
         if r.code.is_empty() {
             self.take_invite(&id, true);
             self.changed(Change::default());
@@ -480,6 +488,22 @@ fn mesh_unavailable() -> Response {
 
 /// 간선 계층의 걸기 실패다. Go `callFail` 처럼 감싼 원인(`%w`)으로 가리고, 문구는 감싼 오류
 /// 전체다. 원격 거절은 그 코드와 정리한 상대 문구로 답한다.
+/// 간선 계층은 취소된 걸기를 `context canceled` 로 적는다. op 의 취소는 시한 초과뿐이므로 Go 처럼
+/// `context deadline exceeded` 로 옮긴다.
+fn deadline_cause(err: edgemesh::MeshError, deadline: &CancellationToken) -> edgemesh::MeshError {
+    match err.call_error() {
+        Some(edge::CallError::Unreachable(c))
+            if deadline.is_cancelled() && c == CONTEXT_CANCELED =>
+        {
+            edgemesh::MeshError::with_call(
+                err.kind(),
+                edge::CallError::Unreachable(DEADLINE_EXCEEDED.to_string()),
+            )
+        }
+        _ => err,
+    }
+}
+
 pub(crate) fn mesh_call_fail(err: &edgemesh::MeshError) -> Response {
     let msg = err.to_string();
     match err.call_error() {

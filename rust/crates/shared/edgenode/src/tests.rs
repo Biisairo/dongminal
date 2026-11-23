@@ -1113,3 +1113,91 @@ fn mesh_call_fail_uses_wrapped_cause() {
         "{r:?}"
     );
 }
+
+/// 받기만 하고 답하지 않는 상대의 포트다. 돌려준 리스너가 살아 있는 동안 연결을 붙잡는다.
+async fn silent_peer() -> (tokio::task::JoinHandle<()>, i64) {
+    let ln = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = i64::from(ln.local_addr().unwrap().port());
+    let h = tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((c, _)) = ln.accept().await {
+            held.push(c);
+        }
+    });
+    (h, port)
+}
+
+/// 시한(FR-RDF-3)이 지나면 상대를 기다리던 op 가 Go 와 같은 답으로 끝난다. 기대값은 go1.27.2 의
+/// `Do(ctx 300ms)` 격리 실측이다.
+#[tokio::test(flavor = "multi_thread")]
+async fn op_deadline_answers_like_go() {
+    const LIMIT: Duration = Duration::from_millis(300);
+    const BOUND: Duration = Duration::from_secs(3);
+    let (peer, port) = silent_peer().await;
+    let a = meshed("a");
+    let b = meshed("b");
+    a.store()
+        .add_edge(Edge {
+            name: "x".into(),
+            addr: "127.0.0.1".into(),
+            port,
+            fingerprint: b.fp(),
+            ..Edge::default()
+        })
+        .unwrap();
+    let req = |op: &str, args: String| OpRequest {
+        op: op.into(),
+        args: args.into_bytes(),
+        if_match: String::new(),
+    };
+    let fp_args = format!(r#"{{"fp":"{}"}}"#, b.fp());
+
+    let r = tokio::time::timeout(BOUND, a.do_op_within(req("notify", fp_args.clone()), LIMIT))
+        .await
+        .expect("notify 가 시한에 끝나지 않았다");
+    assert_eq!(
+        (r.status, r.code.as_str(), r.message.as_str()),
+        (
+            StatusCode::BAD_GATEWAY,
+            edge::CODE_UNREACHABLE,
+            "상대에 닿지 못했다: 상대 노드에 닿지 못했습니다: context deadline exceeded"
+        )
+    );
+
+    let c = meshed("c");
+    let (token, _) = c.pairing().new_invite();
+    let code = edge::encode_invite(&edge::InviteCode {
+        addr: "127.0.0.1".into(),
+        port,
+        fingerprint: c.fp(),
+        token,
+    });
+    let r = tokio::time::timeout(
+        BOUND,
+        a.do_op_within(req("add", format!(r#"{{"code":"{code}"}}"#)), LIMIT),
+    )
+    .await
+    .expect("add 가 시한에 끝나지 않았다");
+    assert_eq!(
+        (r.status, r.code.as_str(), r.message.as_str()),
+        (
+            StatusCode::BAD_GATEWAY,
+            edge::CODE_UNREACHABLE,
+            format!(
+                "상대 노드에 닿지 못했습니다: Post \"https://127.0.0.1:{port}/edge/v1/pair\": context deadline exceeded"
+            )
+            .as_str()
+        )
+    );
+
+    let r = tokio::time::timeout(BOUND, a.do_op_within(req("remove", fp_args), LIMIT))
+        .await
+        .expect("remove 가 시한에 끝나지 않았다");
+    assert_eq!(r.status, StatusCode::OK, "{r:?}");
+    assert_eq!(
+        String::from_utf8(r.body).unwrap(),
+        format!(r#"{{"fp":"{}","name":"x","notified":false}}"#, b.fp())
+    );
+    assert!(!a.store().is_edge(&b.fp()));
+    peer.abort();
+}

@@ -25,6 +25,8 @@ pub const DIAL_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 /// pid·지문 파일의 권한이다.
 #[cfg(unix)]
 const STATE_FILE_MODE: u32 = 0o600;
+/// edge 한 번의 상한이다. 상대 호출(15초)과 연결·핸드셰이크를 넘긴다 (Go `edgeCallTimeout`).
+pub const EDGE_CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// 채팅의 사람 참가자 쪽이다 (PEER_CHAT_SRS §3.11).
 pub trait ChatUser: Send + Sync {
@@ -57,6 +59,7 @@ pub(crate) struct Inner {
     pub report_mu: Mutex<()>,
     edge_node: Mutex<Option<Arc<Node>>>,
     edge_port: Mutex<EdgeStatus>,
+    edge_call_timeout: Mutex<Duration>,
     chat: Mutex<Option<Arc<dyn ChatUser>>>,
     pub reloader: Mutex<Option<Reloader>>,
 }
@@ -95,6 +98,7 @@ impl PanedServer {
             report_mu: Mutex::new(()),
             edge_node: Mutex::new(None),
             edge_port: Mutex::default(),
+            edge_call_timeout: Mutex::new(EDGE_CALL_TIMEOUT),
             chat: Mutex::new(None),
             reloader: Mutex::new(None),
         });
@@ -433,6 +437,15 @@ impl Inner {
 
     pub fn edge_node(&self) -> Option<Arc<Node>> {
         lock(&self.edge_node).clone()
+    }
+
+    pub(crate) fn edge_call_timeout(&self) -> Duration {
+        *lock(&self.edge_call_timeout)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_edge_call_timeout(&self, d: Duration) {
+        *lock(&self.edge_call_timeout) = d;
     }
 
     pub fn set_edge_port(&self, listening: bool, addr: String, err: String) {
