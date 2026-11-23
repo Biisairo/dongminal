@@ -40,24 +40,13 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 
   ② 겨누는 명령(health·window·stop·migrate)이 resolve_target 을 지나는가
 
-  지나가는 것: dmenv/src/host.rs (조립을 정의하는 쪽) · 시험 파일 · 주석 ·
-  스크립트의 ALLOW 에 근거와 함께 적은 자리
+  지나가는 것: dmenv/src/host.rs (조립을 정의하는 쪽 — join_host_port 가 여기 있다) · 시험 파일 · 주석
 USAGE
   exit 0
 fi
 
 source scripts/lib/rs-src.sh
 fail=0
-
-# 예외 — `경로|줄 내용의 정규식`.
-#
-#   httpapi/src/run.rs, ctl/cli/src/config_bind.rs — `join_host_port`
-#     Go 표준 `net.JoinHostPort` 를 같은 바이트로 옮긴 함수다. 콜론이 든 호스트는 바로
-#     윗줄에서 대괄호로 싼다 — 이 게이트가 막으려는 "대괄호 없는 조립" 이 아니다.
-ALLOW=(
-  'rust/crates/webserver/httpapi/src/run.rs|^[[:space:]]*format!\("\{host\}:\{port\}"\)$'
-  'rust/crates/ctl/cli/src/config_bind.rs|^[[:space:]]*format!\("\{host\}:\{port\}"\)$'
-)
 
 n_files=$(find rust/crates -name '*.rs' -not -path '*/target/*' | wc -l | tr -d ' ')
 if [[ "$n_files" -eq 0 ]]; then
@@ -72,14 +61,7 @@ asm=$(
     --include='*.rs' rust/crates 2>/dev/null \
     | grep -v '^rust/crates/shared/dmenv/src/host\.rs:' \
     | rs_drop_tests \
-    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' \
-    | while IFS= read -r l; do
-        f=${l%%:*}; c=${l#*:}; c=${c#*:}; ok=0
-        for ex in "${ALLOW[@]}"; do
-          [[ "$f" == "${ex%%|*}" ]] && grep -qE "${ex#*|}" <<<"$c" && ok=1 && break
-        done
-        ((ok)) || printf '%s\n' "$l"
-      done
+    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)'
 )
 if [[ -n "$asm" ]]; then
   echo "host:port 를 문자열로 잇는 자리가 있습니다 (FR-STR-20·21):"

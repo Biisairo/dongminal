@@ -161,7 +161,7 @@ fn call_bind(
     let _ = writeln!(
         stdout,
         "✅ 바인드 {} ({}) — {}",
-        join_host_port(&out.host, &out.port),
+        dm_shared_dmenv::join_host_port(&out.host, &out.port),
         expose_word(out.expose),
         out.url
     );
@@ -169,15 +169,6 @@ fn call_bind(
         let _ = writeln!(stderr, "⚠ {}", out.warning);
     }
     0
-}
-
-/// Go `net.JoinHostPort` — 콜론이 든 호스트는 대괄호로 싼다.
-fn join_host_port(host: &str, port: &str) -> String {
-    if host.contains(':') {
-        format!("[{host}]:{port}")
-    } else {
-        format!("{host}:{port}")
-    }
 }
 
 fn expose_word(on: bool) -> &'static str {
@@ -197,7 +188,7 @@ pub(crate) fn run_config_get(home: &str, env: &Env<'_>, stdout: &mut dyn Write) 
             let _ = writeln!(
                 stdout,
                 "지금 바인드: {} ({})",
-                join_host_port(&h, &p),
+                dm_shared_dmenv::join_host_port(&h, &p),
                 expose_word(dmenv::is_exposed_host(&h))
             );
         }

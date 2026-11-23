@@ -72,7 +72,8 @@ source scripts/lib/rs-src.sh
 #
 #   shared/edgenode/src/lib.rs — LEGACY_SPAWNS_FILE (peer-spawns.json)
 #     옛 원격 기동 기록을 노드가 설 때 **지우는** 자리다 (FR-PDM-64). 홈에 쓰지 않는다.
-#     Go 판은 `filepath.Join(o.Home, …)` 이라 이 게이트의 꼴에 걸리지 않았다.
+#     Go 판은 `filepath.Join(o.Home, …)` 이라 이 게이트의 꼴에 걸리지 않았다. 표에 넣으면
+#     backup·uninstall 이 다루는 목록이 바뀌므로(Go 판과 다른 동작) 표가 아니라 여기에 둔다.
 NOT_WRITES=(
   "rust/crates/shared/edgenode/src/lib.rs|LEGACY_SPAWNS_FILE"
 )
