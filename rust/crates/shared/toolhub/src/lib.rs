@@ -1,14 +1,16 @@
 //! Go 기준선 `dongminal/internal/shared/toolhub` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
-//! 이슈 2.2.1 범위: 와이어 타입과 PTY 없이 판정되는 순수 함수. Tool·ToolManager 는 2.2.2·2.2.3.
+//! 2.2.1: 와이어 타입·순수 판정, 2.2.2: Tool(PTY 소유 도구). ToolManager 는 2.2.3.
 
 mod agentturn;
 mod attention;
 mod conn;
+mod env;
 mod hub;
 mod records;
 mod shellprobe;
 mod termmodes;
+mod tool;
 
 pub use agentturn::{AgentTurn, TurnState};
 pub use attention::{
@@ -24,3 +26,7 @@ pub use hub::{BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolInfo, ToolSna
 pub use records::{AgentState, ExitInfo};
 pub use shellprobe::{ShellState, judge_shell};
 pub use termmodes::{MODE_MAX_CARRY, ModeObserver, TermModes, alt_screen_at_head, scan_modes};
+pub use tool::{
+    ActivityFn, AttentionFn, BUF_MAX, BusyProbeFn, ClearFn, ExitFn, OutputFn, Restore, SizeFn,
+    TERMINATE_GRACE, Tool, ToolHooks, busy_of, set_attn_busy_probe, set_attn_now,
+};
