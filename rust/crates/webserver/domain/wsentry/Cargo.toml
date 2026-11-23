@@ -10,6 +10,13 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../../gocompat" }
 dm-shared-listorder = { path = "../../../shared/listorder" }
 dm-shared-workspace = { path = "../../../shared/workspace" }
+dm-webserver-domain-git-core = { path = "../git/core" }
 dm-webserver-sse = { path = "../../sse" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true }

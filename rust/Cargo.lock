@@ -1149,9 +1149,14 @@ dependencies = [
 name = "dm-webserver-domain-wsentry"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-listorder",
  "dm-shared-workspace",
+ "dm-webserver-domain-git-core",
  "dm-webserver-sse",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

@@ -362,15 +362,13 @@ async fn lock_repo_wait_bound_cancel_deadline() {
     assert!(again.is_ok(), "반납 뒤 다시 쥐지 못했다");
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn lock_repo_key_is_normalized() {
     let (_a, dir) = real_tmp();
     let t = tempfile::tempdir().unwrap();
     let link = s(&t.path().join("link"));
-    #[cfg(unix)]
     std::os::unix::fs::symlink(&dir, &link).unwrap();
-    #[cfg(not(unix))]
-    return;
     let _held = lock_repo(&ctx(), &dir, Duration::from_secs(1))
         .await
         .unwrap();
@@ -674,6 +672,7 @@ async fn remove_rejects_risky_paths() {
     assert!(exists(&outside));
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn new_resolves_symlinked_root() {
     let Some(r) = temp_repo() else { return };
@@ -682,10 +681,7 @@ async fn new_resolves_symlinked_root() {
     let real = filepath::join(&[base.clone(), "actual".into()]);
     std::fs::create_dir_all(&real).unwrap();
     let link = filepath::join(&[base, "link".into()]);
-    #[cfg(unix)]
     std::os::unix::fs::symlink(&real, &link).unwrap();
-    #[cfg(not(unix))]
-    return;
     let m = Manager::new(&filepath::join(&[link, "worktrees".into()]));
     assert_eq!(m.root(), filepath::join(&[real, "worktrees".into()]));
     let sp = create_tree(&m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
