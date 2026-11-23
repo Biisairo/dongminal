@@ -168,11 +168,31 @@ async fn push_inner(
 }
 
 fn check_push_target(remote: &str, branch: &str) -> Result<(), Error> {
-    if let Err(e) = check_remote_name(remote) {
+    if let Err(e) = check_remote_name(remote).and_then(|()| check_refspec_arg("remote", remote)) {
         return Err(Error::wrap_text(WriteKind::PushTarget, e));
     }
-    if let Err(e) = core::check_ref_arg("branch", branch) {
+    if let Err(e) = check_refspec_arg("branch", branch) {
         return Err(Error::wrap_text(WriteKind::PushTarget, e));
+    }
+    Ok(())
+}
+
+/// refspec 자리에 놓이는 이름. `-`(옵션)·`+`(강제)·`:`(삭제·대상 지정)을 거절한다 (DIFF-13).
+pub(crate) fn check_refspec_arg(name: &str, val: &str) -> Result<(), Error> {
+    core::check_ref_arg(name, val)?;
+    if val.starts_with('+') {
+        return Err(core::Error::new(
+            core::Kind::RefName,
+            format!("{name} 는 + 로 시작할 수 없다: {}", quote(val)),
+        )
+        .into());
+    }
+    if val.contains(':') {
+        return Err(core::Error::new(
+            core::Kind::RefName,
+            format!("{name} 에 : 가 있다: {}", quote(val)),
+        )
+        .into());
     }
     Ok(())
 }

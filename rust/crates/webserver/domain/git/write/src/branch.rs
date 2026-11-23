@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::commit::{argv, spec};
 use crate::error::{Error, WriteKind, exec_write};
-use crate::remote::{PROGRESS_FLAG, PUSH_NO_FORCE, PushPlan, check_remote_name, push_force_args};
+use crate::remote::{
+    PROGRESS_FLAG, PUSH_NO_FORCE, PushPlan, check_refspec_arg, check_remote_name, push_force_args,
+};
 use crate::stage::PATHS_SEP;
 use crate::tag::PUSH_DELETE_FLAG;
 
@@ -400,7 +402,7 @@ async fn branch_push_inner(
     o: &BranchPushOpts,
     plan: &mut PushPlan,
 ) -> Result<WriteSpec, Error> {
-    core::check_ref_arg("branch", &o.branch)?;
+    check_refspec_arg("branch", &o.branch)?;
     let mut av = argv(&["push", PROGRESS_FLAG]);
     av.extend(push_force_args(&o.force, o.confirm)?);
     let destructive = o.force != PUSH_NO_FORCE;
@@ -475,7 +477,8 @@ pub async fn remote_branch_delete_spec(
 
 fn check_remote_branch(o: &RemoteBranchOpts) -> Result<(), Error> {
     check_remote_name(&o.remote)?;
-    core::check_ref_arg("branch", &o.branch)?;
+    check_refspec_arg("remote", &o.remote)?;
+    check_refspec_arg("branch", &o.branch)?;
     Ok(())
 }
 

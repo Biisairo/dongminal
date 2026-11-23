@@ -549,3 +549,65 @@ fn remote_name_checked_on_every_path() {
         );
     }
 }
+
+// DIFF-13: refspec 자리의 `+`·`:`·`-` 는 실행 전에 거절한다.
+#[tokio::test]
+async fn push_target_rejects_refspec_syntax() {
+    let svc = Service::builder().build();
+    let ctx = core::Ctx::background();
+    for (remote, branch, want) in [
+        (
+            "origin",
+            "+main",
+            "push_target_invalid: ref_name_invalid: branch 는 + 로 시작할 수 없다: \"+main\"",
+        ),
+        (
+            "origin",
+            "main:other",
+            "push_target_invalid: ref_name_invalid: branch 에 : 가 있다: \"main:other\"",
+        ),
+        (
+            "origin",
+            "-f",
+            "push_target_invalid: ref_name_invalid: branch 는 - 로 시작할 수 없다: \"-f\"",
+        ),
+        (
+            "+origin",
+            "main",
+            "push_target_invalid: ref_name_invalid: remote 는 + 로 시작할 수 없다: \"+origin\"",
+        ),
+    ] {
+        let o = PushOpts {
+            remote: remote.into(),
+            branch: branch.into(),
+            ..PushOpts::default()
+        };
+        let (res, _) = push_spec(&svc, &ctx, "/r", &o).await;
+        let e = res.unwrap_err();
+        assert!(e.is(WriteKind::PushTarget), "{e}");
+        assert_eq!(e.to_string(), want);
+    }
+}
+
+#[tokio::test]
+async fn branch_push_and_remote_branch_reject_refspec_syntax() {
+    let svc = Service::builder().build();
+    let ctx = core::Ctx::background();
+    let o = BranchPushOpts {
+        branch: "+main".into(),
+        ..BranchPushOpts::default()
+    };
+    let (res, _) = branch_push_spec(&svc, &ctx, "/r", &o).await;
+    assert!(res.unwrap_err().is_core(Kind::RefName));
+    for (remote, branch) in [("origin", "a:b"), ("origin", "+a")] {
+        let o = RemoteBranchOpts {
+            remote: remote.into(),
+            branch: branch.into(),
+        };
+        assert!(remote_fetch_spec(&o).unwrap_err().is_core(Kind::RefName));
+        let e = remote_branch_delete_spec(&svc, &ctx, "/r", &o)
+            .await
+            .unwrap_err();
+        assert!(e.is_core(Kind::RefName), "{e}");
+    }
+}
