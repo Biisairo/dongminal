@@ -51,11 +51,7 @@ pub fn render() -> Result<String, String> {
         })
         .collect();
     if !missing.is_empty() {
-        return Err(format!(
-            "안내가 없는 코드 {}개: {}\n  codes_doc.go 의 CodeDoc 에 의미와 복구 안내를 적으세요",
-            missing.len(),
-            missing.join(", ")
-        ));
+        return Err(missing_docs(&missing));
     }
     let mut b = String::from(HEADER);
     b.push_str("\n| 코드 | 의미 | 다음에 할 일 |\n|---|---|---|\n");
@@ -74,6 +70,16 @@ pub fn render() -> Result<String, String> {
     Ok(b)
 }
 
+/// 안내가 빠진 코드의 오류 문구다. 고칠 자리는 Rust 의 원천(apierr 의 코드 안내)을 가리킨다 — Go 는
+/// `codes_doc.go` 를 가리켰다 (DIFF-30).
+fn missing_docs(missing: &[&str]) -> String {
+    format!(
+        "안내가 없는 코드 {}개: {}\n  apierr 의 코드 안내(code_doc) 에 의미와 복구 안내를 적으세요",
+        missing.len(),
+        missing.join(", ")
+    )
+}
+
 fn cell(s: &str) -> String {
     s.replace('|', "\\|").replace('\n', " ")
 }
@@ -81,6 +87,14 @@ fn cell(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_docs_points_at_rust_source() {
+        assert_eq!(
+            super::missing_docs(&["a", "b"]),
+            "안내가 없는 코드 2개: a, b\n  apierr 의 코드 안내(code_doc) 에 의미와 복구 안내를 적으세요"
+        );
+    }
 
     /// go1.27.2 의 `errdoc.Render()` 출력과 바이트 단위로 같다.
     #[test]
