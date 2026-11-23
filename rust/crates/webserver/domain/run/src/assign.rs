@@ -135,7 +135,7 @@ impl Store {
         let m = &mut g.runs[ri].members[mi];
         m.assign = Some(next);
         let out = m.clone();
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok(out)
     }
 

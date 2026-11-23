@@ -267,3 +267,75 @@ fn legacy_fields_are_read() {
     );
     assert!(s.start(opts("새")).unwrap().epoch.is_empty());
 }
+
+/// NFR-RSP-3: 쓰기 동안 조회가 기다리지 않는다 (Go `TestSave_WriteDoesNotHoldStoreLock`).
+#[test]
+fn write_does_not_hold_store_lock() {
+    use std::sync::Mutex;
+    use std::sync::mpsc;
+    use std::time::Duration;
+    let d = tempfile::tempdir().unwrap();
+    let (entered_tx, entered_rx) = mpsc::channel::<()>();
+    let (go_tx, go_rx) = mpsc::channel::<()>();
+    let gate = Mutex::new((entered_tx, go_rx));
+    let s = Arc::new(store(d.path()).with_writer(move |p, b, perm| {
+        let g = gate.lock().unwrap();
+        let _ = g.0.send(());
+        let _ = g.1.recv_timeout(Duration::from_secs(5));
+        dm_shared_platform::write_state_file(p, b, perm)
+    }));
+    let w = s.clone();
+    let writer = std::thread::spawn(move || w.start(opts("하나")).unwrap());
+    entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    let (tx, rx) = mpsc::channel();
+    let r = s.clone();
+    std::thread::spawn(move || tx.send(r.list().len()).unwrap());
+    let n = rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("쓰기 동안 조회가 막혔다");
+    assert_eq!(n, 1);
+    go_tx.send(()).unwrap();
+    writer.join().unwrap();
+}
+
+/// 앞의 저장이 실패해도 뒤에 시작한 저장이 성공하면 되돌리지 않는다 (Go `TestSave_EarlierFailureCoveredByLaterSuccess`).
+#[test]
+fn earlier_failure_covered_by_later_success() {
+    use std::sync::Mutex;
+    use std::sync::mpsc;
+    use std::time::Duration;
+    let d = tempfile::tempdir().unwrap();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let (entered_tx, entered_rx) = mpsc::channel::<()>();
+    let (go_tx, go_rx) = mpsc::channel::<()>();
+    let gate = Mutex::new((entered_tx, go_rx));
+    let c = calls.clone();
+    let s = Arc::new(store(d.path()).with_writer(move |p, b, perm| {
+        if c.fetch_add(1, Ordering::SeqCst) == 0 {
+            let g = gate.lock().unwrap();
+            let _ = g.0.send(());
+            let _ = g.1.recv_timeout(Duration::from_secs(5));
+            return Err(io::Error::other("첫 쓰기 실패"));
+        }
+        dm_shared_platform::write_state_file(p, b, perm)
+    }));
+    let w = s.clone();
+    let first = std::thread::spawn(move || w.start(opts("하나")));
+    entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    let w2 = s.clone();
+    let second = std::thread::spawn(move || w2.start(opts("둘")));
+    // 둘째 저장이 상태를 바꾸고 쓰기 잠금을 기다릴 때까지 기다린다.
+    while s.list().len() < 2 {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    go_tx.send(()).unwrap();
+    assert!(
+        first.join().unwrap().is_ok(),
+        "뒤의 성공이 앞의 실패를 덮어야 한다"
+    );
+    assert!(second.join().unwrap().is_ok());
+    assert_eq!(s.list().len(), 2);
+    let s2 = store(d.path());
+    s2.load();
+    assert_eq!(s2.list().len(), 2);
+}
