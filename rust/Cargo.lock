@@ -791,6 +791,7 @@ dependencies = [
  "dm-shared-dmlog",
  "dm-shared-edge",
  "dm-shared-edgemesh",
+ "dm-shared-edgerelay",
  "dm-shared-httpreq",
  "dm-shared-httpresp",
  "dm-shared-termtext",

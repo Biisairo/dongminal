@@ -966,3 +966,88 @@ async fn mesh_ops_without_mesh() {
     let v = get_view(&a).await;
     assert!(v.mesh.is_none() && v.invites.is_some());
 }
+
+// ---- relay_test.go ----
+
+/// 데몬 모드의 노드 하나다: 서버 쪽 통로(노드 포트·발신 소켓)와 데몬 쪽 노드(노드 소켓을 듣는
+/// 리스너, 발신 소켓을 지나는 클라이언트).
+struct RelayNode {
+    node: Arc<Node>,
+    _ln: Listener,
+    _port: Arc<dm_shared_edgerelay::Port>,
+    _dial: dm_shared_edgerelay::DialServer,
+    _home: TempDir,
+}
+
+fn relay_node(name: &str) -> RelayNode {
+    use dm_shared_edgerelay as relay;
+    let home = tempfile::Builder::new()
+        .prefix("en")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let cfg = Config {
+        enabled: true,
+        port: free_port(),
+        bind: "127.0.0.1".into(),
+        name: name.into(),
+        advertise: "127.0.0.1".into(),
+        edges: Vec::new(),
+    };
+    std::fs::write(
+        home.path().join(dmenv::EDGES_FILE),
+        json::marshal(&cfg).unwrap(),
+    )
+    .unwrap();
+    let dial_sock = relay::dial_socket_path(home.path());
+    let node_sock = relay::node_socket_path(home.path());
+    let dial = relay::serve_dial(&dial_sock).unwrap();
+    let port = Arc::new(relay::Port::new(&node_sock));
+    let p = port.clone();
+    let node = Node::new(Options {
+        home: home.path().to_path_buf(),
+        hostname: name.into(),
+        dial: Some(relay::dialer(&dial_sock)),
+        port_status: Some(Arc::new(move || p.status())),
+        ..Options::default()
+    })
+    .unwrap();
+    let ln = Listener::new(node.identity(), node.admission(), node.handler()).unwrap();
+    ln.use_listen(Box::new(move |_, _| {
+        relay::listen_node(&node_sock).map(|n| Box::new(n) as Box<dyn dm_shared_edge::Acceptor>)
+    }));
+    ln.apply(&node.config());
+    let c = node.config();
+    port.apply(c.enabled, &c.bind, c.port);
+    assert!(ln.status().listening && port.status().listening);
+    RelayNode {
+        node,
+        _ln: ln,
+        _port: port,
+        _dial: dial,
+        _home: home,
+    }
+}
+
+/// 서버는 바이트만 잇고 TLS·판정은 노드가 한다. 통로를 지나도 맺기 전 과정이 같다 (TC-PDM-4).
+#[tokio::test(flavor = "multi_thread")]
+async fn relay_pair_full_flow() {
+    let (a, b) = (relay_node("node-a"), relay_node("node-b"));
+    let op = |n: &Arc<Node>, op: &str, a: &BTreeMap<String, String>| {
+        let req = OpRequest {
+            op: op.into(),
+            args: json::marshal(a).unwrap(),
+            if_match: String::new(),
+        };
+        let n = n.clone();
+        async move { n.do_op(req).await }
+    };
+    let inv = op(&b.node, "invite", &args(&[])).await;
+    assert_eq!(inv.status, StatusCode::OK, "{inv:?}");
+    let add = op(&a.node, "add", &args(&[("code", &s(&body(&inv), "code"))])).await;
+    assert_eq!(add.status, StatusCode::OK, "{add:?}");
+    let (fa, fb) = (
+        a.node.identity().fingerprint.clone(),
+        b.node.identity().fingerprint.clone(),
+    );
+    assert!(a.node.store().is_edge(&fb) && b.node.store().is_edge(&fa));
+}
