@@ -374,6 +374,50 @@ impl Socket {
         Ok(())
     }
 
+    /// 물려받은 fd 를 소유한다. AF_UNIX 스트림 소켓이 아니면 오류다(fd 는 닫지 않고 돌려준다).
+    pub(super) fn from_inherited(fd: RawFd) -> io::Result<Socket> {
+        let mut ty: libc::c_int = 0;
+        let mut len = mem::size_of::<libc::c_int>() as libc::socklen_t;
+        // SAFETY: ty·len 은 호출 동안 살아 있고, len 은 ty 의 크기다. 닫힌 fd 면 EBADF 다.
+        cvt(unsafe {
+            libc::getsockopt(
+                fd,
+                libc::SOL_SOCKET,
+                libc::SO_TYPE,
+                (&mut ty as *mut libc::c_int).cast(),
+                &mut len,
+            )
+        })
+        .map_err(|e| syscall_error("getsockopt", e))?;
+        // SAFETY: 0 이 유효한 sockaddr_un 값이다.
+        let mut sa: libc::sockaddr_un = unsafe { mem::zeroed() };
+        let mut slen = mem::size_of::<libc::sockaddr_un>() as libc::socklen_t;
+        // SAFETY: sa·slen 은 호출 동안 살아 있고, slen 은 sa 의 크기다.
+        cvt(unsafe {
+            libc::getsockname(fd, (&mut sa as *mut libc::sockaddr_un).cast(), &mut slen)
+        })
+        .map_err(|e| syscall_error("getsockname", e))?;
+        if ty != libc::SOCK_STREAM || libc::c_int::from(sa.sun_family) != libc::AF_UNIX {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "file does not refer to a unix stream socket",
+            ));
+        }
+        // SAFETY: 호출자 계약 — 물려받아 아무도 쥐지 않은 열린 fd 다(위의 getsockopt 가 열림을 확인했다).
+        let fd = unsafe { OwnedFd::from_raw_fd(fd) };
+        prepare(fd.as_raw_fd())?;
+        Ok(Socket(fd))
+    }
+
+    /// close-on-exec 를 건 복제다.
+    pub(super) fn try_clone_fd(&self) -> io::Result<OwnedFd> {
+        // SAFETY: 인자는 정수뿐이고 self.raw() 는 열린 fd 다.
+        let r = cvt(unsafe { libc::fcntl(self.raw(), libc::F_DUPFD_CLOEXEC, 0) })
+            .map_err(|e| syscall_error("dup", e))?;
+        // SAFETY: fcntl 이 막 돌려준, 아무도 소유하지 않은 fd 다.
+        Ok(unsafe { OwnedFd::from_raw_fd(r) })
+    }
+
     pub(super) fn local_name(&self) -> Option<String> {
         sock_name(self.raw(), libc::getsockname)
     }

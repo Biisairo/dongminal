@@ -12,6 +12,7 @@
 //! shell·browser·secrets 는 1.4.3, process·procinfo 는 1.4.4, ipc 는 1.4.5,
 //! pty·handover 는 1.4.6 이다. 각 모듈의 `current()` 가 이 빌드의 구현을 낸다.
 
+mod anon_file;
 mod atomic;
 mod browser;
 mod filelock;
@@ -29,6 +30,7 @@ mod secrets;
 mod shell;
 mod statefile;
 
+pub use anon_file::anon_file;
 pub use atomic::{copy_executable, write_file_atomic, write_file_if_changed};
 pub use browser::{Browser, Opener};
 pub use filelock::{FileLock, LockError, lock_file};

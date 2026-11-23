@@ -290,3 +290,41 @@ fn owner_only_sddl_grants_user_and_system() {
         "D:P(A;;FA;;;S-1-5-21-1-2-3-1001)(A;;FA;;;SY)"
     );
 }
+
+/// 데몬 교체: 리스너 fd 의 복제를 넘겨받아 같은 소켓으로 계속 받는다. 넘겨받은 리스너는 Drop 해도
+/// 소켓 파일을 지우지 않는다 (Go `net.FileListener`).
+#[cfg(unix)]
+#[test]
+fn inherited_listener_keeps_serving() {
+    use std::io::{Read, Write};
+    use std::os::fd::IntoRawFd;
+    let home = tempfile::tempdir().unwrap();
+    let path = home.path().join("s");
+    let t = crate::current();
+    let ln = t.ipc.listen(&path).unwrap();
+    let fd = ln.try_clone_fd().unwrap().into_raw_fd();
+    let inherited = crate::IpcListener::from_inherited_fd(fd).unwrap();
+    let c = t
+        .ipc
+        .dial(&path, std::time::Duration::from_secs(2))
+        .unwrap();
+    (&c).write_all(b"hi").unwrap();
+    let s = inherited.accept().unwrap();
+    let mut buf = [0u8; 2];
+    (&s).read_exact(&mut buf).unwrap();
+    assert_eq!(&buf, b"hi");
+    drop(inherited);
+    assert!(path.exists(), "넘겨받은 리스너가 소켓 파일을 지웠다");
+    drop(ln);
+}
+
+#[cfg(unix)]
+#[test]
+fn inherited_fd_must_be_unix_socket() {
+    use std::os::fd::{FromRawFd, IntoRawFd};
+    let f = tempfile::tempfile().unwrap();
+    let fd = f.into_raw_fd();
+    assert!(crate::IpcListener::from_inherited_fd(fd).is_err());
+    // SAFETY: 실패한 from_inherited_fd 는 fd 를 가져가지 않으므로 여기서 다시 소유해 닫는다.
+    drop(unsafe { std::fs::File::from_raw_fd(fd) });
+}

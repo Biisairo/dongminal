@@ -48,6 +48,8 @@ pub struct IpcListener {
     /// getsockname 이 돌려준 이름. 오류 문구와 unlink 에 쓴다.
     local: Option<String>,
     path: PathBuf,
+    /// Drop 할 때 소켓 파일을 지우는가. 넘겨받은 리스너는 지우지 않는다 (Go `net.FileListener`).
+    unlink: bool,
 }
 
 /// 연결 하나. `&IpcStream` 도 Read·Write 이므로 읽는 스레드와 쓰는 스레드가 나눠 쓸 수 있다.
@@ -109,8 +111,35 @@ impl IpcListener {
     }
 }
 
+#[cfg(unix)]
+impl IpcListener {
+    /// 인계받은 fd 를 리스너로 쓴다 (Go `net.FileListener(os.NewFile(fd, …))`). 유닉스 도메인 소켓이
+    /// 아니면 오류다. 이 리스너를 Drop 해도 소켓 파일은 지우지 않는다.
+    ///
+    /// fd 는 이 프로세스가 물려받아 아무도 쥐지 않은 것이어야 한다 — 소유권을 가져간다.
+    pub fn from_inherited_fd(fd: i32) -> io::Result<IpcListener> {
+        let sock = sys::Socket::from_inherited(fd)?;
+        let local = sock.local_name();
+        let path = PathBuf::from(local.clone().unwrap_or_default());
+        Ok(IpcListener {
+            sock,
+            local,
+            path,
+            unlink: false,
+        })
+    }
+
+    /// 리스너 fd 의 복제다(close-on-exec). 데몬 교체가 새 이미지에 넘긴다 (Go `(*UnixListener).File`).
+    pub fn try_clone_fd(&self) -> io::Result<std::os::fd::OwnedFd> {
+        self.sock.try_clone_fd()
+    }
+}
+
 impl Drop for IpcListener {
     fn drop(&mut self) {
+        if !self.unlink {
+            return;
+        }
         let unlink = match &self.local {
             Some(n) if n.starts_with('@') => None,
             Some(n) => Some(PathBuf::from(n)),
@@ -256,6 +285,7 @@ impl Ipc for UnixSocketIpc {
             local: sock.local_name(),
             sock,
             path: endpoint.to_path_buf(),
+            unlink: true,
         };
         // 04-secops P1-6: 소켓을 0600 으로 못박는다. umask 가 정한 모드(흔히 0755)면 같은 호스트의
         // 다른 UID 가 붙을 수 있고, 인증 없는 데몬 IPC 에서 그것은 사용자의 PTY 전부다. 만든 뒤에
