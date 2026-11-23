@@ -3,11 +3,12 @@
 //! 사람 명령(강제 삭제·강퇴)의 와이어다 (PEER_CHAT_SRS §3.12). 도우미(`dongminal otp run`)와
 //! 데몬이 같은 한 벌을 쓴다: 도우미 소켓의 프레임, 도우미가 서명하는 명령 본문, 그 서명의 확인.
 //!
-//! 도우미 소켓 클라이언트(Go `Client`)의 연결부는 platform IPC(이슈 1.4.5)를 기다린다.
-//! 왕복 한 번의 규칙은 [`round_trip`] 이 스트림을 받아 수행한다.
+//! 도우미 소켓 클라이언트는 [`Client`] 다. 왕복 한 번의 규칙은 [`round_trip`] 이 스트림을 받아 수행한다.
 
+mod client;
 mod wire;
 
+pub use client::{Client, Info};
 pub use wire::{DEFAULT_TIMEOUT, MAX_LINE, round_trip};
 
 use std::fmt;
