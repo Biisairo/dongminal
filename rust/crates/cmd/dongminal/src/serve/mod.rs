@@ -271,6 +271,8 @@ pub(crate) fn build_app(
         home: PathBuf::from(home),
         current: VERSION.to_owned(),
         enabled: conf.update_check,
+        // DIFF(8.2-fix): Go 는 Getenv 를 넘기지 않아 `DONGMINAL_NO_UPDATE_CHECK` 가 먹지 않았다.
+        getenv: Some(Arc::new(|k: &str| std::env::var(k).unwrap_or_default())),
         broadcast: Some(Arc::new(move || {
             if let Some(c) = &commands {
                 c.broadcast(&hub::update_changed_payload());
