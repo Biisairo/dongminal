@@ -237,7 +237,7 @@ fn token_list_contains(headers: &http::HeaderMap, name: &str, value: &str) -> bo
 }
 
 /// gorilla `Upgrader.Upgrade` 의 판정. 실패면 (상태, 사유).
-fn check_handshake(r: &Req) -> Result<String, (StatusCode, String)> {
+pub(crate) fn check_handshake(r: &Req) -> Result<String, (StatusCode, String)> {
     if !token_list_contains(&r.headers, "Connection", "upgrade") {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -278,7 +278,7 @@ fn check_handshake(r: &Req) -> Result<String, (StatusCode, String)> {
 }
 
 /// gorilla `returnError`: 평문 상태 문구와 `Sec-Websocket-Version`.
-fn handshake_error(status: StatusCode) -> Response {
+pub(crate) fn handshake_error(status: StatusCode) -> Response {
     let mut res = httpresp::http_error(status, status.canonical_reason().unwrap_or_default());
     res.headers_mut()
         .insert("Sec-Websocket-Version", HeaderValue::from_static("13"));

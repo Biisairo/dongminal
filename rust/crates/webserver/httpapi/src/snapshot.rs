@@ -29,6 +29,7 @@ fn snapshot_part(name: &str) -> Option<Handler> {
         "activity" => part!(api_tools_activity),
         "background" => part!(api_tools_background),
         "focus" => part!(api_focus_get),
+        "edges" => part!(api_edges_get),
         _ => None,
     }
 }
