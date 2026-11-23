@@ -32,6 +32,9 @@ pub(crate) fn is_uuid_form(s: &str) -> bool {
 
 type Table = HashMap<String, String>;
 
+/// 재작성한 (workspace, tools, 보고). 입력이 없던 쪽은 `None` 이다.
+pub type Rewritten = (Option<Vec<u8>>, Option<Vec<u8>>, IdentityReport);
+
 fn str_at<'a>(m: &'a Obj, key: &str) -> Option<&'a str> {
     match m.get(key) {
         Some(Value::String(s)) => Some(s),
@@ -46,7 +49,7 @@ pub fn rewrite_identifiers(
     workspace_blob: &[u8],
     tools_blob: &[u8],
     next_id: Option<&mut dyn FnMut() -> String>,
-) -> Result<(Option<Vec<u8>>, Option<Vec<u8>>, IdentityReport), Error> {
+) -> Result<Rewritten, Error> {
     let mut default_next_id = dm_shared_uuid::new_string;
     let next_id: &mut dyn FnMut() -> String = match next_id {
         Some(g) => g,

@@ -10,7 +10,7 @@ mod settings;
 mod tree;
 
 pub use apply::apply;
-pub use identity::{IdentityReport, rewrite_identifiers};
+pub use identity::{IdentityReport, Rewritten, rewrite_identifiers};
 pub use settings::settings;
 
 use std::collections::HashSet;
