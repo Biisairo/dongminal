@@ -8,6 +8,8 @@ mod error;
 mod identity;
 mod limit;
 mod listener;
+#[cfg(test)]
+mod net_tests;
 mod pairing;
 mod profile;
 mod tls;

@@ -225,3 +225,11 @@ pub(crate) fn find_tls_error<'a>(e: &'a (dyn std::error::Error + 'static)) -> Op
 pub(crate) fn is_fingerprint_mismatch(e: &Error) -> bool {
     matches!(e, Error::InvalidCertificate(CertificateError::Other(o)) if o.0.downcast_ref::<FingerprintMismatch>().is_some())
 }
+
+#[cfg(test)]
+pub(crate) fn pin_server(fingerprint: &str) -> Arc<dyn ServerCertVerifier> {
+    Arc::new(PinServer {
+        fingerprint: fingerprint.to_string(),
+        algs: Algorithms(provider().signature_verification_algorithms),
+    })
+}
