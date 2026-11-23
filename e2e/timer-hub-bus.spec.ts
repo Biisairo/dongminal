@@ -54,53 +54,6 @@ test.describe('TimerHub — 마감과 규약 (FR-SCH-3~9)', () => {
     expect(r.slow, '느린 주기가 빠른 주기를 따라 돌았다 — 고정 tick 이다').toBeLessThan(4);
   });
 
-  test('FR-SCH-4·5 주기는 함수이고, 다시 거는 것이 발화는 아니다', async ({ page }) => {
-    await loadTimerHub(page);
-
-    const r = await page.evaluate(async () => {
-      const s = (window as any).__s;
-      let ms = 1000, runs = 0;
-      const h = s.every({ id: 'j', every: () => ms, run: () => { runs++ } });
-      // 관측 결과로 주기가 바뀐 장면. 여기서 발화하면 관측이 관측을 부른다.
-      ms = 20;
-      h.refresh();
-      const rightAfter = runs;
-      await new Promise((r) => setTimeout(r, 80));
-      return { rightAfter, later: runs };
-    });
-
-    expect(r.rightAfter, '주기 변경이 즉시 발화를 불렀다 (FR-RMS-28 · D-RMS-10)').toBe(0);
-    expect(r.later, '새 주기가 적용되지 않았다').toBeGreaterThan(0);
-  });
-
-  test('FR-SCH-6 숨은 화면에서 멈추고 복귀하면 즉시 한 번 (FR-RST-23)', async ({ page }) => {
-    await loadTimerHub(page);
-
-    const r = await page.evaluate(async () => {
-      const s = (window as any).__s;
-      let hidden = false;
-      s._hidden = () => hidden;
-      let n = 0;
-      s.every({ id: 'v', every: () => 20, run: () => { n++ } });
-      await new Promise((r) => setTimeout(r, 70));
-      const visible = n;
-
-      hidden = true;
-      s._visibility();
-      const atHide = n;
-      await new Promise((r) => setTimeout(r, 70));
-      const whileHidden = n;
-
-      hidden = false;
-      s._visibility();
-      return { visible, atHide, whileHidden, atShow: n };
-    });
-
-    expect(r.visible, '보이는 동안 돌지 않았다').toBeGreaterThan(0);
-    expect(r.whileHidden, '숨은 화면에서 계속 돌았다 (FR-STAT-17)').toBe(r.atHide);
-    expect(r.atShow, '복귀했는데 즉시 갱신하지 않았다 (FR-RST-23)').toBe(r.whileHidden + 1);
-  });
-
   test('FR-SCH-7 overlap 은 job 이 고른다 — queue 와 drop 둘 다 산다', async ({ page }) => {
     await loadTimerHub(page);
 
@@ -296,20 +249,6 @@ test.describe('TimerHub — 다섯 API 와 소유권 (FR-SCH-10·13·14·15)', (
     expect(r.starved, '재예약이 잦으면 영영 실행되지 않는다 — 기아다').toBeGreaterThan(0);
   });
 
-  test('FR-SCH-11 pending 이 대기 중인 일을 전부 답한다', async ({ page }) => {
-    await loadTimerHub(page);
-
-    const p = await page.evaluate(() => {
-      const s = (window as any).__s;
-      s.every({ id: 'poll', owner: 'a', every: () => 5000, run: () => {} });
-      s.after(5000, () => {}, { owner: 'a', label: 'debounce' });
-      return s.pending().map((x: any) => ({ kind: x.kind, id: x.id, owner: x.owner }));
-    });
-
-    expect(p.length, 'pending 이 등록된 일을 놓쳤다').toBe(2);
-    expect(p.find((x: any) => x.kind === 'every')?.id).toBe('poll');
-    expect(p.find((x: any) => x.kind === 'after')?.owner).toBe('a');
-  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

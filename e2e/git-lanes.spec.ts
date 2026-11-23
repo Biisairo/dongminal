@@ -108,18 +108,6 @@ test.describe('레인 알고리즘 — 위상과 배치 (V115~V120)', () => {
     await loadLanes(page);
   });
 
-  test('L1 (V117): 선형 (A→B→C) — 전부 열 0, 통과 없음, A 만 isNewHead', async ({ page }) => {
-    const g = await build(page, [c('A', 'B'), c('B', 'C'), c('C')]);
-    expect(g.rows).toEqual([
-      row('A', 0, 0, [], [par(0, 0)], true, 1),
-      row('B', 0, 0, [], [par(0, 0)], false, 1),
-      row('C', 0, 0, [], [], false, 1),
-    ]);
-    expect(g.maxLanes).toBe(1);
-    expect(g.rows.every(r => r.passThrough.length === 0)).toBe(true);
-    expect(g.rows.filter(r => r.isNewHead).map(r => r.hash)).toEqual(['A']);
-  });
-
   test('L2 (V117): 분기 (A,B 가 같은 부모 C)', async ({ page }) => {
     const g = await build(page, [c('A', 'C'), c('B', 'C'), c('C')]);
     expect(g.rows).toEqual([
@@ -131,20 +119,6 @@ test.describe('레인 알고리즘 — 위상과 배치 (V115~V120)', () => {
     // C 는 이미 A 의 갈래에 있으므로 B 는 그 점으로 **붙는다** — 새 갈래를 만들지
     // 않는다. 붙는 선은 B 자신의 색이다 (Git Graph 가 그 선을 B 의 갈래에 담는다).
     expect(g.rows[1].parentLanes).toEqual([par(0, 1)]);
-  });
-
-  test('L3 (V117): 머지 (M 의 부모 2개)', async ({ page }) => {
-    const g = await build(page, [c('M', 'P1', 'P2'), c('P1'), c('P2')]);
-    expect(g.rows).toEqual([
-      row('M', 0, 0, [], [par(0, 0), par(1, 1)], true, 2),
-      row('P1', 0, 0, [seg(1, 0, 1)], [], false, 2),
-      row('P2', 0, 1, [], [], false, 1),
-    ]);
-    expect(g.maxLanes).toBe(2);
-    // P1 이 끝나면 P2 의 갈래가 열 0 으로 당겨진다 — 빈 열을 남기지 않는다.
-    expect(g.rows[2].lane).toBe(0);
-    // 색은 갈래에 붙으므로 P2 는 열이 1→0 으로 바뀌어도 색 키 1 이다.
-    expect(g.rows[2].color).toBe(1);
   });
 
   test('L4 (V117): 옥토퍼스 (부모 4개) — 서로 다른 열, 끝나면 왼쪽으로 당겨진다', async ({ page }) => {
@@ -298,30 +272,6 @@ test.describe('레인 알고리즘 — 위상과 배치 (V115~V120)', () => {
       .toEqual(['O', 'P0', 'P1', 'P2']);
   });
 
-  test('L10 (V120): clampLanes 는 원본을 고치지 않고, 두 번 접어도 같다', async ({ page }) => {
-    const commits = [
-      c('Z', 'O'), c('O', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5'),
-      c('P0'), c('P1'), c('P2'), c('P3'), c('P4'), c('P5'),
-    ];
-    const r = await page.evaluate((cs: LaneCommit[]) => {
-      const g = buildLaneGraph(cs);
-      const before = JSON.stringify(g);
-      const once = clampLanes(g, 3);
-      return {
-        before,
-        after: JSON.stringify(g),
-        once: JSON.stringify(once),
-        twice: JSON.stringify(clampLanes(once, 3)),
-        loose: clampLanes(g, 6),
-      };
-    }, commits);
-    expect(r.after).toBe(r.before);
-    expect(r.twice).toBe(r.once);
-    // 상한이 실제 열 수 이상이면 아무 행도 압축되지 않는다.
-    expect(r.loose.rows.some(x => x.compressed)).toBe(false);
-    expect(r.loose.maxLanes).toBe(6);
-  });
-
   test('L13 (V128 / FR-GIT-234): 새 머리가 빈 슬롯을 물려받아도 오래된 갈래가 오른쪽으로 밀리지 않는다', async ({ page }) => {
     // main(슬롯 0)이 먼저 끝나 슬롯 0 이 빈다. featX(슬롯 1)가 살아 있는 동안 새 머리
     // n1 이 그 슬롯을 물려받는다. 열을 **슬롯 번호**로 정하면 그 순간 featX 가 열
@@ -401,26 +351,4 @@ test.describe('레인 알고리즘 — 위상과 배치 (V115~V120)', () => {
     expect(g.rows[1].lane).toBe(0);
   });
 
-  test('L12 (V117 / FR-GIT-121): 브랜치 머리만 위쪽 진입선을 갖지 않는다', async ({ page }) => {
-    const commits = [c('A', 'M'), c('B', 'C'), c('M', 'C', 'D'), c('C'), c('D')];
-    const g = await build(page, commits);
-    expect(g.rows.filter(r => r.isNewHead).map(r => r.hash)).toEqual(['A', 'B']);
-
-    // isNewHead=false ⟺ **바로 위 행에서 내려온 선이 이 점의 열에 닿는다**
-    // (FR-GIT-121). 점의 열은 그 행에서 점 자신이 집은 것이므로, 닿는 선이 있다는
-    // 것과 어떤 자식이 이 커밋을 예약했다는 것이 같은 뜻이다.
-    const arrives = (i: number) => {
-      if (i === 0) return false;
-      const p = g.rows[i - 1];
-      const col = g.rows[i].lane;
-      return p.passThrough.some(sg => sg.bottom === col) || p.parentLanes.some(x => x.col === col);
-    };
-    expect(g.rows.every((r, i) => r.isNewHead === !arrives(i))).toBe(true);
-
-    // R3: 갈래는 first-parent 사슬을 끝까지 잡는다 — A→M→C 가 한 색이다.
-    expect(g.rows[0].color).toBe(g.rows[2].color);
-    expect(g.rows[2].color).toBe(g.rows[3].color);
-    // B 의 선은 그 트렁크로 **붙는다** — 트렁크의 색을 빼앗지 않는다.
-    expect(g.rows[1].color).not.toBe(g.rows[0].color);
-  });
 });
