@@ -130,6 +130,15 @@ pub(crate) fn fixed_store(dir: &std::path::Path) -> Arc<Store> {
 }
 
 pub(crate) fn run_env(with_store: bool, f: impl FnOnce(&mut Deps)) -> RunEnv {
+    run_env_with(with_store, f, |_| {})
+}
+
+/// `run_env` 에 서버 하나의 값(복구 판정기 같은 시험 자리)을 바꾸는 손을 더한다.
+pub(crate) fn run_env_with(
+    with_store: bool,
+    f: impl FnOnce(&mut Deps),
+    tweak: impl FnOnce(&mut Server),
+) -> RunEnv {
     let dir = tempfile::tempdir().unwrap();
     let hub = Arc::new(FakeHub::default());
     let io = Arc::new(RunIo::default());
@@ -170,7 +179,11 @@ pub(crate) fn run_env(with_store: bool, f: impl FnOnce(&mut Deps)) -> RunEnv {
         ..Deps::default()
     };
     f(&mut deps);
-    let srv = server(&dir.path().join("data"), deps);
+    let cfg = crate::Config {
+        data_dir: dir.path().join("data"),
+        ..crate::Config::default()
+    };
+    let srv = Server::new_with(cfg, deps, tweak);
     RunEnv {
         _dir: dir,
         srv,

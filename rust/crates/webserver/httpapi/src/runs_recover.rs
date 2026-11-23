@@ -23,17 +23,17 @@ use crate::req::Req;
 use crate::runs::{RunFail, extra1, settled_state, write_run_error};
 use crate::status::Liveness;
 
-const REASON_ENDED: &str = "ended";
-const REASON_NO_TOOL: &str = "no-tool";
-const REASON_NO_AGENT: &str = "no-agent";
-const REASON_NO_RESUME: &str = "no-resume";
-const REASON_NO_SESSION: &str = "no-session";
-const REASON_BAD_SESSION: &str = "bad-session";
+pub(crate) const REASON_ENDED: &str = "ended";
+pub(crate) const REASON_NO_TOOL: &str = "no-tool";
+pub(crate) const REASON_NO_AGENT: &str = "no-agent";
+pub(crate) const REASON_NO_RESUME: &str = "no-resume";
+pub(crate) const REASON_NO_SESSION: &str = "no-session";
+pub(crate) const REASON_BAD_SESSION: &str = "bad-session";
 const REASON_RECOVERING: &str = "recovering";
-const REASON_UNKNOWN: &str = "unknown";
-const REASON_RUNNING_HERE: &str = "running-here";
-const REASON_RUNNING_ELSEWHERE: &str = "running-elsewhere";
-const REASON_BUSY: &str = "busy";
+pub(crate) const REASON_UNKNOWN: &str = "unknown";
+pub(crate) const REASON_RUNNING_HERE: &str = "running-here";
+pub(crate) const REASON_RUNNING_ELSEWHERE: &str = "running-elsewhere";
+pub(crate) const REASON_BUSY: &str = "busy";
 
 const RECOVER_RESUMED: &str = "resumed";
 const RECOVER_SKIPPED: &str = "skipped";
@@ -104,12 +104,12 @@ impl ContextNoticeLog {
 /// Go `recoverTarget`.
 #[derive(Clone, Default)]
 pub(crate) struct RecoverTarget {
-    coord: bool,
-    member_id: String,
-    tool_id: String,
-    agent: String,
-    session_id: String,
-    ended: bool,
+    pub(crate) coord: bool,
+    pub(crate) member_id: String,
+    pub(crate) tool_id: String,
+    pub(crate) agent: String,
+    pub(crate) session_id: String,
+    pub(crate) ended: bool,
 }
 
 #[derive(Serialize)]
@@ -166,7 +166,10 @@ pub(crate) fn member_target(m: &Member) -> RecoverTarget {
 }
 
 /// Go `recoverStatic`: 기록만으로 내릴 수 있는 판정. 되살릴 수 있으면 어댑터를 준다.
-fn recover_static(t: &RecoverTarget, live: bool) -> Result<&'static Adapter, &'static str> {
+pub(crate) fn recover_static(
+    t: &RecoverTarget,
+    live: bool,
+) -> Result<&'static Adapter, &'static str> {
     if t.ended {
         return Err(REASON_ENDED);
     }
@@ -190,7 +193,11 @@ fn recover_static(t: &RecoverTarget, live: bool) -> Result<&'static Adapter, &'s
 }
 
 /// Go `recoverDynamic`: 모르면 강제 없이는 넣지 않는다 (FR-RRC-12).
-fn recover_dynamic(reg_ok: bool, shell: ShellState, force: bool) -> (&'static str, bool) {
+pub(crate) fn recover_dynamic(
+    reg_ok: bool,
+    shell: ShellState,
+    force: bool,
+) -> (&'static str, bool) {
     if !force && (!reg_ok || shell == ShellState::Unknown) {
         return (REASON_UNKNOWN, true);
     }

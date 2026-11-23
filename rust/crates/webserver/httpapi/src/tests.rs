@@ -20,6 +20,7 @@ mod mux;
 mod netx;
 mod records;
 mod render_env;
+mod runs;
 mod sandbox_api;
 mod status;
 mod subagent_activity;
