@@ -18,6 +18,7 @@ crate 의 Cargo.toml 에서는 언제나 `foo = { workspace = true }` 로 참조
 | 파일 감시 | notify | fsnotify 대응 |
 | OS | libc, nix(unix), windows-sys(windows) | `unsafe` 는 C-RSP-4 범위에서만 |
 | 정규식 | regex | |
+| 유니코드 정규화 | icu_normalizer | Go `golang.org/x/text/unicode/norm` 대응(NFC). url→idna 가 이미 끌어오는 crate 다 |
 | 자산 임베드 | rust-embed | `web/` 임베드 |
 | 테스트 전용 | tempfile | dev-dependencies 에서만 |
 
