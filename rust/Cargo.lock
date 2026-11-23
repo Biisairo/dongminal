@@ -426,9 +426,13 @@ version = "1.3.7"
 name = "dm-shared-agentadapter"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-activity",
  "dm-shared-dmenv",
  "dm-shared-platform",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
