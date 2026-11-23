@@ -12,6 +12,7 @@ use crate::{Error, Report, rewrite_identifiers, run, settings};
 const BACKUP_SUFFIX: &str = ".v1.bak";
 /// 구 식별자 재작성 직전 상태의 백업이다 (FR-MGU-8).
 const PRE_UUID_SUFFIX: &str = ".preuuid.bak";
+#[cfg(unix)]
 const FILE_PERM: u32 = 0o644;
 
 fn base(p: &Path) -> String {

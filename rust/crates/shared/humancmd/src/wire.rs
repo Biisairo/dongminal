@@ -21,13 +21,13 @@ pub fn round_trip<S: Read + Write>(stream: &mut S, req: &Frame) -> Result<Frame,
     let mut line = json::marshal(req).map_err(|_| Error::no_helper())?;
     line.push(b'\n');
     stream.write_all(&line).map_err(|_| Error::no_helper())?;
-    let resp = scan_line(stream).ok_or_else(Error::no_helper)?;
+    let resp = read_line(stream).ok_or_else(Error::no_helper)?;
     json::unmarshal::<Frame>(&resp).map_err(|_| Error::no_helper())
 }
 
 /// Go `bufio.Scanner`(ScanLines, 버퍼 상한 MAX_LINE) 의 첫 토큰이다. 끝의 `\r` 은 뗀다.
 /// 줄바꿈 없이 MAX_LINE 바이트가 차면 `None`(ErrTooLong)이다.
-fn scan_line<R: Read>(r: &mut R) -> Option<Vec<u8>> {
+pub fn read_line<R: Read>(r: &mut R) -> Option<Vec<u8>> {
     let mut buf: Vec<u8> = Vec::new();
     let mut chunk = [0u8; READ_CHUNK];
     loop {
