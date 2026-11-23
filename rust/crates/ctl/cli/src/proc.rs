@@ -1,10 +1,11 @@
 //! 포트·데몬 프로세스의 관측과 종료.
 
-use std::io::Write;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::Duration;
 
 use dm_gocompat::filepath;
+use dm_gocompat::oserr::go_error_string;
 use dm_shared_platform::Process;
 
 use crate::homelayout::{DAEMON_PID_FILE, DAEMON_SOCK_FILE};
@@ -124,4 +125,38 @@ pub(crate) fn stop_daemon(home: &str, w: &mut dyn Write, ps: &Procs<'_>) -> bool
 pub(crate) fn socket_exists(home: &str) -> bool {
     let ipc = dm_shared_platform::current().ipc;
     ipc.exists(&ipc.endpoint(Path::new(home)))
+}
+
+/// 커널이 내주는 빈 TCP 포트다 (FR-ISO-1). listener 를 곧 닫으므로 경합의 여지는 남는다.
+pub(crate) fn free_port() -> Result<String, String> {
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .and_then(|l| l.local_addr())
+        .map(|a| a.port().to_string())
+        .map_err(|e| format!("listen tcp 127.0.0.1:0: {}", go_error_string(&e)))
+}
+
+/// tail 이 끝에서 읽는 양이다.
+const TAIL_WINDOW: u64 = 64 << 10;
+
+/// 로그 파일의 마지막 n 줄이다. 끝의 TAIL_WINDOW 만 읽고, 창 앞에서 잘린 첫 조각은 버린다.
+pub(crate) fn tail(path: &str, n: usize) -> String {
+    let Ok(mut f) = std::fs::File::open(path) else {
+        return String::new();
+    };
+    let Ok(size) = f.metadata().map(|m| m.len()) else {
+        return String::new();
+    };
+    let off = size.saturating_sub(TAIL_WINDOW);
+    let mut blob = Vec::new();
+    if f.seek(SeekFrom::Start(off)).is_err() || f.read_to_end(&mut blob).is_err() {
+        return String::new();
+    }
+    if off > 0
+        && let Some(i) = blob.iter().position(|b| *b == b'\n')
+    {
+        blob.drain(..=i);
+    }
+    let s = String::from_utf8_lossy(&blob);
+    let lines: Vec<&str> = s.trim_end_matches('\n').split('\n').collect();
+    lines[lines.len().saturating_sub(n)..].join("\n")
 }

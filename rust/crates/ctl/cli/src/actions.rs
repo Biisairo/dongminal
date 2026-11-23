@@ -26,12 +26,23 @@ use crate::uninstall::parse_uninstall;
 use crate::update::parse_update;
 use crate::version::{parse_version, run_version, usage_version};
 use crate::window::run_window_in;
-use crate::{health, service, stop};
+use crate::{health, service, start, stop};
 
-/// 서버를 이 프로세스로 실행하는 콜백이다 (`start --foreground`). 인자는 home·host·port 다.
-pub type Serve = dyn Fn(&str, &str, &str) -> i32;
+/// `start --foreground` 가 이 프로세스로 띄울 서버다.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ServeTarget<'a> {
+    pub home: &'a str,
+    pub host: &'a str,
+    pub port: &'a str,
+    /// 도구 셸이 자기 홈으로 쓸 자리다. 격리 기동에서만 차고, 비면 사용자 홈이다. Go 는 이것을
+    /// `DONGMINAL_TOOL_HOME` 으로 프로세스 환경에 심었다 — Rust 는 환경을 바꾸지 않고 넘긴다.
+    pub tool_home: &'a str,
+}
 
-type RunFn = fn(&[String], &Env<'_>, &Serve, &mut dyn Write, &mut dyn Write) -> i32;
+/// 서버를 이 프로세스로 실행하는 콜백이다. cmd/dongminal 이 준다.
+pub type Serve<'a> = dyn Fn(&ServeTarget<'_>) -> i32 + 'a;
+
+type RunFn = fn(&[String], &Env<'_>, &Serve<'_>, &mut dyn Write, &mut dyn Write) -> i32;
 
 pub(crate) struct Action {
     /// argv[1] 이다.
@@ -53,9 +64,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "start",
             brief: "서버를 띄운다 (필요하면 dongminald 도 함께)",
             usage: usage_start,
-            run: |rest, _, _, out, err| {
-                drive("start", parse_start(rest), out, err, |_, _, err| {
-                    not_ported("start", ISSUE_LIFECYCLE, err)
+            run: |rest, env, serve, out, err| {
+                drive("start", parse_start(rest), out, err, |o, out, err| {
+                    start::run_start_in(&o, env, &Procs::platform(), serve, out, err)
                 })
             },
         },
@@ -236,7 +247,7 @@ pub fn action_names() -> Vec<&'static str> {
 /// 액션을 해석해 실행한다 (FR-CLI-1..7). args 는 프로그램 이름을 뺀 인자다.
 pub fn dispatch(
     args: &[String],
-    serve: &Serve,
+    serve: &Serve<'_>,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> i32 {
@@ -246,7 +257,7 @@ pub fn dispatch(
 pub(crate) fn dispatch_in(
     args: &[String],
     env: &Env<'_>,
-    serve: &Serve,
+    serve: &Serve<'_>,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> i32 {

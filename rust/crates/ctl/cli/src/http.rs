@@ -70,3 +70,9 @@ pub(crate) fn post_json(url: &str, body: Vec<u8>, timeout: Duration) -> Result<R
     block_on(send("POST", url, Some(body), timeout))
         .unwrap_or_else(|e| Err(UrlError::new("POST", url, e.to_string()).to_string()))
 }
+
+/// GET 한 번이다. 오류는 Go `*url.Error` 문구다.
+pub(crate) fn get(url: &str, timeout: Duration) -> Result<Reply, String> {
+    block_on(send("GET", url, None, timeout))
+        .unwrap_or_else(|e| Err(UrlError::new("GET", url, e.to_string()).to_string()))
+}

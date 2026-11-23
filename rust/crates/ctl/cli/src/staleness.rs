@@ -67,3 +67,21 @@ pub(crate) fn daemon_state_line(s: DaemonState) -> &'static str {
         }
     }
 }
+
+/// 기동이 데몬에 대해 말하는 것이다 (FR-DFP-9). 낡음만 덧댄다.
+pub(crate) fn running_daemon_notice(
+    home: &str,
+    running: bool,
+    current: &str,
+    proc: &dyn Process,
+) -> String {
+    if !running {
+        return "dongminald 미실행 — dongminal 이 자동 기동합니다".to_owned();
+    }
+    let mut line = "dongminald 실행 중 (세션 보존)".to_owned();
+    if inspect_daemon_with(home, current, proc) == DaemonState::Stale {
+        line.push('\n');
+        line.push_str(daemon_state_line(DaemonState::Stale));
+    }
+    line
+}
