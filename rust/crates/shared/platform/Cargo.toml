@@ -13,6 +13,7 @@ workspace = true
 dm-gocompat = { path = "../../gocompat" }
 dm-shared-dmenv = { path = "../dmenv" }
 dm-shared-dmlog = { path = "../dmlog" }
+socket2 = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }

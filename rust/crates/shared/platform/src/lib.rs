@@ -31,6 +31,7 @@ mod pty;
 mod secrets;
 mod shell;
 mod statefile;
+mod tcp_listen;
 
 pub use anon_file::anon_file;
 pub use atomic::{copy_executable, write_file_atomic, write_file_if_changed};
@@ -54,6 +55,7 @@ pub use shell::{
     WINDOWS_HOOK_ROOT,
 };
 pub use statefile::{RETAIN_QUARANTINED, STATE_FILE_GENERATIONS, write_state_file};
+pub use tcp_listen::{canonical_addr, listen_tcp};
 
 use std::sync::OnceLock;
 

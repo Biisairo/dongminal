@@ -971,6 +971,7 @@ dependencies = [
  "dm-shared-dmlog",
  "libc",
  "serde_json",
+ "socket2",
  "tempfile",
  "windows-sys 0.61.2",
 ]
@@ -1571,7 +1572,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "socket2",
  "tempfile",
  "time",
  "tokio",
