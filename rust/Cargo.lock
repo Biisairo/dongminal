@@ -540,6 +540,7 @@ dependencies = [
  "dm-daemon-chatsock",
  "dm-daemon-ipc",
  "dm-daemon-swap",
+ "dm-gocompat",
  "dm-shared-activity",
  "dm-shared-agentrec",
  "dm-shared-chatwire",
@@ -548,6 +549,7 @@ dependencies = [
  "dm-shared-edge",
  "dm-shared-edgenode",
  "dm-shared-edgerelay",
+ "dm-shared-handover",
  "dm-shared-humancmd",
  "dm-shared-platform",
  "dm-shared-runfile",
@@ -556,6 +558,12 @@ dependencies = [
  "dm-shared-toolhub",
  "dm-shared-toolipc",
  "dm-shared-workspace",
+ "dm-webserver-toolclient",
+ "libc",
+ "nix",
+ "tempfile",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

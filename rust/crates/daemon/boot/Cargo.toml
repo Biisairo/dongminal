@@ -9,11 +9,17 @@ publish = false
 [lints]
 workspace = true
 
+[[test]]
+name = "daemon"
+path = "tests/daemon.rs"
+harness = false
+
 [dependencies]
 dm-daemon-chat = { path = "../chat" }
 dm-daemon-chatsock = { path = "../chatsock" }
 dm-daemon-ipc = { path = "../ipc" }
 dm-daemon-swap = { path = "../swap" }
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-activity = { path = "../../shared/activity" }
 dm-shared-agentrec = { path = "../../shared/agentrec" }
 dm-shared-chatwire = { path = "../../shared/chatwire" }
@@ -30,3 +36,14 @@ dm-shared-sandboxplace = { path = "../../shared/sandboxplace" }
 dm-shared-toolhub = { path = "../../shared/toolhub" }
 dm-shared-toolipc = { path = "../../shared/toolipc" }
 dm-shared-workspace = { path = "../../shared/workspace" }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+nix = { workspace = true }
+
+[dev-dependencies]
+dm-shared-handover = { path = "../../shared/handover" }
+dm-webserver-toolclient = { path = "../../webserver/toolclient" }
+tempfile = { workspace = true }
