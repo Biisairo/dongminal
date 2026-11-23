@@ -10,4 +10,13 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../../../gocompat" }
 dm-shared-platform = { path = "../../../../shared/platform" }
+rand = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

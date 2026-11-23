@@ -3,7 +3,6 @@
 //! 두 제공자는 cfg 없이 컴파일되고, 환경·파일시스템을 주입받아 어느 호스트에서도 검사된다.
 //! 경로 조립은 Go 와 같이 호스트의 `filepath` 규약을 따른다.
 
-pub(crate) mod gopath;
 pub(crate) mod lookpath;
 
 use std::path::Path;
@@ -11,7 +10,7 @@ use std::sync::LazyLock;
 
 use dm_shared_dmenv::ENV_SHELL;
 
-use gopath::Conv;
+use dm_gocompat::filepath;
 
 /// 도구 하나를 띄울 셸의 명세.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -144,14 +143,12 @@ impl ShellProvider for PosixShell {
         // 셸 분기다. zsh 는 환경변수, bash 는 인자로 건다 (FR-HPR-7). bash 는 --rcfile 을 로그인
         // 셸에서 읽지 않으므로 -l 을 대신한다.
         if path.contains("zsh") {
-            spec.env.push(format!(
-                "ZDOTDIR={}",
-                Conv::HOST.join(&[&bin, ZDOTDIR_NAME])
-            ));
+            spec.env
+                .push(format!("ZDOTDIR={}", filepath::join(&[&bin, ZDOTDIR_NAME])));
         } else if path.contains("bash") {
             spec.args = vec![
                 "--rcfile".to_owned(),
-                Conv::HOST.join(&[&bin, BASH_HOOK_FILE]),
+                filepath::join(&[&bin, BASH_HOOK_FILE]),
             ];
         }
         spec
@@ -180,9 +177,22 @@ pub(crate) struct WindowsShell {
     pub(crate) look: LookFn,
 }
 
-/// PowerShell 의 홑따옴표 문자열. 홑따옴표 자신만 겹쳐 쓴다.
-fn power_shell_quote(v: &str) -> String {
-    format!("'{}'", v.replace('\'', "''"))
+/// PowerShell 이 홑따옴표로 읽는 문자. 굽은 따옴표도 문자열을 닫는다.
+const POWERSHELL_SINGLE_QUOTES: &[char] = &['\'', '\u{2018}', '\u{2019}', '\u{201A}', '\u{201B}'];
+
+/// PowerShell 의 홑따옴표(축자) 문자열. 그 안의 홑따옴표 문자는 겹쳐 써서 리터럴로 남긴다.
+/// Go 는 `'` 만 겹친다. 굽은 따옴표까지 겹치는 것은 보안 강화다 (RUST_PORT_SRS 3.7 D-2).
+pub(crate) fn power_shell_quote(v: &str) -> String {
+    let mut out = String::with_capacity(v.len() + 2);
+    out.push('\'');
+    for c in v.chars() {
+        if POWERSHELL_SINGLE_QUOTES.contains(&c) {
+            out.push(c);
+        }
+        out.push(c);
+    }
+    out.push('\'');
+    out
 }
 
 /// 스크립트를 현재 세션 스코프로 읽는 명령. -File 은 -NoExit 과 함께일 때 대화형 유지가
@@ -192,7 +202,7 @@ fn dot_source(path: &str) -> String {
 }
 
 fn is_power_shell(path: &str) -> bool {
-    let base = Conv::HOST.base(path).to_lowercase();
+    let base = filepath::base(path).to_lowercase();
     base.contains("powershell") || base.contains("pwsh")
 }
 
@@ -252,7 +262,7 @@ impl ShellProvider for WindowsShell {
                 ..ShellSpec::default()
             };
         }
-        let hook = Conv::HOST.join(&[&bin, POWERSHELL_HOOK_FILE]);
+        let hook = filepath::join(&[&bin, POWERSHELL_HOOK_FILE]);
         ShellSpec {
             path,
             args: vec![
