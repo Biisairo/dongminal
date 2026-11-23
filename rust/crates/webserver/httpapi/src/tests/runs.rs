@@ -737,3 +737,29 @@ async fn isolation_outside_a_repo_is_refused_and_leaves_no_record() {
     assert_eq!(s(&out["error"]), "not_a_git_repo");
     assert!(env.store.as_ref().unwrap().list().is_empty());
 }
+
+#[test]
+fn parse_context_policy_reads_orchestration() {
+    use crate::runs_context::parse_context_policy;
+    let p = parse_context_policy(
+        br#"{"orchestration":{"contextBytesPerToken":4,"contextLimitTokens":1000,"contextWarnRatio":0.5,"contextCriticalRatio":0.9}}"#,
+    );
+    assert_eq!(
+        p,
+        ContextPolicy {
+            bytes_per_token: 4.0,
+            limit_tokens: 1000.0,
+            warn_ratio: 0.5,
+            critical_ratio: 0.9
+        }
+    );
+    assert_eq!(parse_context_policy(b"{}"), ContextPolicy::default());
+    assert_eq!(
+        parse_context_policy(br#"{"orchestration":{"contextWarnRatio":"x"}}"#),
+        ContextPolicy::default_policy()
+    );
+    assert_eq!(
+        parse_context_policy(b"not json"),
+        ContextPolicy::default_policy()
+    );
+}

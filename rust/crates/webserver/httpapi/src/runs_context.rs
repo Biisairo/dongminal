@@ -9,7 +9,7 @@ use dm_shared_dmlog::{errorf, infof};
 use dm_shared_httpresp::Response;
 use dm_shared_pollwait as pollwait;
 use dm_shared_runwait as runwait;
-use dm_webserver_domain_run::{self as run, ContextObservation, Member, Record};
+use dm_webserver_domain_run::{self as run, ContextObservation, ContextPolicy, Member, Record};
 use http::StatusCode;
 use serde::Deserialize;
 
@@ -22,6 +22,38 @@ use crate::toolio::{ENVELOPE_SERVER_SENDER, agent_envelope};
 
 /// 승계가 전임자의 요약을 기다리는 기본 상한이다 (FR-CBG-9).
 const HANDOFF_WAIT_DEFAULT: Duration = runwait::HANDOFF_WAIT_DEFAULT;
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct PolicyBlob {
+    orchestration: Option<PolicyOrch>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+struct PolicyOrch {
+    context_bytes_per_token: f64,
+    context_limit_tokens: f64,
+    context_warn_ratio: f64,
+    context_critical_ratio: f64,
+}
+
+/// Go `parseContextPolicy`: settings.json 의 `orchestration` 에서 추정 공식과 임계를 읽는다
+/// (FR-CBG-2). 읽지 못하면 기본값이다. 빠진 값(0)은 정책이 기본값으로 메운다. 설정 저장소
+/// (5.5.8)가 쓴다.
+#[allow(dead_code)]
+pub(crate) fn parse_context_policy(blob: &[u8]) -> ContextPolicy {
+    let Ok(cfg) = dm_gocompat::json::unmarshal::<Option<PolicyBlob>>(blob) else {
+        return ContextPolicy::default_policy();
+    };
+    let o = cfg.and_then(|c| c.orchestration).unwrap_or_default();
+    ContextPolicy {
+        bytes_per_token: o.context_bytes_per_token,
+        limit_tokens: o.context_limit_tokens,
+        warn_ratio: o.context_warn_ratio,
+        critical_ratio: o.context_critical_ratio,
+    }
+}
 
 /// Go `contextReq`: 훅 한 번의 관측.
 #[derive(Deserialize, Default)]
