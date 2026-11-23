@@ -195,6 +195,8 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-24 | 알려진 차이 | httpapi `/api/fs/download-dir`·`download-many` (zip 본문) | compress/flate 레벨 5 로 압축한다 | zip 컨테이너(헤더·데이터 기술자·중앙 디렉터리·extra·모드·플래그)는 Go 와 바이트까지 같고, deflate 압축 스트림 바이트만 다르다(flate2). 풀어 낸 파일·이름·mtime·권한은 같다 | 5.5.7.2 |
 | DIFF-25 | 알려진 차이 | httpapi LSP WebSocket (서버→브라우저) | 언어 서버 출력을 텍스트 프레임에 바이트 그대로 싣는다(잘못된 UTF-8 이면 브라우저가 연결을 끊는다) | 잘못된 UTF-8 은 U+FFFD 로 바꿔 싣는다. 올바른 UTF-8 출력은 같다 | 5.5.9 |
 | DIFF-26 | 결함 수정 | httpapi Run headless 멤버 등록(도구 허브 없음) | nil 역참조 패닉이 500 으로 끝난다 | 500 `헤드리스 도구 생성 실패: tool hub unavailable` 로 답한다. 또 workspace 표식의 2^53 넘는 정수를 잃지 않는다(Go 는 float64 로 잃는다 — workspace.json 에 그런 수는 없다) | 5.5.4 |
+| DIFF-27 | 알려진 차이 | httpapi `/api/diag` | `goroutines` 는 goroutine 수, `allocMB` 는 GC 힙 할당량이다 | `goroutines` 는 살아 있는 tokio task 수, `allocMB` 는 늘 0 이다(런타임 구조가 달라 같은 값이 없다) | 5.5.8 |
+| DIFF-28 | 알려진 차이 | httpapi 정적 응답 mime 형식 (Windows) | 내장 표에 더해 Windows 레지스트리의 확장자 형식을 읽는다 | 내장 표와 unix 호스트 mime 파일만 읽는다. Windows 에서 내장 표 밖 확장자는 형식이 다를 수 있다 | 5.5.8 |
 
 ## 4. 검증
 
