@@ -473,12 +473,15 @@ dependencies = [
  "dm-shared-toolhub",
  "dm-shared-toolipc",
  "dm-webserver-domain-git-core",
+ "regex",
  "reqwest",
  "rustls",
  "serde",
  "serde_json",
  "tempfile",
+ "time",
  "tokio",
+ "zip",
 ]
 
 [[package]]

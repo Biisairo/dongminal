@@ -15,13 +15,13 @@ use dm_shared_platform::{Platform, ShellSpec, ShutdownSignal};
 use dm_shared_runtime as runtime;
 use dm_shared_toolhub::{Placement, ToolManager};
 
+use crate::bundle::run_doctor_bundle;
 use crate::doctor_probe::{
     DOCTOR_PROBE_COLS, DOCTOR_PROBE_ROWS, DOCTOR_PROBE_TIMEOUT, DOCTOR_READY_WAIT, contains,
     doctor_detached, doctor_probe_plain_command, doctor_probe_terminal, doctor_trim, run_pty_probe,
 };
 use crate::env::Env;
 use crate::options::{DoctorOpts, default_log_file};
-use crate::pending::not_ported;
 use crate::report::CheckReport;
 use crate::shellwait::{ChangeTracker, SHELL_QUIET_FOR, wait_quiet};
 use crate::start::mkdir_temp;
@@ -50,9 +50,9 @@ pub(crate) fn run_doctor_in(
     };
     let p = dm_shared_platform::current();
 
-    // G2-3: 번들 모드는 진단을 대체하지 않고 따로 선다 (bundle.go — 6.1.3 몫).
+    // G2-3: 번들 모드는 진단을 대체하지 않고 따로 선다.
     if !o.bundle.is_empty() {
-        return not_ported("doctor --bundle", "6.1.3", stderr);
+        return run_doctor_bundle(o, env, stdout, stderr);
     }
     // 내부 프로브 모드: 부모가 이 프로세스를 콘솔 없이 띄웠다 — 서버가 도구를 만드는 조건이다.
     if !o.probe_pty.is_empty() {

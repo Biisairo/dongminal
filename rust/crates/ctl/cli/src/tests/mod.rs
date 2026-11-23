@@ -1,3 +1,5 @@
+mod backup;
+mod bundle;
 mod config;
 mod dispatch;
 mod doctor;
@@ -9,11 +11,15 @@ mod logcap;
 mod migrate;
 mod options;
 mod proc;
+mod redact;
+mod rollback;
 mod service;
 mod shellwait;
 mod staleness;
 mod start;
 mod uninstall;
+mod update;
+mod verify;
 mod window;
 
 use std::collections::HashMap;

@@ -4,6 +4,7 @@
 
 mod actions;
 mod backup;
+mod bundle;
 mod config;
 mod config_bind;
 mod doctor;
@@ -19,8 +20,8 @@ mod logcap;
 mod migrate;
 mod open;
 mod options;
-mod pending;
 mod proc;
+mod redact;
 mod report;
 mod rollback;
 mod service;
@@ -32,6 +33,7 @@ mod stop;
 mod uninstall;
 mod update;
 mod update_notice;
+mod verify;
 mod version;
 mod wait;
 mod window;
@@ -40,7 +42,7 @@ mod window;
 mod tests;
 
 pub use actions::{Serve, ServeTarget, action_names, dispatch};
-pub use backup::{BackupOpts, RestoreOpts, parse_backup, parse_restore};
+pub use backup::{BackupOpts, RestoreOpts, parse_backup, parse_restore, run_backup, run_restore};
 pub use config::{ConfigOpts, parse_config, run_config};
 pub use doctor::run_doctor;
 pub use health::run_health;
@@ -58,12 +60,13 @@ pub use options::{
     StopOpts, Target, VerifyOpts, WindowOpts, default_log_file, parse_doctor, parse_health,
     parse_migrate, parse_start, parse_stop, parse_verify, parse_window,
 };
-pub use rollback::{RollbackOpts, parse_rollback};
+pub use rollback::{RollbackOpts, parse_rollback, run_rollback};
 pub use service::{ServiceOpts, parse_service, run_service};
 pub use staleness::{DAEMON_BUILD, DaemonState};
 pub use start::run_start;
 pub use stop::run_stop;
 pub use uninstall::{UninstallOpts, parse_uninstall, run_uninstall};
-pub use update::{UpdateOpts, parse_update};
+pub use update::{UpdateOpts, parse_update, run_update};
+pub use verify::run_verify;
 pub use version::{GO_RUNTIME, VERSION, parse_version, run_version, usage_version};
 pub use window::{Opener, run_window};

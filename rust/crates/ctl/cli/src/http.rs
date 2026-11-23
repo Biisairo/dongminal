@@ -11,10 +11,11 @@ pub(crate) const ALIVE_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 /// 응답 하나. 본문을 읽다 실패하면 거기까지 읽은 것이다.
 pub(crate) struct Reply {
     pub status: u16,
+    pub headers: reqwest::header::HeaderMap,
     pub body: Vec<u8>,
 }
 
-fn block_on<F: Future>(f: F) -> std::io::Result<F::Output> {
+pub(crate) fn block_on<F: Future>(f: F) -> std::io::Result<F::Output> {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -50,11 +51,16 @@ async fn send(
     }
     let mut res = req.send().await.map_err(failed)?;
     let status = res.status().as_u16();
+    let headers = res.headers().clone();
     let mut data = Vec::new();
     while let Ok(Some(chunk)) = res.chunk().await {
         data.extend_from_slice(&chunk);
     }
-    Ok(Reply { status, body: data })
+    Ok(Reply {
+        status,
+        headers,
+        body: data,
+    })
 }
 
 /// URL 이 2xx/3xx 를 주는지다.
