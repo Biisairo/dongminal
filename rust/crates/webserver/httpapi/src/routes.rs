@@ -154,6 +154,17 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         // PROFILE_NAME_SRS §3.2: 이 기기의 이름.
         get("/api/profile", h!(api_profile_get)),
         put("/api/profile", h!(api_profile_put)),
+        // TELEGRAM_BRIDGE_SRS FR-TGB-1~5·10~11.
+        get("/api/telegram", h!(api_telegram_get)),
+        put("/api/telegram/token", h!(api_telegram_token)),
+        put("/api/telegram/enabled", h!(api_telegram_enabled)),
+        put("/api/telegram/silence", h!(api_telegram_silence)),
+        post("/api/telegram/pair", h!(api_telegram_pair)),
+        when(
+            METHOD_DELETE,
+            Matcher::Exact("/api/telegram/pair"),
+            h!(api_telegram_unpair),
+        ),
         #[cfg(test)]
         get("/api/test/panic", h!(api_test_panic)),
     ]

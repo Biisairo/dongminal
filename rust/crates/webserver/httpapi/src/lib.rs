@@ -57,6 +57,7 @@ mod settings_etag;
 mod snapshot;
 mod status;
 mod subagents;
+mod telegram_api;
 mod toolhub;
 mod toolio;
 mod tools_api;
@@ -101,6 +102,8 @@ pub struct Config {
     pub allowed_hosts: Vec<String>,
     /// 이 서버 바이너리의 판이다 (VERSION_HEALTH_SRS FR-VHL-10).
     pub version: String,
+    /// Telegram Bot API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다.
+    pub telegram_api: String,
 }
 
 /// 주입 표면이다 (Go `Deps`). 비어 있는 자리는 그 표면만 실패한다.
@@ -206,6 +209,8 @@ pub struct Server {
     pub(crate) edge_kick: edge_api::EdgeKick,
     /// `/api/lsp/ws` 의 메시지 상한이다 (FR-CMR-104). 시험만이 낮춘다.
     pub(crate) lsp_ws_read_limit: usize,
+    /// Telegram 알림 이음매다 (Go `tg`). data_dir 이 없으면 없다.
+    pub(crate) tg: Option<telegram_api::TelegramWire>,
 }
 
 /// 탐색기·편집기의 파일 조작 잠금이다 (Go `fsState`).
@@ -247,9 +252,11 @@ impl Server {
     }
 
     fn build(cfg: Config, mut deps: Deps, me: Weak<Server>) -> Server {
+        let mut own_hub = None;
         if deps.commands.is_none() {
-            let hub: Arc<dyn CommandBroker> = CommandHub::new();
-            deps.commands = Some(hub);
+            let hub = CommandHub::new();
+            own_hub = Some(hub.clone());
+            deps.commands = Some(hub as Arc<dyn CommandBroker>);
         }
         let access = Arc::new(AccessStore::new(
             cfg.data_dir.join(dm_shared_dmenv::ACCESS_FILE),
@@ -265,7 +272,8 @@ impl Server {
             deps.git = Some(Arc::new(gitwire::GitApi(Arc::new(g))));
         }
         let deps_commands = deps.commands.clone();
-        Server {
+        let tg = telegram_api::init_telegram(&cfg, me.clone());
+        let srv = Server {
             deps,
             cfg,
             focus: FocusRegistry::new(),
@@ -291,7 +299,12 @@ impl Server {
             handle: edge_api::HandleCache::default(),
             edge_kick: edge_api::EdgeKick::default(),
             lsp_ws_read_limit: lsp_api::LSP_WS_READ_LIMIT,
+            tg,
+        };
+        if let Some(hub) = own_hub {
+            srv.wire_telegram_attention(&hub);
         }
+        srv
     }
 
     pub fn deps(&self) -> &Deps {

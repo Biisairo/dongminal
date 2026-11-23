@@ -26,6 +26,7 @@ mod sandbox_api;
 mod status;
 mod subagent_activity;
 mod support;
+mod telegram;
 mod term;
 mod toolio;
 mod tools_api;
