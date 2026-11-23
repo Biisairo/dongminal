@@ -223,10 +223,7 @@ fn install(stdout: &mut dyn Write, stderr: &mut dyn Write) -> Result<(), Error> 
 
 /// Go `*exec.ExitError` 의 문구.
 fn exit_status(s: &std::process::ExitStatus) -> String {
-    match s.code() {
-        Some(c) => format!("exit status {c}"),
-        None => s.to_string(),
-    }
+    dm_shared_platform::exit_status_text(s)
 }
 
 type OwnFn<'a> = dyn Fn(&Path) -> io::Result<()> + 'a;

@@ -18,6 +18,7 @@ mod browser;
 mod envset;
 mod filelock;
 mod goerr;
+pub mod gowait;
 mod handover;
 mod hostname;
 mod ifaddrs;

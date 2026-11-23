@@ -41,10 +41,7 @@ pub(crate) fn exec_run(name: &str, args: &[&str]) -> RunOut {
         Ok(o) => RunOut {
             stdout: o.stdout,
             ok: false,
-            err: match o.status.code() {
-                Some(c) => format!("exit status {c}"),
-                None => "signal: killed".to_owned(),
-            },
+            err: crate::exit_status_text(&o.status),
         },
         Err(e) => RunOut {
             stdout: Vec::new(),
