@@ -1,4 +1,4 @@
-use super::{append_quote, is_print, quote, quote_bytes};
+use super::{append_quote, is_print, parse_bool, parse_uint10, quote, quote_bytes};
 
 // Go strconv/quote_test.go 의 quotetests (Quote 열).
 #[test]
@@ -116,4 +116,44 @@ fn format_float_matches_go() {
         }
     }
     assert_eq!(n, 1820);
+}
+
+// go1.27.2 실측.
+#[test]
+fn parse_bool_matches_go() {
+    for s in ["1", "t", "T", "TRUE", "true", "True"] {
+        assert_eq!(parse_bool(s), Ok(true), "{s}");
+    }
+    for s in ["0", "f", "F", "FALSE", "false", "False"] {
+        assert_eq!(parse_bool(s), Ok(false), "{s}");
+    }
+    for s in ["", "yes", "tRUE", " 1"] {
+        assert_eq!(
+            parse_bool(s).map_err(|e| e.to_string()),
+            Err(format!(
+                "strconv.ParseBool: parsing {}: invalid syntax",
+                quote(s)
+            ))
+        );
+    }
+}
+
+#[test]
+fn parse_uint10_matches_go() {
+    assert_eq!(parse_uint10("0"), Ok(0));
+    assert_eq!(parse_uint10("007"), Ok(7));
+    assert_eq!(parse_uint10("18446744073709551615"), Ok(u64::MAX));
+    assert_eq!(
+        parse_uint10("18446744073709551616").map_err(|e| e.to_string()),
+        Err("strconv.ParseUint: parsing \"18446744073709551616\": value out of range".to_owned())
+    );
+    for s in ["+1", "-1", "", "1_0", " 1"] {
+        assert_eq!(
+            parse_uint10(s).map_err(|e| e.to_string()),
+            Err(format!(
+                "strconv.ParseUint: parsing {}: invalid syntax",
+                quote(s)
+            ))
+        );
+    }
 }

@@ -2,8 +2,10 @@
 
 mod float;
 mod isprint;
+mod parse;
 
 pub use float::format_float;
+pub use parse::{NumError, NumErrorKind, parse_bool, parse_uint10};
 
 use isprint::{IS_NOT_PRINT16, IS_NOT_PRINT32, IS_PRINT16, IS_PRINT32};
 
