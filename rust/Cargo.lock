@@ -922,10 +922,15 @@ dependencies = [
 name = "dm-webserver-domain-lsp"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-dmlog",
  "dm-shared-editorlimit",
  "dm-shared-platform",
  "dm-webserver-domain-ext",
+ "serde",
+ "tempfile",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

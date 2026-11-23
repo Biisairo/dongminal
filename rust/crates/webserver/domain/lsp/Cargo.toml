@@ -10,7 +10,14 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../../gocompat" }
 dm-shared-dmlog = { path = "../../../shared/dmlog" }
 dm-shared-editorlimit = { path = "../../../shared/editorlimit" }
 dm-shared-platform = { path = "../../../shared/platform" }
 dm-webserver-domain-ext = { path = "../ext" }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
