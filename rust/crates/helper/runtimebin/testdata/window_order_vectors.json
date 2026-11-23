@@ -1,0 +1,26 @@
+{
+  "_doc": "window 순서 규칙의 골든 (REFACTOR PROD2 §7). Go windowPositions(dmctl_listworkspace.go) 와 JS winOrderItems(web/js/core/window-order.js) 가 함께 읽는다. 일반 창(type 없음)만 세고, 같은 그룹의 연속한 창은 최상위에서 한 칸이다. 빈 그룹은 칸을 차지하지 않는다. want 는 창마다 [container, index, count] 이며 최상위의 container 는 \"top\" 이다.",
+  "cases": [
+    { "name": "그룹 없음",
+      "windows": [{"id":"a"},{"id":"b"},{"id":"c"}], "groups": [],
+      "want": {"a":["top",1,3],"b":["top",2,3],"c":["top",3,3]} },
+    { "name": "연속한 그룹은 최상위 한 칸",
+      "windows": [{"id":"a"},{"id":"b","groupId":"g"},{"id":"c","groupId":"g"},{"id":"d"}], "groups": [{"id":"g"}],
+      "want": {"a":["top",1,3],"b":["g",1,2],"c":["g",2,2],"d":["top",3,3]} },
+    { "name": "type 있는 창은 세지 않는다",
+      "windows": [{"id":"a"},{"id":"git","type":"git"},{"id":"b"}], "groups": [],
+      "want": {"a":["top",1,2],"b":["top",2,2]} },
+    { "name": "type 있는 창이 끼어도 같은 그룹은 이어진다",
+      "windows": [{"id":"a","groupId":"g"},{"id":"ed","type":"editor"},{"id":"b","groupId":"g"}], "groups": [{"id":"g"}],
+      "want": {"a":["g",1,2],"b":["g",2,2]} },
+    { "name": "떨어진 같은 그룹은 두 칸이다",
+      "windows": [{"id":"b","groupId":"g"},{"id":"a"},{"id":"c","groupId":"g"}], "groups": [{"id":"g"}],
+      "want": {"b":["g",1,1],"a":["top",2,3],"c":["g",1,1]} },
+    { "name": "이웃한 다른 그룹",
+      "windows": [{"id":"a","groupId":"g1"},{"id":"b","groupId":"g2"}], "groups": [{"id":"g1"},{"id":"g2"}],
+      "want": {"a":["g1",1,1],"b":["g2",1,1]} },
+    { "name": "빈 그룹은 칸을 차지하지 않는다",
+      "windows": [{"id":"a"}], "groups": [{"id":"empty"}],
+      "want": {"a":["top",1,1]} }
+  ]
+}

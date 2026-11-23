@@ -1,12 +1,8 @@
 use std::{fmt, io};
 
 use dm_gocompat::{json, strconv};
+use dm_shared_toolhub::ManagerError;
 use dm_shared_toolipc::{PROTOCOL_VERSION, RpcError};
-
-/// toolhub `ErrToolCap` 의 문구다. toolhub 에 아직 없어 여기 둔다 (2.2.3 이 옮겨 갈 자리).
-pub const ERR_TOOL_CAP: &str = "도구 수가 상한에 이르렀다";
-/// toolhub `ErrToolNotFound` 의 문구다.
-pub const ERR_TOOL_NOT_FOUND: &str = "toolhub: tool not found";
 
 /// 데몬 클라이언트의 오류다. `Display` 는 Go 의 `err.Error()` 와 같다. 오류 문구의 `paned` 는
 /// toolio·chat·WS 오류 본문에 그대로 실려 나가는 와이어라 바꾸지 않는다 (FR-RGS-6).
@@ -61,8 +57,8 @@ impl fmt::Display for Error {
             Self::Rpc(e) => e.fmt(f),
             Self::Json(e) => e.fmt(f),
             Self::Io(e) => e.fmt(f),
-            Self::ToolCap(m) => write!(f, "{ERR_TOOL_CAP}: {m}"),
-            Self::ToolNotFound(id) => write!(f, "{ERR_TOOL_NOT_FOUND}: {id}"),
+            Self::ToolCap(m) => write!(f, "{}: {m}", ManagerError::ToolCap),
+            Self::ToolNotFound(id) => write!(f, "{}: {id}", ManagerError::NotFound),
             Self::Hello(e) => write!(f, "hello: {e}"),
             Self::ProtocolMismatch { daemon } => write!(
                 f,

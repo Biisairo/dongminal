@@ -22,3 +22,13 @@ dm-shared-serverconf = { path = "../../shared/serverconf" }
 dm-shared-statusline = { path = "../../shared/statusline" }
 dm-shared-termtext = { path = "../../shared/termtext" }
 dm-shared-workspace = { path = "../../shared/workspace" }
+dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
+regex = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

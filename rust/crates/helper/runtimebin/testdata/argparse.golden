@@ -1,0 +1,884 @@
+list-workspace []
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+list-workspace ["-h"]
+  code=0 proceed=false f={}
+  stdout="<731 bytes, sum 16338ff8>"
+  stderr=""
+list-workspace ["--help"]
+  code=0 proceed=false f={}
+  stdout="<731 bytes, sum 16338ff8>"
+  stderr=""
+list-workspace ["--json"]
+  code=0 proceed=true f={jsonOut:true}
+  stdout=""
+  stderr=""
+list-workspace ["--json" "-h" "--bogus"]
+  code=0 proceed=false f={jsonOut:true}
+  stdout="<731 bytes, sum 16338ff8>"
+  stderr=""
+list-workspace ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="list-workspace: unknown argument: --bogus\n"
+list-workspace ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="list-workspace: unknown argument: --json=1\n"
+list-workspace ["="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="list-workspace: unknown argument: =\n"
+list-workspace ["-"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="list-workspace: unknown argument: -\n"
+list-workspace ["x"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="list-workspace: unknown argument: x\n"
+list-workspace ["--"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="list-workspace: unknown argument: --\n"
+list-workspace ["--window"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="list-workspace: flag --window requires value\n"
+list-workspace ["--tab"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="list-workspace: flag --tab requires value\n"
+list-workspace ["--window" "a" "--tab" "b"]
+  code=0 proceed=true f={windowFilter:a tabFilter:b}
+  stdout=""
+  stderr=""
+list-workspace ["--window" "--json"]
+  code=0 proceed=true f={windowFilter:--json}
+  stdout=""
+  stderr=""
+list-workspace ["--json" "--window" "w"]
+  code=0 proceed=true f={jsonOut:true windowFilter:w}
+  stdout=""
+  stderr=""
+status []
+  code=0 proceed=true f={target:self-tool}
+  stdout=""
+  stderr=""
+status ["-h"]
+  code=0 proceed=false f={}
+  stdout="<1622 bytes, sum 6c5ad04f>"
+  stderr=""
+status ["--help"]
+  code=0 proceed=false f={}
+  stdout="<1622 bytes, sum 6c5ad04f>"
+  stderr=""
+status ["--json"]
+  code=0 proceed=true f={target:self-tool jsonOut:true}
+  stdout=""
+  stderr=""
+status ["--json" "-h" "--bogus"]
+  code=0 proceed=false f={jsonOut:true}
+  stdout="<1622 bytes, sum 6c5ad04f>"
+  stderr=""
+status ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --bogus\n"
+status ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --json=1\n"
+status ["="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: =\n"
+status ["-"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: -\n"
+status ["x"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: x\n"
+status ["--"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --\n"
+status ["--at"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: flag --at requires value\n"
+status ["--at" "t1"]
+  code=0 proceed=true f={target:t1}
+  stdout=""
+  stderr=""
+status ["--at=t1"]
+  code=0 proceed=true f={target:t1}
+  stdout=""
+  stderr=""
+status ["--at="]
+  code=0 proceed=true f={target:self-tool}
+  stdout=""
+  stderr=""
+status ["-l" "t1"]
+  code=0 proceed=true f={target:t1}
+  stdout=""
+  stderr=""
+status ["-l=t1"]
+  code=0 proceed=true f={target:t1}
+  stdout=""
+  stderr=""
+status ["-l="]
+  code=0 proceed=true f={target:self-tool}
+  stdout=""
+  stderr=""
+status ["--at=a=b"]
+  code=0 proceed=true f={target:a=b}
+  stdout=""
+  stderr=""
+status ["--member"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: flag --member requires value\n"
+status ["--member" "m1"]
+  code=0 proceed=true f={member:m1}
+  stdout=""
+  stderr=""
+status ["--member=m1"]
+  code=0 proceed=true f={member:m1}
+  stdout=""
+  stderr=""
+status ["--at" "t1" "--member" "m1"]
+  code=2 proceed=false f={target:t1 member:m1}
+  stdout=""
+  stderr="status: --at 과 --member 는 함께 쓸 수 없다 — 하나만 지정하라\n"
+status ["--at" "--json"]
+  code=0 proceed=true f={target:--json}
+  stdout=""
+  stderr=""
+status ["--for"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --for\n"
+status ["--for" "ready" "--at" "t"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --for\n"
+status ["--for=done" "--at" "t"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --for=done\n"
+status ["--for" "bad" "--at" "t"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --for\n"
+status ["--at" "t"]
+  code=0 proceed=true f={target:t}
+  stdout=""
+  stderr=""
+status ["--timeout-ms"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms\n"
+status ["--timeout-ms" "abc" "--bogus"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms\n"
+status ["--timeout-ms=0" "--at" "t"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms=0\n"
+status ["--timeout-ms" "-5" "--at" "t"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms\n"
+status ["--timeout-ms=100" "--for" "ready" "--at" "t"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms=100\n"
+status ["--timeout-ms" "100" "--for" "done" "--at" "t" "--json"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms\n"
+wait []
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["-h"]
+  code=0 proceed=false f={}
+  stdout="<1583 bytes, sum b6a141b0>"
+  stderr=""
+wait ["--help"]
+  code=0 proceed=false f={}
+  stdout="<1583 bytes, sum b6a141b0>"
+  stderr=""
+wait ["--json"]
+  code=2 proceed=false f={jsonOut:true}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--json" "-h" "--bogus"]
+  code=0 proceed=false f={jsonOut:true}
+  stdout="<1583 bytes, sum b6a141b0>"
+  stderr=""
+wait ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: unknown argument: --bogus\n"
+wait ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: unknown argument: --json=1\n"
+wait ["="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: unknown argument: =\n"
+wait ["-"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: unknown argument: -\n"
+wait ["x"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: unknown argument: x\n"
+wait ["--"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: unknown argument: --\n"
+wait ["--at"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: flag --at requires value\n"
+wait ["--at" "t1"]
+  code=2 proceed=false f={target:t1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at=t1"]
+  code=2 proceed=false f={target:t1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["-l" "t1"]
+  code=2 proceed=false f={target:t1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["-l=t1"]
+  code=2 proceed=false f={target:t1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["-l="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at=a=b"]
+  code=2 proceed=false f={target:a=b}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--member"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: flag --member requires value\n"
+wait ["--member" "m1"]
+  code=2 proceed=false f={member:m1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--member=m1"]
+  code=2 proceed=false f={member:m1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at" "t1" "--member" "m1"]
+  code=2 proceed=false f={target:t1 member:m1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at" "--json"]
+  code=2 proceed=false f={target:--json}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--for"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: flag --for requires value\n"
+wait ["--for" "ready" "--at" "t"]
+  code=0 proceed=true f={target:t cond:ready}
+  stdout=""
+  stderr=""
+wait ["--for=done" "--at" "t"]
+  code=0 proceed=true f={target:t cond:done}
+  stdout=""
+  stderr=""
+wait ["--for" "bad" "--at" "t"]
+  code=2 proceed=false f={target:t cond:bad}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"bad\"\n"
+wait ["--at" "t"]
+  code=2 proceed=false f={target:t}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--timeout-ms"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: flag --timeout-ms requires value\n"
+wait ["--timeout-ms" "abc" "--bogus"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: --timeout-ms 는 양의 정수여야 한다: abc\n"
+wait ["--timeout-ms=0" "--at" "t"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: --timeout-ms 는 양의 정수여야 한다: 0\n"
+wait ["--timeout-ms" "-5" "--at" "t"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="wait: --timeout-ms 는 양의 정수여야 한다: -5\n"
+wait ["--timeout-ms=100" "--for" "ready" "--at" "t"]
+  code=0 proceed=true f={target:t cond:ready timeoutMS:100}
+  stdout=""
+  stderr=""
+wait ["--timeout-ms" "100" "--for" "done" "--at" "t" "--json"]
+  code=0 proceed=true f={target:t cond:done timeoutMS:100 jsonOut:true}
+  stdout=""
+  stderr=""
+run []
+  code=0 proceed=true f={given:map[]}
+  stdout=""
+  stderr=""
+run ["-h"]
+  code=0 proceed=false f={given:map[]}
+  stdout="<8404 bytes, sum f455d5f8>"
+  stderr=""
+run ["--help"]
+  code=0 proceed=false f={given:map[]}
+  stdout="<8404 bytes, sum f455d5f8>"
+  stderr=""
+run ["--json"]
+  code=0 proceed=true f={jsonOut:true given:map[]}
+  stdout=""
+  stderr=""
+run ["--json" "-h" "--bogus"]
+  code=0 proceed=false f={jsonOut:true given:map[]}
+  stdout="<8404 bytes, sum f455d5f8>"
+  stderr=""
+run ["--bogus" "-h"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: unknown argument: --bogus\n"
+run ["--json=1"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: unknown argument: --json=1\n"
+run ["="]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: unknown argument: =\n"
+run ["-"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: unknown argument: -\n"
+run ["x"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: unknown argument: x\n"
+run ["--"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: unknown argument: --\n"
+run ["--run"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: flag --run requires value\n"
+run ["--run" "r1" "--member" "m" "--force" "--headless" "--keep-worktrees" "--keep-tools" "--json" "--text"]
+  code=0 proceed=true f={run:r1 member:m force:true keepTrees:true keepTools:true textOut:true jsonOut:true headless:true given:map[--member:true --run:true]}
+  stdout=""
+  stderr=""
+run ["--run=r1" "--role=x" "-l=t" "--timeout-ms=5"]
+  code=0 proceed=true f={run:r1 role:x at:t timeoutMs:5 given:map[--role:true --run:true --timeout-ms:true -l:true]}
+  stdout=""
+  stderr=""
+run ["--run="]
+  code=0 proceed=true f={given:map[--run:true]}
+  stdout=""
+  stderr=""
+run ["-l"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: flag -l requires value\n"
+run ["--force=1"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: unknown argument: --force=1\n"
+run ["--at" "--brief"]
+  code=0 proceed=true f={at:--brief given:map[--at:true]}
+  stdout=""
+  stderr=""
+run ["--brief" "-"]
+  code=0 proceed=true f={brief:- given:map[--brief:true]}
+  stdout=""
+  stderr=""
+run ["--bogus=1"]
+  code=2 proceed=false f={given:map[]}
+  stdout=""
+  stderr="run sub: unknown argument: --bogus=1\n"
+run ["--objective" "o" "--projection" "p" "--isolation" "i" "--window" "w" "--outcome" "o" "--summary" "s" "--files" "f" "--base" "b" "--agent" "a" "--model" "m"]
+  code=0 proceed=true f={agent:a model:m objective:o projection:p isolation:i window:w outcome:o summary:s files:f base:b given:map[--agent:true --base:true --files:true --isolation:true --model:true --objective:true --outcome:true --projection:true --summary:true --window:true]}
+  stdout=""
+  stderr=""
+dmctl []
+  err=<nil> p={}
+  stdout=""
+  stderr=""
+dmctl ["-h"]
+  err=<nil> p={}
+  stdout=""
+  stderr=""
+dmctl ["--help"]
+  err=<nil> p={}
+  stdout=""
+  stderr=""
+dmctl ["--json"]
+  err=unknown argument: --json p={}
+  stdout=""
+  stderr=""
+dmctl ["--json" "-h" "--bogus"]
+  err=unknown argument: --json p={}
+  stdout=""
+  stderr=""
+dmctl ["--bogus" "-h"]
+  err=unknown argument: --bogus p={}
+  stdout=""
+  stderr=""
+dmctl ["--json=1"]
+  err=unknown argument: --json=1 p={}
+  stdout=""
+  stderr=""
+dmctl ["="]
+  err=<nil> p={positional:=}
+  stdout=""
+  stderr=""
+dmctl ["-"]
+  err=unknown argument: - p={}
+  stdout=""
+  stderr=""
+dmctl ["x"]
+  err=<nil> p={positional:x}
+  stdout=""
+  stderr=""
+dmctl ["--"]
+  err=<nil> p={}
+  stdout=""
+  stderr=""
+dmctl ["--at"]
+  err=flag --at requires value p={}
+  stdout=""
+  stderr=""
+dmctl ["--at" "1.2"]
+  err=<nil> p={location:1.2}
+  stdout=""
+  stderr=""
+dmctl ["--at="]
+  err=unknown argument: --at= p={}
+  stdout=""
+  stderr=""
+dmctl ["--at=1"]
+  err=<nil> p={location:1}
+  stdout=""
+  stderr=""
+dmctl ["-l="]
+  err=unknown argument: -l= p={}
+  stdout=""
+  stderr=""
+dmctl ["-l=2"]
+  err=<nil> p={location:2}
+  stdout=""
+  stderr=""
+dmctl ["--name"]
+  err=flag --name requires value p={}
+  stdout=""
+  stderr=""
+dmctl ["--name="]
+  err=unknown argument: --name= p={}
+  stdout=""
+  stderr=""
+dmctl ["--name=n"]
+  err=<nil> p={name:n}
+  stdout=""
+  stderr=""
+dmctl ["--name" "n" "a" "b"]
+  err=<nil> p={name:n positional:a b}
+  stdout=""
+  stderr=""
+dmctl ["--sandbox" "p" "--workdir" "w" "--cwd" "c"]
+  err=<nil> p={sandbox:p workdir:w cwd:c}
+  stdout=""
+  stderr=""
+dmctl ["--sandbox=" "x"]
+  err=unknown argument: --sandbox= p={}
+  stdout=""
+  stderr=""
+dmctl ["--sandbox=p" "--workdir=w" "--cwd=c"]
+  err=<nil> p={sandbox:p workdir:w cwd:c}
+  stdout=""
+  stderr=""
+dmctl ["--workdir="]
+  err=unknown argument: --workdir= p={}
+  stdout=""
+  stderr=""
+dmctl ["--cwd="]
+  err=unknown argument: --cwd= p={}
+  stdout=""
+  stderr=""
+dmctl ["--no-focus" "-n" "--auto" "--force" "--background"]
+  err=<nil> p={keepFocus:true auto:true force:true background:true}
+  stdout=""
+  stderr=""
+dmctl ["--no-focus=1"]
+  err=unknown argument: --no-focus=1 p={}
+  stdout=""
+  stderr=""
+dmctl ["a" "--" "--at" "b"]
+  err=<nil> p={positional:a --at b}
+  stdout=""
+  stderr=""
+dmctl ["-h" "a"]
+  err=<nil> p={positional:a}
+  stdout=""
+  stderr=""
+dmctl ["a" "--bogus"]
+  err=unknown argument: --bogus p={}
+  stdout=""
+  stderr=""
+dmctl ["-5"]
+  err=unknown argument: -5 p={}
+  stdout=""
+  stderr=""
+send-input []
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+send-input ["-h"]
+  code=0 proceed=false f={}
+  stdout="<741 bytes, sum de343e96>"
+  stderr=""
+send-input ["--help"]
+  code=0 proceed=false f={}
+  stdout="<741 bytes, sum de343e96>"
+  stderr=""
+send-input ["--json"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --json\n"
+send-input ["--json" "-h" "--bogus"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --json\n"
+send-input ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --bogus\n"
+send-input ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --json=1\n"
+send-input ["="]
+  code=0 proceed=true f={positional:[=]}
+  stdout=""
+  stderr=""
+send-input ["-"]
+  code=0 proceed=true f={positional:[-]}
+  stdout=""
+  stderr=""
+send-input ["x"]
+  code=0 proceed=true f={positional:[x]}
+  stdout=""
+  stderr=""
+send-input ["--"]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+send-input ["--at"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: flag --at requires value\n"
+send-input ["--at" "t1" "hi"]
+  code=0 proceed=true f={target:t1 positional:[hi]}
+  stdout=""
+  stderr=""
+send-input ["--at=t1" "a" "b"]
+  code=0 proceed=true f={target:t1 positional:[a b]}
+  stdout=""
+  stderr=""
+send-input ["--at="]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+send-input ["-l" "t1" "-x" "-"]
+  code=0 proceed=true f={target:t1 execute:true positional:[-]}
+  stdout=""
+  stderr=""
+send-input ["-l=t1" "--execute" "x"]
+  code=0 proceed=true f={target:t1 execute:true positional:[x]}
+  stdout=""
+  stderr=""
+send-input ["--execute=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --execute=1\n"
+send-input ["a" "--" "--at" "b"]
+  code=0 proceed=true f={positional:[a --at b]}
+  stdout=""
+  stderr=""
+send-input ["-h" "a"]
+  code=0 proceed=false f={}
+  stdout="<741 bytes, sum de343e96>"
+  stderr=""
+send-input ["a" "--bogus"]
+  code=2 proceed=false f={positional:[a]}
+  stdout=""
+  stderr="send-input: unknown argument: --bogus\n"
+send-input ["-5"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: -5\n"
+send-input ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="send-input: unknown argument: --bogus\n"
+send-input ["a" "-h"]
+  code=0 proceed=false f={positional:[a]}
+  stdout="<741 bytes, sum de343e96>"
+  stderr=""
+send-input ["--at" "--execute"]
+  code=0 proceed=true f={target:--execute}
+  stdout=""
+  stderr=""
+msg []
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+msg ["-h"]
+  code=0 proceed=false f={}
+  stdout="<1187 bytes, sum ef719695>"
+  stderr=""
+msg ["--help"]
+  code=0 proceed=false f={}
+  stdout="<1187 bytes, sum ef719695>"
+  stderr=""
+msg ["--json"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: --json\n"
+msg ["--json" "-h" "--bogus"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: --json\n"
+msg ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: --bogus\n"
+msg ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: --json=1\n"
+msg ["="]
+  code=0 proceed=true f={positional:[=]}
+  stdout=""
+  stderr=""
+msg ["-"]
+  code=0 proceed=true f={positional:[-]}
+  stdout=""
+  stderr=""
+msg ["x"]
+  code=0 proceed=true f={positional:[x]}
+  stdout=""
+  stderr=""
+msg ["--"]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+msg ["--to"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: flag --to requires value\n"
+msg ["--from"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: flag --from requires value\n"
+msg ["--to" "u1" "hi"]
+  code=0 proceed=true f={to:u1 positional:[hi]}
+  stdout=""
+  stderr=""
+msg ["--to=u1" "--from=u2" "a"]
+  code=0 proceed=true f={to:u1 from:u2 positional:[a]}
+  stdout=""
+  stderr=""
+msg ["--to="]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+msg ["--to" "u1" "-"]
+  code=0 proceed=true f={to:u1 positional:[-]}
+  stdout=""
+  stderr=""
+msg ["--to" "u1" "--" "-x"]
+  code=0 proceed=true f={to:u1 positional:[-x]}
+  stdout=""
+  stderr=""
+msg ["-5"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="msg: unknown argument: -5\n"
+msg ["--to" "u1" "-h"]
+  code=0 proceed=false f={to:u1}
+  stdout="<1187 bytes, sum ef719695>"
+  stderr=""
+msg ["--to" "u1" "--bogus"]
+  code=2 proceed=false f={to:u1}
+  stdout=""
+  stderr="msg: unknown argument: --bogus\n"
+msg ["--from" "--to"]
+  code=0 proceed=true f={from:--to}
+  stdout=""
+  stderr=""
+detach []
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+detach ["-h"]
+  code=0 proceed=false f={}
+  stdout="<1710 bytes, sum 9fce4dc>"
+  stderr=""
+detach ["--help"]
+  code=0 proceed=false f={}
+  stdout="<1710 bytes, sum 9fce4dc>"
+  stderr=""
+detach ["--json"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --json\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--json" "-h" "--bogus"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --json\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --bogus\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--json=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --json=1\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: =\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["-"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: -\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["x"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: x\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--run"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --run 은 실행할 명령이 필요합니다\n"
+detach ["--run" "npm test"]
+  code=0 proceed=true f={runCmd:npm test hasRun:true}
+  stdout=""
+  stderr=""
+detach ["--run=ls"]
+  code=0 proceed=true f={runCmd:ls hasRun:true}
+  stdout=""
+  stderr=""
+detach ["--run="]
+  code=0 proceed=true f={hasRun:true}
+  stdout=""
+  stderr=""
+detach ["--run" "ls" "--cwd" "/tmp"]
+  code=0 proceed=true f={runCmd:ls hasRun:true cwd:/tmp}
+  stdout=""
+  stderr=""
+detach ["--cwd"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --cwd 는 경로가 필요합니다\n"
+detach ["--cwd=/tmp"]
+  code=0 proceed=true f={cwd:/tmp}
+  stdout=""
+  stderr=""
+detach ["--cwd="]
+  code=0 proceed=true f={}
+  stdout=""
+  stderr=""
+detach ["--list"]
+  code=0 proceed=true f={doList:true}
+  stdout=""
+  stderr=""
+detach ["-l"]
+  code=0 proceed=true f={doList:true}
+  stdout=""
+  stderr=""
+detach ["--list=1"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --list=1\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--restore"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --restore 는 도구 id 가 필요합니다 (detach --list 로 확인)\n"
+detach ["--restore" "id1"]
+  code=0 proceed=true f={restoreID:id1}
+  stdout=""
+  stderr=""
+detach ["-r" "id1" "--at" "t1"]
+  code=0 proceed=true f={restoreID:id1 at:t1}
+  stdout=""
+  stderr=""
+detach ["--restore=id1"]
+  code=0 proceed=true f={restoreID:id1}
+  stdout=""
+  stderr=""
+detach ["-r=id1"]
+  code=0 proceed=true f={restoreID:id1}
+  stdout=""
+  stderr=""
+detach ["--at"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)\n"
+detach ["--at" "t1"]
+  code=0 proceed=true f={at:t1}
+  stdout=""
+  stderr=""
+detach ["--at="]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)\n"
+detach ["--at=t1"]
+  code=0 proceed=true f={at:t1}
+  stdout=""
+  stderr=""
+detach ["--at" ""]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: --at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)\n"
+detach ["--list" "--bogus"]
+  code=2 proceed=false f={doList:true}
+  stdout=""
+  stderr="detach: unknown argument: --bogus\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["--bogus" "-h"]
+  code=2 proceed=false f={}
+  stdout=""
+  stderr="detach: unknown argument: --bogus\ndetach — 현재 도구를 백그라운드로 보내고 탭을 닫는다\n\n사용법:\n  detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)\n  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다\n  detach --run <명령> --cwd <경로>\n                                그 명령을 이 디렉터리에서 돌린다\n  detach --list                 백그라운드 도구 목록\n  detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀\n  detach --restore <id> --at <uuid>\n                                지정한 탭이 속한 분할 칸의 새 탭으로 복귀\n  detach -h, --help             이 도움말\n\n--at 은 dmctl list-workspace 의 uuid 를 받는다. 복귀는 분할 칸 단위이므로 좌표의\n탭 성분은 무시된다 — 그 탭이 속한 분할 칸이 대상이다. --at 없이 쓰면 브라우저가\n현재 포커스한 분할 칸으로 복귀한다.\n\n백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면\n복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.\n\n--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고\n백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그\n호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를\n남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).\n\n이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.\n"
+detach ["-h" "--bogus"]
+  code=0 proceed=false f={}
+  stdout="<1710 bytes, sum 9fce4dc>"
+  stderr=""

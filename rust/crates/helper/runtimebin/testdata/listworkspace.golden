@@ -1,0 +1,38 @@
+["list-workspace"]
+  code=0
+  stdout=  label=W1.P1.T1  uuid=11111111-aaaa  short=11111111  toolId=p1  shellPid=101  size=80x24  window="메인"  tab="vim"  window_uuid=w1  pane_uuid=r1  win_pos=1/3  tab_pos=1/2
+  label=W1.P1.T2  uuid=short  short=short  toolId=p2  shellPid=102  size=120x40  window="메인"  tab="내작업"  window_uuid=w1  pane_uuid=r1  win_pos=1/3  tab_pos=2/2
+  label=W2.P1.T1  uuid=t3  short=t3  toolId=p3  shellPid=103  window="분할"  tab="claude"  window_uuid=w2  pane_uuid=r2  group="이슈"  win_pos=1/2  tab_pos=1/1
+▶ label=W2.P2.T1  uuid=t4  short=t4  toolId=  shellPid=0  window="분할"  tab="main.go"  window_uuid=w2  pane_uuid=r3  group="이슈"  win_pos=1/2  tab_pos=1/1
+  label=W2.P3.T1  uuid=t5  short=t5  toolId=p4  shellPid=104  window="분할"  tab="Shell"  window_uuid=w2  pane_uuid=r4  group="이슈"  win_pos=1/2  tab_pos=1/1
+  label=W4.P1.T1  uuid=t6  short=t6  toolId=  shellPid=0  window="diff"  tab="git"  window_uuid=w4  pane_uuid=r6  tab_pos=1/1
+
+  stderr=""
+["list-workspace" "--json"]
+  code=0
+  stdout=[{"label":"W1.P1.T1","uuid":"11111111-aaaa","short":"11111111","toolId":"p1","shellPid":101,"sizeCols":80,"sizeRows":24,"window":"메인","tab":"vim","windowUuid":"w1","paneUuid":"r1","focused":false,"windowContainer":"top","windowIndex":1,"windowCount":3,"tabIndex":1,"tabCount":2},{"label":"W1.P1.T2","uuid":"short","short":"short","toolId":"p2","shellPid":102,"sizeCols":120,"sizeRows":40,"window":"메인","tab":"내작업","windowUuid":"w1","paneUuid":"r1","focused":false,"windowContainer":"top","windowIndex":1,"windowCount":3,"tabIndex":2,"tabCount":2},{"label":"W2.P1.T1","uuid":"t3","short":"t3","toolId":"p3","shellPid":103,"sizeCols":0,"sizeRows":0,"window":"분할","tab":"claude","windowUuid":"w2","paneUuid":"r2","focused":false,"groupUuid":"g1","group":"이슈","windowContainer":"g1","windowIndex":1,"windowCount":2,"tabIndex":1,"tabCount":1},{"label":"W2.P2.T1","uuid":"t4","short":"t4","toolId":"","shellPid":0,"sizeCols":0,"sizeRows":0,"window":"분할","tab":"main.go","windowUuid":"w2","paneUuid":"r3","focused":true,"groupUuid":"g1","group":"이슈","windowContainer":"g1","windowIndex":1,"windowCount":2,"tabIndex":1,"tabCount":1},{"label":"W2.P3.T1","uuid":"t5","short":"t5","toolId":"p4","shellPid":104,"sizeCols":0,"sizeRows":0,"window":"분할","tab":"Shell","windowUuid":"w2","paneUuid":"r4","focused":false,"groupUuid":"g1","group":"이슈","windowContainer":"g1","windowIndex":1,"windowCount":2,"tabIndex":1,"tabCount":1},{"label":"W4.P1.T1","uuid":"t6","short":"t6","toolId":"","shellPid":0,"sizeCols":0,"sizeRows":0,"window":"diff","tab":"git","windowUuid":"w4","paneUuid":"r6","focused":false,"tabIndex":1,"tabCount":1}]
+
+  stderr=""
+["list-workspace" "--window" "분할"]
+  code=0
+  stdout=  label=W2.P1.T1  uuid=t3  short=t3  toolId=p3  shellPid=103  window="분할"  tab="claude"  window_uuid=w2  pane_uuid=r2  group="이슈"  win_pos=1/2  tab_pos=1/1
+▶ label=W2.P2.T1  uuid=t4  short=t4  toolId=  shellPid=0  window="분할"  tab="main.go"  window_uuid=w2  pane_uuid=r3  group="이슈"  win_pos=1/2  tab_pos=1/1
+  label=W2.P3.T1  uuid=t5  short=t5  toolId=p4  shellPid=104  window="분할"  tab="Shell"  window_uuid=w2  pane_uuid=r4  group="이슈"  win_pos=1/2  tab_pos=1/1
+
+  stderr=""
+["list-workspace" "--tab" "nope" "--json"]
+  code=1
+  stdout=[]
+
+  stderr=""
+["list-groups"]
+  code=0
+  stdout=uuid=g1  name="이슈"  index=2  windows=2  tree=o/r#32
+uuid=g0  name="빈 그룹"  index=0  windows=0
+
+  stderr=""
+["list-groups" "--json"]
+  code=0
+  stdout=[{"uuid":"g1","name":"이슈","tree":{"repo":"o/r","root":32},"index":2,"windows":2},{"uuid":"g0","name":"빈 그룹","index":0,"windows":0}]
+
+  stderr=""

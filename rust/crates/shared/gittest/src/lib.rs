@@ -100,6 +100,25 @@ where
     text
 }
 
+/// [`run`] 과 같되 실패를 패닉하지 않고 `Err` 로 돌려준다. 실패해야 맞는 확인에 쓴다.
+pub fn try_run(dir: &Path, args: &[&str]) -> Result<String, String> {
+    let out = Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_CONFIG_GLOBAL", NULL_DEVICE)
+        .env("GIT_CONFIG_SYSTEM", NULL_DEVICE)
+        .output()
+        .map_err(|e| format!("git {}: {e}", args.join(" ")))?;
+    let mut text = out.stdout;
+    text.extend_from_slice(&out.stderr);
+    let text = String::from_utf8_lossy(&text).trim().to_owned();
+    if out.status.success() {
+        Ok(text)
+    } else {
+        Err(text)
+    }
+}
+
 /// 임시 저장소다. 놓으면 지워진다.
 #[derive(Debug)]
 pub struct Repo {

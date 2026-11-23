@@ -522,16 +522,15 @@ async fn create_no_track_and_records_base() {
         ),
         "main"
     );
-    let up = std::process::Command::new("git")
-        .args([
+    let up = gittest::try_run(
+        Path::new(&sp.path),
+        &[
             "rev-parse",
             "--abbrev-ref",
             &format!("{}@{{upstream}}", sp.branch),
-        ])
-        .current_dir(&sp.path)
-        .output()
-        .unwrap();
-    assert!(!up.status.success(), "upstream 이 붙었다");
+        ],
+    );
+    assert!(up.is_err(), "upstream 이 붙었다");
     assert_eq!(
         git(&sp.path, &["config", "--get", "push.autoSetupRemote"]),
         "true"

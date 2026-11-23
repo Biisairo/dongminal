@@ -45,6 +45,8 @@ pub type ReportCallback = Arc<dyn Fn(ReportEvent) + Send + Sync>;
 pub type AttnCallback = Arc<dyn Fn(AttnEvent) + Send + Sync>;
 pub type EdgesCallback = Arc<dyn Fn(EdgesEvent) + Send + Sync>;
 pub type ChatCallback = Arc<dyn Fn(ChatEvent) + Send + Sync>;
+#[cfg(test)]
+pub(crate) type SleepHook = Arc<dyn Fn(Duration) + Send + Sync>;
 pub type ResyncCallback = Arc<dyn Fn() + Send + Sync>;
 /// 재접속이 거듭 실패할 때 데몬을 다시 띄운다. 결과는 버린다.
 pub type SpawnDaemon = Box<dyn Fn() -> io::Result<()> + Send + Sync>;
@@ -135,6 +137,9 @@ pub(crate) struct Inner {
     pub next_sub: AtomicU64,
     pub dropped: AtomicI64,
     pub list: Mutex<ListState>,
+    /// 시험이 재접속 백오프의 실제 대기를 대신한다. 받은 대기 시간을 기록하고 곧바로 돌아온다.
+    #[cfg(test)]
+    pub sleep_hook: Mutex<Option<SleepHook>>,
 }
 
 pub(crate) fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -182,6 +187,8 @@ impl ToolClient {
             next_sub: AtomicU64::new(0),
             dropped: AtomicI64::new(0),
             list: Mutex::new(ListState::default()),
+            #[cfg(test)]
+            sleep_hook: Mutex::new(None),
         });
         inner.connect().map_err(|e| Error::Dial(Box::new(e)))?;
         let sup = Arc::clone(&inner);
@@ -530,6 +537,11 @@ impl Inner {
 
     /// 닫히면 참이다. 아니면 d 동안 잔다.
     fn sleep_unless_closed(&self, d: Duration) -> bool {
+        #[cfg(test)]
+        if let Some(hook) = lock(&self.sleep_hook).clone() {
+            hook(d);
+            return lock(&self.st).closed;
+        }
         let deadline = Instant::now() + d;
         let mut st = lock(&self.st);
         loop {
