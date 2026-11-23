@@ -119,3 +119,40 @@ fn ignore_add_empty_list() {
     let e = ignore_add(fx.p(), &[]).unwrap_err();
     assert!(e.is(WriteKind::IgnorePath), "{e}");
 }
+
+// DIFF-15: 저장소 밖을 가리키는 `.gitignore` 링크에는 쓰지 않는다. 안을 가리키면 쓴다.
+#[cfg(unix)]
+#[test]
+fn ignore_add_rejects_link_outside_repo() {
+    let repo = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let root = repo.path().to_str().unwrap().to_owned();
+    let victim = outside.path().join("victim");
+    std::fs::write(&victim, "keep\n").unwrap();
+    std::os::unix::fs::symlink(&victim, repo.path().join(".gitignore")).unwrap();
+    let e = ignore_add(&root, &["a.txt".to_owned()]).unwrap_err();
+    assert!(e.is(WriteKind::IgnorePath), "{e}");
+    assert!(e.to_string().contains("저장소 밖"), "{e}");
+    assert_eq!(std::fs::read_to_string(&victim).unwrap(), "keep\n");
+
+    // 대상이 없는 링크도 밖이면 거절한다.
+    std::fs::remove_file(repo.path().join(".gitignore")).unwrap();
+    std::os::unix::fs::symlink(outside.path().join("nope"), repo.path().join(".gitignore"))
+        .unwrap();
+    assert!(
+        ignore_add(&root, &["a.txt".to_owned()])
+            .unwrap_err()
+            .is(WriteKind::IgnorePath)
+    );
+
+    // 저장소 안을 가리키면 그대로 쓴다.
+    std::fs::remove_file(repo.path().join(".gitignore")).unwrap();
+    std::fs::write(repo.path().join("real-ignore"), "").unwrap();
+    std::os::unix::fs::symlink("real-ignore", repo.path().join(".gitignore")).unwrap();
+    let res = ignore_add(&root, &["a.txt".to_owned()]).unwrap();
+    assert_eq!(res.added, vec!["/a.txt".to_owned()]);
+    assert_eq!(
+        std::fs::read_to_string(repo.path().join("real-ignore")).unwrap(),
+        "/a.txt\n"
+    );
+}

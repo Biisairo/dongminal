@@ -69,6 +69,7 @@ pub fn ignore_add(root: &str, paths: &[String]) -> Result<IgnoreResult, Error> {
         .iter()
         .map(|p| ignore_pattern(root, p))
         .collect::<Result<Vec<_>, _>>()?;
+    check_link_inside(root, &res.file)?;
     let body = match std::fs::read(&res.file) {
         Ok(b) => b,
         Err(e) if e.kind() == io::ErrorKind::NotFound => Vec::new(),
@@ -98,6 +99,35 @@ pub fn ignore_add(root: &str, paths: &[String]) -> Result<IgnoreResult, Error> {
         return Err(file_err(&res.file, "쓰지", "open", e));
     }
     Ok(res)
+}
+
+/// `.gitignore` 가 저장소 밖을 가리키는 심볼릭 링크면 거절한다 (DIFF-15).
+fn check_link_inside(root: &str, file: &str) -> Result<(), Error> {
+    let is_link = std::fs::symlink_metadata(file).is_ok_and(|m| m.file_type().is_symlink());
+    if !is_link {
+        return Ok(());
+    }
+    let top = std::fs::canonicalize(root)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| filepath::clean(root));
+    let target = match std::fs::canonicalize(file) {
+        Ok(t) => t,
+        // 대상이 없는 링크: 링크 값을 링크가 있는 디렉터리 기준으로 푼다.
+        Err(_) => match std::fs::read_link(file) {
+            Ok(l) => std::path::Path::new(&top).join(l),
+            Err(_) => std::path::PathBuf::from(file),
+        },
+    };
+    let target = filepath::clean(&target.to_string_lossy());
+    let inside = filepath::rel(&top, &target)
+        .is_ok_and(|r| r != ".." && !r.starts_with(&format!("..{}", std::path::MAIN_SEPARATOR)));
+    if inside {
+        return Ok(());
+    }
+    Err(Error::new(
+        WriteKind::IgnorePath,
+        format!("{file} 는 저장소 밖({target})을 가리키는 심볼릭 링크다"),
+    ))
 }
 
 fn write_file(path: &str, data: &[u8]) -> io::Result<()> {
