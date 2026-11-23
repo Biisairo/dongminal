@@ -211,6 +211,7 @@ fn cross_build_helper(arch: &str, dest: &str) -> Result<(), String> {
     .map(|s| s.to_string())
     .collect();
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let cargo = dm_shared_platform::command_path(&cargo)?;
     let r = std::process::Command::new(&cargo)
         .args(&args)
         .current_dir(&root)

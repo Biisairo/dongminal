@@ -186,10 +186,11 @@ fn install(stdout: &mut dyn Write, stderr: &mut dyn Write) -> Result<(), Error> 
         errw: stderr,
         own: Box::new(|p| sys::chown(p, 0, 0)),
         launch: Box::new(|| {
-            let _ = Command::new("launchctl")
+            let launchctl = dm_shared_platform::command_path("launchctl").map_err(Error)?;
+            let _ = Command::new(&launchctl)
                 .args(["bootout", &format!("system/{LABEL}")])
                 .output();
-            let out = Command::new("launchctl")
+            let out = Command::new(&launchctl)
                 .args(["bootstrap", "system", PLIST_PATH])
                 .output()
                 .map_err(ioe)?;
@@ -208,7 +209,10 @@ fn install(stdout: &mut dyn Write, stderr: &mut dyn Write) -> Result<(), Error> 
             if nopasswd_user.is_empty() {
                 return false;
             }
-            Command::new("sudo")
+            let Ok(sudo) = dm_shared_platform::command_path("sudo") else {
+                return false;
+            };
+            Command::new(sudo)
                 .args(["-l", "-U", &nopasswd_user])
                 .output()
                 .map(|o| String::from_utf8_lossy(&o.stdout).contains("NOPASSWD"))
@@ -327,9 +331,11 @@ fn group_by4(s: &str) -> String {
 
 fn uninstall(stdout: &mut dyn Write) -> Result<(), Error> {
     installer()?;
-    let _ = Command::new("launchctl")
-        .args(["bootout", &format!("system/{LABEL}")])
-        .output();
+    if let Ok(launchctl) = dm_shared_platform::command_path("launchctl") {
+        let _ = Command::new(launchctl)
+            .args(["bootout", &format!("system/{LABEL}")])
+            .output();
+    }
     for p in [PLIST_PATH, BIN_PATH, SOCKET_PATH] {
         if let Err(e) = fs::remove_file(p)
             && e.kind() != io::ErrorKind::NotFound

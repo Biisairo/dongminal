@@ -80,13 +80,14 @@ fn system_open_url(_out: &mut dyn Write, target: &str) -> Result<(), String> {
         .opener
         .open_command(target)
         .map_err(|e| dm_gocompat::oserr::go_error_string(&e))?;
-    std::process::Command::new(&name)
+    let prog = dm_shared_platform::command_path(&name)?;
+    std::process::Command::new(&prog)
         .args(&args)
         .spawn()
         .map(|_| ())
         .map_err(|e| {
             format!(
-                "fork/exec {name}: {}",
+                "fork/exec {prog}: {}",
                 dm_gocompat::oserr::go_error_string(&e)
             )
         })

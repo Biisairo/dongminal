@@ -168,6 +168,25 @@ pub fn look_path_in(file: &str, path_env: &str) -> Option<String> {
     try_look_path_in(file, path_env).ok()
 }
 
+/// Go `exec.Command(name, ..)` 가 실행할 경로. 이름이 `filepath.Base(name)` 와 같으면(구분자가 없으면)
+/// LookPath 를 거치고, 실패(ErrDot 포함)는 Go `exec.Error` 문구다. 그 밖의 이름은 그대로 둔다.
+/// std `Command::new` 에 맨 이름을 주면 std 가 PATH 를 직접 훑어 ErrDot 거절을 건너뛴다.
+pub fn command_path(name: &str) -> Result<String, String> {
+    #[cfg(windows)]
+    let path_env = super::os_env("path");
+    #[cfg(not(windows))]
+    let path_env = super::os_env("PATH");
+    command_path_in(name, &path_env)
+}
+
+/// [`command_path`] 와 같되, 검색 경로를 인자로 받는다.
+pub fn command_path_in(name: &str, path_env: &str) -> Result<String, String> {
+    if dm_gocompat::filepath::base(name) != name {
+        return Ok(name.to_owned());
+    }
+    try_look_path_in(name, path_env).map_err(|e| exec_error(name, e))
+}
+
 /// 이 호스트의 `exec.LookPath`. 실패의 종류를 가른다.
 pub fn try_look_path(file: &str) -> Result<String, LookPathError> {
     #[cfg(windows)]
@@ -287,6 +306,35 @@ mod tests {
             r#"exec: "dm-no-such-dot": executable file not found in $PATH"#
         );
         assert_eq!(crate::look_path_in("dm-fake-dot", &rel), None);
+    }
+
+    // 10.5b: Go exec.Command 처럼 맨 이름만 LookPath 를 거친다. ErrDot 이면 실행할 경로를 주지 않는다.
+    #[cfg(unix)]
+    #[test]
+    fn command_path_in_follows_exec_command() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let exe = d.path().join("dm-dot-cmd");
+        std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let rel = dm_gocompat::filepath::rel(
+            &std::env::current_dir().unwrap().to_string_lossy(),
+            &d.path().to_string_lossy(),
+        )
+        .unwrap();
+        assert_eq!(
+            crate::command_path_in("dm-dot-cmd", &rel).unwrap_err(),
+            r#"exec: "dm-dot-cmd": cannot run executable found relative to current directory"#
+        );
+        let dir = d.path().to_string_lossy().into_owned();
+        assert_eq!(
+            crate::command_path_in("dm-dot-cmd", &dir).unwrap(),
+            exe.to_string_lossy()
+        );
+        assert_eq!(
+            crate::command_path_in("./dm-dot-cmd", &rel).unwrap(),
+            "./dm-dot-cmd"
+        );
     }
 
     #[test]
