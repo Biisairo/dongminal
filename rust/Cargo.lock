@@ -887,7 +887,11 @@ dependencies = [
  "dm-shared-platform",
  "dm-shared-pollwait",
  "dm-shared-uuid",
+ "nix",
  "serde",
+ "tempfile",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

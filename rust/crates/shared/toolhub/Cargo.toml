@@ -19,3 +19,11 @@ dm-shared-pollwait = { path = "../pollwait" }
 dm-shared-uuid = { path = "../uuid" }
 dm-gocompat = { path = "../../gocompat" }
 serde = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
