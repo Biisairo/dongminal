@@ -1,0 +1,42 @@
+== GET /api/ping
+200 Content-Type=text/plain; charset=utf-8
+"ok"
+== GET /api/access
+200 Content-Type=application/json|Etag=4be329e7d07fd1a8
+"{\"enabled\":false,\"entries\":[],\"you\":\"100.117.248.111\",\"hosts\":null,\"hostname\":\"{HOSTNAME}\",\"host\":\"localhost\"}\n"
+== PUT /api/access
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
+"invalid json\n"
+== PUT /api/access
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=bad_request
+"entries[0]: \"nope!!\" 는 IP·CIDR·호스트명 중 어느 것도 아니다\n"
+== PUT /api/access
+200 Etag=32b73bf153c6f54a
+""
+== GET /api/access
+200 Content-Type=application/json|Etag=32b73bf153c6f54a
+"{\"enabled\":false,\"entries\":[{\"id\":\"a\",\"value\":\"10.0.0.1\",\"enabled\":true}],\"you\":\"127.0.0.1\",\"hosts\":null,\"hostname\":\"{HOSTNAME}\",\"host\":\"127.0.0.1\"}\n"
+== POST /api/access/check
+200 Content-Type=application/json
+"{\"actions\":{\"access.save\":{\"ok\":false,\"why\":\"locks_you_out\",\"args\":{\"you\":\"192.0.2.1\"}}},\"you\":\"192.0.2.1\"}\n"
+== GET /foo
+404 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff
+"404 page not found\n"
+== GET /api
+307 Content-Type=text/html; charset=utf-8|Location=/api/
+"<a href=\"/api/\">Temporary Redirect</a>.\n\n"
+== GET /api/nope
+404 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=not_found
+"not found\n"
+== GET /api/state
+421 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=host_rejected
+"허용되지 않은 Host 입니다 — 설정 ▸ 접속 의 '이 컴퓨터의 별명' 에 이 이름을 추가하세요\n"
+== POST /api/tools/headless
+415 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=forbidden
+"application/json 또는 multipart/form-data 여야 합니다\n"
+== GET /api/tools/output?id=p1
+503 Content-Type=application/json|X-Error-Code=git_unavailable
+"{\"error\":\"tool io unavailable\"}\n"
+== POST /api/tools/input
+503 Content-Type=application/json|X-Error-Code=git_unavailable
+"{\"error\":\"tool io unavailable\"}\n"
