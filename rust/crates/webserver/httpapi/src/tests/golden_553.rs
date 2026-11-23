@@ -50,6 +50,7 @@ fn dump(m: &str, p: &str, r: &Resp) -> String {
 async fn golden_553() {
     let st = Arc::new(FakeSettings {
         blob: Mutex::new(br#"{"migrationHook":true}"#.to_vec()),
+        ..FakeSettings::default()
     });
     let env = tracked_with(&["p1"], move |d| d.settings = Some(st));
     let d2 = tempfile::tempdir().unwrap();

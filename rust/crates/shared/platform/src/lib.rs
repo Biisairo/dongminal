@@ -15,6 +15,7 @@
 mod anon_file;
 mod atomic;
 mod browser;
+mod envset;
 mod filelock;
 mod goerr;
 mod handover;
@@ -31,10 +32,12 @@ mod pty;
 mod secrets;
 mod shell;
 mod statefile;
+mod tcp_listen;
 
 pub use anon_file::anon_file;
 pub use atomic::{copy_executable, write_file_atomic, write_file_if_changed};
 pub use browser::{Browser, Opener};
+pub use envset::{ThreadsRunning, set_env_before_threads, thread_count};
 pub use filelock::{FileLock, LockError, lock_file};
 pub use handover::*;
 pub use hostname::hostname;
@@ -54,6 +57,7 @@ pub use shell::{
     WINDOWS_HOOK_ROOT,
 };
 pub use statefile::{RETAIN_QUARANTINED, STATE_FILE_GENERATIONS, write_state_file};
+pub use tcp_listen::{canonical_addr, listen_tcp};
 
 use std::sync::OnceLock;
 

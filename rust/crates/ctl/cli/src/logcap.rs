@@ -79,19 +79,49 @@ pub(crate) fn cap_home_logs(home: &str, max: u64, keep: u64) {
     }
 }
 
-/// `done` 이 오거나 보내는 쪽이 사라질 때까지 주기적으로 로그를 줄인다.
-///
-/// 홈 아래 셋을 함께 본다 (G2-1). `$DONGMINAL_LOG` 로 옮긴 서버 로그는 홈 밖일 수 있으므로 따로
-/// 건다. 홈을 정하지 못하면 홈 아래 로그는 건드리지 않는다 (FR-LOG-4).
+/// `done` 이 오거나 보내는 쪽이 사라질 때까지 주기적으로 로그를 줄인다. 홈은 프로세스 환경에서 푼다.
 pub fn watch_log_size(done: &Receiver<()>) {
     let env = Env::process();
     let home = Common::default().resolve_home_in(&env).unwrap_or_default();
+    watch_loop(
+        &env,
+        &home,
+        done,
+        LOG_CHECK_EVERY,
+        LOG_MAX_BYTES,
+        LOG_KEEP_BYTES,
+    );
+}
+
+/// [`watch_log_size`] 와 같되 홈을 받는다. 서버는 홈을 환경에 심지 않으므로(Go 는 `os.Setenv`
+/// 로 심었다) 이것을 부른다.
+pub fn watch_log_size_in(home: &str, done: &Receiver<()>) {
+    watch_loop(
+        &Env::process(),
+        home,
+        done,
+        LOG_CHECK_EVERY,
+        LOG_MAX_BYTES,
+        LOG_KEEP_BYTES,
+    );
+}
+
+/// 홈 아래 셋을 함께 본다 (G2-1). `$DONGMINAL_LOG` 로 옮긴 서버 로그는 홈 밖일 수 있으므로 따로
+/// 건다. 홈을 정하지 못하면 홈 아래 로그는 건드리지 않는다 (FR-LOG-4).
+pub(crate) fn watch_loop(
+    env: &Env<'_>,
+    home: &str,
+    done: &Receiver<()>,
+    every: Duration,
+    max: u64,
+    keep: u64,
+) {
     let mut path = env.get(ENV_LOG);
     if path.is_empty() {
-        path = default_log_file(&home);
+        path = default_log_file(home);
     }
-    while let Err(RecvTimeoutError::Timeout) = done.recv_timeout(LOG_CHECK_EVERY) {
-        cap_log(&path, LOG_MAX_BYTES, LOG_KEEP_BYTES);
-        cap_home_logs(&home, LOG_MAX_BYTES, LOG_KEEP_BYTES);
+    while let Err(RecvTimeoutError::Timeout) = done.recv_timeout(every) {
+        cap_log(&path, max, keep);
+        cap_home_logs(home, max, keep);
     }
 }

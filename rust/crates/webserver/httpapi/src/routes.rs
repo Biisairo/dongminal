@@ -26,6 +26,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/state", h!(api_state_get)),
         // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 구독이 열릴 때의 복원 조각을 한 요청으로.
         get("/api/snapshot", h!(api_snapshot)),
+        get("/api/whoami", h!(api_who_am_i)),
         post("/api/tools", h!(api_tools_create)),
         get("/api/tools/attention", h!(api_tools_attention)),
         post("/api/tools/attention/set", h!(api_tool_attention_set)),
@@ -102,6 +103,20 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/workspace", h!(api_workspace_get)),
         get("/api/meta", h!(api_meta)),
         put("/api/workspace", h!(api_workspace_put)),
+        get("/api/settings", h!(api_settings_get)),
+        put("/api/settings", h!(api_settings_put)),
+        // HOT_REBIND_SRS 묶음 R — 리바인드(루프백만)와 이사의 일회용 보관.
+        get("/api/server/bind", h!(api_server_bind_get)),
+        post("/api/server/bind", h!(api_server_bind)),
+        post("/api/server/carry", h!(api_server_carry_post)),
+        when(
+            METHOD_GET,
+            Matcher::Under(crate::carry::CARRY_PREFIX),
+            h!(api_server_carry_get),
+        ),
+        // UPDATE_NOTICE_SRS FR-UPD-7·13 — 배지가 읽는 캐시와 토글 (D-UPD-2: 설정 blob 이 아니다).
+        get("/api/update", h!(api_update_get)),
+        put("/api/update", h!(api_update_put)),
         // ACCESS_ALLOWLIST_SRS FR-ACL-19·20. 게이트 **뒤**에 있다 (FR-ACL-21).
         get("/api/access", h!(api_access_get)),
         put("/api/access", h!(api_access_put)),
@@ -158,6 +173,10 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         post("/api/editors/remove", h!(api_editors_remove)),
         post("/api/editors/reorder", h!(api_editors_reorder)),
         any("/api/ping", h!(api_ping)),
+        // VERSION_HEALTH_SRS FR-VHL-10·13: 헬스는 생존이 아니라 어긋남을 답한다.
+        get("/api/health", h!(api_health)),
+        // OBSERVABILITY_SRS 묶음 D: 기계가 읽는 자리. 개별 식별 정보를 싣지 않는다 (FR-OBS-13).
+        get("/api/diag", h!(api_diag)),
         // M5 `G4-7`: 워크스페이스 되돌리기. 서버가 돌고 있어도 쓸 수 있다.
         get("/api/workspace/revisions", h!(api_workspace_revisions)),
         post("/api/workspace/revert", h!(api_workspace_revert)),

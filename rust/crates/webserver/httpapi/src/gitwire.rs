@@ -10,14 +10,17 @@ use std::sync::Arc;
 use dm_shared_httpresp::Response;
 use dm_webserver_domain_git_core::Service;
 use dm_webserver_domain_git_jobs::Job;
-use dm_webserver_domain_git_store::Store;
+use dm_webserver_domain_git_store::{Observation, Store};
 use dm_webserver_domain_submodule as submodule;
 use dm_webserver_domain_wsentry as wsentry;
-use dm_webserver_gitapi::{GitServer, ToolLocator};
+use dm_webserver_gitapi::{GitServer, RepoWatcher, ToolLocator};
+use dm_webserver_hub::{GitObserver, GitWatcher};
+use tokio_util::sync::CancellationToken;
 
+use crate::deps::SettingsStore;
 use crate::serve::GitHandler;
 use crate::toolhub::ToolHub;
-use crate::{BrokerCast, Deps, ReqBody};
+use crate::{BrokerCast, Deps, ReqBody, Server, fs_watch};
 
 /// gitapi 를 `GitHandler` 로 감싼다.
 pub(crate) struct GitApi(pub(crate) Arc<GitServer>);
@@ -57,8 +60,13 @@ fn submodule_manager(git: Option<&Arc<Store>>) -> Option<Arc<submodule::Manager>
 /// `/api/git/*` 처리기를 세운다. git 이 없어도 세운다 — 그 표면은 503 이다 (FR-GIT-60).
 /// 그림 전용 실행기의 출력 상한은 파일 종단과 같다 (M9_SRS FR-M9-21). `RepoGuard` 는 주입하지
 /// 않는다 (FILE_API_BOUNDARY_SRS 묶음 G 폐기).
-pub(crate) fn new_git_server(deps: &Deps, file_read_max: i64) -> GitServer {
+pub(crate) fn new_git_server(
+    deps: &Deps,
+    file_read_max: i64,
+    watch: Option<&Arc<GitWatcher>>,
+) -> GitServer {
     let mut g = GitServer::default();
+    g.watch = watch.map(|w| Arc::new(WatchNote(w.clone())) as Arc<dyn RepoWatcher>);
     g.git = deps.git_store.clone();
     g.exclusion = deps.git_exclusion.clone();
     g.work = deps
@@ -84,4 +92,57 @@ pub(crate) fn new_git_server(deps: &Deps, file_read_max: i64) -> GitServer {
         .map(|w| w.root().to_owned())
         .unwrap_or_default();
     g
+}
+
+/// gitapi 의 관심 표명을 hub 감시자로 잇는다.
+struct WatchNote(Arc<GitWatcher>);
+
+impl RepoWatcher for WatchNote {
+    fn note(&self, repo: &str, obs: &Observation) {
+        self.0.note(repo, obs);
+    }
+    fn note_for(&self, repo: &str, obs: &Observation, client_id: &str) {
+        self.0.note_for(repo, obs, client_id);
+    }
+    fn note_scoped(&self, repo: &str, obs: &Observation, client_id: &str, scope: &str) {
+        self.0.note_scoped(repo, obs, client_id, scope);
+    }
+    fn release_scope(&self, client_id: &str, scope: &str) {
+        self.0.release_scope(client_id, scope);
+    }
+}
+
+/// signature 감시자를 세운다 (GIT_PUSH_OBSERVE_SRS). 저장소 계층이 없으면 서지 않는다 — 감시할
+/// 대상이 없고, 그때 gitapi 의 표명 자리는 비어 무해하게 지나간다.
+pub(crate) fn new_git_watch(deps: &Deps) -> Option<Arc<GitWatcher>> {
+    let store = deps.git_store.clone()?;
+    let w = GitWatcher::new(
+        Some(Arc::new(store) as Arc<dyn GitObserver>),
+        deps.commands.clone(),
+    );
+    w.set_on_changed(deps.on_git_changed.clone());
+    w.set_on_baseline(deps.on_git_baseline.clone());
+    apply_git_worktree(Some(&w), deps.settings.as_deref());
+    Some(w)
+}
+
+/// Go `applyGitWorktree`: 설정의 워크트리 회차 간격을 감시자에 얹는다 (FR-ELR-76).
+pub(crate) fn apply_git_worktree(
+    w: Option<&Arc<GitWatcher>>,
+    settings: Option<&dyn SettingsStore>,
+) {
+    let (Some(w), Some(s)) = (w, settings) else {
+        return;
+    };
+    w.set_worktree_every(fs_watch::git_worktree_rounds(&s.get()));
+}
+
+impl Server {
+    /// signature 감시 회차를 돌린다 (GIT_PUSH_OBSERVE_SRS FR-GPO-13). 합성 루트(또는 `Run`)가
+    /// 부른다. 감시자가 없으면(저장소 계층이 없는 배선) 아무 일도 하지 않는다.
+    pub fn start_git_watch(&self, stop: CancellationToken) {
+        if let Some(w) = &self.git_watch {
+            dm_webserver_hub::start_git_watch(w.clone(), stop);
+        }
+    }
 }

@@ -157,3 +157,40 @@ fn watch_log_size_stops_when_done() {
     crate::watch_log_size(&rx);
     assert!(start.elapsed() < LOG_CHECK_EVERY);
 }
+
+// 받은 홈 아래 로그를 줄인다 — 환경의 홈(비었으면 사용자 기본 홈)을 보지 않는다.
+#[test]
+fn watch_loop_caps_given_home() {
+    let d = tempfile::tempdir().unwrap();
+    let home = s(d.path()).to_owned();
+    let daemon = d.path().join(dm_shared_dmenv::DAEMON_LOG_FILE);
+    write_log(&daemon, 1000);
+    let no_env = |_: &str| String::new();
+    let env = crate::env::Env::from_fn(&no_env);
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    let watched = daemon.clone();
+    let stopper = std::thread::spawn(move || {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        while size_of(&watched) != 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        drop(tx);
+    });
+    crate::logcap::watch_loop(
+        &env,
+        &home,
+        &rx,
+        std::time::Duration::from_millis(5),
+        100,
+        40,
+    );
+    stopper.join().unwrap();
+    assert_eq!(size_of(&daemon), 0);
+    assert_eq!(
+        size_of(
+            &d.path()
+                .join(format!("{}.1", dm_shared_dmenv::DAEMON_LOG_FILE))
+        ),
+        40
+    );
+}

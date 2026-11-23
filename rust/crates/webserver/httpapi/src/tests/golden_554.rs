@@ -235,6 +235,11 @@ fn mask(s: &str) -> String {
     if !home.is_empty() {
         s = s.replace(&home, "{HOME}");
     }
+    // 문서 경로의 홈은 서버의 데이터 디렉터리다 (issue_tree_doc_path).
+    let doc = regex::Regex::new(r#"[^\s"\\]+/bin/agent-plugin/commands/issue-tree\.md"#).unwrap();
+    s = doc
+        .replace_all(&s, "{HOME}/bin/agent-plugin/commands/issue-tree.md")
+        .into_owned();
     let re = regex::Regex::new(r#""updatedAt":[1-9][0-9]*"#).unwrap();
     let s = re.replace_all(&s, r#""updatedAt":N"#).into_owned();
     let ts = regex::Regex::new(r"ts=[0-9]{2}:[0-9]{2}:[0-9]{2}").unwrap();

@@ -1,0 +1,165 @@
+#gz 1f8b08000000000000ff000d00f2ff646566696e652827636d27290a0300dc2c42800d000000
+#both 1f8b08000000000000ff000900f6ff677a2077696e733f0a030059f1669b09000000
+#version f719614edfdb
+#csp default-src 'self'; script-src 'self' 'sha256-WazVQOu5lmXfSreSrMJd1CsaQ4c00fUQpJfBYCuMSIw='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+#v2 4cf3111b96d2
+#v0 e3b0c44298fc
+== GET / 
+200 Accept-Ranges=bytes|Cache-Control=no-cache|Content-Length=157|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/html; charset=utf-8|Etag="810d08dd7f354c0dbd350c5d22190ce8"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"<html><head><script>var t=1</script><link href=\"style.css?v=f719614edfdb\"></head><script src=\"js/app.js?v=f719614edfdb\"></script><script>\nb()</script></html>"
+== HEAD / 
+200 Accept-Ranges=bytes|Cache-Control=no-cache|Content-Length=157|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/html; charset=utf-8|Etag="810d08dd7f354c0dbd350c5d22190ce8"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET / If-None-Match: *
+304 Cache-Control=no-cache|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Etag="810d08dd7f354c0dbd350c5d22190ce8"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET / If-None-Match: "abc"
+200 Accept-Ranges=bytes|Cache-Control=no-cache|Content-Length=157|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/html; charset=utf-8|Etag="810d08dd7f354c0dbd350c5d22190ce8"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"<html><head><script>var t=1</script><link href=\"style.css?v=f719614edfdb\"></head><script src=\"js/app.js?v=f719614edfdb\"></script><script>\nb()</script></html>"
+== POST / 
+200 Accept-Ranges=bytes|Cache-Control=no-cache|Content-Length=157|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/html; charset=utf-8|Etag="810d08dd7f354c0dbd350c5d22190ce8"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"<html><head><script>var t=1</script><link href=\"style.css?v=f719614edfdb\"></head><script src=\"js/app.js?v=f719614edfdb\"></script><script>\nb()</script></html>"
+== GET /index.html 
+301 Cache-Control=no-cache|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Etag="810d08dd7f354c0dbd350c5d22190ce8"|Location=./|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /index.html?x=1 
+301 Cache-Control=no-cache|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Etag="810d08dd7f354c0dbd350c5d22190ce8"|Location=./?x=1|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /sub/index.html 
+301 Cache-Control=no-cache|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Etag="33e90c9038cb52eefdd5f49a3c684be9"|Location=./|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /sub/ 
+200 Accept-Ranges=bytes|Cache-Control=no-cache|Content-Length=10|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/html; charset=utf-8|Etag="33e90c9038cb52eefdd5f49a3c684be9"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"<p>sub</p>"
+== GET /sub 
+301 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Location=sub/|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /js/app.js 
+200 Accept-Ranges=bytes|Content-Length=15|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"console.log(1)\n"
+== HEAD /js/app.js 
+200 Accept-Ranges=bytes|Content-Length=15|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /js/app.js If-None-Match: *
+304 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /js/app.js If-Match: "nope"
+412 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /js/app.js If-Match: *
+200 Accept-Ranges=bytes|Content-Length=15|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"console.log(1)\n"
+== GET /js/app.js Range: bytes=0-6
+206 Accept-Ranges=bytes|Content-Length=7|Content-Range=bytes 0-6/15|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"console"
+== GET /js/app.js Range: bytes=100-
+416 Content-Range=bytes */15|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"invalid range: failed to overlap\n"
+== GET /js/app.js Range: bytes=x
+416 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"invalid range\n"
+== GET /js/app.js Range: bytes=-3
+206 Accept-Ranges=bytes|Content-Length=3|Content-Range=bytes 12-14/15|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"1)\n"
+== GET /js/app.js Range: bytes=0-3 ; If-Range: "zzz"
+200 Accept-Ranges=bytes|Content-Length=15|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"console.log(1)\n"
+== GET /js/app.js Range: bytes=0-1,0-100
+200 Accept-Ranges=bytes|Content-Length=15|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="3879a5d930ae1999b278a3a498f7de3f"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"console.log(1)\n"
+== GET /js/app.js Range: items=0-1
+416 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"invalid range\n"
+== GET /js/app.js/ 
+301 Cache-Control=no-cache|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Location=../app.js|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /js 
+301 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Location=js/|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /docs 
+301 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Location=docs/|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /docs?q=1 
+301 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Location=docs/?q=1|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /docs/ 
+200 Cache-Control=no-cache|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/html; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"<!doctype html>\n<meta name=\"viewport\" content=\"width=device-width\">\n<pre>\n<a href=\"%3Ci%3E&.txt\">&lt;i&gt;&amp;.txt</a>\n<a href=\"a.txt\">a.txt</a>\n<a href=\"b%20c.md\">b c.md</a>\n<a href=\"deep/\">deep/</a>\n<a href=\"q%3F.txt\">q?.txt</a>\n<a href=\"./x:y.txt\">x:y.txt</a>\n</pre>\n"
+== GET /docs/deep/ 
+200 Cache-Control=no-cache|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/html; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"<!doctype html>\n<meta name=\"viewport\" content=\"width=device-width\">\n<pre>\n<a href=\"z.txt\">z.txt</a>\n</pre>\n"
+== GET /missing 
+404 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"404 page not found\n"
+== GET /missing.html 
+404 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"404 page not found\n"
+== GET /missing/ 
+404 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"404 page not found\n"
+== GET /app.webmanifest 
+200 Accept-Ranges=bytes|Cache-Control=no-cache|Content-Length=12|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Etag="0229d37e33daae149bf40543a5ce1db4"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"{\"name\":\"x\"}"
+== GET /img/logo.png 
+200 Accept-Ranges=bytes|Content-Length=16|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=image/png|Etag="02a3e298f1533f62558c58e4c70edcab"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+== GET /data/blob.zzq 
+200 Accept-Ranges=bytes|Content-Length=11|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Etag="b94d27b9934d3e08a52e52d7da7dabfa"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"hello world"
+== GET /vendor/cm/cm.js Accept-Encoding: gzip
+200 Accept-Ranges=bytes|Content-Encoding=gzip|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="00cb38e5ee4247136985081181022a58"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"\x1f\x8b\b\x00\x00\x00\x00\x00\x00\xff\x00\r\x00\xf2\xffdefine('cm')\n\x03\x00\xdc,B\x80\r\x00\x00\x00"
+== GET /vendor/cm/cm.js 
+200 Accept-Ranges=bytes|Content-Length=13|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="00cb38e5ee4247136985081181022a58"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"define('cm')\n"
+== GET /vendor/cm/cm.js Accept-Encoding: gzip;q=0, br
+200 Accept-Ranges=bytes|Content-Length=13|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="00cb38e5ee4247136985081181022a58"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"define('cm')\n"
+== GET /vendor/cm/cm.js Accept-Encoding: x-gzip;q=0.5
+200 Accept-Ranges=bytes|Content-Encoding=gzip|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="00cb38e5ee4247136985081181022a58"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"\x1f\x8b\b\x00\x00\x00\x00\x00\x00\xff\x00\r\x00\xf2\xffdefine('cm')\n\x03\x00\xdc,B\x80\r\x00\x00\x00"
+== GET /vendor/cm/cm.js Accept-Encoding: gzip ; Range: bytes=0-4
+206 Accept-Ranges=bytes|Content-Encoding=gzip|Content-Length=5|Content-Range=bytes 0-4/38|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="00cb38e5ee4247136985081181022a58"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"\x1f\x8b\b\x00\x00"
+== GET /vendor/cm/cm.js Range: bytes=0-4
+206 Accept-Ranges=bytes|Content-Length=5|Content-Range=bytes 0-4/13|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="00cb38e5ee4247136985081181022a58"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"defin"
+== GET /vendor/cm/cm.js Accept-Encoding: gzip ; If-None-Match: *
+304 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Etag="00cb38e5ee4247136985081181022a58"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /vendor/cm/cm.js.gz 
+200 Accept-Ranges=bytes|Content-Length=38|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=application/gzip|Etag="00cb38e5ee4247136985081181022a58"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"\x1f\x8b\b\x00\x00\x00\x00\x00\x00\xff\x00\r\x00\xf2\xffdefine('cm')\n\x03\x00\xdc,B\x80\r\x00\x00\x00"
+== GET /vendor/cm/bad.js 
+500 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Etag="3b8f5bf20f566bdf49deca1673231f1f"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Error-Code=corrupt_asset|X-Frame-Options=DENY
+"corrupt asset\n"
+== GET /vendor/cm/bad.js Accept-Encoding: gzip
+200 Accept-Ranges=bytes|Content-Encoding=gzip|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="3b8f5bf20f566bdf49deca1673231f1f"|Referrer-Policy=no-referrer|Vary=Accept-Encoding|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"not gzip"
+== GET /both.js Accept-Encoding: gzip
+200 Accept-Ranges=bytes|Content-Length=11|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/javascript; charset=utf-8|Etag="ebbe3d26947caacb6d239cbaec2905a7"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"plain wins\n"
+== GET /vendor/ 
+200 Cache-Control=no-cache|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/html; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"<!doctype html>\n<meta name=\"viewport\" content=\"width=device-width\">\n<pre>\n<a href=\"cm/\">cm/</a>\n</pre>\n"
+== GET /vendor/cm 
+301 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Location=cm/|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+""
+== GET /api 
+307 Content-Type=text/html; charset=utf-8|Location=/api/
+"<a href=\"/api/\">Temporary Redirect</a>.\n\n"
+== GET /js/../style.css 
+307 Content-Type=text/html; charset=utf-8|Location=/style.css
+"<a href=\"/style.css\">Temporary Redirect</a>.\n\n"
+== GET /a%2Fb 
+404 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"404 page not found\n"
+== GET /docs%2Fa.txt 
+200 Accept-Ranges=bytes|Content-Length=1|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Etag="ca978112ca1bbdcafac231b39a23dc4d"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"a"
+== GET /style.css?v=1 
+200 Accept-Ranges=bytes|Content-Length=7|Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/css; charset=utf-8|Etag="2708d73bf31c36cdfa1aa466551ed101"|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"body{}\n"
+== GET /ws/x 
+404 Content-Security-Policy=default-src 'self'; script-src 'self' 'sha256-/krlK5OSDiMZrRX9zmBnW60nOslBXtVHWT7tw1r6RLA=' 'sha256-w3yLWLUkl5XPuPEx8bjPobiVq2wTDUiBrthwgSQlwXE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'|Content-Type=text/plain; charset=utf-8|Referrer-Policy=no-referrer|X-Content-Type-Options=nosniff|X-Frame-Options=DENY
+"404 page not found\n"

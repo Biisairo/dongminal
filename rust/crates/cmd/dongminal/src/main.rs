@@ -3,11 +3,6 @@
 //! 한 실행 파일이 세 역할을 한다 — argv[0] 이 헬퍼 이름이면 헬퍼, `d`·dongminald 면 데몬,
 //! 나머지는 제어 CLI(그 `start --foreground` 가 서버)다.
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "dial_or_start_daemon 은 7.3 의 serve 가 부른다")
-)]
-#[cfg_attr(test, allow(dead_code))]
 mod daemon;
 mod serve;
 

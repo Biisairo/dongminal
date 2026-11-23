@@ -408,7 +408,7 @@ impl std::fmt::Display for SaveError {
 }
 
 /// Go `os.ReadFile` 오류 문구(`open <path>: ...`).
-fn go_read_error(path: &std::path::Path, e: &io::Error) -> String {
+pub(crate) fn go_read_error(path: &std::path::Path, e: &io::Error) -> String {
     let raw = e.raw_os_error().map_or_else(
         || io::Error::new(e.kind(), e.to_string()),
         io::Error::from_raw_os_error,
