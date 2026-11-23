@@ -29,6 +29,24 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/access", h!(api_access_get)),
         put("/api/access", h!(api_access_put)),
         post("/api/access/check", h!(api_access_check)),
+        post("/api/upload", h!(api_upload)),
+        get("/api/download", h!(api_download)),
+        get("/api/cwd", h!(api_cwd)),
+        get("/api/file/read", h!(api_file_read)),
+        post("/api/file/write", h!(api_file_write)),
+        // EDITOR_LIVE_RELOAD_SRS 묶음 E — 열어 둔 파일들이 바뀌었는지만 묻는다 (FR-ELR-7).
+        post("/api/file/stamps", h!(api_file_stamps)),
+        // EDITOR_GIT_UX_SRS 묶음 V — 열 수 있는 형식인가, 그리고 이미지 바이트.
+        get("/api/file/probe", h!(api_file_probe)),
+        get("/api/file/raw", h!(api_file_raw)),
+        // 묶음 S — 탐색기의 디렉터리 조회 (FR-EDT-108). root 를 함께 받아 그 아래로 제한한다 (D-16).
+        get("/api/fs/list", h!(api_fs_list)),
+        get("/api/editors", h!(api_editors_get)),
+        post("/api/editors/add", h!(api_editors_add)),
+        // F-m: 편집기 루트 추가 경로의 답.
+        post("/api/editors/validate", h!(api_editors_validate)),
+        post("/api/editors/remove", h!(api_editors_remove)),
+        post("/api/editors/reorder", h!(api_editors_reorder)),
         any("/api/ping", h!(api_ping)),
         #[cfg(test)]
         get("/api/test/panic", h!(api_test_panic)),
