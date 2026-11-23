@@ -10,13 +10,14 @@ rust/interop/run.sh --go … --rust … --only handover                      # �
 rust/interop/run.sh --go … --rust … --keep                               # 작업 폴더를 남긴다
 ```
 
-- Go 바이너리는 기준선 `127ff7d9` 를 go1.27.2 로 빌드한 것입니다. 운영 바이너리와 같게 하려면 판과 데몬 지문을 새깁니다.
+- Go 바이너리는 기준선 `127ff7d9` 를 go1.27.2 로 빌드한 것입니다. Go 소스는 이 브랜치에 없으므로 `main` 의 worktree 에서 빌드합니다(`MAIN` 은 그 경로). 운영 바이너리와 같게 하려면 판과 데몬 지문을 새깁니다. 지문은 `main` 의 `scripts/daemon-fingerprint.sh` 로 구합니다.
 
   ```sh
-  fp=$(rust/scripts/hermetic.sh scripts/daemon-fingerprint.sh --os darwin --arch arm64)
-  rust/scripts/hermetic.sh go build -trimpath -buildvcs=false \
-    -ldflags "-X dongminal/internal/ctl/cli.Version=v1.3.7 -X dongminal/internal/ctl/cli.DaemonBuild=$fp" \
-    -o /tmp/<폴더>/go-rel ./cmd/dongminal
+  MAIN=<main 의 worktree>
+  fp=$(cd "$MAIN" && scripts/daemon-fingerprint.sh --os darwin --arch arm64)
+  rust/scripts/hermetic.sh env DM_GO_REF_SRC="$MAIN" rust/scripts/go-ref.sh /tmp/<폴더>/go-rel ./cmd/dongminal \
+    -trimpath -buildvcs=false \
+    -ldflags "-X dongminal/internal/ctl/cli.Version=v1.3.7 -X dongminal/internal/ctl/cli.DaemonBuild=$fp"
   ```
 
 - Rust 바이너리는 `rust/scripts/hermetic.sh env VERSION=v1.3.7 rust/scripts/build.sh` 로 만듭니다.

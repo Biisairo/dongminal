@@ -1,7 +1,7 @@
 //! Go edgerelay 와 섞어 써도 중계가 되는가 (FR-RSP-23). `DM_PARITY_GO_RELAY_BIN` 이 없으면 건너뛴다.
 //!
 //! ```sh
-//! rust/scripts/hermetic.sh go build -o rust/target/go-ref/relayref ./rust/crates/shared/edgerelay/testdata/goref
+//! rust/scripts/hermetic.sh env DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/relayref rust/crates/shared/edgerelay/testdata/goref
 //! rust/scripts/hermetic.sh env DM_PARITY_GO_RELAY_BIN=$PWD/rust/target/go-ref/relayref \
 //!     cargo test -p dm-shared-edgerelay --test go_interop
 //! ```

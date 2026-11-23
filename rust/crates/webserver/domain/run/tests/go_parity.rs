@@ -1,5 +1,6 @@
 //! `testdata/goref` 와 같은 시나리오를 Rust 로 돌려 출력(반환 JSON·오류 문구·프리앰블·runs.json)을
-//! Go 와 바이트 단위로 비교한다 (FR-RSP-3). `go` 가 없으면 건너뛴다.
+//! Go 와 바이트 단위로 비교한다 (FR-RSP-3). Go 참조는 `DM_GO_REF_SRC`(main 의 worktree)가 있을 때만
+//! `rust/scripts/go-ref.sh` 로 빌드한다. 없으면 건너뛴다 (GO_REMOVAL_SRS Q-GRM-4).
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -678,21 +679,20 @@ fn observe(
 
 #[test]
 fn scenario_matches_go() {
-    if dm_shared_platform::look_path("go").is_none() {
-        eprintln!("go 가 없어 건너뛴다");
+    if std::env::var_os("DM_GO_REF_SRC").is_none() {
+        eprintln!("DM_GO_REF_SRC 가 없어 건너뛴다");
         return;
     }
     let work = tempfile::tempdir().unwrap();
     let exe = work.path().join("goref");
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../..");
-    let st = Command::new("go")
-        .current_dir(&repo)
-        .args(["build", "-o"])
+    let st = Command::new("bash")
+        .arg(repo.join("rust/scripts/go-ref.sh"))
         .arg(&exe)
-        .arg("./rust/crates/webserver/domain/run/testdata/goref")
+        .arg("rust/crates/webserver/domain/run/testdata/goref")
         .status()
         .unwrap();
-    assert!(st.success(), "go build 실패");
+    assert!(st.success(), "Go 참조 빌드 실패");
     let go_dir = work.path().join("go");
     let rs_dir = work.path().join("rs");
     std::fs::create_dir_all(&go_dir).unwrap();
