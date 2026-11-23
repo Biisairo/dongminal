@@ -12,3 +12,12 @@ workspace = true
 [dependencies]
 dm-webserver-domain-git-core = { path = "../core" }
 dm-webserver-domain-git-query = { path = "../query" }
+dm-gocompat = { path = "../../../../gocompat" }
+regex = { workspace = true }
+serde = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+dm-shared-gittest = { path = "../../../../shared/gittest" }
+dm-shared-testpath = { path = "../../../../shared/testpath" }
+tokio = { workspace = true }
