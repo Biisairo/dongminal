@@ -776,7 +776,7 @@ fn helper_cache_rules() {
     assert_eq!(
         e,
         format!(
-            "리눅스용 dmctl 를 만들지 못했습니다(개발 빌드): go: command not found\n  직접 놓아두려면: GOOS=linux GOARCH=arm64 go build -o {dest} ./cmd/dongminal"
+            "리눅스용 dmctl 를 만들지 못했습니다(개발 빌드): go: command not found\n  직접 놓아두려면: cargo build --release -p dongminal --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/dongminal {dest}"
         )
     );
     let e = ensure_helper(&helper_deps(&env, "v9.9.9", true))
