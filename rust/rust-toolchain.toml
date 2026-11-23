@@ -1,0 +1,8 @@
+# Rust 툴체인 판의 단일 자리다 (GO_REMOVAL_SRS FR-GRM-16, Q-GRM-10). Go 판의 `go.mod` 의 `go` 줄과
+# 같은 자리이고, CI 의 모든 job 이 여기서 판을 읽는다 (.github/actions/rust). 대상(target)은 job 마다
+# 필요한 것만 더한다 — 여기에 적으면 모든 기계가 다섯 대상을 내려받는다.
+[toolchain]
+channel = "1.95.0"
+profile = "minimal"
+# llvm-tools: scripts/check-cross.sh 의 llvm-ar, 커버리지(cargo-llvm-cov)
+components = ["rustfmt", "clippy", "llvm-tools"]
