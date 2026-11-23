@@ -1,12 +1,13 @@
 //! Go 기준선 `dongminal/internal/shared/toolhub` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
-//! 2.2.1: 와이어 타입·순수 판정, 2.2.2: Tool(PTY 소유 도구). ToolManager 는 2.2.3.
+//! 2.2.1: 와이어 타입·순수 판정, 2.2.2: Tool(PTY 소유 도구). 2.2.3: ToolManager.
 
 mod agentturn;
 mod attention;
 mod conn;
 mod env;
 mod hub;
+mod manager;
 mod records;
 mod shellprobe;
 mod termmodes;
@@ -23,6 +24,12 @@ pub use conn::{
     PING_PERIOD, PONG_WAIT, size_payload,
 };
 pub use hub::{BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolInfo, ToolSnapshot};
+pub use manager::{
+    DEFAULT_COLS, DEFAULT_ROWS, FOREGROUND_REFRESH_INTERVAL, ForegroundFn, ForegroundProbeFn,
+    HandoverTool, InvalidatorFn, MAX_TERMINAL_DIM, ManagerError, OwnedFn, PASTE_SUBMIT_DELAY,
+    Placement, PlacerFn, StartFn, StartReq, TOOL_CAP, ToolManager, ToolState, parse_size,
+    wrap_paste,
+};
 pub use records::{AgentState, ExitInfo};
 pub use shellprobe::{ShellState, judge_shell};
 pub use termmodes::{MODE_MAX_CARRY, ModeObserver, TermModes, alt_screen_at_head, scan_modes};

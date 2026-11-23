@@ -126,7 +126,7 @@ pub struct Tool {
     pub name: String,
     term: Option<Arc<dyn Terminal>>,
     stream: Option<Stream>,
-    sandboxed: bool,
+    sandboxed: AtomicBool,
     /// exited 표시. 출력 공급(feed)도 이 잠금 아래에서 한다.
     cmu: Mutex<bool>,
     done: CancellationToken,
@@ -165,7 +165,7 @@ impl Tool {
             name: name.to_string(),
             term,
             stream,
-            sandboxed: false,
+            sandboxed: AtomicBool::new(false),
             cmu: Mutex::new(false),
             done: CancellationToken::new(),
             killed: Once::new(),
@@ -216,14 +216,14 @@ impl Tool {
         hooks: Option<ToolHooks>,
         stream: Stream,
     ) -> Arc<Self> {
-        let mut p = Self::bare(
+        let p = Self::bare(
             id,
             name,
             Some(Arc::from(term)),
             Some(stream),
             hooks.unwrap_or_default(),
         );
-        p.sandboxed = sandboxed;
+        p.sandboxed.store(sandboxed, SeqCst);
         *lock(&p.relay) = Arc::new(Relay {
             on_output: None,
             on_exit,
@@ -422,7 +422,16 @@ impl Tool {
     }
 
     pub fn sandboxed(&self) -> bool {
-        self.sandboxed
+        self.sandboxed.load(SeqCst)
+    }
+
+    pub(crate) fn set_sandboxed(&self, v: bool) {
+        self.sandboxed.store(v, SeqCst);
+    }
+
+    /// 셸 훅이 보고한 자리다. 없으면 "".
+    pub fn reported_cwd(&self) -> String {
+        lock(&self.reported_cwd).clone()
     }
 
     /// 셸 프로세스의 pid. 없으면 0.
@@ -915,14 +924,41 @@ impl Tool {
     }
 }
 
-/// 여러 도구의 바쁨을 한 번에 묻는다. 키는 셸 pid 다.
-pub fn busy_of(ps: &[Arc<Tool>]) -> HashMap<i32, bool> {
+impl std::fmt::Debug for Tool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Tool")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("pid", &self.cmd_process_pid())
+            .finish()
+    }
+}
+
+/// 여러 도구의 바쁨을 한 번에 묻는다. 순서는 ps 와 같다. pid 가 없으면 거짓이다.
+pub fn busy_of(info: &dyn dm_shared_platform::ProcInfo, ps: &[Arc<Tool>]) -> Vec<bool> {
     let pids: Vec<i32> = ps
         .iter()
         .map(|p| p.cmd_process_pid())
         .filter(|&p| p > 0)
         .collect();
-    proc_info().children_of(&pids)
+    let children = info.children_of(&pids);
+    ps.iter()
+        .map(|p| {
+            let pid = p.cmd_process_pid();
+            pid > 0 && children.get(&pid).copied().unwrap_or(false)
+        })
+        .collect()
+}
+
+/// 유휴 알람의 일괄 바쁨 판정이다. 검사가 갈아 끼운 것이 있으면 그것이다.
+pub(crate) fn attn_busy_many(
+    info: &dyn dm_shared_platform::ProcInfo,
+    ps: &[Arc<Tool>],
+) -> Vec<bool> {
+    if let Some(f) = read_lock(&ATTN_BUSY).as_ref() {
+        return ps.iter().map(|p| f(p)).collect();
+    }
+    busy_of(info, ps)
 }
 
 #[cfg(unix)]
