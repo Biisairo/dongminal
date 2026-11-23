@@ -457,6 +457,7 @@ version = "1.3.7"
 dependencies = [
  "dm-ctl-migrate",
  "dm-ctl-privhelper",
+ "dm-gocompat",
  "dm-shared-apipath",
  "dm-shared-dmenv",
  "dm-shared-editorlimit",
@@ -471,6 +472,12 @@ dependencies = [
  "dm-shared-toolhub",
  "dm-shared-toolipc",
  "dm-webserver-domain-git-core",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
