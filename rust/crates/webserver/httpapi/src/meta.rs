@@ -8,11 +8,9 @@ use crate::Server;
 use crate::entity_name::ENTITY_NAME_MAX;
 use crate::files_stamp::FILE_STAMPS_MAX;
 use crate::fs_stamp::FS_STAMP_MAX;
+use crate::fs_watch::FS_WATCH_DIRS_MAX;
 use crate::httperr::write_json;
 use crate::req::Req;
-
-/// Go `fsWatchDirsMax` (= `fsStampMax + fileStampsMax`). 감시 종단(5.5.7.2)과 같은 식이다.
-const FS_WATCH_DIRS_MAX: usize = FS_STAMP_MAX + FILE_STAMPS_MAX;
 
 #[derive(Serialize)]
 struct Meta {
