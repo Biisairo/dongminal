@@ -19,6 +19,30 @@ pub(crate) fn os_getenv(k: &str) -> String {
     std::env::var(k).unwrap_or_default()
 }
 
+/// 프로세스 환경 위에 덮개를 얹은 조회다. 같은 이름이 여럿이면 나중 것이 이긴다.
+pub(crate) fn overlay_getenv(overlay: &[(String, String)], k: &str) -> String {
+    match overlay.iter().rev().find(|(ok, _)| ok == k) {
+        Some((_, v)) => v.clone(),
+        None => os_getenv(k),
+    }
+}
+
+/// base 에서 덮개가 가진 이름을 빼고 덮개를 뒤에 붙인다. 같은 이름이 두 번 실리면 셸에 따라
+/// 앞의 값을 읽으므로 한 번만 남긴다.
+pub(crate) fn environ_with(base: Vec<String>, overlay: &[(String, String)]) -> Vec<String> {
+    let covered = |kv: &str| {
+        let k = kv.split_once('=').map_or(kv, |(k, _)| k);
+        overlay.iter().any(|(ok, _)| ok == k)
+    };
+    let mut env: Vec<String> = base.into_iter().filter(|kv| !covered(kv)).collect();
+    for (i, (k, v)) in overlay.iter().enumerate() {
+        if !overlay[i + 1..].iter().any(|(nk, _)| nk == k) {
+            env.push(format!("{k}={v}"));
+        }
+    }
+    env
+}
+
 /// Go `os.UserHomeDir` — unix `$HOME`, Windows `%USERPROFILE%`. 모르면 "".
 fn user_home(g: Getenv) -> String {
     g(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
@@ -86,10 +110,12 @@ pub(crate) fn tool_env(
     bin_dir: &str,
     shell_env: &[String],
     extra_env: &[String],
+    overlay: &[(String, String)],
 ) -> Vec<String> {
-    let mut env: Vec<String> = std::env::vars_os()
+    let base: Vec<String> = std::env::vars_os()
         .map(|(k, v)| format!("{}={}", k.to_string_lossy(), v.to_string_lossy()))
         .collect();
+    let mut env = environ_with(base, overlay);
     env.extend([
         "TERM=xterm-256color".to_string(),
         "COLORTERM=truecolor".to_string(),

@@ -868,3 +868,36 @@ mod pty {
         wait_until("끝난 명령의 도구가 남았다", || !m.is_live(&p.id));
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn env_overlay_reaches_tool_shell() {
+    let data = tmp();
+    let inst = tmp();
+    let inst_s = inst.path().to_str().unwrap().to_string();
+    let m = ToolManager::new(data.path().to_str().unwrap(), None);
+    m.set_env_overlay(vec![(
+        dm_shared_dmenv::ENV_HOME.to_string(),
+        inst_s.clone(),
+    )]);
+    let t = m
+        .create(inst.path().to_str().unwrap(), 80, 24, Placement::default())
+        .expect("create");
+    t.write(b"echo \"M=[$DONGMINAL_HOME]\"; echo \"P=[$PATH]\"\r")
+        .unwrap();
+    let want_home = format!("M=[{inst_s}]");
+    let want_bin = format!("{inst_s}/bin]");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let mut out = String::new();
+    while std::time::Instant::now() < deadline {
+        out = String::from_utf8_lossy(&t.stream().unwrap().snapshot().0).into_owned();
+        if out.contains(&want_home) && out.contains(&want_bin) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let _ = m.delete(&t.id);
+    m.stop_saving();
+    assert!(out.contains(&want_home), "{out}");
+    assert!(out.contains(&want_bin), "{out}");
+}
