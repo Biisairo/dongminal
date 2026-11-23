@@ -21,7 +21,7 @@ use serde::Serialize;
 use time::OffsetDateTime;
 
 use crate::conn::{Conn, lock};
-use crate::server::{Inner, PanedServer};
+use crate::server::{Inner, PanedServer, mkdir_sock_dir};
 
 /// 교체 제어 연결의 시한이다 — 새 바이너리의 사전 점검(5초)과 상태 준비를 담는다.
 pub const RELOAD_WITHIN: Duration = Duration::from_secs(12);
@@ -50,13 +50,7 @@ impl PanedServer {
     pub fn listen_reports(&self, path: &Path) -> io::Result<()> {
         let ipc_t = &dm_shared_platform::current().ipc;
         let _ = ipc_t.remove(path);
-        if let Some(dir) = path.parent() {
-            let mut b = std::fs::DirBuilder::new();
-            b.recursive(true);
-            #[cfg(unix)]
-            std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o700);
-            b.create(dir)?;
-        }
+        mkdir_sock_dir(path)?;
         let ln = ipc_t.listen(path)?;
         let mut l = lock(&self.inner.listeners);
         l.report = Some(Arc::new(ln));

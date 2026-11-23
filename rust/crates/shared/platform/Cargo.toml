@@ -36,5 +36,6 @@ windows-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+regex = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

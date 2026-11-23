@@ -129,14 +129,12 @@ fn os_err(e: io::Error) -> String {
     dm_gocompat::oserr::go_error_string(&e)
 }
 
+/// 헬퍼 폴더의 권한 (Go `os.MkdirAll(filepath.Dir(dest), 0o755)`).
+const HELPER_DIR_PERM: u32 = 0o755;
+
 fn mkdir_parent(dest: &str) -> Result<(), String> {
     let dir = filepath::dir(dest);
-    let mut b = std::fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o755);
-    b.create(&dir)
-        .map_err(|e| os_err(dm_gocompat::oserr::path_error("mkdir", &dir, e)))
+    dm_gocompat::oserr::mkdir_all(&dir, HELPER_DIR_PERM).map_err(os_err)
 }
 
 /// 릴리스 자산을 받아 임시 파일을 거쳐 dest 로 옮긴다(0755).
@@ -213,6 +211,7 @@ fn cross_build_helper(arch: &str, dest: &str) -> Result<(), String> {
     .map(|s| s.to_string())
     .collect();
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let cargo = dm_shared_platform::command_path(&cargo)?;
     let r = std::process::Command::new(&cargo)
         .args(&args)
         .current_dir(&root)
@@ -287,4 +286,22 @@ fn list_cache_files(dir: &str) -> io::Result<Vec<String>> {
     }
     out.sort();
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 10.5b: 헬퍼 폴더를 만들 수 없으면 Go os.MkdirAll 처럼 막힌 칸의 경로로 낸다.
+    #[test]
+    fn mkdir_parent_error_matches_go() {
+        let d = tempfile::tempdir().unwrap();
+        let blocker = filepath::join(&[d.path().to_str().unwrap(), "f"]);
+        std::fs::write(&blocker, b"x").unwrap();
+        let dest = filepath::join(&[blocker.as_str(), "a", "helper"]);
+        assert_eq!(
+            mkdir_parent(&dest).unwrap_err(),
+            format!("mkdir {blocker}: not a directory")
+        );
+    }
 }

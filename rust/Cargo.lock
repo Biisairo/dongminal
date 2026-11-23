@@ -983,6 +983,7 @@ dependencies = [
  "dm-shared-dmenv",
  "dm-shared-dmlog",
  "libc",
+ "regex",
  "serde_json",
  "socket2",
  "tempfile",

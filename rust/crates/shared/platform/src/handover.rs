@@ -150,7 +150,9 @@ mod sys {
     }
 
     pub(super) fn child_ttys(ppid: i32) -> io::Result<Vec<ChildTty>> {
-        let out = std::process::Command::new("ps")
+        let ps =
+            crate::command_path("ps").map_err(|m| io::Error::new(io::ErrorKind::NotFound, m))?;
+        let out = std::process::Command::new(ps)
             .args(["-ax", "-o", "pid=,ppid=,tty="])
             .stdin(std::process::Stdio::null())
             .output()?;
@@ -167,7 +169,10 @@ mod sys {
     }
 
     pub(super) fn command_name(pid: i32) -> String {
-        let out = std::process::Command::new("ps")
+        let Ok(ps) = crate::command_path("ps") else {
+            return "shell".to_owned();
+        };
+        let out = std::process::Command::new(ps)
             .args(["-o", "comm=", "-p", &pid.to_string()])
             .stdin(std::process::Stdio::null())
             .output();

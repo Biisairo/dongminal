@@ -731,3 +731,17 @@ fn pin_add_remove_round_trip() {
         r#"{"f":1.5,"git":{"pinned":[]},"h":"\u003c\u0026\u003e","n":12345678901234567000,"schemaVersion":2}"#
     );
 }
+
+// 10.5b: 따로 흉내 낸 MkdirAll 을 gocompat 으로 모았다. 막힌 칸의 경로로 내고, `x/.` 도 만든다.
+#[cfg(unix)]
+#[test]
+fn mkdir_all_matches_go() {
+    let mk = |p: &str| crate::fsx::mkdir_all(p);
+    let d = tempfile::tempdir().unwrap();
+    let r = d.path().to_string_lossy().into_owned();
+    std::fs::write(format!("{r}/f"), "x").unwrap();
+    let e = mk(&format!("{r}/f/a/b")).unwrap_err();
+    assert_eq!(e.to_string(), format!("mkdir {r}/f: not a directory"));
+    mk(&format!("{r}/new/.")).unwrap();
+    assert!(std::fs::metadata(format!("{r}/new")).unwrap().is_dir());
+}

@@ -210,6 +210,9 @@ fn sl_pass_through(ctx: &mut Ctx<'_>, raw: &[u8], cmd: &str) -> i32 {
     let Some((prog, rest)) = argv.split_first() else {
         return 1;
     };
+    let Ok(prog) = dm_shared_platform::command_path(prog) else {
+        return 1;
+    };
     let Ok(mut child) = Command::new(prog)
         .args(rest)
         .stdin(Stdio::piped())
