@@ -116,7 +116,7 @@ fn helper_scenarios_match_go() {
     env.set(dm_shared_dmenv::ENV_HOME, home.path().to_str().unwrap());
     let cwd = std::env::current_dir().unwrap();
     let cwd = cwd.to_string_lossy();
-    let later = ["run", "edge", "account", "chat-mcp"];
+    let later = ["edge", "account", "chat-mcp"];
     let mut checked = 0;
     for line in read_testdata("helper_scenarios.jsonl").lines() {
         let row: Value = serde_json::from_str(line).unwrap();
@@ -145,7 +145,7 @@ fn helper_scenarios_match_go() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 53 - 15);
+    assert_eq!(checked, 53 - 9);
 }
 
 // ── 레이아웃 명령 ─────────────────────────────────────
