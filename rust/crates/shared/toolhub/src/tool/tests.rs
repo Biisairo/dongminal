@@ -434,3 +434,214 @@ fn detached_tool_has_no_terminal() {
     assert!(!p.is_busy());
     assert_eq!(p.exit_info().to_string(), "");
 }
+
+#[cfg(unix)]
+mod pty {
+    use std::time::Instant;
+
+    use super::*;
+
+    struct Fixture {
+        inst: tempfile::TempDir,
+        iso: tempfile::TempDir,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            Self {
+                inst: tempfile::tempdir().unwrap(),
+                iso: tempfile::tempdir().unwrap(),
+            }
+        }
+
+        fn start(
+            &self,
+            id: &str,
+            cmd: &str,
+            on_exit: Option<ExitFn>,
+            hooks: Option<ToolHooks>,
+        ) -> Arc<Tool> {
+            let inst = self.inst.path().to_str().unwrap().to_string();
+            let iso = self.iso.path().to_str().unwrap().to_string();
+            let g = move |k: &str| match k {
+                dmenv_home if dmenv_home == dm_shared_dmenv::ENV_HOME => inst.clone(),
+                k if k == dm_shared_dmenv::ENV_TOOL_HOME || k == "HOME" => iso.clone(),
+                k => std::env::var(k).unwrap_or_default(),
+            };
+            let place = ProcSpec {
+                path: "/bin/sh".into(),
+                args: vec!["/bin/sh".into(), "-c".into(), cmd.into()],
+                env: vec![],
+                dir: String::new(),
+            };
+            let cwd = self.iso.path().to_str().unwrap();
+            Tool::start_with(&g, id, id, cwd, (80, 24), on_exit, hooks, Some(&place), &[])
+                .expect("start")
+        }
+    }
+
+    fn wait_until(what: &str, cond: impl Fn() -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !cond() {
+            assert!(Instant::now() < deadline, "{what}");
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    fn screen(p: &Tool) -> String {
+        String::from_utf8_lossy(&p.stream().unwrap().snapshot().0).into_owned()
+    }
+
+    #[test]
+    fn output_reaches_stream_and_relay() {
+        let f = Fixture::new();
+        let p = f.start("t-cat", "cat", None, None);
+        assert!(p.sandboxed());
+        assert!(p.cmd_process_pid() > 0);
+        let seen = Arc::new(StdMutex::new(Vec::<u8>::new()));
+        let s = Arc::clone(&seen);
+        assert!(p.wire_relay_once(|prev| {
+            assert!(prev.is_none());
+            (
+                Some(Arc::new(move |_: &str, d: &[u8], _: i64| {
+                    s.lock().unwrap().extend_from_slice(d)
+                })),
+                None,
+            )
+        }));
+        assert!(!p.wire_relay_once(|_| (None, None)));
+        p.write(b"one\n").unwrap();
+        wait_until("출력", || screen(&p).contains("one"));
+        wait_until("중계", || {
+            String::from_utf8_lossy(&seen.lock().unwrap()).contains("one")
+        });
+        p.kill();
+        assert!(p.done().is_cancelled() && p.exited_now());
+        assert!(p.write(b"x").is_err());
+        assert_eq!(
+            p.resize(90, 30).unwrap_err().to_string(),
+            "tool t-cat: 터미널이 닫혔다"
+        );
+    }
+
+    #[test]
+    fn shell_exit_records_code_and_calls_on_exit() {
+        let f = Fixture::new();
+        let exited = Arc::new(StdMutex::new(String::new()));
+        let e = Arc::clone(&exited);
+        let p = f.start(
+            "t-exit",
+            "exit 3",
+            Some(Arc::new(move |id: &str| {
+                *e.lock().unwrap() = id.to_string()
+            })),
+            None,
+        );
+        wait_until("종료", || p.done().is_cancelled());
+        wait_until("on_exit", || *exited.lock().unwrap() == "t-exit");
+        assert_eq!(p.exit_info().code, 3);
+        assert_eq!(p.exit_info().to_string(), "exit 3");
+    }
+
+    #[test]
+    fn resize_notifies_only_on_change() {
+        let f = Fixture::new();
+        let sizes = Arc::new(StdMutex::new(Vec::<(u16, u16)>::new()));
+        let s = Arc::clone(&sizes);
+        let hooks = ToolHooks {
+            on_size: Some(Arc::new(move |_: &str, c, r| {
+                s.lock().unwrap().push((c, r))
+            })),
+            ..Default::default()
+        };
+        let p = f.start("t-size", "cat", None, Some(hooks));
+        p.resize(80, 24).unwrap();
+        p.resize(100, 30).unwrap();
+        assert_eq!(p.size(), Some((100, 30)));
+        assert_eq!(*sizes.lock().unwrap(), [(100, 30)]);
+        p.kill();
+    }
+
+    #[test]
+    fn freeze_stops_feeding_stream() {
+        let f = Fixture::new();
+        let p = f.start("t-frz", "cat", None, None);
+        let off = || p.stream().unwrap().offset();
+        p.write(b"one\n").unwrap();
+        wait_until("첫 출력", || off() > 0);
+        thread::sleep(Duration::from_millis(100));
+        let before = off();
+        assert!(p.freeze());
+        assert!(p.parked());
+        p.write(b"two\n").unwrap();
+        thread::sleep(Duration::from_millis(300));
+        assert_eq!(off(), before, "멈춘 동안 스트림이 자랐다");
+        p.thaw();
+        wait_until("푼 뒤 출력", || off() > before);
+        p.kill();
+    }
+
+    #[test]
+    fn freeze_after_exit_returns() {
+        let f = Fixture::new();
+        let p = f.start("t-frz-exit", "exit 0", None, None);
+        wait_until("종료", || p.done().is_cancelled());
+        let q = Arc::clone(&p);
+        let h = thread::spawn(move || q.freeze());
+        wait_until("끝난 도구에서 freeze 가 멎었다", || {
+            h.is_finished()
+        });
+        p.thaw();
+    }
+
+    #[test]
+    fn hist_file_reaches_shell_env() {
+        let f = Fixture::new();
+        let p = f.start(
+            "t-hist",
+            "printf 'HF(%s)\\n' \"$HISTFILE\"; cat",
+            None,
+            None,
+        );
+        let want = f
+            .inst
+            .path()
+            .join(crate::env::TOOL_HIST_DIR)
+            .join("t-hist.");
+        let want = format!("HF({}", want.display());
+        // 파일 이름의 셸은 배치(sh)가 아니라 플랫폼이 고른 셸이다.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !screen(&p).contains(&want) {
+            assert!(
+                Instant::now() < deadline,
+                "want {want} screen {:?}",
+                screen(&p)
+            );
+            thread::sleep(Duration::from_millis(20));
+        }
+        p.kill();
+    }
+
+    #[tokio::test]
+    async fn terminate_wait_returns_early_on_exit() {
+        let f = Fixture::new();
+        let p = f.start("t-term", "cat", None, None);
+        let q = Arc::clone(&p);
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(50));
+            q.kill();
+        });
+        let start = Instant::now();
+        p.terminate_wait(Duration::from_secs(5)).await;
+        assert!(start.elapsed() < Duration::from_secs(5));
+    }
+}
+
+#[tokio::test]
+async fn terminate_wait_no_process_is_noop() {
+    let start = std::time::Instant::now();
+    Tool::new_detached("d1", None)
+        .terminate_wait(Duration::from_secs(3600))
+        .await;
+    assert!(start.elapsed() < Duration::from_secs(1));
+}
