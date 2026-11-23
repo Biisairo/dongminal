@@ -12,6 +12,7 @@ workspace = true
 [dependencies]
 bytes = { workspace = true }
 dm-gocompat = { path = "../../gocompat" }
+futures-util = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }

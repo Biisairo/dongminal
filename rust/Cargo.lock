@@ -1556,6 +1556,7 @@ dependencies = [
  "dm-webserver-hub",
  "dm-webserver-seam-toolaccess",
  "dm-webserver-sse",
+ "futures-util",
  "hex",
  "http",
  "http-body-util",
