@@ -624,3 +624,7 @@ pub fn migrate_legacy_files(dir: &Path) -> io::Result<()> {
         Ok(()) => Ok(()),
     }
 }
+
+#[cfg(test)]
+#[path = "config_tests.rs"]
+mod tests;
