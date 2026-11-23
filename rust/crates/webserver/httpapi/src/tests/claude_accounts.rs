@@ -11,7 +11,7 @@ use super::support::{self, call};
 use crate::{ClaudeHooks, Config, Deps, Server};
 
 /// Go `caNoSecrets`: 비밀 저장소가 없는 OS 다.
-struct NoSecrets;
+pub(crate) struct NoSecrets;
 
 impl Secrets for NoSecrets {
     fn available(&self) -> bool {

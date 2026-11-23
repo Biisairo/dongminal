@@ -16,11 +16,11 @@ use crate::{ChatDaemon, Deps, EdgeDaemon, Server};
 
 /// Go `fakeChatDaemon`.
 #[derive(Default)]
-struct FakeChat {
-    ready: bool,
-    got: Mutex<Vec<ChatParams>>,
-    res: ChatResult,
-    err: Option<String>,
+pub(crate) struct FakeChat {
+    pub(crate) ready: bool,
+    pub(crate) got: Mutex<Vec<ChatParams>>,
+    pub(crate) res: ChatResult,
+    pub(crate) err: Option<String>,
 }
 
 impl ChatDaemon for FakeChat {

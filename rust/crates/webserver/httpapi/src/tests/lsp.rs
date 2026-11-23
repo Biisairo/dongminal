@@ -89,16 +89,16 @@ impl Tunnel for FakeTunnel {
 /// Go `fakeLSP`.
 #[derive(Default)]
 pub(crate) struct FakeLsp {
-    statuses: Vec<ext::Status>,
-    problems: Vec<String>,
-    outcome: ext::Outcome,
-    install_id: Mutex<String>,
-    paths: Mutex<HashMap<String, String>>,
-    set_paths: Mutex<HashMap<String, String>>,
-    set_err: Option<PathsError>,
-    tunnel: Option<Arc<FakeTunnel>>,
-    tunnel_err: Option<OpenError>,
-    tunnel_opened: AtomicUsize,
+    pub(crate) statuses: Vec<ext::Status>,
+    pub(crate) problems: Vec<String>,
+    pub(crate) outcome: ext::Outcome,
+    pub(crate) install_id: Mutex<String>,
+    pub(crate) paths: Mutex<HashMap<String, String>>,
+    pub(crate) set_paths: Mutex<HashMap<String, String>>,
+    pub(crate) set_err: Option<PathsError>,
+    pub(crate) tunnel: Option<Arc<FakeTunnel>>,
+    pub(crate) tunnel_err: Option<OpenError>,
+    pub(crate) tunnel_opened: AtomicUsize,
 }
 
 impl LspService for FakeLsp {
