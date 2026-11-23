@@ -559,19 +559,26 @@ version = "1.3.7"
 name = "dm-shared-agentadapter"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-activity",
  "dm-shared-dmenv",
  "dm-shared-platform",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
 name = "dm-shared-agentrec"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-activity",
  "dm-shared-agentadapter",
  "dm-shared-platform",
  "dm-shared-statusline",
+ "serde",
+ "time",
 ]
 
 [[package]]
@@ -672,8 +679,11 @@ dependencies = [
 name = "dm-shared-handover"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-agentrec",
  "dm-shared-platform",
+ "serde",
+ "tempfile",
 ]
 
 [[package]]
@@ -780,9 +790,12 @@ dependencies = [
 name = "dm-shared-runtime"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-agentadapter",
  "dm-shared-dmenv",
  "dm-shared-platform",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

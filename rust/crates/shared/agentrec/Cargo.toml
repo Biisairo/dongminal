@@ -14,3 +14,6 @@ dm-shared-activity = { path = "../activity" }
 dm-shared-agentadapter = { path = "../agentadapter" }
 dm-shared-platform = { path = "../platform" }
 dm-shared-statusline = { path = "../statusline" }
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }
+time = { workspace = true }
