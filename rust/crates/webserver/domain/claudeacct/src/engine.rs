@@ -237,7 +237,7 @@ impl Engine {
         (self.now)().unix_timestamp()
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn writes(&self) -> u64 {
         self.writes.load(Ordering::Relaxed)
     }
@@ -341,7 +341,7 @@ impl Engine {
         }
     }
 
-    fn live_is_account(&self, a: &Account) -> bool {
+    pub(crate) fn live_is_account(&self, a: &Account) -> bool {
         matches!(
             crate::claudecfg::read_oauth_account(&self.svc.claude.global_config),
             Ok(Some(oa)) if oa.email_address == a.email && oa.organization_uuid == a.org_uuid
@@ -736,7 +736,7 @@ impl Engine {
     }
 
     /// 토큰을 갱신한다 (FR-CAC-40~44). 실패하면 그때의 자격증명과 오류를 준다.
-    async fn refresh(
+    pub(crate) async fn refresh(
         &self,
         a: &Account,
         live: bool,

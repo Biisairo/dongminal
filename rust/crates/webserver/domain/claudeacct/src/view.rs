@@ -16,7 +16,7 @@ use crate::store::{Account, State};
 use crate::usage::{Spend, Usage, Window};
 
 /// 로그인 만료 경고를 시작하는 남은 시간이다 (FR-CAC-45).
-const LOGIN_WARN_S: i64 = 7 * 86400;
+pub(crate) const LOGIN_WARN_S: i64 = 7 * 86400;
 /// 사용률의 경고 경계다 — statusLine 한도와 같은 규칙이다 (D-ASV-9, FR-CAC-93).
 const USAGE_WARN_PCT: f64 = 70.0;
 const USAGE_CRITICAL_PCT: f64 = 90.0;

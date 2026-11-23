@@ -221,6 +221,7 @@ impl Store {
         &self.dir
     }
 
+    #[cfg(test)]
     pub(crate) fn reads(&self) -> u64 {
         self.reads.load(Ordering::Relaxed)
     }

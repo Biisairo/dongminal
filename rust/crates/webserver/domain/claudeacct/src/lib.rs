@@ -4,9 +4,8 @@
 //! 가 읽는 활성 저장소를 바꿔 끼워 계정을 전환한다. 토큰 값은 이 crate 밖으로 나가지 않는다
 //! (FR-CAC-9).
 
-// 내부 API 일부는 4.5.2~4.5.4(Service·Engine·Auto)가 쓴다. 4.5.4 에서 지운다.
-#![allow(dead_code)]
-
+mod alerts;
+mod auto;
 mod backup;
 mod claudecfg;
 mod client;
@@ -34,6 +33,16 @@ mod waker;
 #[cfg(test)]
 mod tests;
 
+pub use alerts::{
+    ALERT_ALL_EXHAUSTED, ALERT_AUTOSWITCH, ALERT_AUTOSWITCH_STOPPED, ALERT_LOGIN_EXPIRING,
+    ALERT_NEAR_LIMIT, ALERT_RELOGIN, Alert,
+};
+pub use auto::{
+    AUTO_EXHAUSTED, AUTO_OFF, AUTO_ON, AUTO_RANGES, AUTO_STRATEGY_BEST,
+    AUTO_STRATEGY_CONSUME_FIRST, AUTO_STRATEGY_PRIORITY_CONSUME_FIRST, AUTO_UNMANAGED, Auto,
+    AutoSettings, AutoState, AutoStateView, AutoView, LastSwitch, NotifyFn, ProcsFn,
+    cswap_auto_running,
+};
 pub use backup::BackupStore;
 pub use claudecfg::{OAuthAccount, read_oauth_account, splice_oauth_account};
 pub use client::{

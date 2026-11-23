@@ -124,7 +124,7 @@ impl Engine {
     }
 
     /// 판단할 값이 없는 계정을 조회한다. 물러나는 중이거나 조금 전에 본 계정은 건너뛴다.
-    async fn refresh_stale(&self, st: &State) {
+    pub(crate) async fn refresh_stale(&self, st: &State) {
         let _busy = self.busy.lock().await;
         let _round = self.begin_round();
         let ctx = tokio_util::sync::CancellationToken::new();
