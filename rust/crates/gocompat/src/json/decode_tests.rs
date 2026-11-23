@@ -528,3 +528,24 @@ fn null_field_matches_go_by_type() {
     );
     assert!(unmarshal::<S>(deep.as_bytes()).is_err());
 }
+
+/// 스칼라 필드의 null 이 많아도 다시 푸는 횟수는 코드의 필드 수로 묶인다(입력 크기에 비례하지 않는다).
+#[test]
+fn many_null_scalars_decode_once_per_field() {
+    #[derive(serde::Deserialize, Debug, Default)]
+    #[serde(default)]
+    struct E {
+        n: i64,
+        s: String,
+    }
+    let item = r#"{"n":null,"s":null}"#;
+    let src = format!("[{}]", vec![item; 20_000].join(","));
+    let start = std::time::Instant::now();
+    let got: Vec<E> = unmarshal(src.as_bytes()).unwrap();
+    assert_eq!(got.len(), 20_000);
+    assert!(
+        start.elapsed() < std::time::Duration::from_secs(5),
+        "{:?}",
+        start.elapsed()
+    );
+}
