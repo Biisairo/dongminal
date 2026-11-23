@@ -14,7 +14,12 @@ fn socket_path_beside_daemon_socket() {
 
 #[test]
 fn known_method_only_four() {
-    for m in [METHOD_ACTIVITY, METHOD_USAGE, METHOD_SUBAGENTS, METHOD_NOTIFY] {
+    for m in [
+        METHOD_ACTIVITY,
+        METHOD_USAGE,
+        METHOD_SUBAGENTS,
+        METHOD_NOTIFY,
+    ] {
         assert!(known_method(m));
     }
     for m in ["", "write", "report.write", "recordset"] {
@@ -25,7 +30,10 @@ fn known_method_only_four() {
 #[test]
 fn sanitize_strips_control_and_cuts_on_boundary() {
     assert_eq!(sanitize("a\u{7}b\u{7f}c", DETAIL_MAX), "abc");
-    assert_eq!(sanitize(&"x".repeat(DETAIL_MAX + 88), DETAIL_MAX).len(), DETAIL_MAX);
+    assert_eq!(
+        sanitize(&"x".repeat(DETAIL_MAX + 88), DETAIL_MAX).len(),
+        DETAIL_MAX
+    );
     assert_eq!(sanitize(&"가".repeat(200), DETAIL_MAX).len(), 510);
     assert_eq!(sanitize("abc", 2), "ab");
 }
@@ -80,9 +88,18 @@ fn merge_limits_keeps_others_and_ignores_empty() {
             observed_at: 1,
         },
     )]);
-    merge_limits(&mut m, "claude-x", &w, OffsetDateTime::from_unix_timestamp_nanos(5_000_000_000).unwrap());
+    merge_limits(
+        &mut m,
+        "claude-x",
+        &w,
+        OffsetDateTime::from_unix_timestamp_nanos(5_000_000_000).unwrap(),
+    );
     assert_eq!(m["claude-x"].observed_at, 5000);
-    assert!(m["claude-x"].windows.as_ref().unwrap()["five_hour"].used_pct.is_some());
+    assert!(
+        m["claude-x"].windows.as_ref().unwrap()["five_hour"]
+            .used_pct
+            .is_some()
+    );
     assert!(m.contains_key("other"));
     merge_limits(&mut m, "claude-x", &BTreeMap::new(), at(9));
     assert_eq!(m["claude-x"].observed_at, 5000);
@@ -92,11 +109,19 @@ fn merge_limits_keeps_others_and_ignores_empty() {
 fn record_shapes_keep_stage1_json() {
     let s = |b: Vec<u8>| String::from_utf8(b).unwrap();
     assert_eq!(
-        s(json::marshal(&SubagentList { tasks: None, observed_at: 7 }).unwrap()),
+        s(json::marshal(&SubagentList {
+            tasks: None,
+            observed_at: 7
+        })
+        .unwrap()),
         r#"{"tasks":null,"observedAt":7}"#
     );
     assert_eq!(
-        s(json::marshal(&LimitRecord { windows: None, observed_at: 7 }).unwrap()),
+        s(json::marshal(&LimitRecord {
+            windows: None,
+            observed_at: 7
+        })
+        .unwrap()),
         r#"{"windows":null,"observedAt":7}"#
     );
     let a = SubagentActivity {
@@ -105,10 +130,20 @@ fn record_shapes_keep_stage1_json() {
         ..SubagentActivity::default()
     };
     let raw = s(json::marshal(&a).unwrap());
-    assert_eq!(raw, r#"{"state":"done","updatedAt":"1970-01-01T00:00:00Z"}"#);
-    assert_eq!(json::unmarshal::<SubagentActivity>(raw.as_bytes()).unwrap(), a);
     assert_eq!(
-        s(json::marshal(&Usage { usage: statusline::Usage::default(), observed_at: 7 }).unwrap()),
+        raw,
+        r#"{"state":"done","updatedAt":"1970-01-01T00:00:00Z"}"#
+    );
+    assert_eq!(
+        json::unmarshal::<SubagentActivity>(raw.as_bytes()).unwrap(),
+        a
+    );
+    assert_eq!(
+        s(json::marshal(&Usage {
+            usage: statusline::Usage::default(),
+            observed_at: 7
+        })
+        .unwrap()),
         r#"{"observedAt":7}"#
     );
     let u = Usage {
@@ -118,15 +153,29 @@ fn record_shapes_keep_stage1_json() {
         },
         observed_at: 7,
     };
-    assert_eq!(s(json::marshal(&u).unwrap()), r#"{"sessionId":"s","observedAt":7}"#);
+    assert_eq!(
+        s(json::marshal(&u).unwrap()),
+        r#"{"sessionId":"s","observedAt":7}"#
+    );
 }
 
 #[test]
 fn report_wire_shapes() {
     let s = |b: Vec<u8>| String::from_utf8(b).unwrap();
-    assert_eq!(s(json::marshal(&Reply { ok: true, error: String::new() }).unwrap()), r#"{"ok":true}"#);
     assert_eq!(
-        s(json::marshal(&Request { method: "m".into(), body: RawMessage::default() }).unwrap()),
+        s(json::marshal(&Reply {
+            ok: true,
+            error: String::new()
+        })
+        .unwrap()),
+        r#"{"ok":true}"#
+    );
+    assert_eq!(
+        s(json::marshal(&Request {
+            method: "m".into(),
+            body: RawMessage::default()
+        })
+        .unwrap()),
         r#"{"method":"m","body":null}"#
     );
     assert_eq!(

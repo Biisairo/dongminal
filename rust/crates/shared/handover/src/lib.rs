@@ -125,7 +125,12 @@ fn dial(home: &Path, within: Duration) -> io::Result<IpcStream> {
 }
 
 /// 요청 한 줄을 쓰고 답 하나를 읽는다. 시한은 Go `SetDeadline` 처럼 전체에 걸린다.
-fn exchange(c: &mut IpcStream, method: &str, body: Vec<u8>, within: Duration) -> Result<Reply, String> {
+fn exchange(
+    c: &mut IpcStream,
+    method: &str,
+    body: Vec<u8>,
+    within: Duration,
+) -> Result<Reply, String> {
     let deadline = Instant::now() + within;
     let line = Encoder::new()
         .encode(&Request {
