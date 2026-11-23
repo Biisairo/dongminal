@@ -16,9 +16,12 @@ mod ansi;
 mod asset_version;
 mod attention;
 mod carry;
+mod chat_api;
+mod claude_accounts;
 mod commands;
 mod deps;
 mod diag_snapshot;
+mod edge_api;
 mod editors;
 mod entity_name;
 mod file_boundary;
@@ -38,11 +41,13 @@ mod fs_transfer;
 mod fs_watch;
 mod fs_zip;
 mod gitwire;
+mod go_embed;
 mod handlers_diag;
 mod handlers_fs_ignored;
 mod health;
 mod httperr;
 mod listen;
+mod lsp_api;
 mod lspsvc;
 mod mediatype;
 mod meta;
@@ -58,6 +63,16 @@ mod req;
 mod reqgate;
 mod routes;
 mod run;
+mod runs;
+mod runs_assign;
+mod runs_close;
+mod runs_context;
+mod runs_graph;
+mod runs_headless;
+mod runs_marks;
+mod runs_recover;
+mod runs_tree;
+mod runs_worktree;
 mod sandbox_api;
 mod serve;
 mod serve_content;
@@ -67,12 +82,14 @@ mod snapshot;
 mod static_assets;
 mod status;
 mod subagents;
+mod telegram_api;
 mod toolhub;
 mod toolio;
 mod tools_api;
 mod update_api;
 mod usage;
 mod whoami;
+mod workspace_revert;
 mod ws;
 
 use std::path::PathBuf;
@@ -88,8 +105,11 @@ use dm_webserver_seam_toolaccess::{ToolReader, WorkspaceReader};
 pub use access::DEFAULT_ACCESS_REFRESH;
 pub use agent_records::RecordSink;
 pub use attention::{AttentionDaemon, DaemonCallError};
+pub use chat_api::ChatDaemon;
+pub use claude_accounts::ClaudeHooks;
 pub use deps::{SandboxReaper, SettingsStore, StatsSnapshotter, UpdateService, WorkspaceStore};
 pub use diag_snapshot::DIAG_SNAPSHOT_EVERY;
+pub use edge_api::EdgeDaemon;
 pub use lspsvc::LspService;
 pub use migration_advice::{MigrationConf, parse_migration_conf};
 pub use req::{BodyError, ReqBody};
@@ -115,6 +135,12 @@ pub struct Config {
     pub version: String,
     /// 브라우저로 서빙할 정적 자산이다 (Go `StaticFS`). 없으면 `/` 가 서지 않는다. 실물은 [`WebAssets`].
     pub static_fs: Option<Arc<dyn StaticAssets>>,
+    /// Telegram Bot API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다.
+    pub telegram_api: String,
+    /// Claude Code 설정(`~/.claude`·`~/.claude.json`)을 찾을 사용자 홈이다. 비면 OS 의 홈이다.
+    pub claude_home: PathBuf,
+    /// Anthropic API 주소다. 비면 실제 주소이고, 시험이 가짜 서버로 바꾼다.
+    pub claude_api: String,
 }
 
 /// 주입 표면이다 (Go `Deps`). 비어 있는 자리는 그 표면만 실패한다.
@@ -154,6 +180,12 @@ pub struct Deps {
     pub records: Option<Arc<dyn RecordSink>>,
     /// 데몬의 알람 판정이다 (§3.3a). 없거나 판정하지 않으면 추적기가 판정한다.
     pub attn_daemon: Option<Arc<dyn AttentionDaemon>>,
+    /// 데몬의 노드다 (PEER_DAEMON_SRS §3.5a). 없으면 간선 API 는 503 이다 (FR-DMR-21).
+    pub edge_daemon: Option<Arc<dyn EdgeDaemon>>,
+    /// 데몬의 채팅 사람 참가자다 (PEER_CHAT_SRS §3.11). 없으면 준비되지 않은 데몬과 같다 (FR-DMR-22).
+    pub chat_daemon: Option<Arc<dyn ChatDaemon>>,
+    /// Claude 계정의 비밀 저장소·프로세스 목록이다 (Go `Config.ClaudeSecrets`·`ClaudeProcs`).
+    pub claude: ClaudeHooks,
     /// 실행 기록을 공유할 git core 서비스다 (Go `Deps.Git.Service()`). 없어도 무시 판정은 돌고
     /// 기록만 빠진다 (FR-GXU-4·10).
     pub git_service: Option<Arc<dm_webserver_domain_git_core::Service>>,
@@ -163,6 +195,9 @@ pub struct Deps {
     pub on_git_changed: Option<dm_webserver_hub::RepoHook>,
     /// git 감시자가 저장소의 첫 표명을 기준선으로 삼을 때 불린다 (CODEMIRROR_MIGRATION_SRS §11.6 W).
     pub on_git_baseline: Option<dm_webserver_hub::RepoHook>,
+    /// runs.json 저장소다 (Go `Deps.Runs`, RUN_ORCHESTRATION_SRS 묶음 R). 없으면 /api/runs* 가 503
+    /// 이고 그 밖의 동작에는 영향이 없다 (NFR-RUN-1).
+    pub runs: Option<Arc<dm_webserver_domain_run::Store>>,
 }
 
 /// 연결 진단의 계수다 (Go `connStats` 중 이 하위 이슈가 쓰는 것).
@@ -223,6 +258,18 @@ pub struct Server {
     pub(crate) git_watch: Option<Arc<dm_webserver_hub::GitWatcher>>,
     /// 정적 자산 `/` 의 처리기와 자산의 판이다. 정적 자산이 없는 구성이면 없다.
     pub(crate) statics: Option<static_assets::StaticHandler>,
+    /// Run 표면의 서버 쪽 보조 상태다 — 복구·통지 (Go `runAux`).
+    pub(crate) run_aux: runs_recover::RunAux,
+    /// 이 기기의 `이름#번호` 기억이다 (Go `handle`).
+    pub(crate) handle: edge_api::HandleCache,
+    /// 노드 포트를 다시 맞추라는 신호다 (Go `edgeKick`).
+    pub(crate) edge_kick: edge_api::EdgeKick,
+    /// `/api/lsp/ws` 의 메시지 상한이다 (FR-CMR-104). 시험만이 낮춘다.
+    pub(crate) lsp_ws_read_limit: usize,
+    /// Telegram 알림 이음매다 (Go `tg`). data_dir 이 없으면 없다.
+    pub(crate) tg: Option<telegram_api::TelegramWire>,
+    /// Claude 다중 계정이다 (Go `ca`, CLAUDE_ACCOUNTS_SRS). data_dir 이 없으면 없다.
+    pub(crate) ca: Option<claude_accounts::ClaudeAcctWire>,
 }
 
 /// 탐색기·편집기의 파일 조작 잠금이다 (Go `fsState`).
@@ -264,9 +311,11 @@ impl Server {
     }
 
     fn build(cfg: Config, mut deps: Deps, me: Weak<Server>) -> Server {
+        let mut own_hub = None;
         if deps.commands.is_none() {
-            let hub: Arc<dyn CommandBroker> = CommandHub::new();
-            deps.commands = Some(hub);
+            let hub = CommandHub::new();
+            own_hub = Some(hub.clone());
+            deps.commands = Some(hub as Arc<dyn CommandBroker>);
         }
         // DataDir 이 비면 이름만 남는다 — 작업 디렉터리의 그 파일이다.
         if deps.settings.is_none() {
@@ -289,7 +338,9 @@ impl Server {
             deps.git = Some(Arc::new(gitwire::GitApi(Arc::new(g))));
         }
         let deps_commands = deps.commands.clone();
-        Server {
+        let tg = telegram_api::init_telegram(&cfg, me.clone());
+        let ca = claude_accounts::init_claude_accounts(&cfg, &deps.claude, me.clone());
+        let srv = Server {
             deps,
             cfg,
             focus: FocusRegistry::new(),
@@ -315,7 +366,17 @@ impl Server {
             rebind: rebind::RebindState::default(),
             git_watch,
             statics,
+            run_aux: runs_recover::RunAux::default(),
+            handle: edge_api::HandleCache::default(),
+            edge_kick: edge_api::EdgeKick::default(),
+            lsp_ws_read_limit: lsp_api::LSP_WS_READ_LIMIT,
+            tg,
+            ca,
+        };
+        if let Some(hub) = own_hub {
+            srv.wire_telegram_attention(&hub);
         }
+        srv
     }
 
     pub fn deps(&self) -> &Deps {

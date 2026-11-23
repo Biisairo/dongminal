@@ -25,7 +25,7 @@ const PORT_MAX: u16 = 64999;
 const WAIT: Duration = Duration::from_secs(5);
 
 /// 격리 규칙(C-RSP-1): 60147 이상의 loopback 포트에만 붙는다.
-async fn listen(srv: Arc<Server>) -> u16 {
+pub(crate) async fn listen(srv: Arc<Server>) -> u16 {
     let start = PORT_MIN + (std::process::id() as u16 % 2000);
     for p in (start..PORT_MAX).chain(PORT_MIN..start) {
         let Ok(l) = tokio::net::TcpListener::bind(("127.0.0.1", p)).await else {

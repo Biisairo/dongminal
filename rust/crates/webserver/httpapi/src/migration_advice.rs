@@ -147,13 +147,20 @@ impl Server {
         write_json(&out)
     }
 
-    /// 트리 노드(Run 멤버의 assign)는 자기 절차를 따른다(D-ITO-5) — 그 갈래는 5.5.4 가 잇는다.
+    /// 트리 노드(Run 멤버의 assign)는 자기 절차를 따른다 (D-ITO-5).
     fn migration_verdict(
         &self,
         id: &str,
         conf: MigrationConf,
         used: &mut Option<f64>,
     ) -> &'static str {
+        if self
+            .runs()
+            .and_then(|st| st.member_by_tool(id))
+            .is_some_and(|m| m.assign.is_some())
+        {
+            return ADVICE_SKIP;
+        }
         if !conf.hook_on {
             return ADVICE_SKIP;
         }

@@ -1,0 +1,140 @@
+== GET /api/chat
+200 Content-Type=application/json
+"{\"me\":{\"id\":\"u\"}}\n"
+== POST /api/chat/send
+200 Content-Type=application/json
+"{\"me\":{\"id\":\"u\"}}\n"
+== POST /api/chat/send
+400 Content-Type=application/json|X-Error-Code=chat_bad_request
+"{\"code\":\"chat_bad_request\",\"message\":\"body is not JSON\"}\n"
+== GET /api/edges
+200 Content-Type=application/json|Etag="e1"
+"{\"op\":\"get\"}\n"
+== PUT /api/edges/node
+200 Content-Type=application/json|Etag="e1"
+"{\"op\":\"node\"}\n"
+== PUT /api/profile
+409 Content-Type=application/json|Etag="e2"|X-Error-Code=edge_stale
+"{\"code\":\"edge_stale\",\"message\":\"바뀌었다\"}\n"
+== GET /api/snapshot?parts=edges,focus
+200 Content-Type=application/json
+"{\"edges\":{\"op\":\"get\"},\"focus\":{\"owners\":{}}}\n"
+== POST /api/lsp/status
+200 Content-Type=application/json
+"{\"problems\":[\"x.json: 깨졌다\"],\"servers\":[{\"pack\":\"gopls\",\"id\":\"gopls\",\"langs\":[\"go\"],\"found\":true,\"exe\":\"/usr/bin/gopls\",\"origin\":\"path\",\"isolated\":false,\"canInstall\":false}]}\n"
+== GET /api/lsp/paths
+200 Content-Type=application/json
+"{\"paths\":{\"a\":\"/a\",\"b\":\"/b\"}}\n"
+== PUT /api/lsp/paths
+400 Content-Type=application/json|X-Error-Code=bad_request
+"{\"error\":\"bad request\"}\n"
+== PUT /api/lsp/paths
+200 Content-Type=application/json
+"{\"paths\":{\"z\":\"/z\"}}\n"
+== POST /api/lsp/install
+400 Content-Type=application/json|X-Error-Code=bad_request
+"{\"error\":\"id required\"}\n"
+== POST /api/lsp/install
+200 Content-Type=application/json
+"{\"ok\":false,\"reason\":\"없다\"}\n"
+== GET /api/lsp/ws?root=&server=x
+400 Content-Type=application/json|X-Error-Code=bad_request
+"{\"code\":\"bad_request\",\"message\":\"root 가 없다\"}\n"
+== GET /api/telegram
+200 Content-Type=application/json
+"{\"enabled\":false,\"tokenSet\":false,\"botName\":\"\",\"paired\":false,\"silenceMin\":5,\"pair\":null}\n"
+== PUT /api/telegram/token
+400 Content-Type=application/json|X-Error-Code=telegram_token_invalid
+"{\"code\":\"telegram_token_invalid\",\"message\":\"token is malformed\"}\n"
+== PUT /api/telegram/token
+400 Content-Type=application/json|X-Error-Code=invalid_json
+"{\"code\":\"invalid_json\",\"message\":\"invalid json\"}\n"
+== PUT /api/telegram/silence
+400 Content-Type=application/json|X-Error-Code=telegram_config_invalid
+"{\"code\":\"telegram_config_invalid\",\"message\":\"무음 시간은 0~1440분입니다\"}\n"
+== PUT /api/telegram/enabled
+200 Content-Type=application/json
+"{\"enabled\":true,\"tokenSet\":false,\"botName\":\"\",\"paired\":false,\"silenceMin\":5,\"pair\":null}\n"
+== POST /api/telegram/pair
+409 Content-Type=application/json|X-Error-Code=telegram_no_token
+"{\"code\":\"telegram_no_token\",\"message\":\"no bot token\"}\n"
+== DELETE /api/telegram/pair
+200 Content-Type=application/json
+"{\"enabled\":true,\"tokenSet\":false,\"botName\":\"\",\"paired\":false,\"silenceMin\":5,\"pair\":null}\n"
+== GET /api/claude-accounts
+200 Content-Type=application/json
+"{\"activeId\":\"\",\"accounts\":[],\"autoswitch\":{\"enabled\":false,\"status\":\"off\"},\"otherStatusLines\":[],\"ranges\":{\"alias\":{\"min\":0,\"max\":24},\"priority\":{\"min\":0,\"max\":1000},\"threshold\":{\"min\":50,\"max\":100}}}\n"
+== POST /api/claude-accounts/add
+409 Content-Type=application/json|X-Error-Code=claude_not_logged_in
+"{\"code\":\"claude_not_logged_in\",\"message\":\"Claude Code 에 로그인한 계정이 없습니다. 먼저 Claude Code 에서 /login 으로 로그인하세요\"}\n"
+== GET /api/claude-accounts/history?limit=0
+400 Content-Type=application/json|X-Error-Code=claude_account_invalid
+"{\"code\":\"claude_account_invalid\",\"message\":\"limit 은 1~1000 입니다\"}\n"
+== GET /api/claude-accounts/history
+200 Content-Type=application/json
+"{\"entries\":[]}\n"
+== GET /api/claude-accounts/autoswitch
+200 Content-Type=application/json
+"{\"settings\":{\"enabled\":false,\"threshold\":90,\"weeklyThreshold\":null,\"intervalSeconds\":60,\"cooldownSeconds\":300,\"hysteresisPct\":10,\"strategy\":\"best\",\"unhealthyTicks\":3,\"models\":null},\"state\":{\"status\":\"off\",\"quarantined\":[]},\"ranges\":{\"cooldownSeconds\":{\"min\":0,\"max\":86400},\"hysteresisPct\":{\"min\":0,\"max\":50},\"intervalSeconds\":{\"min\":15,\"max\":3600},\"threshold\":{\"min\":50,\"max\":100},\"unhealthyTicks\":{\"min\":1,\"max\":100},\"weeklyThreshold\":{\"min\":50,\"max\":100}}}\n"
+== PUT /api/claude-accounts/autoswitch
+400 Content-Type=application/json|X-Error-Code=claude_account_invalid
+"{\"code\":\"claude_account_invalid\",\"message\":\"값이 범위를 벗어났습니다\"}\n"
+== GET /api/claude-accounts/mappings
+200 Content-Type=application/json
+"{\"folders\":{},\"tabs\":{}}\n"
+== PUT /api/claude-accounts/mappings
+400 Content-Type=application/json|X-Error-Code=claude_account_invalid
+"{\"code\":\"claude_account_invalid\",\"message\":\"folder 와 toolId 중 하나만 주세요\"}\n"
+== GET /api/claude-accounts/resolve?cwd=rel
+400 Content-Type=application/json|X-Error-Code=claude_account_invalid
+"{\"code\":\"claude_account_invalid\",\"message\":\"값이 범위를 벗어났습니다: 절대 경로가 필요합니다\"}\n"
+== GET /api/claude-accounts/unclaimed
+200 Content-Type=application/json
+"{\"entries\":[]}\n"
+== PUT /api/claude-accounts/item
+404 Content-Type=application/json|X-Error-Code=claude_account_not_found
+"{\"code\":\"claude_account_not_found\",\"message\":\"계정이 없습니다\"}\n"
+== POST /api/claude-accounts/switch
+409 Content-Type=application/json|X-Error-Code=claude_no_candidate
+"{\"code\":\"claude_no_candidate\",\"message\":\"전환할 계정이 없습니다\"}\n"
+== GET /api/workspace/revisions
+200 Content-Type=application/json
+"{\"rev\":0,\"generations\":[{\"gen\":1,\"bytes\":4,\"modified\":\"2026-11-23T12:47:31Z\"}]}\n"
+== POST /api/workspace/revert
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=bad_request
+"gen must be 1..3\n"
+== POST /api/workspace/revert
+404 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=not_found
+"generation not found\n"
+== POST /api/workspace/revert
+409 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=conflict
+"generation is not valid JSON\n"
+== POST /api/workspace/revert
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
+"invalid json\n"
+== GET /api/chat
+409 Content-Type=application/json|X-Error-Code=chat_daemon_restart
+"{\"code\":\"chat_daemon_restart\",\"message\":\"restart the daemon to use chat\"}\n"
+== GET /api/edges
+503 Content-Type=application/json|X-Error-Code=edge_unavailable
+"{\"code\":\"edge_unavailable\",\"message\":\"edge layer unavailable\"}\n"
+== GET /api/telegram
+503 Content-Type=application/json|X-Error-Code=telegram_unavailable
+"{\"code\":\"telegram_unavailable\",\"message\":\"telegram bridge unavailable\"}\n"
+== GET /api/claude-accounts
+503 Content-Type=application/json|X-Error-Code=claude_accounts_unavailable
+"{\"code\":\"claude_accounts_unavailable\",\"message\":\"claude accounts unavailable\"}\n"
+== POST /api/lsp/status
+503 Content-Type=application/json|X-Error-Code=git_unavailable
+"{\"error\":\"language server support unavailable\"}\n"
+== POST /api/workspace/revert
+500 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=workspace_unavailable
+"workspace unavailable\n"
+== BCAST
+"{\"action\":\"chat_message\",\"args\":{\"msg\":{\"id\":\"m1\",\"room\":\"\",\"roomKind\":\"\",\"roomName\":\"\",\"roomPurpose\":\"\",\"from\":\"\",\"fromLabel\":\"\",\"fromKind\":\"\",\"node\":\"\",\"text\":\"\\u003cb\\u003ehi\\u003c/b\\u003e\",\"at\":0}}}"
+== BCAST
+"{\"action\":\"chat_changed\",\"args\":{}}"
+== BCAST
+"{\"action\":\"edges_changed\",\"args\":{\"byPeer\":true,\"paired\":{\"fp\":\"cd\",\"name\":\"p\",\"tag\":\"\"},\"removed\":{\"fp\":\"abababababababababababababababababababababababababababababababab\",\"name\":\"노트북\",\"tag\":\"4539\"}}}"
+== BCAST
+"{\"action\":\"edges_changed\",\"args\":{}}"

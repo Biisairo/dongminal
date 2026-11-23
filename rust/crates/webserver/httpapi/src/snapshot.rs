@@ -30,6 +30,7 @@ fn snapshot_part(name: &str) -> Option<Handler> {
         "settings" => part!(api_settings_get),
         "update" => part!(api_update_get),
         "focus" => part!(api_focus_get),
+        "edges" => part!(api_edges_get),
         _ => None,
     }
 }

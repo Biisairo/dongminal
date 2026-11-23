@@ -237,7 +237,47 @@ struct Granted {
 
 #[derive(Serialize)]
 struct BackgroundList {
-    background: Vec<BackgroundEntry>,
+    background: Vec<BackgroundRow>,
+}
+
+/// Go `backgroundRow`: 배경 도구 하나와 그 도구가 멤버인 열린 Run.
+#[derive(Default)]
+struct BackgroundRow {
+    entry: BackgroundEntry,
+    run_id: String,
+    /// 화면이 runId 를 자르지 않게 서버가 싣는다 (K-l).
+    run_short: String,
+    member_id: String,
+    role: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BackgroundRunOf<'a> {
+    #[serde(skip_serializing_if = "str::is_empty")]
+    run_id: &'a str,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    run_short: &'a str,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    member_id: &'a str,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    role: &'a str,
+}
+
+impl Serialize for BackgroundRow {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        crate::go_embed::Embed {
+            inner: &self.entry,
+            hide: &["runId", "runShort", "memberId", "role"],
+            outer: BackgroundRunOf {
+                run_id: &self.run_id,
+                run_short: &self.run_short,
+                member_id: &self.member_id,
+                role: &self.role,
+            },
+        }
+        .serialize(s)
+    }
 }
 
 #[derive(Deserialize, Default)]
@@ -449,7 +489,7 @@ impl Server {
             &req.detail,
             agentrec::agent_reports_turn_start(&req.agent),
         );
-        // Telegram 브리지(`telegramActivity`)는 5.5.9 가 잇는다.
+        self.telegram_activity(req);
         None
     }
 
@@ -491,7 +531,7 @@ impl Server {
         })
     }
 
-    /// GET /api/tools/background (FR-BG-6). 헤드리스 멤버의 Run 표시(FR-HLM-9)는 5.5.4 가 잇는다.
+    /// GET /api/tools/background (FR-BG-6). 열린 Run 의 멤버면 그 Run 을 함께 싣는다 (FR-HLM-9).
     pub(crate) async fn api_tools_background(&self, _r: &mut Req) -> Response {
         let list = match self.deps.tools.clone() {
             Some(h) => off_thread(move || h.background_list())
@@ -499,7 +539,22 @@ impl Server {
                 .unwrap_or_default(),
             None => Vec::new(),
         };
-        write_json(&BackgroundList { background: list })
+        let background = list
+            .into_iter()
+            .map(|e| {
+                let mut row = BackgroundRow::default();
+                // 끝난 Run 의 도구는 그 Run 의 것이 아니다 — 그쪽은 고아 목록이 맡는다 (FR-HLM-5).
+                if let Some(m) = self.runs().and_then(|st| st.member_by_tool(&e.tool_id)) {
+                    row.run_short = dm_webserver_domain_run::short(&m.run_id);
+                    row.run_id = m.run_id;
+                    row.member_id = m.id;
+                    row.role = m.role;
+                }
+                row.entry = e;
+                row
+            })
+            .collect();
+        write_json(&BackgroundList { background })
     }
 
     /// POST /api/tools/background/set (FR-BG-2/4/7). 모르는 도구는 404 다.
@@ -536,7 +591,9 @@ impl Server {
                 apierr::CODE_TOOL_NOT_FOUND,
             );
         }
-        // 복원 때 Run 멤버 탭을 맞추는 일(`reconcileMemberTab`)은 5.5.5 가 잇는다.
+        if !body.background {
+            self.reconcile_member_tab(&body.tool_id);
+        }
         // UX_BATCH6_SRS FR-BGP-2: 목록이 바뀌었음을 모든 구독자에게 알린다.
         self.broadcast_layout("tools_background_changed", None);
         write_json(&Ok_ { ok: true })
