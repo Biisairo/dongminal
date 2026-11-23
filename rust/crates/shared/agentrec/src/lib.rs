@@ -11,7 +11,7 @@ use dm_gocompat::json::{RawMessage, is_empty};
 use dm_gocompat::time::{json_time, zero_time};
 use dm_shared_activity as activity;
 use dm_shared_statusline as statusline;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use time::OffsetDateTime;
 
 /// 데몬의 보고 소켓 이름. 데몬 소켓과 같은 0700 폴더에 산다 (FR-ARD-20).
@@ -96,8 +96,8 @@ pub struct ActivityReport {
 
 /// `POST /api/tools/usage` 와 report.usage 의 본문.
 ///
-/// `statusline::Usage` 가 직렬화만 제공하므로 이 타입도 직렬화만 한다.
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "agentrec.UsageReport")]
 pub struct UsageReport {
     #[serde(rename = "toolId")]
     pub tool_id: String,
@@ -116,8 +116,9 @@ pub struct ReportAccount {
     pub org_uuid: String,
 }
 
-/// `POST /api/tools/subagents` 와 report.subagents 의 본문. 직렬화만 한다(UsageReport 와 같은 사정).
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+/// `POST /api/tools/subagents` 와 report.subagents 의 본문.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "agentrec.SubagentsReport")]
 pub struct SubagentsReport {
     #[serde(rename = "toolId")]
     pub tool_id: String,
@@ -195,6 +196,46 @@ impl Serialize for Usage {
     }
 }
 
+#[derive(Deserialize, Default)]
+#[serde(default, rename = "agentrec.Usage", rename_all = "camelCase")]
+struct UsageIn {
+    session_id: Option<String>,
+    version: Option<String>,
+    model: Option<statusline::Model>,
+    effort: Option<String>,
+    thinking: Option<bool>,
+    fast_mode: Option<bool>,
+    output_style: Option<String>,
+    #[serde(rename = "exceeds200k")]
+    exceeds_200k: Option<bool>,
+    cost: Option<statusline::Cost>,
+    context_window: Option<statusline::ContextWindow>,
+    rate_limits: Option<BTreeMap<String, statusline::RateWindow>>,
+    observed_at: i64,
+}
+
+impl<'de> Deserialize<'de> for Usage {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let u = UsageIn::deserialize(d)?;
+        Ok(Self {
+            usage: statusline::Usage {
+                session_id: u.session_id,
+                version: u.version,
+                model: u.model,
+                effort: u.effort,
+                thinking: u.thinking,
+                fast_mode: u.fast_mode,
+                output_style: u.output_style,
+                exceeds_200k: u.exceeds_200k,
+                cost: u.cost,
+                context_window: u.context_window,
+                rate_limits: u.rate_limits,
+            },
+            observed_at: u.observed_at,
+        })
+    }
+}
+
 impl Usage {
     /// 지금 맥락에 든 토큰 — 입력·캐시 생성·캐시 읽기의 합. 값이 하나도 없으면 `None`.
     pub fn context_tokens(&self) -> Option<f64> {
@@ -211,8 +252,9 @@ impl Usage {
     }
 }
 
-/// 서브에이전트 목록 기록. 시각은 밀리초다. 직렬화만 한다.
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+/// 서브에이전트 목록 기록. 시각은 밀리초다.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "agentrec.SubagentList")]
 pub struct SubagentList {
     pub tasks: Option<Vec<statusline::Subagent>>,
     #[serde(rename = "observedAt")]
@@ -283,8 +325,9 @@ pub fn put_subagent_activity(
     }
 }
 
-/// 에이전트 하나의 계정 한도 기록. 시각은 밀리초다. 직렬화만 한다.
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+/// 에이전트 하나의 계정 한도 기록. 시각은 밀리초다.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "agentrec.LimitRecord")]
 pub struct LimitRecord {
     pub windows: Option<BTreeMap<String, statusline::RateWindow>>,
     #[serde(rename = "observedAt")]
