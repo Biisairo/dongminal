@@ -475,3 +475,30 @@ mod push;
 mod queue;
 mod reports;
 mod wire;
+
+/// Go toolclient(웹 서버 쪽)가 Rust 데몬에 붙는다. Go 툴체인이 필요하므로 따로 켠다:
+/// `go build -o <bin> ./rust/crates/daemon/ipc/testdata/gotoolclient` 뒤
+/// `DM_GO_TOOLCLIENT=<bin> rust/scripts/hermetic.sh cargo test -p dm-daemon-ipc -- --ignored`.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "DM_GO_TOOLCLIENT 에 Go 시험 프로그램이 있어야 한다"]
+async fn go_toolclient_interop() {
+    let bin = std::env::var("DM_GO_TOOLCLIENT").expect("DM_GO_TOOLCLIENT");
+    let d = daemon("gb");
+    let cwd = d.pid.parent().unwrap().to_path_buf();
+    let sock = d.sock.clone();
+    let out = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(bin)
+            .arg(&sock)
+            .arg(&cwd)
+            .output()
+            .unwrap()
+    })
+    .await
+    .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success() && stdout.trim_end() == "OK",
+        "{stdout}\n{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
