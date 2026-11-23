@@ -64,6 +64,12 @@ pub fn edges_only(is_edge: impl Fn(&str) -> bool + Send + Sync + 'static) -> Adm
 #[derive(Debug, Clone)]
 struct PeerFingerprint(String);
 
+/// 요청을 보낸 노드의 출발지 주소다. [`Acceptor`] 가 알린 주소가 `ip:port` 가 아니면 `None` 이다.
+/// 요청 extensions 의 `SocketAddr` 로도 실린다.
+pub fn client_addr<B>(req: &Request<B>) -> Option<std::net::SocketAddr> {
+    req.extensions().get::<std::net::SocketAddr>().copied()
+}
+
 /// 요청을 보낸 노드의 지문이다. 노드 포트 밖의 요청이면 빈 값이다.
 pub fn client_fingerprint<B>(req: &Request<B>) -> &str {
     req.extensions()
@@ -306,9 +312,13 @@ impl Serve {
             .and_then(|c| c.first())
             .and_then(|c| fingerprint_of(c));
         let fp = PeerFingerprint(fp.unwrap_or_default());
+        let remote = peer.parse::<std::net::SocketAddr>().ok();
         let (admit, handler) = (self.admit.clone(), self.handler.clone());
         let svc = service_fn(move |mut req: Request<Incoming>| {
             req.extensions_mut().insert(fp.clone());
+            if let Some(a) = remote {
+                req.extensions_mut().insert(a);
+            }
             let (admit, handler) = (admit.clone(), handler.clone());
             async move { serve_one(req, &admit, &handler).await }
         });

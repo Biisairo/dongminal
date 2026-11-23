@@ -32,7 +32,7 @@ pub use identity::{
 };
 pub use limit::{Clock, PER_KEY_PER_MINUTE, RateLimiter};
 pub use listener::{
-    Acceptor, Admission, BoxFuture, Handler, ListenFn, Listener, RequestAdmit, Status,
+    Acceptor, Admission, BoxFuture, Handler, ListenFn, Listener, RequestAdmit, Status, client_addr,
     client_fingerprint, edges_only,
 };
 pub use pairing::{INVITE_PREFIX, INVITE_TTL, InviteCode, Pairing, decode_invite, encode_invite};
