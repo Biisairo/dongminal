@@ -6,6 +6,8 @@ mod files;
 mod http;
 mod parse;
 mod service;
+mod smart;
+mod view;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
