@@ -1,7 +1,7 @@
 ---
 id: "2"
 title: shared 중간
-status: split
+status: done
 deps: []
 go: []
 crates: []
