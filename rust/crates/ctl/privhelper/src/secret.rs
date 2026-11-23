@@ -19,7 +19,7 @@ const RECOVERY_RAW_BYTES: usize = 7;
 const SEED_SIZE: usize = 32;
 /// 비밀 파일의 권한이다 — root 만 읽는다 (NFR-PCH-2).
 const SECRET_MODE: u32 = 0o600;
-#[cfg(unix)]
+/// 비밀 폴더의 권한이다.
 const SECRET_DIR_MODE: u32 = 0o700;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
