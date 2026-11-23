@@ -426,3 +426,47 @@ fn go_type_names_from_consumer() {
     let none = unmarshal::<NT>(br#"{"list":null}"#).expect("ok");
     assert!(none.list.is_none());
 }
+
+// go1.27.2 실측: 구조체 필드의 null 은 채워 둔 값을 남긴다(int·string·bool·float·구조체).
+// 포인터·slice·map 은 nil 이다 — Rust 는 Option·Vec·map 의 컨테이너 기본값(None·빈 값)이 된다.
+#[test]
+fn null_field_keeps_container_default() {
+    #[derive(serde::Deserialize, Debug, PartialEq, Default)]
+    #[serde(default)]
+    struct In {
+        x: i64,
+    }
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    #[serde(default)]
+    struct C {
+        n: i64,
+        s: String,
+        b: bool,
+        p: Option<i64>,
+        l: Vec<i64>,
+        #[serde(rename = "in")]
+        inner: In,
+        f: f64,
+    }
+    impl Default for C {
+        fn default() -> Self {
+            C {
+                n: 5,
+                s: "d".into(),
+                b: true,
+                p: None,
+                l: Vec::new(),
+                inner: In { x: 7 },
+                f: 2.5,
+            }
+        }
+    }
+    let got: C =
+        unmarshal(br#"{"n":null,"s":null,"b":null,"p":null,"l":null,"in":null,"f":null}"#).unwrap();
+    assert_eq!(got, C::default());
+    // 앞의 값 뒤에 온 null 은 무시, 대소문자 무시 매칭도 같다.
+    let got: C = unmarshal(br#"{"n":3,"n":null,"S":null}"#).unwrap();
+    assert_eq!((got.n, got.s.as_str()), (3, "d"));
+    let got: C = unmarshal(br#"{"n":null,"n":4,"p":9}"#).unwrap();
+    assert_eq!((got.n, got.p), (4, Some(9)));
+}

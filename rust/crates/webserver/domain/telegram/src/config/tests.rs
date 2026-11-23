@@ -98,7 +98,7 @@ fn reads_revision1_file() {
 fn missing_fields_keep_defaults() {
     let d = tempfile::tempdir().unwrap();
     let p = d.path().join("telegram.json");
-    std::fs::write(&p, r#"{"enabled":true}"#).unwrap();
+    std::fs::write(&p, r#"{"enabled":true,"silenceMin":null}"#).unwrap();
     let c = Store::open(&p).config();
     assert!(c.enabled);
     assert_eq!(c.silence_min, DEFAULT_SILENCE_MIN);

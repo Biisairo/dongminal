@@ -444,6 +444,9 @@ fn resolve_fields<'a>(
         };
         match slot_of[fi] {
             Some(at) => merge_into(&mut out[at].1, value),
+            // Go v1: null 은 이미 있는 값을 건드리지 않는다. 없는 필드로 다뤄 컨테이너 기본값
+            // (`#[serde(default)]`)이 남고, Option 은 None 이 된다.
+            None if matches!(value.node, Node::Null) => {}
             None => {
                 slot_of[fi] = Some(out.len());
                 out.push((fields[fi].to_owned(), value));
