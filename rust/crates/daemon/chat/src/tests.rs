@@ -23,6 +23,8 @@ const PIPE_BUF: usize = 64 << 10;
 const EVENTUALLY: Duration = Duration::from_secs(3);
 const NEVER: Duration = Duration::from_millis(200);
 const POLL: Duration = Duration::from_millis(5);
+/// 바뀜 알림을 기다리는 시험이 멈췄다고 볼 때다. 퍼지는 속도를 재지 않는다 (FR-RDF-8).
+const HANG: Duration = Duration::from_secs(60);
 
 pub(crate) fn new_identity() -> (Identity, TempDir) {
     let dir = TempDir::new().unwrap();
@@ -73,6 +75,19 @@ pub(crate) async fn never(what: &str, mut cond: impl FnMut() -> bool) {
     }
 }
 
+/// 바뀜 알림마다 조건을 본다. 벽시계 시한 대신 노드의 `changed` 알림으로 나아간다 — 조건을 바꾸는
+/// 일은 모두 알림을 낸다 (FR-RDF-8).
+pub(crate) async fn on_change(n: &TestNode, what: &str, mut cond: impl FnMut() -> bool) {
+    let wait = async {
+        while !cond() {
+            n.changes.notified().await;
+        }
+    };
+    if tokio::time::timeout(HANG, wait).await.is_err() {
+        panic!("바뀜이 오지 않았다: {what} (지금 조건={})", cond());
+    }
+}
+
 pub(crate) type Got = Arc<Mutex<Vec<(String, Message)>>>;
 
 pub(crate) struct TestNode {
@@ -80,6 +95,7 @@ pub(crate) struct TestNode {
     pub mesh: Mesh,
     pub id: Identity,
     pub got: Got,
+    pub changes: Arc<tokio::sync::Notify>,
     _dir: TempDir,
 }
 
@@ -117,12 +133,16 @@ pub(crate) fn new_test_node_with(name: &str, f: impl FnOnce(&mut Options)) -> Te
     let mut o = Options::new(id.clone());
     o.mesh = Some(mesh.clone());
     o.deliver = Some(recorder(&got));
+    let changes = Arc::new(tokio::sync::Notify::new());
+    let ch = changes.clone();
+    o.changed = Some(Arc::new(move || ch.notify_one()));
     f(&mut o);
     TestNode {
         svc: Service::new(o),
         mesh,
         id,
         got,
+        changes,
         _dir: dir,
     }
 }
@@ -799,15 +819,20 @@ fn reachability_follows_links() {
         let (a, b, c) = (new_test_node("a"), new_test_node("b"), new_test_node("c"));
         let _k = link(&a, &b);
         let cut = link(&b, &c);
-        eventually("A 가 C 를 본다", || a.node_online(&c.fp())).await;
+        on_change(&a, "A 가 C 를 본다", || a.node_online(&c.fp())).await;
         cut.cancel();
-        eventually("A 가 C 를 끊김으로 본다", || {
+        on_change(&a, "A 가 C 를 끊김으로 본다", || {
             !a.node_online(&c.fp())
         })
         .await;
         assert!(a.node_online(&b.fp()), "B 까지 끊김이 됐다");
+        // C 가 옛 연결을 아직 쥐고 있으면 동시 걸기 판정이 새 연결을 버린다 — C 도 끊김을 본 뒤 잇는다.
+        on_change(&c, "C 가 B 를 끊김으로 본다", || {
+            !c.node_online(&b.fp())
+        })
+        .await;
         let _k2 = link(&c, &b);
-        eventually("C 가 돌아온다", || a.node_online(&c.fp())).await;
+        on_change(&a, "C 가 돌아온다", || a.node_online(&c.fp())).await;
     });
 }
 
