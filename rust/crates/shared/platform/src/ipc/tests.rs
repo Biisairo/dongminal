@@ -204,17 +204,17 @@ fn stream_errors_match_go() {
             break e;
         }
     };
-    // 끊긴 상대에게 쓰면 커널이 EPIPE 와 ECONNRESET 중 하나를 낸다(부하에 따라 갈린다, Go 도 같다).
-    let (kind, text) = if e.kind() == io::ErrorKind::ConnectionReset {
-        (io::ErrorKind::ConnectionReset, "connection reset by peer")
-    } else {
-        (io::ErrorKind::BrokenPipe, "broken pipe")
-    };
+    // 끊긴 상대에게 쓰면 커널이 내는 errno 는 부하·시점에 따라 갈린다(EPIPE·ECONNRESET 등, Go 도 같다).
+    // 어느 errno 든 Go 의 net.OpError 형식과 그 errno 의 Go 문구로 나와야 한다.
+    let errno = dm_gocompat::oserr::raw_os_error(&e).expect("errno");
     assert_eq!(
         e.to_string(),
-        format!("write unix {}->{unnamed}: write: {text}", s(&ep))
+        format!(
+            "write unix {}->{unnamed}: write: {}",
+            s(&ep),
+            dm_gocompat::oserr::errno_string(errno)
+        )
     );
-    assert_eq!(e.kind(), kind);
 }
 
 #[test]
