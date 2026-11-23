@@ -279,7 +279,7 @@ pub(crate) fn check_handshake(r: &Req) -> Result<String, (StatusCode, String)> {
 
 /// gorilla `returnError`: 평문 상태 문구와 `Sec-Websocket-Version`.
 pub(crate) fn handshake_error(status: StatusCode) -> Response {
-    let mut res = httpresp::http_error(status, status.canonical_reason().unwrap_or_default());
+    let mut res = httpresp::status_error(status);
     res.headers_mut()
         .insert("Sec-Websocket-Version", HeaderValue::from_static("13"));
     res

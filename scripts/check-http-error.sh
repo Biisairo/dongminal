@@ -24,8 +24,8 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 
   본문과 상태는 바뀌지 않는다 — 코드는 X-Error-Code 헤더로 간다.
 
-  지나가는 것: shared/httpresp/src/lib.rs (오류 응답의 한 문 — REFACTOR3_DEDUP_GO_SRS FR-RDG-2) ·
-  시험 파일 · 스크립트의 HTTP_ERROR_ALLOW 에 근거와 함께 적은 자리
+  지나가는 것: shared/httpresp/src/lib.rs (오류 응답의 한 문 — REFACTOR3_DEDUP_GO_SRS FR-RDG-2.
+  Go 표준의 http.NotFound·http.Error(StatusText) 자리인 not_found·status_error 도 여기 있다) · 시험 파일
 USAGE
   exit 0
 fi
@@ -39,23 +39,11 @@ if [[ -z "$all_src" ]]; then
   exit 1
 fi
 
-# Go 판에서 표준 라이브러리·의존이 직접 쓰던 평문 응답을 같은 바이트로 흉내 내는 자리다.
-# Go 판의 제품 코드에는 `http.Error` 가 없었다 — 이 셋은 `http.NotFound`·`http.FileServer`·
-# gorilla/websocket 업그레이더 안쪽의 `http.Error` 자리다.
-HTTP_ERROR_ALLOW=(
-  "rust/crates/webserver/httpapi/src/serve.rs"           # mux 의 404 page not found
-  "rust/crates/webserver/httpapi/src/static_assets.rs"   # http.FileServer 의 404 page not found
-  "rust/crates/webserver/httpapi/src/ws.rs"              # 업그레이드 거절 (gorilla/websocket)
-)
-
 # **주석은 지나간다.** 사실을 서술한 문장에서 그 이름을 지우면 근거가 사라진다 —
 # `check-agent-names.sh` 가 같은 규칙을 쓴다. 재는 것은 실행 코드다.
 all_http_error=$(printf '%s\n' "$all_src" | xargs perl "$CALLS" 'http_error' \
   | grep -v '^rust/crates/shared/httpresp/src/lib\.rs:' || true)
 hits=$all_http_error
-for f in "${HTTP_ERROR_ALLOW[@]}"; do
-  hits=$(printf '%s\n' "$hits" | grep -vF "$f:" || true)
-done
 
 if [[ -n "$hits" ]]; then
   echo "http.Error 를 직접 부르는 자리가 있습니다 (FR-ERR-3):"
