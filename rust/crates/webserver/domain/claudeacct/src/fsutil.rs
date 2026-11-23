@@ -3,9 +3,11 @@
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use dm_gocompat::oserr::path_error;
+use dm_shared_platform::{FileLock, LockError};
+use tokio::runtime::{Handle, RuntimeFlavor};
 
 fn s(p: &Path) -> String {
     p.to_string_lossy().into_owned()
@@ -86,4 +88,19 @@ pub(crate) fn chtimes(p: &Path, t: SystemTime) -> io::Result<()> {
     let f = o.open(p).map_err(|e| path_error("chtimes", &s(p), e))?;
     f.set_times(fs::FileTimes::new().set_accessed(t).set_modified(t))
         .map_err(|e| path_error("chtimes", &s(p), e))
+}
+
+/// 락 대기·키체인 같은 블로킹 호출을 tokio 작업 스레드 밖에서 부른다 (FR-RDF-2). 다중 스레드
+/// 런타임의 작업 스레드면 그 스레드의 다른 task 를 다른 스레드로 넘기고 f 를 부른다. 그 밖(blocking
+/// 풀, 런타임 밖, current_thread 런타임)에서는 그대로 부른다.
+pub(crate) fn off_worker<T>(f: impl FnOnce() -> T) -> T {
+    match Handle::try_current() {
+        Ok(h) if h.runtime_flavor() == RuntimeFlavor::MultiThread => tokio::task::block_in_place(f),
+        _ => f(),
+    }
+}
+
+/// 작업 스레드를 막지 않는 [`dm_shared_platform::lock_file`] 이다.
+pub(crate) fn lock_file(path: &Path, timeout: Duration) -> Result<FileLock, LockError> {
+    off_worker(|| dm_shared_platform::lock_file(path, timeout))
 }

@@ -149,11 +149,8 @@ impl Service {
 
     fn update_mappings(&self, f: impl FnOnce(&mut Mappings) -> bool) -> Result<bool, Error> {
         fsutil::mkdir_all(&self.dir, DIR_MODE)?;
-        let _lock = dm_shared_platform::lock_file(
-            &self.dir.join(MAPPINGS_LOCK_FILE),
-            self.store.lock_timeout,
-        )
-        .map_err(|e| Error::new(e.to_string()))?;
+        let _lock = fsutil::lock_file(&self.dir.join(MAPPINGS_LOCK_FILE), self.store.lock_timeout)
+            .map_err(|e| Error::new(e.to_string()))?;
         let mut m = self.load_mappings()?;
         if !f(&mut m) {
             return Ok(false);

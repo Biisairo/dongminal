@@ -5,6 +5,7 @@ mod creds;
 mod engine;
 mod files;
 mod http;
+mod offload;
 mod parse;
 mod service;
 mod smart;
