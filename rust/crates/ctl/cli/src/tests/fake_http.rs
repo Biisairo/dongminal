@@ -14,6 +14,19 @@ pub(crate) struct FakeServer {
 impl FakeServer {
     /// `POST /api/server/bind` 에는 status·reply 를, `/api/ping` 에는 200 을, 나머지에는 404 를 준다.
     pub(crate) fn start(status: u16, reply: &'static str) -> Self {
+        Self::spawn(status, reply, None)
+    }
+
+    /// `/api/health` 에 body 를 준다.
+    pub(crate) fn start_health(body: &'static str) -> Self {
+        Self::spawn(200, "", Some(body))
+    }
+
+    pub(crate) fn url(&self) -> String {
+        format!("http://{}", self.addr)
+    }
+
+    fn spawn(status: u16, reply: &'static str, health: Option<&'static str>) -> Self {
         let ln = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = ln.local_addr().unwrap();
         let bodies = Arc::new(Mutex::new(Vec::new()));
@@ -21,7 +34,7 @@ impl FakeServer {
         std::thread::spawn(move || {
             for conn in ln.incoming() {
                 let Ok(conn) = conn else { return };
-                serve_one(conn, status, reply, &seen);
+                serve_one(conn, status, reply, health, &seen);
             }
         });
         Self {
@@ -36,7 +49,13 @@ impl FakeServer {
     }
 }
 
-fn serve_one(conn: TcpStream, status: u16, reply: &str, seen: &Mutex<Vec<String>>) {
+fn serve_one(
+    conn: TcpStream,
+    status: u16,
+    reply: &str,
+    health: Option<&str>,
+    seen: &Mutex<Vec<String>>,
+) {
     let mut r = BufReader::new(conn.try_clone().unwrap());
     let mut line = String::new();
     if r.read_line(&mut line).is_err() {
@@ -66,7 +85,8 @@ fn serve_one(conn: TcpStream, status: u16, reply: &str, seen: &Mutex<Vec<String>
                 .push(String::from_utf8_lossy(&body).into_owned());
             (status, reply)
         }
-        (_, "/api/ping") => (200, ""),
+        (_, "/api/health") if health.is_some() => (200, health.unwrap_or_default()),
+        (_, "/api/ping" | "/") => (200, ""),
         _ => (404, ""),
     };
     let mut w = conn;

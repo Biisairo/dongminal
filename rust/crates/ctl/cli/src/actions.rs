@@ -18,17 +18,31 @@ use crate::options::{
     parse_window,
 };
 use crate::pending::not_ported;
+use crate::proc::Procs;
 use crate::rollback::parse_rollback;
 use crate::service::parse_service;
+use crate::staleness::DAEMON_BUILD;
 use crate::uninstall::parse_uninstall;
 use crate::update::parse_update;
 use crate::version::{parse_version, run_version, usage_version};
 use crate::window::run_window_in;
+use crate::{doctor, health, migrate, service, start, stop, uninstall};
 
-/// 서버를 이 프로세스로 실행하는 콜백이다 (`start --foreground`). 인자는 home·host·port 다.
-pub type Serve = dyn Fn(&str, &str, &str) -> i32;
+/// `start --foreground` 가 이 프로세스로 띄울 서버다.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ServeTarget<'a> {
+    pub home: &'a str,
+    pub host: &'a str,
+    pub port: &'a str,
+    /// 도구 셸이 자기 홈으로 쓸 자리다. 격리 기동에서만 차고, 비면 사용자 홈이다. Go 는 이것을
+    /// `DONGMINAL_TOOL_HOME` 으로 프로세스 환경에 심었다 — Rust 는 환경을 바꾸지 않고 넘긴다.
+    pub tool_home: &'a str,
+}
 
-type RunFn = fn(&[String], &Env<'_>, &Serve, &mut dyn Write, &mut dyn Write) -> i32;
+/// 서버를 이 프로세스로 실행하는 콜백이다. cmd/dongminal 이 준다.
+pub type Serve<'a> = dyn Fn(&ServeTarget<'_>) -> i32 + 'a;
+
+type RunFn = fn(&[String], &Env<'_>, &Serve<'_>, &mut dyn Write, &mut dyn Write) -> i32;
 
 pub(crate) struct Action {
     /// argv[1] 이다.
@@ -41,7 +55,6 @@ pub(crate) struct Action {
     run: RunFn,
 }
 
-const ISSUE_LIFECYCLE: &str = "6.1.2";
 const ISSUE_UPDATE: &str = "6.1.3";
 
 pub(crate) fn actions() -> Vec<Action> {
@@ -50,9 +63,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "start",
             brief: "서버를 띄운다 (필요하면 dongminald 도 함께)",
             usage: usage_start,
-            run: |rest, _, _, out, err| {
-                drive("start", parse_start(rest), out, err, |_, _, err| {
-                    not_ported("start", ISSUE_LIFECYCLE, err)
+            run: |rest, env, serve, out, err| {
+                drive("start", parse_start(rest), out, err, |o, out, err| {
+                    start::run_start_in(&o, env, &Procs::platform(), serve, out, err)
                 })
             },
         },
@@ -60,9 +73,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "stop",
             brief: "서버를 정지한다",
             usage: usage_stop,
-            run: |rest, _, _, out, err| {
-                drive("stop", parse_stop(rest), out, err, |_, _, err| {
-                    not_ported("stop", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("stop", parse_stop(rest), out, err, |o, out, err| {
+                    stop::run_stop_in(&o, env, &Procs::platform(), out, err)
                 })
             },
         },
@@ -70,9 +83,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "migrate",
             brief: "워크스페이스 데이터를 최신 스키마로 변환한다 (1회성)",
             usage: usage_migrate,
-            run: |rest, _, _, out, err| {
-                drive("migrate", parse_migrate(rest), out, err, |_, _, err| {
-                    not_ported("migrate", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("migrate", parse_migrate(rest), out, err, |o, out, err| {
+                    migrate::run_migrate_in(&o, env, out, err)
                 })
             },
         },
@@ -120,19 +133,23 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "uninstall",
             brief: "무엇을 지울지 보이고, --yes 가 있을 때만 지운다 (G3-4)",
             usage: usage_uninstall,
-            run: |rest, _, _, out, err| {
-                drive("uninstall", parse_uninstall(rest), out, err, |_, _, err| {
-                    not_ported("uninstall", ISSUE_LIFECYCLE, err)
-                })
+            run: |rest, env, _, out, err| {
+                drive(
+                    "uninstall",
+                    parse_uninstall(rest),
+                    out,
+                    err,
+                    |o, out, err| uninstall::run_uninstall_in(&o, env, out, err),
+                )
             },
         },
         Action {
             name: "service",
             brief: "이 OS 의 감독자(launchd·systemd)에 넣을 정의를 만든다 (SEC-23)",
             usage: usage_service,
-            run: |rest, _, _, out, err| {
-                drive("service", parse_service(rest), out, err, |_, _, err| {
-                    not_ported("service", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("service", parse_service(rest), out, err, |o, out, err| {
+                    service::run_service_in(&o, env, out, err)
                 })
             },
         },
@@ -160,9 +177,16 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "health",
             brief: "서버와 dongminald 의 상태를 확인한다",
             usage: usage_health,
-            run: |rest, _, _, out, err| {
-                drive("health", parse_health(rest), out, err, |_, _, err| {
-                    not_ported("health", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("health", parse_health(rest), out, err, |o, out, err| {
+                    health::run_health_in(
+                        &o,
+                        env,
+                        dm_shared_platform::current().process,
+                        DAEMON_BUILD,
+                        out,
+                        err,
+                    )
                 })
             },
         },
@@ -170,9 +194,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "doctor",
             brief: "이 호스트에서 플랫폼 계층이 동작하는지 확인한다",
             usage: usage_doctor,
-            run: |rest, _, _, out, err| {
-                drive("doctor", parse_doctor(rest), out, err, |_, _, err| {
-                    not_ported("doctor", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("doctor", parse_doctor(rest), out, err, |o, out, err| {
+                    doctor::run_doctor_in(&o, env, out, err)
                 })
             },
         },
@@ -226,7 +250,7 @@ pub fn action_names() -> Vec<&'static str> {
 /// 액션을 해석해 실행한다 (FR-CLI-1..7). args 는 프로그램 이름을 뺀 인자다.
 pub fn dispatch(
     args: &[String],
-    serve: &Serve,
+    serve: &Serve<'_>,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> i32 {
@@ -236,7 +260,7 @@ pub fn dispatch(
 pub(crate) fn dispatch_in(
     args: &[String],
     env: &Env<'_>,
-    serve: &Serve,
+    serve: &Serve<'_>,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> i32 {

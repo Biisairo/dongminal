@@ -1,10 +1,19 @@
 mod config;
 mod dispatch;
+mod doctor;
 mod fake_http;
 mod golden;
+mod health;
 mod homelayout;
 mod logcap;
+mod migrate;
 mod options;
+mod proc;
+mod service;
+mod shellwait;
+mod staleness;
+mod start;
+mod uninstall;
 mod window;
 
 use std::collections::HashMap;
@@ -17,7 +26,7 @@ pub(crate) fn args(a: &[&str]) -> Vec<String> {
 }
 
 /// 서버를 띄우려 하면 곧바로 드러나게 한다 — 이 검사들의 어느 입력도 서버를 띄워서는 안 된다.
-fn no_serve(_: &str, _: &str, _: &str) -> i32 {
+fn no_serve(_: &crate::ServeTarget<'_>) -> i32 {
     panic!("serve 가 불렸다")
 }
 
