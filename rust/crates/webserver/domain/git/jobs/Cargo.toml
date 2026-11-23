@@ -15,3 +15,13 @@ dm-shared-uuid = { path = "../../../../shared/uuid" }
 dm-webserver-domain-git-core = { path = "../core" }
 dm-webserver-domain-git-query = { path = "../query" }
 dm-webserver-domain-git-write = { path = "../write" }
+dm-gocompat = { path = "../../../../gocompat" }
+serde = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+dm-shared-gittest = { path = "../../../../shared/gittest" }
+dm-shared-platform = { path = "../../../../shared/platform" }
+dm-shared-testpath = { path = "../../../../shared/testpath" }
+serde_json = { workspace = true }
+tempfile = { workspace = true }

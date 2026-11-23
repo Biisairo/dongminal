@@ -84,7 +84,7 @@ pub async fn clean_untracked(
 }
 
 /// 지운 파일이 남긴 빈 디렉터리를 저장소 루트 앞까지 걷어낸다.
-fn remove_empty_parents(repo: &str, paths: &[String]) {
+pub(crate) fn remove_empty_parents(repo: &str, paths: &[String]) {
     let top = filepath::clean(repo);
     for p in paths {
         let mut dir = filepath::dir(&filepath::join(&[top.as_str(), &filepath::from_slash(p)]));
