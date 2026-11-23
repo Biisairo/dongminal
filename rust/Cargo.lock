@@ -1024,10 +1024,18 @@ dependencies = [
 name = "dm-webserver-domain-git-query"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-editorlimit",
  "dm-shared-mimeprobe",
+ "dm-shared-platform",
  "dm-shared-textenc",
  "dm-webserver-domain-git-core",
+ "hex",
+ "regex",
+ "serde",
+ "sha2",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
