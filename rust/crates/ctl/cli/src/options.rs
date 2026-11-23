@@ -208,7 +208,7 @@ impl Target {
 }
 
 /// 선행 `~/` 만 사용자 홈으로 편다. 사용자 홈을 모르면 그대로 둔다.
-fn expand_tilde(p: &str, env: &Env<'_>) -> String {
+pub(crate) fn expand_tilde(p: &str, env: &Env<'_>) -> String {
     if (p == "~" || p.starts_with("~/"))
         && let Ok(h) = env.user_home_dir()
     {

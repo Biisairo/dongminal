@@ -17,7 +17,6 @@ use crate::options::{
     ParseError, parse_doctor, parse_health, parse_migrate, parse_start, parse_stop, parse_verify,
     parse_window,
 };
-use crate::pending::not_ported;
 use crate::proc::Procs;
 use crate::rollback::parse_rollback;
 use crate::service::parse_service;
@@ -26,7 +25,9 @@ use crate::uninstall::parse_uninstall;
 use crate::update::parse_update;
 use crate::version::{parse_version, run_version, usage_version};
 use crate::window::run_window_in;
-use crate::{backup, doctor, health, migrate, rollback, service, start, stop, uninstall, update};
+use crate::{
+    backup, doctor, health, migrate, rollback, service, start, stop, uninstall, update, verify,
+};
 
 /// `start --foreground` 가 이 프로세스로 띄울 서버다.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -54,8 +55,6 @@ pub(crate) struct Action {
     /// 파싱과 실행을 함께 감싼다.
     run: RunFn,
 }
-
-const ISSUE_UPDATE: &str = "6.1.3";
 
 pub(crate) fn actions() -> Vec<Action> {
     vec![
@@ -204,9 +203,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "verify",
             brief: "격리 인스턴스를 띄워 종단간 표면을 훑는다 (개발·CI)",
             usage: usage_verify,
-            run: |rest, _, _, out, err| {
-                drive("verify", parse_verify(rest), out, err, |_, _, err| {
-                    not_ported("verify", ISSUE_UPDATE, err)
+            run: |rest, env, _, out, err| {
+                drive("verify", parse_verify(rest), out, err, |o, out, err| {
+                    verify::run_verify_in(&o, env, out, err)
                 })
             },
         },

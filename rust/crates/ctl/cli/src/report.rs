@@ -7,6 +7,7 @@ use std::io::Write;
 pub(crate) struct CheckReport<'a> {
     out: &'a mut dyn Write,
     pub(crate) fail: usize,
+    pub(crate) skip: usize,
     /// 실패 줄을 모은다. 사용자가 꼬리만 붙여도 답이 실리게 마지막에 다시 찍는다.
     pub(crate) bads: Vec<String>,
 }
@@ -16,6 +17,7 @@ impl<'a> CheckReport<'a> {
         Self {
             out,
             fail: 0,
+            skip: 0,
             bads: Vec::new(),
         }
     }
@@ -33,6 +35,17 @@ impl<'a> CheckReport<'a> {
         let _ = writeln!(self.out, "  ❌ {line}");
         self.bads.push(line);
         self.fail += 1;
+    }
+
+    /// 검사를 돌리지 않았음을 **남긴다** — 침묵과 구별되는 것이 요점이다 (FR-E2S-4).
+    pub(crate) fn skipped(&mut self, name: &str, reason: &str) {
+        let _ = writeln!(self.out, "  ⏭  {name} — {reason}");
+        self.skip += 1;
+    }
+
+    /// 보고서가 쓰는 출력이다 — 요약처럼 형식 밖의 줄을 같은 자리에 쓴다.
+    pub(crate) fn out(&mut self) -> &mut dyn Write {
+        self.out
     }
 
     pub(crate) fn section(&mut self, title: impl Display) {

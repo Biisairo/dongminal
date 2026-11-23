@@ -459,8 +459,13 @@ fn start_detached(
 
 /// /api/ping 이 응답할 때까지 기다린다. READY_TRIES×READY_INTERVAL 이 상한이다 (M8 D-A-15).
 fn wait_ready(url: &str) -> bool {
+    wait_ready_for(url, READY_TRIES, READY_INTERVAL)
+}
+
+/// /api/ping 이 응답할 때까지 tries×interval 동안 기다린다.
+pub(crate) fn wait_ready_for(url: &str, tries: u32, interval: Duration) -> bool {
     let ping_url = format!("{url}{}", apipath::PING);
-    poll_until(READY_INTERVAL * READY_TRIES, READY_INTERVAL, || {
+    poll_until(interval * tries, interval, || {
         ping(&ping_url, ALIVE_POLL_TIMEOUT)
     })
 }

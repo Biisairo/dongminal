@@ -19,6 +19,7 @@ use zip::{CompressionMethod, ZipWriter};
 use crate::env::Env;
 use crate::logcap::HOME_LOGS;
 use crate::options::DoctorOpts;
+use crate::redact::redact_secrets;
 use crate::version::{GO_RUNTIME, VERSION};
 
 /// 로그마다 담는 끝부분의 크기다. 전문을 담으면 번들이 커지고 비밀이 들어갈 면도 넓어진다.
@@ -54,9 +55,10 @@ pub(crate) fn run_doctor_bundle(
     let mut z = ZipWriter::new(f);
     let opts = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     let mut add = |name: &str, body: &str| {
-        // **모든 항목이 마스킹을 지난다.** 자리마다 고르면 새로 더한 자리가 빠진다.
+        // **모든 항목이 마스킹을 지난다.** 자리마다 고르면 새로 더한 자리가 빠진다. URL userinfo 는
+        // 저장소의 유일한 규칙이 가리고, 나머지 비밀 모양은 번들 전용 가림이 가린다 (FR-RSP-6).
         if z.start_file(name, opts).is_ok() {
-            let _ = z.write_all(sanitize_remote(body).as_bytes());
+            let _ = z.write_all(redact_secrets(&sanitize_remote(body)).as_bytes());
         }
     };
 

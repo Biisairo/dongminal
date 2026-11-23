@@ -473,6 +473,7 @@ dependencies = [
  "dm-shared-toolhub",
  "dm-shared-toolipc",
  "dm-webserver-domain-git-core",
+ "regex",
  "reqwest",
  "rustls",
  "serde",
