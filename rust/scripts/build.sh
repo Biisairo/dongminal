@@ -41,7 +41,7 @@ $(printf '  %s\n' "${TARGETS[@]}")
 
 환경 변수:
   VERSION=v1.0.0   판을 새긴다 (DONGMINAL_BUILD_VERSION). 비면 dev
-  BINARY, DIST     출력 이름·위치 (rust/ 기준)
+  BINARY, DIST     출력 이름·위치 (DIST 는 rust/ 기준 상대 경로나 절대 경로)
 
 새기는 값:
   · 판          DONGMINAL_BUILD_VERSION ← VERSION
@@ -100,9 +100,14 @@ if [[ -z "$TARGET" ]]; then
   host="$(rustc -vV | sed -n 's/^host: //p')"
   out="$DIST/$BINARY"
   build_one "$host" "$out"
-  echo "빌드 완료: rust/$out"
+  # DIST 는 rust/ 기준 상대 경로이거나 절대 경로다.
+  case "$out" in
+    /*) shown="$out" run="$out" ;;
+    *) shown="rust/$out" run="./$out" ;;
+  esac
+  echo "빌드 완료: $shown"
   # FR-DFP-7: 방금 만든 것으로 재실행할 때 데몬을 갈아야 하는지 방금 만든 바이너리에게 묻는다.
-  "./$out" health --daemon || true
+  "$run" health --daemon || true
 else
   printf '%s\n' "${TARGETS[@]}" | grep -qx "$TARGET" \
     || die "지원하지 않는 대상입니다: $TARGET"

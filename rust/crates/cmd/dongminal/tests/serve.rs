@@ -89,3 +89,62 @@ fn foreground_serve_sets_home_env_before_threads() {
         "clean"
     );
 }
+
+fn get_body(port: u16, path: &str) -> Option<String> {
+    let mut s = TcpStream::connect(("127.0.0.1", port)).ok()?;
+    let _ = s.set_read_timeout(Some(Duration::from_secs(2)));
+    let req = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
+    s.write_all(req.as_bytes()).ok()?;
+    let mut out = String::new();
+    let _ = s.read_to_string(&mut out);
+    out.starts_with("HTTP/1.1 200")
+        .then(|| out.split_once("\r\n\r\n").map(|(_, b)| b.to_owned()))
+        .flatten()
+}
+
+// DIFF(8.2-fix): `DONGMINAL_NO_UPDATE_CHECK=1` 이 판 확인을 끈다(UPDATE_NOTICE_SRS 킬스위치). Go 기준선은
+// Getenv 를 넘기지 않아 이 변수가 먹지 않았다. 설정의 updateCheck 는 기본값(켜짐) 그대로 둔다.
+#[cfg(unix)]
+#[test]
+fn no_update_check_env_disables_update_check() {
+    const PORT2: u16 = 60412;
+    let d = tempfile::Builder::new().prefix("dm").tempdir().unwrap();
+    let home = d.path().join("h");
+    let mut c = Command::new(BIN);
+    c.args([
+        "start",
+        "--foreground",
+        "--home",
+        home.to_str().unwrap(),
+        "--port",
+        &PORT2.to_string(),
+    ]);
+    for (k, _) in std::env::vars_os() {
+        if k.to_string_lossy().starts_with("DONGMINAL_") {
+            c.env_remove(k);
+        }
+    }
+    c.env("DONGMINAL_NO_UPDATE_CHECK", "1")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    let mut child = c.spawn().unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let mut body = None;
+    while Instant::now() < deadline {
+        if health_ok(PORT2) {
+            body = get_body(PORT2, "/api/update");
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    term(child.id());
+    let _ = child.wait();
+    if let Ok(pid) = std::fs::read_to_string(home.join("paned.pid"))
+        && let Ok(pid) = pid.trim().parse::<u32>()
+    {
+        term(pid);
+    }
+    let body = body.expect("서버가 서지 않았다");
+    assert!(body.contains(r#""enabled":false"#), "{body}");
+}
