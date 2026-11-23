@@ -478,15 +478,16 @@ fn mesh_unavailable() -> Response {
     )
 }
 
-/// 간선 계층의 걸기 실패다. Go 는 `%w` 사슬로 edge 오류를 가려내지만, MeshError 는 원인을
-/// 문구로만 들므로 edge 의 고정 문구로 가린다.
-fn mesh_call_fail(err: &edgemesh::MeshError) -> Response {
+/// 간선 계층의 걸기 실패다. Go `callFail` 처럼 감싼 원인(`%w`)으로 가리고, 문구는 감싼 오류
+/// 전체다. 원격 거절은 그 코드와 정리한 상대 문구로 답한다.
+pub(crate) fn mesh_call_fail(err: &edgemesh::MeshError) -> Response {
     let msg = err.to_string();
-    if msg.ends_with(&edge::CallError::FingerprintMismatch.to_string()) {
-        return call_fail(&edge::CallError::FingerprintMismatch);
+    match err.call_error() {
+        Some(edge::CallError::FingerprintMismatch) => {
+            fail(StatusCode::BAD_GATEWAY, edge::CODE_FP_MISMATCH, &msg)
+        }
+        Some(edge::CallError::Rejected) => fail(StatusCode::BAD_GATEWAY, edge::CODE_REJECTED, &msg),
+        Some(ce @ edge::CallError::Remote(re)) if !re.code.is_empty() => call_fail(ce),
+        _ => fail(StatusCode::BAD_GATEWAY, edge::CODE_UNREACHABLE, &msg),
     }
-    if msg.ends_with(&edge::CallError::Rejected.to_string()) {
-        return call_fail(&edge::CallError::Rejected);
-    }
-    fail(StatusCode::BAD_GATEWAY, edge::CODE_UNREACHABLE, &msg)
 }

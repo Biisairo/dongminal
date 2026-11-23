@@ -60,7 +60,7 @@ impl MeshError {
     }
 
     /// 걸기 실패를 감싼다. 원인은 [`MeshError::call_error`] 로 꺼낸다 (Go `%w`).
-    pub(crate) fn wrap_call(kind: ErrorKind, cause: CallError) -> Self {
+    pub fn with_call(kind: ErrorKind, cause: CallError) -> Self {
         Self {
             kind,
             cause: Some(cause.to_string()),
