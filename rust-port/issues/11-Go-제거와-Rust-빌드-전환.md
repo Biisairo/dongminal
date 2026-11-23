@@ -5,7 +5,7 @@ status: in-progress
 deps: ["10"]
 go: []
 crates: []
-owner: ""
+owner: "6f379635-59d2-4d38-b1f3-8de17e180cc5"
 branch: rp/11
 ---
 
@@ -24,3 +24,6 @@ branch: rp/11
 3. 마지막에 Go 를 지우고(git rm), 빌드·e2e·게이트 전부를 Rust 만으로 돌려 통과시킨다.
 
 ## 진행 기록
+
+### 11.0 착수 (2026-11-24, 6f379635)
+- 시작 prod-pids: `38173 start --foreground` / `58470 d --handover-fd`
