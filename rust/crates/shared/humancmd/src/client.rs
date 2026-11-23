@@ -67,22 +67,25 @@ impl Client {
             .ipc
             .dial(&self.path, wait)
             .map_err(|_| Error::no_helper())?;
-        let mut d = Deadline {
-            conn: &conn,
-            at: Instant::now() + wait,
-        };
-        round_trip(&mut d, req)
+        round_trip(&mut Deadline::new(&conn, wait), req)
     }
 }
 
-/// Go `conn.SetDeadline(now+wait)`: 왕복 전체에 걸린 절대 마감이다. 읽기·쓰기마다 남은 시간을
-/// 시간 제한으로 건다.
-struct Deadline<'a> {
+/// Go `conn.SetDeadline(now+wait)`: 연결 전체에 걸린 절대 마감이다. 읽기·쓰기마다 남은 시간을
+/// 시간 제한으로 건다. 느린 송신으로 연결을 마감 너머까지 붙들 수 없다.
+pub struct Deadline<'a> {
     conn: &'a IpcStream,
     at: Instant,
 }
 
-impl Deadline<'_> {
+impl<'a> Deadline<'a> {
+    pub fn new(conn: &'a IpcStream, wait: Duration) -> Self {
+        Self {
+            conn,
+            at: Instant::now() + wait,
+        }
+    }
+
     fn remaining(&self) -> io::Result<Duration> {
         let left = self.at.saturating_duration_since(Instant::now());
         if left.is_zero() {
