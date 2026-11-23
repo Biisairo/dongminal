@@ -74,30 +74,6 @@ fn probe_bin_failure_does_not_touch_home() {
     );
 }
 
-// --bundle 은 6.1.3 몫이다 — 그때까지 임시 안내로 끝난다.
-#[test]
-fn bundle_is_pending() {
-    let d = tempfile::tempdir().unwrap();
-    let o = DoctorOpts {
-        common: Common {
-            home: d.path().to_str().unwrap().to_owned(),
-            ..Common::default()
-        },
-        bundle: d.path().join("b.zip").to_str().unwrap().to_owned(),
-        ..DoctorOpts::default()
-    };
-    let (mut out, mut err) = (Vec::new(), Vec::new());
-    let code = with_env(&Vars::home(d.path()), |env| {
-        run_doctor_in(&o, env, &mut out, &mut err)
-    });
-    assert_eq!(code, 1);
-    assert!(out.is_empty());
-    assert_eq!(
-        String::from_utf8(err).unwrap(),
-        "dongminal doctor --bundle: Rust 판에는 아직 없습니다 (rust-port 6.1.3)\n"
-    );
-}
-
 // 검사용 임시 bin 은 운영 홈 밖이고, 끝나면 사라진다 (FR-HLI-5).
 #[test]
 fn probe_bin_is_temporary() {

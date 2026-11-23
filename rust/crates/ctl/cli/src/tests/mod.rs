@@ -1,4 +1,5 @@
 mod backup;
+mod bundle;
 mod config;
 mod dispatch;
 mod doctor;

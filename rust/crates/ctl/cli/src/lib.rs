@@ -4,6 +4,7 @@
 
 mod actions;
 mod backup;
+mod bundle;
 mod config;
 mod config_bind;
 mod doctor;
