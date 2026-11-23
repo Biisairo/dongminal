@@ -116,10 +116,14 @@ fn cell_escapes_and_cuts() {
     assert_eq!(cell(&"가".repeat(140)), "가".repeat(140));
 }
 
-/// 저장소의 생성물 `docs/internal/decisions.md` 는 Go 기준선의 `gen-decisions` 가 만든 것이다.
-/// 같은 원천에서 Rust 가 만든 문서가 그것과 **바이트 단위로** 같아야 한다.
+/// 저장소의 생성물 `docs/internal/decisions.md` 와 같은 원천에서 만든 문서가 **바이트 단위로** 같아야 한다.
 #[test]
-fn render_matches_go_generated_index() {
+fn header_names_generate_command() {
+    assert!(HEADER.contains(&format!("`{GENERATE}`")));
+}
+
+#[test]
+fn render_matches_committed_index() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");
     let dir = root.join("docs/internal");
     let want = std::fs::read_to_string(dir.join("decisions.md")).expect("decisions.md");
