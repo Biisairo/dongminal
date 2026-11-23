@@ -329,6 +329,16 @@ impl Conn {
     fn run_queued(&self, key: &str, f: impl FnOnce() + Send + 'static) -> bool {
         SerialQueue::run(&self.tool_queue, key, Box::new(f))
     }
+
+    #[cfg(test)]
+    pub fn dropped(&self) -> i64 {
+        self.dropped.load(Ordering::SeqCst)
+    }
+
+    #[cfg(test)]
+    pub fn tool_busy(&self, key: &str) -> bool {
+        self.tool_queue.busy(key)
+    }
 }
 
 /// 도구별 직렬 큐다. 도구 하나의 입력이 순서를 지키고, 한 도구가 밀려도 다른 도구는 서지 않는다.

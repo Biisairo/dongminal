@@ -89,7 +89,7 @@ impl Raw {
 
     fn recv(&mut self) -> String {
         let mut s = String::new();
-        self.r.read_line(&mut s).unwrap();
+        assert!(self.r.read_line(&mut s).unwrap() > 0, "연결이 닫혔다");
         s.trim_end_matches('\n').to_owned()
     }
 
@@ -97,6 +97,37 @@ impl Raw {
         self.send(line);
         self.recv()
     }
+
+    /// id 의 응답이 올 때까지 읽는다. 사이의 push 는 버린다.
+    fn recv_id(&mut self, id: i64) -> String {
+        let p = format!("{{\"id\":{id},");
+        loop {
+            let l = self.recv();
+            if l.starts_with(&p) {
+                return l;
+            }
+        }
+    }
+
+    /// hello 로 서버가 말하는 기능을 알린다. 응답이 오면 연결이 데몬에 실린 것이다.
+    fn hello(&mut self, features: &[&str]) {
+        let f = features
+            .iter()
+            .map(|f| format!("\"{f}\""))
+            .collect::<Vec<_>>()
+            .join(",");
+        let got = self.call(&format!(
+            r#"{{"id":99,"method":"hello","params":{{"features":[{f}]}}}}"#
+        ));
+        assert!(got.starts_with(r#"{"id":99,"result""#), "{got}");
+    }
+}
+
+/// 지금 데몬에 실린 서버 연결이다.
+fn curr(d: &Daemon) -> Arc<crate::conn::Conn> {
+    crate::conn::lock(&d.srv.inner.curr)
+        .clone()
+        .expect("연결이 실리지 않았다")
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -437,3 +468,10 @@ async fn rust_toolclient_interop() {
     assert!(raw.global.is_empty());
     pc.close();
 }
+
+mod fake;
+mod features;
+mod push;
+mod queue;
+mod reports;
+mod wire;

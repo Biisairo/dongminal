@@ -593,6 +593,7 @@ dependencies = [
  "dm-shared-edge",
  "dm-shared-edgenode",
  "dm-shared-handover",
+ "dm-shared-outbuf",
  "dm-shared-platform",
  "dm-shared-toolhub",
  "dm-shared-toolipc",

@@ -28,6 +28,7 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 
 [dev-dependencies]
+dm-shared-outbuf = { path = "../../shared/outbuf" }
 dm-webserver-toolclient = { path = "../../webserver/toolclient" }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
