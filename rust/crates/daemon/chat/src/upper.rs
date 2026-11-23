@@ -286,13 +286,13 @@ impl Service {
     }
 }
 
-/// 가득 찬 번호 기억에서 밀어낼 것 — 밀어낼 수 있는 번호 가운데 가장 오래된 것이다. 규칙은 간선
-/// 계층과 같다.
+/// 가득 찬 번호 기억에서 밀어낼 것 — 닿은 적 없는 번호를 먼저, 그 안에서 가장 오래된 것을 고른다.
+/// 규칙은 간선 계층과 같다.
 fn junk_mark(st: &State, now: OffsetDateTime) -> Option<String> {
     st.marks
         .iter()
         .filter(|(_, v)| mark_expendable(v.reached, v.at, now))
-        .min_by_key(|(_, v)| v.at)
+        .min_by_key(|(_, v)| (v.reached, v.at))
         .map(|(k, _)| k.clone())
 }
 

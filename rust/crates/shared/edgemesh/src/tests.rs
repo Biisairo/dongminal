@@ -1687,3 +1687,31 @@ fn mark_reached_ttl_is_three_redials() {
     assert_eq!(MARK_REACHED_TTL, REDIAL_MAX * 3);
     assert_eq!(MARK_REACHED_TTL, Duration::from_secs(180));
 }
+
+// FR-RDF-1: 가득 찬 기억에서는 닿은 적 없는 번호를 수명이 지난 닿은 번호보다 먼저 밀어낸다.
+#[test]
+fn unreached_marks_pushed_out_first() {
+    mt().block_on(async {
+        let (a, mut f, _x, _dx) = marks_fixture().await;
+        let t0 = OffsetDateTime::from_unix_timestamp(T0).unwrap();
+        let later = t0 + MARK_REACHED_TTL;
+        fill_marks_at(&a, true, t0);
+        let junk = format!("{:064x}", 0);
+        a.inner.lock().net.marks.get_mut(&junk).unwrap().reached = false;
+        a.inner.lock().net.marks.get_mut(&junk).unwrap().at = later;
+        a.set_clock(later);
+        let (y, _dy) = new_identity();
+        f.write(&net_frame(&y, "y", 1, 1, &[])).await;
+        let yfp = y.fingerprint.clone();
+        eventually("Y 를 받는다", || a.name_of(&yfp).is_some()).await;
+        let st = a.inner.lock();
+        assert!(
+            !st.net.marks.contains_key(&junk),
+            "닿은 적 없는 번호가 남았다"
+        );
+        assert!(
+            (1..crate::net::MAX_MARKS).all(|i| st.net.marks.contains_key(&format!("{i:064x}"))),
+            "닿은 번호를 밀어냈다"
+        );
+    });
+}

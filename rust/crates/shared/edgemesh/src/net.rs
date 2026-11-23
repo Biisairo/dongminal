@@ -65,12 +65,12 @@ pub fn mark_expendable(reached: bool, at: OffsetDateTime, now: OffsetDateTime) -
     !reached || now - at >= MARK_REACHED_TTL
 }
 
-/// 가득 찬 번호 기억에서 밀어낼 것 — 밀어낼 수 있는 번호 가운데 가장 오래된 것이다.
+/// 가득 찬 번호 기억에서 밀어낼 것 — 닿은 적 없는 번호를 먼저, 그 안에서 가장 오래된 것을 고른다.
 fn junk_mark(marks: &HashMap<String, Mark>, now: OffsetDateTime) -> Option<String> {
     marks
         .iter()
         .filter(|(_, m)| mark_expendable(m.reached, m.at, now))
-        .min_by_key(|(_, m)| m.at)
+        .min_by_key(|(_, m)| (m.reached, m.at))
         .map(|(k, _)| k.clone())
 }
 

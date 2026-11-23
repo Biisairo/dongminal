@@ -1735,3 +1735,31 @@ fn old_reached_mark_kept_when_not_full() {
         assert_eq!(st.marks[&zfp].at, t0(), "거절한 재전송이 시각을 바꿨다");
     });
 }
+
+// FR-RDF-1: 가득 찬 기억에서는 닿은 적 없는 번호를 수명이 지난 닿은 번호보다 먼저 밀어낸다.
+#[test]
+fn unreached_marks_pushed_out_first() {
+    rt().block_on(async {
+        let (a, clock, mut f, _x, _dx) = marks_fixture().await;
+        let later = t0() + edgemesh::MARK_REACHED_TTL;
+        fill_marks_at(&a, true, t0());
+        let junk = format!("{:064x}", 0);
+        {
+            let mut st = a.lock();
+            let m = st.marks.get_mut(&junk).unwrap();
+            m.reached = false;
+            m.at = later;
+        }
+        *clock.lock().unwrap() = later;
+        let (y, _dy) = new_identity();
+        f.write(&state_frame(&y, None)).await;
+        let yfp = y.fingerprint.clone();
+        eventually("Y 를 받는다", || a.lock().nodes.contains_key(&yfp)).await;
+        let st = a.lock();
+        assert!(!st.marks.contains_key(&junk), "닿은 적 없는 번호가 남았다");
+        assert!(
+            (1..crate::service::MAX_MARKS).all(|i| st.marks.contains_key(&format!("{i:064x}"))),
+            "닿은 번호를 밀어냈다"
+        );
+    });
+}
