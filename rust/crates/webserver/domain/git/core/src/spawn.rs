@@ -231,7 +231,7 @@ async fn wait_reads(reads: &mut mpsc::Receiver<()>, left: &mut usize, d: Duratio
 }
 
 /// Go `(*ProcessState).String()`. 신호로 끝난 상태의 문구에 쓴다.
-pub(crate) fn exit_status_string(st: &ExitStatus) -> String {
+pub fn exit_status_string(st: &ExitStatus) -> String {
     #[cfg(unix)]
     {
         use std::os::unix::process::ExitStatusExt;

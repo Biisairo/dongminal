@@ -42,7 +42,7 @@ pub use oid::{is_null_oid, is_oid};
 pub use record::{Record, RecordSpan, Recorder, redact_secrets};
 pub use recovery::{DEFAULT_HINT_CAP, Hint, HintLog};
 pub use remote::{sanitize_argv, sanitize_remote};
-pub use spawn::{Consumer, JOB_CEILING, KILL_GRACE, SpawnError, drain, spawn};
+pub use spawn::{Consumer, JOB_CEILING, KILL_GRACE, SpawnError, drain, exit_status_string, spawn};
 pub use time::unix_sec_to_milli;
 pub use unguarded::{
     TextFailure, TextRunner, Trim, UnguardedSpec, exec_unguarded, exec_unguarded_text,
