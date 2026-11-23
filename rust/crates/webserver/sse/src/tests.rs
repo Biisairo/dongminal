@@ -72,6 +72,20 @@ async fn flush_fails_after_client_left() {
 // 읽지 않는 클라이언트: 쓰기 시한이 지나면 flush 가 false 로 돌아온다 (HTTP-10).
 // 포트를 잡지 않으려고 메모리 파이프 위에서 hyper 서버를 돌린다.
 #[tokio::test]
+async fn closed_resolves_when_client_leaves() {
+    let (res, s) = start(Duration::ZERO);
+    let closed = s.closed();
+    let waiter = tokio::spawn(closed);
+    tokio::task::yield_now().await;
+    assert!(!waiter.is_finished(), "본문이 살아 있는 동안은 기다린다");
+    drop(res);
+    tokio::time::timeout(Duration::from_secs(1), waiter)
+        .await
+        .expect("본문이 버려지면 곧바로 깬다")
+        .unwrap();
+}
+
+#[tokio::test]
 async fn write_deadline_on_stuck_client() {
     let (mut client, server) = tokio::io::duplex(4096);
     let (done_tx, done_rx) = tokio::sync::oneshot::channel::<bool>();

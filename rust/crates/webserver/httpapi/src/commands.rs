@@ -379,10 +379,13 @@ impl Server {
             tokio::time::Instant::now() + self.hello_interval(),
             self.hello_interval(),
         );
+        let gone = st.closed();
+        tokio::pin!(gone);
         loop {
             match sub {
                 Some(s) => {
                     tokio::select! {
+                        _ = &mut gone => return,
                         _ = s.closed() => return,
                         m = s.recv() => match m {
                             Some(msg) => {
@@ -395,8 +398,10 @@ impl Server {
                     }
                 }
                 None => {
-                    keep.tick().await;
-                    st.data(hello);
+                    tokio::select! {
+                        _ = &mut gone => return,
+                        _ = keep.tick() => st.data(hello),
+                    }
                 }
             }
             if !st.flush().await {

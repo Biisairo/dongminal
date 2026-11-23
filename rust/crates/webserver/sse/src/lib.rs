@@ -119,6 +119,13 @@ impl Stream {
         self.data(payload);
     }
 
+    /// 클라이언트가 떠나 본문이 버려지면 끝나는 future 다. Go 의 `r.Context().Done()` 자리다 —
+    /// 다음 flush 를 기다리지 않고 구독 정리를 돌린다. `Stream` 을 빌리지 않는다.
+    pub fn closed(&self) -> impl Future<Output = ()> + Send + 'static {
+        let tx = self.tx.clone();
+        async move { tx.closed().await }
+    }
+
     /// 버퍼가 [`MAX_BATCH_BYTES`] 에 닿았는지 본다.
     pub fn full(&self) -> bool {
         self.buf.len() >= MAX_BATCH_BYTES

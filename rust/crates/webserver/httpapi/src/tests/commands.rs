@@ -609,6 +609,32 @@ async fn sse_broadcast_reaches_full_subscription() {
     assert!(st.until(WAIT, |b| b.contains(r#"{"action":"x"}"#)).await);
 }
 
+/// Go `TestFocus_SubscriptionCloseReleasesOwnership`: 구독을 닫으면 다음 인사(15초)를 기다리지
+/// 않고 곧바로 소유권 수명을 놓는다 (FR-XDF-9 · TC-XDF-7).
+#[tokio::test]
+async fn sse_close_releases_ownership_without_waiting_for_hello() {
+    for target in [
+        "/api/commands/sse?clientId=cliA",
+        "/api/commands/sse?clientId=cliA&presence=1",
+    ] {
+        let h: Arc<dyn CommandBroker> = CommandHub::new();
+        let (_d, s) = srv(with_cmds(h));
+        let mut st = open_sse(&s, target).await;
+        assert!(st.until(WAIT, |b| b.contains("server_hello")).await);
+        assert_eq!(s.focus.live_count(), 1, "{target}");
+        drop(st);
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+        while s.focus.live_count() != 0 && tokio::time::Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            s.focus.live_count(),
+            0,
+            "닫힌 구독이 소유권을 쥐고 있다: {target}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn sse_presence_holds_ownership_without_broadcast() {
     let f = Arc::new(FakeUpdates::default());
