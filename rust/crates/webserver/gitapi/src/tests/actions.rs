@@ -762,27 +762,17 @@ async fn branch_delete_both() {
 
 /// 실제 git 으로 쓰는 실행기다. 실패는 exit 1 의 출력으로 돌려준다 (Go 의 `ExecGit` 감싸기).
 fn real_write(dir: &str, args: &[String]) -> Output {
-    let out = std::process::Command::new("git")
-        .args(args)
-        .current_dir(dir)
-        .env(
-            "GIT_CONFIG_GLOBAL",
-            if cfg!(windows) { "NUL" } else { "/dev/null" },
-        )
-        .output()
-        .unwrap();
-    let mut text = out.stdout.clone();
-    text.extend_from_slice(&out.stderr);
-    if out.status.success() {
-        return Output {
-            stdout: text,
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    match dm_shared_gittest::try_run(std::path::Path::new(dir), &args) {
+        Ok(text) => Output {
+            stdout: text.into_bytes(),
             ..Output::default()
-        };
-    }
-    Output {
-        exit_code: 1,
-        stderr: String::from_utf8_lossy(&text).into_owned(),
-        ..Output::default()
+        },
+        Err(text) => Output {
+            exit_code: 1,
+            stderr: text,
+            ..Output::default()
+        },
     }
 }
 

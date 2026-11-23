@@ -2,7 +2,6 @@
 //!
 //! 옮기지 않은 것: `BenchmarkHandleAPI_GitPath`(성능 측정).
 
-use std::process::Command;
 use std::sync::Arc;
 
 use dm_webserver_domain_git_core::Service;
@@ -70,14 +69,10 @@ async fn git_status_through_httpapi() {
     let d = tempfile::tempdir().unwrap();
     let repo = d.path().join("repo");
     std::fs::create_dir(&repo).unwrap();
-    let ok = Command::new("git")
-        .args(["init", "-q"])
-        .current_dir(&repo)
-        .status()
-        .is_ok_and(|s| s.success());
-    if !ok {
+    if dm_shared_gittest::path().is_none() {
         return; // git 이 없다.
     }
+    dm_shared_gittest::run(&repo, &["init", "-q"]);
     let s = server(
         d.path(),
         Deps {
