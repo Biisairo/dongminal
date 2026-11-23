@@ -2,9 +2,13 @@ mod config;
 mod dispatch;
 mod fake_http;
 mod golden;
+mod health;
 mod homelayout;
 mod logcap;
 mod options;
+mod proc;
+mod service;
+mod staleness;
 mod window;
 
 use std::collections::HashMap;

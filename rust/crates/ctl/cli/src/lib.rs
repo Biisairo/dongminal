@@ -7,6 +7,7 @@ mod backup;
 mod config;
 mod config_bind;
 mod env;
+mod health;
 mod help;
 mod homelayout;
 mod http;
@@ -14,11 +15,15 @@ mod logcap;
 mod open;
 mod options;
 mod pending;
+mod proc;
 mod rollback;
 mod service;
+mod staleness;
+mod stop;
 mod uninstall;
 mod update;
 mod version;
+mod wait;
 mod window;
 
 #[cfg(test)]
@@ -27,6 +32,7 @@ mod tests;
 pub use actions::{Serve, action_names, dispatch};
 pub use backup::{BackupOpts, RestoreOpts, parse_backup, parse_restore};
 pub use config::{ConfigOpts, parse_config, run_config};
+pub use health::run_health;
 pub use help::{
     help, unknown_action, usage, usage_backup, usage_config, usage_doctor, usage_health,
     usage_migrate, usage_restore, usage_rollback, usage_service, usage_start, usage_stop,
@@ -41,7 +47,9 @@ pub use options::{
     parse_migrate, parse_start, parse_stop, parse_verify, parse_window,
 };
 pub use rollback::{RollbackOpts, parse_rollback};
-pub use service::{ServiceOpts, parse_service};
+pub use service::{ServiceOpts, parse_service, run_service};
+pub use staleness::{DAEMON_BUILD, DaemonState};
+pub use stop::run_stop;
 pub use uninstall::{UninstallOpts, parse_uninstall};
 pub use update::{UpdateOpts, parse_update};
 pub use version::{GO_RUNTIME, VERSION, parse_version, run_version, usage_version};

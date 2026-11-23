@@ -66,7 +66,7 @@ fn serve_one(conn: TcpStream, status: u16, reply: &str, seen: &Mutex<Vec<String>
                 .push(String::from_utf8_lossy(&body).into_owned());
             (status, reply)
         }
-        (_, "/api/ping") => (200, ""),
+        (_, "/api/ping" | "/") => (200, ""),
         _ => (404, ""),
     };
     let mut w = conn;

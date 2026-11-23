@@ -18,12 +18,15 @@ use crate::options::{
     parse_window,
 };
 use crate::pending::not_ported;
+use crate::proc::Procs;
 use crate::rollback::parse_rollback;
 use crate::service::parse_service;
+use crate::staleness::DAEMON_BUILD;
 use crate::uninstall::parse_uninstall;
 use crate::update::parse_update;
 use crate::version::{parse_version, run_version, usage_version};
 use crate::window::run_window_in;
+use crate::{health, service, stop};
 
 /// 서버를 이 프로세스로 실행하는 콜백이다 (`start --foreground`). 인자는 home·host·port 다.
 pub type Serve = dyn Fn(&str, &str, &str) -> i32;
@@ -60,9 +63,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "stop",
             brief: "서버를 정지한다",
             usage: usage_stop,
-            run: |rest, _, _, out, err| {
-                drive("stop", parse_stop(rest), out, err, |_, _, err| {
-                    not_ported("stop", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("stop", parse_stop(rest), out, err, |o, out, err| {
+                    stop::run_stop_in(&o, env, &Procs::platform(), out, err)
                 })
             },
         },
@@ -130,9 +133,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "service",
             brief: "이 OS 의 감독자(launchd·systemd)에 넣을 정의를 만든다 (SEC-23)",
             usage: usage_service,
-            run: |rest, _, _, out, err| {
-                drive("service", parse_service(rest), out, err, |_, _, err| {
-                    not_ported("service", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("service", parse_service(rest), out, err, |o, out, err| {
+                    service::run_service_in(&o, env, out, err)
                 })
             },
         },
@@ -160,9 +163,16 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "health",
             brief: "서버와 dongminald 의 상태를 확인한다",
             usage: usage_health,
-            run: |rest, _, _, out, err| {
-                drive("health", parse_health(rest), out, err, |_, _, err| {
-                    not_ported("health", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("health", parse_health(rest), out, err, |o, out, err| {
+                    health::run_health_in(
+                        &o,
+                        env,
+                        dm_shared_platform::current().process,
+                        DAEMON_BUILD,
+                        out,
+                        err,
+                    )
                 })
             },
         },

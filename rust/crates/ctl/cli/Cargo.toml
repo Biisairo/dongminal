@@ -34,4 +34,5 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
+dm-shared-agentadapter = { path = "../../shared/agentadapter" }
 tempfile = { workspace = true }
