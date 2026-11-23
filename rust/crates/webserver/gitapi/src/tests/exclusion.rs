@@ -6,9 +6,9 @@
 //! - TestExclusion_CanceledWhileWaitingNotExecuted·TestExclusion_ReleasedAfterResponse·
 //!   TestIndexLocked_SyncWriteCarriesLock·TestIndexLocked_GoneLockOmitsMtime·TestLockRemove_*:
 //!   5.4.1 이 같은 흐름을 replay·lock/remove 로 write.rs 에 옮겼다.
-//! - TestWriteLocks_CoverAllPostRoutes 의 반대 방향(잠금 표 → 라우트): 5.4.3 이 표를 채운 뒤 본다.
-//! - TestExclusion_StashTakesCommonDirLock·TestIndexLocked_StashCarriesLock: 5.4.3 종단 /api/git/stash/push
-//! - TestRemoteRefDelete_NoHintWhenJobBusy 의 tag 갈래: 5.4.3 종단 /api/git/tag/delete-remote
+//! - TestWriteLocks_CoverAllPostRoutes: 두 방향 모두 `write.rs` 의 `write_locks_cover_post_routes` 다.
+//! - TestExclusion_StashTakesCommonDirLock·TestIndexLocked_StashCarriesLock·
+//!   TestRemoteRefDelete_NoHintWhenJobBusy 의 tag 갈래: `carryover.rs` 에 있다.
 
 use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};

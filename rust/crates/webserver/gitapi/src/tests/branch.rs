@@ -1,10 +1,9 @@
 //! Go `handlers_git_branch_test.go`·`handlers_git_validate_test.go`(branch 갈래) 의 이식.
 //!
 //! 옮기지 않은 것:
-//! - `TestGitM5Routes_RegisteredAndUnavailable` 의 stash 다섯 갈래 — 5.4.3 종단 /api/git/stash*.
-//!   checkout·branch·branch/validate 갈래만 옮겼다.
-//! - `TestAPIGitNameValidate_BodiesByteCompatible` 의 tag 네 갈래 — 5.4.3 종단 /api/git/tag/validate.
-//! - gitM5Fake 의 stash list/show 응답·writeErr — 이 파일의 테스트가 쓰지 않는다(stash 는 5.4.3).
+//! - `TestGitM5Routes_RegisteredAndUnavailable` 의 stash 갈래와 `TestAPIGitNameValidate_BodiesByteCompatible`
+//!   의 tag 갈래 — `carryover.rs` 에 있다.
+//! - gitM5Fake 의 stash list/show 응답·writeErr — 이 파일의 테스트가 쓰지 않는다(`stash.rs` 의 StashFake).
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};

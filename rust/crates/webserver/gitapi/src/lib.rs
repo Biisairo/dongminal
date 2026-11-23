@@ -6,18 +6,23 @@
 // 도우미의 `Err` 는 다 만든 응답이다 — 한 번 만들어 곧바로 돌려줄 뿐이라 상자에 담지 않는다.
 #![allow(clippy::result_large_err)]
 
+mod actions;
+mod actions_branch;
 mod answers;
 mod blame;
 mod blob;
 mod branch;
+mod commit_ops;
 mod handlers_git;
 mod history;
+mod ignore;
 mod init;
 mod job;
 mod judge;
 mod lock;
 mod lock_remove;
 mod operation;
+mod patch;
 mod pins;
 mod policy;
 mod records;
@@ -26,6 +31,11 @@ mod replay;
 mod reply;
 mod req;
 mod routes;
+mod stash;
+mod submodule;
+mod tag;
+mod uncommitted;
+mod worktree;
 mod write;
 mod write_ops;
 
@@ -35,6 +45,8 @@ use std::time::Duration;
 use dm_webserver_domain_git_core::Service;
 use dm_webserver_domain_git_jobs::{Exclusion, JobRunner, Jobs};
 use dm_webserver_domain_git_store::{Observation, Store};
+use dm_webserver_domain_submodule::Manager as SubmoduleManager;
+use dm_webserver_domain_worktree::Service as WorktreeService;
 
 pub use dm_webserver_domain_wsentry::{Broadcaster, WorkspaceStore};
 pub use req::{BodyError, ReqBody};
@@ -71,12 +83,20 @@ pub struct GitServer {
     pub exclusion: Option<Exclusion>,
     /// 원격 작업의 실행기다. 없으면 실제 git 이다.
     pub job_runner: Option<JobRunner>,
+    /// 사용자 worktree 영역의 관리자다 (FR-WKT-13). 없으면 Worktrees 탭의 목록·생성·제거가 503 이다.
+    pub user_worktrees: Option<Arc<dyn WorktreeService>>,
+    /// 서브모듈 조작의 관리자다 (UX_BATCH5_SRS FR-SUB-1~5). 없으면 Submodules 탭이 503 이다.
+    pub submodules: Option<Arc<SubmoduleManager>>,
+    /// Run 격리 영역의 root 경로다 — worktree 소유 판정에만 쓴다 (FR-GIT-240).
+    pub run_worktree_root: String,
     diffs: OnceLock<Arc<Service>>,
     own_exclusion: OnceLock<Exclusion>,
     jobs: Mutex<Option<Jobs>>,
     /// 커밋 하나에 대한 되돌리기 권한 (FR-GIT-83).
     undo: Arc<write_ops::UndoStore>,
     lock_wait: Duration,
+    /// 관리자 경유 쓰기 단계의 마감이다. 0 이면 `core::MANAGER_WRITE_TIMEOUT` — 테스트만 줄인다.
+    manager_write: Duration,
 }
 
 impl GitServer {

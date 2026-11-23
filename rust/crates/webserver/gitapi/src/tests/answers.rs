@@ -1,17 +1,11 @@
 //! Go `handlers_git_actions_input_test.go`·`handlers_git_actions_test.go`·
 //! `handlers_git_actions_facts_test.go`·`handlers_git_actions_slots_test.go` 중 판정 함수 갈래.
-//! Go 의 `gtBranchRepo`(실제 git 저장소) 대신 같은 ref·원격을 답하는 fake 를 쓴다. 답 종단
-//! /api/git/actions 는 5.4.3 이므로 판정 함수를 직접 불러 실행 종단의 거절과 맞춰 본다.
+//! Go 의 `gtBranchRepo`(실제 git 저장소) 대신 같은 ref·원격을 답하는 fake 를 쓴다. 판정 함수를
+//! 직접 불러 실행 종단의 거절과 맞춰 본다. 답 종단(/api/git/actions) 쪽은 `actions.rs`·`carryover.rs` 가 잰다.
 //!
 //! 옮기지 않은 것:
-//! - TestTagCreateInputAnswer: 5.4.3 종단 /api/git/actions·/api/git/tag
-//! - TestStashBranchInputAnswer: 5.4.3 종단 /api/git/actions·/api/git/stash/branch
-//! - TestWorktreeCreateInputAnswer: 5.4.3 종단 /api/git/actions·/api/git/worktrees/create
-//! - TestCompareInputAnswer: 5.4.3 종단 /api/git/actions (실행 종단이 없다)
-//! - TestRepoAddInputAnswer: 5.4.3 종단 /api/git/actions
-//! - TestStashCreateAnswerMatchesRejection: 5.4.3 종단 /api/git/actions·/api/git/stash/push
-//! - TestGitActionsUnknownAction: 5.4.3 종단 /api/git/actions
-//! - TestFactAnswers_MatchRejection: 5.4.3 종단 /api/git/uncommitted/*·/api/git/stash/push
+//! - 입력 답(Tag·StashBranch·WorktreeCreate·Compare·RepoAdd)·StashCreateAnswerMatchesRejection·
+//!   GitActionsUnknownAction·FactAnswers_MatchRejection: 종단을 지나므로 `actions.rs`·`carryover.rs` 에 있다.
 //! - TestFactAnswers 의 stash.new 갈래는 `stash_new_answer`(비공개)가 `stash_create_answer(st, true)`
 //!   그대로라 그 함수로 잰다.
 //! - 칸을 보는 status actions 갈래(FollowSlots·PullHoldsBoth·InUnchanged·MatchRejection·SlotFirst)는

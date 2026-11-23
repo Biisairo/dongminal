@@ -22,7 +22,7 @@ pub(crate) enum LockMode {
 }
 
 /// POST 종단 → 잠금 모양. 표에 없는 POST 는 임대가 없다.
-const WRITE_LOCKS: &[(&str, LockMode)] = &[
+pub(crate) const WRITE_LOCKS: &[(&str, LockMode)] = &[
     ("/api/git/init", LockMode::None),
     ("/api/git/repos/pin", LockMode::None),
     ("/api/git/repos/unpin", LockMode::None),
@@ -145,6 +145,15 @@ impl GitServer {
         match &self.git {
             Some(g) => g.root().clone(),
             None => Ctx::background(),
+        }
+    }
+
+    /// 관리자 경유 쓰기 단계의 마감이다.
+    pub(crate) fn git_manager_write(&self) -> Duration {
+        if self.manager_write.is_zero() {
+            core::MANAGER_WRITE_TIMEOUT
+        } else {
+            self.manager_write
         }
     }
 
