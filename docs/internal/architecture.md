@@ -42,108 +42,119 @@ FR-RDM-10.)*
 
 ## 패키지 레이아웃
 
-`internal/` 은 **프로세스 축**으로 묶여 있다. 판정 기준은 "링크되냐"가 아니라
+`rust/crates/` 는 **프로세스 축**으로 묶여 있다. 판정 기준은 "링크되냐"가 아니라
 **"어느 프로세스가 실제로 실행하냐"** 다 — 단일 바이너리라 링크 클로저는 네 프로세스가
 모두 같아서 그것으로는 아무것도 갈리지 않는다. 둘 이상이 실행하는 것만 `shared/` 다.
 근거와 실측은 [PACKAGE_RESTRUCTURE_SRS.md](./PACKAGE_RESTRUCTURE_SRS.md) §2.1.
 
 ```
-cmd/dongminal/           # composition root (main) — 진입점 판별 + 의존 조립
-internal/
-  helper/                # ① dmctl/edit/download/detach 프로세스
-    runtimebin/          #   multi-call CLI 구현 (dmctl notify·activity 포함)
-    toolline/            #   dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
-  daemon/                # ② dongminald 프로세스 — PTY 를 소유한다
-    boot/                #   데몬 진입점 (Run). 웹 서버를 재시작해도 세션이 살아남는 이유
-    chat/                #   채팅 핵심 — 간선 상대마다 채팅 연결, 서명한 노드 상태·글 전파, 방·참가자. 글을 들지 않는다 (PEER_CHAT_SRS §3.9)
-    chatsock/            #   채팅 소켓 chat.sock — MCP 연결 하나가 참가자 하나, 훅 질의 중계, 쉬는 중 붙여넣기 알림 (PEER_CHAT_SRS §3.10)
-    ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나의 요청은 차례로, create·restore·edge 만 읽기 루프 밖 — FR-OPT-2-3, PEER_DAEMON_SRS §3.5a)
-    swap/                #   세션 유지 교체 — 교체 요청 검사·사전 확인·인계 상태·exec, 새 데몬의 되살리기·되찾기·입양 (DAEMON_SESSION_KEEP_SRS)
-  webserver/             # ③ 웹 서버 프로세스
-    httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
-    httproute/           #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유
-    gitapi/              #   /api/git/* 핸들러 (GitServer). 라우트 테이블(routes.go)을 스스로 소유 — 수는 그 표가 답한다
+rust/                    # Cargo 워크스페이스 — crate 하나가 디렉터리 하나 (이름 dm-<축>-<이름>, 목록은 rust/Cargo.toml members)
+  crates/
+    cmd/
+      dongminal/         # composition root (main) — 진입점 판별 + 의존 조립
+    helper/              # ① dmctl/edit/download/detach 프로세스
+      runtimebin/        #   multi-call CLI 구현 (dmctl notify·activity 포함)
+      toolline/          #   dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
+    daemon/              # ② dongminald 프로세스 — PTY 를 소유한다
+      boot/              #   데몬 진입점 (Run). 웹 서버를 재시작해도 세션이 살아남는 이유
+      chat/              #   채팅 핵심 — 간선 상대마다 채팅 연결, 서명한 노드 상태·글 전파, 방·참가자. 글을 들지 않는다 (PEER_CHAT_SRS §3.9)
+      chatsock/          #   채팅 소켓 chat.sock — MCP 연결 하나가 참가자 하나, 훅 질의 중계, 쉬는 중 붙여넣기 알림 (PEER_CHAT_SRS §3.10)
+      ipc/               #   PanedServer — Unix socket accept 루프 (연결 하나의 요청은 차례로, create·restore·edge 만 읽기 루프 밖 — FR-OPT-2-3, PEER_DAEMON_SRS §3.5a)
+      swap/              #   세션 유지 교체 — 교체 요청 검사·사전 확인·인계 상태·exec, 새 데몬의 되살리기·되찾기·입양 (DAEMON_SESSION_KEEP_SRS)
+    webserver/           # ③ 웹 서버 프로세스
+      httpapi/           #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
+      httproute/         #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유
+      gitapi/            #   /api/git/* 핸들러 (GitServer). 라우트 테이블(routes.go)을 스스로 소유 — 수는 그 표가 답한다
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
-    apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
-    action/              #   동작의 답 {ok, why, args} + 동작 ID → 사유 코드 목록 (SERVER_DRIVEN_ACTIONS_SRS)
-    fswatch/             #   보이는 디렉터리의 비재귀 감시(fsnotify) · 이벤트 병합 · `fs_changed`
-    hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
-    sse/                 #   SSE 작성기(쓰기 시한·쌓인 이벤트 한 번에 flush) · 방송 본문 봉투
-    toolclient/          #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
-    recordsync/          #   에이전트 기록을 데몬에 쓰는 비동기 큐 — (kind, tool) 마다 마지막 값 (AGENT_RECORD_DAEMON_SRS)
-    seam/
-      adapters/          #     toolaccess 인터페이스 ↔ 구체 타입 브리지
-      toolaccess/        #     도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스
-    domain/
-      claudeacct/        #     Claude 다중 계정 — 계정 백업·활성 저장소 교체·OAuth API (CLAUDE_ACCOUNTS_SRS)
-      git/               #     git 실행의 유일한 경로. 아래 5패키지 (§git 절)
-        core/            #       Service + 두 초크포인트(Exec, ExecWrite) + guard·errors·record
-        query/           #       조회 — Exec 만 쓴다
-        write/           #       변경 — ExecWrite 만 쓴다
-        store/           #       TTL + single-flight 캐시
-        jobs/            #       원격 작업(fetch/pull/push) 잡 큐
-      run/               #     Run 레코드 — runs.json + 투영/격리 타입 + 멤버 프리앰블
-      worktree/          #     Run 격리의 git worktree 생성·정리 + 안전 가드
-      sysstat/           #     상태바 지표를 커널에서 직접 읽는다 (cgo 격리)
-      submodule/         #     서브모듈 목록·조작 — 허용 목록의 판정 단위라 별도 패키지
-      wsentry/           #     workspace.json 최상위 두 목록 (git.pinned[]·editors.list[])
-      lsp/               #     언어 서버 세션 (정의·참조·호버) — 세션 상한·유휴 회수
-      ext/               #     언어 서버 플러그인 매니페스트 — 서버 목록은 여기 없다
-      telegram/          #     Telegram 브리지 — telegram.json·Bot API 클라이언트·대화별 토픽·transcript 출력 (실험)
-  ctl/                   # ④ 제어 CLI 프로세스
-    cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
-    migrate/             #   v1 → v2 엔티티 스키마 1회성 변환
-    decidx/              #   결정 색인 생성기 — `go run ./scripts/gen-decisions` 가 부른다
-    privhelper/          #   사람 명령의 도우미 `dongminal helper` — root 로 돌며 TOTP 를 확인하고 묶음에 서명한다 (PEER_CHAT_SRS §3.12)
-    errdoc/              #   오류 카탈로그 생성기 — `go run ./scripts/gen-errors` 가 부른다
+      apierr/            #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
+      action/            #   동작의 답 {ok, why, args} + 동작 ID → 사유 코드 목록 (SERVER_DRIVEN_ACTIONS_SRS)
+      fswatch/           #   보이는 디렉터리의 비재귀 감시(fsnotify) · 이벤트 병합 · `fs_changed`
+      hub/               #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
+      sse/               #   SSE 작성기(쓰기 시한·쌓인 이벤트 한 번에 flush) · 방송 본문 봉투
+      toolclient/        #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
+      recordsync/        #   에이전트 기록을 데몬에 쓰는 비동기 큐 — (kind, tool) 마다 마지막 값 (AGENT_RECORD_DAEMON_SRS)
+      seam/
+        adapters/        #     toolaccess 인터페이스 ↔ 구체 타입 브리지
+        toolaccess/      #     도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스
+      domain/
+        claudeacct/      #     Claude 다중 계정 — 계정 백업·활성 저장소 교체·OAuth API (CLAUDE_ACCOUNTS_SRS)
+        git/             #     git 실행의 유일한 경로. 아래 5패키지 (§git 절)
+          core/          #       Service + 두 초크포인트(Exec, ExecWrite) + guard·errors·record
+          query/         #       조회 — Exec 만 쓴다
+          write/         #       변경 — ExecWrite 만 쓴다
+          store/         #       TTL + single-flight 캐시
+          jobs/          #       원격 작업(fetch/pull/push) 잡 큐
+        run/             #     Run 레코드 — runs.json + 투영/격리 타입 + 멤버 프리앰블
+        worktree/        #     Run 격리의 git worktree 생성·정리 + 안전 가드
+        sysstat/         #     상태바 지표를 커널에서 직접 읽는다 (OS 모듈 격리)
+        submodule/       #     서브모듈 목록·조작 — 허용 목록의 판정 단위라 별도 패키지
+        wsentry/         #     workspace.json 최상위 두 목록 (git.pinned[]·editors.list[])
+        lsp/             #     언어 서버 세션 (정의·참조·호버) — 세션 상한·유휴 회수
+        ext/             #     언어 서버 플러그인 매니페스트 — 서버 목록은 여기 없다
+        telegram/        #     Telegram 브리지 — telegram.json·Bot API 클라이언트·대화별 토픽·transcript 출력 (실험)
+    ctl/                 # ④ 제어 CLI 프로세스
+      cli/               #   start/stop/health/migrate 디스패치 + 옵션 해석
+      migrate/           #   v1 → v2 엔티티 스키마 1회성 변환
+      decidx/            #   결정 색인 생성기 — `cargo run -p dm-scripts-gen-decisions` 가 부른다
+      privhelper/        #   사람 명령의 도우미 `dongminal helper` — root 로 돌며 TOTP 를 확인하고 묶음에 서명한다 (PEER_CHAT_SRS §3.12)
+      errdoc/            #   오류 카탈로그 생성기 — `cargo run -p dm-scripts-gen-errors` 가 부른다
                          #     (apierr 를 읽는다 — check-pkg-axis.sh 의 예외 등록부)
-  shared/                # 둘 이상의 프로세스가 실행한다
-    workspace/           #   ①②③ — workspace.json 인덱싱·resolve·영속화
-    uuid/                #   ②③④ — 엔티티 uuid(UUID v7) 생성·파싱
-    toolhub/             #   ②③  — ToolManager·PTY·브라우저 WS·주의 알림 탐지(OSC/idle)
+    shared/              # 둘 이상의 프로세스가 실행한다
+      workspace/         #   ①②③ — workspace.json 인덱싱·resolve·영속화
+      uuid/              #   ②③④ — 엔티티 uuid(UUID v7) 생성·파싱
+      toolhub/           #   ②③  — ToolManager·PTY·브라우저 WS·주의 알림 탐지(OSC/idle)
                          #     conn(SafeConn) · tool(PTY 하나의 수명) · manager(레지스트리)
                          #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
                          #     tool_{attention,clients,control,cwd,env,exitinfo} — Tool 의 관심사별 (M8 D-A-10)
-    edge/                #   ②③  — 노드 간 통신(간선) — 노드 신원(인증서)·edges.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1·70)
-    edgemesh/            #   ②③  — 간선 계층의 간선 연결·망 정보(net)·직접 정보(hello)·간선 초대(invite). 채팅이 그 위층이다. 데몬만 세운다 (EDGE_MESH_SRS)
-    edgenode/            #   ②③  — 노드 하나의 상태와 연산(짝맞춤 판정·로컬 API 연산). 데몬과 직접 모드 서버가 같이 쓴다 (PEER_DAEMON_SRS FR-PDM-2)
-    chatwire/            #   ①②③ — 채팅 소켓의 경로·프레임 (데몬 chatsock ↔ dmctl chat-mcp·ctx-hook, PEER_CHAT_SRS §3.10). 서버는 사람 참가자 IPC 의 글 모양으로 쓴다 (§3.11)
-    humancmd/            #   ②④  — 사람 명령의 와이어 — 도우미 소켓 프레임, 서명한 명령 본문(Ed25519), 데몬 쪽 클라이언트 (PEER_CHAT_SRS §3.12)
-    edgerelay/           #   ②③  — 노드 포트의 바이트 통로 — 서버 노드 포트 → 데몬 node.sock, 데몬 → 서버 dial.sock (PEER_DAEMON_SRS 묶음 L)
-    httpreq/             #   ②③  — 요청 본문을 읽는 한 자리 (표면별 크기 상한)
-    httpresp/            #   ②③  — JSON 응답·오류 응답(코드 헤더)을 쓰는 한 자리 (본문 모양은 방언 함수가 정한다)
-    toolipc/             #   ②③  — paned 와이어 포맷만: wire.go(봉투·ProtocolVersion) · protocol.go(메서드·이벤트 이름, typed 인자·결과, hello.features) · files.go(데몬 지문 이름)
-    outbuf/              #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
-    runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
-      shellhooks/        #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
-      agentplugin/       #     세션 스코프 주입 플러그인 (commands/issue-tree, commands/migration)
-    agentrec/            #   ①②③ — 에이전트 보고의 해석·기록 값의 모양·보고 소켓 경로 (AGENT_RECORD_DAEMON_SRS §3.2a)
-    agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
-    handover/            #   ③④  — 데몬 교체(세션 유지 재시작)의 와이어 — 교체 요청·사유 코드·인계 판 (DAEMON_SESSION_KEEP_SRS)
-    runfile/             #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
-    statusline/          #   ①③  — statusLine 입력의 허용 목록 한 벌 (dmctl statusline 이 채우고 서버가 같은 타입으로 받는다)
-    runwait/             #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 dmctl 이 같은 수를 읽는다, M8 D-A-1·24)
-    pollwait/            #   ①③④ — "조건이 설 때까지 묻는" 대기 한 벌 (요청 경로·데몬 소켓·start/stop, M8 D-A-15)
-    sandbox/             #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
-    sandboxplace/        #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
-    mimeprobe/           #   ②③  — 바이트 앞머리로 그림인지 (파일 종단·git 블롭 종단이 같은 한 벌, M9 FR-M9-21)
-    diagtail/            #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
-    termtext/            #   ①②③ — 화면·터미널에 찍을 글자의 규칙 한 벌: 숨은 글자(제어·Cf) 판정·정화, 지문 줄이기 (REFACTOR3_DEDUP_GO_SRS FR-RDG-43·44)
-    textenc/             #   ③   — 텍스트 인코딩 판별·엄격 디코드·재인코딩 (파일 종단·git diff 가 같은 한 벌, REPO_FIX 03)
-    editorlimit/         #   ③④  — 편집기가 여는 한 파일의 상한 32 MiB (읽기·저장·LSP·git diff·verify 가 같은 한 벌, D-OPT-9)
-    serverconf/          #   ③④  — 서버 기동값 네 계층 (플래그 > 환경 > server.json > 기본)
-    release/             #   ①③  — 최신 릴리스가 무엇인가 하나만 (update --check 와 서버 확인이 같은 판정)
-    updatecheck/         #   ③   — 최신 판 캐시 한 칸 + 트리거 넷 (끈 것은 실제로 나가지 않는다)
-    settingsschema/      #   ③④  — settings-schema.js 를 같은 바이트로 읽는다 (표는 JS 가 원천)
-    listorder/           #   ③   — 끌어다 놓기 한 번의 목록 반영 (gitapi·wsentry 가 공유)
-    fanout/              #   ③   — 상한 있는 병렬 반복 한 벌 (핀 관측·핀 목록·git 감시 회차가 공유, FR-OPT-7-4)
-    platform/            #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
-    dmenv/               #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름·홈 아래 이름 (의존 0)
-    apipath/             #   ①④  — 서버 로컬 API 경로 한 벌 (dmctl·헬퍼·제어 CLI 가 부르는 이름, 서버 라우트와의 일치는 시험이 대조, REFACTOR3_GO_STRUCT_SRS FR-RGS-40)
-    activity/            #   ①②③ — 에이전트 활동 상태의 어휘 다섯 (JS 짝은 constants.js, FR-OPT-10-1)
-    dmlog/               #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)
-    testpath/            #   테스트 전용 — OS 마다 다른 경로 전제를 분기 없이 다룬다 (+ 셸 고정 PinShell, M8 D-A-21)
-    gittest/             #   테스트 전용 — git 저장소 픽스처 한 벌 (M8 D-A-20). 제품 코드는 import 하지 않는다
+      edge/              #   ②③  — 노드 간 통신(간선) — 노드 신원(인증서)·edges.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1·70)
+      edgemesh/          #   ②③  — 간선 계층의 간선 연결·망 정보(net)·직접 정보(hello)·간선 초대(invite). 채팅이 그 위층이다. 데몬만 세운다 (EDGE_MESH_SRS)
+      edgenode/          #   ②③  — 노드 하나의 상태와 연산(짝맞춤 판정·로컬 API 연산). 데몬과 직접 모드 서버가 같이 쓴다 (PEER_DAEMON_SRS FR-PDM-2)
+      chatwire/          #   ①②③ — 채팅 소켓의 경로·프레임 (데몬 chatsock ↔ dmctl chat-mcp·ctx-hook, PEER_CHAT_SRS §3.10). 서버는 사람 참가자 IPC 의 글 모양으로 쓴다 (§3.11)
+      humancmd/          #   ②④  — 사람 명령의 와이어 — 도우미 소켓 프레임, 서명한 명령 본문(Ed25519), 데몬 쪽 클라이언트 (PEER_CHAT_SRS §3.12)
+      edgerelay/         #   ②③  — 노드 포트의 바이트 통로 — 서버 노드 포트 → 데몬 node.sock, 데몬 → 서버 dial.sock (PEER_DAEMON_SRS 묶음 L)
+      httpreq/           #   ②③  — 요청 본문을 읽는 한 자리 (표면별 크기 상한)
+      httpresp/          #   ②③  — JSON 응답·오류 응답(코드 헤더)을 쓰는 한 자리 (본문 모양은 방언 함수가 정한다)
+      toolipc/           #   ②③  — paned 와이어 포맷만: wire.go(봉투·ProtocolVersion) · protocol.go(메서드·이벤트 이름, typed 인자·결과, hello.features) · files.go(데몬 지문 이름)
+      outbuf/            #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
+      runtime/           #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
+        assets/          #     embed 하는 실제 파일
+          shellhooks/    #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
+          agentplugin/   #     세션 스코프 주입 플러그인 (commands/issue-tree, commands/migration)
+      agentrec/          #   ①②③ — 에이전트 보고의 해석·기록 값의 모양·보고 소켓 경로 (AGENT_RECORD_DAEMON_SRS §3.2a)
+      agentadapter/      #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
+      handover/          #   ③④  — 데몬 교체(세션 유지 재시작)의 와이어 — 교체 요청·사유 코드·인계 판 (DAEMON_SESSION_KEEP_SRS)
+      runfile/           #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
+      statusline/        #   ①③  — statusLine 입력의 허용 목록 한 벌 (dmctl statusline 이 채우고 서버가 같은 타입으로 받는다)
+      runwait/           #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 dmctl 이 같은 수를 읽는다, M8 D-A-1·24)
+      pollwait/          #   ①③④ — "조건이 설 때까지 묻는" 대기 한 벌 (요청 경로·데몬 소켓·start/stop, M8 D-A-15)
+      sandbox/           #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
+      sandboxplace/      #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
+      mimeprobe/         #   ②③  — 바이트 앞머리로 그림인지 (파일 종단·git 블롭 종단이 같은 한 벌, M9 FR-M9-21)
+      diagtail/          #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
+      termtext/          #   ①②③ — 화면·터미널에 찍을 글자의 규칙 한 벌: 숨은 글자(제어·Cf) 판정·정화, 지문 줄이기 (REFACTOR3_DEDUP_GO_SRS FR-RDG-43·44)
+      textenc/           #   ③   — 텍스트 인코딩 판별·엄격 디코드·재인코딩 (파일 종단·git diff 가 같은 한 벌, REPO_FIX 03)
+      editorlimit/       #   ③④  — 편집기가 여는 한 파일의 상한 32 MiB (읽기·저장·LSP·git diff·verify 가 같은 한 벌, D-OPT-9)
+      serverconf/        #   ③④  — 서버 기동값 네 계층 (플래그 > 환경 > server.json > 기본)
+      release/           #   ①③  — 최신 릴리스가 무엇인가 하나만 (update --check 와 서버 확인이 같은 판정)
+      updatecheck/       #   ③   — 최신 판 캐시 한 칸 + 트리거 넷 (끈 것은 실제로 나가지 않는다)
+      settingsschema/    #   ③④  — settings-schema.js 를 같은 바이트로 읽는다 (표는 JS 가 원천)
+      listorder/         #   ③   — 끌어다 놓기 한 번의 목록 반영 (gitapi·wsentry 가 공유)
+      fanout/            #   ③   — 상한 있는 병렬 반복 한 벌 (핀 관측·핀 목록·git 감시 회차가 공유, FR-OPT-7-4)
+      platform/          #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
+      dmenv/             #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름·홈 아래 이름 (의존 0)
+      apipath/           #   ①④  — 서버 로컬 API 경로 한 벌 (dmctl·헬퍼·제어 CLI 가 부르는 이름, 서버 라우트와의 일치는 시험이 대조, REFACTOR3_GO_STRUCT_SRS FR-RGS-40)
+      activity/          #   ①②③ — 에이전트 활동 상태의 어휘 다섯 (JS 짝은 constants.js, FR-OPT-10-1)
+      dmlog/             #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)
+      testpath/          #   테스트 전용 — OS 마다 다른 경로 전제를 분기 없이 다룬다 (+ 셸 고정 PinShell, M8 D-A-21)
+      gittest/           #   테스트 전용 — git 저장소 픽스처 한 벌 (M8 D-A-20). 제품 코드는 import 하지 않는다
+    gocompat/            # 축 밖 — Go 기준선의 출력 규칙 (JSON·시간·인용·OS 오류 문구). 어느 축이든 쓴다
+    web/                 # 축 밖 — web/ 자산을 바이너리에 싣는다 (dm-web-assets)
+    scripts/             # 축 밖 — 게이트·생성기 프로그램 (`cargo run -p dm-scripts-<이름>`)
+      check-action-reasons/
+      check-shared-constants/
+      gen-decisions/
+      gen-errors/
+  parity/                # Go 기준선과 관측 출력을 대조하는 하니스 (dm-parity)
 web/                     # 프론트엔드 자산 + embed.FS()
   style*.css             # <link> 순서 = 캐스케이드 순서. 목록: grep 'rel="stylesheet"' web/index.html
   js/core/               #   App 클래스 (app.js + 주제별 컨트롤러 *-controller.js 와 그 부품 — 수: ls web/js/core/*-controller.js | wc -l) + helpers·main
@@ -175,9 +186,10 @@ docs/
 모두 같고, 그것으로는 아무것도 갈리지 않는다.
 
 **축의 import 규칙은 게이트가 지킨다** (`scripts/check-pkg-axis.sh`, M8 `GO-4`): 축
-패키지는 자기 축과 `shared/` 만, `shared/` 는 `shared/` 만 import 한다 (`go list -deps`,
-추이 의존 포함). 위 표도 같은 게이트가 `go list ./...` 과 양방향으로 대조한다 (`GO-48`).
-**예외는 그 스크립트의 `ALLOW` 에만 있다** — 직접 import 한 쌍 단위로 근거와 함께.
+crate 는 자기 축과 `shared/` 만, `shared/` 는 `shared/` 만 의존한다 (`cargo metadata` 의
+경로 의존, 추이 의존 포함, dev-dependencies 제외. 축 밖의 `gocompat`·`web` 은 어느 축이든 쓴다).
+위 표도 같은 게이트가 워크스페이스 crate 와 양방향으로 대조한다 (`GO-48`).
+**예외는 그 스크립트의 `ALLOW` 에만 있다** — 직접 의존 한 쌍 단위로 근거와 함께.
 지금은 둘이다: `ctl/cli → domain/git/core`(git 실행과 URL 마스킹의 유일한 규칙을 ④ 가
 우회하지 않는다) · `ctl/errdoc → apierr`(생성기의 원천). 종전 문서는 "예외는 없다" 고
 적었으나 감사(`01-go-arch.md`) 시점에 네 곳이 새어 있었다 — 규약은 선언으로 지켜지지
