@@ -28,6 +28,10 @@ pub struct LiveStore {
 impl LiveStore {
     /// ① 키체인 ② `.credentials.json` 순으로 읽는다. 둘 다 없으면 `Ok(None)` 이다.
     pub fn read(&self) -> Result<Option<Credential>, Error> {
+        fsutil::off_worker(|| self.read_blocking())
+    }
+
+    fn read_blocking(&self) -> Result<Option<Credential>, Error> {
         let mut kc_err: Option<Error> = None;
         if self.sec.available() {
             for i in 0..LIVE_READ_TRIES {
@@ -73,6 +77,10 @@ impl LiveStore {
     /// 키체인에 쓰고, `.credentials.json` 이 이미 있으면 같은 바이트로 다시 써서 실행 중인 세션이
     /// 다시 읽게 한다. 키체인 쓰기가 실패하면 파일에 쓰고 키체인 항목을 지운다 (FR-CAC-6).
     pub fn write(&self, c: &Credential) -> Result<(), Error> {
+        fsutil::off_worker(|| self.write_blocking(c))
+    }
+
+    fn write_blocking(&self, c: &Credential) -> Result<(), Error> {
         let b = c.marshal()?;
         let s = String::from_utf8_lossy(&b);
         if self.sec.available() {

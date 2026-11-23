@@ -776,9 +776,8 @@ impl Engine {
         if self.svc.pinned_running(&a.id) {
             return self.refresh_pinned(a, force).await;
         }
-        let _lock =
-            dm_shared_platform::lock_file(&self.svc.consume_lock(&a.id), self.svc.lock_timeout())
-                .map_err(|e| none(Error::new(e.to_string())))?;
+        let _lock = fsutil::lock_file(&self.svc.consume_lock(&a.id), self.svc.lock_timeout())
+            .map_err(|e| none(Error::new(e.to_string())))?;
         let cur = match self.svc.backup.read(&a.id) {
             Ok(Some(c)) => c,
             _ => return Err(empty(None)),
