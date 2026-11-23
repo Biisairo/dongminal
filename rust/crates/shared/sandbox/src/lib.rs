@@ -374,13 +374,13 @@ pub fn find_runtime(look: &dyn Fn(&str) -> Result<String, String>) -> Result<Str
 
 /// Go `exec.LookPath`. 실패 문구도 Go 와 같다.
 pub fn look_path(name: &str) -> Result<String, String> {
-    let var = if cfg!(windows) { "%PATH%" } else { "$PATH" };
-    dm_shared_platform::look_path(name).ok_or_else(|| {
-        format!(
-            "exec: {}: executable file not found in {var}",
-            dm_gocompat::strconv::quote(name)
-        )
-    })
+    let key = if cfg!(windows) { "path" } else { "PATH" };
+    look_path_in(name, &std::env::var(key).unwrap_or_default())
+}
+
+fn look_path_in(name: &str, path_env: &str) -> Result<String, String> {
+    dm_shared_platform::try_look_path_in(name, path_env)
+        .map_err(|e| dm_shared_platform::exec_error(name, e))
 }
 
 /// docker CLI 를 실행하는 [`RunFn`] 이다.

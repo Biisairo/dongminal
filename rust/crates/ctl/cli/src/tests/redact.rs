@@ -97,6 +97,30 @@ fn quoted_and_spaced_assignments() {
     }
 }
 
+// FR-RDF-12: 비밀 이름 뒤의 JSON 숫자 값도 가린다. JSON 이 깨지지 않게 문자열 `"***"` 로 바꾼다.
+// true·false·null 은 비밀이 아니므로 그대로 둔다.
+#[test]
+fn json_number_values() {
+    const NUM: &str = "8675309421";
+    let got = redact_secrets(&format!(
+        r#"{{"password": {NUM},"pin":1,"apiToken":-{NUM}.5e+3,"fontSize":13}}"#
+    ));
+    assert!(!got.contains(NUM), "숫자 카나리가 남았다:\n{got}");
+    assert_eq!(
+        got,
+        r#"{"password": "***","pin":1,"apiToken":"***","fontSize":13}"#
+    );
+    let got = redact_secrets(&format!(r#"msg="body={{\"token\":{NUM},\"n\":2}}" n=1"#));
+    assert!(!got.contains(NUM), "숫자 카나리가 남았다:\n{got}");
+    assert_eq!(got, r#"msg="body={\"token\":\"***\",\"n\":2}" n=1"#);
+    for s in [
+        r#"{"password":true,"token":false,"secret":null}"#,
+        r#"{"token": null, "auth":{"a":1}}"#,
+    ] {
+        assert_eq!(redact_secrets(s), s);
+    }
+}
+
 // 우회 ②: slog 텍스트 줄 안의 이스케이프된 JSON·따옴표.
 #[test]
 fn escaped_json_in_slog_line() {

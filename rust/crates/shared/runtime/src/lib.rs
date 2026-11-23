@@ -25,6 +25,8 @@ const SELF_COPY_NAME: &str = "dongminal-self";
 
 /// 우리가 놓은 헬퍼 이름의 기록 (FR-LFT-6).
 const HELPER_MANIFEST: &str = ".helpers";
+/// 설치 디렉터리의 권한 (Go `os.MkdirAll(..., 0o755)`).
+const DIR_PERM: u32 = 0o755;
 
 /// 기록이 생기기 전에 놓았던 이름들 (D-3).
 const RETIRED_HELPER_NAMES: &[&str] = &["mdview"];
@@ -365,31 +367,9 @@ fn collect_extra(
     Ok(())
 }
 
-/// Go `os.MkdirAll(p, 0o755)`. 알고리즘과 오류 문구가 같다.
+/// Go `os.MkdirAll(p, 0o755)`.
 fn mkdir_all(p: &Path) -> io::Result<()> {
-    let s = p.to_string_lossy();
-    match fs::metadata(p) {
-        Ok(m) if m.is_dir() => return Ok(()),
-        Ok(_) => {
-            let e = io::Error::new(io::ErrorKind::NotADirectory, "not a directory");
-            return Err(path_error("mkdir", &s, e));
-        }
-        Err(_) => {}
-    }
-    if let Some(parent) = p.parent().filter(|q| !q.as_os_str().is_empty()) {
-        mkdir_all(parent)?;
-    }
-    #[cfg_attr(not(unix), allow(unused_mut))]
-    let mut b = fs::DirBuilder::new();
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o755);
-    if let Err(e) = b.create(p) {
-        if fs::symlink_metadata(p).is_ok_and(|m| m.is_dir()) {
-            return Ok(());
-        }
-        return Err(path_error("mkdir", &s, e));
-    }
-    Ok(())
+    dm_gocompat::oserr::mkdir_all(&p.to_string_lossy(), DIR_PERM)
 }
 
 #[cfg(test)]

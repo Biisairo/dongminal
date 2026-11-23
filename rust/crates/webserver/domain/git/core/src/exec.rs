@@ -436,12 +436,6 @@ fn os_path_env() -> String {
         .unwrap_or_default()
 }
 
-/// Go `exec.ErrNotFound` 를 감싼 `exec.Error` 문구.
-fn not_found_message() -> String {
-    let var = if cfg!(windows) { "%PATH%" } else { "$PATH" };
-    format!("exec: {}: executable file not found in {var}", quote("git"))
-}
-
 pub(crate) fn look_git(path_env: Option<&str>) -> Result<String, String> {
     let path = path_env.map_or_else(os_path_env, str::to_owned);
     let mut cache = GIT_BIN.lock().unwrap_or_else(|e| e.into_inner());
@@ -450,7 +444,8 @@ pub(crate) fn look_git(path_env: Option<&str>) -> Result<String, String> {
     {
         return Ok(bin.clone());
     }
-    let bin = dm_shared_platform::look_path_in("git", &path).ok_or_else(not_found_message)?;
+    let bin = dm_shared_platform::try_look_path_in("git", &path)
+        .map_err(|e| dm_shared_platform::exec_error("git", e))?;
     *cache = Some((path, bin.clone()));
     Ok(bin)
 }

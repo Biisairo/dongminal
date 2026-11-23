@@ -319,3 +319,26 @@ fn bare_name_resolves_via_parent_path() {
     let (t, _g) = start(spec("sh", &["sh", "-c", "printf ok"], vec![], ""));
     assert_eq!(read_all(&t), "ok");
 }
+
+// FR-RDF-11: 상대 PATH 항목에서만 찾은 셸은 Go 처럼 ErrDot 문구다. 실행하지 않는다.
+#[test]
+fn resolve_reports_err_dot() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = tempfile::tempdir().unwrap();
+    let exe = d.path().join("dm-dot-shell");
+    std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
+    std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let rel = dm_gocompat::filepath::rel(
+        &std::env::current_dir().unwrap().to_string_lossy(),
+        &d.path().to_string_lossy(),
+    )
+    .unwrap();
+    assert_eq!(
+        resolve_in("dm-dot-shell", &rel).unwrap_err(),
+        r#"exec: "dm-dot-shell": cannot run executable found relative to current directory"#
+    );
+    assert_eq!(
+        resolve_in("dm-no-such-shell-7f3c", &rel).unwrap_err(),
+        r#"exec: "dm-no-such-shell-7f3c": executable file not found in $PATH"#
+    );
+}

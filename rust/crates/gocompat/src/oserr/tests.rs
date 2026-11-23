@@ -72,3 +72,55 @@ fn errno_string_has_no_rust_tail() {
     assert!(!s.ends_with(['\r', '\n']), "{s}");
     assert!(!s.is_empty());
 }
+
+// go1.27.2 darwin/arm64 실측 (FR-RDF-9): os.MkdirAll 은 막힌 그 칸의 경로로 오류를 낸다.
+#[cfg(unix)]
+#[test]
+fn mkdir_all_matches_go_messages() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("dm-gocompat-mk-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    let r = root.to_string_lossy().into_owned();
+    std::fs::write(format!("{r}/f"), "x").unwrap();
+    let msg = |p: &str| super::mkdir_all(p, 0o755).unwrap_err().to_string();
+
+    assert_eq!(
+        msg(&format!("{r}/f/a/b")),
+        format!("mkdir {r}/f: not a directory")
+    );
+    assert_eq!(
+        msg(&format!("{r}/f")),
+        format!("mkdir {r}/f: not a directory")
+    );
+    let e = super::mkdir_all(&format!("{r}/f"), 0o755).unwrap_err();
+    assert_eq!(e.kind(), io::ErrorKind::NotADirectory);
+    assert_eq!(raw_os_error(&e), Some(20));
+    #[cfg(target_os = "macos")]
+    assert_eq!(
+        msg(&format!("{r}/f/")),
+        format!("mkdir {r}/f/: not a directory")
+    );
+
+    std::fs::create_dir(format!("{r}/ro")).unwrap();
+    std::fs::set_permissions(format!("{r}/ro"), std::fs::Permissions::from_mode(0o555)).unwrap();
+    // root 는 권한 검사를 건너뛴다.
+    if std::fs::create_dir(format!("{r}/ro/probe")).is_err() {
+        let e = super::mkdir_all(&format!("{r}/ro/a/b"), 0o755).unwrap_err();
+        assert_eq!(e.to_string(), format!("mkdir {r}/ro/a: permission denied"));
+        assert_eq!(e.kind(), io::ErrorKind::PermissionDenied);
+    }
+    std::fs::set_permissions(format!("{r}/ro"), std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    super::mkdir_all(&format!("{r}/d1/d2/."), 0o755).unwrap();
+    assert!(std::fs::metadata(format!("{r}/d1/d2")).unwrap().is_dir());
+    super::mkdir_all(&format!("{r}/x//y/"), 0o700).unwrap();
+    let mode = std::fs::metadata(format!("{r}/x/y"))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o077, 0, "{mode:o}");
+    super::mkdir_all(&format!("{r}/x/y"), 0o700).unwrap();
+    assert_eq!(msg(""), "mkdir : no such file or directory");
+    let _ = std::fs::remove_dir_all(&root);
+}

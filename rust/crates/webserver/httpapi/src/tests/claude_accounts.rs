@@ -634,3 +634,53 @@ async fn claude_accounts_unclaimed_api() {
     assert_eq!(r.status, 200, "{}", r.body);
     assert_eq!(v["entries"].as_array().map_or(0, Vec::len), 0);
 }
+
+/// FR-RDF-2: Claude Code 락을 다른 쪽이 쥐어 전환이 기다리는 동안에도, 작업 스레드 1개짜리
+/// 런타임에서 다른 요청이 락 대기보다 훨씬 짧게 답한다.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn claude_accounts_switch_lock_wait_does_not_block_other_requests() {
+    const HOLD: std::time::Duration = std::time::Duration::from_millis(1500);
+    const FAST: std::time::Duration = std::time::Duration::from_millis(500);
+    let (e, id_a, _) = two_accounts().await;
+    let held = e.home.path().join(".claude/.oauth_refresh.lock");
+    std::fs::create_dir(&held).unwrap();
+    let releaser = {
+        let held = held.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(HOLD);
+            std::fs::remove_dir(&held).unwrap();
+        })
+    };
+    let srv = e.srv.clone();
+    let body = format!(r#"{{"id":"{id_a}"}}"#);
+    let switch = tokio::spawn(async move {
+        let hdr = [("Content-Type", "application/json")];
+        call(
+            &srv,
+            "POST",
+            "/api/claude-accounts/switch",
+            &hdr,
+            &body,
+            support::LOCAL,
+        )
+        .await
+    });
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let srv = e.srv.clone();
+    let t0 = std::time::Instant::now();
+    let health =
+        tokio::spawn(
+            async move { call(&srv, "GET", "/api/health", &[], "", support::LOCAL).await },
+        )
+        .await
+        .unwrap();
+    let took = t0.elapsed();
+    assert_eq!(health.status, 200, "{}", health.body);
+    assert!(
+        took < FAST,
+        "health took {took:?} while switch waited on lock"
+    );
+    let r = switch.await.unwrap();
+    assert_eq!(r.status, 200, "{}", r.body);
+    releaser.join().unwrap();
+}

@@ -1,7 +1,6 @@
 //! worktree 의 오류. 자기 사유를 들거나 core 의 오류를 감싼다.
 
 use std::fmt;
-use std::io;
 
 use dm_webserver_domain_git_core as core;
 
@@ -58,12 +57,6 @@ impl Error {
             kind: None,
             core: None,
         }
-    }
-
-    /// Go 의 `*os.PathError`.
-    pub(crate) fn io(op: &str, path: &str, e: io::Error) -> Self {
-        let pe = dm_gocompat::oserr::path_error(op, path, e);
-        Error::other(dm_gocompat::oserr::go_error_string(&pe))
     }
 
     /// Go `fmt.Errorf("%w <suffix>", err)`. 종류와 원인을 보존한다.

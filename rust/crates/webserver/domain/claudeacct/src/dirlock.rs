@@ -63,6 +63,15 @@ pub(crate) fn acquire_dir_lock_with(
     timeout: Duration,
     touch: Duration,
 ) -> Result<DirLock, Error> {
+    fsutil::off_worker(|| acquire_blocking(dir, staleness, timeout, touch))
+}
+
+fn acquire_blocking(
+    dir: &Path,
+    staleness: Duration,
+    timeout: Duration,
+    touch: Duration,
+) -> Result<DirLock, Error> {
     fsutil::mkdir_all(
         &dir.parent().map(Path::to_path_buf).unwrap_or_default(),
         DIR_MODE,

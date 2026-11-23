@@ -8,6 +8,7 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use dm_gocompat::filepath;
+pub(crate) use dm_gocompat::oserr::mkdir_all;
 use dm_gocompat::oserr::{go_error_string, path_error};
 use dm_shared_apipath as apipath;
 use dm_shared_dmenv as dmenv;
@@ -252,59 +253,6 @@ pub(crate) fn mkdir_temp(dir: &str, prefix: &str) -> Result<String, String> {
         &pattern,
         io::Error::from(io::ErrorKind::AlreadyExists),
     )))
-}
-
-/// Go `os.MkdirAll(path, mode)`. 알고리즘과 오류 문구가 같다 — 있는 것이 디렉터리가 아니면
-/// `not a directory`, 조상에서 막히면 막힌 그 칸의 경로로 오류를 낸다.
-pub(crate) fn mkdir_all(path: &str, mode: u32) -> io::Result<()> {
-    if let Ok(m) = std::fs::metadata(path) {
-        if m.is_dir() {
-            return Ok(());
-        }
-        return Err(path_error("mkdir", path, not_a_directory()));
-    }
-    let b = path.as_bytes();
-    let mut i = b.len();
-    while i > 0 && filepath::is_path_separator(b[i - 1]) {
-        i -= 1;
-    }
-    let mut j = i;
-    while j > 0 && !filepath::is_path_separator(b[j - 1]) {
-        j -= 1;
-    }
-    if j > 1 {
-        let parent = &path[..j - 1];
-        if cfg!(windows) && parent.len() == 2 && parent.as_bytes()[1] == b':' {
-            mkdir_all(&format!("{parent}\\"), mode)?;
-        } else {
-            mkdir_all(parent, mode)?;
-        }
-    }
-    #[cfg_attr(not(unix), expect(unused_mut))]
-    let mut d = std::fs::DirBuilder::new();
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut d, mode);
-    #[cfg(not(unix))]
-    let _ = mode;
-    if let Err(e) = d.create(path) {
-        if std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir()) {
-            return Ok(());
-        }
-        return Err(path_error("mkdir", path, e));
-    }
-    Ok(())
-}
-
-fn not_a_directory() -> io::Error {
-    #[cfg(unix)]
-    {
-        // ENOTDIR — darwin·linux 모두 20 이다.
-        io::Error::from_raw_os_error(20)
-    }
-    #[cfg(not(unix))]
-    {
-        io::Error::other("not a directory")
-    }
 }
 
 /// 끊어 띄울 서버 명령과 그 출력이 갈 로그다. spawn 은 부르는 쪽이 한다.

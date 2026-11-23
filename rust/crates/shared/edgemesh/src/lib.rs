@@ -20,7 +20,7 @@ pub use mesh::{
     BoxFuture, Conn, DialFn, FpFn, HELLO_WAIT, Hello, Mesh, NowFn, OnHelloFn, Options, PATH, PROTO,
     Upper,
 };
-pub use net::{NodeInfo, View};
+pub use net::{MARK_REACHED_TTL, NodeInfo, View, mark_expendable};
 
 #[cfg(test)]
 mod tests;

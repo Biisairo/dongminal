@@ -1,3 +1,4 @@
+use super::zone::tzi::{Tzi, TziDate, local_from_tzi};
 use super::{
     Zone, format_log_std, format_rfc3339, format_rfc3339_millis, format_rfc3339_nano,
     resolve_local, to_zone,
@@ -271,4 +272,91 @@ fn parse_and_json_time_match_go() {
         n += 1;
     }
     assert!(n > 130, "{n}");
+}
+
+// Go zoneinfo_windows.go initLocalFromTZI: TIME_ZONE_INFORMATION 으로 Local 을 만든다.
+fn tzi_date(month: u16, day_of_week: u16, day: u16, hour: u16) -> TziDate {
+    TziDate {
+        month,
+        day_of_week,
+        day,
+        hour,
+        minute: 0,
+        second: 0,
+    }
+}
+
+fn pacific() -> Tzi {
+    Tzi {
+        bias: 480,
+        standard_bias: 0,
+        daylight_bias: -60,
+        standard_date: tzi_date(11, 0, 1, 2),
+        daylight_date: tzi_date(3, 0, 2, 2),
+        standard_name: "Pacific Standard Time".to_owned(),
+        daylight_name: "Pacific Daylight Time".to_owned(),
+    }
+}
+
+#[test]
+fn local_from_tzi_follows_windows_rules() {
+    let z = local_from_tzi(&pacific(), 2026);
+    assert_eq!(z.name(), "Local");
+    let cases: &[(i64, i32, &str)] = &[
+        (1_768_435_200, -28800, "PST"),     // 2026-01-15
+        (1_782_864_000, -25200, "PDT"),     // 2026-07-01
+        (1_772_964_000 - 1, -28800, "PST"), // 2026-03-08 02:00 PST 직전
+        (1_772_964_000, -25200, "PDT"),
+        (1_793_523_600 - 1, -25200, "PDT"), // 2026-11-01 02:00 PDT 직전
+        (1_793_523_600, -28800, "PST"),
+        (4_907_001_600, -25200, "PDT"),  // 2125-07-01: 마지막 해
+        (4_938_537_600, -28800, "PST"),  // 2126-07-01: 표 밖은 마지막 전환의 시간대
+        (-2_193_350_400, -28800, "PST"), // 1900-07-01: 첫 전환 앞은 첫 표준시
+    ];
+    for &(sec, offset, name) in cases {
+        let got = z.lookup(sec);
+        assert_eq!((got.offset, got.name.as_str()), (offset, name), "{sec}");
+        assert_eq!(got.is_dst, offset == -25200, "{sec}");
+    }
+}
+
+#[test]
+fn local_from_tzi_last_week_rule() {
+    // W. Europe Standard Time: 3월·10월 마지막 일요일(Day=5).
+    let tzi = Tzi {
+        bias: -60,
+        standard_bias: 0,
+        daylight_bias: -60,
+        standard_date: tzi_date(10, 0, 5, 3),
+        daylight_date: tzi_date(3, 0, 5, 2),
+        standard_name: "W. Europe Standard Time".to_owned(),
+        daylight_name: "W. Europe Daylight Time".to_owned(),
+    };
+    let z = local_from_tzi(&tzi, 2026);
+    assert_eq!(z.offset_at(1_774_746_000 - 1), 3600); // 2026-03-29 01:00Z 직전
+    assert_eq!(z.offset_at(1_774_746_000), 7200);
+    assert_eq!(z.offset_at(1_792_890_000 - 1), 7200); // 2026-10-25 01:00Z 직전
+    assert_eq!(z.offset_at(1_792_890_000), 3600);
+}
+
+#[test]
+fn local_from_tzi_without_dst() {
+    // StandardDate.Month 가 0 이면 StandardBias 를 무시한다.
+    let tzi = Tzi {
+        bias: -540,
+        standard_bias: 30,
+        daylight_bias: -60,
+        standard_date: TziDate::default(),
+        daylight_date: TziDate::default(),
+        standard_name: "대한민국 표준시".to_owned(),
+        daylight_name: "대한민국 일광 절약 시간".to_owned(),
+    };
+    let z = local_from_tzi(&tzi, 2026);
+    for sec in [i64::MIN, -2_193_350_400, 0, 1_782_864_000, i64::MAX] {
+        let got = z.lookup(sec);
+        assert_eq!(
+            (got.offset, got.name.as_str(), got.is_dst),
+            (32400, "", false)
+        );
+    }
 }

@@ -245,9 +245,7 @@ impl Service {
             Ok(Some(c)) if !c.is_empty() => c,
             _ => return,
         };
-        let Ok(_lock) =
-            dm_shared_platform::lock_file(&self.consume_lock(&a.id), self.lock_timeout())
-        else {
+        let Ok(_lock) = fsutil::lock_file(&self.consume_lock(&a.id), self.lock_timeout()) else {
             return;
         };
         match self.backup.read(&a.id) {
@@ -270,10 +268,8 @@ impl Service {
         let dir = self.profile_dir(id);
         let paths = ClaudePaths::profile(&dir);
         if self.live.sec.available() {
-            let _ = self
-                .live
-                .sec
-                .delete(&paths.keychain_service, &self.live.sec.account());
+            let sec = &self.live.sec;
+            let _ = fsutil::off_worker(|| sec.delete(&paths.keychain_service, &sec.account()));
         }
         let mut lock = dir.clone().into_os_string();
         lock.push(".lock");

@@ -80,7 +80,7 @@ Go 구현과 같다. 기능 목록의 근거는 `architecture.md` 의 패키지 
   - `pkill`·`killall` 처럼 이름으로 프로세스를 죽이기. 프로세스를 끌 때는 자기가 띄운 PID 만 끈다.
 - **C-RSP-2 (기준선 고정)** 포팅의 기준은 커밋 `127ff7d9` 의 Go 코드다. 포팅 브랜치에서 Go 코드를 고치지 않는다. 다만 e2e 가 Rust 바이너리를 쓰게 하는 경로 수정(FR-RSP-31)만 예외로 한다.
 - **C-RSP-3 (의존성 보안)** 외부 crate 는 다음을 모두 만족해야 한다. 널리 쓰이고, 유지보수가 계속되며, RustSec 권고에 걸리지 않는다. 맞는 crate 가 없으면 직접 구현한다. 허용 목록은 `rust/DEPENDENCIES.md` 에 두고, 목록에 없는 crate 를 더하려면 그 문서를 먼저 고친다.
-- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`), PTY·소켓 fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리), `dm-gocompat` 의 Windows 전용 `FormatMessageW(LANG_ENGLISH)` 호출 하나(platform 이 gocompat 에 의존하므로 platform 에 둘 수 없는 자리), `dm-gocompat` 의 Windows 전용 로컬 시간대 조회(`GetDynamicTimeZoneInformation`, Go zoneinfo_windows.go 대응 — 같은 이유, RUST_DEFECT_FIX_SRS FR-RDF-5)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
+- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`), PTY·소켓 fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리), `dm-gocompat` 의 Windows 전용 `FormatMessageW(LANG_ENGLISH)` 호출 하나(platform 이 gocompat 에 의존하므로 platform 에 둘 수 없는 자리), `dm-gocompat` 의 Windows 전용 로컬 시간대 조회(`GetTimeZoneInformation`, Go zoneinfo_windows.go initLocalFromTZI 대응 — 같은 이유, RUST_DEFECT_FIX_SRS FR-RDF-5)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
 - **C-RSP-5 (커밋)** 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다. 이슈 브랜치와 `rust-port` 에는 자동으로 커밋해도 된다. `main` 병합과 push 는 사용자 확인을 받은 뒤에만 한다.
 
 ### 2.5 가정과 의존
@@ -190,10 +190,10 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-16 | 보안 강화 | ctl restart (`restart.log`) | 권한 0644 로 열어 다른 사용자가 재시작 기록을 읽을 수 있다 | 0600 으로 연다 | 6.1.2 |
 | DIFF-17 | 보안 강화 | daemon chat (direct 방 기록 열기) | direct 방 기록의 name 을 보지 않는다 | name 이 있으면 그 기록을 버린다 | 3.1 |
 | DIFF-18 | 보안 강화 | daemon chat (상태 검사) | 상태의 참가자 kind 를 보지 않는다 | kind 가 agent·user 가 아니면 그 상태를 버린다 | 3.1 |
-| DIFF-19 | 보안 강화 | daemon chat (재전송 막기 marks, 상한 4096) | 가득 차면 가장 오래된 번호를 밀어내므로, 일부러 밀어내 재전송 막기를 우회할 수 있다 | 닿은 적 없는 노드의 번호만 밀어낸다. 밀어낼 것이 없으면 아는 노드를 잊지 않고 새 노드를 받지 않는다 | 3.1 |
+| DIFF-19 | 보안 강화 | daemon chat (재전송 막기 marks, 상한 4096) | 가득 차면 가장 오래된 번호를 밀어내므로, 일부러 밀어내 재전송 막기를 우회할 수 있다 | 닿은 적 없는 노드의 번호와, 닿은 적 있어도 잊은 지 180초(`MARK_REACHED_TTL` = 3 × REDIAL_MAX)가 지난 번호만 밀어낸다. 밀어내기는 기억이 가득 찼을 때만 한다. 거절한 재전송은 번호의 시각을 바꾸지 않는다. 밀어낼 것이 없으면 아는 노드를 잊지 않고 새 노드를 받지 않는다(가짜로 채워도 180초 뒤에는 다시 받는다) | 3.1, 10.1 |
 | DIFF-20 | 결함 수정 | ctl doctor (도구 진단 임시 디렉터리) | 저장 중지와 경쟁해 홈에 `doctor-tools/` 가 남을 수 있다 | 저장을 멈춘 뒤 지워 남기지 않는다 | 6.1.2 |
-| DIFF-21 | 보안 강화 | edgemesh (재전송 막기 marks, 상한 4096) | 가득 차면 가장 오래된 번호를 밀어내므로, 일부러 밀어내 재전송 막기를 우회할 수 있다 | DIFF-19 와 같다. 남은 위험(DIFF-19 공통): 간선 상대가 이어진 가짜 지문을 대량으로 알리면 번호 기억이 차서 새 노드를 받지 못할 수 있다 — 8 통합 검증에서 TTL 또는 간선 상대별 몫으로 다시 본다 | 3.1 |
-| DIFF-22 | 보안 강화 | ctl doctor `--bundle` (항목 가림) | 항목은 URL userinfo 만 가린다(sanitize_remote) | 그 뒤에 PEM 본문, Authorization·Cookie·Set-Cookie·X-Api-Key 헤더 값, Bearer 토큰, 비밀 이름(token·secret·password 등으로 끝나는 키)의 JSON 값·`이름=값`·`이름: 값` 을 `***` 로 가린다. 비밀이 없는 입력의 번들은 Go 와 바이트 단위로 같다 | 6.1.3 |
+| DIFF-21 | 보안 강화 | edgemesh (재전송 막기 marks, 상한 4096) | 가득 차면 가장 오래된 번호를 밀어내므로, 일부러 밀어내 재전송 막기를 우회할 수 있다 | DIFF-19 와 같다(같은 함수 `edgemesh::mark_expendable` 을 쓴다). 남은 위험: 잊은 지 180초가 지난 닿은 노드는 기억을 가득 채우는 공격으로 그 노드의 옛 net·상태를 다시 받을 수 있다. 그 노드가 더 새로운 번호를 알리면 바로 덮인다 | 3.1, 10.1 |
+| DIFF-22 | 보안 강화 | ctl doctor `--bundle` (항목 가림) | 항목은 URL userinfo 만 가린다(sanitize_remote) | 그 뒤에 PEM 본문, Authorization·Cookie·Set-Cookie·X-Api-Key 헤더 값, Bearer 토큰, 비밀 이름(token·secret·password 등으로 끝나는 키)의 JSON 값(문자열과 숫자. 숫자는 `"***"` 문자열로 바꾸고, true·false·null 은 그대로 둔다)·`이름=값`·`이름: 값` 을 `***` 로 가린다. 비밀이 없는 입력의 번들은 Go 와 바이트 단위로 같다 | 6.1.3 |
 | DIFF-23 | 보안 강화 | git API file-head (HEAD 사본 쓰기, `$TMPDIR/dongminal-git-head/`) | 공유 임시 디렉터리에서 경로를 따라 chmod·쓰기를 해, 다른 로컬 사용자가 미리 심은 디렉터리·심볼릭 링크로 남의 파일을 덮거나 권한을 바꿀 수 있다 | 최상위 디렉터리가 링크가 아니고 내 소유이며 group/other 쓰기가 없을 때만 쓰고, 끝 성분을 `O_NOFOLLOW` 로 열며, 읽기 전용 전환은 열린 핸들로 한다. 정상 사용자에게는 경로·권한·응답이 Go 와 같다 | 5.4.3 |
 | DIFF-24 | 알려진 차이 | httpapi `/api/fs/download-dir`·`download-many` (zip 본문) | compress/flate 레벨 5 로 압축한다 | zip 컨테이너(헤더·데이터 기술자·중앙 디렉터리·extra·모드·플래그)는 Go 와 바이트까지 같고, deflate 압축 스트림 바이트만 다르다(flate2). 풀어 낸 파일·이름·mtime·권한은 같다 | 5.5.7.2 |
 | DIFF-25 | 알려진 차이 | httpapi LSP WebSocket (서버→브라우저) | 언어 서버 출력을 텍스트 프레임에 바이트 그대로 싣는다(잘못된 UTF-8 이면 브라우저가 연결을 끊는다) | 잘못된 UTF-8 은 U+FFFD 로 바꿔 싣는다. 올바른 UTF-8 출력은 같다 | 5.5.9 |

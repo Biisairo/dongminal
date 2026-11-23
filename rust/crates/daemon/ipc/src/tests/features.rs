@@ -196,6 +196,56 @@ async fn edge_get_returns_node_answer() {
     assert_eq!(r["body"]["node"]["addr"], "0.0.0.0:58147", "{r}");
 }
 
+/// edge 한 번이 시한(EDGE_CALL_TIMEOUT)을 넘으면 Go 의 ctx 시한 초과와 같은 답을 낸다 (FR-RDF-3).
+/// 상대는 연결만 받고 답하지 않는다. 시한은 시험에서 낮춘다.
+#[tokio::test(flavor = "multi_thread")]
+async fn edge_op_stops_at_call_timeout() {
+    const LIMIT: std::time::Duration = std::time::Duration::from_millis(300);
+    const BOUND: std::time::Duration = std::time::Duration::from_secs(3);
+    let ln = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = ln.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        let mut held = Vec::new();
+        while let Ok((c, _)) = ln.accept() {
+            held.push(c);
+        }
+    });
+    let (d, mut c) = connected(&[ipc::FEATURE_EDGE], &[]);
+    let dir = tempfile::tempdir().unwrap();
+    let n = Node::new(Options {
+        home: dir.path().to_path_buf(),
+        hostname: "d".into(),
+        dial: None,
+        port_status: None,
+        on_config: None,
+        notify: None,
+        mesh: true,
+        now: None,
+    })
+    .unwrap();
+    let fp = "ab".repeat(32);
+    n.store()
+        .add_edge(dm_shared_edge::Edge {
+            name: "x".into(),
+            addr: "127.0.0.1".into(),
+            port: i64::from(port),
+            fingerprint: fp.clone(),
+            ..dm_shared_edge::Edge::default()
+        })
+        .unwrap();
+    d.srv.set_edge(Some(n));
+    d.srv.inner.set_edge_call_timeout(LIMIT);
+    let start = std::time::Instant::now();
+    let got = c.call(&format!(
+        r#"{{"id":1,"method":"edge","params":{{"op":"notify","args":{{"fp":"{fp}"}}}}}}"#
+    ));
+    assert!(start.elapsed() < BOUND, "{:?}", start.elapsed());
+    assert_eq!(
+        got,
+        r#"{"id":1,"result":{"code":"edge_unreachable","message":"상대에 닿지 못했다: 상대 노드에 닿지 못했습니다: context deadline exceeded","status":502}}"#
+    );
+}
+
 /// 노드를 세우지 못한 데몬은 503 edge_unavailable 로 답한다.
 #[tokio::test(flavor = "multi_thread")]
 async fn edge_without_node_is_unavailable() {

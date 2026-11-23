@@ -1084,3 +1084,28 @@ async fn refs_carry_remote_name() {
     }
     assert!(seen > 0, "원격 ref 가 없다");
 }
+
+/// FR-RDF-4 (Go `apiGitJobEvents` 의 `r.Context().Done()`): 클라이언트가 끊으면 다음 줄이나
+/// keep-alive(15초)를 기다리지 않고 루프를 끝내고 구독을 놓는다.
+#[tokio::test]
+async fn job_events_close_releases_subscription_without_waiting() {
+    let e = rserver(&RemoteFake::new(false), remote_emit(&[]));
+    let hub = e.s.jobs_hub(e.s.git.as_ref().unwrap());
+    let (res, st) = dm_webserver_sse::start(Duration::ZERO);
+    let (tx, rx) = tokio::sync::mpsc::channel(1);
+    let h = tokio::spawn(crate::remote::job_event_loop(
+        st,
+        rx,
+        hub,
+        "x".to_owned(),
+        core::Ctx::background(),
+    ));
+    tokio::task::yield_now().await;
+    assert!(!h.is_finished(), "클라이언트가 있는 동안은 기다린다");
+    drop(res);
+    tokio::time::timeout(Duration::from_secs(1), h)
+        .await
+        .expect("끊긴 구독이 남았다")
+        .unwrap();
+    assert!(tx.is_closed(), "구독 채널을 놓지 않았다");
+}

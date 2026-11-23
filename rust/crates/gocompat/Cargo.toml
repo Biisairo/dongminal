@@ -27,8 +27,5 @@ rcgen = { workspace = true }
 tokio = { workspace = true }
 tokio-rustls = { workspace = true }
 
-[target.'cfg(not(unix))'.dependencies]
-chrono = { workspace = true }
-
 [target.'cfg(windows)'.dependencies]
-windows-sys = { workspace = true, features = ["Win32_System_Diagnostics_Debug"] }
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Time"] }

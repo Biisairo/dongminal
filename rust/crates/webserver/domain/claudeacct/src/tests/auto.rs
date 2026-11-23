@@ -973,3 +973,19 @@ fn alert_text() {
     );
     assert_eq!(a("unknown").text(), "");
 }
+
+// Go `time.Unix(sec, 0).Format("2006-01-02")` 를 Local 시간대로 본다.
+#[test]
+fn local_day_matches_go_layout() {
+    use dm_gocompat::time::Zone;
+    let at = 1_795_446_000; // 2026-11-23T15:00:00Z
+    assert_eq!(crate::alerts::local_day_in(at, &Zone::utc()), "2026-11-23");
+    assert_eq!(
+        crate::alerts::local_day_in(at, &Zone::fixed("KST", 9 * 3600)),
+        "2026-11-24"
+    );
+    assert_eq!(
+        crate::alerts::local_day_in(-2_193_350_400, &Zone::fixed("X", -1)),
+        "1900-06-30"
+    );
+}

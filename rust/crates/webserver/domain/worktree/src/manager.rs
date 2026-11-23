@@ -3,8 +3,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_gocompat::filepath;
 use dm_gocompat::strconv::quote;
+use dm_gocompat::{filepath, oserr};
 use dm_webserver_domain_git_core::{
     self as core, BoxFut, Ctx, MANAGER_WRITE_TIMEOUT, Service as GitService, unguarded_text_runner,
 };
@@ -18,6 +18,8 @@ use crate::parse::{Entry, normalize_git_path, parse_worktree_list};
 /// git 한 번의 상한이다 (WORKTREE_ADD_TIMEOUT_MS 기본 180초). 호출자 ctx 의 마감이 더 짧으면
 /// 그것이 이긴다.
 pub(crate) const OP_TIMEOUT: Duration = MANAGER_WRITE_TIMEOUT;
+/// worktree 상위 디렉터리의 권한 (Go `os.MkdirAll(filepath.Dir(s.Path), 0o755)`).
+const PARENT_DIR_PERM: u32 = 0o755;
 
 /// 실행 기록에 남는 사유다 (GIT_EXEC_UNIFY_SRS FR-GXU-1).
 pub const UNGUARDED_REASON: &str = "worktree 도메인 — 화이트리스트가 argv[0] 으로 키잉되어 list 와 add 를 가를 수 없다 (FR-GIT-246)";
@@ -263,8 +265,8 @@ impl Manager {
         let spec = self.add_spec(s)?;
         let _lock = self.lock(ctx, &s.lock_key, &s.repo).await?;
         let parent = filepath::dir(&s.path);
-        if let Err(e) = std::fs::create_dir_all(&parent) {
-            return Err(Error::io("mkdir", &parent, e));
+        if let Err(e) = oserr::mkdir_all(&parent, PARENT_DIR_PERM) {
+            return Err(Error::other(oserr::go_error_string(&e)));
         }
         let argv: Vec<&str> = spec.argv.iter().map(String::as_str).collect();
         self.git(ctx, &s.repo, &argv).await.map_err(|f| f.err)?;

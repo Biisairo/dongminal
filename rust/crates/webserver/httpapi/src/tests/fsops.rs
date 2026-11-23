@@ -486,6 +486,9 @@ async fn fs_upload_rel_path_guards() {
         (409, Some(apierr::CODE_EXISTS))
     );
     assert_eq!(std::fs::read(format!("{root}/dup.txt")).unwrap(), b"orig");
+    // FR-RDF-9: 부모가 파일이면 Go os.MkdirAll 은 ENOTDIR 이다 — 있음(409)이 아니라 io 다.
+    let r = up("dup.txt/x.txt").await;
+    assert_eq!(r.json()["code"].as_str(), Some(apierr::CODE_IO));
     let r = upload(
         &e.srv,
         &format!("/api/fs/upload?root={}&dir={}/nope", qe(&root), qe(&root)),

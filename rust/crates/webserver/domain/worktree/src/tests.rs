@@ -1202,3 +1202,17 @@ fn result_json_shape() {
         br#"{"repo":"r","path":"","branch":"","base":""}"#
     );
 }
+
+// FR-RDF-9: 상위 디렉터리를 만들 수 없으면 Go os.MkdirAll 처럼 막힌 그 칸의 경로로 오류를 낸다.
+#[tokio::test]
+async fn create_mkdir_error_matches_go() {
+    let (_t, root) = real_tmp();
+    let file = filepath::join(&[root.clone(), "worktrees".to_owned()]);
+    std::fs::write(&file, "x").unwrap();
+    let (_k, key) = lock_key();
+    let m = Manager::new(&file).with_runner(ok_runner());
+    let mut sp = spec(&m, &abs_repo(), "a", "dmn/r/a", "main");
+    sp.lock_key = key;
+    let e = m.create(&ctx(), &sp).await.unwrap_err();
+    assert_eq!(e.to_string(), format!("mkdir {file}: not a directory"));
+}
