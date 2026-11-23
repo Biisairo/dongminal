@@ -190,6 +190,125 @@
    - `scripts/check-e2e-waits.mjs` 의 예외 목록에서 지운 시험의 줄 참조 정리
    - `e2e/shard-timings.json` 은 다음 전량 실행(11.10) 뒤 다시 만든다
 
+## 8. 오래 걸리는 시험 (12.2 분석)
+
+- 이슈: `rust-port/issues/12.2-e2e-오래-걸리는-시험-분석.md`
+- 기준 트리: `rp/12.2` (커밋 `91a1cfd5`)
+- 범위: 분석만 한다. 코드와 시험은 고치지 않았다. e2e 는 돌리지 않았다. 시간은 `e2e/shard-timings.json`(2026-11-03, 파일 단위)과 코드 정독으로 추정했다.
+
+### 8.1 결론
+
+1. 대상은 `shard-timings.json` 상위 20개 파일이다. 8위 `agent-tool.spec.ts`(46.5초)는 커밋 `dff008ff`(에이전트 GUI 제거)에서 이미 지워졌다. 그래서 21위 `editor-lsp-nav.spec.ts`(34.6초)를 대신 넣었다. 20개 파일의 합은 **직렬 약 956초(15.9분)** 이고, 기록이 있는 163개 파일 합(2,697초)의 35% 다.
+2. **기본안**(고정 대기를 관측 대기로 바꾸기 + 기존 주입·설정으로 주기 줄이기 + 단위 시험이 이미 덮거나 쉽게 옮길 수 있는 시험 정리)으로 **직렬 약 199초(약 3.3분)** 를 줄인다. 20개 파일 시간의 약 21% 다. 기본안은 **제품 코드를 바꾸지 않는다.**
+3. **제품 코드를 바꾸는 주입**을 더하면 약 25초(0.4분)를 더 줄인다. 대상은 브라우저 상수 `GIT_REPO_MISSING_POLL_MS` 하나다(§8.4). 서버 상수(`GitWatchInterval`·`GitKickDebounce`·`sseHelloEvery` 등)에 새 환경변수 노브를 만들어야 하는 항목은 **없다.** 서버 회차가 1초라서 줄여도 시험당 1초 미만이기 때문이다.
+4. **준비 공유**(시험 합치기, 픽스처를 한 번만 만들기, 페이지 재사용)로 추정 90~120초를 더 줄일 수 있다. 다만 시험마다 워크스페이스를 리셋하는 격리 계약(`cleanTools`, `e2e/fixtures.ts:305-313`)을 일부 포기해야 하므로 기본안에서 뺐다(§8.5).
+5. 분석 중에 **아무것도 재지 못하는 고정 대기**를 여럿 찾았다. 서버는 관측 결과가 바뀔 때만 `git_changed` 를 방송하고(`internal/webserver/hub/gitwatch_round.go:177-183`), 브라우저 안전망은 기본 30초다(`web/js/core/settings-defaults.js:20`). 그래서 변화 없는 저장소에서 "회차를 넘기려고" 2.6~8초 기다리는 대기는 그 사이에 회차를 하나도 지나지 않는다. 이런 대기는 줄이거나 주기를 주입하면 시험이 **오히려 강해진다**(§8.6).
+
+### 8.2 주입 수단
+
+| 기호 | 수단 | 제품 코드 변경 | 시험 전용인가 |
+|---|---|---|---|
+| (a) | `setSafetyNet(page, ms)` — 브라우저 전역 `gitStatusInterval` 을 그 자리에서 바꾼다 (`e2e/fixtures.ts:813`) | 없음 | 예. 페이지 안에서만 바뀐다 |
+| (a′) | 브라우저 `var` 전역을 그 자리에서 바꾼다: `gitConsoleInterval`(`settings-defaults.js:45`), 침묵 감시 job 의 `every`(`app.timers._jobs.get('sse.silence')`, `web/js/core/timer-hub.js:56·114`). 도우미는 새로 만들어야 한다 | 없음 (`e2e/fixtures.ts` 만 바뀐다) | 예 |
+| (b) | 기존 사용자 설정을 `PUT /api/settings` 로 바꾼다: `gitWorktreeInterval`(서버 워크트리 회차, 기본 4000, 하한 1000), `gitReposInterval`(탐색기 틱, 기본 3000, 하한 1000, `web/js/core/settings-schema.js:37`) | 없음 | 아니다. 사용자가 고를 수 있는 값이다. `cleanTools` 는 설정을 되돌리지 않으므로 시험이 시작할 때 저장하고 끝날 때 복원해야 한다(선례 `e2e/editor-fs-watch.spec.ts:28-41`) |
+| (c) | 브라우저 `const` 나 서버 상수에 덮어쓰기 길을 만든다 | **있음** | 길은 시험 전용으로 만들 수 있지만 제품 코드에 들어간다 |
+
+### 8.3 파일별 표
+
+열 설명:
+- **시험**: 정적 선언 수다.
+- **고정 대기**: `waitForTimeout` 합(초)이다. 상수는 값으로, 반복문은 곱으로 풀었다. 부록 A 와 다르면 이 값이 맞다(§8.7).
+- **e2e 필요**: §5 기준이다. "일부" 는 단위 시험으로 옮길 수 있는 시험이 섞여 있다는 뜻이다.
+- **관측 대기로 바꿀 자리**: `e2e/` 아래 파일의 행이다.
+- **절약**: 기본안의 직렬 추정(초)이다.
+
+| # | spec | 시간 | 시험 | 고정 대기 | 무엇을 지키나 | e2e 필요 (대신할 단위 시험) | 관측 대기로 바꿀 자리 | 주입할 주기 | 절약 |
+|---:|---|---:|---:|---:|---|---|---|---|---:|
+| 1 | `git-view-refresh` | 84.8 | 19 | 21.7 | V-GVR-1~12: push·fetch 뒤 History·Branches·Console 갱신, 열지 않은 뷰 요청 없음 / FR-GLV-1·2·4·6 | 필요 (실제 push·fetch, 요청 수, 부재). G16 은 내부 `_refs` 비교라 단위 후보 | `:432` G11 → stash 응답 관측, `:566` G16 → `afterRefWrite` promise. 부재 창 축소: `:295` G6, `:354`·`:357` G8, `:390` G9, `:475` G13, `:543` G15, `:689` V-GLV-3 | 안전망 300~400ms (a) · `gitConsoleInterval` 300 (a′) · `gitWorktreeInterval` 1000 (b) | 16 |
+| 2 | `slot-view-state` | 69.7 | 35 | 0 | FR-SVS-1~71: 칸별 활성 탭·복원, Git 관측 공유, 문서 공유, 쓰기 single-flight | 필요 (칸별 DOM, 마우스 순서, 다중 클라이언트). TC-SVS-13·53·58 은 단위 후보(새로 씀) | `:335-338` TC-SVS-50 `toPass` → 클릭 전에 두 페이지 `waitSettled` 로 저장 경합을 없앤다(재시도 1회당 6초 낭비) | 없음 | 8 |
+| 3 | `git-polling` | 62.2 | 10 | 14.0 | V4·V5·V6·V18, TC-GWL-11, D-POLL-1~3 회귀 | 필요 (요청 수 가로채기, 부재). P8 은 단위 후보. 임대는 Go 가 이미 봄(`hub/gitwatch_test.go`) | `:146` P3, `:164` P4 앞, `:179` P5, `:217` P6 → 응답 관측. 부재 창 축소: `:129`·`:131` P2, `:166` P4, `:187` P5, `:253`·`:255` P7 | 안전망 200~300ms (a) · `gitWorktreeInterval` 1000 (b) | 11 |
+| 4 | `git-history` | 61.3 | 35 | 2.7 | V47~65, FR-GIT-114~145·222·232·248·280, FR-HSU-2~14, FR-GVR-12 | 필요 (가상 스크롤·SVG 렌더링). 서버 절반은 `domain/git/query/log_test.go` 가 덮음 | `:380` H12 → `/api/git/log?ref=…` 404 응답, `:770` H21·`:785` H22 → 요청 수 0 + `nextFrames` | 없음 | 2.5 |
+| 5 | `notes-live-explorer` | 54.0 | 18 | 27.0 | FR-NOT-1~13, FR-WBR-40~42, FR-FSL-1~14 (밖의 변경 반영, 변화 없으면 재조회 없음) | 필요 (디스크→fswatch→SSE→화면). V-22·V-24 는 `web/js/test/file-tree-store.test.mjs` 로 옮길 수 있음 | `:359` V-21 → stamps 요청 2회 관측 뒤 list 0 단정. `:428` V-24·`:445` V-25 는 부재 → 2~3틱 창 (`:446` 의 3000 하드코딩도 주기로 계산) | `gitReposInterval` 1000 (b) | 18 |
+| 6 | `git-repaint` | 49.9 | 16 | 19.7~41.3 | V104~113, V-RTU-92·97, V-GRF-8·9: 재렌더 뒤 같은 요소 유지 | 필요 (DOM 동일성) | `POLLS`(`:56`)=2600 을 쓰는 `:65`·`:85`·`:163`·`:330`·`:365` → 회차 함수를 직접 두 번 부르고 await(이미 P6 `:146`·P9 `:232` 가 쓰는 방식). `:125` P5 지움. `:198`·`:209` P8 → records 요청 증가 관측 | 안전망 200ms (a) · `gitConsoleInterval` 300 (a′) | 16 |
+| 7 | `window-slots` | 46.8 | 45 | 0 | FR-WSL-1~84, FR-MOV-1~9, FR-CLS-1·2, FUI-19 | 일부. TC-WSL-5·11·11b·13·14·18·18b·26·28·28b(약 10개)는 순수 모델 로직 → `slots-controller.js` 단위 시험 새로 씀 | 없음 (고정 대기 없음, 시간은 준비 비용) | 없음 | 9 |
+| 8 | `git-repo-missing` | 45.7 | 11 | 24.6 | V-RMS-4~26: 소실 안내, 활성 리포 유지, 7개 탭, 자동 복구, 백오프, 소실 고정 주기 | 필요 (실제 폴더 소실, 요청 수). B3(`:360`)는 `_cadence` 값만 봄 → 단위 시험 새로 씀 | 비율 창 축소: `:282` M7, `:332` B1, `:349`·`:355` B2, `:424` B4 (판정 기준은 비례로 조정) | 안전망 300ms·백오프 기준 500ms (a). M4 복구 30초는 (c) §8.4 | 15 |
+| 9 | `editor-explorer` | 43.6 | 19 | 18.0 | FR-EDT-57~78, FR-FSP: 정렬·링크·더 보기·git 색·비활성 창은 폴링 안 함 | 필요 (서버 값·색 렌더링) | `:509` X13 → status 응답 관측. 부재 창 축소: `:422`·`:426` X9, `:491` X12 (시험이 `window.gitReposInterval` 을 읽으므로 창이 저절로 준다) | `gitReposInterval` 1000 (b) | 16 |
+| 10 | `git-submodules` | 43.4 | 11 | 0 | FR-SUB-1~11, V-RST-4·5 | 필요. D2·D10·D11 은 JS 단위 후보. 서버는 `gitapi/handlers_git_submodule_test.go` 가 덮음 | 없음. D9(`:253-256`)는 워크트리 회차 대기 | `gitWorktreeInterval` 1000 (b) | 6 |
+| 11 | `git-branch-actions` | 42.7 | 15 | 0 | V177~195, FR-GIT-252~268 | 필요 (다이얼로그, hint 실제 실행). 서버는 `domain/git/write/branch_test.go` 가 덮음 | 없음 | 없음 | 0 |
+| 12 | `repo-tab` | 42.4 | 31 | 6.6 | V-RTU-10~96, NFR-RTU-1·3, V-DSP-1·5, V-WBR-58·85 | 필요 (폭·모바일 배치·영속). V3 는 단위 후보 | `:876` V-DSP-5 (4초) → 첫 Changes 행 표시 관측. `:211` V3 → `addTab` promise + `nextFrames`. `:488` X6 → 회차 3회 관측 뒤 0 단정 | 안전망 200ms (a, 손으로 짠 `:480-485` 대신 `setSafetyNet`) | 5 |
+| 13 | `git-diff` | 41.6 | 21 | 0 | V10~47, FR-GIT-43~56·119·276, FR-M9-5·20, FR-PRF-18·19 | 필요 (편집기·그림 렌더링, 노드 상한). 서버는 `query/diff_test.go`·`blame_test.go` 가 덮음 | 없음. D8(`:260`)의 누수 반복 20회 → 5회(반복마다 쌓이므로 1회만 새도 드러남) | `gitWorktreeInterval` 1000 (b, D7) | 12 |
+| 14 | `git-hunk` | 41.1 | 22 | 0 | V-DHB-1~17, TC-HKB-1·2, FR-GIT-278·279 | 필요. 단, 묶음 S "좌표 사상 (단위)" 5개(`:550-613`)는 `web/js/test/hunk-coords.test.mjs` 가 이미 덮음 → 연결 확인 1개만 남김 | 없음 | 없음 | 6 |
+| 15 | `version-autoreload` | 40.7 | 17 | 16.5 (+숨은 8) | FR-AVS-4·5, FR-RLC-1~28: 새 판이면 배너 없이 새로고침, 주기 폴링 없음, 침묵 감시 / FR-OPT-4-10 | 필요 (실제 reload·EventSource). 판정 논리는 `web/js/test/version-watch.test.mjs:56·74·110` 이 덮음 | `:132` TC-RLC-3c (8초) → "적재 때 타이머를 걸지 않는다" 를 단위로 옮기고 e2e 는 지우거나 0.5초. `:118` TC-RLC-3 → 첫 reload 관측. `:143` → `nextFrames`. `:343` TC-RLC-27 → 감시 `poke()` 로 즉시 1회. `waitReloaded(page, 2000)` 의 false 경로 `:102`·`:237`·`:297`·`:311` → 동기 단정·응답 카운터 | 침묵 감시 `every` 200ms (a′, TC-RLC-25) | 23 |
+| 16 | `editor-ops` | 39.4 | 45 | 1.0 | FR-EDT-79~101, FR-SDA-51·53, FR-EMS-1~25 | 필요 (드래그·키·확인창). 서버는 `httpapi/handlers_fs_test.go` 가 덮음 | `:340`·`:348` O7 → `fs_changed` 뒤 stamps 응답 관측. 빨라지지 않지만 창(500ms)이 fswatch 경로(약 0.6초)보다 짧아 흔들릴 수 있다 | 없음 | 0 |
+| 17 | `git-changes` | 37.7 | 22 | 1.2 | V22~101, FR-GIT-36~224·282·187~191 | 필요 (렌더링·관측 반영). 해결은 `domain/git/write/resolve_test.go` 가 덮음 | `:348` C14 → resolve 요청 0 + 확인창 닫힘 + `nextFrames`. `:423` `gitFixture(GURFX)` 중복 빌드 → `FIXTURES` 로 바꿈(`gurCopy` 는 쓰는 곳 없음) | `gitWorktreeInterval` 1000 (b, C4·C4b) | 7 |
+| 18 | `git-refresh-lifecycle` | 37.6 | 10 | 4.0 | FR-GRF-1~18, GP-5·6·12 | 일부. **V-GRF-4(`:138`)는 기본 시한 20초(`GIT_STATUS_FETCH_TIMEOUT_MS`)를 그대로 기다린다** → History 적재 단위 시험으로 옮김(선례 `web/js/test/git-hunk-fresh.test.mjs:16` 이 상수를 1 로 덮음). V-GRF-1·2·3·14 도 단위 후보 | `:291` V-GRF-14 → 300~500ms 창. `:95` V-GRF-2 는 워치독 상수(`GIT_WATCHDOG_CHECK_MS`, `const`)라 단위로 옮기는 편이 낫다 | 없음 (단위 이관으로 해결) | 21 |
+| 19 | `explorer-root-keys` | 36.5 | 31 | 0 | FR-EXR-1~59, FR-M9-22·23: 여백 클릭·더블클릭 생성·키보드·포커스 | 필요 (입력·여백 기하) | 없음 | 없음 | 0 |
+| 20 | `editor-lsp-nav` | 34.6 | 27 | 5.8 | FR-CMR-90~112, FR-RTR-8, FR-LSP-44·45, V-LSP-13~60 | 필요 (실제 gopls 왕복). 설치 제안 부재 시험 `:548`·`:557` 은 `web/js/test/lsp-offer.test.mjs:61·75` 와 겹침 | `:231`·`:246`·`:262`·`:415`·`:523` → `nextFrames`. `:377` → 호버 응답 관측(`lspTap` 이 id 를 남기게). `:552`·`:561`·`:583`·`:595` → `stubStatus` 호출 관측 | 없음 | 7 |
+| | **합계** | **955.7** | **460** | **약 163** | | | | | **약 199** |
+
+- 8위였던 `agent-tool.spec.ts`(46.5초)는 지워진 파일이라 표에서 뺐다. 그 46.5초는 다음 전량 실행부터 이미 빠진다.
+- 12.1 이 지우는 후보(`git-history` H4b, `repo-tab` X3 등)는 절약에 넣지 않았다.
+
+### 8.4 제품 코드를 바꿔야 하는 주입
+
+| 대상 | 자리 | 무엇을 하나 | 절약 | 권고 |
+|---|---|---|---:|---|
+| `GIT_REPO_MISSING_POLL_MS`=30000 (브라우저 `const`) | `web/js/core/constants-git-detect.js:81` | `git-repo-missing` M4(`e2e/git-repo-missing.spec.ts:194-206`)가 소실 뒤 복구를 30초 고정 주기로 기다린다. 서버는 사라진 저장소를 감시에서 빼므로(`gitwatch_round.go:218-232` `drop`) 방송으로는 복구되지 않는다. window 에서 덮을 수 있게 하면 약 1초로 준다 | 약 25 | 사용자 결정. 시험 주석(`:186-188`)은 "줄이면 개입 없이 돌아옴을 검증한 것이 아니다" 라며 반대한다. 그러나 "고정 주기가 사용자 설정을 보지 않는다" 는 B3·M7 이 따로 지킨다 |
+| `GIT_STATUS_FETCH_TIMEOUT_MS`=20000 | `constants-git-detect.js:43` | V-GRF-4 의 20초 대기 | (약 20) | **(c) 대신 단위 이관**을 권한다. 기본안의 21초에 이미 넣었다 |
+| `GIT_WATCHDOG_CHECK_MS`=1000 | `constants-git-detect.js:39` | V-GRF-2 의 3초 부재 창 | 약 1 | 하지 않는다. 단위 이관이 낫다 |
+| 서버 `sseHelloEvery`=15s | `internal/webserver/httpapi/commands.go:452` | 판 확인 인사 주기 | 0 | 필요 없다. 기본안이 인사 주기에 기대지 않는다 |
+| 서버 `GitWatchInterval`=1s·`GitKickDebounce`=1s | `internal/webserver/hub/gitwatch.go:43`·`gitwatch_kick.go:23` | index·HEAD 변화 관측 | 시험당 1 미만 | 하지 않는다. 새 env 노브의 비용이 더 크다 |
+| 탐색기 틱 수를 세는 testing 훅 | `web/js/core/editor-pane.js` | `notes-live-explorer` V-24 의 부재 창을 틱 수로 정한다 | 1~2 | 하지 않는다. (b) 로 주기를 줄이면 충분하다 |
+
+### 8.5 준비 공유 (기본안 밖, 격리를 일부 포기)
+
+고정 대기가 없는 파일(`slot-view-state`·`window-slots`·`git-branch-actions`·`explorer-root-keys`·`editor-ops`)은 시간의 대부분이 시험마다 드는 준비 비용(`waitForInit` 약 1.0~1.5초, `e2e/fixtures.ts:644-702`)이다. 줄이려면 준비를 공유해야 한다.
+
+| 방법 | 대상 | 절약(추정) | 대가 |
+|---|---|---:|---|
+| `gitFixture` 를 globalSetup 에서 한 번만 만들기. 지금은 git 계열 파일마다 beforeAll 에서 픽스처 10벌(32MiB 파일, 커밋 1만 개 포함, `e2e/git_fixture.sh:141·174`)을 다시 만든다 | git 계열 전부 | 12~30 | 시험 인프라 변경. `with-remote` 사본이 bare 원격 하나를 같이 쓰므로(`git_fixture.sh:246`) 쓰기 시험은 사본을 따로 둬야 한다 |
+| 같은 준비를 쓰는 읽기 전용 시험 합치기 | `git-history`(H1+H3 등)·`git-changes`(C1+C3 등)·`git-submodules`(`mkTree` 공유)·`slot-view-state`(묶음 O·V)·`repo-tab`(W1·W4·C1·V1·V2·X1) | 35~45 | 실패 지점이 넓어진다 |
+| describe 단위로 페이지 재사용 | `window-slots`·`editor-ops`·`explorer-root-keys`·`editor-lsp-nav`(gopls 기동 재사용) | 55~70 | `cleanTools` 격리 계약을 깬다. 흔들림 위험이 크다 |
+
+### 8.6 재지 못하는 고정 대기 (부수 발견)
+
+아래 대기는 지금 아무것도 재지 못하거나 잘못된 대상을 잰다. 시간 단축과 별개로 고칠 가치가 있다.
+
+| 자리 | 문제 |
+|---|---|
+| `git-repaint.spec.ts:56` `POLLS` (5곳) | 주석은 "`GIT_STATUS_POLL_MS` 는 1000" 이지만 지금은 30000 이다. 2.6초 사이에 회차가 오지 않는다 |
+| `git-view-refresh.spec.ts:475` G13 · `:689` V-GLV-3 | 부재 창(3초·8초)에 안전망 회차(30초)가 들지 않는다 |
+| `git-polling.spec.ts:131` P2 | 같은 이유로 창이 비어 있다 |
+| `git-repo-missing.spec.ts:424` B4 | 주석은 "1초 주기" 이지만 `defaultIntervals`(30초) 상태다 |
+| `editor-explorer.spec.ts:491` X12 | git status 요청을 센다. 그런데 성공한 트리는 status 를 30초 안전망에만 낸다(`web/js/ui/file-tree-load.js:244-248`). 10초 창은 "비활성 창이 틱을 돈다" 는 회귀를 잡지 못한다. `/api/fs/stamps` 를 세야 한다 |
+| `version-autoreload.spec.ts:132` TC-RLC-3c | 판 확인에는 타이머가 없다. 8초 창은 늘 0을 본다 |
+| `version-autoreload.spec.ts:343` TC-RLC-27 | 3초 창이 감시 주기 `SSE_SILENCE_CHECK_MS`=5초보다 짧다. 감시가 한 번도 돌지 않을 수 있다 |
+| `editor-ops.spec.ts:340`·`:348` O7 | 500ms 창이 늦은 재조회 경로(fswatch 75ms + 모으기 500ms + 왕복)보다 짧다 |
+
+### 8.7 §6·부록 A 정정
+
+정독해 보니 부록 A 의 고정 대기 합이 반복문·주기 배수를 빠뜨린 파일이 있다. §6 의 "전체 약 374초" 도 그만큼 적게 센 값이다.
+
+| spec | 부록 A | 실제 | 빠뜨린 것 |
+|---|---:|---:|---|
+| `git-polling` | 12.8 | 14.0 | `:253` 반복 4회 |
+| `git-repo-missing` | 22.2 | 24.6 | `:424` 반복 3회 |
+| `editor-explorer` | 1.5 | 약 18 | `poll/2`·`poll*2`·`poll*3+1000` (poll=3000) |
+| `repo-tab` | 4.8 | 6.6 | `:488` 600×3+500 |
+| `git-view-refresh` | — | +1.5 | `:566` evaluate 안의 `setTimeout` |
+| `version-autoreload` | 16.5 | 16.5 (+8) | `waitReloaded(page, 2000)` 의 false 경로 4곳은 늘 2초를 다 쓴다 |
+
+### 8.8 한계와 다음 단계
+
+1. 시간은 파일 단위 실측뿐이다. 시험별 비율은 추정이다. 특히 `git-submodules` 의 원인 모를 약 10초, 픽스처 빌드 비용(파일당 2~5초), `git-diff` D8 의 비중은 측정이 필요하다. 이슈 8.1 의 다음 전량 실행에서 json 리포터로 시험별 시간을 남기면 확인할 수 있다.
+2. 권하는 순서:
+   1. 기본안 중 (a)·(a′)·(b) 주입과 관측 대기 전환(약 150초). 시험 코드만 바뀐다.
+   2. 단위 이관(V-GRF-4, hunk 좌표, `window-slots` 모델 등, 약 50초). 새 단위 시험을 먼저 통과시킨 뒤 e2e 를 지운다.
+   3. §8.4 의 `GIT_REPO_MISSING_POLL_MS` 는 사용자 결정 뒤에.
+   4. §8.5 준비 공유는 흔들림 기록을 본 뒤에 따로 판단한다.
+3. 대기를 바꾸면 `scripts/check-e2e-waits.mjs` 가 요구하는 파일 머리의 `TEST-16` 사유도 함께 고친다.
+4. 설정 (b) 를 쓰는 시험은 시작할 때 값을 저장하고 끝날 때 복원한다. `cleanTools` 는 설정을 되돌리지 않는다.
+
 ## 부록 A. 파일별 판정 (251개)
 
 열: 시험 수(정적 선언) · 실측(초, `shard-timings.json`, `-` 는 기록 없음) · 고정 대기 합(초) · 판정.
