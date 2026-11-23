@@ -143,7 +143,10 @@ impl GitServer {
         if !req.track.is_empty() && req.create.is_empty() {
             let mut remote = String::new();
             let full = format!("{}{}", query::REMOTE_REF_PREFIX, req.track);
-            if !t.remote_branch_of(&full, &mut remote, &mut req.create).await {
+            if !t
+                .remote_branch_of(&full, &mut remote, &mut req.create)
+                .await
+            {
                 return t.finish();
             }
         }
@@ -188,7 +191,14 @@ impl GitServer {
             return t.finish();
         }
         if let Some(res) = self
-            .git_branch_name_taken(&t.git(), &t.ctx(), &req.repo, &t.root, &req.create, &req.track)
+            .git_branch_name_taken(
+                &t.git(),
+                &t.ctx(),
+                &req.repo,
+                &t.root,
+                &req.create,
+                &req.track,
+            )
             .await
         {
             return res;
@@ -607,7 +617,10 @@ impl GitServer {
         };
         let (res, plan) = write::branch_push_spec(git.service(), &t.ctx(), &t.root, &opts).await;
         match res {
-            Ok(spec) => t.start_job("push", spec, Some(&obj! {"plan" => plan})).await,
+            Ok(spec) => {
+                t.start_job("push", spec, Some(&obj! {"plan" => plan}))
+                    .await
+            }
             Err(e) => t.respond(git_push_error(&req.repo, &t.root, &plan, &e)),
         }
         t.finish()

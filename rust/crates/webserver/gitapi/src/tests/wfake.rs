@@ -30,6 +30,7 @@ pub(crate) fn write_status(path: &str, xy: &str) -> String {
 
 pub(crate) type WriteErrFn = Arc<dyn Fn(&[String]) -> Result<Output, core::Error> + Send + Sync>;
 pub(crate) type OnWriteFn = Arc<dyn Fn(&mut WState, &[String]) + Send + Sync>;
+pub(crate) type WriteCtxFn = Arc<dyn Fn(&Ctx) + Send + Sync>;
 
 /// fake 의 바꿀 수 있는 상태다.
 pub(crate) struct WState {
@@ -46,7 +47,7 @@ pub(crate) struct WState {
     /// 쓰기 성공 직후에 불린다.
     pub(crate) on_write: Option<OnWriteFn>,
     /// 쓰기가 받은 ctx 를 본다 (§5.5).
-    pub(crate) write_ctx: Option<Arc<dyn Fn(&Ctx) + Send + Sync>>,
+    pub(crate) write_ctx: Option<WriteCtxFn>,
     /// status 조회마다 불린다(잠금 밖에서 부른다).
     pub(crate) on_status: Option<Arc<dyn Fn() + Send + Sync>>,
     /// 있으면 status 조회가 실패한다 (FR-ATF-74).
@@ -151,7 +152,12 @@ impl WriteFake {
         }
     }
 
-    pub(crate) fn write(&self, ctx: &Ctx, args: &[String], stdin: &str) -> Result<Output, core::Error> {
+    pub(crate) fn write(
+        &self,
+        ctx: &Ctx,
+        args: &[String],
+        stdin: &str,
+    ) -> Result<Output, core::Error> {
         let wc = self.lock().write_ctx.clone();
         if let Some(f) = wc {
             f(ctx);
@@ -175,10 +181,12 @@ impl WriteFake {
                 let r = r.clone();
                 Box::pin(async move { r.read(&dir, &args) })
             }))
-            .write_runner(Arc::new(move |ctx, _dir, args: Vec<String>, stdin: String| {
-                let w = w.clone();
-                Box::pin(async move { w.write(&ctx, &args, &stdin) })
-            }))
+            .write_runner(Arc::new(
+                move |ctx, _dir, args: Vec<String>, stdin: String| {
+                    let w = w.clone();
+                    Box::pin(async move { w.write(&ctx, &args, &stdin) })
+                },
+            ))
             .build()
     }
 }
@@ -241,7 +249,6 @@ pub(crate) fn remote_emit(lines: &[&str]) -> JobRunner {
 pub(crate) struct WEnv {
     pub(crate) s: Arc<GitServer>,
     pub(crate) f: WriteFake,
-    pub(crate) cb: Arc<FakeBroker>,
     /// undo 토큰의 시계다. 앞으로 돌리면 만료를 볼 수 있다.
     pub(crate) undo_now: Arc<Mutex<Instant>>,
 }
@@ -259,11 +266,10 @@ pub(crate) fn wserver_with(f: &WriteFake, edit: impl FnOnce(&mut GitServer)) -> 
         Arc::new(f.service()),
         StoreOptions::default().clock(Arc::new(move || at)),
     );
-    let cb = Arc::new(FakeBroker::default());
     let mut s = GitServer {
         git: Some(store),
         work: Some(Arc::new(FakeWorkspace::default())),
-        commands: Some(cb.clone()),
+        commands: Some(Arc::new(FakeBroker::default())),
         tools: Some(Arc::new(FakePaneHub::default())),
         job_runner: Some(fake_job_runner(f)),
         ..GitServer::default()
@@ -275,7 +281,6 @@ pub(crate) fn wserver_with(f: &WriteFake, edit: impl FnOnce(&mut GitServer)) -> 
     WEnv {
         s: Arc::new(s),
         f: f.clone(),
-        cb,
         undo_now,
     }
 }
@@ -345,5 +350,8 @@ async fn harness_commit_job_issues_undo() {
     let jb = job_done(&e.s, &res.json()).await;
     let r = jb.result.unwrap();
     assert!(!r.undo_token.is_empty() && !r.oid.is_empty());
-    assert_eq!(f.wrote(), vec![vec!["commit", "--file=-", "--cleanup=strip"]]);
+    assert_eq!(
+        f.wrote(),
+        vec![vec!["commit", "--file=-", "--cleanup=strip"]]
+    );
 }

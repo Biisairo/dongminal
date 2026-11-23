@@ -307,15 +307,19 @@ pub(crate) struct BranchFacts {
 
 impl BranchFacts {
     pub(crate) fn find(&self, kind: &str, short: &str) -> Option<&query::Ref> {
-        self.refs.iter().find(|r| r.kind == kind && r.short == short)
+        self.refs
+            .iter()
+            .find(|r| r.kind == kind && r.short == short)
     }
 
     /// 그 종류의 ref 다. 없으면 이름만 든 빈 종류의 ref 다 — 판정이 "그 종류가 아니다" 로 답한다.
     pub(crate) fn ref_or(&self, kind: &str, short: &str) -> query::Ref {
-        self.find(kind, short).cloned().unwrap_or_else(|| query::Ref {
-            short: short.to_owned(),
-            ..query::Ref::default()
-        })
+        self.find(kind, short)
+            .cloned()
+            .unwrap_or_else(|| query::Ref {
+                short: short.to_owned(),
+                ..query::Ref::default()
+            })
     }
 
     /// 로컬 → 원격 순으로 찾은 ref 다. 둘 다 없으면 `None`(oid·태그 등).

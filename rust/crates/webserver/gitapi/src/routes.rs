@@ -81,10 +81,16 @@ pub(crate) static ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         post("/api/git/branch/merge", h!(api_git_branch_merge)),
         post("/api/git/branch/rebase", h!(api_git_branch_rebase)),
         post("/api/git/branch/upstream", h!(api_git_branch_upstream)),
-        get("/api/git/branch/merge-preview", h!(api_git_branch_merge_preview)),
+        get(
+            "/api/git/branch/merge-preview",
+            h!(api_git_branch_merge_preview),
+        ),
         post("/api/git/branch/push", h!(api_git_branch_push)),
         post("/api/git/branch/fetch", h!(api_git_branch_fetch_into)),
-        post("/api/git/branch/delete-remote", h!(api_git_branch_delete_remote)),
+        post(
+            "/api/git/branch/delete-remote",
+            h!(api_git_branch_delete_remote),
+        ),
         // REPO_FIX 01 §7.2: 남은 index.lock 을 사용자 확인 뒤 지운다. 자동 삭제는 없다.
         post("/api/git/lock/remove", h!(api_git_lock_remove)),
     ]

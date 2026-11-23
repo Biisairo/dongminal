@@ -122,7 +122,10 @@ impl GitServer {
         };
         let (res, plan) = write::push_spec(git.service(), &t.ctx(), &t.root, &opts).await;
         match res {
-            Ok(spec) => t.start_job("push", spec, Some(&obj! {"plan" => plan})).await,
+            Ok(spec) => {
+                t.start_job("push", spec, Some(&obj! {"plan" => plan}))
+                    .await
+            }
             Err(e) => t.respond(git_push_error(&req.repo, &t.root, &plan, &e)),
         }
         t.finish()
@@ -175,7 +178,12 @@ impl GitServer {
         if id.is_empty() {
             return git_fail(StatusCode::BAD_REQUEST, ERR_BAD_REQUEST, "id 가 없다");
         }
-        let after = strconv::parse_uint10(&r.q("after")).unwrap_or(0);
+        // Go `after, _ := strconv.ParseUint(…)`: 문법 오류는 0, 넘치면 최댓값이다.
+        let after = match strconv::parse_uint10(&r.q("after")) {
+            Ok(n) => n,
+            Err(e) if e.kind == strconv::NumErrorKind::Range => u64::MAX,
+            Err(_) => 0,
+        };
         let Some(git) = &self.git else {
             return crate::reply::git_unavailable();
         };
@@ -280,10 +288,8 @@ async fn job_event_loop(
     id: String,
     root: Ctx,
 ) {
-    let mut keep = tokio::time::interval_at(
-        tokio::time::Instant::now() + JOB_KEEP_ALIVE,
-        JOB_KEEP_ALIVE,
-    );
+    let mut keep =
+        tokio::time::interval_at(tokio::time::Instant::now() + JOB_KEEP_ALIVE, JOB_KEEP_ALIVE);
     loop {
         tokio::select! {
             () = root.done() => return,
@@ -307,7 +313,11 @@ async fn job_event_loop(
 }
 
 /// 받은 줄과 이미 쌓인 줄을 함께 버퍼에 더한다 (HTTP-M2). 채널이 닫혔으면 false 다.
-fn drain_job_lines(st: &mut sse::Stream, rx: &mut mpsc::Receiver<Line>, mut ln: Option<Line>) -> bool {
+fn drain_job_lines(
+    st: &mut sse::Stream,
+    rx: &mut mpsc::Receiver<Line>,
+    mut ln: Option<Line>,
+) -> bool {
     while let Some(l) = ln {
         job_event(st, "line", &l);
         if st.full() {
