@@ -254,3 +254,17 @@ fn tool_env_with_home_overlay_sets_bin_and_home() {
     let path = env.iter().rev().find(|kv| kv.starts_with("PATH=")).unwrap();
     assert!(path.ends_with(&bin), "{path}");
 }
+
+// FR-RDF-9: 히스토리 디렉터리 로그의 오류는 Go os.MkdirAll 처럼 막힌 그 칸의 경로로 낸다.
+#[test]
+fn hist_dir_mkdir_error_matches_go() {
+    let d = tempfile::tempdir().unwrap();
+    let blocker = d.path().join("f");
+    fs::write(&blocker, "x").unwrap();
+    let dir = blocker.join("tool-history").to_string_lossy().into_owned();
+    let e = mkdir_hist_dir(&dir).unwrap_err();
+    assert_eq!(
+        e.to_string(),
+        format!("mkdir {}: not a directory", blocker.display())
+    );
+}

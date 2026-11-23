@@ -8,13 +8,15 @@ mod serve;
 
 use std::ffi::OsString;
 use std::io::Write;
-use std::path::Path;
 
-use dm_gocompat::oserr::{go_error_string, path_error};
+use dm_gocompat::oserr::go_error_string;
 use dm_shared_dmenv as dmenv;
 use dm_shared_dmlog::{self as dmlog, errorf};
 
 use crate::daemon::DAEMON_SUBCOMMAND;
+
+/// 인스턴스 홈의 권한 (04-secops P1-6, Go `os.MkdirAll(home, 0o700)`).
+const HOME_DIR_PERM: u32 = 0o700;
 
 fn main() {
     let argv: Vec<OsString> = std::env::args_os().collect();
@@ -123,19 +125,30 @@ fn user_home_dir() -> Result<String, String> {
 
 /// Go `os.MkdirAll(path, 0o700)`.
 fn mkdir_all_0700(path: &str) -> std::io::Result<()> {
-    let mut b = std::fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        b.mode(0o700);
-    }
-    b.create(Path::new(path))
-        .map_err(|e| path_error("mkdir", path, e))
+    dm_gocompat::oserr::mkdir_all(path, HOME_DIR_PERM)
 }
 
 /// 버퍼에 남은 출력을 내보내고 끝낸다 — `process::exit` 는 stdout 을 비우지 않는다.
 fn exit(code: i32) -> ! {
     let _ = std::io::stdout().flush();
     std::process::exit(code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // FR-RDF-9: 홈을 만들 수 없으면 Go os.MkdirAll 처럼 막힌 그 칸의 경로로 낸다.
+    #[test]
+    fn home_mkdir_error_matches_go() {
+        let d = tempfile::tempdir().unwrap();
+        let blocker = d.path().join("f");
+        std::fs::write(&blocker, "x").unwrap();
+        let home = blocker.join("home").to_string_lossy().into_owned();
+        let e = mkdir_all_0700(&home).unwrap_err();
+        assert_eq!(
+            go_error_string(&e),
+            format!("mkdir {}: not a directory", blocker.display())
+        );
+    }
 }

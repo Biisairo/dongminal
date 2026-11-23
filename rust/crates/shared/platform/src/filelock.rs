@@ -1,7 +1,7 @@
 //! 배타 파일 락 (CLAUDE_ACCOUNTS_SRS FR-CAC-3).
 
 use std::fmt;
-use std::fs::{self, File, OpenOptions, TryLockError};
+use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 use crate::goerr::path_err;
 
 const LOCK_RETRY: Duration = Duration::from_millis(100);
+/// 락 파일 상위 디렉터리의 권한 (Go `os.MkdirAll(filepath.Dir(path), 0o700)`).
+const LOCK_DIR_PERM: u32 = 0o700;
 
 /// `lock_file` 의 오류.
 #[derive(Debug)]
@@ -47,7 +49,7 @@ impl Drop for FileLock {
 /// POSIX 는 flock, Windows 는 LockFileEx 다 — Go 판과 같은 파일을 두고 서로를 막는다.
 pub fn lock_file(path: &Path, timeout: Duration) -> Result<FileLock, LockError> {
     let dir = crate::atomic::parent_dir(path);
-    create_dir_all_0700(&dir).map_err(|e| LockError::Io(path_err("mkdir", &dir, e)))?;
+    dm_gocompat::oserr::mkdir_all(&dir.to_string_lossy(), LOCK_DIR_PERM).map_err(LockError::Io)?;
     let mut opts = OpenOptions::new();
     opts.read(true).write(true).create(true).truncate(false);
     #[cfg(unix)]
@@ -70,17 +72,6 @@ pub fn lock_file(path: &Path, timeout: Duration) -> Result<FileLock, LockError> 
         }
         std::thread::sleep(LOCK_RETRY);
     }
-}
-
-fn create_dir_all_0700(dir: &Path) -> io::Result<()> {
-    let mut b = fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        b.mode(0o700);
-    }
-    b.create(dir)
 }
 
 #[cfg(test)]
@@ -115,6 +106,19 @@ mod tests {
         });
         drop(lock_file(&p, Duration::from_secs(2)).expect("놓이면 잡는다"));
         t.join().unwrap();
+    }
+
+    // FR-RDF-9: 상위를 만들 수 없으면 Go os.MkdirAll 처럼 막힌 그 칸의 경로로 낸다.
+    #[test]
+    fn mkdir_error_matches_go() {
+        let d = tempfile::tempdir().unwrap();
+        let blocker = d.path().join("f");
+        std::fs::write(&blocker, "x").unwrap();
+        let e = lock_file(&blocker.join("a").join(".lock"), Duration::from_secs(1)).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            format!("mkdir {}: not a directory", blocker.display())
+        );
     }
 
     #[test]

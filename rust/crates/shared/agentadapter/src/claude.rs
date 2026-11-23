@@ -415,6 +415,22 @@ fn write_plugin_hooks(s: &InstallSpec) -> io::Result<()> {
 mod tests {
     use super::*;
 
+    // FR-RDF-9: MkdirAll 은 gocompat 의 Go 알고리즘이다. 막힌 칸의 경로로 내고, `x/.` 도 만든다.
+    #[test]
+    fn mkdir_all_matches_go() {
+        let d = tempfile::tempdir().unwrap();
+        let blocker = d.path().join("f");
+        std::fs::write(&blocker, "x").unwrap();
+        let e = mkdir_all(&blocker.join("hooks")).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            format!("mkdir {}: not a directory", blocker.display())
+        );
+        let dot = format!("{}/new/.", d.path().display());
+        mkdir_all(std::path::Path::new(&dot)).unwrap();
+        assert!(d.path().join("new").is_dir());
+    }
+
     #[test]
     fn context_window_exception_beats_default() {
         let table = [("claude-tiny", 200_000.0)];

@@ -4,7 +4,7 @@
 
 use std::path::MAIN_SEPARATOR;
 
-use dm_gocompat::filepath;
+use dm_gocompat::{filepath, oserr};
 
 use dm_shared_httpresp::Response;
 use serde::Serialize;
@@ -19,6 +19,9 @@ use crate::fs::{
 use crate::httperr::write_json;
 use crate::multipart::Form;
 use crate::req::Req;
+
+/// 업로드 중간 디렉터리의 권한 (Go `os.MkdirAll(parent, 0o755)`).
+const UPLOAD_DIR_PERM: u32 = 0o755;
 
 #[derive(Serialize)]
 struct UploadResp {
@@ -104,20 +107,8 @@ pub(crate) fn fs_upload_target(
     let parent = filepath::dir(&target);
     fs_existing_ancestor_under_root(root, &parent)?;
     // FR-ETR-19·20: 중간 디렉터리는 만든다. 충돌 판정은 마지막 조각의 O_EXCL 이 한다.
-    mkdir_all(&parent).map_err(|e| fs_from_io(&e))?;
+    oserr::mkdir_all(&parent, UPLOAD_DIR_PERM).map_err(|e| fs_from_io(&e))?;
     Ok(target)
-}
-
-/// Go `os.MkdirAll(p, 0o755)`.
-fn mkdir_all(p: &str) -> std::io::Result<()> {
-    let mut b = std::fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        b.mode(0o755);
-    }
-    b.create(p)
 }
 
 /// Go `fsExistingAncestorUnderRoot`: 실재하는 가장 깊은 조상을 풀어 루트 아래인지 본다.

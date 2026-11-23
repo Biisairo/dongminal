@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::Path;
 
 use dm_gocompat::filepath;
-use dm_gocompat::oserr::{go_error_string, path_error};
+use dm_gocompat::oserr::{go_error_string, mkdir_all, path_error};
 use dm_shared_dmenv as dmenv;
 use dm_shared_platform::OsKind;
 use dm_shared_serverconf as serverconf;
@@ -124,8 +124,8 @@ pub(crate) fn run_service_in(
         return 0;
     }
     let dir = filepath::dir(&o.out);
-    if let Err(e) = std::fs::create_dir_all(&dir) {
-        let _ = writeln!(stderr, "{}", go_error_string(&path_error("mkdir", &dir, e)));
+    if let Err(e) = mkdir_all(&dir, OUT_DIR_PERM) {
+        let _ = writeln!(stderr, "{}", go_error_string(&e));
         return 1;
     }
     if let Err(e) = write_file(&o.out, body.as_bytes()) {
@@ -150,6 +150,8 @@ fn write_file(path: &str, data: &[u8]) -> std::io::Result<()> {
 
 /// 감독자가 쓰는 이름이다.
 const SERVICE_LABEL: &str = "com.dongminal.server";
+/// `--out` 상위 디렉터리의 권한 (Go `os.MkdirAll(filepath.Dir(o.Out), 0o755)`).
+const OUT_DIR_PERM: u32 = 0o755;
 
 /// `darwin_hint`·`linux_hint` 가 안내하는 설치 자리다.
 pub(crate) fn installed_service_files(env: &Env<'_>) -> Vec<String> {

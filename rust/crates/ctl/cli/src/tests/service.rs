@@ -170,3 +170,24 @@ fn stale_service_file_warning() {
     std::fs::write(&linux, "Environment=PORT=58146\n").unwrap();
     assert!(!service_bind_env_warning(&[linux]).is_empty());
 }
+
+// FR-RDF-9: --out 의 상위를 만들 수 없으면 Go os.MkdirAll 처럼 막힌 그 칸의 경로로 낸다.
+#[test]
+fn out_mkdir_error_matches_go() {
+    let (_d, home) = temp_home();
+    let od = tempfile::tempdir().unwrap();
+    let blocker = od.path().join("f");
+    std::fs::write(&blocker, "x").unwrap();
+    let out = blocker.join("a").join("dm.def");
+    let (code, _, err) = run(
+        OsKind::Darwin,
+        EXE,
+        &["install", "--out", out.to_str().unwrap()],
+        &home,
+    );
+    assert_eq!(code, 1);
+    assert_eq!(
+        err,
+        format!("mkdir {}: not a directory\n", blocker.display())
+    );
+}
