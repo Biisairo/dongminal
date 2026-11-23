@@ -1,0 +1,18 @@
+[package]
+name = "dm-scripts-gen-errors"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "gen-errors"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-gocompat = { path = "../../gocompat" }
+dm-ctl-errdoc = { path = "../../ctl/errdoc" }

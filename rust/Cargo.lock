@@ -718,6 +718,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "dm-scripts-check-action-reasons"
+version = "1.3.7"
+dependencies = [
+ "dm-gocompat",
+ "dm-webserver-action",
+]
+
+[[package]]
+name = "dm-scripts-check-shared-constants"
+version = "1.3.7"
+dependencies = [
+ "dm-gocompat",
+ "dm-webserver-domain-git-jobs",
+ "regex",
+]
+
+[[package]]
+name = "dm-scripts-gen-decisions"
+version = "1.3.7"
+dependencies = [
+ "dm-ctl-decidx",
+ "dm-gocompat",
+]
+
+[[package]]
+name = "dm-scripts-gen-errors"
+version = "1.3.7"
+dependencies = [
+ "dm-ctl-errdoc",
+ "dm-gocompat",
+]
+
+[[package]]
 name = "dm-shared-activity"
 version = "1.3.7"
 
