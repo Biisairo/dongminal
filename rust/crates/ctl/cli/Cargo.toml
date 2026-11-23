@@ -26,3 +26,12 @@ dm-shared-settingsschema = { path = "../../shared/settingsschema" }
 dm-shared-toolhub = { path = "../../shared/toolhub" }
 dm-shared-toolipc = { path = "../../shared/toolipc" }
 dm-webserver-domain-git-core = { path = "../../webserver/domain/git/core" }
+dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
