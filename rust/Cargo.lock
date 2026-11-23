@@ -1505,6 +1505,8 @@ dependencies = [
 name = "dm-webserver-httpapi"
 version = "1.3.7"
 dependencies = [
+ "bytes",
+ "dm-gocompat",
  "dm-shared-activity",
  "dm-shared-agentadapter",
  "dm-shared-agentrec",
@@ -1551,6 +1553,17 @@ dependencies = [
  "dm-webserver-hub",
  "dm-webserver-seam-toolaccess",
  "dm-webserver-sse",
+ "hex",
+ "http",
+ "http-body-util",
+ "hyper",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
