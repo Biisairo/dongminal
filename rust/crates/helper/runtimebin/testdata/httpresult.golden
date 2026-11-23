@@ -1,0 +1,240 @@
+500 "{\"error\":\"boom\"}" ["who-am-i"]
+  code=1
+  stdout=""
+  stderr="dmctl: boom\n"
+500 "{\"error\":\"boom\"}" ["read-output" "--at" "t"]
+  code=1
+  stdout=""
+  stderr="dmctl: boom\n"
+500 "{\"error\":\"boom\"}" ["send-input" "--at" "t" "hi"]
+  code=1
+  stdout=""
+  stderr="dmctl: boom\n"
+500 "{\"error\":\"boom\"}" ["msg" "--to" "t" "hi"]
+  code=1
+  stdout=""
+  stderr="dmctl: boom\n"
+500 "{\"error\":\"boom\"}" ["status" "--at" "t"]
+  code=1
+  stdout=""
+  stderr="dmctl: boom\n"
+500 "{\"error\":\"boom\"}" ["list-workspace"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 500: {\"error\":\"boom\"}\n"
+500 "{\"error\":\"boom\"}" ["send" "focus"]
+  code=1
+  stdout=""
+  stderr="{\"error\":\"boom\"}\n"
+500 "{\"error\":\"boom\"}" ["send" "focus" "{\"location\":\"1\"}"]
+  code=1
+  stdout=""
+  stderr="{\"error\":\"boom\"}\n"
+500 "{\"error\":\"boom\"}" ["focus" "1"]
+  code=1
+  stdout=""
+  stderr="{\"error\":\"boom\"}\n"
+500 "{\"error\":\"boom\"}" ["run" "status" "--run" "r1"]
+  code=1
+  stdout=""
+  stderr="dmctl run: boom (500)\n"
+502 "raw body" ["who-am-i"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/whoami returned status 502: raw body\n"
+502 "raw body" ["read-output" "--at" "t"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 502: raw body\n"
+502 "raw body" ["send-input" "--at" "t" "hi"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/input returned status 502: raw body\n"
+502 "raw body" ["msg" "--to" "t" "hi"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/message returned status 502: raw body\n"
+502 "raw body" ["status" "--at" "t"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/activity/get returned status 502: raw body\n"
+502 "raw body" ["list-workspace"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 502: raw body\n"
+502 "raw body" ["send" "focus"]
+  code=1
+  stdout=""
+  stderr="raw body\n"
+502 "raw body" ["send" "focus" "{\"location\":\"1\"}"]
+  code=1
+  stdout=""
+  stderr="raw body\n"
+502 "raw body" ["focus" "1"]
+  code=1
+  stdout=""
+  stderr="raw body\n"
+502 "raw body" ["run" "status" "--run" "r1"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs?id=r1 returned status 502: raw body\n"
+400 "" ["who-am-i"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/whoami returned status 400: \n"
+400 "" ["read-output" "--at" "t"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 400: \n"
+400 "" ["send-input" "--at" "t" "hi"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/input returned status 400: \n"
+400 "" ["msg" "--to" "t" "hi"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/message returned status 400: \n"
+400 "" ["status" "--at" "t"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/activity/get returned status 400: \n"
+400 "" ["list-workspace"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 400: \n"
+400 "" ["send" "focus"]
+  code=1
+  stdout=""
+  stderr="\n"
+400 "" ["send" "focus" "{\"location\":\"1\"}"]
+  code=1
+  stdout=""
+  stderr="\n"
+400 "" ["focus" "1"]
+  code=1
+  stdout=""
+  stderr="\n"
+400 "" ["run" "status" "--run" "r1"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs?id=r1 returned status 400: \n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["who-am-i"]
+  code=1
+  stdout=""
+  stderr="dmctl: conflict\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["read-output" "--at" "t"]
+  code=1
+  stdout=""
+  stderr="dmctl: conflict\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["send-input" "--at" "t" "hi"]
+  code=1
+  stdout=""
+  stderr="dmctl: conflict\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["msg" "--to" "t" "hi"]
+  code=1
+  stdout=""
+  stderr="dmctl: conflict\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["status" "--at" "t"]
+  code=1
+  stdout=""
+  stderr="dmctl: conflict\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["list-workspace"]
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 409: {\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["send" "focus"]
+  code=1
+  stdout=""
+  stderr="{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["send" "focus" "{\"location\":\"1\"}"]
+  code=1
+  stdout=""
+  stderr="{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["focus" "1"]
+  code=1
+  stdout=""
+  stderr="{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" ["run" "status" "--run" "r1"]
+  code=1
+  stdout=""
+  stderr="dmctl run: conflict (409)\n  d\n"
+200 "{\"delivered\":0}" ["who-am-i"]
+  code=0
+  stdout="  label=  toolId=  shellPid=0  window=\"\"  tab=\"\"\n"
+  stderr=""
+200 "{\"delivered\":0}" ["read-output" "--at" "t"]
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"delivered\":0}" ["send-input" "--at" "t" "hi"]
+  code=0
+  stdout="입력 주입 완료: target=t textLen=2 모드=타이핑만 (엔터 대기)\n"
+  stderr=""
+200 "{\"delivered\":0}" ["msg" "--to" "t" "hi"]
+  code=0
+  stdout="에이전트 메시지 전송 완료: from= → to=, 본문 0 자\n"
+  stderr=""
+200 "{\"delivered\":0}" ["status" "--at" "t"]
+  code=0
+  stdout="toolId=  live=false  state=  quietMs=0\n"
+  stderr=""
+200 "{\"delivered\":0}" ["list-workspace"]
+  code=0
+  stdout="(no tools)\n"
+  stderr=""
+200 "{\"delivered\":0}" ["send" "focus"]
+  code=1
+  stdout="{\"delivered\":0}\n"
+  stderr="dmctl: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요\n"
+200 "{\"delivered\":0}" ["send" "focus" "{\"location\":\"1\"}"]
+  code=1
+  stdout="{\"delivered\":0}\n"
+  stderr="dmctl: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요\n"
+200 "{\"delivered\":0}" ["focus" "1"]
+  code=1
+  stdout="{\"delivered\":0}\n"
+  stderr="dmctl: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요\n"
+200 "{\"delivered\":0}" ["run" "status" "--run" "r1"]
+  code=0
+  stdout="run=  short=  state=  projection=  isolation=  members=0  objective=\n"
+  stderr=""
+200 "{\"delivered\":1,\"timedOut\":true}" ["who-am-i"]
+  code=0
+  stdout="  label=  toolId=  shellPid=0  window=\"\"  tab=\"\"\n"
+  stderr=""
+200 "{\"delivered\":1,\"timedOut\":true}" ["read-output" "--at" "t"]
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"delivered\":1,\"timedOut\":true}" ["send-input" "--at" "t" "hi"]
+  code=0
+  stdout="입력 주입 완료: target=t textLen=2 모드=타이핑만 (엔터 대기)\n"
+  stderr=""
+200 "{\"delivered\":1,\"timedOut\":true}" ["msg" "--to" "t" "hi"]
+  code=0
+  stdout="에이전트 메시지 전송 완료: from= → to=, 본문 0 자\n"
+  stderr=""
+200 "{\"delivered\":1,\"timedOut\":true}" ["status" "--at" "t"]
+  code=0
+  stdout="toolId=  live=false  state=  quietMs=0\n"
+  stderr=""
+200 "{\"delivered\":1,\"timedOut\":true}" ["list-workspace"]
+  code=0
+  stdout="(no tools)\n"
+  stderr=""
+200 "{\"delivered\":1,\"timedOut\":true}" ["send" "focus"]
+  code=1
+  stdout="{\"delivered\":1,\"timedOut\":true}\n"
+  stderr="dmctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요\n"
+200 "{\"delivered\":1,\"timedOut\":true}" ["send" "focus" "{\"location\":\"1\"}"]
+  code=1
+  stdout="{\"delivered\":1,\"timedOut\":true}\n"
+  stderr="dmctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요\n"
+200 "{\"delivered\":1,\"timedOut\":true}" ["focus" "1"]
+  code=1
+  stdout="{\"delivered\":1,\"timedOut\":true}\n"
+  stderr="dmctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요\n"
+200 "{\"delivered\":1,\"timedOut\":true}" ["run" "status" "--run" "r1"]
+  code=0
+  stdout="run=  short=  state=  projection=  isolation=  members=0  objective=\n"
+  stderr=""
