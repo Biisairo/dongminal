@@ -324,9 +324,14 @@ impl Server {
         }
     }
 
-    /// Go `callerToolID`: 누가 말하는가. PID 사슬 해석(`WhoAmI`)은 5.5.8 이 배선한다 — 그 전에는
-    /// 주장한 id 다.
-    pub(crate) fn caller_tool_id(&self, _r: &Req, claimed: &str) -> String {
+    /// Go `callerToolID`: 누가 말하는가. 해석기(`WhoAmI`)가 답하면 그것이, 아니면 주장한 id 다.
+    pub(crate) fn caller_tool_id(&self, r: &Req, claimed: &str) -> String {
+        if let Some(who) = &self.deps.who_am_i
+            && let Ok((id, _)) = who.resolve_client_pane(&r.remote_addr)
+            && !id.is_empty()
+        {
+            return id;
+        }
         claimed.to_owned()
     }
 

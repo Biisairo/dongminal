@@ -13,8 +13,7 @@ use http_body_util::BodyExt;
 use crate::Server;
 use crate::req::{Handler, Req};
 
-/// 조각 이름과 그 조각을 만드는 종단이다. `settings`·`update` 는 5.5.8, `edges` 는 5.5.9 가 Go 표의
-/// 자리에 더한다.
+/// 조각 이름과 그 조각을 만드는 종단이다. `edges` 는 5.5.9 가 Go 표의 자리에 더한다.
 fn snapshot_part(name: &str) -> Option<Handler> {
     macro_rules! part {
         ($m:ident) => {{
@@ -28,6 +27,8 @@ fn snapshot_part(name: &str) -> Option<Handler> {
         "attention" => part!(api_tools_attention),
         "activity" => part!(api_tools_activity),
         "background" => part!(api_tools_background),
+        "settings" => part!(api_settings_get),
+        "update" => part!(api_update_get),
         "focus" => part!(api_focus_get),
         _ => None,
     }
