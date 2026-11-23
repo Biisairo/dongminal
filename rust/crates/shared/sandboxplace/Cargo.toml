@@ -15,3 +15,8 @@ dm-shared-platform = { path = "../platform" }
 dm-shared-sandbox = { path = "../sandbox" }
 dm-shared-serverconf = { path = "../serverconf" }
 dm-shared-toolhub = { path = "../toolhub" }
+dm-gocompat = { path = "../../gocompat" }
+dm-shared-dmenv = { path = "../dmenv" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

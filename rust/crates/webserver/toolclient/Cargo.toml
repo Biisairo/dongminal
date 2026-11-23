@@ -10,8 +10,16 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-chatwire = { path = "../../shared/chatwire" }
 dm-shared-dmlog = { path = "../../shared/dmlog" }
 dm-shared-platform = { path = "../../shared/platform" }
 dm-shared-toolhub = { path = "../../shared/toolhub" }
 dm-shared-toolipc = { path = "../../shared/toolipc" }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tempfile = { workspace = true }

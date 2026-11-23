@@ -12,3 +12,7 @@ workspace = true
 [dependencies]
 dm-shared-dmlog = { path = "../../shared/dmlog" }
 dm-shared-toolipc = { path = "../../shared/toolipc" }
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }

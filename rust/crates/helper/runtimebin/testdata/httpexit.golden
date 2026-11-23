@@ -1,0 +1,1324 @@
+200 "{}" detach --list
+  code=0
+  stdout="백그라운드 도구 없음\n"
+  stderr=""
+200 "{}" detach --run
+  code=0
+  stdout="background  toolId=  cmd=ls\n  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인\n"
+  stderr=""
+200 "{}" edit
+  code=0
+  stdout="{}\n"
+  stderr=""
+200 "{}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+200 "{}" edges
+  code=0
+  stdout="node     name=  enabled=no  bind=  port=0  listening=no  fp=\n"
+  stderr=""
+200 "{}" edge add
+  code=0
+  stdout="()와 간선을 맺었습니다.\n"
+  stderr=""
+200 "{}" account list --json
+  code=0
+  stdout="{\"schemaVersion\":1}\n"
+  stderr=""
+200 "{}" account list
+  code=0
+  stdout=""
+  stderr=""
+200 "{}" move-tab
+  code=0
+  stdout="{}\n"
+  stderr=""
+200 "{}" notify
+  code=0
+  stdout=""
+  stderr=""
+200 "{}" list-groups
+  code=0
+  stdout="(no groups)\n"
+  stderr=""
+200 "{}" read-screen
+  code=0
+  stdout="(출력 없음)\n"
+  stderr=""
+200 "{}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+200 "{}" run tree
+  code=0
+  stdout="(o/r#32: 열린 노드 없음)\n"
+  stderr=""
+200 "{}" run close
+  code=0
+  stdout="run=  state=\n"
+  stderr=""
+200 "null" detach --list
+  code=0
+  stdout="백그라운드 도구 없음\n"
+  stderr=""
+200 "null" detach --run
+  code=0
+  stdout="background  toolId=  cmd=ls\n  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인\n"
+  stderr=""
+200 "null" edit
+  code=0
+  stdout="null\n"
+  stderr=""
+200 "null" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+200 "null" edges
+  code=0
+  stdout="node     name=  enabled=no  bind=  port=0  listening=no  fp=\n"
+  stderr=""
+200 "null" edge add
+  code=0
+  stdout="()와 간선을 맺었습니다.\n"
+  stderr=""
+200 "null" account list
+  code=0
+  stdout=""
+  stderr=""
+200 "null" move-tab
+  code=0
+  stdout="null\n"
+  stderr=""
+200 "null" notify
+  code=0
+  stdout=""
+  stderr=""
+200 "null" list-groups
+  code=0
+  stdout="(no groups)\n"
+  stderr=""
+200 "null" read-screen
+  code=0
+  stdout="(출력 없음)\n"
+  stderr=""
+200 "null" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+200 "null" run tree
+  code=0
+  stdout="(o/r#32: 열린 노드 없음)\n"
+  stderr=""
+200 "null" run close
+  code=0
+  stdout="run=  state=\n"
+  stderr=""
+200 "{\"delivered\":0}" detach
+  code=1
+  stdout=""
+  stderr="detach: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요\n"
+200 "{\"delivered\":0}" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요\n"
+200 "{\"delivered\":0}" detach --list
+  code=0
+  stdout="백그라운드 도구 없음\n"
+  stderr=""
+200 "{\"delivered\":0}" detach --run
+  code=0
+  stdout="background  toolId=  cmd=ls\n  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인\n"
+  stderr=""
+200 "{\"delivered\":0}" edit
+  code=0
+  stdout="{\"delivered\":0}\n"
+  stderr=""
+200 "{\"delivered\":0}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+200 "{\"delivered\":0}" edges
+  code=0
+  stdout="node     name=  enabled=no  bind=  port=0  listening=no  fp=\n"
+  stderr=""
+200 "{\"delivered\":0}" edge add
+  code=0
+  stdout="()와 간선을 맺었습니다.\n"
+  stderr=""
+200 "{\"delivered\":0}" account list --json
+  code=0
+  stdout="{\"delivered\":0,\"schemaVersion\":1}\n"
+  stderr=""
+200 "{\"delivered\":0}" account list
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"delivered\":0}" move-tab
+  code=1
+  stdout="{\"delivered\":0}\n"
+  stderr="dmctl: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요\n"
+200 "{\"delivered\":0}" notify
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"delivered\":0}" list-groups
+  code=0
+  stdout="(no groups)\n"
+  stderr=""
+200 "{\"delivered\":0}" read-screen
+  code=0
+  stdout="(출력 없음)\n"
+  stderr=""
+200 "{\"delivered\":0}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+200 "{\"delivered\":0}" run tree
+  code=0
+  stdout="(o/r#32: 열린 노드 없음)\n"
+  stderr=""
+200 "{\"delivered\":0}" run close
+  code=0
+  stdout="run=  state=\n"
+  stderr=""
+200 "{\"delivered\":1}" detach
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"delivered\":1}" detach --restore
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"delivered\":1}" detach --list
+  code=0
+  stdout="백그라운드 도구 없음\n"
+  stderr=""
+200 "{\"delivered\":1}" detach --run
+  code=0
+  stdout="background  toolId=  cmd=ls\n  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인\n"
+  stderr=""
+200 "{\"delivered\":1}" edit
+  code=0
+  stdout="{\"delivered\":1}\n"
+  stderr=""
+200 "{\"delivered\":1}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+200 "{\"delivered\":1}" edges
+  code=0
+  stdout="node     name=  enabled=no  bind=  port=0  listening=no  fp=\n"
+  stderr=""
+200 "{\"delivered\":1}" edge add
+  code=0
+  stdout="()와 간선을 맺었습니다.\n"
+  stderr=""
+200 "{\"delivered\":1}" account list --json
+  code=0
+  stdout="{\"delivered\":1,\"schemaVersion\":1}\n"
+  stderr=""
+200 "{\"delivered\":1}" account list
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"delivered\":1}" move-tab
+  code=0
+  stdout="{\"delivered\":1}\n"
+  stderr=""
+200 "{\"delivered\":1}" notify
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"delivered\":1}" list-groups
+  code=0
+  stdout="(no groups)\n"
+  stderr=""
+200 "{\"delivered\":1}" read-screen
+  code=0
+  stdout="(출력 없음)\n"
+  stderr=""
+200 "{\"delivered\":1}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+200 "{\"delivered\":1}" run tree
+  code=0
+  stdout="(o/r#32: 열린 노드 없음)\n"
+  stderr=""
+200 "{\"delivered\":1}" run close
+  code=0
+  stdout="run=  state=\n"
+  stderr=""
+200 "{\"where\":\"local\"}" detach --list
+  code=0
+  stdout="백그라운드 도구 없음\n"
+  stderr=""
+200 "{\"where\":\"local\"}" detach --run
+  code=0
+  stdout="background  toolId=  cmd=ls\n  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인\n"
+  stderr=""
+200 "{\"where\":\"local\"}" edit
+  code=0
+  stdout="{\"where\":\"local\"}\n"
+  stderr=""
+200 "{\"where\":\"local\"}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+200 "{\"where\":\"local\"}" edges
+  code=0
+  stdout="node     name=  enabled=no  bind=  port=0  listening=no  fp=\n"
+  stderr=""
+200 "{\"where\":\"local\"}" edge add
+  code=0
+  stdout="()와 간선을 맺었습니다.\n"
+  stderr=""
+200 "{\"where\":\"local\"}" account list --json
+  code=0
+  stdout="{\"schemaVersion\":1,\"where\":\"local\"}\n"
+  stderr=""
+200 "{\"where\":\"local\"}" account list
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"where\":\"local\"}" move-tab
+  code=0
+  stdout="{\"where\":\"local\"}\n"
+  stderr=""
+200 "{\"where\":\"local\"}" notify
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"where\":\"local\"}" list-groups
+  code=0
+  stdout="(no groups)\n"
+  stderr=""
+200 "{\"where\":\"local\"}" read-screen
+  code=0
+  stdout="(출력 없음)\n"
+  stderr=""
+200 "{\"where\":\"local\"}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+200 "{\"where\":\"local\"}" run tree
+  code=0
+  stdout="(o/r#32: 열린 노드 없음)\n"
+  stderr=""
+200 "{\"where\":\"local\"}" run close
+  code=0
+  stdout="run=  state=\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" detach
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" detach --restore
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" detach --list
+  code=0
+  stdout="백그라운드 도구 없음\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" detach --run
+  code=0
+  stdout="background  toolId=  cmd=ls\n  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" edit
+  code=0
+  stdout="{\"where\":\"viewer\",\"delivered\":1}\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" open-url
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" edges
+  code=0
+  stdout="node     name=  enabled=no  bind=  port=0  listening=no  fp=\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" edge add
+  code=0
+  stdout="()와 간선을 맺었습니다.\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" account list --json
+  code=0
+  stdout="{\"delivered\":1,\"schemaVersion\":1,\"where\":\"viewer\"}\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" account list
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" move-tab
+  code=0
+  stdout="{\"where\":\"viewer\",\"delivered\":1}\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" notify
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" list-groups
+  code=0
+  stdout="(no groups)\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" read-screen
+  code=0
+  stdout="(출력 없음)\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+200 "{\"where\":\"viewer\",\"delivered\":1}" run tree
+  code=0
+  stdout="(o/r#32: 열린 노드 없음)\n"
+  stderr=""
+200 "{\"where\":\"viewer\",\"delivered\":1}" run close
+  code=0
+  stdout="run=  state=\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" detach
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" detach --restore
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" detach --list
+  code=0
+  stdout="백그라운드 도구 없음\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" detach --run
+  code=0
+  stdout="background  toolId=  cmd=ls\n  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" edit
+  code=0
+  stdout="{\"error\":\"bad move\",\"delivered\":1}\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" edges
+  code=0
+  stdout="node     name=  enabled=no  bind=  port=0  listening=no  fp=\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" edge add
+  code=0
+  stdout="()와 간선을 맺었습니다.\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" account list --json
+  code=0
+  stdout="{\"delivered\":1,\"error\":\"bad move\",\"schemaVersion\":1}\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" account list
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" move-tab
+  code=1
+  stdout="{\"error\":\"bad move\",\"delivered\":1}\n"
+  stderr="dmctl: moveTab 실패: bad move\n"
+200 "{\"error\":\"bad move\",\"delivered\":1}" notify
+  code=0
+  stdout=""
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" list-groups
+  code=0
+  stdout="(no groups)\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" read-screen
+  code=0
+  stdout="(출력 없음)\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+200 "{\"error\":\"bad move\",\"delivered\":1}" run tree
+  code=0
+  stdout="(o/r#32: 열린 노드 없음)\n"
+  stderr=""
+200 "{\"error\":\"bad move\",\"delivered\":1}" run close
+  code=0
+  stdout="run=  state=\n"
+  stderr=""
+204 "" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 응답 파싱 실패: unexpected end of JSON input\n"
+204 "" detach --run
+  code=0
+  stdout="background  toolId=  cmd=ls\n  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인\n"
+  stderr=""
+204 "" edit
+  code=0
+  stdout="\n"
+  stderr=""
+204 "" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+204 "" edges
+  code=0
+  stdout="\n"
+  stderr=""
+204 "" edge add
+  code=0
+  stdout="()와 간선을 맺었습니다.\n"
+  stderr=""
+204 "" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl account: 응답을 읽지 못했습니다: unexpected end of JSON input\n"
+204 "" account list
+  code=1
+  stdout=""
+  stderr="dmctl account: 응답을 읽지 못했습니다: unexpected end of JSON input\n"
+204 "" move-tab
+  code=0
+  stdout="\n"
+  stderr=""
+204 "" notify
+  code=0
+  stdout=""
+  stderr=""
+204 "" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: invalid /api/state response: unexpected end of JSON input\n"
+204 "" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: invalid /api/tools/output response: unexpected end of JSON input\n"
+204 "" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+204 "" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: invalid tree response: unexpected end of JSON input\n"
+204 "" run close
+  code=1
+  stdout=""
+  stderr="dmctl: invalid close response: unexpected end of JSON input\n"
+302 "moved" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 302: moved\n"
+302 "moved" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 302: moved\n"
+302 "moved" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 302\n"
+302 "moved" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 302: moved\n"
+302 "moved" edit
+  code=0
+  stdout="moved\n"
+  stderr=""
+302 "moved" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+302 "moved" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 302: moved\n"
+302 "moved" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 302: moved\n"
+302 "moved" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 302: moved\n"
+302 "moved" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 302: moved\n"
+302 "moved" move-tab
+  code=0
+  stdout="moved\n"
+  stderr=""
+302 "moved" notify
+  code=0
+  stdout=""
+  stderr=""
+302 "moved" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 302: moved\n"
+302 "moved" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 302: moved\n"
+302 "moved" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+302 "moved" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/tree?ref=o%2Fr%2332 returned status 302: moved\n"
+302 "moved" run close
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/close returned status 302: moved\n"
+400 "{\"error\":\"bad\"}" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 400: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 400: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 400\n"
+400 "{\"error\":\"bad\"}" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 400: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" edit
+  code=1
+  stdout=""
+  stderr="{\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" open-url
+  code=1
+  stdout=""
+  stderr="open-url: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 400: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 400: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 400: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 400: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" move-tab
+  code=1
+  stdout=""
+  stderr="{\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" notify
+  code=1
+  stdout=""
+  stderr="{\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 400: {\"error\":\"bad\"}\n"
+400 "{\"error\":\"bad\"}" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: bad\n"
+400 "{\"error\":\"bad\"}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+400 "{\"error\":\"bad\"}" run tree
+  code=1
+  stdout=""
+  stderr="dmctl run: bad (400)\n"
+400 "{\"error\":\"bad\"}" run close
+  code=1
+  stdout=""
+  stderr="dmctl run: bad (400)\n"
+400 "bad url\n" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 400: bad url\n\n"
+400 "bad url\n" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 400: bad url\n\n"
+400 "bad url\n" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 400\n"
+400 "bad url\n" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 400: bad url\n\n"
+400 "bad url\n" edit
+  code=1
+  stdout=""
+  stderr="bad url\n"
+400 "bad url\n" open-url
+  code=1
+  stdout=""
+  stderr="open-url: bad url\n"
+400 "bad url\n" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 400: bad url\n"
+400 "bad url\n" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 400: bad url\n"
+400 "bad url\n" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 400: bad url\n"
+400 "bad url\n" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 400: bad url\n"
+400 "bad url\n" move-tab
+  code=1
+  stdout=""
+  stderr="bad url\n"
+400 "bad url\n" notify
+  code=1
+  stdout=""
+  stderr="bad url\n"
+400 "bad url\n" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 400: bad url\n\n"
+400 "bad url\n" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 400: bad url\n\n"
+400 "bad url\n" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+400 "bad url\n" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/tree?ref=o%2Fr%2332 returned status 400: bad url\n\n"
+400 "bad url\n" run close
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/close returned status 400: bad url\n\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 409: {\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 409: {\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 409\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 409: {\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" edit
+  code=1
+  stdout=""
+  stderr="{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" edges
+  code=1
+  stdout=""
+  stderr="dmctl: x: \n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: x: \n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: x: \n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" account list
+  code=1
+  stdout=""
+  stderr="dmctl: x: \n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" move-tab
+  code=1
+  stdout=""
+  stderr="{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" notify
+  code=1
+  stdout=""
+  stderr="{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 409: {\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: conflict\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" run tree
+  code=1
+  stdout=""
+  stderr="dmctl run: conflict (409)\n  d\n"
+409 "{\"error\":\"conflict\",\"detail\":\"d\",\"code\":\"x\"}" run close
+  code=1
+  stdout=""
+  stderr="dmctl run: conflict (409)\n  d\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 409: {\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 409: {\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 409\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 409: {\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" edit
+  code=1
+  stdout=""
+  stderr="{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 409: {\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 409: {\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 409: {\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 409: {\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" move-tab
+  code=1
+  stdout=""
+  stderr="{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" notify
+  code=1
+  stdout=""
+  stderr="{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 409: {\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: node_taken\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" run tree
+  code=1
+  stdout=""
+  stderr="dmctl run: node_taken (409)\n  미보고: role=a  state=b  memberId=\n  이 이슈를 쥔 멤버: memberId=m  state=s\n  h\n  이 트리의 Run r 은 멈췄다(살아 있는 멤버 없음). 정리한 뒤 다시 연다: dmctl run close --run r --force\n"
+409 "{\"error\":\"node_taken\",\"memberId\":\"m\",\"state\":\"s\",\"hint\":\"h\",\"runId\":\"r\",\"stale\":true,\"unreported\":[{\"role\":\"a\",\"state\":\"b\",\"memberId\":\"c\"}]}" run close
+  code=1
+  stdout=""
+  stderr="dmctl run: node_taken (409)\n  미보고: role=a  state=b  memberId=\n  이 이슈를 쥔 멤버: memberId=m  state=s\n  h\n  이 트리의 Run r 은 멈췄다(살아 있는 멤버 없음). 정리한 뒤 다시 연다: dmctl run close --run r --force\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 422: {\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 422: {\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 422\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 422: {\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" edit
+  code=1
+  stdout=""
+  stderr="{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" edges
+  code=1
+  stdout=""
+  stderr="dmctl: edge_x: m\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: edge_x: m\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: edge_x: m\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" account list
+  code=1
+  stdout=""
+  stderr="dmctl: edge_x: m\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" move-tab
+  code=1
+  stdout=""
+  stderr="{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" notify
+  code=1
+  stdout=""
+  stderr="{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 422: {\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 422: {\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/tree?ref=o%2Fr%2332 returned status 422: {\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+422 "{\"code\":\"edge_x\",\"message\":\"m\\u0007\"}" run close
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/close returned status 422: {\"code\":\"edge_x\",\"message\":\"m\\u0007\"}\n"
+500 "raw body" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: raw body\n"
+500 "raw body" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: raw body\n"
+500 "raw body" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500\n"
+500 "raw body" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: raw body\n"
+500 "raw body" edit
+  code=1
+  stdout=""
+  stderr="raw body\n"
+500 "raw body" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+500 "raw body" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: raw body\n"
+500 "raw body" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: raw body\n"
+500 "raw body" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: raw body\n"
+500 "raw body" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: raw body\n"
+500 "raw body" move-tab
+  code=1
+  stdout=""
+  stderr="raw body\n"
+500 "raw body" notify
+  code=1
+  stdout=""
+  stderr="raw body\n"
+500 "raw body" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 500: raw body\n"
+500 "raw body" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 500: raw body\n"
+500 "raw body" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+500 "raw body" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/tree?ref=o%2Fr%2332 returned status 500: raw body\n"
+500 "raw body" run close
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/close returned status 500: raw body\n"
+500 "{\"error\":5}" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: {\"error\":5}\n"
+500 "{\"error\":5}" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: {\"error\":5}\n"
+500 "{\"error\":5}" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500\n"
+500 "{\"error\":5}" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: {\"error\":5}\n"
+500 "{\"error\":5}" edit
+  code=1
+  stdout=""
+  stderr="{\"error\":5}\n"
+500 "{\"error\":5}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+500 "{\"error\":5}" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: {\"error\":5}\n"
+500 "{\"error\":5}" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: {\"error\":5}\n"
+500 "{\"error\":5}" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: {\"error\":5}\n"
+500 "{\"error\":5}" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: {\"error\":5}\n"
+500 "{\"error\":5}" move-tab
+  code=1
+  stdout=""
+  stderr="{\"error\":5}\n"
+500 "{\"error\":5}" notify
+  code=1
+  stdout=""
+  stderr="{\"error\":5}\n"
+500 "{\"error\":5}" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 500: {\"error\":5}\n"
+500 "{\"error\":5}" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 500: {\"error\":5}\n"
+500 "{\"error\":5}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+500 "{\"error\":5}" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/tree?ref=o%2Fr%2332 returned status 500: {\"error\":5}\n"
+500 "{\"error\":5}" run close
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/close returned status 500: {\"error\":5}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 503: {\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 503: {\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 503\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 503: {\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" edit
+  code=1
+  stdout=""
+  stderr="{\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+503 "{\"error\":\"e\",\"stale\":\"x\"}" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 503: {\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 503: {\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 503: {\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 503: {\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" move-tab
+  code=1
+  stdout=""
+  stderr="{\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" notify
+  code=1
+  stdout=""
+  stderr="{\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 503: {\"error\":\"e\",\"stale\":\"x\"}\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: e\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: e\n"
+503 "{\"error\":\"e\",\"stale\":\"x\"}" run close
+  code=1
+  stdout=""
+  stderr="dmctl: e\n"
+502 "{\"code\":7,\"message\":\"m\"}" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 502\n"
+502 "{\"code\":7,\"message\":\"m\"}" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" edit
+  code=1
+  stdout=""
+  stderr="{\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+502 "{\"code\":7,\"message\":\"m\"}" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" move-tab
+  code=1
+  stdout=""
+  stderr="{\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" notify
+  code=1
+  stdout=""
+  stderr="{\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+502 "{\"code\":7,\"message\":\"m\"}" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/tree?ref=o%2Fr%2332 returned status 502: {\"code\":7,\"message\":\"m\"}\n"
+502 "{\"code\":7,\"message\":\"m\"}" run close
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/close returned status 502: {\"code\":7,\"message\":\"m\"}\n"
+500 "[1]" detach
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: [1]\n"
+500 "[1]" detach --restore
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: [1]\n"
+500 "[1]" detach --list
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500\n"
+500 "[1]" detach --run
+  code=1
+  stdout=""
+  stderr="detach: 서버 오류 500: [1]\n"
+500 "[1]" edit
+  code=1
+  stdout=""
+  stderr="[1]\n"
+500 "[1]" open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+500 "[1]" edges
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: [1]\n"
+500 "[1]" edge add
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: [1]\n"
+500 "[1]" account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: [1]\n"
+500 "[1]" account list
+  code=1
+  stdout=""
+  stderr="dmctl: status 500: [1]\n"
+500 "[1]" move-tab
+  code=1
+  stdout=""
+  stderr="[1]\n"
+500 "[1]" notify
+  code=1
+  stdout=""
+  stderr="[1]\n"
+500 "[1]" list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: /api/state returned status 500: [1]\n"
+500 "[1]" read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: /api/tools/output returned status 500: [1]\n"
+500 "[1]" wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+500 "[1]" run tree
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/tree?ref=o%2Fr%2332 returned status 500: [1]\n"
+500 "[1]" run close
+  code=1
+  stdout=""
+  stderr="dmctl: /api/runs/close returned status 500: [1]\n"
+refused detach
+  code=1
+  stdout=""
+  stderr="detach: Post \"http://127.0.0.1:PORT/api/commands\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused detach --restore
+  code=1
+  stdout=""
+  stderr="detach: Post \"http://127.0.0.1:PORT/api/commands\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused detach --list
+  code=1
+  stdout=""
+  stderr="detach: Get \"http://127.0.0.1:PORT/api/tools/background\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused detach --run
+  code=1
+  stdout=""
+  stderr="detach: Post \"http://127.0.0.1:PORT/api/tools/headless\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused edit
+  code=1
+  stdout=""
+  stderr="edit: 서버 연결 실패 (port=PORT)\n"
+refused open-url
+  code=0
+  stdout="OPEN https://x\n"
+  stderr=""
+refused edges
+  code=1
+  stdout=""
+  stderr="dmctl: Get \"http://127.0.0.1:PORT/api/edges\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused edge add
+  code=1
+  stdout=""
+  stderr="dmctl: Post \"http://127.0.0.1:PORT/api/edges/add\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused account list --json
+  code=1
+  stdout=""
+  stderr="dmctl: Get \"http://127.0.0.1:PORT/api/claude-accounts\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused account list
+  code=1
+  stdout=""
+  stderr="dmctl: Get \"http://127.0.0.1:PORT/api/claude-accounts\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused move-tab
+  code=1
+  stdout=""
+  stderr="dmctl: Post \"http://127.0.0.1:PORT/api/commands\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused notify
+  code=1
+  stdout=""
+  stderr="dmctl notify: Post \"http://127.0.0.1:PORT/api/tools/attention/set\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused list-groups
+  code=1
+  stdout=""
+  stderr="dmctl: Get \"http://127.0.0.1:PORT/api/state\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused read-screen
+  code=1
+  stdout=""
+  stderr="dmctl: Get \"http://127.0.0.1:PORT/api/tools/output?bytes=16384&id=t&strip=1\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused wait
+  code=2
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+refused run tree
+  code=1
+  stdout=""
+  stderr="dmctl: Get \"http://127.0.0.1:PORT/api/runs/tree?ref=o%2Fr%2332\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"
+refused run close
+  code=1
+  stdout=""
+  stderr="dmctl: Post \"http://127.0.0.1:PORT/api/runs/close\": dial tcp 127.0.0.1:PORT: connect: connection refused\n"

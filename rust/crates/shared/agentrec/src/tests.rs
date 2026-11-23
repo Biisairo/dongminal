@@ -212,3 +212,29 @@ fn agent_reports_turn_start_reads_declaration() {
     assert!(agent_reports_turn_start("claude"));
     assert!(!agent_reports_turn_start("codex"));
 }
+
+#[test]
+fn records_read_back() {
+    let u: Usage =
+        json::unmarshal(br#"{"sessionId":"s","contextWindow":{"usedPct":3},"observedAt":7}"#)
+            .unwrap();
+    assert_eq!(u.usage.session_id.as_deref(), Some("s"));
+    assert_eq!(u.usage.context_window.unwrap().used_pct, Some(3.0));
+    assert_eq!(u.observed_at, 7);
+    let r: UsageReport = json::unmarshal(
+        br#"{"toolId":"t","usage":{"version":"1"},"account":{"email":"e","organizationUuid":"o"}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        (r.tool_id.as_str(), r.usage.version.as_deref()),
+        ("t", Some("1"))
+    );
+    assert_eq!(r.account.unwrap().org_uuid, "o");
+    let s: SubagentsReport = json::unmarshal(br#"{"toolId":"t","tasks":[{"id":"a"}]}"#).unwrap();
+    assert_eq!(s.tasks.unwrap()[0].id.as_deref(), Some("a"));
+    let l: SubagentList = json::unmarshal(br#"{"tasks":null,"observedAt":7}"#).unwrap();
+    assert_eq!((l.tasks, l.observed_at), (None, 7));
+    let l: LimitRecord =
+        json::unmarshal(br#"{"windows":{"five_hour":{"usedPct":40}},"observedAt":5}"#).unwrap();
+    assert_eq!(l.windows.unwrap()["five_hour"].used_pct, Some(40.0));
+}

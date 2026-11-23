@@ -171,7 +171,7 @@ pub fn copy_executable(src: &Path, dst: &Path) -> io::Result<()> {
         let mut aside = dst.as_os_str().to_owned();
         aside.push(".old");
         let aside = PathBuf::from(aside);
-        let _ = fs::remove_file(&aside);
+        go_remove(&aside);
         if fs::rename(dst, &aside).is_err() {
             let _ = fs::remove_file(&tmp);
             return Err(err);
@@ -181,9 +181,16 @@ pub fn copy_executable(src: &Path, dst: &Path) -> io::Result<()> {
             let _ = fs::remove_file(&tmp);
             return Err(rerr);
         }
-        let _ = fs::remove_file(&aside);
+        go_remove(&aside);
     }
     Ok(())
+}
+
+/// Go `os.Remove`: 파일을 지우고, 안 되면 빈 디렉터리로 지운다. 실패는 삼킨다.
+fn go_remove(p: &Path) {
+    if fs::remove_file(p).is_err() {
+        let _ = fs::remove_dir(p);
+    }
 }
 
 fn copy_stream(r: &mut File, rp: &Path, w: &mut File, wp: &Path) -> io::Result<()> {
