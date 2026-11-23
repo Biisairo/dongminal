@@ -11,8 +11,9 @@ use dm_shared_toolipc::{CODE_INTERNAL, IdParams, METHOD_HELLO, METHOD_LIST, Resi
 use serde_json::{Value, json};
 
 use super::{Peer, chan, dial, err_resp, fake, listen, resp, version, wait_until};
+use crate::ToolClient;
 use crate::wire::{Empty, WireMsg};
-use crate::{Placement, ToolClient};
+use dm_shared_toolhub::Placement;
 
 #[test]
 fn request_response() {

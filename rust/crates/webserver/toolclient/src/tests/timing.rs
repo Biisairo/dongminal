@@ -5,15 +5,14 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use dm_shared_toolhub::ToolInfo;
+use dm_shared_toolhub::{Placement, ToolInfo};
 use dm_shared_toolipc::{METHOD_CREATE, METHOD_HELLO, METHOD_LIST, PROTOCOL_VERSION};
 use serde_json::json;
 
 use super::{Peer, chan, listen, next_line, ok_fake, resp, version, wait_until};
 use crate::client::{Timing, next_backoff};
 use crate::{
-    Placement, TOOL_CALL_TIMEOUT, TOOL_CREATE_TIMEOUT, TOOL_MAX_BACKOFF, TOOL_RECONNECT_BACKOFF,
-    ToolClient,
+    TOOL_CALL_TIMEOUT, TOOL_CREATE_TIMEOUT, TOOL_MAX_BACKOFF, TOOL_RECONNECT_BACKOFF, ToolClient,
 };
 
 /// 연결은 받되 답하지 않는다 — hello 가 시한에 닿는다 (FR-14).
@@ -289,8 +288,8 @@ fn backoff_doubles_to_cap() {
     assert_eq!(seq, [1, 2, 4, 8, 16, 30, 30, 30]);
 }
 
-/// 재접속 실패가 3 의 배수가 될 때마다 데몬을 다시 띄운다 (FR-13). 백오프 5·10·20·20ms 이면
-/// 첫 재기동은 실패 3번(35ms 대기) 뒤, 다음은 실패 6번(60ms 더) 뒤다.
+/// 재접속 실패가 3 의 배수가 될 때마다 데몬을 다시 띄운다 (FR-13). 실제 시간 대신 주입한 대기가
+/// 백오프를 기록한다. 재기동 순간까지의 대기 횟수가 곧 실패 횟수다(대기 → 연결 실패 → 재기동 순서).
 #[test]
 fn respawn_every_three_failed_dials() {
     let (sock, ln) = listen();
@@ -309,37 +308,33 @@ fn respawn_every_three_failed_dials() {
     let timing = Timing {
         every: Duration::from_secs(3600),
         within: TOOL_CALL_TIMEOUT,
-        backoff: Duration::from_millis(5),
-        max_backoff: Duration::from_millis(20),
+        backoff: TOOL_RECONNECT_BACKOFF,
+        max_backoff: TOOL_MAX_BACKOFF,
     };
+    let sleeps: Arc<Mutex<Vec<Duration>>> = Arc::default();
+    let s = Arc::clone(&sleeps);
     let (tx, rx) = chan();
     let spawn: crate::SpawnDaemon = Box::new(move || {
-        let _ = tx.send(Instant::now());
+        let _ = tx.send(s.lock().unwrap().len());
         Ok(())
     });
     let pc = ToolClient::dial_with(&sock.path, Some(spawn), timing).unwrap();
+    let s = Arc::clone(&sleeps);
+    *crate::client::lock(&pc.inner.sleep_hook) = Some(Arc::new(move |d| {
+        s.lock().unwrap().push(d);
+    }));
     stop_tx.send(()).unwrap();
-    wait_until(
-        "연결이 끊긴 것을 알지 못했다",
-        Duration::from_secs(2),
-        || !pc.connected(),
-    );
-    let lost = Instant::now();
-    let first = rx
-        .recv_timeout(Duration::from_secs(3))
-        .expect("데몬을 다시 띄우지 않았다");
-    let second = rx
-        .recv_timeout(Duration::from_secs(3))
-        .expect("두 번째 재기동이 없다");
+    let at: Vec<usize> = (0..2)
+        .map(|_| {
+            rx.recv_timeout(Duration::from_secs(10))
+                .expect("데몬을 다시 띄우지 않았다")
+        })
+        .collect();
     pc.close();
-    assert!(
-        first - lost >= Duration::from_millis(35),
-        "{:?}",
-        first - lost
-    );
-    assert!(
-        second - first >= Duration::from_millis(60),
-        "{:?}",
-        second - first
-    );
+    assert_eq!(at, [3, 6], "재기동 때의 실패 횟수");
+    let secs: Vec<u64> = sleeps.lock().unwrap()[..6]
+        .iter()
+        .map(Duration::as_secs)
+        .collect();
+    assert_eq!(secs, [1, 2, 4, 8, 16, 30], "백오프 수열");
 }
