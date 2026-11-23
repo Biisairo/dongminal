@@ -288,7 +288,7 @@ impl Node {
     }
 
     /// 이 노드에게 온 간선 초대다. 이미 간선이거나 거절한 초대는 버린다. 보낸 노드마다 하나만 둔다.
-    fn on_invite(&self, inv: Invite) {
+    pub(crate) fn on_invite(&self, inv: Invite) {
         if self.store.is_edge(&inv.from) {
             return;
         }
