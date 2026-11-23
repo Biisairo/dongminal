@@ -25,6 +25,7 @@ dm-shared-handover = { path = "../../shared/handover" }
 dm-shared-platform = { path = "../../shared/platform" }
 dm-shared-pollwait = { path = "../../shared/pollwait" }
 dm-shared-runtime = { path = "../../shared/runtime" }
+dm-shared-sandbox = { path = "../../shared/sandbox" }
 dm-shared-sandboxplace = { path = "../../shared/sandboxplace" }
 dm-shared-serverconf = { path = "../../shared/serverconf" }
 dm-shared-toolhub = { path = "../../shared/toolhub" }
@@ -40,12 +41,20 @@ dm-webserver-domain-lsp = { path = "../../webserver/domain/lsp" }
 dm-webserver-domain-run = { path = "../../webserver/domain/run" }
 dm-webserver-domain-sysstat = { path = "../../webserver/domain/sysstat" }
 dm-webserver-domain-worktree = { path = "../../webserver/domain/worktree" }
+dm-webserver-domain-wsentry = { path = "../../webserver/domain/wsentry" }
 dm-webserver-httpapi = { path = "../../webserver/httpapi" }
 dm-webserver-hub = { path = "../../webserver/hub" }
 dm-webserver-recordsync = { path = "../../webserver/recordsync" }
 dm-webserver-seam-adapters = { path = "../../webserver/seam/adapters" }
+dm-webserver-seam-toolaccess = { path = "../../webserver/seam/toolaccess" }
 dm-webserver-toolclient = { path = "../../webserver/toolclient" }
 dm-web-assets = { path = "../../web" }
+futures-util = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
 
 [dev-dependencies]
+dm-daemon-ipc = { path = "../../daemon/ipc" }
+dm-shared-agentrec = { path = "../../shared/agentrec" }
+dm-shared-gittest = { path = "../../shared/gittest" }
 tempfile = { workspace = true }
