@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 겨누는 자리가 **한 규칙을 지나는가** (STRUCTURE_CLEANUP_SRS FR-STR-27).
+# 겨누는 자리가 **한 규칙을 지나는가** (STRUCTURE_CLEANUP_SRS FR-STR-27, GO_REMOVAL_SRS G-23).
 #
 # 같은 물음("어느 서버를 겨누는가")에 답이 다섯 벌 있었고 그중 셋만 선언된 계약을
 # 지켰다. `CONFIG_MANAGEMENT_SRS` FR-CFG-13 이 플래그 > 환경변수 > 파일 > 기본값을
@@ -20,10 +20,11 @@
 #
 # ## 두 자리를 본다
 #
-#   ① 주소 조립 — `host+":"+port` 와 `fmt.Sprintf("http://%s:%s"` 꼴이 없다.
-#      `net.JoinHostPort` 를 지나야 IPv6 가 산다 (`::1` 은 대괄호가 필요하다).
-#      저장소 전체에 `JoinHostPort` 사용이 **0곳**이었다.
-#   ② 겨냥 해석 — 겨누는 명령의 파일이 `ResolveTarget` 을 지난다.
+#   ① 주소 조립 — `format!("{host}:{port}")`·`format!("http://{}:{}", …)` 꼴이 없다.
+#      `dmenv::listen_addr`·`base_url`(Go `net.JoinHostPort`)을 지나야 IPv6 가 산다
+#      (`::1` 은 대괄호가 필요하다). Go 판 때 저장소 전체에 `JoinHostPort` 사용이 **0곳**이었다.
+#   ② 겨냥 해석 — 겨누는 명령의 파일(ctl/cli/src/{health,window,stop,migrate}.rs)이
+#      `resolve_target` 을 지난다.
 #
 # 사용: scripts/check-server-target.sh
 set -uo pipefail
@@ -33,65 +34,79 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
 서버 겨냥의 단일 규칙 검사
 
-  ① 주소 조립이 dmenv.ListenAddr / dmenv.BaseURL 을 지나는가
-       host+":"+port                →  dmenv.ListenAddr(host, port)
-       fmt.Sprintf("http://%s:%s")  →  dmenv.BaseURL(host, port)
+  ① 주소 조립이 dmenv::listen_addr / dmenv::base_url 을 지나는가
+       format!("{host}:{port}")         →  dmenv::listen_addr(host, port)
+       format!("http://{}:{}", h, p)    →  dmenv::base_url(host, port)
 
-  ② 겨누는 명령(health·window·stop·migrate)이 ResolveTarget 을 지나는가
+  ② 겨누는 명령(health·window·stop·migrate)이 resolve_target 을 지나는가
 
-  지나가는 것: dmenv/host.go (조립을 정의하는 쪽) · *_test.go · 주석
+  지나가는 것: dmenv/src/host.rs (조립을 정의하는 쪽) · 시험 파일 · 주석 ·
+  스크립트의 ALLOW 에 근거와 함께 적은 자리
 USAGE
   exit 0
 fi
 
+source scripts/lib/rs-src.sh
 fail=0
 
-# ── ① 주소 조립 ────────────────────────────────────────────────────────────
+# 예외 — `경로|줄 내용의 정규식`.
 #
-# **주석은 지나간다** — 사실을 서술한 문장에서 이름을 지우면 근거가 사라진다
-# (`check-http-error.sh` 와 같은 규칙). 재는 것은 실행 코드다.
-#
-# 리터럴만인 문자열은 **주소가 아니라 문구다** (`"포트 %s 에서 실행 중"`). 그래서
-# 판정은 `%s:%s` 처럼 **두 조각을 잇는** 꼴과, 접합에서는 **한쪽이 host 이고
-# 다른 쪽이 port 인** 꼴로 좁힌다.
-#
-# 좁히지 않으면 `:` 로 잇는 다른 것들이 전부 걸린다 — 실측에서 오탐 11건이었다:
-# 샌드박스 마운트(`m.Host+":"+m.Container`) · 도커 포트 매핑(`port+":"+port`) ·
-# git 의 `<oid>:<path>` 넷 · refspec(`br+":"+br`) · 에이전트 이름. **`:` 은 주소의
-# 것이 아니다.**
+#   httpapi/src/run.rs, ctl/cli/src/config_bind.rs — `join_host_port`
+#     Go 표준 `net.JoinHostPort` 를 같은 바이트로 옮긴 함수다. 콜론이 든 호스트는 바로
+#     윗줄에서 대괄호로 싼다 — 이 게이트가 막으려는 "대괄호 없는 조립" 이 아니다.
+ALLOW=(
+  'rust/crates/webserver/httpapi/src/run.rs|^[[:space:]]*format!\("\{host\}:\{port\}"\)$'
+  'rust/crates/ctl/cli/src/config_bind.rs|^[[:space:]]*format!\("\{host\}:\{port\}"\)$'
+)
+
+n_files=$(find rust/crates -name '*.rs' -not -path '*/target/*' | wc -l | tr -d ' ')
+if [[ "$n_files" -eq 0 ]]; then
+  echo "검사할 Rust 소스가 없습니다 (rust/crates/**/*.rs) — 빈 통과를 막습니다."
+  exit 1
+fi
+
+HOST='[A-Za-z_.]*[Hh]ost[A-Za-z_.]*'
+PORT='[A-Za-z_.]*[Pp]ort[A-Za-z_.]*'
 asm=$(
-  grep -rnE '"https?://%s:%s|[A-Za-z_.]*[Hh]ost[A-Za-z_.]* *\+ *":" *\+ *[A-Za-z_.]*[Pp]ort' \
-    --include='*.go' --exclude='*_test.go' internal cmd 2>/dev/null \
-    | grep -v '^internal/shared/dmenv/host\.go:' \
-    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)'
+  grep -rnE "\"https?://\\{[^}]*\\}:\\{|\"\\{$HOST\\}:\\{$PORT\\}\"|\"\\{\\}:\\{\\}\",[[:space:]]*$HOST,[[:space:]]*$PORT|$HOST[[:space:]]*\\+[[:space:]]*\":\"" \
+    --include='*.rs' rust/crates 2>/dev/null \
+    | grep -v '^rust/crates/shared/dmenv/src/host\.rs:' \
+    | rs_drop_tests \
+    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' \
+    | while IFS= read -r l; do
+        f=${l%%:*}; c=${l#*:}; c=${c#*:}; ok=0
+        for ex in "${ALLOW[@]}"; do
+          [[ "$f" == "${ex%%|*}" ]] && grep -qE "${ex#*|}" <<<"$c" && ok=1 && break
+        done
+        ((ok)) || printf '%s\n' "$l"
+      done
 )
 if [[ -n "$asm" ]]; then
   echo "host:port 를 문자열로 잇는 자리가 있습니다 (FR-STR-20·21):"
   echo "$asm"
   echo
-  echo "  dmenv.ListenAddr(host, port) / dmenv.BaseURL(host, port) 를 쓰세요."
-  echo "  IPv6 는 대괄호가 필요합니다 — net.Listen(\"tcp\", \"::1:9911\") 은 뜨지 않습니다."
+  echo "  dmenv::listen_addr(host, port) / dmenv::base_url(host, port) 를 쓰세요."
+  echo "  IPv6 는 대괄호가 필요합니다 — TcpListener::bind(\"::1:9911\") 은 뜨지 않습니다."
   fail=1
 fi
 
-# ── ② 겨냥 해석 ────────────────────────────────────────────────────────────
 TARGETING=(health window stop migrate)
 missing=()
 for n in "${TARGETING[@]}"; do
-  f="internal/ctl/cli/$n.go"
+  f="rust/crates/ctl/cli/src/$n.rs"
   if [[ ! -f "$f" ]]; then
     # M6 §4-A-1: **아무것도 재지 않는 검사**를 만들지 않는다. 파일이 옮겨졌으면
     # 검사가 조용히 공회전하는 것이 아니라 빨개져야 한다.
     echo "겨누는 명령의 파일이 없습니다: $f — 검사가 공회전합니다."
     exit 1
   fi
-  grep -q 'ResolveTarget' "$f" || missing+=("$f")
+  grep -q 'resolve_target' "$f" || missing+=("$f")
 done
 if ((${#missing[@]})); then
   echo "겨누는 명령이 ResolveTarget 을 지나지 않습니다 (FR-STR-22·23):"
   printf '  %s\n' "${missing[@]}"
   echo
-  echo "  Common.ResolveTarget() 을 쓰세요 — 계층이 start 와 같아집니다 (FR-CFG-13)."
+  echo "  Common::resolve_target() 을 쓰세요 — 계층이 start 와 같아집니다 (FR-CFG-13)."
   echo "  지나지 않으면 server.json 의 포트를 못 보고, stop 은 남의 프로세스를 죽입니다."
   fail=1
 fi
