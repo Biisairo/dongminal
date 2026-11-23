@@ -10,7 +10,7 @@
 
 ## 재개 때 할 일 (순서대로)
 
-1. **5.5.2 충돌 해소 후 병합** — rp/5.5 끝 `d2fa7220`(review 상태였음). rust-port 와 httpapi `lib.rs`·`tests.rs` 가 충돌한다. mod·pub use 는 양쪽 줄을 다 남기면 되지만, `Deps.work` 가 5.5.6(`wsentry::WorkspaceStore`)과 5.5.2(`deps::WorkspaceStore`)에서 같은 이름·다른 trait 이다. Go 는 `Deps.Work` 하나 — 하나로 합친다. 5.5.2 에이전트(탭 482f00cf, toolId 01a20753…)나 새 에이전트에게 rp/5.5 에 rust-port 를 병합하게 한다
+1. ~~5.5.2 충돌 해소 후 병합~~ — 끝남(5e1b0948, Deps.work 는 wsentry::WorkspaceStore 하위 trait 으로 통합)
 2. 5.5.2 병합 뒤: 5.5.3(사슬 X), 5.5.10 gitapi 배선(5.4.3 에이전트 탭 3e21a636 이 대기 중 — 그에게 준다), 5.5.7.2(5.5.2 SSE 접점)
 3. 지금 바로 가능: 5.5.7.1 탐색기 조작(접점 없음, todo)
 4. 5.5.3 뒤: 5.5.4→5.5.5, 5.5.8, 5.5.9 병렬
