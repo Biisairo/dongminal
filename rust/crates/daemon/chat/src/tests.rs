@@ -1587,3 +1587,30 @@ fn evicted_reachable_node_mark_is_reached() {
         );
     });
 }
+
+// 잊었다가 더 새로운 상태로 다시 받은 노드는 닿은 적 있다는 표시를 잇는다.
+#[test]
+fn readmitted_node_keeps_reached() {
+    rt().block_on(async {
+        let a = new_test_node("a");
+        let (x, _dx) = new_identity();
+        let xfp = x.fingerprint.clone();
+        a.lock().marks.insert(
+            xfp.clone(),
+            crate::service::Mark {
+                epoch: 0,
+                state_seq: 0,
+                msg_max: 0,
+                at: OffsetDateTime::now_utc(),
+                reached: true,
+            },
+        );
+        let mut f = new_fake_peer(&a);
+        f.write(&state_frame(&x, None)).await;
+        eventually("X 를 다시 받는다", || {
+            a.lock().nodes.contains_key(&xfp)
+        })
+        .await;
+        assert!(a.lock().nodes[&xfp].reached, "표시를 잃었다");
+    });
+}

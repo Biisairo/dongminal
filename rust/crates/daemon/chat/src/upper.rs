@@ -133,6 +133,8 @@ impl Service {
         if !verify(&key, FRAME_STATE, &fr.b.0, &fr.s) || !valid_state(&body) {
             return false;
         }
+        // 잊었다 다시 받는 노드도 닿은 적 있다는 표시를 잇는다.
+        let was_reached = st.marks.get(&body.node).is_some_and(|m| m.reached);
         if let Some(old) = st.nodes.get(&body.node) {
             if !newer(&body, old.st.epoch, old.st.seq) {
                 return false;
@@ -171,7 +173,7 @@ impl Service {
             .collect();
         let node = body.node.clone();
         let node_key = node.clone();
-        let reached = st.nodes.get(&node).is_some_and(|r| r.reached);
+        let reached = was_reached || st.nodes.get(&node).is_some_and(|r| r.reached);
         st.nodes.insert(
             node,
             Remote {
