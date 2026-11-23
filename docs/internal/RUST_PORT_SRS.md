@@ -80,7 +80,7 @@ Go 구현과 같다. 기능 목록의 근거는 `architecture.md` 의 패키지 
   - `pkill`·`killall` 처럼 이름으로 프로세스를 죽이기. 프로세스를 끌 때는 자기가 띄운 PID 만 끈다.
 - **C-RSP-2 (기준선 고정)** 포팅의 기준은 커밋 `127ff7d9` 의 Go 코드다. 포팅 브랜치에서 Go 코드를 고치지 않는다. 다만 e2e 가 Rust 바이너리를 쓰게 하는 경로 수정(FR-RSP-31)만 예외로 한다.
 - **C-RSP-3 (의존성 보안)** 외부 crate 는 다음을 모두 만족해야 한다. 널리 쓰이고, 유지보수가 계속되며, RustSec 권고에 걸리지 않는다. 맞는 crate 가 없으면 직접 구현한다. 허용 목록은 `rust/DEPENDENCIES.md` 에 두고, 목록에 없는 crate 를 더하려면 그 문서를 먼저 고친다.
-- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`), PTY·소켓 fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리), `dm-gocompat` 의 Windows 전용 `FormatMessageW(LANG_ENGLISH)` 호출 하나(platform 이 gocompat 에 의존하므로 platform 에 둘 수 없는 자리), `dm-gocompat` 의 Windows 전용 로컬 시간대 조회(`GetDynamicTimeZoneInformation`, Go zoneinfo_windows.go 대응 — 같은 이유, RUST_DEFECT_FIX_SRS FR-RDF-5)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
+- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`), PTY·소켓 fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리), `dm-gocompat` 의 Windows 전용 `FormatMessageW(LANG_ENGLISH)` 호출 하나(platform 이 gocompat 에 의존하므로 platform 에 둘 수 없는 자리), `dm-gocompat` 의 Windows 전용 로컬 시간대 조회(`GetTimeZoneInformation`, Go zoneinfo_windows.go initLocalFromTZI 대응 — 같은 이유, RUST_DEFECT_FIX_SRS FR-RDF-5)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
 - **C-RSP-5 (커밋)** 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다. 이슈 브랜치와 `rust-port` 에는 자동으로 커밋해도 된다. `main` 병합과 push 는 사용자 확인을 받은 뒤에만 한다.
 
 ### 2.5 가정과 의존
