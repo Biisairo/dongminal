@@ -17,15 +17,26 @@ use super::*;
 const PORT_MIN: u16 = 60147;
 const PORT_MAX: u16 = 64999;
 
+/// 이 프로세스가 이미 내준 포트는 다시 내주지 않는다 — 같은 프로세스의 병렬 시험이 같은 포트를
+/// 고르지 않게 한다.
+static HANDED_OUT: Mutex<Vec<u16>> = Mutex::new(Vec::new());
+
+/// 빈 것으로 보이는 포트다. 확인과 실제 열기 사이에 다른 프로세스가 가져갈 수 있다 — 그 경우는
+/// [`new_test_node`] 가 다른 포트로 다시 세운다.
 fn free_port() -> i64 {
     let span = PORT_MAX - PORT_MIN;
     let start = rand::random::<u16>() % span;
-    (0..span)
+    let mut used = HANDED_OUT.lock().unwrap();
+    let p = (0..span)
         .map(|i| PORT_MIN + (start + i) % span)
-        .find(|p| std::net::TcpListener::bind(("127.0.0.1", *p)).is_ok())
-        .map(i64::from)
-        .expect("빈 포트가 없다")
+        .find(|p| !used.contains(p) && std::net::TcpListener::bind(("127.0.0.1", *p)).is_ok())
+        .expect("빈 포트가 없다");
+    used.push(p);
+    i64::from(p)
 }
+
+/// 포트를 빼앗겼을 때 다시 세우는 횟수다.
+const NODE_TRIES: usize = 20;
 
 struct TestNode {
     node: Arc<Node>,
@@ -50,7 +61,20 @@ impl Drop for TestNode {
     }
 }
 
+/// 노드와 그 포트의 듣는 자리를 세운다. 고른 포트를 다른 프로세스가 먼저 열었으면(부하 아래
+/// 워크스페이스 전체 시험) 다른 포트로 다시 세운다.
 fn new_test_node(name: &str, mesh: bool) -> TestNode {
+    let mut last = None;
+    for _ in 0..NODE_TRIES {
+        match try_test_node(name, mesh) {
+            Ok(n) => return n,
+            Err(st) => last = Some(st),
+        }
+    }
+    panic!("노드 포트를 열지 못했다: {last:?}");
+}
+
+fn try_test_node(name: &str, mesh: bool) -> Result<TestNode, dm_shared_edge::Status> {
     let home = TempDir::new().unwrap();
     let cfg = Config {
         enabled: true,
@@ -86,14 +110,15 @@ fn new_test_node(name: &str, mesh: bool) -> TestNode {
     .unwrap();
     let l = Listener::new(node.identity(), node.admission(), node.handler()).unwrap();
     l.apply(&node.config());
-    assert!(l.status().listening, "{:?}", l.status());
+    let st = l.status();
     let _ = ln.set(l);
-    TestNode {
+    let n = TestNode {
         node,
         ln,
         notes,
         _home: home,
-    }
+    };
+    if st.listening { Ok(n) } else { Err(st) }
 }
 
 fn plain(name: &str) -> TestNode {
