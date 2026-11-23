@@ -89,11 +89,15 @@ fn create_temp() -> std::io::Result<(std::fs::File, TempPath)> {
             .map(|d| d.subsec_nanos())
             .unwrap_or(0);
         let p = dir.join(format!("multipart-{}{nanos}{n}", std::process::id()));
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&p)
+        let mut opts = std::fs::OpenOptions::new();
+        opts.write(true).create_new(true);
+        // Go `os.CreateTemp` 처럼 0600 이다 — 공용 임시 디렉터리에 남의 업로드가 보이지 않는다.
+        #[cfg(unix)]
         {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        match opts.open(&p) {
             Ok(f) => return Ok((f, TempPath(p))),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(e) => return Err(e),
