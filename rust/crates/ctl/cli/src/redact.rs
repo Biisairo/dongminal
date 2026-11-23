@@ -4,7 +4,8 @@
 //! **비밀이 없는 입력은 바이트 하나 바꾸지 않는다** — 바꾸는 것은 아래 모양의 값 자리뿐이다.
 //! - PEM 블록의 본문. 로그 끝 자르기로 한쪽 표시만 남으면 그 표시부터 입력 끝(처음)까지
 //! - `Authorization`·`Cookie` 류 헤더 줄의 값, `Bearer <토큰>`
-//! - 이름이 비밀을 뜻하는 JSON 문자열 값(`"apiToken":"…"`, slog 줄 안의 `\"apiToken\":\"…\"`),
+//! - 이름이 비밀을 뜻하는 JSON 문자열 값(`"apiToken":"…"`, slog 줄 안의 `\"apiToken\":\"…\"`)과
+//!   숫자 값(`"pin":1234` → `"pin":"***"`, JSON 이 깨지지 않게 문자열로 바꾼다),
 //!   `이름=값`, `이름: 값`(구분자 둘레 공백, 따옴표 값 포함)
 
 use std::sync::LazyLock;
@@ -208,6 +209,21 @@ fn mask_values(s: &str, re: &Regex, bare: bool) -> String {
             continue;
         }
         let rest = &s[at..];
+        if !bare {
+            let n = json_number_len(rest.as_bytes());
+            if n > 0 {
+                let q = if whole.as_str().starts_with('\\') {
+                    "\\\""
+                } else {
+                    "\""
+                };
+                out.push_str(q);
+                out.push_str(MASK);
+                out.push_str(q);
+                at += n;
+                continue;
+            }
+        }
         let v = value_at(rest, bare);
         let value = &rest[v.open..v.end];
         if value.is_empty() || value == MASK {
@@ -221,4 +237,26 @@ fn mask_values(s: &str, re: &Regex, bare: bool) -> String {
     }
     out.push_str(&s[at..]);
     out
+}
+
+/// `b` 앞의 JSON 숫자(`-?정수(.소수)?(e[+-]?지수)?`) 길이다. 숫자가 아니면 0 이다.
+fn json_number_len(b: &[u8]) -> usize {
+    let digits = |i: usize| b[i..].iter().take_while(|c| c.is_ascii_digit()).count();
+    let mut i = usize::from(b.first() == Some(&b'-'));
+    let int = digits(i);
+    if int == 0 {
+        return 0;
+    }
+    i += int;
+    if b.get(i) == Some(&b'.') && digits(i + 1) > 0 {
+        i += 1 + digits(i + 1);
+    }
+    if matches!(b.get(i), Some(b'e' | b'E')) {
+        let sign = usize::from(matches!(b.get(i + 1), Some(b'+' | b'-')));
+        let exp = digits(i + 1 + sign);
+        if exp > 0 {
+            i += 1 + sign + exp;
+        }
+    }
+    i
 }
