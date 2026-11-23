@@ -197,6 +197,7 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-26 | 결함 수정 | httpapi Run headless 멤버 등록(도구 허브 없음) | nil 역참조 패닉이 500 으로 끝난다 | 500 `헤드리스 도구 생성 실패: tool hub unavailable` 로 답한다. 또 workspace 표식의 2^53 넘는 정수를 잃지 않는다(Go 는 float64 로 잃는다 — workspace.json 에 그런 수는 없다) | 5.5.4 |
 | DIFF-27 | 알려진 차이 | httpapi `/api/diag` | `goroutines` 는 goroutine 수, `allocMB` 는 GC 힙 할당량이다 | `goroutines` 는 살아 있는 tokio task 수, `allocMB` 는 늘 0 이다(런타임 구조가 달라 같은 값이 없다) | 5.5.8 |
 | DIFF-28 | 알려진 차이 | httpapi 정적 응답 mime 형식 (Windows) | 내장 표에 더해 Windows 레지스트리의 확장자 형식을 읽는다 | 내장 표와 unix 호스트 mime 파일만 읽는다. Windows 에서 내장 표 밖 확장자는 형식이 다를 수 있다 | 5.5.8 |
+| DIFF-29 | 결함 수정 | 빌드 스크립트 데몬 지문(daemon-fingerprint.sh) | `xargs sum` 이 셸 함수를 못 불러 /usr/bin/sum(BSD 16비트 체크섬)이 돈다 — 지문 충돌이 쉽다 | sha256 으로 지문을 만든다. 지문 값의 모양이 Go 빌드와 다르다 | 7.4 |
 
 ## 4. 검증
 
