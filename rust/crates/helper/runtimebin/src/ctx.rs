@@ -4,10 +4,14 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// 이 컴퓨터의 브라우저로 URL 을 연다. 시험은 stdout 에 기록하는 것으로 바꾼다.
 pub(crate) type OpenLocal = fn(&mut dyn Write, &str) -> Result<(), String>;
+
+/// 에이전트 셈이 진짜 명령을 실행하는 자리다 (경로, argv, 환경). 시험은 기록하는 것으로 바꾼다.
+pub(crate) type ShimExec = Arc<dyn Fn(&str, &[String], &[String]) -> i32 + Send + Sync>;
 
 /// 환경변수와 시험용 바꿔 끼우기.
 #[derive(Clone, Default)]
@@ -18,6 +22,8 @@ pub struct Env {
     pub(crate) open_local: Option<OpenLocal>,
     pub(crate) rename_window: Option<Duration>,
     pub(crate) rename_interval: Option<Duration>,
+    pub(crate) shim_exec: Option<ShimExec>,
+    pub(crate) shim_budget: Option<Duration>,
 }
 
 impl Env {
@@ -50,6 +56,20 @@ impl Env {
             None => std::env::var_os(key)
                 .map(|v| v.to_string_lossy().into_owned())
                 .unwrap_or_default(),
+        }
+    }
+
+    /// Go `os.Environ()` — `키=값` 목록이다.
+    pub fn environ(&self) -> Vec<String> {
+        match &self.vars {
+            Some(m) => {
+                let mut kv: Vec<String> = m.iter().map(|(k, v)| format!("{k}={v}")).collect();
+                kv.sort();
+                kv
+            }
+            None => std::env::vars_os()
+                .map(|(k, v)| format!("{}={}", k.to_string_lossy(), v.to_string_lossy()))
+                .collect(),
         }
     }
 

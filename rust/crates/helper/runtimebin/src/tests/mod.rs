@@ -2,9 +2,14 @@
 //!
 //! 시험 서버와 닫힌 포트는 60147 이상에서만 고른다 (C-RSP-1). 홈은 언제나 임시 폴더다.
 
+mod account;
 mod behavior;
+mod chatmcp;
+mod edge;
 mod golden;
+mod hooks;
 mod run;
+mod shim;
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
