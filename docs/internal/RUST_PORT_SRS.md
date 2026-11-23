@@ -181,6 +181,9 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-10 | 보안 강화 | webserver/fswatch (macOS kqueue) | 디렉터리의 모든 항목(특수 파일 포함)을 감시 대상으로 열어 fd 가 바닥날 수 있다 | 특수 파일(FIFO·소켓·장치)은 건너뛰고 디렉터리당 4096 항목까지만 감시한다 | 4.7 |
 | DIFF-11 | 보안 강화 | shared/toolhub (붙여넣기 감싸기) | `wrapPaste` 가 본문의 `ESC[201~` 를 한 번만 지워, 지운 자리에서 끝 표시가 다시 생겨 bracketed paste 를 빠져나갈 수 있다 | 끝 표시가 남지 않을 때까지 지운다 | 2.2.3 |
 | DIFF-12 | 구현 차이 | shared/sandbox (dev 빌드 헬퍼) | 컨테이너용 헬퍼를 `go build` 로 교차 빌드하고, 실패 안내도 `go build` 를 가리킨다 | `cargo` 로 교차 빌드하고 안내도 실제로 돈 명령을 가리킨다(틀린 명령을 안내하지 않는다). 릴리즈 빌드에는 닿지 않는 dev 경로다 | 2.5 |
+| DIFF-13 | 보안 강화 | git write (push) | 사용자가 준 remote·branch 를 그대로 refspec 로 넘겨 `+`(강제)·`:`(삭제)·`-`(옵션)이 해석된다 | 그런 remote·branch 는 거절한다 | 4.2 |
+| DIFF-14 | 보안 강화 | git write (경로 인자) | 경로를 pathspec 매직 없이 넘겨 `:` 로 시작하는 경로가 매직으로 해석된다(clean 만 `:(literal)`) | 사용자 경로를 받는 git 쓰기는 `GIT_LITERAL_PATHSPECS=1` 로 축자 처리한다 | 4.2 |
+| DIFF-15 | 보안 강화 | git write (.gitignore 쓰기) | `.gitignore` 가 심볼릭 링크면 따라가 저장소 밖 파일을 쓸 수 있다 | 링크 대상이 저장소 밖이면 거절한다 | 4.2 |
 
 ## 4. 검증
 
