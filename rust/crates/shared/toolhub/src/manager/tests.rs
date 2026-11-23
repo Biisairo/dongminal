@@ -156,6 +156,11 @@ fn wrap_paste_rules() {
     let text = b"a\x1b[201~rm -rf /\x1b[201~b";
     assert_eq!(wrap_paste(text, true), b"\x1b[200~arm -rf /b\x1b[201~");
     assert_eq!(wrap_paste(text, false), text);
+    // 지운 자리에서 다시 생기는 끝 표시도 남기지 않는다 (FR-RSP-6).
+    let nested = b"a\x1b[20\x1b[201~1~; rm -rf /";
+    assert_eq!(wrap_paste(nested, true), b"\x1b[200~a; rm -rf /\x1b[201~");
+    let deep = b"\x1b[2\x1b[20\x1b[201~1~01~x";
+    assert_eq!(wrap_paste(deep, true), b"\x1b[200~x\x1b[201~");
 }
 
 #[test]

@@ -21,7 +21,7 @@ pub use attention::{
 };
 pub use conn::{
     OP_ERROR, OP_EXIT, OP_INPUT, OP_OUTPUT, OP_REPLY_SEAT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID,
-    PING_PERIOD, PONG_WAIT, size_payload,
+    PING_PERIOD, PONG_WAIT, SafeConn, WRITE_WAIT, WS_BUFFER_SIZE, size_payload,
 };
 pub use hub::{BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolInfo, ToolSnapshot};
 pub use manager::{

@@ -1309,12 +1309,32 @@ impl ToolManager {
 }
 
 /// 셸이 bracketed paste 를 켰으면 본문 안의 끝 표시를 지우고 감싼다.
+///
+/// FR-RSP-6: Go 는 한 번만 지워서 `ESC[20` `ESC[201~` `1~` 처럼 지운 자리에서 끝 표시가 다시
+/// 생겼다(붙여넣기 탈출 → 명령 실행). 여기서는 남지 않을 때까지 지운다. 끝 표시가 겹치지
+/// 않은 본문의 결과는 Go 와 같다.
 pub fn wrap_paste(text: &[u8], bracketed: bool) -> Vec<u8> {
     if !bracketed {
         return text.to_vec();
     }
-    let mut out = Vec::with_capacity(PASTE_BEGIN.len() + text.len() + PASTE_END.len());
+    let mut body = strip_once(text);
+    while contains(&body, PASTE_END) {
+        body = strip_once(&body);
+    }
+    let mut out = Vec::with_capacity(PASTE_BEGIN.len() + body.len() + PASTE_END.len());
     out.extend_from_slice(PASTE_BEGIN);
+    out.extend_from_slice(&body);
+    out.extend_from_slice(PASTE_END);
+    out
+}
+
+fn contains(hay: &[u8], needle: &[u8]) -> bool {
+    hay.windows(needle.len()).any(|w| w == needle)
+}
+
+/// Go `bytes.ReplaceAll(text, PASTE_END, nil)` 한 번이다.
+fn strip_once(text: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(text.len());
     let mut i = 0;
     while i < text.len() {
         if text[i..].starts_with(PASTE_END) {
@@ -1324,7 +1344,6 @@ pub fn wrap_paste(text: &[u8], bracketed: bool) -> Vec<u8> {
             i += 1;
         }
     }
-    out.extend_from_slice(PASTE_END);
     out
 }
 
