@@ -1327,6 +1327,7 @@ version = "1.3.7"
 name = "dm-webserver-hub"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-activity",
  "dm-shared-dmenv",
  "dm-shared-dmlog",
@@ -1338,6 +1339,11 @@ dependencies = [
  "dm-webserver-domain-git-query",
  "dm-webserver-domain-git-store",
  "dm-webserver-sse",
+ "futures-util",
+ "serde",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
 ]
 
 [[package]]
