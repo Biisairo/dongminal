@@ -162,23 +162,37 @@ fn rust_sources(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-// FR-HRB-11: 서버는 자기 바인드를 환경변수에 넣지 않는다. Rust 는 프로세스 환경을 아예 바꾸지 않는다.
+// FR-HRB-11: 서버는 자기 바인드를 환경변수에 넣지 않는다. 환경 쓰기는 platform 의
+// `set_env_before_threads` 하나로만 하고, 넣는 값은 홈뿐이다(Go buildApp 의 Setenv 와 같다).
 #[test]
-fn server_sets_no_env() {
+fn server_sets_no_bind_env() {
     let mut files = Vec::new();
     rust_sources(
         &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
         &mut files,
     );
     assert!(files.len() >= 5, "훑은 파일이 {} 개뿐이다", files.len());
+    let mut writes = 0;
     for f in files {
         let src = std::fs::read_to_string(&f).unwrap();
         assert!(
             !src.contains("set_var("),
-            "{}: 프로세스 환경을 바꾼다",
+            "{}: 환경을 직접 바꾼다",
             f.display()
         );
+        for (i, l) in src.lines().enumerate() {
+            if l.contains("set_env_before_threads(") {
+                writes += 1;
+                assert!(
+                    l.contains("ENV_HOME") && !l.contains("ENV_PORT") && !l.contains("ENV_HOST"),
+                    "{}:{}: 홈이 아닌 값을 환경에 넣는다",
+                    f.display(),
+                    i + 1
+                );
+            }
+        }
     }
+    assert_eq!(writes, 1, "환경 쓰기는 serve 첫 줄 하나다");
 }
 
 // ── liveness_test.go (TC-ARD-1) ──
