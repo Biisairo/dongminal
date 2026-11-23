@@ -205,21 +205,21 @@ impl Store {
         let mut g = self.lock();
         let now = self.now();
         let Some((ri, mi)) = find_by_tool(&g.runs, tool_id) else {
-            return self.observe_coordinator(&mut g, tool_id, obs, policy, now);
+            return self.observe_coordinator(g, tool_id, obs, policy, now);
         };
         let cur = &mut g.runs[ri].members[mi];
         let before = cur.context.clone();
         let entered = apply_observation(&mut cur.context, obs, policy, now);
         let out = cur.clone();
         if !only_context_at_changed(&before, &out.context) {
-            let _ = self.save(&mut g);
+            let _ = self.save(g);
         }
         Some((out, entered))
     }
 
     fn observe_coordinator(
         &self,
-        g: &mut crate::store::Inner,
+        mut g: std::sync::MutexGuard<'_, crate::store::Inner>,
         tool_id: &str,
         obs: &ContextObservation,
         policy: ContextPolicy,
@@ -325,7 +325,7 @@ impl Store {
             }
         }
         g.runs[ri].members.push(next.clone());
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok((prev, next))
     }
 
@@ -350,7 +350,7 @@ impl Store {
         m.handoff_summary = summary.trim().to_owned();
         m.handoff_pending = false;
         let out = m.clone();
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok(out)
     }
 
@@ -384,7 +384,7 @@ impl Store {
             return;
         }
         p.handoff_pending = false;
-        let _ = self.save(&mut g);
+        let _ = self.save(g);
     }
 }
 

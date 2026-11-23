@@ -4,7 +4,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Condvar, Mutex, MutexGuard};
 
 use dm_gocompat::json;
 use dm_gocompat::oserr::{go_error_string, path_error};
@@ -49,7 +50,7 @@ type Writer = Box<dyn Fn(&Path, &[u8], u32) -> io::Result<()> + Send + Sync>;
 
 pub(crate) struct Inner {
     pub(crate) runs: Vec<Record>,
-    persisted: Vec<u8>,
+    save_gen: u64,
 }
 
 /// Run 기록 저장소. 변경은 runs.json 에 바로 쓰고, 쓰지 못하면 마지막으로 쓴 상태로 되돌린다.
@@ -59,6 +60,12 @@ pub struct Store {
     new_id: IdGen,
     write: Writer,
     inner: Mutex<Inner>,
+    /// 마지막으로 쓴 runs.json 바이트. 쓰기 잠금(Go `writeMu`)을 겸한다 — 쓰기는 이 잠금 아래에서
+    /// 상태 잠금을 풀고 한다. 조회가 디스크 쓰기를 기다리지 않는다 (NFR-RSP-3).
+    persisted: Mutex<Vec<u8>>,
+    done_gen: AtomicU64,
+    ok_gen: AtomicU64,
+    written: Condvar,
     changed: Signal,
 }
 
@@ -122,8 +129,12 @@ impl Store {
             write: Box::new(dm_shared_platform::write_state_file),
             inner: Mutex::new(Inner {
                 runs: Vec::new(),
-                persisted: Vec::new(),
+                save_gen: 0,
             }),
+            persisted: Mutex::new(Vec::new()),
+            done_gen: AtomicU64::new(0),
+            ok_gen: AtomicU64::new(0),
+            written: Condvar::new(),
             changed: Signal::default(),
         }
     }
@@ -157,6 +168,10 @@ impl Store {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    fn persisted(&self) -> MutexGuard<'_, Vec<u8>> {
+        self.persisted.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     pub(crate) fn now(&self) -> i64 {
         (self.now)()
     }
@@ -180,14 +195,14 @@ impl Store {
                     );
                 }
                 g.runs.clear();
-                g.persisted.clear();
+                self.persisted().clear();
                 return;
             }
         };
         match json::unmarshal::<FileIn>(&blob) {
             Ok(body) => {
                 g.runs = body.runs;
-                g.persisted = blob;
+                *self.persisted() = blob;
             }
             Err(e) => {
                 dm_shared_dmlog::errorf!(
@@ -195,34 +210,56 @@ impl Store {
                     "[run] runs.json 파싱 실패 — 빈 상태로 시작한다: {e}"
                 );
                 g.runs.clear();
-                g.persisted.clear();
+                self.persisted().clear();
             }
         }
     }
 
-    /// 지금 상태를 쓴다. 실패하면 마지막으로 쓴 상태로 되돌린다. 변경 알림은 언제나 낸다.
-    pub(crate) fn save(&self, g: &mut Inner) -> Result<(), Error> {
+    /// 지금 상태를 쓴다. 상태 잠금은 쓰는 동안 풀린다. 실패하면, 뒤의 저장이 성공해 덮지 않는 한
+    /// 마지막으로 쓴 상태로 되돌린다. 변경 알림은 언제나 낸다.
+    pub(crate) fn save(&self, g: MutexGuard<'_, Inner>) -> Result<(), Error> {
         let r = self.save_inner(g);
         self.changed.notify();
         r
     }
 
-    fn save_inner(&self, g: &mut Inner) -> Result<(), Error> {
+    fn save_inner(&self, mut g: MutexGuard<'_, Inner>) -> Result<(), Error> {
         let blob = json::marshal(&FileOut {
             schema_version: SCHEMA_VERSION,
             runs: &g.runs,
         })
         .map_err(|e| Error::Write(e.to_string()))?;
-        match (self.write)(&self.path(), &blob, FILE_PERM) {
-            Ok(()) => {
-                g.persisted = blob;
-                Ok(())
-            }
-            Err(e) => {
-                g.runs = rollback_runs(&g.persisted, std::mem::take(&mut g.runs));
-                Err(Error::Write(go_error_string(&e)))
-            }
+        g.save_gen += 1;
+        let seq = g.save_gen;
+        let mut persisted = self.persisted();
+        drop(g);
+        let res = (self.write)(&self.path(), &blob, FILE_PERM);
+        if res.is_ok() {
+            *persisted = blob;
+            self.ok_gen.store(seq, Ordering::SeqCst);
         }
+        self.done_gen.store(seq, Ordering::SeqCst);
+        drop(persisted);
+        let mut g = self.lock();
+        self.written.notify_all();
+        let Err(e) = res else {
+            return Ok(());
+        };
+        let err = Error::Write(go_error_string(&e));
+        // 뒤에 시작한 저장이 있으면 그 결과를 기다린다. 성공했으면 이 실패는 덮였다.
+        while seq != g.save_gen {
+            if self.ok_gen.load(Ordering::SeqCst) > seq {
+                return Ok(());
+            }
+            if self.done_gen.load(Ordering::SeqCst) == g.save_gen {
+                return Err(err);
+            }
+            g = self.written.wait(g).unwrap_or_else(|e| e.into_inner());
+        }
+        let persisted = self.persisted();
+        let current = std::mem::take(&mut g.runs);
+        g.runs = rollback_runs(&persisted, current);
+        Err(err)
     }
 
     // ── 조회 ──
@@ -307,7 +344,7 @@ impl Store {
             ..Record::default()
         };
         g.runs.insert(0, rec.clone());
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok(rec)
     }
 
@@ -362,7 +399,7 @@ impl Store {
             ..Member::default()
         };
         g.runs[idx].members.push(m.clone());
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok(m)
     }
 
@@ -402,7 +439,7 @@ impl Store {
         m.files_modified = spec.files_modified;
         m.reported_at = self.now();
         let out = m.clone();
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok(out)
     }
 
@@ -422,7 +459,7 @@ impl Store {
         rec.state = CLOSED.to_owned();
         rec.closed_at = now;
         let out = rec.clone();
-        match self.save(&mut g) {
+        match self.save(g) {
             Ok(()) => (Ok(out), pending),
             Err(e) => (Err(e), Vec::new()),
         }
@@ -442,7 +479,7 @@ impl Store {
         let mut g = self.lock();
         let idx = index_of(&g.runs, run_id).ok_or(Error::UnknownRun)?;
         let rec = g.runs.remove(idx);
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok(rec)
     }
 
@@ -478,7 +515,7 @@ impl Store {
                 apply(&mut m.worktree);
             }
         }
-        self.save(&mut g)
+        self.save(g)
     }
 
     /// 조정자 도구가 바뀌었다. 옮긴 열린 Run 들을 돌려준다.
@@ -496,7 +533,7 @@ impl Store {
         if moved.is_empty() {
             return Ok(moved);
         }
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok(moved)
     }
 
@@ -519,7 +556,7 @@ impl Store {
             let cut = msgs.len() - MAX_MESSAGES;
             msgs.drain(..cut);
         }
-        self.save(&mut g)
+        self.save(g)
     }
 
     /// headless 멤버를 탭에 붙인다.
@@ -563,7 +600,7 @@ impl Store {
         f(&mut m)?;
         g.runs[ri].members[mi] = m.clone();
         let rec = g.runs[ri].clone();
-        self.save(&mut g)?;
+        self.save(g)?;
         Ok((rec, m))
     }
 }
