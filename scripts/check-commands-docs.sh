@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# `commands.md` ↔ `dmctl.go` 양방향 대조 (M5 `DOC-2`).
+# `commands.md` ↔ `dmctl/mod.rs` 양방향 대조 (M5 `DOC-2`, GO_REMOVAL_SRS G-27).
 #
 # 착수 시 `commands.md` 가 `dmctl` 서브커맨드의 **절반 가까이**를 문서화하지
 # 않고 있었다. 그리고 그 사실을 아무도 몰랐다 — 문서는 조용히 낡고, 낡았다는
@@ -14,13 +14,13 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 DOC=docs/external/commands.md
-SRC=internal/helper/runtimebin/dmctl.go
+SRC=rust/crates/helper/runtimebin/src/dmctl/mod.rs
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
 dmctl 서브커맨드 문서 대조
 
-  코드: dmctl.go 의 명령 표 dmctlCommands 의 키
+  코드: dmctl/mod.rs 의 명령 표 command() 의 match 팔 (`"a" | "b" =>` 는 둘로 센다)
   문서: commands.md 표의 `| `dmctl <이름>` ...` 첫 칸
 
   둘의 집합이 같아야 한다. `help`/`-h`/`--help` 는 뺀다 — 명령이 아니라 출구다.
@@ -31,15 +31,17 @@ fi
 # ── 코드 쪽 ────────────────────────────────────────────────
 code=$(
   {
-    # 명령 표 한 벌의 키 (REFACTOR3_GO_STRUCT_SRS FR-RGS-43).
-    sed -n '/^var dmctlCommands = map\[string\]dmctlCommand{/,/^}/p' "$SRC" \
-      | sed -nE 's/^[[:space:]]*"([^"]+)":.*/\1/p'
+    # 명령 표 한 벌 — `fn command` 의 `match name { … }` 팔 (REFACTOR3_GO_STRUCT_SRS FR-RGS-43).
+    perl scripts/lib/rs-fn-body.pl command "$SRC" 2>/dev/null \
+      | grep -E '^[[:space:]]*"[^"]+"([[:space:]]*\|[[:space:]]*"[^"]+")*[[:space:]]*=>' \
+      | sed -E 's/=>.*//' | grep -oE '"[^"]+"' | tr -d '"'
   } | grep -vE '^(-h|--help|help)$' | LC_ALL=C sort -u
 )
+if [[ -z "$code" ]]; then
+  echo "$SRC 의 명령 표에서 명령을 하나도 읽지 못했습니다 — 빈 통과를 막습니다."
+  exit 1
+fi
 
-# ── 문서 쪽 ────────────────────────────────────────────────
-# 표 첫 칸의 `dmctl <이름>` 을 전부 센다. 한 행이 둘을 소개하기도 한다
-# (`dmctl window-next` / `window-prev`) — 그 짝도 이름으로 잡는다.
 doc=$(
   grep -oE '^\| `dmctl [a-z-]+' "$DOC" | sed -E 's/^\| `dmctl //'
   # 같은 행 안의 `/ \`name\`` 꼴 곁가지.
