@@ -2,14 +2,12 @@
 
 use dm_shared_workspace::{Error as WorkspaceError, TabEntry, WindowInfo};
 
-/// Go `WorkspaceStore`: workspace.json 의 저장소다.
-pub trait WorkspaceStore: Send + Sync {
-    fn raw(&self) -> Vec<u8>;
+/// Go `WorkspaceStore`: workspace.json 의 저장소다. Go `Deps.Work` 하나에 대응한다 — `snapshot`·`save`
+/// 는 Editor 목록(`wsentry`)과 함께 쓰는 상위 trait 의 것이다.
+pub trait WorkspaceStore: dm_webserver_domain_wsentry::WorkspaceStore {
     fn current_rev(&self) -> u64;
     fn load_err(&self) -> String;
     fn persist_err(&self) -> String;
-    fn snapshot(&self) -> (Vec<u8>, u64);
-    fn save(&self, blob: &[u8], if_match: &str) -> Result<u64, WorkspaceError>;
     fn coordinate_of(&self, id: &str) -> Result<String, WorkspaceError>;
     fn is_known_tab_id(&self, id: &str) -> bool;
     fn entries(&self) -> Vec<TabEntry>;

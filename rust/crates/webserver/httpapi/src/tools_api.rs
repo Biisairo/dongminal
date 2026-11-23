@@ -149,6 +149,17 @@ fn tools_unready() -> Response {
 }
 
 impl Server {
+    /// workspace.json 의 바이트와 개정이다. 저장소가 없으면 빈 값과 0 이다.
+    fn work_snapshot(&self) -> (Vec<u8>, u64) {
+        match self.work() {
+            Some(w) => {
+                let (b, rev) = w.snapshot();
+                (b.to_vec(), rev)
+            }
+            None => (Vec::new(), 0),
+        }
+    }
+
     /// Go `getStats`: 상태바 지표를 조립한다. 커널을 부르지 않는다 (FR-STAT-9·10·11).
     pub(crate) fn get_stats(&self) -> Stats {
         let mut out = Stats {
@@ -189,7 +200,7 @@ impl Server {
         let Some(hub) = self.tools(Some(r)) else {
             return tools_unready();
         };
-        let (raw_ws, rev) = self.work().map(|w| w.snapshot()).unwrap_or_default();
+        let (raw_ws, rev) = self.work_snapshot();
         // FR-OPT-8-6: blob 을 풀었다 다시 쓰지 않는다. 깨진 blob 은 null 이다.
         let workspace = if !raw_ws.is_empty() && dm_gocompat::json::valid(&raw_ws) {
             RawMessage(raw_ws)
@@ -364,7 +375,7 @@ impl Server {
 
     /// GET /api/workspace.
     pub(crate) async fn api_workspace_get(&self, _r: &mut Req) -> Response {
-        let (raw, rev) = self.work().map(|w| w.snapshot()).unwrap_or_default();
+        let (raw, rev) = self.work_snapshot();
         let body = if raw.is_empty() {
             b"null".to_vec()
         } else {

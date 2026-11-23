@@ -232,21 +232,12 @@ impl FakeWork {
     }
 }
 
-impl WorkspaceStore for FakeWork {
-    fn raw(&self) -> Vec<u8> {
-        self.raw.lock().unwrap().clone()
-    }
-    fn current_rev(&self) -> u64 {
-        *self.rev.lock().unwrap()
-    }
-    fn load_err(&self) -> String {
-        String::new()
-    }
-    fn persist_err(&self) -> String {
-        String::new()
-    }
-    fn snapshot(&self) -> (Vec<u8>, u64) {
-        (self.raw(), self.current_rev())
+impl dm_webserver_domain_wsentry::WorkspaceStore for FakeWork {
+    fn snapshot(&self) -> (Arc<Vec<u8>>, u64) {
+        (
+            Arc::new(self.raw.lock().unwrap().clone()),
+            *self.rev.lock().unwrap(),
+        )
     }
     fn save(&self, blob: &[u8], if_match: &str) -> Result<u64, WorkspaceError> {
         let mut rev = self.rev.lock().unwrap();
@@ -264,6 +255,18 @@ impl WorkspaceStore for FakeWork {
         *rev += 1;
         self.saves.fetch_add(1, Ordering::SeqCst);
         Ok(*rev)
+    }
+}
+
+impl WorkspaceStore for FakeWork {
+    fn current_rev(&self) -> u64 {
+        *self.rev.lock().unwrap()
+    }
+    fn load_err(&self) -> String {
+        String::new()
+    }
+    fn persist_err(&self) -> String {
+        String::new()
     }
     fn coordinate_of(&self, id: &str) -> Result<String, WorkspaceError> {
         if let Some(e) = self.coord_err.get(id) {
