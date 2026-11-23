@@ -14,7 +14,7 @@ pub(crate) struct Reply {
     pub body: Vec<u8>,
 }
 
-fn block_on<F: Future>(f: F) -> std::io::Result<F::Output> {
+pub(crate) fn block_on<F: Future>(f: F) -> std::io::Result<F::Output> {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()

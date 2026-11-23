@@ -26,7 +26,7 @@ use crate::uninstall::parse_uninstall;
 use crate::update::parse_update;
 use crate::version::{parse_version, run_version, usage_version};
 use crate::window::run_window_in;
-use crate::{doctor, health, migrate, service, start, stop, uninstall};
+use crate::{doctor, health, migrate, rollback, service, start, stop, uninstall, update};
 
 /// `start --foreground` 가 이 프로세스로 띄울 서버다.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,9 +93,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "rollback",
             brief: "workspace.json 을 백업 세대로 되돌린다 (G3-2)",
             usage: usage_rollback,
-            run: |rest, _, _, out, err| {
-                drive("rollback", parse_rollback(rest), out, err, |_, _, err| {
-                    not_ported("rollback", ISSUE_UPDATE, err)
+            run: |rest, env, _, out, err| {
+                drive("rollback", parse_rollback(rest), out, err, |o, out, err| {
+                    rollback::run_rollback_in(&o, env, out, err)
                 })
             },
         },
@@ -158,8 +158,8 @@ pub(crate) fn actions() -> Vec<Action> {
             brief: "최신 판이 있는지 확인한다 (--check 를 줄 때만 나간다, G3-3)",
             usage: usage_update,
             run: |rest, _, _, out, err| {
-                drive("update", parse_update(rest), out, err, |_, _, err| {
-                    not_ported("update", ISSUE_UPDATE, err)
+                drive("update", parse_update(rest), out, err, |o, out, err| {
+                    update::run_update(&o, out, err)
                 })
             },
         },

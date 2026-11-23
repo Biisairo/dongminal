@@ -58,12 +58,12 @@ pub use options::{
     StopOpts, Target, VerifyOpts, WindowOpts, default_log_file, parse_doctor, parse_health,
     parse_migrate, parse_start, parse_stop, parse_verify, parse_window,
 };
-pub use rollback::{RollbackOpts, parse_rollback};
+pub use rollback::{RollbackOpts, parse_rollback, run_rollback};
 pub use service::{ServiceOpts, parse_service, run_service};
 pub use staleness::{DAEMON_BUILD, DaemonState};
 pub use start::run_start;
 pub use stop::run_stop;
 pub use uninstall::{UninstallOpts, parse_uninstall, run_uninstall};
-pub use update::{UpdateOpts, parse_update};
+pub use update::{UpdateOpts, parse_update, run_update};
 pub use version::{GO_RUNTIME, VERSION, parse_version, run_version, usage_version};
 pub use window::{Opener, run_window};

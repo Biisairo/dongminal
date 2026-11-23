@@ -9,11 +9,13 @@ mod logcap;
 mod migrate;
 mod options;
 mod proc;
+mod rollback;
 mod service;
 mod shellwait;
 mod staleness;
 mod start;
 mod uninstall;
+mod update;
 mod window;
 
 use std::collections::HashMap;
