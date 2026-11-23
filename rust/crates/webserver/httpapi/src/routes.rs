@@ -49,7 +49,37 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/tools/activity/wait", h!(api_tool_status_wait)),
         post("/api/tools/usage", h!(api_tool_usage)),
         post("/api/tools/subagents", h!(api_tool_subagents)),
+        // 묶음 R — Run 레코드 (RUN_ORCHESTRATION_SRS FR-RUN-1/2/8/11).
+        get("/api/runs", h!(api_runs_get)),
+        post("/api/runs", h!(api_run_start)),
+        post("/api/runs/members", h!(api_run_member_add)),
+        post("/api/runs/report", h!(api_run_report)),
+        post("/api/runs/close", h!(api_run_close)),
+        get("/api/runs/preamble", h!(api_run_preamble)),
+        // 정확 매칭 종단들이 /api/runs/{id}/graph 의 prefix 매칭보다 먼저 와야 한다.
+        get("/api/runs/team", h!(api_run_team)),
+        post("/api/runs/attach", h!(api_run_attach)),
+        post("/api/runs/detach", h!(api_run_detach)),
+        post("/api/runs/succeed", h!(api_run_succeed)),
+        post("/api/runs/handoff", h!(api_run_handoff)),
+        post("/api/runs/assign", h!(api_run_assign)),
+        post("/api/runs/coordinate", h!(api_run_coordinate)),
+        post("/api/runs/recover", h!(api_run_recover)),
+        get("/api/runs/tree", h!(api_runs_tree)),
+        post("/api/runs/context", h!(api_run_context)),
+        post("/api/tools/headless", h!(api_tools_headless)),
         post("/api/tools/kill", h!(api_tool_kill)),
+        when(
+            METHOD_GET,
+            Matcher::UnderWith("/api/runs/", "/graph"),
+            h!(api_run_graph),
+        ),
+        // UX_REVISION_SRS FR-DEL-5: id 가 경로에 온다.
+        when(
+            METHOD_DELETE,
+            Matcher::Under("/api/runs/"),
+            h!(api_run_delete),
+        ),
         // 일괄 조회는 단건 종단보다 먼저 와야 한다 (FR-OPT-2-4).
         get("/api/tools/busy", h!(api_tools_busy)),
         when(

@@ -38,6 +38,7 @@ mod fs_transfer;
 mod fs_watch;
 mod fs_zip;
 mod gitwire;
+mod go_embed;
 mod handlers_fs_ignored;
 mod httperr;
 mod lsp_api;
@@ -52,6 +53,16 @@ mod path_lock;
 mod req;
 mod reqgate;
 mod routes;
+mod runs;
+mod runs_assign;
+mod runs_close;
+mod runs_context;
+mod runs_graph;
+mod runs_headless;
+mod runs_marks;
+mod runs_recover;
+mod runs_tree;
+mod runs_worktree;
 mod sandbox_api;
 mod serve;
 mod settings_etag;
@@ -158,6 +169,9 @@ pub struct Deps {
     /// 실행 기록을 공유할 git core 서비스다 (Go `Deps.Git.Service()`). 없어도 무시 판정은 돌고
     /// 기록만 빠진다 (FR-GXU-4·10).
     pub git_service: Option<Arc<dm_webserver_domain_git_core::Service>>,
+    /// runs.json 저장소다 (Go `Deps.Runs`, RUN_ORCHESTRATION_SRS 묶음 R). 없으면 /api/runs* 가 503
+    /// 이고 그 밖의 동작에는 영향이 없다 (NFR-RUN-1).
+    pub runs: Option<Arc<dm_webserver_domain_run::Store>>,
 }
 
 /// 연결 진단의 계수다 (Go `connStats` 중 이 하위 이슈가 쓰는 것).
@@ -211,6 +225,8 @@ pub struct Server {
     pub(crate) waits: status::StatusWaits,
     /// 활동 보고의 알림이다 — 활동 대기가 이것과 마감 시각에만 다시 본다 (FR-OPT-16-3).
     pub(crate) activity_changed: dm_shared_pollwait::Signal,
+    /// Run 표면의 서버 쪽 보조 상태다 — 복구·통지 (Go `runAux`).
+    pub(crate) run_aux: runs_recover::RunAux,
     /// 이 기기의 `이름#번호` 기억이다 (Go `handle`).
     pub(crate) handle: edge_api::HandleCache,
     /// 노드 포트를 다시 맞추라는 신호다 (Go `edgeKick`).
@@ -307,6 +323,7 @@ impl Server {
             attn_claims: attention::AttnClaims::default(),
             waits: status::StatusWaits::default(),
             activity_changed: dm_shared_pollwait::Signal::default(),
+            run_aux: runs_recover::RunAux::default(),
             handle: edge_api::HandleCache::default(),
             edge_kick: edge_api::EdgeKick::default(),
             lsp_ws_read_limit: lsp_api::LSP_WS_READ_LIMIT,
