@@ -176,6 +176,8 @@ pub(crate) struct Remote {
     pub rooms: HashMap<String, Room>,
     /// 이 노드의 상태를 마지막으로 받은 때다.
     pub at: OffsetDateTime,
+    /// 이 노드에 닿은 적이 있는가다. 잊은 뒤 그 번호를 밀어내지 않는다.
+    pub reached: bool,
 }
 
 /// 잊은 노드의 마지막 번호다.
@@ -185,6 +187,7 @@ pub(crate) struct Mark {
     pub state_seq: u64,
     pub msg_max: u64,
     pub at: OffsetDateTime,
+    pub reached: bool,
 }
 
 impl Mark {
@@ -752,10 +755,11 @@ impl Service {
                 parts,
                 ..
             } = &mut *st;
-            for r in nodes.values() {
+            for r in nodes.values_mut() {
                 if !reach.contains(&r.st.node) {
                     continue;
                 }
+                r.reached = true;
                 for (id, rm) in &r.rooms {
                     if rm.body.kind != KIND_DIRECT
                         || rm.body.creator != r.st.node

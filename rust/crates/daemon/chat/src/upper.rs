@@ -13,9 +13,9 @@ use crate::frame::{
 };
 use crate::human::valid_helper_key;
 use crate::service::{
-    ID_PREFIX, KIND_DIRECT, MAX_LABEL, MAX_MARKS, MAX_NODE_ROOMS, MAX_NODES, MAX_PART_ROOMS,
-    MAX_PARTS, MAX_TEXT, Mark, Pending, Remote, Room, Service, State, part_in_room, party_ok,
-    record_locked,
+    ID_PREFIX, KIND_AGENT, KIND_DIRECT, KIND_USER, MAX_LABEL, MAX_MARKS, MAX_NODE_ROOMS, MAX_NODES,
+    MAX_PART_ROOMS, MAX_PARTS, MAX_TEXT, Mark, Pending, Remote, Room, Service, State, part_in_room,
+    party_ok, record_locked,
 };
 
 impl Upper for Service {
@@ -74,6 +74,8 @@ fn valid_state(st: &StateBody) -> bool {
             && valid_id(&p.id)
             && bound_to(&p.id, &st.node)
             && termtext::line(&p.label, MAX_LABEL)
+            // 종류는 agent·user 뿐이다 (DIFF: Go 는 kind 를 보지 않는다).
+            && (p.kind == KIND_AGENT || p.kind == KIND_USER)
     })
 }
 
@@ -168,6 +170,8 @@ impl Service {
             })
             .collect();
         let node = body.node.clone();
+        let node_key = node.clone();
+        let reached = st.nodes.get(&node).is_some_and(|r| r.reached);
         st.nodes.insert(
             node,
             Remote {
@@ -176,6 +180,7 @@ impl Service {
                 raw: fr.clone(),
                 rooms,
                 at: self.now(),
+                reached: reached || self.reachable().contains(&node_key),
             },
         );
         true
@@ -213,6 +218,12 @@ impl Service {
         let Some(victim) = victim else {
             return false;
         };
+        // 번호 기억이 가득 찼고 밀어낼 수 있는 것(닿은 적 없는 노드의 것)이 없으면 잊지 않는다 — 닿은
+        // 적 있는 노드의 번호를 밀어내면 그 노드의 옛 상태·글을 다시 받는다 (DIFF: Go 는 가장 오래된
+        // 번호를 밀어낸다).
+        if st.marks.len() >= MAX_MARKS && junk_mark(st).is_none() {
+            return false;
+        }
         let Some(r) = st.nodes.remove(&victim) else {
             return false;
         };
@@ -221,6 +232,7 @@ impl Service {
             state_seq: r.st.seq,
             msg_max: 0,
             at: self.now(),
+            reached: r.reached,
         };
         if let Some(w) = st.wins.remove(&victim)
             && w.epoch == r.st.epoch
@@ -270,15 +282,20 @@ impl Service {
     }
 }
 
+/// 가득 찬 번호 기억에서 밀어낼 것 — 닿은 적 없는 노드의 가장 오래된 번호다.
+fn junk_mark(st: &State) -> Option<String> {
+    st.marks
+        .iter()
+        .filter(|(_, v)| !v.reached)
+        .min_by_key(|(_, v)| v.at)
+        .map(|(k, _)| k.clone())
+}
+
 fn remember_mark(st: &mut State, fp: String, m: Mark) {
     if st.marks.len() >= MAX_MARKS
-        && let Some(oldest) = st
-            .marks
-            .iter()
-            .min_by_key(|(_, v)| v.at)
-            .map(|(k, _)| k.clone())
+        && let Some(junk) = junk_mark(st)
     {
-        st.marks.remove(&oldest);
+        st.marks.remove(&junk);
     }
     st.marks.insert(fp, m);
 }

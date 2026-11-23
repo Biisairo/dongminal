@@ -179,8 +179,13 @@ pub(crate) fn open_record(r: &SignedRecord) -> Option<RecordBody> {
     }
     let ok = match b.kind.as_str() {
         KIND_GROUP => termtext::line(&b.name, MAX_NAME) && !b.name.is_empty() && b.peer.is_empty(),
+        // 개인채팅 기록은 이름을 싣지 않는다 — 검사하지 않은 이름이 화면·도구 결과에 찍히지 않게 한다
+        // (DIFF: Go 는 direct 의 name 을 보지 않는다).
         KIND_DIRECT => {
-            b.owner != b.peer && bound_to(&b.owner, &b.creator) && bound_to(&b.peer, &b.peer_node)
+            b.name.is_empty()
+                && b.owner != b.peer
+                && bound_to(&b.owner, &b.creator)
+                && bound_to(&b.peer, &b.peer_node)
         }
         _ => false,
     };

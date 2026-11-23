@@ -1460,3 +1460,130 @@ fn state_body_wire_matches_go() {
         "{\"node\":\"n\",\"key\":\"k\",\"epoch\":1,\"seq\":2,\"parts\":[{\"id\":\"p\",\"label\":\"a\\u003cb\\u003e\",\"kind\":\"agent\"}]}"
     );
 }
+
+// DIFF(보안): 개인채팅 생성 기록에 이름이 실려 있으면 버린다. Go 는 direct 의 name 을 보지 않았다.
+#[test]
+fn direct_record_with_name_rejected() {
+    let (id, _d) = new_identity();
+    let owner = format!("{}-o", &id.fingerprint[..ID_PREFIX]);
+    let (peer_id, _d2) = new_identity();
+    let peer = format!("{}-p", &peer_id.fingerprint[..ID_PREFIX]);
+    let mut body = RecordBody {
+        kind: KIND_DIRECT.into(),
+        owner,
+        peer,
+        peer_node: peer_id.fingerprint.clone(),
+        created: OffsetDateTime::now_utc(),
+        nonce: "n".into(),
+        ..RecordBody::default()
+    };
+    let plain = new_record(&id, body.clone()).unwrap();
+    assert!(
+        crate::frame::open_record(&plain).is_some(),
+        "이름 없는 개인채팅 기록은 받는다"
+    );
+    body.name = "\x1b]0;x\x07".into();
+    let named = new_record(&id, body).unwrap();
+    assert!(
+        crate::frame::open_record(&named).is_none(),
+        "이름 실린 개인채팅 기록을 받았다"
+    );
+}
+
+// DIFF(보안): 상태 알림 참가자의 종류는 agent·user 뿐이다. Go 는 kind 를 보지 않았다.
+#[test]
+fn state_with_bad_kind_dropped() {
+    rt().block_on(async {
+        let a = new_test_node("a");
+        let mut f = new_fake_peer(&a);
+        let mut p = part(f.pid("x"), "f/x", &[]);
+        p.kind = "agent\x1b[31m".into();
+        f.state(vec![p], vec![], Some(&[a.fp()])).await;
+        never("잘못된 종류의 참가자가 선다", || {
+            !a.online().participants.is_empty()
+        })
+        .await;
+        f.state(vec![part(f.pid("y"), "f/y", &[])], vec![], None)
+            .await;
+        eventually("바른 종류는 받는다", || {
+            a.online().participants.len() == 1
+        })
+        .await;
+    });
+}
+
+fn fill_marks(a: &TestNode, reached: bool) {
+    let mut st = a.lock();
+    let now = OffsetDateTime::now_utc();
+    for i in 0..crate::service::MAX_MARKS {
+        st.marks.insert(
+            format!("{i:064x}"),
+            crate::service::Mark {
+                epoch: 1,
+                state_seq: 1,
+                msg_max: 0,
+                at: now,
+                reached,
+            },
+        );
+    }
+}
+
+// DIFF(보안): 번호 기억(marks)이 가득 차도 닿은 적 있는 노드의 번호는 밀어내지 않는다 — 모르는
+// 지문을 쏟아 옛 상태·글 재전송 막기를 풀지 못한다. Go 는 가장 오래된 번호를 밀어냈다.
+#[test]
+fn reached_marks_not_pushed_out() {
+    rt().block_on(async {
+        for reached in [true, false] {
+            let a = new_test_node("a");
+            a.lock().max_nodes = 2;
+            let mut f = new_fake_peer(&a);
+            f.state(vec![], vec![], Some(&[a.fp()])).await;
+            let (x, _dx) = new_identity();
+            f.write(&state_frame(&x, None)).await;
+            let xfp = x.fingerprint.clone();
+            eventually("X 를 안다", || a.lock().nodes.contains_key(&xfp)).await;
+            fill_marks(&a, reached);
+            let (y, _dy) = new_identity();
+            f.write(&state_frame(&y, None)).await;
+            let yfp = y.fingerprint.clone();
+            if reached {
+                never(
+                    "닿은 노드의 번호를 밀어내고 Y 를 받는다",
+                    || a.lock().nodes.contains_key(&yfp),
+                )
+                .await;
+                assert!(a.lock().marks.len() == crate::service::MAX_MARKS);
+            } else {
+                eventually(
+                    "닿은 적 없는 번호를 밀어내고 Y 를 받는다",
+                    || a.lock().nodes.contains_key(&yfp),
+                )
+                .await;
+                let st = a.lock();
+                assert!(st.marks.len() == crate::service::MAX_MARKS && st.marks.contains_key(&xfp));
+            }
+        }
+    });
+}
+
+// 닿은 적 있는 노드는 잊혀도 그 표시가 번호에 남는다.
+#[test]
+fn evicted_reachable_node_mark_is_reached() {
+    rt().block_on(async {
+        let (a, b) = (new_test_node("a"), new_test_node("b"));
+        a.lock().max_nodes = 1;
+        let cut = link(&a, &b);
+        eventually("B 를 안다", || a.node_online(&b.fp())).await;
+        cut.cancel();
+        eventually("끊김", || !a.node_online(&b.fp())).await;
+        let mut f = new_fake_peer(&a);
+        f.state(vec![], vec![], Some(&[a.fp()])).await;
+        let bfp = b.fp();
+        eventually("B 를 잊는다", || a.lock().marks.contains_key(&bfp)).await;
+        assert!(
+            a.lock().marks[&bfp].reached,
+            "닿은 적 있는 노드의 번호가 표시되지 않았다"
+        );
+    });
+}
