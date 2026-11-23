@@ -174,8 +174,13 @@ async fn client_no_user_agent_when_empty() {
 
 #[tokio::test]
 async fn client_transport_error_hides_token() {
+    // 연결을 받자마자 끊는 서버. 포트를 계속 쥐고 있어 다른 시험과 겹치지 않는다.
     let (l, port) = listen().await;
-    drop(l);
+    tokio::spawn(async move {
+        while let Ok((sock, _)) = l.accept().await {
+            drop(sock);
+        }
+    });
     let e = Client {
         base: format!("http://127.0.0.1:{port}"),
         ..Client::default()

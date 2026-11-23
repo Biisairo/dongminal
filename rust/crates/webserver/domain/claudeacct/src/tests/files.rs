@@ -66,9 +66,17 @@ fn dir_lock_touches() {
     )
     .unwrap();
     chtimes(&d, SystemTime::now() - Duration::from_secs(3600)).unwrap();
-    std::thread::sleep(Duration::from_millis(200));
-    let m = fs::metadata(&d).unwrap().modified().unwrap();
-    assert!(SystemTime::now().duration_since(m).unwrap_or_default() < Duration::from_secs(60));
+    let fresh = || {
+        let m = fs::metadata(&d).unwrap().modified().unwrap();
+        SystemTime::now().duration_since(m).unwrap_or_default() < Duration::from_secs(60)
+    };
+    for _ in 0..100 {
+        if fresh() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    panic!("잡은 쪽이 mtime 을 갱신해야 한다");
 }
 
 #[test]
