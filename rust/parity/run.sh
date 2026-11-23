@@ -12,6 +12,8 @@ repo=$(cd "$rust_dir/.." && pwd -P)
 hermetic="$rust_dir/scripts/hermetic.sh"
 go_bin="$rust_dir/target/go-ref/dongminal"
 rust_bin="$rust_dir/target/debug/dongminal"
+# 담당 이슈의 상태를 읽을 폴더. 이슈 worktree 의 사본은 낡을 수 있으므로 통합 worktree 를 줄 수 있다.
+issues="${DM_PARITY_ISSUES:-$repo/rust-port/issues}"
 
 (cd "$repo" && "$hermetic" go build -o "$go_bin" ./cmd/dongminal)
 
@@ -22,4 +24,4 @@ if [[ "${1:-}" == "--self-test" ]]; then
 fi
 
 (cd "$rust_dir" && "$hermetic" cargo build -p dongminal -p dm-parity)
-exec "$hermetic" "$rust_dir/target/debug/dm-parity" --go "$go_bin" --rust "$rust_bin" "$@"
+exec "$hermetic" "$rust_dir/target/debug/dm-parity" --go "$go_bin" --rust "$rust_bin" --issues "$issues" "$@"

@@ -144,6 +144,8 @@ fn parse_name(sa: &libc::sockaddr_un) -> Option<String> {
     if sa.sun_family as i32 != libc::AF_UNIX {
         return None;
     }
+    // c_char 는 대상에 따라 i8·u8 이다.
+    #[allow(clippy::unnecessary_cast)]
     let path: Vec<u8> = sa.sun_path.iter().map(|&c| c as u8).collect();
     #[cfg(target_os = "linux")]
     let bytes = {
@@ -466,4 +468,9 @@ pub(super) fn remove(path: &Path) -> io::Result<()> {
 /// Go `os.IsNotExist`.
 pub(super) fn is_not_exist(e: &io::Error) -> bool {
     e.raw_os_error() == Some(libc::ENOENT)
+}
+
+/// POSIX 는 chmod 0600 과 0700 디렉터리가 막는다. 더 할 일이 없다.
+pub(super) fn restrict_to_owner(_path: &Path) -> io::Result<()> {
+    Ok(())
 }

@@ -10,4 +10,13 @@ publish = false
 workspace = true
 
 [dependencies]
+base64 = { workspace = true }
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-platform = { path = "../platform" }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
