@@ -259,7 +259,7 @@ fn listen_tcp(bind: &str, port: i64) -> io::Result<Box<dyn Acceptor>> {
             ),
         )
     };
-    let std = std::net::TcpListener::bind(hp.as_str()).map_err(go)?;
+    let std = dm_shared_platform::listen_tcp(&hp).map_err(go)?;
     std.set_nonblocking(true).map_err(go)?;
     Ok(Box::new(Arc::new(TcpListener::from_std(std).map_err(go)?)))
 }
