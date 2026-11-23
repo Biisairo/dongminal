@@ -335,14 +335,7 @@ fn is_user_tab(tab: &str) -> bool {
 }
 
 fn create_dir(dir: &Path) -> io::Result<()> {
-    let mut b = std::fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut b, DIR_PERM);
-    #[cfg(not(unix))]
-    let _ = DIR_PERM;
-    b.create(dir)
-        .map_err(|e| dm_gocompat::oserr::path_error("mkdir", &dir.to_string_lossy(), e))
+    dm_gocompat::oserr::mkdir_all(&dir.to_string_lossy(), DIR_PERM)
 }
 
 fn write_once(nc: &IpcStream, f: &Frame) {
@@ -400,9 +393,9 @@ impl Server {
     pub fn listen(&self, path: &Path) -> io::Result<()> {
         let ipc = &dm_shared_platform::current().ipc;
         let _ = ipc.remove(path);
-        if let Some(dir) = path.parent() {
-            create_dir(dir)?;
-        }
+        create_dir(Path::new(&dm_gocompat::filepath::dir(
+            &path.to_string_lossy(),
+        )))?;
         let ln = ipc.listen(path)?;
         let mut st = self.lock();
         st.ln = Some(Arc::new(ln));

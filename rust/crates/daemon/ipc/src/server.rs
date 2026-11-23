@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use dm_gocompat::json::RawMessage;
+use dm_gocompat::{filepath, oserr};
 use dm_shared_chatwire as chatwire;
 use dm_shared_dmlog::errorf;
 use dm_shared_edge::Status as EdgeStatus;
@@ -76,6 +77,14 @@ fn write_state_file(path: &Path, body: &str) -> io::Result<()> {
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut o, STATE_FILE_MODE);
     io::Write::write_all(&mut o.open(path)?, body.as_bytes())
+}
+
+/// 소켓이 사는 자리의 권한 (04-secops P1-6).
+const SOCK_DIR_PERM: u32 = 0o700;
+
+/// Go `os.MkdirAll(filepath.Dir(sock), 0o700)`.
+pub(crate) fn mkdir_sock_dir(sock: &Path) -> io::Result<()> {
+    oserr::mkdir_all(&filepath::dir(&sock.to_string_lossy()), SOCK_DIR_PERM)
 }
 
 impl PanedServer {
@@ -172,13 +181,7 @@ impl PanedServer {
             )));
         }
         let _ = ipc_t.remove(sock);
-        if let Some(dir) = sock.parent() {
-            let mut b = std::fs::DirBuilder::new();
-            b.recursive(true);
-            #[cfg(unix)]
-            std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o700);
-            b.create(dir)?;
-        }
+        mkdir_sock_dir(sock)?;
         let ln = ipc_t.listen(sock)?;
         lock(&self.inner.listeners).paned = Some(Arc::new(ln));
         self.after_listen();

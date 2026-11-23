@@ -243,18 +243,9 @@ struct InstallEnv<'a> {
     nopasswd: Box<dyn Fn() -> bool + 'a>,
 }
 
+/// Go `os.MkdirAll(p, mode)`.
 fn mkdir_all(p: &Path, mode: u32) -> io::Result<()> {
-    let mut b = fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        b.mode(mode);
-    }
-    #[cfg(not(unix))]
-    let _ = mode;
-    b.create(p)
-        .map_err(|e| path_error("mkdir", &p.to_string_lossy(), e))
+    dm_gocompat::oserr::mkdir_all(&p.to_string_lossy(), mode)
 }
 
 /// 순서 (§3.12a R-1·R-8): 비밀 확인(다른 사용자면 멈춤) → 처음이면 비밀을 만들어 저장하고 바로
