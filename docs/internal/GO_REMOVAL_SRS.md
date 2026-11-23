@@ -318,6 +318,8 @@ Rust 판에서는 Rust 워크스페이스(`rust/`)가 이 모든 자리를 대�
 | DIFF-GRM-5 | `make test` | `-race -shuffle=on` | 순서 섞기·경합 탐지기 없음 | 안정 Rust 하니스에 없다. 데이터 경합은 타입 체계가 막는다 |
 | DIFF-29(기존) | 데몬 지문 값 | `sum` 기반 | sha256 기반 | RSP 에서 이미 허용 |
 
+- (조정자, 11.5) 개발 게이트(check-decisions·check-error-docs·check-action-reasons·check-shared-constants)가 실패할 때 `go run` 이 stderr 끝에 붙이던 `exit status 1` 줄이 없다. stdout·종료 코드는 같다. 제품 사용·빌드 산출물과 무관한 개발 도구 stderr 다.
+
 ### 3.10 하위 이슈 묶음 제안
 
 `∥` 는 같은 단계 안에서 병렬로 돌 수 있다는 뜻이다. 묶음은 서로 다른 파일을 고치도록 나눴다.
