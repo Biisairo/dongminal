@@ -26,3 +26,7 @@
 ## 권한
 
 커밋이 auto mode 분류기에 막혀, 사용자 승인으로 각 worktree `.claude/settings.local.json` 에 `git add/commit/merge`·`rp-merge.sh` 허용, `git push` 금지를 넣었다(gitignore 대상). rp-launch.sh 가 새 worktree 에 복사한다. 이미 떠 있던 세션에는 반영되지 않을 수 있다.
+
+## 사용자 판단 대기 (추가)
+
+- claude 셈이 `--allowedTools=mcp__dongminal`(chat 송신 도구 사전 허용)을 준다. Go `claude_shim.go:106` 과 같아 포팅에서는 그대로 두었다(6.3.3 보고). 보안 검토가 짚었다 — 바꿀지 사용자가 정한다.
