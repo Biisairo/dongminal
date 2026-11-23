@@ -23,6 +23,8 @@ const PIPE_BUF: usize = 64 << 10;
 const EVENTUALLY: Duration = Duration::from_secs(3);
 const NEVER: Duration = Duration::from_millis(200);
 const POLL: Duration = Duration::from_millis(5);
+/// 바뀜 알림을 기다리는 시험이 멈췄다고 볼 때다. 퍼지는 속도를 재지 않는다 (FR-RDF-8).
+const HANG: Duration = Duration::from_secs(60);
 
 pub(crate) fn new_identity() -> (Identity, TempDir) {
     let dir = TempDir::new().unwrap();
@@ -73,6 +75,31 @@ pub(crate) async fn never(what: &str, mut cond: impl FnMut() -> bool) {
     }
 }
 
+/// 바뀜 알림마다 조건을 본다. 벽시계 시한 대신 노드의 `changed` 알림으로 나아간다 — 조건을 바꾸는
+/// 일은 모두 알림을 낸다 (FR-RDF-8).
+pub(crate) async fn on_change(n: &TestNode, what: &str, mut cond: impl FnMut() -> bool) {
+    let wait = async {
+        while !cond() {
+            n.changes.notified().await;
+        }
+    };
+    if tokio::time::timeout(HANG, wait).await.is_err() {
+        panic!("바뀜이 오지 않았다: {what} (지금 조건={})", cond());
+    }
+}
+
+/// a 가 pid 를 온라인 참가자로 볼 때까지 기다린다. 참가자 수는 아직 닿지 않은 노드의 참가자도
+/// 센다 — direct 는 온라인인 상대만 받는다.
+pub(crate) async fn until_online_part(a: &TestNode, pid: &str) {
+    on_change(a, "상대 참가자가 온라인이다", || {
+        a.online()
+            .participants
+            .iter()
+            .any(|m| m.id == pid && m.online)
+    })
+    .await;
+}
+
 pub(crate) type Got = Arc<Mutex<Vec<(String, Message)>>>;
 
 pub(crate) struct TestNode {
@@ -80,6 +107,7 @@ pub(crate) struct TestNode {
     pub mesh: Mesh,
     pub id: Identity,
     pub got: Got,
+    pub changes: Arc<tokio::sync::Notify>,
     _dir: TempDir,
 }
 
@@ -117,12 +145,16 @@ pub(crate) fn new_test_node_with(name: &str, f: impl FnOnce(&mut Options)) -> Te
     let mut o = Options::new(id.clone());
     o.mesh = Some(mesh.clone());
     o.deliver = Some(recorder(&got));
+    let changes = Arc::new(tokio::sync::Notify::new());
+    let ch = changes.clone();
+    o.changed = Some(Arc::new(move || ch.notify_one()));
     f(&mut o);
     TestNode {
         svc: Service::new(o),
         mesh,
         id,
         got,
+        changes,
         _dir: dir,
     }
 }
@@ -734,10 +766,8 @@ fn direct_chat() {
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
         let pc = b.register("b/y", KIND_AGENT);
-        eventually("A 가 B 의 참가자를 본다", || {
-            a.online().participants.len() == 3
-        })
-        .await;
+        until_online_part(&a, &pb.id).await;
+        until_online_part(&a, &pc.id).await;
         must_code(a.direct(&pa.id, "nobody", ""), CODE_NO_SUCH_PARTICIPANT);
         let room = a.direct(&pa.id, &pb.id, "1대1").unwrap();
         eventually("상대가 자동으로 들어간다", || {
@@ -777,7 +807,7 @@ fn direct_survives_disconnect() {
         let cut = link(&a, &b);
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
-        eventually("참가자를 본다", || a.online().participants.len() == 2).await;
+        until_online_part(&a, &pb.id).await;
         let room = a.direct(&pa.id, &pb.id, "").unwrap();
         eventually("A 가 상대의 참가를 본다", || {
             a.first_room_members(&pa.id) == 2
@@ -799,15 +829,20 @@ fn reachability_follows_links() {
         let (a, b, c) = (new_test_node("a"), new_test_node("b"), new_test_node("c"));
         let _k = link(&a, &b);
         let cut = link(&b, &c);
-        eventually("A 가 C 를 본다", || a.node_online(&c.fp())).await;
+        on_change(&a, "A 가 C 를 본다", || a.node_online(&c.fp())).await;
         cut.cancel();
-        eventually("A 가 C 를 끊김으로 본다", || {
+        on_change(&a, "A 가 C 를 끊김으로 본다", || {
             !a.node_online(&c.fp())
         })
         .await;
         assert!(a.node_online(&b.fp()), "B 까지 끊김이 됐다");
+        // C 가 옛 연결을 아직 쥐고 있으면 동시 걸기 판정이 새 연결을 버린다 — C 도 끊김을 본 뒤 잇는다.
+        on_change(&c, "C 가 B 를 끊김으로 본다", || {
+            !c.node_online(&b.fp())
+        })
+        .await;
         let _k2 = link(&c, &b);
-        eventually("C 가 돌아온다", || a.node_online(&c.fp())).await;
+        on_change(&a, "C 가 돌아온다", || a.node_online(&c.fp())).await;
     });
 }
 
@@ -939,7 +974,7 @@ fn direct_rejects_third_node() {
         let _k = link(&a, &b);
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
-        eventually("참가자를 본다", || a.online().participants.len() == 2).await;
+        until_online_part(&a, &pb.id).await;
         let room = a.direct(&pa.id, &pb.id, "").unwrap();
         eventually("A 가 상대의 참가를 본다", || {
             a.first_room_members(&pa.id) == 2
@@ -1156,7 +1191,7 @@ fn direct_peer_node_not_evicted() {
         let cut = link(&a, &b);
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
-        eventually("참가자를 본다", || a.online().participants.len() == 2).await;
+        until_online_part(&a, &pb.id).await;
         let room = a.direct(&pa.id, &pb.id, "").unwrap();
         eventually("A 가 상대의 참가를 본다", || {
             a.first_room_members(&pa.id) == 2
@@ -1280,22 +1315,26 @@ fn left_direct_does_not_grow() {
         let _k = link(&a, &b);
         let pa = a.register("a/x", KIND_AGENT);
         let pb = b.register("b/x", KIND_AGENT);
-        eventually("참가자를 본다", || a.online().participants.len() == 2).await;
+        until_online_part(&a, &pb.id).await;
         for _ in 0..3 {
             let room = a.direct(&pa.id, &pb.id, "").unwrap();
-            eventually("상대가 들어간다", || {
+            on_change(&b, "상대가 들어간다", || {
                 b.room_visible(&pb.id, &room.id)
             })
             .await;
-            eventually("A 가 상대의 참가를 본다", || {
+            on_change(&a, "A 가 상대의 참가를 본다", || {
                 a.first_room_members(&pa.id) == 2
             })
             .await;
             b.leave(&pb.id, &room.id).unwrap();
-            eventually("방이 사라진다", || a.record_count() == 0).await;
+            on_change(&a, "방이 사라진다", || a.record_count() == 0).await;
         }
-        eventually("left 가 비워진다", || {
-            left_count(&a, &pa.id) == 0 && left_count(&b, &pb.id) == 0
+        on_change(&a, "A 의 left 가 비워진다", || {
+            left_count(&a, &pa.id) == 0
+        })
+        .await;
+        on_change(&b, "B 의 left 가 비워진다", || {
+            left_count(&b, &pb.id) == 0
         })
         .await;
     });
@@ -1513,8 +1552,11 @@ fn state_with_bad_kind_dropped() {
 }
 
 fn fill_marks(a: &TestNode, reached: bool) {
+    fill_marks_at(a, reached, OffsetDateTime::now_utc());
+}
+
+fn fill_marks_at(a: &TestNode, reached: bool, now: OffsetDateTime) {
     let mut st = a.lock();
-    let now = OffsetDateTime::now_utc();
     for i in 0..crate::service::MAX_MARKS {
         st.marks.insert(
             format!("{i:064x}"),
@@ -1612,5 +1654,151 @@ fn readmitted_node_keeps_reached() {
         })
         .await;
         assert!(a.lock().nodes[&xfp].reached, "표시를 잃었다");
+    });
+}
+
+type Clock = Arc<Mutex<OffsetDateTime>>;
+
+fn t0() -> OffsetDateTime {
+    OffsetDateTime::from_unix_timestamp(1_000_000).unwrap()
+}
+
+fn seq_state_frame(id: &Identity, seq: u64) -> Frame {
+    sign_frame(
+        id,
+        FRAME_STATE,
+        &StateBody {
+            node: id.fingerprint.clone(),
+            key: edgemesh::public_key(id),
+            epoch: 1,
+            seq,
+            ..StateBody::default()
+        },
+    )
+    .unwrap()
+}
+
+/// 시계를 t0 에 묶고, 닿는 가짜 상대 f 와 그 너머의 X 를 아는 노드를 세운다. 아는 노드 상한은 2 다.
+async fn marks_fixture() -> (TestNode, Clock, FakePeer, Identity, TempDir) {
+    let clock: Clock = Arc::new(Mutex::new(t0()));
+    let c = clock.clone();
+    let a = new_test_node_with("a", |o| o.now = Some(Arc::new(move || *c.lock().unwrap())));
+    a.lock().max_nodes = 2;
+    let mut f = new_fake_peer(&a);
+    f.state(vec![], vec![], Some(&[a.fp()])).await;
+    let (x, dx) = new_identity();
+    f.write(&state_frame(&x, None)).await;
+    let xfp = x.fingerprint.clone();
+    eventually("X 를 안다", || a.lock().nodes.contains_key(&xfp)).await;
+    (a, clock, f, x, dx)
+}
+
+// FR-RDF-1: 닿은 적 있는 노드의 번호로 기억이 가득 차도, 수명(MARK_REACHED_TTL)이 지난 번호는
+// 밀어내고 새 노드를 받는다. 시계는 주입한다.
+#[test]
+fn expired_reached_marks_pushed_out() {
+    rt().block_on(async {
+        let (a, clock, mut f, x, _dx) = marks_fixture().await;
+        fill_marks_at(&a, true, t0());
+        *clock.lock().unwrap() = t0() + edgemesh::MARK_REACHED_TTL;
+        let (y, _dy) = new_identity();
+        f.write(&state_frame(&y, None)).await;
+        let yfp = y.fingerprint.clone();
+        eventually(
+            "수명이 지난 번호를 밀어내고 Y 를 받는다",
+            || a.lock().nodes.contains_key(&yfp),
+        )
+        .await;
+        let st = a.lock();
+        assert_eq!(st.marks.len(), crate::service::MAX_MARKS);
+        assert!(st.marks.contains_key(&x.fingerprint), "X 의 번호가 없다");
+    });
+}
+
+// FR-RDF-1: 수명 안의 닿은 번호는 가득 차도 밀어내지 않는다 (DIFF-19 유지).
+#[test]
+fn live_reached_marks_not_pushed_out() {
+    rt().block_on(async {
+        let (a, clock, mut f, x, _dx) = marks_fixture().await;
+        fill_marks_at(&a, true, t0());
+        *clock.lock().unwrap() = t0() + edgemesh::MARK_REACHED_TTL - Duration::from_secs(1);
+        let (y, _dy) = new_identity();
+        f.write(&state_frame(&y, None)).await;
+        let yfp = y.fingerprint.clone();
+        never(
+            "수명 안의 번호를 밀어내고 Y 를 받는다",
+            || a.lock().nodes.contains_key(&yfp),
+        )
+        .await;
+        let st = a.lock();
+        assert!(st.nodes.contains_key(&x.fingerprint), "X 를 잊었다");
+        assert_eq!(st.marks.len(), crate::service::MAX_MARKS);
+    });
+}
+
+// FR-RDF-1: 기억이 가득 차지 않으면 수명이 지난 닿은 번호도 남아 옛 상태를 막는다. 거절한
+// 재전송은 번호의 시각을 바꾸지 않는다.
+#[test]
+fn old_reached_mark_kept_when_not_full() {
+    rt().block_on(async {
+        let (a, clock, mut f, _x, _dx) = marks_fixture().await;
+        let (z, _dz) = new_identity();
+        let zfp = z.fingerprint.clone();
+        a.lock().marks.insert(
+            zfp.clone(),
+            crate::service::Mark {
+                epoch: 1,
+                state_seq: 5,
+                msg_max: 0,
+                at: t0(),
+                reached: true,
+            },
+        );
+        *clock.lock().unwrap() = t0() + edgemesh::MARK_REACHED_TTL * 10;
+        for i in 0..3 {
+            let (y, _dy) = new_identity();
+            f.write(&state_frame(&y, None)).await;
+            let yfp = y.fingerprint.clone();
+            eventually(&format!("Y{i} 를 받는다"), || {
+                a.lock().nodes.contains_key(&yfp)
+            })
+            .await;
+        }
+        f.write(&seq_state_frame(&z, 3)).await;
+        never("Z 의 옛 상태를 받는다", || {
+            a.lock().nodes.contains_key(&zfp)
+        })
+        .await;
+        let st = a.lock();
+        assert!(st.marks.len() < crate::service::MAX_MARKS);
+        assert_eq!(st.marks[&zfp].at, t0(), "거절한 재전송이 시각을 바꿨다");
+    });
+}
+
+// FR-RDF-1: 가득 찬 기억에서는 닿은 적 없는 번호를 수명이 지난 닿은 번호보다 먼저 밀어낸다.
+#[test]
+fn unreached_marks_pushed_out_first() {
+    rt().block_on(async {
+        let (a, clock, mut f, _x, _dx) = marks_fixture().await;
+        let later = t0() + edgemesh::MARK_REACHED_TTL;
+        fill_marks_at(&a, true, t0());
+        let junk = format!("{:064x}", 0);
+        {
+            let mut st = a.lock();
+            let m = st.marks.get_mut(&junk).unwrap();
+            m.reached = false;
+            m.at = later;
+        }
+        *clock.lock().unwrap() = later;
+        let (y, _dy) = new_identity();
+        f.write(&state_frame(&y, None)).await;
+        let yfp = y.fingerprint.clone();
+        eventually("Y 를 받는다", || a.lock().nodes.contains_key(&yfp)).await;
+        let st = a.lock();
+        assert!(!st.marks.contains_key(&junk), "닿은 적 없는 번호가 남았다");
+        assert!(
+            (1..crate::service::MAX_MARKS).all(|i| st.marks.contains_key(&format!("{i:064x}"))),
+            "닿은 번호를 밀어냈다"
+        );
     });
 }

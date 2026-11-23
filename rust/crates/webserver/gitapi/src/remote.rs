@@ -281,7 +281,7 @@ impl GitServer {
 }
 
 /// 작업 출력 스트림의 몸통이다. 채널이 닫히면(작업이 끝나면) 작업 자체를 `done` 으로 보낸다.
-async fn job_event_loop(
+pub(crate) async fn job_event_loop(
     mut st: sse::Stream,
     mut rx: mpsc::Receiver<Line>,
     hub: Jobs,
@@ -290,9 +290,12 @@ async fn job_event_loop(
 ) {
     let mut keep =
         tokio::time::interval_at(tokio::time::Instant::now() + JOB_KEEP_ALIVE, JOB_KEEP_ALIVE);
+    let gone = st.closed();
+    tokio::pin!(gone);
     loop {
         tokio::select! {
             () = root.done() => return,
+            () = &mut gone => return,
             ln = rx.recv() => {
                 if !drain_job_lines(&mut st, &mut rx, ln) {
                     // 종료 사유·인증 안내·후속 선택지가 여기서 클라이언트에 닿는다.

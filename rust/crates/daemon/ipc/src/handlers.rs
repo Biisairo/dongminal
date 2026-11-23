@@ -448,8 +448,11 @@ pub(crate) async fn edge_op(c: &Arc<Conn>, req: &PanedRequest) -> Line {
         Ok(p) => p,
         Err(l) => return l,
     };
-    let node = c.srv.upgrade().and_then(|s| s.edge_node());
-    let Some(n) = node else {
+    let srv = c.srv.upgrade();
+    let limit = srv
+        .as_ref()
+        .map_or(crate::server::EDGE_CALL_TIMEOUT, |s| s.edge_call_timeout());
+    let Some(n) = srv.and_then(|s| s.edge_node()) else {
         return ok(
             req.id,
             &ipc::EdgeResult {
@@ -465,7 +468,7 @@ pub(crate) async fn edge_op(c: &Arc<Conn>, req: &PanedRequest) -> Line {
         args: p.args.0,
         if_match: p.if_match,
     };
-    let res = n.do_op(r).await;
+    let res = n.do_op_within(r, limit).await;
     ok(
         req.id,
         &ipc::EdgeResult {
