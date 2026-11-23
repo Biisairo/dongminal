@@ -4,16 +4,15 @@
 # (start/stop/migrate/health)은 바이너리의 액션이다. 사용법은 `-h` 참조.
 set -e
 cd "$(dirname "$0")/.."
+ROOT="$(pwd -P)"
 
 BINARY="${BINARY:-dongminal}"
 DIST="${DIST:-dist}"
 
-# VERSION 은 바이너리에 새길 판이다. 비면 새기지 않고, 그때 값은 cli.Version 의
-# 기본값 `dev` 다 — 소스 빌드와 릴리스 산출물을 구별하기 위해서다
-# (RELEASE_SRS FR-RVN-2/4). 릴리스 워크플로우가 태그 문자열을 그대로 넣는다.
+# VERSION 은 바이너리에 새길 판이다. 비면 새기지 않고, 그때 값은 기본값 `dev` 다 —
+# 소스 빌드와 릴리스 산출물을 구별하기 위해서다 (RELEASE_SRS FR-RVN-2/4,
+# RUST_PORT_SRS FR-RSP-11). 릴리스 워크플로우가 태그 문자열을 그대로 넣는다.
 VERSION="${VERSION:-}"
-LDFLAGS=""
-[[ -n "$VERSION" ]] && LDFLAGS="-X dongminal/internal/ctl/cli.Version=$VERSION"
 
 # TARGETS 는 --all 이 만드는 대상이자 -h 가 보여 주는 목록이다. 한 곳에만
 # 적어 도움말이 실제 동작과 어긋나지 않게 한다.
@@ -48,11 +47,14 @@ $(printf '  %s\n' "${TARGETS[@]}")
   VERSION=v1.0.0 scripts/build.sh --all      # 판을 새겨서 빌드 (릴리스가 쓰는 형태)
 
 참고:
-  · Go 는 교차 컴파일이 기본이라 별도 툴체인이 필요 없다.
-  · 프론트엔드는 go:embed 로 들어간다. npm 은 e2e(Playwright) 전용이다.
-  · darwin 대상은 cgo 가 필요하다 (sysstat 의 mach 호출 — CPU·메모리 지표).
-    go 는 교차 빌드에서 cgo 를 자동으로 끄므로 이 스크립트가 다시 켠다.
-    손으로 \`GOOS=darwin GOARCH=amd64 go build\` 하면 그 두 지표를 잃는다.
+  · Rust 워크스페이스(rust/)를 cargo build --release --locked 로 빌드한다.
+  · 대상마다 rustup target 이 있어야 한다 (rustup target add <triple>).
+      darwin/arm64  aarch64-apple-darwin       linux/amd64  x86_64-unknown-linux-musl
+      darwin/amd64  x86_64-apple-darwin        linux/arm64  aarch64-unknown-linux-musl
+      windows/amd64 x86_64-pc-windows-msvc
+    linux 는 musl 정적 바이너리다. 호스트가 다른 대상은 교차 링커도 필요하다 —
+    없으면 cargo 의 오류를 그대로 내고 실패한다.
+  · 프론트엔드는 rust-embed 로 web/ 이 들어간다. npm 은 e2e(Playwright) 전용이다.
 
 관련:
   scripts/check-cross.sh   대상 전량 build + vet
@@ -62,37 +64,60 @@ EOF
 
 die() { echo "$*" >&2; echo >&2; usage >&2; exit 1; }
 
-# ── CGO 정책 ──────────────────────────────────────────
-#
-# 이 저장소의 cgo 는 딱 하나다 — sysstat 의 mach 호출(CPU tick·VM 통계).
-# macOS 에서 그 두 지표는 mach 인터페이스로만 얻을 수 있다.
-#
-#   · linux·windows : cgo 불필요. 지표를 /proc 과 WinAPI 로 읽는다.
-#                     CGO_ENABLED=0 으로 못박아 정적 바이너리를 낸다.
-#   · darwin        : cgo 가 **필요하다**. 끄면 CPU% 와 메모리 사용량이
-#                     빠진 채로 빌드된다 (mach_darwin_nocgo.go).
-#
-# 함정: go 는 GOOS/GOARCH 가 호스트와 다르면 CGO_ENABLED 를 자동으로 0 으로
-# 내린다. arm64 맥에서 darwin/amd64 를 빌드하면 그것만 지표를 잃는다는 뜻이다.
-# Xcode clang 은 두 아키텍처를 모두 컴파일하므로 여기서 다시 켜 준다.
-cgo_for() {
+# triple_for 는 Go 이름의 대상을 rustc 대상으로 바꾼다 (GO_REMOVAL_SRS FR-GRM-2).
+# linux 는 Go 판의 CGO_ENABLED=0 정적 바이너리와 같게 musl 이다 (Q-GRM-1).
+triple_for() {
   case "$1" in
-    darwin) [[ "$(go env GOHOSTOS)" == "darwin" ]] && echo 1 || echo 0 ;;
-    *)      echo 0 ;;
+    darwin/arm64)  echo aarch64-apple-darwin ;;
+    darwin/amd64)  echo x86_64-apple-darwin ;;
+    linux/amd64)   echo x86_64-unknown-linux-musl ;;
+    linux/arm64)   echo aarch64-unknown-linux-musl ;;
+    windows/amd64) echo x86_64-pc-windows-msvc ;;
+    *) return 1 ;;
   esac
+}
+
+# host_target 은 호스트의 "<os>/<arch> <triple>" 이다. 호스트 빌드는 rustc 의 호스트
+# 대상을 그대로 쓴다 — 개발 기계에 musl 대상이 없어도 ./dongminal 이 나와야 한다.
+host_target() {
+  local triple os arch
+  triple="$(rustc -vV | sed -n 's/^host: //p')"
+  case "$triple" in
+    *-apple-darwin) os=darwin ;;
+    *-linux-*)      os=linux ;;
+    *-windows-*)    os=windows ;;
+    *)              os="${triple#*-*-}" ;;
+  esac
+  case "$triple" in
+    x86_64-*)  arch=amd64 ;;
+    aarch64-*) arch=arm64 ;;
+    *)         arch="${triple%%-*}" ;;
+  esac
+  echo "$os/$arch $triple"
 }
 
 # ── 재현 가능 빌드 ────────────────────────────────────
 #
-# `-trimpath` 는 빌드한 사람의 파일 경로를 바이너리에서 지운다 (04-secops SEC-30).
-# 없으면 `/Users/누구/personal/dongminal/...` 이 배포본에 박히고, 러너가 다르면
-# 같은 소스에서 **다른 해시**가 나온다 — 그러면 `SHA256SUMS` 가 "이 파일이
-# 그 소스에서 나왔다" 를 말하지 못하고 "이 파일이 그 파일이다" 만 말한다.
+# Go 판 `-trimpath` 의 자리다 (04-secops SEC-30). 빌드한 사람의 파일 경로가
+# 배포본에 박히면 러너가 다를 때 같은 소스에서 **다른 해시**가 나온다 — 그러면
+# `SHA256SUMS` 가 "이 파일이 그 소스에서 나왔다" 를 말하지 못한다.
 #
-# `-buildvcs=false` 는 같은 이유다. 켜 두면 커밋 해시와 워킹트리의 더러움
-# (`vcs.modified`)이 바이너리에 들어가 태그가 같아도 해시가 갈린다. 판은
-# `-ldflags -X` 로 이미 명시적으로 새긴다 (RELEASE_SRS FR-RVN-2/4).
-REPRO_FLAGS=(-trimpath -buildvcs=false)
+# · --remap-path-prefix : 저장소·CARGO_HOME·rustup sysroot 경로를 고정 이름으로 바꾼다.
+# · --cfg dongminal_trimpath : env!("CARGO_MANIFEST_DIR") 처럼 remap 이 닿지 않는 경로를 지운다.
+# · darwin -Wl,-S : ld64 의 LC_UUID 는 링크 결과의 해시인데, rustc 는 링크 **뒤에**
+#   디버그 정보를 지운다. 그러면 UUID 에 오브젝트 파일의 절대 경로(OSO)가 섞인다.
+#
+# Go 판 `-buildvcs=false` 에 해당하는 것은 없다 — cargo 는 VCS 정보를 새기지 않는다.
+repro_rustflags() {
+  local triple="$1" flags="${RUSTFLAGS:-}"
+  flags="${flags:+$flags }--cfg dongminal_trimpath"
+  flags="$flags --remap-path-prefix=$ROOT=/dongminal"
+  [[ -n "${CARGO_HOME:-}" ]] && flags="$flags --remap-path-prefix=$CARGO_HOME=/cargo"
+  flags="$flags --remap-path-prefix=$HOME/.cargo=/cargo"
+  flags="$flags --remap-path-prefix=$(rustc --print sysroot)=/rustc"
+  [[ "$triple" == *apple-darwin ]] && flags="$flags -C link-arg=-Wl,-S"
+  echo "$flags"
+}
 
 # ── 데몬 지문 ─────────────────────────────────────────
 #
@@ -105,9 +130,6 @@ REPRO_FLAGS=(-trimpath -buildvcs=false)
 # 답의 재료를 여기서 새긴다 (DAEMON_STALENESS_SRS FR-DFP-1). 계산은
 # `daemon-fingerprint.sh` 한 자리에 있다 — 정의역이 두 벌이 되면 한쪽만 고쳐진다.
 #
-# 대상마다 다시 계산한다: `platform` 이 OS 마다 다른 파일을 갖기 때문이다.
-# 호스트 기준으로 한 번만 세면 크로스 산출물의 지문이 그 내용과 무관해진다.
-#
 # 계산하지 못하면 **비워 둔다**. 빈 것은 "모른다" 이지 일치가 아니다 (FR-DFP-3) —
 # 거짓 값을 새기면 그 뒤의 판정이 전부 거짓이 된다.
 daemon_fp() {
@@ -115,21 +137,20 @@ daemon_fp() {
 }
 
 build_one() {
-  local os="$1" arch="$2" out="$3"
-  local cgo; cgo="$(cgo_for "$os")"
-  local ld="$LDFLAGS"
+  local os="$1" arch="$2" triple="$3" out="$4"
   local fp; fp="$(daemon_fp "$os" "$arch")"
-  [[ -n "$fp" ]] && ld="${ld:+$ld }-X dongminal/internal/ctl/cli.DaemonBuild=$fp"
-  CGO_ENABLED="$cgo" GOOS="$os" GOARCH="$arch" \
-    go build "${REPRO_FLAGS[@]}" ${ld:+-ldflags "$ld"} -o "$out" ./cmd/dongminal
-  if [[ "$os" == "darwin" && "$cgo" == "0" ]]; then
-    # 건너뛰지 않고 빌드하되 사실을 남긴다. 경고가 없으면 지표가 빠진 배포본이
-    # 조용히 나간다.
-    echo "  ⚠ $out — darwin 이 아닌 호스트라 cgo 없이 빌드했습니다."
-    echo "     CPU 사용률과 메모리 사용량이 상태바에서 빠집니다 (나머지는 정상)."
-  else
-    echo "  ✓ $out"
-  fi
+  local -a env=(RUSTFLAGS="$(repro_rustflags "$triple")")
+  [[ -n "$VERSION" ]] && env+=(DONGMINAL_BUILD_VERSION="$VERSION")
+  [[ -n "$fp" ]] && env+=(DONGMINAL_BUILD_DAEMON="$fp")
+  # 바깥 환경의 각인 변수는 쓰지 않는다 — 새기는 값은 VERSION 과 지문뿐이다 (FR-GRM-4).
+  (cd rust && env -u DONGMINAL_BUILD_VERSION -u DONGMINAL_BUILD_DAEMON "${env[@]}" \
+    cargo build --quiet --release --locked -p dongminal --target "$triple")
+  local tdir="${CARGO_TARGET_DIR:-target}"
+  [[ "$tdir" == /* ]] || tdir="rust/$tdir"
+  local ext=""
+  [[ "$os" == "windows" ]] && ext=".exe"
+  cp "$tdir/$triple/release/dongminal$ext" "$out"
+  echo "  ✓ $out"
 }
 
 # distPath 는 대상 하나의 출력 경로다. 확장자 규칙은
@@ -167,14 +188,14 @@ done
 
 case "$MODE" in
   host)
-    build_one "$(go env GOHOSTOS)" "$(go env GOHOSTARCH)" "$BINARY"
+    read -r host triple <<<"$(host_target)"
+    build_one "${host%%/*}" "${host##*/}" "$triple" "$BINARY"
     echo "빌드 완료: $BINARY"
     # FR-DFP-7: 방금 만든 것으로 재실행할 때 데몬을 갈아야 하는지 말한다.
     #
-    # **방금 만든 바이너리에게 묻는다.** 판정 문구는 `cli.daemonStateLine` 한
-    # 자리에 있고(FR-DFP-11), 여기서 bash 로 다시 적으면 두 벌이 되어 한쪽만
-    # 고쳐진다. `--daemon` 은 HTTP 검사를 지나지 않으므로 서버가 떠 있지 않아도
-    # 즉시 답한다.
+    # **방금 만든 바이너리에게 묻는다.** 판정 문구는 바이너리 한 자리에 있고
+    # (FR-DFP-11), 여기서 bash 로 다시 적으면 두 벌이 되어 한쪽만 고쳐진다.
+    # `--daemon` 은 HTTP 검사를 지나지 않으므로 서버가 떠 있지 않아도 즉시 답한다.
     #
     # 배포 대상(`--all`·`--os`)에서는 하지 않는다 — 그 산출물은 이 기계에서 도는
     # 데몬과 무관하고, 애초에 여기서 실행되지 않는다.
@@ -184,12 +205,12 @@ case "$MODE" in
 
   one)
     ARCH="${ARCH:-amd64}"
-    # 오타를 여기서 잡는다. go build 는 모르는 GOOS 에 낯선 오류를 낸다.
+    # 오타를 여기서 잡는다. cargo 는 모르는 대상에 낯선 오류를 낸다.
     printf '%s\n' "${TARGETS[@]}" | grep -qx "$OS/$ARCH" \
       || die "지원하지 않는 대상입니다: $OS/$ARCH"
     mkdir -p "$DIST"
     out="$(distPath "$OS" "$ARCH")"
-    build_one "$OS" "$ARCH" "$out"
+    build_one "$OS" "$ARCH" "$(triple_for "$OS/$ARCH")" "$out"
     ;;
 
   all)
@@ -197,7 +218,7 @@ case "$MODE" in
     mkdir -p "$DIST"
     for t in "${TARGETS[@]}"; do
       os="${t%%/*}"; arch="${t##*/}"
-      build_one "$os" "$arch" "$(distPath "$os" "$arch")"
+      build_one "$os" "$arch" "$(triple_for "$t")" "$(distPath "$os" "$arch")"
     done
     echo "배포 빌드 완료: $DIST/"
     ;;

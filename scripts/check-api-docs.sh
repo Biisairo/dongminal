@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# `api.md` ↔ 라우트 표 양방향 대조 (M5 `DOC-4`).
+# `api.md` ↔ 라우트 표 양방향 대조 (M5 `DOC-4`, GO_REMOVAL_SRS G-28).
 #
 # 착수 시 `api.md` 가 실제 HTTP 표면의 **절반 이상**을 빠뜨리고 있었다 —
 # Git 60여 개와 Run 13개가 통째로. 문서가 절반만 적는 것보다 나쁜 것은,
@@ -18,7 +18,8 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
 HTTP 표면 문서 대조
 
-  코드: httproute.{Get,Post,Put,Delete,Patch}("...") + mux.HandleFunc("/api/...")
+  코드: {get,post,put,delete,patch,any,at}("...") + Matcher::{Under,UnderWith} + mux 의 Pattern::{Exact,Tree}("/api/...")
+        (rust/crates/webserver/ 의 비검사 Rust 소스)
   문서: api.md 표의 `| METHOD | `/api/...` |`
 
   경로만 견준다 — 메서드까지 보면 같은 경로의 GET/PUT 을 한 행에 적은 문서가
@@ -28,33 +29,44 @@ USAGE
 fi
 
 # ── 코드 쪽 ────────────────────────────────────────────────
+source scripts/lib/rs-src.sh
+WS=rust/crates/webserver
+
+# 라우트 등록 줄 (시험 전용 소스 제외). "<경로>:<줄>:<내용>" 에서 내용만 남긴다.
+reg_lines() {
+  grep -rnE "$1" "$WS" --include='*.rs' 2>/dev/null | rs_drop_tests | cut -d: -f3-
+}
+
 code=$(
   {
-    # `Get`·`Post`·… 와 `Any`. 메서드를 가르지 않는 `Any` 도 표면이다.
-    grep -rhoE 'httproute\.(Get|Post|Put|Delete|Patch|Any)\("[^"]+"' \
-      internal/webserver --include='*.go' | grep -oE '"/[^"]+"' | tr -d '"'
-    # `httproute.When(…, httproute.UnderWith("/api/tools/", "/busy"), …)` —
+    # `get`·`post`·… 와 `any`. 메서드를 가르지 않는 `any` 도 표면이다. `at` 은 메서드를 직접 준다.
+    # rustfmt 가 인자를 여러 줄로 나누므로 호출 단위로 읽는다.
+    rs_src_files "$WS" | xargs perl scripts/lib/rs-calls.pl '(?<!\.)(?:get|post|put|delete|patch|any)' | rs_drop_tests \
+      | sed -nE 's/^[^:]+:[0-9]+: [a-z]+\("(\/[^"]+)".*/\1/p'
+    rs_src_files "$WS" | xargs perl scripts/lib/rs-calls.pl '(?<!\.)at' | rs_drop_tests \
+      | sed -nE 's/^[^:]+:[0-9]+: at\("[A-Z]+", *"(\/[^"]+)".*/\1/p'
+    # `when(…, Matcher::UnderWith("/api/tools/", "/busy"), …)` —
     # 경로 변수를 접두·접미로 가르는 형태다. 둘을 이어 붙이면 문서의
     # `/api/tools/<id>/busy` 와 같은 모양이 된다.
-    grep -rhoE 'UnderWith\("[^"]+", *"[^"]+"\)' \
-      internal/webserver --include='*.go' \
+    reg_lines 'Matcher::UnderWith\(' \
+      | grep -oE 'UnderWith\("[^"]+", *"[^"]+"\)' \
       | sed -E 's/UnderWith\("([^"]+)", *"([^"]+)"\)/\1\2/' | tr -s '/'
-    # `Under("/api/tools/")` — 접미가 없는 형태. 경로 변수가 끝에 온다.
-    grep -rhoE 'httproute\.Under\("[^"]+"' \
-      internal/webserver --include='*.go' | grep -oE '"/[^"]+"' | tr -d '"' | sed -E 's#/$##'
-    grep -rhoE 'mux\.HandleFunc\("/api/[^"]*"' \
-      internal/webserver --include='*.go' | grep -oE '"/[^"]+"' | tr -d '"'
+    # `Matcher::Under("/api/tools/")` — 접미가 없는 형태. 경로 변수가 끝에 온다.
+    reg_lines 'Matcher::Under\("' \
+      | grep -oE 'Matcher::Under\("[^"]+"' | grep -oE '"/[^"]+"' | tr -d '"' | sed -E 's#/$##'
+    # 서버 mux 의 표 (Go `mux.HandleFunc`).
+    reg_lines 'Pattern::(Exact|Tree)\("/api/' \
+      | grep -oE 'Pattern::(Exact|Tree)\("/api/[^"]*"' | grep -oE '"/[^"]+"' | tr -d '"'
   } \
     | grep -E '^/api/' \
     | grep -v '^/api/$' \
     | LC_ALL=C sort -u
 )
+if [[ -z "$code" ]]; then
+  echo "$WS 에서 라우트를 하나도 읽지 못했습니다 — 빈 통과를 막습니다."
+  exit 1
+fi
 
-# ── 문서 쪽 ────────────────────────────────────────────────
-# 표의 두 번째 칸에서 경로만 뽑는다. 질의문자열·경로 변수는 떼어 낸다 —
-# 문서는 `?cols=&rows=` 를 적고 코드는 적지 않는다.
-# **한 행이 둘을 소개하기도 한다** (`` `/api/git/stage` · `/api/git/unstage` ``).
-# 첫 것만 읽으면 나머지가 통째로 미문서화로 셈된다.
 doc=$(
   grep -E '^\| *(GET|POST|PUT|DELETE|PATCH|ANY) *\|' "$DOC" \
     | grep -oE '`/api/[^`]*`' | tr -d '`' \

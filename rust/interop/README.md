@@ -20,7 +20,7 @@ rust/interop/run.sh --go … --rust … --keep                               # �
     -ldflags "-X dongminal/internal/ctl/cli.Version=v1.3.7 -X dongminal/internal/ctl/cli.DaemonBuild=$fp"
   ```
 
-- Rust 바이너리는 `rust/scripts/hermetic.sh env VERSION=v1.3.7 rust/scripts/build.sh` 로 만듭니다.
+- Rust 바이너리는 `rust/scripts/hermetic.sh env VERSION=v1.3.7 BINARY=<경로> scripts/build.sh` 로 만듭니다.
 
 종료 코드는 다른 항목이 없으면 `0`, 있으면 `1`, 인자가 틀렸으면 `2` 입니다. 마지막 줄은 `같음 a, 다름 b` 입니다.
 

@@ -379,6 +379,39 @@ export async function stubEmptyLimits(page: any) {
   });
 }
 
+/**
+ * 작업 패널 탭 배지의 세 원천을 비운다 — 활동(`working` 수)·백그라운드 도구·Run (RUST_DEFECT_FIX_SRS FR-RDF-6).
+ *
+ * 셋 다 워커의 서버에 남으므로 같은 워커의 앞 시험이 남긴 열린 Run·바쁜 도구 하나가 배지를 켠다. 배지를 포함한
+ * 기본 화면을 재는 시험이 `waitForInit` 전에 부른다. 한도도 함께 비운다(`stubEmptyLimits` 와 같은 길이므로 둘을
+ * 함께 부르지 않는다). 시험 중에 SSE 로 새로 오는 활동은 막지 않는다 — 막는 것은 시험 전에 남은 것이다.
+ */
+export async function stubEmptyActivityCounts(page: any) {
+  const emptyActivity = (a: any) => ({ ...a, activities: [], limits: [] });
+  await page.route('**/api/tools/activity', async (route: any) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await route.fetch();
+    return route.fulfill({ response: res, json: emptyActivity(await res.json()) });
+  });
+  await page.route('**/api/tools/background', async (route: any) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await route.fetch();
+    return route.fulfill({ response: res, json: { ...(await res.json()), background: [] } });
+  });
+  await page.route('**/api/runs', async (route: any) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await route.fetch();
+    return route.fulfill({ response: res, json: { ...(await res.json()), runs: [] } });
+  });
+  await page.route('**/api/snapshot?**', async (route: any) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    if (body && body.activity) body.activity = emptyActivity(body.activity);
+    if (body && body.background) body.background = { ...body.background, background: [] };
+    return route.fulfill({ response: res, json: body });
+  });
+}
+
 export async function clickGitView(page: any, view: string) {
   await expect(async () => {
     // **탭이 없으면 먼저 연다.**

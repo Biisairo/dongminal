@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
-# 요청 본문의 단일 경로 (SAFETY_CORRECTNESS_SRS FR-SAF-23 · OPTIMIZE_REFACTOR_SRS FR-OPT-1-10).
+# 요청 본문의 단일 경로 (SAFETY_CORRECTNESS_SRS FR-SAF-23 · OPTIMIZE_REFACTOR_SRS FR-OPT-1-10,
+# GO_REMOVAL_SRS G-20).
 #
-# 요청 본문(`r.Body`)을 읽는 자리는 `httpreq` 를 지난다. 거기에 상한이 있다.
+# 요청 본문을 꺼내는 자리(`r.take_body()`·`req.into_body()`·`req.into_parts()`·`req.body_mut()`,
+# Go 의 `r.Body`)는 `httpreq` 를 지난다. 거기에 상한이 있다.
 #
 # 왜: `io.ReadAll(r.Body)` 가 10곳, 무제한 `json.NewDecoder(r.Body)` 가 일곱이었다
 # (`httpreq/body.go` 머리말). 1MiB 를 넘는 본문을 받아 처리하고 200 을 답한 종단이
@@ -16,13 +18,14 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
 요청 본문의 단일 경로 검사
 
-  internal/ · cmd/ 의 비검사 Go 소스에서 `r.Body`·`req.Body` 를 지나는 자리는
-  httpreq 이거나 아래 예외 등록부에 사유와 함께 있어야 한다.
+  rust/crates/ 의 비검사 Rust 소스에서 요청 본문을 꺼내는 자리
+  (`r.take_body()`·`req.into_body()`·`req.into_parts()`·`req.body_mut()`) 는
+  같은 줄에서 httpreq 로 넘기거나 아래 예외 등록부에 사유와 함께 있어야 한다.
 
-    io.ReadAll(r.Body)
-      →  httpreq.Read(w, r, 0)
+    r.take_body() 를 직접 모아 읽기
+      →  r.read_body(limit).await   (httpreq::read)
 
-  지나가는 것: 주석 · *_test.go · 예외 등록부
+  지나가는 것: 주석 · 시험 파일 · 같은 줄의 httpreq::read·decode_json · 예외 등록부
 USAGE
   exit 0
 fi
@@ -32,13 +35,22 @@ fi
 # 형식: `경로|줄 내용의 정규식|사유`. 정규식은 **줄 내용**에 맞춘다 — 줄 번호는
 # 편집마다 흔들린다. 사유 없는 예외는 받지 않는다 (FR-SAF-23).
 EXCEPTIONS=(
-  'internal/shared/httpreq/body.go|r\.Body|본문을 읽는 한 자리 자신'
-  'internal/webserver/httpapi/handlers_files_transfer.go|http\.MaxBytesReader\(w, r\.Body, s\.limits\.uploadMaxBytes\)|업로드(512MiB) 상한은 실제 사고에서 배운 방어라 httpreq 를 지나지 않는다 (httpreq/body.go)'
-  'internal/webserver/httpapi/handlers_lsp.go|io\.LimitReader\(r\.Body, max\+1\)|LSP 상한은 실제 사고에서 배운 방어라 httpreq 를 지나지 않는다 — 초과는 lspReadBody 가 413 으로 답한다'
+  'rust/crates/webserver/httpapi/src/serve.rs|let \(parts, body\) = req\.into_parts\(\)|요청을 Req 로 옮기는 자리 — 본문은 읽지 않고 Req 에 담는다'
+  'rust/crates/webserver/gitapi/src/req.rs|let \(parts, body\) = req\.into_parts\(\)|요청을 git Req 로 옮기는 자리 — 본문은 읽지 않고 담는다'
+  'rust/crates/webserver/httpapi/src/serve.rs|b\.body\(r\.take_body\(\)\)|git 표면으로 요청을 그대로 넘긴다 — 읽는 것은 gitapi 의 decode_body 다'
+  'rust/crates/webserver/httpapi/src/multipart.rs|let mut body = r\.take_body\(\)|업로드(512MiB) 상한은 실제 사고에서 배운 방어라 httpreq 를 지나지 않는다 (httpreq 머리말)'
 )
 
+n_files=$(find rust/crates -name '*.rs' -not -path '*/target/*' | wc -l | tr -d ' ')
+if [[ "$n_files" -eq 0 ]]; then
+  echo "검사할 Rust 소스가 없습니다 (rust/crates/**/*.rs) — 빈 통과를 막습니다."
+  exit 1
+fi
+
+source scripts/lib/rs-src.sh
 hits=$(
-  grep -rnE '\b(r|req)\.Body\b' --include='*.go' --exclude='*_test.go' internal cmd 2>/dev/null \
+  grep -rnE '\b(r|req|request)\.(take_body|into_body|into_parts|body_mut)\(\)' --include='*.rs' rust/crates 2>/dev/null \
+    | rs_drop_tests \
     | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true
 )
 
@@ -49,7 +61,11 @@ while IFS= read -r line; do
   rest=${line#*:}
   content=${rest#*:}
   allowed=0
+  if grep -qE 'httpreq::(read|decode_json)\(' <<<"$content"; then
+    allowed=1
+  fi
   for ex in "${EXCEPTIONS[@]}"; do
+    (( allowed )) && break
     ex_file=${ex%%|*}
     ex_rest=${ex#*|}
     ex_re=${ex_rest%%|*}
@@ -65,7 +81,7 @@ if [[ -n "$bad" ]]; then
   echo "요청 본문을 httpreq 없이 읽는 자리가 있습니다 (FR-SAF-23):"
   printf '%s' "$bad"
   echo
-  echo "httpreq.Read(w, r, limit) 로 읽으세요. 예외라면 이 스크립트의 등록부에 사유와 함께 적습니다."
+  echo "httpreq::read(body, limit) 로 읽으세요. 예외라면 이 스크립트의 등록부에 사유와 함께 적습니다."
   exit 1
 fi
 

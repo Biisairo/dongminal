@@ -1,6 +1,6 @@
 # GO_REMOVAL_SRS — Go 제거와 Rust 빌드 전환
 > **문서 상태**: 승인·구현중
-> **남은 것**: R1~R10 구현, Q-GRM-13(CI 시험 수단)·Q-GRM-14(Windows 실기)는 사용자 결정 대기
+> **남은 것**: R1~R10 구현, CI 는 병합 뒤 첫 실행으로 확인, Windows 실기는 하지 않음(사용자 결정)
 
 - 문서 형식: ISO/IEC/IEEE 29148:2018 소프트웨어 요구사항 명세(SRS)
 - 요구사항 접두어: `FR-GRM-n`(기능), `NFR-GRM-n`(비기능), `C-GRM-n`(제약), `V-GRM-n`(검증), 자리 목록은 `G-n`, 결정 후보는 `Q-GRM-n`
@@ -335,7 +335,7 @@ Rust 판에서는 Rust 워크스페이스(`rust/`)가 이 모든 자리를 대�
 | 2 | R8 e2e·보조 스크립트 | G-34~G-36·G-53 | ∥ R6 | R1 |
 | 3 | R7 CI 워크플로·dependabot | G-41·G-43~G-52, FR-GRM-13~16 | — | R1·R6·R8, Q-GRM-6·13 |
 | 4 | R9 문서 | G-37·G-42·G-54~G-57·G-72 | — | R1~R8 |
-| 5 | R10 Go 제거와 전량 확인 | G-1~G-3·G-29·G-38·G-39·G-70, FR-GRM-17·18, V-GRM-7·10·20, 이슈 8.1 담당의 e2e 전량 | — | 전부 |
+| 5 | R10 Go 제거와 전량 확인 | G-1~G-3·G-29·G-38·G-39·G-70, FR-GRM-17·18, V-GRM-7·10·20, e2e 전량 **1회**(사용자 결정 2026-11-24: 전량은 모든 작업이 끝난 뒤 여기서 한 번만 돈다. 앞 묶음은 해당 spec 만 돈다) | — | 전부 |
 
 R3·R4 는 게이트가 12개라 한 묶음이 크다. 사람이 부족하면 R3·R4 를 하나로 합쳐도 된다(파일이 겹치지 않는다).
 
@@ -343,7 +343,7 @@ R3·R4 는 게이트가 12개라 한 묶음이 크다. 사람이 부족하면 R3
 
 > 조정자 추가(2026-11-24): **G-74** 프런트 단위 시험(`npm run unit`, web/js/test)이 internal/ 의 시험 벡터 4개와 `internal/webserver/hub/commands.go` 의 cmdActions 표를 직접 읽는다(shared-vectors·cm-lsp·window-order·remote-actions). Rust 쪽 사본·Rust hub 소스를 읽게 바꾼다 — 11.2(R2) 가 맡는다. 출력·통과 수는 같아야 한다.
 
-> 조정자 결정(2026-11-24): Q-GRM-1~12 는 모두 권장안대로 한다(musl 정적, 대상 OS 러너 원생 빌드, version 셋째 칸 유지, Go 참조 대조는 `DM_GO_REF_SRC` 선택 실행, `rust/` 유지, cargo-llvm-cov, clippy+deny+audit, 축 예외 표, "Go 기준선" 표기 인정, rust-toolchain.toml 고정, 빌드 각인 변수는 env-docs 예외, gates.sh `--go` 제거). Q-GRM-13·14 는 사용자 결정 대기 — 그동안 CI 는 로컬에서 같은 단계를 스크립트로 재현해 확인한다.
+> 조정자 결정(2026-11-24): Q-GRM-1~12 는 모두 권장안대로 한다(musl 정적, 대상 OS 러너 원생 빌드, version 셋째 칸 유지, Go 참조 대조는 `DM_GO_REF_SRC` 선택 실행, `rust/` 유지, cargo-llvm-cov, clippy+deny+audit, 축 예외 표, "Go 기준선" 표기 인정, rust-toolchain.toml 고정, 빌드 각인 변수는 env-docs 예외, gates.sh `--go` 제거). Q-GRM-13·14 사용자 결정(2026-11-24): CI 워크플로는 병합 뒤 첫 실행을 시험으로 삼는다(그 전에는 로컬에서 같은 단계를 스크립트로 재현해 확인한다). Windows 실기 검증은 하지 않는다(교차 clippy·빌드까지만).
 
 각 질문에 권장안을 적는다. 사용자나 조정자가 정한다.
 
