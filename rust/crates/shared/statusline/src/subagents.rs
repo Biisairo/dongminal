@@ -8,7 +8,8 @@ pub const SUBAGENT_MAX_TASKS: usize = 32;
 
 /// subagentStatusLine 입력의 `tasks` 원소에서 내보내도 되는 값 전부다 (FR-SAU-1·2).
 /// `label` 과 경로(`cwd`)는 나가지 않는다 (FR-SAU-3). `effort` 는 글자이면 `effort`, 수이면 `effortBudget` 이다.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "statusline.Subagent")]
 #[serde(rename_all = "camelCase")]
 pub struct Subagent {
     #[serde(skip_serializing_if = "Option::is_none")]
