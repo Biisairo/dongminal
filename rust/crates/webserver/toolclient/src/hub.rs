@@ -4,7 +4,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use dm_gocompat::json;
-use dm_shared_toolhub::{BackgroundEntry, ExitInfo, ShellState, ToolInfo, ToolSnapshot};
+use dm_shared_toolhub::{BackgroundEntry, ExitInfo, Placement, ShellState, ToolInfo, ToolSnapshot};
 use dm_shared_toolipc::{
     BackgroundListResult, BusyManyParams, BusyManyResult, BusyResult, CODE_NOT_FOUND,
     CODE_TOOL_CAP, CreateParams, CreateResult, CwdResult, FEATURE_BUSY_MANY, FEATURE_NOTIFY,
@@ -22,16 +22,6 @@ use crate::wire::Empty;
 
 /// 목록 캐시의 수명이다. 그 안의 변경은 push 와 변경 호출이 무효화로 덮는다 (M8 `GO-6`).
 pub const LIST_CACHE_TTL: Duration = Duration::from_millis(200);
-
-/// 도구를 어디에 세울지다 (toolhub `Placement`). toolhub 에 아직 없어 여기 둔다.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Placement {
-    pub window_uuid: String,
-    pub profile: String,
-    pub work: String,
-    pub command: String,
-    pub extra_env: Option<Vec<String>>,
-}
 
 /// 데몬 모드의 도구 신원이다 (Go `Get` 이 주는 합성 Tool 의 ID·Name, `GO-47`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -161,7 +151,8 @@ impl ToolClient {
             cols,
             command: place.command.clone(),
             cwd: cwd.to_owned(),
-            extra_env: place.extra_env.clone(),
+            // Go 의 nil 은 null 이다. toolhub Placement 는 nil 과 빈 slice 를 가르지 않으므로 빈 것을 nil 로 둔다.
+            extra_env: Some(place.extra_env.clone()).filter(|e| !e.is_empty()),
             profile: place.profile.clone(),
             rows,
             window: place.window_uuid.clone(),

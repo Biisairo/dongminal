@@ -16,9 +16,9 @@ pub use client::{
     TOOL_DIAL_TIMEOUT, TOOL_HEARTBEAT_EVERY, TOOL_MAX_BACKOFF, TOOL_RECONNECT_BACKOFF,
     TOOL_RESPAWN_EVERY, ToolClient,
 };
-pub use error::{ERR_TOOL_CAP, ERR_TOOL_NOT_FOUND, Error};
+pub use error::Error;
 pub use ext::EDGE_CALL_WITHIN;
-pub use hub::{LIST_CACHE_TTL, Placement, ToolIdentity};
+pub use hub::{LIST_CACHE_TTL, ToolIdentity};
 pub use push::Unsubscribe;
 
 #[cfg(test)]

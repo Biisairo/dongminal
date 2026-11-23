@@ -5,15 +5,14 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use dm_shared_toolhub::ToolInfo;
+use dm_shared_toolhub::{Placement, ToolInfo};
 use dm_shared_toolipc::{METHOD_CREATE, METHOD_HELLO, METHOD_LIST, PROTOCOL_VERSION};
 use serde_json::json;
 
 use super::{Peer, chan, listen, next_line, ok_fake, resp, version, wait_until};
 use crate::client::{Timing, next_backoff};
 use crate::{
-    Placement, TOOL_CALL_TIMEOUT, TOOL_CREATE_TIMEOUT, TOOL_MAX_BACKOFF, TOOL_RECONNECT_BACKOFF,
-    ToolClient,
+    TOOL_CALL_TIMEOUT, TOOL_CREATE_TIMEOUT, TOOL_MAX_BACKOFF, TOOL_RECONNECT_BACKOFF, ToolClient,
 };
 
 /// 연결은 받되 답하지 않는다 — hello 가 시한에 닿는다 (FR-14).

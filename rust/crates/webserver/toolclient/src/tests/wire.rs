@@ -17,7 +17,8 @@ use serde_json::{Value, json};
 use super::{
     Peer, chan, dial, err_resp, fake, listen, next_line, no_line, ok_fake, raw_fake, resp, version,
 };
-use crate::{Error, Placement, ToolClient};
+use crate::{Error, ToolClient};
+use dm_shared_toolhub::Placement;
 
 #[test]
 fn hello_params_wire() {
@@ -43,7 +44,8 @@ fn request_wire_golden() {
                     profile: "p".into(),
                     command: "c".into(),
                     work: "k".into(),
-                    extra_env: Some(vec!["A=1".into()]),
+                    extra_env: vec!["A=1".into()],
+                    ..Placement::default()
                 };
                 let _ = pc.create("/tmp", 80, 24, &place);
             }),
