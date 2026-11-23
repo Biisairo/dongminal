@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::sync::LazyLock;
 
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 mod subagents;
@@ -43,7 +43,8 @@ fn obj_at<'a>(m: &'a Obj, path: &str) -> Option<&'a Obj> {
     lookup(m, path)?.as_object()
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "statusline.Model")]
 pub struct Model {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
@@ -51,7 +52,8 @@ pub struct Model {
     pub display_name: Option<String>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "statusline.Cost")]
 #[serde(rename_all = "camelCase")]
 pub struct Cost {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -66,7 +68,8 @@ pub struct Cost {
     pub total_lines_removed: Option<f64>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "statusline.CurrentUsage")]
 #[serde(rename_all = "camelCase")]
 pub struct CurrentUsage {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -79,7 +82,8 @@ pub struct CurrentUsage {
     pub cache_read_input_tokens: Option<f64>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "statusline.ContextWindow")]
 #[serde(rename_all = "camelCase")]
 pub struct ContextWindow {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -96,7 +100,8 @@ pub struct ContextWindow {
     pub current_usage: Option<CurrentUsage>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "statusline.RateWindow")]
 #[serde(rename_all = "camelCase")]
 pub struct RateWindow {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -107,7 +112,8 @@ pub struct RateWindow {
 
 /// statusLine 입력에서 내보내도 되는 값 전부다. 경로·본문(`transcript_path`·`cwd`·`workspace.*`)은
 /// 여기 없으므로 나가지 않는다 (FR-SLP-2a). 필드 순서·이름은 Go 와 같다.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename = "statusline.Usage")]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -228,3 +234,51 @@ pub fn from_input(raw: &[u8]) -> Option<Usage> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod decode_tests {
+    use super::*;
+
+    /// 기록을 다시 읽는다 — 데몬·서버가 보고 본문을 해석한다 (agentrec).
+    #[test]
+    fn usage_round_trips_through_json() {
+        let u = Usage {
+            session_id: Some("s".into()),
+            model: Some(Model {
+                id: Some("m".into()),
+                display_name: Some("M".into()),
+            }),
+            exceeds_200k: Some(true),
+            context_window: Some(ContextWindow {
+                used_pct: Some(12.5),
+                current_usage: Some(CurrentUsage {
+                    input_tokens: Some(3.0),
+                    ..CurrentUsage::default()
+                }),
+                ..ContextWindow::default()
+            }),
+            rate_limits: Some(BTreeMap::from([(
+                "five_hour".to_owned(),
+                RateWindow {
+                    used_pct: Some(40.0),
+                    resets_at: Some(1.0),
+                },
+            )])),
+            ..Usage::default()
+        };
+        let raw = dm_gocompat::json::marshal(&u).unwrap();
+        assert_eq!(dm_gocompat::json::unmarshal::<Usage>(&raw).unwrap(), u);
+        let s: Subagent =
+            dm_gocompat::json::unmarshal(br#"{"id":"a","agentType":"Explore","tokens":5}"#)
+                .unwrap();
+        assert_eq!(
+            (s.id.as_deref(), s.agent_type.as_deref(), s.tokens),
+            (Some("a"), Some("Explore"), Some(5.0))
+        );
+        let err = dm_gocompat::json::unmarshal::<Usage>(br#"{"thinking":"x"}"#).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "json: cannot unmarshal string into Go struct field Usage.thinking of type bool"
+        );
+    }
+}

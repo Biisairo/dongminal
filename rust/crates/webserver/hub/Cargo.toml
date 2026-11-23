@@ -21,3 +21,9 @@ dm-webserver-domain-git-core = { path = "../domain/git/core" }
 dm-webserver-domain-git-query = { path = "../domain/git/query" }
 dm-webserver-domain-git-store = { path = "../domain/git/store" }
 dm-webserver-sse = { path = "../sse" }
+dm-gocompat = { path = "../../gocompat" }
+futures-util = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }

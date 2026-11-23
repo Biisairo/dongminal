@@ -10,5 +10,12 @@ publish = false
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../../gocompat" }
 dm-shared-diagtail = { path = "../../../shared/diagtail" }
 dm-webserver-domain-git-core = { path = "../git/core" }
+serde = { workspace = true }
+
+[dev-dependencies]
+dm-shared-gittest = { path = "../../../shared/gittest" }
+tempfile = { workspace = true }
+tokio = { workspace = true }

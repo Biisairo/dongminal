@@ -116,6 +116,7 @@ fn install_matches_go() {
         write(&b.join("bash-hook.sh"), "old", 0o644);
         write(&b.join("agent-hooks/claude.json"), "{}", 0o600);
         write(&b.join("user-file.txt"), "사용자", 0o644);
+        fs::create_dir_all(b.join("dmctl")).unwrap();
     });
 
     // 덧없는 자기 경로(`go run`): 실체를 bin 안에 복사하고 헬퍼가 그것을 가리킨다.

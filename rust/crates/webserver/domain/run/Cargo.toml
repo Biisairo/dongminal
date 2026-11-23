@@ -17,3 +17,8 @@ dm-shared-platform = { path = "../../../shared/platform" }
 dm-shared-pollwait = { path = "../../../shared/pollwait" }
 dm-shared-runfile = { path = "../../../shared/runfile" }
 dm-shared-uuid = { path = "../../../shared/uuid" }
+dm-gocompat = { path = "../../../gocompat" }
+serde = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -344,3 +344,17 @@ fn link_or_copy_resolves_to_source() {
         assert_eq!(fs::read_to_string(&dst).unwrap().trim(), want);
     }
 }
+
+/// Go `os.Remove` 처럼 옆으로 밀어 둔 빈 디렉터리도 지운다 — `<dst>.old` 가 남지 않는다.
+#[test]
+fn copy_executable_over_empty_dir_leaves_no_aside() {
+    let d = tempfile::tempdir().unwrap();
+    let src = d.path().join("src");
+    std::fs::write(&src, b"bin").unwrap();
+    let dst = d.path().join("dmctl");
+    std::fs::create_dir(&dst).unwrap();
+    std::fs::create_dir(d.path().join("dmctl.old")).unwrap();
+    crate::copy_executable(&src, &dst).unwrap();
+    assert_eq!(std::fs::read(&dst).unwrap(), b"bin");
+    assert!(!d.path().join("dmctl.old").exists());
+}

@@ -10,8 +10,30 @@ publish = false
 workspace = true
 
 [dependencies]
+base64 = { workspace = true }
+bytes = { workspace = true }
+dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
 dm-shared-dmenv = { path = "../dmenv" }
 dm-shared-dmlog = { path = "../dmlog" }
 dm-shared-httpresp = { path = "../httpresp" }
 dm-shared-platform = { path = "../platform" }
 dm-shared-termtext = { path = "../termtext" }
+hex = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+p256 = { workspace = true }
+rand = { workspace = true }
+rcgen = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+subtle = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tokio-rustls = { workspace = true }
+x509-parser = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
