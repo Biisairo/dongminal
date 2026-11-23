@@ -891,3 +891,33 @@ fn runtime_start_commands() {
     let r = start_runtime("darwin", &|_, _| RunOutput::fail("no app", "exit status 1"));
     assert_eq!((r.started, r.detail.as_str()), (false, "no app"));
 }
+
+#[test]
+fn crate_dir_is_manifest_dir_in_dev_build() {
+    assert_eq!(crate::helper::CRATE_DIR, env!("CARGO_MANIFEST_DIR"));
+    let root =
+        crate::helper::source_root_from(std::path::Path::new(crate::helper::CRATE_DIR)).unwrap();
+    assert!(std::path::Path::new(&root).join("Cargo.lock").exists());
+}
+
+#[test]
+fn source_root_walks_up_to_cargo_lock() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("Cargo.lock"), "").unwrap();
+    let deep = d.path().join("crates/shared/sandbox");
+    std::fs::create_dir_all(&deep).unwrap();
+    assert_eq!(
+        crate::helper::source_root_from(&deep).unwrap(),
+        d.path().to_string_lossy()
+    );
+}
+
+// 릴리스(trimpath) 빌드의 상대 경로는 작업 디렉터리 기준으로만 찾는다 — Go -trimpath 의
+// 모듈 상대 경로와 같다. 시험의 작업 디렉터리(crate 루트)에는 Cargo.lock 이 없다.
+#[test]
+fn trimmed_relative_path_fails_outside_source_tree() {
+    assert_eq!(
+        crate::helper::source_root_from(std::path::Path::new("crates/shared/sandbox")),
+        Err("소스 트리를 찾을 수 없습니다(crates/shared/sandbox 에서 위로 Cargo.lock 없음)".into())
+    );
+}
