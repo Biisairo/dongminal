@@ -52,7 +52,9 @@ pub use help::{
     usage_uninstall, usage_update, usage_verify, usage_window,
 };
 pub use homelayout::{HomeEntry, home_layout};
-pub use logcap::{LOG_CHECK_EVERY, LOG_KEEP_BYTES, LOG_MAX_BYTES, watch_log_size};
+pub use logcap::{
+    LOG_CHECK_EVERY, LOG_KEEP_BYTES, LOG_MAX_BYTES, watch_log_size, watch_log_size_in,
+};
 pub use migrate::run_migrate;
 pub use options::{
     Common, DEFAULT_HOST, DEFAULT_PORT, DoctorOpts, ENV_HOME, ENV_HOST, ENV_LOG, ENV_PORT,
