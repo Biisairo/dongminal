@@ -897,11 +897,14 @@ dependencies = [
 name = "dm-shared-sandboxplace"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
+ "dm-shared-dmenv",
  "dm-shared-dmlog",
  "dm-shared-platform",
  "dm-shared-sandbox",
  "dm-shared-serverconf",
  "dm-shared-toolhub",
+ "tempfile",
 ]
 
 [[package]]
