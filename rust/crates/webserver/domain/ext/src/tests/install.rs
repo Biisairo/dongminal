@@ -408,3 +408,27 @@ async fn service_install_rejects_unknown_and_duplicate() {
     let (sts, _) = svc.status(&HashMap::new());
     assert!(!sts[0].installing, "끝난 조달이 진행 중으로 남았다");
 }
+
+// FR-RDF-11: 상대 PATH 항목에서만 찾은 실행 파일은 Go exec.Command 처럼 ErrDot 문구다.
+#[cfg(unix)]
+#[test]
+fn host_exe_reports_err_dot() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = tempfile::tempdir().unwrap();
+    let exe = d.path().join("dm-dot-tool");
+    std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
+    std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let rel = filepath::rel(
+        &std::env::current_dir().unwrap().to_string_lossy(),
+        &d.path().to_string_lossy(),
+    )
+    .unwrap();
+    assert_eq!(
+        crate::install::host_exe_in("dm-dot-tool", &rel).unwrap_err(),
+        r#"exec: "dm-dot-tool": cannot run executable found relative to current directory"#
+    );
+    assert_eq!(
+        crate::install::host_exe_in("/bin/sh", "").unwrap(),
+        "/bin/sh"
+    );
+}

@@ -603,3 +603,30 @@ async fn ctx_first_reason_wins() {
     d.cancel();
     assert_eq!(d.err(), Some(CtxError::DeadlineExceeded));
 }
+
+// FR-RDF-11: 상대 PATH 항목에서만 찾은 git 은 Go 처럼 ErrDot 문구의 GitMissing 이다. 실행하지 않는다.
+#[cfg(unix)]
+#[tokio::test]
+async fn exec_git_err_dot() {
+    use std::os::unix::fs::PermissionsExt;
+    let bin = temp_dir();
+    let fake = Path::new(&bin.path).join("git");
+    std::fs::write(&fake, b"#!/bin/sh\nexit 0\n").unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let rel = dm_gocompat::filepath::rel(
+        &std::env::current_dir().unwrap().to_string_lossy(),
+        &bin.path,
+    )
+    .unwrap();
+    let dir = temp_dir();
+    let s = Service::builder().path_env(&rel).build();
+    let err = s
+        .exec(&bg(), &dir.path, &["rev-parse", "--show-toplevel"])
+        .await
+        .unwrap_err();
+    assert!(err.is(Kind::GitMissing), "{err}");
+    assert_eq!(
+        err.to_string(),
+        "git_missing: exec: \"git\": cannot run executable found relative to current directory"
+    );
+}

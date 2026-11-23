@@ -604,3 +604,13 @@ fn tail_reads_only_the_end() {
     assert!(!got.contains('앞'));
     assert_eq!(got.matches("line").count(), 20);
 }
+
+// FR-RDF-9: start·doctor·backup 의 MkdirAll 은 gocompat 의 Go 알고리즘이다. 막힌 그 칸의 경로로 낸다.
+#[test]
+fn mkdir_all_error_matches_go() {
+    let d = tempfile::tempdir().unwrap();
+    let blocker = dm_gocompat::filepath::join(&[d.path().to_str().unwrap(), "f"]);
+    std::fs::write(&blocker, "x").unwrap();
+    let e = crate::start::mkdir_all(&format!("{blocker}/a/b"), 0o700).unwrap_err();
+    assert_eq!(e.to_string(), format!("mkdir {blocker}: not a directory"));
+}

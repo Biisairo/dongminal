@@ -430,6 +430,17 @@ fn write_remove_addr() {
     ));
 }
 
+// FR-RDF-9: 홈이 파일이면 Go os.MkdirAll 처럼 막힌 그 칸(홈)의 경로로 not a directory 를 낸다.
+#[test]
+fn write_addr_mkdir_error_matches_go() {
+    let d = tmp();
+    let home = d.path().join("f");
+    std::fs::write(&home, "x").unwrap();
+    let h = home.to_string_lossy().into_owned();
+    let e = write_addr(&home, "127.0.0.1:1").unwrap_err();
+    assert_eq!(e.to_string(), format!("mkdir {h}: not a directory"));
+}
+
 // FR-UPD-12: 기본은 켜짐이고, 키가 없었다는 사실도 함께 나온다 (FR-UPD-10).
 #[test]
 fn update_check_defaults_on_and_unset() {

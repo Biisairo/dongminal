@@ -1,12 +1,13 @@
 //! 설치 — 이 에이전트가 붙기 위해 디스크에 놓아야 할 것 (FR-AAC-1~6). 경로 규칙은 runtime 이 안다.
 
-use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use dm_gocompat::json;
-use dm_gocompat::oserr::path_error;
 use dm_shared_platform::write_file_if_changed;
+
+/// 설치 디렉터리의 권한 (Go `os.MkdirAll(..., 0o755)`).
+const DIR_PERM: u32 = 0o755;
 
 /// 자산을 놓을 자리들 (FR-AAC-2).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -37,32 +38,7 @@ pub(crate) fn write_json(path: &Path, v: &serde_json::Value) -> io::Result<()> {
     write_file_if_changed(path, &blob, 0o644)
 }
 
-/// Go `os.MkdirAll(p, 0o755)`. 알고리즘과 오류 문구가 같다.
+/// Go `os.MkdirAll(p, 0o755)`.
 pub(crate) fn mkdir_all(p: &Path) -> io::Result<()> {
-    let s = p.to_string_lossy();
-    match fs::metadata(p) {
-        Ok(m) if m.is_dir() => return Ok(()),
-        Ok(_) => {
-            return Err(path_error(
-                "mkdir",
-                &s,
-                io::Error::new(io::ErrorKind::NotADirectory, "not a directory"),
-            ));
-        }
-        Err(_) => {}
-    }
-    if let Some(parent) = p.parent().filter(|q| !q.as_os_str().is_empty()) {
-        mkdir_all(parent)?;
-    }
-    #[cfg_attr(not(unix), allow(unused_mut))]
-    let mut b = fs::DirBuilder::new();
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o755);
-    if let Err(e) = b.create(p) {
-        if fs::symlink_metadata(p).is_ok_and(|m| m.is_dir()) {
-            return Ok(());
-        }
-        return Err(path_error("mkdir", &s, e));
-    }
-    Ok(())
+    dm_gocompat::oserr::mkdir_all(&p.to_string_lossy(), DIR_PERM)
 }

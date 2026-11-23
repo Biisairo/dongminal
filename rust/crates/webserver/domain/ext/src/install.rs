@@ -60,11 +60,6 @@ pub struct HostExec;
 /// Go `ErrWaitDelay`.
 const ERR_WAIT_DELAY: &str = "exec: WaitDelay expired before I/O complete";
 
-#[cfg(windows)]
-const NOT_FOUND_IN_PATH: &str = "executable file not found in %PATH%";
-#[cfg(not(windows))]
-const NOT_FOUND_IN_PATH: &str = "executable file not found in $PATH";
-
 impl Exec for HostExec {
     fn exec<'a>(
         &'a self,
@@ -78,24 +73,24 @@ impl Exec for HostExec {
     }
 }
 
+/// Go `exec.Command`: 구분자 없는 이름은 PATH 에서 찾는다.
+pub(crate) fn host_exe_in(name: &str, path_env: &str) -> Result<String, String> {
+    if name.bytes().any(filepath::is_path_separator) {
+        return Ok(name.to_owned());
+    }
+    dm_shared_platform::try_look_path_in(name, path_env)
+        .map_err(|e| dm_shared_platform::exec_error(name, e))
+}
+
 async fn run_host(ctx: &Ctx, name: &str, args: &[String], env: &[String], dir: &str) -> ExecResult {
     let fail = |e: String| ExecResult {
         out: Vec::new(),
         err: Some(e),
     };
-    // Go `exec.Command`: 구분자 없는 이름은 PATH 에서 찾는다.
-    let path = if name.bytes().any(filepath::is_path_separator) {
-        name.to_owned()
-    } else {
-        match dm_shared_platform::look_path(name) {
-            Some(p) => p,
-            None => {
-                return fail(format!(
-                    "exec: {}: {NOT_FOUND_IN_PATH}",
-                    dm_gocompat::strconv::quote(name)
-                ));
-            }
-        }
+    let key = if cfg!(windows) { "path" } else { "PATH" };
+    let path = match host_exe_in(name, &std::env::var(key).unwrap_or_default()) {
+        Ok(p) => p,
+        Err(e) => return fail(e),
     };
     let (reader, writer) = match std::io::pipe() {
         Ok(p) => p,

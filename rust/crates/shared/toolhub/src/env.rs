@@ -10,6 +10,8 @@ use dm_shared_dmlog::infof;
 
 /// 인스턴스 홈 아래에서 도구 히스토리가 사는 자리다 (D-4).
 pub(crate) const TOOL_HIST_DIR: &str = "tool-history";
+/// 히스토리 디렉터리의 권한 (Go `os.MkdirAll(dir, 0o700)`).
+const HIST_DIR_PERM: u32 = 0o700;
 
 /// 환경 조회다. 검사가 프로세스 환경을 바꾸지 않고 값을 주입하는 자리다.
 pub(crate) type Getenv<'a> = &'a dyn Fn(&str) -> String;
@@ -160,12 +162,8 @@ pub(crate) fn tool_hist_env(g: Getenv, id: &str, shell_path: &str) -> Vec<String
         return Vec::new();
     }
     let dir = filepath::join(&[home.as_str(), TOOL_HIST_DIR]);
-    if let Err(e) = mkdir_all_0700(Path::new(&dir)) {
-        infof!(
-            None,
-            "[tool {id}] history dir: {}",
-            dm_gocompat::oserr::path_error("mkdir", &dir, e)
-        );
+    if let Err(e) = mkdir_hist_dir(&dir) {
+        infof!(None, "[tool {id}] history dir: {e}");
         return Vec::new();
     }
     let name = format!("{id}.{shell}");
@@ -177,12 +175,9 @@ pub(crate) fn tool_hist_env(g: Getenv, id: &str, shell_path: &str) -> Vec<String
     ]
 }
 
-fn mkdir_all_0700(dir: &Path) -> std::io::Result<()> {
-    let mut b = std::fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o700);
-    b.create(dir)
+/// Go `os.MkdirAll(dir, 0o700)`.
+fn mkdir_hist_dir(dir: &str) -> std::io::Result<()> {
+    dm_gocompat::oserr::mkdir_all(dir, HIST_DIR_PERM)
 }
 
 /// 그 셸이 평소 쓰는 히스토리 자리다 (FR-HPR-16). PowerShell 은 PSReadLine 의 고정 자리다.

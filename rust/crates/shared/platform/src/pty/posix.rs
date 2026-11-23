@@ -13,7 +13,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, RwLock};
 
 use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_gocompat::strconv::quote;
 
 use super::{ProcSpec, Pty, Terminal, clamp_size, closed_error, dedup_env, env_key_as_is};
 use crate::handover::{Frozen, Handover};
@@ -95,8 +94,11 @@ fn open_pty(cols: u16, rows: u16) -> io::Result<(OwnedFd, OwnedFd)> {
 
 /// 구분자가 없는 이름을 이 프로세스의 PATH 로 찾는다 (Go `exec.Command` 의 LookPath).
 fn resolve(file: &str) -> Result<String, String> {
-    crate::look_path(file)
-        .ok_or_else(|| format!("exec: {}: executable file not found in $PATH", quote(file)))
+    resolve_in(file, &crate::shell::os_env("PATH"))
+}
+
+fn resolve_in(file: &str, path_env: &str) -> Result<String, String> {
+    crate::try_look_path_in(file, path_env).map_err(|e| crate::exec_error(file, e))
 }
 
 /// 자식에서 쓸 argv·envp. fork 전에 모두 만들어 둔다(자식에서는 할당하지 않는다).

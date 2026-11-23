@@ -8,7 +8,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 
 use dm_gocompat::filepath;
-use dm_gocompat::oserr::path_error;
+use dm_gocompat::oserr;
 use dm_shared_httpresp::Response;
 use dm_webserver_action::{self as action, Answer, deny};
 use dm_webserver_apierr as apierr;
@@ -131,20 +131,6 @@ fn worktree_remove_body(res: &RemoveResult) -> Obj {
     }
 }
 
-#[cfg(unix)]
-fn mkdir_all(p: &str, mode: u32) -> io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-    std::fs::DirBuilder::new()
-        .recursive(true)
-        .mode(mode)
-        .create(p)
-}
-
-#[cfg(not(unix))]
-fn mkdir_all(p: &str, _mode: u32) -> io::Result<()> {
-    std::fs::create_dir_all(p)
-}
-
 /// 없는 조상 디렉터리를 만들고, 새로 만든 것들을 깊은 것부터 돌려준다 — 등록이 실패하면 그것만
 /// 지운다.
 fn mkdir_parents(dir: &str) -> io::Result<Vec<String>> {
@@ -161,7 +147,7 @@ fn mkdir_parents(dir: &str) -> io::Result<Vec<String>> {
         }
         p = parent;
     }
-    mkdir_all(dir, PARENT_DIR_PERM).map_err(|e| path_error("mkdir", dir, e))?;
+    oserr::mkdir_all(dir, PARENT_DIR_PERM)?;
     Ok(missing)
 }
 
@@ -528,5 +514,21 @@ impl GitServer {
         Ok(self
             .worktree_place_answer(ctx, root, &path, name, new_branch)
             .await)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // FR-RDF-9: 조상이 파일이면 Go os.MkdirAll 처럼 막힌 그 칸의 경로로 not a directory 를 낸다.
+    #[test]
+    fn mkdir_parents_error_matches_go() {
+        let t = tempfile::tempdir().unwrap();
+        let blocker = filepath::join(&[t.path().to_str().unwrap(), "f"]);
+        std::fs::write(&blocker, "x").unwrap();
+        let dir = filepath::join(&[blocker.as_str(), "a", "b"]);
+        let e = mkdir_parents(&dir).unwrap_err();
+        assert_eq!(e.to_string(), format!("mkdir {blocker}: not a directory"));
     }
 }

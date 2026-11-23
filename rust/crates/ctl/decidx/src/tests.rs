@@ -139,3 +139,24 @@ fn render_matches_go_generated_index() {
         );
     }
 }
+
+// FR-RDF-10: 읽을 수 없는 결정 파일은 Go os.ReadFile 처럼 `open <경로>: permission denied` 다.
+#[cfg(unix)]
+#[test]
+fn collect_unreadable_file_carries_path() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = tempfile::tempdir().unwrap();
+    write_srs(d.path(), "A_SRS.md", "x\n");
+    let p = d.path().join("A_SRS.md");
+    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o000)).unwrap();
+    // root 는 권한 검사를 건너뛴다.
+    if std::fs::read(&p).is_ok() {
+        return;
+    }
+    let e = collect(d.path()).unwrap_err();
+    assert_eq!(
+        e.to_string(),
+        format!("open {}: permission denied", p.display())
+    );
+    assert_eq!(e.kind(), std::io::ErrorKind::PermissionDenied);
+}

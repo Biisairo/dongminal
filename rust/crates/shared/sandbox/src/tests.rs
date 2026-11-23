@@ -381,6 +381,26 @@ fn find_runtime() {
     );
 }
 
+// FR-RDF-11: 상대 PATH 항목에서만 찾은 docker 는 Go 처럼 ErrDot 문구다.
+#[cfg(unix)]
+#[test]
+fn look_path_reports_err_dot() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = tempfile::tempdir().unwrap();
+    let exe = d.path().join("dm-dot-docker");
+    std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
+    std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let rel = dm_gocompat::filepath::rel(
+        &std::env::current_dir().unwrap().to_string_lossy(),
+        &d.path().to_string_lossy(),
+    )
+    .unwrap();
+    assert_eq!(
+        super::look_path_in("dm-dot-docker", &rel).unwrap_err(),
+        r#"exec: "dm-dot-docker": cannot run executable found relative to current directory"#
+    );
+}
+
 #[test]
 fn save_failed_text() {
     assert_eq!(

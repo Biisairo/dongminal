@@ -7,7 +7,7 @@
 use std::io;
 
 use dm_gocompat::filepath;
-use dm_gocompat::oserr::{go_error_string, path_error};
+use dm_gocompat::oserr::{self, go_error_string, path_error};
 use dm_shared_httpresp::Response;
 use dm_webserver_apierr as apierr;
 use dm_webserver_domain_git_query as query;
@@ -87,20 +87,6 @@ fn set_file_mode(f: &std::fs::File, mode: u32) -> io::Result<()> {
     }
 }
 
-#[cfg(unix)]
-fn mkdir_all(p: &str, mode: u32) -> io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-    std::fs::DirBuilder::new()
-        .recursive(true)
-        .mode(mode)
-        .create(p)
-}
-
-#[cfg(not(unix))]
-fn mkdir_all(p: &str, _mode: u32) -> io::Result<()> {
-    std::fs::create_dir_all(p)
-}
-
 /// 공유 임시 디렉터리 아래의 자리가 내 것인가다 (FR-RSP-6). 다른 사용자가 미리 만들었거나 심링크로
 /// 바꿔 둔 자리면 그 안에 쓰지 않는다 — 쓰기·chmod 가 남의 파일을 따라간다.
 #[cfg(unix)]
@@ -146,7 +132,7 @@ fn write_head_temp(root: &str, rel: &str, content: &str) -> io::Result<String> {
     let base = filepath::join(&[top.as_str(), &sum[..HEAD_HASH_LEN]]);
     let abs = filepath::join(&[base.as_str(), &filepath::from_slash(rel)]);
     let dir = filepath::dir(&abs);
-    mkdir_all(&dir, HEAD_DIR_PERM).map_err(|e| path_error("mkdir", &dir, e))?;
+    oserr::mkdir_all(&dir, HEAD_DIR_PERM)?;
     check_private_dir(&top).map_err(|e| path_error("mkdir", &top, e))?;
     // 이미 있으면 쓰기 권한을 먼저 되돌린다 — 아래에서 읽기 전용으로 둔다. 심링크는 따라가지 않는다.
     match std::fs::symlink_metadata(&abs) {
@@ -268,12 +254,13 @@ impl GitServer {
 
 #[cfg(all(test, unix))]
 mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
     use super::*;
 
     // FR-RSP-6: 자리를 다시 쓰면 같은 경로·읽기 전용이고, 끝 성분이 심링크면 따라가지 않는다.
     #[test]
     fn head_temp_rewrites_and_refuses_symlink() {
-        use std::os::unix::fs::PermissionsExt;
         let root = format!("/head-temp-test/{}", std::process::id());
         let a = write_head_temp(&root, "d/a.txt", "one").unwrap();
         let b = write_head_temp(&root, "d/a.txt", "two").unwrap();
@@ -294,5 +281,22 @@ mod tests {
         let dir = filepath::dir(&filepath::dir(&a));
         let _ = std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o600));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // FR-RDF-9: 조상이 파일이면 Go os.MkdirAll 처럼 막힌 그 칸의 경로로 not a directory 를 낸다.
+    #[test]
+    fn head_temp_mkdir_error_matches_go() {
+        let root = format!("/head-temp-mkdir-test/{}", std::process::id());
+        let a = write_head_temp(&root, "a.txt", "one").unwrap();
+        let base = filepath::dir(&a);
+        let blocker = filepath::join(&[base.as_str(), "f"]);
+        std::fs::write(&blocker, "x").unwrap();
+        let err = write_head_temp(&root, "f/x/a.txt", "two").unwrap_err();
+        assert_eq!(
+            go_error_string(&err),
+            format!("mkdir {blocker}: not a directory")
+        );
+        let _ = std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o600));
+        let _ = std::fs::remove_dir_all(base);
     }
 }

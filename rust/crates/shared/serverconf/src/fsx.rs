@@ -21,15 +21,5 @@ pub(crate) fn read_file(path: &Path) -> io::Result<Vec<u8>> {
 
 /// Go `os.MkdirAll(path, perm)`.
 pub(crate) fn mkdir_all(path: &Path, perm: u32) -> io::Result<()> {
-    let mut b = fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        b.mode(perm);
-    }
-    #[cfg(not(unix))]
-    let _ = perm;
-    b.create(path)
-        .map_err(|e| path_error("mkdir", &lossy(path), e))
+    dm_gocompat::oserr::mkdir_all(&lossy(path), perm)
 }

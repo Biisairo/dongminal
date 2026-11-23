@@ -533,3 +533,24 @@ fn policy_injection_matches_shell_wrappers() {
         }
     }
 }
+
+// FR-RDF-9: MkdirAll 은 gocompat 의 Go 알고리즘이다. 막힌 칸의 경로로 내고, `x/.` 도 만든다.
+#[test]
+fn mkdir_all_matches_go() {
+    let d = tmp();
+    let blocker = d.path().join("f");
+    fs::write(&blocker, "x").unwrap();
+    let bin = blocker.join("bin");
+    let e = install_with(&bin, &blocker).unwrap_err();
+    assert_eq!(
+        go_error_string(&e),
+        format!(
+            "mkdir {}: mkdir {}: not a directory",
+            bin.display(),
+            blocker.display()
+        )
+    );
+    let dot = format!("{}/new/.", d.path().display());
+    mkdir_all(Path::new(&dot)).unwrap();
+    assert!(d.path().join("new").is_dir());
+}

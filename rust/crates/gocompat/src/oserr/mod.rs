@@ -17,8 +17,11 @@
     ),
 ))]
 mod errno_table;
+mod mkdir;
 #[cfg(windows)]
 mod windows;
+
+pub use mkdir::mkdir_all;
 
 use std::fmt;
 use std::io;
