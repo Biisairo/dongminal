@@ -6,27 +6,25 @@
 use std::io;
 use std::process::{Child, Command, ExitStatus};
 
-/// Go `*exec.ExitError` 의 문구(`exit status N`·`signal: …`)다. 종료 코드가 없고 신호로 끝났으면
-/// 신호 이름을 붙인다 — 이름은 OS 마다 달라 여기서 짝짓는다.
+/// Go `*exec.ExitError` 의 문구다 — `ProcessState.String()` 과 같다(`exit status N`·
+/// `signal: segmentation fault`·`… (core dumped)`·Windows 의 `exit status 0xc0000005`).
 pub fn exit_status_text(st: &ExitStatus) -> String {
-    if let Some(c) = st.code() {
-        return format!("exit status {c}");
-    }
     #[cfg(unix)]
     {
         use std::os::unix::process::ExitStatusExt;
-        if let Some(sig) = st.signal() {
-            let name = match sig {
-                libc::SIGHUP => "hangup".to_string(),
-                libc::SIGINT => "interrupt".to_string(),
-                libc::SIGKILL => "killed".to_string(),
-                libc::SIGTERM => "terminated".to_string(),
-                n => format!("signal {n}"),
-            };
-            return format!("signal: {name}");
+        #[cfg(target_os = "macos")]
+        let os = crate::gowait::WaitOs::Darwin;
+        #[cfg(not(target_os = "macos"))]
+        let os = crate::gowait::WaitOs::Linux;
+        crate::gowait::wait_status_text(os, st.into_raw() as u32)
+    }
+    #[cfg(windows)]
+    {
+        match st.code() {
+            Some(c) => crate::gowait::windows_exit_text(c as u32),
+            None => st.to_string(),
         }
     }
-    st.to_string()
 }
 
 /// "정중히 종료하라" 는 요청으로 받아들일 신호.
