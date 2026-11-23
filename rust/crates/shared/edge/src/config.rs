@@ -174,7 +174,7 @@ pub(crate) fn go_lower(s: &str) -> String {
 }
 
 /// Go `strings.EqualFold` 와 같이 글자마다 대소문자를 무시해 비교한다.
-fn equal_fold(a: &str, b: &str) -> bool {
+pub(crate) fn equal_fold(a: &str, b: &str) -> bool {
     let fold = |c: char| c.to_lowercase().next().unwrap_or(c);
     a.chars().count() == b.chars().count()
         && a.chars().zip(b.chars()).all(|(x, y)| {
