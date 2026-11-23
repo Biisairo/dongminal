@@ -78,16 +78,16 @@
 
 - **FR-PAR-40** `dm-parity --go <경로> --rust <경로> [--issues <이슈 폴더>] [--only <이름>]... [--list] [--keep]` 은 등록된 시나리오를 돌린다. 시나리오마다 `ok`·`DIFF`·`PEND` 중 하나를 찍고, 끝에 `<N>개 중 같음 a, 다름 b, 보류 c` 를 찍는다. 다름이 없으면 종료 코드 0, 있으면 1, 사용법·설정 오류면 2 다. `--list` 는 이름과 담당 이슈를 탭으로 나눠 찍는다. `--keep` 은 쪽 뿌리를 지우지 않고 경로를 찍는다. `--issues` 가 없으면 환경변수 `DM_PARITY_ISSUES` 를 쓴다.
 - **FR-PAR-42** 담당 이슈의 상태는 이슈 폴더의 `*.md` 머리말(`id`, `status`)에서 읽는다. 차이가 있고 담당 이슈의 상태가 `done` 이 아니면 그 시나리오는 보류(`PEND`)이고 다름으로 세지 않는다. 시나리오 오류, 담당 이슈가 없는 시나리오의 차이, 담당 이슈를 폴더에서 찾지 못한 시나리오의 차이는 다름이다. 선택한 시나리오에 담당 이슈가 있는데 이슈 폴더가 주어지지 않으면 종료 코드 2 다.
-- **FR-PAR-41** `rust/parity/run.sh` 는 Go 참조 바이너리를 `rust/target/go-ref/dongminal` 에 만들고(저장소 루트에 만들지 않는다), Rust 바이너리를 `cargo build -p dongminal` 으로 만든 뒤, `rust/scripts/hermetic.sh` 아래에서 `dm-parity` 를 돌린다. 이슈 폴더는 `DM_PARITY_ISSUES` 가 있으면 그것, 없으면 `<저장소>/rust-port/issues` 다. 인자는 `dm-parity` 에 넘긴다.
+- **FR-PAR-41** `rust/parity/run.sh` 는 Go 참조 바이너리를 첫 인자 `--go-bin <경로>`(또는 `--go-bin=<경로>`)로 받거나, 없으면 `DM_GO_REF_SRC`(`main` 의 worktree)에서 `rust/scripts/go-ref.sh` 로 `rust/target/go-ref/dongminal` 에 만든다(저장소 루트에 만들지 않는다). 둘 다 없거나 바이너리가 실행할 수 없으면 stderr 에 `parity: Go 참조가 없다 …` 류 한 줄을 찍고 종료 2 다 (GO_REMOVAL_SRS G-65). 그 뒤 Rust 바이너리를 `cargo build -p dongminal` 으로 만든 뒤, `rust/scripts/hermetic.sh` 아래에서 `dm-parity` 를 돌린다. 이슈 폴더는 `DM_PARITY_ISSUES` 가 있으면 그것, 없으면 `<저장소>/rust-port/issues` 다. 인자는 `dm-parity` 에 넘긴다.
 
 ### 2.7 e2e 바이너리 경로 (FR-RSP-31)
 
-- **FR-PAR-50** `e2e/global-setup.ts` 는 `DM_E2E_PREBUILT_BIN` 이 비어 있지 않으면 `go build` 대신 그 경로의 파일을 `E2E_BIN` 으로 복사하고 실행 권한(0755)을 준다. 비어 있거나 없으면 지금과 똑같이 `go build` 한다. 경로의 파일이 없으면 복사 오류로 실패한다.
+- **FR-PAR-50** `e2e/global-setup.ts` 는 `DM_E2E_PREBUILT_BIN` 이 비어 있지 않으면 `go build` 대신 그 경로의 파일을 `E2E_BIN` 으로 복사하고 실행 권한(0755)을 준다. 비어 있거나 없으면 globalSetup 의 기본 빌드(GO_REMOVAL_SRS G-53)를 한다. 경로의 파일이 없으면 복사 오류로 실패한다.
 
 ## 3. 검증
 
 - **V-PAR-1** 단위 테스트: 정규화(기본·기성·사용자 규칙, 범위 좁히기), HTTP 응답 해석(chunked, Content-Length, 닫힘까지), 헤더 선택, 차이 보고 형식, 포트 거절.
 - **V-PAR-2** 통합 테스트(unix): 가짜 바이너리(셸 스크립트) 두 개로 같음·다름(stdout, 종료 코드, 홈 파일)을 판정하고, 자식 환경의 격리(C-PAR-1)를 확인한다.
-- **V-PAR-3** 자기 검증: `DM_PARITY_GO_BIN` 이 있으면 등록 시나리오 전부를 Go 대 Go 로 돌려 차이가 없고 정리 뒤 데몬이 남지 않아야 한다. 또 Go 쪽 관측값이 시나리오의 의도와 맞아야 한다: `error` 관측값이 없고 서버 준비가 `ok`, `cli-*-args` 의 종료 코드는 모두 2, `cli-*-help` 는 모두 0 이고 stdout 이 비어 있지 않음, `helper-*` 의 종료 코드는 0 또는 2.
+- **V-PAR-3** 자기 검증(`rust/parity/run.sh --self-test`, Go 참조는 FR-PAR-41 로 얻는다): `DM_PARITY_GO_BIN` 이 있으면 등록 시나리오 전부를 Go 대 Go 로 돌려 차이가 없고 정리 뒤 데몬이 남지 않아야 한다. 또 Go 쪽 관측값이 시나리오의 의도와 맞아야 한다: `error` 관측값이 없고 서버 준비가 `ok`, `cli-*-args` 의 종료 코드는 모두 2, `cli-*-help` 는 모두 0 이고 stdout 이 비어 있지 않음, `helper-*` 의 종료 코드는 0 또는 2.
 - **V-PAR-4** 목록 검사: 등록 시나리오는 모두 검증(`validate`)을 통과하고, 이름이 겹치지 않으며, 담당 이슈가 `rust-port/issues` 에 있다.
 - **V-PAR-5** 표면 목록: `rust/parity/SURFACE.md` 의 모든 항목에 담당 이슈가 있다.

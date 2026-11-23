@@ -1,6 +1,7 @@
 //! Go 노드와 짝 맺기·지우기·간선 연결이 서로 되는가 (FR-RSP-23). 진짜 Go 바이너리를 격리 홈에서 띄운다.
 //!
 //! `DM_PARITY_GO_BIN` 이 없으면 건너뛴다:
+//! `rust/scripts/hermetic.sh env DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/dongminal ./cmd/dongminal`
 //! `rust/scripts/hermetic.sh env DM_PARITY_GO_BIN=$PWD/rust/target/go-ref/dongminal cargo test -p dm-shared-edgenode --test go_interop`
 
 use std::collections::BTreeMap;

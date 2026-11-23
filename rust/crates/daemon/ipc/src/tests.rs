@@ -477,7 +477,7 @@ mod reports;
 mod wire;
 
 /// Go toolclient(웹 서버 쪽)가 Rust 데몬에 붙는다. Go 툴체인이 필요하므로 따로 켠다:
-/// `go build -o <bin> ./rust/crates/daemon/ipc/testdata/gotoolclient` 뒤
+/// `DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh <bin> rust/crates/daemon/ipc/testdata/gotoolclient` 뒤
 /// `DM_GO_TOOLCLIENT=<bin> rust/scripts/hermetic.sh cargo test -p dm-daemon-ipc -- --ignored`.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "DM_GO_TOOLCLIENT 에 Go 시험 프로그램이 있어야 한다"]

@@ -136,8 +136,7 @@ fn path_from_file_uri_rejects_non_file() {
 /// Go 판과 같은 벡터 파일을 그대로 읽는다.
 #[test]
 fn file_uri_vectors_shared() {
-    let raw =
-        include_str!("../../../../../../internal/shared/platform/testdata/file_uri_vectors.json");
+    let raw = include_str!("../../testdata/file_uri_vectors.json");
     let vs: Vec<serde_json::Value> = serde_json::from_str(raw).unwrap();
     assert!(!vs.is_empty());
     for v in vs {
