@@ -279,7 +279,11 @@ impl Adapter {
     }
 
     /// 인용을 마친 member_args. 자리를 먼저 채우고 OS 표기로 맞춘 뒤 인용한다 (FR-OMP-22).
-    fn member_args_in(&self, sh: &dyn ShellProvider, hooks_dir: &str) -> Result<Vec<String>, Error> {
+    fn member_args_in(
+        &self,
+        sh: &dyn ShellProvider,
+        hooks_dir: &str,
+    ) -> Result<Vec<String>, Error> {
         let mut parts = Vec::with_capacity(self.member_args.len());
         for arg in self.member_args {
             let mut arg = (*arg).to_owned();

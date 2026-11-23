@@ -33,8 +33,7 @@ impl InstallSpec {
 
 /// Go `json.MarshalIndent(v, "", "  ")` 를 0644 로 쓴다.
 pub(crate) fn write_json(path: &Path, v: &serde_json::Value) -> io::Result<()> {
-    let blob = json::marshal_indent(v, "", "  ")
-        .map_err(|e| io::Error::other(e.to_string()))?;
+    let blob = json::marshal_indent(v, "", "  ").map_err(|e| io::Error::other(e.to_string()))?;
     write_file_if_changed(path, &blob, 0o644)
 }
 
@@ -43,12 +42,19 @@ pub(crate) fn mkdir_all(p: &Path) -> io::Result<()> {
     let s = p.to_string_lossy();
     match fs::metadata(p) {
         Ok(m) if m.is_dir() => return Ok(()),
-        Ok(_) => return Err(path_error("mkdir", &s, io::Error::new(io::ErrorKind::NotADirectory, "not a directory"))),
+        Ok(_) => {
+            return Err(path_error(
+                "mkdir",
+                &s,
+                io::Error::new(io::ErrorKind::NotADirectory, "not a directory"),
+            ));
+        }
         Err(_) => {}
     }
     if let Some(parent) = p.parent().filter(|q| !q.as_os_str().is_empty()) {
         mkdir_all(parent)?;
     }
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut b = fs::DirBuilder::new();
     #[cfg(unix)]
     std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o755);

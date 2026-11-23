@@ -125,7 +125,12 @@ fn hook_parse_reached_through_the_registry() {
     )
     .unwrap();
     assert_eq!(r.state, "waiting");
-    assert_eq!(parse("codex", r#"{"type":"agent-turn-complete"}"#).unwrap().state, "done");
+    assert_eq!(
+        parse("codex", r#"{"type":"agent-turn-complete"}"#)
+            .unwrap()
+            .state,
+        "done"
+    );
     assert!(parse("codex", r#"{"hook_event_name":"Stop"}"#).is_none());
 }
 
@@ -149,7 +154,9 @@ fn launch_line_argv_quoting_survives_metacharacters() {
 fn launch_line_delegates_quoting_to_the_shell() {
     let claude = get("claude").unwrap();
     let sh = RecordingShell::default();
-    let line = claude.launch_line_in(&sh, "", "sonnet", "it's a prompt").unwrap();
+    let line = claude
+        .launch_line_in(&sh, "", "sonnet", "it's a prompt")
+        .unwrap();
     assert_eq!(
         *sh.seen.lock().unwrap(),
         ["sonnet", "--allowedTools", "Bash(dmctl:*)", "it's a prompt"]
@@ -159,17 +166,27 @@ fn launch_line_delegates_quoting_to_the_shell() {
         "claude --model «sonnet» «--allowedTools» «Bash(dmctl:*)» -- «it's a prompt»"
     );
     for model in ["claude-opus-5[1m]", "a b; rm -rf x", "it's"] {
-        let line = claude.launch_line_in(&RecordingShell::default(), "", model, "x").unwrap();
+        let line = claude
+            .launch_line_in(&RecordingShell::default(), "", model, "x")
+            .unwrap();
         assert!(line.contains(&format!("--model «{model}» ")), "{line}");
         let host = claude.launch_line("", model, "x").unwrap();
-        assert!(host.contains(&format!("--model {} ", host_quote(model))), "{host}");
+        assert!(
+            host.contains(&format!("--model {} ", host_quote(model))),
+            "{host}"
+        );
     }
 }
 
 #[test]
 fn launch_line_omits_model_when_unknown() {
     let claude = get("claude").unwrap();
-    assert!(!claude.launch_line("", "", "안녕").unwrap().contains("--model"));
+    assert!(
+        !claude
+            .launch_line("", "", "안녕")
+            .unwrap()
+            .contains("--model")
+    );
     let unknown = Adapter {
         id: "x",
         launch: &["x"],
@@ -179,7 +196,9 @@ fn launch_line_omits_model_when_unknown() {
         ..*claude
     };
     assert_eq!(
-        unknown.launch_line_in(&RecordingShell::default(), "", "o3", "안녕").unwrap(),
+        unknown
+            .launch_line_in(&RecordingShell::default(), "", "o3", "안녕")
+            .unwrap(),
         "x «안녕»"
     );
     let stdin = Adapter {
@@ -202,7 +221,10 @@ fn codex_terminal_surface_is_measured() {
 #[test]
 fn omp_member_config_is_resolved_and_token_required() {
     let omp = get("omp").unwrap();
-    let hooks = std::env::temp_dir().join("dm").join("bin").join("agent-hooks");
+    let hooks = std::env::temp_dir()
+        .join("dm")
+        .join("bin")
+        .join("agent-hooks");
     let hooks = hooks.to_str().unwrap();
     let line = omp.launch_line(hooks, "opus", "프리앰블 본문").unwrap();
     let cfg = Path::new(hooks).join(OMP_MEMBER_CONFIG_FILE);
@@ -229,7 +251,10 @@ fn omp_member_config_is_resolved_and_token_required() {
 #[test]
 fn omp_confirmed_values() {
     let omp = get("omp").unwrap();
-    assert_eq!((omp.detect_cmd, omp.launch, omp.model_flag), ("omp", &["omp"][..], "--model"));
+    assert_eq!(
+        (omp.detect_cmd, omp.launch, omp.model_flag),
+        ("omp", &["omp"][..], "--model")
+    );
     assert_eq!(omp.argv_separator, "");
     assert_eq!(omp.exit_command, "/exit");
     assert_eq!(omp.policy_injection.flags, ["--hook", "--plugin-dir"]);
@@ -271,13 +296,28 @@ fn resume_lines() {
 #[test]
 fn valid_session_ids() {
     let x128 = "x".repeat(128);
-    for s in ["8f365211-937f-4591-8f20-2e03362d855e", "a", "A.b_c-9", x128.as_str()] {
+    for s in [
+        "8f365211-937f-4591-8f20-2e03362d855e",
+        "a",
+        "A.b_c-9",
+        x128.as_str(),
+    ] {
         assert!(valid_session_id(s), "{s}");
     }
     let x129 = "x".repeat(129);
     for s in [
-        "", "a;b", "$(rm)", "a b", "a'b", "a/b", x129.as_str(), "가", "-x",
-        "--dangerously-skip-permissions", ".a", "_a",
+        "",
+        "a;b",
+        "$(rm)",
+        "a b",
+        "a'b",
+        "a/b",
+        x129.as_str(),
+        "가",
+        "-x",
+        "--dangerously-skip-permissions",
+        ".a",
+        "_a",
     ] {
         assert!(!valid_session_id(s), "{s}");
     }
@@ -299,7 +339,11 @@ fn claude_session_pids() {
     write(a.path(), "11.abc.key", r#"{"pid":99,"sessionId":"S"}"#);
     write(b.path(), "21.json", r#"{"pid":21,"sessionId":"S"}"#);
     let missing = tempfile::tempdir().unwrap().path().join("없음");
-    let dirs = [a.path().to_path_buf(), b.path().to_path_buf(), missing.clone()];
+    let dirs = [
+        a.path().to_path_buf(),
+        b.path().to_path_buf(),
+        missing.clone(),
+    ];
     assert_eq!(f("S", &dirs), Some(vec![11, 21]));
     assert_eq!(f("S", &[missing]), Some(vec![]));
     let c = tempfile::tempdir().unwrap();
@@ -313,32 +357,136 @@ fn claude_session_pids() {
 #[test]
 fn claude_hook_main_table() {
     let cases: &[(&str, &str, &str, &str)] = &[
-        (r#"{"hook_event_name":"UserPromptSubmit","prompt":"고쳐줘"}"#, "working", "", "고쳐줘"),
-        (r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}"#, "working", "Bash", "ls"),
-        (r#"{"hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"/a.go"}}"#, "working", "Read", "/a.go"),
-        (r#"{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"make"},"error":"exit 2"}"#, "working", "Bash", "make"),
-        (r#"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm x"}}"#, "waiting", "Bash", "rm x"),
-        (r#"{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"needs permission"}"#, "waiting", "", "needs permission"),
-        (r#"{"hook_event_name":"Notification","notification_type":"elicitation_dialog","message":"m"}"#, "waiting", "", "m"),
-        (r#"{"hook_event_name":"Notification","notification_type":"elicitation_url_dialog","message":"m"}"#, "waiting", "", "m"),
-        (r#"{"hook_event_name":"Notification","notification_type":"agent_needs_input","message":"m"}"#, "waiting", "", "m"),
-        (r#"{"hook_event_name":"Notification","notification_type":"idle_prompt","message":"Claude is waiting for your input"}"#, "", "", ""),
-        (r#"{"hook_event_name":"Notification","notification_type":"auth_success"}"#, "", "", ""),
-        (r#"{"hook_event_name":"Notification","message":"m"}"#, "", "", ""),
-        (r#"{"hook_event_name":"PreCompact","trigger":"auto"}"#, "working", "", ""),
-        (r#"{"hook_event_name":"PostCompact","trigger":"manual"}"#, "idle", "", ""),
-        (r#"{"hook_event_name":"PostCompact","trigger":"auto"}"#, "", "", ""),
-        (r#"{"hook_event_name":"Stop","background_tasks":[{"id":"a1","status":"running"}]}"#, "done", "", ""),
-        (r#"{"hook_event_name":"StopFailure","error":"rate_limit"}"#, "done", "", "rate_limit"),
-        (r#"{"hook_event_name":"SessionStart","source":"startup"}"#, "idle", "", "startup"),
-        (r#"{"hook_event_name":"SessionStart","source":"compact"}"#, "", "", ""),
+        (
+            r#"{"hook_event_name":"UserPromptSubmit","prompt":"고쳐줘"}"#,
+            "working",
+            "",
+            "고쳐줘",
+        ),
+        (
+            r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}"#,
+            "working",
+            "Bash",
+            "ls",
+        ),
+        (
+            r#"{"hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"/a.go"}}"#,
+            "working",
+            "Read",
+            "/a.go",
+        ),
+        (
+            r#"{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"make"},"error":"exit 2"}"#,
+            "working",
+            "Bash",
+            "make",
+        ),
+        (
+            r#"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm x"}}"#,
+            "waiting",
+            "Bash",
+            "rm x",
+        ),
+        (
+            r#"{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"needs permission"}"#,
+            "waiting",
+            "",
+            "needs permission",
+        ),
+        (
+            r#"{"hook_event_name":"Notification","notification_type":"elicitation_dialog","message":"m"}"#,
+            "waiting",
+            "",
+            "m",
+        ),
+        (
+            r#"{"hook_event_name":"Notification","notification_type":"elicitation_url_dialog","message":"m"}"#,
+            "waiting",
+            "",
+            "m",
+        ),
+        (
+            r#"{"hook_event_name":"Notification","notification_type":"agent_needs_input","message":"m"}"#,
+            "waiting",
+            "",
+            "m",
+        ),
+        (
+            r#"{"hook_event_name":"Notification","notification_type":"idle_prompt","message":"Claude is waiting for your input"}"#,
+            "",
+            "",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"Notification","notification_type":"auth_success"}"#,
+            "",
+            "",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"Notification","message":"m"}"#,
+            "",
+            "",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"PreCompact","trigger":"auto"}"#,
+            "working",
+            "",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"PostCompact","trigger":"manual"}"#,
+            "idle",
+            "",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"PostCompact","trigger":"auto"}"#,
+            "",
+            "",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"Stop","background_tasks":[{"id":"a1","status":"running"}]}"#,
+            "done",
+            "",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"StopFailure","error":"rate_limit"}"#,
+            "done",
+            "",
+            "rate_limit",
+        ),
+        (
+            r#"{"hook_event_name":"SessionStart","source":"startup"}"#,
+            "idle",
+            "",
+            "startup",
+        ),
+        (
+            r#"{"hook_event_name":"SessionStart","source":"compact"}"#,
+            "",
+            "",
+            "",
+        ),
         (r#"{"hook_event_name":"SessionEnd"}"#, "ended", "", ""),
         (r#"{"hook_event_name":"SubagentStop"}"#, "", "", ""),
-        (r#"{"hook_event_name":"UserPromptSubmit","prompt":"<agent-message from=\"a922\">\n[Subagent hand-back] ..."}"#, "working", "", "<agent-message from=\"a922\">\n[Subagent hand-back] ..."),
+        (
+            r#"{"hook_event_name":"UserPromptSubmit","prompt":"<agent-message from=\"a922\">\n[Subagent hand-back] ..."}"#,
+            "working",
+            "",
+            "<agent-message from=\"a922\">\n[Subagent hand-back] ...",
+        ),
     ];
     for (p, state, tool, detail) in cases {
         let r = parse("claude", p).unwrap_or_else(|| panic!("{p}"));
-        assert_eq!((r.state.as_str(), r.tool.as_str(), r.detail.as_str()), (*state, *tool, *detail), "{p}");
+        assert_eq!(
+            (r.state.as_str(), r.tool.as_str(), r.detail.as_str()),
+            (*state, *tool, *detail),
+            "{p}"
+        );
         assert!(r.sub.is_none(), "{p}");
     }
     assert!(parse("claude", r#"{"hook_event_name":"Bogus"}"#).is_none());
@@ -363,21 +511,107 @@ fn claude_hook_subagent_table() {
     };
     let cases = [
         (sub("SubagentStart", ""), "working", "", "", "", ""),
-        (sub("PreToolUse", r#","tool_name":"Grep","tool_input":{"pattern":"parse"}"#), "working", "Grep", "parse", "", ""),
-        (sub("PostToolUse", r#","tool_name":"Bash","tool_input":{"command":"ls"}"#), "working", "Bash", "ls", "", ""),
-        (sub("PostToolUseFailure", r#","tool_name":"Bash","tool_input":{"command":"x"}"#), "working", "Bash", "x", "", ""),
-        (sub("PermissionRequest", r#","tool_name":"Bash","tool_input":{"command":"rm"}"#), "waiting", "Bash", "rm", "waiting", "rm"),
-        (sub("Notification", r#","notification_type":"permission_prompt","message":"m""#), "waiting", "", "m", "waiting", "m"),
+        (
+            sub(
+                "PreToolUse",
+                r#","tool_name":"Grep","tool_input":{"pattern":"parse"}"#,
+            ),
+            "working",
+            "Grep",
+            "parse",
+            "",
+            "",
+        ),
+        (
+            sub(
+                "PostToolUse",
+                r#","tool_name":"Bash","tool_input":{"command":"ls"}"#,
+            ),
+            "working",
+            "Bash",
+            "ls",
+            "",
+            "",
+        ),
+        (
+            sub(
+                "PostToolUseFailure",
+                r#","tool_name":"Bash","tool_input":{"command":"x"}"#,
+            ),
+            "working",
+            "Bash",
+            "x",
+            "",
+            "",
+        ),
+        (
+            sub(
+                "PermissionRequest",
+                r#","tool_name":"Bash","tool_input":{"command":"rm"}"#,
+            ),
+            "waiting",
+            "Bash",
+            "rm",
+            "waiting",
+            "rm",
+        ),
+        (
+            sub(
+                "Notification",
+                r#","notification_type":"permission_prompt","message":"m""#,
+            ),
+            "waiting",
+            "",
+            "m",
+            "waiting",
+            "m",
+        ),
         (sub("SubagentStop", ""), "done", "", "", "", ""),
-        (sub("PreToolUse", r#","tool_name":"SubagentHandback","tool_input":{"message":"r"}"#), "done", "SubagentHandback", "", "", ""),
-        (sub("PostToolUse", r#","tool_name":"SubagentHandback","tool_input":{"message":"r"}"#), "done", "SubagentHandback", "", "", ""),
-        (sub("PostToolUseFailure", r#","tool_name":"SubagentHandback","tool_input":{"message":"r"}"#), "done", "SubagentHandback", "", "", ""),
+        (
+            sub(
+                "PreToolUse",
+                r#","tool_name":"SubagentHandback","tool_input":{"message":"r"}"#,
+            ),
+            "done",
+            "SubagentHandback",
+            "",
+            "",
+            "",
+        ),
+        (
+            sub(
+                "PostToolUse",
+                r#","tool_name":"SubagentHandback","tool_input":{"message":"r"}"#,
+            ),
+            "done",
+            "SubagentHandback",
+            "",
+            "",
+            "",
+        ),
+        (
+            sub(
+                "PostToolUseFailure",
+                r#","tool_name":"SubagentHandback","tool_input":{"message":"r"}"#,
+            ),
+            "done",
+            "SubagentHandback",
+            "",
+            "",
+            "",
+        ),
     ];
     for (p, state, tool, detail, main_state, main_detail) in &cases {
         let r = parse("claude", p).unwrap();
         let s = r.sub.as_ref().unwrap_or_else(|| panic!("{p}"));
         assert_eq!(
-            (s.agent_id.as_str(), s.agent_type.as_str(), s.state.as_str(), s.tool.as_str(), s.detail.as_str()),
+            (
+                s.agent_id.as_str(),
+                s.agent_type.as_str(),
+                s.state.as_str(),
+                s.tool.as_str(),
+                s.detail.as_str()
+            ),
             ("a92", "Explore", *state, *tool, *detail),
             "{p}"
         );
@@ -386,20 +620,48 @@ fn claude_hook_subagent_table() {
             assert_eq!(r.detail, *main_detail);
         }
     }
-    let r = parse("claude", &sub("Notification", r#","notification_type":"idle_prompt""#)).unwrap();
+    let r = parse(
+        "claude",
+        &sub("Notification", r#","notification_type":"idle_prompt""#),
+    )
+    .unwrap();
     assert!(r.sub.is_none() && r.state.is_empty());
 }
 
 #[test]
 fn claude_hook_bridge_fields() {
     let cases = [
-        (r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"date > out.txt"},"tool_use_id":"toolu_1"}"#, "PreToolUse", ""),
-        (r#"{"hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"색?","options":[{"label":"red"}]}]},"tool_use_id":"toolu_2"}"#, "PreToolUse", r#"{"questions":[{"question":"색?","options":[{"label":"red"}]}]}"#),
-        (r#"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm x"},"permission_suggestions":[]}"#, "PermissionRequest", r#"{"command":"rm x"}"#),
-        (r#"{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"ls"},"tool_use_id":"toolu_3","tool_response":{"stdout":"secret"}}"#, "PostToolUse", ""),
-        (r#"{"hook_event_name":"StopFailure","error":"rate_limit"}"#, "StopFailure", ""),
+        (
+            r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"date > out.txt"},"tool_use_id":"toolu_1"}"#,
+            "PreToolUse",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"색?","options":[{"label":"red"}]}]},"tool_use_id":"toolu_2"}"#,
+            "PreToolUse",
+            r#"{"questions":[{"question":"색?","options":[{"label":"red"}]}]}"#,
+        ),
+        (
+            r#"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm x"},"permission_suggestions":[]}"#,
+            "PermissionRequest",
+            r#"{"command":"rm x"}"#,
+        ),
+        (
+            r#"{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"ls"},"tool_use_id":"toolu_3","tool_response":{"stdout":"secret"}}"#,
+            "PostToolUse",
+            "",
+        ),
+        (
+            r#"{"hook_event_name":"StopFailure","error":"rate_limit"}"#,
+            "StopFailure",
+            "",
+        ),
         (r#"{"hook_event_name":"Stop"}"#, "Stop", ""),
-        (r#"{"hook_event_name":"PermissionRequest","agent_id":"a1","agent_type":"general","tool_name":"Bash","tool_input":{"command":"ls"}}"#, "PermissionRequest", r#"{"command":"ls"}"#),
+        (
+            r#"{"hook_event_name":"PermissionRequest","agent_id":"a1","agent_type":"general","tool_name":"Bash","tool_input":{"command":"ls"}}"#,
+            "PermissionRequest",
+            r#"{"command":"ls"}"#,
+        ),
     ];
     for (p, hook, input) in cases {
         let r = parse("claude", p).unwrap();
@@ -423,22 +685,41 @@ fn context_signals() {
         r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"},"session_id":"s-1","transcript_path":"/tmp/t.jsonl"}"#,
     )
     .unwrap();
-    assert_eq!((r.transcript.as_str(), r.session_id.as_str()), ("/tmp/t.jsonl", "s-1"));
+    assert_eq!(
+        (r.transcript.as_str(), r.session_id.as_str()),
+        ("/tmp/t.jsonl", "s-1")
+    );
     assert!(!r.compacted);
     let r = parse("claude", r#"{"hook_event_name":"Stop"}"#).unwrap();
     assert!(r.transcript.is_empty() && r.session_id.is_empty());
-    let r = parse("claude", r#"{"hook_event_name":"PreCompact","transcript_path":"/t"}"#).unwrap();
+    let r = parse(
+        "claude",
+        r#"{"hook_event_name":"PreCompact","transcript_path":"/t"}"#,
+    )
+    .unwrap();
     assert!(r.compacted && r.state == "working");
     let r = parse("codex", r#"{"type":"agent-turn-complete"}"#).unwrap();
-    assert!(r.transcript.is_empty() && r.session_id.is_empty() && !r.compacted && r.detail.is_empty());
+    assert!(
+        r.transcript.is_empty() && r.session_id.is_empty() && !r.compacted && r.detail.is_empty()
+    );
 }
 
 #[test]
 fn alarm_carries_detail() {
     let r = parse("claude", r#"{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"Claude needs your permission to use Bash"}"#).unwrap();
-    assert_eq!((r.state.as_str(), r.detail.as_str()), ("waiting", "Claude needs your permission to use Bash"));
-    let r = parse("codex", r#"{"type":"agent-turn-complete","last-assistant-message":"빌드를 고쳤다"}"#).unwrap();
-    assert_eq!((r.state.as_str(), r.detail.as_str()), ("done", "빌드를 고쳤다"));
+    assert_eq!(
+        (r.state.as_str(), r.detail.as_str()),
+        ("waiting", "Claude needs your permission to use Bash")
+    );
+    let r = parse(
+        "codex",
+        r#"{"type":"agent-turn-complete","last-assistant-message":"빌드를 고쳤다"}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        (r.state.as_str(), r.detail.as_str()),
+        ("done", "빌드를 고쳤다")
+    );
     let r = parse("omp", r#"{"event":"agent_end","detail":"작업 완료"}"#).unwrap();
     assert_eq!((r.state.as_str(), r.detail.as_str()), ("done", "작업 완료"));
 }
@@ -450,51 +731,89 @@ fn omp_hook_table() {
         (r#"{"event":"agent_start"}"#, "working", "", false),
         (r#"{"event":"turn_start"}"#, "working", "", false),
         (r#"{"event":"turn_end"}"#, "working", "", false),
-        (r#"{"event":"tool_call","tool":"bash","detail":"ls -al"}"#, "working", "bash", false),
-        (r#"{"event":"tool_result","tool":"read"}"#, "working", "read", false),
+        (
+            r#"{"event":"tool_call","tool":"bash","detail":"ls -al"}"#,
+            "working",
+            "bash",
+            false,
+        ),
+        (
+            r#"{"event":"tool_result","tool":"read"}"#,
+            "working",
+            "read",
+            false,
+        ),
         (r#"{"event":"compaction"}"#, "working", "", true),
         (r#"{"event":"agent_end"}"#, "done", "", false),
         (r#"{"event":"session_shutdown"}"#, "ended", "", false),
     ];
     for (p, state, tool, compact) in cases {
         let r = parse("omp", p).unwrap();
-        assert_eq!((r.state.as_str(), r.tool.as_str(), r.compacted), (state, tool, compact), "{p}");
+        assert_eq!(
+            (r.state.as_str(), r.tool.as_str(), r.compacted),
+            (state, tool, compact),
+            "{p}"
+        );
     }
-    for p in [r#"{"event":"ttsr_triggered"}"#, r#"{"event":""}"#, "{", "", r#"{"hook_event_name":"Stop"}"#] {
+    for p in [
+        r#"{"event":"ttsr_triggered"}"#,
+        r#"{"event":""}"#,
+        "{",
+        "",
+        r#"{"hook_event_name":"Stop"}"#,
+    ] {
         assert!(parse("omp", p).is_none(), "{p}");
     }
     let r = parse("omp", r#"{"event":"turn_start"}"#).unwrap();
     assert!(r.session_id.is_empty() && r.transcript.is_empty());
-    let r = parse("omp", r#"{"event":"turn_start","sessionId":"s-1","transcript":"/tmp/s.jsonl"}"#).unwrap();
-    assert_eq!((r.session_id.as_str(), r.transcript.as_str()), ("s-1", "/tmp/s.jsonl"));
+    let r = parse(
+        "omp",
+        r#"{"event":"turn_start","sessionId":"s-1","transcript":"/tmp/s.jsonl"}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        (r.session_id.as_str(), r.transcript.as_str()),
+        ("s-1", "/tmp/s.jsonl")
+    );
 }
 
 /// V-AEV-7: 선언과 실제 산출이 일치한다.
 #[test]
 fn signals_match_hook_parse() {
     let native: &[(&str, &[&str])] = &[
-        ("claude", &[
-            r#"{"hook_event_name":"SessionStart"}"#,
-            r#"{"hook_event_name":"UserPromptSubmit"}"#,
-            r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}"#,
-            r#"{"hook_event_name":"PostToolUse","tool_name":"Bash"}"#,
-            r#"{"hook_event_name":"PostToolUseFailure","tool_name":"Bash"}"#,
-            r#"{"hook_event_name":"PermissionRequest","tool_name":"Bash"}"#,
-            r#"{"hook_event_name":"SubagentStart","agent_id":"a1","agent_type":"Explore"}"#,
-            r#"{"hook_event_name":"SubagentStop","agent_id":"a1","agent_type":"Explore"}"#,
-            r#"{"hook_event_name":"PreCompact"}"#,
-            r#"{"hook_event_name":"PostCompact","trigger":"manual"}"#,
-            r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#,
-            r#"{"hook_event_name":"Stop"}"#,
-            r#"{"hook_event_name":"StopFailure","error":"rate_limit"}"#,
-            r#"{"hook_event_name":"SessionEnd"}"#,
-        ]),
-        ("omp", &[
-            r#"{"event":"session_start"}"#, r#"{"event":"agent_start"}"#, r#"{"event":"turn_start"}"#,
-            r#"{"event":"turn_end"}"#, r#"{"event":"tool_call","tool":"bash","detail":"ls"}"#,
-            r#"{"event":"tool_result","tool":"bash"}"#, r#"{"event":"compaction"}"#,
-            r#"{"event":"agent_end"}"#, r#"{"event":"session_shutdown"}"#,
-        ]),
+        (
+            "claude",
+            &[
+                r#"{"hook_event_name":"SessionStart"}"#,
+                r#"{"hook_event_name":"UserPromptSubmit"}"#,
+                r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}"#,
+                r#"{"hook_event_name":"PostToolUse","tool_name":"Bash"}"#,
+                r#"{"hook_event_name":"PostToolUseFailure","tool_name":"Bash"}"#,
+                r#"{"hook_event_name":"PermissionRequest","tool_name":"Bash"}"#,
+                r#"{"hook_event_name":"SubagentStart","agent_id":"a1","agent_type":"Explore"}"#,
+                r#"{"hook_event_name":"SubagentStop","agent_id":"a1","agent_type":"Explore"}"#,
+                r#"{"hook_event_name":"PreCompact"}"#,
+                r#"{"hook_event_name":"PostCompact","trigger":"manual"}"#,
+                r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#,
+                r#"{"hook_event_name":"Stop"}"#,
+                r#"{"hook_event_name":"StopFailure","error":"rate_limit"}"#,
+                r#"{"hook_event_name":"SessionEnd"}"#,
+            ],
+        ),
+        (
+            "omp",
+            &[
+                r#"{"event":"session_start"}"#,
+                r#"{"event":"agent_start"}"#,
+                r#"{"event":"turn_start"}"#,
+                r#"{"event":"turn_end"}"#,
+                r#"{"event":"tool_call","tool":"bash","detail":"ls"}"#,
+                r#"{"event":"tool_result","tool":"bash"}"#,
+                r#"{"event":"compaction"}"#,
+                r#"{"event":"agent_end"}"#,
+                r#"{"event":"session_shutdown"}"#,
+            ],
+        ),
         ("codex", &[r#"{"type":"agent-turn-complete"}"#]),
     ];
     assert_eq!(native.len(), ids().len());
@@ -554,8 +873,14 @@ fn claude_settings_hooks_statusline_and_ctx() {
     let blob = fs::read(spec.dir.join("claude.json")).unwrap();
     let v: Value = json::unmarshal(&blob).unwrap();
     assert_eq!(v["statusLine"]["type"], "command");
-    assert_eq!(v["statusLine"]["command"], r#""/opt/dm/bin/dmctl" statusline"#);
-    assert_eq!(v["subagentStatusLine"]["command"], r#""/opt/dm/bin/dmctl" subagent-statusline"#);
+    assert_eq!(
+        v["statusLine"]["command"],
+        r#""/opt/dm/bin/dmctl" statusline"#
+    );
+    assert_eq!(
+        v["subagentStatusLine"]["command"],
+        r#""/opt/dm/bin/dmctl" subagent-statusline"#
+    );
     let hooks = hook_commands(&blob);
     assert_eq!(hooks.len(), 14);
     let ctx = r#""/opt/dm/bin/dmctl" ctx-hook claude"#;
@@ -571,7 +896,10 @@ fn claude_settings_hooks_statusline_and_ctx() {
     let plugin = fs::read(spec.plugin_dir.join("hooks").join("hooks.json")).unwrap();
     assert_eq!(
         hook_commands(&plugin),
-        [("SessionStart".to_owned(), vec![r#""/opt/dm/bin/dmctl" agent-context claude"#.to_owned()])]
+        [(
+            "SessionStart".to_owned(),
+            vec![r#""/opt/dm/bin/dmctl" agent-context claude"#.to_owned()]
+        )]
     );
 }
 
@@ -581,7 +909,10 @@ fn hook_command_quotes_executable_only() {
         dmctl: r"C:\Program Files\dm\dmctl.exe".into(),
         ..InstallSpec::default()
     };
-    assert_eq!(s.hook_command(&["notify", "done"]), r#""C:\Program Files\dm\dmctl.exe" notify done"#);
+    assert_eq!(
+        s.hook_command(&["notify", "done"]),
+        r#""C:\Program Files\dm\dmctl.exe" notify done"#
+    );
     let s = InstallSpec {
         dmctl: "/home/u/.dongminal/bin/dmctl".into(),
         ..InstallSpec::default()
@@ -604,7 +935,12 @@ fn install_assets_keeps_unchanged_files() {
         for e in fs::read_dir(root.path().join(dir)).unwrap() {
             let p = e.unwrap().path();
             if p.is_file() {
-                fs::File::options().write(true).open(&p).unwrap().set_modified(stamp).unwrap();
+                fs::File::options()
+                    .write(true)
+                    .open(&p)
+                    .unwrap()
+                    .set_modified(stamp)
+                    .unwrap();
                 files.push(p);
             }
         }
@@ -612,7 +948,12 @@ fn install_assets_keeps_unchanged_files() {
     assert_eq!(files.len(), 4);
     install();
     for p in files {
-        assert_eq!(fs::metadata(&p).unwrap().modified().unwrap(), stamp, "{}", p.display());
+        assert_eq!(
+            fs::metadata(&p).unwrap().modified().unwrap(),
+            stamp,
+            "{}",
+            p.display()
+        );
     }
 }
 
@@ -623,7 +964,17 @@ fn omp_shim_and_overlay() {
     (get("omp").unwrap().install_assets.unwrap())(&spec).unwrap();
     let s = fs::read_to_string(spec.dir.join(OMP_SHIM_FILE)).unwrap();
     assert!(s.contains(r#"const DMCTL = "/x y/\"q\"\\dmctl";"#), "{s}");
-    for ev in ["session_start", "session_shutdown", "agent_start", "agent_end", "turn_start", "turn_end", "tool_call", "tool_result", "compaction"] {
+    for ev in [
+        "session_start",
+        "session_shutdown",
+        "agent_start",
+        "agent_end",
+        "turn_start",
+        "turn_end",
+        "tool_call",
+        "tool_result",
+        "compaction",
+    ] {
         assert!(s.contains(&format!("event: \"{ev}\"")), "{ev}");
     }
     let o = fs::read_to_string(spec.dir.join(OMP_MEMBER_CONFIG_FILE)).unwrap();

@@ -290,7 +290,7 @@ fn parse_usage(line: &str) -> Option<Usage> {
         .input_tokens
         .wrapping_add(u.cache_creation_input_tokens)
         .wrapping_add(u.cache_read_input_tokens);
-    (total > 0).then(|| Usage {
+    (total > 0).then_some(Usage {
         tokens: total,
         model: rec.message.model,
     })

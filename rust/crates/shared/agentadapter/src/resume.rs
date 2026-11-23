@@ -12,9 +12,9 @@ pub fn valid_session_id(id: &str) -> bool {
     if id.is_empty() || id.len() > SESSION_ID_MAX {
         return false;
     }
-    id.chars().enumerate().all(|(i, r)| {
-        r.is_ascii_alphanumeric() || (i != 0 && matches!(r, '.' | '_' | '-'))
-    })
+    id.chars()
+        .enumerate()
+        .all(|(i, r)| r.is_ascii_alphanumeric() || (i != 0 && matches!(r, '.' | '_' | '-')))
 }
 
 impl Adapter {
@@ -24,8 +24,18 @@ impl Adapter {
     }
 
     /// 빈 셸에 타이핑할 재개 명령줄이다 (FR-RRC-3). member 면 member_args 를 붙인다.
-    pub fn resume_line(&self, hooks_dir: &str, session_id: &str, member: bool) -> Result<String, Error> {
-        self.resume_line_in(dm_shared_platform::current().shell, hooks_dir, session_id, member)
+    pub fn resume_line(
+        &self,
+        hooks_dir: &str,
+        session_id: &str,
+        member: bool,
+    ) -> Result<String, Error> {
+        self.resume_line_in(
+            dm_shared_platform::current().shell,
+            hooks_dir,
+            session_id,
+            member,
+        )
     }
 
     /// [`Adapter::resume_line`] 과 같되 인용할 셸을 받는다.
