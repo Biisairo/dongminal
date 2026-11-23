@@ -213,7 +213,8 @@ pub(crate) fn resolve_start_target(
     env: &Env<'_>,
 ) -> Result<(String, String), String> {
     let home = if o.isolated && o.common.home.is_empty() {
-        mkdir_temp(ISOLATED_HOME_PREFIX).map_err(|e| format!("격리 홈 생성 실패: {e}"))?
+        let tmp = std::env::temp_dir().to_string_lossy().into_owned();
+        mkdir_temp(&tmp, ISOLATED_HOME_PREFIX).map_err(|e| format!("격리 홈 생성 실패: {e}"))?
     } else {
         o.common.resolve_home_in(env)?
     };
@@ -225,14 +226,13 @@ pub(crate) fn resolve_start_target(
     Ok((home, port))
 }
 
-/// Go `os.MkdirTemp("", prefix)` — 임시 디렉터리 아래 prefix+난수 이름의 0700 디렉터리다.
-fn mkdir_temp(prefix: &str) -> Result<String, String> {
-    let dir = std::env::temp_dir().to_string_lossy().into_owned();
+/// Go `os.MkdirTemp(dir, prefix)` — dir 아래 prefix+난수 이름의 0700 디렉터리다.
+pub(crate) fn mkdir_temp(dir: &str, prefix: &str) -> Result<String, String> {
     for _ in 0..10000 {
         let n = std::collections::hash_map::RandomState::new()
             .build_hasher()
             .finish() as u32;
-        let p = filepath::join(&[dir.as_str(), &format!("{prefix}{n}")]);
+        let p = filepath::join(&[dir, &format!("{prefix}{n}")]);
         let mut b = std::fs::DirBuilder::new();
         #[cfg(unix)]
         std::os::unix::fs::DirBuilderExt::mode(&mut b, 0o700);
@@ -240,12 +240,12 @@ fn mkdir_temp(prefix: &str) -> Result<String, String> {
             Ok(()) => return Ok(p),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => {
-                let pattern = filepath::join(&[dir.as_str(), &format!("{prefix}*")]);
+                let pattern = filepath::join(&[dir, &format!("{prefix}*")]);
                 return Err(go_error_string(&path_error("mkdirtemp", &pattern, e)));
             }
         }
     }
-    let pattern = filepath::join(&[dir.as_str(), &format!("{prefix}*")]);
+    let pattern = filepath::join(&[dir, &format!("{prefix}*")]);
     Err(go_error_string(&path_error(
         "mkdirtemp",
         &pattern,
@@ -253,14 +253,56 @@ fn mkdir_temp(prefix: &str) -> Result<String, String> {
     )))
 }
 
-fn mkdir_all(path: &str, mode: u32) -> io::Result<()> {
-    let mut b = std::fs::DirBuilder::new();
-    b.recursive(true);
+/// Go `os.MkdirAll(path, mode)`. 알고리즘과 오류 문구가 같다 — 있는 것이 디렉터리가 아니면
+/// `not a directory`, 조상에서 막히면 막힌 그 칸의 경로로 오류를 낸다.
+pub(crate) fn mkdir_all(path: &str, mode: u32) -> io::Result<()> {
+    if let Ok(m) = std::fs::metadata(path) {
+        if m.is_dir() {
+            return Ok(());
+        }
+        return Err(path_error("mkdir", path, not_a_directory()));
+    }
+    let b = path.as_bytes();
+    let mut i = b.len();
+    while i > 0 && filepath::is_path_separator(b[i - 1]) {
+        i -= 1;
+    }
+    let mut j = i;
+    while j > 0 && !filepath::is_path_separator(b[j - 1]) {
+        j -= 1;
+    }
+    if j > 1 {
+        let parent = &path[..j - 1];
+        if cfg!(windows) && parent.len() == 2 && parent.as_bytes()[1] == b':' {
+            mkdir_all(&format!("{parent}\\"), mode)?;
+        } else {
+            mkdir_all(parent, mode)?;
+        }
+    }
+    let mut d = std::fs::DirBuilder::new();
     #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut b, mode);
+    std::os::unix::fs::DirBuilderExt::mode(&mut d, mode);
     #[cfg(not(unix))]
     let _ = mode;
-    b.create(path).map_err(|e| path_error("mkdir", path, e))
+    if let Err(e) = d.create(path) {
+        if std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir()) {
+            return Ok(());
+        }
+        return Err(path_error("mkdir", path, e));
+    }
+    Ok(())
+}
+
+fn not_a_directory() -> io::Error {
+    #[cfg(unix)]
+    {
+        // ENOTDIR — darwin·linux 모두 20 이다.
+        io::Error::from_raw_os_error(20)
+    }
+    #[cfg(not(unix))]
+    {
+        io::Error::other("not a directory")
+    }
 }
 
 /// 끊어 띄울 서버 명령과 그 출력이 갈 로그다. spawn 은 부르는 쪽이 한다.

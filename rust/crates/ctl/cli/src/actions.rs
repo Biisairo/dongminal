@@ -26,7 +26,7 @@ use crate::uninstall::parse_uninstall;
 use crate::update::parse_update;
 use crate::version::{parse_version, run_version, usage_version};
 use crate::window::run_window_in;
-use crate::{health, migrate, service, start, stop, uninstall};
+use crate::{doctor, health, migrate, service, start, stop, uninstall};
 
 /// `start --foreground` 가 이 프로세스로 띄울 서버다.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,7 +55,6 @@ pub(crate) struct Action {
     run: RunFn,
 }
 
-const ISSUE_LIFECYCLE: &str = "6.1.2";
 const ISSUE_UPDATE: &str = "6.1.3";
 
 pub(crate) fn actions() -> Vec<Action> {
@@ -195,9 +194,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "doctor",
             brief: "이 호스트에서 플랫폼 계층이 동작하는지 확인한다",
             usage: usage_doctor,
-            run: |rest, _, _, out, err| {
-                drive("doctor", parse_doctor(rest), out, err, |_, _, err| {
-                    not_ported("doctor", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("doctor", parse_doctor(rest), out, err, |o, out, err| {
+                    doctor::run_doctor_in(&o, env, out, err)
                 })
             },
         },

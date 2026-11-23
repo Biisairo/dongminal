@@ -1,5 +1,6 @@
 mod config;
 mod dispatch;
+mod doctor;
 mod fake_http;
 mod golden;
 mod health;
@@ -9,6 +10,7 @@ mod migrate;
 mod options;
 mod proc;
 mod service;
+mod shellwait;
 mod staleness;
 mod start;
 mod uninstall;

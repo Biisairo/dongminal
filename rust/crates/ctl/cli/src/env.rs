@@ -25,6 +25,22 @@ impl<'a> Env<'a> {
         }
     }
 
+    /// Go `os.TempDir` 다. unix 는 `$TMPDIR`, 없으면 `/tmp` 다. Windows 는 `GetTempPath` 의 차례
+    /// (`TMP`·`TEMP`·`USERPROFILE`)를 따르고, 셋 다 없으면 이 프로세스의 임시 자리다.
+    pub(crate) fn temp_dir(&self) -> String {
+        if cfg!(windows) {
+            for k in ["TMP", "TEMP", "USERPROFILE"] {
+                let v = self.get(k);
+                if !v.is_empty() {
+                    return v;
+                }
+            }
+            return std::env::temp_dir().to_string_lossy().into_owned();
+        }
+        let v = self.get("TMPDIR");
+        if v.is_empty() { "/tmp".to_owned() } else { v }
+    }
+
     /// Go `os.UserHomeDir` 다. 문구도 같다.
     pub(crate) fn user_home_dir(&self) -> Result<String, String> {
         let (key, missing) = if cfg!(windows) {

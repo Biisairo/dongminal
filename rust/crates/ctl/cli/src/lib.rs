@@ -6,6 +6,8 @@ mod actions;
 mod backup;
 mod config;
 mod config_bind;
+mod doctor;
+mod doctor_probe;
 mod env;
 mod handoff;
 mod health;
@@ -19,9 +21,11 @@ mod open;
 mod options;
 mod pending;
 mod proc;
+mod report;
 mod rollback;
 mod service;
 mod session_keep;
+mod shellwait;
 mod staleness;
 mod start;
 mod stop;
@@ -38,6 +42,7 @@ mod tests;
 pub use actions::{Serve, ServeTarget, action_names, dispatch};
 pub use backup::{BackupOpts, RestoreOpts, parse_backup, parse_restore};
 pub use config::{ConfigOpts, parse_config, run_config};
+pub use doctor::run_doctor;
 pub use health::run_health;
 pub use help::{
     help, unknown_action, usage, usage_backup, usage_config, usage_doctor, usage_health,
