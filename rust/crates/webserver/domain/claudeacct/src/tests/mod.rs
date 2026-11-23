@@ -1,10 +1,13 @@
 //! Go 시험을 옮긴 것. 도우미는 Go `fakes_test.go` 와 가짜 HTTP 서버다.
 
 mod creds;
+mod engine;
 mod files;
 mod http;
 mod parse;
 mod service;
+mod smart;
+mod view;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

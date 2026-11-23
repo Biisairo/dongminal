@@ -2,7 +2,6 @@
 //! 로그에는 지문(`fingerprint`)만 쓴다.
 
 use std::collections::BTreeMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use dm_gocompat::json::{self, RawMessage};
 use serde::Serialize;
@@ -25,7 +24,7 @@ const SHARED_KEYS: [&str; 5] = [
 const ERR_NOT_OBJECT: &str = "자격증명이 JSON 객체가 아닙니다";
 
 /// 만료 판정의 여유다 (FR-CAC-42).
-const EXPIRY_SKEW: Duration = Duration::from_secs(5 * 60);
+const EXPIRY_SKEW_MS: i64 = 5 * 60 * 1000;
 
 type Fields = BTreeMap<String, RawMessage>;
 
@@ -157,15 +156,12 @@ impl Credential {
     }
 
     /// access token 이 now 기준 5분 안에 만료되는가다 (FR-CAC-42).
-    pub(crate) fn expired(&self, now: SystemTime) -> bool {
-        unix_millis(now + EXPIRY_SKEW) >= self.expires_at()
+    pub(crate) fn expired(&self, now_ms: i64) -> bool {
+        now_ms + EXPIRY_SKEW_MS >= self.expires_at()
     }
 }
 
 /// Go `t.UnixMilli()`.
-pub(crate) fn unix_millis(t: SystemTime) -> i64 {
-    match t.duration_since(UNIX_EPOCH) {
-        Ok(d) => i64::try_from(d.as_millis()).unwrap_or(i64::MAX),
-        Err(e) => -i64::try_from(e.duration().as_millis()).unwrap_or(i64::MAX),
-    }
+pub(crate) fn unix_millis(t: time::OffsetDateTime) -> i64 {
+    (t.unix_timestamp_nanos() / 1_000_000) as i64
 }

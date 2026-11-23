@@ -13,6 +13,7 @@ workspace = true
 dm-gocompat = { path = "../../../gocompat" }
 dm-shared-dmlog = { path = "../../../shared/dmlog" }
 dm-shared-platform = { path = "../../../shared/platform" }
+dm-webserver-domain-run = { path = "../run" }
 futures-util = { workspace = true }
 hex = { workspace = true }
 percent-encoding = { workspace = true }

@@ -17,7 +17,7 @@ pub const PROGRAM_CEDAR: &str = "cedar_ember";
 pub(crate) const QUERY_JUNIPER: &str = "at_wall=1&skip_spend=1";
 pub(crate) const QUERY_CEDAR: &str = "cedar_ember=1&skip_spend=1";
 
-static GRANT_ID_RE: LazyLock<Regex> =
+pub(crate) static GRANT_ID_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[a-z0-9_-]{1,40}$").expect("상수 정규식"));
 pub(crate) static REQUEST_ID_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[A-Za-z0-9_-]{1,64}$").expect("상수 정규식"));
