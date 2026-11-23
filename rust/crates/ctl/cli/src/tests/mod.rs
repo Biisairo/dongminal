@@ -5,11 +5,13 @@ mod golden;
 mod health;
 mod homelayout;
 mod logcap;
+mod migrate;
 mod options;
 mod proc;
 mod service;
 mod staleness;
 mod start;
+mod uninstall;
 mod window;
 
 use std::collections::HashMap;

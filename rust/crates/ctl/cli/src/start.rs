@@ -326,7 +326,7 @@ pub(crate) fn prepare_server_cmd(
     Ok(ServerCmd { cmd, log_path })
 }
 
-fn open_log(path: &str) -> io::Result<File> {
+pub(crate) fn open_log(path: &str) -> io::Result<File> {
     let mut o = OpenOptions::new();
     o.create(true).append(true);
     #[cfg(unix)]

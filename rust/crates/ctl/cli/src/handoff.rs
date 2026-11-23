@@ -1,6 +1,5 @@
 //! 도구 안 재시작의 위임 (FR-ACT-3a/3b/3c).
 
-use std::fs::OpenOptions;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -10,6 +9,7 @@ use dm_gocompat::oserr::{go_error_string, path_error};
 use crate::env::Env;
 use crate::homelayout::RESTART_LOG_FILE;
 use crate::options::{ENV_RESTART_RUNNER, ENV_TOOL_ID, StartOpts};
+use crate::start::open_log;
 
 /// 재시작을 대리 프로세스에 넘겨야 하는지다. 도구 안에서 데몬을 내리는 실행만 자기 목숨줄을
 /// 끊는다. 대리 자신은 다시 넘기지 않는다.
@@ -41,11 +41,8 @@ pub(crate) fn hand_off_restart(
         }
     };
     let log_path = filepath::join(&[home, RESTART_LOG_FILE]);
-    let mut opts = OpenOptions::new();
-    opts.create(true).append(true);
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o644);
-    let log = match opts.open(&log_path) {
+    // Go 는 0644 였다. 서버 로그(0600)와 같은 정책으로 맞춘다 (FR-RSP-6, P1-6).
+    let log = match open_log(&log_path) {
         Ok(f) => f,
         Err(e) => {
             let _ = writeln!(

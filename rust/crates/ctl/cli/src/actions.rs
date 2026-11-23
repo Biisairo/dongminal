@@ -26,7 +26,7 @@ use crate::uninstall::parse_uninstall;
 use crate::update::parse_update;
 use crate::version::{parse_version, run_version, usage_version};
 use crate::window::run_window_in;
-use crate::{health, service, start, stop};
+use crate::{health, migrate, service, start, stop, uninstall};
 
 /// `start --foreground` 가 이 프로세스로 띄울 서버다.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -84,9 +84,9 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "migrate",
             brief: "워크스페이스 데이터를 최신 스키마로 변환한다 (1회성)",
             usage: usage_migrate,
-            run: |rest, _, _, out, err| {
-                drive("migrate", parse_migrate(rest), out, err, |_, _, err| {
-                    not_ported("migrate", ISSUE_LIFECYCLE, err)
+            run: |rest, env, _, out, err| {
+                drive("migrate", parse_migrate(rest), out, err, |o, out, err| {
+                    migrate::run_migrate_in(&o, env, out, err)
                 })
             },
         },
@@ -134,10 +134,14 @@ pub(crate) fn actions() -> Vec<Action> {
             name: "uninstall",
             brief: "무엇을 지울지 보이고, --yes 가 있을 때만 지운다 (G3-4)",
             usage: usage_uninstall,
-            run: |rest, _, _, out, err| {
-                drive("uninstall", parse_uninstall(rest), out, err, |_, _, err| {
-                    not_ported("uninstall", ISSUE_LIFECYCLE, err)
-                })
+            run: |rest, env, _, out, err| {
+                drive(
+                    "uninstall",
+                    parse_uninstall(rest),
+                    out,
+                    err,
+                    |o, out, err| uninstall::run_uninstall_in(&o, env, out, err),
+                )
             },
         },
         Action {
