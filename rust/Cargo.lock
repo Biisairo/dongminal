@@ -876,8 +876,13 @@ dependencies = [
 name = "dm-webserver-domain-git-store"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
+ "dm-shared-platform",
  "dm-webserver-domain-git-core",
  "dm-webserver-domain-git-query",
+ "serde",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
