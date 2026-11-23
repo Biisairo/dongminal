@@ -198,6 +198,7 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-27 | 알려진 차이 | httpapi `/api/diag` | `goroutines` 는 goroutine 수, `allocMB` 는 GC 힙 할당량이다 | `goroutines` 는 살아 있는 tokio task 수, `allocMB` 는 늘 0 이다(런타임 구조가 달라 같은 값이 없다) | 5.5.8 |
 | DIFF-28 | 알려진 차이 | httpapi 정적 응답 mime 형식 (Windows) | 내장 표에 더해 Windows 레지스트리의 확장자 형식을 읽는다 | 내장 표와 unix 호스트 mime 파일만 읽는다. Windows 에서 내장 표 밖 확장자는 형식이 다를 수 있다 | 5.5.8 |
 | DIFF-29 | 결함 수정 | 빌드 스크립트 데몬 지문(daemon-fingerprint.sh) | `xargs sum` 이 셸 함수를 못 불러 /usr/bin/sum(BSD 16비트 체크섬)이 돈다 — 지문 충돌이 쉽다 | sha256 으로 지문을 만든다. 지문 값의 모양이 Go 빌드와 다르다 | 7.4 |
+| DIFF-30 | 구현 차이 | 보조 도구(gen-decisions·gen-errors `-check` 안내, check-shared-constants 사유 문구) | 재생성 안내가 `go run ./scripts/gen-…`, gen-errors 원천이 `codes_doc.go`, 사유가 Go 이름(`query.Op*`·`workspace.SchemaVersion`·`N * time.<단위>`) | 실제로 돌 명령 `cargo run -p dm-scripts-gen-… --`, 원천 `apierr` 의 코드 안내, 사유가 Rust 이름(`query::OP_*`·`workspace::SCHEMA_VERSION`·`Duration::from_<단위>(N)`). 짝 ID·형식·종료 코드는 같다(틀린 안내를 하지 않는다 — DIFF-12 와 같은 이유) | 8.4 |
 
 ## 4. 검증
 
