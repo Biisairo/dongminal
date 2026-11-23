@@ -1,13 +1,14 @@
 //! Go `ext` 시험을 옮긴 것과 Rust 쪽 관측 시험. 네트워크에 나가지 않는다.
-//!
-//! wip(4.6.1): fetch·attic·install·locate·builtin·wire 시험은 아직 옮기지 않았다. 아래 도우미 중
-//! 그 시험들이 쓸 것이 남아 있어 미사용 경고를 잠시 허용한다.
-#![allow(dead_code)]
 
+mod builtin;
 mod env;
+mod fetch;
 mod guard;
+mod install;
 mod load;
+mod locate;
 mod manifest;
+mod wire;
 
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -80,6 +81,10 @@ pub(crate) fn exe_suffix() -> &'static str {
     dm_shared_platform::current().paths.exe_suffix()
 }
 
+pub(crate) fn must_exec(p: &str) {
+    put_exe(p).unwrap();
+}
+
 pub(crate) fn put_exe(p: &str) -> io::Result<()> {
     std::fs::create_dir_all(filepath::dir(p))?;
     std::fs::write(p, b"#!/bin/sh\n")?;
@@ -147,6 +152,38 @@ pub(crate) struct TarEntry {
     pub link: String,
 }
 
+pub(crate) fn file(name: &str, body: &str) -> TarEntry {
+    TarEntry {
+        name: name.to_owned(),
+        body: body.to_owned(),
+        ..TarEntry::default()
+    }
+}
+
+pub(crate) fn exe_entry(name: &str, body: &str) -> TarEntry {
+    TarEntry {
+        mode: 0o755,
+        ..file(name, body)
+    }
+}
+
+pub(crate) fn link(name: &str, typ: u8, target: &str) -> TarEntry {
+    TarEntry {
+        name: name.to_owned(),
+        typ,
+        link: target.to_owned(),
+        ..TarEntry::default()
+    }
+}
+
+pub(crate) fn dir_entry(name: &str) -> TarEntry {
+    TarEntry {
+        name: name.to_owned(),
+        typ: b'5',
+        ..TarEntry::default()
+    }
+}
+
 pub(crate) fn make_tar_gz(entries: &[TarEntry]) -> Vec<u8> {
     let gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
     let mut b = tar::Builder::new(gz);
@@ -192,6 +229,27 @@ pub(crate) struct BlobFetch {
     pub count: Mutex<usize>,
 }
 
+pub(crate) fn blob_fetch(blob: Vec<u8>) -> BlobFetch {
+    BlobFetch {
+        blob,
+        err: None,
+        count: Mutex::new(0),
+    }
+}
+
+pub(crate) fn failing_fetch(err: &str) -> BlobFetch {
+    BlobFetch {
+        err: Some(err.to_owned()),
+        ..blob_fetch(Vec::new())
+    }
+}
+
+impl BlobFetch {
+    pub(crate) fn count(&self) -> usize {
+        *self.count.lock().unwrap()
+    }
+}
+
 impl Fetch for BlobFetch {
     fn fetch<'a>(
         &'a self,
@@ -223,6 +281,24 @@ type OnExec = Box<dyn Fn(&Call) -> Option<String> + Send + Sync>;
 pub(crate) struct Recorder {
     pub calls: Mutex<Vec<Call>>,
     pub on_exec: Option<OnExec>,
+}
+
+impl Recorder {
+    pub(crate) fn with(f: impl Fn(&Call) -> Option<String> + Send + Sync + 'static) -> Self {
+        Self {
+            calls: Mutex::new(Vec::new()),
+            on_exec: Some(Box::new(f)),
+        }
+    }
+
+    pub(crate) fn calls(&self) -> Vec<Call> {
+        self.calls.lock().unwrap().clone()
+    }
+}
+
+/// 놓기만 하는 Exec: 부르면 그 자리에 실행 파일을 둔다.
+pub(crate) fn placing(p: String) -> Recorder {
+    Recorder::with(move |_| put_exe(&p).err().map(|e| e.to_string()))
 }
 
 impl Exec for Recorder {
