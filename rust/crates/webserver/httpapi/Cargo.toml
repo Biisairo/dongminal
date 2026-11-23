@@ -74,4 +74,5 @@ dm-webserver-seam-toolaccess = { path = "../seam/toolaccess" }
 dm-webserver-sse = { path = "../sse" }
 
 [dev-dependencies]
+dm-shared-gittest = { path = "../../shared/gittest" }
 tempfile = { workspace = true }

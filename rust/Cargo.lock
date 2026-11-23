@@ -1521,6 +1521,7 @@ dependencies = [
  "dm-shared-edgenode",
  "dm-shared-edgerelay",
  "dm-shared-editorlimit",
+ "dm-shared-gittest",
  "dm-shared-httpreq",
  "dm-shared-httpresp",
  "dm-shared-mimeprobe",
