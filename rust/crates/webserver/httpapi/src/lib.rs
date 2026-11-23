@@ -10,6 +10,7 @@
 mod access;
 mod access_api;
 mod access_denied;
+mod agent_render_env;
 mod ansi;
 mod commands;
 mod deps;
@@ -20,10 +21,12 @@ mod openurl;
 mod req;
 mod reqgate;
 mod routes;
+mod sandbox_api;
 mod serve;
 mod settings_etag;
 mod toolhub;
 mod toolio;
+mod tools_api;
 mod ws;
 
 use std::path::PathBuf;
@@ -36,7 +39,7 @@ use dm_webserver_hub::{CommandBroker, CommandHub, FocusRegistry, ReplySeats};
 use dm_webserver_seam_toolaccess::{ToolReader, WorkspaceReader};
 
 pub use access::DEFAULT_ACCESS_REFRESH;
-pub use deps::{UpdateService, WorkspaceStore};
+pub use deps::{SandboxReaper, SettingsStore, StatsSnapshotter, UpdateService, WorkspaceStore};
 pub use req::{BodyError, ReqBody};
 pub use serve::GitHandler;
 pub use toolhub::{ToolError, ToolHub, ToolIdentity, Unsubscribe};
@@ -68,6 +71,11 @@ pub struct Deps {
     pub git: Option<Arc<dyn GitHandler>>,
     pub work: Option<Arc<dyn WorkspaceStore>>,
     pub updates: Option<Arc<dyn UpdateService>>,
+    pub settings: Option<Arc<dyn SettingsStore>>,
+    /// 샌드박스 창의 대응 컨테이너 회수자다. 없으면 컨테이너 기능이 꺼진다.
+    pub sandbox: Option<Arc<dyn SandboxReaper>>,
+    /// 상태바 지표다. 없으면 `/api/stats` 는 hostname·srvUptime 만 낸다.
+    pub stats: Option<Arc<dyn StatsSnapshotter>>,
 }
 
 /// 연결 진단의 계수다 (Go `connStats` 중 이 하위 이슈가 쓰는 것).
@@ -102,8 +110,9 @@ pub struct Server {
     pub(crate) browser_in: ws::BrowserInputs,
     /// SSE 인사의 주기. `None` 이면 기본값이다 — 시험만이 줄인다.
     pub(crate) hello_every: Mutex<Option<Duration>>,
+    /// `PUT /api/sandbox/config` 의 지문 검사와 저장을 한 덩이로 묶는다 (FR-LIV-2).
+    pub(crate) sandbox_put: tokio::sync::Mutex<()>,
     me: Weak<Server>,
-    #[allow(dead_code)]
     pub(crate) started: Instant,
 }
 
@@ -131,6 +140,7 @@ impl Server {
             conn: ConnStats::default(),
             browser_in: ws::BrowserInputs::default(),
             hello_every: Mutex::new(None),
+            sandbox_put: tokio::sync::Mutex::new(()),
             me: me.clone(),
             started: Instant::now(),
         })
