@@ -80,11 +80,16 @@ struct Ctx {
     base: usize,
     root: String,
     disallow_unknown: bool,
-    /// 구조체 필드의 null 을 없는 필드로 다룰 경로들. 맨 위에서 다시 풀며 채운다 ([`decode_value`]).
-    drop_nulls: HashSet<Vec<String>>,
-    /// 컨테이너 기본값을 남겨야 하는 null 을 만난 경로. 그 값 하나만 실패시키고 여기에 적는다.
-    keep_default: Option<Vec<String>>,
+    /// null 을 없는 필드로 다룰 구조체 필드들. 맨 위에서 다시 풀며 채운다 ([`decode_value`]).
+    drop_nulls: HashSet<FieldKey>,
+    /// 컨테이너 기본값을 남겨야 하는 null 을 만난 필드. 그 값 하나만 실패시키고 여기에 적는다.
+    keep_default: Option<FieldKey>,
 }
+
+/// Rust 구조체의 필드 하나다 — derive 가 만든 필드 목록(`&'static`)의 주소와 그 안의 번호.
+/// 입력의 경로가 아니라 코드의 필드로 기억하므로, 다시 푸는 횟수는 입력 크기와 무관하게
+/// 코드에 정의된 필드 수로 묶인다(같은 구조체가 배열에 몇 번 나오든 한 번).
+type FieldKey = (usize, usize);
 
 fn type_error(ctx: &Ctx, path: &[String], value: &str, go_type: &str, offset: i64) -> Error {
     let field = path.join(".");
@@ -153,7 +158,7 @@ struct De<'c, 'a> {
     /// 구조체 필드의 null 이다. Go 는 RawMessage 에 `null` 을 담고 포인터·interface·slice·map 을 nil 로
     /// 둔다(RawMessage·Option·Value·Vec·map·bytes). 스칼라·구조체는 [`De::null_keeps_default`] 로 컨테이너
     /// 기본값을 남긴다.
-    field_null: bool,
+    field_null: Option<FieldKey>,
 }
 
 macro_rules! de_int {
@@ -191,10 +196,10 @@ impl De<'_, '_> {
     /// Go v1: 구조체 필드의 null 은 채워 둔 값을 건드리지 않는다. 이 값을 실패시키고 경로를 적으면
     /// 맨 위가 그 null 을 없는 필드로 다뤄 다시 푼다 — 컨테이너 기본값(`#[serde(default)]`)이 남는다.
     fn null_keeps_default(&mut self) -> Result<(), Error> {
-        if !self.field_null {
+        let Some(key) = self.field_null else {
             return Ok(());
-        }
-        self.ctx.keep_default = Some(self.path.clone());
+        };
+        self.ctx.keep_default = Some(key);
         Err(Error::new("json: null keeps container default".to_owned()))
     }
 
@@ -231,7 +236,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
             Node::String(s) => visitor.visit_string(s),
             Node::Array(items) => visitor.visit_seq(Seq::new(items, self.ctx, self.path)),
             Node::Object(members) => {
-                visitor.visit_map(Map::new(members, self.ctx, self.path, false))
+                visitor.visit_map(Map::new(members, self.ctx, self.path, None))
             }
         }
     }
@@ -387,9 +392,9 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
     fn deserialize_map<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
         self.check_depth()?;
         match self.v.take_node() {
-            Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path, false)),
+            Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path, None)),
             Node::Object(members) => {
-                visitor.visit_map(Map::new(members, self.ctx, self.path, false))
+                visitor.visit_map(Map::new(members, self.ctx, self.path, None))
             }
             other => Err(self.err(kind_of(&other), DEFAULT_MAP_TYPE)),
         }
@@ -407,10 +412,10 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
             self.ctx.root = short_name(name);
         }
         match self.v.take_node() {
-            Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path, false)),
+            Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path, None)),
             Node::Object(members) => {
-                let members = resolve_fields(members, fields, self.ctx, &self.path)?;
-                visitor.visit_map(Map::new(members, self.ctx, self.path, true))
+                let members = resolve_fields(members, fields, self.ctx)?;
+                visitor.visit_map(Map::new(members, self.ctx, self.path, Some(fields)))
             }
             other => Err(self.err(kind_of(&other), name)),
         }
@@ -454,7 +459,6 @@ fn resolve_fields<'a>(
     members: Vec<(String, Value<'a>)>,
     fields: &'static [&'static str],
     ctx: &Ctx,
-    path: &[String],
 ) -> Result<Vec<(String, Value<'a>)>, Error> {
     let disallow_unknown = ctx.disallow_unknown;
     let folded: Vec<String> = fields.iter().map(|f| fold(f)).collect();
@@ -480,11 +484,8 @@ fn resolve_fields<'a>(
             Some(at) => merge_into(&mut out[at].1, value),
             // Go v1: null 은 이미 있는 값을 건드리지 않는다. 받는 타입이 null 을 받지 않는다고
             // 밝혀진 필드(drop_nulls)만 없는 필드로 다뤄 컨테이너 기본값이 남는다.
-            None if matches!(value.node, Node::Null) && {
-                let mut p = path.to_vec();
-                p.push(fields[fi].to_owned());
-                ctx.drop_nulls.contains(&p)
-            } => {}
+            None if matches!(value.node, Node::Null)
+                && ctx.drop_nulls.contains(&(fields.as_ptr() as usize, fi)) => {}
             None => {
                 slot_of[fi] = Some(out.len());
                 out.push((fields[fi].to_owned(), value));
@@ -557,7 +558,7 @@ impl<'de> de::SeqAccess<'de> for Seq<'_, '_> {
             ctx: self.ctx,
             path,
             go_type: None,
-            field_null: false,
+            field_null: None,
         })
         .map(Some)
     }
@@ -568,8 +569,8 @@ struct Map<'c, 'a> {
     pending: Option<(String, Value<'a>)>,
     ctx: &'c mut Ctx,
     path: Vec<String>,
-    /// 구조체의 필드들이다(map 이 아니다).
-    is_struct: bool,
+    /// 구조체면 그 필드 목록이다(map 이면 `None`).
+    fields: Option<&'static [&'static str]>,
 }
 
 impl<'c, 'a> Map<'c, 'a> {
@@ -577,14 +578,14 @@ impl<'c, 'a> Map<'c, 'a> {
         members: Vec<(String, Value<'a>)>,
         ctx: &'c mut Ctx,
         path: Vec<String>,
-        is_struct: bool,
+        fields: Option<&'static [&'static str]>,
     ) -> Self {
         Self {
             members: members.into_iter(),
             pending: None,
             ctx,
             path,
-            is_struct,
+            fields,
         }
     }
 }
@@ -613,9 +614,15 @@ impl<'de> de::MapAccess<'de> for Map<'_, '_> {
             .pending
             .take()
             .ok_or_else(|| Error::new("json: map value without key".to_owned()))?;
+        let field_null = match self.fields {
+            Some(f) if matches!(v.node, Node::Null) => f
+                .iter()
+                .position(|n| *n == key)
+                .map(|i| (f.as_ptr() as usize, i)),
+            _ => None,
+        };
         let mut path = self.path.clone();
         path.push(key);
-        let field_null = self.is_struct && matches!(v.node, Node::Null);
         seed.deserialize(De {
             v,
             ctx: self.ctx,
@@ -716,7 +723,7 @@ impl<'de, 'c, 'a> de::EnumAccess<'de> for Enum<'c, 'a> {
                 ctx: self.ctx,
                 path,
                 go_type: None,
-                field_null: false,
+                field_null: None,
             },
         ))
     }
@@ -764,13 +771,13 @@ fn decode_value<T: DeserializeOwned>(
             ctx,
             path: Vec::new(),
             go_type: None,
-            field_null: false,
+            field_null: None,
         })
     };
     if !has_object_null(&v) {
         return run(&mut ctx, v);
     }
-    // 컨테이너 기본값을 남길 null 을 만나면 그 경로를 없는 필드로 적고 다시 푼다. 경로마다 한 번이다.
+    // 컨테이너 기본값을 남길 null 을 만나면 그 필드를 없는 필드로 적고 다시 푼다. 코드의 필드마다 한 번이다.
     loop {
         ctx.root.clear();
         let out = run(&mut ctx, v.clone());
