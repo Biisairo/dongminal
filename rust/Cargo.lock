@@ -718,9 +718,15 @@ dependencies = [
 name = "dm-shared-edgerelay"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-dmlog",
  "dm-shared-edge",
+ "dm-shared-httpresp",
  "dm-shared-platform",
+ "http",
+ "rand",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
