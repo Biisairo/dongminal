@@ -402,7 +402,7 @@ impl GitServer {
 
     /// 실행 전에 막아야 하는 둘을 본다: ① 현재 브랜치 ② 미머지 브랜치(`-d` 일 때만). `Some` 이면
     /// 다 만든 응답이다.
-    async fn git_branch_delete_blocked(
+    pub(crate) async fn git_branch_delete_blocked(
         &self,
         git: &Arc<Store>,
         ctx: &Ctx,

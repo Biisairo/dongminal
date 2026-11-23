@@ -1,5 +1,5 @@
 //! `/api/git/*` 의 종단 목록 (Go `routes.go`). 모양과 디스패치는 `httproute` 가 소유한다
-//! (FR-DRC-10). 5.4.1·5.4.2 가 옮긴 종단만 싣는다 — 나머지는 5.4.3 이 이어 붙인다.
+//! (FR-DRC-10). Go 의 86개 종단 전부다.
 
 use std::sync::LazyLock;
 
@@ -74,6 +74,7 @@ pub(crate) static ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         // GIT_ACTIONS_SRS FR-GIT-252: 진행 중 작업의 출구.
         post("/api/git/operation", h!(api_git_operation)),
         post("/api/git/branch", h!(api_git_branch_create)),
+        get("/api/git/actions", h!(api_git_actions)),
         get("/api/git/branch/validate", h!(api_git_branch_validate)),
         // 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2).
         post("/api/git/branch/rename", h!(api_git_branch_rename)),
@@ -88,9 +89,48 @@ pub(crate) static ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         post("/api/git/branch/push", h!(api_git_branch_push)),
         post("/api/git/branch/fetch", h!(api_git_branch_fetch_into)),
         post(
+            "/api/git/branch/delete-both",
+            h!(api_git_branch_delete_both),
+        ),
+        post(
             "/api/git/branch/delete-remote",
             h!(api_git_branch_delete_remote),
         ),
+        get("/api/git/stash", h!(api_git_stash_list)),
+        get("/api/git/stash/show", h!(api_git_stash_show)),
+        post("/api/git/stash/push", h!(api_git_stash_push)),
+        post("/api/git/stash/apply", h!(api_git_stash_apply)),
+        post("/api/git/stash/pop", h!(api_git_stash_pop)),
+        post("/api/git/stash/drop", h!(api_git_stash_drop)),
+        // 묶음 C — 태그 (GIT_ACTIONS_SRS §3.3). 삭제가 둘인 것은 로컬과 원격이 다른 항목이기
+        // 때문이다 (FR-GIT-261).
+        post("/api/git/tag", h!(api_git_tag_create)),
+        get("/api/git/tag/validate", h!(api_git_tag_validate)),
+        post("/api/git/tag/delete", h!(api_git_tag_delete)),
+        post("/api/git/tag/push", h!(api_git_tag_push)),
+        post("/api/git/tag/delete-remote", h!(api_git_tag_delete_remote)),
+        // 묶음 F — stash·파일·미커밋 행 (GIT_ACTIONS_SRS §3.6).
+        post("/api/git/stash/branch", h!(api_git_stash_branch)),
+        post("/api/git/ignore", h!(api_git_ignore_add)),
+        get("/api/git/file-head", h!(api_git_file_head)),
+        post("/api/git/uncommitted/reset", h!(api_git_uncommitted_reset)),
+        post("/api/git/uncommitted/clean", h!(api_git_uncommitted_clean)),
+        // 묶음 G — 부분 스테이징 (GIT_ACTIONS_SRS §3.7). 패치는 서버가 만든다 (D6).
+        get("/api/git/hunks", h!(api_git_hunks)),
+        post("/api/git/patch", h!(api_git_patch)),
+        // 묶음 D — 커밋 동작 (GIT_ACTIONS_SRS §3.4).
+        post("/api/git/cherry-pick", h!(api_git_cherry_pick)),
+        post("/api/git/revert", h!(api_git_revert)),
+        post("/api/git/reset", h!(api_git_reset)),
+        post("/api/git/drop", h!(api_git_drop)),
+        get("/api/git/commit-range", h!(api_git_commit_range)),
+        // 묶음 W7 — Worktrees 탭 (FR-GIT-240~243) · 서브모듈 (UX_BATCH5_SRS FR-SUB-1·4).
+        get("/api/git/submodules", h!(api_git_submodules)),
+        post("/api/git/submodules/update", h!(api_git_submodule_update)),
+        post("/api/git/submodules/sync", h!(api_git_submodule_sync)),
+        get("/api/git/worktrees", h!(api_git_worktrees)),
+        post("/api/git/worktrees/create", h!(api_git_worktree_create)),
+        post("/api/git/worktrees/remove", h!(api_git_worktree_remove)),
         // REPO_FIX 01 §7.2: 남은 index.lock 을 사용자 확인 뒤 지운다. 자동 삭제는 없다.
         post("/api/git/lock/remove", h!(api_git_lock_remove)),
     ]

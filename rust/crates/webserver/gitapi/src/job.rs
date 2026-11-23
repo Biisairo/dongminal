@@ -139,6 +139,22 @@ impl GitWrite<'_> {
         .await;
     }
 
+    /// 화이트리스트 밖의 도메인(submodule)이 인가한 argv 를 잡으로 띄운다. 사유는 기록에 남는다.
+    pub(crate) async fn start_unguarded_job(
+        &mut self,
+        kind: &str,
+        argv: Vec<String>,
+        reason: &str,
+    ) {
+        let (root, k, reason) = (self.root.clone(), kind.to_owned(), reason.to_owned());
+        self.launch_job(
+            kind,
+            move |h, keys| h.start_unguarded(&root, keys, &k, argv, &reason, Default::default()),
+            None,
+        )
+        .await;
+    }
+
     /// 잡 시작의 공통 절차다: 키 → 요청 생존 → 칸 판정 → 시작 → `{requested, repo, job}`.
     pub(crate) async fn launch_job<F>(&mut self, kind: &str, start: F, extra: Option<&Obj>)
     where

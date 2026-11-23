@@ -2,10 +2,9 @@
 //! (stage 갈래)·`handlers_git_actions_commit_test.go` 중 5.4.2 범위의 이식.
 //!
 //! 옮기지 않은 것:
-//! - `TestStageSubmoduleInnerOnly_RealGit`: 실제 git 서브모듈 픽스처(`submoduleTestServer`)가
-//!   5.4.3 종단 /api/git/submodules* 의 하네스다.
-//! - `TestCommitAnswerMatchesRejection` 의 답 종단 절반: 5.4.3 종단 /api/git/actions. 실행 종단
-//!   (/api/git/commit) 쪽 거절만 옮긴다.
+//! - `TestStageSubmoduleInnerOnly_RealGit`: 서브모듈 픽스처를 쓰므로 `submodule.rs` 에 있다.
+//! - `TestCommitAnswerMatchesRejection` 의 답 종단 절반: `carryover.rs` 에 있다. 여기는 실행 종단
+//!   (/api/git/commit) 쪽 거절만 본다.
 //! - `fakeJobRunner`·`gitJobDone`·`gitReqAwait`: 하네스(`wfake.rs`)로 옮겼다.
 //!
 //! Go 의 `writeErr` 안에서 바꾸던 상태는 `write_ctx` 에서 바꾼다 — `write_err` 는 fake 잠금 안에서 불린다.

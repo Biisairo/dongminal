@@ -33,12 +33,17 @@ dm-webserver-domain-worktree = { path = "../domain/worktree" }
 dm-webserver-domain-wsentry = { path = "../domain/wsentry" }
 dm-webserver-httproute = { path = "../httproute" }
 dm-webserver-sse = { path = "../sse" }
+hex = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 tokio = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
 
 [dev-dependencies]
 dm-shared-gittest = { path = "../../shared/gittest" }

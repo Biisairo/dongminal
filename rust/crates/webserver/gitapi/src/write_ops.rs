@@ -352,7 +352,7 @@ async fn issue_undo(
 }
 
 /// amend 가 메시지도 바꾸지 않는가다. 직전 메시지를 읽지 못하면 바뀐 것으로 본다.
-async fn git_amend_unchanged(
+pub(crate) async fn git_amend_unchanged(
     svc: &Service,
     ctx: &Ctx,
     root: &str,

@@ -1,6 +1,6 @@
 //! Go `gitwrite_test.go`·`handlers_git_exclusion_test.go`·`handlers_git_shutdown_test.go` 중 5.4.1 범위.
 //! Go 는 stage·stash 종단으로 시험하지만, 여기서는 같은 흐름(GitWrite·임대·잠금)을 지나는 5.4.1 종단
-//! (records/replay·lock/remove)으로 시험한다. stage·stash·resolve·pull 갈래는 5.4.2·5.4.3 이 옮긴다.
+//! (records/replay·lock/remove)으로 시험한다. stage·resolve·pull 갈래는 `exclusion.rs`, stash 갈래는 `carryover.rs` 에 있다.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -371,7 +371,7 @@ async fn lock_remove_busy_and_job() {
     w.hold.close();
 }
 
-// 5.4.1 표의 POST 종단은 모두 잠금 표에 있다 (§5.2). 반대 방향은 5.4.3 이 표를 채운 뒤 본다.
+// POST 종단은 모두 잠금 표에 있고, 잠금 표의 경로는 모두 POST 종단이다 (§5.2).
 #[test]
 fn write_locks_cover_post_routes() {
     for rt in crate::routes::ROUTES.iter().filter(|r| r.method == "POST") {
@@ -381,6 +381,14 @@ fn write_locks_cover_post_routes() {
         assert!(crate::lock::write_lease(&Method::POST, p).is_some(), "{p}");
     }
     assert!(crate::lock::write_lease(&Method::GET, "/api/git/records/replay").is_none());
+    // 반대 방향: 잠금 표의 경로는 모두 POST 종단이다 — 표만 남은 경로가 없다.
+    for (p, _) in crate::lock::WRITE_LOCKS {
+        let routed = crate::routes::ROUTES.iter().any(|r| {
+            r.method == "POST"
+                && matches!(r.matcher, dm_webserver_httproute::Matcher::Exact(e) if e == *p)
+        });
+        assert!(routed, "잠금 표에만 있는 경로: {p}");
+    }
 }
 
 // 첫 응답 뒤의 단계는 아무것도 하지 않는다.

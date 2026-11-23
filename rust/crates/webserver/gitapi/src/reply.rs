@@ -127,6 +127,8 @@ impl GitErr for core::Error {}
 impl GitErr for dm_webserver_domain_git_query::Error {}
 impl GitErr for dm_webserver_domain_git_jobs::Error {}
 impl GitErr for dm_webserver_domain_wsentry::Error {}
+impl GitErr for dm_webserver_domain_worktree::Error {}
+impl GitErr for std::io::Error {}
 impl GitErr for dm_webserver_domain_git_write::Error {
     fn batch_partial(&self) -> bool {
         self.batch().is_some_and(|b| b.partial())

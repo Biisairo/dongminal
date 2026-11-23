@@ -331,7 +331,7 @@ impl BranchFacts {
 }
 
 /// 양쪽 삭제의 짝이다 (FR-SDA-35). git 이 짝이라고 적어 둔 추적 관계만 짝이다.
-fn branch_pair(r: &query::Ref, f: &BranchFacts) -> (query::Ref, String, Answer) {
+pub(crate) fn branch_pair(r: &query::Ref, f: &BranchFacts) -> (query::Ref, String, Answer) {
     if r.kind == query::REF_KIND_LOCAL {
         if r.upstream.is_empty() {
             return (

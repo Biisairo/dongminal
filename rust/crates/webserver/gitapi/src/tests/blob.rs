@@ -508,7 +508,7 @@ async fn diff_commit_axis_echoes_revisions() {
 }
 
 // Go `handlers_git_diff_limit_test.go`: diff 본문은 편집기 상한(32 MiB)까지 낸다 (FR-OPT-15-1).
-// 실제 git 을 쓴다. file-head 갈래는 5.4.3 이 옮긴다.
+// 실제 git 을 쓴다. file-head 갈래는 `carryover.rs` 에 있다.
 async fn limit_case(size: usize, change: bool) -> serde_json::Value {
     let Some(repo) = dm_shared_gittest::repo() else {
         return serde_json::Value::Null;
