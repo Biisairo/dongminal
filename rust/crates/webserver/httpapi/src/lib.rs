@@ -11,8 +11,12 @@ mod access;
 mod access_api;
 mod access_denied;
 mod ansi;
+mod commands;
+mod deps;
+mod entity_name;
 mod httperr;
 mod netx;
+mod openurl;
 mod req;
 mod reqgate;
 mod routes;
@@ -20,16 +24,19 @@ mod serve;
 mod settings_etag;
 mod toolhub;
 mod toolio;
+mod ws;
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
+use std::sync::{Arc, Mutex, Weak};
+use std::time::Duration;
 use std::time::Instant;
 
 use dm_webserver_hub::{CommandBroker, CommandHub, FocusRegistry, ReplySeats};
 use dm_webserver_seam_toolaccess::{ToolReader, WorkspaceReader};
 
 pub use access::DEFAULT_ACCESS_REFRESH;
+pub use deps::{UpdateService, WorkspaceStore};
 pub use req::{BodyError, ReqBody};
 pub use serve::GitHandler;
 pub use toolhub::{ToolError, ToolHub, ToolIdentity, Unsubscribe};
@@ -59,6 +66,8 @@ pub struct Deps {
     pub work_index: Option<Arc<dyn WorkspaceReader>>,
     /// `/api/git/*` 처리기다. 없으면 그 표면은 404 다 (5.5.10 이 gitapi 로 채운다).
     pub git: Option<Arc<dyn GitHandler>>,
+    pub work: Option<Arc<dyn WorkspaceStore>>,
+    pub updates: Option<Arc<dyn UpdateService>>,
 }
 
 /// 연결 진단의 계수다 (Go `connStats` 중 이 하위 이슈가 쓰는 것).
@@ -66,6 +75,15 @@ pub struct Deps {
 pub(crate) struct ConnStats {
     /// 마지막 요청 시각(UnixNano). 로깅 미들웨어가 갱신한다.
     pub(crate) last_req: AtomicI64,
+    /// 마지막 WS 연결 시각(UnixNano).
+    pub(crate) last_ws: AtomicI64,
+    /// 열린 WS 수.
+    pub(crate) ws_open: AtomicI64,
+    /// 붙잡힌 WS 수 (ws_miss).
+    pub(crate) holds: AtomicI64,
+    /// presence SSE 구독 수.
+    pub(crate) presence_subs: AtomicI64,
+    pub(crate) misses: ws::MissTracker,
 }
 
 /// HTTP 서버 한 벌이다 (Go `Server`). 두 서버가 한 프로세스에 함께 설 수 있다.
@@ -81,6 +99,10 @@ pub struct Server {
     /// `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
     pub(crate) hosts: HostAllow,
     pub(crate) conn: ConnStats,
+    pub(crate) browser_in: ws::BrowserInputs,
+    /// SSE 인사의 주기. `None` 이면 기본값이다 — 시험만이 줄인다.
+    pub(crate) hello_every: Mutex<Option<Duration>>,
+    me: Weak<Server>,
     #[allow(dead_code)]
     pub(crate) started: Instant,
 }
@@ -99,7 +121,7 @@ impl Server {
         // (FR-ACL-5a).
         access.refresh();
         let hosts = HostAllow::new(Some(access.clone()), cfg.allowed_hosts.clone());
-        Arc::new(Server {
+        Arc::new_cyclic(|me| Server {
             deps,
             cfg,
             focus: FocusRegistry::new(),
@@ -107,6 +129,9 @@ impl Server {
             access: Some(access),
             hosts,
             conn: ConnStats::default(),
+            browser_in: ws::BrowserInputs::default(),
+            hello_every: Mutex::new(None),
+            me: me.clone(),
             started: Instant::now(),
         })
     }
@@ -117,6 +142,20 @@ impl Server {
 
     pub fn config(&self) -> &Config {
         &self.cfg
+    }
+
+    /// 이 서버의 `Arc` 다. 요청 뒤에도 사는 task(SSE·WS)가 쓴다.
+    pub(crate) fn arc(&self) -> Option<Arc<Server>> {
+        self.me.upgrade()
+    }
+
+    pub(crate) fn work(&self) -> Option<&dyn WorkspaceStore> {
+        self.deps.work.as_deref()
+    }
+
+    /// 지금 서빙하는 자산의 판이다 (FR-AVS-3). 정적 자산은 5.5.8 이 배선한다 — 그 전에는 모른다.
+    pub(crate) fn asset_version(&self) -> String {
+        String::new()
     }
 
     pub(crate) fn commands(&self) -> Option<&Arc<dyn CommandBroker>> {

@@ -39,7 +39,6 @@ pub trait GitHandler: Send + Sync {
 
 /// mux 의 패턴 (Go `ServeMux` 의 메서드 없는 패턴).
 #[derive(Clone, Copy)]
-#[allow(dead_code)]
 pub(crate) enum Pattern {
     /// `/ws` 처럼 정확히 같은 경로.
     Exact(&'static str),
@@ -47,9 +46,35 @@ pub(crate) enum Pattern {
     Tree(&'static str),
 }
 
+macro_rules! mux_h {
+    ($m:ident) => {{
+        fn f<'a>(s: &'a Server, r: &'a mut Req) -> crate::req::BoxFut<'a, Response> {
+            Box::pin(s.$m(r))
+        }
+        f as Handler
+    }};
+}
+
 /// 서버의 mux 표다 (Go `Handler` 의 `mux.HandleFunc` 들). 하위 이슈가 자기 종단을 더한다.
 pub(crate) fn mux_table() -> Vec<(Pattern, Handler)> {
-    vec![(Pattern::Tree("/api/"), handle_api_entry as Handler)]
+    vec![
+        (Pattern::Exact("/ws"), mux_h!(handle_ws)),
+        (Pattern::Tree("/api/"), handle_api_entry as Handler),
+        (Pattern::Exact("/api/commands"), mux_h!(handle_command_post)),
+        (
+            Pattern::Exact("/api/commands/sse"),
+            mux_h!(handle_command_sse),
+        ),
+        (
+            Pattern::Exact("/api/command-result"),
+            mux_h!(handle_command_result),
+        ),
+        // VIEWER_URL_OPEN_SRS FR-VUO-19: 부작용 없는 판정 조회.
+        (
+            Pattern::Exact("/api/open-url/where"),
+            mux_h!(handle_open_url_where),
+        ),
+    ]
 }
 
 fn handle_api_entry<'a>(s: &'a Server, r: &'a mut Req) -> crate::req::BoxFut<'a, Response> {
@@ -115,6 +140,10 @@ impl Server {
             Some(id.clone()),
         );
         let mut res = self.logged(r).await;
+        // 업그레이드는 Go 에서 하이재킹이라 응답 머리(`w.Header()`)가 실리지 않는다.
+        if res.status() == StatusCode::SWITCHING_PROTOCOLS {
+            return res;
+        }
         if let Ok(v) = HeaderValue::from_str(&id) {
             res.headers_mut().insert(dm_shared_dmlog::REQ_ID_HEADER, v);
         }

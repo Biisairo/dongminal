@@ -25,6 +25,8 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/tools/output", h!(api_tool_output)),
         post("/api/tools/input", h!(api_tool_input)),
         post("/api/tools/message", h!(api_tool_message)),
+        get("/api/focus", h!(api_focus_get)),
+        post("/api/focus/claim", h!(api_focus_claim)),
         // ACCESS_ALLOWLIST_SRS FR-ACL-19·20. 게이트 **뒤**에 있다 (FR-ACL-21).
         get("/api/access", h!(api_access_get)),
         put("/api/access", h!(api_access_put)),
