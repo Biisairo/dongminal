@@ -23,6 +23,8 @@ if [[ "${1:-}" == "--platform" ]]; then
 fi
 tag="$(echo "${PLATFORM[1]:-native}" | tr '/' '-')"
 
+# 안쪽 스크립트는 컨테이너에서 전개한다.
+# shellcheck disable=SC2016
 exec "$ENGINE" run --rm --init ${PLATFORM[@]+"${PLATFORM[@]}"} \
   -v "$PWD":/src:ro \
   -v "dm-rust-target-$tag":/target \
@@ -32,7 +34,8 @@ exec "$ENGINE" run --rm --init ${PLATFORM[@]+"${PLATFORM[@]}"} \
   -w /src/rust "$IMAGE" bash -c '
     set -e
     apt-get update -qq >/dev/null && apt-get install -y -qq ripgrep >/dev/null
-    git config --global --add safe.directory "*"
+    # worktree 의 .git 은 마운트하지 않은 본 저장소를 가리키므로 저장소 밖에서 부른다.
+    git -C / config --global --add safe.directory "*"
     echo "linux-test: $(uname -m) $(rustc --version) $(git --version) $(rg --version | head -1)"
     scripts/hermetic.sh cargo test --workspace --locked --no-fail-fast "$@"
   ' linux-test "$@"
