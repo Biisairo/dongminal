@@ -23,6 +23,16 @@ pub enum Sentinel {
     ReloginRequired,
     /// `os.ErrNotExist`
     NotExist,
+    /// `ErrNotLoggedIn`
+    NotLoggedIn,
+    /// `ErrLiveEmpty`
+    LiveEmpty,
+    /// `ErrEmptyBackup`
+    EmptyBackup,
+    /// `ErrLiveChanged`
+    LiveChanged,
+    /// `ErrNoCandidate`
+    NoCandidate,
 }
 
 impl Sentinel {
@@ -37,6 +47,15 @@ impl Sentinel {
             }
             Sentinel::ReloginRequired => "다시 로그인해야 합니다",
             Sentinel::NotExist => "file does not exist",
+            Sentinel::NotLoggedIn => {
+                "Claude Code 에 로그인한 계정이 없습니다. 먼저 Claude Code 에서 /login 으로 로그인하세요"
+            }
+            Sentinel::LiveEmpty => "활성 자격증명이 없습니다. Claude Code 에서 다시 로그인하세요",
+            Sentinel::EmptyBackup => {
+                "이 계정의 백업이 비었습니다. 그 계정으로 로그인한 뒤 다시 추가하세요"
+            }
+            Sentinel::LiveChanged => "전환 도중 활성 자격증명이 바뀌었습니다. 다시 시도하세요",
+            Sentinel::NoCandidate => "전환할 계정이 없습니다",
         }
     }
 }

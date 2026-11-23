@@ -31,7 +31,7 @@ pub struct OAuthAccount {
 
 type ConfigMap = BTreeMap<String, RawMessage>;
 
-fn read_config_map(path: &Path) -> Result<Option<ConfigMap>, Error> {
+pub(crate) fn read_config_map(path: &Path) -> Result<Option<ConfigMap>, Error> {
     let b = match fsutil::read_file(path) {
         Ok(b) => b,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),

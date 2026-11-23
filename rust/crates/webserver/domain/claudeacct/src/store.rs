@@ -279,7 +279,7 @@ impl Store {
 }
 
 /// Go `os.Chmod(dir, 0o700)` (실패는 무시한다).
-fn set_dir_mode(dir: &Path) {
+pub(crate) fn set_dir_mode(dir: &Path) {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

@@ -4,6 +4,7 @@ mod creds;
 mod files;
 mod http;
 mod parse;
+mod service;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -117,5 +118,33 @@ impl MemSecrets {
             .get(&(s.into(), "tester".into()))
             .cloned()
             .unwrap_or_default()
+    }
+}
+
+/// `ProfileLookup` 이다. 토큰마다 정체를 돌려준다.
+#[derive(Default)]
+pub(crate) struct FakeProfile {
+    pub(crate) by_token: Mutex<HashMap<String, crate::Identity>>,
+    pub(crate) calls: std::sync::atomic::AtomicUsize,
+    pub(crate) err: Mutex<Option<String>>,
+}
+
+impl crate::ProfileLookup for FakeProfile {
+    fn profile<'a>(
+        &'a self,
+        token: &'a str,
+    ) -> futures_util::future::BoxFuture<'a, Result<crate::Identity, crate::Error>> {
+        self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let r = match self.err.lock().unwrap().clone() {
+            Some(e) => Err(crate::Error::new(e)),
+            None => self
+                .by_token
+                .lock()
+                .unwrap()
+                .get(token)
+                .cloned()
+                .ok_or_else(|| crate::Error::new("unknown token")),
+        };
+        Box::pin(async move { r })
     }
 }
