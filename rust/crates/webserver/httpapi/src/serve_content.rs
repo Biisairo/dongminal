@@ -8,6 +8,7 @@ use dm_shared_httpresp::{self as httpresp, Response};
 use http::header::{self, HeaderName};
 use http::{HeaderMap, HeaderValue, Method, StatusCode};
 
+pub(crate) use crate::mimetable::type_by_extension;
 use crate::req::Req;
 
 /// Go `errNoOverlap`.
@@ -18,96 +19,6 @@ const DEFAULT_MAX_CONTENT_RANGES: usize = 200;
 /// Go `http.Error` 가 싣는 형식.
 const ERROR_CONTENT_TYPE: &str = "text/plain; charset=utf-8";
 const DIR_LIST_CONTENT_TYPE: &str = "text/html; charset=utf-8";
-
-/// Go `mime` 의 내장 표(`builtinTypesLower`). 호스트의 mime 설정은 읽지 않는다.
-const BUILTIN_TYPES: &[(&str, &str)] = &[
-    (".ai", "application/postscript"),
-    (".apk", "application/vnd.android.package-archive"),
-    (".apng", "image/apng"),
-    (".avif", "image/avif"),
-    (".bin", "application/octet-stream"),
-    (".bmp", "image/bmp"),
-    (".com", "application/octet-stream"),
-    (".css", "text/css; charset=utf-8"),
-    (".csv", "text/csv; charset=utf-8"),
-    (".doc", "application/msword"),
-    (
-        ".docx",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ),
-    (".ehtml", "text/html; charset=utf-8"),
-    (".eml", "message/rfc822"),
-    (".eps", "application/postscript"),
-    (".exe", "application/octet-stream"),
-    (".flac", "audio/flac"),
-    (".gif", "image/gif"),
-    (".gz", "application/gzip"),
-    (".htm", "text/html; charset=utf-8"),
-    (".html", "text/html; charset=utf-8"),
-    (".ico", "image/vnd.microsoft.icon"),
-    (".ics", "text/calendar; charset=utf-8"),
-    (".jfif", "image/jpeg"),
-    (".jpeg", "image/jpeg"),
-    (".jpg", "image/jpeg"),
-    (".js", "text/javascript; charset=utf-8"),
-    (".json", "application/json"),
-    (".m4a", "audio/mp4"),
-    (".mjs", "text/javascript; charset=utf-8"),
-    (".mp3", "audio/mpeg"),
-    (".mp4", "video/mp4"),
-    (".oga", "audio/ogg"),
-    (".ogg", "audio/ogg"),
-    (".ogv", "video/ogg"),
-    (".opus", "audio/ogg"),
-    (".pdf", "application/pdf"),
-    (".pjp", "image/jpeg"),
-    (".pjpeg", "image/jpeg"),
-    (".png", "image/png"),
-    (".ppt", "application/vnd.ms-powerpoint"),
-    (
-        ".pptx",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ),
-    (".ps", "application/postscript"),
-    (".rdf", "application/rdf+xml"),
-    (".rtf", "application/rtf"),
-    (".shtml", "text/html; charset=utf-8"),
-    (".svg", "image/svg+xml"),
-    (".text", "text/plain; charset=utf-8"),
-    (".tif", "image/tiff"),
-    (".tiff", "image/tiff"),
-    (".txt", "text/plain; charset=utf-8"),
-    (".vtt", "text/vtt; charset=utf-8"),
-    (".wasm", "application/wasm"),
-    (".wav", "audio/wav"),
-    (".weba", "audio/webm"),
-    (".webm", "video/webm"),
-    (".webp", "image/webp"),
-    (".xbl", "text/xml; charset=utf-8"),
-    (".xbm", "image/x-xbitmap"),
-    (".xht", "application/xhtml+xml"),
-    (".xhtml", "application/xhtml+xml"),
-    (".xls", "application/vnd.ms-excel"),
-    (
-        ".xlsx",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ),
-    (".xml", "text/xml; charset=utf-8"),
-    (".xsl", "text/xml; charset=utf-8"),
-    (".zip", "application/zip"),
-];
-
-/// Go `mime.TypeByExtension` (내장 표만). 모르면 빈 값이다.
-pub(crate) fn type_by_extension(ext: &str) -> &'static str {
-    if ext.is_empty() {
-        return "";
-    }
-    let lower = ext.to_lowercase();
-    BUILTIN_TYPES
-        .iter()
-        .find(|(e, _)| *e == lower)
-        .map_or("", |(_, t)| t)
-}
 
 /// 쌓아 둔 머리와 상태·본문으로 응답을 만든다.
 pub(crate) fn respond(h: HeaderMap, status: StatusCode, body: Bytes) -> Response {

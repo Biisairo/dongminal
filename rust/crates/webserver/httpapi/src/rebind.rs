@@ -26,6 +26,7 @@ use tokio_util::task::TaskTracker;
 use crate::Server;
 use crate::carry::CarryStore;
 use crate::httperr::{code_fail, read_json_body, write_json};
+use crate::listen::canonical_addr;
 use crate::netx::split_host_port;
 use crate::openurl::is_loopback_addr;
 use crate::rebind_conns::{ConnIo, ConnSet, ConnTimeouts, DoneBody, Phase};
@@ -43,12 +44,9 @@ pub(crate) const EXPOSE_WARNING: &str =
 /// Go `net.Listen("tcp", addr)` 의 자리다. 시험이 바꾼다.
 pub(crate) type ListenFn = Arc<dyn Fn(&str) -> io::Result<std::net::TcpListener> + Send + Sync>;
 
-/// 기본 리슨. 호스트가 비면 모든 주소다.
+/// 기본 리슨 (Go `net.Listen`). 와일드카드는 가능하면 이중 스택이다.
 pub(crate) fn default_listen(addr: &str) -> io::Result<std::net::TcpListener> {
-    match split_host_port(addr) {
-        Some(("", port)) => std::net::TcpListener::bind(format!("0.0.0.0:{port}")),
-        _ => std::net::TcpListener::bind(addr),
-    }
+    crate::listen::listen_tcp(addr)
 }
 
 /// 실행 중 리바인드의 상태다 (Go `rebindState`).
@@ -206,7 +204,7 @@ impl Rebinder {
             match acc {
                 Ok((sock, remote)) => {
                     delay = Duration::ZERO;
-                    self.spawn_conn(sock, remote);
+                    self.spawn_conn(sock, canonical_addr(remote));
                 }
                 Err(e) => {
                     // Go `Server.Serve` 의 일시 오류 물러서기 (5ms 부터 두 배, 1초까지).
@@ -234,7 +232,7 @@ impl Rebinder {
         let Some(srv) = self.srv.upgrade() else {
             return;
         };
-        let Ok(local) = sock.local_addr() else {
+        let Ok(local) = sock.local_addr().map(canonical_addr) else {
             return;
         };
         let phase = Phase::new(self.timeouts);

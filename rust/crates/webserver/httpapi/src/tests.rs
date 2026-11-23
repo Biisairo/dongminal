@@ -18,6 +18,7 @@ mod golden_5572;
 mod golden_558a;
 mod golden_files;
 mod info_api;
+mod mimetable;
 mod mux;
 mod netx;
 mod rebind;
