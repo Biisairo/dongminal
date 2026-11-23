@@ -53,6 +53,31 @@ impl WorkspaceStore for FakeWork {
     }
 }
 
+/// httpapi 의 나머지 표면은 이 시험들이 쓰지 않는다 — 기본 답이다.
+impl crate::WorkspaceStore for FakeWork {
+    fn current_rev(&self) -> u64 {
+        self.0.lock().unwrap().rev
+    }
+    fn load_err(&self) -> String {
+        String::new()
+    }
+    fn persist_err(&self) -> String {
+        String::new()
+    }
+    fn coordinate_of(&self, id: &str) -> Result<String, dm_shared_workspace::Error> {
+        Ok(id.to_owned())
+    }
+    fn is_known_tab_id(&self, _: &str) -> bool {
+        false
+    }
+    fn entries(&self) -> Vec<dm_shared_workspace::TabEntry> {
+        Vec::new()
+    }
+    fn windows(&self) -> Option<Vec<dm_shared_workspace::WindowInfo>> {
+        None
+    }
+}
+
 /// Go `seedRoot`.
 pub(crate) fn seed_root(ws: &FakeWork, root: &str) {
     let q = String::from_utf8(dm_gocompat::json::marshal(&root).unwrap()).unwrap();
