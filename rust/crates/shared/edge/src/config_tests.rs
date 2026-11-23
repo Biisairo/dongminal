@@ -166,7 +166,8 @@ fn saved_bytes_match_go() {
 #[test]
 fn save_rejects_invalid() {
     let (_d, s) = new_store();
-    let cases: [(fn(&mut Config), Error); 4] = [
+    type Mutate = fn(&mut Config);
+    let cases: [(Mutate, Error); 4] = [
         (|c| c.name = "a b".into(), Error::InvalidName),
         (|c| c.port = 0, Error::InvalidPort),
         (|c| c.port = 65536, Error::InvalidPort),

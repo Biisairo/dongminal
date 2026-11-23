@@ -4,6 +4,7 @@ mod addr;
 pub mod codes;
 mod config;
 mod error;
+mod identity;
 mod limit;
 mod pairing;
 mod profile;
@@ -16,6 +17,9 @@ pub use config::{
     valid_display_name, valid_name,
 };
 pub use error::Error;
+pub use identity::{
+    CERT_VALIDITY, Identity, IdentityError, fingerprint_of, load_or_create_identity,
+};
 pub use limit::{Clock, PER_KEY_PER_MINUTE, RateLimiter};
 pub use pairing::{INVITE_PREFIX, INVITE_TTL, InviteCode, Pairing, decode_invite, encode_invite};
 pub use profile::{handle, tag};
