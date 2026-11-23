@@ -269,6 +269,29 @@ impl ToolManager {
         self.inner.st.write().unwrap_or_else(|e| e.into_inner())
     }
 
+    /// 이 등록부가 띄우는 도구 셸의 환경을 프로세스 환경 위에 덮는다. Go 는 홈(`DONGMINAL_HOME`)·
+    /// 도구 홈을 `os.Setenv` 로 넘겼다 — Rust 는 프로세스 환경을 바꾸지 않고 여기로 넘긴다. 셸
+    /// 환경뿐 아니라 bin 자리·PATH·HOME·히스토리 자리도 이 값으로 정한다. 이후 띄우는 도구부터
+    /// 적용되며 [`ToolManager::set_start`] 를 덮어쓴다.
+    pub fn set_env_overlay(&self, vars: Vec<(String, String)>) {
+        let vars = Arc::new(vars);
+        self.set_start(Arc::new(move |r: StartReq<'_>| {
+            let g = |k: &str| crate::env::overlay_getenv(&vars, k);
+            Tool::start_with(
+                &g,
+                &vars,
+                r.id,
+                r.name,
+                r.cwd,
+                (r.cols, r.rows),
+                r.on_exit,
+                r.hooks,
+                r.place,
+                r.extra_env,
+            )
+        }));
+    }
+
     /// 도구를 띄우는 함수를 갈아 끼운다(검사).
     pub fn set_start(&self, f: StartFn) {
         self.wr().start = f;

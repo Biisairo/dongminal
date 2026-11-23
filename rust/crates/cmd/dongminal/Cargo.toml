@@ -14,6 +14,7 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+dm-gocompat = { path = "../../gocompat" }
 dm-ctl-cli = { path = "../../ctl/cli" }
 dm-daemon-boot = { path = "../../daemon/boot" }
 dm-helper-runtimebin = { path = "../../helper/runtimebin" }
@@ -45,3 +46,6 @@ dm-webserver-recordsync = { path = "../../webserver/recordsync" }
 dm-webserver-seam-adapters = { path = "../../webserver/seam/adapters" }
 dm-webserver-toolclient = { path = "../../webserver/toolclient" }
 dm-web-assets = { path = "../../web" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

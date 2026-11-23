@@ -1676,6 +1676,7 @@ version = "1.3.7"
 dependencies = [
  "dm-ctl-cli",
  "dm-daemon-boot",
+ "dm-gocompat",
  "dm-helper-runtimebin",
  "dm-shared-activity",
  "dm-shared-dmenv",
@@ -1705,6 +1706,7 @@ dependencies = [
  "dm-webserver-recordsync",
  "dm-webserver-seam-adapters",
  "dm-webserver-toolclient",
+ "tempfile",
 ]
 
 [[package]]

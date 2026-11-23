@@ -246,6 +246,7 @@ impl Tool {
     ) -> io::Result<Arc<Self>> {
         Self::start_with(
             &crate::env::os_getenv,
+            &[],
             id,
             name,
             cwd,
@@ -260,6 +261,7 @@ impl Tool {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn start_with(
         g: Getenv,
+        overlay: &[(String, String)],
         id: &str,
         name: &str,
         cwd: &str,
@@ -272,7 +274,7 @@ impl Tool {
         let plat = dm_shared_platform::current();
         let bin_dir = tool_bin_dir(g);
         let sh = plat.shell.shell(std::path::Path::new(&bin_dir));
-        let env = tool_env(g, id, &sh.path, &bin_dir, &sh.env, extra_env);
+        let env = tool_env(g, id, &sh.path, &bin_dir, &sh.env, extra_env, overlay);
         let start_dir = tool_start_dir(g, cwd);
         let mut spec = ProcSpec {
             path: sh.path.clone(),
