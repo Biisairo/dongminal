@@ -39,7 +39,7 @@
    - `cargo fmt --all --check`
    - `cargo clippy -p <내 crate들> --all-targets -- -D warnings`
    - `rust/scripts/hermetic.sh cargo test -p <내 crate들>`
-   - OS 의존 코드가 있으면 `cargo clippy -p <crate> --target <t> -- -D warnings` 를 x86_64-pc-windows-msvc·x86_64-unknown-linux-gnu·aarch64-unknown-linux-gnu(c_char 가 u8 이다) 에서 (대상이 설치되어 있지 않으면 `rustup target add` 로 설치한다)
+   - OS 의존 코드가 있으면 `cargo clippy -p <crate> --target <t> -- -D warnings` 를 x86_64-pc-windows-msvc·x86_64-unknown-linux-gnu·aarch64-unknown-linux-gnu(c_char 가 u8 이다) 에서 돌린다. 단 ring(rustls·rcgen·reqwest)을 끌어오는 crate 는 이 Mac 에 대상별 C 툴체인이 없어 교차 검사를 할 수 없으므로 건너뛰고 진행 기록에 적는다(8.3 에서 한꺼번에 푼다) (대상이 설치되어 있지 않으면 `rustup target add` 로 설치한다)
 7. 내 브랜치에 직접 커밋한다. 사용자가 이슈 브랜치(`rp/<ID>`) 커밋을 명시적으로 허락했다(2026-11-23). 허락하지 않은 것은 `main` 병합과 push 둘이다. 메시지 형식: `port(<이슈 ID>): <무엇을>`. AI 서명(`Co-Authored-By` 등)은 넣지 않는다. `main` 이나 `rust-port` 에는 직접 커밋·병합하지 않는다. push 하지 않는다.
 8. 이슈 파일을 `status: review` 로 바꾸고, 진행 기록에 다음을 적는다: 만든 crate 와 공개 API 요약, 옮긴 테스트 수, Go 와 다르게 한 내부 결정, 남은 위험, 작업 전후 `prod-pids.sh` 출력.
 9. 조정자에게 `dmctl msg --to <조정자 uuid> "<이슈 ID> review: <한 줄 요약>"` 으로 알린다.

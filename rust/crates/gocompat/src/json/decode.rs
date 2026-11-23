@@ -1,5 +1,7 @@
 //! go1.27 `json.Unmarshal`(JSONv2 기본, v1 호환 옵션) 의 관측 의미를 serde `Deserializer` 로 구현한다.
 
+use std::collections::HashSet;
+
 use serde::de::{self, DeserializeOwned, IntoDeserializer, Visitor};
 
 use super::encode::RAW_TOKEN;
@@ -78,6 +80,10 @@ struct Ctx {
     base: usize,
     root: String,
     disallow_unknown: bool,
+    /// 구조체 필드의 null 을 없는 필드로 다룰 경로들. 맨 위에서 다시 풀며 채운다 ([`decode_value`]).
+    drop_nulls: HashSet<Vec<String>>,
+    /// 컨테이너 기본값을 남겨야 하는 null 을 만난 경로. 그 값 하나만 실패시키고 여기에 적는다.
+    keep_default: Option<Vec<String>>,
 }
 
 fn type_error(ctx: &Ctx, path: &[String], value: &str, go_type: &str, offset: i64) -> Error {
@@ -144,11 +150,16 @@ struct De<'c, 'a> {
     path: Vec<String>,
     /// [`with_go_type`] 로 받은 Go 타입 이름. 이 값의 타입 오류에만 쓴다(자식에게 넘기지 않는다).
     go_type: Option<&'static str>,
+    /// 구조체 필드의 null 이다. Go 는 RawMessage 에 `null` 을 담고 포인터·interface·slice·map 을 nil 로
+    /// 둔다(RawMessage·Option·Value·Vec·map·bytes). 스칼라·구조체는 [`De::null_keeps_default`] 로 컨테이너
+    /// 기본값을 남긴다.
+    field_null: bool,
 }
 
 macro_rules! de_int {
     ($($method:ident => $visit:ident, $t:ty, $go:expr);* $(;)?) => {
         $(fn $method<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
+            self.null_keeps_default()?;
             match self.v.take_node() {
                 Node::Null => visitor.$visit(0),
                 Node::Number(n) => match n.parse::<$t>() {
@@ -175,6 +186,16 @@ impl De<'_, '_> {
             _ => start + self.v.raw.len(),
         };
         i64::try_from(end).unwrap_or(i64::MAX)
+    }
+
+    /// Go v1: 구조체 필드의 null 은 채워 둔 값을 건드리지 않는다. 이 값을 실패시키고 경로를 적으면
+    /// 맨 위가 그 null 을 없는 필드로 다뤄 다시 푼다 — 컨테이너 기본값(`#[serde(default)]`)이 남는다.
+    fn null_keeps_default(&mut self) -> Result<(), Error> {
+        if !self.field_null {
+            return Ok(());
+        }
+        self.ctx.keep_default = Some(self.path.clone());
+        Err(Error::new("json: null keeps container default".to_owned()))
     }
 
     /// 컨테이너로 들어가기 전에 부른다. 경로 길이가 곧 중첩 깊이다.
@@ -209,11 +230,14 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
             }
             Node::String(s) => visitor.visit_string(s),
             Node::Array(items) => visitor.visit_seq(Seq::new(items, self.ctx, self.path)),
-            Node::Object(members) => visitor.visit_map(Map::new(members, self.ctx, self.path)),
+            Node::Object(members) => {
+                visitor.visit_map(Map::new(members, self.ctx, self.path, false))
+            }
         }
     }
 
     fn deserialize_bool<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
+        self.null_keeps_default()?;
         match self.v.take_node() {
             Node::Null => visitor.visit_bool(false),
             Node::Bool(b) => visitor.visit_bool(b),
@@ -235,6 +259,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
     }
 
     fn deserialize_f32<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
+        self.null_keeps_default()?;
         match self.v.take_node() {
             Node::Null => visitor.visit_f32(0.0),
             Node::Number(n) => match n.parse::<f32>() {
@@ -246,6 +271,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
     }
 
     fn deserialize_f64<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
+        self.null_keeps_default()?;
         match self.v.take_node() {
             Node::Null => visitor.visit_f64(0.0),
             Node::Number(n) => match n.parse::<f64>() {
@@ -265,6 +291,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
     }
 
     fn deserialize_string<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
+        self.null_keeps_default()?;
         match self.v.take_node() {
             Node::Null => visitor.visit_string(String::new()),
             Node::String(s) => visitor.visit_string(s),
@@ -326,6 +353,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
                 go_type: Some(go),
                 ..self
             });
+            // field_null 은 안쪽 타입이 판정하도록 그대로 넘긴다.
         }
         visitor.visit_newtype_struct(self)
     }
@@ -359,8 +387,10 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
     fn deserialize_map<V: Visitor<'de>>(mut self, visitor: V) -> Result<V::Value, Error> {
         self.check_depth()?;
         match self.v.take_node() {
-            Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path)),
-            Node::Object(members) => visitor.visit_map(Map::new(members, self.ctx, self.path)),
+            Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path, false)),
+            Node::Object(members) => {
+                visitor.visit_map(Map::new(members, self.ctx, self.path, false))
+            }
             other => Err(self.err(kind_of(&other), DEFAULT_MAP_TYPE)),
         }
     }
@@ -371,15 +401,16 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
         fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Error> {
+        self.null_keeps_default()?;
         self.check_depth()?;
         if self.path.is_empty() && self.ctx.root.is_empty() {
             self.ctx.root = short_name(name);
         }
         match self.v.take_node() {
-            Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path)),
+            Node::Null => visitor.visit_map(Map::new(Vec::new(), self.ctx, self.path, false)),
             Node::Object(members) => {
-                let members = resolve_fields(members, fields, self.ctx.disallow_unknown)?;
-                visitor.visit_map(Map::new(members, self.ctx, self.path))
+                let members = resolve_fields(members, fields, self.ctx, &self.path)?;
+                visitor.visit_map(Map::new(members, self.ctx, self.path, true))
             }
             other => Err(self.err(kind_of(&other), name)),
         }
@@ -391,6 +422,7 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
         _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Error> {
+        self.null_keeps_default()?;
         self.check_depth()?;
         match self.v.take_node() {
             Node::String(s) => visitor.visit_enum(IntoDeserializer::<Error>::into_deserializer(s)),
@@ -421,8 +453,10 @@ impl<'de> de::Deserializer<'de> for De<'_, '_> {
 fn resolve_fields<'a>(
     members: Vec<(String, Value<'a>)>,
     fields: &'static [&'static str],
-    disallow_unknown: bool,
+    ctx: &Ctx,
+    path: &[String],
 ) -> Result<Vec<(String, Value<'a>)>, Error> {
+    let disallow_unknown = ctx.disallow_unknown;
     let folded: Vec<String> = fields.iter().map(|f| fold(f)).collect();
     let mut out: Vec<(String, Value<'a>)> = Vec::with_capacity(members.len());
     // 필드 위치 → out 안의 위치. 중복 키를 상수 시간에 찾는다.
@@ -444,6 +478,13 @@ fn resolve_fields<'a>(
         };
         match slot_of[fi] {
             Some(at) => merge_into(&mut out[at].1, value),
+            // Go v1: null 은 이미 있는 값을 건드리지 않는다. 받는 타입이 null 을 받지 않는다고
+            // 밝혀진 필드(drop_nulls)만 없는 필드로 다뤄 컨테이너 기본값이 남는다.
+            None if matches!(value.node, Node::Null) && {
+                let mut p = path.to_vec();
+                p.push(fields[fi].to_owned());
+                ctx.drop_nulls.contains(&p)
+            } => {}
             None => {
                 slot_of[fi] = Some(out.len());
                 out.push((fields[fi].to_owned(), value));
@@ -516,6 +557,7 @@ impl<'de> de::SeqAccess<'de> for Seq<'_, '_> {
             ctx: self.ctx,
             path,
             go_type: None,
+            field_null: false,
         })
         .map(Some)
     }
@@ -526,15 +568,23 @@ struct Map<'c, 'a> {
     pending: Option<(String, Value<'a>)>,
     ctx: &'c mut Ctx,
     path: Vec<String>,
+    /// 구조체의 필드들이다(map 이 아니다).
+    is_struct: bool,
 }
 
 impl<'c, 'a> Map<'c, 'a> {
-    fn new(members: Vec<(String, Value<'a>)>, ctx: &'c mut Ctx, path: Vec<String>) -> Self {
+    fn new(
+        members: Vec<(String, Value<'a>)>,
+        ctx: &'c mut Ctx,
+        path: Vec<String>,
+        is_struct: bool,
+    ) -> Self {
         Self {
             members: members.into_iter(),
             pending: None,
             ctx,
             path,
+            is_struct,
         }
     }
 }
@@ -565,11 +615,13 @@ impl<'de> de::MapAccess<'de> for Map<'_, '_> {
             .ok_or_else(|| Error::new("json: map value without key".to_owned()))?;
         let mut path = self.path.clone();
         path.push(key);
+        let field_null = self.is_struct && matches!(v.node, Node::Null);
         seed.deserialize(De {
             v,
             ctx: self.ctx,
             path,
             go_type: None,
+            field_null,
         })
     }
 }
@@ -664,6 +716,7 @@ impl<'de, 'c, 'a> de::EnumAccess<'de> for Enum<'c, 'a> {
                 ctx: self.ctx,
                 path,
                 go_type: None,
+                field_null: false,
             },
         ))
     }
@@ -702,13 +755,55 @@ fn decode_value<T: DeserializeOwned>(
         base: data.as_ptr() as usize,
         root: String::new(),
         disallow_unknown,
+        drop_nulls: HashSet::new(),
+        keep_default: None,
     };
-    T::deserialize(De {
-        v,
-        ctx: &mut ctx,
-        path: Vec::new(),
-        go_type: None,
-    })
+    let run = |ctx: &mut Ctx, v: Value<'_>| {
+        T::deserialize(De {
+            v,
+            ctx,
+            path: Vec::new(),
+            go_type: None,
+            field_null: false,
+        })
+    };
+    if !has_object_null(&v) {
+        return run(&mut ctx, v);
+    }
+    // 컨테이너 기본값을 남길 null 을 만나면 그 경로를 없는 필드로 적고 다시 푼다. 경로마다 한 번이다.
+    loop {
+        ctx.root.clear();
+        let out = run(&mut ctx, v.clone());
+        let Some(p) = ctx.keep_default.take() else {
+            return out;
+        };
+        if !ctx.drop_nulls.insert(p) {
+            return out;
+        }
+    }
+}
+
+/// 객체 멤버로 null 이 있는가 — 없으면 한 번에 푼다. 깊이 상한을 넘는 입력은 어차피 오류이므로
+/// 거짓이다(다시 풀려고 트리를 복제하면 재귀가 스택을 넘는다).
+fn has_object_null(v: &Value<'_>) -> bool {
+    let mut stack = vec![(v, 0usize)];
+    let mut found = false;
+    while let Some((v, depth)) = stack.pop() {
+        if depth > MAX_DECODE_DEPTH {
+            return false;
+        }
+        match &v.node {
+            Node::Object(m) => {
+                for (_, x) in m {
+                    found |= matches!(x.node, Node::Null);
+                    stack.push((x, depth + 1));
+                }
+            }
+            Node::Array(items) => stack.extend(items.iter().map(|x| (x, depth + 1))),
+            _ => {}
+        }
+    }
+    found
 }
 
 /// Go `json.Unmarshal`. 입력 전체가 JSON 값 하나여야 하고, 구문 오류가 타입 오류보다 먼저다.

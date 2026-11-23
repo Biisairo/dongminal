@@ -1,7 +1,7 @@
 ---
 id: "1"
 title: shared 기초
-status: split
+status: done
 deps: []
 go: []
 crates: []

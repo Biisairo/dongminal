@@ -1,0 +1,18 @@
+{
+  "id": "marksman",
+  "kind": "server",
+  "version": "2026-02-08",
+  "source": {
+    "kind": "archive",
+    "targets": {
+      "darwin-arm64": {"url": "https://github.com/artempyanykh/marksman/releases/download/2026-02-08/marksman-macos", "sha256": "6a801c17b5ac0dba69787c5282b3b3bd416e66c96253fae098d311c6bbd1833b", "raw": true, "bin": "marksman"},
+      "darwin-x64": {"url": "https://github.com/artempyanykh/marksman/releases/download/2026-02-08/marksman-macos", "sha256": "6a801c17b5ac0dba69787c5282b3b3bd416e66c96253fae098d311c6bbd1833b", "raw": true, "bin": "marksman"},
+      "linux-x64": {"url": "https://github.com/artempyanykh/marksman/releases/download/2026-02-08/marksman-linux-x64", "sha256": "be5098e8213219269c47fc0d916a66fa31ce0602ec967475c722260aabf26087", "raw": true, "bin": "marksman"},
+      "linux-arm64": {"url": "https://github.com/artempyanykh/marksman/releases/download/2026-02-08/marksman-linux-arm64", "sha256": "db8e124527f7f8048e3e6c91821b9c52ef173d92c01e47d221bf1337afd962fb", "raw": true, "bin": "marksman"},
+      "win32-x64": {"url": "https://github.com/artempyanykh/marksman/releases/download/2026-02-08/marksman.exe", "sha256": "a6d05beb08ebe41b0a9f09c98a438540421436fa5531424c22e0bb1d22529705", "raw": true, "bin": "marksman.exe"}
+    }
+  },
+  "servers": [
+    {"id": "marksman", "langs": ["markdown"], "exts": [".md", ".markdown"], "exe": "marksman", "args": ["server"]}
+  ]
+}

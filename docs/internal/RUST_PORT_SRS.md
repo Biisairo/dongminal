@@ -165,17 +165,22 @@ branch: rp/2.3
 
 ### 3.7 의도한 차이와 알려진 차이
 
-FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는다. Go 쪽 수정 여부는 사용자가 정한다(C-RSP-2: 포팅 브랜치에서는 Go 를 고치지 않는다).
+FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는다. ID 는 `DIFF-n` 이다(`D-` 로 시작하면 결정 색인 `decisions.md` 가 결정으로 모은다). Go 쪽 수정 여부는 사용자가 정한다(C-RSP-2: 포팅 브랜치에서는 Go 를 고치지 않는다).
 
 | ID | 종류 | 자리 | Go 기준선 | Rust 판 | 근거 |
 |---|---|---|---|---|---|
-| D-1 | 보안 강화 | platform IPC (Windows) | 소켓에 chmod 0600 → Windows 에서는 읽기 전용 속성만 바뀌어 다른 사용자도 연결 가능 | 소유자 전용 DACL | 1.4.5 보안 검토 |
-| D-2 | 보안 강화 | platform browser (WSL 폴백) | `powershell.exe -NoProfile -Command Start-Process <url>` — url 이 스크립트로 해석되어 명령 주입 | url 을 작은따옴표 축자 문자열로 넘긴다(`'` 와 굽은 홑따옴표 U+2018~201B 는 겹쳐 쓴다). 같은 인용 함수를 쓰는 Windows 셸 인용·훅 닷소싱도 함께 강화된다. 이 문자가 없는 입력의 출력은 Go 와 같다 | 1.4.3 보안 검토 |
-| D-3 | 알려진 차이 | gocompat json 디코딩 | 중첩 깊이 10000 까지 성공 | 513 이상이면 `exceeded max depth` (스택 넘침 방지) | 1.1 |
-| D-4 | 알려진 차이 | gocompat json 디코딩 | 타입 오류 때 일부 채운 값을 남긴다 | 값을 돌려주지 않는다. 그 값을 쓰는 Go 코드가 없음을 각 이슈가 확인한다 | 1.1 |
-| D-5 | 알려진 차이 | gocompat filepath (Windows) | `EvalSymlinks` 가 경로 대소문자를 실제 이름으로 정규화(toNorm) | 정규화하지 않는다(gocompat 에 OS 호출을 두지 않는다). 관측 자리를 만나면 platform 으로 옮긴다 | 4.1.1 |
-| D-6 | 알려진 차이 | gocompat time | 연도 ±9999 밖도 담고 `year outside of range` 오류를 낸다 | time crate 가 그 범위를 담지 못해 그 오류가 생기지 않는다(파싱 단계에서 거절) | 1.1 |
-| D-7 | 보안 강화 | platform PTY (넘겨받은 셸·Windows) | 거둔(adopt) 셸의 PID 에 신호를 보낸다 — PID 가 재사용되면 다른 프로세스를 죽일 수 있다 | 거둔 셸에는 신호를 보내지 않는다. 경합 상황에서만 다르다 | 1.4.6 |
+| DIFF-1 | 보안 강화 | platform IPC (Windows) | 소켓에 chmod 0600 → Windows 에서는 읽기 전용 속성만 바뀌어 다른 사용자도 연결 가능 | 소유자 전용 DACL | 1.4.5 보안 검토 |
+| DIFF-2 | 보안 강화 | platform browser (WSL 폴백) | `powershell.exe -NoProfile -Command Start-Process <url>` — url 이 스크립트로 해석되어 명령 주입 | url 을 작은따옴표 축자 문자열로 넘긴다(`'` 와 굽은 홑따옴표 U+2018~201B 는 겹쳐 쓴다). 같은 인용 함수를 쓰는 Windows 셸 인용·훅 닷소싱도 함께 강화된다. 이 문자가 없는 입력의 출력은 Go 와 같다 | 1.4.3 보안 검토 |
+| DIFF-3 | 알려진 차이 | gocompat json 디코딩 | 중첩 깊이 10000 까지 성공 | 513 이상이면 `exceeded max depth` (스택 넘침 방지) | 1.1 |
+| DIFF-4 | 알려진 차이 | gocompat json 디코딩 | 타입 오류 때 일부 채운 값을 남긴다 | 값을 돌려주지 않는다. 그 값을 쓰는 Go 코드가 없음을 각 이슈가 확인한다 | 1.1 |
+| DIFF-5 | 알려진 차이 | gocompat filepath (Windows) | `EvalSymlinks` 가 경로 대소문자를 실제 이름으로 정규화(toNorm) | 정규화하지 않는다(gocompat 에 OS 호출을 두지 않는다). 관측 자리를 만나면 platform 으로 옮긴다 | 4.1.1 |
+| DIFF-6 | 알려진 차이 | gocompat time | 연도 ±9999 밖도 담고 `year outside of range` 오류를 낸다 | time crate 가 그 범위를 담지 못해 그 오류가 생기지 않는다(파싱 단계에서 거절) | 1.1 |
+| DIFF-7 | 보안 강화 | platform PTY (넘겨받은 셸·Windows) | 거둔(adopt) 셸의 PID 에 신호를 보낸다 — PID 가 재사용되면 다른 프로세스를 죽일 수 있다 | 거둔 셸에는 신호를 보내지 않는다. 경합 상황에서만 다르다 | 1.4.6 |
+| DIFF-8 | 결함 수정 | ctl/migrate | workspace 가 `null` 이면 패닉 | 빈 객체로 다룬다 | 6.2 |
+| DIFF-9 | 보안 강화 | ctl/privhelper | 동시 연결 수에 상한이 없어 자원 고갈 가능 | 동시 연결 상한 32 | 6.2 |
+| DIFF-10 | 보안 강화 | webserver/fswatch (macOS kqueue) | 디렉터리의 모든 항목(특수 파일 포함)을 감시 대상으로 열어 fd 가 바닥날 수 있다 | 특수 파일(FIFO·소켓·장치)은 건너뛰고 디렉터리당 4096 항목까지만 감시한다 | 4.7 |
+| DIFF-11 | 보안 강화 | shared/toolhub (붙여넣기 감싸기) | `wrapPaste` 가 본문의 `ESC[201~` 를 한 번만 지워, 지운 자리에서 끝 표시가 다시 생겨 bracketed paste 를 빠져나갈 수 있다 | 끝 표시가 남지 않을 때까지 지운다 | 2.2.3 |
+| DIFF-12 | 구현 차이 | shared/sandbox (dev 빌드 헬퍼) | 컨테이너용 헬퍼를 `go build` 로 교차 빌드하고, 실패 안내도 `go build` 를 가리킨다 | `cargo` 로 교차 빌드하고 안내도 실제로 돈 명령을 가리킨다(틀린 명령을 안내하지 않는다). 릴리즈 빌드에는 닿지 않는 dev 경로다 | 2.5 |
 
 ## 4. 검증
 

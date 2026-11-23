@@ -10,5 +10,24 @@ publish = false
 workspace = true
 
 [dependencies]
+base64 = { workspace = true }
+data-encoding = { workspace = true }
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-humancmd = { path = "../../shared/humancmd" }
 dm-shared-platform = { path = "../../shared/platform" }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+hmac = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+sha1 = { workspace = true }
+sha2 = { workspace = true }
+subtle = { workspace = true }
+time = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tempfile = { workspace = true }

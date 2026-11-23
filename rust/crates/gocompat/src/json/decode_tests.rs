@@ -426,3 +426,105 @@ fn go_type_names_from_consumer() {
     let none = unmarshal::<NT>(br#"{"list":null}"#).expect("ok");
     assert!(none.list.is_none());
 }
+
+// go1.27.2 실측: 구조체 필드의 null 은 채워 둔 값을 남긴다(int·string·bool·float·구조체).
+// 포인터·slice·map 은 nil 이다 — Rust 는 Option·Vec·map 의 컨테이너 기본값(None·빈 값)이 된다.
+#[test]
+fn null_field_keeps_container_default() {
+    #[derive(serde::Deserialize, Debug, PartialEq, Default)]
+    #[serde(default)]
+    struct In {
+        x: i64,
+    }
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    #[serde(default)]
+    struct C {
+        n: i64,
+        s: String,
+        b: bool,
+        p: Option<i64>,
+        l: Vec<i64>,
+        #[serde(rename = "in")]
+        inner: In,
+        f: f64,
+    }
+    impl Default for C {
+        fn default() -> Self {
+            C {
+                n: 5,
+                s: "d".into(),
+                b: true,
+                p: None,
+                l: Vec::new(),
+                inner: In { x: 7 },
+                f: 2.5,
+            }
+        }
+    }
+    let got: C =
+        unmarshal(br#"{"n":null,"s":null,"b":null,"p":null,"l":null,"in":null,"f":null}"#).unwrap();
+    assert_eq!(got, C::default());
+    // 앞의 값 뒤에 온 null 은 무시, 대소문자 무시 매칭도 같다.
+    let got: C = unmarshal(br#"{"n":3,"n":null,"S":null}"#).unwrap();
+    assert_eq!((got.n, got.s.as_str()), (3, "d"));
+    let got: C = unmarshal(br#"{"n":null,"n":4,"p":9}"#).unwrap();
+    assert_eq!((got.n, got.p), (4, Some(9)));
+}
+
+/// go1.27.2 실측: 구조체 필드의 null 은 RawMessage 에 `null` 4바이트로, 포인터·interface·slice 는 nil 로
+/// 들어가고, 스칼라·구조체는 채워 둔 값을 남긴다. 없는 키는 모두 채워 둔 값을 남긴다.
+#[test]
+fn null_field_matches_go_by_type() {
+    #[derive(serde::Deserialize, Debug, PartialEq, Default)]
+    #[serde(default)]
+    struct In {
+        n: i64,
+    }
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    #[serde(default)]
+    struct S {
+        raw: super::RawMessage,
+        ptr: Option<In>,
+        any: serde_json::Value,
+        num: i64,
+        #[serde(rename = "str")]
+        s: String,
+        inner: In,
+        list: Vec<i64>,
+    }
+    impl Default for S {
+        fn default() -> Self {
+            S {
+                raw: super::RawMessage(b"\"pre\"".to_vec()),
+                ptr: Some(In { n: 1 }),
+                any: serde_json::Value::String("pre".into()),
+                num: 7,
+                s: "pre".into(),
+                inner: In { n: 3 },
+                list: vec![1],
+            }
+        }
+    }
+    let got: S = unmarshal(
+        br#"{"raw":null,"ptr":null,"any":null,"num":null,"str":null,"inner":null,"list":null}"#,
+    )
+    .unwrap();
+    assert_eq!(got.raw.0, b"null");
+    assert_eq!(got.ptr, None);
+    assert_eq!(got.any, serde_json::Value::Null);
+    assert_eq!((got.num, got.s.as_str(), got.inner.n), (7, "pre", 3));
+    assert!(got.list.is_empty());
+    let got: S = unmarshal(br#"{"raw":[1, 2]}"#).unwrap();
+    assert_eq!(got.raw.0, b"[1, 2]");
+    assert_eq!(unmarshal::<S>(b"{}").unwrap(), S::default());
+    let m: std::collections::BTreeMap<String, super::RawMessage> =
+        unmarshal(br#"{"a":null}"#).unwrap();
+    assert_eq!(m["a"].0, b"null");
+    // 깊은 입력에 null 이 있어도 스택을 넘지 않고 깊이 오류다.
+    let deep = format!(
+        "{{\"raw\":null,\"any\":{}{}}}",
+        "[".repeat(5000),
+        "]".repeat(5000)
+    );
+    assert!(unmarshal::<S>(deep.as_bytes()).is_err());
+}

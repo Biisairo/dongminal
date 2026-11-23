@@ -8,7 +8,7 @@ use hyper::{Request, Response};
 
 /// 격리 규칙(C-RSP-1): 60147 이상의 포트에만 붙는다.
 async fn listen() -> (tokio::net::TcpListener, u16) {
-    for port in 60147u16..=65000 {
+    for port in 60147u16..64000 {
         if let Ok(l) = tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
             return (l, port);
         }
@@ -104,4 +104,42 @@ async fn latest_decode_errors() {
     // Decoder 는 앞 값 하나만 읽는다.
     let (url, _) = serve(200, r#"{"tag_name":"v1"} trailing"#).await;
     assert_eq!(latest(&url).await.unwrap().0, "v1");
+}
+
+// go1.27.2 실측: `Get "http://127.0.0.1:P/": dial tcp 127.0.0.1:P: connect: connection refused`
+#[tokio::test]
+async fn latest_transport_error_is_go_url_error() {
+    // listen() 이 훑지 않는 높은 범위에서 고른다. 다른 시험이 그 포트를 가져가지 못한다.
+    let port = (64000u16..=65000)
+        .rev()
+        .find(|&p| std::net::TcpListener::bind(("127.0.0.1", p)).is_ok())
+        .unwrap();
+    let url = format!("http://127.0.0.1:{port}/");
+    assert_eq!(
+        latest(&url).await.unwrap_err().to_string(),
+        format!("Get \"{url}\": dial tcp 127.0.0.1:{port}: connect: connection refused")
+    );
+}
+
+// 본문이 Content-Length 보다 짧으면 Go 는 감싸지 않은 `unexpected EOF` 를 낸다.
+#[tokio::test]
+async fn latest_short_body_is_unexpected_eof() {
+    let (l, port) = listen().await;
+    tokio::spawn(async move {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        if let Ok((mut c, _)) = l.accept().await {
+            let mut buf = [0u8; 4096];
+            let _ = c.read(&mut buf).await;
+            let _ = c
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n{\"tag")
+                .await;
+        }
+    });
+    assert_eq!(
+        latest(&format!("http://127.0.0.1:{port}/"))
+            .await
+            .unwrap_err()
+            .to_string(),
+        "unexpected EOF"
+    );
 }

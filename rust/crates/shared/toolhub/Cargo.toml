@@ -17,3 +17,15 @@ dm-shared-outbuf = { path = "../outbuf" }
 dm-shared-platform = { path = "../platform" }
 dm-shared-pollwait = { path = "../pollwait" }
 dm-shared-uuid = { path = "../uuid" }
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }
+futures-util = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

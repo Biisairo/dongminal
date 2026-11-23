@@ -12,3 +12,5 @@ workspace = true
 [dependencies]
 dm-shared-chatwire = { path = "../chatwire" }
 dm-shared-toolhub = { path = "../toolhub" }
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }
