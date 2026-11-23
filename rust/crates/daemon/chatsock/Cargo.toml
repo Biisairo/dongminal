@@ -11,8 +11,19 @@ workspace = true
 
 [dependencies]
 dm-daemon-chat = { path = "../chat" }
+dm-gocompat = { path = "../../gocompat" }
 dm-shared-chatwire = { path = "../../shared/chatwire" }
 dm-shared-dmlog = { path = "../../shared/dmlog" }
 dm-shared-humancmd = { path = "../../shared/humancmd" }
 dm-shared-platform = { path = "../../shared/platform" }
 dm-shared-termtext = { path = "../../shared/termtext" }
+serde = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+dm-shared-edge = { path = "../../shared/edge" }
+dm-shared-edgemesh = { path = "../../shared/edgemesh" }
+ed25519-dalek = { workspace = true }
+rand = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
