@@ -1120,7 +1120,11 @@ dependencies = [
 name = "dm-webserver-action"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-webserver-apierr",
+ "regex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
