@@ -522,6 +522,7 @@ dependencies = [
 name = "dm-helper-runtimebin"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-helper-toolline",
  "dm-shared-agentadapter",
  "dm-shared-agentrec",
@@ -534,6 +535,13 @@ dependencies = [
  "dm-shared-statusline",
  "dm-shared-termtext",
  "dm-shared-workspace",
+ "regex",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
