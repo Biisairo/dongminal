@@ -132,6 +132,54 @@ fn parse_cases() -> Vec<(&'static str, Vec<&'static str>)> {
             ],
         );
     }
+    add("run", common);
+    add(
+        "run",
+        &[
+            &["--run"],
+            &[
+                "--run",
+                "r1",
+                "--member",
+                "m",
+                "--force",
+                "--headless",
+                "--keep-worktrees",
+                "--keep-tools",
+                "--json",
+                "--text",
+            ],
+            &["--run=r1", "--role=x", "-l=t", "--timeout-ms=5"],
+            &["--run="],
+            &["-l"],
+            &["--force=1"],
+            &["--at", "--brief"],
+            &["--brief", "-"],
+            &["--bogus=1"],
+            &[
+                "--objective",
+                "o",
+                "--projection",
+                "p",
+                "--isolation",
+                "i",
+                "--window",
+                "w",
+                "--outcome",
+                "o",
+                "--summary",
+                "s",
+                "--files",
+                "f",
+                "--base",
+                "b",
+                "--agent",
+                "a",
+                "--model",
+                "m",
+            ],
+        ],
+    );
     add("dmctl", common);
     add(
         "dmctl",
@@ -300,6 +348,48 @@ fn render_parse(env: &Env, parser: &str, args: &[&str]) -> String {
                     .l("positional", &f.positional);
                 code_res(c, fs.done())
             }
+            "run" => {
+                let (f, c) = crate::dmctl::run::parse_run_flags(&mut ctx, "sub", &owned);
+                let mut fs = Fields::new()
+                    .s("run", &f.run)
+                    .s("member", &f.member)
+                    .s("role", &f.role)
+                    .s("agent", &f.agent)
+                    .s("brief", &f.brief)
+                    .s("model", &f.model)
+                    .s("at", &f.at)
+                    .s("objective", &f.objective)
+                    .s("projection", &f.projection)
+                    .s("isolation", &f.isolation)
+                    .s("window", &f.window)
+                    .s("outcome", &f.outcome)
+                    .s("summary", &f.summary)
+                    .s("files", &f.files)
+                    .s("base", &f.base)
+                    .b("force", f.force)
+                    .b("keepTrees", f.keep_trees)
+                    .b("keepTools", f.keep_tools)
+                    .b("textOut", f.text_out)
+                    .b("jsonOut", f.json_out)
+                    .b("headless", f.headless)
+                    .s("timeoutMs", &f.timeout_ms)
+                    .s("tree", &f.tree)
+                    .b("branch", f.branch)
+                    .s("ref", &f.ref_)
+                    .s("issue", &f.issue)
+                    .s("title", &f.title)
+                    .s("parent", &f.parent)
+                    .s("goal", &f.goal)
+                    .s("ctx", &f.ctx)
+                    .b("parallel", f.parallel)
+                    .b("noCommit", f.no_commit)
+                    .b("self", f.self_)
+                    .s("to", &f.to)
+                    .b("coord", f.coord);
+                let m: Vec<String> = f.given.iter().map(|k| format!("{k}:true")).collect();
+                fs.0.push(format!("given:map[{}]", m.join(" ")));
+                code_res(c, fs.done())
+            }
             _ => {
                 let (f, c) = parse_detach_flags(&mut ctx, &owned);
                 let fs = Fields::new()
@@ -336,12 +426,11 @@ fn argparse_golden() {
     // 6.3.2 의 `run` 파서 블록은 아직 없다.
     let want: String = blocks(&read_testdata("argparse.golden"))
         .into_iter()
-        .filter(|b| !b.starts_with("run "))
         .collect();
     assert_same(&got, &want, "argparse.golden");
 }
 
-const LATER: &[&str] = &["run", "edges", "edge", "account"];
+const LATER: &[&str] = &["edges", "edge", "account"];
 
 fn is_later(args: &[&str]) -> bool {
     args.first().is_some_and(|a| LATER.contains(a))
@@ -388,7 +477,6 @@ fn httpresult_golden() {
     }
     let want: String = blocks(&read_testdata("httpresult.golden"))
         .into_iter()
-        .filter(|b| !b.contains(r#" ["run" "#))
         .collect();
     assert_same(&got, &want, "httpresult.golden");
 }
@@ -449,17 +537,12 @@ fn httpexit_cmds(file: String) -> Vec<GoldenCmd> {
             dmc(&["wait", "--at", "t", "--timeout-ms", "10"]),
             None,
         ),
+        ("run tree", dmc(&["run", "tree", "--ref", "o/r#32"]), None),
+        ("run close", dmc(&["run", "close", "--run", "r1"]), None),
     ]
 }
 
-const HTTPEXIT_LATER: &[&str] = &[
-    "edges",
-    "edge add",
-    "account list --json",
-    "account list",
-    "run tree",
-    "run close",
-];
+const HTTPEXIT_LATER: &[&str] = &["edges", "edge add", "account list --json", "account list"];
 
 fn httpexit_block_is_later(b: &str) -> bool {
     let head = b.lines().next().unwrap_or_default();

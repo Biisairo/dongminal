@@ -19,6 +19,8 @@ pub(crate) struct HttpOut {
     pub status: u16,
     pub body: Vec<u8>,
     pub err: Option<String>,
+    /// Go `net.Error.Timeout()` — 예산 안에 끝나지 않았다.
+    pub timeout: bool,
 }
 
 impl HttpOut {
@@ -27,6 +29,7 @@ impl HttpOut {
             status,
             body: body.to_vec(),
             err: None,
+            timeout: false,
         }
     }
     fn failed(err: String) -> Self {
@@ -34,6 +37,7 @@ impl HttpOut {
             status: 0,
             body: Vec::new(),
             err: Some(err),
+            timeout: false,
         }
     }
 }
@@ -148,8 +152,10 @@ async fn send(
 ) -> HttpOut {
     // reqwest 의 rustls-no-provider 는 프로세스 공통 암호 공급자를 요구한다. 이미 있으면 그대로 쓴다.
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let failed =
-        |e: reqwest::Error| HttpOut::failed(UrlError::from_reqwest(method, url, &e).to_string());
+    let failed = |e: reqwest::Error| HttpOut {
+        timeout: e.is_timeout(),
+        ..HttpOut::failed(UrlError::from_reqwest(method, url, &e).to_string())
+    };
     let client = match reqwest::Client::builder()
         .timeout(budget)
         .redirect(neturl_err::redirect_policy())
@@ -182,6 +188,7 @@ async fn send(
                     status,
                     body: data,
                     err: Some(neturl_err::body_error(&e)),
+                    timeout: e.is_timeout(),
                 };
             }
         }

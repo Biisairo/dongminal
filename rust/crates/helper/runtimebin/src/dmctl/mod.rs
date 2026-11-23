@@ -6,6 +6,7 @@ pub(crate) mod order;
 pub(crate) mod post;
 pub(crate) mod rename;
 pub(crate) mod rows;
+pub(crate) mod run;
 pub(crate) mod runhttp;
 pub(crate) mod status;
 pub(crate) mod toolio;
@@ -42,6 +43,7 @@ fn command(name: &str) -> Option<Command> {
             outf!(ctx, "{DMCTL_HELP}");
             0
         }),
+        "run" => Raw(|ctx, _, a| run::run_dmctl_run(ctx, a)),
         "send" => Raw(|ctx, _, a| post::dmctl_send(ctx, a)),
         "list-workspace" => Raw(|ctx, _, a| listworkspace::dmctl_list_workspace(ctx, a)),
         "who-am-i" => Raw(|ctx, _, a| whoami::dmctl_who_am_i(ctx, a)),
@@ -50,7 +52,6 @@ fn command(name: &str) -> Option<Command> {
         | "agent-context"
         | "ctx-hook"
         | "chat-mcp"
-        | "run"
         | "edges"
         | "edge"
         | "account"

@@ -4,6 +4,7 @@
 
 mod behavior;
 mod golden;
+mod run;
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
