@@ -27,6 +27,10 @@ pub trait SettingsStore: Send + Sync {
     fn render_env(&self) -> Vec<String>;
     /// 탭 이름을 전경 프로그램에서 파생하는가다 (FR-TAN-19).
     fn fg_tab_names(&self) -> bool;
+    /// 맥락 추정 공식과 임계다 (FR-CBG-2). blob 이 바뀔 때만 푼 값이다.
+    fn context_policy(&self) -> dm_webserver_domain_run::ContextPolicy;
+    /// 맥락 기준 migration 의 설정 넷이다 (FR-ITM-1). [`crate::parse_migration_conf`] 로 푼다.
+    fn migration(&self) -> crate::MigrationConf;
 }
 
 /// Go `SandboxReaper`: 샌드박스 창의 접합면이다. httpapi 는 컨테이너 런타임을 알지 않는다.

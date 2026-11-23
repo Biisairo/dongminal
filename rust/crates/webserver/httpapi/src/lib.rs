@@ -10,8 +10,10 @@
 mod access;
 mod access_api;
 mod access_denied;
+mod agent_records;
 mod agent_render_env;
 mod ansi;
+mod attention;
 mod commands;
 mod deps;
 mod editors;
@@ -38,6 +40,7 @@ mod httperr;
 mod lspsvc;
 mod mediatype;
 mod meta;
+mod migration_advice;
 mod multipart;
 mod netx;
 mod openurl;
@@ -48,9 +51,13 @@ mod routes;
 mod sandbox_api;
 mod serve;
 mod settings_etag;
+mod snapshot;
+mod status;
+mod subagents;
 mod toolhub;
 mod toolio;
 mod tools_api;
+mod usage;
 mod ws;
 
 use std::path::PathBuf;
@@ -60,12 +67,15 @@ use std::time::Duration;
 use std::time::Instant;
 
 use dm_webserver_domain_wsentry as wsentry;
-use dm_webserver_hub::{CommandBroker, CommandHub, FocusRegistry, ReplySeats};
+use dm_webserver_hub::{AttnTracker, CommandBroker, CommandHub, FocusRegistry, ReplySeats};
 use dm_webserver_seam_toolaccess::{ToolReader, WorkspaceReader};
 
 pub use access::DEFAULT_ACCESS_REFRESH;
+pub use agent_records::RecordSink;
+pub use attention::{AttentionDaemon, DaemonCallError};
 pub use deps::{SandboxReaper, SettingsStore, StatsSnapshotter, UpdateService, WorkspaceStore};
 pub use lspsvc::LspService;
+pub use migration_advice::{MigrationConf, parse_migration_conf};
 pub use req::{BodyError, ReqBody};
 pub use serve::GitHandler;
 pub use toolhub::{ToolError, ToolHub, ToolIdentity, Unsubscribe};
@@ -118,6 +128,12 @@ pub struct Deps {
     pub repo_root: Option<wsentry::RepoRootFn>,
     /// 편집기의 코드 탐색 표면이다 (EDITOR_LSP_SRS 묶음 A). 없으면 그 연동만 빠진다.
     pub lsp: Option<Arc<dyn LspService>>,
+    /// 주의·활동 추적기다 (Go `Deps.AttnTracker`). 없으면 주의·활동 종단이 무동작으로 답한다.
+    pub attn_tracker: Option<Arc<AttnTracker>>,
+    /// 에이전트 기록을 데몬에 쓰는 자리다 (FR-ARD-11). 없으면 거울만 쓴다 (FR-ARD-14).
+    pub records: Option<Arc<dyn RecordSink>>,
+    /// 데몬의 알람 판정이다 (§3.3a). 없거나 판정하지 않으면 추적기가 판정한다.
+    pub attn_daemon: Option<Arc<dyn AttentionDaemon>>,
     /// 실행 기록을 공유할 git core 서비스다 (Go `Deps.Git.Service()`). 없어도 무시 판정은 돌고
     /// 기록만 빠진다 (FR-GXU-4·10).
     pub git_service: Option<Arc<dm_webserver_domain_git_core::Service>>,
@@ -166,6 +182,14 @@ pub struct Server {
     pub(crate) limits: ServerLimits,
     /// 탐색기·편집기의 파일 조작 잠금이다.
     pub(crate) fs: FsState,
+    /// 도구·에이전트별 메모리 상태다 (Go `agents`).
+    pub(crate) agents: usage::AgentStores,
+    /// 알람의 배너·소리를 어느 창이 맡았는지다 (ATTENTION_FIRING_SRS 묶음 D).
+    pub(crate) attn_claims: attention::AttnClaims,
+    /// 지금 붙잡힌 활동 대기 수와 상한이다 (FR-STA-9).
+    pub(crate) waits: status::StatusWaits,
+    /// 활동 보고의 알림이다 — 활동 대기가 이것과 마감 시각에만 다시 본다 (FR-OPT-16-3).
+    pub(crate) activity_changed: dm_shared_pollwait::Signal,
 }
 
 /// 탐색기·편집기의 파일 조작 잠금이다 (Go `fsState`).
@@ -244,6 +268,10 @@ impl Server {
                 watch: Some(fs_watch::new_fs_watch(deps_commands)),
                 ..FsState::default()
             },
+            agents: usage::AgentStores::default(),
+            attn_claims: attention::AttnClaims::default(),
+            waits: status::StatusWaits::default(),
+            activity_changed: dm_shared_pollwait::Signal::default(),
         }
     }
 

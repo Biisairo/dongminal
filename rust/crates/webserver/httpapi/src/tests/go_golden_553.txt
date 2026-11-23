@@ -1,0 +1,171 @@
+== GET /api/tools/attention
+200 Content-Type=application/json
+"{\"toolIds\":null}\n"
+== POST /api/tools/attention/set
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== GET /api/tools/attention
+200 Content-Type=application/json
+"{\"toolIds\":null}\n"
+== POST /api/tools/attention/set
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
+"bad request\n"
+== POST /api/tools/attention/set
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"bad request\n"
+== POST /api/tools/attention/set
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
+"bad request\n"
+== POST /api/tools/attention/clear
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== POST /api/tools/attention/clear
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"bad request\n"
+== POST /api/tools/attention/set
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== POST /api/tools/attention/clear-all
+200 Content-Type=application/json
+"{\"cleared\":1}\n"
+== POST /api/tools/attention/claim
+200 Content-Type=application/json
+"{\"granted\":[\"banner\",\"sound\"]}\n"
+== POST /api/tools/attention/claim
+200 Content-Type=application/json
+"{\"granted\":[]}\n"
+== POST /api/tools/attention/claim
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"seq required\n"
+== POST /api/tools/attention/claim
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
+"bad request\n"
+== POST /api/tools/attention/claim
+200 Content-Type=application/json
+"{\"granted\":[]}\n"
+== POST /api/tools/activity/set
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== POST /api/tools/activity/set
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=bad_request
+"bad request\n"
+== POST /api/tools/activity/set
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"bad request\n"
+== POST /api/tools/activity/set
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=bad_request
+"bad request\n"
+== POST /api/tools/activity/set
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== POST /api/tools/activity/set
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== POST /api/tools/usage
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== POST /api/tools/usage
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"toolId required\n"
+== POST /api/tools/usage
+400 Content-Type=application/json|X-Error-Code=bad_request
+"{\"error\":\"잘못된 JSON: invalid character 'b' looking for beginning of object key string\"}\n"
+== POST /api/tools/subagents
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== POST /api/tools/subagents
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"toolId required\n"
+== POST /api/tools/subagents
+400 Content-Type=application/json|X-Error-Code=bad_request
+"{\"error\":\"잘못된 JSON: array 값은 맞지 않다\"}\n"
+== GET /api/tools/activity
+200 Content-Type=application/json
+"{\"activities\":[{\"toolId\":\"p1\",\"state\":\"working\",\"tool\":\"Bash\",\"detail\":\"go test \\u003c\\u0026\\u003e\",\"updatedAt\":N,\"usage\":{\"ctxPct\":6,\"ctxLevel\":\"ok\",\"model\":\"Opus 5.5\",\"effort\":\"medium\"},\"subagents\":[{\"id\":\"early\",\"agentType\":\"Explore\",\"status\":\"running\",\"effort\":\"low\",\"tokens\":19250,\"windowTokens\":1000000,\"ctxPct\":1.925,\"ctxLevel\":\"ok\",\"startTime\":1000,\"state\":\"working\",\"description\":\"Find it \\u003c\\u0026\\u003e\"},{\"id\":\"late\",\"agentType\":\"Plan\",\"status\":\"completed\",\"model\":\"m\",\"effort\":\"8000\",\"tokens\":180000,\"windowTokens\":200000,\"ctxPct\":90,\"ctxLevel\":\"critical\",\"startTime\":2000,\"state\":\"done\"},{\"id\":\"nost\",\"status\":\"running\",\"state\":\"working\"},{\"id\":\"a1\",\"agentType\":\"Plan\",\"state\":\"working\",\"tool\":\"Read\",\"detail\":\"x\"},{\"id\":\"hook\",\"agentType\":\"gp\",\"state\":\"waiting\"}]}],\"limits\":[{\"agent\":\"claude\",\"observedAt\":N,\"windows\":[{\"name\":\"five_hour\",\"usedPct\":72.5,\"resetsAt\":4102444800,\"resetsInSec\":N,\"level\":\"warn\"},{\"name\":\"seven_day\",\"usedPct\":91,\"level\":\"critical\"}]}]}\n"
+== GET /api/tools/activity/get?id=p1
+200 Content-Type=application/json
+"{\"toolId\":\"p1\",\"live\":true,\"state\":\"working\",\"tool\":\"Bash\",\"detail\":\"go test \\u003c\\u0026\\u003e\",\"updatedAt\":N,\"lastOutputAt\":N,\"quietMs\":N,\"context\":{\"usedPct\":6,\"windowTokens\":1000000,\"tokens\":62152,\"source\":\"statusline\",\"observedAt\":N},\"usage\":{\"sessionId\":\"s1\",\"model\":{\"id\":\"claude-opus-5-5\",\"displayName\":\"Opus 5.5\"},\"effort\":\"medium\",\"contextWindow\":{\"windowTokens\":1000000,\"usedPct\":6,\"currentUsage\":{\"inputTokens\":6,\"cacheCreationInputTokens\":62146}},\"rateLimits\":{\"five_hour\":{\"usedPct\":72.5,\"resetsAt\":4102444800000},\"seven_day\":{\"usedPct\":91}},\"observedAt\":N},\"subagents\":[{\"id\":\"late\",\"agentType\":\"Plan\",\"status\":\"completed\",\"model\":\"m\",\"effortBudget\":8000,\"windowTokens\":200000,\"tokens\":180000,\"startTime\":2000},{\"id\":\"nost\",\"status\":\"running\"},{\"id\":\"early\",\"agentType\":\"Explore\",\"status\":\"running\",\"effort\":\"low\",\"windowTokens\":1000000,\"tokens\":19250,\"startTime\":1000,\"description\":\"Find\\u0007 it \\u003c\\u0026\\u003e\"}],\"limits\":[{\"agent\":\"claude\",\"observedAt\":N,\"windows\":[{\"name\":\"five_hour\",\"usedPct\":72.5,\"resetsAt\":4102444800,\"resetsInSec\":N,\"level\":\"warn\"},{\"name\":\"seven_day\",\"usedPct\":91,\"level\":\"critical\"}]}]}\n"
+== GET /api/tools/activity/get?id=nope
+404 Content-Type=application/json|X-Error-Code=not_found
+"{\"error\":\"not found: nope\"}\n"
+== GET /api/tools/activity/get
+400 Content-Type=application/json|X-Error-Code=bad_request
+"{\"error\":\"id 누락\"}\n"
+== GET /api/tools/activity/wait?id=p1&for=bogus
+400 Content-Type=application/json|X-Error-Code=bad_request
+"{\"error\":\"for 는 ready 또는 done 이어야 한다: bogus\"}\n"
+== GET /api/tools/activity/wait?id=p1&for=ready&timeoutMs=abc
+400 Content-Type=application/json|X-Error-Code=bad_request
+"{\"error\":\"timeoutMs 는 정수여야 한다: abc\"}\n"
+== GET /api/tools/activity/wait?id=nope&for=ready
+404 Content-Type=application/json|X-Error-Code=not_found
+"{\"error\":\"not found: nope\"}\n"
+== GET /api/tools/activity/wait?id=p1&for=ready&timeoutMs=1
+200 Content-Type=application/json
+"{\"toolId\":\"p1\",\"live\":true,\"state\":\"working\",\"tool\":\"Bash\",\"detail\":\"go test \\u003c\\u0026\\u003e\",\"updatedAt\":N,\"lastOutputAt\":N,\"quietMs\":N,\"context\":{\"usedPct\":6,\"windowTokens\":1000000,\"tokens\":62152,\"source\":\"statusline\",\"observedAt\":N},\"usage\":{\"sessionId\":\"s1\",\"model\":{\"id\":\"claude-opus-5-5\",\"displayName\":\"Opus 5.5\"},\"effort\":\"medium\",\"contextWindow\":{\"windowTokens\":1000000,\"usedPct\":6,\"currentUsage\":{\"inputTokens\":6,\"cacheCreationInputTokens\":62146}},\"rateLimits\":{\"five_hour\":{\"usedPct\":72.5,\"resetsAt\":4102444800000},\"seven_day\":{\"usedPct\":91}},\"observedAt\":N},\"subagents\":[{\"id\":\"late\",\"agentType\":\"Plan\",\"status\":\"completed\",\"model\":\"m\",\"effortBudget\":8000,\"windowTokens\":200000,\"tokens\":180000,\"startTime\":2000},{\"id\":\"nost\",\"status\":\"running\"},{\"id\":\"early\",\"agentType\":\"Explore\",\"status\":\"running\",\"effort\":\"low\",\"windowTokens\":1000000,\"tokens\":19250,\"startTime\":1000,\"description\":\"Find\\u0007 it \\u003c\\u0026\\u003e\"}],\"status\":\"timeout\",\"waitedMs\":N,\"timeoutMs\":100}\n"
+== GET /api/tools/migration-advice?id=p1
+200 Content-Type=application/json
+"{\"capPct\":85,\"ctxPct\":50,\"judgePct\":40,\"usedPct\":6,\"verdict\":\"ok\"}\n"
+== GET /api/tools/migration-advice?id=%20zz%20
+200 Content-Type=application/json
+"{\"capPct\":85,\"ctxPct\":50,\"judgePct\":40,\"verdict\":\"unknown\"}\n"
+== GET /api/tools/migration-advice?id=zz
+200 Content-Type=application/json
+"{\"capPct\":85,\"ctxPct\":50,\"judgePct\":40,\"verdict\":\"ok\"}\n"
+== GET /api/tools/migration-advice?id=zz
+200 Content-Type=application/json
+"{\"capPct\":85,\"ctxPct\":50,\"judgePct\":40,\"verdict\":\"skip\"}\n"
+== GET /api/tools/background
+200 Content-Type=application/json
+"{\"background\":[]}\n"
+== POST /api/tools/background/set
+404 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=tool_not_found
+"toolId=nope 존재하지 않음\n"
+== POST /api/tools/background/set
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"toolId 필요\n"
+== POST /api/tools/background/set
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
+"toolId 필요\n"
+== GET /api/snapshot?parts=attention,activity,background,focus,bogus,activity
+200 Content-Type=application/json
+"{\"activity\":{\"activities\":[{\"toolId\":\"p1\",\"state\":\"working\",\"tool\":\"Bash\",\"detail\":\"go test \\u003c\\u0026\\u003e\",\"updatedAt\":N,\"usage\":{\"ctxPct\":6,\"ctxLevel\":\"ok\",\"model\":\"Opus 5.5\",\"effort\":\"medium\"},\"subagents\":[{\"id\":\"early\",\"agentType\":\"Explore\",\"status\":\"running\",\"effort\":\"low\",\"tokens\":19250,\"windowTokens\":1000000,\"ctxPct\":1.925,\"ctxLevel\":\"ok\",\"startTime\":1000,\"state\":\"working\",\"description\":\"Find it \\u003c\\u0026\\u003e\"},{\"id\":\"late\",\"agentType\":\"Plan\",\"status\":\"completed\",\"model\":\"m\",\"effort\":\"8000\",\"tokens\":180000,\"windowTokens\":200000,\"ctxPct\":90,\"ctxLevel\":\"critical\",\"startTime\":2000,\"state\":\"done\"},{\"id\":\"nost\",\"status\":\"running\",\"state\":\"working\"},{\"id\":\"a1\",\"agentType\":\"Plan\",\"state\":\"working\",\"tool\":\"Read\",\"detail\":\"x\"},{\"id\":\"hook\",\"agentType\":\"gp\",\"state\":\"waiting\"}]}],\"limits\":[{\"agent\":\"claude\",\"observedAt\":N,\"windows\":[{\"name\":\"five_hour\",\"usedPct\":72.5,\"resetsAt\":4102444800,\"resetsInSec\":N,\"level\":\"warn\"},{\"name\":\"seven_day\",\"usedPct\":91,\"level\":\"critical\"}]}]},\"attention\":{\"toolIds\":null},\"background\":{\"background\":[]},\"focus\":{\"owners\":{}}}\n"
+== GET /api/snapshot
+200 Content-Type=application/json
+"{}\n"
+== GET /api/snapshot?parts=attention,activity,background
+200 Content-Type=application/json
+"{\"activity\":{\"activities\":[],\"limits\":[]},\"attention\":{\"toolIds\":[]},\"background\":{\"background\":[]}}\n"
+== GET /api/tools/activity
+200 Content-Type=application/json
+"{\"activities\":[],\"limits\":[]}\n"
+== GET /api/tools/activity/get?id=p1
+503 Content-Type=application/json|X-Error-Code=git_unavailable
+"{\"error\":\"tool io unavailable\"}\n"
+== GET /api/tools/activity/wait?id=p1&for=ready
+503 Content-Type=application/json|X-Error-Code=git_unavailable
+"{\"error\":\"tool io unavailable\"}\n"
+== POST /api/tools/attention/clear-all
+200 Content-Type=application/json
+"{\"cleared\":0}\n"
+== POST /api/tools/background/set
+404 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=tool_not_found
+"toolId=p1 존재하지 않음\n"
+== POST /api/tools/activity/set
+200 Content-Type=application/json
+"{\"ok\":true}\n"
+== GET /api/tools/activity
+200 Content-Type=application/json
+"{\"activities\":[],\"limits\":[{\"agent\":\"claude\",\"observedAt\":N,\"windows\":[{\"name\":\"five_hour\",\"usedPct\":72.5,\"resetsAt\":4102444800,\"resetsInSec\":N,\"level\":\"warn\"},{\"name\":\"seven_day\",\"usedPct\":91,\"level\":\"critical\"}]}]}\n"
+== broadcast
+"{\"action\":\"tool_attention\",\"args\":{\"reason\":\"signaled\",\"seq\":N,\"toolId\":\"p1\"}}"
+== broadcast
+"{\"action\":\"tool_attention_clear\",\"args\":{\"toolId\":\"p1\"}}"
+== broadcast
+"{\"action\":\"tool_activity\",\"args\":{\"detail\":\"go test \\u003c\\u0026\\u003e\",\"state\":\"working\",\"tool\":\"Bash\",\"toolId\":\"p1\"}}"
+== broadcast
+"{\"action\":\"tool_subagent_activity\",\"args\":{\"agentId\":\"a1\",\"agentType\":\"Plan\",\"detail\":\"x\",\"state\":\"working\",\"tool\":\"Read\",\"toolId\":\"p1\"}}"
+== broadcast
+"{\"action\":\"tool_subagent_activity\",\"args\":{\"agentId\":\"hook\",\"agentType\":\"gp\",\"detail\":\"\",\"state\":\"waiting\",\"tool\":\"\",\"toolId\":\"p1\"}}"
+== broadcast
+"{\"action\":\"tool_activity\",\"args\":{\"detail\":\"\",\"state\":\"ended\",\"tool\":\"\",\"toolId\":\"p1\"}}"

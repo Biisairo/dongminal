@@ -341,10 +341,12 @@ impl Server {
             .unwrap_or(&r.path)
             .to_owned();
         if let Some(hub) = self.tools(Some(r)) {
+            let id = id.clone();
             // `GO-8`: 이 경로에서 "이미 없다" 는 정상이다 — 오류를 명시로 무시한다.
             let _ = off_thread(move || hub.delete(&id)).await;
         }
-        // FR-ATL-5 의 `attention().Forget(id)` 는 5.5.3 이 잇는다.
+        // FR-ATL-5: 이미 죽어 있던 도구를 지우는 경로에는 OnExit 가 오지 않는다.
+        self.attention().forget(&id);
         empty(StatusCode::OK)
     }
 
