@@ -610,12 +610,18 @@ name = "dm-daemon-swap"
 version = "1.3.7"
 dependencies = [
  "dm-daemon-ipc",
+ "dm-gocompat",
+ "dm-shared-agentrec",
  "dm-shared-dmenv",
  "dm-shared-dmlog",
  "dm-shared-handover",
  "dm-shared-platform",
  "dm-shared-toolhub",
  "dm-shared-uuid",
+ "nix",
+ "serde",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
