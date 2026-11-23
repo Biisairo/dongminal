@@ -6,8 +6,8 @@
 use std::collections::BTreeMap;
 
 use dm_gocompat::json::{self, RawMessage};
-use serde::{Serialize, Serializer};
-use serde_json::{Map, Value};
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Go `map[string]any`. 직렬화할 때 키 순서로 정렬된다.
 pub(crate) type Obj = BTreeMap<&'static str, RawMessage>;
@@ -24,8 +24,33 @@ pub(crate) struct Embed<'a, I: ?Sized, O> {
     pub(crate) outer: O,
 }
 
-fn fields<T: Serialize + ?Sized>(v: &T) -> Result<Map<String, Value>, json::Error> {
-    json::unmarshal(&json::marshal(v)?)
+/// 최상위 필드를 나온 순서대로, 값은 직렬화된 바이트 그대로 담는다.
+struct Fields(Vec<(String, RawMessage)>);
+
+struct FieldsVisitor;
+
+impl<'de> Visitor<'de> for FieldsVisitor {
+    type Value = Fields;
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("JSON object")
+    }
+    fn visit_map<A: MapAccess<'de>>(self, mut m: A) -> Result<Fields, A::Error> {
+        let mut out = Vec::new();
+        while let Some(kv) = m.next_entry::<String, RawMessage>()? {
+            out.push(kv);
+        }
+        Ok(Fields(out))
+    }
+}
+
+impl<'de> Deserialize<'de> for Fields {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_map(FieldsVisitor)
+    }
+}
+
+fn fields<T: Serialize + ?Sized>(v: &T) -> Result<Vec<(String, RawMessage)>, json::Error> {
+    Ok(json::unmarshal::<Fields>(&json::marshal(v)?)?.0)
 }
 
 impl<I: Serialize + ?Sized, O: Serialize> Serialize for Embed<'_, I, O> {
@@ -36,7 +61,7 @@ impl<I: Serialize + ?Sized, O: Serialize> Serialize for Embed<'_, I, O> {
         let mut out = vec![b'{'];
         let shown = inner
             .iter()
-            .filter(|(k, _)| !self.hide.contains(&k.as_str()) && !outer.contains_key(*k))
+            .filter(|(k, _)| !self.hide.contains(&k.as_str()) && !outer.iter().any(|(o, _)| o == k))
             .chain(outer.iter());
         for (i, (k, v)) in shown.enumerate() {
             if i > 0 {
@@ -44,7 +69,7 @@ impl<I: Serialize + ?Sized, O: Serialize> Serialize for Embed<'_, I, O> {
             }
             out.extend(json::marshal(k).map_err(err)?);
             out.push(b':');
-            out.extend(json::marshal(v).map_err(err)?);
+            out.extend_from_slice(&v.0);
         }
         out.push(b'}');
         RawMessage(out).serialize(s)

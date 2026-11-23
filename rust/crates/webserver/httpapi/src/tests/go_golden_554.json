@@ -1,0 +1,1322 @@
+{
+ "http": [
+  {
+   "m": "GET",
+   "target": "/api/runs",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: LdjZxZWejvWj"
+   ],
+   "resp": "{\"runs\":[]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 1
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs",
+   "body": "{\"objective\":\"팬아웃 \u003c\u0026\u003e\",\"projection\":\"dedicated-window\",\"isolation\":\"none\",\"toolId\":\"tool-a\",\"windowId\":\"win-1\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: CSt6qH3oLbWx"
+   ],
+   "resp": "{\"id\":\"00000001-1111-2222-3333-444444444444\",\"short\":\"00000001\",\"objective\":\"팬아웃 \\u003c\\u0026\\u003e\",\"projection\":\"dedicated-window\",\"isolation\":\"none\",\"state\":\"open\",\"coordinatorToolId\":\"tool-a\",\"windowId\":\"win-1\",\"createdAt\":1700000000000,\"members\":[],\"actions\":{\"run.close\":{\"ok\":true},\"run.delete\":{\"ok\":true}},\"liveness\":\"open\"}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": null,
+   "rev": 1
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs",
+   "body": "{\"objective\":\"x\",\"projection\":\"sideways\",\"toolId\":\"tool-z\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: hsjnMJ6uqlH8"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: 알 수 없는 projection: \\\"sideways\\\"\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 1
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs",
+   "body": "{\"objective\":\"x\",\"projection\":\"inline\",\"isolation\":\"bogus\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: bwiBLaikV19Y"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: 알 수 없는 isolation: \\\"bogus\\\"\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 1
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs",
+   "body": "{\"objective\":\"x\",\"projection\":\"inline\",\"isolation\":\"per-run\",\"cwd\":\"/nowhere\"}",
+   "status": 503,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: isolation_unavailable",
+    "X-Request-Id: vxN31juxPW51"
+   ],
+   "resp": "{\"detail\":\"isolation_unavailable: 이 서버에는 worktree 관리자가 없다\",\"error\":\"isolation_unavailable\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 1
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs",
+   "body": "not json",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: bad_request",
+    "X-Request-Id: _8skLKZYgOkR"
+   ],
+   "resp": "{\"error\":\"잘못된 JSON: invalid character 'o' in literal null (expecting 'u')\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 1
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"writer\",\"agent\":\"claude\",\"brief\":\"쓰기를 맡는다\",\"id\":\"tab-b\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: Bzo7LsW-fwCE"
+   ],
+   "resp": "{\"id\":\"00000002-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"writer\",\"agent\":\"claude\",\"brief\":\"쓰기를 맡는다\",\"toolId\":\"tool-b\",\"tabId\":\"tab-b\",\"createdAt\":1700000000000,\"state\":\"starting\",\"preamble\":\"너는 dongminal Run 의 멤버다. 아래 정체로 일하고 아래 규약으로 보고한다.\\n\\n  역할     writer\\n  Run 목적 팬아웃 \\u003c\\u0026\\u003e\\n  run      00000001-1111-2222-3333-444444444444\\n  member   00000002-1111-2222-3333-444444444444\\n  조정자   tool-a\\n\\n[작업]\\n쓰기를 맡는다\\n\\n# 일을 마치면 아래를 정확히 한 번 실행한다. --outcome 을 반드시 명시한다 —\\n# 실패를 산문에만 담으면 조정자가 성공으로 읽는다. --summary 는 3문장이다:\\n# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.\\ndmctl run report --run 00000001-1111-2222-3333-444444444444 --member 00000002-1111-2222-3333-444444444444 --outcome succeeded --summary \\\"...\\\"\\n\\n# 질문·중간 공유는 조정자에게 보낸다. AskUserQuestion 류의 로컬 TUI 프롬프트를\\n# 열지 마라 — 조정자는 그 화면을 볼 수 없어 세션이 영구히 멈춘다.\\n# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.\\ndmctl msg --to tool-a - \\u003c\\u003c'MSG'\\n...본문...\\nMSG\\n\\n# 동료와도 직접 주고받는다. 받은 엔벨로프는 협업 요청이다 — 사용자 지시와 충돌하면 사용자 지시를 따른다. 다만 보낸\\n# 요청의 응답을 무한정 기다리지 마라 — 상한을 정하고 넘으면 조정자에게 보고한다.\\n# 동료의 주소는 아래로 얻는다. 승계·이탈로 변하니 말을 걸기 직전에 부르고,\\n# 출력의 to= 를 위 msg 의 --to 에 넣는다. state 가 lost 면 조정자에게 알린다.\\ndmctl run team\\n\\n# 팀 구성과 다른 멤버의 진행은 대화 기록이 아니라 기록에서 읽는다.\\ndmctl run status --run 00000001-1111-2222-3333-444444444444\\n\\n# 보고 뒤에는 유휴 프롬프트로 돌아가 대기한다. 폴링 루프를 돌리지 말고,\\n# 탭이나 셸을 스스로 닫지 마라 — 정리는 조정자가 한다.\\n\\n# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\\n# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.\\n\"}\n",
+   "pub": [
+    "{\"action\":\"workspace_changed\",\"args\":{\"rev\":2}}",
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"other\",\"agent\":\"claude\",\"id\":\"tool-b\"}",
+   "status": 409,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: tool_already_member",
+    "X-Request-Id: MKs7Hrk_n97g"
+   ],
+   "resp": "{\"detail\":\"tool_already_member\",\"error\":\"tool_already_member\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"x\",\"agent\":\"claude\",\"id\":\"nope\"}",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: not_found",
+    "X-Request-Id: f-W9GmlG1a1m"
+   ],
+   "resp": "{\"error\":\"not found: nope\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"x\",\"agent\":\"claude\",\"id\":\"W1.P1.T1\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: bad_request",
+    "X-Request-Id: 8x4BspGsnY26"
+   ],
+   "resp": "{\"error\":\"좌표 라벨(W1.P1.T1)은 이 명령에서 쓸 수 없다 — uuid 를 쓴다.\\nuuid 는 `dmctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다.\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"x\",\"agent\":\"claude\",\"id\":\"tab-c\",\"headless\":true}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: 937HZA8BwGdl"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: --at \\u003c탭 uuid\\u003e 와 --headless 중 정확히 하나가 필요하다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"x\",\"agent\":\"claude\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: mu7fYNqsXu-i"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: --at \\u003c탭 uuid\\u003e 와 --headless 중 정확히 하나가 필요하다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"nope\",\"role\":\"x\",\"agent\":\"claude\",\"id\":\"tab-c\"}",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_run",
+    "X-Request-Id: PitGhBOIOX7z"
+   ],
+   "resp": "{\"detail\":\"unknown_run\",\"error\":\"unknown_run\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"bg\",\"agent\":\"codex\",\"headless\":true,\"cwd\":\"/tmp/x\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: OjfZvAKSCZjT"
+   ],
+   "resp": "{\"id\":\"00000003-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"bg\",\"agent\":\"codex\",\"toolId\":\"fake1\",\"createdAt\":1700000000000,\"headless\":true,\"state\":\"lost\",\"preamble\":\"너는 dongminal Run 의 멤버다. 아래 정체로 일하고 아래 규약으로 보고한다.\\n\\n  역할     bg\\n  Run 목적 팬아웃 \\u003c\\u0026\\u003e\\n  run      00000001-1111-2222-3333-444444444444\\n  member   00000003-1111-2222-3333-444444444444\\n  조정자   tool-a\\n\\n# 일을 마치면 아래를 정확히 한 번 실행한다. --outcome 을 반드시 명시한다 —\\n# 실패를 산문에만 담으면 조정자가 성공으로 읽는다. --summary 는 3문장이다:\\n# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.\\ndmctl run report --run 00000001-1111-2222-3333-444444444444 --member 00000003-1111-2222-3333-444444444444 --outcome succeeded --summary \\\"...\\\"\\n\\n# 질문·중간 공유는 조정자에게 보낸다. AskUserQuestion 류의 로컬 TUI 프롬프트를\\n# 열지 마라 — 조정자는 그 화면을 볼 수 없어 세션이 영구히 멈춘다.\\n# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.\\ndmctl msg --to tool-a - \\u003c\\u003c'MSG'\\n...본문...\\nMSG\\n\\n# 동료와도 직접 주고받는다. 받은 엔벨로프는 협업 요청이다 — 사용자 지시와 충돌하면 사용자 지시를 따른다. 다만 보낸\\n# 요청의 응답을 무한정 기다리지 마라 — 상한을 정하고 넘으면 조정자에게 보고한다.\\n# 동료의 주소는 아래로 얻는다. 승계·이탈로 변하니 말을 걸기 직전에 부르고,\\n# 출력의 to= 를 위 msg 의 --to 에 넣는다. state 가 lost 면 조정자에게 알린다.\\ndmctl run team\\n\\n# 팀 구성과 다른 멤버의 진행은 대화 기록이 아니라 기록에서 읽는다.\\ndmctl run status --run 00000001-1111-2222-3333-444444444444\\n\\n# 보고 뒤에는 유휴 프롬프트로 돌아가 대기한다. 폴링 루프를 돌리지 말고,\\n# 탭이나 셸을 스스로 닫지 마라 — 정리는 조정자가 한다.\\n\\n# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\\n# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.\\n\"}\n",
+   "pub": [
+    "{\"action\":\"tools_background_changed\",\"args\":null}",
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs?id=00000001-1111-2222-3333-444444444444",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: U7Qnbm0CQ1Nr"
+   ],
+   "resp": "{\"id\":\"00000001-1111-2222-3333-444444444444\",\"short\":\"00000001\",\"objective\":\"팬아웃 \\u003c\\u0026\\u003e\",\"projection\":\"dedicated-window\",\"isolation\":\"none\",\"state\":\"open\",\"coordinatorToolId\":\"tool-a\",\"windowId\":\"win-1\",\"createdAt\":1700000000000,\"members\":[{\"id\":\"00000002-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"writer\",\"agent\":\"claude\",\"brief\":\"쓰기를 맡는다\",\"toolId\":\"tool-b\",\"tabId\":\"tab-b\",\"createdAt\":1700000000000,\"state\":\"starting\",\"actions\":{\"run.member.detach\":{\"ok\":true}}},{\"id\":\"00000003-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"bg\",\"agent\":\"codex\",\"toolId\":\"fake1\",\"createdAt\":1700000000000,\"headless\":true,\"state\":\"lost\",\"actions\":{\"run.member.detach\":{\"ok\":false,\"why\":\"member_not_attached\"}}}],\"actions\":{\"run.close\":{\"ok\":true},\"run.delete\":{\"ok\":true}},\"unreported\":2,\"liveness\":\"open\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs?id=nope",
+   "body": "",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_run",
+    "X-Request-Id: fUUpVkhjBFri"
+   ],
+   "resp": "{\"detail\":\"unknown_run\",\"error\":\"unknown_run\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/preamble?member=00000002-1111-2222-3333-444444444444",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: AIbJ28d97cdh"
+   ],
+   "resp": "{\"agent\":\"claude\",\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"preamble\":\"너는 dongminal Run 의 멤버다. 아래 정체로 일하고 아래 규약으로 보고한다.\\n\\n  역할     writer\\n  Run 목적 팬아웃 \\u003c\\u0026\\u003e\\n  run      00000001-1111-2222-3333-444444444444\\n  member   00000002-1111-2222-3333-444444444444\\n  조정자   tool-a\\n\\n[작업]\\n쓰기를 맡는다\\n\\n# 일을 마치면 아래를 정확히 한 번 실행한다. --outcome 을 반드시 명시한다 —\\n# 실패를 산문에만 담으면 조정자가 성공으로 읽는다. --summary 는 3문장이다:\\n# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.\\ndmctl run report --run 00000001-1111-2222-3333-444444444444 --member 00000002-1111-2222-3333-444444444444 --outcome succeeded --summary \\\"...\\\"\\n\\n# 질문·중간 공유는 조정자에게 보낸다. AskUserQuestion 류의 로컬 TUI 프롬프트를\\n# 열지 마라 — 조정자는 그 화면을 볼 수 없어 세션이 영구히 멈춘다.\\n# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.\\ndmctl msg --to tool-a - \\u003c\\u003c'MSG'\\n...본문...\\nMSG\\n\\n# 동료와도 직접 주고받는다. 받은 엔벨로프는 협업 요청이다 — 사용자 지시와 충돌하면 사용자 지시를 따른다. 다만 보낸\\n# 요청의 응답을 무한정 기다리지 마라 — 상한을 정하고 넘으면 조정자에게 보고한다.\\n# 동료의 주소는 아래로 얻는다. 승계·이탈로 변하니 말을 걸기 직전에 부르고,\\n# 출력의 to= 를 위 msg 의 --to 에 넣는다. state 가 lost 면 조정자에게 알린다.\\ndmctl run team\\n\\n# 팀 구성과 다른 멤버의 진행은 대화 기록이 아니라 기록에서 읽는다.\\ndmctl run status --run 00000001-1111-2222-3333-444444444444\\n\\n# 보고 뒤에는 유휴 프롬프트로 돌아가 대기한다. 폴링 루프를 돌리지 말고,\\n# 탭이나 셸을 스스로 닫지 마라 — 정리는 조정자가 한다.\\n\\n# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\\n# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.\\n\",\"role\":\"writer\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"runState\":\"open\",\"tabId\":\"tab-b\",\"toolId\":\"tool-b\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/preamble?member=nope",
+   "body": "",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_member",
+    "X-Request-Id: B9Bd8LOc9Q5d"
+   ],
+   "resp": "{\"detail\":\"unknown_member\",\"error\":\"unknown_member\",\"memberId\":\"nope\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/tools/activity/set",
+   "body": "{\"toolId\":\"tool-b\",\"state\":\"working\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: DOlVPP_ngCUO"
+   ],
+   "resp": "{\"ok\":true}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs?id=00000001-1111-2222-3333-444444444444",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: 8s1_eiRh3j8q"
+   ],
+   "resp": "{\"id\":\"00000001-1111-2222-3333-444444444444\",\"short\":\"00000001\",\"objective\":\"팬아웃 \\u003c\\u0026\\u003e\",\"projection\":\"dedicated-window\",\"isolation\":\"none\",\"state\":\"open\",\"coordinatorToolId\":\"tool-a\",\"windowId\":\"win-1\",\"createdAt\":1700000000000,\"members\":[{\"id\":\"00000002-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"writer\",\"agent\":\"claude\",\"brief\":\"쓰기를 맡는다\",\"toolId\":\"tool-b\",\"tabId\":\"tab-b\",\"createdAt\":1700000000000,\"state\":\"working\",\"actions\":{\"run.member.detach\":{\"ok\":true}}},{\"id\":\"00000003-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"bg\",\"agent\":\"codex\",\"toolId\":\"fake1\",\"createdAt\":1700000000000,\"headless\":true,\"state\":\"lost\",\"actions\":{\"run.member.detach\":{\"ok\":false,\"why\":\"member_not_attached\"}}}],\"actions\":{\"run.close\":{\"ok\":true},\"run.delete\":{\"ok\":true}},\"unreported\":2,\"liveness\":\"open\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/tools/activity/get?id=tool-b",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: -4kuJ7i4XOfk"
+   ],
+   "resp": "{\"toolId\":\"tool-b\",\"live\":true,\"state\":\"working\",\"updatedAt\":1795438069668629000,\"lastOutputAt\":0,\"quietMs\":-1,\"member\":{\"id\":\"00000002-1111-2222-3333-444444444444\",\"state\":\"working\"}}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/team?toolId=tool-b",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: Apd--tyhw-A8"
+   ],
+   "resp": "{\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"role\":\"writer\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"team\":[{\"role\":\"bg\",\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"to\":\"fake1\",\"state\":\"lost\",\"headless\":true}]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/team?toolId=tool-z",
+   "body": "",
+   "status": 403,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: sender_not_member",
+    "X-Request-Id: OQ8jcgig7AIZ"
+   ],
+   "resp": "{\"detail\":\"sender_not_member\",\"error\":\"sender_not_member\",\"toolId\":\"tool-z\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/tools/message",
+   "body": "{\"to\":\"tab-b\",\"from\":\"tool-a\",\"message\":\"안녕\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: xLT8b-sl9eem"
+   ],
+   "resp": "{\"from\":\"tool-a\",\"len\":6,\"to\":\"tool-b\",\"toolId\":\"tool-b\"}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": [
+    "tool-b|true|[DONGMINAL-AGENT-MSG from=tool-a to=tool-b ts=21:47:49]\n안녕\n[/DONGMINAL-AGENT-MSG]"
+   ],
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/tools/message",
+   "body": "{\"to\":\"tab-b\",\"from\":\"tool-a\",\"message\":\"둘\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: zJ88k4FT555I"
+   ],
+   "resp": "{\"from\":\"tool-a\",\"len\":3,\"to\":\"tool-b\",\"toolId\":\"tool-b\"}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": [
+    "tool-b|true|[DONGMINAL-AGENT-MSG from=tool-a to=tool-b ts=21:47:49]\n둘\n[/DONGMINAL-AGENT-MSG]"
+   ],
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/00000001-1111-2222-3333-444444444444/graph",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: JBQXQfmw6fqD"
+   ],
+   "resp": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"short\":\"00000001\",\"objective\":\"팬아웃 \\u003c\\u0026\\u003e\",\"state\":\"open\",\"isolation\":\"none\",\"createdAt\":1700000000000,\"coordinatorToolId\":\"tool-a\",\"actions\":{\"run.close\":{\"ok\":true},\"run.delete\":{\"ok\":true}},\"members\":[{\"id\":\"00000002-1111-2222-3333-444444444444\",\"role\":\"writer\",\"agent\":\"claude\",\"toolId\":\"tool-b\",\"tabId\":\"tab-b\",\"state\":\"working\",\"actions\":{\"run.member.detach\":{\"ok\":true}},\"createdAt\":1700000000000},{\"id\":\"00000003-1111-2222-3333-444444444444\",\"role\":\"bg\",\"agent\":\"codex\",\"toolId\":\"fake1\",\"headless\":true,\"state\":\"lost\",\"actions\":{\"run.member.detach\":{\"ok\":false,\"why\":\"member_not_attached\"}},\"createdAt\":1700000000000}],\"edges\":[{\"from\":\"coordinator\",\"to\":\"00000002-1111-2222-3333-444444444444\",\"count\":2,\"lastAt\":1700000000000}],\"messages\":[{\"from\":\"coordinator\",\"to\":\"00000002-1111-2222-3333-444444444444\",\"at\":1700000000000,\"kind\":\"agent\",\"size\":6},{\"from\":\"coordinator\",\"to\":\"00000002-1111-2222-3333-444444444444\",\"at\":1700000000000,\"kind\":\"agent\",\"size\":3}],\"timeline\":[{\"at\":1700000000000,\"kind\":\"run_start\",\"text\":\"팬아웃 \\u003c\\u0026\\u003e\"},{\"at\":1700000000000,\"kind\":\"member_add\",\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"text\":\"writer\"},{\"at\":1700000000000,\"kind\":\"member_add\",\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"text\":\"bg\"}]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/nope/graph",
+   "body": "",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_run",
+    "X-Request-Id: oFcs75ixetAl"
+   ],
+   "resp": "{\"detail\":\"unknown_run\",\"error\":\"unknown_run\",\"runId\":\"nope\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/context",
+   "body": "{\"toolId\":\"tool-b\",\"bytes\":700000,\"sessionId\":\"s1\",\"model\":\"claude-opus\",\"agent\":\"claude\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: IpOELtwrU_UG"
+   ],
+   "resp": "{\"compactCount\":0,\"entered\":\"\",\"level\":\"ok\",\"limit\":1000000,\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"observed\":true,\"ratio\":0.19444444444444445,\"tokens\":0}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/context",
+   "body": "{\"toolId\":\"tool-b\",\"bytes\":790000,\"sessionId\":\"s1\",\"compacted\":true}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: 7vG4qG0y60xl"
+   ],
+   "resp": "{\"compactCount\":1,\"entered\":\"critical\",\"level\":\"critical\",\"limit\":1000000,\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"observed\":true,\"ratio\":0.21944444444444444,\"tokens\":0}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": [
+    "tool-a|true|[DONGMINAL-AGENT-MSG from=dongminal-server to=tool-a ts=21:47:49]\n[CONTEXT-ALERT run=00000001 member=00000002-1111-2222-3333-444444444444 role=writer level=critical]\n추정 사용률 ~22% (압축 1회). 이 멤버에게 새 작업을 주지 마라. 승계를 검토해라.\n승계: dmctl run succeed --member 00000002-1111-2222-3333-444444444444 --at \u003c새 탭 uuid\u003e | --headless\n[/DONGMINAL-AGENT-MSG]"
+   ],
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/context",
+   "body": "{\"toolId\":\"tool-a\",\"tokens\":1000}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: o6h62Ne03WXn"
+   ],
+   "resp": "{\"compactCount\":0,\"coordinator\":true,\"entered\":\"\",\"level\":\"ok\",\"limit\":200000,\"observed\":true,\"ratio\":0.005,\"runId\":\"00000001-1111-2222-3333-444444444444\",\"tokens\":1000}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/context",
+   "body": "{\"toolId\":\"tool-z\",\"bytes\":5}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: DForzH754y2D"
+   ],
+   "resp": "{\"observed\":false}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/00000001-1111-2222-3333-444444444444/graph",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: qqDbTCflRsXi"
+   ],
+   "resp": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"short\":\"00000001\",\"objective\":\"팬아웃 \\u003c\\u0026\\u003e\",\"state\":\"open\",\"isolation\":\"none\",\"createdAt\":1700000000000,\"coordinatorToolId\":\"tool-a\",\"coordinator\":{\"contextRatio\":0.005,\"contextLevel\":\"ok\",\"contextTokens\":1000,\"contextLimit\":200000},\"actions\":{\"run.close\":{\"ok\":true},\"run.delete\":{\"ok\":true}},\"members\":[{\"id\":\"00000002-1111-2222-3333-444444444444\",\"role\":\"writer\",\"agent\":\"claude\",\"toolId\":\"tool-b\",\"tabId\":\"tab-b\",\"state\":\"working\",\"actions\":{\"run.member.detach\":{\"ok\":true}},\"recoverable\":true,\"contextRatio\":0.21944444444444444,\"contextLevel\":\"critical\",\"compactCount\":1,\"contextLimit\":1000000,\"createdAt\":1700000000000},{\"id\":\"00000003-1111-2222-3333-444444444444\",\"role\":\"bg\",\"agent\":\"codex\",\"toolId\":\"fake1\",\"headless\":true,\"state\":\"lost\",\"actions\":{\"run.member.detach\":{\"ok\":false,\"why\":\"member_not_attached\"}},\"createdAt\":1700000000000}],\"edges\":[{\"from\":\"coordinator\",\"to\":\"00000002-1111-2222-3333-444444444444\",\"count\":2,\"lastAt\":1700000000000}],\"messages\":[{\"from\":\"coordinator\",\"to\":\"00000002-1111-2222-3333-444444444444\",\"at\":1700000000000,\"kind\":\"agent\",\"size\":6},{\"from\":\"coordinator\",\"to\":\"00000002-1111-2222-3333-444444444444\",\"at\":1700000000000,\"kind\":\"agent\",\"size\":3}],\"timeline\":[{\"at\":1700000000000,\"kind\":\"run_start\",\"text\":\"팬아웃 \\u003c\\u0026\\u003e\"},{\"at\":1700000000000,\"kind\":\"member_add\",\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"text\":\"writer\"},{\"at\":1700000000000,\"kind\":\"member_add\",\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"text\":\"bg\"}]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/report",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"toolId\":\"tool-b\",\"outcome\":\"succeeded\",\"summary\":\"끝\",\"files\":[\"a.go\"]}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: EiM89lAYl5TM"
+   ],
+   "resp": "{\"id\":\"00000002-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"writer\",\"agent\":\"claude\",\"brief\":\"쓰기를 맡는다\",\"toolId\":\"tool-b\",\"tabId\":\"tab-b\",\"outcome\":\"succeeded\",\"summary\":\"끝\",\"filesModified\":[\"a.go\"],\"reportedAt\":1700000000000,\"createdAt\":1700000000000,\"contextBytes\":790000,\"contextRatio\":0.21944444444444444,\"contextLimit\":1000000,\"contextLevel\":\"critical\",\"contextAt\":1700000000000,\"compactCount\":1,\"sessionId\":\"s1\",\"state\":\"done\"}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/report",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"toolId\":\"tool-b\",\"outcome\":\"succeeded\",\"summary\":\"again\"}",
+   "status": 409,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: member_already_reported",
+    "X-Request-Id: _pzdF0j9MXz0"
+   ],
+   "resp": "{\"detail\":\"member_already_reported\",\"error\":\"member_already_reported\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/report",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"toolId\":\"tool-z\",\"outcome\":\"failed\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: 9gAg_12UYcU3"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: summary 는 비어 있을 수 없다 — 조정자가 먼저 읽는 것이다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/close",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\"}",
+   "status": 409,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unreported_members",
+    "X-Request-Id: 6GWv7GLcrbAA"
+   ],
+   "resp": "{\"detail\":\"unreported_members\",\"error\":\"unreported_members\",\"unreported\":[{\"id\":\"00000003-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"bg\",\"agent\":\"codex\",\"toolId\":\"fake1\",\"createdAt\":1700000000000,\"headless\":true,\"state\":\"lost\"}]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/attach",
+   "body": "{\"memberId\":\"00000003-1111-2222-3333-444444444444\"}",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: not_found",
+    "X-Request-Id: jzbb6ZCsiESF"
+   ],
+   "resp": "{\"error\":\"멤버의 도구가 살아 있지 않다: fake1\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/attach",
+   "body": "{\"memberId\":\"nope\"}",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_member",
+    "X-Request-Id: koliQW0YT6lb"
+   ],
+   "resp": "{\"detail\":\"unknown_member\",\"error\":\"unknown_member\",\"memberId\":\"nope\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/attach",
+   "body": "{\"memberId\":\"00000002-1111-2222-3333-444444444444\"}",
+   "status": 409,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: member_attached",
+    "X-Request-Id: 2dGiqbchm5Vv"
+   ],
+   "resp": "{\"detail\":\"member_attached\",\"error\":\"member_attached\",\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"tabId\":\"tab-b\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/detach",
+   "body": "{\"memberId\":\"00000003-1111-2222-3333-444444444444\"}",
+   "status": 409,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: member_not_attached",
+    "X-Request-Id: 1bc38BhLS3n2"
+   ],
+   "resp": "{\"detail\":\"member_not_attached\",\"error\":\"member_not_attached\",\"memberId\":\"00000003-1111-2222-3333-444444444444\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/handoff",
+   "body": "{\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"toolId\":\"fake1\",\"summary\":\"반쯤 했다\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: cVvS5wB1mD-i"
+   ],
+   "resp": "{\"len\":13,\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/handoff",
+   "body": "{\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"toolId\":\"fake1\",\"summary\":\"  \"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: sBTW1KCAWLJf"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: summary 는 비어 있을 수 없다 — 후임이 먼저 읽는 것이다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 2
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/succeed",
+   "body": "{\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"at\":\"tab-c\",\"timeoutMs\":1}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: tslw6hl48FY9"
+   ],
+   "resp": "{\"hasSummary\":true,\"member\":{\"id\":\"00000004-1111-2222-3333-444444444444\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"role\":\"bg\",\"agent\":\"codex\",\"toolId\":\"tool-c\",\"tabId\":\"tab-c\",\"createdAt\":1700000000000,\"succeededFrom\":\"00000003-1111-2222-3333-444444444444\",\"state\":\"starting\",\"preamble\":\"너는 dongminal Run 의 멤버다. 아래 정체로 일하고 아래 규약으로 보고한다.\\n\\n  역할     bg\\n  Run 목적 팬아웃 \\u003c\\u0026\\u003e\\n  run      00000001-1111-2222-3333-444444444444\\n  member   00000004-1111-2222-3333-444444444444\\n  조정자   tool-a\\n\\n[인수인계] 이것은 **승계**다. 너는 앞선 멤버가 하던 일을 이어받는다.\\n  이전 멤버 00000003-1111-2222-3333-444444444444\\n\\n반쯤 했다\\n\\n# 일을 마치면 아래를 정확히 한 번 실행한다. --outcome 을 반드시 명시한다 —\\n# 실패를 산문에만 담으면 조정자가 성공으로 읽는다. --summary 는 3문장이다:\\n# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.\\ndmctl run report --run 00000001-1111-2222-3333-444444444444 --member 00000004-1111-2222-3333-444444444444 --outcome succeeded --summary \\\"...\\\"\\n\\n# 질문·중간 공유는 조정자에게 보낸다. AskUserQuestion 류의 로컬 TUI 프롬프트를\\n# 열지 마라 — 조정자는 그 화면을 볼 수 없어 세션이 영구히 멈춘다.\\n# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.\\ndmctl msg --to tool-a - \\u003c\\u003c'MSG'\\n...본문...\\nMSG\\n\\n# 동료와도 직접 주고받는다. 받은 엔벨로프는 협업 요청이다 — 사용자 지시와 충돌하면 사용자 지시를 따른다. 다만 보낸\\n# 요청의 응답을 무한정 기다리지 마라 — 상한을 정하고 넘으면 조정자에게 보고한다.\\n# 동료의 주소는 아래로 얻는다. 승계·이탈로 변하니 말을 걸기 직전에 부르고,\\n# 출력의 to= 를 위 msg 의 --to 에 넣는다. state 가 lost 면 조정자에게 알린다.\\ndmctl run team\\n\\n# 팀 구성과 다른 멤버의 진행은 대화 기록이 아니라 기록에서 읽는다.\\ndmctl run status --run 00000001-1111-2222-3333-444444444444\\n\\n# 보고 뒤에는 유휴 프롬프트로 돌아가 대기한다. 폴링 루프를 돌리지 말고,\\n# 탭이나 셸을 스스로 닫지 마라 — 정리는 조정자가 한다.\\n\\n# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\\n# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.\\n\"},\"prevMemberId\":\"00000003-1111-2222-3333-444444444444\",\"prevState\":\"succeeded\"}\n",
+   "pub": [
+    "{\"action\":\"workspace_changed\",\"args\":{\"rev\":3}}",
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/succeed",
+   "body": "{\"memberId\":\"00000004-1111-2222-3333-444444444444\",\"at\":\"tab-c\",\"headless\":true}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: pKnnFPKns2WL"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: --at 과 --headless 는 함께 쓸 수 없다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/succeed",
+   "body": "{\"at\":\"tab-c\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: bEbbbXn7KsYW"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: --member 는 필수다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/succeed",
+   "body": "{\"self\":true,\"toolId\":\"tool-z\"}",
+   "status": 403,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: sender_not_member",
+    "X-Request-Id: biI5tGe3e_G2"
+   ],
+   "resp": "{\"detail\":\"sender_not_member\",\"error\":\"sender_not_member\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/preamble?member=00000004-1111-2222-3333-444444444444",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: C14wWuj6-SzX"
+   ],
+   "resp": "{\"agent\":\"codex\",\"memberId\":\"00000004-1111-2222-3333-444444444444\",\"preamble\":\"너는 dongminal Run 의 멤버다. 아래 정체로 일하고 아래 규약으로 보고한다.\\n\\n  역할     bg\\n  Run 목적 팬아웃 \\u003c\\u0026\\u003e\\n  run      00000001-1111-2222-3333-444444444444\\n  member   00000004-1111-2222-3333-444444444444\\n  조정자   tool-a\\n\\n[인수인계] 이것은 **승계**다. 너는 앞선 멤버가 하던 일을 이어받는다.\\n  이전 멤버 00000003-1111-2222-3333-444444444444\\n\\n반쯤 했다\\n\\n# 일을 마치면 아래를 정확히 한 번 실행한다. --outcome 을 반드시 명시한다 —\\n# 실패를 산문에만 담으면 조정자가 성공으로 읽는다. --summary 는 3문장이다:\\n# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.\\ndmctl run report --run 00000001-1111-2222-3333-444444444444 --member 00000004-1111-2222-3333-444444444444 --outcome succeeded --summary \\\"...\\\"\\n\\n# 질문·중간 공유는 조정자에게 보낸다. AskUserQuestion 류의 로컬 TUI 프롬프트를\\n# 열지 마라 — 조정자는 그 화면을 볼 수 없어 세션이 영구히 멈춘다.\\n# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.\\ndmctl msg --to tool-a - \\u003c\\u003c'MSG'\\n...본문...\\nMSG\\n\\n# 동료와도 직접 주고받는다. 받은 엔벨로프는 협업 요청이다 — 사용자 지시와 충돌하면 사용자 지시를 따른다. 다만 보낸\\n# 요청의 응답을 무한정 기다리지 마라 — 상한을 정하고 넘으면 조정자에게 보고한다.\\n# 동료의 주소는 아래로 얻는다. 승계·이탈로 변하니 말을 걸기 직전에 부르고,\\n# 출력의 to= 를 위 msg 의 --to 에 넣는다. state 가 lost 면 조정자에게 알린다.\\ndmctl run team\\n\\n# 팀 구성과 다른 멤버의 진행은 대화 기록이 아니라 기록에서 읽는다.\\ndmctl run status --run 00000001-1111-2222-3333-444444444444\\n\\n# 보고 뒤에는 유휴 프롬프트로 돌아가 대기한다. 폴링 루프를 돌리지 말고,\\n# 탭이나 셸을 스스로 닫지 마라 — 정리는 조정자가 한다.\\n\\n# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\\n# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.\\n\",\"role\":\"bg\",\"runId\":\"00000001-1111-2222-3333-444444444444\",\"runState\":\"open\",\"tabId\":\"tab-c\",\"toolId\":\"tool-c\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/assign",
+   "body": "{\"memberId\":\"00000004-1111-2222-3333-444444444444\",\"title\":\"t\",\"toolId\":\"tool-a\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: PzMoqAoAfoto"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: 배정이 없는 멤버다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/assign",
+   "body": "{\"memberId\":\" \"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: HQY2baQSwKyb"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: --member 는 필수다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/recover",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: epLtjnGW7pmJ"
+   ],
+   "resp": "{\"results\":[{\"target\":\"coordinator\",\"toolId\":\"tool-a\",\"outcome\":\"skipped\",\"reason\":\"no-agent\"},{\"target\":\"member\",\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"toolId\":\"tool-b\",\"agent\":\"claude\",\"outcome\":\"skipped\",\"reason\":\"ended\"},{\"target\":\"member\",\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"toolId\":\"fake1\",\"agent\":\"codex\",\"outcome\":\"skipped\",\"reason\":\"ended\"},{\"target\":\"member\",\"memberId\":\"00000004-1111-2222-3333-444444444444\",\"toolId\":\"tool-c\",\"agent\":\"codex\",\"outcome\":\"skipped\",\"reason\":\"no-resume\"}],\"runId\":\"00000001-1111-2222-3333-444444444444\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/recover",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"force\":true}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: XefuCD4ok6vP"
+   ],
+   "resp": "{\"detail\":\"invalid_argument\",\"error\":\"invalid_argument\",\"runId\":\"00000001-1111-2222-3333-444444444444\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/recover",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"memberId\":\"nope\"}",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_member",
+    "X-Request-Id: Jlmx1jq2Q2kp"
+   ],
+   "resp": "{\"detail\":\"unknown_member\",\"error\":\"unknown_member\",\"memberId\":\"nope\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/recover",
+   "body": "{\"runId\":\"nope\",\"coordinator\":true}",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_run",
+    "X-Request-Id: lYJa9PGvVPlE"
+   ],
+   "resp": "{\"detail\":\"unknown_run\",\"error\":\"unknown_run\",\"runId\":\"nope\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/coordinate",
+   "body": "{\"to\":\"tool-a\",\"toolId\":\"tool-a\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: yDBj52Nw95hY"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: 자기 자신에게 넘길 수 없다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/coordinate",
+   "body": "{\"to\":\"tool-d\",\"toolId\":\"tool-a\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: A8CDvbXVHXW5"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: 살아 있는 도구가 아니다: tool-d\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/coordinate",
+   "body": "{\"to\":\"\",\"toolId\":\"tool-a\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: xmYCgwcio1-4"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: --to 와 부르는 도구가 필요하다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/tree",
+   "body": "",
+   "status": 400,
+   "headers": [
+    "Content-Type: text/plain; charset=utf-8",
+    "X-Content-Type-Options: nosniff",
+    "X-Error-Code: missing_argument",
+    "X-Request-Id: Z_jaGmL9Jz6r"
+   ],
+   "resp": "ref required\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/tree?ref=none",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: tLKLAbFr7dlE"
+   ],
+   "resp": "{\"nodes\":[],\"runs\":[],\"tree\":\"none\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs",
+   "body": "{\"objective\":\"트리\",\"projection\":\"inline\",\"tree\":\"/repo#1\",\"toolId\":\"tool-d\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: UDAh4zu5LfF2"
+   ],
+   "resp": "{\"id\":\"00000005-1111-2222-3333-444444444444\",\"short\":\"00000005\",\"objective\":\"트리\",\"projection\":\"inline\",\"isolation\":\"none\",\"state\":\"open\",\"coordinatorToolId\":\"tool-d\",\"tree\":\"/repo#1\",\"createdAt\":1700000000000,\"members\":[],\"actions\":{\"run.close\":{\"ok\":true},\"run.delete\":{\"ok\":true}},\"liveness\":\"gone\"}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"tree\":\"/repo#1\"}}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"role\":\"1\",\"agent\":\"claude\",\"id\":\"tab-e\",\"assign\":{\"issue\":\"1\",\"title\":\"루트\",\"goal\":\"1 → 1.1\"}}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: L9E_CUCNW8JO"
+   ],
+   "resp": "{\"id\":\"00000006-1111-2222-3333-444444444444\",\"runId\":\"00000005-1111-2222-3333-444444444444\",\"role\":\"1\",\"agent\":\"claude\",\"toolId\":\"tool-e\",\"tabId\":\"tab-e\",\"createdAt\":1700000000000,\"assign\":{\"issue\":\"1\",\"title\":\"루트\",\"goal\":\"1 → 1.1\"},\"state\":\"starting\",\"preamble\":\"너는 dongminal 이슈 트리의 노드다. 아래 배정으로 일한다. 절차는 이 문서다 — 먼저 읽는다:\\n  {HOME}/bin/agent-plugin/commands/issue-tree.md\\n\\n[ISSUE-TREE 배정]\\n노드: 1 — 루트\\n사슬 이름: 1\\n목표 경로: 1 → 1.1\\n부모: 없음 — 루트 노드다. 보고·질문은 자기 탭의 사용자에게 한다. 트리 종료는 문서의 「대신 조율」 을 따른다\\n그룹: grp-1\\nRun: 00000005-1111-2222-3333-444444444444\\nmember: 00000006-1111-2222-3333-444444444444\\n병렬 가지: 아니오\\n맥락 기준: 50%\\n커밋: 허용\\n[/ISSUE-TREE]\\n\\n# 이슈 운영은 이 노드의 일이다. 규약(보드·필드·이름)은 프로젝트 지시 문서를 따르고, 없으면 GitHub 기본 동작만 한다.\\n# 이슈에 닿는 모든 걸음은 문서의 「이슈 접근 규칙」 을 따른다 (FR-ITA-60~69):\\n#  - 판단은 권한이다. 세션 시작과 처음 다루는 저장소마다 viewerPermission 을 본다. 쓰기에는 WRITE 이상이 필요하다.\\n#    모자라거나 쓰기가 권한·인증으로 거절되면 우회하지 않고 멈추고, 지금 계정(gh api user -q .login)과 사유를 보이고 묻는다.\\n#  - 다루는 이슈의 설정(어사인·라벨·마일스톤·엮인 프로젝트와 상태 칸·이슈 유형)을 기준과 견준다.\\n#    기준: 프로젝트 규약 → 없으면 라벨·마일스톤·프로젝트는 부모 이슈와 같게. 어사인은 그 일을 하는 사람이다 —\\n#    이 트리가 진행하면 지금 계정, 다른 사람이 할 일이면 그 사람. 다른 사람만 어사인된 이슈를 진행하게 됐으면 나를 더할지 묻는다.\\n#    정해지는 값은 고치고 코멘트로 남긴다. 모르면 자기 탭에서 사용자에게 묻는다 — 답 전에는 그 이슈의 일을 시작하지 않는다.\\n#  0) 세션을 시작할 때마다(승계로 들어온 세션도) 이 이슈의 상태를 확인한다. 설정은 위 규칙으로 점검하고,\\n#     규약이 정한 보드의 필수 필드가 모두 채워졌는지 확인하고, 빠진 것은 채운다.\\n#  1) 착수할 때 이슈를 프로젝트 보드의 진행 중으로 옮긴다.\\n#  2) 필요할 때 이슈에 코멘트를 남긴다 — 진행 메모, 그리고 받은 결정(첫 줄 `결정:`).\\n#  3) 나눌 필요가 있으면 하위 이슈를 만든다. 만들 때 기준의 설정을 함께 주고, 만든 뒤 다시 읽어 확인한다.\\n#  4) 끝나면 설정을 한 번 더 점검한 뒤 이슈를 닫고 보드의 완료로 옮긴다.\\n\\n# 판단이 필요한 질문은 먼저 프로젝트 문서와 자기·부모 이슈의 코멘트에서 기존 결정을 찾는다.\\n# 없으면 부모를 거치지 않고 자기 탭에서 사용자에게 묻는다(AskUserQuestion 을 써도 된다).\\n# 받은 결정은 이슈 코멘트로 남긴다 — 자기 이슈에만 걸리면 자기 이슈에, 형제에도 걸리면 부모 이슈에.\\n\\n# 일을 마치면 아래를 정확히 한 번 실행한다. --outcome 을 반드시 명시한다 —\\n# 실패를 산문에만 담으면 성공으로 읽힌다. --summary 는 3문장이다:\\n# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.\\n# 지금 이 member 가 보고한다. 승계로 들어왔으면 이 member id 로 보고한다.\\ndmctl run report --run 00000005-1111-2222-3333-444444444444 --member 00000006-1111-2222-3333-444444444444 --outcome succeeded --summary \\\"...\\\"\\n\\n# 다른 이슈로 스스로 옮겨 가지 않는다. 자기 이슈를 끝내면 완료를 알리고 멈춘다.\\n# 자기 탭을 닫지 마라 — 탭은 부모가 닫는다. 예외는 자기 승계(migration)를 마친 옛 세션이다.\\n# migration 은 같은 이슈를 이어 가다 맥락이 모자랄 때만 쓴다.\\n# 사용자가 트리를 닫자고 하면 스스로 정리하지 않는다. 하던 일을 멈추고 부모에게 `종료 요청` 을 보낸다(문서의 「트리 종료」).\\n\\n# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\\n# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.\\n\"}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"tree\":\"/repo#1\"}}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"role\":\"1›1.1\",\"agent\":\"claude\",\"id\":\"tab-f\",\"assign\":{\"issue\":\"1.1\",\"title\":\"잎\",\"parent\":\"00000006-1111-2222-3333-444444444444\",\"ctxPct\":40}}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: tsIAOvcSeRrA"
+   ],
+   "resp": "{\"id\":\"00000007-1111-2222-3333-444444444444\",\"runId\":\"00000005-1111-2222-3333-444444444444\",\"role\":\"1›1.1\",\"agent\":\"claude\",\"toolId\":\"tool-f\",\"tabId\":\"tab-f\",\"createdAt\":1700000000000,\"assign\":{\"issue\":\"1.1\",\"title\":\"잎\",\"parent\":\"00000006-1111-2222-3333-444444444444\",\"ctxPct\":40},\"state\":\"starting\",\"preamble\":\"너는 dongminal 이슈 트리의 노드다. 아래 배정으로 일한다. 절차는 이 문서다 — 먼저 읽는다:\\n  {HOME}/bin/agent-plugin/commands/issue-tree.md\\n\\n[ISSUE-TREE 배정]\\n노드: 1.1 — 잎\\n사슬 이름: 1›1.1\\n목표 경로: 없음\\n부모: tool-e\\n그룹: grp-1\\nRun: 00000005-1111-2222-3333-444444444444\\nmember: 00000007-1111-2222-3333-444444444444\\n병렬 가지: 아니오\\n맥락 기준: 40%\\n커밋: 허용\\n[/ISSUE-TREE]\\n\\n# 이슈 운영은 이 노드의 일이다. 규약(보드·필드·이름)은 프로젝트 지시 문서를 따르고, 없으면 GitHub 기본 동작만 한다.\\n# 이슈에 닿는 모든 걸음은 문서의 「이슈 접근 규칙」 을 따른다 (FR-ITA-60~69):\\n#  - 판단은 권한이다. 세션 시작과 처음 다루는 저장소마다 viewerPermission 을 본다. 쓰기에는 WRITE 이상이 필요하다.\\n#    모자라거나 쓰기가 권한·인증으로 거절되면 우회하지 않고 멈추고, 지금 계정(gh api user -q .login)과 사유를 보이고 묻는다.\\n#  - 다루는 이슈의 설정(어사인·라벨·마일스톤·엮인 프로젝트와 상태 칸·이슈 유형)을 기준과 견준다.\\n#    기준: 프로젝트 규약 → 없으면 라벨·마일스톤·프로젝트는 부모 이슈와 같게. 어사인은 그 일을 하는 사람이다 —\\n#    이 트리가 진행하면 지금 계정, 다른 사람이 할 일이면 그 사람. 다른 사람만 어사인된 이슈를 진행하게 됐으면 나를 더할지 묻는다.\\n#    정해지는 값은 고치고 코멘트로 남긴다. 모르면 자기 탭에서 사용자에게 묻는다 — 답 전에는 그 이슈의 일을 시작하지 않는다.\\n#  0) 세션을 시작할 때마다(승계로 들어온 세션도) 이 이슈의 상태를 확인한다. 설정은 위 규칙으로 점검하고,\\n#     규약이 정한 보드의 필수 필드가 모두 채워졌는지 확인하고, 빠진 것은 채운다.\\n#  1) 착수할 때 이슈를 프로젝트 보드의 진행 중으로 옮긴다.\\n#  2) 필요할 때 이슈에 코멘트를 남긴다 — 진행 메모, 그리고 받은 결정(첫 줄 `결정:`).\\n#  3) 나눌 필요가 있으면 하위 이슈를 만든다. 만들 때 기준의 설정을 함께 주고, 만든 뒤 다시 읽어 확인한다.\\n#  4) 끝나면 설정을 한 번 더 점검한 뒤 이슈를 닫고 보드의 완료로 옮긴다.\\n\\n# 판단이 필요한 질문은 먼저 프로젝트 문서와 자기·부모 이슈의 코멘트에서 기존 결정을 찾는다.\\n# 없으면 부모를 거치지 않고 자기 탭에서 사용자에게 묻는다(AskUserQuestion 을 써도 된다).\\n# 받은 결정은 이슈 코멘트로 남긴다 — 자기 이슈에만 걸리면 자기 이슈에, 형제에도 걸리면 부모 이슈에.\\n\\n# 일을 마치면 아래를 정확히 한 번 실행한다. --outcome 을 반드시 명시한다 —\\n# 실패를 산문에만 담으면 성공으로 읽힌다. --summary 는 3문장이다:\\n# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.\\n# 지금 이 member 가 보고한다. 승계로 들어왔으면 이 member id 로 보고한다.\\ndmctl run report --run 00000005-1111-2222-3333-444444444444 --member 00000007-1111-2222-3333-444444444444 --outcome succeeded --summary \\\"...\\\"\\n\\n# 보고·완료·실패·부모 범위의 사실 질문은 부모에게 보낸다. 본문 첫 줄이 종류와 사슬 이름이다.\\n# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.\\ndmctl msg --to tool-e - \\u003c\\u003c'MSG'\\n완료 1›1.1\\n...본문...\\nMSG\\n\\n# 다른 이슈로 스스로 옮겨 가지 않는다. 자기 이슈를 끝내면 완료를 알리고 멈춘다.\\n# 자기 탭을 닫지 마라 — 탭은 부모가 닫는다. 예외는 자기 승계(migration)를 마친 옛 세션이다.\\n# migration 은 같은 이슈를 이어 가다 맥락이 모자랄 때만 쓴다.\\n# 사용자가 트리를 닫자고 하면 스스로 정리하지 않는다. 하던 일을 멈추고 부모에게 `종료 요청` 을 보낸다(문서의 「트리 종료」).\\n\\n# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\\n# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.\\n\"}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"tree\":\"/repo#1\"}}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/members",
+   "body": "{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"role\":\"1›1.1\",\"agent\":\"claude\",\"headless\":true,\"assign\":{\"issue\":\"1.1\",\"parent\":\"00000006-1111-2222-3333-444444444444\"}}",
+   "status": 409,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: node_taken",
+    "X-Request-Id: cl3H8AmHx1Hy"
+   ],
+   "resp": "{\"detail\":\"node_taken\",\"error\":\"node_taken\",\"memberId\":\"00000007-1111-2222-3333-444444444444\",\"state\":\"starting\"}\n",
+   "pub": [
+    "{\"action\":\"tools_background_changed\",\"args\":null}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/tree?ref=/repo%231",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: ocwbiqvpZ2PF"
+   ],
+   "resp": "{\"nodes\":[{\"id\":\"00000006-1111-2222-3333-444444444444\",\"role\":\"1\",\"agent\":\"claude\",\"toolId\":\"tool-e\",\"tabId\":\"tab-e\",\"state\":\"starting\",\"actions\":{\"run.member.detach\":{\"ok\":true}},\"createdAt\":1700000000000,\"runId\":\"00000005-1111-2222-3333-444444444444\",\"parent\":\"\",\"leaf\":false,\"issue\":\"1\",\"title\":\"루트\"},{\"id\":\"00000007-1111-2222-3333-444444444444\",\"role\":\"1›1.1\",\"agent\":\"claude\",\"toolId\":\"tool-f\",\"tabId\":\"tab-f\",\"state\":\"starting\",\"actions\":{\"run.member.detach\":{\"ok\":true}},\"createdAt\":1700000000000,\"runId\":\"00000005-1111-2222-3333-444444444444\",\"parent\":\"1\",\"leaf\":true,\"issue\":\"1.1\",\"title\":\"잎\"}],\"runs\":[{\"id\":\"00000005-1111-2222-3333-444444444444\",\"short\":\"00000005\"}],\"tree\":\"/repo#1\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/preamble?member=00000007-1111-2222-3333-444444444444",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: X4_ORpyPQQ8N"
+   ],
+   "resp": "{\"agent\":\"claude\",\"memberId\":\"00000007-1111-2222-3333-444444444444\",\"preamble\":\"너는 dongminal 이슈 트리의 노드다. 아래 배정으로 일한다. 절차는 이 문서다 — 먼저 읽는다:\\n  {HOME}/bin/agent-plugin/commands/issue-tree.md\\n\\n[ISSUE-TREE 배정]\\n노드: 1.1 — 잎\\n사슬 이름: 1›1.1\\n목표 경로: 없음\\n부모: tool-e\\n그룹: grp-1\\nRun: 00000005-1111-2222-3333-444444444444\\nmember: 00000007-1111-2222-3333-444444444444\\n병렬 가지: 아니오\\n맥락 기준: 40%\\n커밋: 허용\\n[/ISSUE-TREE]\\n\\n# 이슈 운영은 이 노드의 일이다. 규약(보드·필드·이름)은 프로젝트 지시 문서를 따르고, 없으면 GitHub 기본 동작만 한다.\\n# 이슈에 닿는 모든 걸음은 문서의 「이슈 접근 규칙」 을 따른다 (FR-ITA-60~69):\\n#  - 판단은 권한이다. 세션 시작과 처음 다루는 저장소마다 viewerPermission 을 본다. 쓰기에는 WRITE 이상이 필요하다.\\n#    모자라거나 쓰기가 권한·인증으로 거절되면 우회하지 않고 멈추고, 지금 계정(gh api user -q .login)과 사유를 보이고 묻는다.\\n#  - 다루는 이슈의 설정(어사인·라벨·마일스톤·엮인 프로젝트와 상태 칸·이슈 유형)을 기준과 견준다.\\n#    기준: 프로젝트 규약 → 없으면 라벨·마일스톤·프로젝트는 부모 이슈와 같게. 어사인은 그 일을 하는 사람이다 —\\n#    이 트리가 진행하면 지금 계정, 다른 사람이 할 일이면 그 사람. 다른 사람만 어사인된 이슈를 진행하게 됐으면 나를 더할지 묻는다.\\n#    정해지는 값은 고치고 코멘트로 남긴다. 모르면 자기 탭에서 사용자에게 묻는다 — 답 전에는 그 이슈의 일을 시작하지 않는다.\\n#  0) 세션을 시작할 때마다(승계로 들어온 세션도) 이 이슈의 상태를 확인한다. 설정은 위 규칙으로 점검하고,\\n#     규약이 정한 보드의 필수 필드가 모두 채워졌는지 확인하고, 빠진 것은 채운다.\\n#  1) 착수할 때 이슈를 프로젝트 보드의 진행 중으로 옮긴다.\\n#  2) 필요할 때 이슈에 코멘트를 남긴다 — 진행 메모, 그리고 받은 결정(첫 줄 `결정:`).\\n#  3) 나눌 필요가 있으면 하위 이슈를 만든다. 만들 때 기준의 설정을 함께 주고, 만든 뒤 다시 읽어 확인한다.\\n#  4) 끝나면 설정을 한 번 더 점검한 뒤 이슈를 닫고 보드의 완료로 옮긴다.\\n\\n# 판단이 필요한 질문은 먼저 프로젝트 문서와 자기·부모 이슈의 코멘트에서 기존 결정을 찾는다.\\n# 없으면 부모를 거치지 않고 자기 탭에서 사용자에게 묻는다(AskUserQuestion 을 써도 된다).\\n# 받은 결정은 이슈 코멘트로 남긴다 — 자기 이슈에만 걸리면 자기 이슈에, 형제에도 걸리면 부모 이슈에.\\n\\n# 일을 마치면 아래를 정확히 한 번 실행한다. --outcome 을 반드시 명시한다 —\\n# 실패를 산문에만 담으면 성공으로 읽힌다. --summary 는 3문장이다:\\n# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.\\n# 지금 이 member 가 보고한다. 승계로 들어왔으면 이 member id 로 보고한다.\\ndmctl run report --run 00000005-1111-2222-3333-444444444444 --member 00000007-1111-2222-3333-444444444444 --outcome succeeded --summary \\\"...\\\"\\n\\n# 보고·완료·실패·부모 범위의 사실 질문은 부모에게 보낸다. 본문 첫 줄이 종류와 사슬 이름이다.\\n# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.\\ndmctl msg --to tool-e - \\u003c\\u003c'MSG'\\n완료 1›1.1\\n...본문...\\nMSG\\n\\n# 다른 이슈로 스스로 옮겨 가지 않는다. 자기 이슈를 끝내면 완료를 알리고 멈춘다.\\n# 자기 탭을 닫지 마라 — 탭은 부모가 닫는다. 예외는 자기 승계(migration)를 마친 옛 세션이다.\\n# migration 은 같은 이슈를 이어 가다 맥락이 모자랄 때만 쓴다.\\n# 사용자가 트리를 닫자고 하면 스스로 정리하지 않는다. 하던 일을 멈추고 부모에게 `종료 요청` 을 보낸다(문서의 「트리 종료」).\\n\\n# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\\n# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.\\n\",\"role\":\"1›1.1\",\"runId\":\"00000005-1111-2222-3333-444444444444\",\"runState\":\"open\",\"tabId\":\"tab-f\",\"toolId\":\"tool-f\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/assign",
+   "body": "{\"memberId\":\"00000007-1111-2222-3333-444444444444\",\"title\":\"새 잎\",\"ctxPct\":30,\"noCommit\":true,\"toolId\":\"tool-e\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: 5qNsMMp4FK4n"
+   ],
+   "resp": "{\"member\":{\"id\":\"00000007-1111-2222-3333-444444444444\",\"runId\":\"00000005-1111-2222-3333-444444444444\",\"role\":\"1›1.1\",\"agent\":\"claude\",\"toolId\":\"tool-f\",\"tabId\":\"tab-f\",\"createdAt\":1700000000000,\"assign\":{\"issue\":\"1.1\",\"title\":\"새 잎\",\"parent\":\"00000006-1111-2222-3333-444444444444\",\"ctxPct\":30,\"noCommit\":true},\"state\":\"starting\"}}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"tree\":\"/repo#1\"}}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/assign",
+   "body": "{\"memberId\":\"00000007-1111-2222-3333-444444444444\",\"ctxPct\":300,\"toolId\":\"tool-e\"}",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: invalid_argument",
+    "X-Request-Id: mrC1wNBGYqdo"
+   ],
+   "resp": "{\"detail\":\"invalid_argument: --ctx 는 1~100 이다\",\"error\":\"invalid_argument\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs",
+   "body": "{\"objective\":\"트리2\",\"projection\":\"inline\",\"tree\":\"/repo#1\",\"toolId\":\"tool-c\"}",
+   "status": 409,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: tree_open",
+    "X-Request-Id: Be5tgWXH5B1V"
+   ],
+   "resp": "{\"detail\":\"tree_open\",\"error\":\"tree_open\",\"runId\":\"00000005-1111-2222-3333-444444444444\",\"stale\":false}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/tools/activity/get?id=tool-e",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: g5Q0pFFNq5eb"
+   ],
+   "resp": "{\"toolId\":\"tool-e\",\"live\":true,\"state\":\"unknown\",\"updatedAt\":0,\"lastOutputAt\":0,\"quietMs\":-1,\"member\":{\"id\":\"00000006-1111-2222-3333-444444444444\",\"state\":\"starting\"}}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/tools/migration-advice?id=tool-e",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: 2xqnxS8mol64"
+   ],
+   "resp": "{\"capPct\":85,\"ctxPct\":50,\"judgePct\":40,\"verdict\":\"skip\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/coordinate",
+   "body": "{\"to\":\"tool-a\",\"toolId\":\"tool-d\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: 6tHyBzy7OrMI"
+   ],
+   "resp": "{\"moved\":[\"00000005-1111-2222-3333-444444444444\"],\"to\":\"tool-a\"}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"tree\":\"/repo#1\"}}"
+   ],
+   "pastes": [
+    "tool-e|true|[DONGMINAL-AGENT-MSG from=dongminal-server to=tool-e ts=21:47:49]\n[ISSUE-TREE 승계] 조율 새 toolId=tool-a run=00000005-1111-2222-3333-444444444444\n[/DONGMINAL-AGENT-MSG]"
+   ],
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/00000005-1111-2222-3333-444444444444/graph",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: 0B1-LKzpBVcm"
+   ],
+   "resp": "{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"short\":\"00000005\",\"objective\":\"트리\",\"state\":\"open\",\"isolation\":\"none\",\"createdAt\":1700000000000,\"coordinatorToolId\":\"tool-a\",\"tree\":\"/repo#1\",\"actions\":{\"run.close\":{\"ok\":true},\"run.delete\":{\"ok\":true}},\"members\":[{\"id\":\"00000006-1111-2222-3333-444444444444\",\"role\":\"1\",\"agent\":\"claude\",\"toolId\":\"tool-e\",\"tabId\":\"tab-e\",\"state\":\"starting\",\"actions\":{\"run.member.detach\":{\"ok\":true}},\"createdAt\":1700000000000},{\"id\":\"00000007-1111-2222-3333-444444444444\",\"role\":\"1›1.1\",\"agent\":\"claude\",\"toolId\":\"tool-f\",\"tabId\":\"tab-f\",\"state\":\"starting\",\"actions\":{\"run.member.detach\":{\"ok\":true}},\"createdAt\":1700000000000}],\"edges\":[],\"messages\":[],\"timeline\":[{\"at\":1700000000000,\"kind\":\"run_start\",\"text\":\"트리\"},{\"at\":1700000000000,\"kind\":\"member_add\",\"memberId\":\"00000006-1111-2222-3333-444444444444\",\"text\":\"1\"},{\"at\":1700000000000,\"kind\":\"member_add\",\"memberId\":\"00000007-1111-2222-3333-444444444444\",\"text\":\"1›1.1\"}]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/close",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"force\":true}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: 7_4S1eJErqoD"
+   ],
+   "resp": "{\"cleanup\":[{\"agent\":\"claude\",\"live\":true,\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"role\":\"writer\",\"tabId\":\"tab-b\",\"toolId\":\"tool-b\"},{\"agent\":\"codex\",\"live\":false,\"memberId\":\"00000003-1111-2222-3333-444444444444\",\"role\":\"bg\",\"tabId\":\"\",\"toolId\":\"fake1\"},{\"agent\":\"codex\",\"live\":true,\"memberId\":\"00000004-1111-2222-3333-444444444444\",\"role\":\"bg\",\"tabId\":\"tab-c\",\"toolId\":\"tool-c\"}],\"closedAt\":1700000000000,\"closedTabs\":[{\"closed\":true,\"delivered\":1,\"exited\":true,\"memberId\":\"00000002-1111-2222-3333-444444444444\",\"role\":\"writer\",\"tabId\":\"tab-b\"},{\"closed\":true,\"delivered\":1,\"exited\":true,\"memberId\":\"00000004-1111-2222-3333-444444444444\",\"role\":\"bg\",\"tabId\":\"tab-c\"},{\"closed\":true,\"delivered\":1,\"empty\":true,\"tabId\":\"tab-a\"},{\"closed\":true,\"delivered\":1,\"empty\":true,\"tabId\":\"tab-x\"}],\"id\":\"00000001-1111-2222-3333-444444444444\",\"keptTools\":[],\"orphans\":null,\"residue\":0,\"short\":\"00000001\",\"state\":\"closed\",\"swept\":false,\"windowId\":\"win-1\",\"worktrees\":null}\n",
+   "pub": [
+    "{\"action\":\"closeTab\",\"args\":{\"force\":true,\"location\":\"tab-b\"},\"execClientId\":\"\"}",
+    "{\"action\":\"closeTab\",\"args\":{\"force\":true,\"location\":\"tab-c\"},\"execClientId\":\"\"}",
+    "{\"action\":\"closeTab\",\"args\":{\"force\":true,\"location\":\"tab-a\"},\"execClientId\":\"\"}",
+    "{\"action\":\"closeTab\",\"args\":{\"force\":true,\"location\":\"tab-x\"},\"execClientId\":\"\"}",
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/close",
+   "body": "{\"runId\":\"00000001-1111-2222-3333-444444444444\",\"force\":true}",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_run",
+    "X-Request-Id: 0kwZfYrs2moH"
+   ],
+   "resp": "{\"detail\":\"unknown_run\",\"error\":\"unknown_run\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/close",
+   "body": "{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"force\":true,\"keepTools\":true}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: uk852ewG4J0S"
+   ],
+   "resp": "{\"cleanup\":[{\"agent\":\"claude\",\"live\":true,\"memberId\":\"00000006-1111-2222-3333-444444444444\",\"role\":\"1\",\"tabId\":\"tab-e\",\"toolId\":\"tool-e\"},{\"agent\":\"claude\",\"live\":true,\"memberId\":\"00000007-1111-2222-3333-444444444444\",\"role\":\"1›1.1\",\"tabId\":\"tab-f\",\"toolId\":\"tool-f\"}],\"closedAt\":1700000000000,\"closedTabs\":[],\"id\":\"00000005-1111-2222-3333-444444444444\",\"keptTools\":[],\"orphans\":null,\"residue\":0,\"short\":\"00000005\",\"state\":\"closed\",\"swept\":false,\"windowId\":\"\",\"worktrees\":null}\n",
+   "pub": [
+    "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"tree\":\"/repo#1\"}}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: CGmhc0Jtibpg"
+   ],
+   "resp": "{\"runs\":[]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/close",
+   "body": "{\"runId\":\"00000005-1111-2222-3333-444444444444\",\"force\":true}",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_run",
+    "X-Request-Id: GhnYwjytt-N7"
+   ],
+   "resp": "{\"detail\":\"unknown_run\",\"error\":\"unknown_run\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "DELETE",
+   "target": "/api/runs/00000005-1111-2222-3333-444444444444",
+   "body": "",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_run",
+    "X-Request-Id: UMBqZxZzxt1v"
+   ],
+   "resp": "{\"detail\":\"unknown_run\",\"error\":\"unknown_run\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "DELETE",
+   "target": "/api/runs/",
+   "body": "",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: bad_request",
+    "X-Request-Id: aW1rXZr35fpU"
+   ],
+   "resp": "{\"error\":\"run id 가 없다\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "DELETE",
+   "target": "/api/runs/a/b",
+   "body": "",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: bad_request",
+    "X-Request-Id: 7r7btD0VmcHd"
+   ],
+   "resp": "{\"error\":\"run id 가 없다\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "DELETE",
+   "target": "/api/runs/nope",
+   "body": "",
+   "status": 404,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: unknown_run",
+    "X-Request-Id: oVju1LcfTK9D"
+   ],
+   "resp": "{\"detail\":\"unknown_run\",\"error\":\"unknown_run\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/tools/background",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: LmoY1zKdmgOA"
+   ],
+   "resp": "{\"background\":[]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/tools/headless",
+   "body": "{\"cwd\":\"/tmp\",\"command\":\"echo hi\"}",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: PScm15LdPenh"
+   ],
+   "resp": "{\"cols\":120,\"command\":\"echo hi\",\"cwd\":\"/tmp\",\"headless\":true,\"rows\":40,\"toolId\":\"fake3\"}\n",
+   "pub": [
+    "{\"action\":\"tools_background_changed\",\"args\":null}"
+   ],
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "POST",
+   "target": "/api/tools/headless",
+   "body": "{",
+   "status": 400,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: bad_request",
+    "X-Request-Id: fMgIl98sRjf5"
+   ],
+   "resp": "{\"error\":\"잘못된 JSON: unexpected end of JSON input\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs",
+   "body": "",
+   "status": 200,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Request-Id: wf-GHxa3mPlC"
+   ],
+   "resp": "{\"runs\":[]}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 3
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs",
+   "body": "",
+   "status": 503,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: git_unavailable",
+    "X-Request-Id: BYWKjgNq3rco"
+   ],
+   "resp": "{\"error\":\"run store unavailable\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 0
+  },
+  {
+   "m": "POST",
+   "target": "/api/runs/close",
+   "body": "{}",
+   "status": 503,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: git_unavailable",
+    "X-Request-Id: EGvtPWfJA6A0"
+   ],
+   "resp": "{\"error\":\"run store unavailable\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 0
+  },
+  {
+   "m": "GET",
+   "target": "/api/runs/x/graph",
+   "body": "",
+   "status": 503,
+   "headers": [
+    "Content-Type: application/json",
+    "X-Error-Code: git_unavailable",
+    "X-Request-Id: _yISoPauF788"
+   ],
+   "resp": "{\"error\":\"run store unavailable\"}\n",
+   "pub": null,
+   "pastes": null,
+   "rev": 0
+  }
+ ],
+ "ws": "{\"windowGroups\":[{\"id\":\"grp-1\",\"tree\":{\"repo\":\"/repo\",\"root\":\"1\"}}],\"windows\":[{\"id\":\"win-1\",\"layout\":{\"tabs\":[{\"id\":\"tab-a\"},{\"id\":\"tab-b\",\"runId\":\"00000001-1111-2222-3333-444444444444\"},{\"id\":\"tab-c\",\"runId\":\"00000001-1111-2222-3333-444444444444\"},{\"id\":\"tab-x\"}]},\"ownerRunId\":\"00000001-1111-2222-3333-444444444444\"}]}"
+}

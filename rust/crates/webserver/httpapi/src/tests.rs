@@ -13,6 +13,7 @@ mod gitwire;
 mod golden;
 mod golden_552;
 mod golden_553;
+mod golden_554;
 mod golden_5572;
 mod golden_files;
 mod mux;
