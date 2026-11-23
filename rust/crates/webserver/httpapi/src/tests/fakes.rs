@@ -311,6 +311,38 @@ impl SettingsStore for FakeSettings {
             .and_then(|c| c.fg_tab_names)
             .unwrap_or(true)
     }
+    /// Go `parseContextPolicy` 와 같은 해석이다(실물은 5.5.5 가 옮긴다).
+    fn context_policy(&self) -> dm_webserver_domain_run::ContextPolicy {
+        #[derive(serde::Deserialize, Default)]
+        #[serde(default)]
+        struct Orch {
+            #[serde(rename = "contextBytesPerToken")]
+            bpt: f64,
+            #[serde(rename = "contextLimitTokens")]
+            limit: f64,
+            #[serde(rename = "contextWarnRatio")]
+            warn: f64,
+            #[serde(rename = "contextCriticalRatio")]
+            critical: f64,
+        }
+        #[derive(serde::Deserialize, Default)]
+        #[serde(default)]
+        struct Cfg {
+            orchestration: Orch,
+        }
+        match dm_gocompat::json::unmarshal::<Cfg>(&self.blob.lock().unwrap()) {
+            Ok(c) => dm_webserver_domain_run::ContextPolicy {
+                bytes_per_token: c.orchestration.bpt,
+                limit_tokens: c.orchestration.limit,
+                warn_ratio: c.orchestration.warn,
+                critical_ratio: c.orchestration.critical,
+            },
+            Err(_) => dm_webserver_domain_run::ContextPolicy::default_policy(),
+        }
+    }
+    fn migration(&self) -> crate::MigrationConf {
+        crate::parse_migration_conf(&self.blob.lock().unwrap())
+    }
 }
 
 /// Go `fakeReaper`.

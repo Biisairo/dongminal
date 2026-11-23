@@ -24,11 +24,31 @@ macro_rules! h {
 pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
     vec![
         get("/api/state", h!(api_state_get)),
+        // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 구독이 열릴 때의 복원 조각을 한 요청으로.
+        get("/api/snapshot", h!(api_snapshot)),
         post("/api/tools", h!(api_tools_create)),
+        get("/api/tools/attention", h!(api_tools_attention)),
+        post("/api/tools/attention/set", h!(api_tool_attention_set)),
+        post("/api/tools/attention/clear", h!(api_tool_attention_clear)),
+        post(
+            "/api/tools/attention/clear-all",
+            h!(api_tool_attention_clear_all),
+        ),
+        post("/api/tools/attention/claim", h!(api_tool_attention_claim)),
+        get("/api/tools/activity", h!(api_tools_activity)),
         // 에이전트 접합면 (SKILL_INJECTION_SRS FR-API-1/2/3).
         get("/api/tools/output", h!(api_tool_output)),
         post("/api/tools/input", h!(api_tool_input)),
         post("/api/tools/message", h!(api_tool_message)),
+        get("/api/tools/background", h!(api_tools_background)),
+        post("/api/tools/background/set", h!(api_tool_background_set)),
+        post("/api/tools/activity/set", h!(api_tool_activity_set)),
+        // 묶음 S — 상태·대기 계약 (RUN_ORCHESTRATION_SRS FR-STA-1/2/3).
+        get("/api/tools/activity/get", h!(api_tool_status)),
+        get("/api/tools/migration-advice", h!(api_migration_advice)),
+        get("/api/tools/activity/wait", h!(api_tool_status_wait)),
+        post("/api/tools/usage", h!(api_tool_usage)),
+        post("/api/tools/subagents", h!(api_tool_subagents)),
         post("/api/tools/kill", h!(api_tool_kill)),
         // 일괄 조회는 단건 종단보다 먼저 와야 한다 (FR-OPT-2-4).
         get("/api/tools/busy", h!(api_tools_busy)),
