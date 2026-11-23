@@ -247,8 +247,21 @@ pub(crate) const CRATE_DIR: &str = "crates/shared/sandbox";
 pub(crate) const CRATE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 /// 이 crate 의 위치에서 위로 Cargo 워크스페이스 루트(`Cargo.lock` 이 있는 곳)를 찾는다.
+///
+/// 릴리스(trimpath) 빌드는 찾지 않는다. 상대 경로로 찾으면 작업 디렉터리의 남의 트리에서
+/// `cargo build` 가 돌 수 있다(Go -trimpath 판은 작업 디렉터리의 go.mod 를 받아들인다).
 fn source_root() -> Result<String, String> {
+    if cfg!(dongminal_trimpath) {
+        return Err(source_root_missing(Path::new(CRATE_DIR)));
+    }
     source_root_from(Path::new(CRATE_DIR))
+}
+
+pub(crate) fn source_root_missing(start: &Path) -> String {
+    format!(
+        "소스 트리를 찾을 수 없습니다({} 에서 위로 Cargo.lock 없음)",
+        start.display()
+    )
 }
 
 pub(crate) fn source_root_from(start: &Path) -> Result<String, String> {
@@ -259,12 +272,7 @@ pub(crate) fn source_root_from(start: &Path) -> Result<String, String> {
         }
         match dir.parent() {
             Some(p) => dir = p,
-            None => {
-                return Err(format!(
-                    "소스 트리를 찾을 수 없습니다({} 에서 위로 Cargo.lock 없음)",
-                    start.display()
-                ));
-            }
+            None => return Err(source_root_missing(start)),
         }
     }
 }

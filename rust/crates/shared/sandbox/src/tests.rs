@@ -912,12 +912,11 @@ fn source_root_walks_up_to_cargo_lock() {
     );
 }
 
-// 릴리스(trimpath) 빌드의 상대 경로는 작업 디렉터리 기준으로만 찾는다 — Go -trimpath 의
-// 모듈 상대 경로와 같다. 시험의 작업 디렉터리(crate 루트)에는 Cargo.lock 이 없다.
+// 릴리스(trimpath) 빌드는 탐색하지 않고 이 문구로 실패한다.
 #[test]
-fn trimmed_relative_path_fails_outside_source_tree() {
+fn trimmed_build_error_text() {
     assert_eq!(
-        crate::helper::source_root_from(std::path::Path::new("crates/shared/sandbox")),
-        Err("소스 트리를 찾을 수 없습니다(crates/shared/sandbox 에서 위로 Cargo.lock 없음)".into())
+        crate::helper::source_root_missing(std::path::Path::new("crates/shared/sandbox")),
+        "소스 트리를 찾을 수 없습니다(crates/shared/sandbox 에서 위로 Cargo.lock 없음)"
     );
 }
