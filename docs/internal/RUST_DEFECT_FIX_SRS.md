@@ -176,7 +176,7 @@
 
 ## 5. 미해결 질문 (하위 이슈가 조정자에게 묻는다)
 
-> 조정자 결정(2026-11-24): ① FR-RDF-1 은 **수명 방식**이다 — reached 번호도 일정 시간 다시 닿지 않으면 밀어낼 수 있게 된다. 값은 망 정보 재알림 주기의 3배로 하고, 정상 망(재알림이 오는 노드)은 밀려나지 않음을 시험으로 고정한다. 간선별 몫은 정상 중계 망을 깎을 수 있어 쓰지 않는다. ② FR-RDF-5 Windows 로컬 시간대는 Go zoneinfo_windows.go 와 같게 GetDynamicTimeZoneInformation 으로 얻고, unsafe 는 dm-gocompat 의 Windows 전용 시간대 모듈 하나로 허용한다(RUST_PORT_SRS C-RSP-4 에 FormatMessageW 와 같은 예외로 덧붙인다). ③ e2e 는 10.7 이 hermetic 규칙(운영 홈 금지·60147 이상 포트·전후 prod-pids)대로 돌려도 된다.
+> 조정자 결정(2026-11-24): ① FR-RDF-1 은 **수명 방식**이다 — reached 번호도 일정 시간 다시 닿지 않으면 밀어낼 수 있게 된다. 값은 잊은 시각(Mark.at)부터 3 × REDIAL_MAX = 180초다(Go·Rust 모두 주기 재알림이 없어 재알림 주기를 쓸 수 없다 — 10.1 보고). 거절된 재전송으로는 at 을 갱신하지 않는다. 밀어내기는 칸이 찼을 때만 일어나며, 수명 안의 reached 는 밀려나지 않음을 시험으로 고정한다. 간선별 몫은 정상 중계 망을 깎을 수 있어 쓰지 않는다. ② FR-RDF-5 Windows 로컬 시간대는 Go zoneinfo_windows.go 와 같게 GetDynamicTimeZoneInformation 으로 얻고, unsafe 는 dm-gocompat 의 Windows 전용 시간대 모듈 하나로 허용한다(RUST_PORT_SRS C-RSP-4 에 FormatMessageW 와 같은 예외로 덧붙인다). ③ e2e 는 10.7 이 hermetic 규칙(운영 홈 금지·60147 이상 포트·전후 prod-pids)대로 돌려도 된다.
 
 1. FR-RDF-1: reached 번호의 수명 방식과 간선 상대별 몫 방식 가운데 무엇을 쓰고, 값은 얼마로 할지.
 2. FR-RDF-5: Windows 로컬 시간대를 얻으려고 gocompat 에 Windows 시간대 API(unsafe)를 허용할지.
