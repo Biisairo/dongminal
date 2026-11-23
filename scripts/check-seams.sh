@@ -51,9 +51,6 @@ EXEMPT='^rust/crates/shared/platform/|^rust/crates/webserver/domain/sysstat/|^ru
 #   toolhub/src/tool.rs, sandbox/src/exec.rs — libc::SIG*
 #     종료 정보의 시그널 이름("hangup"·"killed" …)을 Go `syscall.Signal.String()` 과
 #     같은 문구로 짝짓는다. Rust 표준에는 시그널 이름 문자열이 없다.
-#   sandbox/src/exec.rs — 셸 경로
-#     파일 안의 인라인 `#[cfg(test)] mod tests { … }` 다. 시험은 셸을 못박아도 된다
-#     (아래 SKIP_TESTS_FOR) — 인라인 시험 모듈은 파일 단위로 가려낼 수 없어 표에 둔다.
 #   edgerelay/src/tests.rs, helper/runtimebin/src/tests/chatmcp.rs — unix 소켓
 #     시험이 소켓 짝(`UnixStream::pair`)과 막힌 소켓 자리를 직접 만든다.
 #   shared/{edge,edgenode}/tests/go_interop.rs — ps
@@ -61,7 +58,6 @@ EXEMPT='^rust/crates/shared/platform/|^rust/crates/webserver/domain/sysstat/|^ru
 ALLOW_HITS=(
   "rust/crates/shared/toolhub/src/tool.rs|libc::SIG*"
   "rust/crates/shared/sandbox/src/exec.rs|libc::SIG*"
-  "rust/crates/shared/sandbox/src/exec.rs|/bin/sh·/bin/bash 하드코딩"
   "rust/crates/shared/edgerelay/src/tests.rs|unix 소켓 직접 사용"
   "rust/crates/helper/runtimebin/src/tests/chatmcp.rs|unix 소켓 직접 사용"
   "rust/crates/shared/edge/tests/go_interop.rs|ps"
