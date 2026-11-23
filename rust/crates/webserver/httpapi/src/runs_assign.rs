@@ -47,13 +47,13 @@ struct WsGroupTree {
     root: RawMessage,
 }
 
-/// Go `issueTreeDocPath`: 홈이 없으면 빈다.
-fn issue_tree_doc_path() -> String {
-    let home = std::env::var(dm_shared_dmenv::ENV_HOME).unwrap_or_default();
+/// Go `issueTreeDocPath`: 홈이 없으면 빈다. Go 는 서버가 `DONGMINAL_HOME` 에 심은 홈을 읽었다 —
+/// 그 값은 서버의 데이터 디렉터리와 같으므로 환경 대신 그것을 받는다.
+fn issue_tree_doc_path(home: &str) -> String {
     if home.is_empty() {
         return String::new();
     }
-    let mut parts = vec![home.as_str(), dm_shared_dmenv::BIN_DIR];
+    let mut parts = vec![home, dm_shared_dmenv::BIN_DIR];
     parts.extend(ISSUE_TREE_DOC);
     filepath::join(&parts)
 }
@@ -73,7 +73,7 @@ impl Server {
         let mut tc = TreeContext {
             parent_tool_id: self.tree_parent_tool(rec, m),
             group_id: self.tree_group_id(&rec.tree),
-            doc_path: issue_tree_doc_path(),
+            doc_path: issue_tree_doc_path(&self.cfg.data_dir.to_string_lossy()),
             ctx_pct: conf.tree_pct,
         };
         if let Some(a) = &m.assign
@@ -177,5 +177,24 @@ impl Server {
             write_json(&extra1("member", &s.member_view(m)))
         })
         .await
+    }
+}
+
+#[cfg(test)]
+mod doc_path_tests {
+    use super::issue_tree_doc_path;
+
+    // 서버 프로세스는 홈을 환경에 심지 않는다 — 문서 경로는 받은 홈(데이터 디렉터리)에서 온다.
+    #[test]
+    fn doc_path_follows_given_home() {
+        assert_eq!(issue_tree_doc_path(""), "");
+        let want = dm_gocompat::filepath::join(&[
+            "/h",
+            dm_shared_dmenv::BIN_DIR,
+            "agent-plugin",
+            "commands",
+            "issue-tree.md",
+        ]);
+        assert_eq!(issue_tree_doc_path("/h"), want);
     }
 }
