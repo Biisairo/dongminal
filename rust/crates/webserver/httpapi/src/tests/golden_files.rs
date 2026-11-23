@@ -1,4 +1,4 @@
-//! 파일·탐색기·편집기 종단을 go1.27.2 의 실제 핸들러가 낸 응답(상태·머리·본문)과 바이트 단위로
+//! 파일·탐색기·편집기 종단(5.5.6·5.5.7.1)을 go1.27.2 의 실제 핸들러가 낸 응답(상태·머리·본문)과 바이트 단위로
 //! 대조한다. 기대값 `go_golden_files.json` 은 Go `New(...).Handler()` 에 같은 고정 자료·같은 요청을
 //! 넣어 뽑았다(경로만 `{ROOT}`·`{DATA}` 자리표시자, 본문은 hex). 쓰기 응답의 표식은 시각이 들어가
 //! 비교에서 지운다.
@@ -43,6 +43,16 @@ fn set_mtime(p: &str, t: SystemTime) {
 
 #[tokio::test]
 async fn files_match_go_golden() {
+    replay(include_str!("go_golden_files.json")).await;
+}
+
+/// 5.5.7.1 의 탐색기 조작·답·복사·스탬프·전송.
+#[tokio::test]
+async fn fs_ops_match_go_golden() {
+    replay(include_str!("go_golden_fs_ops.json")).await;
+}
+
+async fn replay(golden: &str) {
     let b = tempfile::tempdir().unwrap();
     let base = normalize_path(&b.path().to_string_lossy());
     let root = format!("{base}/proj");
@@ -111,7 +121,7 @@ async fn files_match_go_golden() {
         let s = s.replace(&root, "{ROOT}").replace(&data, "{DATA}");
         stamp.replace_all(&s, r#""stamp":"-""#).into_owned()
     };
-    let cases: Vec<Case> = serde_json::from_str(include_str!("go_golden_files.json")).unwrap();
+    let cases: Vec<Case> = serde_json::from_str(golden).unwrap();
     for c in cases {
         let target = c.target.replace("{ROOT}", &root);
         let body = String::from_utf8(hex::decode(&c.body).unwrap())
@@ -141,7 +151,7 @@ async fn files_match_go_golden() {
         );
         assert_eq!(got, want, "{} {} {}", c.m, c.target, c.ct);
         // 본문 바이트도 그대로 같아야 한다(이진·CP949 응답). 쓰기 응답은 표식이 시각이다.
-        if c.target != "/api/file/write" {
+        if c.target != "/api/file/write" && !c.target.starts_with("/api/fs/list") {
             let raw = replace_bytes(&replace_bytes(&res.body, &root, "{ROOT}"), &data, "{DATA}");
             assert_eq!(raw, resp, "{} {}", c.m, c.target);
         }

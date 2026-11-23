@@ -1,13 +1,74 @@
-//! 탐색기 전송의 자리 판정 (Go `handlers_fs_transfer.go` 의 일부). `/api/fs/{download,upload}`
-//! 종단은 5.5.7 이 옮긴다. 터미널 업로드(`/api/upload`)도 같은 함수로 자리를 정한다 (FR-TFD-30).
+//! 탐색기의 전송 (Go `handlers_fs_transfer.go`, FILE_TRANSFER_SRS FR-FTR-12·15·16). 터미널의
+//! `/api/{upload,download}` 와 같은 일을 하되 root 가드를 받는다. 같은 이름이 있으면 거부한다(D-3).
+//! 터미널 업로드도 `fs_upload_target` 으로 자리를 정한다 (FR-TFD-30).
 
 use std::path::MAIN_SEPARATOR;
 
 use dm_gocompat::filepath;
 
+use dm_shared_httpresp::Response;
+use serde::Serialize;
+
+use crate::Server;
+use crate::files::Fail;
+use crate::files_transfer::serve_download;
 use crate::fs::{
-    FS_ERR_BAD_REQUEST, FS_ERR_NOT_FOUND, FsError, fs_from_io, fs_resolve_err, fs_under_root,
+    FS_ERR_BAD_REQUEST, FS_ERR_NOT_FOUND, FsError, fs_fail_err, fs_from_io, fs_resolve_err,
+    fs_resolve_existing, fs_under_root,
 };
+use crate::httperr::write_json;
+use crate::multipart::Form;
+use crate::req::Req;
+
+#[derive(Serialize)]
+struct UploadResp {
+    name: String,
+    ok: bool,
+    path: String,
+    size: u64,
+}
+
+impl Server {
+    /// GET /api/fs/download?root=<abs>&path=<abs> (FR-FTR-12). 링크는 따라간다.
+    pub(crate) async fn api_fs_download(&self, r: &mut Req) -> Response {
+        let root = match self.fs_root(&r.q("root")) {
+            Ok(v) => v,
+            Err(res) => return res,
+        };
+        match fs_resolve_existing(&root, &r.q("path")) {
+            Ok(target) => serve_download(&target, Fail::Json).await,
+            Err(e) => fs_fail_err(&e),
+        }
+    }
+
+    /// POST /api/fs/upload?root=<abs>&dir=<abs> (FR-FTR-15·16, FR-ETR-17).
+    pub(crate) async fn api_fs_upload(&self, r: &mut Req) -> Response {
+        let root = match self.fs_root(&r.q("root")) {
+            Ok(v) => v,
+            Err(res) => return res,
+        };
+        let dir = match fs_resolve_existing(&root, &r.q("dir")) {
+            Ok(v) => v,
+            Err(e) => return fs_fail_err(&e),
+        };
+        let sep = MAIN_SEPARATOR.to_string();
+        let pick = |d: &str, n: &str, form: &Form| -> Result<String, FsError> {
+            if n.is_empty() || n == "." || n == sep {
+                return Err(FsError::new(FS_ERR_BAD_REQUEST, "파일 이름이 없다"));
+            }
+            fs_upload_target(&root, d, &form.value("relPath"), n)
+        };
+        match self.upload_into(r, &dir, &pick, Fail::Json).await {
+            Ok((out, size)) => write_json(&UploadResp {
+                name: filepath::base(&out),
+                ok: true,
+                path: out,
+                size,
+            }),
+            Err(res) => res,
+        }
+    }
+}
 
 /// Go `fsUploadTarget`: 업로드가 놓일 자리다 (FR-ETR-17·18·19). `rel` 이 있으면 대상 아래의
 /// 상대경로이며 중간 디렉터리를 만든다. 경계 판정은 문자열·합친 경로·실재하는 조상 세 번이다.

@@ -24,13 +24,16 @@ mod files_stamp;
 mod files_transfer;
 mod fs;
 mod fs_actions;
+mod fs_copy;
 mod fs_limits;
+mod fs_mutate;
 mod fs_stamp;
 mod fs_transfer;
 mod gitwire;
 mod httperr;
 mod lspsvc;
 mod mediatype;
+mod meta;
 mod multipart;
 mod netx;
 mod openurl;
@@ -163,6 +166,8 @@ pub struct Server {
 pub(crate) struct FsState {
     /// 편집기 저장의 표식 검사~쓰기를 경로마다 한 번에 하나로 묶는다 (REFACTOR3_DEFECTS_SRS FR-RD3-20).
     pub(crate) writes: PathLocks,
+    /// 탐색기의 파일 조작을 직렬화한다 (FR-EDT-115). 실제 파일 조작 구간만 잡는다.
+    pub(crate) ops: Arc<std::sync::Mutex<()>>,
 }
 
 /// 명령 허브를 Editor 목록 저장소의 방송 자리로 잇는다.

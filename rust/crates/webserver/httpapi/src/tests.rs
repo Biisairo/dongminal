@@ -4,6 +4,7 @@ mod fakes;
 mod files;
 mod fsapi;
 mod fsenv;
+mod fsops;
 mod gate;
 mod gitwire;
 mod golden;
