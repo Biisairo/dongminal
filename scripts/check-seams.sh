@@ -52,7 +52,8 @@ EXEMPT='^rust/crates/shared/platform/|^rust/crates/webserver/domain/sysstat/|^ru
 #     종료 정보의 시그널 이름("hangup"·"killed" …)을 Go `syscall.Signal.String()` 과
 #     같은 문구로 짝짓는다. Rust 표준에는 시그널 이름 문자열이 없다.
 #   sandbox/src/exec.rs — 셸 경로
-#     파일 안의 `#[cfg(test)]` 모듈이다. 시험은 셸을 못박아도 된다(아래 SKIP_TESTS_FOR).
+#     파일 안의 인라인 `#[cfg(test)] mod tests { … }` 다. 시험은 셸을 못박아도 된다
+#     (아래 SKIP_TESTS_FOR) — 인라인 시험 모듈은 파일 단위로 가려낼 수 없어 표에 둔다.
 #   edgerelay/src/tests.rs, helper/runtimebin/src/tests/chatmcp.rs — unix 소켓
 #     시험이 소켓 짝(`UnixStream::pair`)과 막힌 소켓 자리를 직접 만든다.
 #   shared/{edge,edgenode}/tests/go_interop.rs — ps
@@ -72,8 +73,8 @@ ALLOW_HITS=(
 # "셸이 하나 떠 있을 때" 를 검증하는 테스트이기 때문이다. 그런 테스트는 POSIX
 # 전용이며, Windows 보증 범위는 build·vet 과 플랫폼 독립 테스트다 (FR-XBD-4).
 SKIP_TESTS_FOR='/bin/sh·/bin/bash 하드코딩'
-# 시험 파일: crate 의 tests/ 와 src 안의 tests.rs·tests/ (Go 의 _test.go 자리).
-TEST_FILE=':?(^|/)(tests/|tests\.rs:)'
+# 시험 전용 파일(Go 의 _test.go 자리)은 scripts/lib/rs-src.sh 가 가려낸다.
+source scripts/lib/rs-src.sh
 
 # 금지 패턴. 좌변은 화면에 보일 이름, 우변은 grep -E 패턴이다.
 PATTERNS=(
@@ -108,7 +109,7 @@ for entry in "${PATTERNS[@]}"; do
           | grep -vE "$EXEMPT" \
           | grep -vE '^\S+:[0-9]+:\s*//')   # 주석 줄은 코드가 아니다
   if [[ "$label" == "$SKIP_TESTS_FOR" ]]; then
-    hits=$(echo "$hits" | grep -vE "$TEST_FILE" || true)
+    hits=$(echo "$hits" | rs_drop_tests || true)
   fi
   for allow in "${ALLOW_HITS[@]}"; do
     [[ "${allow#*|}" == "$label" ]] || continue

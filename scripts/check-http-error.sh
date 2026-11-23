@@ -31,12 +31,8 @@ USAGE
 fi
 
 CALLS=scripts/lib/rs-calls.pl
-TEST_FILE='(^|/)(tests/|tests\.rs$)'
-
-# 제품 Rust 소스 (시험 파일 제외). 하나도 없으면 빈 통과를 막는다.
-src_files() {
-  find "$@" -name '*.rs' -not -path '*/target/*' 2>/dev/null | grep -vE "$TEST_FILE" | sort
-}
+source scripts/lib/rs-src.sh
+src_files() { rs_src_files "$@"; }
 all_src=$(src_files rust/crates)
 if [[ -z "$all_src" ]]; then
   echo "검사할 Rust 소스가 없습니다 (rust/crates/**/*.rs) — 빈 통과를 막습니다."

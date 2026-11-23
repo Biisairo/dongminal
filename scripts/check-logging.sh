@@ -32,7 +32,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     dmlog::warn(ctx, "msg", &[("k", v)])   새로 쓰는 자리 (키-값)
 
   지나가는 것:
-    tests/ · tests.rs · src/tests/   검사의 출력은 제품의 로그가 아니다
+    시험 전용 파일 (tests/·tests.rs·#[cfg(test)] mod)   검사의 출력은 제품의 로그가 아니다
     rust/crates/shared/dmlog         계층 자신
     rust/crates/scripts              게이트·생성기 프로그램 (Go 판에서도 대상 밖)
 USAGE
@@ -45,11 +45,12 @@ if [[ "$n_files" -eq 0 ]]; then
   exit 1
 fi
 
+source scripts/lib/rs-src.sh
 hits=$(
   grep -rnE '\b((log|tracing)::(trace|debug|info|warn|error|event|span)|eprintln|eprint)!' \
     --include='*.rs' rust/crates 2>/dev/null \
     | grep -vE '^rust/crates/(shared/dmlog|scripts)/' \
-    | grep -vE '(^|/)(tests/|tests\.rs:)' \
+    | rs_drop_tests \
     | grep -vE '^\S+:[0-9]+:\s*//'
 )
 
