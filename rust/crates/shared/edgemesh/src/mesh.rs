@@ -970,13 +970,16 @@ impl Inner {
                 if let Some(f) = &self.opts.on_not_edge {
                     f(&e.fingerprint);
                 }
-                Err(MeshError::wrap(ErrorKind::NotEdge, CallError::Remote(re)))
+                Err(MeshError::wrap_call(
+                    ErrorKind::NotEdge,
+                    CallError::Remote(re),
+                ))
             }
             Err(CallError::Remote(re)) if re.status == STATUS_NOT_FOUND => {
                 self.mark_outdated(&e.fingerprint);
                 Err(ErrorKind::Outdated.into())
             }
-            Err(err) => Err(MeshError::wrap(ErrorKind::Unreachable, err)),
+            Err(err) => Err(MeshError::wrap_call(ErrorKind::Unreachable, err)),
         }
     }
 

@@ -1418,3 +1418,42 @@ fn remote_host_matches_go() {
     );
     assert_eq!(remote_host("[::1]:5".parse().unwrap()), "::1");
 }
+
+// notify 의 걸기 실패는 원인 CallError 를 그대로 든다 (Go `%w`): 노드가 RemoteError 코드나
+// Rejected·FingerprintMismatch 를 가려 오류 코드로 옮긴다.
+#[test]
+fn notify_failure_keeps_call_error() {
+    mt().block_on(async {
+        let a = new_test_mesh("a");
+        let fp = "ab".repeat(32);
+        a.set_edges(vec![edge_to(&fp, "127.0.0.1", 1)]);
+        let bg = CancellationToken::new();
+        let not_edge = CallError::Remote(RemoteError {
+            status: 403,
+            code: CODE_NOT_EDGE.into(),
+            message: "간선이 아닌 노드입니다".into(),
+        });
+        for (cause, kind) in [
+            (not_edge, ErrorKind::NotEdge),
+            (CallError::Rejected, ErrorKind::Unreachable),
+            (CallError::FingerprintMismatch, ErrorKind::Unreachable),
+            (
+                CallError::Unreachable("refused".into()),
+                ErrorKind::Unreachable,
+            ),
+        ] {
+            a.set_dial(fail_dial(cause.clone()));
+            a.inner.lock().dialing.clear();
+            let err = a.notify(&bg, &fp).await.unwrap_err();
+            assert_eq!(err.kind(), kind, "{cause}");
+            assert_eq!(err.call_error(), Some(&cause));
+            assert_eq!(
+                err.to_string(),
+                format!("{}: {cause}", MeshError::from(kind))
+            );
+            assert!(std::error::Error::source(&err).is_some());
+        }
+        let err = MeshError::from(ErrorKind::Outdated);
+        assert!(err.call_error().is_none());
+    });
+}
