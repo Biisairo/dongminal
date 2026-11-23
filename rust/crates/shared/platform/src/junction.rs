@@ -9,7 +9,8 @@ const JUNCTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 /// link 에 target 을 가리키는 디렉터리 정션을 만든다. `cmd /c mklink /J link target`.
 #[cfg(windows)]
 pub fn junction(target: &Path, link: &Path) -> io::Result<()> {
-    let mut child = std::process::Command::new("cmd")
+    let cmd = crate::command_path("cmd").map_err(|m| io::Error::new(io::ErrorKind::NotFound, m))?;
+    let mut child = std::process::Command::new(cmd)
         .args(["/c", "mklink", "/J"])
         .arg(link)
         .arg(target)

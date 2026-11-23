@@ -528,7 +528,12 @@ impl Tool {
         match res {
             Ok(st) if st.success() => {}
             Ok(st) => {
-                infof!(None, "[tool {}] wait: {}", self.id, go_exit_string(&st));
+                infof!(
+                    None,
+                    "[tool {}] wait: {}",
+                    self.id,
+                    dm_shared_platform::exit_status_text(&st)
+                );
                 self.exit_code
                     .store(st.code().map_or(-1, i64::from), SeqCst);
             }
@@ -971,28 +976,6 @@ fn is_eio(e: &io::Error) -> bool {
 #[cfg(not(unix))]
 fn is_eio(_: &io::Error) -> bool {
     false
-}
-
-/// Go `*exec.ExitError` 의 문구(`exit status N`·`signal: …`).
-fn go_exit_string(st: &std::process::ExitStatus) -> String {
-    if let Some(c) = st.code() {
-        return format!("exit status {c}");
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        if let Some(sig) = st.signal() {
-            let name = match sig {
-                nix::libc::SIGHUP => "hangup".to_string(),
-                nix::libc::SIGINT => "interrupt".to_string(),
-                nix::libc::SIGKILL => "killed".to_string(),
-                nix::libc::SIGTERM => "terminated".to_string(),
-                n => format!("signal {n}"),
-            };
-            return format!("signal: {name}");
-        }
-    }
-    st.to_string()
 }
 
 #[cfg(test)]

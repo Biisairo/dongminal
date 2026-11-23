@@ -1,6 +1,6 @@
 <!-- 이 파일은 생성물입니다. 직접 고치지 마세요.
-     원천: internal/webserver/apierr/codes_doc.go
-     생성: dongminal 저장소에서 `go run ./scripts/gen-errors`
+     원천: rust/crates/webserver/apierr/src/codes.rs
+     생성: dongminal 저장소에서 `cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-errors`
      검사: scripts/check-error-docs.sh (CI) -->
 
 # 오류 코드

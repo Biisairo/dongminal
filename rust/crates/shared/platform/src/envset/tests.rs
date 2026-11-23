@@ -17,14 +17,34 @@ fn with_extra_thread<T>(f: impl FnOnce() -> T) -> T {
     out
 }
 
-// 셀 수 있는 OS 에서는 스레드를 하나 더 띄우면 수가 는다.
+/// 자식 프로세스에서 이 시험 하나만 돌 때 켜진다.
+const CHILD_ENV: &str = "DM_PLATFORM_ENVSET_THREAD_CHILD";
+const CHILD_TEST: &str = "envset::tests::thread_count_sees_new_thread";
+
+// 셀 수 있는 OS 에서는 스레드를 하나 더 띄우면 수가 정확히 하나 는다. 같은 프로세스의 다른 시험
+// 스레드가 그 사이에 생기거나 끝나면 흔들리므로, 이 시험 하나만 도는 자식 프로세스에서 잰다.
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 #[test]
 fn thread_count_sees_new_thread() {
-    let before = thread_count().expect("셀 수 있는 OS 다");
-    assert!(before >= 1);
-    let during = with_extra_thread(|| thread_count().unwrap());
-    assert!(during > before, "before={before} during={during}");
+    if std::env::var_os(CHILD_ENV).is_some() {
+        let before = thread_count().expect("셀 수 있는 OS 다");
+        assert!(before >= 1);
+        let during = with_extra_thread(|| thread_count().unwrap());
+        assert_eq!(during, before + 1, "before={before} during={during}");
+        return;
+    }
+    let out = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", CHILD_TEST, "--test-threads=1"])
+        .env(CHILD_ENV, "1")
+        .output()
+        .unwrap();
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(out.status.success(), "{text}");
+    assert!(text.contains("1 passed"), "{text}");
 }
 
 // 다른 스레드가 있으면 환경을 바꾸지 않는다.

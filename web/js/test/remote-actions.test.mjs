@@ -9,18 +9,18 @@ import { BASE, TOOL, controllers, load, plain } from './harness.mjs';
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-2 (FEC-23 · IPC-17): `_execRemote` 는 action 표다.
  *
- * 표의 이름은 서버의 허용 표(`hub/commands.go` `cmdActions`)와 **같은 집합**이다 —
+ * 표의 이름은 서버의 허용 표(`rust/crates/webserver/hub/src/commands.rs` `CMD_ACTIONS`)와 **같은 집합**이다 —
  * 서버가 받는 action 은 전부 여기 처리기가 있고, 받지 않는 action 의 처리기는 없다.
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
 function serverActions() {
-  const src = readFileSync(join(ROOT, 'internal/webserver/hub/commands.go'), 'utf8');
-  const i = src.indexOf('var cmdActions = map[string]cmdSpec{');
-  assert.ok(i >= 0, 'cmdActions 표가 있다');
-  const body = src.slice(i, src.indexOf('\n}\n', i));
-  return [...body.matchAll(/^\s*"([A-Za-z]+)":/gm)].map((m) => m[1]).sort();
+  const src = readFileSync(join(ROOT, 'rust/crates/webserver/hub/src/commands.rs'), 'utf8');
+  const i = src.indexOf('const CMD_ACTIONS: &[(&str, CmdSpec)] = &[');
+  assert.ok(i >= 0, 'CMD_ACTIONS 표가 있다');
+  const body = src.slice(i, src.indexOf('\n];\n', i));
+  return [...body.matchAll(/^\s*\("([A-Za-z]+)",/gm)].map((m) => m[1]).sort();
 }
 
 function world() {

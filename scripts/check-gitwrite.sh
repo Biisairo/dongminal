@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# git 쓰기 파이프라인 우회 검사 (DRIFT_RECLAIM_SRS FR-DRC-8).
+# git 쓰기 파이프라인 우회 검사 (DRIFT_RECLAIM_SRS FR-DRC-8, GO_REMOVAL_SRS G-21).
 #
-# 규칙은 하나다 — **`gitapi` 의 쓰기는 전부 `gitWrite` 파이프라인을 지난다.**
-# 그 밖에서 `gitResolveRepo`·`gitStatusBefore`·`gitApply` 를 직접 부르면, 그것은
+# 규칙은 하나다 — **`gitapi` 의 쓰기는 전부 `gitWrite` 파이프라인(`write.rs`)을 지난다.**
+# 그 밖에서 `git_resolve_repo`·`git_status_before`·`git_apply` 를 직접 부르면, 그것은
 # 파이프라인을 우회한 것이고 순서 불변식이 타입이 아니라 주석으로 돌아간다.
 #
 # `check-seams.sh`·`check-timers.sh` 와 같은 형태다. 그 파일들의 주석이 남긴
@@ -28,32 +28,38 @@ git 쓰기 파이프라인 우회 검사
 
   scripts/check-gitwrite.sh
 
-규칙은 하나다 — gitapi 의 쓰기는 전부 gitWrite 파이프라인(gitwrite.go)을
-지난다. 그 밖에서 gitResolveRepo·gitStatusBefore·gitApply 를 직접 부르면
+규칙은 하나다 — gitapi 의 쓰기는 전부 gitWrite 파이프라인(write.rs)을
+지난다. 그 밖에서 git_resolve_repo·git_status_before·git_apply 를 직접 부르면
 파이프라인을 우회한 것이다.
 
 허용되는 자리:
-  gitwrite.go        파이프라인 그 자체
-  handlers_git.go    gitRepoParam — 읽기 경로의 repo 해석 (쓰기가 아니다)
+  write.rs           파이프라인 그 자체
+  handlers_git.rs    git_repo_param — 읽기 경로의 repo 해석 (쓰기가 아니다)
 
-새 쓰기 표면을 만들 때는 s.beginWrite(domain/git 이 실행) 또는
-s.beginServiceWrite(자기 Manager 가 실행)로 연다.
+새 쓰기 표면을 만들 때는 self.begin_write(domain/git 이 실행) 또는
+self.begin_service_write(자기 Manager 가 실행)로 연다.
 
 설계는 docs/internal/DRIFT_RECLAIM_SRS.md 참조.
 EOF
   exit 0
 fi
 
-DIR=internal/webserver/gitapi
+DIR=rust/crates/webserver/gitapi/src
+ROUTES=$DIR/routes.rs
+BODY=scripts/lib/rs-fn-body.pl
+source scripts/lib/rs-src.sh
 
-# 파이프라인 그 자체와 읽기 경로의 해석기. 이 둘만 단계를 직접 부른다.
-EXEMPT="^$DIR/gitwrite\.go:|^$DIR/handlers_git\.go:[0-9]+:\s+root, ok = s\.gitResolveRepo"
+if [[ ! -f "$ROUTES" ]]; then
+  echo "❌ $ROUTES 가 없습니다 — 검사할 라우트 표가 없어 빈 통과를 막습니다."
+  exit 1
+fi
 
-# 파이프라인의 단계들. 좌변은 화면에 보일 이름, 우변은 grep -E 패턴이다.
+EXEMPT="^$DIR/write\.rs:|^$DIR/handlers_git\.rs:[0-9]+:\s+let root = self\.git_resolve_repo\("
+
 PATTERNS=(
-  "gitResolveRepo 직접 호출|\.gitResolveRepo\("
-  "gitStatusBefore 직접 호출|\.gitStatusBefore\("
-  "gitApply 직접 호출|\.gitApply\("
+  "git_resolve_repo 직접 호출|\.git_resolve_repo\("
+  "git_status_before 직접 호출|\bgit_status_before\("
+  "git_apply 직접 호출|\.git_apply\("
 )
 
 fail=0
@@ -62,8 +68,8 @@ for entry in "${PATTERNS[@]}"; do
   pattern="${entry#*|}"
   # 테스트는 검사하지 않는다 — 단계 하나를 좁게 확인하는 테스트가 정당하다.
   # 주석 줄은 코드가 아니다 (파이프라인 문서가 사다리 예시를 인용한다).
-  hits=$(grep -rnE "$pattern" "$DIR" --include='*.go' 2>/dev/null \
-          | grep -v '_test\.go:' \
+  hits=$(grep -rnE "$pattern" "$DIR" --include='*.rs' 2>/dev/null \
+          | rs_drop_tests \
           | grep -vE '^\S+:[0-9]+:\s*//' \
           | grep -vE "$EXEMPT")
   if [[ -n "$hits" ]]; then
@@ -73,45 +79,38 @@ for entry in "${PATTERNS[@]}"; do
   fi
 done
 
-# 쓰기 핸들러가 파이프라인을 아예 열지 않는 경우를 잡는다. POST 라우트의
-# 핸들러 이름을 라우팅표에서 뽑아, 그 함수가 beginWrite 계열에 **닿는지** 본다.
+# ── POST 핸들러가 파이프라인을 여는가 (FR-DRC-8 의 나머지 반) ──
 #
-# **라우팅표가 진실이다** — "이름에 Create 가 들어가면 쓰기" 같은 판정을 세우면
-# 그 판정이 실제 라우팅과 어긋날 때 구멍이 생긴다.
-#
-# 위임을 따라간다. 얇은 핸들러는 공용 절차에 넘기기만 하고(`apiGitStage` →
-# `gitStageRoute`), 파이프라인은 그 절차가 연다. 허용 함수 이름을 손으로 나열하면
-# **이 게이트가 막으려는 바로 그 드리프트를 이 게이트가 겪는다** — 새 공용 절차가
-# 생길 때마다 목록에 넣어야 하고, 넣지 않으면 조용히 거짓 실패가 된다.
-posts=$(grep -oE '\{http\.MethodPost, [^,]+, \(\*GitServer\)\.[A-Za-z0-9_]+' "$DIR/routes.go" \
-         | sed -E 's/.*\(\*GitServer\)\.//' | sort -u)
+# 위 검사는 "우회하는 호출이 있는가" 만 본다. 새 POST 핸들러가 파이프라인을 **아예
+# 열지 않고** core 를 직접 부르면 걸리지 않는다. routes.rs 의 `post(…, h!(이름))` 마다
+# 핸들러 본문(또는 한 단계 위임한 `self.x(r…)` 의 본문)이 begin_write·begin_service_write
+# 를 부르는지 본다.
+posts=$(grep -oE 'post\("[^"]+", h!\((need_git )?[a-z_0-9]+' "$ROUTES" \
+         | sed -E 's/.*h!\((need_git )?//' | sort -u)
+if [[ -z "$posts" ]]; then
+  echo "❌ $ROUTES 에서 POST 핸들러를 하나도 읽지 못했습니다 — 빈 통과를 막습니다."
+  exit 1
+fi
 
-# body_of 는 메서드 하나의 본문이다 (그 func 부터 최상위 닫는 괄호까지).
+src=$(rs_src_files "$DIR")
+
 body_of() {
-  awk -v name="$1" '
-    $0 ~ "^func \\(s \\*GitServer\\) " name "\\(" {inside=1}
-    inside {print}
-    inside && /^}$/ {exit}
-  ' "$DIR"/*.go
+  printf '%s\n' "$src" | xargs perl "$BODY" "$1"
 }
 
-# opens_pipeline 은 이 메서드가 파이프라인에 닿는지다. 위임은 한 단계 따라간다 —
-# 라우팅 → 얇은 핸들러 → 공용 절차가 이 표면의 실제 깊이다.
 opens_pipeline() {
   local body; body=$(body_of "$1")
   [[ -z "$body" ]] && return 0
-  grep -qE 'beginWrite\(|beginServiceWrite\(' <<<"$body" && return 0
+  grep -qE 'begin_write(::<[^>]*>)?\(|begin_service_write(::<[^>]*>)?\(' <<<"$body" && return 0
   local callee
-  for callee in $(grep -oE '\ss\.[a-z][A-Za-z0-9_]*\(w, r' <<<"$body" | sed -E 's/.*s\.//;s/\(w, r//'); do
-    grep -qE 'beginWrite\(|beginServiceWrite\(' <<<"$(body_of "$callee")" && return 0
+  for callee in $(grep -oE 'self\.[a-z][a-z0-9_]*\(r\b' <<<"$body" | sed -E 's/self\.//;s/\(r$//' | sort -u); do
+    grep -qE 'begin_write(::<[^>]*>)?\(|begin_service_write(::<[^>]*>)?\(' <<<"$(body_of "$callee")" && return 0
   done
   return 1
 }
 
-# 저장소를 **범위로 갖지 않는** 쓰기. 파이프라인의 첫 단계가 repo 해석인데,
-# 이들에게는 해석할 저장소가 없다 — `init` 은 저장소를 만드는 중이고, 핀 둘은
-# workspace.json 의 목록을 편집한다 (저장소를 건드리지 않는다).
-NOT_REPO_SCOPED='^(apiGitInit|apiGitPin|apiGitUnpin)$'
+# 저장소 범위가 아닌 POST — 대상 저장소가 아직 없거나(init) 핀 목록만 바꾼다.
+NOT_REPO_SCOPED='^(api_git_init|api_git_pin|api_git_unpin)$'
 
 missing=""
 for h in $posts; do
@@ -122,7 +121,7 @@ done
 if [[ -n "$missing" ]]; then
   echo "❌ POST 핸들러가 gitWrite 파이프라인을 열지 않습니다:"
   printf '%s' "$missing"
-  echo "     → s.beginWrite(...) 또는 s.beginServiceWrite(...) 로 여십시오."
+  echo "     → self.begin_write(...) 또는 self.begin_service_write(...) 로 여십시오."
   fail=1
 fi
 

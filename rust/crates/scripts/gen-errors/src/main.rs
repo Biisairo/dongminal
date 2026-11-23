@@ -12,7 +12,7 @@ use dm_gocompat::oserr::{go_error_string, path_error};
 
 const OUT: &str = "docs/external/errors.md";
 /// 생성물이 어긋났을 때 안내하는 명령이다.
-const REGEN: &str = "cargo run -p dm-scripts-gen-errors --";
+const REGEN: &str = dm_ctl_errdoc::GENERATE;
 /// 카탈로그의 원천이다.
 const SOURCE: &str = "apierr 의 코드 안내(code_doc)";
 

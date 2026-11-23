@@ -34,7 +34,8 @@ while IFS='=' read -r k _; do
 done < <(env)
 
 # 툴체인·빌드 캐시는 실제 HOME 의 것을 쓴다. HOME 만 바꾸면 rustup 이 임시 HOME 에 툴체인을
-# 새로 내려받고 go 는 모듈 캐시를 다시 채운다.
+# 새로 내려받고 go 는 모듈 캐시를 다시 채운다. go 는 Go 참조 선택 실행(scripts/go-ref.sh,
+# GO_REMOVAL_SRS Q-GRM-4)만 쓰며, 없으면 건너뛴다.
 export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 if command -v go >/dev/null 2>&1; then

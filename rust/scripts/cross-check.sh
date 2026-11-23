@@ -12,6 +12,7 @@
 # 빌드는 대상 OS 의 러너(또는 컨테이너, scripts/linux-test.sh)에서 한다.
 #
 # 사용: rust/scripts/cross-check.sh [<triple>...]   (비우면 다섯 대상 전부)
+#       CROSS_CARGO=check 이면 clippy 대신 cargo check (scripts/check-cross.sh 의 build 단계)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -45,10 +46,19 @@ for t in "${TARGETS[@]}"; do
   if [[ "$t" != "$host" && "$t" != *apple-darwin ]]; then
     ar="$tools/llvm-ar"
     [[ "$t" == *windows-msvc ]] && ar="$tools/llvm-lib"
-    envs=("CC_$v=clang" "AR_$v=$ar" "CFLAGS_$v=-ffreestanding -isystem $stub")
+    cflags="-ffreestanding -isystem $stub"
+    # musl 대상에서 clang 의 stddef.h 는 시스템 헤더를 include_next 한다. 시스템 헤더가
+    # 없으므로 내장 정의를 쓰게 한다 (검사 전용 — 산출물은 쓰지 않는다).
+    [[ "$t" == *-musl ]] && cflags+=" -U__musl__"
+    envs=("CC_$v=clang" "AR_$v=$ar" "CFLAGS_$v=$cflags")
   fi
   echo "── $t"
-  if env ${envs[@]+"${envs[@]}"} cargo clippy --workspace --all-targets --keep-going --target "$t" -- -D warnings; then
+  if [[ "${CROSS_CARGO:-clippy}" == check ]]; then
+    cmd=(cargo check --workspace --all-targets --keep-going --target "$t")
+  else
+    cmd=(cargo clippy --workspace --all-targets --keep-going --target "$t" -- -D warnings)
+  fi
+  if env ${envs[@]+"${envs[@]}"} "${cmd[@]}"; then
     echo "  ✓ $t"
   else
     echo "  ✗ $t"

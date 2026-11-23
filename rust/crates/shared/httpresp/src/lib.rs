@@ -70,6 +70,16 @@ pub fn http_error(status: StatusCode, msg: &str) -> Response {
     res
 }
 
+/// Go `http.NotFound`: `404 page not found` 평문.
+pub fn not_found() -> Response {
+    http_error(StatusCode::NOT_FOUND, "404 page not found")
+}
+
+/// Go `http.Error(w, http.StatusText(status), status)`: 상태 문구만 담은 평문.
+pub fn status_error(status: StatusCode) -> Response {
+    http_error(status, status.canonical_reason().unwrap_or_default())
+}
+
 fn with_code(mut res: Response, code: &str) -> Response {
     // 코드는 호출자의 ASCII 상수다. 헤더 값이 될 수 없으면 싣지 않는다.
     if let Ok(v) = HeaderValue::from_str(code) {

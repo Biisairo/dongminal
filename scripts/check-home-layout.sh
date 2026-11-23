@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# 홈의 목록이 **전수인가** (STRUCTURE_CLEANUP_SRS FR-STR-36).
+# 홈의 목록이 **전수인가** (STRUCTURE_CLEANUP_SRS FR-STR-36, GO_REMOVAL_SRS G-24).
 #
-# `homeLayout()` 의 머리말이 스스로 적는다:
+# `home_layout()`(ctl/cli/src/homelayout.rs) 의 머리말이 스스로 적는다:
 #
 #   `backup` 이 담을 것과 `uninstall` 이 지울 것은 같은 물음의 두 답이다:
 #   "무엇이 이 제품의 것인가". 두 벌로 적으면 한쪽만 고쳐지고, 그때 백업은 담지
@@ -21,7 +21,7 @@
 # ## 집합이 셋이다 (DOC_SYNC_SRS FR-DSY-50~52)
 #
 #   ① 코드가 홈에 쓰는 첫 조각
-#   ② `homeLayout()` 의 Name
+#   ② `home_layout()` 의 이름 (state·kept_dir·regen 의 첫 인자)
 #   ③ `docs/external/getting-started.md` 의 "데이터가 어디 있나요" 표
 #
 #   이전 동작: ①↔② 둘만 봤다. ③ 은 B5 가 **손으로** 맞췄다
@@ -47,92 +47,72 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-LAYOUT=internal/ctl/cli/homelayout.go
+LAYOUT=rust/crates/ctl/cli/src/homelayout.rs
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<USAGE
 홈 전수 목록 검사
 
-  코드가 filepath.Join(<home|cfg.DataDir>, "…") 으로 만드는 첫 조각이
-  전부 $LAYOUT 의 homeLayout() 에 있는지 본다.
+  코드가 <home|data_dir>.join("…") 또는 filepath::join(&[home, "…"]) 으로 만드는 첫 조각이
+  전부 $LAYOUT 의 home_layout() 에 있는지 본다.
 
-  상수로 적힌 이름은 정의를 따라간다 (쓰는 파일 → 디렉터리 → 패키지).
+  상수로 적힌 이름은 정의를 따라간다 (쓰는 파일 → crate → use 로 들여온 crate).
 
   세 번째 집합은 docs/external/getting-started.md 의 "데이터가 어디 있나요" 표다.
-  한 칸에 이름이 여럿이면(`a` · `b`) 나눠서 센다.
+  한 칸에 이름이 여럿이면(\`a\` · \`b\`) 나눠서 센다.
 
   --list  세 집합과 해석하지 못한 이름을 찍는다.
 USAGE
   exit 0
 fi
 
-# decl <검색경로> <식별자> — 그 자리에서 상수 정의 한 줄을 찾아 값 또는 다음 이름을 낸다.
-decl() {
-  grep -rhoE "^[[:space:]]*(const[[:space:]]+)?$2[[:space:]]*=[[:space:]]*(\"[^\"]+\"|[A-Za-z_][A-Za-z0-9_.]*)[[:space:]]*(//.*)?$" \
-    --include='*.go' "$1" 2>/dev/null | head -1 | sed -E 's/.*=[[:space:]]*//; s/[[:space:]]*\/\/.*//; s/[[:space:]]*$//'
-}
+source scripts/lib/rs-src.sh
 
-# resolve <쓰는파일> <토큰> — `=값` 또는 `?토큰` 을 찍는다.
+# 홈에 쓰지 않는 자리 — `경로|토큰`.
 #
-# 값에 `/` 나 `~` 가 있으면 **홈 항목의 이름이 아니다** — 홈 항목은 홈 바로 아래
-# 한 칸이고 그 이름에 구분자가 없다. 그런 것은 해석 실패로 돌려 눈에 보이게 둔다
-# (실측에서 `rollback.go` 의 `filepath.Join(home, target)` 이 그 자리였다 — 그
-# `target` 은 런타임 값이고, 같은 디렉터리의 무관한 대입문이 잘못 걸렸다).
-resolve() {
-  local from="$1" tok="$2" hop v scope id
-  for hop in 1 2 3; do
-    if [[ "$tok" == \"* ]]; then
-      v="${tok//\"/}"
-      [[ "$v" == *"/"* || "$v" == "~"* ]] && { echo "?$2"; return; }
-      echo "=$v"; return
-    fi
-    id="${tok##*.}"
-    # 패키지 한정이면 그 이름의 디렉터리를 먼저 본다 — `FileName` 은 패키지마다 있다.
-    if [[ "$tok" == *.* ]]; then
-      scope=$(find internal cmd -type d -name "${tok%%.*}" 2>/dev/null | head -1)
-    else
-      scope="$from"
-    fi
-    v=""
-    [[ -n "$scope" ]] && v=$(decl "$scope" "$id")
-    [[ -z "$v" && "$tok" != *.* ]] && v=$(decl "$(dirname "$from")" "$id")
-    [[ -z "$v" ]] && break
-    tok="$v"
-  done
-  echo "?$2"
-}
-
-# ── 표 쪽: homeLayout() 의 Name ────────────────────────────────────────────
-declared=$(
-  grep -oE '\{Name:[[:space:]]*("[^"]+"|[A-Za-z_][A-Za-z0-9_.]*)' "$LAYOUT" | sed -E 's/\{Name:[[:space:]]*//' \
-    | while read -r tok; do resolve "$LAYOUT" "$tok"; done | grep '^=' | cut -c2- | sort -u
+#   shared/edgenode/src/lib.rs — LEGACY_SPAWNS_FILE (peer-spawns.json)
+#     옛 원격 기동 기록을 노드가 설 때 **지우는** 자리다 (FR-PDM-64). 홈에 쓰지 않는다.
+#     Go 판은 `filepath.Join(o.Home, …)` 이라 이 게이트의 꼴에 걸리지 않았다. 표에 넣으면
+#     backup·uninstall 이 다루는 목록이 바뀌므로(Go 판과 다른 동작) 표가 아니라 여기에 둔다.
+NOT_WRITES=(
+  "rust/crates/shared/edgenode/src/lib.rs|LEGACY_SPAWNS_FILE"
 )
 
-# M6 §4-A-1: **아무것도 재지 않는 검사**를 만들지 않는다.
+resolve_all() { perl scripts/lib/rs-const.pl rust/crates; }
+
+if [[ ! -f "$LAYOUT" ]]; then
+  echo "$LAYOUT 이 없다 — 검사가 공회전한다."
+  exit 1
+fi
+
+layout_body=$(mktemp)
+trap 'rm -f "$layout_body"' EXIT
+perl scripts/lib/rs-fn-body.pl home_layout "$LAYOUT" >"$layout_body"
+declared=$(
+  perl scripts/lib/rs-calls.pl 'state|kept_dir|regen' "$layout_body" \
+    | sed -E 's/^[^:]+:[0-9]+: [a-z_]+\(([^,]+),.*/\1/' \
+    | while read -r tok; do printf '%s\t%s\n' "$LAYOUT" "$tok"; done \
+    | resolve_all | awk -F'\t' '$2 ~ /^=/ {print substr($2, 2)}' | sort -u
+)
+
 if [[ $(grep -c . <<<"$declared") -lt 15 ]]; then
   echo "homeLayout() 에서 이름을 $(grep -c . <<<"$declared")개밖에 못 읽었다 — 검사가 공회전한다."
   exit 1
 fi
 
-# ── 코드 쪽: 홈 아래에 쓰는 첫 조각 ────────────────────────────────────────
-#
-# 홈을 담는 변수의 이름은 관례로 고정돼 있다 — `home`·`a.home`·`cfg.DataDir`.
-# 넓히면 저장소 경로·임시 디렉터리가 섞여 들어와 이 검사가 "무엇이 홈인가" 를
-# 스스로 흐린다.
-sites=$(
-  grep -rnoE 'filepath\.Join\((home|[a-z]\.home|cfg\.DataDir|opts\.DataDir)[[:space:]]*,[[:space:]]*("[^"]+"|[A-Za-z_][A-Za-z0-9_.]*)' \
-    --include='*.go' --exclude='*_test.go' internal cmd 2>/dev/null
-)
+sites=$(rs_src_files | xargs perl scripts/lib/rs-home-sites.pl | rs_drop_tests)
+for nw in "${NOT_WRITES[@]}"; do
+  sites=$(grep -vE "^${nw%%|*}:[0-9]+:${nw#*|}\$" <<<"$sites" || true)
+done
 resolved=$(
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     f="${line%%:*}"
-    tok="${line##*,}"; tok="${tok#"${tok%%[![:space:]]*}"}"
-    printf '%s\t%s\n' "$f" "$(resolve "$f" "$tok")"
-  done <<<"$sites"
+    rest="${line#*:}"
+    printf '%s\t%s\n' "$f" "${rest#*:}"
+  done <<<"$sites" | resolve_all
 )
-used=$(grep -P '\t=' <<<"$resolved" 2>/dev/null | cut -f2 | cut -c2- | sort -u)
-[[ -z "$used" ]] && used=$(awk -F'\t' '$2 ~ /^=/ {print substr($2,2)}' <<<"$resolved" | sort -u)
+used=$(awk -F'\t' '$2 ~ /^=/ {print substr($2,2)}' <<<"$resolved" | sort -u)
 unresolved=$(awk -F'\t' '$2 ~ /^\?/ {print $1 " : " substr($2,2)}' <<<"$resolved" | sort -u)
 
 missing=()
@@ -186,7 +166,7 @@ if ((${#missing[@]})); then
   echo "홈에 쓰는데 homeLayout() 에 없는 항목이 있습니다 (FR-STR-30):"
   printf '  %s\n' "${missing[@]}"
   echo
-  echo "  $LAYOUT 의 표에 넣으세요 — What 과 Backup/Ephemeral 을 함께 정합니다."
+  echo "  $LAYOUT 의 표에 넣으세요 — what 과 in_backup/ephemeral 을 함께 정합니다."
   echo "  표에 없으면 backup 이 담지 않고 uninstall --purge 가 지우지 않습니다."
   exit 1
 fi

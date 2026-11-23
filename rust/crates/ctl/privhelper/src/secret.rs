@@ -19,7 +19,7 @@ const RECOVERY_RAW_BYTES: usize = 7;
 const SEED_SIZE: usize = 32;
 /// 비밀 파일의 권한이다 — root 만 읽는다 (NFR-PCH-2).
 const SECRET_MODE: u32 = 0o600;
-#[cfg(unix)]
+/// 비밀 폴더의 권한이다.
 const SECRET_DIR_MODE: u32 = 0o700;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -124,20 +124,14 @@ pub(crate) fn load_secret(path: &Path) -> Result<Secret, LoadError> {
 
 /// 0700 폴더의 0600 파일로 원자 쓰기 한다 (FR-ATF-61).
 pub(crate) fn save_secret(path: &Path, s: &Secret) -> io::Result<()> {
-    let dir = path.parent().unwrap_or(Path::new("."));
-    let dir_s = dir.to_string_lossy().into_owned();
-    let mut b = fs::DirBuilder::new();
-    b.recursive(true);
+    let dir_s = dm_gocompat::filepath::dir(&path.to_string_lossy());
+    dm_gocompat::oserr::mkdir_all(&dir_s, SECRET_DIR_MODE)?;
     #[cfg(unix)]
     {
-        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
-        b.mode(SECRET_DIR_MODE);
-        b.create(dir).map_err(|e| path_error("mkdir", &dir_s, e))?;
-        fs::set_permissions(dir, fs::Permissions::from_mode(SECRET_DIR_MODE))
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&dir_s, fs::Permissions::from_mode(SECRET_DIR_MODE))
             .map_err(|e| path_error("chmod", &dir_s, e))?;
     }
-    #[cfg(not(unix))]
-    b.create(dir).map_err(|e| path_error("mkdir", &dir_s, e))?;
     let raw = json::marshal_indent(s, "", "  ").map_err(io::Error::other)?;
     dm_shared_platform::write_file_atomic(path, &raw, SECRET_MODE)
 }

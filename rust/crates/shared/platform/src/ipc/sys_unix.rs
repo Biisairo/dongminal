@@ -333,8 +333,9 @@ impl Socket {
             }
             Some(d) => {
                 let mut tv = libc::timeval {
-                    tv_sec: d.as_secs().min(libc::time_t::MAX as u64) as libc::time_t,
-                    tv_usec: d.subsec_micros() as libc::suseconds_t,
+                    // time_t 는 지원 대상 모두 64비트다. 이름 대신 `as _` 로 libc 가 대상별 타입을 고른다.
+                    tv_sec: d.as_secs().min(i64::MAX as u64) as _,
+                    tv_usec: d.subsec_micros() as _,
                 };
                 if tv.tv_sec == 0 && tv.tv_usec == 0 {
                     tv.tv_usec = 1;

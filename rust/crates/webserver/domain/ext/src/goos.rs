@@ -8,17 +8,6 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use dm_gocompat::filepath;
 use dm_gocompat::oserr::{link_error, path_error};
 
-fn not_a_directory() -> io::Error {
-    #[cfg(unix)]
-    {
-        io::Error::from_raw_os_error(20)
-    }
-    #[cfg(not(unix))]
-    {
-        io::Error::other("not a directory")
-    }
-}
-
 /// Go `os.Open`.
 pub(crate) fn open(p: &str) -> io::Result<File> {
     File::open(p).map_err(|e| path_error("open", p, e))
@@ -70,41 +59,9 @@ fn mkdir(p: &str, perm: u32) -> io::Result<()> {
     b.create(p).map_err(|e| path_error("mkdir", p, e))
 }
 
-/// Go `os.MkdirAll`. 실패한 그 칸의 경로로 오류를 낸다.
+/// Go `os.MkdirAll`.
 pub(crate) fn mkdir_all(p: &str, perm: u32) -> io::Result<()> {
-    if let Ok(m) = fs::metadata(p) {
-        if m.is_dir() {
-            return Ok(());
-        }
-        return Err(path_error("mkdir", p, not_a_directory()));
-    }
-    let b = p.as_bytes();
-    let mut i = b.len();
-    while i > 0 && filepath::is_path_separator(b[i - 1]) {
-        i -= 1;
-    }
-    let mut j = i;
-    while j > 0 && !filepath::is_path_separator(b[j - 1]) {
-        j -= 1;
-    }
-    if j > 1 {
-        mkdir_all(&fix_root_directory(&p[..j - 1]), perm)?;
-    }
-    if let Err(e) = mkdir(p, perm) {
-        if fs::symlink_metadata(p).is_ok_and(|m| m.is_dir()) {
-            return Ok(());
-        }
-        return Err(e);
-    }
-    Ok(())
-}
-
-/// Go `fixRootDirectory`: Windows 의 `C:` 는 `C:\` 로 본다.
-fn fix_root_directory(p: &str) -> String {
-    if cfg!(windows) && p.len() == 2 && p.as_bytes()[1] == b':' {
-        return format!("{p}\\");
-    }
-    p.to_owned()
+    dm_gocompat::oserr::mkdir_all(p, perm)
 }
 
 /// Go `os.OpenFile(p, O_CREATE|O_WRONLY|O_TRUNC, perm)`.
