@@ -1,6 +1,6 @@
 import { execFileSync } from 'child_process';
 import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs';
-import { basename } from 'path';
+import { basename, join } from 'path';
 
 import { E2E_BIN, E2E_HOME, E2E_RUN_ENV } from '../playwright.config';
 import { stopDaemon, stopDaemonsUnder } from './daemon-cleanup';
@@ -61,7 +61,7 @@ function keepPeers(): boolean {
 /**
  * 서버 바이너리를 **한 번** 만든다 (E2E_PARALLEL_SRS FR-EPL-8).
  *
- * 워커마다 `go run` 을 부르면 같은 컴파일을 N 번 기다린다 — 첫 테스트가 시작되기
+ * 워커마다 빌드를 부르면 같은 컴파일을 N 번 기다린다 — 첫 테스트가 시작되기
  * 전에 N 번의 링크가 직렬로 돈다. 여기서 한 번 만들고 워커는 그것을 실행한다.
  */
 function buildServer() {
@@ -73,7 +73,20 @@ function buildServer() {
     chmodSync(E2E_BIN, 0o755);
     return;
   }
-  execFileSync('go', ['build', '-o', E2E_BIN, './cmd/dongminal'], { stdio: ['ignore', 'ignore', 'inherit'] });
+  // GO_REMOVAL_SRS FR-GRM-8: 샤드가 동시에 불러도 cargo 의 빌드 잠금이 직렬화하고, 뒤의 샤드는
+  // 이미 최신인 산출물을 그대로 쓴다. 바깥의 각인 변수는 새기지 않는다(Go 판 `go build` 처럼 dev).
+  const env = { ...process.env };
+  delete env.DONGMINAL_BUILD_VERSION;
+  delete env.DONGMINAL_BUILD_DAEMON;
+  execFileSync(
+    'cargo',
+    ['build', '--quiet', '--release', '--locked', '-p', 'dongminal', '--manifest-path', 'rust/Cargo.toml'],
+    { stdio: ['ignore', 'ignore', 'inherit'], env },
+  );
+  const targetDir = env.CARGO_TARGET_DIR || join('rust', 'target');
+  const exe = process.platform === 'win32' ? 'dongminal.exe' : 'dongminal';
+  copyFileSync(join(targetDir, 'release', exe), E2E_BIN);
+  chmodSync(E2E_BIN, 0o755);
 }
 
 async function globalSetup() {
