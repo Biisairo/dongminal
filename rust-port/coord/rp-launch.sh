@@ -4,6 +4,7 @@ set -e
 i=$1; extra=${2:-}
 cd /Users/dykim/personal/dongminal-rust/int
 git worktree add -q -b rp/$i /Users/dykim/personal/dongminal-rust/$i rust-port
+mkdir -p /Users/dykim/personal/dongminal-rust/$i/.claude && cp /Users/dykim/personal/dongminal-rust/int/.claude/settings.local.json /Users/dykim/personal/dongminal-rust/$i/.claude/
 U=$(dmctl new-tab -n --at 3080be17-35c9-4e8d-9aec-d51e2362fd3e --name "rp $i" | jq -r '.newTabs[0].uuid')
 echo "$i $U" >> /Users/dykim/personal/dongminal-rust/int/rust-port/coord/rp-tabs.txt
 dmctl send-input --at $U --execute "cd /Users/dykim/personal/dongminal-rust/$i && claude" >/dev/null
