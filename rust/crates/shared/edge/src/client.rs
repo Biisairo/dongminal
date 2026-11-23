@@ -18,7 +18,9 @@ use hyper_util::rt::TokioIo;
 use rustls::pki_types::ServerName;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use tokio::io::{AsyncRead, AsyncWrite};
+use std::task::{Context, Poll, ready};
+
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
@@ -192,7 +194,7 @@ impl Client {
         t: &Target,
         hp: &str,
         url: Option<&str>,
-    ) -> Result<TlsStream<BoxStream>, CallError> {
+    ) -> Result<AlertFirst<TlsStream<BoxStream>>, CallError> {
         let raw = (self.dial)(hp.to_string())
             .await
             .map_err(|e| unreachable(url, &e.to_string()))?;
@@ -203,8 +205,96 @@ impl Client {
         match tokio::time::timeout(DIAL_TIMEOUT, TlsConnector::from(cfg).connect(name, raw)).await {
             Err(_) => Err(unreachable(url, TLS_HANDSHAKE_TIMEOUT)),
             Ok(Err(e)) => Err(classify(url, &e)),
-            Ok(Ok(s)) => Ok(s),
+            Ok(Ok(s)) => Ok(AlertFirst {
+                inner: s,
+                failed: None,
+            }),
         }
+    }
+}
+
+/// 쓰기가 끊김으로 실패하면, 그 오류를 돌려주기 전에 읽기 쪽에 와 있는 오류(상대의 TLS 거절
+/// 경보)를 먼저 본다. TLS 1.3 은 클라이언트가 핸드셰이크를 끝낸 뒤 서버가 인증서를 거절하므로,
+/// 요청을 쓰는 사이 상대가 닫으면 쓰기 오류가 경보보다 먼저 온다. Go Transport 도 쓰기 오류 뒤
+/// 응답 읽기의 오류를 앞세운다.
+pub(crate) struct AlertFirst<S> {
+    inner: S,
+    failed: Option<io::Error>,
+}
+
+fn is_broken(e: &io::Error) -> bool {
+    matches!(
+        e.kind(),
+        io::ErrorKind::BrokenPipe
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+    )
+}
+
+impl<S: AsyncRead + AsyncWrite + Unpin> AlertFirst<S> {
+    /// 읽기 쪽 오류를 기다린다. 오류 없이 끝나면(EOF) 처음 쓰기 오류다. 읽힌 바이트는 버린다.
+    fn poll_alert(&mut self, cx: &mut Context<'_>) -> Poll<io::Error> {
+        let mut scratch = [0u8; 512];
+        loop {
+            let mut rb = ReadBuf::new(&mut scratch);
+            match ready!(Pin::new(&mut self.inner).poll_read(cx, &mut rb)) {
+                Err(e) => return Poll::Ready(e),
+                Ok(()) if rb.filled().is_empty() => {
+                    return Poll::Ready(
+                        self.failed
+                            .take()
+                            .unwrap_or_else(|| io::ErrorKind::BrokenPipe.into()),
+                    );
+                }
+                Ok(()) => {}
+            }
+        }
+    }
+
+    fn check<T>(&mut self, cx: &mut Context<'_>, r: Poll<io::Result<T>>) -> Poll<io::Result<T>> {
+        match r {
+            Poll::Ready(Err(e)) if is_broken(&e) => {
+                self.failed = Some(e);
+                self.poll_alert(cx).map(Err)
+            }
+            other => other,
+        }
+    }
+}
+
+impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for AlertFirst<S> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_read(cx, buf)
+    }
+}
+
+impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for AlertFirst<S> {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        if self.failed.is_some() {
+            return self.poll_alert(cx).map(Err);
+        }
+        let r = Pin::new(&mut self.inner).poll_write(cx, buf);
+        self.check(cx, r)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        if self.failed.is_some() {
+            return self.poll_alert(cx).map(Err);
+        }
+        let r = Pin::new(&mut self.inner).poll_flush(cx);
+        self.check(cx, r)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_shutdown(cx)
     }
 }
 
