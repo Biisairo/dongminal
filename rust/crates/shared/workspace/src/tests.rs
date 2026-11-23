@@ -692,6 +692,24 @@ fn corrupt_workspace_is_quarantined() {
     assert!(ts.ends_with('Z') && ts.as_bytes()[8] == b'T');
 }
 
+// Go `time.Now().UTC().Format("20060102T150405Z")`.
+#[test]
+fn quarantine_ts_matches_go_layout() {
+    use ::time::macros::datetime;
+    assert_eq!(
+        recover::quarantine_ts(datetime!(2026-11-24 05:06:07.999 UTC)),
+        "20261124T050607Z"
+    );
+    assert_eq!(
+        recover::quarantine_ts(datetime!(2026-11-24 14:06:07 +09:00)),
+        "20261124T050607Z"
+    );
+    assert_eq!(
+        recover::quarantine_ts(datetime!(0999-01-02 03:04:05 UTC)),
+        "09990102T030405Z"
+    );
+}
+
 #[test]
 fn corrupt_workspace_restores_from_generation() {
     let d = tempfile::tempdir().unwrap();

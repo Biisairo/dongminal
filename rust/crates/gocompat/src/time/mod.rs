@@ -2,6 +2,8 @@
 
 mod duration;
 mod parse;
+#[cfg(windows)]
+mod windows;
 mod zone;
 
 pub use duration::{format_duration, format_std_duration};
