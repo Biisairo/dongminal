@@ -43,8 +43,21 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
     () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, root);
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
-  await page.locator('.ed-side-tab[data-side="changes"]').click();
+  // RUST_DEFECT_FIX_SRS FR-RDF-7: 사이드가 한 번에 서기를 10초 기다리지 않는다. 활성 창이 이 루트인지 보고,
+  // Changes 를 세우고, 그 뷰가 보이는지 본다 — 아니면 다시 (`openGit` 과 같은 골격, DRIFT_RECLAIM_SRS FR-DRC-19).
+  await expect(async () => {
+    await page.evaluate((r: string) => {
+      const a = (window as any).app;
+      const key = (p: any) => String(p == null ? '' : p).replace(/\\/g, '/');
+      if (key(a.testing.edRootOf(a.testing.aw())) !== key(r)) {
+        const win = a.testing.edWindows().find((x: any) => x.editor && key(x.editor.root) === key(r));
+        if (win) a.layout.switchWindow(win.id);
+        throw new Error('활성 창이 아직 ' + r + ' 이 아니다');
+      }
+      a.testing.edSetSide(a.testing.aw(), 'changes');
+    }, root);
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 5000 });
+  }).toPass({ timeout: 30000 });
   await page.waitForFunction(() => !!(window as any).app.gitPanel?.views.statusOf(), undefined, { timeout: 15000 });
 }
 
