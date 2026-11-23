@@ -194,6 +194,7 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-23 | 보안 강화 | git API file-head (HEAD 사본 쓰기, `$TMPDIR/dongminal-git-head/`) | 공유 임시 디렉터리에서 경로를 따라 chmod·쓰기를 해, 다른 로컬 사용자가 미리 심은 디렉터리·심볼릭 링크로 남의 파일을 덮거나 권한을 바꿀 수 있다 | 최상위 디렉터리가 링크가 아니고 내 소유이며 group/other 쓰기가 없을 때만 쓰고, 끝 성분을 `O_NOFOLLOW` 로 열며, 읽기 전용 전환은 열린 핸들로 한다. 정상 사용자에게는 경로·권한·응답이 Go 와 같다 | 5.4.3 |
 | DIFF-24 | 알려진 차이 | httpapi `/api/fs/download-dir`·`download-many` (zip 본문) | compress/flate 레벨 5 로 압축한다 | zip 컨테이너(헤더·데이터 기술자·중앙 디렉터리·extra·모드·플래그)는 Go 와 바이트까지 같고, deflate 압축 스트림 바이트만 다르다(flate2). 풀어 낸 파일·이름·mtime·권한은 같다 | 5.5.7.2 |
 | DIFF-25 | 알려진 차이 | httpapi LSP WebSocket (서버→브라우저) | 언어 서버 출력을 텍스트 프레임에 바이트 그대로 싣는다(잘못된 UTF-8 이면 브라우저가 연결을 끊는다) | 잘못된 UTF-8 은 U+FFFD 로 바꿔 싣는다. 올바른 UTF-8 출력은 같다 | 5.5.9 |
+| DIFF-26 | 결함 수정 | httpapi Run headless 멤버 등록(도구 허브 없음) | nil 역참조 패닉이 500 으로 끝난다 | 500 `헤드리스 도구 생성 실패: tool hub unavailable` 로 답한다. 또 workspace 표식의 2^53 넘는 정수를 잃지 않는다(Go 는 float64 로 잃는다 — workspace.json 에 그런 수는 없다) | 5.5.4 |
 
 ## 4. 검증
 
