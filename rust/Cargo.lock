@@ -908,10 +908,15 @@ dependencies = [
 name = "dm-shared-updatecheck"
 version = "1.3.7"
 dependencies = [
+ "dm-gocompat",
  "dm-shared-dmenv",
  "dm-shared-dmlog",
  "dm-shared-release",
  "dm-shared-serverconf",
+ "serde",
+ "tempfile",
+ "time",
+ "tokio",
 ]
 
 [[package]]
