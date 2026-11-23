@@ -137,7 +137,8 @@ impl Client {
         } else {
             "Get"
         };
-        let transport = |e: &dyn std::fmt::Display| Error::new(format!("{verb} {}: {e}", quote(&url)));
+        let transport =
+            |e: &dyn std::fmt::Display| Error::new(format!("{verb} {}: {e}", quote(&url)));
         let mut req = self.client().request(method, &url);
         for (k, v) in headers {
             req = req.header(*k, *v);
@@ -307,9 +308,14 @@ impl Client {
             path.push('?');
             path.push_str(query);
         }
-        self.get(&path, token, USAGE_TIMEOUT, &[("anthropic-beta", USAGE_BETA)])
-            .await
-            .map_err(|(_, e)| e)
+        self.get(
+            &path,
+            token,
+            USAGE_TIMEOUT,
+            &[("anthropic-beta", USAGE_BETA)],
+        )
+        .await
+        .map_err(|(_, e)| e)
     }
 
     /// `POST /api/organizations/{org}/reset_rate_limits` 다 (FR-CAC-62). 25초 제한. 상태 오류여도

@@ -44,8 +44,9 @@ impl Credential {
             _ => return Err(Error::new(ERR_NOT_OBJECT)),
         };
         let oauth = match top.get(OAUTH_KEY) {
-            Some(raw) => json::unmarshal::<Option<Fields>>(&raw.0)
-                .map_err(|_| Error::new(ERR_NOT_OBJECT))?,
+            Some(raw) => {
+                json::unmarshal::<Option<Fields>>(&raw.0).map_err(|_| Error::new(ERR_NOT_OBJECT))?
+            }
             None => None,
         };
         Ok(Self { top, oauth })

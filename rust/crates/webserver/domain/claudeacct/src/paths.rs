@@ -96,7 +96,8 @@ fn pick_global_config(legacy: &Path, global: &Path) -> PathBuf {
     if st.len() > 0 {
         return legacy.to_path_buf();
     }
-    if writable(&st) && fs::metadata(global).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
+    if writable(&st)
+        && fs::metadata(global).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
     {
         return legacy.to_path_buf();
     }

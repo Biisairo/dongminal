@@ -130,7 +130,8 @@ pub fn parse_usage(raw: &[u8]) -> Result<Usage, Error> {
     };
     if let Some(e) = v.extra_usage
         && e.is_enabled
-        && let (Some(used), Some(limit), Some(pct)) = (e.used_credits, e.monthly_limit, e.utilization)
+        && let (Some(used), Some(limit), Some(pct)) =
+            (e.used_credits, e.monthly_limit, e.utilization)
     {
         let currency = if e.currency.is_empty() {
             "USD".to_owned()
@@ -195,7 +196,12 @@ pub(crate) struct Binding {
 impl Usage {
     /// 판단에 넣을 창이다. models 가 `None` 이면 모든 scoped 창을, 아니면 그 이름만 넣는다.
     pub(crate) fn windows(&self, models: &Models) -> Vec<Window> {
-        let mut out: Vec<Window> = self.five_hour.iter().chain(&self.seven_day).copied().collect();
+        let mut out: Vec<Window> = self
+            .five_hour
+            .iter()
+            .chain(&self.seven_day)
+            .copied()
+            .collect();
         out.extend(
             self.scoped
                 .iter()
