@@ -788,3 +788,33 @@ async fn upgrade_server_refusal_is_remote_error() {
         "{err:?}"
     );
 }
+
+/// 요청 extensions 에 상대 출발지 `SocketAddr` 를 싣는다 (mesh 의 hello remoteHost 가 쓴다).
+#[tokio::test]
+async fn listener_puts_remote_addr_in_extensions() {
+    let seen: Arc<Mutex<Option<std::net::SocketAddr>>> = Arc::default();
+    let s = seen.clone();
+    let h = handler(move |r| {
+        *s.lock().unwrap() = r.extensions().get::<std::net::SocketAddr>().copied();
+        assert_eq!(client_addr(&r), *s.lock().unwrap());
+        async { status_only(StatusCode::NO_CONTENT) }
+    });
+    let (server, edge) = (identity(), identity());
+    let fp = edge.fingerprint.clone();
+    let ln = Listener::new(&server, edges_only(move |x| x == fp), h).unwrap();
+    ln.apply(&enabled_at(free_port()));
+    let addr = ln.status().addr;
+    let tcp = TcpStream::connect(&addr).await.unwrap();
+    let local = tcp.local_addr().unwrap();
+    let name = rustls::pki_types::ServerName::try_from("127.0.0.1").unwrap();
+    let tls = TlsConnector::from(raw_client(&server.fingerprint, Some(&edge), false))
+        .connect(name, tcp)
+        .await
+        .unwrap();
+    let (mut s2, conn) = hyper::client::conn::http1::handshake(TokioIo::new(tls))
+        .await
+        .unwrap();
+    tokio::spawn(conn);
+    assert_eq!(send(&mut s2, "/edge/v1/x").await, Ok(204));
+    assert_eq!(*seen.lock().unwrap(), Some(local));
+}
