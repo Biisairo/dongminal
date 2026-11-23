@@ -13,3 +13,11 @@ workspace = true
 dm-shared-dmlog = { path = "../dmlog" }
 dm-shared-edge = { path = "../edge" }
 dm-shared-platform = { path = "../platform" }
+dm-gocompat = { path = "../../gocompat" }
+tokio = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }
+tempfile = { workspace = true }
+dm-shared-httpresp = { path = "../httpresp" }
+http = { workspace = true }
