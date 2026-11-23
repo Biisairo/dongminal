@@ -11,7 +11,7 @@ use crate::mesh::{Inner, Link, Mesh, State};
 /// 아는 노드의 상한이다. 넘으면 닿지 않는 노드부터 잊는다 (FR-EGM-13).
 pub(crate) const MAX_NODES: usize = 256;
 /// 잊은 노드의 마지막 번호를 기억하는 수다.
-const MAX_MARKS: usize = 4096;
+pub(crate) const MAX_MARKS: usize = 4096;
 /// 이름의 바이트 상한이다 (FR-EGM-11).
 const MAX_NAME: usize = 64 * 4;
 
@@ -44,12 +44,24 @@ pub(crate) struct Remote {
     pub raw: Frame,
     /// 이 노드의 망 정보를 마지막으로 받은 때다.
     pub at: OffsetDateTime,
+    /// 이 노드에 닿은 적이 있는가다. 잊은 뒤 그 번호를 밀어내지 않는다.
+    pub reached: bool,
 }
 
 pub(crate) struct Mark {
-    epoch: i64,
-    seq: u64,
-    at: OffsetDateTime,
+    pub epoch: i64,
+    pub seq: u64,
+    pub at: OffsetDateTime,
+    pub reached: bool,
+}
+
+/// 가득 찬 번호 기억에서 밀어낼 것 — 닿은 적 없는 노드의 가장 오래된 번호다.
+fn junk_mark(marks: &HashMap<String, Mark>) -> Option<String> {
+    marks
+        .iter()
+        .filter(|(_, m)| !m.reached)
+        .min_by_key(|(_, m)| m.at)
+        .map(|(k, _)| k.clone())
 }
 
 /// 망 정보다. Mesh 의 잠금이 지킨다.
@@ -151,6 +163,8 @@ impl Inner {
         if !verify(&pub_key, FRAME_NET, &fr.b.0, &fr.s) || !valid_net(&body) {
             return false;
         }
+        // 잊었다 다시 받는 노드도 닿은 적 있다는 표시를 잇는다.
+        let was_reached = st.net.marks.get(&body.node).is_some_and(|m| m.reached);
         if let Some(old) = st.net.nodes.get(&body.node) {
             if !newer(&body, old.st.epoch, old.st.seq) {
                 return false;
@@ -167,6 +181,7 @@ impl Inner {
             st.net.marks.remove(&body.node);
         }
         let node = body.node.clone();
+        let reached = was_reached || st.net.nodes.get(&node).is_some_and(|r| r.reached);
         st.net.nodes.insert(
             node,
             Remote {
@@ -174,6 +189,7 @@ impl Inner {
                 key: pub_key,
                 raw: fr.clone(),
                 at: self.now(),
+                reached,
             },
         );
         true
@@ -193,15 +209,14 @@ impl Inner {
         let Some(victim) = victim else {
             return false;
         };
-        if st.net.marks.len() >= MAX_MARKS
-            && let Some(oldest) = st
-                .net
-                .marks
-                .iter()
-                .min_by_key(|(_, m)| m.at)
-                .map(|(k, _)| k.clone())
-        {
-            st.net.marks.remove(&oldest);
+        // 번호 기억이 가득 차면 닿은 적 없는 노드의 번호만 밀어낸다. 그런 것이 없으면 잊지 않는다 —
+        // 닿은 적 있는 노드의 번호를 밀어내면 그 노드의 옛 net 을 다시 받는다 (DIFF: Go 는 가장 오래된
+        // 번호를 밀어낸다).
+        if st.net.marks.len() >= MAX_MARKS {
+            let Some(junk) = junk_mark(&st.net.marks) else {
+                return false;
+            };
+            st.net.marks.remove(&junk);
         }
         if let Some(r) = st.net.nodes.remove(&victim) {
             st.net.marks.insert(
@@ -210,6 +225,7 @@ impl Inner {
                     epoch: r.st.epoch,
                     seq: r.st.seq,
                     at: self.now(),
+                    reached: r.reached,
                 },
             );
         }
@@ -247,6 +263,11 @@ impl Inner {
                     seen.insert(next.clone());
                     queue.push_back(next.clone());
                 }
+            }
+        }
+        for fp in &seen {
+            if let Some(r) = st.net.nodes.get_mut(fp) {
+                r.reached = true;
             }
         }
         let seen = Arc::new(seen);
