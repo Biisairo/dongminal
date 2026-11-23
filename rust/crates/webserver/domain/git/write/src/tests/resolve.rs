@@ -37,8 +37,14 @@ async fn resolve_checkout_then_add() {
     assert_eq!(
         *argvs.lock().unwrap(),
         vec![
-            sv(&["checkout", "--ours", "--", "a.txt", "d ir/b.txt"]),
-            sv(&["add", "--", "a.txt", "d ir/b.txt"]),
+            sv(&[
+                "checkout",
+                "--ours",
+                "--",
+                ":(literal)a.txt",
+                ":(literal)d ir/b.txt"
+            ]),
+            sv(&["add", "--", ":(literal)a.txt", ":(literal)d ir/b.txt"]),
         ]
     );
     let hints = s.hints(0);

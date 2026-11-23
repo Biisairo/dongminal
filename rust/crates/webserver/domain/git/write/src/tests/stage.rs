@@ -19,8 +19,20 @@ async fn stage_unstage_paths_after_separator() {
     assert_eq!(
         f.argvs(),
         vec![
-            sv(&["add", "--", "-x.txt", "d ir/한글 파일.txt"]),
-            sv(&["reset", "-q", "HEAD", "--", "-x.txt", "d ir/한글 파일.txt"]),
+            sv(&[
+                "add",
+                "--",
+                ":(literal)-x.txt",
+                ":(literal)d ir/한글 파일.txt"
+            ]),
+            sv(&[
+                "reset",
+                "-q",
+                "HEAD",
+                "--",
+                ":(literal)-x.txt",
+                ":(literal)d ir/한글 파일.txt"
+            ]),
         ]
     );
 }
@@ -49,7 +61,7 @@ async fn unstage_no_head_uses_rm_cached() {
             _ => {}
         }
     }
-    assert_eq!(argv, sv(&["rm", "--cached", "-q", "--", "a.txt"]));
+    assert_eq!(argv, sv(&["rm", "--cached", "-q", "--", ":(literal)a.txt"]));
 }
 
 #[tokio::test]
@@ -167,8 +179,8 @@ async fn discard_destructive_and_hint_after_exec() {
     assert_eq!(
         *argvs.lock().unwrap(),
         vec![
-            sv(&["checkout", "-q", "--", "a.txt"]),
-            sv(&["clean", "-q", "-f", "--", "n ew.txt"]),
+            sv(&["checkout", "-q", "--", ":(literal)a.txt"]),
+            sv(&["clean", "-q", "-f", "--", ":(literal)n ew.txt"]),
         ]
     );
     for (i, n) in hints_at_exec.lock().unwrap().iter().enumerate() {
@@ -231,4 +243,22 @@ async fn discard_failure_leaves_no_hint() {
             .is_err()
     );
     assert!(s.hints(0).is_empty());
+}
+
+// DIFF-14: `:` 로 시작하는 경로가 pathspec 매직으로 읽히지 않는다 — 그 이름의 파일만 스테이징된다.
+#[tokio::test]
+async fn stage_reads_magic_looking_path_literally() {
+    let Some(repo) = dm_shared_gittest::repo() else {
+        return;
+    };
+    let dir = repo.path().to_str().unwrap().to_owned();
+    std::fs::write(repo.path().join(":(glob)*"), "m\n").unwrap();
+    std::fs::write(repo.path().join("other.txt"), "o\n").unwrap();
+    let s = Service::new();
+    let ctx = bg();
+    stage(&s, &ctx, &dir, &sv(&[":(glob)*"])).await.unwrap();
+    let st = query::status_of(&s, &ctx, &dir).await.unwrap();
+    let staged: Vec<&str> = st.staged.iter().map(|e| e.path.as_str()).collect();
+    assert_eq!(staged, vec![":(glob)*"]);
+    assert!(st.untracked.iter().any(|e| e.path == "other.txt"));
 }
