@@ -5,9 +5,11 @@
 
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::Write;
+use std::io::{self, Read};
 use std::path::Path;
 use std::sync::LazyLock;
 
+use dm_gocompat::oserr::path_error;
 use regex::Regex;
 
 /// 결정 하나다.
@@ -51,7 +53,7 @@ static STRUCK_RE: LazyLock<Regex> = LazyLock::new(|| re(&format!(r"~~{WS}*\*{{0,
 
 /// `dir` 아래 `*_SRS.md` 전부에서 결정을 모은다. 디렉터리를 읽을 수 없으면 Go
 /// `filepath.Glob` 처럼 빈 결과다.
-pub fn collect(dir: &Path) -> std::io::Result<Vec<Entry>> {
+pub fn collect(dir: &Path) -> io::Result<Vec<Entry>> {
     let mut paths = Vec::new();
     if let Ok(rd) = std::fs::read_dir(dir) {
         for e in rd.flatten() {
@@ -70,7 +72,7 @@ pub fn collect(dir: &Path) -> std::io::Result<Vec<Entry>> {
     let mut seen = HashSet::new();
     let mut out = Vec::new();
     for (path, name) in paths {
-        let data = std::fs::read(&path)?;
+        let data = read_file(&path)?;
         let text = String::from_utf8_lossy(&data);
         let struck: BTreeSet<&str> = STRUCK_RE
             .captures_iter(&text)
@@ -260,6 +262,15 @@ fn cell(s: &str) -> String {
         return t;
     }
     s
+}
+
+/// Go `os.ReadFile`: 실패는 `open <경로>: …`·`read <경로>: …` 다.
+fn read_file(path: &str) -> io::Result<Vec<u8>> {
+    let mut f = std::fs::File::open(path).map_err(|e| path_error("open", path, e))?;
+    let mut buf = Vec::new();
+    f.read_to_end(&mut buf)
+        .map_err(|e| path_error("read", path, e))?;
+    Ok(buf)
 }
 
 #[cfg(test)]
