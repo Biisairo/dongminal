@@ -5,6 +5,7 @@ mod files;
 mod fsapi;
 mod fsenv;
 mod gate;
+mod gitwire;
 mod golden;
 mod golden_552;
 mod golden_files;
