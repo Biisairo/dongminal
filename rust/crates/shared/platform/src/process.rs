@@ -103,15 +103,16 @@ pub(crate) mod posix {
     }
 
     /// 새 세션으로 띄운다. 새 세션의 리더는 곧 새 그룹의 리더이고, 제어 터미널이 없다
-    /// (REPO_FIX 01 P-2).
+    /// (REPO_FIX 01 P-2). 열린 파일 수 soft 는 시작 때의 값으로 되돌린다.
     fn new_session(cmd: &mut Command) {
-        // SAFETY: fork 뒤 exec 전에 도는 클로저다. setsid(2) 는 async-signal-safe 이고
-        // 할당·잠금을 하지 않는다.
+        // SAFETY: fork 뒤 exec 전에 도는 클로저다. setsid(2)·setrlimit(2) 는 할당·잠금을 하지
+        // 않는다.
         unsafe {
             cmd.pre_exec(|| {
                 if libc::setsid() == -1 {
                     return Err(io::Error::last_os_error());
                 }
+                crate::nofile::restore_in_child();
                 Ok(())
             });
         }
