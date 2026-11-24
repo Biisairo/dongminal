@@ -96,9 +96,16 @@ esac
 
 # 파일 목록. 절대 경로는 rust/ 기준으로 되돌린다 — 빌드한 사람의 홈 경로가 지문에
 # 섞이면 같은 소스가 기계마다 다른 값을 낸다.
+# windows 러너의 Git Bash 에는 python3 가 없거나 스토어 안내 껍데기일 수 있다.
+PY=""
+for p in python3 python; do
+  if "$p" -c '' >/dev/null 2>&1; then PY="$p"; break; fi
+done
+[[ -n "$PY" ]] || exit 1
+
 files() {
   cargo metadata --format-version 1 --filter-platform "$TARGET" 2>/dev/null \
-    | python3 -I -c '
+    | "$PY" -I -c '
 import json, os, sys
 root_pkg, base = sys.argv[1], os.path.realpath(sys.argv[2])
 m = json.load(sys.stdin)
@@ -121,7 +128,8 @@ for i in seen:
     for r, ds, fs in os.walk(d):
         ds[:] = [x for x in ds if x != "target"]
         for f in fs:
-            out.append(os.path.relpath(os.path.join(r, f), base))
+            # 경로 구분자를 / 로 맞춘다 — windows 에서 계산해도 같은 지문이어야 한다.
+            out.append(os.path.relpath(os.path.join(r, f), base).replace(os.sep, "/"))
 print("\n".join(sorted(out)))
 ' "$ROOT_PKG" "$PWD" 2>/dev/null
 }

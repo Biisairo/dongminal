@@ -17,9 +17,11 @@ repro_rustflags() {
   local triple="$1" flags="${RUSTFLAGS:-}"
   flags="${flags:+$flags }--cfg dongminal_trimpath"
   flags="$flags --remap-path-prefix=$ROOT=/dongminal"
+  # windows(Git Bash): rustc 는 C:\… 형태의 경로를 본다.
+  command -v cygpath >/dev/null && flags="$flags --remap-path-prefix=$(cygpath -w "$ROOT")=/dongminal"
   [[ -n "${CARGO_HOME:-}" ]] && flags="$flags --remap-path-prefix=$CARGO_HOME=/cargo"
   flags="$flags --remap-path-prefix=$HOME/.cargo=/cargo"
-  flags="$flags --remap-path-prefix=$(rustc --print sysroot)=/rustc"
+  flags="$flags --remap-path-prefix=$(cd "$ROOT/rust" && rustc --print sysroot)=/rustc"
   [[ "$triple" == *apple-darwin ]] && flags="$flags -C link-arg=-Wl,-S"
   echo "$flags"
 }

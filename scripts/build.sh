@@ -81,7 +81,7 @@ triple_for() {
 # 대상을 그대로 쓴다 — 개발 기계에 musl 대상이 없어도 ./dongminal 이 나와야 한다.
 host_target() {
   local triple os arch
-  triple="$(rustc -vV | sed -n 's/^host: //p')"
+  triple="$(cd rust && rustc -vV | sed -n 's/^host: //p')"
   case "$triple" in
     *-apple-darwin) os=darwin ;;
     *-linux-*)      os=linux ;;
@@ -123,6 +123,12 @@ build_one() {
   local os="$1" arch="$2" triple="$3" out="$4"
   local fp; fp="$(daemon_fp "$os" "$arch")"
   local -a env=(RUSTFLAGS="$(repro_rustflags "$triple")")
+  # linux musl: ring 의 C 코드를 musl 로 컴파일한다. musl-tools(musl-gcc)가 있는 같은
+  # 아키텍처의 linux 호스트에서 원생 빌드한다 (Q-GRM-2). CC_<대상> 을 주면 그것을 쓴다.
+  local ccvar="CC_${triple//-/_}"
+  if [[ "$triple" == *-linux-musl && -z "${!ccvar:-}" ]] && command -v musl-gcc >/dev/null; then
+    env+=("$ccvar=musl-gcc")
+  fi
   [[ -n "$VERSION" ]] && env+=(DONGMINAL_BUILD_VERSION="$VERSION")
   [[ -n "$fp" ]] && env+=(DONGMINAL_BUILD_DAEMON="$fp")
   # 바깥 환경의 각인 변수는 쓰지 않는다 — 새기는 값은 VERSION 과 지문뿐이다 (FR-GRM-4).

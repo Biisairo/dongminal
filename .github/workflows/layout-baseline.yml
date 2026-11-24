@@ -22,9 +22,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      # globalSetup 이 서버 바이너리를 cargo 로 만든다 (GO_REMOVAL_SRS G-52·G-53).
+      - uses: ./.github/actions/rust
         with:
-          go-version-file: go.mod
+          cache-key: e2e
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22

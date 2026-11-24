@@ -1,0 +1,42 @@
+name: Rust 툴체인
+description: >
+  rust/rust-toolchain.toml 의 판을 설치하고(FR-GRM-16), 필요한 대상을 더하고, cargo 캐시를 붙인다.
+  Go 판의 setup-go(go-version-file: go.mod) 자리다. job 마다 같은 몇 줄을 적으면 한쪽만 고쳐지므로
+  한 자리에 둔다.
+
+inputs:
+  targets:
+    description: 더할 rustc 대상(공백으로 나눈다). 비우면 호스트만
+    default: ''
+  cache:
+    description: "'false' 면 캐시를 붙이지 않는다 — 릴리스 산출물은 캐시 없이 만든다"
+    default: 'true'
+  cache-key:
+    description: job 마다 다른 캐시 이름. 산출물 디렉터리가 job 마다 달라 서로 덮지 않게 한다
+    default: default
+
+runs:
+  using: composite
+  steps:
+    - name: 툴체인 설치
+      shell: bash
+      working-directory: rust
+      env:
+        TARGETS: ${{ inputs.targets }}
+      run: |
+        set -euo pipefail
+        # 인자 없는 install 은 현재 디렉터리의 rust-toolchain.toml 을 읽는다 (rustup 1.28+).
+        rustup toolchain install
+        for t in $TARGETS; do rustup target add "$t"; done
+        rustc -vV
+
+    - if: ${{ inputs.cache == 'true' }}
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          rust/target/
+        key: rust-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-${{ hashFiles('rust/Cargo.lock', 'rust/rust-toolchain.toml') }}
+        restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-
