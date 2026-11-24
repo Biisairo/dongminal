@@ -30,7 +30,7 @@ const fx = (name: string) => realPath(join(FIXTURES, name));
  *   E3  폐기 — 고정 탭 일곱이 없다. 여섯이 **필요할 때** 열린다 (FR-RTU-30·32)
  *   E4  폐기 — 위와 같은 이유. `repo-tab.spec.ts` V1·V2 가 그 자리다
  *   E5  **뒤집힌다** — 뷰 탭은 닫힌다 (FR-RTU-33). `repo-tab.spec.ts` X1·X2
- *   E5b **뒤집힌다** — 끌리고 쪼개진다 (FR-RTU-33). `repo-tab.spec.ts` X1·X3
+ *   E5b **뒤집힌다** — 끌리고 쪼개진다 (FR-RTU-33). `repo-tab.spec.ts` X1 과 이 파일의 V71
  *   E6  개정 — 분할 **진입점**은 여전히 없다. 분할 자체는 드래그드롭만이다
  *   E7  살린다 — 순회와 나가는 길
  *   E8  개정 — 새로고침이 뷰 탭과 활성 탭을 보존한다

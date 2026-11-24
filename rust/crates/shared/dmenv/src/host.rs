@@ -78,8 +78,8 @@ pub fn dial_host(host: &str) -> String {
     h
 }
 
-/// Go `net.JoinHostPort`.
-fn join_host_port(host: &str, port: &str) -> String {
+/// Go `net.JoinHostPort` — 콜론이 든 호스트는 대괄호로 싼다. 주소 조립의 한 자리다.
+pub fn join_host_port(host: &str, port: &str) -> String {
     if host.contains(':') {
         format!("[{host}]:{port}")
     } else {

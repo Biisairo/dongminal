@@ -153,7 +153,7 @@ impl Rebinder {
 
     pub(crate) fn addr(&self) -> String {
         let st = self.lock();
-        crate::run::join_host_port(&st.host, &st.port)
+        dm_shared_dmenv::join_host_port(&st.host, &st.port)
     }
 
     pub(crate) fn set_ln(&self, ln: LnHandle) {
@@ -311,7 +311,7 @@ impl Rebinder {
         let port = self.moved_from(local)?;
         let host = crate::run::request_host(req);
         let name = split_host_port(&host).map_or(host.as_str(), |(h, _)| h);
-        let mut to = format!("http://{}/", crate::run::join_host_port(name, &port));
+        let mut to = format!("http://{}/", dm_shared_dmenv::join_host_port(name, &port));
         if let Some(q) = req.uri().query() {
             to.push('?');
             to.push_str(q);
@@ -331,7 +331,7 @@ impl Rebinder {
             // 유예 중인 옛 포트로 되돌린다 — 그 리스너가 포트를 쥐고 있다.
             old.ln.close().await;
         }
-        let addr = crate::run::join_host_port(host, port);
+        let addr = dm_shared_dmenv::join_host_port(host, port);
         let ln = match (srv.rebind.listen)(&addr) {
             Ok(ln) => ln,
             Err(e) => {
@@ -416,7 +416,7 @@ impl Rebinder {
         if let Some(ln) = old {
             ln.close().await;
         }
-        let addr = crate::run::join_host_port(host, &port);
+        let addr = dm_shared_dmenv::join_host_port(host, &port);
         let mut res = (srv.rebind.listen)(&addr).map_err(|e| e.to_string());
         if let Ok(ln) = res {
             res = match save_bind(&self.home, host, &port) {
@@ -438,7 +438,7 @@ impl Rebinder {
             }
             Err(e) => {
                 warnf!(None, "[bind] {addr} 로 다시 리슨하지 못했습니다: {e}");
-                let back_addr = crate::run::join_host_port(&old_host, &port);
+                let back_addr = dm_shared_dmenv::join_host_port(&old_host, &port);
                 let back = (srv.rebind.listen)(&back_addr).and_then(|ln| self.serve(ln));
                 match back {
                     Ok(h) => {
@@ -473,7 +473,7 @@ impl Rebinder {
 /// `server.json` 과 주소 파일을 새 바인드로 쓴다 (FR-HRB-23 ④).
 fn save_bind(home: &Path, host: &str, port: &str) -> Result<(), serverconf::Error> {
     serverconf::set_bind(home, host, port)?;
-    serverconf::write_addr(home, &crate::run::join_host_port(host, port))
+    serverconf::write_addr(home, &dm_shared_dmenv::join_host_port(host, port))
 }
 
 /// 리바인드 응답이다 (Go `bindView`).
@@ -658,8 +658,8 @@ impl Server {
         infof!(
             None,
             "[bind] {} → {} ({})",
-            crate::run::join_host_port(cur_host, cur_port),
-            crate::run::join_host_port(new_host, new_port),
+            dm_shared_dmenv::join_host_port(cur_host, cur_port),
+            dm_shared_dmenv::join_host_port(new_host, new_port),
             bind_reason(cur_port, new_port)
         );
         if view.expose && !dmenv::is_exposed_host(cur_host) {

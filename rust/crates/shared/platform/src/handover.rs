@@ -157,10 +157,7 @@ mod sys {
             .stdin(std::process::Stdio::null())
             .output()?;
         if !out.status.success() {
-            return Err(io::Error::other(match out.status.code() {
-                Some(c) => format!("exit status {c}"),
-                None => "signal: killed".to_owned(),
-            }));
+            return Err(io::Error::other(crate::exit_status_text(&out.status)));
         }
         Ok(parse_child_ttys(
             &String::from_utf8_lossy(&out.stdout),
