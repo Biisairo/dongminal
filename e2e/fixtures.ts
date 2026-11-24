@@ -740,7 +740,7 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
 /**
  * 첫 구독이 열리고 그 재검증(활동 목록)이 끝날 때까지 기다린다 (QUALITY_FLAKY_SRS FR-FLK-7).
  *
- * 구독이 열리면(`sse:open`) 상태 레지스트리가 활동·알람·백그라운드를 `/api/snapshot` 한 번으로
+ * 채널이 열리면(`chan:open`) 상태 레지스트리가 활동·알람·백그라운드를 `/api/snapshot` 한 번으로
  * 다시 받는다. 부하가 걸리면 구독은 `waitSettled` 뒤에 열린다. 그 앞에 화면에만 넣은 활동
  * (`app.testing.onToolActivity`)은 서버가 모르는 값이라 이 재검증이 지운다 — 시험이 넣은 직후
  * 카드가 사라졌다(구독을 1.5초 늦춰 결정적으로 재현).
@@ -752,12 +752,12 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
 async function waitSseRevalidated(page: any) {
   await page.waitForFunction(() => {
     const t = (window as any).app.testing;
-    return !!t.sse && t.sse.readyState === 1 && t.restoreLive('activity', null);
+    return !!t.channel && t.channel.alive() && t.restoreLive('activity', null);
   }, undefined, { timeout: 15000, polling: 50 }).catch(async (e: unknown) => {
     // RUST_DEFECT_FIX_SRS 10.7c: 시한이면 어느 쪽이 서지 않았는지 남긴다 — 구독이 안 열렸는가, 재검증이 안 끝났는가.
     const st = await page.evaluate(() => {
       const t = (window as any).app?.testing;
-      return { sse: t?.sse ? t.sse.readyState : null, revalidated: t ? !!t.restoreLive('activity', null) : null };
+      return { channel: t?.channel ? t.channel.alive() : null, revalidated: t ? !!t.restoreLive('activity', null) : null };
     }).catch(() => null);
     throw new Error(`waitSseRevalidated: ${JSON.stringify(st)} — ${String(e)}`);
   });

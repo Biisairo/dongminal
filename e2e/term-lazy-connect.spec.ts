@@ -126,8 +126,9 @@ test('TLC4 (IPC-11 · TC-CH1-13): 칸 소유권은 SSE 를 따로 열지 않고 
     const app = (window as any).app;
     return (app.channel._slots as string[]).includes(app.slot._slotIdentity(1));
   }), { timeout: 10000 }).toBe(true);
-  expect(await page.evaluate(() => (window as any).app.bus.channels().map((c: any) => c.id)), '칸 SSE 가 열렸다')
-    .toEqual(['commands']);
+  // 명령 SSE(C2a)와 git job SSE(C4)가 채널로 합쳐져 버스가 여는 부가 채널은 없다 — 그 자리(`openChannel`)도 지웠다.
+  expect(await page.evaluate(() => typeof (window as any).app.bus.openChannel), '버스가 SSE 를 여는 자리가 남았다')
+    .toBe('undefined');
 });
 
 test('TLC5 (IPC-5): 그려지지 않은 창의 칸을 나누어도 새 도구는 그 칸 도구의 cwd 를 잇는다', async ({ page, request }) => {

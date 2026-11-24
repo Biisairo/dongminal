@@ -2,6 +2,7 @@ mod access;
 mod attention;
 mod attnenv;
 mod channel;
+mod channel_cmd;
 mod claude_accounts;
 mod commands;
 mod diag;

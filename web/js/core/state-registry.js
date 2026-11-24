@@ -47,7 +47,7 @@ const STATE_REGISTRY=[
       tool_attention:'attn._onToolAttention',
       tool_attention_clear:'attn._onToolAttentionClear',
     },
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
   },
   {
     id:'tool.activity',
@@ -56,7 +56,7 @@ const STATE_REGISTRY=[
     flight:'activity',
     part:'activity',
     events:{tool_activity:'agents._onToolActivity',tool_subagent_activity:'agents.sub._onToolSubagentActivity'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
     // 이 상태만 주기를 갖는다. 서버가 활동 변화를 전부 밀지는 않기 때문이다
     // (AGENT_ACTIVITY_PANEL_SRS) — 주기는 사용자가 정한다.
     every:(app)=>app.agentsPollMs,
@@ -92,7 +92,7 @@ const STATE_REGISTRY=[
     id:'run.list',
     restore:'_runsListRestore',
     merge:'latest',
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
     every:(app)=>app.agentsPollMs,
     when:(app)=>app.agents._agentsPanelShown(),
   },
@@ -117,7 +117,7 @@ const STATE_REGISTRY=[
     flight:'background',
     part:'background',
     events:{tools_background_changed:'tool.life._bgRefresh'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
     // UX_BATCH12 FR-LIV-7: 행의 Run 표지와 cwd 는 조회 때 계산된다 — 신호가 없는 변화를
     // 패널이 열린 동안 활동 주기로 고친다 (`run.list` 와 같은 모양).
     every:(app)=>app.agentsPollMs,
@@ -146,7 +146,7 @@ const STATE_REGISTRY=[
     // 부팅 조회와 구독 사이의 짧은 틈에 바뀐 값은 다음 방송·재연결이 준다.
     bootCovered:true,
     events:{settings_changed:'settings.apply._onSettingsChanged'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
   },
   {
     /**
@@ -156,7 +156,7 @@ const STATE_REGISTRY=[
      * 3초마다 묻게 되고 그건 28,800배의 낭비다 (D-UPD-4). 대신 값이 바뀌면
      * 서버가 `update_changed` 로 민다 (FR-UPD-8a).
      *
-     * `revalidateOn:['sse:open']` 이 페이지 로드와 재연결의 재조회를 그대로
+     * `revalidateOn:['chan:open']` 이 페이지 로드와 재연결의 재조회를 그대로
      * 준다. **서버 쪽 확인을 거는 것은 이쪽이 아니다** — 그건 서버의 SSE 연결
      * 훅이고(FR-UPD-2 ②), 여기서 하는 일은 캐시를 읽는 것뿐이다.
      *
@@ -169,7 +169,7 @@ const STATE_REGISTRY=[
     flight:'update',
     part:'update',
     events:{update_changed:'update._updateRestore'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
   },
   {
     /**
@@ -181,7 +181,7 @@ const STATE_REGISTRY=[
     restore:'editor.watch._edWatchRestore',
     merge:'latest',
     events:{fs_changed:'editor.watch._onFsChanged'},
-    revalidateOn:['sse:open'],
+    revalidateOn:['chan:open'],
   },
   {
     id:'window.focus',
@@ -192,7 +192,7 @@ const STATE_REGISTRY=[
     flight:'focus',
     part:'focus',
     events:{window_focus:'focus.owner._onWindowFocus'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
   },
   {
     /**
@@ -205,7 +205,7 @@ const STATE_REGISTRY=[
     flight:'edges',
     part:'edges',
     events:{edges_changed:'edges._onEdgesChanged'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
   },
   {
     /**
@@ -217,7 +217,7 @@ const STATE_REGISTRY=[
     merge:'latest',
     flight:'chat',
     events:{chat_changed:'chat._onChatChanged',chat_message:'chat._onChatMessage'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
   },
   {
     /**
@@ -230,7 +230,7 @@ const STATE_REGISTRY=[
     merge:'latest',
     flight:'claudeAccounts',
     events:{claude_accounts_changed:'claude._onClaudeAccountsChanged'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
     every:()=>CLAUDE_ACCT_POLL_MS,
     when:(app)=>app.agents._agentsPanelShown(),
   },
@@ -296,14 +296,14 @@ function wireStateRegistry(app){
    *
    * 비행·병합 규약은 그대로다. 복원은 여전히 **부를 때** 자기 비행을 열고(요청이
    * 떠나기 전이다) 응답이 오면 자기 조각을 자기 규약으로 얹는다 — 바뀐 것은 요청을
-   * 누가 내는가뿐이다. `sse:open` 의 첫 연결(`gen===1`)에서는 부팅이 방금 받은
+   * 누가 내는가뿐이다. `chan:open` 의 첫 연결(`gen===1`)에서는 부팅이 방금 받은
    * 상태(`bootCovered`)를 건너뛴다 (FEC-10).
    */
   const topics=new Set();
   for(const d of STATE_REGISTRY) for(const w of d.revalidateOn||[]) topics.add(w);
   for(const topic of topics){
     bus.subscribe(topic,a=>{
-      const first=topic==='sse:open'&&!!a&&a.gen===1;
+      const first=topic==='chan:open'&&!!a&&a.gen===1;
       const due=STATE_REGISTRY.filter(d=>(d.revalidateOn||[]).includes(topic)&&!(first&&d.bootCovered));
       const parts=due.filter(d=>d.part).map(d=>d.part);
       const snap=parts.length?apiGet('/api/snapshot',{query:{parts:parts.join(',')}}):null;

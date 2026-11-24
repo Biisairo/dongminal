@@ -13,7 +13,7 @@ import { TMP, realPath, slash } from './osenv';
 // 접합면은 MCP 에서 otterctl + HTTP 로 교체됐다 (SKILL_INJECTION_SRS). otterctl 은 아래
 // 엔드포인트를 부르는 얇은 CLI 이므로, 여기서 같은 엔드포인트를 직접 호출하는 것이
 // 스킬이 밟는 경로와 동일하다. 브라우저 페이지를 함께 띄우는 이유는 그것이
-// /api/commands/sse 구독자이기 때문이다 — 스킬의 delivered>0 전제를 만족시킨다.
+// 채널의 명령 구독자(`hello.client`)이기 때문이다 — 스킬의 delivered>0 전제를 만족시킨다.
 
 // otterctl list-workspace 가 /api/state 를 읽어 만드는 행에서 스킬이 캡처하는 값들.
 /**

@@ -199,6 +199,24 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 | 프론트 채널 | 재연결 시 마지막 순번으로 재구독, 빈틈 발견 시 재구독, 침묵 판정, `ping` 주기(보일 때·숨었을 때), `sid` 로 터미널 프레임 나누기 |
 | e2e | 브라우저 탭 하나에 WebSocket 하나, 유휴 1분 동안 상태용 GET 0, 채널을 끊었다 이었을 때 모든 토픽이 서버와 같다(NFR-PRF-15) |
 
+### 10.2 C2a — 명령·사건 스트림을 채널로
+
+| ID | 쪽 | 동작 |
+|---|---|---|
+| TC-CH2A-1 | 서버 | `hello.client` 의 신원은 채널이 열린 동안 포커스 구독·git 감시·파일 감시 임대를 쥔다(`/api/fs/watch` 가 그 `clientId` 를 받는다). 채널이 닫히면 곧바로 풀린다 |
+| TC-CH2A-2 | 서버 | `hello.client` 가 처음 붙을 때 판 확인(`updates.trigger`)을 한 번 건다. `client` 없는 인사는 걸지 않는다 |
+| TC-CH2A-3 | 서버 | 명령 허브의 방송 봉투는 `client` 를 밝힌 채널에 `{"t":"cmd", ...봉투}` 로 온다. `client` 가 없는 채널에는 오지 않는다 |
+| TC-CH2A-4 | 서버 | `client` 가 붙으면 서버 `hello` 뒤에 도구 전경 스냅숏(`tool_foreground`)이 `cmd` 로 온다 |
+| TC-CH2A-5 | 서버 | `cmd.result{reqId, ...}` 는 그 `reqId` 를 기다리던 생성 명령(`POST /api/commands`)의 응답에 실린다 |
+| TC-CH2A-6 | 서버 | 명령 구독 상한(`SUB_CAP`)을 넘으면 `error{code:"subscribe_rejected"}` 를 보낸다. 채널은 유지한다 |
+| TC-CH2A-7 | 서버 | `GET /api/commands/sse` 와 `POST /api/command-result` 는 없다(404) |
+| TC-CH2A-8 | 프론트 | `hello` 에 `client`(앱의 clientId)를 싣는다 |
+| TC-CH2A-9 | 프론트 | 서버 `hello` 는 연결마다 처음 한 번만 재구독과 `chan:open{gen, epoch, server}` 를 낸다. 칸 수가 바뀌어 다시 받은 인사는 아무것도 다시 내지 않는다 |
+| TC-CH2A-10 | 프론트 | `cmd` 프레임은 옛 SSE 수신과 같은 길로 간다: 구독자가 있는 action 은 발행, 없으면 지명(`execClientId`) 검사 뒤 대체 처리기, `reqId` 를 인자에 싣는다 |
+| TC-CH2A-11 | 프론트 | 생성 명령의 결과는 채널 `cmd.result` 로 보낸다 |
+| TC-CH2A-12 | 프론트 | 깨어남(`online`·`focus`·`visible`)은 `channel.kick()` 이다: 닫혀 있으면 백오프를 무시하고 곧바로 연결, 열려 있으면 침묵일 때만 다시 연결 |
+| TC-CH2A-13 | 프론트 | 자산 판 확인은 `chan:open` 의 `server.assetVersion` 으로 한다 |
+
 ## 11. 구현 계약 (토픽 기반 — C2~C5 가 딛는다)
 
 ### 11.1 서버 (`rust/crates/webserver/httpapi/src/channel/`)

@@ -257,22 +257,6 @@ test.describe('TimerHub — 다섯 API 와 소유권 (FR-SCH-10·13·14·15)', (
 
 async function loadBus(page: Page) {
   await page.setContent('<!doctype html><title>event-bus</title>');
-  await page.evaluate(() => {
-    (window as any).SSE_RETRY_MIN_MS = 5;
-    (window as any).SSE_RETRY_MAX_MS = 10;
-    (window as any).SSE_SILENCE_MS = 50;
-    (window as any).SSE_SILENCE_CHECK_MS = 10;
-    const made: any[] = [];
-    (window as any).__made = made;
-    class FakeES {
-      static CLOSED = 2;
-      url: string; readyState = 0;
-      onopen: any = null; onerror: any = null; onmessage: any = null;
-      constructor(url: string) { this.url = url; made.push(this) }
-      close() { this.readyState = 2 }
-    }
-    (window as any).EventSource = FakeES;
-  });
   await page.addScriptTag({ path: TIMER_HUB_JS });
   await page.addScriptTag({ path: EVENT_BUS_JS });
   await page.evaluate(() => {
@@ -287,11 +271,9 @@ async function loadBus(page: Page) {
   });
 }
 
+// 명령·사건은 채널의 `cmd` 로 와서 `route` 를 지난다 (CHANNEL_PROTOCOL C2a).
 const send = (page: Page, msg: any) =>
-  page.evaluate((m) => {
-    const es = (window as any).__made.at(-1);
-    es.onmessage({ data: JSON.stringify(m) });
-  }, msg);
+  page.evaluate((m) => { (window as any).__bus.route(m) }, msg);
 
 test.describe('EventBus — 전파 (FR-BUS-3~9)', () => {
   test('FR-BUS-3 한 topic 에 구독자가 여럿일 수 있다', async ({ page }) => {
@@ -335,7 +317,6 @@ test.describe('EventBus — 전파 (FR-BUS-3~9)', () => {
       (window as any).__fell = [] as string[];
       bus.subscribe('workspace_changed', () => (window as any).__got.push('ws'));
       bus.setFallback((a: string) => (window as any).__fell.push(a));
-      bus.connect('/sse');
     });
 
     // 남이 지명받은 메시지라도, 구독자가 있는 action 은 도달해야 한다 —
@@ -374,40 +355,8 @@ test.describe('EventBus — 전파 (FR-BUS-3~9)', () => {
     expect(r.second).toBe(true);
   });
 
-  test('FR-BUS-7 침묵이 상한을 넘으면 스스로 다시 연다 (FR-RLC-25)', async ({ page }) => {
-    await loadBus(page);
-    await page.evaluate(() => {
-      const bus = (window as any).__bus;
-      (window as any).__silent = 0;
-      bus.subscribe('sse:silent', () => (window as any).__silent++);
-      bus.connect('/sse');
-      const es = (window as any).__made.at(-1);
-      es.readyState = 1;
-      es.onopen();
-      bus._seen = Date.now() - 100000;   // 침묵을 흉내낸다
-    });
-
-    await expect
-      .poll(() => page.evaluate(() => (window as any).__made.length), { timeout: 3000 })
-      .toBeGreaterThan(1);
-    const silent = await page.evaluate(() => (window as any).__silent);
-    expect(silent, '침묵을 알리지 않고 조용히 다시 열었다').toBeGreaterThan(0);
-  });
-
-  test('FR-RLC-28 모든 수신이 생존의 증거다', async ({ page }) => {
-    await loadBus(page);
-    await page.evaluate(() => {
-      const bus = (window as any).__bus;
-      bus.connect('/sse');
-      const es = (window as any).__made.at(-1);
-      es.readyState = 1; es.onopen();
-      bus._seen = Date.now() - 100000;
-    });
-    // 인사가 아닌 아무 메시지 하나가 도착하면 그것으로 살아 있는 것이다.
-    await send(page, { action: 'anything', args: {} });
-    const alive = await page.evaluate(() => Date.now() - (window as any).__bus.lastSeen() < 1000);
-    expect(alive, '인사가 아닌 수신을 생존의 증거로 세지 않았다').toBe(true);
-  });
+  // FR-BUS-7·FR-RLC-25·28(침묵 판정·모든 수신이 생존의 증거)은 채널이 맡는다 —
+  // `web/js/test/channel.test.mjs` TC-CH1-11 · `channel-cmd.test.mjs` TC-CH2A-12.
 
   test('FR-BUS-9 stats 가 topic 별 발행과 구독자를 답한다', async ({ page }) => {
     await loadBus(page);

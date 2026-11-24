@@ -116,12 +116,6 @@ SSE {"action":"focus","args":{"big":12345678901234567000,"e":1000,"f":1.5,"locat
 == POST /api/commands
 200 Content-Type=application/json
 "{\"action\":\"openUrl\",\"delivered\":0,\"location\":\"\",\"ok\":true,\"requestedLocation\":\"\",\"where\":\"local\"}\n"
-== POST /api/command-result
-400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
-"invalid json\n"
-== POST /api/command-result
-200 
-""
 == GET /api/open-url/where
 200 Content-Type=application/json
 "{\"forced\":\"\",\"loopback\":false,\"subscribers\":0,\"viewer\":\"\",\"viewerAddr\":\"\",\"where\":\"local\"}\n"

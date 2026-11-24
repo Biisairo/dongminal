@@ -24,9 +24,9 @@
 /**
  * 생명주기 토픽 (GIT_LIVE_TRIGGERS_SRS FR-GLW-8).
  *
- * **접두가 있어야 한다.** 이 버스의 토픽 이름공간과 서버 SSE 의 `action`
- * 이름공간은 같은 공간이고(`_onMessage` 가 `action` 을 그대로 토픽으로 쓴다),
- * 겹치는 이름을 구독하면 그 명령이 처리기에 닿지 못한다. `sse:open` 이 세워 둔
+ * **접두가 있어야 한다.** 이 버스의 토픽 이름공간과 서버 명령(채널 `cmd`)의 `action`
+ * 이름공간은 같은 공간이고(`route` 가 `action` 을 그대로 토픽으로 쓴다),
+ * 겹치는 이름을 구독하면 그 명령이 처리기에 닿지 못한다. `chan:open` 이 세워 둔
  * 규약을 그대로 따른다.
  *
  * 이 파일에 두는 이유는 **발행하는 쪽이 여기**이고, 계약 검사가 이 파일 하나만
@@ -51,8 +51,7 @@ class EventBus {
     this._last=new Map();        // topic → 마지막 발행 시각
     this._flight={};             // 경쟁 해소 (FR-BUS-6)
     this._fallback=null;         // 구독자 없는 action 이 가는 곳
-    this._es=null; this._gen=0; this._seen=0;
-    this._retry=0; this._pendingT=null; this._silentJob=null;
+    this._wake=null;             // 깨어남에 부를 것 — 채널의 kick (CHANNEL_PROTOCOL C2a)
     this._lifecycleOn=false;
   }
 
@@ -97,6 +96,8 @@ class EventBus {
   // 구독자가 없는 action 이 가는 곳. 서버가 지명한 실행자만 수행한다 (FR-SXE-3).
   setFallback(fn){ this._fallback=fn }
 
+  setWake(fn){ this._wake=fn }
+
   // ── 경쟁 해소 (FR-BUS-6 · FR-RSF-3·5·7) ─────────────────────────────────
 
   /**
@@ -122,14 +123,14 @@ class EventBus {
   /**
    * 생명주기 신호를 듣는 자리는 앱 전체에 **하나**다.
    *
-   * 순서가 여기서 결정된다 — `sse:open` 이 먼저 서고 그 다음에 상태들이 자기
+   * 순서가 여기서 결정된다 — `chan:open` 이 먼저 서고 그 다음에 상태들이 자기
    * 스냅샷을 받는다. 종전에는 네 리스너가 각자 깨어나 순서가 없었다.
    *
    * **토픽에 `life:` 를 붙인다** (GIT_LIVE_TRIGGERS_SRS FR-GLW-8).
    *
    *   이전 동작: `online`·`focus`·`hidden`·`visible` 을 그 이름 그대로 발행했다
-   *   새  동작: `life:` 접두를 붙인다 — `sse:open` 과 같은 규약이다
-   *   이유:     `_onMessage` 는 **구독자가 있는 action 을 지명 검사 앞에서
+   *   새  동작: `life:` 접두를 붙인다 — `chan:open` 과 같은 규약이다
+   *   이유:     `route` 는 **구독자가 있는 action 을 지명 검사 앞에서
    *             가로챈다** (FR-BUS-5). 그러므로 토픽 이름이 서버 `action` 과
    *             겹치면 그 토픽을 구독하는 순간 같은 이름의 **명령이 죽는다** —
    *             `_fallback` 에 닿지 않는다. 서버는 `{"action":"focus"}` 를
@@ -140,13 +141,8 @@ class EventBus {
   startLifecycle(){
     if(this._lifecycleOn) return;
     this._lifecycleOn=true;
-    const wake=()=>{
-      // 2 = EventSource.CLOSED. 살아 있거나 연결 중이면 **침묵부터 본다**
-      // (FR-RLC-26) — 상한을 기다리면 사용자는 화면을 보고 있는데도 그 시간만큼
-      // 옛 화면을 본다. 중복 구독은 명령을 두 번 실행시킨다.
-      if(this._es && this._es.readyState!==2){ this._reviveIfSilent(); return }
-      this.reconnect();
-    };
+    // FR-RLC-26: 살아 있으면 침묵부터 보고, 끊겼으면 백오프를 기다리지 않는다 — 판정은 채널이 한다.
+    const wake=()=>{ if(this._wake) this._wake() };
     window.addEventListener('online',()=>{ this.publish(LIFE_ONLINE,{}); wake() });
     window.addEventListener('focus',()=>{ this.publish(LIFE_FOCUS,{}); wake() });
     document.addEventListener('visibilitychange',()=>{
@@ -154,77 +150,6 @@ class EventBus {
       this.publish(LIFE_VISIBLE,{});
       wake();
     });
-  }
-
-  // ── 외부 채널 (FR-BUS-7) ────────────────────────────────────────────────
-
-  /**
-   * 채널의 **건강**은 버스가 갖는다 — 백오프 재연결(FR-RCS-6), 침묵 판정
-   * (FR-RLC-25·28), 강제 재연결 손잡이(FR-SRL-3).
-   *
-   * 이 구독이 끊긴 채로 남으면 워크스페이스 변경이 도달하지 않고, 그러면
-   * 죽은 도구 정리가 돌지 않아 없어진 도구를 향한 재접속이 영원히 계속된다.
-   * 그래서 상한은 두되 **포기하지 않는다**.
-   */
-  connect(url){
-    this._url=url||this._url;
-    this._retry=this._retry||SSE_RETRY_MIN_MS;
-    const es=new EventSource(this._url);
-    this._es=es;
-    this._gen++;
-    this._seen=Date.now();
-    es.onopen=()=>{
-      this._seen=Date.now();
-      this._retry=SSE_RETRY_MIN_MS;
-      // 합류 시점의 사실은 이 발행으로만 온다 — SSE 는 **변화**만 나른다.
-      this.publish('sse:open',{gen:this._gen});
-    };
-    es.onmessage=(e)=>this._onMessage(e);
-    // 닫기의 실패는 무시한다 — 이미 닫힌 연결이다. 이 파일은 e2e 하네스에 단독으로 실려
-    // `ErrorLog` 를 딛지 못한다 (timer-hub-bus · sse-resilience).
-    es.onerror=()=>{ try{es.close()}catch{ /* 이미 닫혔다 */ } this.publish('sse:error',{}); this._schedule() };
-    // 침묵 감시. 종전에는 방어가 하나도 없는 raw setInterval 이었다.
-    if(!this._silentJob&&this._t.every){
-      this._silentJob=this._t.every({
-        id:'sse.silence', owner:'bus',
-        every:()=>SSE_SILENCE_CHECK_MS,
-        whenHidden:'run',          // 화면을 보고 있지 않아도 되살아나야 한다
-        run:()=>{ this._reviveIfSilent() },
-      });
-    }
-    return es;
-  }
-
-  _schedule(){
-    if(this._pendingT) return;
-    const wait=this._retry||SSE_RETRY_MIN_MS;
-    this._retry=Math.min(wait*2, SSE_RETRY_MAX_MS);
-    const go=()=>{ this._pendingT=null; this.connect() };
-    this._pendingT=this._t.after?this._t.after(wait,go,{owner:'bus'}):{stop(){}};
-    if(!this._t.after) setTimeout(go,wait);
-  }
-
-  // 지금 붙어 있는 구독을 버리고 새로 연다. 백오프 대기 중이면 그것도 접는다.
-  reconnect(){
-    if(this._pendingT){ this._pendingT.stop&&this._pendingT.stop(); this._pendingT=null }
-    this._retry=SSE_RETRY_MIN_MS;
-    try{ if(this._es) this._es.close() }catch{ /* 이미 닫혔다 */ }
-    this.connect();
-  }
-
-  /**
-   * **침묵을 잰다** (FR-RLC-25).
-   *
-   * 서버는 인사를 15초마다 보내므로, 상한을 넘도록 아무것도 오지 않았다면 이
-   * 구독은 죽은 것이다 — `readyState` 가 무어라 하든. 잠에서 깬 기기의 half-open
-   * 소켓이 정확히 그 자리이고, 그 상태에서 멎는 것은 판 소식만이 아니다.
-   */
-  _reviveIfSilent(){
-    if(!this._es) return false;
-    if(Date.now()-(this._seen||0)<=SSE_SILENCE_MS) return false;
-    this.publish('sse:silent',{gen:this._gen});
-    this.reconnect();
-    return true;
   }
 
   /**
@@ -235,12 +160,7 @@ class EventBus {
    * 때문이다. 순서를 바꾸면 워크스페이스 변경이 지명받지 못한 클라이언트에
    * 도달하지 않는다.
    */
-  _onMessage(e){
-    // **모든** 수신이 생존의 증거다 (FR-RLC-28). 인사만 세면 다른 이벤트가
-    // 활발히 오는 동안에도 인사 하나가 늦으면 끊게 된다.
-    this._seen=Date.now();
-    let m=null;
-    try{ m=JSON.parse(e.data) }catch(err){ console.error('[bus] parse',err); return }
+  route(m){
     if(!m||!m.action) return;
     if(this.has(m.action)){ this.publish(m.action, m.args||{}); return }
     // 서버가 실행자를 지명한 명령은 그 클라이언트만 수행한다 (FR-SXE-3).
@@ -250,52 +170,6 @@ class EventBus {
     if(m.reqId) args.reqId=m.reqId;   // echo correlation
     if(this._fallback) this._fallback(m.action, args);
   }
-
-  /**
-   * **부가 채널** (INV-2).
-   *
-   * 커맨드 SSE 말고도 이 앱은 두 종류의 구독을 더 연다:
-   *
-   *   git job   진행 줄을 스트림으로 받는다. 이벤트를 나르므로 채널이다.
-   *   슬롯 소유권  **메시지를 처리하지 않는다.** 칸 i(>0)의 소유권은 그 신원의
-   *              구독이 살아 있는 동안만 유지되므로(FR-WSL-11 · FR-XDF-9),
-   *              여는 것 자체가 목적이다. 같은 브라우저에서 두 번 처리하면
-   *              그것이 결함이다.
-   *
-   * 둘 다 여기를 지난다. 뒤엣것에 나를 이벤트가 없다고 해서 관리 밖은 아니다 —
-   * "지금 이 앱이 몇 개의 구독을 들고 있는가" 는 한 곳이 답해야 한다.
-   *
-   * 재연결·침묵 감시는 붙이지 않는다. 커맨드 SSE 는 끊기면 앱 전체가 낡지만
-   * (FR-RCS-6), job 스트림은 자기 재시도 정책을 갖고 슬롯 구독은 슬롯 수가
-   * 바뀔 때 다시 열린다.
-   */
-  openChannel(id,url,opts){
-    opts=opts||{};
-    this.closeChannel(id);
-    let es=null;
-    try{ es=new EventSource(url) }catch{ return null }
-    (this._extra||(this._extra=new Map())).set(id,{es,owner:opts.owner||null,url});
-    this._counts.set('channel:'+id,(this._counts.get('channel:'+id)||0)+1);
-    return es;
-  }
-
-  closeChannel(id){
-    const m=this._extra;
-    if(!m||!m.has(id)) return false;
-    try{ m.get(id).es.close() }catch{ /* 이미 닫혔다 */ }
-    m.delete(id);
-    return true;
-  }
-
-  channels(){
-    const out=[{id:'commands', url:this._url, alive:this.alive()}];
-    for(const [id,r] of (this._extra||new Map())) out.push({id, url:r.url, alive:r.es.readyState!==2});
-    return out;
-  }
-
-  alive(){ return !!this._es && this._es.readyState!==2 }
-  gen(){ return this._gen }
-  lastSeen(){ return this._seen }
 
   // ── 진단 (FR-BUS-9) ─────────────────────────────────────────────────────
 
@@ -316,7 +190,6 @@ class EventBus {
       });
     }
     out.sort((a,b)=>a.topic<b.topic?-1:1);
-    return {topics:out, channels:this.channels(),
-            channel:{gen:this._gen, alive:this.alive(), silentMs:now-(this._seen||now)}};
+    return {topics:out};
   }
 }

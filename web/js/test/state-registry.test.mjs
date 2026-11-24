@@ -5,17 +5,17 @@ import { load } from './harness.mjs';
 
 /**
  * REPO_FIX 02 §3A-2 — 서버가 넘친 구독을 **닫는다**. 그때 잃은 이벤트는 재연결의
- * 재수집이 되돌린다: 등록부의 `revalidateOn:['sse:open']` 가 그 약속이다. 새 코드
+ * 재수집이 되돌린다: 등록부의 `revalidateOn:['chan:open']` 가 그 약속이다. 새 코드
  * 없이 이 선언을 고정한다 — 누가 빼면 넘침 뒤 화면이 안전망까지 낡는다.
  */
-test('재연결(sse:open)이 설정·포커스·도구 상태를 다시 받는다 (git 은 채널 토픽, CHANNEL_PROTOCOL C4)', () => {
+test('재연결(chan:open)이 설정·포커스·도구 상태를 다시 받는다 (git 은 채널 토픽, CHANNEL_PROTOCOL C4)', () => {
   const ctx = load(['core/state-registry.js'], { expose: ['STATE_REGISTRY'] });
   const byId = new Map(ctx.STATE_REGISTRY.map((e) => [e.id, e]));
   assert.ok(!byId.has('git.observe') && !byId.has('git.jobs'), 'git 상태가 아직 등록부에 있다');
   for (const id of ['settings', 'window.focus', 'tool.attention', 'tool.activity', 'tool.background']) {
     const e = byId.get(id);
     assert.ok(e, `${id} 선언이 없다`);
-    assert.ok(e.revalidateOn.includes('sse:open'), `${id} 가 재연결에 다시 받지 않는다`);
+    assert.ok(e.revalidateOn.includes('chan:open'), `${id} 가 재연결에 다시 받지 않는다`);
   }
 });
 
@@ -87,7 +87,7 @@ function snapshotRig() {
 
 test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 없다', async () => {
   const { gets, got, fire } = snapshotRig();
-  fire('sse:open', { gen: 1 });
+  fire('chan:open', { gen: 1 });
   assert.equal(gets.length, 1, JSON.stringify(gets));
   assert.equal(gets[0], '/api/snapshot?parts=attention,activity,background,update,focus,edges');
   assert.equal(got._settingsRestore, undefined, '첫 연결에 설정을 다시 받았다');
@@ -101,7 +101,7 @@ test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 �
 });
 
 test('재연결·소프트 리로드: 설정도 같은 스냅샷에 든다', async () => {
-  for (const [topic, a] of [['sse:open', { gen: 2 }], ['softreload', {}]]) {
+  for (const [topic, a] of [['chan:open', { gen: 2 }], ['softreload', {}]]) {
     const { gets, got, fire } = snapshotRig();
     fire(topic, a);
     assert.equal(gets.length, 1, topic + ' ' + JSON.stringify(gets));
@@ -143,7 +143,7 @@ test('run.list 주기는 패널이 열려 있을 때만 활동 주기로 목록�
  * 「열 때 받기」를 거치지 않는다. 그래서 구독이 열릴 때 곧바로 받아야 첫 주기를 기다리지 않는다.
  */
 test('run.list 는 첫 연결·재연결·소프트 리로드에 목록을 다시 받는다', () => {
-  for (const [topic, a] of [['sse:open', { gen: 1 }], ['sse:open', { gen: 2 }], ['softreload', {}]]) {
+  for (const [topic, a] of [['chan:open', { gen: 1 }], ['chan:open', { gen: 2 }], ['softreload', {}]]) {
     const { got, fire } = snapshotRig();
     fire(topic, a);
     assert.ok('_runsListRestore' in got, `${topic} ${JSON.stringify(a)} 에 Runs 목록을 받지 않았다`);

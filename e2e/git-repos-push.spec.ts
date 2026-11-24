@@ -118,21 +118,12 @@ test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
     const otherBadge = pinned(other, root).locator('.git-badge');
     await expect(otherBadge).toHaveText('1', { timeout: 15000 });
 
-    await page.evaluate(() => {
-      const w = window as any;
-      w.__origES = w.EventSource;
-      try { w.app.bus._es.close() } catch {}
-      w.EventSource = function () { throw new Error('offline') };
-    });
+    await page.evaluate(() => { (window as any).app.testing.channel.close() });
     writeFileSync(join(dir, 'b.txt'), 'y');
     await expect(otherBadge).toHaveText('2', { timeout: 20000 });
     await ctx.close();
 
-    await page.evaluate(() => {
-      const w = window as any;
-      w.EventSource = w.__origES;
-      w.app.bus.reconnect();
-    });
+    await page.evaluate(() => { (window as any).app.testing.channel.kick() });
     await expect(badge).toHaveText('2', { timeout: 15000 });
   });
 });
