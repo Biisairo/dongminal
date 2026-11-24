@@ -10,7 +10,8 @@ use otter_gocompat::json::RawMessage;
 use otter_shared_sandbox as sandbox;
 use otter_shared_sandboxplace::Placer;
 use otter_shared_toolhub::{
-    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolScreen,
+    ToolSnapshot,
 };
 use otter_shared_toolipc::{
     ChatParams, ChatResult, EdgeParams, EdgePortParams, EdgeResult, RecordsResult,
@@ -54,6 +55,9 @@ impl ToolHub for Hub {
     }
     fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError> {
         self.0.snapshot_tool_since(id, since).map_err(tool_err)
+    }
+    fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError> {
+        self.0.screen_tool(id, history).map_err(tool_err)
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.0.daemon_info()

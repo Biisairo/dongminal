@@ -14,7 +14,8 @@ use std::time::Duration;
 use otter_gocompat::time::format_std_duration;
 use otter_shared_otterlog::{ReqCtx, Value};
 use otter_shared_toolhub::{
-    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolScreen,
+    ToolSnapshot,
 };
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
@@ -55,6 +56,8 @@ pub trait ToolHub: Send + Sync {
     /// 도구 출력을 `tx` 로 받는다. 토큰은 도구가 끝나면 취소된다.
     fn subscribe(&self, tool_id: &str, tx: Sender<OutChunk>) -> (CancellationToken, Unsubscribe);
     fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError>;
+    /// 화면 상태 스냅숏 — 화면 + 최근 기록 `history` 행 (PERF FR-TRM-4).
+    fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError>;
     fn daemon_info(&self) -> DaemonInfo;
     fn reconnects(&self) -> i64;
     fn has_feature(&self, name: &str) -> bool;
@@ -119,6 +122,9 @@ impl ToolHub for ReqHub {
     }
     fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError> {
         self.hub.snapshot_tool_since(id, since)
+    }
+    fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError> {
+        self.hub.screen_tool(id, history)
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.hub.daemon_info()

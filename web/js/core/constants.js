@@ -29,8 +29,9 @@
 // 따르고 자기 `fit()` 결과를 PTY 에 보내지 않는다 (D-M9-3).
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4,SIZE:5,REPLY_SEAT:6};
 // TERMINAL_RESUME_SRS FR-TRS-18b: `OpSeq` 플래그 바이트의 비트.
-// bit0 은 종전의 값 `1`(전량 재생)과 같고, bit1 이 "그 도구가 alt screen 안이다" 다.
-const SEQ_FLAG_FULL=1, SEQ_FLAG_ALT=2;
+// bit0 은 "버퍼를 통째로 바꿨다", bit1 이 "그 도구가 alt screen 안이다" 다.
+// PERF D-19: bit2 는 "앞의 OUTPUT 이 화면 상태 스냅숏이다" — 뒤에 첫 기록 줄 번호(u64 BE)와 cwd 가 붙는다.
+const SEQ_FLAG_FULL=1, SEQ_FLAG_ALT=2, SEQ_FLAG_SNAP=4;
 const enc=new TextEncoder(), dec=new TextDecoder();
 // PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
 const DEFAULT_PAGE_TITLE='Otterminal';

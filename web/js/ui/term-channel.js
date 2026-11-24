@@ -173,6 +173,12 @@ class TermChannel {
     this.retryDelay=0;
   }
 
+  /** PERF D-15: 잠듦 — 붙음을 떼고 다시 붙지 않는다. sid 는 남겨 늦게 온 프레임을 걸러 낸다. */
+  pause(){
+    this.reset();
+    this.want=false;
+  }
+
   close(){
     this.clearHealthy();
     this._detach();

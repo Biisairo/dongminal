@@ -148,8 +148,11 @@ const TERM_KEY_MAP={meta:{ArrowLeft:'lineStart',ArrowRight:'lineEnd'},alt:{Arrow
  * **상한을 더 낮추는 것은 제품 결정이다** — 사용자가 위로 얼마나 갈 수 있는가는
  * 메모리와 맞바꾸는 값이고, 그 교환비를 여기서 정할 근거가 없다. `FE-28` 이
  * 남긴 물음이 그것이며 이 상수는 그 물음을 **볼 수 있게** 만든다.
+ *
+ * PERF D-7·FR-TRM-4: 그 물음은 5,000 으로 정해졌다. 그 위 기록은 데몬이 들고(5만 줄), 깨울 때 받는 스냅숏도
+ * 기록 5,000 행이다 — 둘이 같아야 깬 터미널과 줄곧 깨어 있던 터미널의 기록이 같다.
  */
-const TERM_SCROLLBACK_LINES=50000;
+const TERM_SCROLLBACK_LINES=5000;
 /**
  * 페이지 수명 동안 받아들이는 WebGL 컨텍스트 손실 횟수 (TERMINAL_GPU_RENDER_SRS FR-TGR-11).
  * 여기에 이르면 그 페이지는 GPU 렌더링을 다시 시도하지 않는다.
