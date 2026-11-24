@@ -58,6 +58,7 @@ class StatusBarController extends Controller {
       this._statsWired=true;
       bus.subscribe('chan:open',()=>{ if(!this._statsSub) this._statsSubscribe() },{owner:'statusbar'});
       bus.subscribe('chan:lost',()=>{ this.app._latency=null; this.updateStatusBar() },{owner:'statusbar'});
+      bus.subscribe('chan:pong',a=>{ this.app._latency=a.latency; this.updateStatusBar() },{owner:'statusbar'});
       bus.subscribe('life:hidden',()=>this._statsUnsub(),{owner:'statusbar'});
       bus.subscribe('life:visible',()=>{ if(!this._statsSub) this._statsSubscribe() },{owner:'statusbar'});
     }

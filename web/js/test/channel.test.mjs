@@ -75,14 +75,27 @@ test('TC-CH1-10: 보일 때 statsInterval 주기로 ping 하고 pong 왕복이 l
   open(ws);
   recv(ws, { t: 'hello', epoch: 'e1', server: {} });
   assert.equal(c.latency(), null);
-  await clock.advance(3000);
   const pings = sent(ws).filter((m) => m.t === 'ping');
-  assert.equal(pings.length, 1);
+  assert.equal(pings.length, 1, '서버 hello 에 곧바로 ping 하지 않았다');
   await clock.advance(40);
   recv(ws, { t: 'pong', n: pings[0].n });
   assert.equal(c.latency(), 40);
-  await clock.advance(3000);
+  await clock.advance(3000 - 41);
+  assert.equal(sent(ws).filter((m) => m.t === 'ping').length, 1);
+  await clock.advance(1);
   assert.equal(sent(ws).filter((m) => m.t === 'ping').length, 2);
+});
+
+test('TC-CH1-10b: pong 마다 chan:pong{latency} 를 발행한다 — 부팅 직후의 연결 표시가 한 주기를 기다리지 않는다', async () => {
+  const { c, opened, clock, pub } = chan({ pingMs: 3000 });
+  c.connect();
+  const ws = opened[0];
+  open(ws);
+  recv(ws, { t: 'hello', epoch: 'e1', server: {} });
+  const n = sent(ws).filter((m) => m.t === 'ping')[0].n;
+  await clock.advance(7);
+  recv(ws, { t: 'pong', n });
+  assert.deepEqual(plain(pub.filter(([t]) => t === 'chan:pong')), [['chan:pong', { latency: 7 }]]);
 });
 
 test('TC-CH1-10: 숨었을 때는 CHAN_PING_HIDDEN_MS 주기다', async () => {
@@ -92,10 +105,11 @@ test('TC-CH1-10: 숨었을 때는 CHAN_PING_HIDDEN_MS 주기다', async () => {
   const ws = opened[0];
   open(ws);
   recv(ws, { t: 'hello', epoch: 'e1', server: {} });
-  await clock.advance(ctx.CHAN_PING_HIDDEN_MS - 1);
-  assert.equal(sent(ws).filter((m) => m.t === 'ping').length, 0);
-  await clock.advance(1);
   assert.equal(sent(ws).filter((m) => m.t === 'ping').length, 1);
+  await clock.advance(ctx.CHAN_PING_HIDDEN_MS - 1);
+  assert.equal(sent(ws).filter((m) => m.t === 'ping').length, 1);
+  await clock.advance(1);
+  assert.equal(sent(ws).filter((m) => m.t === 'ping').length, 2);
 });
 
 test('TC-CH1-10: 다른 n 의 pong 은 지연으로 읽지 않는다', async () => {
@@ -205,7 +219,7 @@ test('TC-CH1-11: 숨은 동안 건 주기가 보일 때 끝나도 침묵으로 �
   ctx.document.hidden = false;
   await clock.advance(ctx.CHAN_PING_HIDDEN_MS);
   assert.equal(opened.length, 1, '살아 있는 연결을 침묵으로 끊었다');
-  assert.equal(sent(ws).filter((m) => m.t === 'ping').length, 1);
+  assert.equal(sent(ws).filter((m) => m.t === 'ping').length, 2, '인사 직후 하나 + 숨은 주기 하나');
 });
 
 // ── 토픽 기반 (CHANNEL_PROTOCOL §11.2 · §5.1) ─────────────────────────────

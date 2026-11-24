@@ -87,3 +87,12 @@ test('TC-ATF-44: 메모리는 사용량이 숫자일 때만 그린다(총량만 
   const src = readFileSync(new URL('../core/statusbar-controller.js', import.meta.url), 'utf8');
   assert.match(src, /if\(statusBar\.memory&&this\.app\._stats\.memTotal&&typeof this\.app\._stats\.memUsed==='number'\)/);
 });
+
+test('TC-CH1-10b: chan:pong 이 지연을 얹고 곧바로 다시 그린다 — 첫 stats 보다 늦어도 연결 표시가 서 있다', () => {
+  const { sb, app, fire, updates } = setup();
+  sb.initStatusBar();
+  const before = updates();
+  fire('chan:pong', { latency: 9 });
+  assert.equal(app._latency, 9);
+  assert.equal(updates(), before + 1);
+});

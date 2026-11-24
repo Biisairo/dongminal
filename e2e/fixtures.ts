@@ -431,33 +431,31 @@ export async function stubEmptyLimits(page: any) {
  * 작업 패널 탭 배지의 세 원천을 비운다 — 활동(`working` 수)·백그라운드 도구·Run (RUST_DEFECT_FIX_SRS FR-RDF-6).
  *
  * 셋 다 워커의 서버에 남으므로 같은 워커의 앞 시험이 남긴 열린 Run·바쁜 도구 하나가 배지를 켠다. 배지를 포함한
- * 기본 화면을 재는 시험이 `waitForInit` 전에 부른다. 한도도 함께 비운다(`stubEmptyLimits` 와 같은 길이므로 둘을
- * 함께 부르지 않는다). 시험 중에 SSE 로 새로 오는 활동은 막지 않는다 — 막는 것은 시험 전에 남은 것이다.
+ * 기본 화면을 재는 시험이 `waitForInit` 전에 부른다. 한도도 함께 비운다(활동 토픽의 `_limits` 가 같은 본문이므로
+ * `stubEmptyLimits` 와 함께 부르지 않는다). 시험 중에 새로 오는 변화량은 막지 않는다 — 막는 것은 시험 전에 남은 것이다.
+ *
+ * PERF M1 C3: 셋은 GET 이 아니라 채널 토픽(`activity`·`background`·`runs`)으로 온다 — `page.route` 가 닿지 않는다.
+ * 그래서 그 토픽의 `full` 프레임(처음 받는 상태와 재동기)만 빈 맵으로 바꾼다.
  */
 export async function stubEmptyActivityCounts(page: any) {
-  const emptyActivity = (a: any) => ({ ...a, activities: [], limits: [] });
-  await page.route('**/api/tools/activity', async (route: any) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-    const res = await route.fetch();
-    return route.fulfill({ response: res, json: emptyActivity(await res.json()) });
-  });
-  await page.route('**/api/tools/background', async (route: any) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-    const res = await route.fetch();
-    return route.fulfill({ response: res, json: { ...(await res.json()), background: [] } });
-  });
-  await page.route('**/api/runs', async (route: any) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-    const res = await route.fetch();
-    return route.fulfill({ response: res, json: { ...(await res.json()), runs: [] } });
-  });
-  await page.route('**/api/snapshot?**', async (route: any) => {
-    const res = await route.fetch();
-    const body = await res.json();
-    if (body && body.activity) body.activity = emptyActivity(body.activity);
-    if (body && body.background) body.background = { ...body.background, background: [] };
-    return route.fulfill({ response: res, json: body });
-  });
+  await page.addInitScript((topics: string[]) => {
+    const empty = new Set(topics);
+    const Base = window.WebSocket;
+    class Stubbed extends Base {
+      set onmessage(fn: any) {
+        super.onmessage = fn && ((e: MessageEvent) => {
+          if (typeof e.data === 'string' && e.data.includes('"full"')) {
+            let m: any = null;
+            try { m = JSON.parse(e.data) } catch { /* 토픽 프레임이 아니다 */ }
+            if (m && m.t === 'full' && empty.has(m.topic)) return fn.call(this, { data: JSON.stringify({ ...m, data: {} }) });
+          }
+          return fn.call(this, e);
+        });
+      }
+      get onmessage() { return super.onmessage }
+    }
+    (window as any).WebSocket = Stubbed;
+  }, ['activity', 'background', 'runs']);
 }
 
 export async function clickGitView(page: any, view: string) {
