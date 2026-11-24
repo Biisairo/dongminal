@@ -1,0 +1,154 @@
+== GET /api/state
+200 Content-Type=application/json|Etag=3
+"{\"tools\":[{\"id\":\"1\",\"name\":\"Shell #1\",\"pid\":0,\"sizeCols\":0,\"sizeRows\":0,\"fgName\":\"\"}],\"toolsKnown\":true,\"workspace\":{\"windows\":[],\"activeWindow\":\"w1\",\"schemaVersion\":2},\"fgTabNames\":false}\n"
+== GET /api/state
+500 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=tools_unavailable
+"tools unavailable\n"
+== POST /api/tools?cols=80&rows=24
+200 Content-Type=application/json
+"{\"id\":\"fake1\",\"name\":\"Fake fake1\"}\n"
+== POST /api/tools?cwd=/no/such/dir
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=tool_cwd_missing
+"cwd is not a directory: /no/such/dir\n"
+== POST /api/tools
+500 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=tools_unavailable
+"tools unavailable\n"
+== GET /api/tools/b/busy
+200 Content-Type=application/json
+"{\"busy\":true}\n"
+== GET /api/tools/busy?ids=b,,a
+200 Content-Type=application/json
+"{\"busy\":{\"a\":false,\"b\":true}}\n"
+== GET /api/tools/busy?ids=x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,x,
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=bad_request
+"ids 는 256개까지입니다\n"
+== GET /api/tools/busy
+200 Content-Type=application/json
+"{\"busy\":{}}\n"
+== DELETE /api/tools/zz
+200 
+""
+== POST /api/tools/kill
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"toolId 필요\n"
+== POST /api/tools/kill
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"toolId 필요\n"
+== POST /api/tools/kill
+404 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=tool_not_found
+"toolId=nope 존재하지 않음\n"
+== POST /api/tools/kill
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"toolId 필요\n"
+== GET /api/workspace
+200 Content-Type=application/json|Etag=3
+"{\"windows\":[],\"activeWindow\":\"w1\",\"schemaVersion\":2}"
+== GET /api/workspace
+200 Content-Type=application/json|Etag=0
+"null"
+== PUT /api/workspace
+500 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=workspace_unavailable
+"workspace unavailable\n"
+== PUT /api/workspace
+428 Content-Type=text/plain; charset=utf-8|Etag=3|X-Content-Type-Options=nosniff|X-Error-Code=if_match_required
+"If-Match required\n"
+== PUT /api/workspace
+409 Content-Type=text/plain; charset=utf-8|Etag=3|X-Content-Type-Options=nosniff|X-Error-Code=stale_revision
+"stale revision\n"
+== PUT /api/workspace
+200 Etag=4
+""
+SSE {"action":"workspace_changed","args":{"rev":4}}
+== GET /api/sandbox/profiles
+200 Content-Type=application/json|X-Sandbox-Only-Default=1
+"[{\"name\":\"scratch\",\"image\":\"debian:stable-slim\",\"isolated\":true,\"helper\":false,\"work\":\"copy\",\"workPicks\":[{\"work\":\"mount\",\"copies\":false},{\"work\":\"copy\",\"copies\":true}]}]\n"
+== GET /api/sandbox/profiles
+200 Content-Type=application/json|X-Sandbox-Only-Default=0
+"[]\n"
+== GET /api/sandbox/config
+503 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=sandbox_unavailable
+"샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요\n"
+== GET /api/sandbox/config
+200 Content-Type=application/json|Etag=79df5350b5fbb9a8
+"{\"mounts\":[{\"Host\":\"/h\",\"Container\":\"/c\",\"ReadOnly\":true,\"Scratch\":false}],\"dev\":{\"image\":\"node:22\"}}\n"
+== PUT /api/sandbox/config
+409 Content-Type=text/plain; charset=utf-8|Etag=79df5350b5fbb9a8|X-Content-Type-Options=nosniff|X-Error-Code=stale_revision
+"stale revision\n"
+== PUT /api/sandbox/config
+204 Etag=79df5350b5fbb9a8
+""
+SSE {"action":"sandbox_changed","args":{}}
+== GET /api/stats?jobs=1
+200 Content-Type=application/json
+"{\"hostname\":\"HOST\",\"srvUptime\":\"0m\"}\n"
+== GET /api/stats
+200 Content-Type=application/json
+"{\"cpu\":27.7,\"diskPct\":42.1,\"hostname\":\"HOST\",\"memTotal\":34359738368,\"memUsed\":6624083968,\"srvUptime\":\"0m\"}\n"
+== GET /api/commands
+405 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=method_not_allowed
+"method not allowed\n"
+== POST /api/commands
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
+"invalid json: invalid character 'b' looking for beginning of object key string\n"
+== POST /api/commands
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=unknown_action
+"unknown action: hack\n"
+== POST /api/commands
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=unknown_action
+"unknown action: \n"
+== POST /api/commands
+200 Content-Type=application/json
+"{\"action\":\"tabNext\",\"delivered\":1,\"location\":\"\",\"ok\":true,\"requestedLocation\":\"\"}\n"
+SSE {"action":"tabNext"}
+== POST /api/commands
+200 Content-Type=application/json
+"{\"action\":\"focus\",\"delivered\":1,\"location\":\"W2.P1.T1\",\"ok\":true,\"requestedLocation\":\"u-1\"}\n"
+SSE {"action":"focus","args":{"big":12345678901234567000,"e":1000,"f":1.5,"location":"W2.P1.T1","neg":-0,"z":{"a":[1,2e-7],"b":1}}}
+== POST /api/commands
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=bad_request
+"location 은 list-workspace 의 uuid 만 허용 (좌표/라벨/toolId 거부): \"W2.P1.T1\"\n"
+== POST /api/commands
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=name_too_long
+"name_too_long: max 64\n"
+== POST /api/commands
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=bad_request
+"openUrl: http/https 만 허용: ftp://x\n"
+== POST /api/commands
+200 Content-Type=application/json
+"{\"action\":\"openUrl\",\"delivered\":0,\"location\":\"\",\"ok\":true,\"requestedLocation\":\"\",\"where\":\"local\"}\n"
+== POST /api/command-result
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=invalid_json
+"invalid json\n"
+== POST /api/command-result
+200 
+""
+== GET /api/open-url/where
+200 Content-Type=application/json
+"{\"forced\":\"\",\"loopback\":false,\"subscribers\":0,\"viewer\":\"\",\"viewerAddr\":\"\",\"where\":\"local\"}\n"
+== POST /api/open-url/where
+405 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=method_not_allowed
+"method not allowed\n"
+== GET /api/focus
+200 Content-Type=application/json
+"{\"owners\":{}}\n"
+== POST /api/focus/claim
+400 Content-Type=text/plain; charset=utf-8|X-Content-Type-Options=nosniff|X-Error-Code=missing_argument
+"clientId·windowId 필요\n"
+== runtime
+200 "{\"state\":\"stopped\",\"os\":\"linux\",\"runtime\":\"docker\",\"path\":\"\",\"detail\":\"\",\"installCommand\":\"\",\"startCommand\":\"sudo systemctl start docker\",\"startTryable\":false,\"ready\":false,\"installed\":true,\"actions\":{\"sandbox.runtime.start\":{\"ok\":false,\"why\":\"runtime_start_manual\"}}}\n"
+== start
+409 runtime_missing "runtime_missing\n"
+dur 0 0m
+dur 59 59m
+dur 60 1h 0m
+dur 61 1h 1m
+dur 1439 23h 59m
+dur 1440 1d 0h
+dur 2970 2d 1h
+dur -5 -5m
+env "" ["CLAUDE_CODE_NO_FLICKER=1" "CLAUDE_CODE_SCROLL_SPEED=3"]
+env "null" ["CLAUDE_CODE_NO_FLICKER=1" "CLAUDE_CODE_SCROLL_SPEED=3"]
+env "[1]" ["CLAUDE_CODE_NO_FLICKER=1" "CLAUDE_CODE_SCROLL_SPEED=3"]
+env "{\"claudeScrollSpeed\":7.0}" ["CLAUDE_CODE_NO_FLICKER=1" "CLAUDE_CODE_SCROLL_SPEED=7"]
+env "{\"claudeScrollSpeed\":1e30}" ["CLAUDE_CODE_NO_FLICKER=1" "CLAUDE_CODE_SCROLL_SPEED=3"]
+env "{\"claudeFullscreen\":false,\"claudeFullscreen\":true}" ["CLAUDE_CODE_NO_FLICKER=1" "CLAUDE_CODE_SCROLL_SPEED=3"]

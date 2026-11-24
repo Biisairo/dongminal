@@ -2,7 +2,7 @@ import { test, expect, waitForInit } from './fixtures';
 
 // VIEWER_URL_OPEN_SRS — 보고 있는 기기에서 URL 을 연다.
 //
-// 서버의 로컬/원격 판정은 Go 유닛이 덮는다 (openurl_test.go). 여기서 재는 것은
+// 서버의 로컬/원격 판정은 Go 유닛이 덮는다 (Go 기준선 openurl_test.go). 여기서 재는 것은
 // **뷰어가 받은 뒤**다 — 어떤 주소로 고쳐 여는가(FR-VUO-10), 그리고 그 열기가
 // 사용자 제스처 안에서 일어나는가(FR-VUO-8).
 

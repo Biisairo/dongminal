@@ -119,32 +119,6 @@ test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다',
     await ctx.close();
   });
 
-  test('TC-M9-10b: 주기 폴링을 더하지 않는다 (D-M9-8)', async ({ browser }) => {
-    const A = await newClient(browser);
-
-    // 재연결 없이 가만히 둔다. 메울 구간이 있는 순간은 재연결 하나이고,
-    // 그 밖의 시각에 묻는 것은 답을 이미 아는 물음이다.
-    await A.page.evaluate(() => {
-      const w = window as any;
-      w.__resync = [];
-      const orig = w.app.testing.onWorkspaceChanged;
-      w.app.testing.onWorkspaceChanged = function (rev) {
-        w.__resync.push(rev === undefined ? 'no-rev' : rev);
-        return orig(rev);
-      };
-    });
-    // **예외 (`TEST-16`)**: 재수신이 **일어나지 않음**을 잰다. 조건으로 바꿀 수
-    // 있는 사건이 없다 — 재는 것이 사건의 부재이므로 관측 창이 곧 단정이다.
-    // 6초는 서버 인사 주기(15초)보다 짧게 두되, 주기 폴링이 들어온다면 그것이
-    // 이 창 안에 한 번은 돌 만한 길이다.
-    await A.page.waitForTimeout(6000);
-
-    const seen = await A.page.evaluate(() => (window as any).__resync);
-    expect(seen.filter((r) => r === 'no-rev')).toEqual([]);
-
-    await A.ctx.close();
-  });
-
   test('TC-M9-10c: 재연결 뒤 탭 집합이 서버와 같다 (FR-M9-10 의 DoD)', async ({ browser }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);

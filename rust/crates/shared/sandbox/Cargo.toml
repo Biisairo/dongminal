@@ -1,0 +1,24 @@
+[package]
+name = "dm-shared-sandbox"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-diagtail = { path = "../diagtail" }
+dm-shared-dmenv = { path = "../dmenv" }
+dm-shared-platform = { path = "../platform" }
+dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

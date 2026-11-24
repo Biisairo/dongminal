@@ -11,7 +11,7 @@ import { TMP, realPath, cssPath } from './osenv';
 // FILE_TRANSFER_SRS §5 — V-FTR-8·12·14~21.
 //
 // Go 테스트가 재는 것(헤더·상한·루트 가드·409)은 여기서 다시 재지 않는다
-// (handlers_transfer_test.go). 여기서 재는 것은 **클라이언트 규약**이다 — 어디에
+// (Go 기준선 handlers_transfer_test.go). 여기서 재는 것은 **클라이언트 규약**이다 — 어디에
 // 놓을 수 있는가(20·21), 무엇이 활성인가(13), 실패가 어디에 붙는가(19).
 //
 // 파괴적 조작을 재므로 픽스처는 전부 mkdtemp 아래이고 테스트마다 새 루트를 짓는다.
@@ -281,7 +281,7 @@ test.describe('묶음 D·E — 탐색기의 전송 (FR-FTR-13~19)', () => {
  * 화면은 `/api/cwd` 의 답(`term.upload`)을 보고 `/api/upload?tool=<id>` 로 보낸다. 서버는 그
  * 순간의 **실제** 도구 cwd 에 쓰는데, e2e 는 셸의 cwd 를 정할 수 없다. 그래서 답을 위조하고,
  * 업로드 요청이 `tool` 모양인지 확인한 뒤 `dir=<root>` 로 바꿔 실제 서버에 보낸다. `tool`
- * 모양의 서버 판정은 Go 시험(`handlers_upload_actions_test.go`)이 잰다.
+ * 모양의 서버 판정은 Go 시험(Go 기준선 `handlers_upload_actions_test.go`)이 잰다.
  */
 async function toolCwdAt(page: Page, root: string) {
   await page.route('**/api/cwd*', (route) =>

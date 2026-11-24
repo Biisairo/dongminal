@@ -67,7 +67,7 @@ function makeFileInDir(): { filePath: string; expectedCwd: string } {
   return { filePath: fp, expectedCwd: realPath(dir) };
 }
 
-// 도구가 아무 지시 없이 열리는 자리 — `os.UserHomeDir()` 이다 (`toolhub/tool.go`
+// 도구가 아무 지시 없이 열리는 자리 — `os.UserHomeDir()` 이다 (Go 기준선 `toolhub/tool.go`
 // 의 `userHome`, "언제나 사용자의 홈이다"). 서버가 root 에디터의 경로로 같은 값을
 // 주므로(FR-EDT-13) 그것을 기준으로 삼는다 — 테스트가 홈을 따로 계산하지 않는다.
 async function serverHome(page): Promise<string> {

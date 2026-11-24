@@ -7,7 +7,7 @@ import { test, expect, waitSettled } from './fixtures';
  *
  * **런타임을 요구하지 않는다.** 재는 것은 "상태를 받았을 때 무엇을 보이는가" 이고,
  * 그 상태는 `/api/sandbox/runtime` 의 응답 하나에서 온다 — 그래서 위조한다.
- * 실제 판정은 Go 단위(`internal/shared/sandbox/runtime_test.go`)의 몫이다.
+ * 실제 판정은 Go 단위(Go 기준선 `internal/shared/sandbox/runtime_test.go`)의 몫이다.
  *
  * 고치는 결함은 §2.3 이다: `Wire` 가 바이너리 유무만 보므로 **데몬이 죽어도
  * 프로파일 목록이 정상으로 왔고**(실측 확인), 실패가 창을 만드는 순간까지 미뤄져

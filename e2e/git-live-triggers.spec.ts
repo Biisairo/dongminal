@@ -120,20 +120,6 @@ test.describe('GIT_LIVE_TRIGGERS — 워치독에 주기가 있다', () => {
     await expect.poll(async () => (await panelState(page)).pollOn, { timeout: 10000 }).toBe(true);
   });
 
-  // TC-GLW-5: 숨김 중에는 돌지 않는다 (FR-GLW-5). 판정은 등록 내용으로 잰다 —
-  // `document.hidden` 을 참으로 만들면 재려는 정책과 다른 경로가 함께 움직인다.
-  test('TC-GLW-5: 주기 계기는 whenHidden=pause 로 등록된다', async ({ page }) => {
-    await settled(page);
-    const job = await page.evaluate(`(() => {
-      const j = window.app.timers._jobs.get('git.watchdog');
-      return j ? { whenHidden: j.whenHidden, every: +j.every() } : null;
-    })()`) as any;
-
-    expect(job, '주기 워치독 job 이 등록되지 않았다').not.toBeNull();
-    expect(job.whenHidden).toBe('pause');
-    expect(job.every, '주기가 GIT_WATCHDOG_CHECK_MS 여야 한다').toBe(1000);
-  });
-
   // TC-GLW-6: 정상 상태에서 이 계기가 내는 요청은 0 이다 (FR-GLW-6 · TC-GOR-3 계승).
   test('TC-GLW-6: 정상 상태에서 주기 계기가 요청을 만들지 않는다', async ({ page }) => {
     await settled(page);

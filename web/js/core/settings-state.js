@@ -133,7 +133,7 @@ function applyUiFontScale(){
  * FR-FSS-2c: 옛 키 `uiFontScale`(%) 을 **한 번** `uiFontSize`(px) 로 옮긴다.
  *
  * 서버의 `Validate` 는 모르는 키를 거부하지 않고 `unknown` 으로 돌려주므로
- * (`settingsschema/schema.go:166`) 이관 전에도 저장은 막히지 않는다 — 그래서
+ * (Go 기준선 `settingsschema/schema.go:166`) 이관 전에도 저장은 막히지 않는다 — 그래서
  * 이 함수는 **값을 잃지 않기 위한 것**이지 오류를 피하기 위한 것이 아니다.
  *
  * 옛 키는 받은 블롭에서 지운다. **서버에서 사라지는 것은 다음 저장 때**다 —

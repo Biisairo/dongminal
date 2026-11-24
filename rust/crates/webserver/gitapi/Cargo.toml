@@ -1,0 +1,52 @@
+[package]
+name = "dm-webserver-gitapi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+bytes = { workspace = true }
+dm-gocompat = { path = "../../gocompat" }
+dm-shared-diagtail = { path = "../../shared/diagtail" }
+dm-shared-dmlog = { path = "../../shared/dmlog" }
+dm-shared-editorlimit = { path = "../../shared/editorlimit" }
+dm-shared-fanout = { path = "../../shared/fanout" }
+dm-shared-httpreq = { path = "../../shared/httpreq" }
+dm-shared-httpresp = { path = "../../shared/httpresp" }
+dm-shared-mimeprobe = { path = "../../shared/mimeprobe" }
+dm-shared-textenc = { path = "../../shared/textenc" }
+dm-shared-uuid = { path = "../../shared/uuid" }
+dm-webserver-action = { path = "../action" }
+dm-webserver-apierr = { path = "../apierr" }
+dm-webserver-domain-git-core = { path = "../domain/git/core" }
+dm-webserver-domain-git-jobs = { path = "../domain/git/jobs" }
+dm-webserver-domain-git-query = { path = "../domain/git/query" }
+dm-webserver-domain-git-store = { path = "../domain/git/store" }
+dm-webserver-domain-git-write = { path = "../domain/git/write" }
+dm-webserver-domain-submodule = { path = "../domain/submodule" }
+dm-webserver-domain-worktree = { path = "../domain/worktree" }
+dm-webserver-domain-wsentry = { path = "../domain/wsentry" }
+dm-webserver-httproute = { path = "../httproute" }
+dm-webserver-sse = { path = "../sse" }
+hex = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tokio = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
+
+[dev-dependencies]
+dm-shared-gittest = { path = "../../shared/gittest" }
+dm-shared-testpath = { path = "../../shared/testpath" }
+dm-shared-workspace = { path = "../../shared/workspace" }
+tempfile = { workspace = true }

@@ -1,0 +1,22 @@
+[package]
+name = "dm-webserver-domain-worktree"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-gocompat = { path = "../../../gocompat" }
+dm-webserver-domain-git-core = { path = "../git/core" }
+hex = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+dm-shared-gittest = { path = "../../../shared/gittest" }
+tempfile = { workspace = true }

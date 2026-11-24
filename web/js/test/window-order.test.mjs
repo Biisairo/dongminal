@@ -195,11 +195,11 @@ test('TC-ORD-1 move-in-list: 탭 같은 평면 목록의 위치 해석', () => {
 });
 
 /**
- * REFACTOR PROD2 §7: window 순서 규칙의 골든. Go `windowPositions`(dmctl_listworkspace.go)가
+ * REFACTOR PROD2 §7: window 순서 규칙의 골든. Go `windowPositions`(Go 기준선 dmctl_listworkspace.go)가
  * 같은 표본을 읽는다. 위치는 Go 와 같은 방식으로 센다 — 빈 그룹은 칸이 아니다.
  */
 const VECTORS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)),
-  '../../../internal/helper/runtimebin/testdata/window_order_vectors.json'), 'utf8'));
+  '../../../rust/crates/helper/runtimebin/testdata/window_order_vectors.json'), 'utf8'));
 
 test('골든: window 위치가 Go windowPositions 와 같다', () => {
   assert.ok(VECTORS.cases.length > 0);

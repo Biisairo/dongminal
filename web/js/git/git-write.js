@@ -71,7 +71,7 @@ class GitWrite extends GitPart {
    * FR-GVR-3: 원격 작업이 끝나면 **Console 만** 다시 받는다.
    *
    * 잡은 `post()` 를 지나지 않으므로 Console 이 스스로 알 길이 없다. 서버는 그것도
-   * 기록에 남기므로(jobs/job.go 의 RecordWrite) 읽으러 가기만 하면 된다. **실패한
+   * 기록에 남기므로(Go 기준선 jobs/job.go 의 RecordWrite) 읽으러 가기만 하면 된다. **실패한
    * 작업도 남아야 하므로** 성공 여부를 가리지 않는다 — 그리고 실패는 저장소를
    * 바꾸지 않으니 이 경로 말고는 알릴 길이 없다.
    *

@@ -623,7 +623,7 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
 });
 
 // detach CLI 는 /api/commands 를 직접 쓴다. 화이트리스트 누락으로 400 이 되면
-// CLI 전체가 죽지만, detach_test.go 는 httptest 스텁에 POST 하므로 그 결함을
+// CLI 전체가 죽지만, Go 기준선 detach_test.go 는 httptest 스텁에 POST 하므로 그 결함을
 // 볼 수 없다. 라이브 서버에서 왕복을 확인한다.
 test.describe('detach CLI 의 HTTP 계약 (라이브)', () => {
   test('detachTab → 백그라운드 목록 → restoreTool 왕복', async ({ page, request }) => {

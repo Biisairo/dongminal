@@ -4,14 +4,15 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames, setSafetyNet, setConsoleInterval, scopedSettings } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
- * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **갱신
- * 회차를 넘기려고** 둔 것이다 — 재는 것이 "회차를 넘겨도 같은 요소인가" 이므로
- * 그 회차가 지나는 것 자체가 검사의 전제이고, 기다릴 신호가 따로 없다.
- * 짧게 하면 회차를 넘지 못해 **아무것도 재지 않는 초록**이 된다.
+ * **회차는 기다리지 않고 직접 돌린다.** 재는 것이 "회차를 넘겨도 같은 요소인가"
+ * 이므로 회차가 지나는 것이 검사의 전제다. 종전에는 2.6초를 기다렸으나 안전망이
+ * 30초가 된 뒤로 그 창에 회차가 들지 않았다 (E2E_PRUNE_REPORT §8.6). 그래서 회차가
+ * 하는 일을 직접 두 번 부르고 끝을 기다린다(P6·P9 와 같은 방식). 주기를 타는
+ * 자리(P5 의 status, P8 의 Console)는 주기를 줄이고 요청 수로 회차를 센다.
  */
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
@@ -51,8 +52,34 @@ const markCount = (page: Page, sel: string) =>
     return { kept: els.filter(e => (e as any).__rptMark === 1).length, total: els.length };
   }, sel);
 
-// 폴링 회차를 확실히 넘긴다. GIT_STATUS_POLL_MS 는 1000 이다.
-const POLLS = 2600;
+// status 관측 회차 둘 — 안전망 타이머가 부르는 것과 같은 `collect()` 다.
+const statusRounds = async (page: Page) => {
+  for (let i = 0; i < 2; i++) await page.evaluate(() => (window as any).app.gitPanel.poll.collect());
+  await nextFrames(page);
+};
+
+// 관측이 바뀐 회차에 Branches·Stash 가 하는 일 — `_reloadViews` 를 두 번 돌리고 끝을 기다린다.
+// 값이 그대로인 관측은 그 뷰를 다시 받지 않으므로 status 회차만으로는 이 경로를 지나지 않는다.
+const viewRounds = async (page: Page) => {
+  for (let i = 0; i < 2; i++) {
+    await page.evaluate(() => Promise.allSettled((window as any).app.gitPanel.viewReload._reloadViews()));
+  }
+  await nextFrames(page);
+};
+
+// 요청 수를 센다. 같은 주기 job 은 겹쳐 돌지 않으므로 n 번째 요청이 나갔으면 n-1 번째 회차는 끝났다.
+function counter(page: Page, needle: string) {
+  const state = { n: 0 };
+  page.on('request', (r) => { if (r.url().includes(needle)) state.n++ });
+  return state;
+}
+
+// 새 파일은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
+let restoreSettings: (() => Promise<void>) | null = null;
+test.afterEach(async () => {
+  if (restoreSettings) await restoreSettings();
+  restoreSettings = null;
+});
 
 test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
   test('P1 (V104 / FR-GIT-227): 관측이 같으면 행을 다시 만들지 않는다', async ({ page }) => {
@@ -62,9 +89,7 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
     await expect(page.locator(sel).first()).toBeVisible();
     const n = await markAll(page, sel);
     expect(n).toBeGreaterThan(0);
-    await page.waitForTimeout(POLLS);
-    // 폴링이 실제로 돌았다는 근거: 상태 요청이 여러 번 갔다는 것은 서버 로그가
-    // 갖고 있고, 여기서는 행 수가 그대로인 것과 표식이 남은 것을 본다.
+    await statusRounds(page);
     expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
   });
 
@@ -82,13 +107,14 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
     // 것** 자체다.
     const n = await markAll(page, '.git-view.git-changes .git-file .git-file-acts');
     expect(n).toBeGreaterThan(0);
-    await page.waitForTimeout(POLLS);
+    await statusRounds(page);
     expect(await markCount(page, '.git-view.git-changes .git-file .git-file-acts'))
       .toEqual({ kept: n, total: n });
     await expect(acts).toHaveCSS('opacity', '1');
   });
 
-  test('P3 (V105 / FR-RPT-3): 관측이 바뀌어도 바뀌지 않은 행은 유지된다', async ({ page }) => {
+  test('P3 (V105 / FR-RPT-3): 관측이 바뀌어도 바뀌지 않은 행은 유지된다', async ({ page, request }) => {
+    restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
     const repo = copyFx('basic', 'p3');
     await waitForInit(page);
     await openGit(page, repo);
@@ -103,7 +129,8 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
     expect(m).toEqual({ kept: before, total: before + 1 });
   });
 
-  test('P4 (V113 / FR-RPT-2): 값이 바뀌면 화면이 따라온다 — 조용히 멈추지 않는다', async ({ page }) => {
+  test('P4 (V113 / FR-RPT-2): 값이 바뀌면 화면이 따라온다 — 조용히 멈추지 않는다', async ({ page, request }) => {
+    restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
     const repo = copyFx('basic', 'p4');
     await waitForInit(page);
     await openGit(page, repo);
@@ -121,8 +148,10 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
     await openGit(page, fx('basic'));
     const row = page.locator('.git-view.git-changes .git-file').first();
     await expect(row).toBeVisible();
-    // 폴링 회차 경계에 걸리도록 한 박자 기다린 뒤 더블클릭한다.
-    await page.waitForTimeout(1100);
+    // 폴링이 실제로 도는 동안 더블클릭한다 — 안전망(30초)을 줄이고 회차 둘을 본다.
+    const c = counter(page, '/api/git/status');
+    await setSafetyNet(page, 200);
+    await expect.poll(() => c.n, { timeout: 5000 }).toBeGreaterThanOrEqual(2);
     await row.dblclick();
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-diff/);
   });
@@ -160,7 +189,9 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     await expect(page.locator(stable)).toHaveCount(1);
     const n = await markAll(page, sel);
     expect(n).toBeGreaterThan(0);
-    await page.waitForTimeout(POLLS);
+    // 지표의 회차(`_pollStats`)를 직접 두 번 돌린다.
+    for (let i = 0; i < 2; i++) await page.evaluate(() => (window as any).app.statusbar._pollStats());
+    await nextFrames(page);
     // 지표에는 값이 스스로 바뀌는 것(지연·CPU·업타임)이 섞여 있다. 그런 값이 바뀌면
     // 그 항목은 다시 만들어지는 것이 맞다 (FR-RPT-2). 지켜야 하는 것은 **값이
     // 그대로인 항목**이다.
@@ -172,6 +203,9 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
   test('P8 (V110 / FR-RPT-7 #4): Console 기록 행과 펼친 상세가 폴링에 살아남는다', async ({ page }) => {
     const repo = copyFx('basic', 'p8');
     await waitForInit(page);
+    // Console 의 주기(2초)를 줄인다 — 다시 무장할 때마다 읽는 전역이다 (§8.2 (a′)).
+    await setConsoleInterval(page, 300);
+    const rec = counter(page, '/api/git/records');
     await openGit(page, repo);
     // 쓰기 하나가 기록을 만든다 — Console 은 쓰기와 실패만 기본으로 보인다.
     // 행 동작은 hover 에서 드러난다 (사용자 지시 2026-09-08) — 겹이
@@ -193,9 +227,12 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
      * `git stash list` 기록이 하나 더 생긴다 (FR-GVR-6) — 표식을 그 전에 찍으면
      * 이 시험은 "다시 만들어졌다" 를 결함으로 읽는다 (실측).
      */
+    // 회차 둘(요청 셋째가 나감)이 지나도 행 수가 같으면 가라앉은 것이다.
     for (let i = 0; i < 10; i++) {
       const before = await page.locator(sel).count();
-      await page.waitForTimeout(2400);
+      const r0 = rec.n;
+      await expect.poll(() => rec.n - r0, { timeout: 10000 }).toBeGreaterThanOrEqual(3);
+      await nextFrames(page);
       if (await page.locator(sel).count() === before) break;
     }
     // 상세를 펼친다 — 그 안의 stderr 는 복사해 쓰는 자리다 (FR-GIT-225).
@@ -205,8 +242,10 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     const d = await markAll(page, '#area .pn-body .git-view.git-console .git-con-detail');
     expect(n).toBeGreaterThan(0);
     expect(d).toBe(1);
-    // GIT_CON_POLL_MS 는 2000 이다.
-    await page.waitForTimeout(3200);
+    // Console 회차 둘이 끝날 때까지 — 요청 셋째가 나가면 둘째 회차의 그리기는 끝났다.
+    const r1 = rec.n;
+    await expect.poll(() => rec.n - r1, { timeout: 10000 }).toBeGreaterThanOrEqual(3);
+    await nextFrames(page);
     expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
     expect(await markCount(page, '#area .pn-body .git-view.git-console .git-con-detail'))
       .toEqual({ kept: 1, total: 1 });
@@ -326,8 +365,9 @@ test.describe('FR-GRF — Branches·Stash 목록 (V-GRF-8·9)', () => {
       await expect(page.locator(sel).first()).toBeVisible({ timeout: 20000 });
       const n = await markAll(page, sel);
       expect(n).toBeGreaterThan(0);
-      // 관측 회차를 확실히 넘긴다. 그 사이 `paintStatus`·`_reloadViews` 가 돈다.
-      await page.waitForTimeout(POLLS);
+      // 관측 회차와 뷰 다시 받기 회차를 직접 돌린다 — `paintStatus`·`_reloadViews` 다.
+      await statusRounds(page);
+      await viewRounds(page);
       expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
     });
 
@@ -361,8 +401,9 @@ test.describe('FR-GRF — Branches·Stash 목록 (V-GRF-8·9)', () => {
       await expect(page.locator(sel).first()).toBeVisible({ timeout: 20000 });
       const n = await markAll(page, sel);
       expect(n).toBeGreaterThan(0);
-      // 관측 회차마다 `_reloadViews` 가 stash 를 다시 받는다 — 그것이 이 검사의 계기다.
-      await page.waitForTimeout(POLLS);
+      // 관측이 바뀐 회차마다 `_reloadViews` 가 stash 를 다시 받는다 — 그것이 이 검사의 계기다.
+      await statusRounds(page);
+      await viewRounds(page);
       expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
     });
 });

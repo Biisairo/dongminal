@@ -400,7 +400,7 @@ const WINDOW_CLOSE_UNDO_TITLE='Bring the window and its shells back';
 // FEU-8: `run_changed` 가 몰려 와도 목록(`/api/runs`) 재조회는 이 창 안에서 한 번이다.
 // 멤버 메시지 하나마다 이벤트가 오므로 합치지 않으면 이벤트 수만큼 겹쳐 나간다.
 const RUN_LIST_COALESCE_MS=250;
-// FR-RVZ-12: "최근 통신" 의 경계. 서버 시각은 Unix **초**다 (run/store.go 의 now()).
+// FR-RVZ-12: "최근 통신" 의 경계. 서버 시각은 Unix **초**다 (Go 기준선 run/store.go 의 now()).
 //
 // 경계를 닫힌 구간(<=)으로 두는 이유는 브라우저 시계와 서버 시계를 비교하기
 // 때문이다 — 해상도가 1초라 열린 구간이면 경계에서 강조가 깜빡인다.

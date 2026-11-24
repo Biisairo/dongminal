@@ -178,7 +178,7 @@ const editDoc = (page: Page, abs: string, text: string) => page.evaluate(([p, s]
   for (const [k, d] of (window as any).app.testing.edDocs) if (key(k) === key(p)) edT.docEdit(d, s);
 }, [abs, text] as const);
 
-/** 메인 → 정의(helper.go 4행 6열). `deep.Helper` 의 `H` 는 6행 7열이다. */
+/** 메인 → 정의(픽스처 pkg/deep 의 helper 파일 4행 6열). `deep.Helper` 의 `H` 는 6행 7열이다. */
 async function atHelperCall(page: Page, request: APIRequestContext) {
   const tap = await lspTap(page);
   await enter(page, request);

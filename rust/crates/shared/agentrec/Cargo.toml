@@ -1,0 +1,19 @@
+[package]
+name = "dm-shared-agentrec"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-activity = { path = "../activity" }
+dm-shared-agentadapter = { path = "../agentadapter" }
+dm-shared-platform = { path = "../platform" }
+dm-shared-statusline = { path = "../statusline" }
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }
+time = { workspace = true }

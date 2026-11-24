@@ -1,0 +1,29 @@
+[package]
+name = "dm-webserver-hub"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-shared-activity = { path = "../../shared/activity" }
+dm-shared-dmenv = { path = "../../shared/dmenv" }
+dm-shared-dmlog = { path = "../../shared/dmlog" }
+dm-shared-fanout = { path = "../../shared/fanout" }
+dm-shared-toolhub = { path = "../../shared/toolhub" }
+dm-shared-toolipc = { path = "../../shared/toolipc" }
+dm-shared-uuid = { path = "../../shared/uuid" }
+dm-webserver-domain-git-core = { path = "../domain/git/core" }
+dm-webserver-domain-git-query = { path = "../domain/git/query" }
+dm-webserver-domain-git-store = { path = "../domain/git/store" }
+dm-webserver-sse = { path = "../sse" }
+dm-gocompat = { path = "../../gocompat" }
+futures-util = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }

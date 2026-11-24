@@ -1,0 +1,768 @@
+[
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root={ROOT}\u0026path={ROOT}",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22656e7472696573223a5b7b226e616d65223a2242222c22646972223a747275652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a22737562222c22646972223a747275652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a227570222c22646972223a747275652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a222e68696464656e222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a22612e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a226261642e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a2269636f6e2e737667222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a226b2e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a22706167652e68746d6c222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a227069632e706e67222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a22ed959ceab88020ed8c8cec9dbc2e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d5d2c226f6666736574223a302c2270617468223a227b524f4f547d222c227374616d70223a2231373030303030303030313233343536373839222c22746f74616c223a31312c227472756e6361746564223a66616c73657d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root={ROOT}\u0026path={ROOT}\u0026offset=2",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22656e7472696573223a5b7b226e616d65223a227570222c22646972223a747275652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a222e68696464656e222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a22612e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a226261642e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a2269636f6e2e737667222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a226b2e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a22706167652e68746d6c222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a227069632e706e67222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d2c7b226e616d65223a22ed959ceab88020ed8c8cec9dbc2e747874222c22646972223a66616c73652c226c696e6b223a66616c73652c226c696e6b446972223a66616c73657d5d2c226f6666736574223a322c2270617468223a227b524f4f547d222c227374616d70223a2231373030303030303030313233343536373839222c22746f74616c223a31312c227472756e6361746564223a66616c73657d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root=/etc\u0026path=/etc",
+  "ct": "",
+  "body": "",
+  "status": 403,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=outside_root"
+  ],
+  "resp": "7b22636f6465223a226f7574736964655f726f6f74222c226d657373616765223a22726f6f7420eab08020456469746f7220ebaaa9eba19dec979020ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root=rel\u0026path={ROOT}",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a22726f6f7420eb8a9420eca088eb8c80eab2bdeba19cec97acec95bc20ed959ceb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root={ROOT}",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a227061746820eab08020ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root={ROOT}\u0026path={ROOT}/nope",
+  "ct": "",
+  "body": "",
+  "status": 404,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=not_found"
+  ],
+  "resp": "7b22636f6465223a226e6f745f666f756e64222c226d657373616765223a22eab2bdeba19ceba5bc20ecb0beec9d8420ec889820ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root={ROOT}\u0026path={ROOT}/a.txt",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a22eb9494eba089ed84b0eba6aceab08020ec9584eb8b88eb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/fs/list?root={ROOT}\u0026path=/etc",
+  "ct": "",
+  "body": "",
+  "status": 403,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=outside_root"
+  ],
+  "resp": "7b22636f6465223a226f7574736964655f726f6f74222c226d657373616765223a22eba3a8ed8ab820ebb096ec9d9820eab2bdeba19ceb8ba4227d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read?path={ROOT}/k.txt",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-File-Stamp=17979cfe3d85cd15-a"
+  ],
+  "resp": "c7d1b1db20c6c4c0cf0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read?path={ROOT}/k.txt\u0026decode=1",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-File-Actions={\"file.convert_utf8\":{\"ok\":true}}",
+   "X-File-Bom=0",
+   "X-File-Decodable=1",
+   "X-File-Encoding=cp949",
+   "X-File-Stamp=17979cfe3d85cd15-a"
+  ],
+  "resp": "ed959ceab88020ed8c8cec9dbc0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read?path={ROOT}/a.txt\u0026decode=1",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-File-Actions={\"file.convert_utf8\":{\"ok\":false,\"why\":\"already_utf8\"}}",
+   "X-File-Bom=0",
+   "X-File-Decodable=1",
+   "X-File-Encoding=utf-8",
+   "X-File-Stamp=17979cfe3d85cd15-6"
+  ],
+  "resp": "68656c6c6f0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read?path={ROOT}/bad.txt\u0026decode=1",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-File-Actions={\"file.convert_utf8\":{\"ok\":false,\"why\":\"encoding_undecodable\"}}",
+   "X-File-Bom=0",
+   "X-File-Decodable=0",
+   "X-File-Encoding=utf-8",
+   "X-File-Stamp=17979cfe3d85cd15-3"
+  ],
+  "resp": "efbfbd"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read?path={ROOT}/bad.txt\u0026decode=1\u0026encoding=utf-8",
+  "ct": "",
+  "body": "",
+  "status": 422,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=encoding_undecodable"
+  ],
+  "resp": "63616e6e6f74206465636f6465206173207574662d380a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read?path={ROOT}/nope",
+  "ct": "",
+  "body": "",
+  "status": 404,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=not_found"
+  ],
+  "resp": "66696c65206e6f7420666f756e640a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read?path={ROOT}/sub",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=not_a_file"
+  ],
+  "resp": "6e6f7420612066696c650a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read?path=rel",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=path_must_be_absolute"
+  ],
+  "resp": "70617468206d757374206265206162736f6c7574650a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/read",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=missing_argument"
+  ],
+  "resp": "6d697373696e6720706174680a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/write",
+  "ct": "application/json",
+  "body": "7b",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=invalid_json"
+  ],
+  "resp": "696e76616c6964206a736f6e3a20756e657870656374656420656e64206f66204a534f4e20696e7075740a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/write",
+  "ct": "application/json",
+  "body": "7b2270617468223a317d",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=invalid_json"
+  ],
+  "resp": "696e76616c6964206a736f6e3a20706174683a206e756d62657220eab092ec9d8020eba79eeca78020ec958aeb8ba40a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/write",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f7375622f6e2e747874222c22636f6e74656e74223a2278222c22656e636f64696e67223a226b6c696e676f6e227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "756e6b6e6f776e20656e636f64696e673a206b6c696e676f6e0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/write",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f612e747874222c22636f6e74656e74223a2278222c227374616d70223a226e6f7065227d",
+  "status": 409,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=file_changed_on_disk"
+  ],
+  "resp": "66696c65206368616e676564206f6e206469736b0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/write",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f7375622f752e747874222c22636f6e74656e74223a22615c6e62f09f9880222c22656e636f64696e67223a226370393439227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b2266696c652e636f6e766572745f75746638223a7b226f6b223a66616c73652c22776879223a22656e636f64696e675f756e6465636f6461626c65227d7d2c226f6b223a747275652c227374616d70223a22313865613964306634313435313163312d37227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/write",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f6b2e747874222c22636f6e74656e74223a2278222c22656e636f64696e67223a227574662d38222c22636f6e7665727446726f6d223a227574662d38227d",
+  "status": 422,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=encoding_undecodable"
+  ],
+  "resp": "656e636f64696e675f756e6465636f6461626c650a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/write",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f737562222c22636f6e74656e74223a2278227d",
+  "status": 500,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=io_failed"
+  ],
+  "resp": "7772697465206661696c65640a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/stamps",
+  "ct": "application/json",
+  "body": "7b227061746873223a5b227b524f4f547d2f612e747874222c227b524f4f547d2f6e6f7065222c227b524f4f547d2f737562222c2272656c222c22225d7d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b227374616d7073223a7b227b524f4f547d2f612e747874223a22313739373963666533643835636431352d36227d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/stamps",
+  "ct": "application/json",
+  "body": "7b227061746873223a6e756c6c7d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b227374616d7073223a7b7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/file/stamps",
+  "ct": "application/json",
+  "body": "5b5d",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=invalid_json"
+  ],
+  "resp": "696e76616c6964206a736f6e3a20617272617920eab092ec9d8020eba79eeca78020ec958aeb8ba40a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/probe?path={ROOT}/pic.png",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226b696e64223a22696d616765222c226d61784279746573223a33333535343433322c226d696d65223a22696d6167652f706e67222c2273697a65223a34307d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/probe?path={ROOT}/k.txt",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226b696e64223a2274657874222c226d61784279746573223a33333535343433322c226d696d65223a22746578742f706c61696e3b20636861727365743d7574662d38222c2273697a65223a31307d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/probe?path={ROOT}/icon.svg",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226b696e64223a2274657874222c226d61784279746573223a33333535343433322c226d696d65223a22746578742f706c61696e3b20636861727365743d7574662d38222c2273697a65223a35337d0a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/probe?path={ROOT}/sub",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=not_a_file"
+  ],
+  "resp": "6e6f7420612066696c650a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/probe?path={ROOT}/nope",
+  "ct": "",
+  "body": "",
+  "status": 404,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=not_found"
+  ],
+  "resp": "66696c65206e6f7420666f756e640a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/raw?path={ROOT}/pic.png",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Length=40",
+   "Content-Type=image/png",
+   "X-Content-Type-Options=nosniff"
+  ],
+  "resp": "89504e470d0a1a0a0000000000000000000000000000000000000000000000000000000000000000"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/raw?path={ROOT}/icon.svg",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Length=53",
+   "Content-Security-Policy=sandbox",
+   "Content-Type=image/svg+xml",
+   "X-Content-Type-Options=nosniff"
+  ],
+  "resp": "3c73766720786d6c6e733d22687474703a2f2f7777772e77332e6f72672f323030302f737667223e3c726563742f3e3c2f7376673e"
+ },
+ {
+  "m": "GET",
+  "target": "/api/file/raw?path={ROOT}/page.html",
+  "ct": "",
+  "body": "",
+  "status": 415,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=not_an_image"
+  ],
+  "resp": "6e6f7420616e20696d6167650a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/download?path={ROOT}/%ED%95%9C%EA%B8%80%20%ED%8C%8C%EC%9D%BC.txt",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Disposition=attachment; filename=\"__ __.txt\"; filename*=UTF-8''%ED%95%9C%EA%B8%80%20%ED%8C%8C%EC%9D%BC.txt",
+   "Content-Length=1",
+   "Content-Type=application/octet-stream"
+  ],
+  "resp": "78"
+ },
+ {
+  "m": "GET",
+  "target": "/api/download?path={ROOT}/sub",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "6e6f7420612066696c650a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/download?path={ROOT}/nope",
+  "ct": "",
+  "body": "",
+  "status": 404,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=not_found"
+  ],
+  "resp": "6e6f7420666f756e640a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/download",
+  "ct": "",
+  "body": "",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=missing_argument"
+  ],
+  "resp": "6d697373696e6720706174680a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/cwd?tool=p1",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b227465726d2e75706c6f6164223a7b226f6b223a747275657d7d2c22637764223a227b524f4f547d2f7570222c22736f75726365223a22746f6f6c227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226e616d65223a22647570202831292e747874222c2270617468223a227b524f4f547d2f75702f647570202831292e747874222c2273697a65223a337d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?tool=p1",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226e616d65223a22647570202832292e747874222c2270617468223a227b524f4f547d2f75702f647570202832292e747874222c2273697a65223a337d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?tool=p2",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 409,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=upload_no_tool_cwd"
+  ],
+  "resp": "75706c6f61645f6e6f5f746f6f6c5f6377640a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?dir={ROOT}/nope",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "75706c6f6164206469726563746f7279206e6f7420666f756e640a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d422d2d0d0a",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "6e6f2066696c6520696e20726571756573740a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?dir={ROOT}/up",
+  "ct": "multipart/mixed; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a",
+  "status": 415,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=forbidden"
+  ],
+  "resp": "6170706c69636174696f6e2f6a736f6e20eb9890eb8a94206d756c7469706172742f666f726d2d6461746120ec97acec95bc20ed95a9eb8b88eb8ba40a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2272656c50617468220d0a0d0a2e2e2f782e7478740d0a2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d22782e747874220d0a0d0a580d0a2d2d422d2d0d0a",
+  "status": 400,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "72656c5061746820eab08020eb8c80ec838120ebb096ec9d8420eab080eba6aced82a8eb8ba40a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4e45570d0a2d2d422d2d0d0a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226e616d65223a22647570202833292e747874222c2270617468223a227b524f4f547d2f75702f647570202833292e747874222c2273697a65223a337d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/upload?dir={ROOT}/up",
+  "ct": "multipart/form-data; boundary=B",
+  "body": "2d2d420d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d226475702e747874220d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a79797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979790d0a2d2d422d2d0d0a",
+  "status": 413,
+  "headers": [
+   "Content-Type=text/plain; charset=utf-8",
+   "X-Content-Type-Options=nosniff",
+   "X-Error-Code=too_large"
+  ],
+  "resp": "75706c6f616420746f6f206c617267650a"
+ },
+ {
+  "m": "GET",
+  "target": "/api/editors",
+  "ct": "",
+  "body": "",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226669786564223a5b227b524f4f547d222c227b444154417d2f6e6f746573222c227b444154417d2f6578742f706c7567696e73225d2c22686f6d65223a227b524f4f547d222c226c697374223a5b227b524f4f547d225d2c226e6f746573223a227b444154417d2f6e6f746573222c22706c7567696e73223a227b444154417d2f6578742f706c7567696e73227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/validate",
+  "ct": "application/json",
+  "body": "7b2270617468223a2272656c227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b22656469746f722e616464223a7b226f6b223a66616c73652c22776879223a22706174685f6d7573745f62655f6162736f6c757465227d7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/validate",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f737562227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b22616374696f6e73223a7b22656469746f722e616464223a7b226f6b223a747275657d7d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/add",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f612e747874227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=not_a_directory"
+  ],
+  "resp": "7b22636f6465223a226e6f745f615f6469726563746f7279227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/add",
+  "ct": "application/json",
+  "body": "7b2270617468223a222f227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=filesystem_root_protected"
+  ],
+  "resp": "7b22636f6465223a2266696c6573797374656d5f726f6f745f70726f746563746564227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/add",
+  "ct": "application/json",
+  "body": "7b",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a22ebb3b8ebacb8ec9db4204a534f4e20ec9db420ec9584eb8b88eb8ba43a20756e657870656374656420656e64206f66204a534f4e20696e707574227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/add",
+  "ct": "application/json",
+  "body": "7b2270617468223a357d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a22ebb3b8ebacb8ec9db4204a534f4e20ec9db420ec9584eb8b88eb8ba43a20706174683a206e756d62657220eab092ec9d8020eba79eeca78020ec958aeb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/add",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f737562227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226c697374223a5b227b524f4f547d222c227b524f4f547d2f737562225d2c2270696e6e6564223a5b5d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/reorder",
+  "ct": "application/json",
+  "body": "7b22737263223a22227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a2273726320eab08020ec9786eb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/reorder",
+  "ct": "application/json",
+  "body": "7b22737263223a227b524f4f547d2f737562222c22746172676574223a2272656c227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a22737263c2b774617267657420ec9d8020eca088eb8c80eab2bdeba19cec97acec95bc20ed959ceb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/reorder",
+  "ct": "application/json",
+  "body": "7b22737263223a227b524f4f547d2f737562222c22746172676574223a227b524f4f547d222c226265666f7265223a747275657d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226c697374223a5b227b524f4f547d2f737562222c227b524f4f547d225d7d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/remove",
+  "ct": "application/json",
+  "body": "7b2270617468223a2272656c227d",
+  "status": 400,
+  "headers": [
+   "Content-Type=application/json",
+   "X-Error-Code=bad_request"
+  ],
+  "resp": "7b22636f6465223a226261645f72657175657374222c226d657373616765223a227061746820eb8a9420eca088eb8c80eab2bdeba19cec97acec95bc20ed959ceb8ba4227d0a"
+ },
+ {
+  "m": "POST",
+  "target": "/api/editors/remove",
+  "ct": "application/json",
+  "body": "7b2270617468223a227b524f4f547d2f737562227d",
+  "status": 200,
+  "headers": [
+   "Content-Type=application/json"
+  ],
+  "resp": "7b226c697374223a5b227b524f4f547d225d2c2270696e6e6564223a5b5d7d0a"
+ }
+]

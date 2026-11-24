@@ -1,0 +1,21 @@
+[package]
+name = "dm-shared-serverconf"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-gocompat = { path = "../../gocompat" }
+dm-shared-dmenv = { path = "../dmenv" }
+dm-shared-platform = { path = "../platform" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+dm-shared-testpath = { path = "../testpath" }
+tempfile = { workspace = true }

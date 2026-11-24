@@ -6,7 +6,7 @@
  * 출력: web/vendor/codemirror/ — `.gz` 만 (FR-CMR-2)
  *
  * 판을 올릴 때만 사람이 돌린다 (FR-CMR-4). build.sh 는 이 스크립트를 부르지 않는다 —
- * `go build` 에 Node 가 필요 없는 성질을 지킨다.
+ * `cargo build` 에 Node 가 필요 없는 성질을 지킨다.
  *
  *   cd scripts/codemirror && npm ci
  *   node scripts/build-codemirror.mjs [--out <dir>]

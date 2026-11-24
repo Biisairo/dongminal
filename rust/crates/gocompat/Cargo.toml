@@ -1,0 +1,31 @@
+[package]
+name = "dm-gocompat"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[features]
+# Go net/http 클라이언트 오류 문구(neturl_err). reqwest·rustls 를 끌어온다.
+reqwest = ["dep:reqwest", "dep:rustls", "dep:hyper"]
+
+[dependencies]
+base64 = { workspace = true }
+hyper = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+rcgen = { workspace = true }
+tokio = { workspace = true }
+tokio-rustls = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Time"] }

@@ -3,7 +3,7 @@ import { expect, test, waitForInit } from './fixtures';
 // TELEGRAM_BRIDGE_SRS FR-TGB-1·3 — 설정 ▸ Telegram.
 //
 // 이 스펙은 Telegram 에 요청하지 않는다. token 확인·등록·브리지 동작은 가짜 Bot API 를 쓰는
-// Go 시험(telegram_api_test.go·telegram_wire_test.go)이 잰다. 여기서는 화면이 서고, token 이
+// Go 시험(Go 기준선 telegram_api_test.go·telegram_wire_test.go)이 잰다. 여기서는 화면이 서고, token 이
 // 쓰기 전용으로 보이는지만 본다.
 
 async function openTelegramTab(page) {

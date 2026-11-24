@@ -16,7 +16,7 @@
  *   EdDiffPeek                 칸 하나의 클릭·팝업 (FR-EDD-30~37) — `file-editor-peek.js`
  *
  * **기준은 index 다** (D-2). HEAD 가 아닌 이유는 서버의 부분 스테이징이 op 마다
- * 축을 못박기 때문이며(`write/patch.go:105`), VSCode 도 그 축이다.
+ * 축을 못박기 때문이며(Go 기준선 `write/patch.go:105`), VSCode 도 그 축이다.
  */
 
 // ── 묶음 C: diff 계산 ──

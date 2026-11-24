@@ -22,7 +22,7 @@ const RUN_GONE_TEXT = '이 Run 은 더 이상 없습니다';
 const RUN_A = 'aaaaaaaa-1111-4111-8111-111111111111';
 const RUN_B = 'bbbbbbbb-2222-4222-8222-222222222222';
 
-// 서버 시각은 Unix **초**다 (internal/webserver/domain/run/store.go 의 now()).
+// 서버 시각은 Unix **초**다 (Go 기준선 internal/webserver/domain/run/store.go 의 now()).
 const NOW = () => Math.floor(Date.now() / 1000);
 
 // 계약은 omitempty 다 — 없는 값은 **키 자체가 없다**. 고정된 형을 세우면 그

@@ -1,10 +1,11 @@
-import { execFileSync, spawn } from 'child_process';
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { execFileSync, spawn, spawnSync } from 'child_process';
+import { cpSync, createWriteStream, mkdirSync, rmSync, writeFileSync, WriteStream } from 'fs';
+import { connect } from 'net';
 import { join } from 'path';
 
 import { test as base, expect, Locator } from '@playwright/test';
 
-import { E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
+import { E2E_BIN, E2E_HOME, E2E_HOST, E2E_PORT0 } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
 import { ED_SEL, installEdAdapter } from './editor';
 import { realPath } from './osenv';
@@ -271,16 +272,22 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
         // 서버의 말은 **모아 두었다가 실패했을 때만** 낸다. 그대로 흘리면 워커
         // 수만큼의 요청 로그가 리포터의 줄을 덮어, 무엇이 몇 개 실패했는지 로그만
         // 보고는 알 수 없다 (Windows 1차 실행에서 실측한 그 문제다).
-        stdio: ['ignore', 'ignore', 'pipe'],
+        // RUST_DEFECT_FIX_SRS 10.7b: 전부는 워커 홈의 `server.log` 에 남긴다 — 실패의 근거가 사라지지 않게.
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
+      // 쓰기 실패(홈이 지워짐 등)는 삼킨다 — 진단이 워커를 무너뜨리면 안 된다 (10.7c 실측: ENOENT 로 워커가 죽었다).
+      serverLog = createWriteStream(home + '/' + SERVER_LOG, { flags: 'a' });
+      serverLog.on('error', () => {});
+      serverPort = port;
       let tail = '';
-      child.stderr?.on('data', (b: any) => { tail = (tail + String(b)).slice(-4000) });
+      child.stdout?.on('data', (b: any) => { serverLog?.write(b) });
+      child.stderr?.on('data', (b: any) => { tail = (tail + String(b)).slice(-4000); serverLog?.write(b) });
       let exited: string | null = null;
       child.on('exit', (code, sig) => { exited = `code=${code} signal=${sig}` });
 
       try {
         // 러너의 첫 기동은 느리다 (FR-EPL-5).
-        await pingUntilUp(`http://localhost:${port}/api/ping`, 90_000);
+        await pingUntilUp(`http://${E2E_HOST}:${port}/api/ping`, 90_000);
       } catch (err) {
         throw new Error(
           `워커 ${i} 의 서버 기동 실패 (port=${port}, home=${home})` +
@@ -288,12 +295,14 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
           `\n${err}\n--- 서버 stderr (마지막 4KB) ---\n${tail}`);
       }
 
-      await use({ port, home, baseURL: `http://localhost:${port}` });
+      await use({ port, home, baseURL: `http://${E2E_HOST}:${port}` });
 
       // 데몬을 먼저 세운다 — 웹서버만 죽이면 detach 된 dongminald 가 자기 도구
       // 셸들의 PTY 를 계속 붙든다 (FR-EPL-4).
       stopDaemon(home);
       try { child.kill('SIGTERM') } catch { /* 이미 종료 */ }
+      serverLog?.end();
+      serverLog = null;
     },
     { scope: 'worker', auto: true },
   ],
@@ -353,7 +362,34 @@ test.afterEach(async ({ page }, testInfo) => {
   const line = `[진단:가시성] ${testInfo.title} | 열 때=${JSON.stringify(atOpen)} | 실패 때=${JSON.stringify(now)}`;
   testInfo.annotations.push({ type: 'page-visibility', description: line });
   console.log(line);
+  await noteServerAtFailure(testInfo.title);
 });
+
+/** 워커 서버의 stdout·stderr 를 모으는 파일 이름. 워커 홈 아래에 둔다. */
+const SERVER_LOG = 'server.log';
+let serverLog: WriteStream | null = null;
+let serverPort = 0;
+
+/**
+ * RUST_DEFECT_FIX_SRS 10.7b: 실패한 순간의 서버를 남긴다 — 로그에 표시 줄, 그 포트의 날 응답 첫 바이트,
+ * 그 포트를 쥔 프로세스. `ERR_INVALID_HTTP_RESPONSE` 처럼 브라우저만 보는 실패의 근거다.
+ */
+async function noteServerAtFailure(title: string) {
+  if (!serverLog || !serverPort) return;
+  const raw = await new Promise<string>((resolve) => {
+    let got = Buffer.alloc(0);
+    const sock = connect(serverPort, E2E_HOST);
+    const done = (why: string) => { sock.destroy(); resolve(why + ' ' + JSON.stringify(got.subarray(0, 512).toString('latin1'))) };
+    sock.setTimeout(3000, () => done('timeout'));
+    sock.on('connect', () => sock.write('GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n'));
+    sock.on('data', (b) => { got = Buffer.concat([got, b]); if (got.length >= 512) done('data') });
+    sock.on('end', () => done('end'));
+    sock.on('error', (e) => done('error ' + e.message));
+  });
+  const lsof = spawnSync('lsof', ['-nP', '-iTCP:' + serverPort, '-sTCP:LISTEN'], { encoding: 'utf8', timeout: 5000 });
+  const owners = lsof.stdout || `lsof 실패: ${lsof.error ? lsof.error.message : 'status ' + lsof.status}`;
+  serverLog.write(`\n=== [e2e 실패] ${new Date().toISOString()} ${title}\n--- 날 응답: ${raw}\n--- 포트 ${serverPort} 소유:\n${owners}===\n`);
+}
 
 /**
  * 화면이 받는 계정 한도(`/api/tools/activity` 의 `limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
@@ -375,6 +411,39 @@ export async function stubEmptyLimits(page: any) {
     const res = await route.fetch();
     const body = await res.json();
     if (body && body.activity) body.activity = { ...body.activity, limits: [] };
+    return route.fulfill({ response: res, json: body });
+  });
+}
+
+/**
+ * 작업 패널 탭 배지의 세 원천을 비운다 — 활동(`working` 수)·백그라운드 도구·Run (RUST_DEFECT_FIX_SRS FR-RDF-6).
+ *
+ * 셋 다 워커의 서버에 남으므로 같은 워커의 앞 시험이 남긴 열린 Run·바쁜 도구 하나가 배지를 켠다. 배지를 포함한
+ * 기본 화면을 재는 시험이 `waitForInit` 전에 부른다. 한도도 함께 비운다(`stubEmptyLimits` 와 같은 길이므로 둘을
+ * 함께 부르지 않는다). 시험 중에 SSE 로 새로 오는 활동은 막지 않는다 — 막는 것은 시험 전에 남은 것이다.
+ */
+export async function stubEmptyActivityCounts(page: any) {
+  const emptyActivity = (a: any) => ({ ...a, activities: [], limits: [] });
+  await page.route('**/api/tools/activity', async (route: any) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await route.fetch();
+    return route.fulfill({ response: res, json: emptyActivity(await res.json()) });
+  });
+  await page.route('**/api/tools/background', async (route: any) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await route.fetch();
+    return route.fulfill({ response: res, json: { ...(await res.json()), background: [] } });
+  });
+  await page.route('**/api/runs', async (route: any) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await route.fetch();
+    return route.fulfill({ response: res, json: { ...(await res.json()), runs: [] } });
+  });
+  await page.route('**/api/snapshot?**', async (route: any) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    if (body && body.activity) body.activity = emptyActivity(body.activity);
+    if (body && body.background) body.background = { ...body.background, background: [] };
     return route.fulfill({ response: res, json: body });
   });
 }
@@ -684,7 +753,14 @@ async function waitSseRevalidated(page: any) {
   await page.waitForFunction(() => {
     const t = (window as any).app.testing;
     return !!t.sse && t.sse.readyState === 1 && t.restoreLive('activity', null);
-  }, undefined, { timeout: 15000, polling: 50 });
+  }, undefined, { timeout: 15000, polling: 50 }).catch(async (e: unknown) => {
+    // RUST_DEFECT_FIX_SRS 10.7c: 시한이면 어느 쪽이 서지 않았는지 남긴다 — 구독이 안 열렸는가, 재검증이 안 끝났는가.
+    const st = await page.evaluate(() => {
+      const t = (window as any).app?.testing;
+      return { sse: t?.sse ? t.sse.readyState : null, revalidated: t ? !!t.restoreLive('activity', null) : null };
+    }).catch(() => null);
+    throw new Error(`waitSseRevalidated: ${JSON.stringify(st)} — ${String(e)}`);
+  });
 }
 
 // 기본 준비 판정: init() → render() → 포커스된 칸의 xterm 이 섰다.
@@ -757,9 +833,10 @@ export async function nextFrames(page: any, n = 2, capMs = 2000) {
  * status 안전망 폴링의 주기를 **그 자리에서** 바꾼다 (`TEST-17`·`TEST-19`).
  *
  * 기본은 30초다 (`GIT_STATUS_POLL_MS`) — 서버가 변화를 방송하므로 브라우저의
- * 폴링은 안전망으로 남았다 (`GIT_PUSH_OBSERVE_SRS`). 그래서 **방송이 닿지 않는
- * 사건**은 그 30초를 실제로 기다려야 화면에 오른다: 저장소 폴더가 사라지는
- * 것이 그렇다.
+ * 폴링은 안전망으로 남았다 (`GIT_PUSH_OBSERVE_SRS`). 저장소 폴더가 사라지는
+ * 사건도 서버 감시자가 감시에서 빼며 `git_changed`(mark `""`)를 한 번 방송하지만
+ * (FR-RMS-6, `gitwatch/round.rs` 의 `drop_repo`), 그 방송은 감시 회차가 돌아야
+ * 나간다. 그래서 소실을 기다리는 검사는 방송에 기대지 않고 안전망을 줄여 둔다.
  *
  * **설정으로는 못 넣는다.** 주기가 사용자 설정이 되면서 하한이 10초이고
  * (`settings-schema.js`), 그 밖의 값은 저장하면 기본값으로 되돌아간다 —
@@ -1358,6 +1435,39 @@ export function makeCopyFx(root: string) {
     // `edWindowFor` 가 방금 더한 창을 찾지 못한다 (러너 실측).
     return realPath(dst);
   };
+}
+
+/**
+ * 사용자 설정 몇 개를 바꾸고, 원래 블롭으로 되돌리는 함수를 돌려준다.
+ *
+ * 기존 설정 값(`gitWorktreeInterval`·`gitReposInterval` 등)으로 주기를 줄이는 자리다
+ * (E2E_PRUNE_REPORT §8.2 (b)). `cleanTools` 는 설정을 되돌리지 않으므로 시험이 끝날 때
+ * 돌려받은 함수를 반드시 부른다 — 다음 스펙이 줄어든 주기를 물려받지 않게 한다.
+ * `undefined` 는 그 키를 지운다(서버 기본값).
+ */
+export async function scopedSettings(request: any, patch: Record<string, unknown>): Promise<() => Promise<void>> {
+  const saved = await (await request.get('/api/settings')).json();
+  const cur = { ...saved };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === undefined) delete cur[k];
+    else cur[k] = v;
+  }
+  const r = await request.put('/api/settings', { data: cur });
+  expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
+  return async () => {
+    const back = await request.put('/api/settings', { data: saved });
+    expect(back.ok(), `설정 복원 실패: ${await back.text()}`).toBeTruthy();
+  };
+}
+
+/**
+ * Console 폴링 주기를 **그 자리에서** 바꾼다 (E2E_PRUNE_REPORT §8.2 (a′)).
+ *
+ * `gitConsoleInterval` 은 `var` 전역이고 Console 이 다시 무장할 때마다 읽는다.
+ * 설정으로 넣으면 하한(1000ms)에 걸리므로 `setSafetyNet` 과 같은 방식으로 넣는다.
+ */
+export async function setConsoleInterval(page: any, ms: number) {
+  await page.evaluate((v: number) => { (window as any).gitConsoleInterval = v }, ms);
 }
 
 export { expect };

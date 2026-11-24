@@ -18,13 +18,13 @@ help:  ## 이 도움말
 	@echo "커밋 전 훅으로 걸려면:  make hooks"
 
 gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
-	@echo "── gofmt"
-	@out=$$(gofmt -l .); \
-	 if [ -n "$$out" ]; then echo "$$out"; echo "gofmt -w 로 고치세요"; exit 1; fi
-	@echo "── go vet"
-	@go vet ./...
-	@echo "── go build"
-	@go build ./...
+	@echo "── cargo fmt"
+	@out=$$(cd rust && cargo fmt --all -- --check -l 2>&1); \
+	 if [ $$? -ne 0 ]; then echo "$$out" | sed "s|^$$(pwd)/||"; echo "cargo fmt --all 로 고치세요"; exit 1; fi
+	@echo "── cargo clippy"
+	@cd rust && cargo clippy -q --workspace --all-targets -- -D warnings
+	@echo "── cargo build"
+	@cd rust && cargo build -q --workspace
 	@echo "── 이음매 (OS 의존 호출이 platform 밖에 없는가)"
 	@scripts/check-seams.sh
 	@echo "── 시간과 전파 (타이머·채널이 TimerHub·EventBus 안에만 있는가)"
@@ -61,7 +61,7 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-skeleton.sh
 	@echo "── 에이전트 이름 (등록부 밖에 리터럴이 없는가)"
 	@scripts/check-agent-names.sh
-	@echo "── 활동 상태 어휘 (Go 와 JS 의 두 벌이 같은 집합인가)"
+	@echo "── 활동 상태 어휘 (Rust 와 JS 의 두 벌이 같은 집합인가)"
 	@scripts/check-activity-vocab.sh
 	@echo "── 환경변수 문서 (코드와 표가 양방향으로 같은가)"
 	@scripts/check-env-docs.sh
@@ -109,7 +109,7 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-e2e-waits.mjs
 	@echo "── 프론트 계층 경계 (ui/·git/ 이 App 의 내부를 파고들지 않는가)"
 	@scripts/check-layer.sh
-	@echo "── 프로세스 축 경계 · 패키지 표 (축을 넘는 import 가 없는가 · 표가 go list 와 같은가)"
+	@echo "── 프로세스 축 경계 · crate 표 (축을 넘는 의존이 없는가 · 표가 cargo metadata 와 같은가)"
 	@scripts/check-pkg-axis.sh
 	@echo "── 글자 대비 (테마 전종에서 파생이 바닥에 닿는가)"
 	@node scripts/check-contrast.mjs
@@ -258,8 +258,8 @@ e2e-plan:  ## 지금 시간표로 샤드가 어떻게 갈리는지 본다
 e2e-all:  ## e2e 전량을 **한 프로세스**로 (누적 상태까지 겪는 무거운 쪽)
 	npx playwright test
 
-test:  ## Go 단위 테스트 (-race -shuffle=on, ./web/... 포함)
-	go test -race -shuffle=on ./internal/... ./cmd/... ./web/...
+test:  ## 단위 테스트 (cargo test --workspace)
+	cd rust && scripts/hermetic.sh cargo test --workspace
 
 unit:  ## 프론트 순수 모듈 단위 테스트 (node:test)
 	npm run unit --silent
@@ -268,12 +268,18 @@ typecheck:  ## e2e 타입 검사 + `// @ts-check` 를 단 프론트 파일
 	npm run typecheck --silent
 
 # 도구가 없으면 **건너뛰되 말한다.** 조용히 통과하면 없는 것과 같다.
-lint:  ## golangci-lint + eslint (없으면 건너뛰고 알린다)
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-	  echo "── golangci-lint"; golangci-lint run; \
+lint:  ## cargo deny + cargo audit + eslint (없으면 건너뛰고 알린다)
+	@if command -v cargo-deny >/dev/null 2>&1; then \
+	  echo "── cargo deny"; (cd rust && cargo deny check); \
 	else \
-	  echo "!! golangci-lint 가 없어 건너뜁니다 — CI 는 이것을 돌립니다."; \
-	  echo "   설치: https://golangci-lint.run/welcome/install/"; \
+	  echo "!! cargo-deny 가 없어 건너뜁니다 — CI 는 이것을 돌립니다."; \
+	  echo "   설치: cargo install --locked cargo-deny"; \
+	fi
+	@if command -v cargo-audit >/dev/null 2>&1; then \
+	  echo "── cargo audit"; (cd rust && cargo audit); \
+	else \
+	  echo "!! cargo-audit 가 없어 건너뜁니다 — CI 는 이것을 돌립니다."; \
+	  echo "   설치: cargo install --locked cargo-audit"; \
 	fi
 	@if [ -d node_modules/eslint ]; then \
 	  echo "── eslint"; npx eslint .; \

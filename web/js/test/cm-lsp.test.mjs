@@ -51,7 +51,7 @@ const { edLspUri, edLspPath, edLspLangId, edLspWorkspaceClass, EdLspSocket, EdLs
   EdBuffer, edLspDiagItems, edLspDiagShow, edLspDiagnostics, edLspCloseNote } = ctx;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const VECTORS = JSON.parse(readFileSync(join(HERE, '../../../internal/shared/platform/testdata/file_uri_vectors.json'), 'utf8'));
+const VECTORS = JSON.parse(readFileSync(join(HERE, '../../../rust/crates/shared/platform/testdata/file_uri_vectors.json'), 'utf8'));
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 

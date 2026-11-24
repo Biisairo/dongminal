@@ -1,0 +1,17 @@
+[package]
+name = "dm-shared-runfile"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-gocompat = { path = "../../gocompat" }
+serde = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

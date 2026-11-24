@@ -37,6 +37,14 @@ export const E2E_BIN = E2E_HOME + '/dongminal-e2e' + (isWin ? '.exe' : '');
 export const E2E_PORT0 = parseInt(process.env.E2E_PORT_BASE || '', 10) || 60147;
 
 /**
+ * 인스턴스에 붙는 주소. **`localhost` 가 아니라 서버가 실제로 바인드한 `127.0.0.1` 이다**
+ * (RUST_DEFECT_FIX_SRS 10.7b). 서버는 `127.0.0.1` 에만 듣고, 브라우저는 `localhost` 로 `::1` 을
+ * 고를 수 있다 — 그 포트의 `::1` 을 다른 프로세스가 쥐면 두 워커가 함께 `ERR_INVALID_HTTP_RESPONSE`
+ * 로 무너졌다 (`e2e/harness-loopback.spec.ts`).
+ */
+export const E2E_HOST = '127.0.0.1';
+
+/**
  * 워커 수 (FR-EPL-7).
  *
  * **코어 수의 1/3 이다.** 워커 하나가 브라우저 하나와 앱 인스턴스 하나를 든다:
@@ -182,7 +190,7 @@ export default defineConfig({
   use: {
     // FR-EPL-2: 실제 값은 워커 픽스처가 자기 포트로 덮는다 (`e2e/fixtures.ts`).
     // 여기 있는 것은 그 픽스처를 쓰지 않는 자리를 위한 기본값이다.
-    baseURL: 'http://localhost:' + E2E_PORT0,
+    baseURL: `http://${E2E_HOST}:${E2E_PORT0}`,
     /**
      * **첫 시도가 깨진 순간을 남긴다** (FR-DRC-17).
      *

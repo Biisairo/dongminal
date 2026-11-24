@@ -1,0 +1,22 @@
+[package]
+name = "dm-shared-humancmd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+base64 = { workspace = true }
+dm-gocompat = { path = "../../gocompat" }
+dm-shared-platform = { path = "../platform" }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

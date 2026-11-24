@@ -1,7 +1,7 @@
-# Build artifact (cmd/dongminal → ./dongminal) — 루트 한정(`cmd/dongminal/` 디렉터리와 충돌 방지)
+# Build artifact (scripts/build.sh → ./dongminal) — 루트 한정
 /dongminal
 
-# Runtime artifacts: internal/runtime.Install 이 생성하는 bin/*
+# Runtime artifacts: dm_shared_runtime::install 이 생성하는 bin/*
 /bin
 
 # Runtime data (DATA_DIR 산출물)
@@ -13,11 +13,6 @@ tools.json*
 
 # Local env (더 이상 읽히지 않는다 — CLI_CONSOLIDATION_SRS §7)
 /.env
-
-# Go test / coverage
-*.test
-*.out
-coverage.txt
 
 # Editor / OS
 .DS_Store

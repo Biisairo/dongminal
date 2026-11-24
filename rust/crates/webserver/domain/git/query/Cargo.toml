@@ -1,0 +1,26 @@
+[package]
+name = "dm-webserver-domain-git-query"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-gocompat = { path = "../../../../gocompat" }
+dm-shared-editorlimit = { path = "../../../../shared/editorlimit" }
+dm-shared-mimeprobe = { path = "../../../../shared/mimeprobe" }
+dm-shared-textenc = { path = "../../../../shared/textenc" }
+dm-webserver-domain-git-core = { path = "../core" }
+regex = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true }
+dm-shared-platform = { path = "../../../../shared/platform" }

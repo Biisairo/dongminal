@@ -1,0 +1,21 @@
+[package]
+name = "dm-webserver-domain-git-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-gocompat = { path = "../../../../gocompat" }
+dm-webserver-domain-git-core = { path = "../core" }
+dm-webserver-domain-git-query = { path = "../query" }
+serde = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+dm-shared-platform = { path = "../../../../shared/platform" }
+tempfile = { workspace = true }

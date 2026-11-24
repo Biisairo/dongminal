@@ -1,0 +1,161 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/cmd/dongminal",
+    "crates/ctl/cli",
+    "crates/ctl/decidx",
+    "crates/ctl/errdoc",
+    "crates/ctl/migrate",
+    "crates/ctl/privhelper",
+    "crates/daemon/boot",
+    "crates/daemon/chat",
+    "crates/daemon/chatsock",
+    "crates/daemon/ipc",
+    "crates/daemon/swap",
+    "crates/gocompat",
+    "crates/helper/runtimebin",
+    "crates/helper/toolline",
+    "crates/scripts/check-action-reasons",
+    "crates/scripts/check-shared-constants",
+    "crates/scripts/gen-decisions",
+    "crates/scripts/gen-errors",
+    "crates/shared/activity",
+    "crates/shared/agentadapter",
+    "crates/shared/agentrec",
+    "crates/shared/apipath",
+    "crates/shared/chatwire",
+    "crates/shared/diagtail",
+    "crates/shared/dmenv",
+    "crates/shared/dmlog",
+    "crates/shared/edge",
+    "crates/shared/edgemesh",
+    "crates/shared/edgenode",
+    "crates/shared/edgerelay",
+    "crates/shared/editorlimit",
+    "crates/shared/fanout",
+    "crates/shared/gittest",
+    "crates/shared/handover",
+    "crates/shared/httpreq",
+    "crates/shared/httpresp",
+    "crates/shared/humancmd",
+    "crates/shared/listorder",
+    "crates/shared/mimeprobe",
+    "crates/shared/outbuf",
+    "crates/shared/platform",
+    "crates/shared/pollwait",
+    "crates/shared/release",
+    "crates/shared/runfile",
+    "crates/shared/runtime",
+    "crates/shared/runwait",
+    "crates/shared/sandbox",
+    "crates/shared/sandboxplace",
+    "crates/shared/serverconf",
+    "crates/shared/settingsschema",
+    "crates/shared/statusline",
+    "crates/shared/termtext",
+    "crates/shared/testpath",
+    "crates/shared/textenc",
+    "crates/shared/toolhub",
+    "crates/shared/toolipc",
+    "crates/shared/updatecheck",
+    "crates/shared/uuid",
+    "crates/shared/workspace",
+    "crates/web",
+    "crates/webserver/action",
+    "crates/webserver/apierr",
+    "crates/webserver/domain/claudeacct",
+    "crates/webserver/domain/ext",
+    "crates/webserver/domain/git/core",
+    "crates/webserver/domain/git/jobs",
+    "crates/webserver/domain/git/query",
+    "crates/webserver/domain/git/store",
+    "crates/webserver/domain/git/write",
+    "crates/webserver/domain/lsp",
+    "crates/webserver/domain/run",
+    "crates/webserver/domain/submodule",
+    "crates/webserver/domain/sysstat",
+    "crates/webserver/domain/telegram",
+    "crates/webserver/domain/worktree",
+    "crates/webserver/domain/wsentry",
+    "crates/webserver/fswatch",
+    "crates/webserver/gitapi",
+    "crates/webserver/httpapi",
+    "crates/webserver/httproute",
+    "crates/webserver/hub",
+    "crates/webserver/recordsync",
+    "crates/webserver/seam/adapters",
+    "crates/webserver/seam/toolaccess",
+    "crates/webserver/sse",
+    "crates/webserver/toolclient",
+    "parity",
+]
+
+[workspace.package]
+version = "1.3.7"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+# 릴리스 빌드가 빌드 경로를 새기지 않게 한다 (scripts/build.sh, Go -trimpath).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(dongminal_trimpath)"] }
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+# 허용 목록은 DEPENDENCIES.md 다. 여기에 없는 crate 를 쓰려면 그 문서를 먼저 고친다 (C-RSP-3).
+[workspace.dependencies]
+aes-gcm = "0.11.1"
+axum = "0.8.9"
+base64 = "0.23.1"
+bytes = "1.12.2"
+data-encoding = "2.11.1"
+ed25519-dalek = "3.0.0"
+encoding_rs = "0.8.44"
+flate2 = "1.1.11"
+futures-util = "0.3.34"
+hex = "0.4.3"
+hkdf = "0.13.0"
+hmac = "0.13.0"
+http = "1.5.0"
+http-body-util = "0.1.5"
+icu_normalizer = "2.4.0"
+hyper = { version = "1.12.0", features = ["full"] }
+hyper-util = { version = "0.1.21", features = ["full"] }
+libc = "0.2.191"
+nix = { version = "0.32.0", features = ["fs", "process", "signal", "term", "socket", "uio", "ioctl", "user", "poll"] }
+notify = "9.0.0"
+p256 = "0.14.0"
+percent-encoding = "2.3.2"
+rand = "0.10.4"
+rcgen = { version = "0.14.10", default-features = false, features = ["pem", "ring"] }
+regex = "1.13.2"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider", "json", "stream"] }
+rust-embed = { version = "8.14.0", features = ["debug-embed", "include-exclude", "deterministic-timestamps"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+sha1 = "0.11.0"
+sha2 = "0.11.1"
+socket2 = "0.6.5"
+subtle = "2.6.1"
+tar = "0.4.46"
+tempfile = "3.27.0"
+time = { version = "0.3.55", features = ["formatting", "parsing", "macros"] }
+tokio = { version = "1.54.1", features = ["full"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12", "logging"] }
+tokio-tungstenite = "0.30.0"
+tokio-util = { version = "0.7.20", features = ["full"] }
+tower = "0.5.3"
+url = "2.5.9"
+windows-sys = "0.61.2"
+x509-parser = "0.18.1"
+zip = { version = "9.8.1", default-features = false, features = ["deflate"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

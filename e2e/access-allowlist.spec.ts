@@ -11,7 +11,7 @@ import { test, expect, waitForInit } from './fixtures';
  *
  * e2e 브라우저는 loopback 으로 붙고, 게이트는 loopback 을 언제나 들인다 (FR-ACL-5). 그래서
  * 실제 서버는 "잠기지 않는다" 고 답한다 — 확인창을 재려면 원격에서 붙은 것처럼 답을 바꾼다.
- * 판정 자체는 Go 표 시험(`access_check_test.go`, TC-SDA-9)이 잰다.
+ * 판정 자체는 Go 표 시험(Go 기준선 `access_check_test.go`, TC-SDA-9)이 잰다.
  */
 async function lockedOut(page, you: string) {
   await page.route('**/api/access/check', (route) => route.fulfill({

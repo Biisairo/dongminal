@@ -1,0 +1,362 @@
+use super::zone::tzi::{Tzi, TziDate, local_from_tzi};
+use super::{
+    Zone, format_log_std, format_rfc3339, format_rfc3339_millis, format_rfc3339_nano,
+    resolve_local, to_zone,
+};
+use ::time::{OffsetDateTime, UtcOffset};
+use std::path::PathBuf;
+
+fn testdata(rel: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("testdata")
+        .join(rel)
+}
+
+// testdata/go_time_format.txt: go1.27.2 의 t.In(FixedZone).Format(RFC3339 | ".000" | RFC3339Nano).
+#[test]
+fn formats_match_go() {
+    let data = std::fs::read_to_string(testdata("go_time_format.txt")).expect("golden");
+    let mut n = 0;
+    for line in data.lines() {
+        let cols: Vec<&str> = line.split('\t').collect();
+        let nums: Vec<i64> = cols[0]
+            .split(' ')
+            .map(|v| v.parse().expect("num"))
+            .collect();
+        let (sec, nsec, off) = (nums[0], nums[1], nums[2]);
+        let t = OffsetDateTime::from_unix_timestamp_nanos(
+            i128::from(sec) * 1_000_000_000 + i128::from(nsec),
+        )
+        .expect("in range");
+        let Ok(offset) = UtcOffset::from_whole_seconds(i32::try_from(off).expect("i32")) else {
+            // time crate 의 범위(±25:59:59)를 넘는 오프셋은 이 crate 가 다룰 수 없다.
+            continue;
+        };
+        let Some(t) = t.checked_to_offset(offset) else {
+            continue;
+        };
+        assert_eq!(format_rfc3339(t), cols[1], "{line}");
+        assert_eq!(format_rfc3339_millis(t), cols[2], "{line}");
+        assert_eq!(format_rfc3339_nano(t), cols[3], "{line}");
+        n += 1;
+    }
+    assert!(n > 400, "checked {n}");
+}
+
+// testdata/go_zone_lookup.txt: go1.27.2 의 LoadLocationFromTZData + time.Unix(s).In(loc).Zone()/IsDST().
+#[test]
+fn zone_lookup_matches_go() {
+    let data = std::fs::read_to_string(testdata("go_zone_lookup.txt")).expect("golden");
+    let mut n = 0;
+    for line in data.lines() {
+        let cols: Vec<&str> = line.split(' ').collect();
+        let file = cols[0];
+        let raw = std::fs::read(testdata(&format!("zoneinfo/{file}"))).expect("tzif");
+        let zone = Zone::from_tzif(file, &raw).expect("parse");
+        let sec: i64 = cols[1].parse().expect("sec");
+        let info = zone.lookup(sec);
+        assert_eq!(info.name, cols[2], "{line}");
+        assert_eq!(info.offset.to_string(), cols[3], "{line}");
+        assert_eq!(info.is_dst.to_string(), cols[4], "{line}");
+        n += 1;
+    }
+    assert!(n > 150, "checked {n}");
+}
+
+#[test]
+fn from_tzif_rejects_bad_data() {
+    assert!(Zone::from_tzif("x", b"").is_none());
+    assert!(Zone::from_tzif("x", b"TZif").is_none());
+    assert!(Zone::from_tzif("x", b"TZifX000000000000000").is_none());
+    let raw = std::fs::read(testdata("zoneinfo/Asia_Seoul")).expect("tzif");
+    assert!(Zone::from_tzif("x", &raw[..raw.len() / 2]).is_none());
+}
+
+#[test]
+fn utc_and_fixed() {
+    let utc = Zone::utc();
+    assert_eq!(utc.name(), "UTC");
+    assert_eq!(utc.lookup(1_700_000_000).name, "UTC");
+    assert_eq!(utc.offset_at(1_700_000_000), 0);
+    let kst = Zone::fixed("KST", 9 * 3600);
+    assert_eq!(kst.offset_at(-5_000_000_000), 9 * 3600);
+    let t = OffsetDateTime::from_unix_timestamp(1_700_000_000).expect("t");
+    assert_eq!(
+        format_rfc3339_millis(to_zone(t, &kst)),
+        "2023-11-15T07:13:20.000+09:00"
+    );
+    assert_eq!(format_log_std(to_zone(t, &kst)), "2023/11/15 07:13:20");
+    let early = OffsetDateTime::from_unix_timestamp(-62_135_596_800).expect("t");
+    assert_eq!(format_log_std(early), "0001/01/01 00:00:00");
+}
+
+fn reader(files: &[(&str, &str)]) -> impl Fn(&str) -> Option<Vec<u8>> {
+    let map: Vec<(String, Vec<u8>)> = files
+        .iter()
+        .map(|(path, fixture)| {
+            (
+                (*path).to_owned(),
+                std::fs::read(testdata(&format!("zoneinfo/{fixture}"))).expect("tzif"),
+            )
+        })
+        .collect();
+    move |p: &str| map.iter().find(|(k, _)| k == p).map(|(_, v)| v.clone())
+}
+
+// Go initLocal(zoneinfo_unix.go) 의 TZ 규칙.
+#[test]
+fn resolve_local_follows_go_tz_rules() {
+    let read = reader(&[
+        ("/etc/localtime", "Asia_Seoul"),
+        ("/usr/share/zoneinfo//America/New_York", "America_New_York"),
+        ("/etc/zoneinfo/Europe/Dublin", "Europe_Dublin"),
+        ("/opt/tz/lh", "Australia_Lord_Howe"),
+    ]);
+    let sec = 1_700_000_000;
+
+    let z = resolve_local(None, &read);
+    assert_eq!((z.name(), z.offset_at(sec)), ("Local", 9 * 3600));
+
+    let z = resolve_local(Some(""), &read);
+    assert_eq!((z.name(), z.offset_at(sec)), ("UTC", 0));
+
+    let z = resolve_local(Some("UTC"), &read);
+    assert_eq!((z.name(), z.offset_at(sec)), ("UTC", 0));
+
+    let z = resolve_local(Some(":"), &read);
+    assert_eq!((z.name(), z.offset_at(sec)), ("UTC", 0));
+
+    let z = resolve_local(Some("America/New_York"), &read);
+    assert_eq!(
+        (z.name(), z.offset_at(sec)),
+        ("America/New_York", -5 * 3600)
+    );
+
+    let z = resolve_local(Some(":America/New_York"), &read);
+    assert_eq!(z.name(), "America/New_York");
+
+    let z = resolve_local(Some("Europe/Dublin"), &read);
+    assert_eq!(z.name(), "Europe/Dublin");
+
+    let z = resolve_local(Some("/etc/localtime"), &read);
+    assert_eq!(z.name(), "Local");
+
+    let z = resolve_local(Some(":/opt/tz/lh"), &read);
+    assert_eq!((z.name(), z.offset_at(sec)), ("/opt/tz/lh", 11 * 3600));
+
+    let z = resolve_local(Some("No/Such_Zone"), &read);
+    assert_eq!((z.name(), z.offset_at(sec)), ("UTC", 0));
+
+    let empty = |_: &str| None;
+    let z = resolve_local(None, empty);
+    assert_eq!((z.name(), z.offset_at(sec)), ("UTC", 0));
+}
+
+#[test]
+fn duration_string_matches_go() {
+    let g = crate::testutil::golden("go_encode.txt");
+    let durs: [i64; 18] = [
+        0,
+        1,
+        999,
+        1000,
+        1500,
+        1_000_000,
+        1_500_000,
+        1_000_000_000,
+        1_500_000_000,
+        90_000_000_000,
+        3_600_000_000_000,
+        26 * 3_600_000_000_000 + 3 * 60_000_000_000 + 4_000_000_000 + 5,
+        -1_000_000_000,
+        -1,
+        i64::MAX,
+        i64::MIN,
+        100_000_000,
+        120_000_000_000,
+    ];
+    for d in durs {
+        let want = crate::testutil::golden_str(&g, &format!("dur_{d}"));
+        assert_eq!(super::format_duration(d), want, "{d}");
+    }
+    assert_eq!(
+        super::format_std_duration(std::time::Duration::from_millis(1500)),
+        "1.5s"
+    );
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+#[serde(default, rename = "main.S")]
+struct S {
+    t: super::GoTime,
+    #[serde(with = "super::json_time_opt")]
+    p: Option<OffsetDateTime>,
+}
+
+// testdata/go_time_parse.txt: go1.27.2 time.Parse(RFC3339|RFC3339Nano) 와 time.Time JSON 의 결과.
+#[test]
+fn parse_and_json_time_match_go() {
+    use base64::Engine as _;
+    let b64 = base64::engine::general_purpose::STANDARD;
+    let data = std::fs::read_to_string(testdata("go_time_parse.txt")).expect("golden");
+    let mut n = 0;
+    for line in data.lines() {
+        let (name, want) = line.split_once('\t').expect("tab");
+        let name = b64.decode(name).expect("b64");
+        let want = String::from_utf8(b64.decode(want).expect("b64")).expect("utf8");
+        let (kind, rest) = {
+            let i = name.iter().position(|&c| c == b'|').expect("bar");
+            (&name[..i], &name[i + 1..])
+        };
+        match kind {
+            b"P2006-01-02T15:04:05Z07:00" | b"P2006-01-02T15:04:05.999999999Z07:00" => {
+                let Ok(input) = std::str::from_utf8(rest) else {
+                    continue;
+                };
+                let r = if kind.len() > 30 {
+                    super::parse_rfc3339_nano(input)
+                } else {
+                    super::parse_rfc3339(input)
+                };
+                let got = match r {
+                    Ok(t) => format_rfc3339_nano(t),
+                    Err(e) => format!("ERR {e}"),
+                };
+                assert_eq!(got, want, "{input:?}");
+            }
+            b"J" | b"JR" => {
+                let body = if kind == b"J" {
+                    let mut b = b"{\"t\":\"".to_vec();
+                    b.extend_from_slice(rest);
+                    b.extend_from_slice(b"\",\"p\":\"");
+                    b.extend_from_slice(rest);
+                    b.extend_from_slice(b"\"}");
+                    b
+                } else {
+                    rest.to_vec()
+                };
+                let (want_err, want_val) = want.split_once('\n').expect("2 lines");
+                match crate::json::unmarshal::<S>(&body) {
+                    Ok(v) => {
+                        assert_eq!(want_err, "<nil>", "{}", String::from_utf8_lossy(&body));
+                        // Go 는 +24:00 을 읽지만 다시 쓰지 못한다(출력이 비어 있다).
+                        match crate::json::marshal(&v) {
+                            Ok(got) => assert_eq!(String::from_utf8(got).expect("utf8"), want_val),
+                            Err(_) => assert_eq!(want_val, ""),
+                        }
+                    }
+                    Err(e) => assert_eq!(
+                        e.to_string(),
+                        want_err,
+                        "{}",
+                        String::from_utf8_lossy(&body)
+                    ),
+                }
+            }
+            b"M" => {
+                // time crate 는 10000년을 담지 못하므로 그 경우는 Rust 에서 생기지 않는다.
+                if rest == b"year" {
+                    continue;
+                }
+                let offset = UtcOffset::from_hms(24, 0, 0).expect("offset");
+                let t = ::time::macros::datetime!(2024-01-01 0:00 UTC).to_offset(offset);
+                let e = crate::json::marshal(&S {
+                    t: super::GoTime(t),
+                    p: None,
+                })
+                .expect_err("range");
+                assert_eq!(e.to_string(), want);
+            }
+            _ => panic!("unknown {kind:?}"),
+        }
+        n += 1;
+    }
+    assert!(n > 130, "{n}");
+}
+
+// Go zoneinfo_windows.go initLocalFromTZI: TIME_ZONE_INFORMATION 으로 Local 을 만든다.
+fn tzi_date(month: u16, day_of_week: u16, day: u16, hour: u16) -> TziDate {
+    TziDate {
+        month,
+        day_of_week,
+        day,
+        hour,
+        minute: 0,
+        second: 0,
+    }
+}
+
+fn pacific() -> Tzi {
+    Tzi {
+        bias: 480,
+        standard_bias: 0,
+        daylight_bias: -60,
+        standard_date: tzi_date(11, 0, 1, 2),
+        daylight_date: tzi_date(3, 0, 2, 2),
+        standard_name: "Pacific Standard Time".to_owned(),
+        daylight_name: "Pacific Daylight Time".to_owned(),
+    }
+}
+
+#[test]
+fn local_from_tzi_follows_windows_rules() {
+    let z = local_from_tzi(&pacific(), 2026);
+    assert_eq!(z.name(), "Local");
+    let cases: &[(i64, i32, &str)] = &[
+        (1_768_435_200, -28800, "PST"),     // 2026-01-15
+        (1_782_864_000, -25200, "PDT"),     // 2026-07-01
+        (1_772_964_000 - 1, -28800, "PST"), // 2026-03-08 02:00 PST 직전
+        (1_772_964_000, -25200, "PDT"),
+        (1_793_523_600 - 1, -25200, "PDT"), // 2026-11-01 02:00 PDT 직전
+        (1_793_523_600, -28800, "PST"),
+        (4_907_001_600, -25200, "PDT"),  // 2125-07-01: 마지막 해
+        (4_938_537_600, -28800, "PST"),  // 2126-07-01: 표 밖은 마지막 전환의 시간대
+        (-2_193_350_400, -28800, "PST"), // 1900-07-01: 첫 전환 앞은 첫 표준시
+    ];
+    for &(sec, offset, name) in cases {
+        let got = z.lookup(sec);
+        assert_eq!((got.offset, got.name.as_str()), (offset, name), "{sec}");
+        assert_eq!(got.is_dst, offset == -25200, "{sec}");
+    }
+}
+
+#[test]
+fn local_from_tzi_last_week_rule() {
+    // W. Europe Standard Time: 3월·10월 마지막 일요일(Day=5).
+    let tzi = Tzi {
+        bias: -60,
+        standard_bias: 0,
+        daylight_bias: -60,
+        standard_date: tzi_date(10, 0, 5, 3),
+        daylight_date: tzi_date(3, 0, 5, 2),
+        standard_name: "W. Europe Standard Time".to_owned(),
+        daylight_name: "W. Europe Daylight Time".to_owned(),
+    };
+    let z = local_from_tzi(&tzi, 2026);
+    assert_eq!(z.offset_at(1_774_746_000 - 1), 3600); // 2026-03-29 01:00Z 직전
+    assert_eq!(z.offset_at(1_774_746_000), 7200);
+    assert_eq!(z.offset_at(1_792_890_000 - 1), 7200); // 2026-10-25 01:00Z 직전
+    assert_eq!(z.offset_at(1_792_890_000), 3600);
+}
+
+#[test]
+fn local_from_tzi_without_dst() {
+    // StandardDate.Month 가 0 이면 StandardBias 를 무시한다.
+    let tzi = Tzi {
+        bias: -540,
+        standard_bias: 30,
+        daylight_bias: -60,
+        standard_date: TziDate::default(),
+        daylight_date: TziDate::default(),
+        standard_name: "대한민국 표준시".to_owned(),
+        daylight_name: "대한민국 일광 절약 시간".to_owned(),
+    };
+    let z = local_from_tzi(&tzi, 2026);
+    for sec in [i64::MIN, -2_193_350_400, 0, 1_782_864_000, i64::MAX] {
+        let got = z.lookup(sec);
+        assert_eq!(
+            (got.offset, got.name.as_str(), got.is_dst),
+            (32400, "", false)
+        );
+    }
+}

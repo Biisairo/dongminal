@@ -13,14 +13,14 @@ import { tmpPath } from './osenv';
  * 검사가 약해진다.
  */
 
-// GIT_PUSH_OBSERVE_SRS §4.2 — 브라우저 쪽 계약 (B-1~B-5).
+// GIT_PUSH_OBSERVE_SRS §4.2 — 브라우저 쪽 계약 (B-1~B-4).
 //
 // 종전에는 브라우저가 signature 를 500ms 마다 물어 변화를 스스로 찾았다. 이제
 // 서버가 그것을 확인하고 바뀌었을 때만 `git_changed` 를 방송한다.
 //
 // **재는 것은 "누가 찾는가" 가 아니라 "화면이 따라오는가" 다.** 그래서 아래
 // 검사들은 대부분 파일을 만들고 목록에 나타나기를 기다린다 — 그 사이에 무엇이
-// 오갔는지는 B-5 만 본다.
+// 오갔는지는 `editor-traffic.spec.ts` 의 30초 트래픽 검사가 본다.
 
 const FIXTURES = tmpPath('dm-git-fx-push-' + process.pid);
 
@@ -131,26 +131,6 @@ test.describe('GIT_PUSH_OBSERVE — 서버가 밀어 준다', () => {
     await expect.poll(() => statusReqs, { timeout: 5000 }).toBeGreaterThan(0);
   });
 
-  // B-5: 변화 없는 동안의 요청이 준다 (NFR-1).
-  //
-  // 종전 10초에 sig 20 + status 10 = 30 회였다. 이제 안전망(30초)만 남으므로
-  // 그 창에서 한 자릿수여야 한다.
-  test('B-5 변화 없는 10초의 git 요청이 한 자릿수다', async ({ page }) => {
-    const repo = copyFx('basic', 'b5');
-    await waitForInit(page);
-    await openGit(page, repo);
-    await waitSettled(page);
-
-    let reqs = 0;
-    await page.route('**/api/git/{status,signature}*', (route) => {
-      reqs++;
-      return route.continue();
-    });
-    await page.waitForTimeout(10000);
-
-    // 종전이라면 30 회 안팎이다.
-    expect(reqs, `변화 없는 10초에 ${reqs} 회 나갔다 (NFR-1)`).toBeLessThan(10);
-  });
 });
 
 // B-4 는 실앱의 SSE 를 끊고 안전망만 남기는 검사다. 30초 안전망을 그대로 기다리면

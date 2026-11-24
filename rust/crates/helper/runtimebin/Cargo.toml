@@ -1,0 +1,34 @@
+[package]
+name = "dm-helper-runtimebin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+dm-helper-toolline = { path = "../toolline" }
+dm-shared-agentadapter = { path = "../../shared/agentadapter" }
+dm-shared-agentrec = { path = "../../shared/agentrec" }
+dm-shared-apipath = { path = "../../shared/apipath" }
+dm-shared-chatwire = { path = "../../shared/chatwire" }
+dm-shared-dmenv = { path = "../../shared/dmenv" }
+dm-shared-platform = { path = "../../shared/platform" }
+dm-shared-runwait = { path = "../../shared/runwait" }
+dm-shared-serverconf = { path = "../../shared/serverconf" }
+dm-shared-statusline = { path = "../../shared/statusline" }
+dm-shared-termtext = { path = "../../shared/termtext" }
+dm-shared-workspace = { path = "../../shared/workspace" }
+dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
+regex = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
