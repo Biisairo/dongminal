@@ -57,9 +57,9 @@ const SEQ_FLAG_ALT: u8 = 1 << 1;
 
 const BAD_HANDSHAKE: &str = "websocket: the client is not using the websocket protocol: ";
 
-type Ws = WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>;
-type Conn = SafeConn<SplitSink<Ws, Message>>;
-type Reader = SplitStream<Ws>;
+pub(crate) type Ws = WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>;
+pub(crate) type Conn = SafeConn<SplitSink<Ws, Message>>;
+pub(crate) type Reader = SplitStream<Ws>;
 
 static OSC777: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?-u)\x1b\]777;[^\x07]*\x07").unwrap_or_else(|e| unreachable!("{e}"))
@@ -781,7 +781,7 @@ async fn relay_fail(
 }
 
 /// Go `pingLoop`.
-async fn ping_loop(conn: Arc<Conn>, done: CancellationToken) {
+pub(crate) async fn ping_loop(conn: Arc<Conn>, done: CancellationToken) {
     let mut t = tokio::time::interval_at(
         tokio::time::Instant::now() + th::PING_PERIOD,
         th::PING_PERIOD,

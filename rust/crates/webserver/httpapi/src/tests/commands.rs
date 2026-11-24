@@ -3,7 +3,6 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use bytes::Bytes;
@@ -11,9 +10,7 @@ use http_body_util::{BodyExt, Full};
 use otter_shared_toolhub::ToolInfo;
 use otter_webserver_action as action;
 use otter_webserver_apierr as apierr;
-use otter_webserver_hub::{
-    CmdPosition, CmdResult, CmdSub, CommandBroker, CommandHub, SUB_CAP, TabRef,
-};
+use otter_webserver_hub::{CmdPosition, CmdResult, CmdSub, CommandBroker, CommandHub, TabRef};
 use serde_json::Value;
 
 use super::fakes::*;
@@ -613,10 +610,7 @@ async fn sse_broadcast_reaches_full_subscription() {
 /// 않고 곧바로 소유권 수명을 놓는다 (FR-XDF-9 · TC-XDF-7).
 #[tokio::test]
 async fn sse_close_releases_ownership_without_waiting_for_hello() {
-    for target in [
-        "/api/commands/sse?clientId=cliA",
-        "/api/commands/sse?clientId=cliA&presence=1",
-    ] {
+    for target in ["/api/commands/sse?clientId=cliA"] {
         let h: Arc<dyn CommandBroker> = CommandHub::new();
         let (_d, s) = srv(with_cmds(h));
         let mut st = open_sse(&s, target).await;
@@ -635,82 +629,15 @@ async fn sse_close_releases_ownership_without_waiting_for_hello() {
     }
 }
 
+/// TC-CH1-7: presence 구독은 채널의 `slots` 로 옮겨 갔다 — 그 파라미터는 일반 구독으로 읽힌다.
 #[tokio::test]
-async fn sse_presence_holds_ownership_without_broadcast() {
-    let f = Arc::new(FakeUpdates::default());
-    let h: Arc<dyn CommandBroker> = CommandHub::new();
-    let (_d, s) = srv(Deps {
-        commands: Some(h.clone()),
-        updates: Some(f.clone()),
-        ..Deps::default()
-    });
-    hello_fast(&s);
-    let mut p = open_sse(&s, "/api/commands/sse?clientId=slotA&presence=1").await;
-    assert!(p.until(WAIT, |b| b.contains("server_hello")).await);
-    assert_eq!(
-        s.focus.live_count(),
-        1,
-        "presence 구독이 소유권 수명을 쥐지 않았다"
-    );
-    assert_eq!(h.broadcast(br#"{"action":"broadcast-probe"}"#), 0);
-    assert!(
-        p.until(WAIT, |b| b.matches("server_hello").count() >= 3)
-            .await
-    );
-    assert!(!p.seen.contains("broadcast-probe"));
-
-    let mut full = open_sse(&s, "/api/commands/sse?clientId=main").await;
-    full.until(WAIT, |b| b.contains("server_hello")).await;
-    let deadline = tokio::time::Instant::now() + WAIT;
-    while f.triggers.load(Ordering::SeqCst) < 1 && tokio::time::Instant::now() < deadline {
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    assert_eq!(
-        f.triggers.load(Ordering::SeqCst),
-        1,
-        "presence 구독은 판 확인을 걸지 않는다"
-    );
-
-    drop(p);
-    let deadline = tokio::time::Instant::now() + WAIT;
-    while s.focus.live_count() != 1 && tokio::time::Instant::now() < deadline {
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    assert_eq!(
-        s.focus.live_count(),
-        1,
-        "presence 구독을 닫았는데 소유권 수명이 남았다"
-    );
-    drop(full);
-}
-
-#[tokio::test]
-async fn sse_presence_sub_cap() {
-    let (_d, s) = srv(Deps::default());
-    let mut open = Vec::new();
-    for i in 0..SUB_CAP {
-        let mut st = open_sse(&s, &format!("/api/commands/sse?presence=1&clientId=p{i}")).await;
-        st.until(WAIT, |b| {
-            b.contains("server_hello") || b.contains("subscribeRejected")
-        })
-        .await;
-        assert!(
-            !st.seen.contains("subscribeRejected"),
-            "상한 안({i})인데 거절됐다"
-        );
-        open.push(st);
-    }
-    let mut st = open_sse(
-        &s,
-        &format!("/api/commands/sse?presence=1&clientId=p{SUB_CAP}"),
-    )
-    .await;
-    assert!(
-        st.until(WAIT, |b| b.contains("subscribeRejected")).await,
-        "{:?}",
-        st.seen
-    );
+async fn sse_presence_param_is_ordinary_subscription() {
+    let (h, _) = hub_and_sub();
+    let (_d, s) = srv(with_cmds(h.clone()));
+    let mut st = open_sse(&s, "/api/commands/sse?clientId=slotA&presence=1").await;
+    st.until(WAIT, |b| b.contains("server_hello")).await;
+    assert_eq!(h.broadcast(br#"{"action":"broadcast-probe"}"#), 2);
+    assert!(st.until(WAIT, |b| b.contains("broadcast-probe")).await);
 }
 
 fn fg_hub(list: Vec<ToolInfo>, unknown: bool) -> Arc<FakeHub> {
@@ -765,16 +692,6 @@ async fn sse_foreground_on_connect() {
         fg_lines(fg_hub(Vec::new(), true), "/api/commands/sse", 2)
             .await
             .len(),
-        1
-    );
-    assert_eq!(
-        fg_lines(
-            fg_hub(vec![fg("t1", "~")], false),
-            "/api/commands/sse?presence=1",
-            2
-        )
-        .await
-        .len(),
         1
     );
 }

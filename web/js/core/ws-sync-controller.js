@@ -146,6 +146,11 @@ class WsSyncController extends Controller {
     // 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
     bus.connect('/api/commands/sse?clientId='+encodeURIComponent(this.app.clientId));
 
+    // PERF_OPTIMIZATION_SRS M1 (C1): 채널. 칸 i>0 의 소유권을 `slots` 로 쥔다 (TC-CH1-13).
+    this.app.channel=new Channel(bus,{after:(ms,fn,o)=>this.app.timers.after(ms,fn,o)},{pingMs:()=>statsInterval});
+    this.app.channel.connect();
+    this.app.slot._slotSyncSubs();
+
     // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
     // 붙는다 — 사용자가 부른 것이므로 기다릴 이유가 없다.
     this.app._sseKick=()=>bus.reconnect();

@@ -47,7 +47,7 @@ function world(nWins = 3) {
     renders: 0,
     render() { app.renders++ },
     flattenPanes: (l) => (l.type === 'pane' ? [l] : l.children.flatMap((c) => app.flattenPanes(c))),
-    bus: { openChannel: () => ({}), closeChannel: () => {} },
+    channel: { slots: [], setSlots(ids) { app.channel.slots = ids } },
     wsSave: { save() {} },
     focus: { setFocusState(id) { app.focused = id }, _navNote() {}, owner: { _focusWindow() {} } },
     git: { surfaces: { _gitPanelReap() {} } },
@@ -209,4 +209,16 @@ test('TC-WSL-28b: 칸이 하나면 두 액션 모두 무동작이다 (FR-WSL-56)
   assert.equal(app.slot.slotFocused(), 0);
   assert.equal(app._slots, null);
   assert.equal(app.renders, renders);
+});
+
+test('TC-CH1-13: 칸 i>0 의 신원은 채널의 slots 로 실리고, 칸이 줄면 빠진다', () => {
+  const { app, ids } = world();
+  slotsWith(app, ids, 3);
+  const want = [1, 2].map((i) => app.slot._slotIdentity(i));
+  assert.deepEqual([...app.channel.slots], want);
+  app.slot.ops.slotFocusTo(2);
+  app.slot.ops.slotRemove();
+  assert.deepEqual([...app.channel.slots], want.slice(0, 1));
+  app.slot._slotCloseAllSubs();
+  assert.deepEqual([...app.channel.slots], []);
 });

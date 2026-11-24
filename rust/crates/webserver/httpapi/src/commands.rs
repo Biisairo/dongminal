@@ -255,55 +255,34 @@ impl Server {
         http::Response::new(httpresp::empty())
     }
 
-    /// GET /api/commands/sse: 명령 방송을 받는다. `?presence=1` 은 방송 없이 자리만 지킨다.
+    /// GET /api/commands/sse: 명령 방송을 받는다. 칸 소유권(옛 `?presence=1`)은 채널의 `slots` 가
+    /// 쥔다 (`perf/CHANNEL_PROTOCOL.md` C1).
     pub(crate) async fn handle_command_sse(&self, r: &mut Req) -> Response {
         let q = r.query();
-        let presence = q.get_or_empty("presence") == "1";
         let cid = q.get_or_empty("clientId");
         let (res, mut st) = otter_webserver_sse::start(otter_webserver_sse::WRITE_TIMEOUT);
-        let sub = if presence {
-            if self.conn.presence_subs.fetch_add(1, SEQ) + 1 > hub::SUB_CAP as i64 {
-                self.conn.presence_subs.fetch_sub(1, SEQ);
-                reject_sub(st);
-                return res;
-            }
-            None
-        } else {
-            match self.commands().and_then(|c| c.add()) {
-                Some(s) => Some(s),
-                None => {
-                    reject_sub(st);
-                    return res;
-                }
-            }
+        let Some(sub) = self.commands().and_then(|c| c.add()) else {
+            reject_sub(st);
+            return res;
         };
         let Some(me) = self.arc() else {
             return res;
         };
         let remote = r.remote_addr.clone();
         tokio::spawn(async move {
-            let release = me.attach_sse_leases(&cid, &remote, presence);
-            if !presence && let Some(u) = me.deps.updates.clone() {
+            let release = me.attach_sse_leases(&cid, &remote, false);
+            if let Some(u) = me.deps.updates.clone() {
                 tokio::task::spawn_blocking(move || u.trigger());
             }
             let hello = me.hello_event();
             st.comment("connected");
             st.data(&hello);
-            if st.flush().await
-                && (presence || !me.foreground_on_connect(&mut st) || st.flush().await)
-            {
-                me.pump_command_sse(&mut st, sub.as_ref(), &hello).await;
+            if st.flush().await && (!me.foreground_on_connect(&mut st) || st.flush().await) {
+                me.pump_command_sse(&mut st, &sub, &hello).await;
             }
             release();
-            match sub {
-                Some(s) => {
-                    if let Some(c) = me.commands() {
-                        c.remove(&s);
-                    }
-                }
-                None => {
-                    me.conn.presence_subs.fetch_sub(1, SEQ);
-                }
+            if let Some(c) = me.commands() {
+                c.remove(&sub);
             }
         });
         res
@@ -326,12 +305,12 @@ impl Server {
     }
 
     /// Go `attachSSELeases`: 이 구독이 붙어 있는 동안의 임대(포커스 소유 등)다. 역순으로 푼다.
-    fn attach_sse_leases(
+    pub(crate) fn attach_sse_leases(
         self: &Arc<Self>,
         cid: &str,
         remote: &str,
         presence: bool,
-    ) -> impl FnOnce() {
+    ) -> impl FnOnce() + Send + use<> {
         let mut undo: Vec<Box<dyn FnOnce() + Send>> = Vec::new();
         if !cid.is_empty() {
             let ep = self.focus.attach_from(cid, remote);
@@ -372,7 +351,7 @@ impl Server {
     async fn pump_command_sse(
         &self,
         st: &mut otter_webserver_sse::Stream,
-        sub: Option<&Arc<hub::CmdSub>>,
+        s: &Arc<hub::CmdSub>,
         hello: &[u8],
     ) {
         let mut keep = tokio::time::interval_at(
@@ -382,27 +361,17 @@ impl Server {
         let gone = st.closed();
         tokio::pin!(gone);
         loop {
-            match sub {
-                Some(s) => {
-                    tokio::select! {
-                        _ = &mut gone => return,
-                        _ = s.closed() => return,
-                        m = s.recv() => match m {
-                            Some(msg) => {
-                                st.data(&msg);
-                                st.drain_data(|| s.try_recv());
-                            }
-                            None => return,
-                        },
-                        _ = keep.tick() => st.data(hello),
+            tokio::select! {
+                _ = &mut gone => return,
+                _ = s.closed() => return,
+                m = s.recv() => match m {
+                    Some(msg) => {
+                        st.data(&msg);
+                        st.drain_data(|| s.try_recv());
                     }
-                }
-                None => {
-                    tokio::select! {
-                        _ = &mut gone => return,
-                        _ = keep.tick() => st.data(hello),
-                    }
-                }
+                    None => return,
+                },
+                _ = keep.tick() => st.data(hello),
             }
             if !st.flush().await {
                 return;
@@ -428,8 +397,6 @@ impl Server {
         otter_webserver_sse::payload("server_hello", Some(&m))
     }
 }
-
-const SEQ: std::sync::atomic::Ordering = std::sync::atomic::Ordering::SeqCst;
 
 fn reject_sub(mut st: otter_webserver_sse::Stream) {
     tokio::spawn(async move {

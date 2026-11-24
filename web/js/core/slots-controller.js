@@ -37,7 +37,6 @@ class SlotsController extends Controller {
   constructor(app){
     super(app);
     this._slotIds=[];          // 칸별 clientId. [0] 은 app.clientId 를 쓴다 (FR-WSL-10)
-    this._slotSse=[];          // 칸 1.. 의 소유권을 살려 두는 구독들 (FR-WSL-11)
     this.ops=new SlotOps(app);
   }
 
@@ -246,35 +245,17 @@ class SlotsController extends Controller {
     return out;
   }
 
-  // FR-WSL-11: 칸 i(>0) 의 소유권은 그 신원의 SSE 구독이 살아 있는 동안만
-  // 유지된다 (FR-XDF-9). 구독 없는 신원은 소유를 영원히 붙든다.
-  //
-  // 이 구독들은 메시지를 처리하지 않는다 — 워크스페이스 변경·알람·명령은 칸 0 의
-  // 구독이 이미 받고 있고, 같은 브라우저 안에서 두 번 처리하면 그것이 결함이다.
+  // FR-WSL-11: 칸 i(>0) 의 소유권은 그 신원이 채널에 실려 있는 동안만 유지된다
+  // (FR-XDF-9 · TC-CH1-13). 칸 0 은 명령 SSE 의 clientId 가 쥔다.
   _slotSyncSubs(){
-    const n=this.slotCount();
-    for(let i=1;i<SLOT_MAX;i++){
-      const want=i<n;
-      // 채널은 버스가 연다 (INV-2). 메시지를 처리하지 않으므로 topic 도 없다 —
-      // 여기서 여는 것 자체가 목적이다.
-      // OPTIMIZE_REFACTOR_SRS FR-OPT-4-12: `presence=1` 이면 서버가 방송을 싣지 않는다.
-      // 옛 서버는 파라미터를 모르고 전부 보내지만 이 채널은 처리하지 않는다.
-      if(want&&!this._slotSse[i]){
-        this._slotSse[i]=this.app.bus.openChannel('slot:'+i,
-          '/api/commands/sse?presence=1&clientId='+encodeURIComponent(this._slotIdentity(i)),
-          {owner:'slots'});
-      }else if(!want&&this._slotSse[i]){
-        this.app.bus.closeChannel('slot:'+i);
-        this._slotSse[i]=null;
-      }
-    }
+    const ch=this.app.channel;
+    if(!ch) return;
+    const ids=[];
+    for(let i=1;i<this.slotCount();i++) ids.push(this._slotIdentity(i));
+    ch.setSlots(ids);
   }
   _slotCloseAllSubs(){
-    for(let i=1;i<SLOT_MAX;i++){
-      if(!this._slotSse[i]) continue;
-      this.app.bus.closeChannel('slot:'+i);
-      this._slotSse[i]=null;
-    }
+    if(this.app.channel) this.app.channel.setSlots([]);
   }
 
   // ── 영속 (FR-WSL-2·72) ──

@@ -576,7 +576,7 @@ async fn watch_too_many_dirs_and_unattached_are_400() {
     w.close();
 }
 
-/// SSE 구독이 감시 임대를 쥐고, 끊기면 놓는다. presence 구독은 쥐지 않는다.
+/// SSE 구독이 감시 임대를 쥐고, 끊기면 놓는다. (칸 신원은 채널의 `slots` 로 쥐고 감시 임대는 쥐지 않는다.)
 #[tokio::test]
 async fn watch_lease_follows_sse_subscription() {
     let e = fs_env();
@@ -593,16 +593,6 @@ async fn watch_lease_follows_sse_subscription() {
             srv.serve_addr(r, LOCAL.to_owned()).await
         }
     };
-    let presence = open("clientId=p1&presence=1").await;
-    let body = json!({"clientId":"p1","dirs":[root.clone()]});
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    assert_eq!(
-        watch(&e, body).await.status,
-        400,
-        "presence 구독이 감시를 쥐었다"
-    );
-    drop(presence);
-
     let mut full = open("clientId=w1").await.into_body();
     let body = json!({"clientId":"w1","dirs":[root.clone()]});
     let deadline = Instant::now() + Duration::from_secs(3);

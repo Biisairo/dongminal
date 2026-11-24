@@ -1047,14 +1047,13 @@ test('TC-FEA-1(9h): 컨트롤러와 부품은 Controller·Component 하위이고
   const slot = new ctx.SlotsController(app);
   assert.ok(slot.ops instanceof ctx.SlotOps);
   assert.deepEqual(plain(slot._slotIds), []);
-  assert.deepEqual(plain(slot._slotSse), []);
 });
 
 test('TC-FEA-1(9h): App 생성자가 컨트롤러를 만들고 칸 신원·구독은 App 에서 빠진다 (§2.2 C/9h)', () => {
   const src = read('core/app.js');
   const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
   assert.ok(ctor.includes('this.slot=new SlotsController(this);'));
-  assert.doesNotMatch(ctor, /this\._slotIds=|this\._slotSse=/);
+  assert.doesNotMatch(ctor, /this\._slotIds=/);
   assert.ok(ctor.includes('this._slots=null;'));
 });
 

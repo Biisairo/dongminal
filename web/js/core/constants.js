@@ -186,6 +186,13 @@ const SSE_RETRY_MAX_MS=30000;
 const SSE_SILENCE_MS=45000;
 const SSE_SILENCE_CHECK_MS=5000;
 
+// PERF_OPTIMIZATION_SRS FR-CON-7 (`perf/CHANNEL_PROTOCOL.md` §7): 채널의 ping 주기(숨었을 때),
+// 침묵 판정의 유예, 재연결 백오프. 보일 때의 ping 주기는 `statsInterval` 이다.
+const CHAN_PING_HIDDEN_MS=30000;
+const CHAN_SILENCE_GRACE_MS=5000;
+const CHAN_RETRY_MIN_MS=500;
+const CHAN_RETRY_MAX_MS=10000;
+
 // TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면이 도구 목록을 **모르는** 스냅숏을
 // 받았을 때 다시 물어보는 횟수와 간격. 데몬 재접속은 실측 0.02초에 끝나므로
 // (SRS §2.1) 2초면 충분히 넉넉하고, 상한이 있어 데몬이 돌아오지 않아도 화면은

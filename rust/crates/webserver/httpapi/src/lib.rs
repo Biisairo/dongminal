@@ -16,6 +16,7 @@ mod ansi;
 mod asset_version;
 mod attention;
 mod carry;
+mod channel;
 mod chat_api;
 mod claude_accounts;
 mod commands;
@@ -210,8 +211,6 @@ pub(crate) struct ConnStats {
     pub(crate) ws_open: AtomicI64,
     /// 붙잡힌 WS 수 (ws_miss).
     pub(crate) holds: AtomicI64,
-    /// presence SSE 구독 수.
-    pub(crate) presence_subs: AtomicI64,
     pub(crate) misses: ws::MissTracker,
 }
 
