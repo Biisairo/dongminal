@@ -4,6 +4,14 @@ import { join } from 'path';
 
 import { test, expect, plainWindows, waitForInit, waitSettled, rmTree } from './fixtures';
 import { TMP, realPath, slash } from './osenv';
+import { E2E_HOME } from '../playwright.config';
+
+/**
+ * 격리 트리는 **이번 실행**의 워커 홈 아래 `w<N>/worktrees/` 에 선다 (E2E_PARALLEL_SRS FR-EPL-1).
+ * 실행 폴더의 이름(`otterminal-e2e-…`)이 아니라 실제 경로로 잰다 — `OTTER_E2E_RUN` 으로 폴더를 정하면 이름이 다르다.
+ */
+const WORKTREES_UNDER_RUN = new RegExp(
+  '^' + slash(realPath(E2E_HOME)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/w\\d+/worktrees/');
 
 // 에이전트 명령(/otterminal:migration · /otterminal:issue-tree)이 실제로 밟는 접합면을 라이브 서버에서
 // 검증한다. 스킬 문서는 명령·인자만 적혀 있어 정적 대조로는 "그 이름이 존재한다"
@@ -764,8 +772,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     // $OTTERMINAL_HOME/worktrees 다. 절대경로를 통째로 단정하지 않고 **모양**만
     // 본다 — 인스턴스 홈은 `<이 실행의 뿌리>/w<워커>` 이고 워커 번호는 그때그때
     // 다르다 (E2E_PARALLEL_SRS FR-EPL-1).
-    expect(slash(wt.path), `worktrees 루트 밖이다: ${wt.path}`)
-      .toMatch(/otterminal-e2e-[^/]+\/w\d+\/worktrees\//);
+    expect(slash(wt.path), `worktrees 루트 밖이다: ${wt.path}`).toMatch(WORKTREES_UNDER_RUN);
     expect(existsSync(wt.path), '경로가 실제로 만들어지지 않았다').toBe(true);
     // --no-track: base 의 upstream 을 물려받지 않는다 (FR-WKT-2).
     expect(() => execFileSync('git', ['rev-parse', '--abbrev-ref', `${wt.branch}@{upstream}`],
@@ -806,7 +813,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     })).json();
     const path = member.worktree.path;
     // 경로 확인 뒤에만 쓴다 — 빈 값이면 join 이 이 저장소 안에 파일을 만든다 (§4.3).
-    expect(slash(path), `worktrees 루트 밖이다: ${path}`).toMatch(/otterminal-e2e-[^/]+\/w\d+\/worktrees\//);
+    expect(slash(path), `worktrees 루트 밖이다: ${path}`).toMatch(WORKTREES_UNDER_RUN);
     const work = join(path, '작업물.txt');
     writeFileSync(work, '지우면 안 된다\n');
 

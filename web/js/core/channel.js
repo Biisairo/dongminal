@@ -200,9 +200,14 @@ class Channel {
         this._ready=true; this._epoch=m.epoch;
         for(const [topic,e] of this._topics){ e.waiting=false; this._subFrame(topic,e) }
         this.bus.publish('chan:open',{gen:this._gen,epoch:m.epoch,server:m.server||{}});
+        // 연결 표시는 지연을 보고 선다 — 첫 왕복을 한 주기 기다리게 하지 않는다.
+        this._ping();
       }
     }else if(m.t==='pong'){
-      if(m.n===this._pingN&&this._pingAt){ this._latency=Date.now()-this._pingAt; this._pingAt=0 }
+      if(m.n===this._pingN&&this._pingAt){
+        this._latency=Date.now()-this._pingAt; this._pingAt=0;
+        this.bus.publish('chan:pong',{latency:this._latency});
+      }
     }else if(m.t==='full'||m.t==='delta'||m.t==='event'||m.t==='reset'){
       this._onTopic(m);
     }
@@ -227,6 +232,10 @@ class Channel {
       this.connect();
       return;
     }
+    this._ping();
+  }
+
+  _ping(){
     this._pingN++;
     this._pingAt=Date.now();
     this.send({t:'ping',n:this._pingN});
