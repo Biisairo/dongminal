@@ -160,9 +160,12 @@ class GitPoll extends GitPart {
     // (NFR-RTU-1 이 그것을 금한다).
     const w=this.p.root?this.app.editor.edWindowFor(this.p.root):this.app.git.gitWindow();
     if(!w||!this.app.slot.windowVisible(w.id)) return false;
-    // 창이 보이는 것과 **이 패널의 표면**이 보이는 것은 다르다 — 사이드가
-    // Explorer 이고 본문에 git 뷰 탭도 없으면 이 관측을 쓰는 화면이 없다.
-    if(this.p.root&&!this.app.git.surfaces.gitSurfaceOn(w)) return false;
+    // 창이 보이는 것과 **이 패널의 표면**이 보이는 것은 다르다. 표면은 둘이다 — 본문으로 깬 git 뷰 탭(생명주기,
+    // PERF M3 §3.5)과 Repo 창의 Changes 사이드.
+    //   이전: 창의 어느 pane 에든 git 탭이 **있으면** 보는 것으로 읽었다 — 다른 탭 뒤에 가려져도 구독·회복 주기를 쥐었다
+    //   새:   본문이 깨 있거나(가려지고 2초 뒤 잠든다) 사이드가 Changes 일 때만이다
+    //   이유: 잠든 화면은 구독·타이머를 갖지 않는다(FR-SPA-3)
+    if(!this.p._bodyAwake&&!(this.p.root&&this.app.git.surfaces.gitSideOn(w))) return false;
     return !!this.p.repo;
   }
 

@@ -273,6 +273,7 @@ js/ui/file-tree-edit.js
 js/ui/file-tree-xfer.js
 js/ui/file-tree-download.js
 js/ui/runs-panel.js
+js/ui/run-view-life.js
 js/ui/run-dashboard.js
 js/ui/run-tree-cam.js
 js/ui/run-tree.js

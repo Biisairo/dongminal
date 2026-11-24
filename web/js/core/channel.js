@@ -130,6 +130,9 @@ class Channel {
     return n;
   }
 
+  /** 그 토픽을 구독하고 있는가 (PERF M3 §3.5 — 잠든 화면이 토픽을 놓았는지 e2e 가 본다). */
+  has(topic){ return this._topics.has(topic) }
+
   /** 토픽 구독 중 주인이 `test` 를 지나는 것의 수 (PERF M3 `app.testing.sleepers()`). */
   countOwned(test){
     let n=0;

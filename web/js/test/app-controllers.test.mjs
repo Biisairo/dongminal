@@ -646,7 +646,7 @@ const DELEGATES_9D = {
     '_initGitSection', 'gitSignal', 'gitStatusHub', 'gitOpenFile', 'gitOpenFileHead', 'gitOpenTerminal', 'gitBadgeFor', 'gitPinEntry',
     '_gitTermToolId'],
   'git.surfaces': ['gitObs', '_gitRescheduleAll', '_gitNotifyPinsAll', 'gitPanelAt', '_gitDropView',
-    '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSurfaceOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
+    '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSideOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
     '_gitRootOfActive'],
   'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', 'gitReposRefresh', 'gitPin', 'gitUnpin',
     '_gitPinsApply', '_gitJobsAdopt'],

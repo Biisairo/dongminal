@@ -73,6 +73,7 @@ class GitPanel {
     this._branchesView=null;      // Branches 탭 (FR-GIT-147~160)
     this._stashView=null;         // Stash 탭 (FR-GIT-161~170)
     this._consoleView=null;       // Console 탭 (FR-GIT-218)
+    this._bodyAwake=false;        // 탭 본문으로 깨 있는가 (PERF M3 §3.5, `wake`·`sleep`)
     this._worktreesView=null;     // Worktrees 탭 (FR-GIT-240~244)
     this._submodulesView=null;    // Submodules 탭 (UX_BATCH5_SRS 묶음 SUB)
     this._remoteView=null;        // 원격 작업 (FR-GIT-98~112)
@@ -226,6 +227,7 @@ class GitPanel {
    * (FR-GIT-56).
    */
   destroy(){
+    this.app.renderer.life.unmount(this);
     this.detach();
     for(const el of this._els.values()) if(el.parentNode) el.parentNode.removeChild(el);
     this._els.clear();
@@ -238,6 +240,23 @@ class GitPanel {
     this.viewReload.dispose();
     this.changes.dispose(); this.changeRows.dispose(); this.files.dispose(); this.selection.dispose();
     this.views.dispose(); this.viewRoots.dispose();
+  }
+
+  /**
+   * 생명주기 계약 (PERF M3 §3.5, FR-SPA-3). 이 패널이 탭 본문으로 보이는 동안만 깨 있다. 구독(`git:<root>`)과 회복 주기는
+   * 관측기가 쥐므로(같은 저장소의 다른 칸·Diff 탭과 나눈다) 깨고 잠들 때 폴링 판정을 다시 돌린다 — 깨면 다시 구독하고
+   * 한 번 수집한다(FR-CON-4). 콘솔은 자기 토픽(`gitconsole:<root>`)을 함께 걸고 놓는다.
+   */
+  wake(){
+    this._bodyAwake=true;
+    this.poll._reschedule();
+    if(this._consoleView) this._consoleView.paint();
+  }
+
+  sleep(){
+    this._bodyAwake=false;
+    this.poll._reschedule();
+    if(this._consoleView) this._consoleView._stop();
   }
 
   detach(){

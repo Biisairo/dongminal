@@ -363,7 +363,7 @@ Object.assign(RunsPanel.prototype, {
     const m = this._runViewMap();
     const key = this.app.slot.slotKey(tab.id, slot || 0);
     let v = m.get(key);
-    if (!v) { v = { key, tabId: tab.id, slot: slot || 0, runId: tab.runId, root: this._runBuildRoot(), data: null, err: null, busy: false, pending: false }; m.set(key, v) }
+    if (!v) { v = { key, tabId: tab.id, slot: slot || 0, runId: tab.runId, root: this._runBuildRoot(), data: null, err: null, busy: false, pending: false }; this._runLifeArm(v); m.set(key, v) }
     // 워크스페이스 복원이 같은 탭 id 에 다른 runId 를 실어 올 수 있다.
     if (v.runId !== tab.runId) { v.runId = tab.runId; v.data = null; v.err = null }
     this._runSubscribe(v);
@@ -450,6 +450,7 @@ Object.assign(RunsPanel.prototype, {
     for (const [key, v] of Array.from(m)) {
       if (!live.has(this.app.slot.slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
       if (pick && !pick(v)) continue;
+      if (v.asleep) { v.stale = true; continue }
       v.err = null;
       this._runFetch(v);
     }
@@ -499,6 +500,7 @@ Object.assign(RunsPanel.prototype, {
 
   _runDisposeView(v) {
     if (!v) return;
+    this.app.renderer.life.unmount(v);
     if (v.sub) { v.sub.stop(); v.sub = null; v.subRun = null }
     if (v.ro) { try { v.ro.disconnect() } catch {} v.ro = null }
     if (v.decay) { TIMERS.cancel(v.decay); v.decay = null }

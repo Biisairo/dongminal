@@ -110,7 +110,8 @@ function setup(globals = {}) {
     globals: { TIMERS: { disposeOwner() {} }, GIT_STATUS_RETRY_MS: 30000, ...globals },
   });
   const obs = { attach() {}, detach() {}, resettle() {} };
-  const app = { git: { surfaces: { gitObs: () => obs } }, timers: { disposeOwner() {} } };
+  // `renderer.life` — 패널은 파괴될 때 생명주기에서도 빠진다 (PERF M3 §3.5).
+  const app = { git: { surfaces: { gitObs: () => obs } }, timers: { disposeOwner() {} }, renderer: { life: { unmount() {} } } };
   return { ctx, app, panel: new ctx.GitPanel(app, '') };
 }
 
