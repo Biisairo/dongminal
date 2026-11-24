@@ -1,7 +1,7 @@
 // UX_AUDIT_FIX_SRS §3.9 — 5묶음: 저장 단추 · 사용량 바닥 · 칸 수 · 원격 라벨 · 데스크톱 돋보기 (TC-UXF-70~76)
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, makeCopyFx } from './fixtures';
+import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, makeCopyFx, stubTopic } from './fixtures';
 import { tmpPath } from './osenv';
 
 const MOBILE = { width: 412, height: 839 };
@@ -31,6 +31,8 @@ async function mockAccounts(page: Page, auto = false) {
     activeId: 'a', autoswitch: auto ? { enabled: true, status: 'on' } : { enabled: false, status: 'off' }, otherStatusLines: [],
     accounts: [acct('a', 'Work', 'acct-3', true), acct('b', 'Home', 'acct-6', false)],
   };
+  // 목록은 채널의 `claude.accounts` 토픽으로 온다(CHANNEL_PROTOCOL C2b). 매핑은 GET 그대로다.
+  await stubTopic(page, 'claude.accounts', list);
   await page.route('**/api/claude-accounts**', async (route) => {
     const p = new URL(route.request().url()).pathname.replace('/api/claude-accounts', '') || '/';
     const json = (data: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });

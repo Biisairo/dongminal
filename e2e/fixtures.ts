@@ -403,6 +403,32 @@ export async function refetchClaudeAccounts(page: any) {
   await page.evaluate(() => (window as any).app.testing.onClaudeAccountsChanged());
 }
 
+const TOPIC_STUBS = new WeakMap<any, Map<string, () => unknown>>();
+
+/**
+ * CHANNEL_PROTOCOL C2b: full 토픽은 채널로 와서 `page.route` 가 닿지 않는다. 채널을 실제 서버에 잇되 그 토픽의
+ * `full` 프레임 `data` 만 바꾼다 — 화면은 실제 토픽 경로(프레임 → 등록부 → 그리기)를 지난다. `data` 가 함수면
+ * 프레임마다 불러 지금 값을 싣는다. 200 이 아닌 결과는 서버처럼 `{ $http: 상태, body }` 로 준다.
+ * 페이지를 열기 전에 부른다. 한 페이지에서 여러 토픽을 바꿀 수 있다.
+ */
+export async function stubTopic(page: any, topic: string, data: unknown) {
+  const make = typeof data === 'function' ? (data as () => unknown) : () => data;
+  const have = TOPIC_STUBS.get(page);
+  if (have) { have.set(topic, make); return }
+  const stubs = new Map([[topic, make]]);
+  TOPIC_STUBS.set(page, stubs);
+  await page.routeWebSocket(/\/channel(\?|$)/, (ws: any) => {
+    const server = ws.connectToServer();
+    ws.onMessage((m: any) => server.send(m));
+    server.onMessage((m: any) => {
+      if (typeof m !== 'string') return ws.send(m);
+      const f = JSON.parse(m);
+      const stub = f.t === 'full' ? stubs.get(f.topic) : undefined;
+      ws.send(stub ? JSON.stringify({ ...f, data: stub() }) : m);
+    });
+  });
+}
+
 /**
  * 화면이 받는 계정 한도(`/api/tools/activity` 의 `limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
  *

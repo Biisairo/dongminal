@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, JSON_HDR } from './fixtures';
+import { test, expect, waitForInit, JSON_HDR, stubTopic } from './fixtures';
 
 /**
  * 새 판 배지 (UPDATE_NOTICE_SRS 묶음 안내).
@@ -23,11 +23,12 @@ const LATEST: Snap = { enabled: true, current: 'v9.9.9', latest: 'v9.9.9', newer
 /**
  * `/api/update` 를 고정 응답으로 바꾼다. PUT 은 `enabled` 만 갈아 돌려준다.
  *
- * 구독이 열릴 때의 읽기는 `/api/snapshot` 의 `update` 조각으로 온다 (OPTIMIZE_REFACTOR_SRS
- * FR-OPT-4-5) — 그 조각도 같은 값으로 바꾼다.
+ * 화면의 값은 채널의 `update` 토픽으로 온다(CHANNEL_PROTOCOL C2b) — 그 토픽도 같은 값으로 바꾼다.
+ * 소프트 리로드의 재조회(`/api/snapshot` 의 `update` 조각)도 같은 값이다.
  */
 async function stubUpdate(page: any, snap: Snap) {
   let cur = { ...snap };
+  await stubTopic(page, 'update', () => cur);
   await page.route('**/api/update', async (route: any) => {
     if (route.request().method() === 'PUT') {
       const body = JSON.parse(route.request().postData() || '{}');
@@ -107,8 +108,11 @@ test.describe('Update notice', () => {
   // 판 확인이 없는 서버(503)에서는 행 자체가 없다 — 누를 수 없는 것을 보여
   // 주는 것은 고장으로 읽힌다.
   test('settings row is hidden when the server has no update check', async ({ page }) => {
+    const unavailable = { error: 'update check unavailable' };
     await page.route('**/api/update', (route: any) =>
-      route.fulfill({ status: 503, headers: JSON_HDR, body: JSON.stringify({ error: 'update check unavailable' }) }));
+      route.fulfill({ status: 503, headers: JSON_HDR, body: JSON.stringify(unavailable) }));
+    // 토픽은 200 이 아닌 결과를 `{ $http, body }` 로 싣는다 (CHANNEL_PROTOCOL C2b).
+    await stubTopic(page, 'update', { $http: 503, body: unavailable });
     // 스냅샷은 200 이 아닌 조각을 싣지 않는다 (FR-OPT-4-5) — 그 서버의 모양으로 뺀다.
     await page.route('**/api/snapshot?*', async (route: any) => {
       const res = await route.fetch();
