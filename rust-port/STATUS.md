@@ -1,12 +1,12 @@
-# 포팅 진행 상태 (2026-11-24 09:4x — 이슈 0~10 done, 11·12 마무리 중)
+# 포팅 진행 상태 (2026-11-24 10:2x — 이슈 0~12 전부 done, Go 제거·e2e 전량 통과)
 
 ## 지금 상태
 
-- 이슈 10(Rust 남은 결함 12건) 전부 done. RUST_DEFECT_FIX_SRS 승인·구현완료.
-- 이슈 11(Go 제거와 Rust 빌드 전환): 11.1·11.2·11.3(b·c)·11.5·11.6·11.7·11.8·11.9(b·c) done. `scripts/build.sh` 가 Rust 를 빌드해 `./dongminal` 이 Rust 바이너리다(확인함). int 에서 툴체인 1.95.0 으로 build.sh·`make gates` ok(09:3x).
-- 남은 것: **12.3**(e2e 고정 대기 단축, 진행 중) → **11.10**(Go 삭제·빌드·게이트) → **사용자 지시로 e2e 전 멈춤** → 사용자 신호 뒤 e2e 전량 1회.
-- 이슈 12: 12.0 보고서·12.1(17개 삭제)·12.2 분석 done, 12.3 진행 중.
-- int 에 node_modules 를 npm ci 로 설치했다(게이트의 JS 검사에 필요).
+- 이슈 0~12 전부 done. GO_REMOVAL_SRS·RUST_PORT_SRS·RUST_DEFECT_FIX_SRS 승인·구현완료.
+- rust-port 에 Go 소스가 없다(`05005dfe`). 남은 `.go` 는 `rust/crates/*/testdata/go*/main.go` 5개뿐(Q-GRM-4 선택 실행 대조용).
+- go 없는 PATH 로 `./scripts/build.sh`·`make gates`(66단계)·`make test`(3890 통과)·`npm run unit`(1572 통과) 통과.
+- e2e 전량 1회(10:00~10:16, 워커 3): darwin 2282 항목 실패 0, flaky 1(TC-KIT-6a, 단독 10/10 통과), 건너뜀 3(docker 없음).
+- 남은 것은 사용자 결정뿐이다: 운영 전환(Go→Rust 바이너리)과 main 병합 시점. CI 는 병합 뒤 첫 실행으로 확인한다.
 
 ## 사용자 지시(2026-11-24)
 
