@@ -136,7 +136,6 @@ I18N.register('ko', {
   'activity.state_idle': '멈춤',
   'activity.state_waiting': '대기',
   'activity.state_working': '작업 중',
-  'core.off': '끔',
   'core.ok': '확인',
   'core.open_window_fail': '창을 열지 못했습니다',
   'core.open_tab_fail': '탭을 열지 못했습니다',

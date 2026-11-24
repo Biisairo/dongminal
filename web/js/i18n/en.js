@@ -110,7 +110,6 @@ I18N.register('en', {
   'activity.state_idle': 'idle',
   'activity.state_waiting': 'waiting',
   'activity.state_working': 'working',
-  'core.off': 'Off',
   'core.ok': 'OK',
   'core.open_window_fail': 'Could not open a window',
   'core.open_tab_fail': 'Could not open a tab',
