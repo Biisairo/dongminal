@@ -50,9 +50,13 @@
 |---|---|---|---|
 | C1 | 액션 `uses:` 를 40자 SHA 로 고정 | (게이트가 아니라 상태) 태그 참조 0건 | `SEC-29` |
 | C2 | `build.sh` 에 `-trimpath` | (상태) 러너가 달라도 해시가 같다 | `SEC-30` |
-| C3 | dependabot (gomod·github-actions·npm) | (자동 PR) | `SEC-28` |
+| C3 | ~~dependabot~~ — **쓰지 않는다** (2026-11-24 사용자 결정) | — | `SEC-28` |
 | C4 | `web/vendor/VERSIONS.md` | (상태) 4종 이상의 판·해시 기록 | `SEC-32` |
 | C5 | `release.yml` 의 `publish.needs` 에 e2e | e2e 실패 시 발행이 진행되지 않는다 | `G3-5` |
+
+- C3 이전 동작: `.github/dependabot.yml` 이 매주 의존성 갱신 PR 을 자동으로 열었다(Go 판 gomod·github-actions·npm, Rust 전환 뒤 cargo·github-actions·npm).
+- C3 새 동작: 설정 파일을 지워 자동 PR 을 열지 않는다. 의존성 취약점은 `verify.yml` 의 `cargo deny`·`cargo audit`(`make lint`)이 계속 잡는다. 갱신은 사람이 직접 한다.
+- C3 이유: 사용자 결정(2026-11-24) — 자동 PR 을 원하지 않는다.
 
 **D. 프로젝트 고유 게이트** (기존 4종, `verify.yml` 의 `gates` 잡)
 
