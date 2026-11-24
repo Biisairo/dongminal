@@ -427,9 +427,13 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | POST | `/api/git/records/replay` | 그중 하나를 다시 실행한다 |
 | POST | `/api/git/drop` | 커밋 하나를 히스토리에서 뺀다 — rebase **작업** |
 
-## WebSocket: `/ws?tool=<id>&cols=&rows=&since=`
+## WebSocket: `/channel?v=1` — 터미널
 
-Binary 프로토콜. 첫 바이트가 opcode.
+브라우저 탭 하나가 WebSocket 하나(채널)를 열고, 터미널은 그 위에 붙는다(설계: `docs/internal/perf/CHANNEL_PROTOCOL.md`). 첫 텍스트 프레임은 `{"t":"hello",...}` 다.
+
+- 붙기: 텍스트 `{"t":"term.open","sid":<u32>,"tool":"<id>","cols":<n>,"rows":<n>,"since":<offset>}`. `sid` 는 브라우저가 고르는 번호, `tool` 이 비면 새 도구를 만든다, `since` 는 아래 재접속과 같다.
+- 떼기: `{"t":"term.close","sid":<u32>}`. 서버가 그 터미널을 놓으면(도구 구독이 끊김 등) `{"t":"term.lost","sid":<u32>}` 를 보내고, 브라우저는 백오프 뒤 `since` 로 다시 붙는다.
+- 터미널 프레임은 바이너리 `[opcode u8][sid u32 BE][payload]` 이다. opcode 와 payload 는 아래 표와 같다.
 
 | Opcode | 방향 | 페이로드 |
 |--------|------|----------|
@@ -443,7 +447,7 @@ Binary 프로토콜. 첫 바이트가 opcode.
 | `0x05` | S→C | 크기 통보: `cols uint16 BE + rows uint16 BE`. 지금 PTY 의 크기다. 접속 직후 재생보다 앞에 한 번, 이후 크기가 바뀔 때마다 그 도구의 모든 클라이언트에게 |
 | `0x06` | S→C | 응답 좌석: `owns uint8`(1=주인). **질의의 답을 보낼 자격**이다. 접속 직후 재생보다 앞에 한 번, 연결이 붙거나 떨어질 때마다 다시 |
 
-서버는 `gorilla/websocket` ping/pong 으로 keep-alive (pong 60s, ping 54s). 모든 쓰기는 `safeConn` mutex 로 직렬화.
+서버는 WebSocket ping/pong 으로 keep-alive (pong 60s, ping 54s). 쓰기는 채널마다 쓰기 태스크 하나가 우선순위(제어 > 터미널 > 상태) 대로 한다. 한 터미널에 밀린 출력이 1 MB 를 넘으면 서버는 밀린 것을 버리고 브라우저가 가진 좌표부터 다시 재생한다.
 
 ### 재접속 (`since`)
 

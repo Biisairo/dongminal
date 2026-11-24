@@ -151,6 +151,7 @@ class WsSyncController extends Controller {
     bus.setWake(()=>ch.kick());
     ch.connect();
     this.app.git.topics.bind(ch);
+    TERM_MUX.attach(ch);
     this.app.slot._slotSyncSubs();
   }
 

@@ -43,6 +43,8 @@ pub(crate) struct FakeHub {
     pub(crate) create_err: Option<String>,
     /// 도구마다 구독 (출력 송신자, 종료 신호).
     pub(crate) subs: Mutex<HashMap<String, (Sender<OutChunk>, CancellationToken)>>,
+    /// 같은 도구의 나중 구독에 밀려난 구독 — 살려 두어 앞 구독자의 출력이 끊기지 않게 한다.
+    pub(crate) replaced_subs: Mutex<Vec<(Sender<OutChunk>, CancellationToken)>>,
     pub(crate) snaps: Mutex<HashMap<String, ToolSnapshot>>,
     pub(crate) inputs: Mutex<Vec<(String, Vec<u8>)>>,
     pub(crate) resizes: Mutex<Vec<(String, u16, u16)>>,
@@ -67,10 +69,14 @@ impl FakeHub {
 impl ToolHub for FakeHub {
     fn subscribe(&self, tool_id: &str, tx: Sender<OutChunk>) -> (CancellationToken, Unsubscribe) {
         let exit = CancellationToken::new();
-        self.subs
+        let old = self
+            .subs
             .lock()
             .unwrap()
             .insert(tool_id.to_owned(), (tx, exit.clone()));
+        if let Some(old) = old {
+            self.replaced_subs.lock().unwrap().push(old);
+        }
         (exit, Box::new(|| {}))
     }
     fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError> {

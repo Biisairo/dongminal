@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, JSON_HDR } from './fixtures';
+import { test, expect, waitForInit, waitSettled, JSON_HDR, trackTermAttach, termAttaches } from './fixtures';
 
 /**
  * V-OTR-17 — 숨은 칸은 되찾아도 재생하지 않고, 보일 때 한 번 갚는다
@@ -26,21 +26,6 @@ async function newClient(browser: any, width: number): Promise<Page> {
   const page = await ctx.newPage();
   await waitForInit(page);
   return page;
-}
-
-type Sock = { tool: string; bytes: number; closed: boolean };
-
-function trackSockets(page: Page): Sock[] {
-  const out: Sock[] = [];
-  page.on('websocket', (ws) => {
-    const u = new URL(ws.url());
-    if (u.pathname !== '/ws') return;
-    const rec: Sock = { tool: u.searchParams.get('tool') || '', bytes: 0, closed: false };
-    out.push(rec);
-    ws.on('framereceived', (f) => { const p: any = f.payload; rec.bytes += typeof p === 'string' ? p.length : p.byteLength; });
-    ws.on('close', () => { rec.closed = true });
-  });
-  return out;
 }
 
 const claim = (page: Page) => page.evaluate(() => (window as any).app.focus.setFocus((window as any).app.focused));
@@ -81,7 +66,8 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
   const narrow = await remote.evaluate(() => (window as any).app.testing.focusedTerminal().term.cols);
   await expect.poll(() => local.evaluate((c) => [...(window as any).app.tools.values()].every((p: any) => p.term && p.term.cols === c), narrow), { timeout: 10000 }).toBe(true);
 
-  const socks = trackSockets(local);
+  // PERF C5: 탭마다의 붙음은 채널의 `term.open` 이다 — 옛 칸별 소켓 하나와 같다.
+  await trackTermAttach(local);
   for (let round = 0; round < 2; round++) {
     for (const id of all) {
       await local.evaluate((tid) => {
@@ -96,11 +82,12 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
   }
 
   console.log('[dbg] ' + await local.evaluate(() => JSON.stringify([...(window as any).app.tools.values()].map((p: any) => ({ id: p.id.slice(-6), vis: p.el.classList.contains('vis'), cols: p.term && p.term.cols, own: p._ownCols, debt: p._widthDebt, live: p._seqLive, alt: p._srvAlt, ws: !!p.ws })))));
+  const socks = await termAttaches(local);
   const perTool = new Map<string, number>();
   for (const s of socks) perTool.set(s.tool, (perTool.get(s.tool) || 0) + 1);
   const summary = JSON.stringify([...perTool.entries()].map(([t, n]) => [t.slice(-6), n]));
   // 탭마다 정확히 한 벌 — 둘 이상이면 재생이 되풀이된 것이고, 0 이면 보일 때 빚을 갚지 않은 것이다.
   for (const id of all) expect(perTool.get(id) || 0, `${id.slice(-6)} 의 전량 재생 횟수: ${summary}`).toBe(1);
   const twins = socks.filter((s) => s.closed && s.bytes === 0);
-  expect(twins.length, '열자마자 버려진 소켓이 있다').toBe(0);
+  expect(twins.length, '붙자마자 버려진 붙음이 있다').toBe(0);
 });
