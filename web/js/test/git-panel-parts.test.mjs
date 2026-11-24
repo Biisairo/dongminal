@@ -105,7 +105,8 @@ const ASSIGNS_LEFT = 0;
 function setup(globals = {}) {
   const ctx = load([...BASE, ...GITPANEL], {
     expose: ['GitPanel', 'GitPart', 'Component', ...PARTS.map((s) => s.cls)],
-    globals: { TIMERS: { disposeOwner() {} }, ...globals },
+    // `GitPoll` 의 클래스 필드가 생성 때 읽는다 (PERF 1.15). 원본은 i18n 을 부르는 constants-git-detect.js 라 싣지 않는다.
+    globals: { TIMERS: { disposeOwner() {} }, GIT_STATUS_RETRY_MS: 30000, ...globals },
   });
   const obs = { attach() {}, detach() {}, resettle() {} };
   const app = { git: { surfaces: { gitObs: () => obs } }, timers: { disposeOwner() {} } };
