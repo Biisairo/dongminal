@@ -79,6 +79,7 @@ mod serve_content;
 mod settings;
 mod settings_etag;
 mod snapshot;
+mod state_topics;
 mod static_assets;
 mod status;
 mod subagents;
@@ -230,6 +231,8 @@ pub struct Server {
     pub(crate) browser_in: ws::BrowserInputs,
     /// 채널 토픽의 상태·순번·구독 (`perf/CHANNEL_PROTOCOL.md` §11.1).
     pub(crate) topics: channel::TopicHub,
+    /// delta 토픽·Run 그래프·지표의 계산 (`perf/CHANNEL_PROTOCOL.md` §10.4).
+    pub(crate) state_topics: state_topics::StateTopics,
     /// SSE 인사의 주기. `None` 이면 기본값이다 — 시험만이 줄인다.
     pub(crate) hello_every: Mutex<Option<Duration>>,
     /// `PUT /api/sandbox/config` 의 지문 검사와 저장을 한 덩이로 묶는다 (FR-LIV-2).
@@ -297,17 +300,21 @@ impl wsentry::Broadcaster for BrokerCast {
 impl Server {
     /// Go `New`. `deps.commands` 가 없으면 새 허브를 만든다.
     pub fn new(cfg: Config, deps: Deps) -> Arc<Server> {
-        Arc::new_cyclic(|me| Server::build(cfg, deps, me.clone()))
+        let s = Arc::new_cyclic(|me| Server::build(cfg, deps, me.clone()));
+        s.wire_state_topics();
+        s
     }
 
     /// 시험이 상한·홈 같은 서버 하나의 값을 바꾼 뒤 세운다.
     #[cfg(test)]
     pub(crate) fn new_with(cfg: Config, deps: Deps, f: impl FnOnce(&mut Server)) -> Arc<Server> {
-        Arc::new_cyclic(|me| {
+        let s = Arc::new_cyclic(|me| {
             let mut srv = Server::build(cfg, deps, me.clone());
             f(&mut srv);
             srv
-        })
+        });
+        s.wire_state_topics();
+        s
     }
 
     fn build(cfg: Config, mut deps: Deps, me: Weak<Server>) -> Server {
@@ -350,6 +357,7 @@ impl Server {
             conn: ConnStats::default(),
             browser_in: ws::BrowserInputs::default(),
             topics: channel::TopicHub::default(),
+            state_topics: state_topics::StateTopics::default(),
             hello_every: Mutex::new(None),
             sandbox_put: tokio::sync::Mutex::new(()),
             me,

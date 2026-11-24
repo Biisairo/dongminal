@@ -99,7 +99,7 @@
 | `runs` | delta | `run_changed` + `/api/runs` 5초 | 멤버 생존은 도구 종료 사건에서 다시 계산한다 |
 | `run:<id>` | full | 열린 Run 화면의 `/graph` 5초 | Run 탭이 열린 동안만 구독한다 |
 | `focus` | full | `window_focus` | |
-| `stats` | full | `/api/stats` 3초 | 서버가 구독자가 있을 때만 `stats` 주기로 잰다. 주기는 구독자의 요청 중 가장 짧은 것, 하한 1초 |
+| `stats:<ms>` | full | `/api/stats` 3초 | 서버가 구독자가 있을 때만 잰다. 주기는 토픽 이름의 `<ms>` 중 가장 짧은 것, 하한 1초(§10.4) |
 | `git.jobs` | full | `git_jobs_changed` + `/api/stats?jobs=1` | |
 | `git:<repo>` | full | `git_changed` + git status 폴링 | 서버 gitwatch 의 관측을 그대로 민다. 저장소 목록·편집기 git 도 같은 토픽을 구독한다 |
 | `gitjob:<id>` | event | git job SSE | 작업이 끝나면 서버가 마지막 `event` 뒤에 구독을 닫는다 |
@@ -170,6 +170,29 @@
 | 서버 채널 | 구독·해지, 구독하지 않은 토픽은 오지 않는다, 순번 단조 증가, 링 안 재구독은 변화량만, 링 밖·epoch 다름은 full, 우선순위 큐, 상한(토픽 합치기·터미널 재스냅숏·채널 닫기), 신원 임대가 채널 수명과 같다 |
 | 프론트 채널 | 재연결 시 마지막 순번으로 재구독, 빈틈 발견 시 재구독, 침묵 판정, `ping` 주기(보일 때·숨었을 때), `sid` 로 터미널 프레임 나누기 |
 | e2e | 브라우저 탭 하나에 WebSocket 하나, 유휴 1분 동안 상태용 GET 0, 채널을 끊었다 이었을 때 모든 토픽이 서버와 같다(NFR-PRF-15) |
+
+### 10.4 C3 — delta 토픽과 stats
+
+| ID | 쪽 | 동작 |
+|---|---|---|
+| TC-CH3-1 | 서버 | `activity` 를 구독하면 `full` 의 `data` 가 `{toolId: 활동 항목, "_limits": 리밋 목록}` 이다. 항목은 `GET /api/tools/activity` 의 것과 같다 |
+| TC-CH3-2 | 서버 | 활동 보고 하나는 `activity` 에 그 도구 하나만 `put` 하는 `delta` 를 낸다. 바뀐 것이 없으면 내지 않는다 |
+| TC-CH3-3 | 서버 | 사용률(statusLine) 보고는 방송이 없어도 `activity` 의 그 도구를 다시 계산해 `put` 한다 |
+| TC-CH3-4 | 서버 | 알람 보고·해제는 `attention` 에 `put`·`del` 을 낸다(`id` = toolId, 값 `true`) |
+| TC-CH3-5 | 서버 | `tools_background_changed` 방송 뒤 `background` 는 바뀐 행만 `put`·`del` 한다(행은 `GET /api/tools/background` 의 것) |
+| TC-CH3-6 | 서버 | `run_changed` 방송 뒤 `runs` 는 그 Run 의 보기를 `put` 하고, 구독 중인 `run:<id>` 는 새 그래프를 `full` 로 받는다. 없는 Run 의 `run:<id>` 는 `unknown_topic` 이다 |
+| TC-CH3-7 | 서버 | `stats:<ms>` 를 구독하면 곧바로 `full` 을 받고, 구독하는 동안 그 주기로 `full` 이 온다. 1000 보다 작은 주기는 1000 으로 읽는다. 구독자가 없으면 측정이 멈춘다(순번이 오르지 않는다) |
+| TC-CH3-8 | 프론트 | 등록부의 토픽 항목(`tool.attention`·`tool.activity`·`tool.background`·`run.list`)은 첫 `chan:open` 에 채널을 구독한다. `full`·`delta` 를 받으면 토픽 맵에서 GET 과 같은 본문을 만들어 그 상태의 복원(또는 적용)에 넘긴다. 한 틱 안의 변화는 한 번으로 합친다 |
+| TC-CH3-9 | 프론트 | `tool.activity`·`run.list`·`run.views`·`tool.background` 에 주기(`every`)가 없고, 이 넷과 `tool.attention` 의 `revalidateOn` 에 `sse:open` 이 없다 |
+| TC-CH3-10 | 프론트 | 상태바는 `/api/ping`·`/api/stats` 를 부르지 않는다. `stats:<statsInterval>` 을 구독하고, `full` 마다 지표를 얹고 지연은 `app.channel.latency()` 로 그린다. 주기가 바뀌면 옛 토픽을 해지하고 새 토픽을 구독한다 |
+| TC-CH3-11 | 프론트 | 열린 Run 화면은 `run:<id>` 를 구독해 그래프를 GET 없이 얹고, 화면이 사라지면 해지한다 |
+
+토픽별 결정:
+- `activity` 의 리밋은 상태 맵의 예약 id `"_limits"` 에 목록으로 둔다. 리셋까지 남은 시간은 브라우저가 시각으로 계산한다(지금과 같다).
+- 서버는 "바뀌었을 수 있다"는 계기(관련 방송 — `tool_attention`·`tool_attention_clear`·`tool_activity`·`tool_subagent_activity`·`tools_background_changed`·`run_changed`·`workspace_changed`·`tool_foreground`, 사용률·서브에이전트 보고)마다 해당 토픽의 맵을 다시 계산해 지난번과 비교하고 다른 id 만 낸다. 계기는 `STATE_TOPIC_DEBOUNCE`(100 ms) 로 합친다. 방송은 명령 허브의 `set_broadcast_tap` 으로 엿본다.
+- `foreground` 는 이 단계에서 토픽으로 옮기지 않는다. 주기 폴링이 없고 재조회는 워크스페이스 적용 경로(`/api/state`)에 있다 — C2b 의 `workspace` 토픽이 함께 가져간다.
+- `stats` 의 주기는 토픽 이름에 싣는다(`stats:<ms>`). 서버는 구독 중인 주기 가운데 가장 짧은 것(하한 1초)으로 한 번 재서, 구독 중인 `stats:*` 모두에 같은 값을 낸다. **남는 서버 내부 주기 (FR-SRV-2)**: `stats` 측정 — 이유: CPU·메모리·가동 시간은 사건 없이 바뀐다. 주기: 구독자의 `statsInterval`(기본 3초, 하한 1초). 구독자가 없으면 돌지 않는다.
+- git 작업 목록의 안전망(`/api/stats?jobs=1`)은 상태바 폴링과 함께 없어진다. `git.jobs` 토픽(C4)이 대신한다.
 
 ## 11. 구현 계약 (토픽 기반 — C2~C5 가 딛는다)
 

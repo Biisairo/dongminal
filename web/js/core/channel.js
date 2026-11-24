@@ -218,6 +218,8 @@ class Channel {
 
   _lost(){
     this._drop();
+    this._latency=null;
+    this.bus.publish('chan:lost',{gen:this._gen});
     if(this._stopped||this._retryT) return;
     const wait=this._retry;
     this._retry=Math.min(wait*2,CHAN_RETRY_MAX_MS);

@@ -192,6 +192,8 @@ const CHAN_PING_HIDDEN_MS=30000;
 const CHAN_SILENCE_GRACE_MS=5000;
 const CHAN_RETRY_MIN_MS=500;
 const CHAN_RETRY_MAX_MS=10000;
+/** 상태 토픽(PERF M1 C3) 변화를 복원에 넘기기 전에 모으는 시간. 한 틱의 변화는 한 번으로 합친다. */
+const STATE_TOPIC_COALESCE_MS=0;
 
 // TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면이 도구 목록을 **모르는** 스냅숏을
 // 받았을 때 다시 물어보는 횟수와 간격. 데몬 재접속은 실측 0.02초에 끝나므로

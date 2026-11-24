@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { load, plain } from './harness.mjs';
 
 /**
  * REPO_FIX 02 §3A-2 — 서버가 넘친 구독을 **닫는다**. 그때 잃은 이벤트는 재연결의
@@ -11,38 +11,11 @@ import { load } from './harness.mjs';
 test('재연결(sse:open)이 git·설정·포커스·도구 상태를 다시 받는다', () => {
   const ctx = load(['core/state-registry.js'], { expose: ['STATE_REGISTRY'] });
   const byId = new Map(ctx.STATE_REGISTRY.map((e) => [e.id, e]));
-  for (const id of ['git.observe', 'settings', 'window.focus', 'tool.attention', 'tool.activity', 'tool.background']) {
+  for (const id of ['git.observe', 'settings', 'window.focus']) {
     const e = byId.get(id);
     assert.ok(e, `${id} 선언이 없다`);
     assert.ok(e.revalidateOn.includes('sse:open'), `${id} 가 재연결에 다시 받지 않는다`);
   }
-});
-
-/**
- * OPTIMIZE_REFACTOR_SRS FR-OPT-4-6 (FEC-9) — activity 주기는 읽는 곳이 있을 때만 돈다.
- * 패널이 닫히고 알림이 없으면 `when` 이 거짓이다.
- */
-test('tool.activity 주기는 패널이 열렸거나 알림이 있을 때만 돈다', () => {
-  const ctx = load(['core/state-registry.js'], { expose: ['wireStateRegistry'] });
-  const jobs = [];
-  let open = false;
-  const app = {
-    bus: { subscribe() {} },
-    timers: { every: (spec) => jobs.push(spec) },
-    agentsPollMs: 5000,
-    _attn: new Map(),
-    agents: { _agentsPanelShown: () => open },
-  };
-  ctx.wireStateRegistry(app);
-  const job = jobs.find((j) => j.id === 'tool.activity');
-  assert.ok(job, 'activity 주기가 없다');
-  assert.equal(typeof job.when, 'function', 'when 이 없다 — 늘 돈다');
-  assert.equal(job.when(), false);
-  open = true;
-  assert.equal(job.when(), true);
-  open = false;
-  app._attn.set('t1', { reason: 'signaled' });
-  assert.equal(job.when(), true);
 });
 
 /**
@@ -88,12 +61,13 @@ test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 �
   const { gets, got, fire } = snapshotRig();
   fire('sse:open', { gen: 1 });
   assert.equal(gets.length, 1, JSON.stringify(gets));
-  assert.equal(gets[0], '/api/snapshot?parts=attention,activity,background,update,focus,edges');
+  assert.equal(gets[0], '/api/snapshot?parts=update,focus,edges');
   assert.equal(got._settingsRestore, undefined, '첫 연결에 설정을 다시 받았다');
-  const att = await got._attnRestore;
-  assert.equal(att.ok, true);
-  assert.equal(att.data.part, 'attention');
-  assert.equal(att.text, JSON.stringify({ part: 'attention' }));
+  assert.equal(got._attnRestore, undefined, '채널 토픽인 알람을 재연결에 다시 받았다 (TC-CH3-9)');
+  const fo = await got._focusRestore;
+  assert.equal(fo.ok, true);
+  assert.equal(fo.data.part, 'focus');
+  assert.equal(fo.text, JSON.stringify({ part: 'focus' }));
   // 조각이 없으면(503 인 update) 실패 봉투다 — 종단이 실패한 것과 같다.
   const up = await got._updateRestore;
   assert.equal(up.ok, false);
@@ -112,38 +86,11 @@ test('재연결·소프트 리로드: 설정도 같은 스냅샷에 든다', asy
 });
 
 /**
- * ACTIVITY_RUNS_REFRESH_SRS TC-ARR-1 (FR-ARR-1·2·3) — Runs 목록은 패널이 열려 있는 동안
- * 활동 주기마다 다시 받는다. 닫혀 있으면 돌지 않는다.
- */
-test('run.list 주기는 패널이 열려 있을 때만 활동 주기로 목록을 다시 받는다', () => {
-  const ctx = load(['core/state-registry.js'], { expose: ['wireStateRegistry'] });
-  const jobs = [];
-  let open = false;
-  let calls = 0;
-  const app = {
-    bus: { subscribe() {} },
-    timers: { every: (spec) => jobs.push(spec) },
-    agentsPollMs: 1234,
-    _attn: new Map([['t1', { reason: 'signaled' }]]),
-    _runsListRestore: () => { calls++ }, agents: { _agentsPanelShown: () => open },
-  };
-  ctx.wireStateRegistry(app);
-  const job = jobs.find((j) => j.id === 'run.list');
-  assert.ok(job, 'Runs 목록 주기가 없다');
-  assert.equal(job.every(), 1234);
-  assert.equal(job.when(), false, '알림만 있어도 돈다 — 조건은 패널 열림 하나다 (D-ARR-2)');
-  open = true;
-  assert.equal(job.when(), true);
-  job.run();
-  assert.equal(calls, 1);
-});
-
-/**
  * ACTIVITY_RUNS_REFRESH_SRS TC-ARR-6 (FR-ARR-6) — 새로고침하면 패널이 열린 채로 복원되어
  * 「열 때 받기」를 거치지 않는다. 그래서 구독이 열릴 때 곧바로 받아야 첫 주기를 기다리지 않는다.
  */
-test('run.list 는 첫 연결·재연결·소프트 리로드에 목록을 다시 받는다', () => {
-  for (const [topic, a] of [['sse:open', { gen: 1 }], ['sse:open', { gen: 2 }], ['softreload', {}]]) {
+test('run.list 는 소프트 리로드에 목록을 다시 받는다 (재연결은 채널 토픽이 맞춘다)', () => {
+  for (const [topic, a] of [['softreload', {}]]) {
     const { got, fire } = snapshotRig();
     fire(topic, a);
     assert.ok('_runsListRestore' in got, `${topic} ${JSON.stringify(a)} 에 Runs 목록을 받지 않았다`);
@@ -151,54 +98,72 @@ test('run.list 는 첫 연결·재연결·소프트 리로드에 목록을 다�
 });
 
 /**
- * UX_BATCH12_SRS TC-LIV-4 (FR-LIV-7) — Background 목록은 Activity 패널이 열려 있는 동안
- * 활동 주기마다 다시 받는다. 행의 Run 표지와 cwd 는 조회 때 계산되기 때문이다.
+ * PERF M1 C3 TC-CH3-9 — 주기 폴링이 없다. 재연결의 재조회는 채널 토픽의 재구독이 맡는다.
  */
-test('tool.background 주기는 패널이 열려 있을 때만 활동 주기로 목록을 다시 받는다', () => {
-  const ctx = load(['core/state-registry.js'], { expose: ['wireStateRegistry'] });
+test('TC-CH3-9: 활동·Runs·Run 화면·Background 에 주기가 없고 토픽 상태는 재연결에 다시 받지 않는다', () => {
+  const ctx = load(['core/state-registry.js'], { expose: ['STATE_REGISTRY', 'wireStateRegistry'] });
+  const byId = new Map(ctx.STATE_REGISTRY.map((e) => [e.id, e]));
+  for (const id of ['tool.activity', 'run.list', 'run.views', 'tool.background']) {
+    assert.equal(byId.get(id).every, undefined, id + ' 에 주기가 남았다');
+  }
+  for (const id of ['tool.attention', 'tool.activity', 'tool.background', 'run.list']) {
+    assert.ok(!(byId.get(id).revalidateOn || []).includes('sse:open'), id);
+    assert.ok(byId.get(id).topic, id + ' 에 토픽이 없다');
+  }
   const jobs = [];
-  let open = false;
-  let calls = 0;
-  const app = {
-    bus: { subscribe() {} },
-    timers: { every: (spec) => jobs.push(spec) },
-    agentsPollMs: 4321,
-    _attn: new Map(),
-    tool: { life: { _bgRefresh: () => { calls++ } } }, agents: { _agentsPanelShown: () => open },
-  };
-  ctx.wireStateRegistry(app);
-  const job = jobs.find((j) => j.id === 'tool.background');
-  assert.ok(job, 'Background 목록 주기가 없다');
-  assert.equal(job.every(), 4321);
-  assert.equal(job.when(), false);
-  open = true;
-  assert.equal(job.when(), true);
-  job.run();
-  assert.equal(calls, 1);
+  ctx.wireStateRegistry({ bus: { subscribe() {} }, timers: { every: (j) => jobs.push(j), after() {} } });
+  assert.deepEqual(jobs.map((j) => j.id).filter((id) => ['tool.activity', 'run.list', 'run.views', 'tool.background'].includes(id)), []);
 });
 
-/**
- * UX_BATCH12_SRS TC-ACF-5 (FR-ACF-9) — 데스크톱의 레일도 목록을 보인다. 세 주기의 조건은
- * "펼침" 이 아니라 "패널이 보이는가"(`_agentsPanelShown`)다.
- */
-test('TC-ACF-5: Activity 의 세 주기는 패널이 보이는 동안 돈다', () => {
-  const ctx = load(['core/state-registry.js'], { expose: ['wireStateRegistry'] });
-  const jobs = [];
-  let shown = false;
+function topicRig() {
+  const subs = new Map();
+  const chanSubs = new Map();
+  const got = [];
+  const timers = [];
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/channel.js', 'core/state-registry.js'], { expose: ['wireStateRegistry'] });
   const app = {
-    bus: { subscribe() {} },
-    timers: { every: (spec) => jobs.push(spec) },
-    agentsPollMs: 1000,
-    _attn: new Map(),
-    _agentsPanelOpen: () => false,
-    agents: { _agentsPanelShown: () => shown },
+    bus: { subscribe: (t, fn) => { if (!subs.has(t)) subs.set(t, []); subs.get(t).push(fn) } },
+    timers: { every() {}, after: (ms, fn) => { timers.push(fn); return { stop() {} } } },
+    channel: { sub: (topic, fn) => { chanSubs.set(topic, fn); return { stop() {} } } },
+    attn: { _attnRestore: (src) => got.push(['attention', src]) },
+    agents: { _activityRestore: (src) => got.push(['activity', src]) },
+    tool: { life: { _bgRefresh: (src) => got.push(['background', src]) } },
+    _runsListApply: (list) => got.push(['runs', list]),
   };
   ctx.wireStateRegistry(app);
-  for (const id of ['tool.activity', 'run.list', 'tool.background']) {
-    const job = jobs.find((j) => j.id === id);
-    shown = false;
-    assert.equal(job.when(), false, id);
-    shown = true;
-    assert.equal(job.when(), true, id);
-  }
+  const fire = (t, a) => { for (const fn of subs.get(t) || []) fn(a) };
+  const flush = () => { const fs = timers.splice(0); for (const f of fs) f() };
+  return { chanSubs, got, fire, flush };
+}
+
+/**
+ * PERF M1 C3 TC-CH3-8 — 첫 `chan:open` 에 구독하고, 토픽 맵으로 GET 과 같은 본문을 만들어 복원에 넘긴다.
+ */
+test('TC-CH3-8: 토픽 항목은 첫 chan:open 에 구독하고 GET 모양 본문을 복원에 넘긴다', async () => {
+  const { chanSubs, got, fire, flush } = topicRig();
+  assert.equal(chanSubs.size, 0, '연결 전에 구독했다');
+  fire('chan:open', { gen: 1 });
+  fire('chan:open', { gen: 2 });
+  assert.deepEqual([...chanSubs.keys()].sort(), ['activity', 'attention', 'background', 'runs']);
+
+  chanSubs.get('activity')({ kind: 'full', data: { t2: { toolId: 't2', state: 'idle' }, _limits: [{ k: 1 }] } });
+  chanSubs.get('activity')({ kind: 'delta', ops: [{ op: 'put', id: 't1', v: { toolId: 't1', state: 'working' } }] });
+  chanSubs.get('attention')({ kind: 'full', data: { t1: true } });
+  chanSubs.get('background')({ kind: 'full', data: { b1: { toolId: 'b1' } } });
+  chanSubs.get('runs')({ kind: 'full', data: { r1: { id: 'r1' } } });
+  assert.equal(got.length, 0, '한 틱 안의 변화를 합치지 않았다');
+  flush();
+  const by = Object.fromEntries(got.map(([k, v]) => [k, v]));
+  const act = await by.activity;
+  assert.equal(act.ok, true);
+  assert.deepEqual(plain(act.data), { activities: [{ toolId: 't1', state: 'working' }, { toolId: 't2', state: 'idle' }], limits: [{ k: 1 }] });
+  assert.equal(act.text, JSON.stringify(act.data));
+  assert.deepEqual(plain((await by.attention).data), { toolIds: ['t1'] });
+  assert.deepEqual(plain((await by.background).data), { background: [{ toolId: 'b1' }] });
+  assert.deepEqual(plain(by.runs), [{ id: 'r1' }]);
+  assert.equal(got.length, 4, '활동이 두 번 복원됐다');
+
+  chanSubs.get('attention')({ kind: 'delta', ops: [{ op: 'del', id: 't1' }] });
+  flush();
+  assert.deepEqual(plain((await got.at(-1)[1]).data), { toolIds: [] });
 });

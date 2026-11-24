@@ -358,17 +358,6 @@ class App {
     return !window.isSecureContext||typeof Notification==='undefined';
   }
   /**
-   * POLL_INTERVAL_SETTINGS_SRS FR-PIS-16·19: **접근자는 남고 저장 자리만 바뀌었다.**
-   *
-   * `state-registry.js` 의 `tool.activity` 가 `every:(app)=>app.agentsPollMs` 로
-   * 이것을 딛고 있다. 이 요구는 값이 사는 곳을 localStorage 에서 서버 설정으로
-   * 옮기는 것이지 선언을 고치는 것이 아니므로(D-4), 이름은 그대로 둔다.
-   *
-   * 값의 검사는 표 한 자리다 (`settingValue`) — 여기서 다시 하면 두 벌이 된다.
-   */
-  get agentsPollMs(){return agentsPollInterval}
-
-  /**
    * 앱 action 을 실행한다. 표는 처음 부를 때 한 번 세운다 (FR-OPT-11-7 · FEC-36) — 종전에는
    * 키 입력마다 클로저 30여 개짜리 맵을 새로 만들었다.
    */
@@ -483,9 +472,10 @@ class App {
 
   // 상태 등록부 `run.list` 의 복원 (ACTIVITY_RUNS_REFRESH_SRS FR-ARR-3).
   _runsListRestore(){ return this.runsPanel()._runsRefresh() }
-  // 상태 등록부 `run.views` 의 조건과 복원 (RUN_VIEW_LIVE_SRS FR-RLV-7). Run 탭을 한 번도
-  // 열지 않은 브라우저에는 `RunsPanel` 을 만들지 않는다.
-  _runViewsOpen(){ return !!this._runs&&this._runs._runViewMap().size>0 }
+  // 채널 `runs` 토픽의 목록 (PERF M1 C3). Run 을 한 번도 열지 않은 브라우저에는 `RunsPanel` 을
+  // 만들지 않는다 — 열 때 목록을 받는다.
+  _runsListApply(list){ if(this._runs) this._runs._runsApplyList(list) }
+  // 상태 등록부 `run.views` 의 복원 (RUN_VIEW_LIVE_SRS FR-RLV-7).
   _runViewsRestore(){ if(this._runs) this._runs._runViewsRefresh() }
   _onRunMemberActivity(args){ if(this._runs) this._runs._onMemberActivity(args) }
 }

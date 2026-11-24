@@ -55,7 +55,7 @@ function byPath(box: string[]) {
 }
 
 test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)', () => {
-  test('30초 동안 ping·stats 와 안전망만 남는다', async ({ page, request }) => {
+  test('30초 동안 안전망만 남는다 (ping·stats 는 채널)', async ({ page, request }) => {
     test.setTimeout(WINDOW_MS + 60000);
     await clearRuns(request);
     await waitForInit(page);
@@ -73,32 +73,23 @@ test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)'
     // 창의 양 끝에 회차가 하나씩 걸릴 수 있다.
     const ticksOf = (ms: number) => Math.ceil(WINDOW_MS / ms) + 1;
     /**
-     * **Activity 의 주기 조회는 남는다** (UX_BATCH12_SRS FR-ACF-9 가 FR-OPT-4-6 을 개정).
-     * 데스크톱에서는 접힌 Activity 도 레일로 목록을 보이므로 "패널이 보인다" 에 들고,
-     * 그 목록을 고치는 주기가 돈다. 셋은 활동 주기(`agentsPollMs`), 계정 둘은
-     * `CLAUDE_ACCT_POLL_MS` 마다다 — 회차마다 계정 목록과 매핑을 한 번씩 받는다.
+     * PERF M1 C3 (CHANNEL_PROTOCOL §10.4): 활동·Runs·Background·지표·지연은 채널 토픽으로 온다 —
+     * 주기 GET 이 0 이다. Claude 계정 둘은 `CLAUDE_ACCT_POLL_MS` 마다 남는다(C2b 의 `claude.accounts` 토픽 몫).
      */
-    const { agents, acct } = await page.evaluate(() => ({
-      agents: (window as any).app.agentsPollMs as number,
-      acct: (0, eval)('CLAUDE_ACCT_POLL_MS') as number,
-    }));
+    for (const p of ['/api/tools/activity', '/api/runs', '/api/tools/background', '/api/stats', '/api/ping']) {
+      expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBe(0);
+    }
+    const acct = await page.evaluate(() => (0, eval)('CLAUDE_ACCT_POLL_MS') as number);
     const RAIL: Record<string, number> = {
-      '/api/tools/activity': ticksOf(agents),
-      '/api/runs': ticksOf(agents),
-      '/api/tools/background': ticksOf(agents),
       '/api/claude-accounts': ticksOf(acct),
       '/api/claude-accounts/mappings': ticksOf(acct),
     };
     for (const [p, cap] of Object.entries(RAIL)) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBeLessThanOrEqual(cap);
     }
-    const known = ['/api/ping', '/api/stats', '/api/git/repos', ...Object.keys(RAIL)];
+    const known = ['/api/git/repos', ...Object.keys(RAIL)];
     const other = box.filter((p) => !known.includes(p));
     expect(other, JSON.stringify(got)).toEqual([]);
-    const stats = await page.evaluate(() => (window as any).statsInterval);
-    const ticks = ticksOf(stats);
-    expect(got['/api/stats'] || 0, JSON.stringify(got)).toBeLessThanOrEqual(ticks);
-    expect(got['/api/ping'] || 0, JSON.stringify(got)).toBeLessThanOrEqual(ticks);
   });
   /**
    * FR-OPT-4-5 (IPC-6 · FEC-11): 구독이 **다시** 열리면 복원이 요청 둘이다 — 워크스페이스

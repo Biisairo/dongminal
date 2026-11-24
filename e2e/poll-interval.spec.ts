@@ -93,7 +93,7 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
     });
     await waitForInit(page);
     const v = await page.evaluate(() => ({
-      agents: (window as any).app.agentsPollMs,
+      agents: (window as any).agentsPollInterval,
       stats: (window as any).statsInterval,
       gitStatus: (window as any).gitStatusInterval,
       gitRepos: (window as any).gitReposInterval,
@@ -124,7 +124,7 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
     const v = await page.evaluate(() => ({
       repos: (window as any).gitReposInterval,
       con: (window as any).gitConsoleInterval,
-      agents: (window as any).app.agentsPollMs,
+      agents: (window as any).agentsPollInterval,
       dRepos: GIT_REPOS_POLL_MS, dCon: GIT_CON_POLL_MS, dAgents: AGENTS_POLL_DEFAULT,
     }));
     expect(v.repos).toBe(v.dRepos);
@@ -198,27 +198,27 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
   });
 
   /**
-   * FR-PIS-14: 30초에서 짧게 내리면 **다음 마감부터** 새 주기다. 그리고 내린
-   * 순간에는 요청이 나가지 않는다 — 재무장은 발화가 아니다.
+   * FR-PIS-14 (PERF M1 C3 개정): 주기는 채널 토픽 이름(`stats:<ms>`)이다.
+   *   이전 동작: 내린 순간에는 요청이 없고 다음 마감부터 새 주기로 `/api/stats` 를 보냈다
+   *   새  동작: 내리면 곧바로 새 토픽으로 갈아타고, 그 뒤로 새 주기로 받는다. HTTP 요청은 없다
+   *   이유:     상태바가 묻지 않는다 (TC-CH3-10)
    */
-  test('PIS11 (V-8): 주기를 내리면 다음 회차가 곧 오고, 내린 순간에는 안 온다',
+  test('PIS11 (V-8): 주기를 내리면 새 주기로 받고 /api/stats 는 보내지 않는다',
     async ({ page, request }) => {
       await patchSettings(request, { statsInterval: 30000 });
       await waitForInit(page);
       const stats = counter(page, '/api/stats');
-      // **예외 (`TEST-16`)**: 기준선을 잡는 창이다 — 아래가 세는 것은 이 뒤의
-      // 증가분이다.
-      await page.waitForTimeout(600);
-      const base = stats.n;
-
+      await page.evaluate(() => {
+        const sb = (window as any).app.statusbar;
+        (window as any).__statsN = 0;
+        const orig = sb._onStats.bind(sb);
+        sb._onStats = (m: any) => { (window as any).__statsN++; orig(m) };
+      });
       await patchSettings(request, { statsInterval: 1000 });
       await expect.poll(() => page.evaluate(() => (window as any).statsInterval),
         { timeout: 10000 }).toBe(1000);
-      // 값이 내려온 직후 — 재무장은 발화하지 않는다.
-      const atApply = stats.n;
-      expect(atApply, '재무장이 즉시 요청을 냈다').toBe(base);
-      // 다음 마감은 30초가 아니라 1초 뒤다.
-      await expect.poll(() => stats.n, { timeout: 6000 }).toBeGreaterThan(atApply);
+      await expect.poll(() => page.evaluate(() => (window as any).__statsN), { timeout: 6000 }).toBeGreaterThanOrEqual(3);
+      expect(stats.n).toBe(0);
     });
 });
 
@@ -234,7 +234,7 @@ test.describe('묶음 PIS·이사 — agentsPollMs (FR-PIS-16~19)', () => {
   test('PIS12 (V-9): 옛 localStorage 값이 서버로 이사한다', async ({ page, request }) => {
     await clearIntervals(request);
     await waitForInit(page, { beforeGoto: () => localStorage.setItem('agentsPollMs', '10000') });
-    await expect.poll(() => page.evaluate(() => (window as any).app.agentsPollMs),
+    await expect.poll(() => page.evaluate(() => (window as any).agentsPollInterval),
       { timeout: 10000 }).toBe(10000);
     await expect.poll(async () => (await (await request.get('/api/settings')).json()).agentsPollInterval,
       { timeout: 10000 }).toBe(10000);
@@ -246,7 +246,7 @@ test.describe('묶음 PIS·이사 — agentsPollMs (FR-PIS-16~19)', () => {
   test('PIS13 (V-9): 서버에 값이 있으면 서버가 이긴다', async ({ page, request }) => {
     await patchSettings(request, { agentsPollInterval: 3000 });
     await waitForInit(page, { beforeGoto: () => localStorage.setItem('agentsPollMs', '30000') });
-    expect(await page.evaluate(() => (window as any).app.agentsPollMs)).toBe(3000);
+    expect(await page.evaluate(() => (window as any).agentsPollInterval)).toBe(3000);
     expect(await page.evaluate(() => localStorage.getItem('agentsPollMs'))).toBe(null);
   });
 
