@@ -149,6 +149,8 @@ M4 기계에서는 입력 p95 가 예산 안이었다(§6 재현하지 못한 �
 
 ## 5. 단계 (마일스톤)
 
+이슈 관리: `docs/internal/perf/issues/`(파일 하나가 이슈 하나, 형식은 `perf/README.md`). 에이전트 규칙은 `perf/AGENT_RULES.md`, 진행 상태는 `perf/STATUS.md` 다. 통합 브랜치는 `perf-m1`, 이슈 브랜치는 `pf/<이슈 ID>` 다.
+
 각 단계는 시험 → 구현 → `scenario.mjs` 재측정 순서다. 단계가 끝날 때 전후 숫자를 이 문서 §7 에 적는다.
 
 | 단계 | 내용 | 먼저 하는 이유 |
