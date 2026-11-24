@@ -6,11 +6,16 @@ import { Page } from '@playwright/test';
 
 import {
   test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir, makeCopyFx, nextFrames,
+  setSafetyNet, setConsoleInterval, scopedSettings,
 } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, tmpPath, realPath } from './osenv';
 
 // GIT_VIEW_REFRESH_SRS §4 — 쓰기 뒤 뷰 갱신. 검증 V-GVR-1~8.
+//
+// **고정 대기의 예외 (`TEST-16`).** 남은 `waitForTimeout` 은 일어나지 않는 요청을
+// 재는 창이다 — 기다릴 신호가 없다. 창에 회차가 실제로 들도록 안전망·Console 주기를
+// 줄였다 (E2E_PRUNE_REPORT §8.6). 회차를 셀 수 있는 자리는 시간 대신 요청 수로 센다.
 //
 // 원격은 **로컬 bare** 다 (with-remote + remote.git). 네트워크를 쓰지 않으므로
 // 테스트가 외부에 의존하지 않는다. 쓰기를 하므로 저장소와 원격을 매 테스트마다
@@ -154,6 +159,24 @@ function counter(page: Page, pred: (url: string) => boolean) {
   return state;
 }
 
+const isStatus = (u: string) => u.includes('/api/git/status');
+
+// 안전망 회차 `k` 개가 끝날 때까지. 수집은 single-flight 라 요청 `k+1` 번째가 나갔으면
+// 앞선 `k` 회차의 적용(뷰 다시 받기 판단 포함)은 끝났다.
+const SAFETY_MS = 300;
+async function safetyRounds(page: Page, k: number) {
+  const st = counter(page, isStatus);
+  await setSafetyNet(page, SAFETY_MS);
+  await expect.poll(() => st.n, { timeout: 10000 }).toBeGreaterThanOrEqual(k + 1);
+}
+
+// 새 파일·내용 변경은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
+let restoreSettings: (() => Promise<void>) | null = null;
+test.afterEach(async () => {
+  if (restoreSettings) await restoreSettings();
+  restoreSettings = null;
+});
+
 // 열지 않은 뷰들이 각각 쓰는 라우트. Changes 의 status 와 겹치지 않는다.
 const isRefs = (u: string) => u.includes('/api/git/refs');
 const isLog = (u: string) => u.includes('/api/git/log');
@@ -290,9 +313,13 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await ready(page);
     await btn(page, 'push').click();
     await jobEnded(page, '완료');
-    // **예외 (`TEST-16`): 일어나지 않는 것을 잰다.** 갱신이 늦게 새는 것을
-    // 잡으므로 기다릴 신호가 없다 — 끝난 뒤 한 박자 더 보는 것이 검사다.
-    await page.waitForTimeout(1500);
+    // push 를 반영한 관측(ahead 1→0)이 들어온 것을 본다 — 뷰 다시 받기는 그 적용
+    // 안에서 동기로 결정된다. 그 뒤 한 박자는 새는 요청이 도착할 여유다 (`TEST-16`).
+    await expect.poll(() => page.evaluate(() => {
+      const d = (window as any).app.gitPanel._status;
+      return d && d.status ? d.status.ahead || 0 : -1;
+    }), { timeout: 20000 }).toBe(0);
+    await page.waitForTimeout(300);
 
     expect(refs.n, '열지 않은 History·Branches 가 refs 를 받았다').toBe(0);
     expect(log.n, '열지 않은 History 가 log 를 받았다').toBe(0);
@@ -344,17 +371,14 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
 
     await openGit(page, repo);
     await ready(page);
-    await page.evaluate(() => {
-      (window as any).gitStatusInterval = 600;
-      const app = (window as any).app;
-      if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
-    });
+    await setSafetyNet(page, SAFETY_MS);
     // **예외 (`TEST-16`)**: 창을 여는 동안의 요청이 가라앉을 여유를 준다 —
     // 아래가 세는 것은 그 뒤의 증가분이다.
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(SAFETY_MS);
     const stBase = status.n;
     const vBase = views.n;
-    await page.waitForTimeout(2600);
+    // 주기의 4배 남짓(종전 600ms 주기에 2.6초와 같은 비율)이다.
+    await page.waitForTimeout(SAFETY_MS * 13 / 3);
 
     // 관측이 멎지도, 폭주하지도 않는다.
     expect(status.n - stBase, '관측이 멎었다').toBeGreaterThanOrEqual(2);
@@ -366,6 +390,8 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
   test('G9 (D-7): Console 탭을 떠나면 기록 폴링이 멈춘다', async ({ page }) => {
     const { repo } = copyPair('g9');
     await waitForInit(page);
+    // Console 주기(2초)를 줄인다 — 아래 창에 회차가 여럿 들게 한다 (§8.2 (a′)).
+    await setConsoleInterval(page, 300);
     await openGit(page, repo);
     // Console 을 한 번 열어 폴링을 건다. **한 건이 실제로 온 것**이 그 신호다 —
     // 폴링이 걸리지 않았는데 떠나면 아래의 `0` 은 아무것도 말하지 않는다.
@@ -387,7 +413,7 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     const onReq = (r: any) => { if (r.url().includes('/api/git/records')) n++ };
     page.on('request', onReq);
     // **예외 (`TEST-16`)**: 이 창 동안 몇 건인지가 답이다.
-    await page.waitForTimeout(3000); // 폴링 주기의 여러 배
+    await page.waitForTimeout(1000); // 줄인 주기(300ms)의 세 배 남짓
     page.off('request', onReq);
     expect(n, `떠난 Console 이 ${n}건을 더 받았다`).toBe(0);
   });
@@ -421,15 +447,16 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     const rows = () => page.locator('#area .pn-body .git-view.git-stash .git-stash-row');
     await expect(page.locator('#area .pn-body .git-view.git-stash')).toHaveClass(/vis/, { timeout: 10000 });
     /**
-     * **예외 (`TEST-16`): 첫 조회가 끝난 것을 말해 주는 신호가 화면에 없다.**
-     *
      * 기준은 "조회가 끝난 뒤의 행 수" 여야 한다 — 조회 전에 세면 아래의
-     * `before + 1` 이 엉뚱한 수를 가리킨다. 그런데 그 시점을 잡을 방법이 없다:
-     * 행 수로는 알 수 없고(이 픽스처에 stash 가 하나도 없으면 조회 뒤에도 `0`
-     * 이다), 요청으로도 알 수 없다(`openGit` 이 이미 받아 두므로 탭을 여는
-     * 것만으로는 새 요청이 나가지 않는다 — 실측).
+     * `before + 1` 이 엉뚱한 수를 가리킨다. 행 수로도(stash 가 없으면 조회 뒤에도
+     * `0`) 요청으로도(`openGit` 이 이미 받아 둔다) 알 수 없으므로 뷰의 적재 상태를
+     * 본다 — 이 저장소에 대한 조회가 끝났고 진행 중인 것이 없다.
      */
-    await page.waitForTimeout(800);
+    await expect.poll(() => page.evaluate((r: string) => {
+      const v = (window as any).app.gitPanel._stashView;
+      return !!v && !v._loading && v._loadedFor === r;
+    }, repo), { timeout: 10000 }).toBe(true);
+    await nextFrames(page);
     const before = await rows().count();
 
     // 추적되지 않은 파일도 담아야 `stash push` 가 확실히 항목을 만든다 —
@@ -471,8 +498,9 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
       if (u.includes('/api/git/log') || u.includes('/api/git/refs') || u.includes('/api/git/stash?')) n++;
     };
     page.on('request', onReq);
-    // **예외 (`TEST-16`)**: 이 창 동안 몇 건인지가 답이다.
-    await page.waitForTimeout(3000); // 폴링 주기의 여러 배
+    // 종전의 3초 창에는 안전망(30초) 회차가 들지 않았다 (§8.6). 주기를 줄이고
+    // 변화 없는 관측 회차 셋이 끝날 때까지 본다.
+    await safetyRounds(page, 3);
     page.off('request', onReq);
     expect(n, `변화가 없는데 ${n}건을 받았다`).toBe(0);
   });
@@ -539,8 +567,9 @@ test.describe('증분 조회·회차 공유 (FR-OPT-4-8·4-9)', () => {
     git(repo, 'commit', '-qm', 'hidden commit');
     // 보이는 Branches 가 받은 것이 회차가 지나갔다는 신호다.
     await expect.poll(() => refs.n, { timeout: 15000 }).toBeGreaterThan(0);
-    // **예외 (`TEST-16`)**: 나가지 않는 요청을 잰다.
-    await page.waitForTimeout(800);
+    // **예외 (`TEST-16`)**: 나가지 않는 요청을 잰다. 다시 받기는 refs 와 같은 동기
+    // 구간에서 결정되므로 그 요청이 도착할 한 박자만 더 본다.
+    await page.waitForTimeout(300);
     expect(log.n, '보이지 않는 History 가 log 를 받았다').toBe(0);
 
     await openTab(page, 'history');
@@ -558,18 +587,23 @@ test.describe('증분 조회·회차 공유 (FR-OPT-4-8·4-9)', () => {
     await expect(br(page).locator('.git-br-row').first()).toBeVisible({ timeout: 15000 });
 
     const refs = counter(page, isRefs);
-    const loaded = await page.evaluate(async () => {
+    await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
-      const got: string[] = [];
-      const hist0 = p._historyView._refs, br0 = p._branchesView._refs;
+      (window as any).__g16 = { hist0: p._historyView._refs, br0: p._branchesView._refs };
       p.write.afterRefWrite(null);
-      await new Promise((r) => setTimeout(r, 1500));
-      if (p._historyView._refs !== hist0) got.push('history');
-      if (p._branchesView._refs !== br0) got.push('branches');
-      return got;
     });
+    // 두 뷰가 새 refs 를 받을 때까지 본다. 받았으면 그 요청은 이미 나갔다 — 요청 수는
+    // 회차의 동기 구간에서 정해진다.
+    const loaded = () => page.evaluate(() => {
+      const p = (window as any).app.gitPanel, s = (window as any).__g16;
+      const got: string[] = [];
+      if (p._historyView._refs !== s.hist0) got.push('history');
+      if (p._branchesView._refs !== s.br0) got.push('branches');
+      return got.sort();
+    });
+    await expect.poll(loaded, { timeout: 10000, message: '두 뷰가 모두 새 refs 를 받아야 한다' })
+      .toEqual(['branches', 'history']);
     expect(refs.n, 'refs 를 뷰마다 따로 받았다').toBe(1);
-    expect(loaded.sort(), '두 뷰가 모두 새 refs 를 받아야 한다').toEqual(['branches', 'history']);
   });
 });
 
@@ -594,7 +628,8 @@ const copyFx = makeCopyFx(B6FX);
 //
 // 파일 **내용**의 변화는 관측으로 알 수 없다 — `git status` 는 이미 수정된 파일이
 // 또 수정돼도 같은 줄을 낸다. 그래서 열려 있는 diff 는 관측 회차마다 다시 받는다.
-test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다', async ({ page }) => {
+test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다', async ({ page, request }) => {
+  restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
   const repo = copyFx('basic', 'b6-diff-live');
   await waitForInit(page);
   await openGit(page, repo);
@@ -625,7 +660,8 @@ test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다',
 //
 // `GitPanel.destroy()` 의 `_stop()` 이 **관측자의 공유 타이머**를 껐고, 다시 거는
 // 자리가 없었다 — 남은 칸의 Git 창이 눈앞에 있는데도 갱신이 멎었다.
-test('V-GLV-2 (FR-GLV-4): 칸을 줄여도 남은 패널의 관측이 산다', async ({ page }) => {
+test('V-GLV-2 (FR-GLV-4): 칸을 줄여도 남은 패널의 관측이 산다', async ({ page, request }) => {
+  restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
   const repo = copyFx('basic', 'b6-resettle');
   await waitForInit(page);
   await openGit(page, repo);
@@ -684,8 +720,9 @@ test('V-GLV-3 (FR-GLV-6): 거부당한 diff 는 폴링이 되풀이하지 않는
   await expect.poll(() => hits, { timeout: 15000 }).toBeGreaterThan(0);
   const first = hits;
   expect(first, '거부 응답이 한 번도 오지 않았다 — 전제가 깨졌다').toBeGreaterThan(0);
-  // **예외 (`TEST-16`)**: 되풀이해 받지 **않음**을 잰다 — 관측 주기(기본 3초)를
-  // 두 바퀴 넘게 기다리는 것이 곧 검사다.
-  await page.waitForTimeout(8000);
+  // 되풀이해 받지 **않음**을 잰다. 종전의 8초 창에는 안전망(30초) 회차가 들지
+  // 않았다 (§8.6) — 주기를 줄이고 관측 회차 셋(회차마다 diff 를 다시 받는 자리)이
+  // 끝날 때까지 본다.
+  await safetyRounds(page, 3);
   expect(hits, `거부당한 대상을 되풀이해 받았다 (${first} → ${hits})`).toBe(first);
 });

@@ -11,8 +11,8 @@ import { load, plain } from './harness.mjs';
  * 스테이지되거나 되돌려진다.** 되돌리기는 파괴적이고 확인창은 개수만 세므로,
  * 좌표가 한 칸 어긋나도 화면은 그럴듯하게 보인다.
  *
- * 지금까지 이 함수들의 유일한 검사는 `git-hunk.spec.ts:407-448` 이었다 — 브라우저를
- * 띄워 순수 함수를 부르는 e2e 5건. 여기가 그 자리를 대신한다.
+ * 종전에는 `git-hunk.spec.ts` 의 묶음 S(브라우저를 띄워 순수 함수를 부르는 e2e 5건)가
+ * 유일한 검사였다. 여기가 그 자리를 대신하고, e2e 에는 연결 확인 1건만 남았다.
  */
 const ctx = load(['core/hunk-coords.js']);
 const { gitHunkScan, gitHunkRangeForChange, gitHunkRangeForLines,
@@ -93,6 +93,26 @@ test('rangeForLines: 거꾸로 고른 범위도 같게 읽는다', () => {
   assert.deepEqual(plain(gitHunkRangeForLines(HUNK, 12, 11)), plain(gitHunkRangeForLines(HUNK, 11, 12)));
 });
 
+// base one..eight 의 2번·7번 줄을 고친 덩어리. git 은 U3 문맥으로 이것을 하나로 만든다
+// — "한 조각 안의 두 변경" 을 재는 자리다 (옛 `git-hunk.spec.ts` 묶음 S 의 같은 자료).
+const PAIR = {
+  index: 0, header: '@@ -1,8 +1,8 @@', oldStart: 1, oldLines: 8, newStart: 1, newLines: 8,
+  lines: [' one', '-two', '+TWO', ' three', ' four', ' five', ' six', '-seven', '+SEVEN', ' eight'],
+};
+
+test('rangeForLines: 한 조각 안의 두 변경 — 짝이 함께 가고, 문맥만 고르면 null', () => {
+  assert.deepEqual(plain(gitHunkRangeForLines(PAIR, 2, 2)), [2, 3]);
+  assert.deepEqual(plain(gitHunkRangeForLines(PAIR, 7, 7)), [8, 9]);
+  assert.deepEqual(plain(gitHunkRangeForLines(PAIR, 2, 7)), [2, 9]);
+  assert.equal(gitHunkRangeForLines(PAIR, 4, 6), null, '문맥만 골랐는데 사상이 섰다');
+});
+
+test('rangeForLines: `\\ No newline` 표식은 앞 줄과 함께 간다', () => {
+  const h = { index: 0, oldStart: 1, oldLines: 2, newStart: 1, newLines: 2,
+    lines: [' a', '-b', '\\ No newline at end of file', '+B', '\\ No newline at end of file'] };
+  assert.deepEqual(plain(gitHunkRangeForLines(h, 2, 2)), [2, 5]);
+});
+
 test('coordsForChange: 좁히지 못하면 wide — 덩어리 전체를 가리킨다', () => {
   const hs = [HUNK];
   // 새 쪽 줄은 겹치는데(덩어리 10~13) 본문에서 짚을 줄이 없는 조각.
@@ -100,6 +120,12 @@ test('coordsForChange: 좁히지 못하면 wide — 덩어리 전체를 가리�
   assert.equal(r.hunk, 0);
   assert.equal(r.wide, true, '좁히지 못했는데 좁힌 척했다 — 다른 줄을 건드린다');
   assert.equal(r.from, 0);
+});
+
+test('coordsForChange: 좁힐 수 있으면 그 변경 블록의 본문 범위다', () => {
+  assert.deepEqual(plain(gitHunkCoordsForChange([PAIR],
+    { type: 'mod', line: 2, count: 1, baseStart: 2, baseCount: 1 })),
+  { hunk: 0, from: 2, to: 3, wide: false });
 });
 
 test('coordsForChange: 겹치는 덩어리가 없으면 null', () => {
