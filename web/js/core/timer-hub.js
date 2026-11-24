@@ -265,7 +265,7 @@ class TimerHub {
    * PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39 — 한 프레임의 작업은 **rAF 하나**에 묶여 `_flushFrame` 에서 돈다.
    *   key   같은 키가 또 오면 앞의 것을 버리고 마지막 것만 돈다(묶음 안에서 콜백만 바뀌므로 굶지 않는다)
    *   prio  `input` > `term` > `normal`(기본) > `idle`. 같은 우선순위는 부른 순서다 — 옵션이 없으면 종전 순서다
-   *   idle  프레임 시작부터 `FRAME_BUDGET_MS` 를 넘었거나 입력이 기다리면 다음 프레임
+   *   idle  프레임 시작부터 `FRAME_BUDGET_MS` 를 넘었거나 입력이 기다리면 다음 프레임(`FRAME_IDLE_MAX_DEFER` 번까지)
    */
   frame(fn,opts){
     opts=opts||{};
@@ -295,7 +295,8 @@ class TimerHub {
     batch.sort((a,b)=>a[1].prio-b[1].prio);
     for(const [id,r] of batch){
       if(this._ones.get(id)!==r) continue;   // 앞 콜백이 걷었거나 같은 키로 바꿨다
-      if(r.prio===FRAME_PRIO.idle&&(this._now()-t0>=FRAME_BUDGET_MS||this._inputPending())) break;
+      // PERF 3.6.2: 밀린 idle 은 `FRAME_IDLE_MAX_DEFER` 프레임 뒤에는 돈다 — 입력이 이어져도 굶지 않는다.
+      if(r.prio===FRAME_PRIO.idle&&(this._now()-t0>=FRAME_BUDGET_MS||this._inputPending())&&(r.waits=(r.waits||0)+1)<=FRAME_IDLE_MAX_DEFER) continue;
       this._ones.delete(id);
       this._safe(r.label||id,r.fn);
     }

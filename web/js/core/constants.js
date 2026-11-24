@@ -59,6 +59,8 @@ const BOOT_FADE_MS=180;
 const BOOT_MAX_MS=6000;
 // PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39: 프레임 시작부터 `TIMERS.frame` 의 `idle` 작업을 돌려도 되는 시간.
 const FRAME_BUDGET_MS=8;
+// PERF 3.6.2 (D-39 세부): `idle` 이 연속으로 밀릴 수 있는 프레임 수. 넘으면 그 프레임에 돈다(60 Hz 에서 약 100 ms).
+const FRAME_IDLE_MAX_DEFER=6;
 
 // BOOT_SCREEN_REUSE_SRS D-BTR-8: 다시 세울 때의 단계 문구. 부르는 자리마다 적으면
 // 같은 장면이 자리마다 다른 말을 한다.
