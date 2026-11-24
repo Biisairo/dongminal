@@ -136,7 +136,7 @@ async fn hello_wire_golden() {
     let mut c = raw(&d.sock);
     assert_eq!(
         c.call(r#"{"id":1,"method":"hello","params":{"server_pid":0}}"#),
-        r#"{"id":1,"result":{"build":"b","features":["fgtick","snapnotfound","notify","busymany","records","attention","edge","chat","shellprobe"],"version":1}}"#
+        r#"{"id":1,"result":{"build":"b","features":["fgtick","snapnotfound","notify","busymany","records","attention","edge","chat","shellprobe","screen"],"version":1}}"#
     );
 }
 
@@ -189,6 +189,11 @@ async fn response_wire_golden() {
         (
             "snapshot",
             r#"{"id":"x"}"#,
+            r#"{"id":1,"error":{"code":-32011,"message":"toolhub: tool not found"}}"#,
+        ),
+        (
+            "screen",
+            r#"{"id":"x","history":10}"#,
             r#"{"id":1,"error":{"code":-32011,"message":"toolhub: tool not found"}}"#,
         ),
         (

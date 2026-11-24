@@ -547,6 +547,29 @@ fn detached_tool_has_no_screen() {
     );
 }
 
+/// 화면 상태 스냅숏과 그 뒤를 이을 오프셋이다(FR-TRM-4). 끝나지 않은 시퀀스만큼 오프셋을 물린다.
+#[test]
+fn screen_tool_gives_snapshot_and_resume_offset() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    assert!(m.screen_tool("a", 10).is_none());
+    let p = pid_tool("a", 1001);
+    p.handle_chunk(b"hello\r\nworld\x1b[3");
+    m.adopt(Arc::clone(&p));
+    let s = m.screen_tool("a", 10).unwrap();
+    assert_eq!(
+        (s.end, s.cols, s.rows, s.alt, s.first_line),
+        (12, 80, 24, false, 0)
+    );
+    let mut b = otter_shared_termstate::Screen::new(80, 24, 10);
+    b.feed(&s.data);
+    assert_eq!(
+        (screen_text(&b, 0), screen_text(&b, 1)),
+        ("hello".into(), "world".into())
+    );
+    p.handle_chunk(b"1mX\x1b[?1049h");
+    assert!(m.screen_tool("a", 10).unwrap().alt);
+}
+
 #[test]
 fn snapshot_since_resumes_or_replays() {
     let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));

@@ -66,6 +66,18 @@ pub struct ToolSnapshot {
     pub modes: TermModes,
 }
 
+/// 화면 상태 스냅숏이다 (PERF FR-TRM-4). `data` 뒤로는 출력 오프셋 `end` 부터 잇는다.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ToolScreen {
+    pub data: Vec<u8>,
+    pub end: i64,
+    pub cols: u16,
+    pub rows: u16,
+    pub alt: bool,
+    pub first_line: u64,
+    pub cwd: String,
+}
+
 /// 백그라운드 도구 한 건이다 (FR-BG-6).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename = "toolhub.BackgroundEntry")]

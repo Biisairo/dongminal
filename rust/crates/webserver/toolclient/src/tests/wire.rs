@@ -136,6 +136,12 @@ fn request_wire_golden() {
             }),
             r#""method":"snapshot","params":{"id":"a","since":7}}"#,
         ),
+        (
+            Box::new(|| {
+                let _ = pc.screen_tool("a", 5000);
+            }),
+            r#""method":"screen","params":{"history":5000,"id":"a"}}"#,
+        ),
     ];
     for (i, (run, want)) in steps.iter().enumerate() {
         run();

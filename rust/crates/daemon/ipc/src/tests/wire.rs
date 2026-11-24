@@ -129,6 +129,17 @@ async fn create_write_snapshot_flow() {
         r["result"]["data"].is_string(),
         "snapshot 에 data 가 없다: {r}"
     );
+    c.send(&format!(
+        r#"{{"id":4,"method":"screen","params":{{"id":"{id}","history":100}}}}"#
+    ));
+    let r: Value = serde_json::from_str(&c.recv_id(4)).unwrap();
+    let s = &r["result"];
+    assert!(s["data"].is_string() && s["end"].is_i64(), "screen: {r}");
+    assert!(
+        s["cols"].as_u64().unwrap() > 0 && s["rows"].as_u64().unwrap() > 0,
+        "{r}"
+    );
+    assert_eq!(s["alt"], false, "{r}");
     kill_shell(&mut c, &id);
 }
 

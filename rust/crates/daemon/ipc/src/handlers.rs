@@ -268,6 +268,33 @@ pub(crate) fn snapshot(c: &Conn, req: &PanedRequest) -> Line {
     )
 }
 
+/// 화면 상태 스냅숏이다 (PERF FR-TRM-4, D-18). 없는 도구는 snapshot 과 같이 CODE_NOT_FOUND 다.
+pub(crate) fn screen(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::ScreenParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    let Some(s) = c.pm.screen_tool(&p.id, p.history) else {
+        return err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        );
+    };
+    ok(
+        req.id,
+        &ipc::ScreenResult {
+            alt: s.alt,
+            cols: s.cols,
+            cwd: s.cwd,
+            data: s.data,
+            end: s.end,
+            first_line: s.first_line,
+            rows: s.rows,
+        },
+    )
+}
+
 pub(crate) fn cwd(c: &Conn, req: &PanedRequest) -> Line {
     match decode::<ipc::IdParams>(req) {
         Ok(p) => ok(

@@ -121,6 +121,24 @@ fn wire_golden() {
             enc(&SnapshotResult::default()),
             r#"{"cols":0,"data":"","end":0,"modes":{"bracketedPaste":false,"mouseProtocol":0,"mouseEncoding":0,"focusEvent":false,"altScreen":false},"resumed":false,"retained":0,"rows":0,"totalBytesDrop":0,"totalBytesIn":0}"#.into(),
         ),
+        (
+            "screen-params",
+            enc(&ScreenParams { history: 5000, id: "a".into() }),
+            r#"{"history":5000,"id":"a"}"#.into(),
+        ),
+        (
+            "screen-result",
+            enc(&ScreenResult {
+                alt: true,
+                cols: 80,
+                cwd: "/w".into(),
+                data: DATA.to_vec(),
+                end: 9,
+                first_line: 3,
+                rows: 24,
+            }),
+            format!(r#"{{"alt":true,"cols":80,"cwd":"/w","data":"{B64}","end":9,"firstLine":3,"rows":24}}"#),
+        ),
         ("cwd-result", enc(&CwdResult { cwd: "/x".into() }), r#"{"cwd":"/x"}"#.into()),
         ("busy-result", enc(&BusyResult { busy: true }), r#"{"busy":true}"#.into()),
         (
@@ -235,6 +253,8 @@ fn chat_wire_golden() {
     assert!(
         has_feature(DAEMON_FEATURES, FEATURE_CHAT) && has_feature(SERVER_FEATURES, FEATURE_CHAT)
     );
+    assert!(has_feature(DAEMON_FEATURES, FEATURE_SCREEN_STATE));
+    assert!(!has_feature(SERVER_FEATURES, FEATURE_SCREEN_STATE));
 }
 
 #[test]

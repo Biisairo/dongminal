@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use super::*;
 
-/// 비교 시험에서 쓰는 에뮬레이터 기록 상한이다(데몬 초기값과 같다).
+/// 비교 시험의 줄 저장소 상한이다.
 const HISTORY: usize = 1_000;
 /// OSC 8 링크 칸의 밑줄은 xterm.js 만 칠한다. 2.4 직렬화기가 OSC 8 을 다시 내보내면 0 이 된다.
 const VECTORS_LINK_UNDERLINE: usize = 4;
@@ -80,14 +80,14 @@ fn attrs(a: Attrs) -> String {
     [
         (Attrs::BOLD, 'b'),
         (Attrs::ITALIC, 'i'),
-        (Attrs::UNDERLINE, 'u'),
+        (Attrs::ANY_UNDERLINE, 'u'),
         (Attrs::INVERSE, 'r'),
         (Attrs::DIM, 'd'),
         (Attrs::STRIKE, 's'),
         (Attrs::HIDDEN, 'h'),
     ]
     .into_iter()
-    .filter(|(f, _)| a.contains(*f))
+    .filter(|(f, _)| a.intersects(*f))
     .map(|(_, c)| c)
     .collect()
 }
@@ -358,29 +358,65 @@ fn text_at(s: &Screen, line: i32) -> String {
     row_text(&s.row(line).unwrap())
 }
 
+fn store_texts(s: &Screen) -> Vec<String> {
+    let st = s.store();
+    st.lines(st.first(), st.len())
+        .1
+        .iter()
+        .map(|l| l.text().trim_end().to_string())
+        .collect()
+}
+
 #[test]
-fn history_is_capped_and_indexed_from_newest() {
-    let mut s = Screen::new(10, 5, 20);
+fn history_over_keep_moves_to_store() {
+    let mut s = Screen::with_keep(10, 5, 20, 1_000);
     s.feed(&lines(100));
     assert_eq!(s.history_len(), 20);
     assert_eq!(text_at(&s, -1), "L95");
     assert_eq!(text_at(&s, -20), "L76");
     assert_eq!(text_at(&s, 0), "L96");
+    let want: Vec<String> = (0..76).map(|i| format!("L{i:02}")).collect();
+    assert_eq!(store_texts(&s), want);
+    assert_eq!((s.store().first(), s.store().end()), (0, 76));
 }
 
 #[test]
-fn drop_oldest_removes_from_the_top_and_keeps_cap() {
-    let mut s = Screen::new(10, 5, 1_000);
-    s.feed(&lines(50));
-    assert_eq!(s.history_len(), 46);
-    s.drop_oldest(10);
-    assert_eq!(s.history_len(), 36);
-    assert_eq!(text_at(&s, -36), "L10");
-    assert_eq!(text_at(&s, -1), "L45");
-    s.feed(&lines(3));
-    assert_eq!(s.history_len(), 39);
-    s.drop_oldest(1_000);
+fn wrapped_line_moves_whole() {
+    let mut s = Screen::with_keep(10, 3, 2, 1_000);
+    let long = "a".repeat(25);
+    s.feed(format!("{long}\r\nx\r\ny\r\nz\r\nw\r\nv\r\n").as_bytes());
+    let texts = store_texts(&s);
+    assert_eq!(texts.first().map(String::as_str), Some(long.as_str()));
+    assert_eq!(&texts[1..], ["x"]);
+}
+
+#[test]
+fn erase_saved_lines_clears_store_and_numbers_go_on() {
+    let mut s = Screen::with_keep(10, 5, 20, 1_000);
+    s.feed(&lines(100));
+    s.feed(b"\x1b[3J");
+    assert!(s.store().is_empty());
     assert_eq!(s.history_len(), 0);
+    assert_eq!((s.store().first(), s.store().end()), (76, 76));
+    s.feed(&lines(30));
+    assert_eq!(s.store().first(), 76);
+}
+
+/// 64 KB 청크 하나로 수천 줄을 밀어도 줄을 잃지 않는다(2.3 에서 넘어온 연결 시험).
+#[test]
+fn burst_chunk_loses_no_lines() {
+    let n = 6_000;
+    let data: Vec<u8> = (0..n)
+        .flat_map(|i| format!("line {i:05}\r\n").into_bytes())
+        .collect();
+    assert!(data.len() > 64 << 10);
+    let mut s = Screen::new(80, 24, HISTORY_CAP);
+    s.feed(&data);
+    let hl = i32::try_from(s.history_len()).unwrap();
+    let mut all = store_texts(&s);
+    all.extend((-hl..24).map(|l| text_at(&s, l)).filter(|t| !t.is_empty()));
+    let want: Vec<String> = (0..n).map(|i| format!("line {i:05}")).collect();
+    assert_eq!(all, want);
 }
 
 #[test]
@@ -475,6 +511,19 @@ fn queries_leave_screen_unchanged() {
     assert_eq!(text_at(&s, 0), "ab");
     let c = s.cursor();
     assert_eq!((c.col, c.row), (2, 0));
+}
+
+/// vte 0.15.0 은 앞 조각에서 끊긴 UTF-8 글자를 마저 읽을 때 뒤따르는 글자 하나를 삼킨다
+/// (`advance_partial_utf8` 가 `valid_bytes - old_bytes` 만큼 건너뜀). PTY 읽기는 글자 한가운데서 끊긴다.
+#[test]
+fn utf8_split_across_feeds_keeps_following_char() {
+    let mut s = Screen::new(10, 2, 1_000);
+    s.feed(b"e\xcc");
+    s.feed(b"\x81a\xcc");
+    s.feed(b"\x8a|\xed");
+    s.feed(b"\x95");
+    s.feed(b"\x9cz");
+    assert_eq!(text_at(&s, 0), "e\u{301}a\u{30a}|한z");
 }
 
 #[test]

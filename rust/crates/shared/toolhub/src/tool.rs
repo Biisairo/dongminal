@@ -12,20 +12,18 @@ use otter_shared_activity as activity;
 use otter_shared_otterlog::{errorf, infof};
 use otter_shared_outbuf::Stream;
 use otter_shared_platform::{ProcSpec, Terminal};
-use otter_shared_termstate::Screen;
+use otter_shared_termstate::{HISTORY_CAP, Screen};
 use tokio_util::sync::CancellationToken;
 
 use crate::env::{Getenv, tool_bin_dir, tool_env, tool_start_dir};
 use crate::{
     ATTN_MAX_CARRY, ActivityState, AgentState, AgentTurn, DEFAULT_COLS, DEFAULT_ROWS, EscClass,
-    ExitInfo, ModeObserver, TermModes, activity_still_working, classify_esc,
+    ExitInfo, ModeObserver, TermModes, ToolScreen, activity_still_working, classify_esc,
     detect_attention_signal, detect_cwd_report,
 };
 
 /// 출력 링버퍼의 크기다(1MB).
 pub const BUF_MAX: usize = 1 << 20;
-/// 화면 상태가 화면 위에 드는 기록 줄 수다(PERF M2 §2.2, EMULATOR §6).
-const SCREEN_HISTORY: usize = 1_000;
 /// kill 이 SIGTERM 뒤 SIGKILL 까지 기다리는 시간이다.
 pub const TERMINATE_GRACE: Duration = Duration::from_millis(50);
 const READ_BUF: usize = 8192;
@@ -173,7 +171,7 @@ impl Tool {
     ) -> Self {
         let screen = term.as_ref().map(|t| {
             let (c, r) = t.size().unwrap_or((DEFAULT_COLS, DEFAULT_ROWS));
-            Screen::new(c, r, SCREEN_HISTORY)
+            Screen::new(c, r, HISTORY_CAP)
         });
         Self {
             id: id.to_string(),
@@ -401,6 +399,27 @@ impl Tool {
             s.feed(chunk);
         }
         self.stream.as_ref().map_or(0, |s| s.feed(chunk).1)
+    }
+
+    /// 화면 상태 스냅숏과 그 뒤를 이을 출력 오프셋이다. 링과 같은 잠금 안에서 만들어 한 순간을 맞춘다.
+    /// 터미널이 없는 도구는 `None` 이다.
+    pub fn screen(&self, history: usize) -> Option<ToolScreen> {
+        let mut g = lock(&self.cmu);
+        let end = self.stream.as_ref().map_or(0, Stream::offset);
+        let sc = g.screen.as_mut()?;
+        let s = sc.snapshot(history);
+        let (cols, rows) = sc.size();
+        let alt = sc.modes().alt_screen;
+        drop(g);
+        Some(ToolScreen {
+            data: s.bytes,
+            end: end - i64::try_from(s.back).unwrap_or(0),
+            cols,
+            rows,
+            alt,
+            first_line: s.first_line,
+            cwd: self.reported_cwd(),
+        })
     }
 
     /// 화면 상태와 그 화면이 반영한 누적 오프셋(`end`)을 한 잠금 안에서 읽는다.

@@ -1,20 +1,41 @@
 //! alacritty_terminal 을 쓰는 유일한 모듈이다. 판을 올리면 비교 시험(`testdata`)을 다시 돌린다.
 
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use alacritty_terminal::event::EventListener;
-use alacritty_terminal::grid::Dimensions;
+use alacritty_terminal::event::{Event, EventListener};
+use alacritty_terminal::grid::{Cursor as ACursor, Dimensions, Grid};
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::{Cell as ACell, Flags};
 use alacritty_terminal::term::{Config, Term, TermMode};
-use alacritty_terminal::vte::ansi::{Color as AColor, NamedColor, Processor, Timeout};
+use alacritty_terminal::vte::ansi::{
+    CharsetIndex, Color as AColor, CursorShape, NamedColor, Processor, StandardCharset, Timeout,
+};
 
-use crate::{Attrs, Cell, Color, Cursor, Link, Modes, MouseMode, Row};
+use otter_shared_linestore::{LineStore, split_for_rows};
 
-/// 답장·제목·클립보드 같은 사건을 모두 버린다. 답장(`PtyWrite`)을 PTY 에 쓰지 않는다.
-struct Quiet;
+use crate::hist;
+use crate::scan::Scan;
+use crate::snap::{self, CursorState, GridState, Pen, State};
+use crate::{Attrs, Cell, Color, Cursor, Link, Modes, MouseMode, Row, Snapshot};
 
-impl EventListener for Quiet {}
+type Title = Arc<Mutex<Option<String>>>;
+
+/// 제목만 적어 두고 나머지 사건(답장 `PtyWrite`·클립보드 등)은 버린다. 답장을 PTY 에 쓰지 않는다.
+struct Quiet {
+    title: Title,
+}
+
+impl EventListener for Quiet {
+    fn send_event(&self, event: Event) {
+        let t = match event {
+            Event::Title(t) => Some(t),
+            Event::ResetTitle => None,
+            _ => return,
+        };
+        *self.title.lock().unwrap_or_else(|e| e.into_inner()) = t;
+    }
+}
 
 /// 동기 갱신(DECSET 2026)이 바이트를 붙잡지 않게 한다. 화면은 언제나 넣은 바이트 끝까지의 상태다.
 #[derive(Default)]
@@ -54,33 +75,172 @@ impl Dimensions for Size {
     }
 }
 
-/// 도구 하나의 화면 상태다.
+/// 에뮬레이터가 화면 위에 남기는 기록 줄 수다. 넘는 줄은 줄 저장소로 옮긴다(EMULATOR §6, D-14).
+pub const EMU_KEEP: usize = 1_000;
+/// 넣기 조각 하나가 기록으로 밀어 올릴 수 있는 행 수다([`split_for_rows`] 상한). 이만큼 넘을 때까지는
+/// 걸친 논리 줄이 끝나기를 기다리고, 넘으면 끊어 옮긴다.
+const SLACK: usize = 256;
+
+/// 도구 하나의 화면 상태다. 에뮬레이터 화면·짧은 기록과, 그 위의 줄 저장소를 함께 든다.
 pub struct Screen {
     term: Term<Quiet>,
     parser: Processor<NoSync>,
-    history: usize,
+    scan: Scan,
+    /// 바닥 상태에서 끊긴 UTF-8 글자의 앞 바이트다. 글자가 다 모일 때까지 파서에 넣지 않는다
+    /// (vte 0.15.0 이 이어 읽을 때 뒤 글자를 삼킨다 — `utf8_split_across_feeds_keeps_following_char`).
+    carry: Vec<u8>,
+    title: Title,
+    keep: usize,
+    store: LineStore,
+}
+
+/// 에뮬레이터 기록 상한이다. ED2·CSI S 처럼 조각 나누기가 세지 않는 밀어 올림(화면 한 벌)까지 담는다.
+fn emu_cap(keep: usize, rows: u16) -> usize {
+    keep + 2 * SLACK + usize::from(rows)
 }
 
 impl Screen {
-    /// `history` 는 에뮬레이터가 화면 위에 드는 기록 줄 수의 상한이다. 크기 0 은 1 로 올린다.
-    pub fn new(cols: u16, rows: u16, history: usize) -> Self {
+    /// `store_cap` 은 줄 저장소의 상한(논리 줄 수)이다. 크기 0 은 1 로 올린다.
+    pub fn new(cols: u16, rows: u16, store_cap: usize) -> Self {
+        Self::with_keep(cols, rows, EMU_KEEP, store_cap)
+    }
+
+    pub(crate) fn with_keep(cols: u16, rows: u16, keep: usize, store_cap: usize) -> Self {
         let cfg = Config {
-            scrolling_history: history,
+            scrolling_history: emu_cap(keep, rows.max(1)),
             ..Config::default()
         };
+        let title = Title::default();
+        let quiet = Quiet {
+            title: Arc::clone(&title),
+        };
         Self {
-            term: Term::new(cfg, &Size::new(cols, rows), Quiet),
+            term: Term::new(cfg, &Size::new(cols, rows), quiet),
             parser: Processor::new(),
-            history,
+            scan: Scan::default(),
+            carry: Vec::new(),
+            title,
+            keep,
+            store: LineStore::new(store_cap),
         }
     }
 
     pub fn feed(&mut self, bytes: &[u8]) {
-        self.parser.advance(&mut self.term, bytes);
+        let cols = usize::from(self.size().0);
+        for piece in split_for_rows(bytes, cols, SLACK) {
+            self.feed_piece(piece);
+            self.settle_history();
+        }
+    }
+
+    /// 에뮬레이터 기록이 `keep` 을 넘으면 넘는 만큼 오래된 논리 줄을 저장소로 옮긴다.
+    /// 걸친 논리 줄은 끝날 때까지 기다리고, `SLACK` 을 넘게 밀리면 끊어 옮긴다.
+    fn settle_history(&mut self) {
+        let alt = self.term.mode().contains(TermMode::ALT_SCREEN);
+        if self.scan.take_history_cleared() && !alt {
+            self.store.clear();
+        }
+        if alt {
+            return;
+        }
+        let g = self.term.grid();
+        let hl = g.history_size();
+        let Some(excess) = hl.checked_sub(self.keep).filter(|e| *e > 0) else {
+            return;
+        };
+        let rows: Vec<Row> = (0..hl)
+            .take(excess)
+            .map(|i| row_of(g, -i32::try_from(hl - i).unwrap_or(i32::MAX)))
+            .collect();
+        let (lines, moved) = hist::complete_lines(&rows, excess, excess > SLACK);
+        for l in lines {
+            self.store.push(l);
+        }
+        self.drop_oldest(moved);
+    }
+
+    fn feed_piece(&mut self, bytes: &[u8]) {
+        let rows = self.size().1;
+        self.scan.feed(bytes, rows);
+        let hold = if self.scan.in_ground() {
+            self.scan.pending().len()
+        } else {
+            0
+        };
+        if self.carry.is_empty() && hold == 0 {
+            self.parser.advance(&mut self.term, bytes);
+            return;
+        }
+        let mut buf = std::mem::take(&mut self.carry);
+        buf.extend_from_slice(bytes);
+        let cut = buf.len().saturating_sub(hold);
+        self.parser.advance(&mut self.term, &buf[..cut]);
+        self.carry = buf.split_off(cut);
+    }
+
+    /// 끝나지 않은 시퀀스·UTF-8 바이트다(시험용).
+    #[cfg(test)]
+    pub(crate) fn unfinished(&self) -> Vec<u8> {
+        self.scan.pending().to_vec()
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) {
         self.term.resize(Size::new(cols, rows));
+        self.scan.resized();
+        let cfg = Config {
+            scrolling_history: emu_cap(self.keep, rows.max(1)),
+            ..Config::default()
+        };
+        self.term.set_options(cfg);
+    }
+
+    /// 지금 화면을 다시 그리는 ANSI 다(화면 + 기록 `history` 줄, 대체 화면이면 가려진 주 화면도).
+    /// 새 터미널에 `bytes` 를 넣고, 이어서 원래 출력을 지금까지 넣은 끝에서 `back` 바이트 앞부터
+    /// 넣으면 이 화면에서 그대로 이어진다.
+    pub fn snapshot(&mut self, history: usize) -> Snapshot {
+        let st = self.state(history);
+        Snapshot {
+            bytes: snap::encode(&st),
+            back: st.back,
+            first_line: st.first_line,
+        }
+    }
+
+    pub(crate) fn state(&mut self, history: usize) -> State {
+        let back = self.scan.rewind();
+        let (main, alt) = if self.term.mode().contains(TermMode::ALT_SCREEN) {
+            let alt = grid_state(self.term.grid(), 0);
+            // alacritty 는 가려진 주 화면을 내지 않는다. 화면을 바꿔 읽고 되돌린다.
+            // 두 번째 바꾸기가 고치는 주 화면의 저장 커서는 대체 화면 동안 커서와 늘 같다.
+            let keep: Grid<ACell> = self.term.grid().clone();
+            self.term.swap_alt();
+            let main = grid_state(self.term.grid(), history);
+            self.term.swap_alt();
+            *self.term.grid_mut() = keep;
+            (main, Some(alt))
+        } else {
+            (grid_state(self.term.grid(), history), None)
+        };
+        let want = history.saturating_sub(main.history.len());
+        let (first_line, older) = hist::newest_rows(&self.store, want, usize::from(self.size().0));
+        State {
+            first_line,
+            older,
+            cols: self.size().0,
+            main,
+            alt,
+            modes: self.modes(),
+            cursor_style: decscusr(&self.term),
+            title: self.title.lock().unwrap_or_else(|e| e.into_inner()).clone(),
+            region: self.scan.region(),
+            shift_out: self.scan.shift_out(),
+            pending: if back == 0 {
+                self.scan.pending().to_vec()
+            } else {
+                Vec::new()
+            },
+            back,
+        }
     }
 
     /// `(cols, rows)`.
@@ -102,20 +262,21 @@ impl Screen {
         if line >= rows || line < -hist {
             return None;
         }
-        let r = &g[Line(line)];
-        let cols = g.columns();
-        Some(Row {
-            cells: (0..cols).map(|x| cell(&r[Column(x)])).collect(),
-            wrapped: r[Column(cols - 1)].flags.contains(Flags::WRAPLINE),
-        })
+        Some(row_of(g, line))
     }
 
     /// 가장 오래된 기록 `n` 줄을 지운다. 상한은 그대로다.
-    pub fn drop_oldest(&mut self, n: usize) {
+    fn drop_oldest(&mut self, n: usize) {
+        let cap = emu_cap(self.keep, self.size().1);
         let g = self.term.grid_mut();
-        let keep = g.history_size().saturating_sub(n);
-        g.update_history(keep);
-        g.update_history(self.history);
+        let left = g.history_size().saturating_sub(n);
+        g.update_history(left);
+        g.update_history(cap);
+    }
+
+    /// 줄 저장소다(위로 받기 FR-TRM-5 가 읽는다).
+    pub fn store(&self) -> &LineStore {
+        &self.store
     }
 
     pub fn cursor(&self) -> Cursor {
@@ -157,6 +318,64 @@ impl Screen {
     }
 }
 
+fn grid_state(g: &Grid<ACell>, history: usize) -> GridState {
+    let rows = i32::try_from(g.screen_lines()).unwrap_or(i32::MAX);
+    let hist = i32::try_from(g.history_size().min(history)).unwrap_or(i32::MAX);
+    GridState {
+        history: (-hist..0).map(|l| row_of(g, l)).collect(),
+        rows: (0..rows).map(|l| row_of(g, l)).collect(),
+        cursor: cursor_state(&g.cursor),
+        saved: cursor_state(&g.saved_cursor),
+    }
+}
+
+fn row_of(g: &Grid<ACell>, line: i32) -> Row {
+    let r = &g[Line(line)];
+    let cols = g.columns();
+    Row {
+        cells: (0..cols).map(|x| cell(&r[Column(x)])).collect(),
+        wrapped: r[Column(cols - 1)].flags.contains(Flags::WRAPLINE),
+    }
+}
+
+fn cursor_state(c: &ACursor<ACell>) -> CursorState {
+    let t = cell(&c.template);
+    let idx = [
+        CharsetIndex::G0,
+        CharsetIndex::G1,
+        CharsetIndex::G2,
+        CharsetIndex::G3,
+    ];
+    CursorState {
+        col: to_u16(c.point.column.0),
+        row: u16::try_from(c.point.line.0).unwrap_or(0),
+        pending_wrap: c.input_needs_wrap,
+        pen: Pen {
+            fg: t.fg,
+            bg: t.bg,
+            underline: t.underline,
+            attrs: t.attrs,
+            link: t.link,
+        },
+        line_drawing: idx.map(|i| c.charsets[i] == StandardCharset::SpecialCharacterAndLineDrawing),
+    }
+}
+
+/// 기본 모양과 다르면 DECSCUSR 값이다.
+fn decscusr(t: &Term<Quiet>) -> Option<u8> {
+    let s = t.cursor_style();
+    if s == Config::default().default_cursor_style {
+        return None;
+    }
+    let steady = u8::from(!s.blinking);
+    match s.shape {
+        CursorShape::Block => Some(1 + steady),
+        CursorShape::Underline => Some(3 + steady),
+        CursorShape::Beam => Some(5 + steady),
+        CursorShape::HollowBlock | CursorShape::Hidden => None,
+    }
+}
+
 fn to_u16(v: usize) -> u16 {
     u16::try_from(v).unwrap_or(u16::MAX)
 }
@@ -181,11 +400,15 @@ fn color(c: AColor) -> Color {
     }
 }
 
-const ATTRS: [(Flags, Attrs); 7] = [
+const ATTRS: [(Flags, Attrs); 11] = [
     (Flags::BOLD, Attrs::BOLD),
     (Flags::DIM, Attrs::DIM),
     (Flags::ITALIC, Attrs::ITALIC),
-    (Flags::ALL_UNDERLINES, Attrs::UNDERLINE),
+    (Flags::UNDERLINE, Attrs::UNDERLINE),
+    (Flags::DOUBLE_UNDERLINE, Attrs::DOUBLE_UNDERLINE),
+    (Flags::UNDERCURL, Attrs::UNDERCURL),
+    (Flags::DOTTED_UNDERLINE, Attrs::DOTTED_UNDERLINE),
+    (Flags::DASHED_UNDERLINE, Attrs::DASHED_UNDERLINE),
     (Flags::INVERSE, Attrs::INVERSE),
     (Flags::HIDDEN, Attrs::HIDDEN),
     (Flags::STRIKEOUT, Attrs::STRIKE),
@@ -219,6 +442,7 @@ fn cell(c: &ACell) -> Cell {
         fg: color(c.fg),
         bg: color(c.bg),
         attrs,
+        underline: c.underline_color().map_or(Color::Default, color),
         link: c.hyperlink().map(|h| Link {
             id: h.id().to_string(),
             uri: h.uri().to_string(),
