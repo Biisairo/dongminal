@@ -1215,8 +1215,6 @@ I18N.register('en', {
   'openurl.title': 'Open here',
 
   // ── poll ──
-  'poll.git_console.hint': 'Git\'s command history. Polled only while that tab is visible.',
-  'poll.git_console.label': 'git console',
   'poll.git_repos.hint': 'The explorer\'s file list and outside changes to open files. The server\'s file watcher normally reports them right away; this interval catches what it misses.',
   'poll.git_repos.label': 'Explorer',
   'poll.git_worktree.hint': 'How often the server checks the working tree for git changes. The file watcher reports changes in expanded folders right away; this interval covers changes inside collapsed folders. Windows has no file watcher, so this interval covers all changes there.',

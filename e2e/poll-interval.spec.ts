@@ -19,7 +19,7 @@ import { tmpPath, realPath } from './osenv';
 // 평가되므로 이름을 그대로 쓰되, TS 에는 존재만 알린다.
 declare const GIT_SIGNATURE_POLL_MS: number;
 declare const GIT_REPOS_POLL_MS: number;
-declare const GIT_CON_POLL_MS: number;
+declare const STATS_INTERVAL_DEFAULT: number;
 declare const TIMERS: { _jobs: Map<string, { nextAt: number }>; refreshChanged(): void };
 
 const FIXTURES = tmpPath('otter-git-fx-pollint-' + process.pid);
@@ -38,9 +38,8 @@ async function patchSettings(request: APIRequestContext, patch: Record<string, u
   expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
 }
 
-// `agentsPollInterval` 은 PERF M1 C6 에서 거뒀다 — 활동은 채널 토픽으로 온다.
-const POLL_KEYS = ['statsInterval', 'gitStatusInterval',
-  'gitReposInterval', 'gitConsoleInterval'] as const;
+// `agentsPollInterval`(PERF M1 C6)·`gitConsoleInterval`(PERF 1.9)은 거뒀다 — 활동과 Console 기록은 채널 토픽으로 온다.
+const POLL_KEYS = ['statsInterval', 'gitStatusInterval', 'gitReposInterval'] as const;
 
 const clearIntervals = (request: APIRequestContext) =>
   patchSettings(request, Object.fromEntries(POLL_KEYS.map(k => [k, undefined])));
@@ -82,24 +81,21 @@ test.describe('묶음 PIS·제거 — 브라우저 signature 폴링 (FR-PIS-1~4)
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.describe('묶음 PIS·설정 — 네 주기 (FR-PIS-6~15)', () => {
+test.describe('묶음 PIS·설정 — 세 주기 (FR-PIS-6~15)', () => {
   test.afterEach(async ({ request }) => { await clearIntervals(request) });
 
-  test('PIS4 (V-4): 네 키가 설정에서 화면으로 내려온다', async ({ page, request }) => {
+  test('PIS4 (V-4): 세 키가 설정에서 화면으로 내려온다', async ({ page, request }) => {
     await patchSettings(request, {
       statsInterval: 5000, gitStatusInterval: 10000,
-      gitReposInterval: 10000, gitConsoleInterval: 5000,
+      gitReposInterval: 10000,
     });
     await waitForInit(page);
     const v = await page.evaluate(() => ({
       stats: (window as any).statsInterval,
       gitStatus: (window as any).gitStatusInterval,
       gitRepos: (window as any).gitReposInterval,
-      gitConsole: (window as any).gitConsoleInterval,
     }));
-    expect(v).toEqual({
-      stats: 5000, gitStatus: 10000, gitRepos: 10000, gitConsole: 5000,
-    });
+    expect(v).toEqual({ stats: 5000, gitStatus: 10000, gitRepos: 10000 });
   });
 
   // FR-PIS-7: 얹는 자리가 하나이므로 SSE 방송도 같은 길을 지난다 (FR-SYN).
@@ -116,16 +112,16 @@ test.describe('묶음 PIS·설정 — 네 주기 (FR-PIS-6~15)', () => {
    */
   test('PIS6 (V-5): 범위 밖 값은 기본값으로 떨어진다', async ({ page, request }) => {
     await patchSettings(request, {
-      gitReposInterval: 1, gitConsoleInterval: 'x',
+      gitReposInterval: 1, statsInterval: 'x',
     });
     await waitForInit(page);
     const v = await page.evaluate(() => ({
       repos: (window as any).gitReposInterval,
-      con: (window as any).gitConsoleInterval,
-      dRepos: GIT_REPOS_POLL_MS, dCon: GIT_CON_POLL_MS,
+      stats: (window as any).statsInterval,
+      dRepos: GIT_REPOS_POLL_MS, dStats: STATS_INTERVAL_DEFAULT,
     }));
     expect(v.repos).toBe(v.dRepos);
-    expect(v.con).toBe(v.dCon);
+    expect(v.stats).toBe(v.dStats);
   });
 
   /**
@@ -238,23 +234,24 @@ test.describe('PERF M1 C6 — 거둔 설정 agentsPollInterval', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
-  test('PIS15 (V-10): Polling 탭에 컨트롤 넷이 나란히 선다', async ({ page }) => {
+  test('PIS15 (V-10): Polling 탭에 컨트롤 셋이 나란히 선다', async ({ page }) => {
     await waitForInit(page);
     await openSettings(page, 'polling');
     const panel = page.locator('#panel-polling');
     await expect(panel).toBeVisible();
-    for (const id of ['pi-stats', 'pi-gitstatus', 'pi-gitrepos', 'pi-gitconsole'])
+    for (const id of ['pi-stats', 'pi-gitstatus', 'pi-gitrepos'])
       await expect(panel.locator('#' + id)).toBeVisible();
+    await expect(panel.locator('#pi-gitconsole'), 'Console 주기는 거뒀다 (PERF 1.9)').toHaveCount(0);
   });
 
   // FR-PIS-20 의 대칭: 화면에서 고른 값이 서버로 간다.
   test('PIS17 (V-10): 드롭다운을 바꾸면 서버 설정에 실린다', async ({ page, request }) => {
     await waitForInit(page);
     await openSettings(page, 'polling');
-    await page.locator('#pi-gitconsole').selectOption('5000');
-    await expect.poll(async () => (await (await request.get('/api/settings')).json()).gitConsoleInterval,
+    await page.locator('#pi-gitrepos').selectOption('5000');
+    await expect.poll(async () => (await (await request.get('/api/settings')).json()).gitReposInterval,
       { timeout: 10000 }).toBe(5000);
-    expect(await page.evaluate(() => (window as any).gitConsoleInterval)).toBe(5000);
+    expect(await page.evaluate(() => (window as any).gitReposInterval)).toBe(5000);
     await clearIntervals(request);
   });
 
@@ -267,7 +264,7 @@ test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
       return [...el.options].some(o => o.value === '0');
     }, id);
     expect(await has0('pi-gitstatus')).toBe(true);
-    for (const id of ['pi-stats', 'pi-gitrepos', 'pi-gitconsole'])
+    for (const id of ['pi-stats', 'pi-gitrepos'])
       expect(await has0(id), id + ' 에 뜻 없는 0 이 있다').toBe(false);
   });
 

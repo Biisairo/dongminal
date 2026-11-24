@@ -1498,16 +1498,6 @@ export async function scopedSettings(request: any, patch: Record<string, unknown
   };
 }
 
-/**
- * Console 폴링 주기를 **그 자리에서** 바꾼다 (E2E_PRUNE_REPORT §8.2 (a′)).
- *
- * `gitConsoleInterval` 은 `var` 전역이고 Console 이 다시 무장할 때마다 읽는다.
- * 설정으로 넣으면 하한(1000ms)에 걸리므로 `setSafetyNet` 과 같은 방식으로 넣는다.
- */
-export async function setConsoleInterval(page: any, ms: number) {
-  await page.evaluate((v: number) => { (window as any).gitConsoleInterval = v }, ms);
-}
-
 export { expect };
 
 /**

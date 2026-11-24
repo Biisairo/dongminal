@@ -125,13 +125,13 @@ fn font_size_bounds() {
 }
 
 // TC-CFG-13: 알 수 없는 키는 경고이며 실패가 아니다.
-/// PERF M1 C6: 거둔 키(`agentsPollInterval`)는 저장된 블롭에 남아 있어도 문제도 경고도 아니다.
+/// PERF M1 C6·1.9: 거둔 키(`agentsPollInterval`·`gitConsoleInterval`)는 저장된 블롭에 남아 있어도 문제도 경고도 아니다.
 #[test]
 fn retired_key_is_ignored() {
     let specs = load().unwrap();
     let (probs, unknown) = validate_object(
         &specs,
-        &obj(json!({"agentsPollInterval":5000,"themeName":"x"})),
+        &obj(json!({"agentsPollInterval":5000,"gitConsoleInterval":2000,"themeName":"x"})),
     );
     assert!(
         probs.is_empty() && unknown.is_empty(),
@@ -244,7 +244,7 @@ fn spec_and_problem_wire() {
 #[test]
 fn load_reads_embedded_table() {
     let specs = load().unwrap();
-    assert_eq!(specs.len(), 34, "서술자 {}개, 기대 34개", specs.len());
+    assert_eq!(specs.len(), 33, "서술자 {}개, 기대 33개", specs.len());
     let by = by_key(&specs);
     for k in [
         "themeName",
@@ -423,7 +423,7 @@ fn save_settings_derives_from_table() {
     let body = between(&apply, "_settingsBody(){", "\n  }\n");
     assert!(!body.is_empty(), "_settingsBody 를 찾지 못했다");
     assert!(body.contains("for(const spec of SETTINGS_SCHEMA)"));
-    for k in ["gitConsoleInterval,", "focusEdgeLevel,attnEdgeLevel"] {
+    for k in ["gitStatusInterval,", "focusEdgeLevel,attnEdgeLevel"] {
         assert!(!body.contains(k), "키를 인라인으로 나열하고 있다: {k:?}");
     }
 }
