@@ -59,6 +59,11 @@ const GIT_DIFF_WS_KEY='gitDiffIgnoreWs';
 // EDITOR_GIT_UX_SRS FR-DOR-3·4: 변경 없는 구간의 접기. 기본은 **꺼짐**이다
 // (FR-DOR-2) — 접으면 개요 눈금의 위치가 실제 파일의 줄 위치와 어긋난다.
 const GIT_DIFF_FOLD_KEY='gitDiffHideUnchanged';
+// 이슈 3.2: Diff 뷰의 diff 계산 상한 (`gitDiffBounded`). 근거는 issues/3.2 진행 기록의 측정이다.
+// 줄 비교의 편집 수 — 2만 3천 줄에서 4,000 이면 120 ms·64 MB 안팎이고, 3,100줄 추가·100줄 수정이 들어간다.
+const GIT_DIFF_LINE_MAX_EDITS=4000;
+// 글자 단위로 다듬는 덩어리 길이(두 쪽 글자 수의 합)의 제곱의 누적 — 최악(서로 무관한 글)에서 100 ms 안팎이다.
+const GIT_DIFF_REFINE_BUDGET=32000000;
 const GIT_DIFF_FOLD_LABEL=t('git.act.diff_fold_label');
 // UI_POLISH_SRS FR-UIP-17: 두 칸 선택 묶음의 이름.
 const GIT_DIFF_MODE_LABEL={side:t('git.diff_mode.side'),inline:t('git.diff_mode.inline')};

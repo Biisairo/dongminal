@@ -2,6 +2,7 @@
  * Git Diff 뷰의 CodeMirror 조각 — CODEMIRROR_MIGRATION_SRS 묶음 G (FR-CMR-50~57) · §11.4.
  *
  *   gitDiffIgnoreWs     앞뒤 공백 무시 diff — `diffConfig.override` 자리 (FR-CMR-53)
+ *   gitDiffBounded      기본 diff — 줄 단위 먼저, 작은 덩어리만 글자 단위 (이슈 3.2)
  *   gitDiffRulerItems   조각 → ruler 항목 (FR-CMR-57)
  *   gitDiffHunkBar      hunk 툴바를 커서 줄에 띄우는 tooltip 필드 (FR-CMR-55)
  *   gitDiffCursorHost   git-hunks.js 가 편집기에 닿는 유일한 자리
@@ -16,15 +17,59 @@ function gitDiffLineStarts(text) {
 
 /**
  * FR-CMR-53: 줄마다 앞뒤 공백을 걷어 줄 단위로 비교한다. 결과는 원래 텍스트의 offset 으로 된 `Change` 다 —
- * 줄째 바뀐 범위이므로 줄 안의 강조는 줄 전체다 (§3.16 Diff 공백 무시). 상한을 넘으면 기본 diff 로 돌아간다.
+ * 줄째 바뀐 범위이므로 줄 안의 강조는 줄 전체다 (§3.16 Diff 공백 무시). 상한을 넘으면 기본 diff(`gitDiffBounded`)로
+ * 돌아간다 — 상한 없는 `CM.diff` 로 돌아가면 큰 파일에서 메인 스레드가 멎는다 (이슈 3.2).
  */
 function gitDiffIgnoreWs(a, b) {
   const la = a.split('\n'), lb = b.split('\n');
-  const r = edDiffLines(la.map((s) => s.trim()), lb.map((s) => s.trim()));
-  if (!r.ok) return CM.diff(a, b);
+  const r = edDiffLines(la.map((s) => s.trim()), lb.map((s) => s.trim()), GIT_DIFF_LINE_MAX_EDITS);
+  if (!r.ok) return gitDiffBounded(a, b);
+  return gitDiffLineChanges(a, b, r.changes);
+}
+
+/**
+ * Diff 뷰의 기본 diff — `diffConfig.override` 자리 (이슈 3.2).
+ *
+ *   이전 동작: vendor 의 글자 단위 diff 가 두 글 전체를 비교했다
+ *   새  동작: 줄 단위로 먼저 비교하고(`edDiffLines`), 바뀐 덩어리 중 작은 것만 글자 단위로 다듬는다.
+ *             줄 비교가 상한을 넘으면 공통 앞뒤 줄을 뺀 구간 하나가 바뀐 것이다
+ *   이유:     글자 단위 diff 는 바뀐 글자 수에 비례해 느려지고 상한이 없다 — 2만 줄을 모두 고친
+ *             파일에서 메인 스레드를 60초 넘게 잡았다. vendor 의 `timeout` 은 상한이 되지 못한다
+ *
+ * 글자 단위로 다듬는 비용은 덩어리 길이의 제곱을 따라간다. 그 합이 `GIT_DIFF_REFINE_BUDGET` 을 넘을
+ * 덩어리는 줄째 바뀐 것으로 둔다.
+ */
+function gitDiffBounded(a, b) {
+  if (a === b) return [];
+  const la = a.split('\n'), lb = b.split('\n');
+  const r = edDiffLines(la, lb, GIT_DIFF_LINE_MAX_EDITS);
+  const blocks = gitDiffLineChanges(a, b, r.ok ? r.changes : [gitDiffWholeChange(la, lb)]);
+  const out = [];
+  let spent = 0;
+  for (const c of blocks) {
+    const n = (c.toA - c.fromA) + (c.toB - c.fromB);
+    if (c.toA === c.fromA || c.toB === c.fromB || spent + n * n > GIT_DIFF_REFINE_BUDGET) { out.push(c); continue }
+    spent += n * n;
+    for (const s of CM.diff(a.slice(c.fromA, c.toA), b.slice(c.fromB, c.toB)))
+      out.push(new CM.Change(c.fromA + s.fromA, c.fromA + s.toA, c.fromB + s.fromB, c.fromB + s.toB));
+  }
+  return out;
+}
+
+// 줄 비교를 포기했을 때의 조각 하나 — 공통 앞뒤 줄을 뺀 구간이다 (`edDiffLines` 의 좌표).
+function gitDiffWholeChange(la, lb) {
+  let lo = 0;
+  while (lo < la.length && lo < lb.length && la[lo] === lb[lo]) lo++;
+  let hiA = la.length, hiB = lb.length;
+  while (hiA > lo && hiB > lo && la[hiA - 1] === lb[hiB - 1]) { hiA--; hiB-- }
+  return { line: lo + 1, count: hiB - lo, baseStart: lo + 1, baseCount: hiA - lo };
+}
+
+// 줄 조각(`edDiffLines` 의 1-기반 좌표) → 원래 텍스트의 offset 으로 된 `Change`.
+function gitDiffLineChanges(a, b, changes) {
   const sa = gitDiffLineStarts(a), sb = gitDiffLineStarts(b);
   const out = [];
-  for (const c of r.changes) {
+  for (const c of changes) {
     let fromA = sa(c.baseStart), toA = sa(c.baseStart + c.baseCount);
     let fromB = sb(c.line), toB = sb(c.line + c.count);
     // 줄바꿈 없는 마지막 줄 **뒤에** 더하거나 지우면, 그 줄을 끊는 줄바꿈이 상대 쪽 범위에 든다.

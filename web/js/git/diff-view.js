@@ -269,7 +269,7 @@ class GitDiffView {
     const buf=this._buf;
     // FR-ELR-38: 칸이 붙은 버퍼를 기억한다 — 버릴 때 `_buf` 는 이미 다음 문서의 것일 수 있다.
     const c={kind,cmpA:ea.cmp,cmpB:eb.cmp,ruler:null,buf};
-    const diffConfig=this._ignoreWs?{override:gitDiffIgnoreWs}:{};
+    const diffConfig={override:this._ignoreWs?gitDiffIgnoreWs:gitDiffBounded};
     const bDoc=buf?buf.doc:this._modText;
     // FR-DNC-2: 보일 변경이 없으면 접지 않는다 — 접기가 본문 전체를 한 띠로 접어 내용이 사라진 것처럼 보인다.
     c.folded=this._fold&&this._cmHasChanges(bDoc,diffConfig);

@@ -78,6 +78,8 @@
 | git diff — 현실형 큰 파일(2만 3천 줄, 3,100줄 추가·100줄 삭제) | 5건 | **1,934 ms** | `_cmBuild`(diff 계산) 98%. 나머지는 언어 파서 75·73 ms, LSP 진단 표시 87 ms |
 | 위 Diff 를 연 칸에 기록 탭 열기 — 고치기 전 | 5건 | **2,658 ms** | 가려진 Diff 를 인라인으로 다시 세움(`layout()` → `_cmBuild`) |
 | 같은 것 — 고친 뒤 | 2건 | 83 ms | 다시 세우기가 사라졌다. 남은 것은 탭 열기 49 ms(`tabsFit`)·LSP 수신 83 ms |
+| git diff — 3.1 저장소 `big.js`, 줄 단위 먼저 비교로 고친 뒤(`gitDiffBounded`) | 7건 | 81 ms | 줄 비교 `edDdMyers` 58%(상한 4,000 에서 포기 → 바뀐 구간 하나). 나머지는 언어 파서·LSP |
+| git diff — 현실형 큰 파일, 고친 뒤 | 6건 | 74 ms | 언어 파서 73·72 ms, LSP 84 ms. diff 계산 작업은 56 ms(`edDdMyers` 54%) |
 | git 기록 뷰만(커밋 401개) | 1건 | 18 ms | `tabsFit` |
 | 문서 렌더(markdown 6,000줄·84 KB, 코드 블록 400개) | 1건 | **202 ms** | `DocRender._paint`(markdown-it·DOMPurify 포함) 75%, `docHighlight` 12%, DOM 47 ms |
 | 같은 문서를 편집기로 열기 | 2건 | 62 ms | `edOpenFile`·`tabsFit`, 미니맵 `edMinimapScale` |
