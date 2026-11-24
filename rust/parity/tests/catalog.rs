@@ -9,8 +9,10 @@ use dm_parity::scenarios;
 #[test]
 fn every_scenario_is_valid_unique_and_owned() {
     let all = scenarios::all();
-    let issues =
-        load_status(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/internal/archive/rust-port/issues")).unwrap();
+    let issues = load_status(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/internal/archive/rust-port/issues"),
+    )
+    .unwrap();
     let mut names = BTreeSet::new();
     for s in &all {
         assert!(
