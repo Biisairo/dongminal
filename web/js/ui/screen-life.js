@@ -74,7 +74,7 @@ class ScreenLife extends Component {
       if(e.state!=='asleep') continue;
       const mine=w=>w===o||(w!=null&&w.parent===o);
       out.push({
-        kind:o.constructor&&o.constructor.name,
+        kind:o.lifeKind||(o.constructor&&o.constructor.name),
         timers:pend.filter(r=>mine(r.owner)).length,
         subs:ch?ch.countOwned(mine):0,
       });
