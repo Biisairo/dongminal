@@ -9,16 +9,18 @@
  * 공백·줄바꿈과 문서의 처음·끝도 경계다.
  *
  * 빈 일치(`x*` 같은 정규식)는 내지 않는다 — 셀 수도, 칠할 수도 없다.
+ *
+ * `from`·`to` 를 주면 그 범위 안의 일치만 센다 (`edFindScan`·보이는 구간).
  */
-function edFindHits(doc, query, opts, max) {
+function edFindHits(doc, query, opts, max, from = 0, to = doc.length) {
   if (!query) return [];
   const o = opts || {};
   const fold = o.case ? undefined : (s) => s.toLowerCase();
   const test = o.word ? edFindWordTest(doc) : undefined;
   const out = [];
   const cursor = o.regex
-    ? new CM.RegExpCursor(doc, query, { ignoreCase: !o.case, test })
-    : new CM.SearchCursor(doc, query, 0, doc.length, fold, test);
+    ? new CM.RegExpCursor(doc, query, { ignoreCase: !o.case, test }, from, to)
+    : new CM.SearchCursor(doc, query, from, to, fold, test);
   for (let r = cursor.next(); !r.done && out.length < max; r = cursor.next()) {
     const { from, to } = r.value;
     if (from === to) continue;
@@ -26,6 +28,30 @@ function edFindHits(doc, query, opts, max) {
   }
   return out;
 }
+
+/**
+ * PERF_OPTIMIZATION_SRS FR-SPA-5 (이슈 3.3): 문서를 줄 묶음으로 나눠 센다. `step(n)` 한 번이 줄 n 개를 훑는다.
+ *
+ * 묶음은 줄 경계에서 자른다. 리터럴 질의와 한 줄짜리 정규식은 줄을 넘는 일치가 없으므로 나눠 세도 한 번에
+ * 센 것과 같다. 줄을 넘을 수 있는 정규식은 첫 `step` 에서 끝까지 센다.
+ */
+function edFindScan(doc, query, opts, max) {
+  const multi = /\n|\r/.test(query) || !!(opts && opts.regex && ED_FIND_MULTILINE_RE.test(query));
+  const s = { hits: [], line: 1, done: !query, step };
+  function step(n) {
+    if (s.done) return s;
+    const last = multi ? doc.lines : Math.min(doc.lines, s.line + n - 1);
+    const part = edFindHits(doc, query, opts, max - s.hits.length, doc.line(s.line).from, doc.line(last).to);
+    for (const h of part) s.hits.push(h);
+    s.line = last + 1;
+    s.done = s.line > doc.lines || s.hits.length >= max;
+    return s;
+  }
+  return s;
+}
+
+// CodeMirror 의 RegExpCursor 가 여러 줄 커서로 넘기는 질의의 판정과 같다.
+const ED_FIND_MULTILINE_RE = /\\[sWDnr]|\n|\r|\[\^/;
 
 // 일치 앞뒤 한 글자가 경계인가. 커서가 넘겨 주는 `(from, to)` 는 문서 offset 이다.
 function edFindWordTest(doc) {
@@ -80,7 +106,7 @@ function edFindSources() {
 
 /**
  * 찾기 패널이 CodeMirror 편집기에 닿는 자리 (`ED_FIND_MIXIN` 의 엔진).
- * 일치는 `{from, to, caps}` 다 (`edFindHits`).
+ * 일치는 `{from, to, caps}` 다 (`edFindHits`). 세기는 `edFindScan` 으로 나눠 할 수 있다.
  */
 function edFindEngineCm(view) {
   const hitMark = CM.Decoration.mark({ class: ED_FIND_HIT_CLASS });
@@ -93,7 +119,12 @@ function edFindEngineCm(view) {
       if (r.empty || doc.lineAt(r.from).number !== doc.lineAt(r.to).number) return null;
       return doc.sliceString(r.from, r.to);
     },
-    hits: (query, opts) => edFindHits(view.state.doc, query, opts, ED_FIND_MAX_HITS),
+    scan: (query, opts) => edFindScan(view.state.doc, query, opts, ED_FIND_MAX_HITS),
+    // 화면에 보이는 구간의 일치 — 큰 문서에서 다 세기 전에 먼저 칠한다.
+    visibleHits(query, opts) {
+      const doc = view.state.doc;
+      return view.visibleRanges.flatMap((r) => edFindHits(doc, query, opts, ED_FIND_MAX_HITS, r.from, r.to));
+    },
     paint(hits, cur) {
       const b = new CM.RangeSetBuilder();
       hits.forEach((h, i) => b.add(h.from, h.to, i === cur ? curMark : hitMark));
