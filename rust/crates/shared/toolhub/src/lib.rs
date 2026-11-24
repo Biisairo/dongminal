@@ -23,7 +23,9 @@ pub use conn::{
     OP_ERROR, OP_EXIT, OP_INPUT, OP_OUTPUT, OP_REPLY_SEAT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID,
     WRITE_WAIT, size_payload,
 };
-pub use hub::{BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolInfo, ToolSnapshot};
+pub use hub::{
+    BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolInfo, ToolScreen, ToolSnapshot,
+};
 pub use manager::{
     DEFAULT_COLS, DEFAULT_ROWS, FOREGROUND_REFRESH_INTERVAL, ForegroundFn, ForegroundProbeFn,
     HandoverTool, InvalidatorFn, MAX_TERMINAL_DIM, ManagerError, OwnedFn, PASTE_SUBMIT_DELAY,

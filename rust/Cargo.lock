@@ -2119,6 +2119,7 @@ name = "otter-shared-termstate"
 version = "1.3.7"
 dependencies = [
  "alacritty_terminal",
+ "otter-shared-linestore",
  "serde",
  "serde_json",
 ]

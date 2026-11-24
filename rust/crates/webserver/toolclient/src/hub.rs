@@ -5,17 +5,17 @@ use std::time::{Duration, Instant};
 
 use otter_gocompat::json;
 use otter_shared_toolhub::{
-    BackgroundEntry, ExitInfo, Placement, ShellState, ToolInfo, ToolSnapshot,
+    BackgroundEntry, ExitInfo, Placement, ShellState, ToolInfo, ToolScreen, ToolSnapshot,
 };
 use otter_shared_toolipc::{
     BackgroundListResult, BusyManyParams, BusyManyResult, BusyResult, CODE_NOT_FOUND,
     CODE_TOOL_CAP, CreateParams, CreateResult, CwdResult, FEATURE_BUSY_MANY, FEATURE_NOTIFY,
     FEATURE_SHELL_PROBE, IdParams, METHOD_BACKGROUND_LIST, METHOD_BUSY, METHOD_BUSY_MANY,
     METHOD_CREATE, METHOD_CWD, METHOD_INPUT, METHOD_KILL, METHOD_LIST, METHOD_PASTE, METHOD_RESIZE,
-    METHOD_RESIZE_NOTIFY, METHOD_RESTORE, METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE,
+    METHOD_RESIZE_NOTIFY, METHOD_RESTORE, METHOD_SCREEN, METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE,
     METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE, PasteParams, ResizeParams, RestoreParams,
-    SetBackgroundParams, SetBackgroundResult, ShellProbeParams, ShellProbeResult, SnapshotParams,
-    SnapshotResult, TerminateParams, WriteParams,
+    ScreenParams, ScreenResult, SetBackgroundParams, SetBackgroundResult, ShellProbeParams,
+    ShellProbeResult, SnapshotParams, SnapshotResult, TerminateParams, WriteParams,
 };
 
 use crate::client::{Inner, TOOL_CALL_TIMEOUT, TOOL_CREATE_TIMEOUT, ToolClient, lock, result_key};
@@ -360,6 +360,28 @@ impl ToolClient {
             .ok()
             .and_then(|r| r.background)
             .unwrap_or_default()
+    }
+
+    /// 화면 상태 스냅숏을 부른다 (PERF FR-TRM-4). FEATURE_SCREEN_STATE 를 말한 데몬에만 부른다.
+    /// "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, Error> {
+        let params = ScreenParams {
+            history,
+            id: id.to_owned(),
+        };
+        let r: ScreenResult = self.call(METHOD_SCREEN, &params).map_err(|e| match e {
+            Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(id.to_owned()),
+            e => e,
+        })?;
+        Ok(ToolScreen {
+            data: r.data,
+            end: r.end,
+            cols: r.cols,
+            rows: r.rows,
+            alt: r.alt,
+            first_line: r.first_line,
+            cwd: r.cwd,
+        })
     }
 
     pub fn snapshot_tool(&self, id: &str) -> Result<ToolSnapshot, Error> {

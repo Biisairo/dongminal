@@ -16,6 +16,8 @@ pub const METHOD_PASTE: &str = "paste";
 pub const METHOD_RESIZE: &str = "resize";
 pub const METHOD_LIST: &str = "list";
 pub const METHOD_SNAPSHOT: &str = "snapshot";
+/// 화면 상태 스냅숏 (PERF FR-TRM-4). FEATURE_SCREEN_STATE 를 말한 데몬에만 보낸다.
+pub const METHOD_SCREEN: &str = "screen";
 pub const METHOD_CWD: &str = "cwd";
 pub const METHOD_BUSY: &str = "busy";
 pub const METHOD_BUSY_MANY: &str = "busymany";
@@ -88,6 +90,9 @@ pub const FEATURE_CHAT: &str = "chat";
 /// shellprobe 를 안다 (FR-RRC-10).
 pub const FEATURE_SHELL_PROBE: &str = "shellprobe";
 
+/// 화면 상태 스냅숏(`screen`)을 안다 (PERF FR-TRM-4, D-18).
+pub const FEATURE_SCREEN_STATE: &str = "screen";
+
 /// 이 데몬이 hello 에서 말하는 기능이다.
 pub const DAEMON_FEATURES: &[&str] = &[
     FEATURE_FOREGROUND_TICK,
@@ -99,6 +104,7 @@ pub const DAEMON_FEATURES: &[&str] = &[
     FEATURE_EDGE,
     FEATURE_CHAT,
     FEATURE_SHELL_PROBE,
+    FEATURE_SCREEN_STATE,
 ];
 /// 서버가 hello 에서 말하는 기능이다.
 pub const SERVER_FEATURES: &[&str] = &[
@@ -219,6 +225,30 @@ pub struct SnapshotResult {
     pub total_bytes_drop: i64,
     #[serde(rename = "totalBytesIn")]
     pub total_bytes_in: i64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenParams")]
+pub struct ScreenParams {
+    /// 스냅숏에 실을 기록 행 수다.
+    pub history: usize,
+    pub id: String,
+}
+
+/// 화면 상태 스냅숏이다. `data` 를 새 터미널에 넣고 출력 오프셋 `end` 뒤를 이어 넣는다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenResult")]
+pub struct ScreenResult {
+    pub alt: bool,
+    pub cols: u16,
+    pub cwd: String,
+    #[serde(with = "json::bytes")]
+    pub data: Vec<u8>,
+    pub end: i64,
+    /// 실린 가장 오래된 기록 줄의 절대 번호(줄 저장소 번호)다.
+    #[serde(rename = "firstLine")]
+    pub first_line: u64,
+    pub rows: u16,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

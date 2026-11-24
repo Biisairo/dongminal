@@ -4,12 +4,28 @@
 //! 값 타입과 [`Screen`] 만 보인다. 답장 사건(DA·DSR 등의 `PtyWrite`)은 어디에도 쓰지 않는다.
 
 mod emu;
+mod hist;
+mod scan;
+mod snap;
 
-pub use emu::Screen;
+pub use emu::{EMU_KEEP, Screen};
+pub use otter_shared_linestore::DEFAULT_CAP as HISTORY_CAP;
+
+/// [`Screen::snapshot`] 의 결과다.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Snapshot {
+    /// 새 터미널에 넣을 ANSI 다.
+    pub bytes: Vec<u8>,
+    /// 끝나지 않은 시퀀스·UTF-8 글자의 바이트 수다. 이어지는 출력은 `end - back` 부터 보낸다.
+    pub back: usize,
+    /// 스냅숏에 실린 가장 오래된 기록 줄의 절대 번호(줄 저장소 번호)다. 위로 받기는 이 앞을 묻는다.
+    pub first_line: u64,
+}
 
 /// 셀의 색이다. 16색 이름 색도 번호로 적는다(xterm.js 와 같은 꼴).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Color {
+    #[default]
     Default,
     Indexed(u8),
     Rgb(u8, u8, u8),
@@ -27,9 +43,29 @@ impl Attrs {
     pub const INVERSE: Self = Self(1 << 4);
     pub const HIDDEN: Self = Self(1 << 5);
     pub const STRIKE: Self = Self(1 << 6);
+    pub const DOUBLE_UNDERLINE: Self = Self(1 << 7);
+    pub const UNDERCURL: Self = Self(1 << 8);
+    pub const DOTTED_UNDERLINE: Self = Self(1 << 9);
+    pub const DASHED_UNDERLINE: Self = Self(1 << 10);
+    /// 밑줄 종류 모두다.
+    pub const ANY_UNDERLINE: Self = Self(
+        Self::UNDERLINE.0
+            | Self::DOUBLE_UNDERLINE.0
+            | Self::UNDERCURL.0
+            | Self::DOTTED_UNDERLINE.0
+            | Self::DASHED_UNDERLINE.0,
+    );
 
     pub fn contains(self, other: Self) -> bool {
         self.0 & other.0 == other.0
+    }
+
+    pub fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+
+    pub fn is_empty(self) -> bool {
+        self.0 == 0
     }
 
     #[must_use]
@@ -56,6 +92,8 @@ pub struct Cell {
     pub fg: Color,
     pub bg: Color,
     pub attrs: Attrs,
+    /// 밑줄 색이다. 정하지 않았으면 `Default`.
+    pub underline: Color,
     pub link: Option<Link>,
 }
 
@@ -106,5 +144,7 @@ pub struct Modes {
     pub line_feed_new_line: bool,
 }
 
+#[cfg(test)]
+mod snap_tests;
 #[cfg(test)]
 mod tests;

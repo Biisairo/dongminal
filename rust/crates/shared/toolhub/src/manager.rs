@@ -22,7 +22,7 @@ use tokio_util::sync::CancellationToken;
 use crate::tool::{ActivityFn, AttentionFn, ClearFn, ExitFn, SizeFn, attn_busy_many, attn_now};
 use crate::{
     ActivitySnap, AgentState, BUF_MAX, BackgroundEntry, ShellState, Tool, ToolHooks, ToolInfo,
-    ToolSnapshot, attention_allow_bell, attention_idle_threshold, judge_shell,
+    ToolScreen, ToolSnapshot, attention_allow_bell, attention_idle_threshold, judge_shell,
 };
 
 /// 도구 수 상한이다 (M8 D-A-16).
@@ -792,6 +792,11 @@ impl ToolManager {
     }
 
     /// since 에서 이어 붙일 수 있으면 그 뒤만, 아니면 전량이다 (FR-TRS-2~4). 없는 도구는 빈 값이다.
+    /// 화면 상태 스냅숏이다 (PERF FR-TRM-4). 없는 도구·터미널 없는 도구는 `None`.
+    pub fn screen_tool(&self, id: &str, history: usize) -> Option<ToolScreen> {
+        self.get(id)?.screen(history)
+    }
+
     pub fn snapshot_tool_since(&self, id: &str, since: i64) -> ToolSnapshot {
         let Some(p) = self.get(id) else {
             return ToolSnapshot::default();
