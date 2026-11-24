@@ -277,6 +277,8 @@ js/ui/run-dashboard.js
 js/ui/run-tree-cam.js
 js/ui/run-tree.js
 js/ui/run-recover.js
+# 화면 등록부와 묶음 로더 (PERF M3 §3.4, D-30). 렌더러가 `forTab`·`ready` 를 묻으므로 그 앞이다.
+js/core/screens.js
 # 탭 본문 주인의 생명주기 (PERF M3 §3.5). `Component` 를 잇고, 렌더러가 세운다.
 js/ui/screen-life.js
 js/ui/renderer.js

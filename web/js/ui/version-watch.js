@@ -34,9 +34,7 @@ class VersionWatch {
    * 판정에 쓰이지 않는다. 판이 없으면 아무것도 걸지 않는다.
    */
   static start(){
-    const el=document.querySelector('script[src*="b/boot.js"]');
-    const m=el&&(el.getAttribute('src')||'').match(/[?&]v=([0-9a-f]+)/);
-    const self=m?m[1]:null;
+    const self=bootAssetVersion();
     if(!self) return null;
     const w=new VersionWatch(self);
     w._wire();

@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { loadOrder, pageScripts, parseBundles, readBundles } from '../bundles-def.mjs';
+import { cssProblems, loadOrder, pageScripts, parseBundles, readBundles, registryProblems, repoLoadOrder } from '../bundles-def.mjs';
 
 /**
  * PERF_OPTIMIZATION_SRS D-29·D-33: 묶음 정의 `web/bundles.txt` 가 로드 순서의 한 자리다.
@@ -63,4 +63,29 @@ test('실제 정의: boot 가 있고 모든 파일이 있으며 index.html 이 �
   assert.equal(pageScripts(html, defs)[0], 'js/core/server-move.js', 'head 스크립트가 맨 앞이다');
   const body = pageScripts(html.slice(html.indexOf('</head>')), defs);
   assert.equal(body[0], 'js/core/error-log.js', 'error-log.js 가 본문 맨 앞이다 (FR-OBS-18)');
+});
+
+test('묶음 CSS 검사: /b/ 아래에서 깨지는 상대 url()·@import 를 잡는다 (perf 3.4.3)', () => {
+  assert.deepEqual(cssProblems('.a{background:url(data:image/png;base64,AA)}'), []);
+  assert.deepEqual(cssProblems('.a{background:url("assets/x.png")}'), ['url("assets/x.png")']);
+  assert.deepEqual(cssProblems("@import 'x.css';\n.a{}"), ['@import']);
+  assert.deepEqual(cssProblems('.a{background:url(/assets/x.png)}'), [], '절대 경로는 /b/ 와 무관하다');
+});
+
+test('등록부 검사: Screens.register 의 묶음과 css 표시가 정의와 맞는다 (perf 3.4.3)', () => {
+  const defs = parseBundles('[git]\njs/g.js\nstyle-g.css\n[plain]\njs/p.js\n');
+  assert.deepEqual(registryProblems("Screens.register('git',{css:true,tab:(at)=>x})", defs), []);
+  assert.deepEqual(registryProblems("Screens.register('p',{bundle:'plain'})", defs), []);
+  assert.equal(registryProblems("Screens.register('git',{tab:(at)=>x})", defs).length, 1, 'css 줄이 있는데 css 표시가 없다');
+  assert.equal(registryProblems("Screens.register('p',{bundle:'plain',css:true})", defs).length, 1, 'css 줄이 없는데 css 표시가 있다');
+  assert.equal(registryProblems("Screens.register('nope',{})", defs).length, 1, '정의에 없는 묶음');
+});
+
+test('실제 정의: 묶음 CSS 와 등록부가 검사를 지난다', () => {
+  const defs = readBundles(ROOT);
+  for (const [, { css }] of defs) {
+    for (const f of css) assert.deepEqual(cssProblems(readFileSync(join(ROOT, 'web', f), 'utf8')), [], f);
+  }
+  const js = repoLoadOrder(ROOT).map((f) => readFileSync(join(ROOT, 'web', f), 'utf8')).join('\n');
+  assert.deepEqual(registryProblems(js, defs), []);
 });

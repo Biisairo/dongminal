@@ -41,13 +41,7 @@ async fn bundle_is_files_in_definition_order_with_boundaries() {
 #[tokio::test]
 async fn unknown_bundle_is_404() {
     let (_d, s) = static_server(ab());
-    for p in [
-        "/b/nope.js",
-        "/b/boot.css",
-        "/b/",
-        "/b/boot",
-        "/b/nope.js.map",
-    ] {
+    for p in ["/b/nope.js", "/b/", "/b/boot", "/b/nope.js.map"] {
         assert_eq!(get(&s, p).await.status, 404, "{p}");
     }
 }
@@ -181,4 +175,55 @@ async fn real_definition_builds_boot() {
         "{}",
         &r.body[..80.min(r.body.len())]
     );
+}
+
+// ── CSS (perf 3.4.3, 결정 A): `.css` 줄도 이어 `/b/<이름>.css` 로 낸다 ──
+
+const CSS_DEF: &str = "[git]\njs/g.js\nstyle-g2.css\nstyle-g1.css\n[plain]\njs/g.js\n";
+
+fn css_fs() -> Arc<MapFs> {
+    fs(
+        CSS_DEF,
+        &[
+            ("js/g.js", "G\n"),
+            ("style-g1.css", ".a{}\n"),
+            ("style-g2.css", ".b{}"),
+        ],
+    )
+}
+
+const GIT_CSS: &str = "/* ==== style-g2.css ==== */\n.b{}\n/* ==== style-g1.css ==== */\n.a{}\n";
+
+#[tokio::test]
+async fn bundle_css_is_css_lines_in_order_with_boundaries() {
+    let (_d, s) = static_server(css_fs());
+    let r = get(&s, "/b/git.css").await;
+    assert_eq!(r.status, 200);
+    assert!(r.header("Content-Type").starts_with("text/css"));
+    assert!(!r.header("ETag").is_empty());
+    assert_eq!(r.body, GIT_CSS);
+    let (r, body) = get_raw(&s, "/b/git.css", &[("Accept-Encoding", "gzip")]).await;
+    assert_eq!(r.header("Content-Encoding"), "gzip");
+    let mut got = String::new();
+    flate2::read::GzDecoder::new(&body[..])
+        .read_to_string(&mut got)
+        .unwrap();
+    assert_eq!(got, GIT_CSS);
+}
+
+#[tokio::test]
+async fn bundle_without_css_has_no_css() {
+    let (_d, s) = static_server(css_fs());
+    assert_eq!(get(&s, "/b/plain.js").await.status, 200);
+    assert_eq!(get(&s, "/b/plain.css").await.status, 404);
+}
+
+#[tokio::test]
+async fn missing_css_file_drops_the_bundle() {
+    let (_d, s) = static_server(fs(
+        CSS_DEF,
+        &[("js/g.js", "G\n"), ("style-g1.css", ".a{}\n")],
+    ));
+    assert_eq!(get(&s, "/b/git.js").await.status, 404);
+    assert_eq!(get(&s, "/b/git.css").await.status, 404);
 }
