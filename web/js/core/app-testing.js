@@ -129,6 +129,8 @@ const APP_TESTING_NAMES = [
   'editor.docRender._docRenderOpen',
   // SYSTEM_THEME_FOLLOW_SRS TC-STF-1·2: 슬롯을 읽고 세운다.
   'settings.section(theme).themeSlots', 'settings.section(theme).setThemeSlots',
+  // PERF M3 §3.5 (FR-SPA-3): 잠든 탭 본문 주인과 남은 타이머·토픽 구독 수.
+  'renderer.life.sleepers',
 ];
 
 /**

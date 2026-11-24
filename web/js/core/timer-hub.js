@@ -36,6 +36,7 @@ class TimerHub {
     // 각자 `visibilitychange` 를 듣고 각자 해석했고, 그래서 순서 보장이 없었다
     // (SRS §2.7). 여기서 한 번 듣고 전부에 같은 규약으로 준다.
     this._onVis=()=>this._visibility();
+    this._visFns=new Set();
     document.addEventListener('visibilitychange',this._onVis);
   }
 
@@ -379,8 +380,19 @@ class TimerHub {
    * 낡음을 그 자리에서 갚는다 — 한 주기를 더 기다리면 돌아온 화면이 낡은 채다.
    */
   _visibility(){
-    if(this._hidden()){ this._reschedule(); return }
+    const hidden=this._hidden();
+    for(const fn of this._visFns) this._safe('visibility',()=>fn(hidden));
+    if(hidden){ this._reschedule(); return }
     this.revalidate();
+  }
+
+  /**
+   * 브라우저 탭 숨김 신호를 받는다 (PERF M3 §3.5). 리스너를 새로 달지 않고 위의 하나를 나눈다(FR-BUS-8).
+   * @param {(hidden:boolean)=>void} fn
+   */
+  onVisibility(fn){
+    this._visFns.add(fn);
+    return {stop:()=>{ this._visFns.delete(fn) }};
   }
 
   /**

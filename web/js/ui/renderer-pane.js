@@ -46,7 +46,8 @@ Object.assign(Renderer.prototype, {
   // 서므로 (FR-WSL-20·23), 붙일 실체를 고를 때 그것을 딛는다.
   _mountTabBody(body,at){
     const slot=this._rSlot||0;
-    let el=null,term=null,diffPanel=null;
+    // `owner` 는 이 본문의 주인 — 생명주기 전이의 대상이다 (PERF M3 §3.5). Run·채팅은 3.5.2 가 채운다.
+    let el=null,term=null,diffPanel=null,owner=null;
     if(!at){
       this._hideOthers(body,null);
       return;
@@ -59,6 +60,7 @@ Object.assign(Renderer.prototype, {
       const p=(root&&at.gitView==='diff')?this.app.repoWin.gitDiffPanelFor(root,slot,at):this.app.git.surfaces.gitPanelAt(root,slot);
       if(p.diffTabId) diffPanel=p;
       el=p.viewRoots.elFor(at.gitView);
+      owner=p;
     }else if(at.type==='editor'){
       const key=this.app.slot.slotKey(at.id,slot);
       let editor=this.app.fileEditors.get(key);
@@ -68,6 +70,7 @@ Object.assign(Renderer.prototype, {
       if(editor&&editor.filePath!==at.filePath){
         const moved=this.app.editor.doc.edDocMove(editor.filePath,at.filePath);
         if(editor.filePath!==at.filePath||moved.conflicts.length){
+          this.life.unmount(editor);
           try{editor.destroy()}catch{ /* 이미 파괴된 것은 오류가 아니다 */ }
           this.app.fileEditors.delete(key);
           editor=null;
@@ -81,6 +84,7 @@ Object.assign(Renderer.prototype, {
         this.app.fileEditors.set(key,editor);
       }
       el=editor.el;
+      owner=editor;
     }else if(at.type==='run'){
       // FR-RVZ-6: 네 번째 타입. 루트 DOM 은 탭마다 캐시된다 (NFR-RVZ-2).
       el=this.app.runsPanel().runViewEl(at,slot);
@@ -90,7 +94,7 @@ Object.assign(Renderer.prototype, {
     }else{
       // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 (FR-WSL-20).
       const p=at.toolId?this.app.mkTool(at.toolId,at.name||'',slot):null;
-      if(p){ el=p.el; term=p }
+      if(p){ el=p.el; term=p; owner=p }
     }
     if(!el) { this._hideOthers(body,null); return }
     let moved=false;
@@ -124,7 +128,7 @@ Object.assign(Renderer.prototype, {
      *   이유:     그 자리가 이미 *"요소가 문서에 붙은 뒤"* 의 자리다 (FR-SCR-2).
      *             **규약은 있었고 이 한 자리만 그 밖에 있었다**
      */
-    this._mounted.add(el);
+    this._mounted.set(el,owner);
     this._hideOthers(body,el);
   },
 

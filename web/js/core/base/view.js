@@ -10,6 +10,7 @@ class View extends Component {
     super(opts);
     this.el=null;
     this._adopted=false;
+    this._slept=false;
   }
 
   /** 루트 요소를 만든다. 하위가 덮어쓴다. */
@@ -31,6 +32,23 @@ class View extends Component {
 
   /** 지금 상태를 그린다. 하위가 덮어쓴다. */
   render(){}
+
+  /**
+   * 생명주기 계약의 기본 구현 (PERF M3 D-37, FR-SPA-3). 깨면 `awake` 로 건 것을 다시 걸고, 잠들었다 깬 것이면 놓친 상태를
+   * 한 번 그린다 — 첫 깨움은 `mount` 가 이미 그렸다. 잠들면 깬 동안의 것을 걷는다. `unmount` 는 `dispose` 다.
+   */
+  wake(){
+    if(this.disposed) return;
+    if(this._awake) this._awake.wake();
+    if(this._slept){ this._slept=false; this.render() }
+  }
+
+  sleep(){
+    if(this._awake) this._awake.sleep();
+    this._slept=true;
+  }
+
+  unmount(){ this.dispose() }
 
   dispose(){
     if(this.disposed) return;

@@ -130,6 +130,13 @@ class Channel {
     return n;
   }
 
+  /** 토픽 구독 중 주인이 `test` 를 지나는 것의 수 (PERF M3 `app.testing.sleepers()`). */
+  countOwned(test){
+    let n=0;
+    for(const e of this._topics.values()) for(const r of e.subs) if(r.owner!=null&&test(r.owner)) n++;
+    return n;
+  }
+
   _unsub(topic, rec){
     const e=this._topics.get(topic);
     if(!e||!e.subs.delete(rec)||e.subs.size) return;
