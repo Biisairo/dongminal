@@ -3,12 +3,12 @@
 ## 요구사항
 
 **받아서 쓰는 데 필요한 것은 없습니다.** 의존이 없는 단일 바이너리이고, 프론트엔드와
-런타임 헬퍼까지 안에 들어 있습니다. Go 도 필요 없습니다.
+런타임 헬퍼까지 안에 들어 있습니다. Rust 도 필요 없습니다.
 
 | 항목 | 필요 여부 |
 |---|---|
 | macOS · Linux · WSL · **Windows 10 1809+** | 넷 다 지원 |
-| Go 툴체인 | **불필요** (소스에서 빌드할 때만 — Go 1.24+) |
+| Rust 툴체인 | **불필요** (소스에서 빌드할 때만 — [rustup](https://rustup.rs)) |
 | zsh · bash · PowerShell | 셸은 자동으로 고릅니다 |
 | `claude` CLI | 선택 — 에이전트 오케스트레이션용 |
 
@@ -122,7 +122,8 @@ sha256sum -c SHA256SUMS --ignore-missing
 
 ## 소스에서 빌드 (선택)
 
-고치려는 사람만 필요합니다. Go 1.24+ 가 있으면 됩니다.
+고치려는 사람만 필요합니다. [rustup](https://rustup.rs) 이 있으면 됩니다 — 판은
+저장소의 `rust/rust-toolchain.toml` 이 정하고, 빌드할 때 rustup 이 알아서 받습니다.
 
 ```bash
 git clone https://github.com/Biisairo/dongminal
@@ -131,9 +132,10 @@ cd dongminal
 ./dongminal start
 ```
 
-교차 컴파일은 `./scripts/build.sh --help` 를 보세요. **`go build` 를 손으로 부르지
-마세요** — macOS 대상은 cgo 가 필요한데 go 가 교차 빌드에서 그것을 자동으로 끄고,
-그러면 CPU·메모리 지표가 빠진 바이너리가 조용히 나옵니다.
+교차 컴파일은 `./scripts/build.sh --help` 를 보세요. 대상마다 `rustup target add` 와
+그 대상의 링커가 필요합니다. **`cargo build` 를 손으로 부르지 마세요** — `build.sh` 가
+판(`VERSION`)과 데몬 지문을 새기고, 재현 가능한 빌드 플래그를 붙이고, 산출물을
+`./dongminal`·`dist/` 에 놓습니다.
 
 ## 실행
 
@@ -418,7 +420,7 @@ dongminal config get           # 지금 리슨하는 바인드와 server.json �
 
 ### 런타임 헬퍼 배포 (자동)
 
-서버 기동 시 `internal/shared/runtime` 이 `$DONGMINAL_HOME/bin/` 을 채웁니다. helper CLI 는 dongminal 바이너리를 가리키는 symlink, 셸 훅은 `go:embed` 로 번들한 실제 파일입니다.
+서버 기동 시 런타임 모듈(`rust/crates/shared/runtime`)이 `$DONGMINAL_HOME/bin/` 을 채웁니다. helper CLI 는 dongminal 바이너리를 가리키는 symlink, 셸 훅은 바이너리에 번들한 실제 파일입니다.
 
 - `bin/dmctl` — 워크스페이스 원격 제어 CLI (분할/탭/포커스/목록/알림)
 - `bin/edit` — 내장 편집기 탭으로 파일 열기

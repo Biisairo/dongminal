@@ -8,13 +8,13 @@
 
 ## 어떻게 확인했나
 
-- [ ] `go test ./...`
+- [ ] `make test`
 - [ ] `scripts/verify-isolated.sh`
 - [ ] `npm run e2e` <!-- 화면·흐름을 건드렸다면 -->
 - [ ] 손으로 확인한 것: <!-- 무엇을, 어디서 -->
 
 ## 체크
 
-- [ ] 새 런타임 의존을 추가하지 않았다 (`go.mod` · `package.json` 그대로)
+- [ ] 새 런타임 의존을 추가하지 않았다 (`rust/Cargo.toml`·`Cargo.lock` · `package.json` 그대로)
 - [ ] 문서를 함께 고쳤다 (`docs/external/` · `README.md` · `CHANGELOG.md`)
 - [ ] 요청받은 범위 밖을 건드리지 않았다

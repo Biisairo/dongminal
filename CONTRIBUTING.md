@@ -9,7 +9,7 @@
 
 ```bash
 git clone <repo> && cd dongminal
-go build ./...
+scripts/build.sh    # ./dongminal (Rust 툴체인은 rustup 이 rust/rust-toolchain.toml 판으로 받는다)
 make gates          # 커밋 전에 도는 것 전부 (CI 와 같은 목록)
 ```
 
@@ -83,7 +83,7 @@ make gates          # 커밋 전에 도는 것 전부 (CI 와 같은 목록)
 
 | 문서 | 방식 | 원천 |
 |---|---|---|
-| `docs/external/errors.md` | **생성** | `apierr/codes_doc.go` |
+| `docs/external/errors.md` | **생성** | `rust/crates/webserver/apierr/src/codes.rs` 의 `CODE_DOC` |
 | `docs/internal/decisions.md` | **생성** | SRS 안의 결정 항목 |
 | `docs/external/commands.md` | 대조 | `dmctl.go` |
 | `docs/external/api.md` | 대조 | 라우트 표 |
@@ -93,8 +93,8 @@ make gates          # 커밋 전에 도는 것 전부 (CI 와 같은 목록)
 생성물은 직접 고치지 마세요. 원천을 고치고 다시 만듭니다:
 
 ```bash
-go run ./scripts/gen-errors
-go run ./scripts/gen-decisions
+cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-errors
+cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-decisions
 ```
 
 ---
@@ -103,7 +103,7 @@ go run ./scripts/gen-decisions
 
 ```bash
 make gates      # 포맷·정적분석·이음매·문서 대조 (빠름)
-go test ./...   # Go 단위·통합
+make test       # Rust 단위·통합 (cargo test --workspace, 격리 실행)
 npm run unit    # 프론트 순수 모듈
 npm run lint
 npm run typecheck
@@ -151,7 +151,7 @@ make e2e        # 브라우저 종단간 — CI 와 같은 8샤드를 병렬로 
 1. **CHANGELOG 를 닫습니다.** `## [Unreleased]` 를 `## [x.y.z] - YYYY-MM-DD` 로
    바꾸고 새 `[Unreleased]` 를 엽니다. **태그를 밀기 전입니다** — 릴리스 노트가
    이 절을 그대로 가져가므로, 닫지 않으면 노트가 빕니다.
-2. `make gates && go test ./... && make e2e` 가 전부 초록인지 확인합니다.
+2. `make gates && make test && make e2e` 가 전부 초록인지 확인합니다.
 3. 태그를 밉니다: `git tag v1.2.3 && git push origin v1.2.3`
 4. 워크플로우가 나머지를 합니다 — 다섯 대상 빌드 · e2e 게이트 · 체크섬 ·
    **cosign keyless 서명** · provenance 증명 · 릴리스 생성.
