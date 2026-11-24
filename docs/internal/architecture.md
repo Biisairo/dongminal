@@ -116,6 +116,7 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       httpresp/          #   ②③  — JSON 응답·오류 응답(코드 헤더)을 쓰는 한 자리 (본문 모양은 방언 함수가 정한다)
       toolipc/           #   ②③  — paned 와이어 포맷만: wire.rs(봉투·ProtocolVersion) · protocol.rs(메서드·이벤트 이름, typed 인자·결과, hello.features) · lib.rs(데몬 지문 이름)
       outbuf/            #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
+      linestore/         #   ②③  — 화면 기록의 줄 저장소: 논리 줄(글자·속성·OSC 8) 블록 deflate, 절대 줄 번호, 상한·ED3 (PERF FR-TRM-2·D-14·D-28)
       runtime/           #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
         assets/          #     embed 하는 실제 파일
           shellhooks/    #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
