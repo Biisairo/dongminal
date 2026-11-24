@@ -1,6 +1,6 @@
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs';
-import { basename, join } from 'path';
+import { basename, isAbsolute, join } from 'path';
 
 import { E2E_BIN, E2E_HOME, E2E_RUN_ENV } from '../playwright.config';
 import { stopDaemon, stopDaemonsUnder } from './daemon-cleanup';
@@ -78,14 +78,23 @@ function buildServer() {
   const env = { ...process.env };
   delete env.DONGMINAL_BUILD_VERSION;
   delete env.DONGMINAL_BUILD_DAEMON;
-  execFileSync(
-    'cargo',
-    ['build', '--quiet', '--release', '--locked', '-p', 'dongminal', '--manifest-path', 'rust/Cargo.toml'],
-    { stdio: ['ignore', 'ignore', 'inherit'], env },
+  // scripts/build.sh 의 호스트 빌드와 같은 대상·RUSTFLAGS·target 디렉터리를 쓴다 — 하나라도
+  // 다르면 release 빌드가 두 벌 생긴다. bash 가 없으면 플래그 없이 빌드한다.
+  const triple = /^host: (.+)$/m.exec(execFileSync('rustc', ['-vV'], { encoding: 'utf8' }))?.[1] ?? '';
+  const flags = spawnSync(
+    'bash',
+    ['-c', 'ROOT="$(pwd -P)"; . scripts/lib/repro-rustflags.sh; repro_rustflags "$1"', 'bash', triple],
+    { encoding: 'utf8', env },
   );
-  const targetDir = env.CARGO_TARGET_DIR || join('rust', 'target');
+  if (flags.status === 0) env.RUSTFLAGS = flags.stdout.trim();
+  execFileSync('cargo', ['build', '--quiet', '--release', '--locked', '-p', 'dongminal', '--target', triple], {
+    cwd: 'rust',
+    stdio: ['ignore', 'ignore', 'inherit'],
+    env,
+  });
+  const targetDir = env.CARGO_TARGET_DIR || 'target';
   const exe = process.platform === 'win32' ? 'dongminal.exe' : 'dongminal';
-  copyFileSync(join(targetDir, 'release', exe), E2E_BIN);
+  copyFileSync(join(isAbsolute(targetDir) ? targetDir : join('rust', targetDir), triple, 'release', exe), E2E_BIN);
   chmodSync(E2E_BIN, 0o755);
 }
 
