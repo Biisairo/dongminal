@@ -78,12 +78,10 @@ Object.assign(GitReposList.prototype, {
     // FR-FLW-2: 목록은 핀만 답한다 — 도구 인자를 싣지 않는다.
     // FR-GOB-7·8: 관측 여부는 인자로 받지 않는다. 조건이 두 자리에 흩어지면
     // 한쪽이 낡는다.
-    //
-    // FR-OPT-4-3: 관측하면 그 신원이 핀 전부의 감시를 임대한다. 탭을 떠난 뒤의 첫
-    // 요청(`observe=0`)이 그 임대를 놓는다 — 그 밖의 요청은 임대를 건드리지 않는다.
-    const q={clientId:this.app.clientId};
-    if(this.app.git.sync._gitObserveOk()){ q.observe='1'; this._gitPinsLeased=true }
-    else if(this._gitPinsLeased){ q.observe='0'; this._gitPinsLeased=false }
+    // 핀의 감시 임대는 채널의 `git:<root>` 토픽 구독이 쥔다(`_gitPinsWatchSync`).
+    /** @type {Record<string,string>} */
+    const q={};
+    if(this.app.git.sync._gitObserveOk()) q.observe='1';
     const res=await gitFetch(GIT_API.repos,q,{stale});
     if(res.stale) return;
     if(res.status===503){

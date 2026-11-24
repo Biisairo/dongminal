@@ -113,15 +113,6 @@ impl RepoWatcher for WatchNote {
     fn note(&self, repo: &str, obs: &Observation) {
         self.0.note(repo, obs);
     }
-    fn note_for(&self, repo: &str, obs: &Observation, client_id: &str) {
-        self.0.note_for(repo, obs, client_id);
-    }
-    fn note_scoped(&self, repo: &str, obs: &Observation, client_id: &str, scope: &str) {
-        self.0.note_scoped(repo, obs, client_id, scope);
-    }
-    fn release_scope(&self, client_id: &str, scope: &str) {
-        self.0.release_scope(client_id, scope);
-    }
 }
 
 /// signature 감시자를 세운다 (GIT_PUSH_OBSERVE_SRS). 저장소 계층이 없으면 서지 않는다 — 감시할

@@ -122,9 +122,8 @@ pub(crate) struct Entry {
     has_sig: bool,
     /// 워크트리 회차의 위상 (FR-GDT-4).
     phase: u64,
-    /// 이 저장소를 보는 신원들 (clientId[+갈래] → 구독의 epoch). 비어 있지 않으면 유휴로
-    /// 만료되지 않는다 (FR-GWL-2).
-    holders: HashMap<String, u64>,
+    /// `git:<repo>` 토픽에 구독자가 있다 (CHANNEL_PROTOCOL C4). 참이면 유휴로 만료되지 않는다 (FR-GWL-2).
+    held: bool,
     pend: WatchPend,
     fails: u32,
     retry_at: Option<SystemTime>,
@@ -140,9 +139,6 @@ struct KickState {
 
 pub(crate) struct State {
     pub(crate) watch: HashMap<String, Entry>,
-    /// 신원마다 가장 새로운 SSE 구독의 epoch (FR-GWL-3).
-    live: HashMap<String, u64>,
-    epoch: u64,
     round: u64,
     on_changed: Option<RepoHook>,
     on_baseline: Option<RepoHook>,
@@ -191,8 +187,6 @@ impl GitWatcher {
             after,
             mu: Mutex::new(State {
                 watch: HashMap::new(),
-                live: HashMap::new(),
-                epoch: 0,
                 round: 0,
                 on_changed: None,
                 on_baseline: None,
@@ -257,8 +251,8 @@ impl GitWatcher {
         Arc::new(w)
     }
 
-    pub(crate) fn holders(&self, repo: &str) -> usize {
-        self.lock().watch.get(repo).map_or(0, |e| e.holders.len())
+    pub(crate) fn held(&self, repo: &str) -> bool {
+        self.lock().watch.get(repo).is_some_and(|e| e.held)
     }
 
     pub(crate) fn kick_pending(&self) -> usize {

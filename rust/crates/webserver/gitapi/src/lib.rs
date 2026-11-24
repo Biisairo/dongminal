@@ -61,9 +61,6 @@ pub trait ToolLocator: Send + Sync {
 /// "이 저장소를 지금 보고 있다" 를 받는 쪽이다 (GIT_PUSH_OBSERVE_SRS §2.8 · GIT_WATCH_LEASE_SRS FR-GWL-7).
 pub trait RepoWatcher: Send + Sync {
     fn note(&self, repo: &str, obs: &Observation);
-    fn note_for(&self, repo: &str, obs: &Observation, client_id: &str);
-    fn note_scoped(&self, repo: &str, obs: &Observation, client_id: &str, scope: &str);
-    fn release_scope(&self, client_id: &str, scope: &str);
 }
 
 /// 푼 저장소 루트를 다뤄도 되는가다. 오류면 403 이다.

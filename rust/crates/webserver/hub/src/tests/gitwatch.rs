@@ -148,10 +148,6 @@ fn note(w: &GitWatcher, sig: &FakeSigner, repo: &str) {
     w.note(repo, &sig.obs(repo).unwrap_or_default());
 }
 
-fn note_for(w: &GitWatcher, sig: &FakeSigner, repo: &str, cid: &str) {
-    w.note_for(repo, &sig.obs(repo).unwrap_or_default(), cid);
-}
-
 async fn tick(w: &GitWatcher) -> usize {
     w.tick(&Ctx::background()).await
 }
@@ -228,7 +224,7 @@ async fn cap_evicts_oldest() {
         advance(&now, Duration::from_millis(1));
     }
     assert_eq!(w.watching(), GIT_WATCH_CAP);
-    assert_eq!(w.holders("a:/r"), 0);
+    assert!(!w.held("a:/r"));
     assert!(
         !lock(&w.mu).watch.contains_key("a:/r"),
         "가장 오래된 표명이 살아남았다"
@@ -239,8 +235,7 @@ async fn cap_evicts_oldest() {
 async fn cap_evicts_unleased_first() {
     let sig = FakeSigner::default();
     let (w, now) = watcher_cap(&sig, &FakeBroker::new(), 2, None);
-    w.attach("c1");
-    note_for(&w, &sig, "/leased", "c1");
+    w.hold_topic("/leased", &sig.obs("/leased").unwrap_or_default());
     advance(&now, Duration::from_millis(1));
     note(&w, &sig, "/b");
     advance(&now, Duration::from_millis(1));
@@ -379,66 +374,6 @@ async fn change_right_after_note_and_renote_keep_baseline() {
     note(&w, &sig, "/r"); // 재표명은 기준선을 덮지 않는다
     tick(&w).await;
     assert_eq!(repos(&br).len(), 1, "표명 직후의 변화를 놓쳤다 (G-10)");
-}
-
-#[tokio::test]
-async fn lease_survives_idle_and_detach_restores_ttl() {
-    let sig = FakeSigner::with(&[("/r", "a")]);
-    let br = FakeBroker::new();
-    let (w, now) = watcher(&sig, &br);
-    let ep = w.attach("c1");
-    assert!(ep > 0);
-    assert_eq!(w.leases(), 1);
-    note_for(&w, &sig, "/r", "c1");
-    for _ in 0..5 {
-        advance(&now, GIT_WATCH_TTL);
-        tick(&w).await;
-    }
-    assert_eq!(
-        w.watching(),
-        1,
-        "연결이 살아 있는데 유휴로 만료됐다 (FR-GWL-2)"
-    );
-    sig.set_sig("/r", "b");
-    tick(&w).await;
-    assert_eq!(repos(&br).len(), 1, "임대 중에도 방송한다");
-    let ep2 = w.attach("c1");
-    w.detach("c1", ep); // 옛 구독의 정리는 무시한다
-    assert_eq!(w.holders("/r"), 1);
-    w.detach("c1", ep2);
-    assert_eq!((w.holders("/r"), w.leases()), (0, 0));
-    advance(&now, GIT_WATCH_TTL + Duration::from_secs(1));
-    tick(&w).await;
-    assert_eq!(
-        w.watching(),
-        0,
-        "임차인이 떠나면 TTL 로 돌아간다 (FR-GWL-4)"
-    );
-}
-
-#[tokio::test]
-async fn note_for_unknown_client_is_ttl_and_scopes() {
-    let sig = FakeSigner::with(&[("/r", "a")]);
-    let (w, _) = watcher(&sig, &FakeBroker::new());
-    note_for(&w, &sig, "/r", "stranger");
-    assert_eq!(
-        w.holders("/r"),
-        0,
-        "구독 없는 신원은 임차인이 아니다 (FR-GWL-8)"
-    );
-    w.attach("c1");
-    w.attach("c2");
-    let o = sig.obs("/r").unwrap();
-    w.note_scoped("/r", &o, "c1", "repo-tab");
-    w.note_for("/r", &o, "c1");
-    w.note_for("/r", &o, "c2");
-    assert_eq!(w.holders("/r"), 3);
-    w.release_scope("c1", "repo-tab");
-    assert_eq!(w.holders("/r"), 2, "갈래만 놓는다");
-    w.note_scoped("/r", &o, "c1", "repo-tab");
-    let ep = w.attach("c1");
-    w.detach("c1", ep);
-    assert_eq!(w.holders("/r"), 1, "구독이 끊기면 모든 갈래가 풀린다");
 }
 
 #[tokio::test]
@@ -663,7 +598,7 @@ async fn topic_hold_outlives_ttl_and_release_starts_ttl() {
     let (w, now) = watcher(&sig, &FakeBroker::new());
     w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
     w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
-    assert_eq!(w.holders("/r"), 1, "구독자 수와 상관없이 임차인은 하나다");
+    assert!(w.held("/r"));
     advance(&now, GIT_WATCH_TTL * 3);
     tick(&w).await;
     assert_eq!(w.watching(), 1, "토픽이 쥔 감시가 TTL 로 걷혔다");

@@ -25,10 +25,9 @@ function setup(answer) {
       },
     },
   });
-  let cid = 'c-1';
-  const hub = new ctx.GitStatusHub({ clientId: () => cid });
+  const hub = new ctx.GitStatusHub();
   const flush = async () => { while (waits.length) waits.shift()(); await clock.advance(0) };
-  return { hub, sent, flush, clock, merge: ctx.gitStatusMerge, setCid: (v) => { cid = v } };
+  return { hub, sent, flush, clock, merge: ctx.gitStatusMerge };
 }
 
 const full = (mark, extra = {}) => ({
@@ -57,15 +56,12 @@ test('TTL 안의 다음 물음은 요청하지 않고, 지나면 다시 묻는�
   assert.equal(sent.length, 2, 'TTL 뒤');
 });
 
-test('요청은 clientId 를 싣는다 — 탐색기도 서버 감시의 임대를 쥔다 (IPC-8)', async () => {
-  const { hub, sent, flush, setCid } = setup(() => full('m1'));
+// PERF 1.18: 감시의 임대는 채널의 `git:<root>` 토픽 구독이 쥔다 — 요청은 신원을 싣지 않는다.
+test('요청은 clientId 를 싣지 않는다', async () => {
+  const { hub, sent, flush } = setup(() => full('m1'));
   const p = hub.ask('/r'); await flush(); await p;
-  assert.equal(sent[0].query.clientId, 'c-1');
+  assert.equal('clientId' in sent[0].query, false);
   assert.equal(sent[0].timeout, 20000);
-  setCid('');
-  hub.invalidate();
-  const q = hub.ask('/r'); await flush(); await q;
-  assert.equal('clientId' in sent[1].query, false, '신원이 없으면 싣지 않는다');
 });
 
 test('invalidate 뒤에는 캐시도, 그 전에 떠난 요청도 나눠 쓰지 않는다', async () => {

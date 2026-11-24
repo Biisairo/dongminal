@@ -10,7 +10,7 @@
  *   이유:     답은 누가 묻든 같다
  *
  * **Git 패널의 collect 는 이것을 지나지 않는다.** 그쪽은 쓰기 세대·재시도 규약을
- * 스스로 갖고(`git-poll.js`) 그 요청이 곧 clientId 임대다. 결과만 `feed` 로 넘겨
+ * 스스로 갖는다(`git-poll.js`). 결과만 `feed` 로 넘겨
  * 탐색기가 요청 없이 다시 칠하게 한다 (FEU-M1).
  *
  * `invalidate()` 는 "지금부터의 물음은 지금 이후의 답을 받아야 한다" 다 — 저장·
@@ -22,9 +22,7 @@
  * 옛 서버는 인자를 무시하고 전량으로 답한다.
  */
 class GitStatusHub {
-  /** @param {{clientId:()=>string}} opts */
-  constructor(opts){
-    this._cid=opts.clientId;
+  constructor(){
     /** @type {Map<string,{flight:{gen:number,p:Promise<any>}|null,last:{gen:number,at:number,r:any}|null,body:any,bodyAt:number,seq:number,done:number}>} */
     this._m=new Map();
     this._gen=0;
@@ -52,8 +50,6 @@ class GitStatusHub {
     const prev=e.body;
     /** @type {Record<string,string>} */
     const query={repo:root};
-    const cid=this._cid();
-    if(cid) query.clientId=cid;
     if(prev&&prev.mark) query.ifMark=prev.mark;
     const p=gitFetch(GIT_API.status,query).then(r=>{
       const out=gitStatusMerge(r,prev);

@@ -34,7 +34,7 @@ function setup(answer) {
       apiGet,
     },
   });
-  const hub = new ctx.GitStatusHub({ clientId: () => 'c-1' });
+  const hub = new ctx.GitStatusHub();
   const app = { clientId: 'c-1', git: { gitStatusHub: () => hub, sync: { gitReposRefresh() {} } }, statusbar: { updateStatusBar() {} } };
   const p = Object.create(ctx.GitPanel.prototype);
   const applied = [];

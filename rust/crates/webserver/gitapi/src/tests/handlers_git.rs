@@ -567,13 +567,6 @@ impl RepoWatcher for SpyWatcher {
     fn note(&self, repo: &str, _: &Observation) {
         self.notes.lock().unwrap().push(repo.to_owned());
     }
-    fn note_for(&self, repo: &str, _: &Observation, _: &str) {
-        self.notes.lock().unwrap().push(repo.to_owned());
-    }
-    fn note_scoped(&self, repo: &str, _: &Observation, _: &str, _: &str) {
-        self.notes.lock().unwrap().push(repo.to_owned());
-    }
-    fn release_scope(&self, _: &str, _: &str) {}
 }
 
 // V-ANA-2 (FR-ANA-6): 답할 수 없는 저장소는 감시에 넣지 않는다. 답할 수 있으면 넣는다.
