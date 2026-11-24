@@ -6,6 +6,7 @@ import { APIRequestContext, Page } from '@playwright/test';
 
 import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, nextFrames, gotoWithEditors, waitForInit, openGit, gitFixture, cleanGitFixture, makeCopyFx,
+  setSafetyNet,
 } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath, tmpPath } from './osenv';
@@ -202,13 +203,14 @@ test.describe('묶음 V — git 뷰는 본문 탭이 된다', () => {
     async ({ page, request }) => {
       await enter(page, request, REPO);
       const before = await mainTabs(page).count();
-      await page.evaluate(() => {
+      // 본문 탭이 **늘지 않음**을 잰다. `addTab` 은 여는 길(`TAB_OPENERS`)까지 기다리는
+      // promise 이므로 그것이 끝나고 그림이 한 바퀴 돈 뒤에 센다.
+      await page.evaluate(async () => {
         const a = (window as any).app;
         const w = a.testing.aw();
-        a.layout.tabAdd.addTab(a.testing.edEnsurePane(w), 'terminal', { windowId: w.id });
+        await a.layout.tabAdd.addTab(a.testing.edEnsurePane(w), 'terminal', { windowId: w.id });
       });
-      // **예외 (`TEST-16`)**: 본문 탭이 **늘지 않음**을 잰다 — 기다릴 신호가 없다.
-      await page.waitForTimeout(300);
+      await nextFrames(page);
       expect(await mainTabs(page).count()).toBe(before);
     });
 
@@ -461,15 +463,11 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
       // 그대로** — 보이지 않는 표면은 어느 쪽으로도 관측되지 않는다. 안전망을
       // 검사용으로 줄여 그 경계를 짧은 창에서 확인한다 (재는 것은 경계이지
       // 주기값이 아니다).
-      const poll = await page.evaluate(() => {
-        (window as any).gitStatusInterval = 600;
-        const app = (window as any).app;
-        if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
-        return 600;
-      });
-      // **예외 (`TEST-16`)**: 폴링 회차를 **여러 번 넘기는** 창이다 — 그동안
-      // 어느 저장소가 몇 번 폴링됐는지가 답이다.
-      await page.waitForTimeout(poll * 3 + 500);
+      await setSafetyNet(page, 200);
+      hits.clear();
+      // 창은 고정 시간이 아니라 **회차 수**로 정한다 — 보이는 저장소가 세 번 폴링될
+      // 동안(종전 600ms×3 창과 같은 회차) 숨은 저장소는 한 번도 폴링되지 않아야 한다.
+      await expect.poll(() => hits.get(REPO) || 0, { timeout: 15000 }).toBeGreaterThanOrEqual(3);
 
       expect(hits.get(REPO) || 0, '보이는 저장소가 폴링되지 않았다').toBeGreaterThan(0);
       for (const p of others) {
@@ -855,9 +853,10 @@ test('V-DSP-5 (FR-DSP-1d): 첫 관측이 History 보다 먼저 와도 미커밋 
     await waitForInit(page);
     await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-    // **예외 (`TEST-16`): 순서를 만드는 대기다.** 관측이 뷰보다 먼저 오는 상황을
-    // 일부러 만든다 — 러너에서만 나던 순서이고, 기다릴 신호가 없다.
-    await page.waitForTimeout(4000);
+    // 관측이 뷰보다 먼저 오는 순서를 일부러 만든다 — 사이드 Changes 에 첫 관측의 행이
+    // 그려진 것이 "관측이 이미 왔다" 의 신호다 (`basic` 은 변경이 있다).
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-file').first())
+      .toBeVisible({ timeout: 20000 });
     await page.evaluate(() => {
       const a = (window as any).app;
       a.testing.edSetSide(a.testing.aw(), 'changes');

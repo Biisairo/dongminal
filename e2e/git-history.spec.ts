@@ -4,15 +4,9 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, clickGitView, openGit, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, clickGitView, openGit, openRowMenu, gitFixture, cleanGitFixture, nextFrames } from './fixtures';
 import { ED_SEL } from './editor';
 import { tmpPath, realPath } from './osenv';
-
-/**
- * **고정 대기의 예외 (`TEST-16`).** 남은 `waitForTimeout` 은 전부 **일어나지
- * 않는 것**을 잰다 — 없는 리비전에는 줄이 서지 않는다 · 더블클릭해도 HEAD 가
- * 바뀌지 않는다 · 상세가 열리지 않는다. 기다릴 신호가 없다.
- */
 
 // GIT_M4_STEP1417_CONTRACT §3·§4·§5 — History 탭. 검증 V47~V51 · V64 · V65 + V48 성능.
 //
@@ -367,8 +361,14 @@ test.describe('16단계 — History 탭', () => {
       .toHaveClass(/jumped/, { timeout: 20000 });
 
     // 없는 대상은 **줄 자체가 서지 않는다** — 오류가 아니라 그냥 리비전이 아니다.
-    await hist(page).locator('.git-hist-search').fill('0000000000000000000000000000000000000000');
-    await page.waitForTimeout(2000);
+    // 해석은 `/api/git/log?ref=<말>` 한 번이고 없는 리비전은 404 다(`_revLookup`). 그 답이
+    // 닿고 그림이 한 바퀴 돈 뒤에 본다.
+    const none = '0000000000000000000000000000000000000000';
+    const looked = page.waitForResponse((r) =>
+      r.url().includes('/api/git/log') && r.url().includes('ref=' + none), { timeout: 20000 });
+    await hist(page).locator('.git-hist-search').fill(none);
+    expect((await looked).status()).toBe(404);
+    await nextFrames(page);
     await expect(hist(page).locator('.git-hist-rev')).not.toHaveClass(/vis/);
   });
 
@@ -757,8 +757,13 @@ test.describe('4차 검토 — 커밋 행의 ref 배지 (V121~V123)', () => {
     const tag = badge(page, 'tag').first();
     if (await tag.count()) {
       const before = await page.evaluate(() => (window as any).app.gitPanel.views.headName());
+      // 더블클릭이 무엇이든 하려면 그 자리에서 묻거나(`actions`) 바꾼다(`checkout`) — `runPrimary`.
+      // 그 요청이 하나도 나가지 않았음을 그림 한 바퀴 뒤에 센다.
+      let acts = 0;
+      page.on('request', (q) => { if (/\/api\/git\/(actions|checkout)\b/.test(q.url())) acts++; });
       await tag.dblclick();
-      await page.waitForTimeout(500);
+      await nextFrames(page);
+      expect(acts, '태그 더블클릭이 요청을 냈다').toBe(0);
       expect(await page.evaluate(() => (window as any).app.gitPanel.views.headName())).toBe(before);
       await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
     }
@@ -773,7 +778,8 @@ test.describe('4차 검토 — 커밋 행의 ref 배지 (V121~V123)', () => {
     const b = badge(page, 'local').first();
     await expect(b).toBeVisible({ timeout: 20000 });
     await b.click();
-    await page.waitForTimeout(200);
+    // 상세는 행 클릭이 그 자리에서 그린다 — 그림이 한 바퀴 돈 뒤에도 없으면 열리지 않은 것이다.
+    await nextFrames(page);
     await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
 
     // 우클릭은 branch 메뉴다 — 커밋 메뉴가 아니다.
