@@ -131,6 +131,8 @@ const APP_TESTING_NAMES = [
   'settings.section(theme).themeSlots', 'settings.section(theme).setThemeSlots',
   // PERF M3 §3.5 (FR-SPA-3): 잠든 탭 본문 주인과 남은 타이머·토픽 구독 수.
   'renderer.life.sleepers',
+  // PERF M3 §3.4 (D-30): 화면 묶음을 싣는다 — 화면을 열기 전에 그 전역을 부르는 스펙이 먼저 기다린다.
+  'loadScreen',
 ];
 
 /**

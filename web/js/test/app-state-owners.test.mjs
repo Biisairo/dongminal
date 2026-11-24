@@ -169,7 +169,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 �
   const read = (rel) => readFileSync(join(root, rel), 'utf8');
   const contract = [...read('core/app-testing.js').match(/const APP_TESTING_NAMES = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)]
     .map((m) => m[1]);
-  assert.equal(contract.length, 144);
+  assert.equal(contract.length, 145);
   const appFiles = ['core/app.js', ...readdirSync(join(root, 'core')).map((n) => 'core/' + n),
     ...readdirSync(join(root, 'ui')).map((n) => 'ui/' + n)]
     .filter((f) => f.endsWith('.js') && (f === 'core/app.js' || /Object\.(assign|defineProperties)\(App\.prototype/.test(read(f))));

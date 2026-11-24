@@ -31,7 +31,7 @@ function setup({ self = SELF, tried = null, dirty = false, page = null } = {}) {
     addEventListener: (t, fn) => { if (t === 'visibilitychange') vis = fn },
     body: { appendChild(c) { log.push('banner'); if (c.id) byId.set(c.id, c); return c } },
   };
-  const ctx = load(['ui/version-watch.js'], {
+  const ctx = load(['core/screens.js', 'ui/version-watch.js'], {
     globals: {
       document,
       location: { reload: () => log.push('reload') },

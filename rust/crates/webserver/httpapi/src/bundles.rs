@@ -1,12 +1,12 @@
-//! 묶음 `/b/<name>.js` (PERF_OPTIMIZATION_SRS D-29·D-33, `perf/M3_DESIGN.md` §3.4).
+//! 묶음 `/b/<name>.js`·`/b/<name>.css` (PERF_OPTIMIZATION_SRS D-29·D-33, `perf/M3_DESIGN.md` §3.4).
 //!
 //! 정의 파일 `bundles.txt` 의 순서대로 스크립트를 이어 붙인다. 소스 파일이 진실이고 생성 파일은
 //! 없다. 서버가 설 때 한 번 만들고, gz 바이트는 처음 요청될 때 한 번 만든다.
 //!
 //! 정의 형식: 줄 단위. `#` 로 시작하는 줄과 빈 줄은 건너뛴다. `[이름]` 이 묶음을 연다.
-//! 그 아래 `.js` 줄이 이어 붙일 파일(순서가 곧 로드 순서), `.css` 줄은 그 묶음의 CSS 다(서버는
-//! 내지 않는다 — 화면 로더가 쓴다). 그 밖의 줄, 묶음 밖의 파일 줄, 같은 이름의 묶음이 있으면
-//! 정의 전체를 버린다.
+//! 그 아래 `.js` 줄이 이어 붙일 스크립트(순서가 곧 로드 순서), `.css` 줄이 이어 붙일 CSS 다.
+//! CSS 는 `/b/` 아래에서 나가므로 상대 `url()`·`@import` 를 쓰지 않는다(게이트가 지킨다, perf 3.4.3).
+//! 그 밖의 줄, 묶음 밖의 파일 줄, 같은 이름의 묶음이 있으면 정의 전체를 버린다.
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -29,11 +29,12 @@ const MAP_EXT: &str = ".js.map";
 const CSS_EXT: &str = ".css";
 const VLQ_DIGITS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/// 정의의 묶음 하나: 이름과 이어 붙일 JS 파일(웹 뿌리 기준 경로).
+/// 정의의 묶음 하나: 이름과 이어 붙일 JS·CSS 파일(웹 뿌리 기준 경로).
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct BundleDef {
     pub(crate) name: String,
     pub(crate) js: Vec<String>,
+    pub(crate) css: Vec<String>,
 }
 
 /// 정의를 읽는다. 형식이 어긋나면 `None` 이다.
@@ -50,25 +51,43 @@ pub(crate) fn parse_bundles(text: &str) -> Option<Vec<BundleDef>> {
             out.push(BundleDef {
                 name: name.to_owned(),
                 js: Vec::new(),
+                css: Vec::new(),
             });
             continue;
         }
         let cur = out.last_mut()?;
         if line.ends_with(JS_EXT) {
             cur.js.push(line.to_owned());
-        } else if !line.ends_with(CSS_EXT) {
+        } else if line.ends_with(CSS_EXT) {
+            cur.css.push(line.to_owned());
+        } else {
             return None;
         }
     }
     Some(out)
 }
 
-struct Bundle {
-    js: Bytes,
-    js_etag: String,
-    map: Bytes,
-    map_etag: String,
+/// 내보내는 바이트 하나. gz 바이트는 처음 요청될 때 한 번 만든다.
+struct Asset {
+    body: Bytes,
+    etag: String,
     gz: OnceLock<Bytes>,
+}
+
+impl Asset {
+    fn new(body: Vec<u8>) -> Asset {
+        Asset {
+            etag: hash_bytes(&body),
+            body: Bytes::from(body),
+            gz: OnceLock::new(),
+        }
+    }
+}
+
+struct Bundle {
+    js: Asset,
+    map: Asset,
+    css: Option<Asset>,
 }
 
 /// 서버가 내는 묶음 전부.
@@ -89,36 +108,48 @@ impl Bundles {
 
     /// 묶음 이름의 요청이면 답한다. 아니면 머리를 돌려준다.
     pub(crate) fn serve(&self, r: &Req, mut h: HeaderMap) -> Result<Response, HeaderMap> {
-        let Some((b, is_map)) = self.find(&r.path) else {
+        let Some((a, ext)) = self.find(&r.path) else {
             return Err(h);
         };
-        if is_map {
-            set(&mut h, header::ETAG, &b.map_etag);
-            set(&mut h, header::CONTENT_TYPE, &content_type_for(MAP_EXT));
-            return Ok(serve_content(r, h, "", b.map.clone()));
-        }
-        set(&mut h, header::ETAG, &b.js_etag);
-        set(&mut h, header::CONTENT_TYPE, &content_type_for(JS_EXT));
+        set(&mut h, header::ETAG, &a.etag);
+        set(&mut h, header::CONTENT_TYPE, &content_type_for(ext));
         set(&mut h, header::VARY, "Accept-Encoding");
         if !accepts_gzip(r) {
-            return Ok(serve_content(r, h, "", b.js.clone()));
+            return Ok(serve_content(r, h, "", a.body.clone()));
         }
         set(&mut h, header::CONTENT_ENCODING, "gzip");
-        let gz = b.gz.get_or_init(|| gzip(&b.js)).clone();
+        let gz = a.gz.get_or_init(|| gzip(&a.body)).clone();
         Ok(serve_content(r, h, "", gz))
     }
 
-    fn find(&self, url_path: &str) -> Option<(&Bundle, bool)> {
+    fn find(&self, url_path: &str) -> Option<(&Asset, &'static str)> {
         let rest = url_path.strip_prefix(BUNDLE_URL_PREFIX)?;
-        match rest.strip_suffix(MAP_EXT) {
-            Some(n) => Some((self.0.get(n)?, true)),
-            None => Some((self.0.get(rest.strip_suffix(JS_EXT)?)?, false)),
+        if let Some(n) = rest.strip_suffix(MAP_EXT) {
+            return Some((&self.0.get(n)?.map, MAP_EXT));
         }
+        if let Some(n) = rest.strip_suffix(CSS_EXT) {
+            return Some((self.0.get(n)?.css.as_ref()?, CSS_EXT));
+        }
+        Some((&self.0.get(rest.strip_suffix(JS_EXT)?)?.js, JS_EXT))
     }
 }
 
-/// 파일 사이에 경계 줄을 두고 잇는다. 파일 하나라도 없으면 그 묶음은 없다.
+/// 파일 사이에 경계 줄을 두고 잇는다. JS·CSS 가운데 파일 하나라도 없으면 그 묶음은 없다.
 fn concat(fsys: &dyn StaticAssets, def: &BundleDef) -> Option<Bundle> {
+    let css = if def.css.is_empty() {
+        None
+    } else {
+        let mut out = Vec::new();
+        for path in &def.css {
+            let src = fsys.read(path)?;
+            out.extend_from_slice(format!("/* ==== {path} ==== */\n").as_bytes());
+            out.extend_from_slice(&src);
+            if !src.ends_with(b"\n") {
+                out.push(b'\n');
+            }
+        }
+        Some(Asset::new(out))
+    };
     let mut js = Vec::new();
     let mut lines: Vec<Option<(usize, usize)>> = Vec::new();
     for (i, path) in def.js.iter().enumerate() {
@@ -136,11 +167,9 @@ fn concat(fsys: &dyn StaticAssets, def: &BundleDef) -> Option<Bundle> {
     lines.push(None);
     let map = source_map(def, &lines);
     Some(Bundle {
-        js_etag: hash_bytes(&js),
-        js: Bytes::from(js),
-        map_etag: hash_bytes(map.as_bytes()),
-        map: Bytes::from(map),
-        gz: OnceLock::new(),
+        js: Asset::new(js),
+        map: Asset::new(map.into_bytes()),
+        css,
     })
 }
 
