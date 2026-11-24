@@ -88,33 +88,26 @@ async fn settings_put_still_ok() {
     );
 }
 
-// FR-OPT-5-2: `?clientId=` 는 방송의 `args.origin` 이 된다. 없으면 종전 바이트다.
+// TC-CH2B-2·4: 설정 저장은 SSE 로 방송하지 않고 `settings` 토픽으로 낸다.
 #[tokio::test]
-async fn settings_put_broadcast_origin() {
-    for (target, want) in [
-        (
-            "/api/settings?clientId=c-1",
-            r#"{"action":"settings_changed","args":{"origin":"c-1"}}"#,
-        ),
-        (
-            "/api/settings",
-            r#"{"action":"settings_changed","args":{}}"#,
-        ),
-    ] {
-        let d = tempfile::tempdir().unwrap();
-        let cb = Arc::new(FakeBroker::default());
-        let s = server(
-            d.path(),
-            Deps {
-                settings: Some(file_settings(d.path())),
-                commands: Some(cb.clone() as Arc<dyn CommandBroker>),
-                ..Deps::default()
-            },
-        );
-        let r = put(&s, target, r#"{"a":1}"#).await;
-        assert_eq!(r.status, 200);
-        assert_eq!(cb.published(), vec![want.to_owned()], "{target}");
-    }
+async fn settings_put_publishes_topic_not_sse() {
+    let d = tempfile::tempdir().unwrap();
+    let cb = Arc::new(FakeBroker::default());
+    let s = server(
+        d.path(),
+        Deps {
+            settings: Some(file_settings(d.path())),
+            commands: Some(cb.clone() as Arc<dyn CommandBroker>),
+            ..Deps::default()
+        },
+    );
+    let o = super::state_topics::tap(&s, "settings").await;
+    super::state_topics::heard(&o, 1).await;
+    let r = put(&s, "/api/settings?clientId=c-1", r#"{"a":1}"#).await;
+    assert_eq!(r.status, 200);
+    let got = super::state_topics::heard(&o, 1).await;
+    assert_eq!(got.last().unwrap()["data"], serde_json::json!({"a":1}));
+    assert!(cb.published().is_empty(), "{:?}", cb.published());
 }
 
 // TC-QG-11: 나쁜 customTheme 은 400 bad_request 이고 저장되지 않는다. 정상 블롭은 200.

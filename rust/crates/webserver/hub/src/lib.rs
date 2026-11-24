@@ -33,10 +33,7 @@ pub use gitwatch::{
     GIT_WATCH_INTERVAL, GIT_WATCH_PARALLEL, GIT_WATCH_ROUND_TIMEOUT, GIT_WATCH_TTL,
     GIT_WATCH_WORKTREE_EVERY, GitObserver, GitWatcher, RepoHook, WallClock, start_git_watch,
 };
-pub use payloads::{
-    background_changed_payload, claude_account_alert_payload, claude_accounts_changed_payload,
-    foreground_snapshot, update_changed_payload, valid_activity_state,
-};
+pub use payloads::{background_changed_payload, foreground_snapshot, valid_activity_state};
 pub use replyseat::{ReplySeats, SeatConn};
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {

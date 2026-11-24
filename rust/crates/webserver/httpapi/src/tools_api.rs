@@ -447,10 +447,8 @@ impl Server {
         self.reap_sandboxes().await;
         // FR-OPT-5-1: 같은 바이트면 rev 가 그대로다 — 다른 브라우저에 재조회를 시키지 않는다.
         let rev_s = rev.to_string();
-        if rev_s != if_match
-            && let Some(c) = self.commands()
-        {
-            c.broadcast(&otter_webserver_sse::workspace_changed(rev));
+        if rev_s != if_match {
+            self.refresh_state_topic("workspace");
         }
         with_header(empty(StatusCode::OK), "ETag", &rev_s)
     }

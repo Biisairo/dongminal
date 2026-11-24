@@ -50,12 +50,3 @@ test('saveSettings: PUT 은 clientId 를 싣는다', async () => {
   assert.deepEqual([...calls.put], ['/api/settings?clientId=c-self']);
 });
 
-test('FEC-M3: 자기 origin 의 방송은 GET 하지 않고, 남의 것·origin 없는 것은 GET 한다', async () => {
-  const { app, calls } = setup();
-  await app.settings.apply._onSettingsChanged({ origin: 'c-self' });
-  assert.equal(calls.get, 0);
-  await app.settings.apply._onSettingsChanged({ origin: 'c-other' });
-  assert.equal(calls.get, 1);
-  await app.settings.apply._onSettingsChanged({});
-  assert.equal(calls.get, 2);
-});

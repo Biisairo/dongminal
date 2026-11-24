@@ -242,13 +242,16 @@ async fn chat_push_broadcasts() {
         chat_kind: CHAT_KIND_CHANGED.into(),
         ..Default::default()
     });
-    assert_eq!(
-        e.cmds.published().last().unwrap(),
-        "{\"action\":\"chat_changed\",\"args\":{}}"
-    );
-    e.cmds.published.lock().unwrap().clear();
     e.srv.chat_resync();
-    assert_eq!(last(&e)["action"], "chat_changed");
+    // TC-CH2B-4: 채팅 상태의 바뀜은 `chat` 토픽으로 간다 — SSE 방송은 글(chat_message)뿐이다.
+    assert!(
+        e.cmds
+            .published()
+            .iter()
+            .all(|p| !p.contains("chat_changed")),
+        "{:?}",
+        e.cmds.published()
+    );
 }
 
 /// FR-DMR-21 (TC-DMR-3): 데몬이 배선되지 않은 서버의 간선 API 는 503 edge_unavailable 이다.
@@ -401,6 +404,7 @@ async fn edge_push_broadcasts_and_invalidates_handle() {
     assert_eq!(e.srv.profile_handle(), "집#1a2b");
     assert_eq!(d.got.lock().unwrap().len(), 1, "기억한 핸들을 다시 물었다");
     let fp = "ab".repeat(32);
+    let notice = super::state_topics::tap(&e.srv, "edges.notice").await;
     e.srv.edge_pushed(&EdgesEvent {
         removed: Some(EdgeRef {
             fp: fp.clone(),
@@ -409,33 +413,32 @@ async fn edge_push_broadcasts_and_invalidates_handle() {
         by_peer: true,
         ..Default::default()
     });
-    let p = last(&e);
-    assert_eq!(p["action"], "edges_changed");
-    assert_eq!(p["args"]["byPeer"], true);
-    assert_eq!(p["args"]["removed"]["name"], "노트북");
-    assert_eq!(
-        p["args"]["removed"]["tag"],
-        otter_shared_edge::tag(&fp).as_str()
-    );
+    let got = super::state_topics::heard(&notice, 1).await;
+    let p = &got[0]["data"];
+    assert_eq!(p["byPeer"], true);
+    assert_eq!(p["removed"]["name"], "노트북");
+    assert_eq!(p["removed"]["tag"], otter_shared_edge::tag(&fp).as_str());
     assert_eq!(e.srv.profile_handle(), "집#1a2b");
     assert_eq!(
         d.got.lock().unwrap().len(),
         2,
         "바뀐 뒤 핸들을 다시 묻지 않았다"
     );
-    // byPeer 는 지운 간선이 있을 때만 싣는다.
+    // byPeer 는 지운 간선이 있을 때만 싣는다 — 알릴 것이 없으면 사건도 없다.
     e.srv.edge_pushed(&EdgesEvent {
         by_peer: true,
         ..Default::default()
     });
-    assert_eq!(
-        e.cmds.published().last().unwrap(),
-        "{\"action\":\"edges_changed\",\"args\":{}}"
-    );
     e.srv.edge_resync();
-    assert_eq!(
-        e.cmds.published().last().unwrap(),
-        "{\"action\":\"edges_changed\",\"args\":{}}"
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    assert!(notice.pop().is_none(), "알릴 것이 없는데 사건이 났다");
+    assert!(
+        e.cmds
+            .published()
+            .iter()
+            .all(|p| !p.contains("edges_changed")),
+        "{:?}",
+        e.cmds.published()
     );
 }
 

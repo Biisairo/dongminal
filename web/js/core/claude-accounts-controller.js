@@ -43,9 +43,9 @@ class ClaudeAccountsController extends Controller {
   }
 
   /** FR-CAC-94a: 설정의 Claude 계정 패널이 열려 있으면 그것도 다시 받는다. */
-  _onClaudeAccountsChanged(){
+  _onClaudeAccountsChanged(src){
     if(this.app.settings.section('claude')?._cacctPanelShown()) this.app.settings.section('claude')?._cacctRefreshSoft();
-    return this._claudeAcctRestore();
+    return this._claudeAcctRestore(src);
   }
 
   /** FR-CAC-100a: 서버의 계정 알림. 자동 전환은 알림(ok), 나머지는 주의(err) 토스트다. */

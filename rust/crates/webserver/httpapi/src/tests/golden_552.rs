@@ -317,7 +317,8 @@ async fn golden_552() {
     }
     let host = otter_shared_platform::hostname().unwrap();
     let out = out.replace(&host, "HOST");
-    let want = include_str!("go_golden_552.txt");
+    let want = super::state_topics::without_migrated(include_str!("go_golden_552.txt"), None);
+    let want = want.as_str();
     for (i, (g, w)) in out.lines().zip(want.lines()).enumerate() {
         assert_eq!(g, w, "{}번째 줄", i + 1);
     }

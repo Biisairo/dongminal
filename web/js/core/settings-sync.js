@@ -32,7 +32,6 @@ Object.assign(SettingsSync.prototype, {
    * 표시만 하고 그 비행의 약속을 돌려받는다 — 비행이 끝나면 최신 본문으로 한 번
    * 더 나간다. 전체 blob 두 개가 순서가 바뀌어 도착하면 옛 값이 남기 때문이다.
    * 약속은 마지막 PUT 의 성패로 풀린다. 던지면 거부되되 비행은 풀린다 (finally).
-   * FEC-M3: `?clientId=` 가 방송의 `origin` 으로 돌아온다 (`_onSettingsChanged`).
    */
   saveSettings(){
     this._settingsDirty=true;

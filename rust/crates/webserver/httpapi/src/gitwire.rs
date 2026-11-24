@@ -64,6 +64,7 @@ pub(crate) fn new_git_server(
     deps: &Deps,
     file_read_max: i64,
     watch: Option<&Arc<GitWatcher>>,
+    me: &std::sync::Weak<crate::Server>,
 ) -> GitServer {
     let mut g = GitServer::default();
     g.watch = watch.map(|w| Arc::new(WatchNote(w.clone())) as Arc<dyn RepoWatcher>);
@@ -76,7 +77,7 @@ pub(crate) fn new_git_server(
     g.commands = deps
         .commands
         .clone()
-        .map(|c| Arc::new(BrokerCast(c)) as Arc<dyn wsentry::Broadcaster>);
+        .map(|c| Arc::new(BrokerCast(c, me.clone())) as Arc<dyn wsentry::Broadcaster>);
     g.tools = deps
         .tools
         .clone()

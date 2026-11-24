@@ -297,7 +297,13 @@ async fn golden_554() {
             continue;
         }
         let published = std::mem::take(&mut *env.cmds.published.lock().unwrap());
-        assert_eq!(published, c.published.unwrap_or_default(), "{at} 방송");
+        let want_pub: Vec<String> = c
+            .published
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|p| !super::state_topics::migrated(p))
+            .collect();
+        assert_eq!(published, want_pub, "{at} 방송");
         let pastes: Vec<String> = std::mem::take(&mut *env.io.pastes.lock().unwrap())
             .into_iter()
             .map(|(id, submit, text)| mask(&format!("{id}|{submit}|{text}")))

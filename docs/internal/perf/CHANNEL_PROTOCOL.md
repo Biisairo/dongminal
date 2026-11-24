@@ -107,7 +107,8 @@
 | `alert` | event | `claude_account_alert` | |
 
 - `cmd` 는 토픽이 아니다. 채널이 열려 있으면 늘 받는다. 지명(`exec`) 판정은 지금과 같다.
-- 텔레그램 페어링 확인은 `settings` 또는 별도 `telegram` full 토픽으로 민다(시험 단계에서 정한다).
+- 텔레그램 짝맞춤 확인은 별도 `telegram` full 토픽으로 민다(OQ-C1, C2b 에서 정했다). 간선을 맺거나 지운 알림은 `edges.notice` 사건 토픽이다.
+- full 토픽의 본문은 그 GET 종단의 본문이다. 200 이 아니면 `{"$http": 상태, "body": 본문}` 이다. 서버는 바뀐 자리마다 본문을 다시 만들어, 지난 발행과 같으면 내지 않는다(C2b).
 
 ## 6. 흐름 제어 (FR-CON-6)
 
@@ -142,7 +143,7 @@
 
 - **A-C1** tungstenite 0.30 이 `permessage-deflate` 를 지원한다. C6 전에 확인한다.
 - **A-C2** 지금 `/api/state` 본문 크기가 바뀔 때마다 모든 채널에 밀어도 될 만큼 작다. C2 시험에서 창 5 × 탭 3 기준 크기를 잰다.
-- **OQ-C1** 텔레그램 페어링 확인을 어느 토픽에 실을지(§5.2).
+- ~~**OQ-C1** 텔레그램 페어링 확인을 어느 토픽에 실을지~~ → `telegram` full 토픽(C2b).
 
 ## 10. 시험 (단계마다 구현 전에 쓴다)
 
@@ -170,6 +171,18 @@
 | 서버 채널 | 구독·해지, 구독하지 않은 토픽은 오지 않는다, 순번 단조 증가, 링 안 재구독은 변화량만, 링 밖·epoch 다름은 full, 우선순위 큐, 상한(토픽 합치기·터미널 재스냅숏·채널 닫기), 신원 임대가 채널 수명과 같다 |
 | 프론트 채널 | 재연결 시 마지막 순번으로 재구독, 빈틈 발견 시 재구독, 침묵 판정, `ping` 주기(보일 때·숨었을 때), `sid` 로 터미널 프레임 나누기 |
 | e2e | 브라우저 탭 하나에 WebSocket 하나, 유휴 1분 동안 상태용 GET 0, 채널을 끊었다 이었을 때 모든 토픽이 서버와 같다(NFR-PRF-15) |
+
+### 10.3 C2b — full·사건 토픽
+
+| ID | 쪽 | 동작 |
+|---|---|---|
+| TC-CH2B-1 | 서버 | `workspace`·`settings`·`edges`·`chat`·`update`·`claude.accounts`·`focus`·`telegram` 을 구독하면 `full.data` 는 그 GET 종단(`/api/state`·`/api/settings`·`/api/edges`·`/api/chat`·`/api/update`·`/api/claude-accounts`·`/api/focus`·`/api/telegram`)의 본문이다. `workspace` 는 여기에 `rev`(그 GET 의 ETag 값)를 더한다 |
+| TC-CH2B-2 | 서버 | 상태가 바뀌는 자리(설정 PUT, 워크스페이스 저장, 포커스 주장, 간선·채팅 변화, 판 확인, 계정 변화, 텔레그램 짝맞춤·저장)에서 그 토픽의 `full` 이 나간다. 본문이 지난 발행과 같으면 나가지 않는다 |
+| TC-CH2B-3 | 서버 | 사건 토픽: `alert`(계정 알림 본문), `fs`(파일 변화 본문), `edges.notice`(간선 변화의 `paired`·`removed`·`byPeer`·`invited`) |
+| TC-CH2B-4 | 서버 | 옮긴 방송(`workspace_changed`·`settings_changed`·`update_changed`·`window_focus`·`edges_changed`·`chat_changed`·`claude_accounts_changed`·`claude_account_alert`·`fs_changed`)은 명령 SSE 로 가지 않는다 |
+| TC-CH2B-5 | 프론트 | 등록부의 `topic` 항목은 채널에 구독한다. 연결(`chan:open`)마다 첫 `full` 은 `restore` 에, 그 뒤 `full` 은 `change`(없으면 `restore`)에 봉투(`{ok, status:200, data, text, headers}`)로 넘긴다. 사건은 `event` 처리기에 본문을 넘긴다 |
+| TC-CH2B-6 | 프론트 | `workspace` full 은 GET 없이 적용한다. `rev` 가 `wsETag` 이하이면 버리고, 저장 비행 중이면 유예했다가 받은 본문으로 적용한다 |
+| TC-CH2B-7 | 프론트 | 이 상태들의 `sse:open` GET 재검증, Claude 계정 30초 폴링, 텔레그램 짝맞춤 읽기 폴링이 없다(짝맞춤 남은 시간 그리기는 남는다) |
 
 ## 11. 구현 계약 (토픽 기반 — C2~C5 가 딛는다)
 

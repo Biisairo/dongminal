@@ -8,10 +8,11 @@ import { load } from './harness.mjs';
  * 재수집이 되돌린다: 등록부의 `revalidateOn:['sse:open']` 가 그 약속이다. 새 코드
  * 없이 이 선언을 고정한다 — 누가 빼면 넘침 뒤 화면이 안전망까지 낡는다.
  */
-test('재연결(sse:open)이 git·설정·포커스·도구 상태를 다시 받는다', () => {
+test('재연결(sse:open)이 git·도구 상태를 다시 받는다 — 설정·포커스는 채널 토픽이 준다 (C2b)', () => {
   const ctx = load(['core/state-registry.js'], { expose: ['STATE_REGISTRY'] });
   const byId = new Map(ctx.STATE_REGISTRY.map((e) => [e.id, e]));
-  for (const id of ['git.observe', 'settings', 'window.focus', 'tool.attention', 'tool.activity', 'tool.background']) {
+  for (const id of ['settings', 'window.focus']) assert.ok(byId.get(id).topic, id + ' 에 토픽이 없다');
+  for (const id of ['git.observe', 'tool.attention', 'tool.activity', 'tool.background']) {
     const e = byId.get(id);
     assert.ok(e, `${id} 선언이 없다`);
     assert.ok(e.revalidateOn.includes('sse:open'), `${id} 가 재연결에 다시 받지 않는다`);
@@ -88,27 +89,29 @@ test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 �
   const { gets, got, fire } = snapshotRig();
   fire('sse:open', { gen: 1 });
   assert.equal(gets.length, 1, JSON.stringify(gets));
-  assert.equal(gets[0], '/api/snapshot?parts=attention,activity,background,update,focus,edges');
+  // 설정·판·포커스·간선은 채널 토픽의 재구독이 준다 (CHANNEL_PROTOCOL C2b).
+  assert.equal(gets[0], '/api/snapshot?parts=attention,activity,background');
   assert.equal(got._settingsRestore, undefined, '첫 연결에 설정을 다시 받았다');
   const att = await got._attnRestore;
   assert.equal(att.ok, true);
   assert.equal(att.data.part, 'attention');
   assert.equal(att.text, JSON.stringify({ part: 'attention' }));
-  // 조각이 없으면(503 인 update) 실패 봉투다 — 종단이 실패한 것과 같다.
-  const up = await got._updateRestore;
-  assert.equal(up.ok, false);
   assert.ok('_gitObserveRestore' in got, 'git 관측 재검증이 빠졌다');
 });
 
-test('재연결·소프트 리로드: 설정도 같은 스냅샷에 든다', async () => {
-  for (const [topic, a] of [['sse:open', { gen: 2 }], ['softreload', {}]]) {
-    const { gets, got, fire } = snapshotRig();
-    fire(topic, a);
-    assert.equal(gets.length, 1, topic + ' ' + JSON.stringify(gets));
-    assert.ok(gets[0].includes('settings'), topic + ' ' + gets[0]);
-    const st = await got._settingsRestore;
-    assert.equal(st.data.part, 'settings');
-  }
+test('소프트 리로드: 설정도 같은 스냅샷에 든다 — 재연결은 토픽이 준다 (C2b)', async () => {
+  const { gets, got, fire } = snapshotRig();
+  fire('softreload', {});
+  assert.equal(gets.length, 1, JSON.stringify(gets));
+  assert.ok(gets[0].includes('settings'), gets[0]);
+  const st = await got._settingsRestore;
+  assert.equal(st.data.part, 'settings');
+  // 조각이 없으면(503 인 update) 실패 봉투다 — 종단이 실패한 것과 같다.
+  const up = await got._updateRestore;
+  assert.equal(up.ok, false);
+  const r = snapshotRig();
+  r.fire('sse:open', { gen: 2 });
+  assert.ok(!r.gets[0].includes('settings'), r.gets[0]);
 });
 
 /**

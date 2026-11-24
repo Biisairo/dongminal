@@ -25,11 +25,6 @@ class SettingsApply extends Controller {
 
   saveSettings(){ return this._settingsSync().saveSettings() }
 
-  // SSE `settings_changed` (FEC-M3). 자기 `origin` 이면 서버 값이 곧 보낸 본문이다 (옛 서버는 origin 이 없다).
-  _onSettingsChanged(args){
-    if(!(args&&args.origin&&args.origin===this.app.clientId)) return this._settingsRestore();
-  }
-
   _settingsBody(){
     const body={};
     for(const spec of SETTINGS_SCHEMA){

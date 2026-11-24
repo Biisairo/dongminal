@@ -419,7 +419,7 @@ const RUN_DECAY_SLACK_MS=50;
 
 /** ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-42: 관측이 이보다 오래되면 `as of HH:MM` 을 보인다 (`activity-list.js`). */
 const LIMIT_STALE_MS=10*60*MS_PER_SEC;
-/** 텔레그램 등록 코드의 남은 시간과 등록 여부를 다시 보는 주기 (`settings-telegram.js`). */
+/** 텔레그램 등록 코드의 남은 시간을 다시 그리는 주기 (`settings-telegram.js`). 등록 여부는 토픽이 준다. */
 const TG_PAIR_TICK_MS=2000;
 /** 간선 초대의 남은 시간을 다시 그리는 주기 (`settings-edges.js`). */
 const EDGE_REMAIN_TICK_MS=1000;

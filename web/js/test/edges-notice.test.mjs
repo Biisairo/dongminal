@@ -106,24 +106,24 @@ test('승인 대기가 있어도 알림·만료 타이머가 없다', async () =
 
 test('paired 방송은 상대 핸들로 "맺었습니다" 알림을 남긴다 (FR-PFN-22)', async () => {
   const { app, shown } = setup();
-  await app.edges._onEdgesChanged({ paired: { fp: 'aaaaaaaaaaaaaaaabbbb', name: 'node-a', tag: '0042' } });
+  await app.edges._onEdgesNotice({ paired: { fp: 'aaaaaaaaaaaaaaaabbbb', name: 'node-a', tag: '0042' } });
   assert.equal(shown.length, 1);
   assert.equal(shown[0].kind, 'ok');
   assert.equal(shown[0].ms, 0, '맺음 알림은 남아야 한다');
   assert.match(shown[0].text, /^edge\.paired_notice/);
   assert.match(shown[0].text, /"name":"node-a#0042"/);
-  await app.edges._onEdgesChanged({});
+  await app.edges._onEdgesNotice({});
   assert.equal(shown.length, 1);
 });
 
 test('상대가 지운 removed 방송만 "끊겼습니다" 알림을 띄운다', async () => {
   const { app, shown } = setup();
-  await app.edges._onEdgesChanged({ removed: { fp: 'f1', name: 'node-b', tag: '0001' }, byPeer: true });
+  await app.edges._onEdgesNotice({ removed: { fp: 'f1', name: 'node-b', tag: '0001' }, byPeer: true });
   assert.equal(shown.length, 1);
   assert.match(shown[0].text, /^edge\.removed_notice/);
   assert.match(shown[0].text, /"name":"node-b#0001"/);
   // 이쪽에서 지운 것(어느 탭이든 otterctl 이든)은 알리지 않는다.
-  await app.edges._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
+  await app.edges._onEdgesNotice({ removed: { fp: 'f2', name: 'node-c' } });
   assert.equal(shown.length, 1, '이쪽에서 지운 간선을 알렸다');
 });
 

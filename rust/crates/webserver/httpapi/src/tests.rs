@@ -34,6 +34,7 @@ mod revert;
 mod runs;
 mod sandbox_api;
 mod settings;
+mod state_topics;
 mod statics;
 mod status;
 mod subagent_activity;

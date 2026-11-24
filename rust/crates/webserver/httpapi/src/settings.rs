@@ -3,7 +3,6 @@
 //! 브라우저 설정은 서버가 해석하지 않는 JSON blob 이다. 서버가 읽는 가지(렌더 환경·맥락 정책·
 //! 탭 이름·migration)만 blob 이 바뀔 때 한 번 푼다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-2 · HTTP-26).
 
-use std::collections::BTreeMap;
 use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -179,16 +178,6 @@ pub(crate) fn parse_context_policy(blob: &[u8]) -> ContextPolicy {
     }
 }
 
-/// Go `settingsChangedPayload`: "다시 받으라" 는 신호다. 본문은 싣지 않는다. origin 은 저장한
-/// 창의 clientId 이고, 비면 싣지 않는다 (FR-OPT-5-2).
-pub(crate) fn settings_changed_payload(origin: &str) -> Vec<u8> {
-    let mut args: BTreeMap<&str, &str> = BTreeMap::new();
-    if !origin.is_empty() {
-        args.insert("origin", origin);
-    }
-    otter_webserver_sse::payload("settings_changed", Some(&args))
-}
-
 impl Server {
     /// GET /api/settings. 비었으면 `{}` 다.
     pub(crate) async fn api_settings_get(&self, _r: &mut Req) -> Response {
@@ -248,10 +237,8 @@ impl Server {
         }
         // FR-ELR-76: 워크트리 회차 간격은 재시작 없이 다음 회차부터다.
         self.apply_git_worktree();
-        // 저장이 끝난 **뒤에** 알린다 — 받은 창이 곧바로 GET 한다.
-        if let Some(c) = self.commands() {
-            c.broadcast(&settings_changed_payload(&r.q("clientId")));
-        }
+        // 저장이 끝난 **뒤에** 알린다 (CHANNEL_PROTOCOL C2b).
+        self.refresh_state_topic("settings");
         let mut res = Response::new(httpresp::empty());
         *res.status_mut() = StatusCode::OK;
         res
