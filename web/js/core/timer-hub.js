@@ -263,15 +263,10 @@ class TimerHub {
    * 이기면 연속 입력(터치 스크롤·리사이즈)에서 재예약이 프레임보다 잦을 때 영영
    * 실행되지 않는다. 접힌 동안의 변화는 누적 상태(`_wheelPend` 같은)가 들고 있다.
    *
-   * PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39 — 한 프레임의 작업은 **rAF 하나**에 묶여
-   * `_flushFrame` 에서 돈다.
-   *
-   *   key   같은 키가 또 오면 앞의 것을 버리고 마지막 것만 돈다. 묶음 안에서 콜백만
-   *         바뀌므로 `coalesce` 가 막던 "영영 실행되지 않음" 은 생기지 않는다
-   *   prio  `input` > `term` > `normal`(기본) > `idle`. 같은 우선순위는 부른 순서다
+   * PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39 — 한 프레임의 작업은 **rAF 하나**에 묶여 `_flushFrame` 에서 돈다.
+   *   key   같은 키가 또 오면 앞의 것을 버리고 마지막 것만 돈다(묶음 안에서 콜백만 바뀌므로 굶지 않는다)
+   *   prio  `input` > `term` > `normal`(기본) > `idle`. 같은 우선순위는 부른 순서다 — 옵션이 없으면 종전 순서다
    *   idle  프레임 시작부터 `FRAME_BUDGET_MS` 를 넘었거나 입력이 기다리면 다음 프레임
-   *
-   * 옵션이 없으면 종전처럼 부른 순서대로 그 프레임에 돈다.
    */
   frame(fn,opts){
     opts=opts||{};
