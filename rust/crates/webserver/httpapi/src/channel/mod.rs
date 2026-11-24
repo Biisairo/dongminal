@@ -1,9 +1,20 @@
 //! 채널 `/channel` — 브라우저 탭 하나의 WebSocket 하나 (PERF_OPTIMIZATION_SRS FR-CON,
-//! `docs/internal/perf/CHANNEL_PROTOCOL.md`). C1: 인사·생존 확인·칸 신원 임대.
+//! `docs/internal/perf/CHANNEL_PROTOCOL.md`). 인사·생존 확인·칸 신원 임대(C1), 토픽 구독(§11.1).
+
+// 발행하는 쪽(C2~C5)이 붙기 전까지 제품 빌드에서 쓰이지 않는 표면이 있다. 첫 발행자가 붙으면 지운다.
+#[cfg_attr(not(test), allow(dead_code))]
+mod outbox;
+#[cfg_attr(not(test), allow(dead_code))]
+mod topics;
+
+#[cfg_attr(not(test), allow(unused_imports))]
+pub(crate) use outbox::{CHANNEL_PENDING_MAX, Out, Outbox, TOPIC_PENDING_MAX};
+#[cfg_attr(not(test), allow(unused_imports))]
+pub(crate) use topics::{DeltaOp, Seed, SubError, TOPIC_RING, TopicHub};
 
 use std::collections::HashMap;
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -29,8 +40,8 @@ const CHANNEL_READ_LIMIT: usize = 1 << 20;
 /// 첫 `hello` 를 기다리는 시간이다 (TC-CH1-2).
 const HELLO_WAIT: Duration = Duration::from_secs(10);
 
-/// 서버 프로세스마다 하나다. 순번은 이 값 안에서만 뜻이 있다 (§5.1).
-static EPOCH: LazyLock<String> = LazyLock::new(|| hex::encode(rand::random::<[u8; 8]>()));
+/// 채널마다 붙는 번호 — 토픽 구독자의 열쇠다.
+static NEXT_CHAN: AtomicU64 = AtomicU64::new(1);
 
 type Release = Box<dyn FnOnce() + Send>;
 
@@ -98,15 +109,24 @@ impl Server {
             return;
         };
         infof!(None, "channel connected addr={remote}");
+        let chan = NEXT_CHAN.fetch_add(1, Ordering::Relaxed);
+        let out = Outbox::new();
+        let done = CancellationToken::new();
+        let writer = tokio::spawn(write_loop(
+            Arc::clone(self),
+            conn.clone(),
+            out.clone(),
+            done.clone(),
+        ));
+        let ping = tokio::spawn(ping_loop(conn.clone(), done.clone()));
         let mut slots: HashMap<String, Release> = HashMap::new();
-        if self.channel_hello(&conn, &hello, &mut slots, remote).await {
-            let done = CancellationToken::new();
-            let ping = tokio::spawn(ping_loop(conn.clone(), done.clone()));
-            self.channel_read_loop(&conn, &mut reader, &mut slots, remote)
-                .await;
-            done.cancel();
-            let _ = ping.await;
-        }
+        self.channel_hello(&out, &hello, &mut slots, remote);
+        self.channel_read_loop(chan, &out, &mut reader, &mut slots, remote, &done)
+            .await;
+        done.cancel();
+        let _ = writer.await;
+        let _ = ping.await;
+        self.topics.unsubscribe_all(chan);
         for (_, release) in slots.drain() {
             release();
         }
@@ -114,45 +134,71 @@ impl Server {
 
     async fn channel_read_loop(
         self: &Arc<Self>,
-        conn: &Arc<Conn>,
+        chan: u64,
+        out: &Arc<Outbox>,
         reader: &mut Reader,
         slots: &mut HashMap<String, Release>,
         remote: &str,
+        done: &CancellationToken,
     ) {
         loop {
-            let Ok(Some(frame)) = tokio::time::timeout(th::PONG_WAIT, next_frame(reader)).await
-            else {
-                return;
+            let frame = tokio::select! {
+                _ = done.cancelled() => return,
+                r = tokio::time::timeout(th::PONG_WAIT, next_frame(reader)) => match r {
+                    Ok(Some(f)) => f,
+                    _ => return,
+                },
             };
             let reply = match frame {
                 Frame::Alive => continue,
                 Frame::Binary => error("unsupported"),
                 Frame::Text(_) => match frame.json() {
                     None => error("bad_json"),
-                    Some(v) if v["t"] == "hello" => {
-                        if self.channel_hello(conn, &v, slots, remote).await {
+                    Some(v) => match v["t"].as_str().unwrap_or_default() {
+                        "hello" => {
+                            self.channel_hello(out, &v, slots, remote);
                             continue;
                         }
-                        return;
-                    }
-                    Some(v) if v["t"] == "ping" => json!({"t":"pong","n":v["n"]}),
-                    Some(_) => error("unknown_type"),
+                        "ping" => json!({"t":"pong","n":v["n"]}),
+                        "sub" => match self.channel_sub(chan, out, &v).await {
+                            Ok(()) => continue,
+                            Err(e) => e,
+                        },
+                        "unsub" => {
+                            self.topics
+                                .unsubscribe(chan, v["topic"].as_str().unwrap_or_default());
+                            continue;
+                        }
+                        _ => error("unknown_type"),
+                    },
                 },
             };
-            if send(conn, reply).await.is_err() {
-                return;
+            out.push_control(reply.to_string());
+        }
+    }
+
+    async fn channel_sub(&self, chan: u64, out: &Arc<Outbox>, v: &Value) -> Result<(), Value> {
+        let topic = v["topic"].as_str().unwrap_or_default();
+        let r = self
+            .topics
+            .subscribe(chan, out, topic, v["seq"].as_u64(), v["epoch"].as_str())
+            .await;
+        match r {
+            Ok(()) => Ok(()),
+            Err(SubError::UnknownTopic) => {
+                Err(json!({"t":"error","code":"unknown_topic","topic":topic}))
             }
         }
     }
 
-    /// 칸 신원의 임대를 `hello` 의 목록에 맞추고 인사로 답한다. 보내지 못하면 false.
-    async fn channel_hello(
+    /// 칸 신원의 임대를 `hello` 의 목록에 맞추고 인사로 답한다.
+    fn channel_hello(
         self: &Arc<Self>,
-        conn: &Arc<Conn>,
+        out: &Outbox,
         hello: &Value,
         slots: &mut HashMap<String, Release>,
         remote: &str,
-    ) -> bool {
+    ) {
         let want: Vec<String> = hello["slots"]
             .as_array()
             .map(|a| {
@@ -185,10 +231,37 @@ impl Server {
         } else {
             json!({"assetVersion": v})
         };
-        send(conn, json!({"t":"hello","epoch":*EPOCH,"server":server}))
-            .await
-            .is_ok()
+        out.push_control(
+            json!({"t":"hello","epoch":self.topics.epoch(),"server":server}).to_string(),
+        );
     }
+}
+
+/// Outbox 를 비우는 쓰기 태스크 하나. 쓰기에 실패하거나 상한을 넘으면 세션을 끝낸다.
+async fn write_loop(srv: Arc<Server>, conn: Arc<Conn>, out: Arc<Outbox>, done: CancellationToken) {
+    loop {
+        let next = tokio::select! {
+            _ = done.cancelled() => return,
+            o = out.next() => o,
+        };
+        let msg = match next {
+            Out::Text(t) => Message::text(t.as_ref()),
+            Out::Binary(b) => Message::binary(b),
+            Out::NeedFull(topic) => match srv.topics.full_item(&topic) {
+                Some(it) => {
+                    out.drop_upto(&topic, it.seq);
+                    Message::text(it.frame.as_ref())
+                }
+                None => continue,
+            },
+            Out::Close => break,
+        };
+        if conn.write_msg(msg).await.is_err() {
+            break;
+        }
+    }
+    done.cancel();
+    conn.close().await;
 }
 
 enum Frame {

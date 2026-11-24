@@ -1,3 +1,12 @@
+/** delta 의 `ops` 를 `Map` 에 적용한다 (CHANNEL_PROTOCOL §11.2). */
+function chanApply(map, ops){
+  for(const o of ops||[]){
+    if(o.op==='put') map.set(o.id,o.v);
+    else if(o.op==='del') map.delete(o.id);
+  }
+  return map;
+}
+
 /**
  * Channel — 브라우저 탭 하나가 서버와 여는 WebSocket 하나 (PERF_OPTIMIZATION_SRS FR-CON ·
  * `docs/internal/perf/CHANNEL_PROTOCOL.md`).
@@ -20,6 +29,10 @@ class Channel {
     this._retry=CHAN_RETRY_MIN_MS; this._retryT=null;
     this._tickT=null; this._armedMs=0; this._seen=0;
     this._pingN=0; this._pingAt=0; this._latency=null;
+    this._ready=false; this._epoch=null;
+    this._topics=new Map();   // topic → {subs:Set<{fn,owner}>, seq, epoch, waiting}
+    this._raw=new Map();      // t → Set<{fn,owner}>
+    this._bin=new Set();
   }
 
   connect(){
@@ -30,6 +43,7 @@ class Channel {
     ws.binaryType='arraybuffer';
     this._ws=ws;
     this._gen++;
+    this._ready=false;
     this._seen=Date.now();
     ws.onopen=()=>{ this._seen=Date.now(); this._hello(); this._arm() };
     ws.onmessage=e=>this._onMessage(e);
@@ -51,24 +65,123 @@ class Channel {
 
   latency(){ return this._latency }
 
+  send(v){
+    if(!this._open()) return false;
+    this._ws.send(JSON.stringify(v));
+    return true;
+  }
+
+  sendBinary(u8){
+    if(!this._open()) return false;
+    this._ws.send(u8);
+    return true;
+  }
+
+  sub(topic, fn, opts){
+    let e=this._topics.get(topic);
+    if(!e){
+      e={subs:new Set(), seq:null, epoch:null, waiting:false};
+      this._topics.set(topic,e);
+      if(this._ready) this._subFrame(topic,e);
+    }
+    const rec={fn, owner:(opts&&opts.owner)||null};
+    e.subs.add(rec);
+    return {topic, stop:()=>this._unsub(topic,rec)};
+  }
+
+  on(t, fn, opts){
+    let set=this._raw.get(t);
+    if(!set){ set=new Set(); this._raw.set(t,set) }
+    const rec={fn, owner:(opts&&opts.owner)||null};
+    set.add(rec);
+    return {stop:()=>{ set.delete(rec); if(!set.size&&this._raw.get(t)===set) this._raw.delete(t) }};
+  }
+
+  onBinary(fn){
+    const rec={fn};
+    this._bin.add(rec);
+    return {stop:()=>this._bin.delete(rec)};
+  }
+
+  disposeOwner(owner){
+    if(owner==null) return 0;
+    let n=0;
+    for(const [topic,e] of Array.from(this._topics)){
+      for(const r of Array.from(e.subs)) if(r.owner===owner){ this._unsub(topic,r); n++ }
+    }
+    for(const [t,set] of Array.from(this._raw)){
+      for(const r of Array.from(set)) if(r.owner===owner){ set.delete(r); n++ }
+      if(!set.size) this._raw.delete(t);
+    }
+    return n;
+  }
+
+  _unsub(topic, rec){
+    const e=this._topics.get(topic);
+    if(!e||!e.subs.delete(rec)||e.subs.size) return;
+    this._topics.delete(topic);
+    if(this._ready) this.send({t:'unsub',topic});
+  }
+
+  _subFrame(topic, e){
+    const m={t:'sub',topic};
+    if(e.seq!=null){ m.seq=e.seq; m.epoch=e.epoch }
+    this.send(m);
+  }
+
   _open(){ return !!this._ws&&this._ws.readyState===1 }
 
-  _send(v){ if(this._open()) this._ws.send(JSON.stringify(v)) }
+  _hello(){ this.send({t:'hello',slots:this._slots}) }
 
-  _hello(){ this._send({t:'hello',slots:this._slots}) }
+  /** §5.1: 빈틈이면 다시 구독하고 그 사이 프레임은 버린다. 받을 프레임이면 true. */
+  _accept(topic, e, m){
+    if(m.t==='full'||m.seq==null||e.seq==null){
+      e.seq=m.seq==null?e.seq:m.seq; e.epoch=this._epoch; e.waiting=false;
+      return true;
+    }
+    if(m.seq<=e.seq) return false;
+    if(m.seq===e.seq+1){ e.seq=m.seq; e.epoch=this._epoch; e.waiting=false; return true }
+    if(!e.waiting){ e.waiting=true; this._subFrame(topic,e) }
+    return false;
+  }
+
+  _onTopic(m){
+    const e=this._topics.get(m.topic);
+    if(!e) return;
+    let msg;
+    if(m.t==='reset'){ e.seq=null; e.waiting=false; msg={kind:'reset'} }
+    else{
+      if(!this._accept(m.topic,e,m)) return;
+      msg=m.t==='delta'?{kind:'delta',ops:m.ops,seq:m.seq}:{kind:m.t,data:m.data,seq:m.seq};
+    }
+    for(const r of Array.from(e.subs)){
+      try{ r.fn(msg) }catch(err){ console.error('[chan]',m.topic,err) }
+    }
+  }
 
   _onMessage(e){
     this._seen=Date.now();
-    if(typeof e.data!=='string') return;
+    if(typeof e.data!=='string'){
+      const u8=new Uint8Array(e.data);
+      for(const r of Array.from(this._bin)) r.fn(u8);
+      return;
+    }
     let m=null;
     try{ m=JSON.parse(e.data) }catch{ return }
     if(!m) return;
     if(m.t==='hello'){
       this._retry=CHAN_RETRY_MIN_MS;
+      this._ready=true; this._epoch=m.epoch;
+      for(const [topic,e] of this._topics){ e.waiting=false; this._subFrame(topic,e) }
       this.bus.publish('chan:open',{gen:this._gen,epoch:m.epoch});
-    }else if(m.t==='pong'&&m.n===this._pingN&&this._pingAt){
-      this._latency=Date.now()-this._pingAt;
-      this._pingAt=0;
+    }else if(m.t==='pong'){
+      if(m.n===this._pingN&&this._pingAt){ this._latency=Date.now()-this._pingAt; this._pingAt=0 }
+    }else if(m.t==='full'||m.t==='delta'||m.t==='event'||m.t==='reset'){
+      this._onTopic(m);
+    }
+    const raw=this._raw.get(m.t);
+    if(raw) for(const r of Array.from(raw)){
+      try{ r.fn(m) }catch(err){ console.error('[chan]',m.t,err) }
     }
   }
 
@@ -90,7 +203,7 @@ class Channel {
     }
     this._pingN++;
     this._pingAt=Date.now();
-    this._send({t:'ping',n:this._pingN});
+    this.send({t:'ping',n:this._pingN});
     this._arm();
   }
 

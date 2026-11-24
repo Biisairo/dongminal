@@ -228,6 +228,8 @@ pub struct Server {
     pub(crate) hosts: HostAllow,
     pub(crate) conn: ConnStats,
     pub(crate) browser_in: ws::BrowserInputs,
+    /// 채널 토픽의 상태·순번·구독 (`perf/CHANNEL_PROTOCOL.md` §11.1).
+    pub(crate) topics: channel::TopicHub,
     /// SSE 인사의 주기. `None` 이면 기본값이다 — 시험만이 줄인다.
     pub(crate) hello_every: Mutex<Option<Duration>>,
     /// `PUT /api/sandbox/config` 의 지문 검사와 저장을 한 덩이로 묶는다 (FR-LIV-2).
@@ -347,6 +349,7 @@ impl Server {
             hosts,
             conn: ConnStats::default(),
             browser_in: ws::BrowserInputs::default(),
+            topics: channel::TopicHub::default(),
             hello_every: Mutex::new(None),
             sandbox_put: tokio::sync::Mutex::new(()),
             me,
