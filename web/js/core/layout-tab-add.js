@@ -168,7 +168,8 @@ class LayoutTabAdd extends Controller {
     if (opts.preview) tab.preview = true;
     // git 뷰 탭과 같은 근거 — 새 탭도 그 칸을 포커스한다 (FR-RTU-80).
     this._pushTab(s, pn, tab, true);
-    this.app.render();
+    // PERF 3.6.3: `skipRender` 는 곧이어 그릴 호출자의 몫이다(`edOpenFile` 이 다른 창으로 바꿀 때). `tab.render`(렌더 탭)와 다르다.
+    if (!opts.skipRender) this.app.render();
     this.app.wsSave.save();
     return { uuid: id };
   }
