@@ -502,3 +502,26 @@ test('frame coalesce: 같은 주인은 여전히 하나로 접히고, 문자열 
   assert.deepEqual(log, ['a1', 's1']);
   assert.equal(TIMERS.disposeOwner(a), 0);
 });
+
+/** PERF 3.6.2 (D-39 세부, 조정자 2026-11-25): idle 은 FRAME_IDLE_MAX_DEFER 프레임 연속 밀리면 그 다음 프레임에 돈다. */
+test('frame idle 상한: 입력이 계속 기다려도 FRAME_IDLE_MAX_DEFER 번 밀린 뒤에는 돈다', async () => {
+  const { clock, t, TIMERS } = frameHub({ inputPending: true });
+  const log = [];
+  t.input = true;
+  TIMERS.frame(() => log.push('i'), { prio: 'idle' });
+  const max = 6;
+  for (let i = 0; i < max; i++) { await clock.advance(16); assert.deepEqual(log, [], (i + 1) + '번째 프레임에 돌았다') }
+  await clock.advance(16);
+  assert.deepEqual(log, ['i']);
+});
+
+test('frame idle 상한: 상한에 닿은 것만 돌고, 새로 밀린 idle 은 계속 밀린다', async () => {
+  const { clock, t, TIMERS } = frameHub({ inputPending: true });
+  const log = [];
+  t.input = true;
+  TIMERS.frame(() => { log.push('old'); TIMERS.frame(() => log.push('new'), { prio: 'idle' }) }, { prio: 'idle' });
+  await clock.advance(16 * 7);
+  assert.deepEqual(log, ['old']);
+  await clock.advance(16 * 7);
+  assert.deepEqual(log, ['old', 'new']);
+});
