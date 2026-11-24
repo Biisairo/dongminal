@@ -57,6 +57,8 @@ const BOOT_FADE_MS=180;
 // FR-BTS-14: 준비 신호가 오지 않아도 이 시간이 지나면 걷는다. 서버가 답하지
 // 않는다고 화면이 영구히 잠기면, 사용자는 무엇이 잘못됐는지 볼 길조차 없다.
 const BOOT_MAX_MS=6000;
+// PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39: 프레임 시작부터 `TIMERS.frame` 의 `idle` 작업을 돌려도 되는 시간.
+const FRAME_BUDGET_MS=8;
 
 // BOOT_SCREEN_REUSE_SRS D-BTR-8: 다시 세울 때의 단계 문구. 부르는 자리마다 적으면
 // 같은 장면이 자리마다 다른 말을 한다.

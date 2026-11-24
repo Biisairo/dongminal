@@ -24,8 +24,6 @@
  * 모두 같다 — INV-1 이 요구하는 것은 한 지점을 지나는 것이지 한 큐에 들어가는
  * 것이 아니다 (FR-SCH-3a).
  */
-/** 프레임 시작부터 `idle` 작업을 돌려도 되는 시간 (PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39). */
-const FRAME_BUDGET_MS=8;
 /** `frame` 의 우선순위. 작을수록 먼저 돈다. 없거나 모르는 값은 `normal` 이다. */
 const FRAME_PRIO={input:0, term:1, normal:2, idle:3};
 

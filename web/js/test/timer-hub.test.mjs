@@ -313,7 +313,8 @@ function frameHub({ inputPending } = {}) {
   const t = { ms: 0, input: false };
   const globals = { performance: { now: () => t.ms } };
   if (inputPending) globals.navigator = { scheduling: { isInputPending: () => t.input } };
-  const ctx = load(['core/error-log.js', 'core/timer-hub.js'], {
+  // `FRAME_BUDGET_MS` 는 constants.js 에 있다 (TC-FR2-5). 브라우저와 같은 순서로 싣는다.
+  const ctx = load(['core/error-log.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js'], {
     clock,
     globals: { addEventListener() {}, ...globals },
     expose: ['TimerHub', 'TIMERS', 'ErrorLog'],
