@@ -163,9 +163,10 @@ class GitDiffView {
   setHideUnchanged(on){ this._fold=!!on; if(this._cm) this._cmBuild() }
 
   // FR-CMR-51: 폭이 문턱을 넘었으면 보기를 바꾸고, 아니면 ruler 만 다시 그린다.
+  // 가려진 그릇(폭 0)은 좁은 것이 아니다 — 다시 세우면 큰 파일에서 diff 를 두 번(가릴 때·보일 때) 계산한다 (이슈 3.2).
   layout(){
     const c=this._cm;
-    if(!c) return;
+    if(!c||!this._host.clientWidth) return;
     if(c.kind!==this._cmKind()){this._cmBuild();return}
     c.b.requestMeasure(c.ruler);
   }
@@ -268,7 +269,7 @@ class GitDiffView {
     const buf=this._buf;
     // FR-ELR-38: 칸이 붙은 버퍼를 기억한다 — 버릴 때 `_buf` 는 이미 다음 문서의 것일 수 있다.
     const c={kind,cmpA:ea.cmp,cmpB:eb.cmp,ruler:null,buf};
-    const diffConfig=this._ignoreWs?{override:gitDiffIgnoreWs}:{};
+    const diffConfig={override:this._ignoreWs?gitDiffIgnoreWs:gitDiffBounded};
     const bDoc=buf?buf.doc:this._modText;
     // FR-DNC-2: 보일 변경이 없으면 접지 않는다 — 접기가 본문 전체를 한 띠로 접어 내용이 사라진 것처럼 보인다.
     c.folded=this._fold&&this._cmHasChanges(bDoc,diffConfig);

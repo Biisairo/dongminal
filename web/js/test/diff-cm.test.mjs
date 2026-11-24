@@ -19,6 +19,7 @@ const ctx = load(['ui/file-editor-diff.js', 'git/diff-cm.js'], {
     FileEditor: class {},
     ED_DD_ADD: 'add', ED_DD_MOD: 'mod', ED_DD_DEL: 'del', ED_DD_COLOR_VAR: {},
     ED_DD_MAX_LINES: 50000, ED_DD_MAX_EDITS: 2000,
+    GIT_DIFF_LINE_MAX_EDITS: 4000, GIT_DIFF_REFINE_BUDGET: 32000000,
     GIT_DIFF_RULER_ADD: '--diff-add', GIT_DIFF_RULER_DEL: '--diff-del',
   },
 });
