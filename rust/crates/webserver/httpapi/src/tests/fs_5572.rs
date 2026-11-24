@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use http_body_util::{BodyExt, Full};
+use http_body_util::Full;
 use otter_webserver_fswatch::{Change, Kind};
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
@@ -19,7 +19,7 @@ use crate::fs_search::{
     FS_GREP_MAX_LINE, FindHit, GREP_ENGINE_GO, GREP_ENGINE_RIPGREP, GrepMatch, find_files,
     grep_with_go, grep_with_ripgrep, look_ripgrep, parse_ripgrep_json,
 };
-use crate::fs_watch::{FS_WATCH_DIRS_MAX, fs_changed_payload, git_worktree_rounds};
+use crate::fs_watch::{FS_WATCH_DIRS_MAX, fs_changed_args, git_worktree_rounds};
 use crate::fs_zip::{ZIP_MAX_CONCURRENT, zip_download_name, zip_many_name};
 use crate::routes::API_ROUTES;
 use crate::{Deps, Server};
@@ -576,34 +576,20 @@ async fn watch_too_many_dirs_and_unattached_are_400() {
     w.close();
 }
 
-/// SSE 구독이 감시 임대를 쥐고, 끊기면 놓는다. presence 구독은 쥐지 않는다.
+/// TC-CH2A-1: 채널 `hello.client` 가 감시 임대를 쥐고, 채널이 닫히면 놓는다. 칸 신원(`slots`)은 쥐지 않는다.
 #[tokio::test]
-async fn watch_lease_follows_sse_subscription() {
+async fn watch_lease_follows_channel_client() {
+    use super::wsc::Message;
+    use futures_util::SinkExt;
     let e = fs_env();
-    *e.srv.hello_every.lock().unwrap() = Some(Duration::from_millis(30));
     let (_d, root) = temp_dir();
-    let open = |q: &'static str| {
-        let srv = e.srv.clone();
-        async move {
-            let r = http::Request::builder()
-                .uri(format!("/api/commands/sse?{q}"))
-                .header("Host", TEST_HOST)
-                .body(Full::new(Bytes::new()))
-                .unwrap();
-            srv.serve_addr(r, LOCAL.to_owned()).await
-        }
-    };
-    let presence = open("clientId=p1&presence=1").await;
-    let body = json!({"clientId":"p1","dirs":[root.clone()]});
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    assert_eq!(
-        watch(&e, body).await.status,
-        400,
-        "presence 구독이 감시를 쥐었다"
-    );
-    drop(presence);
-
-    let mut full = open("clientId=w1").await.into_body();
+    let port = super::ws::listen(e.srv.clone()).await;
+    let mut c = super::wsc::dial(port, "/channel?v=1").await;
+    c.send(Message::text(
+        json!({"t":"hello","client":"w1","slots":["s1"]}).to_string(),
+    ))
+    .await
+    .unwrap();
     let body = json!({"clientId":"w1","dirs":[root.clone()]});
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut ok = false;
@@ -614,9 +600,15 @@ async fn watch_lease_follows_sse_subscription() {
         }
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
-    assert!(ok, "SSE 구독이 감시 임대를 쥐지 않았다");
-    let _ = tokio::time::timeout(Duration::from_millis(100), full.frame()).await;
-    drop(full);
+    assert!(ok, "채널 client 가 감시 임대를 쥐지 않았다");
+    assert_eq!(
+        watch(&e, json!({"clientId":"s1","dirs":[root.clone()]}))
+            .await
+            .status,
+        400,
+        "칸 신원이 감시 임대를 쥐었다"
+    );
+    drop(c);
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline && watch(&e, body.clone()).await.status == 200 {
         tokio::time::sleep(Duration::from_millis(20)).await;
@@ -624,28 +616,25 @@ async fn watch_lease_follows_sse_subscription() {
     assert_eq!(
         watch(&e, body).await.status,
         400,
-        "끊긴 구독이 임대를 놓지 않았다"
+        "닫힌 채널이 임대를 놓지 않았다"
     );
 }
 
 #[test]
-fn fs_changed_payload_shape() {
+fn fs_changed_args_shape() {
     let c = vec![
         Change::new("/a", Kind::Added),
         Change::new("/b<", Kind::Deleted),
     ];
     assert_eq!(
-        String::from_utf8(fs_changed_payload(&c, false)).unwrap(),
-        r#"{"action":"fs_changed","args":{"changes":[{"path":"/a","type":"added"},{"path":"/b\u003c","type":"deleted"}]}}"#
+        fs_changed_args(&c, false).to_string(),
+        r#"{"changes":[{"path":"/a","type":"added"},{"path":"/b<","type":"deleted"}]}"#
     );
     assert_eq!(
-        String::from_utf8(fs_changed_payload(&c, true)).unwrap(),
-        r#"{"action":"fs_changed","args":{"overflow":true}}"#
+        fs_changed_args(&c, true).to_string(),
+        r#"{"overflow":true}"#
     );
-    assert_eq!(
-        String::from_utf8(fs_changed_payload(&[], false)).unwrap(),
-        r#"{"action":"fs_changed","args":{"changes":[]}}"#
-    );
+    assert_eq!(fs_changed_args(&[], false).to_string(), r#"{"changes":[]}"#);
 }
 
 /// V-ELR-35 (FR-ELR-76).

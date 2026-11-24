@@ -7,12 +7,11 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
+use super::wsc::Message;
 use futures_util::future::BoxFuture;
 use futures_util::{SinkExt, StreamExt};
 use otter_webserver_domain_ext as ext;
 use otter_webserver_domain_lsp::{FileEvent, OpenError, PathsError, Tunnel};
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 use super::fsenv::{FakeWork, qe, seed_root, temp_dir};
 use super::support::{self, call};
@@ -348,8 +347,7 @@ fn lsp_ws_reason_cuts_on_char_boundary() {
 
 // ── WS ───────────────────────────────────────────────────────────────────────
 
-type Client =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type Client = super::wsc::Client;
 
 struct WsEnv {
     _keep: Vec<tempfile::TempDir>,
@@ -391,28 +389,17 @@ async fn ws_env(f: FakeLsp, read_limit: Option<usize>) -> WsEnv {
 
 /// 업그레이드를 시도한다. 실패면 HTTP 상태를 돌려준다.
 async fn dial_ws(e: &WsEnv, root: &str, server: &str, origin: Option<&str>) -> Result<Client, u16> {
-    let url = format!(
-        "ws://127.0.0.1:{}/api/lsp/ws?root={}&server={}",
-        e.port,
-        qe(root),
-        qe(server)
-    );
-    let mut req = url.into_client_request().unwrap();
-    if let Some(o) = origin {
-        req.headers_mut().insert("Origin", o.parse().unwrap());
-    }
-    match tokio_tungstenite::connect_async(req).await {
-        Ok((c, _)) => Ok(c),
-        Err(tokio_tungstenite::tungstenite::Error::Http(res)) => Err(res.status().as_u16()),
-        Err(e) => panic!("{e}"),
-    }
+    let path = format!("/api/lsp/ws?root={}&server={}", qe(root), qe(server));
+    let extra: Vec<(&str, &str)> = origin.map(|o| ("Origin", o)).into_iter().collect();
+    let d = super::wsc::dial_with(e.port, &path, Some(super::wsc::OFFER), &extra).await;
+    d.client.ok_or(d.status)
 }
 
 /// 닫힘 프레임의 (code, reason) 이다.
 async fn close_of(c: &mut Client) -> (u16, String) {
     loop {
         match tokio::time::timeout(Duration::from_secs(5), c.next()).await {
-            Ok(Some(Ok(Message::Close(Some(f))))) => return (f.code.into(), f.reason.to_string()),
+            Ok(Some(Ok(Message::Close(Some(f))))) => return (f.code, f.reason),
             Ok(Some(Ok(Message::Close(None)))) => return (1005, String::new()),
             Ok(Some(Ok(_))) => continue,
             other => panic!("닫힘이 오지 않았다: {other:?}"),
@@ -459,7 +446,10 @@ async fn lsp_ws_relays_both_ways() {
         .unwrap()
         .unwrap()
         .unwrap();
-    assert_eq!(msg, Message::text(r#"{"id":1,"result":{}}"#));
+    assert!(
+        matches!(&msg, Message::Text(t) if t.as_ref() == br#"{"id":1,"result":{}}"#),
+        "{msg:?}"
+    );
     // 바이너리는 버린다.
     c.send(Message::binary(vec![1, 2])).await.unwrap();
     c.send(Message::text("next")).await.unwrap();
@@ -476,7 +466,7 @@ async fn lsp_ws_client_close_closes_tunnel() {
     let t = FakeTunnel::new();
     let e = ws_env(with_tunnel(&t), None).await;
     let mut c = dial_ws(&e, &e.root, "gopls/gopls", None).await.unwrap();
-    c.close(None).await.unwrap();
+    c.close(1000, "").await.unwrap();
     wait_closed(&t, "연결이 닫혔는데 통로가 남았다").await;
 }
 
@@ -530,7 +520,17 @@ async fn lsp_ws_read_limit() {
     let e = ws_env(with_tunnel(&t), Some(64)).await;
     let mut c = dial_ws(&e, &e.root, "gopls/gopls", None).await.unwrap();
     c.send(Message::text("x".repeat(65))).await.unwrap();
-    assert_eq!(close_of(&mut c).await.0, 1009);
+    // 상한을 넘으면 연결이 끝난다. 라이브러리는 읽기 오류 뒤 쓰기를 막아 1009 를 싣지 못한다 (D-12).
+    let end = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match c.next().await {
+                Some(Ok(Message::Close(_))) | Some(Err(_)) | None => return,
+                Some(Ok(_)) => continue,
+            }
+        }
+    })
+    .await;
+    assert!(end.is_ok(), "상한을 넘은 연결이 끝나지 않았다");
     wait_closed(&t, "상한을 넘은 연결의 통로가 남았다").await;
     assert!(t.sent.lock().unwrap().try_recv().is_err());
 }
@@ -560,4 +560,22 @@ async fn lsp_ws_bad_request() {
         assert!(matches!(got, Err(code) if code >= 400), "{r} {s}");
     }
     assert_eq!(e.f.tunnel_opened.load(Ordering::SeqCst), 0);
+}
+
+/// TC-CH6-4: 편집기 LSP WebSocket 도 같은 구현으로 압축을 협상하고, 제안이 없으면 400 이다.
+#[tokio::test]
+async fn lsp_ws_negotiates_deflate_and_requires_offer() {
+    let t = FakeTunnel::new();
+    let e = ws_env(with_tunnel(&t), None).await;
+    let path = format!(
+        "/api/lsp/ws?root={}&server={}",
+        qe(&e.root),
+        qe("gopls/gopls")
+    );
+    let d = super::wsc::dial_with(e.port, &path, Some(super::wsc::OFFER), &[]).await;
+    assert_eq!(d.status, 101);
+    let ext = d.header("Sec-WebSocket-Extensions").unwrap_or_default();
+    assert!(ext.starts_with("permessage-deflate"), "{ext}");
+    let d = super::wsc::dial_with(e.port, &path, None, &[]).await;
+    assert_eq!(d.status, 400);
 }

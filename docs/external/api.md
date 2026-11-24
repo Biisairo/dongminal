@@ -19,7 +19,7 @@
 | PUT | `/api/settings?clientId=` | 설정 저장 (`settings.json` 즉시 영속화). `clientId`(선택)는 방송 `settings_changed` 의 `args.origin` 으로 돌아간다 — 보낸 창이 자기 방송의 재조회를 건너뛰는 근거. 생략하면 `origin` 이 없다. 본문이 JSON 이 아니면 `400` · `invalid_json`. `customTheme` 이 있으면 `ui`·`terminal` 의 값은 모두 `#rrggbb`·`#rrggbbaa` 색이고 `mode` 는 `dark`·`light` 여야 한다 — 어기면 `400` · `bad_request` 로 거절하고 저장하지 않는다(본문 문구가 어긴 키 경로를 말한다) |
 | GET | `/api/update` | 마지막 판 확인 결과 — `{ enabled, current, latest, newer, link, checkedAt, failed }`. **밖으로 나가지 않습니다** (캐시만 읽음) |
 | PUT | `/api/update` | 자동 판 확인 토글 — `{ enabled: bool }`. `server.json` 의 `updateCheck` 에 남습니다 (설정 블롭이 아닙니다) |
-| GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }`. 이 기계에서 읽지 못한 값의 키는 싣지 않습니다(예: 사용량은 못 읽고 총량만 읽으면 `memTotal` 만). `?jobs=1` 이면 `/api/git/jobs` 의 `jobs` 를 함께 싣습니다 (git 이 없으면 키가 없습니다) |
+| GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }`. 이 기계에서 읽지 못한 값의 키는 싣지 않습니다(예: 사용량은 못 읽고 총량만 읽으면 `memTotal` 만). 진행 중 git 작업은 실리지 않습니다 — 브라우저는 채널의 `git.jobs` 토픽으로 받습니다 |
 | GET | `/api/ping` | `"ok"` (레이턴시 측정용) |
 | GET | `/api/snapshot?parts=` | 구독이 열릴 때의 복원 조각을 한 번에 — `parts` 는 `attention`·`activity`·`background`·`settings`·`update`·`focus`·`edges` 의 쉼표 목록. 각 조각은 그 종단(`/api/tools/attention`·`/api/tools/activity`·`/api/tools/background`·`/api/settings`·`/api/update`·`/api/focus`·`/api/edges`)의 본문 그대로이고, 200 이 아닌 조각과 모르는 이름은 싣지 않습니다 |
 
@@ -81,7 +81,7 @@
 
 - **last-focus-wins**: 기존 소유자는 협상 없이 밀려난다. 한 클라이언트는 동시에 한 Window 만 소유한다
 - **in-memory**: 영속화하지 않는다. 서버 재시작이면 전원 해제다
-- **해제**: `/api/commands/sse?clientId=<id>` 구독이 끊기면 그 클라이언트의 소유권을 **즉시** 해제한다. grace period 는 없다. 같은 `clientId` 의 더 새로운 구독이 있으면 옛 구독의 종료는 해제하지 않는다
+- **해제**: 채널 `/channel` 의 `hello.client` 로 그 `clientId` 를 밝힌 연결이 끊기면 그 클라이언트의 소유권을 **즉시** 해제한다. grace period 는 없다. 같은 `clientId` 의 더 새로운 구독이 있으면 옛 구독의 종료는 해제하지 않는다
 - 소유권이 없는 Window 는 모두에게 밝게 보이고 모두가 리사이즈할 수 있다
 
 ### 파일
@@ -96,7 +96,7 @@
 | GET | `/api/fs/list?root=<abs>&path=<abs>&offset=<n>` | 탐색기 한 겹 조회. dot 항목 포함, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], offset, total, truncated, stamp}`. 한 번에 최대 10,000개이며 `truncated` 는 "이 응답 뒤에 더 있다" 는 뜻이다. `offset`(기본 0, 음수·정수 아님은 0)으로 그 다음 쪽을 받아 **이어 붙인다** — 같은 `offset` 이 같은 자리를 가리키는 것은 순서가 서버의 것이기 때문이다. `offset >= total` 은 오류가 아니라 빈 배열이다. `stamp` 는 **이 응답과 같은 관측**의 변경 표식이다 (아래 `/api/fs/stamp` 와 같은 값) |
 | POST | `/api/fs/stamp` | 겹이 바뀌었는지만 값싸게 묻는다. 본문 `{root, dirs:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 그 디렉터리의 mtime 이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 루트 밖이거나 디렉터리가 아닌 겹은 오류가 아니라 응답에서 **빠진다.** `dirs` 는 512개까지 |
 | POST | `/api/fs/stamps` | 위 `/api/fs/stamp` 와 `/api/file/stamps` 를 **한 요청**으로 묻는다. 본문 `{trees:[{root, dirs:[<abs>…]}…], paths:[<abs>…]}` → `{trees:{<root>: {stamps:{…}} 또는 {code, status}}, paths:{<abs>: "<문자열>"}}`. 값은 두 종단과 같다. 루트마다 판정이 따로다 — 거부된 루트는 그 자리에 옛 종단이 답했을 `code`·`status` 를 싣고, 다른 루트와 파일의 답은 그대로 나간다. `trees` 는 16개, 루트당 `dirs` 는 512개, `paths` 는 512개까지 |
-| PUT | `/api/fs/watch` | 이 클라이언트가 감시할 디렉터리를 **통째로** 바꾼다. 본문 `{clientId, dirs:[<abs>…]}` → `{watching:[<abs>…]}`. **`root` 를 받지 않는다** — 판정은 파일 읽기(`/api/file/read`)와 같다(절대경로). 없는 경로·디렉터리가 아닌 것·감시를 걸 수 없는 것은 오류가 아니라 `watching` 에서 **빠진다.** `clientId` 는 열려 있는 `/api/commands/sse?clientId=` 구독의 것이어야 하고(아니면 400), 그 구독이 끊기면 등록이 지워진다. 비재귀다 — 디렉터리의 직속 항목만 본다. 변화는 SSE `fs_changed` 로 온다. `dirs` 는 1024개까지 |
+| PUT | `/api/fs/watch` | 이 클라이언트가 감시할 디렉터리를 **통째로** 바꾼다. 본문 `{clientId, dirs:[<abs>…]}` → `{watching:[<abs>…]}`. **`root` 를 받지 않는다** — 판정은 파일 읽기(`/api/file/read`)와 같다(절대경로). 없는 경로·디렉터리가 아닌 것·감시를 걸 수 없는 것은 오류가 아니라 `watching` 에서 **빠진다.** `clientId` 는 열려 있는 채널의 `hello.client` 여야 하고(아니면 400), 그 채널이 끊기면 등록이 지워진다. 비재귀다 — 디렉터리의 직속 항목만 본다. 변화는 채널 `cmd` 의 `fs_changed` 로 온다. `dirs` 는 1024개까지 |
 | POST | `/api/fs/create` | 바디 `{root, parent, name, dir}` — 이름은 `/api/fs/validate-name` 과 같은 판정으로 거절된다. 경로를 뜻하는 `{root, path, dir}` 도 받는다 |
 | POST | `/api/fs/validate-name` | 만들기·이름 바꾸기의 이름 하나. 바디 `{name}` → `{actions:{"fs.name": {ok, why?}}}`. 사유는 `empty_name`·`name_has_separator`(`/`, Windows 의 `\`)·`name_reserved`(`.`·`..`). 앞뒤 공백을 지운 뒤 본다 |
 | POST | `/api/fs/rename` | 바디 `{root, from, to}` 또는 제자리 이름 바꾸기 `{root, from, name}`(이름은 validate-name 과 같은 판정). 이동도 이 종단. 폴더를 자기 자신이나 하위로 옮기면 400 `into_self`(복사도 같다). Editor 루트·홈·파일시스템 루트는 옮길 수 없다(400 `editor_root_protected`·`home_protected`·`filesystem_root_protected`) |
@@ -126,8 +126,6 @@
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | POST | `/api/commands` | 워크스페이스 action 브로드캐스트. 바디 `{action, args?, reqId?}` — `otterctl`·`edit`·`detach` 가 사용 |
-| GET | `/api/commands/sse` | Server-Sent Events. 브라우저가 구독해 다른 도구의 명령을 수신 |
-| POST | `/api/command-result` | 브라우저가 생성 결과(`newWindows`/`newPanes`/`newTabs`)를 `reqId` 로 되돌려주는 경로 |
 
 #### `/api/commands` 허용 action
 
@@ -402,7 +400,6 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | POST | `/api/git/remote/add` · `/api/git/remote/remove` | 원격을 더하고 뺀다 |
 | POST | `/api/git/fetch` · `/api/git/pull` · `/api/git/push` | 받고 당기고 민다 |
 | GET | `/api/git/jobs` | 도는 작업 목록 — 저장소당 index·common 두 칸이라 최대 둘, 각 작업의 `slots` 가 어느 칸인지 말한다. 작업이 시작하고 끝날 때 `git_jobs_changed` 를 방송한다 |
-| GET | `/api/git/job/events` | 그 작업의 진행 (SSE) |
 | POST | `/api/git/job/cancel` | 작업을 취소한다 |
 | POST | `/api/git/lock/remove` | 쓰기가 `index_locked` 로 막힌 뒤 남은 `index.lock` 을 지운다 — `confirm:true` 와 확인한 `mtimeUnixMs` 가 필요하다. 서버가 스스로 지우지는 않는다 |
 
@@ -430,9 +427,13 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | POST | `/api/git/records/replay` | 그중 하나를 다시 실행한다 |
 | POST | `/api/git/drop` | 커밋 하나를 히스토리에서 뺀다 — rebase **작업** |
 
-## WebSocket: `/ws?tool=<id>&cols=&rows=&since=`
+## WebSocket: `/channel?v=1` — 터미널
 
-Binary 프로토콜. 첫 바이트가 opcode.
+브라우저 탭 하나가 WebSocket 하나(채널)를 열고, 터미널은 그 위에 붙는다(설계: `docs/internal/perf/CHANNEL_PROTOCOL.md`). 첫 텍스트 프레임은 `{"t":"hello",...}` 다.
+
+- 붙기: 텍스트 `{"t":"term.open","sid":<u32>,"tool":"<id>","cols":<n>,"rows":<n>,"since":<offset>}`. `sid` 는 브라우저가 고르는 번호, `tool` 이 비면 새 도구를 만든다, `since` 는 아래 재접속과 같다.
+- 떼기: `{"t":"term.close","sid":<u32>}`. 서버가 그 터미널을 놓으면(도구 구독이 끊김 등) `{"t":"term.lost","sid":<u32>}` 를 보내고, 브라우저는 백오프 뒤 `since` 로 다시 붙는다.
+- 터미널 프레임은 바이너리 `[opcode u8][sid u32 BE][payload]` 이다. opcode 와 payload 는 아래 표와 같다.
 
 | Opcode | 방향 | 페이로드 |
 |--------|------|----------|
@@ -446,7 +447,7 @@ Binary 프로토콜. 첫 바이트가 opcode.
 | `0x05` | S→C | 크기 통보: `cols uint16 BE + rows uint16 BE`. 지금 PTY 의 크기다. 접속 직후 재생보다 앞에 한 번, 이후 크기가 바뀔 때마다 그 도구의 모든 클라이언트에게 |
 | `0x06` | S→C | 응답 좌석: `owns uint8`(1=주인). **질의의 답을 보낼 자격**이다. 접속 직후 재생보다 앞에 한 번, 연결이 붙거나 떨어질 때마다 다시 |
 
-서버는 `gorilla/websocket` ping/pong 으로 keep-alive (pong 60s, ping 54s). 모든 쓰기는 `safeConn` mutex 로 직렬화.
+서버는 WebSocket ping/pong 으로 keep-alive (pong 60s, ping 54s). 쓰기는 채널마다 쓰기 태스크 하나가 우선순위(제어 > 터미널 > 상태) 대로 한다. 한 터미널에 밀린 출력이 1 MB 를 넘으면 서버는 밀린 것을 버리고 브라우저가 가진 좌표부터 다시 재생한다.
 
 ### 재접속 (`since`)
 
@@ -489,11 +490,11 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 `0x06` 을 모르는 클라이언트는 그 프레임을 무시하면 된다. 그때는 자기가 주인이라고 보고
 종전대로 답한다 — 모르는 것이 오류가 되지 않는다.
 
-## SSE: `/api/commands/sse`
+## 채널의 명령 스트림: `/channel` 의 `cmd`
 
-`/api/commands` 로 들어온 action 을 구독 중인 모든 브라우저에 브로드캐스트. 15s 주기 keep-alive 주석. 브라우저가 여러 탭으로 열려 있으면 모두 동일 action 을 수행.
+브라우저 탭은 WebSocket `/channel?v=1` 하나를 연다(`docs/internal/perf/CHANNEL_PROTOCOL.md`). 첫 프레임 `{"t":"hello","client":<clientId>,"slots":[…]}` 로 신원을 밝히면, `/api/commands` 로 들어온 action 이 그 채널에 `{"t":"cmd", action, args, reqId?, execClientId?}` 로 온다. 브라우저가 여러 탭으로 열려 있으면 모두 같은 action 을 받는다. `client` 를 밝힌 연결이 끊기면 그 클라이언트의 창 포커스 소유권·감시 임대가 풀린다.
 
-`?clientId=<id>` 를 붙이면 서버가 그 구독을 클라이언트와 결선한다 — 구독이 끊길 때 창 포커스 소유권을 해제하기 위한 것이다. 생략해도 스트림은 정상 동작한다 (소유권 결선만 없다).
+생성 명령의 결과는 같은 채널에 `{"t":"cmd.result", reqId, newWindows?, newPanes?, newTabs?, newGroups?, position?, error?}` 로 돌려준다.
 
 서버가 자체적으로 발행하는 이벤트도 같은 스트림을 쓴다:
 

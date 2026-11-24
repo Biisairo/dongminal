@@ -29,7 +29,7 @@ fn is_false(b: &bool) -> bool {
 /// Go `runGraphView`.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct RunGraphView {
+pub(crate) struct RunGraphView {
     run_id: String,
     short: String,
     objective: String,
@@ -232,7 +232,7 @@ impl Server {
         .await
     }
 
-    fn graph_of(&self, rec: &Record) -> RunGraphView {
+    pub(crate) fn graph_of(&self, rec: &Record) -> RunGraphView {
         RunGraphView {
             run_id: rec.id.clone(),
             short: rec.short.clone(),

@@ -379,8 +379,10 @@ class DiagOverlay {
     }else this.put('HUB timers 없음');
     if(app.bus){
       const s=app.bus.stats();
-      this.put('HUB channels '+JSON.stringify(s.channel)+' extra='+((s.channels||[]).length-1));
-      for(const c of (s.channels||[])) this.put('  ch '+c.id+' alive='+c.alive);
+      const ch=app.channel;
+      if(ch) this.put('HUB channels open='+ch._open()+' latency='+ch.latency());
+      // 상태·git·채팅은 채널 토픽으로 온다 — 받은 적 없는 토픽(seq 없음)이 곧 "안 오는 상태" 다.
+      if(ch) ch.stats().forEach(x=>this.put('  ◦ '+x.topic+' subs='+x.subs+' seq='+(x.seq==null?'(never)':x.seq)+(x.waiting?' waiting':'')));
       // 온 적 없는 topic 이 곧 "안 오는 이벤트" 다 — 그것부터 보이게 둔다.
       s.topics.slice().sort((a,b)=>a.count-b.count).forEach(x=>
         this.put('  · '+x.topic+' subs='+x.subs+' n='+x.count

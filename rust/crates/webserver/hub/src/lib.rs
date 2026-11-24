@@ -20,9 +20,9 @@ pub use attn::{
     AttnTracker, BusyManyProbe, Clock, LiveProbe, OnChange, SWEEPER_INTERVAL, default_idle_ms,
 };
 pub use commands::{
-    CMD_SUB_QUEUE, CmdPosition, CmdResult, CmdSub, CommandBroker, CommandHub, SUB_CAP, TabRef,
-    allowed_cmd_action_names, awaits_result, command_result_timeout, is_allowed_cmd_action,
-    is_creating_action, is_single_executor_action, new_req_id,
+    BroadcastTap, CMD_SUB_QUEUE, CmdPosition, CmdResult, CmdSub, CommandBroker, CommandHub,
+    SUB_CAP, TabRef, allowed_cmd_action_names, awaits_result, command_result_timeout,
+    is_allowed_cmd_action, is_creating_action, is_single_executor_action, new_req_id,
 };
 pub use focus::FocusRegistry;
 pub use foreground::{
@@ -31,13 +31,11 @@ pub use foreground::{
 pub use gitwatch::{
     AfterFn, GIT_KICK_COOLDOWN, GIT_KICK_DEBOUNCE, GIT_WATCH_BACKOFF_MAX, GIT_WATCH_CAP,
     GIT_WATCH_INTERVAL, GIT_WATCH_PARALLEL, GIT_WATCH_ROUND_TIMEOUT, GIT_WATCH_TTL,
-    GIT_WATCH_WORKTREE_EVERY, GitObserver, GitWatcher, RepoHook, WallClock, start_git_watch,
+    GIT_WATCH_WORKTREE_EVERY, GitObserver, GitWatcher, MarkHook, RepoHook, WallClock,
+    start_git_watch,
 };
-pub use payloads::{
-    background_changed_payload, claude_account_alert_payload, claude_accounts_changed_payload,
-    foreground_snapshot, update_changed_payload, valid_activity_state,
-};
-pub use replyseat::{ReplySeats, SeatConn};
+pub use payloads::{background_changed_payload, foreground_snapshot, valid_activity_state};
+pub use replyseat::{ReplySeats, SeatClosed, SeatConn};
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())

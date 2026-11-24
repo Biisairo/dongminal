@@ -5,28 +5,23 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use futures_util::{SinkExt, StreamExt};
-use http::{HeaderValue, StatusCode, header};
-use hyper_util::rt::TokioIo;
+use http::StatusCode;
 use otter_gocompat::json;
 use otter_shared_httpreq::{self as httpreq, ReadError};
-use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_httpresp::Response;
 use otter_shared_otterlog::{errorf, infof};
 use otter_webserver_apierr as apierr;
 use otter_webserver_domain_ext as ext;
 use otter_webserver_domain_lsp::{OpenError, PathsError, Tunnel};
 use serde::{Deserialize, Serialize};
+use sockudo_ws::Message;
 use tokio::sync::Mutex as AsyncMutex;
-use tokio_tungstenite::WebSocketStream;
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
-use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Role, WebSocketConfig};
 
 use crate::Server;
 use crate::httperr::{write_json, write_tool_io_error, write_tool_io_error_code};
 use crate::req::Req;
 use crate::tools_api::off_thread;
-use crate::ws::{check_handshake, handshake_error};
+use crate::ws::{WsReader, WsWriter, handshake_error, ws_accept};
 
 /// Go `lspMaxBody`: 상태·설치 요청 본문의 상한이다.
 const LSP_MAX_BODY: i64 = httpreq::SMALL_LIMIT;
@@ -40,8 +35,6 @@ const LSP_WS_REASON_MAX: usize = 123;
 /// 브라우저 메시지 하나의 상한이다 (FR-CMR-104) — 텍스트 상한을 JSON 문자열로 실은 최악의 크기다.
 pub(crate) const LSP_WS_READ_LIMIT: usize =
     otter_shared_editorlimit::body_max_bytes(otter_webserver_domain_lsp::MAX_TEXT_BYTES) as usize;
-/// gorilla `CloseMessageTooBig`.
-const CLOSE_MESSAGE_TOO_BIG: u16 = 1009;
 
 /// 상태 응답이다. Go 는 map 이라 키가 이름 순이고, 빈 목록은 nil 이라 `null` 이다.
 #[derive(Serialize)]
@@ -93,18 +86,11 @@ pub(crate) fn lsp_ws_reason(s: &str) -> &str {
     &s[..end]
 }
 
-type Ws = WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>;
-type Sink = futures_util::stream::SplitSink<Ws, Message>;
-
-async fn close_with(sink: &AsyncMutex<Sink>, code: u16, reason: &str) {
-    let frame = CloseFrame {
-        code: CloseCode::from(code),
-        reason: lsp_ws_reason(reason).to_owned().into(),
-    };
+async fn close_with(sink: &AsyncMutex<WsWriter>, code: u16, reason: &str) {
     let mut s = sink.lock().await;
     let _ = tokio::time::timeout(
         std::time::Duration::from_secs(1),
-        s.send(Message::Close(Some(frame))),
+        s.close(code, lsp_ws_reason(reason)),
     )
     .await;
 }
@@ -210,8 +196,8 @@ impl Server {
             Ok(root) => root,
             Err(res) => return res,
         };
-        let key = match check_handshake(r) {
-            Ok(k) => k,
+        let accept = match ws_accept(r) {
+            Ok(a) => a,
             Err((status, why)) => {
                 infof!(None, "lsp ws upgrade addr={}: {why}", r.remote_addr);
                 return handshake_error(status);
@@ -227,6 +213,7 @@ impl Server {
         };
         let read_limit = self.lsp_ws_read_limit;
         let remote = r.remote_addr.clone();
+        let res = accept.response();
         tokio::spawn(async move {
             let upgraded = match on_upgrade.await {
                 Ok(u) => u,
@@ -235,23 +222,9 @@ impl Server {
                     return;
                 }
             };
-            let cfg = WebSocketConfig::default()
-                .max_message_size(Some(read_limit))
-                .max_frame_size(Some(read_limit));
-            let ws =
-                WebSocketStream::from_raw_socket(TokioIo::new(upgraded), Role::Server, Some(cfg))
-                    .await;
-            lsp_ws_session(lsp, ws, root, desc).await;
+            let (reader, writer) = accept.open(upgraded, read_limit);
+            lsp_ws_session(lsp, reader, writer, root, desc).await;
         });
-        let mut res = http::Response::new(httpresp::empty());
-        *res.status_mut() = StatusCode::SWITCHING_PROTOCOLS;
-        let h = res.headers_mut();
-        h.insert(header::UPGRADE, HeaderValue::from_static("websocket"));
-        h.insert(header::CONNECTION, HeaderValue::from_static("Upgrade"));
-        let accept = tokio_tungstenite::tungstenite::handshake::derive_accept_key(key.as_bytes());
-        if let Ok(v) = HeaderValue::from_str(&accept) {
-            h.insert(header::SEC_WEBSOCKET_ACCEPT, v);
-        }
         res
     }
 }
@@ -265,9 +238,14 @@ fn save_failed() -> Response {
 }
 
 /// 업그레이드 뒤의 통로 한 벌이다.
-async fn lsp_ws_session(lsp: Arc<dyn crate::LspService>, ws: Ws, root: String, desc: String) {
-    let (sink, mut reader) = ws.split();
-    let sink = Arc::new(AsyncMutex::new(sink));
+async fn lsp_ws_session(
+    lsp: Arc<dyn crate::LspService>,
+    mut reader: WsReader,
+    writer: WsWriter,
+    root: String,
+    desc: String,
+) {
+    let sink = Arc::new(AsyncMutex::new(writer));
     let opened = off_thread(move || lsp.open_tunnel(&root, &desc)).await;
     let t: Arc<dyn Tunnel> = match opened {
         Some(Ok(t)) => t,
@@ -299,7 +277,6 @@ async fn lsp_ws_session(lsp: Arc<dyn crate::LspService>, ws: Ws, root: String, d
             while let Some(got) = rx.recv().await {
                 let Some(b) = got else {
                     close_with(&sink, LSP_WS_CLOSE_ENDED, "ended").await;
-                    let _ = sink.lock().await.close().await;
                     ended.cancel();
                     return;
                 };
@@ -319,16 +296,14 @@ async fn lsp_ws_session(lsp: Arc<dyn crate::LspService>, ws: Ws, root: String, d
         match msg {
             Some(Ok(Message::Text(b))) => {
                 let t = t.clone();
-                let body = b.as_bytes().to_vec();
+                let body = b.to_vec();
                 if !matches!(off_thread(move || t.send(&body)).await, Some(Ok(()))) {
                     break;
                 }
             }
             Some(Ok(_)) => {}
-            Some(Err(tokio_tungstenite::tungstenite::Error::Capacity(_))) => {
-                close_with(&sink, CLOSE_MESSAGE_TOO_BIG, "").await;
-                break;
-            }
+            // 상한을 넘은 메시지는 라이브러리가 읽기 오류로 끝낸다. 그 뒤로는 쓰기가 막혀 1009 를
+            // 보낼 수 없다 — 연결이 닫히고 통로도 닫는다.
             _ => break,
         }
     }

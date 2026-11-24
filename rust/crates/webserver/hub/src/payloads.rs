@@ -76,21 +76,6 @@ pub fn background_changed_payload() -> Vec<u8> {
     payload::<()>("tools_background_changed", None)
 }
 
-/// Claude 다중 계정 변화다 (FR-CAC-122). 본문을 싣지 않는다.
-pub fn claude_accounts_changed_payload() -> Vec<u8> {
-    payload::<()>("claude_accounts_changed", None)
-}
-
-/// 계정 알림이다 (FR-CAC-100a).
-pub fn claude_account_alert_payload<T: Serialize + ?Sized>(alert: &T) -> Vec<u8> {
-    payload("claude_account_alert", Some(alert))
-}
-
-/// 판 확인 결과 변화다 (FR-UPD-8a). 결과를 싣지 않는다.
-pub fn update_changed_payload() -> Vec<u8> {
-    payload::<()>("update_changed", None)
-}
-
 #[derive(Serialize)]
 struct ToolForeground<'a> {
     name: &'a str,
@@ -111,12 +96,14 @@ pub fn foreground_snapshot(tools: &[ToolInfo]) -> Vec<Vec<u8>> {
         .collect()
 }
 
+#[cfg(test)]
 #[derive(Serialize)]
 struct GitChanged<'a> {
     mark: &'a str,
     repo: &'a str,
 }
 
+#[cfg(test)]
 /// `git_changed` 본문이다. status·signature 를 싣지 않는다 (FR-GPO-4).
 pub(crate) fn git_changed_payload(repo: &str, mark: &str) -> Vec<u8> {
     payload("git_changed", Some(&GitChanged { mark, repo }))

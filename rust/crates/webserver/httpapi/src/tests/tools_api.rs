@@ -538,11 +538,9 @@ async fn workspace_put_broadcasts_and_reports_rev() {
     assert_eq!(r.status, 200);
     assert_eq!(r.body, "");
     assert_eq!(r.header("ETag"), "1");
-    assert_eq!(
-        drain(&sub),
-        vec![r#"{"action":"workspace_changed","args":{"rev":1}}"#.to_owned()]
-    );
-    // 같은 본문은 rev 를 올리지 않고 방송하지 않는다 (FR-OPT-5-1).
+    // TC-CH2B-4: 워크스페이스 변화는 SSE 가 아니라 `workspace` 토픽으로 간다.
+    assert!(drain(&sub).is_empty());
+    // 같은 본문은 rev 를 올리지 않는다 (FR-OPT-5-1).
     let r = put_ws(&s, OK_WS, "1").await;
     assert_eq!((r.status, r.header("ETag")), (200, "1".into()));
     assert!(drain(&sub).is_empty());

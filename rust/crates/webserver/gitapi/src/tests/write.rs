@@ -359,15 +359,6 @@ async fn lock_remove_busy_and_job() {
         (409, json!("job_busy"))
     );
     assert!(std::path::Path::new(&lock).exists());
-    // 잡의 시작·끝은 git_jobs_changed 로 알린다.
-    assert!(
-        w.e.cb
-            .published
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|p| p == br#"{"action":"git_jobs_changed"}"#)
-    );
     w.hold.close();
 }
 

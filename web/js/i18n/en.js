@@ -1215,16 +1215,8 @@ I18N.register('en', {
   'openurl.title': 'Open here',
 
   // ── poll ──
-  'poll.agents.hint': 'Activity snapshot of running tools — the agent panel\'s cards and the activity marks on tabs',
-  'poll.agents.label': 'Agent activity',
-  'poll.git_console.hint': 'Git\'s command history. Polled only while that tab is visible.',
-  'poll.git_console.label': 'git console',
-  'poll.git_repos.hint': 'The explorer\'s file list and outside changes to open files. The server\'s file watcher normally reports them right away; this interval catches what it misses.',
-  'poll.git_repos.label': 'Explorer',
   'poll.git_worktree.hint': 'How often the server checks the working tree for git changes. The file watcher reports changes in expanded folders right away; this interval covers changes inside collapsed folders. Windows has no file watcher, so this interval covers all changes there.',
   'poll.git_worktree.label': 'git working tree',
-  'poll.git_status.hint': 'Normally the server reports git changes right away. This is a safety net that picks up what that misses, so it can be rare.',
-  'poll.git_status.label': 'git status safety net',
   'poll.stats.hint': 'CPU · memory · latency in the bottom status bar',
   'poll.stats.label': 'System stats',
 

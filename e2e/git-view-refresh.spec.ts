@@ -6,7 +6,7 @@ import { Page } from '@playwright/test';
 
 import {
   test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir, makeCopyFx, nextFrames,
-  setSafetyNet, setConsoleInterval, scopedSettings,
+  setSafetyNet, scopedSettings,
 } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, tmpPath, realPath } from './osenv';
@@ -128,28 +128,9 @@ async function jobEnded(page: Page, state: string) {
   await expect(job(page).locator('.git-job-state')).toHaveText(state, { timeout: 30000 });
 }
 
-// console.js 의 자체 폴링 주기(GIT_CON_POLL_MS). 여기서 다시 적는 이유는 아래
-// `stopConsolePoll` 의 여유를 그것에서 끌어오기 때문이다.
-const CON_POLL_MS = 2000;
-const CON_BUDGET_MS = CON_POLL_MS / 2;
-
-/**
- * Console 의 자체 폴링을 끊는다.
- *
- * Console 은 탭을 떠나도 폴링을 멈추지 않는다 — 떠난 탭의 본문에서 `vis` 가
- * 지워지지 않아 `console.js` 의 `_start` 가드가 그대로 통과한다(이 SRS 의 범위
- * 밖이다). 그것이 살아 있으면 "원격 작업이 Console 을 갱신했는가" 를 **잴 수
- * 없다**: 고치지 않아도 2초 안에 어차피 채워진다.
- *
- * 그래서 재는 동안만 타이머를 끊는다. 탭을 다시 열 때 `paint()` 가 새 주기로 다시
- * 걸므로, 거기서부터 CON_POLL_MS 만큼의 여유가 생기고 그 안에서 단정한다.
- */
-async function stopConsolePoll(page: Page) {
-  await page.evaluate(() => {
-    const c = (window as any).app.gitPanel._consoleView;
-    if (c && c._timer) { clearInterval(c._timer); c._timer = null }
-  });
-}
+// Console 은 주기로 다시 받지 않는다(PERF M1 — `gitconsole:<root>` 토픽). 작업이 끝날 때 받아 둔 기록은
+// 탭을 다시 열자마자 보여야 한다 — 그 여유다.
+const CON_BUDGET_MS = 1000;
 
 // 요청 수는 가로채기로 센다 — 클라이언트 내부 카운터를 믿으면 "요청을 실제로
 // 보내지 않았다"를 증명할 수 없다 (git-polling.spec.ts 와 같은 기법).
@@ -161,13 +142,20 @@ function counter(page: Page, pred: (url: string) => boolean) {
 
 const isStatus = (u: string) => u.includes('/api/git/status');
 
-// 안전망 회차 `k` 개가 끝날 때까지. 수집은 single-flight 라 요청 `k+1` 번째가 나갔으면
-// 앞선 `k` 회차의 적용(뷰 다시 받기 판단 포함)은 끝났다.
+// 변화 없는 관측 회차 `k` 개가 끝날 때까지. 주기 status 는 없으므로(PERF_OPTIMIZATION_SRS M1 C4)
+// 서버가 미는 변화 알림을 흉내 내어 회차를 만든다. 수집은 single-flight 라 요청 `k+1` 번째가
+// 나갔으면 앞선 `k` 회차의 적용(뷰 다시 받기 판단 포함)은 끝났다.
 const SAFETY_MS = 300;
 async function safetyRounds(page: Page, k: number) {
   const st = counter(page, isStatus);
-  await setSafetyNet(page, SAFETY_MS);
-  await expect.poll(() => st.n, { timeout: 10000 }).toBeGreaterThanOrEqual(k + 1);
+  for (let i = 0; i <= k; i++) {
+    const want = i + 1;
+    await page.evaluate((m: string) => {
+      const app = (window as any).app;
+      app.git.sync._onGitChanged({ repo: app.gitPanel._status.repo, mark: m });
+    }, 'round-' + i + '-' + Date.now());
+    await expect.poll(() => st.n, { timeout: 10000 }).toBeGreaterThanOrEqual(want);
+  }
 }
 
 // 새 파일·내용 변경은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
@@ -230,14 +218,12 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await expect(con(page).locator('.git-con-list')).toBeVisible({ timeout: 20000 });
 
     await openTab(page, 'changes');
-    await stopConsolePoll(page);
     await ready(page);
     await btn(page, 'push').click();
     await jobEnded(page, '완료');
 
     // 탭을 다시 여는 것은 기록을 다시 받지 않는다(mount 는 한 번뿐이다). 보이는
-    // 것은 작업이 끝날 때 `afterRemoteJob` 이 받아 둔 것이며, 새 폴링 주기가
-    // 차기 전에 단정하므로 폴링이 대신 채워 준 것일 수 없다.
+    // 것은 작업이 끝날 때 `afterRemoteJob` 이 받아 둔 것이다.
     await openTab(page, 'console');
     await expect(conRows(page).first().locator('.git-con-argv'))
       .toHaveText(/^git push/, { timeout: CON_BUDGET_MS });
@@ -277,7 +263,6 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await expect(con(page).locator('.git-con-list')).toBeVisible({ timeout: 20000 });
 
     await openTab(page, 'changes');
-    await stopConsolePoll(page);
     await ready(page);
     await btn(page, 'push').click();
     await jobEnded(page, '실패');
@@ -363,7 +348,9 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
    * 그래서 두 축을 나눈다: **관측은 살아 있다**(안전망을 줄여 짧은 창에서 확인)와
    * **가만히 있으면 뷰 조회가 늘지 않는다**(원래의 계약).
    */
-  test('G8 (V-GVR-8 / FR-GVR-7): 관측은 살아 있고 뷰 조회는 늘지 않는다', async ({ page }) => {
+  // PERF_OPTIMIZATION_SRS M1 C4 개정: 관측은 주기가 아니라 서버의 변화 알림(`git:<root>` 토픽)으로 산다.
+  // 가만히 있으면 status 도 뷰 조회도 나가지 않는다.
+  test('G8 (V-GVR-8 / FR-GVR-7): 가만히 있으면 관측도 뷰 조회도 늘지 않는다', async ({ page }) => {
     const { repo } = copyPair('g8');
     await waitForInit(page);
     const status = counter(page, (u) => u.includes('/api/git/status'));
@@ -371,49 +358,84 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
 
     await openGit(page, repo);
     await ready(page);
-    await setSafetyNet(page, SAFETY_MS);
     // **예외 (`TEST-16`)**: 창을 여는 동안의 요청이 가라앉을 여유를 준다 —
     // 아래가 세는 것은 그 뒤의 증가분이다.
-    await page.waitForTimeout(SAFETY_MS);
+    await page.waitForTimeout(SAFETY_MS * 3);
     const stBase = status.n;
     const vBase = views.n;
-    // 주기의 4배 남짓(종전 600ms 주기에 2.6초와 같은 비율)이다.
     await page.waitForTimeout(SAFETY_MS * 13 / 3);
 
-    // 관측이 멎지도, 폭주하지도 않는다.
-    expect(status.n - stBase, '관측이 멎었다').toBeGreaterThanOrEqual(2);
-    expect(status.n - stBase, '관측이 폭주한다').toBeLessThanOrEqual(8);
+    expect(status.n - stBase, '가만히 있는데 status 를 물었다').toBe(0);
     // 갱신은 계기가 있을 때만 한다 — 아무 일도 없는 동안 뷰 조회가 늘지 않는다.
     expect(views.n - vBase, '가만히 있는데 뷰 조회가 늘었다').toBe(0);
   });
 
-  test('G9 (D-7): Console 탭을 떠나면 기록 폴링이 멈춘다', async ({ page }) => {
+  /**
+   * G9 (D-7) — PERF_OPTIMIZATION_SRS M1 C6 로 개정.
+   *   이전: Console 주기를 줄이고, 떠난 뒤 1초 동안 기록 요청이 0 인지 셌다
+   *   지금: 주기는 없다. 보이는 Console 은 `gitconsole:<root>` 토픽의 새 기록 신호에만 받는다. 떠난
+   *         Console 은 다음 신호에서 받지 않고 구독을 놓는다(지연 해지)
+   *   이유: 재던 성질("떠난 탭은 기록을 받지 않는다")은 그대로이고, 그것을 부르는 계기가 주기에서
+   *         서버 신호로 바뀌었다. 같은 신호가 보이는 동안에는 받는다는 것을 양성 대조로 함께 잰다 —
+   *         그래야 떠난 뒤의 0 이 "신호가 오지 않았다" 가 아님을 안다
+   */
+  test('G9 (D-7): Console 탭을 떠나면 새 기록 신호가 와도 받지 않고 구독을 놓는다', async ({ page, request }) => {
     const { repo } = copyPair('g9');
+    const subs: string[] = [];
+    const unsubs: string[] = [];
+    page.on('websocket', (ws) => {
+      if (new URL(ws.url()).pathname !== '/channel') return;
+      ws.on('framesent', (f) => {
+        if (typeof f.payload !== 'string') return;
+        let m: any = null;
+        try { m = JSON.parse(f.payload) } catch { return }
+        if (!m || typeof m.topic !== 'string' || !m.topic.startsWith('gitconsole:')) return;
+        if (m.t === 'sub') subs.push(m.topic);
+        if (m.t === 'unsub') unsubs.push(m.topic);
+      });
+    });
     await waitForInit(page);
-    // Console 주기(2초)를 줄인다 — 아래 창에 회차가 여럿 들게 한다 (§8.2 (a′)).
-    await setConsoleInterval(page, 300);
-    await openGit(page, repo);
-    // Console 을 한 번 열어 폴링을 건다. **한 건이 실제로 온 것**이 그 신호다 —
-    // 폴링이 걸리지 않았는데 떠나면 아래의 `0` 은 아무것도 말하지 않는다.
+    // Console 은 처음 만들어질 때 한 번 받는다 — 만드는 때가 창을 열 때일 수 있으므로 그 앞부터 센다.
     const lit = counter(page, (u) => u.includes('/api/git/records'));
-    await openTab(page, 'console');
-    await expect.poll(() => lit.n, { timeout: 10000, message: 'Console 폴링이 걸리지 않았다' })
-      .toBeGreaterThan(0);
+    await openGit(page, repo);
+    // 기록을 하나 만든다 — git 을 실제로 돌리는 쓰기를 **이 패널 밖에서** 한다(다른 브라우저·에이전트).
+    // 이 패널의 쓰기는 Console 을 직접 다시 받으므로(`git-write.js`) 토픽 신호를 재지 못한다.
+    let k = 0;
+    const record = async () => {
+      const f = `g9-${++k}.txt`;
+      writeFileSync(join(repo, f), 'x');
+      const r = await request.post('/api/git/stage', { data: { repo, paths: [f] } });
+      expect(r.ok(), `stage 실패: ${await r.text()}`).toBeTruthy();
+    };
 
-    // 다른 탭으로 떠난다. 본문은 버려지지만 요소의 `vis` 클래스는 남는다 —
-    // 그것만 보면 폴링이 계속 돈다.
+    await openTab(page, 'console');
+    await expect.poll(() => lit.n, { timeout: 10000, message: 'Console 이 처음 기록을 받지 않았다' })
+      .toBeGreaterThan(0);
+    await expect.poll(() => subs.length, { timeout: 10000, message: 'Console 이 gitconsole 토픽을 구독하지 않았다' })
+      .toBeGreaterThan(0);
+    const topic = subs[subs.length - 1];
+
+    // 양성 대조: 보이는 동안 새 기록 신호가 오면 받는다.
+    const before = lit.n;
+    await record();
+    await expect.poll(() => lit.n, { timeout: 10000, message: '보이는 Console 이 새 기록 신호에 받지 않았다' })
+      .toBeGreaterThan(before);
+
+    // 다른 탭으로 떠난다. 본문은 버려지지만 요소의 `vis` 클래스는 남는다 — 그것만 보면 계속 받는다.
     //
-    // **떠나는 자리는 본문의 다른 뷰여야 한다** (FR-RTU-32): `Changes` 는 이제
-    // 사이드에 있어 그리로 가는 것이 본문 탭을 바꾸지 않는다 — Console 은 계속
-    // 활성이고, 그때 폴링이 도는 것은 옳다.
+    // **떠나는 자리는 본문의 다른 뷰여야 한다** (FR-RTU-32): `Changes` 는 사이드에 있어 그리로 가는
+    // 것이 본문 탭을 바꾸지 않는다 — Console 은 계속 활성이고, 그때 받는 것은 옳다.
     await openTab(page, 'history');
     await expect(page.locator('#area .pn-body .git-view.git-history')).toHaveClass(/vis/, { timeout: 10000 });
 
     let n = 0;
     const onReq = (r: any) => { if (r.url().includes('/api/git/records')) n++ };
     page.on('request', onReq);
-    // **예외 (`TEST-16`)**: 이 창 동안 몇 건인지가 답이다.
-    await page.waitForTimeout(1000); // 줄인 주기(300ms)의 세 배 남짓
+    await record();
+    // 신호가 실제로 닿았다는 증거는 지연 해지다 — 그때까지 기다린 뒤에 센다.
+    await expect.poll(() => unsubs.filter((t) => t === topic).length,
+      { timeout: 10000, message: '떠난 Console 이 신호를 받고도 구독을 놓지 않았다' }).toBeGreaterThan(0);
+    await nextFrames(page, 2);
     page.off('request', onReq);
     expect(n, `떠난 Console 이 ${n}건을 더 받았다`).toBe(0);
   });

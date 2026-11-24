@@ -147,8 +147,8 @@ test.describe('Terminal features', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       const p = a.tools.values().next().value;
-      try { p.ws.close() } catch {}
-      Object.defineProperty(p.ws, 'readyState', { get: () => 3 });
+      // 이 터미널만 끊는다 — 재시도가 걸린 동안의 송신은 버리고 센다 (PERF C5 · TC-CH5-15).
+      p.ws.close();
       p._send(new Uint8Array([1, 65]));
       p._send(new Uint8Array([1, 66]));
     });
@@ -157,61 +157,8 @@ test.describe('Terminal features', () => {
     expect(after - before).toBeGreaterThanOrEqual(2);
   });
 
-  test('_send buffers while ws is connecting', async ({ page }) => {
-    await waitForInit(page);
-    await page.waitForFunction(() => {
-      const a = (window as any).app;
-      const p = a && a.tools && a.tools.values().next().value;
-      return p && p.ws && p.ws.readyState === 1;
-    }, { timeout: 10000 });
-
-    const queued = await page.evaluate(() => {
-      const a = (window as any).app;
-      const p = a.tools.values().next().value;
-      const fakeWs = { readyState: 0, send: () => {} };
-      p.ws = fakeWs as any;
-      p._send(new Uint8Array([1, 65]));
-      p._send(new Uint8Array([1, 66]));
-      return p._sendQueue.length;
-    });
-    expect(queued).toBe(2);
-
-    const remaining = await page.evaluate(() => {
-      const a = (window as any).app;
-      const p = a.tools.values().next().value;
-      let calls = 0;
-      const fakeWs = { readyState: 1, send: () => { calls++ } };
-      p.ws = fakeWs as any;
-      p._flushSendQueue();
-      return { qlen: p._sendQueue.length, calls };
-    });
-    expect(remaining.qlen).toBe(0);
-    expect(remaining.calls).toBe(2);
-  });
-
-  test('_send queue is bounded and drops oldest', async ({ page }) => {
-    await waitForInit(page);
-    await page.waitForFunction(() => {
-      const a = (window as any).app;
-      const p = a && a.tools && a.tools.values().next().value;
-      return p && p.ws && p.ws.readyState === 1;
-    }, { timeout: 10000 });
-
-    const result = await page.evaluate(() => {
-      const a = (window as any).app;
-      const p = a.tools.values().next().value;
-      const before = p._sendDropCount;
-      p._sendQueue = [];
-      const fakeWs = { readyState: 0, send: () => {} };
-      p.ws = fakeWs as any;
-      for (let i = 0; i < p._sendQueueMax + 5; i++) {
-        p._send(new Uint8Array([1, i & 0xff]));
-      }
-      return { qlen: p._sendQueue.length, dropDelta: p._sendDropCount - before };
-    });
-    expect(result.qlen).toBe(64);
-    expect(result.dropDelta).toBe(5);
-  });
+  // 붙는 중의 송신 큐와 그 상한은 단위 시험이 잰다 (`web/js/test/term-channel.test.mjs` TC-CH5-15) —
+  // 채널 위에서는 가짜 소켓을 끼워 넣을 자리가 없다.
 });
 
 // CONTEXT_MENU_UNIFY_SRS — TC-CMU-5 (M7 `FUI-17`).

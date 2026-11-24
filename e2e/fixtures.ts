@@ -391,8 +391,35 @@ async function noteServerAtFailure(title: string) {
   serverLog.write(`\n=== [e2e 실패] ${new Date().toISOString()} ${title}\n--- 날 응답: ${raw}\n--- 포트 ${serverPort} 소유:\n${owners}===\n`);
 }
 
+const TOPIC_STUBS = new WeakMap<any, Map<string, (server: any) => unknown>>();
+
 /**
- * 화면이 받는 계정 한도(`/api/tools/activity` 의 `limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
+ * CHANNEL_PROTOCOL C2b: full 토픽은 채널로 와서 `page.route` 가 닿지 않는다. 채널을 실제 서버에 잇되 그 토픽의
+ * `full` 프레임 `data` 만 바꾼다 — 화면은 실제 토픽 경로(프레임 → 등록부 → 그리기)를 지난다. `data` 가 함수면
+ * 프레임마다 서버가 보낸 `data` 를 넘겨 불러 지금 값을 싣는다(서버 값을 고쳐 쓸 수 있다). 200 이 아닌 결과는
+ * 서버처럼 `{ $http: 상태, body }` 로 준다. 변화량(`delta`)은 바꾸지 않는다 — 시험 중의 변화는 그대로 온다.
+ * 페이지를 열기 전에 부른다. 한 페이지에서 여러 토픽을 바꿀 수 있다.
+ */
+export async function stubTopic(page: any, topic: string, data: unknown) {
+  const make = typeof data === 'function' ? (data as (server: any) => unknown) : () => data;
+  const have = TOPIC_STUBS.get(page);
+  if (have) { have.set(topic, make); return }
+  const stubs = new Map([[topic, make]]);
+  TOPIC_STUBS.set(page, stubs);
+  await page.routeWebSocket(/\/channel(\?|$)/, (ws: any) => {
+    const server = ws.connectToServer();
+    ws.onMessage((m: any) => server.send(m));
+    server.onMessage((m: any) => {
+      if (typeof m !== 'string') return ws.send(m);
+      const f = JSON.parse(m);
+      const stub = f.t === 'full' ? stubs.get(f.topic) : undefined;
+      ws.send(stub ? JSON.stringify({ ...f, data: stub(f.data) }) : m);
+    });
+  });
+}
+
+/**
+ * 화면이 받는 계정 한도(`activity` 토픽의 `_limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
  *
  * 한도는 서버의 에이전트별 값이라 도구가 죽어도 남는다(ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20). 워커의
  * 서버는 시험끼리 공유되므로, 같은 워커의 앞 시험이 `POST /api/tools/usage` 로 보낸 한도가 뒤 시험의
@@ -400,52 +427,21 @@ async function noteServerAtFailure(title: string) {
  * `waitForInit` 전에 이것을 부른다. 활동 목록은 서버 값 그대로다. 실행 파일에 시험용 입구를 두지 않는다.
  */
 export async function stubEmptyLimits(page: any) {
-  // 활동은 두 길로 온다 — 그 종단(`/api/tools/activity`)과 재연결 묶음(`/api/snapshot` 의 `activity` 조각).
-  await page.route('**/api/tools/activity', async (route: any) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-    const res = await route.fetch();
-    const body = await res.json();
-    return route.fulfill({ response: res, json: { ...body, limits: [] } });
-  });
-  await page.route('**/api/snapshot?**', async (route: any) => {
-    const res = await route.fetch();
-    const body = await res.json();
-    if (body && body.activity) body.activity = { ...body.activity, limits: [] };
-    return route.fulfill({ response: res, json: body });
-  });
+  // PERF M1 C3: 한도는 `activity` 토픽 맵의 예약 id `_limits` 로 온다.
+  await stubTopic(page, 'activity', (d: any) => ({ ...d, _limits: [] }));
 }
 
 /**
  * 작업 패널 탭 배지의 세 원천을 비운다 — 활동(`working` 수)·백그라운드 도구·Run (RUST_DEFECT_FIX_SRS FR-RDF-6).
  *
  * 셋 다 워커의 서버에 남으므로 같은 워커의 앞 시험이 남긴 열린 Run·바쁜 도구 하나가 배지를 켠다. 배지를 포함한
- * 기본 화면을 재는 시험이 `waitForInit` 전에 부른다. 한도도 함께 비운다(`stubEmptyLimits` 와 같은 길이므로 둘을
- * 함께 부르지 않는다). 시험 중에 SSE 로 새로 오는 활동은 막지 않는다 — 막는 것은 시험 전에 남은 것이다.
+ * 기본 화면을 재는 시험이 `waitForInit` 전에 부른다. 한도도 함께 비운다(활동 토픽의 `_limits` 가 같은 맵이므로
+ * `stubEmptyLimits` 와 함께 부르지 않는다). 시험 중에 새로 오는 변화량은 막지 않는다 — 막는 것은 시험 전에 남은 것이다.
+ *
+ * PERF M1 C3: 셋은 채널 토픽(`activity`·`background`·`runs`)으로 온다 — 그 토픽의 `full` 프레임만 빈 맵으로 바꾼다.
  */
 export async function stubEmptyActivityCounts(page: any) {
-  const emptyActivity = (a: any) => ({ ...a, activities: [], limits: [] });
-  await page.route('**/api/tools/activity', async (route: any) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-    const res = await route.fetch();
-    return route.fulfill({ response: res, json: emptyActivity(await res.json()) });
-  });
-  await page.route('**/api/tools/background', async (route: any) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-    const res = await route.fetch();
-    return route.fulfill({ response: res, json: { ...(await res.json()), background: [] } });
-  });
-  await page.route('**/api/runs', async (route: any) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-    const res = await route.fetch();
-    return route.fulfill({ response: res, json: { ...(await res.json()), runs: [] } });
-  });
-  await page.route('**/api/snapshot?**', async (route: any) => {
-    const res = await route.fetch();
-    const body = await res.json();
-    if (body && body.activity) body.activity = emptyActivity(body.activity);
-    if (body && body.background) body.background = { ...body.background, background: [] };
-    return route.fulfill({ response: res, json: body });
-  });
+  for (const topic of ['activity', 'background', 'runs']) await stubTopic(page, topic, {});
 }
 
 export async function clickGitView(page: any, view: string) {
@@ -740,7 +736,7 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
 /**
  * 첫 구독이 열리고 그 재검증(활동 목록)이 끝날 때까지 기다린다 (QUALITY_FLAKY_SRS FR-FLK-7).
  *
- * 구독이 열리면(`sse:open`) 상태 레지스트리가 활동·알람·백그라운드를 `/api/snapshot` 한 번으로
+ * 채널이 열리면(`chan:open`) 상태 레지스트리가 활동·알람·백그라운드를 `/api/snapshot` 한 번으로
  * 다시 받는다. 부하가 걸리면 구독은 `waitSettled` 뒤에 열린다. 그 앞에 화면에만 넣은 활동
  * (`app.testing.onToolActivity`)은 서버가 모르는 값이라 이 재검증이 지운다 — 시험이 넣은 직후
  * 카드가 사라졌다(구독을 1.5초 늦춰 결정적으로 재현).
@@ -752,12 +748,12 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
 async function waitSseRevalidated(page: any) {
   await page.waitForFunction(() => {
     const t = (window as any).app.testing;
-    return !!t.sse && t.sse.readyState === 1 && t.restoreLive('activity', null);
+    return !!t.channel && t.channel.alive() && t.restoreLive('activity', null);
   }, undefined, { timeout: 15000, polling: 50 }).catch(async (e: unknown) => {
     // RUST_DEFECT_FIX_SRS 10.7c: 시한이면 어느 쪽이 서지 않았는지 남긴다 — 구독이 안 열렸는가, 재검증이 안 끝났는가.
     const st = await page.evaluate(() => {
       const t = (window as any).app?.testing;
-      return { sse: t?.sse ? t.sse.readyState : null, revalidated: t ? !!t.restoreLive('activity', null) : null };
+      return { channel: t?.channel ? t.channel.alive() : null, revalidated: t ? !!t.restoreLive('activity', null) : null };
     }).catch(() => null);
     throw new Error(`waitSseRevalidated: ${JSON.stringify(st)} — ${String(e)}`);
   });
@@ -830,36 +826,22 @@ export async function nextFrames(page: any, n = 2, capMs = 2000) {
 }
 
 /**
- * status 안전망 폴링의 주기를 **그 자리에서** 바꾼다 (`TEST-17`·`TEST-19`).
+ * 열린 git 패널의 실패·소실 재시도 기준 간격을 **그 자리에서** 줄인다 (`TEST-17`·`TEST-19`).
  *
- * 기본은 30초다 (`GIT_STATUS_POLL_MS`) — 서버가 변화를 방송하므로 브라우저의
- * 폴링은 안전망으로 남았다 (`GIT_PUSH_OBSERVE_SRS`). 저장소 폴더가 사라지는
- * 사건도 서버 감시자가 감시에서 빼며 `git_changed`(mark `""`)를 한 번 방송하지만
- * (FR-RMS-6, `gitwatch/round.rs` 의 `drop_repo`), 그 방송은 감시 회차가 돌아야
- * 나간다. 그래서 소실을 기다리는 검사는 방송에 기대지 않고 안전망을 줄여 둔다.
+ * 평소에는 주기가 없고 `git:<root>` 토픽이 변화를 민다. 주기 타이머는 관측이 실패하거나
+ * 저장소가 사라진 동안의 회복용으로만 걸리고, 그 기준 간격은 상수 `GIT_STATUS_RETRY_MS`(30초)다
+ * (PERF 1.15 — 사용자 설정이 아니다). 회복을 기다리는 검사는 패널의 `poll.retryMs` 만 줄인다.
+ * 이미 열린 패널에만 닿으므로 `openGit` 뒤에 부른다.
  *
- * **설정으로는 못 넣는다.** 주기가 사용자 설정이 되면서 하한이 10초이고
- * (`settings-schema.js`), 그 밖의 값은 저장하면 기본값으로 되돌아간다 —
- * 화면에서 고를 수 없는 값을 파일로는 넣을 수 있다면 선택지를 나눈 이유가
- * 사라지기 때문이다 (POLL_INTERVAL_SETTINGS_SRS FR-PIS-8·8a). 검사가 원하는
- * 것은 사용자 설정이 아니라 **그 자리의 값**이다. 설정 방송이 이 값을 지우지
- * 않는 것은 FR-PIS-8a 의 `!==undefined` 가드가 지켜 준다.
- *
- * `git-polling.spec.ts` 의 `fastSafetyNet` 과 `git-repo-missing.spec.ts` 의
- * `backoffBase` 가 같은 것을 따로 들고 있었다. 둘의 차이는 활성 패널까지
- * 다시 거는가 하나뿐이었고, **더 넓은 쪽**을 취했다 — 다시 거는 대상이 늘어도
- * 재는 것은 달라지지 않는다.
- *
- * **주기를 재는 검사는 이것을 쓰지 마라.** 소실 상태의 주기는 안전망과 무관한
- * 고정값이고(`GIT_REPO_MISSING_POLL_MS`, FR-RMS-26) 그것을 재는 자리가 따로
- * 있다 (`git-repo-missing` M7).
+ * **주기를 재는 검사는 이것을 쓰지 마라.** 소실 상태의 주기는 고정값이고
+ * (`GIT_REPO_MISSING_POLL_MS`, FR-RMS-26) 그것을 재는 자리가 따로 있다 (`git-repo-missing` M7).
  */
 export async function setSafetyNet(page: any, ms: number) {
   await page.evaluate((v: number) => {
-    (window as any).gitStatusInterval = v;
     const app = (window as any).app;
-    if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
-    if (app.gitPanel && app.gitPanel.poll._reschedule) app.gitPanel.poll._reschedule();
+    const panels = new Set<any>(app.testing.gitPanels ? app.testing.gitPanels.values() : []);
+    if (app.gitPanel) panels.add(app.gitPanel);
+    for (const p of panels) { p.poll.retryMs = v; p.poll._reschedule() }
   }, ms);
 }
 
@@ -1369,6 +1351,14 @@ export async function openExplorerAt(page: any, root: string) {
 }
 
 /**
+ * 탐색기·편집기를 한 번 맞추게 한다 (PERF_OPTIMIZATION_SRS 이슈 1.14). 주기 틱이 없으므로
+ * 시험은 실제 계기 하나 — 탭이 다시 보이는 순간(`visibilitychange` → `life:visible`) — 를 낸다.
+ */
+export async function resyncEditor(page: any) {
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+}
+
+/**
  * 루트를 세우고 그 Editor 창의 탐색기로 들어간다 (`TEST-17`).
  *
  * **첫 행이 보이는 것까지가 이 준비다** — 뿌리 조회가 끝났다는 뜻이고, 그 전에
@@ -1440,7 +1430,7 @@ export function makeCopyFx(root: string) {
 /**
  * 사용자 설정 몇 개를 바꾸고, 원래 블롭으로 되돌리는 함수를 돌려준다.
  *
- * 기존 설정 값(`gitWorktreeInterval`·`gitReposInterval` 등)으로 주기를 줄이는 자리다
+ * 기존 설정 값(`gitWorktreeInterval` 등)으로 주기를 줄이는 자리다
  * (E2E_PRUNE_REPORT §8.2 (b)). `cleanTools` 는 설정을 되돌리지 않으므로 시험이 끝날 때
  * 돌려받은 함수를 반드시 부른다 — 다음 스펙이 줄어든 주기를 물려받지 않게 한다.
  * `undefined` 는 그 키를 지운다(서버 기본값).
@@ -1460,14 +1450,35 @@ export async function scopedSettings(request: any, patch: Record<string, unknown
   };
 }
 
+export { expect };
+
 /**
- * Console 폴링 주기를 **그 자리에서** 바꾼다 (E2E_PRUNE_REPORT §8.2 (a′)).
- *
- * `gitConsoleInterval` 은 `var` 전역이고 Console 이 다시 무장할 때마다 읽는다.
- * 설정으로 넣으면 하한(1000ms)에 걸리므로 `setSafetyNet` 과 같은 방식으로 넣는다.
+ * PERF_OPTIMIZATION_SRS C5: 터미널은 칸마다 WebSocket 을 열지 않고 탭의 채널에 `term.open` 으로 붙는다.
+ * 이미 열린 채널에 붙은 것을 재려고 페이지 안의 `app.channel` 을 감싼다 — `term.open` 마다 한 줄,
+ * 그 sid 로 받은 바이너리 바이트, `term.close` 여부.
  */
-export async function setConsoleInterval(page: any, ms: number) {
-  await page.evaluate((v: number) => { (window as any).gitConsoleInterval = v }, ms);
+export type TermAttach = { sid: number; tool: string; bytes: number; closed: boolean };
+
+export async function trackTermAttach(page: any): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as any;
+    if (w.__termTrack) return;
+    const rec: any[] = [];
+    w.__termTrack = rec;
+    const ch = w.app.channel;
+    const send = ch.send.bind(ch);
+    ch.send = (v: any) => {
+      if (v && v.t === 'term.open') rec.push({ sid: v.sid, tool: v.tool || '', bytes: 0, closed: false });
+      if (v && v.t === 'term.close') for (const r of rec) if (r.sid === v.sid) r.closed = true;
+      return send(v);
+    };
+    ch.onBinary((u8: Uint8Array) => {
+      const sid = new DataView(u8.buffer, u8.byteOffset, u8.length).getUint32(1, false);
+      const r = rec.filter((x) => x.sid === sid).at(-1);
+      if (r) r.bytes += u8.length;
+    });
+  });
 }
 
-export { expect };
+export const termAttaches = (page: any): Promise<TermAttach[]> =>
+  page.evaluate(() => (window as any).__termTrack || []);

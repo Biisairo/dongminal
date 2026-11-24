@@ -37,6 +37,10 @@ impl GitHandler for GitApi {
     fn active_jobs(&self) -> Option<Vec<Job>> {
         self.0.active_jobs()
     }
+
+    fn job_feed(&self, id: &str) -> Option<otter_webserver_gitapi::JobFeed> {
+        self.0.job_feed(id)
+    }
 }
 
 /// follow 대상 도구의 cwd 를 도구 허브에서 푼다.
@@ -64,8 +68,16 @@ pub(crate) fn new_git_server(
     deps: &Deps,
     file_read_max: i64,
     watch: Option<&Arc<GitWatcher>>,
+    me: &std::sync::Weak<crate::Server>,
 ) -> GitServer {
     let mut g = GitServer::default();
+    // 원격 작업의 시작·끝은 `git.jobs` 토픽으로 민다 (CHANNEL_PROTOCOL C4).
+    let jobs_me = me.clone();
+    g.on_jobs_changed = Some(Arc::new(move || {
+        if let Some(s) = jobs_me.upgrade() {
+            s.topics.publish_full("git.jobs", s.git_jobs_value());
+        }
+    }));
     g.watch = watch.map(|w| Arc::new(WatchNote(w.clone())) as Arc<dyn RepoWatcher>);
     g.git = deps.git_store.clone();
     g.exclusion = deps.git_exclusion.clone();
@@ -76,7 +88,7 @@ pub(crate) fn new_git_server(
     g.commands = deps
         .commands
         .clone()
-        .map(|c| Arc::new(BrokerCast(c)) as Arc<dyn wsentry::Broadcaster>);
+        .map(|c| Arc::new(BrokerCast(c, me.clone())) as Arc<dyn wsentry::Broadcaster>);
     g.tools = deps
         .tools
         .clone()
@@ -116,10 +128,7 @@ impl RepoWatcher for WatchNote {
 /// 대상이 없고, 그때 gitapi 의 표명 자리는 비어 무해하게 지나간다.
 pub(crate) fn new_git_watch(deps: &Deps) -> Option<Arc<GitWatcher>> {
     let store = deps.git_store.clone()?;
-    let w = GitWatcher::new(
-        Some(Arc::new(store) as Arc<dyn GitObserver>),
-        deps.commands.clone(),
-    );
+    let w = GitWatcher::new(Some(Arc::new(store) as Arc<dyn GitObserver>));
     w.set_on_changed(deps.on_git_changed.clone());
     w.set_on_baseline(deps.on_git_baseline.clone());
     apply_git_worktree(Some(&w), deps.settings.as_deref());

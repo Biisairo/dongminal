@@ -88,17 +88,24 @@ const jobChip = (page: Page) => page.locator('#sb-items .sb-git-job');
 // 버튼이 살아났음 = status 를 읽었음이다. 이것을 기다리지 않고 클릭하면 disabled
 // 버튼을 눌러 아무 일도 일어나지 않는다.
 /**
- * 서버의 진행 중 작업 목록을 갈아 끼운다. 목록은 두 길로 온다 — `git_jobs_changed`·구독
- * 열림의 `/api/git/jobs` 와 상태바 틱의 `/api/stats?jobs=1` (FR-OPT-4-4). 둘 다 막는다.
+ * 서버의 진행 중 작업 목록을 갈아 끼운다. 목록은 채널의 `git.jobs` 토픽으로 온다
+ * (PERF_OPTIMIZATION_SRS M1 C4) — 그 목록을 받는 자리(`_gitJobsAdopt`)가 늘 이 목록을 딛게 한다.
  */
 async function stubJobs(page: Page, jobs: any[]) {
-  await page.route('**/api/git/jobs', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ jobs }) }));
-  await page.route('**/api/stats?*', async (route) => {
-    const res = await route.fetch();
-    const body = await res.json();
-    route.fulfill({ response: res, body: JSON.stringify({ ...body, jobs }) });
-  });
+  await page.evaluate((list: any[]) => {
+    const s = (window as any).app.git.sync;
+    const adopt = s._gitJobsAdopt.bind(s);
+    s._gitJobsAdopt = () => adopt(list);
+    s._gitJobsAdopt();
+  }, jobs);
+}
+
+/**
+ * 작업 출력 스트림(채널의 `gitjob:<id>`)을 열린 채로 매단다 — 흉내 낸 잡은 서버에 없으므로
+ * 그대로 두면 `unknown_topic` 으로 곧바로 끝난다.
+ */
+async function holdJobStreams(page: Page) {
+  await page.evaluate(() => { (window as any).app.git.topics.followJob = () => ({ stop() {} }) });
 }
 
 /**
@@ -192,7 +199,7 @@ test.describe('13단계 — 원격 작업', () => {
         }),
       }));
     // 스트림을 열어 두면 작업이 끝나지 않는다.
-    await page.route('**/api/git/job/events*', () => {});
+    await holdJobStreams(page);
     // 상태바 폴링이 "진행 중 없음" 을 주면 화면이 작업을 놓는다 — 진행 중으로 답한다.
     await stubJobs(page, [{ id: 'stub-job', repo, kind: 'push', argv: ['push', '--progress'], done: false, slots: ['common'], indicator: true }]);
 
@@ -423,8 +430,8 @@ test.describe('13단계 — 원격 작업', () => {
     // **이 창이 띄우지 않은** 작업이다 — 서버 목록에만 있다. 버튼을 끄는 것은 서버의
     // 1층 답이다 (GR-1e) — 잡 목록이 오면 화면이 status 를 다시 받고 그 답을 그린다.
     await stubBusyActions(page, ['git.fetch', 'git.pull', 'git.push']);
+    await holdJobStreams(page);
     await stubJobs(page, [{ id: 'sb-job', repo, kind: 'fetch', argv: ['fetch', '--progress'], done: false, slots: ['common'], indicator: true }]);
-    await page.route('**/api/git/job/events*', () => {});
 
     // FR-GIT-101: 목록이 도착하면 같은 리포의 원격 버튼이 막힌다.
     await expect(btn(page, 'fetch')).toBeDisabled({ timeout: 20000 });

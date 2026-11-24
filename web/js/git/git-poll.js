@@ -1,7 +1,7 @@
 /**
  * GitPoll — Git 패널의 폴링 부품: 접기 설정과 폴링 (SPLIT_REFACTOR_SRS 묶음 B · REFACTOR3_FE_GITPANEL_SRS 7d).
- * 접기 취향(`_fold`)을 소유한다. 새로고침·뷰 다시 받기·refs 회차는 `GitViewReload`(`git-view-reload.js`), 멈춘 관측의
- * 되살리기는 `GitWatchdog`(`git-watchdog.js`)다 (REFACTOR3_FE_REST5_SRS FR-FR5-21). 관측 상태는 패널의 접근자(관측기)이고, 타이머의
+ * 접기 취향(`_fold`)을 소유한다. 새로고침·뷰 다시 받기·refs 회차는 `GitViewReload`(`git-view-reload.js`)다.
+ * 관측 상태는 패널의 접근자(관측기)이고, 타이머의
  * 주인은 종전대로 패널이다(`owner:this.p`). `collect`·`_pollOk` 는 이 부품 안에서 `this.X` 로, 밖에서 `panel.poll.X` 로 부른다 — 이 부품
  * 인스턴스에서 그 둘을 덮는 자리(e2e)가 듣는다 (REFACTOR3_FE_DELEG_SRS).
  *
@@ -42,6 +42,8 @@ function gitStatusVerdict(r,d,repo){
 }
 
 class GitPoll extends GitPart {
+  // 실패·소실 동안의 재시도 기준 간격 (PERF 1.15). 사용자 설정이 아니다 — 시험이 회복을 빨리 재려고 이 패널의 값만 줄인다.
+  retryMs=GIT_STATUS_RETRY_MS;
   /**
    * **파일 목록의 크기·방향은 폐기됐다** (REPO_TAB_UNIFY_SRS FR-RTU-20).
    *
@@ -179,10 +181,10 @@ class GitPoll extends GitPart {
    * signature 폴링이 사라지면서 실효 주기를 계산할 계층이 status 하나만 남았다.
    */
   _cadence(st){
-    if(this.p._missing) return st>0?GIT_REPO_MISSING_POLL_MS:0;
+    if(this.p._missing) return GIT_REPO_MISSING_POLL_MS;
     const n=this.p._failStreak;
     if(n<=0) return st;
-    return st>0?Math.min(st*Math.pow(2,n),GIT_FAIL_BACKOFF_MAX_MS):0;
+    return Math.min(st*Math.pow(2,n),GIT_FAIL_BACKOFF_MAX_MS);
   }
 
   /**
@@ -193,48 +195,32 @@ class GitPoll extends GitPart {
    * 실패·성공이 번갈아 오는 동안 요청이 배로 늘어난다 (D-RMS-10).
    */
   // 다시 걸었으면 true 다 — 호출자가 "즉시 1회 수집" 을 붙일지 그것으로 정한다.
+  /**
+   * PERF_OPTIMIZATION_SRS M1 C4 (D-9): **평상시에는 묻지 않는다.**
+   *
+   *   이전 동작: 표면이 보이는 동안 `gitStatusInterval` 마다 status 를 물었다(안전망) — 서버
+   *             감시의 임대도 이 요청과 SSE 구독이 쥐었다
+   *   새  동작: 채널의 `git:<root>` 토픽을 구독한다. 구독이 서버 감시의 임대이고, 관측이 바뀌면
+   *             서버가 민 mark 가 `GitSync._onGitChanged` 로 와서 수집한다. 주기 타이머는 실패·
+   *             소실 동안의 회복용으로만 건다(FR-RMS-22·26)
+   *   이유:     상태용 주기 GET 을 없앤다. 변화는 서버가 안다
+   *
+   * 판정의 대상은 관측기에 딸린 패널 전부다 (FR-GOR-4·5) — 하나라도 보고 있으면 구독한다.
+   */
   _applyCadence(){
-    /**
-     * GIT_OBSERVE_REVIVE_SRS FR-GOR-4·5: 판정의 대상은 **관측기에 딸린 패널
-     * 전부**다.
-     *
-     *   이전 동작: `this._pollOk()` — 부른 패널 자기 것
-     *   새  동작: `this.obs.pollOkAny()` — 하나라도 보고 있으면 돈다
-     *   이유:     타이머는 관측기의 것이고 패널은 칸마다 있다. 자기 것만 보면
-     *             보이지 않는 칸의 `_reschedule()` 한 번이 **보이는 칸의 폴링을
-     *             끈다** (SRS §2.3). 전 패널을 도는 자리에서는 순서가 결과를
-     *             정했다 — 마지막에 도는 패널이 이겼다
-     *
-     * 멈추는 조건은 그대로 좁다: 전부 거짓이어야 멈춘다 (NFR-RTU-1 · FR-GLR-3).
-     */
     if(!this.p.obs.pollOkAny()){this._stop();return false}
-    const st=this._cadence(gitStatusInterval);
-    if(this.p._pollOn&&this.p._pollSt===st) return false;
+    const failing=this.p._missing||this.p._failStreak>0;
+    const st=failing?this._cadence(this.retryMs):0;
+    const root=(this.p._status&&this.p._status.repo)||this.p.repo;
+    const o=this.p.obs;
+    if(this.p._pollOn&&this.p._pollSt===st&&o._topicRoot===root) return false;
     this._stop();
     this.p._pollOn=true; this.p._pollSt=st;
-    // 주기 0 은 그 계층을 걸지 않는다 (FR-GIT-23).
-    // FR-SVS-30: 콜백은 **observer** 를 지난다. 특정 패널을 캡처하면 그 칸이
-    // 사라진 뒤에도 죽은 패널을 붙들고 부른다.
-    //
-    // EVENT_TIMER_HUB_SRS FR-OBS-1: 두 계층이 `TimerHub` 의 `every` 로 표현된다.
-    // **주기를 함수로 주지 않고 값으로 준다** — 이 자리는 `_applyCadence` 가
-    // 이미 실효 주기를 계산해 넘긴 뒤이고, 주기가 바뀌면 `_applyCadence` 가
-    // `_stop()` 후 다시 걸기 때문이다 (FR-RMS-28: 다시 거는 것과 수집하는 것은
-    // 다른 일이다). 여기서 `every:()=>...` 로 다시 계산하면 두 곳이 같은 판단을
-    // 하게 되고, 그 둘이 어긋나면 어느 쪽이 맞는지 알 수 없다.
-    //
-    // **조건을 스케줄러에 주지 않는다.** 이 계층의 계약은 위 주석이 정한 그대로
-    // "조건이 거짓이면 완전히 멈춘다 — 콜백에서 return 으로 넘기지 않는다" 이고,
-    // 참이 되면 `_reschedule()` 이 **즉시 1회 수집한 뒤** 주기를 건다
-    // (FR-GIT-22). `when` 이나 `whenHidden:'pause'` 를 주면 정확히 그 금지된
-    // 모양이 된다 — 타이머는 살아 있고 콜백만 빈손으로 돌아가며, 조건이 참으로
-    // 바뀐 순간의 즉시 수집도 사라진다.
-    //
-    // 가시성 판정이 스케줄러의 것보다 넓기도 하다. `_pollOk()` 는
-    // `document.hidden` 뿐 아니라 창이 보이는지, **이 패널의 표면**이 화면에
-    // 있는지까지 본다 (FR-RTU-62 · FR-SVS-39a).
-    const opts={owner:this.p, whenHidden:'run'};
-    if(st>0) this.p._stPoll=TIMERS.every({...opts,id:'git.status:'+(this.p.root||'-'),
+    o._topicRoot=root;
+    o._gitTopic=this.app.git.topics.watch(root);
+    // FR-SVS-30: 콜백은 **observer** 를 지난다. 특정 패널을 캡처하면 그 칸이 사라진 뒤에도
+    // 죽은 패널을 붙들고 부른다.
+    if(st>0) this.p._stPoll=TIMERS.every({owner:this.p, whenHidden:'run', id:'git.status:'+(this.p.root||'-'),
       every:()=>st, run:()=>this.p.obs.tick()});
     return true;
   }
@@ -246,6 +232,8 @@ class GitPoll extends GitPart {
 
   _stop(){
     if(this.p._stPoll){this.p._stPoll.stop();this.p._stPoll=null}
+    const o=this.p.obs;
+    if(o._gitTopic){o._gitTopic.stop();o._gitTopic=null;o._topicRoot=''}
     this.p._pollOn=false;
   }
 
@@ -333,8 +321,9 @@ class GitPoll extends GitPart {
     // UX_BATCH9_SRS FR-GLR-2: 화면이 언제의 것인지를 남기는 유일한 자리다.
     this.p._lastObsAt=Date.now();
     this.p.viewRoots._leaveMissing();
-    this._applyCadence();
+    // 토픽의 루트는 이 관측이 푼 것이다 — 주기를 다시 보기 전에 받아 둔다.
     this.p._status=d;
+    this._applyCadence();
     // 응답에 signature 가 함께 오므로 그 값으로 갱신한다 — 직후 signature 폴링이
     // 헛되이 변화를 보고하지 않게 한다.
     //

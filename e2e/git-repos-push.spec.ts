@@ -11,8 +11,8 @@ import { TMP, cssPath } from './osenv';
  * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 (IPC-7 · FEC-13) — 저장소 목록의 배지는 **push** 로 선다.
  *
  * Repo 탭이 보이는 동안 핀 전부를 임대하고(`observe=1&clientId`), 배지의 변화는 서버
- * 감시자의 `git_changed` 가 알린다. 목록의 주기는 안전망(`gitStatusInterval`)이다 — 여기서는
- * 안전망을 꺼서(0) push 만으로 배지가 서는지를 잰다. 탭을 떠나면 임대를 놓는다(`observe=0`).
+ * 감시자가 토픽으로 알린다. 목록에는 주기가 없다(PERF 1.15) — push 만으로 배지가 서는지를
+ * 잰다. 탭을 떠나면 임대를 놓는다(`observe=0`).
  *
  * **고정 대기의 예외 (`TEST-16`).** 변화가 없는 동안 목록 요청이 **나가지 않음**을 잰다 —
  * 일어나지 않는 일에는 기다릴 신호가 없으므로 종전 주기(3초)를 두 번 넘겨 본다.
@@ -48,11 +48,10 @@ function reposLog(page: Page) {
 }
 
 test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
-  test('안전망이 꺼져 있어도 핀 저장소의 변화가 배지에 선다', async ({ page, request }) => {
+  test('주기 없이도 핀 저장소의 변화가 배지에 선다', async ({ page, request }) => {
     const dir = makeRepo('otter-o4b-push-');
     const root = await pin(request, dir);
     await waitForInit(page);
-    await page.evaluate(() => { (window as any).gitStatusInterval = 0; (window as any).app.timers.refreshChanged() });
     const log = reposLog(page);
     await openGitTab(page);
     const badge = pinned(page, root).locator('.git-badge');
@@ -106,7 +105,6 @@ test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
     const dir = makeRepo('otter-o4b-reconn-');
     const root = await pin(request, dir);
     await waitForInit(page);
-    await page.evaluate(() => { (window as any).gitStatusInterval = 0; (window as any).app.timers.refreshChanged() });
     await openGitTab(page);
     const badge = pinned(page, root).locator('.git-badge');
     await expect(badge).toHaveText('1', { timeout: 15000 });
@@ -118,21 +116,12 @@ test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
     const otherBadge = pinned(other, root).locator('.git-badge');
     await expect(otherBadge).toHaveText('1', { timeout: 15000 });
 
-    await page.evaluate(() => {
-      const w = window as any;
-      w.__origES = w.EventSource;
-      try { w.app.bus._es.close() } catch {}
-      w.EventSource = function () { throw new Error('offline') };
-    });
+    await page.evaluate(() => { (window as any).app.testing.channel.close() });
     writeFileSync(join(dir, 'b.txt'), 'y');
     await expect(otherBadge).toHaveText('2', { timeout: 20000 });
     await ctx.close();
 
-    await page.evaluate(() => {
-      const w = window as any;
-      w.EventSource = w.__origES;
-      w.app.bus.reconnect();
-    });
+    await page.evaluate(() => { (window as any).app.testing.channel.kick() });
     await expect(badge).toHaveText('2', { timeout: 15000 });
   });
 });

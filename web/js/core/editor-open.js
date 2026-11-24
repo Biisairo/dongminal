@@ -217,9 +217,9 @@ class EditorOpen extends Controller {
    * 요청 수가 열린 탭의 수가 아니라 **변경의 수**에 비례한다 — 아무것도 바뀌지
    * 않은 회차에는 이 요청 하나가 전부다 (`pollStamp` 와 같은 형태이며 같은 근거).
    *
-   * 새 타이머를 만들지 않는다 (FR-ELR-10). `_edStartGitPoll` 의 같은 틱에 얹히므로
-   * 주기는 `Polling` 설정을 그대로 따른다. 틱은 `edStampTick` 이 겹 스탬프와 한
-   * 요청에 묶는다 (FR-OPT-4-2) — 이 함수는 파일만 묻는 같은 모양이다.
+   * 새 타이머를 만들지 않는다 (FR-ELR-10). 주기 틱은 없고(이슈 1.14) 맞추기(`_edTick`)는
+   * 사건마다 한 번이다. 그 맞추기는 `edStampTick` 이 겹 스탬프와 한 요청에 묶는다
+   * (FR-OPT-4-2) — 이 함수는 파일만 묻는 같은 모양이다.
    */
   async edPollDocStamps(){
     const paths=this._edDocStampsBegin();

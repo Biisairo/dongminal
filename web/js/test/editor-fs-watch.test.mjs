@@ -45,7 +45,7 @@ function app(opts = {}) {
   let release = null;
   a._edDocs = new Map();
   const ticks = [];
-  a.editor = { pane: { _edTick: () => { ticks.push(1) } }, open: {}, doc: {} };
+  a.editor = { pane: { _edTick: () => { ticks.push(1) }, _edGitWatchSync: () => {} }, open: {}, doc: {} };
   a.editor.doc.edDocRefresh = (p) => {
     refreshed.push(p);
     return opts.slowRefresh ? new Promise((res) => { release = res }) : Promise.resolve(true);
@@ -185,4 +185,14 @@ test('FR-ELR-66: 404 면 등록을 멈춘다', async () => {
   await settle();
   await a.editor.watch._edWatchRestore();
   assert.equal(puts.length, 1);
+});
+
+test('이슈 1.14: 보이는 집합이 바뀌면 감시 등록 전에도 git 토픽 구독을 맞춘다 — 주기 틱이 없다', () => {
+  const { a, timers, tree } = app();
+  const synced = [];
+  a.editor.pane._edGitWatchSync = (stores) => { synced.push([...stores]) };
+  a.editor.watch.edWatchSync();
+  timers.flush();
+  assert.equal(synced.length, 1, 'git 구독을 맞추지 않았다');
+  assert.deepEqual(synced[0], [tree.store]);
 });

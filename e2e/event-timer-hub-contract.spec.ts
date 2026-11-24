@@ -62,6 +62,9 @@ const EVENT_BUS_JS = join(WEB, 'core', 'event-bus.js');
 const COMPONENT_JS = join(WEB, 'core', 'base', 'component.js');
 const GIT_PART_JS = join(WEB, 'git', 'git-part.js');
 const GIT_POLL_JS = join(WEB, 'git', 'git-poll.js');
+// PERF_OPTIMIZATION_SRS M1 C4: 폴링 계층은 보는 동안 `git:<root>` 토픽을 구독한다. 채널 없이 세운
+// `GitTopics` 는 구독 손잡이만 돌려준다 — 여기서 재는 주기·잠금 계약에는 끼지 않는다.
+const GIT_TOPICS_JS = join(WEB, 'core', 'git-topics.js');
 // OPTIMIZE_REFACTOR_SRS FR-OPT-4-7: collect 가 `unchanged` 답을 채우는 함수
 // (`gitStatusMerge`)가 여기 산다. index.html 에서도 git-poll 앞이다.
 const STATUS_HUB_JS = join(WEB, 'git', 'status-hub.js');
@@ -209,8 +212,8 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// T-5·T-6·T-7·T-11 — 주기·백오프·잠금 (GIT_REPO_MISSING_SRS FR-RMS-22·28·29,
-// FR-GIT-23)
+// T-5·T-6·T-7 — 주기·백오프·잠금 (GIT_REPO_MISSING_SRS FR-RMS-22·28·29)
+// T-11(주기 0 = 끔, FR-GIT-23)은 설정 `gitStatusInterval` 과 함께 거뒀다 (PERF 1.15).
 //
 // `GitObserver`(= git-poll 의 폴링 계층)는 다섯 축을 전부 자체 구현해 둔
 // 유일한 자리다. SRS 단계 6 이 이것을 흡수하며, 그때 아래 넷이 한 줄도 흔들리면
@@ -235,8 +238,7 @@ async function loadPanelPoll(page: Page) {
         paints: 0,
         // GIT_OBSERVE_REVIVE_SRS FR-GOR-4: 폴링 여부는 **관측기**가 딸린 패널
         // 전부를 보고 정한다. 더블도 그 규약을 그대로 든다 — 여기서 `() => true`
-        // 로 고정하면 T-11 이 "주기 0 이면 타이머를 걸지 않는다" 를 재는 동안
-        // 조건 판정만 실물과 갈린다.
+        // 로 고정하면 조건 판정만 실물과 갈린다.
         panels: new Set<any>(),
         pollOkAny(this: any) { for (const p of this.panels) if (p.poll._pollOk()) return true; return false },
         tick(k: string) { this.ticks.push(k) },
@@ -262,7 +264,10 @@ async function loadPanelPoll(page: Page) {
       // 넷 다 승격된 이름이다 (FE_MODULE_BOUNDARY_SRS FR-FMB-40).
       app = {
         // 소유 경로의 대역 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
-        git: { gitWindow: () => ({ id: 'w1' }), surfaces: { gitSurfaceOn: () => true } },
+        git: {
+          gitWindow: () => ({ id: 'w1' }), surfaces: { gitSurfaceOn: () => true },
+          topics: new ((window as any).eval('GitTopics'))({ onChange() {}, onJobs() {} }),
+        },
         editor: { edWindowFor: () => ({ id: 'w1' }) },
         slot: { windowVisible: () => true },
       };
@@ -275,8 +280,6 @@ async function loadPanelPoll(page: Page) {
       // 폴링 부품은 아래에서 세운다 — 부르는 쪽은 `p.poll.X` 다 (REFACTOR3_FE_DELEG_SRS).
       poll: any = null;
     };
-    // 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — 전역이 그 자리다.
-    (window as any).gitStatusInterval = 1000;
     (window as any).pathJoin = (a: string, b: string) => a + '/' + b;
   });
   await page.addScriptTag({ path: API_JS });
@@ -285,6 +288,7 @@ async function loadPanelPoll(page: Page) {
   await page.addScriptTag({ path: COMPONENT_JS });
   await page.addScriptTag({ path: GIT_PART_JS });
   await page.addScriptTag({ path: GIT_POLL_JS });
+  await page.addScriptTag({ path: GIT_TOPICS_JS });
   await page.evaluate(() => {
     const p = new (window as any).GitPanel();
     // 클래식 스크립트의 `class` 는 window 의 속성이 아니다 — 이름으로 읽는다.
@@ -295,7 +299,7 @@ async function loadPanelPoll(page: Page) {
   });
 }
 
-test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-23)', () => {
+test.describe('T-5·6·7 — 주기와 잠금 (FR-RMS-22·28·29)', () => {
   // T-5: 실패가 쌓이면 주기가 2ⁿ 로 늘고 상한에서 멈춘다.
   test('T-5 실패 누적이 주기를 2ⁿ 로 늘리고 상한에서 멈춘다 (FR-RMS-22)', async ({ page }) => {
     await loadPanelPoll(page);
@@ -322,36 +326,6 @@ test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-2
     // 20회와 40회가 같다는 것이 곧 상한의 존재다 — 없다면 2²⁰ 배가 더 벌어진다.
     expect(seen[5], '백오프에 상한이 없다 — 주기가 무한히 늘어난다').toBe(seen[4]);
     expect(seen[4], '상한이 기준 주기보다 작다').toBeGreaterThan(1000);
-  });
-
-  // T-11: 기준 0 은 0 으로 남는다. 실패가 그것을 되살리면 사용자가 끈 것이
-  // 저절로 켜진다 (FR-GIT-23).
-  /**
-   * POLL_INTERVAL_SETTINGS_SRS FR-PIS-4: `_cadence` 의 인자가 둘에서 하나가 됐다.
-   *
-   * 종전에는 켜 둔 계층이 백오프를 받는지도 함께 쟀는데, 그 "켜 둔 계층" 이
-   * signature 였다. 백오프 규약 자체는 status 로 그대로 잰다 — 재던 것은 계층의
-   * 개수가 아니라 **0 이 백오프를 이긴다**는 것이었다.
-   */
-  test('T-11 주기 0 은 실패가 쌓여도 0 이고, 그 계층을 걸지 않는다 (FR-GIT-23)', async ({ page }) => {
-    await loadPanelPoll(page);
-
-    const r = await page.evaluate(() => {
-      const p = (window as any).__p;
-      p._failStreak = 5;
-      const off = p.poll._cadence(0);
-      const on = p.poll._cadence(500);
-
-      // 실제로 타이머가 걸리는지도 본다 — status 주기가 0 이면 그 계층은 없다.
-      (window as any).gitStatusInterval = 0;
-      p._failStreak = 0;
-      p.poll._applyCadence();
-      return { off, on, st: p._stPoll };
-    });
-
-    expect(r.off, '꺼 둔 계층을 백오프가 되살렸다 (FR-GIT-23)').toBe(0);
-    expect(r.on, '켜 둔 계층이 백오프를 받지 않았다').toBeGreaterThan(500);
-    expect(r.st, '주기 0 인데 status 타이머가 걸렸다').toBeNull();
   });
 
   // T-6: 주기를 다시 거는 것과 수집하는 것은 다른 일이다.
@@ -652,7 +626,7 @@ test.describe('T-13 — 돌지 않은 회차의 마감 (FR-SRA-1·2)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // T-14 — 생명주기 토픽과 SSE 명령의 이름공간 (GIT_LIVE_TRIGGERS_SRS FR-GLW-8)
 //
-// `_onMessage` 는 **구독자가 있는 action 을 지명 검사 앞에서 가로챈다** (FR-BUS-5):
+// `route` 는 **구독자가 있는 action 을 지명 검사 앞에서 가로챈다** (FR-BUS-5):
 //
 //     if(this.has(m.action)){ this.publish(m.action, m.args||{}); return }
 //
@@ -686,7 +660,7 @@ test.describe('T-14 — 생명주기 토픽은 SSE 명령을 가로채지 않는
       const fell = [];
       bus.setFallback((action) => fell.push(action));
       for (const action of ['focus', 'visible', 'hidden', 'online'])
-        bus._onMessage({ data: JSON.stringify({ action, args: {} }) });
+        bus.route({ t: 'cmd', action, args: {} });
 
       // 계기 자체는 살아 있어야 한다 — 겹침을 없앤 대가로 신호를 잃으면 안 된다.
       window.dispatchEvent(new Event('focus'));

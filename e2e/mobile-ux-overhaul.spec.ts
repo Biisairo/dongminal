@@ -2,7 +2,7 @@
 import { Page } from '@playwright/test';
 
 import {
-  test, expect, waitForInit, gitFixture, cleanGitFixture, makeCopyFx,
+  test, expect, waitForInit, gitFixture, cleanGitFixture, makeCopyFx, stubTopic,
 } from './fixtures';
 import { tmpPath } from './osenv';
 
@@ -329,6 +329,8 @@ async function mockAccounts(page: Page) {
       acct('c', 'Spare', 'acct-1', false),
     ],
   };
+  // 목록은 채널의 `claude.accounts` 토픽으로 온다(CHANNEL_PROTOCOL C2b). 매핑은 GET 그대로다.
+  await stubTopic(page, 'claude.accounts', list);
   await page.route('**/api/claude-accounts**', async (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/claude-accounts', '') || '/';
     const json = (data: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });

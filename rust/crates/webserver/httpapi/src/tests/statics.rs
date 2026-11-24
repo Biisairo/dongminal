@@ -525,24 +525,21 @@ async fn served_version_matches_hello() {
     assert!(!v.is_empty());
     assert_eq!(s.asset_version(), v[0]);
 
-    let req = http::Request::builder()
-        .uri("/api/commands/sse")
-        .header("Host", TEST_HOST)
-        .body(Full::new(Bytes::new()))
+    // 판은 채널 인사의 `server.assetVersion` 으로 간다 (C2a).
+    use super::wsc::{Message, TextOf};
+    use futures_util::{SinkExt, StreamExt};
+    let port = super::ws::listen(s.clone()).await;
+    let mut c = super::wsc::dial(port, "/channel?v=1").await;
+    c.send(Message::text(r#"{"t":"hello","slots":[]}"#))
+        .await
         .unwrap();
-    let mut body = s.serve_addr(req, LOCAL.to_owned()).await.into_body();
-    let mut seen = String::new();
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
-    while !seen.contains("server_hello") {
-        match tokio::time::timeout_at(deadline, body.frame()).await {
-            Ok(Some(Ok(f))) => {
-                if let Some(d) = f.data_ref() {
-                    seen.push_str(&String::from_utf8_lossy(d));
-                }
-            }
-            _ => break,
+    let seen = loop {
+        match tokio::time::timeout(Duration::from_secs(3), c.next()).await {
+            Ok(Some(Ok(Message::Text(t)))) => break t.as_str().to_owned(),
+            Ok(Some(Ok(_))) => continue,
+            other => panic!("채널 인사가 없다: {other:?}"),
         }
-    }
+    };
     let want = format!("\"assetVersion\":\"{}\"", v[0]);
     assert!(seen.contains(&want), "{seen}");
 }

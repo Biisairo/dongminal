@@ -21,22 +21,8 @@
 //
 // FR-GPO-20: status 폴링은 **안전망**이다. 두 가지를 겸한다 —
 // 푸시가 끊겼을 때의 회복(C-5)과 관심 표명의 갱신(FR-GPO-11 의 90초보다 세 배
-// 잦다). 종전 1초는 푸시가 없을 때의 주기였다. 기본값 `GIT_STATUS_POLL_MS` 는
-// 표에서 파생한다 (settings-defaults.js).
+// 잦다). 종전 1초는 푸시가 없을 때의 주기였다. 지금은 실패 재시도 간격(`GIT_STATUS_RETRY_MS`)만 남았다.
 
-// UX_BATCH9_SRS FR-GLR-2: 관측이 주기의 몇 배까지 낡으면 멈춘 것으로 보는가.
-//
-// 둘이면 한 회차를 통째로 걸러도 아직 정상이다 — 느린 응답이나 한 번의 실패로
-// 워치독이 깨어나면 그것이 새로운 요청원이 된다 (R-B9-1).
-const GIT_WATCHDOG_FACTOR=2;
-
-// 워치독 검사 자체의 문턱. 렌더는 잦고 판정은 싸지만, 같은 프레임에 여러 번
-// 그리는 경로가 있으므로 한 번으로 접는다.
-//
-// GIT_LIVE_TRIGGERS_SRS FR-GLW-4: 이 값은 **주기이기도 하다** — `_initGitSection`
-// 의 `git.watchdog` job 이 같은 값으로 돈다. 문턱과 주기가 같은 값인 덕에 두 계기
-// (렌더·주기)가 겹쳐도 검사는 이 간격당 한 번을 넘지 않는다.
-const GIT_WATCHDOG_CHECK_MS=1000;
 // status 요청 하나의 시한 (FR-RMS-29). 큰 저장소의 `git status` 가 몇 초일 수 있으니
 // 넉넉하되, 백오프 상한(GIT_FAIL_BACKOFF_MAX_MS)보다는 짧다 — 시한이 그보다 길면
 // 실패가 주기를 늘리기 전에 다음 회차들이 먼저 밀린다.
@@ -79,6 +65,11 @@ const GIT_SIGNAL_DEBOUNCE_MS=150;
  * 동작하지 않는 것과 견주면 작은 값이다. 자세한 것은 `GIT_FAIL_BACKOFF_MAX_MS`.
  */
 const GIT_REPO_MISSING_POLL_MS=30000;
+/**
+ * PERF_OPTIMIZATION_SRS 1.15: git 관측이 실패하는 동안의 재시도 기준 간격. 평소에는 `git:<root>`
+ * 토픽이 변화를 밀고 주기는 없다. 예전 설정 `gitStatusInterval` 의 기본값이며 사용자가 바꾸지 않는다.
+ */
+const GIT_STATUS_RETRY_MS=30000;
 /**
  * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-30 / D-GRF-6 (`GP-13`): 백오프 상한.
  *

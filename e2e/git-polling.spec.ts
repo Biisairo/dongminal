@@ -45,21 +45,6 @@ const fx = (name: string) => realPath(join(FIXTURES, name));
 const copyFx = makeCopyFx(FIXTURES);
 // 설정은 서버의 단일 블롭이다 — 읽어 합친 뒤 되돌려 준다. 다른 스펙의 테마·단축키를
 // 지우지 않는다.
-async function patchSettings(request: APIRequestContext, patch: Record<string, unknown>) {
-  const cur = await (await request.get('/api/settings')).json();
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === undefined) delete cur[k];
-    else cur[k] = v;
-  }
-  const r = await request.put('/api/settings', { data: cur });
-  expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
-}
-
-// POLL_INTERVAL_SETTINGS_SRS FR-PIS-1: `gitSignatureInterval` 은 더 없다 — 브라우저
-// signature 폴링 계층 자체가 사라졌다.
-const defaultIntervals = (request: APIRequestContext) =>
-  patchSettings(request, { gitStatusInterval: undefined });
-
 // 요청 수는 가로채기로 센다 — 클라이언트 내부 카운터를 믿으면 "요청을 실제로
 // 보내지 않았다"를 증명할 수 없다. `done` 은 끝난(응답·실패) 요청 수다.
 function counter(page: Page, needle: string) {
@@ -114,7 +99,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
   // 폴링이 도는지가 아니라, 이 창이 살아 있는 관측을 갖는지가 계약이다.
   test('P1 (V6): Git 창이 활성이면 변화가 화면에 따라온다', async ({ page, request }) => {
     await fastWorktree(request);
-    await defaultIntervals(request);
     const repo = copyFx('basic', 'p1');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -133,33 +117,30 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await expect.poll(() => rows.count(), { timeout: 8000 }).toBeGreaterThan(before);
   });
 
-  test('P2 (V6): 다른 창으로 전환하면 status 요청이 0건이 된다', async ({ page, request }) => {
-    await defaultIntervals(request);
-    const repo = fx('basic');
+  // PERF_OPTIMIZATION_SRS M1 C4: 주기 status 는 없다. 보는 동안은 채널의 `git:<root>` 토픽을 구독하고,
+  // 떠나면 그 구독을 놓는다 — 그 뒤로는 서버가 변화를 밀어도 status 요청이 나가지 않는다.
+  test('P2 (V6): 다른 창으로 전환하면 git 토픽을 놓고 status 요청이 0건이 된다', async ({ page, request }) => {
+    const repo = copyFx('basic', 'p2-leave');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
     await openGit(page, repo);
     await expect.poll(() => c.n, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
-    // 안전망(30초)이 창 안에 들지 않으면 아래의 `0` 은 아무것도 재지 않는다 (§8.6).
-    // 주기를 줄이고, 떠나기 전에 실제로 도는 것을 먼저 본다.
-    await setSafetyNet(page, FAST_SAFETY_MS);
-    const lit = c.n;
-    await expect.poll(() => c.n - lit, { timeout: 5000 }).toBeGreaterThanOrEqual(2);
+    const watching = () => page.evaluate(() => [...(window as any).app.git.topics._m.keys()].length);
+    await expect.poll(watching, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
 
     const other = await otherWindowId(page, repo);
     expect(other, '비교할 다른 창이 없다').toBeTruthy();
     await switchToWindow(page, other!);
+    await expect.poll(watching, { timeout: 5000 }).toBe(0);
 
-    // 떠나는 순간 진행 중이던 요청이 하나 남을 수 있다 — 끝나기를 기다린다.
     await quiet(c);
     const base = c.n;
-    // 주기의 4배 남짓 — 타이머가 살아 있으면 여기서 서너 건이 나간다.
-    await page.waitForTimeout(FAST_SAFETY_MS * 4);
-    expect(c.n - base, '창을 떠난 뒤에도 폴링이 돈다 (타이머가 살아 있다)').toBe(0);
+    writeFileSync(join(repo, 'p2-after-leave.txt'), 'x');
+    await page.waitForTimeout(3000);
+    expect(c.n - base, '창을 떠난 뒤에도 status 를 묻는다').toBe(0);
   });
 
   test('P3 (V6): Git 창으로 돌아오면 즉시 1건이 온다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = fx('basic');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -177,31 +158,25 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await expect.poll(() => c.n - base, { timeout: 800 }).toBeGreaterThanOrEqual(1);
   });
 
-  test('P4 (V18): 주기 0 이면 폴링이 돌지 않는다', async ({ page, request }) => {
-    await patchSettings(request, { gitStatusInterval: 0 });
+  test('P4 (V18): 평상시에는 status 폴링이 돌지 않는다', async ({ page }) => {
     const repo = fx('basic');
     await waitForInit(page);
     const st = counter(page, '/api/git/status');
-    // FR-PIS-1: 계층이 사라졌으므로 주기와 무관하게 0 건이다 — 그 증거는
-    // `poll-interval` PIS2 가 옛 설정 키로 따로 잰다.
+    // FR-PIS-1: signature 계층은 사라졌다.
     const sig = counter(page, '/api/git/signature');
     await openGit(page, repo);
 
     // 여는 순간의 첫 수집이 끝난 뒤부터 센다.
     await quiet(st);
     const base = st.n;
-    // 주기 0 에는 줄일 주기가 없다. 0 이 아닌 주기는 설정 하한이 10초라 종전 창(2.6초)
-    // 에도 들지 않았고, 이 창이 잡는 것은 0 이 "곧바로 다시" 로 읽히는 회귀다 —
-    // 그것은 1초 안에 여러 건으로 드러난다.
+    // 평상시 주기는 없다(PERF 1.15 — 실패 재시도만 남았다). 되풀이가 생기는 회귀는 1초 안에 드러난다.
     await page.waitForTimeout(1000);
-    expect(st.n - base, '주기 0 인데 status 폴링이 돈다').toBe(0);
+    expect(st.n - base, '평상시인데 status 폴링이 돈다').toBe(0);
     expect(sig.n, '지워진 signature 폴링이 되살아났다').toBe(0);
-    await defaultIntervals(request);
   });
 
   test('P5 (V5): 같은 순간의 신호 여러 개가 status 1건으로 합쳐진다', async ({ page, request }) => {
-    // 폴링을 끄고 즉시 신호만 남긴다 — 디바운스만 측정한다.
-    await patchSettings(request, { gitStatusInterval: 0 });
+    // 평상시에는 주기가 없다 — 즉시 신호만 남으므로 디바운스만 측정한다.
     const repo = fx('basic');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -219,11 +194,9 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await quiet(c);
     await page.waitForTimeout(300);
     expect(c.n - base, '디바운스 뒤에도 신호가 남아 다시 요청했다').toBe(1);
-    await defaultIntervals(request);
   });
 
   test('P6 (V4): 활성 리포를 바꾸면 이전 리포의 응답이 화면에 닿지 않는다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const slow = copyFx('basic', 'p6-slow');
     const fast = copyFx('basic', 'p6-fast');
     writeFileSync(join(slow, 'only-in-slow.txt'), 'x');
@@ -281,7 +254,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    */
   test('P7 (회귀): 관측이 겹쳐도 단일 비행 잠금이 고착되지 않는다', async ({ page, request }) => {
     await fastWorktree(request);
-    await defaultIntervals(request);
     const repo = copyFx('basic', 'p7');
     await waitForInit(page);
     await openGit(page, repo);
@@ -321,7 +293,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    * 삼켜 주지 못했고, 플래그가 참으로 남아 버튼이 disabled 로 굳었다.
    */
   test('P8 (회귀): 뷰의 reload() 가 터져도 새로고침 진입점이 잠기지 않는다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = fx('basic');
     await waitForInit(page);
     await openGit(page, repo);
@@ -355,14 +326,12 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    */
   test('P9 (회귀): _paint 가 한 번 터져도 다음 관측이 다시 그린다', async ({ page, request }) => {
     await fastWorktree(request);
-    await defaultIntervals(request);
     const repo = copyFx('basic', 'p9-paint');
     await waitForInit(page);
     await openGit(page, repo);
-    // **다음 관측**이 필요한 검사다. 푸시는 변화가 있을 때만 오므로, 예외로
-    // 놓친 그 회차를 메우는 것은 안전망이다 — 그 주기를 검사용으로 줄인다.
-    // 재는 것은 "다시 그리는가" 이지 안전망이 30초인가가 아니다.
-    await fastSafetyNet(page);
+    // **다음 관측**이 필요한 검사다. 주기 status 는 없으므로(PERF_OPTIMIZATION_SRS M1 C4) 다음
+    // 관측은 다음 변화가 부른다 — 예외 뒤에 변화를 하나 더 만든다. 재는 것은 "한 번 터진 그리기가
+    // 뒤의 관측을 잠그지 않는가" 다.
 
     const view = page.locator('#area .ed-side .git-view.git-changes');
     // 첫 관측이 그려진 뒤부터 시작한다 — 그래야 뒤이은 변경이 "새 관측" 이다.
@@ -385,6 +354,9 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     }, 'after-paint-throw.txt');
 
     writeFileSync(join(repo, 'after-paint-throw.txt'), 'x');
+    await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).app.gitPanel._status || {})
+      .includes('after-paint-throw.txt')), { timeout: 10000 }).toBe(true);
+    writeFileSync(join(repo, 'after-paint-throw-2.txt'), 'x');
 
     await expect(view.locator('.git-file[data-path="after-paint-throw.txt"]'),
       '_paint 가 한 번 터진 뒤 화면이 낡은 채로 굳었다')

@@ -9,14 +9,12 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use bytes::Bytes;
-use http_body_util::{BodyExt, Full};
 use otter_webserver_domain_git_core::Service;
 use otter_webserver_domain_git_store::{Store, StoreOptions};
 use otter_webserver_hub::{CommandBroker, GitWatcher};
 
 use super::fakes::{FakeBroker, FakeSettings};
-use super::support::{LOCAL, TEST_HOST, call, get, server};
+use super::support::{LOCAL, call, get, server};
 use crate::agent_render_env::CLAUDE_NO_FLICKER_ENV;
 use crate::deps::SettingsStore;
 use crate::settings::{FileSettings, parse_fg_tab_names};
@@ -88,33 +86,26 @@ async fn settings_put_still_ok() {
     );
 }
 
-// FR-OPT-5-2: `?clientId=` 는 방송의 `args.origin` 이 된다. 없으면 종전 바이트다.
+// TC-CH2B-2·4: 설정 저장은 SSE 로 방송하지 않고 `settings` 토픽으로 낸다.
 #[tokio::test]
-async fn settings_put_broadcast_origin() {
-    for (target, want) in [
-        (
-            "/api/settings?clientId=c-1",
-            r#"{"action":"settings_changed","args":{"origin":"c-1"}}"#,
-        ),
-        (
-            "/api/settings",
-            r#"{"action":"settings_changed","args":{}}"#,
-        ),
-    ] {
-        let d = tempfile::tempdir().unwrap();
-        let cb = Arc::new(FakeBroker::default());
-        let s = server(
-            d.path(),
-            Deps {
-                settings: Some(file_settings(d.path())),
-                commands: Some(cb.clone() as Arc<dyn CommandBroker>),
-                ..Deps::default()
-            },
-        );
-        let r = put(&s, target, r#"{"a":1}"#).await;
-        assert_eq!(r.status, 200);
-        assert_eq!(cb.published(), vec![want.to_owned()], "{target}");
-    }
+async fn settings_put_publishes_topic_not_sse() {
+    let d = tempfile::tempdir().unwrap();
+    let cb = Arc::new(FakeBroker::default());
+    let s = server(
+        d.path(),
+        Deps {
+            settings: Some(file_settings(d.path())),
+            commands: Some(cb.clone() as Arc<dyn CommandBroker>),
+            ..Deps::default()
+        },
+    );
+    let o = super::full_topics::tap(&s, "settings").await;
+    super::full_topics::heard(&o, 1).await;
+    let r = put(&s, "/api/settings?clientId=c-1", r#"{"a":1}"#).await;
+    assert_eq!(r.status, 200);
+    let got = super::full_topics::heard(&o, 1).await;
+    assert_eq!(got.last().unwrap()["data"], serde_json::json!({"a":1}));
+    assert!(cb.published().is_empty(), "{:?}", cb.published());
 }
 
 // TC-QG-11: 나쁜 customTheme 은 400 bad_request 이고 저장되지 않는다. 정상 블롭은 200.
@@ -308,40 +299,32 @@ fn lease_server(dir: &std::path::Path) -> Arc<Server> {
         },
         Deps::default(),
         |s| {
-            s.git_watch = Some(GitWatcher::new(None, None));
-            // 끊긴 구독은 다음 쓰기에서 드러난다 — 인사를 자주 보내 해제를 앞당긴다.
-            *s.hello_every.lock().unwrap() = Some(Duration::from_millis(50));
+            s.git_watch = Some(GitWatcher::new(None));
         },
     )
 }
 
-async fn open_sse(s: &Arc<Server>, cid: &str) -> otter_shared_httpresp::Body {
-    let target = if cid.is_empty() {
-        "/api/commands/sse".to_owned()
-    } else {
-        format!("/api/commands/sse?clientId={cid}")
-    };
-    let req = http::Request::builder()
-        .method("GET")
-        .uri(target)
-        .header("Host", TEST_HOST)
-        .body(Full::new(Bytes::new()))
-        .unwrap();
-    let res = s.serve_addr(req, LOCAL.to_owned()).await;
-    assert_eq!(res.status(), 200);
-    let mut body = res.into_body();
-    let mut seen = String::new();
-    while !seen.contains("connected") {
-        let f = tokio::time::timeout(Duration::from_secs(3), body.frame())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        if let Some(d) = f.data_ref() {
-            seen.push_str(&String::from_utf8_lossy(d));
+type Chan = super::wsc::Client;
+
+/// 채널을 열고 인사한다. `cid` 가 비면 `client` 를 싣지 않는다.
+async fn open_channel(s: &Arc<Server>, cid: &str) -> Chan {
+    use super::wsc::{Message, TextOf};
+    use futures_util::{SinkExt, StreamExt};
+    let port = super::ws::listen(s.clone()).await;
+    let mut c = super::wsc::dial(port, "/channel?v=1").await;
+    let mut h = serde_json::json!({"t":"hello","slots":[]});
+    if !cid.is_empty() {
+        h["client"] = serde_json::json!(cid);
+    }
+    c.send(Message::text(h.to_string())).await.unwrap();
+    loop {
+        match tokio::time::timeout(Duration::from_secs(3), c.next()).await {
+            Ok(Some(Ok(Message::Text(t)))) if t.as_str().contains(r#""t":"hello""#) => break,
+            Ok(Some(Ok(_))) => continue,
+            other => panic!("채널 인사가 없다: {other:?}"),
         }
     }
-    body
+    c
 }
 
 async fn wait_leases(s: &Server, want: usize) {
@@ -356,23 +339,23 @@ async fn wait_leases(s: &Server, want: usize) {
     panic!("임대 수 {}, 기대 {want} (FR-GWL-3)", w.leases());
 }
 
-// TC-GWL-9: clientId 를 실은 SSE 를 열면 임대가 생기고, 끊으면 사라진다.
+// TC-CH4-10 (TC-GWL-9 대체): git 감시 임대는 채널의 `git:<repo>` 토픽 구독이 쥔다 — `client` 를
+// 밝힌 채널도 그것만으로는 임대를 만들지 않는다.
 #[tokio::test]
-async fn git_watch_lease_attaches_and_detaches_with_sse() {
+async fn git_watch_lease_not_held_by_channel_client() {
     let d = tempfile::tempdir().unwrap();
     let s = lease_server(d.path());
-    let body = open_sse(&s, "c1").await;
-    wait_leases(&s, 1).await;
-    drop(body);
+    let _body = open_channel(&s, "c1").await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     wait_leases(&s, 0).await;
 }
 
-// TC-GWL-10: clientId 없는 구독은 임대를 만들지 않는다.
+// TC-GWL-10: `client` 없는 채널은 임대를 만들지 않는다.
 #[tokio::test]
 async fn git_watch_lease_anonymous_subscription_holds_nothing() {
     let d = tempfile::tempdir().unwrap();
     let s = lease_server(d.path());
-    let _body = open_sse(&s, "").await;
+    let _body = open_channel(&s, "").await;
     assert_eq!(
         s.git_watch.as_ref().unwrap().leases(),
         0,

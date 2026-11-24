@@ -47,6 +47,9 @@ class TelegramSection extends SettingsSection {
     return statusRun(document.getElementById('tg-token-status'),{fail:t('tg.read_fail')},()=>this._tgRead());
   }
 
+  /** CHANNEL_PROTOCOL C2b (OQ-C1): `telegram` 토픽의 full. 짝맞춤이 끝나면 여기로 온다. */
+  _tgTopic(src){ return src.then(r=>this._tgApply(r)) }
+
   /** 저장 응답이 곧 새 화면 값이다. */
   _tgApply(r){
     if(r.ok&&r.data){ this.app._tg=r.data; this._tgPaint() }
@@ -97,7 +100,8 @@ class TelegramSection extends SettingsSection {
       id:'telegram.pair', owner:this, whenHidden:'pause',
       every:()=>TG_PAIR_TICK_MS,
       when:()=>this._tgPairShown(),
-      run:()=>this._tgRead(),
+      // 등록 여부는 `telegram` 토픽이 준다(`_tgTopic`) — 여기서는 남은 시간만 다시 그린다 (D-9).
+      run:()=>this._tgPairPaint(),
     });
   }
 

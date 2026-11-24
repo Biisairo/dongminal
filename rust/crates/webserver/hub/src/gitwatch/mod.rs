@@ -15,9 +15,6 @@ use otter_webserver_domain_git_core::Ctx;
 use otter_webserver_domain_git_query::{Error, Signature};
 use otter_webserver_domain_git_store::{Observation, Store};
 
-use crate::CommandBroker;
-use crate::payloads::git_changed_payload;
-
 pub use kick::{GIT_KICK_COOLDOWN, GIT_KICK_DEBOUNCE};
 pub use round::start_git_watch;
 
@@ -93,6 +90,8 @@ fn obs_mark(o: &Observation) -> String {
 pub type AfterFn =
     Arc<dyn Fn(Duration, Box<dyn FnOnce() + Send>) -> Box<dyn FnOnce() + Send> + Send + Sync>;
 pub type RepoHook = Arc<dyn Fn(&str) + Send + Sync>;
+/// 관측이 바뀐 저장소와 그 mark 를 받는다 (`git:<repo>` 토픽 발행, CHANNEL_PROTOCOL C4).
+pub type MarkHook = Arc<dyn Fn(&str, &str) + Send + Sync>;
 pub type WallClock = Arc<dyn Fn() -> SystemTime + Send + Sync>;
 
 /// 기다리는 변화다: 기다리는가, 그 signature, 기다리기 시작한 시각.
@@ -147,6 +146,7 @@ pub(crate) struct State {
     round: u64,
     on_changed: Option<RepoHook>,
     on_baseline: Option<RepoHook>,
+    on_mark: Option<MarkHook>,
     root: Option<Ctx>,
     kicks: HashMap<String, KickState>,
 }
@@ -154,7 +154,6 @@ pub(crate) struct State {
 /// 관심 표명을 받아 두었다가 회차마다 그 저장소들을 확인한다.
 pub struct GitWatcher {
     git: Option<Arc<dyn GitObserver>>,
-    hub: Option<Arc<dyn CommandBroker>>,
     now: WallClock,
     ttl: Duration,
     cap: usize,
@@ -174,22 +173,17 @@ pub(crate) fn phase_hash(repo: &str) -> u64 {
 }
 
 impl GitWatcher {
-    pub fn new(
-        git: Option<Arc<dyn GitObserver>>,
-        hub: Option<Arc<dyn CommandBroker>>,
-    ) -> Arc<GitWatcher> {
-        GitWatcher::build(git, hub, Arc::new(SystemTime::now), None)
+    pub fn new(git: Option<Arc<dyn GitObserver>>) -> Arc<GitWatcher> {
+        GitWatcher::build(git, Arc::new(SystemTime::now), None)
     }
 
     fn build(
         git: Option<Arc<dyn GitObserver>>,
-        hub: Option<Arc<dyn CommandBroker>>,
         now: WallClock,
         after: Option<AfterFn>,
     ) -> Arc<GitWatcher> {
         Arc::new(GitWatcher {
             git,
-            hub,
             now,
             ttl: GIT_WATCH_TTL,
             cap: GIT_WATCH_CAP,
@@ -202,6 +196,7 @@ impl GitWatcher {
                 round: 0,
                 on_changed: None,
                 on_baseline: None,
+                on_mark: None,
                 root: None,
                 kicks: HashMap::new(),
             }),
@@ -222,12 +217,20 @@ impl GitWatcher {
         self.lock().on_changed = f;
     }
 
-    /// git_changed 를 방송하고 훅을 부른다.
+    /// 관측 변화의 발행 훅을 건다 (`git:<repo>` 토픽, CHANNEL_PROTOCOL C4).
+    pub fn set_on_mark(&self, f: Option<MarkHook>) {
+        self.lock().on_mark = f;
+    }
+
+    /// 관측 변화를 발행하고 훅을 부른다.
     fn announce(&self, repo: &str, mark: &str) {
-        if let Some(h) = &self.hub {
-            h.broadcast(&git_changed_payload(repo, mark));
+        let (m, f) = {
+            let g = self.lock();
+            (g.on_mark.clone(), g.on_changed.clone())
+        };
+        if let Some(m) = m {
+            m(repo, mark);
         }
-        let f = self.lock().on_changed.clone();
         if let Some(f) = f {
             f(repo);
         }
@@ -238,16 +241,19 @@ impl GitWatcher {
 impl GitWatcher {
     pub(crate) fn for_test(
         git: Arc<dyn GitObserver>,
-        hub: Arc<dyn CommandBroker>,
+        hub: Arc<dyn crate::CommandBroker>,
         now: WallClock,
         after: Option<AfterFn>,
         ttl: Duration,
         cap: usize,
     ) -> Arc<GitWatcher> {
-        let w = GitWatcher::build(Some(git), Some(hub), now, after);
+        let w = GitWatcher::build(Some(git), now, after);
         let mut w = Arc::try_unwrap(w).ok().expect("새로 만든 Arc");
         w.ttl = ttl;
         w.cap = cap;
+        w.set_on_mark(Some(Arc::new(move |repo: &str, mark: &str| {
+            hub.broadcast(&crate::payloads::git_changed_payload(repo, mark));
+        })));
         Arc::new(w)
     }
 

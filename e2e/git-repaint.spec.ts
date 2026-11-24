@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames, setSafetyNet, setConsoleInterval, scopedSettings } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames, scopedSettings } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -148,9 +148,15 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
     await openGit(page, fx('basic'));
     const row = page.locator('.git-view.git-changes .git-file').first();
     await expect(row).toBeVisible();
-    // 폴링이 실제로 도는 동안 더블클릭한다 — 안전망(30초)을 줄이고 회차 둘을 본다.
+    // 관측이 실제로 도는 동안 더블클릭한다 — 주기 status 는 없으므로(PERF_OPTIMIZATION_SRS M1 C4)
+    // 서버가 민 변화 알림을 흉내 내어 회차 둘을 만든다.
     const c = counter(page, '/api/git/status');
-    await setSafetyNet(page, 200);
+    await page.evaluate(() => {
+      const app = (window as any).app;
+      const repo = app.gitPanel._status.repo;
+      app.git.sync._onGitChanged({ repo, mark: 'p5-a' });
+      setTimeout(() => app.git.sync._onGitChanged({ repo, mark: 'p5-b' }), 300);
+    });
     await expect.poll(() => c.n, { timeout: 5000 }).toBeGreaterThanOrEqual(2);
     await row.dblclick();
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-diff/);
@@ -189,8 +195,13 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     await expect(page.locator(stable)).toHaveCount(1);
     const n = await markAll(page, sel);
     expect(n).toBeGreaterThan(0);
-    // 지표의 회차(`_pollStats`)를 직접 두 번 돌린다.
-    for (let i = 0; i < 2; i++) await page.evaluate(() => (window as any).app.statusbar._pollStats());
+    // 지표의 회차(채널 `stats:<ms>` 의 full, PERF M1 C3)를 직접 두 번 얹는다.
+    for (let i = 0; i < 2; i++) {
+      await page.evaluate(() => {
+        const app = (window as any).app;
+        app.statusbar._onStats({ kind: 'full', data: { ...app._stats } });
+      });
+    }
     await nextFrames(page);
     // 지표에는 값이 스스로 바뀌는 것(지연·CPU·업타임)이 섞여 있다. 그런 값이 바뀌면
     // 그 항목은 다시 만들어지는 것이 맞다 (FR-RPT-2). 지켜야 하는 것은 **값이
@@ -203,8 +214,6 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
   test('P8 (V110 / FR-RPT-7 #4): Console 기록 행과 펼친 상세가 폴링에 살아남는다', async ({ page }) => {
     const repo = copyFx('basic', 'p8');
     await waitForInit(page);
-    // Console 의 주기(2초)를 줄인다 — 다시 무장할 때마다 읽는 전역이다 (§8.2 (a′)).
-    await setConsoleInterval(page, 300);
     const rec = counter(page, '/api/git/records');
     await openGit(page, repo);
     // 쓰기 하나가 기록을 만든다 — Console 은 쓰기와 실패만 기본으로 보인다.

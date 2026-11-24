@@ -356,6 +356,8 @@ impl Server {
 
     /// Go `applyUsageReport`: 사용량 보고 하나다. HTTP 와 데몬의 report push 가 함께 지난다.
     pub(crate) fn apply_usage_report(&self, body: &agentrec::UsageReport) {
+        // 사용률·서브에이전트는 방송 없이 바뀐다 — 채널 토픽에 직접 알린다 (C3).
+        self.mark_state_topics(crate::state_topics::T_ACTIVITY | crate::state_topics::T_RUNS);
         let tool_id = &body.tool_id;
         let now = OffsetDateTime::now_utc();
         let u = ToolUsage {
@@ -370,6 +372,8 @@ impl Server {
         let acc = body.account.as_ref().filter(|a| !a.email.is_empty());
         if let (Some(acc), Some(ca)) = (acc, &self.ca) {
             ca.sl.put(acc, u.usage.rate_limits.as_ref(), now);
+            // 계정 목록이 statusLine 의 사용량을 싣는다 — 바뀌었으면 `claude.accounts` 가 낸다 (C2b).
+            self.claude_accounts_changed();
         } else if let (Some(agent), Some(limits)) =
             (otter_shared_agentadapter::status_line_reporter(), limits)
         {

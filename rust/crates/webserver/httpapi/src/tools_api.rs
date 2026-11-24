@@ -90,9 +90,6 @@ pub(crate) struct Stats {
     #[serde(rename = "diskPct", skip_serializing_if = "Option::is_none")]
     disk_pct: Option<f64>,
     hostname: String,
-    /// `?jobs=1` 일 때 진행 중 git 작업이다 — Go 의 map 키 순서(바이트 순) 자리다.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    jobs: Option<Vec<otter_webserver_domain_git_jobs::Job>>,
     #[serde(rename = "memTotal", skip_serializing_if = "Option::is_none")]
     mem_total: Option<u64>,
     #[serde(rename = "memUsed", skip_serializing_if = "Option::is_none")]
@@ -193,14 +190,9 @@ impl Server {
         out
     }
 
-    /// GET /api/stats. `?jobs=1` 이면 진행 중 git 작업 목록을 함께 싣는다 — git 이 없으면 키를
-    /// 싣지 않는다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-4).
-    pub(crate) async fn api_stats(&self, r: &mut Req) -> Response {
-        let mut out = self.get_stats();
-        if r.q("jobs") == "1" {
-            out.jobs = self.deps.git.as_ref().and_then(|g| g.active_jobs());
-        }
-        write_json(&out)
+    /// GET /api/stats. 진행 중 git 작업은 `git.jobs` 토픽이 싣는다 (CHANNEL_PROTOCOL C4).
+    pub(crate) async fn api_stats(&self, _r: &mut Req) -> Response {
+        write_json(&self.get_stats())
     }
 
     /// GET /api/state.
@@ -267,10 +259,14 @@ impl Server {
             .await
             .unwrap_or_else(|| Err(ToolError::Other("create cancelled".to_owned())));
         match created {
-            Ok(t) => write_json(&Created {
-                id: t.id,
-                name: t.name,
-            }),
+            Ok(t) => {
+                // `/api/state` 가 도구 목록을 싣는다 — 새 도구가 `workspace` 토픽에 보이게 한다 (C2b).
+                self.refresh_full_topic("workspace");
+                write_json(&Created {
+                    id: t.id,
+                    name: t.name,
+                })
+            }
             // 상한 초과는 429 다 (04-secops P1-4) — 문구에 할 일이 있다.
             Err(ToolError::ToolCap(m)) => fail(StatusCode::TOO_MANY_REQUESTS, &m, None),
             // 그 밖의 실패 문구에는 절대경로가 실린다 — 로그에만 남긴다.
@@ -447,10 +443,8 @@ impl Server {
         self.reap_sandboxes().await;
         // FR-OPT-5-1: 같은 바이트면 rev 가 그대로다 — 다른 브라우저에 재조회를 시키지 않는다.
         let rev_s = rev.to_string();
-        if rev_s != if_match
-            && let Some(c) = self.commands()
-        {
-            c.broadcast(&otter_webserver_sse::workspace_changed(rev));
+        if rev_s != if_match {
+            self.refresh_full_topic("workspace");
         }
         with_header(empty(StatusCode::OK), "ETag", &rev_s)
     }

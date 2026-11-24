@@ -46,7 +46,7 @@ fn main() -> ExitCode {
         }
         return ExitCode::FAILURE;
     }
-    println!("shared-constants ok (K9·K10·K12·K13·K17·K-h)");
+    println!("shared-constants ok (K9·K10·K12·K13·K-h)");
     ExitCode::SUCCESS
 }
 

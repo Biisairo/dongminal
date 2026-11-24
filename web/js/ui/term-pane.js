@@ -8,8 +8,8 @@ class TerminalTool {
     // WINDOW_SLOTS_SRS FR-WSL-14: 같은 도구가 두 슬롯에 서면 toolId 가 같다.
     // 크기 권한을 물을 때 **어느 칸의 인스턴스인지**를 함께 밝혀야 한다.
     this._slot=0;
-    // FR-OPT-12-1: 연결·재접속·송신 큐는 `TermSocket` 이 갖는다.
-    this._sock=new TermSocket(this);
+    // FR-OPT-12-1 · PERF_OPTIMIZATION_SRS C5: 연결·재접속·송신 큐는 `TermChannel` 이 갖는다(탭의 채널에 붙는다).
+    this._sock=new TermChannel(this);
     // REFACTOR3_FE_REST5_SRS D-FR5-9: 전송·보류 배너·출력·크기 판정은 부품이 맡는다. 부품은 상태를 갖지 않고 이 칸의
     // 이름을 `this.pane.X` 로 부른다. 부품의 이름은 바깥도 부품 경로로 부른다(REFACTOR3_FE_DELEG_SRS).
     this.xfer=new TermTransfer(this); this.heldBar=new TermHeld(this); this.output=new TermOutput(this); this.sizer=new TermFit(this);
@@ -140,14 +140,12 @@ class TerminalTool {
     }
   }
 
-  _wsURL(){
-    const p=location.protocol==='https:'?'wss:':'ws:';
-    const cols=(this.term&&this.term.cols)||120;
-    const rows=(this.term&&this.term.rows)||40;
-    // FR-TRS-3: 좌표를 알면 **이어 붙여** 달라고 한다. 모르면 붙이지 않는다 —
+  _termOpenArgs(){
+    const a={tool:this.id,cols:(this.term&&this.term.cols)||120,rows:(this.term&&this.term.rows)||40};
+    // FR-TRS-3: 좌표를 알면 **이어 붙여** 달라고 한다. 모르면 싣지 않는다 —
     // 서버는 그것을 전량 재생으로 읽는다.
-    const since=this._seq>=0?`&since=${this._seq}`:'';
-    return `${p}//${location.host}/ws?cols=${cols}&rows=${rows}&tool=${encodeURIComponent(this.id)}${since}`;
+    if(this._seq>=0) a.since=this._seq;
+    return a;
   }
   // FR-RCS-1: 최초 연결과 재연결이 **같은 판정**을 하도록 수신 처리를 한 곳에
   // 둔다. 두 벌로 두었던 것이 OP.EXIT 처리가 한쪽에만 들어가는 사고의 자리였다.
@@ -282,7 +280,7 @@ class TerminalTool {
     this._exited=false;
     this._sock.open();
   }
-  // ── TermSocket 의 주인 쪽 (FR-OPT-12-1) ──
+  // ── TermChannel 의 주인 쪽 (FR-OPT-12-1) ──
   _wsStopped(){ return this._destroyed||this._exited }
   /**
    * 소켓이 열렸다. 재시도로 붙었거나 `reconnectNow()` 가 오버레이를 띄웠으면 걷는다 —
@@ -424,9 +422,8 @@ class TerminalTool {
   _send(m){ this._sock.send(m) }
   _flushSendQueue(){ this._sock.flush() }
   // 옛 필드 이름 — e2e(terminal·reconnect-storm)와 진단(main.js `sendDropCount`)이 읽는다.
-  // 값은 TermSocket 이 갖는다.
+  // 값은 TermChannel 이 갖는다.
   get ws(){ return this._sock.ws }
-  set ws(v){ this._sock.ws=v }
   get _retryDelay(){ return this._sock.retryDelay }
   set _retryDelay(v){ this._sock.retryDelay=v }
   get _sendQueue(){ return this._sock.queue }

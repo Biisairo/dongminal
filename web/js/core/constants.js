@@ -166,25 +166,14 @@ const RESTORE_PANE_WAIT_TRIES=20;
 const WS_HEALTHY_MS=3000;
 
 
-// RECONNECT_STORM_SRS FR-RCS-6: 커맨드 SSE 의 재접속 백오프. **상한만 있고
-// 포기는 없다.** 종전에는 20회 실패 후 영구히 포기했는데, SSE 가 죽으면
-// `_applyRemoteWorkspace` 의 자가 치유(서버가 모르는 도구를 destroy)가 영영
-// 돌지 않아 죽은 패널이 무한히 재접속한다 (§2.5). 실측으로 그 상태의 브라우저
-// 둘이 초당 91연결을 냈다.
-const SSE_RETRY_MIN_MS=1000;
-const SSE_RETRY_MAX_MS=30000;
-
-// RELOAD_CONTINUITY_SRS FR-RLC-25: 커맨드 SSE 의 **침묵 상한**과 그것을 재는 주기.
-//
-// `readyState` 는 브라우저가 믿는 것이지 사실이 아니다 (D-7). 잠에서 깬 기기의
-// 소켓은 끊긴 줄 모른 채 `OPEN` 으로 남으며(half-open), 그동안 명령도 워크스페이스
-// 갱신도 주의 알림도 오지 않는다. 사실에 가장 가까운 근거는 **최근에 무엇이
-// 왔는가** 하나다.
-//
-// 서버는 인사를 15초마다 보낸다(`sseHelloEvery`). 그 세 배를 상한으로 두어 한두
-// 번 늦는 것(네트워크 지연·탭 스로틀링·GC)을 죽음으로 읽지 않는다.
-const SSE_SILENCE_MS=45000;
-const SSE_SILENCE_CHECK_MS=5000;
+// PERF_OPTIMIZATION_SRS FR-CON-7 (`perf/CHANNEL_PROTOCOL.md` §7): 채널의 ping 주기(숨었을 때),
+// 침묵 판정의 유예, 재연결 백오프. 보일 때의 ping 주기는 `statsInterval` 이다.
+const CHAN_PING_HIDDEN_MS=30000;
+const CHAN_SILENCE_GRACE_MS=5000;
+const CHAN_RETRY_MIN_MS=500;
+const CHAN_RETRY_MAX_MS=10000;
+/** 상태 토픽(PERF M1 C3) 변화를 복원에 넘기기 전에 모으는 시간. 한 틱의 변화는 한 번으로 합친다. */
+const STATE_TOPIC_COALESCE_MS=0;
 
 // TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면이 도구 목록을 **모르는** 스냅숏을
 // 받았을 때 다시 물어보는 횟수와 간격. 데몬 재접속은 실측 0.02초에 끝나므로
@@ -412,7 +401,7 @@ const RUN_DECAY_SLACK_MS=50;
 
 /** ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-42: 관측이 이보다 오래되면 `as of HH:MM` 을 보인다 (`activity-list.js`). */
 const LIMIT_STALE_MS=10*60*MS_PER_SEC;
-/** 텔레그램 등록 코드의 남은 시간과 등록 여부를 다시 보는 주기 (`settings-telegram.js`). */
+/** 텔레그램 등록 코드의 남은 시간을 다시 그리는 주기 (`settings-telegram.js`). 등록 여부는 토픽이 준다. */
 const TG_PAIR_TICK_MS=2000;
 /** 간선 초대의 남은 시간을 다시 그리는 주기 (`settings-edges.js`). */
 const EDGE_REMAIN_TICK_MS=1000;

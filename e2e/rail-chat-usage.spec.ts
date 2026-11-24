@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, stubEmptyLimits } from './fixtures';
+import { test, expect, waitForInit, stubEmptyLimits, stubTopic } from './fixtures';
 
 /**
  * RAIL_CHAT_USAGE_SRS — 레일의 채팅 목록과 Claude 사용량.
@@ -31,12 +31,15 @@ async function installUsageMock(page: Page, alias = 'Work', five = 34) {
     { id: 'b', email: 'bob@y.org', color: 'acct-6', disabled: false, priority: 0, active: false,
       usage: { status: 'ok', ageSeconds: 10, windows: { fiveHour: win(5, 9000), sevenDay: win(10, 400000) } } },
   ];
+  const list = { activeId: 'a', autoswitch: { enabled: false, status: 'off' }, otherStatusLines: [], accounts };
+  // 목록은 `claude.accounts` 토픽으로 온다(CHANNEL_PROTOCOL C2b). 그 밖의 GET 은 아래 route 가 받는다.
+  await stubTopic(page, 'claude.accounts', list);
   await page.route('**/api/claude-accounts**', async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname.replace('/api/claude-accounts', '') || '/';
     const json = (data: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     switch (req.method() + ' ' + path) {
-      case 'GET /': return json({ activeId: 'a', autoswitch: { enabled: false, status: 'off' }, otherStatusLines: [], accounts });
+      case 'GET /': return json(list);
       case 'GET /mappings': return json({ folders: {}, tabs: {} });
       case 'GET /resolve': return json({ source: 'none' });
       default: return route.fallback();

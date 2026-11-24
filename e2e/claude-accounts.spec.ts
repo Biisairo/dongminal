@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, stubEmptyLimits } from './fixtures';
+import { test, expect, waitForInit, stubEmptyLimits, stubTopic } from './fixtures';
 
 /**
  * CLAUDE_ACCOUNTS_SRS TC-CAC-27 — 계정 둘 → foot 두 묶음 + statusLine 줄 → 전환 → 활성 표식 이동 →
@@ -34,14 +34,16 @@ type Mock = ReturnType<typeof mockState>;
 
 async function installMock(page: any, st: Mock) {
   await stubEmptyLimits(page); // QUALITY_FLAKY_SRS FR-FLK-12: 같은 워커의 앞 시험이 남긴 한도가 바닥에 줄을 세우지 않게
+  const list = () => ({ activeId: st.activeId, autoswitch: { enabled: false, status: 'off' }, otherStatusLines: [],
+    accounts: st.accounts.map((a) => ({ ...a, active: a.id === st.activeId })) });
+  // 목록은 `claude.accounts` 토픽으로 온다(CHANNEL_PROTOCOL C2b). 조작 뒤의 GET 은 아래 route 가 받는다.
+  await stubTopic(page, 'claude.accounts', list);
   await page.route('**/api/claude-accounts**', async (route: any) => {
     const req = route.request();
     const url = new URL(req.url());
     const path = url.pathname.replace('/api/claude-accounts', '') || '/';
     const body = req.postData() ? JSON.parse(req.postData()) : {};
     const json = (data: any, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
-    const list = () => ({ activeId: st.activeId, autoswitch: { enabled: false, status: 'off' }, otherStatusLines: [],
-      accounts: st.accounts.map((a) => ({ ...a, active: a.id === st.activeId })) });
     switch (req.method() + ' ' + path) {
       case 'GET /': return json(list());
       case 'POST /switch': { const from = st.activeId; st.activeId = body.id; return json({ from, to: body.id, outgoing: 'same' }) }

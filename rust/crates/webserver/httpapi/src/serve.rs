@@ -40,6 +40,11 @@ pub trait GitHandler: Send + Sync {
     fn active_jobs(&self) -> Option<Vec<otter_webserver_domain_git_jobs::Job>> {
         None
     }
+
+    /// 잡 하나의 출력 흐름이다 (`gitjob:<id>` 토픽). 잡이나 git 이 없으면 `None` 이다.
+    fn job_feed(&self, _id: &str) -> Option<otter_webserver_gitapi::JobFeed> {
+        None
+    }
 }
 
 /// mux 의 패턴 (Go `ServeMux` 의 메서드 없는 패턴).
@@ -64,17 +69,9 @@ macro_rules! mux_h {
 pub(crate) fn mux_table() -> Vec<(Pattern, Handler)> {
     vec![
         (Pattern::Tree("/"), mux_h!(handle_static)),
-        (Pattern::Exact("/ws"), mux_h!(handle_ws)),
+        (Pattern::Exact("/channel"), mux_h!(handle_channel)),
         (Pattern::Tree("/api/"), handle_api_entry as Handler),
         (Pattern::Exact("/api/commands"), mux_h!(handle_command_post)),
-        (
-            Pattern::Exact("/api/commands/sse"),
-            mux_h!(handle_command_sse),
-        ),
-        (
-            Pattern::Exact("/api/command-result"),
-            mux_h!(handle_command_result),
-        ),
         // VIEWER_URL_OPEN_SRS FR-VUO-19: 부작용 없는 판정 조회.
         (
             Pattern::Exact("/api/open-url/where"),

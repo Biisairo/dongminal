@@ -57,7 +57,10 @@ impl Server {
         };
         let u2 = u.clone();
         match off_thread(move || u2.set_enabled(on)).await {
-            Some(Ok(())) => write_json(&u.snapshot()),
+            Some(Ok(())) => {
+                self.update_changed();
+                write_json(&u.snapshot())
+            }
             Some(Err(e)) => fail(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 &format!("설정을 저장하지 못했습니다: {e}"),

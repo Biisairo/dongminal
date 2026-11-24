@@ -14,9 +14,6 @@
  * 키·범위·기본값은 여기 없다 — `SETTINGS_SCHEMA` 가 갖는다 (FR-CFG-1 · FR-OPT-11-4).
  * 선택지의 최소·최대가 표의 min·max 와 같은지는 `settings-source.test.mjs` 가 본다.
  *
- * 옛 `agentsPollMs` 의 이사(`_pollMigrateAgents`)는 `SettingsApply`(`settings-apply.js`)다
- * (REFACTOR3_FE_APPCTL_SRS 9a). 여기는 표뿐이다.
- *
  * 로드 순서 계약: settings-schema.js **뒤**, settings-table.js **앞**(`_settingsApply`
  * 가 이 표를 지난다).
  */
@@ -33,34 +30,9 @@
  */
 const POLL_SETTINGS=[
   {
-    key:'agentsPollInterval', id:'pi-agents', label:t('poll.agents.label'),
-    hint:t('poll.agents.hint'),
-    get:()=>agentsPollInterval, set:v=>{agentsPollInterval=v},
-    opts:[[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
-  },
-  {
     key:'statsInterval', id:'pi-stats', label:t('poll.stats.label'),
     hint:t('poll.stats.hint'),
     get:()=>statsInterval, set:v=>{statsInterval=v},
-    opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
-  },
-  {
-    key:'gitStatusInterval', id:'pi-gitstatus', label:t('poll.git_status.label'),
-    hint:t('poll.git_status.hint'),
-    get:()=>gitStatusInterval, set:v=>{gitStatusInterval=v},
-    // FR-PIS-9: `0` 이 뜻을 갖는 유일한 자리 — 본줄이 따로 있으므로 꺼도 멎지 않는다.
-    //
-    // GIT_WATCH_LEASE_SRS FR-GWL-11·12: 그 진술이 오래 **거짓**이었다. 서버 감시의
-    // 임대가 이 폴링에 매달려 있어서, 끄면 본줄인 push 까지 죽었다 (GP-1). 임대를
-    // SSE 구독으로 옮겨 참으로 만들었고, 그러면서 `1분`·`2분` 을 뺐다 — 놓친 것을
-    // 줍는 그물이 1~2분에 한 번이면 그물이 아니고, 그 사이는 push 가 이미 덮는다.
-    // 짧게 두거나 끄거나 둘 중 하나다. `0` 을 값으로 받는다는 사실은 표의 `off` 다.
-    opts:[[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)],[0,t('core.off')]],
-  },
-  {
-    key:'gitReposInterval', id:'pi-gitrepos', label:t('poll.git_repos.label'),
-    hint:t('poll.git_repos.hint'),
-    get:()=>gitReposInterval, set:v=>{gitReposInterval=v},
     opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
   {
@@ -69,12 +41,6 @@ const POLL_SETTINGS=[
     hint:t('poll.git_worktree.hint'),
     get:()=>gitWorktreeInterval, set:v=>{gitWorktreeInterval=v},
     opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[4000,tn('core.dur_sec',4)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
-  },
-  {
-    key:'gitConsoleInterval', id:'pi-gitconsole', label:t('poll.git_console.label'),
-    hint:t('poll.git_console.hint'),
-    get:()=>gitConsoleInterval, set:v=>{gitConsoleInterval=v},
-    opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)]],
   },
 ];
 

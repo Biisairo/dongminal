@@ -1,8 +1,9 @@
 /**
  * Otterminal — 보이는 디렉터리의 **서버 감시** (EDITOR_LIVE_RELOAD_SRS 묶음 C).
  *
- * 등록(`edWatchSync`)과 반응(`_onFsChanged`)이 여기 있다. 폴링(`_edTick`)은 그대로
- * 돈다 — 감시는 체감 속도를, 폴링은 정확성의 안전망을 맡는다 (FR-ELR-61).
+ * 등록(`edWatchSync`)과 반응(`_onFsChanged`)이 여기 있다. 주기 안전망은 없다 — 감시가
+ * 본줄이고, 놓친 구간(숨김·재연결·overflow)은 `EditorPane._edTick` 이 한 번 맞춘다
+ * (PERF_OPTIMIZATION_SRS 이슈 1.14).
  */
 class EditorWatch extends Controller {
   /**
@@ -32,8 +33,15 @@ class EditorWatch extends Controller {
    * `_edWatchRestore` 가 보낸다 (FR-ELR-52).
    */
   edWatchSync(){
-    if(this._edWatchOff||!this._edWatchLive) return;
-    TIMERS.frame(()=>this._edWatchSend(false),{owner:this.app,coalesce:'ed-watch',label:'ed-watch'});
+    TIMERS.frame(()=>this._edWatchFrame(),{owner:this.app,coalesce:'ed-watch',label:'ed-watch'});
+  }
+
+  /** 보이는 집합이 바뀌었다 — git 토픽 구독(이슈 1.14, 틱이 하던 일)과 감시 등록을 함께 맞춘다. */
+  _edWatchFrame(){
+    const stores=new Set();
+    for(const tree of this.app.editor.open._edVisibleTrees()) if(tree&&tree.store) stores.add(tree.store);
+    this.app.editor.pane._edGitWatchSync(stores);
+    if(!this._edWatchOff&&this._edWatchLive) this._edWatchSend(false);
   }
 
   /** FR-ELR-52·66: SSE 가 (다시) 열리면 서버의 집합은 비어 있다 — 같은 집합이라도 보낸다. */

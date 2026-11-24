@@ -1,6 +1,6 @@
 import { join } from 'path';
 
-import { APIRequestContext, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 
 import {
   test, expect, makeCopyFx, openGit, clickGitView, waitForInit, gitFixture, cleanGitFixture,
@@ -26,67 +26,20 @@ test.afterAll(() => { cleanGitFixture(FIXTURES) });
 const fx = (name: string) => realPath(join(FIXTURES, name));
 const copyFx = makeCopyFx(FIXTURES);
 
-async function patchSettings(request: APIRequestContext, patch: Record<string, unknown>) {
-  const cur = await (await request.get('/api/settings')).json();
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === undefined) delete cur[k]; else cur[k] = v;
-  }
-  const r = await request.put('/api/settings', { data: cur });
-  expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
-}
-const defaultIntervals = (request: APIRequestContext) =>
-  patchSettings(request, { gitStatusInterval: undefined });
-
 function counter(page: Page, needle: string) {
   const state = { n: 0 };
   page.on('request', (r) => { if (r.url().includes(needle)) state.n++ });
   return state;
 }
 
-// ── 묶음 A — 첫 관측 (GP-2) ────────────────────────────────────────────────
-
-test.describe('FR-GRF 묶음 A — 첫 관측', () => {
-  test('V-GRF-1: 주기 0 에서 한 번도 관측이 없으면 워치독이 1회 수집한다',
-    async ({ page, request }) => {
-      await patchSettings(request, { gitStatusInterval: 0 });
-      await waitForInit(page);
-      await openGit(page, fx('basic'));
-
-      /**
-       * `11 GP-2` 가 확정한 그 상태를 인위적으로 세운다.
-       *
-       * `_pollOn=true, _pollSt=0` 이 한 번 서면 `_applyCadence` 의
-       * `if(this._pollOn&&this._pollSt===st) return false` 때문에 그 뒤의 모든
-       * `_reschedule()` 이 거짓을 돌려준다. 주기 0 이라 타이머도 없다 — 남는
-       * 계기는 포커스와 새로고침 버튼뿐이고, 종전 워치독은 `st<=0` 에서 통째로
-       * 물러났으므로 status 는 **0건**이었다.
-       */
-      // 세기는 상태를 세우기 **전에** 건다 — 워치독은 1초마다 한 번만 시도하므로, 뒤에
-      // 걸면 느린 러너에서 그 1회가 셈 밖으로 나간다(Windows CI).
-      const c = counter(page, '/api/git/status');
-      await page.evaluate(() => {
-        const p = (window as any).app.gitPanel;
-        p._lastObsAt = 0;      // 한 번도 관측 없음
-        p._wdTryAt = 0;
-        p._pollOn = true; p._pollSt = 0;
-      });
-
-      // 워치독은 `GIT_WATCHDOG_CHECK_MS`(1초)마다 돈다.
-      await expect.poll(() => c.n, { timeout: 10000 })
-        .toBeGreaterThanOrEqual(1);
-      await defaultIntervals(request);
-    });
-
-  // V-GRF-2 (FR-GRF-2, "그 1회 뒤에도 주기 타이머는 서지 않는다") 는 워치독 상수(1초)의
-  // 되풀이를 3초 창으로 쟀다 — 단위 시험으로 옮겼다 (`web/js/test/git-poll-cadence.test.mjs`).
-});
+// 묶음 A(감시견의 첫 관측)는 감시견과 함께 사라졌다 — 관측은 채널의 `git:<root>` 토픽이다
+// (PERF_OPTIMIZATION_SRS M1 C4).
 
 // ── 묶음 B — 복귀 (GP-3) ──────────────────────────────────────────────────
 
 test.describe('FR-GRF 묶음 B — git 이 돌아온다', () => {
   test('V-GRF-3: 성공한 관측 하나가 git_missing 을 풀고 자동 갱신을 되살린다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
 
@@ -104,7 +57,8 @@ test.describe('FR-GRF 묶음 B — git 이 돌아온다', () => {
       await expect.poll(
         () => page.evaluate(() => {
           const p = (window as any).app.gitPanel;
-          return { missing: p._gitMissing, armed: !!p._stPoll };
+          // 자동 갱신은 주기 타이머가 아니라 `git:<root>` 토픽 구독이다 (PERF_OPTIMIZATION_SRS M1 C4).
+          return { missing: p._gitMissing, armed: !!p.obs._gitTopic };
         }),
         { timeout: 20000 },
       ).toEqual({ missing: false, armed: true });
@@ -124,7 +78,6 @@ test.describe('FR-GRF 묶음 D — 낡음은 모든 탭에서 보인다', () => 
 
   test('V-GRF-5: History 탭을 연 채 관측이 실패하면 그 탭에 배너가 뜬다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       await clickGitView(page, 'history');
@@ -142,7 +95,6 @@ test.describe('FR-GRF 묶음 D — 낡음은 모든 탭에서 보인다', () => 
 
   test('V-GRF-5b: Branches·Stash·Console 에도 같은 배너가 선다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       for (const v of ['branches', 'stash', 'console']) {
@@ -159,7 +111,6 @@ test.describe('FR-GRF 묶음 D — 낡음은 모든 탭에서 보인다', () => 
 
   test('V-GRF-6: 소실 안내가 있으면 낡음 배너는 뜨지 않는다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       await clickGitView(page, 'history');
@@ -180,7 +131,6 @@ test.describe('FR-GRF 묶음 D — 낡음은 모든 탭에서 보인다', () => 
 test.describe('FR-GRF 묶음 E — 사이드는 render 를 넘어 산다', () => {
   test('V-GRF-7: 커밋 메시지 입력 중 render 가 와도 커서가 유지된다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       const repo = copyFx('basic', 'grf-side');
       await waitForInit(page);
       await openGit(page, repo);
@@ -200,7 +150,6 @@ test.describe('FR-GRF 묶음 E — 사이드는 render 를 넘어 산다', () =>
 
   test('V-GRF-7b: 진입점 버튼과 사이드 골격이 render 를 넘어 같은 요소다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       const sel = '#area .ed-side';
@@ -227,7 +176,6 @@ test.describe('FR-GRF 묶음 E — 사이드는 render 를 넘어 산다', () =>
 test.describe('FR-GRF 묶음 I — 숨은 탭', () => {
   test('V-GRF-14: 숨어 있으면 방송에 수집하지 않는다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       const c = counter(page, '/api/git/status');

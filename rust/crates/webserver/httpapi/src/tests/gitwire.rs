@@ -88,9 +88,9 @@ async fn git_status_through_httpapi() {
     assert_eq!(r.status, 400);
 }
 
-// FR-OPT-4-4: `?jobs=1` 이면 진행 중 git 작업을 싣고, 인자가 없거나 git 이 없으면 키가 없다.
+// TC-CH4-6: 진행 중 git 작업은 `git.jobs` 토픽이 싣는다 — `/api/stats?jobs=1` 의 안전망은 없다.
 #[tokio::test]
-async fn stats_jobs_only_with_param_and_git() {
+async fn stats_never_carries_jobs() {
     let d = tempfile::tempdir().unwrap();
     let s = server(
         d.path(),
@@ -99,16 +99,6 @@ async fn stats_jobs_only_with_param_and_git() {
             ..Deps::default()
         },
     );
-    assert!(get(&s, "/api/stats").await.json().get("jobs").is_none());
     let v = get(&s, "/api/stats?jobs=1").await.json();
-    assert_eq!(v["jobs"], serde_json::json!([]));
-    let body = get(&s, "/api/stats?jobs=1").await.body;
-    assert!(body.contains(r#""hostname":"#) && body.find("\"jobs\"") > body.find("\"hostname\""));
-
-    let s = server(d.path(), Deps::default());
-    let v = get(&s, "/api/stats?jobs=1").await.json();
-    assert!(
-        v.get("jobs").is_none(),
-        "git 없는 배선에 jobs 가 실렸다: {v}"
-    );
+    assert!(v.get("jobs").is_none(), "{v}");
 }

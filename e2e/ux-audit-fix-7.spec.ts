@@ -2,14 +2,15 @@
 // TC-UXF-92·93 은 단위(web/js/test/keybar.test.mjs)다.
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, JSON_HDR } from './fixtures';
+import { test, expect, waitForInit, JSON_HDR, stubTopic } from './fixtures';
 
 const MOBILE = { width: 412, height: 839 };
 const NEWER = { enabled: true, current: 'v1.0.0', latest: 'v9.9.9', newer: true, failed: false, link: 'https://example.invalid/releases/v9.9.9' };
 const LATEST = { ...NEWER, latest: 'v1.0.0', newer: false };
 
-/** update-notice.spec.ts 의 대역과 같다 — 구독이 열릴 때의 읽기는 `/api/snapshot` 의 `update` 조각으로 온다. */
+/** update-notice.spec.ts 의 대역과 같다 — 화면의 값은 채널의 `update` 토픽으로 온다(CHANNEL_PROTOCOL C2b). */
 async function stubUpdate(page: Page, snap: object) {
+  await stubTopic(page, 'update', snap);
   await page.route('**/api/update', (route) => route.fulfill({ status: 200, headers: JSON_HDR, body: JSON.stringify(snap) }));
   await page.route('**/api/snapshot?*', async (route) => {
     const res = await route.fetch();

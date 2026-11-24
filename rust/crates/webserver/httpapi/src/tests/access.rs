@@ -148,7 +148,13 @@ fn covers_every_surface() {
     let d = tempfile::tempdir().unwrap();
     let st = test_store(d.path());
     st.set_config(cfg(true, vec![], vec![])).unwrap();
-    for p in ["/", "/index.html", "/api/state", "/api/settings", "/ws"] {
+    for p in [
+        "/",
+        "/index.html",
+        "/api/state",
+        "/api/settings",
+        "/channel",
+    ] {
         assert_eq!(gate_status(&st, "203.0.113.9:5000", p), 403, "{p}");
     }
 }

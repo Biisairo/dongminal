@@ -49,16 +49,20 @@ async function seedHidden(page: Page, request: any): Promise<{ first: string; hi
 
 type Boot = { ws: string[]; bytes: number };
 
-// 새로고침 한 번에 열린 터미널 WS 와 그 WS 로 받은 바이트.
+// 새로고침 한 번에 붙은 터미널(채널의 `term.open`, PERF C5)과 그 터미널 프레임으로 받은 바이트.
 async function measureBoot(page: Page): Promise<Boot> {
   const box: Boot = { ws: [], bytes: 0 };
   page.on('websocket', (ws) => {
-    const u = new URL(ws.url());
-    if (u.pathname !== '/ws') return;
-    box.ws.push(u.searchParams.get('tool') || '');
+    if (new URL(ws.url()).pathname !== '/channel') return;
+    ws.on('framesent', (f) => {
+      if (typeof f.payload !== 'string') return;
+      let m: any = null;
+      try { m = JSON.parse(f.payload) } catch { return }
+      if (m && m.t === 'term.open') box.ws.push(m.tool || '');
+    });
     ws.on('framereceived', (f) => {
       const p: any = f.payload;
-      box.bytes += typeof p === 'string' ? p.length : p.byteLength;
+      if (typeof p !== 'string') box.bytes += p.byteLength;
     });
   });
   await page.reload();
@@ -119,31 +123,16 @@ test('TLC3 (IPC-5): 원격 워크스페이스 변경이 붙지 않은 도구의 
   expect(await page.evaluate((id) => (window as any).app.toolIds.has(id), gone)).toBe(false);
 });
 
-test('TLC4 (IPC-11): 칸 구독은 presence 로 열리고 방송을 받지 않는다', async ({ page }) => {
+test('TLC4 (IPC-11 · TC-CH1-13): 칸 소유권은 SSE 를 따로 열지 않고 채널의 slots 로 쥔다', async ({ page }) => {
   await waitForInit(page);
   await page.evaluate(() => (window as any).app.slot.ops.slotAdd());
-  await expect.poll(() => page.evaluate(() => (window as any).app.bus.channels().map((c: any) => c.url)), { timeout: 10000 })
-    .toContainEqual(expect.stringContaining('presence=1'));
-  // 칸 구독에 온 메시지를 센다. 인사(server_hello)는 keepalive 라 뺀다.
-  await page.evaluate(() => {
-    const es = (window as any).app.bus._extra.get('slot:1').es;
-    (window as any).__slotMsgs = [];
-    es.addEventListener('message', (e: MessageEvent) => {
-      const a = JSON.parse(e.data).action;
-      if (a !== 'server_hello') (window as any).__slotMsgs.push(a);
-    });
-  });
-  // 방송을 일으킨다 — 워크스페이스 저장은 workspace_changed 를 모두에게 보낸다.
-  await page.evaluate(() => {
-    const got: string[] = [];
-    (window as any).app.bus.subscribe('workspace_changed', () => got.push('workspace_changed'), { owner: 'tlc4' });
-    (window as any).__mainMsgs = got;
-  });
-  await page.evaluate(async () => { const app = (window as any).app; await app.testing.mkWindow({ keepFocus: true }); app.wsSave.save() });
-  await expect.poll(() => page.evaluate(() => (window as any).__mainMsgs.length), { timeout: 10000 }).toBeGreaterThan(0);
-  // TEST-16: 칸 구독에 방송이 **오지 않음**을 잰다.
-  await page.waitForTimeout(800);
-  expect(await page.evaluate(() => (window as any).__slotMsgs), '칸 구독이 방송을 받았다').toEqual([]);
+  await expect.poll(() => page.evaluate(() => {
+    const app = (window as any).app;
+    return (app.channel._slots as string[]).includes(app.slot._slotIdentity(1));
+  }), { timeout: 10000 }).toBe(true);
+  // 명령 SSE(C2a)와 git job SSE(C4)가 채널로 합쳐져 버스가 여는 부가 채널은 없다 — 그 자리(`openChannel`)도 지웠다.
+  expect(await page.evaluate(() => typeof (window as any).app.bus.openChannel), '버스가 SSE 를 여는 자리가 남았다')
+    .toBe('undefined');
 });
 
 test('TLC5 (IPC-5): 그려지지 않은 창의 칸을 나누어도 새 도구는 그 칸 도구의 cwd 를 잇는다', async ({ page, request }) => {

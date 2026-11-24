@@ -1,6 +1,6 @@
 //! 실행 기록 (FR-GIT-5). Console 탭이 읽는 와이어다.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
@@ -118,10 +118,14 @@ impl Ring {
     }
 }
 
+/// 기록이 더해질 때 부르는 것 — (저장소 루트 `cwd`, Seq).
+pub type OnAdd = Arc<dyn Fn(&str, u64) + Send + Sync>;
+
 /// 고정 길이 링 버퍼다.
 pub struct Recorder {
     ring: Mutex<Ring>,
     epoch: String,
+    on_add: Mutex<Option<OnAdd>>,
 }
 
 const BASE32_ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -148,6 +152,7 @@ impl Recorder {
                 seq: 0,
             }),
             epoch: rand_text(),
+            on_add: Mutex::new(None),
         }
     }
 
@@ -160,17 +165,44 @@ impl Recorder {
         &self.epoch
     }
 
+    /// 기록이 더해질 때 부를 것을 단다. `None` 이면 뗀다 (PERF M1 C6 — Console 토픽).
+    pub fn set_on_add(&self, f: Option<OnAdd>) {
+        *self.on_add.lock().unwrap_or_else(|e| e.into_inner()) = f;
+    }
+
     /// Seq 를 부여해 기록한다. 링이 넘쳐도 Seq 는 되돌아가지 않는다.
     pub fn add(&self, mut rec: Record) {
-        let mut r = self.lock();
-        r.seq += 1;
-        rec.seq = r.seq;
-        let next = r.next;
-        r.buf[next] = rec;
-        r.next = (next + 1) % r.buf.len();
-        if r.n < r.buf.len() {
-            r.n += 1;
+        let cwd = rec.cwd.clone();
+        let seq = {
+            let mut r = self.lock();
+            r.seq += 1;
+            rec.seq = r.seq;
+            let next = r.next;
+            r.buf[next] = rec;
+            r.next = (next + 1) % r.buf.len();
+            if r.n < r.buf.len() {
+                r.n += 1;
+            }
+            r.seq
+        };
+        let f = self
+            .on_add
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        if let Some(f) = f {
+            f(&cwd, seq);
         }
+    }
+
+    /// `cwd` 가 같은 기록 중 마지막 Seq 다. 없으면 0 이다.
+    pub fn last_seq_of(&self, cwd: &str) -> u64 {
+        let r = self.lock();
+        let len = r.buf.len();
+        (1..=r.n)
+            .map(|i| &r.buf[(r.next + len - i) % len])
+            .find(|x| x.cwd == cwd)
+            .map_or(0, |x| x.seq)
     }
 
     /// 최신이 마지막인 복사본이다. n 이 0 이면 보유분 전부다.

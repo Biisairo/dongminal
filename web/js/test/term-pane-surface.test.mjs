@@ -25,14 +25,14 @@ const PROTO = [
   '_onWsOpen:function', '_onWsReady:function', '_redrawNudge:function', 
   '_resetDecoderIfNoResume:function', '_retryDelay:getset', '_rowHeight:function', '_scheduleReconnect:function',
   '_send:function', '_sendDropCount:get', '_sendKey:function', '_sendQueue:getset', '_sendQueueMax:get',
-  '_sendResize:function', '_sendText:function', '_sendUserFrame:function', '_showOverlay:function', '_toast:function',
+  '_sendResize:function', '_sendText:function', '_sendUserFrame:function', '_showOverlay:function', '_termOpenArgs:function', '_toast:function',
   '_touchScrollBy:function', '_tsAck:function', '_tsEnd:function', '_tsFollow:function', '_tsInflightRoom:function',
   '_tsLines:function', '_tsLprMeasure:function', '_tsMouseMode:function', '_tsMove:function', '_tsOnWrite:function',
   '_tsStart:function', '_tsTouch:function', '_tsUnfollow:function', '_userInput:function',
   '_wheelKick:function', '_wireContextMenu:function', '_wireIme:function', '_wireKeys:function',
-  '_wireNativeSelect:function', '_wsLost:function', '_wsOpened:function', '_wsStopped:function', '_wsURL:function',
+  '_wireNativeSelect:function', '_wsLost:function', '_wsOpened:function', '_wsStopped:function',
   'connect:function', 'destroy:function', 'focus:function', 'open:function',
-  'reconnectNow:function', 'write:function', 'ws:getset',
+  'reconnectNow:function', 'write:function', 'ws:get',
 ];
 
 function pane(globals = {}) {

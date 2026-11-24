@@ -63,7 +63,6 @@ pub(crate) static ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         post("/api/git/pull", h!(api_git_pull)),
         post("/api/git/push", h!(api_git_push)),
         post("/api/git/job/cancel", h!(api_git_job_cancel)),
-        get("/api/git/job/events", h!(need_git api_git_job_events)),
         get("/api/git/jobs", h!(need_git api_git_jobs)),
         // 묶음 E — 원격 목록 (FR-GIT-269).
         get("/api/git/remotes", h!(api_git_remotes)),

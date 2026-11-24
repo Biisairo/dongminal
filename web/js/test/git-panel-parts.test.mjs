@@ -46,7 +46,6 @@ const PARTS = [
   { field: 'viewReload', cls: 'GitViewReload', gone: [], owned: ['_refsRound'],
     delegates: [['refresh', []], ['_reloadViews', [true]], ['_staleTake', ['history', '/r']], ['_inRefsRound', [() => 1]],
       ['_reloadStaleViews', ['sig']]] },
-  { field: 'watchdog', cls: 'GitWatchdog', gone: [], owned: [], delegates: [] },
   { field: 'write', cls: 'GitWrite', gone: ['git/panel-write.js'], owned: ['_opActs', '_opActsP'],
     delegates: [['afterCommitOp', [{ ok: true }]], ['noteCompareMark', ['l']], ['afterRefWrite', [{ status: {} }]],
       ['afterRemoteJob', []], ['afterJobSlots', []], ['stashApply', ['o1', true]], ['stashPop', ['o1']], ['stashDrop', ['o1']],
@@ -106,7 +105,8 @@ const ASSIGNS_LEFT = 0;
 function setup(globals = {}) {
   const ctx = load([...BASE, ...GITPANEL], {
     expose: ['GitPanel', 'GitPart', 'Component', ...PARTS.map((s) => s.cls)],
-    globals: { TIMERS: { disposeOwner() {} }, ...globals },
+    // `GitPoll` 의 클래스 필드가 생성 때 읽는다 (PERF 1.15). 원본은 i18n 을 부르는 constants-git-detect.js 라 싣지 않는다.
+    globals: { TIMERS: { disposeOwner() {} }, GIT_STATUS_RETRY_MS: 30000, ...globals },
   });
   const obs = { attach() {}, detach() {}, resettle() {} };
   const app = { git: { surfaces: { gitObs: () => obs } }, timers: { disposeOwner() {} } };
@@ -140,8 +140,7 @@ test('TC-DLG-1 부품의 이름은 부품 원형에 있고 패널 원형에는 �
       assert.ok(!(name in ctx.GitPanel), `정적 위임자가 남았다: ${name}`);
     }
   }
-  assert.equal(typeof ctx.GitWatchdog.prototype.run, 'function');
-  assert.ok(!('_watchdog' in proto), '위임자가 남았다: _watchdog');
+  assert.ok(!('watchdog' in proto) && !('_watchdog' in proto), '감시견이 남았다 (PERF_OPTIMIZATION_SRS M1 C4)');
 });
 
 test('TC-DLG-2 부품 인스턴스에 갈아 끼운 메서드를 패널 본문이 부른다', () => {

@@ -10,6 +10,8 @@ use super::{Entry, GitWatcher, State, WatchPend, obs_mark, phase_hash};
 
 /// 임차인 키에서 신원과 갈래를 가른다. clientId 에 들 수 없는 글자다.
 const HOLDER_SCOPE_SEP: &str = "\x1f";
+/// 토픽 구독이 쥐는 임차인이다. clientId 에 들 수 없는 글자로 시작한다.
+const TOPIC_HOLDER: &str = "\x1echannel";
 
 fn holder_key(client_id: &str, scope: &str) -> String {
     if scope.is_empty() {
@@ -83,6 +85,29 @@ impl GitWatcher {
         drop(g);
         if let Some(f) = f {
             f(repo);
+        }
+    }
+
+    /// `git:<repo>` 토픽에 구독자가 있는 동안의 임대다 (CHANNEL_PROTOCOL C4). 구독자가 몇이든
+    /// 임차인은 하나다 — 토픽이 구독자 수를 센다.
+    pub fn hold_topic(&self, repo: &str, obs: &Observation) {
+        {
+            let mut g = self.lock();
+            if !g.live.contains_key(TOPIC_HOLDER) {
+                g.epoch += 1;
+                let ep = g.epoch;
+                g.live.insert(TOPIC_HOLDER.to_owned(), ep);
+            }
+        }
+        self.note_scoped(repo, obs, TOPIC_HOLDER, "");
+    }
+
+    /// 토픽의 마지막 구독자가 떠났다. 그 뒤로는 관심 표명의 수명(`ttl`)을 따른다.
+    pub fn release_topic(&self, repo: &str) {
+        let now = (self.now)();
+        if let Some(e) = self.lock().watch.get_mut(repo) {
+            e.holders.remove(TOPIC_HOLDER);
+            e.seen_at = now;
         }
     }
 

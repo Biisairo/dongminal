@@ -21,7 +21,6 @@
  *   git-diff-pane.js  Diff 탭 · Diff 탭 전용 패널의 몫 · 보기 설정 (`this.diffPane`)
  *   git-poll.js       접기 설정 · 폴링 · 상태 적용 (`this.poll`)
  *   git-view-reload.js 새로고침 · 뷰 다시 받기 · refs 회차 (`this.viewReload`)
- *   git-watchdog.js   멈춘 관측 되살리기 (`this.watchdog`)
  *   git-write.js      쓰기 한 번의 전과 후 — 후처리 훅 · 결과 해석 · 오퍼레이션 (`this.write`)
  *   git-changes.js    Changes 탭 — 골격 · 칠하기 · 머리 · git init (`this.changes`)
  *   git-change-rows.js Changes 탭의 그룹 · 트리 · 행 (`this.changeRows`)
@@ -87,7 +86,6 @@ class GitPanel {
     this.diffPane=new GitDiffPane(this);
     this.poll=new GitPoll(this);
     this.viewReload=new GitViewReload(this);
-    this.watchdog=new GitWatchdog(this);
     this.write=new GitWrite(this);
     this.changes=new GitChanges(this);
     this.changeRows=new GitChangeRows(this);
@@ -124,7 +122,6 @@ class GitPanel {
   get _pollOn(){ return this.obs._pollOn } set _pollOn(v){ this.obs._pollOn=v }
   get _pollSt(){ return this.obs._pollSt } set _pollSt(v){ this.obs._pollSt=v }
   get _stPoll(){ return this.obs._stPoll } set _stPoll(v){ this.obs._stPoll=v }
-  get _wdTryAt(){ return this.obs._wdTryAt } set _wdTryAt(v){ this.obs._wdTryAt=v }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).
   /**
@@ -238,7 +235,7 @@ class GitPanel {
     // 것으로 세었다 — 그 판정을 여기서 한 번 더 지나 바로잡는다.
     this.obs.resettle();
     this.blame.dispose(); this.hunks.dispose(); this.diffPane.dispose(); this.poll.dispose(); this.write.dispose();
-    this.viewReload.dispose(); this.watchdog.dispose();
+    this.viewReload.dispose();
     this.changes.dispose(); this.changeRows.dispose(); this.files.dispose(); this.selection.dispose();
     this.views.dispose(); this.viewRoots.dispose();
   }

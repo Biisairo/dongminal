@@ -655,3 +655,41 @@ async fn kick_ignores_dot_git_outside_and_unwatched() {
     assert_eq!(sig.calls(), 0);
     assert_eq!(w.kick_pending(), 0);
 }
+
+/// TC-CH4-1: `git:<repo>` 토픽 구독이 쥐는 임대는 TTL 로 걷히지 않고, 놓으면 그때부터 TTL 이다.
+#[tokio::test]
+async fn topic_hold_outlives_ttl_and_release_starts_ttl() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let (w, now) = watcher(&sig, &FakeBroker::new());
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    assert_eq!(w.holders("/r"), 1, "구독자 수와 상관없이 임차인은 하나다");
+    advance(&now, GIT_WATCH_TTL * 3);
+    tick(&w).await;
+    assert_eq!(w.watching(), 1, "토픽이 쥔 감시가 TTL 로 걷혔다");
+    w.release_topic("/r");
+    advance(&now, GIT_WATCH_TTL - Duration::from_secs(1));
+    tick(&w).await;
+    assert_eq!(w.watching(), 1, "놓자마자 걷혔다");
+    advance(&now, GIT_WATCH_TTL);
+    tick(&w).await;
+    assert_eq!(w.watching(), 0, "놓은 뒤 TTL 을 넘겼는데 남아 있다");
+}
+
+/// TC-CH4-2: 관측 변화는 mark 훅으로 나간다 — 방송 경로는 없다.
+#[tokio::test]
+async fn change_goes_to_mark_hook() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let got: Arc<Mutex<Vec<(String, String)>>> = Arc::default();
+    let w = GitWatcher::new(Some(Arc::new(sig.clone())));
+    let g2 = got.clone();
+    w.set_on_mark(Some(Arc::new(move |r: &str, m: &str| {
+        lock(&g2).push((r.to_owned(), m.to_owned()));
+    })));
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    sig.set_sig("/r", "b");
+    tick(&w).await;
+    let v = lock(&got).clone();
+    assert_eq!(v.len(), 1, "{v:?}");
+    assert_eq!(v[0].0, "/r");
+}

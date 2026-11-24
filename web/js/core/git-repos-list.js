@@ -1,5 +1,5 @@
 /**
- * Repo 목록(`/api/git/repos`)의 갱신 — 주기·합치기·세대·칠하기 가드·핀 임대
+ * Repo 목록(`/api/git/repos`)의 갱신 — 합치기·세대·칠하기 가드·핀 감시(토픽)
  * (APP_STATE_EXTRACT_SRS FR-ASE-8 · §2.3a).
  *
  * 이 가족의 상태 여섯은 `App` 이 아니라 여기 있다. 본문은 옛 `app-git.js`(지금 `git-sync.js`)에서 구간
@@ -15,22 +15,23 @@ class GitReposList {
 
 Object.assign(GitReposList.prototype, {
   /**
-   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 (IPC-7 · POLL_INTERVAL_SETTINGS 개정): 목록의 주기는
-   * **안전망**이다 — `gitStatusInterval`(기본 30초, 0 은 끔).
+   * PERF_OPTIMIZATION_SRS M1 C4 (D-9): **목록에 주기가 없다.**
    *
-   *   이전 동작: `gitReposInterval`(3초)마다 무조건 받았고, Repo 탭이 보이면 핀 전부의
-   *             rev-parse·status 가 3초마다 돌았다
-   *   새  동작: Repo 탭이 보이면 핀 전부를 임대하고(`observe=1&clientId`) 배지는
-   *             `git_changed` 로 갱신한다. 핀 목록이 바뀌면(`workspace_changed`) 받는다.
-   *             주기는 놓친 것을 줍는 그물이다
-   *   이유:     배지의 변화는 서버 감시자가 signature 게이트로 싸게 잡는다
-   *
-   * 탭이 숨으면 돌지 않고, 돌아오면 즉시 한 번 갚는다 (FR-STAT-17).
+   *   이전 동작: `gitStatusInterval` 마다 목록을 받았다(안전망). Repo 탭이 보이면 그 요청이
+   *             핀 전부의 감시를 임대했다(`observe=1&clientId`)
+   *   새  동작: Repo 탭이 보이는 동안 핀마다 채널의 `git:<root>` 토픽을 구독한다 — 구독이 감시의
+   *             임대이고, 바뀐 mark 가 `_gitReposOnChanged` 로 와서 목록을 받는다. 탭에 들고
+   *             날 때·브라우저 탭이 돌아올 때·핀 목록이 바뀔 때 받는다
+   *   이유:     상태용 주기 GET 을 없앤다. 배지의 변화는 서버 감시자가 안다
    */
-  _startGitReposPoll(){
-    if(this._gitReposPoll) this._gitReposPoll.stop();
-    // 주기도 합치는 줄로 선다 (Ofix3) — 비행 중인 갱신 옆에 `observe=1` 이 하나 더 뜨지 않는다.
-    this._gitReposPoll=visiblePoll(()=>gitStatusInterval,()=>this.gitReposKick(),{immediate:true});
+  _gitPinsWatchSync(){
+    const want=new Set();
+    if(this.app.git.sync._gitObserveOk()){
+      for(const e of ((this.app.gitRepos||{}).pinned)||[]) if(e&&e.isRepo&&e.root) want.add(e.root);
+    }
+    const m=this._gitPinWatch||(this._gitPinWatch=new Map());
+    for(const [root,w] of m) if(!want.has(root)){ w.stop(); m.delete(root) }
+    for(const root of want) if(!m.has(root)) m.set(root,this.app.git.topics.watch(root));
   },
 
   /**
@@ -67,7 +68,7 @@ Object.assign(GitReposList.prototype, {
   async gitReposRefresh(){
     // UX_REVISION_SRS FR-GRR-1: **낡은 응답이 새 목록을 덮지 않는다.**
     //
-    // 이 함수는 3초 폴링과 핀/해제 직후 양쪽에서 불린다. 핀이 쌓여 응답이 느려지면
+    // 이 함수는 변화 알림과 핀/해제 직후 양쪽에서 불린다. 핀이 쌓여 응답이 느려지면
     // 먼저 떠난 폴링이 나중에 도착해 방금 추가한 핀이 없는 목록으로 되돌린다 —
     // 그러면 소실 화면의 `핀 제거` 처럼 **핀 여부로 갈리는 UI** 가 사라진다.
     // 실측으로 밟았다: 단독 실행은 통과하고 스펙 여럿을 이어 돌리면 M5 가 실패했다.
@@ -92,6 +93,7 @@ Object.assign(GitReposList.prototype, {
     if(!res.ok) return;
     const wasOff=this.app._gitOff;
     this.app._gitOff=false;this.app.gitRepos=res.data;
+    this._gitPinsWatchSync();
     /**
      * FR-OPT-4-3 (FEC-13): **화면이 읽는 값이 같으면 칠하지 않는다.**
      *

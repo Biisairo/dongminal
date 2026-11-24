@@ -45,17 +45,12 @@ async function settled(page: Page) {
 }
 
 /**
- * 계기가 새어 폴링이 멎은 상태를 만든다.
- *
- * **워치독을 함께 막는다.** 이 파일이 재려는 것은 복귀 계기 하나이고, 워치독은
- * 렌더 훅으로도 같은 자리를 되살린다 — `_gitWdAt` 을 미래에 두면 `gitWatchdogAll`
- * 의 문턱이 닫힌 채로 남아(`now - _gitWdAt < GIT_WATCHDOG_CHECK_MS`) 그 경로가
- * 결과에 섞이지 않는다.
+ * 계기가 새어 관측(토픽 구독)이 멎은 상태를 만든다. 감시견은 없다 — 관측은 채널의 `git:<root>`
+ * 토픽이고 그것을 다시 세우는 계기가 복귀 신호다 (PERF_OPTIMIZATION_SRS M1 C4).
  */
-async function stoppedAndWatchdogMuted(page: Page) {
+async function stopped(page: Page) {
   await page.evaluate(`(() => {${PANEL}
     p.poll._stop();
-    window.app.testing.gitWdAt = Date.now() + 3600 * 1000;
   })()`);
   expect((await panelState(page)).pollOn).toBe(false);
 }
@@ -67,7 +62,7 @@ test.describe('GIT_LIVE_TRIGGERS — 복귀 계기는 앱당 한 벌이고 전�
   // 갖지 못했다 (FR-GLW-1·2 / §2.1).
   test('TC-GLW-1: 창 포커스 복귀가 부팅 관측기 밖의 폴링도 되살린다', async ({ page }) => {
     await settled(page);
-    await stoppedAndWatchdogMuted(page);
+    await stopped(page);
 
     await page.evaluate(`window.dispatchEvent(new Event('focus'))`);
 
@@ -78,7 +73,7 @@ test.describe('GIT_LIVE_TRIGGERS — 복귀 계기는 앱당 한 벌이고 전�
   // `visible` 을 낸다 (`event-bus.js:124~126`).
   test('TC-GLW-2: 가시성 복귀도 부팅 관측기 밖의 폴링을 되살린다', async ({ page }) => {
     await settled(page);
-    await stoppedAndWatchdogMuted(page);
+    await stopped(page);
 
     await page.evaluate(`document.dispatchEvent(new Event('visibilitychange'))`);
 
@@ -90,46 +85,10 @@ test.describe('GIT_LIVE_TRIGGERS — 복귀 계기는 앱당 한 벌이고 전�
   test('TC-GLW-3: 숨김 신호는 부팅 관측기 밖의 폴링을 걷는다', async ({ page }) => {
     await settled(page);
     await page.evaluate(`(() => {
-      window.app.testing.gitWdAt = Date.now() + 3600 * 1000;
       Object.defineProperty(document, 'hidden', { get: () => true, configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
     })()`);
 
     await expect.poll(async () => (await panelState(page)).pollOn, { timeout: 10000 }).toBe(false);
-  });
-});
-
-test.describe('GIT_LIVE_TRIGGERS — 워치독에 주기가 있다', () => {
-  /**
-   * 렌더 훅을 끊는다. `gitWatchdogAll` 의 종전 유일한 호출처가 `render()` 이므로
-   * (당시 `renderer.js`), 그것을 끊으면 남는 계기는 주기뿐이다 — 이 묶음이 재려는
-   * 것이 정확히 그것이다.
-   */
-  const CUT_RENDER = `window.app.render = () => {};`;
-
-  // TC-GLW-4: 사용자가 아무것도 누르지 않는 동안에도 되살아나야 한다 (FR-GLW-4).
-  test('TC-GLW-4: 렌더가 없어도 주기 계기가 멎은 폴링을 되살린다', async ({ page }) => {
-    await settled(page);
-    await page.evaluate(`(() => {${PANEL}
-      ${CUT_RENDER}
-      p.poll._stop();
-      window.app.testing.gitWdAt = 0;
-    })()`);
-    expect((await panelState(page)).pollOn).toBe(false);
-
-    await expect.poll(async () => (await panelState(page)).pollOn, { timeout: 10000 }).toBe(true);
-  });
-
-  // TC-GLW-6: 정상 상태에서 이 계기가 내는 요청은 0 이다 (FR-GLW-6 · TC-GOR-3 계승).
-  test('TC-GLW-6: 정상 상태에서 주기 계기가 요청을 만들지 않는다', async ({ page }) => {
-    await settled(page);
-    const box = { n: 0 };
-    page.on('request', (r) => { if (r.url().includes('/api/git/status')) box.n++ });
-    await page.evaluate(`(() => { ${CUT_RENDER} window.app.testing.gitWdAt = 0 })()`);
-
-    // **예외 (`TEST-16`)**: 요청이 **나가지 않음**을 잰다.
-    await page.waitForTimeout(4000);
-
-    expect(box.n, '주기 워치독만으로 status 요청이 나갔다').toBe(0);
   });
 });

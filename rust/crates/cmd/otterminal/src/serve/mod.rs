@@ -270,7 +270,9 @@ pub(crate) fn build_app(
     }
 
     // UPDATE_NOTICE_SRS FR-UPD-1·8a: 확인 주체는 서버 프로세스 하나다. 결과가 바뀌었을 때만 방송한다.
-    let commands = a.bd.deps.commands.clone();
+    // 서버는 확인기보다 뒤에 서므로, 결과는 선 뒤의 서버가 `update` 토픽으로 낸다 (CHANNEL_PROTOCOL C2b).
+    let srv_cell: Arc<std::sync::OnceLock<std::sync::Weak<Server>>> = Arc::default();
+    let cell = srv_cell.clone();
     let updates = Checker::new(updatecheck::Options {
         home: PathBuf::from(home),
         current: VERSION.to_owned(),
@@ -278,8 +280,8 @@ pub(crate) fn build_app(
         // DIFF(8.2-fix): Go 는 Getenv 를 넘기지 않아 `OTTERMINAL_NO_UPDATE_CHECK` 가 먹지 않았다.
         getenv: Some(Arc::new(|k: &str| std::env::var(k).unwrap_or_default())),
         broadcast: Some(Arc::new(move || {
-            if let Some(c) = &commands {
-                c.broadcast(&hub::update_changed_payload());
+            if let Some(s) = cell.get().and_then(std::sync::Weak::upgrade) {
+                s.update_changed();
             }
         })),
         ..Default::default()
@@ -288,6 +290,7 @@ pub(crate) fn build_app(
     a.updates = Some(updates);
 
     let srv = Server::new(cfg, a.bd.deps.clone());
+    let _ = srv_cell.set(Arc::downgrade(&srv));
     // Go `New` 는 주입된 Commands 가 *CommandHub 이면 스스로 Telegram 관찰자를 단다. Rust 는 허브를
     // 내려 볼 수 없어 합성 루트가 단다.
     if let Some(h) = &a.bd.cmd_hub {

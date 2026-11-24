@@ -15,12 +15,8 @@
  *
  * 로드 순서: settings-schema.js 바로 뒤, constants.js 앞.
  */
-const AGENTS_POLL_DEFAULT=SETTINGS_BY_KEY.agentsPollInterval.def;
 const STATS_INTERVAL_DEFAULT=SETTINGS_BY_KEY.statsInterval.def;
-const GIT_STATUS_POLL_MS=SETTINGS_BY_KEY.gitStatusInterval.def;
-const GIT_REPOS_POLL_MS=SETTINGS_BY_KEY.gitReposInterval.def;
 const GIT_WORKTREE_POLL_MS=SETTINGS_BY_KEY.gitWorktreeInterval.def;
-const GIT_CON_POLL_MS=SETTINGS_BY_KEY.gitConsoleInterval.def;
 const TAB_WIDTH_DEFAULT=SETTINGS_BY_KEY.tabWidthPx.def;
 const TAB_WIDTH_MIN=SETTINGS_BY_KEY.tabWidthPx.min;
 const TAB_WIDTH_MAX=SETTINGS_BY_KEY.tabWidthPx.max;
@@ -32,17 +28,10 @@ const ATTN_EDGE_LEVEL_MAX=SETTINGS_BY_KEY.attnEdgeLevel.max;
 /**
  * POLL_INTERVAL_SETTINGS_SRS FR-PIS-6·11: **상수는 기본값으로 남고 변수가 설정을
  * 든다.** 값을 얹는 자리는 `_settingsApply` 하나다 (FR-PIS-7).
- *
- * `agentsPollInterval` 의 저장 자리는 서버 설정이다 (FR-PIS-16 / D-3) — 종전의
- * `localStorage` 는 다른 브라우저 창에 전파되지 않았다.
  */
-var agentsPollInterval=AGENTS_POLL_DEFAULT;
 var statsInterval=STATS_INTERVAL_DEFAULT;
-var gitStatusInterval=GIT_STATUS_POLL_MS;
-var gitReposInterval=GIT_REPOS_POLL_MS;
 // EDITOR_LIVE_RELOAD_SRS FR-ELR-76: 이 값을 쓰는 것은 서버다(워크트리 회차). 브라우저는 들고 저장할 뿐이다.
 var gitWorktreeInterval=GIT_WORKTREE_POLL_MS;
-var gitConsoleInterval=GIT_CON_POLL_MS;
 /**
  * UNFOCUSED_EDGE_SRS FR-UFE-10·12·13 / ALERT_MOBILE_CONTEXT_SRS FR-AED-8·9: 가장자리
  * 표시 둘의 세기(0~10). `/api/settings` blob 에 실린다 — 취향 스위치가 기기마다

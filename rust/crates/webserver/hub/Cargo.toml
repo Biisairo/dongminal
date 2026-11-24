@@ -25,5 +25,4 @@ otter-gocompat = { path = "../../gocompat" }
 futures-util = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
-tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }

@@ -7,7 +7,7 @@ import { test, expect, waitForInit } from './fixtures';
 // 여기 적어 둔다 (M9_PROGRESS §2-12).
 //
 // 접수한 증상("다른 기기로 지운 탭이 내 화면에 남는다")은 지금 시스템에서 e2e 로
-// 재현되지 않는다. 재연결한 클라이언트에는 `server_hello` 뒤에 `workspace_changed`
+// 재현되지 않는다. 재연결한 클라이언트에는 채널 인사 뒤에 `workspace_changed`
 // 방송이 **따라오고**, 그 방송이 이미 있던 경로로 수렴을 만든다. 저장을 막고,
 // 포커스 주장을 막고, 서버 반영을 기다린 뒤에 깨워도 그랬다 — 시도 넷 모두
 // 구현 없이 초록이었다.
@@ -25,19 +25,10 @@ async function newClient(browser) {
   return { ctx, page };
 }
 
-// 잠든 기기를 흉내낸다 (M9_PROGRESS §3-3). 구독을 끊고 새로 열리지 못하게 막는다.
-const goOffline = (page) => page.evaluate(() => {
-  const w = window as any;
-  w.__origES = w.EventSource;
-  try { w.app.bus._es.close() } catch {}
-  w.EventSource = function () { throw new Error('offline') };
-});
+// 잠든 기기를 흉내낸다 (M9_PROGRESS §3-3). 채널을 멈춰 새로 열리지 않게 한다 (CHANNEL_PROTOCOL C2a).
+const goOffline = (page) => page.evaluate(() => { (window as any).app.testing.channel.close() });
 
-const goOnline = (page) => page.evaluate(() => {
-  const w = window as any;
-  if (w.__origES) w.EventSource = w.__origES;
-  w.app.bus.reconnect();
-});
+const goOnline = (page) => page.evaluate(() => { (window as any).app.testing.channel.kick() });
 
 const tabCount = (page) => page.evaluate(() => {
   const app = (window as any).app;
@@ -59,31 +50,28 @@ const addTab = (page) => page.evaluate(async () => {
 });
 
 test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다', () => {
-  test('TC-M9-10a: 재연결이 rev 없는 재수신을 부른다 (FR-M9-10, D-M9-8)', async ({ browser }) => {
+  test('TC-M9-10a: 끊긴 동안의 변화는 재연결의 토픽 재구독이 준다 (FR-M9-10, CHANNEL_PROTOCOL C2b)', async ({ browser }) => {
     const A = await newClient(browser);
+    const B = await newClient(browser);
 
-    // `_onWorkspaceChanged` 의 인자를 붙잡는다 — 계약(`app.testing.onWorkspaceChanged`)의 읽기·쓰기로 갈아 끼운다. **rev 가 없어야 한다** — 무엇을
-    // 놓쳤는지 모르므로 "낡았다" 로 걸러지면 안 된다 (FR-WSC-17).
+    // 토픽이 준 워크스페이스 본문이 닿는 자리를 붙잡는다 — 계약(`app.testing.onWorkspaceTopic`).
     await A.page.evaluate(() => {
       const w = window as any;
-      w.__resync = [];
-      const orig = w.app.testing.onWorkspaceChanged;
-      w.app.testing.onWorkspaceChanged = function (rev) {
-        w.__resync.push(rev === undefined ? 'no-rev' : rev);
-        return orig(rev);
-      };
+      w.__topic = 0;
+      const orig = w.app.testing.onWorkspaceTopic;
+      w.app.testing.onWorkspaceTopic = function (src) { w.__topic++; return orig(src); };
     });
 
     await goOffline(A.page);
-    await A.page.evaluate(() => { (window as any).__resync = [] });
+    await addTab(B.page);
+    await A.page.evaluate(() => { (window as any).__topic = 0 });
     await goOnline(A.page);
 
-    // 재연결 하나가 계기다. 끊겼던 동안의 사건은 재생되지 않으므로, 이 호출이
-    // 그 구간을 메우는 유일한 길이다.
-    await expect.poll(() => A.page.evaluate(() => (window as any).__resync),
-      { timeout: 15000 }).toContain('no-rev');
+    // 재연결 하나가 계기다. 서버는 A 가 가진 순번 뒤의 변화를 다시 준다 (§5.1).
+    await expect.poll(() => A.page.evaluate(() => (window as any).__topic), { timeout: 15000 }).toBeGreaterThan(0);
 
     await A.ctx.close();
+    await B.ctx.close();
   });
 
   test('TC-M9-10d: 최초 연결에서는 부르지 않는다 (FR-M9-10 — "다시" 붙으면)', async ({ browser }) => {
@@ -96,7 +84,7 @@ test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다',
     await ctx.addInitScript(() => {
       const w = window as any;
       w.__resyncEarly = [];
-      // `app` 이 서기 **전에** 건다 — 최초 `sse:open` 은 부팅 중에 난다.
+      // `app` 이 서기 **전에** 건다 — 최초 `chan:open` 은 부팅 중에 난다.
       const iv = setInterval(() => {
         if (!w.app || !w.app.testing.onWorkspaceChanged || w.__hooked) return;
         w.__hooked = true;

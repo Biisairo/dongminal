@@ -157,7 +157,10 @@ impl Server {
         res: Result<(), telegram::StoreError>,
     ) -> Response {
         match res {
-            Ok(()) => httpresp::json(StatusCode::OK, &self.telegram_view(tg, b)),
+            Ok(()) => {
+                self.refresh_full_topic("telegram");
+                httpresp::json(StatusCode::OK, &self.telegram_view(tg, b))
+            }
             Err(e @ telegram::StoreError::InvalidSilence) => code_fail(
                 StatusCode::BAD_REQUEST,
                 apierr::CODE_TELEGRAM_CONFIG_INVALID,
@@ -269,6 +272,7 @@ impl Server {
                 "could not make a code",
             );
         }
+        self.refresh_full_topic("telegram");
         httpresp::json(StatusCode::OK, &PairIssued { code, expires })
     }
 
@@ -348,6 +352,13 @@ fn telegram_unreachable() -> Response {
 pub(crate) struct TelegramHost(pub(crate) Weak<Server>);
 
 impl telegram::Host for TelegramHost {
+    /// 짝맞춤이 끝났다 — 열린 설정 화면이 `telegram` 토픽으로 안다 (CHANNEL_PROTOCOL C2b).
+    fn paired(&self) {
+        if let Some(s) = self.0.upgrade() {
+            s.refresh_full_topic("telegram");
+        }
+    }
+
     fn last_browser_input(&self, tool_id: &str) -> Option<OffsetDateTime> {
         self.0
             .upgrade()?

@@ -51,6 +51,8 @@ pub trait Host: Send + Sync {
     fn location(&self, tool_id: &str) -> Location;
     /// PC 알람을 끈다. typed 가 거짓이면 포커스를 준 것과 같다 (FR-TGB-58a).
     fn attend(&self, tool_id: &str, typed: bool);
+    /// 짝맞춤으로 허용 계정이 바뀌었다.
+    fn paired(&self) {}
 }
 
 pub(crate) const QUEUE_SIZE: usize = 256;
@@ -418,6 +420,7 @@ impl Bridge {
                     return;
                 }
                 c.user_id = from_id;
+                self.host.paired();
                 self.reply(&c, &m, "등록했습니다. 이제 이 대화방으로 알림을 보냅니다.")
                     .await;
                 return;

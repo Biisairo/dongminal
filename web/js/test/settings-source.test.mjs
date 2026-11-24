@@ -19,11 +19,7 @@ const read = (rel) => readFileSync(join(JS, rel), 'utf8');
 
 /** 파생 상수 → [표의 키, 필드]. */
 const DERIVED = {
-  AGENTS_POLL_DEFAULT: ['agentsPollInterval', 'def'],
   STATS_INTERVAL_DEFAULT: ['statsInterval', 'def'],
-  GIT_STATUS_POLL_MS: ['gitStatusInterval', 'def'],
-  GIT_REPOS_POLL_MS: ['gitReposInterval', 'def'],
-  GIT_CON_POLL_MS: ['gitConsoleInterval', 'def'],
   TAB_WIDTH_DEFAULT: ['tabWidthPx', 'def'],
   TAB_WIDTH_MIN: ['tabWidthPx', 'min'],
   TAB_WIDTH_MAX: ['tabWidthPx', 'max'],
@@ -35,14 +31,31 @@ const DERIVED = {
 
 /** 표에서 초기값을 받는 설정 전역 → 표의 키. */
 const VARS = {
-  agentsPollInterval: 'agentsPollInterval', statsInterval: 'statsInterval',
-  gitStatusInterval: 'gitStatusInterval', gitReposInterval: 'gitReposInterval',
-  gitConsoleInterval: 'gitConsoleInterval', tabWidthPx: 'tabWidthPx',
+  statsInterval: 'statsInterval',
+  tabWidthPx: 'tabWidthPx',
   focusEdgeLevel: 'focusEdgeLevel', attnEdgeLevel: 'attnEdgeLevel',
 };
 
 const defaults = () => load(['core/settings-schema.js', 'core/settings-defaults.js'], {
   expose: ['SETTINGS_BY_KEY', ...Object.keys(DERIVED)],
+});
+
+test('PERF 1.9: git 콘솔 주기 설정(gitConsoleInterval)은 없다 — Console 은 gitconsole 토픽으로 온다', () => {
+  const c = defaults();
+  assert.equal(c.SETTINGS_BY_KEY.gitConsoleInterval, undefined, '표에 남았다');
+  for (const rel of [...jsFiles('core'), ...jsFiles('ui'), ...jsFiles('git')]) {
+    assert.ok(!/gitConsoleInterval|GIT_CON_POLL_MS|pi-gitconsole/.test(code(read(rel))), rel);
+  }
+  for (const rel of ['i18n/ko.js', 'i18n/en.js']) assert.ok(!/poll\.git_console\./.test(read(rel)), rel);
+});
+
+test('PERF M1 C6: 에이전트 활동 주기 설정(agentsPollInterval)은 없다 — 활동은 채널 토픽으로 온다', () => {
+  const c = defaults();
+  assert.equal(c.SETTINGS_BY_KEY.agentsPollInterval, undefined, '표에 남았다');
+  for (const rel of [...jsFiles('core'), ...jsFiles('ui'), ...jsFiles('git')]) {
+    assert.ok(!/agentsPollInterval|AGENTS_POLL_DEFAULT|_pollMigrateAgents|legacyAgentsPollMs/.test(code(read(rel))), rel);
+  }
+  for (const rel of ['i18n/ko.js', 'i18n/en.js']) assert.ok(!/poll\.agents\./.test(read(rel)), rel);
 });
 
 test('TC-CFG-2x: 파생 상수가 표의 def·min·max 와 같다', () => {

@@ -28,9 +28,6 @@ const EXPLORER_FS_CHANGES_DELAY_MS=500;
 // `textFileEditorModelManager.ts` `queueModelReload`).
 const EDITOR_DOC_RELOAD_QUEUE=2;
 
-// FR-EDT-77: 활성 Editor 창의 색 갱신 주기. `GIT_REPOS_POLL_MS` 를 **값으로 딛는다**
-// — 같은 사실을 보는 두 화면이 다른 속도로 갱신될 이유가 없고, 두 벌로 적으면
-// 한쪽만 고쳐진다.
 // ── Repo 창의 사이드 (REPO_TAB_UNIFY_SRS 묶음 W) ──
 //
 // 좌측은 **탭 교체**다 (D-RTU-3). 세로로 쌓으면 파일 목록도 변경 목록도 절반
@@ -89,11 +86,6 @@ const REPO_SIDE_W_MAX=520;
 const REPO_PREVIEW_CLASS='pn-tab-preview';
 const REPO_PREVIEW_TITLE=t('editor.repo_preview_title');
 
-// POLL_INTERVAL_SETTINGS_SRS FR-PIS-12: **별칭이 사라졌다.** `EDITOR_GIT_POLL_MS`
-// 는 `GIT_REPOS_POLL_MS` 의 다른 이름일 뿐이었고, 주기가 설정이 되면 그 별칭만
-// 로드 시점 값에 굳는다. 소비 지점(`_edStartGitPoll`)이 `gitReposInterval` 을
-// 직접 읽으므로 "둘이 같아야 한다"(FR-EDT-77)는 요구가 **한 이름**으로 지켜진다.
-
 // GIT_DIR_ENTRY_SRS FR-DIR-31 / D-DIR-7: **`_gitOff` 는 사유마다 수명이 다르다.**
 //
 // 404(`not_repo`)와 `rootMatch=false` 는 굳히지 않는다 — 그 자리에서 `git init` 이
@@ -101,8 +93,8 @@ const REPO_PREVIEW_TITLE=t('editor.repo_preview_title');
 // 없고, 사용자는 init 이 실패했다고 읽는다. 대신 주기를 늦춰 계속 관측한다.
 //
 // 503(git 자체가 없다)만 굳는다 — 다시 물어도 답이 같다 (기존 관례).
-// FR-PIS-12 / D-7: 계수만 남고 곱셈은 `editorGitBackoffMs()` 가 한다.
-const EDITOR_GIT_BACKOFF_FACTOR=10;
+// PERF_OPTIMIZATION_SRS 1.15: 예전 설정 `gitReposInterval` 기본값(3초) × 10. 사용자가 바꾸지 않는다.
+const EDITOR_GIT_BACKOFF_MS=30000;
 
 // 트리 행의 들여쓰기는 Git 패널의 트리와 같은 값을 딛는다 (GIT_TREE_PAD0·
 // GIT_TREE_INDENT) — 같은 앱 안의 두 트리가 다른 리듬으로 들여쓸 이유가 없다.

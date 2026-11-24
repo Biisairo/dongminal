@@ -4,20 +4,15 @@
 //! 자격증명을 받는 자리가 없다 (FR-GIT-104). 요청 본문에 인증 재료를 담을 필드를 만들지 않는다.
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use http::StatusCode;
-use otter_gocompat::json::marshal;
-use otter_gocompat::strconv;
 use otter_shared_httpresp::Response;
 use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
-use otter_webserver_domain_git_core::{Ctx, Hint, WriteSpec};
-use otter_webserver_domain_git_jobs::{self as jobs, Job, Jobs, Line, StartOptions};
+use otter_webserver_domain_git_core::{Hint, WriteSpec};
+use otter_webserver_domain_git_jobs::{self as jobs, Job, StartOptions};
 use otter_webserver_domain_git_query as query;
 use otter_webserver_domain_git_write::{self as write, FetchOpts, PullOpts, PushOpts, PushPlan};
-use otter_webserver_sse as sse;
-use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use serde::Deserialize;
 
 use crate::GitServer;
 use crate::job::uses_index;
@@ -26,9 +21,6 @@ use crate::reply::{
 };
 use crate::req::Req;
 use crate::write::GitWrite;
-
-/// SSE 주석 하트비트 간격이다. /api/commands/sse 와 같은 값이다.
-const JOB_KEEP_ALIVE: Duration = Duration::from_secs(15);
 
 #[derive(Default, Deserialize)]
 #[serde(default, rename = "gitapi.gitFetchReq")]
@@ -168,47 +160,6 @@ impl GitServer {
         git_json(StatusCode::OK, &obj! {"jobs" => jobs})
     }
 
-    /// GET /api/git/job/events?id=&after=<seq> — 작업 출력 스트림 (FR-GIT-103). after 는 재연결
-    /// 지점이다 — 보존된 줄을 먼저 흘려보낸다.
-    ///
-    /// 응답을 돌려준 뒤에도 스트림은 따로 task 에서 이어진다. 클라이언트가 떠나면 다음 쓰기가
-    /// 실패해 끝난다 — 요청 문맥은 응답을 돌려줄 때 끝나므로 보지 않는다.
-    pub(crate) async fn api_git_job_events(&self, r: &mut Req) -> Response {
-        let id = r.q("id");
-        if id.is_empty() {
-            return git_fail(StatusCode::BAD_REQUEST, ERR_BAD_REQUEST, "id 가 없다");
-        }
-        // Go `after, _ := strconv.ParseUint(…)`: 문법 오류는 0, 넘치면 최댓값이다.
-        let after = match strconv::parse_uint10(&r.q("after")) {
-            Ok(n) => n,
-            Err(e) if e.kind == strconv::NumErrorKind::Range => u64::MAX,
-            Err(_) => 0,
-        };
-        let Some(git) = &self.git else {
-            return crate::reply::git_unavailable();
-        };
-        let hub = self.jobs_hub(git);
-        let Some((rx, unsub)) = hub.subscribe(&id, after) else {
-            // 조용히 빈 스트림을 주면 클라이언트가 영원히 기다린다.
-            return git_fail(
-                StatusCode::NOT_FOUND,
-                apierr::CODE_JOB_NOT_FOUND,
-                "그 작업이 없다",
-            );
-        };
-        let (res, mut st) = sse::start(Duration::ZERO);
-        st.comment("connected");
-        if !st.flush().await {
-            return res;
-        }
-        let root = self.git_root();
-        tokio::spawn(async move {
-            let _unsub = unsub;
-            job_event_loop(st, rx, hub, id, root).await;
-        });
-        res
-    }
-
     /// GET /api/git/remotes?repo= — 원격 목록 (FR-GIT-269). URL 은 자격증명이 지워진 값이다.
     pub(crate) async fn api_git_remotes(&self, r: &mut Req) -> Response {
         let (git, root, requested) = match self.git_repo_param(r).await {
@@ -277,67 +228,6 @@ impl GitServer {
             Err(e) => t.reject(&e),
         }
         t.finish()
-    }
-}
-
-/// 작업 출력 스트림의 몸통이다. 채널이 닫히면(작업이 끝나면) 작업 자체를 `done` 으로 보낸다.
-pub(crate) async fn job_event_loop(
-    mut st: sse::Stream,
-    mut rx: mpsc::Receiver<Line>,
-    hub: Jobs,
-    id: String,
-    root: Ctx,
-) {
-    let mut keep =
-        tokio::time::interval_at(tokio::time::Instant::now() + JOB_KEEP_ALIVE, JOB_KEEP_ALIVE);
-    let gone = st.closed();
-    tokio::pin!(gone);
-    loop {
-        tokio::select! {
-            () = root.done() => return,
-            () = &mut gone => return,
-            ln = rx.recv() => {
-                if !drain_job_lines(&mut st, &mut rx, ln) {
-                    // 종료 사유·인증 안내·후속 선택지가 여기서 클라이언트에 닿는다.
-                    match hub.get(&id) {
-                        Some(jb) => job_event(&mut st, "done", &jb),
-                        None => job_event(&mut st, "done", &obj! {"id" => id, "done" => true}),
-                    }
-                    st.flush().await;
-                    return;
-                }
-            }
-            _ = keep.tick() => st.comment("keep"),
-        }
-        if !st.flush().await {
-            return;
-        }
-    }
-}
-
-/// 받은 줄과 이미 쌓인 줄을 함께 버퍼에 더한다 (HTTP-M2). 채널이 닫혔으면 false 다.
-fn drain_job_lines(
-    st: &mut sse::Stream,
-    rx: &mut mpsc::Receiver<Line>,
-    mut ln: Option<Line>,
-) -> bool {
-    while let Some(l) = ln {
-        job_event(st, "line", &l);
-        if st.full() {
-            return true;
-        }
-        ln = match rx.try_recv() {
-            Ok(l) => Some(l),
-            Err(mpsc::error::TryRecvError::Empty) => return true,
-            Err(mpsc::error::TryRecvError::Disconnected) => None,
-        };
-    }
-    false
-}
-
-fn job_event<T: Serialize + ?Sized>(st: &mut sse::Stream, name: &str, payload: &T) {
-    if let Ok(b) = marshal(payload) {
-        st.event(name, &b);
     }
 }
 

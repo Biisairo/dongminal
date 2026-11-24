@@ -144,20 +144,24 @@ struct HandleBody {
 }
 
 impl Server {
-    /// Go `edgesChanged`: 간선 상태가 바뀐 **뒤에** 화면에 알린다. 화면은 `GET /api/edges` 로 다시
-    /// 읽는다 (FR-PNW-81). 맺거나 지운 간선은 `{fp, name, tag}` 로 싣는다 (EDGE_PAIRING_SRS FR-EPR-5·23).
+    /// Go `edgesChanged`: 간선 상태가 바뀐 **뒤에** 화면에 알린다. 상태는 `edges` 토픽, 알림은
+    /// `edges.notice` 사건이다 (FR-PNW-81, CHANNEL_PROTOCOL C2b). 맺거나 지운 간선은 `{fp, name, tag}` 로 싣는다 (EDGE_PAIRING_SRS FR-EPR-5·23).
     fn edges_changed(&self, c: &Change) {
         self.handle.invalidate();
-        let Some(cmds) = self.commands() else {
-            return;
-        };
         let args = ChangedArgs {
             by_peer: c.removed.is_some() && c.by_peer,
             invited: c.invited.as_ref().map(tagged),
             paired: c.paired.as_ref().map(tagged),
             removed: c.removed.as_ref().map(tagged),
         };
-        cmds.broadcast(&otter_webserver_sse::payload("edges_changed", Some(&args)));
+        self.refresh_full_topic("edges");
+        if args.by_peer || args.invited.is_some() || args.paired.is_some() || args.removed.is_some()
+        {
+            self.topics.publish_event(
+                "edges.notice",
+                serde_json::to_value(&args).unwrap_or_default(),
+            );
+        }
     }
 
     /// Go `edgeDo`: 연산 op 하나를 처리한다. with_body 면 요청 본문을 Args 로 넘긴다.
@@ -201,7 +205,14 @@ impl Server {
             }
         }
         match off_thread(move || d.edge(p)).await {
-            Some(Ok(res)) => write_edge_response(&res),
+            Some(Ok(res)) => {
+                // 바꾸는 연산은 데몬이 push 하지 않을 수도 있다(이름 바꾸기) — `edges` 토픽을 다시
+                // 만든다. 같은 본문이면 나가지 않는다 (CHANNEL_PROTOCOL C2b).
+                if with_body && (200..300).contains(&res.status) {
+                    self.refresh_full_topic("edges");
+                }
+                write_edge_response(&res)
+            }
             Some(Err(e)) => code_fail(
                 StatusCode::BAD_GATEWAY,
                 apierr::CODE_EDGE_UNREACHABLE,

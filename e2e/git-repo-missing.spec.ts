@@ -1,7 +1,7 @@
 import { mkdirSync, renameSync } from 'fs';
 import { dirname, join } from 'path';
 
-import { APIRequestContext, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 
 import { test, expect, openGit, openGitTab, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree, freshDir, clickGitView, setSafetyNet } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
@@ -73,19 +73,6 @@ function restore(repo: string) {
   copyDir(join(FIXTURES, 'basic'), repo);
 }
 
-async function patchSettings(request: APIRequestContext, patch: Record<string, unknown>) {
-  const cur = await (await request.get('/api/settings')).json();
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === undefined) delete cur[k];
-    else cur[k] = v;
-  }
-  const r = await request.put('/api/settings', { data: cur });
-  expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
-}
-
-const defaultIntervals = (request: APIRequestContext) =>
-  patchSettings(request, { gitStatusInterval: undefined });
-
 function counter(page: Page, needle: string) {
   const state = { n: 0 };
   page.on('request', (r) => { if (r.url().includes(needle)) state.n++ });
@@ -134,7 +121,6 @@ const gitTab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-gi
 
 test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
   test('M1 (V-RMS-4·5): 활성 리포의 폴더가 사라지면 목록 대신 소실 안내가 뜬다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = copyFx('m1');
     await waitForInit(page);
     await openGit(page, repo);
@@ -154,7 +140,6 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
   });
 
   test('M2 (V-RMS-12): 소실돼도 활성 리포는 해제되지 않는다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = copyFx('m2');
     await waitForInit(page);
     await openGit(page, repo);
@@ -170,7 +155,6 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
   });
 
   test('M3 (V-RMS-13): 7개 탭 전부가 소실을 보인다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = copyFx('m3');
     await waitForInit(page);
     await openGit(page, repo);
@@ -196,7 +180,6 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     // 줄이는 것은 **소실로 들어가는 쪽**만 줄인다 — 이 검사가 지키려는 복구
     // 대기는 그대로 30초다.
     test.setTimeout(120_000);
-    await defaultIntervals(request);
     const repo = copyFx('m4');
     await waitForInit(page);
     await openGit(page, repo);
@@ -220,7 +203,6 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
   });
 
   test('M5 (V-RMS-6·7): 핀된 리포에는 핀 제거가 있고, 누르면 목록에서 빠진다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = copyFx('m5');
     await waitForInit(page);
 
@@ -250,7 +232,6 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
   });
 
   test('M6 (V-RMS-11): 사이드바 핀 행이 읽을 수 있는 사유를 보인다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = copyFx('m6');
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.testing.gitPin(r), repo);
@@ -267,7 +248,6 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
   });
 
   test('M7 (V-RMS-9): 소실 상태에서는 status 폴링이 30초 쪽으로 낮아진다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = copyFx('m7');
     await waitForInit(page);
     await openGit(page, repo);
@@ -336,13 +316,17 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
 
     failing = true;
     const c = counter(page, '/api/git/status');
+    // 평상시에는 주기가 없다(PERF_OPTIMIZATION_SRS M1 C4) — 첫 실패는 사용자 계기로 만든다. 그 뒤의
+    // 회복용 재시도가 백오프를 탄다.
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await page.waitForTimeout(BACKOFF_BASE_MS * 7);
     // 백오프가 없으면 기준 주기로 7회다. 2·4·8배로 늘면 3~4회에 그친다.
     expect(c.n, '실패가 이어지는데 주기가 그대로다').toBeLessThanOrEqual(4);
     expect(c.n, '아예 멈춰 버렸다 — 백오프는 중단이 아니다').toBeGreaterThanOrEqual(1);
   });
 
-  test('B2 (V-RMS-17): 실패가 그치면 주기가 즉시 기준으로 돌아온다', async ({ page }) => {
+  // PERF_OPTIMIZATION_SRS M1 C4 개정: 평상시에는 주기가 없다 — 실패가 그치면 회복용 재시도를 걷는다.
+  test('B2 (V-RMS-17): 실패가 그치면 회복용 재시도를 걷는다', async ({ page }) => {
     const repo = copyFx('b2');
     await waitForInit(page);
     let failing = false;
@@ -353,22 +337,23 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     await backoffBase(page);
 
     failing = true;
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await page.waitForTimeout(BACKOFF_BASE_MS * 6);
     failing = false;
     // 사용자의 계기는 백오프를 기다리지 않는다 (V-RMS-19) — 이것으로 성공 하나를 만든다.
     await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
+    await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel._failStreak), { timeout: 5000 }).toBe(0);
+    await page.waitForTimeout(BACKOFF_BASE_MS);
     const c = counter(page, '/api/git/status');
-    await page.waitForTimeout(BACKOFF_BASE_MS * 3);
-    // 기준으로 돌아왔으면 3회 안팎이다.
-    expect(c.n, '성공했는데 주기가 기준으로 돌아오지 않았다').toBeGreaterThanOrEqual(2);
+    await page.waitForTimeout(BACKOFF_BASE_MS * 6);
+    expect(c.n, '회복했는데 재시도가 남았다').toBe(0);
   });
 
   // B3 (V-RMS-18·26 · V-GRF-13) 은 `_cadence` 값만 읽었다 — 단위 시험으로 옮겼다
   // (`web/js/test/git-poll-cadence.test.mjs`, E2E_PRUNE_REPORT §8.3).
 
   test('B4 (V-RMS-20): 관측이 주기를 바꿔도 관측이 관측을 부르지 않는다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = copyFx('b4');
     await waitForInit(page);
     let failing = false;

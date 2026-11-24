@@ -11,7 +11,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import {
-  test, expect, waitForInit, addEditorRoot, switchToEditorRoot, rmTree, openExplorerSide,
+  test, expect, waitForInit, addEditorRoot, switchToEditorRoot, rmTree, openExplorerSide, resyncEditor,
 } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
@@ -25,7 +25,7 @@ const pj = (d: string, r: string) => d + (d.includes('\\') && !d.includes('/') ?
 test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-fsw-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
-const SLOW = { gitReposInterval: 30000, gitStatusInterval: 0, gitWorktreeInterval: 30000 };
+const SLOW = { gitWorktreeInterval: 30000 };
 const git = (d: string, ...a: string[]) => execFileSync('git', ['-C', d, ...a], { stdio: 'ignore' });
 
 let saved: Record<string, unknown> | null = null;
@@ -220,7 +220,7 @@ test('V-ELR-37: 페이지를 처음 띄울 때 등록이 400 을 받지 않는�
   expect(log.statuses.filter((s) => s !== 200), JSON.stringify(log)).toEqual([]);
 });
 
-test('V-ELR-34: /api/fs/watch 가 404 면 등록을 멈추고 폴링 반영은 그대로 된다', async ({ page, request }) => {
+test('V-ELR-34: /api/fs/watch 가 404 면 등록을 멈추고 맞추기 반영은 그대로 된다', async ({ page, request }) => {
   const puts: string[] = [];
   await page.route('**/api/fs/watch', (route) => { puts.push(route.request().url()); return route.fulfill({ status: 404, body: '' }) });
   const { root, savedRoot } = await mkroot(request, page, 'old', { 'c.txt': 'before\n' });
@@ -229,7 +229,9 @@ test('V-ELR-34: /api/fs/watch 가 404 면 등록을 멈추고 폴링 반영은 �
   await expect.poll(() => puts.length, { timeout: 10000 }).toBeGreaterThan(0);
   const n = puts.length;
 
+  // 주기 틱이 없으므로(이슈 1.14, D-9) 감시가 없을 때의 반영은 맞추기(visibilitychange)에서 온다.
   writeFileSync(join(root, 'c.txt'), 'after\n');
+  await resyncEditor(page);
   await expect.poll(() => valueOf(page, 'c.txt'), { timeout: 12000 }).toBe('after\n');
   await openFile(page, savedRoot, 'c.txt');
   expect(puts.length).toBe(n);

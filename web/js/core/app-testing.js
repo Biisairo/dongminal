@@ -63,7 +63,7 @@ const APP_TESTING_NAMES = [
   // M9_SRS FR-M9-24: 보던 자리의 기록. 검사가 재는 것은 **자리 셋**과 두 더미의
   // 길이다 — 화면만 보면 "돌아갔다" 와 "새로 갔다" 를 가를 수 없다.
   'focus._navPlace', 'focus._navCounts',
-  'editor.pane.edEnsurePane', '_edGitPoll', 'editor.pane.edSideOf', 'editor.pane.edSideWidth',
+  'editor.pane.edEnsurePane', 'editor.pane.edSideOf', 'editor.pane.edSideWidth',
   'editor.pane.edSetSideWidth', 'editor.pane._edMigrateSideWidth', 'editor.open.edStore', 'editor.open.edTree',
   // UI_POLISH_SRS TC-UIP-10: 저장소 추가 후보의 첫 줄이 될 포커스 터미널의 cwd.
   'editor.section._edTermCwd',
@@ -72,7 +72,7 @@ const APP_TESTING_NAMES = [
   //
   // 관측기·패널은 (루트, 칸)마다 하나다 — e2e 가 그 모양을 알아야 재는 것이 있다.
   '_gitObservers', 'git.gitOpenFile', 'git.surfaces.gitPanelAt', 'gitPanels', 'git.sync.gitPin',
-  'gitRepos', 'git.sync.gitReposRefresh', 'git.surfaces._gitRootOfActive', 'git.gitSignal', 'git.sync.gitUnpin', '_gitWdAt',
+  'gitRepos', 'git.sync.gitReposRefresh', 'git.surfaces._gitRootOfActive', 'git.gitSignal', 'git.sync.gitUnpin',
   'git.gitWindow',
   // 같은 구멍 (FR-FMB-45a).
   'git.surfaces._gitPanelRoot', 'git.sync._onGitChanged',
@@ -105,17 +105,17 @@ const APP_TESTING_NAMES = [
 
   // ── 전파·저장 (sync) ──
   //
-  // SSE 구독과 워크스페이스 저장. 두 축이 한 절에 있는 이유는 둘이 같은 경주를 만들기 때문이다 (WORKSPACE_SAVE_CONFLICT_SRS).
-  '_sse', '_sseGen', '_sseSeen', '_sseKick', '_cmdES', 'wsSync._subscribeCommands', 'tool.cmd._execRemote', 'tool.cmd._echoResult',
+  // 채널(명령·사건)과 워크스페이스 저장. 두 축이 한 절에 있는 이유는 둘이 같은 경주를 만들기 때문이다 (WORKSPACE_SAVE_CONFLICT_SRS).
+  'channel', 'wsSync._subscribeCommands', 'tool.cmd._execRemote', 'tool.cmd._echoResult',
   'wsSave.save', 'settings.apply.saveSettings', 'wsSync._onWorkspaceChanged', '_wsApplyInflight',
+  // CHANNEL_PROTOCOL C2b: 토픽이 준 워크스페이스·설정 본문이 닿는 자리 — 재연결·자기 에코를 잰다.
+  'wsSync._onWorkspaceTopic', 'settings.apply._settingsRestore',
   // CLAUDE_ACCOUNTS_SRS FR-CAC-94a: 계정 변경 신호(SSE)를 받은 것처럼 — 입력 중 다시 그리기를 잰다.
   'claude._onClaudeAccountsChanged',
   // 같은 구멍 (FR-FMB-45a). 저장의 **비행 중**과 **대기 중**은 다른 사실이다.
   'wsSync._applyRemoteWorkspace', '_saveInflight', '_savePending',
   // OPTIMIZE_REFACTOR_SRS D-OPT-7: 자기 에코가 설정을 다시 얹지 않는지 센다.
   'settings.apply._settingsApply',
-  // FEC-M3: 자기 방송(origin)이 닿았는지 본다 — 닿은 뒤 GET 이 없어야 한다.
-  'settings.apply._onSettingsChanged',
 
   // ── 그 밖 (misc) ──
   //

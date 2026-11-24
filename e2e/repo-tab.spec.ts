@@ -6,7 +6,6 @@ import { APIRequestContext, Page } from '@playwright/test';
 
 import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, nextFrames, gotoWithEditors, waitForInit, openGit, gitFixture, cleanGitFixture, makeCopyFx,
-  setSafetyNet,
 } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath, tmpPath } from './osenv';
@@ -90,8 +89,6 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
   await openRepo(page, root);
 }
 
-// constants.js 의 전역 상수 — `<script>` 로 로드되므로 import 대상이 아니다.
-declare const gitStatusInterval: number;
 
 const side = (page: Page) => page.locator('#area .ed-win .ed-side');
 const sideTab = (page: Page, id: string) => side(page).locator(`.ed-side-tab[data-side="${id}"]`);
@@ -436,9 +433,17 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
    * NFR-RTU-1: git 실행 횟수가 저장소 수에 비례해 늘지 않는다.
    *
    * 근거는 FR-RTU-62 다 — 관측은 **그 표면이 화면에 있을 때**만 돈다. 창을 여럿
-   * 세우고 그 중 하나에만 서 있으면 status 는 그 하나에만 간다.
+   * 세우고 그 중 하나에만 서 있으면 관측은 그 하나에만 간다.
+   *
+   * PERF_OPTIMIZATION_SRS M1 C4 로 개정.
+   *   이전: 안전망 주기를 줄여 회차를 만들고, `/api/git/status` 가 보이는 저장소에만 가는지 셌다
+   *   지금: 주기 status 는 없다. 모든 저장소에 변화를 만들고, 관측(`/api/git/status`)이 보이는 저장소에만
+   *         가는지 센다. 보이는 저장소는 `git:<root>` 토픽을 구독해야 한다(그것이 서버 감시의 임대다)
+   *   이유: 경계는 그대로이고, 관측을 부르는 계기가 주기에서 서버 감시의 변화 알림으로 바뀌었다.
+   *         Repo 목록이 보이는 동안 핀 저장소 전부가 감시되는 것(배지용, M1 이전에도 목록 요청이 임대했다)은
+   *         관측(status)이 아니므로 이 경계에 들지 않는다
    */
-  test('X6 (V-RTU-90 / NFR-RTU-1): 창이 여럿이어도 폴링은 보이는 표면 것뿐이다',
+  test('X6 (V-RTU-90 / NFR-RTU-1): 창이 여럿이어도 관측은 보이는 표면 것뿐이다',
     async ({ page, request }) => {
       const others: string[] = [];
       for (let i = 0; i < 3; i++) {
@@ -448,10 +453,26 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
         w(j(d, 'x.txt'), 'x\n');
         others.push(realPath(d));
       }
+      // 채널의 `git:` 구독을 따라간다 — 연결이 새로 서면 구독도 처음부터다. 보이는 저장소의 구독이 감시의 임대다.
+      const live = new Set<string>();
+      page.on('websocket', (ws) => {
+        if (new URL(ws.url()).pathname !== '/channel') return;
+        live.clear();
+        ws.on('framesent', (f) => {
+          if (typeof f.payload !== 'string') return;
+          let m: any = null;
+          try { m = JSON.parse(f.payload) } catch { return }
+          if (!m || typeof m.topic !== 'string' || !m.topic.startsWith('git:')) return;
+          if (m.t === 'sub') live.add(m.topic.slice(4));
+          if (m.t === 'unsub') live.delete(m.topic.slice(4));
+        });
+      });
       for (const p of others) await addEditor(request, p);
       await enter(page, request, REPO);
       await sideTab(page, 'changes').click();
       await expect(side(page).locator('.git-view.git-changes')).toBeVisible({ timeout: 10000 });
+
+      await expect.poll(() => live.has(REPO), { timeout: 10000, message: '보이는 저장소를 구독하지 않았다' }).toBe(true);
 
       const hits = new Map<string, number>();
       page.on('request', (r) => {
@@ -459,19 +480,15 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
         if (!u.includes('/api/git/status')) return;
         for (const p of [REPO, ...others]) if (u.includes(p)) hits.set(p, (hits.get(p) || 0) + 1);
       });
-      // GIT_PUSH_OBSERVE_SRS: 관측은 서버 푸시 + 안전망 폴링이다. **경계는
-      // 그대로** — 보이지 않는 표면은 어느 쪽으로도 관측되지 않는다. 안전망을
-      // 검사용으로 줄여 그 경계를 짧은 창에서 확인한다 (재는 것은 경계이지
-      // 주기값이 아니다).
-      await setSafetyNet(page, 200);
-      hits.clear();
-      // 창은 고정 시간이 아니라 **회차 수**로 정한다 — 보이는 저장소가 세 번 폴링될
-      // 동안(종전 600ms×3 창과 같은 회차) 숨은 저장소는 한 번도 폴링되지 않아야 한다.
-      await expect.poll(() => hits.get(REPO) || 0, { timeout: 15000 }).toBeGreaterThanOrEqual(3);
-
-      expect(hits.get(REPO) || 0, '보이는 저장소가 폴링되지 않았다').toBeGreaterThan(0);
+      // 보이는 저장소와 숨은 저장소 모두에 변화를 만든다 — 서버 감시가 보는 것은 구독한 쪽뿐이다.
+      w(j(REPO, 'x6.txt'), 'x\n');
+      git(REPO, 'add', 'x6.txt');
+      for (const p of others) { w(j(p, 'y.txt'), 'y\n'); git(p, 'add', 'y.txt') }
+      await expect.poll(() => hits.get(REPO) || 0, { timeout: 15000, message: '보이는 저장소의 변화가 관측되지 않았다' })
+        .toBeGreaterThan(0);
+      await nextFrames(page, 2);
       for (const p of others) {
-        expect(hits.get(p) || 0, `보이지 않는 저장소 ${p} 가 폴링됐다`).toBe(0);
+        expect(hits.get(p) || 0, `보이지 않는 저장소 ${p} 가 관측됐다`).toBe(0);
       }
     });
 });

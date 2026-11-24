@@ -130,8 +130,7 @@ class GitRemoteView {
 
   _state(){
     if(this.r._job)
-      return this.r._canceling?GIT_JOB_CANCELING
-        :(this.r._streamErr?GIT_JOB_STREAM_FAIL:GIT_JOB_RUNNING);
+      return this.r._canceling?GIT_JOB_CANCELING:GIT_JOB_RUNNING;
     if(this.r._busy) return GIT_JOB_RUNNING;
     const d=this.r._done;
     if(!d) return this.r._err?GIT_JOB_FAIL:'';

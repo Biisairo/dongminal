@@ -28,6 +28,8 @@ use crate::{
 #[derive(Default)]
 pub(crate) struct FakeHub {
     pub(crate) tools: Mutex<Vec<ToolInfo>>,
+    /// `background_list` 의 답이다.
+    pub(crate) bg: Mutex<Vec<BackgroundEntry>>,
     pub(crate) busy: Mutex<HashMap<String, bool>>,
     pub(crate) cwds: Mutex<HashMap<String, String>>,
     /// 마지막 Create 의 인자 (cwd, cols, rows, place).
@@ -43,6 +45,8 @@ pub(crate) struct FakeHub {
     pub(crate) create_err: Option<String>,
     /// 도구마다 구독 (출력 송신자, 종료 신호).
     pub(crate) subs: Mutex<HashMap<String, (Sender<OutChunk>, CancellationToken)>>,
+    /// 같은 도구의 나중 구독에 밀려난 구독 — 살려 두어 앞 구독자의 출력이 끊기지 않게 한다.
+    pub(crate) replaced_subs: Mutex<Vec<(Sender<OutChunk>, CancellationToken)>>,
     pub(crate) snaps: Mutex<HashMap<String, ToolSnapshot>>,
     pub(crate) inputs: Mutex<Vec<(String, Vec<u8>)>>,
     pub(crate) resizes: Mutex<Vec<(String, u16, u16)>>,
@@ -67,10 +71,14 @@ impl FakeHub {
 impl ToolHub for FakeHub {
     fn subscribe(&self, tool_id: &str, tx: Sender<OutChunk>) -> (CancellationToken, Unsubscribe) {
         let exit = CancellationToken::new();
-        self.subs
+        let old = self
+            .subs
             .lock()
             .unwrap()
             .insert(tool_id.to_owned(), (tx, exit.clone()));
+        if let Some(old) = old {
+            self.replaced_subs.lock().unwrap().push(old);
+        }
         (exit, Box::new(|| {}))
     }
     fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError> {
@@ -208,7 +216,7 @@ impl ToolHub for FakeHub {
         self.has(id)
     }
     fn background_list(&self) -> Vec<BackgroundEntry> {
-        Vec::new()
+        self.bg.lock().unwrap().clone()
     }
 }
 
@@ -386,6 +394,7 @@ pub(crate) struct FakeBroker {
     pub(crate) await_result: CmdResult,
     pub(crate) await_delivered: usize,
     pub(crate) delivered: Mutex<Vec<(String, CmdResult)>>,
+    pub(crate) tap: Mutex<Option<otter_webserver_hub::BroadcastTap>>,
 }
 
 impl FakeBroker {
@@ -404,6 +413,10 @@ impl CommandBroker for FakeBroker {
             .lock()
             .unwrap()
             .push(String::from_utf8_lossy(payload).into_owned());
+        let tap = self.tap.lock().unwrap().clone();
+        if let Some(f) = tap {
+            f(payload);
+        }
         1
     }
     fn broadcast_and_await<'a>(
@@ -414,6 +427,9 @@ impl CommandBroker for FakeBroker {
     ) -> BoxFuture<'a, (CmdResult, usize, bool)> {
         self.broadcast(payload);
         Box::pin(async move { (self.await_result.clone(), self.await_delivered, false) })
+    }
+    fn set_broadcast_tap(&self, f: Option<otter_webserver_hub::BroadcastTap>) {
+        *self.tap.lock().unwrap() = f;
     }
     fn deliver_result(&self, req_id: &str, res: CmdResult) {
         self.delivered

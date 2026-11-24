@@ -711,7 +711,6 @@ function orderSetup() {
     THEMES: { x: {} }, currentThemeName: 'x', customTheme: null, themeFollowSystem: false, applyThemeObj() {},
     I18N: { applyShortcuts() {} },
     TIMERS: { refreshChanged() {}, disposeOwner() {} },
-    PrefStore: { local: { get: () => null } }, STORE_KEYS: { legacyAgentsPollMs: 'x' },
   });
   const drawn = [];
   const app = { gitPanel: null, mobile: { _mkbRender: () => drawn.push(state.kb), mkbRefresh() {} } };
@@ -738,16 +737,15 @@ test('TC-QFX-7: 부팅 적용이 설정창보다 먼저여도 뒤여도 칠한 �
   assert.equal(b.drawn.at(-1), 'K');
 });
 
-test('TC-QFX-7: 칠하기는 적용의 맨 끝, 이사 뒤다 — 이사가 섹션을 따로 칠하지 않는다 (FR-QFX-11)', () => {
+test('TC-QFX-7: 칠하기는 적용의 맨 끝에 한 번이다 (FR-QFX-11)', () => {
   const { c } = orderSetup();
   const log = [];
-  c.apply._pollMigrateAgents = () => log.push('migrate');
   c.app.settings.paint = () => log.push('paint');
   c.apply._settingsApply({ n: 2 }, { boot: true });
-  assert.deepEqual(log, ['migrate', 'paint']);
+  assert.deepEqual(log, ['paint']);
   log.length = 0;
-  c.apply._settingsApply({ n: 3 });
-  assert.deepEqual(log, ['paint'], '이사는 부팅에서만');
+  c.apply._settingsApply({ n: 3, agentsPollInterval: 9000 });
+  assert.deepEqual(log, ['paint'], '옛 키가 있어도 적용은 같다');
 });
 
 test('TC-QFX-7: 적용 길은 섹션을 직접 부르지 않고, 키바 얹기에 modKbd 가드가 없다 (FR-QFX-9·10)', () => {

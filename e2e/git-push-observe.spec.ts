@@ -86,7 +86,7 @@ test.describe('GIT_PUSH_OBSERVE — 서버가 밀어 준다', () => {
     // 남의 저장소를 가리키는 방송을 직접 먹인다 — 서버를 거치지 않고 그
     // 갈림길만 시험한다.
     await page.evaluate((repo) => {
-      (window as any).app.bus.publish('git_changed', { repo, mark: 'zzz' });
+      (window as any).app.git.sync._onGitChanged({ repo, mark: 'zzz' });
     }, other);
     await page.waitForTimeout(500);
 
@@ -108,7 +108,7 @@ test.describe('GIT_PUSH_OBSERVE — 서버가 밀어 준다', () => {
 
     // 첫 알림을 받아 `mark` 를 세운다 — 그것이 "이미 본 것" 의 기준이다.
     await page.evaluate((repo) => {
-      (window as any).app.bus.publish('git_changed', { repo, mark: 'M1' });
+      (window as any).app.git.sync._onGitChanged({ repo, mark: 'M1' });
     }, repo);
     await page.waitForTimeout(300);
 
@@ -119,43 +119,34 @@ test.describe('GIT_PUSH_OBSERVE — 서버가 밀어 준다', () => {
     });
 
     await page.evaluate((repo) => {
-      (window as any).app.bus.publish('git_changed', { repo, mark: 'M1' });
+      (window as any).app.git.sync._onGitChanged({ repo, mark: 'M1' });
     }, repo);
     await page.waitForTimeout(500);
     expect(statusReqs, '이미 본 알림으로 다시 받았다 (FR-GPO-22)').toBe(0);
 
     // 다른 mark 면 받는다 — 위 0 이 "그냥 안 도는 것" 이 아님을 보인다.
     await page.evaluate((repo) => {
-      (window as any).app.bus.publish('git_changed', { repo, mark: 'M2' });
+      (window as any).app.git.sync._onGitChanged({ repo, mark: 'M2' });
     }, repo);
     await expect.poll(() => statusReqs, { timeout: 5000 }).toBeGreaterThan(0);
   });
 
 });
 
-// B-4 는 실앱의 SSE 를 끊고 안전망만 남기는 검사다. 30초 안전망을 그대로 기다리면
-// 스펙 하나가 30초를 먹으므로, **주기를 줄여** 같은 계약을 잰다 — 재는 것은
-// "푸시가 없어도 갱신되는가" 이지 30 이라는 값이 아니다.
-test('B-4 푸시가 끊겨도 안전망 폴링이 화면을 따라잡는다', async ({ page }) => {
+// B-4 (PERF_OPTIMIZATION_SRS M1 C4 개정): 안전망 폴링은 없다. 채널이 끊긴 동안의 변화는
+// 다시 붙을 때 `git:<root>` 토픽의 재구독(순번·epoch)이 따라잡는다 (FR-CON-5).
+test('B-4 채널이 끊겼다 이어지면 끊긴 동안의 변화를 따라잡는다', async ({ page }) => {
   const repo = copyFx('basic', 'b4');
   await waitForInit(page);
   await openGit(page, repo);
   await waitSettled(page);
 
-  await page.evaluate(() => {
-    const app = (window as any).app;
-    // 안전망을 1초로 줄이고 주기를 다시 건다 (FR-GIT-22: 참이 되면 즉시 1회).
-    (window as any).gitStatusInterval = 1000;
-    for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
-    // 푸시를 끊는다 — 이제 화면을 살리는 것은 안전망뿐이다.
-    app.bus.closeChannel('commands');
-    try { app.testing.sse.close() } catch { /* 이미 닫힘 */ }
-  });
-
   const before = await untracked(page).count();
+  // 소켓만 끊는다 — 채널은 백오프 뒤 스스로 다시 붙는다.
+  await page.evaluate(() => { (window as any).app.channel._ws.close() });
   writeFileSync(join(repo, 'fallback.txt'), 'x\n');
 
   await expect
-    .poll(() => untracked(page).count(), { timeout: 10000 })
+    .poll(() => untracked(page).count(), { timeout: 15000 })
     .toBeGreaterThan(before);
 });

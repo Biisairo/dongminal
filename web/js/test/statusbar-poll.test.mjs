@@ -4,119 +4,95 @@ import { test } from 'node:test';
 import { BASE, load } from './harness.mjs';
 
 /**
- * REFACTOR3_FE_REST1_SRS FR-FR1-14 (FC-21): 상태바 회차의 ping·stats 를 함께 보낸다.
- *   이전 동작: ping 응답을 기다린 뒤 stats 를 보냈다(회차당 직렬 2왕복)
- *   새  동작: 둘을 곧바로 보내고, 두 응답이 모두 온 뒤 지금 순서대로 처리한다
- *   이유:     회차 대기가 RTT 두 번에서 한 번으로 준다. `_latency` 는 그대로 ping 의 왕복이다(D-FR1-10)
+ * PERF M1 C3 TC-CH3-10 — 상태바는 묻지 않는다.
+ *   이전 동작: `statsInterval` 마다 `/api/ping`·`/api/stats` 를 보냈다 (FR-FR1-14)
+ *   새  동작: 채널의 `stats:<statsInterval>` 을 구독하고, 지연은 채널 ping 의 왕복이다
+ *   이유:     유휴 요청을 없앤다 (FR-CON-7)
  */
-function setup() {
-  const calls = [];
-  const clock = { now: 0 };
+function setup({ interval = 3000 } = {}) {
+  const gets = [];
+  const subs = new Map();
+  const busSubs = new Map();
+  let latency = 12;
   const ctx = load([...BASE, 'core/statusbar-controller.js', 'core/statusbar-enc.js'], {
     expose: ['StatusBarController'],
-    globals: {
-      App: class {},
-      performance: { now: () => clock.now },
-      apiGet: (path, opts) => new Promise((resolve) => calls.push({ path, opts, resolve })),
-    },
+    globals: { App: class {}, apiGet: (p) => { gets.push(p); return new Promise(() => {}) } },
   });
-  const settles = [];
-  let updates = 0;
+  ctx.statsInterval = interval;
   const app = {
-    _stats: { cpu: 1 }, _latency: 5,
-    git: { sync: { _gitJobsBegin: () => 7, _gitJobsSettle: (jt, jobs) => settles.push([jt, jobs]) } },
+    _stats: {}, _latency: null,
+    bus: { subscribe: (t, fn) => { if (!busSubs.has(t)) busSubs.set(t, []); busSubs.get(t).push(fn) } },
+    channel: {
+      sub: (topic, fn) => { subs.set(topic, fn); return { stop: () => subs.delete(topic) } },
+      latency: () => latency,
+    },
   };
   const sb = new ctx.StatusBarController(app);
   app.statusbar = sb;
+  let updates = 0;
   sb.updateStatusBar = () => { updates++ };
-  return { sb, app, calls, clock, settles, updates: () => updates };
+  sb._initStatusBarReflow = () => {};
+  const fire = (t, a) => { for (const fn of busSubs.get(t) || []) fn(a) };
+  return { ctx, sb, app, gets, subs, fire, updates: () => updates, setLatency: (v) => { latency = v } };
 }
-const tick = () => new Promise((r) => setImmediate(r));
-const req = (calls, p) => calls.find((c) => c.path === p);
 
-test('TC-FR1-9: ping 응답 전에 stats 를 보낸다', async () => {
-  const { sb, calls } = setup();
-  const done = sb._pollStats();
-  await tick();
-  assert.deepEqual(calls.map((c) => c.path), ['/api/ping', '/api/stats']);
-  assert.equal(JSON.stringify(req(calls, '/api/stats').opts), JSON.stringify({ query: { jobs: '1' } }));
-  req(calls, '/api/ping').resolve({ ok: true, status: 200 });
-  req(calls, '/api/stats').resolve({ ok: true, status: 200, data: {} });
-  await done;
+test('TC-CH3-10: 상태바는 /api/ping·/api/stats 를 부르지 않고 stats:<주기> 를 구독한다', () => {
+  const { sb, gets, subs } = setup();
+  sb.initStatusBar();
+  assert.deepEqual(gets, []);
+  assert.deepEqual([...subs.keys()], ['stats:3000']);
 });
 
-test('TC-FR1-9: 지연은 ping 의 왕복만 잰다 — stats 가 늦어도 늘지 않는다', async () => {
-  const { sb, app, calls, clock, settles, updates } = setup();
-  clock.now = 100;
-  const done = sb._pollStats();
-  await tick();
-  clock.now = 130;
-  req(calls, '/api/ping').resolve({ ok: true, status: 200 });
-  await tick();
-  assert.equal(updates(), 0, '두 응답 전에는 그리지 않는다');
-  clock.now = 400;
-  req(calls, '/api/stats').resolve({ ok: true, status: 200, data: { cpu: 9, jobs: [{ id: 'j' }] } });
-  await done;
-  assert.equal(app._latency, 30);
-  assert.deepEqual(settles, [[7, [{ id: 'j' }]]]);
-  assert.deepEqual(app._stats, { cpu: 9 });
-  assert.equal(updates(), 1);
-});
-
-test('TC-FR1-9: stats 가 먼저 와도 처리는 두 응답 뒤 한 번이다', async () => {
-  const { sb, app, calls, clock, updates } = setup();
-  const done = sb._pollStats();
-  await tick();
-  req(calls, '/api/stats').resolve({ ok: true, status: 200, data: { cpu: 3 } });
-  await tick();
-  assert.equal(updates(), 0);
-  assert.deepEqual(app._stats, { cpu: 1 });
-  clock.now = 12;
-  req(calls, '/api/ping').resolve({ ok: true, status: 200 });
-  await done;
+test('TC-CH3-10: full 마다 지표를 얹고 지연은 채널 왕복이다', () => {
+  const { sb, app, subs, updates } = setup();
+  sb.initStatusBar();
+  subs.get('stats:3000')({ kind: 'full', data: { cpu: 7 } });
+  assert.equal(app._stats.cpu, 7);
   assert.equal(app._latency, 12);
-  assert.deepEqual(app._stats, { cpu: 3 });
-  assert.equal(updates(), 1);
+  assert.ok(updates() >= 1);
 });
 
-test('TC-FR1-9: ping 이 망 실패면 지연은 null 이고 stats 는 그대로 받는다', async () => {
-  const { sb, app, calls, updates } = setup();
-  const done = sb._pollStats();
-  await tick();
-  req(calls, '/api/ping').resolve({ ok: false, status: 0 });
-  req(calls, '/api/stats').resolve({ ok: true, status: 200, data: { cpu: 4 } });
-  await done;
+test('TC-CH3-10: 주기가 바뀌면 옛 토픽을 해지하고 새 토픽을 구독한다', () => {
+  const { ctx, sb, subs } = setup();
+  sb.initStatusBar();
+  ctx.statsInterval = 10000;
+  subs.get('stats:3000')({ kind: 'full', data: {} });
+  assert.deepEqual([...subs.keys()], ['stats:10000']);
+});
+
+test('TC-CH3-10: 설정이 주기를 바꾸면 곧바로 토픽을 갈아탄다', () => {
+  const { ctx, sb, subs } = setup();
+  sb.initStatusBar();
+  ctx.statsInterval = 1000;
+  sb._statsRearm();
+  assert.deepEqual([...subs.keys()], ['stats:1000']);
+});
+
+test('TC-CH3-10: 채널이 아직 없으면 첫 chan:open 에 구독하고, 끊기면 연결 표시를 끈다', () => {
+  const { sb, app, subs, fire } = setup();
+  const ch = app.channel;
+  app.channel = null;
+  sb.initStatusBar();
+  assert.equal(subs.size, 0);
+  app.channel = ch;
+  fire('chan:open', { gen: 1 });
+  assert.deepEqual([...subs.keys()], ['stats:3000']);
+  app._latency = 5;
+  fire('chan:lost', {});
   assert.equal(app._latency, null);
-  assert.deepEqual(app._stats, { cpu: 4 });
-  assert.equal(updates(), 1);
-});
-
-test('TC-FR1-9: stats 가 실패하면 지표를 두고 작업 목록은 null 로 정산한다', async () => {
-  const { sb, app, calls, settles, updates } = setup();
-  const done = sb._pollStats();
-  await tick();
-  req(calls, '/api/ping').resolve({ ok: true, status: 200 });
-  req(calls, '/api/stats').resolve({ ok: false, status: 0 });
-  await done;
-  assert.deepEqual(app._stats, { cpu: 1 });
-  assert.deepEqual(settles, [[7, null]]);
-  assert.equal(updates(), 1);
-});
-
-test('TC-FR1-9: git 패널이 없으면(작업 표 없음) stats 에 jobs 를 묻지 않는다', async () => {
-  const { sb, app, calls, settles } = setup();
-  app.git.sync._gitJobsBegin = () => 0;
-  const done = sb._pollStats();
-  await tick();
-  assert.equal(req(calls, '/api/stats').opts, undefined);
-  req(calls, '/api/ping').resolve({ ok: true, status: 200 });
-  req(calls, '/api/stats').resolve({ ok: true, status: 200, data: {} });
-  await done;
-  assert.deepEqual(settles, []);
 });
 
 test('TC-ATF-44: 메모리는 사용량이 숫자일 때만 그린다(총량만 오면 그리지 않는다)', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../core/statusbar-controller.js', import.meta.url), 'utf8');
   assert.match(src, /if\(statusBar\.memory&&this\.app\._stats\.memTotal&&typeof this\.app\._stats\.memUsed==='number'\)/);
+});
+
+test('TC-CH1-10b: chan:pong 이 지연을 얹고 곧바로 다시 그린다 — 첫 stats 보다 늦어도 연결 표시가 서 있다', () => {
+  const { sb, app, fire, updates } = setup();
+  sb.initStatusBar();
+  const before = updates();
+  fire('chan:pong', { latency: 9 });
+  assert.equal(app._latency, 9);
+  assert.equal(updates(), before + 1);
 });

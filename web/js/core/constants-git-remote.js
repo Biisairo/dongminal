@@ -75,9 +75,6 @@ const GIT_PROGRESS_FLAG='--progress';
 // 보존 줄 수 상한은 서버가 보낸다(`/api/git/policy` 의 `jobLineCap`, K-a). 받기 전에는
 // 자르지 않는다 — 서버가 보존한 것보다 많이 주지 않는다.
 function gitJobLineCap(){const p=GitConfirm.cached();return p?p.jobLineCap:0}
-// SSE 가 끊기면 마지막 seq 부터 다시 잇는다 (계약 §2.3.1).
-const GIT_JOB_RETRY_MS=1000;
-const GIT_JOB_RETRY_MAX=5;
 const GIT_JOB_RUNNING=t('git.job_running');
 const GIT_JOB_OK=t('git.job_ok');
 const GIT_JOB_FAIL=t('git.job_fail');

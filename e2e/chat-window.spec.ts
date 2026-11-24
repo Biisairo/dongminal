@@ -1,7 +1,7 @@
 // CHAT_WINDOW_SRS — 채팅 창 (TC-CW-1·2·7·8·9·10)
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, stubTopic } from './fixtures';
 
 const MOBILE = { width: 412, height: 839 };
 
@@ -15,6 +15,8 @@ async function mockChat(page: Page) {
     ],
     online: { nodes: [], participants: [] },
   };
+  // 채팅 상태는 `chat` 토픽으로 온다(CHANNEL_PROTOCOL C2b). 들어가기·나가기 뒤의 GET 은 아래 route 가 받는다.
+  await stubTopic(page, 'chat', () => st);
   await page.route('**/api/chat**', async (route) => {
     const url = new URL(route.request().url());
     const json = (d: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(d) });

@@ -27,7 +27,7 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
-tokio-tungstenite = { workspace = true }
+sockudo-ws = { workspace = true }
 tokio-util = { workspace = true }
 otter-shared-activity = { path = "../../shared/activity" }
 otter-shared-agentadapter = { path = "../../shared/agentadapter" }
@@ -80,3 +80,5 @@ otter-webserver-sse = { path = "../sse" }
 [dev-dependencies]
 otter-shared-gittest = { path = "../../shared/gittest" }
 tempfile = { workspace = true }
+# 시험의 WebSocket 클라이언트가 `SinkExt::send` 를 쓴다.
+futures-util = { workspace = true, features = ["sink"] }

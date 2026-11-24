@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 
 use crate::check::{
-    LOCALES, NEEDED, RS_COMMANDS, RS_LSP_WS, RS_OPERATION, RS_PREFLIGHT, RS_WORKSPACE, Sources,
-    check, js_consts, js_object_keys, rust_consts, set_diff,
+    LOCALES, NEEDED, RS_LSP_WS, RS_OPERATION, RS_PREFLIGHT, RS_WORKSPACE, Sources, check,
+    js_consts, js_object_keys, rust_consts, set_diff,
 };
 
 fn repo_root() -> PathBuf {
@@ -91,24 +91,12 @@ fn probes_each_pair() {
             "pub const SCHEMA_VERSION: i64 = 2;",
             "pub const SCHEMA_VERSION: i64 = 3;",
         ),
-        (
-            "K17",
-            "web/js/core/constants.js",
-            "const SSE_SILENCE_MS=45000;",
-            "const SSE_SILENCE_MS=30000;",
-        ),
-        (
-            "K17",
-            RS_COMMANDS,
-            "Duration::from_secs(15);",
-            "Duration::from_secs(20);",
-        ),
         // 읽지 못하는 식은 조용히 넘기지 않는다.
         (
-            "K17",
-            RS_COMMANDS,
-            "= Duration::from_secs(15);",
-            "= HELLO_BASE * 3;",
+            "K13",
+            RS_WORKSPACE,
+            "pub const SCHEMA_VERSION: i64 = 2;",
+            "pub const SCHEMA_VERSION: i64 = BASE + 1;",
         ),
         // 상수가 사라져도 실패한다.
         (

@@ -6,7 +6,7 @@
  * 전경 이름, 복원 비행 껍데기. `otterctl` 원격 명령의 실행은 `tool-cmd.js` 에 있다.
  * App 은 이것을 `wsSync` 로 든다(REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`). 부품 — 내부 새로고침
  * `SoftReload`(`soft-reload.js`) `.reload`. 저장 경로(`app.js` `save`)가 함께 쓰는 `wsETag`·`_wsDeferRev`·
- * `_wsApplyPending`·`_saveInflight` 와 `_wsApplyInflight`·`_sseKick`·`fgNames` 는 App 에 남는다(§2.2).
+ * `_wsApplyPending`·`_saveInflight` 와 `_wsApplyInflight`·`fgNames` 는 App 에 남는다(§2.2).
  * `app-cmd.js` 다음, main.js 이전에 로드된다.
  */
 class WsSyncController extends Controller {
@@ -73,58 +73,28 @@ class WsSyncController extends Controller {
     // 곧 "자산이 바뀌었을 수 있다" 의 신호**다. 판정은 version-watch 의 것이다.
     // FR-OPT-4-10: 그 인사를 실어 온 구독이 살아 있는지도 함께 건넨다 — 살아 있는 동안
     // 탭 복귀의 보조 확인은 같은 답을 다시 묻지 않는다.
-    bus.subscribe('server_hello',a=>{
-      const v=a&&a.assetVersion;
-      const gen=bus.gen();
-      if(v&&window.__otterAssetVersion) window.__otterAssetVersion(String(v),()=>bus.alive()&&bus.gen()===gen);
+    // CHANNEL_PROTOCOL C2a: 그 인사는 채널 `hello` 의 `server.assetVersion` 이다 (TC-CH2A-13).
+    bus.subscribe('chan:open',a=>{
+      const v=a&&a.server&&a.server.assetVersion;
+      const gen=a&&a.gen, ch=this.app.channel;
+      if(v&&window.__otterAssetVersion) window.__otterAssetVersion(String(v),()=>!!ch&&ch.alive()&&ch.gen()===gen);
     },{owner:'app'});
 
-    bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});
-
-    /**
-     * FR-M9-10 (D-M9-8): **끊겼던 동안의 삭제는 다시 붙어도 오지 않는다.**
-     *
-     * `workspace_changed` 는 사건이고 SSE 는 변화만 나른다 — 구독이 끊겨 있던
-     * 구간의 사건은 재생되지 않으므로, 다시 붙어(`readyState===1`) 정상으로
-     * 보이는 클라이언트가 **지워진 탭을 영영 들고 있다.** 실측이 그것이다:
-     * 클라 3탭 / 서버 1탭, `visibilitychange`·`focus`·`online`·SSE 재연결
-     * 뒤로 14초까지 수렴하지 않았다 (M9_SRS §2.3 M9-B9).
-     *
-     * 그 구간을 메우는 길은 상태를 **통째로 다시 받는 것** 하나다. 터미널은
-     * `OpSeq` 로 좌표를 들고 이어 붙일 수 있지만 워크스페이스에는 그런 좌표가
-     * 없다. 사건 재생을 넣지 않는 이유가 그것이다.
-     *
-     * **rev 를 주지 않는다.** 무엇을 놓쳤는지 모르므로 "낡았다" 로 걸러지면 안
-     * 되고, `_onWorkspaceChanged` 는 rev 없는 호출을 이미 그렇게 규정한다
-     * (FR-WSC-17). 비행 중 유예·ETag 추월 방어도 그 함수가 이미 든다 — 여기서
-     * 다시 세우면 판정이 두 벌이 된다.
-     *
-     * **주기 폴링을 더하지 않는다** (D-M9-8). 메울 구간이 있는 순간은 재연결
-     * 하나이며, 그 밖의 시각에 묻는 것은 답을 이미 아는 물음이다.
-     *
-     * **`gen>1` — 최초 연결은 아니다.** 요구는 "끊겼다 **다시** 붙으면" 이고
-     * (FR-M9-10), 첫 연결에는 메울 구간이 없다: 부팅이 방금 `/api/state` 로
-     * 받았다. 거기서 한 번 더 받으면 **그 사이의 로컬 변경을 덮는다** — 전량
-     * e2e 가 그것을 잡았다(`session.spec.ts` "rename via double-click" 6/6 실패).
-     * 이름을 고치는 중에 워크스페이스가 다시 그려져 편집하던 행이 사라졌다.
-     * `_gen` 은 `connect()` 마다 오르므로 첫 연결이 1 이다 (`event-bus.js`).
-     */
-    bus.subscribe('sse:open',(a)=>{ if(a&&a.gen>1) this._onWorkspaceChanged() },{owner:'app'});
+    // FR-M9-10 (D-M9-8): 끊겼던 동안의 변화는 `workspace` 토픽의 재구독이 메운다 — 서버가 빠진
+    // 것이 있으면 full 을 다시 준다 (CHANNEL_PROTOCOL §5.1, C2b). 주기 폴링을 더하지 않는다.
 
     // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
     // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
     bus.subscribe('run_changed',a=>this.app.runsPanel()._onRunChanged(a),{owner:'app'});
     // RUN_VIEW_LIVE_SRS FR-RLV-5: 멤버의 상태 변화는 서버가 `run_changed` 로 알리지 못한다.
     bus.subscribe('tool_activity',a=>this.app._onRunMemberActivity(a),{owner:'app'});
-    // CLAUDE_ACCOUNTS_SRS FR-CAC-100a: 계정 알림은 상태가 아니라 사건이다 — 등록부가 아니라 여기서 받는다.
-    bus.subscribe('claude_account_alert',a=>this.app.claude._onClaudeAccountAlert(a),{owner:'app'});
 
     /**
      * ── 다섯 상태는 **등록부에서 파생된다** (FR-HUB-3) ──
      *
      * 여기 있던 것: `tool_attention`·`tool_attention_clear`·`tool_activity`·
      * `tool_foreground`·`tools_background_changed`·`window_focus` 구독 여섯과,
-     * `sse:open` 에 이어 붙은 복원 다섯.
+     * `chan:open`(옛 `sse:open`) 에 이어 붙은 복원 다섯.
      *
      * 같은 목록이 옛 `app-reload.js` 에 또 있었고 그 둘이 어긋날 수 있었다. 이제
      * 한 곳(`state-registry.js`)이 정하고 여기는 그것을 부르기만 한다 — 새 상태를
@@ -142,13 +112,16 @@ class WsSyncController extends Controller {
     // (FR-BUS-8) — 종전에는 같은 신호를 네 곳이 각자 듣고 각자 해석했다.
     bus.startLifecycle();
 
-    // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이 구독
-    // 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
-    bus.connect('/api/commands/sse?clientId='+encodeURIComponent(this.app.clientId));
-
-    // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
-    // 붙는다 — 사용자가 부른 것이므로 기다릴 이유가 없다.
-    this.app._sseKick=()=>bus.reconnect();
+    // PERF_OPTIMIZATION_SRS M1: 채널. 칸 i>0 의 소유권을 `slots` 로(C1), FR-XDF-8 의 clientId 를
+    // `client` 로 쥐고, 명령·사건은 `cmd` 로 받아 버스의 라우팅을 탄다(C2a).
+    const ch=this.app.channel=new Channel(bus,{after:(ms,fn,o)=>this.app.timers.after(ms,fn,o)},
+      {pingMs:()=>statsInterval, client:()=>this.app.clientId});
+    ch.on('cmd',m=>bus.route(m),{owner:'app'});
+    bus.setWake(()=>ch.kick());
+    ch.connect();
+    this.app.git.topics.bind(ch);
+    TERM_MUX.attach(ch);
+    this.app.slot._slotSyncSubs();
   }
 
   /**
@@ -165,6 +138,19 @@ class WsSyncController extends Controller {
     if(this.app._wsDeferRev===undefined||r>this.app._wsDeferRev) this.app._wsDeferRev=r;
   }
 
+  /**
+   * CHANNEL_PROTOCOL C2b (TC-CH2B-6): `workspace` 토픽의 full. GET 없이 받은 본문을 적용한다 — 유예·
+   * 추월 방어는 `_onWorkspaceChanged` 의 것을 그대로 지난다. 소프트 리로드처럼 본문 없이 부르면 GET 이다.
+   */
+  async _onWorkspaceTopic(src){
+    if(!src) return this._onWorkspaceChanged();
+    const r=await src;
+    if(!r.ok||!r.data) return;
+    this.app._wsTopicSrc=r;
+    const et=this.app.wsSave._etagOf(r);
+    return this._onWorkspaceChanged(et?parseInt(et,10):undefined);
+  }
+
   async _onWorkspaceChanged(rev){
     // While a local save is in flight, the SSE we just received is almost
     // certainly an echo of our own PUT (the PUT response with the new ETag
@@ -176,7 +162,7 @@ class WsSyncController extends Controller {
     if(this.app._saveInflight){ this._wsDefer(rev); return }
     if(this.app._wsApplyInflight){ this._wsDefer(rev); return }
     const cur=this.app.wsETag?parseInt(this.app.wsETag,10):-1;
-    if(typeof rev==='number' && rev<=cur) return;
+    if(typeof rev==='number' && rev<=cur){ this.app._wsTopicSrc=null; return }
     this.app._wsApplyInflight=true;
     try{
       do{
@@ -185,7 +171,9 @@ class WsSyncController extends Controller {
         // 경로 개정). 그래서 여기서 `fg` 비행을 연다 — 응답을 기다리는 사이 SSE 가 만진
         // id 는 이 스냅샷이 덮지 않는다.
         const fgT=this._restoreBegin('fg');
-        const r=await apiGet('/api/state');
+        // 토픽이 준 본문이 있으면 그것이 가장 새 판이다 — 묻지 않는다 (TC-CH2B-6).
+        const r=this.app._wsTopicSrc||await apiGet('/api/state');
+        this.app._wsTopicSrc=null;
         if(!r.ok){ this._restoreEnd('fg',fgT); break }
         const et=this.app.wsSave._etagOf(r);
         const st=r.data;
@@ -444,28 +432,3 @@ class WsSyncController extends Controller {
     }
   }
 }
-
-
-/**
- * SSE 의 내부 상태를 붙잡던 이름들 (FR-HUB-7).
- *
- * 채널은 `EventBus` 로 갔지만 이 이름들은 남는다 — `soft-reload.js` 의 소프트리로드
- * 1단계가 `_sse.readyState` 로 생존을 보고, e2e 여섯이 `_sse`·`_cmdES`·`_sseGen`·
- * `_sseSeen` 을 직접 만진다 (`version-autoreload` 는 `_sseSeen` 에 **쓴다** —
- * 침묵을 흉내내는 유일한 방법이다).
- *
- * 위임 껍데기가 메서드에만 적용된다고 보면 이 자리를 놓친다. **바깥은 상태
- * 필드에도 손을 뻗는다** — `APP_STATE_EXTRACT_SRS` §2.3 이 같은 함정을 실측으로
- * 기록했다.
- */
-Object.defineProperties(App.prototype,{
-  // 종전 코드에서 `_sse` 와 `_cmdES` 는 같은 EventSource 를 가리켰다.
-  _sse:   {get(){ const app=this; return app.bus?app.bus._es:null }, configurable:true},
-  _cmdES: {get(){ const app=this; return app.bus?app.bus._es:null }, configurable:true},
-  _sseGen:{get(){ const app=this; return app.bus?app.bus.gen():0 }, configurable:true},
-  _sseSeen:{
-    get(){ const app=this; return app.bus?app.bus.lastSeen():0 },
-    set(v){ const app=this; if(app.bus) app.bus._seen=v },
-    configurable:true,
-  },
-});

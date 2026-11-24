@@ -32,7 +32,6 @@ Object.assign(SettingsSync.prototype, {
    * 표시만 하고 그 비행의 약속을 돌려받는다 — 비행이 끝나면 최신 본문으로 한 번
    * 더 나간다. 전체 blob 두 개가 순서가 바뀌어 도착하면 옛 값이 남기 때문이다.
    * 약속은 마지막 PUT 의 성패로 풀린다. 던지면 거부되되 비행은 풀린다 (finally).
-   * FEC-M3: `?clientId=` 가 방송의 `origin` 으로 돌아온다 (`_onSettingsChanged`).
    */
   saveSettings(){
     this._settingsDirty=true;
@@ -102,7 +101,9 @@ Object.assign(SettingsSync.prototype, {
    * 부르는 자리는 `_settingsRestore` 다.
    */
   _settingsAcceptRemote(r){
-    if(this._settingsLocalPending()) this._settingsEchoMissed=true;
-    else if(!(r.ok&&r.text===this._settingsLastSent)) this.app.settings.apply._settingsApply(r.ok?r.data:null);
+    // 토픽은 본문을 싣는다(CHANNEL_PROTOCOL C2b) — 보낸 본문과 같으면 비행 중에 와도 자기 에코다.
+    const own=r.ok&&r.text===this._settingsLastSent;
+    if(this._settingsLocalPending()){ if(!own) this._settingsEchoMissed=true }
+    else if(!own) this.app.settings.apply._settingsApply(r.ok?r.data:null);
   },
 });

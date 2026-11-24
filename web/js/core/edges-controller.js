@@ -65,14 +65,14 @@ class EdgesController extends Controller {
     });
   }
 
-  _onEdgesChanged(a){
+  /** CHANNEL_PROTOCOL C2b: `edges.notice` 사건. 상태는 `edges` 토픽이 따로 준다. */
+  _onEdgesNotice(a){
     const paired=a&&a.paired, removed=a&&a.removed;
     if(paired) Toast.show(t('edge.paired_notice',{name:edgeHandle(paired)}),'ok',0);
     // FR-EPR-23: 상대가 지운 간선만 알린다. 이쪽에서 끊은 것은 끊기 단계에서 이미 보였다.
     if(removed&&a.byPeer) Toast.show(t('edge.removed_notice',{name:edgeHandle(removed)}),'',0);
     // EDGE_MESH_SRS FR-EGM-55: 망 이웃이 보낸 간선 초대를 받았다. 맺기·거절은 Edges 에서 한다.
     if(a&&a.invited) Toast.show(t('edge.invited_notice',{name:edgeHandle(a.invited)}),'',0);
-    return this._edgesRestore();
   }
 
   /** 망 그림과 그 아래의 할 일을 그린다. 패널이 없는 화면에서는 아무것도 하지 않는다. */

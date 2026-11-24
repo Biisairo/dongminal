@@ -32,7 +32,6 @@ otter-webserver-domain-submodule = { path = "../domain/submodule" }
 otter-webserver-domain-worktree = { path = "../domain/worktree" }
 otter-webserver-domain-wsentry = { path = "../domain/wsentry" }
 otter-webserver-httproute = { path = "../httproute" }
-otter-webserver-sse = { path = "../sse" }
 hex = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }

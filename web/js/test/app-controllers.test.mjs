@@ -175,11 +175,11 @@ const CLASSES_9A = ['EdgesController', 'UpdateController', 'SettingsController',
 
 /** 위임자 → 컨트롤러의 자리. `settings` 의 부품은 `settings.<부품>` 이다. */
 const DELEGATES_9A = {
-  edges: ['_edgesRestore', '_onEdgesChanged', '_egMeshPaint', '_egInvitesPaint', '_egInviteSend', '_egNotify'],
+  edges: ['_edgesRestore', '_onEdgesNotice', '_egMeshPaint', '_egInvitesPaint', '_egInviteSend', '_egNotify'],
   update: ['_updateRestore', '_updateRender'],
   'settings.apply': ['_applyPageTitle', '_saveSettingsSoon', '_saveSettingsNow', '_localeMirror', '_edApplyWordWrap',
     '_edApplyMinimap', '_edApplyFontSize', '_termApplyFontSize', '_applyThemeChoice', '_keybarApply', 'saveSettings',
-    '_onSettingsChanged', '_settingsBody', '_settingsLocalPending', '_settingsApply', '_settingsRestore'],
+    '_settingsBody', '_settingsLocalPending', '_settingsApply', '_settingsRestore'],
   'settings.live': ['_liveMark', '_liveOpts', '_liveOpen', '_liveChanged', '_liveStale', '_liveNotice'],
   'settings.saveState': ['_saveBtnsPaint', 'initSaveButtons'],
   settings: ['_openSettings'],
@@ -329,7 +329,7 @@ test('TC-FEA-2(9a): 갈아 끼운 _edgesRestore·_restore*·_liveOpen·_liveNoti
   const sections = { edges: {}, profile: {} };
   app.settings = { live: new ctx.SettingsLive(app), apply: { _applyPageTitle() {} }, section: (t) => sections[t] };
   app.edges._edgesRestore = () => { log.push('edgesRestore'); return 'R' };
-  assert.equal(app.edges._onEdgesChanged({}), 'R');
+  assert.equal(app.edges._onEdgesNotice({}), undefined);
   delete app.edges._edgesRestore;
   app.wsSync._restoreBegin = (k) => { log.push('begin:' + k); return 7 };
   app.wsSync._restoreLive = (k, f) => { log.push('live:' + k + f); return true };
@@ -339,7 +339,7 @@ test('TC-FEA-2(9a): 갈아 끼운 _edgesRestore·_restore*·_liveOpen·_liveNoti
   sections.profile._pfFollow = () => log.push('pfFollow');
   await app.edges._edgesRestore();
   await app.update._updateRestore();
-  assert.deepEqual(log, ['edgesRestore', 'begin:edges', 'live:edges7', 'pfFollow', 'edgesPaint', 'liveOpen', 'end:edges7',
+  assert.deepEqual(log, ['begin:edges', 'live:edges7', 'pfFollow', 'edgesPaint', 'liveOpen', 'end:edges7',
     'begin:update', 'live:update7', 'end:update7']);
 
   const live = app.settings.live;
@@ -368,7 +368,7 @@ test('TC-FEA-3(9a): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
 test('TC-FEA-3(9a): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
   const ctx = load9a();
   const contract = contractNames();
-  const names = ['_savePreset', '_renderPresets', 'saveSettings', '_settingsApply', '_onSettingsChanged', '_applyPageTitle',
+  const names = ['_savePreset', '_renderPresets', 'saveSettings', '_settingsApply', '_applyPageTitle',
     '_openSettings', 'themeSlots', 'setThemeSlots'];
   for (const n of names) {
     assert.ok(contract.has(n), '계약에 없다: ' + n);
@@ -393,7 +393,7 @@ const DELEGATES_9B = {
   claude: ['_claudeAcctRestore', '_onClaudeAccountsChanged', '_onClaudeAccountAlert', '_claudeAcctFold', '_claudeAcctSmartMenu',
     '_claudeAcctHistory', '_claudeAcctEl'],
   'claude.maps': ['claudeTabTint', 'claudeOnCwd', 'claudeRepoChip', 'claudeFolderChip', 'claudeTabMenuItem', 'claudeFolderMenu'],
-  statusbar: ['initStatusBar', '_startStatsPoll', '_pollStats', 'updateStatusBar', '_bgPanelPaint', '_bgRow',
+  statusbar: ['initStatusBar', '_startStatsPoll', 'updateStatusBar', '_bgPanelPaint', '_bgRow',
     '_shortCwd', '_fmtMemSize', 'updateCwd'],
 };
 
@@ -644,11 +644,11 @@ const DELEGATES_9D = {
   git: ['gitWindow', 'isGitWin', 'isChatWin', 'isKindWin', 'plainWindows', 'gitBackTarget', '_migrateGitWindow', 'openGitWindow',
     '_initGitSection', 'gitSignal', 'gitStatusHub', 'gitOpenFile', 'gitOpenFileHead', 'gitOpenTerminal', 'gitBadgeFor', 'gitPinEntry',
     '_gitTermToolId'],
-  'git.surfaces': ['gitObs', '_gitRescheduleAll', 'gitWatchdogAll', '_gitNotifyPinsAll', 'gitPanelAt', '_gitDropView',
+  'git.surfaces': ['gitObs', '_gitRescheduleAll', '_gitNotifyPinsAll', 'gitPanelAt', '_gitDropView',
     '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSurfaceOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
     '_gitRootOfActive'],
-  'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', '_gitObserveRestore', 'gitReposRefresh', 'gitPin', 'gitUnpin',
-    '_gitPinsApply', '_pollGitJobs', '_gitJobsBegin', '_gitJobsSettle'],
+  'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', 'gitReposRefresh', 'gitPin', 'gitUnpin',
+    '_gitPinsApply', '_gitJobsAdopt'],
 };
 
 function load9d(globals = {}) {
@@ -718,10 +718,7 @@ test('TC-FEA-2(9d): 갈아 끼운 plainWindows·gitReposRefresh·gitSignal·_git
   app.git.gitSignal = (k) => log.push('signal:' + k);
   app.gitPanels = new Map();
   app.git._gitLifecycle('focus');
-  app._gitObservers = new Map([['/r', { any: () => ({ poll: { collect: () => log.push('collect') } }) }]]);
-  app._gitOff = true;
-  app.git.sync._gitObserveRestore();
-  assert.deepEqual(log, ['plain', 'refresh', 'signal:focus', 'collect']);
+  assert.deepEqual(log, ['plain', 'refresh', 'signal:focus']);
 });
 
 test('FR-FEA-5(9d): gitSignal 은 허브 무효화 → 포커스 패널 신호 → 편집기 후속 순서다 — 로드 시점 감싸기가 없다', () => {
@@ -816,20 +813,6 @@ test('TC-DLG-1(DL-4): 9f 의 옛 위임자 이름은 App 원형에 없고 소유
   assertWalked(load9f(), DELEGATES_9F, { wsSync: 'WsSyncController', 'wsSync.reload': 'SoftReload' });
 });
 
-test('TC-FEA-1(9f): _sse 접근자 넷은 App 원형에 남아 버스를 읽고 _sseSeen 은 버스에 쓴다', () => {
-  const ctx = load9f();
-  const app = new ctx.App();
-  assert.equal(app._sse, null);
-  assert.equal(app._sseGen, 0);
-  app.bus = { _es: 'es', gen: () => 3, lastSeen: () => 7, _seen: 0 };
-  assert.equal(app._sse, 'es');
-  assert.equal(app._cmdES, 'es');
-  assert.equal(app._sseGen, 3);
-  assert.equal(app._sseSeen, 7);
-  app._sseSeen = 9;
-  assert.equal(app.bus._seen, 9);
-});
-
 test('TC-FEA-1(9f): 저장 경로가 함께 쓰는 필드는 App 에 남는다 — 저장 중 알림의 유예가 App 에 적힌다', async () => {
   const ctx = load9f();
   const app = controllers(ctx, new ctx.App());
@@ -838,7 +821,36 @@ test('TC-FEA-1(9f): 저장 경로가 함께 쓰는 필드는 App 에 남는다 �
   assert.equal(app._wsApplyPending, true);
   assert.equal(app._wsDeferRev, 5);
   assert.equal(Object.hasOwn(app.wsSync, '_wsApplyPending'), false);
-  assert.doesNotMatch(read('core/ws-sync-controller.js'), /(?<![\w$.])this\.(wsETag|_wsDeferRev|_wsApplyPending|_saveInflight|_wsApplyInflight|_sseKick|fgNames)\b/);
+  assert.doesNotMatch(read('core/ws-sync-controller.js'), /(?<![\w$.])this\.(wsETag|_wsDeferRev|_wsApplyPending|_saveInflight|_wsApplyInflight|fgNames)\b/);
+});
+
+// CHANNEL_PROTOCOL C2b TC-CH2B-6: `workspace` 토픽의 본문은 GET 없이 적용하고, 낡은 rev 는 버린다.
+test('TC-CH2B-6: workspace 토픽 본문은 GET 없이 적용한다', async () => {
+  const gets = [];
+  const ctx = load9f({ apiGet: (p) => { gets.push(p); return Promise.resolve({ ok: false }) } });
+  const app = controllers(ctx, new ctx.App());
+  const applied = [];
+  app.wsSync._applyRemoteWorkspace = (sv) => applied.push(sv);
+  app.wsSync._fgApply = () => {};
+  app.bus = { beginSnapshot: () => new Set(), isLive: () => true, endSnapshot() {}, noteTouched() {} };
+  app.wsETag = '3';
+  const env = (rev) => Promise.resolve({ ok: true, status: 200, headers: { get: (k) => (k === 'ETag' ? String(rev) : null) },
+    data: { tools: [], workspace: { windows: [{ id: 'w' + rev }] } } });
+  await app.wsSync._onWorkspaceTopic(env(2));
+  assert.equal(applied.length, 0, '낡은 rev 를 적용했다');
+  await app.wsSync._onWorkspaceTopic(env(4));
+  assert.equal(applied.length, 1);
+  assert.equal(applied[0].windows[0].id, 'w4');
+  assert.equal(app.wsETag, '4');
+  // 저장 비행 중에는 유예하고, 비행이 끝난 뒤 받은 본문으로 적용한다.
+  app._saveInflight = true;
+  await app.wsSync._onWorkspaceTopic(env(5));
+  assert.equal(applied.length, 1);
+  app._saveInflight = false;
+  await app.wsSync._onWorkspaceChanged(app._wsDeferRev);
+  assert.equal(applied.length, 2);
+  assert.equal(applied[1].windows[0].id, 'w5');
+  assert.deepEqual(gets, [], 'GET 을 냈다');
 });
 
 test('TC-FEA-2(9f): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
@@ -1047,14 +1059,13 @@ test('TC-FEA-1(9h): 컨트롤러와 부품은 Controller·Component 하위이고
   const slot = new ctx.SlotsController(app);
   assert.ok(slot.ops instanceof ctx.SlotOps);
   assert.deepEqual(plain(slot._slotIds), []);
-  assert.deepEqual(plain(slot._slotSse), []);
 });
 
 test('TC-FEA-1(9h): App 생성자가 컨트롤러를 만들고 칸 신원·구독은 App 에서 빠진다 (§2.2 C/9h)', () => {
   const src = read('core/app.js');
   const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
   assert.ok(ctor.includes('this.slot=new SlotsController(this);'));
-  assert.doesNotMatch(ctor, /this\._slotIds=|this\._slotSse=/);
+  assert.doesNotMatch(ctor, /this\._slotIds=/);
   assert.ok(ctor.includes('this._slots=null;'));
 });
 

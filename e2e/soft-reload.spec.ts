@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, addEditorRoot, rmTree, openExplorerSide } from './fixtures';
+import { test, expect, addEditorRoot, rmTree, openExplorerSide, trackTermAttach, termAttaches } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // SOFT_RELOAD_SRS §5 — V-SRL-1~9.
@@ -45,12 +45,12 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
     });
     expect(marked, '검사할 터미널이 없다').toBeGreaterThan(0);
 
-    const opened: string[] = [];
-    page.on('websocket', ws => opened.push(ws.url()));
+    // PERF C5: 다시 붙는 것은 채널의 `term.open` 이다 (칸마다 소켓을 열지 않는다).
+    await trackTermAttach(page);
 
     await btn(page).click();
     // V-SRL-4: 전부 다시 붙는다 (D-2).
-    await expect.poll(() => opened.length, { timeout: 20000 }).toBeGreaterThan(0);
+    await expect.poll(async () => (await termAttaches(page)).length, { timeout: 20000 }).toBeGreaterThan(0);
 
     // 표식이 남아 있어야 한다.
     const kept = await page.evaluate(() => {
@@ -121,15 +121,15 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
 
   test('SR4 (V-SRL-3): SSE 가 닫혀 있으면 다시 연결한다', async ({ page }) => {
     await enter(page);
-    await page.waitForFunction(() => (window as any).app?.testing.sse?.readyState === 1, undefined, { timeout: 15000 });
+    await page.waitForFunction(() => !!(window as any).app?.testing.channel?.alive(), undefined, { timeout: 15000 });
 
     // 구독을 죽인다. 이 상태로 두면 화면은 다음 변화부터 다시 낡는다 (§2.2).
-    await page.evaluate(() => { (window as any).app.testing.sse.close() });
-    expect(await page.evaluate(() => (window as any).app.testing.sse.readyState)).toBe(2);
+    await page.evaluate(() => { (window as any).app.testing.channel.close() });
+    expect(await page.evaluate(() => (window as any).app.testing.channel.alive())).toBe(false);
 
     await btn(page).click();
     await page.waitForFunction(
-      () => (window as any).app?.testing.sse?.readyState === 1, undefined, { timeout: 20000 });
+      () => !!(window as any).app?.testing.channel?.alive(), undefined, { timeout: 20000 });
   });
 
   test('SR5 (V-SRL-6): 사라진 도구로 판정된 pane 은 다시 붙지 않는다', async ({ page }) => {

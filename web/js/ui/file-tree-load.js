@@ -235,16 +235,14 @@ class FileTreeLoad {
   }
 
   /**
-   * 이 틱에 status 를 물어야 하는가 (FR-OPT-4-1 안전망).
+   * 이 틱에 status 를 물어야 하는가.
    *
-   * 관측이 한 번도 성공하지 않았으면 매 틱 묻는다 — 일시 실패의 회복과 비저장소의
-   * 백오프(FR-DIR-31)가 종전 주기 그대로다. 성공한 뒤에는 `git_changed` 가 본줄이고
-   * 주기는 `gitStatusInterval` 이다. 0 은 "주기로 묻지 않는다" (FR-GIT-23).
+   * 관측이 한 번도 성공하지 않았으면(또는 실패한 뒤면) 매 틱 묻는다 — 일시 실패의 회복과
+   * 비저장소의 백오프(FR-DIR-31)다. 성공한 뒤에는 채널의 `git:<root>` 토픽이 변화를 민다 —
+   * 주기로 다시 묻지 않는다 (PERF_OPTIMIZATION_SRS M1 C4 · D-9).
    */
   gitDue(){
-    const at=this.tree.store.gitOkAt;
-    if(!at) return true;
-    return gitStatusInterval>0&&Date.now()-at>=gitStatusInterval;
+    return !this.tree.store.gitOkAt;
   }
 
   // `at` 은 이 관측의 시각이다 — 성공하면 안전망의 시계(`gitOkAt`)가 그것으로 간다.

@@ -48,8 +48,6 @@ class GitRemote {
     this._total=0;        // 이 작업에서 받은 줄 수 누계 (DOM 이 어디까지 그렸는지의 기준)
     this._seq=0;          // 마지막으로 받은 seq — 재연결 지점이다
     this._stream=null;
-    this._streamErr=false;
-    this._retries=0;
     // 충돌 판정을 기다리는 작업. 값은 그때의 status 객체다 — 그것이 바뀌어야
     // 판정할 값이 온 것이다 (FR-GIT-111).
     this._pending=null;
@@ -153,7 +151,9 @@ class GitRemote {
       Object.assign({repo},body||{}));
     this._busy=false; this._busyKey='';
     const job=res.data&&res.data.job;
-    if(res.ok&&job&&job.id){this.router.track(job,this);return res}
+    // 잡은 다른 칸의 표시기에 붙을 수 있다(pull·fetch 는 그 칸) — 시작 중이던 이 박스는 스스로
+    // 걷는다. 종전에는 주기 status 의 다시 그리기가 대신 걷었다 (PERF_OPTIMIZATION_SRS M1 C4).
+    if(res.ok&&job&&job.id){this._paint();this.router.track(job,this);return res}
     // Publish 는 서버가 실행 **전에** 되묻는다 (FR-GIT-100, 계약 §2.3.1 ①).
     if(kind==='push'&&res.data&&res.data.error==='publish_required'){
       this._paint();
@@ -268,7 +268,7 @@ class GitRemote {
     this._done=null; this._err=null; this._conflict=false;
     this._lines=[]; this._total=0; this._seq=0;
     this._logOpen=null;
-    this._canceling=!!job.canceled; this._streamErr=false; this._retries=0;
+    this._canceling=!!job.canceled;
     this._openStream();
     this._paint();
     // FR-SDA-22: 잡이 칸을 쥐었다 — 1층 답과 행 답이 바뀌었으므로 다시 받는다.
@@ -277,53 +277,23 @@ class GitRemote {
   }
 
   /**
-   * 출력 스트림 (FR-GIT-103). 끊기면 **마지막 seq 부터** 다시 잇는다 — 처음부터
-   * 다시 받으면 이미 본 줄이 겹치고, 이어 받지 않으면 끊긴 구간이 빈다.
+   * 출력 스트림 (FR-GIT-103 · PERF_OPTIMIZATION_SRS M1 C4). 채널의 `gitjob:<id>` 토픽이 줄과 끝을
+   * 민다 — 재연결은 채널의 몫이다. 처음부터 다시 오는 줄은 `_line` 이 `seq` 로 거른다.
    */
   _openStream(){
     const job=this._job;
-    if(!job||typeof EventSource==='undefined') return;
+    if(!job) return;
     const id=job.id;
-    // 채널은 버스가 연다 (FR-BUS-7 · INV-2). 재시도는 이 클래스의 것이다 —
-    // `_retries`·`GIT_JOB_RETRY_MS` 가 job 의 수명에 매여 있기 때문이다.
-    const es=this.app.bus.openChannel('git-job',
-      apiUrl(GIT_API.jobEvents,{id,after:this._seq}),
-      {owner:this});
-    if(!es) return;
-    this._stream=es;
-    es.addEventListener('line',ev=>{
-      if(this._stream!==es) return;
-      let ln=null; try{ln=JSON.parse(ev.data)}catch{ln=null}
-      if(!ln) return;
-      this._streamErr=false; this._retries=0;
-      this._line(ln);
+    this._stream=this.app.git.topics.followJob(id,{
+      line:ln=>this._line(ln),
+      done:jb=>{ this._stream=null; this._finish(jb) },
+      fail:()=>{ this._stream=null; this._finish(Object.assign({},job,{done:true,err:GIT_JOB_STREAM_FAIL})) },
     });
-    es.addEventListener('done',ev=>{
-      if(this._stream!==es) return;
-      let jb=null; try{jb=JSON.parse(ev.data)}catch{jb=null}
-      this._closeStream();
-      this._finish(jb||{id,done:true});
-    });
-    es.onerror=()=>{
-      if(this._stream!==es) return;
-      this._closeStream();
-      if(this._retries>=GIT_JOB_RETRY_MAX){
-        // 더 이을 수 없으면 끝난 것으로 다룬다 — 완료를 못 보고 영원히 "진행 중"
-        // 으로 남는 것이 더 나쁘다.
-        this._finish(Object.assign({},job,{done:true,err:GIT_JOB_STREAM_FAIL}));
-        return;
-      }
-      this._retries++;
-      this._streamErr=true; this._paint();
-      TIMERS.after(GIT_JOB_RETRY_MS,()=>{
-        if(this._job&&this._job.id===id&&!this._stream) this._openStream();
-      },{owner:this,label:'job-retry'});
-    };
   }
 
   _closeStream(){
     if(!this._stream) return;
-    this._stream.close();
+    this._stream.stop();
     this._stream=null;
   }
 
@@ -348,7 +318,6 @@ class GitRemote {
     // `ok` 는 "띄웠다" 까지이고 **끝났는가와 이겼는가는 여기서 정해진다.**
     this._settleWaits(jb);
     this._canceling=false;
-    this._streamErr=false;
     // pull 의 결과는 status 를 봐야 안다. **collect 의 완료를 기다리지 않는다** —
     // single-flight 라 진행 중인 요청이 있으면 기다리지 않고 돌아오고, 그때의
     // status 는 아직 작업 전의 것이다.
