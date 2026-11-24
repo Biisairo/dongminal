@@ -163,9 +163,10 @@ class GitDiffView {
   setHideUnchanged(on){ this._fold=!!on; if(this._cm) this._cmBuild() }
 
   // FR-CMR-51: 폭이 문턱을 넘었으면 보기를 바꾸고, 아니면 ruler 만 다시 그린다.
+  // 가려진 그릇(폭 0)은 좁은 것이 아니다 — 다시 세우면 큰 파일에서 diff 를 두 번(가릴 때·보일 때) 계산한다 (이슈 3.2).
   layout(){
     const c=this._cm;
-    if(!c) return;
+    if(!c||!this._host.clientWidth) return;
     if(c.kind!==this._cmKind()){this._cmBuild();return}
     c.b.requestMeasure(c.ruler);
   }
