@@ -11,8 +11,8 @@ import { test, expect, waitForInit } from './fixtures';
 test('TC-CH3-10: 상태바는 /api/ping·/api/stats 를 보내지 않고 지표·지연을 채널로 받는다', async ({ page }) => {
   await waitForInit(page);
   await page.evaluate(() => performance.clearResourceTimings());
-  await expect.poll(() => page.evaluate(() => typeof (window as any).app._latency), { timeout: 15000 }).toBe('number');
-  await expect.poll(() => page.evaluate(() => Object.keys((window as any).app._stats || {}).length), { timeout: 15000 })
+  await expect.poll(() => page.evaluate(() => typeof (window as any).app.testing.latency), { timeout: 15000 }).toBe('number');
+  await expect.poll(() => page.evaluate(() => Object.keys((window as any).app.testing.stats || {}).length), { timeout: 15000 })
     .toBeGreaterThan(0);
   const polled = await page.evaluate(() => performance.getEntriesByType('resource')
     .map((e) => new URL(e.name).pathname)
