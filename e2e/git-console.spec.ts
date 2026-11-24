@@ -149,7 +149,7 @@ test.describe('묶음 Q — Console 탭', () => {
 // ── GIT_ACTIONS_SRS §3.8 / FR-GIT-281 (V207 의 Console 부분) ──
 //
 // 검색과 replay. **replay 의 핵심은 argv 를 클라이언트가 보내지 않는다는 것**이며,
-// 그 사실은 Go 단위(handlers_git_replay_test.go)가 지킨다 — 여기서는 화면이 그
+// 그 사실은 Go 단위(Go 기준선 handlers_git_replay_test.go)가 지킨다 — 여기서는 화면이 그
 // 경로를 실제로 태우는지 본다.
 test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
   const search = (page: Page) => con(page).locator('.git-con-search');

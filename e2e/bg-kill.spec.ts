@@ -9,7 +9,7 @@ import { test, expect, waitForInit } from './fixtures';
 //
 // 여기서 다루지 않는 것: V-BGK-8(종료 후 목록에서 사라짐)·V-BGK-9(SIGTERM 무시
 // 프로세스의 SIGKILL 승격)는 서버 계약이므로
-// internal/webserver/httpapi/handlers_tools_kill_test.go 가 맡는다.
+// Go 기준선 internal/webserver/httpapi/handlers_tools_kill_test.go 가 맡는다.
 
 const MOBILE_VIEWPORT = { width: 375, height: 667 };
 
@@ -332,7 +332,7 @@ test.describe('FR-BGK-2·12: 모바일 배치와 Run 소속', () => {
 
     // isolation 은 기본값(none)이다 — 작업 트리를 만들지 않으므로 git 이 필요 없다.
     // projection 은 서버가 기본값을 채우지 않는다 — "투영을 정하지 않은 Run 은
-    // 없다" 가 그 타입의 계약이다 (run.go Projection.Valid). isolation 만 none 으로
+    // 없다" 가 그 타입의 계약이다 (Go 기준선 run.go Projection.Valid). isolation 만 none 으로
     // 채워진다.
     const runRes = await request.post('/api/runs', {
       data: { objective: '묶음 X 검증', projection: 'dedicated-window' },

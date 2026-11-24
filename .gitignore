@@ -1,7 +1,7 @@
 # Build artifact (scripts/build.sh → ./dongminal) — 루트 한정
 /dongminal
 
-# Runtime artifacts: internal/runtime.Install 이 생성하는 bin/*
+# Runtime artifacts: dm_shared_runtime::install 이 생성하는 bin/*
 /bin
 
 # Runtime data (DATA_DIR 산출물)

@@ -342,7 +342,7 @@ class GitPoll extends GitPart {
     // FR-GVR-8: Changes 밖의 뷰가 따라갈 근거다.
     //
     // **signature 만으로는 모자란다.** 그것은 HEAD·index·현재 브랜치 ref 만 보고
-    // **원격 추적 ref 를 보지 않는다** (`query/signature.go`). 그래서 터미널에서
+    // **원격 추적 ref 를 보지 않는다** (Go 기준선 `query/signature.go`). 그래서 터미널에서
     // 친 `git push` 는 signature 를 한 톨도 움직이지 않는다 — History 의
     // `origin/main` 과 Branches 의 ahead/behind 가 낡은 채로 남는다.
     //

@@ -354,8 +354,8 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GIT_WATCH_LEASE_SRS §4.3 — 감시 임대 (TC-GWL-11)
 //
-// 임대의 계약 자체는 Go 가 잰다 (`hub/gitwatch_test.go` TC-GWL-1~8,
-// `httpapi/gitwatch_lease_test.go` TC-GWL-9·10). 브라우저 쪽에 남는 몫은 하나다 —
+// 임대의 계약 자체는 Go 가 잰다 (Go 기준선 `hub/gitwatch_test.go` TC-GWL-1~8,
+// Go 기준선 `httpapi/gitwatch_lease_test.go` TC-GWL-9·10). 브라우저 쪽에 남는 몫은 하나다 —
 // **status 요청이 자기 신원을 싣는가.** 이것이 빠지면 서버는 임차인을 모르는 채
 // 종전 TTL 임대로 떨어지고, 화면은 멀쩡히 서며, 안전망을 끈 사용자에게서만 90초
 // 뒤에 갱신이 멎는다. GP-1 이 오래 살아남은 방식이 정확히 그 조용함이었다.

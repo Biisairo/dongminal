@@ -24,8 +24,8 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
  * 워크트리의 `.git` 은 **디렉터리가 아니라 파일**(gitdir 포인터)이다. 그것이
  * "일반적인 git 이 아니" 라는 말의 실체이며, 서버가 그것을 견디는지가 이 파일의
  * 물음이다. 근거는 `rev-parse --show-toplevel` 이 워크트리에서 워크트리 자신을
- * 답한다는 것이고(`core/repo.go:17`), signature 는 gitdir 과 common-dir 을 이미
- * 갈라 딛는다 (`core/dirs.go:17`).
+ * 답한다는 것이고(Go 기준선 `core/repo.go:17`), signature 는 gitdir 과 common-dir 을 이미
+ * 갈라 딛는다 (Go 기준선 `core/dirs.go:17`).
  */
 
 const FIXTURES = tmpPath('dm-git-fx-wtrepo-' + process.pid);
@@ -101,7 +101,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
     await waitForInit(page);
 
     // 응답은 두 목록을 함께 준다 — Editor 목록은 `list`, 핀은 `pinned` 다
-    // (`handlers_editors.go` `apiEditorsAdd`).
+    // (Go 기준선 `handlers_editors.go` `apiEditorsAdd`).
     const lists = await addRepo(request, wtPath);
     // 저장소로 판정됐다면 핀이 함께 선다 (FR-EDT-31·33) — 이 대칭이 판정의 결과다.
     expect(lists.list, 'Editor 목록에 워크트리가 없다').toContain(wtPath);

@@ -401,7 +401,7 @@ class AttnController extends Controller {
    * `detail`).
    *
    * 값을 알람 페이로드에 다시 싣지 않고 **활동 상태에서 읽는다** — 서버가 한 요청
-   * 안에서 활동을 먼저 갱신한 뒤 알람을 쏘므로(`handlers_attention.go`), 이 시점의
+   * 안에서 활동을 먼저 갱신한 뒤 알람을 쏘므로(Go 기준선 `handlers_attention.go`), 이 시점의
    * 활동은 그 알람을 낳은 바로 그 보고다. 전송 표면을 늘리지 않는 쪽을 고른다.
    */
   _attnDetail(toolId){

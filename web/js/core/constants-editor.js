@@ -188,7 +188,7 @@ const LSP_STATUS_TTL_MS=60000;
 const LSP_INSTALL_API='/api/lsp/install';
 // REPO_FIX 02 §3A-3: 서버가 보관하는 실행 파일 경로 표 (GET 조회 · PUT 전체 교체).
 const LSP_PATHS_API='/api/lsp/paths';
-// CODEMIRROR_MIGRATION_SRS FR-CMR-91·102: 언어 서버 통로와 그 close code (Go `handlers_lsp_ws.go` 와 같은 값).
+// CODEMIRROR_MIGRATION_SRS FR-CMR-91·102: 언어 서버 통로와 그 close code (Go Go 기준선 `handlers_lsp_ws.go` 와 같은 값).
 const LSP_WS_API='/api/lsp/ws';
 const LSP_WS_CLOSE_LIMIT=4001;
 const LSP_WS_CLOSE_START=4002;

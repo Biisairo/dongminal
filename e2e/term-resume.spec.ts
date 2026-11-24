@@ -7,7 +7,7 @@ import { test, expect, waitForInit, waitShellReady } from './fixtures';
  * 출력된다". 그래서 이 파일은 합성 페이지를 쓰지 않는다. 실서버에 실제로 붙었다
  * 끊었다 하고, 터미널 버퍼에 같은 표지가 몇 번 있는지를 센다.
  *
- * 단위 검사는 따로 있다 (`web/js/test/term-resume.test.mjs` · Go `term_resume_test.go`).
+ * 단위 검사는 따로 있다 (`web/js/test/term-resume.test.mjs` · Go Go 기준선 `term_resume_test.go`).
  * 여기서 재는 것은 그 조각들이 **서로 맞물려 화면을 지키는가** 하나다.
  */
 

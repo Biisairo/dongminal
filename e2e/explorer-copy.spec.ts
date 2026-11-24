@@ -12,7 +12,7 @@ import { TMP, realPath, cssPath } from './osenv';
 // 검증 V-WBR-69~74).
 //
 // **서버 쪽은 여기서 재지 않는다.** 개명 규칙·루트 교차·자기 하위 금지·상한·
-// 모드 보존은 `handlers_fs_copy_test.go` 가 잰다 (V-WBR-60~68). 여기서 재는 것은
+// 모드 보존은 Go 기준선 `handlers_fs_copy_test.go` 가 잰다 (V-WBR-60~68). 여기서 재는 것은
 // 그 위의 클라이언트 규약이다 — 메뉴, 클립보드의 **수명과 범위**, 실패의 자리,
 // 그리고 다시 읽는 폴더의 수.
 

@@ -9,7 +9,7 @@ import { tmpPath, realPath } from './osenv';
 // GIT_ACTIONS_SRS §3.3 — 묶음 C 태그 동작. 검증 V187~V190 (FR-GIT-260~262).
 //
 // V187·V188 의 **argv·이름 검증 절반은 Go 단위 테스트**가 본다
-// (internal/webserver/domain/git/write/tag_test.go, gitapi/handlers_git_tag_test.go).
+// (Go 기준선 internal/webserver/domain/git/write/tag_test.go, gitapi/handlers_git_tag_test.go).
 // 여기서는 화면이 그 표면을 제대로 부르는지 — 종류별로 다른 요청이 나가는지, 중복이
 // 실행 전에 막히는지, 삭제 둘이 서로를 겸하지 않는지, push 가 job 경로를 타는지 —
 // 를 본다.
