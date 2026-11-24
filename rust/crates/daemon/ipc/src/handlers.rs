@@ -415,6 +415,28 @@ pub(crate) fn records_snapshot(c: &Conn, req: &PanedRequest) -> Line {
     )
 }
 
+/// 기록 줄 수 설정(D-25)이다. 범위 밖이면 얹지 않고 거절한다.
+pub(crate) fn screen_config(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::ScreenConfigParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    if !(ipc::HISTORY_LINES_MIN..=ipc::HISTORY_LINES_MAX).contains(&p.history_lines) {
+        return err_msg(
+            req.id,
+            ipc::CODE_INVALID_PARAMS,
+            &format!(
+                "historyLines {} 는 {}~{} 밖이다",
+                p.history_lines,
+                ipc::HISTORY_LINES_MIN,
+                ipc::HISTORY_LINES_MAX
+            ),
+        );
+    }
+    c.pm.set_history_lines(p.history_lines);
+    ok_empty(req.id)
+}
+
 pub(crate) fn attn_config(c: &Conn, req: &PanedRequest) -> Line {
     match decode::<ipc::AttnConfigParams>(req) {
         Ok(p) => {

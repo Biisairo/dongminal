@@ -181,7 +181,8 @@ const MOVED = [
       // 8d — 모바일 키바 구역
       '_initKeybarSettings', '_keybarDraft', '_keybarSet', '_keybarPaint'],
     rows: [['claudeFullscreen', 'ds-claudefs', 'check'], ['termFontSize', 'ds-termfs', 'number'],
-      ['claudeScrollSpeed', 'ds-scrollspeed', 'number'], ['migrationHook', 'ds-mighook', 'check'],
+      ['claudeScrollSpeed', 'ds-scrollspeed', 'number'], ['termHistoryLines', 'ds-termhist', 'number'],
+      ['termScrollback', 'ds-termsb', 'number'], ['migrationHook', 'ds-mighook', 'check'],
       ['migrationHookCtxPct', 'ds-mighookpct', 'number'], ['issueTreeMigration', 'ds-treemig', 'check'],
       ['issueTreeCtxPct', 'ds-treemigpct', 'number']] },
   { cls: 'CodeSection', tab: 'code', gone: ['_initWordWrap', '_initMinimap', '_initLSP'],
@@ -632,7 +633,8 @@ test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는�
   const guarded = rows.filter((r) => r.decl.kind === 'number').map((r) => [r.decl.key, !!r.decl.guard]);
   assert.deepEqual(plain(guarded.sort()), [
     ['claudeScrollSpeed', true], ['issueTreeCtxPct', true], ['migrationHookCtxPct', true],
-    ['tabWidthPx', true], ['termFontSize', true], ['uiFontSize', true]]);
+    ['tabWidthPx', true], ['termFontSize', true], ['termHistoryLines', true], ['termScrollback', true],
+    ['uiFontSize', true]]);
 });
 
 // ── REFACTOR3_FE_FIX_SRS FX-3 ─────────────────────────────────────────────

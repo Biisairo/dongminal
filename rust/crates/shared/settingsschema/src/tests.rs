@@ -246,7 +246,7 @@ fn spec_and_problem_wire() {
 #[test]
 fn load_reads_embedded_table() {
     let specs = load().unwrap();
-    assert_eq!(specs.len(), 31, "서술자 {}개, 기대 31개", specs.len());
+    assert_eq!(specs.len(), 33, "서술자 {}개, 기대 33개", specs.len());
     let by = by_key(&specs);
     for k in [
         "themeName",
@@ -255,6 +255,8 @@ fn load_reads_embedded_table() {
         "statsInterval",
         "uiFontSize",
         "termFontSize",
+        "termHistoryLines",
+        "termScrollback",
     ] {
         assert!(by.contains_key(k), "{k} 가 표에 없다");
     }

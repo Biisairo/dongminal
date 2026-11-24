@@ -49,7 +49,7 @@ fn reload_sends_request_and_reads_swapped() {
     let line = got.recv().unwrap();
     assert_eq!(
         String::from_utf8(line).unwrap(),
-        "{\"method\":\"daemon.reload\",\"body\":{\"exe\":\"/opt/otter/otterminal\",\"handover\":1}}\n"
+        "{\"method\":\"daemon.reload\",\"body\":{\"exe\":\"/opt/otter/otterminal\",\"handover\":2}}\n"
     );
 }
 

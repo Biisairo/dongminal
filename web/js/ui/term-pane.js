@@ -84,7 +84,7 @@ class TerminalTool {
      *
      * 진실이 여전히 한 자리인 것은 같다. 그 자리가 CSS 토큰에서 설정 키로 옮겼다.
      */
-    this.term=new Terminal(Object.assign({},TOPTS,{fontSize:termFontSizeNow()}));
+    this.term=new Terminal(Object.assign({},TOPTS,{fontSize:termFontSizeNow(),scrollback:termScrollbackNow()}));
     this.fit=new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
     this._loadAddons();

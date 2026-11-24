@@ -130,27 +130,6 @@ const TERM_KEY_SEQ={shiftEnter:[0x1b,0x0d],lineStart:[0x01],lineEnd:[0x05],wordB
 const TERM_KEY_MAP={meta:{ArrowLeft:'lineStart',ArrowRight:'lineEnd'},alt:{ArrowLeft:'wordBack',ArrowRight:'wordFwd'}};
 
 /**
- * 터미널 하나가 보관하는 스크롤백 줄 수 (M6 `FE-28`).
- *
- * **비용을 여기 적어 둔다.** 이 값은 리터럴로 있던 탓에 무엇을 재는 숫자인지
- * 어디에도 없었다.
- *
- *   한 줄     xterm 은 셀마다 코드포인트+속성을 든다 — 80칸 기준 대략 수백 바이트
- *   한 인스턴스  그 줄이 **실제로 찰 때만** 는다. 상한이지 선점이 아니다
- *   곱하기     **칸(슬롯)마다 인스턴스가 따로다.** 같은 도구를 두 칸에 보이면
- *             xterm 도 둘이고 버퍼도 둘이다 (`slotBase` 가 그 복합키를 가른다)
- *
- * 서버가 보관하는 것은 도구당 **1 MiB** 다 (Go 기준선 `toolhub/conn.go` 의 `bufMax`).
- * 그 둘은 다른 것을 답한다 — 서버의 것은 *재접속이 되감을 수 있는 창*이고
- * (`TERMINAL_RESUME_SRS`), 이 값은 *이 화면이 위로 스크롤할 수 있는 범위*다.
- * 그래서 같은 값일 필요가 없고, 같게 맞추면 화면의 역사가 1 MiB 로 잘린다.
- *
- * **상한을 더 낮추는 것은 제품 결정이다** — 사용자가 위로 얼마나 갈 수 있는가는
- * 메모리와 맞바꾸는 값이고, 그 교환비를 여기서 정할 근거가 없다. `FE-28` 이
- * 남긴 물음이 그것이며 이 상수는 그 물음을 **볼 수 있게** 만든다.
- */
-const TERM_SCROLLBACK_LINES=50000;
-/**
  * 페이지 수명 동안 받아들이는 WebGL 컨텍스트 손실 횟수 (TERMINAL_GPU_RENDER_SRS FR-TGR-11).
  * 여기에 이르면 그 페이지는 GPU 렌더링을 다시 시도하지 않는다.
  */
@@ -188,7 +167,8 @@ const SEARCH_NONE=t('core.search_none');
 const SEARCH_BAD_REGEX=t('core.search_bad_regex');
 // TOPTS theme is set after THEMES loads (see themes.js)
 var TOPTS={
-  scrollback:TERM_SCROLLBACK_LINES,cursorBlink:true,cursorStyle:'block',
+  // PERF D-25: **`scrollback` 도 여기 없다.** 설정 `termScrollback` 이며 `term-pane.js` 가 생성 시점에 읽는다.
+  cursorBlink:true,cursorStyle:'block',
   // FONT_SIZE_SETTING_SRS FR-FSS-13: **`fontSize` 는 여기 없다.** 진실은 설정
   // `termFontSize` 이며 `term-pane.js` 가 생성 시점에 읽는다 — 같은 수를 두 자리에
   // 적으면 한쪽만 바뀐다. 종전에는 그 자리가 CSS 토큰 `--fs-lg` 였다 (FR-M11-15).

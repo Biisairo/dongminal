@@ -139,6 +139,11 @@ fn wire_golden() {
             }),
             format!(r#"{{"alt":true,"cols":80,"cwd":"/w","data":"{B64}","end":9,"firstLine":3,"rows":24}}"#),
         ),
+        (
+            "screenconfig-params",
+            enc(&ScreenConfigParams { history_lines: 2000 }),
+            r#"{"historyLines":2000}"#.into(),
+        ),
         ("cwd-result", enc(&CwdResult { cwd: "/x".into() }), r#"{"cwd":"/x"}"#.into()),
         ("busy-result", enc(&BusyResult { busy: true }), r#"{"busy":true}"#.into()),
         (
@@ -254,6 +259,7 @@ fn chat_wire_golden() {
         has_feature(DAEMON_FEATURES, FEATURE_CHAT) && has_feature(SERVER_FEATURES, FEATURE_CHAT)
     );
     assert!(has_feature(DAEMON_FEATURES, FEATURE_SCREEN_STATE));
+    assert_eq!(METHOD_SCREEN_CONFIG, "screenconfig");
     assert!(!has_feature(SERVER_FEATURES, FEATURE_SCREEN_STATE));
 }
 

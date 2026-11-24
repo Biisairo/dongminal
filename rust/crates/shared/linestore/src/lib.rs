@@ -79,6 +79,17 @@ impl LineStore {
                 data: codec::compress(&lines),
             });
         }
+        self.trim();
+        no
+    }
+
+    /// 상한을 바꾼다(D-25 `termHistoryLines`). 줄이면 넘는 블록을 곧바로 버리고, 올리면 그 뒤로 더 쌓는다.
+    pub fn set_cap(&mut self, cap: usize) {
+        self.cap = cap;
+        self.trim();
+    }
+
+    fn trim(&mut self) {
         while let Some(b) = self.blocks.front() {
             if self.len() - b.count < self.cap {
                 break;
@@ -86,7 +97,34 @@ impl LineStore {
             self.first += b.count as u64;
             self.blocks.pop_front();
         }
-        no
+    }
+
+    /// 데몬 교체(D-27)로 넘길 그림이다. 블록과 절대 줄 번호를 그대로 담고, 풀린 블록은 압축해 담는다.
+    pub fn export(&self) -> Vec<u8> {
+        let hot = (!self.hot.is_empty()).then(|| codec::compress(&self.hot));
+        let mut blocks: Vec<(u64, usize, &[u8])> = self
+            .blocks
+            .iter()
+            .map(|b| (b.first, b.count, b.data.as_slice()))
+            .collect();
+        if let Some(h) = &hot {
+            blocks.push((self.end - self.hot.len() as u64, self.hot.len(), h));
+        }
+        codec::write_image(self.first, self.end, &blocks)
+    }
+
+    /// [`export`](Self::export) 의 그림을 상한 `cap` 으로 되세운다. 형식이 다르거나 깨졌으면 `None` 이다.
+    pub fn import(cap: usize, image: &[u8]) -> Option<Self> {
+        let (first, end, raw) = codec::read_image(image)?;
+        let mut s = Self::new(cap);
+        s.first = first;
+        s.end = end;
+        s.blocks = raw
+            .into_iter()
+            .map(|(first, count, data)| Block { first, count, data })
+            .collect();
+        s.trim();
+        Some(s)
     }
 
     /// ED3(기록 지우기). 줄은 모두 버리고 번호는 이어 간다.

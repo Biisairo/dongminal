@@ -265,6 +265,7 @@ impl Conn {
             ipc::METHOD_LIST => handlers::list(self, &req),
             ipc::METHOD_SNAPSHOT => handlers::snapshot(self, &req),
             ipc::METHOD_SCREEN => handlers::screen(self, &req),
+            ipc::METHOD_SCREEN_CONFIG => handlers::screen_config(self, &req),
             ipc::METHOD_CWD => handlers::cwd(self, &req),
             ipc::METHOD_BUSY => handlers::busy(self, &req),
             ipc::METHOD_BUSY_MANY => handlers::busy_many(self, &req),

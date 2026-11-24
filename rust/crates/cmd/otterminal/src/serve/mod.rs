@@ -254,6 +254,7 @@ pub(crate) fn build_app(
     // PEER_DAEMON_SRS §3.5a: 데몬이 노드다. PEER_CHAT_SRS §3.11: 채팅의 사람 참가자도 데몬에 있다.
     a.bd.deps.edge_daemon = Some(Arc::new(Daemon(client.clone())));
     a.bd.deps.chat_daemon = Some(Arc::new(Daemon(client.clone())));
+    a.bd.deps.screen_daemon = Some(Arc::new(Daemon(client.clone())));
     if let Some(tr) = a.bd.attn_tracker.clone() {
         let w = new_record_writer(client.clone(), &tr);
         a.bd.deps.records = Some(Arc::new(Records(w.clone())));
@@ -363,6 +364,7 @@ impl App {
         let (Some(c), Some(srv)) = (&self.client, &self.srv) else {
             return;
         };
+        srv.sync_screen_config();
         // §3.2a: 서버는 hello 에서 reports 를 말하므로 report push 는 언제나 받아야 한다.
         let w = Arc::downgrade(srv);
         let queue = new_report_queue(move |method: &str, body: &[u8]| {
@@ -385,6 +387,7 @@ impl App {
                 return;
             };
             sync_attn_config(&*c);
+            s.sync_screen_config();
             sync_records(&*c, &w, &*s);
         })));
     }

@@ -12,7 +12,7 @@ use otter_shared_activity as activity;
 use otter_shared_otterlog::{errorf, infof};
 use otter_shared_outbuf::Stream;
 use otter_shared_platform::{ProcSpec, Terminal};
-use otter_shared_termstate::{HISTORY_CAP, Screen};
+use otter_shared_termstate::{HISTORY_CAP, Handover, Screen};
 use tokio_util::sync::CancellationToken;
 
 use crate::env::{Getenv, tool_bin_dir, tool_env, tool_start_dir};
@@ -420,6 +420,34 @@ impl Tool {
             first_line: s.first_line,
             cwd: self.reported_cwd(),
         })
+    }
+
+    /// 데몬 교체로 넘길 화면 상태다(D-27). 터미널이 없는 도구는 `None` 이다.
+    pub fn screen_handover(&self) -> Option<Handover> {
+        lock(&self.cmu).screen.as_mut().map(Screen::handover)
+    }
+
+    /// 넘겨받은 화면 상태를 되세운다(D-27, 인계 판 2). 스냅숏과 저장소 그림으로 되세우고 링의 마지막
+    /// `back` 바이트를 이어 넣는다. 스냅숏이 비면(터미널이 없던 도구) 새 화면 그대로 둔다.
+    pub fn adopt_screen(&self, ring: &[u8], state: &[u8], back: usize, history: &[u8], cap: usize) {
+        if state.is_empty() {
+            return;
+        }
+        let mut g = lock(&self.cmu);
+        let Some(sc) = g.screen.as_mut() else {
+            return;
+        };
+        let (cols, rows) = sc.size();
+        let mut s = Screen::restore(cols, rows, cap, state, history);
+        s.feed(&ring[ring.len().saturating_sub(back)..]);
+        *sc = s;
+    }
+
+    /// 줄 저장소 상한을 바꾼다(D-25). 터미널이 없는 도구는 할 일이 없다.
+    pub fn set_history_lines(&self, lines: usize) {
+        if let Some(sc) = lock(&self.cmu).screen.as_mut() {
+            sc.set_store_cap(lines);
+        }
     }
 
     /// 화면 상태와 그 화면이 반영한 누적 오프셋(`end`)을 한 잠금 안에서 읽는다.

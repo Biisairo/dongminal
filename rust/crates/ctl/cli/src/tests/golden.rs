@@ -62,7 +62,8 @@ fn check(golden: &str) {
 }
 
 /// Go 기준선 뒤에 더한 설정. 정답 자료에 없으므로 견주기 전에 뺀다 (OTTERMINAL_RENAME_SRS FR-FAV-4).
-const POST_GO_SETTINGS: &[&str] = &["attnFavicon"];
+/// `termHistoryLines`·`termScrollback` 은 PERF D-25.
+const POST_GO_SETTINGS: &[&str] = &["attnFavicon", "termHistoryLines", "termScrollback"];
 
 fn without_post_go_settings(out: &str) -> String {
     POST_GO_SETTINGS.iter().fold(out.to_owned(), |acc, key| {

@@ -1004,7 +1004,7 @@ JSON 키의 사전순이라 종전 map 부호화와 **바이트가 같다** (`to
 | `busymany` | 도구 N 개의 busy 를 RPC 한 번으로 | busy 를 하나씩 |
 | `snapnotfound` | 없는 도구의 snapshot 을 `CODE_NOT_FOUND` 로 — WS 연결당 RPC 1 | 존재 확인 list 를 먼저 |
 | `shellprobe` | Run 복구의 셸 판정 — 프로세스 표를 한 번 읽어 `idle`·`busy`·`here`·`elsewhere`·`unknown` (RUN_RECOVERY_SRS FR-RRC-10) | 늘 `unknown` |
-| `screen` | 화면 상태 스냅숏 — 데몬 에뮬레이터(`termstate`)가 화면 + 기록 N 행을 ANSI 로 내고, 이어 보낼 출력 오프셋 `end`·크기·대체 화면·첫 기록 줄 번호·cwd 를 함께 준다 (PERF FR-TRM-4, D-18) | 링 바이트 재생(`snapshot`) |
+| `screen` | 화면 상태 스냅숏 — 데몬 에뮬레이터(`termstate`)가 화면 + 기록 N 행을 ANSI 로 내고, 이어 보낼 출력 오프셋 `end`·크기·대체 화면·첫 기록 줄 번호·cwd 를 함께 준다 (PERF FR-TRM-4, D-18). 같은 기능 이름으로 `screenconfig`(기록 줄 수 `historyLines`, 1,000~200,000, PERF D-25)도 받는다 | 링 바이트 재생(`snapshot`) |
 
 정상 상태에 RPC 가 없으므로, 받되 답하지 않는 데몬은 RPC 시한(FR-14)으로 잡히지 않는다. 서버가
 15 s 마다 `hello` 로 생존을 확인하고 시한 안에 답이 없으면 끊고 재접속한다 (FR-OPT-2-1) — `hello` 는
