@@ -178,7 +178,7 @@ docs/
   external/              # 사용자 문서
 ```
 
-**모든 패키지가 네 프로세스 중 하나 또는 `shared/` 에 속한다.** 마지막까지 축 밖에
+**모든 crate 가 네 프로세스 중 하나 또는 `shared/` 에 속한다.** 마지막까지 축 밖에
 있던 Go 기준선(main)의 `internal/server` 가 `httpapi`(지금 `rust/crates/webserver/httpapi`)로 들어오면서 그렇게 됐다. 판정
 기준은 링크 클로저가 아니라 **실행**이다 — 단일 바이너리라 클로저는 네 프로세스가
 모두 같고, 그것으로는 아무것도 갈리지 않는다.
@@ -249,15 +249,15 @@ App 원형에 위임자를 두지 않는다(`REFACTOR3_FE_DELEG_SRS`, 게이트 
 | fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/edge/v1/*` · `/api/edges/*` |
 | runs | `{"error": <sentinel 문자열>, "detail": <err>}` | `/api/runs/*` |
 | 단문 | `{"error": <msg>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
-| 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` (`httpErr`) |
+| 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` (`http_err`) |
 
 > **표가 넷을 세는 동안 실물은 다섯이었다** (2026-09-12, M5 `G6-1`).
-> `http.Error` 가 쓰던 `text/plain` 이 다섯 번째 방언이고 65곳이 그것을 냈다.
+> Go 기준선(main)의 `http.Error` 가 쓰던 `text/plain` 이 다섯 번째 방언이고 65곳이 그것을 냈다.
 > 지우는 것이 아니라 **세는 것이 먼저다** — 세지 않은 방언은 통일 논의에서도 빠진다.
 
 **통일하지 않는다** — 그것은 리팩터가 아니라 파괴적 변경이다. 대신
 `rust/crates/webserver/apierr` 가 **매핑과 어휘**를 소유하고 렌더링은 각 표면에 남는다
-(DEEPENING_REFACTOR_SRS 묶음 A). 성공 JSON 은 모양이 하나라 `httpresp.JSON` 한 자리가
+(DEEPENING_REFACTOR_SRS 묶음 A). 성공 JSON 은 모양이 하나라 `dm_shared_httpresp::json` 한 자리가
 쓴다 (OPTIMIZE_REFACTOR_SRS FR-OPT-9-4) — 이 결정은 오류 본문의 것이고, 성공 응답의
 헤더·인코딩을 모으는 것은 그 밖이다.
 
@@ -267,11 +267,11 @@ App 원형에 위임자를 두지 않는다(`REFACTOR3_FE_DELEG_SRS`, 게이트 
 카탈로그는 `docs/external/errors.md` 이며 `rust/crates/webserver/apierr/src/codes.rs` 의 `CODE_DOC` 에서 **생성**된다.
 
 **헤더를 세우는 문은 하나다** (REFACTOR3_DEDUP_GO_SRS FR-RDG-1·2). 헤더 이름은
-`httpresp.CodeHeader` 하나이고(`apierr.CodeHeader` 는 그 값을 가리킨다), 모든 방언 함수는
-본문만 만들어 `httpresp.Fail` 에 넘긴다 — 그 함수가 코드 헤더를 세우고 상태와 본문을 쓴다.
-`{code,message}` 방언은 `httpresp.FailCode` 하나다. `shared/edge`·`edgenode` 는
+`httpresp::CODE_HEADER` 하나이고(`apierr` 는 그 값을 가리킨다), 모든 방언 함수는
+본문만 만들어 `httpresp::fail` 에 넘긴다 — 그 함수가 코드 헤더를 세우고 상태와 본문을 쓴다.
+`{code,message}` 방언은 `httpresp::fail_code` 하나다. `shared/edge`·`edgenode` 는
 `webserver` 를 가져올 수 없어 이 자리가 `shared` 에 있다. 요청 본문의 JSON 읽기는
-`httpreq.DecodeJSON` 하나가 하고 실패 종류만 돌려준다 — 답은 방언이 한다.
+`httpreq::decode_json` 하나가 하고 실패 종류만 돌려준다 — 답은 방언이 한다.
 
 ```
 domain sentinel 78개 ──▶ apierr.{Git,Runs,FS}.Lookup ──▶ (status, code)
@@ -287,7 +287,7 @@ worktree.ErrNotRepo → /api/git/worktrees  404  (지목한 것이 거기 없다
                     → /api/runs           400  (호출자가 인자로 준 것이 틀렸다)
 ```
 
-기계(`Table.Lookup`)는 공유하고 정책(테이블)은 표면이 갖는다.
+기계(`apierr::Table::lookup`)는 공유하고 정책(테이블)은 표면이 갖는다.
 
 **전수성이 강제된다.** `apierr/src/inventory.rs` 가 HTTP 에 도달할 수 있는 sentinel
 전부를 열거하고, 테스트가 "규칙이 있거나 사유와 함께 면제됐다"를 검사한다. 새
@@ -296,7 +296,7 @@ sentinel 을 더하고 둘 중 아무것도 하지 않으면 실패한다 — **
 
 ## git 쓰기의 순서는 타입이 쥔다 (`rust/crates/webserver/gitapi/src/write.rs`)
 
-쓰기 핸들러는 `gitWrite` 를 지난다. 실패가 **끈적해서**(sticky) 한 번 응답한 뒤의
+쓰기 핸들러는 `GitWrite` 를 지난다. 실패가 **끈적해서**(sticky) 한 번 응답한 뒤의
 모든 단계가 무동작이므로, 핸들러에 `if !ok { return }` 이 없다:
 
 ```go
@@ -339,9 +339,9 @@ if (!res.ok)   { …사유를 보이고 이미 받은 목록은 지우지 않는
 
 ## 런타임 헬퍼 배포 (`rust/crates/shared/runtime`)
 
-`runtime.Install(binDir)` 이 `main()` 초기화에서 `$DONGMINAL_HOME/bin/` 을 채운다.
+`dm_shared_runtime::install(bin_dir)` 이 서버 기동 때 `$DONGMINAL_HOME/bin/` 을 채운다.
 
-**helper CLI** 는 `rust/crates/helper/runtimebin` 의 multi-call dispatch 로 dongminal 바이너리 자체가 처리하므로, `bin/<name>` 은 실행 파일을 가리키는 symlink (미지원 환경에선 복사) 다. `runtimebin.HelperNames()` 가 단일 소스:
+**helper CLI** 는 `rust/crates/helper/runtimebin` 의 multi-call dispatch 로 dongminal 바이너리 자체가 처리하므로, `bin/<name>` 은 실행 파일을 가리키는 symlink (미지원 환경에선 복사) 다. `dmenv::helper_names()` 가 단일 소스:
 
 - `dmctl` — `/api/commands` 로 워크스페이스 action 브로드캐스트 + `list-workspace`/`who-am-i`/`notify`/`activity` + 에이전트 접합면(`read-screen`/`send-input`/`msg`/`status`/`wait`/`run`). 아래 "에이전트 접합면과 Run" 절.
 - `edit` — `POST /api/commands` 로 `openEditorTab` 브로드캐스트 (내장 편집기 탭).
@@ -353,9 +353,9 @@ if (!res.ok)   { …사유를 보이고 이미 받은 목록은 지우지 않는
 - `bash-hook.sh` — `PROMPT_COMMAND` 에 `_rt_cwd_hook` 주입, OSC 777 `Cwd;<pwd>`.
 - `zdotdir/.zshrc` — zsh 용 `precmd`/`chpwd` 훅. `~/.zshrc` 를 먼저 source.
 
-**agent-hooks** — `installAgentHooks` 가 `bin/agent-hooks/` 에 Claude Code hooks settings 를 생성한다. hook 커맨드는 `dmctl` 을 절대경로로 참조해, PATH 앞쪽의 낡은 `dmctl` 이 `notify` 를 모르는 사고를 막는다.
+**agent-hooks** — 런타임 설치가 `bin/agent-hooks/` 에 Claude Code hooks settings 를 생성한다. hook 커맨드는 `dmctl` 을 절대경로로 참조해, PATH 앞쪽의 낡은 `dmctl` 이 `notify` 를 모르는 사고를 막는다.
 
-도구 스폰 시 `StartTool` 이 환경을 덧붙인다 (`rust/crates/shared/toolhub/src/tool.rs`):
+도구 스폰 시 도구 시작 함수가 환경을 덧붙인다 (`rust/crates/shared/toolhub/src/tool.rs`):
 
 ```
 PATH=<기존>:$DONGMINAL_HOME/bin
@@ -414,9 +414,9 @@ DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 | `GET /api/editors` · `POST /api/editors/{add,remove,reorder}` | Editor 목록. 응답에 `pinned` 를 함께 싣는다 |
 
 조작 종단이 `root` 를 요구하는 이유는 기존 `/api/file/*` 의 가드가
-`safeResolve("/", …)` 라 **사실상 무제한**이기 때문이다. 읽기·쓰기는 사용자가 경로를
+`safe_resolve("/", …)` 라 **사실상 무제한**이기 때문이다. 읽기·쓰기는 사용자가 경로를
 지목한 것이지만 조작은 트리 탐색에서 파생된 경로를 지운다. 그리고 루트 경계 판정에
-`safeResolve` 를 **재사용하지 않는다** — 그쪽은 `..` 접두 문자열로 판정해 `..b`·`...`
+`safe_resolve` 를 **재사용하지 않는다** — 그쪽은 `..` 접두 문자열로 판정해 `..b`·`...`
 같은 정상 이름을 이탈로 오인한다.
 
 도구의 capability 맵(`web/js/core/helpers.js` 의 `TOOL_CAPABILITIES`)은 `terminal`·`editor`·`git` 셋을 싣고, 탭 타입은 여기에 `run` 을 더해 넷이다. `backgroundCapable` 은 `terminal` 만 참이므로 나머지는 detach 대상이 아니다 (FR-BG-11).
@@ -591,7 +591,7 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 `handlers_attention`·`handlers_status`)는 에이전트 이름을 모른다 (FR-U-1·2).
 
 어댑터는 셋이고 한 구조체에 든다 (FR-U-2, P4 판정) — `claude.rs` · `codex.rs` ·
-`omp.rs`. 에이전트 GUI 와 그것이 쓰던 프로토콜 표면(`Proto`·`ParseHistory`·`fakeagent`)은
+`omp.rs`. 에이전트 GUI 와 그것이 쓰던 프로토콜 표면(Go 기준선(main)의 `Proto`·`ParseHistory`·`fakeagent`)은
 모두 지워졌다 (`AGENT_GUI_REMOVAL_SRS` §6). 에이전트는 늘 터미널 탭의 셸에서 뜬다.
 
 ## 오케스트레이션 다이어그램
@@ -914,7 +914,7 @@ N" 을 오보한다. 대신 `push.autoSetupRemote` 를 걸고, 생성 base 를
 
 경로·브랜치는 uuid 에서 파생하고 **재사용하지 않는다** — 에이전트 CLI 는 대화
 이력을 cwd 로 키잉하므로 지워진 경로를 다시 쓰면 새 멤버가 남의 이력을 물려받는다.
-조각은 `short`(앞 8자)가 아니라 `run.PathSlug`(앞 8 + 뒤 8)다: uuid v7 의 앞 48비트는
+조각은 `short`(앞 8자)가 아니라 `run::path_slug`(앞 8 + 뒤 8)다: uuid v7 의 앞 48비트는
 밀리초 타임스탬프라 **같은 기간에 열린 Run 은 전부 같은 short 를 갖는다.**
 
 정리는 `run close` 가 한다. **clean 한 트리만 지우고 브랜치는 `-d`(머지된 것만)로
@@ -954,7 +954,7 @@ worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 �
 
 ## 커맨드 브로드캐스트 (`rust/crates/webserver/hub/src/commands.rs`)
 
-`CommandHub` 는 SSE 구독자 집합과 구독당 채널(`cmdSubQueue` — 한 번의 가장 큰 버스트인 `ClearAllAttention` 을 담도록 `toolhub.ToolCap`)을 관리. `POST /api/commands` 로 들어온 action 을 `hub.IsAllowedCmdAction`(표 `cmdActions`) 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 그 구독을 닫고 로그를 남긴다 — 클라이언트가 재연결해 다시 받는다. SSE 핸들러는 `rust/crates/webserver/sse` 의 작성기로 쌓인 메시지를 한 번에 쓰고 한 번 flush 한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1).
+`CommandHub` 는 SSE 구독자 집합과 구독당 채널(`CMD_SUB_QUEUE` — 한 번의 가장 큰 버스트인 `clear_all_attention` 을 담도록 `toolhub::TOOL_CAP`)을 관리. `POST /api/commands` 로 들어온 action 을 `hub::is_allowed_cmd_action`(표 `CMD_ACTIONS`) 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 그 구독을 닫고 로그를 남긴다 — 클라이언트가 재연결해 다시 받는다. SSE 핸들러는 `rust/crates/webserver/sse` 의 작성기로 쌓인 메시지를 한 번에 쓰고 한 번 flush 한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1).
 
 **허용 목록은 `hub.cmdActions` 가 갖는다** (허용·생성·단일실행자를 한 표에서 파생) — 여기 베끼지 않는다.
 
@@ -967,7 +967,7 @@ worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 �
 > 다시 심는 일이다 (`DOC_SYNC_SRS` D-DSY-6). 한 줄 위의 검증 자리
 > (`httpapi/src/commands.rs`)와 아래의 대조 검사가 그 목록의 진실을 지킨다.
 
-그중 **엔터티를 만드는 것**(`newWindow`·`newTab`·`splitH`·`splitV`·`openEditorTab`·`restoreTool` — 목록은 `cmdActions` 의 `single` 이 갖는다)은 단일 실행자 명령으로, 서버가 `FocusRegistry.Executor()` 로 실행자 하나를 지명해 페이로드에 `execClientId` 를 싣는다. 지명되지 않은 브라우저는 그 명령을 건너뛴다. 게이팅이 없으면 구독 중인 브라우저 수만큼 PTY 가 생기고 하나만 참조돼 나머지가 고아가 된다 (WORKSPACE_IDENTITY_SRS FR-SXE-\*).
+그중 **엔터티를 만드는 것**(`newWindow`·`newTab`·`splitH`·`splitV`·`openEditorTab`·`restoreTool` — 목록은 `cmdActions` 의 `single` 이 갖는다)은 단일 실행자 명령으로, 서버가 `FocusRegistry::executor()` 로 실행자 하나를 지명해 페이로드에 `execClientId` 를 싣는다. 지명되지 않은 브라우저는 그 명령을 건너뛴다. 게이팅이 없으면 구독 중인 브라우저 수만큼 PTY 가 생기고 하나만 참조돼 나머지가 고아가 된다 (WORKSPACE_IDENTITY_SRS FR-SXE-\*).
 
 엔터티 id(Window·Pane·Tab)는 브라우저가 `crypto.randomUUID()` 로 만든다. 마이그레이션된 구 id(`s1`/`r1`/`t1`)도 그대로 유효하며 id 는 전 계층에서 opaque 문자열이다 (FR-WID-1/2).
 
@@ -982,8 +982,8 @@ SSE 가 열릴 때의 복원은 **요청 하나**다 — `GET /api/snapshot?part
 이름은 빠지고, 받는 쪽(`state-registry`)은 없는 조각을 그 종단이 실패한 것과 같이 다룬다.
 
 슬롯 칸의 두 번째 구독은 `?presence=1` 이다 (D-OPT-4, FR-OPT-4-12). 서버는 소유권(`Focus`)과
-GitWatcher 임대만 붙이고 `Commands.Add`·`Updates.Trigger` 를 건너뛴다 — 방송을 싣지 않는다.
-허브에 등록되지 않으므로 구독 상한(`hub.SubCap`)은 `presenceSubs` 가 따로 센다. 옛 서버는
+GitWatcher 임대만 붙이고 명령 허브 등록과 갱신 알림을 건너뛴다 — 방송을 싣지 않는다.
+허브에 등록되지 않으므로 구독 상한(`hub::SUB_CAP`)은 `presence_subs` 가 따로 센다. 옛 서버는
 파라미터를 무시하고 전부 보내며, 칸 채널은 그것을 버린다.
 
 ## 데몬 IPC (`rust/crates/shared/toolipc`)
@@ -992,9 +992,9 @@ GitWatcher 임대만 붙이고 `Commands.Add`·`Updates.Trigger` 를 건너뛴�
 메서드·이벤트 이름과 인자·결과는 `protocol.rs` 의 상수와 typed 구조체다 (FR-OPT-2-6) — 필드는
 JSON 키의 사전순이라 종전 map 부호화와 **바이트가 같다** (`toolipc/src/tests.rs` 골든, FR-OPT-0-3).
 
-**확장은 `hello.features` 로 협상한다** (D-OPT-1). `ProtocolVersion` 을 올리면 서버가 연결을
+**확장은 `hello.features` 로 협상한다** (D-OPT-1). `PROTOCOL_VERSION` 을 올리면 서버가 연결을
 거부하고, 데몬은 서버 업그레이드를 넘어 PTY 를 쥐고 산다 — 판을 올리는 것은 사용자의 세션을
-끊는 일이다. 그래서 새 메서드는 이름을 `DaemonFeatures` 에 싣고, 서버는 데몬이 그 이름을 말했을
+끊는 일이다. 그래서 새 메서드는 이름을 `DAEMON_FEATURES` 에 싣고, 서버는 데몬이 그 이름을 말했을
 때만 쓴다. 말하지 않는 옛 데몬에는 종전 경로로 강등한다:
 
 | 기능 | 새 경로 | 옛 데몬 강등 |
@@ -1002,7 +1002,7 @@ JSON 키의 사전순이라 종전 map 부호화와 **바이트가 같다** (`to
 | `fgtick` | 데몬이 전경 조회 티커를 돌리고 바뀐 이름을 `fg` push 로 민다 | 서버의 list 폴 |
 | `notify` | WS 의 키 입력·리사이즈를 응답 없는 `input`·`resizenotify` 로 | `write`·`resize` RPC |
 | `busymany` | 도구 N 개의 busy 를 RPC 한 번으로 | busy 를 하나씩 |
-| `snapnotfound` | 없는 도구의 snapshot 을 `CodeNotFound` 로 — WS 연결당 RPC 1 | 존재 확인 list 를 먼저 |
+| `snapnotfound` | 없는 도구의 snapshot 을 `CODE_NOT_FOUND` 로 — WS 연결당 RPC 1 | 존재 확인 list 를 먼저 |
 | `shellprobe` | Run 복구의 셸 판정 — 프로세스 표를 한 번 읽어 `idle`·`busy`·`here`·`elsewhere`·`unknown` (RUN_RECOVERY_SRS FR-RRC-10) | 늘 `unknown` |
 
 정상 상태에 RPC 가 없으므로, 받되 답하지 않는 데몬은 RPC 시한(FR-14)으로 잡히지 않는다. 서버가
@@ -1011,16 +1011,16 @@ JSON 키의 사전순이라 종전 map 부호화와 **바이트가 같다** (`to
 
 ## git 실행 계층 (`rust/crates/webserver/domain/git`)
 
-저장소의 git 실행은 **이 패키지 밖에서 일어나지 않는다** (FR-GIT-1). 그 규칙을
-`core/src/tests/gate.rs` 가 `rust/crates/**/*.rs` 전체를 훑어 강제한다 — 허용 목록은 이 패키지와
+저장소의 git 실행은 **이 crate 묶음(`domain/git/*`) 밖에서 일어나지 않는다** (FR-GIT-1). 그 규칙을
+`core/src/tests/gate.rs` 가 `rust/crates/**/*.rs` 전체를 훑어 강제한다 — 허용 목록은 이 묶음과
 `domain/worktree` 둘뿐이다.
 
-패키지 안에는 **초크포인트가 둘** 있고, 그 둘이 5분할의 경계를 정한다:
+`core` 안에는 **초크포인트가 둘** 있고, 그 둘이 5분할의 경계를 정한다:
 
 | 초크포인트 | 위치 | 가드 | 적용 |
 |---|---|---|---|
-| `core.Service.Exec` | `core/src/exec.rs` | `guardArgs` → `readCommands` 화이트리스트 | 타임아웃 · 출력상한 · 기록 |
-| `core.Service.ExecWrite` | `core/src/write.rs` | `guardWriteArgs` | 〃 + `Destructive` 선언을 기록에 남긴다 |
+| `Service::exec` | `core/src/exec.rs` | `guard_args` → `READ_COMMANDS` 화이트리스트 | 타임아웃 · 출력상한 · 기록 |
+| `Service::exec_write` | `core/src/write.rs` | `guard_write_args` | 〃 + `Destructive` 선언을 기록에 남긴다 |
 
 ```
 core ←        의존 없음. Service · 두 초크포인트 · guard · errors · redact · record
@@ -1030,35 +1030,35 @@ store ← core, query          TTL + single-flight 캐시
 jobs  ← core                 원격 작업 잡 큐
 ```
 
-의존은 단방향이며 순환이 없다 (`go list` 실측). **`execGit` 은 `core` 밖으로 나가지
+의존은 단방향이며 순환이 없다 (cargo 의 crate 의존 그래프). **git 프로세스 실행은 `core` 밖으로 나가지
 않는다** — 그래서 우회가 구조적으로 불가능하다. `write` 가 읽기를 필요로 할 때
-`s.Exec` 을 직접 부르지 않고 `query` 를 부르는 이유가 이것이다: 읽기는 `query` 안에서
-`Exec` 을 지나므로 가드가 그대로 걸린다.
+`exec` 을 직접 부르지 않고 `query` 를 부르는 이유가 이것이다: 읽기는 `query` 안에서
+`exec` 을 지나므로 가드가 그대로 걸린다.
 
-**`*Service` 메서드가 아니라 자유 함수다.** Go 는 타입의 메서드를 그 타입을 선언한
-패키지에만 둘 수 있어서, 조회·변경을 갈라내려면 `func StatusOf(s *core.Service, …)`
-형태가 강제된다. 결과 타입이 이미 `Status`·`Signature`·`Preflight` 같은 낱말을 쓰고
-있어 함수 5개에 `Of` 접미가 붙었다.
+**`Service` 의 메서드가 아니라 자유 함수다.** Rust 는 타입의 고유 메서드(`impl Service`)를
+그 타입을 정의한 crate 에만 둘 수 있어서, 조회·변경을 다른 crate 로 갈라내려면
+`pub async fn status_of(s: &Service, …)` 형태가 된다. 결과 타입이 이미 `Status`·`Signature`·
+`Preflight` 같은 낱말을 쓰고 있어 함수 5개에 `_of` 접미가 붙었다.
 
-HTTP 표면은 `webserver/gitapi` 다. 그쪽도 같은 이유로 `*Server` 가 아니라
-`*GitServer` 메서드이며, 넓은 `Server` 대신 인터페이스 셋(`WorkspaceStore`·
-`Broadcaster`·`ToolLocator`)의 메서드 네 개만 요구한다.
+HTTP 표면은 `webserver/gitapi` 다. 그쪽도 같은 이유로 `httpapi::Server` 가 아니라
+`GitServer` 의 메서드이며, 넓은 `Server` 대신 좁은 trait 넷(`WorkspaceStore`·
+`Broadcaster`·`ToolLocator`·`RepoWatcher`)만 요구한다.
 
 자세히는 [PACKAGE_RESTRUCTURE_SRS.md](./PACKAGE_RESTRUCTURE_SRS.md) §2.3, §3.9, §8.6.
 
 ## 어댑터 패턴
 
-`rust/crates/webserver/seam/toolaccess` 는 `ToolReader`, `WorkspaceReader`, `ClientToolResolver` 같은 **인터페이스만** 정의한다. 구체 타입(`toolhub.ToolManager`·`toolhub.ToolHub`, `workspace.Manager`)은 그 인터페이스를 직접 구현하지 않는다. 대신 `rust/crates/webserver/seam/adapters` 가 브리지 역할을 한다.
+`rust/crates/webserver/seam/toolaccess` 는 `ToolReader`, `WorkspaceReader`, `ClientToolResolver` 같은 **trait 만** 정의한다. 구체 타입(`toolhub::ToolManager`·`httpapi::ToolHub` 구현, `workspace::Manager`)은 그 trait 을 직접 구현하지 않는다. 대신 `rust/crates/webserver/seam/adapters` 가 브리지 역할을 한다.
 
-- `adapters.Tool` — `*toolhub.ToolManager`(직접 모드) 또는 `toolhub.ToolHub`(데몬 모드)를 `toolaccess.ToolReader` 로.
-- `adapters.Workspace` — `*workspace.Manager` 를 `toolaccess.WorkspaceReader` 로.
-- `adapters.Client` — 같은 두 필드 + `platform.ProcInfo` 를 `toolaccess.ClientToolResolver` 로. 도구 목록은 `tools()` 가 만드는 `adapters.Tool` 로 읽는다.
+- `adapters::Tool` — 도구 허브를 `toolaccess::ToolReader` 로.
+- `adapters::Workspace` — `workspace::Manager` 를 `toolaccess::WorkspaceReader` 로.
+- `adapters::Client` — 같은 두 필드 + `platform::ProcInfo` 를 `toolaccess::ClientToolResolver` 로. 도구 목록은 `tools()` 가 만드는 `adapters::Tool` 로 읽는다.
 
-커맨드 허브(`*hub.CommandHub`)는 어댑터를 거치지 않고 `httpapi` 가 직접 쓴다 — 종전의 `adapters.Command`·`toolaccess.CommandBroadcaster` 는 비테스트 참조가 0이라 지웠다 (HTTP-20).
+커맨드 허브(`hub::CommandHub`, trait `CommandBroker`)는 어댑터를 거치지 않고 `httpapi` 가 직접 쓴다 — Go 기준선(main)의 `adapters.Command`·`toolaccess.CommandBroadcaster` 는 비테스트 참조가 0이라 지웠다 (HTTP-20).
 
 import 방향은 단방향 (`adapters → {toolaccess, toolhub, workspace, platform}`). server/workspace 는 toolaccess 를 몰라도 되며, toolaccess 는 server/workspace 의 구체 타입을 몰라도 된다. 테스트에서 인터페이스를 mock 하기 쉽다.
 
-`adapters.Tool` 은 direct 모드(`*toolhub.ToolManager`)와 daemon 모드(`server.ToolHub`) 의 이중 경로, bracketed paste, submit 지연을 한곳에 캡슐화한다. `/api/tools/{output,input,message}` 가 두 모드에서 동일하게 동작하는 근거다 — 이 어댑터를 우회해 핸들러에서 PTY 를 직접 만지면 daemon 모드가 깨진다.
+`adapters::Tool` 은 도구 허브 경로, bracketed paste, submit 지연을 한곳에 캡슐화한다. `/api/tools/{output,input,message}` 가 두 모드에서 동일하게 동작하는 근거다 — 이 어댑터를 우회해 핸들러에서 PTY 를 직접 만지면 daemon 모드가 깨진다.
 
 ## 재연결의 고리와 그것을 끊는 자리 (`httpapi/src/ws.rs`)
 
@@ -1067,15 +1067,15 @@ import 방향은 단방향 (`adapters → {toolaccess, toolhub, workspace, platf
 
 | 수단 | 결과 |
 |---|---|
-| 지연 (`throttleMiss`) | 주기가 늘 뿐 고리는 남는다 — 닫는 순간 다시 온다 |
+| 지연 (Go 기준선(main)의 `throttleMiss`) | 주기가 늘 뿐 고리는 남는다 — 닫는 순간 다시 온다 |
 | upgrade 거절 | 주기가 **줄어든다** — 옛 탭의 백오프는 자라지 못한다 |
-| **닫지 않기** (`holdMiss`) | 계기가 서지 않아 고리가 끊긴다 |
+| **닫지 않기** (`hold_miss`) | 계기가 서지 않아 고리가 끊긴다 |
 
-그래서 임계(창 안 5회)를 넘으면 `OpExit` 을 보낸 **뒤 소켓을 붙잡는다.** 통보는
+그래서 임계(창 안 5회)를 넘으면 `OP_EXIT` 을 보낸 **뒤 소켓을 붙잡는다.** 통보는
 여전히 보내므로 규약을 지키는 클라이언트는 영향이 없다.
 
-붙잡는 동안 **읽는다.** upgrade 로 hijack 된 뒤에는 `r.Context()` 가 클라이언트
-절단으로 취소되지 않아, 읽지 않으면 닫힌 탭이 상한(동시 64·10분)을 채워 방어가
+붙잡는 동안 **읽는다.** upgrade 된 뒤에는 요청의 취소가 클라이언트
+절단을 알려 주지 않아, 읽지 않으면 닫힌 탭이 상한(동시 64·10분)을 채워 방어가
 무력해진다. 자세히는 `CONNECTIVITY_RESILIENCE_SRS.md`.
 
 ## 진단 스냅샷 (`httpapi/src/diag_snapshot.rs`)
@@ -1094,14 +1094,14 @@ diag reqAge=37s wsAge=37s ws=4 tools=0 miss=1 hold=4 goroutines=18 allocMB=1
 
 ## 성능: 핫패스 비차단
 
-### `workspace.Manager.Save` (H5)
+### `workspace::Manager::save` (H5)
 
-HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱스 빌드 + atomic swap 만 수행하고 디스크 쓰기는 **비동기 writer 고루틴** 에 넘긴다.
+HTTP `PUT /api/workspace` 핸들러는 `save(blob, if_match)` 호출 → 인덱스 빌드 + 스냅숏 교체만 수행하고 디스크 쓰기는 **전용 writer 스레드** 에 넘긴다.
 
-- `writeCh chan []byte` (버퍼 크기 1) + 전용 writer 고루틴.
-- `enqueueWrite` 는 latest-wins 코얼레싱: 대기 중인 blob 이 있으면 덮어쓴다. 다수의 빠른 Save 가 들어와도 디스크 쓰기는 하나로 합쳐진다.
-- `Manager.Close()` 는 `sync.Once` 로 writer 를 종료하고 마지막 blob 을 flush. 종료 표(`rust/crates/cmd/dongminal/src/serve/mod.rs` 의 `shutdown_steps`)의 마지막 단계다.
-- 측정치: 101.7 ms/call (동기 `os.WriteFile`) → 18 µs/call (atomic swap 만). 자세한 배경은 [FOLLOWUP_HOTFIX_RFC.md](./archive/FOLLOWUP_HOTFIX_RFC.md) §4-ter.
+- 대기 칸 하나(`WriteQueue.pending: Option<blob>`) + `Condvar` 로 깨우는 전용 writer 스레드.
+- `enqueue` 는 latest-wins 코얼레싱: 대기 중인 blob 이 있으면 덮어쓴다. 다수의 빠른 save 가 들어와도 디스크 쓰기는 하나로 합쳐진다.
+- `Manager::close()` 는 writer 에 닫힘을 알리고 스레드가 마지막 blob 을 flush 한 뒤 join 한다(두 번째 호출은 아무것도 하지 않는다). 종료 표(`rust/crates/cmd/dongminal/src/serve/mod.rs` 의 `shutdown_steps`)의 마지막 단계다.
+- 측정치(Go 기준선(main)에서 잰 값): 101.7 ms/call (동기 `os.WriteFile`) → 18 µs/call (atomic swap 만). 자세한 배경은 [FOLLOWUP_HOTFIX_RFC.md](./archive/FOLLOWUP_HOTFIX_RFC.md) §4-ter.
 
 ### 로깅 스킵 (H5 Track A)
 
@@ -1218,35 +1218,29 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 
 ## 동시성
 
-- `ToolManager` : 내부에 `sync.RWMutex`. `Snapshot()` 은 슬라이스 복사로 외부 공개. 백그라운드 도구는 `background map[string]int64`(id → 백그라운드로 보낸 시각)로 같은 락 아래에서 관리한다 — 조회 결과 `BackgroundEntry` 는 그 위에서 만든다. `Create` 는 **락 밖에서** 띄운다(fork/exec + PTY open) — 상한(`ToolCap`)은 락 안에서 자리를 예약(`pending`)해 지킨다 (M8 `GO-29`). 도구 종료 콜백은 `invalidator` 를 락으로 읽는다 (`GO-30`).
-- `workspace.Manager` : `atomic.Pointer[snap]`(raw 와 rev 를 **한 쌍으로** 싣는다 — 따로 두면 리더가 새 raw 와 옛 rev 를 짝지을 수 있다) + `atomic.Pointer[index]`. Save 내부에서만 `sync.Mutex` 로 직렬화. 리더는 락 없이 atomic load.
-- `outbuf.Stream` : `sync.Mutex` + `atomic.Int64` (누적 카운터). Feed/Snapshot 모두 lock 내에서 slice 조작. 저장은 `max` 바이트 링이다 (FR-OPT-3-3).
-- `toolhub.SafeConn` : 쓰기는 `mu` 로 직렬화. 직접 모드의 라이브 프레임(출력·크기·종료)은 연결별 송신 큐(`sendQueueCap`)와 송신 고루틴 하나가 나른다 — readPTY 는 넣기만 하고, 넘친 연결은 닫혀 브라우저가 since 로 재동기한다 (FR-OPT-3-1). 송신 고루틴은 핸들러가 OpSeq 를 보낸 뒤에 선다. 도구의 클라이언트 목록(`cls`)은 바꿀 때마다 새 슬라이스라 읽는 쪽이 복사하지 않는다.
-- `CommandHub` : SSE 구독자 list + broadcast. 내부 `sync.RWMutex`.
-- `toolclient.ToolClient` : 데몬 연결·pending RPC 맵·콜백은 `mu` 아래, 쓰기는 `writeMu` 로 따로 직렬화한다. 재접속 supervisor 는 `connDone` 채널로 세대를 가르고, 정상 상태에 RPC 가 없어도 `hello` 생존 확인(`toolHeartbeatEvery` 15 s, 시한 `toolCallTimeout`)으로 답하지 않는 데몬을 끊는다 — 진행 중인 호출이 있으면 건너뛴다 (FR-OPT-2-1). 도구별 WS 구독자는 별도 `subMu`(RWMutex) — readLoop 가 push 를 fan-out 하는 동안 RPC 락을 쥐지 않는다. `stopped`·`reconnects`·`dropped` 는 atomic.
-- `hub.AttnTracker` : 도구 맵은 `mu`, 도구 하나의 상태(`lastOutputAt`·`attention`·`activity` 등)는 atomic — 스위퍼 틱과 출력 콜백이 같은 도구를 락 없이 읽는다. Broadcast 는 락을 놓고 부른다 (hub 락 순서 의존을 끊는다).
-- `git/jobs.Jobs` : 리포당 진행 중 작업 하나(`active`), 작업 맵과 구독자 집합은 `mu`. 구독은 채널 하나 + `sync.Once` 로 닫히고, 러너 goroutine 은 `context.CancelFunc` 로 끊는다.
+- `toolhub::ToolManager` : 상태(`State` — 도구 맵·예약 수 `pending`·백그라운드 맵 `background: HashMap<id, 보낸 시각>`)는 `RwLock` 하나 아래에 있다 — 조회 결과 `BackgroundEntry` 는 그 위에서 만든다. 도구 생성은 **락 밖에서** 띄운다(fork/exec + PTY open) — 상한(`TOOL_CAP`)은 락 안에서 자리를 예약(`pending`)해 지킨다 (M8 `GO-29`). 저장은 따로 `Mutex` + `Condvar` 로 한 번에 하나만 돈다. 도구 종료 콜백(`invalidator`)은 같은 락으로 읽는다 (`GO-30`).
+- `workspace::Manager` : 스냅숏(raw 와 rev 를 **한 쌍으로** 싣는다 — 따로 두면 리더가 새 raw 와 옛 rev 를 짝지을 수 있다)과 색인을 각각 `RwLock<Arc<…>>` 로 들고, 리더는 `Arc` 를 복제해 락을 바로 놓는다. save 는 `mu: Mutex<()>` 로 직렬화한다.
+- `outbuf::Stream` : `Mutex<Inner>` 하나(링 버퍼·누적 카운터). feed·snapshot 모두 락 안에서 링을 다룬다. 저장은 `max` 바이트 링이다 (FR-OPT-3-3).
+- `toolhub::SafeConn` : 쓰기는 `tokio::sync::Mutex` 로 직렬화하고, 닫힘은 `AtomicBool` 이다. WS 의 라이브 출력은 연결마다 상한이 있는 채널(`OUTPUT_QUEUE`, `httpapi/src/ws.rs`)로 나른다 — 넘친 연결은 닫혀 브라우저가 since 로 재동기한다 (FR-OPT-3-1).
+- `hub::CommandHub` : SSE 구독자 맵(`subs`)과 응답 대기 맵(`pending`)은 각각 `Mutex`, 관찰자 콜백은 `RwLock`.
+- `toolclient::ToolClient` : 데몬 연결·pending RPC 맵·콜백은 `st: Mutex<State>` 아래, 쓰기는 `write_mu` 로 따로 직렬화한다. 재접속 supervisor 는 `State.generation` 으로 세대를 가르고, 정상 상태에 RPC 가 없어도 `hello` 생존 확인(`TOOL_HEARTBEAT_EVERY` 15 s, 시한 `TOOL_CALL_TIMEOUT`)으로 답하지 않는 데몬을 끊는다 — 진행 중인 호출이 있으면 건너뛴다 (FR-OPT-2-1). 도구별 WS 구독자는 별도 `subs: RwLock` — 읽기 루프가 push 를 fan-out 하는 동안 RPC 락을 쥐지 않는다. `stopped`·`reconnects`·`dropped` 는 atomic.
+- `hub::AttnTracker` : 도구 맵은 `mu: Mutex<Inner>`, 도구 하나의 상태(`last_output_at`·`attention` 등)는 `PaneState` 의 atomic — 스위퍼 틱과 출력 콜백이 같은 도구를 락 없이 읽는다. 방송은 락을 놓고 부른다 (hub 락 순서 의존을 끊는다).
+- `git jobs::Jobs` : 리포당 진행 중 작업 하나, 작업 표와 구독자 집합은 `st: Mutex<Table>` 아래에 있다. 구독은 `Unsubscribe` 가 drop 될 때 풀리고, 러너는 작업의 취소 신호(`ctx.cancel()`)로 끊는다.
 
-**모드 판별은 `ToolHub.Daemon()` 하나다** (M8 `GO-46`). 직접 모드(`*ToolManager`)는
-`nil`, 데몬 모드(`*toolclient.ToolClient`)는 자기 자신을 `DaemonHub` 로 돌려준다 —
-프로세스 경계를 건너는 표면(`Subscribe`·`SnapshotToolSince`·`DaemonInfo`·`Reconnects`)은
-거기에만 있고, 나머지(`List() []ToolInfo`·`ListOK`·`Connected`·`Terminate`·…)는 두
-모드가 같은 인터페이스로 답한다. `httpapi` 는 그래서 `toolclient` 를 import 하지
-않는다; 구체 타입은 composition root 만 안다. 종류(터미널·에이전트)를 묻는 메서드는
-두지 않는다 — 무엇이 흐르든 바이트이고 해석은 소비자의 몫이다 (M8_UNIFIED_SRS §9.3 ④⑤).
+**도구 허브는 trait 하나다** (`httpapi/src/toolhub.rs` 의 `ToolHub`). 프로세스 경계를 건너는 표면(`subscribe`·`snapshot_tool_since`·`daemon_info`·`reconnects`)과 나머지(`list`·`list_ok`·`connected`·`create`·…)가 같은 trait 에 있고, 구현은 composition root(`rust/crates/cmd/dongminal/src/serve/adapters.rs`)가 감싸 넘긴다 — 그래서 `httpapi` 는 `toolclient` 를 몰라도 된다. Go 기준선(main)은 직접 모드와 데몬 모드를 `ToolHub.Daemon()` 으로 갈랐다(M8 `GO-46`). 종류(터미널·에이전트)를 묻는 메서드는 두지 않는다 — 무엇이 흐르든 바이트이고 해석은 소비자의 몫이다 (M8_UNIFIED_SRS §9.3 ④⑤).
 
 ## 종료 경로
 
-1. `signal.NotifyContext` 가 `SIGINT`/`SIGTERM` 포착 → ctx cancel.
-2. `srv.Run` 이 리턴 (http.Server.Shutdown 내부 호출).
+1. `serve/signals.rs` 가 `SIGINT`/`SIGTERM` 을 받아 취소 토큰(`CancellationToken`)을 취소한다.
+2. 서버의 `run(ctx)` 가 새 연결을 멈추고 리턴한다.
 3. 종료 표(`rust/crates/cmd/dongminal/src/serve/mod.rs` 의 `shutdown_steps`, D-A-12)를 순서대로 돈다. **표의 순서가 계약이고**
    테스트가 이름 순서를 잰다. 단계와 근거는 그 함수의 머리말에 있다 — 여기 베끼지 않는다.
-   요점만: git 잡 대기가 정상 종료 마커 **앞**, 데몬 연결(`panedClient.Close()`)이 도구 저장 **앞**
+   요점만: git 잡 대기가 정상 종료 마커 **앞**, 데몬 연결 닫기(`ToolClient::close`)가 도구 저장 **앞**
    (`dongminald` 가 새 서버의 연결을 받도록), 워크스페이스 writer flush 가 **마지막**이다.
 
-도구 저장(`SaveAll`)은 소유자 없는 백그라운드 도구와 샌드박스 도구를 뺀 전부를 기록한다. 백그라운드 도구가
+도구 저장(`ToolManager::save_all`)은 소유자 없는 백그라운드 도구와 샌드박스 도구를 뺀 전부를 기록한다. 백그라운드 도구가
 데몬 재시작을 넘기지 않는 것이 여기서 정해진다 (FR-BG-9 · FR-SBX-33). 탭이 참조하지 않는 항목을 버리는
-것은 적재(`LoadAll`, FR-EM-14) 쪽이다.
+것은 적재(`ToolManager::load_all`, FR-EM-14) 쪽이다.
 
 ## 테스트
 
