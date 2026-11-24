@@ -234,3 +234,45 @@ fn record_carries_write_flag() {
         assert_eq!(rec.argv.is_none(), argv.is_empty());
     }
 }
+
+/// PERF M1 C6: 기록이 더해질 때마다 그 저장소(cwd)와 Seq 를 알린다 — Console 탭의 `gitconsole:<root>`
+/// 토픽이 폴링 대신 이것을 듣는다.
+#[test]
+fn recorder_notifies_on_add() {
+    let r = Recorder::new(3);
+    let got: Arc<std::sync::Mutex<Vec<(String, u64)>>> = Arc::default();
+    let g = got.clone();
+    r.set_on_add(Some(Arc::new(move |cwd: &str, seq: u64| {
+        g.lock().unwrap().push((cwd.to_owned(), seq));
+    })));
+    r.add(Record {
+        cwd: "/a".into(),
+        ..Record::default()
+    });
+    r.add(Record {
+        cwd: "/b".into(),
+        ..Record::default()
+    });
+    assert_eq!(
+        *got.lock().unwrap(),
+        [("/a".to_owned(), 1), ("/b".to_owned(), 2)]
+    );
+    r.set_on_add(None);
+    r.add(Record::default());
+    assert_eq!(got.lock().unwrap().len(), 2, "떼어 낸 뒤에도 알렸다");
+}
+
+#[test]
+fn last_seq_of_finds_newest_for_cwd() {
+    let r = Recorder::new(3);
+    assert_eq!(r.last_seq_of("/a"), 0);
+    for cwd in ["/a", "/b", "/a", "/b"] {
+        r.add(Record {
+            cwd: cwd.into(),
+            ..Record::default()
+        });
+    }
+    assert_eq!(r.last_seq_of("/a"), 3);
+    assert_eq!(r.last_seq_of("/b"), 4);
+    assert_eq!(r.last_seq_of("/c"), 0);
+}

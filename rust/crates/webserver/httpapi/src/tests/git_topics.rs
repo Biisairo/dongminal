@@ -25,17 +25,16 @@ struct Env {
 }
 
 fn git(dir: &std::path::Path, args: &[&str]) {
-    let ok = std::process::Command::new("git")
-        .args(args)
-        .current_dir(dir)
-        .env("GIT_AUTHOR_NAME", "t")
-        .env("GIT_AUTHOR_EMAIL", "t@t")
-        .env("GIT_COMMITTER_NAME", "t")
-        .env("GIT_COMMITTER_EMAIL", "t@t")
-        .status()
-        .unwrap()
-        .success();
-    assert!(ok, "git {args:?}");
+    otter_shared_gittest::run_env(
+        dir,
+        args,
+        [
+            ("GIT_AUTHOR_NAME", "t"),
+            ("GIT_AUTHOR_EMAIL", "t@t"),
+            ("GIT_COMMITTER_NAME", "t"),
+            ("GIT_COMMITTER_EMAIL", "t@t"),
+        ],
+    );
 }
 
 async fn env() -> Env {
@@ -165,4 +164,48 @@ async fn gitjob_unknown_is_unknown_topic() {
     assert_eq!(v["code"], "unknown_topic");
     send(&mut c, json!({"t":"ping","n":1})).await;
     assert_eq!(next(&mut c).await.unwrap()["t"], "pong");
+}
+
+/// TC-CH6-6: `gitconsole:<root>` 의 full 은 그 저장소 기록의 마지막 Seq 와 세대다. 그 저장소에 기록이
+/// 더해지면 새 Seq 의 full 을 민다 — Console 탭은 주기로 묻지 않는다.
+#[tokio::test]
+async fn gitconsole_topic_pushes_on_new_record() {
+    let e = env().await;
+    let topic = format!("gitconsole:{}", e.root);
+    let mut c = open(e.port).await;
+    sub(&mut c, &topic).await;
+    let v = next(&mut c).await.unwrap();
+    assert_eq!(v["t"], "full", "{v}");
+    let first = v["data"]["seq"].as_u64().unwrap();
+    assert!(
+        !v["data"]["epoch"].as_str().unwrap_or_default().is_empty(),
+        "{v}"
+    );
+
+    let rec = e
+        .srv
+        .deps
+        .git_store
+        .as_ref()
+        .unwrap()
+        .service()
+        .recorder()
+        .clone();
+    rec.add(otter_webserver_domain_git_core::Record {
+        cwd: "/elsewhere".into(),
+        ..Default::default()
+    });
+    rec.add(otter_webserver_domain_git_core::Record {
+        cwd: e.root.clone(),
+        ..Default::default()
+    });
+    let v = next(&mut c).await.unwrap();
+    assert_eq!(v["t"], "full", "{v}");
+    assert!(v["data"]["seq"].as_u64().unwrap() > first, "{v}");
+    assert!(
+        tokio::time::timeout(Duration::from_millis(300), next(&mut c))
+            .await
+            .is_err(),
+        "다른 저장소의 기록이 이 토픽으로 왔다"
+    );
 }

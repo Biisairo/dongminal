@@ -1,7 +1,7 @@
 //! git 토픽 — `git:<repo>` · `git.jobs` · `gitjob:<id>` (`docs/internal/perf/CHANNEL_PROTOCOL.md`
 //! §5.2 C4). 브라우저의 git 폴링과 git job SSE 를 대신한다.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use otter_webserver_domain_git_core::Ctx;
@@ -14,6 +14,7 @@ use crate::channel::Seed;
 const GIT_PREFIX: &str = "git:";
 const GIT_JOBS: &str = "git.jobs";
 const GITJOB_PREFIX: &str = "gitjob:";
+const GITCON_PREFIX: &str = "gitconsole:";
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
@@ -21,6 +22,10 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 
 fn mark_value(repo: &str, mark: &str) -> Value {
     json!({"repo": repo, "mark": mark})
+}
+
+fn console_value(seq: u64, epoch: &str) -> Value {
+    json!({"seq": seq, "epoch": epoch})
 }
 
 impl Server {
@@ -127,6 +132,52 @@ impl Server {
                 }
             });
         });
+    }
+
+    /// `gitconsole:<root>` — Console 탭의 기록이 늘었다는 신호다. full 은 그 저장소 기록의 마지막
+    /// Seq 와 기록 링의 세대다. 구독하는 동안만 민다. 브라우저는 받으면 `after` 로 그 뒤만 받는다.
+    pub(crate) fn wire_git_console_topic(&self) {
+        let Some(rec) = self
+            .deps
+            .git_store
+            .as_ref()
+            .map(|s| s.service().recorder().clone())
+        else {
+            return;
+        };
+        let r = rec.clone();
+        self.topics.register_seed(GITCON_PREFIX, move |topic| {
+            let r = r.clone();
+            Box::pin(async move {
+                let root = topic.strip_prefix(GITCON_PREFIX)?;
+                Some(Seed::Full(console_value(r.last_seq_of(root), r.epoch())))
+            })
+        });
+        let live: Arc<Mutex<HashSet<String>>> = Arc::default();
+        let (l, me) = (live.clone(), self.me.clone());
+        self.topics.on_demand(GITCON_PREFIX, move |topic, active| {
+            let Some(root) = topic.strip_prefix(GITCON_PREFIX) else {
+                return;
+            };
+            if active {
+                lock(&l).insert(root.to_owned());
+                return;
+            }
+            lock(&l).remove(root);
+            if let Some(s) = me.upgrade() {
+                s.topics.forget_idle(topic);
+            }
+        });
+        let (me, epoch) = (self.me.clone(), rec.epoch().to_owned());
+        rec.set_on_add(Some(Arc::new(move |cwd: &str, seq: u64| {
+            if !lock(&live).contains(cwd) {
+                return;
+            }
+            if let Some(s) = me.upgrade() {
+                s.topics
+                    .publish_full(&format!("{GITCON_PREFIX}{cwd}"), console_value(seq, &epoch));
+            }
+        })));
     }
 
     /// `git.jobs` 의 값이다. git 이 없으면 빈 목록이다.

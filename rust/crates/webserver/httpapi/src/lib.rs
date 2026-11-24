@@ -396,6 +396,7 @@ impl Server {
             srv.wire_telegram_attention(&hub);
         }
         srv.wire_git_topics();
+        srv.wire_git_console_topic();
         srv
     }
 

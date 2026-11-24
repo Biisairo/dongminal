@@ -103,6 +103,7 @@
 | `git.jobs` | full | `git_jobs_changed` + `/api/stats?jobs=1` | `data` 는 `{jobs:[…]}` (`/api/git/jobs` 와 같은 목록) |
 | `git:<repo>` | full | `git_changed` + git status 폴링 | `data` 는 `{repo, mark}` — 서버 gitwatch 관측의 식별자다(관측 실패는 빈 mark). 구독자가 있는 동안 서버가 그 저장소를 감시한다(임대). status 본문은 싣지 않는다 — 본문이 요청 경로(`requested`)와 동작 판정(`actions`)에 매여 구독자마다 다르고, 바뀔 때만 브라우저가 `ifMark` 로 한 번 받는다(주기 없음). Git 패널·저장소 목록·탐색기가 같은 토픽을 구독한다 |
 | `gitjob:<id>` | event | git job SSE | `data` 는 `{kind:"line", line}` 들과 마지막 `{kind:"done", job}`. 첫 구독자가 생기면 보존된 줄부터 흘린다(겹침은 브라우저가 `line.seq` 로 거른다). 브라우저는 `done` 을 받으면 해지하고, 마지막 구독자가 떠나면 서버가 토픽을 잊는다. 없는 잡은 `unknown_topic` 이다 |
+| `gitconsole:<root>` | full | Console 탭의 `gitConsoleInterval`(2초) 재조회 | `data` 는 `{seq, epoch}` — 그 저장소 기록의 마지막 Seq 와 기록 링의 세대. 구독하는 동안만 기록이 더해질 때 민다(`Recorder::set_on_add`). 브라우저는 Seq 가 커서 뒤이거나 세대가 바뀌면 `/api/git/records?after=` 로 그 뒤만 받는다. 보이는 Console 탭만 구독한다 (C6) |
 | `fs` | event | `fs_changed` | |
 | `alert` | event | `claude_account_alert` | |
 
@@ -288,6 +289,9 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 | TC-CH6-3 | 서버 | 큰 텍스트 프레임(200 KB)이 압축된 채로 오가고 내용이 같다. 나머지 채널 시험도 모두 압축된 클라이언트로 돈다 |
 | TC-CH6-4 | 서버 | 편집기 LSP WebSocket 도 같은 구현으로 압축을 협상하고, 제안이 없으면 400 이다. 메시지 상한을 넘으면 연결이 끝나고 통로도 닫힌다(1009 는 싣지 못한다 — 아래 동작 변경) |
 | TC-CH6-5 | e2e | 실제 Chromium 의 채널 핸드셰이크 응답에 `permessage-deflate` 가 있고, 그 위로 `ping`·`pong` 이 오간다 |
+| TC-CH6-6 | 서버 | `gitconsole:<root>` 의 full 은 `{seq, epoch}` 이고, 그 저장소에 기록이 더해지면 새 Seq 의 full 을 민다. 다른 저장소의 기록은 오지 않는다 |
+| TC-CH6-7 | 프론트 | Console 은 주기 재조회를 걸지 않는다. 보이는 동안 받은 루트의 토픽 하나를 구독하고, Seq 가 커서 뒤이거나 세대가 바뀔 때만 `after` 로 다시 받는다. 숨으면·저장소가 바뀌면·내려가면 구독을 놓는다 |
+| TC-CH6-8 | 프론트·서버 | 설정 `agentsPollInterval` 이 표·화면·기본값에 없다. 저장된 옛 값은 화면이 무시하고 `otterctl config` 도 경고하지 않는다(`RETIRED_KEYS`) |
 
 동작 변경:
 - 이전: LSP WebSocket 에 상한을 넘는 메시지가 오면 서버가 닫힘 코드 1009 를 보냈다.

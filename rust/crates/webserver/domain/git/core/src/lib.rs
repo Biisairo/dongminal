@@ -39,7 +39,7 @@ pub use guard::{
     CHECK_REF_FORMAT_BRANCH, CHECK_REF_FORMAT_NORMALIZE, check_ref_arg, rel_path, rel_path_detail,
 };
 pub use oid::{is_null_oid, is_oid};
-pub use record::{Record, RecordSpan, Recorder, redact_secrets};
+pub use record::{OnAdd, Record, RecordSpan, Recorder, redact_secrets};
 pub use recovery::{DEFAULT_HINT_CAP, Hint, HintLog};
 pub use remote::{sanitize_argv, sanitize_remote};
 pub use spawn::{Consumer, JOB_CEILING, KILL_GRACE, SpawnError, drain, exit_status_string, spawn};

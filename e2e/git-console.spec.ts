@@ -220,8 +220,11 @@ test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
   });
 
   /**
-   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-8 (DOM-27): 주기 조회는 커서 뒤의 것만 받는다.
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-8 (DOM-27): 다시 받을 때는 커서 뒤의 것만 받는다.
    * 받은 기록은 화면에 남고, 새 쓰기는 그 위에 붙는다.
+   *
+   * PERF M1 C6: Console 은 주기로 다시 받지 않는다 — `gitconsole:<root>` 토픽이 새 기록을 알릴 때만
+   * 받는다. 그래서 탭을 연 뒤 쓰기를 두 번 더 해 기록을 늘린다.
    */
   test('K12 (FR-OPT-4-8): 기록은 after 커서로 증분만 받는다', async ({ page }) => {
     const repo = copyFx('basic', 'k12');
@@ -241,6 +244,11 @@ test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
     }, repo);
     await clickGitView(page, 'console');
     await expect(rows(page).filter({ hasText: 'add' }).first()).toBeVisible({ timeout: 15000 });
+    await page.evaluate(async (r) => {
+      const w = (window as any).app.gitPanel.write;
+      await w.post('/api/git/unstage', { repo: r, paths: ['tracked.txt'] });
+      await w.post('/api/git/stage', { repo: r, paths: ['tracked.txt'] });
+    }, repo);
     // 두 번째 조회부터 앞서 받은 응답의 lastSeq 가 커서다 (응답끼리 겹칠 수 있어 "앞서 받은
     // 것 중 하나" 로 본다).
     await expect.poll(() => seen.length, { timeout: 15000 }).toBeGreaterThan(2);

@@ -20,7 +20,9 @@ class GitConsole extends GitView {
     this._err='';
     this._after=0;         // 마지막으로 받은 전역 Seq. 증분 조회의 커서다 (FR-OPT-4-8)
     this._epoch='';        // 그 커서의 세대. 서버가 다시 뜨면 바뀐다
-    this._timer=null;
+    this._root='';         // 서버가 푼 저장소 최상위 — 토픽의 이름이다
+    this._sub=null;        // `gitconsole:<root>` 구독 (PERF M1 C6)
+    this._subRoot='';
   }
 
   // ── 골격 ──
@@ -55,37 +57,48 @@ class GitConsole extends GitView {
   unmount(){
     this._stop();
     super.unmount();
-    this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch='';
+    this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch=''; this._root='';
   }
 
   // 탭이 활성일 때만 받는다 — 열지 않은 탭이 500칸 버퍼를 미리 받아 둘 이유가 없다.
   paint(){
     if(!this.el) return;
     this._paintList();
-    this._start();
+    this._watch();
   }
 
   // 리포가 바뀌면 앞 리포의 기록은 버린다 — 남으면 이력이 아니라 잡음이다.
   reset(){
-    this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch='';
+    this._stop();
+    this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch=''; this._root='';
     this.dropTicket('records');   // FR-FEV-6: 진행 중 응답을 버린다 (FR-GIT-54)
     if(this.el) this._paintList();
   }
 
-  _start(){
-    if(this._timer||!this.el) return;
-    // `vis` 만 보면 **떠난 탭에서도 계속 받는다.** 탭을 바꾸면 `_rLayout` 이
-    // 그 본문을 통째로 버리는데, 요소에 붙은 클래스는 그대로 남기 때문이다 —
-    // 요소가 문서에 붙어 있는지까지 봐야 "보이는가" 가 된다.
-    //
-    // 이 판정이 다섯 폴링 중 가장 정확했고, FR-RST-23 이 그것을 `when` 으로
-    // 받아 나머지에도 같은 규약을 준다.
-    this._timer=visiblePoll(()=>gitConsoleInterval,()=>this.reload(),{
-      when:()=>!!this.el&&this.el.isConnected&&this.el.classList.contains('vis'),
-    });
+  // `vis` 만 보면 떠난 탭도 보이는 것으로 읽힌다 — 탭을 바꾸면 본문이 문서에서 떨어지고 클래스는 남는다.
+  _shown(){ return !!this.el&&this.el.isConnected&&this.el.classList.contains('vis') }
+
+  /**
+   * PERF_OPTIMIZATION_SRS M1 C6: 주기로 묻지 않는다. 보이는 동안 `gitconsole:<root>` 를 구독하고, 그 저장소에
+   * 새 기록이 생겼을 때(마지막 Seq 가 커서 뒤이거나 세대가 바뀌었을 때)만 그 뒤를 받는다.
+   *   이전: 보이는 동안 `gitConsoleInterval`(기본 2초)마다 다시 받았다
+   *   이유: 기록은 git 명령이 돌 때만 는다 — 주기의 대부분이 같은 답이었다
+   * 떠난 탭은 다음 신호에서 구독을 놓는다. 다시 보이면 `paint` 가 다시 건다.
+   */
+  _watch(){
+    const ch=this.panel.app&&this.panel.app.channel;
+    if(!ch||!this._root||!this._shown()) return;
+    if(this._sub&&this._subRoot===this._root) return;
+    this._stop();
+    this._subRoot=this._root;
+    this._sub=ch.sub('gitconsole:'+this._root,m=>{
+      if(!this._shown()){ this._stop(); return }
+      const d=m&&m.kind==='full'&&m.data;
+      if(d&&(d.seq>this._after||d.epoch!==this._epoch)) this.reload();
+    },{owner:this});
   }
 
-  _stop(){ if(this._timer){this._timer.stop();this._timer=null} }
+  _stop(){ if(this._sub){this._sub.stop();this._sub=null;this._subRoot=''} }
 
   // ── 데이터 ──
 
@@ -122,7 +135,9 @@ class GitConsole extends GitView {
       :d.records;
     this._after=typeof d.lastSeq==='number'?d.lastSeq:0;
     this._epoch=typeof d.epoch==='string'?d.epoch:'';
+    this._root=typeof d.repo==='string'?d.repo:'';
     this._paintList();
+    this._watch();
   }
 
   // ── 그리기 ──
