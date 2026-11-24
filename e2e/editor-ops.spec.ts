@@ -111,13 +111,34 @@ function tabs(page: Page) {
   });
 }
 
-// 요청 수로만 확인할 수 있는 요구가 하나 있다 (FR-EDT-88).
-function counter(page: Page, pred: (url: string) => boolean) {
-  const box = { n: 0 };
-  page.on('request', ((req: { url(): string }) => { if (pred(req.url())) box.n++ }) as never);
-  return box;
-}
+// 요청으로만 확인할 수 있는 요구가 하나 있다 (FR-EDT-88).
 const isList = (u: string) => u.includes('/api/fs/list');
+
+/**
+ * 다시 읽은 폴더의 이름(마지막 마디)을 모은다.
+ *
+ * 건수로 재면 부하에서 흔들린다 — 조작의 다시 읽기와 감시(`fs_changed` → 스탬프 비교)가 같은 폴더를
+ * 한 번씩 더 읽을 수 있다(전량 회차 실측: 2 기대, 4). FR-EDT-88 이 재는 것은 **어느 폴더를** 읽었는가다
+ * (RUST_DEFECT_FIX_SRS 10.7c).
+ */
+function listedDirs(page: Page) {
+  const seen = new Set<string>();
+  page.on('request', ((req: { url(): string }) => {
+    const u = req.url();
+    if (!isList(u)) return;
+    const dir = (new URL(u).searchParams.get('path') || '').replace(/[\\/]+$/, '');
+    seen.add(dir.slice(Math.max(dir.lastIndexOf('/'), dir.lastIndexOf('\\')) + 1));
+  }) as never);
+  return () => [...seen].sort();
+}
+
+/**
+ * 조작 뒤 늦게 오는 재조회 길(`fs_changed` → 모으기 500ms → `/api/fs/stamps`)의 한 바퀴.
+ * 고정 대기 대신 그 응답을 기다린다 — 바퀴가 끝나야 "더 읽지 않았다" 를 말할 수 있다.
+ */
+function stampRound(page: Page) {
+  return page.waitForResponse((r) => r.url().includes('/api/fs/stamps'), { timeout: 15000 });
+}
 
 /**
  * **디스크가 그 상태가 될 때까지 기다린다.**
@@ -329,24 +350,26 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await expect(row(page, j(R, 'docs', 'd.txt'))).toBeVisible();
 
     // ① 생성 — 만든 폴더 하나뿐이다.
-    const c1 = counter(page, isList);
+    const c1 = listedDirs(page);
+    const late1 = stampRound(page);
     await row(page, j(R, 'src')).click();
     await page.locator('.ed-head-new-file').click();
     await input(page).fill('n.txt');
     await input(page).press('Enter');
     await expect(row(page, j(R, 'src', 'n.txt'))).toBeVisible({ timeout: 10000 });
-    // **예외 (`TEST-16`)**: 요청이 **더 나가지 않음**을 잰다 — 정확히 한 건이
-    // 답이므로 늦게 오는 두 번째까지 보아야 한다.
-    await page.waitForTimeout(500);
-    expect(c1.n).toBe(1);
+    await expect.poll(c1, { timeout: 10000 }).toEqual(['src']);
+    // 늦은 길(감시 → 스탬프 비교)이 한 바퀴 돈 뒤에도 다른 폴더를 읽지 않았다.
+    await late1;
+    expect(c1()).toEqual(['src']);
 
     // ② 이동 — 출발·도착 둘이다. 트리 전체를 새로 만들지 않는다.
-    const c2 = counter(page, isList);
+    const c2 = listedDirs(page);
+    const late2 = stampRound(page);
     await row(page, j(R, 'src', 'b.txt')).dragTo(row(page, j(R, 'docs')));
     await expect(row(page, j(R, 'docs', 'b.txt'))).toBeVisible({ timeout: 10000 });
-    // **예외 (`TEST-16`)**: 위와 같다 — 정확히 두 건인지 본다.
-    await page.waitForTimeout(500);
-    expect(c2.n).toBe(2);
+    await expect.poll(c2, { timeout: 10000 }).toEqual(['docs', 'src']);
+    await late2;
+    expect(c2()).toEqual(['docs', 'src']);
   });
 
   test('O8 (V-EDT-69 / FR-EDT-90): 이름 변경·이동을 열린 탭이 따라간다', async ({ page, request }) => {
@@ -383,11 +406,12 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await expect(row(page, j(R, 'docs', 'd.txt'))).toBeVisible();
     await row(page, j(R, 'src2', 'a.txt')).dragTo(row(page, j(R, 'docs')));
     await expect(row(page, j(R, 'docs', 'a.txt'))).toBeVisible({ timeout: 10000 });
-    const t = await tabs(page);
-    expect(t).toHaveLength(2);
-    expect(t.map((x) => x.file).sort()).toEqual([
+    // 행은 낙관적으로 먼저 서고 탭은 응답 뒤에 따라간다 — ① 과 같이 탭을 관측한다 (RUST_DEFECT_FIX_SRS 10.7c).
+    await expect.poll(async () => (await tabs(page)).map((x) => x.file).sort()).toEqual([
       j(R, 'docs', 'a.txt'), j(R, 'src2', 'deep', 'c.txt'),
     ]);
+    const t = await tabs(page);
+    expect(t).toHaveLength(2);
     // 꼬리를 그대로 견주지 않는다 — Windows 의 경로는 `docs\a.txt` 다 (FR-CEM-11).
     const moved = t.find((x) => x.file.replace(/\\/g, '/').endsWith('docs/a.txt'));
     expect(moved, '옮긴 파일의 탭을 찾지 못했다').toBeTruthy();

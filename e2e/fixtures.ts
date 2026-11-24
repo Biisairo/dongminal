@@ -1,5 +1,5 @@
-import { execFileSync, spawn } from 'child_process';
-import { appendFileSync, cpSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { execFileSync, spawn, spawnSync } from 'child_process';
+import { cpSync, createWriteStream, mkdirSync, rmSync, writeFileSync, WriteStream } from 'fs';
 import { connect } from 'net';
 import { join } from 'path';
 
@@ -275,11 +275,13 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
         // RUST_DEFECT_FIX_SRS 10.7b: 전부는 워커 홈의 `server.log` 에 남긴다 — 실패의 근거가 사라지지 않게.
         stdio: ['ignore', 'pipe', 'pipe'],
       });
-      serverLog = home + '/' + SERVER_LOG;
+      // 쓰기 실패(홈이 지워짐 등)는 삼킨다 — 진단이 워커를 무너뜨리면 안 된다 (10.7c 실측: ENOENT 로 워커가 죽었다).
+      serverLog = createWriteStream(home + '/' + SERVER_LOG, { flags: 'a' });
+      serverLog.on('error', () => {});
       serverPort = port;
       let tail = '';
-      child.stdout?.on('data', (b: any) => { appendFileSync(serverLog, b) });
-      child.stderr?.on('data', (b: any) => { tail = (tail + String(b)).slice(-4000); appendFileSync(serverLog, b) });
+      child.stdout?.on('data', (b: any) => { serverLog?.write(b) });
+      child.stderr?.on('data', (b: any) => { tail = (tail + String(b)).slice(-4000); serverLog?.write(b) });
       let exited: string | null = null;
       child.on('exit', (code, sig) => { exited = `code=${code} signal=${sig}` });
 
@@ -299,6 +301,8 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
       // 셸들의 PTY 를 계속 붙든다 (FR-EPL-4).
       stopDaemon(home);
       try { child.kill('SIGTERM') } catch { /* 이미 종료 */ }
+      serverLog?.end();
+      serverLog = null;
     },
     { scope: 'worker', auto: true },
   ],
@@ -363,7 +367,7 @@ test.afterEach(async ({ page }, testInfo) => {
 
 /** 워커 서버의 stdout·stderr 를 모으는 파일 이름. 워커 홈 아래에 둔다. */
 const SERVER_LOG = 'server.log';
-let serverLog = '';
+let serverLog: WriteStream | null = null;
 let serverPort = 0;
 
 /**
@@ -382,15 +386,9 @@ async function noteServerAtFailure(title: string) {
     sock.on('end', () => done('end'));
     sock.on('error', (e) => done('error ' + e.message));
   });
-  let owners = '';
-  try {
-    owners = execFileSync('lsof', ['-nP', '-iTCP:' + serverPort, '-sTCP:LISTEN'], { encoding: 'utf8', timeout: 5000 });
-  } catch (e) {
-    owners = 'lsof 실패: ' + String(e);
-  }
-  try {
-    appendFileSync(serverLog, `\n=== [e2e 실패] ${new Date().toISOString()} ${title}\n--- 날 응답: ${raw}\n--- 포트 ${serverPort} 소유:\n${owners}===\n`);
-  } catch { /* 홈이 이미 지워졌다 */ }
+  const lsof = spawnSync('lsof', ['-nP', '-iTCP:' + serverPort, '-sTCP:LISTEN'], { encoding: 'utf8', timeout: 5000 });
+  const owners = lsof.stdout || `lsof 실패: ${lsof.error ? lsof.error.message : 'status ' + lsof.status}`;
+  serverLog.write(`\n=== [e2e 실패] ${new Date().toISOString()} ${title}\n--- 날 응답: ${raw}\n--- 포트 ${serverPort} 소유:\n${owners}===\n`);
 }
 
 /**
@@ -755,7 +753,14 @@ async function waitSseRevalidated(page: any) {
   await page.waitForFunction(() => {
     const t = (window as any).app.testing;
     return !!t.sse && t.sse.readyState === 1 && t.restoreLive('activity', null);
-  }, undefined, { timeout: 15000, polling: 50 });
+  }, undefined, { timeout: 15000, polling: 50 }).catch(async (e: unknown) => {
+    // RUST_DEFECT_FIX_SRS 10.7c: 시한이면 어느 쪽이 서지 않았는지 남긴다 — 구독이 안 열렸는가, 재검증이 안 끝났는가.
+    const st = await page.evaluate(() => {
+      const t = (window as any).app?.testing;
+      return { sse: t?.sse ? t.sse.readyState : null, revalidated: t ? !!t.restoreLive('activity', null) : null };
+    }).catch(() => null);
+    throw new Error(`waitSseRevalidated: ${JSON.stringify(st)} — ${String(e)}`);
+  });
 }
 
 // 기본 준비 판정: init() → render() → 포커스된 칸의 xterm 이 섰다.

@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { mkdirSync } from 'fs';
+import { connect } from 'net';
 
 import { request as pwRequest, type APIRequestContext } from '@playwright/test';
 
@@ -16,6 +17,19 @@ import { expect, hermeticEnv, pingUntilUp, test, waitForInit } from './fixtures'
 const B_NODE_OFFSET = 3000;
 const A_UI_OFFSET = 3100;
 const A_NODE_OFFSET = 3200;
+// 아무도 듣지 않는 포트 — 끊기 알림이 곧바로 거부되게 한다 (RUST_DEFECT_FIX_SRS 10.7c). 종전의 127.0.0.2 는
+// 판마다 달랐다: macOS 는 3초 시한까지 매달리고 linux 는 곧바로 거부한다.
+const CLOSED_OFFSET = 3300;
+
+/** 그 포트에 붙으면 곧바로 거부되는가. */
+function refused(port: number) {
+  return new Promise<boolean>((resolve) => {
+    const s = connect(port, E2E_HOST);
+    s.setTimeout(3000, () => { s.destroy(); resolve(false) });
+    s.on('connect', () => { s.destroy(); resolve(false) });
+    s.on('error', (e: NodeJS.ErrnoException) => resolve(e.code === 'ECONNREFUSED'));
+  });
+}
 
 let aProc: ChildProcess | null = null;
 let aHome = '';
@@ -148,7 +162,7 @@ test.describe.serial('설정 ▸ Edges', () => {
     await expect(page.locator('.toast', { hasText: /끊겼습니다|was removed/ })).toContainText('node-a');
   });
 
-  // FR-EPR-52·71: 주소 수정과 끊기. 듣지 않는 주소로 고쳤으므로 상대에게 알리지 못한다.
+  // FR-EPR-52·71: 주소 수정과 끊기. 듣지 않는 포트로 고쳤으므로 상대에게 알리지 못한다.
   test('간선의 주소를 고치고 끊는다', async ({ page, dmServer }) => {
     await pairViaApi(dmServer.baseURL);
     await waitForInit(page);
@@ -165,14 +179,23 @@ test.describe.serial('설정 ▸ Edges', () => {
     await expect(peer.locator('.eg-addr')).toBeHidden();
     await expect(peer.locator('.eg-edit-cancel')).toBeHidden();
     await expect(peer.locator('.eg-who')).toContainText('127.0.0.1');
+    const closed = dmServer.port + CLOSED_OFFSET;
+    expect(await refused(closed), `닫혀 있어야 할 포트 ${closed} 가 받는다`).toBe(true);
     await peer.locator('.eg-edit').click();
-    await peer.locator('.eg-addr').fill('127.0.0.2');
+    await peer.locator('.eg-addr').fill('127.0.0.1');
+    await peer.locator('.eg-port').fill(String(closed));
     await peer.locator('.eg-edit').click();
-    await expect(peer.locator('.eg-who')).toContainText('127.0.0.2');
+    await expect(peer.locator('.eg-who')).toContainText(`127.0.0.1:${closed}`);
     await expect(peer.locator('.eg-addr')).toBeHidden();
     await peer.locator('.eg-remove').click();
     await expect(page.locator('.eg-confirm')).toContainText(aFp.slice(0, 16));
+    // 토스트의 근거(응답의 `notified`)를 먼저 본다 — 토스트만 보면 실패했을 때 무엇이 갈렸는지 알 수 없다.
+    const removed = page.waitForResponse((r) => r.url().includes('/api/edges/remove'));
     await page.locator('.eg-confirm .ui-btn-danger').click();
+    const res = await removed;
+    const body = await res.text();
+    expect(res.status(), body).toBe(200);
+    expect(JSON.parse(body).notified, body).toBe(false);
     await expect(peer).toHaveCount(0);
     await expect(page.locator('.toast', { hasText: /알리지 못했습니다|Could not notify/ })).toBeVisible();
   });
