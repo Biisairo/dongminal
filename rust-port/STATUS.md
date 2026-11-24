@@ -1,21 +1,12 @@
-# 포팅 진행 상태 (2026-11-23 23:5x — 포팅 계획 이슈 전부 done)
+# 포팅 진행 상태 (2026-11-24 09:4x — 이슈 0~10 done, 11·12 마무리 중)
 
-진척: Go 프로덕션 102,842 줄 전부 Rust 로 옮겨 rust-port 에 병합. 이슈 트리 0~9 전부 done.
-마지막 검증: 워크스페이스 전체 시험 3,825 통과·실패 0(darwin, hermetic), linux/arm64 실기 3,820 통과,
-e2e 2,317 중 Rust 2,312 통과(실패 1 = V-LAY-1, Go 기준선과 같음 / 흔들림 1 = git-feedback F-9.4, Go 도 같음),
-Go↔Rust 상호 운용 221 항목 같음, verify 종단간 26/26, 다섯 대상 교차 clippy·deny·audit·Go make gates 통과,
-재현 빌드(다른 경로 재빌드 sha256 같음). SRS 3.7 DIFF-1~32.
+## 지금 상태
 
-## 남은 것 (사용자 결정)
-
-- Windows 실기 검증 수단(Actions windows 러너·VM·SSH PC) — 8.3 이슈 파일에 미검증 목록
-- 운영 전환(Go→Rust 바이너리 교체)과 main 병합·push 시점 (조정자는 하지 않는다)
-- SRS 3.7 보안 강화·결함 수정(DIFF-1,2,7~11,13~23,26,29,31,32)을 Go 에도 고칠지
-- Go 결함 보고: daemon-fingerprint.sh 의 `xargs sum`(DIFF-29), DONGMINAL_NO_UPDATE_CHECK 무시(DIFF-32), scripts/check-home-layout.sh 소켓 4개 누락
-- claude 셈 `--allowedTools=mcp__dongminal` 사전 허용(Go 와 같아 그대로)
-- chrono(unmaintained, RUSTSEC-2026-0543) 직접 사용 crate 3개 — 대체 여부
-- 릴리즈·CI go 1.26.11 vs 기준선 1.27.2, `version` 셋째 칸 go1.27.2 표기
-- linux/amd64 실기는 돌리지 않았다(에뮬레이션 비용)
+- 이슈 10(Rust 남은 결함 12건) 전부 done. RUST_DEFECT_FIX_SRS 승인·구현완료.
+- 이슈 11(Go 제거와 Rust 빌드 전환): 11.1·11.2·11.3(b·c)·11.5·11.6·11.7·11.8·11.9(b·c) done. `scripts/build.sh` 가 Rust 를 빌드해 `./dongminal` 이 Rust 바이너리다(확인함). int 에서 툴체인 1.95.0 으로 build.sh·`make gates` ok(09:3x).
+- 남은 것: **12.3**(e2e 고정 대기 단축, 진행 중) → **11.10**(Go 삭제·빌드·게이트) → **사용자 지시로 e2e 전 멈춤** → 사용자 신호 뒤 e2e 전량 1회.
+- 이슈 12: 12.0 보고서·12.1(17개 삭제)·12.2 분석 done, 12.3 진행 중.
+- int 에 node_modules 를 npm ci 로 설치했다(게이트의 JS 검사에 필요).
 
 ## 사용자 지시(2026-11-24)
 
