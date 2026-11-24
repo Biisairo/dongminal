@@ -96,6 +96,8 @@ const APP_TESTING_NAMES = [
   // PANEL_LAYOUT_SRS: 새 탭의 시작값으로 쓰는 저장 레이아웃.
   'layout.dock.saveLayout', 'layout.dock.resetLayout',
   'statusbar.updateStatusBar', '_stats',
+  // PERF M1 C3 TC-CH3-10: 채널 stats 회차를 얹는 자리와 채널 ping 이 준 지연.
+  'statusbar._onStats', '_latency',
 
   // ── 주의·활동·알림 (attention) ──
   //

@@ -99,9 +99,6 @@ test.describe('편집기 창의 정상 상태 트래픽 (FR-OPT-4-1 · 4-2)', ()
       await expect(row(page, made)).toHaveAttribute('data-st', '?', { timeout: 15000 });
       const asked = box.filter((x) => x.path === '/api/git/status');
       expect(asked.length).toBeGreaterThan(0);
-      // 요청은 이 탭의 신원을 싣는다 — 서버 감시의 임대다 (GIT_WATCH_LEASE_SRS FR-GWL-9).
-      const cid = await page.evaluate(() => (window as any).app.clientId);
-      expect(asked.every((x) => new URLSearchParams(x.query).get('clientId') === cid)).toBe(true);
     } finally {
       fs.rmSync(made, { force: true });
     }

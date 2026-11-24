@@ -30,7 +30,7 @@ function mkrepo(name: string): string {
 }
 
 const has = (page: any, topic: string) =>
-  page.evaluate((t: string) => (window as any).app.testing.channel.has(t), topic);
+  page.evaluate((t: string) => (window as any).app.testing.channel._topics.has(t), topic);
 const sleepers = (page: any) => page.evaluate(() => (window as any).app.testing.sleepers());
 
 test.beforeAll(() => { mkdirSync(ROOT, { recursive: true }) });
