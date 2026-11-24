@@ -64,7 +64,7 @@ const REPOS_SHELLS = ['gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '
 function loadRepos(globals = {}) {
   return load([...BASE, 'core/constants-api.js', ...GIT], {
     expose: ['GitReposList', 'GitSync'],
-    globals: { App: class {}, TIMERS: { disposeOwner() {} }, visiblePoll: () => ({ stop() {} }), gitStatusInterval: 30000, ...globals },
+    globals: { App: class {}, TIMERS: { disposeOwner() {} }, visiblePoll: () => ({ stop() {} }), ...globals },
   });
 }
 

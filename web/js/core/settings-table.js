@@ -48,8 +48,6 @@ const SETTINGS_ACCESS={
   // 주기 다섯은 `POLL_SETTINGS` 가 이미 쥔 길을 그대로 쓴다 (FR-PIS-7).
   // PERF M1 C3: 주기가 토픽 이름(`stats:<ms>`)이라 바뀌면 상태바가 토픽을 갈아탄다.
   statsInterval:{get:()=>statsInterval,set(v){POLL_BY_KEY.statsInterval.set(v);if(this.statusbar)this.statusbar._statsRearm()}},
-  gitStatusInterval:{get:()=>gitStatusInterval,set:v=>POLL_BY_KEY.gitStatusInterval.set(v)},
-  gitReposInterval:{get:()=>gitReposInterval,set:v=>POLL_BY_KEY.gitReposInterval.set(v)},
   gitWorktreeInterval:{get:()=>gitWorktreeInterval,set:v=>POLL_BY_KEY.gitWorktreeInterval.set(v)},
   layoutPresets:{get:()=>layoutPresets,set(v){layoutPresets=v;this.layout.winState._presetButtonPaint()}},
   defaultPreset:{get:()=>defaultPreset,set(v){defaultPreset=v;this.layout.winState._presetButtonPaint()}},

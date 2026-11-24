@@ -18,7 +18,6 @@ import { tmpPath, realPath } from './osenv';
 // 앱의 전역 `const` 들 — 브라우저 안에서만 산다. `page.evaluate` 는 그 스코프에서
 // 평가되므로 이름을 그대로 쓰되, TS 에는 존재만 알린다.
 declare const GIT_SIGNATURE_POLL_MS: number;
-declare const GIT_REPOS_POLL_MS: number;
 declare const STATS_INTERVAL_DEFAULT: number;
 declare const TIMERS: { _jobs: Map<string, { nextAt: number }>; refreshChanged(): void };
 
@@ -38,8 +37,8 @@ async function patchSettings(request: APIRequestContext, patch: Record<string, u
   expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
 }
 
-// `agentsPollInterval`(PERF M1 C6)·`gitConsoleInterval`(PERF 1.9)은 거뒀다 — 활동과 Console 기록은 채널 토픽으로 온다.
-const POLL_KEYS = ['statsInterval', 'gitStatusInterval', 'gitReposInterval'] as const;
+// `agentsPollInterval`(PERF M1 C6)·`gitConsoleInterval`(PERF 1.9)·`gitStatusInterval`·`gitReposInterval`(PERF 1.15)은 거뒀다.
+const POLL_KEYS = ['statsInterval'] as const;
 
 const clearIntervals = (request: APIRequestContext) =>
   patchSettings(request, Object.fromEntries(POLL_KEYS.map(k => [k, undefined])));
@@ -81,28 +80,20 @@ test.describe('묶음 PIS·제거 — 브라우저 signature 폴링 (FR-PIS-1~4)
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.describe('묶음 PIS·설정 — 세 주기 (FR-PIS-6~15)', () => {
+test.describe('묶음 PIS·설정 — 주기 (FR-PIS-6~15)', () => {
   test.afterEach(async ({ request }) => { await clearIntervals(request) });
 
-  test('PIS4 (V-4): 세 키가 설정에서 화면으로 내려온다', async ({ page, request }) => {
-    await patchSettings(request, {
-      statsInterval: 5000, gitStatusInterval: 10000,
-      gitReposInterval: 10000,
-    });
+  test('PIS4 (V-4): 주기 키가 설정에서 화면으로 내려온다', async ({ page, request }) => {
+    await patchSettings(request, { statsInterval: 5000 });
     await waitForInit(page);
-    const v = await page.evaluate(() => ({
-      stats: (window as any).statsInterval,
-      gitStatus: (window as any).gitStatusInterval,
-      gitRepos: (window as any).gitReposInterval,
-    }));
-    expect(v).toEqual({ stats: 5000, gitStatus: 10000, gitRepos: 10000 });
+    expect(await page.evaluate(() => (window as any).statsInterval)).toBe(5000);
   });
 
-  // FR-PIS-7: 얹는 자리가 하나이므로 SSE 방송도 같은 길을 지난다 (FR-SYN).
-  test('PIS5 (V-4): 다른 창에서 바꾼 값이 SSE 로 따라온다', async ({ page, request }) => {
+  // FR-PIS-7: 얹는 자리가 하나이므로 채널 방송도 같은 길을 지난다 (FR-SYN).
+  test('PIS5 (V-4): 다른 창에서 바꾼 값이 채널로 따라온다', async ({ page, request }) => {
     await waitForInit(page);
-    await patchSettings(request, { gitReposInterval: 30000 });
-    await expect.poll(() => page.evaluate(() => (window as any).gitReposInterval),
+    await patchSettings(request, { statsInterval: 30000 });
+    await expect.poll(() => page.evaluate(() => (window as any).statsInterval),
       { timeout: 10000 }).toBe(30000);
   });
 
@@ -111,82 +102,49 @@ test.describe('묶음 PIS·설정 — 세 주기 (FR-PIS-6~15)', () => {
    * 범위 밖·정수 아님·음수는 전부 기본값으로 떨어진다.
    */
   test('PIS6 (V-5): 범위 밖 값은 기본값으로 떨어진다', async ({ page, request }) => {
-    await patchSettings(request, {
-      gitReposInterval: 1, statsInterval: 'x',
-    });
+    await patchSettings(request, { statsInterval: 'x' });
     await waitForInit(page);
-    const v = await page.evaluate(() => ({
-      repos: (window as any).gitReposInterval,
-      stats: (window as any).statsInterval,
-      dRepos: GIT_REPOS_POLL_MS, dStats: STATS_INTERVAL_DEFAULT,
-    }));
-    expect(v.repos).toBe(v.dRepos);
+    const v = await page.evaluate(() => ({ stats: (window as any).statsInterval, dStats: STATS_INTERVAL_DEFAULT }));
     expect(v.stats).toBe(v.dStats);
   });
 
   /**
-   * FR-PIS-8a: **미저장 키는 손대지 않는다.**
-   *
-   * 이 규약이 지키는 것은 사용자 설정이 아니라 **검사와 진단**이다 — 주기를 화면
-   * 안에서 직접 줄여 놓고 재는 자리가 여섯 있고(`git-polling` 의 `fastSafetyNet`
-   * 등), 그 키가 없는 설정 방송 하나가 그 값을 기본값으로 되돌리면 그 검사들이
-   * 타이밍에 따라 무작위로 깨진다.
+   * FR-PIS-8a: **미저장 키는 손대지 않는다.** 그 키가 없는 설정 방송 하나가 화면 안에서
+   * 직접 넣어 둔 값을 기본값으로 되돌리면, 그 값을 딛는 검사·진단이 타이밍에 따라 깨진다.
    */
   test('PIS7a (V-5a): 키 없는 방송은 넣어 둔 값을 지우지 않는다', async ({ page, request }) => {
     await clearIntervals(request);
     await waitForInit(page);
-    await page.evaluate(() => { (window as any).gitStatusInterval = 700 });
+    await page.evaluate(() => { (window as any).statsInterval = 700 });
     // 주기 키가 하나도 없는 설정을 저장한다 — 방송이 오고 `_settingsApply` 가 돈다.
     await patchSettings(request, { tabWidthPx: 161 });
     await expect.poll(() => page.evaluate(() => (window as any).tabWidthPx),
       { timeout: 10000 }).toBe(161);
-    expect(await page.evaluate(() => (window as any).gitStatusInterval),
+    expect(await page.evaluate(() => (window as any).statsInterval),
       '키 없는 방송이 넣어 둔 주기를 지웠다').toBe(700);
     await patchSettings(request, { tabWidthPx: undefined });
   });
 
   /**
-   * FR-PIS-9: `0` 은 `gitStatusInterval` 하나에서만 뜻을 갖는다 — 그 계층은
-   * 안전망이고 push 가 본줄이다. 나머지 넷은 갱신의 **유일한** 경로여서 끄면
-   * 화면이 멎으므로 0 을 받지 않는다.
+   * PERF 1.15: git 실패 재시도 간격은 설정이 아니다. 거둔 키가 블롭에 남아 있어도
+   * 배지의 낡음 기준과 트리 백오프는 상수 그대로다.
    */
-  test('PIS7 (V-5): 0 은 안전망에서만 뜻을 갖는다', async ({ page, request }) => {
-    await patchSettings(request, { gitStatusInterval: 0, gitReposInterval: 0 });
-    await waitForInit(page);
-    const v = await page.evaluate(() => ({
-      gitStatus: (window as any).gitStatusInterval,
-      repos: (window as any).gitReposInterval,
-      dRepos: GIT_REPOS_POLL_MS,
-    }));
-    expect(v.gitStatus, '안전망의 0 은 "걸지 않는다" 다').toBe(0);
-    expect(v.repos, '유일한 갱신 경로는 끌 수 없다').toBe(v.dRepos);
-  });
-
-  /**
-   * FR-PIS-12: 파생이 계수로 남았으므로 기준이 바뀌면 **같은 배수로** 따라간다.
-   * `const` 로 굳혀 두면 설정을 바꿔도 배지의 낡음 기준과 트리 백오프가 옛 값이다.
-   *
-   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3: 배지 목록의 주기가 안전망(`gitStatusInterval`)으로
-   * 옮겼으므로 낡음의 기준은 그것을 따른다. 트리 백오프는 그대로 ⑤ 를 따른다.
-   */
-  test('PIS8 (V-6): 파생 둘이 제 기준을 같은 배수로 따라간다', async ({ page, request }) => {
+  test('PIS8 (V-6): 거둔 git 주기 키는 파생 기준을 바꾸지 않는다', async ({ page, request }) => {
     await waitForInit(page);
     const before = await page.evaluate(() => ({
-      base: (window as any).gitReposInterval,
-      status: (window as any).gitStatusInterval,
       stale: (window as any).gitBadgeStaleMs(),
       backoff: (window as any).editorGitBackoffMs(),
     }));
-    await patchSettings(request, { gitReposInterval: (before.base as number) * 2, gitStatusInterval: 10000 });
-    await expect.poll(() => page.evaluate(() => [(window as any).gitReposInterval, (window as any).gitStatusInterval]),
-      { timeout: 10000 }).toEqual([before.base * 2, 10000]);
+    await patchSettings(request, { gitReposInterval: 6000, gitStatusInterval: 10000, tabWidthPx: 162 });
+    await expect.poll(() => page.evaluate(() => (window as any).tabWidthPx), { timeout: 10000 }).toBe(162);
     const after = await page.evaluate(() => ({
       stale: (window as any).gitBadgeStaleMs(),
       backoff: (window as any).editorGitBackoffMs(),
+      status: typeof (window as any).gitStatusInterval,
+      repos: typeof (window as any).gitReposInterval,
     }));
-    expect(after.stale).toBe(before.stale * 10000 / before.status);
-    expect(after.backoff).toBe(before.backoff * 2);
-    await patchSettings(request, { gitReposInterval: undefined, gitStatusInterval: undefined });
+    expect(after).toEqual({ ...before, status: 'undefined', repos: 'undefined' });
+    await patchSettings(request, { gitReposInterval: undefined, gitStatusInterval: undefined, tabWidthPx: undefined });
   });
 
   /**
@@ -234,55 +192,39 @@ test.describe('PERF M1 C6 — 거둔 설정 agentsPollInterval', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
-  test('PIS15 (V-10): Polling 탭에 컨트롤 셋이 나란히 선다', async ({ page }) => {
+  test('PIS15 (V-10): Polling 탭에 남은 주기 컨트롤이 선다', async ({ page }) => {
     await waitForInit(page);
     await openSettings(page, 'polling');
     const panel = page.locator('#panel-polling');
     await expect(panel).toBeVisible();
-    for (const id of ['pi-stats', 'pi-gitstatus', 'pi-gitrepos'])
+    for (const id of ['pi-stats', 'pi-gitworktree'])
       await expect(panel.locator('#' + id)).toBeVisible();
-    await expect(panel.locator('#pi-gitconsole'), 'Console 주기는 거뒀다 (PERF 1.9)').toHaveCount(0);
+    for (const id of ['pi-gitconsole', 'pi-gitstatus', 'pi-gitrepos'])
+      await expect(panel.locator('#' + id), id + ' 는 거뒀다 (PERF 1.9·1.15)').toHaveCount(0);
   });
 
   // FR-PIS-20 의 대칭: 화면에서 고른 값이 서버로 간다.
   test('PIS17 (V-10): 드롭다운을 바꾸면 서버 설정에 실린다', async ({ page, request }) => {
     await waitForInit(page);
     await openSettings(page, 'polling');
-    await page.locator('#pi-gitrepos').selectOption('5000');
-    await expect.poll(async () => (await (await request.get('/api/settings')).json()).gitReposInterval,
+    await page.locator('#pi-stats').selectOption('5000');
+    await expect.poll(async () => (await (await request.get('/api/settings')).json()).statsInterval,
       { timeout: 10000 }).toBe(5000);
-    expect(await page.evaluate(() => (window as any).gitReposInterval)).toBe(5000);
+    expect(await page.evaluate(() => (window as any).statsInterval)).toBe(5000);
     await clearIntervals(request);
   });
 
-  // FR-PIS-9: 뜻이 없는 자리에는 그 선택지를 두지 않는다 — 설명보다 강하다.
-  test('PIS18 (V-5): `끔`(0) 선택지는 안전망에만 있다', async ({ page }) => {
+  // FR-PIS-9: 뜻이 없는 자리에는 그 선택지를 두지 않는다. `끔`(0)을 받던 안전망은 거뒀다 (PERF 1.15).
+  test('PIS18 (V-5): 남은 주기 컨트롤에 `끔`(0) 선택지가 없다', async ({ page }) => {
     await waitForInit(page);
     await openSettings(page, 'polling');
-    const has0 = (id: string) => page.evaluate((i) => {
-      const el = document.getElementById(i) as HTMLSelectElement;
-      return [...el.options].some(o => o.value === '0');
-    }, id);
-    expect(await has0('pi-gitstatus')).toBe(true);
-    for (const id of ['pi-stats', 'pi-gitrepos'])
-      expect(await has0(id), id + ' 에 뜻 없는 0 이 있다').toBe(false);
-  });
-
-  /**
-   * TC-GWL-13 (GIT_WATCH_LEASE_SRS FR-GWL-11): 안전망의 선택지는 셋이다.
-   *
-   * `1분`·`2분` 을 뺐다. 임대가 SSE 구독으로 옮겨간 뒤로 긴 안전망은 뜻이 없다 —
-   * 놓친 것을 줍는 그물이 1~2분에 한 번이면 그물이 아니고, 그 사이는 push 가
-   * 이미 덮는다. 짧게 두거나 끄거나 둘 중 하나다.
-   */
-  test('PIS20 (V-5): 안전망 선택지는 10초·30초·끔 이다', async ({ page }) => {
-    await waitForInit(page);
-    await openSettings(page, 'polling');
-    const opts = await page.evaluate(() => {
-      const el = document.getElementById('pi-gitstatus') as HTMLSelectElement;
-      return [...el.options].map(o => o.value);
-    });
-    expect(opts, '안전망 선택지가 바뀌었다').toEqual(['10000', '30000', '0']);
+    for (const id of ['pi-stats', 'pi-gitworktree']) {
+      const has0 = await page.evaluate((i) => {
+        const el = document.getElementById(i) as HTMLSelectElement;
+        return [...el.options].some(o => o.value === '0');
+      }, id);
+      expect(has0, id + ' 에 뜻 없는 0 이 있다').toBe(false);
+    }
   });
 
   // FR-PIS-23: 탭에 따라 크기가 달라지지 않는다 (FR-UIK-12·13).

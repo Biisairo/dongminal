@@ -20,8 +20,6 @@ const read = (rel) => readFileSync(join(JS, rel), 'utf8');
 /** 파생 상수 → [표의 키, 필드]. */
 const DERIVED = {
   STATS_INTERVAL_DEFAULT: ['statsInterval', 'def'],
-  GIT_STATUS_POLL_MS: ['gitStatusInterval', 'def'],
-  GIT_REPOS_POLL_MS: ['gitReposInterval', 'def'],
   TAB_WIDTH_DEFAULT: ['tabWidthPx', 'def'],
   TAB_WIDTH_MIN: ['tabWidthPx', 'min'],
   TAB_WIDTH_MAX: ['tabWidthPx', 'max'],
@@ -34,7 +32,6 @@ const DERIVED = {
 /** 표에서 초기값을 받는 설정 전역 → 표의 키. */
 const VARS = {
   statsInterval: 'statsInterval',
-  gitStatusInterval: 'gitStatusInterval', gitReposInterval: 'gitReposInterval',
   tabWidthPx: 'tabWidthPx',
   focusEdgeLevel: 'focusEdgeLevel', attnEdgeLevel: 'attnEdgeLevel',
 };

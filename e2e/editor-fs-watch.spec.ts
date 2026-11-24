@@ -25,7 +25,7 @@ const pj = (d: string, r: string) => d + (d.includes('\\') && !d.includes('/') ?
 test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-fsw-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
-const SLOW = { gitReposInterval: 30000, gitStatusInterval: 0, gitWorktreeInterval: 30000 };
+const SLOW = { gitWorktreeInterval: 30000 };
 const git = (d: string, ...a: string[]) => execFileSync('git', ['-C', d, ...a], { stdio: 'ignore' });
 
 let saved: Record<string, unknown> | null = null;

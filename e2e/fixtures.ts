@@ -826,36 +826,22 @@ export async function nextFrames(page: any, n = 2, capMs = 2000) {
 }
 
 /**
- * status 안전망 폴링의 주기를 **그 자리에서** 바꾼다 (`TEST-17`·`TEST-19`).
+ * 열린 git 패널의 실패·소실 재시도 기준 간격을 **그 자리에서** 줄인다 (`TEST-17`·`TEST-19`).
  *
- * 기본은 30초다 (`GIT_STATUS_POLL_MS`) — 서버가 변화를 방송하므로 브라우저의
- * 폴링은 안전망으로 남았다 (`GIT_PUSH_OBSERVE_SRS`). 저장소 폴더가 사라지는
- * 사건도 서버 감시자가 감시에서 빼며 `git_changed`(mark `""`)를 한 번 방송하지만
- * (FR-RMS-6, `gitwatch/round.rs` 의 `drop_repo`), 그 방송은 감시 회차가 돌아야
- * 나간다. 그래서 소실을 기다리는 검사는 방송에 기대지 않고 안전망을 줄여 둔다.
+ * 평소에는 주기가 없고 `git:<root>` 토픽이 변화를 민다. 주기 타이머는 관측이 실패하거나
+ * 저장소가 사라진 동안의 회복용으로만 걸리고, 그 기준 간격은 상수 `GIT_STATUS_RETRY_MS`(30초)다
+ * (PERF 1.15 — 사용자 설정이 아니다). 회복을 기다리는 검사는 패널의 `poll.retryMs` 만 줄인다.
+ * 이미 열린 패널에만 닿으므로 `openGit` 뒤에 부른다.
  *
- * **설정으로는 못 넣는다.** 주기가 사용자 설정이 되면서 하한이 10초이고
- * (`settings-schema.js`), 그 밖의 값은 저장하면 기본값으로 되돌아간다 —
- * 화면에서 고를 수 없는 값을 파일로는 넣을 수 있다면 선택지를 나눈 이유가
- * 사라지기 때문이다 (POLL_INTERVAL_SETTINGS_SRS FR-PIS-8·8a). 검사가 원하는
- * 것은 사용자 설정이 아니라 **그 자리의 값**이다. 설정 방송이 이 값을 지우지
- * 않는 것은 FR-PIS-8a 의 `!==undefined` 가드가 지켜 준다.
- *
- * `git-polling.spec.ts` 의 `fastSafetyNet` 과 `git-repo-missing.spec.ts` 의
- * `backoffBase` 가 같은 것을 따로 들고 있었다. 둘의 차이는 활성 패널까지
- * 다시 거는가 하나뿐이었고, **더 넓은 쪽**을 취했다 — 다시 거는 대상이 늘어도
- * 재는 것은 달라지지 않는다.
- *
- * **주기를 재는 검사는 이것을 쓰지 마라.** 소실 상태의 주기는 안전망과 무관한
- * 고정값이고(`GIT_REPO_MISSING_POLL_MS`, FR-RMS-26) 그것을 재는 자리가 따로
- * 있다 (`git-repo-missing` M7).
+ * **주기를 재는 검사는 이것을 쓰지 마라.** 소실 상태의 주기는 고정값이고
+ * (`GIT_REPO_MISSING_POLL_MS`, FR-RMS-26) 그것을 재는 자리가 따로 있다 (`git-repo-missing` M7).
  */
 export async function setSafetyNet(page: any, ms: number) {
   await page.evaluate((v: number) => {
-    (window as any).gitStatusInterval = v;
     const app = (window as any).app;
-    if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p.poll._reschedule();
-    if (app.gitPanel && app.gitPanel.poll._reschedule) app.gitPanel.poll._reschedule();
+    const panels = new Set<any>(app.testing.gitPanels ? app.testing.gitPanels.values() : []);
+    if (app.gitPanel) panels.add(app.gitPanel);
+    for (const p of panels) { p.poll.retryMs = v; p.poll._reschedule() }
   }, ms);
 }
 
@@ -1444,7 +1430,7 @@ export function makeCopyFx(root: string) {
 /**
  * 사용자 설정 몇 개를 바꾸고, 원래 블롭으로 되돌리는 함수를 돌려준다.
  *
- * 기존 설정 값(`gitWorktreeInterval`·`gitReposInterval` 등)으로 주기를 줄이는 자리다
+ * 기존 설정 값(`gitWorktreeInterval` 등)으로 주기를 줄이는 자리다
  * (E2E_PRUNE_REPORT §8.2 (b)). `cleanTools` 는 설정을 되돌리지 않으므로 시험이 끝날 때
  * 돌려받은 함수를 반드시 부른다 — 다음 스펙이 줄어든 주기를 물려받지 않게 한다.
  * `undefined` 는 그 키를 지운다(서버 기본값).

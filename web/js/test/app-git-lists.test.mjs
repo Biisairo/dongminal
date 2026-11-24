@@ -31,7 +31,7 @@ test('Repo 탭의 onEnter·onLeave 는 목록 갱신을 합치는 줄로 보낸�
  */
 test('Repo 탭이 숨어 있어도 git_changed 가 목록 갱신을 합쳐 부른다', async () => {
   const ctx = load([...BASE, 'core/constants-api.js', ...GIT], {
-    globals: { App: class {}, TIMERS: { disposeOwner() {} }, visiblePoll: () => ({ stop() {} }), gitStatusInterval: 30000 },
+    globals: { App: class {}, TIMERS: { disposeOwner() {} }, visiblePoll: () => ({ stop() {} }) },
   });
   const a = controllers(ctx, new ctx.App());
   a.sbTab = 'windows';

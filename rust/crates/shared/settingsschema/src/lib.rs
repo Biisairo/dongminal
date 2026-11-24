@@ -17,7 +17,13 @@ pub use theme::CUSTOM_THEME_KEY;
 /// 표에서 거둔 키다. 저장된 블롭에 남아 있어도 읽을 때 무시한다 — 문제도 경고도 아니다.
 /// `agentsPollInterval`: 활동이 채널 토픽으로 와서 주기가 없어졌다 (PERF_OPTIMIZATION_SRS M1 C6).
 /// `gitConsoleInterval`: Console 기록이 `gitconsole` 토픽으로 와서 주기가 없어졌다 (PERF 1.9).
-pub const RETIRED_KEYS: &[&str] = &["agentsPollInterval", "gitConsoleInterval"];
+/// `gitStatusInterval`·`gitReposInterval`: git 관측 실패 재시도 간격만 남아 상수가 됐다 (PERF 1.15).
+pub const RETIRED_KEYS: &[&str] = &[
+    "agentsPollInterval",
+    "gitConsoleInterval",
+    "gitStatusInterval",
+    "gitReposInterval",
+];
 
 /// 원천 파일의 임베드 안 경로다.
 pub const SCHEMA_PATH: &str = "js/core/settings-schema.js";

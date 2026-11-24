@@ -101,8 +101,7 @@ const GIT_INIT_FAIL=t('git.init_fail');
 const GIT_PENDING_HINT=t('git.pending_hint');
 const GIT_NO_REPO_HINT=t('git.no_repo_hint');
 
-// GIT 섹션 목록 갱신 주기(ms)의 기본값 `GIT_REPOS_POLL_MS` 는 표에서 파생한다
-// (settings-defaults.js). 배지는 서버의 마지막 관측값이다. Git 탭이 활성일 때만 이
+// 배지는 서버의 마지막 관측값이다. Git 탭이 활성일 때만 이
 // 호출이 `observe=1` 을 실어 핀 전부를 관측한다 (FR-GOB-8·10) — 그 밖에서는 캐시만
 // 읽으므로 git 을 실행하지 않는다 (FR-GIT-24).
 

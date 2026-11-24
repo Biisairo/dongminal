@@ -69,7 +69,7 @@ test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)'
     for (const p of ['/api/git/jobs', '/api/state', '/api/settings', '/api/claude-accounts', '/api/claude-accounts/mappings']) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBe(0);
     }
-    // 저장소 목록은 안전망(gitStatusInterval, 기본 30초)만 남는다.
+    // 저장소 목록에는 주기가 없다 — 여는 순간의 한 건까지만 허용한다.
     expect(got['/api/git/repos'] || 0, JSON.stringify(got)).toBeLessThanOrEqual(1);
     /**
      * PERF M1 C3 (CHANNEL_PROTOCOL §10.4): 활동·Runs·Background·지표·지연은 채널 토픽으로 온다 —

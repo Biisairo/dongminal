@@ -21,8 +21,7 @@
 //
 // FR-GPO-20: status 폴링은 **안전망**이다. 두 가지를 겸한다 —
 // 푸시가 끊겼을 때의 회복(C-5)과 관심 표명의 갱신(FR-GPO-11 의 90초보다 세 배
-// 잦다). 종전 1초는 푸시가 없을 때의 주기였다. 기본값 `GIT_STATUS_POLL_MS` 는
-// 표에서 파생한다 (settings-defaults.js).
+// 잦다). 종전 1초는 푸시가 없을 때의 주기였다. 지금은 실패 재시도 간격(`GIT_STATUS_RETRY_MS`)만 남았다.
 
 // status 요청 하나의 시한 (FR-RMS-29). 큰 저장소의 `git status` 가 몇 초일 수 있으니
 // 넉넉하되, 백오프 상한(GIT_FAIL_BACKOFF_MAX_MS)보다는 짧다 — 시한이 그보다 길면
@@ -66,6 +65,11 @@ const GIT_SIGNAL_DEBOUNCE_MS=150;
  * 동작하지 않는 것과 견주면 작은 값이다. 자세한 것은 `GIT_FAIL_BACKOFF_MAX_MS`.
  */
 const GIT_REPO_MISSING_POLL_MS=30000;
+/**
+ * PERF_OPTIMIZATION_SRS 1.15: git 관측이 실패하는 동안의 재시도 기준 간격. 평소에는 `git:<root>`
+ * 토픽이 변화를 밀고 주기는 없다. 예전 설정 `gitStatusInterval` 의 기본값이며 사용자가 바꾸지 않는다.
+ */
+const GIT_STATUS_RETRY_MS=30000;
 /**
  * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-30 / D-GRF-6 (`GP-13`): 백오프 상한.
  *
