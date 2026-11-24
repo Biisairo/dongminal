@@ -404,6 +404,19 @@ export async function refetchClaudeAccounts(page: any) {
 }
 
 /**
+ * 채팅 상태는 `chat` 토픽으로 온다(CHANNEL_PROTOCOL C2b) — `page.route` 로 가로챌 수 없다. 토픽의 첫 값이
+ * 닿은 뒤 `/api/chat` GET 으로 다시 얹어, 시험이 둔 가짜 상태를 화면이 쓰게 한다. 그 뒤 서버 상태가 바뀌지
+ * 않으면 토픽은 다시 오지 않는다.
+ */
+export async function refetchChat(page: any) {
+  await page.waitForFunction(() => {
+    const e = (window as any).app?.channel?._topics?.get('chat');
+    return !!e && e.seq != null;
+  });
+  await page.evaluate(() => (window as any).app.testing.onChatChanged());
+}
+
+/**
  * 화면이 받는 계정 한도(`/api/tools/activity` 의 `limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
  *
  * 한도는 서버의 에이전트별 값이라 도구가 죽어도 남는다(ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20). 워커의

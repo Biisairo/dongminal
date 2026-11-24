@@ -66,6 +66,12 @@ class Channel {
 
   latency(){ return this._latency }
 
+  /** 진단(FR-BUS-9): 구독 중인 토픽마다 구독자 수·마지막 순번·그 순번의 epoch. */
+  stats(){
+    return Array.from(this._topics, ([topic,e])=>({topic, subs:e.subs.size, seq:e.seq, epoch:e.epoch, waiting:e.waiting}))
+      .sort((a,b)=>a.topic<b.topic?-1:1);
+  }
+
   alive(){ return this._open() }
 
   gen(){ return this._gen }

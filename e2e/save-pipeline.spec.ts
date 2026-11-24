@@ -151,11 +151,15 @@ test.describe('설정 저장 파이프라인 (FR-OPT-5-2)', () => {
       const restore = t.settingsRestore;
       t.settingsRestore = function (src: unknown) { w.__echo.push('echo'); return restore(src); };
     });
+    // 서버는 시험끼리 공유된다 — 앞 시험(FEC-7)이 남긴 값과 같으면 본문이 바뀌지 않아 에코가 없다.
+    // 에코를 재려면 지금 값과 다른 값을 저장한다.
+    const cur = (await (await page.request.get('/api/settings')).json()).tabWidthPx;
+    const next = cur === 170 ? 171 : 170;
     const gets = countRequests(page, 'GET', '/api/settings');
-    await page.evaluate(() => {
-      (window as any).tabWidthPx = 160;
+    await page.evaluate((v: number) => {
+      (window as any).tabWidthPx = v;
       return (window as any).app.testing.saveSettings();
-    });
+    }, next);
     await expect.poll(() => page.evaluate(() => (window as any).__echo), { timeout: 5000 }).toContain('echo');
     // **예외 (`TEST-16`)**: 방송 뒤에 GET 이 **나가지 않음**을 잰다.
     await page.waitForTimeout(300);

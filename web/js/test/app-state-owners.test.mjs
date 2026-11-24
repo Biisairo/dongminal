@@ -133,6 +133,29 @@ test('FR-ASE-9 · A-6: 에코 판정은 app 에 갈아 끼운 _settingsApply 를
   assert.equal(applied.length, 1);
 });
 
+test('D-OPT-7 · C2b: 비행 중에 온 자기 에코(보낸 본문과 같음)는 놓친 방송이 아니다 — 비행 뒤 GET 이 없다', async () => {
+  const { ctx } = loadSync();
+  const app = new ctx.App();
+  app.settings = { apply: new ctx.SettingsApply(app) };
+  app.clientId = 'c';
+  let restores = 0;
+  app.settings.apply._settingsRestore = () => { restores++ };
+  const sync = app.settings.apply._settingsSync();
+  let release;
+  ctx.apiPut = (path, body) => new Promise((r) => { release = () => r({ ok: true }) });
+  const own = sync.saveSettings();
+  sync._settingsAcceptRemote({ ok: true, text: sync._settingsLastSent, data: {} });
+  release();
+  await own;
+  assert.equal(restores, 0, '자기 에코를 놓친 방송으로 보고 다시 받았다');
+
+  const other = sync.saveSettings();
+  sync._settingsAcceptRemote({ ok: true, text: '{"other":1}', data: { other: 1 } });
+  release();
+  await other;
+  assert.equal(restores, 1, '비행 중의 남의 저장을 다시 보지 않았다');
+});
+
 // ── REFACTOR3_FE_APPCTL_SRS TC-FEA-3 · 계약 이름 ──
 
 /**
@@ -146,7 +169,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 �
   const read = (rel) => readFileSync(join(root, rel), 'utf8');
   const contract = [...read('core/app-testing.js').match(/const APP_TESTING_NAMES = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)]
     .map((m) => m[1]);
-  assert.equal(contract.length, 144);
+  assert.equal(contract.length, 145);
   const appFiles = ['core/app.js', ...readdirSync(join(root, 'core')).map((n) => 'core/' + n),
     ...readdirSync(join(root, 'ui')).map((n) => 'ui/' + n)]
     .filter((f) => f.endsWith('.js') && (f === 'core/app.js' || /Object\.(assign|defineProperties)\(App\.prototype/.test(read(f))));
