@@ -66,9 +66,10 @@ const REMOTE_ACTIONS=Object.freeze({
 
 class ToolCmd extends Controller {
   // REMOTE_COMMAND_RESULT_SRS FR-RCR-6: 생성 명령의 새 엔터티 id 를 reqId 와 묶어
-  // 서버에 echo. best-effort — 실패해도 서버 timeout 이 백스톱 (DC-RCR-3).
+  // 채널 `cmd.result` 로 서버에 echo (CHANNEL_PROTOCOL C2a). best-effort — 실패해도 서버 timeout 이 백스톱 (DC-RCR-3).
   _echoResult(reqId, result){
     const body={
+      t:'cmd.result',
       reqId,
       newWindows:result.newWindows||[],
       newPanes:result.newPanes||[],
@@ -78,7 +79,7 @@ class ToolCmd extends Controller {
     if(result.newGroups) body.newGroups=result.newGroups;
     if(result.position) body.position=result.position;
     if(result.error) body.error=result.error;
-    apiPost('/api/command-result',body);
+    if(this.app.channel) this.app.channel.send(body);
   }
 
   /**

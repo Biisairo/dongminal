@@ -7,7 +7,7 @@ import { test, expect, waitForInit } from './fixtures';
 // 여기 적어 둔다 (M9_PROGRESS §2-12).
 //
 // 접수한 증상("다른 기기로 지운 탭이 내 화면에 남는다")은 지금 시스템에서 e2e 로
-// 재현되지 않는다. 재연결한 클라이언트에는 `server_hello` 뒤에 `workspace_changed`
+// 재현되지 않는다. 재연결한 클라이언트에는 채널 인사 뒤에 `workspace_changed`
 // 방송이 **따라오고**, 그 방송이 이미 있던 경로로 수렴을 만든다. 저장을 막고,
 // 포커스 주장을 막고, 서버 반영을 기다린 뒤에 깨워도 그랬다 — 시도 넷 모두
 // 구현 없이 초록이었다.
@@ -25,19 +25,10 @@ async function newClient(browser) {
   return { ctx, page };
 }
 
-// 잠든 기기를 흉내낸다 (M9_PROGRESS §3-3). 구독을 끊고 새로 열리지 못하게 막는다.
-const goOffline = (page) => page.evaluate(() => {
-  const w = window as any;
-  w.__origES = w.EventSource;
-  try { w.app.bus._es.close() } catch {}
-  w.EventSource = function () { throw new Error('offline') };
-});
+// 잠든 기기를 흉내낸다 (M9_PROGRESS §3-3). 채널을 멈춰 새로 열리지 않게 한다 (CHANNEL_PROTOCOL C2a).
+const goOffline = (page) => page.evaluate(() => { (window as any).app.testing.channel.close() });
 
-const goOnline = (page) => page.evaluate(() => {
-  const w = window as any;
-  if (w.__origES) w.EventSource = w.__origES;
-  w.app.bus.reconnect();
-});
+const goOnline = (page) => page.evaluate(() => { (window as any).app.testing.channel.kick() });
 
 const tabCount = (page) => page.evaluate(() => {
   const app = (window as any).app;
@@ -96,7 +87,7 @@ test.describe('V-M9-10 — 재연결은 워크스페이스를 다시 받는다',
     await ctx.addInitScript(() => {
       const w = window as any;
       w.__resyncEarly = [];
-      // `app` 이 서기 **전에** 건다 — 최초 `sse:open` 은 부팅 중에 난다.
+      // `app` 이 서기 **전에** 건다 — 최초 `chan:open` 은 부팅 중에 난다.
       const iv = setInterval(() => {
         if (!w.app || !w.app.testing.onWorkspaceChanged || w.__hooked) return;
         w.__hooked = true;

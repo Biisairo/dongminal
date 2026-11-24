@@ -105,8 +105,8 @@ const APP_TESTING_NAMES = [
 
   // ── 전파·저장 (sync) ──
   //
-  // SSE 구독과 워크스페이스 저장. 두 축이 한 절에 있는 이유는 둘이 같은 경주를 만들기 때문이다 (WORKSPACE_SAVE_CONFLICT_SRS).
-  '_sse', '_sseGen', '_sseSeen', '_sseKick', '_cmdES', 'wsSync._subscribeCommands', 'tool.cmd._execRemote', 'tool.cmd._echoResult',
+  // 채널(명령·사건)과 워크스페이스 저장. 두 축이 한 절에 있는 이유는 둘이 같은 경주를 만들기 때문이다 (WORKSPACE_SAVE_CONFLICT_SRS).
+  'channel', 'wsSync._subscribeCommands', 'tool.cmd._execRemote', 'tool.cmd._echoResult',
   'wsSave.save', 'settings.apply.saveSettings', 'wsSync._onWorkspaceChanged', '_wsApplyInflight',
   // CLAUDE_ACCOUNTS_SRS FR-CAC-94a: 계정 변경 신호(SSE)를 받은 것처럼 — 입력 중 다시 그리기를 잰다.
   'claude._onClaudeAccountsChanged',

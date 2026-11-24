@@ -17,13 +17,14 @@ class Channel {
   /**
    * @param {{publish:Function}} bus
    * @param {{after:Function}} timers
-   * @param {{pingMs:()=>number, hidden?:()=>boolean}} opts
+   * @param {{pingMs:()=>number, hidden?:()=>boolean, client?:()=>string}} opts
    */
   constructor(bus, timers, opts){
     this.bus=bus;
     this._t=timers;
     this._pingMs=opts.pingMs;
     this._hidden=opts.hidden||(()=>document.hidden);
+    this._client=opts.client||(()=>'');
     this._ws=null; this._gen=0; this._stopped=false;
     this._slots=[];
     this._retry=CHAN_RETRY_MIN_MS; this._retryT=null;
@@ -65,6 +66,10 @@ class Channel {
 
   latency(){ return this._latency }
 
+  alive(){ return this._open() }
+
+  gen(){ return this._gen }
+
   /** 서버 `hello` 를 받았고 소켓이 열려 있다. */
   ready(){ return this._ready&&this._open() }
 
@@ -92,12 +97,12 @@ class Channel {
     return {topic, stop:()=>this._unsub(topic,rec)};
   }
 
-  on(t, fn, opts){
-    let set=this._raw.get(t);
-    if(!set){ set=new Set(); this._raw.set(t,set) }
+  on(kind, fn, opts){
+    let set=this._raw.get(kind);
+    if(!set){ set=new Set(); this._raw.set(kind,set) }
     const rec={fn, owner:(opts&&opts.owner)||null};
     set.add(rec);
-    return {stop:()=>{ set.delete(rec); if(!set.size&&this._raw.get(t)===set) this._raw.delete(t) }};
+    return {stop:()=>{ set.delete(rec); if(!set.size&&this._raw.get(kind)===set) this._raw.delete(kind) }};
   }
 
   onBinary(fn){
@@ -112,9 +117,9 @@ class Channel {
     for(const [topic,e] of Array.from(this._topics)){
       for(const r of Array.from(e.subs)) if(r.owner===owner){ this._unsub(topic,r); n++ }
     }
-    for(const [t,set] of Array.from(this._raw)){
+    for(const [kind,set] of Array.from(this._raw)){
       for(const r of Array.from(set)) if(r.owner===owner){ set.delete(r); n++ }
-      if(!set.size) this._raw.delete(t);
+      if(!set.size) this._raw.delete(kind);
     }
     return n;
   }
@@ -134,7 +139,23 @@ class Channel {
 
   _open(){ return !!this._ws&&this._ws.readyState===1 }
 
-  _hello(){ this.send({t:'hello',slots:this._slots}) }
+  _hello(){
+    const m={t:'hello',slots:this._slots};
+    const client=this._client();
+    if(client) m.client=client;
+    this.send(m);
+  }
+
+  /** 깨어남·소프트 리로드(C2a TC-CH2A-12): 닫혀 있으면(멈춘 것도) 곧바로, 열려 있으면 침묵일 때만 다시 연결한다. */
+  kick(){
+    if(this._open()&&!this._silent()) return;
+    if(this._retryT){ this._retryT.stop(); this._retryT=null }
+    this._retry=CHAN_RETRY_MIN_MS;
+    this.connect();
+  }
+
+  // 숨은 동안 건 긴 주기가 보일 때 끝날 수 있다 — 침묵은 건 주기로 잰다.
+  _silent(){ return Date.now()-this._seen>Math.max(this._armedMs,this._interval())*2+CHAN_SILENCE_GRACE_MS }
 
   /** §5.1: 빈틈이면 다시 구독하고 그 사이 프레임은 버린다. 받을 프레임이면 true. */
   _accept(topic, e, m){
@@ -173,10 +194,13 @@ class Channel {
     try{ m=JSON.parse(e.data) }catch{ return }
     if(!m) return;
     if(m.t==='hello'){
-      this._retry=CHAN_RETRY_MIN_MS;
-      this._ready=true; this._epoch=m.epoch;
-      for(const [topic,e] of this._topics){ e.waiting=false; this._subFrame(topic,e) }
-      this.bus.publish('chan:open',{gen:this._gen,epoch:m.epoch});
+      // 칸 수가 바뀌어 다시 받은 인사는 같은 연결이다 — 재구독·chan:open 을 되풀이하지 않는다.
+      if(!this._ready){
+        this._retry=CHAN_RETRY_MIN_MS;
+        this._ready=true; this._epoch=m.epoch;
+        for(const [topic,e] of this._topics){ e.waiting=false; this._subFrame(topic,e) }
+        this.bus.publish('chan:open',{gen:this._gen,epoch:m.epoch,server:m.server||{}});
+      }
     }else if(m.t==='pong'){
       if(m.n===this._pingN&&this._pingAt){ this._latency=Date.now()-this._pingAt; this._pingAt=0 }
     }else if(m.t==='full'||m.t==='delta'||m.t==='event'||m.t==='reset'){
@@ -198,8 +222,7 @@ class Channel {
 
   _tick(){
     if(!this._open()) return;
-    // 숨은 동안 건 긴 주기가 보일 때 끝날 수 있다 — 침묵은 건 주기로 잰다.
-    if(Date.now()-this._seen>Math.max(this._armedMs,this._interval())*2+CHAN_SILENCE_GRACE_MS){
+    if(this._silent()){
       this._retry=CHAN_RETRY_MIN_MS;
       this.connect();
       return;

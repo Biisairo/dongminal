@@ -1,6 +1,7 @@
 //! 채널 `/channel` — 브라우저 탭 하나의 WebSocket 하나 (PERF_OPTIMIZATION_SRS FR-CON,
 //! `docs/internal/perf/CHANNEL_PROTOCOL.md`). 인사·생존 확인·칸 신원 임대(C1), 토픽 구독(§11.1).
 
+mod cmd;
 // 발행하는 쪽(C2~C5)이 붙기 전까지 제품 빌드에서 쓰이지 않는 표면이 있다. 첫 발행자가 붙으면 지운다.
 #[cfg_attr(not(test), allow(dead_code))]
 mod outbox;
@@ -45,6 +46,13 @@ const HELLO_WAIT: Duration = Duration::from_secs(10);
 static NEXT_CHAN: AtomicU64 = AtomicU64::new(1);
 
 type Release = Box<dyn FnOnce() + Send>;
+
+/// 이 채널이 대표하는 신원 — 칸 신원의 임대(C1)와 `client` 의 임대·명령 구독(C2a).
+#[derive(Default)]
+struct Who {
+    slots: HashMap<String, Release>,
+    client: Option<cmd::ClientLink>,
+}
 
 impl Server {
     /// GET /channel?v=1.
@@ -120,17 +128,21 @@ impl Server {
             done.clone(),
         ));
         let ping = tokio::spawn(ping_loop(conn.clone(), done.clone()));
-        let mut slots: HashMap<String, Release> = HashMap::new();
+        let mut who = Who::default();
         let terms = Arc::new(term::Terms::default());
-        self.channel_hello(&out, &hello, &mut slots, remote);
-        self.channel_read_loop(chan, &out, &terms, &mut reader, &mut slots, remote, &done)
+        self.channel_hello(&out, &hello, &mut who.slots, remote);
+        self.channel_client(&out, &hello, &mut who.client, remote);
+        self.channel_read_loop(chan, &out, &terms, &mut reader, &mut who, remote, &done)
             .await;
         done.cancel();
         terms.close_all();
         let _ = writer.await;
         let _ = ping.await;
         self.topics.unsubscribe_all(chan);
-        for (_, release) in slots.drain() {
+        if let Some(l) = who.client.take() {
+            self.channel_client_drop(l);
+        }
+        for (_, release) in who.slots.drain() {
             release();
         }
     }
@@ -142,7 +154,7 @@ impl Server {
         out: &Arc<Outbox>,
         terms: &Arc<term::Terms>,
         reader: &mut Reader,
-        slots: &mut HashMap<String, Release>,
+        who: &mut Who,
         remote: &str,
         done: &CancellationToken,
     ) {
@@ -165,10 +177,15 @@ impl Server {
                     None => error("bad_json"),
                     Some(v) => match v["t"].as_str().unwrap_or_default() {
                         "hello" => {
-                            self.channel_hello(out, &v, slots, remote);
+                            self.channel_hello(out, &v, &mut who.slots, remote);
+                            self.channel_client(out, &v, &mut who.client, remote);
                             continue;
                         }
                         "ping" => json!({"t":"pong","n":v["n"]}),
+                        "cmd.result" => {
+                            self.channel_cmd_result(v);
+                            continue;
+                        }
                         "sub" => match self.channel_sub(chan, out, &v).await {
                             Ok(()) => continue,
                             Err(e) => e,

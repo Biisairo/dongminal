@@ -34,17 +34,13 @@ const localPlain = (p: Page) => p.evaluate(() => {
   return (a.ws.windows || []).filter((w: any) => w && w.type !== 'git' && w.type !== 'editor').length;
 });
 
-// SSE 를 끊는다 — 이 화면은 이제 남의 변경을 모른다.
+// 채널을 끊는다 — 이 화면은 이제 남의 변경을 모른다.
 async function blind(p: Page) {
-  await p.evaluate(() => { try { (window as any).app.testing.sse.close() } catch { /* 이미 없음 */ } });
-  // 실제로 닫힌 것을 본다 — 닫히기 전에 조작하면 이 화면이 아직 남의 변경을
-  // 받는다. `2` 는 `EventSource.CLOSED` 다. (구독이 애초에 없으면 `-1`.)
+  await p.evaluate(() => { (window as any).app.testing.channel.close() });
+  // 실제로 닫힌 것을 본다 — 닫히기 전에 조작하면 이 화면이 아직 남의 변경을 받는다.
   await expect
-    .poll(() => p.evaluate(() => {
-      const s = (window as any).app.testing.sse;
-      return s ? s.readyState : -1;
-    }), { timeout: 10000 })
-    .not.toBe(1);
+    .poll(() => p.evaluate(() => (window as any).app.testing.channel.alive()), { timeout: 10000 })
+    .toBe(false);
 }
 
 // 저장을 일으킨다. 창을 건드리지 않는 조작이어야 한다 — 이 검사가 재려는 것은
